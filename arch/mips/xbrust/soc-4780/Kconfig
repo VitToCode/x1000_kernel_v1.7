@@ -1,0 +1,19 @@
+
+choice
+	prompt "Board type"
+	depends on SOC_4780
+	default BOARD_TEST
+
+config BOARD_TEST
+        bool "TEST"
+
+config BOARD_PISCES
+        bool "PISCES"
+
+endchoice
+
+config BOARD_NAME
+	string
+	default "pisces" if BOARD_PISCES
+	default "test" if BOARD_TEST
+
