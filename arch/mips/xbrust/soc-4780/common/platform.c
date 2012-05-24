@@ -16,11 +16,15 @@
 
 #include <soc/clk.h>
 #include <soc/gpio.h>
+#include <soc/base.h>
+#include <soc/irq.h>
+#include <mach/platform.h>
 
 #ifdef CONFIG_SERIAL_8250
 /* Serial device defined for serial console */
 #include <linux/serial_core.h>
 #include <linux/serial_8250.h>
+
 int __init jzsoc_register_8250serial(int id)
 {
 	struct uart_port s;
@@ -57,4 +61,83 @@ struct jz_gpio_func_def platform_devio_array[] = {
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);
 
+static u64 jz_msc_dmamask =  ~(u32)0;
 
+static struct resource jz_msc0_resources[] = {
+	{
+		.start          = MSC0_IOBASE,
+		.end            = MSC0_IOBASE + 0x1000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	{
+		.start          = IRQ_MSC0,
+		.end            = IRQ_MSC0,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_msc0_device = {
+	.name = "jzmmc",
+	.id = 0,
+	.dev = {
+		.dma_mask               = &jz_msc_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.resource       = jz_msc0_resources,
+	.num_resources  = ARRAY_SIZE(jz_msc0_resources),
+};
+
+static struct resource jz_msc1_resources[] = {
+	{
+		.start          = MSC1_IOBASE,
+		.end            = MSC1_IOBASE + 0x1000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	{
+		.start          = IRQ_MSC1,
+		.end            = IRQ_MSC1,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_msc1_device = {
+	.name = "jzmmc",
+	.id = 1,
+	.dev = {
+		.dma_mask               = &jz_msc_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.resource       = jz_msc1_resources,
+	.num_resources  = ARRAY_SIZE(jz_msc1_resources),
+};
+
+static struct resource jz_msc2_resources[] = {
+	{
+		.start          = MSC2_IOBASE,
+		.end            = MSC2_IOBASE + 0x1000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	{
+		.start          = IRQ_MSC2,
+		.end            = IRQ_MSC2,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_msc2_device = {
+	.name = "jzmmc",
+	.id = 2,
+	.dev = {
+		.dma_mask               = &jz_msc_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.resource       = jz_msc2_resources,
+	.num_resources  = ARRAY_SIZE(jz_msc2_resources),
+};
+
+int jz_device_register(struct platform_device *pdev,void *pdata)
+{
+	pdev->dev.platform_data = pdata;
+
+	return platform_device_register(pdev);
+}

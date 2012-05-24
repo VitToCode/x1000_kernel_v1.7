@@ -44,15 +44,16 @@
 
 /* JZ SoC on Chip devices list */
 extern struct platform_device jzsoc_pdma_device;
-extern struct platform_device jzsoc_msc0_device;
-extern struct platform_device jzsoc_msc1_device;
-extern struct platform_device jzsoc_msc2_device;
+extern struct platform_device jz_msc0_device;
+extern struct platform_device jz_msc1_device;
+extern struct platform_device jz_msc2_device;
 extern struct platform_device jzsoc_i2c0_device;
 extern struct platform_device jzsoc_i2c1_device;
 extern struct platform_device jzsoc_i2c2_device;
 extern struct platform_device jzsoc_lcdc_device;
 extern struct platform_device jzsoc_mac_device;
 
+int jz_device_register(struct platform_device *pdev,void *pdata);
 
 /* register function for a 8250 console */
 #ifdef CONFIG_SERIAL_8250

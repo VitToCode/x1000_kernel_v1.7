@@ -1,2 +1,3 @@
 
-obj-y += test.o
+obj-y += test-misc.o
+obj-$(CONFIG_MMC_JZ4780)	+= test-mmc.o

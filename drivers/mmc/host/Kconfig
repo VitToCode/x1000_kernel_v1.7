@@ -4,6 +4,41 @@
 
 comment "MMC/SD/SDIO Host Controller Drivers"
 
+config MMC_JZ4780
+	tristate "Ingenic(XBurst) JZ4780 MMC/SD Card Controller(MSC) support"
+	depends on SOC_4780
+	help
+	  This selects the Ingenic XBurst SD/MMC Card Controller
+	  for JZ4780 support. If you have an JZ4780
+	  platform with a SD/Multimedia Card slot, say Y or M here.
+
+	  If unsure, say N.
+
+
+config MMC0_JZ4780
+	bool "MSC0"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC0, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC1_JZ4780
+	bool "MSC1"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC1, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC2_JZ4780
+	bool "MSC2"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC2, say Y or M here.
+
+	  If unsure, say N.
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA

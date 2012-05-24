@@ -1,6 +1,9 @@
 #ifndef __JZ_MMC_H__
 #define __JZ_MMC_H__
 
+#define MMC_BOOT_AREA_PROTECTED	(0x1234)	/* Can not modified the area protected */
+#define MMC_BOOT_AREA_OPENED	(0x4321)	/* Can modified the area protected */
+
 enum {
 	DONTCARE = 0,
 	NONREMOVABLE,
