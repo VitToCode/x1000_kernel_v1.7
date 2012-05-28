@@ -271,6 +271,72 @@ jzdma_prep_memcpy(struct dma_chan *chan, dma_addr_t dma_dest,
 	return &dmac->tx_desc;
 }
 
+static struct dma_async_tx_descriptor *
+jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
+					  size_t buf_len, size_t period_len,
+					  enum dma_data_direction direction)
+{
+	int i = 0;
+	unsigned long tsz,dcm = 0;
+	unsigned int periods = buf_len / period_len;
+	struct jzdma_channel *dmac = to_jzdma_chan(chan);
+	struct jzdma_slave *slave = dmac->slave;
+	struct dma_desc *desc = dmac->desc;
+
+	dmac->desc_nr = 0;
+
+	dcm |= slave->dcm & JZDMA_DCM_MSK;
+	if (direction == DMA_TO_DEVICE)
+		dcm |= DCM_SAI;
+	else
+		dcm |= DCM_DAI;
+
+	/* clear LINK bit when issue pending */
+	dcm |= DCM_TIE | DCM_LINK;
+
+	for (i = 0; i < periods; i++) {
+		/* get desc address */
+		desc = dmac->desc + dmac->desc_nr
+		/* computer tsz */
+		tsz = get_max_tsz(dma_addr | period_len | slave->max_tsz, &dcm);
+		tsz = period_len / tsz;
+		/* set src and dst */
+		if (direction == DMA_TO_DEVICE) {
+			desc->dsa = dma_addr;
+			desc->dta = slave->tx_reg;
+		} else {
+			desc->dsa = slave->rx_reg;
+			desc->dta = dma_addr;
+		}
+		/* set dcm */
+		desc->dcm = dcm;
+		/* set the last desc point to the first one */
+		if (i == periods -1)
+			desc->dtc = (i + 1)<<24 + tsz;
+		else
+			desc->dtc = (0)<<24 + tsz;
+		/* update dma_addr and desc_nr */
+		dma_addr += period_len;
+		dmac->desc_nr ++;
+	}
+
+	/* use 4-word descriptors */
+	writel(0, dmac->iomem+CH_DCS);
+
+	/* request type */
+	if (direction == DMA_TO_DEVICE)
+		writel(slave->req_type_tx, dmac->iomem+CH_DRT);
+	else
+		writel(slave->req_type_rx, dmac->iomem+CH_DRT);
+
+	/* tx descriptor can reused before dma finished. */
+	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
+
+	dmac->status = STAT_PREPED;
+
+	return &dmac->tx_desc;
+}
+
 static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(tx->chan);
