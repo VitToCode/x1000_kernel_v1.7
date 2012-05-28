@@ -5,7 +5,7 @@
  *
  * Inline assembly cache operations.
  *
- * Copyright (C) 1996 David S. Miller (davem@davemloft.net)
+ * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1997 - 2002 Ralf Baechle (ralf@gnu.org)
  * Copyright (C) 2004 Ralf Baechle (ralf@linux-mips.org)
  */
@@ -18,7 +18,7 @@
 #include <asm/mipsmtregs.h>
 
 #ifdef CONFIG_JZRISC
-
+#define JZ_L2C_HALFSIZE 8
 #if 1 //add by jjiang 11/12/2010 
 #define K0_TO_K1_CHECK(head_addr, tail_addr)	\
 do {						\
@@ -512,56 +512,62 @@ __BUILD_BLAST_CACHE(inv_s, scache, Index_Writeback_Inv_SD, Hit_Invalidate_SD, 64
 __BUILD_BLAST_CACHE(inv_s, scache, Index_Writeback_Inv_SD, Hit_Invalidate_SD, 128)
 
 #ifdef CONFIG_JZRISC
+#define i_pref(hint, base, offset) \
+	({ __asm__ __volatile__ ("pref %0, %2(%1)"::"i"(hint), "r"(base), "i"(offset):"memory");})
+#define i_cache(opcode, base, offset) \
+	({ __asm__ __volatile__ ("cache %0, %2(%1)"::"i"(opcode), "r"(base), "i"(offset):"memory");})
+#define JZ_ALLOC_PREF 30
+#define JZ_FETCH_LOCK 0x1c
 
-
-/* flush dcache with prefetch allocate */
-#define CFG_DCACHE_SIZE  16384
-void flush_dcache_with_prefetch_allocatex(void)
+static inline void blast_dcache_jz(void)
 {
-	int addr;
-
-	for (addr = KSEG0; addr < (KSEG0 + CFG_DCACHE_SIZE); addr += 256) { /* 256 = 32byte * 8 */
-		asm ( ".set\tmips32\n\t"
-		      "pref %0,	0(%1)\n\t"
-		      "pref %0,	32(%1)\n\t"
-		      "pref %0,	64(%1)\n\t"
-		      "pref %0,	96(%1)\n\t"
-		      "pref %0, 128(%1)\n\t"
-		      "pref %0, 160(%1)\n\t"
-		      "pref %0, 192(%1)\n\t"
-		      "pref %0, 224(%1)\n\t"
-		      :
-		      : "I" (30), "r"(addr));
-	}
+	unsigned long start = INDEX_BASE;
+	unsigned long end = start + current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
+	unsigned long addr = start;
+	do {
+		i_pref(JZ_ALLOC_PREF, addr, 0);
+		addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);
+		addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);
+		addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);
+		addr += 32;
+	} while (addr < end);
+	SYNC_WB();
 }
 
-
+static inline void blast_icache_jz(void)
+{
+	unsigned long start = INDEX_BASE;
+	unsigned long end = start + current_cpu_data.icache.waysize * current_cpu_data.icache.ways;
+	unsigned long addr = start;
+	do {
+		i_cache(JZ_FETCH_LOCK, addr, 0);
+		addr += 32;
+		i_cache(JZ_FETCH_LOCK, addr, 0);
+		addr += 32;
+		i_cache(JZ_FETCH_LOCK, addr, 0);
+		addr += 32;
+		i_cache(JZ_FETCH_LOCK, addr, 0);
+		addr += 32;
+	} while (addr < end);
+}
 
 static inline void blast_dcache32(void)
 {
-#if 1
 	unsigned long start = INDEX_BASE;
 	unsigned long end = start + current_cpu_data.dcache.waysize;
 	unsigned long ws_inc = 1UL << current_cpu_data.dcache.waybit;
 	unsigned long ws_end = current_cpu_data.dcache.ways <<
 	                       current_cpu_data.dcache.waybit;
 	unsigned long ws, addr;
-//	printk("fffffffffffffflush cacge all!\n");
-#if 0
-	fct ++;
-	if (fct % 100 == 0) {
-		printk("fffffffffffffflush cacge all = %d !\n", fct);
-		dump_stack();
-	}
-#endif
+
 	for (ws = 0; ws < ws_end; ws += ws_inc)
 		for (addr = start; addr < end; addr += 0x400)
 			cache32_unroll32(addr|ws,Index_Writeback_Inv_D);
 
 	SYNC_WB();
-#else
-	flush_dcache_with_prefetch_allocatex();
-#endif
 }
 
 static inline void blast_dcache32_page(unsigned long page)

@@ -1,6 +1,3 @@
-#if defined(CONFIG_JZRISC)
-#include "c-jz.c"
-#else
 /*
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -21,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/bitops.h>
 
+#include <asm/rjzcache.h>
 #include <asm/bcache.h>
 #include <asm/bootinfo.h>
 #include <asm/cache.h>
@@ -37,6 +35,7 @@
 #include <asm/war.h>
 #include <asm/cacheflush.h> /* for run_uncached() */
 
+void (*flush_insn_cache_page)(unsigned long addr);
 
 /*
  * Special Variant of smp_call_function for use by cache functions:
@@ -139,13 +138,14 @@ static void __cpuinit r4k_blast_dcache_page_indexed_setup(void)
 	else if (dc_lsize == 64)
 		r4k_blast_dcache_page_indexed = blast_dcache64_page_indexed;
 }
-
+//add by jjiang for JZ CPU with l2 cache
+static void (* r4k_blast_dcache_jz) (void);
 static void (* r4k_blast_dcache)(void);
 
 static void __cpuinit r4k_blast_dcache_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
-
+	r4k_blast_dcache_jz = blast_dcache_jz;
 	if (dc_lsize == 0)
 		r4k_blast_dcache = (void *)cache_noop;
 	else if (dc_lsize == 16)
@@ -267,13 +267,14 @@ static void __cpuinit r4k_blast_icache_page_indexed_setup(void)
 	} else if (ic_lsize == 64)
 		r4k_blast_icache_page_indexed = blast_icache64_page_indexed;
 }
-
+//add by jjiang for JZ CPU with l2 cache
+static void (* r4k_blast_icache_jz) (void);
 static void (* r4k_blast_icache)(void);
 
 static void __cpuinit r4k_blast_icache_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
-
+	r4k_blast_icache_jz = blast_icache_jz;
 	if (ic_lsize == 0)
 		r4k_blast_icache = (void *)cache_noop;
 	else if (ic_lsize == 16)
@@ -349,8 +350,8 @@ static inline void local_r4k___flush_cache_all(void * args)
 	r4k_blast_scache();
 	return;
 #endif
-	r4k_blast_dcache();
-	r4k_blast_icache();
+	r4k_blast_dcache_jz();
+	r4k_blast_icache_jz();
 
 	switch (current_cpu_type()) {
 	case CPU_R4000SC:
@@ -402,11 +403,11 @@ static inline void local_r4k_flush_cache_range(void * args)
 	if (!(has_valid_asid(vma->vm_mm)))
 		return;
 
-	r4k_blast_dcache();
+	r4k_blast_dcache_jz();
 	if (exec) {
 		if (!cpu_has_ic_fills_f_dc)
 			wmb();
-		r4k_blast_icache();
+		r4k_blast_icache_jz();
 	}
 }
 
@@ -440,7 +441,7 @@ static inline void local_r4k_flush_cache_mm(void * args)
 		return;
 	}
 
-	r4k_blast_dcache();
+	r4k_blast_dcache_jz();
 }
 
 static void r4k_flush_cache_mm(struct mm_struct *mm)
@@ -574,6 +575,12 @@ static void r4k_flush_data_cache_page(unsigned long addr)
 		r4k_on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr);
 }
 
+
+static inline void local_r4k_flush_insn_cache_page(void * addr)
+{
+	r4k_blast_icache_page((unsigned long) addr);
+}
+
 struct flush_icache_range_args {
 	unsigned long start;
 	unsigned long end;
@@ -583,7 +590,7 @@ static inline void local_r4k_flush_icache_range(unsigned long start, unsigned lo
 {
 	if (!cpu_has_ic_fills_f_dc) {
 		if (end - start >= dcache_size) {
-			r4k_blast_dcache();
+			r4k_blast_dcache_jz();
 		} else {
 			R4600_HIT_CACHEOP_WAR_IMPL;
 			protected_blast_dcache_range(start, end);
@@ -593,7 +600,7 @@ static inline void local_r4k_flush_icache_range(unsigned long start, unsigned lo
 	wmb();
 
 	if (end - start > icache_size)
-		r4k_blast_icache();
+		r4k_blast_icache_jz();
 	else
 		protected_blast_icache_range(start, end);
 }
@@ -639,7 +646,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	 * subset property so we have to flush the primary caches
 	 * explicitly
 	 */
-	if (cpu_has_safe_index_cacheops && size >= dcache_size) {
+	if (cpu_has_safe_index_cacheops && size >= dcache_size * JZ_L2C_HALFSIZE) {
 		r4k_blast_dcache();
 	} else {
 		R4600_HIT_CACHEOP_WAR_IMPL;
@@ -679,7 +686,7 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 		return;
 	}
 
-	if (cpu_has_safe_index_cacheops && size >= dcache_size) {
+	if (cpu_has_safe_index_cacheops && size >= dcache_size * JZ_L2C_HALFSIZE) {
 		r4k_blast_dcache();
 	} else {
 		unsigned long lsize = cpu_dcache_line_size();
@@ -746,6 +753,29 @@ static void r4k_flush_icache_all(void)
 {
 	if (cpu_has_vtag_icache)
 		r4k_blast_icache();
+}
+
+struct flush_kernel_vmap_range_args {
+	unsigned long	vaddr;
+	int		size;
+};
+
+static inline void local_r4k_flush_kernel_vmap_range(void *args)
+{
+	struct flush_kernel_vmap_range_args *vmra = args;
+	unsigned long vaddr = vmra->vaddr;
+	int size = vmra->size;
+
+	/*
+	 * Aliases only affect the primary caches so don't bother with
+	 * S-caches or T-caches.
+	 */
+	if (cpu_has_safe_index_cacheops && size >= dcache_size)
+		r4k_blast_dcache();
+	else {
+		R4600_HIT_CACHEOP_WAR_IMPL;
+		blast_dcache_range(vaddr, vaddr + size);
+	}
 }
 
 static inline void rm7k_erratum31(void)
@@ -955,6 +985,36 @@ static void __cpuinit probe_pcache(void)
 		else
 			c->dcache.ways = 2;
 		c->dcache.waybit = 0;
+		break;
+
+	case CPU_JZRISC:
+		config1 = read_c0_config1();
+		config1 = (config1 >> 22) & 0x07;
+		if (config1 == 0x07)
+			config1 = 10;
+		else
+			config1 = config1 + 11;
+		config1 += 2;
+		icache_size = (1 << config1);
+		c->icache.linesz = 32;
+		c->icache.ways = 4;
+		c->icache.waybit = __ffs(icache_size / c->icache.ways);
+
+		config1 = read_c0_config1();
+		config1 = (config1 >> 13) & 0x07;
+		if (config1 == 0x07)
+			config1 = 10;
+		else
+			config1 = config1 + 11;
+		config1 += 2;
+		dcache_size = (1 << config1);
+		c->dcache.linesz = 32;
+		c->dcache.ways = 4;
+		c->dcache.waybit = __ffs(dcache_size / c->dcache.ways);
+
+		c->dcache.flags = 0;
+		c->options |= MIPS_CPU_PREFETCH;
+
 		break;
 
 	default:
@@ -1267,6 +1327,9 @@ static void __cpuinit setup_scache(void)
 		return;
 #endif
 
+	case CPU_JZRISC:
+		sc_present = 0;
+		return;
 	default:
 		if (c->isa_level == MIPS_CPU_ISA_M32R1 ||
 		    c->isa_level == MIPS_CPU_ISA_M32R2 ||
@@ -1482,4 +1545,3 @@ void __cpuinit r4k_cache_init(void)
 
 	coherency_setup();
 }
-#endif

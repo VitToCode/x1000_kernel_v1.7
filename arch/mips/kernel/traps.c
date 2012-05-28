@@ -231,32 +231,123 @@ static void show_code(unsigned int __user *pc)
 		printk("%c%0*x%c", (i?' ':'<'), pc16 ? 4 : 8, insn, (i?' ':'>'));
 	}
 }
+static void __show_cause(unsigned int cause)
+{
+        unsigned int exc_code = (cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
+
+	printk("Cause : %08x\n", cause);
+	printk("This is ");
+        switch (exc_code) {
+        case 0:
+                printk("Interrupt\n");
+                break;
+
+        case 1:
+                printk("TLB modification exception\n");
+                break;
+
+        case 2:
+                printk("TLB exception (load or instruction fetch)\n");
+                break;
+
+        case 3:
+                printk("TLB exception (store)\n");
+                break;
+
+        case 4:
+                printk("Address error exception (load or instruction fetch)\n");
+                break;
+
+        case 5:
+                printk("Address error exception (store)\n");
+                break;
+
+        case 6:
+                printk("Bus error exception (instruction fetch)\n");
+                break;
+
+        case 7:
+                printk("Bus error exception (data reference: load or store)\n");
+                break;
+
+        case 8:
+                printk("Syscall exception\n");
+                break;
+
+        case 9:
+                printk("Breakpoint exception\n");
+                break;
+
+        case 10:
+                printk("Reserved instruction exception\n");
+                break;
+
+        case 11:
+                printk("Coprocessor Unusable exception\n");
+                break;
+
+        case 12:
+                printk("Arithmetic Overflow exception\n");
+                break;
+
+        case 13:
+                printk("Trap exception\n");
+                break;
+
+        case 16:
+                printk("Implementation-Specific Exception 1\n");
+                break;
+
+        case 17:
+                printk("Implementation-Specific Exception 2\n");
+                break;
+
+        case 18:
+                printk("Coprocessor 2 exceptions\n");
+                break;
+
+        case 23:
+                printk("Reference to WatchHi/WatchLo address\n");
+                break;
+
+        case 24:
+                printk("Machine check\n");
+                break;
+
+        default:
+                printk("Reserved Bit\n");
+                break;
+        }
+}
+
 
 static void __show_regs(const struct pt_regs *regs)
 {
 	const int field = 2 * sizeof(unsigned long);
 	unsigned int cause = regs->cp0_cause;
-	int i;
 
 	printk("Cpu %d\n", smp_processor_id());
-
+	
 	/*
 	 * Saved main processor registers
 	 */
-	for (i = 0; i < 32; ) {
-		if ((i % 4) == 0)
-			printk("$%2d   :", i);
-		if (i == 0)
-			printk(" %0*lx", field, 0UL);
-		else if (i == 26 || i == 27)
-			printk(" %*s", field, "");
-		else
-			printk(" %0*lx", field, regs->regs[i]);
+	printk("zero[$0]=%08lx    at[$1]=%08lx   v0[$2]=%08lx   v1[$3]=%08lx\n",
+			regs->regs[0], regs->regs[1], regs->regs[2], regs->regs[3]);
+        printk("  a0[$4]=%08lx    a1[$5]=%08lx   a2[$6]=%08lx   a3[$7]=%08lx\n",
+                        regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
+	printk("  t0[$8]=%08lx    t1[$9]=%08lx  t2[$10]=%08lx  t3[$11]=%08lx\n",
+	                regs->regs[8], regs->regs[9], regs->regs[10], regs->regs[11]);
+        printk("  t4[$12]=%08lx  t5[$13]=%08lx  t6[$14]=%08lx  t7[$15]=%08lx\n",
+                        regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
+        printk("  s0[$16]=%08lx  s1[$17]=%08lx  s2[$18]=%08lx  s3[$19]=%08lx\n",
+                        regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
+        printk("  s4[$20]=%08lx  s5[$21]=%08lx  s6[$22]=%08lx  s7[$23]=%08lx\n",
+                        regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
+        printk("  t8[$24]=%08lx  t9[$25]=%08lx  k0[$26]=%08lx  k1[$27]=%08lx\n",
+                        regs->regs[24], regs->regs[25], regs->regs[26], regs->regs[27]);
+        printk("  gp[$28]=%08lx  sp[$29]=%08lx  s8[$30]=%08lx  ra[$31]=%08lx\n",
+                        regs->regs[28], regs->regs[29], regs->regs[30], regs->regs[31]);
 
-		i++;
-		if ((i % 4) == 0)
-			printk("\n");
-	}
 
 #ifdef CONFIG_CPU_HAS_SMARTMIPS
 	printk("Acx    : %0*lx\n", field, regs->acx);
@@ -318,7 +409,7 @@ static void __show_regs(const struct pt_regs *regs)
 	}
 	printk("\n");
 
-	printk("Cause : %08x\n", cause);
+        __show_cause(cause);
 
 	cause = (cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
 	if (1 <= cause && cause <= 5)

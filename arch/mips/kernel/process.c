@@ -101,6 +101,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	clear_fpu_owner();
 	if (cpu_has_dsp)
 		__init_dsp();
+	if (cpu_has_mxu)
+		__init_mxu();
 	regs->cp0_epc = pc;
 	regs->regs[29] = sp;
 	current_thread_info()->addr_limit = USER_DS;
