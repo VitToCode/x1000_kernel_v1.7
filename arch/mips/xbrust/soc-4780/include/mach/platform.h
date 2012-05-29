@@ -11,35 +11,48 @@
 
 /* devio define list */
 #define	UART0_PORTF							\
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf, }
+	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf, }
 #define UART2_PORTC							\
-	{ .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x5<<28, }
+	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x5<<28, }
 	
-#define MSC0_PORTA							\
-	{ .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x3b<<18, }, \
-	{ .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<20, }
-#define MSC1_PORTD							\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3f<<20, }
-#define MSC2_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x3ff<<20, }
+/*******************************************************************************************************************/
 
+#define MSC0_PORTA							\
+	{ .name = "msc0-port-a-func1", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x3b<<18, }, \
+	{ .name = "msc0-port-a-func0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<20, }
+#define MSC1_PORTD							\
+	{ .name = "msc1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3f<<20, }
+#define MSC2_PORTE							\
+	{ .name = "msc2", .port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x3ff<<20, }
+
+/*******************************************************************************************************************/
 #define I2C0_PORTD							\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
+	{ .name = "i2c0", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
 #define I2C1_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
+	{ .name = "i2c1", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
 #define I2C2_PORTF							\
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x3<<16, }
+	{ .name = "i2c2", .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x3<<16, }
+#define I2C3_PORTD							\
+	{ .name = "i2c3", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3<<10, }
+#define I2C4_PORTE_OFF3							\
+	{ .name = "i2c4-port-e-func1-off3", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<3, }
+#define I2C4_PORTE_OFF12						\
+	{ .name = "i2c4-port-e-func1-off12", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<12, }
+#define I2C4_PORTF							\
+	{ .name = "i2c4-port-f-func1", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x3<<24, }
+
+/*******************************************************************************************************************/
 
 #define LCD_PORTC							\
-	{ .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
 
 #define PWM1_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x2, }
+	{ .name = "pwm1", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x2, }
 
 #define MII_PORTBDF							\
-	{ .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },	\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
+	{ .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },	\
+	{ .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
+	{ .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
 
 
 /* JZ SoC on Chip devices list */

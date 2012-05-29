@@ -709,6 +709,19 @@ config I2C3_JZ4780
 config I2C4_JZ4780
 	tristate "jz4780 i2c controler 4 Interface support"
 	depends on SOC_4780
+choice
+	prompt "jz4780 i2c controler 4 function pins select"
+	depends on I2C4_JZ4780
+	default I2C4_JZ4780_PE3
+config I2C4_JZ4780_PE3
+	bool "gpe3 & gpe4"
+config I2C4_JZ4780_PE12
+	bool "gpe12 & gpe13"
+config I2C4_JZ4780_PF
+	bool "gpf24 & gpf25"
+endchoice
+
+
 
 comment "External I2C/SMBus adapter drivers"
 

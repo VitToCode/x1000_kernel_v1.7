@@ -49,13 +49,37 @@ int __init jzsoc_register_8250serial(int id)
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
-	UART2_PORTC,
+#ifdef CONFIG_MMC0_JZ4780
 	MSC0_PORTA,
+#endif
+#ifdef CONFIG_MMC1_JZ4780
 	MSC1_PORTD,
+#endif
+#ifdef CONFIG_MMC2_JZ4780
 	MSC2_PORTE,
+#endif
+#ifdef CONFIG_I2C0_JZ4780
 	I2C0_PORTD,
+#endif
+#ifdef CONFIG_I2C1_JZ4780
 	I2C1_PORTE,
+#endif
+#ifdef CONFIG_I2C2_JZ4780
 	I2C2_PORTF,
+#endif
+#ifdef CONFIG_I2C3_JZ4780
+	I2C3_PORTD,
+#endif
+#ifdef CONFIG_I2C4_JZ4780_PE3
+	I2C4_PORTE_OFF3,
+#endif
+#ifdef CONFIG_I2C4_JZ4780_PE12
+	I2C4_PORTE_OFF12,
+#endif
+#ifdef CONFIG_I2C4_JZ4780_PF
+	I2C4_PORTF,
+#endif
+	UART2_PORTC,
 	LCD_PORTC,
 	PWM1_PORTE,
 	MII_PORTBDF,
@@ -104,8 +128,8 @@ static u64 jz_i2c_dmamask =  ~(u32)0;
 #define DEF_I2C(NO)								\
 static struct resource jz_i2c##NO##_resources[] = {				\
 	[0] = {									\
-		.start          = CPHYSADDR(I2C##NO##_IOBASE),			\
-		.end            = CPHYSADDR(I2C##NO##_IOBASE) + 0x1000 - 1,	\
+		.start          = I2C##NO##_IOBASE,				\
+		.end            = I2C##NO##_IOBASE + 0x1000 - 1,		\
 		.flags          = IORESOURCE_MEM,				\
 	},									\
 	[1] = {									\

@@ -39,7 +39,9 @@ enum gpio_port {
 #define GPIO_PF(n) 	(5*32 + n)
 
 struct jz_gpio_func_def {
-	short port,func;
+	char *name;
+	int port;
+	int func;
 	unsigned long pins;
 };
 
@@ -62,37 +64,5 @@ int jzgpio_set_func(enum gpio_port port,
 
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
-
-/* devio define list */
-#define	UART0_PORTF							\
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf, }
-#define UART2_PORTC							\
-	{ .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x5<<28, }
-	
-#define MSC0_PORTA							\
-	{ .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x3b<<18, }, \
-	{ .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<20, }
-#define MSC1_PORTD							\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3f<<20, }
-#define MSC2_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x3ff<<20, }
-
-#define I2C0_PORTD							\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
-#define I2C1_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
-#define I2C2_PORTF							\
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x3<<16, }
-
-#define LCD_PORTC							\
-	{ .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
-
-#define PWM1_PORTE							\
-	{ .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x2, }
-
-#define MII_PORTBDF							\
-	{ .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },	\
-	{ .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
-	{ .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
 
 #endif

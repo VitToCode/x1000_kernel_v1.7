@@ -41,3 +41,4 @@ $(obj)/vmlinuz: $(OBJS) $(obj)/ld.script $(obj)/vmlinux.bin.gz $(obj)/dummy.o
 
 zImage: $(obj)/vmlinuz
 	$(OBJCOPY) -O binary $(obj)/vmlinuz $(obj)/zImage	
+	@rm -f $(obj)/vmlinuz

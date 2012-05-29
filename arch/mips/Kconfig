@@ -224,6 +224,7 @@ config MACH_XBRUST
 	select SYS_HAS_EARLY_PRINTK
 	select HAVE_PWM
 	select HAVE_CLK
+	select GENERIC_ISA_DMA
 
 config LANTIQ
 	bool "Lantiq based platforms"

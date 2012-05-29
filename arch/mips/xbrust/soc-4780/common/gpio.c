@@ -428,7 +428,11 @@ int __init setup_gpio_pins(void)
 
 		jz = &jz_gpio_chips[g->port];
 		if (GPIO_AS_FUNC(g->func)) {
-			jz->gpio_map[0] &= ~g->pins;
+			//jz->gpio_map[0] &= ~g->pins; all gpio pins can request as a gpio
+			if(jz->dev_map[0] & g->pins) {
+				panic("%s:gpio functions has redefinition of '%s'",__FILE__,g->name);
+				while(1);
+			}
 			jz->dev_map[0] |= g->pins;
 		}
 
