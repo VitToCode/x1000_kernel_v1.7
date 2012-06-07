@@ -17,7 +17,7 @@ CONFIG_ZONE_DMA=y
 # CONFIG_MACH_DECSTATION is not set
 # CONFIG_MACH_JAZZ is not set
 # CONFIG_MACH_JZ4740 is not set
-CONFIG_MACH_XBRUST=y
+CONFIG_MACH_XBURST=y
 # CONFIG_LANTIQ is not set
 # CONFIG_LASAT is not set
 # CONFIG_MACH_LOONGSON is not set
@@ -810,7 +810,7 @@ CONFIG_I2C_HELPER_AUTO=y
 # CONFIG_I2C_XILINX is not set
 
 #
-# Xbrust soc 4780 internal i2c controller
+# Xburst soc 4780 internal i2c controller
 #
 # CONFIG_I2C0_JZ4780 is not set
 # CONFIG_I2C1_JZ4780 is not set

@@ -687,7 +687,7 @@ config I2C_EG20T
 	  ML7213/ML7223 is companion chip for Intel Atom E6xx series.
 	  ML7213/ML7223 is completely compatible for Intel EG20T PCH.
 
-comment "Xbrust soc 4780 internal i2c controller"
+comment "Xburst soc 4780 internal i2c controller"
 	depends on SOC_4780
 
 config I2C0_JZ4780

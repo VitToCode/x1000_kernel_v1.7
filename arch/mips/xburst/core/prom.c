@@ -49,7 +49,7 @@ void __init prom_init(void)
 {
 	prom_init_cmdline((int)fw_arg0, (char **)fw_arg1);
 
-	mips_machtype = MACH_XBRUST;
+	mips_machtype = MACH_XBURST;
 #ifdef CONFIG_SMP
 	register_smp_ops(&jzsoc_smp_ops);
 #endif

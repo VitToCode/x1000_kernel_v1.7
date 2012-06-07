@@ -1,7 +1,7 @@
 
 choice
 	prompt "SOC type"
-	depends on MACH_XBRUST
+	depends on MACH_XBURST
 	default SOC_4780
 
 config SOC_4780
@@ -30,5 +30,5 @@ config SOC_VER
 	default "80" if SOC_4780
 
 if SOC_4780
-source "arch/mips/xbrust/soc-4780/Kconfig"
+source "arch/mips/xburst/soc-4780/Kconfig"
 endif
