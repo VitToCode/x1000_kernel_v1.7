@@ -1,0 +1,67 @@
+
+menuconfig SOUND_OSS_XBURST
+	bool "Open Sound System of xburst"
+	#depends on SOUND_OSS_CORE
+	default y
+	help
+	  Say 'Y' to enable Open Sound System drivers of xburst.
+
+
+if SOUND_OSS_XBURST
+
+menu "sound DSP devices of xburst"
+
+config SOUND_I2S0_JZ47XX
+	bool "Jz On-Chip I2S0 driver"
+	help
+		Say 'Y' to enable On-Chip i2s0
+
+config SOUND_I2S1_JZ47XX
+	bool "Jz On-Chip I2S1 driver"
+	help
+		Say 'Y' to enable On-Chip i2s1
+
+config SOUND_PCM0_JZ47XX
+	bool "Jz On-Chip PCM0 driver"
+	help
+		Say 'Y' to enable On-Chip pcm0
+
+config SOUND_PCM1_JZ47XX
+	bool "Jz On-Chip PCM1 driver"
+	help
+		Say 'Y' to enable On-Chip pcm1
+
+config SOUND_CODEC_JZ4780
+	bool "Jz On-Chip codec driver"
+	depends on SOUND_I2S0_JZ47XX
+	help
+		Say 'Y' to enable On-Chip codec
+
+endmenu
+
+
+menu "sound MIXER devices of xburst"
+
+config SOUND_MIXER0_JZ47XX
+	bool "Jz virtual mixer0 driver"
+	help
+		Say 'Y' to enable virtual mixer0
+
+endmenu
+
+
+menuconfig SOUND_XBURST_DETECT
+	bool "sound detect device of xburst"
+	default n
+	help
+	  Say 'Y' to enable sound detect devices support.
+
+
+menuconfig SOUND_XBURST_DEBUG
+	bool "sound debug device of xburst"
+	default n
+	help
+	  Say 'Y' to enable sound debug devices support.
+
+endif #SOUND_OSS_XBURST
+

@@ -21,6 +21,7 @@
 
 #include <mach/platform.h>
 #include <mach/jzdma.h>
+#include <mach/jzsnd.h>
 
 #ifdef CONFIG_SERIAL_8250
 /* Serial device defined for serial console */
@@ -159,4 +160,60 @@ DEF_I2C(2);
 DEF_I2C(3);
 DEF_I2C(4);
 
+/**
+ * sound devices, include i2s0, i2s1, pcm0, pcm1 and an internal codec
+ * note, the internal codec can only access by i2s0
+ **/
+static u64 jz_i2s_dmamask =  ~(u32)0;
+#define SND_DEV_I2S0 SND_DEV_DSP0
+#define SND_DEV_I2S1 SND_DEV_DSP1
+#define DEF_I2S(NO)														\
+	static struct resource jz_i2s##NO##_resources[] = {					\
+		[0] = {															\
+			.start          = 0,										\
+			.end            = 0,										\
+			.flags          = IORESOURCE_MEM,							\
+		},																\
+	};																	\
+	struct platform_device jz_i2s##NO##_device = {						\
+		.name		= DEV_DSP_NAME,										\
+		.id			= minor2index(SND_DEV_I2S##NO),						\
+		.dev = {														\
+			.dma_mask               = &jz_i2s_dmamask,					\
+			.coherent_dma_mask      = 0xffffffff,						\
+		},																\
+		.resource       = jz_i2s##NO##_resources,						\
+		.num_resources  = ARRAY_SIZE(jz_i2s##NO##_resources),			\
+	};
+DEF_I2S(0);
+DEF_I2S(1);
 
+static u64 jz_pcm_dmamask =  ~(u32)0;
+#define SND_DEV_PCM0 SND_DEV_DSP2
+#define SND_DEV_PCM1 SND_DEV_DSP3
+#define DEF_PCM(NO)														\
+	static struct resource jz_pcm##NO##_resources[] = {					\
+		[0] = {															\
+			.start          = 0,										\
+			.end            = 0,										\
+			.flags          = IORESOURCE_MEM,							\
+		},																\
+	};																	\
+	struct platform_device jz_pcm##NO##_device = {						\
+		.name		= DEV_DSP_NAME,										\
+		.id			= minor2index(SND_DEV_PCM##NO),						\
+		.dev = {														\
+			.dma_mask               = &jz_pcm_dmamask,					\
+			.coherent_dma_mask      = 0xffffffff,						\
+		},																\
+		.resource       = jz_pcm##NO##_resources,						\
+		.num_resources  = ARRAY_SIZE(jz_pcm##NO##_resources),			\
+	};
+DEF_PCM(0);
+DEF_PCM(1);
+
+struct platform_device jz_codec_device = {
+	.name		= "jz_codec",
+	.dev = {
+	},
+};

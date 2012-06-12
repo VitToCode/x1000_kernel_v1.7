@@ -66,6 +66,12 @@ extern struct platform_device jz_i2c2_device;
 extern struct platform_device jz_i2c3_device;
 extern struct platform_device jz_i2c4_device;
 
+extern struct platform_device jz_i2s0_device;
+extern struct platform_device jz_i2s1_device;
+extern struct platform_device jz_pcm0_device;
+extern struct platform_device jz_pcm1_device;
+extern struct platform_device jz_codec_device;
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 /* register function for a 8250 console */
