@@ -100,8 +100,8 @@ enum {
 #define CLK_NAME_I2C1		"i2c1"
 	CLK_ID_SCC,
 #define CLK_NAME_SCC		"scc"
-	CLK_ID_AIC,
-#define CLK_NAME_AIC		"aic"
+	CLK_ID_AIC0,
+#define CLK_NAME_AIC0		"aic0"
 	CLK_ID_TSSI0,
 #define CLK_NAME_TSSI0		"tssi0"
 	CLK_ID_OWI,
@@ -141,7 +141,7 @@ enum {
 	CLK_ID_TVE,
 #define CLK_NAME_TVE		"tve"
 	CLK_ID_LCD,
-#define CLK_NAME_LCD		"lcd"
+#define CLK_NAME_LCD		"lcd-do-not-get-this-clock"
 	CLK_ID_IPU,
 #define CLK_NAME_IPU		"ipu"
 	CLK_ID_DDR0,
@@ -186,8 +186,8 @@ enum {
 #define CLK_NAME_CGU_DDR	"cgu_ddr"
 	CLK_ID_CGU_VPU,
 #define CLK_NAME_CGU_VPU	"cgu_vpu"
-	CLK_ID_CGU_I2S,
-#define CLK_NAME_CGU_I2S	"cgu_i2s"
+	CLK_ID_CGU_AIC,
+#define CLK_NAME_CGU_AIC	"cgu_aic"
 	CLK_ID_CGU_LCD0,
 #define CLK_NAME_CGU_LCD0	"cgu_lcd0"
 	CLK_ID_CGU_LCD1,
@@ -217,7 +217,7 @@ enum {
 };
 
 enum {
-	CGU_DDR,CGU_VPU,CGU_I2S,CGU_LCD0,CGU_LCD1,CGU_MSC0,CGU_MSC1,CGU_MSC2,
+	CGU_DDR,CGU_VPU,CGU_AIC,CGU_LCD0,CGU_LCD1,CGU_MSC0,CGU_MSC1,CGU_MSC2,
 	CGU_UHC,CGU_SSI,CGU_CIMMCLK,CGU_PCM,CGU_GPU,CGU_HDMI,CGU_BCH,DUMMY_MUX,
 };
 
@@ -246,60 +246,60 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(H2CLK, 		CPCCR(3)),
 	DEF_CLK(PCLK, 		CPCCR(4)),
 
-	DEF_CLK(NEMC,  		GATE(0) | PARENT(H2CLK)),
-	DEF_CLK(BCH,   		GATE(1) | CGU(CGU_BCH)),
+	DEF_CLK(NEMC,  		GATE(0)),
+	DEF_CLK(BCH,   		GATE(1)),
 	DEF_CLK(OTG0,  		GATE(2)),
-	DEF_CLK(MSC0,  		GATE(3) | CGU(CGU_MSC0)),
-	DEF_CLK(SSI0,  		GATE(4) | PARENT(CGU_SSI)),
-	DEF_CLK(I2C0,  		GATE(5) | PARENT(PCLK)),
-	DEF_CLK(I2C1,  		GATE(6) | PARENT(PCLK)),
-	DEF_CLK(SCC,   		GATE(7) | PARENT(EXT0)),
-	DEF_CLK(AIC,   		GATE(8) | PARENT(EXT0)),
-	DEF_CLK(TSSI0, 		GATE(9) | PARENT(H2CLK)),
-	DEF_CLK(OWI,   		GATE(10) | PARENT(EXT0)),
-	DEF_CLK(MSC1,  		GATE(11) | CGU(CGU_MSC1)),
-	DEF_CLK(MSC2,  		GATE(12) | CGU(CGU_MSC2)),
-	DEF_CLK(KBC,   		GATE(13) | PARENT(EXT0)),
-	DEF_CLK(SADC,  		GATE(14) | PARENT(EXT0)),
-	DEF_CLK(UART0, 		GATE(15) | PARENT(EXT0)),
-	DEF_CLK(UART1, 		GATE(16) | PARENT(EXT0)),
-	DEF_CLK(UART2, 		GATE(17) | PARENT(EXT0)),
-	DEF_CLK(UART3, 		GATE(18) | PARENT(EXT0)),
-	DEF_CLK(SSI1,  		GATE(19) | PARENT(CGU_SSI)),
-	DEF_CLK(SSI2,  		GATE(20) | PARENT(CGU_SSI)),
-	DEF_CLK(PDMA,  		GATE(21) | PARENT(H2CLK)),
-	DEF_CLK(GPS,   		GATE(22) | PARENT(H2CLK)),
-	DEF_CLK(MAC,   		GATE(23) | PARENT(H2CLK)),
-	DEF_CLK(UHC,   		GATE(24) | CGU(CGU_UHC)),
+	DEF_CLK(MSC0,  		GATE(3)),
+	DEF_CLK(SSI0,  		GATE(4)),
+	DEF_CLK(I2C0,  		GATE(5)),
+	DEF_CLK(I2C1,  		GATE(6)),
+	DEF_CLK(SCC,   		GATE(7)),
+	DEF_CLK(AIC0,   	GATE(8)),
+	DEF_CLK(TSSI0, 		GATE(9)),
+	DEF_CLK(OWI,   		GATE(10)),
+	DEF_CLK(MSC1,  		GATE(11)),
+	DEF_CLK(MSC2,  		GATE(12)),
+	DEF_CLK(KBC,   		GATE(13)),
+	DEF_CLK(SADC,  		GATE(14)),
+	DEF_CLK(UART0, 		GATE(15)),
+	DEF_CLK(UART1, 		GATE(16)),
+	DEF_CLK(UART2, 		GATE(17)),
+	DEF_CLK(UART3, 		GATE(18)),
+	DEF_CLK(SSI1,  		GATE(19)),
+	DEF_CLK(SSI2,  		GATE(20)),
+	DEF_CLK(PDMA,  		GATE(21)),
+	DEF_CLK(GPS,   		GATE(22)),
+	DEF_CLK(MAC,   		GATE(23)),
+	DEF_CLK(UHC,   		GATE(24)),
 	DEF_CLK(I2C2,  		GATE(25)), 
-	DEF_CLK(CIM,   		GATE(26) | CGU(CGU_CIMMCLK)),
+	DEF_CLK(CIM,   		GATE(26)),
 	DEF_CLK(TVE,   		GATE(27)),
 	DEF_CLK(LCD,   		GATE(28)),
 	DEF_CLK(IPU,   		GATE(29)),
-	DEF_CLK(DDR0,  		GATE(30) | PARENT(MPLL)),
-	DEF_CLK(DDR1,  		GATE(31) | PARENT(MPLL)),
-	DEF_CLK(I2C3,  		GATE(32+0) | PARENT(H2CLK)),
+	DEF_CLK(DDR0,  		GATE(30)),
+	DEF_CLK(DDR1,  		GATE(31)),
+	DEF_CLK(I2C3,  		GATE(32+0)),
 	DEF_CLK(TSSI1, 		GATE(32+1)),
-	DEF_CLK(VPU,		GATE(32+2) | PARENT(CGU_VPU)),
+	DEF_CLK(VPU,		GATE(32+2)),
 	DEF_CLK(PCM,		GATE(32+3)),
 	DEF_CLK(GPU,		GATE(32+4)),
 	DEF_CLK(COMPRESS,	GATE(32+5)),
 	DEF_CLK(AIC1,		GATE(32+6)),
 	DEF_CLK(GPVLC,		GATE(32+7)),
-	DEF_CLK(OTG1,		GATE(32+8) | PARENT(PCM)),
-	DEF_CLK(HDMI,		GATE(32+9) | CGU(CGU_GPU)),
-	DEF_CLK(UART4,		GATE(32+10) | PARENT(PCM)),
+	DEF_CLK(OTG1,		GATE(32+8)),
+	DEF_CLK(HDMI,		GATE(32+9)),
+	DEF_CLK(UART4,		GATE(32+10)),
 	DEF_CLK(AHB_MON,	GATE(32+12)),
-	DEF_CLK(I2C4,		GATE(32+13) | CGU(CGU_I2S)),
+	DEF_CLK(I2C4,		GATE(32+13)),
 	DEF_CLK(DES,		GATE(32+14)),
-	DEF_CLK(X2D,		GATE(32+15) | PARENT(PCLK)),
-	DEF_CLK(P1,		GATE(32+16) | PARENT(PCLK)),
+	DEF_CLK(X2D,		GATE(32+15)),
+	DEF_CLK(P1,		GATE(32+16)),
 
 	DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
 	DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
-	DEF_CLK(CGU_I2S,	CGU(CGU_I2S)),
-	DEF_CLK(CGU_LCD0,	GATE(28) | CGU(CGU_LCD0)),
-	DEF_CLK(CGU_LCD1,	GATE(28) | CGU(CGU_LCD1)),
+	DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
+	DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0) | PARENT(LCD)),
+	DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1) | PARENT(LCD)),
 	DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0) | PARENT(DUMMY_MUX)),
 	DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1) | PARENT(DUMMY_MUX)),
 	DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2) | PARENT(DUMMY_MUX)),
@@ -412,7 +412,7 @@ struct cgu_clk {
 static struct cgu_clk cgu_clks[] = {
 	[CGU_DDR] = 	{ CPM_DDRCDR, 29, 1, 4, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_VPU] = 	{ CPM_VPUCDR, 29, 1, 4, 30, {CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
-	[CGU_I2S] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EPLL}},
+	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EPLL}},
 	[CGU_LCD0] = 	{ CPM_LPCDR, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[DUMMY_MUX] = 	{ CPM_MSC0CDR, 29, 2, 0, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
@@ -606,6 +606,11 @@ int clk_enable(struct clk *clk)
 	if(!clk)
 		return -EINVAL;
 
+	clk->count++;
+
+	if(clk->flags & CLK_FLG_ENABLE)
+		return 0;
+
 	clk_enable(clk->parent);
 
 	if(clk->flags & CLK_FLG_GATE)
@@ -614,9 +619,8 @@ int clk_enable(struct clk *clk)
 	if(clk->ops && clk->ops->enable)
 		clk->ops->enable(clk,1);
 
+	clk->count = 1;
 	clk->flags |= CLK_FLG_ENABLE;
-
-	clk->count++;
 
 	return 0;
 }
@@ -638,6 +642,7 @@ void clk_disable(struct clk *clk)
 	if(clk->ops && clk->ops->enable)
 		clk->ops->enable(clk,0);
 
+	clk->count = 0;
 	clk->flags &= ~CLK_FLG_ENABLE;
 
 	clk_disable(clk->parent);
@@ -710,7 +715,7 @@ static int clk_read_proc(char *page, char **start, off_t off,
 				, clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
 	}
 	PRINT("CLKGR0\t: %08x\tCLKGR1\t: %08x\n",
-			inl(CPM_CLKGR0),inl(CPM_CLKGR1));
+			cpm_inl(CPM_CLKGR0),cpm_inl(CPM_CLKGR1));
 	return len;
 }
 
@@ -728,3 +733,4 @@ static int __init init_clk_proc(void)
 }
 
 module_init(init_clk_proc);
+
