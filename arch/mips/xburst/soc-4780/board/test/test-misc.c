@@ -19,20 +19,26 @@ static int __init test_board_init(void)
 
 /* sound */
 #ifdef CONFIG_SOUND_I2S0_JZ47XX
-	jz_device_register(&jz_i2s0_device, &i2s0_data);
+	jz_device_register(&jz_i2s0_device,&i2s0_data);
 #endif
 #ifdef CONFIG_SOUND_I2S1_JZ47XX
-	jz_device_register(&jz_i2s1_device, &i2s1_data);
+	jz_device_register(&jz_i2s1_device,&i2s1_data);
 #endif
 #ifdef CONFIG_SOUND_PCM0_JZ47XX
-	jz_device_register(&jz_pcm0_device, &pcm0_data);
+	jz_device_register(&jz_pcm0_device,&pcm0_data);
 #endif
 #ifdef CONFIG_SOUND_PCM1_JZ47XX
-	jz_device_register(&jz_pcm1_device, &pmc1_data);
+	jz_device_register(&jz_pcm1_device,&pcm1_data);
 #endif
 #ifdef CONFIG_SOUND_CODEC_JZ4780
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
+
+	platform_device_register(&test_lcd_device);
+	platform_device_register(&test_backlight_device);
+
+	jz_device_register(&jz_fb0_device,&jzfb_pdata);
+	jz_device_register(&jz_fb0_device,&jzfb_pdata);
 
 	return 0;
 }

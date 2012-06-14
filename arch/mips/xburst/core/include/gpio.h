@@ -28,4 +28,11 @@ int irq_to_gpio(unsigned irq);
 
 #include <asm-generic/gpio.h>		/* cansleep wrappers */
 
+#define GPIO_PA(n) 	(0*32 + n)
+#define GPIO_PB(n) 	(1*32 + n)
+#define GPIO_PC(n) 	(2*32 + n)
+#define GPIO_PD(n) 	(3*32 + n)
+#define GPIO_PE(n) 	(4*32 + n)
+#define GPIO_PF(n) 	(5*32 + n)
+
 #endif 

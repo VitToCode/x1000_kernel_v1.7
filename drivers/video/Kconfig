@@ -2374,6 +2374,15 @@ config FB_MXS
 	help
 	  Framebuffer support for the MXS SoC.
 
+config FB_JZ4780
+	tristate "JZ4780 LCD framebuffer support"
+	depends on FB && SOC_4780
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  Framebuffer support for the JZ4780 SoC.
+
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"
 	depends on FB && UNICORE32 && ARCH_PUV3
