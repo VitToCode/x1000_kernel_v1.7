@@ -66,6 +66,26 @@ static int jzfb_open(struct fb_info *info, int user)
 	return 0;
 }
 
+void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
+		const struct fb_videomode *mode)
+{
+	var->xres = mode->xres;
+	var->yres = mode->yres;
+	var->xres_virtual = mode->xres;
+	var->yres_virtual = mode->yres * NUM_FRAME_BUFFERS;
+	var->xoffset = 0;
+	var->yoffset = 0;
+	var->pixclock = mode->pixclock;
+	var->left_margin = mode->left_margin;
+	var->right_margin = mode->right_margin;
+	var->upper_margin = mode->upper_margin;
+	var->lower_margin = mode->lower_margin;
+	var->hsync_len = mode->hsync_len;
+	var->vsync_len = mode->vsync_len;
+	var->sync = mode->sync;
+	var->vmode = mode->vmode & FB_VMODE_MASK;
+}
+
 static int jzfb_get_controller_bpp(struct jzfb *jzfb)
 {
 	switch (jzfb->pdata->bpp) {
@@ -93,10 +113,11 @@ static struct fb_videomode *jzfb_get_mode(struct jzfb *jzfb,
 	return NULL;
 }
 
-static void config_fg0(struct jzfb *jzfb,struct fb_info *info)
+static void jzfb_config_fg0(struct fb_info *info)
 {
-	struct jzfb_osd_t *osd = &jzfb->osd;
 	unsigned int rgb_ctrl, cfg ,ctrl = 0;
+	struct jzfb *jzfb = info->par;
+	struct jzfb_osd_t *osd = &jzfb->osd;
 	struct fb_videomode *mode = info->mode;
 
 	osd->fg0.fg = 0;
@@ -128,6 +149,50 @@ static void config_fg0(struct jzfb *jzfb,struct fb_info *info)
 	reg_write(jzfb, LCDC_OSDCTRL, rgb_ctrl);
 }
 
+int jzfb_prepare_dma_desc(struct fb_info *info)
+{
+	int i,size0;
+	int fg0_line_size, fg0_frm_size;
+	int panel_line_size, panel_frm_size;
+
+	struct jzfb *jzfb = info->par;
+	struct fb_videomode *mode = info->mode;
+
+	/* Foreground 0, caculate size */
+	if (jzfb->osd.fg0.x >= mode->xres)
+		jzfb->osd.fg0.x = mode->xres - 1;
+	if (jzfb->osd.fg0.y >= mode->yres)
+		jzfb->osd.fg0.y = mode->yres - 1;
+
+	size0 = jzfb->osd.fg0.h << 16 | jzfb->osd.fg0.w;
+
+	/* lcd display area */
+	fg0_line_size = jzfb->osd.fg0.w * jzfb->osd.fg0.bpp / 8;
+	fg0_line_size = ((fg0_line_size + 3) >> 2) << 2; /* word aligned */
+	fg0_frm_size= fg0_line_size * jzfb->osd.fg0.h;
+
+	/* panel PIXEL_ALIGN stride buffer area */
+	panel_line_size = ((mode->xres + (PIXEL_ALIGN - 1)) & (~(PIXEL_ALIGN - 1)))
+		* (jzfb->osd.fg0.bpp / 8);
+	panel_line_size = ((panel_line_size + 3) >> 2) << 2; /* word aligned */
+	panel_frm_size = panel_line_size * mode->yres;
+
+	if(!jzfb->pdata->is_smart) {
+		for(i=0;i<jzfb->desc_num;i++) {
+			jzfb->framedesc[i].databuf = virt_to_phys((void *)info->screen_base) + panel_frm_size*i;
+			jzfb->framedesc[i].cmd = fg0_frm_size / 4;
+			jzfb->framedesc[i].offsize = (panel_line_size - fg0_line_size) / 4;
+			jzfb->framedesc[i].page_width = fg0_line_size / 4;
+			jzfb->framedesc[i].desc_size = size0;
+		}
+	} else {
+	}
+
+	reg_write(jzfb, LCDC_DA0, jzfb->framedesc->next);
+
+	return 0;
+}
+
 static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	struct jzfb *jzfb = fb->par;
@@ -141,8 +206,7 @@ static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 	if (mode == NULL)
 		return -EINVAL;
 
-	fb_videomode_to_var(var, mode);
-	fb->var.yres_virtual *= 2;
+	jzfb_videomode_to_var(var, mode);
 
 	switch (jzfb->pdata->bpp) {
 		case 16:
@@ -212,7 +276,7 @@ static int jzfb_set_par(struct fb_info *info)
 	vde = vds + mode->yres;
 	vt = vde + mode->lower_margin;
 
-	ctrl = ~(LCDC_CTRL_BST_MASK) | LCDC_CTRL_BST_64;
+	ctrl = LCDC_CTRL_BST_64 | LCDC_CTRL_EOFM;
 	cfg = LCDC_CFG_NEWDES | LCDC_CFG_RECOVER; /* use 8words descriptor */
 
 	cfg |= pdata->lcd_type;
@@ -256,8 +320,9 @@ static int jzfb_set_par(struct fb_info *info)
 			rate = mode->refresh * (vt + 2 * mode->xres) * ht;
 		else
 			rate = mode->refresh * vt * ht;
-
 		mode->pixclock = KHZ2PICOS(rate / 1000);
+
+		var->pixclock = mode->pixclock;
 	}
 
 	mutex_lock(&jzfb->lock);
@@ -302,9 +367,9 @@ static int jzfb_set_par(struct fb_info *info)
 	pcfg = 0xC0000000 | (511<<18) | (400<<9) | (256<<0) ;
 	reg_write(jzfb, LCDC_PCFG, pcfg);
 
-	config_fg0(jzfb,info);
+	jzfb_config_fg0(info);
 
-	prepare_dma_descriptor(jzfb);
+	jzfb_prepare_dma_desc(info);
 
 	if (!jzfb->is_enabled)
 		clk_disable(jzfb->ldclk);
@@ -330,7 +395,7 @@ static void jzfb_enable(struct jzfb *jzfb)
 
 	reg_write(jzfb, LCDC_STATE, 0);
 
-	reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next_desc);
+	reg_write(jzfb, LCDC_DA0, jzfb->framedesc->next);
 
 	ctrl = reg_read(jzfb, LCDC_CTRL);
 	ctrl |= LCDC_CTRL_ENA;
@@ -406,12 +471,28 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 			jzfb->vidmem_size,
 			&jzfb->vidmem_phys, GFP_KERNEL);
 
+	if (!jzfb->vidmem)
+		return -ENOMEM;
 
 	for (page = jzfb->vidmem;
 			page < jzfb->vidmem + PAGE_ALIGN(jzfb->vidmem_size);
 			page += PAGE_SIZE) {
 		SetPageReserved(virt_to_page(page));
 	}
+
+	jzfb->framedesc = dma_alloc_coherent(&jzfb->pdev->dev,
+			sizeof(*jzfb->framedesc) * jzfb->desc_num,
+			&jzfb->framedesc_phys, GFP_KERNEL);
+
+	if (!jzfb->framedesc)
+		return -ENOMEM;
+
+	for(i=0;i<jzfb->desc_num;i++) {
+		jzfb->framedesc[i].next = jzfb->framedesc_phys + sizeof(*jzfb->framedesc) * i;
+		jzfb->framedesc[i].id = i;
+		jzfb->framedesc[i].cmd = 0;
+	}
+
 	return 0;
 }
 
@@ -419,15 +500,33 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 {
 	dma_free_coherent(&jzfb->pdev->dev, jzfb->vidmem_size,
 			jzfb->vidmem, jzfb->vidmem_phys);
+	dma_free_coherent(&jzfb->pdev->dev, sizeof(*jzfb->framedesc) * jzfb->desc_num,
+			jzfb->framedesc, jzfb->framedesc_phys);
 }
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	if (!info) {
+	struct jzfb *jzfb = info->par;
+
+	if (var->xoffset - info->var.xoffset) {
+		dev_err(info->dev,"No support for X panning for now!\n");
 		return -EINVAL;
 	}
 
-	return tft_lcd_pan_display(var, info); //test
+	jzfb->frm_id = var->yoffset / var->yres;
+	jzfb->framedesc[jzfb->frm_id].cmd |= LCDC_CMD_EOFINT;
+	if(!jzfb->pdata->is_smart) {
+		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[jzfb->frm_id].next);
+	} else {
+		//smart tft spec code here.
+	}
+
+	if(wait_for_completion_timeout(&jzfb->complete,msecs_to_jiffies(200))) {
+		dev_err(info->dev,"wait for filp timeout!\n");
+		return -ETIME;
+	}
+
+	return 0;
 }
 
 static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
@@ -438,16 +537,17 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 static irqreturn_t jzfb_irq_handler(int irq, void *data)
 {
 	static int irq_cnt = 0;
-	unsigned long irq_flags;
 	unsigned int state;
 	struct jzfb *jzfb = (struct jzfb *)data;
 
-	spin_lock_irqsave(&jzfb->update_lock, irq_flags);
 	state = reg_read(jzfb, LCDC_STATE);
 
 	if (state & LCDC_STATE_EOF) {
+		jzfb->framedesc[jzfb->frm_id].cmd &= ~LCDC_CMD_EOFINT;
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
+		complete(&jzfb->complete);
 	}
+	
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if ( irq_cnt++ > 100 ) {
@@ -455,10 +555,6 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 		}
 		pr_debug("%s, Out FiFo underrun.\n", __FUNCTION__);		
 	}
-
-	jzfb->frame_done = jzfb->frame_requested;
-	spin_unlock_irqrestore(&jzfb->update_lock, irq_flags);
-	wake_up(&jzfb->frame_wq);
 
 	return IRQ_HANDLED;
 }
@@ -480,13 +576,15 @@ static struct fb_ops jzfb_ops = {
 static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	jzfb_enable(jzfb);
+	fb_set_suspend(jzfb->fb, 1);
+	jzfb_disable(jzfb);
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	jzfb_disable(jzfb);
+	jzfb_enable(jzfb);
+	fb_set_suspend(jzfb->fb, 0);
 }
 #endif
 
@@ -614,9 +712,15 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->flags = FBINFO_DEFAULT;
 
 	jzfb = fb->par;
+	jzfb->fb = fb;
 	jzfb->pdev = pdev;
 	jzfb->pdata = pdata;
 	jzfb->mem = mem;
+
+	if(!jzfb->pdata->is_smart)
+		jzfb->desc_num = 2;
+	else
+		jzfb->desc_num = 4;
 
 	//	jzfb->ldclk = clk_get(&pdev->dev, "lcd");
 	if (IS_ERR(jzfb->ldclk)) {
@@ -642,13 +746,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, jzfb);
 
 	mutex_init(&jzfb->lock);
-	spin_lock_init(&jzfb->update_lock);
 
-	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
-			&fb->modelist);
-	fb_videomode_to_var(&fb->var, pdata->modes);
+	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,&fb->modelist);
+	jzfb_videomode_to_var(&fb->var, pdata->modes);
 	fb->var.bits_per_pixel = pdata->bpp;
-	fb->var.yres_virtual *= 2;
 
 	jzfb_check_var(&fb->var, fb);
 
@@ -761,21 +862,9 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int jzfb_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	return 0;
-}
-
-static int jzfb_resume(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static struct platform_driver jzfb_driver = {
 	.probe 	= jzfb_probe,
 	.remove = jzfb_remove,
-	.suspend = jzfb_suspend,
-	.resume = jzfb_resume,
 	.driver = {
 		.name = "jz4780-fb",
 	},

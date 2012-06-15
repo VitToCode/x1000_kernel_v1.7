@@ -1,4 +1,4 @@
 
 
 
-obj-y += jz4780_fb.o dma.o
+obj-y += jz4780_fb.o

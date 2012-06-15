@@ -8,9 +8,9 @@
 #define CFG_DCACHE_SIZE  16384
 
 struct jzfb_framedesc {
-	uint32_t next_desc;
+	uint32_t next;
 	uint32_t databuf;
-	uint32_t frame_id;
+	uint32_t id;
 	uint32_t cmd;
 	uint32_t offsize;
 	uint32_t page_width;
@@ -57,6 +57,7 @@ struct jzfb {
 	int is_enabled;   /* 0, disable  1, enable */
 	int irq;          /* lcdc interrupt num */
 	int open_cnt;
+	int desc_num;
 
 	struct fb_info *fb;
 	struct platform_device *pdev;
@@ -64,28 +65,25 @@ struct jzfb {
 	void __iomem *base;
 	struct resource *mem;
 
-	unsigned int frame_done;
-	unsigned int frame_requested;
-	unsigned int next_frameID;
-	wait_queue_head_t frame_wq;
-	spinlock_t update_lock;
-	struct mutex lock;
+	struct completion complete;
 
 	size_t vidmem_size;
 	void *vidmem;
 	unsigned int vidmem_phys;
-	struct jzfb_framedesc *framedesc[2];		/* dma descriptor base address */
 
+	int frm_id;
+	struct jzfb_framedesc *framedesc;
+	dma_addr_t framedesc_phys;
 
 	struct jzfb_osd_t osd;				/* osd's config information */
-	//	struct output_device_base cur_output_dev;	/* output mode's abstract struct */
-
 	struct jzfb_aosd_info aosd;			/* compress data info */
-
-	struct early_suspend early_suspend;
 
 	struct clk *ldclk;
 	struct clk *lpclk;
+
+	struct early_suspend early_suspend;
+
+	struct mutex lock;
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
@@ -97,7 +95,4 @@ static inline void reg_write(struct jzfb *jzfb, int offset, unsigned long val)
 {
 	writel(val, jzfb->base + offset); 
 }
-
-extern int tft_lcd_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
-extern int prepare_dma_descriptor(struct jzfb *jzfb);
 
