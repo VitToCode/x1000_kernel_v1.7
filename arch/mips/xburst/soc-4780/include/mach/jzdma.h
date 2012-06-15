@@ -74,7 +74,9 @@ struct jzdma_slave {
 #define JZDMA_DCM_MSK	0xF00F0000
 	unsigned long dcm;
 	/* enum jzdma_req_type value, like JZDMA_REQ_UART3_tx */
-	unsigned short req_type_tx,req_type_rx;
+	unsigned short req_type_tx, req_type_rx;
+	/* special channel0 and channel1 selected flag */
+	bool channel0_special, channel1_special;
 };
 
 #endif

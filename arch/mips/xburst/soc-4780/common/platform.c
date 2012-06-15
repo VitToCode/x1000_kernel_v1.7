@@ -95,6 +95,26 @@ int jz_device_register(struct platform_device *pdev,void *pdata)
 	return platform_device_register(pdev);
 }
 
+static struct resource jz_pdma_res[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = PDMA_IOBASE,
+		.end = PDMA_IOBASE + 0x10000 - 1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.name = "dma_irq",
+		.start = IRQ_PDMA,
+	}
+};
+struct platform_device jz_pdma_device = {
+	.name = "jzdma",
+	/* id = -1 means we only have one same device in system */
+	.id = -1,
+	.resource = jz_pdma_res,
+	.num_resources = ARRAY_SIZE(jz_pdma_res),
+};
+
 static u64 jz_msc_dmamask =  ~(u32)0;
 
 #define DEF_MSC(NO)								\
