@@ -142,18 +142,18 @@ static void jzfb_config_fg0(struct fb_info *info)
 		dev_err(info->dev,"fg0 rgb order not change\n");
 	}
 
-	reg_write(jzfb,LCDC_RGBC, osd->rgb_ctrl);
 
 	reg_write(jzfb, LCDC_OSDC, cfg);
 	reg_write(jzfb, LCDC_OSDCTRL, ctrl);
-	reg_write(jzfb, LCDC_OSDCTRL, rgb_ctrl);
+
+	reg_write(jzfb, LCDC_RGBC, rgb_ctrl);
 }
 
 int jzfb_prepare_dma_desc(struct fb_info *info)
 {
-	int i,size0;
+	int size0;
 	int fg0_line_size, fg0_frm_size;
-	int panel_line_size, panel_frm_size;
+	int panel_line_size;
 
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = info->mode;
@@ -172,19 +172,25 @@ int jzfb_prepare_dma_desc(struct fb_info *info)
 	fg0_frm_size= fg0_line_size * jzfb->osd.fg0.h;
 
 	/* panel PIXEL_ALIGN stride buffer area */
-	panel_line_size = ((mode->xres + (PIXEL_ALIGN - 1)) & (~(PIXEL_ALIGN - 1)))
-		* (jzfb->osd.fg0.bpp / 8);
+	panel_line_size = ALIGN(mode->xres, PIXEL_ALIGN) *
+		(jzfb->osd.fg0.bpp / 8);
 	panel_line_size = ((panel_line_size + 3) >> 2) << 2; /* word aligned */
-	panel_frm_size = panel_line_size * mode->yres;
+
+	jzfb->frm_size = panel_line_size * mode->yres;
+
 
 	if(!jzfb->pdata->is_smart) {
-		for(i=0;i<jzfb->desc_num;i++) {
-			jzfb->framedesc[i].databuf = virt_to_phys((void *)info->screen_base) + panel_frm_size*i;
-			jzfb->framedesc[i].cmd = fg0_frm_size / 4;
-			jzfb->framedesc[i].offsize = (panel_line_size - fg0_line_size) / 4;
-			jzfb->framedesc[i].page_width = fg0_line_size / 4;
-			jzfb->framedesc[i].desc_size = size0;
+		jzfb->framedesc->next = jzfb->framedesc_phys;
+		jzfb->framedesc->databuf = jzfb->vidmem_phys;
+		jzfb->framedesc->cmd = LCDC_CMD_SOFINT | fg0_frm_size / 4;
+		jzfb->framedesc->offsize = (panel_line_size - fg0_line_size) / 4;
+
+		if (jzfb->framedesc->offsize == 0) {
+			jzfb->framedesc->page_width = 0;
+		} else {
+			jzfb->framedesc->page_width = fg0_line_size / 4;
 		}
+		jzfb->framedesc->desc_size = size0;
 	} else {
 	}
 
@@ -276,7 +282,7 @@ static int jzfb_set_par(struct fb_info *info)
 	vde = vds + mode->yres;
 	vt = vde + mode->lower_margin;
 
-	ctrl = LCDC_CTRL_BST_64 | LCDC_CTRL_EOFM;
+	ctrl = LCDC_CTRL_BST_64;
 	cfg = LCDC_CFG_NEWDES | LCDC_CFG_RECOVER; /* use 8words descriptor */
 
 	cfg |= pdata->lcd_type;
@@ -487,12 +493,6 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	if (!jzfb->framedesc)
 		return -ENOMEM;
 
-	for(i=0;i<jzfb->desc_num;i++) {
-		jzfb->framedesc[i].next = jzfb->framedesc_phys + sizeof(*jzfb->framedesc) * i;
-		jzfb->framedesc[i].id = i;
-		jzfb->framedesc[i].cmd = 0;
-	}
-
 	return 0;
 }
 
@@ -506,6 +506,8 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
+	unsigned int state;
+	int now_frm,next_frm,ctrl;
 	struct jzfb *jzfb = info->par;
 
 	if (var->xoffset - info->var.xoffset) {
@@ -513,18 +515,31 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	jzfb->frm_id = var->yoffset / var->yres;
-	jzfb->framedesc[jzfb->frm_id].cmd |= LCDC_CMD_EOFINT;
+	now_frm = reg_read(jzfb,LCDC_IID);
+	next_frm = var->yoffset / var->yres;
+	if(now_frm == next_frm)
+		return 0;
+
 	if(!jzfb->pdata->is_smart) {
-		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[jzfb->frm_id].next);
+		jzfb->framedesc->databuf = jzfb->vidmem_phys + jzfb->frm_size * next_frm;
+		jzfb->framedesc->id = next_frm;
 	} else {
 		//smart tft spec code here.
 	}
 
-	if(wait_for_completion_timeout(&jzfb->complete,msecs_to_jiffies(200))) {
+	jzfb->frm_id = 0xff;
+	state = reg_read(jzfb, LCDC_STATE);
+	reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
+	ctrl = reg_read(jzfb, LCDC_CTRL);
+	reg_write(jzfb, LCDC_CTRL, ctrl | (1<<12));
+
+	if(!wait_event_interruptible_timeout(jzfb->frame_wq, next_frm == jzfb->frm_id, HZ)) {
 		dev_err(info->dev,"wait for filp timeout!\n");
 		return -ETIME;
 	}
+
+	ctrl = reg_read(jzfb, LCDC_CTRL);
+	reg_write(jzfb, LCDC_CTRL,ctrl & ~(1<<12));
 
 	return 0;
 }
@@ -542,18 +557,19 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 
 	state = reg_read(jzfb, LCDC_STATE);
 
-	if (state & LCDC_STATE_EOF) {
-		jzfb->framedesc[jzfb->frm_id].cmd &= ~LCDC_CMD_EOFINT;
-		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
-		complete(&jzfb->complete);
+	if (state & LCDC_STATE_SOF) {
+		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
+		jzfb->frm_id = reg_read(jzfb,LCDC_IID);
+
+		wake_up(&jzfb->frame_wq);
 	}
-	
+
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if ( irq_cnt++ > 100 ) {
-			pr_debug("disable Out FiFo underrun irq.\n");
+			pr_err("disable Out FiFo underrun irq.\n");
 		}
-		pr_debug("%s, Out FiFo underrun.\n", __FUNCTION__);		
+		pr_err("%s, Out FiFo underrun.\n", __FUNCTION__);		
 	}
 
 	return IRQ_HANDLED;
@@ -643,15 +659,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	printk("LCDC_DAH:\t%08x\n", reg_read(jzfb, LCDC_DAH));
 	printk("LCDC_DAV:\t%08x\n", reg_read(jzfb, LCDC_DAV));
 	printk("==================================\n");
-	printk("LCDC_PCFG:\t0x%08x\n", reg_read(jzfb, LCDC_PCFG));
-
-	pii = (unsigned int *)jzfb->framedesc;
-	for (j=0;j< 1 ; j++) {
-		printk("dma_desc%d(0x%08x):\n", j, (unsigned int)pii);
-		for (i =0; i<8; i++ ) {
-			printk("\t\t0x%08x\n", *pii++);
-		}
-	}
+	printk("LCDC_PCFG:\t0x%08lx\n", reg_read(jzfb, LCDC_PCFG));
 
 #endif
 	return;
@@ -718,7 +726,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->mem = mem;
 
 	if(!jzfb->pdata->is_smart)
-		jzfb->desc_num = 2;
+		jzfb->desc_num = 1;
 	else
 		jzfb->desc_num = 4;
 
@@ -747,8 +755,13 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	mutex_init(&jzfb->lock);
 
-	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,&fb->modelist);
+	init_waitqueue_head(&jzfb->frame_wq);
+
+	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
+			&fb->modelist);
 	jzfb_videomode_to_var(&fb->var, pdata->modes);
+	fb->var.width = pdata->width;
+	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
 
 	jzfb_check_var(&fb->var, fb);
@@ -804,6 +817,11 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
 		goto err_free_file;
+	}
+	if (jzfb->is_enabled) {
+		jzfb_enable(jzfb);
+	} else {
+		jzfb_disable(jzfb);
 	}
 
 	return 0;

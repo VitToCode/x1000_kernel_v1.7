@@ -65,14 +65,15 @@ struct jzfb {
 	void __iomem *base;
 	struct resource *mem;
 
-	struct completion complete;
+	wait_queue_head_t frame_wq;
 
 	size_t vidmem_size;
 	void *vidmem;
 	unsigned int vidmem_phys;
 
-	int frm_id;
-	struct jzfb_framedesc *framedesc;
+	int frm_size;
+	volatile int frm_id;
+	struct jzfb_framedesc *framedesc; /* dma descriptor base address */
 	dma_addr_t framedesc_phys;
 
 	struct jzfb_osd_t osd;				/* osd's config information */
