@@ -331,8 +331,8 @@ static void snd_dma_callback(void *arg)
 #define SPIPE_DEF_SAMPLESIZE	16
 
 static struct snd_dsp_bypss_pipe {
-	volatile struct dsp_pipe *src_dp;
-	volatile struct dsp_pipe *dst_dp;
+	struct dsp_pipe *volatile src_dp;
+	struct dsp_pipe *volatile dst_dp;
 	volatile bool src_start;
 	volatile bool dst_start;
 	int rate;
@@ -796,7 +796,7 @@ static int init_pipe(struct dsp_pipe *dp)
 init_pipe_error:
 	/* free all the node in free_node_list */
 	list_for_each_entry(node, &dp->free_node_list, list)
-		kfree(node);
+		vfree(node);
 	/* free memory */
 	dmam_free_noncoherent(NULL,
 						  dp->fragsize * dp->fragcnt,
@@ -811,7 +811,7 @@ static void deinit_pipe(struct dsp_pipe *dp)
 
 	/* free all the node in free_node_list */
 	list_for_each_entry(node, &dp->free_node_list, list)
-		kfree(node);
+		vfree(node);
 	/* free memory */
 	dmam_free_noncoherent(NULL,
 						  dp->fragsize * dp->fragcnt,

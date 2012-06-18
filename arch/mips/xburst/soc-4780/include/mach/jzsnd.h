@@ -178,20 +178,40 @@ struct dsp_endpoints {
 };
 
 /*####################################################*\
- * used for internal codec
+ * used for codec
 \*####################################################*/
 enum snd_codec_route_t {
-	ROUTE_NONE = 0,
-	ROUTE_ALL_CLEAR,
-	ROUTE_REPLAY_CLEAR,
-	ROUTE_RECORD_CLEAR,
-	RECORD_MIC_STEREO_DIFF_WITH_BIAS_TO_ADCLR,								/*stereo mic recoard*/
-	RECORD_LINEIN_STEREO_DIFF_TO_ADCLR,										/*stereo linein recoard*/
-	REPLAY_HP_STEREO,														/*stereo headphone replay*/
-	REPLAY_LINEOUT_LR,														/*stereo lineout replay*/
-	RECORD_MIC1_DIFF_WITH_BIAS_TO_ADCLR_BYPASS_LINEIN2_TO_HP_LR,			/*phone call*/
-	RECORD_MIC1_AND_LINE2_DIFF_WITH_BIAS_TO_ADCLR_BYPASS_LINEIN2_TO_HP_LR,	/*recoard in call*/
-	ROUTE_COUNT
+	SND_ROUTE_NONE = 0,
+	SND_ROUTE_ALL_CLEAR,
+	SND_ROUTE_REPLAY_CLEAR,
+	SND_ROUTE_RECORD_CLEAR,
+	/*internal codec: linein2 bypass to lineout */
+	SND_ROUTE_REPLAY_INCALL_WITH_HANDSET,
+	/*internal codec: linein2 bypass to hprl */
+	SND_ROUTE_REPLAY_INCALL_WITH_HEADSET,
+	/*internal codec: ..*/
+	SND_ROUTE_REPLAY_INCALL_WITH_HEADPHONE,
+	/*internal codec: dacrl to hprl*/
+	SND_ROUTE_REPLAY_SPEAKER,
+	/*internal codec: dacrl to lineout*/
+	SND_ROUTE_REPLAY_HEADPHONE,
+	/*internal codec: ..*/
+	SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE,
+	/*internal codec: ..*/
+	SND_ROUTE_REPLAY_FM_SPEAKER,
+	/*internal codec: ..*/
+	SND_ROUTE_REPLAY_FM_HEADSET,
+	/*internal codec: mic 1 to adcrl*/
+	SND_ROUTE_RECORD_MIC,
+	/*internal codec: linein 1 to adcrl*/
+	SND_ROUTE_RECORD_LINEIN,
+	/*internal codec: ..*/
+	SND_ROUTE_RECORD_INCALL_WITH_HANDSET,
+	/*internal codec: ..*/
+	SND_ROUTE_RECORD_INCALL_WITH_HEADSET,
+	/*internal codec: ..*/
+	SND_ROUTE_RECORD_INCALL_WITH_HEADPHONE,
+	SND_ROUTE_COUNT,
 };
 
 struct snd_board_route {
@@ -232,7 +252,7 @@ struct snd_codec_data {
 };
 
 /*####################################################*\
- * common, used for sound devices
+* common, used for sound devices
 \*####################################################*/
 /**
  * device mame and minor

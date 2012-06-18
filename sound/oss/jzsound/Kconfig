@@ -31,13 +31,33 @@ config SOUND_PCM1_JZ47XX
 	help
 		Say 'Y' to enable On-Chip pcm1
 
-config SOUND_CODEC_JZ4780
-	bool "Jz On-Chip codec driver"
+endmenu
+
+menuconfig JZ_INTERNAL_CODEC
+
+	bool "xburst internal coedc"
 	depends on SOUND_I2S0_JZ47XX
 	help
-		Say 'Y' to enable On-Chip codec
+		Say "Y" to select xburst internal codec.
 
-endmenu
+if JZ_INTERNAL_CODEC
+
+	config JZ4780_INTERNAL_CODEC
+	bool "jz4780 internal codec"
+	help
+		Say "Y" to enable jz4780 internal codec.
+endif #JZ_INTERNAL_CODEC
+
+menuconfig JZ_EXTERNAL_CODEC
+	bool "xburst external codec"
+	help
+		Say	"Y" to setect xburst external codec
+
+if JZ_EXTERNAL_CODEC
+
+	#external codec
+
+endif #JZ_EXTERNAL_CODEC
 
 
 menu "sound MIXER devices of xburst"
@@ -56,6 +76,27 @@ menuconfig SOUND_XBURST_DETECT
 	help
 	  Say 'Y' to enable sound detect devices support.
 
+if SOUND_XBURST_DETECT
+
+menu "JZ headset detect"
+
+config JZ_HP0_DETECT
+	bool "jz4780 headphone detect 0"
+	depends on SOUND_I2S0_JZ47XX
+	help
+	Say "Y" to enable internal codec headphone detect.
+
+config JZ_HP1_DETECT
+	bool "jz4780 headphone detect 1"
+	depends on SOUND_I2S1_JZ47XX
+
+endmenu
+
+menu "JZ dock detect"
+
+endmenu
+
+endif #SOUND_XBURST_DETECT
 
 menuconfig SOUND_XBURST_DEBUG
 	bool "sound debug device of xburst"

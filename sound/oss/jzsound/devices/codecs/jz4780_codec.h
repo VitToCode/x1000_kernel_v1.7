@@ -7,8 +7,7 @@
 #ifndef __JZ4780_CODEC_H__
 #define __JZ4780_CODEC_H__
 
-#include <linux/switch.h>
-#include <mach/jz_audio.h>
+#include <mach/jzsnd.h>
 #include "../xb47xx_i2s0.h"
 #include <linux/bitops.h>
 /* Enable headphone detection */
@@ -67,7 +66,7 @@
 /*------------------*/
  #define AICR_ADC_ADWL          6
   #define AICR_ADC_ADWL_MASK   (0x3 << AICR_ADC_ADWL)
- #define AICR_ADCR_SB           4
+ #define AICR_ADC_SB           4
  #define AICR_ADC_AUDIOIF       0
   #define AICR_ADC_AUDIOIF_MASK (0x3 << AICR_ADC_AUDIOIF)
 
@@ -138,7 +137,7 @@
 /*------------------*/
  #define CR_MIX_EN              7
  #define CR_MIX_LOAD            6
- #define CR_ADD_MIX             0//2 bits
+ #define CR_MIX_ADD             0//2 bits
   #define CR_MIX_ADD_MASK       (0x3 << CR_MIX_ADD)
 /*MIX 0*/
 		#define CR_MIX0			0X0
@@ -200,7 +199,7 @@
 #define CODEC_REG_CR_TIMER_LSB  0x22
 /*------------------*/
  #define CR_TIMER_LSB           0
-  #define CR_TIMER_MSB_MASK     (0xff << CR_TIMER_LSB)
+  #define CR_TIMER_LSB_MASK     (0xff << CR_TIMER_LSB)
 
 #define CODEC_REG_ICR           0x23
 /*------------------*/
@@ -293,24 +292,24 @@
 /*------------------*/
  #define GCR_MIXDAC_LRGOMIX     7
  #define GCR_MIXDAC_GOMIXL      0
-  #define GCR_MIXDAC_GOMIXL_MASK(0x1f << GCR_MIXDAC_GODL)
+  #define GCR_MIXDAC_GOMIXL_MASK	(0x1f << GCR_MIXDAC_GOMIXL)
 
 #define CODEC_REG_GCR_MIXDACR   0x35
 /*------------------*/
  #define GCR_MIXDAC_GOMIXR      0
-  #define GCR_MIXDAC_GOMIXR_MASK(0x1f << GCR_MIXDAC_GOMIXR)
+  #define GCR_MIXDAC_GOMIXR_MASK	(0x1f << GCR_MIXDAC_GOMIXR)
 
 #define CODEC_REG_GCR_MIXADCL   0x36
 /*------------------*/
  #define GCR_MIXADC_LRGIMIX     7
  #define GCR_MIXADC_GIMIXL		0
-  #define GCR_MIXADC_GIMIXL_MASK(0x1f << GCR_MIXADC_GIMIXL)
+  #define GCR_MIXADC_GIMIXL_MASK	(0x1f << GCR_MIXADC_GIMIXL)
 
 
 #define CODEC_REG_GCR_MIXADCR   0x37
 /*------------------*/
  #define GCR_MIXADC_GIMIXR		0
-  #define GCR_MIXADC_GIMIXR_MASK(0x1f << GCR_MIXADC_GIMIXR)
+  #define GCR_MIXADC_GIMIXR_MASK	(0x1f << GCR_MIXADC_GIMIXR)
 
 #define CODEC_REG_CR_ADC_AGC    0x3a
 /*------------------*/
@@ -354,8 +353,8 @@
 #define CODEC_DAC_LOCKED_MASK	BIT(SR_DAC_LOCKED)
 #define CODEC_DAC_UNKOWN_FS_MASK	BIT(SR2_DAC_UNKOWN_FS)
 
-#define __codec_get_sr()	read_inter_codec_reg(CODEC_REG_SR);
-#define __codec_get_sr2()	read_inter_codec_reg(CODEC_REG_SR2);
+#define __codec_get_sr()	read_inter_codec_reg(CODEC_REG_SR)
+#define __codec_get_sr2()	read_inter_codec_reg(CODEC_REG_SR2)
 /* ops */
 /* misc ops*/
 
@@ -369,7 +368,7 @@
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_SLAVE_MODE ,AICR_DAC_MODE);	\
 } while (0)
-#define __codec_selec_slave_mode()	\
+#define __codec_selec_master_mode()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_MASTER_MODE ,AICR_DAC_MODE);	\
 } while (0)
@@ -380,17 +379,16 @@ do {	\
 #define CODEC_LEFTJUSTIFIED_INTERFACE	1
 #define CODEC_DSP_INTERFACE				2
 #define CODEC_I2S_INTERFACE				3
-
 #define __codec_select_adc_digital_interface(mode)	\
 do {	\
-	write_inter_codec_reg_bit_mask(CODEC_REG_AICR_ADC, mode,	\
-	                               AICR_ADC_AUDIOIF,AICR_ADC_AUDIOIF);	\
+	write_inter_codec_reg_mask(CODEC_REG_AICR_ADC, mode,	\
+				AICR_ADC_AUDIOIF_MASK,AICR_ADC_AUDIOIF);	\
 } while (0)
 
 #define __codec_select_dac_digital_interface(mode)				\
 do {	\
-	write_inter_codec_reg_bit_mask(CODEC_REG_AICR_DAC, mode,	\
-	                               AICR_DAC_AUDIOIF_MASK,AICR_DAC_AUDIOIF);	\
+	write_inter_codec_reg_mask(CODEC_REG_AICR_DAC, mode,	\
+	            AICR_DAC_AUDIOIF_MASK,AICR_DAC_AUDIOIF);	\
 } while (0)
 
 
@@ -409,7 +407,7 @@ do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC, POWER_ON, AICR_DAC_SB);	\
 } while (0)
 
-#define __codec_enable_dac_interface()	\
+#define __codec_disable_dac_interface()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC, POWER_OFF, AICR_DAC_SB);	\
 } while (0)
@@ -442,7 +440,7 @@ do {	\
 
 #define __codec_select_dac_samp_rate(val)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_FCR_DAC,val & FCR_DAC_FREQ_MASK);	\
+	write_inter_codec_reg_mask(CODEC_REG_FCR_DAC,val,FCR_DAC_FREQ_MASK,FCR_DAC_FREQ);	\
 } while (0)
 
 #define __codec_get_dac_samp_rate()     (read_inter_codec_reg(CODEC_REG_FCR_DAC) &     \
@@ -491,7 +489,7 @@ do {													        \
 
 #define __codec_get_sb_line_out()	((read_inter_codec_reg(CODEC_REG_CR_LO) &	\
 									(1 << CR_SB_LO)) ?		                    \
-									POWER_OFF : POWER_ON
+									POWER_OFF : POWER_ON)
 
 #define __codec_switch_sb_line_out(pwrstat)					\
 do {															\
@@ -548,7 +546,7 @@ do {															\
 #define __codec_switch_sb_mic2(pwrstat)						\
 do {															\
 	if (__codec_get_sb_mic2() != pwrstat) {				        \
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIC, pwrstat,	\
+		write_inter_codec_reg_bit(CODEC_REG_CR_MIC2, pwrstat,	\
 								  CR_SB_MIC2);					\
 	}															\
 																\
@@ -617,7 +615,7 @@ do {															\
 
 #define ICR_ALL_MASK            (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_LOCK_MASK | IMR_JACK_MASK | IMR_SCLR_MASK)
 
-#ifdef CONFIG_HP_SENSE_DETECT
+#ifdef CONFIG_HP_JZ_DETECT
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK)
 #else
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_JACK_MASK)
@@ -637,7 +635,7 @@ do {															\
 
 #define __codec_set_int_form(opt)						\
 do {	                                                                                \
-	write_inter_codec_reg(CODEC_REG_ICR, ((opt & INT_FORM_MASK) << ICR_INT_FORM)); 	\
+	write_inter_codec_reg(CODEC_REG_ICR, ((opt & ICR_INT_FORM_MASK) << ICR_INT_FORM)); 	\
 										        \
 } while (0)
 
@@ -783,7 +781,7 @@ do {	\
 
 #define __codec_set_lineout_mux(opt)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
+	write_inter_codec_reg_mask(CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
 } while (0)
 
 /*CR_DAC :dac ops*/
@@ -837,7 +835,7 @@ do {	\
 #define __codec_disable_dmic_clk()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_CR_DMIC,CODEC_DMIC_CLK_OFF,CR_DMIC_CLKON);	\
-}
+} while (0)
 
 /* CR_ADC,MIC1,MIC2: mic opt*/
 #define CODEC_MIC_STEREO	1
@@ -933,7 +931,7 @@ do {	\
 #define __codec_select_linein2_input(opt)	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,opt,CR_LI2_SEL);	\
-}
+} while (0)
 
 /*FCR_ADC : record filter */
 #define CODEC_ADC_HPF_ENABLE        1
@@ -1007,7 +1005,7 @@ do {	\
 									(1 << CR_MIX_EN))?	\
 									1 : 0)
 
-static int inline __codec_mix_read_reg(mix_num)
+static int inline __codec_mix_read_reg(int mix_num)
 {
 	if (!___codec_mix_is_enable())
 		write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);
@@ -1015,18 +1013,18 @@ static int inline __codec_mix_read_reg(mix_num)
 	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,0,CR_MIX_LOAD);
 	write_inter_codec_reg_mask(CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
 
-	return (read_inter_codec_reg_mask(CODEC_REG_DR_MIX) & DR_MIX_DATA_MASK);
+	return (read_inter_codec_reg(CODEC_REG_DR_MIX) & DR_MIX_DATA_MASK);
 }
 
-static void inline __codec_mix_write_reg(mix_num,data)
+static void inline __codec_mix_write_reg(int mix_num,unsigned int data)
 {
 	if (!___codec_mix_is_enable())
 		write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);
 
 	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_LOAD);
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
+	write_inter_codec_reg_mask(CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
 
-	write_inter_codec_reg_bit(CODEC_REG_DR_MIX,data&DR_MIX_DATA_MASK);
+	write_inter_codec_reg_mask(CODEC_REG_DR_MIX,data ,DR_MIX_DATA_MASK, DR_MIX_DATA);
 }
 
 #define CODEC_RECORD_MIX_INPUT_ONLY     0
@@ -1220,17 +1218,17 @@ do {	\
 #define CODEC_MIX_SYNC_GAIN_ENABLE		1
 #define CODEC_MIX_SYNC_GAIN_DISABLE		0
 
-#define __test_mixin_is_sync_gain()	read_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL) & BIT(GCR_MIXADC_LRGIMIX)
+#define __test_mixin_is_sync_gain()	(read_inter_codec_reg(CODEC_REG_GCR_MIXADCL) & BIT(GCR_MIXADC_LRGIMIX))
 
 #define __codec_enable_mixin_sync_gain()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_ENABLE	\
+	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
 							  GCR_MIXADC_LRGIMIX);	\
 } while (0)
 
 #define __codec_disable_mixin_sync_gain()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_DISABLE	\
+	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
 							  GCR_MIXADC_LRGIMIX);	\
 } while (0)
 
@@ -1251,67 +1249,18 @@ do {	\
 
 #define __codec_get_gomixr() (read_inter_codec_reg(CODEC_REG_GCR_MIXDACR) & GCR_MIXDAC_GOMIXR_MASK)
 
-#define __test_mixout_is_sync_gain()	read_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL) & BIT(GCR_MIXDAC_LRGOMIX)
+#define __test_mixout_is_sync_gain()	(read_inter_codec_reg(CODEC_REG_GCR_MIXDACL) & BIT(GCR_MIXDAC_LRGOMIX))
 
 #define __codec_enable_mixout_sync_gain()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_ENABLE	\
+	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
 							  GCR_MIXDAC_LRGOMIX);	\
 } while (0)
 
 #define __codec_disable_mixout_sync_gain()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_DISABLE	\
+	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
 							  GCR_MIXDAC_LRGOMIX);	\
 } while (0)
 
-/*############################### misc start #################################*/
-
-/*======================================================*/
-
-
-#ifdef CONFIG_HP_SENSE_DETECT
-
-struct codec_work_priv {
-	struct work_struct *codec_irq_work;
-	struct work_struct *detect_work;
-};
-
-#endif //CONFIG_HP_SENSE_DETECT
-
-/*======================================================*/
-
-typedef struct {
-	int codec_sys_clk;
-	int codec_dmic_clk;
-	int codec_replay_volume_base;
-	int codec_record_volume_base;
-	int codec_record_digital_volume_base;
-	int codec_replay_digital_volume_base;
-	int codec_replay_hp_output_gain;
-	unsigned int default_replay_route;
-	unsigned int default_record_route;
-	unsigned int default_call_record_route;
-	int (*codec_set_device)(struct snd_device_config *arg);
-	int (*codec_set_standby)(unsigned int sw);
-	int (*codec_set_gpio_before_set_route)(int route);
-	int (*codec_set_gpio_after_set_route)(int route);
-	int (*codec_init_part)(void);
-	int (*codec_turn_off_part)(int mode);
-	int (*codec_shutdown_part)(void);
-	int (*codec_reset_part)(void);
-	int (*codec_suspend_part)(void);
-	int (*codec_resume_part)(void);
-	int (*codec_anti_pop_part)(void);
-} jz_codec_platform_data_t;
-
-/*======================================================*/
-
-int codec_set_route(int route);
-void codec_sleep(int ms);
-
-/*======================================================*/
-
-/*############################### misc end ###################################*/
-
-
+#endif /*__JZ4780_CODEC_H__*/

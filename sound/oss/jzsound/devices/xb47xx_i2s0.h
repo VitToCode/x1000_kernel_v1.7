@@ -3,7 +3,7 @@
 #define _XB_SND_I2S0_H_
 
 #include <mach/jzdma.h>
-
+#include <asm/io.h>
 
 
 extern unsigned int DEFAULT_REPLAY_ROUTE;
@@ -22,9 +22,6 @@ static void __iomem *i2s0_iomem;
 /**
  * registers
  **/
-#define I2S0_IOBASE	0x10020000
-#define I2S0_IOEND	0x100200A8
-#define I2S0_IOSIZE (I2S0_IOEND - I2S0_IOBASE + 1)
 
 #define AIC0FR 0x0
 #define AIC0CR 0x4
@@ -45,30 +42,29 @@ static void __iomem *i2s0_iomem;
 #define RGDATA 0xa8
 
 
-#define JZDMA_REQ_I2S0_TX JZDMA_REQ_AIC_TX
-#define JZDMA_REQ_I2S0_RX JZDMA_REQ_AIC_RX
-
 /**
  * i2s register control
  **/
 static unsigned long read_val;
+static unsigned long tmp_val;
 #define i2s0_write_reg(addr,val)        \
-	writel(i2s0_iomem+addr,val)
+	writel(val,i2s0_iomem+addr)
 
 #define i2s0_read_reg(addr)             \
 	readl(i2s0_iomem+addr)
 
 #define i2s0_set_reg(addr,val,mask,offset)\
-	do {                                            \
+	do {										\
+		tmp_val = val;							\
 		read_val = i2s0_read_reg(addr);         \
-		read_val &= ~mask;                      \
-		val = (val << offset) & mask;           \
-		val |= read_val;                        \
-		i2s0_write_reg(addr,var);               \
+		read_val &= (~mask);                    \
+		tmp_val = ((tmp_val << offset) & mask); \
+		tmp_val |= read_val;                    \
+		i2s0_write_reg(addr,tmp_val);           \
 	}while(0)
 
 #define i2s0_get_reg(addr,mask,offset)  \
-	(i2s0_read_reg(addr) & mask) >> offset
+	((i2s0_read_reg(addr) & mask) >> offset)
 
 #define i2s0_clear_reg(addr,mask)       \
 	i2s0_write_reg(addr,~mask)
@@ -414,12 +410,12 @@ static inline int  __i2s0_set_sample_rate(unsigned long i2sclk, unsigned long sy
 #define test_rw_inval()         \
 	i2s0_get_reg(RGADW,I2S0_RGWR_MASK,I2S0_RGWR_OFFSET)
 
-static int inline write_inter_codec_reg(int addr,int data)
+static void inline write_inter_codec_reg(int addr,int data)
 {
 	while(!test_rw_inval());
-	i2s0_write_reg( RGADW,((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
-			((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK |
-			(1 << I2S0_RGWR_OFFSET));
+	i2s0_write_reg( RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
+			(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK) |
+			(1 << I2S0_RGWR_OFFSET)));
 }
 
 
@@ -437,20 +433,20 @@ static int inline read_inter_codec_reg(int addr)
 {
 	int reval;
 	while(test_rw_inval());
-	i2s0_write_reg(RGADW,((addr << I2S0_RGADDR_MASK) & I2S0_RGADDR_OFFSET ));
+	i2s0_write_reg(RGADW,((addr << I2S0_RGADDR_OFFSET) & I2S0_RGADDR_MASK ));
 
 	while((reval = i2s0_read_reg(RGDATA)) & I2S0_RINVAL_MASK);
 
 	return reval & I2S0_RGDOUT_MASK;
 }
 
-static int inline read_inter_codec_irq()
+static int inline read_inter_codec_irq(void)
 {
-	return i2s0_read_reg(RGDATA) & I2S0_IRQ_MASK;
+	return (i2s0_read_reg(RGDATA) & I2S0_IRQ_MASK);
 }
 
 
-static int inline write_inter_codec_reg_bit(int addr,int bitval,int mask_bit)
+static void inline write_inter_codec_reg_bit(int addr,int bitval,int mask_bit)
 {
 	int val1;
 	val1 = read_inter_codec_reg(addr);
@@ -463,9 +459,9 @@ static int inline write_inter_codec_reg_bit(int addr,int bitval,int mask_bit)
 	write_inter_codec_reg(addr,val1);
 }
 
-static int inline write_inter_codec_reg_mask(int addr,int val, int mask,int offset)
+static void inline write_inter_codec_reg_mask(int addr,int val, int mask,int offset)
 {
-	write_inter_codec_reg(addr, read_inter_codec_reg(addr)&(~mask) | (val << offset) & mask);
+	write_inter_codec_reg(addr,((read_inter_codec_reg(addr)&(~mask)) | ((val << offset) & mask)));
 }
 
 /**
@@ -515,35 +511,9 @@ enum codec_ioctl_cmd_t {
 	CODEC_IRQ_DETECT,
 	CODEC_IRQ_HANDLE,
 };
-
-/**
- * i2s device support
- **/
-enum device_t {
-	SND_DEVICE_DEFAULT = 0,
-	SND_DEVICE_CURRENT,
-	SND_DEVICE_HANDSET,
-	SND_DEVICE_HEADSET,
-	SND_DEVICE_SPEAKER,
-	SND_DEVICE_BT,
-	SND_DEVICE_BT_EC_OFF,
-	SND_DEVICE_HEADSET_AND_SPEAKER,
-	SND_DEVICE_TTY_FULL,
-	SND_DEVICE_CARKIT,
-	SND_DEVICE_FM_SPEAKER,
-	SND_DEVICE_FM_HEADSET,
-	SND_DEVICE_NO_MIC_HEADSET,
-	SND_DEVICE_HDMI,
-	SND_DEVICE_COUNT
-};
-
 /**
  * i2s0 switch state
  **/
-
-spinlock_t i2s0_hp_detect_state;
-
-int jz_switch_state;
 
 void set_switch_state(int state);
 

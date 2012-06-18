@@ -11,6 +11,8 @@
 #ifndef __JZ4780_ROUTE_CONF_H__
 #define __JZ4780_ROUTE_CONF_H__
 
+#include <mach/jzsnd.h>
+
 typedef struct __route_conf_base {
 	/*--------route-----------*/
 	int route_ready_mode;
@@ -26,7 +28,7 @@ typedef struct __route_conf_base {
 	int route_record_mixer_mode;
 	//replay
 	int route_replay_mixer_mode;
-	int route_dac_mixer_mode;
+	int route_dac_mode;
 	int route_hp_mux_mode;
 	int route_hp_mode;
 	int route_lineout_mux_mode; //new
@@ -50,8 +52,8 @@ typedef struct __route_conf_base {
 	int attibute_hp_r_gain;				//val: +6 ~ +1, 32(0), -1 ~ -25 (dB);
 } route_conf_base;
 
-struct __dlv_route_info {
-	unsigned int route_name;
+struct __codec_route_info {
+	enum snd_codec_route_t route_name;
 	route_conf_base const *route_conf;
 };
 
@@ -159,26 +161,6 @@ struct __dlv_route_info {
 #define AGC_ENABLE							1
 #define AGC_DISABLE							DISABLE
 
-
-/***************************************************************************************\
- *                                                                                     *
- *route table                                                                          *
- *                                                                                     *
-\***************************************************************************************/
-
-enum dlv_route_t {
-	ROUTE_ALL_CLEAR,
-	ROUTE_REPLAY_CLEAR,
-	ROUTE_RECORD_CLEAR,
-	RECORD_MIC_STEREO_DIFF_WITH_BIAS_TO_ADCLR,						/*stereo mic recoard*/
-	RECORD_LINEIN_STEREO_DIFF_TO_ADCLR,								/*stereo linein recoard*/
-	REPLAY_HP_STEREO,												/*stereo headphone replay*/
-	REPLAY_LINEOUT_LR,												/*stereo lineout replay*/
-	RECORD_MIC1_DIFF_WITH_BIAS_TO_ADCLR_BYPASS_LINEIN2_TO_HP_LR,	/*phone call*/
-	RECORD_MIC1_AND_LINE2_DIFF_WITH_BIAS_TO_ADCLR_BYPASS_LINEIN2_TO_HP_LR,/*recoard in call*/
-	ROUTE_COUNT
-};
-
-extern struct __dlv_route_info dlv_route_info[];
+extern struct __codec_route_info codec_route_info[];
 
 #endif /*__JZ4780_ROUTE_CONF_H__*/
