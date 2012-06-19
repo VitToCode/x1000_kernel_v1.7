@@ -48,6 +48,9 @@ static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.accel		= FB_ACCEL_NONE,
 };
 
+static void jzfb_enable(struct fb_info *info);
+static int jzfb_set_par(struct fb_info *info);
+
 static int jzfb_open(struct fb_info *info, int user)
 {
 	unsigned int tmp;
@@ -62,7 +65,18 @@ static int jzfb_open(struct fb_info *info, int user)
 	if (tmp & LCDC_OSDC_F1EN) {
 		dev_info(info->dev,"jzfb_open() LCDC_OSDC_F1EN, disable FG1.\n");
 	}
+	
+	if(!jzfb->is_enabled) {
+		jzfb_set_par(info);
+	}
 
+	jzfb_enable(info);
+
+	return 0;
+}
+
+int jzfb_release(struct fb_info *info, int user)
+{
 	return 0;
 }
 
@@ -193,8 +207,6 @@ int jzfb_prepare_dma_desc(struct fb_info *info)
 		jzfb->framedesc->desc_size = size0;
 	} else {
 	}
-
-	reg_write(jzfb, LCDC_DA0, jzfb->framedesc->next);
 
 	return 0;
 }
@@ -393,9 +405,16 @@ static int jzfb_set_par(struct fb_info *info)
 	return 0;
 }
 
-static void jzfb_enable(struct jzfb *jzfb)
+static void jzfb_enable(struct fb_info *info)
 {
 	uint32_t ctrl;
+	struct jzfb *jzfb = info->par;
+
+	mutex_lock(&jzfb->lock);
+	if(jzfb->is_enabled) {
+		mutex_unlock(&jzfb->lock);
+		return;
+	}
 
 	clk_enable(jzfb->ldclk);
 
@@ -407,12 +426,20 @@ static void jzfb_enable(struct jzfb *jzfb)
 	ctrl |= LCDC_CTRL_ENA;
 	ctrl &= ~LCDC_CTRL_DIS;
 	reg_write(jzfb, LCDC_CTRL, ctrl);
+	jzfb->is_enabled = 1;
+	mutex_unlock(&jzfb->lock);
 }
 
-static void jzfb_disable(struct jzfb *jzfb)
+static void jzfb_disable(struct fb_info *info)
 {
 	uint32_t ctrl;
+	struct jzfb *jzfb = info->par;
 
+	mutex_lock(&jzfb->lock);
+	if(!jzfb->is_enabled) {
+		mutex_unlock(&jzfb->lock);
+		return;
+	}
 	ctrl = reg_read(jzfb, LCDC_CTRL);
 	ctrl |= LCDC_CTRL_DIS;
 	reg_write(jzfb, LCDC_CTRL,ctrl);
@@ -421,37 +448,18 @@ static void jzfb_disable(struct jzfb *jzfb)
 	} while (!(ctrl & LCDC_STATE_LDD));
 
 	clk_disable(jzfb->ldclk);
+	jzfb->is_enabled = 0;
+	mutex_unlock(&jzfb->lock);
 }
 
 static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
-	struct jzfb *jzfb = info->par;
-
 	switch (blank_mode) {
 		case FB_BLANK_UNBLANK:
-			mutex_lock(&jzfb->lock);
-			if (jzfb->is_enabled) {
-				mutex_unlock(&jzfb->lock);
-				return 0;
-			}
-
-			jzfb_enable(jzfb);
-			jzfb->is_enabled = 1;
-
-			mutex_unlock(&jzfb->lock);
+			jzfb_enable(info);
 			break;
 		default:
-			mutex_lock(&jzfb->lock);
-			if (!jzfb->is_enabled) {
-				mutex_unlock(&jzfb->lock);
-				return 0;
-			}
-
-			jzfb_disable(jzfb);
-			jzfb->is_enabled = 0;
-
-			mutex_unlock(&jzfb->lock);
-			break;
+			jzfb_disable(info);
 	}
 
 	return 0;
@@ -578,6 +586,7 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open		= jzfb_open,
+	.fb_release		= jzfb_release,
 	.fb_check_var 		= jzfb_check_var,
 	.fb_set_par 		= jzfb_set_par,
 	.fb_blank		= jzfb_blank,
@@ -592,15 +601,15 @@ static struct fb_ops jzfb_ops = {
 static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+	fb_blank(jzfb->fb,FB_BLANK_POWERDOWN);
 	fb_set_suspend(jzfb->fb, 1);
-	jzfb_disable(jzfb);
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	jzfb_enable(jzfb);
 	fb_set_suspend(jzfb->fb, 0);
+	fb_blank(jzfb->fb,FB_BLANK_UNBLANK);
 }
 #endif
 
@@ -782,10 +791,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->screen_base = jzfb->vidmem;
 
 	clk_enable(jzfb->ldclk);
-	jzfb->is_enabled = pdata->enable;
-
-	fb->mode = NULL;
-	jzfb_set_par(fb);
 
 	ret = register_framebuffer(fb);
 	if (ret) {
@@ -817,11 +822,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
 		goto err_free_file;
-	}
-	if (jzfb->is_enabled) {
-		jzfb_enable(jzfb);
-	} else {
-		jzfb_disable(jzfb);
 	}
 
 	return 0;

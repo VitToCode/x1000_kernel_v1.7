@@ -40,11 +40,6 @@ static void at070tn93_on(struct at070tn93_data *dev)
 
 	gpio_direction_output(dev->pdata->gpio_vsync,1);
 	gpio_direction_output(dev->pdata->gpio_hsync,1);
-
-	gpio_direction_output(dev->pdata->gpio_reset,0);
-	mdelay(2);
-	gpio_direction_output(dev->pdata->gpio_reset,1);
-	msleep(110);
 }
 
 static void at070tn93_off(struct at070tn93_data *dev)
