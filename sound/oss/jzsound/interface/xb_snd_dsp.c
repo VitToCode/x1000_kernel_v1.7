@@ -1053,8 +1053,9 @@ long xb_snd_dsp_ioctl(struct file *file,
 	if (endpoints == NULL)
 		return -ENODEV;
 
-	//if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_WRITE))
-	//	return -1;
+	/* O_RDWR mode operation, do not allowed */
+	if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_WRITE))
+		return -EPERM;
 
 	switch (cmd) {
 		//case SNDCTL_DSP_BIND_CHANNEL:
@@ -1090,27 +1091,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
-	case SOUND_PCM_READ_CHANNELS: {
-		/* not a oss standed command, used to set the number of record channels when
-		 opend as O_RDWR */
-		int channels = -1;
-
-		if (get_user(channels, (int *)arg)) {
-			return -EFAULT;
-		}
-
-		if (file->f_mode & FMODE_READ) {
-			if (ddata->dev_ioctl)
-				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
-			if (!ret)
-				break;
-		} else
-			return -EPERM;
-
-		ret = put_user(channels, (int *)arg);
-		break;
-	}
-
 		//case SNDCTL_DSP_COOKEDMODE:
 		/* OSS 4.x: Disable/enable the "on fly" format conversions made by the OSS software */
 		/* we do't support here */
@@ -1126,10 +1106,22 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* we do't support here */
 		//break;
 
-		//case SNDCTL_DSP_GETBLKSIZE:
+	case SNDCTL_DSP_GETBLKSIZE: {
 		/* OSS 4.x: Get the current fragment size (obsolete) */
-		/* we do't support here */
-		//break;
+		int blksize = 0;
+
+		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->in_endpoint;
+		} else if (file->f_mode & FMODE_READ) {
+			dp = endpoints->in_endpoint;
+		} else
+			return -EPERM;
+
+		blksize = dp->fragsize * dp->fragcnt;
+
+		ret = put_user(blksize, (int *)arg);
+		break;
+	}
 
 		//case SNDCTL_DSP_GETCAPS:
 		/* OSS 4.x: Returns the capabilities of an audio device */
@@ -1169,6 +1161,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 				break;
 		} else
 			return -EPERM;
+
 		ret = put_user(mask, (int *)arg);
 		break;
 	}
@@ -1192,6 +1185,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			amount = get_use_dsp_node_count(dp) * dp->fragsize;
 			ret = put_user(amount, (int *)arg);
 		}
+
 		break;
 	}
 
@@ -1219,6 +1213,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			amount = get_free_dsp_node_count(dp) * dp->fragsize;
 			ret = put_user(amount, (int *)arg);
 		}
+
 		break;
 	}
 
@@ -1417,27 +1412,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			return -EPERM;
 
 		ret = put_user(rate, (int *)arg);
-		break;
-	}
 
-	case SOUND_PCM_READ_RATE: {
-		/* not a oss standed command, used to set the number of record channels when
-		 opend as O_RDWR */
-		int rate = -1;
-
-		if (get_user(rate, (int *)arg)) {
-			return -EFAULT;
-		}
-
-		if (file->f_mode & FMODE_READ) {
-			if (ddata->dev_ioctl)
-				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_RATE, (unsigned long)&rate);
-			if (!ret)
-				break;
-		} else
-			return -EPERM;
-
-		ret = put_user(rate, (int *)arg);
 		break;
 	}
 
@@ -1696,20 +1671,22 @@ int xb_snd_dsp_mmap(struct file *file,
 
 	if (vma->vm_flags & VM_READ) {
 		dp = endpoints->in_endpoint;
-		ret = mmap_pipe(dp, vma);
-		if (ret)
-			return ret;
-
-		dp->is_mmapd = true;
+		if (dp->is_used) {
+			ret = mmap_pipe(dp, vma);
+			if (ret)
+				return ret;
+			dp->is_mmapd = true;
+		}
 	}
 
 	if (vma->vm_flags & VM_WRITE) {
 		dp = endpoints->out_endpoint;
-		ret = mmap_pipe(dp, vma);
-		if (ret)
-			return ret;
-
-		dp->is_mmapd = true;
+		if (dp->is_used) {
+			ret = mmap_pipe(dp, vma);
+			if (ret)
+				return ret;
+			dp->is_mmapd = true;
+		}
 	}
 
 	return ret;
@@ -1723,7 +1700,8 @@ int xb_snd_dsp_open(struct inode *inode,
 					struct snd_dev_data *ddata)
 {
 	int ret = -ENXIO;
-	struct dsp_pipe *dp = NULL;
+	struct dsp_pipe *dpi = NULL;
+	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
 	if (ddata == NULL)
@@ -1733,17 +1711,27 @@ int xb_snd_dsp_open(struct inode *inode,
 	if (endpoints == NULL)
 		return -ENODEV;
 
+	dpi = endpoints->in_endpoint;
+	dpo = endpoints->out_endpoint;
+
+	/* O_RDWR mode, if used for mmap, should open O_RDONLY or
+	   O_WRONLY first, and then open as O_RDWR, you can only
+	   map the mode(VM_WRITE / VM_READ) corresponding your
+	   first opend */
+	if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_READ))
+		if ((dpi && dpi->is_used) || (dpo && dpo->is_used))
+			return 0;
+
 	if (file->f_mode & FMODE_READ) {
-		dp = endpoints->in_endpoint;
-		if (dp == NULL)
+		if (dpi == NULL)
 			return -ENODEV;
 
-		if (dp->is_used) {
+		if (dpi->is_used) {
 			printk("\nAudio read device is busy!\n");
 			return -EBUSY;
 		}
 
-		dp->is_non_block = file->f_flags & O_NONBLOCK;
+		dpi->is_non_block = file->f_flags & O_NONBLOCK;
 
 		/* enable dsp device record */
 		if (ddata->dev_ioctl) {
@@ -1751,25 +1739,24 @@ int xb_snd_dsp_open(struct inode *inode,
 			if (!ret)
 				return -EIO;
 		}
-		dp->is_used = true;
+		dpi->is_used = true;
 		/* request dma for record */
-		ret = snd_reuqest_dma(dp);
+		ret = snd_reuqest_dma(dpi);
 		if (!ret) {
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
-		dp = endpoints->out_endpoint;
-		if (dp == NULL)
+		if (dpo == NULL)
 			return -ENODEV;
 
-		if (dp->is_used) {
+		if (dpo->is_used) {
 			printk("\nAudio write device is busy!\n");
 			return -EBUSY;
 		}
 
-		dp->is_non_block = file->f_flags & O_NONBLOCK;
+		dpo->is_non_block = file->f_flags & O_NONBLOCK;
 
 		/* enable dsp device replay */
 		if (ddata->dev_ioctl) {
@@ -1777,10 +1764,10 @@ int xb_snd_dsp_open(struct inode *inode,
 			if (!ret)
 				return -EIO;
 		}
-		dp->is_used = true;
+		dpo->is_used = true;
 
 		/* request dma for replay */
-		ret = snd_reuqest_dma(dp);
+		ret = snd_reuqest_dma(dpo);
 		if (!ret) {
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
