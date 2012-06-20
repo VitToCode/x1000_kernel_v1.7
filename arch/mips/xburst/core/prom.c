@@ -17,11 +17,9 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/string.h>
-
-#include <linux/serial_reg.h>
-
 #include <asm/bootinfo.h>
-#include <asm/mach-jz4740/base.h>
+
+#include <soc/base.h>
 
 static __init void prom_init_cmdline(int argc, char *argv[])
 {

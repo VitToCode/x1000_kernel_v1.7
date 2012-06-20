@@ -80,7 +80,21 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_I2C4_JZ4780_PF
 	I2C4_PORTF,
 #endif
-	UART2_PORTC,
+#ifdef SERIAL_JZ47XX_UART0
+	UART0_PORTF,
+#endif
+#ifdef SERIAL_JZ47XX_UART1
+	UART1_PORTD,
+#endif
+#ifdef SERIAL_JZ47XX_UART2
+	UART2_PORTD,
+#endif
+#ifdef SERIAL_JZ47XX_UART3
+	UART3_PORTDE,
+#endif
+#ifdef SERIAL_JZ47XX_UART4
+	UART4_PORTC,
+#endif
 	LCD_PORTC,
 	PWM1_PORTE,
 	MII_PORTBDF,
@@ -263,5 +277,31 @@ struct platform_device jz_fb##NO##_device = {					\
 };
 DEF_LCD(0);
 DEF_LCD(1);
+
+
+#define DEF_UART(NO)								\
+static struct resource jz_uart##NO##_resources[] = {				\
+	[0] = {									\
+		.start          = UART##NO##_IOBASE,				\
+		.end            = UART##NO##_IOBASE + 0x1000 - 1,		\
+		.flags          = IORESOURCE_MEM,				\
+	},									\
+	[1] = {									\
+		.start          = IRQ_UART##NO,					\
+		.end            = IRQ_UART##NO,					\
+		.flags          = IORESOURCE_IRQ,				\
+	},									\
+};										\
+struct platform_device jz_uart##NO##_device = {					\
+	.name = "jz-uart",							\
+	.id = NO,								\
+	.num_resources  = ARRAY_SIZE(jz_uart##NO##_resources),			\
+	.resource       = jz_uart##NO##_resources,				\
+};
+DEF_UART(0);
+DEF_UART(1);
+DEF_UART(2);
+DEF_UART(3);
+DEF_UART(4);
 
 

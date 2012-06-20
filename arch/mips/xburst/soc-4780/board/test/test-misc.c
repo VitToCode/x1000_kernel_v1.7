@@ -40,6 +40,21 @@ static int __init test_board_init(void)
 	jz_device_register(&jz_fb0_device,&jzfb_pdata);
 	jz_device_register(&jz_fb0_device,&jzfb_pdata);
 
+#ifdef SERIAL_JZ47XX_UART0
+	platform_device_register(&jz_uart0_device);
+#endif
+#ifdef SERIAL_JZ47XX_UART1
+	platform_device_register(&jz_uart1_device);
+#endif
+#ifdef SERIAL_JZ47XX_UART2
+	platform_device_register(&jz_uart2_device);
+#endif
+#ifdef SERIAL_JZ47XX_UART3
+	platform_device_register(&jz_uart3_device);
+#endif
+#ifdef SERIAL_JZ47XX_UART4
+	platform_device_register(&jz_uart4_device);
+#endif
 	return 0;
 }
 
