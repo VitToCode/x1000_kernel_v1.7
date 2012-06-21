@@ -25,14 +25,13 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
-#include "tcu.h"
+#include "ost.h"
 
-#define regr(off) 	inl(TCU_IOBASE + (off))
-#define regw(val,off)	outl(val, TCU_IOBASE + (off))
+#define regr(off) 	inl(OST_IOBASE + (off))
+#define regw(val,off)	outl(val, OST_IOBASE + (off))
 
-#define SYS_OSTCSR 	(OSTCSR_CNT_MD | CSR_DIV4 | CSR_EXT_EN)
 #define SYS_TIMER_CLK 	(JZ_EXTAL/4)
-#define SYS_TIMER_IRQ 	IRQ_TCU0
+#define SYS_TIMER_IRQ 	IRQ_OST
 
 union clycle_type
 {
@@ -71,7 +70,7 @@ static irqreturn_t timer_interrupt(int irq, void *data)
 	struct clock_event_device *cd = data;
 	unsigned long dr;
 
-	regw(TFR_OSTF,  TCU_TFCR);  /* clear ost flag */
+	regw(TFR_OSTF,  OST_TFCR);  /* clear ost flag */
 	dr = regr(OST_DR);
 	do {
 		dr += (SYS_TIMER_CLK + (HZ>>1)) / HZ;
@@ -122,15 +121,19 @@ static void __init jz_sysclock_setup(void)
 	latch = (SYS_TIMER_CLK + (HZ>>1)) / HZ;
 
 	/* counter never clear to 0, clk EXTAL/4 */
-	regw(SYS_OSTCSR, OST_CSR);
 	regw( 0, OST_CNTL);
 	regw( 0, OST_CNTH);
 	regw(latch, OST_DR);
 
-	regw(TFR_OSTF,  TCU_TFCR);  /* clear ost flag */
-	regw(TMR_OSTM,  TCU_TMCR);  /* unmask match irq */
-	regw(TSR_OSTS,  TCU_TSCR);  /* clear stop bit */
-	regw(TER_OSTEN, TCU_TESR);  /* start counting up */
+	regw(TFR_OSTF,  OST_TFCR);  /* clear ost flag */
+	regw(TMR_OSTM,  OST_TMCR);  /* unmask match irq */
+	regw(TSR_OSTS,  OST_TSCR);  /* clear stop bit */
+
+
+	regw(OSTCSR_CNT_MD, OST_CSR);
+	regw(CSR_DIV4,OST_TCSR);
+	regw(OST_EN,OST_TESR);
+
 
 	/* init clock source */
 	clocksource_jz.mult = 

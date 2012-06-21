@@ -94,11 +94,4 @@ extern struct platform_device jz_uart4_device;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
-/* register function for a 8250 console */
-#ifdef CONFIG_SERIAL_8250
-int __init jzsoc_register_8250serial(int id);
-#else
-#define jzsoc_register_8250serial(id) (0)
-#endif
-
 #endif

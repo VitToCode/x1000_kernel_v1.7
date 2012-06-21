@@ -17,6 +17,7 @@
 #include <asm/irq_cpu.h>
 
 #include <soc/base.h>
+#include <soc/irq.h>
 
 #define PART_OFF	0x20
 
@@ -136,7 +137,9 @@ asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
 
-	if(pending & CAUSEF_IP2)
+	if (pending & CAUSEF_IP4) {
+		do_IRQ(IRQ_OST); 
+	} else if(pending & CAUSEF_IP2)
 		intc_irq_dispatch();
 #ifdef CONFIG_SMP
 	else if(pending & CAUSEF_IP3)

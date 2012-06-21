@@ -18,7 +18,7 @@
 #define INTC_IRQ_BASE		8
 
 enum {
-#define INTC_NR_IRQS	64
+#define INTC_NR_IRQS	(64 + 1) //add irq_ost
 	IRQ_INTC_BASE = INTC_IRQ_BASE,
 	IRQ_INTC_END = IRQ_INTC_BASE + INTC_NR_IRQS,
 

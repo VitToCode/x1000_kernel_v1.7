@@ -78,6 +78,7 @@ enum {
 	IRQ_PDMAM,
 	IRQ_VPU,
 	IRQ_GPU,
+	IRQ_OST,
 };
 
 #endif
