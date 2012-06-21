@@ -10,11 +10,18 @@
 #define __SOC_4770_H__
 
 /* devio define list */
-#define	UART0_PORTF							\
-	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf, }
-#define UART2_PORTC							\
-	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x5<<28, }
-	
+#define UART0_PORTF							\
+	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, },	\
+#define UART1_PORTD							\
+	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xf<<26, },\
+#define UART2_PORTD							\
+	{ .name = "uart2", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0xf<<4, },	\
+#define UART3_PORTDE							\
+	{ .name = "uart3-pd-f0", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<12, },\
+	{ .name = "uart3-pe-f1", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x1<<5, },	\
+	{ .name = "uart3-pe-f0", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<7, },	\
+#define UART4_PORTC							\
+	{ .name = "uart4", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, },	\
 /*******************************************************************************************************************/
 
 #define MSC0_PORTA							\
@@ -54,7 +61,6 @@
 	{ .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
 	{ .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
 
-
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
@@ -79,6 +85,12 @@ extern struct platform_device jz_codec_device;
 
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;
+
+extern struct platform_device jz_uart0_device;
+extern struct platform_device jz_uart1_device;
+extern struct platform_device jz_uart2_device;
+extern struct platform_device jz_uart3_device;
+extern struct platform_device jz_uart4_device;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 

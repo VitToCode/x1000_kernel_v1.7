@@ -9,9 +9,8 @@ config SOC_4780
 	select JZRISC
 	select TRACEPOINTS
 	select SYS_SUPPORTS_HIGHMEM
-	select SMP
-	select SYS_SUPPORTS_SMP
 	select NR_CPUS_DEFAULT_2
+	select SYS_SUPPORTS_SMP
 	select GENERIC_CLOCKEVENTS_BROADCAST
 
 endchoice
