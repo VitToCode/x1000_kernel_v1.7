@@ -386,106 +386,13 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 	serial_out(up, UART_FCR, 0);
 }
 
-static unsigned short quot1[3] = {0}; /* quot[0]:baud_div, quot[1]:umr, quot[2]:uacr */
-static unsigned short *serial_jz47xx_get_divisor(struct uart_port *port, unsigned int baud)
-{
-	int err, sum, i, j;
-	int a[12], b[12];
-	unsigned short div, umr, uacr;
-	unsigned short umr_best, div_best, uacr_best;
-	long long t0, t1, t2, t3;
-
-	sum = 0;
-	umr_best = div_best = uacr_best = 0;
-	div = 1;
-
-	if ((port->uartclk % (16 * baud)) == 0) {
-		quot1[0] = port->uartclk / (16 * baud);
-		quot1[1] = 16;
-		quot1[2] = 0;
-		return quot1;
-	}
-
-	while (1) {
-		umr = port->uartclk / (baud * div);
-		if (umr > 32) {
-			div++;
-			continue;
-		}
-		if (umr < 4) {
-			break;
-		}
-		for (i = 0; i < 12; i++) {
-			a[i] = umr;
-			b[i] = 0;
-			sum = 0;
-			for (j = 0; j <= i; j++) {
-				sum += a[j];
-			}
-
-			/* the precision could be 1/2^(36) due to the value of t0 */
-			t0 = 0x1000000000LL;
-			t1 = (i + 1) * t0;
-			t2 = (sum * div) * t0;
-			t3 = div * t0;
-			do_div(t1, baud);
-			do_div(t2, port->uartclk);
-			do_div(t3, (2 * port->uartclk));
-			err = t1 - t2 - t3;
-
-			if (err > 0) {
-				a[i] += 1;
-				b[i] = 1;
-			}
-		}
-
-		uacr = 0;
-		for (i = 0; i < 12; i++) {
-			if (b[i] == 1) {
-				uacr |= 1 << i;
-			}
-		}
-
-		if (div_best ==0){
-			div_best = div;
-			umr_best = umr;
-			uacr_best = uacr;            
-		}
-
-		/* the best value of umr should be near 16, and the value of uacr should better be smaller */
-		if (abs(umr - 16) < abs(umr_best - 16) || (abs(umr - 16) == abs(umr_best - 16) && uacr_best > uacr)) {
-			div_best = div;
-			umr_best = umr;
-			uacr_best = uacr;
-		}
-		div++;
-	}
-
-	quot1[0] = div_best;
-	quot1[1] = umr_best;
-	quot1[2] = uacr_best;
-
-	return quot1;
-}
-
-static void serial_jz47xx_set_baudrate(struct uart_port *port, int baud)
-{
-	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
-	unsigned short *quot;
-
-	quot = serial_jz47xx_get_divisor(port, baud);
-	serial_out(up, UART_DLL, quot[0] & 0xff);
-	serial_out(up, UART_DLM, quot[0] >> 8 & 0xff);
-	serial_out(up, UART_UMR, quot[1]);
-	serial_out(up, UART_UACR, quot[2]);
-}
-
 static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *termios,struct ktermios *old)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
 	unsigned char cval, fcr = 0;
 	unsigned long flags;
 	unsigned int baud, quot;
+	unsigned int dll;
 
 	switch (termios->c_cflag & CSIZE) {
 		case CS5:
@@ -569,12 +476,19 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	if (UART_ENABLE_MS(&up->port, termios->c_cflag))
 		up->ier |= UART_IER_MSI;
 
-	serial_jz47xx_set_baudrate(port, baud);
-
 	serial_out(up, UART_IER, up->ier);
 
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
+	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
 
+	/*
+	 * work around Errata #75 according to Intel(R) PXA27x Processor Family
+	 * Specification Update (Nov 2005)
+	 */
+	dll = serial_in(up, UART_DLL);
+	WARN_ON(dll != (quot & 0xff));
+
+	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
