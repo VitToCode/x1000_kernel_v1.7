@@ -169,9 +169,10 @@ static void intc_irq_dispatch(void)
 
 asmlinkage void plat_irq_dispatch(void)
 {
-	unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
+	unsigned int cause = read_c0_cause();
+	unsigned int pending = cause & read_c0_status() & ST0_IM;
 
-	if (pending & CAUSEF_IP4) {
+	if (cause & CAUSEF_IP4) {
 		do_IRQ(IRQ_OST); 
 	} else if(pending & CAUSEF_IP2)
 		intc_irq_dispatch();
