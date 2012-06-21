@@ -18,7 +18,7 @@
 #define INTC_IRQ_BASE		8
 
 enum {
-#define INTC_NR_IRQS	(64 + 1) //add irq_ost
+#define INTC_NR_IRQS	64
 	IRQ_INTC_BASE = INTC_IRQ_BASE,
 	IRQ_INTC_END = IRQ_INTC_BASE + INTC_NR_IRQS,
 
@@ -29,8 +29,12 @@ enum {
 #define GPIO_NR_IRQS	(32*6)
 	IRQ_GPIO_BASE,
 	IRQ_GPIO_END = IRQ_GPIO_BASE + GPIO_NR_IRQS,
+
+#define OST_NR_IRQS	3
+	IRQ_OST_BASE,
+	IRQ_OST_END = IRQ_OST_BASE + OST_NR_IRQS,
 };
 
-#define NR_IRQS	384
+#define NR_IRQS	300
 
 #endif
