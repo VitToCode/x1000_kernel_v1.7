@@ -16,22 +16,7 @@ config SOUND_I2S0_JZ47XX
 	help
 		Say 'Y' to enable On-Chip i2s0
 
-config SOUND_I2S1_JZ47XX
-	bool "Jz On-Chip I2S1 driver"
-	help
-		Say 'Y' to enable On-Chip i2s1
-
-config SOUND_PCM0_JZ47XX
-	bool "Jz On-Chip PCM0 driver"
-	help
-		Say 'Y' to enable On-Chip pcm0
-
-config SOUND_PCM1_JZ47XX
-	bool "Jz On-Chip PCM1 driver"
-	help
-		Say 'Y' to enable On-Chip pcm1
-
-endmenu
+if SOUND_I2S0_JZ47XX
 
 menuconfig JZ_INTERNAL_CODEC
 
@@ -48,16 +33,38 @@ if JZ_INTERNAL_CODEC
 		Say "Y" to enable jz4780 internal codec.
 endif #JZ_INTERNAL_CODEC
 
+endif #SOUND_I2S0_JZ47XX
+
+config SOUND_I2S1_JZ47XX
+	bool "Jz On-Chip I2S1 driver"
+	help
+		Say 'Y' to enable On-Chip i2s1
+
+config SOUND_PCM0_JZ47XX
+	bool "Jz On-Chip PCM0 driver"
+	help
+		Say 'Y' to enable On-Chip pcm0
+
+config SOUND_PCM1_JZ47XX
+	bool "Jz On-Chip PCM1 driver"
+	help
+		Say 'Y' to enable On-Chip pcm1
+
+if SOUND_I2S0_JZ47XX || SOUND_I2S1_JZ47XX || SOUND_PCM0_JZ47XX || SOUND_PCM1_JZ47XX
+
 menuconfig JZ_EXTERNAL_CODEC
 	bool "xburst external codec"
 	help
 		Say	"Y" to setect xburst external codec
 
-if JZ_EXTERNAL_CODEC
-
-	#external codec
+if JZ_EXTERNAL_CODEC #external codec
 
 endif #JZ_EXTERNAL_CODEC
+
+endif #SOUND_I2S0_JZ47XX || SOUND_I2S1_JZ47XX || SOUND_PCM0_JZ47XX || SOUND_PCM1_JZ47XX
+
+
+endmenu
 
 
 menu "sound MIXER devices of xburst"

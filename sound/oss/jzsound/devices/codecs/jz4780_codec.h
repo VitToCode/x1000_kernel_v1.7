@@ -364,11 +364,11 @@
 #define CODEC_SLAVE_MODE	1
 #define CODEC_MASTER_MODE	0
 
-#define __codec_selec_slave_mode()	\
+#define __codec_select_slave_mode()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_SLAVE_MODE ,AICR_DAC_MODE);	\
 } while (0)
-#define __codec_selec_master_mode()	\
+#define __codec_select_master_mode()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_MASTER_MODE ,AICR_DAC_MODE);	\
 } while (0)

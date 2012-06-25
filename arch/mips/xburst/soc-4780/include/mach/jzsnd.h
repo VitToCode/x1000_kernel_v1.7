@@ -251,6 +251,7 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_head_det;
 };
 
+
 /*####################################################*\
 * common, used for sound devices
 \*####################################################*/
@@ -303,6 +304,7 @@ struct snd_codec_data {
  **/
 struct snd_dev_data {
 	struct list_head list;
+	struct device *dev;
 	void *ext_data;
 	int minor;
 	bool is_suspend;
@@ -312,6 +314,11 @@ struct snd_dev_data {
 	int (*suspend)(struct platform_device *pdev, pm_message_t state);
 	int (*resume)(struct platform_device *pdev);
 };
+
+extern struct snd_dev_data i2s0_data;
+extern struct snd_dev_data i2s1_data;
+extern struct snd_dev_data pcm0_data;
+extern struct snd_dev_data pcm1_data;
 
 /*####################################################*\
  * sound detect

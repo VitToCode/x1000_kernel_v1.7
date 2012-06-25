@@ -72,11 +72,6 @@ extern struct platform_device jz_i2c2_device;
 extern struct platform_device jz_i2c3_device;
 extern struct platform_device jz_i2c4_device;
 
-extern struct snd_dev_data i2s0_data;
-extern struct snd_dev_data i2s1_data;
-extern struct snd_dev_data pcm0_data;
-extern struct snd_dev_data pcm1_data;
-
 extern struct platform_device jz_i2s0_device;
 extern struct platform_device jz_i2s1_device;
 extern struct platform_device jz_pcm0_device;

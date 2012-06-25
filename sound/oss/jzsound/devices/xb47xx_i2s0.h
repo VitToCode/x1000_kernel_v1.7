@@ -1,8 +1,7 @@
 
-#ifndef _XB_SND_I2S0_H_
-#define _XB_SND_I2S0_H_
+#ifndef __XB_SND_I2S0_H__
+#define __XB_SND_I2S0_H__
 
-#include <mach/jzdma.h>
 #include <asm/io.h>
 
 
@@ -323,8 +322,12 @@ static unsigned long tmp_val;
 #define I2S0_RFL_OFFSET         (24)
 #define I2S0_RFL_MASK           (0x3f << I2S0_RFL_OFFSET)
 
+#define __i2s0_clear_tur()	\
+	i2s0_set_reg(AIC0SR,0,I2S0_TUR_MASK,I2S0_TUR_OFFSET)
 #define __i2s0_test_tur()               \
 	i2s0_get_reg(AIC0SR,I2S0_TUR_MASK,I2S0_TUR_OFFSET)
+#define __i2s0_clear_ror()	\
+	i2s0_set_reg(AIC0SR,0,I2S0_ROR_MASK,I2S0_ROR_OFFSET)
 #define __i2s0_test_ror()               \
 	i2s0_get_reg(AIC0SR,I2S0_ROR_MASK,I2S0_ROR_OFFSET)
 #define __i2s0_test_tfs()               \
@@ -409,16 +412,6 @@ static inline int  __i2s0_set_sample_rate(unsigned long i2sclk, unsigned long sy
 
 #define test_rw_inval()         \
 	i2s0_get_reg(RGADW,I2S0_RGWR_MASK,I2S0_RGWR_OFFSET)
-
-static void inline write_inter_codec_reg(int addr,int data)
-{
-	while(!test_rw_inval());
-	i2s0_write_reg( RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
-			(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK) |
-			(1 << I2S0_RGWR_OFFSET)));
-}
-
-
 /*
  * RGDATA
  */
@@ -440,23 +433,36 @@ static int inline read_inter_codec_reg(int addr)
 	return reval & I2S0_RGDOUT_MASK;
 }
 
+static int inline write_inter_codec_reg(int addr,int data)
+{
+	while(!test_rw_inval());
+	i2s0_write_reg(RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
+				(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK)));
+	i2s0_write_reg( RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
+			(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK) |
+			(1 << I2S0_RGWR_OFFSET)));
+	if (data != read_inter_codec_reg(addr))
+		return -1;
+	return 0;
+}
+
 static int inline read_inter_codec_irq(void)
 {
 	return (i2s0_read_reg(RGDATA) & I2S0_IRQ_MASK);
 }
 
 
-static void inline write_inter_codec_reg_bit(int addr,int bitval,int mask_bit)
+static void inline write_inter_codec_reg_bit(int addr,int bitval,int offset)
 {
-	int val1;
-	val1 = read_inter_codec_reg(addr);
+	int val_tmp;
+	val_tmp = read_inter_codec_reg(addr);
 
 	if (bitval)
-		val1 |= (1 << mask_bit);
+		val_tmp |= (1 << offset);
 	else
-		val1 &= ~(1 << mask_bit);
+		val_tmp &= ~(1 << offset);
 
-	write_inter_codec_reg(addr,val1);
+	write_inter_codec_reg(addr,val_tmp);
 }
 
 static void inline write_inter_codec_reg_mask(int addr,int val, int mask,int offset)
