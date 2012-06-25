@@ -18,8 +18,8 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 #include <soc/gpio.h>
+#include <soc/tcu.h>
 
-#include "tcu.h"
 
 #define regr(off) 	inl(TCU_IOBASE + (off))
 #define regw(val,off)	outl(val, TCU_IOBASE + (off))

@@ -24,8 +24,8 @@
 #include <soc/irq.h>
 #include <soc/base.h>
 #include <soc/extal.h>
+#include <soc/ost.h>
 
-#include "ost.h"
 
 #define regr(off) 	inl(OST_IOBASE + (off))
 #define regw(val,off)	outl(val, OST_IOBASE + (off))

@@ -323,9 +323,9 @@ static void __init init_ext_pll(void)
 	int i;
 	unsigned long cppcr,cpccr_sel_src;
 
-	clk_srcs[CLK_ID_EXT0].rate = JZ_EXTAL;
+	clk_srcs[CLK_ID_EXT0].rate = JZ_EXTAL_RTC;
 	clk_srcs[CLK_ID_EXT0].flags |= CLK_FLG_ENABLE;
-	clk_srcs[CLK_ID_EXT1].rate = JZ_EXTAL1;
+	clk_srcs[CLK_ID_EXT1].rate = JZ_EXTAL;
 	clk_srcs[CLK_ID_EXT1].flags |= CLK_FLG_ENABLE;
 
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
@@ -337,13 +337,13 @@ static void __init init_ext_pll(void)
 
 		cppcr = cpm_inl(CLK_PLL_NO(clk_srcs[i].flags));
 		if(cppcr & (0x1<<1)) {
-			clk_srcs[i].rate = JZ_EXTAL1;
+			clk_srcs[i].rate = JZ_EXTAL;
 		} else {
 			unsigned long m,n,o;
 			o = (((cppcr) >> 9) & 0xf) + 1;
 			n = (((cppcr) >> 13) & 0x3f) + 1;
 			m = (((cppcr) >> 19) & 0x7fff) + 1;
-			clk_srcs[i].rate = JZ_EXTAL1 * m / n / o;
+			clk_srcs[i].rate = JZ_EXTAL * m / n / o;
 		}
 	}
 

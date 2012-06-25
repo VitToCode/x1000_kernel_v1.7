@@ -18,8 +18,7 @@
 
 #include <soc/base.h>
 #include <soc/irq.h>
-
-#include "ost.h"
+#include <soc/ost.h>
 
 #define PART_OFF	0x20
 
