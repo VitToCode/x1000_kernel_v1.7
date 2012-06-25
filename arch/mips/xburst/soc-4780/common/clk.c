@@ -261,10 +261,10 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(MSC2,  		GATE(12)),
 	DEF_CLK(KBC,   		GATE(13)),
 	DEF_CLK(SADC,  		GATE(14)),
-	DEF_CLK(UART0, 		GATE(15)),
-	DEF_CLK(UART1, 		GATE(16)),
-	DEF_CLK(UART2, 		GATE(17)),
-	DEF_CLK(UART3, 		GATE(18)),
+	DEF_CLK(UART0, 		GATE(15) | PARENT(EXT1)),
+	DEF_CLK(UART1, 		GATE(16) | PARENT(EXT1)),
+	DEF_CLK(UART2, 		GATE(17) | PARENT(EXT1)),
+	DEF_CLK(UART3, 		GATE(18) | PARENT(EXT1)),
 	DEF_CLK(SSI1,  		GATE(19)),
 	DEF_CLK(SSI2,  		GATE(20)),
 	DEF_CLK(PDMA,  		GATE(21)),
@@ -288,7 +288,7 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(GPVLC,		GATE(32+7)),
 	DEF_CLK(OTG1,		GATE(32+8)),
 	DEF_CLK(HDMI,		GATE(32+9)),
-	DEF_CLK(UART4,		GATE(32+10)),
+	DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
 	DEF_CLK(AHB_MON,	GATE(32+12)),
 	DEF_CLK(I2C4,		GATE(32+13)),
 	DEF_CLK(DES,		GATE(32+14)),
@@ -537,6 +537,9 @@ static void __init init_gate_clk(void)
 
 		if(! (clkgr[bit/32] & BIT(bit%32)))
 			clk_srcs[i].flags |= CLK_FLG_ENABLE;
+
+		if(!clk_srcs[i].rate)
+			clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
 }
 
