@@ -3,7 +3,7 @@
 # 24 APR 2012, <jbbi: jbbi@ingernic.cn>
 #
 
-obj-$(CONFIG_SOUND_I2S0_JZ47XX) 	+= codecs/
+obj-$(CONFIG_SOUND_OSS_XBURST) 	+= codecs/
 
 obj-$(CONFIG_SOUND_I2S0_JZ47XX) 	+= xb47xx_i2s0.o
 

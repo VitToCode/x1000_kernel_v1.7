@@ -1,6 +1,6 @@
 #include <linux/platform_device.h>
-
 #include <mach/platform.h>
+#include <mach/jzsnd.h>
 
 #include "test.h"
 

@@ -36,7 +36,7 @@
 static LIST_HEAD(codecs_head);
 static spinlock_t i2s0_irq_lock;
 static struct snd_switch_data switch_data;
-static int jz_switch_state = 0;
+static volatile int jz_switch_state = 0;
 static spinlock_t i2s0_hp_detect_state;
 
 
@@ -668,7 +668,7 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&i2s0_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
-	if (cur_codec->codec_ctl(CODEC_IRQ_DETECT,0)) {
+	if (read_inter_codec_irq()){
 		queue_work(i2s0_work_queue, &i2s0_codec_work);
 	}
 	/* if irq source is aic0, process it here */
@@ -682,10 +682,12 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 static int i2s0_init_pipe(struct dsp_pipe *dp , enum dma_data_direction direction,unsigned long iobase)
 {
 	if (dp != NULL)
-		return -1;
+		return 0;
 	dp = vmalloc(sizeof(struct dsp_pipe));
-	if (dp == NULL)
+	if (dp == NULL) {
+		printk("i2s0 : init pipe fail vmalloc ");
 		return -ENOMEM;
+	}
 
 	dp->dma_slave.reg_width = 2;
 	dp->dma_direction = direction;
@@ -717,16 +719,20 @@ static int i2s0_global_init(struct platform_device *pdev)
 	struct clk *i2s0_clk = NULL;
 	struct clk *codec_sys_clk = NULL;
 
-	i2s0_resource = platform_get_resource(pdev,IORESOURCE_MEM,1);
-	if (i2s0_resource == NULL)
+	i2s0_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
+	if (i2s0_resource == NULL) {
+		printk("i2s0: platform_get_resource fail.\n");
 		return -1;
+	}
 
 	/* map io address */
-	if (!request_mem_region(i2s0_resource->start, resource_size(i2s0_resource), pdev->name))
+	if (!request_mem_region(i2s0_resource->start, resource_size(i2s0_resource), pdev->name)) {
+		printk("i2s0: mem region fail busy .\n");
 		return -EBUSY;
-
+	}
 	i2s0_iomem = ioremap(i2s0_resource->start, resource_size(i2s0_resource));
 	if (!i2s0_iomem) {
+		printk ("i2s0: ioremap fail.\n");
 		ret =  -ENOMEM;
 		goto __err_ioremap;
 	}
@@ -743,7 +749,7 @@ static int i2s0_global_init(struct platform_device *pdev)
 
 	i2s0_match_codec("internal_codec");
 	if (cur_codec == NULL) {
-		ret = -1;
+		ret = 0;
 		goto __err_match_codec;
 	}
 
@@ -795,10 +801,21 @@ static int i2s0_global_init(struct platform_device *pdev)
 	__i2s0_disable_record();
 	__i2s0_disable_replay();
 	__i2s0_disable_loopback();
+	__i2s0_flush_rfifo();
+
+	__i2s0_flush_tfifo();
+	__i2s0_clear_ror();
+	__i2s0_clear_tur();
+
 	__i2s0_set_receive_trigger(3);
 	__i2s0_set_transmit_trigger(4);
+	__i2s0_disable_overrun_intr();
+	__i2s0_disable_underrun_intr();
+	__i2s0_disable_transmit_intr();
+	__i2s0_disable_receive_intr();
 
 	__i2s0_send_rfirst();
+
 
 	/* play zero or last sample when underflow */
 	__i2s0_play_lastsample();

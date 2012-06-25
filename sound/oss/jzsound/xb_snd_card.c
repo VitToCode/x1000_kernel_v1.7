@@ -292,7 +292,7 @@ static int xb_snd_probe(struct platform_device *pdev)
 		/* check minor */
 		if (ddata->minor > MAX_SND_MINOR)
 			return -EINVAL;
-
+		ddata->dev = &(pdev->dev);
 		/* device probe */
 		switch (ddata->minor & 0x0f) {
 		case SND_DEV_DSP:

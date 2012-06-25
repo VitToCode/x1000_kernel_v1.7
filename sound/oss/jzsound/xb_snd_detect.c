@@ -129,7 +129,7 @@ static ssize_t switch_snd_print_state(struct switch_dev *sdev, char *buf)
 static int snd_switch_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct snd_switch_data *switch_data = platform_get_drvdata(pdev);
+	struct snd_switch_data *switch_data = pdev->dev.platform_data;
 
 	switch_data->sdev.print_state = switch_snd_print_state;
 	switch_data->sdev.print_name = switch_snd_print_name;

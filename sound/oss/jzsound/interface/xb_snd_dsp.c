@@ -12,8 +12,10 @@
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
-
+#include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
+
+static bool spipe_is_init = 0;
 
 /*###########################################################*\
  * sub functions
@@ -284,7 +286,7 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp)
 
 static void snd_dma_callback(void *arg)
 {
-	struct dsp_pipe *dp = arg;
+	struct dsp_pipe *dp = (struct dsp_pipe *)arg;
 
 	/* unmap the node->phaddr */
 	if (dp->dma_direction == DMA_TO_DEVICE) {
@@ -500,11 +502,11 @@ static int stop_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 	return 0;
 }
 
-static int __init spipe_init(void)
+static int spipe_init(struct device *dev)
 {
 	int i = 0;
 
-	dmam_alloc_noncoherent(NULL,
+	dmam_alloc_noncoherent(dev,
 						   SPIPE_DEF_FRAGSIZE * SPIPE_DEF_FRAGCNT * SND_SHARED_PIPE_CNT,
 						   &spipe[0].spaddr,
 						   GFP_KERNEL | GFP_DMA);
@@ -735,7 +737,7 @@ int convert_16bits_stereomix2mono(void *buff, int data_len)
 /********************************************************\
  * others
 \********************************************************/
-static int init_pipe(struct dsp_pipe *dp)
+static int init_pipe(struct dsp_pipe *dp,struct device *dev)
 {
 	int i = 0;
 	struct dsp_node *node;
@@ -755,7 +757,7 @@ static int init_pipe(struct dsp_pipe *dp)
 	}
 
 	/* alloc memory */
-	dp->vaddr = (unsigned long *)dmam_alloc_noncoherent(NULL,
+	dp->vaddr = (unsigned long *)dmam_alloc_noncoherent(dev,
 													  dp->fragsize * dp->fragcnt,
 													  dp->paddr,
 													  GFP_KERNEL | GFP_DMA);
@@ -798,14 +800,14 @@ init_pipe_error:
 	list_for_each_entry(node, &dp->free_node_list, list)
 		vfree(node);
 	/* free memory */
-	dmam_free_noncoherent(NULL,
+	dmam_free_noncoherent(dev,
 						  dp->fragsize * dp->fragcnt,
 						  dp->vaddr,
 						  *dp->paddr);
 	return -1;
 }
 
-static void deinit_pipe(struct dsp_pipe *dp)
+static void deinit_pipe(struct dsp_pipe *dp,struct device *dev)
 {
 	struct dsp_node *node;
 
@@ -813,7 +815,7 @@ static void deinit_pipe(struct dsp_pipe *dp)
 	list_for_each_entry(node, &dp->free_node_list, list)
 		vfree(node);
 	/* free memory */
-	dmam_free_noncoherent(NULL,
+	dmam_free_noncoherent(dev,
 						  dp->fragsize * dp->fragcnt,
 						  dp->vaddr,
 						  *dp->paddr);
@@ -1877,24 +1879,25 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 
 	/* out_endpoint init */
 	if ((dp = endpoints->out_endpoint) != NULL) {
-		ret = init_pipe(dp);
+		ret = init_pipe(dp , ddata->dev);
 		if (ret)
 			goto error1;
 	}
 
 	/* in_endpoint init */
 	if ((dp = endpoints->in_endpoint) != NULL) {
-		ret = init_pipe(dp);
+		ret = init_pipe(dp , ddata->dev);
 		if (ret)
 			goto error2;
 	}
+	if (!spipe_is_init)
+		spipe_init(ddata->dev);
+	spipe_is_init = 1;
 
 	return 0;
 
 error2:
-	deinit_pipe(endpoints->out_endpoint);
+	deinit_pipe(endpoints->out_endpoint, ddata->dev);
 error1:
 	return ret;
 }
-
-arch_initcall(spipe_init);
