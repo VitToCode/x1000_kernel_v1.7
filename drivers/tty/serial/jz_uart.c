@@ -389,7 +389,7 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *termios,struct ktermios *old)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
-	unsigned char cval, fcr = 0;
+	unsigned char cval;
 	unsigned long flags;
 	unsigned int baud, quot;
 	unsigned int dll;
@@ -422,13 +422,6 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	 */
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/2);
 	quot = uart_get_divisor(port, baud);
-
-	if ((up->port.uartclk / quot) < (2400 * 16))
-		fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_00;
-	else if ((up->port.uartclk / quot) < (230400 * 16))
-		fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_01;
-	else
-		fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10;
 
 	/*
 	 * Ok, we're now changing the port state.  Do it with
@@ -492,7 +485,6 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
-	serial_out(up, UART_FCR, fcr);
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
