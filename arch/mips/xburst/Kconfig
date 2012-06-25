@@ -31,3 +31,14 @@ config SOC_VER
 if SOC_4780
 source "arch/mips/xburst/soc-4780/Kconfig"
 endif
+
+config EXTAL_CLOCK
+	depends on MACH_XBURST 
+	int "extal clock in MHz"
+	default 12
+
+config FPGA_TEST
+	depends on MACH_XBURST 
+	bool "FPGA_TEST"
+	default n
+

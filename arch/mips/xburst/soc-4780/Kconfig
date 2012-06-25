@@ -17,7 +17,4 @@ config BOARD_NAME
 	default "pisces" if BOARD_PISCES
 	default "test" if BOARD_TEST
 
-config EXTAL_CLOCK
-	depends on SOC_4780
-	int "extal clock"
-	default 12000000
+

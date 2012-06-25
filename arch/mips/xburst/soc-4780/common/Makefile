@@ -1,5 +1,10 @@
 
+ifeq ($(CONFIG_FPGA_TEST),y)
+obj-y += clk_fpga.o
+else
 obj-y += clk.o
+endif
+
 obj-y += timer.o 
 obj-y += serial.o 
 obj-y += irq.o 
