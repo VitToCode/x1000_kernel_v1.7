@@ -11,8 +11,7 @@
 
 /* devio define list */
 #define UART0_PORTF							\
-	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, },	\
-	{ .name = "uart0_test", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
+	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
 #define UART1_PORTD							\
 	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xf<<26, }
 #define UART2_PORTD							\
