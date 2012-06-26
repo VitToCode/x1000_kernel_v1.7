@@ -4,7 +4,7 @@
 # create a compressed zImage from the original vmlinux
 #
 
-targets		:= zImage vmlinuz vmlinux.bin.gz head.o misc.o piggy.o dummy.o
+targets		:= zImage uImage vmlinuz vmlinux.bin.gz head.o misc.o piggy.o dummy.o
 
 OBJS 		:= $(obj)/head.o $(obj)/misc.o
 
@@ -17,6 +17,7 @@ FILESIZE 	:= $(obj)/filesize
 drop-sections	= .reginfo .mdebug .comment .note .pdr .options .MIPS.options
 strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
+LOADADDR=0x80010000
 
 $(obj)/vmlinux.bin.gz: vmlinux
 	rm -f $(obj)/vmlinux.bin.gz
@@ -42,3 +43,15 @@ $(obj)/vmlinuz: $(OBJS) $(obj)/ld.script $(obj)/vmlinux.bin.gz $(obj)/dummy.o
 zImage: $(obj)/vmlinuz
 	$(OBJCOPY) -O binary $(obj)/vmlinuz $(obj)/zImage	
 	@rm -f $(obj)/vmlinuz
+
+vmlinux.bin: $(VMLINUX)
+	$(OBJCOPY) -O binary $(strip-flags) $(VMLINUX) $(obj)/vmlinux.bin
+
+uImage: $(VMLINUX) vmlinux.bin
+	rm -f $(obj)/vmlinux.bin.gz
+	gzip -9 $(obj)/vmlinux.bin
+	mkimage -A mips -O linux -T kernel -C gzip \
+		-a $(LOADADDR) -e $(shell sh ./$(obj)/tools/entry $(NM) $(VMLINUX) ) \
+		-n 'Linux-$(KERNELRELEASE)' \
+		-d $(obj)/vmlinux.bin.gz $(obj)/uImage
+

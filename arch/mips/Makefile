@@ -282,6 +282,10 @@ zImage: $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
 	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@ 
 	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
+uImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@ 
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
 # boot/compressed
 vmlinuz vmlinuz.bin vmlinuz.ecoff vmlinuz.srec: $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot/compressed \
