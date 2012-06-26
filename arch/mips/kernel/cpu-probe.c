@@ -1136,6 +1136,8 @@ __cpuinit void cpu_probe(void)
 		break;
 	case PRID_COMP_NETLOGIC:
 		cpu_probe_netlogic(c, cpu);
+	default:
+		cpu_probe_ingenic(c, cpu);
 		break;
 	}
 

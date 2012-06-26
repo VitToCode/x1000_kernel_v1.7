@@ -230,13 +230,13 @@ static u64 jz_fb_dmamask = ~(u64)0;
 #define DEF_LCD(NO)								\
 static struct resource jz_fb##NO##_resources[] = {				\
 	[0] = {									\
-		.start          = LCDC_IOBASE,					\
-		.end            = LCDC_IOBASE+ 0x1000 - 1,			\
+		.start          = LCDC##NO##_IOBASE,				\
+		.end            = LCDC##NO##_IOBASE+ 0x1000 - 1,		\
 		.flags          = IORESOURCE_MEM,				\
 	},									\
 	[1] = {									\
-		.start          = IRQ_LCD,					\
-		.end            = IRQ_LCD,					\
+		.start          = IRQ_LCD##NO,					\
+		.end            = IRQ_LCD##NO,					\
 		.flags          = IORESOURCE_IRQ,				\
 	},									\
 };										\

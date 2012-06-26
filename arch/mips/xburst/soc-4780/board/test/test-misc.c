@@ -37,9 +37,12 @@ static int __init test_board_init(void)
 	platform_device_register(&test_lcd_device);
 	platform_device_register(&test_backlight_device);
 
+#ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device,&jzfb_pdata);
-	jz_device_register(&jz_fb0_device,&jzfb_pdata);
-
+#endif
+#ifdef CONFIG_FB_JZ4780_LCDC1
+	jz_device_register(&jz_fb1_device,&jzfb_pdata);
+#endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);
 #endif
