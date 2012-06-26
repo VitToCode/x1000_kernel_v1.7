@@ -311,15 +311,6 @@ static int serial_jz47xx_startup(struct uart_port *port)
 		return retval;
 
 	/*
-	 * Clear the FIFO buffers and disable them.
-	 * (they will be reenabled in set_termios())
-	 */
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO);
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO |
-			UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT);
-	serial_out(up, UART_FCR, 0);
-
-	/*
 	 * Clear the interrupt registers.
 	 */
 	(void) serial_in(up, UART_LSR);
