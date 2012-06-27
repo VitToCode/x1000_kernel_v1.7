@@ -18,10 +18,17 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
-#define cpm_inl(x)		inl(((unsigned long)(cpm_dev.reg + (x))))
-#define cpm_outl(v,x)		outl(v,((unsigned long)(cpm_dev.reg + (x))))
-#define cpm_clear_bit(off,x)	clear_bit(off,((volatile void *)(cpm_dev.reg + (x))))
-#define cpm_set_bit(off,x)	set_bit(off,((volatile void *)(cpm_dev.reg + (x))))
+#if 0
+#define cpm_inl(off)		inl(CPM_IOBASE + (off))
+#define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
+#define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(OST_IOBASE + (off))))
+#define cpm_set_bit(val,off)	set_bit(val,((volatile void *)(OST_IOBASE + (off))))
+#else
+#define cpm_inl(x)		0x3
+#define cpm_outl(v,x)		do{}while(0)
+#define cpm_clear_bit(off,x)	do{}while(0)
+#define cpm_set_bit(off,x)	do{}while(0)
+#endif
 
 struct clk;
 struct clk_ops {
@@ -52,10 +59,6 @@ struct clk {
 	struct clk_ops *ops;
 	int count;
 };
-
-static struct cpm {
-	void __iomem *reg;
-} cpm_dev;
 
 enum {
 	CLK_ID_EXT0,
@@ -251,8 +254,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(OTG0,  		GATE(2)),
 	DEF_CLK(MSC0,  		GATE(3)),
 	DEF_CLK(SSI0,  		GATE(4)),
-	DEF_CLK(I2C0,  		GATE(5)),
-	DEF_CLK(I2C1,  		GATE(6)),
+	DEF_CLK(I2C0,  		GATE(5) | PARENT(PCLK)),
+	DEF_CLK(I2C1,  		GATE(6) | PARENT(PCLK)),
 	DEF_CLK(SCC,   		GATE(7)),
 	DEF_CLK(AIC0,   	GATE(8)),
 	DEF_CLK(TSSI0, 		GATE(9)),
@@ -271,14 +274,14 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(GPS,   		GATE(22)),
 	DEF_CLK(MAC,   		GATE(23)),
 	DEF_CLK(UHC,   		GATE(24)),
-	DEF_CLK(I2C2,  		GATE(25)), 
+	DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
 	DEF_CLK(CIM,   		GATE(26)),
 	DEF_CLK(TVE,   		GATE(27)),
 	DEF_CLK(LCD,   		GATE(28)),
 	DEF_CLK(IPU,   		GATE(29)),
 	DEF_CLK(DDR0,  		GATE(30)),
 	DEF_CLK(DDR1,  		GATE(31)),
-	DEF_CLK(I2C3,  		GATE(32+0)),
+	DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),
 	DEF_CLK(TSSI1, 		GATE(32+1)),
 	DEF_CLK(VPU,		GATE(32+2)),
 	DEF_CLK(PCM,		GATE(32+3)),
@@ -290,7 +293,7 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(HDMI,		GATE(32+9)),
 	DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
 	DEF_CLK(AHB_MON,	GATE(32+12)),
-	DEF_CLK(I2C4,		GATE(32+13)),
+	DEF_CLK(I2C4,		GATE(32+13)| PARENT(PCLK)),
 	DEF_CLK(DES,		GATE(32+14)),
 	DEF_CLK(X2D,		GATE(32+15)),
 	DEF_CLK(P1,		GATE(32+16)),
@@ -350,14 +353,20 @@ static void __init init_ext_pll(void)
 	cpccr_sel_src = cpm_inl(CPM_CPCCR) >> 30;
 	if(cpccr_sel_src == 1) {
 		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_APLL];
+		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_APLL].rate;
+		clk_srcs[CLK_ID_SCLKA].flags |= CLK_FLG_ENABLE;
 	} else if(cpccr_sel_src == 2) {
 		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
+		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_EXT1].rate;
+		clk_srcs[CLK_ID_SCLKA].flags |= CLK_FLG_ENABLE;
 	} else if(cpccr_sel_src == 3) {
 		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT0];
+		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_EXT0].rate;
+		clk_srcs[CLK_ID_SCLKA].flags |= CLK_FLG_ENABLE;
+	} else {
+		clk_srcs[CLK_ID_SCLKA].rate = 0;
+		clk_srcs[CLK_ID_SCLKA].flags &= ~CLK_FLG_ENABLE;
 	}
-
-	clk_srcs[CLK_ID_SCLKA].rate = (clk_srcs[CLK_ID_SCLKA].parent)->rate;
-	clk_srcs[CLK_ID_SCLKA].flags |= CLK_FLG_ENABLE;
 }
 
 struct cppcr_clk {
@@ -538,7 +547,7 @@ static void __init init_gate_clk(void)
 		if(! (clkgr[bit/32] & BIT(bit%32)))
 			clk_srcs[i].flags |= CLK_FLG_ENABLE;
 
-		if(!clk_srcs[i].rate)
+		if(!clk_srcs[i].rate && clk_srcs[i].parent)
 			clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
 }
@@ -547,10 +556,10 @@ static int __init init_all_clk(void)
 {
 	int i;
 
-	cpm_dev.reg = ioremap(CPM_IOBASE,0xfff);
 	init_ext_pll();
 	init_cpccr_clk();
 	init_cgu_clk();
+	printk("%s %d\n",__func__,__LINE__);
 	init_gate_clk();
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(clk_srcs[i].rate)
@@ -561,12 +570,13 @@ static int __init init_all_clk(void)
 			int id = CLK_PARENT(clk_srcs[i].flags);
 			clk_srcs[i].parent = &clk_srcs[id];
 		}
-		if(! clk_srcs[i].parent) {
+		if(!clk_srcs[i].parent) {
 			clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT0];
 			printk(KERN_DEBUG "[CLK] %s no parent.\n",clk_srcs[i].name);
 		}
 		clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
+	printk("%s %d\n",__func__,__LINE__);
 	return 0;
 }
 arch_initcall(init_all_clk);
@@ -583,9 +593,9 @@ static int clk_gate_ctrl(struct clk *clk, int enable)
 
 	/* change clkgr atomic */
 	if(enable)
-		clear_bit(bit%32,cpm_dev.reg + off);
+		cpm_clear_bit(bit%32,off);
 	else
-		set_bit(bit%32,cpm_dev.reg + off);
+		cpm_set_bit(bit%32,off);
 	return 0;
 }
 

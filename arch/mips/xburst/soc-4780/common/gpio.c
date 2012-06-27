@@ -410,7 +410,6 @@ int __init setup_gpio_pins(void)
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].reg = ioremap(GPIO_IOBASE + i*GPIO_PORT_OFF,
 				GPIO_PORT_OFF - 1);
-	//	gpio_set_func(&jz_gpio_chips[i], GPIO_INPUT, 0xffffffff);
 		jz_gpio_chips[i].gpio_map[0] = 0xffffffff;
 	}
 	
@@ -428,7 +427,6 @@ int __init setup_gpio_pins(void)
 
 		jz = &jz_gpio_chips[g->port];
 		if (GPIO_AS_FUNC(g->func)) {
-			//jz->gpio_map[0] &= ~g->pins; all gpio pins can request as a gpio
 			if(jz->dev_map[0] & g->pins) {
 				panic("%s:gpio functions has redefinition of '%s'",__FILE__,g->name);
 				while(1);

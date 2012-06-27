@@ -6,6 +6,23 @@
 
 static int __init test_board_init(void)
 {
+/* i2c */
+#ifdef CONFIG_I2C0_JZ4780
+	platform_device_register(&jz_i2c0_device);
+#endif
+#ifdef CONFIG_I2C1_JZ4780
+	platform_device_register(&jz_i2c1_device);
+#endif
+#ifdef CONFIG_I2C2_JZ4780
+	platform_device_register(&jz_i2c2_device);
+#endif
+#ifdef CONFIG_I2C3_JZ4780
+	platform_device_register(&jz_i2c3_device);
+#endif
+#ifdef CONFIG_I2C4_JZ4780
+	platform_device_register(&jz_i2c4_device);
+#endif
+
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &test_inand_pdata);
@@ -43,6 +60,8 @@ static int __init test_board_init(void)
 #ifdef CONFIG_FB_JZ4780_LCDC1
 	jz_device_register(&jz_fb1_device,&jzfb_pdata);
 #endif
+
+/* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);
 #endif

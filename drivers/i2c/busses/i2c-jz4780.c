@@ -358,7 +358,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	i2c->adap.algo_data 	= i2c;
 	i2c->adap.dev.parent 	= &dev->dev;
 	i2c->adap.nr 		= dev->id;
-	sprintf(i2c->adap.name, "jz-i2c%u", dev->id);
+	sprintf(i2c->adap.name, "i2c%u", dev->id);
 
 	i2c->clk = clk_get(&dev->dev,i2c->adap.name);
 	if(!i2c->clk) {
@@ -455,65 +455,4 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("ztyan<ztyan@ingenic.cn>");
 MODULE_DESCRIPTION("i2c driver for JZ47XX SoCs");
 
-#if 0
-static struct resource jz_i2c0_resources[] = {
-	[0] = {
-		.start          = CPHYSADDR(I2C0_BASE),
-		.end            = CPHYSADDR(I2C0_BASE) + 0x1000 - 1,
-		.flags          = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start          = IRQ_I2C0,
-		.end            = IRQ_I2C0,
-		.flags          = IORESOURCE_IRQ,
-	},
-	[2] = {
-		.start          = JZDMA_REQ_I2C0_TX,
-		.end            = JZDMA_REQ_I2C0_RX,
-		.flags          = IORESOURCE_DMA,
-	},
-};
 
-static struct resource jz_i2c1_resources[] = {
-	[0] = {
-		.start          = CPHYSADDR(I2C1_BASE),
-		.end            = CPHYSADDR(I2C1_BASE) + 0x1000 - 1,
-		.flags          = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start          = IRQ_I2C1,
-		.end            = IRQ_I2C1,
-		.flags          = IORESOURCE_IRQ,
-	},
-	[2] = {
-		.start          = JZDMA_REQ_I2C1_TX,
-		.end            = JZDMA_REQ_I2C1_RX,
-		.flags          = IORESOURCE_DMA,
-	},
-};
-
-static u64 jz_i2c_dmamask =  ~(u32)0;
-
-static struct platform_device jz_i2c0_device = {
-	.name = "jz-i2c",
-	.id = 0,
-	.dev = {
-		.dma_mask               = &jz_i2c_dmamask,
-		.coherent_dma_mask      = 0xffffffff,
-	},
-	.num_resources  = ARRAY_SIZE(jz_i2c0_resources),
-	.resource       = jz_i2c0_resources,
-};
-
-static struct platform_device jz_i2c1_device = {
-	.name = "jz-i2c",
-	.id = 1,
-	.dev = {
-		.dma_mask               = &jz_i2c_dmamask,
-		.coherent_dma_mask      = 0xffffffff,
-	},
-	.num_resources  = ARRAY_SIZE(jz_i2c1_resources),
-	.resource       = jz_i2c1_resources,
-};
-
-#endif
