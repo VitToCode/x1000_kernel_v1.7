@@ -29,6 +29,7 @@
 #define MAX_SEGS		128
 
 /* #define PIO_MODE */
+#define PIO_MODE
 #if defined(PIO_MODE) && !defined(CONFIG_MMC_BLOCK_BOUNCE)
 #error ***********************Warning!*************************
 #error ****PIO mode must work with CONFIG_MMC_BLOCK_BOUNCE!****
@@ -181,7 +182,7 @@ static inline void jzmmc_reset(struct jzmmc_host *host)
 	unsigned int cnt = 100 * 1000 * 1000;
 
 	msc_writel(host, CTRL, CTRL_RESET);
- 	while (!(msc_readl(host, STAT) & STAT_IS_RESETTING) && (--cnt));
+ 	while ((msc_readl(host, STAT) & STAT_IS_RESETTING) && (--cnt));
 	WARN_ON(!cnt);
 
 	if(host->pdata->sdio_clk)
@@ -189,8 +190,8 @@ static inline void jzmmc_reset(struct jzmmc_host *host)
 	else
 		msc_writel(host, LPM, LPM_LPM);
 
-	msc_writel(host, IMASK, 0xffff);
-	msc_writel(host, IFLG, 0xffff);
+	msc_writel(host, IMASK, 0xffffffff);
+	msc_writel(host, IFLG, 0xffffffff);
 	msc_writel(host, CLKRT, clkrt);
 }
 
@@ -834,8 +835,8 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		dev_vdbg(host->dev, "op:%d\n", host->cmd->opcode);
 
 	host->cmdat = host->cmdat_def;
-	msc_writel(host, IFLG, 0xffff);
-	msc_writel(host, IMASK, 0xffff);
+	msc_writel(host, IFLG, 0xffffffff);
+	msc_writel(host, IMASK, 0xffffffff);
 	msc_writel(host, RESTO, 0xff);
 
 	if(host->data)
@@ -1429,7 +1430,11 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No irq resource\n");
 		return irq;
 	}
+	mmc = mmc_alloc_host(sizeof(struct jzmmc_host), &pdev->dev);
+	if (!mmc)
+		return -ENOMEM;
 
+	host = mmc_priv(mmc);
 	sprintf(clkname, "cgu_msc%d", pdev->id);
 	host->clk = clk_get(&pdev->dev, clkname);
 	if (IS_ERR(host->clk)) {
@@ -1440,11 +1445,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		goto err_clk_get_rate;
 	clk_enable(host->clk);
 
-	mmc = mmc_alloc_host(sizeof(struct jzmmc_host), &pdev->dev);
-	if (!mmc)
-		return -ENOMEM;
 
-	host = mmc_priv(mmc);
 	host->irq = irq;
 	host->dev = &pdev->dev;
 	host->index = pdev->id;

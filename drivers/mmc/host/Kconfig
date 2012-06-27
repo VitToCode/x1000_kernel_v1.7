@@ -22,6 +22,22 @@ config MMC0_JZ4780
 	  If you want enable MSC0, say Y or M here.
 
 	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC0 function pins select"
+	depends on MMC0_JZ4780
+	default MMC0_JZ4780_PA_4BIT
+config MMC0_JZ4780_PA_4BIT
+	bool "GPIO A, Data width 4 bit"
+config MMC0_JZ4780_PA_8BIT
+	bool "GPIO A, Data width 8 bit"
+config MMC0_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+config MMC0_JZ4780_PA_4BIT_RESET
+	bool "GPIO A, Data width 4 bit, use Reset pin(eMMC)"
+config MMC0_JZ4780_PA_8BIT_RESET
+	bool "GPIO A, Data width 8 bit, use Reset pin(eMMC)"
+endchoice
+
 
 config MMC1_JZ4780
 	bool "MSC1"
@@ -30,6 +46,15 @@ config MMC1_JZ4780
 	  If you want enable MSC1, say Y or M here.
 
 	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC1 function pins select"
+	depends on MMC1_JZ4780
+	default MMC1_JZ4780_PD_4BIT
+config MMC1_JZ4780_PD_4BIT
+	bool "GPIO D, Data width 4 bit"
+config MMC1_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
 
 config MMC2_JZ4780
 	bool "MSC2"
@@ -38,6 +63,15 @@ config MMC2_JZ4780
 	  If you want enable MSC2, say Y or M here.
 
 	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC2 function pins select"
+	depends on MMC2_JZ4780
+	default MMC2_JZ4780_PB_4BIT
+config MMC2_JZ4780_PB_4BIT
+	bool "GPIO B, Data width 4 bit"
+config MMC2_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
 
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
