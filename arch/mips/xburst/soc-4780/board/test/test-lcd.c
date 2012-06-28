@@ -20,6 +20,7 @@
 
 #include <mach/jzfb.h>
 
+#ifdef CONFIG_LCD_AT070TN93
 #define GPIO_LCD_PWM GPIO_PE(0)
 
 static struct platform_at070tn93_data at070tn93_pdata= {
@@ -36,6 +37,7 @@ struct platform_device test_lcd_device = {
 	},
 };
 
+#endif
 /**************************************************************************************************/
 
 struct fb_videomode jzfb_videomode = {
@@ -74,6 +76,7 @@ struct jzfb_platform_data jzfb_pdata = {
 
 /**************************************************************************************************/
 
+#ifdef CONFIG_BACKLIGHT_PWM
 static int test_backlight_init(struct device *dev)
 {
 	int ret;
@@ -105,10 +108,10 @@ static struct platform_pwm_backlight_data test_backlight_data = {
 };
 
 struct platform_device test_backlight_device = {
-	.name		= "lcd-backlight",
+	.name		= "pwm-backlight",
 	.dev		= {
 		.platform_data	= &test_backlight_data,
 	},
 };
 
-
+#endif

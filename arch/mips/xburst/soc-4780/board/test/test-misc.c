@@ -51,9 +51,15 @@ static int __init test_board_init(void)
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 
+/* panel and bl */
+#ifdef CONFIG_LCD_AT070TN93
 	platform_device_register(&test_lcd_device);
+#endif
+#ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&test_backlight_device);
+#endif
 
+/* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device,&jzfb_pdata);
 #endif
