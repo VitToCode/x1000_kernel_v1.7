@@ -1,61 +1,73 @@
+/* drivers/video/jz4780/regs.h
+ *
+ * Copyright (c) 2012 Ingenic Semiconductor Co., Ltd.
+ *              http://www.ingenic.com/
+ *
+ * Register definition file for ingenic jz4780 Display Controller driver
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
 #ifndef _REGS_LCDC_H
 #define _REGS_LCDC_H
 
 /*************************************************************************
- * Register Map Of LCDC0
+ * Register Map Of LCDC
  *************************************************************************/
-#define LCDC_CFG      (0x00)     /* Configure Register */
-#define LCDC_CTRL     (0x30)     /* Control Register */
-#define LCDC_STATE    (0x34)     /* Status Register */
+#define LCDC_CFG	(0x00) /* Configure Register */
+#define LCDC_CTRL	(0x30) /* Control Register */
+#define LCDC_STATE	(0x34) /* Status Register */
 
-#define LCDC_OSDC     (0x100)     /* OSD Configure Register */
-#define LCDC_OSDCTRL  (0x104)     /* OSD Control Register */
-#define LCDC_OSDS     (0x108)     /* OSD Status Register */
-#define LCDC_BGC0		(0x10c)     /* Background0 Color Register */
-#define LCDC_BGC1		(0x24c)     /* Background1 Color Register */
-#define LCDC_KEY0	    (0x110)     /* Foreground Color Key Register 0 */
-#define LCDC_KEY1	    (0x114)     /* Foreground Color Key Register 1 */
-#define LCDC_ALPHA    (0x118)     /* ALPHA Register */
-#define LCDC_IPUR	    (0x11c)     /* IPU Restart Register */
-#define LCDC_RGBC	    (0x90)     /* RGB Controll Register */
+#define LCDC_OSDC	(0x100) /* OSD Configure Register */
+#define LCDC_OSDCTRL	(0x104) /* OSD Control Register */
+#define LCDC_OSDS	(0x108) /* OSD Status Register */
+#define LCDC_BGC0	(0x10c) /* Background 0 Color Register */
+#define LCDC_BGC1	(0x24c) /* Background 1 Color Register */
+#define LCDC_KEY0	(0x110) /* Foreground Color Key Register 0 */
+#define LCDC_KEY1	(0x114) /* Foreground Color Key Register 1 */
+#define LCDC_ALPHA	(0x118) /* ALPHA Register */
+#define LCDC_IPUR	(0x11c) /* IPU Restart Register */
+#define LCDC_RGBC	(0x90) /* RGB Controll Register */
 
-#define LCDC_VAT	    	(0x0c) /* Virtual Area Setting Register */
-#define LCDC_DAH		    (0x10) /* Display Area Horizontal Start/End Point */
-#define LCDC_DAV		    (0x14) /* Display Area Vertical Start/End Point */
+#define LCDC_VAT	(0x0c) /* Virtual Area Setting Register */
+#define LCDC_DAH	(0x10) /* Display Area Horizontal Start/End Point */
+#define LCDC_DAV	(0x14) /* Display Area Vertical Start/End Point */
 
-#define LCDC_XYP0	        (0x120) /* Foreground 0 XY Position Register */
-#define LCDC_XYP1	        (0x124) /* Foreground 1 XY Position Register */
-#define LCDC_SIZE0	    (0x128) /* Foreground 0 Size Register */
-#define LCDC_SIZE1	    (0x12c) /* Foreground 1 Size Register */
+#define LCDC_XYP0	(0x120) /* Foreground 0 XY Position Register */
+#define LCDC_XYP1	(0x124) /* Foreground 1 XY Position Register */
+#define LCDC_SIZE0	(0x128) /* Foreground 0 Size Register */
+#define LCDC_SIZE1	(0x12c) /* Foreground 1 Size Register */
 
-#define LCDC_VSYNC	(0x04)/* Vertical Synchronize Register */
+#define LCDC_VSYNC	(0x04) /* Vertical Synchronize Register */
 #define LCDC_HSYNC	(0x08) /* Horizontal Synchronize Register */
 #define LCDC_PS		(0x18) /* PS Signal Setting */
-#define LCDC_CLS		(0x1c) /* CLS Signal Setting */
-#define LCDC_SPL		(0x20) /* SPL Signal Setting */
-#define LCDC_REV		(0x24) /* REV Signal Setting */
-#define LCDC_IID		(0x38) /* Interrupt ID Register */
-#define LCDC_DA0		(0x40) /* Descriptor Address Register 0 */
-#define LCDC_SA0	    (0x44) /* Source Address Register 0 */
-#define LCDC_FID0	    (0x48) /* Frame ID Register 0 */
-#define LCDC_CMD0	    (0x4c) /* DMA Command Register 0 */
+#define LCDC_CLS	(0x1c) /* CLS Signal Setting */
+#define LCDC_SPL	(0x20) /* SPL Signal Setting */
+#define LCDC_REV	(0x24) /* REV Signal Setting */
+#define LCDC_IID	(0x38) /* Interrupt ID Register */
+#define LCDC_DA0	(0x40) /* Descriptor Address Register 0 */
+#define LCDC_SA0	(0x44) /* Source Address Register 0 */
+#define LCDC_FID0	(0x48) /* Frame ID Register 0 */
+#define LCDC_CMD0	(0x4c) /* DMA Command Register 0 */
 
 #define LCDC_OFFS0	(0x60) /* DMA Offsize Register 0 */
-#define LCDC_PW0		(0x64) /* DMA Page Width Register 0 */
+#define LCDC_PW0	(0x64) /* DMA Page Width Register 0 */
 #define LCDC_CNUM0	(0x68) /* DMA Command Counter Register 0 */
 #define LCDC_DESSIZE0	(0x6c) /* Foreground Size in Descriptor 0 Register*/
 
-#define LCDC_DA1		(0x50) /* Descriptor Address Register 1 */
-#define LCDC_SA1		(0x54) /* Source Address Register 1 */
-#define LCDC_FID1	    (0x58) /* Frame ID Register 1 */
-#define LCDC_CMD1	    (0x5c) /* DMA Command Register 1 */
+#define LCDC_DA1	(0x50) /* Descriptor Address Register 1 */
+#define LCDC_SA1	(0x54) /* Source Address Register 1 */
+#define LCDC_FID1	(0x58) /* Frame ID Register 1 */
+#define LCDC_CMD1	(0x5c) /* DMA Command Register 1 */
 #define LCDC_OFFS1	(0x70) /* DMA Offsize Register 1 */
-#define LCDC_PW1		(0x74) /* DMA Page Width Register 1 */
+#define LCDC_PW1	(0x74) /* DMA Page Width Register 1 */
 #define LCDC_CNUM1	(0x78) /* DMA Command Counter Register 1 */
 #define LCDC_DESSIZE1	(0x7c) /* Foreground Size in Descriptor 1 Register */
 
-#define LCDC_PCFG 	    (0x2c0) /* Priority level threshold configure Register */
-#define LCDC_ENH_CFG	    (0x400) /* Image inhancement CFG Register */
+#define LCDC_PCFG	(0x2c0) /* Priority level threshold configure Register */
+#define LCDC_ENH_CFG	(0x400) /* Image inhancement CFG Register */
 #define LCDC_ENH_CSCCFG	(0x404) /* Color space conversion CFG Register */
 #define LCDC_ENH_LUMACFG	(0x408) /* LUMA CFG Register */
 #define LCDC_ENH_CHROCFG0	(0x40c) /* CHROMA0 CFG Register */
@@ -65,11 +77,13 @@
 #define LCDC_ENH_GAMMA	(0x800) /* GAMMA CFG Register */
 #define LCDC_ENH_VEE	(0x1000) /* VEE CFG Register */
 
+#define LCDC_CTRL_OUTPUT	(0x2c8) /* Control output register */
+
 /* LCD Configure Register */
 #define LCDC_CFG_LCDPIN_BIT	31  /* LCD pins selection */
 #define LCDC_CFG_LCDPIN_MASK	(0x1 << LCDC_CFG_LCDPIN_BIT)
-  #define LCDC_CFG_LCDPIN_LCD	(0x0 << LCDC_CFG_LCDPIN_BIT)
-  #define LCDC_CFG_LCDPIN_SLCD	(0x1 << LCDC_CFG_LCDPIN_BIT)
+#define LCDC_CFG_LCDPIN_LCD	(0x0 << LCDC_CFG_LCDPIN_BIT)
+#define LCDC_CFG_LCDPIN_SLCD	(0x1 << LCDC_CFG_LCDPIN_BIT)
 #define LCDC_CFG_TVEPEH		(1 << 30) /* TVE PAL enable extra halfline signal */
                                           /* Keep this bit to 0 */
 #define LCDC_CFG_NEWDES		(1 << 28) /* use new descripter. old: 4words, new:8words */
@@ -99,14 +113,14 @@
 
 #define LCDC_CFG_MODE_BIT	0  /* Display Device Mode Select */
 #define LCDC_CFG_MODE_MASK	(0x0f << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_GENERIC_TFT	(0 << LCDC_CFG_MODE_BIT) /* 16,18 bit TFT */
-  #define LCDC_CFG_MODE_SPECIAL_TFT_1	(1 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_SPECIAL_TFT_2	(2 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_SPECIAL_TFT_3	(3 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_NONINTER_CCIR656	(4 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_INTER_CCIR656	(6 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_SERIAL_TFT	(12 << LCDC_CFG_MODE_BIT)
-  #define LCDC_CFG_MODE_LCM  		(13 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_GENERIC_TFT	(0 << LCDC_CFG_MODE_BIT) /* 16,18 bit TFT */
+#define LCDC_CFG_MODE_SPECIAL_TFT_1	(1 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_SPECIAL_TFT_2	(2 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_SPECIAL_TFT_3	(3 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_NONINTER_CCIR656	(4 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_INTER_CCIR656	(6 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_SERIAL_TFT	(12 << LCDC_CFG_MODE_BIT)
+#define LCDC_CFG_MODE_LCM  		(13 << LCDC_CFG_MODE_BIT)
 
 /* LCD Control Register */
 #define LCDC_CTRL_PINMD		(1 << 31) /* This register set Pin distribution in 16-bit parallel mode
@@ -114,11 +128,11 @@
 					    1: 16-bit data correspond with LCDC_D[17:10], LCDC_D[8:1] */
 #define LCDC_CTRL_BST_BIT	28  /* Burst Length Selection */
 #define LCDC_CTRL_BST_MASK	(0x7 << LCDC_CTRL_BST_BIT)
-  #define LCDC_CTRL_BST_4	(0 << LCDC_CTRL_BST_BIT) /* 4-word */
-  #define LCDC_CTRL_BST_8	(1 << LCDC_CTRL_BST_BIT) /* 8-word */
-  #define LCDC_CTRL_BST_16	(2 << LCDC_CTRL_BST_BIT) /* 16-word */
-  #define LCDC_CTRL_BST_32	(3 << LCDC_CTRL_BST_BIT) /* 32-word */
-  #define LCDC_CTRL_BST_64	(4 << LCDC_CTRL_BST_BIT) /* 64-word */
+#define LCDC_CTRL_BST_4		(0 << LCDC_CTRL_BST_BIT) /* 4-word */
+#define LCDC_CTRL_BST_8		(1 << LCDC_CTRL_BST_BIT) /* 8-word */
+#define LCDC_CTRL_BST_16	(2 << LCDC_CTRL_BST_BIT) /* 16-word */
+#define LCDC_CTRL_BST_32	(3 << LCDC_CTRL_BST_BIT) /* 32-word */
+#define LCDC_CTRL_BST_64	(4 << LCDC_CTRL_BST_BIT) /* 64-word */
 #define LCDC_CTRL_RGB565		(0 << 27) /* RGB565 mode(foreground 0 in OSD mode) */
 #define LCDC_CTRL_RGB555		(1 << 27) /* RGB555 mode(foreground 0 in OSD mode) */
 #define LCDC_CTRL_OFUP		(1 << 26) /* Output FIFO underrun protection enable */
@@ -139,14 +153,14 @@
 #define LCDC_CTRL_ENA		(1 << 3)  /* LCDC enable bit */
 #define LCDC_CTRL_BPP_BIT	0  /* Bits Per Pixel */
 #define LCDC_CTRL_BPP_MASK	(0x07 << LCDC_CTRL_BPP_BIT)
-  #define LCDC_CTRL_BPP_1	(0 << LCDC_CTRL_BPP_BIT) /* 1 bpp */
-  #define LCDC_CTRL_BPP_2	(1 << LCDC_CTRL_BPP_BIT) /* 2 bpp */
-  #define LCDC_CTRL_BPP_4	(2 << LCDC_CTRL_BPP_BIT) /* 4 bpp */
-  #define LCDC_CTRL_BPP_8	(3 << LCDC_CTRL_BPP_BIT) /* 8 bpp */
-  #define LCDC_CTRL_BPP_16	(4 << LCDC_CTRL_BPP_BIT) /* 15/16 bpp */
-  #define LCDC_CTRL_BPP_18_24	(5 << LCDC_CTRL_BPP_BIT) /* 18/24/32 bpp */
-  #define LCDC_CTRL_BPP_CMPS_24	(6 << LCDC_CTRL_BPP_BIT) /* 24 compress bpp */
-  #define LCDC_CTRL_BPP_30	(7 << LCDC_CTRL_BPP_BIT) /* 30 bpp */
+#define LCDC_CTRL_BPP_1		(0 << LCDC_CTRL_BPP_BIT) /* 1 bpp */
+#define LCDC_CTRL_BPP_2		(1 << LCDC_CTRL_BPP_BIT) /* 2 bpp */
+#define LCDC_CTRL_BPP_4		(2 << LCDC_CTRL_BPP_BIT) /* 4 bpp */
+#define LCDC_CTRL_BPP_8		(3 << LCDC_CTRL_BPP_BIT) /* 8 bpp */
+#define LCDC_CTRL_BPP_16	(4 << LCDC_CTRL_BPP_BIT) /* 15/16 bpp */
+#define LCDC_CTRL_BPP_18_24	(5 << LCDC_CTRL_BPP_BIT) /* 18/24/32 bpp */
+#define LCDC_CTRL_BPP_CMPS_24	(6 << LCDC_CTRL_BPP_BIT) /* 24 compress bpp */
+#define LCDC_CTRL_BPP_30	(7 << LCDC_CTRL_BPP_BIT) /* 30 bpp */
 
 /* LCD Status Register */
 #define LCDC_STATE_QD		(1 << 7) /* Quick Disable Done */
@@ -247,15 +261,15 @@
 #define LCDC_RGBC_RGBDM		(1 << 15)   /* enable RGB Dummy data */
 #define LCDC_RGBC_DMM		(1 << 14)   /* RGB Dummy mode */
 #define LCDC_RGBC_422		(1 << 8)    /* Change 444 to 422 */
-#define LCDC_RGBC_RGBFMT		(1 << 7)    /* RGB format enable */
+#define LCDC_RGBC_RGBFMT	(1 << 7)    /* RGB format enable */
 #define LCDC_RGBC_ODDRGB_BIT	4	/* odd line serial RGB data arrangement */
-#define LCDC_RGBC_ODDRGB_MASK	(0x7<<LCDC_RGBC_ODDRGB_BIT)
-#define LCDC_RGBC_ODD_RGB	0 /* RGB */
-#define LCDC_RGBC_ODD_RBG	1 /* RBG */
-#define LCDC_RGBC_ODD_GRB	2 /* GRB */
-#define LCDC_RGBC_ODD_GBR	3 /* GBR */
-#define LCDC_RGBC_ODD_BRG	4 /* BRG */
-#define LCDC_RGBC_ODD_BGR	5 /* BGR */
+#define LCDC_RGBC_ODDRGB_MASK	(0x7 << LCDC_RGBC_ODDRGB_BIT)
+#define LCDC_RGBC_ODD_RGB	(0 << LCDC_RGBC_ODDRGB_BIT) /* RGB */
+#define LCDC_RGBC_ODD_RBG	(1 << LCDC_RGBC_ODDRGB_BIT) /* RBG */
+#define LCDC_RGBC_ODD_GRB	(2 << LCDC_RGBC_ODDRGB_BIT) /* GRB */
+#define LCDC_RGBC_ODD_GBR	(3 << LCDC_RGBC_ODDRGB_BIT) /* GBR */
+#define LCDC_RGBC_ODD_BRG	(4 << LCDC_RGBC_ODDRGB_BIT) /* BRG */
+#define LCDC_RGBC_ODD_BGR	(5 << LCDC_RGBC_ODDRGB_BIT) /* BGR */
 
 #define LCDC_RGBC_EVENRGB_BIT	0	/* even line serial RGB data arrangement */
 #define LCDC_RGBC_EVENRGB_MASK	(0x7<<LCDC_RGBC_EVENRGB_BIT)
@@ -505,6 +519,10 @@
 #define LCDC_ENH_VEE_VEE_DATA1_MASK	(0x3ff << LCDC_ENH_VEE_VEE_DATA1_BIT)
 #define LCDC_ENH_VEE_VEE_DATA0_BIT	0 /* Vee data 0,2,...,1022 */
 #define LCDC_ENH_VEE_VEE_DATA0_MASK	(0x3ff << LCDC_ENH_VEE_VEE_DATA0_BIT)
+
+/* CTRL OUTPUT Register */
+#define LCDC_CTRL_OUTPUT_LCDC02TFT	(1 << 6) /* LCDC0 output to TFT LCD */
+#define LCDC_CTRL_OUTPUT_IPU02BUF	(1 << 8) /* IPU0 output to buffer */
 
 /*************************************************************************
  * SLCD (Smart LCD Controller)

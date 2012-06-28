@@ -4,8 +4,6 @@
 
 #define NUM_FRAME_BUFFERS 2
 #define PIXEL_ALIGN 16
-#define DMA_DESC_NUM 2
-#define CFG_DCACHE_SIZE  16384
 
 struct jzfb_framedesc {
 	uint32_t next;
@@ -18,9 +16,9 @@ struct jzfb_framedesc {
 	uint32_t desc_size;
 } __packed;
 
-enum format_order {
-	FORMAT_X8R8G8B8  =  1,
-	FORMAT_X8B8G8R8  =  2,
+enum jzfb_format_order {
+	FORMAT_X8R8G8B8 = 1,
+	FORMAT_X8B8G8R8,
 };
 
 struct jzfb_fg_t {
@@ -35,18 +33,11 @@ struct jzfb_fg_t {
 };
 
 struct jzfb_osd_t {
-	enum format_order fmt_order;    /* pixel format order */
 	int decompress;		      	/* enable decompress function, used by FG0 */
-	int useIPUasInput;		 /* useIPUasInput, used by FG1 */
+	int block;	  	        /* enable 16x16 block function */
 
-	unsigned int osd_cfg;	        /* OSDEN, ALHPAEN, F0EN, F1EN, etc */
-	unsigned int osd_ctrl;	        /* IPUEN, OSDBPP, etc */
-	unsigned int rgb_ctrl;	        /* RGB Dummy, RGB sequence, RGB to YUV */
 	unsigned int colorkey0;	        /* foreground0's Colorkey enable, Colorkey value */
 	unsigned int colorkey1;         /* foreground1's Colorkey enable, Colorkey value */
-	unsigned int ipu_restart;       /* IPU Restart enable, ipu restart interval time */
-
-	int line_length;                /* line_length, stride, in byte */
 
 	struct jzfb_fg_t fg0;          /* fg0 info */
 	struct jzfb_fg_t fg1;	        /* fg1 info */
@@ -69,15 +60,16 @@ struct jzfb {
 
 	size_t vidmem_size;
 	void *vidmem;
-	unsigned int vidmem_phys;
+	dma_addr_t vidmem_phys;
 
 	int frm_size;
 	volatile int frm_id;
 	struct jzfb_framedesc *framedesc; /* dma descriptor base address */
 	dma_addr_t framedesc_phys;
 
-	struct jzfb_osd_t osd;				/* osd's config information */
-	struct jzfb_aosd_info aosd;			/* compress data info */
+	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
+	struct jzfb_osd_t osd; /* osd's config information */
+	struct jzfb_aosd_info aosd; /* compress data info */
 
 	struct clk *ldclk;
 	struct clk *lpclk;
@@ -97,3 +89,6 @@ static inline void reg_write(struct jzfb *jzfb, int offset, unsigned long val)
 	writel(val, jzfb->base + offset); 
 }
 
+static void dump_lcdc_registers(struct jzfb *jzfb);
+static void jzfb_enable(struct fb_info *info);
+static int jzfb_set_par(struct fb_info *info);

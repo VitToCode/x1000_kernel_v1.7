@@ -71,11 +71,6 @@ static int at070tn93_get_power(struct lcd_device *lcd)
 
 static int at070tn93_set_mode(struct lcd_device *lcd, struct fb_videomode *mode)
 {
-	struct at070tn93_data *dev = lcd_get_data(lcd);
-
-	if (POWER_IS_ON(dev->lcd_power))
-		at070tn93_on(dev);
-
 	return 0;
 }
 

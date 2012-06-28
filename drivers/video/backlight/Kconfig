@@ -125,6 +125,14 @@ config LCD_AT070TN93
 	  If you have an AT070TN93 Panel, say Y to enable its
 	  control driver.
 
+config LCD_AUO_A043FL01V2
+	tristate "AUO_A043FL01V2 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an AUO_A043FL01V2 Panel, say Y to enable its
+	  control driver.
+
 endif # LCD_CLASS_DEVICE
 
 #

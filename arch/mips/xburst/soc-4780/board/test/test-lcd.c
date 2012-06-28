@@ -38,40 +38,80 @@ struct platform_device test_lcd_device = {
 };
 
 #endif
-/**************************************************************************************************/
 
+#ifdef CONFIG_LCD_AUO_A043FL01V2
+struct platform_device test_lcd_device = {
+	.name		= "auo_a043fl01v2-lcd",
+	.dev		= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+/**************************************************************************************************/
 struct fb_videomode jzfb_videomode = {
-	.name = "800x480",	/* optional */
-	.refresh = 55,		/* optional */
+#ifdef CONFIG_LCD_AT070TN93
+	.name = "800x480",
+	.refresh = 55,
 	.xres = 800,
 	.yres = 480,
-	.pixclock = 0,
+	.pixclock = KHZ2PICOS(25863),
 	.left_margin = 16,
 	.right_margin = 48,
 	.upper_margin = 7,
 	.lower_margin = 23,
 	.hsync_len = 30,
-	.vsync_len = 26,
-	.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-	.vmode = 0,
+	.vsync_len = 16,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
+#endif
+
+#ifdef CONFIG_LCD_AUO_A043FL01V2
+	.name = "480x272",
+	.refresh = 60,
+	.xres = 480,
+	.yres = 272,
+	.pixclock = 0,
+	.left_margin = 4,
+	.right_margin = 8,
+	.upper_margin = 2,
+	.lower_margin = 4,
+	.hsync_len = 41,
+	.vsync_len = 10,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
+#endif
 };
 
 struct jzfb_platform_data jzfb_pdata = {
-	.enable = 1,
-	.width = 154,
-	.height = 86,
-
+#ifdef CONFIG_LCD_AT070TN93
 	.num_modes = 1,
 	.modes = &jzfb_videomode,
 
-	.bpp = 24,
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.lcdc0_to_tft_ttl = 1,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
 
-	.is_smart = 0,
-	.is_smart = 0,
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
+#endif
+
+#ifdef CONFIG_LCD_AUO_A043FL01V2
+	.num_modes = 1,
+	.modes = &jzfb_videomode,
+
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.lcdc0_to_tft_ttl = 0,
+	.bpp = 18,
+	.width = 0,
+	.height = 0,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+#endif
 };
 
 /**************************************************************************************************/
