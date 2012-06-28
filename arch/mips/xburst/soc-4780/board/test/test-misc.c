@@ -52,8 +52,11 @@ static int __init test_board_init(void)
 #endif
 
 /* panel and bl */
+#ifdef CONFIG_LCD_AUO_A043FL01V2
+	platform_device_register(&auo_a043fl01v2_device);
+#endif
 #ifdef CONFIG_LCD_AT070TN93
-	platform_device_register(&test_lcd_device);
+	platform_device_register(&at070tn93_device);
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&test_backlight_device);

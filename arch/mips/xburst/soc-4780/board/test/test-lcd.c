@@ -30,7 +30,7 @@ static struct platform_at070tn93_data at070tn93_pdata= {
  	.gpio_reset = GPIO_PE(11),
 };
 
-struct platform_device test_lcd_device = {
+struct platform_device at070tn93_device = {
 	.name		= "at070tn93-lcd",
 	.dev		= {
 		.platform_data	= &at070tn93_pdata,
@@ -40,7 +40,7 @@ struct platform_device test_lcd_device = {
 #endif
 
 #ifdef CONFIG_LCD_AUO_A043FL01V2
-struct platform_device test_lcd_device = {
+struct platform_device auo_a043fl01v2_device = {
 	.name		= "auo_a043fl01v2-lcd",
 	.dev		= {
 		.platform_data	= NULL,

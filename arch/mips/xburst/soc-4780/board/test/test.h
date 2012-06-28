@@ -15,6 +15,12 @@ extern struct jzfb_platform_data jzfb_pdata;
 extern struct snd_codec_data codec_data;
 
 extern struct platform_device test_backlight_device;
-extern struct platform_device test_lcd_device;
+
+#ifdef CONFIG_LCD_AUO_A043FL01V2
+extern struct platform_device auo_a043fl01v2_device;
+#endif
+#ifdef CONFIG_LCD_AT070TN93
+extern struct platform_device at070tn93_device;
+#endif
 
 #endif /* __TEST_H__ */
