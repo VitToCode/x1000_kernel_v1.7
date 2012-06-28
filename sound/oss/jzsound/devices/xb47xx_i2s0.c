@@ -33,12 +33,12 @@
 /**
  * global variable
  **/
+void volatile __iomem *volatile i2s0_iomem;
 static LIST_HEAD(codecs_head);
 static spinlock_t i2s0_irq_lock;
 static struct snd_switch_data switch_data;
 static volatile int jz_switch_state = 0;
 static spinlock_t i2s0_hp_detect_state;
-
 
 static struct dsp_endpoints i2s0_endpoints;
 
@@ -679,31 +679,33 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 	return ret;
 }
 
-static int i2s0_init_pipe(struct dsp_pipe *dp , enum dma_data_direction direction,unsigned long iobase)
+static int i2s0_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsigned long iobase)
 {
-	if (dp != NULL)
+	if (*dp != NULL || dp == NULL)
 		return 0;
-	dp = vmalloc(sizeof(struct dsp_pipe));
-	if (dp == NULL) {
+	*dp = vmalloc(sizeof(struct dsp_pipe));
+	if (*dp == NULL) {
 		printk("i2s0 : init pipe fail vmalloc ");
 		return -ENOMEM;
 	}
 
-	dp->dma_slave.reg_width = 2;
-	dp->dma_direction = direction;
-	dp->fragsize = FRAGSIZE_M;
-	dp->fragcnt = FRAGCNT_M;
-	dp->is_non_block = true;
-	dp->can_mmap =true;
+	(*dp)->dma_slave.reg_width = 2;
+	(*dp)->dma_direction = direction;
+	(*dp)->fragsize = FRAGSIZE_M;
+	(*dp)->fragcnt = FRAGCNT_M;
+	(*dp)->is_non_block = true;
+	(*dp)->can_mmap =true;
+	INIT_LIST_HEAD(&((*dp)->free_node_list));
+	INIT_LIST_HEAD(&((*dp)->use_node_list));
 
 	if (direction == DMA_TO_DEVICE) {
-		dp->dma_slave.max_tsz = 64;
-		dp->dma_slave.req_type_tx = JZDMA_REQ_I2S0_TX;
-		dp->dma_slave.tx_reg = iobase + AIC0DR;
+		(*dp)->dma_slave.max_tsz = 64;
+		(*dp)->dma_slave.req_type_tx = JZDMA_REQ_I2S0_TX;
+		(*dp)->dma_slave.tx_reg = iobase + AIC0DR;
 	} else if (direction == DMA_FROM_DEVICE) {
-		dp->dma_slave.max_tsz = 32;
-		dp->dma_slave.req_type_rx = JZDMA_REQ_I2S0_RX;
-		dp->dma_slave.rx_reg = iobase + AIC0DR;
+		(*dp)->dma_slave.max_tsz = 32;
+		(*dp)->dma_slave.req_type_rx = JZDMA_REQ_I2S0_RX;
+		(*dp)->dma_slave.rx_reg = iobase + AIC0DR;
 	} else
 		return -1;
 
@@ -737,10 +739,10 @@ static int i2s0_global_init(struct platform_device *pdev)
 		goto __err_ioremap;
 	}
 
-	ret = i2s0_init_pipe(i2s0_pipe_out,DMA_TO_DEVICE,i2s0_resource->start);
+	ret = i2s0_init_pipe(&i2s0_pipe_out,DMA_TO_DEVICE,i2s0_resource->start);
 	if (ret < 0)
 		goto __err_init_pipeout;
-	ret = i2s0_init_pipe(i2s0_pipe_in,DMA_FROM_DEVICE,i2s0_resource->start);
+	ret = i2s0_init_pipe(&i2s0_pipe_in,DMA_FROM_DEVICE,i2s0_resource->start);
 	if (ret < 0)
 		goto __err_init_pipein;
 

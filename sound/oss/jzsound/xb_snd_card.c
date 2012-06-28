@@ -293,6 +293,14 @@ static int xb_snd_probe(struct platform_device *pdev)
 		if (ddata->minor > MAX_SND_MINOR)
 			return -EINVAL;
 		ddata->dev = &(pdev->dev);
+
+		if (ddata->init) {
+			if(ddata->init(pdev)) {
+				printk("SOUND ERROR: device init error!\n");
+				return -1;
+			}
+		}
+
 		/* device probe */
 		switch (ddata->minor & 0x0f) {
 		case SND_DEV_DSP:
@@ -313,13 +321,6 @@ static int xb_snd_probe(struct platform_device *pdev)
 			printk("SOUND ERROR: %s(line:%d) register sound device error! minor = %d\n",
 				   __func__, __LINE__, snd_minor);
 			return ret;
-		}
-
-		if (ddata->init) {
-			if(ddata->init(pdev)) {
-				printk("SOUND ERROR: device init error!\n");
-				return -1;
-			}
 		}
 	}
 

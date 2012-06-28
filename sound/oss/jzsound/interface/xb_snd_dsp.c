@@ -156,15 +156,6 @@ static void snd_reconfig_dma(struct dsp_pipe *dp)
 
 	dmaengine_device_control(dp->dma_chan, DMA_SLAVE_CONFIG,
 					 (unsigned long)&dp->dma_slave);
-
-	ddata = dp2ddata(dp);
-	if (dp->dma_direction == DMA_TO_DEVICE) {
-		if (ddata && ddata->dev_ioctl)
-			ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
-	} else if (dp->dma_direction == DMA_FROM_DEVICE) {
-		if (ddata && ddata->dev_ioctl)
-			ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
-	}
 }
 
 static int snd_reuqest_dma(struct dsp_pipe *dp)
@@ -176,8 +167,10 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	dma_cap_set(DMA_SLAVE, mask);
 	dp->dma_chan = dma_request_channel(mask, NULL, NULL);
 
-	if (dp->dma_chan == NULL)
+	if (dp->dma_chan == NULL){
+		printk("#############################%s,dma_chan==null",__func__);
 		return -ENXIO;
+	}
 
 	snd_reconfig_dma(dp);
 
@@ -193,19 +186,8 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 
 static void snd_release_dma(struct dsp_pipe *dp)
 {
-	struct snd_dev_data *ddata = NULL;
-
 	if (dp->dma_chan) {
 		dmaengine_device_control(dp->dma_chan, DMA_TERMINATE_ALL, 0);
-	}
-
-	ddata = dp2ddata(dp);
-	if (dp->dma_direction == DMA_TO_DEVICE) {
-		if (ddata && ddata->dev_ioctl)
-			ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
-	} else if (dp->dma_direction == DMA_FROM_DEVICE) {
-		if (ddata && ddata->dev_ioctl)
-			ddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX, 0);
 	}
 
 	dma_release_channel(dp->dma_chan);
@@ -906,6 +888,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				if (dp->is_trans == false) {
 					ret = snd_prepare_dma_desc(dp);
 					if (!ret) {
+						if (ddata && ddata->dev_ioctl)
+							ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
 						snd_start_dma_transfer(dp);
 					} else {
 						return -EFAULT;
@@ -1002,6 +986,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 			copy_size = mcount;
 
 		if (copy_size == copy_from_user((void *)node->pBuf, buffer, copy_size)) {
+			put_free_dsp_node(dp,node);
 			return -EFAULT;
 		}
 		buffer += copy_size;
@@ -1014,6 +999,8 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
+				if (ddata && ddata->dev_ioctl)
+					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
 				snd_start_dma_transfer(dp);
 			}
 		}
@@ -1706,12 +1693,14 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
-	if (ddata == NULL)
+	if (ddata == NULL) {
 		return -ENODEV;
+	}
 
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
-	if (endpoints == NULL)
+	if (endpoints == NULL) {
 		return -ENODEV;
+	}
 
 	dpi = endpoints->in_endpoint;
 	dpo = endpoints->out_endpoint;
@@ -1738,7 +1727,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* enable dsp device record */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_RECORD, 0);
-			if (!ret)
+			if (ret < 0)
 				return -EIO;
 		}
 		dpi->is_used = true;
@@ -1763,7 +1752,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* enable dsp device replay */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_REPLAY, 0);
-			if (!ret)
+			if (ret < 0)
 				return -EIO;
 		}
 		dpo->is_used = true;
@@ -1830,7 +1819,8 @@ int xb_snd_dsp_release(struct inode *inode,
 		};
 
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_RECORD, 0);
+			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX, 0);
+			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_RECORD, 0);
 			if (ret)
 				return -EFAULT;
 		}
@@ -1851,7 +1841,8 @@ int xb_snd_dsp_release(struct inode *inode,
 		};
 
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
+			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
+			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
 			if (ret)
 				return -EFAULT;
 		}

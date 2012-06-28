@@ -11,7 +11,7 @@ extern unsigned int DEFAULT_RECORD_ROUTE;
 /**
  * global variable
  **/
-static void __iomem *i2s0_iomem;
+extern void volatile __iomem *volatile i2s0_iomem;
 
 
 #define NEED_RECONF_DMA         0x00000001
@@ -435,10 +435,10 @@ static int inline read_inter_codec_reg(int addr)
 
 static int inline write_inter_codec_reg(int addr,int data)
 {
-	while(!test_rw_inval());
-	i2s0_write_reg(RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
+	while(test_rw_inval());
+	i2s0_write_reg(RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGADDR_MASK) |
 				(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK)));
-	i2s0_write_reg( RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGDIN_MASK) |
+	i2s0_write_reg( RGADW,(((addr << I2S0_RGADDR_OFFSET) & I2S0_RGADDR_MASK) |
 			(((data)<< I2S0_RGDIN_OFFSET)& I2S0_RGDIN_MASK) |
 			(1 << I2S0_RGWR_OFFSET)));
 	if (data != read_inter_codec_reg(addr))
