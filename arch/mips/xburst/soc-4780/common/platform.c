@@ -14,7 +14,6 @@
 #include <linux/init.h>
 #include <linux/resource.h>
 
-#include <soc/clk.h>
 #include <soc/gpio.h>
 #include <soc/base.h>
 #include <soc/irq.h>

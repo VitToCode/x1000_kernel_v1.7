@@ -14,21 +14,9 @@
 #include <linux/err.h>
 #include <linux/proc_fs.h>
 
-#include <soc/clk.h>
+#include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
-
-#if 0
-#define cpm_inl(off)		inl(CPM_IOBASE + (off))
-#define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
-#define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(OST_IOBASE + (off))))
-#define cpm_set_bit(val,off)	set_bit(val,((volatile void *)(OST_IOBASE + (off))))
-#else
-#define cpm_inl(x)		0x3
-#define cpm_outl(v,x)		do{}while(0)
-#define cpm_clear_bit(off,x)	do{}while(0)
-#define cpm_set_bit(off,x)	do{}while(0)
-#endif
 
 struct clk;
 struct clk_ops {

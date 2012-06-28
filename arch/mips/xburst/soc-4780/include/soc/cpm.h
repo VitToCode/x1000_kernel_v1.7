@@ -60,4 +60,36 @@
 #define CPM_OPCR	(0x24)
 #define CPM_RSR		(0x08)
 
+#define LCR_LPM_MASK		(0x3)
+#define LCR_LPM_SLEEP		(0x1)
+
+#define CPM_LCR_PD_SCPU		(0x1<<31)
+#define CPM_LCR_PD_VPU		(0x1<<30)
+#define CPM_LCR_PD_GPU		(0x1<<29)
+#define CPM_LCR_PD_GPS		(0x1<<28)
+#define CPM_LCR_PD_MASK		(0x7<<28)
+#define CPM_LCR_SCPUS 		(0x1<<27)
+#define CPM_LCR_VPUS		(0x1<<26)
+#define CPM_LCR_GPUS		(0x1<<25) 
+#define CPM_LCR_GPSS 		(0x1<<25)
+#define CPM_LCR_STATUS_MASK 	(0xf<<25)
+#define CPM_LCR_GPU_IDLE 	(0x1<<24)
+
+#define OPCR_ERCS		(0x1<<2)
+#define OPCR_PD			(0x1<<3)
+
+#if 0
+#define cpm_inl(off)		inl(CPM_IOBASE + (off))
+#define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
+#define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(OST_IOBASE + (off))))
+#define cpm_set_bit(val,off)	set_bit(val,((volatile void *)(OST_IOBASE + (off))))
+#else
+static unsigned int tmp;
+#define cpm_inl(x)		0x3
+#define cpm_outl(val,off)	do{tmp = (val);}while(0)
+//#define cpm_outl(v,x)		do{}while(0)
+#define cpm_clear_bit(off,x)	do{}while(0)
+#define cpm_set_bit(off,x)	do{}while(0)
+#endif
+
 #endif

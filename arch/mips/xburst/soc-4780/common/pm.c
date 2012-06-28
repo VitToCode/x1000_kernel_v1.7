@@ -31,60 +31,10 @@
 #include <linux/delay.h>
 #include <asm/cacheops.h>
 
+#include <soc/base.h>
+#include <soc/cpm.h>
+
 #define CONFIG_PM_POWERDOWN_P0 1
-
-#define jz_sys_readl(r)		(*((volatile unsigned long*)(r)))
-#define jz_sys_writel(r,v)	(*((volatile unsigned long*)(r)) = (v))
-
-#define	CPM_BASE	0xb0000000
-
-#define CPM_LCR_OFFSET          (0x04)  /* rw, 32, 0x000000f8 */
-#define CPM_PSWC0ST_OFFSET      (0x90)  /* rw, 32, 0x00000000 */
-#define CPM_PSWC1ST_OFFSET      (0x94)  /* rw, 32, 0x00000000 */
-#define CPM_PSWC2ST_OFFSET      (0x98)  /* rw, 32, 0x00000000 */
-#define CPM_PSWC3ST_OFFSET      (0x9c)  /* rw, 32, 0x00000000 */
-#define CPM_RSR_OFFSET          (0x08)  /* rw, 32, 0x???????? */
-#define CPM_OPCR_OFFSET         (0x24)  /* rw, 32, 0x00001570 */
-#define CPM_SRBC_OFFSET   	(0xc4)  /* rw, 32, 0x00000000 */
-#define CPM_SLBC_OFFSET   	(0xc8)  /* rw, 32, 0x00000000 */
-#define CPM_SLPC_OFFSET         (0xcc)  /* rw, 32, 0x???????? */
-#define CPM_SLBC_OFFSET   	(0xc8)  /* rw, 32, 0x00000000 */
-#define CPM_SLBC_OFFSET   	(0xc8)  /* rw, 32, 0x00000000 */
-#define CPM_SPCR0_OFFSET   	(0xb8)  /* rw, 32, 0x00000000 */
-#define CPM_SPCR1_OFFSET   	(0xbc)  /* rw, 32, 0x00000000 */
-
-#define CPM_LCR		(CPM_BASE + CPM_LCR_OFFSET)
-#define CPM_PSWC0ST	(CPM_BASE + CPM_PSWC0ST_OFFSET)
-#define CPM_PSWC1ST	(CPM_BASE + CPM_PSWC1ST_OFFSET)
-#define CPM_PSWC2ST	(CPM_BASE + CPM_PSWC2ST_OFFSET)
-#define CPM_PSWC3ST	(CPM_BASE + CPM_PSWC3ST_OFFSET)
-#define CPM_RSR		(CPM_BASE + CPM_RSR_OFFSET)
-#define CPM_OPCR	(CPM_BASE + CPM_OPCR_OFFSET)
-#define CPM_SRBC	(CPM_BASE + CPM_SRBC_OFFSET)
-#define CPM_SLBC	(CPM_BASE + CPM_SLBC_OFFSET)
-#define CPM_SLPC	(CPM_BASE + CPM_SLPC_OFFSET)
-#define CPM_SPCR0	(CPM_BASE + CPM_SPCR0_OFFSET)
-#define CPM_SPCR1	(CPM_BASE + CPM_SPCR1_OFFSET)
-
-#define LCR_LPM_MASK		(0x3)
-#define LCR_LPM_SLEEP		(0x1)
-
-#define CPM_LCR_PD_SCPU		(0x1<<31)
-#define CPM_LCR_PD_VPU		(0x1<<30)
-#define CPM_LCR_PD_GPU		(0x1<<29)
-#define CPM_LCR_PD_GPS		(0x1<<28)
-#define CPM_LCR_PD_MASK		(0x7<<28)
-#define CPM_LCR_SCPUS 		(0x1<<27)
-#define CPM_LCR_VPUS		(0x1<<26)
-#define CPM_LCR_GPUS		(0x1<<25) 
-#define CPM_LCR_GPSS 		(0x1<<25)
-#define CPM_LCR_STATUS_MASK 	(0xf<<25)
-#define CPM_LCR_GPU_IDLE 	(0x1<<24)
-
-
-#define OPCR_ERCS		(0x1<<2)
-#define OPCR_PD			(0x1<<3)
-
 
 int regs[128];
 
@@ -366,18 +316,18 @@ static inline void __jz_cache_init(void)
 static int jz4780_pm_enter(suspend_state_t state)
 {
 	int i;
-	unsigned long lcr = jz_sys_readl(CPM_LCR);
-	unsigned long opcr = jz_sys_readl(CPM_OPCR);
+	unsigned long lcr = cpm_inl(CPM_LCR);
+	unsigned long opcr = cpm_inl(CPM_OPCR);
 	
 	if(!(lcr & CPM_LCR_GPU_IDLE)) {
 		printk("jz4780_pm_enter failed - GPU is busy.\n");
 		goto jz4780_pm_enter_exit;
 	}
 
-	jz_sys_writel(CPM_LCR, (lcr & ~LCR_LPM_MASK) | LCR_LPM_SLEEP | CPM_LCR_PD_MASK);
+	cpm_outl((lcr & ~LCR_LPM_MASK) | LCR_LPM_SLEEP | CPM_LCR_PD_MASK,CPM_LCR);
 	udelay(30);
 
-	if((jz_sys_readl(CPM_LCR) & CPM_LCR_STATUS_MASK) != CPM_LCR_STATUS_MASK) {
+	if((cpm_inl(CPM_LCR) & CPM_LCR_STATUS_MASK) != CPM_LCR_STATUS_MASK) {
 		printk("jz4780_pm_enter failed - some module CAN NOT shutdown.\n");
 		goto jz4780_pm_enter_exit;
 	}
@@ -386,27 +336,28 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
 #if defined(CONFIG_PM_POWERDOWN_P0)
-	jz_sys_writel(CPM_OPCR, 1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS);
+	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
 #else
-	jz_sys_writel(CPM_OPCR, 1<<30 | 1<<26 | 0xff<<8 | OPCR_ERCS);
+	cpm_outl(1<<30 | 1<<26 | 0xff<<8 | OPCR_ERCS,CPM_OPCR);
 #endif
 
 	/* shutdown memory power control */
-	jz_sys_writel(CPM_SPCR0, 0xffffffff);
+	cpm_outl(0xffffffff,CPM_SPCR0);
 	/* Clear previous reset status */
-	jz_sys_writel(CPM_RSR, 0);
+	cpm_outl(0,CPM_RSR);
 
-	jz_sys_writel(CPM_PSWC0ST, 0);
-	jz_sys_writel(CPM_PSWC1ST, 8);
-	jz_sys_writel(CPM_PSWC2ST, 11);
-	jz_sys_writel(CPM_PSWC3ST, 0);
+	cpm_outl(0,CPM_PSWC0ST);
+	cpm_outl(8,CPM_PSWC1ST);
+	cpm_outl(11,CPM_PSWC2ST);
+	cpm_outl(0,CPM_PSWC3ST);
 
 	/* set SRBC to stop bus transfer */
-	jz_sys_writel(CPM_SRBC, 0);
+	cpm_outl(0,CPM_SRBC);
 #if defined(CONFIG_PM_POWERDOWN_P0)
 	/* Set resume return address */
-	jz_sys_writel(CPM_SLBC, 1);
-	jz_sys_writel(CPM_SLPC, (unsigned long)&&sleep_done);
+	cpm_outl(1,CPM_SLBC);
+	cpm_outl((unsigned long)&&sleep_done,CPM_SLPC);
+	if(0) goto sleep_done;//do nothing,just make gcc happy
 
 	save_regs(regs);
 #endif	
@@ -425,17 +376,17 @@ sleep_done:
 	load_regs(regs);
 #endif
 	/* clear SRBC */
-	jz_sys_writel(CPM_SRBC, 0);
+	cpm_outl(0,CPM_SRBC);
 	/* enable memory power control */
 	for(i=0;i<32;i++) {
-		jz_sys_writel(CPM_SPCR0, jz_sys_readl(CPM_SPCR0) & ~(0x1<<i));
+		cpm_outl(cpm_inl(CPM_SPCR0) & ~(0x1<<i),CPM_SPCR0);
 		udelay(5);
 	}
 	/* Restore OPCR */
-	jz_sys_writel(CPM_OPCR, opcr);
+	cpm_outl(opcr,CPM_OPCR);
 jz4780_pm_enter_exit:
 	/* Restore LCR */
-	jz_sys_writel(CPM_LCR, lcr);
+	cpm_outl(lcr,CPM_LCR);
 	return 0;
 }
 

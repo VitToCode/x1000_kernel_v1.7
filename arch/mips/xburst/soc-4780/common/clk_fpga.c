@@ -14,7 +14,6 @@
 #include <linux/err.h>
 #include <linux/proc_fs.h>
 
-#include <soc/clk.h>
 #include <soc/base.h>
 #include <soc/extal.h>
 
@@ -224,10 +223,10 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(EXT0,  		0),
 	DEF_CLK(EXT1,  		0),
 
-	DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
-	DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
-	DEF_CLK(EPLL,  		PLL(CPM_CPEPCR)),
-	DEF_CLK(VPLL,  		PLL(CPM_CPVPCR)),
+	DEF_CLK(APLL,  		PLL(0)),
+	DEF_CLK(MPLL,  		PLL(0)),
+	DEF_CLK(EPLL,  		PLL(0)),
+	DEF_CLK(VPLL,  		PLL(0)),
 
 	DEF_CLK(SCLKA,		PARENT(APLL)),
 
@@ -402,14 +401,6 @@ arch_initcall(init_all_clk);
 
 static int clk_gate_ctrl(struct clk *clk, int enable)
 {
-	int bit = CLK_GATE_BIT(clk->flags);
-	int off;
-
-	if(bit/32 == 0)
-		off = CPM_CLKGR0;
-	else
-		off = CPM_CLKGR1;
-
 	return 0;
 }
 
