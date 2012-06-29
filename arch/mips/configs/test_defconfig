@@ -826,7 +826,7 @@ CONFIG_I2C_HELPER_AUTO=y
 #
 # Xburst soc 4780 internal i2c controller
 #
-# CONFIG_I2C0_JZ4780 is not set
+CONFIG_I2C0_JZ4780=y
 # CONFIG_I2C1_JZ4780 is not set
 # CONFIG_I2C2_JZ4780 is not set
 # CONFIG_I2C3_JZ4780 is not set

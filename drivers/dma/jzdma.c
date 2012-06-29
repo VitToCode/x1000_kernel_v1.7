@@ -650,7 +650,6 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	short irq;
 	int ret, i;
 
-	printk("%s %d\n",__func__,__LINE__);
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
 		return -ENOMEM;
