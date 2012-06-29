@@ -43,6 +43,7 @@
 #define UART_FCR_CLEAR_RCVR	0x02 /* Clear the RCVR FIFO */
 #define UART_FCR_CLEAR_XMIT	0x04 /* Clear the XMIT FIFO */
 #define UART_FCR_DMA_SELECT	0x08 /* For DMA applications */
+#define UART_FCR_UME		0x10 /* UME */
 
 #define UART_FCR_R_TRIG_00	0x00
 #define UART_FCR_R_TRIG_01	0x40

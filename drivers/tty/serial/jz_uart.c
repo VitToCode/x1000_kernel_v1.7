@@ -311,13 +311,21 @@ static int serial_jz47xx_startup(struct uart_port *port)
 		return retval;
 
 	/*
+	 * Clear the FIFO buffers and disable them.
+	 * (they will be reenabled in set_termios())
+	 */
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO);
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO |
+			UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT);
+	serial_out(up, UART_FCR, 0);
+
+	/*
 	 * Clear the interrupt registers.
 	 */
 	(void) serial_in(up, UART_LSR);
 	(void) serial_in(up, UART_RX);
 	(void) serial_in(up, UART_IIR);
 	(void) serial_in(up, UART_MSR);
-
 
 	/*
 	 * Now, initialize the UART
@@ -414,6 +422,7 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/2);
 	quot = uart_get_divisor(port, baud);
 
+
 	/*
 	 * Ok, we're now changing the port state.  Do it with
 	 * interrupts disabled.
@@ -476,6 +485,7 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_11 | UART_FCR_UME);
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
