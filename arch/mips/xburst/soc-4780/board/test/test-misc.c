@@ -6,6 +6,10 @@
 
 static int __init test_board_init(void)
 {
+/* dma */
+#ifdef CONFIG_XBURST_DMAC
+	platform_device_register(&jz_pdma_device);
+#endif
 /* i2c */
 #ifdef CONFIG_I2C0_JZ4780
 	platform_device_register(&jz_i2c0_device);

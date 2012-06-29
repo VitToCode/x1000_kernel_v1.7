@@ -98,6 +98,8 @@ extern struct platform_device jz_uart2_device;
 extern struct platform_device jz_uart3_device;
 extern struct platform_device jz_uart4_device;
 
+extern struct platform_device jz_pdma_device; 
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #endif

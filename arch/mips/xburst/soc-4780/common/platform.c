@@ -115,7 +115,6 @@ static struct resource jz_pdma_res[] = {
 };
 struct platform_device jz_pdma_device = {
 	.name = "jzdma",
-	/* id = -1 means we only have one same device in system */
 	.id = -1,
 	.resource = jz_pdma_res,
 	.num_resources = ARRAY_SIZE(jz_pdma_res),

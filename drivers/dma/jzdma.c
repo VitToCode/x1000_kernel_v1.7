@@ -33,7 +33,7 @@
 
 #define DMAC	(GLOBAL_REG_OFFSET + 0x00)
 #define DIRQP	(GLOBAL_REG_OFFSET + 0x04)
-#define DDR		(GLOBAL_REG_OFFSET + 0x08)
+#define DDR	(GLOBAL_REG_OFFSET + 0x08)
 #define DDRS	(GLOBAL_REG_OFFSET + 0x0C)
 /* MCU of PDMA */
 #define DMACP	(GLOBAL_REG_OFFSET + 0x1C)
@@ -650,6 +650,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	short irq;
 	int ret, i;
 
+	printk("%s %d\n",__func__,__LINE__);
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
 		return -ENOMEM;
@@ -666,7 +667,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		goto free_dma;
 	}
 
-	dma->clk = clk_get(&pdev->dev, "DMAC");
+	dma->clk = clk_get(&pdev->dev, "pdma");
 	clk_enable(dma->clk);
 	dma->iomem = ioremap(iores->start, resource_size(iores));
 	if (!dma->iomem) {
@@ -708,8 +709,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		   used as no-descriptor mode, channel 2 ~ (NR_DMA_CHANNELS - 1) are
 		   gerenal, used as descriptor mode */
 		if (i >= 2) {
-			dmac->desc = dma_alloc_coherent(NULL, PAGE_SIZE,
-											&dmac->desc_phys, GFP_KERNEL);
+			dmac->desc = dma_alloc_coherent(&pdev->dev, PAGE_SIZE,&dmac->desc_phys, GFP_KERNEL);
 			if (!dmac->desc) {
 				dev_info(&pdev->dev,
 						 "No Memory! ch %d\n", i);
