@@ -29,7 +29,6 @@
 #define MAX_SEGS		128
 
 /* #define PIO_MODE */
-#define PIO_MODE
 #if defined(PIO_MODE) && !defined(CONFIG_MMC_BLOCK_BOUNCE)
 #error ***********************Warning!*************************
 #error ****PIO mode must work with CONFIG_MMC_BLOCK_BOUNCE!****
@@ -175,6 +174,31 @@ static inline void disable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 	msc_writel(host, IMASK, imsk);
 	spin_unlock(&host->lock);
 }
+
+#ifdef IT_IS_USED_FOR_DEBUG
+static void jzmmc_dump_reg(struct jzmmc_host *host)
+{
+	dev_info(host->dev, "\nREG dump:\n"
+		 "\tSTAT\t= 0x%08X\n"
+		 "\tRTCNT\t= 0x%08X\n"
+		 "\tDMALEN\t= 0x%08X\n"
+		 "\tBLKLEN\t= 0x%08X\n"
+		 "\tNOB\t= 0x%08X\n"
+		 "\tSNOB\t= 0x%08X\n"
+		 "\tIFLG\t= 0x%08X\n"
+		 "\tIMASK\t= 0x%08X\n"
+		 "\tDMAC\t= 0x%08X\n",
+		 msc_readl(host, STAT),
+		 msc_readl(host, RTCNT),
+		 msc_readl(host, DMALEN),
+		 msc_readl(host, BLKLEN),
+		 msc_readl(host, NOB),
+		 msc_readl(host, SNOB),
+		 msc_readl(host, IFLG),
+		 msc_readl(host, IMASK),
+		 msc_readl(host, DMAC));
+}
+#endif
 
 static inline void jzmmc_reset(struct jzmmc_host *host)
 {
@@ -538,8 +562,6 @@ static void jzmmc_submit_dma(struct jzmmc_host *host, struct mmc_data *data)
 	if (data->flags & MMC_DATA_READ)
 		dhd->dma_desc->dcmd |= DMACMD_ENDI;
 	dhd->dma_desc->dcmd &= ~DMACMD_LINK;
-
-	msc_writel(host, DMANDA, host->decshds[0].dma_desc_phys_addr);
 }
 
 static inline unsigned int get_incr(unsigned int dma_len)
@@ -556,6 +578,7 @@ static inline unsigned int get_incr(unsigned int dma_len)
 		break;
 #undef _CASE
 	}
+
 	return incr;
 }
 
@@ -567,15 +590,16 @@ static inline void jzmmc_dma_start(struct jzmmc_host *host, struct mmc_data *dat
 	unsigned int dmac;
 
 #ifdef PERFORMANCE_DMA
-	dmac = get_incr(dma_len) | DMAC_DMAEN | DMAC_MODE_SEL;
+	dmac = (get_incr(dma_len) << DMAC_INCR_SHF) | DMAC_DMAEN | DMAC_MODE_SEL;
 #else
-	dmac = get_incr(dma_len) | DMAC_DMAEN;
+	dmac = (get_incr(dma_len) << DMAC_INCR_SHF) | DMAC_DMAEN;
 #endif
 	if ((dma_addr & 0x3) || (dma_len & 0x3)) {
 		dmac |= DMAC_ALIGNEN;
 		if (dma_addr & 0x3)
 			dmac |= (dma_addr % 4) << DMAC_AOFST_SHF;
 	}
+	msc_writel(host, DMANDA, host->decshds[0].dma_desc_phys_addr);
 	msc_writel(host, DMAC, dmac);
 }
 
@@ -606,7 +630,7 @@ static void do_pio_read(struct jzmmc_host *host,
 
 	for (i = 0; i < cnt / 4; i++) {
 		while (((status = msc_readl(host, STAT))
-			& (STAT_DATA_FIFO_EMPTY | ERROR_STAT))
+			& STAT_DATA_FIFO_EMPTY)
 		       && test_bit(JZMMC_CARD_PRESENT, &host->flags));
 
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
@@ -734,7 +758,8 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 		imsk = IMASK_PRG_DONE | IMASK_CRC_WRITE_ERR;
 	} else if (data->flags & MMC_DATA_READ) {
 		cmdat &= ~CMDAT_WRITE_READ;
-		imsk = IMASK_TIME_OUT_READ
+		imsk = IMASK_DMAEND
+			| IMASK_TIME_OUT_READ
 			| IMASK_DATA_TRAN_DONE
 			| IMASK_CRC_READ_ERR;
 	} else {
@@ -863,9 +888,9 @@ static void jzmmc_request_timeout(unsigned long data)
 	unsigned int status = msc_readl(host, STAT);
 
 	dev_err(host->dev, "request time out, op=%d arg=0x%08X, "
-		"sz:%dk state=%d, status=0x%08X, pending=0x%08X\n",
+		"sz:%dB state=%d, status=0x%08X, pending=0x%08X\n",
 		host->cmd->opcode, host->cmd->arg,
-		host->data ? host->data->blocks >> 1 : -1,
+		host->data ? host->data->blocks << 9 : -1,
 		host->state, status, (u32)host->pending_events);
 
 	if (host->mrq) {
