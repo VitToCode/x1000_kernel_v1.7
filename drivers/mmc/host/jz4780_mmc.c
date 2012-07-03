@@ -175,7 +175,7 @@ static inline void disable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 	spin_unlock(&host->lock);
 }
 
-#ifdef IT_IS_USED_FOR_DEBUG
+#ifndef IT_IS_USED_FOR_DEBUG
 static void jzmmc_dump_reg(struct jzmmc_host *host)
 {
 	dev_info(host->dev, "\nREG dump:\n"
@@ -873,7 +873,7 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * no action to complete the request.
 	 */
 	mod_timer(&host->request_timer, jiffies +
-		  msecs_to_jiffies(20000 + (host->data ? host->data->blocks << 2 : 0)));
+		  msecs_to_jiffies(60000 + (host->data ? host->data->blocks << 2 : 0)));
 
 	jzmmc_command_start(host, host->cmd);
 	if (host->data)
@@ -892,7 +892,7 @@ static void jzmmc_request_timeout(unsigned long data)
 		host->cmd->opcode, host->cmd->arg,
 		host->data ? host->data->blocks << 9 : -1,
 		host->state, status, (u32)host->pending_events);
-
+	jzmmc_dump_reg(host);
 	if (host->mrq) {
 		if (request_need_stop(host->mrq))
 			send_stop_command(host);

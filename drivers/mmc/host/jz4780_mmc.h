@@ -14,8 +14,8 @@
 
 #define MMC_CLOCK_SLOW			200000		/* 200 kHz for initial setup */
 #define MMC_CLOCK_FAST			20000000	/* 20 MHz for maximum for normal operation */
-#define SD_CLOCK_FAST			1000000	/* 25 MHz for SD Cards */
-#define SD_CLOCK_HIGH			1000000	/* 50 MHz for SD Cards */
+#define SD_CLOCK_FAST			3000000	/* 25 MHz for SD Cards */
+#define SD_CLOCK_HIGH			3000000	/* 50 MHz for SD Cards */
 #define SDIO_CLOCK_HIGH			25000000	/* 25 MHz for SDIO Cards */
 #define MMC_BOOT_AREA_PROTECTED		(0x1234)	/* Can not modified the area protected */
 #define MMC_BOOT_AREA_OPENED		(0x4321)	/* Can modified the area protected */
