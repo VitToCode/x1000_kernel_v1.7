@@ -20,7 +20,7 @@ enum jzdma_req_type {
 	JZDMA_REQ_RESERVED0 = 0x03,
 	_RTP(I2S1),
 	_RTP(I2S0),
-	JZDMA_REQ_AUTO = 0x08,
+	JZDMA_REQ_AUTO_TXRX = 0x08,
 	JZDMA_REQ_SADC_RX,
 	JZDMA_REQ_RESERVED1 = 0x0c,
 	_RTP(UART4),
@@ -44,6 +44,32 @@ enum jzdma_req_type {
 #undef _RTP
 };
 
+enum jzdma_type {
+#define _RTP(NAME) JZDMA_REQ_##NAME = JZDMA_REQ_##NAME##_TX
+	_RTP(I2S1),
+	_RTP(I2S0),
+	JZDMA_REQ_AUTO = JZDMA_REQ_AUTO_TXRX,
+	JZDMA_REQ_SADC = JZDMA_REQ_SADC_RX,
+	_RTP(UART4),
+	_RTP(UART3),
+	_RTP(UART2),
+	_RTP(UART1),
+	_RTP(UART0),
+	_RTP(SSI0),
+	_RTP(SSI1),
+	_RTP(MSC0),
+	_RTP(MSC1),
+	_RTP(MSC2),
+	_RTP(PCM0),
+	_RTP(PCM1),
+	_RTP(I2C0),
+	_RTP(I2C1),
+	_RTP(I2C2),
+	_RTP(I2C3),
+	_RTP(I2C4),
+	_RTP(DES),
+#undef _RTP
+};
 
 /* this struct is used for the devices which use the dma engine */
 struct jzdma_slave {
@@ -75,8 +101,6 @@ struct jzdma_slave {
 	unsigned long dcm;
 	/* enum jzdma_req_type value, like JZDMA_REQ_UART3_tx */
 	unsigned short req_type_tx, req_type_rx;
-	/* special channel0 and channel1 selected flag */
-	bool channel0_special, channel1_special;
 };
 
 #endif

@@ -6,8 +6,8 @@
  * Version 2 or later at the following locations:
  */
 
-//#define DEBUG
-//#define VERBOSE_DEBUG
+#define DEBUG
+#define VERBOSE_DEBUG
 
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -70,7 +70,7 @@
 #define DCM_LINK	BIT(0)
 
 struct jzdma_master;
-struct jzdma_engine;
+struct jzdma_master;
 
 struct dma_desc {
 	unsigned long dcm;
@@ -79,8 +79,8 @@ struct dma_desc {
 };
 
 struct jzdma_channel {
-	unsigned int			channel;
 	struct dma_chan			chan;
+	enum jzdma_type			type;
 	struct dma_async_tx_descriptor	tx_desc;
 	dma_cookie_t			last_completed;
 	dma_cookie_t			last_good;
@@ -99,10 +99,9 @@ struct jzdma_channel {
 	unsigned short		last_sg;
 	unsigned long 		dcm_def;
 	struct jzdma_slave	*slave;
+	struct dma_slave_config	*config;
 	void __iomem		*iomem;
 	struct jzdma_master	*master;
-	bool 				map_chan0;
-	bool				map_chan1;
 };
 
 enum channel_status {
@@ -110,19 +109,14 @@ enum channel_status {
 };
 
 #define NR_DMA_CHANNELS 	32
-struct jzdma_master {
-	int 		irq;
-	void __iomem   	*iomem;
-	struct jzdma_engine	*engine;
-	struct jzdma_channel	channel[NR_DMA_CHANNELS];
-};
 
-struct jzdma_engine {
+struct jzdma_master {
 	struct device		*dev;
-	struct dma_device	dma_device;
-	struct jzdma_master	master;
+	void __iomem   		*iomem;
 	struct clk		*clk;
-	void __iomem		*iomem;
+	int 			irq;
+	struct dma_device	dma_device;
+	struct jzdma_channel	channel[NR_DMA_CHANNELS];
 };
 
 static struct device *chan2dev(struct dma_chan *chan)
@@ -162,15 +156,15 @@ static void dump_dma_desc(struct jzdma_channel *dmac)
 
 	for(i = 0; i < dmac->desc_nr; i++)
 		dev_info(chan2dev(&dmac->chan),
-			 "DSA: %x, DTA: %x, DCM: %lx, DTC:%lx\n",
-			 desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc);
+				"DSA: %x, DTA: %x, DCM: %lx, DTC:%lx\n",
+				desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc);
 }
 #else
 #define dump_dma_desc(A) (void)(0)
 #endif
 
 static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
-			  dma_addr_t dst, unsigned long dcm, unsigned cnt)
+		dma_addr_t dst, unsigned long dcm, unsigned cnt)
 {
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr;
 
@@ -185,9 +179,8 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
 	return 0;
 }
 
-static int build_desc_from_sg(struct jzdma_channel *dmac,
-			      struct scatterlist *sgl, unsigned int sg_len,
-			      enum dma_data_direction direction)
+static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl, unsigned int sg_len,
+		enum dma_data_direction direction)
 {
 	struct jzdma_slave *slave = dmac->slave;
 	struct scatterlist *sg;
@@ -209,7 +202,7 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,
 		mem = sg_dma_address(sg);
 
 		tsz = get_max_tsz(mem | sg_dma_len(sg) | slave->max_tsz
-				  , &dcm);
+				, &dcm);
 		tsz = sg_dma_len(sg) / tsz;
 		if (direction == DMA_TO_DEVICE)
 			build_one_desc(dmac, mem, slave->tx_reg, dcm, tsz);
@@ -219,10 +212,8 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,
 	return i;
 }
 
-static struct dma_async_tx_descriptor *
-jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
-		    unsigned int sg_len, enum dma_data_direction direction,
-		    unsigned long flags)
+static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
+		unsigned int sg_len, enum dma_data_direction direction,unsigned long flags)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct jzdma_slave *slave = dmac->slave;
@@ -230,11 +221,7 @@ jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	if (dmac->status != STAT_STOPED)
 		return NULL;
 
-	if (dmac->map_chan0 || dmac->map_chan1)
-		return NULL;
-
-	dev_vdbg(chan2dev(chan),
-		 "Channel %d prepare slave sg list\n",dmac->channel);
+	dev_vdbg(chan2dev(chan),"Channel %d prepare slave sg list\n",dmac->chan.chan_id);
 
 	BUG_ON(!(dmac->flags & CHFLG_SLAVE));
 
@@ -262,57 +249,37 @@ jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	return &dmac->tx_desc;
 }
 
-static struct dma_async_tx_descriptor *
-jzdma_prep_memcpy(struct dma_chan *chan, dma_addr_t dma_dest,
-		  dma_addr_t dma_src, size_t len, unsigned long flags)
+static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, dma_addr_t dma_dest,
+		dma_addr_t dma_src, size_t len, unsigned long flags)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	unsigned long tsz,dcm = 0;
-	void __iomem *iomem = NULL;
 
 	if (dmac->status != STAT_STOPED)
 		return NULL;
 
-	if (dmac->map_chan0 || dmac->map_chan1) {
-		if (dmac->map_chan0)
-			iomem = dmac->master->channel[0].iomem;
-		else
-			iomem = dmac->master->channel[1].iomem;
+	tsz = get_max_tsz(dma_dest | dma_src | len, &dcm);
 
-		dcm |= DCM_TIE | DCM_DAI | DCM_SAI | DCM_TSZ_MSK;
-		dcm &= ~(DCM_LINK | DCM_STDE | DCM_DP_MSK | DCM_SP_MSK);
+	dev_vdbg(chan2dev(chan),"Channel %d prepare memcpy d:%x s:%x l:%d %lx %lx\n"
+			,dmac->chan.chan_id, dma_dest, dma_src, len, tsz, dcm);
 
-		writel(dcm, iomem + CH_DCM);
-		clear_bit(31, iomem + CH_DCS);
+	dcm |= DCM_TIE | DCM_DAI | DCM_SAI | DCM_LINK;
+	build_one_desc(dmac, dma_src, dma_dest, dcm, len/tsz);
 
-		/* routine for channel0 || channel1 special use */
-	} else {
-		tsz = get_max_tsz(dma_dest | dma_src | len, &dcm);
+	writel(JZDMA_REQ_AUTO, dmac->iomem+CH_DRT);
 
-		dev_vdbg(chan2dev(chan),
-				 "Channel %d prepare memcpy d:%x s:%x l:%d %lx %lx\n"
-				 ,dmac->channel, dma_dest, dma_src, len, tsz, dcm);
+	/* use 4-word descriptors */
+	writel(0, dmac->iomem+CH_DCS);
 
-		dcm |= DCM_TIE | DCM_DAI | DCM_SAI | DCM_LINK;
-		build_one_desc(dmac, dma_src, dma_dest, dcm, len/tsz);
-
-		writel(JZDMA_REQ_AUTO, dmac->iomem+CH_DRT);
-
-		/* use 4-word descriptors */
-		writel(0, dmac->iomem+CH_DCS);
-
-		/* tx descriptor can reused before dma finished. */
-		dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
-	}
+	/* tx descriptor can reused before dma finished. */
+	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
 
 	dmac->status = STAT_PREPED;
 	return &dmac->tx_desc;
 }
 
-static struct dma_async_tx_descriptor *
-jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
-					  size_t buf_len, size_t period_len,
-					  enum dma_data_direction direction)
+static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
+		size_t buf_len, size_t period_len,enum dma_data_direction direction)
 {
 	int i = 0;
 	unsigned long tsz = 0;
@@ -324,9 +291,6 @@ jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 	struct dma_desc *desc = dmac->desc;
 
 	dmac->desc_nr = 0;
-
-	if (dmac->map_chan0 || dmac->map_chan1)
-		return NULL;
 
 	dcm |= slave->dcm & JZDMA_DCM_MSK;
 	if (direction == DMA_TO_DEVICE)
@@ -346,7 +310,7 @@ jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 	   in that case, the last desc->dcm set ~DCM_LINK
 	   when call jzdma_issue_pending(); will not effect
 	   the real desc we need to use (desc[0 ~ (periods-1)])
-    */
+	 */
 	if (periods >= dmac->desc_max - 1)
 		return NULL;
 
@@ -411,15 +375,13 @@ static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 
 	spin_unlock_bh(&dmac->lock);
 
-	dev_vdbg(chan2dev(&dmac->chan),
-		 "Channel %d submit\n",dmac->channel);
+	dev_vdbg(chan2dev(&dmac->chan),"Channel %d submit\n",dmac->chan.chan_id);
 
 	return cookie;
 }
 
-static enum dma_status jzdma_tx_status(struct dma_chan *chan,
-				       dma_cookie_t cookie,
-				       struct dma_tx_state *txstate)
+static enum dma_status jzdma_tx_status(struct dma_chan *chan,dma_cookie_t cookie,
+		struct dma_tx_state *txstate)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	dma_cookie_t last_used;
@@ -431,9 +393,9 @@ static enum dma_status jzdma_tx_status(struct dma_chan *chan,
 	dma_set_tx_state(txstate, dmac->last_completed, last_used, 0);
 
 	if (ret == DMA_SUCCESS
-	    && dmac->last_completed != dmac->last_good
-	    && (dma_async_is_complete(cookie, dmac->last_good, last_used)
-		== DMA_IN_PROGRESS))
+			&& dmac->last_completed != dmac->last_good
+			&& (dma_async_is_complete(cookie, dmac->last_good, last_used)
+				== DMA_IN_PROGRESS))
 		ret = DMA_ERROR;
 
 	return ret;
@@ -446,15 +408,12 @@ static void jzdma_chan_tasklet(unsigned long data)
 
 	dcs = dmac->dcs_saved;
 
-	dev_vdbg(chan2dev(&dmac->chan),
-		 "tasklet: DCS%d=%lx\n", dmac->channel, dcs);
+	dev_vdbg(chan2dev(&dmac->chan),"tasklet: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
 
 	if (dcs & DCS_AR)
-		dev_notice(chan2dev(&dmac->chan),
-			   "Addr Error: DCS%d=%lx\n", dmac->channel, dcs);
+		dev_notice(chan2dev(&dmac->chan),"Addr Error: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
 	if (dcs & DCS_HLT)
-		dev_notice(chan2dev(&dmac->chan),
-			   "DMA Halt: DCS%d=%lx\n", dmac->channel, dcs);
+		dev_notice(chan2dev(&dmac->chan),"DMA Halt: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
 
 	spin_lock(&dmac->lock);
 	if (dcs & DCS_TT)
@@ -474,32 +433,22 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr - 1;
-	void __iomem *iomem = NULL;
 
 	if (dmac->status != STAT_SUBED)
 		return;
 
 	dmac->status = STAT_RUNNING;
 
-	if (dmac->map_chan0 || dmac->map_chan1) {
-		if (dmac->map_chan0)
-			iomem = dmac->master->channel[0].iomem;
-		else
-			iomem = dmac->master->channel[1].iomem;
+	dev_vdbg(chan2dev(chan),
+			"Channel %d issue pending\n",dmac->chan.chan_id);
 
-		/* routine for channel0 || channel1 special use */
-	} else {
-		dev_vdbg(chan2dev(chan),
-				 "Channel %d issue pending\n",dmac->channel);
+	desc->dcm &= ~DCM_LINK;
+	dump_dma_desc(dmac);
 
-		desc->dcm &= ~DCM_LINK;
-		dump_dma_desc(dmac);
-
-		/* dma descriptor address */
-		writel(dmac->desc_phys, dmac->iomem+CH_DDA);
-		/* initiate descriptor fetch */
-		writel(BIT(dmac->channel), dmac->master->iomem+DDRS);
-	}
+	/* dma descriptor address */
+	writel(dmac->desc_phys, dmac->iomem+CH_DDA);
+	/* initiate descriptor fetch */
+	writel(BIT(dmac->chan.chan_id), dmac->master->iomem+DDRS);
 
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem+CH_DCS);
@@ -509,7 +458,7 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 
-	dev_vdbg(chan2dev(chan), "terminate_all %d\n", dmac->channel);
+	dev_vdbg(chan2dev(chan), "terminate_all %d\n", dmac->chan.chan_id);
 	spin_lock_bh(&dmac->lock);
 
 	dmac->status = STAT_STOPED;
@@ -522,61 +471,44 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 }
 
 static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
-			 unsigned long arg)
+		unsigned long arg)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct jzdma_slave *slave = (void*)arg;
 	int ret = 0;
 
 	switch (cmd) {
-	case DMA_TERMINATE_ALL:
-		jzdma_terminate_all(chan);
-		break;
-
-	case DMA_SLAVE_CONFIG:
-		ret = !slave->reg_width;
-		ret |= (!slave->tx_reg && !slave->rx_reg);
-		ret |= (slave->tx_reg && !slave->req_type_tx);
-		ret |= (slave->rx_reg && !slave->req_type_rx);
-		if (ret) {
-			dev_warn(chan2dev(chan), "Bad DMA control argument !");
-			ret = -EINVAL;
+		case DMA_TERMINATE_ALL:
+			jzdma_terminate_all(chan);
 			break;
-		}
 
-		dmac->dcm_def = 0;
-		if (slave->reg_width == 1) {
-			dmac->dcm_def |= DCM_SP_8 | DCM_DP_8;
-		}
-		else if (slave->reg_width == 2) {
-			dmac->dcm_def |= DCM_SP_16 | DCM_DP_16;
-		}
-		else
-			BUG_ON(slave->reg_width != 4);
+		case DMA_SLAVE_CONFIG:
+			ret = !slave->reg_width;
+			ret |= (!slave->tx_reg && !slave->rx_reg);
+			ret |= (slave->tx_reg && !slave->req_type_tx);
+			ret |= (slave->rx_reg && !slave->req_type_rx);
+			if (ret) {
+				dev_warn(chan2dev(chan), "Bad DMA control argument !");
+				ret = -EINVAL;
+				break;
+			}
 
-		if (slave->channel0_special &&
-			(!dmac->master->channel[0].map_chan0)) {
-			/* here dmac->map_chan0 == true indicate
-			   that this channel mapped to channel0.
-			   master->channel[0].map_chan0 == true
-			   indicate that channel0 has been mapped */
-			dmac->map_chan0 = true;
-			dmac->master->channel[0].map_chan0 = true;
-		} else if (slave->channel1_special &&
-				   (!dmac->master->channel[1].map_chan1)) {
-			dmac->map_chan1 = true;
-			dmac->master->channel[1].map_chan1 = true;
-		} else {
-			ret = -EINVAL;
+			dmac->dcm_def = 0;
+			if (slave->reg_width == 1) {
+				dmac->dcm_def |= DCM_SP_8 | DCM_DP_8;
+			}
+			else if (slave->reg_width == 2) {
+				dmac->dcm_def |= DCM_SP_16 | DCM_DP_16;
+			}
+			else
+				BUG_ON(slave->reg_width != 4);
+
+			dmac->flags |= CHFLG_SLAVE;
+			dmac->slave = slave;
 			break;
-		}
 
-		dmac->flags |= CHFLG_SLAVE;
-		dmac->slave = slave;
-		break;
-
-	default:
-		return -ENOSYS;
+		default:
+			return -ENOSYS;
 	}
 
 	return ret;
@@ -620,8 +552,14 @@ static int jzdma_alloc_chan_resources(struct dma_chan *chan)
 	/* txd.flags will be overwritten in prep funcs, FIXME */
 	dmac->tx_desc.flags = DMA_CTRL_ACK;
 
-	dev_vdbg(chan2dev(chan),
-		 "Channel %d have been requested\n",dmac->channel);
+	dmac->desc = dma_alloc_coherent(chan2dev(chan), PAGE_SIZE,&dmac->desc_phys, GFP_KERNEL);
+	if (!dmac->desc) {
+		dev_info(chan2dev(chan),"No Memory! ch %d\n", chan->chan_id);
+		return -ENOMEM;
+	}
+	dmac->desc_max = PAGE_SIZE / sizeof(struct dma_desc);
+
+	dev_dbg(chan2dev(chan),"Channel %d have been requested\n",dmac->chan.chan_id);
 
 	return ret;
 }
@@ -634,21 +572,15 @@ static void jzdma_free_chan_resources(struct dma_chan *chan)
 	dmac->flags = 0;
 	dmac->status = 0;
 
-	if (dmac->map_chan0) {
-		dmac->map_chan0 = false;
-		dmac->master->channel[0].map_chan0 = false;
-	} else if (dmac->map_chan1) {
-		dmac->map_chan1 = false;
-		dmac->master->channel[1].map_chan1 = false;
-	}
+	dma_free_coherent(chan2dev(chan), PAGE_SIZE,dmac->desc, dmac->desc_phys);
 }
 
 static int __init jzdma_probe(struct platform_device *pdev)
 {
-	struct jzdma_engine *dma;
+	struct jzdma_master *dma;
 	struct resource *iores;
 	short irq;
-	int ret, i;
+	int i,ret = 0;
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
@@ -667,7 +599,12 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	}
 
 	dma->clk = clk_get(&pdev->dev, "pdma");
+	if (IS_ERR(dma->clk)) {
+		goto release_mem;
+	}
+
 	clk_enable(dma->clk);
+
 	dma->iomem = ioremap(iores->start, resource_size(iores));
 	if (!dma->iomem) {
 		ret = -ENOMEM;
@@ -675,51 +612,35 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(irq, jzdma_int_handler, IRQF_DISABLED,
-			  "dma_irq", &dma->master);
+			"pdma", dma);
 	if (ret)
 		goto release_iomap;
 
 	/* Initialize dma engine */
 	dma_cap_set(DMA_MEMCPY, dma->dma_device.cap_mask);
 	dma_cap_set(DMA_SLAVE, dma->dma_device.cap_mask);
-	//dma_cap_set(DMA_CYCLIC, dma->dma_device.cap_mask);
+	dma_cap_set(DMA_CYCLIC, dma->dma_device.cap_mask);
 
 	INIT_LIST_HEAD(&dma->dma_device.channels);
 	/* Initialize master/channel parameters */
-	dma->master.engine = dma;
-	dma->master.irq = irq;
-	dma->master.iomem = dma->iomem;
+	dma->irq = irq;
+	dma->iomem = dma->iomem;
 	/* Hardware master enable */
-	writel(1, dma->master.iomem + DMAC);
-	/* DMAC->CH01 = 1 to enable channel 0&1 special use */
-	set_bit(1, dma->master.iomem + DMAC);
+	writel(1, dma->iomem + DMAC);
 
 	for (i = 0; i < NR_DMA_CHANNELS; i++) {
-		struct jzdma_channel *dmac = &dma->master.channel[i];
+		struct jzdma_channel *dmac = &dma->channel[i];
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-		dmac->channel = i;
+		dmac->chan.chan_id = i;
 		tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
-				     (unsigned long)dmac);
-		dmac->iomem = dma->master.iomem + i * 0x20;
-		dmac->master = dma->master.iomem;
+				(unsigned long)dmac);
+		dmac->iomem = dma->iomem + i * 0x20;
+		dmac->master = dma;
 
-		/* here channel 0 and channel 1 are reserved for speicial use and
-		   used as no-descriptor mode, channel 2 ~ (NR_DMA_CHANNELS - 1) are
-		   gerenal, used as descriptor mode */
-		if (i >= 2) {
-			dmac->desc = dma_alloc_coherent(&pdev->dev, PAGE_SIZE,&dmac->desc_phys, GFP_KERNEL);
-			if (!dmac->desc) {
-				dev_info(&pdev->dev,
-						 "No Memory! ch %d\n", i);
-				continue;
-			}
-			dmac->desc_max = PAGE_SIZE / sizeof(struct dma_desc);
-
-			/* add chan like channel 5,4,3,... */
-			list_add(&dmac->chan.device_node,
-					 &dma->dma_device.channels);
-		}
+		/* add chan like channel 5,4,3,... */
+		list_add(&dmac->chan.device_node,
+				&dma->dma_device.channels);
 	}
 
 	dma->dev = &pdev->dev;
@@ -732,7 +653,6 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma->dma_device.device_prep_slave_sg = jzdma_prep_slave_sg;
 	dma->dma_device.device_prep_dma_memcpy = jzdma_prep_memcpy;
 	dma->dma_device.device_prep_dma_cyclic = jzdma_prep_dma_cyclic;
-	//dma->dma_device.dev->dma_parms = &dma->dma_parms;
 
 	dma_set_max_seg_size(dma->dma_device.dev, 256);
 
@@ -746,13 +666,13 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	return 0;
 
 release_irq:
-	free_irq(irq, &dma->master);
+	free_irq(irq, dma);
 release_iomap:
 	iounmap(dma->iomem);
 release_clk:
 	if(dma->clk)
 		clk_put(dma->clk);
-//release_mem:
+release_mem:
 	release_mem_region(iores->start, resource_size(iores));
 free_dma:
 	kfree(dma);
@@ -762,16 +682,7 @@ free_dma:
 
 static int __exit jzdma_remove(struct platform_device *pdev)
 {
-	struct jzdma_engine *dma = platform_get_drvdata(pdev);
-	int i;
-
-	for (i = 0; i < NR_DMA_CHANNELS; i++) {
-			struct jzdma_channel *dmac = &dma->master.channel[i];
-			if (i > 2)
-				dma_free_coherent(NULL, PAGE_SIZE,
-								  dmac->desc, dmac->desc_phys);
-	}
-
+	struct jzdma_master *dma = platform_get_drvdata(pdev);
 	dma_async_device_unregister(&dma->dma_device);
 	kfree(dma);
 	return 0;
@@ -779,7 +690,7 @@ static int __exit jzdma_remove(struct platform_device *pdev)
 
 static struct platform_driver jzdma_driver = {
 	.driver		= {
-		.name	= "jzdma",
+		.name	= "jz-dma",
 	},
 	.remove		= __exit_p(jzdma_remove),
 };

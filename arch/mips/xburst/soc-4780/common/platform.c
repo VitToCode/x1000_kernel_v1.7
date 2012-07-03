@@ -109,12 +109,11 @@ static struct resource jz_pdma_res[] = {
 	},
 	[1] = {
 		.flags = IORESOURCE_IRQ,
-		.name = "dma_irq",
 		.start = IRQ_PDMA,
 	}
 };
 struct platform_device jz_pdma_device = {
-	.name = "jzdma",
+	.name = "jz-dma",
 	.id = -1,
 	.resource = jz_pdma_res,
 	.num_resources = ARRAY_SIZE(jz_pdma_res),
