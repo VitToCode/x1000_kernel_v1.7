@@ -83,36 +83,5 @@ struct jzdma_platform_data {
 	enum jzdma_type map[NR_DMA_CHANNELS];
 };
 
-/* this struct is used for the devices which use the dma engine */
-struct jzdma_slave {
-	/* the followed values must gaved by client device driver.
-	 * 
-	 *   For client device using, driver must set reg_width to 1/2/4.
-	 * 
-	 *   If need mem->device, should set tx_reg with write FIFO port
-	 * phys address and req_type_tx with request type value like
-	 * JZDMA_REQ_UART3_tx.
-	 * 
-	 *   If need device->mem, should set rx_reg with read FIFO port
-	 * phys address and req_type_rx with request type value like
-	 * JZDMA_REQ_UART3_rx.
-	 * 
-	 */
-
-	/* transfer reg port width, always be 1,2,4 */
-	short reg_width;
-	/* max of transfer unit size, always be 1,2,4,8,16,32,64,128 
-	 * for device use FIFO, it's equal to half of FIFO size
-	 */
-	short max_tsz;
-	/* the tx/rx reg address */
-	unsigned long tx_reg,rx_reg;
-
-	/* cleint could set the EACKS,EACKM,ERDM,REIL */
-#define JZDMA_DCM_MSK	0xF00F0000
-	unsigned long dcm;
-	/* enum jzdma_req_type value, like JZDMA_REQ_UART3_tx */
-	unsigned short req_type_tx, req_type_rx;
-};
-
 #endif
+

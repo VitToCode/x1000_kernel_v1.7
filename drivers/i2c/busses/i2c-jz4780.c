@@ -168,9 +168,9 @@ struct jz_i2c {
 	struct completion complete;
 	struct dma_chan *chan;
 	struct dma_async_tx_descriptor  *tx_desc;
-	struct jzdma_slave dma_slave;
-	enum jzdma_type dma_type;
+	struct dma_slave_config dma_config;
 	struct i2c_sg_data *data;
+	enum jzdma_type dma_type;
 };
 
 
@@ -294,7 +294,7 @@ static inline int xfer_read(struct jz_i2c *i2c,char *buf,int len,int cnt,int idx
 			*(buf++) = i2c_readl(i2c,I2C_DC) & 0xff;
 	} else {
 		/* use dma */
-		dmaengine_device_control(i2c->chan, DMA_SLAVE_CONFIG,(unsigned long)&i2c->dma_slave);
+		dmaengine_slave_config(i2c->chan, &i2c->dma_config);
 
 //		dma_cache_sync(NULL, (void *)buf, len,DMA_FROM_DEVICE);
 //		sg_dma_address(sg) = buf;
@@ -379,7 +379,7 @@ static inline int xfer_write(struct jz_i2c *i2c,char *buf,int len,int cnt,int id
 		}
 	} else {
 		/* use dma */
-		dmaengine_device_control(i2c->chan, DMA_SLAVE_CONFIG,(unsigned long)&i2c->dma_slave);
+		dmaengine_slave_config(i2c->chan, &i2c->dma_config);
 
 		data.sg_len = 1;	
 		data.sg = kzalloc(sizeof(struct scatterlist) * data.sg_len,GFP_KERNEL);
@@ -585,10 +585,12 @@ static int i2c_jz_probe(struct platform_device *dev)
 	
 	init_completion(&i2c->complete);
 
-	i2c->dma_slave.reg_width = 1;	//0-32bit,1-8bit 2-16bit
-	i2c->dma_slave.max_tsz = 8;	//for device use FIFO, it's equal to half of FIFO size
-	i2c->dma_slave.tx_reg = (unsigned long)(i2c->iomem + I2C_DC);
-	i2c->dma_slave.rx_reg = (unsigned long)(i2c->iomem + I2C_DC);
+	i2c->dma_config.src_addr = (unsigned long)(r->start + I2C_DC);
+	i2c->dma_config.dst_addr = (unsigned long)(r->start + I2C_DC);
+	i2c->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	i2c->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	i2c->dma_config.src_maxburst = 8;
+	i2c->dma_config.dst_maxburst = 8;
 
 	r = platform_get_resource(dev, IORESOURCE_DMA, 0);
 	i2c->dma_type = r->start;

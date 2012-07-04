@@ -58,9 +58,11 @@
 #define DCM_SAI		BIT(23)
 #define DCM_DAI		BIT(22)
 #define DCM_SP_MSK	(0x3 << 14)
+#define DCM_SP_32	DCM_SP_MSK
 #define DCM_SP_16	BIT(15)
 #define DCM_SP_8	BIT(14)
 #define DCM_DP_MSK	(0x3 << 12)
+#define DCM_DP_32	DCM_DP_MSK
 #define DCM_DP_16	BIT(13)
 #define DCM_DP_8	BIT(12)
 #define DCM_TSZ_MSK	(0x7 << 8)
@@ -98,8 +100,8 @@ struct jzdma_channel {
 	struct scatterlist 	*sgl;
 	unsigned long	 	sg_len;
 	unsigned short		last_sg;
-	unsigned long 		dcm_def;
-	struct jzdma_slave	*slave;
+	unsigned long 		tx_dcm_def;
+	unsigned long 		rx_dcm_def;
 	struct dma_slave_config	*config;
 	void __iomem		*iomem;
 	struct jzdma_master	*master;
@@ -182,16 +184,15 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
 static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl, unsigned int sg_len,
 		enum dma_data_direction direction)
 {
-	struct jzdma_slave *slave = dmac->slave;
+	struct dma_slave_config *config = dmac->config;
 	struct scatterlist *sg;
-	unsigned long dcm = dmac->dcm_def;
+	unsigned long dcm;
 	short i,tsz;
 
-	dcm |= slave->dcm & JZDMA_DCM_MSK;
 	if (direction == DMA_TO_DEVICE)
-		dcm |= DCM_SAI;
+		dcm = DCM_SAI | dmac->tx_dcm_def;
 	else
-		dcm |= DCM_DAI;
+		dcm = DCM_DAI | dmac->rx_dcm_def;
 
 	/* clear LINK bit when issue pending */
 	dcm |= DCM_TIE | DCM_LINK;
@@ -201,13 +202,15 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 
 		mem = sg_dma_address(sg);
 
-		tsz = get_max_tsz(mem | sg_dma_len(sg) | slave->max_tsz
-				, &dcm);
-		tsz = sg_dma_len(sg) / tsz;
-		if (direction == DMA_TO_DEVICE)
-			build_one_desc(dmac, mem, slave->tx_reg, dcm, tsz);
-		else
-			build_one_desc(dmac, slave->rx_reg, mem, dcm, tsz);
+		if (direction == DMA_TO_DEVICE) {
+			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
+			tsz = sg_dma_len(sg) / tsz;
+			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz);
+		} else {
+			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->src_maxburst, &dcm);
+			tsz = sg_dma_len(sg) / tsz;
+			build_one_desc(dmac, config->src_addr, mem, dcm, tsz);
+		}
 	}
 	return i;
 }
@@ -286,12 +289,11 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 	unsigned long cnt = 0;
 	unsigned int periods = buf_len / period_len;
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
-	struct jzdma_slave *slave = dmac->slave;
+	struct dma_slave_config *config = dmac->config;
 	struct dma_desc *desc = dmac->desc;
 
 	dmac->desc_nr = 0;
 
-	dcm |= slave->dcm & JZDMA_DCM_MSK;
 	if (direction == DMA_TO_DEVICE)
 		dcm |= DCM_SAI;
 	else
@@ -317,14 +319,15 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 		/* get desc address */
 		desc = dmac->desc + dmac->desc_nr;
 		/* computer tsz */
-		tsz = get_max_tsz(dma_addr | period_len | slave->max_tsz, &dcm);
-		cnt = period_len / tsz;
-		/* set src and dst */
 		if (direction == DMA_TO_DEVICE) {
+			tsz = get_max_tsz(dma_addr | period_len | config->dst_maxburst, &dcm);
+			cnt = period_len / tsz;
 			desc->dsa = dma_addr;
-			desc->dta = slave->tx_reg;
+			desc->dta = config->dst_addr;
 		} else {
-			desc->dsa = slave->rx_reg;
+			tsz = get_max_tsz(dma_addr | period_len | config->src_maxburst, &dcm);
+			cnt = period_len / tsz;
+			desc->dsa = config->src_addr;
 			desc->dta = dma_addr;
 		}
 		/* set dcm */
@@ -473,7 +476,7 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 		unsigned long arg)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
-	struct jzdma_slave *slave = (void*)arg;
+	struct dma_slave_config *config = (void*)arg;
 	int ret = 0;
 
 	switch (cmd) {
@@ -482,28 +485,49 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			break;
 
 		case DMA_SLAVE_CONFIG:
-			ret = !slave->reg_width;
-			ret |= (!slave->tx_reg && !slave->rx_reg);
-			ret |= (slave->tx_reg && !slave->req_type_tx);
-			ret |= (slave->rx_reg && !slave->req_type_rx);
+			ret |= !config->src_addr_width || !config->dst_addr_width;
+			ret |= !config->src_maxburst || !config->dst_maxburst;
+			ret |= !config->src_addr && !config->dst_addr;
 			if (ret) {
 				dev_warn(chan2dev(chan), "Bad DMA control argument !");
 				ret = -EINVAL;
 				break;
 			}
 
-			dmac->dcm_def = 0;
-			if (slave->reg_width == 1) {
-				dmac->dcm_def |= DCM_SP_8 | DCM_DP_8;
+			switch(config->dst_addr_width) {
+				case DMA_SLAVE_BUSWIDTH_1_BYTE:
+					dmac->tx_dcm_def |= DCM_SP_8 | DCM_DP_8;
+					break;
+				case DMA_SLAVE_BUSWIDTH_2_BYTES:
+					dmac->tx_dcm_def |= DCM_SP_16 | DCM_DP_16;
+					break;
+				case DMA_SLAVE_BUSWIDTH_4_BYTES:
+					dmac->tx_dcm_def |= DCM_SP_32 | DCM_DP_32;
+					break;
+				case DMA_SLAVE_BUSWIDTH_8_BYTES:
+				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
+					dev_warn(chan2dev(chan), "Bad DMA control argument !");
+					return -EINVAL;
 			}
-			else if (slave->reg_width == 2) {
-				dmac->dcm_def |= DCM_SP_16 | DCM_DP_16;
-			}
-			else
-				BUG_ON(slave->reg_width != 4);
 
+			switch(config->src_addr_width) {
+				case DMA_SLAVE_BUSWIDTH_1_BYTE:
+					dmac->rx_dcm_def |= DCM_SP_8 | DCM_DP_8;
+					break;
+				case DMA_SLAVE_BUSWIDTH_2_BYTES:
+					dmac->rx_dcm_def |= DCM_SP_16 | DCM_DP_16;
+					break;
+				case DMA_SLAVE_BUSWIDTH_4_BYTES:
+					dmac->rx_dcm_def |= DCM_SP_32 | DCM_DP_32;
+					break;
+				case DMA_SLAVE_BUSWIDTH_8_BYTES:
+				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
+					dev_warn(chan2dev(chan), "Bad DMA control argument !");
+					return -EINVAL;
+			}
+				
 			dmac->flags |= CHFLG_SLAVE;
-			dmac->slave = slave;
+			dmac->config = config;
 			break;
 
 		default:
@@ -568,7 +592,7 @@ static void jzdma_free_chan_resources(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 
-	dmac->slave = NULL;
+	dmac->config = NULL;
 	dmac->flags = 0;
 	dmac->status = 0;
 
