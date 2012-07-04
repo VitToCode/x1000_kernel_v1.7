@@ -112,9 +112,40 @@ static struct resource jz_pdma_res[] = {
 		.start = IRQ_PDMA,
 	}
 };
+
+static struct jzdma_platform_data jzdma_pdata = {
+	.map = {
+		JZDMA_REQ_NAND0,
+		JZDMA_REQ_NAND1,
+		JZDMA_REQ_NAND2,
+		JZDMA_REQ_NAND3,
+		JZDMA_REQ_NAND4,
+		JZDMA_REQ_I2S1,
+		JZDMA_REQ_I2S0,
+		JZDMA_REQ_UART4,
+		JZDMA_REQ_UART3,
+		JZDMA_REQ_UART2,
+		JZDMA_REQ_UART1,
+		JZDMA_REQ_UART0,
+		JZDMA_REQ_SSI0,
+		JZDMA_REQ_SSI1,
+		JZDMA_REQ_PCM0,
+		JZDMA_REQ_PCM1,
+		JZDMA_REQ_I2C0,
+		JZDMA_REQ_I2C1,
+		JZDMA_REQ_I2C2,
+		JZDMA_REQ_I2C3,
+		JZDMA_REQ_I2C4,
+		JZDMA_REQ_DES,
+	},
+};
+
 struct platform_device jz_pdma_device = {
 	.name = "jz-dma",
 	.id = -1,
+	.dev = {
+		.platform_data = &jzdma_pdata,
+	},
 	.resource = jz_pdma_res,
 	.num_resources = ARRAY_SIZE(jz_pdma_res),
 };
@@ -163,8 +194,7 @@ static struct resource jz_i2c##NO##_resources[] = {				\
 		.flags          = IORESOURCE_IRQ,				\
 	},									\
 	[2] = {									\
-		.start          = JZDMA_REQ_I2C##NO##_TX,			\
-		.end            = JZDMA_REQ_I2C##NO##_RX,			\
+		.start          = JZDMA_REQ_I2C##NO,				\
 		.flags          = IORESOURCE_DMA,				\
 	},									\
 };										\

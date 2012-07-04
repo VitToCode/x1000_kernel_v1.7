@@ -169,6 +169,7 @@ struct jz_i2c {
 	struct dma_chan *chan;
 	struct dma_async_tx_descriptor  *tx_desc;
 	struct jzdma_slave dma_slave;
+	enum jzdma_type dma_type;
 	struct i2c_sg_data *data;
 };
 
@@ -457,9 +458,10 @@ static const struct i2c_algorithm i2c_jz_algorithm = {
 	.functionality	= i2c_jz_functionality,
 };
 
-static bool filter(struct dma_chan *chan, void *slave)
+static bool filter(struct dma_chan *chan, void *data)
 {
-	return true;
+	struct jz_i2c *i2c = data;
+	return (void *)i2c->dma_type == chan->private;
 }
 
 static int i2c_set_speed(struct jz_i2c *i2c,int rate)
@@ -587,9 +589,9 @@ static int i2c_jz_probe(struct platform_device *dev)
 	i2c->dma_slave.max_tsz = 8;	//for device use FIFO, it's equal to half of FIFO size
 	i2c->dma_slave.tx_reg = (unsigned long)(i2c->iomem + I2C_DC);
 	i2c->dma_slave.rx_reg = (unsigned long)(i2c->iomem + I2C_DC);
+
 	r = platform_get_resource(dev, IORESOURCE_DMA, 0);
-	i2c->dma_slave.req_type_tx = r->start;
-	i2c->dma_slave.req_type_rx = r->end;
+	i2c->dma_type = r->start;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);

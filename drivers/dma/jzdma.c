@@ -79,11 +79,12 @@ struct dma_desc {
 };
 
 struct jzdma_channel {
-	struct dma_chan			chan;
-	enum jzdma_type			type;
+	int 			id;
+	struct dma_chan		chan;
+	enum jzdma_type		type;
 	struct dma_async_tx_descriptor	tx_desc;
-	dma_cookie_t			last_completed;
-	dma_cookie_t			last_good;
+	dma_cookie_t		last_completed;
+	dma_cookie_t		last_good;
 	struct tasklet_struct	tasklet;
 	spinlock_t		lock;
 #define CHFLG_SLAVE		BIT(0)
@@ -108,14 +109,13 @@ enum channel_status {
 	STAT_STOPED,STAT_SUBED,STAT_PREPED,STAT_RUNNING,
 };
 
-#define NR_DMA_CHANNELS 	32
-
 struct jzdma_master {
 	struct device		*dev;
 	void __iomem   		*iomem;
 	struct clk		*clk;
 	int 			irq;
 	struct dma_device	dma_device;
+	enum jzdma_type		*map;
 	struct jzdma_channel	channel[NR_DMA_CHANNELS];
 };
 
@@ -216,7 +216,6 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 		unsigned int sg_len, enum dma_data_direction direction,unsigned long flags)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
-	struct jzdma_slave *slave = dmac->slave;
 
 	if (dmac->status != STAT_STOPED)
 		return NULL;
@@ -239,9 +238,9 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 
 	/* request type */
 	if (direction == DMA_TO_DEVICE)
-		writel(slave->req_type_tx, dmac->iomem+CH_DRT);
+		writel(dmac->type, dmac->iomem+CH_DRT);
 	else
-		writel(slave->req_type_rx, dmac->iomem+CH_DRT);
+		writel(dmac->type + 1, dmac->iomem+CH_DRT);
 
 	/* tx descriptor shouldn't reused before dma finished. */
 	dmac->tx_desc.flags |= DMA_CTRL_ACK;
@@ -345,9 +344,9 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 
 	/* request type */
 	if (direction == DMA_TO_DEVICE)
-		writel(slave->req_type_tx, dmac->iomem+CH_DRT);
+		writel(dmac->type, dmac->iomem+CH_DRT);
 	else
-		writel(slave->req_type_rx, dmac->iomem+CH_DRT);
+		writel(dmac->type + 1, dmac->iomem+CH_DRT);
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
@@ -559,7 +558,8 @@ static int jzdma_alloc_chan_resources(struct dma_chan *chan)
 	}
 	dmac->desc_max = PAGE_SIZE / sizeof(struct dma_desc);
 
-	dev_dbg(chan2dev(chan),"Channel %d have been requested\n",dmac->chan.chan_id);
+	dev_info(chan2dev(chan),"Channel %d have been requested.(phy id %d,type 0x%02x)\n",
+			dmac->chan.chan_id,dmac->id,dmac->type);
 
 	return ret;
 }
@@ -578,6 +578,7 @@ static void jzdma_free_chan_resources(struct dma_chan *chan)
 static int __init jzdma_probe(struct platform_device *pdev)
 {
 	struct jzdma_master *dma;
+	struct jzdma_platform_data *pdata;
 	struct resource *iores;
 	short irq;
 	int i,ret = 0;
@@ -585,6 +586,9 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
 		return -ENOMEM;
+
+	pdata = pdev->dev.platform_data;
+	if(pdata) dma->map = pdata->map;
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
@@ -630,9 +634,18 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 	for (i = 0; i < NR_DMA_CHANNELS; i++) {
 		struct jzdma_channel *dmac = &dma->channel[i];
+
+		dmac->id = i;
+
+		if(dma->map)
+			dmac->type = dma->map[i];
+		if(dmac->type == JZDMA_REQ_INVAL)
+			dmac->type = JZDMA_REQ_AUTO;
+
+		dmac->chan.private = (void *)dmac->type;
+
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-		dmac->chan.chan_id = i;
 		tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
 				(unsigned long)dmac);
 		dmac->iomem = dma->iomem + i * 0x20;
@@ -641,6 +654,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		/* add chan like channel 5,4,3,... */
 		list_add(&dmac->chan.device_node,
 				&dma->dma_device.channels);
+		dev_dbg(&pdev->dev,"add chan (phy id %d , type 0x%02x)\n",i,dmac->type);
 	}
 
 	dma->dev = &pdev->dev;
