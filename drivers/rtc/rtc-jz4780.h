@@ -1,5 +1,4 @@
 /*
- * chip-rtc.h
  * JZ4780 RTC register definition
  * Copyright (C) 2010 Ingenic Semiconductor Co., Ltd.
  *

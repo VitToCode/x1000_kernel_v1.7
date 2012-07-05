@@ -23,7 +23,9 @@
 #include <linux/string.h>
 #include <linux/clk.h> 
 #include <linux/bitops.h>
-#include <mach/jzrtc.h>
+#include <linux/pm.h>
+
+#include "rtc-jz4780.h"
 
 /* Default time for the first-time power on */
 static struct rtc_time default_tm = {
@@ -90,17 +92,14 @@ static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 	wait_write_ready(dev); 
 }
 
-static void jzrtc_clrl(struct jz_rtc *dev,int offset, unsigned int value)
+static inline void jzrtc_clrl(struct jz_rtc *dev,int offset, unsigned int value)
 {
 	jzrtc_writel(dev, offset, jzrtc_readl(dev,offset) & ~(value));
-	return ;
 }
 
-static void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
+static inline void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
 {
 	jzrtc_writel(dev,offset,jzrtc_readl(dev,offset) | (value));
-
-	return ;
 }
 
 #define IS_RTC_IRQ(x,y)  (((x) & (y)) == (y))
@@ -160,7 +159,7 @@ fail_ui:
 static void jz4780_rtc_release(struct device *dev)
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
-	
+
 	spin_lock_irq(&rtc->lock);
 
 	spin_unlock_irq(&rtc->lock);
@@ -265,7 +264,7 @@ static int jz4780_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	unsigned long time;
 	unsigned int tmp;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);	
-	
+
 	spin_lock_irq(&rtc->lock);
 	if(alrm->enabled){
 		rtc_tm_to_time(&alrm->time,&time);
@@ -302,7 +301,6 @@ static const struct rtc_class_ops jz4780_rtc_ops = {
 	.set_time = jz4780_rtc_set_time,
 	.read_alarm = jz4780_rtc_read_alarm,
 	.set_alarm = jz4780_rtc_set_alarm,
-#include <linux/pm.h>
 	.proc = jz4780_rtc_proc,
 };
 
@@ -358,7 +356,7 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 	int ret;
 
 	pr_debug("%s: probe=%p\n", __func__, pdev);
-	
+
 	rtc = kzalloc(sizeof(*rtc), GFP_KERNEL);//
 	if (!rtc)
 		return -ENOMEM;
@@ -377,8 +375,8 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 	}
 
 	rtc->res = request_mem_region(rtc->res->start,
-					 rtc->res->end - rtc->res->start+1,
-					 pdev->name);
+			rtc->res->end - rtc->res->start+1,
+			pdev->name);
 	if (rtc->res == NULL) {
 		dev_err(&pdev->dev, "failed to reserve memory region\n");
 		ret = -ENOENT;
@@ -392,7 +390,7 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 		goto err_nomap;
 	}
 
-	
+
 	rtc->clk = clk_get(&pdev->dev, "rtc");
 	if (IS_ERR(rtc->clk)) {
 		dev_err(&pdev->dev, "failed to find rtc clock source\n");
@@ -421,13 +419,13 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 
 err_unregister_rtc:
 	rtc_device_unregister(rtc->rtc);
- err_clk:
+err_clk:
 	iounmap(rtc->iomem);
 
- err_nomap:
+err_nomap:
 	release_resource(rtc->res);
 
- err_nores:
+err_nores:
 	return ret;
 
 
