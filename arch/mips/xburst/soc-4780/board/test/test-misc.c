@@ -90,6 +90,10 @@ static int __init test_board_init(void)
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
 	platform_device_register(&jz_uart4_device);
 #endif
+
+#ifdef CONFIG_JZCIM
+	platform_device_register(&jz_cim_device);
+#endif
 	return 0;
 }
 

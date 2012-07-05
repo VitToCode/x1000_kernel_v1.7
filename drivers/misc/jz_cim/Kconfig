@@ -1,0 +1,21 @@
+
+config JZCIM
+	bool "ingenic camera interface module"
+	depends on MACH_XBURST
+	default y
+
+config OV3640
+	bool "ov3640 camera sensor"
+	depends on JZCIM
+	default n
+
+config FAKE
+	bool "fake camera sensor only for test"
+	depends on JZCIM
+	default n
+
+config FAKE_NR
+	int "fake camera sensor number"
+	depends on FAKE
+	default 2
+

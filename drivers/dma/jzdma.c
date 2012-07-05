@@ -76,7 +76,8 @@ struct jzdma_master;
 
 struct dma_desc {
 	unsigned long dcm;
-	dma_addr_t dsa,dta;
+	dma_addr_t dsa;
+	dma_addr_t dta;
 	unsigned long dtc;
 };
 
@@ -450,7 +451,7 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 	/* dma descriptor address */
 	writel(dmac->desc_phys, dmac->iomem+CH_DDA);
 	/* initiate descriptor fetch */
-	writel(BIT(dmac->chan.chan_id), dmac->master->iomem+DDRS);
+	writel(BIT(dmac->chan.chan_id), dmac->master->iomem+DDR);
 
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem+CH_DCS);
@@ -496,13 +497,13 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 
 			switch(config->dst_addr_width) {
 				case DMA_SLAVE_BUSWIDTH_1_BYTE:
-					dmac->tx_dcm_def |= DCM_SP_8 | DCM_DP_8;
+					dmac->tx_dcm_def = DCM_SP_8 | DCM_DP_8;
 					break;
 				case DMA_SLAVE_BUSWIDTH_2_BYTES:
-					dmac->tx_dcm_def |= DCM_SP_16 | DCM_DP_16;
+					dmac->tx_dcm_def = DCM_SP_16 | DCM_DP_16;
 					break;
 				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->tx_dcm_def |= DCM_SP_32 | DCM_DP_32;
+					dmac->tx_dcm_def = DCM_SP_32 | DCM_DP_32;
 					break;
 				case DMA_SLAVE_BUSWIDTH_8_BYTES:
 				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
@@ -512,13 +513,13 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 
 			switch(config->src_addr_width) {
 				case DMA_SLAVE_BUSWIDTH_1_BYTE:
-					dmac->rx_dcm_def |= DCM_SP_8 | DCM_DP_8;
+					dmac->rx_dcm_def = DCM_SP_8 | DCM_DP_8;
 					break;
 				case DMA_SLAVE_BUSWIDTH_2_BYTES:
-					dmac->rx_dcm_def |= DCM_SP_16 | DCM_DP_16;
+					dmac->rx_dcm_def = DCM_SP_16 | DCM_DP_16;
 					break;
 				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->rx_dcm_def |= DCM_SP_32 | DCM_DP_32;
+					dmac->rx_dcm_def = DCM_SP_32 | DCM_DP_32;
 					break;
 				case DMA_SLAVE_BUSWIDTH_8_BYTES:
 				case DMA_SLAVE_BUSWIDTH_UNDEFINED:

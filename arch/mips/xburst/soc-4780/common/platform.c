@@ -121,6 +121,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_NAND3,
 		JZDMA_REQ_NAND4,
 		JZDMA_REQ_I2S1,
+		JZDMA_REQ_I2S1,
+		JZDMA_REQ_I2S0,
 		JZDMA_REQ_I2S0,
 		JZDMA_REQ_UART4,
 		JZDMA_REQ_UART3,
@@ -130,6 +132,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_SSI0,
 		JZDMA_REQ_SSI1,
 		JZDMA_REQ_PCM0,
+		JZDMA_REQ_PCM0,
+		JZDMA_REQ_PCM1,
 		JZDMA_REQ_PCM1,
 		JZDMA_REQ_I2C0,
 		JZDMA_REQ_I2C1,
@@ -323,5 +327,24 @@ DEF_UART(1);
 DEF_UART(2);
 DEF_UART(3);
 DEF_UART(4);
+
+static struct resource jz_cim_res[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = CIM_IOBASE,
+		.end = CIM_IOBASE + 0x10000 - 1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_CIM,
+	}
+};
+
+struct platform_device jz_cim_device = {
+	.name = "jz-cim",
+	.id = -1,
+	.resource = jz_cim_res,
+	.num_resources = ARRAY_SIZE(jz_cim_res),
+};
 
 
