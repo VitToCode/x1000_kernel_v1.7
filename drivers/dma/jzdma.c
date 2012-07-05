@@ -35,12 +35,13 @@
 #define DIRQP	(GLOBAL_REG_OFFSET + 0x04)
 #define DDR	(GLOBAL_REG_OFFSET + 0x08)
 #define DDRS	(GLOBAL_REG_OFFSET + 0x0C)
-/* MCU of PDMA */
 #define DMACP	(GLOBAL_REG_OFFSET + 0x1C)
 #define DSIRQP	(GLOBAL_REG_OFFSET + 0x20)
 #define DSIRQM	(GLOBAL_REG_OFFSET + 0x24)
 #define DCIRQP	(GLOBAL_REG_OFFSET + 0x28)
 #define DCIRQM	(GLOBAL_REG_OFFSET + 0x2C)
+
+/* MCU of PDMA */
 #define DMCS	(GLOBAL_REG_OFFSET + 0x30)
 #define DMNMB	(GLOBAL_REG_OFFSET + 0x34)
 #define DMSMB	(GLOBAL_REG_OFFSET + 0x38)
@@ -71,7 +72,6 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
-struct jzdma_master;
 struct jzdma_master;
 
 struct dma_desc {
@@ -161,9 +161,32 @@ static void dump_dma_desc(struct jzdma_channel *dmac)
 		dev_info(chan2dev(&dmac->chan),
 				"DSA: %x, DTA: %x, DCM: %lx, DTC:%lx\n",
 				desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc);
+
+	dev_info(chan2dev(&dmac->chan),"CH_DSA = 0x%08x\n",readl(dmac->iomem + CH_DSA));
+	dev_info(chan2dev(&dmac->chan),"CH_DTA = 0x%08x\n",readl(dmac->iomem + CH_DTA));
+	dev_info(chan2dev(&dmac->chan),"CH_DTC = 0x%08x\n",readl(dmac->iomem + CH_DTC));
+	dev_info(chan2dev(&dmac->chan),"CH_DRT = 0x%08x\n",readl(dmac->iomem + CH_DRT));
+	dev_info(chan2dev(&dmac->chan),"CH_DCS = 0x%08x\n",readl(dmac->iomem + CH_DCS));
+	dev_info(chan2dev(&dmac->chan),"CH_DCM = 0x%08x\n",readl(dmac->iomem + CH_DCM));
+	dev_info(chan2dev(&dmac->chan),"CH_DDA = 0x%08x\n",readl(dmac->iomem + CH_DDA));
+	dev_info(chan2dev(&dmac->chan),"CH_DSD = 0x%08x\n",readl(dmac->iomem + CH_DSD));
+}
+
+static void dump_dma(struct jzdma_master *master)
+{
+	dev_info(master->dev,"DMAC   = 0x%08x\n",readl(master->iomem + DMAC));
+	dev_info(master->dev,"DIRQP  = 0x%08x\n",readl(master->iomem + DIRQP));
+	dev_info(master->dev,"DDR    = 0x%08x\n",readl(master->iomem + DDR));
+	dev_info(master->dev,"DDRS   = 0x%08x\n",readl(master->iomem + DDRS));
+	dev_info(master->dev,"DMACP  = 0x%08x\n",readl(master->iomem + DMACP));
+	dev_info(master->dev,"DSIRQP = 0x%08x\n",readl(master->iomem + DSIRQP));
+	dev_info(master->dev,"DSIRQM = 0x%08x\n",readl(master->iomem + DSIRQM));
+	dev_info(master->dev,"DCIRQP = 0x%08x\n",readl(master->iomem + DCIRQP));
+	dev_info(master->dev,"DCIRQM = 0x%08x\n",readl(master->iomem + DCIRQM));
 }
 #else
 #define dump_dma_desc(A) (void)(0)
+#define dump_dma(A) (void)(0)
 #endif
 
 static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
@@ -451,10 +474,12 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 	/* dma descriptor address */
 	writel(dmac->desc_phys, dmac->iomem+CH_DDA);
 	/* initiate descriptor fetch */
-	writel(BIT(dmac->chan.chan_id), dmac->master->iomem+DDR);
+	writel(BIT(dmac->id), dmac->master->iomem+DDRS);
 
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem+CH_DCS);
+
+	dump_dma(dmac->master);
 }
 
 static void jzdma_terminate_all(struct dma_chan *chan)
@@ -655,7 +680,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma->irq = irq;
 	dma->iomem = dma->iomem;
 	/* Hardware master enable */
-	writel(1, dma->iomem + DMAC);
+	writel(1 | 0x3f << 16, dma->iomem + DMAC);
 
 	for (i = 0; i < NR_DMA_CHANNELS; i++) {
 		struct jzdma_channel *dmac = &dma->channel[i];
