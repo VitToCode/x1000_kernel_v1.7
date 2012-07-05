@@ -104,13 +104,13 @@ static unsigned long tmp_val;
 	i2s0_set_reg(AIC0FR,n,I2S0_TFTH_MASK,I2S0_TFTH_OFFSET)
 #define __i2s0_set_receive_trigger(n)   \
 	i2s0_set_reg(AIC0FR,n,I2S0_RFTH_MASK,I2S0_RFTH_OFFSET)
-#define __i2s0_as_master()              \
+#define __i2s0_internal_slave_codec()              \
 	i2s0_set_reg(AIC0FR,1,I2S0_ICS_MASK,I2S0_ICS_OFFSET)
-#define __i2s0_as_slave()               \
+#define __i2s0_external_codec()               \
 	i2s0_set_reg(AIC0FR,0,I2S0_ICS_MASK,I2S0_ICS_OFFSET)
-#define __i2s0_internal_codec()         \
-	i2s0_set_reg(AIC0FR,1,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET)
-#define __i2s0_external_codec()         \
+#define __i2s0_as_master()         \
+	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET)
+#define __i2s0_as_slave()         \
 	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET)
 #define __i2s0_bclk_input()             \
 	i2s0_set_reg(AIC0FR,0,I2S0_BCKD_MASK,I2S0_BCKD_OFFSET)
@@ -127,14 +127,21 @@ static unsigned long tmp_val;
 #define __i2s0_isync_input()            \
 	i2s0_set_reg(AIC0FR,0,I2S0_ISYNCD_MASK,I2S0_ISYNCD_OFFSET)
 #define __i2s0_isync_output()           \
-	i2s0_set_reg(AIC0FR,0,I2S0_ISYNCD_MASK,I2S0_ISYNCD_OFFSET)
+	i2s0_set_reg(AIC0FR,1,I2S0_ISYNCD_MASK,I2S0_ISYNCD_OFFSET)
 
-#define __i2s0_internal_clkset()        \
+#define __i2s0_slave_clkset()        \
 	do {                                            \
 		__i2s0_bclk_input();                    \
 		__i2s0_sync_input();                    \
 		__i2s0_isync_input();                   \
 		__i2s0_ibclk_input();                   \
+	}while(0)
+#define __i2s0_master_clkset()        \
+	do {                                            \
+		__i2s0_bclk_output();                    \
+		__i2s0_sync_output();                    \
+		__i2s0_isync_output();                   \
+		__i2s0_ibclk_output();                   \
 	}while(0)
 
 #define __i2s0_play_zero()              \

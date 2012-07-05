@@ -11,10 +11,11 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <mach/jzdma.h>
 
 /*####################################################*\
  * sound pipe and command used for dsp device
- \*####################################################*/
+\*####################################################*/
 /**
  * sound device
  **/
@@ -142,14 +143,14 @@ struct dsp_pipe {
 	/* dma */
 	struct dma_chan		*dma_chan;
 	struct dma_slave_config dma_config;		/* define by device */
-	enum dma_data_direction dma_direction;	   	/* define by device */
+	enum jzdma_type		dma_type;
 	unsigned int		sg_len;			/* size of scatter list */
 	struct scatterlist	*sg;			/* I/O scatter list */
 	/* buf */
-	unsigned long 		*vaddr;
-	dma_addr_t 		*paddr;
-	size_t			fragsize;              /* define by device */
-	size_t			fragcnt;               /* define by device */
+	unsigned long 		vaddr;
+	dma_addr_t 			paddr;
+	size_t				fragsize;              /* define by device */
+	size_t				fragcnt;               /* define by device */
 	struct list_head 	free_node_list;
 	struct list_head 	use_node_list;
 	struct dsp_node		*save_node;
@@ -178,7 +179,7 @@ struct dsp_endpoints {
 
 /*####################################################*\
  * used for codec
- \*####################################################*/
+\*####################################################*/
 enum snd_codec_route_t {
 	SND_ROUTE_NONE = 0,
 	SND_ROUTE_ALL_CLEAR,
@@ -252,8 +253,8 @@ struct snd_codec_data {
 
 
 /*####################################################*\
- * common, used for sound devices
- \*####################################################*/
+* common, used for sound devices
+\*####################################################*/
 /**
  * device mame and minor
  **/
@@ -321,7 +322,7 @@ extern struct snd_dev_data pcm1_data;
 
 /*####################################################*\
  * sound detect
- \*####################################################*/
+\*####################################################*/
 #define SND_SWITCH_TYPE_GPIO 	0x1
 #define SND_SWITCH_TYPE_CODEC 	0x2
 

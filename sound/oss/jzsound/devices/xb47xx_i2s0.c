@@ -314,7 +314,8 @@ static void i2s0_set_trigger(int mode)
 			break;
 		}
 		dp = cur_codec->dsp_endpoints->out_endpoint;
-		burst_length = get_burst_length(sg_dma_address(dp->sg)|sg_dma_len(dp->sg)|dp->dma_slave.max_tsz);
+		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
+				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
 		if (I2S0_TX_FIFO_DEPTH - burst_length/data_width >= 60)
 			__i2s0_set_transmit_trigger(30);
 		else
@@ -333,7 +334,8 @@ static void i2s0_set_trigger(int mode)
 			break;
 		}
 		dp = cur_codec->dsp_endpoints->in_endpoint;
-		burst_length = get_burst_length(sg_dma_address(dp->sg)|sg_dma_len(dp->sg)|dp->dma_slave.max_tsz);
+		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
+				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
 		__i2s0_set_receive_trigger(((I2S0_TX_FIFO_DEPTH - burst_length/data_width) >> 1) - 1);
 	}
 
@@ -689,23 +691,29 @@ static int i2s0_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directi
 		return -ENOMEM;
 	}
 
-	(*dp)->dma_slave.reg_width = 2;
-	(*dp)->dma_direction = direction;
+	(*dp)->dma_config.direction = direction;
+	(*dp)->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	(*dp)->dma_type = JZDMA_REQ_I2S0;
+
 	(*dp)->fragsize = FRAGSIZE_M;
 	(*dp)->fragcnt = FRAGCNT_M;
 	(*dp)->is_non_block = true;
+	(*dp)->is_used = false;
 	(*dp)->can_mmap =true;
 	INIT_LIST_HEAD(&((*dp)->free_node_list));
 	INIT_LIST_HEAD(&((*dp)->use_node_list));
 
 	if (direction == DMA_TO_DEVICE) {
-		(*dp)->dma_slave.max_tsz = 64;
-		(*dp)->dma_slave.req_type_tx = JZDMA_REQ_I2S0_TX;
-		(*dp)->dma_slave.tx_reg = iobase + AIC0DR;
+		(*dp)->dma_config.src_maxburst = 64;
+		(*dp)->dma_config.dst_maxburst = 64;
+		(*dp)->dma_config.dst_addr = iobase + AIC0DR;
+		(*dp)->dma_config.src_addr = 0;
 	} else if (direction == DMA_FROM_DEVICE) {
-		(*dp)->dma_slave.max_tsz = 32;
-		(*dp)->dma_slave.req_type_rx = JZDMA_REQ_I2S0_RX;
-		(*dp)->dma_slave.rx_reg = iobase + AIC0DR;
+		(*dp)->dma_config.src_maxburst = 32;
+		(*dp)->dma_config.dst_maxburst = 32;
+		(*dp)->dma_config.src_addr = iobase + AIC0DR;
+		(*dp)->dma_config.dst_addr = 0;
 	} else
 		return -1;
 
@@ -749,15 +757,26 @@ static int i2s0_global_init(struct platform_device *pdev)
 	i2s0_endpoints.out_endpoint = i2s0_pipe_out;
 	i2s0_endpoints.in_endpoint = i2s0_pipe_in;
 
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
 	i2s0_match_codec("internal_codec");
+#endif
 	if (cur_codec == NULL) {
 		ret = 0;
 		goto __err_match_codec;
 	}
 
 	/* request clk */
-	i2s0_clk = clk_get(&pdev->dev, "aic");
+	i2s0_clk = clk_get(&pdev->dev, "aic0");
+	if (IS_ERR(i2s0_clk)) {
+		dev_dbg(&pdev->dev, "aic0 clk_get failed\n");
+		goto __err_get_clk0;
+	}
 	clk_set_rate(i2s0_clk, 12000000);
+	if (clk_get_rate(i2s0_clk) > 12000000) {
+		printk("i2s0 interface set rate fail.\n");
+		return 0;
+	}
+
 	clk_enable(i2s0_clk);
 
 	spin_lock_init(&i2s0_irq_lock);
@@ -773,7 +792,9 @@ static int i2s0_global_init(struct platform_device *pdev)
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC)
 	__i2s0_as_slave();
-	__i2s0_internal_codec();
+	__i2s0_internal_slave_codec();
+	__i2s0_start_bitclk();
+	__i2s0_start_ibitclk();
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC)
 	/*__i2s0_external_codec();*/
 #endif
@@ -781,19 +802,30 @@ static int i2s0_global_init(struct platform_device *pdev)
 	__aic0_select_i2s();
 
 	__i2s0_select_i2s();
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+
 	/*sysclk output*/
 	__i2s0_enable_sysclk_output();
 
 	/*set sysclk output for codec*/
-	codec_sys_clk = clk_get(&pdev->dev,"cgu_i2s");
+	codec_sys_clk = clk_get(&pdev->dev,"cgu_aic");
+	if (IS_ERR(codec_sys_clk)) {
+		dev_dbg(&pdev->dev, "cgu_aic clk_get failed\n");
+		goto __err_get_clk1;
+	}
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
+
+	/*set sysclk output for codec*/
 	clk_set_rate(codec_sys_clk,INTERNAL_CODEC_SYSCLK);
+	if (clk_get_rate(codec_sys_clk) > INTERNAL_CODEC_SYSCLK) {
+		printk("codec interface set rate fail.\n");
+		return 0;
+	}
 	clk_enable(codec_sys_clk);
 
 	/*bclk and sync input from codec*/
-	__i2s0_internal_clkset();
+	__i2s0_slave_clkset();
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC)
-	/**/
+
 #endif
 
 	/* internal or external codec */
@@ -826,6 +858,12 @@ static int i2s0_global_init(struct platform_device *pdev)
 	return  cur_codec->codec_ctl(CODEC_INIT,0);
 
 __err_request_irq:
+	clk_disable(codec_sys_clk);
+	clk_put(codec_sys_clk);
+__err_get_clk1:
+	clk_disable(i2s0_clk);
+	clk_put(i2s0_clk);
+__err_get_clk0:
 __err_match_codec:
 	vfree(i2s0_pipe_in);
 __err_init_pipein:
@@ -939,4 +977,4 @@ static int __init init_i2s0(void)
 
 	return platform_device_register(&xb47xx_i2s0_switch);
 }
-arch_initcall(init_i2s0);
+device_initcall(init_i2s0);

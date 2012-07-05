@@ -1735,7 +1735,7 @@ static int codec_init(void)
 /****** codec_turn_off ********/
 static int codec_turn_off(int mode)
 {
-	int ret;
+	int ret = 0;
 
 	gpio_enable_hp_mute();
 	gpio_disable_spk_en();
@@ -2280,9 +2280,11 @@ static int codec_irq_handle(struct work_struct *detect_work)
 	unsigned char codec_imr;
 	unsigned char codec_ifr2;
 	unsigned char codec_imr2;
+#ifdef CONFIG_JZ_HP0_DETECT
 	int old_status = 0;
 	int new_status = 0;
 	int i;
+#endif /*CONFIG_JZ_HP0_DETECT*/
 
 	CODEC_LOCK();
 	codec_ifr = __codec_get_irq_flag();
