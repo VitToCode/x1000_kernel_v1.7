@@ -72,6 +72,10 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
+static char firmware[] = {
+#include "firmware.hex"
+};
+
 struct jzdma_master;
 
 struct dma_desc {
