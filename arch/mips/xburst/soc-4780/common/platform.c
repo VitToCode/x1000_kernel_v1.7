@@ -87,6 +87,27 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
 	UART4_PORTC,
 #endif
+#ifdef CONFIG_NAND_JZ4780_COMMON
+        NAND_PORTAB_COMMON,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS1
+        NAND_PORTA_CS1,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS2
+        NAND_PORTA_CS2,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS3
+        NAND_PORTA_CS3,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS4
+        NAND_PORTA_CS4,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS5
+        NAND_PORTA_CS5,
+#endif
+#ifdef CONFIG_NAND_JZ4780_CS6
+        NAND_PORTA_CS6,
+#endif
 	LCD_PORTC,
 	PWM1_PORTE,
 	MII_PORTBDF,

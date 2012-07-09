@@ -61,6 +61,26 @@
 
 /*******************************************************************************************************************/
 
+#define NAND_PORTAB_COMMON                                                      \
+        { .name = "nand-0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x000c00ff, },     \
+        { .name = "nand-1", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pin = 0x00000003, },     \
+        { .name = "nand-2", .port = GPIO_PORT_A, .func = GPIO_INT_RE, .pin = 0x00100000, }
+#define NAND_PORTA_CS1                                                      \
+        { .name = "nand-cs1", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<21, },   \
+#define NAND_PORTA_CS2                                                      \
+        { .name = "nand-cs2", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<22, },   \
+#define NAND_PORTA_CS3                                                      \
+        { .name = "nand-cs3", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<23, },   \
+#define NAND_PORTA_CS4                                                      \
+        { .name = "nand-cs4", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<24, },   \
+#define NAND_PORTA_CS5                                                      \
+        { .name = "nand-cs5", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<25, },   \
+#define NAND_PORTA_CS6                                                      \
+        { .name = "nand-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pin = 0x1<<26, },   \
+
+
+/*******************************************************************************************************************/
+
 #define LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
 
