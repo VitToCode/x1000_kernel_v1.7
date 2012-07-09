@@ -1,0 +1,61 @@
+#
+# NAND subsystem configuration
+#
+
+menuconfig NAND
+	tristate "NAND support"
+	depends on HAS_IOMEM
+	---help---
+	  If you want NAND support, you should say Y here and also to the
+	  specific driver for your bus adapter(s) below.
+
+
+if NAND
+
+config NAND_JZ4780
+	bool "Ingenic JZ4780 Nand Function Setting"
+	depends on SOC_4780 && !MMC0_JZ4780_PA_4BIT && !MMC0_JZ4780_PA_8BIT &&  !MMC0_JZ4780_PA_4BIT_RESET && ! MMC0_JZ4780_PA_8BIT_RESET
+        select NAND_JZ4780_COMMON
+	help
+	  This selects the NAND function for JZ4780 support. 
+          If you have an JZ4780 platform with a NAND slot,
+          say Y here.
+
+	  If unsure, say N.
+          NOTE: If GPIOA is selected by MSC0, Nand function
+          Setting will be hiding.
+
+config NAND_JZ4780_COMMON
+	bool "NAND_JZ4780_COMMON"
+	depends on NAND_JZ4780
+        help
+	  If you want set NAND function. This selects default 
+          is y.
+
+comment "nand function cs selects"
+        depends on NAND_JZ4780_COMMON
+config NAND_JZ4780_CS1
+	bool "NAND_JZ4780_CS1"
+        depends on NAND_JZ4780_COMMON
+        default y
+config NAND_JZ4780_CS2
+	bool "NAND_JZ4780_CS2"
+        depends on NAND_JZ4780_COMMON
+
+config NAND_JZ4780_CS3
+	bool "NAND_JZ4780_CS3"
+        depends on NAND_JZ4780_COMMON
+
+config NAND_JZ4780_CS4
+	bool "NAND_JZ4780_CS4"
+        depends on NAND_JZ4780_COMMON
+
+config NAND_JZ4780_CS5
+	bool "NAND_JZ4780_CS5"
+        depends on NAND_JZ4780_COMMON
+
+config NAND_JZ4780_CS6
+	bool "NAND_JZ4780_CS6"
+        depends on NAND_JZ4780_COMMON
+
+endif # NAND
