@@ -129,10 +129,10 @@ enum {
 #define CLK_NAME_I2C2		"i2c2"
 	CLK_ID_CIM,
 #define CLK_NAME_CIM		"cim"
-	CLK_ID_TVE,
-#define CLK_NAME_TVE		"tve"
-	CLK_ID_LCD,
-#define CLK_NAME_LCD		"lcd-do-not-get-this-clock"
+	CLK_ID_LCD1,
+#define CLK_NAME_LCD1		"lcd1"
+	CLK_ID_LCD0,
+#define CLK_NAME_LCD0		"lcd0"
 	CLK_ID_IPU,
 #define CLK_NAME_IPU		"ipu"
 	CLK_ID_DDR0,
@@ -180,9 +180,9 @@ enum {
 	CLK_ID_CGU_AIC,
 #define CLK_NAME_CGU_AIC	"cgu_aic"
 	CLK_ID_CGU_LCD0,
-#define CLK_NAME_CGU_LCD0	"cgu_lcd0"
+#define CLK_NAME_CGU_LCD0	"lcd_pclk0"
 	CLK_ID_CGU_LCD1,
-#define CLK_NAME_CGU_LCD1	"cgu_lcd1"
+#define CLK_NAME_CGU_LCD1	"lcd_pclk1"
 	CLK_ID_CGU_MSC0,
 #define CLK_NAME_CGU_MSC0	"cgu_msc0"
 	CLK_ID_CGU_MSC1,
@@ -264,8 +264,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(UHC,   		GATE(24)),
 	DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
 	DEF_CLK(CIM,   		GATE(26)),
-	DEF_CLK(TVE,   		GATE(27)),
-	DEF_CLK(LCD,   		GATE(28)),
+	DEF_CLK(LCD1,   	GATE(27)),
+	DEF_CLK(LCD0,   	GATE(28)),
 	DEF_CLK(IPU,   		GATE(29)),
 	DEF_CLK(DDR0,  		GATE(30)),
 	DEF_CLK(DDR1,  		GATE(31)),
@@ -289,8 +289,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
 	DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
 	DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
-	DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0) | PARENT(LCD)),
-	DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1) | PARENT(LCD)),
+	DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0)),
+	DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1)),
 	DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0) | PARENT(DUMMY_MUX)),
 	DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1) | PARENT(DUMMY_MUX)),
 	DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2) | PARENT(DUMMY_MUX)),

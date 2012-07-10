@@ -72,7 +72,7 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
-static char firmware[] = {
+static unsigned long firmware[] = {
 #include "firmware.hex"
 };
 
@@ -241,6 +241,12 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 		}
 	}
 	return i;
+}
+
+static int jzdma_load_firmware(struct jzdma_master *dma)
+{
+	dev_info(dma->dev,"firmware : 0x%08lu\n",firmware[0]);
+	return 0;
 }
 
 static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
@@ -729,6 +735,8 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to register\n");
 		goto release_irq;
 	}
+
+	jzdma_load_firmware(dma);
 
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;

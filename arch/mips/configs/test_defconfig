@@ -1152,6 +1152,8 @@ CONFIG_DMADEVICES=y
 #
 # CONFIG_DW_DMAC is not set
 CONFIG_XBURST_DMAC=y
+CONFIG_XBURST_DMAC_COMMON=y
+# CONFIG_XBURST_DMAC_TOGGLE is not set
 # CONFIG_TIMB_DMA is not set
 CONFIG_DMA_ENGINE=y
 
@@ -1198,6 +1200,7 @@ CONFIG_MACH_NO_WESTBRIDGE=y
 # Altera FPGA firmware download module
 #
 # CONFIG_ALTERA_STAPL is not set
+# CONFIG_NAND is not set
 
 #
 # File systems

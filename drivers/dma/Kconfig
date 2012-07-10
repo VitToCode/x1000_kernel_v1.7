@@ -96,6 +96,15 @@ config XBURST_DMAC
        help
          Support the XBURST DMA controller. This support the
          jz4770 || jz4780 chip.
+choice
+	prompt "firmware select"
+	depends on XBURST_DMAC
+	default XBURST_DMAC_COMMON
+config XBURST_DMAC_COMMON
+        bool "common firmwave"
+config XBURST_DMAC_TOGGLE
+        bool "toggle firmware"
+endchoice
 
 config AT_HDMAC
 	tristate "Atmel AHB DMA support"
