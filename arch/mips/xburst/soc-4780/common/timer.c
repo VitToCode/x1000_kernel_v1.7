@@ -30,8 +30,29 @@
 #define regr(off) 	inl(OST_IOBASE + (off))
 #define regw(val,off)	outl(val, OST_IOBASE + (off))
 
-#define SYS_TIMER_CLK 	(JZ_EXTAL/4)
 #define SYS_TIMER_IRQ 	IRQ_OST
+
+static unsigned int latch;
+
+static unsigned int calculate_latch(void)
+{
+#ifndef CONFIG_FPGA_TEST
+	unsigned long cppcr,m,n,o;
+	cppcr = cpm_inl(CPM_CPEPCR);
+
+	o = (((cppcr) >> 9) & 0xf) + 1;
+	n = (((cppcr) >> 13) & 0x3f) + 1;
+	m = (((cppcr) >> 19) & 0x7fff) + 1;
+	
+	source = JZ_EXTAL * m / n / o / 2;
+
+	latch = ((source/4) + (HZ>>1)) / HZ;
+	return (source/4);
+#else
+	latch = ((24000000/4) + (HZ>>1)) / HZ;
+	return (24000000/4);
+#endif
+}
 
 union clycle_type
 {
@@ -73,7 +94,7 @@ static irqreturn_t timer_interrupt(int irq, void *data)
 	regw(TFR_OSTF,  OST_TFCR);  /* clear ost flag */
 	dr = regr(OST_DR);
 	do {
-		dr += (SYS_TIMER_CLK + (HZ>>1)) / HZ;
+		dr += latch;
 	} while(dr <= regr(OST_CNTL));
 	regw(dr, OST_DR);
 
@@ -82,24 +103,24 @@ static irqreturn_t timer_interrupt(int irq, void *data)
 }
 
 static int jz_set_next_event(unsigned long evt,
-			     struct clock_event_device *unused)
+		struct clock_event_device *unused)
 {
 	return 0;
 }
 
 static void jz_set_mode(enum clock_event_mode mode,
-			struct clock_event_device *evt)
+		struct clock_event_device *evt)
 {
 	switch (mode) {
-	case CLOCK_EVT_MODE_PERIODIC:
-                break;
-        case CLOCK_EVT_MODE_ONESHOT:
-        case CLOCK_EVT_MODE_UNUSED:
-        case CLOCK_EVT_MODE_SHUTDOWN:
-                break;
-        case CLOCK_EVT_MODE_RESUME:
-                break;
-        }
+		case CLOCK_EVT_MODE_PERIODIC:
+			break;
+		case CLOCK_EVT_MODE_ONESHOT:
+		case CLOCK_EVT_MODE_UNUSED:
+		case CLOCK_EVT_MODE_SHUTDOWN:
+			break;
+		case CLOCK_EVT_MODE_RESUME:
+			break;
+	}
 }
 
 static struct clock_event_device jz_clockevent_device = {
@@ -116,11 +137,8 @@ static struct clock_event_device jz_clockevent_device = {
 static void __init jz_sysclock_setup(void)
 {
 	unsigned int cpu = smp_processor_id();
-  	unsigned int latch;
+	unsigned int sys_timer_clk = calculate_latch();
 
-	latch = (SYS_TIMER_CLK + (HZ>>1)) / HZ;
-
-	/* counter never clear to 0, clk EXTAL/4 */
 	regw( 0, OST_CNTL);
 	regw( 0, OST_CNTH);
 	regw(latch, OST_DR);
@@ -137,13 +155,13 @@ static void __init jz_sysclock_setup(void)
 
 	/* init clock source */
 	clocksource_jz.mult = 
-		clocksource_hz2mult(SYS_TIMER_CLK, clocksource_jz.shift);
+		clocksource_hz2mult(sys_timer_clk, clocksource_jz.shift);
 	clocksource_register(&clocksource_jz);
 
 	/* init clock event */
 	if (request_irq(SYS_TIMER_IRQ, timer_interrupt, 
-			IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
-			"sys tick", &jz_clockevent_device)) {
+				IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
+				"sys tick", &jz_clockevent_device)) {
 		BUG();
 	}
 
