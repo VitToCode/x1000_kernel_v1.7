@@ -101,6 +101,12 @@
 #define gadget_is_langwell(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_SNPS_DWC_OTG
+#define	gadget_is_dwc_otg(g)	!strcmp("dwc_otg_pcd", (g)->name)
+#else
+#define	gadget_is_dwc_otg(g)	0
+#endif
+
 #ifdef CONFIG_USB_GADGET_M66592
 #define	gadget_is_m66592(g)	!strcmp("m66592_udc", (g)->name)
 #else

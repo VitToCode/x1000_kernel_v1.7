@@ -122,6 +122,9 @@ extern struct platform_device jz_pdma_device;
 
 extern struct platform_device jz_cim_device;
 
+extern struct platform_device jz_ohci_device;
+extern struct platform_device jz_ehci_device;
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #endif

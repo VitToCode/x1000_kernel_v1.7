@@ -353,6 +353,9 @@ fsg_otg_desc = {
 	.bDescriptorType =	USB_DT_OTG,
 
 	.bmAttributes =		USB_OTG_SRP,
+#ifdef CONFIG_USB_SNPS_DWC_OTG2
+	.bcdOTG =	0x200,
+#endif
 };
 #endif
 

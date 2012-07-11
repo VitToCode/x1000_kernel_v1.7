@@ -64,8 +64,13 @@ MODULE_VERSION("1.0");
 static const char longname[] = "Gadget Android";
 
 /* Default vendor and product IDs, overridden by userspace */
+#ifdef CONFIG_SOC_JZ4770
+#define VENDOR_ID		0x18D1
+#define PRODUCT_ID		0xDDDD
+#else
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
+#endif
 
 struct android_usb_function {
 	char *name;
@@ -532,14 +537,24 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
 	int err;
+	int i, nluns;
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
 
-	config->fsg.nluns = 1;
-	config->fsg.luns[0].removable = 1;
+	nluns = CONFIG_USB_NLUNS_NUM;
+
+	config->fsg.nluns = nluns;
+	for (i = 0; i < nluns; i++){
+		config->fsg.luns[i].removable = 1;
+
+		/*add by bcjia to use cdrom to lun2*/ 
+		if(i == 2){ 
+			config->fsg.luns[i].cdrom = 1;
+		}
+	}
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -547,9 +562,16 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return PTR_ERR(common);
 	}
 
-	err = sysfs_create_link(&f->dev->kobj,
-				&common->luns[0].dev.kobj,
-				"lun");
+	for (i = 0; i < nluns; i++) {
+		char lun_name[10] = "lun";
+		char lun_num[2];
+		sprintf(lun_num,"%d",i);
+		strcat(lun_name,lun_num);
+		err = sysfs_create_link(&f->dev->kobj,
+				&common->luns[i].dev.kobj,
+				lun_name);
+	}
+
 	if (err) {
 		kfree(config);
 		return err;
@@ -1008,9 +1030,9 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iProduct = id;
 
 	/* Default strings - should be updated by userspace */
-	strncpy(manufacturer_string, "Android", sizeof(manufacturer_string) - 1);
-	strncpy(product_string, "Android", sizeof(product_string) - 1);
-	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+	strncpy(manufacturer_string, "Ingenic", sizeof(manufacturer_string) - 1);
+	strncpy(product_string, "Android Tablet", sizeof(product_string) - 1);
+	strncpy(serial_string, CONFIG_USB_SERIAL_NUM, sizeof(serial_string) - 1);
 
 	id = usb_string_id(cdev);
 	if (id < 0)
@@ -1036,6 +1058,19 @@ static int android_bind(struct usb_composite_dev *cdev)
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
+
+#ifdef CONFIG_SOC_JZ4770
+	android_enable_function(dev, "mass_storage,adb");
+	cdev->desc.idVendor = device_desc.idVendor;
+	cdev->desc.idProduct = device_desc.idProduct;
+	cdev->desc.bcdDevice = device_desc.bcdDevice;
+	cdev->desc.bDeviceClass = device_desc.bDeviceClass;
+	cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
+	cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
+	usb_add_config(cdev, &android_config_driver,android_bind_config);
+	usb_gadget_connect(cdev->gadget);
+	dev->enabled = true;
+#endif
 
 	return 0;
 }

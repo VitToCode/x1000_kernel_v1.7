@@ -368,4 +368,58 @@ struct platform_device jz_cim_device = {
 	.num_resources = ARRAY_SIZE(jz_cim_res),
 };
 
+/* OHCI (USB full speed host controller) */
+static struct resource jz_ohci_resources[] = {
+	[0] = {
+		.start		= OHCI_IOBASE,
+		.end		= OHCI_IOBASE + 0x10000 - 1,
+		.flags		= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start		= IRQ_OHCI,
+		.end		= IRQ_OHCI,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static u64 ohci_dmamask = ~(u32)0;
+
+struct platform_device jz_ohci_device = {
+	.name		= "jz-ohci",
+	.id		= 0,
+	.dev = {
+		.dma_mask		= &ohci_dmamask,
+		.coherent_dma_mask	= 0xffffffff,
+	},
+	.num_resources	= ARRAY_SIZE(jz_ohci_resources),
+	.resource	= jz_ohci_resources,
+};
+
+/* EHCI (USB high speed host controller) */
+static struct resource jz_ehci_resources[] = {
+	[0] = {
+		.start		= EHCI_IOBASE,
+		.end		= EHCI_IOBASE + 0x10000 - 1,
+		.flags		= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start		= IRQ_EHCI,
+		.end		= IRQ_EHCI,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+/* The dmamask must be set for OHCI to work */
+static u64 ehci_dmamask = ~(u32)0;
+
+struct platform_device jz_ehci_device = {
+	.name		= "jz-ehci",
+	.id		= 0,
+	.dev = {
+		.dma_mask		= &ehci_dmamask,
+		.coherent_dma_mask	= 0xffffffff,
+	},
+	.num_resources	= ARRAY_SIZE(jz_ehci_resources),
+	.resource	= jz_ehci_resources,
+};
 

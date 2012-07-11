@@ -94,6 +94,14 @@ static int __init test_board_init(void)
 #ifdef CONFIG_JZCIM
 	platform_device_register(&jz_cim_device);
 #endif
+
+#ifdef CONFIG_USB_OHCI_HCD
+	platform_device_register(&jz_ohci_device);
+#endif
+
+#ifdef CONFIG_USB_EHCI_HCD
+	platform_device_register(&jz_ehci_device);
+#endif
 	return 0;
 }
 

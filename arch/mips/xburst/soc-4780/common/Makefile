@@ -13,3 +13,4 @@ obj-y += pwm.o
 obj-y += pm.o
 obj-y += platform.o
 
+obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
