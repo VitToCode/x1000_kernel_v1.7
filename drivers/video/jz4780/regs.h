@@ -77,7 +77,7 @@
 #define LCDC_ENH_GAMMA	(0x800) /* GAMMA CFG Register */
 #define LCDC_ENH_VEE	(0x1000) /* VEE CFG Register */
 
-#define LCDC_CTRL_OUTPUT	(0x2c8) /* Control output register */
+#define LCDC_CTRL_OUTPUT	(0x130a02c8) /* Control output register */
 
 /* LCD Configure Register */
 #define LCDC_CFG_LCDPIN_BIT	31  /* LCD pins selection */

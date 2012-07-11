@@ -88,14 +88,15 @@ struct jzfb_platform_data {
 	struct fb_videomode *modes;
 
 	enum jz4780_fb_lcd_type lcd_type;
-	int lcdc0_to_tft_ttl;
 	unsigned int bpp;
 	unsigned int width;
 	unsigned int height;
-	int pinmd;
+	unsigned pinmd;
 
 	unsigned pixclk_falling_edge;
 	unsigned date_enable_active_low;
+
+	unsigned alloc_vidmem;
 
 	struct {
 		enum smart_lcd_type smart_type;

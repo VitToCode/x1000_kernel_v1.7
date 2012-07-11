@@ -30,6 +30,7 @@
 #include <linux/memory.h>
 #include <linux/earlysuspend.h>
 #include <linux/suspend.h>
+#include <linux/string.h>
 
 #include <mach/jzfb.h>
 
@@ -52,20 +53,18 @@ static int jzfb_open(struct fb_info *info, int user)
 	struct jzfb *jzfb = info->par;
 
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
-	dump_lcdc_registers(jzfb);
+	//dump_lcdc_registers(jzfb);
 
-	//do we need to reset the lcdc if surfaceflinger has crashed
-	/* reset lcdc after SurfaceFlinger crach when playing video */
+	/* check the state of FG1 */
 	tmp = reg_read(jzfb, LCDC_OSDC);
 	if (tmp & LCDC_OSDC_F1EN) {
-		dev_info(info->dev,"jzfb_open() LCDC_OSDC_F1EN, disable FG1.\n");
-	}
-	
-	if(!jzfb->is_enabled) {
-		jzfb_set_par(info);
+		dev_info(info->dev, "jzfb_open() OSDC_F1EN: state is wrong\n");
 	}
 
-	jzfb_enable(info);
+	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
+		jzfb_set_par(info);
+		jzfb_enable(info);
+	}
 
 	return 0;
 }
@@ -76,7 +75,7 @@ static int jzfb_release(struct fb_info *info, int user)
 }
 
 static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
-			   const struct fb_videomode *mode)
+		const struct fb_videomode *mode)
 {
 	var->xres = mode->xres;
 	var->yres = mode->yres;
@@ -108,14 +107,17 @@ static int jzfb_get_controller_bpp(struct jzfb *jzfb)
 	}
 }
 
-static struct fb_videomode *jzfb_get_mode(struct jzfb *jzfb,
-		struct fb_var_screeninfo *var)
+static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
+		struct fb_info *info)
 {
 	size_t i;
+	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
-		if (mode->xres == var->xres && mode->yres == var->yres)
+		if (mode->xres == var->xres && mode->yres == var->yres &&
+				mode->vmode == var->vmode && mode->pixclock == var->
+				pixclock && mode->right_margin == var->right_margin)
 			return mode;
 	}
 
@@ -135,17 +137,9 @@ static void jzfb_config_fg0(struct fb_info *info)
 	osd->fg0.w = mode->xres;
 	osd->fg0.h = mode->yres;
 
-	if (osd->fg0.bpp == 16) {
-		ctrl |= LCDC_OSDCTRL_BPP_15_16 | LCDC_OSDCTRL_RGB0_RGB565;
-	} else {
-		osd->fg0.bpp = 32;
-		ctrl |= LCDC_OSDCTRL_BPP_18_24;
-	}
-
-	cfg = LCDC_OSDC_OSDEN | LCDC_OSDC_F0EN;
-
-	/* OSD mode enable and alpha blending is disabled */
-	cfg = LCDC_OSDC_OSDEN & ~LCDC_OSDC_ALPHAEN; 
+	/* OSD mode enable and alpha blending is enabled */
+	cfg = LCDC_OSDC_OSDEN | LCDC_OSDC_ALPHAEN;
+	cfg |= 1 << 16; /* once transfer two pixels */
 	/* OSD control register is read only */
 
 	if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
@@ -156,6 +150,7 @@ static void jzfb_config_fg0(struct fb_info *info)
 		rgb_ctrl = LCDC_RGBC_RGBFMT | LCDC_RGBC_ODD_RGB |
 			LCDC_RGBC_EVEN_RGB;
 	}
+
 	reg_write(jzfb, LCDC_OSDC, cfg);
 	reg_write(jzfb, LCDC_OSDCTRL, ctrl);
 
@@ -189,9 +184,11 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 	/* word aligned and in word */
 	panel_line_size = ALIGN(panel_line_size, 4) >> 2;
 	panel_frm_size = panel_line_size * mode->yres;
+
 	jzfb->frm_size = panel_frm_size << 2;
 
-	size0 = jzfb->osd.fg0.h << LCDC_DESSIZE_HEIGHT_BIT | jzfb->osd.fg0.w;
+	size0 = (jzfb->osd.fg0.h - 1) << LCDC_DESSIZE_HEIGHT_BIT
+		| (jzfb->osd.fg0.w - 1);
 
 	jzfb->framedesc->next = jzfb->framedesc_phys;
 	jzfb->framedesc->databuf = jzfb->vidmem_phys;
@@ -217,81 +214,155 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 			jzfb->framedesc->cmd_num = LCDC_CPOS_BPP_CMPS_24;
 		}
 	}
+
 	jzfb->framedesc->cmd_num |= jzfb->osd.fg0.y << LCDC_CPOS_YPOS_BIT;
 	jzfb->framedesc->cmd_num |= jzfb->osd.fg0.x;
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV) {
 		/* global alpha mode */
 		jzfb->framedesc->cmd_num |= 0;
-		/* data has been premultied */
-		jzfb->framedesc->cmd_num |= 0;
+		/* data has not been premultied */
+		jzfb->framedesc->cmd_num |= LCDC_CPOS_PREMULTI;
 		/*  */
 		jzfb->framedesc->cmd_num |= LCDC_CPOS_COEF_SLE_1;
 	}
 
 	jzfb->framedesc->desc_size = size0;
-	jzfb->framedesc->desc_size |= 0; /* fg0 alpha value */
+	/* fg0 alpha value */
+	jzfb->framedesc->desc_size |= 0xa0 << LCDC_DESSIZE_ALPHA_BIT;
+
+	/*
+	 * the descriptor of DMA 1 just init once
+	 * and generally no need to use it
+	 */
+	if (!jzfb->fg1_framedesc) {
+		jzfb->fg1_framedesc = jzfb->framedesc
+			+ sizeof(struct jzfb_framedesc) * (jzfb->desc_num - 1);
+
+		jzfb->fg1_framedesc->next = (uint32_t)virt_to_phys(jzfb->fg1_framedesc);
+		jzfb->fg1_framedesc->databuf = 0;
+		jzfb->fg1_framedesc->id = 0xda1;
+		jzfb->fg1_framedesc->cmd = LCDC_CMD_SOFINT & ~LCDC_CMD_FRM_EN;
+		jzfb->fg1_framedesc->cmd |= fg0_frm_size;
+		jzfb->fg1_framedesc->offsize = 0;
+		jzfb->fg1_framedesc->page_width = 0;
+
+		jzfb->fg1_framedesc->cmd_num = LCDC_CPOS_BPP_18_24;
+		jzfb->fg1_framedesc->cmd_num |= jzfb->osd.fg0.y << LCDC_CPOS_YPOS_BIT;
+		jzfb->fg1_framedesc->cmd_num |= jzfb->osd.fg0.x;
+		/* global alpha mode */
+		jzfb->fg1_framedesc->cmd_num |= 0;
+		/* data has not been premultied */
+		jzfb->fg1_framedesc->cmd_num |= LCDC_CPOS_PREMULTI;
+		/*  */
+		jzfb->fg1_framedesc->cmd_num |= LCDC_CPOS_COEF_SLE_3;
+
+		jzfb->fg1_framedesc->desc_size = size0;
+		/* fg0 alpha value */
+		jzfb->fg1_framedesc->desc_size |= 0xa0 << LCDC_DESSIZE_ALPHA_BIT;
+		reg_write(jzfb, LCDC_DA1, jzfb->fg1_framedesc->next);
+	}
 
 	return 0;
 }
 
-static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
+static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct jzfb *jzfb = fb->par;
+	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode;
 
 	if (var->bits_per_pixel != jzfb_get_controller_bpp(jzfb) &&
-	    var->bits_per_pixel != jzfb->pdata->bpp)
+			var->bits_per_pixel != jzfb->pdata->bpp)
 		return -EINVAL;
-
-	mode = jzfb_get_mode(jzfb, var);
-	if (mode == NULL)
+	mode = jzfb_get_mode(var, info);
+	if (mode == NULL) {
+		dev_err(info->dev, "%s get video mode faild\n", __func__);
 		return -EINVAL;
+	}
 
 	jzfb_videomode_to_var(var, mode);
 
-	switch (jzfb->osd.fg0.bpp) {
-	case 16:
-		var->red.offset = 11;
-		var->red.length = 5;
-		var->green.offset = 5;
-		var->green.length = 6;
-		var->blue.offset = 0;
-		var->blue.length = 5;
-		break;
-	case 18:
-		var->red.offset = 16;
-		var->red.length = 6;
-		var->green.offset = 8;
-		var->green.length = 6;
-		var->blue.offset = 0;
-		var->blue.length = 6;
-		var->bits_per_pixel = 32;
-		break;
-	case 32:
-	case 24:
-		if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
-			var->red.offset	= 0;
-			var->green.offset = 8;
-			var->blue.offset = 16;
-		} else {
-			/* default: FORMAT_X8R8G8B8*/
-			var->red.offset	= 16;
-			var->green.offset = 8;
+	switch (jzfb->pdata->bpp) {
+		case 16:
+			var->red.offset = 11;
+			var->red.length = 5;
+			var->green.offset = 5;
+			var->green.length = 6;
 			var->blue.offset = 0;
-		}
+			var->blue.length = 5;
+			break;
+		case 17 ... 32:
+			if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
+				var->red.offset	= 0;
+				var->green.offset = 8;
+				var->blue.offset = 16;
+			} else {
+				/* default: FORMAT_X8R8G8B8*/
+				var->red.offset	= 16;
+				var->green.offset = 8;
+				var->blue.offset = 0;
+			}
 
-		var->transp.offset = 24;
-		var->transp.length = 8;
-		var->red.length = 8;
-		var->green.length = 8;
-		var->blue.length = 8;
-		var->bits_per_pixel = 32;
-		break;
-	default:
-		break;
+			var->transp.offset = 24;
+			var->transp.length = 8;
+			var->red.length = 8;
+			var->green.length = 8;
+			var->blue.length = 8;
+			var->bits_per_pixel = 32;
+			break;
+		default:
+			dev_err(&jzfb->pdev->dev, "Not support for %d bpp\n",
+					jzfb->pdata->bpp);
+			break;
 	}
 
 	return 0;
+}
+
+static void jzfb_enable(struct fb_info *info)
+{
+	uint32_t ctrl;
+	struct jzfb *jzfb = info->par;
+
+	mutex_lock(&jzfb->lock);
+	if(jzfb->is_enabled) {
+		mutex_unlock(&jzfb->lock);
+		return;
+	}
+
+	clk_enable(jzfb->ldclk);
+
+	reg_write(jzfb, LCDC_STATE, 0);
+
+	reg_write(jzfb, LCDC_DA0, jzfb->framedesc->next);
+
+	ctrl = reg_read(jzfb, LCDC_CTRL);
+	ctrl |= LCDC_CTRL_ENA;
+	ctrl &= ~LCDC_CTRL_DIS;
+	reg_write(jzfb, LCDC_CTRL, ctrl);
+	jzfb->is_enabled = 1;
+	mutex_unlock(&jzfb->lock);
+}
+
+static void jzfb_disable(struct fb_info *info)
+{
+	uint32_t ctrl;
+	struct jzfb *jzfb = info->par;
+
+	mutex_lock(&jzfb->lock);
+	if(!jzfb->is_enabled) {
+		mutex_unlock(&jzfb->lock);
+		return;
+	}
+	ctrl = reg_read(jzfb, LCDC_CTRL);
+	ctrl |= LCDC_CTRL_DIS;
+	reg_write(jzfb, LCDC_CTRL,ctrl);
+	do {
+		ctrl = reg_read(jzfb, LCDC_STATE);
+	} while (!(ctrl & LCDC_STATE_LDD));
+
+	clk_disable(jzfb->ldclk);
+	jzfb->is_enabled = 0;
+	mutex_unlock(&jzfb->lock);
 }
 
 static int jzfb_set_par(struct fb_info *info)
@@ -300,6 +371,7 @@ static int jzfb_set_par(struct fb_info *info)
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_var_screeninfo *var = &info->var;
 	struct fb_videomode *mode;
+	int is_enabled;
 	unsigned int pcfg;
 	uint16_t hds, vds;
 	uint16_t hde, vde;
@@ -308,9 +380,16 @@ static int jzfb_set_par(struct fb_info *info)
 	uint32_t smart_cfg = 0;
 	unsigned long rate;
 
-	mode = jzfb_get_mode(jzfb, var);
-	if (mode == NULL)
+	is_enabled = jzfb->is_enabled;
+
+	if(is_enabled)
+		jzfb_disable(info);
+
+	mode = jzfb_get_mode(var, info);
+	if (mode == NULL) {
+		dev_err(info->dev, "%s get video mode faild\n", __func__);
 		return -EINVAL;
+	}
 
 	if (mode == info->mode)
 		return 0;
@@ -381,7 +460,7 @@ static int jzfb_set_par(struct fb_info *info)
 	if (!jzfb->is_enabled) {
 		clk_enable(jzfb->ldclk);
 	}
-
+#ifndef CONFIG_FPGA_TEST
 	switch (pdata->lcd_type) {
 		case LCD_TYPE_SPECIAL_TFT_1:
 		case LCD_TYPE_SPECIAL_TFT_2:
@@ -398,6 +477,7 @@ static int jzfb_set_par(struct fb_info *info)
 			cfg |= LCDC_CFG_REVM;
 			break;
 	}
+#endif
 
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
@@ -423,9 +503,6 @@ static int jzfb_set_par(struct fb_info *info)
 
 	pcfg = 0xC0000000 | (511<<18) | (400<<9) | (256<<0) ;
 	reg_write(jzfb, LCDC_PCFG, pcfg);
-	if (pdata->lcdc0_to_tft_ttl) {
-		reg_write(jzfb, LCDC_CTRL_OUTPUT, LCDC_CTRL_OUTPUT_LCDC02TFT);
-	}
 
 	jzfb_config_fg0(info);
 
@@ -440,58 +517,13 @@ static int jzfb_set_par(struct fb_info *info)
 	clk_set_rate(jzfb->ldclk, rate * 3);
 
 	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
-	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n", clk_get_rate(jzfb->lpclk));
+	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
+			clk_get_rate(jzfb->lpclk));
 
-	udelay(1000);
+	if(is_enabled)
+		jzfb_enable(info);
 
 	return 0;
-}
-
-static void jzfb_enable(struct fb_info *info)
-{
-	uint32_t ctrl;
-	struct jzfb *jzfb = info->par;
-
-	mutex_lock(&jzfb->lock);
-	if(jzfb->is_enabled) {
-		mutex_unlock(&jzfb->lock);
-		return;
-	}
-
-	clk_enable(jzfb->ldclk);
-
-	reg_write(jzfb, LCDC_STATE, 0);
-
-	reg_write(jzfb, LCDC_DA0, jzfb->framedesc->next);
-
-	ctrl = reg_read(jzfb, LCDC_CTRL);
-	ctrl |= LCDC_CTRL_ENA;
-	ctrl &= ~LCDC_CTRL_DIS;
-	reg_write(jzfb, LCDC_CTRL, ctrl);
-	jzfb->is_enabled = 1;
-	mutex_unlock(&jzfb->lock);
-}
-
-static void jzfb_disable(struct fb_info *info)
-{
-	uint32_t ctrl;
-	struct jzfb *jzfb = info->par;
-
-	mutex_lock(&jzfb->lock);
-	if(!jzfb->is_enabled) {
-		mutex_unlock(&jzfb->lock);
-		return;
-	}
-	ctrl = reg_read(jzfb, LCDC_CTRL);
-	ctrl |= LCDC_CTRL_DIS;
-	reg_write(jzfb, LCDC_CTRL,ctrl);
-	do {
-		ctrl = reg_read(jzfb, LCDC_STATE);
-	} while (!(ctrl & LCDC_STATE_LDD));
-
-	clk_disable(jzfb->ldclk);
-	jzfb->is_enabled = 0;
-	mutex_unlock(&jzfb->lock);
 }
 
 static int jzfb_blank(int blank_mode, struct fb_info *info)
@@ -510,10 +542,20 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 static int jzfb_alloc_devmem(struct jzfb *jzfb)
 {
-	int max_videosize = 0;
+	unsigned int max_videosize = 0;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 	void *page;
 	int i;
+
+	jzfb->framedesc = dma_alloc_coherent(&jzfb->pdev->dev,
+			sizeof(*jzfb->framedesc) * jzfb->desc_num,
+			&jzfb->framedesc_phys, GFP_KERNEL);
+
+	if (!jzfb->framedesc)
+		return -ENOMEM;
+
+	if (!jzfb->pdata->alloc_vidmem)
+		return 0;
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++mode, ++i) {
 		if (max_videosize < mode->xres * mode->yres)
@@ -537,12 +579,8 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 		SetPageReserved(virt_to_page(page));
 	}
 
-	jzfb->framedesc = dma_alloc_coherent(&jzfb->pdev->dev,
-			sizeof(*jzfb->framedesc) * jzfb->desc_num,
-			&jzfb->framedesc_phys, GFP_KERNEL);
-
-	if (!jzfb->framedesc)
-		return -ENOMEM;
+	dev_info(jzfb->fb->dev, "Frame buffer size: %d K bytes\n",
+			jzfb->vidmem_size >> 10);
 
 	return 0;
 }
@@ -573,8 +611,9 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		return 0;
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
-	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
-		jzfb->framedesc->databuf = jzfb->vidmem_phys + jzfb->frm_size * next_frm;
+			jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
+		jzfb->framedesc->databuf = jzfb->vidmem_phys + jzfb->frm_size
+			* next_frm;
 		jzfb->framedesc->id = next_frm;
 	} else {
 		//smart tft spec code here.
@@ -586,9 +625,8 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	ctrl = reg_read(jzfb, LCDC_CTRL);
 	reg_write(jzfb, LCDC_CTRL, ctrl | LCDC_CTRL_SOFM);
 
-	//do_gettimeofday(&tv1);
-
-	if(!wait_event_interruptible_timeout(jzfb->frame_wq, next_frm == jzfb->frm_id, HZ)) {
+	if(!wait_event_interruptible_timeout(jzfb->frame_wq, next_frm ==
+				jzfb->frm_id, HZ)) {
 		dev_err(info->dev,"wait for filp timeout!\n");
 		return -ETIME;
 	}
@@ -596,15 +634,66 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	ctrl = reg_read(jzfb, LCDC_CTRL);
 	reg_write(jzfb, LCDC_CTRL,ctrl & ~LCDC_CTRL_SOFM);
 
-	//do_gettimeofday(&tv2);
-
-	//printk(KERN_DEBUG "lcd delaytime== %ld us=====\n",((tv2.tv_sec-tv1.tv_sec)*1000000 + tv2.tv_usec-tv1.tv_usec));
-
 	return 0;
 }
 
 static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 {
+	int i;
+	struct jzfb *jzfb = info->par;
+	struct jzfb_platform_data *pdata = jzfb->pdata;
+	char (*buf)[MODE_NAME_LEN];
+	char name[MODE_NAME_LEN];
+
+	switch (cmd) {
+		case JZFB_GET_MODENUM:
+			copy_to_user((void __user *)arg, &pdata->num_modes, sizeof(int));
+			break;
+		case JZFB_GET_MODELIST:
+			buf = kzalloc(sizeof(char) * MODE_NAME_LEN * pdata->num_modes,
+					GFP_KERNEL);
+			for (i = 0; i < pdata->num_modes; i++) {
+				if (!pdata->modes[i].name)
+					continue;
+				memcpy(buf[i], pdata->modes[i].name, strlen(pdata->modes[i].name) + 1);
+			}
+
+			copy_to_user((void __user *)arg, buf, sizeof(char) * MODE_NAME_LEN * pdata->num_modes);
+			kfree(buf);
+			break;
+		case JZFB_SET_MODE:
+			if (copy_from_user(name, (void __user *)arg, sizeof(char) * MODE_NAME_LEN))
+				return -EFAULT;
+
+			for (i = 0; i < pdata->num_modes; i++) {
+				if (!pdata->modes[i].name)
+					continue;
+				if (!strcmp(pdata->modes[i].name, name)) {
+					jzfb_videomode_to_var(&info->var, &pdata->modes[i]);
+
+					return jzfb_set_par(info);
+				}
+			}
+
+			return -EFAULT;
+			break;
+		case JZFB_SET_VIDMEM:
+			if (copy_from_user(&jzfb->vidmem_phys, (void __user *)arg, sizeof(unsigned int)))
+				return -EFAULT;
+			break;
+		case JZFB_ENABLE:
+			if(!jzfb->vidmem_phys)
+				return -EFAULT;
+			jzfb_enable(info);
+			break;
+		case JZFB_DISABLE:
+			jzfb_disable(info);
+			break;
+		default:
+			dev_info(info->dev, "Not support for %d cmd\n", cmd);
+			break;
+	}
+
 	return 0;
 }
 
@@ -615,20 +704,19 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	struct jzfb *jzfb = (struct jzfb *)data;
 
 	state = reg_read(jzfb, LCDC_STATE);
-
 	if (state & LCDC_STATE_SOF) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
-		jzfb->frm_id = reg_read(jzfb,LCDC_IID);
 
+		jzfb->frm_id = reg_read(jzfb,LCDC_IID);
 		wake_up(&jzfb->frame_wq);
 	}
 
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if ( irq_cnt++ > 100 ) {
-			dev_err(jzfb->fb->dev, "disable Out FiFo underrun irq.\n");
+			dev_err(jzfb->fb->dev, "disable Out FiFo underrun irq\n");
 		}
-		dev_err(jzfb->fb->dev, "%s, Out FiFo underrun.\n", __FUNCTION__);		
+		dev_err(jzfb->fb->dev, "%s, Out FiFo underrun\n", __FUNCTION__);
 	}
 
 	return IRQ_HANDLED;
@@ -636,16 +724,16 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 
 static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
-	.fb_open		= jzfb_open,
-	.fb_release		= jzfb_release,
-	.fb_check_var 		= jzfb_check_var,
-	.fb_set_par 		= jzfb_set_par,
-	.fb_blank		= jzfb_blank,
-	.fb_pan_display		= jzfb_pan_display,
-	.fb_fillrect		= cfb_fillrect,
-	.fb_copyarea		= cfb_copyarea,
-	.fb_imageblit		= cfb_imageblit,
-	.fb_ioctl		= jzfb_ioctl,	
+	.fb_open = jzfb_open,
+	.fb_release = jzfb_release,
+	.fb_check_var = jzfb_check_var,
+	.fb_set_par = jzfb_set_par,
+	.fb_blank = jzfb_blank,
+	.fb_pan_display = jzfb_pan_display,
+	.fb_fillrect = cfb_fillrect,
+	.fb_copyarea = cfb_copyarea,
+	.fb_imageblit = cfb_imageblit,
+	.fb_ioctl = jzfb_ioctl,
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -663,6 +751,73 @@ static void jzfb_late_resume(struct early_suspend *h)
 
 	fb_set_suspend(jzfb->fb, 0);
 	fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
+}
+#endif
+
+#ifdef CONFIG_FPGA_TEST
+static void jzfb_display_v_color_bar(struct fb_info *info)
+{
+	int i,j;
+	int w, h;
+	int bpp;
+	unsigned short * p16;
+	unsigned int * p32;
+	struct jzfb *jzfb = info->par;
+	struct fb_videomode *mode = jzfb->pdata->modes;
+
+	p16 = (unsigned short *)jzfb->vidmem;
+	p32 = (unsigned int *)jzfb->vidmem;
+	w = jzfb->osd.fg0.w;
+	h = jzfb->osd.fg0.h;
+	bpp = jzfb->osd.fg0.bpp;
+
+	dev_info(info->dev, "LCD COLOR BAR w,h,bpp(%d,%d,%d)\n", w, h, bpp);
+
+	for (i = 0; i < h; i++) {
+		for (j = 0; j < w; j++) {
+			short c16;
+			int c32;
+			switch ((j / 10) % 4) {
+				case 0:
+					c16 = 0xF800;
+					c32 = 0x00FF0000;
+					break;
+				case 1:
+					c16 = 0x07C0;
+					c32 = 0x0000FF00;
+					break;
+				case 2:
+					c16 = 0x001F;
+					c32 = 0x000000FF;
+					break;
+				default:
+					c16 = 0xFFFF;
+					c32 = 0xFFFFFFFF;
+					break;
+			}
+			switch (bpp) {
+				case 18:
+				case 24:
+				case 32:
+					*p32++ = c32;
+					break;
+				default:
+					*p16 ++ = c16;
+			}
+		}
+		if (w % PIXEL_ALIGN) {
+			switch (bpp) {
+				case 18:
+				case 24:
+				case 32:
+					p32 += (ALIGN(mode->xres, PIXEL_ALIGN) - w);
+					break;
+				default:
+					p16 += (ALIGN(mode->yres, PIXEL_ALIGN) - w);
+					break;
+			}
+		}
+	}
 }
 #endif
 
@@ -709,7 +864,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	dev_info(dev, "LCDC_PW0: \t0x%08lx\n", reg_read(jzfb, LCDC_PW0));
 	dev_info(dev, "LCDC_CNUM0:\t0x%08lx\n", reg_read(jzfb, LCDC_CNUM0));
 	dev_info(dev, "LCDC_DESSIZE0:\t0x%08lx\n",
-		 reg_read(jzfb, LCDC_DESSIZE0));
+			reg_read(jzfb, LCDC_DESSIZE0));
 	dev_info(dev, "==================================\n");
 	dev_info(dev, "LCDC_DA1: \t0x%08lx\n", reg_read(jzfb, LCDC_DA1));
 	dev_info(dev, "LCDC_SA1: \t0x%08lx\n", reg_read(jzfb, LCDC_SA1));
@@ -719,12 +874,22 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	dev_info(dev, "LCDC_PW1: \t0x%08lx\n", reg_read(jzfb, LCDC_PW1));
 	dev_info(dev, "LCDC_CNUM1:\t0x%08lx\n", reg_read(jzfb, LCDC_CNUM1));
 	dev_info(dev, "LCDC_DESSIZE1:\t0x%08lx\n",
-		 reg_read(jzfb, LCDC_DESSIZE1));
+			reg_read(jzfb, LCDC_DESSIZE1));
 	dev_info(dev, "==================================\n");
 	dev_info(dev, "LCDC_PCFG:\t0x%08lx\n", reg_read(jzfb, LCDC_PCFG));
+#ifdef CONFIG_FPGA_TEST
+	dev_info(dev, "framedesc->next: \t0x%08x\n", jzfb->framedesc->next);
+	dev_info(dev, "LCDC_SA0: \t0x%08x\n", jzfb->framedesc->databuf);
+	dev_info(dev, "LCDC_FID0:\t0x%08x\n", jzfb->framedesc->id);
+	dev_info(dev, "framedesc->cmd:\t0x%08x\n", jzfb->framedesc->cmd);
+	dev_info(dev, "LCDC_OFFS0:\t0x%08x\n", jzfb->framedesc->offsize);
+	dev_info(dev, "LCDC_PW0: \t0x%08x\n", jzfb->framedesc->page_width);
+	dev_info(dev, "framedesc->cmd_num:\t0x%08x\n", jzfb->framedesc->cmd_num);
+	dev_info(dev, "LCDC_DESSIZE0:\t0x%08x\n", jzfb->framedesc->desc_size);
+#endif
 
 	return;
-} 
+}
 
 static ssize_t dump_lcd(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -748,10 +913,19 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret;
 	int i;
+	unsigned int lco;//lcd control output
 	struct jzfb *jzfb;
 	struct fb_info *fb;
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
 	struct resource *mem;
+
+	lco = inl(LCDC_CTRL_OUTPUT);
+#ifdef CONFIG_MAP_DATABUS_TO_LCDC0
+	lco |= LCDC_CTRL_OUTPUT_LCDC02TFT;
+#else
+	lco &= ~LCDC_CTRL_OUTPUT_LCDC02TFT;
+#endif
+	outl(lco,LCDC_CTRL_OUTPUT);
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "Missing platform data\n");
@@ -784,23 +958,27 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->fb = fb;
 	jzfb->pdev = pdev;
 	jzfb->pdata = pdata;
+	jzfb->id = pdev->id;
 	jzfb->mem = mem;
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
-	    pdata->lcd_type != LCD_TYPE_LCM) {
-		jzfb->desc_num = 1;
-	} else {
+			pdata->lcd_type != LCD_TYPE_LCM) {
 		jzfb->desc_num = 2;
+	} else {
+		jzfb->desc_num = 3;
 	}
 
-	jzfb->ldclk = clk_get(&pdev->dev, "lcd");
+	sprintf(jzfb->clk_name, "lcd%d",pdev->id);
+	sprintf(jzfb->pclk_name, "lcd_pclk%d",pdev->id);
+
+	jzfb->ldclk = clk_get(&pdev->dev, jzfb->clk_name);
 	if (IS_ERR(jzfb->ldclk)) {
 		ret = PTR_ERR(jzfb->ldclk);
 		dev_err(&pdev->dev, "Failed to get lcd cupdate_lock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
 
-	jzfb->lpclk = clk_get(&pdev->dev, "lcd_pclk");
+	jzfb->lpclk = clk_get(&pdev->dev, jzfb->pclk_name);
 	if (IS_ERR(jzfb->lpclk)) {
 		ret = PTR_ERR(jzfb->lpclk);
 		dev_err(&pdev->dev, "Failed to get lcd pixel cupdate_lock: %d\n", ret);
@@ -848,18 +1026,12 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	clk_enable(jzfb->ldclk);
 
-	ret = register_framebuffer(fb);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
-		goto err_free_devmem;
-	}
-
 	jzfb->irq = platform_get_irq(pdev, 0);
 	if (request_irq(jzfb->irq, jzfb_irq_handler, IRQF_SHARED,
 				pdev->name, jzfb)) {
 		dev_err(&pdev->dev,"request irq failed\n");
 		ret = -EINVAL;
-		goto err_free_irq;
+		goto err_free_devmem;
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -874,12 +1046,25 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		if (ret)
 			break;
 	}
+
 	if (ret) {
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
+		goto err_free_irq;
+	}
+
+	ret = register_framebuffer(fb);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
 		goto err_free_file;
 	}
 
+#ifdef CONFIG_FPGA_TEST
+	jzfb_set_par(jzfb->fb);
+	jzfb_enable(jzfb->fb);
+	reg_write(jzfb, LCDC_REV, 1 << 16); /* set pixel clock */
+	jzfb_display_v_color_bar(jzfb->fb);
+#endif
 	return 0;
 
 err_free_file:
@@ -892,7 +1077,6 @@ err_free_file:
 err_free_irq:
 	free_irq(jzfb->irq, jzfb);
 err_free_devmem:
-	fb_dealloc_cmap(&fb->cmap);
 	jzfb_free_devmem(jzfb);
 err_iounmap:
 	iounmap(jzfb->base);

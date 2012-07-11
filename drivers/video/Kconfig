@@ -2392,6 +2392,11 @@ config FB_JZ4780_LCDC1
 	help
 	  Framebuffer support for the JZ4780 SoC.
 
+config MAP_DATABUS_TO_LCDC0
+	bool "map lcd databus to lcdc0"
+	depends on FB_JZ4780_LCDC0 || FB_JZ4780_LCDC1
+	default n
+
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"
 	depends on FB && UNICORE32 && ARCH_PUV3

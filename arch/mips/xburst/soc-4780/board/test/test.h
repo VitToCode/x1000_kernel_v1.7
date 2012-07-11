@@ -8,7 +8,13 @@ extern struct jzmmc_platform_data test_inand_pdata;
 extern struct jzmmc_platform_data test_tf_pdata;
 extern struct jzmmc_platform_data test_sdio_pdata;
 
-extern struct jzfb_platform_data jzfb_pdata;
+#ifdef CONFIG_FB_JZ4780_LCDC0
+extern struct jzfb_platform_data jzfb0_pdata;
+#endif
+#ifdef CONFIG_FB_JZ4780_LCDC1
+extern struct jzfb_platform_data jzfb1_pdata;
+#endif
+
 /**
  * sound platform data
  **/

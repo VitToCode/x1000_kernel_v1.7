@@ -19,6 +19,7 @@
 #include <linux/at070tn93.h>
 
 #include <mach/jzfb.h>
+#include <mach/fb_hdmi_modes.h>
 
 #ifdef CONFIG_LCD_AT070TN93
 #define GPIO_LCD_PWM GPIO_PE(0)
@@ -27,7 +28,7 @@ static struct platform_at070tn93_data at070tn93_pdata= {
 	.gpio_power = GPIO_PC(17),
 	.gpio_vsync = GPIO_PC(19),
 	.gpio_hsync = GPIO_PC(18),
- 	.gpio_reset = GPIO_PE(11),
+	.gpio_reset = GPIO_PE(11),
 };
 
 struct platform_device at070tn93_device = {
@@ -47,8 +48,15 @@ struct platform_device auo_a043fl01v2_device = {
 	},
 };
 #endif
+
 /**************************************************************************************************/
-struct fb_videomode jzfb_videomode = {
+struct fb_videomode jzfb0_videomode[] = {
+	ADD_HDMI_VIDEO_MODE(HDMI_640x480_P_60HZ_4x3),
+	ADD_HDMI_VIDEO_MODE(HDMI_720x480_P_60HZ_4x3),
+	ADD_HDMI_VIDEO_MODE(HDMI_720x480_P_60HZ_16x9),
+};
+
+struct fb_videomode jzfb1_videomode = {
 #ifdef CONFIG_LCD_AT070TN93
 	.name = "800x480",
 	.refresh = 55,
@@ -71,7 +79,7 @@ struct fb_videomode jzfb_videomode = {
 	.refresh = 60,
 	.xres = 480,
 	.yres = 272,
-	.pixclock = 0,
+	.pixclock = 9200,
 	.left_margin = 4,
 	.right_margin = 8,
 	.upper_margin = 2,
@@ -84,13 +92,26 @@ struct fb_videomode jzfb_videomode = {
 #endif
 };
 
-struct jzfb_platform_data jzfb_pdata = {
-#ifdef CONFIG_LCD_AT070TN93
-	.num_modes = 1,
-	.modes = &jzfb_videomode,
+struct jzfb_platform_data jzfb0_pdata = {
+	.num_modes = ARRAY_SIZE(jzfb0_videomode),
+	.modes = jzfb0_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.lcdc0_to_tft_ttl = 1,
+	.bpp = 24,
+	.width = 0,
+	.height = 0,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+};
+
+struct jzfb_platform_data jzfb1_pdata = {
+#ifdef CONFIG_LCD_AT070TN93
+	.num_modes = 1,
+	.modes = &jzfb1_videomode,
+
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.lcdc0_to_tft_ttl = 0,
 	.bpp = 24,
 	.width = 154,
 	.height = 86,
@@ -101,13 +122,12 @@ struct jzfb_platform_data jzfb_pdata = {
 
 #ifdef CONFIG_LCD_AUO_A043FL01V2
 	.num_modes = 1,
-	.modes = &jzfb_videomode,
+	.modes = &jzfb1_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.lcdc0_to_tft_ttl = 0,
-	.bpp = 18,
-	.width = 0,
-	.height = 0,
+	.bpp = 24,
+	.width = 95,
+	.height = 54,
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
