@@ -29,23 +29,23 @@
 #define CH_DDA	0x18
 #define CH_DSD	0x1C
 
-#define GLOBAL_REG_OFFSET	(0x1000)
+#define TCSM	0x2000
 
-#define DMAC	(GLOBAL_REG_OFFSET + 0x00)
-#define DIRQP	(GLOBAL_REG_OFFSET + 0x04)
-#define DDR	(GLOBAL_REG_OFFSET + 0x08)
-#define DDRS	(GLOBAL_REG_OFFSET + 0x0C)
-#define DMACP	(GLOBAL_REG_OFFSET + 0x1C)
-#define DSIRQP	(GLOBAL_REG_OFFSET + 0x20)
-#define DSIRQM	(GLOBAL_REG_OFFSET + 0x24)
-#define DCIRQP	(GLOBAL_REG_OFFSET + 0x28)
-#define DCIRQM	(GLOBAL_REG_OFFSET + 0x2C)
+#define DMAC	0x1000
+#define DIRQP	0x1004
+#define DDR	0x1008
+#define DDRS	0x100C
+#define DMACP	0x101C
+#define DSIRQP	0x1020
+#define DSIRQM	0x1024
+#define DCIRQP	0x1028
+#define DCIRQM	0x102C
 
 /* MCU of PDMA */
-#define DMCS	(GLOBAL_REG_OFFSET + 0x30)
-#define DMNMB	(GLOBAL_REG_OFFSET + 0x34)
-#define DMSMB	(GLOBAL_REG_OFFSET + 0x38)
-#define DMINT	(GLOBAL_REG_OFFSET + 0x3C)
+#define DMCS	0x1030
+#define DMNMB	0x1034
+#define DMSMB	0x1038
+#define DMINT	0x103C
 
 #define DMAC_HLT	BIT(3)
 #define DMAC_AR		BIT(2)
@@ -72,7 +72,7 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
-static unsigned long firmware[] = {
+static int firmware[] = {
 #include "firmware.hex"
 };
 
@@ -243,10 +243,32 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 	return i;
 }
 
+static void jzdma_mcu_reset(struct jzdma_master *dma)
+{
+	unsigned long dmcs;
+	dmcs = readl(dma->iomem + DMCS);
+	dmcs |= 0x1;
+	writel(dmcs, dma->iomem + DMCS);
+}
+
 static int jzdma_load_firmware(struct jzdma_master *dma)
 {
-	dev_info(dma->dev,"firmware : 0x%08lu\n",firmware[0]);
+	int i;
+	dev_info(dma->dev,"firmware size:%d bytes\n",sizeof(firmware));
+	dev_dbg(dma->dev,"dump:\n");
+	for(i=0;i<256;i+=4)
+		dev_dbg(dma->dev,"%08x:%08x:%08x:%08x\n",
+				firmware[i],firmware[i+1],firmware[i+2],firmware[i+3]);
+	memcpy(dma->iomem + TCSM,firmware,sizeof(firmware));
 	return 0;
+}
+
+static void jzdma_mcu_init(struct jzdma_master *dma)
+{
+	unsigned long dmcs;
+	dmcs = readl(dma->iomem + DMCS);
+	dmcs &= ~0x1;
+	writel(dmcs, dma->iomem + DMCS);
 }
 
 static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
@@ -736,7 +758,9 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		goto release_irq;
 	}
 
+	jzdma_mcu_reset(dma);
 	jzdma_load_firmware(dma);
+	jzdma_mcu_init(dma);
 
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;

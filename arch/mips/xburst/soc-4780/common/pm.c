@@ -405,6 +405,7 @@ int __init jz4780_pm_init(void)
 }
 
 
+arch_initcall(jz4780_pm_init);
 #if 0
 void jz_pm_hibernate(void)
 {
