@@ -2023,6 +2023,21 @@ config LANTIQ_ETOP
 	help
 	  Support for the MII0 inside the Lantiq SoC
 
+config JZ_MAC
+	tristate "JZ on-chip MAC support"
+	depends on NET_ETHERNET && MACH_XBURST
+	select CRC32
+	select MII
+	select PHYLIB
+	help
+	  This is the driver for JZ on-chip mac device. 
+
+config JZ_MAC_RMII
+	bool "RMII PHY Interface"
+	depends on JZ_MAC
+	default n
+        help
+          Use Reduced PHY MII Interface for JZ ethernet MAC
 
 source "drivers/net/fs_enet/Kconfig"
 

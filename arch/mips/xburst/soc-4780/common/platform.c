@@ -425,3 +425,22 @@ struct platform_device jz_ehci_device = {
 	.resource	= jz_ehci_resources,
 };
 
+static struct resource	jz_mac_res[] = {
+	{ .flags = IORESOURCE_MEM,
+	  .start = ETHC_IOBASE,
+	  .end = ETHC_IOBASE + 0xfff,
+	},
+	{ .flags = IORESOURCE_IRQ,
+	  .start = IRQ_ETHC,
+	},
+};
+
+struct platform_device jz_mac = {
+	.name = "jzmac",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(jz_mac_res),
+	.resource = jz_mac_res,
+	.dev = {
+		.platform_data = NULL,
+	},
+};

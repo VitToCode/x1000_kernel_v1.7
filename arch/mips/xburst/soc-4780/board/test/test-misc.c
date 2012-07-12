@@ -102,6 +102,10 @@ static int __init test_board_init(void)
 #ifdef CONFIG_USB_EHCI_HCD
 	platform_device_register(&jz_ehci_device);
 #endif
+
+#ifdef CONFIG_JZ_MAC
+	platform_device_register(&jz_mac);
+#endif
 	return 0;
 }
 
