@@ -51,7 +51,7 @@ static int __init test_board_init(void)
 #ifdef CONFIG_SOUND_PCM1_JZ47XX
 	jz_device_register(&jz_pcm1_device,&pcm1_data);
 #endif
-#ifdef CONFIG_SOUND_CODEC_JZ4780
+#ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 

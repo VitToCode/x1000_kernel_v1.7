@@ -54,6 +54,7 @@ static struct codec_info {
 	int replay_codec_channel;
 	int record_format;
 	int replay_format;
+	unsigned long codec_clk;
 	int (*codec_ctl)(unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints *dsp_endpoints;
 } *cur_codec;
@@ -89,7 +90,7 @@ static struct early_suspend jz_i2s_early_suspend = {
  * register the codec
  **/
 
-int i2s0_register_codec(char *name, void *codec_ctl)
+int i2s0_register_codec(char *name, void *codec_ctl,unsigned long codec_clk)
 {
 	struct codec_info *tmp = vmalloc(sizeof(struct codec_info));
 	struct list_head  *list = vmalloc(sizeof(struct list_head));
@@ -97,6 +98,7 @@ int i2s0_register_codec(char *name, void *codec_ctl)
 		tmp->list = list;
 		tmp->name = name;
 		tmp->codec_ctl = codec_ctl;
+		tmp->codec_clk = codec_clk;
 		tmp->dsp_endpoints = &i2s0_endpoints;
 		list_add_tail(tmp->list, &codecs_head);
 
@@ -171,6 +173,7 @@ static int i2s0_set_fmt(unsigned long *format,int mode)
 		if (mode & CODEC_RMODE)
 			__i2s0_set_iss_sample_size(1);
 		__i2s0_disable_signadj();
+		break;
 	case AFMT_S16_BE:
 		data_width = 16;
 		if (mode & CODEC_WMODE) {
@@ -655,7 +658,6 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 /*##################################################################*\
 |* functions
 \*##################################################################*/
-#define INTERNAL_CODEC_SYSCLK 12000000
 
 static void i2s0_codec_work_handler(struct work_struct *work)
 {
@@ -670,9 +672,11 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&i2s0_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
+#if CONFIG_JZ4780_INTERNAL_CODEC
 	if (read_inter_codec_irq()){
 		queue_work(i2s0_work_queue, &i2s0_codec_work);
 	}
+#endif
 	/* if irq source is aic0, process it here */
 	/*noting to do*/
 
@@ -727,7 +731,7 @@ static int i2s0_global_init(struct platform_device *pdev)
 	struct dsp_pipe *i2s0_pipe_out = NULL;
 	struct dsp_pipe *i2s0_pipe_in = NULL;
 	struct clk *i2s0_clk = NULL;
-	struct clk *codec_sys_clk = NULL;
+	struct clk *codec_sysclk = NULL;
 
 	i2s0_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (i2s0_resource == NULL) {
@@ -759,76 +763,77 @@ static int i2s0_global_init(struct platform_device *pdev)
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC)
 	i2s0_match_codec("internal_codec");
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC)
+	i2s0_match_codec("i2s0_external_codec");
+#else
+	/*warning*/
 #endif
+
 	if (cur_codec == NULL) {
 		ret = 0;
 		goto __err_match_codec;
 	}
-
-	/* request clk */
+	/* request aic clk */
 	i2s0_clk = clk_get(&pdev->dev, "aic0");
 	if (IS_ERR(i2s0_clk)) {
 		dev_dbg(&pdev->dev, "aic0 clk_get failed\n");
-		goto __err_get_clk0;
+		goto __err_aic_clk;
 	}
-	clk_set_rate(i2s0_clk, 12000000);
-	if (clk_get_rate(i2s0_clk) > 12000000) {
-		printk("i2s0 interface set rate fail.\n");
-		return 0;
-	}
-
 	clk_enable(i2s0_clk);
 
 	spin_lock_init(&i2s0_irq_lock);
 	/* request irq */
-	ret = request_irq(IRQ_AIC0, i2s0_irq_handler,
+	i2s0_resource = platform_get_resource(pdev,IORESOURCE_IRQ,0);
+	if (i2s0_resource == NULL) {
+		printk("i2s1: platform_get_resource fail.\n");
+		ret = -1;
+		goto __err_irq;
+	}
+
+	ret = request_irq(i2s0_resource->start, i2s0_irq_handler,
 					  IRQF_DISABLED, "AIC0_irq", NULL);
 	if (ret < 0)
-		goto __err_request_irq;
+		goto __err_irq;
+
 
 	__i2s0_disable();
 	schedule_timeout(5);
 	__i2s0_disable();
+	__i2s0_stop_bitclk();
+	__i2s0_stop_ibitclk();
+	/*select i2s trans*/
+	__aic0_select_i2s();
+	__i2s0_select_i2s();
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC)
 	__i2s0_as_slave();
 	__i2s0_internal_slave_codec();
-	__i2s0_start_bitclk();
-	__i2s0_start_ibitclk();
-#elif defined(CONFIG_JZ_EXTERNAL_CODEC)
-	/*__i2s0_external_codec();*/
-#endif
-
-	__aic0_select_i2s();
-
-	__i2s0_select_i2s();
 
 	/*sysclk output*/
 	__i2s0_enable_sysclk_output();
 
 	/*set sysclk output for codec*/
-	codec_sys_clk = clk_get(&pdev->dev,"cgu_aic");
-	if (IS_ERR(codec_sys_clk)) {
+	codec_sysclk = clk_get(&pdev->dev,"cgu_aic");
+	if (IS_ERR(codec_sysclk)) {
 		dev_dbg(&pdev->dev, "cgu_aic clk_get failed\n");
-		goto __err_get_clk1;
+		goto __err_codec_clk;
 	}
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
-
 	/*set sysclk output for codec*/
-	clk_set_rate(codec_sys_clk,INTERNAL_CODEC_SYSCLK);
-	if (clk_get_rate(codec_sys_clk) > INTERNAL_CODEC_SYSCLK) {
+	clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+	if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
 		printk("codec interface set rate fail.\n");
-		return 0;
+		goto __err_codec_clk;
 	}
-	clk_enable(codec_sys_clk);
+	clk_enable(codec_sysclk);
 
 	/*bclk and sync input from codec*/
 	__i2s0_slave_clkset();
+
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC)
-
+	/* external codec selection*/
 #endif
-
-	/* internal or external codec */
+	__i2s0_start_bitclk();
+	__i2s0_start_ibitclk();
 
 	__i2s0_disable_receive_dma();
 	__i2s0_disable_transmit_dma();
@@ -836,34 +841,28 @@ static int i2s0_global_init(struct platform_device *pdev)
 	__i2s0_disable_replay();
 	__i2s0_disable_loopback();
 	__i2s0_flush_rfifo();
-
 	__i2s0_flush_tfifo();
 	__i2s0_clear_ror();
 	__i2s0_clear_tur();
-
 	__i2s0_set_receive_trigger(3);
 	__i2s0_set_transmit_trigger(4);
 	__i2s0_disable_overrun_intr();
 	__i2s0_disable_underrun_intr();
 	__i2s0_disable_transmit_intr();
 	__i2s0_disable_receive_intr();
-
 	__i2s0_send_rfirst();
-
-
 	/* play zero or last sample when underflow */
 	__i2s0_play_lastsample();
 	__i2s0_enable();
 
 	return  cur_codec->codec_ctl(CODEC_INIT,0);
 
-__err_request_irq:
-	clk_disable(codec_sys_clk);
-	clk_put(codec_sys_clk);
-__err_get_clk1:
+__err_codec_clk:
+	clk_put(codec_sysclk);
+__err_irq:
 	clk_disable(i2s0_clk);
 	clk_put(i2s0_clk);
-__err_get_clk0:
+__err_aic_clk:
 __err_match_codec:
 	vfree(i2s0_pipe_in);
 __err_init_pipein:

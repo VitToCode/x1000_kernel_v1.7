@@ -45,7 +45,7 @@ static struct snd_board_route *keep_old_route = NULL;
 static struct snd_codec_data *codec_platform_data = NULL;
 enum snd_device_t g_current_out_dev;
 
-extern int i2s0_register_codec(char *name, void *codec_ctl);
+extern int i2s0_register_codec(char *name, void *codec_ctl,unsigned long codec_clk);
 
 /*=================== lock ============================*/
 static struct semaphore *g_codec_sem = 0;
@@ -1707,7 +1707,6 @@ static int codec_init(void)
 
 	/* set SYS_CLK to 12MHZ */
 	__codec_set_crystal(codec_platform_data->codec_sys_clk);
-
 	/* enable DMIC_CLK */
 	__codec_enable_dmic_clk();
 
@@ -2512,13 +2511,12 @@ static struct platform_driver jz_codec_driver = {
 /**
  * Module init
  */
+#define JZ4780_INTERNAL_CODEC_CLOCK 12000000
 static int __init init_codec(void)
 {
 	int retval;
 
-	i2s0_register_codec("internal_codec", (void *)jzcodec_ctl);
-
-	codec_reset();
+	i2s0_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4780_INTERNAL_CODEC_CLOCK);
 
 	retval = platform_driver_register(&jz_codec_driver);
 	if (retval) {
@@ -2537,5 +2535,5 @@ static void __exit cleanup_codec(void)
 	platform_driver_unregister(&jz_codec_driver);
 }
 
-arch_initcall(init_codec);
+device_initcall(init_codec);
 module_exit(cleanup_codec);

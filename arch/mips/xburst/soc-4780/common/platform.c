@@ -108,6 +108,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_NAND_JZ4780_CS6
         NAND_PORTA_CS6,
 #endif
+#ifdef CONFIG_JZ_EXTERNAL_CODEC
+	I2S0_PORTE,	
+#endif
 	LCD_PORTC,
 	PWM1_PORTE,
 	MII_PORTBDF,
@@ -254,6 +257,11 @@ static struct resource jz_i2s##NO##_resources[] = {			\
 		.start          = AIC##NO##_IOBASE,			\
 		.end            = AIC##NO##_IOBASE + 0x1000 -1,	\
 		.flags          = IORESOURCE_MEM,			\
+	},	\
+	[1] = {	\
+		.start			= IRQ_AIC##NO,	\
+		.end			= IRQ_AIC##NO,	\
+		.flags			= IORESOURCE_IRQ,	\
 	},	\
 };	\
 struct platform_device jz_i2s##NO##_device = {				\

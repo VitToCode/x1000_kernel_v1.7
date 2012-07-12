@@ -9,6 +9,13 @@
 #ifndef __SOC_4770_H__
 #define __SOC_4770_H__
 
+
+#define I2S0_PORTE							\
+	{ .name = "i2s0_sysclk",	.port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x1<<5, },	\
+	{ .name = "i2s0_data",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<6, },	\
+	{ .name = "i2s0_bitclk",	.port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x1<<12,},	\
+	{ .name = "i2s0_sync",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<13,},	\
+	{ .name = "i2s0_iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }	
 /* devio define list */
 #define UART0_PORTF							\
 	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
