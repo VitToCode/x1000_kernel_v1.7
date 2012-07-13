@@ -52,6 +52,7 @@
 
 
 #define	OST_IOBASE	0x12000000
+#define	HDMI_IOBASE	0x10180000
 
 /* APB BUS Devices Base */
 #define	CPM_IOBASE	0x10000000

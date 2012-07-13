@@ -9,7 +9,7 @@
 #include <gpio.h>
 
 // default gpio state is input pull;
-int gpio_ss_table[][2] = {
+__initdata int gpio_ss_table[][2] = {
 	{32 * 0 +  0,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 0 +  1,	GSS_INPUT_PULL	}, /* ACC_INT2 input pull*/
 	{32 * 0 +  2,	GSS_IGNORE		}, /* FVDD_EN */

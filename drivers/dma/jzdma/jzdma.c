@@ -72,7 +72,7 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
-static int firmware[] = {
+__initdata static int firmware[] = {
 #include "firmware.hex"
 };
 

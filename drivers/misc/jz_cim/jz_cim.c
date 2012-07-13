@@ -161,7 +161,7 @@ void cim_dummy_power_off(void)
 {
 }
 
-static int __init cim_probe(struct platform_device *pdev)
+static int cim_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *r;
