@@ -35,4 +35,11 @@ int irq_to_gpio(unsigned irq);
 #define GPIO_PE(n) 	(4*32 + n)
 #define GPIO_PF(n) 	(5*32 + n)
 
+#define GSS_OUTPUT_LOW 		1
+#define GSS_OUTPUT_HIGH 	2
+#define GSS_INPUT_PULL 		3
+#define GSS_INPUT_NOPULL 	4
+#define GSS_IGNORE 		5
+#define GSS_TABLET_END		0x999
+
 #endif 

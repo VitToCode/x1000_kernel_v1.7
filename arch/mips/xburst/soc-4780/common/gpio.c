@@ -28,10 +28,13 @@
 #define NR_GPIO_NUM	(NR_GPIO_PORT*32)
 
 #define PXPIN		0x00   /* PIN Level Register */
+#define PXINT		0x10   /* Port Interrupt Register */
 #define PXINTS		0x14   /* Port Interrupt Set Register */
 #define PXINTC		0x18   /* Port Interrupt Clear Register */
+#define PXMSK		0x20   /* Port Interrupt Mask Reg */
 #define PXMSKS		0x24   /* Port Interrupt Mask Set Reg */
 #define PXMSKC		0x28   /* Port Interrupt Mask Clear Reg */
+#define PXPAT1		0x30   /* Port Pattern 1 Set Reg. */
 #define PXPAT1S		0x34   /* Port Pattern 1 Set Reg. */
 #define PXPAT1C		0x38   /* Port Pattern 1 Clear Reg. */
 #define PXPAT0		0x44   /* Port Pattern 0 Register */
@@ -41,10 +44,20 @@
 #define PXFLGC		0x58   /* Port Flag clear Register */
 #define PXOENS		0x64   /* Port Output Disable Set Register */
 #define PXOENC		0x68   /* Port Output Disable Clear Register */
+#define PXPEN		0x70   /* Port Pull Disable Register */
 #define PXPENS		0x74   /* Port Pull Disable Set Register */
 #define PXPENC		0x78   /* Port Pull Disable Clear Register */
 #define PXDSS		0x84   /* Port Drive Strength set Register */
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
+
+extern int gpio_ss_table[][2];
+
+struct jzgpio_state {
+	unsigned int output_low;
+	unsigned int output_high;
+	unsigned int input_pull;
+	unsigned int input_nopull;
+};
 
 struct jzgpio_chip {
 	void __iomem *reg;
@@ -56,6 +69,8 @@ struct jzgpio_chip {
 	DECLARE_BITMAP(wake_map, 32);
 	struct gpio_chip gpio_chip;
 	struct irq_chip  irq_chip;
+	struct jzgpio_state sleep_state;
+	unsigned int save[5];
 };
 
 static struct jzgpio_chip jz_gpio_chips[];
@@ -390,11 +405,39 @@ static int __init setup_gpio_irq(void)
 
 int gpio_suspend(void)
 {
+	int i;
+	struct jzgpio_chip *jz;
+
+	for(i = 0; i < GPIO_NR_PORTS; i++) {
+		jz = &jz_gpio_chips[i];
+		jz->save[0] = readl(jz->reg + PXINT);
+		jz->save[1] = readl(jz->reg + PXMSK);
+		jz->save[2] = readl(jz->reg + PXPAT1);
+		jz->save[3] = readl(jz->reg + PXPAT0);
+		jz->save[4] = readl(jz->reg + PXPEN);
+	}
+
 	return 0;
 }
 
 void gpio_resume(void)
 {
+	int i;
+	struct jzgpio_chip *jz;
+
+	for(i = 0; i < GPIO_NR_PORTS; i++) {
+		jz = &jz_gpio_chips[i];
+		writel(jz->save[0], jz->reg + PXINTS);
+		writel(~jz->save[0], jz->reg + PXINTC);
+		writel(jz->save[1], jz->reg + PXMSKS);
+		writel(~jz->save[1], jz->reg + PXMSKC);
+		writel(jz->save[2], jz->reg + PXPAT1S);
+		writel(~jz->save[2], jz->reg + PXPAT1C);
+		writel(jz->save[3], jz->reg + PXPAT0S);
+		writel(~jz->save[3], jz->reg + PXPAT0C);
+		writel(jz->save[4], jz->reg + PXPENS);
+		writel(~jz->save[4], jz->reg + PXPENC);
+	}
 }
 
 struct syscore_ops gpio_pm_ops = {
@@ -402,17 +445,76 @@ struct syscore_ops gpio_pm_ops = {
 	.resume = gpio_resume,
 };
 
+int __init gpio_ss_check(void)
+{
+	unsigned int i,state,group,index;
+	unsigned int panic_flags[6] = {0,};
+
+	for (i = 0; i < GPIO_NR_PORTS; i++) {
+		jz_gpio_chips[i].sleep_state.input_pull = 0xffffffff;
+	}
+
+	for(i = 0; gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
+		group = gpio_ss_table[i][0] / 32;
+		index = gpio_ss_table[i][0] % 32;
+		state = gpio_ss_table[i][1];
+
+		jz_gpio_chips[group].sleep_state.input_pull =
+			jz_gpio_chips[group].sleep_state.input_pull & ~(1 << index);
+
+		if(panic_flags[group] & (1 << index)) {
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
+			panic("gpio_ss_table has iterant gpio set , system halt\n");
+			while(1);
+		} else {
+			panic_flags[group] |= 1 << index;
+		}
+
+		switch(state) {
+			case GSS_OUTPUT_HIGH:
+				jz_gpio_chips[group].sleep_state.output_high |= 1 << index;
+				break;
+			case GSS_OUTPUT_LOW:
+				jz_gpio_chips[group].sleep_state.output_low |= 1 << index;
+				break;
+			case GSS_INPUT_PULL:
+				jz_gpio_chips[group].sleep_state.input_pull |= 1 << index;
+				break;
+			case GSS_INPUT_NOPULL:
+				jz_gpio_chips[group].sleep_state.input_nopull |= 1 << index;
+				break;
+		}
+	}
+
+	pr_info("GPIO sleep states:\n");
+	for(i = 0; i < GPIO_NR_PORTS; i++) {
+		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n", 
+				jz_gpio_chips[i].sleep_state.output_high,
+				jz_gpio_chips[i].sleep_state.output_low,
+				jz_gpio_chips[i].sleep_state.input_pull,
+				jz_gpio_chips[i].sleep_state.input_nopull);
+	}
+
+	return 0;
+}
+
 int __init setup_gpio_pins(void)
 {
 	int i;
 	pr_debug("setup gpio function.\n");
-	
+
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].reg = ioremap(GPIO_IOBASE + i*GPIO_PORT_OFF,
 				GPIO_PORT_OFF - 1);
 		jz_gpio_chips[i].gpio_map[0] = 0xffffffff;
 	}
-	
+
 	for (i = 0; i < platform_devio_array_size ; i++) {
 		struct jz_gpio_func_def *g = &platform_devio_array[i];
 		struct jzgpio_chip *jz;
@@ -436,10 +538,12 @@ int __init setup_gpio_pins(void)
 
 		gpio_set_func(jz, g->func, g->pins);
 	}
-	
+
 	setup_gpio_irq();
 	jz_gpiolib_init();
 	register_syscore_ops(&gpio_pm_ops);
+
+	gpio_ss_check();
 
 	return 0;
 }

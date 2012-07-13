@@ -83,6 +83,9 @@ struct dma_desc {
 	dma_addr_t dsa;
 	dma_addr_t dta;
 	unsigned long dtc;
+	unsigned long sd;
+	unsigned long drt;
+	unsigned long reserved[2];
 };
 
 struct jzdma_channel {
@@ -163,8 +166,8 @@ static void dump_dma_desc(struct jzdma_channel *dmac)
 
 	for(i = 0; i < dmac->desc_nr; i++)
 		dev_info(chan2dev(&dmac->chan),
-				"DSA: %x, DTA: %x, DCM: %lx, DTC:%lx\n",
-				desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc);
+				"DSA: %x, DTA: %x, DCM: %lx, DTC:%lx DRT:%x\n",
+				desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc,desc[i].drt);
 
 	dev_info(chan2dev(&dmac->chan),"CH_DSA = 0x%08x\n",readl(dmac->iomem + CH_DSA));
 	dev_info(chan2dev(&dmac->chan),"CH_DTA = 0x%08x\n",readl(dmac->iomem + CH_DTA));
@@ -193,8 +196,8 @@ static void dump_dma(struct jzdma_master *master)
 #define dump_dma(A) (void)(0)
 #endif
 
-static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
-		dma_addr_t dst, unsigned long dcm, unsigned cnt)
+static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t dst,
+		unsigned long dcm, unsigned cnt,enum jzdma_type type)
 {
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr;
 
@@ -204,8 +207,10 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
 	desc->dsa = src;
 	desc->dta = dst;
 	desc->dcm = dcm;
+	desc->drt = type;
 	desc->dtc = ((dmac->desc_nr+1)<<24) + cnt;
 	dmac->desc_nr ++;
+
 	return 0;
 }
 
@@ -233,13 +238,14 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 		if (direction == DMA_TO_DEVICE) {
 			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
-			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz);
+			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz, dmac->type);
 		} else {
 			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->src_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
-			build_one_desc(dmac, config->src_addr, mem, dcm, tsz);
+			build_one_desc(dmac, config->src_addr, mem, dcm, tsz, dmac->type+1);
 		}
 	}
+	
 	return i;
 }
 
@@ -271,6 +277,40 @@ static void jzdma_mcu_init(struct jzdma_master *dma)
 	writel(dmcs, dma->iomem + DMCS);
 }
 
+struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t src,
+		dma_addr_t dst,unsigned cnt,enum dma_data_direction direction)
+{
+	unsigned long tsz,dcm=0,type = 0;
+	struct jzdma_channel *dmac = to_jzdma_chan(chan);
+
+	if (!(dmac->status == STAT_STOPED || dmac->status == STAT_PREPED))
+		return NULL;
+
+	dev_vdbg(chan2dev(chan),"Channel %d add desc\n",dmac->chan.chan_id);
+
+	if(direction == DMA_TO_DEVICE) {
+		tsz = get_max_tsz(dmac->config->dst_maxburst, &dcm);
+		dcm |= DCM_SAI | dmac->tx_dcm_def | DCM_TIE | DCM_LINK;
+		type = dmac->type;
+	} else {
+		tsz = get_max_tsz(dmac->config->src_maxburst, &dcm);
+		dcm |= DCM_DAI | dmac->rx_dcm_def | DCM_TIE | DCM_LINK;
+		type = dmac->type+1;
+	}
+
+	build_one_desc(dmac, src, dst, dcm, cnt/tsz, type);
+
+	BUG_ON(!(dmac->flags & CHFLG_SLAVE));
+
+	/* use 8-word descriptors */
+	writel(1<<30, dmac->iomem+CH_DCS);
+
+	/* tx descriptor shouldn't reused before dma finished. */
+	dmac->tx_desc.flags |= DMA_CTRL_ACK;
+	dmac->status = STAT_PREPED;
+	return &dmac->tx_desc;
+}
+
 static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		unsigned int sg_len, enum dma_data_direction direction,unsigned long flags)
 {
@@ -292,14 +332,8 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 	}
 	build_desc_from_sg(dmac, sgl, sg_len, direction);
 
-	/* use 4-word descriptors */
-	writel(0, dmac->iomem+CH_DCS);
-
-	/* request type */
-	if (direction == DMA_TO_DEVICE)
-		writel(dmac->type, dmac->iomem+CH_DRT);
-	else
-		writel(dmac->type + 1, dmac->iomem+CH_DRT);
+	/* use 8-word descriptors */
+	writel(1<<30, dmac->iomem+CH_DCS);
 
 	/* tx descriptor shouldn't reused before dma finished. */
 	dmac->tx_desc.flags |= DMA_CTRL_ACK;
@@ -322,12 +356,10 @@ static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, 
 			,dmac->chan.chan_id, dma_dest, dma_src, len, tsz, dcm);
 
 	dcm |= DCM_TIE | DCM_DAI | DCM_SAI | DCM_LINK;
-	build_one_desc(dmac, dma_src, dma_dest, dcm, len/tsz);
+	build_one_desc(dmac, dma_src, dma_dest, dcm, len/tsz, JZDMA_REQ_AUTO);
 
-	writel(JZDMA_REQ_AUTO, dmac->iomem+CH_DRT);
-
-	/* use 4-word descriptors */
-	writel(0, dmac->iomem+CH_DCS);
+	/* use 8-word descriptors */
+	writel(1<<30, dmac->iomem+CH_DCS);
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
@@ -380,11 +412,13 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 			cnt = period_len / tsz;
 			desc->dsa = dma_addr;
 			desc->dta = config->dst_addr;
+			desc->drt = dmac->type;
 		} else {
 			tsz = get_max_tsz(dma_addr | period_len | config->src_maxburst, &dcm);
 			cnt = period_len / tsz;
 			desc->dsa = config->src_addr;
 			desc->dta = dma_addr;
+			desc->drt = dmac->type + 1;
 		}
 		/* set dcm */
 		desc->dcm = dcm;
@@ -398,14 +432,8 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 		dmac->desc_nr ++;
 	}
 
-	/* use 4-word descriptors */
-	writel(0, dmac->iomem+CH_DCS);
-
-	/* request type */
-	if (direction == DMA_TO_DEVICE)
-		writel(dmac->type, dmac->iomem+CH_DRT);
-	else
-		writel(dmac->type + 1, dmac->iomem+CH_DRT);
+	/* use 8-word descriptors */
+	writel(1<<30, dmac->iomem+CH_DCS);
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
@@ -749,6 +777,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma->dma_device.device_prep_slave_sg = jzdma_prep_slave_sg;
 	dma->dma_device.device_prep_dma_memcpy = jzdma_prep_memcpy;
 	dma->dma_device.device_prep_dma_cyclic = jzdma_prep_dma_cyclic;
+	dma->dma_device.device_add_desc = jzdma_add_desc;
 
 	dma_set_max_seg_size(dma->dma_device.dev, 256);
 
