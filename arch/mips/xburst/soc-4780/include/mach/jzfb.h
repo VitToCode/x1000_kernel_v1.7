@@ -30,7 +30,7 @@ enum jz4780_fb_lcd_type {
 	LCD_TYPE_LCM = 0xd | (1 << 31),
 };
 
-/*******************************************************************************/
+/****************************************************************************/
 /* smart lcd interface_type */
 enum smart_lcd_type {
 	SMART_LCD_TYPE_PARALLEL,
@@ -56,7 +56,7 @@ enum smart_lcd_dwidth {
 	SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL,
 	SMART_LCD_DWIDTH_9_BIT_TWICE_TIME_PARALLEL = 7,
 };
-/*******************************************************************************/
+/****************************************************************************/
 
 #define JZ4780_FB_SPECIAL_TFT_CONFIG(start, stop) (((start) << 16) | (stop))
 
@@ -68,13 +68,16 @@ enum smart_lcd_dwidth {
  * @bpp: bits per pixel for the lcd
  * @width: width of the lcd display in mm
  * @height: height of the lcd display in mm
- * @pinmd: 16bpp lcd data pin mapping. 0: LCD_D[15:0], 1: LCD_D[17:10] LCD_D[8:1]
+ * @pinmd: 16bpp lcd data pin mapping. 0: LCD_D[15:0],1: LCD_D[17:10] LCD_D[8:1]
+ * @alloc_vidmem: allocate video memory for LCDC. 0: not allocate, 1: allocate
  * @transfer_type: smart lcd transfer type, 0: parrallel, 1: serial
  * @cmd_width: smart lcd command width
  * @data_width:smart lcd data Width
- * @clkply: smart lcd clock polarity: 0- Active edge is Falling,  1- Active edge is Rasing
- * @rsply: smart lcd RS polarity. 0: Command_RS=0, Data_RS=1; 1: Command_RS=1, Data_RS=0
- * @csply: smart lcd CS Polarity: 0- Active level is low,  1- Active level is high
+ * @clkply: smart lcd clock polarity: 0: Active edge is Falling,
+ * 1: Active edge is Rasing
+ * @rsply: smart lcd RS polarity. 0: Command_RS=0, Data_RS=1;
+ * 1: Command_RS=1, Data_RS=0
+ * @csply: smart lcd CS Polarity. 0: Active level is low,1: Active level is high
  * @spl: special_tft SPL signal register setting
  * @cls: special_tft CLS signal register setting
  * @ps: special_tft PS signal register setting

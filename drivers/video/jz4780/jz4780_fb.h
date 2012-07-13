@@ -6,6 +6,17 @@
 #define PIXEL_ALIGN 16
 #define MODE_NAME_LEN 32
 
+/*
+ * @next: physical address of next frame descriptor
+ * @databuf: physical address of buffer
+ * @id: frame ID
+ * @cmd: DMA command and buffer length(in word)
+ * @offsize: DMA off size, in word
+ * @page_width: DMA page width, in word
+ * @cpos: smart LCD mode is commands' number, other is bpp,
+ * premulti and position of foreground 0, 1
+ * @desc_size: alpha and size of foreground 0, 1
+ */
 struct jzfb_framedesc {
 	uint32_t next;
 	uint32_t databuf;
@@ -13,9 +24,16 @@ struct jzfb_framedesc {
 	uint32_t cmd;
 	uint32_t offsize;
 	uint32_t page_width;
-	uint32_t cmd_num;
+	uint32_t cpos;
 	uint32_t desc_size;
 } __packed;
+
+struct jzfb_fg_size {
+	int fg0_line_size;
+	int fg0_frm_size;
+	int panel_line_size;
+	int height_width;
+};
 
 enum jzfb_format_order {
 	FORMAT_X8R8G8B8 = 1,
@@ -49,6 +67,7 @@ struct jzfb {
 	int is_enabled;   /* 0, disable  1, enable */
 	int irq;          /* lcdc interrupt num */
 	int open_cnt;
+	int irq_cnt;
 	int desc_num;
 	char clk_name[16];
 	char pclk_name[16];
@@ -67,7 +86,8 @@ struct jzfb {
 
 	int frm_size;
 	volatile int frm_id;
-	struct jzfb_framedesc *framedesc; /* dma 0 descriptor base address */
+	/* dma 0 descriptor base address */
+	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
 
@@ -85,12 +105,12 @@ struct jzfb {
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
 {
-	return readl(jzfb->base + offset); 
+	return readl(jzfb->base + offset);
 }
 
 static inline void reg_write(struct jzfb *jzfb, int offset, unsigned long val)
 {
-	writel(val, jzfb->base + offset); 
+	writel(val, jzfb->base + offset);
 }
 
 static void dump_lcdc_registers(struct jzfb *jzfb);
@@ -102,5 +122,5 @@ static int jzfb_set_par(struct fb_info *info);
 #define JZFB_GET_MODELIST		_IOR('F', 0x101, char *)
 #define JZFB_SET_MODE			_IOW('F', 0x102, char *)
 #define JZFB_SET_VIDMEM			_IOW('F', 0x103, unsigned int *)
-#define JZFB_ENABLE			_IOW('F', 0x104, unsigned int *)
-#define JZFB_DISABLE			_IOW('F', 0x105, unsigned int *)
+#define JZFB_ENABLE			_IO('F', 0x104)
+#define JZFB_DISABLE			_IO('F', 0x105)

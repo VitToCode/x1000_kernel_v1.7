@@ -20,20 +20,163 @@
  * sync
  * vmode, flag
  */
-#define HDMI_640x480_P_60HZ_4x3						\
+/* 1 */
+#define HDMI_640X480_P_60HZ_4X3						\
 	{"640x480-p-60hz-4:3",						\
-			60, 640, 480, 2520, 48, 16, 33, 10, 96, 2,	\
+			60, 640, 480, KHZ2PICOS(2520), 48, 16,		\
+			33, 10, 96, 2,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
 
-#define HDMI_720x480_P_60HZ_4x3						\
+/* 2 */
+#define HDMI_720X480_P_60HZ_4X3						\
 	{"720x480-p-60hz-4:3",						\
-			60, 720, 480, 2702, 60, 16, 30, 9, 62, 6,	\
+			60, 720, 480, KHZ2PICOS(2702), 60, 16,		\
+			30, 9, 62, 6,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
 
-#define HDMI_720x480_P_60HZ_16x9					\
+/* 3 */
+#define HDMI_720X480_P_60HZ_16X9					\
 	{"720x480-p-60hz-16:9",						\
-			60, 720, 480, 2702, 60, 16, 30, 9, 62, 6,	\
+			60, 720, 480, KHZ2PICOS(2702), 60, 16,		\
+			30, 9, 62, 6,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
+
+/* 4 */
+#define HDMI_1280X720_P_60HZ_16X9					\
+	{"1280x720-p-60hz-16:9",					\
+			60, 1280, 720, KHZ2PICOS(74250), 220, 110,	\
+			20, 5, 40, 5,					\
+			FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 5 */
+#define HDMI_1920X1080_I_60HZ_16X9					\
+	{"1920x1080-i-60hz-16:9",					\
+			60, 1920, 540, KHZ2PICOS(74250), 148, 88,	\
+			15, 2, 44, 5,					\
+			FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+
+/* 6 */
+#define HDMI_720_1440X480_I_60HZ_4X3					\
+	{"720-1440x480-i-60hz-4:3",					\
+			60, 1440, 240, KHZ2PICOS(27027), 114, 38,	\
+			15, 4, 124, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+
+/* 7 */
+#define HDMI_720_1440X480_I_60HZ_16X9					\
+	{"720-1440x480-i-60hz-16:9",					\
+			60, 1440, 240, KHZ2PICOS(27027), 114, 38,	\
+			15, 4, 124, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+
+/* 8 */
+#define HDMI_720_1440X240_P_60HZ_4X3					\
+	{"720-1440x240-p-60hz-4:3",					\
+			60, 1440, 240, KHZ2PICOS(27027), 114, 38,	\
+			15, 5, 124, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 9 */
+#define HDMI_720_1440X240_P_60HZ_16X9					\
+	{"720-1440x240-p-60hz-16:9",					\
+			60, 1440, 240, KHZ2PICOS(27027), 114, 38,	\
+			15, 5, 124, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 10 */
+#define HDMI_2880X480_I_60HZ_4X3					\
+	{"2880x480-i-60hz-4:3",						\
+			60, 2880, 240, KHZ2PICOS(54054), 228, 76,	\
+			15, 4, 248, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+
+/* 11 */
+#define HDMI_2880X480_I_60HZ_16X9					\
+	{"2880x480-i-60hz-16:9",					\
+			60, 2880, 240, KHZ2PICOS(54054), 228, 76,	\
+			15, 4, 248, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+
+/* 12 */
+#define HDMI_2880X240_P_60HZ_4X3					\
+	{"2880x240-p-60hz-4:3",						\
+			60, 2880, 240, KHZ2PICOS(54054), 228, 76,	\
+			15, 4, 248, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 13 */
+#define HDMI_2880X240_P_60HZ_16X9					\
+	{"2880x240-p-60hz-16:9",					\
+			60, 2880, 240, KHZ2PICOS(54054), 228, 76,	\
+			15, 4, 248, 3,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 14 */
+#define HDMI_1440X480_P_60HZ_4X3					\
+	{"1440x480-p-60hz-4:3",						\
+			60, 1440, 480, KHZ2PICOS(54054), 120, 32,	\
+			30, 9, 124, 6,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 15 */
+#define HDMI_1440X480_P_60HZ_16X9					\
+	{"1440x480-p-60hz-16:9",					\
+			60, 1440, 480, KHZ2PICOS(54054), 120, 32,	\
+			30, 9, 124, 6,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 16 */
+#define HDMI_1920X1080_P_60HZ_16X9					\
+	{"1920x1080-p-60hz-16:9",					\
+			60, 1920, 1080, KHZ2PICOS(148500), 148, 88,	\
+			36, 4, 44, 5,					\
+			FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 17 */
+#define HDMI_720X576_P_50HZ_4X3						\
+	{"720x576-p-50hz-4:3",						\
+			50, 720, 576, KHZ2PICOS(27000), 68, 12,		\
+			39, 5, 64, 5,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 18 */
+#define HDMI_720X576_P_50HZ_16X9					\
+	{"720x576-p-50hz-16:9",						\
+			50, 720, 576, KHZ2PICOS(27000), 68, 12,		\
+			39, 5, 64, 5,					\
+			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 19 */
+#define HDMI_1280X720_P_50HZ_16X9					\
+	{"1280x720-p-50hz-16:9",					\
+			50, 1280, 720, KHZ2PICOS(74250), 220, 440,	\
+			20, 5, 40, 5,					\
+			FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_NONINTERLACED, 0}
+
+/* 20 */
+#define HDMI_1920X1080_I_50HZ_16X9					\
+	{"1920x1080-i-50hz-16:9",					\
+			50, 1920, 540, KHZ2PICOS(74250), 148, 528,	\
+			15, 2, 44, 5,					\
+			FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,	\
+			FB_VMODE_INTERLACED, 0}
+

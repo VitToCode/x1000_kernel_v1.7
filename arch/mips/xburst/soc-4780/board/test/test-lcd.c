@@ -51,9 +51,9 @@ struct platform_device auo_a043fl01v2_device = {
 
 /**************************************************************************************************/
 struct fb_videomode jzfb0_videomode[] = {
-	ADD_HDMI_VIDEO_MODE(HDMI_640x480_P_60HZ_4x3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720x480_P_60HZ_4x3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720x480_P_60HZ_16x9),
+	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
+	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_4X3),
+	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_16X9),
 };
 
 struct fb_videomode jzfb1_videomode = {
@@ -79,7 +79,7 @@ struct fb_videomode jzfb1_videomode = {
 	.refresh = 60,
 	.xres = 480,
 	.yres = 272,
-	.pixclock = 9200,
+	.pixclock = KHZ2PICOS(9200),
 	.left_margin = 4,
 	.right_margin = 8,
 	.upper_margin = 2,
@@ -103,6 +103,8 @@ struct jzfb_platform_data jzfb0_pdata = {
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 0,
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
@@ -111,13 +113,14 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.modes = &jzfb1_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.lcdc0_to_tft_ttl = 0,
 	.bpp = 24,
 	.width = 154,
 	.height = 86,
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
 #endif
 
 #ifdef CONFIG_LCD_AUO_A043FL01V2
@@ -131,6 +134,8 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
 #endif
 };
 

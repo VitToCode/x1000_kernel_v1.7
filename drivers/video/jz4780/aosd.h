@@ -9,6 +9,7 @@ struct jzfb_aosd_info {
 	unsigned long waddr;
 
 	unsigned long smem_start;
+	void __iomem *base;
 	unsigned int  addr_len;
 
 	unsigned int  alpha_value;
@@ -23,8 +24,18 @@ struct jzfb_aosd_info {
 	unsigned int  compress_done;
 	unsigned int  bpp;
 	unsigned int  buf;
-	unsigned char *buf_comp[2]; // buffer for compress output
+	unsigned char *buf_comp[2]; /* buffer for compress output */
+	unsigned int src_stride; /* in bytes, 16Words aligned at least */
+	unsigned int dst_stride; /* in bytes, 16Words aligned at least */
 }; 
+
+#define ALPHA_OSD_START         0x46a8
+#define ALPHA_OSD_GET_INFO      0x46a9
+#define ALPHA_OSD_SET_MODE      0x46aa
+#define COMPRESS_START          0x46ab
+#define COMPRESS_GET_INFO      0x46ac
+#define COMPRESS_SET_MODE      0x46ad
+#define ALPHA_OSD_PRINT      0x46ae
 
 int aosd_compress_init(void);
 void set_aosd_compress_buffer(struct jzfb_aosd_info *aosd);
