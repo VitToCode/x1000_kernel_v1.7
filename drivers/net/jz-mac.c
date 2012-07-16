@@ -40,7 +40,7 @@ struct dma_ring {
 #define ring_dma_head(ring)						\
 	((ring)->dma_addr +						\
 	 ((ring)->head % DMA_PKT_MAX) * sizeof(struct dma_desc))
-static struct dma_ring *ring_alloc(int is_rx, unsigned int flag, struct device *dev)
+static struct dma_ring *ring_alloc(int is_rx, unsigned int flag)
 {
 	struct dma_ring *ring;
 	unsigned int i, size;
@@ -50,7 +50,7 @@ static struct dma_ring *ring_alloc(int is_rx, unsigned int flag, struct device *
 	ring->pkt_max = DMA_PKT_MAX;
 	ring->is_rx = is_rx;
 	size = sizeof(struct dma_desc)*ring->pkt_max;
-	ring->desc = dma_alloc_coherent(dev, size, &ring->dma_addr, 0);
+	ring->desc = dma_alloc_coherent(NULL, size, &ring->dma_addr, 0);
 
 	for (i = 0; i < ring->pkt_max; i++) {
 		size = flag;
@@ -897,8 +897,8 @@ static int __devinit jzmac_probe(struct platform_device *pdev)
 	reg_set(jzmac, MAC_MII_MCFG, i << 2);
 
 	jzmac->buffer = jzmac_alloc_buffer(8);
-	jzmac->rx_ring = ring_alloc(1, 0, &pdev->dev);
-	jzmac->tx_ring = ring_alloc(0, 0, &pdev->dev);
+	jzmac->rx_ring = ring_alloc(1, 0);
+	jzmac->tx_ring = ring_alloc(0, 0);
 
 	random_ether_addr(ndev->dev_addr);
 
