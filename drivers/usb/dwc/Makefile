@@ -14,6 +14,10 @@ EXTRA_CFLAGS    += -I$(PWD)/drivers/usb/dwc/dwc_common_port
 EXTRA_CFLAGS   	+= -DLM_INTERFACE
 EXTRA_CFLAGS    += -DDWC_LINUX
 
+#EXTRA_CFLAGS    += -DDEBUG
+#EXTRA_CFLAGS    += -DDEBUG_EP0
+#EXTRA_CFLAGS    += -DVERBOSE
+
 obj-$(CONFIG_USB_DWC_OTG)	+= dwc_common_port/
 
 dwc_otg-objs	:= dwc_otg_driver.o dwc_otg_attr.o 

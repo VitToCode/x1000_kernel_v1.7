@@ -671,12 +671,41 @@ static int wakeup(struct usb_gadget *gadget)
 	return 0;
 }
 
+/**
+ * DWC otg driver didn't achieve soft connect interface, so we add
+ * it here to complete gadget driver.
+ *
+ */
+static int gadget_pullup(struct usb_gadget *gadget, int is_on)
+{
+	struct gadget_wrapper *d;
+	dctl_data_t dctl = { 0 };
+	dwc_otg_core_if_t *core_if;
+	dwc_irqflags_t flags;
+
+	d = container_of(gadget, struct gadget_wrapper, gadget);
+	core_if = GET_CORE_IF(d->pcd);
+
+	DWC_SPINLOCK_IRQSAVE(d->pcd->lock, &flags);
+	dctl.b.sftdiscon = 1;
+	if (is_on) {
+		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32,0);
+	} else {
+		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
+		dwc_udelay(50);
+	}
+	DWC_SPINUNLOCK_IRQRESTORE(d->pcd->lock, flags);
+
+	return 0;
+}
+
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	.get_frame = get_frame_number,
 	.wakeup = wakeup,
 #ifdef CONFIG_USB_DWC_OTG_LPM
 	.lpm_support = test_lpm_enabled,
 #endif
+	.pullup	= gadget_pullup,
 	// current versions must always be self-powered
 };
 

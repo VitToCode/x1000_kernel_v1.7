@@ -229,6 +229,8 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x29;
 	else if (gadget_is_s3c_hsudc(gadget))
 		return 0x30;
+	else if (gadget_is_dwc_otg(gadget))
+		return 0x31;
 
 	return -ENOENT;
 }

@@ -99,6 +99,9 @@
 	{ .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
 	{ .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
 
+#define OTG_DRVVUS							\
+	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
+
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
