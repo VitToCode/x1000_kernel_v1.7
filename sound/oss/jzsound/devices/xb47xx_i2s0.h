@@ -60,7 +60,7 @@ static unsigned long tmp_val;
 		tmp_val = ((tmp_val << offset) & mask); \
 		tmp_val |= read_val;                    \
 		i2s0_write_reg(addr,tmp_val);           \
-	}while(0)
+	} while(0)
 
 #define i2s0_get_reg(addr,mask,offset)  \
 	((i2s0_read_reg(addr) & mask) >> offset)
@@ -283,7 +283,7 @@ static unsigned long tmp_val;
 #define I2S0_SWLH_OFFSET        (16)
 #define I2S0_SWLH_MASK          (0x1 << I2S0_SWLH_OFFSET)
 #define I2S0_RFIRST_OFFSET      (17)
-#define I2S0_RFIRST_MASK        (0x1 << I2S0_ETUR_OFFSET)
+#define I2S0_RFIRST_MASK        (0x1 << I2S0_RFIRST_OFFSET)
 
 #define __i2s0_send_rfirst()            \
 	i2s0_set_reg(I2S0CR,1,I2S0_RFIRST_MASK,I2S0_RFIRST_OFFSET)

@@ -18,23 +18,23 @@
 static bool spipe_is_init = 0;
 #define DEBUG_REPLAY  0
 //#define AIC_DEBUG
-#if DEBUG_REPLAY                                                                                                  
+#if DEBUG_REPLAY
 struct file *f_test = NULL;
 static loff_t f_test_offset = 0;
 static mm_segment_t old_fs;
 #endif
 
-static int first_write = 0;
+static bool first_start_dma = true;
 
-#ifdef AIC_DEBUG 
+#ifdef AIC_DEBUG
 	#define debug_print(fmt,args...)	\
 		do {	\
 			printk("#######(%s:%d):",__func__,__LINE__);	\
 			printk(fmt".\n",##args);\
 		} while (0)
-#else 
+#else
 	#define debug_print(fmt,args...)  do {} while(0)
-#endif 
+#endif
 /*###########################################################*\
  * sub functions
 \*###########################################################*/
@@ -224,7 +224,6 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 			return -ENOMEM;
 
 		dp->save_node = node;
-		dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 
 		/* config sg */
 		sg_dma_address(dp->sg) = node->phyaddr;
@@ -257,6 +256,9 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp)
 {
 	dp->is_trans = true;
 	dma_async_issue_pending(dp->dma_chan);
+
+	if (first_start_dma == true)
+		first_start_dma = false;
 }
 
 static void snd_dma_callback(void *arg)
@@ -267,13 +269,18 @@ static void snd_dma_callback(void *arg)
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
 		put_free_dsp_node(dp, dp->save_node);
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
+		dp->save_node->end = dp->fragsize;
+		dp->save_node->start = 0;
+		dma_cache_sync(NULL, (void *)dp->save_node->pBuf, dp->save_node->size, dp->dma_config.direction);
 		put_use_dsp_node(dp, dp->save_node);
 	} else {
 		return;
 	}
 	dp->save_node =	NULL;
 	dp->avialable_couter ++;
+
 	debug_print("avialable_counter %d",dp->avialable_couter);
+
 	if (dp->is_non_block == false)
 		wake_up_interruptible(&dp->wq);
 
@@ -777,6 +784,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	dp->need_reconfig_dma = false;
 	dp->sg = NULL;
 	dp->sg_len = 0;
+	dp->filter = NULL;
 
 	spin_lock_init(&dp->pipe_lock);
 
@@ -861,8 +869,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 {
 	int	mcount = count;
 	int ret = -EINVAL;
-	int fixed_buff_cnt = 0;
-	int node_buff_cnt = 0;
+	size_t fixed_buff_cnt = 0;
+	size_t node_buff_cnt = 0;
 	struct dsp_node *node = NULL;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
@@ -888,21 +896,21 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	do {
 		while(1) {
 			node = get_use_dsp_node(dp);
-			if (!node) {
-				if (dp->is_trans == false) {
-					ret = snd_prepare_dma_desc(dp);
-					if (!ret) {
-						if (ddata && ddata->dev_ioctl)
-							ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
-						snd_start_dma_transfer(dp);
-					} else {
-						return -EFAULT;
-					}
-				}
-				if (dp->is_non_block)
+			if (!node && dp->is_non_block)
 					return count - mcount;
+			if (dp->is_trans == false) {
+				ret = snd_prepare_dma_desc(dp);
+				if (!ret) {
+					if (ddata && ddata->dev_ioctl && first_start_dma == true)
+						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+					snd_start_dma_transfer(dp);
+				} else if (!node) {
+					return -EFAULT;
+				}
+			}
+			if (!node)
 				wait_event_interruptible(dp->wq, dp->avialable_couter >= 1);
-			} else {
+			else {
 				dp->avialable_couter --;
 				break;
 			}
@@ -922,7 +930,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				}
 			} else {
 				ret = copy_to_user((void *)buffer,(void *)(node->pBuf + node->start), mcount);
-				break;
+				mcount = 0;
 			}
 
 			put_free_dsp_node(dp, node);
@@ -1001,7 +1009,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (!IS_ERR(f_test)) {
 			vfs_write(f_test, (void*)node->pBuf ,count, &f_test_offset);
 			f_test_offset = f_test->f_pos;
-		}   
+		}
 		set_fs(old_fs);
 #endif
 		buffer += copy_size;
@@ -1011,11 +1019,10 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		node->end = copy_size;
 		put_use_dsp_node(dp, node);
 
-		debug_print("dp->is_trans = %d.\n",dp->is_trans == true);
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
-				if (ddata && ddata->dev_ioctl && (!first_write)) {
+				if (ddata && ddata->dev_ioctl && first_start_dma == true) {
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
 				}
 				snd_start_dma_transfer(dp);
@@ -1709,7 +1716,7 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-	first_write = 0;
+	first_start_dma = true;
 	if (ddata == NULL) {
 		return -ENODEV;
 	}
@@ -1721,14 +1728,6 @@ int xb_snd_dsp_open(struct inode *inode,
 
 	dpi = endpoints->in_endpoint;
 	dpo = endpoints->out_endpoint;
-
-	/* O_RDWR mode, if used for mmap, should open O_RDONLY or
-	   O_WRONLY first, and then open as O_RDWR, you can only
-	   map the mode(VM_WRITE / VM_READ) corresponding your
-	   first opend */
-	if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_READ))
-		if ((dpi && dpi->is_used) || (dpo && dpo->is_used))
-			return 0;
 
 	if (file->f_mode & FMODE_READ) {
 		if (dpi == NULL)
@@ -1751,6 +1750,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* request dma for record */
 		ret = snd_reuqest_dma(dpi);
 		if (ret) {
+			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
 	}
@@ -1777,6 +1777,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* request dma for replay */
 		ret = snd_reuqest_dma(dpo);
 		if (ret) {
+			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
 	}
@@ -1789,7 +1790,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		printk("open debug audio sussess %p.\n",f_test);
 		f_test_offset = f_test->f_pos;
 	}
-#endif 
+#endif
 	return ret;
 }
 
@@ -1835,9 +1836,9 @@ int xb_snd_dsp_release(struct inode *inode,
 	if (dpo && dpo->wait_stop_dma == true) {
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
 		if (dpo->sg) {
-		vfree(dpo->sg);
-		dpo->sg = NULL;
-	}
+			vfree(dpo->sg);
+			dpo->sg = NULL;
+		}
 	}
 	if (dpi) {
 		/* put all used node to free node list */
@@ -1878,11 +1879,11 @@ int xb_snd_dsp_release(struct inode *inode,
 		}
 		dpo->is_used = false;
 	}
-#if DEBUG_REPLAY 
-	printk("DEBUG:----close /data/record_test.pcm-%s\tline:%d\n",__func__,__LINE__);
+#if DEBUG_REPLAY
+	printk("DEBUG:----close /data/audio.pcm-%s\tline:%d\n",__func__,__LINE__);
 	if (!IS_ERR(f_test))
 		filp_close(f_test, NULL);
-#endif   
+#endif
 	return 0;
 }
 
@@ -1903,18 +1904,17 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 		return -1;
 
 	/* out_endpoint init */
-	if ((dp = endpoints->out_endpoint) != NULL) {
+	if ((dp = endpoints->out_endpoint) != NULL)
 		ret = init_pipe(dp , ddata->dev,DMA_TO_DEVICE);
 		if (ret)
 			goto error1;
-	}
 
 	/* in_endpoint init */
-	if ((dp = endpoints->in_endpoint) != NULL) {
+	if ((dp = endpoints->in_endpoint) != NULL)
 		ret = init_pipe(dp , ddata->dev,DMA_FROM_DEVICE);
 		if (ret)
 			goto error2;
-	}
+
 	if (!spipe_is_init)
 		spipe_init(ddata->dev);
 	spipe_is_init = 1;
