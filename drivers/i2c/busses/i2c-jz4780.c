@@ -173,12 +173,14 @@ struct jz_i2c {
 	enum jzdma_type dma_type;
 };
 
+//#define I2CDEBUG
 static inline unsigned short i2c_readl(struct jz_i2c *i2c,unsigned short offset);
-
-//void jzdma_dump(struct dma_chan *chan);
+#ifdef I2CDEBUG 
+void jzdma_dump(struct dma_chan *chan);
 
 #define PRINT_REG_WITH_ID(reg_name, id) \
 	dev_info(&(i2c->adap.dev),"--"#reg_name "    	0x%08x\n",i2c_readl(id,reg_name))
+
 static void jz_dump_i2c_regs(struct jz_i2c *i2c) {
 	struct jz_i2c *i2c_id = i2c;
 	PRINT_REG_WITH_ID(I2C_CTRL, i2c_id);
@@ -219,6 +221,7 @@ static void jz_dump_i2c_regs(struct jz_i2c *i2c) {
 	PRINT_REG_WITH_ID(I2C_ENSTA, i2c_id);
 	PRINT_REG_WITH_ID(I2C_SDAHD, i2c_id);
 }
+#endif
 
 static inline unsigned short i2c_readl(struct jz_i2c *i2c,unsigned short offset)
 {
@@ -252,6 +255,16 @@ static int jz_i2c_enable(struct jz_i2c *i2c)
 	return timeout?0:1;
 }
 
+
+void i2c_send_rcmd(struct jz_i2c *i2c,int cmd_count)
+{
+	int i;
+	i2c_writel(i2c,I2C_RXTL,cmd_count - 1);
+	for(i=0;i<cmd_count;i++) {
+		i2c_writel(i2c,I2C_DC,I2C_DC_READ);
+	}
+}
+
 static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 {
 	unsigned short tmp,intst;
@@ -271,10 +284,11 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 			}
 		}
 
-		if(i2c->buf_len - i2c->r_len > 16)
-			i2c_writel(i2c,I2C_RXTL,15);
-		else	
-			i2c_writel(i2c,I2C_RXTL,i2c->buf_len - i2c->r_len - 1);
+		if(i2c->buf_len - i2c->r_len < I2C_FIFO_LEN){
+			i2c_send_rcmd(i2c,i2c->buf_len - i2c->r_len);
+		}else{	
+			i2c_send_rcmd(i2c,I2C_FIFO_LEN);
+		}
 #else
 		tmp = i2c_readl(i2c,I2C_INTM);
 		tmp &= ~(I2C_INTM_MRXFL);
@@ -353,7 +367,6 @@ static int init_dma_write(struct jz_i2c *i2c,unsigned char *buf,int len,void *ar
 }
 static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cnt,int idx)
 {
-	int i;
 	long timeout;
 	unsigned short tmp;
 	//unsigned short *rcmd;
@@ -362,6 +375,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 	tmp &= ~I2C_CTRL_STPHLD;
 	i2c_writel(i2c,I2C_CTRL,tmp);
 #if 0
+	int i;
 	if(len <= I2C_FIFO_LEN ) {
 		i2c_writel(i2c,I2C_RXTL,len - 1);
 		tmp = i2c_readl(i2c,I2C_INTM);
@@ -392,11 +406,6 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 
 	} else {
 #endif
-		if(len < 16)
-			i2c_writel(i2c,I2C_RXTL,len - 1);
-		else
-			i2c_writel(i2c,I2C_RXTL,15);
-
 		tmp = i2c_readl(i2c,I2C_INTM);
 		tmp |= I2C_INTM_MRXFL | I2C_INTM_MTXABT;
 		i2c_writel(i2c,I2C_INTM,tmp);
@@ -406,11 +415,18 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 		i2c->r_len = 0;
 		i2c->rbuf = buf; 
 #if 1
-		for(i=0;i<len;i++) {
-			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& --timeout);
-			i2c_writel(i2c,I2C_DC,I2C_DC_READ);
+		/*use cpu read */
+		if(len <  I2C_FIFO_LEN){
+			i2c_send_rcmd(i2c,len);
+		}else{
+			i2c_send_rcmd(i2c,I2C_FIFO_LEN);
 		}
+		
 #else
+		/*Notice:
+		 * use dma send read cmd ,but now have some bug ,
+		 * do not use in here for a while*/
+
 		rcmd = kzalloc(sizeof(unsigned short) * len,GFP_KERNEL);
 		for(i=0;i<len;i++) {
 			rcmd[i] = I2C_DC_READ;
