@@ -383,11 +383,13 @@ static int i2s0_enable(int mode)
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
 	}
 	if (mode & CODEC_RMODE) {
-		i2s0_set_fmt(&record_format,mode);
-		i2s0_set_channel(&record_channel,mode);
-		i2s0_set_rate(&record_rate,mode);
-		i2s0_set_trigger(mode);
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
+		if (!dp_other->is_used) {
+			i2s0_set_fmt(&record_format,mode);
+			i2s0_set_channel(&record_channel,mode);
+			i2s0_set_rate(&record_rate,mode);
+			i2s0_set_trigger(mode);
+		}
 	}
 
 	i2s0_set_default_route(mode);
@@ -435,7 +437,7 @@ static int i2s0_dma_enable(int mode)		//CHECK
 		__i2s0_enable_transmit_dma();
 	}
 	if (mode & CODEC_RMODE) {
-		__i2s0_flush_rfifo();
+		//__i2s0_flush_rfifo();
 		__i2s0_enable_record();
 		/* read the first sample and ignore it */
 		val = __i2s0_read_rfifo();
@@ -672,7 +674,7 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&i2s0_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
-#if CONFIG_JZ4780_INTERNAL_CODEC
+#ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	if (read_inter_codec_irq()){
 		queue_work(i2s0_work_queue, &i2s0_codec_work);
 	}
@@ -840,7 +842,7 @@ static int i2s0_global_init(struct platform_device *pdev)
 	__i2s0_disable_record();
 	__i2s0_disable_replay();
 	__i2s0_disable_loopback();
-	__i2s0_flush_rfifo();
+	//__i2s0_flush_rfifo();
 	__i2s0_flush_tfifo();
 	__i2s0_clear_ror();
 	__i2s0_clear_tur();
