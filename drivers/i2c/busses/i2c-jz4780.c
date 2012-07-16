@@ -268,6 +268,7 @@ void i2c_send_rcmd(struct jz_i2c *i2c,int cmd_count)
 static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 {
 	unsigned short tmp,intst;
+	int count;
 	struct jz_i2c *i2c = dev_id;
 
 	intst = i2c_readl(i2c,I2C_INTST);
@@ -283,10 +284,10 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 				break;	
 			}
 		}
-
-		if(i2c->buf_len - i2c->r_len < I2C_FIFO_LEN){
-			i2c_send_rcmd(i2c,i2c->buf_len - i2c->r_len);
-		}else{	
+		count = i2c->buf_len - i2c->r_len;	
+		if(count > 0 &&  count <= I2C_FIFO_LEN){
+			i2c_send_rcmd(i2c,count);
+		}else if(count > I2C_FIFO_LEN){	
 			i2c_send_rcmd(i2c,I2C_FIFO_LEN);
 		}
 #else
@@ -416,7 +417,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 		i2c->rbuf = buf; 
 #if 1
 		/*use cpu read */
-		if(len <  I2C_FIFO_LEN){
+		if(len <=  I2C_FIFO_LEN){
 			i2c_send_rcmd(i2c,len);
 		}else{
 			i2c_send_rcmd(i2c,I2C_FIFO_LEN);
