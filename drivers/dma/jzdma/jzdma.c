@@ -200,7 +200,6 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t 
 		unsigned long dcm, unsigned cnt,enum jzdma_type type)
 {
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr;
-
 	if (dmac->desc_nr >= dmac->desc_max)
 		return -1;
 
@@ -208,8 +207,8 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t 
 	desc->dta = dst;
 	desc->dcm = dcm;
 	desc->drt = type;
-	desc->dtc = ((dmac->desc_nr+1)<<24) + cnt;
-	dmac->desc_nr ++;
+	desc->dtc = (((unsigned int)(desc + 1) >> 4)<<24) + cnt;
+	dmac->desc_nr++;
 
 	return 0;
 }
