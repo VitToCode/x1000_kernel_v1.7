@@ -27,16 +27,8 @@ struct fake_sensor {
 unsigned char yuv422i_color_odd[3][4] = {{0xd6, 0x97, 0xca,0x97}, {0x5f, 0x25, 0x6e, 0x25}, {0x73, 0x8e, 0x37, 0x8e}};
 unsigned char yuv422i_color_even[3][4] = {{0x5f, 0x25, 0x6e, 0x25}, {0x73, 0x8e, 0x37, 0x8e}, {0xd6, 0x97, 0xca, 0x97}};
 
-int fake_probe(void *data){return 0;}
-int fake_init(void *data){return 0;}
-int fake_power_on(void *data){return 0;}
-int fake_shutdown(void *data){return 0;}
-int fake_af_init(void *data){return 0;}
-int fake_start_af(void *data){return 0;}
-int fake_stop_af(void *data){return 0;}
-int fake_set_preivew_mode(void *data){return 0;}
-int fake_set_capture_mode(void *data){return 0;}
-int fake_set_parameter(void *data,int mode, int arg){return 0;}
+int fake_none(void *data){return 0;}
+int fake_param_none(void *data,int arg){return 0;}
 
 int fake_set_resolution(void *data,int width,int height)
 {
@@ -74,18 +66,31 @@ int fake_register(void)
 
 		s->cs.id 		= i;
 		s->cs.name 		= s->name;
-		s->cs.probe		= fake_probe;
-		s->cs.init		= fake_init;
-		s->cs.power_on		= fake_power_on;
-		s->cs.shutdown		= fake_shutdown;
-		s->cs.af_init		= fake_af_init;
-		s->cs.start_af		= fake_start_af;
-		s->cs.stop_af		= fake_stop_af;
-		s->cs.set_preivew_mode	= fake_set_preivew_mode;
-		s->cs.set_capture_mode	= fake_set_capture_mode;
-		s->cs.set_resolution	= fake_set_resolution;
-		s->cs.set_parameter	= fake_set_parameter;
+
+		s->cs.probe		= fake_none;
+		s->cs.init		= fake_none;
+		s->cs.power_on		= fake_none;
+		s->cs.shutdown		= fake_none;
+		s->cs.af_init		= fake_none;
+		s->cs.start_af		= fake_none;
+		s->cs.stop_af		= fake_none;
+		s->cs.set_preivew_mode	= fake_none;
+		s->cs.set_capture_mode	= fake_none;
+
+		s->cs.set_balance 	= fake_param_none;
+		s->cs.set_effect  	= fake_param_none;
+		s->cs.set_antibanding 	= fake_param_none;
+		s->cs.set_flash_mode 	= fake_param_none;
+		s->cs.set_scene_mode 	= fake_param_none;
+		s->cs.set_focus_mode 	= fake_param_none;
+		s->cs.set_fps 		= fake_param_none;
+		s->cs.set_nightshot 	= fake_param_none;
+		s->cs.set_luma_adaption = fake_param_none;
+		s->cs.set_brightness 	= fake_param_none;
+		s->cs.set_contrast 	= fake_param_none;
+
 		s->cs.fill_buffer	= fake_fill_buffer;
+		s->cs.set_resolution	= fake_set_resolution;
 
 		s->cs.preview_size 	= pfrm_size;
 		s->cs.capture_size 	= cfrm_size;
