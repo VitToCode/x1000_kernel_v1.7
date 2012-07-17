@@ -212,7 +212,7 @@ static void jz_gpio_free(struct gpio_chip *chip, unsigned offset)
 	gpio_set_func(jz, GPIO_INPUT, BIT(offset));
 
 	/* Enable pull up/down when release */
-	writel(BIT(offset), jz->reg + PXPENS);
+	writel(BIT(offset), jz->reg + PXPENC);
 
 	set_bit(offset, jz->gpio_map);
 }
