@@ -32,7 +32,10 @@
 #define regw(val,off)	outl(val, OST_IOBASE + (off))
 
 static void __iomem *intc_base;
-static DECLARE_BITMAP(intc_wakeup, INTC_NR_IRQS);
+static unsigned long intc_saved[2];
+static unsigned long intc_wakeup[2];
+
+extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
 
 static void intc_irq_ctrl(struct irq_data *data, int msk, int wkup)
 {
@@ -45,9 +48,9 @@ static void intc_irq_ctrl(struct irq_data *data, int msk, int wkup)
 		writel(BIT(intc%32), base + IMCR_OFF);
 
 	if (wkup == 1)
-		set_bit(intc, intc_wakeup);
+		intc_wakeup[intc / 32] |= 1 << (intc % 32);
 	else if (wkup == 0)
-		clear_bit(intc, intc_wakeup);
+		intc_wakeup[intc / 32] &= ~(1 << (intc % 32));
 }
 
 static void intc_irq_unmask(struct irq_data *data)
@@ -85,7 +88,7 @@ static int setup_ipi(void)
 {
 	set_c0_status(STATUSF_IP3);
 	if (request_irq(IRQ_SMP_IPI, ipi_interrupt, IRQF_DISABLED,
-			"SMP IPI", NULL))
+				"SMP IPI", NULL))
 		BUG();
 	return 0;
 }
@@ -133,12 +136,12 @@ void __init arch_init_irq(void)
 		irq_set_chip_data(i, (void *)(i - IRQ_INTC_BASE));
 		irq_set_chip_and_handler(i, &jzintc_chip, handle_level_irq);
 	}
-	
+
 	for (i = IRQ_OST_BASE; i < IRQ_OST_BASE + OST_NR_IRQS; i++) {
 		irq_set_chip_data(i, (void *)(i - IRQ_OST_BASE));
 		irq_set_chip_and_handler(i, &ost_irq_type, handle_level_irq);
 	}
-	
+
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
 
@@ -181,5 +184,36 @@ asmlinkage void plat_irq_dispatch(void)
 #endif
 
 	return;
+}
+
+void arch_suspend_disable_irqs(void)
+{
+	int i,j,irq;
+	struct irq_desc *desc;
+
+	local_irq_disable();
+
+	intc_saved[0] = readl(intc_base + IMR_OFF);
+	intc_saved[1] = readl(intc_base + PART_OFF + IMR_OFF);
+
+	writel(0xffffffff & ~intc_wakeup[0], intc_base + IMSR_OFF);
+	writel(0xffffffff & ~intc_wakeup[1], intc_base + PART_OFF + IMSR_OFF);
+
+	for(j=0;j<2;j++) {
+		for(i=0;i<32;i++) {
+			if(intc_wakeup[j] & (0x1<<i)) {
+				irq = i + IRQ_INTC_BASE + 32*j;
+				desc = irq_to_desc(irq);
+				__enable_irq(desc, irq, true);
+			}
+		}
+	}
+}
+
+void arch_suspend_enable_irqs(void)
+{
+	writel(intc_wakeup[0], intc_base + IMCR_OFF);
+	writel(intc_wakeup[1], intc_base + PART_OFF + IMCR_OFF);
+	local_irq_enable();
 }
 
