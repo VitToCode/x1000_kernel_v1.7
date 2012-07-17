@@ -32,7 +32,8 @@ struct jzmmc_platform_data test_inand_pdata = {
 	.removal  			= DONTCARE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
+//	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED,
 	.recovery_info			= &test_inand_recovery_info,
 	.gpio				= NULL,
 };
