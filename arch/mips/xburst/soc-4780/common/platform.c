@@ -113,7 +113,12 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 	LCD_PORTC,
 	PWM1_PORTE,
+#ifdef CONFIG_JZ_MAC
 	MII_PORTBDF,
+#endif
+#if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
+	OTG_DRVVUS,
+#endif
 };
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);

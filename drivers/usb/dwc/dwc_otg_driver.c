@@ -56,6 +56,9 @@
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
 #include "dwc_otg_hcd_if.h"
+#include "dwc_otg_cil.h"
+
+#include "jzsoc.h"
 
 #define DWC_DRIVER_VERSION	"2.94a 27-OCT-2011"
 #define DWC_DRIVER_DESC		"HS OTG USB Controller driver"
@@ -242,7 +245,7 @@ static DRIVER_ATTR(version, S_IRUGO, version_show, NULL);
 /**
  * Global Debug Level Mask.
  */
-uint32_t g_dbg_lvl = 0;		/* OFF */
+uint32_t g_dbg_lvl = 0xffffffff;		/* OFF */
 
 /**
  * This function shows the driver Debug Level.
@@ -648,6 +651,103 @@ static void dwc_otg_driver_remove(
  *
  * @param _dev Bus device
  */
+static inline void jz_musb_phy_enable(void)
+{
+	printk(KERN_INFO "jz4780: Enable USB PHY.\n");
+	printk(KERN_ERR "******************************************jz4780: Enable USB PHY.\n");
+
+	__cpm_enable_otg_phy();
+
+	/* Wait PHY Clock Stable. */
+	udelay(300);
+
+	return;
+}
+
+static inline void jz_musb_phy_disable(void)
+{
+	printk(KERN_INFO "jz4760: Disable USB PHY.\n");
+
+	__cpm_suspend_otg_phy();
+
+	return;
+}
+
+static inline void jz_musb_phy_reset(void)
+{
+	REG_CPM_USBPCR |= USBPCR_POR;
+	udelay(30);
+	REG_CPM_USBPCR &= ~USBPCR_POR;
+
+	udelay(300);
+
+	return;
+}
+
+static inline void jz_musb_set_device_only_mode(void)
+{
+	printk(KERN_INFO "jz4760: Device only mode.\n");
+
+	/* Device Mode. */
+	REG_CPM_USBPCR &= ~(1 << 31);
+
+	REG_CPM_USBPCR |= USBPCR_VBUSVLDEXT;
+
+	return;
+}
+
+static inline void jz_musb_set_normal_mode(void)
+{
+	printk(KERN_INFO "jz4760: Normal mode.\n");
+
+//	__gpio_as_otg_drvvbus();
+
+	/* OTG Mode. */
+	REG_CPM_USBPCR |= (1 << 31);
+
+	REG_CPM_USBPCR &= ~((1 << 24) | (1 << 23) | (1 << 20));
+
+	REG_CPM_USBPCR |= ((1 << 28) | (1 << 29));
+	return;
+}
+
+static inline void jz_musb_init(void)
+{
+	/* fil */
+	REG_CPM_USBVBFIL = 0x80;
+
+	/* rdt */
+	REG_CPM_USBRDT = 0x96;
+
+	/* rdt - filload_en */
+	REG_CPM_USBRDT |= (1 << 25);
+
+	/* TXRISETUNE & TXVREFTUNE. */
+	REG_CPM_USBPCR &= ~0x3f;
+	REG_CPM_USBPCR |= 0x35;
+
+	/* enable tx pre-emphasis */
+        REG_CPM_USBPCR |= 0x40;
+
+        /* most DC leave of tx */
+#if defined(CONFIG_SOC_JZ4760) || defined(CONFIG_SOC_JZ4760B)
+        REG_CPM_USBPCR |= 0xf;
+#elif defined(CONFIG_SOC_JZ4770)
+        //FIXME:
+        //the same adjustment to jz4770 ???
+#endif
+	jz_musb_phy_enable();
+
+//	if (is_host_enabled(musb)) {
+		jz_musb_set_normal_mode();
+//	}else
+//		jz_musb_set_device_only_mode();
+	jz_musb_phy_reset();
+
+	return;
+}
+
+
 static int dwc_otg_driver_probe(
 #ifdef LM_INTERFACE
 				       struct lm_device *_dev
@@ -659,6 +759,32 @@ static int dwc_otg_driver_probe(
 {
 	int retval = 0;
 	dwc_otg_device_t *dwc_otg_device;
+#if 1
+	printk("/**********************************************************************/\n\n");
+	REG_CPM_USBPCR1 |= 1 << 28;
+	jz_musb_init();
+	__cpm_enable_otg_phy();
+	REG_CPM_OPCR |= 3 << 6;
+	printk("REG_CPM_USBOPCR =%08x\n",REG_CPM_OPCR);
+
+	
+
+#if 0
+	while(1) {
+		int i = 0;
+
+		for (i = 0; i < 16; i++) {
+			REG32(0xb3520000 + i) =  0xa5a55a5a;
+			if (REG32(0xb3520000 + i) !=  0xa5a55a5a) {
+				printk("ERROR %08x != %08x\n", REG32(0xb3520000 + i),  0xa5a55a5a);
+			}
+		}
+	}
+#endif
+
+	printk("/**********************************************************************/\n\n");
+#endif
+
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
 #ifdef LM_INTERFACE
@@ -776,7 +902,7 @@ static int dwc_otg_driver_probe(
 	 */
 
 	if ((dwc_otg_get_gsnpsid(dwc_otg_device->core_if) & 0xFFFFF000) !=
-	    0x4F542000) {
+	    0x4F543000) {
 		dev_err(&_dev->dev, "Bad value for SNPSID: 0x%08x\n",
 			dwc_otg_get_gsnpsid(dwc_otg_device->core_if));
 		retval = -EINVAL;
@@ -809,7 +935,7 @@ static int dwc_otg_driver_probe(
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
 		    _dev->irq);
 	retval = request_irq(_dev->irq, dwc_otg_common_irq,
-			     IRQF_SHARED | IRQF_DISABLED | IRQ_LEVEL, "dwc_otg",
+			     IRQF_SHARED | IRQF_DISABLED /*| IRQ_LEVEL*/, "dwc_otg",
 			     dwc_otg_device);
 	if (retval) {
 		DWC_ERROR("request of irq%d failed\n", _dev->irq);

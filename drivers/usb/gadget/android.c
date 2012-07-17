@@ -64,7 +64,7 @@ MODULE_VERSION("1.0");
 static const char longname[] = "Gadget Android";
 
 /* Default vendor and product IDs, overridden by userspace */
-#ifdef CONFIG_SOC_JZ4770
+#ifdef CONFIG_SOC_4780
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0xDDDD
 #else
@@ -1059,7 +1059,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
 
-#ifdef CONFIG_SOC_JZ4770
+#ifdef CONFIG_SOC_4780
 	android_enable_function(dev, "mass_storage,adb");
 	cdev->desc.idVendor = device_desc.idVendor;
 	cdev->desc.idProduct = device_desc.idProduct;
