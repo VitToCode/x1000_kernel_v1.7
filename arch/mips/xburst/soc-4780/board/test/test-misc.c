@@ -1,8 +1,35 @@
 #include <linux/platform_device.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
+#include <linux/i2c.h>
+#include <linux/gpio_keys.h>
+#include <linux/input.h>
+#include <gpio.h>
 
 #include "test.h"
+
+static struct gpio_keys_button board_buttons[] = {
+	{
+		.gpio		= GPIO_PF(29),
+		.code   	= KEY_HOME,
+		.desc		= "home key",
+		.active_low	= 1,
+	},
+};
+
+static struct gpio_keys_platform_data board_button_data = {
+	.buttons	= board_buttons,
+	.nbuttons	= ARRAY_SIZE(board_buttons),
+};
+
+static struct platform_device jz_button_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev		= {
+		.platform_data	= &board_button_data,
+	}
+};
 
 static int __init test_board_init(void)
 {
@@ -105,6 +132,10 @@ static int __init test_board_init(void)
 
 #ifdef CONFIG_JZ_MAC
 	platform_device_register(&jz_mac);
+#endif
+
+#ifdef CONFIG_KEYBOARD_GPIO
+	platform_device_register(&jz_button_device);
 #endif
 	return 0;
 }
