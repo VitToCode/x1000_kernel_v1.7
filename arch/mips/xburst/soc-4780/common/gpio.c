@@ -52,6 +52,8 @@
 
 extern int gpio_ss_table[][2];
 
+extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
+
 struct jzgpio_state {
 	unsigned int output_low;
 	unsigned int output_high;
@@ -405,7 +407,8 @@ static int __init setup_gpio_irq(void)
 
 int gpio_suspend(void)
 {
-	int i;
+	int i,j,irq;
+	struct irq_desc *desc;
 	struct jzgpio_chip *jz;
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
@@ -415,6 +418,14 @@ int gpio_suspend(void)
 		jz->save[2] = readl(jz->reg + PXPAT1);
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
+
+		for(j=0;j<32;j++) {
+			if (test_bit(j, jz->wake_map)) {
+				irq = jz->irq_base + j;
+				desc = irq_to_desc(irq);
+				__enable_irq(desc, irq, true);
+			}
+		}
 	}
 
 	return 0;
