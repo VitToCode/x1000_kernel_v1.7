@@ -191,6 +191,13 @@ static void dump_dma(struct jzdma_master *master)
 	dev_info(master->dev,"DCIRQP = 0x%08x\n",readl(master->iomem + DCIRQP));
 	dev_info(master->dev,"DCIRQM = 0x%08x\n",readl(master->iomem + DCIRQM));
 }
+void jzdma_dump(struct dma_chan *chan)
+{
+	struct jzdma_channel *dmac = to_jzdma_chan(chan);
+	dump_dma_desc(dmac);
+	dump_dma(dmac->master);
+}
+EXPORT_SYMBOL_GPL(jzdma_dump);
 #else
 #define dump_dma_desc(A) (void)(0)
 #define dump_dma(A) (void)(0)
@@ -276,8 +283,8 @@ static void jzdma_mcu_init(struct jzdma_master *dma)
 	writel(dmcs, dma->iomem + DMCS);
 }
 
-struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t src,
-		dma_addr_t dst,unsigned cnt,enum dma_data_direction direction)
+static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t src,
+		dma_addr_t dst,unsigned cnt,enum dma_data_direction direction,int flag)
 {
 	unsigned long tsz,dcm=0,type = 0;
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
@@ -289,7 +296,11 @@ struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t
 
 	if(direction == DMA_TO_DEVICE) {
 		tsz = get_max_tsz(dmac->config->dst_maxburst, &dcm);
-		dcm |= DCM_SAI | dmac->tx_dcm_def | DCM_TIE | DCM_LINK;
+		if (flag == 1){
+			dcm |= DCM_SAI | dmac->tx_dcm_def | DCM_LINK | DCM_TIE;
+		}else if(flag == 0){
+			dcm |= DCM_SAI | DCM_DAI | dmac->tx_dcm_def | DCM_LINK | DCM_TIE;
+		}
 		type = dmac->type;
 	} else {
 		tsz = get_max_tsz(dmac->config->src_maxburst, &dcm);
@@ -297,7 +308,7 @@ struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t
 		type = dmac->type+1;
 	}
 
-	build_one_desc(dmac, src, dst, dcm, cnt/tsz, type);
+	build_one_desc(dmac, src, dst, dcm, cnt, type);
 
 	BUG_ON(!(dmac->flags & CHFLG_SLAVE));
 
@@ -513,7 +524,6 @@ static void jzdma_chan_tasklet(unsigned long data)
 	if (dmac->tx_desc.callback)
 		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
 }
-
 static void jzdma_issue_pending(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
@@ -528,7 +538,7 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 			"Channel %d issue pending\n",dmac->chan.chan_id);
 
 	desc->dcm &= ~DCM_LINK;
-	dump_dma_desc(dmac);
+	desc->dcm |= DCM_TIE;//bc
 
 	/* dma descriptor address */
 	writel(dmac->desc_phys, dmac->iomem+CH_DDA);
@@ -587,7 +597,8 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 					dmac->tx_dcm_def = DCM_SP_16 | DCM_DP_16;
 					break;
 				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->tx_dcm_def = DCM_SP_32 | DCM_DP_32;
+					dmac->tx_dcm_def &= ~DCM_SP_32;
+					dmac->tx_dcm_def &= ~DCM_DP_32;
 					break;
 				case DMA_SLAVE_BUSWIDTH_8_BYTES:
 				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
@@ -603,7 +614,8 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 					dmac->rx_dcm_def = DCM_SP_16 | DCM_DP_16;
 					break;
 				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->rx_dcm_def = DCM_SP_32 | DCM_DP_32;
+					dmac->tx_dcm_def &= ~DCM_SP_32;
+					dmac->tx_dcm_def &= ~DCM_DP_32;
 					break;
 				case DMA_SLAVE_BUSWIDTH_8_BYTES:
 				case DMA_SLAVE_BUSWIDTH_UNDEFINED:

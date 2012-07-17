@@ -459,9 +459,11 @@ struct dma_device {
 	int (*device_alloc_chan_resources)(struct dma_chan *chan);
 	void (*device_free_chan_resources)(struct dma_chan *chan);
 
+	/*device_add_desc added by ingenic to use in i2c
+	 * if DMA_TO_DEVICE flag=0 dst srt&addr increment ,flag=1 src increment */
 	struct dma_async_tx_descriptor *(*device_add_desc)(
 		struct dma_chan *chan, dma_addr_t src,dma_addr_t dst,
-		unsigned cnt,enum dma_data_direction direction);
+		unsigned cnt,enum dma_data_direction direction,int flag);
 	struct dma_async_tx_descriptor *(*device_prep_dma_memcpy)(
 		struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 		size_t len, unsigned long flags);
