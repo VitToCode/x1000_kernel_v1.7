@@ -15,7 +15,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-//#define DEBUG
 
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -29,6 +28,7 @@
 
 #include "smp_cp0.h"
 
+//#define DEBUG
 //#define SMP_DEBUG
 
 #ifdef SMP_DEBUG
@@ -88,12 +88,24 @@ static struct bounce_addr {
 extern void __jzsoc_secondary_start(void);
 static void build_bounce_code(unsigned long *spp, unsigned long *gpp)
 {
+	int i;
+	unsigned long base[32] = {0,};
 	unsigned int pflag = (unsigned int)KSEG1ADDR(&smp_flag);
 	unsigned int entry = (unsigned int)__jzsoc_secondary_start;
 	unsigned int *p;
 
-	/* Make sure: PAGE_SIZE * 2 ^ 4 = 64KB */
-	smp_bounce.base = __get_free_pages(GFP_KERNEL, 4);
+	for(i=0;i<32;i++) {
+		base[i] = __get_free_pages(GFP_KERNEL, 0);
+		if(!base[i] || (base[i] & 0xffff))
+			continue;
+		smp_bounce.base = base[i];
+		break;
+	}
+
+	for(i=i-1;i>=0;i--) {
+		free_pages(base[i], 0);
+	}
+
 	BUG_ON(!smp_bounce.base || (smp_bounce.base & 0xffff));
 
 	p = (unsigned int*)smp_bounce.base;
@@ -112,20 +124,15 @@ static void build_bounce_code(unsigned long *spp, unsigned long *gpp)
 	UASM_i_LA(&p, 31, entry);
 	uasm_i_jr(&p, 31);
 	uasm_i_nop(&p);
-
-	//local_flush_data_cache_page((void*)(smp_save.base));
-}
-static void destory_bounce_code(void)
-{
-	flush_icache_range(smp_bounce.base, smp_bounce.base + PAGE_SIZE);
-	free_pages(smp_bounce.base, 4);
 }
 
 static int cpu_boot(int cpu, unsigned long sp, unsigned long gp)
 {
+	printk("%s %d\n",__func__,__LINE__);
 	if (cpumask_test_cpu(cpu, &cpu_running))
 		return -EINVAL;
 
+	printk("%s %d\n",__func__,__LINE__);
 	if (cpumask_test_cpu(cpu, cpu_ready)) {
 		boot_sp = sp;
 		boot_gp = gp;
@@ -137,6 +144,7 @@ static int cpu_boot(int cpu, unsigned long sp, unsigned long gp)
 		return 0;
 	}
 	
+	printk("%s %d\n",__func__,__LINE__);
 	return -EINVAL;
 }
 
@@ -148,20 +156,39 @@ extern void __jzsoc_secondary_start(void);
 static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 {
 	int err;
+	unsigned long flags,reim,ctrl;
+
+	/* reset register */
+	set_smp_reim(0x0100);
+	set_smp_ctrl(0xfffe);
+	set_smp_mbox0(0);
+	set_smp_mbox1(0);
+	set_smp_mbox2(0);
+	set_smp_mbox3(0);
+	set_smp_status(0);
+
+	reim = 0x01ff;
+	reim |= smp_bounce.base & 0xffff0000;
+	set_smp_reim(reim);
+
+	local_irq_save(flags);
+
+	/* clear reset bit! */
+	ctrl = get_smp_ctrl();
+	ctrl &= ~(1 << cpu);
+	set_smp_ctrl(ctrl);
+
+wait:
+	if (!cpumask_test_cpu(cpu, cpu_ready))
+		goto wait;
 
 	pr_debug("[SMP] Booting CPU%d ...\n", cpu);
 	err = cpu_boot(cpu_logical_map(cpu), __KSTK_TOS(idle),
 		       (unsigned long)task_thread_info(idle));
 	if (err != 0)
 		pr_err("start_cpu(%i) returned %i\n" , cpu, err);
-}
 
-/*
- * Final cleanup after all secondaries booted
- */
-static void jzsoc_cpus_done(void)
-{
-	destory_bounce_code();
+	local_irq_restore(flags);
 }
 
 /*
@@ -178,19 +205,25 @@ static inline int smp_cpu_stop(int cpu)
 	set_smp_ctrl(ctrl);
 	return 0;
 }
+
 static void __init jzsoc_smp_setup(void)
 {
 	int i, num;
 
-	pr_debug("[SMP] setup cpus.\n");
 	cpus_clear(cpu_possible_map);
+	cpus_clear(cpu_present_map);
+
 	cpu_set(0, cpu_possible_map);
+	cpu_set(0, cpu_present_map);
+
 	__cpu_number_map[0] = 0;
 	__cpu_logical_map[0] = 0;
 
 	for (i = 1, num = 0; i < NR_CPUS; i++) {
 		if (smp_cpu_stop(i) == 0) {
 			cpu_set(i, cpu_possible_map);
+			cpu_set(i, cpu_present_map);
+
 			__cpu_number_map[i] = ++num;
 			__cpu_logical_map[num] = i;
 		}
@@ -200,53 +233,14 @@ static void __init jzsoc_smp_setup(void)
 
 static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 {
-	unsigned long flags,reim,ctrl;
-	int i, up;
-	unsigned long bit = 0;
-	int flag = 0;
-
-	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
-	/* reset register */
-	set_smp_reim(0x0100);
-	set_smp_ctrl(0xfffe);
-	set_smp_mbox0(0);
-	set_smp_mbox1(0);
-	set_smp_mbox2(0);
-	set_smp_mbox3(0);
-	set_smp_status(0);
-
-	/* boot up slave cpus */
+	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
+		/* prepare slave cpus entry code */
 	build_bounce_code(&boot_sp, &boot_gp);
-
-	reim = 0x01ff;
-	reim |= smp_bounce.base & 0xffff0000;
-	set_smp_reim(reim);
 
 	/* blast all cache before booting secondary cpu */
 	__flush_cache_all();
-
-	local_irq_save(flags);
-
-	/* clear reset bit! */
-	ctrl = get_smp_ctrl();
-	ctrl &= ~((1 << max_cpus) -1);
-	set_smp_ctrl(ctrl);
-
-wait:
-	up = 1;
-	for (i = 1; i < max_cpus; i++)
-		if (cpumask_test_cpu(i, cpu_ready))
-			up ++;
-	if (bit != cpu_ready->bits[0] || flag != SMP_FLAG) {
-		flag = SMP_FLAG;
-		bit = cpu_ready->bits[0];
-	}
-	if (up < max_cpus)
-		goto wait;
-
-	local_irq_restore(flags);
 }
 
 static void send_ipi_msg(const struct cpumask *mask, unsigned int action)
@@ -279,15 +273,51 @@ static void jzsoc_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 	send_ipi_msg(mask, action);
 }
 
+void jzsoc_cpus_done(void)
+{
+}
+
+#ifdef CONFIG_HOTPLUG_CPU
+int jzsoc_cpu_disable(void)
+{
+	unsigned int cpu = smp_processor_id();
+	if (cpu == 0)		/* FIXME */
+		return -EBUSY;
+
+	spin_lock(&smp_lock);
+
+	cpumask_clear_cpu(cpu, &cpu_running);
+	cpumask_clear_cpu(cpu, &cpu_start);
+	cpumask_clear_cpu(cpu, cpu_ready);
+
+	flush_cache_all();
+	local_flush_tlb_all();
+
+	spin_unlock(&smp_lock);
+
+	return 0;
+}
+
+void jzsoc_cpu_die(unsigned int cpu)
+{
+	if (cpu == 0)		/* FIXME */
+		return;
+}
+#endif
+
 struct plat_smp_ops jzsoc_smp_ops = {
 	.send_ipi_single	= jzsoc_send_ipi_single,
 	.send_ipi_mask		= jzsoc_send_ipi_mask,
 	.init_secondary		= jzsoc_init_secondary,
 	.smp_finish		= jzsoc_smp_finish,
-	.cpus_done		= jzsoc_cpus_done,
 	.boot_secondary		= jzsoc_boot_secondary,
 	.smp_setup		= jzsoc_smp_setup,
+	.cpus_done		= jzsoc_cpus_done,
 	.prepare_cpus		= jzsoc_prepare_cpus,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_disable		= jzsoc_cpu_disable,
+	.cpu_die		= jzsoc_cpu_die,
+#endif
 };
 
 
@@ -348,3 +378,8 @@ again:
 	goto again;
 }
 
+void play_dead(void)
+{
+	printk("play_dead\n");
+	while(1);
+}

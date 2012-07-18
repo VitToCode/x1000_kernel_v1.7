@@ -228,6 +228,8 @@ config MACH_XBURST
 	select SYS_HAS_EARLY_PRINTK
 	select HAVE_PWM
 	select HAVE_CLK
+	select SYS_SUPPORTS_HOTPLUG_CPU
+	select SYS_SUPPORTS_HIGHMEM
 
 config LANTIQ
 	bool "Lantiq based platforms"
