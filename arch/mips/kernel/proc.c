@@ -65,13 +65,14 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		seq_printf(m, "]\n");
 	}
 	seq_printf(m, "microMIPS\t\t: %s\n", cpu_has_mmips ? "yes" : "no");
-	seq_printf(m, "ASEs implemented\t:%s%s%s%s%s%s\n",
+	seq_printf(m, "ASEs implemented\t:%s%s%s%s%s%s%s\n",
 		      cpu_has_mips16 ? " mips16" : "",
 		      cpu_has_mdmx ? " mdmx" : "",
 		      cpu_has_mips3d ? " mips3d" : "",
 		      cpu_has_smartmips ? " smartmips" : "",
 		      cpu_has_dsp ? " dsp" : "",
-		      cpu_has_mipsmt ? " mt" : ""
+		      cpu_has_mipsmt ? " mt" : "",
+		      cpu_has_mxu ? " mxu" : ""
 		);
 	seq_printf(m, "shadow register sets\t: %d\n",
 		       cpu_data[n].srsets);

@@ -124,6 +124,10 @@ enum {
 #define CLK_NAME_MAC		"mac"
 	CLK_ID_UHC,
 #define CLK_NAME_UHC		"uhc"
+	CLK_ID_OHCI,
+#define CLK_NAME_OHCI		"ohci"
+	CLK_ID_EHCI,
+#define CLK_NAME_EHCI		"ehci"
 	CLK_ID_I2C2,
 #define CLK_NAME_I2C2		"i2c2"
 	CLK_ID_CIM,
@@ -261,6 +265,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(GPS,   		GATE(22)),
 	DEF_CLK(MAC,   		GATE(23)),
 	DEF_CLK(UHC,   		GATE(24)),
+	DEF_CLK(OHCI,   	PARENT(UHC)),
+	DEF_CLK(EHCI,   	PARENT(UHC)),
 	DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
 	DEF_CLK(CIM,   		GATE(26)),
 	DEF_CLK(LCD1,   	GATE(27)),
