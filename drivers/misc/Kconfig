@@ -527,6 +527,8 @@ config APANIC_PLABEL
 	---help---
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
+config JZ_X2D
+	bool "JZ EXtreme2D  for 2D driver"
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
