@@ -1,6 +1,3 @@
-#if defined(CONFIG_JZRISC)
-#include "c-jz.c"
-#else
 /*
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -1482,4 +1479,3 @@ void __cpuinit r4k_cache_init(void)
 
 	coherency_setup();
 }
-#endif

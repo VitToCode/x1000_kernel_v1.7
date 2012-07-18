@@ -8,6 +8,7 @@
 
 #include "test.h"
 
+#ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
 	{
 		.gpio		= GPIO_PF(29),
@@ -30,6 +31,7 @@ static struct platform_device jz_button_device = {
 		.platform_data	= &board_button_data,
 	}
 };
+#endif
 
 static int __init test_board_init(void)
 {
