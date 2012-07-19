@@ -128,11 +128,9 @@ static void build_bounce_code(unsigned long *spp, unsigned long *gpp)
 
 static int cpu_boot(int cpu, unsigned long sp, unsigned long gp)
 {
-	printk("%s %d\n",__func__,__LINE__);
 	if (cpumask_test_cpu(cpu, &cpu_running))
 		return -EINVAL;
 
-	printk("%s %d\n",__func__,__LINE__);
 	if (cpumask_test_cpu(cpu, cpu_ready)) {
 		boot_sp = sp;
 		boot_gp = gp;
@@ -144,7 +142,6 @@ static int cpu_boot(int cpu, unsigned long sp, unsigned long gp)
 		return 0;
 	}
 	
-	printk("%s %d\n",__func__,__LINE__);
 	return -EINVAL;
 }
 
@@ -278,22 +275,24 @@ void jzsoc_cpus_done(void)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
+
+static DEFINE_SPINLOCK(smp_reserve_lock);
+
 int jzsoc_cpu_disable(void)
 {
 	unsigned int cpu = smp_processor_id();
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
+	
+	spin_lock(&smp_reserve_lock);
 
-	spin_lock(&smp_lock);
+	cpu_clear(cpu, cpu_online_map);
+	cpu_clear(cpu, cpu_callin_map);
 
-	cpumask_clear_cpu(cpu, &cpu_running);
-	cpumask_clear_cpu(cpu, &cpu_start);
-	cpumask_clear_cpu(cpu, cpu_ready);
-
-	flush_cache_all();
+	__flush_cache_all();
 	local_flush_tlb_all();
 
-	spin_unlock(&smp_lock);
+	spin_unlock(&smp_reserve_lock);
 
 	return 0;
 }
@@ -302,8 +301,27 @@ void jzsoc_cpu_die(unsigned int cpu)
 {
 	if (cpu == 0)		/* FIXME */
 		return;
+
+	spin_lock(&smp_lock);
+
+	set_c0_status(ST0_IM);
+
+	smp_cpu_stop(cpu);
+
+	cpumask_clear_cpu(cpu, &cpu_running);
+	cpumask_clear_cpu(cpu, &cpu_start);
+	cpumask_clear_cpu(cpu, cpu_ready);
+
+	spin_unlock(&smp_lock);
 }
 #endif
+
+void play_dead(void)
+{
+	idle_task_exit();
+
+	while(1);
+}
 
 struct plat_smp_ops jzsoc_smp_ops = {
 	.send_ipi_single	= jzsoc_send_ipi_single,
@@ -378,8 +396,3 @@ again:
 	goto again;
 }
 
-void play_dead(void)
-{
-	printk("play_dead\n");
-	while(1);
-}
