@@ -1124,7 +1124,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int blksize = 0;
 
 		if (file->f_mode & FMODE_WRITE) {
-			dp = endpoints->in_endpoint;
+			dp = endpoints->out_endpoint;
 		} else if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
 		} else

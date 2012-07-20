@@ -3,7 +3,8 @@
 #define __XB_SND_I2S0_H__
 
 #include <asm/io.h>
-
+#include "../interface/xb_snd_dsp.h"
+#include "../xb_snd_detect.c"
 
 extern unsigned int DEFAULT_REPLAY_ROUTE;
 extern unsigned int DEFAULT_RECORD_ROUTE;
@@ -104,14 +105,21 @@ static unsigned long tmp_val;
 	i2s0_set_reg(AIC0FR,n,I2S0_TFTH_MASK,I2S0_TFTH_OFFSET)
 #define __i2s0_set_receive_trigger(n)   \
 	i2s0_set_reg(AIC0FR,n,I2S0_RFTH_MASK,I2S0_RFTH_OFFSET)
-#define __i2s0_internal_slave_codec()              \
-	i2s0_set_reg(AIC0FR,1,I2S0_ICS_MASK,I2S0_ICS_OFFSET)
+#define __i2s0_internal_codec_master()              \
+do {	\
+	i2s0_set_reg(AIC0FR,0,I2S0_ICS_MASK,I2S0_ICS_OFFSET);	\
+	i2s0_set_reg(AIC0FR,1,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET);	\
+} while (0)
+#define __i2s0_internal_codec_slave()              \
+do {	\
+	i2s0_set_reg(AIC0FR,1,I2S0_ICS_MASK,I2S0_ICS_OFFSET);	\
+	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET);	\
+} while (0)
 #define __i2s0_external_codec()               \
-	i2s0_set_reg(AIC0FR,0,I2S0_ICS_MASK,I2S0_ICS_OFFSET)
-#define __i2s0_as_master()         \
-	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET)
-#define __i2s0_as_slave()         \
-	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET)
+do {	\
+	i2s0_set_reg(AIC0FR,0,I2S0_ICS_MASK,I2S0_ICS_OFFSET);	\
+	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET);	\
+} while(0)
 #define __i2s0_bclk_input()             \
 	i2s0_set_reg(AIC0FR,0,I2S0_BCKD_MASK,I2S0_BCKD_OFFSET)
 #define __i2s0_bclk_output()            \
@@ -136,6 +144,7 @@ static unsigned long tmp_val;
 		__i2s0_isync_input();                   \
 		__i2s0_ibclk_input();                   \
 	}while(0)
+
 #define __i2s0_master_clkset()        \
 	do {                                            \
 		__i2s0_bclk_output();                    \
@@ -378,10 +387,10 @@ static unsigned long tmp_val;
 #define I2S0_IDV_OFFSET         (8)
 #define I2S0_IDV_MASK           (0xf << I2S0_IDV_OFFSET)
 
-static inline int  __i2s0_set_sample_rate(unsigned long i2sclk, unsigned long sync)
+static inline unsigned long  __i2s0_set_sample_rate(unsigned long sys_clk, unsigned long sync)
 {
-	int dlv = i2sclk/(64*sync);
-	unsigned long val = 0;
+	int dlv = sys_clk/(64*sync);
+	unsigned int val = 0;
 	switch (dlv) {
 		case 2: val = 0x1;
 			break;
@@ -397,11 +406,32 @@ static inline int  __i2s0_set_sample_rate(unsigned long i2sclk, unsigned long sy
 			break;
 	}
 	i2s0_set_reg(I2S0DIV,val,I2S0_DV_MASK,I2S0_DV_OFFSET);
-	i2s0_set_reg(I2S0DIV,val,I2S0_IDV_MASK,I2S0_IDV_OFFSET);
 
-	return val;
+	return sys_clk/(64*dlv);
 }
 
+static inline unsigned long  __i2s0_set_isample_rate(unsigned long sys_clk, unsigned long sync)
+{
+	int dlv = sys_clk/(64*sync);
+	unsigned int val = 0;
+	switch (dlv) {
+		case 2: val = 0x1;
+			break;
+		case 3: val = 0x2;
+			break;
+		case 4: val = 0x3;
+			break;
+		case 6: val = 0x5;
+			break;
+		case 8: val = 0x7;
+			break;
+		case 12:val = 0xb;
+			break;
+	}
+	i2s0_set_reg(I2S0DIV,val,I2S0_IDV_MASK,I2S0_IDV_OFFSET);
+
+	return sys_clk/(64*dlv);
+}
 /*
  * CKCFG
  */
@@ -528,6 +558,14 @@ enum codec_ioctl_cmd_t {
  * i2s0 switch state
  **/
 
-void set_switch_state(int state);
+void jz_set_hp0_switch_state(int state);
+void jz_set_hp0_detect_type(int type,unsigned int gpio);
+/**
+ *	codec mode
+ **/
 
+enum codec_mode {
+	CODEC_MASTER,
+	CODEC_SLAVE,
+};
 #endif /* _XB_SND_I2S_H_ */

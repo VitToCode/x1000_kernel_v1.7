@@ -2338,7 +2338,7 @@ _ensure_stable:
 			}
 		}
 		/* Report status */
-		set_switch_state(new_status);
+		jz_set_hp0_switch_state(new_status);
 		schedule_work(detect_work);
 
 #endif /*CONFIG_JZ_HP0_DETECT*/
@@ -2487,6 +2487,9 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 	codec_platform_data->replay_def_route.route = SND_ROUTE_REPLAY_SPEAKER;
 	codec_platform_data->record_def_route.route = SND_ROUTE_RECORD_MIC;
+
+	jz_set_hp0_detect_type(SND_SWITCH_TYPE_CODEC,0);
+
 	return 0;
 }
 
@@ -2516,7 +2519,7 @@ static int __init init_codec(void)
 {
 	int retval;
 
-	i2s0_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4780_INTERNAL_CODEC_CLOCK);
+	i2s0_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4780_INTERNAL_CODEC_CLOCK,CODEC_MASTER);
 
 	retval = platform_driver_register(&jz_codec_driver);
 	if (retval) {

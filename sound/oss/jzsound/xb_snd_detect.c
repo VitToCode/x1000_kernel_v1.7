@@ -10,6 +10,8 @@
 
 #include <mach/jzsnd.h>
 
+#include "xb_snd_detect.h"
+
 static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 {
 	switch_set_state(&switch_data->sdev, state);
@@ -17,18 +19,14 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		if (switch_data->valid_level == 1) {
 			if (state) {
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
 				switch_data->valid_level = 0;
 			}
-			else
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
 		} else {
 			if (state) {
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
 				switch_data->valid_level = 1;
 			}
-			else
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
 		}
 	}
 }
@@ -44,6 +42,7 @@ static void snd_switch_work(struct work_struct *work)
 	/* if gipo switch */
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		//__gpio_disable_pull(switch_data->gpio);
+		gpio_direction_input(switch_data->gpio);
 		state = gpio_get_value(switch_data->gpio);
 		for (i = 0; i < 5; i++) {
 			msleep(20);
@@ -149,9 +148,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_request_gpio;
 
-		ret = gpio_direction_input(switch_data->gpio);
-		if (ret < 0)
-			goto err_set_gpio_input;
 
 		switch_data->irq = gpio_to_irq(switch_data->gpio);
 		if (switch_data->irq < 0) {
@@ -160,7 +156,7 @@ static int snd_switch_probe(struct platform_device *pdev)
 		}
 
 		ret = request_irq(switch_data->irq, snd_irq_handler,
-						  IRQF_TRIGGER_LOW, pdev->name, switch_data);
+						  IRQF_TRIGGER_FALLING, pdev->name, switch_data);
 		if (ret < 0)
 			goto err_request_irq;
 
@@ -173,7 +169,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 err_request_irq:
 err_detect_irq_num_failed:
-err_set_gpio_input:
 	gpio_free(switch_data->gpio);
 err_request_gpio:
 err_test_gpio:
@@ -200,15 +195,15 @@ static int __devexit snd_switch_remove(struct platform_device *pdev)
 }
 
 
-struct platform_device_id xb_snd_det_ids[] = {
-	{
-		.name 			= DEV_DSP_HP_DET_NAME,
-		.driver_data 	= SND_DEV_DETECT0_ID,
-	},
-	{
-		.name 			= DEV_DSP_DOCK_DET_NAME,
-		.driver_data 	= SND_DEV_DETECT0_ID,
-	},
+static struct platform_device_id xb_snd_det_ids[] = {
+#define JZ_HP_DETECT_TABLE(NO)	{.name = DEV_DSP_HP_DET_NAME,.driver_data = SND_DEV_DETECT##NO##_ID},	\
+								{.name = DEV_DSP_DOCK_DET_NAME,.driver_data = SND_DEV_DETECT##NO##_ID}
+	JZ_HP_DETECT_TABLE(0),
+	//JZ_HP_DETECT_TABLE(1),
+	//JZ_HP_DETECT_TABLE(2),
+	//JZ_HP_DETECT_TABLE(3),
+	{}
+#undef JZ_HP_DETECT_TABLE
 };
 
 
