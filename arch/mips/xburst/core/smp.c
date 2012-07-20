@@ -25,6 +25,7 @@
 #include <asm/mmu_context.h>
 #include <asm/io.h>
 #include <asm/uasm.h>
+#include <asm/r4kcache.h>
 
 #include "smp_cp0.h"
 
@@ -141,7 +142,7 @@ static int cpu_boot(int cpu, unsigned long sp, unsigned long gp)
 			;
 		return 0;
 	}
-	
+
 	return -EINVAL;
 }
 
@@ -181,7 +182,7 @@ wait:
 
 	pr_debug("[SMP] Booting CPU%d ...\n", cpu);
 	err = cpu_boot(cpu_logical_map(cpu), __KSTK_TOS(idle),
-		       (unsigned long)task_thread_info(idle));
+			(unsigned long)task_thread_info(idle));
 	if (err != 0)
 		pr_err("start_cpu(%i) returned %i\n" , cpu, err);
 
@@ -233,7 +234,7 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
 	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
-		/* prepare slave cpus entry code */
+	/* prepare slave cpus entry code */
 	build_bounce_code(&boot_sp, &boot_gp);
 
 	/* blast all cache before booting secondary cpu */
@@ -245,18 +246,18 @@ static void send_ipi_msg(const struct cpumask *mask, unsigned int action)
 	unsigned int msg;
 	unsigned long flags = 0;
 #define SEND_MSG(CPU)	do {						\
-		if(cpu_isset(CPU,*mask)) {				\
-			msg = action | get_smp_mbox##CPU();		\
-			set_smp_mbox##CPU(msg);				\
-		} } while(0)
+	if(cpu_isset(CPU,*mask)) {				\
+		msg = action | get_smp_mbox##CPU();		\
+		set_smp_mbox##CPU(msg);				\
+	} } while(0)
 
 	spin_lock_irqsave(&smp_lock,flags);
-	
+
 	SEND_MSG(0);
 	SEND_MSG(1);
 	SEND_MSG(2);
 	SEND_MSG(3);
-	
+
 	spin_unlock_irqrestore(&smp_lock,flags);
 }
 
@@ -275,25 +276,27 @@ void jzsoc_cpus_done(void)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-
-static DEFINE_SPINLOCK(smp_reserve_lock);
-
 int jzsoc_cpu_disable(void)
 {
+	struct task_struct *p;
 	unsigned int cpu = smp_processor_id();
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
-	
-	spin_lock(&smp_reserve_lock);
 
-	cpu_clear(cpu, cpu_online_map);
-	cpu_clear(cpu, cpu_callin_map);
+	spin_lock(&smp_lock);
+	set_cpu_online(cpu, false);
 
-	__flush_cache_all();
+	blast_dcache32();
+	blast_icache32();
 	local_flush_tlb_all();
 
-	spin_unlock(&smp_reserve_lock);
-
+	read_lock(&tasklist_lock);
+	for_each_process(p)
+		if (p->mm)
+			cpumask_clear_cpu(cpu, mm_cpumask(p->mm));
+	read_unlock(&tasklist_lock);
+	
+	spin_unlock(&smp_lock);
 	return 0;
 }
 
@@ -302,9 +305,8 @@ void jzsoc_cpu_die(unsigned int cpu)
 	if (cpu == 0)		/* FIXME */
 		return;
 
+	printk("jzsoc_cpu_die\n");
 	spin_lock(&smp_lock);
-
-	set_c0_status(ST0_IM);
 
 	smp_cpu_stop(cpu);
 
@@ -346,14 +348,14 @@ static void jzsoc_smp_showregs(void)
 	unsigned int val;
 	printk("CPU%d:\n",cpu);
 #define P(reg) do {				\
-		val = get_smp_##reg();		\
-		printk(#reg ":\t%08x\n",val);	\
-	} while(0)
+	val = get_smp_##reg();		\
+	printk(#reg ":\t%08x\n",val);	\
+} while(0)
 	P(ctrl); P(status); P(reim); P(mbox0); P(mbox1);
 	//P(val);  P(lock);
 	printk("cp0 status:\t%08x\n",read_c0_status());
 	printk("cp0 cause:\t%08x\n",read_c0_cause());
-}
+	}
 #endif
 
 extern void smp_ipi_timer_interrupt(void);
