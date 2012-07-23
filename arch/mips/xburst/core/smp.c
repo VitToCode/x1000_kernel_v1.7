@@ -156,20 +156,10 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	int err;
 	unsigned long flags,reim,ctrl;
 
-	/* reset register */
-	set_smp_reim(0x0100);
-	set_smp_ctrl(0xfffe);
-	set_smp_mbox0(0);
-	set_smp_mbox1(0);
-	set_smp_mbox2(0);
-	set_smp_mbox3(0);
-	set_smp_status(0);
-
-	reim = 0x01ff;
-	reim |= smp_bounce.base & 0xffff0000;
-	set_smp_reim(reim);
-
 	local_irq_save(flags);
+
+	/* blast all cache before booting secondary cpu */
+	__flush_cache_all();
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
@@ -237,8 +227,14 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 	/* prepare slave cpus entry code */
 	build_bounce_code(&boot_sp, &boot_gp);
 
-	/* blast all cache before booting secondary cpu */
-	__flush_cache_all();
+	/* reset register */
+	set_smp_reim(0x0100);
+	set_smp_ctrl(0xfffe);
+	set_smp_status(0);
+
+	reim = 0x01ff;
+	reim |= smp_bounce.base & 0xffff0000;
+	set_smp_reim(reim);
 }
 
 static void send_ipi_msg(const struct cpumask *mask, unsigned int action)
