@@ -1,9 +1,10 @@
-#
-# Makefile for Namd driver
+# drivers/nand/driver/Makefile 
 #
 
-EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
-		-Idrivers/nand/inc/ \
-		-Idrivers/nand/manager/inc/linux/ \
+#KBUILD_CFLAGS += -I$(srctree)/drivers/nand/inc -I$(srctree)/drivers/nand/include
 
-obj-y		+= os_vnand.o
+obj-y += nand_api.o
+obj-y += core/ jz_ctrl/  
+#obj-y +=dma/
+#obj-y += test/
+#obj-y += vnand_test/

@@ -21,6 +21,7 @@
 #include <mach/platform.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
+#include <mach/jznand.h>
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
@@ -456,4 +457,56 @@ struct platform_device jz_mac = {
 	.dev = {
 		.platform_data = NULL,
 	},
+};
+
+/*  nand device  */
+static struct resource jz_nand_res[] ={
+	/**  nemc resource  **/
+	[0] = {
+         .flags = IORESOURCE_MEM,
+         .start = NEMC_IOBASE,
+         .end = NEMC_IOBASE + 0x10000 -1,
+     },
+     [1] = {
+         .flags = IORESOURCE_IRQ,
+         .start = IRQ_NEMC,
+     },
+	/**  bch resource  **/
+     [2] = {
+         .flags = IORESOURCE_MEM,
+         .start = BCH_IOBASE,
+         .end = BCH_IOBASE + 0x10000 -1,
+     },
+     [3] = {
+         .flags = IORESOURCE_IRQ,
+         .start = IRQ_BCH,
+     },
+	/**  pdma resource  **/
+	 [4] = {
+		 .flags = IORESOURCE_MEM,
+		 .start = PDMA_IOBASE,
+		 .end = PDMA_IOBASE +0x10000 -1,
+	 },
+	 [5] = {
+		 .flags = IORESOURCE_IRQ,
+		 .start = IRQ_PDMA,
+	 },
+	 [6] = {
+		 .flags = IORESOURCE_IRQ,
+		 .start = IRQ_PDMAM,
+	 },
+	/**  csn resource  **/
+	[7] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS6_IOBASE,
+		.end = NEMC_CS6_IOBASE + 0x6000000 -1,
+	}
+};
+
+struct platform_device jz_nand_device = {
+	.name = "jz_nand",
+	.id = -1,
+//	.dev.platform_data = &pisces_nand_chip_data,
+	.resource = jz_nand_res,
+	.num_resources =ARRAY_SIZE(jz_nand_res),
 };

@@ -1,9 +1,9 @@
-# Makefile for nand block
+#
+# Makefile for Namd driver
 #
 
 EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/inc/ \
 		-Idrivers/nand/manager/inc/linux/ \
 
-obj-y			+= manager/ driver/ nand_block.o
-#obj-y			+= driver/ 
+obj-y		+= os_vnand.o

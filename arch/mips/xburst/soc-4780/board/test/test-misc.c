@@ -139,6 +139,11 @@ static int __init test_board_init(void)
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
+/* nand */
+#ifdef CONFIG_NAND_JZ4780
+	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
+#endif
+
 	return 0;
 }
 
