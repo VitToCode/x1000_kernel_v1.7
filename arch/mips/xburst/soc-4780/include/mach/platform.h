@@ -137,6 +137,8 @@ extern struct platform_device jz_ehci_device;
 
 extern struct platform_device jz_mac;
 
+extern struct platform_device jz_nand_device;
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #endif
