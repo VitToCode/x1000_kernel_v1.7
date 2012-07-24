@@ -7,13 +7,6 @@
 #include "vnandinfo.h"
 
 
-typedef struct _WSectors WSectors;
-
-struct _WSectors {
-	unsigned int startpage;
-	unsigned short pagecnt;
-};
-
 typedef struct _Zone Zone;
 
 struct _Zone {

@@ -14,6 +14,8 @@
 #include "nandzoneinfo.h"
 #include "taskmanager.h"
 #include "bitops.h"
+#include "nandpageinfo.h"
+#include "cachemanager.h"
 
 #define BLOCKPERZONE(context)   	8
 #define FIRSTPAGEINFO(context)	   	3
@@ -25,7 +27,7 @@
 #define NULL 0
 #endif 
 
-unsigned int ZoneManager_SetAheadZone(int context,Zone *zone);
+void  ZoneManager_SetCurrentWriteZone(int context,Zone *zone);
 
 /** 
  *	init_free_node - Initialize hashnode of freezone
@@ -117,16 +119,22 @@ static int delete_used_node(ZoneManager *zonep,unsigned short zoneID)
  */
 static void calc_L2L3_len(ZoneManager *zonep)
 {
-	unsigned int L2vol = 0;
 	unsigned int l2l3len = 0;
 	unsigned int temp = 0;
 	unsigned int value = 1;
 	unsigned int i = 0;
+	unsigned int sectornum;
+	unsigned int totalsectornum;
+	unsigned int l1_secnum;
+	unsigned int l4_secnum;
 
-	L2vol = zonep->vnand->PagePerBlock * zonep->vnand->TotalBlocks *4;
-	l2l3len = (zonep->vnand->BytePerPage - 1056) / 4;
+	sectornum = zonep->vnand->BytePerPage / SECTOR_SIZE;
+	totalsectornum = zonep->vnand->PagePerBlock * zonep->vnand->TotalBlocks * sectornum;
+	l2l3len = (zonep->vnand->BytePerPage - (1024 + sizeof(NandPageInfo))) / sizeof(unsigned int);
 
-	temp = L2vol / (128 * 1024);
+	l1_secnum = zonep->vnand->BytePerPage / sizeof(unsigned int);
+	l4_secnum = 1024 / sizeof(unsigned int);
+	temp = totalsectornum / (l1_secnum * l4_secnum);
 
 	while(1)
 	{
@@ -142,17 +150,17 @@ static void calc_L2L3_len(ZoneManager *zonep)
 	}
 	else
 	{
-		zonep->l2infolen = value * 4;
+		zonep->l2infolen = value * sizeof(unsigned int);
 	}
 
-	zonep->l3infolen = temp / value * 4;
+	zonep->l3infolen = temp / value * sizeof(unsigned int);
 
 	/* if the capacity of nand is too small, l4infolen should not be 1024 */
 	if (zonep->l3infolen || zonep->l2infolen)
 		zonep->l4infolen = 1024;
 	else
 		zonep->l4infolen = zonep->vnand->TotalBlocks * zonep->vnand->PagePerBlock * 
-		zonep->vnand->BytePerPage / (zonep->vnand->BytePerPage / 4) / SECTOR_SIZE * 4;
+			zonep->vnand->BytePerPage / (zonep->vnand->BytePerPage / sizeof(unsigned int)) / SECTOR_SIZE * sizeof(unsigned int);
 }
 
 /** 
@@ -173,7 +181,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	zonep->zoneID = (unsigned short *)Nand_ContinueAlloc(zonenum * sizeof(unsigned short));
 	if(zonep->zoneID == NULL)
 	{
-		ndprint(1,"alloc memory fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc memory fail func %s line %d \n",
 			__FUNCTION__,__LINE__);
 		
 		return -1;
@@ -183,7 +191,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	ndprint(ZONEMANAGER_INFO, "zonep->sigzoneinfo = %p\n",zonep->sigzoneinfo);
 	if(zonep->sigzoneinfo == NULL)
 	{
-		ndprint(1,"alloc memory fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc memory fail func %s line %d \n",
 			__FUNCTION__,__LINE__);
 	
 		ret = -1;
@@ -193,7 +201,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	(zonep->L1).page = (unsigned int *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if((zonep->L1).page == NULL)
 	{
-		ndprint(1,"alloc memoey fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc memoey fail func %s line %d \n",
 			__FUNCTION__,__LINE__);	
 
 		ret = -1;
@@ -203,7 +211,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	zonep->mem0 = (unsigned char *)Nand_ContinueAlloc(2 * ZONEMEMSIZE(vnand));
 	if(zonep->mem0 == NULL)
 	{
-		ndprint(1,"alloc memoey fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc memoey fail func %s line %d \n",
 			__FUNCTION__,__LINE__);	
 		
 		ret = -1;
@@ -213,7 +221,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	zonep->startblockID = (int *)Nand_ContinueAlloc(zonenum * sizeof(int));
 	if(zonep->startblockID == NULL)
 	{
-		ndprint(1,"alloc memoey fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc memoey fail func %s line %d \n",
 			__FUNCTION__,__LINE__);	
 		
 		ret = -1;
@@ -229,6 +237,8 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	zonep->next = NULL;
 	zonep->last_data_buf = NULL;
 	zonep->last_pi = NULL;
+	zonep->pl = NULL;
+	zonep->need_write_last_data = 0;
 	for(i = 0; i < 4 ; i++) {
 		zonep->aheadflag[i] = 0;
 		zonep->ahead_zone[i] = NULL;
@@ -391,13 +401,13 @@ static int unpackage_page0_info(ZoneManager *zonep,unsigned short zoneid)
 }
 
 /** 
- *	unpackage_page1_info - unpake information of page1
+ *	find_maxserialnumber 
  *
  *	@zonep: operate object
  *	@maxserial: maximum serial number
  *	@recordzone: record zone
  */
-static  int unpackage_page1_info(ZoneManager *zonep,
+static  int find_maxserialnumber(ZoneManager *zonep,
 
 			unsigned int *maxserial,unsigned short *recordzone)
 {
@@ -414,14 +424,14 @@ static  int unpackage_page1_info(ZoneManager *zonep,
 	if(i == buflen)
 		return -1;
 
-	//unpackage localzone info
+	//update localzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->localZone.ZoneID;
 	if (zoneid >= 0 && zoneid < zonep->pt_zonenum) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
 		CONV_ZI_SZ(&nandzoneinfo->localZone,oldsigp);
 	}
 
-	//unpackage prevzone info
+	//update prevzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->preZone.ZoneID;
 	if (zoneid >= 0 && zoneid < zonep->pt_zonenum) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
@@ -430,7 +440,7 @@ static  int unpackage_page1_info(ZoneManager *zonep,
 			CONV_ZI_SZ(&nandzoneinfo->preZone,oldsigp);
 	}
 
-	//unpackage nextzone info
+	//update nextzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->nextZone.ZoneID;
 	if (zoneid >= 0 && zoneid < zonep->pt_zonenum) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
@@ -471,7 +481,7 @@ static void scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 		if(sigp->lifetime == 0xffffffff)
 		{
 			ret = read_zone_page0(zonep,i,pl);
-			if(ret & 0x0000ffff == -5)
+			if(ret != 0)
 			{
 				start_read_page0_error_handle(zonep);		
 			}
@@ -479,7 +489,7 @@ static void scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 			ret = insert_free_node(zonep,i);
 			if(ret != 0)
 			{
-				ndprint(1,"insert free node error func %s line %d \n",
+				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
 
 							__FUNCTION__,__LINE__);
 				/*todo*/			
@@ -490,7 +500,7 @@ static void scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 			ret = insert_used_node(zonep,sigp);
 			if(ret != 0)
 			{
-				ndprint(1,"insert used node error func %s line %d \n",
+				ndprint(ZONEMANAGER_ERROR,"insert used node error func %s line %d \n",
 
 							__FUNCTION__,__LINE__);
 				/*todo*/
@@ -530,7 +540,13 @@ static int get_pt_badblock_count(VNandInfo *vnand)
  */
 static int get_pt_zone_num(VNandInfo *vnand)
 {
-	return (vnand->TotalBlocks - get_pt_badblock_count(vnand) - 1) / BLOCKPERZONE(vnand) + 1;
+	int blocknum;
+	blocknum = vnand->TotalBlocks - get_pt_badblock_count(vnand);
+	if (blocknum == 0){
+		ndprint(ZONEMANAGER_ERROR,"The partition's blocks are all bad blocks. This partition can't be used!!\n");
+		return 0;
+	}
+	return (blocknum - 1) / BLOCKPERZONE(vnand) + 1;
 }
 
 /** 
@@ -581,7 +597,7 @@ static int get_next_startblockid(ZoneManager *zonep, int prev_startblockid)
 	int count = 0;
 	VNandInfo *vnand = zonep->vnand;
 	
-	for (i = prev_startblockid + 1; i < vnand->TotalBlocks + prev_startblockid + 1; i++) {
+	for (i = prev_startblockid + 1; i < vnand->TotalBlocks + vnand->startBlockID; i++) {
 		if(zonemanager_is_badblock(zonep, i))
 			continue;
 		else
@@ -635,14 +651,9 @@ static void scan_page_info(ZoneManager *zonep)
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		ret = read_zone_page1(zonep,i,plt);
-		if(ret >= 0)
-		{
-			unpackage_page1_info(zonep,&max_serial,&max_zoneid);
-		}
-		else if (ret & 0x0000ffff == -5)
-		{
+		if(ret != 0)
 			start_read_page1_error_handle(zonep);
-		}
+		find_maxserialnumber(zonep,&max_serial,&max_zoneid);
 	}
 	
 	zonep->maxserial = max_serial;
@@ -651,7 +662,7 @@ static void scan_page_info(ZoneManager *zonep)
 	ret = read_zone_page2(zonep,max_zoneid,plt);
 	if(ret != 0)
 	{
-		ndprint(1,"read page2  error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"read page2  error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		/*how to do */			
 	}
@@ -689,10 +700,12 @@ static inline void free_zone(ZoneManager *zonep,Zone *zone)
  */
 static int alloc_pageinfo(PageInfo *pageinfo, ZoneManager *zonep)
 {
+	pageinfo->L1Info = (unsigned char *)(zonep->L1.page);
+	
 	if (zonep->l2infolen) {
 		pageinfo->L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l2infolen);
 		if (!(pageinfo->L2Info)) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			ndprint(ZONEMAAGER_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			goto ERROR1;
 		}
 	}
@@ -700,14 +713,14 @@ static int alloc_pageinfo(PageInfo *pageinfo, ZoneManager *zonep)
 	if (zonep->l3infolen) {
 		pageinfo->L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l3infolen);
 		if (!(pageinfo->L3Info)) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			ndprint(ZONEMANAGER_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			goto ERROR2;
 		}
 	}
 	
 	pageinfo->L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l4infolen);
 	if (!(pageinfo->L4Info)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(ZONEMANAGER_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		goto ERROR3;
 	}
 
@@ -755,7 +768,7 @@ static int get_maxserial_zone(ZoneManager *zonep)
 
 	zoneptr = alloc_zone(zonep);
 	if(zoneptr == NULL) {
-		ndprint(1,"alloc Zone error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"alloc Zone error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		return -1;			
 	}
@@ -770,25 +783,25 @@ static int get_maxserial_zone(ZoneManager *zonep)
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
 
-	for(i = 4 ; i < 8 ; i++) {
+	for(i = 0 ; i < 4 ; i++) {
 		if(zonep->memflag[i] == 0)
 			break;
 	}
 
-	if(i == 8) {
-		ndprint(1,"PANIC ERROR func %s line %d \n",
+	if(i == 4) {
+		ndprint(ZONEMANAGER_ERROR,"PANIC ERROR func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		goto err;			
 	}
 	
 	ret = delete_used_node(zonep,ZoneID);
 	if(ret != 0) {
-		ndprint(1,"delete used node error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"delete used node error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		goto err;			
 	}
 
-	while(test_bit(badblockcount,&(zoneptr->badblock)) && (++badblockcount));
+	while(test_bit(badblockcount,(unsigned long *)&(zoneptr->badblock)) && (++badblockcount));
 	
 	zoneptr->memflag = i;
 	zoneptr->ZoneID = ZoneID;
@@ -800,7 +813,7 @@ static int get_maxserial_zone(ZoneManager *zonep)
 	zoneptr->sumpage = (BLOCKPERZONE(zonep->vnand) - badblockcount) * zonep->vnand->PagePerBlock;
 
 	zonep->last_zone = zoneptr;
-	ZoneManager_SetCurrentWriteZone(zonep->context,zonep->last_zone);
+	ZoneManager_SetCurrentWriteZone(zonep->context,zonep->last_zone);	
 err:
 	free_zone(zonep,zoneptr);
 	return ret;
@@ -820,7 +833,7 @@ static void copy_pageinfo(ZoneManager *zonep, PageInfo *des_pi, PageInfo *src_pi
 	des_pi->L1InfoLen 	= src_pi->L1InfoLen;
 	des_pi->L2Index 	= src_pi->L2Index;
 	des_pi->L2InfoLen 	= src_pi->L2InfoLen;
-	des_pi->L3InfoLen 	= src_pi->L3Index;
+	des_pi->L3Index 	= src_pi->L3Index;
 	des_pi->L3InfoLen 	= src_pi->L3InfoLen;
 	des_pi->L4InfoLen 	= src_pi->L4InfoLen;
 	des_pi->PageID 		= src_pi->PageID;
@@ -845,18 +858,17 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 	PageInfo pageinfo;
 	Zone *zone = zonep->last_zone;
 	PageInfo *prev_pi = &pageinfo;
-	unsigned int *l4info = NULL;
 
 	ret = alloc_pageinfo(prev_pi, zonep);
 	if (ret != 0) {
-		ndprint(1,"alloc_pageinfo error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc_pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
 	ret = Zone_FindFirstPageInfo(zone,prev_pi);
 	if(ret != 0) {
-		ndprint(1,"Find First Pageinfo error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"Find First Pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;			
 	}
@@ -864,45 +876,20 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 	while (1) {
 		if (zone->NextPageInfo == 0)
 			break;
-		
-		ret = Zone_FindNextPageInfo(zone,*pi);
-		if(ret != 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-			return -1;			
-		}
 
-		l4info = (unsigned int *)((*pi)->L4Info);
-		if (l4info[0] != 0xffffffff)
-			copy_pageinfo(zonep, prev_pi, *pi);
-		else {
+		ret = Zone_FindNextPageInfo(zone,*pi);
+		if((ret & 0xffff) < 0) {
 			copy_pageinfo(zonep, *pi, prev_pi);
-			break;
+			break;			
 		}
+		else
+			copy_pageinfo(zonep, prev_pi, *pi);
 	}
 
 	free_pageinfo(prev_pi, zonep);
+	zonep->last_pi = *pi;
 
 	return 0;
-}
-
-/** 
- *	start_recycle - start boot recycle
- *
- *	@zonep: operate object
- */
-static void start_recycle(ZoneManager *zonep)
-{
-	Message boot_recycle_msg;
-	int msghandle;
-	Context *conptr = (Context *)(zonep->context);
-
-	boot_recycle_msg.msgid = BOOT_RECYCLE_ID;
-	boot_recycle_msg.prio = BOOT_RECYCLE_PRIO;
-	boot_recycle_msg.data = zonep->context;
-
-	msghandle = Message_Post(conptr->thandle, &boot_recycle_msg, WAIT);
-	Message_Recieve(conptr->thandle, msghandle);
 }
 
 /**
@@ -926,40 +913,18 @@ static int page_in_current_zone (ZoneManager *zonep, unsigned short zoneid, unsi
  *	@zonep: operate object
  *	@pi: last pageinfo
  */
-static int alloc_last_data_buf(ZoneManager *zonep, PageInfo *pi)
+static int alloc_last_data_buf(ZoneManager *zonep, int pagecount)
 {
-	int i;
-	int ret = 0;
-	int count = 0;
-	unsigned int spp = zonep->vnand->BytePerPage / SECTOR_SIZE;
-	unsigned short l4infolen = pi->L4InfoLen;
-	unsigned int *l4info = (unsigned int *)(pi->L4Info);
-
-	for (i = 0; i < l4infolen >> 2; i++) {
-		if (l4info[i] != 0xffffffff && l4info[i] / spp > pi->PageID && page_in_current_zone(zonep,zonep->last_zone->ZoneID,l4info[i] / spp))
-			count++;
-	}
-
-	zonep->last_data_buf = (unsigned char *)Nand_ContinueAlloc(zonep->vnand->BytePerPage * count);
+	zonep->last_data_buf = (unsigned char *)Nand_ContinueAlloc(zonep->vnand->BytePerPage * pagecount);
 	if (zonep->last_data_buf == NULL) {
-		ndprint(1,"Nand_ContinueAlloc error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"Nand_ContinueAlloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
-	memset(zonep->last_data_buf, 0xff, zonep->vnand->BytePerPage * count);
+	memset(zonep->last_data_buf, 0xff, zonep->vnand->BytePerPage * pagecount);
 
-	return ret;
-}
-
-/** 
- *	free_last_data_buf - free buf of last data
- *
- *	@zonep: operate object
- */
-static void free_last_data_buf(ZoneManager *zonep)
-{
-	Nand_ContinueFree(zonep->last_data_buf);
+	return 0;
 }
 
 /** 
@@ -970,7 +935,9 @@ static void free_last_data_buf(ZoneManager *zonep)
  */
 static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 {	
-	int i, j, k, m;
+	int ret = 0;
+	int i, j, k;
+	int pagecount = 0;
 	unsigned int tmp0, tmp1;
 	unsigned int l4count = 0;
 	PageList *pl_top;
@@ -979,11 +946,12 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 	BuffListManager *blm = ((Context *)(zonep->context))->blm;
 	unsigned short l4infolen = pi->L4InfoLen;
 	unsigned int *l4info = (unsigned int *)(pi->L4Info);
+	struct singlelist *pos;
 	l4count = l4infolen >> 2;
 	
 	pl_top = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
 	
-	for(i = 0, m = 0; i < l4count; i += k) {
+	for(i = 0; i < l4count; i += k) {
 		k = 1;
 		if ((int)l4info[i] == -1)
 			continue;
@@ -997,10 +965,10 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 				break;
 			
 			tmp1 = l4info[j] / spp;
-			if(tmp1 == tmp0 && tmp1 > pi->PageID && page_in_current_zone(zonep,zonep->last_zone->ZoneID,tmp1))
+			if(tmp1 == tmp0)
 				k++;
 			else
-				break;		
+				break;	
 		}
 	
 		pl_node = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl_top, sizeof(PageList));
@@ -1008,10 +976,26 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 		pl_node->OffsetBytes = l4info[i] % spp;
 		pl_node->Bytes = k * SECTOR_SIZE;
 		pl_node->retVal = 0;
-		pl_node->pData = zonep->last_data_buf + (m++) * zonep->vnand->BytePerPage;
+		pl_node->pData = NULL;
+
+		pagecount++;
 	}
 
+	zonep->pagecount = pagecount;
 	BuffListManager_freeList((int)blm, (void *)&pl_top, (void *)pl_top, sizeof(PageList));
+
+	ret = alloc_last_data_buf(zonep,pagecount);
+	if (ret != 0) {
+		ndprint(ZONEMANAGER_ERROR,"alloc_last_data_buf error func %s line %d \n",
+					__FUNCTION__,__LINE__);
+		return NULL;
+	}
+
+	pagecount = 0;
+	singlelist_for_each(pos,&pl_top->head) {
+		pl_node = singlelist_entry(pos,PageList,head);
+		pl_node->pData = zonep->last_data_buf + (pagecount++) * zonep->vnand->BytePerPage;
+	}
 
 	return pl_top;
 }
@@ -1020,9 +1004,8 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
  *	analy_pagelist - analy pagelist to get pagecount
  *
  *	@pl: which need to analy
- *	@pagecount: which need to fill
  */
-static int analy_pagelist(PageList *pl, unsigned int *pagecount)
+static int analy_pagelist(PageList *pl)
 {
 	struct singlelist *pos;
 	PageList *pl_nod;
@@ -1030,10 +1013,8 @@ static int analy_pagelist(PageList *pl, unsigned int *pagecount)
 
 	singlelist_for_each(pos,&pl->head) {
 		pl_nod = singlelist_entry(pos,PageList,head);
-		if (pl_nod->retVal == 0)
+		if (pl_nod->retVal >= 0)
 			last_right_pageid = pl_nod->startPageID;
-		
-		(*pagecount)++;
 	}
 
 	return last_right_pageid;
@@ -1050,7 +1031,7 @@ static int get_badblock_count_between_pageid(ZoneManager *zonep, int pagecount)
 	unsigned int badblockcount = 0;
 	int blockcount = pagecount / zonep->vnand->PagePerBlock;
 	
-	while(test_bit(badblockcount,&(zonep->last_zone->badblock)) && badblockcount < blockcount)
+	while(test_bit(badblockcount,(unsigned long *)&(zonep->last_zone->badblock)) && badblockcount < blockcount)
 		badblockcount++;
 
 	return badblockcount;
@@ -1073,21 +1054,85 @@ static int calc_alloced_page(ZoneManager *zonep, unsigned int last_right_pageid)
 }
 
 /** 
- *	update_l4info_and_pagelist - update l4info and pagelist
+ *	get_current_write_zone_info - get maximun serial number zone info
+ *
+ *	@zonep: operate object
+ */
+static void get_current_write_zone_info(ZoneManager *zonep)
+{
+	int ret = 0;
+	unsigned int last_right_pageid;
+	Zone *zone = zonep->last_zone;
+	
+	zonep->pl = Create_read_pagelist(zonep, zonep->last_pi);
+	if (!(zonep->pl) && zonep->pagecount == 0)
+		last_right_pageid = zonep->last_pi->PageID;
+	else {
+		ret = Zone_RawMultiReadPage(zonep->last_zone, zonep->pl);
+		if (ret != 0)
+			zonep->need_write_last_data = 1;
+		
+		last_right_pageid = analy_pagelist(zonep->pl);
+	}
+
+	zone->pageCursor = last_right_pageid;
+	zone->allocPageCursor = last_right_pageid;
+	zone->allocedpage = calc_alloced_page(zonep, last_right_pageid);
+}
+
+/** 
+ *	start_recycle - start boot recycle
+ *
+ *	@zonep: operate object
+ */
+static void start_recycle(ZoneManager *zonep)
+{
+	Message boot_recycle_msg;
+	int msghandle;
+	Context *conptr = (Context *)(zonep->context);
+	ndprint(ZONEMANAGER_INFO,"WARNNING: bootprepare find a error,Deal with it!\n");
+#ifndef NO_ERROR
+	boot_recycle_msg.msgid = BOOT_RECYCLE_ID;
+	boot_recycle_msg.prio = BOOT_RECYCLE_PRIO;
+	boot_recycle_msg.data = zonep->context;
+
+	msghandle = Message_Post(conptr->thandle, &boot_recycle_msg, WAIT);
+	Message_Recieve(conptr->thandle, msghandle);
+#endif
+}
+
+/** 
+ *	free_last_data_buf - free buf of last data
+ *
+ *	@zonep: operate object
+ */
+static void free_last_data_buf(ZoneManager *zonep)
+{
+	Nand_ContinueFree(zonep->last_data_buf);
+}
+
+/** 
+ *	update_l1l2l3l4_and_pagelist - update l1l2l3l4info and pagelist
  *
  *	@zonep: operate object
  *	@zone: which zone pagelist is on
  *	@pi: write pageinfo
  *	@pl: write pagelist
  */
-static PageList *update_l4info_and_pagelist(ZoneManager *zonep, Zone *zone, PageInfo *pi, PageList *pl)
+static PageList *update_l1l2l3l4_and_pagelist(ZoneManager *zonep, Zone *zone, PageInfo *pi, PageList *pl)
 {
 	int i;
 	PageList *pl_node = pl;
 	PageList *pl_pre = pl;
 	unsigned int spp = zonep->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned short l4infolen = pi->L4InfoLen;
+	unsigned int *l1info = (unsigned int *)(pi->L1Info);
+	unsigned int *l2info = (unsigned int *)(pi->L2Info);
+	unsigned int *l3info = (unsigned int *)(pi->L3Info);
 	unsigned int *l4info = (unsigned int *)(pi->L4Info);
+
+	pi->PageID = Zone_AllocNextPage(zone);
+	l1info[pi->L1Index] = pi->PageID;
 	
 	for (i = 0; i < l4infolen >> 2; i++) {
 		if (l4info[i] / spp > pi->PageID && page_in_current_zone(zonep,zone->ZoneID,l4info[i] / spp)) {
@@ -1096,6 +1141,15 @@ static PageList *update_l4info_and_pagelist(ZoneManager *zonep, Zone *zone, Page
 			l4info[i] = pl_node->startPageID * spp;
 			pl_node = (PageList *)(pl->head.next);
 		}
+	}
+
+	if(pi->L3InfoLen != 0) {
+		if(pi->L2InfoLen != 0) {
+			l2info[pi->L2Index] = pi->PageID;
+			l3info[pi->L3Index] = pi->PageID;
+		}
+		else
+			l3info[pi->L3Index] = pi->PageID;
 	}
 
 	pl_pre->head.next = NULL;
@@ -1114,29 +1168,34 @@ static int write_data_prepare ( int context )
 	Zone *zone = NULL;
 	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
+	int msghandle;
 
 	count = ZoneManager_GetAheadCount(context);
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
 		if (!zone) {
+			ndprint(ZONEMANAGER_INFO,"ZoneManager,WARNING: There is not enough zone and start force recycle, count = %d\n", count);
+#ifndef NO_ERROR			
 			/* force recycle */
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
 			force_recycle_msg.data = context;
 			
-			Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
-			Message_Recieve(conptr->thandle, FORCE_RECYCLE_ID);
+			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
+			Message_Recieve(conptr->thandle, msghandle);
+#endif			
+			zone = ZoneManager_AllocZone(context);
 		}
 		ZoneManager_SetAheadZone(context,zone);
 	}	
 
 	count = ZoneManager_GetAheadCount(context);
 	if (count > 0 && count < 4) {
-		ndprint(1,"WARNING: can't alloc four zone beforehand, free zone count is %d \n", count);
+		ndprint(ZONEMANAGER_ERROR,"WARNING: can't alloc four zone beforehand, free zone count is %d \n", count);
 		return 0;
 	}
 	else if (count == 0){
-		ndprint(1,"ERROR: There is no free zone exist!!!!!! \n");
+		ndprint(ZONEMANAGER_ERROR,"ERROR: There is no free zone exist!!!!!! \n");
 		return -1;
 	}
 
@@ -1182,35 +1241,33 @@ static int write_last_data(ZoneManager *zonep, PageInfo *pi, PageList *pl)
 	int ret = 0;
 	unsigned int pagecount;
 	unsigned int freepage_count;
-	unsigned int last_right_pageid;
 	Zone *zone = zonep->last_zone;
 	PageList *pl_next = NULL;
-	
-	last_right_pageid = analy_pagelist(pl, &pagecount);
-	zone->allocPageCursor = last_right_pageid + 1;
-	zone->allocedpage = calc_alloced_page(zonep, last_right_pageid);
+
+	pagecount = zonep->pagecount;
 	freepage_count = Zone_GetFreePageCount(zone);
 
 	if (freepage_count >= pagecount) {
-		update_l4info_and_pagelist(zonep,zone,pi,pl);
+		update_l1l2l3l4_and_pagelist(zonep,zone,pi,pl);
 		ret = Zone_MultiWritePage(zone,pagecount,pl,pi);
-		if (Zone_GetFreePageCount(zone) == pagecount)
+		
+		if (freepage_count == pagecount)
 			alloc_new_zone_write(zonep->context,zone);
 	}
 	else {
 		if(freepage_count == 1) {
 			ret = Zone_MultiWritePage(zone,0,NULL,pi);
 			if(ret != 0) {
-				ndprint(1,"vNand MultiPage Write error func %s line %d \n",
+				ndprint(ZONEMANAGER_ERROR,"vNand MultiPage Write error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 				return -1;
 			}
 		}
 		else if(freepage_count > 1) {
-			pl_next = update_l4info_and_pagelist(zonep,zone,pi,pl);
+			pl_next = update_l1l2l3l4_and_pagelist(zonep,zone,pi,pl);
 			ret = Zone_MultiWritePage(zone,pagecount,pl,pi);
 			if(ret != 0) {
-				ndprint(1,"vNand MultiPage Write error func %s line %d \n",
+				ndprint(ZONEMANAGER_ERROR,"vNand MultiPage Write error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 				return -1;
 			}	
@@ -1223,10 +1280,10 @@ static int write_last_data(ZoneManager *zonep, PageInfo *pi, PageList *pl)
 		if (pl_next)
 			pl = pl_next;
 		
-		update_l4info_and_pagelist(zonep,zone,pi,pl);
+		update_l1l2l3l4_and_pagelist(zonep,zone,pi,pl);
 		ret = Zone_MultiWritePage(zone,pagecount,pl,pi);
 		if(ret != 0) {
-			ndprint(1,"vNand MultiPage Write error func %s line %d \n",
+			ndprint(ZONEMANAGER_ERROR,"vNand MultiPage Write error func %s line %d \n",
 				__FUNCTION__,__LINE__);
 			return -1;
 		}		
@@ -1243,29 +1300,18 @@ static int write_last_data(ZoneManager *zonep, PageInfo *pi, PageList *pl)
  */
 static int deal_data(ZoneManager *zonep, PageInfo *pi)
 {
-	int ret = 0;
-	PageList *pl;
+	PageList *pl = zonep->pl;
 	BuffListManager *blm = ((Context *)(zonep->context))->blm;
-	
-	ret = alloc_last_data_buf(zonep, pi);
-	if (ret != 0) {
-		ndprint(1,"alloc_last_data_buf error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-		return -1;	
-	}
 
-	pl = Create_read_pagelist(zonep, pi);
 	if (!pl)
-		return ret;
+		return 0;
 	
-	ret = Zone_RawMultiReadPage(zonep->last_zone, pl);
-	if (ret != 0)
+	if (zonep->need_write_last_data == 1)
 		write_last_data(zonep, pi, pl);
 
 	BuffListManager_freeAllList((int)blm, (void *)&pl, sizeof(PageList));
-	free_last_data_buf(zonep);
 
-	return ret;
+	return 0;
 }
 
 /** 
@@ -1280,43 +1326,45 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 	PageInfo *pi = &pageinfo;
 		
 	if (zonep->useZone->usezone_count == 0) {
-		ndprint(1,"no zone used func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"no zone used func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		return 0;
 	}
 	
 	ret = alloc_pageinfo(pi, zonep);
 	if (ret != 0) {
-		ndprint(1,"alloc_pageinfo error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc_pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
 	ret = get_maxserial_zone(zonep);
 	if (ret != 0) {
-		ndprint(1,"get_maxserial_zone error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"get_maxserial_zone error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		goto err;
 	}
 
 	ret = get_last_pageinfo(zonep, &pi);
 	if (ret != 0) {
-		ndprint(1,"get_last_pageinfo error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"get_last_pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		goto err;	
 	}
 
+	get_current_write_zone_info(zonep);
+
 	if (pi->zoneID != 0xffff) {
-		zonep->last_pi = pi;
 		zonep->last_rzone_id = pi->zoneID;
 		CacheManager_Init(zonep->context);
 		start_recycle(zonep);
 	}
 	else
 		ret = deal_data(zonep, pi);
-	
+
 err:
-	free_pageinfo(pi,zonep);
+	free_pageinfo(pi,zonep);	
+	free_last_data_buf(zonep);
 	return ret;
 }
 
@@ -1335,7 +1383,7 @@ Zone* ZoneManager_AllocZone (int context)
 	zoneptr = alloc_zone(zonep);
 	if(zoneptr == NULL)
 	{
-		ndprint(1,"alloc Zone error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"alloc Zone error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		return NULL;			
 	}
@@ -1343,7 +1391,7 @@ Zone* ZoneManager_AllocZone (int context)
 	zoneptr->sigzoneinfo = alloc_free_node(zonep);
 	if(zoneptr->sigzoneinfo == NULL)
 	{
-		ndprint(1,"alloc free node error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc free node error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		goto err;			
 	}
@@ -1416,19 +1464,6 @@ L1Info* ZoneManager_GetL1Info (int context)
 }
 
 /** 
- *	ZoneManager_GetUsedZoneTable - get hashtable of usezone
- *
- *	@context: global variable
- */
-Hash* ZoneManager_GetUsedZoneTable (int context)
-{
-	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
-	NandMutex_Lock(&zonep->HashMutex);
-	return zonep->useZone;
-}
-
-/** 
  *	ZoneManager_Init - Initialize operation
  *
  *	@context: global variable
@@ -1439,10 +1474,11 @@ int ZoneManager_Init (int context )
 {
 	int ret = -1;
 	Context *conptr  = (Context *)context;
+	int pageperzone = conptr->vnand.PagePerBlock * BLOCKPERZONE(zone->vnand);
 	ZoneManager *zonep = Nand_ContinueAlloc(sizeof(ZoneManager));
 	if(zonep == NULL)
 	{
-		ndprint(1,"alloc zonemanager fail func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc zonemanager fail func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
@@ -1451,11 +1487,26 @@ int ZoneManager_Init (int context )
 	zonep->context = context;
 	zonep->vnand = &conptr->vnand;
 	zonep->pt_zonenum = get_pt_zone_num(zonep->vnand);
+	if (zonep->pt_zonenum == 0){
+		ndprint(ZONEMANAGER_ERROR,"The partition has no zone that can be used!\n");
+		return -1;
+	}
+
+	zonep->zonevalidinfo.zoneid = -1;
+	zonep->zonevalidinfo.cur = -1;
+	zonep->zonevalidinfo.wpages = (Wpages *)Nand_ContinueAlloc(sizeof(Wpages) * pageperzone);
+	if (zonep->zonevalidinfo.wpages == NULL)
+	{
+		ndprint(ZONEMANAGER_ERROR,"alloc zonemanager fail func %s line %d \n",
+					__FUNCTION__,__LINE__);
+		return -1;
+
+	}
 
 	ret = alloc_zonemanager_memory(zonep,&conptr->vnand);
 	if(ret != 0)
 	{
-		ndprint(1,"alloc zonemanager memory error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc zonemanager memory error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return ret;			
 	}
@@ -1463,7 +1514,7 @@ int ZoneManager_Init (int context )
 	ret = init_free_node(zonep);
 	if(ret != 0)
 	{
-		ndprint(1,"init free node error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"init free node error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;			
 	}
@@ -1471,7 +1522,7 @@ int ZoneManager_Init (int context )
 	ret = init_used_node(zonep);
 	if(ret != 0)
 	{
-		ndprint(1,"init used node error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"init used node error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;			
 	}
@@ -1488,7 +1539,7 @@ int ZoneManager_Init (int context )
 	ret = deal_maxserial_zone(zonep);
 	if(ret != 0)
 	{
-		ndprint(1,"deal_maxserial_zone error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"deal_maxserial_zone error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;			
 	}
@@ -1530,8 +1581,10 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 	unsigned int vaildpage =  conptr->vnand.PagePerBlock * BLOCKPERZONE(zone->vnand);
 
 	index = Hash_FindFirstLessLifeTime(zonep->useZone,lifetime,&sigp);
-	if(index == -1)
+	if(index == -1){
+		ndprint(ZONEMANAGER_ERROR,"Can't find the lifetime. Please give a new larger lifetime!! \n");
 		return -1;
+	}
 
 	do {
 		if(vaildpage > sigp->validpage)
@@ -1543,16 +1596,16 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 		}
 		else if(vaildpage == sigp->validpage)
 			flag++;
-
+		
 		count++;
-
+		
 		index = Hash_FindNextLessLifeTime(zonep->useZone,index,&sigp);
 	}
 	while(index != -1);
 
 	if (flag >= count - 1)
 		Hash_FindFirstLessLifeTime(zonep->useZone,zonep->useZone->minlifetime + 1,&sigpt);
-
+	
 	return (sigpt - zonep->sigzoneinfo);
 }
 
@@ -1586,7 +1639,7 @@ unsigned int L1Info_get(int context ,unsigned int sectorID)
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
 	unsigned int index = sectorID / (zonep->vnand->PagePerBlock * 
-						zonep->vnand->TotalBlocks *4);
+						zonep->vnand->TotalBlocks *(zonep->vnand->BytePerPage/SECTOR_SIZE));
 	return (zonep->L1).page[index];					
 }
 
@@ -1601,7 +1654,7 @@ void L1Info_set(int context,unsigned int sectorID,unsigned int PageID)
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
 	unsigned int index = sectorID / (zonep->vnand->PagePerBlock * 
-						zonep->vnand->TotalBlocks *4);
+									 zonep->vnand->TotalBlocks *(zonep->vnand->BytePerPage/SECTOR_SIZE));
 	NandMutex_Lock(&(zonep->L1).mutex);
 	 (zonep->L1).page[index] = PageID;				
 	NandMutex_Unlock(&(zonep->L1).mutex);
@@ -1625,7 +1678,7 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 	zoneptr = alloc_zone(zonep);
 	if(zoneptr == NULL)
 	{
-		ndprint(1,"alloc Zone error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"alloc Zone error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		return NULL;			
 	}
@@ -1646,7 +1699,7 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 
 	if(i == 8)
 	{
-		ndprint(1,"PANIC ERROR func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"PANIC ERROR func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		goto err;			
 	}
@@ -1654,7 +1707,7 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 	ret = delete_used_node(zonep,ZoneID);
 	if(ret != 0)
 	{
-		ndprint(1,"delete used node error func %s line %d\n",
+		ndprint(ZONEMANAGER_ERROR,"delete used node error func %s line %d\n",
 					__FUNCTION__,__LINE__);
 		goto err;			
 	}

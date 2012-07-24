@@ -11,7 +11,7 @@ typedef struct task_struct* PNandThread;
 typedef int (*PThreadFunction)(void *data);
 
 static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name){
-	PNandThread thread;
+	PNandThread thread = NULL;
 	struct sched_param param = { .sched_priority = 1 };
 	
 	thread = kthread_create(fn, (void *)thread, "dthread");

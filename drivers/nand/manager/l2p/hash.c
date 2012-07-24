@@ -22,13 +22,13 @@ int Hash_init ( Hash **hash, SigZoneInfo *top, unsigned short *zoneid, int count
 
 	*hash = (Hash *)Nand_VirtualAlloc(sizeof(Hash));
 	if (!(*hash)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 	
 	(*hash)->top = (HashNode **)Nand_VirtualAlloc(sizeof(HashNode *) * HASHNODE_COUNT);
 	if (!((*hash)->top)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		Nand_VirtualFree(*hash);
 		return -1;
 	}
@@ -46,7 +46,7 @@ int Hash_init ( Hash **hash, SigZoneInfo *top, unsigned short *zoneid, int count
 
 	return 0;
 ERROR:
-	ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+	ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 	Nand_VirtualFree((*hash)->top);
 	Nand_VirtualFree(*hash);
 	return -1;
@@ -82,14 +82,16 @@ int Hash_Insert ( Hash *hash, SigZoneInfo *szi )
 	int ret, pos;
 
 	if (hash->usezone_count >= hash->zoneID_count) {
-		ndprint(1,"zoneID[] was full fun %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"zoneID[] was full fun %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
 	pos = szi->lifetime % 100 / (100 / HASHNODE_COUNT);
 	ret = HashNode_insert(hash->top[pos], szi);
-	if (ret == 0)
-		hash->usezone_count++;
+	if (ret != 0)
+		return -1;
+
+	hash->usezone_count++;
 
 	/* update minlifetime and maxlifetime */
 	if (szi->lifetime != -1 && szi->lifetime > hash->maxlifetime)
@@ -113,7 +115,7 @@ int Hash_delete ( Hash *hash, SigZoneInfo *szi )
 	int i, ret, pos;
 
 	if (hash->usezone_count == 0) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 	else if (hash->usezone_count == 1) {
@@ -124,7 +126,7 @@ int Hash_delete ( Hash *hash, SigZoneInfo *szi )
 	pos = szi->lifetime % 100 / (100 / HASHNODE_COUNT);
 	ret = HashNode_delete(hash->top[pos], szi);
 	if (ret == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -170,7 +172,7 @@ int Hash_FindFirstLessLifeTime ( Hash *hash, unsigned int lifetime, SigZoneInfo 
 	hash->find_lifetime = lifetime;
 	
 	if (lifetime <= hash->minlifetime) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		*szi = NULL;
 		return -1;
 	}

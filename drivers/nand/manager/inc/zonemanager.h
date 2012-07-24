@@ -9,9 +9,22 @@
 #include "sigzoneinfo.h"
 #include "zone.h"
 #include "pageinfo.h"
+#include "pagelist.h"
+
+typedef struct _Wpages Wpages;
+struct _Wpages {
+	unsigned int startpage;
+	unsigned short pagecnt;
+};
+
+typedef struct _ZoneValidInfo ZoneValidInfo;
+struct _ZoneValidInfo {
+	Wpages *wpages;
+	int zoneid;
+	int cur;
+};
 
 typedef struct _ZoneManager ZoneManager;
-
 struct _ZoneManager {
 	HashNode* freeZone;
 	Hash* useZone;
@@ -41,6 +54,10 @@ struct _ZoneManager {
 	int context;
 	unsigned char *last_data_buf;
 	PageInfo *last_pi;
+	PageList *pl;
+	unsigned int pagecount;
+	ZoneValidInfo zonevalidinfo;
+	int need_write_last_data;
 };
 
 Zone* ZoneManager_AllocZone (int context);

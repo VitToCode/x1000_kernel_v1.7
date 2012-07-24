@@ -17,7 +17,7 @@ static unsigned short find_location(HashNode *hashnode, short value)
 	unsigned short offset;
 
 	if (hashnode->count == 0) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -49,7 +49,7 @@ int HashNode_init ( HashNode **hashnode, SigZoneInfo *top, unsigned short *zonei
 
 	*hashnode = (HashNode *)Nand_VirtualAlloc(sizeof(HashNode));
 	if (!(*hashnode)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -101,7 +101,7 @@ int HashNode_insert ( HashNode *hashnode, SigZoneInfo *sigzoneinfo )
 	unsigned short offset = sigzoneinfo - hashnode->base_szi;
 	
 	if (hashnode->count >= hashnode->zoneID_count) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -143,7 +143,7 @@ int HashNode_delete ( HashNode *hashnode, SigZoneInfo *sigzoneinfo )
 	unsigned short temp;
 	
 	if (hashnode->count == 0) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 	else if (hashnode->count == 1) {
@@ -170,7 +170,7 @@ int HashNode_delete ( HashNode *hashnode, SigZoneInfo *sigzoneinfo )
 	else {//delete between head and tail
 		location = find_location(hashnode, offset);
 		if (location == (unsigned short)(-1)) {
-			ndprint(1,"Can't find func %s line %d\n", __FUNCTION__, __LINE__);
+			ndprint(HASHNODE_ERROR,"Can't find func %s line %d\n", __FUNCTION__, __LINE__);
 			return -1;
 		}
 	
@@ -259,7 +259,7 @@ int HashNode_FindFirstLessLifeTime(HashNode *hashnode, unsigned int lifetime, Si
 	hashnode->find_lifetime = lifetime;
 
 	if (hashnode->minlifetime >= lifetime) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		*sigzoneinfo = NULL;
 		return -1;
 	}
@@ -299,7 +299,7 @@ int HashNode_FindNextLessLifeTime(HashNode *hashnode, int prev, SigZoneInfo **si
 	int offset;
 
 	if (hashnode->minlifetime >= hashnode->find_lifetime) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		*sigzoneinfo = NULL;
 		return -1;
 	}

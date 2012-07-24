@@ -245,10 +245,11 @@ void ZoneMemory_DeleteUnits(int zid,void* pu,int count){
 	ZoneMemory *z = (ZoneMemory*)zid;
 	ZoneBuffer *ztmp;
 	struct singlelist *pz;
-	NandMutex_Lock(&z->mutex);
 #ifdef DEBUG
 	int release = 0;
 #endif
+
+	NandMutex_Lock(&z->mutex);
 	singlelist_for_each(pz,&(z->top->head)){
 		ztmp = singlelist_entry(pz,ZoneBuffer,head);
 		if(((unsigned int)pu >= (unsigned int)ztmp->mBuffer) && ((unsigned int)pu < (unsigned int)ztmp->mBuffer + ztmp->bitsize * z->usize)){

@@ -41,7 +41,7 @@ int Message_Post (int handle, Message *msg, int type ){
 	if(type == WAIT)
 	{
 		sem = (NandSemaphore *)ZoneMemory_NewUnits(zid,UNITDIM(sizeof(NandSemaphore)));
-		InitSemphore(sem,0);
+		InitSemaphore(sem,0);
 		msglist->msghandle = (int)sem;
 
 	}else{
@@ -55,7 +55,7 @@ int Message_Post (int handle, Message *msg, int type ){
   	NandMutex_Unlock(&task->taskmutex);
 	
 	/*Insert one msg,the task_sem will add 1*/
-	Semphore_signal(&task->tasksem);	
+	Semaphore_signal(&task->tasksem);	
 	return msglist->msghandle;
 }
 
@@ -97,10 +97,10 @@ int  Message_Recieve (int handle,int msghandle){
 		ndprint(1,"Not find wait msg handle = %d \n", msghandle);
 	}
 	else {
-		Semphore_wait(sem);		
+		Semaphore_wait(sem);		
 		NandMutex_Lock(&task->taskmutex);
 		ret = msglist->bexit;
-		DeinitSemphore(sem);
+		DeinitSemaphore(sem);
 		
 		singlelist_del(&task->finishtop,&msglist->head);
 
@@ -151,10 +151,11 @@ static int Qtask(void *handle){
 	MessageList  *msglist = NULL;
 	struct singlelist *head;
 	HandleFuncList *hfl;
-	int ret;
+	int ret = -1;
 	int zid = task->zid;
+
 	while(1){
-		Semphore_wait(&task->tasksem);
+		Semaphore_wait(&task->tasksem);
 
 
 		if(task->msgtop.next == NULL){
@@ -187,7 +188,7 @@ static int Qtask(void *handle){
 		NandMutex_Lock(&task->taskmutex);
 		if(msglist->type == WAIT){
 			msglist->bexit = ret;
-			Semphore_signal((NandSemaphore *)msglist->msghandle);			
+			Semaphore_signal((NandSemaphore *)msglist->msghandle);			
 		}else{
 
 			singlelist_del(&task->finishtop,&msglist->head);
@@ -236,7 +237,7 @@ int Task_Init(int context){
 	task->prData = (void *)context;
 	task->IdleFunc = NULL;
 	
-	InitSemphore(&task->tasksem,0);
+	InitSemaphore(&task->tasksem,0);
 	InitNandMutex(&task->taskmutex);
 
 	task->qid = CreateThread(Qtask,(void *)task,1,"Qtask");
@@ -250,7 +251,7 @@ int Task_Init(int context){
 void Task_Deinit(int handle){
 	TaskManager* task = (TaskManager*)handle;
 	int zid = task->zid;
-	DeinitSemphore(&task->tasksem);
+	DeinitSemaphore(&task->tasksem);
 	DeinitNandMutex(&task->taskmutex);
    	ExitThread( task->qid );
 	ExitThread( task->idleid );

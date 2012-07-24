@@ -11,6 +11,11 @@
 #include "ppartition.h"
 #include "sectorlist.h"
 
+enum cmd {
+	SUSPEND,
+	RESUME,
+};
+
 int L2PConvert_Init(PManager *pm);
 void L2PConvert_Deinit(int handle);
 int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt);

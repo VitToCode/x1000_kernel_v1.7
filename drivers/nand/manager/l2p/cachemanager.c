@@ -426,17 +426,13 @@ err:
  */
 static int alloc_pageinfo(PageInfo *pageinfo, CacheManager *cachemanager)
 {
-	pageinfo->L1Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L1InfoLen);
-	if (!(pageinfo->L1Info)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR1;
-	}
+	pageinfo->L1Info = (unsigned char *)(cachemanager->L1Info->Index);
 	
 	if (cachemanager->L2InfoLen) {
 		pageinfo->L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L2InfoLen);
 		if (!(pageinfo->L2Info)) {
 			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR2;
+			goto ERROR1;
 		}
 	}
 	
@@ -444,26 +440,24 @@ static int alloc_pageinfo(PageInfo *pageinfo, CacheManager *cachemanager)
 		pageinfo->L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L3InfoLen);
 		if (!(pageinfo->L3Info)) {
 			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR3;
+			goto ERROR2;
 		}
 	}
 	
 	pageinfo->L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L4InfoLen);
 	if (!(pageinfo->L4Info)) {
 		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR4;
+		goto ERROR3;
 	}
 
 	return 0;
 
-ERROR4:
+ERROR3:
 	if (cachemanager->L3InfoLen)
 		Nand_VirtualFree(pageinfo->L3Info);
-ERROR3:
+ERROR2:
 	if (cachemanager->L2InfoLen)
 		Nand_VirtualFree(pageinfo->L2Info);
-ERROR2:
-	Nand_VirtualFree(pageinfo->L4Info);
 ERROR1:
 	return -1;
 }
@@ -476,8 +470,6 @@ ERROR1:
  */
 static void free_pageinfo(PageInfo *pageinfo, CacheManager *cachemanager)
 {
-	Nand_VirtualFree(pageinfo->L1Info);
-	
 	if (cachemanager->L2InfoLen)
 		Nand_VirtualFree(pageinfo->L2Info);
 	
@@ -955,8 +947,8 @@ ERROR:
  */
 void CacheManager_unlockCache ( int context, PageInfo *pi )
 {
-	CacheData *L3_cachedata;
-	CacheData *L4_cachedata;
+	CacheData *L3_cachedata = NULL;
+	CacheData *L4_cachedata = NULL;
 	struct singlelist *pos;
 	Context *conptr = (Context *)context;
 	CacheManager *cachemanager = conptr->cachemanager;

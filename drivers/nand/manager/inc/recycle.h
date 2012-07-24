@@ -32,6 +32,9 @@ struct _Recycle {
 	NandMutex mutex;
 	unsigned int force; 
 	int context;
+	int suspend;
+	NandMutex suspend_mutex;
+	NandSemaphore sem;
 
 	/**** force recycle ****/
 	Zone *force_rZone;
@@ -69,6 +72,9 @@ int Recycle_OnFragmentHandle ( int context );
 int Recycle_OnBootRecycle ( int context );
 int Recycle_OnForceRecycle ( int context );
 int Recycle_OnNormalRecycle ( int context );
+int Recycle_Suspend ( int context );
+int Recycle_Resume ( int context );
+
 /* for test add interface  */
 int Recycle_getRecycleZone ( Recycle *rep);
 int Recycle_FindFirstPageInfo ( Recycle *rep);

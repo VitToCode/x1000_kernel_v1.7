@@ -41,48 +41,73 @@ int Recycle_OnFragmentHandle ( int context )
 	switch(rep->taskStep) {
 		case RECYSTART:
 		case GETZONE:
-			 ret = getRecycleZone(rep);
+			ret = getRecycleZone(rep);
 			if (ret == -1)
-			 	goto ERROR;
+				goto ERROR;
 			break;
 		case READFIRSTINFO:
-			 ret = FindFirstPageInfo(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			ret = FindFirstPageInfo(rep);
+			if (ret == -1)
+				goto ERROR;
+			break;
 		case FINDVAILD:
-			 ret = FindValidSector(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			ret = FindValidSector(rep);
+			if (ret == -1)
+				goto ERROR;
+			break;
 		case MERGER:
-			 ret = MergerSectorID(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			ret = MergerSectorID(rep);
+			if (ret == -1)
+				goto ERROR;
+			break;
 		case RECYCLE:
 			ret = RecycleReadWrite(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			if (ret == -1)
+			 goto ERROR;
+			break;
 		case READNEXTINFO:
-			 ret = FindNextPageInfo(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			ret = FindNextPageInfo(rep);
+			if (ret == -1)
+				goto ERROR;
+			break;
 		case FINISH:
-			 ret = FreeZone(rep);
-			 if (ret == -1)
-			 	goto ERROR;
-			 break;
+			ret = FreeZone(rep);
+			if (ret == -1)
+				goto ERROR;
+			break;
 		case RECYIDLE:
 			break;
-		 default:
+		default:
 			break;
 	}
 
 ERROR:
 	return ret;
+}
+
+/** 
+ *	is_suspend - whether suspend or not
+ *
+ *	@rep: operate object
+ */
+static int is_suspend(Recycle *rep)
+{
+	int suspend;
+	
+	NandMutex_Lock(&rep->suspend_mutex);
+	suspend = rep->suspend;
+	NandMutex_Unlock(&rep->suspend_mutex);
+
+	return suspend;
+}
+/** 
+ *	do_nothing - do nothing
+ *
+ *	@rep: operate object
+ */
+static void do_nothing(Recycle *rep)
+{
+	Semaphore_wait(&rep->sem);
 }
 
 /** 
@@ -110,8 +135,11 @@ int Recycle_OnNormalRecycle ( int context )
 	while(1) {
 		if (ret == -1 || rep->taskStep == RECYIDLE)
 			break;
-		
-		ret = Recycle_OnFragmentHandle(context);
+
+		if (is_suspend(rep))
+			do_nothing(rep);
+		else
+			ret = Recycle_OnFragmentHandle(context);
 	}
 	
 	return ret;
@@ -186,8 +214,7 @@ static unsigned short get_normal_zoneID(int context)
 
 	minlifetime = ZoneManager_Getminlifetime(context);
 	maxlifetime = ZoneManager_Getmaxlifetime(context);
-	lifetime = ( maxlifetime - minlifetime ) / 3;
-	lifetime = minlifetime + lifetime;
+	lifetime = minlifetime + ( maxlifetime - minlifetime ) / 3;
 
 	if (lifetime == minlifetime)
 		return ZoneManager_ForceRecyclezoneID(context,lifetime + 1);
@@ -238,15 +265,18 @@ static int is_same_L4(PageInfo *prev_pi, PageInfo *next_pi)
 {
 	if (prev_pi->L3InfoLen) {
 		if (prev_pi->L2InfoLen)
-			return prev_pi->L1Index == next_pi->L1Index 
+			return prev_pi->L1Index != 0xffff
+				&& prev_pi->L1Index == next_pi->L1Index 
 				&& prev_pi->L2Index == next_pi->L2Index 
 				&& prev_pi->L3Index == next_pi->L3Index;
 		else
-			 return prev_pi->L1Index == next_pi->L1Index
+			 return prev_pi->L1Index != 0xffff
+			 	&& prev_pi->L1Index == next_pi->L1Index
 				&& prev_pi->L3Index == next_pi->L3Index;
 	}
 	else
-		return prev_pi->L1Index == next_pi->L1Index;
+		return prev_pi->L1Index != 0xffff
+			&& prev_pi->L1Index == next_pi->L1Index;
 }
 
 /** 
@@ -273,9 +303,7 @@ static int FindFirstPageInfo ( Recycle *rep)
 	if(ret != 0) {
 		ndprint(1,"Find First Pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		recycle_free_pageinfo(rep,prev_pi);
-		NandMutex_Unlock(&rep->mutex);
-		return -1;			
+		goto err1;			
 	}
 	
 	rep->curpageinfo = prev_pi;
@@ -289,15 +317,14 @@ static int FindFirstPageInfo ( Recycle *rep)
 		if(pi == NULL) {
 			ndprint(1,"force recycle alloc pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			return -1;
+			goto err0;
 		}
 		
 		ret = Zone_FindNextPageInfo(rep->rZone,pi);
 		if(ret != 0) {
 			ndprint(1,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			recycle_free_pageinfo(rep,pi);
-			return -1;			
+			goto err1;			
 		}
 
 		rep->prevpageinfo = rep->curpageinfo;
@@ -310,8 +337,13 @@ static int FindFirstPageInfo ( Recycle *rep)
 exit:
 	rep->taskStep = FINDVAILD;
 	NandMutex_Unlock(&rep->mutex);
-
 	return 0;
+
+err1:
+	recycle_free_pageinfo(rep,pi);
+err0:
+	NandMutex_Unlock(&rep->mutex);
+	return -1;
 }
  
 /** 
@@ -341,14 +373,24 @@ exit:
 	l2index = pi->L2Index;
 	l3index = pi->L3Index;
 
+	if (l1index == 0xffff)
+		return -1;
+
 	if(pi->L3InfoLen == 0)
 		start_sectorID = l1index * l1unitlen;
 	else {
+		if (l2index == 0xffff)
+			return -1;
+		
 		if(pi->L2InfoLen == 0)
 			start_sectorID = l1index * l1unitlen + l3index * l3unitlen;
-		else
+		else {
+			if (l2index == 0xffff)
+				return -1;
+			
 			start_sectorID = l3index * l3unitlen + 
 				l2index * l2unitlen + l1index * l1unitlen;
+		}
 	}
 
 	NandMutex_Lock(&rep->mutex);
@@ -750,8 +792,10 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 	for(i = 0 ; i < len ; i++) {
 		alloc_num--;
 		px = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl, sizeof(PageList));
-		if(px == NULL)
-			ndprint(1,"PANIC ERROR func %s line %d \n",__FUNCTION__,__LINE__);	
+		if(px == NULL) {
+			ndprint(1,"PANIC ERROR func %s line %d \n",__FUNCTION__,__LINE__);
+			return -1;
+		}
 		px->startPageID =  addr[write_cursor] / spp;
 		px->OffsetBytes = 0;
 		px->Bytes = vnand->BytePerPage;
@@ -934,6 +978,8 @@ static int write_data_prepare ( int context )
 			
 			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 			Message_Recieve(conptr->thandle, msghandle);
+			
+			zone = ZoneManager_AllocZone(context);
 		}
 		ZoneManager_SetAheadZone(context,zone);
 	}	
@@ -1317,6 +1363,9 @@ int Recycle_Init(int context)
 	InitNandMutex(&rep->mutex);
 	rep->context = context;
 	rep->force = 0;
+	rep->suspend = 0;
+	InitNandMutex(&rep->suspend_mutex);
+	InitSemaphore(&rep->sem,0);
 
 	return 0;
 }
@@ -1333,6 +1382,46 @@ void Recycle_DeInit(int context)
 
 	Nand_ContinueFree(rep->record_writeadd);
 	Nand_ContinueFree(rep);
+}
+
+/** 
+ *	Recycle_Suspend - suspend recycle process
+ *
+ *	@context: global variable
+ */
+int Recycle_Suspend ( int context )
+{
+	Context *conptr = (Context *)context;
+	Recycle *rep = conptr->rep;
+
+	NandMutex_Lock(&rep->suspend_mutex);
+	rep->suspend = 1;
+	NandMutex_Unlock(&rep->suspend_mutex);
+
+	ndprint(0, "recycle suspend...........\n");
+
+	return 0;
+}
+
+/** 
+ *	Recycle_Resume -resume recycle process
+ *
+ *	@context: global variable
+ */
+int Recycle_Resume ( int context )
+{
+	Context *conptr = (Context *)context;
+	Recycle *rep = conptr->rep;
+
+	ndprint(0, "recycle resume...........\n");
+
+	NandMutex_Lock(&rep->suspend_mutex);
+	rep->suspend = 0;
+	NandMutex_Unlock(&rep->suspend_mutex);
+
+	Semaphore_signal(&rep->sem);
+
+	return 0;
 }
 
 /* for test function  */
@@ -1626,14 +1715,23 @@ static int OnForce_FindValidSector ( Recycle *rep)
 	l2index = pi->L2Index;
 	l3index = pi->L3Index;
 
+	if (l1index == 0xffff)
+		return -1;
+	
 	if(pi->L3InfoLen == 0)
 		start_sectorID = l1index * l1unitlen;
 	else {
+		if (l3index == 0xffff)
+			return -1;
+		
 		if(pi->L2InfoLen == 0)
 			start_sectorID = l1index * l1unitlen + l3index * l3unitlen;
-		else
+		else {
+			if (l2index == 0xffff)
+				return -1;
 			start_sectorID = l3index * l3unitlen + 
 				l2index * l2unitlen + l1index * l1unitlen;
+		}
 	}
 
 	rep->force_startsectorID = start_sectorID;
@@ -1905,7 +2003,7 @@ static int OnForce_GetBootRecycleZone ( Recycle *rep)
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-	
+		
 	return 0;
 }
 
@@ -1921,6 +2019,7 @@ static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
 	PageInfo *pi = NULL;
 	Context *conptr = (Context *)(rep->context);
 	ZoneManager *zonep = conptr->zonep;
+	int pageperzone = conptr->vnand.PagePerBlock * BLOCKPERZONE(conptr->vnand);
 
 	prev_pi = recycle_alloc_pageinfo(rep,-1);
 	if(prev_pi == NULL) {
@@ -1938,31 +2037,36 @@ static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
 	}
 	
 	rep->force_curpageinfo = prev_pi;
-	do{
-		if(rep->force_rZone->NextPageInfo == 0) {
-			rep->force_end_findnextpageinfo = 1;
-			return 0;
-		}
+	while (pageperzone--) {
+		do{
+			if(rep->force_rZone->NextPageInfo == 0) {
+				rep->force_end_findnextpageinfo = 1;
+				return 0;
+			}
 
-		pi = recycle_alloc_pageinfo(rep,-1);
-		if(pi == NULL) {
-			ndprint(1,"force recycle alloc pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-			return -1;
-		}
-		
-		ret = Zone_FindNextPageInfo(rep->force_rZone,pi);
-		if(ret != 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-			recycle_free_pageinfo(rep,pi);
-			return -1;			
-		}
+			pi = recycle_alloc_pageinfo(rep,-1);
+			if(pi == NULL) {
+				ndprint(1,"force recycle alloc pageinfo error func %s line %d \n",
+						__FUNCTION__,__LINE__);
+				return -1;
+			}
+			
+			ret = Zone_FindNextPageInfo(rep->force_rZone,pi);
+			if(ret != 0) {
+				ndprint(1,"find next pageinfo error func %s line %d \n",
+						__FUNCTION__,__LINE__);
+				recycle_free_pageinfo(rep,pi);
+				return -1;			
+			}
 
-		rep->force_prevpageinfo = rep->force_curpageinfo;
-		rep->force_curpageinfo = pi;
-	}while(is_same_L4(rep->force_prevpageinfo, rep->force_curpageinfo)
-			&& is_same_L4(rep->force_prevpageinfo, zonep->last_pi));
+			rep->force_prevpageinfo = rep->force_curpageinfo;
+			rep->force_curpageinfo = pi;
+		}while(is_same_L4(rep->force_prevpageinfo, rep->force_curpageinfo));
+
+		if (is_same_L4(rep->force_prevpageinfo, zonep->last_pi)
+			|| rep->force_end_findnextpageinfo == 1)
+			break;
+	}
 
 	rep->force_nextpageinfo = rep->force_curpageinfo;
 	rep->force_curpageinfo = rep->force_prevpageinfo;
@@ -1994,14 +2098,14 @@ int Recycle_OnBootRecycle ( int context )
 	for (i = 0; ; i++) {
 		if (rep->force_end_findnextpageinfo)
 			break;
-		
+
 		if (i == 0)
 			ret = OnBoot_FindFirstValidPageInfo(rep);
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
 		if (ret == -1)
 			goto ERROR;
-
+		
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
 			goto ERROR;

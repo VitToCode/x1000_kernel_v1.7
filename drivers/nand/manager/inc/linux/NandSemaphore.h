@@ -6,24 +6,24 @@
 #include <linux/mutex.h>
 typedef struct semaphore NandSemaphore;
 //val 1 is unLock val 0 is Lock
-static inline void InitSemphore(NandSemaphore*sem,int val){
+static inline void InitSemaphore(NandSemaphore*sem,int val){
 	sema_init(sem,val);
 }
-static inline void DeinitSemphore(NandSemaphore* sem){
+static inline void DeinitSemaphore(NandSemaphore* sem){
 	int ret = down_killable(sem);
 	if (ret == -EINTR)
 		printk("waring: %s, %d\n", __func__, __LINE__);;
 }
 
-static inline void Semphore_wait(NandSemaphore* sem){
+static inline void Semaphore_wait(NandSemaphore* sem){
 	down(sem);
 }
 // timeout return < 0 
-static inline int Semphore_waittimeout(NandSemaphore* sem,long jiffies){
+static inline int Semaphore_waittimeout(NandSemaphore* sem,long jiffies){
 	return down_timeout(sem,jiffies);
 }
 
-static inline void Semphore_signal(NandSemaphore* sem){
+static inline void Semaphore_signal(NandSemaphore* sem){
 	up(sem);
 }
 

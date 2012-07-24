@@ -11,4 +11,11 @@ struct _SectorList {
 	void *pData;
 };
 
+#define copysectorlist(src,tar)						\
+	do{												\
+		src->startSector = tar->startSector;		\
+		src->sectorCount = tar->sectorCount;		\
+		src->pData = tar->pData;					\
+	}while(0)
+
 #endif

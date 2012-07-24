@@ -6,7 +6,6 @@ struct _NandPageInfo {
 	unsigned short NextPageInfo;
 	unsigned short ZoneID;
 	unsigned short len;
-	unsigned char *L1Info;
 	unsigned short L1Index;
 	unsigned char *L2Info;
 	unsigned short L2Index;

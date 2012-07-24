@@ -158,7 +158,7 @@ CacheData *CacheList_get ( CacheList *cachelist, unsigned int indexid )
  */
 unsigned int CacheList_find ( CacheList *cachelist, unsigned int data )
 {
-	unsigned int ret;
+	int ret = 0;
 	struct singlelist *pos;
 	CacheData *cachedata;
 

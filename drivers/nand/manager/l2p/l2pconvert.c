@@ -1,6 +1,7 @@
 #include "l2pconvert.h"
 #include "singlelist.h"
 #include "cachemanager.h"
+#include "delay.h"
 #include "zone.h"
 #include "zonemanager.h"
 #include "sigzoneinfo.h"
@@ -46,7 +47,7 @@ static int Idle_Handler(int data)
 			ndprint(1, "recycle finished!\n\n");
 		}
 
-		//sleep(1);
+		sleep(1);
 	}
 #endif
 	return 0;
@@ -61,13 +62,14 @@ static int Idle_Handler(int data)
 int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 {
 	int ret = 0;
+	Context *conptr;
 
 	if (pt->mode != ZONE_MANAGER) {
 		ndprint(1,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
-	Context *conptr = (Context *)Nand_VirtualAlloc(sizeof(Context));
+	conptr = (Context *)Nand_VirtualAlloc(sizeof(Context));
 	if (!conptr) {
 		ndprint(1,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
 		return -1;
@@ -98,11 +100,11 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 			__FUNCTION__, __LINE__);
 		return -1;
 	}
-
+#ifndef NO_ERROR
 	Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnForceRecycle, FORCE_RECYCLE_ID);
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnBootRecycle, BOOT_RECYCLE_ID);
-
+#endif
 	ret = ZoneManager_Init((int)conptr);
 	if (ret != 0) {
 		ndprint(1,"ZoneManager_Init failed func %s line %d \n",
@@ -266,66 +268,58 @@ static int Write_sectornode_to_pagelist(int context, int sectorperpage, SectorLi
  *
  *	if one node of sl is overflow l4cache, then need to divide it to some node 
  */
-static int analyze_sectorlist(int context, SectorList *sl)
+static SectorList * new_sectorlist(int context, SectorList *sl)
 {
-	int i, ret = 0;
-	int count;
 	SectorList *sl_node;
-	SectorList *sl_next;
 	SectorList *sl_new;
-	SectorList *sl_node_new;
 	struct singlelist *pos;
 	Context *conptr = (Context *)context;
 	CacheManager *cachemanager = conptr->cachemanager;
-	int sectorcount;
 	unsigned l4count = conptr->cachemanager->L4InfoLen >> 2;
-
+   	SectorList *sl_new_top;
+	unsigned char *pdata;
+	int sectorcount;
+	int startsector;
+	if(sl->sectorCount <= 0){
+		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+		return 0;
+	}
 	sl_new = (SectorList *)BuffListManager_getTopNode((int)(conptr->blm), sizeof(SectorList));
-
+	sl_new_top = sl_new;
+	
 	singlelist_for_each(pos, &sl->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
-		sl_next = singlelist_entry(pos->next, SectorList, head);
 
 		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			return -1;
+			goto newsectorlist_error1;
 		}
 		
-		if (sl_node->startSector % l4count + sl_node->sectorCount <= l4count)
-			continue;
-
 		sectorcount = sl_node->sectorCount;
-		sl_node->sectorCount = l4count - sl_node->startSector % l4count;
-
-		if ((sectorcount - sl_node->sectorCount) % l4count == 0)
-			count = (sectorcount - sl_node->sectorCount) / l4count;
-		else
-			count = (sectorcount - sl_node->sectorCount) / l4count + 1;
-
-		for (i = 0; i < count; i++) {
-			sl_node_new = (SectorList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)sl_new, sizeof(SectorList));
-			sl_node_new->startSector = (sl_node->startSector + l4count * (i + 1)) / l4count * l4count;
-
-			if (i == count - 1 && (sectorcount - sl_node->sectorCount) % l4count != 0)
-				sl_node_new->sectorCount = (sectorcount - sl_node->sectorCount) % l4count;
-			else
-				sl_node_new->sectorCount = l4count;
-
-			sl_node_new->pData = sl_node->pData + sl_node->sectorCount * SECTOR_SIZE + l4count * SECTOR_SIZE * i;
+		startsector = sl_node->startSector;
+	    pdata = sl_node->pData;
+		while(sectorcount>0){
+			if(!sl_new)
+				sl_new = (SectorList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)sl_new, sizeof(SectorList));
+			sl_new->startSector = startsector;
+			sl_new->pData = (void *)pdata;
+			if(sectorcount + sl_node->startSector % l4count > l4count){
+				sl_new->sectorCount = l4count - sl_node->startSector % l4count;
+			}else{
+				sl_new->sectorCount = sectorcount - sl_node->startSector % l4count;
+			}
+			startsector += sl_new->sectorCount;
+			sectorcount -= sl_new->sectorCount;
+			pdata += sl_new->sectorCount * SECTOR_SIZE;
 		}
-
-		sl_node->head.next = sl_new->head.next;
-		sl_node_new->head.next = &sl_next->head;
-		sl_new->head.next = NULL;
-		pos = &sl_node_new->head;
+		sl_new = NULL;
 	}
-
-	BuffListManager_freeAllList((int)(conptr->blm), (void **)&sl_new, sizeof(SectorList));
-
-	return ret;
+	return sl_new_top;
+newsectorlist_error1:
+	BuffListManager_freeAllList((int)(conptr->blm), (void **)&sl_new_top, sizeof(SectorList));
+	return NULL;	
 }
-
 /**
  *	L2PConvert_ReadSector  -  Read operation
  *
@@ -395,13 +389,16 @@ static int write_data_prepare ( int context )
 	unsigned int count = 0;
 	Zone *zone = NULL;
 	Context *conptr = (Context *)context;
+#ifndef NO_ERROR
 	Message force_recycle_msg;
 	int msghandle;
-
+#endif
 	count = ZoneManager_GetAheadCount(context);
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
 		if (!zone) {
+			ndprint(1,"WARNING: There is not enough zone and start force recycle \n");
+#ifndef NO_ERROR
 			/* force recycle */
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
@@ -409,6 +406,7 @@ static int write_data_prepare ( int context )
 			
 			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 			Message_Recieve(conptr->thandle, msghandle);
+#endif
 		}
 		ZoneManager_SetAheadZone(context,zone);
 	}	
@@ -673,6 +671,8 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	int ret = 0;
 	struct singlelist *pos = NULL;
 	unsigned int pagecount = 0;
+	SectorList *sl_new;
+
 
 	zone = get_write_zone(context);
 	if(zone == NULL) {
@@ -681,21 +681,15 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		return -1;
 	}
 
-	ret = analyze_sectorlist(context, sl);
-	if(ret == -1) {
-		ndprint(1,"analyze_sectorlist error func %s line %d \n",
+	sl_new = new_sectorlist(context, sl);
+	if(sl_new == NULL) {
+		ndprint(1,"new_sectorlist error func %s line %d \n",
 			__FUNCTION__,__LINE__);
 		return -1;
 	}
 
-	singlelist_for_each(pos,&sl->head) {	
+	singlelist_for_each(pos,&sl_new->head) {	
 		sl_node = singlelist_entry(pos, SectorList, head);
-		if (sl_node->sectorCount <= 0) {
-			ndprint(1,"ERROR: sectorcount = %d func %s line %d \n",
-					sl_node->sectorCount, __FUNCTION__,__LINE__);
-			return -1;
-		}
-
 		pagecount = get_writepagecount(sectorperpage, sl_node);
 		freepage_count = Zone_GetFreePageCount(zone);
 
@@ -705,7 +699,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 				if(ret == -1) {
 					ndprint(1,"set_last_pageinfo error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-					return -1;
+					break;
 				}
 			}
 			else if(freepage_count > 1) {
@@ -718,7 +712,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 				if(ret == -1) {
 					ndprint(1,"write_sectornode error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-					return -1;
+					break;
 				}
 			}
 
@@ -737,7 +731,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		if(ret == -1) {
 			ndprint(1,"write_sectornode error func %s line %d \n",
 				__FUNCTION__,__LINE__);
-			return -1;
+			break;
 		}
 
 		if (first_sectornode)
@@ -748,10 +742,10 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		if (ret == -1) {
 			ndprint(1,"write_data_prepare error func %s line %d \n",
 				__FUNCTION__,__LINE__);
-			return -1;
+			break;
 		}
 	}
-
+	BuffListManager_freeAllList((int)(conptr->blm), (void **)&sl_new, sizeof(SectorList));
 	return ret;
 }
 
@@ -764,6 +758,15 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 */
 int L2PConvert_Ioctrl(int handle, int cmd, int argv)
 {
+	switch (cmd) {
+		case SUSPEND:
+			return Recycle_Suspend(handle);
+		case RESUME:
+			return Recycle_Resume(handle);
+		default:
+			break;
+	}
+	
 	return 0;
 }
 

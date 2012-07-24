@@ -84,9 +84,10 @@ int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	NandMutex_Lock(&v_nand_ops.mutex);
 
 	ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, rpl);
-	if (ret != 0)
+	if (ret != 0){
+		ndprint(VNAND_ERROR,"%s MultiPagerRead failed!\n",__FUNCTION__);
 		return -1;
-	
+	}
 	ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, wpl);
 
 	NandMutex_Unlock(&v_nand_ops.mutex);
@@ -114,7 +115,7 @@ static int alloc_badblock_info(VNandInfo *vnand)
 {	
 	vnand->pt_badblock_info = (unsigned int *)Nand_VirtualAlloc(vnand->BytePerPage);
 	if(vnand->pt_badblock_info == NULL) {
-		ndprint(1,"alloc memoey fail func %s line %d \n",
+		ndprint(VNAND_ERROR,"alloc memoey fail func %s line %d \n",
 			__FUNCTION__,__LINE__);	
 		
 		return -1;
@@ -168,7 +169,12 @@ static void read_badblock_info_page(VNandManager *vnand)
 			break;
 		}
 	}
-	
+	if(i == vnand->pt->ptcount){
+		ndprint(VNAND_INFO,"warnning:can not find block table\n");
+		printk("vn.BytePerPage = %d vn.pt_badblock_info = %p\n",vnand->info.BytePerPage,vn.pt_badblock_info);
+		memset(vnand->info.pt_badblock_info, 0xff, vnand->info.BytePerPage);
+		return;
+	}
 	if(pt == NULL){
 		ndprint(VNAND_ERROR,"not find error block table\n");
 		while(1);
@@ -221,29 +227,34 @@ int vNand_Init (VNandManager** vm)
 	int ret = 0;
 	
 	if(*vm){
+		ndprint(VNAND_ERROR,"*vm should be null!\n");
 		return -1;
 	}
 	
 	*vm = Nand_VirtualAlloc(sizeof(VNandManager));
 	if(*vm == NULL){
+		ndprint(VNAND_ERROR,"*vm alloc failed!\n");
 		return -1;
 	}
 
 	v_nand_ops.vNand_buf = (unsigned char *)Nand_VirtualAlloc(VNANDCACHESIZE);
 	if(v_nand_ops.vNand_buf == NULL){
+		ndprint(VNAND_ERROR,"alloc bad block info failed!\n");
 		return -1;
 	}
 	
 	InitNandMutex(&v_nand_ops.mutex);
 	ret = vNand_InitNand(*vm);
 	if (ret != 0) {
+		ndprint(VNAND_ERROR,"driver init failed!\n");
 		return -1;
 	}
 
 	ret = vNand_ScanBadBlocks(*vm);
-	if(ret != 0) 
+	if(ret != 0){
+		ndprint(VNAND_ERROR,"bad block scan failed!\n");
 		return -1;
-		
+	}
 	return 0;
 }
 
@@ -257,8 +268,8 @@ void vNand_Deinit ( VNandManager** vm)
 }
 
 
-void Register_StartNand(void *start,int context){
-	v_nand_ops.start_nand = (void (*)())start;
+void Register_StartNand(void (*start)(int),int context){
+	v_nand_ops.start_nand = start;
 	v_nand_ops.context = context;
 }
 

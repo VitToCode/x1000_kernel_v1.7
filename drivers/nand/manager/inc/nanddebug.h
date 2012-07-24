@@ -6,8 +6,21 @@
 #define VNAND_DEBUG 2
 #define VNAND_ERROR 3
 
+#define SIGBLOCK_INFO  1
+#define SIGBLOCK_DEBUG 2
+#define SIGBLOCK_ERROR 3
+
 #define ZONEMANAGER_INFO  1
 #define ZONEMANAGER_DEBUG 2
+#define ZONEMANAGER_ERROR 3
+
+#define HASH_INFO  1
+#define HASH_DEBUG 2
+#define HASH_ERROR 3
+
+#define HASHNODE_INFO  1
+#define HASHNODE_DEBUG 2
+#define HASHNODE_ERROR 3
 
 #define ZONE_INFO  1
 #define ZONE_DEBUG 2

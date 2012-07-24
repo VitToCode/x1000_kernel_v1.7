@@ -64,7 +64,9 @@ static struct __nand_block nand_block;
 /*#################################################################*\
  *# dump
 \*#################################################################*/
-#define DBG_FUNC() printk("nand block debug: func = %s \n", __func__)
+#define DBG_FUNC() printk("\n#########################################\n"); \
+	printk("###### nand block debug: func = %s \n", __func__);			\
+	printk("#########################################\n");
 
 #ifdef DEBUG
 struct driver_attribute drv_attr;
@@ -651,7 +653,7 @@ static int __init nand_block_init(void)
 		printk("WARNING(nand block): driver_create_file error!\n");
 #endif
 
-	if ((nand_block.pm_handler = NandManger_Init())) {
+	if (((nand_block.pm_handler = NandManger_Init())) == -1) {
 		printk("ERROR(nand block): NandManger_Init error!\n");
 		goto out_init;
 	}

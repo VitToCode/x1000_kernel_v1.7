@@ -86,17 +86,17 @@ int  NandManger_open ( int handle,const char* name, int mode ){
 	struct singlelist *lpos;
 	LPartition *lp;
 	ManagerList *ml;
-	PartitionInterface *pInterface;
+	PartitionInterface *pInterface = NULL;
 	PPartition  *ppartition;
 	VNandInfo *vInfo;
 	int name_exit = 0;
-	int nmhandle;
+	int nmhandle = 0;
 	int count;
 	int i;
 
 	if (pm->lpt.pt == NULL || pm->mltop.next == NULL){
 		ndprint(1, "Please be sure to call NandManger_getPartition() first !! \n");
-		return -1;
+		return 0;
 	}
 	/*match the name*/
 	singlelist_for_each(lpos, pm->lpt.pt->head.next){
@@ -109,7 +109,7 @@ int  NandManger_open ( int handle,const char* name, int mode ){
 	}
 	if (name_exit == 0){
 		ndprint(1, "FUNCTION:%s  LINE:%d  The partition name is not exit , it can't be open!\n",__FUNCTION__,__LINE__);
-		return -1;
+		return 0;
 	}
 
 	/*match the mode*/
@@ -128,9 +128,9 @@ int  NandManger_open ( int handle,const char* name, int mode ){
 	for(i=0; i<count; i++){
 		if (!strncmp((ppartition+i)->name, name, strlen(name))){
 			nmhandle = pInterface->PartitionInterface_iOpen(vInfo, (ppartition+i));
-			if (nmhandle < 0){
-				ndprint(1, "FUNCTION:%s  LINE:%d \n The partition open failed \n!",__FUNCTION__,__LINE__);	
-				return -1;
+			if (nmhandle == 0){
+				ndprint(1, "FUNCTION:%s  LINE:%d \n The partition open failed! \n",__FUNCTION__,__LINE__);	
+				return 0;
 			}
 			break;
 		}
@@ -234,7 +234,7 @@ int NandManger_Register_Manager ( int handle, int mode, PartitionInterface* pi )
 }
 
 /*Alloc the memory and do init*/
-int NandManger_Init (){
+int NandManger_Init (void){
 	int p_zid;
 	PManager *pm;
 	
@@ -248,6 +248,7 @@ int NandManger_Init (){
 	pm->mltop.next = NULL;
 	pm->p_zid = p_zid;
 	pm->startlist_top.next = NULL;
+	pm->vnand = NULL;
  
 	Register_StartNand(start, (int)pm);
 	ndprint(1, "Nand manager interface init  ok !\n");	
