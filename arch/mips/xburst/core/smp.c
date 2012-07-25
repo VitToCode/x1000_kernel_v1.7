@@ -154,7 +154,7 @@ extern void __jzsoc_secondary_start(void);
 static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 {
 	int err;
-	unsigned long flags,reim,ctrl;
+	unsigned long flags,ctrl;
 
 	local_irq_save(flags);
 
@@ -221,6 +221,7 @@ static void __init jzsoc_smp_setup(void)
 
 static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 {
+	unsigned long reim;
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
 	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
@@ -281,6 +282,7 @@ int jzsoc_cpu_disable(void)
 
 	spin_lock(&smp_lock);
 	set_cpu_online(cpu, false);
+	cpu_clear(cpu, cpu_callin_map);
 
 	blast_dcache32();
 	blast_icache32();
@@ -318,7 +320,9 @@ void play_dead(void)
 {
 	idle_task_exit();
 
-	while(1);
+	while(1) {
+		__asm__ __volatile__ ("wait\n\t");
+	}
 }
 
 struct plat_smp_ops jzsoc_smp_ops = {
