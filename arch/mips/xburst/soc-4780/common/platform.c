@@ -510,3 +510,22 @@ struct platform_device jz_nand_device = {
 	.resource = jz_nand_res,
 	.num_resources =ARRAY_SIZE(jz_nand_res),
 };
+
+static struct resource jz_hdmi_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = HDMI_IOBASE,
+		.end = HDMI_IOBASE + 0x1000 - 1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_HDMI,
+	},
+};
+
+struct platform_device jz_hdmi = {
+	.name = "jz-hdmi",
+	.id = -1,
+	.num_resources = ARRAY_SIZE(jz_hdmi_resources),
+	.resource = jz_hdmi_resources,
+};

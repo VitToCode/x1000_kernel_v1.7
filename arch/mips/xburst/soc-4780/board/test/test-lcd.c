@@ -54,6 +54,8 @@ struct fb_videomode jzfb0_videomode[] = {
 	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
 	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_4X3),
 	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_16X9),
+	ADD_HDMI_VIDEO_MODE(HDMI_1280X720_P_60HZ_16X9),
+	ADD_HDMI_VIDEO_MODE(HDMI_1920X1080_I_60HZ_16X9),
 };
 
 struct fb_videomode jzfb1_videomode = {
@@ -101,7 +103,7 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.width = 0,
 	.height = 0,
 
-	.pixclk_falling_edge = 0,
+	.pixclk_falling_edge = 1,
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 0,

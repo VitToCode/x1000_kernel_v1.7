@@ -144,6 +144,9 @@ static int __init test_board_init(void)
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
 
+#ifdef CONFIG_HDMI_JZ4780
+	platform_device_register(&jz_hdmi);
+#endif
 	return 0;
 }
 

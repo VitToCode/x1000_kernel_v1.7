@@ -101,7 +101,9 @@
 
 #define OTG_DRVVUS							\
 	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
-
+	
+#define HDMI_PORTF							\
+	{ .name = "hdmi-ddc",    .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x3800000, }	
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
@@ -138,6 +140,8 @@ extern struct platform_device jz_ehci_device;
 extern struct platform_device jz_mac;
 
 extern struct platform_device jz_nand_device;
+
+extern struct platform_device jz_hdmi;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 

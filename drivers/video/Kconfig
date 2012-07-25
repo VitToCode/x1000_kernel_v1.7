@@ -2423,4 +2423,17 @@ if FB || SGI_NEWPORT_CONSOLE
 	source "drivers/video/logo/Kconfig"
 endif
 
+menuconfig HDMI
+	   tristate "HDMI support"
+	   help
+	   HDMI output support.
+
+comment "HDMI driver"
+	depends on HDMI
+
+config HDMI_JZ4780
+       tristate "JZ4780 HDMI driver"
+       depends on HDMI
+       default y
+
 endmenu
