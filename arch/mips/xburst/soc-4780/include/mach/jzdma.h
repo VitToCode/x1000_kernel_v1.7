@@ -76,8 +76,11 @@ enum jzdma_type {
 	JZDMA_REQ_NAND2 = JZDMA_REQ_AUTO_TXRX,
 	JZDMA_REQ_NAND3 = JZDMA_REQ_AUTO_TXRX,
 	JZDMA_REQ_NAND4 = JZDMA_REQ_AUTO_TXRX,
+	MAP_TO_MCU = 0x80000000,
 #undef _RTP
 };
+
+#define GET_MAP_TYPE(type) (type & ~(MAP_TO_MCU))
 
 struct jzdma_platform_data {
 	enum jzdma_type map[NR_DMA_CHANNELS];

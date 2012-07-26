@@ -47,6 +47,10 @@
 #define DMSMB	0x1038
 #define DMINT	0x103C
 
+/* MCU of PDMA */
+#define DMINT_S_IP      BIT(17)
+#define DMINT_N_IP      BIT(16)
+
 #define DMAC_HLT	BIT(3)
 #define DMAC_AR		BIT(2)
 
@@ -124,6 +128,7 @@ struct jzdma_master {
 	void __iomem   		*iomem;
 	struct clk		*clk;
 	int 			irq;
+        int                     mirq;   /* mirq for PDMAM irq*/
 	struct dma_device	dma_device;
 	enum jzdma_type		*map;
 	struct jzdma_channel	channel[NR_DMA_CHANNELS];
@@ -524,6 +529,14 @@ static void jzdma_chan_tasklet(unsigned long data)
 	if (dmac->tx_desc.callback)
 		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
 }
+
+static void pdmam_chan_tasklet(unsigned long data)
+{
+	struct jzdma_channel *dmac = (struct jzdma_channel *)data;
+	if (dmac->tx_desc.callback)
+		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
+}
+
 static void jzdma_issue_pending(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
@@ -662,6 +675,40 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t pdma_int_handler(int mirq, void *dev)
+{
+	struct jzdma_master *master = (struct jzdma_master *)dev;
+	unsigned long pending, mailbox = 0;
+	int i;
+
+	pending = readl(master->iomem + DMINT);
+        
+        if(pending & DMINT_N_IP) {
+	        mailbox = readl(master->iomem + DMNMB);
+        } else if(pending & DMINT_S_IP) {
+	        mailbox = readl(master->iomem + DMSMB);
+        }
+       
+        for (i = 0; i < NR_DMA_CHANNELS; i++) {
+                struct jzdma_channel *dmac = master->channel + i;
+
+	        if (!(mailbox & (1<<i)))
+		        continue;
+
+	       	tasklet_schedule(&dmac->tasklet);
+        }
+        
+        if(pending & DMINT_N_IP) {
+	        writel(0, master->iomem + DMNMB);
+	        writel(0, master->iomem + DMINT);
+        } else if(pending & DMINT_S_IP) {
+	        writel(0, master->iomem + DMSMB);
+	        writel(0, master->iomem + DMINT);
+        }
+	
+        return IRQ_HANDLED;
+}
+
 static int jzdma_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
@@ -701,7 +748,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	struct jzdma_master *dma;
 	struct jzdma_platform_data *pdata;
 	struct resource *iores;
-	short irq;
+	short irq, mirq;        /* mirq for PDMAM irq */
 	int i,ret = 0;
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
@@ -713,7 +760,8 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
-	if (!iores || irq < 0) {
+	mirq = platform_get_irq(pdev, 1);
+	if (!iores || irq < 0 || mirq <0) {
 		ret = -EINVAL;
 		goto free_dma;
 	}
@@ -740,6 +788,11 @@ static int __init jzdma_probe(struct platform_device *pdev)
 			"pdma", dma);
 	if (ret)
 		goto release_iomap;
+	/* request mirq */
+        ret = request_irq(mirq, pdma_int_handler, IRQF_DISABLED,
+			"pdmam", dma);
+	if (ret)
+		goto release_iomap;
 
 	/* Initialize dma engine */
 	dma_cap_set(DMA_MEMCPY, dma->dma_device.cap_mask);
@@ -749,6 +802,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&dma->dma_device.channels);
 	/* Initialize master/channel parameters */
 	dma->irq = irq;
+        dma->mirq = mirq;
 	dma->iomem = dma->iomem;
 	/* Hardware master enable */
 	writel(1 | 0x3f << 16, dma->iomem + DMAC);
@@ -759,7 +813,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		dmac->id = i;
 
 		if(dma->map)
-			dmac->type = dma->map[i];
+			dmac->type = GET_MAP_TYPE(dma->map[i]);
 		if(dmac->type == JZDMA_REQ_INVAL)
 			dmac->type = JZDMA_REQ_AUTO;
 
@@ -767,9 +821,14 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-		tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
-				(unsigned long)dmac);
-		dmac->iomem = dma->iomem + i * 0x20;
+	        if(dma->map[i] & MAP_TO_MCU) 
+                        tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
+			        	(unsigned long)dmac);
+		else
+                        tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
+	        			(unsigned long)dmac);
+		
+                dmac->iomem = dma->iomem + i * 0x20;
 		dmac->master = dma;
 
 		/* add chan like channel 5,4,3,... */
@@ -806,6 +865,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	return 0;
 
 release_irq:
+        free_irq(mirq, dma);
 	free_irq(irq, dma);
 release_iomap:
 	iounmap(dma->iomem);
