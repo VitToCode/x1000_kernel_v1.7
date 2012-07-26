@@ -6,6 +6,17 @@
 
 wm97xx-ts-y := wm97xx-core.o
 
+##########-ingenic-touchscreen-###########
+
+obj-$(CONFIG_TOUCHSCREEN_JZ_GT801)	+= jz_tsc_gt801.o
+obj-$(CONFIG_TOUCHSCREEN_LDWZIC)        += ldwzic_ts.o
+obj-$(CONFIG_TOUCHSCREEN_JZ_SSD253X)	+= ssd253x-ts.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X0X)        += ft5x0x_ts_key.o
+obj-$(CONFIG_TOUCHSCREEN_FT5306)        += ft5x0x_ts.o
+obj-$(CONFIG_TOUCHSCREEN_CTP_IT7260)    += ctp_it7260.o
+obj-$(CONFIG_TOUCHSCREEN_GWTC9XXXB)     += gwtc9xxxb_ts.o
+obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix_ts.o
+##########################################
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_AD7877)	+= ad7877.o
 obj-$(CONFIG_TOUCHSCREEN_AD7879)	+= ad7879.o
