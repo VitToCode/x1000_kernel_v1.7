@@ -38,6 +38,7 @@ static unsigned char g_sizeshift;   // If g_eccsize is a power of 2 then the shi
 static unsigned int g_eccbit;      // the number of ECC checked bits
 static int g_startblock;           // the first blockid of one partition
 static int g_startpage;            // the first pageid of one partition
+static int g_pageperblock;          // the pageperblock of one partition
 static unsigned int g_pagecount;    // the page number of one partition
 static struct platform_nand_partition *g_pnand_pt;    // nand partition info
 /************************************************
@@ -74,6 +75,7 @@ void nand_ops_parameter_reset(const PPartition *ppt)
 	g_eccbytes = __bch_cale_eccbytes(g_eccbit);
 	g_startblock =ppt->startblockID;
 	g_startpage =ppt->startPage;
+	g_pageperblock =ppt->pageperblock;
 	g_pagecount = ppt->PageCount;
 	g_poobbuf = (unsigned char *)g_pnand_ecc->get_ecc_code_buffer(g_oobsize+g_freesize); /*cacl by byte*/
 	//	printk("********************  planmum = %d  ***************\n",g_pnand_chip->planenum);
@@ -979,17 +981,34 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
  */
 int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读写 
 {
-	unsigned char state;
+	unsigned char state[8][NAND_ECC_POS];  // there are four page per badblock,which stores badblock message 
 	int ret =0;
-	blockid += g_startblock;
-	do_select_chip(host,(blockid +1)*g_pnand_chip->ppblock -1);
-	send_read_page(g_pagesize+g_pnand_chip->badblockpos,((blockid +1)*g_pnand_chip->ppblock -1));
-	ret =g_pnand_io->read_data_withrb(&state, 1);
-	do_deselect_chip(host);
-	if(ret)
-		return ret;  // nand io_error
-	if (state == 0x0)
-		return ENAND;
+	int i=0,j=0;
+	unsigned int pageid=0;
+	unsigned char times =g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
+	memset(state[0],0xff,8*NAND_ECC_POS);
+	pageid =g_startpage + blockid * g_pageperblock;
+	while(times){
+		do_select_chip(host,pageid);
+		while(i<4){
+			send_read_page(g_pagesize+g_pnand_chip->badblockpos,(pageid +i));
+			ret =g_pnand_io->read_data_withrb(state[j], NAND_ECC_POS);
+			if(ret)
+				return ret;  // nand io_error
+			i++;
+			j++;
+		}
+		do_deselect_chip(host);
+		if(times){
+			pageid +=g_pnand_chip->ppblock;
+			i=0;
+			times--;
+		}
+	}
+	for(i=0;i<8;i++)
+		for(j=0;j< NAND_ECC_POS;j++)
+			if(state[i][j] != 0xff)
+				return ENAND;
 	return SUCCESS;	
 }
 /******************************************************
@@ -998,34 +1017,33 @@ int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读�
  */
 int markbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读写 ， 
 {
-	unsigned char state =0x0;
-	int pageid =0;
+	unsigned char state=0;
+	unsigned char bbm[NAND_ECC_POS] ={0x00}; // bad block message
 	int ret=0;
-	if(g_pnand_pt->use_planes){
-		blockid = blockid * g_pnand_chip->planenum + g_startblock;
-		do_select_chip(host,(blockid +1)*g_pnand_chip->ppblock -1);
-		pageid =(blockid +1)*g_pnand_chip->ppblock -1;
-		send_prog_2p_page1(g_pagesize+g_pnand_chip->badblockpos,pageid);
-		g_pnand_io->write_data_norb(&state, 1);
-		send_prog_2p_confirm1();
-		send_prog_2p_page2(g_pagesize+g_pnand_chip->badblockpos,pageid+g_pnand_chip->ppblock);
-		g_pnand_io->write_data_norb(&state, 1);
-		send_prog_2p_confirm2();
-		ret =send_read_status(&state);
+	int i=0;
+	unsigned int pageid=0;
+	unsigned char times =g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
+	pageid =g_startpage + blockid * g_pageperblock;
+	while(times){
+		do_select_chip(host,pageid);
+		while(i<4){
+			send_prog_page(g_pagesize+g_pnand_chip->badblockpos,(pageid + i));
+			g_pnand_io->write_data_norb(bbm, NAND_ECC_POS);
+			send_prog_confirm();
+			ret =send_read_status(&state);
+			state = (state & NAND_STATUS_FAIL) ? IO_ERROR : SUCCESS;	
+			if(ret || state)
+				return ret;  // nand io_error
+			i++;
+		}
 		do_deselect_chip(host);
-	}else{
-		blockid = blockid + g_startblock;
-		do_select_chip(host,(blockid +1)*g_pnand_chip->ppblock -1);
-		send_prog_page(g_pagesize+g_pnand_chip->badblockpos,((blockid +1)*g_pnand_chip->ppblock -1));
-		g_pnand_io->write_data_norb(&state, 1);
-		send_prog_confirm();
-		ret =send_read_status(&state);
-		do_deselect_chip(host);
+		if(times){
+			pageid +=g_pnand_chip->ppblock;
+			i=0;
+			times--;
+		}
 	}
-	if(ret)
-		return ret; // nand io_error
-	dprintf("DEBUG %s: State 0x%02X\n", __func__, state);
-	return (state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS);	
+	return state;
 }
 
 
@@ -1071,14 +1089,14 @@ static int spl_write_nand(NAND_BASE *host, Aligned_List *list, unsigned char *bc
 		steps = (pagelist->Bytes / SPL_BCH_BLOCK);
 
 		tmpbchbuf = bchbuf + (pagelist->OffsetBytes / SPL_BCH_BLOCK) * SPL_BCH_SIZE; 
-		
+
 		g_pnand_ecc->ecc_enable_encode(host, pagelist->pData, tmpbchbuf, SPL_BCH_BIT, steps);
 
 		g_pnand_io->write_data_norb(pagelist->pData, pagelist->Bytes);
 
 		listhead = (pagelist->head).next;
 		pagelist = singlelist_entry(listhead,PageList,head);
-		
+
 		if (j < opsmodel - 1) {
 			send_prog_random(pagelist->OffsetBytes);
 		} else {
@@ -1206,13 +1224,13 @@ static int spl_read_nand(NAND_BASE *host, Aligned_List *list, int times, unsigne
 			send_read_page(pagelist->OffsetBytes, pageid);
 			g_pnand_io->read_data_withrb((unsigned char *)pagelist->pData, pagelist->Bytes);
 			/* test spl read first and second block error and the third block right*/
-/*			*((unsigned char *)pagelist->pData + 10) = 0xef;
-			if(mmmm % 2 && mmmm < 5)
-			{
-				memset((unsigned char *)pagelist->pData, 0xff,10);
-			}
-				mmmm++;	
-*/		
+			/*			*((unsigned char *)pagelist->pData + 10) = 0xef;
+						if(mmmm % 2 && mmmm < 5)
+						{
+						memset((unsigned char *)pagelist->pData, 0xff,10);
+						}
+						mmmm++;	
+			 */		
 			ret = g_pnand_ecc->ecc_enable_decode(host, (unsigned char *)pagelist->pData, tmpbchbuf, SPL_BCH_BIT, steps);
 		}else {
 			send_read_random(pagelist->OffsetBytes);
@@ -1230,8 +1248,8 @@ static int spl_read_nand(NAND_BASE *host, Aligned_List *list, int times, unsigne
 			printk("#####################   ecc error bits is %d #####################\n",ret);
 			pagelist->retVal = pagelist->Bytes;
 		}
-//		dump_buf((unsigned char *)pagelist->pData+512,512);
-//		printk("@@@@@@@@@@@@@@@@@@@@@@   pagelist->retVal is 0x%08x  @@@@@@@@@@@@@@@@@@@@@@@@@@\n",pagelist->retVal);
+		//		dump_buf((unsigned char *)pagelist->pData+512,512);
+		//		printk("@@@@@@@@@@@@@@@@@@@@@@   pagelist->retVal is 0x%08x  @@@@@@@@@@@@@@@@@@@@@@@@@@\n",pagelist->retVal);
 		listhead = (pagelist->head).next;
 		pagelist = singlelist_entry(listhead,PageList,head);
 	}
@@ -1295,13 +1313,13 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 		if(alignelist->pagelist->startPageID < g_pnand_chip->ppblock) {
 			for(i=0; i < 3; i++) {
 				ret = spl_write_nand(host, alignelist, bchbuf, bchsize, i);
-				
-				
+
+
 				if(ret < 0) {
 					dprintf("spl write error");
 					kfree(bchbuf);
-				
-				
+
+
 					return ret;
 				}
 			}
@@ -1318,8 +1336,8 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 	if(ret == 0) {
 		dprintf("spl write success");
 	}
-	
-	
+
+
 	kfree(bchbuf);
 	return ret;
 }
@@ -1342,7 +1360,7 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 	alignelist = list;
 	while(alignelist != NULL) {
 		if(alignelist->pagelist->startPageID < g_pnand_chip->ppblock) {
-			
+
 			switch(badblockflag) {
 				case 0:
 					times = g_pnand_chip->ppblock * 0;
@@ -1389,8 +1407,8 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 	if(ret == 0) {
 		dprintf("spl read success");
 	}
-	
-	
+
+
 	kfree(bchbuf);
 	return ret;
 }
