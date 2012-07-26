@@ -15,9 +15,8 @@ if [ $# -eq 1 ]; then
 		    echo "error"
 		    exit
 		fi
-		rm $DFILE
-		echo "ln -s "$j $DFILE
-		ln -s $SRC/"$SFILE" $DFILE
+		echo "ln -sf "$j $DFILE
+		ln -sf $j $DFILE
 	    done
 	fi
     done

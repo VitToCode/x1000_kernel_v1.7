@@ -8,7 +8,8 @@
 //#define NAND_MIN_PRIO 1  //NORMAL
 
 typedef struct task_struct* PNandThread;
-typedef int (*PThreadFunction)(void *data);
+typedef int RESULT;
+typedef RESULT (*PThreadFunction)(void *data);
 
 static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name){
 	PNandThread thread = NULL;
@@ -30,22 +31,8 @@ static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,ch
 	return thread;
 }
 
-static inline int ExitThread(PNandThread thread){
-	
-	return kthread_stop(thread);
-}
-
-static inline void SetThreadPrio(PNandThread thread,int prio){
-	struct sched_param param = { .sched_priority = 1 };
-	switch(prio)
-	{
-	case 0:
-		sched_setscheduler(thread, SCHED_IDLE, &param);
-		break;
-	case 1:
-		sched_setscheduler(thread, SCHED_FIFO, &param);
-		break;
-	}
+static inline int ExitThread(PNandThread *thread){	
+	return kthread_stop(*thread);
 }
 
 #endif /* _NANDTHREAD_H_ */

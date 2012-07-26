@@ -4,6 +4,7 @@
 
 EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/inc/ \
+		-Idrivers/nand/manager/utils/ \
 		-Idrivers/nand/manager/inc/linux/ \
 		-DLINUX_KERNEL
 
