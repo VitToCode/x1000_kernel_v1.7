@@ -4,7 +4,7 @@ if [ $# -eq 1 ]; then
     SRC=$1
     DST=`pwd`
     echo "find $DST/../ -name \"*.[hc]\""
-    for i in `find $DST/../ -name "*.[hc]"`; do
+    for i in `find $DST/../ -name "*.[hc]" | grep -v "inc/linux"`; do
 	DFILE=$i;
 	if [ ! -d $DFILE ]; then
 	    echo "find $SRC -name $(basename $DFILE) | grep -v 'thirdpart' | grep -v 'testmodule'"
