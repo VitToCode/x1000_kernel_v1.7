@@ -140,16 +140,20 @@ static struct resource jz_pdma_res[] = {
 	[1] = {
 		.flags = IORESOURCE_IRQ,
 		.start = IRQ_PDMA,
+	},
+	[2] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_PDMAM,
 	}
 };
 
 static struct jzdma_platform_data jzdma_pdata = {
 	.map = {
-		JZDMA_REQ_NAND0,
-		JZDMA_REQ_NAND1,
-		JZDMA_REQ_NAND2,
-		JZDMA_REQ_NAND3,
-		JZDMA_REQ_NAND4,
+		JZDMA_REQ_NAND0 | MAP_TO_MCU,
+		JZDMA_REQ_NAND1 | MAP_TO_MCU,
+		JZDMA_REQ_NAND2	| MAP_TO_MCU,
+		JZDMA_REQ_NAND3 | MAP_TO_MCU,
+		JZDMA_REQ_NAND4 | MAP_TO_MCU,
 		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S0,
