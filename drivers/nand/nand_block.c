@@ -553,6 +553,7 @@ static void nand_disk_start(int data)
 {
 	int ret = -EFAULT;
 	int context = 0;
+	int handler = 0;
 	LPartition *phead = NULL;
 	LPartition *pt = NULL;
 	struct device *dev = NULL;
@@ -560,7 +561,9 @@ static void nand_disk_start(int data)
 	struct __partition_info *pinfo = NULL;
 
 	DBG_FUNC();
-	if (NandManger_getPartition(nand_block.pm_handler, &phead) || !phead) {
+	
+	handler = NandManger_getPartition(nand_block.pm_handler, &phead);
+	if (!phead) {
 		printk("get NandManger partition error! phead = %p\n", phead);
 		return;
 	}

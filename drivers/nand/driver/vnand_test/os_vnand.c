@@ -23,7 +23,7 @@ struct Nand2K
     int BytePerPage;
     int TotalBlocks;
 	int MaxBadBlockCount;
-} vNandChipInfo = {64, 2048, 128*8*4, 20}; //128M
+} vNandChipInfo = {64, 2048, 128*8*1, 20}; //128M
 
 
 PPartition ppt[] = {{"x-boot", 128*8*0, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1, NULL},
@@ -32,7 +32,7 @@ PPartition ppt[] = {{"x-boot", 128*8*0, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1
 					{"data", 128*8*3, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1, NULL},*/
 					{"error", 128*8*1, 64, 2048, 1, 20, 512, 0, 64, 2, NULL}};
 
-PPartArray partition={5, ppt};
+PPartArray partition={2, ppt};
 
 struct vNand2K
 {
@@ -91,9 +91,10 @@ static int em_vNand_InitNand (void *vd ){
 		set_fs(KERNEL_DS);
 		for (i = 0; i < vNandChipInfo.PagePerBlock * vNandChipInfo.TotalBlocks; i ++) {
 			cnt = vfs_write(filp, buf, vNandChipInfo.BytePerPage, &pos);
+			if (!(i % 512))
+				printk("...%dMb...", (int)pos >> 20);
 		}
 		set_fs(old_fs);
-		printk("... pos = %d\n", (int)pos);
 	}
 
 	vNandChip->filp = filp;
