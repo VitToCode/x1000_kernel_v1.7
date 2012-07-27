@@ -1,5 +1,5 @@
 /*
- * linux/drivers/input/touchscreen/jz_tsc_gt801.c
+ * linux/drivers/input/touchscreen/tsc_gt801.c
  * Ingenic Gt801 Touchscreen Driver.
  *
  * Copyright (C) 2012 Ingenic Semiconductor Co., Ltd.
@@ -25,9 +25,10 @@
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
-#include <mach/jztsc.h>
 
-#include "jz_tsc_gt801.h"
+#include <linux/tsc.h>
+#include "tsc_gt801.h"
+
 /* three configs about init , but use best now*/
 
 static unsigned char config_info[54] = {
