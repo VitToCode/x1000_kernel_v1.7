@@ -77,6 +77,14 @@ static int __init test_board_init(void)
 	platform_device_register(&jz_i2c4_device);
 #endif
 
+/* ipu */
+#ifdef CONFIG_JZ4780_IPU
+	platform_device_register(&jz_ipu0_device);
+#endif
+#ifdef CONFIG_JZ4780_IPU
+	platform_device_register(&jz_ipu1_device);
+#endif
+
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &test_inand_pdata);
@@ -177,5 +185,6 @@ static int __init test_board_init(void)
 #endif
 	return 0;
 }
+
 
 arch_initcall(test_board_init);

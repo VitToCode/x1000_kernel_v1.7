@@ -124,6 +124,9 @@ extern struct platform_device jz_codec_device;
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;
 
+extern struct platform_device jz_ipu0_device;
+extern struct platform_device jz_ipu1_device;
+
 extern struct platform_device jz_uart0_device;
 extern struct platform_device jz_uart1_device;
 extern struct platform_device jz_uart2_device;
