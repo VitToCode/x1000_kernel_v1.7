@@ -64,9 +64,7 @@ static struct __nand_block nand_block;
 /*#################################################################*\
  *# dump
 \*#################################################################*/
-#define DBG_FUNC() printk("\n#########################################\n"); \
-	printk("###### nand block debug: func = %s \n", __func__);			\
-	printk("#########################################\n");
+#define DBG_FUNC()	printk("##### nand block debug #####: func = %s \n", __func__)
 
 #ifdef DEBUG
 struct driver_attribute drv_attr;
@@ -399,7 +397,7 @@ static int nand_block_probe(struct device *dev)
 	blk_queue_max_segment_size(ndisk->queue, pinfo->pt->segmentsize);
 
 	ndisk->sl_context = BuffListManager_BuffList_Init();
-	if (ndisk->sl_context < 0) {
+	if (ndisk->sl_context == 0) {
 		printk("ERROR(nand block): BuffListManager_BuffList_Init error!\n");
 		goto probe_err3;
 	}
@@ -553,7 +551,6 @@ static void nand_disk_start(int data)
 {
 	int ret = -EFAULT;
 	int context = 0;
-	int handler = 0;
 	LPartition *phead = NULL;
 	LPartition *pt = NULL;
 	struct device *dev = NULL;
@@ -562,15 +559,14 @@ static void nand_disk_start(int data)
 
 	DBG_FUNC();
 	
-	handler = NandManger_getPartition(nand_block.pm_handler, &phead);
-	if (!phead) {
+	if (NandManger_getPartition(nand_block.pm_handler, &phead) || (!phead)) {
 		printk("get NandManger partition error! phead = %p\n", phead);
 		return;
 	}
 
 	singlelist_for_each(plist, &phead->head) {
 		pt = singlelist_entry(plist, LPartition, head);
-		if ((context = NandManger_open(nand_block.pm_handler, pt->name, pt->mode)) < 0) {
+		if ((context = NandManger_open(nand_block.pm_handler, pt->name, pt->mode)) == 0) {
 			printk("can not open NandManger %s, mode = %d\n",
 				   pt->name, pt->mode);
 			return;
@@ -656,7 +652,7 @@ static int __init nand_block_init(void)
 		printk("WARNING(nand block): driver_create_file error!\n");
 #endif
 
-	if (((nand_block.pm_handler = NandManger_Init())) == -1) {
+	if (((nand_block.pm_handler = NandManger_Init())) == 0) {
 		printk("ERROR(nand block): NandManger_Init error!\n");
 		goto out_init;
 	}
