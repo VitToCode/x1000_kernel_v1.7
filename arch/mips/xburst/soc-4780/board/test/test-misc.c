@@ -4,7 +4,7 @@
 #include <linux/input.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
-#include <mach/jztsc.h>
+#include <mach/jzmmc.h>
 #include <gpio.h>
 
 #include "test.h"
@@ -172,6 +172,9 @@ static int __init test_board_init(void)
 #ifdef CONFIG_JZ4780_SUPPORT_TSC
 	i2c_register_board_info(0, test_i2c0_devs, ARRAY_SIZE(test_i2c0_devs));
 #endif	
+#ifdef CONFIG_RTC_DRV_JZ4780
+	platform_device_register(&jz4780_device_rtc);
+#endif
 	return 0;
 }
 

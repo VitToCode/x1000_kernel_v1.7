@@ -37,17 +37,6 @@ static struct rtc_time default_tm = {
 	.tm_sec = 0
 };
 
-struct jz_rtc {
-	int irq;
-	struct clk *clk;
-	spinlock_t lock;
-	void __iomem *iomem;
-	struct resource *res;
-	struct rtc_device *rtc;
-	struct rtc_time rtc_alarm;
-};
-
-
 static inline int rtc_periodic_alarm(struct rtc_time *tm)
 {
 	return  (tm->tm_year == -1) ||
@@ -104,12 +93,37 @@ static inline void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
 
 #define IS_RTC_IRQ(x,y)  (((x) & (y)) == (y))
 
-static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
+static void jz4780_rtc_dump(struct jz_rtc *dev)
 {
+
+	printk ("*******************************************************************\n");
+	printk ("******************************jz4780_rtc_dump**********************\n\n");
+	printk ("jz4780_rtc_dump-----RTC_RTCCR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCCR));
+	printk ("jz4780_rtc_dump-----RTC_RTCSR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCSR));
+	printk ("jz4780_rtc_dump-----RTC_RTCSAR is --0X%X--\n",jzrtc_readl(dev,RTC_RTCSAR));
+	printk ("jz4780_rtc_dump-----RTC_RTCGR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCGR));
+	printk ("jz4780_rtc_dump-----RTC_HCR is --0X%X--\n",jzrtc_readl(dev, RTC_HCR));
+	printk ("jz4780_rtc_dump-----RTC_HWFCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWFCR));
+	printk ("jz4780_rtc_dump-----RTC_HRCR is --0X%X--\n",jzrtc_readl(dev, RTC_HRCR));
+	printk ("jz4780_rtc_dump-----RTC_HWCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWCR));
+	printk ("jz4780_rtc_dump-----RTC_HWRSR is --0X%X--\n",jzrtc_readl(dev,RTC_HWRSR));
+	printk ("jz4780_rtc_dump-----RTC_HSPR is --0X%X--\n",jzrtc_readl(dev, RTC_HSPR));
+	printk ("jz4780_rtc_dump-----RTC_WENR is --0X%X--\n",jzrtc_readl(dev, RTC_WENR));
+	printk ("jz4780_rtc_dump-----RTC_CKPCR is --0X%X--\n",jzrtc_readl(dev,RTC_CKPCR));
+	printk ("jz4780_rtc_dump-----RTC_OWIPCR is --0X%X--\n",jzrtc_readl(dev,RTC_OWIPCR));
+	printk ("jz4780_rtc_dump-----RTC_PWRONCR is -0X%X-\n",jzrtc_readl(dev,RTC_PWRONCR));
+	printk ("***************************jz4780_rtc_dump***************************\n");
+	printk ("*******************************************************************\n\n");
+
+	return;
+}
+
+static void jzrtc_irq_tasklet(unsigned long data) 
+{
+
 	unsigned int rtsr,save_rtsr;
 	unsigned long events;
-	struct platform_device *pdev = to_platform_device(dev_id);
-	struct jz_rtc *rtc = platform_get_drvdata(pdev);
+	struct jz_rtc *rtc =  (struct jz_rtc *) data;
 
 	spin_lock(&rtc->lock);
 
@@ -119,6 +133,7 @@ static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
 	events = 0;
 	if(IS_RTC_IRQ(rtsr,RTCCR_AF))
 	{
+
 		events = RTC_AF | RTC_IRQF;
 		rtsr &= ~RTCCR_AF;
 
@@ -134,7 +149,23 @@ static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
 		rtc_update_irq(rtc->rtc, 1, events);
 	if(rtsr != save_rtsr)
 		jzrtc_writel(rtc, RTC_RTCCR,rtsr);
+
 	spin_unlock(&rtc->lock);
+	
+	enable_irq(rtc->irq);
+
+	return;
+}
+
+
+static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
+{
+	struct jz_rtc *rtc = (struct jz_rtc *) (dev_id);
+
+
+	disable_irq_nosync(rtc->irq);
+
+	tasklet_schedule(&rtc->tasklet);
 	return IRQ_HANDLED;
 }
 
@@ -143,7 +174,7 @@ static int jz4780_rtc_open(struct device *dev)
 	int ret;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 	ret = request_irq(rtc->irq, jz4780_rtc_interrupt, IRQF_DISABLED,
-			"rtc 1Hz and alarm", dev);
+			"rtc 1Hz and alarm", rtc);
 	if (ret) {
 		dev_err(dev, "IRQ %d already in use.\n", rtc->irq);
 		goto fail_ui;
@@ -152,7 +183,7 @@ static int jz4780_rtc_open(struct device *dev)
 	return 0;
 
 fail_ui:
-	free_irq(rtc->irq, dev);
+	free_irq(rtc->irq, rtc);
 	return ret;
 }
 
@@ -163,7 +194,7 @@ static void jz4780_rtc_release(struct device *dev)
 	spin_lock_irq(&rtc->lock);
 
 	spin_unlock_irq(&rtc->lock);
-	free_irq(rtc->irq, dev);
+	free_irq(rtc->irq, rtc);
 }
 
 static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
@@ -215,14 +246,18 @@ static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
 static int jz4780_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 
-	struct jz_rtc *rtc = dev_get_drvdata(dev);
-	unsigned long time;
-	int ret;
+	struct jz_rtc *rtc = NULL;
+	unsigned long time = 0;
+	int ret = -1;
+
+	if (dev)
+		rtc = dev_get_drvdata(dev);
+	else
+		return ret;
 
 	ret = rtc_tm_to_time(tm, &time);
-	if (ret == 0) {
+	if (ret == 0) 
 		jzrtc_writel(rtc, RTC_RTCSR, time);
-	}
 	return ret;
 }
 
@@ -308,6 +343,8 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 {
 
 	unsigned int cfc,hspr,rgr_1hz;
+	unsigned long time = 0;
+	
 	/*
 	 * When we are powered on for the first time, init the rtc and reset time.
 	 *
@@ -334,7 +371,8 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 
 
 		/* Reset to the default time */
-		jz4780_rtc_set_time(NULL, &default_tm);
+		rtc_tm_to_time(&default_tm, &time); 
+		jzrtc_writel(rtc, RTC_RTCSR, time);
 
 		/* start rtc */
 		jzrtc_writel(rtc, RTC_RTCCR, RTCCR_RTCE);
@@ -347,6 +385,9 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 	/* enabled Power detect*/
 	jzrtc_writel(rtc, RTC_HWCR,((~(EPDET_DEFAULT << 3)) |
 				(jzrtc_readl(rtc, RTC_HWCR))));
+
+	return ;
+
 }
 
 
@@ -390,17 +431,6 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 		goto err_nomap;
 	}
 
-
-	rtc->clk = clk_get(&pdev->dev, "rtc");
-	if (IS_ERR(rtc->clk)) {
-		dev_err(&pdev->dev, "failed to find rtc clock source\n");
-		ret = PTR_ERR(rtc->clk);
-		rtc->clk = NULL;
-		goto err_clk;
-	}
-
-	clk_enable(rtc->clk);
-
 	spin_lock_init(&rtc->lock);
 	platform_set_drvdata(pdev, rtc);
 	device_init_wakeup(&pdev->dev, 1);
@@ -413,13 +443,17 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 		goto err_unregister_rtc;		
 	}
 
+	tasklet_init(&rtc->tasklet, jzrtc_irq_tasklet,
+			(unsigned long)rtc);
+
 	jz4780_rtc_enable(rtc);
+	
 	return 0;
 
 
 err_unregister_rtc:
 	rtc_device_unregister(rtc->rtc);
-err_clk:
+
 	iounmap(rtc->iomem);
 
 err_nomap:
@@ -473,7 +507,7 @@ static struct platform_driver jz4780_rtc_driver = {
 	.suspend	= jz4780_rtc_suspend,
 	.resume		= jz4780_rtc_resume,
 	.driver		= {
-		.name		= "jz4780-rtc",
+	.name		= "jz4780-rtc",
 	},
 };
 

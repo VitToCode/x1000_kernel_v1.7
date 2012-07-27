@@ -533,3 +533,24 @@ struct platform_device jz_hdmi = {
 	.num_resources = ARRAY_SIZE(jz_hdmi_resources),
 	.resource = jz_hdmi_resources,
 };
+
+
+static struct resource jz4780_rtc_resource[] = {    
+        [0] = { 
+	                        .start = RTC_IOBASE,
+	                        .end   = RTC_IOBASE + 0xff,
+	                        .flags = IORESOURCE_MEM,
+	                },    
+        [1] = { 
+	                        .start = IRQ_RTC,
+	                        .end   = IRQ_RTC,
+	                        .flags = IORESOURCE_IRQ
+	                }    
+};    
+     
+struct platform_device jz4780_device_rtc = { 
+        .name             = "jz4780-rtc",
+        .id               = 0, 
+        .num_resources    = ARRAY_SIZE(jz4780_rtc_resource),
+        .resource         = jz4780_rtc_resource,
+};    

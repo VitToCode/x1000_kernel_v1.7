@@ -108,4 +108,18 @@
 #define ms2clycle(x)  (((x) * RTC_FREQ_DIVIDER) / 1000)
 
 
+/*jz4780 rtc device struct*/
+struct jz_rtc {
+	int irq;
+	struct clk *clk;
+	spinlock_t lock;
+	void __iomem *iomem;
+	struct resource *res;
+	struct rtc_device *rtc;
+	struct rtc_time rtc_alarm;
+	struct tasklet_struct   tasklet;
+};
+
+
+
 #endif /* __MACH_JZRTC_H__ */
