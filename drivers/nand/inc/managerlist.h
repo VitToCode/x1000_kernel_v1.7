@@ -8,13 +8,9 @@
 typedef struct _ManagerList ManagerList;
 
 struct _ManagerList {
-  /** Attributes **/
-  /*public*/
+    struct singlelist head;
     int mode;
     PartitionInterface* nmi;
-    struct singlelist head;
-  /** Associations **/
-/** Operations **/
 };
 
 /** Operations **/

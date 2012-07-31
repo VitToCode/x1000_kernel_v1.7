@@ -4,13 +4,11 @@
  *
  *
  */
-#include "string.h"
-#include "NandSemaphore.h"
+#include "clib.h"
 #include "taskmanager.h"
 #include "NandAlloc.h"
 #include "zonememory.h"
 #include "nanddebug.h"
-#include "delay.h"
 
 /******************MACRO definition**************/
 #define UNITSIZE     16
@@ -32,7 +30,7 @@ int Message_Post (int handle, Message *msg, int type ){
 	zid = task->zid;
 	msglist = (MessageList*)ZoneMemory_NewUnits(zid,UNITDIM(sizeof(MessageList)));
 	if (msglist == NULL){
-		ndprint(1, "Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
+		ndprint(TASKMANAGER_ERROR, "ERROR:Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
 		NandMutex_Unlock(&task->taskmutex);
 		return -1;
 	}
@@ -94,7 +92,7 @@ int  Message_Recieve (int handle,int msghandle){
 	}
 	NandMutex_Unlock(&task->taskmutex);
 	if(havemsg == 0){
-		ndprint(1,"Not find wait msg handle = %d \n", msghandle);
+		ndprint(TASKMANAGER_INFO,"WARNING:Not find wait msg handle = %d \n", msghandle);
 	}
 	else {
 		Semaphore_wait(sem);		
@@ -132,7 +130,7 @@ int Task_RegistMessageHandle (int handle,int (*fun)(int), int msgid ){
 	NandMutex_Lock(&task->taskmutex);	
    	hfl = (HandleFuncList*)ZoneMemory_NewUnits(zid,UNITDIM(sizeof(HandleFuncList)));  
 	if (hfl == NULL){
-		ndprint(1, "Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
+		ndprint(TASKMANAGER_ERROR, "ERROR:Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
 		NandMutex_Unlock(&task->taskmutex);
 		return -1;
 	}
@@ -145,7 +143,7 @@ int Task_RegistMessageHandle (int handle,int (*fun)(int), int msgid ){
 	return 0;
 }
 
-static int Qtask(void *handle){
+static RESULT Qtask(void *handle){
 	int  (*fun)(int);
 	TaskManager* task = (TaskManager*)handle;
 	MessageList  *msglist = NULL;
@@ -153,7 +151,6 @@ static int Qtask(void *handle){
 	HandleFuncList *hfl;
 	int ret = -1;
 	int zid = task->zid;
-
 	while(1){
 		Semaphore_wait(&task->tasksem);
 
@@ -183,7 +180,7 @@ static int Qtask(void *handle){
 		if(fun)
 			ret = fun(msglist->msg.data);
 		else 
-			ndprint(1, "Did not find the corresponding function %d\n",msglist->msg.msgid);
+			ndprint(TASKMANAGER_INFO, "WARNING:Did not find the corresponding function %d\n",msglist->msg.msgid);
 		
 		NandMutex_Lock(&task->taskmutex);
 		if(msglist->type == WAIT){
@@ -197,11 +194,10 @@ static int Qtask(void *handle){
 
 		NandMutex_Unlock(&task->taskmutex);
 	}
-
 	return 0;
 }
 
-static int Idletask(void *handle)
+static RESULT Idletask(void *handle)
 {
 	TaskManager* task = (TaskManager*)handle;
 	int   (*idlefunc)(int); 
@@ -212,7 +208,7 @@ static int Idletask(void *handle)
 			idlefunc((int)(task->prData));
 		}
 		else
-			sleep(1);
+			nm_sleep(1);
 	}
 
 	return 0;
@@ -226,7 +222,7 @@ int Task_Init(int context){
 	zid = ZoneMemory_Init(UNITSIZE);
 	task = (TaskManager*)ZoneMemory_NewUnits(zid,UNITDIM(sizeof(TaskManager)));
 	if (task == NULL){
-		ndprint(1, "Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
+		ndprint(TASKMANAGER_ERROR, "ERROR:Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
 		return -1;
 	}
 	
@@ -253,8 +249,8 @@ void Task_Deinit(int handle){
 	int zid = task->zid;
 	DeinitSemaphore(&task->tasksem);
 	DeinitNandMutex(&task->taskmutex);
-   	ExitThread( task->qid );
-	ExitThread( task->idleid );
+   	ExitThread( &task->qid );
+	ExitThread( &task->idleid );
 	ZoneMemory_DeInit(zid);
 }
 

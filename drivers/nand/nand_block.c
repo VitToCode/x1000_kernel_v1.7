@@ -64,7 +64,7 @@ static struct __nand_block nand_block;
 /*#################################################################*\
  *# dump
 \*#################################################################*/
-#define DBG_FUNC()	printk("##### nand block debug #####: func = %s \n", __func__)
+#define DBG_FUNC()	//printk("##### nand block debug #####: func = %s \n", __func__)
 
 #ifdef DEBUG
 struct driver_attribute drv_attr;
@@ -222,8 +222,10 @@ static int handle_req_thread(void *data)
 		set_current_state(TASK_RUNNING);
 
 	    while(req) {
-			printk("req = %p, start sector = %d, total = %d\n",
-				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req));
+			printk("%s: req = %p, start sector = %d, total = %d, buffer = %p\n",
+				   (rq_data_dir(req) == READ)? "READ":"WRITE",
+				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
+
 			/* make SectorList from request */
 			ndisk->sl = NULL;
 			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context, ndisk->sectorsize);
@@ -240,14 +242,14 @@ static int handle_req_thread(void *data)
 				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
 			else
 				ret = NandManger_write(ndisk->pinfo->context, ndisk->sl);
-			
+
 			BuffListManager_freeAllList(ndisk->sl_context, (void **)(&ndisk->sl), sizeof(*ndisk->sl));
-			
+
 			if (ret < 0) {
 				printk("NandManger_read/write error!\n");
 				break;
 			}
-			
+
 			if (!__blk_end_request(req, err, blk_rq_bytes(req)))
 				break;
 		}
@@ -366,7 +368,7 @@ static int nand_block_probe(struct device *dev)
 
 	if (!pinfo || !pinfo->pt) {
 		printk("ERROR(nand block): can not get partition info!\n");
-		return -EFAULT;		
+		return -EFAULT;
 	}
 
 	if (cur_minor > MAX_MINORS - DISK_MINORS) {
@@ -558,7 +560,7 @@ static void nand_disk_start(int data)
 	struct __partition_info *pinfo = NULL;
 
 	DBG_FUNC();
-	
+
 	if (NandManger_getPartition(nand_block.pm_handler, &phead) || (!phead)) {
 		printk("get NandManger partition error! phead = %p\n", phead);
 		return;

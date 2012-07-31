@@ -1,11 +1,12 @@
 #include "zonememory.h"
+#include "nanddebug.h"
 
 #define MEM_MAX_SIZE (4 * 1024)
 #define ALIGN4B(x) ((x + 3) / 4 * 4)
 #undef DEBUG
 #define DEBUG 
 
-#define DEBUG_OUT(x,y...) do{printk(x,##y);while(1);}while(0)
+#define DEBUG_OUT(x,y...) do{ndprint(1,x,##y);while(1);}while(0)
 
 static int get_bitmapsize(int tsize,int usize){
 	int bmisize;
@@ -36,9 +37,10 @@ static ZoneBuffer* NewZoneBuffer(ZoneMemory* z,int usize,void *buf,int size){
 	return zb;
 }
 int ZoneMemory_Init(int unitsize ){
-	
+
+	int zonesize;
 	ZoneMemory* z = Nand_VirtualAlloc(MEM_MAX_SIZE);
-	int zonesize = (MEM_MAX_SIZE - sizeof(ZoneMemory));
+	zonesize = (MEM_MAX_SIZE - sizeof(ZoneMemory));
 #ifdef DEBUG
 	unitsize += 8;
 #endif
@@ -150,7 +152,7 @@ static void free_zonebufferlist(ZoneBuffer* zb){
 	struct singlelist *pz;
 	ZoneBuffer *ztmp;
 	prev = &zb->head;
-	singlelist_for_each(pz,&zb->head){
+	singlelist_for_each(pz,zb->head.next){
 		if(dels){
 			ztmp = singlelist_entry(dels,ZoneBuffer,head);
 			singlelist_del(prev,dels);
@@ -241,15 +243,16 @@ void* ZoneMemory_NewUnit (int zid){
 }
 #if 1
 void ZoneMemory_DeleteUnits(int zid,void* pu,int count){
-	int index;
-	ZoneMemory *z = (ZoneMemory*)zid;
-	ZoneBuffer *ztmp;
-	struct singlelist *pz;
 #ifdef DEBUG
 	int release = 0;
 #endif
 
+	int index;
+	ZoneMemory *z = (ZoneMemory*)zid;
+	ZoneBuffer *ztmp;
+	struct singlelist *pz;
 	NandMutex_Lock(&z->mutex);
+
 	singlelist_for_each(pz,&(z->top->head)){
 		ztmp = singlelist_entry(pz,ZoneBuffer,head);
 		if(((unsigned int)pu >= (unsigned int)ztmp->mBuffer) && ((unsigned int)pu < (unsigned int)ztmp->mBuffer + ztmp->bitsize * z->usize)){

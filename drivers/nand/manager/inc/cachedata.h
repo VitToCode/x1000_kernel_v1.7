@@ -14,10 +14,10 @@ struct _CacheData {
 	struct singlelist head;
 };
 
-int CacheData_Init ( CacheData *cachedata, unsigned short indexcount, unsigned int unitlen );
+CacheData * CacheData_Init ( unsigned short indexcount, unsigned int unitlen );
 void CacheData_DeInit ( CacheData *cachedata );
 unsigned int CacheData_get ( CacheData *cachedata, unsigned int indexid );
 void CacheData_set ( CacheData *cachedata, unsigned int indexid, unsigned int data );
 unsigned int CacheData_find ( CacheData *cachedata, unsigned int data );
-
+void CacheData_update ( CacheData *cachedata, unsigned int startID,unsigned char *data);
 #endif

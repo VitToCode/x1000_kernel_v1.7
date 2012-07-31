@@ -18,7 +18,6 @@ struct _Recycle {
 	PageInfo *prevpageinfo;
 	PageInfo *curpageinfo;
 	PageInfo *nextpageinfo;
-	PageInfo *prev_writepageinfo;
 	PageInfo *writepageinfo;
 	unsigned int startsectorID;
 	unsigned int write_cursor;
@@ -41,7 +40,6 @@ struct _Recycle {
 	PageInfo *force_prevpageinfo;
 	PageInfo *force_curpageinfo;
 	PageInfo *force_nextpageinfo;
-	PageInfo *force_prev_writepageinfo;
 	PageInfo *force_writepageinfo;
 	unsigned int force_startsectorID;
 	unsigned int force_write_cursor;

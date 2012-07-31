@@ -15,11 +15,11 @@ if [ $# -eq 1 ]; then
 		    echo "error"
 		    exit
 		fi
-		echo "ln -sf "$j $DFILE
-		ln -sf $j $DFILE
+		echo "cp -f "$j $DFILE
+		cp -f $j $DFILE
 	    done
 	fi
     done
 else
-    echo "./ln.sh <source dir>"
+    echo "./cp.sh <source dir>"
 fi

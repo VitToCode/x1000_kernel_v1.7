@@ -15,5 +15,18 @@ struct _NandPageInfo {
 	unsigned short MagicID;
 	unsigned short crc;
 };
-
+#define CONVERT_DATA_NANDPAGEINFO(data,p,l4,l3,l2)			\
+	do{								\
+		unsigned char *d = (unsigned char *)data;		\
+		p = (NandPageInfo *)d;					\
+		p->L4Info = d + sizeof(NandPageInfo);			\
+		if((l3) != 0){						\
+			if((l2) == 0){					\
+				p->L3Info = p->L4Info + (l4);		\
+			}else{						\
+				p->L2Info = p->L4Info + (l4);		\
+				p->L3Info = p->L2Info + (l2);		\
+			}						\
+		}							\
+	}while(0)
 #endif

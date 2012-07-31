@@ -21,7 +21,7 @@ typedef struct _ZoneValidInfo ZoneValidInfo;
 struct _ZoneValidInfo {
 	Wpages *wpages;
 	int zoneid;
-	int cur;
+	int current_count;
 };
 
 typedef struct _ZoneManager ZoneManager;

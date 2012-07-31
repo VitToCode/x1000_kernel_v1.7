@@ -7,19 +7,19 @@
  *
  *	@cachelist: operate object
  */
-int CacheList_Init ( CacheList **cachelist )
-{
-	*cachelist = (CacheList *)Nand_VirtualAlloc(sizeof(CacheList));
-	if (!(*cachelist)) {
-		ndprint(1,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
+CacheList* CacheList_Init (void){
+	CacheList *cachelist;
+	cachelist = (CacheList *)Nand_VirtualAlloc(sizeof(CacheList));
+	if (!cachelist) {
+		ndprint(CACHELIST_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		return 0;
 	}
+	
+	cachelist->top = NULL;
+	cachelist->tail = NULL;
+	cachelist->listCount = 0;
 
-	(*cachelist)->top = NULL;
-	(*cachelist)->tail = NULL;
-	(*cachelist)->listCount = 0;
-
-	return 0;
+	return cachelist;
 }
 
 /**
@@ -27,9 +27,9 @@ int CacheList_Init ( CacheList **cachelist )
  *
  *	@cachelist: operate object
  */
-void CacheList_DeInit ( CacheList **cachelist )
+void CacheList_DeInit ( CacheList *cachelist )
 {
-	Nand_VirtualFree(*cachelist);
+	Nand_VirtualFree(cachelist);
 }
 
 /** 
@@ -58,7 +58,7 @@ CacheData *CacheList_getTail ( CacheList *cachelist )
 	CacheData *cachedata;
 
 	if (cachelist->listCount == 0) {
-		ndprint(1,"Warning: CacheList has no content fun %s line %d\n", 
+		ndprint(CACHELIST_INFO,"Warning: CacheList has no content fun %s line %d\n", 
 			__FUNCTION__, __LINE__);
 		return NULL;
 	}
@@ -98,13 +98,13 @@ CacheData *CacheList_get ( CacheList *cachelist, unsigned int indexid )
 	CacheData *next_data = NULL;
 
 	if (!cachelist) {
-		ndprint(1,"ERROR: CacheList was null fun %s line %d\n", 
+		ndprint(CACHELIST_ERROR,"ERROR: CacheList was null fun %s line %d\n", 
 			__FUNCTION__, __LINE__);
 		return NULL;
 	}
 
 	if (cachelist->listCount == 0) {
-		ndprint(1,"Warning: CacheList has no content fun %s line %d\n", 
+		ndprint(CACHELIST_INFO,"Warning: CacheList has no content fun %s line %d\n", 
 			__FUNCTION__, __LINE__);
 		return NULL;
 	}
@@ -127,6 +127,8 @@ CacheData *CacheList_get ( CacheList *cachelist, unsigned int indexid )
 			prev_data = singlelist_entry(pos,CacheData,head);
 			next_data = singlelist_entry(q,CacheData,head);
 		}
+		else
+			break;
 
 		if (next_data && is_indexid_match(next_data,indexid)) {
 			flag = 1;
@@ -158,7 +160,7 @@ CacheData *CacheList_get ( CacheList *cachelist, unsigned int indexid )
  */
 unsigned int CacheList_find ( CacheList *cachelist, unsigned int data )
 {
-	int ret = 0;
+	unsigned int ret = -1;
 	struct singlelist *pos;
 	CacheData *cachedata;
 
@@ -193,3 +195,17 @@ void CacheList_Insert ( CacheList *cachelist, CacheData *data )
 	cachelist->listCount++;
 }
 
+CacheData * CacheList_getTop ( CacheList *cachelist, unsigned int indexid )
+{
+	CacheData *prev_data = NULL;
+	if (is_indexid_match(cachelist->top,indexid)) {
+		prev_data = cachelist->top;
+		if (cachelist->top->head.next == NULL)
+			cachelist->top = NULL;
+		else
+			cachelist->top = singlelist_entry(cachelist->top->head.next, CacheData, head);
+		
+		cachelist->listCount--;
+	}
+	return prev_data;
+}
