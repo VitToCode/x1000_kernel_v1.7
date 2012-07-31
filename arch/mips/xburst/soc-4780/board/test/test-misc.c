@@ -1,9 +1,10 @@
 #include <linux/platform_device.h>
-#include <mach/platform.h>
-#include <mach/jzsnd.h>
 #include <linux/i2c.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
+#include <mach/platform.h>
+#include <mach/jzsnd.h>
+#include <mach/jzmmc.h>
 #include <gpio.h>
 
 #include "test.h"
@@ -33,6 +34,26 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ4780_SUPPORT_TSC
+static struct jztsc_pin test_tsc_gpio[] = {
+	[0] = {GPIO_GT801_IRQ,		HIGH_ENABLE},
+	[1] = {GPIO_GT801_SHUTDOWN,	HIGH_ENABLE},
+	[2] = {GPIO_TP_DRV_EN,		HIGH_ENABLE},
+};
+
+static struct jztsc_platform_data test_tsc_pdata = {
+	.gpio	= test_tsc_gpio,
+};
+
+static struct i2c_board_info test_i2c0_devs[] __initdata = {
+	{
+		I2C_BOARD_INFO("gt801_ts", 0x55),
+		.irq = 0,
+		.platform_data	= &test_tsc_pdata,
+	},
+};
+#endif
+
 static int __init test_board_init(void)
 {
 /* dma */
@@ -54,6 +75,14 @@ static int __init test_board_init(void)
 #endif
 #ifdef CONFIG_I2C4_JZ4780
 	platform_device_register(&jz_i2c4_device);
+#endif
+
+/* ipu */
+#ifdef CONFIG_JZ4780_IPU
+	platform_device_register(&jz_ipu0_device);
+#endif
+#ifdef CONFIG_JZ4780_IPU
+	platform_device_register(&jz_ipu1_device);
 #endif
 
 /* mmc */
@@ -147,7 +176,15 @@ static int __init test_board_init(void)
 #ifdef CONFIG_HDMI_JZ4780
 	platform_device_register(&jz_hdmi);
 #endif
+
+#ifdef CONFIG_JZ4780_SUPPORT_TSC
+	i2c_register_board_info(0, test_i2c0_devs, ARRAY_SIZE(test_i2c0_devs));
+#endif	
+#ifdef CONFIG_RTC_DRV_JZ4780
+	platform_device_register(&jz4780_device_rtc);
+#endif
 	return 0;
 }
+
 
 arch_initcall(test_board_init);

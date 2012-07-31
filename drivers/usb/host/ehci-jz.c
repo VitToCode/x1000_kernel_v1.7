@@ -12,15 +12,27 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/clk.h>
+#include "../dwc/jzsoc.h"
 
 extern int usb_disabled(void);
 
-static void jz_start_ehc(void)
-{
+struct jz_ehci_pri {
+	struct device		*dev;
+	struct clk		*clk_gate;
+};
 
+static void jz_start_ehc(struct jz_ehci_pri *ehci_pri)
+{
+#ifdef CONFIG_SOC_4780
+/*
+ * Make sure which is phy0 which is phy1 after the real chip come back.
+ */
+	REG_CPM_OPCR |= (3 << 6);
+#endif
 }
 
-static void jz_stop_ehc(void)
+static void jz_stop_ehc(struct jz_ehci_pri *ehci_pri)
 {
 
 }
@@ -28,7 +40,7 @@ static void jz_stop_ehc(void)
 static const struct hc_driver ehci_jz_hc_driver = {
 	.description		= hcd_name,
 	.product_desc		= "JZ EHCI",
-	.hcd_priv_size		= sizeof(struct ehci_hcd),
+	.hcd_priv_size		= sizeof(struct ehci_hcd) + sizeof(struct jz_ehci_pri),
 
 	/*
 	 * generic hardware linkage
@@ -75,38 +87,58 @@ static const struct hc_driver ehci_jz_hc_driver = {
 
 static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 {
+	int ret;
+	int irq;
+	char *clkname = "uhc";
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
-	int ret;
+	struct resource	*regs;
+	struct jz_ehci_pri *ehci_pri;
 
-	if (usb_disabled())
-		return -ENODEV;
-
-	if (pdev->resource[1].flags != IORESOURCE_IRQ) {
-		pr_debug("resource[1] is not IORESOURCE_IRQ");
-		return -ENOMEM;
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_err(&pdev->dev, "No irq resource\n");
+		return irq;
 	}
-	hcd = usb_create_hcd(&ehci_jz_hc_driver, &pdev->dev, "JZ_EHCI");
+
+	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!regs) {
+		dev_err(&pdev->dev, "No iomem resource\n");
+		return -ENXIO;
+	}
+
+	hcd = usb_create_hcd(&ehci_jz_hc_driver, &pdev->dev, "jz");
 	if (!hcd)
 		return -ENOMEM;
 
-	hcd->rsrc_start = pdev->resource[0].start;
-	hcd->rsrc_len = pdev->resource[0].end - pdev->resource[0].start + 1;
+	hcd->rsrc_start = regs->start;
+	hcd->rsrc_len = resource_size(regs);
 
 	if (!request_mem_region(hcd->rsrc_start, hcd->rsrc_len, hcd_name)) {
-		pr_debug("request_mem_region failed");
+		dev_err(&pdev->dev, "request_mem_region failed\n");
 		ret = -EBUSY;
 		goto err1;
 	}
 
 	hcd->regs = ioremap(hcd->rsrc_start, hcd->rsrc_len);
 	if (!hcd->regs) {
-		pr_debug("ioremap failed");
+		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENOMEM;
 		goto err2;
 	}
 
-	jz_start_ehc();
+	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
+	ehci_pri->clk_gate = clk_get(&pdev->dev, clkname);
+	if (IS_ERR(ehci_pri->clk_gate)) {
+		dev_err(&pdev->dev, "clk gate get error\n");
+		ret = PTR_ERR(ehci_pri->clk_gate);
+		goto err2;
+	}
+	clk_enable(ehci_pri->clk_gate);
+
+	ehci_pri->dev = &pdev->dev;
+
+	jz_start_ehc(ehci_pri);
 
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
@@ -116,12 +148,19 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 
 	ret = usb_add_hcd(hcd, pdev->resource[1].start,
 			  IRQF_DISABLED | IRQF_SHARED);
+/*
+ * This should be fixed after a standard spec.
+ * addr: USBOPBASE + 0x10 detail:controller width. 1:16bit  0:8 bit
+ */
+	*(volatile unsigned int *)(0xb34900b0) |= (1 << 6);
+
 	if (ret == 0) {
 		platform_set_drvdata(pdev, hcd);
 		return ret;
 	}
 
-	jz_stop_ehc();
+	clk_put(ehci_pri->clk_gate);
+	jz_stop_ehc(ehci_pri);
 	iounmap(hcd->regs);
 err2:
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
@@ -133,12 +172,16 @@ err1:
 static int ehci_hcd_jz_drv_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct jz_ehci_pri *ehci_pri;
 
+	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
-	jz_stop_ehc();
+	jz_stop_ehc(ehci_pri);
+	clk_disable(ehci_pri->clk_gate);
+	clk_put(ehci_pri->clk_gate);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
@@ -152,6 +195,9 @@ static int ehci_hcd_jz_drv_suspend(struct platform_device *pdev,
 	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 	unsigned long flags;
 	int rc;
+	struct jz_ehci_pri *ehci_pri;
+
+	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
 
 	return 0;
 	rc = 0;
@@ -183,7 +229,7 @@ static int ehci_hcd_jz_drv_suspend(struct platform_device *pdev,
 
 	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 
-	jz_stop_ehc();
+	jz_stop_ehc(ehci_pri);
 
 bail:
 	spin_unlock_irqrestore(&ehci->lock, flags);
@@ -199,8 +245,11 @@ static int ehci_hcd_jz_drv_resume(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+	struct jz_ehci_pri *ehci_pri;
 
-	jz_start_ehc();
+	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
+
+	jz_start_ehc(ehci_pri);
 
 	// maybe restore FLADJ
 

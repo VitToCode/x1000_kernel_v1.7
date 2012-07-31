@@ -1,8 +1,15 @@
 #ifndef __TEST_H__
 #define __TEST_H__
+#include <gpio.h>
 
-#define GPIO_SD2_VCC_EN_N	(32 * 2 + 29) /* GPC29 */
-#define GPIO_SD2_CD_N		(32 * 1 + 24) /* GPB24 */
+/* MSC GPIO Definition */
+#define GPIO_SD2_VCC_EN_N	GPIO_PC(29)
+#define GPIO_SD2_CD_N		GPIO_PB(24)
+
+/* GT801 Touchscreen GPIO Definition */
+#define GPIO_TP_DRV_EN			GPIO_PE(12)
+#define GPIO_GT801_IRQ			GPIO_PB(27)
+#define GPIO_GT801_SHUTDOWN		GPIO_PB(19)
 
 extern struct jzmmc_platform_data test_inand_pdata;
 extern struct jzmmc_platform_data test_tf_pdata;

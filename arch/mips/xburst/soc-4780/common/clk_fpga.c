@@ -136,8 +136,10 @@ enum {
 #define CLK_NAME_LCD1		"lcd1"
 	CLK_ID_LCD0,
 #define CLK_NAME_LCD0		"lcd0"
-	CLK_ID_IPU,
-#define CLK_NAME_IPU		"ipu"
+	CLK_ID_IPU0,
+#define CLK_NAME_IPU0		"ipu0"
+	CLK_ID_IPU1,
+#define CLK_NAME_IPU1		"ipu1"
 	CLK_ID_DDR0,
 #define CLK_NAME_DDR0		"ddr0"
 	CLK_ID_DDR1,
@@ -271,7 +273,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(CIM,   		GATE(26)),
 	DEF_CLK(LCD1,   	GATE(27)),
 	DEF_CLK(LCD0,   	GATE(28)),
-	DEF_CLK(IPU,   		GATE(29)),
+	DEF_CLK(IPU1,   	GATE(29)),
+	DEF_CLK(IPU0,   	GATE(29)),
 	DEF_CLK(DDR0,  		GATE(30)),
 	DEF_CLK(DDR1,  		GATE(31)),
 	DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),

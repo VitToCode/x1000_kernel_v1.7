@@ -26,12 +26,12 @@ static inline int div_s64_32(long long dividend , int divisor)  // for example: 
 	return result;
 }
 /*static inline int div_s32_32(int dividend ,int divisor)    // div_s32_32 ditto
-{
-	int remainder = dividend % divisor;
-	int result =dividend / divisor;
-	return remainder ? (result +1) : result;
-}
-*/
+  {
+  int remainder = dividend % divisor;
+  int result =dividend / divisor;
+  return remainder ? (result +1) : result;
+  }
+ */
 /**
  * ffs_ll - find first bit set in a 64bit word.
  * @word: The word to search
@@ -227,14 +227,14 @@ static irqreturn_t jznand_waitrb_interrupt(int irq, void *dev_id)
 int nand_wait_rb(void)
 {
 	unsigned int ret;
-//	printk("**************** nand_rb =%d \n",nand_rb);
-//	nand_rb =0;
+	//	printk("**************** nand_rb =%d \n",nand_rb);
+	//	nand_rb =0;
 #if 1
 	ret =wait_event_interruptible_timeout(nand_rb_queue,nand_rb,(msecs_to_jiffies(200)));
 #else
 	ret =wait_event_interruptible(nand_rb_queue,nand_rb);
 #endif
-//	printk("~~~~~~~~~~~~~ nand_rb =%d \n",nand_rb);
+	//	printk("~~~~~~~~~~~~~ nand_rb =%d \n",nand_rb);
 	nand_rb =0;
 	if(!ret)
 		return IO_ERROR;
@@ -247,6 +247,7 @@ static inline int init_nand(void * vNand)
 	VNandManager *tmp_manager =(VNandManager *)vNand;
 	VNandInfo *tmp_info = &(tmp_manager->info);
 	//	PPartArray* tmp_part;
+	static PPartition *t_partition;  // temporary partition
 
 	int ret;
 	int ipartition_num=0;
@@ -287,7 +288,8 @@ static inline int init_nand(void * vNand)
 
 	ipartition_num =g_pnand_data->nr_partitions;
 	ptemp =g_pnand_data->partitions;
-	g_partition =(PPartition *)nand_malloc_buf(ipartition_num*(sizeof(PPartition)));
+	/*  add a partition that stored badblock tabel */
+	g_partition =(PPartition *)nand_malloc_buf((ipartition_num+1)*(sizeof(PPartition)));
 	if (!g_partition) {
 		eprintf("ERROR: g_partition malloc Failed\n");
 		goto init_nand_error1;
@@ -301,10 +303,11 @@ static inline int init_nand(void * vNand)
 			tmp_freesize =tmp_info->hwSector;
 		else
 			tmp_freesize =0;
-		
+
 		/*   cale ppartition vnand info     */
 		use_planenum = (ptemp+ret)->use_planes ? g_pnand_api.nand_chip->planenum : 1;
 		(g_partition+ret)->name = (ptemp+ret)->name;
+		(g_partition+ret)->hwsector =tmp_info->hwSector ;
 		(g_partition+ret)->byteperpage = tmp_info->BytePerPage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock)); 
@@ -321,16 +324,34 @@ static inline int init_nand(void * vNand)
 			eprintf("ERROR: pagesize equal 0\n");
 			goto init_nand_error2;
 		}
-		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->totalblocks;
+		/*  blockid is physcial block id  */
+		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / tmp_info->PagePerBlock;
 		if(blockid > (tmp_info->TotalBlocks) || lastblockid > (g_partition +ret)->startblockID){
 			eprintf("ERROR: nand capacity insufficient\n");
 			goto init_nand_error2;
 		}
 		lastblockid = blockid;
 	}
+	/*  add partition of badblock tabel;the block,which is subtracted from last partition,
+	 *   is as badblock partition.
+	 */
+	t_partition = g_partition+ipartition_num-1;  //last partiton from board
+	(g_partition+ret)->name =" BADBLOCK_TABEL"; 
+	(g_partition+ret)->byteperpage = t_partition->byteperpage;
+	(g_partition+ret)->badblockcount = 0;
+	(g_partition+ret)->startblockID = blockid - use_planenum;
+	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * (tmp_info->PagePerBlock);
+	(g_partition+ret)->pageperblock = t_partition->pageperblock;
+	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * 1 ;
+	(g_partition+ret)->totalblocks = 1;
+	(g_partition+ret)->mode = 2;   // this is special mark of badblock tabel partition
+	(g_partition+ret)->prData = t_partition->prData;
+	(g_partition+ret)->hwsector =tmp_info->hwSector ;
+
+
 
 	tmp_manager->pt->ppt = g_partition;
-	tmp_manager->pt->ptcount = ipartition_num;
+	tmp_manager->pt->ptcount = ipartition_num+1;
 
 	g_aligned_list =nand_malloc_buf(256*sizeof(Aligned_List));
 	if (!g_aligned_list){ 
@@ -435,7 +456,7 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 	if(tmp_part_attrib == PART_XBOOT){
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =read_spl(g_vnand_base,g_aligned_list);
-		}else{
+	}else{
 #ifdef CONFIG_NAND_DAM
 
 #else
@@ -505,8 +526,8 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 {
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
+	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
+	//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
 	if(!erase_blocklist)
 		return -1;
 #ifdef CONFIG_NAND_DAM
@@ -677,7 +698,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	g_vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
 	g_phynand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
 
-//	printk(" nemc_cs6_iomem = 0x%x *********\n",regs->start);
+	//	printk(" nemc_cs6_iomem = 0x%x *********\n",regs->start);
 	/*   nand rb irq request */
 
 	if (gpio_request_one(20,

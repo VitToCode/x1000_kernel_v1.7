@@ -124,6 +124,9 @@ extern struct platform_device jz_codec_device;
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;
 
+extern struct platform_device jz_ipu0_device;
+extern struct platform_device jz_ipu1_device;
+
 extern struct platform_device jz_uart0_device;
 extern struct platform_device jz_uart1_device;
 extern struct platform_device jz_uart2_device;
@@ -142,6 +145,7 @@ extern struct platform_device jz_mac;
 extern struct platform_device jz_nand_device;
 
 extern struct platform_device jz_hdmi;
+extern struct platform_device jz4780_device_rtc;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 

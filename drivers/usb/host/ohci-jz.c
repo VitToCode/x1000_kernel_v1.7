@@ -22,12 +22,14 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include "../dwc/jzsoc.h"
 
 extern int usb_disabled(void);
 
 struct jz_ohci_pri {
 	struct device		*dev;
 	struct clk		*clk;
+	struct clk		*clk_gate;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -35,10 +37,8 @@ struct jz_ohci_pri {
 static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
 {
 	dev_dbg(ohci_pri->dev, "Starting JZ OHCI USB Controller\n");
-
+	REG_CPM_OPCR |= (3 << 6);	
 	/* Set UHC clock and start */
-	clk_set_rate(ohci_pri->clk, 48000000);
-	clk_enable(ohci_pri->clk);
 }
 
 static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
@@ -46,8 +46,6 @@ static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
 	dev_dbg(ohci_pri->dev, "Stopping JZ OHCI USB Controller\n");
 
 	/* disable host controller */
-	clk_disable(ohci_pri->clk);
-	clk_put(ohci_pri->clk);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -70,7 +68,8 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 {
 	int retval;
 	int irq;
-	char *clkname = "ohci";
+	char *clkname = "cgu_uhc";
+	char *clk_gate_name = "uhc";
 	struct usb_hcd *hcd;
 	struct resource	*regs;
 	struct jz_ohci_pri *ohci_pri;
@@ -109,11 +108,23 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 	}
 
 	ohci_pri = (struct jz_ohci_pri *)((unsigned char *)hcd + sizeof(struct ohci_hcd));
+
+	ohci_pri->clk_gate = clk_get(&pdev->dev, clk_gate_name);
+	if (IS_ERR(ohci_pri->clk_gate)) {
+		dev_err(&pdev->dev, "clk gate get error\n");
+		retval = PTR_ERR(ohci_pri->clk_gate);
+		goto err2;
+	}
+	clk_enable(ohci_pri->clk_gate);
+
 	ohci_pri->clk = clk_get(&pdev->dev, clkname);
 	if (IS_ERR(ohci_pri->clk)) {
+		dev_err(&pdev->dev, "clk get error\n");
 		retval = PTR_ERR(ohci_pri->clk);
-		goto err3;
+		goto err2;
 	}
+	clk_set_rate(ohci_pri->clk, 48000000);
+	clk_enable(ohci_pri->clk);
 
 	ohci_pri->dev = &pdev->dev;
 
@@ -123,7 +134,9 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
 	if (retval == 0)
 		return retval;
-err3:
+
+	clk_put(ohci_pri->clk_gate);
+	clk_put(ohci_pri->clk);
 	jz_stop_ohc(ohci_pri);
 	iounmap(hcd->regs);
 err2:
@@ -154,6 +167,10 @@ static void usb_ohci_jz_remove(struct usb_hcd *hcd, struct platform_device *dev)
 	ohci_pri = (struct jz_ohci_pri *)((unsigned char *)hcd + sizeof(struct ohci_hcd));
 	usb_remove_hcd(hcd);
 	jz_stop_ohc(ohci_pri);
+	clk_disable(ohci_pri->clk_gate);
+	clk_put(ohci_pri->clk_gate);
+	clk_disable(ohci_pri->clk);
+	clk_put(ohci_pri->clk);
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
@@ -161,10 +178,9 @@ static void usb_ohci_jz_remove(struct usb_hcd *hcd, struct platform_device *dev)
 
 /*-------------------------------------------------------------------------*/
 
-static int __devinit
-ohci_jz_start (struct usb_hcd *hcd)
+static int __devinit ohci_jz_start(struct usb_hcd *hcd)
 {
-	struct ohci_hcd	*ohci = hcd_to_ohci (hcd);
+	struct ohci_hcd	*ohci = hcd_to_ohci(hcd);
 	int		ret;
 
 	ohci_dbg(ohci, "ohci_jz_start, ohci:%p", ohci);

@@ -343,6 +343,34 @@ struct platform_device jz_fb##NO##_device = {					\
 DEF_LCD(0);
 DEF_LCD(1);
 
+static u64 jz_ipu_dmamask = ~(u64)0;
+
+#define DEF_IPU(NO)								\
+static struct resource jz_ipu##NO##_resources[] = {				\
+	[0] = {									\
+		.start          = IPU##NO##_IOBASE,				\
+		.end            = IPU##NO##_IOBASE+ 0x8000 - 1,		\
+		.flags          = IORESOURCE_MEM,				\
+	},									\
+	[1] = {									\
+		.start          = IRQ_IPU##NO,					\
+		.end            = IRQ_IPU##NO,					\
+		.flags          = IORESOURCE_IRQ,				\
+	},									\
+};										\
+struct platform_device jz_ipu##NO##_device = {					\
+	.name = "jz-ipu",							\
+	.id = NO,								\
+	.dev = {								\
+		.dma_mask               = &jz_ipu_dmamask,			\
+		.coherent_dma_mask      = 0xffffffff,				\
+	},									\
+	.num_resources  = ARRAY_SIZE(jz_ipu##NO##_resources),			\
+	.resource       = jz_ipu##NO##_resources,				\
+};
+DEF_IPU(0);
+DEF_IPU(1);
+
 
 #define DEF_UART(NO)								\
 static struct resource jz_uart##NO##_resources[] = {				\
@@ -533,3 +561,24 @@ struct platform_device jz_hdmi = {
 	.num_resources = ARRAY_SIZE(jz_hdmi_resources),
 	.resource = jz_hdmi_resources,
 };
+
+
+static struct resource jz4780_rtc_resource[] = {    
+        [0] = { 
+	                        .start = RTC_IOBASE,
+	                        .end   = RTC_IOBASE + 0xff,
+	                        .flags = IORESOURCE_MEM,
+	                },    
+        [1] = { 
+	                        .start = IRQ_RTC,
+	                        .end   = IRQ_RTC,
+	                        .flags = IORESOURCE_IRQ
+	                }    
+};    
+     
+struct platform_device jz4780_device_rtc = { 
+        .name             = "jz4780-rtc",
+        .id               = 0, 
+        .num_resources    = ARRAY_SIZE(jz4780_rtc_resource),
+        .resource         = jz4780_rtc_resource,
+};    
