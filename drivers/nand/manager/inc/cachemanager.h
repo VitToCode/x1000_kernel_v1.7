@@ -1,19 +1,37 @@
 #ifndef __CACHEMANAGER_H__
 #define __CACHEMANAGER_H__
-
+#include "vnandinfo.h"
 #include "cachelist.h"
 #include "cachedata.h"
 #include "pageinfo.h"
+#include "nandpageinfo.h"
 #include "NandSemaphore.h"
 
 typedef struct _CacheManager CacheManager;
+typedef struct _LockCacheDataTable LockCacheDataTable;
+typedef struct _PageCache PageCache;
+
+struct _LockCacheDataTable{
+	unsigned int sectorid;
+	CacheData *L1;    //correspond CacheManager L1Info; 
+	CacheData *L2;    //correspond CacheManager L2Info; 
+	CacheData *L3;    //correspond CacheManager L3Info; 
+	CacheData *L4;    //correspond CacheManager L4Info; 
+};
+struct _PageCache{
+    	unsigned char *pageinfobuf;
+	NandPageInfo *nandpageinfo;
+	unsigned int pageid;
+	VNandInfo *vnand;
+	int bufferlistid;
+};
 struct _CacheManager {
 	CacheData *L1Info;	//L1 cache
-	CacheData *L2Info;	//L2 cache
-	CacheList *L3Info;		//L3 cache
-	CacheList *L4Info;		//L4 cache
-	CacheData *cachedata;	//all cachedata of L1, L2, L3 and L4 
-	CacheData *locked_data;	//find locked cachedata
+	CacheList *L2Info;	//L2 cache
+	CacheList *L3Info;	//L3 cache
+	CacheList *L4Info;	//L4 cache
+
+
 	unsigned int L1InfoLen;	//how mang Bytes of one cachedata' index
 	unsigned int L2InfoLen;
 	unsigned int L3InfoLen;
@@ -23,13 +41,22 @@ struct _CacheManager {
 	unsigned short L3UnitLen;
 	unsigned short L4UnitLen;
 	NandMutex mutex;
+
+	PageCache pagecache;
+
+	LockCacheDataTable lct;
+	PageInfo pageinfo;
+};
+
+enum Update_Type {
+	UPDATE_L2,
+	UPDATE_L3,
 };
 
 int CacheManager_Init ( int context );
 void CacheManager_DeInit ( int context );
-void CacheManager_updateCache ( int context, unsigned int sectorid, unsigned int pageid );
 unsigned int CacheManager_getPageID ( int context, unsigned int sectorid );
-void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **pi );
-void CacheManager_unlockCache ( int context, PageInfo *pi);
+void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **pi);
+void CacheManager_unlockCache ( int context,PageInfo *pi);
 
 #endif

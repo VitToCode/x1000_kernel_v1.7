@@ -23,14 +23,15 @@ struct _VNandManager {
     PPartArray* pt;
 };
 
-#define CONV_PT_VN(pt,vn)												\
-	do{																	\
-		(vn)->startBlockID = (pt)->startblockID;						\
-		(vn)->PagePerBlock = (pt)->pageperblock;						\
-		(vn)->BytePerPage = (pt)->byteperpage;							\
-		(vn)->TotalBlocks = (pt)->totalblocks;							\
-		(vn)->MaxBadBlockCount = (pt)->badblockcount;					\
-		(vn)->hwSector = (pt)->hwsector;								\
+#define CONV_PT_VN(pt,vn)							\
+	do{									\
+		(vn)->startBlockID = 0;;						\
+		(vn)->PagePerBlock = (pt)->pageperblock;			\
+		(vn)->BytePerPage = (pt)->byteperpage;				\
+		(vn)->TotalBlocks = (pt)->totalblocks;				\
+		(vn)->MaxBadBlockCount = (pt)->badblockcount;			\
+		(vn)->hwSector = (pt)->hwsector;				\
+		(vn)->pt_badblock_info = ((pt)->pt_badblock_info + 1);		\
 		(vn)->prData = (void*)(pt);										\
 	}while(0)
 

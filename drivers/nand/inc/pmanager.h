@@ -19,14 +19,11 @@ struct NotifyList{
 	int prdata;
 };
 struct _PManager {
-
     VNandManager* vnand;
     BuffListManager* bufferlist;
     LPartArray lpt;
-	struct singlelist mltop;
-
-	int  p_zid;
-	struct singlelist startlist_top;
+	ManagerList *Mlist;
+	struct NotifyList *nl;
 };
 
 #endif

@@ -21,7 +21,7 @@ int vNand_MarkBadBlock (VNandInfo* vNand,unsigned int blockid);
 
 int vNand_Init ( VNandManager** context );
 void vNand_Deinit ( VNandManager** context );
-void Register_StartNand(void (*start)(int),int context);
+void Register_StartNand(void *start,int context);
 
 int vNand_register_nanddriver (int context,NandInterface* interface);
 

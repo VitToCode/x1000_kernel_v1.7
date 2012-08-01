@@ -60,7 +60,7 @@ struct _TaskManager{
 
 enum Type {
 	NO_WAIT,
-	WAIT	
+	WAIT,	
 };
 
 enum MessageId {

@@ -11,18 +11,18 @@
 typedef struct _PPartition PPartition;
 typedef struct _PPartArray PPartArray;
 struct _PPartition {
-    const char *name;
-    int startblockID; 
-    int pageperblock;
-    int byteperpage;
-    int totalblocks;
-    int badblockcount;
+	const char *name;
+	int startblockID; 
+	int pageperblock;
+	int byteperpage;
+	int totalblocks;
+	int badblockcount;
 	int hwsector;
-
 	int startPage;
 	int PageCount;
 	int mode;
 	void *prData;
+	unsigned int *pt_badblock_info;
 };
 
 #define PPARTITION(pt) ((PPartition *)pt)

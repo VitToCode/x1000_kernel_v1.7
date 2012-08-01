@@ -6,7 +6,7 @@
 #include <bilist.h>
 #include <NandSemaphore.h>
 #include <zonememory.h>
-#include "string.h"
+#include "clib.h"
 #include <memdealer.h>
 #include "nanddebug.h"
 
@@ -43,8 +43,6 @@ static NandMutex mutex;
 static int alloc(struct MemoryDealer *dealer,int size, unsigned int flags){
 	chunk_t* free_chunk,*cur;
 	struct list_head *pos;
-	int extra;
-
 	if (size == 0) {
         return 0;
     }
@@ -53,7 +51,7 @@ static int alloc(struct MemoryDealer *dealer,int size, unsigned int flags){
 
 	list_for_each(pos,&dealer->top){
 		cur = list_entry(pos,chunk_t,head);
-        extra = 0;
+        int extra = 0;
         if (flags & PAGE_ALIGNED)
             extra = ( -cur->start & ((PAGESIZE/KMEMALIGN)-1) );
 		// best fit

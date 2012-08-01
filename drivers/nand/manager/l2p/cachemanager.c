@@ -1,4 +1,4 @@
-#include <string.h>
+#include "clib.h"
 #include "cachemanager.h"
 #include "NandAlloc.h"
 #include "nanddebug.h"
@@ -8,9 +8,11 @@
 #include "nandpageinfo.h"
 
 #define L1_CACHEDATA_COUNT 1
-#define L2_CACHEDATA_COUNT 1
+#define L2_CACHEDATA_COUNT 4
 #define L3_CACHEDATA_COUNT 32
 #define L4_CACHEDATA_COUNT 32
+
+#define calc_IndexID(start,ulen,len) (start / ((len >> 2) * ulen) * ((len >> 2) * ulen))
 
 /**
  *	fill_infolen_unitlen - fill infolen and unitlen of cachemanager
@@ -23,126 +25,118 @@ static void fill_infolen_unitlen(int context)
 	ZoneManager *zonemanager = conptr->zonep;
 	VNandInfo *vnand = &conptr->vnand;
 	CacheManager *cachemanager = conptr->cachemanager;
-	
+	unsigned int lxlen;
+	unsigned int ulxlen;
 	cachemanager->L1InfoLen = vnand->BytePerPage;
 	cachemanager->L2InfoLen = zonemanager->l2infolen;
 	cachemanager->L3InfoLen = zonemanager->l3infolen;
 	cachemanager->L4InfoLen = zonemanager->l4infolen;
-	cachemanager->L1UnitLen = vnand->TotalBlocks * vnand->PagePerBlock * vnand->BytePerPage
-		/ (vnand->BytePerPage / UNIT_SIZE) / SECTOR_SIZE;
 
-	if (zonemanager->l2infolen)
-		cachemanager->L2UnitLen = cachemanager->L1UnitLen 
-		/ (zonemanager->l2infolen / UNIT_SIZE);
-	else
-		cachemanager->L2UnitLen = 0;
-	
-	if (zonemanager->l3infolen) {
-		if (zonemanager->l2infolen)
-			cachemanager->L3UnitLen = cachemanager->L2UnitLen 
-			/ (zonemanager->l3infolen / UNIT_SIZE);
-		else
-			cachemanager->L3UnitLen = cachemanager->L1UnitLen 
-			/ (zonemanager->l3infolen / UNIT_SIZE);
-	}
-	else
-		cachemanager->L3UnitLen = 0;
-	
 	cachemanager->L4UnitLen = 1;
-}
-
-/**
- *	init_L1cache - initialize L1 cache
- *
- *	@context: global variable
- */
-static void init_L1cache(int context)
-{
-	Context *conptr = (Context *)context;
-	CacheData *cachedata = conptr->cachemanager->cachedata;
-	
-	cachedata[0].Index = conptr->l1info->page;
-	cachedata[0].IndexID = 0;
-	cachedata[0].IndexCount = conptr->cachemanager->L1InfoLen / UNIT_SIZE;
-	cachedata[0].unitLen = conptr->cachemanager->L1UnitLen;
-	cachedata[0].head.next = NULL;
-	conptr->cachemanager->L1Info = &cachedata[0];
-}
-
-/**
- *	init_L2cache - initialize L2 cache
- *
- *	@context: global variable
- */
-static int init_L2cache(int context)
-{
-	int ret;
-	Context *conptr = (Context *)context;
-	CacheData *cachedata = conptr->cachemanager->cachedata;
-	
-	ret = CacheData_Init(&cachedata[1], conptr->cachemanager->L2InfoLen / UNIT_SIZE * 
-	conptr->cachemanager->L1InfoLen / UNIT_SIZE, conptr->cachemanager->L2UnitLen);
-	if (ret == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
+	lxlen = cachemanager->L4InfoLen;
+	ulxlen = cachemanager->L4UnitLen;
+	if (zonemanager->l3infolen){
+		cachemanager->L3UnitLen = (lxlen / 4) * ulxlen;
+		lxlen = cachemanager->L3InfoLen;
+		ulxlen = cachemanager->L3UnitLen;
 	}
-
-	cachedata[1].IndexID = 0;
-	conptr->cachemanager->L2Info = &cachedata[1];
-
-	return 0;	
+       	if (zonemanager->l2infolen){
+		cachemanager->L2UnitLen = (lxlen / 4) * ulxlen;
+		lxlen = cachemanager->L2InfoLen;
+		ulxlen = cachemanager->L2UnitLen;
+	}
+	cachemanager->L1UnitLen = (lxlen / 4) * ulxlen;
+	ndprint(1,"cachemanager->L1UnitLen = %d\n",cachemanager->L1UnitLen);
+	ndprint(1,"cachemanager->L2UnitLen = %d\n",cachemanager->L2UnitLen);
+	ndprint(1,"cachemanager->L3UnitLen = %d\n",cachemanager->L3UnitLen);
+	ndprint(1,"cachemanager->L4UnitLen = %d\n",cachemanager->L4UnitLen);
+	
+	ndprint(1,"cachemanager->L1InfoLen = %d\n",cachemanager->L1InfoLen);
+	ndprint(1,"cachemanager->L2InfoLen = %d\n",cachemanager->L2InfoLen);
+	ndprint(1,"cachemanager->L3InfoLen = %d\n",cachemanager->L3InfoLen);
+	ndprint(1,"cachemanager->L4InfoLen = %d\n",cachemanager->L4InfoLen);
 }
 
 /**
- *	init_L3cache - initialize L3 cache
+ *	newLXcache - initialize L1 cache
  *
  *	@context: global variable
  */
-static int init_L3cache(int context)
+static CacheData *newLXcache(unsigned int *data,int infolen,int ulen)
 {
-	int i, ret;
-	Context *conptr = (Context *)context;
-	CacheData *cachedata = conptr->cachemanager->cachedata;
+	CacheData *cachedata;
+
+	cachedata = Nand_VirtualAlloc(sizeof(CacheData));
+	if(cachedata == NULL){
+		ndprint(1,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		return 0;
+	}
 	
-	for (i = L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT; 
-	i < L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT + L3_CACHEDATA_COUNT; i++) {
-		ret = CacheData_Init(&cachedata[i], conptr->cachemanager->L3InfoLen / UNIT_SIZE, 
-			conptr->cachemanager->L3UnitLen);
-		if (ret == -1) {
+	cachedata->Index = data;
+	cachedata->IndexID = 0;
+	cachedata->IndexCount = infolen;
+	cachedata->unitLen = ulen;
+	cachedata->head.next = NULL;	
+	
+	return cachedata;
+}
+
+static void deleteLXcache(CacheData *cd)
+{
+	Nand_VirtualFree(cd);
+}
+
+/**
+ *	init_LXcache - initialize L4 cache
+ *
+ *	@context: global variable
+ */
+static CacheList *newLXcachelist(int count,int infolen,int ulen)
+{
+	int i;
+	CacheList *cl;
+	CacheData *cachedata;
+	CacheData *pcachedata;
+	
+	cl = CacheList_Init();
+	if(!cl){
+		ndprint(1,"ERROR: CacheList Init Failed!\n");
+		return 0;
+	}
+	
+	for (i = 0;i < count; i++) {
+		cachedata = CacheData_Init(infolen,ulen);
+		if (cachedata == NULL) {
 			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			return -1;
+			goto newLXcachelist_error;
 		}
 		
-		CacheList_Insert(conptr->cachemanager->L3Info,&cachedata[i]);
+		CacheList_Insert(cl,cachedata);
 	}
+	
+	return cl;
 
-	return 0;	
+newLXcachelist_error:
+	
+	do{
+		cachedata = CacheList_getTail(cl);
+		pcachedata = cachedata;
+		CacheData_DeInit(cachedata);
+	}while(pcachedata);
+	CacheList_DeInit(cl);
+	return 0;
 }
 
-/**
- *	init_L4cache - initialize L4 cache
- *
- *	@context: global variable
- */
-static int init_L4cache(int context)
+static void deleteLXcachelist(CacheList *cl)
 {
-	int i, ret;
-	Context *conptr = (Context *)context;
-	CacheData *cachedata = conptr->cachemanager->cachedata;
-	
-	for (i = L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT + L3_CACHEDATA_COUNT; 
-	i < L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT + 
-		L3_CACHEDATA_COUNT + L4_CACHEDATA_COUNT; i++) {
-		ret = CacheData_Init(&cachedata[i], conptr->cachemanager->L4InfoLen / UNIT_SIZE, 
-			conptr->cachemanager->L4UnitLen);
-		if (ret == -1) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		CacheList_Insert(conptr->cachemanager->L4Info,&cachedata[i]);
-	}
-
-	return 0;	
+	CacheData *cachedata;
+	CacheData *pcachedata;
+	do{
+		cachedata = CacheList_getTail(cl);
+		pcachedata = cachedata;
+		CacheData_DeInit(cachedata);
+	}while(pcachedata);
+	CacheList_DeInit(cl);
 }
 
 /**
@@ -150,26 +144,50 @@ static int init_L4cache(int context)
  *
  *	@context: global variable
  */
-static int init_cache(int context)
+static int init_L2L3L4cache(CacheManager *cm)
 {
-	int ret = 0;
+	cm->L2Info = NULL;
+	cm->L3Info = NULL;
+	cm->L4Info = NULL;
 	
-	init_L1cache(context);
-
-	ret = init_L2cache(context);
-	if (ret == -1)
+	if(cm->L2InfoLen){
+		cm->L2Info = newLXcachelist(L2_CACHEDATA_COUNT,cm->L2InfoLen / UNIT_SIZE,cm->L2UnitLen);
+		if (!cm->L2Info){
+			ndprint(1,"ERROR:l2info cache list init faild!\n");
+			goto ERROR;
+		}
+	}
+	if(cm->L3InfoLen){
+		cm->L3Info = newLXcachelist(L3_CACHEDATA_COUNT,cm->L3InfoLen / UNIT_SIZE,cm->L3UnitLen);	
+		if (!cm->L3Info){
+			ndprint(1,"ERROR:l3info cache list init faild!\n");
+			goto ERROR;
+		}
+	}
+	cm->L4Info = newLXcachelist(L4_CACHEDATA_COUNT,cm->L4InfoLen / UNIT_SIZE,cm->L4UnitLen);
+	if (!cm->L4Info){
+		ndprint(1,"ERROR:l4info cache list init faild!\n");
 		goto ERROR;
+	}
 	
-	ret = init_L3cache(context);
-	if (ret == -1)
-		goto ERROR;
-	
-	ret = init_L4cache(context);
-	if (ret == -1)
-		goto ERROR;
-
+	return 0;
 ERROR:
-	return ret;	
+	if(cm->L2Info)
+		deleteLXcachelist(cm->L2Info);
+	if(cm->L3Info)
+		deleteLXcachelist(cm->L3Info);
+	if(cm->L4Info)
+		deleteLXcachelist(cm->L4Info);
+	return -1;
+}
+
+static void init_lct(CacheManager *cm)
+{
+	cm->lct.L1 = NULL;
+	cm->lct.L2 = NULL;
+	cm->lct.L3 = NULL;
+	cm->lct.L4 = NULL;
+	cm->lct.sectorid = -1;
 }
 
 /**
@@ -182,51 +200,58 @@ ERROR:
 int CacheManager_Init ( int context )
 {
 	int ret;
-	CacheData *cachedata;
 	Context *conptr = (Context *)context;
+	CacheManager *cm;
 
-	conptr->cachemanager = (CacheManager *)Nand_VirtualAlloc(sizeof(CacheManager));
-	if (!(conptr->cachemanager )) {
+	cm = (CacheManager *)Nand_VirtualAlloc(sizeof(CacheManager));
+	if (!cm) {
 		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
+	memset(cm,0,sizeof(CacheManager));
 
-	conptr->cachemanager->cachedata = (CacheData *)Nand_VirtualAlloc(sizeof(CacheData) * 
-		(L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT + 
-		L3_CACHEDATA_COUNT + L4_CACHEDATA_COUNT));
-	cachedata = conptr->cachemanager->cachedata;
-	if (!cachedata) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		Nand_VirtualFree(conptr->cachemanager);
-		return -1;
+	conptr->cachemanager = cm;
+
+	cm->pagecache.pageinfobuf = Nand_ContinueAlloc(sizeof(unsigned char) * conptr->vnand.BytePerPage);
+	if(!cm->pagecache.pageinfobuf){
+		ndprint(1,"ERROR:alloc pageinfo buf for cachemanager failed !\n");
+		goto ERROR;
 	}
+	cm->pagecache.nandpageinfo = NULL;
+	cm->pagecache.pageid = -1;
+	cm->pagecache.vnand = &conptr->vnand;
+	cm->pagecache.bufferlistid = (int)conptr->blm;
 
 	fill_infolen_unitlen(context);
 
-	if (CacheList_Init(&(conptr->cachemanager->L3Info)) == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+	cm->L1Info = NULL;
+	cm->L1Info = newLXcache(conptr->l1info->page,cm->L1InfoLen / UNIT_SIZE,cm->L1UnitLen);
+	if(!cm->L1Info){
+		ndprint(1,"ERROR:l1info cache list init faild!\n");
 		goto ERROR;
 	}
-
-	if (CacheList_Init(&(conptr->cachemanager->L4Info)) == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR;
-	}
-
+		
 	/* init cache */
-	ret = init_cache(context);
+	ret = init_L2L3L4cache(cm);
 	if (ret == -1)
 		goto ERROR;
 
 	/* init mutex */
-	InitNandMutex(&(conptr->cachemanager->mutex));
+	InitNandMutex(&cm->mutex);
 
-	conptr->cachemanager->locked_data = NULL;
-	
+	/* init lct */
+	init_lct(cm);
+
 	return 0;
+	
 ERROR:
-	Nand_VirtualFree(cachedata);
+	if(cm->pagecache.pageinfobuf)
+		Nand_ContinueFree(cm->pagecache.pageinfobuf);
+	if(cm->L1Info)
+		deleteLXcache(cm->L1Info);
+	
 	Nand_VirtualFree(conptr->cachemanager);
+
 	return -1;
 }
 
@@ -237,615 +262,197 @@ ERROR:
  */
 void CacheManager_DeInit ( int context )
 {
-	int i;
 	Context *conptr = (Context *)context;
+	CacheManager *cm = conptr->cachemanager;
+	if(cm->L1Info)
+		deleteLXcache(cm->L1Info);
+	if(cm->L2Info)
+		deleteLXcachelist(cm->L2Info);
+	if(cm->L3Info)
+		deleteLXcachelist(cm->L3Info);
+	if(cm->L4Info)
+		deleteLXcachelist(cm->L4Info);
 
-	for (i = 0; i < L1_CACHEDATA_COUNT + L2_CACHEDATA_COUNT + 
-		L3_CACHEDATA_COUNT + L4_CACHEDATA_COUNT; i++)
-		CacheData_DeInit(&(conptr->cachemanager->cachedata)[i]);
+	Nand_ContinueFree(cm->pagecache.pageinfobuf);
 
-	CacheList_DeInit(&conptr->cachemanager->L3Info);
-	CacheList_DeInit(&conptr->cachemanager->L4Info);
-	
-	Nand_VirtualFree(conptr->cachemanager->cachedata);
+	DeinitNandMutex(&cm->mutex);
 	Nand_VirtualFree(conptr->cachemanager);
 }
 
-/**
- *	CacheManager_updateL3Cache  -  Update L3 cache when given sectorid and pi
- *
- *	@cachemanager: operate object
- *	@sectorid: number of sector
- *	@pi: pageinfo
- */
-static void CacheManager_updateL3Cache ( CacheManager *cachemanager, unsigned int sectorid, PageInfo *pi )
-{
-	CacheData *cachedata;
-
-	cachedata = CacheList_get(cachemanager->L3Info, sectorid);
-	if (!cachedata) {
-		cachedata = CacheList_getTail(cachemanager->L3Info);
-
-		if (cachemanager->L2InfoLen)
-			cachedata->IndexID = sectorid / cachemanager->L2UnitLen * cachemanager->L2UnitLen;
-		else
-			cachedata->IndexID = sectorid / cachemanager->L1UnitLen * cachemanager->L1UnitLen;
+#define NAND_LXOFFSET(x) ((unsigned int)&(((NandPageInfo*)0)->L##x##Info))
+static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxoffset){
+	unsigned char *data = NULL;
+	PageList *pagelist;
+	PageCache *pc = &cm->pagecache;
+	VNandInfo *vnand = pc->vnand;
+	unsigned char **dtmp;
+	const unsigned int lxoff[] ={NAND_LXOFFSET(2),NAND_LXOFFSET(3),NAND_LXOFFSET(4)};
+	if(lxoffset < 1){
+		ndprint(1,"ERROR: lxoffset(%d) not less 1\n",lxoffset);
+		while(1);
+	}
+	if(pc->pageid == pageid){   // hit pagecache;
+		dtmp = (unsigned char **)((unsigned char *)pc->nandpageinfo + lxoff[lxoffset - 1]);
+		data = *dtmp;
+		return data;
 	}
 
-	memcpy(cachedata->Index, pi->L3Info, cachemanager->L3InfoLen);
-			
-	CacheList_Insert(cachemanager->L3Info, cachedata);
-}
-
-/**
- *	CacheManager_updateCache  -  Update L4 cache when given sectorid and pageid
- *
- *	@context: global variable
- *	@sectorid: number of sector
- *	@pageid: number of page
- */
-void CacheManager_updateCache (int context, unsigned int sectorid, unsigned int pageid )
-{
-	unsigned int l4indexid;
-	CacheData *cachedata;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-
-	cachedata = CacheList_get(cachemanager->L4Info, sectorid);
-	if (!cachedata) {
-		cachedata = CacheList_getTail(cachemanager->L4Info);
-		memset(cachedata->Index, 0xff, cachemanager->L4InfoLen);
-	}
-
-	if (cachemanager->L3InfoLen) {
-		cachedata->IndexID = sectorid / cachemanager->L3UnitLen * cachemanager->L3UnitLen;
-		l4indexid = sectorid % cachemanager->L3UnitLen;
-	}
-	else if (cachemanager->L2InfoLen) {
-		cachedata->IndexID = sectorid / cachemanager->L2UnitLen * cachemanager->L2UnitLen;
-		l4indexid = sectorid % cachemanager->L2UnitLen;
-	}
-	else {
-		cachedata->IndexID = sectorid / cachemanager->L1UnitLen * cachemanager->L1UnitLen;
-		l4indexid = sectorid % cachemanager->L1UnitLen;
-	}
-
-	CacheData_set(cachedata, l4indexid, pageid);
-
-	CacheList_Insert(cachemanager->L4Info, cachedata);
-}
-
-/**
- *	CacheManager_updateL4Cache  -  Update L4 cache when given sectorid and pi
- *
- *	@cachemanager: operate object
- *	@sectorid: number of sector
- *	@pi: pageinfo
- */
-static void CacheManager_updateL4Cache ( CacheManager *cachemanager, unsigned int sectorid, PageInfo *pi )
-{
-	CacheData *cachedata;
-
-	cachedata = CacheList_get(cachemanager->L4Info, sectorid);
-	if (!cachedata) {
-		cachedata = CacheList_getTail(cachemanager->L4Info);
-
-		if (cachemanager->L3InfoLen)
-			cachedata->IndexID = sectorid / cachemanager->L3UnitLen * cachemanager->L3UnitLen;
-		else if (cachemanager->L2InfoLen)
-			cachedata->IndexID = sectorid / cachemanager->L2UnitLen * cachemanager->L2UnitLen;
-		else
-			cachedata->IndexID = sectorid / cachemanager->L1UnitLen * cachemanager->L1UnitLen;
-	}
-
-	memcpy(cachedata->Index, pi->L4Info, cachemanager->L4InfoLen);
-
-	CacheList_Insert(cachemanager->L4Info, cachedata);
-}
-
-/**
- *	read_infopage  -  Read infopage into pi at pageid
- *
- *	@context: global variable
- *	@pageid: physical address
- *	@pi: fill some information when read operation finish
- */
-static int read_infopage( int context, unsigned int pageid , PageInfo *pi )
-{
-	int ret = -1;
-	unsigned char *buf = NULL;
-	NandPageInfo *nandpageinfo;
-	PageList *pagelist = NULL;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-	VNandInfo *vnand = &conptr->vnand;
-
-	buf = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * vnand->BytePerPage);
-	if (!buf) {
-		ndprint(1,"error func %s line %d \n", __FUNCTION__,__LINE__);
-		return -1;
-	}
-	nandpageinfo = (NandPageInfo *)buf;
-	memset(buf,0xff,vnand->BytePerPage);
-
-	pagelist = (PageList *)BuffListManager_getTopNode((int)(conptr->blm), sizeof(PageList));
+	pagelist = (PageList *)BuffListManager_getTopNode(pc->bufferlistid, sizeof(PageList));
 	pagelist->startPageID = pageid;
 	pagelist->OffsetBytes = 0;
 	pagelist->Bytes = vnand->BytePerPage;
-	pagelist->pData = (void*)buf;
+	pagelist->pData = (void*)pc->pageinfobuf;
 	pagelist->retVal = 0;
-	(pagelist->head).next = NULL;
-
-	pi->L1InfoLen = cachemanager->L1InfoLen;
-	pi->L2InfoLen = cachemanager->L2InfoLen;
-	pi->L3InfoLen = cachemanager->L3InfoLen;
-	pi->L4InfoLen = cachemanager->L4InfoLen;
-	pi->PageID = pageid;
+	pagelist->head.next = NULL;
 	
-	ret = vNand_MultiPageRead(vnand, pagelist);
-
-	if(ret != 0) {
+	if(vNand_MultiPageRead(vnand, pagelist) < 0) {
 		ndprint(1,"vNand read pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		ret = -1;
+		pc->pageid = -1;
 		goto err;
-	}	
-
-	/* analyse pi */
-	pi->L1Index = nandpageinfo->L1Index;
-	nandpageinfo->L4Info = buf + sizeof(NandPageInfo);
-	memcpy(pi->L4Info, nandpageinfo->L4Info, pi->L4InfoLen);
-	
-	if(pi->L3InfoLen != 0) {
-		if(pi->L2InfoLen == 0) {
-			pi->L3Index = nandpageinfo->L3Index;
-			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen; 
-			memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
-		}
-		else {
-			pi->L2Index = nandpageinfo->L2Index;
-			nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
-			memcpy(pi->L2Info,nandpageinfo->L2Info,pi->L2InfoLen);
-			
-			pi->L3Index = nandpageinfo->L3Index;
-			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen; 
-			memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
-		}	
+	}else{
+		CONVERT_DATA_NANDPAGEINFO(pc->pageinfobuf,pc->nandpageinfo,
+					  cm->L4InfoLen,cm->L3InfoLen,cm->L2InfoLen);
+		pc->pageid = pageid;
+		dtmp = (unsigned char **)((unsigned char *)pc->nandpageinfo + lxoff[lxoffset - 1]);
+		data = *dtmp;
 	}
-	
 err:	
-	BuffListManager_freeList((int)(conptr->blm), (void **)&pagelist,(void *)pagelist, sizeof(PageList));
-	return ret;
+	BuffListManager_freeList(pc->bufferlistid, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
+	return data;	
 }
 
-/**
- *	alloc_pageinfo  -  alloc L1Info, L2Info, L3Info and L4Info of pageinfo
- *
- *	@pageinfo: which need to alloc
- *	@cachemanager: to konw whether L2InfoLen and L3InfoLen are 0 or not
- */
-static int alloc_pageinfo(PageInfo *pageinfo, CacheManager *cachemanager)
-{
-	pageinfo->L1Info = (unsigned char *)(cachemanager->L1Info->Index);
-	
-	if (cachemanager->L2InfoLen) {
-		pageinfo->L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L2InfoLen);
-		if (!(pageinfo->L2Info)) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR1;
-		}
-	}
-	
-	if (cachemanager->L3InfoLen) {
-		pageinfo->L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L3InfoLen);
-		if (!(pageinfo->L3Info)) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR2;
-		}
-	}
-	
-	pageinfo->L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * cachemanager->L4InfoLen);
-	if (!(pageinfo->L4Info)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR3;
-	}
+static CacheData * fillcache(CacheManager *cm,unsigned int sectorid,CacheData *src,CacheList *tar,int lxoffset){
 
-	return 0;
-
-ERROR3:
-	if (cachemanager->L3InfoLen)
-		Nand_VirtualFree(pageinfo->L3Info);
-ERROR2:
-	if (cachemanager->L2InfoLen)
-		Nand_VirtualFree(pageinfo->L2Info);
-ERROR1:
-	return -1;
-}
-
-/**
- *	free_pageinfo  -  free L1Info, L2Info, L3Info and L4Info of pageinfo
- *
- *	@pageinfo: which need to free
- *	@cachemanager: to konw whether L2InfoLen and L3InfoLen are 0 or not
- */
-static void free_pageinfo(PageInfo *pageinfo, CacheManager *cachemanager)
-{
-	if (cachemanager->L2InfoLen)
-		Nand_VirtualFree(pageinfo->L2Info);
-	
-	if (cachemanager->L3InfoLen)
-		Nand_VirtualFree(pageinfo->L3Info);
-
-	Nand_VirtualFree(pageinfo->L4Info);
-}
-
-/**
- *	is_L3L4samepage - whether L3 and L4 in the same page
- *
- *	@pi: which has L1, L2, L3 and L4 some information
- *	@pageid: number of page
- */
-static int is_L3L4samepage(PageInfo *pi, unsigned int pageid)
-{
-	if (pageid == pi->PageID)
-		return 1;
-	else
+	unsigned char *data;
+	unsigned int pageid;
+	unsigned int startid;
+	unsigned int sectoralign;
+	CacheData *cd;
+       	pageid = CacheData_get(src,sectorid);
+	if(pageid == -1){
+//		ndprint(1,"INFO: cachedata not find the sectotid %d\n",sectorid);
 		return 0;
-}
-
-/**
- *	access_l4cache  -  access l4cache to find pageid
- *
- *	@context: global variable
- *	@sectorid: number of sector given by caller
- *	@pageid: if cache hit, then save it in pageid to caller
- */
-static void access_l4cache(int context, unsigned int sectorid, unsigned int *pageid)
-{
-	unsigned int page_id = -1;
-	unsigned int l4indexid;
-	CacheData *cachedata;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-
-	if (cachemanager->L3InfoLen)
-		l4indexid = sectorid % cachemanager->L3UnitLen;
-	else if (cachemanager->L2InfoLen)
-		l4indexid = sectorid % cachemanager->L2UnitLen;
-	else
-		l4indexid = sectorid % cachemanager->L1UnitLen;
-
-	cachedata = CacheList_get(cachemanager->L4Info, sectorid);
-	if (cachedata) {
-		CacheList_Insert(cachemanager->L4Info, cachedata);
-
-		page_id  = CacheData_get(cachedata, l4indexid);
-	}
-
-	*pageid = page_id;
-}
-
-/**
- *	access_l3cache  -  access l3cache to find pageid
- *
- *	@context: global variable
- *	@sectorid: number of sector given by caller
- *	@pageid: if cache hit, then save it in pageid to caller
- */
-static int access_l3cache(int context, unsigned int sectorid, unsigned int *pageid)
-{
-	int ret = 0;
-	unsigned int page_id = -1;
-	unsigned int l3indexid;
-	CacheData *cachedata;
-	PageInfo pi;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-
-	if (cachemanager->L2InfoLen)
-		l3indexid = sectorid % cachemanager->L2UnitLen;
-	else
-		l3indexid = sectorid % cachemanager->L1UnitLen;
-	
-	cachedata = CacheList_get(cachemanager->L3Info, sectorid);
-	if (cachedata) {
-		CacheList_Insert(cachemanager->L3Info, cachedata);
-
-		page_id  = CacheData_get(cachedata, l3indexid);
-
-		if (page_id  != -1) { // cache hit
-			ret = alloc_pageinfo(&pi, cachemanager);
-			if (ret == -1) {
-				ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-				return -1;
-			}
-
-			read_infopage(context, page_id , &pi);
-
-			page_id  = ((unsigned int *)(pi.L4Info))[sectorid % cachemanager->L3UnitLen 
-			/ cachemanager->L4UnitLen];
-
-			if ((int)page_id  < 0) {
-				ndprint(1,"WARNING: cache miss, sectorid = %d, func %s line %d\n", 
-					sectorid, __FUNCTION__, __LINE__);
-				free_pageinfo(&pi, cachemanager);
-				return -1;
-			}
-			
-			CacheManager_updateL4Cache(cachemanager, sectorid, &pi);
-			
-			free_pageinfo(&pi, cachemanager);
-		}
-	}
-
-	*pageid = page_id;
-
-	return ret;
-}
-
-/**
- *	access_l2l1cache  -  access l2cache or l1cache to find pageid
- *
- *	@context: global variable
- *	@sectorid: number of sector given by caller
- *	@pageid: if cache hit, then save it in pageid to caller
- */
-static int access_l2l1cache(int context, unsigned int sectorid, unsigned int *pageid)
-{
-	int ret = 0;
-	unsigned page_id = -1;
-	PageInfo pi;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-
-	if (cachemanager->L2InfoLen)
-		page_id = (cachemanager->L2Info->Index)[sectorid % cachemanager->L1UnitLen 
-		/ cachemanager->L2UnitLen + sectorid / cachemanager->L1UnitLen * (cachemanager->L2InfoLen / 4)];
-	else
-		page_id = CacheData_get(cachemanager->L1Info, sectorid);
-
-	ret = alloc_pageinfo(&pi, cachemanager);
-	if (ret == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
-	}
-			
-	read_infopage(context, page_id, &pi);
-
-	/* update L3 cache */
-	if (cachemanager->L3InfoLen) {
-		if (cachemanager->L2InfoLen)
-			page_id = ((unsigned int *)(pi.L3Info))[sectorid % cachemanager->L2UnitLen 
-			/ cachemanager->L3UnitLen];
-		else
-			page_id = ((unsigned int *)(pi.L3Info))[sectorid % cachemanager->L1UnitLen 
-			/ cachemanager->L3UnitLen];
-		
-		if ((int)page_id < 0) {
-			ndprint(1,"WARNING: cache miss, sectorid = %d, func %s line %d\n", 
-				sectorid, __FUNCTION__, __LINE__);
-			free_pageinfo(&pi, cachemanager);
-			return -1;
-		}
-		
-		CacheManager_updateL3Cache(cachemanager, sectorid, &pi);
-
-		/* whether L3 and L4 in the same page, if not, then read again */
-		if (!is_L3L4samepage(&pi, page_id))
-			read_infopage(context, page_id, &pi);
-
-	}
-
-	/* update L4 cache */
-	if (cachemanager->L3InfoLen)
-		page_id = ((unsigned int *)(pi.L4Info))[sectorid % cachemanager->L3UnitLen / cachemanager->L4UnitLen];
-	else if (cachemanager->L2InfoLen)
-		page_id = ((unsigned int *)(pi.L4Info))[sectorid % cachemanager->L2UnitLen / cachemanager->L4UnitLen];
-	else
-		page_id = ((unsigned int *)(pi.L4Info))[sectorid % cachemanager->L1UnitLen / cachemanager->L4UnitLen];
-
-	if ((int)page_id < 0) {
-		ndprint(1,"WARNING: cache miss func %s line %d\n", __FUNCTION__, __LINE__);
-		free_pageinfo(&pi, cachemanager);
-		return -1;
 	}
 	
-	CacheManager_updateL4Cache(cachemanager, sectorid, &pi);
+	data = readpageinfo(cm,pageid,lxoffset);
+       	if(data == 0){
+		ndprint(1,"ERROR: read page info error! pageid = %d\n",pageid);
+		pageid = -1;
+		return 0;
+	}
+	cd = CacheList_getTail(tar);
+	sectoralign = cd->IndexCount * cd->unitLen;
+	startid = sectorid / sectoralign * sectoralign;
 
-	free_pageinfo(&pi, cachemanager);
-
-	*pageid = page_id;
-
-	return ret;
+	
+	CacheData_update(cd,startid,data);
+	return cd;
 }
-
+#define GET_LX_OFFSET(cm,x) (((unsigned int)&cm->L##x##Info - (unsigned int)&cm->L1Info) / sizeof(unsigned int)) 
 /**
  *	CacheManager_getPageID  -  Get a pageid when given a sectorid
  *
  *	@context: global variable
  *	@sectorid: number of sector given by caller
  */
+#if 1
+void dumpcachedate(CacheData *cd){
+	int i;
+	for(i = 0;i < cd->IndexCount;i++){
+		if(i%8 == 0) ndprint(1,"\nI[%8d]:",cd->IndexID + i);
+		ndprint(1,"%d  ",cd->Index[i]);
+	}
+	ndprint(1,"\n");
+}
+#endif
 unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 {	
-	int ret;
-	unsigned int pageid;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
+	CacheManager *cachemanager = (CacheManager *)context;
+       	unsigned int pageid = -1;
+       
+	CacheData *cd,*ucd;
+	CacheList *lx;
+	int lxoffset;
+	int l1count,l2count,l3count,l4count;
 
-	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen / 4) {
+	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2) {
 		ndprint(1,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
 		return -1;
 	}
+	NandMutex_Lock(&(cachemanager->mutex));
+	l1count = l2count = l3count = 0;
+	l4count = 0;
 
-	access_l4cache(context, sectorid, &pageid);
-	if (pageid != -1) // cache hit
-		return pageid;
+	while (1) {
+		pageid = -1;
+		if(l4count == 0){
+			cd = CacheList_get(cachemanager->L4Info, sectorid);
+			l4count = 1;
+		}else
+			cd = CacheList_getTop(cachemanager->L4Info, sectorid);
+			
+		if (cd) {
+			
+			CacheList_Insert(cachemanager->L4Info, cd);
+			pageid = CacheData_get(cd, sectorid);
+		}
 
-	/* l4cache miss, if l3cache exist, then access l3cache, else access l2cache */
-	if (cachemanager->L3InfoLen) {
-		ret = access_l3cache(context, sectorid, &pageid);
-		if(ret == -1)
-			return -1;
 		if (pageid != -1) // cache hit
-			return pageid;
+			break;
+		lx = cachemanager->L4Info;
+		lxoffset = GET_LX_OFFSET(cachemanager,4);
+		if(l3count > 0) break; 
+		if (cachemanager->L3InfoLen) {
+			
+			cd = CacheList_get(cachemanager->L3Info,sectorid);
+			if(cd){
+				l3count = 1;
+				ucd = fillcache(cachemanager,sectorid,cd,lx,lxoffset);
+				CacheList_Insert(cachemanager->L3Info,cd);
+				if(ucd){
+					CacheList_Insert(lx,ucd);
+					continue;
+					
+				}
+			}
+			lx = cachemanager->L3Info;
+			lxoffset = GET_LX_OFFSET(cachemanager,3);
+		}
+		if(l2count > 0) break;
+		if (cachemanager->L2InfoLen) {
+			cd = CacheList_get(cachemanager->L2Info,sectorid);
+			if(cd){
+				l2count = 1;
+				ucd = fillcache(cachemanager,sectorid,cd,lx,lxoffset);
+				CacheList_Insert(cachemanager->L2Info,cd);
+				if(ucd){
+					CacheList_Insert(lx,ucd);
+					continue;
+				}
+			}
+			lx = cachemanager->L2Info;
+			lxoffset = GET_LX_OFFSET(cachemanager,2);
+		}
+		if(l1count > 0)
+			break;
+		pageid = CacheData_get(cachemanager->L1Info,sectorid);
+		l1count = 1;
+		if (pageid != -1){			
+			ucd = fillcache(cachemanager,sectorid,cachemanager->L1Info,lx,lxoffset);
+			if(ucd){
+				CacheList_Insert(lx,ucd);
+				continue;
+			}
+		}
+
+		ndprint(1,"INFO:L1Info not find this sector[%d]\n",sectorid);
+		break;
 	}
-
-	/* l3cache miss, if l2cache exist, then access l2cache, else access l1cache */
-	ret = access_l2l1cache(context, sectorid, &pageid);
-	if(ret == -1)
-		return -1;
-
+	
+	NandMutex_Unlock(&(cachemanager->mutex));
 	return pageid;
 }
-
-/**
- *	get_pageinfo  -  get pageinfo
- *
- *	@pi: which need to alloc
- *	@cachemanager: apply infolen
- */
-static int get_pageinfo(PageInfo **pi, CacheManager *cachemanager)
-{
-	int ret = 0;
-	
-	ret = alloc_pageinfo(*pi, cachemanager);
-	if (ret == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
-	}
-
-	(*pi)->L1InfoLen = cachemanager->L1InfoLen;
-	(*pi)->L2InfoLen = cachemanager->L2InfoLen;
-	(*pi)->L3InfoLen = cachemanager->L3InfoLen;
-	(*pi)->L4InfoLen = cachemanager->L4InfoLen;
-
-	return ret;
-}
-
-/**
- *	get_L3cachedata  -  get L3cachedata
- *
- *	@context: global variable
- *	@sectorid: number of sector
- *	@cachedata: if get L3cachedata success, then save it in cachedata to caller
- */
-static int get_L3cachedata(int context, unsigned int sectorid, CacheData **cachedata)
-{
-	int ret = 0;
-	unsigned int pageid;
-	PageInfo pageinfo;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-	
-	*cachedata = CacheList_get(cachemanager->L3Info, sectorid);
-	if (!(*cachedata)) {
-		*cachedata = CacheList_getTail(cachemanager->L3Info);
-
-		ret = alloc_pageinfo(&pageinfo, cachemanager);
-		if (ret == -1) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		
-		if (cachemanager->L2InfoLen)
-			pageid = CacheData_get(cachemanager->L2Info, sectorid % cachemanager->L1UnitLen);
-		else
-			pageid = CacheData_get(cachemanager->L1Info, sectorid);
-
-		if ((int)pageid < 0)
-			memset(pageinfo.L3Info, 0xff, cachemanager->L3InfoLen);
-		else {
-			ret = read_infopage(context, pageid, &pageinfo);
-			if (ret == -1) {
-				ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-				return -1;
-			}
-		}	
-
-		memcpy((*cachedata)->Index, pageinfo.L3Info, cachemanager->L3InfoLen);
-
-		/* fill IndexID */
-		if (cachemanager->L2InfoLen)
-			(*cachedata)->IndexID = sectorid / cachemanager->L2UnitLen * cachemanager->L2UnitLen;
-		else
-			(*cachedata)->IndexID = sectorid / cachemanager->L1UnitLen * cachemanager->L1UnitLen;
-
-		free_pageinfo(&pageinfo, cachemanager);
-	}
-
-	return ret;
-}
-
-/**
- *	get_L4cachedata  -  get L4cachedata
- *
- *	@context: global variable
- *	@sectorid: number of sector
- *	@L3_cachedata: which get in func get_L4cachedata
- *	@cachedata: if get L4cachedata success, then save it in cachedata to caller	
- */
-static int get_L4cachedata(int context, unsigned int sectorid, CacheData *L3_cachedata, CacheData **cachedata)
-{
-	int ret = 0;
-	unsigned int pageid;
-	unsigned int l4indexid;
-	PageInfo pageinfo;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-
-	*cachedata = CacheList_get(cachemanager->L4Info,sectorid);
-	if (!(*cachedata)) {
-		*cachedata = CacheList_getTail(cachemanager->L4Info);
-
-		ret = alloc_pageinfo(&pageinfo, cachemanager);
-		if (ret == -1) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-
-		if (cachemanager->L3InfoLen) {
-			if (cachemanager->L2InfoLen)
-				l4indexid = sectorid % cachemanager->L2UnitLen;
-			else
-				l4indexid = sectorid % cachemanager->L1UnitLen;
-
-			pageid = CacheData_get(L3_cachedata, l4indexid);
-		}
-		else if (cachemanager->L2InfoLen) {
-			l4indexid = sectorid % cachemanager->L1UnitLen;
-			pageid = CacheData_get(cachemanager->L2Info, l4indexid);
-		}
-		else {
-			l4indexid = sectorid;
-			pageid = CacheData_get(cachemanager->L1Info, l4indexid);
-		}
-		
-		if ((int)pageid < 0)
-			memset(pageinfo.L4Info, 0xff, cachemanager->L4InfoLen);
-		else {
-			ret = read_infopage(context, pageid, &pageinfo);
-			if (ret == -1) {
-				ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-				return -1;
-			}
-		}
-
-		memcpy((*cachedata)->Index, pageinfo.L4Info, cachemanager->L4InfoLen);
-
-		/* fill IndexID */
-		if (cachemanager->L3InfoLen)
-			(*cachedata)->IndexID = sectorid / cachemanager->L3UnitLen * cachemanager->L3UnitLen;
-		else if (cachemanager->L2InfoLen)
-			(*cachedata)->IndexID = sectorid / cachemanager->L2UnitLen * cachemanager->L2UnitLen;
-		else
-			(*cachedata)->IndexID = sectorid / cachemanager->L1UnitLen * cachemanager->L1UnitLen;
-
-		free_pageinfo(&pageinfo, cachemanager);
-	}
-
-	return ret;
-}
-
 /**
  *	CacheManager_lockCache  -  lock cachedata
  *
@@ -856,86 +463,90 @@ static int get_L4cachedata(int context, unsigned int sectorid, CacheData *L3_cac
  *	Get both a cachedate of L3 and L4 which the given sectorid is match it's index,
  *	and then lock these cachedata which other caller can't access.
  */
-void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **pi )
+void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **ppi )
 {
-	int ret = -1;
-	CacheData *L1_cachedata = NULL;
-	CacheData *L2_cachedata = NULL;
-	CacheData *L3_cachedata = NULL;
-	CacheData *L4_cachedata = NULL;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
+	CacheManager *cachemanager = (CacheManager *)context;
+	LockCacheDataTable *lct = &cachemanager->lct;
+	PageInfo *pi;
+	CacheList *lx;
+	int lxoffset;
+	CacheData **updatelx;
 
-	NandMutex_Lock(&(cachemanager->mutex));
-
-	*pi = (PageInfo *)Nand_VirtualAlloc(sizeof(PageInfo));
-	if (!(*pi)) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR;
-	}
-
-	/* when sectorid is -1, apply a pi to caller directly */
-	if (sectorid == -1){
-		ret = get_pageinfo(pi, cachemanager);
-		if (ret == -1) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR;
-		}
-
-		NandMutex_Unlock(&(cachemanager->mutex));
+	pi = &cachemanager->pageinfo;
+	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2) {
+		ndprint(1,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
 		return;
 	}
-	else if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen / 4) {
-		ndprint(1,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
-		goto ERROR;
-	}	
-
-	/* get L1, L2, L3 and L4 cachedata */
-	L1_cachedata = cachemanager->L1Info;
-	L2_cachedata = cachemanager->L2Info;
-
-	if (cachemanager->L3InfoLen) {
-		ret = get_L3cachedata(context, sectorid, &L3_cachedata);
-		if (ret == -1) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto ERROR;
-		}
-	}
-
-	ret = get_L4cachedata(context, sectorid, L3_cachedata, &L4_cachedata);
-	if (ret == -1) {
-		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		goto ERROR;
-	}
-
-	/* fill pi */
-	(*pi)->L1Info = (unsigned char *)(L1_cachedata->Index);
-	(*pi)->L1InfoLen = cachemanager->L1InfoLen;
-
-	if (cachemanager->L2InfoLen)
-		(*pi)->L2Info = (unsigned char *)(L2_cachedata->Index 
-		+ sectorid / cachemanager->L1UnitLen * (cachemanager->L2InfoLen / 4));
-	(*pi)->L2InfoLen = cachemanager->L2InfoLen;
-
-	if (cachemanager->L3InfoLen)
-		(*pi)->L3Info = (unsigned char *)(L3_cachedata->Index);
-	(*pi)->L3InfoLen = cachemanager->L3InfoLen;
 	
-	(*pi)->L4Info = (unsigned char *)(L4_cachedata->Index);
-	(*pi)->L4InfoLen = cachemanager->L4InfoLen;
+	NandMutex_Lock(&(cachemanager->mutex));
+	lct->L1 = lct->L2 = lct->L3 = lct->L4 = NULL;
+FINDDATACACHE:
+	updatelx = &lct->L4;
+	if(!*updatelx)
+		*updatelx = CacheList_get(cachemanager->L4Info,sectorid);
+	
+	lx = cachemanager->L4Info;
+	lxoffset = GET_LX_OFFSET(cachemanager,4);
 
-	/* lock cachedata */
-	if (cachemanager->L3InfoLen) {
-		L3_cachedata->head.next = &L4_cachedata->head;
-		L4_cachedata->head.next = NULL;
-		cachemanager->locked_data = L3_cachedata;
+	if(cachemanager->L3InfoLen){
+		updatelx = &lct->L3;
+		if(!*updatelx){
+			*updatelx = CacheList_get(cachemanager->L3Info,sectorid);
+		}
+		if(*updatelx && (lct->L4 == NULL))
+			lct->L4 = fillcache(cachemanager,sectorid,*updatelx,lx,lxoffset);
+		lx = cachemanager->L3Info;
+		lxoffset = GET_LX_OFFSET(cachemanager,3);
 	}
-	else
-		cachemanager->locked_data = L4_cachedata;
+	
+	if(cachemanager->L2InfoLen){
+		updatelx = &lct->L2;
+		*updatelx = CacheList_get(cachemanager->L2Info,sectorid);
+		if(*updatelx && (lct->L3 == NULL)){
+			lct->L3 = fillcache(cachemanager,sectorid,*updatelx,lx,lxoffset);
+			goto FINDDATACACHE;
+		}
+		lx = cachemanager->L2Info;
+		lxoffset = GET_LX_OFFSET(cachemanager,2);
+	}
 
-ERROR:
-	NandMutex_Unlock(&(cachemanager->mutex));
-	return;
+	lct->L1 = cachemanager->L1Info;
+	if(!*updatelx){
+		*updatelx = fillcache(cachemanager,sectorid,lct->L1,lx,lxoffset);
+		if(!*updatelx){
+			ndprint(1,"INFO:L1Info not find sectorid[%d]\n",sectorid);
+		}else
+			goto FINDDATACACHE;
+		
+	}
+	
+	if(cachemanager->L2InfoLen){
+		if(!lct->L2)
+			lct->L2 = CacheList_getTail(cachemanager->L2Info);
+		pi->L2Info = (unsigned char*)lct->L2->Index;
+	}
+	
+	if(cachemanager->L3InfoLen){
+		if(!lct->L3)
+			lct->L3 = CacheList_getTail(cachemanager->L3Info);
+		pi->L3Info = (unsigned char*)lct->L3->Index;
+	}
+
+	if(cachemanager->L4InfoLen){
+		if(!lct->L4)
+			lct->L4 = CacheList_getTail(cachemanager->L4Info);
+		pi->L4Info = (unsigned char*)lct->L4->Index;
+	}
+
+	lct->sectorid = sectorid;
+
+	pi->L1Info = (unsigned char*)lct->L1->Index;
+	pi->L1InfoLen = cachemanager->L1InfoLen;
+	pi->L2InfoLen = cachemanager->L2InfoLen;
+	pi->L3InfoLen = cachemanager->L3InfoLen;
+	pi->L4InfoLen = cachemanager->L4InfoLen;
+
+	*ppi = pi;
 }
 
 /**
@@ -947,35 +558,34 @@ ERROR:
  */
 void CacheManager_unlockCache ( int context, PageInfo *pi )
 {
-	CacheData *L3_cachedata = NULL;
-	CacheData *L4_cachedata = NULL;
-	struct singlelist *pos;
-	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
+	CacheManager *cachemanager = (CacheManager *)context;
+	LockCacheDataTable *lct = &cachemanager->lct;
+
 	
-	NandMutex_Lock(&(cachemanager->mutex));
-
-	if (cachemanager->locked_data == NULL)
-		goto FREE;
-
-	pos = &(cachemanager->locked_data->head);	
-	if (cachemanager->L3InfoLen) {
-		L3_cachedata = singlelist_entry(pos, CacheData, head);
-		pos = pos->next;
+	lct->L1->IndexID = 0;
+	if(cachemanager->L2InfoLen){
+		lct->L2->IndexID = calc_IndexID(lct->sectorid,cachemanager->L2UnitLen,cachemanager->L2InfoLen);
+		CacheList_Insert(cachemanager->L2Info,lct->L2);	
 	}
-
-	L4_cachedata = singlelist_entry(pos, CacheData, head);
-
-	/* Insert lockcache back to its cachelist */
-	CacheList_Insert(cachemanager->L4Info, L4_cachedata);
-	if (cachemanager->L3InfoLen) {
-		cachemanager->locked_data->head.next = NULL;
-		CacheList_Insert(cachemanager->L3Info, L3_cachedata);
+	if(cachemanager->L3InfoLen){
+		lct->L3->IndexID = calc_IndexID(lct->sectorid,cachemanager->L3UnitLen,cachemanager->L3InfoLen);
+		CacheList_Insert(cachemanager->L3Info,lct->L3);	
 	}
-	cachemanager->locked_data = NULL;
-
-FREE:
-	Nand_VirtualFree(pi);
+	
+	lct->L4->IndexID = calc_IndexID(lct->sectorid,cachemanager->L4UnitLen,cachemanager->L4InfoLen);
+	CacheList_Insert(cachemanager->L4Info,lct->L4);
+/*
+	if(lct->sectorid == 1){// < cachemanager->L1Info->unitLen){
+		ndprint(1,"L1============================\n");
+		dumpcachedate(cachemanager->L1Info);
+		ndprint(1,"lct->L3=======================\n");
+		dumpcachedate(lct->L3);
+		ndprint(1,"lct->L4=======================\n");
+		dumpcachedate(lct->L4);
+		
+	}
+*/
+	cachemanager->pagecache.pageid = -1;  //erase pagecache
 	NandMutex_Unlock(&(cachemanager->mutex));
 }
 

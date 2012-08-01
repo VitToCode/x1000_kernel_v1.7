@@ -6,14 +6,14 @@
  * Copyright (C) 2007 by sftan (sftan@ingenic.cn)
  */
 
-#include "string.h"
+#include "clib.h"
 #include "zone.h"
 #include "pageinfo.h"
 #include "pagelist.h"
 #include "sigzoneinfo.h"
 #include "context.h"
 #include "vnandinfo.h"
-#include "bitops.h"
+#include "nmbitops.h"
 #include "nandpageinfo.h"
 #include "NandAlloc.h"
 #include "nanddebug.h"
@@ -21,10 +21,6 @@
 #include "singlelist.h"
 #include "bufflistmanager.h"
 #include "nandzoneinfo.h"
-
-#ifndef NULL
-#define NULL 0
-#endif
 
 /*block per zone 8 block */
 #define BLOCKPERZONE(context)   	8
@@ -42,10 +38,10 @@ static int get_invalidpagecount(unsigned int startpage,
 		unsigned short pagecnt, ZoneValidInfo * zonevalidinfo)
 {
 	Wpages *wpages = zonevalidinfo->wpages;
-	int cur = zonevalidinfo->cur;
+	int current_count = zonevalidinfo->current_count;
 	int i = 0, invalidpage = 0;
 
-	for (i = 0; i < cur; i++) {
+	for (i = 0; i < current_count; i++) {
 		if (startpage >= (wpages + i)->startpage + (wpages + i)->pagecnt || 
 				startpage + pagecnt <= (wpages + i)->startpage) {
 			continue;
@@ -68,21 +64,21 @@ static void check_invalidpage(Zone *zone, unsigned int startpage, unsigned short
 
 	if (zonevalidinfo->zoneid == -1) {
 		zonevalidinfo->zoneid = zone->ZoneID;
-		zonevalidinfo->cur = 0;
-		(wpages + zonevalidinfo->cur)->startpage = startpage;
-		(wpages + zonevalidinfo->cur)->pagecnt = pagecnt;
-		zonevalidinfo->cur++;
+		zonevalidinfo->current_count = 0;
+		(wpages + zonevalidinfo->current_count)->startpage = startpage;
+		(wpages + zonevalidinfo->current_count)->pagecnt = pagecnt;
+		zonevalidinfo->current_count++;
 
 		return;
 	}
 
 	if (zone->ZoneID != zonevalidinfo->zoneid) {
 		zonevalidinfo->zoneid = zone->ZoneID;
-		zonevalidinfo->cur = 0;
+		zonevalidinfo->current_count = 0;
 
-		(wpages + zonevalidinfo->cur)->startpage = startpage;
-		(wpages + zonevalidinfo->cur)->pagecnt = pagecnt;
-		zonevalidinfo->cur++;
+		(wpages + zonevalidinfo->current_count)->startpage = startpage;
+		(wpages + zonevalidinfo->current_count)->pagecnt = pagecnt;
+		zonevalidinfo->current_count++;
 	} else {
 		invalidpage = get_invalidpagecount(startpage, pagecnt, zonevalidinfo);
 		if (invalidpage > 0) {
@@ -92,9 +88,9 @@ static void check_invalidpage(Zone *zone, unsigned int startpage, unsigned short
 
 		ndprint(ZONE_INFO," invalidpage = %d\n",invalidpage);
 
-		(wpages + zonevalidinfo->cur)->startpage = startpage;
-		(wpages + zonevalidinfo->cur)->pagecnt = pagecnt;
-		zonevalidinfo->cur++;
+		(wpages + zonevalidinfo->current_count)->startpage = startpage;
+		(wpages + zonevalidinfo->current_count)->pagecnt = pagecnt;
+		zonevalidinfo->current_count++;
 	}
 }
 
@@ -111,8 +107,8 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	unsigned char *buf = NULL;
 	NandPageInfo *nandpageinfo;
 	PageList *pagelist = NULL;
-	BuffListManager *blm;
-
+	BuffListManager *blm = NULL;
+	
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
 	blm = ((Context *)(zone->context))->blm;
@@ -170,6 +166,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	}
 
 err:	
+	ret = pagelist->retVal;
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 	return ret;
 }
@@ -255,7 +252,7 @@ static inline unsigned short zone_page1_pageid(Zone *zone)
 {
 	int blockno = 0;
 
-	while(test_bit(blockno, (unsigned long *)&zone->badblock) && (++blockno));
+	while(nm_test_bit(blockno,&zone->badblock) && (++blockno));
 
 	return ( blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand));
 }
@@ -283,7 +280,7 @@ static unsigned short calc_zone_page(Zone *zone)
 
 	for(blockno = 0 ; blockno < BLOCKPERZONE(zone->vnand); blockno++)
 	{
-		if(!test_bit(blockno, (unsigned long *)&zone->badblock))
+		if(!nm_test_bit(blockno,&zone->badblock))
 		{
 			page += zone->vnand->PagePerBlock ;
 		}
@@ -303,7 +300,7 @@ int Zone_FindFirstPageInfo ( Zone *zone, PageInfo* pi )
 	int blockno = 0;
 	unsigned int pageid = 0;
 	
-	while(test_bit(blockno, (unsigned long *)&zone->badblock) && (++blockno));
+	while(nm_test_bit(blockno,&zone->badblock) && (++blockno));
 
 	pageid = (zone->vnand->PagePerBlock) * (zone->startblockID + blockno) 
 			+ FIRSTPAGEINFO(zone->vnand);
@@ -474,7 +471,7 @@ int Zone_AllocNextPage ( Zone *zone )
 
 	zone->allocPageCursor++;
 	blockno = zone->allocPageCursor / pageperblock;
-	while(test_bit(blockno, (unsigned long *)&(zone->badblock)) && (++blockno));
+	while(nm_test_bit(blockno,&(zone->badblock)) && (++blockno));
 	zone->allocPageCursor = zone->allocPageCursor % pageperblock + blockno * pageperblock;
 	zone->allocedpage++;
 
@@ -567,7 +564,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 
 	nandzoneinfo->serialnumber = zone->maxserial + count++;
 
-	while(test_bit(blockno, (unsigned long *)&(zone->badblock)) && (++blockno));
+	while(nm_test_bit(blockno,&(zone->badblock)) && (++blockno));
 
 	pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
 

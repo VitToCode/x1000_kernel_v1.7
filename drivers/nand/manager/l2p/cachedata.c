@@ -1,3 +1,4 @@
+#include "clib.h"
 #include "cachedata.h"
 #include "NandAlloc.h"
 #include "nanddebug.h"
@@ -9,15 +10,21 @@
  *	@indexcount: count of pageid in index
  *	@unitlen: how mang sectors one pageid indicate
  */
-int CacheData_Init ( CacheData *cachedata, unsigned short indexcount, unsigned int unitlen )
+CacheData * CacheData_Init (unsigned short indexcount, unsigned int unitlen )
 {
 	int i;
-	
+	CacheData *cachedata;	
+	cachedata = Nand_VirtualAlloc(sizeof(CacheData));
+	if(cachedata == NULL){
+		ndprint(CACHEDATA_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		return 0;
+	}
 	cachedata->Index = NULL;
 	cachedata->Index = (unsigned int *)Nand_VirtualAlloc(UNIT_SIZE * indexcount);
 	if (!(cachedata->Index)) {
-		ndprint(1,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
+		ndprint(CACHEDATA_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		Nand_VirtualFree(cachedata);
+		return 0;
 	}
 
 	for (i = 0; i < indexcount; i++)
@@ -28,7 +35,7 @@ int CacheData_Init ( CacheData *cachedata, unsigned short indexcount, unsigned i
 	cachedata->unitLen = unitlen;
 	cachedata->head.next = NULL;
 
-	return 0;
+	return cachedata;
 }
 
 /**
@@ -38,11 +45,8 @@ int CacheData_Init ( CacheData *cachedata, unsigned short indexcount, unsigned i
  */
 void CacheData_DeInit ( CacheData *cachedata )
 {
-	cachedata->IndexID = -1;
-	cachedata->IndexCount= 0;
-	cachedata->unitLen = 0;
-	cachedata->head.next = NULL;
 	Nand_VirtualFree(cachedata->Index);
+	Nand_VirtualFree(cachedata);
 }
 
 /**
@@ -53,12 +57,16 @@ void CacheData_DeInit ( CacheData *cachedata )
  */
 unsigned int CacheData_get ( CacheData *cachedata, unsigned int indexid )
 {
-	unsigned int index = indexid / cachedata->unitLen;
-	if (index < 0) {
-		ndprint(1,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
+	unsigned int index;
+	if(cachedata->IndexID == -1){
+		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);		
 		return -1;
 	}
-	
+	index = (indexid - cachedata->IndexID) / cachedata->unitLen;
+	if (index < 0) {
+		ndprint(CACHEDATA_ERROR,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
+		return -1;
+	}
 	return cachedata->Index[index];
 }
 
@@ -69,11 +77,16 @@ unsigned int CacheData_get ( CacheData *cachedata, unsigned int indexid )
  *	@indexid: local sectorid
  *	@data: pageid
  */
-void CacheData_set ( CacheData *cachedata, unsigned int indexid, unsigned int data )
+void CacheData_set ( CacheData *cachedata,  unsigned int indexid, unsigned int data )
 {
-	unsigned int index = indexid / cachedata->unitLen;
+	unsigned int index;
+	if(cachedata->IndexID == -1){
+		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);			
+		return;
+	}
+	index = (indexid - cachedata->IndexID) / cachedata->unitLen;
 	if (index < 0) {
-		ndprint(1,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
+		ndprint(CACHEDATA_ERROR,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
 		return;
 	}
 	
@@ -104,3 +117,8 @@ unsigned int CacheData_find ( CacheData *cachedata, unsigned int data )
 		return -1;
 }
 
+void CacheData_update ( CacheData *cachedata, unsigned int startID,unsigned char *data)
+{
+	cachedata->IndexID = startID;
+	memcpy(cachedata->Index,data,cachedata->IndexCount << 2);
+}

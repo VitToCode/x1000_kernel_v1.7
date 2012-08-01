@@ -2,10 +2,6 @@
 #include "NandAlloc.h"
 #include "nanddebug.h"
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 /**
  *	find_location  -  find the index of zoneID when zoneID[index] = value 
  *

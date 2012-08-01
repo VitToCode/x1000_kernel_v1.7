@@ -3,10 +3,6 @@
 #include "context.h"
 #include "nanddebug.h" 
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 #define UNITLEN    16
 #define UNITDIM(x) (((x) + UNITLEN - 1 ) / UNITLEN)
 
@@ -21,13 +17,13 @@ int BuffListManager_BuffList_Init (void)
 	blm = (BuffListManager *)Nand_VirtualAlloc(sizeof(BuffListManager));
 	if (!blm) {
 		ndprint(1, "ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
+		return 0;
 	}
 	
 	blm->mem = (ZoneMemory *)ZoneMemory_Init(UNITLEN);
 	if(!(blm->mem)) {
 		ndprint(1, "ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
-		return -1;
+		return 0;
 	}
 	
 	InitNandMutex(&blm->mutex);

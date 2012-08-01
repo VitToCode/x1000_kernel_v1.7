@@ -4,10 +4,6 @@
 
 #define HASHNODE_COUNT 20
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 /**
  *	Hash_init  -  Initialize operation
  *
@@ -184,20 +180,27 @@ int Hash_FindFirstLessLifeTime ( Hash *hash, unsigned int lifetime, SigZoneInfo 
 	while(1) {
 		if (count == HASHNODE_COUNT)
 			break;
-		if (HashNode_getminlifetime(hash->top[hash->prev_pos]) >= lifetime) {
-			if (flag) {
-				flag = 0;
-				break;
+
+		if (HashNode_getcount(hash->top[hash->prev_pos])) {
+			if (HashNode_getminlifetime(hash->top[hash->prev_pos]) >= lifetime) {
+				if (flag) {
+					flag = 0;
+					break;
+				}
 			}
+			else
+				flag = 1;
 		}
-		else
-			flag = 1;
 		
 		hash->prev_pos = (hash->prev_pos + HASHNODE_COUNT - 1) % HASHNODE_COUNT;
 		count++;
 	}
 
-	hash->prev_pos = (hash->prev_pos + 1) % HASHNODE_COUNT;
+	while (1) {
+		hash->prev_pos = (hash->prev_pos + 1) % HASHNODE_COUNT;
+		if (HashNode_getcount(hash->top[hash->prev_pos]))
+			break;
+	}
 	
 	hash->first_pos = hash->prev_pos;
 

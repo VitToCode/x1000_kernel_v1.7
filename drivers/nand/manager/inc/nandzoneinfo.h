@@ -9,7 +9,7 @@ struct _NandZoneInfo {
 	ZoneInfo localZone;
 	ZoneInfo nextZone;
 	unsigned int serialnumber;
-	unsigned short crc;
+    	unsigned short crc;
 };
 
 #endif
