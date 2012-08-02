@@ -10,7 +10,9 @@ static inline void InitSemaphore(NandSemaphore*sem,int val){
 	sema_init(sem,val);
 }
 static inline void DeinitSemaphore(NandSemaphore* sem){
-	int ret = down_killable(sem);
+	int ret;
+	up(sem)
+	ret = down_killable(sem);
 	if (ret == -EINTR)
 		printk("waring: %s, %d\n", __func__, __LINE__);;
 }
