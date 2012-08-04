@@ -23,14 +23,14 @@ struct Nand2K
     int BytePerPage;
     int TotalBlocks;
 	int MaxBadBlockCount;
-} vNandChipInfo = {64, 2048, 128*8*2, 20}; //256M
+} vNandChipInfo = {64, 2048, 128*8*1, 20}; //128M
 
 
-PPartition ppt[] = {{"x-boot", 128*8*0, 64, 2048, 128*8*2, 20, 512, 0, 64*128*8*2, 1, NULL},
+PPartition ppt[] = {{"x-boot", 128*8*0, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1, NULL},
 					/*{"kernel", 128*8*1, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1, NULL},
 					{"ubifs", 128*8*2, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 0, NULL},
 					{"data", 128*8*3, 64, 2048, 128*8, 20, 512, 0, 64*128*8, 1, NULL},*/
-					{"error", 128*8*2, 64, 2048, 1, 20, 512, 0, 64, 2, NULL}};
+					{"error", 128*8*1, 64, 2048, 1, 20, 512, 0, 64, 2, NULL}};
 
 PPartArray partition={2, ppt};
 
@@ -51,6 +51,7 @@ static int em_vNand_InitNand (void *vd ){
 	VNandManager* vNand = vd;
 	char ptname[256];
 	struct vNand2K *vNandChip;
+	int spare = -1;
 
 	vNand->info.PagePerBlock = vNandChipInfo.PagePerBlock; 			//64
 	vNand->info.BytePerPage = vNandChipInfo.BytePerPage;			//2048
@@ -91,11 +92,9 @@ static int em_vNand_InitNand (void *vd ){
 		set_fs(KERNEL_DS);
 		for (i = 0; i < vNandChipInfo.PagePerBlock * vNandChipInfo.TotalBlocks; i ++) {
 			cnt = vfs_write(filp, buf, vNandChipInfo.BytePerPage, &pos);
-			if (!(i % 512)) {
-				if (!(i % 5120))
-					printk("\n");
-				printk("..%dMb..", ((int)pos >> 20) + 1);
-			}
+			vfs_write(filp, spare,4, &pos);
+			if (!(i % 512))
+				printk("...%dMb...", (int)pos >> 20);
 		}
 		set_fs(old_fs);
 	}
@@ -121,12 +120,12 @@ static int em_vNand_InitNand (void *vd ){
 
 static size_t page2offset(struct Nand2K *vNand,int pageid,int start)
 {
-	return pageid * vNand->BytePerPage + start * vNand->BytePerPage * vNand->PagePerBlock;
+	return pageid * vNand->BytePerPage + start * (vNand->BytePerPage + 4) * vNand->PagePerBlock;
 }
 
 static size_t block2offset(struct Nand2K *vNand,int blockid,int start)
 {
-	return (blockid + start) * vNand->BytePerPage * vNand->PagePerBlock;
+	return (blockid + start) * (vNand->BytePerPage + 4) * vNand->PagePerBlock;
 }
 
 static int em_vNand_PageRead(void *pt,int pageid, int offsetbyte, int bytecount, void * data){
@@ -136,15 +135,17 @@ static int em_vNand_PageRead(void *pt,int pageid, int offsetbyte, int bytecount,
 	loff_t pos;
 	mm_segment_t old_fs;
 	int cnt;
-
+	int spare;
 	pos = page2offset(p->nand,pageid,startblock) + offsetbyte;
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	//printk("READ: line: %d, data = %p, bytecount = %d, pos = %d\n", __LINE__, data, bytecount, (int)pos/512);
 	cnt = vfs_read(p->filp, data, bytecount, &pos);
-	set_fs(old_fs);
+	vfs_read(p->filp, &spare, 4, &pos);
 
+	set_fs(old_fs);
+	if(spare != 0)
+		return -6;
 	return cnt;
 }
 
@@ -154,13 +155,13 @@ static int em_vNand_PageWrite(void *pt,int pageid, int offsetbyte, int bytecount
 	loff_t pos;
 	mm_segment_t old_fs;
 	int cnt;
-
+	int spare = 0;
 	pos = page2offset(p->nand,pageid,startblock) + offsetbyte;
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	//printk("WRITE: line: %d, data = %p, bytecount = %d, pos = %d\n", __LINE__, data, bytecount, (int)pos/512);
 	cnt = vfs_write(p->filp, data, bytecount, &pos);
+	vfs_write(p->filp, spare, 4, &pos);
 	set_fs(old_fs);
 
 	return cnt;
@@ -172,18 +173,17 @@ static int em_vNand_MultiPageRead(void *pt,PageList* pl) {
 	struct singlelist *sg;
 	loff_t pos;
 	mm_segment_t old_fs;
-
+	int spare;
    	do {
 		if(pl->startPageID == -1)
 			return -1;
 
-		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes;
+		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes,SEEK_SET;
 
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		//printk("READ: line: %d, pl->pData = %p, bytecount = %d, pos = %d\n",
-		//	   __LINE__, pl->pData, pl->Bytes, (int)pos/512);
 		pl->retVal = vfs_read(p->filp, pl->pData, pl->Bytes, &pos);
+		vfs_read(p->filp, &spare, 4, &pos);
 		set_fs(old_fs);
 
 		if(pl->retVal <= 0)
@@ -191,14 +191,19 @@ static int em_vNand_MultiPageRead(void *pt,PageList* pl) {
 			printk("error::");
 			return -1;
 		}
-
+		if(spare != 0)
+		{
+			printk("no write to read %d\n",pl->startPageID);
+			pl->retVal = -6;
+			break;
+		}
 		sg = (pl->head).next;
 		if(sg == NULL)
 			break;
 
 		pl = singlelist_entry(sg,PageList,head);
 	} while (pl);
-
+	if(spare != 0) return -6;
 	return 0;
 }
 
@@ -208,15 +213,14 @@ static int em_vNand_MultiPageWrite(void *pt,PageList* pl) {
 	int startblock = PPARTITION(pt)->startblockID;
 	loff_t pos;
 	mm_segment_t old_fs;
-
+	int spare = 0;
    	do {
-		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes;
+		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes,SEEK_SET;
 
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		//printk("WRITE: line: %d, pl->pData = %p, bytecount = %d, pos = %d\n",
-		//		__LINE__, pl->pData, pl->Bytes, (int)pos/512);
 		pl->retVal = vfs_write(p->filp, pl->pData, pl->Bytes, &pos);
+		vfs_write(p->filp, &spare, 4, &pos);
 		set_fs(old_fs);
 
 		if(pl->retVal <= 0)
@@ -243,18 +247,17 @@ static int em_vNand_MultiBlockErase (void *pt,BlockList* pl ){
 	int startblock = PPARTITION(pt)->startblockID;
 	loff_t pos;
 	mm_segment_t old_fs;
-
+	int spare = -1;
 	memset(p->pagebuf, 0xff, p->nand->BytePerPage);
 	do{
-		pos = block2offset(p->nand,pl->startBlock,startblock);
+		pos = block2offset(p->nand,pl->startBlock,startblock),SEEK_SET;
 
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
 		for(i = 0; i < pl->BlockCount; i++){
 			for(j = 0; j < p->nand->PagePerBlock; j++){
-				//printk("ERASE: line: %d, p->pagebuf = %p, bytecount = %d, pos = %d\n",
-				//		__LINE__, p->pagebuf, p->nand->BytePerPage, (int)pos/512);
 				ret = vfs_write(p->filp, p->pagebuf, p->nand->BytePerPage, &pos);
+				vfs_write(p->filp, &spare, 4, &pos);
 				pl->retVal = 0;
 				if(ret <= 0){
 					pl->retVal = -1;
@@ -297,8 +300,6 @@ static int em_vNand_IsBadBlock (void *pt,int blockid ){
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	//printk("READ: line: %d, p->pagebuf = %p, bytecount = %d, pos = %d\n",
-	//	   __LINE__, p->pagebuf, p->nand->BytePerPage, (int)pos/512);
 	if(vfs_read(p->filp, p->pagebuf, p->nand->BytePerPage, &pos) <= 0) {
 		set_fs(old_fs);
 		return -1;
@@ -330,12 +331,10 @@ static int em_vNand_MarkBadBlock (void *pt,unsigned int blockid ){
 		p = (struct vNand2K *)PPARTITION(pt)->prData;
 		startblock = PPARTITION(pt)->startblockID;
 
-		pos = block2offset(p->nand,blockid,startblock);
+		pos = block2offset(p->nand,blockid,startblock),SEEK_SET;
 		memset(p->pagebuf,0,p->nand->BytePerPage);
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		//printk("WRITE: line: %d, p->pagebuf = %p, bytecount = %d, pos = %d\n",
-		//	   __LINE__, p->pagebuf, p->nand->BytePerPage, (int)pos/512);
 		if(vfs_write(p->filp, p->pagebuf, p->nand->BytePerPage, &pos) <= 0) {
 			set_fs(old_fs);
 			return -1;
