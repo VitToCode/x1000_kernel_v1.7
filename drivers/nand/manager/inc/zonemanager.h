@@ -60,6 +60,7 @@ struct _ZoneManager {
 	int need_write_last_data;
 };
 
+Zone *ZoneManager_Get_Used_Zone(ZoneManager *zonep, unsigned short zoneid);
 Zone* ZoneManager_AllocZone (int context);
 void ZoneManager_FreeZone (int context,Zone* zone );
 L1Info* ZoneManager_GetL1Info (int context);
@@ -75,6 +76,8 @@ void ZoneManager_FreeRecyclezone(int context,Zone *zone);
 unsigned int ZoneManager_Getminlifetime(int context);
 unsigned int ZoneManager_Getmaxlifetime(int context);
 unsigned int ZoneManager_Getusedcount(int context);
+unsigned int ZoneManager_Getfreecount(int context);
+unsigned int ZoneManager_Getptzonenum(int context);
 void  ZoneManager_SetCurrentWriteZone(int context,Zone *zone);
 Zone *ZoneManager_GetCurrentWriteZone(int context);
 unsigned int ZoneManager_SetAheadZone(int context,Zone *zone);

@@ -13,10 +13,10 @@ static inline void InitSemaphore(NandSemaphore*sem,int val){
 }
 static inline void DeinitSemaphore(NandSemaphore* sem){
 	int ret;
-	up(sem)
+	up(sem);
 	ret = down_killable(sem);
 	if (ret == -EINTR)
-		printk("waring: %s, %d\n", __func__, __LINE__);;
+		printk("waring: %s, %d\n", __func__, __LINE__);
 }
 
 static inline void Semaphore_wait(NandSemaphore* sem){
@@ -41,8 +41,8 @@ static inline void DeinitNandMutex(NandMutex *mutex){
 	mutex_destroy(mutex);
 }
 #ifdef DEBUG_NDMUTEX
-#define NandMutex_Lock(x) do{mutex_lock(x);printk("%s %d lock\n",__FILE__,__LINE__);}while(0)
-#define NandMutex_Unlock(x) do{printk("%s %d unlock\n",__FILE__,__LINE__);mutex_unlock(x);}while(0)
+#define NandMutex_Lock(x) do{mutex_lock(x);printk("%s %d %p lock\n", __FILE__,__LINE__, x);}while(0)
+#define NandMutex_Unlock(x) do{printk("%s %d %p unlock\n",__FILE__, __LINE__, x);mutex_unlock(x);}while(0)
 #else
 static inline void NandMutex_Lock(NandMutex *mutex){
 	mutex_lock(mutex);

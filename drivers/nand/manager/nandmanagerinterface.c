@@ -38,9 +38,9 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1);
 	
 	if (extrapage > 1)
-		lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage * zonenum / SECTOR_SIZE;
+		lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage / SECTOR_SIZE * zonenum;
 	else
-		lpa->sectorCount = zonevalidpage * ppa->byteperpage * zonenum / SECTOR_SIZE;
+		lpa->sectorCount = zonevalidpage * ppa->byteperpage / SECTOR_SIZE * zonenum;
 
 	lpa->startSector = 0;
 	lpa->name = ppa->name; 

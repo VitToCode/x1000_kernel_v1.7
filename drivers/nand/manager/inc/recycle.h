@@ -28,12 +28,10 @@ struct _Recycle {
 	PageList *write_pagelist;
 	unsigned int  buflen;
 	unsigned int end_findnextpageinfo;
+	PageInfo pi[2];
 	NandMutex mutex;
 	unsigned int force; 
 	int context;
-	int suspend;
-	NandMutex suspend_mutex;
-	NandSemaphore sem;
 
 	/**** force recycle ****/
 	Zone *force_rZone;
@@ -50,6 +48,16 @@ struct _Recycle {
 	PageList *force_write_pagelist;
 	unsigned int force_buflen;
 	unsigned int force_end_findnextpageinfo;
+	PageInfo force_pi[2];
+	
+	int write_pagecount;
+};
+
+typedef struct _ForceRecycleInfo ForceRecycleInfo;
+struct _ForceRecycleInfo {
+	int context;
+	int pagecount;
+	unsigned short suggest_zoneid;
 };
 
 enum TaskStep{
@@ -68,7 +76,7 @@ int Recycle_Init(int context);
 void Recycle_DeInit(int context);
 int Recycle_OnFragmentHandle ( int context );
 int Recycle_OnBootRecycle ( int context );
-int Recycle_OnForceRecycle ( int context );
+int Recycle_OnForceRecycle ( int frinfo );
 int Recycle_OnNormalRecycle ( int context );
 int Recycle_Suspend ( int context );
 int Recycle_Resume ( int context );
@@ -81,5 +89,6 @@ int Recycle_MergerSectorID ( Recycle *rep);
 int Recycle_RecycleReadWrite ( Recycle *rep);
 int Recycle_FindNextPageInfo ( Recycle *rep);
 int Recycle_FreeZone ( Recycle *rep );
-
+void Recycle_Lock(int context);
+void Recycle_UnLock(int context);
 #endif

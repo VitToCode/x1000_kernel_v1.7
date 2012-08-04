@@ -59,7 +59,7 @@ struct _TaskManager{
 };
 
 enum Type {
-	NO_WAIT,
+	NOWAIT,
 	WAIT,	
 };
 
@@ -70,12 +70,14 @@ enum MessageId {
 	FORCE_RECYCLE_ID,
 	READ_PAGE0_ERROR_ID,
 	READ_PAGE1_ERROR_ID,
+	READ_PAGE2_ERROR_ID,
 };
 
 enum Prio {
 	BOOT_RECYCLE_PRIO,
 	READ_PAGE0_ERROR_PRIO,
 	READ_PAGE1_ERROR_PRIO,
+	READ_PAGE2_ERROR_PRIO,
 	FORCE_RECYCLE_PRIO,//write before FORCE_RECYCLE_PRIO when add other prio
 };
 

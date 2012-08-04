@@ -126,7 +126,6 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	{
 		ndprint(ZONE_ERROR,"vNand read pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		ret = -1;
 		goto err;
 	}
 
@@ -388,7 +387,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	zone->sigzoneinfo->validpage--;
 
-	if(zone->allocedpage == zone->sumpage)
+	if(zone->allocedpage == zone->sumpage || zone->allocedpage == zone->sumpage - 1)
 		nandpageinfo->NextPageInfo = 0;
 
 	/* write to zone information L1info add pagelist to list head*/
@@ -598,7 +597,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->nextzone = next;
 	zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
 	zone->allocPageCursor = zone->pageCursor + 1;
-	zone->sumpage = calc_zone_page(zone) - ZONERESVPAGE(zone->vnand) - 3;
+	zone->sumpage = calc_zone_page(zone) - ZONERESVPAGE(zone->vnand);
 	zone->allocedpage = 3;
 	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - 3;
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
