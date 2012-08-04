@@ -212,8 +212,8 @@ void arch_suspend_disable_irqs(void)
 
 void arch_suspend_enable_irqs(void)
 {
-	writel(intc_wakeup[0], intc_base + IMCR_OFF);
-	writel(intc_wakeup[1], intc_base + PART_OFF + IMCR_OFF);
+	writel(0xffffffff & ~intc_saved[0], intc_base + IMCR_OFF);
+	writel(0xffffffff & ~intc_saved[1], intc_base + PART_OFF + IMCR_OFF);
 	local_irq_enable();
 }
 
