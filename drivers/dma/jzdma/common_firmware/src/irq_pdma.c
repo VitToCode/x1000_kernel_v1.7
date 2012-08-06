@@ -54,7 +54,14 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 			irq_bch_correct_handle(nand, pipe_buf + ((nand->pipe_cnt - 1) & 0x1));
 			nand->mode &= ~PNAND_BCH_DEC;
 
-			if (nand->report < 0) { /* Uncorrectable Error */
+			if (nand->report == -6) { /* Read Ecc all 0xff */
+				nand->mode = PNAND_HALT;
+				__pdmac_mnmb_send(MB_NAND_ALL_FF);
+
+				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
+				__nand_disable();
+				channel_irq &= ~(1 << PDMA_NEMC_CHANNEL);
+                        } else if (nand->report == -1) { /* Uncorrectable Error */
 				nand->mode = PNAND_HALT;
 				__pdmac_mnmb_send(MB_NAND_UNCOR_ECC);
 
@@ -122,8 +129,11 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 				nand->mode = PNAND_HALT;
 				__pn_disable();
 				__nand_disable();
-				__pdmac_mnmb_send(MB_NAND_READ_DONE);
-			}
+                                if(nand->report < nand->ecclevel - 1)
+        				__pdmac_mnmb_send(MB_NAND_READ_DONE);
+	                        else
+        				__pdmac_mnmb_send(MB_MOVE_BLOCK);
+                        }
 			break;
 		case CTRL_WRITE_DATA :
 			if (nand->pipe_cnt < nand->eccsteps)

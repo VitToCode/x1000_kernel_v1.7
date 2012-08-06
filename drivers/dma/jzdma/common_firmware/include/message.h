@@ -41,5 +41,7 @@ struct pdma_msg {
 #define MB_NAND_WRITE_PROTECT	0x06
 #define MB_NAND_ERASE_DONE	0x07
 #define MB_NAND_ERASE_FAIL	0x08
+#define MB_NAND_ALL_FF  	0x09
+#define MB_MOVE_BLOCK           0x10
 
 #endif /*__MESSAGE_H__*/
