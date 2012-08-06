@@ -14,8 +14,11 @@ typedef RESULT (*PThreadFunction)(void *data);
 static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name){
 	PNandThread thread = NULL;
 	struct sched_param param = { .sched_priority = 1 };
-	
-	thread = kthread_create(fn, data, name);
+	char threadName[80];
+	static int index = 1;
+
+	sprintf(threadName, "%s_%d", name, index);
+	thread = kthread_create(fn, data, threadName);
 	switch(prio)
 	{
 	case 0:
