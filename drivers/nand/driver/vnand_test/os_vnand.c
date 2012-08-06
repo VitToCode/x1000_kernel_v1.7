@@ -50,7 +50,7 @@ static int em_vNand_InitNand (void *vd ){
 	VNandManager* vNand = vd;
 	char ptname[256];
 	struct vNand2K *vNandChip;
-	int spare = -1;
+	unsigned int spare = -1;
 
 	vNand->info.PagePerBlock = vNandChipInfo.PagePerBlock; 			//64
 	vNand->info.BytePerPage = vNandChipInfo.BytePerPage;			//2048
@@ -122,7 +122,7 @@ static int em_vNand_InitNand (void *vd ){
 
 static size_t page2offset(struct Nand2K *vNand,int pageid,int start)
 {
-	return pageid * vNand->BytePerPage + start * (vNand->BytePerPage + 4) * vNand->PagePerBlock;
+	return pageid * (vNand->BytePerPage + 4) + start * (vNand->BytePerPage + 4) * vNand->PagePerBlock;
 }
 
 static size_t block2offset(struct Nand2K *vNand,int blockid,int start)
@@ -175,7 +175,7 @@ static int em_vNand_MultiPageRead(void *pt,PageList* pl) {
 	struct singlelist *sg;
 	loff_t pos;
 	mm_segment_t old_fs;
-	int spare;
+	unsigned int spare;
    	do {
 		if(pl->startPageID == -1)
 			return -1;
@@ -215,7 +215,7 @@ static int em_vNand_MultiPageWrite(void *pt,PageList* pl) {
 	int startblock = PPARTITION(pt)->startblockID;
 	loff_t pos;
 	mm_segment_t old_fs;
-	int spare = 0;
+	unsigned int spare = 0;
    	do {
 		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes;
 
@@ -290,10 +290,11 @@ static int em_vNand_IsBadBlock (void *pt,int blockid ){
 	loff_t pos;
 	mm_segment_t old_fs;
 
-	for (i = 0; i < MAXALOWBADBLOCK; i++) {
-		if(bblocks[i].blockid == blockid)
-			return bblocks[i].isbad;
+	if (blockid < MAXALOWBADBLOCK) {
+		return bblocks[blockid].isbad;
 	}
+
+	return 0;
 
 	p = (struct vNand2K *)PPARTITION(pt)->prData;
 	startblock = PPARTITION(pt)->startblockID;
@@ -321,11 +322,8 @@ static int em_vNand_MarkBadBlock (void *pt,unsigned int blockid ){
 	int startblock;
 	mm_segment_t old_fs;
 
-	for (i = 0; i < MAXALOWBADBLOCK; i++) {
-		if(bblocks[i].blockid == blockid) {
-			bblocks[i].isbad = 1;
-			break;
-		}
+	if (blockid < MAXALOWBADBLOCK) {
+		bblocks[blockid].isbad = 1;
 	}
 
 //#if 0
