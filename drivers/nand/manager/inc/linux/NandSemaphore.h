@@ -31,7 +31,7 @@ static inline void Semaphore_signal(NandSemaphore* sem){
 	up(sem);
 }
 
-#define DEBUG_NDMUTEX
+//#define DEBUG_NDMUTEX
 
 typedef struct mutex NandMutex;
 static inline void InitNandMutex(NandMutex *mutex){
