@@ -15,7 +15,7 @@ static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,ch
 	PNandThread thread = NULL;
 	struct sched_param param = { .sched_priority = 1 };
 	
-	thread = kthread_create(fn, data, "dthread");
+	thread = kthread_create(fn, data, name);
 	switch(prio)
 	{
 	case 0:
