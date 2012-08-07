@@ -93,6 +93,8 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	u16 rep = 0;
 #endif
 	u16 i = 0;
+	static int wait_zdone;
+
 	LOG_TRACE();
 	/*  colour resolution 0 is 8 bit colour depth */
 	if (cRes == 0)
@@ -114,7 +116,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	 * the bits 0x0A, and  block 2 (ie. [9:5]) the bits 0x0A */
 	/* configure PLL after core pixel repetition */
 #ifdef PHY_GEN2_TSMC_40LP_2_5V
-	static int wait_zdone = 1;
+	wait_zdone = 1;
 	//while(1);
 
 	if (wait_zdone) {
@@ -143,6 +145,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	halI2cMasterPhy_SlaveAddress(baseAddr + PHY_I2CM_BASE_ADDR, PHY_I2C_SLAVE_ADDR);
 	halSourcePhy_TestClear(baseAddr + PHY_BASE_ADDR, 0);
 
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 	{
 		int haha = 0;
 		for (haha = 0x3000; haha <= 0x3007; haha++) {
@@ -150,16 +153,15 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 			       haha, access_CoreReadByte(haha));
 		}
 	}
-	printk("==============>call phy_I2cWrite\n");
-	printk("===========>%s: pClk = %u cRes = %d\n", __func__, pClk, cRes);
+	printk("hdmi   %s: pClk = %u cRes = %d\n", __func__, pClk, cRes);
+#endif
 	cRes = 8;
-
+#if 0
 	u16 slcaoValue;
-
-//#define READ_BACK_PRINT(addr)				\
-//	phy_I2cRead(baseAddr, &slcaoValue, (addr));	\
-//	printk("===>PHY[%02x] = 0x%04x\n", (addr), slcaoValue);
-//
+#define READ_BACK_PRINT(addr)				\
+	phy_I2cRead(baseAddr, &slcaoValue, (addr));	\
+	printk("===>PHY[%02x] = 0x%04x\n", (addr), slcaoValue);
+#endif
 
 #define READ_BACK_PRINT(addr) do { } while(0)
 
@@ -1016,6 +1018,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	halSourcePhy_EnableTMDS(baseAddr + PHY_BASE_ADDR, 0); /*  toggle TMDS */
 	halSourcePhy_EnableTMDS(baseAddr + PHY_BASE_ADDR, 1);
 
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 	{
 		int haha = 0;
 		for (haha = 0x3000; haha <= 0x3007; haha++) {
@@ -1027,11 +1030,10 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 			READ_BACK_PRINT(haha);
 		}
 	}
-
+#endif
 	/* wait PHY_TIMEOUT no of cycles at most for the pll lock signal to raise ~around 20us max */
 	for (i = 0; i < PHY_TIMEOUT; i++)
 	{
-		printk("============>wait phy PLL lock......\n");
 			if (halSourcePhy_PhaseLockLoopState(baseAddr + PHY_BASE_ADDR) == TRUE)
 			{
 				break;
@@ -1147,7 +1149,7 @@ int phy_I2cWrite(u16 baseAddr, u16 data, u8 addr)
 
 int phy_I2cRead(u16 baseAddr, u16 *data, u8 addr)
 {
-	LOG_TRACE2(data, addr);
+	LOG_TRACE2((unsigned)data, addr);
 	halI2cMasterPhy_RegisterAddress(baseAddr + PHY_I2CM_BASE_ADDR, addr);
 	halI2cMasterPhy_ReadRequest(baseAddr + PHY_I2CM_BASE_ADDR);
 	msleep(100);

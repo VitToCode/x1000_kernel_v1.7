@@ -92,13 +92,17 @@ static u16 edid_i2c_count(u16 sfrClock, u16 sclMinTime)
 	{
 		tmp_scl_period = (unsigned long)(sfrClock * sclMinTime) / I2C_DIV_FACTOR;
 	}
-	printk("=====>%s: sclMinTime = %u tmp_scl_period = %u\n", __func__, sclMinTime, tmp_scl_period);
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+	printk("hdmi %s: sclMinTime = %u tmp_scl_period = %u\n", __func__, sclMinTime, tmp_scl_period);
+#endif
 	return (u16)(tmp_scl_period);
 }
 
 int edid_Initialize(u16 baseAddr, u16 sfrClock)
 {
-	printk("============>%s: sfrClock = %u\n", __func__, sfrClock);
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+	printk("hdmi  %s: sfrClock = %u\n", __func__, sfrClock);
+#endif
 	LOG_TRACE2(baseAddr, sfrClock);
 	/* mask interrupts */
 	halEdid_MaskInterrupts(baseAddr + I2CM_BASE_ADDR, TRUE);

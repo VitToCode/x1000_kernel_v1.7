@@ -60,7 +60,6 @@ void halHdcp_RiCheck(u16 baseAddr, u8 bit)
 void halHdcp_BypassEncryption(u16 baseAddr, u8 bit)
 {
 	LOG_TRACE1(bit);
-	printk("========>%s:  bit = %u\n", bit);
 	access_CoreWrite(bit, (baseAddr + A_HDCPCFG0), 5, 1);
 }
 

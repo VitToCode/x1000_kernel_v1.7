@@ -60,7 +60,6 @@ int video_Configure(u16 baseAddr, videoParams_t *params, u8 dataEnablePolarity, 
 
 int video_ForceOutput(u16 baseAddr, u8 force)
 {
-	printk("-!!!!!---%s ----%d\n",__LINE__,__func__);
 	force = 0;
 	halFrameComposerDebug_ForceAudio(baseAddr + FC_BASE_ADDR + 0x0200,
 			force);
@@ -153,10 +152,10 @@ int video_FrameComposer(u16 baseAddr, videoParams_t *params, u8 dataEnablePolari
 {
 	const dtd_t *dtd = videoParams_GetDtd(params);
 	u16 i = 0;
-
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 	printk("===========>%s: dataEnablePolarity = %d\n",
 			__func__, dataEnablePolarity);
-
+#endif
 	LOG_TRACE();
 	/* HDCP support was checked previously */
 	halFrameComposerVideo_HdcpKeepout(baseAddr + FC_BASE_ADDR, hdcp);
@@ -281,8 +280,10 @@ int video_VideoSampler(u16 baseAddr, videoParams_t *params)
 	if (videoParams_GetEncodingIn(params) == RGB || videoParams_GetEncodingIn(
 			params) == YCC444)
 	{
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 		printk("====>enter %s: RGB or YCC444, videoParams_GetColorResolution = %d\n",
 		       __func__, videoParams_GetColorResolution(params));
+#endif
 
 		if ((videoParams_GetColorResolution(params) == 8)
 				|| (videoParams_GetColorResolution(params) == 0))
@@ -303,8 +304,10 @@ int video_VideoSampler(u16 baseAddr, videoParams_t *params)
 	}
 	else if (videoParams_GetEncodingIn(params) == YCC422)
 	{
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 		printk("====>enter %s: YCC422, videoParams_GetColorResolution = %d\n",
 		       __func__, videoParams_GetColorResolution(params));
+#endif
 
 		/* YCC422 mapping is discontinued - only map 1 is supported */
 		if (videoParams_GetColorResolution(params) == 12)
