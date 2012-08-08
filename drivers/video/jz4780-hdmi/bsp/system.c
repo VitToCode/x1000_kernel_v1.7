@@ -104,14 +104,15 @@ int system_InterruptHandlerRegister(interrupt_id_t id, handler_t handler,
 	struct hdmi_irq_handler *irq_handler = &m_irq_handler[id - 1];
 	irq_handler->handler = handler;
 	irq_handler->param = param;
-	printk("-----id=%d irq=%d---\n",id,irq);
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+	printk("hdmid %s  id=%d irq=%d---\n",__func__,id,irq);
+#endif
 	ret = request_irq(irq,
 			  jzhdmi_irq_handler,
 			  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
 			  | IRQF_DISABLED,
 			  m_irq_name[id - 1],
 			  (void *)irq_handler);
-	printk("ret=%d\n",ret);
 	return (ret ? FALSE : TRUE);
 }
 

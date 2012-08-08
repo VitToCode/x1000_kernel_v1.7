@@ -65,9 +65,9 @@ int dtd_Fill(dtd_t *dtd, u8 code, u32 refreshRate)
 	dtd->mPixelRepetitionInput = 0;
 	dtd->mHImageSize = 16;
 	dtd->mVImageSize = 9;
-
-	printk("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ code:%d\n",code);
-
+#ifdef	HDMI_JZ4780_DEBUG
+	printk("jz4780  hmdi video code:%d\n",code);
+#endif
 	switch (code)
 	{
 		case 1: /* 640x480p @ 59.94/60Hz 4:3 */

@@ -17,7 +17,7 @@ static volatile u32 * access_mBaseAddr = 0;
 
 int access_Initialize(u8 * baseAddr)
 {
-	access_mBaseAddr = baseAddr;
+	access_mBaseAddr = (u32 *)baseAddr;
 	if (!access_mutex_inited)
 	{
 		mutex_Initialize(&access_mMutex);

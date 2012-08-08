@@ -2436,6 +2436,9 @@ config HDMI_JZ4780
        depends on HDMI
        default y
 
+config HDMI_JZ4780_DEBUG
+       tristate "JZ4780 HDMI DEBUG"
+       depends on HDMI
 config JZ4780_IPU
        bool "JZ4780 IPU driver"
        default y

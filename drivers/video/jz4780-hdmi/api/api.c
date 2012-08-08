@@ -32,10 +32,10 @@ static int api_CheckParamsAudio(audioParams_t * audio);
 
 int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) //cmd:auto argument: 0, 1, 2500, 0
 {
-	dataEnablePolarity = 1;
 	dtd_t dtd;
 	videoParams_t params;
 	u16 pixelClock = 0;
+	dataEnablePolarity = 1;
 
 	api_mDataEnablePolarity = dataEnablePolarity;
 	api_mHpd = FALSE;
@@ -124,21 +124,22 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	{
 		return FALSE;
 	}
-	printk("==========>init phy\n");
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("jz4780 hdmi %s  %d  phy init\n",__func__,__LINE__);
+#endif
 	if (phy_Initialize(api_mBaseAddress, api_mDataEnablePolarity) != TRUE)
 	{
 		return FALSE;
 	}
 	control_InterruptClearAll(api_mBaseAddress);
 
-#if 1
-	printk("=======>get board_PixelClock\n");
 	if (board_PixelClock(api_mBaseAddress, pixelClock, videoParams_GetColorResolution(&params))!= TRUE)
 	{
 		return FALSE;
 	}
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("jz4780 hdmi %s  %d  video configured\n",__func__,__LINE_);
 #endif
-	printk("====>video_Configure\n");
 	if (video_Configure(api_mBaseAddress, &params, api_mDataEnablePolarity, FALSE) != TRUE)
 	{
 		return FALSE;
@@ -152,13 +153,17 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	/*
 	 * By default no pixel repetition and color resolution is 8
 	 */
-	printk("=====>control_Configure\n");
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("jz4780 hdmi %s  %d  control configured\n",__func__,__LINE_);
+#endif
 	if (control_Configure(api_mBaseAddress, pixelClock, 0, 8, 0, 0, 0, 0) != TRUE)
 	{
 		return FALSE;
 	}
 	/* send AVMUTE SET (optional) */
-	printk("=========>phy_Configure\n");
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("jz4780 hdmi %s  %d phy configured\n",__func__,__LINE_);
+#endif
 	if (phy_Configure (api_mBaseAddress, pixelClock, 8, 0) != TRUE)
 	{
 		return FALSE;
@@ -167,12 +172,12 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	phy_InterruptEnable(api_mBaseAddress, ~0x02);
 	if (force)
 	{
-		printk("init force");
+		printk("hdmi  init force\n");
 		api_mCurrentState = API_HPD;
 	}
 	else
 	{
-		printk("Waiting for hot plug detection...");
+		printk("Waiting for hot plug detection...\n");
 	}
 #if 0
 	/* enable interrupts */
@@ -223,11 +228,11 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 	}
 	else if (api_mCurrentState == API_HPD)
 	{
-		printk("E-EDID not read. Media may not be supported by sink");
+		printk("E-EDID not read. Media may not be supported by sink\n");
 	}
 	else if (api_mCurrentState == API_EDID_READ)
 	{
-	//	api_CheckParamsVideo(video);
+		api_CheckParamsVideo(video);
 		if (api_EdidHdmivsdb(&vsdb))
 		{
 			if (!hdmivsdb_GetDeepColor30(&vsdb) && !hdmivsdb_GetDeepColor36(&vsdb)
@@ -238,7 +243,9 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 		}
 	}
 	control_InterruptMute(api_mBaseAddress, ~0); /* disable interrupts */
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
 	printk("=====>disable TX_INT in %s:%d\n", __func__, __LINE__);
+#endif
 	system_InterruptDisable(TX_INT);
 	do
 	{
@@ -268,16 +275,15 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 				success = FALSE;
 				break;
 			}
-			printk("--------------> after audio_Configure\n");
 			packets_AudioInfoFrame(api_mBaseAddress, audio);
 		}
 		else if (audio != 0 && videoParams_GetHdmi(video) != TRUE)
 		{
-			printk("DVI mode selected: audio not configured");
+			printk("DVI mode selected: audio not configured\n");
 		}
 		else
 		{
-			printk("No audio parameters provided: not configured");
+			printk("No audio parameters provided: not configured\n");
 		}
 		if (videoParams_GetHdmi(video) == TRUE)
 		{
@@ -293,7 +299,7 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 		}
 		else
 		{
-			printk("DVI mode selected: packets not configured");
+			printk("DVI mode selected: packets not configured\n");
 		}
 		if (hdcpOn == TRUE)
 		{	/* HDCP is PHY independent */
@@ -301,7 +307,7 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 					dtd_GetHSyncPolarity(videoParams_GetDtd(video)),
 					dtd_GetVSyncPolarity(videoParams_GetDtd(video))) == FALSE)
 			{
-				printk("HDCP not configured");
+				printk("HDCP not configured\n");
 				hdcpOn = FALSE;
 				success = FALSE;
 				break;
@@ -309,11 +315,11 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 		}
 		else if (hdcp != 0 && control_SupportsHdcp(api_mBaseAddress) != TRUE)
 		{
-			printk("HDCP is not supported by hardware");
+			printk("HDCP is not supported by hardware\n");
 		}
 		else
 		{
-			printk("No HDCP parameters provided: not configured");
+			printk("No HDCP parameters provided: not configured\n");
 		}
 		if (board_PixelClock(api_mBaseAddress, videoParams_GetPixelClock(video),
 				videoParams_GetColorResolution(video)) != TRUE)
@@ -330,7 +336,6 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 			success = FALSE;
 			break;
 		}
-		printk("---start phy_configure --%d---%s",__LINE__,__func__);
 		if (phy_Configure(api_mBaseAddress, videoParams_GetPixelClock(video),
 			videoParams_GetColorResolution(video),
 			videoParams_GetPixelRepetitionFactor(video)) != TRUE)
@@ -338,7 +343,6 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 			success = FALSE;
 			break;
 		}
-		printk("---start phy_configure --%d---%s",__LINE__,__func__);
 		/* disable blue screen transmission after turning on all necessary blocks (e.g. HDCP) */
 		if (video_ForceOutput(api_mBaseAddress, FALSE) != TRUE)
 		{
@@ -356,7 +360,9 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 	}
 	while(0);
 	control_InterruptMute(api_mBaseAddress, 0); /* enable interrupts */
-	printk("======>enable TX_INT in %s:%d\n", __func__, __LINE__);
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("hdmi enable TX_INT in %s:%d\n", __func__, __LINE__);
+#endif
 	system_InterruptEnable(TX_INT);
 	return success;
 }
@@ -364,7 +370,9 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 int api_Standby()
 {
 	LOG_TRACE();
-	printk("====>disable TX_INT in api_Standby\n");
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+	printk("hdmi disable TX_INT in api_Standby\n");
+#endif
 	system_InterruptDisable(TX_INT);
 	system_InterruptHandlerUnregister(TX_INT);
 	control_Standby(api_mBaseAddress);
@@ -464,7 +472,9 @@ for (state = 0; state < 10; state++)
 //			printk("*****edid**********enter %s:%d\n", __func__, __LINE__);
 			if (edid_EventHandler(api_mBaseAddress, api_mHpd, state) == EDID_DONE)
 			{
-			printk("*****edid**********enter %s:%d\n", __func__, __LINE__);
+#ifdef CONFIG_HMDI_JZ4780_DEBUG
+			printk("*edid read done %s:%d\n", __func__, __LINE__);
+#endif
 				edid_Standby(api_mBaseAddress);
 				api_mCurrentState = API_EDID_READ;
 				if (api_mEventRegistry[EDID_READ_EVENT] != NULL)
@@ -511,7 +521,6 @@ for (state = 0; state < 10; state++)
 		state = control_InterruptAudioPacketsState(api_mBaseAddress);
 		if(state){
 
-			printk("after clear AudioPackets----> stat:%x\n",control_InterruptAudioPacketsState(api_mBaseAddress));
 /*
 			access_CoreWriteByte(0x4, 0x10D2);
 			printk("after clear Audio Sampler----> stat:%x\n",control_InterruptAudioSamplerState(api_mBaseAddress));
@@ -1114,7 +1123,6 @@ static int api_CheckParamsVideo(videoParams_t * video)
 	LOG_TRACE();
 	colorimetryDataBlock_Reset(&colorimetry);
 	shortVideoDesc_Reset(&svd);
-	printk("------%s %d\n",__func__,__LINE__);
 	dtd_Fill(&dtd, 1, 60000);
 	videoCapabilityDataBlock_Reset(&capability);
 

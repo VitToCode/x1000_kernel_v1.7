@@ -25,7 +25,6 @@ void halFrameComposerDebug_ForceVideo(u16 baseAddr, u8 bit)
 {
 	LOG_TRACE1(bit);
 	/* avoid glitches */
-	printk("------28282882\n");
 	if (bit != 0)
 	{
 		access_CoreWriteByte(bit ? 0x00 : 0x00, baseAddr + FC_DBGTMDS2); /* R */

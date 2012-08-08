@@ -94,7 +94,7 @@ int audio_Configure(u16 baseAddr, audioParams_t *params, u16 pixelClk, unsigned 
  	 * is equivalent to 0xF for 7 or 8 channels
  	 */
 //	halAudioI2s_DataEnable(baseAddr + AUD_BASE_ADDR + AUDIO_I2S, 0xF);  //lltang del
- 	halAudioI2s_DataEnable(baseAddr + AUD_BASE_ADDR + AUDIO_I2S, 0x1);  //lltang add
+	halAudioI2s_DataEnable(baseAddr + AUD_BASE_ADDR + AUDIO_I2S, 0x1);  //lltang add
  	/* ATTENTION: fixed I2S data mode (standard) */
  	halAudioI2s_DataMode(baseAddr + AUD_BASE_ADDR + AUDIO_I2S, 0);
  	halAudioI2s_DataWidth(baseAddr + AUD_BASE_ADDR + AUDIO_I2S, audioParams_GetSampleSize(params));
@@ -359,7 +359,9 @@ u16 audio_ComputeN(u16 baseAddr, u32 freq, u16 pixelClk, u16 ratioClk)
 u32 audio_ComputeCts(u16 baseAddr, u32 freq, u16 pixelClk, u16 ratioClk)
 {
 	u32 cts = 0;
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 	printk("audio_ComputeCts: freq:%d, pixelClk:%d, ratioClk:%d\n",freq, pixelClk, ratioClk);
+#endif
 	switch(freq)
 	{
 		case 32000:

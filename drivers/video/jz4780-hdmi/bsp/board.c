@@ -142,7 +142,9 @@ int board_PixelClock(u16 baseAddr, u16 value, u8 cd)
 {
 	LOG_TRACE1(value);
 	board_PllReset(VIDEO_PLL_BASE_ADDRESS, 0x01);
-	printk("===>enter %s:%d   value=%d\n", __func__, __LINE__,value);
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+	printk("hdmi  enter %s:%d   value=%d\n", __func__, __LINE__,value);
+#endif
 	switch (value)
 	{
 		case 2520:

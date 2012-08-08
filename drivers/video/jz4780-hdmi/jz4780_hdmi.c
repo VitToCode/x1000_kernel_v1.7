@@ -32,14 +32,13 @@ static void edid_callback(void *param)
 	global_hdmi->edid_done = HDMI_HOTPLUG_EDID_DONE;
 	wake_up(&global_hdmi->wait);
 }
-
+#if 0
 static void hdcp_ksv_callback(void *param)
 {
 	int i = 0;
 	u8 ksv_list[128] = {0};
 	unsigned size = 0;
 	buffer_t *temp_buffer = (buffer_t*)(param);
-
 	size = temp_buffer->size;
 	dev_info(global_hdmi->dev, "KSV list ready\n");
 	for (i = 0; i < size; i++) {
@@ -48,7 +47,7 @@ static void hdcp_ksv_callback(void *param)
 			 i, ksv_list[i]);
 	}
 }
-
+#endif
 static void hpd_callback(void *param)
 {
 	u8 hpd = *((u8*)(param));
@@ -107,16 +106,21 @@ int compliance_Standby(struct jzhdmi *jzhdmi)
 		kfree(pVideo);
 		pVideo = 0;
 	}
+	if (pHdcp != 0)
+	{
+		kfree(pHdcp);
+		pHdcp = 0;
+	}
 	return TRUE;
 }
-static int hdmi_init(struct jzhdmi *jzhdmi);
+static bool hdmi_init(struct jzhdmi *jzhdmi);
 static int hdmi_config(struct jzhdmi *jzhdmi);
 static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 {
 	int timeout;
 	jzhdmi->edid_done = 0;
 	if (!api_EdidRead(edid_callback)){
-		printk("---edid failed\n");
+		dev_info(jzhdmi->dev, "---edid failed\n");
 	}
 /*need modify*/
 #if 0
@@ -128,9 +132,10 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 			jzhdmi->edid_done == HDMI_HOTPLUG_EDID_DONE 
 			&& jzhdmi->hdmi_info.hdmi_status == HDMI_HOTPLUG_CONNECTED, 10*HZ);
 	if(!timeout){
-		dev_info(jzhdmi->dev, "---hdmi read edid timeout\n");
+		dev_err(jzhdmi->dev, "---hdmi read edid timeout\n");
 		return FALSE;
 	}
+	return TRUE;
 #endif
 }
 
@@ -173,11 +178,12 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		if (currentMode >= svdNo) {
 			currentMode = 0;
 		}
-		printk("=====> cur==%d  svno=%d\n",currentMode,svdNo);
+#ifdef HDMI_JZ4780_DEBUG
+		dev_info(jzhdmi->dev, "=====> cur==%d  svno=%d\n",currentMode,svdNo);
+#endif
 		for (; currentMode < svdNo; currentMode++) {
 			if (api_EdidSvd(currentMode, &tmp_svd)) {
 				ceaCode = shortVideoDesc_GetCode(&tmp_svd);
-				printk("=====> code=%d\n",jzhdmi->hdmi_info.out_type);
 				if (ceaCode != jzhdmi->hdmi_info.out_type) continue;
 				if (board_SupportedRefreshRate(ceaCode) != -1) {
 					dtd_Fill(&tmp_dtd, ceaCode, board_SupportedRefreshRate(ceaCode));
@@ -259,11 +265,11 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 	return TRUE;
 }
 
-static int hdmi_init(struct jzhdmi *jzhdmi)
+static bool hdmi_init(struct jzhdmi *jzhdmi)
 {
 	videoParams_t *pVideo = jzhdmi->hdmi_params.pVideo;
 	audioParams_t *pAudio = jzhdmi->hdmi_params.pAudio;
-	hdcpParams_t *pHdcp = jzhdmi->hdmi_params.pHdcp;
+//	hdcpParams_t *pHdcp = jzhdmi->hdmi_params.pHdcp;
 	productParams_t *pProduct = jzhdmi->hdmi_params.pProduct;
 
 	const u8 vName[] = "Synopsys";
@@ -277,7 +283,7 @@ static int hdmi_init(struct jzhdmi *jzhdmi)
 #endif
 
 	if (!pProduct) {
-		dev_info(jzhdmi->dev, "pVideo is NULL\n");
+		dev_err(jzhdmi->dev, "pVideo is NULL\n");
 		return FALSE;
 	}
 	productParams_Reset(pProduct);
@@ -286,11 +292,13 @@ static int hdmi_init(struct jzhdmi *jzhdmi)
 	productParams_SetSourceType(pProduct, 0x0A);
 
 	if (!pAudio) {
-		dev_info(jzhdmi->dev, "pAudio is NULL\n");
+		dev_err(jzhdmi->dev, "pAudio is NULL\n");
 		return FALSE;
 	}
 	audioParams_Reset(pAudio);
-#if GPA_ENABLE
+#if 0
+	/*GPA*/
+
 	dev_info(jzhdmi->dev, "GPA interface\n");
 	audioParams_SetInterfaceType(pAudio, GPA);
 	audioParams_SetCodingType(pAudio, PCM);
@@ -302,7 +310,6 @@ static int hdmi_init(struct jzhdmi *jzhdmi)
 	audioParams_SetDownMixInhibitFlag(pAudio, 0);
 	audioParams_SetClockFsFactor(pAudio, 128);
 #else
-	dev_info(jzhdmi->dev, "I2S interface\n");
 	audioParams_SetInterfaceType(pAudio, I2S);
 	audioParams_SetCodingType(pAudio, PCM);
 	audioParams_SetChannelAllocation(pAudio, 0);
@@ -316,34 +323,54 @@ static int hdmi_init(struct jzhdmi *jzhdmi)
 #endif
 
 	if (!pVideo) {
-		dev_info(jzhdmi->dev, "pVideo is NULL\n");
+		dev_err(jzhdmi->dev, "pVideo is NULL\n");
 		return FALSE;
 	}
 	videoParams_Reset(pVideo);
 	videoParams_SetEncodingIn(pVideo, RGB);
 	videoParams_SetEncodingOut(pVideo, RGB);
-
 	jzhdmi->init = 1;
-
-
 	return TRUE;
 }
 
-static int hdmi_change_config(struct jzhdmi *jzhdmi){
-	videoParams_t *pVideo = jzhdmi->hdmi_params.pVideo;
-	audioParams_t *pAudio = jzhdmi->hdmi_params.pAudio;
-	hdcpParams_t *pHdcp = jzhdmi->hdmi_params.pHdcp;
-	productParams_t *pProduct = jzhdmi->hdmi_params.pProduct;
-	api_Configure(pVideo, pAudio, pProduct, pHdcp);
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+void pri_hdmi_info(struct jzhdmi *jzhdmi)
+{
+	int haha = 0;
+	dev_info(jzhdmi->dev, "Audio Configure:\n");
+	dev_info(jzhdmi->dev, "===>REG[3100] = 0x%02x\n", api_CoreRead(0x3100));
+	dev_info(jzhdmi->dev, "===>REG[3101] = 0x%02x\n", api_CoreRead(0x3101));
+	dev_info(jzhdmi->dev, "===>REG[3102] = 0x%02x\n", api_CoreRead(0x3102));
+	dev_info(jzhdmi->dev, "===>REG[3103] = 0x%02x\n", api_CoreRead(0x3103));
+	dev_info(jzhdmi->dev, "===>REG[3200] = 0x%02x\n", api_CoreRead(0x3200));
+	dev_info(jzhdmi->dev, "===>REG[3201] = 0x%02x\n", api_CoreRead(0x3201));
+	dev_info(jzhdmi->dev, "===>REG[3202] = 0x%02x\n", api_CoreRead(0x3202));
+	dev_info(jzhdmi->dev, "===>REG[3203] = 0x%02x\n", api_CoreRead(0x3203));
+	dev_info(jzhdmi->dev, "===>REG[3204] = 0x%02x\n", api_CoreRead(0x3204));
+	dev_info(jzhdmi->dev, "===>REG[3205] = 0x%02x\n", api_CoreRead(0x3205));
+	dev_info(jzhdmi->dev, "===>REG[3206] = 0x%02x\n", api_CoreRead(0x3206));
+
+	dev_info(jzhdmi->dev, "Main Clock Ctrl:\n");
+	dev_info(jzhdmi->dev, "===>REG[4001] = 0x%02x\n", api_CoreRead(0x4001));
+	dev_info(jzhdmi->dev, "===>REG[4002] = 0x%02x\n", api_CoreRead(0x4002));
+	dev_info(jzhdmi->dev, "===>REG[4006] = 0x%02x\n", api_CoreRead(0x4006));
+
+	dev_info(jzhdmi->dev, "FC Audio:\n");
+	for (haha = 0x1025; haha <= 0x1028; haha++) {
+		dev_info(jzhdmi->dev, "===>REG[%04x] = 0x%02x\n", haha, api_CoreRead(haha));
+	}
+
+	for (haha = 0x1063; haha <= 0x106f; haha++) {
+		dev_info(jzhdmi->dev, "===>REG[%04x] = 0x%02x\n", haha, api_CoreRead(haha));
+	}
 }
+#endif
 
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int i;
 	int refresh = 0;
 	char name[MODE_NAME_LEN];
-	int api_mHpd;
-	dtd_t *dtd = (dtd_t*)(kzalloc(sizeof(dtd_t), GFP_KERNEL));
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
 	switch (cmd) {
@@ -353,14 +380,9 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			hdmi_read_edid(jzhdmi);
 		}
 
-//access_CoreWriteByte(0x0, 0x0183);   //intc fifo mute
-//access_CoreWriteByte(0, 0x3302); //audio fifo status unmask
-//break;
-		printk("----0------arg =%s\n",(void __user *)arg);
 		if (copy_from_user(name, (void __user *)arg, sizeof(char)
 				   * MODE_NAME_LEN))
 			return -EFAULT;
-		printk("----1------name =%s\n",name);
 		for (i = 0; i < HDMI_VIDEO_MODE_NUM; i++) {
 			if (!strcmp(name, mode_index[i].name)) {
 				refresh = mode_index[i].refresh;
@@ -369,10 +391,12 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 		}
 		hdmi_config(jzhdmi);
-#if 0
-		dtd_Fill(dtd, i, refresh);
-		videoParams_SetDtd(jzhdmi->hdmi_params.pVideo, dtd);
-		hdmi_change_config(jzhdmi);
+
+		access_CoreWriteByte(0x0, 0x0183);   //intc fifo mute
+		access_CoreWriteByte(0, 0x3302); //audio fifo status unmask
+
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
+		pri_hdmi_info(jzhdmi);
 #endif
 		break;
 	case HDMI_POWER_OFF:
@@ -432,11 +456,11 @@ static int jzhdmi_open(struct inode * inode, struct file * filp)
 
 #if 0
 	if (! atomic_dec_and_test (&jzhdmi->opened)) {
-	printk("----hmdi open =%d\n",__LINE__);
+	dev_info(jzhdmi->dev, "----hmdi open =%d\n",__LINE__);
 		atomic_inc(&jzhdmi->opened);
 		return -EBUSY; /* already open */
 	}
-	printk("----hmdi open =%d\n",__LINE__);
+	dev_info(jzhdmi->dev, "----hmdi open =%d\n",__LINE__);
 
 	dev_info(jzhdmi->dev, "Ingenic Onchip HDMI opened\n");
 	return 0;
@@ -467,7 +491,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	struct resource *mem;
 
 	printk("\tenter %s, %d\n", __func__, __LINE__);
-
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
 		dev_err(&pdev->dev, "Failed to get register memory resource\n");
@@ -486,7 +509,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_release_mem_region;
 	}
-	printk("%s, %d\n", __func__, __LINE__);
 
 	global_hdmi = jzhdmi;
 
@@ -522,7 +544,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 #else
 	jzhdmi->hdmi_params.pHdcp = NULL;
 #endif
-	printk("%s, %d\n", __func__, __LINE__);
 	jzhdmi->hdmi_params.pVideo = (videoParams_t*)kzalloc(
 		sizeof(videoParams_t),GFP_KERNEL);
 	if(!jzhdmi->hdmi_params.pVideo){
@@ -531,7 +552,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		goto err_free_pHdcp_mem;
 	}
 
-	printk("%s, %d\n", __func__, __LINE__);
 	jzhdmi->hdmi_clk = clk_get(&pdev->dev, "hdmi");
 	if (IS_ERR(jzhdmi->hdmi_clk)) {
 		ret = PTR_ERR(jzhdmi->hdmi_clk);
@@ -546,13 +566,12 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		goto err_put_hdmi_clk;
 	}
 
-	printk("%s, %d\n", __func__, __LINE__);
 	/*request_irq in bsp/system.c*/
 
 	jzhdmi->hdmi_switch.name = "hdmi";
 	ret = switch_dev_register(&jzhdmi->hdmi_switch);
 	if (ret < 0){
-		printk("HDMI switch_dev_register fail\n");
+		dev_err(jzhdmi->dev, "HDMI switch_dev_register fail\n");
 		goto err_iounmap;
 	}
 
@@ -563,7 +582,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		goto err_switch_dev_unregister;
 	}
 
-	printk("%s, %d\n", __func__, __LINE__);
 	INIT_DELAYED_WORK(&jzhdmi->detect_work,hdmi_detect_work_handler);
 
 	if (!access_Initialize((u8 *)jzhdmi->base)) {
@@ -571,7 +589,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_destroy_workqueue;
 	}
-	printk("%s, %d\n", __func__, __LINE__);
 #if 1
 	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
 	if (!api_Initialize(0, 1, 2500,0)) {
@@ -579,7 +596,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 	}
 #endif
-	printk("%s, %d\n", __func__, __LINE__);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	jzhdmi->early_suspend.suspend = hdmi_early_suspend;
 	jzhdmi->early_suspend.resume =  hdmi_late_resume;
@@ -592,19 +608,16 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->hdmi_miscdev.minor = MISC_DYNAMIC_MINOR;
 	jzhdmi->hdmi_miscdev.name = "hdmi";
 	jzhdmi->hdmi_miscdev.fops = &jzhdmi_fops;
-	printk("%s, %d\n", __func__, __LINE__);
 
 	ret = misc_register(&jzhdmi->hdmi_miscdev);
 	if (ret) {
 		dev_err(&pdev->dev, "hdmi misc register fail\n");
 		goto err_unregister_early_suspend;
 	}
-	printk("%s, %d\n", __func__, __LINE__);
 
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
 
-	printk("\tleave %s, %d   init=%d\n", __func__, __LINE__,jzhdmi->init);
 
 	return 0;
 
@@ -622,7 +635,7 @@ err_free_pVideo_mem:
 	kzfree(jzhdmi->hdmi_params.pVideo);
 err_free_pHdcp_mem:
 	kzfree(jzhdmi->hdmi_params.pHdcp);
-err_free_pAudio_mem:
+//err_free_pAudio_mem:
 	kzfree(jzhdmi->hdmi_params.pAudio);
 err_free_pProduct_mem:
 	kzfree(jzhdmi->hdmi_params.pProduct);

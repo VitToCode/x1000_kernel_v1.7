@@ -155,9 +155,7 @@ void videoParams_SetCscFilter(videoParams_t *params, u8 value)
 
 void videoParams_SetDtd(videoParams_t *params, dtd_t *dtd)
 {
-		printk("--%s--%d\n",__FILE__,__LINE__);
 	params->mDtd = *dtd;
-		printk("--%s--%d\n",__FILE__,__LINE__);
 }
 
 void videoParams_SetEncodingIn(videoParams_t *params, encoding_t value)
@@ -187,7 +185,6 @@ void videoParams_SetExtColorimetry(videoParams_t *params, u8 value)
 
 void videoParams_SetHdmi(videoParams_t *params, u8 value)
 {
-	printk("^^^^^^^^^^^^^^^^^^ params->mHdmi:%d\n",value);
 	params->mHdmi = value;
 }
 
@@ -323,8 +320,8 @@ unsigned videoParams_GetRatioClock(videoParams_t *params)
 
 int videoParams_IsColorSpaceConversion(videoParams_t *params)
 {
-	printk("=========>%s: mEncodingIn = %d, mEncodingOut = %d\n",
-			__func__, params->mEncodingIn, params->mEncodingOut);
+//	printk("=========>%s: mEncodingIn = %d, mEncodingOut = %d\n",
+//			__func__, params->mEncodingIn, params->mEncodingOut);
 	return params->mEncodingIn != params->mEncodingOut;
 }
 
