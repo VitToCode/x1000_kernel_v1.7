@@ -192,9 +192,8 @@ static void jz4780_rtc_release(struct device *dev)
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 
 	spin_lock_irq(&rtc->lock);
-
-	spin_unlock_irq(&rtc->lock);
 	free_irq(rtc->irq, rtc);
+	spin_unlock_irq(&rtc->lock);
 }
 
 static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
