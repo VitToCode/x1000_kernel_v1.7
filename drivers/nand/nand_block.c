@@ -48,7 +48,7 @@ struct __nand_disk {
 	int sl_context;
 	unsigned int sl_len;
 	int sectorsize;
-	unsigned short segmentsize;
+	unsigned int segmentsize;
 	spinlock_t queue_lock;
 };
 
@@ -395,7 +395,7 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): blk_init_queue error!\n");
 		goto probe_err2;
 	}
-	blk_queue_max_segments(ndisk->queue, MAX_SEG_CNT);
+	//blk_queue_max_segments(ndisk->queue, MAX_SEG_CNT);
 	blk_queue_max_segment_size(ndisk->queue, pinfo->pt->segmentsize);
 
 	ndisk->sl_context = BuffListManager_BuffList_Init();
