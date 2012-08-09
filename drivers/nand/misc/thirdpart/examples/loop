@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# this is a silly neverending test loop to
+# stress the modules
+# Note: the device node "node" for mmap
+# must be created first. See mmap.c for
+# details
+
+rmmod thread_mod 2> /dev/null
+rmmod mmap_mod 2> /dev/null
+
+n=0;
+
+
+
+while [ 1 ]; do
+        let n=n+1;
+        if { ! let n%50 }; then echo "`date`: $n" ; fi
+
+        if { ! insmod ./mmap_mod.o }; then
+                echo "insmod fehler mmap_mod" ;
+        else
+                if { ! insmod ./thread_mod.o }; then
+		    echo "insmod fehler thread_mod" ;
+		else
+		    ./mmap
+		    ./mmap
+		    ./mmap	    
+		    if { ! rmmod thread_mod }; then \
+			    echo "rmmod fehler thread_mod" ; \
+		    fi
+		    if { ! rmmod mmap_mod }; then \
+                        echo "rmmod fehler mmap_mod" ; \
+		    fi
+		fi
+        fi
+done
+

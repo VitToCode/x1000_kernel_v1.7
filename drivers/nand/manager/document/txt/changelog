@@ -1,0 +1,6 @@
+1、 压缩时数据长度大于一页的情况。
+	在Pageinfo中加一个字段，指向下一个压缩Info在哪里。
+	然后每个Zone中最小保留4Page,以便分Zone处理。
+2、 nanddriver interface 中加入 vNandInfo->prData
+	vNandInfo->prData 存储为当前操作分区。
+	
