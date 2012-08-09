@@ -20,7 +20,7 @@ struct _LPartition {
     PartContext* pc;
 	
 	int hwsector;
-	unsigned short segmentsize;
+	unsigned int segmentsize;
 };
 
 #endif

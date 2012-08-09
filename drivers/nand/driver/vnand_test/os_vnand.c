@@ -284,7 +284,6 @@ static int em_vNand_MultiBlockErase (void *pt,BlockList* pl ){
 }
 
 static int em_vNand_IsBadBlock (void *pt,int blockid ){
-	int i = 0;
 	struct vNand2K *p;
 	int startblock;
 	loff_t pos;
@@ -316,7 +315,6 @@ static int em_vNand_IsBadBlock (void *pt,int blockid ){
 }
 
 static int em_vNand_MarkBadBlock (void *pt,unsigned int blockid ){
-	int i = 0;
 	loff_t pos;
 	struct vNand2K *p;
 	int startblock;

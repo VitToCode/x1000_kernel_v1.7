@@ -47,8 +47,9 @@ struct __nand_disk {
 	SectorList *sl;
 	int sl_context;
 	unsigned int sl_len;
-	int sectorsize;
+	unsigned int sectorsize;
 	unsigned int segmentsize;
+	unsigned long capacity;
 	spinlock_t queue_lock;
 };
 
@@ -89,12 +90,13 @@ static ssize_t dbg_store(struct device_driver *driver, const char *buf, size_t c
 static inline void dump_sectorlist(SectorList *top)
 {
 	struct singlelist *plist = NULL;
-	SectorList *tmp = NULL;
+	SectorList *sl = NULL;
 
 	if (top) {
 		singlelist_for_each(plist, &top->head) {
-			tmp = singlelist_entry(plist, SectorList, head);
-			printk("dump SectorList: sl = %p\n", tmp);
+			sl = singlelist_entry(plist, SectorList, head);
+			printk("dump SectorList: sl = %p, sl->startSector = %d, sl->sectorCount = %d\n",
+				   sl, sl->startSector, sl->sectorCount);
 		}
 	}
 }
@@ -152,6 +154,7 @@ static int nand_rq_map_sl(struct request_queue *q,
 				goto new_segment;
 
 			sl->sectorCount += nbytes / sectorsize;
+			startSector += nbytes / sectorsize;
 		} else {
 		new_segment:
 			if (!sl) {
@@ -174,7 +177,6 @@ static int nand_rq_map_sl(struct request_queue *q,
 			sl->startSector = startSector;
 			sl->sectorCount = nbytes / sectorsize;
 			sl->pData = page_address(bvec->bv_page) + bvec->bv_offset;
-
 			startSector += sl->sectorCount;
 			nsegs ++;
 		}
@@ -395,8 +397,6 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): blk_init_queue error!\n");
 		goto probe_err2;
 	}
-	//blk_queue_max_segments(ndisk->queue, MAX_SEG_CNT);
-	blk_queue_max_segment_size(ndisk->queue, pinfo->pt->segmentsize);
 
 	ndisk->sl_context = BuffListManager_BuffList_Init();
 	if (ndisk->sl_context == 0) {
@@ -410,6 +410,7 @@ static int nand_block_probe(struct device *dev)
 	ndisk->pinfo = pinfo;
 	ndisk->sectorsize = pinfo->pt->hwsector;
 	ndisk->segmentsize = pinfo->pt->segmentsize;
+	ndisk->capacity = pinfo->pt->sectorCount * pinfo->pt->hwsector;
 
     ndisk->disk->major = nand_block.major;
     ndisk->disk->first_minor = cur_minor;
@@ -439,8 +440,13 @@ static int nand_block_probe(struct device *dev)
 		goto probe_err4;
 	}
 
-	/* set capacity */
-	set_capacity(ndisk->disk, pinfo->pt->sectorCount);
+	/* set queue limit & capacity */
+	if (ndisk->segmentsize > 0) {
+		blk_queue_max_segments(ndisk->queue, ndisk->capacity / ndisk->segmentsize);
+		blk_queue_max_segment_size(ndisk->queue, ndisk->segmentsize);
+		blk_queue_max_hw_sectors(ndisk->queue, ndisk->segmentsize / ndisk->sectorsize);
+	}
+	set_capacity(ndisk->disk, ndisk->capacity / ndisk->sectorsize);
 
 	/* create file */
 	sysfs_attr_init(&ndisk->dattr.attr);
