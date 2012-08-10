@@ -78,7 +78,7 @@
 #define OPCR_ERCS		(0x1<<2)
 #define OPCR_PD			(0x1<<3)
 
-#if 0
+#ifndef CONFIG_FPGA_TEST 
 #define cpm_inl(off)		inl(CPM_IOBASE + (off))
 #define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
 #define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(OST_IOBASE + (off))))

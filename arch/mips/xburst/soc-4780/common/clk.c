@@ -137,7 +137,7 @@ enum {
 #define CLK_NAME_LCD1		"lcd1"
 	CLK_ID_LCD0,
 #define CLK_NAME_LCD0		"lcd0"
-	CLK_ID_IPU,
+	CLK_ID_IPU0,
 #define CLK_NAME_IPU0		"ipu0"
 	CLK_ID_IPU1,
 #define CLK_NAME_IPU1		"ipu1"

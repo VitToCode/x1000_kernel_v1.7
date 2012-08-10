@@ -22,6 +22,7 @@
 #include <linux/clockchips.h>
 
 #include <soc/irq.h>
+#include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
 #include <soc/ost.h>
@@ -37,7 +38,7 @@ static unsigned int latch;
 static unsigned int calculate_latch(void)
 {
 #ifndef CONFIG_FPGA_TEST
-	unsigned long cppcr,m,n,o;
+	unsigned long source,cppcr,m,n,o;
 	cppcr = cpm_inl(CPM_CPEPCR);
 
 	o = (((cppcr) >> 9) & 0xf) + 1;

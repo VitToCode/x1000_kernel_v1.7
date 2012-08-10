@@ -84,4 +84,9 @@ enum {
 	IRQ_OST = IRQ_OST_BASE,
 };
 
+enum {
+	IRQ_MCU_NORMAL = IRQ_MCU_BASE,
+	IRQ_MCU,
+};
+
 #endif
