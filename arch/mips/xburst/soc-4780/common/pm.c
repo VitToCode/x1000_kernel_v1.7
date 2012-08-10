@@ -315,6 +315,7 @@ static inline void __jz_cache_init(void)
 
 static int jz4780_pm_enter(suspend_state_t state)
 {
+#ifndef CONFIG_FPGA_TEST 
 	int i;
 	unsigned long lcr = cpm_inl(CPM_LCR);
 	unsigned long opcr = cpm_inl(CPM_OPCR);
@@ -387,6 +388,7 @@ sleep_done:
 jz4780_pm_enter_exit:
 	/* Restore LCR */
 	cpm_outl(lcr,CPM_LCR);
+#endif
 	return 0;
 }
 

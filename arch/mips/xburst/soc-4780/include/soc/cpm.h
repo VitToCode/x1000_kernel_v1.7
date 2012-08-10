@@ -84,9 +84,8 @@
 #define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(OST_IOBASE + (off))))
 #define cpm_set_bit(val,off)	set_bit(val,((volatile void *)(OST_IOBASE + (off))))
 #else
-static unsigned int tmp;
 #define cpm_inl(x)		0x3
-#define cpm_outl(val,off)	do{tmp = (val);}while(0)
+#define cpm_outl(val,off)	do{}while(0)
 //#define cpm_outl(v,x)		do{}while(0)
 #define cpm_clear_bit(off,x)	do{}while(0)
 #define cpm_set_bit(off,x)	do{}while(0)
