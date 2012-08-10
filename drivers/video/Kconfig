@@ -2398,6 +2398,23 @@ config MAP_DATABUS_TO_LCDC0
 	depends on FB && SOC_4780
 	default n
 
+choice
+	depends on FB && SOC_4780
+	prompt "allocation frame buffer"
+	default THREE_FRAME_BUFFERS
+
+config TWO_FRAME_BUFFERS
+       bool "allocation 2 frame buffers"
+       help
+	double frame buffer
+
+config THREE_FRAME_BUFFERS
+       bool "allocation 3 frame buffers"
+       help
+	treble frame buffer
+
+endchoice
+
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"
 	depends on FB && UNICORE32 && ARCH_PUV3

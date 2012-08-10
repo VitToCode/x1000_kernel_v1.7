@@ -2,11 +2,18 @@
 #include <linux/earlysuspend.h>
 #include "aosd.h"
 
+#ifdef CONFIG_TWO_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
+#endif
+
+#ifdef CONFIG_THREE_FRAME_BUFFERS
+#define NUM_FRAME_BUFFERS 3
+#endif
+
 #define PIXEL_ALIGN 16
 #define MODE_NAME_LEN 32
 
-/*
+/**
  * @next: physical address of next frame descriptor
  * @databuf: physical address of buffer
  * @id: frame ID
@@ -28,11 +35,11 @@ struct jzfb_framedesc {
 	uint32_t desc_size;
 } __packed;
 
-struct jzfb_fg_size {
-	int fg0_line_size;
-	int fg0_frm_size;
-	int panel_line_size;
-	int height_width;
+struct jzfb_display_size {
+	u32 fg0_line_size;
+	u32 fg0_frm_size;
+	u32 panel_line_size;
+	u32 height_width;
 };
 
 enum jzfb_format_order {
@@ -40,26 +47,34 @@ enum jzfb_format_order {
 	FORMAT_X8B8G8R8,
 };
 
+/**
+ * @fg: foreground 0 or foreground 1
+ * @bpp: foreground bpp
+ * @x: foreground start position x
+ * @y: foreground start position y
+ * @w: foreground width
+ * @h: foreground height
+ */
 struct jzfb_fg_t {
-	int fg;     /* 0, fg0  1, fg1 */
-	int bpp;	/* foreground bpp */
-	int x;		/* foreground start position x */
-	int y;		/* foreground start position y */
-	int w;		/* foreground width */
-	int h;		/* foreground height */
-	unsigned int alpha;     /* ALPHAEN, alpha value */
-	unsigned int bgcolor;   /* background color value */
+	u32 fg;
+	u32 bpp;
+	u32 x;
+	u32 y;
+	u32 w;
+	u32 h;
 };
 
+/**
+ *@decompress: enable decompress function, used by FG0
+ *@block: enable 16x16 block function
+ *@fg0: fg0 info
+ *@fg1: fg1 info
+ */
 struct jzfb_osd_t {
-	int decompress;		      	/* enable decompress function, used by FG0 */
-	int block;	  	        /* enable 16x16 block function */
-
-	unsigned int colorkey0;	        /* foreground0's Colorkey enable, Colorkey value */
-	unsigned int colorkey1;         /* foreground1's Colorkey enable, Colorkey value */
-
-	struct jzfb_fg_t fg0;          /* fg0 info */
-	struct jzfb_fg_t fg1;	        /* fg1 info */
+	int decompress;
+	int block;
+	struct jzfb_fg_t fg0;
+	struct jzfb_fg_t fg1;
 };
 
 struct jzfb {
@@ -78,18 +93,21 @@ struct jzfb {
 	void __iomem *base;
 	struct resource *mem;
 
-	wait_queue_head_t frame_wq;
-
 	size_t vidmem_size;
 	void *vidmem;
 	dma_addr_t vidmem_phys;
 
 	int frm_size;
-	volatile int frm_id;
 	/* dma 0 descriptor base address */
 	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
+
+	wait_queue_head_t vsync_wq;
+	struct task_struct *vsync_thread;
+	ktime_t	vsync_timestamp;
+
+	struct mutex lock;
 
 	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
 	struct jzfb_osd_t osd; /* osd's config information */
@@ -98,9 +116,9 @@ struct jzfb {
 	struct clk *ldclk;
 	struct clk *lpclk;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
-
-	struct mutex lock;
+#endif
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
@@ -113,19 +131,64 @@ static inline void reg_write(struct jzfb *jzfb, int offset, unsigned long val)
 	writel(val, jzfb->base + offset);
 }
 
-static void dump_lcdc_registers(struct jzfb *jzfb);
-static void jzfb_enable(struct fb_info *info);
-static int jzfb_set_par(struct fb_info *info);
+/* structures for frame buffer ioctl */
+struct jzfb_fg_pos {
+	__u32 fg; /* 0:fg0, 1:fg1 */
+	__u32 x;
+	__u32 y;
+};
+
+struct jzfb_fg_size {
+	__u32 fg;
+	__u32 w;
+	__u32 h;
+};
+
+struct jzfb_fg_alpha {
+	__u32 fg; /* 0:fg0, 1:fg1 */
+	__u32 enable;
+	__u32 mode; /* 0:global alpha, 1:pixel alpha */
+	__u32 value; /* 0x00-0xFF */
+};
+
+struct jzfb_bg {
+	__u32 fg; /* 0:fg0, 1:fg1 */
+	__u32 red;
+	__u32 green;
+	__u32 blue;
+};
+
+struct jzfb_color_key {
+	__u32 fg; /* 0:fg0, 1:fg1 */
+	__u32 enable;
+	__u32 mode; /* 0:color key, 1:mask color key */
+	__u32 red;
+	__u32 green;
+	__u32 blue;
+};
 
 /* ioctl commands */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
 #define JZFB_GET_MODELIST		_IOR('F', 0x101, char *)
-#define JZFB_SET_MODE			_IOW('F', 0x102, char *)
-#define JZFB_SET_VIDMEM			_IOW('F', 0x103, unsigned int *)
-#define JZFB_ENABLE			_IO('F', 0x104)
-#define JZFB_DISABLE			_IO('F', 0x105)
+#define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
+#define JZFB_SET_MODE			_IOW('F', 0x103, char *)
+#define JZFB_ENABLE			_IOW('F', 0x104, int)
 
-#define JZFB_SET_COLORKEY		_IOW('F', 0x120, unsigned int)
-#define JZFB_GET_OSDINFO		_IOR('F', 0x121, struct jzfb_osd_t)
-#define JZFB_ENABLE_FG1			_IO('F', 0x122)
-#define JZFB_DISABLE_FG1		_IO('F', 0x123)
+#define JZFB_SET_FG_SIZE		_IOW('F', 0x105, struct jzfb_fg_size)
+#define JZFB_GET_FG_SIZE		_IOWR('F', 0x106, struct jzfb_fg_size)
+#define JZFB_SET_FG_POS			_IOW('F', 0x107, struct jzfb_fg_pos)
+#define JZFB_GET_FG_POS			_IOWR('F', 0x108, struct jzfb_fg_pos)
+#define JZFB_SET_ALPHA			_IOW('F', 0x109, struct jzfb_fg_alpha)
+
+#define JZFB_SET_VSYNCINT		_IOW('F', 0x110, int)
+
+#define JZFB_SET_BACKGROUND		_IOW('F', 0x111, struct jzfb_bg)
+#define JZFB_SET_COLORKEY		_IOW('F', 0x112, struct jzfb_color_key)
+#define JZFB_COMPRESS_EN		_IOW('F', 0x113, int)
+#define JZFB_16X16_BLOCK_EN		_IOW('F', 0x114, int)
+#define JZFB_IPU0_TO_BUF		_IOW('F', 0x115, int)
+#define JZFB_ENABLE_FG1			_IOW('F', 0x116, int)
+
+extern int jzfb_config_image_enh(struct fb_info *info);
+extern int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
+				unsigned long arg);

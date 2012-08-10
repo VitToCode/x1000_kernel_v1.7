@@ -1,4 +1,5 @@
-/* kernel/drivers/video/jz4780/jz4780_fb.c
+/* 
+ * kernel/drivers/video/jz4780/jz4780_fb.c
  *
  * Copyright (c) 2012 Ingenic Semiconductor Co., Ltd.
  *              http://www.ingenic.com/
@@ -31,11 +32,16 @@
 #include <linux/earlysuspend.h>
 #include <linux/suspend.h>
 #include <linux/string.h>
+#include <linux/kthread.h>
 
 #include <mach/jzfb.h>
 
 #include "jz4780_fb.h"
 #include "regs.h"
+
+static void dump_lcdc_registers(struct jzfb *jzfb);
+static void jzfb_enable(struct fb_info *info);
+static int jzfb_set_par(struct fb_info *info);
 
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id		= "jzfb",
@@ -53,7 +59,7 @@ static int jzfb_open(struct fb_info *info, int user)
 	struct jzfb *jzfb = info->par;
 
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
-	//dump_lcdc_registers(jzfb);
+	dump_lcdc_registers(jzfb);
 
 	/* check the state of FG1 */
 	tmp = reg_read(jzfb, LCDC_OSDC);
@@ -153,41 +159,51 @@ static void jzfb_config_fg0(struct fb_info *info)
 
 	reg_write(jzfb, LCDC_OSDC, cfg);
 	reg_write(jzfb, LCDC_OSDCTRL, ctrl);
-
 	reg_write(jzfb, LCDC_RGBC, rgb_ctrl);
 }
 
-static void jzfb_calculate_fg_size(struct fb_info *info,
-				   struct jzfb_fg_size *fg_size)
+static int jzfb_calculate_size(struct fb_info *info,
+				   struct jzfb_display_size *size)
 {
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = info->mode;
 
-	/* Foreground 0, calculate size */
-	if (jzfb->osd.fg0.x >= mode->xres)
-		jzfb->osd.fg0.x = mode->xres - 1;
-	if (jzfb->osd.fg0.y >= mode->yres)
-		jzfb->osd.fg0.y = mode->yres - 1;
+	/*
+	 * The rules of f0, f1's position:
+	 * f0.x + f0.w <= panel.w;
+	 * f0.y + f0.h <= panel.h;
+	 */
+	if ((jzfb->osd.fg0.x + jzfb->osd.fg0.w > mode->xres) |
+	    (jzfb->osd.fg0.y + jzfb->osd.fg0.h > mode->yres) |
+	    (jzfb->osd.fg0.x >= mode->xres) |
+	    (jzfb->osd.fg0.y >= mode->yres)) {
+		dev_info(info->dev, "Invalid foreground size or position");
+		return -EINVAL;
+	}
 
 	/* lcd display area */
-	fg_size->fg0_line_size = jzfb->osd.fg0.w * jzfb->osd.fg0.bpp >> 3;
+	size->fg0_line_size = jzfb->osd.fg0.w * jzfb->osd.fg0.bpp >> 3;
 	/* word aligned and in word */
-	fg_size->fg0_line_size = ALIGN(fg_size->fg0_line_size, 4) >> 2;
-	fg_size->fg0_frm_size = fg_size->fg0_line_size * jzfb->osd.fg0.h;
+	size->fg0_line_size = ALIGN(size->fg0_line_size, 4) >> 2;
+	size->fg0_frm_size = size->fg0_line_size * jzfb->osd.fg0.h;
 
 	/* panel PIXEL_ALIGN stride buffer area */
-	fg_size->panel_line_size = ALIGN(mode->xres, PIXEL_ALIGN) *
+	size->panel_line_size = ALIGN(mode->xres, PIXEL_ALIGN) *
 		(jzfb->osd.fg0.bpp >> 3);
 	/* word aligned and in word */
-	fg_size->panel_line_size = ALIGN(fg_size->panel_line_size, 4) >> 2;
-	jzfb->frm_size = fg_size->panel_line_size * mode->yres << 2;
+	size->panel_line_size = ALIGN(size->panel_line_size, 4) >> 2;
+	jzfb->frm_size = size->panel_line_size * mode->yres << 2;
 
-	fg_size->height_width = (jzfb->osd.fg0.h - 1) << LCDC_DESSIZE_HEIGHT_BIT
-		| (jzfb->osd.fg0.w - 1);
+	size->height_width = (jzfb->osd.fg0.h - 1) << LCDC_DESSIZE_HEIGHT_BIT
+		& LCDC_DESSIZE_HEIGHT_MASK;
+	size->height_width |=((jzfb->osd.fg0.w -1) << LCDC_DESSIZE_WIDTH_BIT
+			      & LCDC_DESSIZE_WIDTH_MASK);
+
+	return 0;
 }
 
 static void jzfb_config_tft_lcd_dma(struct fb_info *info,
-				    struct jzfb_fg_size *fg_size,
+				    struct jzfb_display_size *size,
 				    struct jzfb_framedesc *framedesc)
 {
 	struct jzfb *jzfb = info->par;
@@ -198,9 +214,9 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 
 	framedesc->cmd = LCDC_CMD_SOFINT | LCDC_CMD_FRM_EN;
 	if (!jzfb->osd.decompress && !jzfb->osd.block) {
-		framedesc->cmd |= fg_size->fg0_frm_size;
-		framedesc->offsize = (fg_size->panel_line_size
-				      - fg_size->fg0_line_size);
+		framedesc->cmd |= size->fg0_frm_size;
+		framedesc->offsize = (size->panel_line_size
+				      - size->fg0_line_size);
 	} else if (jzfb->osd.decompress) {
 		framedesc->cmd |= LCDC_CMD_COMPEN;
 		framedesc->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
@@ -209,13 +225,13 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 		framedesc->cmd |= LCDC_CMD_16X16BLOCK;
 		framedesc->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
 		/* block size */
-		/* framedesc->offsize = fg_size->fg0_frm_size; */
+		/* framedesc->offsize = size->fg0_frm_size; */
 	}
 
 	if (framedesc->offsize == 0 || jzfb->osd.decompress) {
 		framedesc->page_width = 0;
 	} else {
-		framedesc->page_width = fg_size->fg0_line_size;
+		framedesc->page_width = size->fg0_line_size;
 	}
 
 	switch (jzfb->osd.fg0.bpp) {
@@ -240,16 +256,18 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 	framedesc->cpos |= LCDC_CPOS_PREMULTI;
 	/* coef_sle 0 use 1 */
 	framedesc->cpos |= LCDC_CPOS_COEF_SLE_1;
-	framedesc->cpos |= jzfb->osd.fg0.y << LCDC_CPOS_YPOS_BIT;
-	framedesc->cpos |= jzfb->osd.fg0.x;
+	framedesc->cpos |= (jzfb->osd.fg0.y << LCDC_CPOS_YPOS_BIT
+			    & LCDC_CPOS_YPOS_MASK);
+	framedesc->cpos |= (jzfb->osd.fg0.x << LCDC_CPOS_XPOS_BIT
+			    & LCDC_CPOS_XPOS_MASK);
 
 	/* fg0 alpha value */
 	framedesc->desc_size = 0xa0 << LCDC_DESSIZE_ALPHA_BIT;
-	framedesc->desc_size |= fg_size->height_width;
+	framedesc->desc_size |= size->height_width;
 }
 
 static void jzfb_config_smart_lcd_dma(struct fb_info *info,
-				      struct jzfb_fg_size *fg_size,
+				      struct jzfb_display_size *size,
 				      struct jzfb_framedesc *framedesc)
 {
 	//struct jzfb *jzfb = info->par;
@@ -257,7 +275,7 @@ static void jzfb_config_smart_lcd_dma(struct fb_info *info,
 }
 
 static void jzfb_config_fg1_dma(struct fb_info *info,
-				struct jzfb_fg_size *fg_size)
+				struct jzfb_display_size *size)
 {
 	struct jzfb *jzfb = info->par;
 
@@ -275,7 +293,7 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 	jzfb->fg1_framedesc->databuf = 0;
 	jzfb->fg1_framedesc->id = 0xda1;
 	jzfb->fg1_framedesc->cmd = (LCDC_CMD_SOFINT & ~LCDC_CMD_FRM_EN)
-		| fg_size->fg0_frm_size;
+		| size->fg0_frm_size;
 	jzfb->fg1_framedesc->offsize = 0;
 	jzfb->fg1_framedesc->page_width = 0;
 
@@ -284,7 +302,7 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 		LCDC_CPOS_YPOS_BIT | jzfb->osd.fg0.x | LCDC_CPOS_PREMULTI
 		| LCDC_CPOS_COEF_SLE_3;
 
-	jzfb->fg1_framedesc->desc_size = fg_size->height_width | 0xa0 <<
+	jzfb->fg1_framedesc->desc_size = size->height_width | 0xa0 <<
 		LCDC_DESSIZE_ALPHA_BIT;
 
 	reg_write(jzfb, LCDC_DA1, jzfb->fg1_framedesc->next);
@@ -294,18 +312,19 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 {
 	int i;
 	struct jzfb *jzfb = info->par;
-	struct jzfb_fg_size fg_size;
+	struct jzfb_display_size *display_size;
 	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
 
+	display_size = kzalloc(sizeof(struct jzfb_display_size), GFP_KERNEL);
 	framedesc = kzalloc(sizeof(struct jzfb_framedesc) *
 			    (jzfb->desc_num - 1), GFP_KERNEL);
 
-	jzfb_calculate_fg_size(info, &fg_size);
+	jzfb_calculate_size(info, display_size);
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
-		jzfb_config_tft_lcd_dma(info, &fg_size, framedesc[0]);
+		jzfb_config_tft_lcd_dma(info, display_size, framedesc[0]);
 	} else {
-		jzfb_config_smart_lcd_dma(info, &fg_size, framedesc[0]);
+		jzfb_config_smart_lcd_dma(info, display_size, framedesc[0]);
 	}
 
 	for (i = 0; i < jzfb->desc_num - 1; i++) {
@@ -319,8 +338,10 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 		jzfb->framedesc[i]->desc_size = framedesc[i]->desc_size;
 	}
 
-	kfree(framedesc);
-	jzfb_config_fg1_dma(info, &fg_size);
+
+	jzfb_config_fg1_dma(info, display_size);
+	kzfree(framedesc);
+	kzfree(display_size);
 
 	return 0;
 }
@@ -378,6 +399,234 @@ static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	return 0;
 }
 
+static void jzfb_lvds_txctrl_is_reset(struct fb_info *info, int reset)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned int tmp;
+
+	tmp = reg_read(jzfb, LVDS_TXCTRL);
+	if (reset) {
+		/* 0:reset */
+		tmp &= ~LVDS_TX_RSTB;
+		reg_write(jzfb, LVDS_TXCTRL, tmp);
+	} else {
+		tmp |= LVDS_TX_RSTB;
+		reg_write(jzfb, LVDS_TXCTRL, tmp);
+	}
+}
+
+static void jzfb_lvds_txpll0_is_pll_en(struct fb_info *info, int pll_en)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned int tmp;
+
+	tmp = reg_read(jzfb, LVDS_TXPLL0);
+        if (pll_en) {
+		/* 1: enable */
+		tmp |= LVDS_PLL_EN;
+		reg_write(jzfb, LVDS_TXPLL0, tmp);
+	} else {
+		tmp &= ~LVDS_PLL_EN;
+		reg_write(jzfb, LVDS_TXPLL0, tmp);
+	}
+}
+
+static void jzfb_lvds_txpll0_is_bg_pwd(struct fb_info *info, int bg)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned int tmp;
+
+	tmp = reg_read(jzfb, LVDS_TXPLL0);
+        if (bg) {
+		/* 1: power down */
+		tmp |= LVDS_BG_PWD;
+		reg_write(jzfb, LVDS_TXPLL0, tmp);
+	} else {
+		tmp &= ~LVDS_BG_PWD;
+		reg_write(jzfb, LVDS_TXPLL0, tmp);
+	}
+}
+
+/* check LVDS_PLL_LOCK lock */
+static void jzfb_lvds_check_pll_lock(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned int tmp;
+	int count = 0;
+
+	do {
+		mdelay(10);
+		tmp = reg_read(jzfb, LVDS_TXPLL0);
+		if (count++ > 100) {
+			dev_info(info->dev, "Wait LVDS PLL LOCK timeout\n");
+			break;
+		}
+	} while (!(tmp & LVDS_PLL_LOCK));
+	if (count <= 100) {
+		dev_info(info->dev, "LVDS PLL LOCK OK\n");
+	}
+}
+
+static void jzfb_lvds_txctrl_config(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct lvds_txctrl *txctrl = &jzfb->pdata->txctrl;
+	unsigned int ctrl;
+
+	if (txctrl->data_format) {
+		ctrl = LVDS_MODEL_SEL;
+	}
+	ctrl |= LVDS_TX_RSTB; /* TXCTRL disable reset */
+	if (txctrl->clk_edge_falling_7x)
+		ctrl |= LVDS_TX_CKBIT_PHA_SEL;
+	if (txctrl->clk_edge_falling_1x)
+		ctrl |= LVDS_TX_CKBYTE_PHA_SEL;
+
+	 /* 1x clock coarse tuning. TXCTRL: 15-13 bit */
+	ctrl |= (txctrl->data_start_edge << LVDS_TX_CKOUT_PHA_S_BIT &
+		 LVDS_TX_CKOUT_PHA_S_MASK);
+	ctrl |= txctrl->operate_mode; /* TXCTRL: 30, 29, 12, 11, 1, 0 bit */
+	/* 1x clock fine tuning. TXCTRL: 10-8 bit */
+	ctrl |= ((txctrl->edge_delay << LVDS_TX_DLY_SEL_BIT) &
+		 LVDS_TX_DLY_SEL_MASK);
+
+	/* output amplitude control. TXCTRL: 7 6; 5-3 2 bit */
+	switch (txctrl->output_amplitude) {
+	case VOD_FIX_200MV:
+		ctrl &= ~LVDS_TX_AMP_ADJ;
+		ctrl &= ~LVDS_TX_LVDS;
+		break;
+	case VOD_FIX_350MV:
+		ctrl &= ~LVDS_TX_AMP_ADJ;
+		ctrl |= LVDS_TX_LVDS;
+		break;
+	default:
+		ctrl |= LVDS_TX_AMP_ADJ;
+		ctrl &= ~(0xf << 2);
+		ctrl |= (txctrl->output_amplitude << 2);
+		break;
+	}
+
+	reg_write(jzfb, LVDS_TXCTRL, ctrl);
+}
+
+static void jzfb_lvds_txpll0_config(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct lvds_txpll0 *txpll0 = &jzfb->pdata->txpll0;
+	unsigned int cfg = 0;
+        int indiv = 0, fbdiv = 0;
+
+	if (txpll0->ssc_enable) {
+		cfg = LVDS_PLL_SSC_EN;
+	} else {
+		cfg &= ~LVDS_PLL_SSC_EN;
+	}
+	if (txpll0->ssc_mode_center_spread)
+		cfg |= LVDS_PLL_SSC_MODE;
+
+	/* post divider */
+	cfg |= (txpll0->post_divider << LVDS_PLL_POST_DIVA_BIT &
+		LVDS_PLL_POST_DIVA_MASK);
+       /* feedback_divider */
+        if (txpll0->feedback_divider == 260) {
+               fbdiv = 0;
+        } else if (txpll0->feedback_divider >= 8 && txpll0->feedback_divider
+		 <= 259) {
+               fbdiv = txpll0->feedback_divider/2 - 2;
+        } else {
+                dev_info(info->dev, "LVDS PLL feedback divider is error\n");
+        }
+	cfg |= (fbdiv << LVDS_PLL_PLLN_BIT & LVDS_PLL_PLLN_MASK);
+
+        /*input_divider*/
+        if (txpll0->input_divider == 2) {
+                indiv = 0;
+        } else if (txpll0->input_divider >= 3 && txpll0->input_divider <= 17) {
+                indiv = txpll0->input_divider - 2;
+        } else if (txpll0->input_divider >= 18 && txpll0->input_divider <= 34) {
+                indiv = (txpll0->input_divider) / 2 - 2;
+                indiv += 32;
+        } else {
+                dev_info(info->dev, "LVDS PLL input divider is error\n");
+        }
+	cfg |= ((indiv << LVDS_PLL_INDIV_BIT) & LVDS_PLL_INDIV_MASK);
+
+	reg_write(jzfb, LVDS_TXPLL0, cfg);
+}
+
+static void jzfb_lvds_txpll1_config(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct lvds_txpll1 *txpll1 = &jzfb->pdata->txpll1;
+	unsigned int cfg;
+
+	cfg = (txpll1->charge_pump << LVDS_PLL_ICP_SEL_BIT &
+	       LVDS_PLL_ICP_SEL_MASK);
+	cfg |= (txpll1->vco_gain << LVDS_PLL_KVCO_BIT & LVDS_PLL_KVCO_MASK);
+	cfg |= (txpll1->vco_biasing_current << LVDS_PLL_IVCO_SEL_BIT &
+	       LVDS_PLL_IVCO_SEL_MASK);
+
+        if (txpll1->sscn == 130) {
+		cfg |= 0;
+        }
+	if (txpll1->sscn >=3 && txpll1->sscn <=129) {
+                cfg |= ((txpll1->sscn - 2) << LVDS_PLL_SSCN_BIT &
+			LVDS_PLL_SSCN_MASK);
+	}
+
+        if (txpll1->ssc_counter >= 0 && txpll1->ssc_counter <= 15) {
+		cfg |= (txpll1->ssc_counter << LVDS_PLL_GAIN_BIT &
+			LVDS_PLL_GAIN_MASK);
+        }
+	if (txpll1->ssc_counter >= 16 && txpll1->ssc_counter <= 8191) {
+		cfg |= (txpll1->ssc_counter << LVDS_PLL_COUNT_BIT &
+			LVDS_PLL_COUNT_MASK);
+        }
+
+	reg_write(jzfb, LVDS_TXPLL1, cfg);
+}
+
+static void jzfb_lvds_txectrl_config(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct lvds_txectrl *txectrl = &jzfb->pdata->txectrl;
+	unsigned int cfg;
+
+	cfg = (txectrl->emphasis_level << LVDS_TX_EM_S_BIT &
+	       LVDS_TX_EM_S_MASK);
+	if (txectrl->emphasis_enable) {
+		cfg |= LVDS_TX_EM_EN;
+	}
+	cfg |= (txectrl->ldo_output_voltage << LVDS_TX_LDO_VO_S_BIT &
+		LVDS_TX_LDO_VO_S_MASK);
+	cfg |= (txectrl->fine_tuning_7x_clk << LVDS_TX_CK_PHA_FINE_BIT &
+		LVDS_TX_CK_PHA_FINE_MASK);
+	cfg |= (txectrl->coarse_tuning_7x_clk << LVDS_TX_CK_PHA_COAR_BIT &
+		LVDS_TX_CK_PHA_COAR_MASK);
+
+	reg_write(jzfb, LVDS_TXECTRL, cfg);
+}
+
+static void jzfb_config_lvds_controller(struct fb_info *info)
+{
+	jzfb_lvds_txctrl_is_reset(info, 1); /* TXCTRL enable reset */
+	jzfb_lvds_txpll0_is_bg_pwd(info, 0); /* band-gap power on */
+
+	mdelay(5);
+
+	jzfb_lvds_txpll0_is_pll_en(info, 1); /* pll enable */
+	udelay(20);
+	jzfb_lvds_txctrl_is_reset(info, 1); /* TXCTRL disable reset */
+
+	jzfb_lvds_txctrl_config(info);
+	jzfb_lvds_txpll0_config(info);
+	jzfb_lvds_txpll1_config(info);
+	jzfb_lvds_txectrl_config(info);
+
+	jzfb_lvds_check_pll_lock(info);
+}
+
 static void jzfb_enable(struct fb_info *info)
 {
 	uint32_t ctrl;
@@ -407,7 +656,7 @@ static void jzfb_disable(struct fb_info *info)
 {
 	uint32_t ctrl, state;
 	struct jzfb *jzfb = info->par;
-	int count = 100000;
+	int count = 1000;
 
 	mutex_lock(&jzfb->lock);
 	if(!jzfb->is_enabled) {
@@ -418,7 +667,7 @@ static void jzfb_disable(struct fb_info *info)
 	ctrl |= LCDC_CTRL_DIS;
 	reg_write(jzfb, LCDC_CTRL,ctrl);
 	do {
-		msleep(5);
+		udelay(100);
 		state = reg_read(jzfb, LCDC_STATE);
 	} while (!(state & LCDC_STATE_LDD) && count--);
 	if (!count) {
@@ -573,17 +822,25 @@ static int jzfb_set_par(struct fb_info *info)
 
 	jzfb_prepare_dma_desc(info);
 
-	if (!jzfb->is_enabled)
-		clk_disable(jzfb->ldclk);
-
-	mutex_unlock(&jzfb->lock);
-
 	clk_set_rate(jzfb->lpclk, rate);
-	clk_set_rate(jzfb->ldclk, rate * 3);
+	//clk_set_rate(jzfb->ldclk, rate * 3);
 
 	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
 	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
 		 clk_get_rate(jzfb->lpclk));
+
+	/* panel'type is TFT LVDS, need to configure LVDS controller */
+	if (pdata->lvds && jzfb->id) {
+		jzfb_config_lvds_controller(info);
+	}
+
+	/* if dither_en is 1, then set it */
+	jzfb_config_image_enh(info);
+
+	if (!jzfb->is_enabled)
+		clk_disable(jzfb->ldclk);
+
+	mutex_unlock(&jzfb->lock);
 
 	if(is_enabled)
 		jzfb_enable(info);
@@ -629,7 +886,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	}
 
 	max_videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
-	max_videosize *= NUM_FRAME_BUFFERS;				
+	max_videosize *= NUM_FRAME_BUFFERS;
 
 	jzfb->vidmem_size = PAGE_ALIGN(max_videosize);
 	jzfb->vidmem = dma_alloc_coherent(jzfb->dev,
@@ -660,60 +917,161 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	unsigned int state;
-	int now_frm,next_frm,ctrl;
+	int next_frm;
 	struct jzfb *jzfb = info->par;
 	//struct timeval tv1, tv2;
 
 	if (var->xoffset - info->var.xoffset) {
-		dev_err(info->dev,"No support for X panning for now!\n");
+		dev_err(info->dev,"No support for X panning for now\n");
 		return -EINVAL;
 	}
 
-	now_frm = reg_read(jzfb,LCDC_IID);
 	next_frm = var->yoffset / var->yres;
-	if(now_frm == next_frm)
-		return 0;
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 			+ jzfb->frm_size * next_frm;
-		jzfb->framedesc[0]->id = next_frm;
 	} else {
 		//smart tft spec code here.
 	}
 
-	jzfb->frm_id = 0xff;
-	state = reg_read(jzfb, LCDC_STATE);
-	reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
-	ctrl = reg_read(jzfb, LCDC_CTRL);
-	reg_write(jzfb, LCDC_CTRL, ctrl | LCDC_CTRL_SOFM);
-
-	if(!wait_event_interruptible_timeout(jzfb->frame_wq, next_frm ==
-					     jzfb->frm_id, HZ)) {
-		dev_err(info->dev,"wait for filp timeout!\n");
-		return -ETIME;
-	}
-
-	ctrl = reg_read(jzfb, LCDC_CTRL);
-	reg_write(jzfb, LCDC_CTRL,ctrl & ~LCDC_CTRL_SOFM);
-
 	return 0;
 }
 
-static int jzfb_set_colorkey(struct jzfb *jzfb, unsigned int value)
+static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 {
-	unsigned int tmp;
+	int i;
+	int desc_num;
+	uint32_t cfg;
+	struct jzfb *jzfb = info->par;
+	struct jzfb_framedesc *framedesc[jzfb->desc_num];
 
-	tmp = reg_read(jzfb, LCDC_KEY0);
-	tmp &= ~0xFFFFFF;
-	tmp |= value;
-	reg_write(jzfb, LCDC_KEY0, tmp);
+	if (!fg_alpha->fg) {
+		desc_num = jzfb->desc_num -1;
+		for (i = 0; i < desc_num; i++) {
+			framedesc[i] = jzfb->framedesc[0] + sizeof(
+				struct jzfb_framedesc) * i;
+		}
+	} else {
+		desc_num = 1;
+		framedesc[0] = jzfb->fg1_framedesc;
+	}
 
-	tmp = reg_read(jzfb, LCDC_KEY0);
+	cfg = reg_read(jzfb, LCDC_OSDC);
+	if (fg_alpha->enable) {
+		cfg |= LCDC_OSDC_ALPHAEN;
+		for ( i = 0; i < desc_num; i++) {
+			if (!fg_alpha->mode) {
+				framedesc[i]->cpos &= ~LCDC_CPOS_ALPHAMD1;
+			} else {
+				framedesc[i]->cpos |= LCDC_CPOS_ALPHAMD1;
+			}
+			framedesc[i]->desc_size |= (fg_alpha->value <<
+						    LCDC_DESSIZE_ALPHA_BIT
+						    & LCDC_DESSIZE_ALPHA_MASK);
+		}
+	} else {
+		cfg &= ~LCDC_OSDC_ALPHAEN;
+	}
+	reg_write(jzfb, LCDC_OSDC, cfg);
+}
+
+static void jzfb_set_background(struct fb_info *info, struct jzfb_bg *background)
+{
+	struct jzfb *jzfb = info->par;
+	uint32_t bg_value;
+
+	bg_value = background->red << LCDC_BGC_RED_OFFSET & LCDC_BGC_RED_MASK;
+	bg_value |= (background->green << LCDC_BGC_GREEN_OFFSET
+		     & LCDC_BGC_GREEN_MASK);
+	bg_value |= (background->blue << LCDC_BGC_BLUE_OFFSET
+		     & LCDC_BGC_BLUE_MASK);
+
+	if (!background->fg)
+		reg_write(jzfb, LCDC_BGC0, bg_value);
+	else
+		reg_write(jzfb, LCDC_BGC1, bg_value);
+}
+
+static void jzfb_set_colorkey(struct fb_info *info, struct jzfb_color_key *color_key)
+{
+	struct jzfb *jzfb = info->par;
+	uint32_t tmp = 0;
+
+	if (color_key->mode == 1) {
+		tmp |= LCDC_KEY_KEYMD;
+	} else {
+		tmp &= ~LCDC_KEY_KEYMD;
+	}
+
+	tmp |= (color_key->red << LCDC_KEY_RED_OFFSET & LCDC_KEY_RED_MASK);
+	tmp |= (color_key->green << LCDC_KEY_GREEN_OFFSET
+		&  LCDC_KEY_GREEN_MASK);
+	tmp |= (color_key->blue << LCDC_KEY_BLUE_OFFSET
+		& LCDC_KEY_BLUE_MASK);
 	tmp |= LCDC_KEY_KEYEN;
-	reg_write(jzfb, LCDC_KEY0, tmp);
+
+	if (!color_key->fg) {
+		reg_write(jzfb, LCDC_KEY0, tmp);
+		tmp = reg_read(jzfb, LCDC_KEY0);
+	} else {
+		reg_write(jzfb, LCDC_KEY1, tmp);
+		tmp = reg_read(jzfb, LCDC_KEY1);
+	}
+
+	if (color_key->enable == 1) {
+		tmp |= LCDC_KEY_KEYEN;
+	} else {
+		tmp &= ~LCDC_KEY_KEYEN;
+	}
+	if (!color_key->fg) {
+		reg_write(jzfb, LCDC_KEY0, tmp);
+	} else {
+		reg_write(jzfb, LCDC_KEY1, tmp);
+	}
+}
+
+static int jzfb_set_foreground_position(struct fb_info *info,
+				    struct jzfb_fg_pos *fg_pos)
+{
+	int i;
+	int desc_num;
+	struct jzfb *jzfb = info->par;
+	struct jzfb_framedesc *framedesc[jzfb->desc_num];
+	struct fb_videomode *mode = info->mode;
+
+	/*
+	 * The rules of f0, f1's position:
+	 * f0.x + f0.w <= panel.w;
+	 * f0.y + f0.h <= panel.h;
+	 */
+	if ((fg_pos->x + jzfb->osd.fg0.w > mode->xres) |
+	    (fg_pos->y + jzfb->osd.fg0.h > mode->yres) |
+	    (fg_pos->x >= mode->xres) |
+	    (fg_pos->y >= mode->yres)) {
+		dev_info(info->dev, "Invalid foreground position");
+		return -EINVAL;
+	}
+	jzfb->osd.fg0.x = fg_pos->x;
+	jzfb->osd.fg0.y = fg_pos->y;
+
+	if (!fg_pos->fg) {
+		desc_num = jzfb->desc_num -1;
+		for ( i = 0; i < desc_num; i++) {
+			framedesc[i] = jzfb->framedesc[0] + sizeof(
+				struct jzfb_framedesc) * i;
+		}
+	} else {
+		framedesc[0] = jzfb->fg1_framedesc;
+		desc_num = 1;
+	}
+
+	for ( i = 0; i < desc_num; i++) {
+		framedesc[i]->cpos |= (((fg_pos->y << LCDC_CPOS_YPOS_BIT) &
+					LCDC_CPOS_YPOS_MASK) |
+				       (fg_pos->x & LCDC_CPOS_XPOS_MASK));
+	}
 
 	return 0;
 }
@@ -722,11 +1080,21 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 {
 	int i;
 	unsigned int value;
+	unsigned int tmp;
 	void __user *argp = (void __user *)arg;
 	struct jzfb *jzfb = info->par;
 	struct jzfb_platform_data *pdata = jzfb->pdata;
+	struct fb_videomode *mode = info->mode;
 	char (*buf)[MODE_NAME_LEN];
 	char name[MODE_NAME_LEN];
+
+	union {
+		struct jzfb_fg_pos fg_pos;
+		struct jzfb_fg_size fg_size;
+		struct jzfb_fg_alpha fg_alpha;
+		struct jzfb_bg background;
+		struct jzfb_color_key color_key;
+	} osd;
 
 	switch (cmd) {
 	case JZFB_GET_MODENUM:
@@ -738,11 +1106,18 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		for (i = 0; i < pdata->num_modes; i++) {
 			if (!pdata->modes[i].name)
 				continue;
-			memcpy(buf[i], pdata->modes[i].name, strlen(pdata->modes[i].name) + 1);
+			memcpy(buf[i], pdata->modes[i].name, strlen(
+				       pdata->modes[i].name) + 1);
 		}
 
-		copy_to_user(argp, buf, sizeof(char) * MODE_NAME_LEN * pdata->num_modes);
-		kfree(buf);
+		copy_to_user(argp, buf, sizeof(char) * MODE_NAME_LEN
+			     * pdata->num_modes);
+		kzfree(buf);
+		break;
+	case JZFB_SET_VIDMEM:
+		if (copy_from_user(&jzfb->vidmem_phys, argp,
+				   sizeof(unsigned int)))
+			return -EFAULT;
 		break;
 	case JZFB_SET_MODE:
 		if (copy_from_user(name, argp, sizeof(char) * MODE_NAME_LEN))
@@ -752,47 +1127,226 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			if (!pdata->modes[i].name)
 				continue;
 			if (!strcmp(pdata->modes[i].name, name)) {
-				jzfb_videomode_to_var(&info->var, &pdata->modes[i]);
-
+				jzfb_videomode_to_var(&info->var,
+						      &pdata->modes[i]);
 				return jzfb_set_par(info);
 			}
 		}
-		dev_info(info->dev, "Not find equal video mode at platform data");
+		dev_info(info->dev, "Not find equal video mode at pdata");
 		return -EFAULT;
 		break;
-	case JZFB_SET_VIDMEM:
-		if (copy_from_user(&jzfb->vidmem_phys, argp, sizeof(unsigned int)))
-			return -EFAULT;
-		break;
 	case JZFB_ENABLE:
-		if(!jzfb->vidmem_phys)
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_info(info->dev, "copy FB enable value failed\n");
 			return -EFAULT;
-		jzfb_enable(info);
+		}
+		if(!jzfb->vidmem_phys) {
+			return -EFAULT;
+		}
+		if (value) {
+			jzfb_enable(info);
+		} else {
+			jzfb_disable(info);
+		}
 		break;
-	case JZFB_DISABLE:
-		jzfb_disable(info);
+	case JZFB_SET_FG_SIZE:
+		if (copy_from_user(&osd.fg_size, argp, sizeof(
+					   struct jzfb_fg_size))) {
+			dev_info(info->dev, "copy FG size from user failed\n");
+			return -EFAULT;
+		} else {
+			if ((jzfb->osd.fg0.x + osd.fg_size.w > mode->xres) |
+			    (jzfb->osd.fg0.y + osd.fg_size.h > mode->yres)) {
+				dev_info(info->dev, "Invalid foreground size");
+				return -EINVAL;
+			}
+			if (!osd.fg_size.fg) {
+				jzfb->osd.fg0.w = osd.fg_size.w;
+				jzfb->osd.fg0.h = osd.fg_size.h;
+				return jzfb_prepare_dma_desc(info);
+			} else {
+				/* LCDC DMA 1 is not used for now */
+			}
+		}
+		break;
+	case JZFB_GET_FG_SIZE:
+		if (copy_from_user(&osd.fg_size, argp, sizeof(
+					   struct jzfb_fg_size))) {
+			dev_info(info->dev, "copy FG size from user failed\n");
+			return -EFAULT;
+		}
+
+		if (!osd.fg_size.fg) {
+			value = reg_read(jzfb, LCDC_SIZE0);
+		} else {
+			value = reg_read(jzfb, LCDC_SIZE1);
+		}
+		osd.fg_size.w = value & LCDC_SIZE_WIDTH_MASK;
+		osd.fg_size.h = (value & LCDC_SIZE_HEIGHT_MASK) >>
+			LCDC_SIZE_HEIGHT_BIT;
+		if (copy_to_user(argp, &osd.fg_size, sizeof(
+					 struct jzfb_fg_size))) {
+			dev_info(info->dev, "copy FG size to user failed\n");
+			return -EFAULT;
+		}
+		break;
+	case JZFB_SET_FG_POS:
+		if (copy_from_user(&osd.fg_pos, argp, sizeof(
+					   struct jzfb_fg_pos))) {
+			dev_info(info->dev, "copy FG pos from user failed\n");
+			return -EFAULT;
+		} else {
+			return jzfb_set_foreground_position(info, &osd.fg_pos);
+		}
+		break;
+	case JZFB_GET_FG_POS:
+		if (copy_from_user(&osd.fg_pos, argp, sizeof(
+					   struct jzfb_fg_pos))) {
+			dev_info(info->dev, "copy FG pos from user failed\n");
+			return -EFAULT;
+		}
+		if (!osd.fg_size.fg) {
+			value = reg_read(jzfb, LCDC_XYP0);
+		} else {
+			value = reg_read(jzfb, LCDC_XYP1);
+		}
+		osd.fg_pos.x = value & LCDC_XYP_XPOS_MASK;
+		osd.fg_pos.y = (value & LCDC_XYP_YPOS_MASK) >>
+			LCDC_XYP_YPOS_BIT;
+		if (copy_to_user(argp, &osd.fg_pos, sizeof(
+					 struct jzfb_fg_pos))) {
+			dev_info(info->dev, "copy FG pos to user failed\n");
+			return -EFAULT;
+		}
+		break;
+	case JZFB_SET_ALPHA:
+		if (copy_from_user(&osd.fg_alpha, argp, sizeof(
+					   struct jzfb_fg_alpha))) {
+			dev_info(info->dev, "copy alpha from user failed\n");
+			return -EFAULT;
+		} else {
+			jzfb_set_alpha(info, &osd.fg_alpha);
+		}
+		break;
+	case JZFB_SET_VSYNCINT:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		if (value) {
+			/* clear previous EOF flag */
+			tmp = reg_read(jzfb, LCDC_STATE);
+			reg_write(jzfb, LCDC_STATE, tmp & ~LCDC_STATE_EOF);
+			/* enable end of frame interrupt */
+			tmp = reg_read(jzfb, LCDC_CTRL);
+			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
+			dev_info(info->dev, "LCDC DMA enable EOF interrupt");
+		} else {
+			tmp = reg_read(jzfb, LCDC_CTRL);
+			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
+			dev_info(info->dev, "LCDC DMA disable EOF interrupt");
+		}
+		break;
+	case JZFB_SET_BACKGROUND:
+		if (copy_from_user(&osd.background, argp, sizeof(
+					   struct jzfb_bg))) {
+			dev_info(info->dev, "copy colorkey from user failed\n");
+			return -EFAULT;
+		} else {
+			jzfb_set_background(info, &osd.background);
+		}
 		break;
 	case JZFB_SET_COLORKEY:
-		if (copy_from_user(&value, argp, sizeof(unsigned int))) {
+		if (copy_from_user(&osd.color_key, argp, sizeof(
+					   struct jzfb_color_key))) {
 			dev_info(info->dev, "copy colorkey from user failed\n");
 			return -EFAULT;
 		}
-		jzfb_set_colorkey(jzfb, value);
+		jzfb_set_colorkey(info, &osd.color_key);
 		break;
-	case JZFB_GET_OSDINFO:
-		if (copy_to_user(argp, &jzfb->osd, sizeof(struct jzfb_osd_t))) {
-			dev_info(info->dev, "copy osd info to user failed\n");
+	case JZFB_COMPRESS_EN:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		if (value) {
+			dev_info(info->dev, "LCDC DMA enable decompress mode");
+			jzfb->osd.decompress = 1;
+			jzfb_prepare_dma_desc(info);
+		} else {
+			dev_info(info->dev, "LCDC DMA disable decompress mode");
+			jzfb->osd.decompress = 0;
+			jzfb_prepare_dma_desc(info);
+		}
+		break;
+	case JZFB_16X16_BLOCK_EN:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		if (value) {
+			dev_info(info->dev, "LCDC DMA enable block mode");
+			jzfb->osd.block = 1;
+			jzfb_prepare_dma_desc(info);
+		} else {
+			dev_info(info->dev, "LCDC DMA disable block mode");
+			jzfb->osd.block = 0;
+			jzfb_prepare_dma_desc(info);
+		}
+		break;
+	case JZFB_IPU0_TO_BUF:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		if (jzfb->id != 1) {
+			dev_err(info->dev, "LCDC 0 can't accessing 0x130a02c8");
 			return -EFAULT;
 		}
-	case JZFB_ENABLE_FG1:
-		jzfb->fg1_framedesc->cmd |= LCDC_CMD_FRM_EN;
+		tmp = inl(LCDC_CTRL_OUTPUT);
+		if (value) {
+			tmp |= LCDC_CTRL_OUTPUT_IPU02BUF;
+			outl(tmp, LCDC_CTRL_OUTPUT);
+		} else {
+			tmp &= ~LCDC_CTRL_OUTPUT_IPU02BUF;
+			outl(tmp, LCDC_CTRL_OUTPUT);
+		}
 		break;
-	case JZFB_DISABLE_FG1:
-		jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
+	case JZFB_ENABLE_FG1:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		if (value) {
+			jzfb->fg1_framedesc->cmd |= LCDC_CMD_FRM_EN;
+		} else {
+			jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
+		}
 		break;
 	default:
-		dev_info(info->dev, "Not support for %d cmd\n", cmd);
+		jzfb_image_enh_ioctl(info, cmd, arg);
 		break;
+	}
+
+	return 0;
+}
+
+static int jzfb_vsync_timestamp_changed(struct jzfb *jzfb,
+					ktime_t prev_timestamp)
+{
+	rmb();
+	return !ktime_equal(prev_timestamp, jzfb->vsync_timestamp);
+}
+
+static int jzfb_wait_for_vsync_thread(void *data)
+{
+	struct jzfb *jzfb = (struct jzfb *)data;
+
+	while (!kthread_should_stop()) {
+		ktime_t prev_timestamp = jzfb->vsync_timestamp;
+		int ret = wait_event_interruptible_timeout(
+			jzfb->vsync_wq,
+			jzfb_vsync_timestamp_changed(jzfb, prev_timestamp),
+			msecs_to_jiffies(100));
+		if (ret > 0) {
+			char *envp[2];
+			char buf[64];
+			snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(
+					 jzfb->vsync_timestamp));
+			envp[0] = buf;
+			envp[1] = NULL;
+			kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);
+		}
 	}
 
 	return 0;
@@ -806,12 +1360,13 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	state = reg_read(jzfb, LCDC_STATE);
 	if (state & LCDC_STATE_SOF) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
-		jzfb->frm_id = reg_read(jzfb, LCDC_IID);
-		wake_up_interruptible(&jzfb->frame_wq);
+		jzfb->vsync_timestamp = ktime_get();
+		wmb();
+		wake_up_interruptible(&jzfb->vsync_wq);
 	}
 
 	return IRQ_HANDLED;
-
+#if 0
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if (jzfb->irq_cnt++ > 100) {
@@ -824,6 +1379,7 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	}
 
 	return IRQ_HANDLED;
+#endif
 }
 
 static struct fb_ops jzfb_ops = {
@@ -863,8 +1419,8 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 	int i,j;
 	int w, h;
 	int bpp;
-	unsigned short * p16;
-	unsigned int * p32;
+	unsigned short *p16;
+	unsigned int *p32;
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
@@ -1037,7 +1593,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 #else
 	lco &= ~LCDC_CTRL_OUTPUT_LCDC02TFT;
 #endif
-	outl(lco,LCDC_CTRL_OUTPUT);
+	outl(lco, LCDC_CTRL_OUTPUT);
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "Missing platform data\n");
@@ -1108,8 +1664,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	mutex_init(&jzfb->lock);
 
-	init_waitqueue_head(&jzfb->frame_wq);
-
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
 	jzfb_videomode_to_var(&fb->var, pdata->modes);
@@ -1163,10 +1717,18 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
+	init_waitqueue_head(&jzfb->vsync_wq);
+	jzfb->vsync_thread = kthread_run(jzfb_wait_for_vsync_thread,
+					 jzfb, "jzfb-vsync");
+	if (jzfb->vsync_thread == ERR_PTR(-ENOMEM)) {
+		dev_err(&pdev->dev, "Failed to run vsync thread");
+		goto err_free_file;
+	}
+
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
-		goto err_free_file;
+		goto err_kthread_stop;
 	}
 
 #ifdef CONFIG_FPGA_TEST
@@ -1189,6 +1751,8 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_kthread_stop:
+	kthread_stop(jzfb->vsync_thread);
 err_free_file:
 	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
 		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
@@ -1218,18 +1782,12 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 	int i;
 
-	jzfb_blank(FB_BLANK_POWERDOWN, jzfb->fb);
-
-	iounmap(jzfb->base);
-	release_mem_region(jzfb->mem->start, resource_size(jzfb->mem));
-
+	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
 
 	clk_put(jzfb->lpclk);
 	clk_put(jzfb->ldclk);
-
-	framebuffer_release(jzfb->fb);
 
 	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
 		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
@@ -1238,13 +1796,25 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&jzfb->early_suspend);
 #endif
+	iounmap(jzfb->base);
+	release_mem_region(jzfb->mem->start, resource_size(jzfb->mem));
+
+	framebuffer_release(jzfb->fb);
 
 	return 0;
 }
 
+static void jzfb_shutdown(struct platform_device *pdev)
+{
+	struct jzfb *jzfb = platform_get_drvdata(pdev);
+
+	fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+};
+
 static struct platform_driver jzfb_driver = {
 	.probe 	= jzfb_probe,
 	.remove = jzfb_remove,
+	.shutdown = jzfb_shutdown,
 	.driver = {
 		.name = "jz-fb",
 	},

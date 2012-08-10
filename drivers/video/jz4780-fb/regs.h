@@ -10,12 +10,10 @@
  * published by the Free Software Foundation.
 */
 
-#ifndef _REGS_LCDC_H
-#define _REGS_LCDC_H
+#ifndef _REGS_LCDC_H_
+#define _REGS_LCDC_H_
 
-/*************************************************************************
- * Register Map Of LCDC
- *************************************************************************/
+/* Register Map Of LCDC */
 #define LCDC_CFG	(0x00) /* Configure Register */
 #define LCDC_CTRL	(0x30) /* Control Register */
 #define LCDC_STATE	(0x34) /* Status Register */
@@ -54,7 +52,11 @@
 
 #define LCDC_OFFS0	(0x60) /* DMA Offsize Register 0 */
 #define LCDC_PW0	(0x64) /* DMA Page Width Register 0 */
-#define LCDC_CNUM0	(0x68) /* DMA Command Counter Register 0 */
+#define LCDC_CNUM0	(0x68) /*
+				* DMA Command Counter Register 0
+				* only used in smart LCD mode
+				*/
+#define LCDC_CPOS0	(0x68) /* DMA Command and position Register 0 */
 #define LCDC_DESSIZE0	(0x6c) /* Foreground Size in Descriptor 0 Register*/
 
 #define LCDC_DA1	(0x50) /* Descriptor Address Register 1 */
@@ -63,7 +65,11 @@
 #define LCDC_CMD1	(0x5c) /* DMA Command Register 1 */
 #define LCDC_OFFS1	(0x70) /* DMA Offsize Register 1 */
 #define LCDC_PW1	(0x74) /* DMA Page Width Register 1 */
-#define LCDC_CNUM1	(0x78) /* DMA Command Counter Register 1 */
+#define LCDC_CNUM1	(0x78) /*
+				* DMA Command Counter Register 1
+				* only used in smart LCD mode
+				*/
+#define LCDC_CPOS1	(0x78) /* DMA Command and position Register 1 */
 #define LCDC_DESSIZE1	(0x7c) /* Foreground Size in Descriptor 1 Register */
 
 #define LCDC_PCFG	(0x2c0) /* Priority level threshold configure Register */
@@ -230,22 +236,23 @@
 
 /* Background 0 or Background 1 Color Register */
 #define LCDC_BGC_RED_OFFSET	16  /* Red color offset */
-#define LCDC_BGC_RED_MASK	(0xFF<<LCDC_BGC0_RED_OFFSET)
+#define LCDC_BGC_RED_MASK	(0xFF << LCDC_BGC_RED_OFFSET)
 #define LCDC_BGC_GREEN_OFFSET    8   /* Green color offset */
-#define LCDC_BGC_GREEN_MASK	(0xFF<<LCDC_BGC0_GREEN_OFFSET)
+#define LCDC_BGC_GREEN_MASK	(0xFF << LCDC_BGC_GREEN_OFFSET)
 #define LCDC_BGC_BLUE_OFFSET	0   /* Blue color offset */
-#define LCDC_BGC_BLUE_MASK	(0xFF<<LCDC_BGC0_BLUE_OFFSET)
+#define LCDC_BGC_BLUE_MASK	(0xFF << LCDC_BGC_BLUE_OFFSET)
 
 /* Foreground 0 or Foreground 1 Color Key Register */
 #define LCDC_KEY_KEYEN		(1 << 31)   /* enable color key */
 #define LCDC_KEY_KEYMD		(1 << 30)   /* color key mode */
 #define LCDC_KEY_RED_OFFSET	16  /* Red color offset */
-#define LCDC_KEY_RED_MASK	(0xFF<<LCDC_KEY_RED_OFFSET)
+#define LCDC_KEY_RED_MASK	(0xFF << LCDC_KEY_RED_OFFSET)
 #define LCDC_KEY_GREEN_OFFSET	8   /* Green color offset */
-#define LCDC_KEY_GREEN_MASK	(0xFF<<LCDC_KEY_GREEN_OFFSET)
+#define LCDC_KEY_GREEN_MASK	(0xFF << LCDC_KEY_GREEN_OFFSET)
 #define LCDC_KEY_BLUE_OFFSET	0   /* Blue color offset */
-#define LCDC_KEY_BLUE_MASK	(0xFF<<LCDC_KEY_BLUE_OFFSET)
-#define LCDC_KEY_MASK		(LCDC_KEY_RED_MASK|LCDC_KEY_GREEN_MASK|LCDC_KEY_BLUE_MASK)
+#define LCDC_KEY_BLUE_MASK	(0xFF << LCDC_KEY_BLUE_OFFSET)
+#define LCDC_KEY_MASK		(LCDC_KEY_RED_MASK | LCDC_KEY_GREEN_MASK\
+				 | LCDC_KEY_BLUE_MASK)
 
 /* ALPHA Register */
 #define LCDC_ALPHA1_OFFSET	8 /* ALPHA 1 offset */
@@ -471,7 +478,7 @@
 					    * Contrast value :0x0-0x7ff
 					    * means 0~1.9999
 					    */
-#define LCDC_ENH_LUMACFG_CONTRAST_MASK	(0x7ff << LCDC_ENH_LUMACFG__CONTRAST_BIT)
+#define LCDC_ENH_LUMACFG_CONTRAST_MASK	(0x7ff << LCDC_ENH_LUMACFG_CONTRAST_BIT)
 
 /* CHROMA0 CFG Register */
 #define LCDC_ENH_CHROCFG0_HUE_SIN_BIT	16 /* Hue sin value :0xc00-400 means -1~1 */
@@ -480,8 +487,8 @@
 #define LCDC_ENH_CHROCFG0_HUE_COS_MASK	(0xfff << LCDC_ENH_CHROCFG0_HUE_COS_BIT)
 
 /* CHROMA1 CFG Register */
-#define LCDC_ENH__CHROCFG1_SATURATION_BIT	0 /* Saturation value :0x0-0x7ff means 0~1.9999 */
-#define LCDC_ENH__CHROCFG1_SATURATION_MASK	(0x7ff << LCDC_ENH__CHROCFG1_SATURATION_BIT)
+#define LCDC_ENH_CHROCFG1_SATURATION_BIT	0 /* Saturation value :0x0-0x7ff means 0~1.9999 */
+#define LCDC_ENH_CHROCFG1_SATURATION_MASK	(0x7ff << LCDC_ENH_CHROCFG1_SATURATION_BIT)
 
 /* DITHER CFG Register */
 /*
@@ -513,21 +520,20 @@
 #define LCDC_ENH_GAMMA_GAMMA_DATA1_MASK	(0x3ff << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT)
 #define LCDC_ENH_GAMMA_GAMMA_DATA0_BIT	0 /* Gamma data 0,2,...,1022 */
 #define LCDC_ENH_GAMMA_GAMMA_DATA0_MASK	(0x3ff << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT)
+#define LCDC_ENH_GAMMA_LEN		(0x800)
 
 /* VEE CFG Register */
 #define LCDC_ENH_VEE_VEE_DATA1_BIT	16 /* Vee data 1,3,...,1023 */
 #define LCDC_ENH_VEE_VEE_DATA1_MASK	(0x3ff << LCDC_ENH_VEE_VEE_DATA1_BIT)
 #define LCDC_ENH_VEE_VEE_DATA0_BIT	0 /* Vee data 0,2,...,1022 */
 #define LCDC_ENH_VEE_VEE_DATA0_MASK	(0x3ff << LCDC_ENH_VEE_VEE_DATA0_BIT)
+#define LCDC_ENH_VEE_LEN		(0x800)
 
 /* CTRL OUTPUT Register */
 #define LCDC_CTRL_OUTPUT_LCDC02TFT	(1 << 6) /* LCDC0 output to TFT LCD */
 #define LCDC_CTRL_OUTPUT_IPU02BUF	(1 << 8) /* IPU0 output to buffer */
 
-/*************************************************************************
- * SLCD (Smart LCD Controller)
- *************************************************************************/
-
+/* Register Map Of SLCD (Smart LCD Controller) */
 #define SLCDC_CFG	(0xA0)  /* SLCD Configure Register */
 #define SLCDC_CTRL	(0xA4)  /* SLCD Control Register */
 #define SLCDC_STATE	(0xA8)  /* SLCD Status Register */
@@ -570,4 +576,99 @@
 #define SLCDC_DATA_RS_DATA	(0 << 31)
 #define SLCDC_DATA_RS_COMMAND	(1 << 31)
 
-#endif /* __CHIP_LCDC_H__ */
+/* Register Map Of LVDSC (LVDS Controller) */
+#define LVDS_TXCTRL	(0x3c0)
+#define LVDS_TXPLL0	(0x3c4)
+#define LVDS_TXPLL1	(0x3c8)
+#define LVDS_TXECTRL	(0x3cc)
+
+/* TXCTRL (LVDS Transmitter Control Register) */
+#define LVDS_MODEL_SEL		(1 << 31) /* 0:JEIDA 1:VESA */
+#define LVDS_TX_PDB		(1 << 30) /* 0:power down   */
+#define LVDS_TX_PDB_CK		(1 << 29) /* 0:power down   */
+#define LVDS_RESERVE(n)		(1 << (20 + (n)) /* n = 0,1,2,3,4,5,6,7 */
+#define LVDS_TX_RSTB		(1 << 18) /* System reset signal, 0:Reset */
+#define LVDS_TX_CKBIT_PHA_SEL	(1 << 17) /* 0:Rising edge 1:Falling edge */
+#define LVDS_TX_CKBYTE_PHA_SEL	(1 << 16) /* 0:Rising edge 1:Falling edge */
+
+#define LVDS_TX_CKOUT_PHA_S_BIT	13
+#define LVDS_TX_CKOUT_PHA_S_MASK	(0x07 << LVDS_TX_CKOUT_PHA_S_BIT)
+
+#define LVDS_TX_CKOUT_SET	(1 << 12) /* TX colock channel, 0:1x, 1:7x */
+#define LVDS_TX_OUT_SEL		(1 << 11) /* 0:LVDS output 1:CMOS RGB output */
+#define LVDS_TX_DLY_SEL_BIT	8
+#define LVDS_TX_DLY_SEL_MASK	(0x07 << LVDS_TX_DLY_SEL_BIT)
+#define LVDS_TX_AMP_ADJ		(1 << 7) /* LVDS output swing control */
+#define LVDS_TX_LVDS		(1 << 6) /* 0:VOD = 200mv, 1:VOD = 350mv */
+#define LVDS_TX_CR_BIT		3
+#define LVDS_TX_CR_MASK		(0x07 << LVDS_TX_CR_BIT)
+#define LVDS_TX_CR_CK		(1 << 2)
+#define LVDS_TX_OD_S		(1 << 1) /* output level selectable pin */
+#define LVDS_TX_OD_EN		(1 << 0) /* Tx output control. 1:enable */
+
+/* TXPLL0 (LVDS Transmitter's PLL Control Register 0) */
+
+#define LVDS_PLL_LOCK		(1 << 31) /* Lock derection output. 1:Lock */
+#define LVDS_PLL_EN		(1 << 30) /* PLL enable control. 1:enable */
+#define LVDS_BG_PWD		(1 << 29) /* 1:Band-gap power down */
+#define LVDS_PLL_SSC_EN		(1 << 27) /* SSC function enable control */
+#define LVDS_PLL_SSC_MODE	(1 << 26) /* 0:Down spread 1:Center spread */
+#define LVDS_PLL_TEST		(1 << 25) /* Test enable control. 1:Enable */
+#define LVDS_PLL_POST_DIVA_BIT	21
+#define LVDS_PLL_POST_DIVA_MASK	(0x03 << LVDS_PLL_POST_DIVA_BIT)
+#define LVDS_PLL_POST_DIVB_BIT	16
+#define LVDS_PLL_POST_DIVB_MASK	(0x1f << LVDS_PLL_POST_DIVB_BIT) /* N/C */
+#define LVDS_PLL_PLLN_BIT	8 /* PLL feedback divider value configure */
+#define LVDS_PLL_PLLN_MASK	(0x7f << LVDS_PLL_PLLN_BIT)
+#define LVDS_PLL_TEST_DIV_BIT	6
+#define LVDS_PLL_TEST_DIV_MASK	(0x03 << LVDS_PLL_TEST_DIV_BIT)
+#define LVDS_PLL_TEST_DIV_2	(0 << LVDS_PLL_TEST_DIV_BIT)
+#define LVDS_PLL_TEST_DIV_4	(1 << LVDS_PLL_TEST_DIV_BIT)
+#define LVDS_PLL_TEST_DIV_8	(2 << LVDS_PLL_TEST_DIV_BIT)
+#define LVDS_PLL_TEST_DIV_16	(3 << LVDS_PLL_TEST_DIV_BIT)
+#define LVDS_PLL_IN_BYPASS	(1 << 5) /* Input divider bypass */
+#define LVDS_PLL_INDIV_BIT	0
+#define LVDS_PLL_INDIV_MASK	(0x1f << LVDS_PLL_INDIV_BIT)
+
+/* TXPLL1 (LVDS Transmitter's PLL Control Register 1) */
+
+#define LVDS_PLL_ICP_SEL_BIT	29
+#define LVDS_PLL_ICP_SEL_MASK	(0x07 << LVDS_PLL_ICP_SEL_BIT)
+#define LVDS_PLL_KVCO_BIT	26
+#define LVDS_PLL_KVCO_MASK	(0x03 << LVDS_PLL_KVCO_BIT)
+#define LVDS_PLL_IVCO_SEL_BIT	24
+#define LVDS_PLL_IVCO_SEL_MASK	(0x03 << LVDS_PLL_IVCO_SEL_BIT)
+#define LVDS_PLL_SSCN_BIT	17
+#define LVDS_PLL_SSCN_MASK	(0x7f << LVDS_PLL_SSCN_BIT)
+#define LVDS_PLL_COUNT_BIT	4
+#define LVDS_PLL_COUNT_MASK	(0x1fff << LVDS_PLL_COUNT_BIT)
+#define LVDS_PLL_GAIN_BIT	0
+#define LVDS_PLL_GAIN_MASK	(0x0f << LVDS_PLL_GAIN_BIT)
+
+/* TXECTRL (LVDS Transmitter's Enhance Control */
+
+#define LVDS_TX_EM_S_BIT	9 /* Emphasis level configure */
+#define LVDS_TX_EM_S_MASK	(0x03 <<  LVDS_TX_EM_S_BIT)
+#define LVDS_TX_EM_EN		(1 << 8) /* Emphasis driver control */
+#define LVDS_TX_LDO_VO_S_BIT	5 /* Internal LDO output voltage configure */
+#define LVDS_TX_LDO_VO_S_MASK	(0x03 << LVDS_TX_LDO_VO_S_BIT)
+#define LVDS_TX_LDO_VO_S_0	(0x00 << LVDS_TX_LDO_VO_S_BIT) /* 00: 1.0V */
+#define LVDS_TX_LDO_VO_S_1	(0x01 << LVDS_TX_LDO_VO_S_BIT) /* 01: 1.1V */
+#define LVDS_TX_LDO_VO_S_2	(0x02 << LVDS_TX_LDO_VO_S_BIT) /* 02: 1.2V */
+#define LVDS_TX_LDO_VO_S_3	(0x03 << LVDS_TX_LDO_VO_S_BIT) /* 03: 1.3V */
+#define LVDS_PLL_PL_BP		(1 << 4) /* PLL phase interpolator bypass */
+
+/*
+ * Internal 7x clock phase fine tuning for data
+ * setup/hold time optimization
+ */
+#define LVDS_TX_CK_PHA_FINE_BIT	2
+#define LVDS_TX_CK_PHA_FINE_MASK	(0x03 << LVDS_TX_CK_PHA_FINE_BIT)
+/*
+ * Internal 7x clock phase coarse tuning for data
+ * setup/hold time optimization
+ */
+#define LVDS_TX_CK_PHA_COAR_BIT	0
+#define LVDS_TX_CK_PHA_COAR_MASK	(0x03 << LVDS_TX_CK_PHA_COAR_BIT)
+
+#endif /* _REGS_LCDC_H_ */
