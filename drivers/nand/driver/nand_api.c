@@ -14,7 +14,6 @@
 #include <linux/device.h>
 #include <linux/math64.h>
 #include "../inc/nand_api.h"
-//#include "inc/pisces-nand.h"
 #include "../inc/vnandinfo.h"   //change later
 
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
@@ -25,13 +24,6 @@ static inline int div_s64_32(long long dividend , int divisor)  // for example: 
 	result = remainder ? (result +1):result;
 	return result;
 }
-/*static inline int div_s32_32(int dividend ,int divisor)    // div_s32_32 ditto
-  {
-  int remainder = dividend % divisor;
-  int result =dividend / divisor;
-  return remainder ? (result +1) : result;
-  }
- */
 /**
  * ffs_ll - find first bit set in a 64bit word.
  * @word: The word to search
@@ -81,7 +73,6 @@ void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
 		BUG();
 	}
 }
-
 
 void dump_nand_chip(JZ_NAND_CHIP *pnand_chip)
 {
@@ -148,31 +139,30 @@ void dump_nand_api(NAND_API *pnand_api)
 #define GPIOA_20_IRQ (0*32 + 20)
 static volatile unsigned int nand_rb =0;
 DECLARE_WAIT_QUEUE_HEAD(nand_rb_queue);
-NAND_BASE *g_vnand_base; // it includes some virtual address of nand port
-NAND_BASE *g_phynand_base; // it inlcudes some physical address og nand port
+//NAND_BASE *g_vnand_base; // it includes some virtual address of nand port
+//NAND_BASE *g_pnand_base; // it inlcudes some physical address og nand port
 
 extern JZ_NAND_CHIP jz_raw_nand;
 extern JZ_IO        jznand_io;
 extern JZ_ECC       jznand_ecc;
-extern JZ_IO        jznand_dma_io;
-extern JZ_ECC       jznand_dma_ecc;
 extern NAND_CTRL    jznand_nemc;
-#ifdef CONFIG_NAND_DMA
-extern JZ_NAND_BDMA  nand_bdma;
-#endif
+
+/*********            nand api             ********/
+
+static NAND_API  g_pnand_api;
+static Aligned_List * g_aligned_list;
+static struct platform_device *g_pdev;
+static struct platform_nand_data *g_pnand_data;
+static PPartition *g_partition;
+
 /*
  * nand_board_init
  */
 static int nand_board_init(NAND_API * pnand_api)
 {
 	int ret =0;
-	//#ifdef CONFIG_MTD_NAND_DMA
-	//	pnand_api->nand_ecc =&jznand_dma_ecc;
-	//	pnand_api->nand_io = &jznand_dma_io;
-	//#else
 	pnand_api->nand_ecc =&jznand_ecc;
 	pnand_api->nand_io = &jznand_io;
-	//#endif
 
 #ifdef CONFIG_TOGGLE_NAND
 	pnand_api->nand_chip =&jz_toggle_nand;
@@ -181,13 +171,13 @@ static int nand_board_init(NAND_API * pnand_api)
 #endif
 	pnand_api->nand_ctrl =&jznand_nemc;
 
-	ret = nand_chip_init(g_vnand_base,pnand_api);
+	ret = nand_chip_init(g_pnand_api.vnand_base,pnand_api);
 	if (ret == -1) {
 		eprintf("ERROR: NAND Chip Init Failed\n");
 		return -1;
 	}
 #ifdef CONFIG_NAND_DMA
-	ret =nand_bdma.nand_dma_init(pnand_api->nand_ecc);    //add later
+	ret =nand_dma_init(pnand_api);    //add later
 #endif
 	return ret;
 }
@@ -201,14 +191,6 @@ static void nand_board_deinit(void)
 #endif
 	return ;
 }
-
-/*********            nand api             ********/
-
-static NAND_API  g_pnand_api;
-static Aligned_List * g_aligned_list;
-static struct platform_device *g_pdev;
-static struct platform_nand_data *g_pnand_data;
-static PPartition *g_partition;
 
 /*
  * Main initialization routine
@@ -227,14 +209,11 @@ static irqreturn_t jznand_waitrb_interrupt(int irq, void *dev_id)
 int nand_wait_rb(void)
 {
 	unsigned int ret;
-	//	printk("**************** nand_rb =%d \n",nand_rb);
-	//	nand_rb =0;
 #if 1
 	ret =wait_event_interruptible_timeout(nand_rb_queue,nand_rb,(msecs_to_jiffies(200)));
 #else
 	ret =wait_event_interruptible(nand_rb_queue,nand_rb);
 #endif
-	//	printk("~~~~~~~~~~~~~ nand_rb =%d \n",nand_rb);
 	nand_rb =0;
 	if(!ret)
 		return IO_ERROR;
@@ -307,7 +286,7 @@ static inline int init_nand(void * vNand)
 		/*   cale ppartition vnand info     */
 		use_planenum = (ptemp+ret)->use_planes ? g_pnand_api.nand_chip->planenum : 1;
 		(g_partition+ret)->name = (ptemp+ret)->name;
-		(g_partition+ret)->hwsector =tmp_info->hwSector ;
+		(g_partition+ret)->hwsector =512 ;
 		(g_partition+ret)->byteperpage = tmp_info->BytePerPage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock)); 
@@ -346,9 +325,7 @@ static inline int init_nand(void * vNand)
 	(g_partition+ret)->totalblocks = 1;
 	(g_partition+ret)->mode = 2;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
-	(g_partition+ret)->hwsector =tmp_info->hwSector ;
-
-
+	(g_partition+ret)->hwsector =512 ;
 
 	tmp_manager->pt->ppt = g_partition;
 	tmp_manager->pt->ptcount = ipartition_num+1;
@@ -369,8 +346,6 @@ init_nand_error2:
 init_nand_error1:
 	return -1;	
 }
-
-
 
 /*
  * page_aligned -- pagelist will be transformed into aligned_list,
@@ -425,13 +400,14 @@ static inline int page_read(void *ppartition,int pageid, int offset,int bytes,vo
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	if((pageid < tmp_ppt->startPage) || (pageid > tmp_ppt->startPage + tmp_ppt->PageCount))
+	if((pageid < 0) || (pageid > tmp_ppt->PageCount))
 		return ENAND;   //return pageid error
-#ifdef CONFIG_NAND_DAM
-
+#ifdef CONFIG_NAND_DMA
+	g_pnand_api.nand_dma->ppt = tmp_ppt;
+	ret =nand_dma_read_page(g_pnand_api,pageid,offset,bytes,databuf);
 #else
 	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_read_page(g_vnand_base,pageid,offset,bytes,databuf);
+	ret =nand_read_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
 #endif
 	return ret;
 }
@@ -455,13 +431,13 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 
 	if(tmp_part_attrib == PART_XBOOT){
 		nand_ops_parameter_reset(tmp_ppt);
-		ret =read_spl(g_vnand_base,g_aligned_list);
+		ret =read_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
-#ifdef CONFIG_NAND_DAM
+#ifdef CONFIG_NAND_DMA
 
 #else
 		nand_ops_parameter_reset(tmp_ppt);
-		ret =nand_read_pages(g_vnand_base,g_aligned_list);
+		ret =nand_read_pages(g_pnand_api.vnand_base,g_aligned_list);
 #endif
 	}
 	return ret;
@@ -477,13 +453,13 @@ static inline int page_write(void *ppartition,int pageid,int offset,int bytes,vo
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	if((pageid < tmp_ppt->startPage) || (pageid > tmp_ppt->startPage + tmp_ppt->PageCount))
+	if((pageid < 0) || (pageid > tmp_ppt->PageCount))
 		return ENAND;   //return pageid error
-#ifdef CONFIG_NAND_DAM
+#ifdef CONFIG_NAND_DMA
 
 #else
 	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_write_page(g_vnand_base,pageid,offset,bytes,databuf);
+	ret =nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
 #endif
 	return ret; 
 }
@@ -506,13 +482,13 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 
 	if(tmp_part_attrib == PART_XBOOT){
 		nand_ops_parameter_reset(tmp_ppt);
-		ret =write_spl(g_vnand_base,g_aligned_list);
+		ret =write_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
-#ifdef CONFIG_NAND_DAM
+#ifdef CONFIG_NAND_DMA
 
 #else
 		nand_ops_parameter_reset(tmp_ppt);
-		ret =nand_write_pages(g_vnand_base,g_aligned_list);
+		ret =nand_write_pages(g_pnand_api.vnand_base,g_aligned_list);
 #endif
 	}
 	return ret;
@@ -530,11 +506,11 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 	//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
 	if(!erase_blocklist)
 		return -1;
-#ifdef CONFIG_NAND_DAM
+#ifdef CONFIG_NAND_DMA
 
 #else
 	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_erase_blocks(g_vnand_base,erase_blocklist);
+	ret =nand_erase_blocks(g_pnand_api.vnand_base,erase_blocklist);
 #endif
 	return ret;
 }
@@ -549,7 +525,7 @@ static inline int is_badblock(void *ppartition,int blockid)
 	if(blockid <0 || blockid >g_pnand_api.totalblock)
 		return -1;
 	nand_ops_parameter_reset(tmp_ppt);
-	return isbadblock(g_vnand_base,blockid);
+	return isbadblock(g_pnand_api.vnand_base,blockid);
 }
 
 /*
@@ -562,7 +538,7 @@ static inline int mark_badblock(void *ppartition,int blockid)
 	if(blockid <0 || blockid >g_pnand_api.totalblock)
 		return -1;
 	nand_ops_parameter_reset(tmp_ppt);
-	return markbadblock(g_vnand_base,blockid);
+	return markbadblock(g_pnand_api.vnand_base,blockid);
 }
 /*
  * deinit_nand 
@@ -572,17 +548,16 @@ static inline int deinit_nand(void *vNand)
 {
 	nand_board_deinit();
 
-	nand_free_buf(g_vnand_base);
-	g_vnand_base =0;
-	nand_free_buf(g_phynand_base);
-	g_vnand_base =0;
+	nand_free_buf(g_pnand_api.vnand_base);
+	g_pnand_api.vnand_base =0;
+	nand_free_buf(g_pnand_api.pnand_base);
+	g_pnand_api.vnand_base =0;
 	nand_free_buf(g_partition);
 	g_partition =0;
 	nand_free_buf(g_aligned_list);
 	g_aligned_list =0;
 
-	free_irq(gpio_to_irq(GPIOA_20_IRQ),NULL);
-
+	free_irq(gpio_to_irq(g_pnand_api.pnand_base->rb_irq),NULL);
 
 	dprintf("\ndeinit_nand  nand_free_buf ok  *********\n");
 	return 0;
@@ -615,30 +590,31 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	int ret=0;
 
 	g_pdev = pdev;
+	g_pnand_api.pdev = (void *)pdev;
 	g_pnand_data = (struct platform_nand_data *)(pdev->dev.platform_data);
 	if (!g_pnand_data) {
 		dev_err(&pdev->dev, "No platform_data\n");
 		goto nand_probe_error1;
 	}
-	g_vnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
-	if(!g_vnand_base){
+	g_pnand_api.vnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
+	if(!g_pnand_api.vnand_base){
 		dev_err(&pdev->dev,"Malloc virtual nand base info \n");
 		goto nand_probe_error2;
 	}
-	g_phynand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
-	if(!g_phynand_base){
+	g_pnand_api.pnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
+	if(!g_pnand_api.pnand_base){
 		dev_err(&pdev->dev,"Malloc physical nand base info \n");
 		goto nand_probe_error3;
 	}
 	/*   get nemc clock and bch clock   */
-	g_vnand_base->nemc_clk =clk_get(&pdev->dev,"nemc");
-	g_vnand_base->bch_clk =clk_get(&pdev->dev,"bch");
+	g_pnand_api.vnand_base->nemc_clk =clk_get(&pdev->dev,"nemc");
+	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"bch");
 
-	clk_set_rate(g_vnand_base->nemc_clk,48000000);
-	clk_set_rate(g_vnand_base->bch_clk,48000000);
+	clk_set_rate(g_pnand_api.vnand_base->nemc_clk,48000000);
+	clk_set_rate(g_pnand_api.vnand_base->bch_clk,48000000);
 
-	clk_enable(g_vnand_base->nemc_clk);
-	clk_enable(g_vnand_base->bch_clk);
+	clk_enable(g_pnand_api.vnand_base->nemc_clk);
+	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
 	/*   nemc resource  */
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -651,9 +627,9 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No nemc irq resource\n");
 		goto nand_probe_error4;
 	}
-	g_vnand_base->nemc_iomem =ioremap(regs->start, resource_size(regs));
-	g_phynand_base->nemc_iomem =(void __iomem *)regs->start;
-	g_vnand_base->nemc_irq = g_phynand_base->nemc_irq=irq;
+	g_pnand_api.vnand_base->nemc_iomem =ioremap(regs->start, resource_size(regs));
+	g_pnand_api.pnand_base->nemc_iomem =(void __iomem *)regs->start;
+	g_pnand_api.vnand_base->nemc_irq = g_pnand_api.pnand_base->nemc_irq=irq;
 	/*  bch resource  */
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!regs) {
@@ -665,9 +641,9 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No bch irq resource\n");
 		goto nand_probe_error4;
 	}
-	g_vnand_base->bch_iomem =ioremap(regs->start, resource_size(regs));
-	g_phynand_base->bch_iomem =(void __iomem *)regs->start;
-	g_vnand_base->bch_irq = g_phynand_base->bch_irq=irq;
+	g_pnand_api.vnand_base->bch_iomem =ioremap(regs->start, resource_size(regs));
+	g_pnand_api.pnand_base->bch_iomem =(void __iomem *)regs->start;
+	g_pnand_api.vnand_base->bch_irq = g_pnand_api.pnand_base->bch_irq=irq;
 	/*  pdma resource  */
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	if (!regs) {
@@ -679,34 +655,29 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No pdma irq resource\n");
 		goto nand_probe_error4;
 	}
-	g_vnand_base->pdma_iomem =ioremap(regs->start, resource_size(regs));
-	g_phynand_base->pdma_iomem =(void __iomem *)regs->start;
-	g_vnand_base->pdma_irq = g_phynand_base->pdma_irq=irq;
+	g_pnand_api.vnand_base->pdma_iomem =ioremap(regs->start, resource_size(regs));
+	g_pnand_api.pnand_base->pdma_iomem =(void __iomem *)regs->start;
+	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq=irq;
 
-	irq = platform_get_irq(pdev, 3);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "No pdmam irq resource\n");
-		goto nand_probe_error4;
-	}
-	g_vnand_base->pdmam_irq = g_phynand_base->pdmam_irq=irq;
 	/*  nand chip port resource  */
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 3);
 	if (!regs) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
 		goto nand_probe_error4;
 	}
-	g_vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
-	g_phynand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
+	g_pnand_api.vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
+	g_pnand_api.pnand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
 
 	//	printk(" nemc_cs6_iomem = 0x%x *********\n",regs->start);
 	/*   nand rb irq request */
 
-	if (gpio_request_one(20,
+        printk("irq  is  %d\n",g_pnand_api.pnand_base->rb_irq);
+	if (gpio_request_one(g_pnand_api.pnand_base->rb_irq,
 				GPIOF_DIR_IN, "nand_rb")) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
 		goto nand_probe_error4;
 	}
-	irq = gpio_to_irq(20);
+	irq = gpio_to_irq(g_pnand_api.pnand_base->rb_irq);
 	printk("%d------------------\n",irq);
 	ret = request_irq(irq,jznand_waitrb_interrupt,IRQF_DISABLED | IRQF_TRIGGER_RISING,
 			"jznand-wait-rb",NULL);
@@ -719,9 +690,9 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	while(1);
 	return 0;
 nand_probe_error4:
-	nand_free_buf(g_phynand_base);
+	nand_free_buf(g_pnand_api.pnand_base);
 nand_probe_error3:
-	nand_free_buf(g_vnand_base);
+	nand_free_buf(g_pnand_api.vnand_base);
 nand_probe_error2:
 	nand_free_buf(g_pnand_data);
 nand_probe_error1:	
@@ -734,15 +705,15 @@ nand_probe_error1:
 static int __devexit plat_nand_remove(struct platform_device *pdev)
 {
 	// do nothing
-	iounmap(g_vnand_base->nemc_iomem);
-	iounmap(g_vnand_base->bch_iomem);
-	iounmap(g_vnand_base->pdma_iomem);
-	iounmap(g_vnand_base->nemc_cs6_iomem);
+	iounmap(g_pnand_api.vnand_base->nemc_iomem);
+	iounmap(g_pnand_api.vnand_base->bch_iomem);
+	iounmap(g_pnand_api.vnand_base->pdma_iomem);
+	iounmap(g_pnand_api.vnand_base->nemc_cs6_iomem);
 
-	clk_disable(g_vnand_base->bch_clk);
-	clk_disable(g_vnand_base->nemc_clk);
-	clk_put(g_vnand_base->bch_clk);
-	clk_put(g_vnand_base->nemc_clk);
+	clk_disable(g_pnand_api.vnand_base->bch_clk);
+	clk_disable(g_pnand_api.vnand_base->nemc_clk);
+	clk_put(g_pnand_api.vnand_base->bch_clk);
+	clk_put(g_pnand_api.vnand_base->nemc_clk);
 
 	return 0;
 }
@@ -773,5 +744,3 @@ MODULE_DESCRIPTION("JZ4780 Nand driver");
 MODULE_AUTHOR(" ingenic ");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("20120623");
-
-

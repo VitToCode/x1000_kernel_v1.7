@@ -37,38 +37,38 @@ static struct platform_nand_partition partition_info[] = {
 	 offset:100 * 0x100000LL,
 	 size:4 * 0x100000LL,
 	 mode:0,
-	 eccbit:8,
+	 eccbit:16,
+	 use_planes:ONE_PLANE,
 	 part_attrib:PART_XBOOT},
 	{name:"NAND KERNEL partition",
 	 offset:104 * 0x100000LL,
 	 size:4 * 0x100000LL,
 	 mode:1,
-	 eccbit:8,
+	 eccbit:16,
 	 use_planes:ONE_PLANE,
 	 part_attrib:PART_KERNEL},
 	{name:"NAND SYSTEM partition",
 	 offset:108 * 0x100000LL,
 	 size:504 * 0x100000LL,
 	 mode:1,
-	 eccbit:4,
+	 eccbit:8,
 	 use_planes:TWO_PLANES,
 	 part_attrib:PART_SYSTEM},
 	{name:"NAND DATA partition",
 	 offset:612 * 0x100000LL,
 	 size:512 * 0x100000LL,
 	 mode:1,
-	 eccbit:4,
+	 eccbit:8,
 	 use_planes:TWO_PLANES,
 	 part_attrib:PART_DATA},
 	{name:"NAND MISC partition",
 	 offset:1124 * 0x100000LL,
 	 size:512 * 0x100000LL,
 	 mode:1,
-	 eccbit:4,
+	 eccbit:8,
 	 use_planes:TWO_PLANES,
 	 part_attrib:PART_MISC},
 };
-
 
 /* Define max reserved bad blocks for each partition.
  * This is used by the mtdblock-jz.c NAND FTL driver only.
@@ -198,4 +198,3 @@ struct platform_nand_data jz_nand_chip_data = {
 	/* so we have to use chip.priv */
 	.priv = &partition_reserved_badblocks,
 };
-

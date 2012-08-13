@@ -27,13 +27,28 @@ NandInterface *vnand_interface;
 VNandInfo g_vnand;
 static PageList head_read[256] ,head_write[256];
 
+void dump_pagelist(PageList *pagelist)
+{
+        int i = 0;
+        PageList *list = pagelist;
+	struct singlelist *listhead = NULL;
+        printk("\n\n");
+        for(i = 0; i < 256; i++) {
+                printk("pagelist %d: \nstartPageID is %d, OffsetBytes is %d, Bytes is %d\n",i,list->startPageID,list->OffsetBytes,list->Bytes);
+		listhead = (list->head).next;
+		list = singlelist_entry(listhead,PageList,head);
+        }
+        printk("\n\n");
+}
+
 static inline int creat_pagelist(unsigned int pageid, unsigned char *writebuf ,unsigned char *readbuf,unsigned int n)
 {
 	unsigned int i,j=0;
 	PageList *temp_read , *temp_write;
 //	temp_read =head_read ;
 //	temp_write =head_write;
-	for(i=0;i<n;i++)
+/*
+        for(i=0;i<n;i++)
 	{
 		if(j%10 == 0)
 			j++;
@@ -54,7 +69,59 @@ static inline int creat_pagelist(unsigned int pageid, unsigned char *writebuf ,u
 		if(i%8)			
 			j++;
 	}
-	return 0;	
+*/
+        for(i = 0; i < n; i++) {
+		temp_read = head_read + i;
+		temp_write = head_write + i;
+		temp_read->startPageID = temp_write->startPageID = pageid + j;
+        	switch(i%6) {
+                        case 0:
+                        case 1:
+                        case 3:
+                                temp_read->OffsetBytes = temp_write->OffsetBytes = 0;
+                                temp_read->Bytes = temp_write->Bytes = 512;
+                                break;
+                        case 2:
+                        case 4:
+                                temp_read->OffsetBytes = temp_write->OffsetBytes = 512;
+                                temp_read->Bytes = temp_write->Bytes = 1536;
+                                break;
+                        case 5:
+                                temp_read->OffsetBytes = temp_write->OffsetBytes = 2048;
+                                temp_read->Bytes = temp_write->Bytes = 2048;
+                                break;
+                }
+		temp_read->pData =readbuf;
+		temp_write->pData =writebuf;
+		
+		readbuf+=temp_read->Bytes;
+		writebuf+=temp_write->Bytes;
+		if(i > 0 && i < n) {
+			singlelist_add(&(head_read[i-1].head),&(temp_read->head));
+                        singlelist_add(&(head_write[i-1].head),&(temp_write->head));
+		}
+                switch(i%6) {
+                        case 0:
+                                j++;
+                                break;
+                        case 1:
+                                break;
+                        case 2:
+                                j++;
+                                break;
+                        case 3:
+                                break;
+                        case 4:
+                                break;
+                        case 5:
+                                j += 2;
+                                break;
+                }
+        }
+        
+//        dump_pagelist(head_write);
+        
+        return 0;	
 }  
 
 static inline int creat_spl_pagelist(unsigned int pageid, unsigned char *writebuf ,unsigned char *readbuf,unsigned int n)
@@ -66,8 +133,16 @@ static inline int creat_spl_pagelist(unsigned int pageid, unsigned char *writebu
 		temp_read =head_read+i;
 		temp_write =head_write+i;
 		temp_read->startPageID =temp_write->startPageID =pageid+j;
-		temp_read->OffsetBytes =temp_write->OffsetBytes =((i+1)%2)*2048;
-		temp_read->Bytes =temp_write->Bytes =2048;
+		if(i >= 28){
+                        temp_read->OffsetBytes =temp_write->OffsetBytes = ((i+3)%8)*512;
+		        if((i+4)%8 == 0)
+			        j++;
+                }else{
+                        temp_read->OffsetBytes =temp_write->OffsetBytes = (i%8)*512;
+		        if((i+1)%8 == 0)
+			        j++;
+                }
+                temp_read->Bytes =temp_write->Bytes =512;
 		temp_read->pData =readbuf;
 		temp_write->pData =writebuf;
 		
@@ -77,14 +152,13 @@ static inline int creat_spl_pagelist(unsigned int pageid, unsigned char *writebu
 			singlelist_add(&(head_read[i-1].head),&(temp_read->head));
 		    singlelist_add(&(head_write[i-1].head),&(temp_write->head));
 		}
-		if(i%2)
-			j++;
-		if(i==7){
+		if(i==28){
 			pageid +=384;
 			j=0;
 			}
 
 	}
+//      dump_pagelist(head_write);
 	return 0;	
 }
 
@@ -172,7 +246,6 @@ unsigned int *malloc_buf(void)
 	return buf;
 }
 
-
 int spl_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned int ppb)
 {
 	int ret = 0,i=0;
@@ -210,7 +283,7 @@ int spl_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned int
 	memset(readbuf,0xFF, writesize*ppb);
 
 	ret = nand_test_read_pages(ppt,head_read);
-	if(ret <0){
+	if(ret){
 		check_pagelist(head_read);
 		return 0;
 	}
@@ -248,7 +321,7 @@ int page_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned in
 	memset(readbuf,0xFF, writesize*2);
 
 	ret = nand_test_read_page(ppt,ppb*block,0,writesize,(unsigned int *)readbuf);
-	if(ret < 0)
+	if(ret)
 		dprintf("\n******   page_test  nand_test_read_page wrong ; ret =%d  *****\n",ret);
 
 	buf_check(writebuf, readbuf, writesize);
@@ -301,11 +374,10 @@ int block_test_pages(PPartition *ppt,unsigned int block, unsigned int *buf, unsi
 	memset(readbuf,0xFF, writesize*ppb);
 
 	ret = nand_test_read_pages(ppt,head_read);
-	if(ret <0){
+	if(ret){
 		check_pagelist(head_read);
 		return 0;
 	}
-	
 
 	buf_check(writebuf, readbuf, writesize*ppb);
 	
@@ -361,7 +433,7 @@ void Register_NandDriver(NandInterface *ni)
 	{
 		eprintf("nand_test: error!get databuf failed.\n");
 	}
-#define test_spl_page
+//#define test_spl_page
 #ifdef test_spl_page
 	ret = spl_test(&tmp_ppart[0],0, databuf, ppb);
 
@@ -391,5 +463,3 @@ void Register_NandDriver(NandInterface *ni)
 //	dprintf("\n****** g_vnand.operator->DeInitNand  = 0x%x  *****\n",(unsigned int)g_vnand.operator->DeInitNand);
 	vnand_interface->iDeInitNand((void *)&vnand_manager);
 }
-
-

@@ -5,11 +5,11 @@
  */
 
 #include "nand_api.h"
-
 static JZ_ECC *pnand_ecc;
 int g_eccbuf_len = 0;
 int g_ret = 0;
 //extern void dump_buf(unsigned char *databuf,int len);
+
 extern void bch_enable(NAND_BASE *host, unsigned int mode,unsigned int eccsize,unsigned int eccbit);
 extern void bch_encoding_nbit(NAND_BASE *host,unsigned int n);
 extern void bch_decoding_nbit(NAND_BASE *host,unsigned int n);
@@ -68,7 +68,6 @@ static inline void bch_encode_enable(NAND_BASE *host,unsigned int eccbit)
 	bch_enable(host,BCH_ENCODE, pnand_ecc->eccsize,eccbit);
 }
 
-
 /**
  * bch_correct
  * @dat:        data to be corrected
@@ -90,6 +89,26 @@ static inline void bch_correct(unsigned char *dat, unsigned int idx)
 	}
 }
 
+static inline void new_bch_correct(void *dat, unsigned int idx)
+{
+	int eccsize = pnand_ecc->eccsize;
+	int i, bits;		/* the 'bits' of i unsigned short is error */
+	int index_s,index_b;
+	unsigned short *ptmp;
+	struct EccSector *sector =(struct EccSector *)dat;
+
+	i = idx & BCH_ERR_INDEX_MASK;                           
+	bits = (idx & BCH_ERR_MASK_MASK)>>BCH_ERR_MASK_BIT;
+	index_s = i / 256;  // 512'bytes sector num
+	index_b = i % 256;  // unsigned short num  in a 512'bytes  sector
+
+	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
+
+	if (i < (eccsize>>1)){
+		ptmp = (unsigned short *)(sector[index_s].buf);
+		ptmp[index_b] ^= bits;
+	}
+}
 /**
  * bch_decode_setup_data
  * @databuf:	data to be corrected
@@ -128,7 +147,7 @@ static inline int bch_decode_correct(NAND_BASE *host,unsigned char *databuf)
 	unsigned int errcnt =0;
 	/* Check decoding */
 	stat = bch_readl(host->bch_iomem,BCH_INTS);
-	dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
+	dprintf("NAND: BHINTS = 0x%x\n",stat);
 	if(stat & BCH_INTS_ALLf){
 		g_ret =ALL_FF;
 		return g_ret;
@@ -155,6 +174,41 @@ static inline int bch_decode_correct(NAND_BASE *host,unsigned char *databuf)
 //	printk(" ecc error bits is %d !!!!!!!!!!!!!!!!\n",errcnt);
 	return errbits;
 }
+static inline int new_bch_decode_correct(NAND_BASE *host,void *buf)
+{
+	int i;
+	unsigned int stat;
+	volatile unsigned int *errs;
+	unsigned int errbits =0;
+	unsigned int errcnt =0;
+	/* Check decoding */
+	stat = bch_readl(host->bch_iomem,BCH_INTS);
+	dprintf("NAND: BHINTS = 0x%x\n",stat);
+	if(stat & BCH_INTS_ALLf){
+		g_ret =ALL_FF;
+		return g_ret;
+	}		
+	if (stat & BCH_INTS_UNCOR) {
+		dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
+		g_ret =ECC_ERROR;
+		return g_ret;
+	} else {
+		if (stat & BCH_INTS_ERR) {
+			/* Error occurred */
+
+			errcnt = (stat & BCH_INTS_ERRC_MASK) >> BCH_INTS_ERRC_BIT;
+			errbits = (stat & BCH_INTS_TERRC_MASK) >> BCH_INTS_TERRC_BIT;
+
+			/*begin at the second DWORD*/
+			errs = (volatile unsigned int *)(host->bch_iomem+BCH_ERR0);
+			for (i = 0; i < errcnt; i++)
+			{
+				new_bch_correct(buf, errs[i]);
+			}
+		}
+	}
+	return errbits;
+}
 
 /**
  * bch_correct_cpu
@@ -175,12 +229,7 @@ static inline int bch_correct_cpu(NAND_BASE *host,unsigned char *databuf, unsign
 
 static inline int ecc_decode_onestep(NAND_BASE *host,unsigned char *databuf,unsigned  char *eccbuf,unsigned int eccbit)
 {		
-	//bch_writel(host->bch_iomem,BCH_INTS,0xffffffff);
-
 	bch_decode_enable(host,eccbit);
-	//	printk(" bch: BCH_CR =0x%08x \n",bch_readl(host->bch_iomem,BCH_CR));
-	//	printk(" bch: BCH_CNT =0x%08x \n",bch_readl(host->bch_iomem,BCH_CNT));
-	//	printk("ecc decode  bch_inits =0x%x ******\n",bch_readl(host->bch_iomem,BCH_INTS));
 	return (bch_correct_cpu(host,databuf, eccbuf,eccbit));
 }
 
@@ -192,11 +241,11 @@ static inline int ecc_do_decode(NAND_BASE *host,unsigned char *databuf, unsigned
 	int ret = 0;
 
 	for (i = 0; i < steps; i++) {
-		//		printk(" ecc decode  i =%d \n  **************\n",i);
+//		printk(" ecc decode  i =%d \n  **************\n",i);
+//		dump_buf(databuf,eccsize);
+//		dump_buf(eccbuf,eccbytes);
 		ret = ecc_decode_onestep(host,databuf, eccbuf,eccbit);
 		if (ret < 0){
-//			dump_buf(databuf,eccsize>>1);
-//			dump_buf(eccbuf,eccbytes);
 			return ret; //Uncorrectable error
 		}
 		else
@@ -239,13 +288,10 @@ static inline void ecc_do_encode(NAND_BASE *host,unsigned char *databuf,unsigned
 	unsigned int eccsize;
 	unsigned int eccbytes;
 
-
 	eccsize = pnand_ecc->eccsize;
 	eccbytes = __bch_cale_eccbytes(eccbit);
 
 	//clear five lsb of bch_interrupt_status reg
-
-	//	bch_writel(host->bch_iomem,BCH_INTS,0xffffffff);
 
 	for (i = 0; i < steps; i++) {
 		ecc_encode_onestep(host,databuf,eccbuf,eccbytes,eccbit);
@@ -254,18 +300,16 @@ static inline void ecc_do_encode(NAND_BASE *host,unsigned char *databuf,unsigned
 	}
 
 }
-
+/*
 static inline int ecc_finish(void)
 {
 	int stat = g_ret;
 	g_ret = 0;
 	return stat;
 }
-
+*/
 /**
  * ecc_init -
- * 
- *
  */
 static inline void ecc_init(void *nand_ecc, void *flash_type)
 {
@@ -282,8 +326,8 @@ static inline void ecc_init(void *nand_ecc, void *flash_type)
 	pnand_ecc->free_bch_buffer =free_bch_buffer;
 	pnand_ecc->ecc_enable_encode = ecc_do_encode;
 	pnand_ecc->ecc_enable_decode = ecc_do_decode;
-	pnand_ecc->ecc_finish = ecc_finish;
-	//	pnand_ecc->ecc_get_eccbytes =ecc_get_eccbytes;
+	pnand_ecc->bch_decode_correct = new_bch_decode_correct;
+//	pnand_ecc->ecc_finish = ecc_finish;
 
 	pnand_ecc->eccsize = type->eccblock;
 #ifdef CONFIG_NAND_BCH_ECCSIZE_512
@@ -337,11 +381,9 @@ static inline void ecc_init(void *nand_ecc, void *flash_type)
 		eprintf("ERROR: pnand_ecc->peccbuf malloc Failed\n");
 	memset(pnand_ecc->peccbuf,0xff,g_eccbuf_len);
 
-	//	pnand_ecc->ecc_get_eccbytes(pnand_ecc);
 }
 
 JZ_ECC jz_default_ecc = 
 {
 	.ecc_init = ecc_init,
-	//	.ecc_get_eccbytes =ecc_get_eccbytes,
 };

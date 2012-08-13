@@ -19,8 +19,7 @@ struct nand_base{
 	/* interrupt vector  */
 	int            nemc_irq;
 	int            bch_irq;
-	int            pdma_irq;
-	int            pdmam_irq;
+	int            rb_irq;
 	/*  physical address to virtual address  */
 	void __iomem        *nemc_iomem;
 	void __iomem        *bch_iomem;
@@ -85,7 +84,3 @@ void dmac_enable(NAND_BASE *host);
 void dmac_disable(NAND_BASE *host);
 
 #endif
-
-
-
-

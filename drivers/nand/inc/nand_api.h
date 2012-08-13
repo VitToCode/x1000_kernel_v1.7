@@ -37,7 +37,7 @@
 
 #define dbg_ptr(ptr)	\
 	dprintf("==>%s L%d: addr of " #ptr " = 0x%08x\n",	\
-		__func__, __LINE__, (u32)(ptr))
+			__func__, __LINE__, (u32)(ptr))
 
 #define dbg_line()	\
 	dprintf("==>%s L%d\n", __func__, __LINE__)
@@ -48,7 +48,7 @@
 
 #include "nand_chip.h"
 #ifdef CONFIG_MTD_NAND_DMA
-#include "nand_dma.h"
+#include "nand_dma_ops.h"
 #endif
 #include "pagelist.h"
 #include "blocklist.h"
@@ -61,7 +61,7 @@
 #ifdef __KERNEL__
 #include <linux/slab.h>
 #endif
-            
+
 #define SUCCESS 0
 #define ENAND -1        // common error      
 #define DMA_AR -2
@@ -78,7 +78,35 @@
 #define SPL_BCH_SIZE 112
 #define SPL_BCH_BIT 64
 
+/**
+ * struct nand_api -
+ *
+ * @writesize:  per page size
+ * @erasesize:  per block size
+ * @ppblock:    pages per block
+ * @bpchip: blocks per chip
+ * @totalblock: total block count
+ * @pdev :      platform device
+ *//*
+struct nand_api {
+	unsigned int writesize;
+	unsigned int erasesize;
+	unsigned int ppblock;
+	unsigned int totalblock;
 
+	JZ_ECC *nand_ecc;
+	JZ_IO *nand_io;
+	NAND_CTRL *nand_ctrl;
+	JZ_NAND_CHIP *nand_chip;
+
+	void * pdev;   // nand platform_device 
+	struct jznand_dma  *nand_dma;
+	NAND_BASE * vnand_base; //virtual nand base
+	NAND_BASE * pnand_base; // physical nand base
+};
+
+typedef struct nand_api NAND_API;
+*/
 typedef struct alignedlist{
 	PageList *pagelist;
 	struct alignedlist *next;
@@ -98,24 +126,24 @@ void dump_data(unsigned char *buf);
 void buf_init(unsigned char *buf, int len);
 unsigned int *malloc_buf(void);
 /* NAND Chip operations */
- 
+
 int nand_read_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf);
 int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list);
- 
+
 int nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf);
 int nand_write_pages(NAND_BASE *host,Aligned_List *aligned_list);
- 
+
 int nand_erase_blocks(NAND_BASE *host,BlockList *headlist);
- 
+
 int isbadblock(NAND_BASE *host,unsigned int blockid);
 int markbadblock(NAND_BASE *host,unsigned int blockid);
 int read_spl(NAND_BASE *host, Aligned_List *list);
 int write_spl(NAND_BASE *host, Aligned_List *list);
- 
+
 /* copyback ops */
 //void nand_cb_page(unsigned char *buf, int len, int srcpage, int destpage);
 //void nand_cb_planes(unsigned char *buf, int len, int srcpage, int destpage);
- 
+
 void nand_get_id(char *nand_id);
 int nand_reset(void);
 int send_read_status(unsigned char *status);

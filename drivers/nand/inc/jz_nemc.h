@@ -33,9 +33,9 @@
 
 struct nand_ctrl
 {
-  void (*chip_select) (NAND_BASE *host,void *pnand_io,unsigned int cs);
-  void (*setup_default) (NAND_BASE *host,void *pnand_io);
-  void (*setup_later) (NAND_BASE *host,void *pnand_io,void *flash_chip);
+        int (*chip_select) (NAND_BASE *host,void *pnand_io,unsigned int cs);
+        void (*setup_default) (NAND_BASE *host,void *pnand_io);
+        void (*setup_later) (NAND_BASE *host,void *pnand_io,void *flash_chip);
 };
 
 typedef struct nand_ctrl NAND_CTRL;
@@ -57,4 +57,3 @@ typedef struct nand_ctrl NAND_CTRL;
 //JZ_IO jznand_dma_io;
 
 #endif /* __NEMC_H__ */
-

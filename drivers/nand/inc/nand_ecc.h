@@ -43,24 +43,21 @@ struct jz_ecc {
   //	unsigned int ecctotal;
 	void (*ecc_init) (void *nand_ecc, void *flash_type);
 	unsigned char *(*get_ecc_code_buffer) (unsigned int len);	
-//	void (*ecc_get_eccbytes) (void *nand_ecc);
 	void (*free_bch_buffer)(unsigned int len);	
-//#ifdef CONFIG_MTD_NAND_DMA                               // added by hui
-	int (*dma_ecc_encode_stage1)(unsigned char *sourcebuf, unsigned char *targetbuf);
-	int (*dma_ecc_encode_stage2)(unsigned char *sourcebuf, unsigned char *eccbuf);
-	int (*dma_ecc_decode_stage1)(unsigned char *sourcebuf, unsigned char *eccbuf, unsigned int *errsbuf);
-	int (*dma_ecc_decode_stage2)(unsigned char *sourcebuf, unsigned char *targetbuf);
-	void *(*get_pdma_databuf_pointer)(void);
-//#else
 	void (*ecc_enable_encode) (NAND_BASE *host,unsigned char *buf, unsigned char *eccbuf, unsigned int eccbit, unsigned int steps);
 	int (*ecc_enable_decode) (NAND_BASE *host,unsigned char *buf, unsigned char *eccbuf, unsigned int eccbit, unsigned int steps);
-	int (*ecc_finish) (void);
+	int (*bch_decode_correct)(NAND_BASE *host,void *buf);
+//	int (*ecc_finish) (void);
 //	unsigned int ecc_code[ECC_CODE_BUFF_LEN];
 	unsigned char *peccbuf;
-//#endif
 };
 
 typedef struct jz_ecc JZ_ECC;
+
+struct EccSector{
+	unsigned char *buf;
+	int *retval;
+};
 
 /*
  * Constants for oob configuration
@@ -71,4 +68,3 @@ typedef struct jz_ecc JZ_ECC;
 #define NAND_BADBLOCK_POS       0
 
 #endif /* __JZ_ECC_H__ */
-

@@ -33,11 +33,8 @@ struct jz_io{
 	void (*write_data_norb) (void *buf, int len);
 	int (*read_data_withrb) (void *buf, int len);
 	int (*verify_data) (void *buf, int len);
-	void (*wait_ready) (void);
-	int (*dma_nand_finish)(void);
 };
 
 typedef struct jz_io JZ_IO;
-
 
 #endif /* __JZ_NAND_H__ */

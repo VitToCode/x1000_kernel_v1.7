@@ -158,7 +158,7 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
  * jz_nemc_ctrl_select -
  * @nand_nce:	
  */
-void jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
+int jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
 {
 	JZ_IO *p_io = (JZ_IO *)pnand_io;
 //	dprintf("DEBUG nand:go into jz4770_nemc.c jz_nemc_ctrl_select\n");
@@ -166,7 +166,7 @@ void jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
 	if ((nand_nce >= g_maxchips) || (nand_nce == -1))
 	{
 		nemc_writel(host->nemc_iomem,NEMC_NFCSR,0);
-		return; /*bigger than support, or unselect all chips*/
+		return -1; /*bigger than support, or unselect all chips*/
 	}
 	while(ret <= nand_nce && ret < NEMC_CS_COUNT)
 	{
@@ -178,29 +178,36 @@ void jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
 	case 1:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 5 * 0x01000000);
 		nand_enable(host,1);
+		ret =1;
 		break;
 	case 2:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 4 * 0x01000000);
 		nand_enable(host,2);
+		ret =2;
 		break;
 	case 3:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 3 * 0x01000000);
 		nand_enable(host,3);
+		ret =3;
 		break;
 	case 4:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 2 * 0x01000000);
 		nand_enable(host,4);
+		ret =4;
 		break;
 	case 5:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 1 * 0x01000000);
 		nand_enable(host,5);
+		ret =5;
 		break;
 	case 6:
 		p_io->dataport = (void *)(host->nemc_cs6_iomem + 0 * 0x01000000);
 		nand_enable(host,6);
+		ret =6;
 		break;
 	default:
 	  eprintf("error: no nand_nce 0x%x\n",nand_nce);
+	  ret = -1;
 		break;
 	}
 #ifdef CONFIG_TOGGLE_NAND
@@ -231,10 +238,7 @@ void jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
 	p_io->cmdport = p_io->dataport + NAND_CMD_OFFSET;
 	p_io->addrport = p_io->dataport + NAND_ADDR_OFFSET;
 //	dprintf("DEBUG nand: jz_nemc_ctrl_select i = %d , p_io->dataport = 0x%x\n",i,(unsigned int)p_io->dataport);
-//	dprintf("host->nemc_cs6_iomem =0x%x \n ",(unsigned int)host->nemc_cs6_iomem);
-	/*  nor flash cs2 rd we => function 0  */
-
-
+	return ret;
 }
 
 void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
@@ -277,5 +281,3 @@ NAND_CTRL jznand_nemc =
 	.setup_default = jz_nemc_setup_default,
 	.setup_later = jz_nemc_setup_later,
 };
-
-
