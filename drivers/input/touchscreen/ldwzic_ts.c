@@ -25,7 +25,7 @@
 #include <linux/input.h>
 #include <linux/earlysuspend.h>
 #include <linux/slab.h>
-#include <mach/jztsc.h>
+#include <linux/tsc.h>
 
 #include "ldwzic_ts.h"
 

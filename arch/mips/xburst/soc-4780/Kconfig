@@ -10,11 +10,19 @@ config BOARD_TEST
 config BOARD_PISCES
         bool "PISCES"
 
+config BOARD_GIANT
+        bool "Giant"
+
+config BOARD_WARRIOR
+        bool "Warrior"
+
 endchoice
 
 config BOARD_NAME
 	string
 	default "pisces" if BOARD_PISCES
 	default "test" if BOARD_TEST
+	default "Giant" if BOARD_GIANT
+	default "Warrior" if BOARD_WARRIOR
 
 

@@ -11,7 +11,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-#include <mach/jztsc.h>
+#include <linux/tsc.h>
 
 #include "ctp_it7260.h"
 

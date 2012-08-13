@@ -58,53 +58,33 @@ config TOUCHSCREEN_FT5X0X
       help
       ft5X0X a CTP controller,support panel 7"~8.9"
 
-config TOUCHSCREEN_GWTC9XXXB
-	tristate "Touchscreen GWTC9XXXB"
-	depends on I2C && JZ4780_SUPPORT_TSC
-	help
-	  gwtc9xxxb a CTP controller
-
-config TOUCHSCREEN_JZ_SSD253X
-	tristate "Touchscreen SSD253X"
-	depends on I2C && JZ4780_SUPPORT_TSC
-	help
-	  Ingenic touchscreen controller dricer with SSD253X
-
-config TOUCHSCREEN_JZ_GT801
-	tristate "Touchscreen GT801"
-	depends on I2C && JZ4780_SUPPORT_TSC
-	help
-	  Ingenic touchscreen controller dricer with gt801
-
-config TOUCHSCREEN_JZ_GT801_MULTI_TOUCH
-	tristate "Gt801 mulit points touch"
-	depends on TOUCHSCREEN_JZ_GT801
-	help
-	  Ingenic touchscreen controller dricer with gt801
-	  gt801 support mulit points touch
-	  
-config TOUCHSCREEN_LDWZIC
-	tristate "Touchscreen LDWZIC"
-	depends on I2C && JZ4780_SUPPORT_TSC
-	help
-	  LDWZIC a CTP controller
-config LDWZIC_MULTI_TOUCH
-	tristate "ldwzic mulit points touch"
-	depends on TOUCHSCREEN_LDWZIC
-	help
-	  ldwzic mulit points touch
-
-config TOUCHSCREEN_CTP_IT7260
-        tristate "TouchScreen IT7260 driver"
-        depends on I2C && JZ4780_SUPPORT_TSC
-        help
-          tablet_p2 IT7260 TouchSreen Driver implemented by Ingenic.
-
-config TOUCHSCREEN_GOODIX
-       tristate "Touchscreen goodix"
-       depends on I2C && JZ4780_SUPPORT_TSC
+config FT5406_X_RES
+       int "x_res"
+       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+       default 800
        help
-        The touchscreen driver is added for GPS touchscreen.
+		The value of FT5406 x_res
+
+config FT5406_Y_RES
+       int "y_res"
+       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+       default 480
+       help
+		The value of FT5406 y_res
+
+config FT5406_PRESSURE_MIN
+       int "pressure_min"
+       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+       default 0
+       help
+		The value of FT5406 pressure_min
+
+config FT5406_PRESSURE_MAX
+       int "pressure_max"
+       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+       default 255
+       help
+		The value of FT5406 pressure_max
 
 config FT5X0X_MULTITOUCH
 		bool "Enable multi-touch on FocalTech FT5X0X "
@@ -189,6 +169,55 @@ config FT5X0X_DEBUG
 		default n
 		help
 			say Y here if you are trying to debug cft5306
+
+config TOUCHSCREEN_GWTC9XXXB
+	tristate "Touchscreen GWTC9XXXB"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  gwtc9xxxb a CTP controller
+
+config TOUCHSCREEN_JZ_SSD253X
+	tristate "Touchscreen SSD253X"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  Ingenic touchscreen controller dricer with SSD253X
+
+config TOUCHSCREEN_JZ_GT801
+	tristate "Touchscreen GT801"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  Ingenic touchscreen controller dricer with gt801
+
+config TOUCHSCREEN_JZ_GT801_MULTI_TOUCH
+	tristate "Gt801 mulit points touch"
+	depends on TOUCHSCREEN_JZ_GT801
+	help
+	  Ingenic touchscreen controller dricer with gt801
+	  gt801 support mulit points touch
+	  
+config TOUCHSCREEN_LDWZIC
+	tristate "Touchscreen LDWZIC"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  LDWZIC a CTP controller
+config LDWZIC_MULTI_TOUCH
+	tristate "ldwzic mulit points touch"
+	depends on TOUCHSCREEN_LDWZIC
+	help
+	  ldwzic mulit points touch
+
+config TOUCHSCREEN_CTP_IT7260
+        tristate "TouchScreen IT7260 driver"
+        depends on I2C && JZ4780_SUPPORT_TSC
+        help
+          tablet_p2 IT7260 TouchSreen Driver implemented by Ingenic.
+
+config TOUCHSCREEN_GOODIX
+       tristate "Touchscreen goodix"
+       depends on I2C && JZ4780_SUPPORT_TSC
+       help
+        The touchscreen driver is added for GPS touchscreen.
+
 #############################################
 
 config TOUCHSCREEN_88PM860X

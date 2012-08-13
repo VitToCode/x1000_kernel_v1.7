@@ -18,7 +18,7 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <mach/jztsc.h>
+#include <linux/tsc.h>
 
 #include "ssd253x-ts.h"
 

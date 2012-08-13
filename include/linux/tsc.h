@@ -1,6 +1,7 @@
-#ifndef __JZTSC_H__
-#define __JZTSC_H__
+#ifndef __TSC_H__
+#define __TSC_H__
 #include <linux/gpio.h>
+#include <linux/regulator/consumer.h>
 
 struct jztsc_pin {
 	unsigned short			num;
@@ -11,6 +12,9 @@ struct jztsc_pin {
 
 __attribute__((weak)) struct jztsc_platform_data {
 	struct jztsc_pin		*gpio;
+	struct regulator *(*get_regulator)(struct device *dev);
+
+	void		*private;
 };
 
 static inline int get_pin_status(struct jztsc_pin *pin)

@@ -23,7 +23,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
-#include <mach/jztsc.h>
+#include <linux/tsc.h>
 
 #include "gwtc9xxxb_ts.h"
 

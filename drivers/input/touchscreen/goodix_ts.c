@@ -35,7 +35,7 @@
 #include <linux/string.h>
 #include <linux/completion.h>
 #include <asm/uaccess.h>
-#include <mach/jztsc.h>
+#include <linux/tsc.h>
 
 #include "goodix_ts.h"
 
