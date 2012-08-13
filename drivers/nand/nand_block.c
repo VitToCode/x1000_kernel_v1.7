@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/genhd.h>
 #include <linux/hdreg.h>
+#include <linux/suspend.h>
 
 #include "nandmanagerinterface.h"
 #include "bufflistmanager.h"
@@ -57,6 +58,7 @@ struct __nand_block {
 	char *name;
 	int major;
 	int pm_handler;
+	struct notifier_block pm_notify;
 	struct singlelist disk_list;
 };
 
@@ -334,6 +336,54 @@ static const struct block_device_operations nand_disk_fops =
 };
 
 /*#################################################################*\
+ *# pm_notify
+\*#################################################################*/
+#ifdef CONFIG_PM
+static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mode, void *data)
+{
+	unsigned long flags;
+	struct request_queue *q = NULL;
+	struct singlelist *plist = NULL;
+	struct __nand_disk *ndisk = NULL;
+
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		singlelist_for_each(plist, nand_block.disk_list.next) {
+			ndisk = singlelist_entry(plist, struct __nand_disk, list);
+			q = ndisk->queue;
+			if (q) {
+				spin_lock_irqsave(q->queue_lock, flags);
+				blk_stop_queue(q);
+				spin_unlock_irqrestore(q->queue_lock, flags);
+				down(&ndisk->thread_sem);
+			}
+		}
+		break;
+
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		singlelist_for_each(plist, nand_block.disk_list.next) {
+			ndisk = singlelist_entry(plist, struct __nand_disk, list);
+			q = ndisk->queue;
+			if (q) {
+				up(&ndisk->thread_sem);
+				spin_lock_irqsave(q->queue_lock, flags);
+				blk_start_queue(q);
+				spin_unlock_irqrestore(q->queue_lock, flags);
+			}
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+#endif
+
+/*#################################################################*\
  *# bus
 \*#################################################################*/
 static struct bus_type nand_block_bus = {
@@ -504,6 +554,7 @@ static void nand_block_shutdown(struct device *dev)
 	}
 }
 
+#ifndef CONFIG_PM
 static int nand_block_suspend(struct device *dev, pm_message_t state)
 {
 	unsigned long flags;
@@ -541,6 +592,7 @@ static int nand_block_resume(struct device *dev)
 
 	return 0;
 }
+#endif
 
 struct device_driver nand_block_driver = {
 	.name 		= "nand_block",
@@ -548,8 +600,10 @@ struct device_driver nand_block_driver = {
 	.probe 		= nand_block_probe,
 	.remove 	= nand_block_remove,
 	.shutdown 	= nand_block_shutdown,
+#ifndef CONFIG_PM
 	.suspend 	= nand_block_suspend,
 	.resume 	= nand_block_resume,
+#endif
 };
 
 /*#################################################################*\
@@ -622,7 +676,7 @@ start_err0:
 }
 
 /*#################################################################*\
- *# init our deinit
+ *# init and deinit
 \*#################################################################*/
 static int __init nand_block_init(void)
 {
@@ -660,6 +714,15 @@ static int __init nand_block_init(void)
 		printk("WARNING(nand block): driver_create_file error!\n");
 #endif
 
+#ifdef CONFIG_PM
+	nand_block.pm_notify.notifier_call = nand_pm_notify;
+	ret = register_pm_notifier(&nand_block.pm_notify);
+	if (ret) {
+		printk("ERROR(nand block): register_pm_notifier error!\n");
+		goto out_pm;
+	}
+#endif
+
 	if (((nand_block.pm_handler = NandManger_Init())) == 0) {
 		printk("ERROR(nand block): NandManger_Init error!\n");
 		goto out_init;
@@ -670,6 +733,11 @@ static int __init nand_block_init(void)
 	return 0;
 
 out_init:
+#ifdef CONFIG_PM
+	if (unregister_pm_notifier(&nand_block.pm_notify))
+		printk("ERROR(nand block): unregister_pm_notifier error!\n");
+out_pm:
+#endif
 	driver_unregister(&nand_block_driver);
 out_driver:
 	bus_unregister(&nand_block_bus);
