@@ -785,7 +785,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_platform_data_null;
 	}
 
-	ft5x0x_ts->power = pdata->get_regulator(&client->dev);
+	ft5x0x_ts->power = regulator_get(&client->dev, "vtsc");
 	if (IS_ERR(ft5x0x_ts->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
 	}

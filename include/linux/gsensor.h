@@ -1,21 +1,38 @@
-#ifndef __TSC_H__
-#define __TSC_H__
+#ifndef __JZTSC_H__
+#define __JZTSC_H__
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 
-struct jztsc_pin {
-	unsigned short			num;
-#define LOW_ENABLE			0
-#define HIGH_ENABLE			1
-	unsigned short 			enable_level;
+__attribute__((weak)) struct gsensor_platform_data {
+	int gpio_int;
+
+	int poll_interval;
+	int min_interval;
+	int max_interval;
+
+	u8 g_range;
+
+	u8 axis_map_x;
+	u8 axis_map_y;
+	u8 axis_map_z;
+
+	u8 negate_x;
+	u8 negate_y;
+	u8 negate_z;
+
+	int (*init)(void);
+	void (*exit)(void);
+	int (*power_on)(void);
+	int (*power_off)(void);
 };
 
-__attribute__((weak)) struct jztsc_platform_data {
-	struct jztsc_pin		*gpio;
-
-	void		*private;
+enum {
+	GSENSOR_2G = 0,
+	GSENSOR_4G,
+	GSENSOR_8G,
+	GSENSOR_16G,
 };
-
+#if 0
 static inline int get_pin_status(struct jztsc_pin *pin)
 {
 	int val;
@@ -38,4 +55,5 @@ static inline void set_pin_status(struct jztsc_pin *pin, int enable)
 		enable = !enable;
 	gpio_set_value(pin->num, enable);
 }
+#endif
 #endif
