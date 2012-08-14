@@ -18,6 +18,8 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 
+#include <soc/irq.h>
+
 #include <mach/jzdma.h>
 
 #define CH_DSA	0x00
@@ -76,6 +78,10 @@
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
 
+#define MCU_MSG_TYPE_NORMAL	0x1<<24
+#define MCU_MSG_TYPE_INTC	0x2<<24
+#define MCU_MSG_TYPE_INTC_MASKA	0x3<<24
+
 __initdata static int firmware[] = {
 #include "firmware.hex"
 };
@@ -128,9 +134,10 @@ struct jzdma_master {
 	void __iomem   		*iomem;
 	struct clk		*clk;
 	int 			irq;
-        int                     mirq;   /* mirq for PDMAM irq*/
+	int                     irq_pdmam;   /* irq_pdmam for PDMAM irq */
 	struct dma_device	dma_device;
 	enum jzdma_type		*map;
+	struct irq_chip		irq_chip;
 	struct jzdma_channel	channel[NR_DMA_CHANNELS];
 };
 
@@ -256,7 +263,7 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 			build_one_desc(dmac, config->src_addr, mem, dcm, tsz, dmac->type+1);
 		}
 	}
-	
+
 	return i;
 }
 
@@ -635,7 +642,7 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 					dev_warn(chan2dev(chan), "Bad DMA control argument !");
 					return -EINVAL;
 			}
-				
+
 			dmac->flags |= CHFLG_SLAVE;
 			dmac->config = config;
 			break;
@@ -675,38 +682,60 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t pdma_int_handler(int mirq, void *dev)
+irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 {
 	struct jzdma_master *master = (struct jzdma_master *)dev;
 	unsigned long pending, mailbox = 0;
 	int i;
 
 	pending = readl(master->iomem + DMINT);
-        
-        if(pending & DMINT_N_IP) {
-	        mailbox = readl(master->iomem + DMNMB);
-        } else if(pending & DMINT_S_IP) {
-	        mailbox = readl(master->iomem + DMSMB);
-        }
-       
-        for (i = 0; i < NR_DMA_CHANNELS; i++) {
-                struct jzdma_channel *dmac = master->channel + i;
 
-	        if (!(mailbox & (1<<i)))
-		        continue;
+	if(pending & DMINT_N_IP) {
+		mailbox = readl(master->iomem + DMNMB);
+	} else if(pending & DMINT_S_IP) {
+		mailbox = readl(master->iomem + DMSMB);
+	}
 
-	       	tasklet_schedule(&dmac->tasklet);
-        }
-        
-        if(pending & DMINT_N_IP) {
-	        writel(0, master->iomem + DMNMB);
-	        writel(0, master->iomem + DMINT);
-        } else if(pending & DMINT_S_IP) {
-	        writel(0, master->iomem + DMSMB);
-	        writel(0, master->iomem + DMINT);
-        }
-	
-        return IRQ_HANDLED;
+	for (i = 0; i < NR_DMA_CHANNELS; i++) {
+		struct jzdma_channel *dmac = master->channel + i;
+
+		if (!(mailbox & (1<<i)))
+			continue;
+
+		tasklet_schedule(&dmac->tasklet);
+	}
+
+	if(pending & DMINT_N_IP) {
+		writel(0, master->iomem + DMNMB);
+	} else if(pending & DMINT_S_IP) {
+		writel(0, master->iomem + DMSMB);
+	}
+
+	return IRQ_HANDLED;
+}
+
+
+irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
+{
+	unsigned long pending, mailbox = 0;
+	struct jzdma_master *master = (struct jzdma_master *)dev;
+
+	pending = readl(master->iomem + DMINT);
+
+	if(pending & DMINT_N_IP)
+		mailbox = readl(master->iomem + DMNMB);
+
+	if(mailbox == MCU_MSG_TYPE_NORMAL) {
+		generic_handle_irq(IRQ_MCU);
+	} else if(mailbox == MCU_MSG_TYPE_INTC) {
+		generic_handle_irq(IRQ_GPIO0);
+	} else if(mailbox == MCU_MSG_TYPE_INTC_MASKA) {
+		generic_handle_irq(IRQ_GPIO0);
+	}
+
+	writel(0, master->iomem + DMINT);
+
+	return IRQ_HANDLED;
 }
 
 static int jzdma_alloc_chan_resources(struct dma_chan *chan)
@@ -743,12 +772,31 @@ static void jzdma_free_chan_resources(struct dma_chan *chan)
 	dma_free_coherent(chan2dev(chan), PAGE_SIZE,dmac->desc, dmac->desc_phys);
 }
 
+unsigned int pdmam_startup_irq(struct irq_data *data)
+{
+	return 0;
+}
+
+void pdmam_irq_dummy(struct irq_data *data)
+{
+}
+
+int pdmam_set_type(struct irq_data *data, unsigned int flow_type)
+{
+	return 0;
+}
+
+int pdmam_set_wake(struct irq_data *data, unsigned int on)
+{
+	return 0;
+}
+
 static int __init jzdma_probe(struct platform_device *pdev)
 {
 	struct jzdma_master *dma;
 	struct jzdma_platform_data *pdata;
 	struct resource *iores;
-	short irq, mirq;        /* mirq for PDMAM irq */
+	short irq, irq_pdmam,irq_mcu;        /* irq_pdmam for PDMAM irq */
 	int i,ret = 0;
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
@@ -756,12 +804,30 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pdata = pdev->dev.platform_data;
-	if(pdata) dma->map = pdata->map;
+	if(!pdata) 
+		return -ENODATA;
+
+	dma->map = pdata->map;
+
+	dma->irq_chip.name 		= "pdmam";
+	dma->irq_chip.irq_startup 	= pdmam_startup_irq;
+	dma->irq_chip.irq_shutdown 	= pdmam_irq_dummy;
+	dma->irq_chip.irq_unmask 	= pdmam_irq_dummy;
+	dma->irq_chip.irq_mask 		= pdmam_irq_dummy;
+	dma->irq_chip.irq_mask_ack	= pdmam_irq_dummy;
+	dma->irq_chip.irq_set_type 	= pdmam_set_type;
+	dma->irq_chip.irq_set_wake	= pdmam_set_wake;
+
+	for(i=pdata->irq_base;i<=pdata->irq_end;i++)
+		irq_set_chip_and_handler(i,&dma->irq_chip,handle_level_irq);
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	irq = platform_get_irq(pdev, 0);
-	mirq = platform_get_irq(pdev, 1);
-	if (!iores || irq < 0 || mirq <0) {
+
+	irq = platform_get_irq_byname(pdev, "irq");
+	irq_mcu = platform_get_irq_byname(pdev, "mcu");
+	irq_pdmam = platform_get_irq_byname(pdev, "pdmam");
+
+	if (!iores || irq < 0 || irq_pdmam <0) {
 		ret = -EINVAL;
 		goto free_dma;
 	}
@@ -784,13 +850,15 @@ static int __init jzdma_probe(struct platform_device *pdev)
 		goto release_clk;
 	}
 
-	ret = request_irq(irq, jzdma_int_handler, IRQF_DISABLED,
-			"pdma", dma);
+	ret = request_irq(irq, jzdma_int_handler, IRQF_DISABLED,"pdma", dma);
 	if (ret)
 		goto release_iomap;
-	/* request mirq */
-        ret = request_irq(mirq, pdma_int_handler, IRQF_DISABLED,
-			"pdmam", dma);
+	/* request irq_mcu */
+	ret = request_irq(irq_mcu, mcu_int_handler, IRQF_DISABLED,"mcu", dma);
+	if (ret)
+		goto release_iomap;
+	/* request irq_pdmam */
+	ret = request_irq(irq_pdmam, pdma_int_handler, IRQF_DISABLED,"pdmam", dma);
 	if (ret)
 		goto release_iomap;
 
@@ -802,7 +870,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&dma->dma_device.channels);
 	/* Initialize master/channel parameters */
 	dma->irq = irq;
-        dma->mirq = mirq;
+	dma->irq_pdmam = irq_pdmam;
 	dma->iomem = dma->iomem;
 	/* Hardware master enable */
 	writel(1 | 0x3f << 16, dma->iomem + DMAC);
@@ -821,14 +889,14 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-	        if(dma->map[i] & MAP_TO_MCU) 
-                        tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
-			        	(unsigned long)dmac);
+		if(dma->map[i] & MAP_TO_MCU) 
+			tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
+					(unsigned long)dmac);
 		else
-                        tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
-	        			(unsigned long)dmac);
-		
-                dmac->iomem = dma->iomem + i * 0x20;
+			tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
+					(unsigned long)dmac);
+
+		dmac->iomem = dma->iomem + i * 0x20;
 		dmac->master = dma;
 
 		/* add chan like channel 5,4,3,... */
@@ -865,7 +933,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	return 0;
 
 release_irq:
-        free_irq(mirq, dma);
+	free_irq(irq_pdmam, dma);
 	free_irq(irq, dma);
 release_iomap:
 	iounmap(dma->iomem);

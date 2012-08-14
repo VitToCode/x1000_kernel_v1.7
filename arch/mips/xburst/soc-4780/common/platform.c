@@ -138,16 +138,25 @@ static struct resource jz_pdma_res[] = {
                 .end = PDMA_IOBASE + 0x10000 - 1,
         },
         [1] = {
+		.name  = "irq",
                 .flags = IORESOURCE_IRQ,
                 .start = IRQ_PDMA,
         },
         [2] = {
+		.name  = "pdmam",
                 .flags = IORESOURCE_IRQ,
                 .start = IRQ_PDMAM,
-        }
+        },
+        [3] = {
+		.name  = "mcu",
+                .flags = IORESOURCE_IRQ,
+                .start = IRQ_MCU,
+        },
 };
 
 static struct jzdma_platform_data jzdma_pdata = {
+	.irq_base = IRQ_MCU_BASE,
+	.irq_end = IRQ_MCU_END,
         .map = {
                 JZDMA_REQ_NAND0,
                 JZDMA_REQ_NAND1,

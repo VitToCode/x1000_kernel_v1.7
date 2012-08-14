@@ -83,6 +83,8 @@ enum jzdma_type {
 #define GET_MAP_TYPE(type) (type & ~(MAP_TO_MCU))
 
 struct jzdma_platform_data {
+	int irq_base;
+	int irq_end;
 	enum jzdma_type map[NR_DMA_CHANNELS];
 };
 

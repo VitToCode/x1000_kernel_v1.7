@@ -85,8 +85,7 @@ enum {
 };
 
 enum {
-	IRQ_MCU_NORMAL = IRQ_MCU_BASE,
-	IRQ_MCU,
+	IRQ_MCU = IRQ_MCU_BASE,
 };
 
 #endif
