@@ -81,6 +81,8 @@
 #define MCU_MSG_TYPE_NORMAL	0x1<<24
 #define MCU_MSG_TYPE_INTC	0x2<<24
 #define MCU_MSG_TYPE_INTC_MASKA	0x3<<24
+#define GET_MSG_TYPE(msg) 	(msg & 0x07000000)
+#define GET_MSG_MASK(msg)	(msg >> 27)
 
 __initdata static int firmware[] = {
 #include "firmware.hex"
@@ -717,7 +719,8 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 
 irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 {
-	unsigned long pending, mailbox = 0;
+	unsigned long flgc,pending, mailbox = 0;
+	int mask;
 	struct jzdma_master *master = (struct jzdma_master *)dev;
 
 	pending = readl(master->iomem + DMINT);
@@ -725,11 +728,14 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 	if(pending & DMINT_N_IP)
 		mailbox = readl(master->iomem + DMNMB);
 
-	if(mailbox == MCU_MSG_TYPE_NORMAL) {
+	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_NORMAL) {
 		generic_handle_irq(IRQ_MCU);
-	} else if(mailbox == MCU_MSG_TYPE_INTC) {
+	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
 		generic_handle_irq(IRQ_GPIO0);
-	} else if(mailbox == MCU_MSG_TYPE_INTC_MASKA) {
+	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
+		mask = GET_MSG_MASK(mailbox);
+		flgc = *((volatile int *)(0xb0010058));
+		*((volatile int *)(0xb0010058)) &= ~(1<<mask);
 		generic_handle_irq(IRQ_GPIO0);
 	}
 
