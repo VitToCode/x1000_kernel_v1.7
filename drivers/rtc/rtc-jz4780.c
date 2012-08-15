@@ -54,7 +54,7 @@ static unsigned int jzrtc_readl(struct jz_rtc *dev,int offset)
 		data = readl(dev->iomem + offset);			
 	} while (readl(dev->iomem + offset) != data && timeout--);		
 	if (timeout <= 0)						
-		printk("RTC rtc_read_reg timeout!\n");			
+		pr_info("RTC rtc_read_reg timeout!\n");			
 	return data;
 }
 
@@ -63,7 +63,7 @@ static inline void wait_write_ready(struct jz_rtc *dev)
 	int timeout = 0x100000;						
 	while (!(jzrtc_readl(dev,RTC_RTCCR) & RTCCR_WRDY) && timeout--);	
 	if (timeout <= 0)						
-		printk("RTC __wait_write_ready timeout!\n");		
+		pr_info("RTC __wait_write_ready timeout!\n");		
 }
 
 static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
@@ -75,7 +75,7 @@ static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 	wait_write_ready(dev);						
 	while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);	
 	if (timeout <= 0)						
-		printk("RTC __wait_writable timeout!\n");		
+		pr_info("RTC __wait_writable timeout!\n");		
 
 	writel(value,dev->iomem + offset);
 	wait_write_ready(dev); 
@@ -96,24 +96,24 @@ static inline void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
 static void jz4780_rtc_dump(struct jz_rtc *dev)
 {
 
-	printk ("*******************************************************************\n");
-	printk ("******************************jz4780_rtc_dump**********************\n\n");
-	printk ("jz4780_rtc_dump-----RTC_RTCCR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCCR));
-	printk ("jz4780_rtc_dump-----RTC_RTCSR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCSR));
-	printk ("jz4780_rtc_dump-----RTC_RTCSAR is --0X%X--\n",jzrtc_readl(dev,RTC_RTCSAR));
-	printk ("jz4780_rtc_dump-----RTC_RTCGR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCGR));
-	printk ("jz4780_rtc_dump-----RTC_HCR is --0X%X--\n",jzrtc_readl(dev, RTC_HCR));
-	printk ("jz4780_rtc_dump-----RTC_HWFCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWFCR));
-	printk ("jz4780_rtc_dump-----RTC_HRCR is --0X%X--\n",jzrtc_readl(dev, RTC_HRCR));
-	printk ("jz4780_rtc_dump-----RTC_HWCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWCR));
-	printk ("jz4780_rtc_dump-----RTC_HWRSR is --0X%X--\n",jzrtc_readl(dev,RTC_HWRSR));
-	printk ("jz4780_rtc_dump-----RTC_HSPR is --0X%X--\n",jzrtc_readl(dev, RTC_HSPR));
-	printk ("jz4780_rtc_dump-----RTC_WENR is --0X%X--\n",jzrtc_readl(dev, RTC_WENR));
-	printk ("jz4780_rtc_dump-----RTC_CKPCR is --0X%X--\n",jzrtc_readl(dev,RTC_CKPCR));
-	printk ("jz4780_rtc_dump-----RTC_OWIPCR is --0X%X--\n",jzrtc_readl(dev,RTC_OWIPCR));
-	printk ("jz4780_rtc_dump-----RTC_PWRONCR is -0X%X-\n",jzrtc_readl(dev,RTC_PWRONCR));
-	printk ("***************************jz4780_rtc_dump***************************\n");
-	printk ("*******************************************************************\n\n");
+	pr_info ("*******************************************************************\n");
+	pr_info ("******************************jz4780_rtc_dump**********************\n\n");
+	pr_info ("jz4780_rtc_dump-----RTC_RTCCR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCCR));
+	pr_info ("jz4780_rtc_dump-----RTC_RTCSR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCSR));
+	pr_info ("jz4780_rtc_dump-----RTC_RTCSAR is --0X%X--\n",jzrtc_readl(dev,RTC_RTCSAR));
+	pr_info ("jz4780_rtc_dump-----RTC_RTCGR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCGR));
+	pr_info ("jz4780_rtc_dump-----RTC_HCR is --0X%X--\n",jzrtc_readl(dev, RTC_HCR));
+	pr_info ("jz4780_rtc_dump-----RTC_HWFCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWFCR));
+	pr_info ("jz4780_rtc_dump-----RTC_HRCR is --0X%X--\n",jzrtc_readl(dev, RTC_HRCR));
+	pr_info ("jz4780_rtc_dump-----RTC_HWCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWCR));
+	pr_info ("jz4780_rtc_dump-----RTC_HWRSR is --0X%X--\n",jzrtc_readl(dev,RTC_HWRSR));
+	pr_info ("jz4780_rtc_dump-----RTC_HSPR is --0X%X--\n",jzrtc_readl(dev, RTC_HSPR));
+	pr_info ("jz4780_rtc_dump-----RTC_WENR is --0X%X--\n",jzrtc_readl(dev, RTC_WENR));
+	pr_info ("jz4780_rtc_dump-----RTC_CKPCR is --0X%X--\n",jzrtc_readl(dev,RTC_CKPCR));
+	pr_info ("jz4780_rtc_dump-----RTC_OWIPCR is --0X%X--\n",jzrtc_readl(dev,RTC_OWIPCR));
+	pr_info ("jz4780_rtc_dump-----RTC_PWRONCR is -0X%X-\n",jzrtc_readl(dev,RTC_PWRONCR));
+	pr_info ("***************************jz4780_rtc_dump***************************\n");
+	pr_info ("*******************************************************************\n\n");
 
 	return;
 }
@@ -124,8 +124,6 @@ static void jzrtc_irq_tasklet(unsigned long data)
 	unsigned int rtsr,save_rtsr;
 	unsigned long events;
 	struct jz_rtc *rtc =  (struct jz_rtc *) data;
-
-	spin_lock(&rtc->lock);
 
 	rtsr = jzrtc_readl(rtc, RTC_RTCCR);
 	save_rtsr = rtsr;
@@ -150,8 +148,6 @@ static void jzrtc_irq_tasklet(unsigned long data)
 	if(rtsr != save_rtsr)
 		jzrtc_writel(rtc, RTC_RTCCR,rtsr);
 
-	spin_unlock(&rtc->lock);
-	
 	enable_irq(rtc->irq);
 
 	return;
@@ -191,9 +187,7 @@ static void jz4780_rtc_release(struct device *dev)
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 
-	spin_lock_irq(&rtc->lock);
 	free_irq(rtc->irq, rtc);
-	spin_unlock_irq(&rtc->lock);
 }
 
 static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
@@ -201,42 +195,39 @@ static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 	unsigned int tmp;
+	unsigned long flags;
 	switch(cmd) {
 		case RTC_AIE_OFF:
-			spin_lock_irq(&rtc->lock);
+			spin_lock_irqsave(&rtc->lock,flags);
 			jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_AIE | RTCCR_AE | RTCCR_AF);
-			spin_unlock_irq(&rtc->lock);
+			spin_unlock_irqrestore(&rtc->lock,flags);
 			return 0;
 		case RTC_AIE_ON:
-			spin_lock_irq(&rtc->lock);
+			spin_lock_irqsave(&rtc->lock,flags);
 			tmp = jzrtc_readl(rtc, RTC_RTCCR);
 			tmp &= ~RTCCR_AF;
 			tmp |= RTCCR_AIE | RTCCR_AE;
 			jzrtc_writel(rtc, RTC_RTCCR, tmp);
-			spin_unlock_irq(&rtc->lock);
+			spin_unlock_irqrestore(&rtc->lock,flags);
 			return 0;
 		case RTC_UIE_OFF:
-			spin_lock_irq(&rtc->lock);
+			spin_lock_irqsave(&rtc->lock,flags);
 			jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_1HZ | RTCCR_1HZIE);
-			spin_unlock_irq(&rtc->lock);
+			spin_unlock_irqrestore(&rtc->lock,flags);
 			return 0;
 		case RTC_UIE_ON:
-			spin_lock_irq(&rtc->lock);
+			spin_lock_irqsave(&rtc->lock,flags);
 			tmp = jzrtc_readl(rtc, RTC_RTCCR);
 			tmp &= ~RTCCR_1HZ;
 			tmp |= RTCCR_1HZIE;
 			jzrtc_writel(rtc, RTC_RTCCR, tmp);
-			spin_unlock_irq(&rtc->lock);
+			spin_unlock_irqrestore(&rtc->lock,flags);
 			return 0;
 		case RTC_PIE_OFF:
-			spin_lock_irq(&rtc->lock);
-			printk("no implement!\n");
-			spin_unlock_irq(&rtc->lock);
+			pr_debug("no implement!\n");
 			return 0;
 		case RTC_PIE_ON:
-			spin_lock_irq(&rtc->lock);
-			printk("no implement!\n");
-			spin_unlock_irq(&rtc->lock);
+			pr_debug("no implement!\n");
 			return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -280,15 +271,16 @@ static int jz4780_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	unsigned int rtc_rcr,tmp;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
+	unsigned long flags;
 
 	tmp = jzrtc_readl(rtc, RTC_RTCSAR);
-	spin_lock_irq(&rtc->lock);
+	spin_lock_irqsave(&rtc->lock,flags);
 	rtc_time_to_tm(tmp, &rtc->rtc_alarm);
 	memcpy(&alrm->time, &rtc->rtc_alarm, sizeof(struct rtc_time));
 	rtc_rcr = jzrtc_readl(rtc, RTC_RTCCR);
 	alrm->enabled = (rtc_rcr & RTCCR_AIE) ? 1 : 0;
 	alrm->pending = (rtc_rcr & RTCCR_AF) ? 1 : 0;
-	spin_unlock_irq(&rtc->lock);
+	spin_unlock_irqrestore(&rtc->lock,flags);
 	return 0;
 }
 
@@ -298,8 +290,9 @@ static int jz4780_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	unsigned long time;
 	unsigned int tmp;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);	
+	unsigned long flags;
 
-	spin_lock_irq(&rtc->lock);
+	spin_lock_irqsave(&rtc->lock,flags);
 	if(alrm->enabled){
 		rtc_tm_to_time(&alrm->time,&time);
 		jzrtc_writel(rtc, RTC_RTCSAR, time);
@@ -310,7 +303,7 @@ static int jz4780_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	}else{
 		jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_AIE | RTCCR_AE | RTCCR_AF);
 	}
-	spin_unlock_irq(&rtc->lock);
+	spin_unlock_irqrestore(&rtc->lock,flags);
 
 	return ret;
 }
@@ -359,7 +352,7 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 	{
 		/* We are powered on for the first time !!! */
 
-		printk("jz4780-rtc: rtc status reset by power-on\n");
+		pr_info("jz4780-rtc: rtc status reset by power-on\n");
 
 		/* Set 32768 rtc clocks per seconds */
 		jzrtc_writel(rtc, RTC_RTCGR, RTC_FREQ_DIVIDER);

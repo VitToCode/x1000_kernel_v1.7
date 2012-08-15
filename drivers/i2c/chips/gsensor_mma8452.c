@@ -94,6 +94,7 @@ struct mma8452_data {
 	struct i2c_client *client;
 	struct gsensor_platform_data *pdata;
 	struct mutex lock;
+	struct mutex lock_rw;
 	atomic_t enabled;
 	int enabled_save;
 	int is_suspend;
@@ -154,7 +155,9 @@ static int mma8452_i2c_write(struct mma8452_data *mma,u8 *buf, int len)
 static int mma8452_i2c_read_data(struct mma8452_data *mma,u8 reg,u8* rxData, int length)
 {
 	int ret;
+	mutex_lock(&mma->lock_rw);
 	ret = mma8452_i2c_read(mma,&reg, rxData, length);
+	mutex_unlock(&mma->lock_rw);
 	if (ret < 0)
 		return ret;
 	else
@@ -165,9 +168,11 @@ static int mma8452_i2c_write_data(struct mma8452_data *mma,u8 reg,char *txData, 
 	char buf[80];
 	int ret;
 
+	mutex_lock(&mma->lock_rw);
 	buf[0] = reg;
 	memcpy(buf+1, txData, length);
 	ret = mma8452_i2c_write(mma,buf, length+1);
+	mutex_unlock(&mma->lock_rw);
 	if (ret < 0)
 		return ret;
 	else
@@ -417,6 +422,7 @@ long mma8452_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		break;
 	case SENSOR_IOCTL_SET_DELAY:
+		mutex_lock(&mma->lock);
 		if (copy_from_user(&interval, argp, sizeof(interval)))
 			return -EFAULT;
 		interval *= 10;  //for Sensor_new
@@ -426,8 +432,10 @@ long mma8452_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			interval = mma->pdata->max_interval;
 		mma->pdata->poll_interval = interval;
 		mma8452_set_delay(mma,mma->pdata->poll_interval);
+		mutex_unlock(&mma->lock);
 		break;
 	case SENSOR_IOCTL_SET_ACTIVE:
+		mutex_lock(&mma->lock);
 		if (copy_from_user(&interval, argp, sizeof(interval)))
 			return -EFAULT;
 		if (interval > 1)
@@ -436,6 +444,7 @@ long mma8452_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			mma8452_enable(mma);
 		}else
 			mma8452_disable(mma);
+		mutex_unlock(&mma->lock);
 		break;
 	case SENSOR_IOCTL_GET_ACTIVE:
 		interval = atomic_read(&mma->enabled);
@@ -516,8 +525,8 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 		goto err0;
 	}
 
+	mutex_init(&mma->lock_rw);	
 	mutex_init(&mma->lock);	
-	mutex_lock(&mma->lock);	
 
 	mma->pdata = kmalloc(sizeof(*mma->pdata),GFP_KERNEL);
 	if(mma->pdata == NULL)
@@ -617,7 +626,6 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 	atomic_set(&mma->enabled,0);
 	mma->is_suspend = 0;
 	disable_irq_nosync(mma->client->irq);
-	mutex_unlock(&mma->lock);
 	return 0;
 err5:
 	input_unregister_device(mma->input_dev);
@@ -675,6 +683,7 @@ static void mma8452_resume(struct early_suspend *h)
 	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
 	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 | 0x01);
 	assert(result==0);
+	mutex_lock(&mma->lock);
 	mma->is_suspend = 0;
     /*
      if(mma->enabled_save == 1){
@@ -682,6 +691,7 @@ static void mma8452_resume(struct early_suspend *h)
     }
     */
 	mma8452_enable(mma);
+	mutex_unlock(&mma->lock);
   	enable_irq(mma->client->irq);
 }
 

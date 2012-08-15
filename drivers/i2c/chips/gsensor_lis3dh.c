@@ -37,7 +37,8 @@ struct lis3dh_acc_data {
 	struct i2c_client *client;
 	struct gsensor_platform_data *pdata;
 
-	struct mutex lock;
+	struct mutex	lock_rw;
+	struct mutex	lock;
 	struct delayed_work input_work;
 
 	struct input_dev *input_dev;
@@ -58,7 +59,7 @@ struct lis3dh_acc_data {
 	struct regulator *power;
 };
 
-static int lis3dh_acc_i2c_read(struct lis3dh_acc_data *acc,
+static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
 		u8 * buf, int len)                                                                                         
 {
 	int err;
@@ -95,7 +96,7 @@ static int lis3dh_acc_i2c_read(struct lis3dh_acc_data *acc,
 	return err;
 }
 
-static int lis3dh_acc_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
+static int lis3dh_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
 {
 	int err;
 	int tries = 0;
@@ -125,6 +126,22 @@ static int lis3dh_acc_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
 	return err;
 }
 
+static int lis3dh_acc_i2c_read(struct lis3dh_acc_data *acc,u8 * buf, int len)
+{
+	int ret;
+	mutex_lock(&acc->lock_rw);
+	ret = lis3dh_i2c_read(acc,buf,len);
+	mutex_lock(&acc->lock_rw);
+	return ret;
+}
+static int lis3dh_acc_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
+{
+	int ret;
+	mutex_lock(&acc->lock_rw);
+	ret = lis3dh_i2c_write(acc,buf,len);
+	mutex_unlock(&acc->lock_rw);
+	return ret;
+}
 int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 {                                                                                                                                          
 	int err = -1;
@@ -573,6 +590,7 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				return -EFAULT;
 			break;
 		case SENSOR_IOCTL_SET_DELAY:
+			mutex_lock(&lis3dh->lock);
 			if (copy_from_user(&interval, argp, sizeof(interval)))
 				return -EFAULT;
 			interval *= 10;  //for Sensor_new
@@ -582,8 +600,10 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				interval = lis3dh->pdata->max_interval;
 			lis3dh->pdata->poll_interval = interval;
 			lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
+			mutex_unlock(&lis3dh->lock);
 			break;
 		case SENSOR_IOCTL_SET_ACTIVE:
+			mutex_lock(&lis3dh->lock);
 			if (copy_from_user(&interval, argp, sizeof(interval)))
 				return -EFAULT;
 			if (interval > 1)
@@ -594,6 +614,7 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}else{
 				lis3dh_acc_disable(lis3dh);
 			}
+			mutex_unlock(&lis3dh->lock);
 			break;
 		case SENSOR_IOCTL_GET_ACTIVE:
 			interval = atomic_read(&lis3dh->enabled);
@@ -699,9 +720,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto exit_check_functionality_failed;
 	}
 
-
+	mutex_init(&acc->lock_rw);
 	mutex_init(&acc->lock);
-	mutex_lock(&acc->lock); 
 
 	acc->client = client;
 	i2c_set_clientdata(client, acc);
@@ -712,7 +732,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 				"failed to allocate memory for pdata: %d\n",
 				err);
-		goto err_mutexunlock;
+		goto err_free;
 	}
 
 	memcpy(acc->pdata, client->dev.platform_data, sizeof(*acc->pdata));
@@ -832,7 +852,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		printk("err == %d \n",err); 
 
 	disable_irq_nosync(acc->client->irq);
-	mutex_unlock(&acc->lock);
 
 	printk(KERN_INFO "%s: %s has set irq to irq: %d "
 			"mapped on gpio:%d\n",
@@ -849,8 +868,7 @@ err_pdata_init:
 		acc->pdata->exit();
 exit_kfree_pdata:
 	kfree(acc->pdata);
-err_mutexunlock:
-	mutex_unlock(&acc->lock);
+err_free:
 	kfree(acc);
 exit_check_functionality_failed:
 	printk(KERN_ERR "%s: Driver Init failed\n", LIS3DH_ACC_DEV_NAME);
@@ -883,8 +901,10 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 static int lis3dh_acc_resume(struct i2c_client *client)
 {
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
+	mutex_lock(&acc->lock);
 	acc->is_suspend = 0;
 	lis3dh_acc_enable(acc);
+	mutex_unlock(&acc->lock);
 	enable_irq(client->irq);
 	return 0;
 }
