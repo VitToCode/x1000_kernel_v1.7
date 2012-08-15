@@ -53,6 +53,7 @@ static struct gpio_keys_button board_buttons[] = {
 		.code   	= KEY_END,
 		.desc		= "end call key",
 		.active_low	= ACTIVE_LOW_ENDCALL,
+		.wakeup		= 1,
 	},
 #endif
 #ifdef GPIO_VOLUMEDOWN
@@ -151,7 +152,7 @@ static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 #ifdef CONFIG_JZ4780_SUPPORT_TSC
 	{
-		I2C_BOARD_INFO("ft5x0x", 0x36),
+		I2C_BOARD_INFO("ft5x0x_tsc", 0x36),
 		.irq = 0,
 		.platform_data	= &warrior_tsc_pdata,
 	},
