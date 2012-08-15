@@ -102,6 +102,7 @@ struct dma_desc {
 
 struct jzdma_channel {
 	int 			id;
+	int 			residue;
 	struct dma_chan		chan;
 	enum jzdma_type		type;
 	struct dma_async_tx_descriptor	tx_desc;
@@ -482,6 +483,7 @@ static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 	dmac->chan.cookie = cookie;
 	dmac->tx_desc.cookie = cookie;
 	dmac->status = STAT_SUBED;
+	dmac->residue = -1;
 
 	spin_unlock_bh(&dmac->lock);
 
@@ -500,7 +502,11 @@ static enum dma_status jzdma_tx_status(struct dma_chan *chan,dma_cookie_t cookie
 	last_used = chan->cookie;
 
 	ret = dma_async_is_complete(cookie, dmac->last_completed, last_used);
-	dma_set_tx_state(txstate, dmac->last_completed, last_used, 0);
+	if(dmac->residue == -1) {
+		dma_set_tx_state(txstate, dmac->last_completed, last_used, readl(dmac->iomem + CH_DTC));
+	} else {
+		dma_set_tx_state(txstate, dmac->last_completed, last_used, dmac->residue);
+	}
 
 	if (ret == DMA_SUCCESS
 			&& dmac->last_completed != dmac->last_good
@@ -582,6 +588,7 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 
 	dmac->status = STAT_STOPED;
 	dmac->desc_nr = 0;
+	dmac->residue = readl(dmac->iomem + CH_DTC);
 
 	/* clear dma status */
 	writel(0, dmac->iomem+CH_DCS);
@@ -719,7 +726,7 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 
 irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 {
-	unsigned long flgc,pending, mailbox = 0;
+	unsigned long pending, mailbox = 0;
 	int mask;
 	struct jzdma_master *master = (struct jzdma_master *)dev;
 
@@ -734,7 +741,6 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 		generic_handle_irq(IRQ_GPIO0);
 	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
 		mask = GET_MSG_MASK(mailbox);
-		flgc = *((volatile int *)(0xb0010058));
 		*((volatile int *)(0xb0010058)) &= ~(1<<mask);
 		generic_handle_irq(IRQ_GPIO0);
 	}
