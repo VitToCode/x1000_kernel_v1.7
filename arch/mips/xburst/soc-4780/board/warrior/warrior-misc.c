@@ -2,6 +2,7 @@
 #include <linux/i2c.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
+#include <linux/gsensor.h>
 #include <linux/tsc.h>
 
 #include <mach/platform.h>
@@ -9,35 +10,154 @@
 #include <mach/jzmmc.h>
 #include <gpio.h>
 
+
 #include "warrior.h"
 
-#ifdef CONFIG_JZ4780_SUPPORT_TSC
-#define GPIO_CTP_IRQ			GPIO_PF(19)
-#define GPIO_CTP_WAKE_UP		GPIO_PF(18)
+#ifdef CONFIG_KEYBOARD_GPIO
+static struct gpio_keys_button board_buttons[] = {
+#ifdef GPIO_CALL
+	{
+		.gpio		= GPIO_CALL,
+		.code   	= KEY_SEND,
+		.desc		= "call key",
+		.active_low	= ACTIVE_LOW_CALL,
+	},
+#endif
+#ifdef GPIO_HOME
+	{
+		.gpio		= GPIO_HOME,
+		.code   	= KEY_HOME,
+		.desc		= "home key",
+		.active_low	= ACTIVE_LOW_HOME,
+	},
+#endif
+#ifdef GPIO_BACK
+	{
+		.gpio		= GPIO_BACK,
+		.code   	= KEY_BACK,
+		.desc		= "back key",
+		.active_low	= ACTIVE_LOW_BACK,
+	},
+#endif
+#ifdef GPIO_MENU
+	{
+		.gpio		= GPIO_MENU,
+		.code   	= KEY_MENU,
+		.desc		= "menu key",
+		.active_low	= ACTIVE_LOW_MENU,
+	},
+#endif
+#ifdef GPIO_ENDCALL
+	{
+		.gpio		= GPIO_ENDCALL,
+		.code   	= KEY_END,
+		.desc		= "end call key",
+		.active_low	= ACTIVE_LOW_ENDCALL,
+	},
+#endif
+#ifdef GPIO_VOLUMEDOWN
+	{
+		.gpio		= GPIO_VOLUMEDOWN,
+		.code   	= KEY_VOLUMEDOWN,
+		.desc		= "volum down key",
+		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
+	},
+	{
+		.gpio		= GPIO_VOLUMEUP,
+		.code   	= KEY_VOLUMEUP,
+		.desc		= "volum up key",
+		.active_low	= ACTIVE_LOW_VOLUMEUP,
+	},
+#endif
+};
+static struct gpio_keys_platform_data board_button_data = {
+	.buttons	= board_buttons,
+	.nbuttons	= ARRAY_SIZE(board_buttons),
+};
 
+static struct platform_device jz_button_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev		= {
+		.platform_data	= &board_button_data,
+	}
+};
+#endif
+
+#if (defined(CONFIG_SENSORS_MMA8452) && defined(CONFIG_I2C1_JZ4780))
+static struct gsensor_platform_data mma8452_platform_pdata = {
+	.gpio_int = GPIO_MMA8452_INT1,
+	.poll_interval = 100,
+	.min_interval = 40,
+	.max_interval = 200,
+	.g_range = GSENSOR_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,
+	.negate_x = 1,
+	.negate_y = 0,
+	.negate_z = 1,
+};
+#endif
+
+#if (defined(CONFIG_SENSORS_LIS3DH) && defined(CONFIG_I2C1_JZ4780))
+static struct gsensor_platform_data lis3dh_platform_data = { 
+	.gpio_int = GPIO_LIS3DH_INT1, 
+	.poll_interval = 100,
+       	.min_interval = 40,
+	.max_interval = 200,
+	.g_range = GSENSOR_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,							        
+	.negate_x = 1,
+	.negate_y = 0,
+	.negate_z = 1,
+};
+#endif
+
+#if (defined(CONFIG_JZ4780_SUPPORT_TSC) && defined(CONFIG_I2C3_JZ4780))
 static struct jztsc_pin warrior_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
 };
 
-static struct regulator *warrior_get_regulator(struct device *dev)
-{
-	return regulator_get_exclusive(dev, "OUT7");
-}
-
 static struct jztsc_platform_data warrior_tsc_pdata = {
 	.gpio		= warrior_tsc_gpio,
-	.get_regulator	= warrior_get_regulator,
 };
+#endif
 
+#ifdef CONFIG_I2C1_JZ4780 /*I2C1*/
+static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
+#ifdef CONFIG_SENSORS_MMA8452
+	{
+		I2C_BOARD_INFO("gsensor_mma8452",0x1c),
+		.irq = 0,
+		.platform_data = &mma8452_platform_pdata,
+	},
+#endif
+#ifdef CONFIG_SENSORS_LIS3DH
+	{
+	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
+		.irq = 0,
+		.platform_data = &lis3dh_platform_data,
+	},						        
+#endif
+};
+#endif	/*I2C1*/
+
+#ifdef CONFIG_I2C3_JZ4780 /*I2C3*/
 static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
+#ifdef CONFIG_JZ4780_SUPPORT_TSC
 	{
 		I2C_BOARD_INFO("ft5x0x", 0x36),
 		.irq = 0,
 		.platform_data	= &warrior_tsc_pdata,
 	},
-};
 #endif
+};
+#endif /*I2C3*/
 
 static int __init warrior_board_init(void)
 {
@@ -162,13 +282,23 @@ static int __init warrior_board_init(void)
 	platform_device_register(&jz_hdmi);
 #endif
 
-#ifdef CONFIG_JZ4780_SUPPORT_TSC
-	i2c_register_board_info(0, warrior_i2c3_devs, ARRAY_SIZE(warrior_i2c3_devs));
+#ifdef CONFIG_I2C1_JZ4780
+	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
+#endif
+
+#ifdef CONFIG_I2C3_JZ4780
+	i2c_register_board_info(3, warrior_i2c3_devs, ARRAY_SIZE(warrior_i2c3_devs));
 #endif	
+
 #ifdef CONFIG_RTC_DRV_JZ4780
 	platform_device_register(&jz4780_device_rtc);
 #endif
 	return 0;
+
+#ifdef CONFIG_KEYBOARD_GPIO
+	platform_device_register(&jz_button_device);
+#endif
+
 }
 
 

@@ -113,6 +113,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
         I2S0_PORTE,	
 #endif
         LCD_PORTC,
+	HDMI_PORTF, 
         PWM1_PORTE,
 #ifdef CONFIG_JZ_MAC
         MII_PORTBDF,
@@ -560,7 +561,7 @@ static struct resource jz_hdmi_resources[] = {
         [0] = {
                 .flags = IORESOURCE_MEM,
                 .start = HDMI_IOBASE,
-                .end = HDMI_IOBASE + 0x1000 - 1,
+                .end = HDMI_IOBASE + 0x8000 - 1,
         },
         [1] = {
                 .flags = IORESOURCE_IRQ,
