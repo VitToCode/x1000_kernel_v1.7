@@ -29,6 +29,20 @@ config APM_POWER
 	  Say Y here to enable support APM status emulation using
 	  battery class devices.
 
+config BATTERY_JZ4780
+	tristate "Ingenic JZ4780 battery"
+	depends on MFD_JZ4780_SADC
+	help
+	  Say Y to enable support for the battery on Ingenic JZ4780 based
+	  boards.
+
+config CHARGER_ACT8600
+	tristate "ACT8600 battery charger support"
+	depends on MFD_ACT8600
+	help
+	  Say Y here to enable support for the battery charger in the
+	  PMU ACT8600.
+
 config MAX8925_POWER
 	tristate "MAX8925 battery charger support"
 	depends on MFD_MAX8925
