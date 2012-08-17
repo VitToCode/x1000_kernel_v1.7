@@ -20,6 +20,11 @@ menuconfig MISC_DEVICES
 
 if MISC_DEVICES
 
+config JZ_TCSM_DEFAULT
+	bool "JZ TCSM for multimedia(default)"
+	help
+	  tcsm with the old method, it cannot support for muti-thread.
+
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
 	depends on (I2C || SPI) && SYSFS

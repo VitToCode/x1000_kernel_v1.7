@@ -198,18 +198,23 @@ static int __init warrior_board_init(void)
 #ifdef CONFIG_NAND_JZ4780
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
-/* HDMI */
+/* hdmi */
 #ifdef CONFIG_HDMI_JZ4780
 	platform_device_register(&jz_hdmi);
 #endif
 /* rtc */
 #ifdef CONFIG_RTC_DRV_JZ4780
-	platform_device_register(&jz4780_device_rtc);
+	platform_device_register(&jz_rtc_device);
 #endif
-/* GPIO */
+/* gpio keyboard */
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
+/* tcsm */
+#ifdef CONFIG_JZ_TCSM_DEFAULT
+	platform_device_register(&jz_tcsm_device);
+#endif
+
 	return 0;
 }
 

@@ -131,7 +131,7 @@ static int lis3dh_acc_i2c_read(struct lis3dh_acc_data *acc,u8 * buf, int len)
 	int ret;
 	mutex_lock(&acc->lock_rw);
 	ret = lis3dh_i2c_read(acc,buf,len);
-	mutex_lock(&acc->lock_rw);
+	mutex_unlock(&acc->lock_rw);
 	return ret;
 }
 static int lis3dh_acc_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
