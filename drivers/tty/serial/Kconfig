@@ -104,18 +104,37 @@ config SERIAL_JZ47XX_CONSOLE
 config SERIAL_JZ47XX_UART0
 	bool "enable uart0"
 	depends on SERIAL_JZ47XX_UART=y
+config SERIAL_JZ47XX_UART0_DMA
+	bool "enable uart0 dma mode"
+	depends on SERIAL_JZ47XX_UART0
+
 config SERIAL_JZ47XX_UART1
 	bool "enable uart1"
 	depends on SERIAL_JZ47XX_UART=y
+config SERIAL_JZ47XX_UART1_DMA
+	bool "enable uart1 dma mode"
+	depends on SERIAL_JZ47XX_UART1
+
 config SERIAL_JZ47XX_UART2
 	bool "enable uart2"
 	depends on SERIAL_JZ47XX_UART=y
+config SERIAL_JZ47XX_UART2_DMA
+	bool "enable uart2 dma mode"
+	depends on SERIAL_JZ47XX_UART2
+
 config SERIAL_JZ47XX_UART3
 	bool "enable uart3"
 	depends on SERIAL_JZ47XX_UART=y
+config SERIAL_JZ47XX_UART3_DMA
+	bool "enable uart3 dma mode"
+	depends on SERIAL_JZ47XX_UART3
+
 config SERIAL_JZ47XX_UART4
 	bool "enable uart4"
 	depends on SERIAL_JZ47XX_UART=y
+config SERIAL_JZ47XX_UART4_DMA
+	bool "enable uart4 dma mode"
+	depends on SERIAL_JZ47XX_UART4
 
 config FIX_EARLYCON_MEM
 	bool
