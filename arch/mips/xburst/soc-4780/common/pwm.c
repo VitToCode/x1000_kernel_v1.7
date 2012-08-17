@@ -1,17 +1,12 @@
-/*
- * JZSOC TCU Unit, support timer and PWM application.
- * 
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file "COPYING" in the main directory of this archive
- * for more details.
- *
- * Copyright (C) 2006 Ingenic Semiconductor Inc.
- */
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <mach/jztcu.h>
+
+#include <linux/slab.h>
+#include <linux/err.h>
 
 #include <asm/div64.h>
 
@@ -20,56 +15,50 @@
 #include <soc/gpio.h>
 #include <soc/tcu.h>
 
-
-#define regr(off) 	inl(TCU_IOBASE + (off))
-#define regw(val,off)	outl(val, TCU_IOBASE + (off))
-
-
-#define TCU_CNT_MAX (65535UL)
-#define NR_TCU_CH 8
-
-static DECLARE_BITMAP(tcu_map, NR_TCU_CH) = { (1<<NR_TCU_CH) - 1, };
-
 struct pwm_device {
-	short id,running;
+	short id;
 	const char *label;
-} pwm_chs[NR_TCU_CH];
+	struct tcu_device *tcu_cha;
+}pwm_chs[8];
 
 struct pwm_device *pwm_request(int id, const char *label)
 {
-	if (id < 0 || id > NR_TCU_CH)
+	struct tcu_device *tcu_pwm;
+	if (id < 0 || id > 7)
 		return ERR_PTR(-ENODEV);
-	if (!test_bit(id, tcu_map))
-		return ERR_PTR(-EBUSY);
-
+	tcu_pwm= tcu_request(id,NULL);
+	pwm_chs[id].tcu_cha = tcu_pwm;
+	if(IS_ERR(tcu_pwm)) {
+		printk("-+-+-+-pwm_tcu_request failed!!-+-+-+\n");
+		return ERR_PTR(-ENODEV);
+	}
 	pwm_chs[id].id = id;
 	pwm_chs[id].label = label;
-
-	//jzgpio_ctrl_pull(GPIO_PORT_E,0,BIT(id));
-	clear_bit(id, tcu_map);
+	tcu_pwm->pwm_flag = 1;
+	tcu_pwm->irq_type = NULL_IRQ_MODE;
+	tcu_pwm->init_level = 1;
+	printk("+++++++++++request pwm_channel successfully!!++++++++\n");
 	return &pwm_chs[id];
 }
 
 void pwm_free(struct pwm_device *pwm)
 {
-	set_bit(pwm->id, tcu_map);
+	struct tcu_device *tcu_pwm = pwm->tcu_cha;
+	tcu_free(tcu_pwm);
 }
 
 int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 {
 	unsigned long long tmp;
-	unsigned long period, duty, csr;
-	int prescaler = 0;
-
-	if (!pwm || test_bit(pwm->id, tcu_map))
-		return -EINVAL;
+	unsigned long period, duty;
+	int prescaler = 0; /*prescale = 0,1,2,3,4,5*/
+	struct tcu_device *tcu_pwm = pwm->tcu_cha;
 	if (duty_ns < 0 || duty_ns > period_ns)
 		return -EINVAL;
 
 	/* period < 10us || period > 1s */
 	if (period_ns < 10000 || period_ns > 1000000000)
 		return -EINVAL;
-
 
 	tmp = JZ_EXTAL;
 	tmp = tmp * period_ns;
@@ -80,7 +69,6 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 		period >>= 2;
 		++prescaler;
 	}
-
 	if (prescaler == 6)
 		return -EINVAL;
 
@@ -90,43 +78,27 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 
 	if (duty >= period)
 		duty = period - 1;
+	tcu_pwm->full_num = period;
+	tcu_pwm->half_num = duty;
+	tcu_pwm->divi_ratio = prescaler;
+	tcu_pwm->clock = EXT_EN;
+	tcu_pwm->count_value = 0;
+	tcu_pwm->pwm_shutdown = 1;
 
-	csr = (prescaler) << 3;
-	csr |= CSR_EXT_EN | TCSR_PWM_EN | TCSR_PWM_HIGH;
-
-	if (pwm->running == 1)
-		regw(BIT(pwm->id), TCU_TECR); /* disable */
-
-	regw(csr,  CH_TCSR(pwm->id));
-	regw(period, CH_TDFR(pwm->id));
-	regw(duty, CH_TDHR(pwm->id));
-	regw(0,    CH_TCNT(pwm->id));
-
-	if (pwm->running == 1)
-		regw(BIT(pwm->id), TCU_TESR); /* enable */
-
+	if(tcu_as_timer_config(tcu_pwm) != 0) return -EINVAL;
+	printk("++++++++++++pwm_config successfully!!+++++++++\n");
 	return 0;
 }
 
 int pwm_enable(struct pwm_device *pwm)
 {
-	if (!pwm || test_bit(pwm->id, tcu_map))
-		return -EINVAL;
-
-	if (!pwm->running) {
-		pwm->running = 1;
-		regw(BIT(pwm->id), TCU_TESR); /* enable */
-	}
+	struct tcu_device *tcu_pwm = pwm->tcu_cha;
+	tcu_enable(tcu_pwm);
 	return 0;
 }
 
 void pwm_disable(struct pwm_device *pwm)
 {
-	if (!pwm || test_bit(pwm->id, tcu_map))
-		return;
-
-	if (pwm->running) {
-		pwm->running = 0;
-		regw(BIT(pwm->id), TCU_TECR); /* disable */
-	}
+	struct tcu_device *tcu_pwm = pwm->tcu_cha;
+	tcu_disable(tcu_pwm);
 }
