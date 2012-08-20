@@ -499,7 +499,7 @@ static struct platform_driver jz4780_rtc_driver = {
 	.suspend	= jz4780_rtc_suspend,
 	.resume		= jz4780_rtc_resume,
 	.driver		= {
-	.name		= "jz4780-rtc",
+	.name		= "jz-rtc",
 	},
 };
 

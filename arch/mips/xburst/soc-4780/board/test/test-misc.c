@@ -181,7 +181,7 @@ static int __init test_board_init(void)
 	i2c_register_board_info(0, test_i2c0_devs, ARRAY_SIZE(test_i2c0_devs));
 #endif	
 #ifdef CONFIG_RTC_DRV_JZ4780
-	platform_device_register(&jz4780_device_rtc);
+	platform_device_register(&jz_rtc_device);
 #endif
 	return 0;
 }

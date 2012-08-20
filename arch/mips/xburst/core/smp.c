@@ -156,10 +156,10 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	int err;
 	unsigned long flags,ctrl;
 
-	local_irq_save(flags);
-
 	/* blast all cache before booting secondary cpu */
 	__flush_cache_all();
+
+	local_irq_save(flags);
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
@@ -184,11 +184,17 @@ wait:
  */
 static inline int smp_cpu_stop(int cpu)
 {
-	unsigned int ctrl = get_smp_ctrl();
+	unsigned int ctrl;
 
-	/* nr cpu, it depend on hardware */
 	if(cpu >= 4)
 		return -1;
+
+	printk("xxxx %08x\n",get_smp_status());
+	while(!(get_smp_status() & (1<<(cpu+16))))
+		printk("wait cpu %d sleep status\n",cpu);
+
+	/* nr cpu, it depend on hardware */
+	ctrl = get_smp_ctrl();
 	ctrl |= 1 << cpu;
 	set_smp_ctrl(ctrl);
 	return 0;
@@ -208,14 +214,13 @@ static void __init jzsoc_smp_setup(void)
 	__cpu_logical_map[0] = 0;
 
 	for (i = 1, num = 0; i < NR_CPUS; i++) {
-		if (smp_cpu_stop(i) == 0) {
-			cpu_set(i, cpu_possible_map);
-			cpu_set(i, cpu_present_map);
+		cpu_set(i, cpu_possible_map);
+		cpu_set(i, cpu_present_map);
 
-			__cpu_number_map[i] = ++num;
-			__cpu_logical_map[num] = i;
-		}
+		__cpu_number_map[i] = ++num;
+		__cpu_logical_map[num] = i;
 	}
+
 	pr_info("[SMP] Slave CPU(s) %i available.\n", num);
 }
 
@@ -275,12 +280,13 @@ void jzsoc_cpus_done(void)
 #ifdef CONFIG_HOTPLUG_CPU
 int jzsoc_cpu_disable(void)
 {
-	struct task_struct *p;
 	unsigned int cpu = smp_processor_id();
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
 
-	spin_lock(&smp_lock);
+	if(!irqs_disabled())
+		local_irq_disable();
+
 	set_cpu_online(cpu, false);
 	cpu_clear(cpu, cpu_callin_map);
 
@@ -288,13 +294,6 @@ int jzsoc_cpu_disable(void)
 	blast_icache32();
 	local_flush_tlb_all();
 
-	read_lock(&tasklist_lock);
-	for_each_process(p)
-		if (p->mm)
-			cpumask_clear_cpu(cpu, mm_cpumask(p->mm));
-	read_unlock(&tasklist_lock);
-	
-	spin_unlock(&smp_lock);
 	return 0;
 }
 
@@ -303,14 +302,15 @@ void jzsoc_cpu_die(unsigned int cpu)
 	if (cpu == 0)		/* FIXME */
 		return;
 
-	printk("jzsoc_cpu_die\n");
 	spin_lock(&smp_lock);
-
-	smp_cpu_stop(cpu);
 
 	cpumask_clear_cpu(cpu, &cpu_running);
 	cpumask_clear_cpu(cpu, &cpu_start);
 	cpumask_clear_cpu(cpu, cpu_ready);
+
+	smp_cpu_stop(cpu);
+	printk("jzsoc_cpu_die %08x\n",get_smp_ctrl());
+	printk("jzsoc_cpu_die %08x\n",get_smp_status());
 
 	spin_unlock(&smp_lock);
 }
@@ -321,6 +321,10 @@ void play_dead(void)
 	idle_task_exit();
 
 	while(1) {
+		printk("play_dead\n");
+		blast_dcache32();
+		blast_icache32();
+		local_flush_tlb_all();
 		__asm__ __volatile__ ("wait\n\t");
 	}
 }
