@@ -112,6 +112,7 @@ struct jzmmc_host {
 	void __iomem		*iomem;
 	struct timer_list	detect_timer;
 	struct timer_list	request_timer;
+	struct tasklet_struct	tasklet;
 
 #define JZMMC_CARD_PRESENT	0
 #define JZMMC_CARD_NEED_INIT	1
@@ -154,11 +155,9 @@ static inline void enable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 {
 	unsigned long imsk;
 
-	spin_lock(&host->lock);
 	imsk = msc_readl(host, IMASK);
 	imsk &= ~bits;
 	msc_writel(host, IMASK, imsk);
-	spin_unlock(&host->lock);
 }
 
 static inline void clear_msc_irq(struct jzmmc_host *host, unsigned long bits)
@@ -170,11 +169,9 @@ static inline void disable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 {
 	unsigned long imsk;
 
-	spin_lock(&host->lock);
 	imsk = msc_readl(host, IMASK);
 	imsk |= bits;
 	msc_writel(host, IMASK, imsk);
-	spin_unlock(&host->lock);
 }
 
 #ifndef IT_IS_USED_FOR_DEBUG
@@ -327,7 +324,7 @@ static void jzmmc_data_done(struct jzmmc_host *host)
 	}
 
 	clear_msc_irq(host, IFLG_DATA_TRAN_DONE);
-	del_timer(&host->request_timer);
+	del_timer_sync(&host->request_timer);
 	mmc_request_done(host->mmc, host->mrq);
 }
 
@@ -364,7 +361,7 @@ start:
 		jzmmc_command_done(host, mrq->cmd);
 		if (!data) {
 			state = STATE_IDLE;
-			del_timer(&host->request_timer);
+			del_timer_sync(&host->request_timer);
 			mmc_request_done(host->mmc, host->mrq);
 			break;
 		}
@@ -417,7 +414,7 @@ start:
 			data->bytes_xfered = 0;
 			/* Whether should we stop DMA here? */
 		}
-		del_timer(&host->request_timer);
+		del_timer_sync(&host->request_timer);
 		mmc_request_done(host->mmc, host->mrq);
 		state = STATE_IDLE;
 		break;
@@ -429,9 +426,9 @@ start:
 	double_enter--;
 }
 
-static irqreturn_t jzmmc_irq(int irq, void *dev_id)
+static void jzmmc_tasklet(unsigned long data)
 {
-	struct jzmmc_host *host = dev_id;
+	struct jzmmc_host *host = (struct jzmmc_host *)data;
 	unsigned int iflg, imask, pending, status;
 start:
 	iflg = msc_readl(host, IFLG);
@@ -442,7 +439,9 @@ start:
 		 __func__, iflg, imask, status);
 
 	if (!pending) {
-		return IRQ_HANDLED;
+		enable_irq(host->irq);
+		return;
+
 	} else if (pending & ERROR_IFLG) {
 		dev_err(host->dev, "err%d cmd%d iflg%08X status%08X\n",
 			host->state, host->cmd->opcode, iflg, status);
@@ -461,10 +460,11 @@ start:
 			host->cmd->error = -1;
 			host->cmd->retries = 1;
 			host->data->bytes_xfered = 0;
-			del_timer(&host->request_timer);
+			del_timer_sync(&host->request_timer);
 			host->state = STATE_IDLE;
 			mmc_request_done(host->mmc, host->mrq);
-			return IRQ_HANDLED;
+			enable_irq(host->irq);
+			return;
 		}
 		host->state = STATE_ERROR;
 		jzmmc_state_machine(host, status);
@@ -515,6 +515,17 @@ start:
 	if (status != msc_readl(host, STAT)) {
 		goto start;
 	}
+
+	enable_irq(host->irq);
+	return;
+}
+
+static irqreturn_t jzmmc_irq(int irq, void *dev_id)
+{
+	struct jzmmc_host *host = (struct jzmmc_host *)dev_id;
+
+	tasklet_schedule(&host->tasklet);
+	disable_irq_nosync(host->irq);
 
 	return IRQ_HANDLED;
 }
@@ -782,7 +793,7 @@ static void jzmmc_data_start(struct jzmmc_host *host, struct mmc_data *data)
 	} else {
 		pio_trans_start(host, data);
 		pio_trans_done(host, data);
-		del_timer(&host->request_timer);
+		del_timer_sync(&host->request_timer);
 		mmc_request_done(host->mmc, host->mrq);
 	}
 }
@@ -820,13 +831,13 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 	if (test_bit(JZMMC_USE_PIO, &host->flags)) {
 		if (wait_cmd_response(host) < 0) {
 			cmd->error = -ETIMEDOUT;
-			del_timer(&host->request_timer);
+			del_timer_sync(&host->request_timer);
 			mmc_request_done(host->mmc, host->mrq);
 			return;
 		}
 		jzmmc_command_done(host, host->cmd);
 		if (!host->data) {
-			del_timer(&host->request_timer);
+			del_timer_sync(&host->request_timer);
 			mmc_request_done(host->mmc, host->mrq);
 		}
 	}
@@ -966,7 +977,7 @@ static void jzmmc_detect_change(unsigned long data)
 					host->data->bytes_xfered = 0;
 					jzmmc_stop_dma(host);
 				}
-				del_timer(&host->request_timer);
+				del_timer_sync(&host->request_timer);
 				mmc_request_done(host->mmc, host->mrq);
 				host->state = STATE_IDLE;
 			}
@@ -1480,7 +1491,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		goto err_clk_get_rate;
 	clk_enable(host->clk);
 
-
+	tasklet_init(&host->tasklet, jzmmc_tasklet, (unsigned long)host);
 	host->irq = irq;
 	host->dev = &pdev->dev;
 	host->index = pdev->id;
