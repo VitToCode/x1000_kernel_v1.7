@@ -47,6 +47,8 @@ enum {
 	ACT8600_OUT6,
 	ACT8600_OUT7,
 	ACT8600_OUT8,
+	ACT8600_VBUS,
+	ACT8600_UCHARGER,
 };
 
 static const int act8600_voltage_map[VSEL_MASK + 1][2] = {
@@ -66,6 +68,31 @@ static const int act8600_voltage_map[VSEL_MASK + 1][2] = {
 	{2800000, 52},	{2900000, 53},	{3000000, 54},	{3100000, 55},
 	{3200000, 56},	{3300000, 57},	{3400000, 58},	{3500000, 59},
 	{3600000, 60},	{3700000, 61},	{3800000, 62},	{3900000, 63},
+};
+
+static struct regulator_consumer_supply ucharger_consumer =
+	REGULATOR_SUPPLY("ucharger", NULL);
+
+static struct regulator_init_data ucharger_init_data = {
+	.constraints = {
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.min_uA			= 400,
+		.max_uA			= 800,
+		.boot_on		= 1,
+	},
+	.num_consumer_supplies  = 1,
+	.consumer_supplies      = &ucharger_consumer,
+};
+
+static struct regulator_consumer_supply vbus_consumer =
+	REGULATOR_SUPPLY("vbus", NULL);
+
+static struct regulator_init_data vbus_init_data = {
+	.constraints = {
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies  = 1,
+	.consumer_supplies      = &vbus_consumer,
 };
 
 static int voltages_to_value(int min_uV, int max_uV, unsigned *selector)
@@ -204,7 +231,7 @@ static int act8600_ldo_disable(struct regulator_dev *rdev)
 	return 0;
 }
 
-static int act8600_otg_is_enabled(struct regulator_dev *rdev)
+static int act8600_sudcdc_is_enabled(struct regulator_dev *rdev)
 {
 	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
 	struct i2c_client *client = act8600_reg->iodev->client;
@@ -217,7 +244,7 @@ static int act8600_otg_is_enabled(struct regulator_dev *rdev)
 	return value & VCON_ON;
 }
 
-static int act8600_otg_enable(struct regulator_dev *rdev)
+static int act8600_sudcdc_enable(struct regulator_dev *rdev)
 {
 	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
 	struct i2c_client *client = act8600_reg->iodev->client;
@@ -225,6 +252,7 @@ static int act8600_otg_enable(struct regulator_dev *rdev)
 	unsigned char value = REG4_VOL_VALUE;
 	unsigned char timeout;
 
+	/* OUT4's output is fixed to 5.3V */
 	act8600_write_reg(client, reg, value);
 
 	reg = REG4_VCON;
@@ -247,8 +275,8 @@ static int act8600_otg_enable(struct regulator_dev *rdev)
 	return -1;
 }
 
-static int act8600_otg_disable(struct regulator_dev *rdev)
-{	
+static int act8600_sudcdc_disable(struct regulator_dev *rdev)
+{
 	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
 	struct i2c_client *client = act8600_reg->iodev->client;
 	unsigned char reg = REG4_VCON;
@@ -261,12 +289,141 @@ static int act8600_otg_disable(struct regulator_dev *rdev)
 	return 0;
 }
 
+static int act8600_vbus_is_enabled(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char value;
+	unsigned char reg = OTG_CON;
+
+	if (act8600_read_reg(client, reg, &value) < 0)
+		return -1;
+
+	return ((value & ONQ1) && !(value & ONQ3));
+}
+
+static int act8600_vbus_enable(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char reg = OTG_CON;
+	unsigned char value = ONQ1;
+	unsigned char timeout;
+
+	act8600_write_reg(client, reg, value);
+
+	for (timeout = 50; timeout >= 0; timeout--) {
+		act8600_read_reg(client, reg, &value);
+
+		if (value & Q1OK)
+			return 0;
+		else
+			dev_warn(act8600_reg->dev,
+				 "not stable, wait for 10 ms\n");
+		msleep(10);
+	}
+	dev_err(act8600_reg->dev, "enable failed!\n");
+
+	return -1;
+}
+
+static int act8600_vbus_disable(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char reg = OTG_CON;
+	unsigned char value = ONQ3;
+
+	act8600_write_reg(client, reg, value);
+
+	return 0;
+}
+
+static int act8600_ucharger_is_enabled(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char reg = APCH_INTR0;
+	unsigned char value;
+
+	if (act8600_read_reg(client, reg, &value) < 0)
+		return -1;
+
+	return !(value & SUSCHG);
+}
+
+static int act8600_ucharger_enable(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char reg = APCH_INTR0;
+	unsigned char value;
+
+	if (act8600_read_reg(client, reg, &value) < 0)
+		return -1;
+
+	act8600_write_reg(client, reg, value & ~SUSCHG);
+
+	return 0;
+}
+
+static int act8600_ucharger_disable(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char reg = APCH_INTR0;
+	unsigned char value;
+
+	if (act8600_read_reg(client, reg, &value) < 0)
+		return -1;
+
+	act8600_write_reg(client, reg, value | SUSCHG);
+
+	return 0;
+}
+
+static int act8600_get_current(struct regulator_dev *rdev)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char value;
+	unsigned char reg = OTG_CON;
+
+	act8600_read_reg(client, reg, &value);
+
+	return (value & DBILIMQ3) ? 800000 : 400000;
+}
+
+static int act8600_set_current(struct regulator_dev *rdev,
+			       int min_uA, int max_uA)
+{
+	struct act8600_reg *act8600_reg = rdev_get_drvdata(rdev);
+	struct i2c_client *client = act8600_reg->iodev->client;
+	unsigned char value;
+	unsigned char reg = OTG_CON;
+
+	act8600_read_reg(client, reg, &value);
+	if (max_uA == 0)
+		return -EINVAL;
+
+	else if (max_uA <= 400000)
+		act8600_write_reg(client, reg, value & ~DBILIMQ3);
+
+	else if (max_uA <= 800000)
+		act8600_write_reg(client, reg, value | DBILIMQ3);
+
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
 static int act8600_list_voltage(struct regulator_dev *rdev,
 				unsigned int selector)
 {
 	if (selector > VSEL_MASK)
 		return -EINVAL;
-	
+
 	return act8600_voltage_map[selector][1];
 }
 
@@ -314,13 +471,29 @@ static struct regulator_ops act8600_ldo_ops = {
 	.set_voltage = act8600_set_voltage,
 };
 
-static struct regulator_ops act8600_otg_ops = {
-	.is_enabled = act8600_otg_is_enabled,
-	.enable = act8600_otg_enable,
-	.disable = act8600_otg_disable,
+/* sudcdc is short for Step-up DC-DC */
+static struct regulator_ops act8600_sudcdc_ops = {
+	.is_enabled = act8600_sudcdc_is_enabled,
+	.enable = act8600_sudcdc_enable,
+	.disable = act8600_sudcdc_disable,
 };
 
-static struct regulator_desc act8600_regulator[] = {
+static struct regulator_ops act8600_vbus_ops = {
+	.is_enabled = act8600_vbus_is_enabled,
+	.enable = act8600_vbus_enable,
+	.disable = act8600_vbus_disable,
+};
+
+/* ucharger is short for USB-Charger */
+static struct regulator_ops act8600_ucharger_ops = {
+	.is_enabled = act8600_ucharger_is_enabled,
+	.enable = act8600_ucharger_enable,
+	.disable = act8600_ucharger_disable,
+	.get_current_limit = act8600_get_current,
+	.set_current_limit = act8600_set_current,
+};
+
+static struct regulator_desc act8600_regulators[] = {
 	{
 		.name = "OUT1",
 		.id = ACT8600_OUT1,
@@ -348,8 +521,7 @@ static struct regulator_desc act8600_regulator[] = {
 	{
 		.name = "OUT4",
 		.id = ACT8600_OUT4,
-		.ops = &act8600_otg_ops,
-		.n_voltages = VSEL_MASK,
+		.ops = &act8600_sudcdc_ops,
 		.type = REGULATOR_VOLTAGE,
 		.owner = THIS_MODULE,
 	},
@@ -385,19 +557,40 @@ static struct regulator_desc act8600_regulator[] = {
 		.type = REGULATOR_VOLTAGE,
 		.owner = THIS_MODULE,
 	},
-
+	{
+		.name = "VBUS",
+		.id = ACT8600_VBUS,
+		.ops = &act8600_vbus_ops,
+		.type = REGULATOR_VOLTAGE,
+		.owner = THIS_MODULE,
+	},
+	{
+		.name = "USB_CHARGER",
+		.id = ACT8600_UCHARGER,
+		.ops = &act8600_ucharger_ops,
+		.type = REGULATOR_CURRENT,
+		.owner = THIS_MODULE,
+	},
 };
 
-struct regulator_desc *find_desc(const char *name)
+static inline struct regulator_desc *find_desc(const char *name)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(act8600_regulator); i++) {
-		if (strcmp(act8600_regulator[i].name, name))
-			return &act8600_regulator[i];
+	for (i = 0; i < ARRAY_SIZE(act8600_regulators); i++) {
+		if (!strcmp(act8600_regulators[i].name, name))
+			return &act8600_regulators[i];
 	}
 
 	return NULL;
+}
+
+static inline int reg_is_vbus(struct regulator_info *reg_info)
+{
+	if (!strcmp(reg_info->name, "VBUS"))
+			return 1;
+
+	return 0;
 }
 
 static __devinit int act8600_regulator_probe(struct platform_device *pdev)
@@ -418,6 +611,9 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	size = sizeof(struct regulator_dev *) * pdata->num_regulators;
+#ifdef CONFIG_CHARGER_ACT8600
+	size++;
+#endif
 	act8600_reg->rdev = kzalloc(size, GFP_KERNEL);
 	if (!act8600_reg->rdev) {
 		kfree(act8600_reg);
@@ -438,9 +634,21 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 			dev_err(pdev->dev.parent,
 				"can't find regulator:%s\n", reg_info->name);
 		} else {
-			rdev[i] = regulator_register(desc, act8600_reg->dev,
-						     reg_info->init_data,
-						     act8600_reg);
+			if (reg_info->init_data) {
+				rdev[i] = regulator_register(desc,
+							     act8600_reg->dev,
+							     reg_info->init_data,
+							     act8600_reg);
+			} else if (reg_is_vbus(reg_info)) {
+				rdev[i] = regulator_register(desc,
+							     act8600_reg->dev,
+							     &vbus_init_data,
+							     act8600_reg);
+			} else {
+				dev_err(act8600_reg->dev,
+					"no init_data available\n");
+			}
+
 			if (IS_ERR(rdev[i])) {
 				ret = PTR_ERR(rdev[i]);
 				dev_err(act8600_reg->dev,
@@ -451,6 +659,18 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_CHARGER_ACT8600
+	rdev[i] = regulator_register(&act8600_regulators[ACT8600_UCHARGER],
+				     act8600_reg->dev, &ucharger_init_data,
+				     act8600_reg);
+	if (IS_ERR(rdev[i])) {
+		ret = PTR_ERR(rdev[i]);
+		dev_err(act8600_reg->dev,
+			"regulator init failed\n");
+		rdev[i] = NULL;
+		goto err;
+	}
+#endif
 	return 0;
 err:
 	for (i = 0; i < pdata->num_regulators; i++)

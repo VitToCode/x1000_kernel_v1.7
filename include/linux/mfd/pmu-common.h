@@ -47,13 +47,14 @@ struct regulator_init_data BOARD##_vcore_init_data = {			\
 	.consumer_supplies      = &BOARD##_vcore_consumer,		\
 }
 
-#define IO_REGULATOR_DEF(BOARD, VOL)					\
-struct regulator_init_data BOARD##_vccio_init_data = {			\
+#define IO_REGULATOR_DEF(REG, NAME, VOL, ALWAYS_ON)			\
+struct regulator_init_data REG##_init_data = {				\
 	.constraints = {						\
-		.name			= "vccio",			\
+		.name			= NAME,				\
 		.min_uV			= VOL,				\
 		.max_uV			= VOL,				\
-		.always_on		= 1,				\
+		.always_on		= ALWAYS_ON,			\
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
 	},								\
 }
 

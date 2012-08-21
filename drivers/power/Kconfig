@@ -43,6 +43,19 @@ config CHARGER_ACT8600
 	  Say Y here to enable support for the battery charger in the
 	  PMU ACT8600.
 
+config CHARGER_HAS_AC
+	bool "AC charger on the board"
+	depends on CHARGER_ACT8600
+	default y
+	help
+	  Say Y here to enable AC charger in the PMU ACT8600.
+config CHARGER_HAS_USB
+	bool "USB charger on the board"
+	depends on CHARGER_ACT8600
+	default y
+	help
+	  Say Y here to enable USB charger in the PMU ACT8600.
+
 config MAX8925_POWER
 	tristate "MAX8925 battery charger support"
 	depends on MFD_MAX8925

@@ -29,7 +29,8 @@ CORE_REGULATOR_DEF(
  * Voltage was inited at bootloader.
  */
 IO_REGULATOR_DEF(
-	warrior,	3300000);
+	warrior_vccio,
+	"vccio",	3300000,	1);
 
 /**
  * Exclusive Regulators.
@@ -59,7 +60,7 @@ FIXD_REGULATOR_DEF(
 
 FIXD_REGULATOR_DEF(
 	warrior_vbus,
-	"otg5v",	5000000,
+	"otg-Vbus",	5000000,
 	GPIO_PE(10),	HIGH_ENABLE,	0,
 	"vcc5v",	"vbus",		"lm0");
 
@@ -89,7 +90,14 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&warrior_vlcd_regulator_device,
 };
 
-static struct regulator_info warrior_regulators[] = {
+/*
+ * Regulators definitions used in PMU.
+ *
+ * If +5V is supplied by PMU, please define "VBUS" here with init_data NULL,
+ * otherwise it should be supplied by a exclusive DC-DC, and you should define
+ * it as a fixed regulator.
+ */
+static struct regulator_info warrior_pmu_regulators[] = {
 	{"OUT1", &warrior_vcore_init_data},
 	{"OUT2", &warrior_vccio_init_data},
 	{"OUT6", &warrior_vwifi_init_data},
@@ -99,8 +107,8 @@ static struct regulator_info warrior_regulators[] = {
 
 static struct pmu_platform_data warrior_pmu_pdata = {
 	.gpio = GPIO_PF(18),
-	.num_regulators = ARRAY_SIZE(warrior_regulators),
-	.regulators = warrior_regulators,
+	.num_regulators = ARRAY_SIZE(warrior_pmu_regulators),
+	.regulators = warrior_pmu_regulators,
 };
 
 #define PMU_I2C_BUSNUM 0
