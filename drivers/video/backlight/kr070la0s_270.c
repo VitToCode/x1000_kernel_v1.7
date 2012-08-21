@@ -1,0 +1,152 @@
+/*
+ *  LCD control code for KR070LA0S_270
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/spi/spi.h>
+#include <linux/i2c.h>
+#include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/lcd.h>
+#include <linux/fb.h>
+#include <linux/regulator/consumer.h>
+#include <linux/kr070la0s_270.h>
+
+#define POWER_IS_ON(pwr)		((pwr) <= FB_BLANK_NORMAL)
+
+struct kr070la0s_270_data {
+	int lcd_power;
+	struct lcd_device *lcd;
+	struct platform_kr070la0s_270_data *pdata;
+	struct regulator *lcd_vcc_reg;
+};
+
+static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
+{
+	regulator_enable(dev->lcd_vcc_reg);
+}
+
+static void kr070la0s_270_off(struct kr070la0s_270_data *dev)
+{
+	regulator_disable(dev->lcd_vcc_reg);
+}
+
+
+static int kr070la0s_270_set_power(struct lcd_device *lcd, int power)
+{
+	struct kr070la0s_270_data *dev= lcd_get_data(lcd);
+
+	if (POWER_IS_ON(power) && !POWER_IS_ON(dev->lcd_power))
+		kr070la0s_270_on(dev);
+
+	if (!POWER_IS_ON(power) && POWER_IS_ON(dev->lcd_power))
+		kr070la0s_270_off(dev);
+
+	dev->lcd_power = power;
+	return 0;
+}
+
+static int kr070la0s_270_get_power(struct lcd_device *lcd)
+{
+	struct kr070la0s_270_data *dev= lcd_get_data(lcd);
+
+	return dev->lcd_power;
+}
+
+static int kr070la0s_270_set_mode(struct lcd_device *lcd,
+				  struct fb_videomode *mode)
+{
+	return 0;
+}
+
+static struct lcd_ops kr070la0s_270_ops = {
+	.set_power = kr070la0s_270_set_power,
+	.get_power = kr070la0s_270_get_power,
+	.set_mode = kr070la0s_270_set_mode,
+};
+
+static int kr070la0s_270_probe(struct platform_device *pdev)
+{
+	struct kr070la0s_270_data *dev;
+
+	dev = kzalloc(sizeof(struct kr070la0s_270_data), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->pdata = pdev->dev.platform_data;
+
+	dev_set_drvdata(&pdev->dev, dev);
+	dev->lcd_vcc_reg = regulator_get(&pdev->dev, "vlcd");
+	if (IS_ERR(dev->lcd_vcc_reg)) {
+		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
+		return PTR_ERR(dev->lcd_vcc_reg);
+	}
+
+	kr070la0s_270_on(dev);
+
+	dev->lcd = lcd_device_register("kr070la0s_270-lcd", &pdev->dev,
+				       dev, &kr070la0s_270_ops);
+
+	return 0;
+}
+
+static int kr070la0s_270_remove(struct platform_device *pdev)
+{
+	struct kr070la0s_270_data *dev = platform_get_drvdata(pdev);
+
+	regulator_put(dev->lcd_vcc_reg);
+	lcd_device_unregister(dev->lcd);
+	kzfree(dev);
+
+	return 0;
+}
+
+#ifdef CONFIG_PM
+static int kr070la0s_270_suspend(struct platform_device *pdev,
+		pm_message_t state)
+{
+	return 0;
+}
+
+static int kr070la0s_270_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+#else
+#define kr070la0s_270_suspend	NULL
+#define kr070la0s_270_resume	NULL
+#endif
+
+static struct platform_driver kr070la0s_270_driver = {
+	.driver		= {
+		.name	= "kr070la0s_270-lcd",
+		.owner	= THIS_MODULE,
+	},
+	.probe		= kr070la0s_270_probe,
+	.remove		= kr070la0s_270_remove,
+	.suspend	= kr070la0s_270_suspend,
+	.resume		= kr070la0s_270_resume,
+};
+
+static int __init kr070la0s_270_init(void)
+{
+	return platform_driver_register(&kr070la0s_270_driver);
+}
+module_init(kr070la0s_270_init);
+
+static void __exit kr070la0s_270_exit(void)
+{
+	platform_driver_unregister(&kr070la0s_270_driver);
+}
+module_exit(kr070la0s_270_exit);
+
+MODULE_DESCRIPTION("KR070LA0S_270 lcd panel driver");
+MODULE_LICENSE("GPL");

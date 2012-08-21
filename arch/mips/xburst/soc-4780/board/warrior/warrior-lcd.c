@@ -2,7 +2,7 @@
  * Copyright (c) 2012 Engenic Semiconductor Co., Ltd.
  *              http://www.ingenic.com/
  *
- * JZ4780 test board lcd setup routines.
+ * JZ4780 warrior board lcd setup routines.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,82 +16,32 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/pwm_backlight.h>
-#include <linux/at070tn93.h>
+#include <linux/kr070la0s_270.h>
 
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-#ifdef CONFIG_LCD_AT070TN93
-#define GPIO_LCD_PWM GPIO_PE(0)
-
-static struct platform_at070tn93_data at070tn93_pdata= {
-	.gpio_power = GPIO_PC(17),
-	.gpio_vsync = GPIO_PC(19),
-	.gpio_hsync = GPIO_PC(18),
-	.gpio_reset = GPIO_PE(11),
+static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
+	//.gpio_lr = ,
+	//.gpio_ud = ,
 };
 
-struct platform_device at070tn93_device = {
-	.name		= "at070tn93-lcd",
+/* LCD Panel Device */
+struct platform_device kr070la0s_270_device = {
+	.name		= "kr070la0s_270-lcd",
 	.dev		= {
-		.platform_data	= &at070tn93_pdata,
+		.platform_data	= &kr070la0s_270_pdata,
 	},
 };
 
-#endif
-
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-struct platform_device auo_a043fl01v2_device = {
-	.name		= "auo_a043fl01v2-lcd",
-	.dev		= {
-		.platform_data	= NULL,
-	},
-};
-#endif
-
-/**************************************************************************************************/
-struct fb_videomode jzfb0_videomode[] = {
+/* LCD Controller 0 output to HDMI */
+static struct fb_videomode jzfb0_videomode[] = {
 	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
 	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_4X3),
 	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_16X9),
 	ADD_HDMI_VIDEO_MODE(HDMI_1280X720_P_60HZ_16X9),
 	ADD_HDMI_VIDEO_MODE(HDMI_1920X1080_I_60HZ_16X9),
-};
-
-struct fb_videomode jzfb1_videomode = {
-#ifdef CONFIG_LCD_AT070TN93
-	.name = "800x480",
-	.refresh = 55,
-	.xres = 800,
-	.yres = 480,
-	.pixclock = KHZ2PICOS(25863),
-	.left_margin = 16,
-	.right_margin = 48,
-	.upper_margin = 7,
-	.lower_margin = 23,
-	.hsync_len = 30,
-	.vsync_len = 16,
-	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-#endif
-
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-	.name = "480x272",
-	.refresh = 60,
-	.xres = 480,
-	.yres = 272,
-	.pixclock = KHZ2PICOS(9200),
-	.left_margin = 4,
-	.right_margin = 8,
-	.upper_margin = 2,
-	.lower_margin = 4,
-	.hsync_len = 41,
-	.vsync_len = 10,
-	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-#endif
+	/* add other mode later */
 };
 
 struct jzfb_platform_data jzfb0_pdata = {
@@ -109,75 +59,92 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.alloc_vidmem = 0,
 };
 
+/* LCD Controller 1 output to LVDS TFT panel */
+static struct fb_videomode jzfb1_videomode = {
+	.name = "1024x600",
+	.refresh = 60,
+	.xres = 1024,
+	.yres = 600,
+	.pixclock = KHZ2PICOS(51200),
+	.left_margin = 320,
+	.right_margin = 0,
+	.upper_margin = 35,
+	.lower_margin = 0,
+	.hsync_len = 0,
+	.vsync_len = 0,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
+};
+
 struct jzfb_platform_data jzfb1_pdata = {
-#ifdef CONFIG_LCD_AT070TN93
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,
-	.height = 86,
+	.height = 90,
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 1,
-#endif
 
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-	.num_modes = 1,
-	.modes = &jzfb1_videomode,
+	.lvds = 1,
+	.txctrl.data_format = VESA,
+	.txctrl.clk_edge_falling_7x = 0,
+	.txctrl.clk_edge_falling_1x = 1,
+	.txctrl.data_start_edge = START_EDGE_1,
+	.txctrl.operate_mode = LVDS_1X_CLKOUT,
+	.txctrl.edge_delay = DELAY_1_5NS,
+	.txctrl.output_amplitude = VOD_350MV,
 
-	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.bpp = 24,
-	.width = 95,
-	.height = 54,
+	.txpll0.ssc_enable = 0,
+	.txpll0.ssc_mode_center_spread = 0,
+	.txpll0.post_divider = POST_DIV_1,
+	.txpll0.feedback_divider = 42,
+	.txpll0.input_divider = 6,
 
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
+	.txpll1.charge_pump = CHARGE_PUMP_10UA,
+	.txpll1.vco_gain = VCO_GAIN_150M_400M,
+	.txpll1.vco_biasing_current = VCO_BIASING_2_5UA,
+	.txpll1.sscn = 0,
+	.txpll1.ssc_counter = 0,
 
-	.alloc_vidmem = 1,
-#endif
+	.txectrl.emphasis_level = 2,
+	.txectrl.emphasis_enable = 1,
+	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_2V,
+	.txectrl.fine_tuning_7x_clk = 3,
+	.txectrl.coarse_tuning_7x_clk = 2,
+
+	.dither_enable = 0,
 };
 
-/**************************************************************************************************/
-
 #ifdef CONFIG_BACKLIGHT_PWM
-static int test_backlight_init(struct device *dev)
+static int warrior_backlight_init(struct device *dev)
 {
-	int ret;
-
-	ret = gpio_request(GPIO_LCD_PWM, "Backlight");
-	if (ret) {
-		printk(KERN_ERR "failed to request GPF for PWM-OUT1\n");
-		return ret;
-	}
-
-	/* Configure GPIO pin with S5P6450_GPF15_PWM_TOUT1 */
-	gpio_direction_output(GPIO_LCD_PWM, 0);
-
 	return 0;
 }
 
-static void test_backlight_exit(struct device *dev)
+static void warrior_backlight_exit(struct device *dev)
 {
-	gpio_free(GPIO_LCD_PWM);
 }
 
-static struct platform_pwm_backlight_data test_backlight_data = {
-	.pwm_id		= 1,
+static struct platform_pwm_backlight_data warrior_backlight_data = {
+	.pwm_id		= 0,
 	.max_brightness	= 255,
-	.dft_brightness	= 120,
+	.dft_brightness	= 80,
 	.pwm_period_ns	= 30000,
-	.init		= test_backlight_init,
-	.exit		= test_backlight_exit,
+	.init		= warrior_backlight_init,
+	.exit		= warrior_backlight_exit,
 };
 
-struct platform_device test_backlight_device = {
+/* Backlight Device */
+struct platform_device warrior_backlight_device = {
 	.name		= "pwm-backlight",
 	.dev		= {
-		.platform_data	= &test_backlight_data,
+		.platform_data	= &warrior_backlight_data,
 	},
 };
 

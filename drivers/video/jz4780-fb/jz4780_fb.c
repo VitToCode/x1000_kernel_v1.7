@@ -1,4 +1,4 @@
-/* 
+/*
  * kernel/drivers/video/jz4780/jz4780_fb.c
  *
  * Copyright (c) 2012 Ingenic Semiconductor Co., Ltd.
@@ -638,8 +638,6 @@ static void jzfb_enable(struct fb_info *info)
 		return;
 	}
 
-	clk_enable(jzfb->ldclk);
-
 	reg_write(jzfb, LCDC_STATE, 0);
 
 	reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
@@ -674,7 +672,6 @@ static void jzfb_disable(struct fb_info *info)
 		dev_err(jzfb->dev, "LCDC normal disable state wrong");
 	}
 
-	clk_disable(jzfb->ldclk);
 	jzfb->is_enabled = 0;
 	mutex_unlock(&jzfb->lock);
 }
@@ -695,7 +692,6 @@ static int jzfb_set_par(struct fb_info *info)
 	unsigned long rate;
 
 	is_enabled = jzfb->is_enabled;
-
 	if(is_enabled)
 		jzfb_disable(info);
 
@@ -771,9 +767,6 @@ static int jzfb_set_par(struct fb_info *info)
 	}
 
 	mutex_lock(&jzfb->lock);
-	if (!jzfb->is_enabled) {
-		clk_enable(jzfb->ldclk);
-	}
 #ifndef CONFIG_FPGA_TEST
 	switch (pdata->lcd_type) {
 	case LCD_TYPE_SPECIAL_TFT_1:
@@ -822,7 +815,9 @@ static int jzfb_set_par(struct fb_info *info)
 
 	jzfb_prepare_dma_desc(info);
 
+	clk_disable(jzfb->lpclk);
 	clk_set_rate(jzfb->lpclk, rate);
+	clk_enable(jzfb->lpclk);
 	//clk_set_rate(jzfb->ldclk, rate * 3);
 
 	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
@@ -836,9 +831,6 @@ static int jzfb_set_par(struct fb_info *info)
 
 	/* if dither_en is 1, then set it */
 	jzfb_config_image_enh(info);
-
-	if (!jzfb->is_enabled)
-		clk_disable(jzfb->ldclk);
 
 	mutex_unlock(&jzfb->lock);
 
@@ -945,17 +937,14 @@ static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 	int desc_num;
 	uint32_t cfg;
 	struct jzfb *jzfb = info->par;
-	struct jzfb_framedesc *framedesc[jzfb->desc_num];
+	struct jzfb_framedesc *framedesc;
 
 	if (!fg_alpha->fg) {
 		desc_num = jzfb->desc_num -1;
-		for (i = 0; i < desc_num; i++) {
-			framedesc[i] = jzfb->framedesc[0] + sizeof(
-				struct jzfb_framedesc) * i;
-		}
+		framedesc = jzfb->framedesc[0];
 	} else {
 		desc_num = 1;
-		framedesc[0] = jzfb->fg1_framedesc;
+		framedesc = jzfb->fg1_framedesc;
 	}
 
 	cfg = reg_read(jzfb, LCDC_OSDC);
@@ -963,13 +952,13 @@ static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 		cfg |= LCDC_OSDC_ALPHAEN;
 		for ( i = 0; i < desc_num; i++) {
 			if (!fg_alpha->mode) {
-				framedesc[i]->cpos &= ~LCDC_CPOS_ALPHAMD1;
+				(framedesc + i)->cpos &= ~LCDC_CPOS_ALPHAMD1;
 			} else {
-				framedesc[i]->cpos |= LCDC_CPOS_ALPHAMD1;
+				(framedesc + i)->cpos |= LCDC_CPOS_ALPHAMD1;
 			}
-			framedesc[i]->desc_size |= (fg_alpha->value <<
-						    LCDC_DESSIZE_ALPHA_BIT
-						    & LCDC_DESSIZE_ALPHA_MASK);
+			(framedesc + i)->desc_size |= (fg_alpha->value <<
+						       LCDC_DESSIZE_ALPHA_BIT
+						       & LCDC_DESSIZE_ALPHA_MASK);
 		}
 	} else {
 		cfg &= ~LCDC_OSDC_ALPHAEN;
@@ -1038,7 +1027,7 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 	int i;
 	int desc_num;
 	struct jzfb *jzfb = info->par;
-	struct jzfb_framedesc *framedesc[jzfb->desc_num];
+	struct jzfb_framedesc *framedesc;
 	struct fb_videomode *mode = info->mode;
 
 	/*
@@ -1058,19 +1047,16 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 
 	if (!fg_pos->fg) {
 		desc_num = jzfb->desc_num -1;
-		for ( i = 0; i < desc_num; i++) {
-			framedesc[i] = jzfb->framedesc[0] + sizeof(
-				struct jzfb_framedesc) * i;
-		}
+		framedesc = jzfb->framedesc[0];
 	} else {
-		framedesc[0] = jzfb->fg1_framedesc;
 		desc_num = 1;
+		framedesc = jzfb->fg1_framedesc;
 	}
 
 	for ( i = 0; i < desc_num; i++) {
-		framedesc[i]->cpos |= (((fg_pos->y << LCDC_CPOS_YPOS_BIT) &
-					LCDC_CPOS_YPOS_MASK) |
-				       (fg_pos->x & LCDC_CPOS_XPOS_MASK));
+		(framedesc + i)->cpos |= (((fg_pos->y << LCDC_CPOS_YPOS_BIT) &
+					   LCDC_CPOS_YPOS_MASK) |
+					  (fg_pos->x & LCDC_CPOS_XPOS_MASK));
 	}
 
 	return 0;
@@ -1302,6 +1288,17 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		} else {
 			tmp &= ~LCDC_CTRL_OUTPUT_IPU02BUF;
 			outl(tmp, LCDC_CTRL_OUTPUT);
+		}
+		break;
+	case JZFB_ENABLE_FG0:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		for ( i = 0; i < jzfb->desc_num - 1; i++) {
+			if (value) {
+				jzfb->framedesc[i]->cmd |= LCDC_CMD_FRM_EN;
+			} else {
+				jzfb->framedesc[i]->cmd &= ~LCDC_CMD_FRM_EN;
+			}
 		}
 		break;
 	case JZFB_ENABLE_FG1:
@@ -1645,6 +1642,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
+	clk_enable(jzfb->ldclk);
 
 	jzfb->lpclk = clk_get(&pdev->dev, jzfb->pclk_name);
 	if (IS_ERR(jzfb->lpclk)) {

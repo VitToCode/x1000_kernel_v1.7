@@ -173,21 +173,24 @@ struct jzfb_color_key {
 #define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
 #define JZFB_SET_MODE			_IOW('F', 0x103, char *)
 #define JZFB_ENABLE			_IOW('F', 0x104, int)
-
-#define JZFB_SET_FG_SIZE		_IOW('F', 0x105, struct jzfb_fg_size)
-#define JZFB_GET_FG_SIZE		_IOWR('F', 0x106, struct jzfb_fg_size)
-#define JZFB_SET_FG_POS			_IOW('F', 0x107, struct jzfb_fg_pos)
-#define JZFB_GET_FG_POS			_IOWR('F', 0x108, struct jzfb_fg_pos)
-#define JZFB_SET_ALPHA			_IOW('F', 0x109, struct jzfb_fg_alpha)
-
+/* Reserved for future extend */
 #define JZFB_SET_VSYNCINT		_IOW('F', 0x110, int)
+/* Reserved for future extend */
+#define JZFB_SET_FG_SIZE		_IOW('F', 0x116, struct jzfb_fg_size)
+#define JZFB_GET_FG_SIZE		_IOWR('F', 0x117, struct jzfb_fg_size)
+#define JZFB_SET_FG_POS			_IOW('F', 0x118, struct jzfb_fg_pos)
+#define JZFB_GET_FG_POS			_IOWR('F', 0x119, struct jzfb_fg_pos)
+/* Reserved for future extend */
+#define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
+#define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)
+#define JZFB_SET_COLORKEY		_IOW('F', 0x125, struct jzfb_color_key)
+#define JZFB_COMPRESS_EN		_IOW('F', 0x126, int)
+#define JZFB_16X16_BLOCK_EN		_IOW('F', 0x127, int)
+#define JZFB_IPU0_TO_BUF		_IOW('F', 0x128, int)
+/* Reserved for future extend */
+#define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)
+#define JZFB_ENABLE_FG1			_IOW('F', 0x140, int)
 
-#define JZFB_SET_BACKGROUND		_IOW('F', 0x111, struct jzfb_bg)
-#define JZFB_SET_COLORKEY		_IOW('F', 0x112, struct jzfb_color_key)
-#define JZFB_COMPRESS_EN		_IOW('F', 0x113, int)
-#define JZFB_16X16_BLOCK_EN		_IOW('F', 0x114, int)
-#define JZFB_IPU0_TO_BUF		_IOW('F', 0x115, int)
-#define JZFB_ENABLE_FG1			_IOW('F', 0x116, int)
 
 extern int jzfb_config_image_enh(struct fb_info *info);
 extern int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,

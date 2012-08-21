@@ -157,11 +157,11 @@ static int __init warrior_board_init(void)
 	platform_device_register(&warrior_backlight_device);
 #endif
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ4780_LCDC0
-	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
-#endif
 #ifdef CONFIG_FB_JZ4780_LCDC1
 	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
+#ifdef CONFIG_FB_JZ4780_LCDC0
+	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
