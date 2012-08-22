@@ -23,10 +23,13 @@
 #include "nandmanagerinterface.h"
 #include "bufflistmanager.h"
 
-#define DEBUG
+/* debug switchs */
+//#define DEBUG_FUNC
+//#define DEBUG_SYS
+//#define DEBUG_REQ
+//#define DEBUG_STLIST
 
 #define BLOCK_NAME 		"nand_block"
-#define MAX_SEG_CNT 	64
 #define MAX_MINORS		255
 #define DISK_MINORS		16
 
@@ -67,28 +70,28 @@ static struct __nand_block nand_block;
 /*#################################################################*\
  *# dump
 \*#################################################################*/
-#define DBG_FUNC()	//printk("##### nand block debug #####: func = %s \n", __func__)
+#ifdef DEBUG_FUNC
+#define DBG_FUNC() printk("##### nand block debug #####: func = %s \n", __func__)
+#else
+#define DBG_FUNC()
+#endif
 
-#ifdef DEBUG
+#ifdef DEBUG_SYS
 struct driver_attribute drv_attr;
-static void nand_disk_start(int data);
 static ssize_t dbg_show(struct device_driver *driver, char *buf)
 {
-	DBG_FUNC();
-
+	printk("%s", __func__);
 	return 0;
 }
 
 static ssize_t dbg_store(struct device_driver *driver, const char *buf, size_t count)
 {
-	DBG_FUNC();
-
-	nand_disk_start(0);
-
+	printk("%s", __func__);
 	return count;
 }
 #endif
 
+#ifdef DEBUG_STLIST
 static inline void dump_sectorlist(SectorList *top)
 {
 	struct singlelist *plist = NULL;
@@ -102,6 +105,7 @@ static inline void dump_sectorlist(SectorList *top)
 		}
 	}
 }
+#endif
 
 /*#################################################################*\
  *# request
@@ -226,10 +230,11 @@ static int handle_req_thread(void *data)
 		set_current_state(TASK_RUNNING);
 
 	    while(req) {
+#ifdef DEBUG_REQ
 			printk("%s: req = %p, start sector = %d, total = %d, buffer = %p\n",
 				   (rq_data_dir(req) == READ)? "READ":"WRITE",
 				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
-
+#endif
 			/* make SectorList from request */
 			ndisk->sl = NULL;
 			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context, ndisk->sectorsize);
@@ -238,9 +243,9 @@ static int handle_req_thread(void *data)
 					   ndisk->sl_len, ndisk->sl);
 				break;
 			}
-
-			//dump_sectorlist(ndisk->sl);
-
+#ifdef DEBUG_STLIST
+			dump_sectorlist(ndisk->sl);
+#endif
 			/* nandmanager read || write */
 			if (rq_data_dir(req) == READ)
 				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
@@ -428,7 +433,7 @@ static int nand_block_probe(struct device *dev)
 		return -EFAULT;
 	}
 
-	ndisk = kzalloc(sizeof(struct __nand_disk), GFP_KERNEL);
+	ndisk = vzalloc(sizeof(struct __nand_disk));
 	if (!ndisk) {
 		printk("ERROR(nand block): alloc memory for ndisk error!\n");
 		goto probe_err0;
@@ -517,7 +522,7 @@ probe_err3:
 probe_err2:
 	put_disk(ndisk->disk);
 probe_err1:
-	kfree(ndisk);
+	vfree(ndisk);
 probe_err0:
 	return ret;
 }
@@ -533,7 +538,7 @@ static int nand_block_remove(struct device *dev)
 		del_gendisk(ndisk->disk);
 		blk_cleanup_queue(ndisk->queue);
 		put_disk(ndisk->disk);
-		kfree(dev);
+		vfree(dev);
 	}
 
 	return 0;
@@ -551,6 +556,8 @@ static void nand_block_shutdown(struct device *dev)
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
+
+		down(&ndisk->thread_sem);
 	}
 }
 
@@ -635,13 +642,13 @@ static void nand_disk_start(int data)
 		}
 
 		/* init dev */
-		dev = kzalloc(sizeof(struct device), GFP_KERNEL);
+		dev = vzalloc(sizeof(struct device));
 		if (!dev) {
 			printk("can not alloc memory for device!\n");
 			goto start_err0;
 		}
 
-		pinfo = kzalloc(sizeof(struct __partition_info), GFP_KERNEL);
+		pinfo = vzalloc(sizeof(struct __partition_info));
 		if (!pinfo) {
 			printk("can not alloc memory for pinfo!\n");
 			goto start_err1;
@@ -667,9 +674,9 @@ static void nand_disk_start(int data)
 	return;
 
 start_err2:
-	kfree(pinfo);
+	vfree(pinfo);
 start_err1:
-	kfree(dev);
+	vfree(dev);
 start_err0:
 	NandManger_close(context);
 	return;
@@ -703,7 +710,7 @@ static int __init nand_block_init(void)
 		goto out_driver;
 	}
 
-#ifdef DEBUG
+#ifdef DEBUG_SYS
 	drv_attr.show = dbg_show;
 	drv_attr.store = dbg_store;
 	sysfs_attr_init(&drv_attr.attr);
