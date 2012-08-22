@@ -456,7 +456,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	}	
 	dma_cache_wback((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
 
-	__x2d_enable_wthdog();
+	//__x2d_enable_wthdog();
 	__x2d_enable_irq();
 	__x2d_start_trig();
 
@@ -524,12 +524,13 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 	struct x2d_device *jz_x2d = (struct x2d_device *)dev_id;
 	unsigned long int status_reg = 0;
 	status_reg = reg_read(jz_x2d,REG_X2D_GLB_STATUS);
-	if(status_reg | X2D_WTDOG_ERR)
+	printk("fuchao ----------x2d irq state %08x\n",status_reg);
+	if(status_reg & X2D_WTDOG_ERR)
 	{
 		dev_info(jz_x2d->dev,"Error:x2d watch dog time out!!!!");
 		jz_x2d->errcode = error_wthdog;
 	}
-	else if(!(status_reg | X2D_BUSY))
+	else if(!(status_reg & X2D_BUSY))
 	{
 		jz_x2d->errcode = error_none;
 	}
@@ -740,6 +741,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 
 	//clk_disable(jz_x2d->x2d_clk );  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
+	 printk("Virtual Driver of JZ X2D registered\n");
 	return 0;
 
 err_exit:
