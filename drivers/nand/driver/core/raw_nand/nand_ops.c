@@ -394,6 +394,7 @@ int nand_erase_2p_block(NAND_BASE *host,unsigned int block)
         send_erase_2p_block2(page);
         ret =send_read_status(&status);
 
+        printk(" nand erase two block: status =%d ; ret =%d \n",status,ret);
         do_deselect_chip(host);
         if(ret)
                 return ret;

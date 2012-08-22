@@ -20,7 +20,7 @@ OBJS := $(obj)/src/start.o		\
 FIRMWARE_BIN := $(obj)/firmware.bin
 
 firmware_hex: $(FIRMWARE_BIN) FORCE
-	@hexdump -v -e '"0x" 4/1 "%02x" "," "\n"' $< > $(obj)/../firmware.hex
+	@hexdump -v -e '"0x" 1/4 "%08x" "," "\n"' $< > $(obj)/../firmware.hex
 
 $(FIRMWARE_BIN):$(obj)/firmware.o
 	@$(LD) -nostdlib -EL -T $(obj)/target.ld $(OBJS) -o $(obj)/tmp.elf

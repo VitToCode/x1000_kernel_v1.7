@@ -157,7 +157,7 @@ static inline struct jzdma_channel *to_jzdma_chan(struct dma_chan *chan)
 static inline unsigned get_max_tsz(unsigned long val, unsigned long *dcmp)
 {
 	/* tsz for 1,2,4,8,16,32,64 bytes */
-	const static char dcm_tsz[7] = { 1,2,0,0,3,4,5 };
+	const static char dcm_tsz[7] = { 1,2,0,0,3,4,5};
 	int ord;
 
 	ord = ffs(val) - 1;
@@ -257,11 +257,11 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 		mem = sg_dma_address(sg);
 
 		if (direction == DMA_TO_DEVICE) {
-			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
+                        tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
 			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz, dmac->type);
 		} else {
-			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->src_maxburst, &dcm);
+                        tsz = get_max_tsz(mem | sg_dma_len(sg) | config->src_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
 			build_one_desc(dmac, config->src_addr, mem, dcm, tsz, dmac->type+1);
 		}
@@ -372,7 +372,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, 
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	unsigned long tsz,dcm = 0;
 
-	if (dmac->status != STAT_STOPED)
+	if (!(dmac->status == STAT_STOPED || dmac->status == STAT_PREPED))
 		return NULL;
 
 	tsz = get_max_tsz(dma_dest | dma_src | len, &dcm);
@@ -548,6 +548,12 @@ static void jzdma_chan_tasklet(unsigned long data)
 static void pdmam_chan_tasklet(unsigned long data)
 {
 	struct jzdma_channel *dmac = (struct jzdma_channel *)data;
+        spin_lock(&dmac->lock);
+        dmac->status = STAT_STOPED;
+        dmac->last_good = dmac->tx_desc.cookie;
+        dmac->last_completed = dmac->tx_desc.cookie;
+        dmac->desc_nr = 0;
+        spin_unlock(&dmac->lock);
 	if (dmac->tx_desc.callback)
 		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
 }
@@ -576,6 +582,7 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem+CH_DCS);
 
+        dump_dma_desc(dmac);
 	dump_dma(dmac->master);
 }
 
@@ -695,31 +702,45 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 {
 	struct jzdma_master *master = (struct jzdma_master *)dev;
 	unsigned long pending, mailbox = 0;
-	int i;
+        struct jzdma_channel *dmac = master->channel + 3;
+	int tmp;
+        spin_lock(&dmac->lock);
 
 	pending = readl(master->iomem + DMINT);
 
-	if(pending & DMINT_N_IP) {
+	if (pending & DMINT_N_IP) 
 		mailbox = readl(master->iomem + DMNMB);
-	} else if(pending & DMINT_S_IP) {
+#if 1
+        else
+                return IRQ_HANDLED;
+#else
+        else if(pending & DMINT_S_IP)
 		mailbox = readl(master->iomem + DMSMB);
-	}
-
-	for (i = 0; i < NR_DMA_CHANNELS; i++) {
-		struct jzdma_channel *dmac = master->channel + i;
-
-		if (!(mailbox & (1<<i)))
-			continue;
-
-		tasklet_schedule(&dmac->tasklet);
-	}
-
-	if(pending & DMINT_N_IP) {
-		writel(0, master->iomem + DMNMB);
+#endif	
+        spin_unlock(&dmac->lock);
+        *(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
+        tasklet_schedule(&dmac->tasklet);
+#if 1
+        tmp = readl(master->iomem + DMINT);
+        tmp &= ~DMINT_N_IP;
+        writel(tmp, master->iomem + DMINT);
+#else
+        if(pending & DMINT_N_IP) {
+                tmp = readl(master->iomem + DMINT);
+                tmp &= ~DMINT_N_IP;
+                writel(tmp, master->iomem + DMINT);
 	} else if(pending & DMINT_S_IP) {
-		writel(0, master->iomem + DMSMB);
+                tmp = readl(master->iomem + DMINT);
+                tmp &= ~DMINT_S_IP;
+                writel(tmp, master->iomem + DMINT);
 	}
-
+#endif
+	dev_dbg(master->dev, "go into mcu irq function. DMNMB = 0x%08x \n",
+                        readl(master->iomem+DMNMB));
+        for (tmp = 0; tmp<11; tmp++){
+                dev_dbg(master->dev, "\n%04d:",tmp);
+        	dev_dbg(master->dev, "%08x ",*(unsigned int *)(0xB34247c0+tmp*4));
+        }
 	return IRQ_HANDLED;
 }
 
@@ -810,6 +831,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	struct resource *iores;
 	short irq, irq_pdmam,irq_mcu;        /* irq_pdmam for PDMAM irq */
 	int i,ret = 0;
+        unsigned int pdma_program = 0;  /* set pdma DMACP register */
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
@@ -894,17 +916,19 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 		if(dma->map)
 			dmac->type = GET_MAP_TYPE(dma->map[i]);
-		if(dmac->type == JZDMA_REQ_INVAL)
+		if(dmac->type == JZDMA_REQ_INVAL) {
 			dmac->type = JZDMA_REQ_AUTO;
-
-		dmac->chan.private = (void *)dmac->type;
+        		dmac->chan.private = (void *)dmac->type;
+                } else
+                        dmac->chan.private = (void *)dma->map[i];
 
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-		if(dma->map[i] & MAP_TO_MCU) 
+		if(dma->map[i] & (TYPE_MASK << 16)) { 
 			tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
 					(unsigned long)dmac);
-		else
+                        pdma_program |= (1 << i);
+                } else
 			tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
 					(unsigned long)dmac);
 
@@ -916,6 +940,8 @@ static int __init jzdma_probe(struct platform_device *pdev)
 				&dma->dma_device.channels);
 		dev_dbg(&pdev->dev,"add chan (phy id %d , type 0x%02x)\n",i,dmac->type);
 	}
+        /* the corresponding dma channel is set programmable */
+        writel(pdma_program, dma->iomem + DMACP);
 
 	dma->dev = &pdev->dev;
 	dma->dma_device.dev = &pdev->dev;

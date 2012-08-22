@@ -197,8 +197,15 @@
 
 #ifndef __MIPS_ASSEMBLER
 
+#if 0
 #define __pn_enable()           (REG_NEMC_PNCR = NEMC_PNCR_PNRST | NEMC_PNCR_PNEN)
 #define __pn_disable()          (REG_NEMC_PNCR = 0x0)
+
+#else
+#define __pn_enable()           {}
+#define __pn_disable()          {}
+
+#endif
 
 #ifdef __BOOT_ROM__
 #define __nand_enable()		(REG_NEMC_NFCSR = NEMC_NFCSR_NFE1 | NEMC_NFCSR_NFCE1)

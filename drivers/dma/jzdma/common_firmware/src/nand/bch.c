@@ -9,9 +9,6 @@
 
 //#define BCH_DEBUG
 
-#define UNCOR_ECC	0xFFFF
-#define ALL_FF          -6
-
 static inline void bch_encode_enable(int ecclevel, int eccsize, int parsize)
 {
 	__bch_cnt_set(eccsize, parsize);
@@ -111,14 +108,16 @@ static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
 
 	/* get BCH Status */
 	stat = REG_BCH_INTS;
-        
+
         if (stat & BCH_INTS_ALLf) {
                 *report = ALL_FF; /* ECC ALL 'FF' */
         }else if (stat & BCH_INTS_UNCOR) {
 		*report = UNCOR_ECC; /* Uncorrectable ECC Error*/
 	} else if (stat & BCH_INTS_ERR) {
+		err_cnt = (stat & BCH_INTS_TERRC_MASK) >> BCH_INTS_TERRC_BIT;
+                if(err_cnt >= nand->ecclevel - 1)
+        		*report = MOVE_BLOCK; /* Move Block*/
 		err_cnt = (stat & BCH_INTS_ERRC_MASK) >> BCH_INTS_ERRC_BIT;
-		*report = err_cnt;
 
 		if (err_cnt) {
 			/* read BCH Error Report use Special CH0 */
@@ -146,7 +145,7 @@ static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
 void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf)
 {
 	unsigned int *err_buf = (unsigned int *)(pipe_buf->pipe_par);
-	int report;
+	int report = 0;
 
 	__mbch_decode_sync();
 	__bch_disable();
@@ -154,5 +153,5 @@ void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_b
 	bch_correct_handle(nand, pipe_buf->pipe_data, err_buf, &report);
 	__bch_decints_clear();
         
-        nand->report = report;
+        nand->report |= report;
 }

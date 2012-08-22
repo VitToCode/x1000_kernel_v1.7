@@ -14,6 +14,9 @@
 #define TCSM_BANK7	0xF4003800
 
 #define NULL		0
+#define UNCOR_ECC	(0x01<<0)
+#define ALL_FF          (0x01<<1)
+#define MOVE_BLOCK      (0x01<<2) 
 #define ALIGN_ADDR_WORD(addr)	(void *)((((unsigned int)(addr) >> 2) + 1) << 2)
 
 typedef		char s8;

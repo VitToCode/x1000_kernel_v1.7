@@ -10,9 +10,8 @@
 
 #ifndef __NAND_CHIP_H__
 #define __NAND_CHIP_H__
-
 #define MAX_NANDADDR_CYCLE	5
-
+#include "nand_api.h"
 /* NAND */
 #define NAND_MAX_OOBSIZE	(4 * (640 + 512))
 #define NAND_MAX_PAGESIZE	(4 * 8192)
@@ -132,12 +131,13 @@ struct nand_api {
         JZ_NAND_CHIP *nand_chip;
 
         void * pdev;   // nand platform_device 
-       // struct jznand_dma  *nand_dma;
+        struct jznand_dma  *nand_dma;
         NAND_BASE * vnand_base; //virtual nand base
         NAND_BASE * pnand_base; // physical nand base
 };
 
 typedef struct nand_api NAND_API;
+
 /* NAND Init */
 int nand_chip_init(NAND_BASE *host,NAND_API *nand_api);
 
