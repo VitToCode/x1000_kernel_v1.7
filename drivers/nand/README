@@ -7,5 +7,5 @@ the steps to compile these source files
 1. first, you need to download the source files of NandManager,
    if you already have the source, ignore it.
 
-2. second, you should to 'cd ./tools' and execute the shell 'ln.sh',
+2. second, you should to 'cd ./misc/tools' and execute the shell 'ln.sh',
    if any file not exist, link it manual

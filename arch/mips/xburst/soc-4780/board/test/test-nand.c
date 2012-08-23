@@ -31,7 +31,6 @@
 /*                     NAND partitions definitions                             */
 /*-----------------------------------------------------------------------------*/
 
-#if defined( CONFIG_NAND_JZ4780_PISCES)
 static struct platform_nand_partition partition_info[] = {
 	{name:"NAND BOOT partition",
 	 offset:100 * 0x100000LL,
@@ -88,7 +87,7 @@ static int partition_reserved_badblocks[] = {
 	20			/* reserved blocks of mtd5 */
 };
 
-#else				/* CONFIG_JZ4770_PISCES */
+#if 0				/* CONFIG_JZ4770_PISCES */
 
 /* Reserve 32MB for bootloader, splash1, splash2 and radiofw */
 #define NAND_BLOCK_SIZE		    (2048*64)

@@ -3,8 +3,7 @@
 
 KBUILD_CFLAGS += -I$(srctree)/drivers/nand/inc
 
-obj-y += nand_api.o
-obj-y += core/ jz_ctrl/
-obj-y += test/
+obj-$(REAL_NAND_DRIVER) += nand_api.o
+obj-$(REAL_NAND_DRIVER) += core/ jz_ctrl/ test/
 obj-$(CONFIG_NAND_DMA) += dma/
-#obj-y += vnand_test/
+obj-$(FAKE_NAND_DRIVER) += vnand_test/

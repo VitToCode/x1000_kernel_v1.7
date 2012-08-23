@@ -122,7 +122,7 @@ int send_read_status(unsigned char *status);
 void do_nand_register(NAND_API *pnand_api);
 void nand_ops_parameter_init(void);
 void nand_ops_parameter_reset(const PPartition *ppt);
-#if CONFIG_NAND_DMA
+#ifdef CONFIG_NAND_DMA
 int nand_dma_init(NAND_API *pnand_api);
 void nand_dma_deinit(struct jznand_dma *nand_dma);
 int nand_dma_read_page(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);

@@ -3,7 +3,7 @@
 if [ $# -eq 1 ]; then
     SRC=$1
     DST=`pwd`
-    for i in `find $DST/../ -name "*.[hc]" | grep -v "inc/linux" | grep -v "misc"`; do
+    for i in `find $DST/../../ -name "*.[hc]" | grep -v "inc/linux" | grep -v "misc"`; do
 	DFILE=$i;
 	if [ ! -d $DFILE ]; then
 	    let t=0;

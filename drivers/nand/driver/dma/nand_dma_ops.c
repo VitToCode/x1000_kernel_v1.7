@@ -144,7 +144,7 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	//struct platform_device *pdev = (struct platform_device *)pnand_api->pdev;
 	struct device *nand_dev =nand_dma->mcu_chan->device->dev;
 	unsigned long flags = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
-	enum dma_data_direction direction =DMA_TO_DEVICE;
+	//enum dma_data_direction direction =DMA_TO_DEVICE;
 
 	printk("@@@@@@@@@ send msg to mcu start @@@@@@@@@@\n");
 	dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->msg),sizeof(struct pdma_msg),
