@@ -12,7 +12,12 @@
 #include "nandmanagerinterface.h"
 #include "nanddebug.h"
 #include "errhandle.h"
+#include "nmbitops.h"
+#include "clib.h"
+#include "timeinterface.h"
+#include "badblockinfo.h"
 
+#define INTERNAL_TIME  2*1000000000
 static BuffListManager *Blm;
 
 /**
@@ -31,24 +36,25 @@ static int Idle_Handler(int data)
 	unsigned int used_count;
 	unsigned int maxlifetime;
 	unsigned int minlifetime;
+	long long l2pwritetime;
 
 #ifdef 	TEST_ZONE_MANAGER
-#include <unistd.h>
 	nm_sleep(2);
 #endif
 
 	while(1){
+		Recycle_Lock(context);
 		free_count = zonep->freeZone->count;
 		used_count = zonep->useZone->usezone_count;
 		maxlifetime = ZoneManager_Getmaxlifetime(context);
 		minlifetime = ZoneManager_Getminlifetime(context);
-		if (used_count > 2 * free_count || maxlifetime - minlifetime > MAXDIFFTIME) {
-			ndprint(L2PCONVERT_INFO, "start recycle----------------------> \n");
+		l2pwritetime = conptr->t_startrecycle;
+		Recycle_Unlock(context);
+		if ( (nd_getcurrentsec_ns() >= (l2pwritetime + INTERNAL_TIME)) && 
+			(used_count > 2 * free_count || maxlifetime - minlifetime > MAXDIFFTIME) )
 			Recycle_OnNormalRecycle(context);
-			ndprint(L2PCONVERT_INFO, "recycle finished!\n\n");
-		}
 
-		//nm_sleep(1);
+		nm_sleep(1);
 	}
 #endif
 	return 0;
@@ -65,7 +71,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 {
 	int ret = 0;
 	Context *conptr = NULL;
-
+	int zonecount;
 	if (pt->mode != ZONE_MANAGER) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
 		return -1;
@@ -84,10 +90,20 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	conptr->rep = NULL;
 	conptr->top = NULL;
 	conptr->zonep = NULL;
+	conptr->t_startrecycle = 0;
+#ifdef TIMER_DEBUG
+	conptr->timebyte = (TimeByte*)Nd_TimerdebugInit();
+	conptr->vnand.timebyte = (TimeByte*)Nd_TimerdebugInit();
+#endif
 
 	CONV_PT_VN(pt,&conptr->vnand);
 	conptr->blm = Blm;
-
+	zonecount = conptr->vnand.TotalBlocks * 10 / 100;
+	if(zonecount < 8)
+		zonecount = 8;
+	if(zonecount > 64)
+		zonecount = 64;
+	conptr->junkzone = Init_JunkZone(zonecount);
 	ret = Recycle_Init((int)conptr);
 	if (ret != 0) {
 		ndprint(L2PCONVERT_ERROR,"ERROR:Recycle_Init failed func %s line %d \n",
@@ -101,13 +117,16 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 			__FUNCTION__, __LINE__);
 		return -1;
 	}
-	
+
 #ifndef NO_ERROR
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnForceRecycle, FORCE_RECYCLE_ID);
+	Task_RegistMessageHandle(conptr->thandle, Recycle_OnFollowRecycle, FOLLOW_RECYCLE_ID);
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnBootRecycle, BOOT_RECYCLE_ID);
+	Task_RegistMessageHandle(conptr->thandle, read_first_pageinfo_err_handler, READ_FIRST_PAGEINFO_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page0_err_handler, READ_PAGE0_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page1_err_handler, READ_PAGE1_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page2_err_handler, READ_PAGE2_ERROR_ID);
+	Task_RegistMessageHandle(conptr->thandle, read_ecc_err_handler, READ_ECC_ERROR_ID);
 #endif
 	ret = ZoneManager_Init((int)conptr);
 	if (ret != 0) {
@@ -122,7 +141,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 			__FUNCTION__, __LINE__);
 		return -1;
 	}
-	
+
 #ifndef NO_ERROR
 	Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
 #endif
@@ -134,30 +153,35 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
  *	L2PConvert_ZMClose  -  Close operation
  *
  *	@handle: return value of L2PConvert_ZMOpen
-*/	
+*/
 int L2PConvert_ZMClose(int handle)
 {
 	int context = handle;
 	Context *conptr = (Context *)context;
-
+#ifdef TIMER_DEBUG
+	Nd_TimerdebugDeinit(conptr->timebyte);
+	Nd_TimerdebugDeinit(conptr->vnand.timebyte);
+#endif
+	Deinit_JunkZone(conptr->junkzone);
 	Task_Deinit(conptr->thandle);
 	Recycle_DeInit(context);
 	CacheManager_DeInit(context);
 	ZoneManager_DeInit(context);
+	Nand_VirtualFree(conptr);
 
 	return 0;
 }
 
 /**
- *	get_writepagecount  -  get count of page in write operation
+ *	get_pagecount  -  get count of page in write operation
  *
  *	@sectorperpage: count of sector per page
  *	@sectornode: object need to calculate
- *	
+ *
  *	Calculate how mang page need to read or write
  *	with only one node of SectorList
 */
-static int get_writepagecount(int sectorperpage, SectorList *sectornode)
+static int get_pagecount(int sectorperpage, SectorList *sectornode)
 {
 	return (sectornode->sectorCount - 1) / sectorperpage + 1;
 }
@@ -187,9 +211,12 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 	for (i = sectorid; i < sectorid + sectorcount; i += k) {
 		k = 1;
 		pageid_by_sector_prev = CacheManager_getPageID((int)conptr->cachemanager, i);
-		if (pageid_by_sector_prev == -1)
+		if (pageid_by_sector_prev == -1) {
+			ndprint(L2PCONVERT_ERROR,"CacheManager_getPageID error when sectorid = %d fun %s line %d\n",
+				i, __FUNCTION__, __LINE__);
 			return -1;
-		
+		}
+
 		pageid_prev = pageid_by_sector_prev / sectorperpage;
 
 		if (l4count - i % l4count < 4 && i % l4count != 0)
@@ -203,16 +230,19 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 
 		for(j = i + 1; j < (left_sector_count + i) && j < sectorid + sectorcount; j++) {
 			pageid_by_sector_next = CacheManager_getPageID((int)conptr->cachemanager, j);
-			if (pageid_by_sector_next == -1)
+			if (pageid_by_sector_next == -1) {
+				ndprint(L2PCONVERT_ERROR,"CacheManager_getPageID error when sectorid = %d fun %s line %d\n",
+					i, __FUNCTION__, __LINE__);
 				return -1;
-			
+			}
+
 			pageid_next = pageid_by_sector_next / sectorperpage;
 			if(pageid_next == pageid_prev)
 				k++;
 			else
 				break;
 		}
-		
+
 		pagenode = (PageList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)pagelist, sizeof(PageList));
 		pagenode->startPageID = pageid_prev;
 		pagenode->OffsetBytes = pageid_by_sector_prev % sectorperpage * SECTOR_SIZE;
@@ -227,22 +257,51 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 /**
  *	Write_sectornode_to_pagelist  -  Convert one node of SectorList to a PageList in write operation
  *
- *	@context: global variable
+ *	@zone: current write zone
  *	@sectorperpage: count of sector per page
  *	@sectornode: object need to calculate
  *	@pagelist: which created when Convert finished
 */
-static int Write_sectornode_to_pagelist(int context, int sectorperpage, SectorList *sectornode, PageList *pagelist)
+static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorList *sectornode, PageList **pagelist, int left_sectorcount)
 {
 	int i;
-	PageList *pagenode;
+	PageList *pagenode = NULL;
+	SectorList sl_new;
 	int pagecount;
-	Context *conptr = (Context *)context;
-	
-	pagecount = get_writepagecount(sectorperpage, sectornode);
+	int sectorcount;
+	Context *conptr = (Context *)(zone->context);
+
+	if (left_sectorcount != 0) {
+		if (sectornode->sectorCount <= left_sectorcount)
+			sectorcount = sectornode->sectorCount;
+		else
+			sectorcount = left_sectorcount;
+
+		pagenode = (PageList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)pagelist, sizeof(PageList));
+		pagenode->startPageID = -1;
+		pagenode->Bytes = sectorcount * SECTOR_SIZE;
+		pagenode->OffsetBytes = (sectorperpage - left_sectorcount) * SECTOR_SIZE;
+		pagenode->pData = sectornode->pData;
+
+		if (sectornode->sectorCount <= left_sectorcount)
+			return 0;
+
+		sl_new.sectorCount = sectornode->sectorCount - left_sectorcount;
+		sl_new.pData = sectornode->pData + pagenode->Bytes;
+		sectornode = &sl_new;
+	}
+
+	pagecount = get_pagecount(sectorperpage, sectornode);
 
 	for (i = 0; i < pagecount; i++) {
-		pagenode = (PageList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)pagelist, sizeof(PageList));
+		if (*pagelist == NULL) {
+			pagenode = (PageList *)BuffListManager_getTopNode((int)(conptr->blm), sizeof(PageList));
+			*pagelist = pagenode;
+		}
+		else
+			pagenode = (PageList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)(*pagelist), sizeof(PageList));
+
+		pagenode->startPageID = -1;
 
 		/* fill Bytes */
 		if (pagecount == 1)
@@ -265,80 +324,50 @@ static int Write_sectornode_to_pagelist(int context, int sectorperpage, SectorLi
 }
 
 /**
- *	analyze_sectorlist - analyze sectorlist
+ *	start_ecc_error_handle - start to deal with the error when read ecc error
  *
- *	@context: global variable
- *	@sl: which need to analyze
- *
- *	if one node of sl is overflow l4cache, then need to divide it to some node 
+ *	@zonep: operate object
+ *	@zoneid: error zoneid
  */
-static SectorList * new_sectorlist(int context, SectorList *sl)
+static void start_ecc_error_handle(int context, unsigned int pageid)
 {
-	SectorList *sl_node;
-	SectorList *sl_new;
-	struct singlelist *pos;
+	int i;
+	Message read_ecc_error_msg;
+	int blockid;
+	int badblock_count = 0;
+	int zone_start_blockid;
+	int msghandle;
 	Context *conptr = (Context *)context;
-	CacheManager *cachemanager = conptr->cachemanager;
-	unsigned int l4count = conptr->cachemanager->L4InfoLen >> 2;
-   	SectorList *sl_new_top;
-   	SectorList *prev_sl_new;
-	unsigned char *pdata;
-	int sectorcount;
-	int startsector;
+	ZoneManager *zonep = conptr->zonep;
+	ErrInfo errinfo;
+	errinfo.context = context;
+	errinfo.err_zoneid = ZoneManager_convertPageToZone(context, pageid);
 
-	if(sl->sectorCount <= 0){
-		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-		return 0;
-	}
-	
-	sl_new = (SectorList *)BuffListManager_getTopNode((int)(conptr->blm), sizeof(SectorList));
-	sl_new_top = sl_new;
-	prev_sl_new = sl_new;
-	
-	singlelist_for_each(pos, &sl->head) {
-		sl_node = singlelist_entry(pos, SectorList, head);
+	blockid = pageid / conptr->vnand.PagePerBlock;
+	zone_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,errinfo.err_zoneid);
 
-		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2
-			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
-			ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			goto newsectorlist_error1;
-		}
-		
-		sectorcount = sl_node->sectorCount;
-		startsector = sl_node->startSector;
-	    	pdata = sl_node->pData;
-		
-		while(sectorcount>0){
-			if(!sl_new)
-				sl_new = (SectorList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)prev_sl_new, sizeof(SectorList));
-			sl_new->startSector = startsector;
-			sl_new->pData = (void *)pdata;
-			if(sectorcount + startsector % l4count > l4count){				
-				sl_new->sectorCount = l4count - startsector % l4count;
-			}else{
-				sl_new->sectorCount = sectorcount;  
-			}
-			startsector += sl_new->sectorCount;
-			sectorcount -= sl_new->sectorCount;
-			pdata += sl_new->sectorCount * SECTOR_SIZE;
-			prev_sl_new = sl_new;
-			sl_new = NULL;
-		}
+	for (i = zone_start_blockid; i < blockid; i++) {
+		if (vNand_IsBadBlock(&conptr->vnand,i))
+			badblock_count++;
 	}
-	
-	return sl_new_top;
-	
-newsectorlist_error1:
-	BuffListManager_freeAllList((int)(conptr->blm), (void **)&sl_new_top, sizeof(SectorList));
-	return NULL;	
+	nm_set_bit(blockid - zone_start_blockid - badblock_count,
+		(unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
+
+	read_ecc_error_msg.msgid = READ_ECC_ERROR_ID;
+	read_ecc_error_msg.prio = READ_ECC_ERROR_PRIO;
+	read_ecc_error_msg.data = (int)&errinfo;
+
+	msghandle = Message_Post(conptr->thandle, &read_ecc_error_msg, WAIT);
+	Message_Recieve(conptr->thandle, msghandle);
 }
+
 /**
  *	L2PConvert_ReadSector  -  Read operation
  *
  *	@handle: return value of L2PConvert_ZMOpen
  *	@sl: which need to read
  *
- *	Transform SectorList to PageList, 
+ *	Transform SectorList to PageList,
  *	use L2P cache, get a pageid from it by sectorid.
 */
 int L2PConvert_ReadSector ( int handle, SectorList *sl )
@@ -347,6 +376,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	int ret, sectorperpage;
 	SectorList *sl_node;
 	PageList *pl;
+	PageList *pl_node;
 	int context = handle;
 	Context *conptr = (Context *)context;
 	CacheManager *cachemanager = conptr->cachemanager;
@@ -354,31 +384,38 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	if (!sl) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
 		return -1;
-	}	
+	}
 
+	Recycle_Lock(context);
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
+#ifdef TIMER_DEBUG
+	Get_StartTime(conptr->timebyte,0);
+#endif
 	/* head node will not be use */
 	pl =(PageList *) BuffListManager_getTopNode((int)(conptr->blm), sizeof(PageList));
 	if (!(pl)) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		Recycle_Unlock(context);
 		return -1;
 	}
 
 	sectorperpage = conptr->vnand.BytePerPage / SECTOR_SIZE;
-	
+
 	singlelist_for_each(pos, &(sl->head)) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			Recycle_Unlock(context);
 			return -1;
 		}
 
 		ret = Read_sectornode_to_pagelist(context, sectorperpage, sl_node, pl);
 		if (ret == -1) {
-			if (sl_node->startSector == 0)
-				goto first_read;
+			goto first_read;
 
 			ndprint(L2PCONVERT_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+			Recycle_Unlock(context);
 			return -1;
 		}
 	}
@@ -388,14 +425,29 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 	ret = vNand_MultiPageRead(&conptr->vnand, pl);
 	if (ret != 0){
-		ndprint(L2PCONVER_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
-				__FUNCTION__, __LINE__);
+		singlelist_for_each(pos, &(pl->head)) {
+			pl_node = singlelist_entry(pos, PageList, head);
+			if (ISERROR(pl_node->retVal)) {
+				if (ISNOWRITE(pl_node->retVal))
+					memset(pl_node->pData, 0xff, pl_node->Bytes);
+				else if (ISECCERROR(pl_node->retVal))
+					start_ecc_error_handle(context, pl_node->startPageID);
+				else {
+					ndprint(L2PCONVER_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
+					__FUNCTION__, __LINE__);
+					break;
+				}
+			}
+		}
+
 	}
-
-
+#ifdef TIMER_DEBUG
+	Calc_Speed(conptr->timebyte,(void*)sl,0);
+#endif
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
+	Recycle_Unlock(context);
 
-	return ret; 	
+	return ret;
 first_read:
 	ret = 0;
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
@@ -403,6 +455,7 @@ first_read:
 		sl_node = singlelist_entry(pos, SectorList, head);
 		memset(sl_node->pData, 0xff, sl_node->sectorCount * SECTOR_SIZE);
 	}
+	Recycle_Unlock(context);
 
 	return ret;
 }
@@ -417,7 +470,7 @@ static void recycle_zone_prepare(int context)
 	ForceRecycleInfo frinfo;
 
 	ptzonenum = ZoneManager_Getptzonenum(context) * 4 / 100;
-	if(ptzonenum == 0) 
+	if(ptzonenum == 0)
 		ptzonenum = 1;
 	if (ZoneManager_Getfreecount(context) < ptzonenum ){
 		frinfo.context = context;
@@ -426,15 +479,15 @@ static void recycle_zone_prepare(int context)
 		force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 		force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
 		force_recycle_msg.data = (int)&frinfo;
-			
+
 		msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 		Message_Recieve(conptr->thandle, msghandle);
 	}
 }
 
-/** 
+/**
  *	write_data_prepare - alloc 4 zone beforehand
- *         
+ *
  *  	@context: global variable
  */
 static int write_data_prepare ( int context )
@@ -448,12 +501,11 @@ static int write_data_prepare ( int context )
 	int msghandle;
 	ForceRecycleInfo frinfo;
 #endif
-	
-	recycle_zone_prepare(context);
+
 	count = ZoneManager_GetAheadCount(context);
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
-		if (!zone) {
+		if (!zone  && count > 0) {
 			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle \n");
 #ifndef NO_ERROR
 			/* force recycle */
@@ -463,15 +515,20 @@ static int write_data_prepare ( int context )
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
 			force_recycle_msg.data = (int)&frinfo;
-			
+
 			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 			Message_Recieve(conptr->thandle, msghandle);
-			
+
 			zone = ZoneManager_AllocZone(context);
+			if (!zone) {
+				ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone!\n");
+				while(1)
+					ndprint(L2PCONVERT_INFO,".");
+			}
 #endif
 		}
 		ZoneManager_SetAheadZone(context,zone);
-	}	
+	}
 
 	count = ZoneManager_GetAheadCount(context);
 	if (count > 0 && count < 4) {
@@ -510,14 +567,44 @@ static Zone *get_write_zone(int context)
 	return zone;
 }
 
-/** 
- *	update_l1l2l3l4 - update Pageinfo l1l2l3l4 and return PageList 
- *
- *	@sl: one node of sectorlist
- *	@pi: the latest pageinfo in zone
- *	@zone: where the pageinfo get from
- */
-PageList *update_l1l2l3l4 (SectorList *sl, PageInfo *pi, Zone *zone)
+static void fill_l2p_sectorid(L2pConvert *l2p, SectorList *sl)
+{
+	int i = 0;
+	int j = 0;
+
+	for (i = 0; i < l2p->l4count; i++) {
+		if (j == sl->sectorCount)
+			break;
+		if (l2p->sectorid[i] == -1) {
+			l2p->sectorid[i] = sl->startSector + j;
+			j++;
+		}
+	}
+}
+
+static void new_pagelist(L2pConvert *l2p, SectorList *sl, PageList **pagelist, Zone *zone)
+{
+	unsigned int spp = zone->vnand->BytePerPage / SECTOR_SIZE;
+
+	if (l2p->l4_is_new) {
+		l2p->page_left_sector_count = 0;
+		l2p->l4_is_new = 0;
+	}
+
+	if (l2p->zone_is_new) {
+		l2p->page_left_sector_count = 0;
+		l2p->zone_is_new = 0;
+	}
+
+	Write_sectornode_to_pagelist(zone, spp, sl, pagelist, l2p->page_left_sector_count);
+
+	if (sl->sectorCount <= l2p->page_left_sector_count)
+		l2p->page_left_sector_count -= sl->sectorCount;
+	else
+		l2p->page_left_sector_count = (spp - (sl->sectorCount - l2p->page_left_sector_count) % spp) % spp;
+}
+
+static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Zone *zone)
 {
 	unsigned int l1index = 0;
 	unsigned int l2index = 0;
@@ -532,13 +619,19 @@ PageList *update_l1l2l3l4 (SectorList *sl, PageInfo *pi, Zone *zone)
 	unsigned int *l3buf = NULL;
 	unsigned int *l4buf = NULL;
 	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int old_startpageid = 0;
 	struct singlelist *pos;
-	PageList *pl = NULL;
 	PageList *pl_node = NULL;
+	int sector_count = 0;
 	unsigned int spp = zone->vnand->BytePerPage / SECTOR_SIZE;
-	unsigned int sectorid = sl->startSector;
+	unsigned int sectorid = l2p->sectorid[j];
 	CacheManager *cachemanager = ((Context *)(zone->context))->cachemanager;
-	BuffListManager *blm = ((Context *)(zone->context))->blm;
+
+	int jzone = ((Context *)(zone->context))->junkzone;
+	int oldzoneid;
+	int sectorcount = 0;
+	unsigned int jsectorid;
 
 	l1buf = (unsigned int *)(pi->L1Info);
 	l2buf = (unsigned int *)(pi->L2Info);
@@ -554,7 +647,6 @@ PageList *update_l1l2l3l4 (SectorList *sl, PageInfo *pi, Zone *zone)
 	pi->L2Index = 0xffff;
 	pi->L3Index = 0xffff;
 	pi->zoneID = 0xffff;
-	pi->PageID = Zone_AllocNextPage(zone);
 
 	/* update l1 */
 	l1index = sectorid / l1unitlen;
@@ -578,12 +670,18 @@ PageList *update_l1l2l3l4 (SectorList *sl, PageInfo *pi, Zone *zone)
 		}
 	}
 
-	pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-	Write_sectornode_to_pagelist(zone->context, spp, sl, pl);
-
-	singlelist_for_each(pos, pl->head.next) {
+	jsectorid = -1;
+	singlelist_for_each(pos, &pagelist->head) {
 		pl_node = singlelist_entry(pos, PageList, head);
-		pl_node->startPageID = Zone_AllocNextPage(zone);
+		if (Zone_GetFreePageCount(zone) == 0 && sector_count == 0)
+			break;
+		if (sector_count == 0) {
+			pl_node->startPageID = Zone_AllocNextPage(zone);
+			old_startpageid = pl_node->startPageID;
+			l2p->pagecount++;
+		}
+		else
+			pl_node->startPageID = old_startpageid;
 
 		/* update l4 */
 		if(pi->L3InfoLen != 0)
@@ -591,18 +689,65 @@ PageList *update_l1l2l3l4 (SectorList *sl, PageInfo *pi, Zone *zone)
 		else
 			l4index = sectorid % l1unitlen / l4unitlen;
 
-		for (i = l4index; i < pl_node->Bytes / SECTOR_SIZE + l4index; i++)
-			l4buf[i] = pl_node->startPageID * spp + (i - l4index);
+		for (i = l4index; i < pl_node->Bytes / SECTOR_SIZE + l4index; i++){
+			if(l4buf[i] != -1){
+				if(jsectorid == -1) jsectorid = l4buf[i];
+				if(jsectorid != l4buf[i]){
+					oldzoneid = ZoneManager_convertPageToZone(zone->context,(jsectorid - 1)/spp);
+					if (oldzoneid == -1) {
+						ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d pageid = %d \n",
+							__func__,__LINE__, (jsectorid - 1)/spp);
+						return -1;
+					}
+					else if(oldzoneid != zone->ZoneID)
+						Insert_JunkZone(jzone,sectorcount,oldzoneid);
+					jsectorid = l4buf[i];
+					jsectorid++;
+					sectorcount = 1;
+				}else{
+					jsectorid++;
+					sectorcount++;
+				}
+			}else{
+				if(sectorcount && jsectorid != -1){
+					oldzoneid = ZoneManager_convertPageToZone(zone->context,(jsectorid - 1)/spp);
+					if (oldzoneid == -1) {
+						ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d pageid = %d \n",
+							__func__,__LINE__, (jsectorid - 1)/spp);
+						return -1;
+					}
+					else if(oldzoneid != zone->ZoneID)
+						Insert_JunkZone(jzone,sectorcount,oldzoneid);
+					jsectorid = -1;
+					sectorcount = 0;
+				}
+			}
 
-		sectorid += pl_node->Bytes / SECTOR_SIZE;
+			l4buf[i] = pl_node->startPageID * spp + sector_count;
+			sector_count++;
+			if (sector_count == spp)
+				sector_count = 0;
+		}
+
+		j += i - l4index;
+		sectorid = l2p->sectorid[j];
 	}
 
-	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
+	if(jsectorid != -1 && sectorcount){
+		oldzoneid = ZoneManager_convertPageToZone(zone->context,(jsectorid-1)/spp);
+		if (oldzoneid == -1) {
+			ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d pageid = %d \n",
+				__func__,__LINE__, (jsectorid - 1)/spp);
+			return -1;
+		}
+		else if(oldzoneid != zone->ZoneID)
+			Insert_JunkZone(jzone,sectorcount,oldzoneid);
+	}
 
-	return pl;
+	return 0;
 }
 
-/** 
+/**
  *	alloc_new_zone_write - update prev zone sigzoneinfo and return new zone
  *
  *	@context: global variable
@@ -629,148 +774,228 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	return new_zone;
 }
 
-/**
- *	divide_sectornode - divide one node into first node and next node
- *
- *	@sl_node: need to divide
- *	@first: the first node of sl_node when divide finish
- *	@next: the second node of sl_node when divide finish
- *	@count: free page count of current zone
- *	@spp: sectors per page
- */
-static void divide_sectornode(SectorList *sl_node, SectorList *first, SectorList *next, unsigned int count, unsigned int spp)
+static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 {
-	first->startSector = sl_node->startSector;
-	first->sectorCount = (count - 1) * spp;
-	first->pData = sl_node->pData;
+	struct singlelist *pos = NULL;
+	SectorList *sl_node = NULL;
+	SectorList sl_node_new;
+	SectorList *sl_node_old = NULL;
+	PageList *pl = NULL;
+	int total_sectorcount = 0;
+	unsigned short free_pagecount = 0;
+	Zone *zone = *czone;
+	Context *conptr = (Context *)(zone->context);
+	CacheManager *cm = conptr->cachemanager;
+	unsigned int l4count = l2p->l4count;
+	int spp = conptr->vnand.BytePerPage / SECTOR_SIZE;
 
-	next->startSector = sl_node->startSector + first->sectorCount;
-	next->sectorCount = sl_node->sectorCount - first->sectorCount;
-	next->pData = sl_node->pData + first->sectorCount * SECTOR_SIZE;
+	free_pagecount = Zone_GetFreePageCount(zone);
+	if (free_pagecount <= 1) {
+		zone = alloc_new_zone_write(zone->context,zone);
+		free_pagecount = Zone_GetFreePageCount(zone);
+		*czone = zone;
+		l2p->zone_is_new = 1;
+		l2p->alloced_new_zone = 1;
+	}
+	pi->PageID = Zone_AllocNextPage(zone);
+
+	singlelist_for_each(pos,&l2p->follow_node->head) {
+		sl_node = singlelist_entry(pos, SectorList, head);
+		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * cm->L1InfoLen >> 2
+			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
+			ndprint(L2PCONVERT_ERROR,"ERROR: startsectorid = %d, sectorcount = %d func %s line %d\n",
+				sl_node->startSector, sl_node->sectorCount, __FUNCTION__, __LINE__);
+			goto err;
+		}
+
+		sl_node_old = sl_node;
+		if (l2p->L4_startsectorid == -1)
+			l2p->L4_startsectorid = sl_node->startSector / l4count * l4count;
+		else if (l2p->L4_startsectorid != sl_node->startSector / l4count * l4count && !IS_BREAK(l2p->break_type)) {
+			NOT_SAME_L4(l2p->break_type);
+			l2p->follow_node = sl_node_old;
+			l2p->node_left_sector_count = sl_node->sectorCount;
+			break;
+		}
+
+		if (IS_BREAK(l2p->break_type)) {
+			if (sl_node->sectorCount != l2p->node_left_sector_count) {
+				sl_node_new.startSector = sl_node->startSector + sl_node->sectorCount - l2p->node_left_sector_count;
+				sl_node_new.sectorCount = l2p->node_left_sector_count;
+				sl_node_new.pData = sl_node->pData + (sl_node->sectorCount - l2p->node_left_sector_count) * SECTOR_SIZE;
+				sl_node_new.head.next = l2p->follow_node->head.next;
+				sl_node = &sl_node_new;
+				l2p->L4_startsectorid = sl_node->startSector / l4count * l4count;
+			}
+			l2p->break_type = 0;
+		}
+
+		if (sl_node->startSector % l4count + sl_node->sectorCount > l4count) {
+			NOT_SAME_L4(l2p->break_type);
+			l2p->follow_node = sl_node_old;
+			l2p->node_left_sector_count = sl_node->sectorCount - (l4count - sl_node->startSector % l4count);
+			sl_node_new.startSector = sl_node->startSector;
+			sl_node_new.sectorCount = l4count - sl_node->startSector % l4count;
+			sl_node_new.pData = sl_node->pData;
+			sl_node_new.head.next = sl_node->head.next;
+			sl_node = &sl_node_new;
+		}
+
+		total_sectorcount += sl_node->sectorCount;
+		if (total_sectorcount > (free_pagecount - 1) * spp ||
+			(total_sectorcount == (free_pagecount - 1) * spp && sl_node->head.next != NULL)) {
+			NO_ENOUGH_PAGES(l2p->break_type);
+			if (total_sectorcount != (free_pagecount - 1) * spp) {
+				l2p->follow_node = sl_node_old;
+				if (IS_NOT_SAME_L4(l2p->break_type)) {
+					l2p->node_left_sector_count += total_sectorcount - (free_pagecount - 1) * spp;
+					sl_node_new.sectorCount = sl_node->sectorCount - (total_sectorcount - (free_pagecount - 1) * spp);
+				}
+				else {
+					l2p->node_left_sector_count = total_sectorcount - (free_pagecount - 1) * spp;
+					sl_node_new.sectorCount = sl_node->sectorCount - l2p->node_left_sector_count;
+				}
+				sl_node_new.startSector = sl_node->startSector;
+				sl_node_new.pData = sl_node->pData;
+				sl_node_new.head.next = sl_node->head.next;
+				sl_node = &sl_node_new;
+			}
+			else if (!IS_NOT_SAME_L4(l2p->break_type)) {
+				l2p->follow_node = (SectorList *)sl_node_old->head.next;
+				l2p->node_left_sector_count = l2p->follow_node->sectorCount;
+			}
+		}
+
+		new_pagelist(l2p, sl_node, &pl, zone);
+
+		fill_l2p_sectorid(l2p, sl_node);
+
+		if (IS_BREAK(l2p->break_type))
+			break;
+		else if (sl_node->head.next == NULL)
+			l2p->follow_node = NULL;
+	}
+	return pl;
+err:
+	return NULL;
 }
 
-/**
- *	write_sectornode - write one node of sectorlist to nand
- *
- *	@zone: which the data will be written to
- *	@sectornode: lockcache and pi accordint to it
- *	@pi: which pageinfo to write
- *	@pl: which data to write
- *	@pagecount: page count of write data
- */
-static int write_sectornode(Zone *zone, SectorList *sectornode, PageInfo *pi, PageList *pl, unsigned int pagecount)
+static void lock_cache(int cm, L2pConvert *l2p, PageInfo **pi)
 {
-	int ret = 0;
-	int context = zone->context;
-
-	CacheManager_lockCache((int)((Context *)context)->cachemanager, sectornode->startSector, &pi);
-
-	pl = update_l1l2l3l4(sectornode, pi, zone);
-
-	zone->currentLsector = sectornode->startSector; 
-	ret = Zone_MultiWritePage(zone, pagecount, pl, pi);
-	if(ret != 0) {
-		ndprint(L2PCONVERT_ERROR,"ERROR:vNand MultiPage Write error func %s line %d \n",
-			__FUNCTION__,__LINE__);
-		return -1;
+	if (l2p->L4_startsectorid == -1)
+		CacheManager_lockCache(cm,l2p->follow_node->startSector,pi);
+	else {
+		if (IS_NOT_SAME_L4(l2p->break_type)&& !IS_NO_ENOUGH_PAGES(l2p->break_type)) {
+			CacheManager_lockCache(cm,l2p->L4_startsectorid + l2p->l4count,pi);
+			l2p->L4_startsectorid = -1;
+		}
+		else
+			CacheManager_lockCache(cm,l2p->L4_startsectorid,pi);
 	}
+}
 
-	CacheManager_unlockCache((int)((Context *)context)->cachemanager, pi);
-
-	return ret;
+static void unlock_cache(int cm, PageInfo *pi)
+{
+	CacheManager_unlockCache(cm,pi);
 }
 
 int L2PConvert_WriteSector ( int handle, SectorList *sl )
 {
-	unsigned int freepage_count = 0;
 	Zone *zone = NULL;
 	PageInfo *pi = NULL;
 	PageList *pl = NULL;
-	SectorList *sl_node = NULL;
-	SectorList *first_sectornode = NULL;
-	SectorList *next_sectornode = NULL;
 	int context = handle;
-	Context *conptr = (Context *)context;
-	unsigned int sectorperpage = conptr->vnand.BytePerPage / SECTOR_SIZE;
+	Context *conptr = (Context*)context;
+	CacheManager *cm = conptr->cachemanager;
+	BuffListManager *blm = conptr->blm;
 	int ret = 0;
-	struct singlelist *pos = NULL;
-	unsigned int pagecount = 0;
-	SectorList *sl_new;
-	
-	Recycle_Lock(context);
+	L2pConvert l2p;
+
+	INIT_L2P(&l2p);
+
+	l2p.sectorid = (int *)Nand_VirtualAlloc(cm->L4InfoLen);
+	if (l2p.sectorid == NULL){
+		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d\n",__func__,__LINE__);
+		return -1;
+	}
+	l2p.l4count = cm->L4InfoLen >> 2;
+	memset(l2p.sectorid, 0xff, cm->L4InfoLen);
+
 	if (sl == NULL){
 		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d. SECTORLIST IS NULL!\n",__func__,__LINE__);
-		Recycle_UnLock(context);
-		return -1;
-	}
-	
-	sl_new = new_sectorlist(context, sl);
-	if(sl_new == NULL) {
-		ndprint(L2PCONVERT_ERROR,"ERROR:new_sectorlist error func %s line %d \n",
-			__FUNCTION__,__LINE__);
-		Recycle_UnLock(context);
 		return -1;
 	}
 
-	singlelist_for_each(pos,&sl_new->head) {
-		zone = get_write_zone(context);
-		if(zone == NULL) {
-			ndprint(L2PCONVERT_ERROR,"ERROR:get_write_zone error func %s line %d \n",
-						__FUNCTION__,__LINE__);
-			Recycle_UnLock(context);
-			return -1;
-		}
-		
-		sl_node = singlelist_entry(pos, SectorList, head);
-		pagecount = get_writepagecount(sectorperpage, sl_node);
-		freepage_count = Zone_GetFreePageCount(zone);
+	Recycle_Lock(context);
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
+#ifdef TIMER_DEBUG
+	Get_StartTime(conptr->timebyte,1);
+#endif
 
-		if(freepage_count < pagecount + 1) {
-			if(freepage_count > 1) {
-				first_sectornode = (SectorList *)BuffListManager_getTopNode((int)(conptr->blm), sizeof(SectorList));
-				next_sectornode = (SectorList *)BuffListManager_getNextNode((int)(conptr->blm), (void *)first_sectornode, sizeof(SectorList));
-				divide_sectornode(sl_node, first_sectornode, next_sectornode,freepage_count, sectorperpage);
+	recycle_zone_prepare(context);
 
-				/* write first_sectornode data */
-				ret = write_sectornode(zone, first_sectornode, pi, pl, freepage_count -1);
-				if(ret == -1) {
-					ndprint(L2PCONVERT_ERROR,"ERROR:write_sectornode error func %s line %d \n",
-						__FUNCTION__,__LINE__);
-					break;
-				}
-			}
+	zone = get_write_zone(context);
+	if(zone == NULL) {
+		ndprint(L2PCONVERT_ERROR,"ERROR:get_write_zone error func %s line %d \n",
+					__FUNCTION__,__LINE__);
+		ret = -1;
+		goto exit;
+	}
 
-			/* alloc a new zone to write */
-			zone = alloc_new_zone_write (context,zone);
-		}
-
-		if (next_sectornode) {
-			sl_node = next_sectornode;
-			pagecount = (next_sectornode->sectorCount - 1) / sectorperpage + 1;
-			next_sectornode = NULL;
-		}
-
-		/* write data */
-		ret = write_sectornode(zone, sl_node, pi, pl, pagecount);	
-		if(ret == -1) {
-			ndprint(L2PCONVERT_ERROR,"ERROR:write_sectornode error func %s line %d \n",
-				__FUNCTION__,__LINE__);
+	l2p.follow_node = sl;
+	while (1) {
+		if (l2p.follow_node == NULL)
 			break;
+
+		lock_cache((int)cm,&l2p,&pi);
+
+		pl = create_pagelist(&l2p,pi,&zone);
+
+		ret = update_l1l2l3l4(&l2p,pi,pl,zone);
+		if(ret != 0) {
+			ndprint(L2PCONVERT_ERROR,"ERROR:update_l1l2l3l4 error func %s line %d \n",
+				__FUNCTION__,__LINE__);
+			goto exit;
 		}
 
-		if (first_sectornode)
-			BuffListManager_freeAllList((int)(conptr->blm), (void **)&first_sectornode, sizeof(SectorList));
+		ret = Zone_MultiWritePage(zone, l2p.pagecount, pl, pi);
+		if(ret != 0) {
+			ndprint(L2PCONVERT_ERROR,"ERROR:vNand MultiPage Write error func %s line %d \n",
+				__FUNCTION__,__LINE__);
+			goto exit;
+		}
+
+		unlock_cache((int)cm, pi);
+		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
+
+		if (IS_NOT_SAME_L4(l2p.break_type))
+			l2p.l4_is_new = 1;
+		if (IS_NO_ENOUGH_PAGES(l2p.break_type)) {
+			zone = alloc_new_zone_write (context,zone);
+			l2p.zone_is_new = 1;
+		}
+
+		memset(l2p.sectorid, 0xff, cm->L4InfoLen);
+		l2p.pagecount = 0;
 
 		/* alloc 4 zone beforehand */
-		ret = write_data_prepare(context);
-		if (ret == -1) {
-			ndprint(L2PCONVERT_ERROR,"ERROR:write_data_prepare error func %s line %d \n",
-				__FUNCTION__,__LINE__);
-			break;
+		if (l2p.zone_is_new || l2p.alloced_new_zone) {
+			ret = write_data_prepare(context);
+			if (ret == -1) {
+				ndprint(L2PCONVERT_ERROR,"ERROR:write_data_prepare error func %s line %d \n",
+					__FUNCTION__,__LINE__);
+				break;
+			}
+			l2p.alloced_new_zone = 0;
+			zone = ZoneManager_GetCurrentWriteZone(context);
 		}
 	}
-	BuffListManager_freeAllList((int)(conptr->blm), (void **)&sl_new, sizeof(SectorList));
-	Recycle_UnLock(context);
+#ifdef TIMER_DEBUG
+	Calc_Speed(conptr->timebyte,(void*)sl,1);
+#endif
+exit:
+	Nand_VirtualFree(l2p.sectorid);
+	Recycle_Unlock(context);
 	return ret;
 }
 
@@ -791,7 +1016,7 @@ int L2PConvert_Ioctrl(int handle, int cmd, int argv)
 		default:
 			break;
 	}
-	
+
 	return 0;
 }
 
@@ -811,7 +1036,7 @@ PartitionInterface l2p_nand_ops = {
 int L2PConvert_Init(PManager *pm)
 {
 	Blm = pm->bufferlist;
-#ifndef TEST_L2P	
+#ifndef TEST_L2P
 	return NandManger_Register_Manager((int)pm, ZONE_MANAGER, &l2p_nand_ops);
 #else
 	return 0;
@@ -824,7 +1049,7 @@ int L2PConvert_Init(PManager *pm)
  *	@handle: return value of L2PConvert_ZMOpen
 */
 void L2PConvert_Deinit(int handle)
-{	
-	
+{
+
 }
 

@@ -11,8 +11,6 @@
 typedef struct _Recycle Recycle;
 
 struct _Recycle {
-	Hash *hashTable;
-	unsigned int pageID;
 	int taskStep;
 	Zone *rZone;
 	PageInfo *prevpageinfo;
@@ -29,6 +27,7 @@ struct _Recycle {
 	unsigned int  buflen;
 	unsigned int end_findnextpageinfo;
 	PageInfo pi[2];
+	unsigned short junk_zoneid;
 	NandMutex mutex;
 	unsigned int force; 
 	int context;
@@ -49,6 +48,7 @@ struct _Recycle {
 	unsigned int force_buflen;
 	unsigned int force_end_findnextpageinfo;
 	PageInfo force_pi[2];
+	unsigned short force_junk_zoneid;
 	
 	int write_pagecount;
 };
@@ -75,6 +75,7 @@ enum TaskStep{
 int Recycle_Init(int context);
 void Recycle_DeInit(int context);
 int Recycle_OnFragmentHandle ( int context );
+int Recycle_OnFollowRecycle ( int context );
 int Recycle_OnBootRecycle ( int context );
 int Recycle_OnForceRecycle ( int frinfo );
 int Recycle_OnNormalRecycle ( int context );
@@ -90,5 +91,5 @@ int Recycle_RecycleReadWrite ( Recycle *rep);
 int Recycle_FindNextPageInfo ( Recycle *rep);
 int Recycle_FreeZone ( Recycle *rep );
 void Recycle_Lock(int context);
-void Recycle_UnLock(int context);
+void Recycle_Unlock(int context);
 #endif

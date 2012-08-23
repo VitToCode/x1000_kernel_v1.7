@@ -53,59 +53,58 @@ int ZoneMemory_Init(int unitsize ){
 	}
 	return (int) z;
 }
-static inline int get_mask(int len) {
-	int i;
-	unsigned int mask = 0;
-	for(i = 0;i < len;i++) 
-		mask |= (1 << i);
-	return mask;
-}
 static int get_spaceindexs(unsigned int *bitmap,int count,int reqs){
-	int i,j,n = 0;
-	int mask;
+	int i,j;
+	int zerocount = 0;
+	int zeropos;
+	int zeromode = 0;
 	int d;
-	int c;
-	mask = get_mask(reqs);
 	for(i = 0;i < count / 32;i++){
 		if(*bitmap != 0xffffffff){
-			if(n){
-				c = get_mask(reqs - (32 - n));
-				if((*bitmap & c) == 0)
-					return ((i - 1) * 32 + n);
-				
-			}	
-			for(j = 0;j < 32 - reqs + 1;j++){
-				if((*bitmap & (mask << j)) == 0)
-						return (i*32+j);
-			}
-			n = 0;
-			for(;j < 32;j++){
-				if((*bitmap & (1 << j)) == 0){
-					n = j;
+			for(j = 0;j < 32;j++){
+				if(zeromode){
+					if(*bitmap & (1 << j)){
+						zeromode = 0;
+						zerocount = 0;
+					}else{
+						zerocount++;
+					}
+				}else if((*bitmap & (1 << j)) == 0){
+					zeropos = i*32 + j;
+					zeromode = 1;
+					zerocount = 1;
 				}
+				if(zerocount >= reqs)
+					return zeropos;
 			}
-			
+		}else{
+			zeromode = 0;
+			zerocount = 0;
 		}
 		bitmap++;
 	}
-
-	if(n){
-		c = get_mask(reqs - (32 - n));
-		if((*bitmap & c) == 0)
-			return ((i - 1) * 32 + n);
-	}
-
-	d = (count & 31) - reqs;
+	d = (count & 31) - reqs + zerocount;
 	if(d >= 0)
 	{
-		for(j = 0;j < d;j++){
-			if((*bitmap & (mask << j)) == 0)
-				return (i * 32 + j);
+		for(j = 0;j < (count & 31);j++){
+			if(zeromode){
+				if(*bitmap & (1 << j)){
+					zeromode = 0;
+					zerocount = 0;
+				}else{
+					zerocount++;
+				}
+			}else if((*bitmap & (1 << j)) == 0){
+				zeropos = i*32 + j;
+				zeromode = 1;
+				zerocount = 1;
+			}
+			if(zerocount >= reqs)
+				return zeropos;
 		}
 	}
 	return -1;
 }
-
 static int get_spacezero(unsigned int *bitmap,int count){
 	int i;
 	for(i = 0;i < (count + 31) / 32;i++){
@@ -117,33 +116,32 @@ static int get_spacezero(unsigned int *bitmap,int count){
 }
 
 static void set_bitmaps(unsigned int *bitmap,int index,int reqs){
-	unsigned int mask = get_mask(reqs);
 	int raw = index / 32;
 	int col = index & 31;
-	if(col + reqs  - 1 < 32)
-		bitmap[raw] |= (mask << col);
-	else {
-		mask = get_mask(32 - col);
-		bitmap[raw] |= (mask << col);
-		mask = get_mask(reqs - (32 - col));
-		bitmap[raw+1] |= mask;
-		
+	unsigned int *bm = &bitmap[raw];
+	int i,k = col;
+	for(i = 0;i < reqs;i++){
+		*bm |= 1 << k;
+		k++;
+		if(k >= 32){
+			k = 0;
+			bm++;
+		}
 	}
-
 }
 static void clear_bitmaps(unsigned int *bitmap,int index,int reqs){
-	unsigned int mask = get_mask(reqs);
 	int raw = index / 32;
 	int col = index & 31;
-	if(col + reqs - 1 < 32)
-		bitmap[raw] &= ~(mask << col);
-	else {
-		mask = get_mask(32 - col);
-		bitmap[raw] &= ~(mask << col);
-		mask = get_mask(reqs - (32 - col));
-		bitmap[raw+1] &= ~mask;
-		
-	}
+	unsigned int *bm = &bitmap[raw];
+	int i,k = col;
+	for(i = 0;i < reqs;i++){
+		*bm &= ~(1 << k);
+		k++;
+		if(k >= 32){
+			k = 0;
+			bm++;
+		}
+	}	
 }
 
 static void free_zonebufferlist(ZoneBuffer* zb){

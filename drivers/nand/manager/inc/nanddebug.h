@@ -50,6 +50,13 @@
 #define PARTITION_DEBUG 2
 #define PARTITION_ERROR 3
 
+#define RECYCLE_INFO   1
+#define RECYCLE_DEBUG  2
+#define RECYCLE_ERROR  3
+
+#define TIMER_INFO   1
+#define TIMER_ERRROR 3
+
 #ifndef  LINUX_KERNEL
 #define ndprint(level,...) printf(__VA_ARGS__);
 #else

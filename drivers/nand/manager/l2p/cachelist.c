@@ -57,11 +57,8 @@ CacheData *CacheList_getTail ( CacheList *cachelist )
 	struct singlelist *pos, *q;
 	CacheData *cachedata;
 
-	if (cachelist->listCount == 0) {
-		ndprint(CACHELIST_INFO,"Warning: CacheList has no content fun %s line %d\n", 
-			__FUNCTION__, __LINE__);
+	if (cachelist->listCount == 0)
 		return NULL;
-	}
 	else if (cachelist->listCount == 1) {
 		cachedata = cachelist->tail;
 		cachelist->top = NULL;

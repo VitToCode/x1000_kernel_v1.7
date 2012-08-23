@@ -3,6 +3,7 @@
 
 #include "nandinterface.h"
 #include "ppartition.h"
+#include "timerdebug.h"
 
 typedef struct _VNandInfo VNandInfo;
 typedef struct _VNandManager VNandManager;
@@ -16,6 +17,9 @@ struct _VNandInfo {
     int MaxBadBlockCount;
     unsigned short hwSector;
     unsigned int *pt_badblock_info;
+#ifdef TIMER_DEBUG
+	TimeByte *timebyte;
+#endif
 };
 
 struct _VNandManager {

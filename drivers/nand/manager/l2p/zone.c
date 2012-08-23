@@ -21,6 +21,7 @@
 #include "singlelist.h"
 #include "bufflistmanager.h"
 #include "nandzoneinfo.h"
+#include "badblockinfo.h"
 
 /*block per zone 8 block */
 #define BLOCKPERZONE(context)   	8
@@ -86,8 +87,6 @@ static void check_invalidpage(Zone *zone, unsigned int startpage, unsigned short
 			zone->validpage -= invalidpage;
 		}
 
-		ndprint(ZONE_INFO," invalidpage = %d\n",invalidpage);
-
 		(wpages + zonevalidinfo->current_count)->startpage = startpage;
 		(wpages + zonevalidinfo->current_count)->pagecnt = pagecnt;
 		zonevalidinfo->current_count++;
@@ -124,8 +123,14 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	ret = vNand_MultiPageRead(zone->vnand,pagelist);	
 	if(ret != 0)
 	{
-		ndprint(ZONE_ERROR,"vNand read pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
+		if (ISNOWRITE(pagelist->retVal)) {
+			ndprint(ZONE_INFO,"WARNING: no write to read func %s line %d \n",
+				__FUNCTION__,__LINE__);
+		}
+		else {
+			ndprint(ZONE_ERROR,"vNand read pageinfo error func %s line %d \n",
+				__FUNCTION__,__LINE__);
+		}
 		goto err;
 	}
 
@@ -457,23 +462,35 @@ err:
  */
 int Zone_AllocNextPage ( Zone *zone )
 {
-	unsigned int blockno = 0;
-	unsigned int pageperzone = (zone->vnand->PagePerBlock)*BLOCKPERZONE(zone->vnand);
+	int i;
+	int j = 0;
+	int end_blockid;
+	int badblocknum = 0;
 	unsigned int pageperblock = zone->vnand->PagePerBlock;
+	ZoneManager *zonep = ((Context *)(zone->context))->zonep;
 
-	if(zone->allocPageCursor == pageperzone)
-		return -1;
 	if(zone->allocedpage == zone->sumpage){
 		ndprint(ZONE_ERROR,"Function: %s LINE: %d Have alloced all the page in zone\n",__func__,__LINE__);
 		return -1;
 	}
 
 	zone->allocPageCursor++;
-	blockno = zone->allocPageCursor / pageperblock;
-	while(nm_test_bit(blockno,&(zone->badblock)) && (++blockno));
-	zone->allocPageCursor = zone->allocPageCursor % pageperblock + blockno * pageperblock;
-	zone->allocedpage++;
+	if (zone->allocPageCursor > 0 && zone->allocPageCursor % pageperblock == 0) {
+		if (zone->ZoneID == zonep->pt_zonenum - 1)
+			end_blockid = zonep->vnand->TotalBlocks - 1;
+		else
+			end_blockid = BadBlockInfo_Get_blockID(zonep->badblockinfo,zone->ZoneID,BLOCKPERZONE(zone->vnand) - 1);
 
+		for (i = zone->startblockID + zone->allocPageCursor / pageperblock; i < end_blockid; i++) {
+			if (vNand_IsBadBlock(zone->vnand,i) || nm_test_bit(j++,&(zone->badblock)))
+				badblocknum++;
+			else
+				break;
+		}
+	}
+
+	zone->allocPageCursor = zone->allocPageCursor % pageperblock + (zone->allocPageCursor / pageperblock + badblocknum) * pageperblock;
+	zone->allocedpage++;
 	return zone->allocPageCursor + zone->startblockID * zone->vnand->PagePerBlock;
 }
 
@@ -538,15 +555,22 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->badblock = zone->sigzoneinfo->badblock;
 	zone->ZoneID = zone->sigzoneinfo - zone->top;
 
+	zone->sumpage = calc_zone_page(zone) - ZONERESVPAGE(zone->vnand);
+	if (zone->sumpage <= 1)
+		return -1;
+
 	memset(nandzoneinfo,0xff,zone->vnand->BytePerPage);
 	/*file local zone information to page1 buf*/
 	nandzoneinfo->localZone.ZoneID = zone->sigzoneinfo - zone->top;
+	if ((int)zone->sigzoneinfo->lifetime == -1)
+		zone->sigzoneinfo->lifetime = 0;
 	CONV_SZ_ZI(zone->sigzoneinfo, &nandzoneinfo->localZone);
 
 	if(prev != NULL)
 	{	
 		/*file prev zone information to page1 buf*/
 		nandzoneinfo->preZone.ZoneID = prev - zone->top;
+		zone->sigzoneinfo->pre_zoneid = prev - zone->top;
 		CONV_SZ_ZI(prev, &nandzoneinfo->preZone);
 	}
 	else
@@ -556,6 +580,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	{	
 		/*file next zone information to page1 buf*/
 		nandzoneinfo->nextZone.ZoneID = next - zone->top;
+		zone->sigzoneinfo->next_zoneid = next - zone->top;
 		CONV_SZ_ZI(next, &nandzoneinfo->nextZone);
 	}
 	else
@@ -597,7 +622,6 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->nextzone = next;
 	zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
 	zone->allocPageCursor = zone->pageCursor + 1;
-	zone->sumpage = calc_zone_page(zone) - ZONERESVPAGE(zone->vnand);
 	zone->allocedpage = 3;
 	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - 3;
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));

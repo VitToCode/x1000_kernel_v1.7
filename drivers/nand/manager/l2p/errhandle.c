@@ -4,6 +4,7 @@
 #include "nandzoneinfo.h"
 #include "vNand.h"
 #include "nanddebug.h"
+#include "badblockinfo.h"
 
 #define ZONEPAGE1INFO(context)      1
 #define ZONEPAGE2INFO(context)      2
@@ -18,8 +19,8 @@ static int erase_err_zone(int errinfo)
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
-	int start_blockno = zonep->startblockID[zoneid];
-	int next_start_blockno = zonep->startblockID[zoneid + 1];
+	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	int next_start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1);
 	int blockcount = next_start_blockno - start_blockno;
 	
 	bl->startBlock = start_blockno;
@@ -50,7 +51,7 @@ static int write_page0(int errinfo)
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
-	int start_blockno = zonep->startblockID[zoneid];
+	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 
 	buf = (unsigned char *)Nand_VirtualAlloc(vnand->BytePerPage);
 	if (!buf) {
@@ -196,7 +197,7 @@ static Zone *get_prev_zone(int errinfo)
 		return NULL;
 	}
 
-	ret = vNand_PageRead(vnand,zonep->startblockID[last_zoneid] * 
+	ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
 		vnand->PagePerBlock + ZONEPAGE1INFO(context),0,vnand->BytePerPage,buf);
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"
@@ -323,5 +324,34 @@ int read_page2_err_handler(int errinfo)
 		return -1;
 	
 	return  zone_data_move_and_erase(errinfo);
+}
+
+int read_ecc_err_handler(int errinfo)
+{
+	ForceRecycleInfo frinfo;
+	ErrInfo *einfo = (ErrInfo *)errinfo;
+	int context = einfo->context;
+
+	frinfo.context = context;
+	frinfo.pagecount = 0;
+	frinfo.suggest_zoneid = einfo->err_zoneid;
+	return Recycle_OnForceRecycle((int)&frinfo);
+}
+
+int read_first_pageinfo_err_handler(int errinfo)
+{
+	int ret;
+	ErrInfo *einfo = (ErrInfo *)errinfo;
+	ZoneManager *zonep = ((Context *)(einfo->context))->zonep;
+	
+	ret = erase_err_zone(errinfo);
+	if(ret < 0)
+		return -1;
+
+	ret = write_page0(errinfo);
+	if(ret < 0)
+		return -1;
+
+	return ZoneManager_Move_UseZone_to_FreeZone(zonep, einfo->err_zoneid);
 }
 

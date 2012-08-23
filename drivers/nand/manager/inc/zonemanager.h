@@ -50,14 +50,15 @@ struct _ZoneManager {
 	SigZoneInfo *prev;
 	SigZoneInfo *next;
 	unsigned int pt_zonenum;
-	int *startblockID;
 	int context;
 	unsigned char *last_data_buf;
 	PageInfo *last_pi;
 	PageList *pl;
 	unsigned int pagecount;
 	ZoneValidInfo zonevalidinfo;
-	int need_write_last_data;
+	int last_data_read_error;
+	unsigned int old_l1info;
+	int badblockinfo;
 };
 
 Zone *ZoneManager_Get_Used_Zone(ZoneManager *zonep, unsigned short zoneid);
@@ -87,5 +88,6 @@ void ZoneManager_SetPrevZone(int context,Zone *zone);
 SigZoneInfo *ZoneManager_GetPrevZone(int context);
 void ZoneManager_SetNextZone(int context,Zone *zone);
 SigZoneInfo *ZoneManager_GetNextZone(int context);
-
+int ZoneManager_convertPageToZone(int context,unsigned int pageid);
+int ZoneManager_Move_UseZone_to_FreeZone(ZoneManager *zonep,unsigned short zoneID);
 #endif

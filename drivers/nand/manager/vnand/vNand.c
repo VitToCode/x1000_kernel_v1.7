@@ -8,6 +8,7 @@
 #include "nanddebug.h"
 #include "nandinterface.h"
 #include "vNand.h"
+#include "timeinterface.h"
 
 struct vnand_operater{
 	NandInterface *operator;
@@ -52,11 +53,30 @@ int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount,
 }
 
 int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
-	return VN_OPERATOR(MultiPageRead,vNand->prData,pl);
+	int ret = 0;
+
+#ifdef TIMER_DEBUG
+	Get_StartTime(vNand->timebyte,0);
+#endif
+	ret = VN_OPERATOR(MultiPageRead,vNand->prData,pl);
+#ifdef TIMER_DEBUG
+	Calc_Speed(vNand->timebyte,(void*)pl,0);
+#endif
+	return ret;
 }
 
 int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
-	return VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
+	int ret = 0;
+
+#ifdef TIMER_DEBUG
+	Get_StartTime(vNand->timebyte,1);
+#endif
+	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
+#ifdef TIMER_DEBUG
+	Calc_Speed(vNand->timebyte,(void*)pl,1);
+#endif
+
+	return ret;
 }
 
 int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
@@ -74,7 +94,7 @@ int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	offset = 0;
 	singlelist_for_each(pos, &wpl->head) {
 		pl_node = singlelist_entry(pos, PageList, head);
-		pl_node->pData = v_nand_ops.vNand_buf + offset;		
+		pl_node->pData = v_nand_ops.vNand_buf + offset;
 		offset += pl_node->Bytes;
 	}
 
@@ -109,12 +129,12 @@ static int vNand_DeInitNand (VNandManager* vNand){
 }
 
 static int alloc_badblock_info(PPartition *pt)
-{	
+{
 	pt->pt_badblock_info = (unsigned int *)Nand_VirtualAlloc(pt->byteperpage + 4);
 	if(NULL == pt->pt_badblock_info) {
 		ndprint(VNAND_ERROR, "alloc memoey fail func %s line %d \n",
-			__FUNCTION__, __LINE__);	
-		
+			__FUNCTION__, __LINE__);
+
 		return -1;
 	}
 
@@ -128,14 +148,13 @@ static int write_pt_badblock_info(VNandInfo *vnand, unsigned int pageid, PPartit
 	return vNand_PageWrite(vnand, pageid, 0, vnand->BytePerPage, pt->pt_badblock_info);
 }
 
-static void scan_pt_badblock_info_write_to_nand(VNandManager *vm, int pageid, int size)
+static void scan_pt_badblock_info_write_to_nand(VNandManager *vm, VNandInfo *evn,int pageid, int size)
 {
 	int i,j = 0,n, ret = 0;
 	unsigned int start_blockno;
 	unsigned int end_blockno;
 	PPartition *pt;
 	VNandInfo vn;
-
 	for(n = 0; n < vm->pt->ptcount;n++){
 		pt = &vm->pt->ppt[n];
 		if(pt->mode != ONCE_MANAGER){
@@ -155,8 +174,7 @@ static void scan_pt_badblock_info_write_to_nand(VNandManager *vm, int pageid, in
 					}
 				}
 			}
-
-			ret = write_pt_badblock_info(&vn, pageid + n, pt);
+			ret = write_pt_badblock_info(evn, pageid + n, pt);
 			if (ret != vn.BytePerPage) {
 				ndprint(VNAND_ERROR, "write pt %d badblock info error, ret =%d\n", n, ret);
 				while(1);
@@ -173,7 +191,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	PPartition *pt = NULL;
 	PPartition *firpt = NULL;
 	PPartition *lastpt = NULL;
-	int startblock = 0, badcnt = 0;
+	int startblock = 0, badcnt = 0,blkcnt = 0;
 
 	vm->info.pt_badblock_info = NULL;
 
@@ -206,30 +224,39 @@ static void read_badblock_info_page(VNandManager *vm)
 		return;
 	}
 
-	startblock = pt->startblockID - 1;
+	startblock = pt->startblockID;
 	CONV_PT_VN(pt,&vn);
-
-	while(vNand_IsBadBlock(&vn,startblock) && startblock > 0) {
+//for error partblock bad block
+//for block number
+	while(blkcnt < vn.TotalBlocks && startblock > 0) {
 		startblock--;
-		badcnt++;
+		if(vNand_IsBadBlock(&vn,startblock))
+			badcnt++;
+		else
+			blkcnt++;
 	}
 
-	lastpt->totalblocks -= badcnt;
-	lastpt->PageCount -= badcnt * vn.PagePerBlock;
+//for error block self partition & badblock
+	lastpt->totalblocks -= (badcnt + vn.TotalBlocks);
+	lastpt->PageCount -= (badcnt + vn.TotalBlocks) * vn.PagePerBlock;
+//chanage error pt startblock for write & read
+	pt->startblockID = startblock;
+
 	if ((lastpt->totalblocks <= 0) || (lastpt->PageCount <= 0)) {
-		ndprint(VNAND_ERROR, 
-				"more bad blcoks,badcnt=%d,totalblocks=%d,PageCount = %d\n", 
+		ndprint(VNAND_ERROR,
+				"more bad blcoks,badcnt=%d,totalblocks=%d,PageCount = %d\n",
 				badcnt, lastpt->totalblocks, lastpt->PageCount);
 		while(1);
 	}
 
-	pageid = startblock * vn.PagePerBlock;
+	pageid = 0;
+
 	ndprint(VNAND_INFO, "Find bad block partition in block: %d\n", startblock);
 	vNand_PageRead(&vn, pageid, 0, vn.BytePerPage, firpt->pt_badblock_info);
 
 	if (firpt->pt_badblock_info[0] != 0x0) {
 		ndprint(VNAND_INFO, "bad block table not creat\n");
-		scan_pt_badblock_info_write_to_nand(vm, pageid, vn.BytePerPage - 4);
+		scan_pt_badblock_info_write_to_nand(vm,&vn, pageid, vn.BytePerPage - 4);
 	}
 }
 
@@ -249,12 +276,12 @@ int vNand_ScanBadBlocks (VNandManager* vm)
 int vNand_Init (VNandManager** vm)
 {
 	int ret = 0;
-	
+
 	if(*vm){
 		ndprint(VNAND_ERROR,"*vm should be null!\n");
 		return -1;
 	}
-	
+
 	*vm = Nand_VirtualAlloc(sizeof(VNandManager));
 	if(*vm == NULL){
 		ndprint(VNAND_ERROR,"*vm alloc failed!\n");
@@ -266,7 +293,7 @@ int vNand_Init (VNandManager** vm)
 		ndprint(VNAND_ERROR,"alloc bad block info failed!\n");
 		return -1;
 	}
-	
+
 	InitNandMutex(&v_nand_ops.mutex);
 	ret = vNand_InitNand(*vm);
 	if (ret != 0) {

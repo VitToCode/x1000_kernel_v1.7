@@ -35,7 +35,7 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	maxdatapage = 1024 / sizeof(unsigned int) / (ppa->byteperpage / SECTOR_SIZE);
 	zonenum = (ppa->totalblocks - ppa->badblockcount) / BLOCK_PER_ZONE;
 	zonevalidpage = (pageperzone - ZONEINFO_PAGES) / (maxdatapage + 1) * maxdatapage;
-	extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1);
+	extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1)-1;
 	
 	if (extrapage > 1)
 		lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage / SECTOR_SIZE * zonenum;
@@ -280,17 +280,16 @@ int NandManger_Init (void){
 void NandManger_Deinit (int handle){
 	PManager *pm = (PManager*)handle;
 
-	BuffListManager_BuffList_DeInit ((int)pm->bufferlist); 
-	vNand_Deinit(&pm->vnand);
-	
+	vNand_Deinit(&pm->vnand);	
 #ifndef TEST_PARTITION
 	SimpleBlockManager_Deinit(0);
 	L2PConvert_Deinit(0);
 #endif
-	BuffListManager_freeAllList((int)(pm->bufferlist), (void **)&pm->lpt.pt, sizeof(LPartition));
-	BuffListManager_freeAllList((int)(pm->bufferlist),(void **)&pm->nl, sizeof(struct NotifyList));
-	BuffListManager_freeAllList((int)(pm->bufferlist), (void **)&pm->Mlist, sizeof(ManagerList));
 	Nand_VirtualFree(pm->lpt.pt->pc);
+	BuffListManager_freeAllList((int)(pm->bufferlist), (void**)(&(pm->lpt.pt)), sizeof(LPartition));
+	BuffListManager_freeAllList((int)(pm->bufferlist),(void**)(&(pm->nl)), sizeof(struct NotifyList));
+	BuffListManager_freeAllList((int)(pm->bufferlist), (void**)(&(pm->Mlist)), sizeof(ManagerList));
+	BuffListManager_BuffList_DeInit ((int)(pm->bufferlist)); 
 	Nand_VirtualFree(pm);
 }
 

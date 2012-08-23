@@ -23,11 +23,10 @@ static void fill_infolen_unitlen(int context)
 {
 	Context *conptr = (Context *)context;
 	ZoneManager *zonemanager = conptr->zonep;
-	VNandInfo *vnand = &conptr->vnand;
 	CacheManager *cachemanager = conptr->cachemanager;
 	unsigned int lxlen;
 	unsigned int ulxlen;
-	cachemanager->L1InfoLen = vnand->BytePerPage;
+	cachemanager->L1InfoLen = zonemanager->L1.len;
 	cachemanager->L2InfoLen = zonemanager->l2infolen;
 	cachemanager->L3InfoLen = zonemanager->l3infolen;
 	cachemanager->L4InfoLen = zonemanager->l4infolen;
@@ -133,6 +132,8 @@ static void deleteLXcachelist(CacheList *cl)
 	CacheData *pcachedata;
 	do{
 		cachedata = CacheList_getTail(cl);
+		if (cachedata == NULL)
+			break;
 		pcachedata = cachedata;
 		CacheData_DeInit(cachedata);
 	}while(pcachedata);
@@ -275,7 +276,6 @@ void CacheManager_DeInit ( int context )
 		deleteLXcachelist(cm->L3Info);
 	if(cm->L4Info)
 		deleteLXcachelist(cm->L4Info);
-
 	Nand_ContinueFree(cm->pagecache.pageinfobuf);
 
 	DeinitNandMutex(&cm->mutex);
@@ -524,20 +524,26 @@ FINDDATACACHE:
 	}
 	
 	if(cachemanager->L2InfoLen){
-		if(!lct->L2)
+		if(!lct->L2) {
 			lct->L2 = CacheList_getTail(cachemanager->L2Info);
+			memset(lct->L2->Index,0xff,lct->L2->IndexCount*4);
+		}
 		pi->L2Info = (unsigned char*)lct->L2->Index;
 	}
 	
 	if(cachemanager->L3InfoLen){
-		if(!lct->L3)
+		if(!lct->L3) {
 			lct->L3 = CacheList_getTail(cachemanager->L3Info);
+			memset(lct->L3->Index,0xff,lct->L3->IndexCount*4);
+		}
 		pi->L3Info = (unsigned char*)lct->L3->Index;
 	}
 
 	if(cachemanager->L4InfoLen){
-		if(!lct->L4)
+		if(!lct->L4) {
 			lct->L4 = CacheList_getTail(cachemanager->L4Info);
+			memset(lct->L4->Index,0xff,lct->L4->IndexCount*4);
+		}
 		pi->L4Info = (unsigned char*)lct->L4->Index;
 	}
 

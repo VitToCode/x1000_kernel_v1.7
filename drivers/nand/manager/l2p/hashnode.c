@@ -324,22 +324,12 @@ int HashNode_FindNextLessLifeTime(HashNode *hashnode, int prev, SigZoneInfo **si
 */
 SigZoneInfo *HashNode_get (HashNode *hashnode)
 {
-	int offset;
 	SigZoneInfo *szi = NULL;
 	
 	if (hashnode->count == 0)
 		return NULL;
 
-	offset = hashnode->head;
-	while (1) {
-		if ((hashnode->base_szi + offset)->lifetime == hashnode->minlifetime)
-			break;
-
-		offset = hashnode->zoneID[offset];
-	}
-	
-	szi = hashnode->base_szi + offset;
-
+	szi = hashnode->base_szi + hashnode->head;
 	HashNode_delete(hashnode, szi);
 
 	return szi;

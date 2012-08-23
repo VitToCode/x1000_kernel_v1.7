@@ -15,9 +15,10 @@
 #include "nanddebug.h"
 #include "nandsigzoneinfo.h"
 #include "nmbitops.h"
+#include "badblockinfo.h"
 
 #define L4UNITSIZE(context) 128 * 1024
-#define BLOCKPERZONE(context)   	8
+#define BLOCKPERZONE(context)		8
 #define SIGZONEINFO(context)        1
 #define RECYCLECACHESIZE		VNANDCACHESIZE
 
@@ -30,7 +31,7 @@ static int FindNextPageInfo ( Recycle *rep);
 static int FreeZone ( Recycle *rep );
 int Recycle_OnForceRecycle ( int frinfo );
 
-/** 
+/**
  *	Recycle_OnFragmentHandle - Process of normal recycle
  *
  *	@context: global variable
@@ -43,37 +44,50 @@ int Recycle_OnFragmentHandle ( int context )
 	switch(rep->taskStep) {
 		case RECYSTART:
 		case GETZONE:
+			NandMutex_Lock(&rep->mutex);
 			ret = getRecycleZone(rep);
-			if (ret == -1)
-				goto ERROR;
+			NandMutex_Unlock(&rep->mutex);
+			if (ret == -1) {
+				if (rep->junk_zoneid != -1) {
+					Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->junk_zoneid);
+					rep->junk_zoneid = -1;
+				}
+				return ret;
+			}
 			break;
 		case READFIRSTINFO:
+			NandMutex_Lock(&rep->mutex);
 			ret = FindFirstPageInfo(rep);
+			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
 				goto ERROR;
 			break;
 		case FINDVAILD:
+			NandMutex_Lock(&rep->mutex);
 			ret = FindValidSector(rep);
 			if (ret == -1)
 				goto ERROR;
 			break;
 		case MERGER:
-			ret = MergerSectorID(rep);
-			if (ret == -1)
-				goto ERROR;
+			MergerSectorID(rep);
 			break;
 		case RECYCLE:
 			ret = RecycleReadWrite(rep);
+			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
-			 goto ERROR;
+				goto ERROR;
 			break;
 		case READNEXTINFO:
+			NandMutex_Lock(&rep->mutex);
 			ret = FindNextPageInfo(rep);
+			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
 				goto ERROR;
 			break;
 		case FINISH:
+			NandMutex_Lock(&rep->mutex);
 			ret = FreeZone(rep);
+			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
 				goto ERROR;
 			break;
@@ -82,8 +96,16 @@ int Recycle_OnFragmentHandle ( int context )
 		default:
 			break;
 	}
+	
+	return ret;
 
 ERROR:
+	if (rep->junk_zoneid != -1) {
+		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->junk_zoneid);
+		rep->junk_zoneid = -1;
+	}
+	else
+		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
 	return ret;
 }
 
@@ -107,7 +129,7 @@ static int alloc_pageinfo(Recycle *rep)
 		if (zonep->l2infolen) {
 			pi[i].L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l2infolen);
 			if (!(pi[i].L2Info)) {
-				ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+				ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 				if (i == 0)
 					goto ERROR1;
 				else
@@ -118,7 +140,7 @@ static int alloc_pageinfo(Recycle *rep)
 		if (zonep->l3infolen) {
 			pi[i].L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l3infolen);
 			if (!(pi[i].L3Info)) {
-				ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+				ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 				if (i == 0)
 					goto ERROR2;
 				else
@@ -128,21 +150,21 @@ static int alloc_pageinfo(Recycle *rep)
 
 		pi[i].L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l4infolen);
 		if (!(pi[i].L4Info)) {
-			ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			if (i == 0)
 				goto ERROR3;
 			else
 				goto ERROR6;
 		}
-		
-		pi[i].L1InfoLen = zonep->vnand->BytePerPage;
+
+		pi[i].L1InfoLen = zonep->L1.len;
 		pi[i].L2InfoLen = zonep->l2infolen;
 		pi[i].L3InfoLen = zonep->l3infolen;
 		pi[i].L4InfoLen = zonep->l4infolen;
 	}
 
 	return 0;
-	
+
 ERROR6:
 	if (zonep->l3infolen)
 		Nand_VirtualFree(pi[1].L3Info);
@@ -180,7 +202,7 @@ static void free_pageinfo(Recycle *rep)
 	for (i = 0; i < 2; i++) {
 		if (zonep->l2infolen)
 			Nand_VirtualFree(pi[i].L2Info);
-		
+
 		if (zonep->l3infolen)
 			Nand_VirtualFree(pi[i].L3Info);
 
@@ -188,7 +210,7 @@ static void free_pageinfo(Recycle *rep)
 	}
 }
 
-/** 
+/**
  *	alloc_normalrecycle_memory - alloc normal recycle memory
  *
  *	@rep: operate object
@@ -200,7 +222,7 @@ static int alloc_normalrecycle_memory(Recycle *rep)
 	rep->force = 0;
 	rep->record_writeadd = (unsigned int *)Nand_ContinueAlloc(conptr->zonep->l4infolen);
 	if(rep->record_writeadd == NULL) {
-		ndprint(1,"Force recycle alloc error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
@@ -208,7 +230,7 @@ static int alloc_normalrecycle_memory(Recycle *rep)
 	return alloc_pageinfo(rep);
 }
 
-/** 
+/**
  *	free_normalrecycle_memory - alloc normal recycle memory
  *
  *	@rep: operate object
@@ -219,7 +241,7 @@ static void free_normalrecycle_memory(Recycle *rep)
 	free_pageinfo(rep);
 }
 
-/** 
+/**
  *	alloc_forcerecyle_memory - alloc force recycle memory
  *
  *	@rep: operate object
@@ -232,15 +254,15 @@ static int alloc_forcerecycle_memory( Recycle *rep )
 
 	rep->force_record_writeadd = (unsigned int *)Nand_ContinueAlloc(zonep->l4infolen);
 	if(rep->force_record_writeadd == NULL) {
-		ndprint(1,"Force recycle alloc error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-	
+
 	return alloc_pageinfo(rep);
 }
 
-/** 
+/**
  *	free_forcerecycle_memory - free force recycle memory
  *
  *	@rep: operate object
@@ -252,7 +274,7 @@ static void free_forcerecycle_memory( Recycle *rep )
 	rep->force_record_writeadd = NULL;
 }
 
-/** 
+/**
  *	Recycle_OnNormalRecycle - normal recycle
  *
  *	@context: global variable
@@ -263,15 +285,19 @@ int Recycle_OnNormalRecycle ( int context )
 	Context *conptr = (Context *)context;
 	Recycle *rep = conptr->rep;
 
+	NandMutex_Lock(&rep->mutex);	
+	ndprint(RECYCLE_INFO, "start normal recycle--------->\n");
+
 	ret = alloc_normalrecycle_memory(rep);
 	if(ret != 0) {
-		ndprint(1,"alloc_pageinfo error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"alloc_pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
 	if (rep->taskStep == RECYIDLE)
 		rep->taskStep = RECYSTART;
+	NandMutex_Unlock(&rep->mutex);
 
 	while(1) {
 		if (ret == -1 || rep->taskStep == RECYIDLE)
@@ -280,12 +306,17 @@ int Recycle_OnNormalRecycle ( int context )
 		ret = Recycle_OnFragmentHandle(context);
 	}
 
+	NandMutex_Lock(&rep->mutex);
+	rep->taskStep = RECYIDLE;
 	free_normalrecycle_memory(rep);
-	
+
+	ndprint(RECYCLE_INFO, "normal recycle finished--------->\n\n");
+	NandMutex_Unlock(&rep->mutex);
+
 	return ret;
 }
 
-/** 
+/**
  *	get_pageinfo_from_cache - alloc pageinfo
  *
  *	@rep: operate object
@@ -297,10 +328,10 @@ static PageInfo *get_pageinfo_from_cache(Recycle *rep,unsigned int sector)
 
 	CacheManager_lockCache((int)((Context *)rep->context)->cachemanager, sector, &pi);
 
-	return pi;	
+	return pi;
 }
 
-/** 
+/**
  *	give_pageinfo_to_cache - free pageinfo
  *
  *	@rep: operate object
@@ -311,7 +342,7 @@ static void give_pageinfo_to_cache(Recycle *rep,PageInfo *pi)
 	CacheManager_unlockCache((int)((Context *)rep->context)->cachemanager, pi);
 }
 
-/** 
+/**
  *	get_force_zoneID - get a force recycle zoneID
  *
  *	@context: global variable
@@ -323,9 +354,9 @@ static unsigned short get_force_zoneID(int context)
 
 	count = ZoneManager_Getusedcount(context);
 	if(count == 0) {
-		ndprint(1,"PANIC ERROR func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		return -1;			
+		return -1;
 	}
 
 	lifetime = ZoneManager_Getminlifetime(context);
@@ -333,7 +364,7 @@ static unsigned short get_force_zoneID(int context)
 	return ZoneManager_ForceRecyclezoneID(context,lifetime + 1);
 }
 
-/** 
+/**
  *	get_normal_zoneID - get a normal recycle zoneID
  *
  *	@context: global variable
@@ -347,9 +378,9 @@ static unsigned short get_normal_zoneID(int context)
 
 	count = ZoneManager_Getusedcount(context);
 	if(count == 0) {
-		ndprint(1,"PANIC ERROR func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		return -1;			
+		return -1;
 	}
 
 	minlifetime = ZoneManager_Getminlifetime(context);
@@ -362,7 +393,7 @@ static unsigned short get_normal_zoneID(int context)
 	return ZoneManager_RecyclezoneID(context,lifetime);
 }
 
-/** 
+/**
  *	getRecycleZone - get a normal recycle zone
  *
  *	@rep: operate object
@@ -372,31 +403,32 @@ static int getRecycleZone ( Recycle *rep)
 	unsigned short ZoneID = 0;
 	int ret = 0;
 	int context = rep->context;
-	
-	NandMutex_Lock(&rep->mutex);
 
-	ZoneID = get_normal_zoneID(context);
+	ZoneID = Get_MaxJunkZone(((Context *)context)->junkzone);
+	rep->junk_zoneid = ZoneID;
+	if(ZoneID == 0xffff)
+		ZoneID = get_normal_zoneID(context);
+
 	if(ZoneID == 0xffff) {
-		ndprint(1,"PANIC ERROR func %s line %d \n",
-					__FUNCTION__,__LINE__);
-		ret = -1;
-		goto err;			
-	}
-
-	rep->rZone = ZoneManager_AllocRecyclezone(context,ZoneID);
-	if(rep->rZone == NULL) {
-		ndprint(1,"alloc recycle zone error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		ret = -1;
 		goto err;
 	}
-	rep->taskStep = READFIRSTINFO;	
+
+	rep->rZone = ZoneManager_AllocRecyclezone(context,ZoneID);
+	if(rep->rZone == NULL) {
+		ndprint(RECYCLE_ERROR,"alloc recycle zone error func %s line %d ZoneID = %d\n",
+				__FUNCTION__,__LINE__,ZoneID);
+		ret = -1;
+		goto err;
+	}
+	rep->taskStep = READFIRSTINFO;
 err:
-	NandMutex_Unlock(&rep->mutex);
 	return ret;
 }
 
-/** 
+/**
  *	is_same_L4 - whether L4 is same or not
  *
  *	@prev_pi: previous pageinfo
@@ -407,12 +439,12 @@ static int is_same_L4(PageInfo *prev_pi, PageInfo *next_pi)
 	if (prev_pi->L3InfoLen) {
 		if (prev_pi->L2InfoLen)
 			return prev_pi->L1Index != 0xffff
-				&& prev_pi->L1Index == next_pi->L1Index 
-				&& prev_pi->L2Index == next_pi->L2Index 
+				&& prev_pi->L1Index == next_pi->L1Index
+				&& prev_pi->L2Index == next_pi->L2Index
 				&& prev_pi->L3Index == next_pi->L3Index;
 		else
 			 return prev_pi->L1Index != 0xffff
-			 	&& prev_pi->L1Index == next_pi->L1Index
+				&& prev_pi->L1Index == next_pi->L1Index
 				&& prev_pi->L3Index == next_pi->L3Index;
 	}
 	else
@@ -420,7 +452,7 @@ static int is_same_L4(PageInfo *prev_pi, PageInfo *next_pi)
 			&& prev_pi->L1Index == next_pi->L1Index;
 }
 
-/** 
+/**
  *	FindFirstPageInfo - Find first pageinfo of recycle zone
  *
  *	@rep: operate object
@@ -430,16 +462,14 @@ static int FindFirstPageInfo ( Recycle *rep)
 	int ret = 0;
 	PageInfo *prev_pi = rep->pi;
 	PageInfo *pi = rep->pi + 1;
-	
-	NandMutex_Lock(&rep->mutex);
-	
+
 	ret = Zone_FindFirstPageInfo(rep->rZone,prev_pi);
 	if (ISERROR(ret)) {
-		ndprint(1,"Find First Pageinfo error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"Find First Pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		goto err0;			
+		goto err0;
 	}
-	
+
 	rep->curpageinfo = prev_pi;
 	do {
 		if (rep->rZone->NextPageInfo == 0) {
@@ -447,20 +477,20 @@ static int FindFirstPageInfo ( Recycle *rep)
 			goto exit;
 		}
 		else if (rep->rZone->NextPageInfo == 0xffff) {
-			ndprint(1,"pageinfo data error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"pageinfo data error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err0;
 		}
-		
+
 		ret = Zone_FindNextPageInfo(rep->rZone,pi);
 		if (ISNOWRITE(ret)) {
 			rep->end_findnextpageinfo = 1;
 			goto exit;
 		}
 		else if((ret & 0xffff) < 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			goto err0;			
+			goto err0;
 		}
 
 		rep->prevpageinfo = rep->curpageinfo;
@@ -471,21 +501,19 @@ static int FindFirstPageInfo ( Recycle *rep)
 		else if (pi == rep->pi + 1)
 			pi = rep->pi;
 	}while(is_same_L4(rep->prevpageinfo, rep->curpageinfo));
-	
+
 	rep->nextpageinfo = rep->curpageinfo;
 	rep->curpageinfo = rep->prevpageinfo;
 
 exit:
 	rep->taskStep = FINDVAILD;
-	NandMutex_Unlock(&rep->mutex);
 	return 0;
 
 err0:
-	NandMutex_Unlock(&rep->mutex);
 	return -1;
 }
- 
-/** 
+
+/**
  *	 FindValidSector - Find valid sector of recycle zone
  *
  *	 @rep: operate object
@@ -502,7 +530,6 @@ static int FindValidSector ( Recycle *rep)
 	Context *conptr = (Context *)(rep->context);
 	CacheManager *cachemanager = conptr->cachemanager;
 	PageInfo *pi = NULL;
-	NandMutex_Lock(&rep->mutex);
 	l1unitlen = cachemanager->L1UnitLen;
 	l2unitlen = cachemanager->L2UnitLen;
 	l3unitlen = cachemanager->L3UnitLen;
@@ -512,20 +539,26 @@ static int FindValidSector ( Recycle *rep)
 	l2index = pi->L2Index;
 	l3index = pi->L3Index;
 
-	if (l1index == 0xffff)
+	if (l1index == 0xffff) {
+		ndprint(RECYCLE_ERROR,"PANIC ERROR l1index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
 		goto FindValidSector_err;
+	}
 	if(pi->L3InfoLen == 0)
 		start_sectorID = l1index * l1unitlen;
 	else {
-		if (l3index == 0xffff)
+		if (l3index == 0xffff) {
+			ndprint(RECYCLE_ERROR,"PANIC ERROR l3index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
 			goto FindValidSector_err;
+		}
 
 		if(pi->L2InfoLen == 0)
 			start_sectorID = l1index * l1unitlen + l3index * l3unitlen;
 		else {
-			if (l2index == 0xffff)
-				goto FindValidSector_err;			
-			start_sectorID = l3index * l3unitlen + 
+			if (l2index == 0xffff) {
+				ndprint(RECYCLE_ERROR,"PANIC ERROR l2index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+				goto FindValidSector_err;
+			}
+			start_sectorID = l3index * l3unitlen +
 				l2index * l2unitlen + l1index * l1unitlen;
 		}
 	}
@@ -533,11 +566,8 @@ static int FindValidSector ( Recycle *rep)
 	rep->startsectorID = start_sectorID;
 	rep->writepageinfo = get_pageinfo_from_cache(rep,rep->startsectorID);
 	rep->taskStep = MERGER;
-	NandMutex_Unlock(&rep->mutex);
-
 	return 0;
 FindValidSector_err:
-	NandMutex_Unlock(&rep->mutex);	
 	return -1;
 }
 
@@ -546,7 +576,7 @@ FindValidSector_err:
  *
  *	@rep: operate object
  *	@pageid: number of page
-*/ 
+*/
 static int data_in_rzone (Recycle *rep, unsigned int pageid)
 {
 	Zone *zone;
@@ -563,9 +593,12 @@ static int data_in_rzone (Recycle *rep, unsigned int pageid)
 	vnand = zone->vnand;
 	zoneid = zone->ZoneID;
 	ppb = vnand->PagePerBlock;
-	
-	return pageid >= zonep->startblockID[zoneid] * ppb
-		&& pageid < zonep->startblockID[zoneid + 1] * ppb;
+
+	if (zoneid == zonep->pt_zonenum - 1)
+		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+
+	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
 }
 
 /**
@@ -576,7 +609,7 @@ static int data_in_rzone (Recycle *rep, unsigned int pageid)
 */
 static int data_in_prev_zone (Recycle *rep, unsigned int pageid)
 {
-	Zone *zone;
+	Zone *zone = NULL;
 	VNandInfo *vnand = NULL;
 	unsigned short zoneid;
 	int ppb;
@@ -587,12 +620,18 @@ static int data_in_prev_zone (Recycle *rep, unsigned int pageid)
 	else
 		zone = rep->rZone;
 
+	if (!zone->prevzone)
+		return 0;
+
 	vnand = zone->vnand;
 	zoneid = zone->prevzone- zone->top;
 	ppb = vnand->PagePerBlock;
-	
-	return pageid >= zonep->startblockID[zoneid] * ppb
-		&& pageid < zonep->startblockID[zoneid + 1] * ppb;
+
+	if (zoneid == zonep->pt_zonenum - 1)
+		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+
+	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
 }
 
 /**
@@ -603,7 +642,7 @@ static int data_in_prev_zone (Recycle *rep, unsigned int pageid)
 */
 static int data_in_next_zone (Recycle *rep, unsigned int pageid)
 {
-	Zone *zone;
+	Zone *zone = NULL;
 	VNandInfo *vnand = NULL;
 	unsigned short zoneid;
 	int ppb;
@@ -614,12 +653,18 @@ static int data_in_next_zone (Recycle *rep, unsigned int pageid)
 	else
 		zone = rep->rZone;
 
+	if (!zone->nextzone || zone->ZoneID == ZoneManager_GetCurrentWriteZone(rep->context)->ZoneID);
+		return 0;
+
 	vnand = zone->vnand;
 	zoneid = zone->nextzone- zone->top;
 	ppb = vnand->PagePerBlock;
-	
-	return pageid >= zonep->startblockID[zoneid] * ppb
-		&& pageid < zonep->startblockID[zoneid + 1] * ppb;
+
+	if (zoneid == zonep->pt_zonenum - 1)
+		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+
+	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
 }
 
 /**
@@ -657,14 +702,13 @@ static int MergerSectorID ( Recycle *rep)
 	unsigned int spp = 0;
 	int first_flag = 1;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
-	NandMutex_Lock(&rep->mutex);
 
 	l4count = rep->curpageinfo->L4InfoLen >> 2;
 	spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
 	l4info = (unsigned int *)(rep->curpageinfo->L4Info);
 	latest_l4info = (unsigned int *)(rep->writepageinfo->L4Info);
-
-	pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+	pl = NULL;
+	tpl = NULL;
 	rep->write_cursor = 0;
 
 	for(i = 0; i < l4count; i += k) {
@@ -680,20 +724,23 @@ static int MergerSectorID ( Recycle *rep)
 				rep->write_cursor = i;
 				first_flag = 0;
 			}
-			
+
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
-				
+
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
 				if(tmp2 == tmp0 && tmp2 == tmp3)
 					k++;
 				else
-					break;	
+					break;
 			}
-
-			tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl, sizeof(PageList));
+			if(tpl == NULL){
+				tpl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+				pl = tpl;
+			}else
+				tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)tpl, sizeof(PageList));
 			tpl->startPageID = tmp0;
 			tpl->OffsetBytes = l4info[i] % spp;
 			tpl->Bytes = k * SECTOR_SIZE;
@@ -702,13 +749,10 @@ static int MergerSectorID ( Recycle *rep)
 		}
 	}
 
-	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
 	rep->pagelist = pl;
-
 	rep->taskStep = RECYCLE;
-	NandMutex_Unlock(&rep->mutex);
-	return 0;
 
+	return 0;
 }
 
 /**
@@ -718,7 +762,7 @@ static int MergerSectorID ( Recycle *rep)
 */
 static Zone *get_current_write_zone(int context)
 {
-	return ZoneManager_GetCurrentWriteZone(context); 
+	return ZoneManager_GetCurrentWriteZone(context);
 }
 
 /**
@@ -751,7 +795,7 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	CacheManager *cachemanager = conptr->cachemanager;
 	VNandInfo *vnand = &conptr->vnand;
 	unsigned int spp = vnand->BytePerPage / SECTOR_SIZE;
-	
+
 	l1buf = (unsigned int *)pi->L1Info;
 	l2buf = (unsigned int *)pi->L2Info;
 	l3buf = (unsigned int *)pi->L3Info;
@@ -781,7 +825,7 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 		rep->alloc_num = count;
 		pi->zoneID = rep->rZone->ZoneID;
 	}
-	
+
 	l1index = startsectorid / l1unitlen;
 	pi->PageID = Zone_AllocNextPage(wzone);
 
@@ -877,7 +921,7 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		rep->force_read_pagelist = pl;
 	else
 		rep->read_pagelist = pl;
-		
+
 	if(flag == 1) {
 		pv->head.next = NULL;
 		px->OffsetBytes = px->Bytes;
@@ -930,7 +974,7 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 		alloc_num--;
 		px = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl, sizeof(PageList));
 		if(px == NULL) {
-			ndprint(1,"PANIC ERROR func %s line %d \n",__FUNCTION__,__LINE__);
+			ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",__FUNCTION__,__LINE__);
 			return -1;
 		}
 		px->startPageID =  addr[write_cursor] / spp;
@@ -940,7 +984,7 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 		write_cursor += spp;
 	}
 
-	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));	
+	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
 
 	if (rep->force) {
 		rep->force_write_pagelist = pl;
@@ -971,6 +1015,7 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 	PageInfo *writepageinfo = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
+	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	if (rep->force) {
 		writepageinfo = rep->force_writepageinfo;
@@ -984,16 +1029,16 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 	for(i = 0 ; i < count; i++) {
 		ret = Create_read_pagelist(rep,bufpage);
 		if(ret != 0) {
-			ndprint(1,"creat read pagelist error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"creat read pagelist error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-			return -1;				
+			return -1;
 		}
 
 		ret = Create_write_pagelist(rep,bufpage);
 		if(ret != 0) {
-			ndprint(1,"creat write pagelist error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"creat write pagelist error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-			return -1;				
+			return -1;
 		}
 
 		if (rep->force) {
@@ -1008,19 +1053,22 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 		if(i == 0) {
 			ret = Zone_MultiWritePage(wzone,0,NULL,writepageinfo);
 			if(ret != 0) {
-				ndprint(1,"zone multi write error func %s line %d \n",
+				ndprint(RECYCLE_ERROR,"zone multi write error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-				return -1;			
+				return -1;
 			}
 			rep->write_pagecount++;
 		}
 
 		ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
 		if(ret != 0) {
-			ndprint(1,"vNand_CopyData error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-			return -1;				
+			return -1;
 		}
+
+		BuffListManager_freeAllList((int)blm,(void **)&read_pagelist,sizeof(PageList));
+		BuffListManager_freeAllList((int)blm,(void **)&write_pagelist,sizeof(PageList));
 	}
 
 	return 0;
@@ -1040,23 +1088,24 @@ static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,uns
 	PageInfo *writepageinfo = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
+	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	if(numpage == 0)
 		return 0;
 
 	ret = Create_read_pagelist(rep,numpage);
 	if(ret != 0) {
-		ndprint(1,"creat read pagelist error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"creat read pagelist error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-		return -1;				
+		return -1;
 	}
-	
+
 	ret = Create_write_pagelist(rep,numpage);
 	if(ret != 0) {
-		ndprint(1,"creat write pagelist error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"creat write pagelist error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-		return -1;				
-	}	
+		return -1;
+	}
 
 	if (rep->force) {
 		writepageinfo = rep->force_writepageinfo;
@@ -1072,24 +1121,27 @@ static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,uns
 	if(flag == 1) {
 		ret = Zone_MultiWritePage(wzone,0,NULL,writepageinfo);
 		if(ret != 0) {
-			ndprint(1,"zone multi write error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"zone multi write error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			return -1;			
+			return -1;
 		}
 		rep->write_pagecount++;
 	}
-	
+
 	ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
 	if(ret != 0) {
-		ndprint(1,"vNand_CopyData error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-		return -1;				
+		return -1;
 	}
-	
+
+	BuffListManager_freeAllList((int)blm,(void **)&read_pagelist,sizeof(PageList));
+	BuffListManager_freeAllList((int)blm,(void **)&write_pagelist,sizeof(PageList));
+
 	return 0;
 }
 
-/** 
+/**
  *	alloc_new_zone_write - update prev zone sigzoneinfo and return new zone
  *
  *	@context: global variable
@@ -1107,11 +1159,11 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	if (ZoneManager_GetAheadCount(context) == 0) {
 		new_zone = ZoneManager_AllocZone(context);
 		if (!new_zone) {
-			ndprint(1,"ERROR: Can't alloc a new zone! %s %d \n",
+			ndprint(RECYCLE_ERROR,"ERROR: Can't alloc a new zone! %s %d \n",
 				__FUNCTION__, __LINE__);
 			return NULL;
 		}
-		ZoneManager_SetAheadZone(context,zone);
+		ZoneManager_SetAheadZone(context,new_zone);
 	}
 
 	ZoneManager_GetAheadZone(context, &new_zone);
@@ -1121,6 +1173,28 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	Zone_Init(new_zone,prev,next);
 
 	return new_zone;
+}
+
+/**
+ *	fill_ahead_zone - alloc 4 zone beforehand
+ *
+ *  	@context: global variable
+ */
+static int fill_ahead_zone ( int context )
+{
+	int i;
+	unsigned int count = 0;
+	Zone *zone = NULL;
+
+	count = ZoneManager_GetAheadCount(context);
+	for (i = 0; i < 4 - count; i++){
+		zone = ZoneManager_AllocZone(context);
+		if (!zone)
+			return 1;
+		ZoneManager_SetAheadZone(context,zone);
+	}
+
+	return 0;
 }
 
 /**
@@ -1139,56 +1213,6 @@ static int get_pagecount(PageList *pagelist)
 	return pagecount;
 }
 
-/** 
- *	zone_page1_pageid - get pageid of zone'page1
- *
- *	@zone: operate object
- */
-static inline unsigned short zone_page1_pageid(Zone *zone)
-{
-	int blockno = 0;
-
-	while(nm_test_bit(blockno,&zone->badblock) && (++blockno));
-
-	return ( blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand));
-}
-
-/** 
- *	zone_L1Info_addr - get pageid of zone'L1Info
- *
- *	@zone: operate object
- */
-static inline unsigned int zone_L1Info_addr(Zone *zone)
-{
-	return (zone_page1_pageid(zone) + 
-			zone->startblockID * zone->vnand->PagePerBlock + 1);
-}
-
-/** 
- *	write_L1info - write l1info into wzone
- *
- *	@rep: operate object
- *	@wzone: write zone
- */
-static int write_L1info(Recycle *rep, Zone *wzone)
-{
-	int ret = 0;
-	Context *conptr = (Context *)(rep->context);
-	VNandInfo *vnand = &conptr->vnand;
-
-	NandMutex_Lock(&conptr->l1info->mutex);
-	ret = vNand_PageWrite(vnand,zone_L1Info_addr(wzone),0,vnand->BytePerPage,conptr->l1info->page);
-	if (ret != vnand->BytePerPage) {
-		ndprint(1,"vNand_PageWrite error func %s line %d \n",
-						__FUNCTION__,__LINE__);
-		NandMutex_Unlock(&conptr->l1info->mutex);
-		return -1;
-	}
-	NandMutex_Unlock(&conptr->l1info->mutex);
-
-	return 0;
-}
-
 /**
  *	copy_data  - copy data from recycle zone to current write zone
  *
@@ -1202,7 +1226,7 @@ static int copy_data(Recycle *rep, Zone *wzone, unsigned int recyclepage)
 	unsigned int bufpage = 0;
 	unsigned int temppage = 0;
 	unsigned int temppage1 = 0;
-	
+
 	if (rep->force)
 		bufpage = rep->force_buflen / rep->force_rZone->vnand->BytePerPage;
 	else
@@ -1211,28 +1235,19 @@ static int copy_data(Recycle *rep, Zone *wzone, unsigned int recyclepage)
 	temppage = recyclepage / bufpage;
 	temppage1 = recyclepage % bufpage;
 
-	if(wzone->pageCursor == zone_page1_pageid(wzone)) {
-		ret = write_L1info(rep, wzone);
+	if (temppage) {
+		ret = all_recycle_buflen(rep,wzone,temppage);
 		if(ret != 0) {
-			ndprint(1,"write_L1info error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			return -1;
 		}
 	}
 
-	if (temppage) {
-		ret = all_recycle_buflen(rep,wzone,temppage);
-		if(ret != 0) {
-			ndprint(1,"all recycle buflen error func %s line %d \n",
-						__FUNCTION__,__LINE__);
-			return -1;
-		}
-	}
-	
 	if (temppage1) {
 		ret = part_recycle_buflen(rep,wzone,temppage1,!temppage);
 		if(ret != 0) {
-			ndprint(1,"part recycle buflen error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"part recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			return -1;
 
@@ -1255,12 +1270,15 @@ static int RecycleReadWrite(Recycle *rep)
 	int ret = 0;
 	unsigned int write_pagecount = 0;
 
-	NandMutex_Lock(&rep->mutex);
-
 	wzone = get_current_write_zone(rep->context);
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage == 0) {
 		wzone = alloc_new_zone_write(rep->context, wzone);
+		if(wzone == NULL) {
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
+						__FUNCTION__,__LINE__);
+			goto err;
+		}
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
@@ -1274,7 +1292,7 @@ static int RecycleReadWrite(Recycle *rep)
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclepage);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
-			ndprint(1,"all recycle buflen error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
@@ -1284,17 +1302,17 @@ static int RecycleReadWrite(Recycle *rep)
 			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, zonepage -1);
 			ret = copy_data(rep, wzone, zonepage -1);
 			if(ret != 0) {
-				ndprint(1,"all recycle buflen error func %s line %d \n",
+				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				goto err;
 			}
-			
+
 			recyclepage = recyclepage - (zonepage - 1);
 		}
 
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
-			ndprint(1,"zonemanager alloc zone func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
@@ -1302,12 +1320,14 @@ static int RecycleReadWrite(Recycle *rep)
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclepage);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
-			ndprint(1,"all recycle buflen error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
 	}
-	
+
+	if (fill_ahead_zone(rep->context))
+		rep->taskStep = FINISH;
 exit:
 	rep->prevpageinfo = rep->curpageinfo;
 	give_pageinfo_to_cache(rep,rep->writepageinfo);
@@ -1318,16 +1338,15 @@ exit:
 	}
 	else
 		rep->taskStep = READNEXTINFO;
-	
-	NandMutex_Unlock(&rep->mutex);
+
 	return 0;
 
 err:
-	NandMutex_Unlock(&rep->mutex);
+	give_pageinfo_to_cache(rep,rep->writepageinfo);
 	return -1;
 }
 
-/** 
+/**
  *	FindNextPageInfo - Find next pageinfo of recycle zone
  *
  *	@rep: operate object
@@ -1335,14 +1354,8 @@ err:
 static int FindNextPageInfo ( Recycle *rep)
 {
 	int ret = 0;
-	PageInfo *pi = NULL;
-	NandMutex_Lock(&rep->mutex);
-	if (rep->curpageinfo == rep->pi)
-		pi = rep->pi;
-	else if (rep->curpageinfo == rep->pi + 1)
-		pi = rep->pi + 1;
+	PageInfo *pi = rep->curpageinfo;
 
-	
 	rep->curpageinfo = rep->nextpageinfo;
 	do{
 		if(rep->rZone->NextPageInfo == 0) {
@@ -1350,20 +1363,20 @@ static int FindNextPageInfo ( Recycle *rep)
 			goto exit;
 		}
 		else if (rep->rZone->NextPageInfo == 0xffff) {
-			ndprint(1,"pageinfo data error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"pageinfo data error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		
+
 		ret = Zone_FindNextPageInfo(rep->rZone,pi);
 		if (ISNOWRITE(ret)) {
 			rep->end_findnextpageinfo = 1;
 			goto exit;
 		}
 		else if((ret & 0xffff) < 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			goto err;			
+			goto err;
 		}
 
 		rep->prevpageinfo = rep->curpageinfo;
@@ -1380,33 +1393,67 @@ static int FindNextPageInfo ( Recycle *rep)
 
 exit:
 	rep->taskStep = FINDVAILD;
-	NandMutex_Unlock(&rep->mutex);
 	return 0;
 
 err:
-	NandMutex_Unlock(&rep->mutex);
 	return -1;
 }
 
-/** 
- *	zonemanager_is_badblock - whether block is bad or not
- *
- *	@vnand: virtual nand
- *	@blockno: number of block
- */
-static int is_badblock_in_boot(VNandInfo *vnand, int blockno)
+static BlockList *create_blocklist(Recycle *rep, int start_blockid, int total_blockcount, int *first_ok_blockid)
 {
-	int i;
+	int i = 0;
+	int j = 0;
+	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
+	int blockcount = 0;
+	unsigned int badblockinfo;
+	Context *conptr = (Context *)(rep->context);
+	VNandInfo *vnand = &conptr->vnand;
+	int blm = (int)conptr->blm;
 
-	for (i = 0; i < vnand->BytePerPage >> 2; i++) {
-		if (blockno != 0xffffffff && vnand->pt_badblock_info[i] == blockno)
-			return 1;
+	if (rep->force)
+		badblockinfo = rep->force_rZone->badblock;
+	else
+		badblockinfo = rep->rZone->badblock;
+
+	for (i = start_blockid; i < start_blockid + total_blockcount; i++) {
+		if (!vNand_IsBadBlock(vnand,i) && !nm_test_bit(j++,&badblockinfo)) {//block is ok
+			blockcount++;
+			if (*first_ok_blockid == -1)
+				*first_ok_blockid = i;
+		}
+		else {
+			if (blockcount) {
+				if (bl == NULL) {
+					bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+					bl_node = bl;
+				}
+				else
+					bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+				bl_node->startBlock = i - blockcount;
+				bl_node->BlockCount = blockcount;
+				blockcount = 0;
+			}
+		}
 	}
 
-	return 0;
+	if (blockcount) {
+		if (bl == NULL) {
+			bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+			bl_node = bl;
+		}
+		else
+			bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+		bl_node->startBlock = start_blockid + total_blockcount - blockcount;
+		bl_node->BlockCount = blockcount;
+	}
+
+	return bl;
 }
 
-/** 
+/**
  *	FreeZone - Free recycle zone
  *
  *	@rep: operate object
@@ -1414,52 +1461,42 @@ static int is_badblock_in_boot(VNandInfo *vnand, int blockno)
 static int FreeZone ( Recycle *rep)
 {
 	int ret = 0;
-	BlockList bx;
-	BlockList *bl = &bx;
+	BlockList *bl = NULL;
 	PageList px;
 	PageList *pl = &px;
 	NandSigZoneInfo *nandsigzoneinfo = (NandSigZoneInfo *)(rep->rZone->mem0);
-	int start_blockno = rep->rZone->startblockID;
-	int next_start_blockno = ((Context *)(rep->context))->zonep->startblockID[rep->rZone->ZoneID + 1];
-	int blockcount = next_start_blockno - start_blockno;
-	int blockno = start_blockno;
-	unsigned int i = 0;
-	unsigned int short badblock = 0;
-	NandMutex_Lock(&rep->mutex);
+	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
+	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	int start_blockid = rep->rZone->startblockID;
+	int next_start_blockid = 0;
+	int blockcount = 0;
+	int first_ok_blockid = -1;
 
-	bl->startBlock = start_blockno;
-	bl->BlockCount = blockcount;
-	bl->retVal = 0;
-	(bl->head).next = NULL;
+	if (rep->rZone->ZoneID == zonep->pt_zonenum - 1)
+		blockcount = zonep->vnand->TotalBlocks - rep->rZone->startblockID;
+	else {
+		next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->rZone->ZoneID + 1);
+		blockcount = next_start_blockid - start_blockid;
+	}
+
+	bl = create_blocklist(rep, start_blockid, blockcount, &first_ok_blockid);
+	if (bl) {
+		ret = vNand_MultiBlockErase(rep->rZone->vnand,bl);
+		if(ret < 0) {
+			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
+						,__FUNCTION__,__LINE__);
+			return -1;
+		}
+
+		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+	}
 
 	pl->pData = (void *)nandsigzoneinfo;
 	pl->Bytes = rep->rZone->vnand->BytePerPage;
 	pl->retVal = 0;
 	(pl->head).next = NULL;
-	pl->OffsetBytes = 0;	
-	ret = vNand_MultiBlockErase(rep->rZone->vnand,bl);	
-	if(ret < 0) {
-		ndprint(1,"Multi block erase error func %s line %d \n"
-					,__FUNCTION__,__LINE__);
-		goto err;
-	}
-
-	while(i < blockcount) {
-		if (vNand_IsBadBlock(rep->rZone->vnand,blockno)
-			&& !is_badblock_in_boot(rep->rZone->vnand,blockno))
-			badblock |= (1<< i);
-
-		blockno++;
-		i++;
-	}
-
-	while(i < 16) {
-		if(!(badblock & (1 <<i)))
-			break;
-		i++;	
-	}
-
-	pl->startPageID = (start_blockno + i)* rep->rZone->vnand->PagePerBlock ;
+	pl->OffsetBytes = 0;
+	pl->startPageID = first_ok_blockid * rep->rZone->vnand->PagePerBlock ;
 
 	memset(nandsigzoneinfo,0xff,rep->rZone->vnand->BytePerPage);
 	nandsigzoneinfo->ZoneID = rep->rZone->sigzoneinfo - rep->rZone->top;
@@ -1469,21 +1506,24 @@ static int FreeZone ( Recycle *rep)
 
 	ret = Zone_RawMultiWritePage(rep->rZone,pl);
 	if(ret != 0) {
-		ndprint(1,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
+		ndprint(RECYCLE_ERROR,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
 		goto err;
 	}
 
 	ZoneManager_FreeRecyclezone(rep->context,rep->rZone);
+	if (rep->junk_zoneid != -1) {
+		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->junk_zoneid);
+		rep->junk_zoneid = -1;
+	}
+	else
+		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
 	rep->taskStep = RECYIDLE;
-	NandMutex_Unlock(&rep->mutex);
 	return 0;
-	
 err:
-	NandMutex_Unlock(&rep->mutex);
 	return -1;
 }
 
-/** 
+/**
  *	Recycle_Init - Initialize operation
  *
  *	@context: global variable
@@ -1495,12 +1535,12 @@ int Recycle_Init(int context)
 	conptr->rep = (Recycle *)Nand_ContinueAlloc(sizeof(Recycle));
 	rep = conptr->rep;
 	if(conptr->rep == NULL) {
-		ndprint(1,"Recycle init alloc recycle error func %s line %d \n",__FUNCTION__,__LINE__);	
+		ndprint(RECYCLE_ERROR,"Recycle init alloc recycle error func %s line %d \n",__FUNCTION__,__LINE__);
 		return -1;
 	}
 
 	memset(conptr->rep,0x0,sizeof(Recycle));
-	
+
 	rep->taskStep = RECYSTART;
 	rep->rZone = NULL;
 	rep->prevpageinfo = NULL;
@@ -1517,11 +1557,12 @@ int Recycle_Init(int context)
 	InitNandMutex(&rep->mutex);
 	rep->context = context;
 	rep->force = 0;
+	rep->junk_zoneid = -1;
 
 	return 0;
 }
 
-/** 
+/**
  *	Recycle_DeInit - Deinit operation
  *
  *	@context: global variable
@@ -1535,7 +1576,7 @@ void Recycle_DeInit(int context)
 	Nand_ContinueFree(rep);
 }
 
-/** 
+/**
  *	Recycle_Suspend - suspend recycle process
  *
  *	@context: global variable
@@ -1546,12 +1587,12 @@ int Recycle_Suspend ( int context )
 
 	NandMutex_Lock(&rep->mutex);
 
-	ndprint(0, "recycle suspend...........\n");
+	ndprint(RECYCLE_INFO, "recycle suspend...........\n");
 
 	return 0;
 }
 
-/** 
+/**
  *	Recycle_Resume -resume recycle process
  *
  *	@context: global variable
@@ -1562,7 +1603,7 @@ int Recycle_Resume ( int context )
 
 	NandMutex_Unlock(&rep->mutex);
 
-	ndprint(0, "recycle resume...........\n");
+	ndprint(RECYCLE_INFO, "recycle resume...........\n");
 
 	return 0;
 }
@@ -1613,7 +1654,7 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep );
 static int OnForce_FreeZone ( Recycle *rep );
 static void OnForce_Deinit ( Recycle *rep );
 
-/** 
+/**
  *	Recycle_OnForceRecycle - force recycle
  *
  *	@frinfo: force recycle info
@@ -1628,36 +1669,36 @@ int Recycle_OnForceRecycle ( int frinfo )
 	unsigned short zoneid = FRInfo->suggest_zoneid;
 	int need_pagecount = FRInfo->pagecount;
 
-	ndprint(0, "start force recycle--------->\n");
+	ndprint(RECYCLE_INFO, "start force recycle--------->\n");
 
 	while (1) {
 		ret = OnForce_Init(rep);
 		if (ret == -1)
 			return -1;
-		
+
 		ret = ForceRecycle_For_Once(rep, zoneid);
 		if (ret < 0) {
-			ndprint(1, "ForceRecycle_For_Once ERROR func %s line %d \n",
+			ndprint(RECYCLE_ERROR, "ForceRecycle_For_Once ERROR func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			OnForce_Deinit(rep);
 			return -1;
 		}
-		
+
 		recycle_pagecount += rep->force_rZone->sumpage - rep->write_pagecount - 3;
 		if (need_pagecount == -1 || recycle_pagecount >= need_pagecount)
 			break;
 
 		zoneid = 0xffff;
 	}
-	
+
 	OnForce_Deinit(rep);
 
-	ndprint(0, "force recycle finished--------->\n\n");
-	
+	ndprint(RECYCLE_INFO, "force recycle finished--------->\n\n");
+
 	return ret;
 }
 
-/** 
+/**
  *	ForceRecycle_For_Once - force recycle one time
  *
  *	@frinfo: force recycle info
@@ -1668,13 +1709,16 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 	int ret = 0;
 
 	ret = OnForce_GetRecycleZone(rep, zoneid);
-	if (ret == -1)
-		goto exit;
+	if (ret == -1) {
+		if (rep->force_junk_zoneid != -1)
+			Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
+		return -1;
+	}
 
 	for (i = 0; ; i++) {
 		if (rep->force_end_findnextpageinfo)
 			break;
-		
+
 		if (i == 0)
 			ret = OnForce_FindFirstValidPageInfo(rep);
 		else
@@ -1686,22 +1730,23 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 		if (ret == -1)
 			goto exit;
 
-		ret = OnForce_MergerSectorID (rep);
-		if (ret == -1)
-			goto exit;
+		OnForce_MergerSectorID (rep);
 
 		ret = OnForce_RecycleReadWrite(rep);
 		if (ret == -1)
 			goto exit;
 	}
-	
-	ret = OnForce_FreeZone(rep);
 
+	ret = OnForce_FreeZone(rep);
 exit:
+	if (rep->force_junk_zoneid != -1)
+		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
+	else
+		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
 	return ret;
 }
 
-/** 
+/**
  *	OnForce_Init - Force recycle initialize operation
  *
  *	@rep: operate object
@@ -1720,14 +1765,15 @@ static int OnForce_Init ( Recycle *rep )
 	rep->force_end_findnextpageinfo = 0;
 	rep->force_alloc_num = 0;
 	rep->write_pagecount = 0;
+	rep->force_junk_zoneid = -1;
 
 	if (rep->force == 0)
 		return alloc_forcerecycle_memory(rep);
-	else
-		return 0;
+
+	return 0;
 }
 
-/** 
+/**
  *	OnForce_GetRecycleZone - Get force recycle zone
  *
  *	@rep: operate object
@@ -1736,26 +1782,44 @@ static int OnForce_Init ( Recycle *rep )
 static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 {
 	unsigned short ZoneID = suggest_zoneid;
-	if (ZoneID == 0xffff) {
-		ZoneID = get_force_zoneID(rep->context);
-		if(ZoneID == 0xffff) {
-			ndprint(1,"PANIC ERROR func %s line %d \n",
+	Zone *zone = ZoneManager_GetCurrentWriteZone(rep->context);
+
+	if (ZoneID == zone->ZoneID) {
+		rep->force_rZone = zone;
+		zone = alloc_new_zone_write(rep->context,zone);
+		if(zone == NULL) {
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			return -1;			
+			return -1;
+		}
+		ndprint(RECYCLE_INFO, "recycle current write zone...\n");
+	}
+	else {
+		if (ZoneID == 0xffff) {
+			ZoneID = Get_MaxJunkZone(((Context *)(rep->context))->junkzone);
+			rep->force_junk_zoneid = ZoneID;
+		}
+		if (ZoneID == 0xffff) {
+			ZoneID = get_force_zoneID(rep->context);
+			if(ZoneID == 0xffff) {
+				ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
+							__FUNCTION__,__LINE__);
+				return -1;
+			}
+		}
+
+		rep->force_rZone = ZoneManager_AllocRecyclezone(rep->context,ZoneID);
+		if(rep->force_rZone == NULL) {
+			ndprint(RECYCLE_ERROR,"alloc force recycle zone error func %s line %d \n",
+						__FUNCTION__,__LINE__);
+			return -1;
 		}
 	}
-	
-	rep->force_rZone = ZoneManager_AllocRecyclezone(rep->context,ZoneID);
-	if(rep->force_rZone == NULL) {
-		ndprint(1,"alloc force recycle zone error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-		return -1;
-	}
-	
+
 	return 0;
 }
 
-/** 
+/**
  *	OnForce_FindFirstValidPageInfo - Find first valid pageinfo of force recycle zone
  *
  *	@rep: operate object
@@ -1768,9 +1832,9 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 
 	ret = Zone_FindFirstPageInfo(rep->force_rZone,prev_pi);
 	if (ISERROR(ret)) {
-		ndprint(1,"Find First Pageinfo error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"Find First Pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		return -1;			
+		return -1;
 	}
 
 	rep->force_curpageinfo = prev_pi;
@@ -1780,7 +1844,7 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 			return 0;
 		}
 		else if (rep->force_rZone->NextPageInfo == 0xffff) {
-			ndprint(1,"pageinfo data error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"pageinfo data error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			return -1;
 		}
@@ -1791,14 +1855,14 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 			return 0;
 		}
 		else if ((ret & 0xffff) < 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			return -1;			
+			return -1;
 		}
 
 		rep->force_prevpageinfo = rep->force_curpageinfo;
 		rep->force_curpageinfo = pi;
-		
+
 		if (pi == rep->force_pi)
 			pi = rep->force_pi + 1;
 		else if (pi == rep->force_pi + 1)
@@ -1811,7 +1875,7 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 	return 0;
 }
 
-/** 
+/**
  *	OnForce_FindNextValidPageInfo - Find next valid pageinfo of force recycle zone
  *
  *	@rep: operate object
@@ -1819,11 +1883,7 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 {
 	int ret = 0;
-	PageInfo *pi = NULL;
-	if (rep->force_curpageinfo == rep->force_pi)
-		pi = rep->force_pi;
-	else if (rep->force_curpageinfo == rep->force_pi + 1)
-		pi = rep->force_pi + 1;
+	PageInfo *pi = rep->force_curpageinfo;
 
 	rep->force_curpageinfo = rep->force_nextpageinfo;
 	do{
@@ -1832,7 +1892,7 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 			return 0;
 		}
 		else if (rep->force_rZone->NextPageInfo == 0xffff) {
-			ndprint(1,"pageinfo data error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"pageinfo data error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			return -1;
 		}
@@ -1843,14 +1903,14 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 			return 0;
 		}
 		else if((ret & 0xffff) < 0) {
-			ndprint(1,"find next pageinfo error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			return -1;			
+			return -1;
 		}
-		
+
 		rep->force_prevpageinfo = rep->force_curpageinfo;
 		rep->force_curpageinfo = pi;
-		
+
 		if (pi == rep->force_pi)
 			pi = rep->force_pi + 1;
 		else if (pi == rep->force_pi + 1)
@@ -1859,11 +1919,11 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 
 	rep->force_nextpageinfo = rep->force_curpageinfo;
 	rep->force_curpageinfo = rep->force_prevpageinfo;
-	
+
 	return 0;
 }
- 
-/** 
+
+/**
  *	OnForce_FindValidSector - Find valid sector of force recycle zone
  *
  *	@rep: operate object
@@ -1890,21 +1950,28 @@ static int OnForce_FindValidSector ( Recycle *rep)
 	l2index = pi->L2Index;
 	l3index = pi->L3Index;
 
-	if (l1index == 0xffff)
-		return -1;
-	
+	if (l1index == 0xffff) {
+		ndprint(RECYCLE_ERROR,"PANIC ERROR l1index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+		goto err;
+	}
+
 	if(pi->L3InfoLen == 0)
 		start_sectorID = l1index * l1unitlen;
 	else {
-		if (l3index == 0xffff)
-			return -1;
-		
+		if (l3index == 0xffff) {
+			ndprint(RECYCLE_ERROR,"PANIC ERROR l3index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+			goto err;
+		}
+
 		if(pi->L2InfoLen == 0)
 			start_sectorID = l1index * l1unitlen + l3index * l3unitlen;
 		else {
-			if (l2index == 0xffff)
-				return -1;
-			start_sectorID = l3index * l3unitlen + 
+			if (l2index == 0xffff) {
+				ndprint(RECYCLE_ERROR,"PANIC ERROR l2index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+				goto err;
+			}
+
+			start_sectorID = l3index * l3unitlen +
 				l2index * l2unitlen + l1index * l1unitlen;
 		}
 	}
@@ -1913,9 +1980,11 @@ static int OnForce_FindValidSector ( Recycle *rep)
 	rep->force_writepageinfo = get_pageinfo_from_cache(rep,rep->force_startsectorID);
 
 	return 0;
+err:
+	return -1;
 }
- 
-/** 
+
+/**
  *	OnForce_MergerSectorID - Merger sectorID of force recycle zone
  *
  *	@rep: operate object
@@ -1944,8 +2013,8 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	l4info = (unsigned int *)(rep->force_curpageinfo->L4Info);
 	latest_l4info = (unsigned int *)(rep->force_writepageinfo->L4Info);
 
-	pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-
+	pl = NULL;
+	tpl = NULL;
 	for(i = 0; i < l4count; i += k) {
 		k = 1;
 		if ((int)l4info[i] == -1)
@@ -1959,20 +2028,22 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 				rep->force_write_cursor = i;
 				first_flag = 0;
 			}
-			
+
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
-				
+
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
 				if(tmp2 == tmp0 && tmp2 == tmp3)
 					k++;
 				else
-					break;		
+					break;
 			}
-		
-			tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl, sizeof(PageList));
+			if(tpl == NULL){
+				pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+				tpl = pl;
+			}else tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)tpl, sizeof(PageList));
 			tpl->startPageID = tmp0;
 			tpl->OffsetBytes = l4info[i] % spp;
 			tpl->Bytes = k * SECTOR_SIZE;
@@ -1980,14 +2051,12 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 			tpl->pData = NULL;
 		}
 	}
-
-	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
-	rep->force_pagelist = pl;
+   	rep->force_pagelist = pl;
 
 	return 0;
 }
- 
-/** 
+
+/**
  *	OnForce_RecycleReadWrite - Data transfer of force recycle operation
  *
  *	@rep: operate object
@@ -2004,6 +2073,11 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage == 0) {
 		wzone = alloc_new_zone_write(rep->context, wzone);
+		if(wzone == NULL) {
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
+						__FUNCTION__,__LINE__);
+			goto err;
+		}
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
@@ -2019,9 +2093,9 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclepage);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
-			ndprint(1,"all recycle buflen error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			return -1;
+			goto err;
 		}
 	}
 	else {
@@ -2029,9 +2103,9 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,zonepage -1);
 			ret = copy_data(rep, wzone, zonepage -1);
 			if(ret != 0) {
-				ndprint(1,"all recycle buflen error func %s line %d \n",
+				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
-				return -1;
+				goto err;
 			}
 
 			recyclepage = recyclepage - (zonepage - 1);
@@ -2041,28 +2115,31 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
-			ndprint(1,"zonemanager alloc zone func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			return -1;
+			goto err;
 		}
 
 		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclepage);
-		
+
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
-			ndprint(1,"all recycle buflen error func %s line %d \n",
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			return -1;
+			goto err;
 		}
 	}
+	fill_ahead_zone(rep->context);
 
 exit:
 	give_pageinfo_to_cache(rep,rep->force_writepageinfo);
-
 	return 0;
+err:
+	give_pageinfo_to_cache(rep,rep->force_writepageinfo);
+	return -1;
 }
 
-/** 
+/**
  *	OnForce_FreeZone - Frdd force recycle zone
  *
  *	@rep: operate object
@@ -2070,52 +2147,42 @@ exit:
 static int OnForce_FreeZone ( Recycle *rep)
 {
 	int ret = 0;
-	BlockList bx;
-	BlockList *bl = &bx;
+	BlockList *bl = NULL;
 	PageList px;
 	PageList *pl = &px;
 	NandSigZoneInfo *nandsigzoneinfo = (NandSigZoneInfo *)(rep->force_rZone->mem0);
-	int start_blockno = rep->force_rZone->startblockID;
-	int next_start_blockno = ((Context *)(rep->context))->zonep->startblockID[rep->force_rZone->ZoneID + 1];
-	int blockcount = next_start_blockno - start_blockno;
-	int blockno = start_blockno;
-	unsigned int i = 0;
-	unsigned int short badblock = 0;
+	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
+	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	int start_blockid = rep->force_rZone->startblockID;
+	int next_start_blockid = 0;
+	int blockcount = 0;
+	int first_ok_blockid = -1;
+	
+	if (rep->force_rZone->ZoneID == zonep->pt_zonenum - 1)
+		blockcount = zonep->vnand->TotalBlocks - rep->force_rZone->startblockID;
+	else {
+		next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->force_rZone->ZoneID + 1);
+		blockcount = next_start_blockid - start_blockid;
+	}
 
-	bl->startBlock = start_blockno;
-	bl->BlockCount = blockcount;
-	bl->retVal = 0;
-	(bl->head).next = NULL;
+	bl = create_blocklist(rep, start_blockid, blockcount, &first_ok_blockid);
+	if (bl) {
+		ret = vNand_MultiBlockErase(rep->force_rZone->vnand,bl);
+		if(ret < 0) {
+			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
+						,__FUNCTION__,__LINE__);
+			return -1;
+		}
+
+		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+	}
 
 	pl->pData = (void *)nandsigzoneinfo;
 	pl->Bytes = rep->force_rZone->vnand->BytePerPage;
 	pl->retVal = 0;
 	(pl->head).next = NULL;
 	pl->OffsetBytes = 0;
-
-	ret = vNand_MultiBlockErase(rep->force_rZone->vnand,bl);
-	if(ret < 0) {
-		ndprint(1,"Multi block erase error func %s line %d \n"
-					,__FUNCTION__,__LINE__);
-		return -1;
-	}
-
-	while(i < blockcount) {
-		if (vNand_IsBadBlock(rep->force_rZone->vnand,blockno)
-			&& !is_badblock_in_boot(rep->force_rZone->vnand,blockno))
-			badblock |= (1<< i);
-
-		blockno++;
-		i++;
-	}
-
-	while(i < 16) {
-		if(!(badblock & (1 <<i)))
-			break;
-		i++;	
-	}
-
-	pl->startPageID = (start_blockno + i)* rep->force_rZone->vnand->PagePerBlock ;
+	pl->startPageID = first_ok_blockid * rep->force_rZone->vnand->PagePerBlock ;
 
 	memset(nandsigzoneinfo,0xff,rep->force_rZone->vnand->BytePerPage);
 	nandsigzoneinfo->ZoneID = rep->force_rZone->sigzoneinfo - rep->force_rZone->top;
@@ -2125,7 +2192,7 @@ static int OnForce_FreeZone ( Recycle *rep)
 
 	ret = Zone_RawMultiWritePage(rep->force_rZone,pl);
 	if(ret != 0) {
-		ndprint(1,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
+		ndprint(RECYCLE_ERROR,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
 		goto err;
 	}
 
@@ -2133,31 +2200,30 @@ static int OnForce_FreeZone ( Recycle *rep)
 	return 0;
 err:
 	return -1;
-	
 }
 
-/** 
+/**
  *	OnForce_Deinit - Deinit operation
  *
  *	@rep: operate object
  */
 static void OnForce_Deinit ( Recycle *rep)
 {
-	rep->force = 0;
 	free_forcerecycle_memory(rep);
+	rep->force = 0;
 }
 
 
 
-/* ************************ boot rcycle **************************** */
+/* ************************ follow rcycle **************************** */
 
 
-/** 
- *	OnBoot_FindFirstValidPageInfo - Find first valid pageinfo of boot recycle zone
+/**
+ *	OnFollow_FindFirstValidPageInfo - Find first valid pageinfo of follow recycle zone
  *
  *	@rep: operate object
  */
-static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
+static int OnFollow_FindFirstValidPageInfo ( Recycle *rep)
 {
 	int ret = 0;
 	PageInfo *prev_pi = rep->force_pi;
@@ -2168,11 +2234,11 @@ static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
 
 	ret = Zone_FindFirstPageInfo(rep->force_rZone,prev_pi);
 	if (ISERROR(ret)) {
-		ndprint(1,"Find First Pageinfo error func %s line %d \n",
+		ndprint(RECYCLE_ERROR,"Find First Pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-		return -1;			
+		return -1;
 	}
-	
+
 	rep->force_curpageinfo = prev_pi;
 	while (pageperzone--) {
 		do {
@@ -2181,25 +2247,25 @@ static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
 				return 0;
 			}
 			else if (rep->force_rZone->NextPageInfo == 0xffff) {
-				ndprint(1,"pageinfo data error func %s line %d \n",
+				ndprint(RECYCLE_ERROR,"pageinfo data error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				return -1;
 			}
-			
+
 			ret = Zone_FindNextPageInfo(rep->force_rZone,pi);
 			if (ISNOWRITE(ret)) {
 				rep->force_end_findnextpageinfo = 1;
 				return 0;
 			}
 			else if((ret & 0xffff) < 0) {
-				ndprint(1,"find next pageinfo error func %s line %d \n",
+				ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-				return -1;			
+				return -1;
 			}
 
 			rep->force_prevpageinfo = rep->force_curpageinfo;
 			rep->force_curpageinfo = pi;
-			
+
 			if (pi == rep->force_pi)
 				pi = rep->force_pi + 1;
 			else if (pi == rep->force_pi + 1)
@@ -2217,12 +2283,12 @@ static int OnBoot_FindFirstValidPageInfo ( Recycle *rep)
 	return 0;
 }
 
-/** 
- *	Recycle_OnBootRecycle - boot recycle
+/**
+ *	Recycle_OnFollowRecycle - follow recycle
  *
  *	@context: global variable
  */
-int Recycle_OnBootRecycle ( int context )
+int Recycle_OnFollowRecycle ( int context )
 {
 	int i;
 	int ret = 0;
@@ -2230,8 +2296,8 @@ int Recycle_OnBootRecycle ( int context )
 	ZoneManager *zonep = ((Context *)context)->zonep;
 	unsigned short zoneid = zonep->last_rzone_id;
 
-	ndprint(0, "start boot recycle--------->\n");
-	
+	ndprint(RECYCLE_INFO, "start follow recycle--------->\n");
+
 	ret = OnForce_Init(rep);
 	if (ret == -1)
 		return -1;
@@ -2245,31 +2311,105 @@ int Recycle_OnBootRecycle ( int context )
 			break;
 
 		if (i == 0)
-			ret = OnBoot_FindFirstValidPageInfo(rep);
+			ret = OnFollow_FindFirstValidPageInfo(rep);
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
 		if (ret == -1)
 			goto exit;
-		
+
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
 			goto exit;
 
-		ret = OnForce_MergerSectorID (rep);
-		if (ret == -1)
-			goto exit;
+		OnForce_MergerSectorID (rep);
 
-		ret = OnForce_RecycleReadWrite(rep);
-		if (ret == -1)
-			goto exit;
+		if(ret == 0){
+			ret = OnForce_RecycleReadWrite(rep);
+			if (ret == -1)
+				goto exit;
+		}
 	}
-	
+
 	ret = OnForce_FreeZone(rep);
 	if (ret == -1)
 		goto exit;
-	
-	ndprint(0, "boot recycle finished--------->\n\n");
-	
+
+	ndprint(RECYCLE_INFO, "follow recycle finished--------->\n\n");
+
+exit:
+	OnForce_Deinit(rep);
+	return ret;
+}
+
+
+
+/* ************************ boot rcycle **************************** */
+
+
+/**
+ *	OnBoot_GetRecycleZone - Get boot recycle zone
+ *
+ *	@rep: operate object
+ */
+static int OnBoot_GetRecycleZone ( Recycle *rep)
+{
+	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
+	rep->force_rZone = zonep->last_zone;
+
+	return 0;
+}
+
+/**
+ *	Recycle_OnBootRecycle - boot recycle
+ *
+ *	@context: global variable
+ */
+int Recycle_OnBootRecycle ( int context )
+{
+	int i;
+	int ret = 0;
+	Recycle *rep = ((Context *)context)->rep;
+
+	ndprint(RECYCLE_INFO, "start boot recycle--------->\n");
+
+	ret = OnForce_Init(rep);
+	if (ret == -1)
+		return -1;
+
+	ret = OnBoot_GetRecycleZone(rep);
+	if (ret == -1)
+		goto exit;
+
+	for (i = 0; ; i++) {
+		if (rep->force_end_findnextpageinfo)
+			break;
+
+		if (i == 0)
+			ret = OnForce_FindFirstValidPageInfo(rep);
+		else
+			ret = OnForce_FindNextValidPageInfo(rep);
+		if (ret == -1)
+			goto exit;
+
+		ret = OnForce_FindValidSector(rep);
+		if (ret == -1)
+			goto exit;
+
+		OnForce_MergerSectorID (rep);
+
+		if(ret == 0){
+			ret = OnForce_RecycleReadWrite(rep);
+			if (ret == -1)
+				goto exit;
+		}
+	}
+
+	ret = OnForce_FreeZone(rep);
+	if (ret == -1)
+		goto exit;
+
+	ndprint(RECYCLE_INFO, "boot recycle finished--------->\n\n");
+
 exit:
 	OnForce_Deinit(rep);
 	return ret;
@@ -2281,7 +2421,7 @@ void Recycle_Lock(int context)
 	NandMutex_Lock(&rep->mutex);
 }
 
-void Recycle_UnLock(int context)
+void Recycle_Unlock(int context)
 {
 	Recycle *rep = ((Context *)context)->rep;
 	NandMutex_Unlock(&rep->mutex);

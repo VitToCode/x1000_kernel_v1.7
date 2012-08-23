@@ -9,6 +9,8 @@
 #include "zonemanager.h"
 #include "cachemanager.h"
 #include "recycle.h"
+#include "junkzone.h"
+#include "timerdebug.h"
 
 #define SECTOR_SIZE 512
 
@@ -24,6 +26,11 @@ struct _Context {
 	SigZoneInfo *top;
 	L1Info *l1info;
 	int thandle;
+	int junkzone; //l2p recycle
+	long long t_startrecycle;
+#ifdef TIMER_DEBUG
+	TimeByte *timebyte;
+#endif
 };
 
 #define CONTEXT_VNAND(context) 	((Context *)context)->vnand

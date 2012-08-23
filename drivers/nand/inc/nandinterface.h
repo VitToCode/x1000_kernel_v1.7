@@ -13,7 +13,7 @@ struct _NandInterface {
 	int (*iMultiPageWrite)(void *ppartition,PageList* pl );
 	int (*iMultiBlockErase)(void *ppartition,BlockList* pl );
 	int (*iIsBadBlock)(void *ppartition,int blockid );
-	int (*iMarkBadBlock)(void *ppartition,int blockid);
+	int (*iMarkBadBlock)(void *ppartition,unsigned int blockid);
 	int (*iInitNand)(void * vNand);
 	int (*iDeInitNand)(void * vNand);
 };

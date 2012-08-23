@@ -5,8 +5,7 @@ EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/inc/ \
 		-Idrivers/nand/manager/inc/linux/
 
-#obj-y			+= manager/ driver/ nand_block.o
-obj-y			+= driver/
+obj-y		+= manager/ driver/ nand_block.o
 
 all:
 	find . -name *.o | xargs rm -vf;
