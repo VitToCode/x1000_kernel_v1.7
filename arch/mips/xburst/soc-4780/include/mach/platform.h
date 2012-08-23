@@ -103,6 +103,9 @@
 	
 #define HDMI_PORTF							\
 	{ .name = "hdmi-ddc",    .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x3800000, }	
+
+#define CIM_PORTB							\
+	{ .name = "cim",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }	
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
@@ -146,6 +149,7 @@ extern struct platform_device jz_nand_device;
 extern struct platform_device jz_hdmi;
 extern struct platform_device jz_rtc_device;
 extern struct platform_device jz_tcsm_device;
+extern struct platform_device jz_x2d_device;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 

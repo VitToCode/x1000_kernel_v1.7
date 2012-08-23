@@ -121,6 +121,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
 	OTG_DRVVUS,
 #endif
+#ifdef CONFIG_JZ_CIM
+	CIM_PORTB,
+#endif
 };
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);
@@ -552,6 +555,26 @@ struct platform_device jz_cim_device = {
 	.id = -1,
 	.resource = jz_cim_resources,
 	.num_resources = ARRAY_SIZE(jz_cim_resources),
+};
+
+/* X2D (Extreme 2D module interface controller) */
+static struct resource jz_x2d_res[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = X2D_IOBASE,
+		.end = X2D_IOBASE + 0x10000 - 1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.name = "x2d_irq",
+		.start = IRQ_X2D,
+	}
+};
+struct platform_device jz_x2d_device = {
+	.name = "x2d",
+	.id = -1,
+	.resource = jz_x2d_res,
+	.num_resources = ARRAY_SIZE(jz_x2d_res),
 };
 
 /* OHCI (USB full speed host controller) */
