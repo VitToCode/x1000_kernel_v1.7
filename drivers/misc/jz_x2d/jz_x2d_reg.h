@@ -27,73 +27,73 @@
 #define REG_X2D_LAY0_RSZ_COEF           0x0020
 #define REG_X2D_LAY0_BK_ARGB            0x0024
 
-#define REG_X2D_LAY1_CTRL                    0x1000
-#define REG_X2D_LAY1_Y_ADDR                  0x1004
-#define REG_X2D_LAY1_U_ADDR                  0x1008
-#define REG_X2D_LAY1_V_ADDR                  0x100c
-#define REG_X2D_LAY1_IN_FM_GS                0x1010
-#define REG_X2D_LAY1_STRIDE                  0x1014
-#define REG_X2D_LAY1_OUT_GS                  0x1018
-#define REG_X2D_LAY1_OOSFT                   0x101c
-#define REG_X2D_LAY1_RSZ_COEF                0x1020
-#define REG_X2D_LAY1_BK_ARGB                 0x1024
+#define REG_X2D_LAY1_CTRL               0x1000
+#define REG_X2D_LAY1_Y_ADDR		0x1004
+#define REG_X2D_LAY1_U_ADDR             0x1008
+#define REG_X2D_LAY1_V_ADDR             0x100c
+#define REG_X2D_LAY1_IN_FM_GS           0x1010
+#define REG_X2D_LAY1_STRIDE             0x1014
+#define REG_X2D_LAY1_OUT_GS             0x1018
+#define REG_X2D_LAY1_OOSFT              0x101c
+#define REG_X2D_LAY1_RSZ_COEF           0x1020
+#define REG_X2D_LAY1_BK_ARGB            0x1024
 
-#define REG_X2D_LAY2_CTRL                    0x2000
-#define REG_X2D_LAY2_Y_ADDR                  0x2004
-#define REG_X2D_LAY2_U_ADDR                  0x2008
-#define REG_X2D_LAY2_V_ADDR                  0x200c
-#define REG_X2D_LAY2_IN_FM_GS                0x2010
-#define REG_X2D_LAY2_STRIDE                  0x2014
-#define REG_X2D_LAY2_OUT_GS                  0x2018
-#define REG_X2D_LAY2_OOSFT                   0x201c
-#define REG_X2D_LAY2_RSZ_COEF                0x2020
-#define REG_X2D_LAY2_BK_ARGB                 0x2024
+#define REG_X2D_LAY2_CTRL               0x2000
+#define REG_X2D_LAY2_Y_ADDR             0x2004
+#define REG_X2D_LAY2_U_ADDR             0x2008
+#define REG_X2D_LAY2_V_ADDR             0x200c
+#define REG_X2D_LAY2_IN_FM_GS           0x2010
+#define REG_X2D_LAY2_STRIDE             0x2014
+#define REG_X2D_LAY2_OUT_GS             0x2018
+#define REG_X2D_LAY2_OOSFT              0x201c
+#define REG_X2D_LAY2_RSZ_COEF           0x2020
+#define REG_X2D_LAY2_BK_ARGB            0x2024
 
-#define REG_X2D_LAY3_CTRL                    0x3000
-#define REG_X2D_LAY3_Y_ADDR                  0x3004
-#define REG_X2D_LAY3_U_ADDR                  0x3008
-#define REG_X2D_LAY3_V_ADDR                  0x300c
-#define REG_X2D_LAY3_IN_FM_GS                0x3010
-#define REG_X2D_LAY3_STRIDE                  0x3014
-#define REG_X2D_LAY3_OUT_GS                  0x3018
-#define REG_X2D_LAY3_OOSFT                   0x301c
-#define REG_X2D_LAY3_RSZ_COEF                0x3020
-#define REG_X2D_LAY3_BK_ARGB                 0x3024
+#define REG_X2D_LAY3_CTRL               0x3000
+#define REG_X2D_LAY3_Y_ADDR             0x3004
+#define REG_X2D_LAY3_U_ADDR             0x3008
+#define REG_X2D_LAY3_V_ADDR             0x300c
+#define REG_X2D_LAY3_IN_FM_GS           0x3010
+#define REG_X2D_LAY3_STRIDE             0x3014
+#define REG_X2D_LAY3_OUT_GS             0x3018
+#define REG_X2D_LAY3_OOSFT              0x301c
+#define REG_X2D_LAY3_RSZ_COEF           0x3020
+#define REG_X2D_LAY3_BK_ARGB            0x3024
 
-#define X2D_WTDOG_ERR 0x20
-#define X2D_BUSY 0xf
+#define X2D_WTDOG_ERR 			0x20
+#define X2D_BUSY 			0xf
 
-#define BIT_X2D_SHARP_LEVEL			16
-#define BIT_X2D_BANK_SELC			12
+#define BIT_X2D_SHARP_LEVEL		16
+#define BIT_X2D_BANK_SELC		12
 #define BIT_X2D_LAY3_TLB_EN		8
 #define BIT_X2D_LAY2_TLB_EN		7
 #define BIT_X2D_LAY1_TLB_EN		6
 #define BIT_X2D_LAY0_TLB_EN		5
-#define BIT_X2D_CMD_TLB_EN			4
-#define BIT_X2D_DMA_MOD_EN			3
-#define BIT_X2D_WDOG_EN				2
-#define BIT_X2D_DST_TLB_EN			1
-#define BIT_X2D_IRQ_EN				0
+#define BIT_X2D_CMD_TLB_EN		4
+#define BIT_X2D_DMA_MOD_EN		3
+#define BIT_X2D_WDOG_EN			2
+#define BIT_X2D_DST_TLB_EN		1
+#define BIT_X2D_IRQ_EN			0
 
-#define BIT_X2D_ID					16
-#define BIT_X2D_WTCDOG_ERR			5
-#define BIT_X2D_IRQ_FLAG			4
-#define BIT_X2D_GLB_STATE			0
+#define BIT_X2D_ID			16
+#define BIT_X2D_WTCDOG_ERR		5
+#define BIT_X2D_IRQ_FLAG		4
+#define BIT_X2D_GLB_STATE		0
 
-#define BIT_X2D_IRQ_CLR				3
-#define BIT_X2D_RST					2
-#define BIT_X2D_STOP_COMP			1
-#define BIT_X2D_START_COMP			0
+#define BIT_X2D_IRQ_CLR			3
+#define BIT_X2D_RST			2
+#define BIT_X2D_STOP_COMP		1
+#define BIT_X2D_START_COMP		0
 
-#define BIT_X2D_TILE_MOD			16
-#define BIT_X2D_LAYER_NUM			0
+#define BIT_X2D_TILE_MOD		16
+#define BIT_X2D_LAYER_NUM		0
 
 #define BIT_X2D_DST_GLB_ALPHA_VAL	24
-#define BIT_X2D_DST_MSK_EN			23
-#define BIT_X2D_DST_PREM_EN			22
+#define BIT_X2D_DST_MSK_EN		23
+#define BIT_X2D_DST_PREM_EN		22
 #define BIT_X2D_DST_GLB_ALPHA_EN	21
-#define BIT_X2D_DST_BG_EN			20
-#define BIT_X2D_DST_STRIDE			0
+#define BIT_X2D_DST_BG_EN		20
+#define BIT_X2D_DST_STRIDE		0
 
 #define BIT_X2D_DST_GEO_WIDTH		0
 #define BIT_X2D_DST_GEO_HEIGHT		16
@@ -102,21 +102,21 @@
 #define BIT_X2D_DST_RGB_FORMAT		4
 #define BIT_X2D_DST_RGB_ORDER		0
 
-#define BIT_X2D_LAY_OSD_MOD			28
+#define BIT_X2D_LAY_OSD_MOD		28
 #define BIT_X2D_LAY_ALPHA_POS		27
 #define BIT_X2D_LAY_RGB_ORDER		24
 #define BIT_X2D_LAY_V_MIRROR		19
 #define BIT_X2D_LAY_H_MIRROR		18
-#define BIT_X2D_LAY_ROTATE			16
+#define BIT_X2D_LAY_ROTATE		16
 #define BIT_X2D_LAY_GLB_ALPHA_VAL	8
-#define BIT_X2D_LAY_MSK_EN			6
-#define BIT_X2D_LAY_CSCM_EN			5
-#define BIT_X2D_LAY_PREM_EN			4
+#define BIT_X2D_LAY_MSK_EN		6
+#define BIT_X2D_LAY_CSCM_EN		5
+#define BIT_X2D_LAY_PREM_EN		4
 #define BIT_X2D_LAY_GLB_ALPHA_EN	3
 #define BIT_X2D_LAY_INPUT_FORMAT	0
 
-#define BIT_X2D_LAY_WIDTH			0
-#define BIT_X2D_LAY_HEIGHT			16
+#define BIT_X2D_LAY_WIDTH		0
+#define BIT_X2D_LAY_HEIGHT		16
 
 #define BIT_X2D_LAY_Y_STRIDE 		0
 #define BIT_X2D_LAY_UV_STRIDE		16
