@@ -18,6 +18,7 @@ static inline void mcu_init(void)
 
 	/* clear mailbox irq pending */
 	__pdmac_mmb_irq_clear();
+        __pdmac_mnmb_unmask();
 	/* clear irq mask for channel irq */
 	__pdmac_channel_irq_unmask();
 }
@@ -32,7 +33,7 @@ int main(void)
 
 	pipe_buf[0].pipe_data = (unsigned char *)TCSM_BANK5;
 	pipe_buf[1].pipe_data = (unsigned char *)TCSM_BANK6;
-	msg = (struct pdma_msg *)TCSM_BANK7; // TCSM last bank start
+	msg = (struct pdma_msg *)(TCSM_BANK5 - 0x40); // TCSM last bank start
 
 	mcu_init();
 

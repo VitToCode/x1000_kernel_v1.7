@@ -54,14 +54,14 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 			irq_bch_correct_handle(nand, pipe_buf + ((nand->pipe_cnt - 1) & 0x1));
 			nand->mode &= ~PNAND_BCH_DEC;
 
-			if (nand->report == -6) { /* Read Ecc all 0xff */
+			if (nand->report & ALL_FF) { /* Read Ecc all 0xff */
 				nand->mode = PNAND_HALT;
 				__pdmac_mnmb_send(MB_NAND_ALL_FF);
 
 				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
 				__nand_disable();
 				channel_irq &= ~(1 << PDMA_NEMC_CHANNEL);
-                        } else if (nand->report == -1) { /* Uncorrectable Error */
+                        } else if (nand->report & UNCOR_ECC) { /* Uncorrectable Error */
 				nand->mode = PNAND_HALT;
 				__pdmac_mnmb_send(MB_NAND_UNCOR_ECC);
 
@@ -124,15 +124,15 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 				nand->mode |= PNAND_BCH_DEC | PNAND_DDR;
 
 				pdma_nand_read_data(nand, pipe_buf, par_buf);
-				channel_irq |= 1 << PDMA_BCH_CHANNEL;
+				//channel_irq |= 1 << PDMA_BCH_CHANNEL;
 			} else {
 				nand->mode = PNAND_HALT;
 				__pn_disable();
 				__nand_disable();
-                                if(nand->report < nand->ecclevel - 1)
-        				__pdmac_mnmb_send(MB_NAND_READ_DONE);
-	                        else
+                                if(nand->report & MOVE_BLOCK)
         				__pdmac_mnmb_send(MB_MOVE_BLOCK);
+	                        else
+        				__pdmac_mnmb_send(MB_NAND_READ_DONE);
                         }
 			break;
 		case CTRL_WRITE_DATA :
@@ -163,6 +163,7 @@ void pdma_msg_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
 	if (channel_irq & (1 << PDMA_MSG_CHANNEL)) {
 		/* Clear channel irq info */
 		channel_irq &= ~(1 << PDMA_MSG_CHANNEL);
+		nand->report = 0;
 
 		switch (msg->cmd) {
 		case MSG_NAND_INIT :

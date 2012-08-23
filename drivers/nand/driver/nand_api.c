@@ -15,6 +15,7 @@
 #include <linux/math64.h>
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
+//#include "../inc/nand_dma_ops.h"   //change later
 
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
 {
@@ -139,8 +140,6 @@ void dump_nand_api(NAND_API *pnand_api)
 #define GPIOA_20_IRQ (0*32 + 20)
 static volatile unsigned int nand_rb =0;
 DECLARE_WAIT_QUEUE_HEAD(nand_rb_queue);
-//NAND_BASE *g_vnand_base; // it includes some virtual address of nand port
-//NAND_BASE *g_pnand_base; // it inlcudes some physical address og nand port
 
 extern JZ_NAND_CHIP jz_raw_nand;
 extern JZ_IO        jznand_io;
@@ -184,10 +183,10 @@ static int nand_board_init(NAND_API * pnand_api)
 /*
  * nand_board_deinit
  */
-static void nand_board_deinit(void)
+static void nand_board_deinit(NAND_API * pnand_api)
 {
 #ifdef CONFIG_NAND_DMA
-	nand_bdma.nand_dma_deinit();    //add later
+	nand_dma_deinit(pnand_api->nand_dma);    //add later
 #endif
 	return ;
 }
@@ -282,11 +281,10 @@ static inline int init_nand(void * vNand)
 			tmp_freesize =tmp_info->hwSector;
 		else
 			tmp_freesize =0;
-
 		/*   cale ppartition vnand info     */
 		use_planenum = (ptemp+ret)->use_planes ? g_pnand_api.nand_chip->planenum : 1;
 		(g_partition+ret)->name = (ptemp+ret)->name;
-		(g_partition+ret)->hwsector =512 ;
+		(g_partition+ret)->hwsector =512;
 		(g_partition+ret)->byteperpage = tmp_info->BytePerPage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock)); 
@@ -325,8 +323,7 @@ static inline int init_nand(void * vNand)
 	(g_partition+ret)->totalblocks = 1;
 	(g_partition+ret)->mode = 2;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
-	(g_partition+ret)->hwsector =512 ;
-
+	(g_partition+ret)->hwsector =512;
 	tmp_manager->pt->ppt = g_partition;
 	tmp_manager->pt->ptcount = ipartition_num+1;
 
@@ -404,7 +401,7 @@ static inline int page_read(void *ppartition,int pageid, int offset,int bytes,vo
 		return ENAND;   //return pageid error
 #ifdef CONFIG_NAND_DMA
 	g_pnand_api.nand_dma->ppt = tmp_ppt;
-	ret =nand_dma_read_page(g_pnand_api,pageid,offset,bytes,databuf);
+	ret =nand_dma_read_page(&g_pnand_api,pageid,offset,bytes,databuf);
 #else
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_read_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
@@ -434,7 +431,8 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 		ret =read_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
 #ifdef CONFIG_NAND_DMA
-
+                g_pnand_api.nand_dma->ppt = tmp_ppt;
+                ret =nand_dma_read_pages(&g_pnand_api,g_aligned_list);
 #else
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =nand_read_pages(g_pnand_api.vnand_base,g_aligned_list);
@@ -456,7 +454,8 @@ static inline int page_write(void *ppartition,int pageid,int offset,int bytes,vo
 	if((pageid < 0) || (pageid > tmp_ppt->PageCount))
 		return ENAND;   //return pageid error
 #ifdef CONFIG_NAND_DMA
-
+        g_pnand_api.nand_dma->ppt = tmp_ppt;
+        ret =nand_dma_write_page(&g_pnand_api,pageid,offset,bytes,databuf);
 #else
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
@@ -484,8 +483,12 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =write_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
+                printk("multipage write start\n");
 #ifdef CONFIG_NAND_DMA
-
+                printk("multipage write set ppt\n");
+                g_pnand_api.nand_dma->ppt = tmp_ppt;
+                printk("multipage dma write\n");
+                ret =nand_dma_write_pages(&g_pnand_api,g_aligned_list);
 #else
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =nand_write_pages(g_pnand_api.vnand_base,g_aligned_list);
@@ -506,12 +509,8 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 	//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
 	if(!erase_blocklist)
 		return -1;
-#ifdef CONFIG_NAND_DMA
-
-#else
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_erase_blocks(g_pnand_api.vnand_base,erase_blocklist);
-#endif
 	return ret;
 }
 
@@ -546,7 +545,7 @@ static inline int mark_badblock(void *ppartition,int blockid)
  */
 static inline int deinit_nand(void *vNand)
 {
-	nand_board_deinit();
+	nand_board_deinit(&g_pnand_api);
 
 	nand_free_buf(g_pnand_api.vnand_base);
 	g_pnand_api.vnand_base =0;

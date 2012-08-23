@@ -19,8 +19,10 @@ void pdma_nand_read_data(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
 	}
 
 	pipe_sel ^= 1;
-
-	if (nand->mode & PNAND_BCH_DEC)
+/*
+	pipe_buf->pipe_data[0] = 0xff;
+	pipe_buf->pipe_data[1] = 0xff;
+*/	if (nand->mode & PNAND_BCH_DEC)
 		pdma_bch_correct(nand, pipe_buf + pipe_sel, par_buf);
 }
 

@@ -32,16 +32,21 @@ struct pdma_msg {
 	unsigned int info[10];
 };
 
+/* INTC MailBox msg */
+#define MCU_MSG_NORMAL          0x1<<24
+#define MCU_MSG_INTC            0x2<<24
+#define MCU_MSG_INTC_MASKA      0x3<<24
+
 /* PDMA MailBox msg */
-#define MB_NAND_INIT_DONE	0x01
-#define MB_NAND_READ_DONE	0x02
-#define MB_NAND_UNCOR_ECC	0x03
-#define MB_NAND_WRITE_DONE	0x04
-#define MB_NAND_WRITE_FAIL	0x05
-#define MB_NAND_WRITE_PROTECT	0x06
-#define MB_NAND_ERASE_DONE	0x07
-#define MB_NAND_ERASE_FAIL	0x08
-#define MB_NAND_ALL_FF  	0x09
-#define MB_MOVE_BLOCK           0x10
+#define MB_NAND_INIT_DONE	0x01 | MCU_MSG_NORMAL
+#define MB_NAND_READ_DONE	0x02 | MCU_MSG_NORMAL
+#define MB_NAND_UNCOR_ECC	0x03 | MCU_MSG_NORMAL
+#define MB_NAND_WRITE_DONE	0x04 | MCU_MSG_NORMAL
+#define MB_NAND_WRITE_FAIL	0x05 | MCU_MSG_NORMAL
+#define MB_NAND_WRITE_PROTECT	0x06 | MCU_MSG_NORMAL
+#define MB_NAND_ERASE_DONE	0x07 | MCU_MSG_NORMAL
+#define MB_NAND_ERASE_FAIL	0x08 | MCU_MSG_NORMAL
+#define MB_NAND_ALL_FF  	0x09 | MCU_MSG_NORMAL
+#define MB_MOVE_BLOCK           0x0a | MCU_MSG_NORMAL
 
 #endif /*__MESSAGE_H__*/

@@ -1,0 +1,118 @@
+#ifndef __NAND_DMA_OPS_H__
+#define __NAND_DMA_OPS_H__
+#include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
+#include <linux/completion.h>
+#include <linux/slab.h>
+#include <mach/jzdma.h>
+#include "ppartition.h"
+#include "nand_api.h"
+
+#define NAND_DMA_WRITE          0
+#define NAND_DMA_READ           1
+#define SGL_LEN                 1
+//#define TCSM_DMA_ADDR           (unsigned long)(0x13422000)
+
+#define PDMA_FW_TCSM        0xB3422000
+#define PDMA_MSG_CHANNEL    3
+#define PDMA_MSG_TCSMPA     0x134247C0
+#define PDMA_BANK3      0xB3423800
+#define PDMA_BANK4      0xB3424000
+#define PDMA_BANK5      0xB3424800
+#define PDMA_BANK6      0xB3425000
+#define PDMA_BANK7      0xB3425800
+#define PDMA_MSG_TCSMVA    (PDMA_BANK5-0x40) 
+
+/* CSn for NEMC*/
+#define NEMC_CS1                1
+#define NEMC_CS2                2
+#define NEMC_CS3                3
+#define NEMC_CS4                4
+#define NEMC_CS5                5
+#define NEMC_CS6                6
+
+/* Message for NAND cmd */
+#define MSG_NAND_INIT           0x01
+#define MSG_NAND_READ           0x02
+#define MSG_NAND_WRITE          0x03
+#define MSG_NAND_ERASE          0x04
+
+/* Message info bit for NAND ops */
+#define MSG_NAND_BANK           0
+#define MSG_DDR_ADDR            1
+#define MSG_PAGEOFF             2
+
+/* PDMA MailBox msg */
+#define MB_NAND_INIT_DONE       0x01
+#define MB_NAND_READ_DONE       0x02
+#define MB_NAND_UNCOR_ECC       0x03
+#define MB_NAND_WRITE_DONE      0x04
+#define MB_NAND_WRITE_FAIL      0x05
+#define MB_NAND_WRITE_PROTECT   0x06
+#define MB_NAND_ERASE_DONE      0x07
+#define MB_NAND_ERASE_FAIL      0x08
+#define MB_NAND_ALL_FF          0x09
+#define MB_MOVE_BLOCK           0x0a
+
+/* Message info bit for NAND init */
+#define MSG_NANDTYPE            0
+#define MSG_PAGESIZE            1
+#define MSG_OOBSIZE             2
+#define MSG_ROWCYCLE            3
+#define MSG_ECCLEVEL            4
+#define MSG_ECCSIZE             5
+#define MSG_ECCBYTES            6
+#define MSG_ECCSTEPS            7
+#define MSG_ECCTOTAL            8
+#define MSG_ECCPOS              9
+
+struct pdma_msg {
+	unsigned int cmd;
+	unsigned int info[10];
+};
+/*
+struct jznand_sg_data{
+	struct scatterlist  sg;
+	int sg_len;
+	int flag;
+};
+
+struct Pdma_Data {
+	struct device *dma_dev;
+	struct dma_async_tx_descriptor *desc;
+	enum dma_ctrl_flags flags;
+	enum dma_data_direction direction;
+	dma_cookie_t cookie;
+	dma_addr_t dma_dest;
+	dma_addr_t dma_src;
+	size_t len;
+};
+*/
+struct jznand_dma{
+	struct device           *dev;
+	struct device           *dma_dev;
+	struct dma_chan         *mcu_chan;
+	struct dma_chan         *data_chan;
+	enum jzdma_type         chan_type;
+	struct dma_slave_config dma_config;
+	struct scatterlist      sg;
+	
+	unsigned char           *data_buf;
+	dma_addr_t              data_buf_phyaddr;
+	unsigned int            data_buf_len;
+
+	struct dma_async_tx_descriptor *desc;	
+	int                     mailbox;
+	struct pdma_msg         *msg;
+        dma_addr_t              msg_phyaddr;
+	PPartition              *ppt;
+};
+/*
+int nand_dma_init(NAND_API *pnand_api);
+void nand_dma_deinit(struct jznand_dma *nand_dma);
+int page_dma_read(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);
+int page_dma_write(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);
+int multipage_dma_read(const NAND_API *pnand_api, Aligned_List *list);
+int multipage_dma_write(const NAND_API *pnand_api, Aligned_List *list);
+**/
+#endif

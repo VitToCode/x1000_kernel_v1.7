@@ -422,7 +422,7 @@
 #define __pdmac_mmb_irq_clear()		(REG_PDMAC_DMINT = ~(PDMAC_DMINT_N_IP | PDMAC_DMINT_S_IP))
 
 #define __pdmac_mnmb_mask()		(REG_PDMAC_DMINT |= PDMAC_DMINT_N_IMSK)
-#define __pdmac_mnmb_unmask()		(REG_PDMAC_DMINT &= PDMAC_DMINT_N_IMSK)
+#define __pdmac_mnmb_unmask()		(REG_PDMAC_DMINT &= ~PDMAC_DMINT_N_IMSK)
 #define __pdmac_mnmb_send(n) 		(REG_PDMAC_DMNMB = (n))
 #define __pdmac_mnmb_get(n)		((n) = REG_PDMAC_DMNMB)
 #define __pdmac_mnmb_clear()		(REG_PDMAC_DMNMB = 0)

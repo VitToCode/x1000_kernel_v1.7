@@ -76,7 +76,7 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	*(volatile unsigned int *)(0xb0010028) =0x00430000;
 	*(volatile unsigned int *)(0xb0010038) =0x00430000;
 	*(volatile unsigned int *)(0xb0010048) =0x00430000;
-#if 1
+#if 0
 	*(volatile unsigned int *)(0xb0010014) =0x00100000;
 	*(volatile unsigned int *)(0xb0010028) =0x00100000;
 	*(volatile unsigned int *)(0xb0010034) =0x00100000;

@@ -47,7 +47,7 @@
 #include "nand_ecc.h"
 
 #include "nand_chip.h"
-#ifdef CONFIG_MTD_NAND_DMA
+#ifdef CONFIG_NAND_DMA
 #include "nand_dma_ops.h"
 #endif
 #include "pagelist.h"
@@ -78,35 +78,7 @@
 #define SPL_BCH_SIZE 112
 #define SPL_BCH_BIT 64
 
-/**
- * struct nand_api -
- *
- * @writesize:  per page size
- * @erasesize:  per block size
- * @ppblock:    pages per block
- * @bpchip: blocks per chip
- * @totalblock: total block count
- * @pdev :      platform device
- *//*
-struct nand_api {
-	unsigned int writesize;
-	unsigned int erasesize;
-	unsigned int ppblock;
-	unsigned int totalblock;
 
-	JZ_ECC *nand_ecc;
-	JZ_IO *nand_io;
-	NAND_CTRL *nand_ctrl;
-	JZ_NAND_CHIP *nand_chip;
-
-	void * pdev;   // nand platform_device 
-	struct jznand_dma  *nand_dma;
-	NAND_BASE * vnand_base; //virtual nand base
-	NAND_BASE * pnand_base; // physical nand base
-};
-
-typedef struct nand_api NAND_API;
-*/
 typedef struct alignedlist{
 	PageList *pagelist;
 	struct alignedlist *next;
@@ -150,4 +122,13 @@ int send_read_status(unsigned char *status);
 void do_nand_register(NAND_API *pnand_api);
 void nand_ops_parameter_init(void);
 void nand_ops_parameter_reset(const PPartition *ppt);
+#if CONFIG_NAND_DMA
+int nand_dma_init(NAND_API *pnand_api);
+void nand_dma_deinit(struct jznand_dma *nand_dma);
+int nand_dma_read_page(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);
+int nand_dma_write_page(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);
+int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list);
+int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list);
+#endif
+
 #endif /* __NAND_API_H__ */
