@@ -532,7 +532,6 @@ CONFIG_ANDROID_PMEM=y
 # CONFIG_UID_STAT is not set
 # CONFIG_BMP085 is not set
 # CONFIG_APANIC is not set
-# CONFIG_JZ_X2D is not set
 # CONFIG_C2PORT is not set
 
 #
@@ -549,7 +548,8 @@ CONFIG_ANDROID_PMEM=y
 #
 # CONFIG_TI_ST is not set
 # CONFIG_SENSORS_LIS3_I2C is not set
-CONFIG_JZCIM=y
+CONFIG_JZ_CIM=y
+CONFIG_JZ_X2D=y
 # CONFIG_OV3640 is not set
 # CONFIG_FAKE is not set
 CONFIG_HAVE_IDE=y

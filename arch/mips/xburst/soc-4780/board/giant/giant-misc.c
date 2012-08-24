@@ -149,7 +149,7 @@ static int __init giant_board_init(void)
 	platform_device_register(&jz_uart4_device);
 #endif
 
-#ifdef CONFIG_JZCIM
+#ifdef CONFIG_JZ_CIM
 	platform_device_register(&jz_cim_device);
 #endif
 

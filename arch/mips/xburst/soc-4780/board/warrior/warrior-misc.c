@@ -180,8 +180,12 @@ static int __init warrior_board_init(void)
 	platform_device_register(&jz_uart4_device);
 #endif
 /* camera */
-#ifdef CONFIG_JZCIM
+#ifdef CONFIG_JZ_CIM
 	platform_device_register(&jz_cim_device);
+#endif
+/* x2d */
+#ifdef CONFIG_JZ_X2D
+	platform_device_register(&jz_x2d_device);
 #endif
 /* USB */
 #ifdef CONFIG_USB_OHCI_HCD

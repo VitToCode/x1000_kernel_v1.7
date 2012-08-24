@@ -524,14 +524,12 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 	struct x2d_device *jz_x2d = (struct x2d_device *)dev_id;
 	unsigned long int status_reg = 0;
 	status_reg = reg_read(jz_x2d,REG_X2D_GLB_STATUS);
-	printk("fuchao ----------x2d irq state %08x\n",status_reg);
-	if(status_reg & X2D_WTDOG_ERR)
-	{
+	
+	if(status_reg & X2D_WTDOG_ERR){
 		dev_info(jz_x2d->dev,"Error:x2d watch dog time out!!!!");
 		jz_x2d->errcode = error_wthdog;
 	}
-	else if(!(status_reg & X2D_BUSY))
-	{
+	else if(!(status_reg & X2D_BUSY)){
 		jz_x2d->errcode = error_none;
 	}
 
