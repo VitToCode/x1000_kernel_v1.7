@@ -17,6 +17,10 @@
 #include "../inc/vnandinfo.h"   //change later
 //#include "../inc/nand_dma_ops.h"   //change later
 
+#define DEBUG_ERASE
+
+PPartArray partition;
+
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
 {
 	long long result=0;
@@ -220,6 +224,7 @@ int nand_wait_rb(void)
 }
 
 /*  nand driver init    */
+static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist);
 static inline int init_nand(void * vNand)
 {
 	VNandManager *tmp_manager =(VNandManager *)vNand;
@@ -315,8 +320,8 @@ static inline int init_nand(void * vNand)
 	t_partition = g_partition+ipartition_num-1;  //last partiton from board
 	(g_partition+ret)->name =" BADBLOCK_TABEL"; 
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
-	(g_partition+ret)->badblockcount = 0;
-	(g_partition+ret)->startblockID = blockid - use_planenum;
+	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
+	(g_partition+ret)->startblockID = blockid;
 	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * (tmp_info->PagePerBlock);
 	(g_partition+ret)->pageperblock = t_partition->pageperblock;
 	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * 1 ;
@@ -324,6 +329,7 @@ static inline int init_nand(void * vNand)
 	(g_partition+ret)->mode = 2;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
 	(g_partition+ret)->hwsector =512;
+	tmp_manager->pt = &partition;
 	tmp_manager->pt->ppt = g_partition;
 	tmp_manager->pt->ptcount = ipartition_num+1;
 
@@ -335,6 +341,20 @@ static inline int init_nand(void * vNand)
 	memset(g_aligned_list,0,256*sizeof(Aligned_List));
 
 	nand_ops_parameter_init();
+
+#ifdef DEBUG_ERASE
+	{
+		BlockList blocklist;
+        blocklist.startBlock = 0;
+        blocklist.BlockCount = 128;
+        blocklist.head.next = 0;
+		multiblock_erase(&g_partition[0], &blocklist);
+		blocklist.startBlock = 0;
+		blocklist.BlockCount = 1;
+		blocklist.head.next = 0;
+		multiblock_erase(&g_partition[1], &blocklist);
+	}
+#endif
 
 	dprintf("\nDEBUG nand:nand_init over *******\n");
 	return 0;
@@ -521,7 +541,7 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 static inline int is_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid <0 || blockid >g_pnand_api.totalblock)
+	if(blockid >tmp_ppt->totalblocks)
 		return -1;
 	nand_ops_parameter_reset(tmp_ppt);
 	return isbadblock(g_pnand_api.vnand_base,blockid);
@@ -565,8 +585,6 @@ static inline int deinit_nand(void *vNand)
 /*********************************************/
 /******         nand driver register    ******/
 /*********************************************/
-
-extern void Register_NandDriver(NandInterface *ni);
 
 NandInterface jz_nand_interface = {
 	.iInitNand = init_nand,
@@ -686,7 +704,8 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	}
 	Register_NandDriver(&jz_nand_interface);
 
-	while(1);
+	printk("INFO: nand probe finish!\n");
+
 	return 0;
 nand_probe_error4:
 	nand_free_buf(g_pnand_api.pnand_base);

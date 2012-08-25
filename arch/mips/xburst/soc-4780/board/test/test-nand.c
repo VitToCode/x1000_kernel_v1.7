@@ -32,7 +32,7 @@
 /*-----------------------------------------------------------------------------*/
 
 static struct platform_nand_partition partition_info[] = {
-	{name:"NAND BOOT partition",
+	/*{name:"NAND BOOT partition",
 	 offset:100 * 0x100000LL,
 	 size:4 * 0x100000LL,
 	 mode:0,
@@ -59,10 +59,10 @@ static struct platform_nand_partition partition_info[] = {
 	 mode:1,
 	 eccbit:8,
 	 use_planes:TWO_PLANES,
-	 part_attrib:PART_DATA},
-	{name:"NAND MISC partition",
+	 part_attrib:PART_DATA},*/
+	{name:"nd-misc",
 	 offset:1124 * 0x100000LL,
-	 size:512 * 0x100000LL,
+	 size:128 * 0x100000LL,
 	 mode:1,
 	 eccbit:8,
 	 use_planes:TWO_PLANES,
@@ -79,12 +79,12 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-	2,			/* reserved blocks of mtd0 */
-	2,			/* reserved blocks of mtd1 */
-	10,			/* reserved blocks of mtd2 */
-	20,			/* reserved blocks of mtd3 */
+//	2,			/* reserved blocks of mtd0 */
+//	2,			/* reserved blocks of mtd1 */
+//	10,			/* reserved blocks of mtd2 */
+//	20,			/* reserved blocks of mtd3 */
 	20,			/* reserved blocks of mtd4 */
-	20			/* reserved blocks of mtd5 */
+	4			/* reserved blocks of mtd5 */
 };
 
 #if 0				/* CONFIG_JZ4770_PISCES */

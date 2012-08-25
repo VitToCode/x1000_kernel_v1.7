@@ -68,7 +68,7 @@ static inline void nand_wait_ready(void)
  */
 static inline void __nand_cmd(unsigned char cmd)
 {
-	dprintf("DEBUG nand:go into nand_io.c _nand_cmd  cmdport = 0x%x  cmd =0x%0x\n",(unsigned int)pnand_io->cmdport,cmd);
+	//dprintf("DEBUG nand:go into nand_io.c _nand_cmd  cmdport = 0x%x  cmd =0x%0x\n",(unsigned int)pnand_io->cmdport,cmd);
 	*((volatile unsigned char *)(pnand_io->cmdport)) = cmd;
 }
 
@@ -134,7 +134,7 @@ static inline void send_addr512(int col, int row, int cycles)
  */
 static inline void send_addr2k(int col, int row, int cycles)
 {
-  dprintf("send_addr2k:col 0x%x,row 0x%08x,cycles %d\n",col,row,cycles);
+	//dprintf("send_addr2k:col 0x%x,row 0x%08x,cycles %d\n",col,row,cycles);
 	/* send column address */
 	if (col >= 0) {
 		__nand_addr(col & 0xff);

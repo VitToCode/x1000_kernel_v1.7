@@ -165,7 +165,7 @@ static void scan_pt_badblock_info_write_to_nand(VNandManager *vm, VNandInfo *evn
 			ndprint(VNAND_DEBUG, "vn.TotalBlocks = %d\n", vn.TotalBlocks);
 			end_blockno = vn.startBlockID + vn.TotalBlocks;
 			for (i = start_blockno; i < end_blockno; i++) {
-				if (vNand_IsBadBlock(&vn, pt->startblockID + i) && j * 4 < size)
+				if (vNand_IsBadBlock(&vn, i) && j * 4 < size)
 					pt->pt_badblock_info[j++] = i;
 				else {
 					if(j*4 >= size){
@@ -192,7 +192,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	PPartition *firpt = NULL;
 	PPartition *lastpt = NULL;
 	int startblock = 0, badcnt = 0,blkcnt = 0;
-
+	int blkpervblk;
 	vm->info.pt_badblock_info = NULL;
 
    	// find it which partition mode is ONCE_MANAGER
@@ -224,23 +224,35 @@ static void read_badblock_info_page(VNandManager *vm)
 		return;
 	}
 
-	startblock = pt->startblockID;
+	startblock = 0;
 	CONV_PT_VN(pt,&vn);
 //for error partblock bad block
 //for block number
-	while(blkcnt < vn.TotalBlocks && startblock > 0) {
+	ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
+			__func__, __LINE__, badcnt, pt->badblockcount);
+
+	while(blkcnt < vn.TotalBlocks) {
 		startblock--;
-		if(vNand_IsBadBlock(&vn,startblock))
+		if(vNand_IsBadBlock(&vn,startblock)) {
 			badcnt++;
+			if (badcnt > pt->badblockcount) {
+				ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
+						__func__, __LINE__, badcnt, pt->badblockcount);
+				while(1);
+			}
+		}
 		else
 			blkcnt++;
 	}
 
 //for error block self partition & badblock
+//error and last patition all spec is samed
 	lastpt->totalblocks -= (badcnt + vn.TotalBlocks);
 	lastpt->PageCount -= (badcnt + vn.TotalBlocks) * vn.PagePerBlock;
 //chanage error pt startblock for write & read
-	pt->startblockID = startblock;
+	blkpervblk = vn.PagePerBlock / vm->info.PagePerBlock;
+	pt->startblockID += startblock * blkpervblk;
+	pt->startPage += startblock * vn.PagePerBlock;
 
 	if ((lastpt->totalblocks <= 0) || (lastpt->PageCount <= 0)) {
 		ndprint(VNAND_ERROR,

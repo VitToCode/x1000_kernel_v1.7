@@ -362,7 +362,7 @@ int nand_erase_block(NAND_BASE *host,unsigned int block)
         int ret;
         unsigned int page = (block+g_startblock) * g_pnand_chip->ppblock;
         //	printk("nand erase one block +++++++++++++++++++++++++++++++++++++++\n");
-        printk("nand erase one block ; blockid =%d ++++++++++++++++++++++++++++++\n",block);
+        // printk("nand erase one block ; blockid =%d ++++++++++++++++++++++++++++++\n",block);
         //	page =get_physical_addr(page);
         do_select_chip(host,page);
 
@@ -370,7 +370,7 @@ int nand_erase_block(NAND_BASE *host,unsigned int block)
         ret =send_read_status(&status);
 
         do_deselect_chip(host);
-        printk(" nand erase block: status =%d ; ret =%d \n",status,ret);
+        //printk(" nand erase block: status =%d ; ret =%d \n",status,ret);
         if(ret)
                 return ret;
         else
@@ -385,7 +385,7 @@ int nand_erase_2p_block(NAND_BASE *host,unsigned int block)
         unsigned char status;
         int ret;
         unsigned int page = (block*g_pnand_chip->planenum + g_startblock) * g_pnand_chip->ppblock;
-        printk("nand erase two block ; blockid =%d ; page =%d ++++++++++++++++++++++++++++++\n",block,page);
+        //printk("nand erase two block ; blockid =%d ; page =%d ++++++++++++++++++++++++++++++\n",block,page);
 
         do_select_chip(host,page);
 
