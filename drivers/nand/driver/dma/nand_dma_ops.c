@@ -252,16 +252,6 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 	}
 	//dma_sync_single_for_cpu(nand_dev,CPHYSADDR(databuf),bytes,DMA_FROM_DEVICE);
 read_page_singlenode_error1:
-	switch(ret){
-	case 0:
-		ret = bytes;
-                break;
-	case 1:
-		ret = bytes | (1<<16);
-		break;
-	default:
-		break;
-	}
 
 	do_deselect_chip(pnand_api);
 	return ret;
@@ -270,6 +260,7 @@ read_page_singlenode_error1:
 int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
 	int ret = 0;
+	printk("\n@@ read page start @@\n   ..\n");
         jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret =mcu_reset(pnand_api);
 	if(ret < 0)
@@ -278,6 +269,8 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 
 	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
 	printk("@@ read page ret = 0x%08x @@\n",ret);
+        if (ret == 0)
+                ret = bytes;
         return ret;
 }
 
@@ -311,14 +304,13 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	ret =send_msg_to_mcu(pnand_api);
 	do_deselect_chip(pnand_api); 
 write_page_singlenode_error1:
-        if (ret == 0)
-                ret = bytes;
 	return ret;
 }
 
 int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
         int ret = 0;
+	printk("\n@@ write page start @@\n   ..\n");
 	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
@@ -328,6 +320,8 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 
 	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
 	printk("@@ write page ret = 0x%08x @@\n",ret);
+        if (ret == 0)
+                ret = bytes;
         return ret;
 }
 
@@ -399,6 +393,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	PageList *templist;
 	unsigned int opsmodel;
 	int ret = 0,flag =0;
+	printk("\n@@ read pages start @@\n   ..\n");
 	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
@@ -409,18 +404,17 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		if(opsmodel == 1){
 			ret = read_page_singlenode(pnand_api,templist->startPageID,
                                         templist->OffsetBytes,templist->Bytes,templist->pData);
-                        templist->retVal = ret;
-			/*switch(ret){
-				case 0:
-					templist->retVal = templist->Bytes;
-					break;
-				case 1:
-					templist->retVal = templist->Bytes | (1<<16);
-					break;
-				default:
-					templist->retVal = ret;
-					break;
-			}*/
+			switch(ret){
+			case 0:
+				templist->retVal = templist->Bytes;
+				break;
+			case 1:
+				templist->retVal = templist->Bytes | (1<<16);
+				break;
+			default:
+				templist->retVal = ret;
+				break;
+			}
 		}else{ 
 			ret = read_page_multinode(pnand_api,templist,opsmodel);
 		}
@@ -511,6 +505,7 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	PageList *templist;
 	unsigned int opsmodel;
 	int ret = 0;
+	printk("\n@@ write pages start @@\n   ..\n");
 	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
