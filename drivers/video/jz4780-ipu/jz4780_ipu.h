@@ -17,6 +17,8 @@
 #define IPU_OUTPUT_MODE_FG1_TVOUT       0x00001000
 #define IPU_DST_USE_PERPIXEL_ALPHA      0x00010000
 
+#ifdef __KERNEL__
+
 /* match HAL_PIXEL_FORMAT_ in hardware/libhardware/include/hardware/hardware.h */
 enum {
 	HAL_PIXEL_FORMAT_RGBA_8888    = 1,
@@ -42,17 +44,19 @@ enum {
 	HAL_PIXEL_FORMAT_JZ_YUV_420_B       = 0x47700002, // YUV_420_P BLOCK MODE
 };
 
-enum {
-	ZOOM_MODE_BILINEAR = 0,
-	ZOOM_MODE_BICUBE,
-	ZOOM_MODE_BILINEAR_ENHANCE,
-};
-
 typedef struct {
 	unsigned int coef;
 	unsigned short int in_n;
 	unsigned short int out_n;
 } rsz_lut;
+
+#endif /* ifdef __KERNEL__ */
+
+enum {
+	ZOOM_MODE_BILINEAR = 0,
+	ZOOM_MODE_BICUBE,
+	ZOOM_MODE_BILINEAR_ENHANCE,
+};
 
 struct YuvCsc
 {									// YUV(default)	or	YCbCr
@@ -79,6 +83,8 @@ struct ipu_img_param
 	unsigned int 		fb_h;
 	unsigned int 		version;			/* sizeof(struct ipu_img_param) */
 	int			        ipu_cmd;			/* IPU command by ctang 2012/6/25 */
+	unsigned int        stlb_base;      /* IPU src tlb table base phys */
+	unsigned int        dtlb_base;      /* IPU dst tlb table base phys */
 	int                 lcdc_id;            
 	unsigned int		output_mode;		/* IPU output mode: fb0, fb1, fg1, alpha, colorkey and so on */
 	unsigned int		alpha;
