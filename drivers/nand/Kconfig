@@ -17,6 +17,7 @@ if NAND
 config NAND_JZ4780
 	bool "Support NAND Flash device on JZ4780"
         depends on SOC_4780 && NAND
+        default y
 
 choice
         prompt "select real or fake nand driver for test"
@@ -190,6 +191,7 @@ endchoice
 config 	NAND_DMA
 	depends on NAND_JZ4780 && !FAKE_NAND_DRIVER
 	bool 'Use DMA mode'
+        default y
 	help
 	  This enables using DMA for reading and writing NAND flash, if not selected,
           then CPU mode is used.

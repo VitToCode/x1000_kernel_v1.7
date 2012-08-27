@@ -338,7 +338,7 @@ static int em_vNand_IsBadBlock(void *pt, int blockid){
 	return 0;
 }
 
-static int em_vNand_MarkBadBlock(void *pt, unsigned int blockid){
+static int em_vNand_MarkBadBlock(void *pt, int blockid){
 	loff_t pos;
 	struct vNand2K *p;
 	int startblock;
