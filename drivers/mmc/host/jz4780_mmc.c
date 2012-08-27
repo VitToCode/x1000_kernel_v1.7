@@ -22,6 +22,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 #include <mach/jzmmc.h>
 #include "jz4780_mmc.h"
@@ -74,6 +75,7 @@ static LIST_HEAD(manual_list);
  * @irq: Interrupt of MSC.
  * @clk: Clock of MSC.
  * @clk_gate: Clock gate of MSC, enabled when probe, disabled when remove.
+ * @power: Power regulator of MSC.
  * @mrq: mmc_request pointer which includes all the information
  *	of the current request, or NULL when the host is idle.
  * @cmd: Command information of mmc_request.
@@ -82,7 +84,6 @@ static LIST_HEAD(manual_list);
  * @mmc: The mmc_host representing this slot.
  * @pending_events: Bitmask of events flagged by the interrupt handler
  *	to be processed by the state machine.
- * @lock: Spin lock works when enable or disable interrupt.
  * @iomem: Pointer to MSC registers.
  * @detect_timer: Timer used for debouncing card insert interrupts.
  * @request_timer: Timer used for preventing request time out.
@@ -101,6 +102,7 @@ struct jzmmc_host {
 	int 			irq;
 	struct clk		*clk;
 	struct clk		*clk_gate;
+	struct regulator 	*power;
 
 	struct mmc_request	*mrq;
 	struct mmc_command	*cmd;
@@ -108,7 +110,6 @@ struct jzmmc_host {
 	struct mmc_host		*mmc;
 
 	unsigned long		pending_events;
-	spinlock_t		lock;
 	void __iomem		*iomem;
 	struct timer_list	detect_timer;
 	struct timer_list	request_timer;
@@ -1039,15 +1040,25 @@ EXPORT_SYMBOL(jzmmc_manual_detect);
 static inline void jzmmc_power_on(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_on\n");
-	if (host->pdata->gpio)
+
+	if (host->power) {
+		regulator_enable(host->power);
+
+	} else if (host->pdata->gpio) {
 		set_pin_status(&host->pdata->gpio->pwr, 1);
+	}
 }
 
 static inline void jzmmc_power_off(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_off\n");
-	if (host->pdata->gpio)
+
+	if (host->power) {
+		regulator_disable(host->power);
+
+	} else if (host->pdata->gpio) {
 		set_pin_status(&host->pdata->gpio->pwr, 0);
+	}
 }
 
 static int jzmmc_get_read_only(struct mmc_host *mmc)
@@ -1448,6 +1459,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	int ret = 0;
 	char clkname[16];
 	char clk_gate_name[16];
+	char regulator_name[16];
 	struct jzmmc_platform_data *pdata;
 	struct resource			*regs;
 	struct jzmmc_host *host = NULL;
@@ -1501,7 +1513,12 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		goto err_ioremap;
 	mmc_set_drvdata(pdev, host);
 
-	spin_lock_init(&host->lock);
+	sprintf(regulator_name, "vmmc.%d", pdev->id);
+	host->power = regulator_get(host->dev, regulator_name);
+	if (IS_ERR(host->power)) {
+		dev_dbg(host->dev, "vmmc regulator missing\n");
+	}
+
 #ifdef PIO_MODE
 	set_bit(JZMMC_USE_PIO, &host->flags);
 #endif
@@ -1512,6 +1529,11 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 			goto err_dma_init;
 	}
 
+	if (pdata->private_init) {
+		ret = pdata->private_init(); 
+		if (ret < 0)
+			goto err_pri_init;
+	}
 	ret = jzmmc_msc_init(host);
 	if (ret < 0)
 		goto err_msc_init;
@@ -1530,6 +1552,7 @@ err_sysfs_create:
 err_gpio_init:
 	free_irq(host->irq, host);
 err_msc_init:
+err_pri_init:
 	kfree(host->decshds[0].dma_desc);
 err_dma_init:
 	iounmap(host->iomem);
@@ -1558,6 +1581,7 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 	free_irq(host->irq, host);
 	jzmmc_gpio_deinit(host);
 	kfree(host->decshds[0].dma_desc);
+	regulator_put(host->power);
 	clk_disable(host->clk);
 	clk_put(host->clk);
 	clk_put(host->clk_gate);

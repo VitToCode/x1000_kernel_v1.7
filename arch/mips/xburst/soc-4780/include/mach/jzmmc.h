@@ -1,6 +1,9 @@
 #ifndef __JZ_MMC_H__
 #define __JZ_MMC_H__
 
+#include <linux/regulator/consumer.h>
+#include <linux/wakelock.h>
+
 #define MMC_BOOT_AREA_PROTECTED	(0x1234)	/* Can not modified the area protected */
 #define MMC_BOOT_AREA_OPENED	(0x4321)	/* Can modified the area protected */
 
@@ -26,7 +29,7 @@ struct mmc_recovery_info {
 };
 
 struct jzmmc_pin {
-	unsigned short			num;
+	short				num;
 #define LOW_ENABLE			0
 #define HIGH_ENABLE			1
 	unsigned short 			enable_level;
@@ -38,6 +41,12 @@ struct card_gpio {
 	struct jzmmc_pin 		pwr;
 };
 
+struct wifi_data {
+	struct wake_lock		wifi_wake_lock;
+	struct regulator		*wifi_power;
+	int				wifi_reset;
+};
+
 /**
  * struct jzmmc_platform_data is a struct which defines board MSC informations
  * @removal: This shows the card slot's type:
@@ -47,7 +56,7 @@ struct card_gpio {
  * @capacity: Shows the host's speed capacity and bus width.
  * @recovery_info: Informations that Android recovery mode uses.
  * @gpio: Slot's gpio information including pins of write-protect, card-detect and power.
- * @insert_irq_info: The informations of slot's insert-interrupt pin, if it's removal = REMOVABLE.
+ * @private_init: Board private initial function, mostly for SDIO devices.
  */
 struct jzmmc_platform_data {
 	unsigned short			removal;
@@ -56,6 +65,10 @@ struct jzmmc_platform_data {
 	unsigned int			capacity;
 	struct mmc_recovery_info	*recovery_info;
 	struct card_gpio		*gpio;
+	int				(*private_init)(void);
 };
+
+#define jzrtc_switch_clk32k(ON)
+extern int jzmmc_manual_detect(int index, int on);
 
 #endif

@@ -52,31 +52,31 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-FIXD_REGULATOR_DEF(
+FIXED_REGULATOR_DEF(
 	warrior_vcc5,
 	"vcc5v",	5000000,
 	GPIO_PA(17),	HIGH_ENABLE,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
-FIXD_REGULATOR_DEF(
+FIXED_REGULATOR_DEF(
 	warrior_vbus,
 	"otg-Vbus",	5000000,
 	GPIO_PE(10),	HIGH_ENABLE,	0,
 	"vcc5v",	"vbus",		"lm0");
 
-FIXD_REGULATOR_DEF(
+FIXED_REGULATOR_DEF(
 	warrior_vmotor,
 	"motor",	3300000,
 	GPIO_PB(25),	HIGH_ENABLE,	0,
 	"vccio",	"vmotor",	"jz_motor");
 
-FIXD_REGULATOR_DEF(
+FIXED_REGULATOR_DEF(
 	warrior_vcim,
 	"cim",		2800000,
 	GPIO_PB(27),	HIGH_ENABLE,	0,
 	NULL,		"vcim",		"jz-cim");
 
-FIXD_REGULATOR_DEF(
+FIXED_REGULATOR_DEF(
 	warrior_vlcd,
 	"lcd",		3300000,
 	GPIO_PB(23),	HIGH_ENABLE,	0,

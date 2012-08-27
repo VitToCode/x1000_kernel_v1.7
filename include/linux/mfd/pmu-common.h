@@ -72,7 +72,7 @@ struct regulator_init_data REG##_init_data = {				\
 	.consumer_supplies      = &REG##_consumer,			\
 }
 
-#define FIXD_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, DELAY, SREG, SUPPLY, DEV_NAME)	\
+#define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, DELAY, SREG, SUPPLY, DEV_NAME)	\
 static struct regulator_consumer_supply NAME##_regulator_consumer =			\
 	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);						\
 											\
