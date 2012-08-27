@@ -51,6 +51,25 @@
 	{ .name = "msc2-pe",		.port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x30f00000, }
 
 /*******************************************************************************************************************/
+/*****************************************************************************************************************/
+
+#define SSI0_PORTB						       \
+       { .name = "ssi0-pb",	       .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0xf0300020, }
+#define SSI0_PORTD						       \
+       { .name = "ssi0-pd",	       .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x03f00000, }
+#define SSI0_PORTE						       \
+       { .name = "ssi0-pe",	       .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x000fc000, }
+
+#define SSI1_PORTB						       \
+       { .name = "ssi1-pb",	       .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0xf0300000, }
+#define SSI1_PORTD						       \
+       { .name = "ssi1-pd",	       .port = GPIO_PORT_D, .func = GPIO_FUNC_2, .pins = 0x03f00000, }
+#define SSI1_PORTE						       \
+       { .name = "ssi1-pe",	       .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x000fc000, }
+
+
+/*****************************************************************************************************************/
+
 #define I2C0_PORTD							\
 	{ .name = "i2c0", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3<<30, }
 #define I2C1_PORTE							\
@@ -134,6 +153,9 @@ extern struct platform_device jz_uart1_device;
 extern struct platform_device jz_uart2_device;
 extern struct platform_device jz_uart3_device;
 extern struct platform_device jz_uart4_device;
+
+extern struct platform_device jz_ssi0_device;
+extern struct platform_device jz_ssi1_device;
 
 extern struct platform_device jz_pdma_device;
 

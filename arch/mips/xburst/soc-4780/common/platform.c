@@ -124,6 +124,27 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ_CIM
 	CIM_PORTB,
 #endif
+
+#ifdef CONFIG_SPI0_JZ4780_PB
+       SSI0_PORTB
+#endif
+#ifdef CONFIG_SPI0_JZ4780_PD
+       SSI0_PORTD
+#endif
+#ifdef CONFIG_SPI0_JZ4780_PE
+       SSI0_PORTE
+#endif
+
+#ifdef CONFIG_SPI1_JZ4780_PB
+       SSI1_PORTB
+#endif
+#ifdef CONFIG_SPI1_JZ4780_PD
+       SSI1_PORTD
+#endif
+#ifdef CONFIG_SPI1_JZ4780_PE
+       SSI1_PORTE
+#endif
+
 };
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);
@@ -192,6 +213,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_UART0,
 #endif
 		JZDMA_REQ_SSI0,
+		JZDMA_REQ_SSI0,
+		JZDMA_REQ_SSI1,
 		JZDMA_REQ_SSI1,
 		JZDMA_REQ_PCM0,
 		JZDMA_REQ_PCM0,
@@ -536,6 +559,68 @@ struct platform_device jz_uart4_device = {
 	.num_resources  = ARRAY_SIZE(jz_uart4_resources),
 	.resource       = jz_uart4_resources,
 };
+
+static u64 jz_ssi_dmamask =  ~(u32)0;
+
+#define DEF_SSI(NO)							       \
+static struct resource jz_ssi##NO##_resources[] = {			       \
+       [0] = {								       \
+	       .flags	       = IORESOURCE_MEM,			       \
+	       .start	       = SSI##NO##_IOBASE,			       \
+	       .end	       = SSI##NO##_IOBASE + 0x1000 - 1,		       \
+       },								       \
+       [1] = {								       \
+	       .flags	       = IORESOURCE_IRQ,			       \
+	       .start	       = IRQ_SSI##NO,				       \
+	       .end	       = IRQ_SSI##NO,				       \
+       },								       \
+       [2] = {								       \
+       	       .flags	       = IORESOURCE_DMA,			       \
+       	       .start	       = JZDMA_REQ_SSI##NO,			       \
+       },								       \
+};									       \
+struct platform_device jz_ssi##NO##_device = {				       \
+       .name = "jz-ssi",						       \
+       .id = NO,							       \
+       .dev = {								       \
+	       .dma_mask	       = &jz_ssi_dmamask,		       \
+	       .coherent_dma_mask      = 0xffffffff,			       \
+       },								       \
+       .resource       = jz_ssi##NO##_resources,			       \
+       .num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),		       \
+};
+
+#define DEF_PIO_SSI(NO)							       \
+static struct resource jz_ssi##NO##_resources[] = {			       \
+       [0] = {								       \
+	       .flags	       = IORESOURCE_MEM,			       \
+	       .start	       = SSI##NO##_IOBASE,			       \
+	       .end	       = SSI##NO##_IOBASE + 0x1000 - 1,		       \
+       },								       \
+       [1] = {								       \
+	       .flags	       = IORESOURCE_IRQ,			       \
+	       .start	       = IRQ_SSI##NO,				       \
+	       .end	       = IRQ_SSI##NO,				       \
+       },								       \
+};									       \
+struct platform_device jz_ssi##NO##_device = {				       \
+       .name = "jz-ssi",						       \
+       .id = NO,							       \
+       .resource       = jz_ssi##NO##_resources,			       \
+       .num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),		       \
+};
+
+#ifdef CONFIG_SPI0_PIO_ONLY
+DEF_PIO_SSI(0);
+#else
+DEF_SSI(0);
+#endif
+
+#ifdef CONFIG_SPI1_PIO_ONLY
+DEF_PIO_SSI(1);
+#else
+DEF_SSI(1);
+#endif
 
 /* CIM (camera module interface controller) */
 static struct resource jz_cim_resources[] = {
