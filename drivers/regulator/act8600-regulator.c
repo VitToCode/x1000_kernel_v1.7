@@ -424,7 +424,7 @@ static int act8600_list_voltage(struct regulator_dev *rdev,
 	if (selector > VSEL_MASK)
 		return -EINVAL;
 
-	return act8600_voltage_map[selector][1];
+	return act8600_voltage_map[selector][0];
 }
 
 static int act8600_get_voltage(struct regulator_dev *rdev)
@@ -600,7 +600,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 	struct pmu_platform_data *pdata = dev_get_platdata(iodev->dev);
 	struct regulator_dev **rdev;
 	int i, ret, size;
-
+	printk("-----------%s:%d\n", __func__, __LINE__);
 	if (!pdata) {
 		dev_err(pdev->dev.parent, "No platform init data supplied\n");
 		return -ENODEV;
@@ -634,6 +634,8 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 			dev_err(pdev->dev.parent,
 				"can't find regulator:%s\n", reg_info->name);
 		} else {
+			dev_info(pdev->dev.parent,
+				"register regulator:%s\n", reg_info->name);
 			if (reg_info->init_data) {
 				rdev[i] = regulator_register(desc,
 							     act8600_reg->dev,

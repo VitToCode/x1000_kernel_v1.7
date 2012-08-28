@@ -1041,7 +1041,7 @@ static inline void jzmmc_power_on(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_on\n");
 
-	if (host->power) {
+	if (host->power < 0) {
 		regulator_enable(host->power);
 
 	} else if (host->pdata->gpio) {
@@ -1053,7 +1053,7 @@ static inline void jzmmc_power_off(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_off\n");
 
-	if (host->power) {
+	if (host->power < 0) {
 		regulator_disable(host->power);
 
 	} else if (host->pdata->gpio) {
@@ -1516,7 +1516,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	sprintf(regulator_name, "vmmc.%d", pdev->id);
 	host->power = regulator_get(host->dev, regulator_name);
 	if (IS_ERR(host->power)) {
-		dev_dbg(host->dev, "vmmc regulator missing\n");
+		dev_warn(host->dev, "vmmc regulator missing\n");
 	}
 
 #ifdef PIO_MODE
@@ -1530,9 +1530,9 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->private_init) {
-		ret = pdata->private_init(); 
-		if (ret < 0)
-			goto err_pri_init;
+//		ret = pdata->private_init(); 
+//		if (ret < 0)
+//			goto err_pri_init;
 	}
 	ret = jzmmc_msc_init(host);
 	if (ret < 0)

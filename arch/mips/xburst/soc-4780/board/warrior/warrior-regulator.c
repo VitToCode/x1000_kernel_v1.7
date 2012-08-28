@@ -113,7 +113,7 @@ static struct pmu_platform_data warrior_pmu_pdata = {
 
 #define PMU_I2C_BUSNUM 0
 
-static struct i2c_board_info __initdata warrior_pmu_board_info = {
+struct i2c_board_info warrior_pmu_board_info = {
 	I2C_BOARD_INFO("act8600", 0x5a),
 	.platform_data = &warrior_pmu_pdata,
 };
@@ -121,25 +121,28 @@ static struct i2c_board_info __initdata warrior_pmu_board_info = {
 static int __init warrior_pmu_dev_init(void)
 {
 	struct i2c_adapter *adap;
-	struct i2c_client *client;
+//	struct i2c_client *client;
 	int busnum = PMU_I2C_BUSNUM;
-
+	printk("-----------%s:%d\n", __func__, __LINE__);
 	adap = i2c_get_adapter(busnum);
 	if (!adap) {
 		pr_err("failed to get adapter i2c%d\n", busnum);
 		return -1;
 	}
-
+#if 0
 	client = i2c_new_device(adap, &warrior_pmu_board_info);
 	if (!client) {
 		pr_err("failed to register pmu to i2c%d\n", busnum);
 		return -1;
 	}
-
+#endif
 	i2c_put_adapter(adap);
 
-	return platform_add_devices(fixed_regulator_devices,
-				    ARRAY_SIZE(fixed_regulator_devices));
+//	return platform_add_devices(fixed_regulator_devices,
+//				    ARRAY_SIZE(fixed_regulator_devices));
+	return platform_add_devices(&fixed_regulator_devices[1],
+				    1);
+//	return 0;
 }
 
-arch_initcall(warrior_pmu_dev_init);
+subsys_initcall_sync(warrior_pmu_dev_init);

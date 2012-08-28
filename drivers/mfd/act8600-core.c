@@ -53,7 +53,7 @@ static int act8600_probe(struct i2c_client *client,const struct i2c_device_id *i
 {
 	struct act8600 *act8600;
 	int ret = 0;
-
+	printk("============================================111=\n");
 	act8600 = kzalloc(sizeof(struct act8600), GFP_KERNEL);
 	if (act8600 == NULL) {
 		dev_err(&client->dev, "device alloc error\n");
@@ -80,12 +80,12 @@ static int act8600_remove(struct i2c_client *client)
 
 	return 0;
 }
-
+#if 1
 static const struct i2c_device_id act8600_id[] = {
 	{"act8600", 0 },
 	{}
 };
-
+#endif
 static struct i2c_driver act8600_pmu_driver = {
 	.probe		= act8600_probe,
 	.remove		= act8600_remove,
