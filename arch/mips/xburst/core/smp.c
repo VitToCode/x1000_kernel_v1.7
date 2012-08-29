@@ -227,6 +227,20 @@ static void __init jzsoc_smp_setup(void)
 static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned long reim;
+
+
+
+	*(unsigned int *)0xb0000028 &= ~(1 << 15);
+	printk("-----------%s: %d\n", __func__, __LINE__);
+	printk("---------CLKGR0_SCPU: 0x%08X\n", *(unsigned int *)0xb0000028);
+	mdelay(100);
+	printk("-----------%s: %d\n", __func__, __LINE__);
+	printk("---------PD_SCPU: 0x%08X\n", *(unsigned int *)0xb0000004);
+
+
+
+
+
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
 	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);

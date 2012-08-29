@@ -57,18 +57,20 @@ struct jzmmc_platform_data warrior_sdio_pdata = {
 	.gpio				= NULL,
 	.private_init			= iw8101_wlan_init,
 };
-
+#if 0
 static struct card_gpio warrior_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
 };
-
+#endif
 struct jzmmc_platform_data warrior_tf_pdata = {
-	.removal  			= REMOVABLE,
+	.removal  			= DONTCARE,
+//	.removal  			= REMOVABLE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA,
 	.recovery_info			= NULL,
-	.gpio				= &warrior_tf_gpio,
+//	.gpio				= &warrior_tf_gpio,
+	.gpio				= NULL,
 };
 
 int iw8101_wlan_init(void)
