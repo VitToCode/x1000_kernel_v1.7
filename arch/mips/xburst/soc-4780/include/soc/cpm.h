@@ -85,8 +85,8 @@
 #ifndef CONFIG_FPGA_TEST 
 #define cpm_inl(off)		inl(CPM_IOBASE + (off))
 #define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
-#define cpm_clear_bit(val,off)	clear_bit(val,((volatile void *)(CPM_IOBASE + (off))))
-#define cpm_set_bit(val,off)	set_bit(val,((volatile void *)(CPM_IOBASE + (off))))
+#define cpm_clear_bit(val,off)	do{cpm_outl((cpm_inl(off) & ~(1<<val)),off);}while(0)
+#define cpm_set_bit(val,off)	do{cpm_outl((cpm_inl(off) |  (1<<val)),off);}while(0)
 #else
 #define cpm_inl(x)		0x3
 #define cpm_outl(val,off)	do{}while(0)
