@@ -14,6 +14,8 @@
 #include <asm/processor.h>
 #include <asm/mips_machine.h>
 
+extern const char *get_board_type(void);
+
 unsigned int vced_count, vcei_count;
 
 static int show_cpuinfo(struct seq_file *m, void *v)
@@ -84,6 +86,10 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		      cpu_has_vce ? "%u" : "not available");
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
+
+	/* Android requires 'Hardware' to setup the init.%hardware%.rc */
+	seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
+
 	seq_printf(m, "\n");
 
 	return 0;
