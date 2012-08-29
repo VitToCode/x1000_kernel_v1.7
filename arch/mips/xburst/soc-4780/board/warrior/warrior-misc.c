@@ -10,6 +10,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/gpio_keys.h>
+#include <linux/input.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>

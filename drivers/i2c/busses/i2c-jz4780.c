@@ -289,7 +289,7 @@ static void txabrt(struct jz_i2c *i2c,int src)
 	int i;
 	for(i=0;i<16;i++) {
 		if(src & (0x1 << i))
-			dev_info(&(i2c->adap.dev),"--I2C TXABRT[%d]=%s\n",i,abrt_src[i]);
+			dev_err(&(i2c->adap.dev),"--I2C TXABRT[%d]=%s\n",i,abrt_src[i]);
 	}
 }
 static void i2c_complete(void *arg)
@@ -350,6 +350,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 		for(i=0;i<len;i++) {	//need wait txfifo is not full ???
 			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& --timeout);
 			i2c_writel(i2c,I2C_DC,I2C_DC_READ);
+			mdelay(10);
 		}
 		timeout = wait_for_completion_timeout(&i2c->r_complete,HZ);
 		if(!timeout){ 
@@ -436,6 +437,7 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 			i2c_writel(i2c,I2C_DC,tmp);
 		}
 		if(idx == cnt - 1) {
+			mdelay(10);
 			tmp = i2c_readl(i2c,I2C_CTRL);
 			tmp &= ~I2C_CTRL_STPHLD;
 			i2c_writel(i2c,I2C_CTRL,tmp);
@@ -509,7 +511,7 @@ static bool filter(struct dma_chan *chan, void *data)
 
 static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 {
-	int dev_clk = 24000000;//clk_get_rate(i2c->clk);
+	int dev_clk = clk_get_rate(i2c->clk);
 	int cnt_high = 0;	/* HIGH period count of the SCL clock */
 	int cnt_low = 0;	/* LOW period count of the SCL clock */
 	int cnt_period = 0;	/* period count of the SCL clock */
@@ -540,7 +542,7 @@ static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 		i2c_writel(i2c,I2C_SHCNT,I2CSHCNT_ADJUST(cnt_high));
 		i2c_writel(i2c,I2C_SLCNT,I2CSLCNT_ADJUST(cnt_low));
 		setup_time = 300;
-		hold_time = 900;
+		hold_time = 400;
 	} else {
 		tmp = 0x45 | (1<<5);      /* fast speed mode*/
 		i2c_writel(i2c,I2C_CTRL,tmp);
@@ -620,6 +622,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 		goto irq_failed;
 	}
 
+	clk_enable(i2c->clk);
 	i2c_set_speed(i2c,100000);
 
 	i2c_writel(i2c,I2C_DMATDLR,8);	/*set trans fifo level*/

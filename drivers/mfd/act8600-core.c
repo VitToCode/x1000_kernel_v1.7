@@ -106,7 +106,7 @@ static void __exit act8600_pmu_exit(void)
 	i2c_del_driver(&act8600_pmu_driver);
 }
 
-subsys_initcall(act8600_pmu_init);
+subsys_initcall_sync(act8600_pmu_init);
 module_exit(act8600_pmu_exit);
 
 MODULE_DESCRIPTION("act8600 PMU mfd Driver");

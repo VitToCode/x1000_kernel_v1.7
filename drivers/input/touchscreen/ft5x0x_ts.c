@@ -346,6 +346,7 @@ static int ft5x0x_i2c_rxdata(struct ft5x0x_ts_data *ts, char *rxdata, int length
 	return ret;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int ft5x0x_i2c_txdata(struct ft5x0x_ts_data *ts, char *txdata, int length)
 {
 	int ret;
@@ -382,7 +383,7 @@ static int ft5x0x_set_reg(struct ft5x0x_ts_data *ts, u8 addr, u8 para)
 
 	return 0;
 }
-
+#endif
 static void ft5x0x_ts_release(struct ft5x0x_ts_data *ft5x0x_ts)
 {
 	int ret = 1;	
