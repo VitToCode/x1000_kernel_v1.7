@@ -272,8 +272,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(EHCI,   	PARENT(UHC)),
 	DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
 	DEF_CLK(CIM,   		GATE(26)),
-	DEF_CLK(LCD1,   	GATE(27)),
-	DEF_CLK(LCD0,   	GATE(28)),
+	DEF_CLK(LCD1,   	GATE(27)| PARENT(LCD0)),
+	DEF_CLK(LCD0,   	GATE(28)| PARENT(LCD1)),
 	DEF_CLK(IPU1,   	GATE(29)),
 	DEF_CLK(IPU0,   	GATE(29)),
 	DEF_CLK(DDR0,  		GATE(30)),
@@ -623,6 +623,8 @@ int clk_enable(struct clk *clk)
 	if(clk->flags & CLK_FLG_ENABLE)
 		return 0;
 
+	clk->flags |= CLK_FLG_ENABLE;
+
 	clk_enable(clk->parent);
 
 	if(clk->flags & CLK_FLG_GATE)
@@ -632,7 +634,6 @@ int clk_enable(struct clk *clk)
 		clk->ops->enable(clk,1);
 
 	clk->count = 1;
-	clk->flags |= CLK_FLG_ENABLE;
 
 	return 0;
 }
