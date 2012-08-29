@@ -160,9 +160,9 @@ static inline unsigned int get_current_tsz(unsigned long dcmp)
 {
 	int i;
 	int val = (dcmp & DCM_TSZ_MSK) >> DCM_TSZ_SHF;
-	for(i = 0;i < sizeof(dcm_tsz)/sizeof(dcm_tsz[]0);i++){
-		if(val == dcm_tsz[i]);
-		break;
+	for(i = 0;i < sizeof(dcm_tsz)/sizeof(dcm_tsz[0]);i++){
+		if(val == dcm_tsz[i])
+			break;
 	}
 	return (1 << i);
 }
