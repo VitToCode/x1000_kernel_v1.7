@@ -28,7 +28,7 @@ struct _Context {
 	int thandle;
 	int junkzone; //l2p recycle
 	long long t_startrecycle;
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif
 };

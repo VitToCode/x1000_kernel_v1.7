@@ -503,12 +503,12 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =write_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
-                printk("multipage write start\n");
+		//printk("multipage write start\n");
 #ifdef CONFIG_NAND_DMA
-                printk("multipage write set ppt\n");
-                g_pnand_api.nand_dma->ppt = tmp_ppt;
-                printk("multipage dma write\n");
-                ret =nand_dma_write_pages(&g_pnand_api,g_aligned_list);
+		//printk("multipage write set ppt\n");
+		g_pnand_api.nand_dma->ppt = tmp_ppt;
+		//printk("multipage dma write\n");
+		ret =nand_dma_write_pages(&g_pnand_api,g_aligned_list);
 #else
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =nand_write_pages(g_pnand_api.vnand_base,g_aligned_list);

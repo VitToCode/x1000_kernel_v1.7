@@ -384,7 +384,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
 	{
 		ndprint(ZONE_ERROR,"package page info error func %s line %d \n",
-		__FUNCTION__,__LINE__);
+			__FUNCTION__,__LINE__);
 		return -1;
 	}
 
@@ -439,10 +439,8 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 
-
 	if (pagecount > 0)
 		check_invalidpage(zone, zone->currentLsector / sectorperpage, pagecount);
-
 	return ret;
 
 err:
@@ -544,12 +542,12 @@ int Zone_MarkEraseBlock ( Zone *zone, unsigned int PageID, int Mode )
 */
 int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 {
-	static int count = 1;
 	NandZoneInfo *nandzoneinfo;
 	PageList *pagelist = NULL;
 	int ret = -1;
 	unsigned int blockno = 0;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
+	ZoneManager *zonep = ((Context *)(zone->context))->zonep;
 
 	nandzoneinfo = (NandZoneInfo *)(zone->mem0);
 	zone->badblock = zone->sigzoneinfo->badblock;
@@ -562,7 +560,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	memset(nandzoneinfo,0xff,zone->vnand->BytePerPage);
 	/*file local zone information to page1 buf*/
 	nandzoneinfo->localZone.ZoneID = zone->sigzoneinfo - zone->top;
-	if ((int)zone->sigzoneinfo->lifetime == -1)
+	if (zone->sigzoneinfo->lifetime == -1)
 		zone->sigzoneinfo->lifetime = 0;
 	CONV_SZ_ZI(zone->sigzoneinfo, &nandzoneinfo->localZone);
 
@@ -586,7 +584,8 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	else
 		nandzoneinfo->nextZone.ZoneID = 0xffff;
 
-	nandzoneinfo->serialnumber = zone->maxserial + count++;
+	zonep->maxserial++;
+	nandzoneinfo->serialnumber = zonep->maxserial;
 
 	while(nm_test_bit(blockno,&(zone->badblock)) && (++blockno));
 
@@ -617,7 +616,6 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 		return check_pagelist_error(pagelist);
 	}
 
-	zone->ZoneID = zone->sigzoneinfo - zone->top;
 	zone->prevzone = prev;
 	zone->nextzone = next;
 	zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);

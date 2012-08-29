@@ -393,7 +393,7 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 			cd = CacheList_get(cachemanager->L4Info, sectorid);
 			l4count = 1;
 		}else
-			cd = CacheList_getTop(cachemanager->L4Info, sectorid);
+			cd = CacheList_getTop(cachemanager->L4Info);
 			
 		if (cd) {
 			

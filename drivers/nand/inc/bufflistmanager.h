@@ -8,6 +8,7 @@
 #include "blocklist.h"
 #include "lpartitionlist.h"
 #include "ppartition.h"
+#include "zoneidlist.h"
 
 typedef struct _BuffListManager BuffListManager;
 struct _BuffListManager {

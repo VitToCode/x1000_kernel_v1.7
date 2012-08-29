@@ -220,7 +220,7 @@ static int alloc_normalrecycle_memory(Recycle *rep)
 	Context *conptr = (Context *)(rep->context);
 
 	rep->force = 0;
-	rep->record_writeadd = (unsigned int *)Nand_ContinueAlloc(conptr->zonep->l4infolen);
+	rep->record_writeadd = (unsigned int *)Nand_VirtualAlloc(conptr->zonep->l4infolen);
 	if(rep->record_writeadd == NULL) {
 		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
@@ -237,7 +237,7 @@ static int alloc_normalrecycle_memory(Recycle *rep)
  */
 static void free_normalrecycle_memory(Recycle *rep)
 {
-	Nand_ContinueFree(rep->record_writeadd);
+	Nand_VirtualFree(rep->record_writeadd);
 	free_pageinfo(rep);
 }
 
@@ -252,7 +252,7 @@ static int alloc_forcerecycle_memory( Recycle *rep )
 
 	rep->force = 1;
 
-	rep->force_record_writeadd = (unsigned int *)Nand_ContinueAlloc(zonep->l4infolen);
+	rep->force_record_writeadd = (unsigned int *)Nand_VirtualAlloc(zonep->l4infolen);
 	if(rep->force_record_writeadd == NULL) {
 		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
@@ -269,7 +269,7 @@ static int alloc_forcerecycle_memory( Recycle *rep )
  */
 static void free_forcerecycle_memory( Recycle *rep )
 {
-	Nand_ContinueFree(rep->force_record_writeadd);
+	Nand_VirtualFree(rep->force_record_writeadd);
 	free_pageinfo(rep);
 	rep->force_record_writeadd = NULL;
 }
@@ -700,7 +700,6 @@ static int MergerSectorID ( Recycle *rep)
 	unsigned int *l4info = NULL;
 	unsigned int *latest_l4info = NULL;
 	unsigned int spp = 0;
-	int first_flag = 1;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	l4count = rep->curpageinfo->L4InfoLen >> 2;
@@ -709,7 +708,6 @@ static int MergerSectorID ( Recycle *rep)
 	latest_l4info = (unsigned int *)(rep->writepageinfo->L4Info);
 	pl = NULL;
 	tpl = NULL;
-	rep->write_cursor = 0;
 
 	for(i = 0; i < l4count; i += k) {
 		k = 1;
@@ -720,11 +718,6 @@ static int MergerSectorID ( Recycle *rep)
 		tmp1 = latest_l4info[i] / spp;
 
 		if (tmp0 == tmp1 && data_in_3_zone(rep, tmp0)) {
-			if (first_flag) {
-				rep->write_cursor = i;
-				first_flag = 0;
-			}
-
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
@@ -742,7 +735,7 @@ static int MergerSectorID ( Recycle *rep)
 			}else
 				tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)tpl, sizeof(PageList));
 			tpl->startPageID = tmp0;
-			tpl->OffsetBytes = l4info[i] % spp;
+			tpl->OffsetBytes = l4info[i] % spp * SECTOR_SIZE;
 			tpl->Bytes = k * SECTOR_SIZE;
 			tpl->retVal = 0;
 			tpl->pData = NULL;
@@ -773,7 +766,7 @@ static Zone *get_current_write_zone(int context)
  *	@pi: pageinfo
  *	@count: sector count
 */
-static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigned int count)
+static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigned int sector_count)
 {
 	unsigned int l1index = 0;
 	unsigned int l2index = 0;
@@ -787,14 +780,24 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	unsigned int *l1buf = NULL;
 	unsigned int pageid = -1;
 	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int l4index = 0;
+	unsigned int l4count = 0;
 	unsigned int startsectorid;
 	unsigned int *record_writeaddr;
-	unsigned int write_cursor;
+ 	unsigned int write_cursor = 0;
 	Zone *rzone;
+	unsigned int total_sectorcount = 0;
+	unsigned int s_count = 0;
+	struct singlelist *pos;
+	PageList *pl;
+	PageList *pl_node = NULL;
+	PageInfo *current_pageinfo;
 	Context *conptr = (Context *)(rep->context);
 	CacheManager *cachemanager = conptr->cachemanager;
 	VNandInfo *vnand = &conptr->vnand;
 	unsigned int spp = vnand->BytePerPage / SECTOR_SIZE;
+	l4count = conptr->zonep->l4infolen >> 2;
 
 	l1buf = (unsigned int *)pi->L1Info;
 	l2buf = (unsigned int *)pi->L2Info;
@@ -812,33 +815,58 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	if (rep->force) {
 		startsectorid = rep->force_startsectorID;
 		record_writeaddr = rep->force_record_writeadd;
-		write_cursor = rep->force_write_cursor;
 		rzone = rep->force_rZone;
-		rep->force_alloc_num = count;
-		pi->zoneID = rep->force_rZone->ZoneID;
+		rep->force_alloc_num = (sector_count + spp - 1) / spp;
+		pl = rep->force_pagelist;
+		current_pageinfo = rep->force_curpageinfo;
 	}
 	else {
 		startsectorid = rep->startsectorID;
 		record_writeaddr = rep->record_writeadd;
-		write_cursor = rep->write_cursor;
 		rzone = rep->rZone;
-		rep->alloc_num = count;
-		pi->zoneID = rep->rZone->ZoneID;
+		rep->alloc_num = (sector_count + spp - 1) / spp;;
+		pl = rep->pagelist;
+		current_pageinfo = rep->curpageinfo;
 	}
 
 	l1index = startsectorid / l1unitlen;
+	pi->zoneID = rzone->ZoneID;
 	pi->PageID = Zone_AllocNextPage(wzone);
-
 	l1buf[l1index] = pi->PageID;
 	pi->L1Index = l1index;
+	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
 
-	for(i = write_cursor; i < count * spp + write_cursor; i++) {
-		if ((i - write_cursor) % spp == 0)
-			pageid = Zone_AllocNextPage(wzone);
+	singlelist_for_each(pos,&pl->head) {
+		if (total_sectorcount == sector_count)
+			break;
 
-		record_writeaddr[i] = pageid * spp + (i - write_cursor) % spp;
-		l4buf[i] = record_writeaddr[i];
+		pl_node = singlelist_entry(pos,PageList,head);
+
+		for (j = l4index; j < l4count; j++) {
+			if (pl_node->startPageID * spp + pl_node->OffsetBytes / SECTOR_SIZE == ((unsigned int *)(current_pageinfo->L4Info))[j])
+				break;
+		}
+		l4index = j;
+		if (pos == &pl->head)
+			write_cursor = l4index;
+		total_sectorcount += pl_node->Bytes / SECTOR_SIZE;
+
+		for (i = pl_node->OffsetBytes / SECTOR_SIZE; i < (pl_node->Bytes + pl_node->OffsetBytes) / SECTOR_SIZE; i++) {
+			if (s_count % spp == 0) {
+				s_count = 0;
+				pageid = Zone_AllocNextPage(wzone);
+			}
+			record_writeaddr[l4index] = pageid * spp + s_count;
+			l4buf[l4index] = record_writeaddr[l4index];
+			l4index++;
+			s_count++;
+		}
 	}
+
+	if (rep->force)
+		rep->force_write_cursor = write_cursor;
+	else
+		rep->write_cursor = write_cursor;
 
 	if(rzone->L3InfoLen != 0) {
 		if(rzone->L2InfoLen != 0) {
@@ -867,39 +895,42 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 {
 	PageList *pl = NULL;
 	PageList *px = NULL;
-	PageList *pv = NULL;
+	PageList *pagelist = NULL;
 	struct singlelist *sg = NULL;
 	Zone *rzone = NULL;
-	unsigned int datalen = 0;
-	unsigned int offset = 0;
-	unsigned int len = 0;
+	int datalen = 0;
 	unsigned int flag = 0;
+	int blmid = (int)((Context *)(rep->context))->blm;
 
 	if (rep->force) {
 		rzone = rep->force_rZone;
 		pl = rep->force_pagelist;
-		pv = rep->force_pagelist;
 	}
 	else {
 		rzone = rep->rZone;
 		pl = rep->pagelist;
-		pv = rep->pagelist;
 	}
 
 	datalen = pagenum * rzone->vnand->BytePerPage;
-	len = datalen;
 
 	singlelist_for_each(sg,&pl->head) {
 		px = singlelist_entry(sg,PageList,head);
 		datalen -= px->Bytes;
-		if((int)datalen <= 0)
+		if(datalen <= 0)
 			break;
-		pv = px;
 	}
 
-	if(offset > len) {
-		len = offset - len;
-		px->Bytes = px->Bytes - len;
+	if(datalen < 0) {
+		px->Bytes = px->Bytes - (0 - datalen);
+
+		pagelist = (PageList *)BuffListManager_getTopNode(blmid, sizeof(PageList));
+		pagelist->startPageID = px->startPageID;
+		pagelist->Bytes = 0 - datalen;
+		pagelist->OffsetBytes = px->OffsetBytes + px->Bytes;
+		pagelist->pData += px->Bytes;
+		pagelist->retVal = 0;
+		pagelist->head.next = NULL; 
+
 		flag = 1;
 	}
 
@@ -923,16 +954,13 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		rep->read_pagelist = pl;
 
 	if(flag == 1) {
-		pv->head.next = NULL;
-		px->OffsetBytes = px->Bytes;
-		px->Bytes = len;
 		if (rep->force) {
-			px->head.next = &rep->force_pagelist->head;
-			rep->force_pagelist = px;
+			pagelist->head.next = &rep->force_pagelist->head;
+			rep->force_pagelist = pagelist;
 		}
 		else {
-			px->head.next = &rep->pagelist->head;
-			rep->pagelist = px;
+			pagelist->head.next = &rep->pagelist->head;
+			rep->pagelist = pagelist;
 		}
 	}
 
@@ -950,12 +978,16 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 	PageList *pl = NULL;
 	PageList *px = NULL;
 	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int l4count = 0;
 	unsigned int write_cursor;
 	unsigned alloc_num;
 	unsigned int *addr;
-	VNandInfo *vnand = &((Context *)(rep->context))->vnand;
+	int count = 0;
+	Context *conptr = (Context *)(rep->context);
+	VNandInfo *vnand = &conptr->vnand;
 	unsigned int spp = vnand->BytePerPage / SECTOR_SIZE;
-	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	BuffListManager *blm = conptr->blm;
 
 	if (rep->force) {
 		addr = rep->force_record_writeadd;
@@ -968,6 +1000,7 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 		alloc_num = rep->alloc_num;
 	}
 
+	l4count = conptr->zonep->l4infolen >> 2;
 	pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
 
 	for(i = 0 ; i < len ; i++) {
@@ -977,11 +1010,32 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 			ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",__FUNCTION__,__LINE__);
 			return -1;
 		}
-		px->startPageID =  addr[write_cursor] / spp;
+
+		px->startPageID = addr[write_cursor] / spp;
 		px->OffsetBytes = 0;
-		px->Bytes = vnand->BytePerPage;
 		px->retVal = 0;
-		write_cursor += spp;
+		if (i == len - 1) {
+			for (j = write_cursor; j < l4count; j++) {
+				if (addr[j] != -1)
+					count++;
+			}
+			if (count > spp)
+				count = spp;
+			px->Bytes = count * SECTOR_SIZE;
+			count = 0;
+		}
+		else
+			px->Bytes = vnand->BytePerPage;
+
+		for (j = write_cursor; j < l4count; j++) {
+			if (addr[j] != -1)
+				count++;
+			if (count == spp + 1) {
+				count = 0;
+				break;
+			}
+		}
+		write_cursor = j;
 	}
 
 	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
@@ -1153,8 +1207,10 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
 
-	ZoneManager_SetPrevZone(context,zone);
-	ZoneManager_FreeZone(context,zone);
+	if (zone) {
+		ZoneManager_SetPrevZone(context,zone);
+		ZoneManager_FreeZone(context,zone);
+	}
 
 	if (ZoneManager_GetAheadCount(context) == 0) {
 		new_zone = ZoneManager_AllocZone(context);
@@ -1198,19 +1254,22 @@ static int fill_ahead_zone ( int context )
 }
 
 /**
- *	get_writepagecount - get count of page in write operation
+ *	get_sectorcount - get count of sector in write operation
  *
  *	@pagelist: calculate object
 */
-static int get_pagecount(PageList *pagelist)
+static int get_sectorcount(Recycle *rep, PageList *pagelist)
 {
 	struct singlelist *pos;
-	int pagecount = 0;
+	PageList *pl_node;
+	int sectorcount = 0;
 
-	singlelist_for_each(pos, &pagelist->head)
-		pagecount++;
+	singlelist_for_each(pos, &pagelist->head) {
+		pl_node = singlelist_entry(pos,PageList,head);
+		sectorcount += pl_node->Bytes / SECTOR_SIZE;
+	}
 
-	return pagecount;
+	return sectorcount;
 }
 
 /**
@@ -1268,9 +1327,13 @@ static int RecycleReadWrite(Recycle *rep)
 	unsigned int recyclepage = L4UNITSIZE(rep->rZone->vnand) / rep->rZone->vnand->BytePerPage;
 	unsigned int zonepage = 0;
 	int ret = 0;
-	unsigned int write_pagecount = 0;
+	unsigned int write_sectorcount = 0;
+	int spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
+	unsigned int recyclesector = recyclepage * spp;
 
 	wzone = get_current_write_zone(rep->context);
+	if (!wzone)
+		wzone = alloc_new_zone_write(rep->context, wzone);
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage == 0) {
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -1282,14 +1345,16 @@ static int RecycleReadWrite(Recycle *rep)
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
-	write_pagecount = get_pagecount(rep->pagelist);
-	if (write_pagecount == 0)
+	write_sectorcount = get_sectorcount(rep,rep->pagelist);
+	if (write_sectorcount == 0)
 		goto exit;
-	else if (write_pagecount < recyclepage)
-		recyclepage = write_pagecount;
+	else if (write_sectorcount < recyclesector) {
+		recyclesector = write_sectorcount;
+		recyclepage = (recyclesector + spp - 1) / spp;
+	}
 
 	if(zonepage >= recyclepage + 1) {
-		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclepage);
+		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
@@ -1299,7 +1364,7 @@ static int RecycleReadWrite(Recycle *rep)
 	}
 	else {
 		if(zonepage > 1) {
-			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, zonepage -1);
+			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (zonepage - 1) * spp);
 			ret = copy_data(rep, wzone, zonepage -1);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
@@ -1307,7 +1372,8 @@ static int RecycleReadWrite(Recycle *rep)
 				goto err;
 			}
 
-			recyclepage = recyclepage - (zonepage - 1);
+			recyclesector = recyclesector - (zonepage - 1) * spp;
+			recyclepage = (recyclesector + spp - 1) / spp;
 		}
 
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -1317,7 +1383,7 @@ static int RecycleReadWrite(Recycle *rep)
 			goto err;
 		}
 
-		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclepage);
+		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
@@ -1501,6 +1567,8 @@ static int FreeZone ( Recycle *rep)
 	memset(nandsigzoneinfo,0xff,rep->rZone->vnand->BytePerPage);
 	nandsigzoneinfo->ZoneID = rep->rZone->sigzoneinfo - rep->rZone->top;
 	rep->rZone->sigzoneinfo->lifetime++;
+	rep->rZone->sigzoneinfo->pre_zoneid = -1;
+	rep->rZone->sigzoneinfo->next_zoneid = -1;
 	nandsigzoneinfo->lifetime = rep->rZone->sigzoneinfo->lifetime;
 	nandsigzoneinfo->badblock = rep->rZone->sigzoneinfo->badblock;
 
@@ -1532,7 +1600,7 @@ int Recycle_Init(int context)
 {
 	Context *conptr = (Context *)context;
 	Recycle *rep = NULL;
-	conptr->rep = (Recycle *)Nand_ContinueAlloc(sizeof(Recycle));
+	conptr->rep = (Recycle *)Nand_VirtualAlloc(sizeof(Recycle));
 	rep = conptr->rep;
 	if(conptr->rep == NULL) {
 		ndprint(RECYCLE_ERROR,"Recycle init alloc recycle error func %s line %d \n",__FUNCTION__,__LINE__);
@@ -1573,7 +1641,7 @@ void Recycle_DeInit(int context)
 	Recycle *rep = conptr->rep;
 
 	DeinitNandMutex(&rep->mutex);
-	Nand_ContinueFree(rep);
+	Nand_VirtualFree(rep);
 }
 
 /**
@@ -1783,8 +1851,7 @@ static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 {
 	unsigned short ZoneID = suggest_zoneid;
 	Zone *zone = ZoneManager_GetCurrentWriteZone(rep->context);
-
-	if (ZoneID == zone->ZoneID) {
+	if (zone && ZoneID == zone->ZoneID) {
 		rep->force_rZone = zone;
 		zone = alloc_new_zone_write(rep->context,zone);
 		if(zone == NULL) {
@@ -1810,8 +1877,8 @@ static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 
 		rep->force_rZone = ZoneManager_AllocRecyclezone(rep->context,ZoneID);
 		if(rep->force_rZone == NULL) {
-			ndprint(RECYCLE_ERROR,"alloc force recycle zone error func %s line %d \n",
-						__FUNCTION__,__LINE__);
+			ndprint(RECYCLE_ERROR,"alloc force recycle zone error ZoneID = %d func %s line %d \n",
+						ZoneID, __FUNCTION__,__LINE__);
 			return -1;
 		}
 	}
@@ -2004,12 +2071,10 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	unsigned int *l4info = NULL;
 	unsigned int *latest_l4info = NULL;
 	unsigned int spp = 0;
-	int first_flag = 1;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	l4count = rep->force_curpageinfo->L4InfoLen >> 2;
 	spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
-	rep->force_write_cursor = 0;
 	l4info = (unsigned int *)(rep->force_curpageinfo->L4Info);
 	latest_l4info = (unsigned int *)(rep->force_writepageinfo->L4Info);
 
@@ -2023,19 +2088,14 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 		tmp0 = l4info[i] / spp;
 		tmp1 = latest_l4info[i] / spp;
 
-		if (tmp0 == tmp1 && data_in_rzone(rep, tmp0)) {
-			if (first_flag) {
-				rep->force_write_cursor = i;
-				first_flag = 0;
-			}
-
+		if ((tmp0 == tmp1 || latest_l4info[i] == -1) && data_in_rzone(rep, tmp0)) {
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
 
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
-				if(tmp2 == tmp0 && tmp2 == tmp3)
+				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1))
 					k++;
 				else
 					break;
@@ -2045,7 +2105,7 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 				tpl = pl;
 			}else tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)tpl, sizeof(PageList));
 			tpl->startPageID = tmp0;
-			tpl->OffsetBytes = l4info[i] % spp;
+			tpl->OffsetBytes = l4info[i] % spp * SECTOR_SIZE;
 			tpl->Bytes = k * SECTOR_SIZE;
 			tpl->retVal = 0;
 			tpl->pData = NULL;
@@ -2067,9 +2127,13 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	Zone *wzone = NULL;
 	unsigned int recyclepage = L4UNITSIZE(rep->force_rZone->vnand) / rep->force_rZone->vnand->BytePerPage;
 	unsigned int zonepage = 0;
-	unsigned int write_pagecount = 0;
+	unsigned int write_sectorcount = 0;
+	int spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
+	unsigned int recyclesector = recyclepage * spp;
 
 	wzone = get_current_write_zone(rep->context);
+	if (!wzone)
+		wzone = alloc_new_zone_write(rep->context, wzone);
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage == 0) {
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -2081,16 +2145,18 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
-	write_pagecount = get_pagecount(rep->force_pagelist);
-	if (write_pagecount == 0)
+	write_sectorcount = get_sectorcount(rep,rep->force_pagelist);
+	if (write_sectorcount == 0)
 		goto exit;
-	else if (write_pagecount < recyclepage)
-		recyclepage = write_pagecount;
+	else if (write_sectorcount < recyclesector) {
+		recyclesector = write_sectorcount;
+		recyclepage = (recyclesector + spp - 1) / spp;
+	}
 
 	rep->write_pagecount += recyclepage;
 
 	if(zonepage >= recyclepage + 1) {
-		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclepage);
+		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
@@ -2100,18 +2166,19 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	}
 	else {
 		if(zonepage > 1) {
-			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,zonepage -1);
-			ret = copy_data(rep, wzone, zonepage -1);
+			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,(zonepage - 1) * spp);
+			ret = copy_data(rep, wzone, zonepage - 1);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				goto err;
 			}
 
-			recyclepage = recyclepage - (zonepage - 1);
+			recyclesector = recyclesector - (zonepage - 1) * spp;
+			recyclepage = (recyclesector + spp - 1) / spp;
 		}
 		else if (zonepage == 1)
-			rep->write_pagecount ++;
+			rep->write_pagecount++;
 
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
@@ -2120,7 +2187,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 			goto err;
 		}
 
-		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclepage);
+		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
 
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
@@ -2187,6 +2254,8 @@ static int OnForce_FreeZone ( Recycle *rep)
 	memset(nandsigzoneinfo,0xff,rep->force_rZone->vnand->BytePerPage);
 	nandsigzoneinfo->ZoneID = rep->force_rZone->sigzoneinfo - rep->force_rZone->top;
 	rep->force_rZone->sigzoneinfo->lifetime++;
+	rep->force_rZone->sigzoneinfo->pre_zoneid = -1;
+	rep->force_rZone->sigzoneinfo->next_zoneid = -1;
 	nandsigzoneinfo->lifetime = rep->force_rZone->sigzoneinfo->lifetime;
 	nandsigzoneinfo->badblock = rep->force_rZone->sigzoneinfo->badblock;
 
@@ -2353,8 +2422,27 @@ exit:
  */
 static int OnBoot_GetRecycleZone ( Recycle *rep)
 {
+	Zone *zone;
+	SigZoneInfo *prev = NULL;
+	SigZoneInfo *next = NULL;
 	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
 	rep->force_rZone = zonep->last_zone;
+
+	if (ZoneManager_GetAheadCount(zonep->context) == 0) {
+		zone = ZoneManager_AllocZone(zonep->context);
+		if (!zone) {
+			ndprint(RECYCLE_ERROR,"ERROR: Can't alloc a new zone! %s %d \n",
+				__FUNCTION__, __LINE__);
+			return -1;
+		}
+		ZoneManager_SetAheadZone(zonep->context,zone);
+	}
+
+	ZoneManager_GetAheadZone(zonep->context, &zone);
+	ZoneManager_SetCurrentWriteZone(zonep->context,zone);
+	prev = ZoneManager_GetPrevZone(zonep->context);
+	next = ZoneManager_GetNextZone(zonep->context);
+	Zone_Init(zone,prev,next);
 
 	return 0;
 }

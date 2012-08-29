@@ -122,3 +122,28 @@ void CacheData_update ( CacheData *cachedata, unsigned int startID,unsigned char
 	cachedata->IndexID = startID;
 	memcpy(cachedata->Index,data,cachedata->IndexCount << 2);
 }
+/** 
+ *	CacheData_ismatch  -  Whether indexid in the cachedata or not
+ *	
+ *	@cachedata: operate object
+ *	@indexid: sectorid
+ */
+int CacheData_ismatch ( CacheData *cachedata, unsigned int indexid)
+{
+	return (indexid >= cachedata->IndexID && 
+		indexid < cachedata->IndexID + cachedata->unitLen * cachedata->IndexCount);
+		
+}
+
+void CacheData_Dump( CacheData *cd) {
+	int i;
+	ndprint(CACHEDATA_INFO,"----- cachedata[%p] IndexID = %d IndexCount = %d unitLen = %d ---\n",
+		cd,cd->IndexID,cd->IndexCount,cd->unitLen);
+	for(i = 0;i < cd->IndexCount;i++){
+		if(i % 16 == 0){
+			ndprint(CACHEDATA_INFO,"\n%8d:",cd->IndexID + i);
+		}
+		ndprint(CACHEDATA_INFO,"%8d\t",cd->Index[i]);
+	}
+	ndprint(CACHEDATA_INFO,"\n");
+}

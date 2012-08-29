@@ -10,6 +10,7 @@
 #include "zone.h"
 #include "pageinfo.h"
 #include "pagelist.h"
+#include "zoneidlist.h"
 
 typedef struct _Wpages Wpages;
 struct _Wpages {
@@ -59,6 +60,14 @@ struct _ZoneManager {
 	int last_data_read_error;
 	unsigned int old_l1info;
 	int badblockinfo;
+	ZoneIDList *page0error_zoneidlist;
+	ZoneIDList *page1error_zoneidlist;
+	int page2_error_dealt;
+};
+
+enum ErrType {
+	PAGE0,
+	PAGE1,	
 };
 
 Zone *ZoneManager_Get_Used_Zone(ZoneManager *zonep, unsigned short zoneid);

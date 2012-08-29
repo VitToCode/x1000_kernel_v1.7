@@ -17,7 +17,7 @@ struct _VNandInfo {
     int MaxBadBlockCount;
     unsigned short hwSector;
     unsigned int *pt_badblock_info;
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif
 };

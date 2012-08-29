@@ -91,7 +91,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	conptr->top = NULL;
 	conptr->zonep = NULL;
 	conptr->t_startrecycle = 0;
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	conptr->timebyte = (TimeByte*)Nd_TimerdebugInit();
 	conptr->vnand.timebyte = (TimeByte*)Nd_TimerdebugInit();
 #endif
@@ -158,7 +158,7 @@ int L2PConvert_ZMClose(int handle)
 {
 	int context = handle;
 	Context *conptr = (Context *)context;
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Nd_TimerdebugDeinit(conptr->timebyte);
 	Nd_TimerdebugDeinit(conptr->vnand.timebyte);
 #endif
@@ -329,7 +329,7 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
  *	@zonep: operate object
  *	@zoneid: error zoneid
  */
-static void start_ecc_error_handle(int context, unsigned int pageid)
+static int start_ecc_error_handle(int context, unsigned int pageid)
 {
 	int i;
 	Message read_ecc_error_msg;
@@ -358,7 +358,7 @@ static void start_ecc_error_handle(int context, unsigned int pageid)
 	read_ecc_error_msg.data = (int)&errinfo;
 
 	msghandle = Message_Post(conptr->thandle, &read_ecc_error_msg, WAIT);
-	Message_Recieve(conptr->thandle, msghandle);
+	return Message_Recieve(conptr->thandle, msghandle);
 }
 
 /**
@@ -388,7 +388,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 	Recycle_Lock(context);
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,0);
 #endif
 	/* head node will not be use */
@@ -430,24 +430,34 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 			if (ISERROR(pl_node->retVal)) {
 				if (ISNOWRITE(pl_node->retVal))
 					memset(pl_node->pData, 0xff, pl_node->Bytes);
-				else if (ISECCERROR(pl_node->retVal))
-					start_ecc_error_handle(context, pl_node->startPageID);
+				else if (ISECCERROR(pl_node->retVal) || ISDATAMOVE(pl_node->retVal)) {
+					ndprint(L2PCONVER_INFO,"start ecc_error_handle \n");
+					ret = start_ecc_error_handle(context, pl_node->startPageID);
+					if (ret != 0) {
+						ndprint(L2PCONVER_ERROR,"ecc_error_handle error func %s line %d \n",
+							__FUNCTION__, __LINE__);
+						goto exit;
+					}
+				}
 				else {
 					ndprint(L2PCONVER_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
-					__FUNCTION__, __LINE__);
+						__FUNCTION__, __LINE__);
 					break;
 				}
 			}
 		}
 
 	}
-#ifdef TIMER_DEBUG
+	
+#ifdef STATISTICS_DEBUG
 	Calc_Speed(conptr->timebyte,(void*)sl,0);
 #endif
+
+exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
 	Recycle_Unlock(context);
-
 	return ret;
+	
 first_read:
 	ret = 0;
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
@@ -467,21 +477,22 @@ static void recycle_zone_prepare(int context)
 	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
 	int msghandle;
-	ForceRecycleInfo frinfo;
+	ForceRecycleInfo *frinfo = (ForceRecycleInfo *)Nand_VirtualAlloc(sizeof(ForceRecycleInfo));
 
 	ptzonenum = ZoneManager_Getptzonenum(context) * 4 / 100;
 	if(ptzonenum == 0)
 		ptzonenum = 1;
 	if (ZoneManager_Getfreecount(context) < ptzonenum ){
-		frinfo.context = context;
-		frinfo.pagecount = -1;
-		frinfo.suggest_zoneid = -1;
+		frinfo->context = context;
+		frinfo->pagecount = -1;
+		frinfo->suggest_zoneid = -1;
 		force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 		force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
-		force_recycle_msg.data = (int)&frinfo;
+		force_recycle_msg.data = (int)frinfo;
 
 		msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 		Message_Recieve(conptr->thandle, msghandle);
+		Nand_VirtualFree(frinfo);
 	}
 }
 
@@ -499,7 +510,8 @@ static int write_data_prepare ( int context )
 	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
 	int msghandle;
-	ForceRecycleInfo frinfo;
+	ForceRecycleInfo *frinfo = NULL;
+	VNandInfo *vnand = &conptr->vnand;
 #endif
 
 	count = ZoneManager_GetAheadCount(context);
@@ -509,15 +521,17 @@ static int write_data_prepare ( int context )
 			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle \n");
 #ifndef NO_ERROR
 			/* force recycle */
-			frinfo.context = context;
-			frinfo.pagecount = 65;
-			frinfo.suggest_zoneid = -1;
+			frinfo = (ForceRecycleInfo *)Nand_VirtualAlloc(sizeof(ForceRecycleInfo));
+			frinfo->context = context;
+			frinfo->pagecount = vnand->PagePerBlock + 1;
+			frinfo->suggest_zoneid = -1;
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
-			force_recycle_msg.data = (int)&frinfo;
+			force_recycle_msg.data = (int)frinfo;
 
 			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 			Message_Recieve(conptr->thandle, msghandle);
+			Nand_VirtualFree(frinfo);
 
 			zone = ZoneManager_AllocZone(context);
 			if (!zone) {
@@ -759,8 +773,10 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
 
-	ZoneManager_SetPrevZone(context,zone);
-	ZoneManager_FreeZone(context,zone);
+	if (zone) {
+		ZoneManager_SetPrevZone(context,zone);
+		ZoneManager_FreeZone(context,zone);
+	}
 
 	if (ZoneManager_GetAheadCount(context) == 0)
 		write_data_prepare(context);
@@ -884,14 +900,8 @@ static void lock_cache(int cm, L2pConvert *l2p, PageInfo **pi)
 {
 	if (l2p->L4_startsectorid == -1)
 		CacheManager_lockCache(cm,l2p->follow_node->startSector,pi);
-	else {
-		if (IS_NOT_SAME_L4(l2p->break_type)&& !IS_NO_ENOUGH_PAGES(l2p->break_type)) {
-			CacheManager_lockCache(cm,l2p->L4_startsectorid + l2p->l4count,pi);
-			l2p->L4_startsectorid = -1;
-		}
-		else
-			CacheManager_lockCache(cm,l2p->L4_startsectorid,pi);
-	}
+	else
+		CacheManager_lockCache(cm,l2p->follow_node->startSector + l2p->follow_node->sectorCount - l2p->node_left_sector_count,pi);
 }
 
 static void unlock_cache(int cm, PageInfo *pi)
@@ -928,7 +938,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 
 	Recycle_Lock(context);
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,1);
 #endif
 
@@ -958,6 +968,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 			goto exit;
 		}
 
+		zone->currentLsector = l2p.sectorid[0];
 		ret = Zone_MultiWritePage(zone, l2p.pagecount, pl, pi);
 		if(ret != 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR:vNand MultiPage Write error func %s line %d \n",
@@ -990,7 +1001,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 			zone = ZoneManager_GetCurrentWriteZone(context);
 		}
 	}
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Calc_Speed(conptr->timebyte,(void*)sl,1);
 #endif
 exit:

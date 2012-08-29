@@ -9,30 +9,80 @@
 #define ZONEPAGE1INFO(context)      1
 #define ZONEPAGE2INFO(context)      2
 
+static BlockList *create_blocklist(Context *conptr, int start_blockid, int total_blockcount)
+{
+	int i = 0;
+	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
+	int blockcount = 0;
+	VNandInfo *vnand = &conptr->vnand;
+	int blm = (int)conptr->blm;
+
+	for (i = start_blockid; i < start_blockid + total_blockcount; i++) {
+		if (!vNand_IsBadBlock(vnand,i))//block is ok
+			blockcount++;
+		else {
+			if (blockcount) {
+				if (bl == NULL) {
+					bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+					bl_node = bl;
+				}
+				else
+					bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+				bl_node->startBlock = i - blockcount;
+				bl_node->BlockCount = blockcount;
+				blockcount = 0;
+			}
+		}
+	}
+
+	if (blockcount) {
+		if (bl == NULL) {
+			bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+			bl_node = bl;
+		}
+		else
+			bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+		bl_node->startBlock = start_blockid + total_blockcount - blockcount;
+		bl_node->BlockCount = blockcount;
+	}
+
+	return bl;
+}
+
 static int erase_err_zone(int errinfo)
 {
-	int ret;
-	BlockList bx;
-	BlockList *bl = &bx;
+	int ret = 0;
+	BlockList *bl;
 	ErrInfo *einfo = (ErrInfo *)errinfo;
 	unsigned short zoneid = einfo->err_zoneid;
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
 	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
-	int next_start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1);
-	int blockcount = next_start_blockno - start_blockno;
+	int next_start_blockno = 0;
+	int blockcount = 0;
+	int blmid = (int)conptr->blm;
 	
-	bl->startBlock = start_blockno;
-	bl->BlockCount = blockcount;
-	bl->retVal = 0;
-	(bl->head).next = NULL;
+	if (zoneid == zonep->pt_zonenum - 1)
+		blockcount = zonep->vnand->TotalBlocks - start_blockno;
+	else {
+		next_start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1);
+		blockcount = next_start_blockno - start_blockno;
+	}
+	
+	bl = create_blocklist(conptr, start_blockno, blockcount);
+	if (bl) {
+		ret = vNand_MultiBlockErase(vnand,bl);
+		if(ret < 0) {
+			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
+						,__FUNCTION__,__LINE__);
+			return ret;
+		}
 
-	ret = vNand_MultiBlockErase(vnand,bl);
-	if(ret < 0) {
-		ndprint(1,"Multi block erase error func %s line %d \n"
-					,__FUNCTION__,__LINE__);
-		return -1;
+		BuffListManager_freeAllList(blmid,(void **)&bl,sizeof(BlockList));
 	}
 
 	return ret;
@@ -53,7 +103,7 @@ static int write_page0(int errinfo)
 	ZoneManager *zonep = conptr->zonep;
 	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 
-	buf = (unsigned char *)Nand_VirtualAlloc(vnand->BytePerPage);
+	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
 		ndprint(1,"Nand_VirtualAlloc error func %s line %d \n"
 					,__FUNCTION__,__LINE__);
@@ -80,7 +130,7 @@ static int write_page0(int errinfo)
 		return -1;
 	}
 
-	Nand_VirtualFree(buf);
+	Nand_ContinueFree(buf);
 	
 	return ret;
 }
@@ -139,7 +189,7 @@ static PageInfo *alloc_pageinfo(ZoneManager *zonep)
 		return NULL;
 	}
 	
-	pi->L1InfoLen = zonep->vnand->BytePerPage;
+	pi->L1InfoLen = zonep->L1.len;
 	pi->L2InfoLen = zonep->l2infolen;
 	pi->L3InfoLen = zonep->l3infolen;
 	pi->L4InfoLen = zonep->l4infolen;
@@ -177,7 +227,7 @@ static void free_pageinfo(ZoneManager *zonep, PageInfo *pageinfo)
 	Nand_VirtualFree(pageinfo);
 }
 
-static Zone *get_prev_zone(int errinfo)
+static int get_prev_zone(int errinfo, Zone **zone)
 {
 	int ret;
 	unsigned char *buf;
@@ -190,11 +240,11 @@ static Zone *get_prev_zone(int errinfo)
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
 	
-	buf = (unsigned char *)Nand_VirtualAlloc(vnand->BytePerPage);
+	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
 		ndprint(1,"Nand_VirtualAlloc error func %s line %d \n"
 					,__FUNCTION__,__LINE__);
-		return NULL;
+		return -1;
 	}
 
 	ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
@@ -202,16 +252,20 @@ static Zone *get_prev_zone(int errinfo)
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"
 					,__FUNCTION__,__LINE__);
-		Nand_VirtualFree(buf);
-		return NULL;
+		Nand_ContinueFree(buf);
+		*zone = NULL;
+		return -1  ;
 	}
-
 	nandzoneinfo = (NandZoneInfo *)buf;
 	prev_zoneid = nandzoneinfo->preZone.ZoneID;
-
-	Nand_VirtualFree(buf);
-
-	return ZoneManager_Get_Used_Zone(zonep,prev_zoneid);
+	if (prev_zoneid == 0xffff) {
+		Nand_ContinueFree(buf);
+		*zone = NULL;
+		return 0;
+	}
+	Nand_ContinueFree(buf);
+	*zone = ZoneManager_Get_Used_Zone(zonep,prev_zoneid);
+	return 0;
 }
 
 static int recover_L1info(int errinfo, Zone *zone)
@@ -281,17 +335,18 @@ err:
 
 static int zone_data_move_and_erase(int errinfo)
 {
-	int ret;
+	int ret = 0;
 	Zone *zone = NULL;
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
 	ForceRecycleInfo frinfo;
 	ErrInfo *einfo = (ErrInfo *)errinfo;
 	int context = einfo->context;
-	VNandInfo *vnand = &((Context *)context)->vnand;
 	unsigned short zoneid = einfo->err_zoneid;
-	
-	zone = ZoneManager_AllocZone(context);
+
+	ZoneManager_GetAheadZone(context, &zone);
+	if (!zone)
+		zone = ZoneManager_AllocZone(context);
 	ZoneManager_SetCurrentWriteZone(context,zone);
 	prev = ZoneManager_GetPrevZone(context);
 	next = ZoneManager_GetNextZone(context);
@@ -305,7 +360,7 @@ static int zone_data_move_and_erase(int errinfo)
 	}
 
 	frinfo.context = context;
-	frinfo.pagecount = vnand->PagePerBlock;
+	frinfo.pagecount = -1;
 	frinfo.suggest_zoneid = zoneid;
 	return Recycle_OnForceRecycle((int)&frinfo);
 }
@@ -314,16 +369,17 @@ int read_page2_err_handler(int errinfo)
 {
 	int ret;
 	Zone *zone;
-	
-	zone = get_prev_zone(errinfo);
-	if(!zone)
+
+	ret = get_prev_zone(errinfo, &zone);
+	if(ret != 0)
 		return -1;
-	
-	ret = recover_L1info(errinfo, zone);
-	if(ret < 0)
-		return -1;
-	
-	return  zone_data_move_and_erase(errinfo);
+	else if (zone) {
+		ret = recover_L1info(errinfo, zone);
+		if(ret < 0)
+			return -1;
+	}
+
+	return zone_data_move_and_erase(errinfo);
 }
 
 int read_ecc_err_handler(int errinfo)
@@ -333,7 +389,7 @@ int read_ecc_err_handler(int errinfo)
 	int context = einfo->context;
 
 	frinfo.context = context;
-	frinfo.pagecount = 0;
+	frinfo.pagecount = -1;
 	frinfo.suggest_zoneid = einfo->err_zoneid;
 	return Recycle_OnForceRecycle((int)&frinfo);
 }

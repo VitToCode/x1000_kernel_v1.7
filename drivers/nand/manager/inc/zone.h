@@ -25,7 +25,6 @@ struct _Zone {
 	int context;
 	void *mem0;
 	unsigned char memflag ; 
-	unsigned int maxserial;
 	unsigned short NextPageInfo;/*record next infopage  pageID */
 	unsigned short sumpage;
 	unsigned short allocedpage;

@@ -55,11 +55,11 @@ int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount,
 int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,0);
 #endif
 	ret = VN_OPERATOR(MultiPageRead,vNand->prData,pl);
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte,(void*)pl,0);
 #endif
 	return ret;
@@ -68,11 +68,11 @@ int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,1);
 #endif
 	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
-#ifdef TIMER_DEBUG
+#ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte,(void*)pl,1);
 #endif
 
@@ -82,33 +82,72 @@ int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	int ret = 0;
 	unsigned int offset = 0;
-	struct singlelist *pos;
-	PageList *pl_node;
+	struct singlelist *pos = NULL;
+	PageList *pl_node = NULL;
+	PageList *pagelist = NULL;
+	PageList *read_follow_pagelist = NULL;
+	PageList *write_follow_pagelist = NULL;
+	PageList *read_pagelist = NULL;
+	PageList *write_pagelist = NULL;
 
-	singlelist_for_each(pos, &rpl->head) {
-		pl_node = singlelist_entry(pos, PageList, head);
-		pl_node->pData = v_nand_ops.vNand_buf + offset;
-		offset += pl_node->Bytes;
-	}
-
-	offset = 0;
-	singlelist_for_each(pos, &wpl->head) {
-		pl_node = singlelist_entry(pos, PageList, head);
-		pl_node->pData = v_nand_ops.vNand_buf + offset;
-		offset += pl_node->Bytes;
-	}
-
+	read_follow_pagelist = rpl;
+	write_follow_pagelist = wpl;
 	NandMutex_Lock(&v_nand_ops.mutex);
+	while (1) {
+		if (read_follow_pagelist == NULL || write_follow_pagelist == NULL)
+			break;
 
-	ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, rpl);
-	if (ret != 0){
-		ndprint(VNAND_ERROR,"%s MultiPagerRead failed!\n",__FUNCTION__);
-		return -1;
+		read_pagelist = read_follow_pagelist;
+		write_pagelist = write_follow_pagelist;
+		offset = 0;
+		singlelist_for_each(pos, &read_follow_pagelist->head) {
+			pl_node = singlelist_entry(pos, PageList, head);
+			pl_node->pData = v_nand_ops.vNand_buf + offset;
+			offset += pl_node->Bytes;
+			if (offset > VNANDCACHESIZE)
+				break;
+			pagelist = pl_node;
+		}
+		if (pagelist->head.next) {
+			read_follow_pagelist = singlelist_entry(pagelist->head.next,PageList,head);
+			pagelist->head.next = NULL;
+		}
+		else
+			read_follow_pagelist = NULL;
+
+		offset = 0;
+		singlelist_for_each(pos, &write_follow_pagelist->head) {
+			pl_node = singlelist_entry(pos, PageList, head);
+			pl_node->pData = v_nand_ops.vNand_buf + offset;
+			offset += pl_node->Bytes;
+			if (offset > VNANDCACHESIZE)
+				break;
+			pagelist = pl_node;
+		}
+		if (pagelist->head.next) {
+			write_follow_pagelist = singlelist_entry(pagelist->head.next,PageList,head);
+			pagelist->head.next = NULL;
+		}
+		else
+			write_follow_pagelist = NULL;
+
+		ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, read_pagelist);
+		if (ret != 0){
+			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d \n",
+				__FUNCTION__, __LINE__);
+			goto exit;
+		}
+
+		ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, write_pagelist);
+		if (ret != 0) {
+			ndprint(VNAND_ERROR,"MultiPageWrite failed! func: %s line: %d \n",
+				__FUNCTION__, __LINE__);
+			goto exit;
+		}
 	}
-	ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, wpl);
 
+exit:
 	NandMutex_Unlock(&v_nand_ops.mutex);
-
 	return ret;
 }
 
@@ -228,9 +267,6 @@ static void read_badblock_info_page(VNandManager *vm)
 	CONV_PT_VN(pt,&vn);
 //for error partblock bad block
 //for block number
-	ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
-			__func__, __LINE__, badcnt, pt->badblockcount);
-
 	while(blkcnt < vn.TotalBlocks) {
 		startblock--;
 		if(vNand_IsBadBlock(&vn,startblock)) {
@@ -300,7 +336,7 @@ int vNand_Init (VNandManager** vm)
 		return -1;
 	}
 
-	v_nand_ops.vNand_buf = (unsigned char *)Nand_VirtualAlloc(VNANDCACHESIZE);
+	v_nand_ops.vNand_buf = (unsigned char *)Nand_ContinueAlloc(VNANDCACHESIZE);
 	if(v_nand_ops.vNand_buf == NULL){
 		ndprint(VNAND_ERROR,"alloc bad block info failed!\n");
 		return -1;
@@ -325,7 +361,7 @@ void vNand_Deinit ( VNandManager** vm)
 {
 	vNand_DeInitNand(*vm);
 	DeinitNandMutex(&v_nand_ops.mutex);
-	Nand_VirtualFree(v_nand_ops.vNand_buf);
+	Nand_ContinueFree(v_nand_ops.vNand_buf);
 	Nand_VirtualFree(*vm);
 	*vm = NULL;
 }
