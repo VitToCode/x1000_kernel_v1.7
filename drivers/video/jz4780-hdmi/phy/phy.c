@@ -18,7 +18,7 @@
 static const u16 PHY_BASE_ADDR = 0x3000;
 static const u16 MC_BASE_ADDR = 0x4000;
 static const u16 PHY_I2CM_BASE_ADDR = 0x3020;
-static const u8 PHY_I2C_SLAVE_ADDR = 0x54;
+static const u8 PHY_I2C_SLAVE_ADDR = 0x69;
 
 
 #define ZCALCLK	GPIO_PE(30) /* GPE(30) */
@@ -116,7 +116,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	 * the bits 0x0A, and  block 2 (ie. [9:5]) the bits 0x0A */
 	/* configure PLL after core pixel repetition */
 #ifdef PHY_GEN2_TSMC_40LP_2_5V
-	wait_zdone = 1;
+	wait_zdone = 0;
 	//while(1);
 
 	if (wait_zdone) {
