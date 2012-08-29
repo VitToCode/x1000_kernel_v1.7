@@ -748,12 +748,14 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
                 writel(tmp, master->iomem + DMINT);
 	}
 #endif
-	dev_dbg(master->dev, "go into mcu irq function. DMNMB = 0x%08x \n",
-                        readl(master->iomem+DMNMB));
-        for (tmp = 0; tmp<11; tmp++){
-                dev_dbg(master->dev, "\n%04d:",tmp);
-        	dev_dbg(master->dev, "%08x ",*(unsigned int *)(0xB34247c0+tmp*4));
-        }
+		/*
+		  dev_dbg(master->dev, "go into mcu irq function. DMNMB = 0x%08x \n",
+		  readl(master->iomem+DMNMB));
+		  for (tmp = 0; tmp<11; tmp++){
+		  dev_dbg(master->dev, "\n%04d:",tmp);
+		  dev_dbg(master->dev, "%08x ",*(unsigned int *)(0xB34247c0+tmp*4));
+		  }
+		*/
 	return IRQ_HANDLED;
 }
 
