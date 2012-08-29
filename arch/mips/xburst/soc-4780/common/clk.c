@@ -536,8 +536,8 @@ static void __init init_gate_clk(void)
 {
 	unsigned long clkgr[2];
 	int i;
-	clkgr[0] = inl(CPM_CLKGR0);
-	clkgr[1] = inl(CPM_CLKGR1);
+	clkgr[0] = cpm_inl(CPM_CLKGR0);
+	clkgr[1] = cpm_inl(CPM_CLKGR1);
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		int bit = CLK_GATE_BIT(clk_srcs[i].flags);
 		if(! (clk_srcs[i].flags & CLK_FLG_GATE))
