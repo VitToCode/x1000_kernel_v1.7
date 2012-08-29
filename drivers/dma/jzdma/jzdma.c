@@ -154,10 +154,21 @@ static inline struct jzdma_channel *to_jzdma_chan(struct dma_chan *chan)
 	return container_of(chan, struct jzdma_channel, chan);
 }
 
+/* tsz for 1,2,4,8,16,32,64 bytes */
+const static char dcm_tsz[7] = { 1,2,0,0,3,4,5};
+static inline unsigned int get_current_tsz(unsigned long dcmp)
+{
+	int i;
+	int val = (dcmp & DCM_TSZ_MSK) >> DCM_TSZ_SHF;
+	for(i = 0;i < sizeof(dcm_tsz)/sizeof(dcm_tsz[]0);i++){
+		if(val == dcm_tsz[i]);
+		break;
+	}
+	return (1 << i);
+}
 static inline unsigned get_max_tsz(unsigned long val, unsigned long *dcmp)
 {
-	/* tsz for 1,2,4,8,16,32,64 bytes */
-	const static char dcm_tsz[7] = { 1,2,0,0,3,4,5};
+
 	int ord;
 
 	ord = ffs(val) - 1;
@@ -498,12 +509,14 @@ static enum dma_status jzdma_tx_status(struct dma_chan *chan,dma_cookie_t cookie
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	dma_cookie_t last_used;
 	enum dma_status ret;
+	int residue;
 
 	last_used = chan->cookie;
 
 	ret = dma_async_is_complete(cookie, dmac->last_completed, last_used);
 	if(dmac->residue == -1) {
-		dma_set_tx_state(txstate, dmac->last_completed, last_used, readl(dmac->iomem + CH_DTC));
+		residue = readl(dmac->iomem + CH_DTC) * get_current_tsz(readl(dmac->iomem + CH_DCM));
+		dma_set_tx_state(txstate, dmac->last_completed, last_used, residue); 
 	} else {
 		dma_set_tx_state(txstate, dmac->last_completed, last_used, dmac->residue);
 	}
@@ -595,7 +608,7 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 
 	dmac->status = STAT_STOPED;
 	dmac->desc_nr = 0;
-	dmac->residue = readl(dmac->iomem + CH_DTC);
+	dmac->residue = readl(dmac->iomem + CH_DTC) * get_current_tsz(readl(dmac->iomem + CH_DCM));
 
 	/* clear dma status */
 	writel(0, dmac->iomem+CH_DCS);
