@@ -27,6 +27,9 @@
 	{ .name = "uart3-pd-f0", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<12, },\
 	{ .name = "uart3-pe-f1", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x1<<5, },	\
 	{ .name = "uart3-pe-f0", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<7, }
+#define UART3_JTAG \
+	{ .name = "uart3-jtag-31", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1<<31, },\
+	{ .name = "uart3-jtag-30", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 1<<30, }
 #define UART4_PORTC							\
 	{ .name = "uart4", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, }
 /*******************************************************************************************************************/
