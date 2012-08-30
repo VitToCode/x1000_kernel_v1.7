@@ -39,7 +39,8 @@ int Recycle_OnForceRecycle ( int frinfo );
 int Recycle_OnFragmentHandle ( int context )
 {
 	int ret = 0;
-	Recycle *rep = ((Context *)context)->rep;
+	Context *conptr = (Context *)context;
+	Recycle *rep = conptr->rep;
 
 	switch(rep->taskStep) {
 		case RECYSTART:
@@ -57,6 +58,10 @@ int Recycle_OnFragmentHandle ( int context )
 			break;
 		case READFIRSTINFO:
 			NandMutex_Lock(&rep->mutex);
+			if (nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)) {
+				NandMutex_Unlock(&rep->mutex);
+				break;
+			}
 			ret = FindFirstPageInfo(rep);
 			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
@@ -64,6 +69,10 @@ int Recycle_OnFragmentHandle ( int context )
 			break;
 		case FINDVAILD:
 			NandMutex_Lock(&rep->mutex);
+			if (nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)) {
+				NandMutex_Unlock(&rep->mutex);
+				break;
+			}
 			ret = FindValidSector(rep);
 			if (ret == -1)
 				goto ERROR;
@@ -79,6 +88,10 @@ int Recycle_OnFragmentHandle ( int context )
 			break;
 		case READNEXTINFO:
 			NandMutex_Lock(&rep->mutex);
+			if (nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)) {
+				NandMutex_Unlock(&rep->mutex);
+				break;
+			}
 			ret = FindNextPageInfo(rep);
 			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
@@ -86,6 +99,10 @@ int Recycle_OnFragmentHandle ( int context )
 			break;
 		case FINISH:
 			NandMutex_Lock(&rep->mutex);
+			if (nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)) {
+				NandMutex_Unlock(&rep->mutex);
+				break;
+			}
 			ret = FreeZone(rep);
 			NandMutex_Unlock(&rep->mutex);
 			if (ret == -1)
@@ -1577,14 +1594,15 @@ static int FreeZone ( Recycle *rep)
 		ndprint(RECYCLE_ERROR,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
 		goto err;
 	}
-
-	ZoneManager_FreeRecyclezone(rep->context,rep->rZone);
+	
 	if (rep->junk_zoneid != -1) {
 		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->junk_zoneid);
 		rep->junk_zoneid = -1;
 	}
 	else
 		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
+
+	ZoneManager_FreeRecyclezone(rep->context,rep->rZone);
 	rep->taskStep = RECYIDLE;
 	return 0;
 err:
@@ -1609,7 +1627,7 @@ int Recycle_Init(int context)
 
 	memset(conptr->rep,0x0,sizeof(Recycle));
 
-	rep->taskStep = RECYSTART;
+	rep->taskStep = RECYIDLE;
 	rep->rZone = NULL;
 	rep->prevpageinfo = NULL;
 	rep->curpageinfo = NULL;
@@ -1753,6 +1771,7 @@ int Recycle_OnForceRecycle ( int frinfo )
 		}
 
 		recycle_pagecount += rep->force_rZone->sumpage - rep->write_pagecount - 3;
+		ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 		if (need_pagecount == -1 || recycle_pagecount >= need_pagecount)
 			break;
 
@@ -1810,7 +1829,7 @@ exit:
 	if (rep->force_junk_zoneid != -1)
 		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
 	else
-		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
+		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->force_rZone->ZoneID);
 	return ret;
 }
 
@@ -2265,7 +2284,6 @@ static int OnForce_FreeZone ( Recycle *rep)
 		goto err;
 	}
 
-	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 	return 0;
 err:
 	return -1;
@@ -2402,6 +2420,7 @@ int Recycle_OnFollowRecycle ( int context )
 	ret = OnForce_FreeZone(rep);
 	if (ret == -1)
 		goto exit;
+	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 
 	ndprint(RECYCLE_INFO, "follow recycle finished--------->\n\n");
 
@@ -2495,6 +2514,7 @@ int Recycle_OnBootRecycle ( int context )
 	ret = OnForce_FreeZone(rep);
 	if (ret == -1)
 		goto exit;
+	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 
 	ndprint(RECYCLE_INFO, "boot recycle finished--------->\n\n");
 

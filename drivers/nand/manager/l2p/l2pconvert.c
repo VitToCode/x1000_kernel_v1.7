@@ -17,7 +17,6 @@
 #include "timeinterface.h"
 #include "badblockinfo.h"
 
-#define INTERNAL_TIME  2*1000000000
 static BuffListManager *Blm;
 
 /**
@@ -50,7 +49,8 @@ static int Idle_Handler(int data)
 		minlifetime = ZoneManager_Getminlifetime(context);
 		l2pwritetime = conptr->t_startrecycle;
 		Recycle_Unlock(context);
-		if ( (nd_getcurrentsec_ns() >= (l2pwritetime + INTERNAL_TIME)) && 
+		if ( (nd_getcurrentsec_ns() >= (l2pwritetime + INTERNAL_TIME)) &&
+			 conptr->rep->taskStep == RECYIDLE &&
 			(used_count > 2 * free_count || maxlifetime - minlifetime > MAXDIFFTIME) )
 			Recycle_OnNormalRecycle(context);
 
@@ -387,7 +387,6 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	}
 
 	Recycle_Lock(context);
-	conptr->t_startrecycle = nd_getcurrentsec_ns();
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,0);
 #endif
@@ -395,6 +394,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	pl =(PageList *) BuffListManager_getTopNode((int)(conptr->blm), sizeof(PageList));
 	if (!(pl)) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
+		conptr->t_startrecycle = nd_getcurrentsec_ns();
 		Recycle_Unlock(context);
 		return -1;
 	}
@@ -406,18 +406,14 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			conptr->t_startrecycle = nd_getcurrentsec_ns();
 			Recycle_Unlock(context);
 			return -1;
 		}
 
 		ret = Read_sectornode_to_pagelist(context, sectorperpage, sl_node, pl);
-		if (ret == -1) {
+		if (ret == -1)
 			goto first_read;
-
-			ndprint(L2PCONVERT_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
-			Recycle_Unlock(context);
-			return -1;
-		}
 	}
 
 	/* delete head node of Pagelist */
@@ -455,6 +451,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return ret;
 	
@@ -465,6 +462,7 @@ first_read:
 		sl_node = singlelist_entry(pos, SectorList, head);
 		memset(sl_node->pData, 0xff, sl_node->sectorCount * SECTOR_SIZE);
 	}
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 
 	return ret;
@@ -477,22 +475,21 @@ static void recycle_zone_prepare(int context)
 	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
 	int msghandle;
-	ForceRecycleInfo *frinfo = (ForceRecycleInfo *)Nand_VirtualAlloc(sizeof(ForceRecycleInfo));
+	ForceRecycleInfo frinfo;
 
 	ptzonenum = ZoneManager_Getptzonenum(context) * 4 / 100;
 	if(ptzonenum == 0)
 		ptzonenum = 1;
 	if (ZoneManager_Getfreecount(context) < ptzonenum ){
-		frinfo->context = context;
-		frinfo->pagecount = -1;
-		frinfo->suggest_zoneid = -1;
+		frinfo.context = context;
+		frinfo.pagecount = -1;
+		frinfo.suggest_zoneid = -1;
 		force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 		force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
-		force_recycle_msg.data = (int)frinfo;
+		force_recycle_msg.data = (int)&frinfo;
 
 		msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
 		Message_Recieve(conptr->thandle, msghandle);
-		Nand_VirtualFree(frinfo);
 	}
 }
 
@@ -507,10 +504,11 @@ static int write_data_prepare ( int context )
 	unsigned int count = 0;
 	Zone *zone = NULL;
 #ifndef NO_ERROR
+	int ret = 0;
 	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
 	int msghandle;
-	ForceRecycleInfo *frinfo = NULL;
+	ForceRecycleInfo frinfo;
 	VNandInfo *vnand = &conptr->vnand;
 #endif
 
@@ -521,17 +519,19 @@ static int write_data_prepare ( int context )
 			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle \n");
 #ifndef NO_ERROR
 			/* force recycle */
-			frinfo = (ForceRecycleInfo *)Nand_VirtualAlloc(sizeof(ForceRecycleInfo));
-			frinfo->context = context;
-			frinfo->pagecount = vnand->PagePerBlock + 1;
-			frinfo->suggest_zoneid = -1;
+			frinfo.context = context;
+			frinfo.pagecount = vnand->PagePerBlock + 1;
+			frinfo.suggest_zoneid = -1;
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
-			force_recycle_msg.data = (int)frinfo;
+			force_recycle_msg.data = (int)&frinfo;
 
 			msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
-			Message_Recieve(conptr->thandle, msghandle);
-			Nand_VirtualFree(frinfo);
+			ret = Message_Recieve(conptr->thandle, msghandle);
+			if (ret != 0) {
+				ndprint(L2PCONVERT_INFO,"ERROR: Force recycle failed!\n");
+				return -1;
+			}
 
 			zone = ZoneManager_AllocZone(context);
 			if (!zone) {
@@ -937,7 +937,6 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	}
 
 	Recycle_Lock(context);
-	conptr->t_startrecycle = nd_getcurrentsec_ns();
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,1);
 #endif
@@ -1006,6 +1005,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #endif
 exit:
 	Nand_VirtualFree(l2p.sectorid);
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return ret;
 }

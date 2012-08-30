@@ -13,6 +13,7 @@
 #include "timerdebug.h"
 
 #define SECTOR_SIZE 512
+#define INTERNAL_TIME  2*1000000000
 
 typedef struct _Context Context;
 

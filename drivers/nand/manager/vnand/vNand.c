@@ -169,7 +169,7 @@ static int vNand_DeInitNand (VNandManager* vNand){
 
 static int alloc_badblock_info(PPartition *pt)
 {
-	pt->pt_badblock_info = (unsigned int *)Nand_VirtualAlloc(pt->byteperpage + 4);
+	pt->pt_badblock_info = (unsigned int *)Nand_ContinueAlloc(pt->byteperpage + 4);
 	if(NULL == pt->pt_badblock_info) {
 		ndprint(VNAND_ERROR, "alloc memoey fail func %s line %d \n",
 			__FUNCTION__, __LINE__);
@@ -182,42 +182,44 @@ static int alloc_badblock_info(PPartition *pt)
 	return 0;
 }
 
+static void free_badblock_info(PPartition *pt)
+{
+	Nand_ContinueFree(pt->pt_badblock_info);
+}
+
 static int write_pt_badblock_info(VNandInfo *vnand, unsigned int pageid, PPartition *pt)
 {
 	return vNand_PageWrite(vnand, pageid, 0, vnand->BytePerPage, pt->pt_badblock_info);
 }
 
-static void scan_pt_badblock_info_write_to_nand(VNandManager *vm, VNandInfo *evn,int pageid, int size)
+static void scan_pt_badblock_info_write_to_nand(PPartition *pt, int pt_num, VNandInfo *evn,int pageid)
 {
-	int i,j = 0,n, ret = 0;
+	int i,j = 0, ret = 0;
 	unsigned int start_blockno;
 	unsigned int end_blockno;
-	PPartition *pt;
 	VNandInfo vn;
-	for(n = 0; n < vm->pt->ptcount;n++){
-		pt = &vm->pt->ppt[n];
-		if(pt->mode != ONCE_MANAGER){
-			pt->pt_badblock_info[0] = n;
-			j = 1;
-			CONV_PT_VN(pt,&vn);
-			start_blockno = vn.startBlockID;
-			ndprint(VNAND_DEBUG, "vn.TotalBlocks = %d\n", vn.TotalBlocks);
-			end_blockno = vn.startBlockID + vn.TotalBlocks;
-			for (i = start_blockno; i < end_blockno; i++) {
-				if (vNand_IsBadBlock(&vn, i) && j * 4 < size)
-					pt->pt_badblock_info[j++] = i;
-				else {
-					if(j*4 >= size){
-						ndprint(VNAND_ERROR,"too many bad block in pt %d\n", n);
-						while(1);
-					}
+	int size = evn->BytePerPage - 4;
+
+	if(pt->mode != ONCE_MANAGER){
+		j = 1;
+		CONV_PT_VN(pt,&vn);
+		start_blockno = vn.startBlockID;
+		ndprint(VNAND_DEBUG, "vn.TotalBlocks = %d\n", vn.TotalBlocks);
+		end_blockno = vn.startBlockID + vn.TotalBlocks;
+		for (i = start_blockno; i < end_blockno; i++) {
+			if (vNand_IsBadBlock(&vn, i) && j * 4 < size)
+				pt->pt_badblock_info[j++] = i;
+			else {
+				if(j*4 >= size){
+					ndprint(VNAND_ERROR,"too many bad block in pt %d\n", pt_num);
+					while(1);
 				}
 			}
-			ret = write_pt_badblock_info(evn, pageid + n, pt);
-			if (ret != vn.BytePerPage) {
-				ndprint(VNAND_ERROR, "write pt %d badblock info error, ret =%d\n", n, ret);
-				while(1);
-			}
+		}
+		ret = write_pt_badblock_info(evn, pageid + pt_num, pt);
+		if (ret != vn.BytePerPage) {
+			ndprint(VNAND_ERROR, "write pt %d badblock info error, ret =%d\n", pt_num, ret);
+			while(1);
 		}
 	}
 }
@@ -226,9 +228,8 @@ static void read_badblock_info_page(VNandManager *vm)
 {
 	unsigned int pageid;
 	int i, ret;
-	VNandInfo vn;
+	VNandInfo error_vn;
 	PPartition *pt = NULL;
-	PPartition *firpt = NULL;
 	PPartition *lastpt = NULL;
 	int startblock = 0, badcnt = 0,blkcnt = 0;
 	int blkpervblk;
@@ -237,9 +238,6 @@ static void read_badblock_info_page(VNandManager *vm)
    	// find it which partition mode is ONCE_MANAGER
 	for(i = 0;i < vm->pt->ptcount;i++){
 		pt = &vm->pt->ppt[i];
-		if(0 == i) {
-			firpt = pt;
-		}
 		if(pt->mode == ONCE_MANAGER){
 			if (i != (vm->pt->ptcount - 1)) {
 				ndprint(VNAND_ERROR,"error block table partition position\n");
@@ -252,7 +250,7 @@ static void read_badblock_info_page(VNandManager *vm)
 		if(ret != 0) {
 			ndprint(1,"alloc badblock info memory error func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			while(1); //??
+			while(1);
 		}
 
 		lastpt = pt;
@@ -264,12 +262,12 @@ static void read_badblock_info_page(VNandManager *vm)
 	}
 
 	startblock = 0;
-	CONV_PT_VN(pt,&vn);
-//for error partblock bad block
-//for block number
-	while(blkcnt < vn.TotalBlocks) {
+	CONV_PT_VN(pt,&error_vn);
+	//for error partblock bad block
+	//for block number
+	while(blkcnt < error_vn.TotalBlocks) {
 		startblock--;
-		if(vNand_IsBadBlock(&vn,startblock)) {
+		if(vNand_IsBadBlock(&error_vn,startblock)) {
 			badcnt++;
 			if (badcnt > pt->badblockcount) {
 				ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
@@ -281,14 +279,15 @@ static void read_badblock_info_page(VNandManager *vm)
 			blkcnt++;
 	}
 
-//for error block self partition & badblock
-//error and last patition all spec is samed
-	lastpt->totalblocks -= (badcnt + vn.TotalBlocks);
-	lastpt->PageCount -= (badcnt + vn.TotalBlocks) * vn.PagePerBlock;
-//chanage error pt startblock for write & read
-	blkpervblk = vn.PagePerBlock / vm->info.PagePerBlock;
+	//for error block self partition & badblock
+	//error and last patition all spec is samed
+	lastpt->totalblocks -= (badcnt + error_vn.TotalBlocks);
+	lastpt->PageCount -= (badcnt + error_vn.TotalBlocks) * error_vn.PagePerBlock;
+
+	//chanage error pt startblock for write & read
+	blkpervblk = error_vn.PagePerBlock / vm->info.PagePerBlock;
 	pt->startblockID += startblock * blkpervblk;
-	pt->startPage += startblock * vn.PagePerBlock;
+	pt->startPage += startblock * error_vn.PagePerBlock;
 
 	if ((lastpt->totalblocks <= 0) || (lastpt->PageCount <= 0)) {
 		ndprint(VNAND_ERROR,
@@ -297,14 +296,16 @@ static void read_badblock_info_page(VNandManager *vm)
 		while(1);
 	}
 
-	pageid = 0;
-
 	ndprint(VNAND_INFO, "Find bad block partition in block: %d\n", startblock);
-	vNand_PageRead(&vn, pageid, 0, vn.BytePerPage, firpt->pt_badblock_info);
-
-	if (firpt->pt_badblock_info[0] != 0x0) {
-		ndprint(VNAND_INFO, "bad block table not creat\n");
-		scan_pt_badblock_info_write_to_nand(vm,&vn, pageid, vn.BytePerPage - 4);
+	pageid = 0;
+	for(i = 0;i < vm->pt->ptcount - 1;i++){
+		pt = &vm->pt->ppt[i];
+		ret = vNand_PageRead(&error_vn, pageid + i, 0, error_vn.BytePerPage, pt->pt_badblock_info);
+		if (ISNOWRITE(ret)) {
+			ndprint(VNAND_INFO, "pt[%d] bad block table not creat\n", i);
+			pt->pt_badblock_info[0] = i;
+			scan_pt_badblock_info_write_to_nand(pt,i,&error_vn,pageid);
+		}
 	}
 }
 
@@ -359,9 +360,16 @@ int vNand_Init (VNandManager** vm)
 
 void vNand_Deinit ( VNandManager** vm)
 {
+	int i;
+	PPartition *pt = NULL;
+
 	vNand_DeInitNand(*vm);
 	DeinitNandMutex(&v_nand_ops.mutex);
 	Nand_ContinueFree(v_nand_ops.vNand_buf);
+	for(i = 0; i < (*vm)->pt->ptcount; i++){
+		pt = &(*vm)->pt->ppt[i];
+		free_badblock_info(pt);
+	}
 	Nand_VirtualFree(*vm);
 	*vm = NULL;
 }

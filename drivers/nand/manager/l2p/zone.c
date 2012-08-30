@@ -128,8 +128,8 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 				__FUNCTION__,__LINE__);
 		}
 		else {
-			ndprint(ZONE_ERROR,"vNand read pageinfo error func %s line %d \n",
-				__FUNCTION__,__LINE__);
+			ndprint(ZONE_ERROR,"vNand read pageinfo error ret = %d pageid = %d func %s line %d \n",
+				pagelist->retVal, pagelist->startPageID, __FUNCTION__,__LINE__);
 		}
 		goto err;
 	}

@@ -27,7 +27,6 @@
 #define L4INFOLEN 1024
 
 void  ZoneManager_SetCurrentWriteZone(int context,Zone *zone);
-static int get_pt_badblock_count(VNandInfo *vnand);
 
 /**
  *	init_free_node - Initialize hashnode of freezone
@@ -544,6 +543,26 @@ static void insert_zoneidlist(ZoneManager *zonep, int errtype, unsigned short zo
 }
 
 /**
+ *	get_pt_badblock_count - get bad block number of partition
+ *
+ *	@vnand: virtual nand
+ */
+static int get_pt_badblock_count(VNandInfo *vnand)
+{
+	int i;
+	int count = 0;
+
+	for (i = 0; i < vnand->BytePerPage >> 2; i++) {
+		if (vnand->pt_badblock_info[i] == 0xffffffff)
+			break;
+
+		count++;
+	}
+
+	return count;
+}
+
+/**
  *	scan_sigzoneinfo_fill_node - scan sigzoneinfo and fill it to hashtable
  *
  *	@zonep: operate object
@@ -606,30 +625,6 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 		(zonep->sigzoneinfo + zonep->pt_zonenum - 1)->badblock |= (1 << (BLOCKPERZONE(vnand) - 1 - i));
 
 	return 0;
-}
-
-/**
- *	get_pt_badblock_count - get bad block number of partition
- *
- *	@vnand: virtual nand
- */
-static int get_pt_badblock_count(VNandInfo *vnand)
-{
-	int i;
-	int count = 0;
-
-	for (i = 0; i < vnand->BytePerPage >> 2; i++) {
-		if (vnand->pt_badblock_info[i] >= vnand->startBlockID &&
-			vnand->pt_badblock_info[i] < (vnand->startBlockID+vnand->TotalBlocks)){
-
-			if (vnand->pt_badblock_info[i] == 0xffffffff)
-				break;
-
-			count++;
-		}
-	}
-
-	return count;
 }
 
 /**
