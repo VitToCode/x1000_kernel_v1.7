@@ -30,30 +30,9 @@
 
 #define regr(off) 	inl(OST_IOBASE + (off))
 #define regw(val,off)	outl(val, OST_IOBASE + (off))
-
 #define SYS_TIMER_IRQ 	IRQ_OST
-
-static unsigned int latch;
-
-static unsigned int calculate_latch(void)
-{
-#ifndef CONFIG_FPGA_TEST
-	unsigned long source,cppcr,m,n,o;
-	cppcr = cpm_inl(CPM_CPEPCR);
-
-	o = (((cppcr) >> 9) & 0xf) + 1;
-	n = (((cppcr) >> 13) & 0x3f) + 1;
-	m = (((cppcr) >> 19) & 0x7fff) + 1;
-	
-	source = JZ_EXTAL * m / n / o / 2;
-
-	latch = ((source/4) + (HZ>>1)) / HZ;
-	return (source/4);
-#else
-	latch = ((24000000/4) + (HZ>>1)) / HZ;
-	return (24000000/4);
-#endif
-}
+#define SYS_TIMER_CLK (JZ_EXTAL/4)
+static const unsigned int latch = (SYS_TIMER_CLK + (HZ>>1)) / HZ;
 
 union clycle_type
 {
@@ -138,7 +117,6 @@ static struct clock_event_device jz_clockevent_device = {
 static void __init jz_sysclock_setup(void)
 {
 	unsigned int cpu = smp_processor_id();
-	unsigned int sys_timer_clk = calculate_latch();
 
 	regw( 0, OST_CNTL);
 	regw( 0, OST_CNTH);
@@ -156,7 +134,7 @@ static void __init jz_sysclock_setup(void)
 
 	/* init clock source */
 	clocksource_jz.mult = 
-		clocksource_hz2mult(sys_timer_clk, clocksource_jz.shift);
+		clocksource_hz2mult(SYS_TIMER_CLK, clocksource_jz.shift);
 	clocksource_register(&clocksource_jz);
 
 	/* init clock event */
