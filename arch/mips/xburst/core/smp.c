@@ -16,6 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+//#define DEBUG
+//#define SMP_DEBUG
+
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -29,9 +32,7 @@
 
 #include "smp_cp0.h"
 
-//#define DEBUG
-//#define SMP_DEBUG
-
+extern void smp_set_cpu_clk(int cpu, int enable);
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
 #else
@@ -163,7 +164,7 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
-	ctrl &= ~(1 << cpu);
+	ctrl &= ~((1 << cpu) | (1 << (cpu + 16)));
 	set_smp_ctrl(ctrl);
 
 wait:
@@ -227,19 +228,10 @@ static void __init jzsoc_smp_setup(void)
 static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned long reim;
+	int i;
 
-
-
-	*(unsigned int *)0xb0000028 &= ~(1 << 15);
-	printk("-----------%s: %d\n", __func__, __LINE__);
-	printk("---------CLKGR0_SCPU: 0x%08X\n", *(unsigned int *)0xb0000028);
-	mdelay(100);
-	printk("-----------%s: %d\n", __func__, __LINE__);
-	printk("---------PD_SCPU: 0x%08X\n", *(unsigned int *)0xb0000004);
-
-
-
-
+	for (i = 1; i < max_cpus; i++)
+		smp_set_cpu_clk(i, 1);
 
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
@@ -249,7 +241,7 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 
 	/* reset register */
 	set_smp_reim(0x0100);
-	set_smp_ctrl(0xfffe);
+	set_smp_ctrl(0xffffe);
 	set_smp_status(0);
 
 	reim = 0x01ff;
@@ -261,7 +253,8 @@ static void send_ipi_msg(const struct cpumask *mask, unsigned int action)
 {
 	unsigned int msg;
 	unsigned long flags = 0;
-#define SEND_MSG(CPU)	do {						\
+
+#define SEND_MSG(CPU)	do {					\
 	if(cpu_isset(CPU,*mask)) {				\
 		msg = action | get_smp_mbox##CPU();		\
 		set_smp_mbox##CPU(msg);				\

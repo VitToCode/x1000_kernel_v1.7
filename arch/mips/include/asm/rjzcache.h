@@ -534,7 +534,6 @@ static inline void blast_dcache_jz(void)
 		i_pref(JZ_ALLOC_PREF, addr, 0);
 		addr += 32;
 	} while (addr < end);
-	SYNC_WB();
 }
 
 static inline void blast_icache_jz(void)

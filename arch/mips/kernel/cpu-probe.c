@@ -26,6 +26,9 @@
 #include <asm/watch.h>
 #include <asm/spram.h>
 #include <asm/uaccess.h>
+#include <asm/cacheops.h>
+#include <asm/cacheflush.h> /* for run_uncached() */
+#include <asm/r4kcache.h>
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -71,6 +74,45 @@ void r4k_wait_irqoff(void)
 	local_irq_enable();
 	__asm__(" 	.globl __pastwait	\n"
 		"__pastwait:			\n");
+	return;
+}
+
+#define cache_prefetch(label)						\
+	do{								\
+		unsigned long addr,size,end;				\
+		/* Prefetch codes from label */				\
+		addr = (unsigned long)(&&label) & ~(32 - 1);		\
+		size = 32 * 6; /* load 128 cachelines */		\
+		end = addr + size;					\
+		for (; addr < end; addr += 32) {			\
+			__asm__ volatile (				\
+				".set mips32\n\t"			\
+				" cache %0, 0(%1)\n\t"			\
+				".set mips32\n\t"			\
+				:					\
+				: "I" (Index_Prefetch_I), "r"(addr));	\
+		}							\
+	}								\
+	while(0)
+
+void jz4780_wait_irqoff(void)
+{
+	local_irq_disable();
+	blast_dcache32();
+	cache_prefetch(IDLE_PROGRAM);
+
+IDLE_PROGRAM:
+	if (!need_resched())
+
+		__asm__ __volatile__ ("	.set	push		\n"
+			"	.set	mips3		\n"
+			"	sync			\n"
+			"	wait			\n"
+			"	.set	pop		\n"
+			);
+
+	local_irq_enable();
+
 	return;
 }
 
@@ -191,8 +233,7 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_JZRISC:
-//		cpu_wait = r4k_wait;
-		cpu_wait = NULL;
+		cpu_wait = jz4780_wait_irqoff;
 		break;
 
 	case CPU_RM7000:

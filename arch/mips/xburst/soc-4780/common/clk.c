@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/proc_fs.h>
+#include <linux/clk.h>
 
 #include <soc/cpm.h>
 #include <soc/base.h>
@@ -289,11 +290,11 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(OTG1,		GATE(32+8)),
 	DEF_CLK(HDMI,		GATE(32+9)),
 	DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
-	DEF_CLK(AHB_MON,	GATE(32+12)),
-	DEF_CLK(I2C4,		GATE(32+13)| PARENT(PCLK)),
-	DEF_CLK(DES,		GATE(32+14)),
-	DEF_CLK(X2D,		GATE(32+15)),
-	DEF_CLK(P1,		GATE(32+16)),
+	DEF_CLK(AHB_MON,	GATE(32+11)),
+	DEF_CLK(I2C4,		GATE(32+12)| PARENT(PCLK)),
+	DEF_CLK(DES,		GATE(32+13)),
+	DEF_CLK(X2D,		GATE(32+14)),
+	DEF_CLK(P1,		GATE(32+15)),
 
 	DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
 	DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
@@ -749,6 +750,32 @@ static int __init init_clk_proc(void)
 		res->data = NULL;
 	}
 	return 0;
+}
+
+void smp_set_cpu_clk(int cpu, int enable)
+{
+	struct clk *clk;
+	switch (cpu) {
+	case 1:
+		clk = clk_get(NULL, "p1");
+		if (IS_ERR(clk)) {
+			pr_err("cpu%d clock get error\n", cpu);
+			return;
+		}
+		break;
+	default:
+		pr_err("can't support cpu%d\n", cpu);
+		return;
+	}
+
+	if (enable) {
+		if (!clk_enable(clk))
+			pr_debug("cpu%d clock enabled\n", cpu);
+		else
+			pr_err("cpu%d clock enabled error\n", cpu);
+	}
+	else
+		clk_disable(clk);
 }
 
 module_init(init_clk_proc);

@@ -56,6 +56,7 @@
 #include <asm/types.h>
 #include <asm/stacktrace.h>
 #include <asm/uasm.h>
+#include <asm/r4kcache.h>
 
 extern void check_wait(void);
 extern asmlinkage void r4k_wait(void);
@@ -2044,6 +2045,9 @@ void __init trap_init(void)
 
 	local_flush_icache_range(ebase, ebase + 0x400);
 	flush_tlb_handlers();
+
+	blast_dcache32();
+	blast_icache32();
 
 	sort_extable(__start___dbe_table, __stop___dbe_table);
 

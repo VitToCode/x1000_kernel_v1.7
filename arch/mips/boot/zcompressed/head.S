@@ -57,7 +57,7 @@ startup:
 	nop
 1:
 	li	k0, 0x80000000  # start address
-	li	k1, 0x80004000  # end address (16KB I-Cache)
+	li	k1, 0x80008000  # end address (32KB I-Cache)
 	subu	k1, 128
 
 2:

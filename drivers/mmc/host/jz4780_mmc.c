@@ -552,9 +552,11 @@ static void jzmmc_submit_dma(struct jzmmc_host *host, struct mmc_data *data)
 	struct scatterlist *sgentry;
 	struct desc_hd *dhd = &(host->decshds[0]);
 
+	preempt_disable();
 	dma_map_sg(host->dev, data->sg, data->sg_len,
 		   data->flags & MMC_DATA_WRITE
 		   ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+	preempt_enable_no_resched();
 
 	for_each_sg(data->sg, sgentry, data->sg_len, i) {
 		sg_to_desc(sgentry, dhd);
@@ -568,9 +570,11 @@ static void jzmmc_submit_dma(struct jzmmc_host *host, struct mmc_data *data)
 		}
 	}
 
+	preempt_disable();
 	dma_unmap_sg(host->dev, data->sg, data->sg_len,
 		     data->flags & MMC_DATA_WRITE
 		     ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+	preempt_enable_no_resched();
 
 	if (data->flags & MMC_DATA_READ)
 		dhd->dma_desc->dcmd |= DMACMD_ENDI;
