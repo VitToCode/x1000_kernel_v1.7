@@ -28,9 +28,9 @@
 #define REG4_VCON	0x41
 #define REG4_VOL_VALUE	0x57
 
-#define get_vset_reg(id)	(id * 0x10)
-#define get_dcdc_vcon_reg(id)	(id * 0x10 + 2)
-#define get_ldo_vcon_reg(id)	(id * 0x10 + 1)
+#define get_vset_reg(id)	((id+1) * 0x10)
+#define get_dcdc_vcon_reg(id)	((id+1) * 0x10 + 2)
+#define get_ldo_vcon_reg(id)	((id+1) * 0x10 + 1)
 
 struct act8600_reg {
 	struct device		*dev;

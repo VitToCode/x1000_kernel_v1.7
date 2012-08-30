@@ -29,7 +29,7 @@ EXPORT_SYMBOL_GPL(act8600_read_reg);
 int act8600_write_reg(struct i2c_client *client,
 		      unsigned char reg, unsigned char val)
 {
-	char msg[2];  
+	unsigned char msg[2];  
 
 	memcpy(&msg[0], &reg, 1);
 	memcpy(&msg[1], &val, 1);
