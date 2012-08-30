@@ -68,13 +68,13 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
 	struct i2c_msg  msgs[] = {
 		{
 			.addr = acc->client->addr,
-			.flags = 0 |  I2C_M_NOSTART,//acc->client->flags & I2C_M_TEN,
+			.flags = 0 ,//acc->client->flags & I2C_M_TEN,
 			.len = 1,
 			.buf = buf,
 		},
 		{
 			.addr = acc->client->addr,
-			.flags = I2C_M_RD | I2C_M_NOSTART,//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
+			.flags = 1,//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
 			.len = len,
 			.buf = buf,
 		},
@@ -236,6 +236,7 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	buf[0] = INT_CFG1;
 	buf[1] = acc->resume_state[RES_INT_CFG1];
 	err = lis3dh_acc_i2c_write(acc, buf, 1);
+
 	if (err < 0)
 		goto err_resume_state;
 	buf[0] = (I2C_AUTO_INCREMENT | CTRL_REG2);
@@ -276,16 +277,14 @@ static int lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 					"soft power off failed: %d\n", err);
 			return err;
 		}
-#if 0
 		if (acc->power){
-			err = regulator_disable(ts->power);
+			err = regulator_disable(acc->power);
 			if (err < 0){
 				dev_err(&acc->client->dev,
 						"power_off regulator failed: %d\n", err);
 				return err;
 			}
 		}
-#endif		
 	}
 	return 0;                 
 }
@@ -302,17 +301,16 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 			return err;
 		}
 	}else{
-#if 0
 		if (acc->power){
-			err = regulator_enable(ts->power);
+			err = regulator_enable(acc->power);
 			if (err < 0){
 				dev_err(&acc->client->dev,
 						"power_on regulator failed: %d\n", err);
 				return err;
 			}
 		}
-		udelay(100);
-#endif
+		udelay(10);
+		
 		buf[0] = CTRL_REG1;
 		buf[1] = LIS3DH_ACC_ENABLE_ALL_AXES;//acc->resume_state[RES_CTRL_REG1];
 		err = lis3dh_acc_i2c_write(acc, buf, 1);
@@ -748,6 +746,22 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		dev_err(&client->dev, "failed to validate platform data\n");
 		goto exit_kfree_pdata;
 	}
+	
+	client->dev.init_name=client->name;
+	acc->power = regulator_get(&client->dev, "vgsensor");
+	if (IS_ERR(acc->power)) {
+		dev_warn(&client->dev, "get regulator failed\n");
+	}
+	if (acc->power){
+		err = regulator_enable(acc->power);
+		if (err < 0){
+			dev_err(&acc->client->dev,
+					"power_on regulator failed: %d\n", err);
+			return err;
+		}
+	}
+	udelay(100);
+
 	/*--read id must add to load mma8452 or lis3dh--*/ 
 	buf[0] = WHO_AM_I;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
@@ -755,6 +769,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		printk("ERROR: Can't load lis3dh g_sensor driver,may use mma8452 g_sensor driver\n");
 		return -EINVAL;
 	}
+	printk("Gsensor is lis3dh\n");
 
 	if (acc->pdata->init) {
 		err = acc->pdata->init();
@@ -787,12 +802,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->resume_state[RES_TT_TLAT] = 0x00;
 	acc->resume_state[RES_TT_TW] = 0x00;
 
-#if 0
-	acc->power = regulator_get(&client->dev, "vgsensor");
-	if (IS_ERR(acc->power)) {
-		dev_warn(&client->dev, "get regulator failed\n");
-	}
-#endif
 	lis3dh_acc_device_power_off(acc);
 	udelay(100);
 	err = lis3dh_acc_device_power_on(acc);

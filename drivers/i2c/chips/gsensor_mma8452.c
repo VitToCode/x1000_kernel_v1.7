@@ -106,6 +106,8 @@ struct mma8452_data {
 	struct early_suspend early_suspend;
 		
 	struct miscdevice mma8452_misc_device;
+	
+	struct regulator *power;
 };
 //-------------------------------------
 static int mma8452_i2c_read(struct mma8452_data *mma,u8* reg,u8 *buf, int len)
@@ -301,34 +303,31 @@ static int mma8452_device_power_off(struct mma8452_data *mma)
 		printk("POWER OFF ERROR\n");
 		return result;
 	}
-#if 0
 	if (mma->power){
 		result = regulator_disable(mma->power);
 		if (result < 0){
 			dev_err(&mma->client->dev,
-					"power_off regulator failed: %d\n", err);
+					"power_off regulator failed: %d\n", result);
 			return result;
 		}
 	}
-#endif
 	return 0;
 }
 
 static int mma8452_device_power_on(struct mma8452_data *mma)
 {
 	int result;
-#if 0
+	u8 buf[3] = {0,0,0};
 	if (mma->power){
 		result = regulator_disable(mma->power);
 		if (result < 0){
 			dev_err(&mma->client->dev,
-					"power_off regulator failed: %d\n", err);
+					"power_off regulator failed: %d\n", result);
 			return result;
 		}
 	}
-	udelay(100);
-#endif
-	u8 buf[3] = {0,0,0};
+	udelay(10);
+	
 	mma8452_i2c_read_data(mma,MMA8452_CTRL_REG1,buf,1);
 	mma_status.ctl_reg1 = buf[0];
 	mma_status.ctl_reg1|=0x01;
@@ -501,9 +500,10 @@ static const struct file_operations mma8452_misc_fops = {
  * I2C init/probing/exit functions
  */
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mma8452_suspend(struct early_suspend *h);
 static void mma8452_resume(struct early_suspend *h);
-
+#endif
 static int __devinit mma8452_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
@@ -534,6 +534,23 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 	memcpy(mma->pdata,client->dev.platform_data,sizeof(*mma->pdata));
 	
 	mma->client = client;
+
+
+	client->dev.init_name=client->name;
+	mma->power = regulator_get(&client->dev, "vgsensor");
+	if (IS_ERR(mma->power)) {
+		dev_warn(&client->dev, "get regulator failed\n");
+	}
+	if (mma->power){
+		result = regulator_enable(mma->power);
+		if (result < 0){
+			dev_err(&mma->client->dev,
+					"power_on regulator failed: %d\n", result);
+			goto err1;
+		}
+	}
+	udelay(10);
+
         /*--read id must add to load mma8452 or lis3dh--*/
         printk(KERN_INFO "check mma8452 chip ID\n");
 	mma8452_i2c_read_data(mma,MMA8452_WHO_AM_I,buf,1);
@@ -541,18 +558,13 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 		printk("read mma8452 chip ID failed ,may use lis3dh driver\n");
 		return -EINVAL;
 	}
+	printk("Gsensor is mma8452\n");
 
 	if (gpio_request_one(mma->pdata->gpio_int,
 				GPIOF_DIR_IN, "gsensor mma8452 irq")) {
 		dev_err(&client->dev, "no irq pin available\n");
 		mma->pdata->gpio_int = -EBUSY;
 	}
-#if 0
-	mma->power = regulator_get(&client->dev, "vgsensor");
-	if (IS_ERR(acc->power)) {
-		dev_warn(&client->dev, "get regulator failed\n");
-	}
-#endif	
 	mma8452_device_power_off(mma);
 	udelay(100);
 	mma8452_device_power_on(mma);
@@ -655,6 +667,7 @@ static int __devexit mma8452_remove(struct i2c_client *client)
 	return result;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mma8452_suspend(struct early_suspend *h)
 {
 	int result;
@@ -694,7 +707,7 @@ static void mma8452_resume(struct early_suspend *h)
 	mutex_unlock(&mma->lock);
   	enable_irq(mma->client->irq);
 }
-
+#endif
 static const struct i2c_device_id mma8452_id[] = {
 	{ MMA8452_DRV_NAME, 0 },
 	{ }

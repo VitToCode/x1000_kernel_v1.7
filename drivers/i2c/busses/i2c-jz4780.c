@@ -348,7 +348,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 		memset(buf,0,len);	
 
 		for(i=0;i<len;i++) {	//need wait txfifo is not full ???
-			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& --timeout);
+			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& (--timeout > 0));
 			i2c_writel(i2c,I2C_DC,I2C_DC_READ);
 			mdelay(10);
 		}
@@ -432,7 +432,7 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 		tmp |= I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 		i2c_writel(i2c,I2C_INTM,tmp);
 		while(len--){
-			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& --timeout);
+			while(!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF)&& (--timeout > 0));
 			tmp = *buf++ | 0 << 8;//& ~(I2C_DC_READ);
 			i2c_writel(i2c,I2C_DC,tmp);
 		}

@@ -46,7 +46,7 @@ EXCLUSIVE_REGULATOR_DEF(
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vgsensor,
-	"vgsensor",	"g_sensor",	3300000);
+	"vgsensor",	NULL,		3300000);
 
 /**
  * Fixed voltage Regulators.
