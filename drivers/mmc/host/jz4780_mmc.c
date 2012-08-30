@@ -1126,7 +1126,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				clk_want = SDIO_CLOCK_HIGH;
 		}
 
-		if (clk_want > 200000) {
+		if (clk_want > 362722) {
 			clk_set_rate(host->clk, 50000000);
 			if(clk_want > SD_CLOCK_HIGH)
 				clk_want = SD_CLOCK_HIGH;
