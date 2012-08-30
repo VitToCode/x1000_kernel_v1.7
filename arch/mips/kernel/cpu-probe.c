@@ -1069,6 +1069,8 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		c->tlbsize = 32;
 
 		c->ases |= MIPS_ASE_XBURSTMXU;
+
+		__write_32bit_c0_register($16, 7, 0x10);
 		break;
 	default:
 		panic("Unknown Ingenic Processor ID!");
