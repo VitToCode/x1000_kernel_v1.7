@@ -419,8 +419,8 @@ static struct cgu_clk cgu_clks[] = {
 	[CGU_DDR] = 	{ CPM_DDRCDR, 29, 1, 4, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_VPU] = 	{ CPM_VPUCDR, 29, 1, 4, 30, {CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
 	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EPLL}},
-	[CGU_LCD0] = 	{ CPM_LPCDR1, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
-	[CGU_LCD1] = 	{ CPM_LPCDR, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
+	[CGU_LCD0] = 	{ CPM_LPCDR0, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
+	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_DUMMY_MUX]={ CPM_MSC0CDR, 29, 2, 0, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_MSC0] = 	{ CPM_MSC0CDR, 29, 2, 8, 30, {CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX}},
 	[CGU_MSC1] = 	{ CPM_MSC1CDR, 29, 2, 8, 30, {CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX}},
@@ -440,9 +440,9 @@ static int cgu_enable(struct clk *clk,int on)
 	int no = CLK_CGU_NO(clk->flags);
 
 	if(on)
-		cpm_set_bit(cgu_clks[on].ce,cgu_clks[no].off);
+		cpm_set_bit(cgu_clks[no].ce,cgu_clks[no].off);
 	else
-		cpm_clear_bit(cgu_clks[on].ce,cgu_clks[no].off);
+		cpm_clear_bit(cgu_clks[no].ce,cgu_clks[no].off);
 
 	return 0;
 }
@@ -535,7 +535,6 @@ static void __init init_cgu_clk(void)
 		clk_srcs[i].ops = &clk_cgu_ops;
 		clk_srcs[i].parent = cgu_get_parent(&clk_srcs[i]);
 		clk_srcs[i].rate = cgu_get_rate(&clk_srcs[i]);
-		//clk_srcs[i].flags |= CLK_FLG_ENABLE;
 	}
 }
 
