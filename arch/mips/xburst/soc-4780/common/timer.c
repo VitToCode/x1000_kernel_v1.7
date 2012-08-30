@@ -72,10 +72,9 @@ static irqreturn_t timer_interrupt(int irq, void *data)
 	unsigned long dr;
 
 	regw(TFR_OSTF,  OST_TFCR);  /* clear ost flag */
-	dr = regr(OST_DR);
-	do {
-		dr += latch;
-	} while(dr <= regr(OST_CNTL));
+	dr = regr(OST_DR) + latch;
+	if(dr <= regr(OST_CNTL))
+		dr = regr(OST_CNTL) + latch;
 	regw(dr, OST_DR);
 
 	cd->event_handler(cd);
