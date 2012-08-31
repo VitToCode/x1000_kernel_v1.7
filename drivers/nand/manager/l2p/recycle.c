@@ -131,20 +131,14 @@ ERROR:
  *
  *	@rep: to konw whether L2InfoLen and L3InfoLen are 0 or not
  */
-static int alloc_pageinfo(Recycle *rep)
+static int alloc_pageinfo(int context, PageInfo *pi)
 {
 	int i;
-	PageInfo *pi = NULL;
-	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
-
-	if (rep->force)
-		pi = rep->force_pi;
-	else
-		pi = rep->pi;
+	Context *conptr = (Context *)context;
 
 	for (i = 0; i < 2; i++) {
-		if (zonep->l2infolen) {
-			pi[i].L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l2infolen);
+		if (conptr->L2InfoLen) {
+			pi[i].L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * conptr->L2InfoLen);
 			if (!(pi[i].L2Info)) {
 				ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 				if (i == 0)
@@ -154,8 +148,8 @@ static int alloc_pageinfo(Recycle *rep)
 			}
 		}
 
-		if (zonep->l3infolen) {
-			pi[i].L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l3infolen);
+		if (conptr->L3InfoLen) {
+			pi[i].L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * conptr->L3InfoLen);
 			if (!(pi[i].L3Info)) {
 				ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 				if (i == 0)
@@ -165,7 +159,7 @@ static int alloc_pageinfo(Recycle *rep)
 			}
 		}
 
-		pi[i].L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l4infolen);
+		pi[i].L4Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * L4INFOLEN);
 		if (!(pi[i].L4Info)) {
 			ndprint(RECYCLE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			if (i == 0)
@@ -174,27 +168,27 @@ static int alloc_pageinfo(Recycle *rep)
 				goto ERROR6;
 		}
 
-		pi[i].L1InfoLen = zonep->L1.len;
-		pi[i].L2InfoLen = zonep->l2infolen;
-		pi[i].L3InfoLen = zonep->l3infolen;
-		pi[i].L4InfoLen = zonep->l4infolen;
+		pi[i].L1InfoLen = conptr->l1info->len;
+		pi[i].L2InfoLen = conptr->L2InfoLen;
+		pi[i].L3InfoLen = conptr->L3InfoLen;
+		pi[i].L4InfoLen = L4INFOLEN;
 	}
 
 	return 0;
 
 ERROR6:
-	if (zonep->l3infolen)
+	if (conptr->L3InfoLen)
 		Nand_VirtualFree(pi[1].L3Info);
 ERROR5:
-	if (zonep->l2infolen)
+	if (conptr->L2InfoLen)
 		Nand_VirtualFree(pi[1].L2Info);
 ERROR4:
 	Nand_VirtualFree(pi[0].L4Info);
 ERROR3:
-	if (zonep->l3infolen)
+	if (conptr->L3InfoLen)
 		Nand_VirtualFree(pi[0].L3Info);
 ERROR2:
-	if (zonep->l2infolen)
+	if (conptr->L2InfoLen)
 		Nand_VirtualFree(pi[0].L2Info);
 ERROR1:
 	return -1;
@@ -205,22 +199,16 @@ ERROR1:
  *
  *	@rep: operate object
  */
-static void free_pageinfo(Recycle *rep)
+static void free_pageinfo(int context, PageInfo *pi)
 {
 	int i;
-	PageInfo *pi = NULL;
-	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
-
-	if (rep->force)
-		pi = rep->force_pi;
-	else
-		pi = rep->pi;
+	Context *conptr = (Context *)context;
 
 	for (i = 0; i < 2; i++) {
-		if (zonep->l2infolen)
+		if (conptr->L2InfoLen)
 			Nand_VirtualFree(pi[i].L2Info);
 
-		if (zonep->l3infolen)
+		if (conptr->L3InfoLen)
 			Nand_VirtualFree(pi[i].L3Info);
 
 		Nand_VirtualFree(pi[i].L4Info);
@@ -234,17 +222,14 @@ static void free_pageinfo(Recycle *rep)
  */
 static int alloc_normalrecycle_memory(Recycle *rep)
 {
-	Context *conptr = (Context *)(rep->context);
-
-	rep->force = 0;
-	rep->record_writeadd = (unsigned int *)Nand_VirtualAlloc(conptr->zonep->l4infolen);
+	rep->record_writeadd = (unsigned int *)Nand_VirtualAlloc(L4INFOLEN);
 	if(rep->record_writeadd == NULL) {
 		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
-	return alloc_pageinfo(rep);
+	return alloc_pageinfo(rep->context,rep->pi);
 }
 
 /**
@@ -255,7 +240,7 @@ static int alloc_normalrecycle_memory(Recycle *rep)
 static void free_normalrecycle_memory(Recycle *rep)
 {
 	Nand_VirtualFree(rep->record_writeadd);
-	free_pageinfo(rep);
+	free_pageinfo(rep->context,rep->pi);
 }
 
 /**
@@ -265,18 +250,14 @@ static void free_normalrecycle_memory(Recycle *rep)
  */
 static int alloc_forcerecycle_memory( Recycle *rep )
 {
-	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
-
-	rep->force = 1;
-
-	rep->force_record_writeadd = (unsigned int *)Nand_VirtualAlloc(zonep->l4infolen);
+	rep->force_record_writeadd = (unsigned int *)Nand_VirtualAlloc(L4INFOLEN);
 	if(rep->force_record_writeadd == NULL) {
 		ndprint(RECYCLE_ERROR,"Force recycle alloc error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
 
-	return alloc_pageinfo(rep);
+	return alloc_pageinfo(rep->context,rep->force_pi);
 }
 
 /**
@@ -287,8 +268,7 @@ static int alloc_forcerecycle_memory( Recycle *rep )
 static void free_forcerecycle_memory( Recycle *rep )
 {
 	Nand_VirtualFree(rep->force_record_writeadd);
-	free_pageinfo(rep);
-	rep->force_record_writeadd = NULL;
+	free_pageinfo(rep->context,rep->force_pi);
 }
 
 /**
@@ -304,14 +284,6 @@ int Recycle_OnNormalRecycle ( int context )
 
 	NandMutex_Lock(&rep->mutex);	
 	ndprint(RECYCLE_INFO, "start normal recycle--------->\n");
-
-	ret = alloc_normalrecycle_memory(rep);
-	if(ret != 0) {
-		ndprint(RECYCLE_ERROR,"alloc_pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-		return -1;
-	}
-
 	if (rep->taskStep == RECYIDLE)
 		rep->taskStep = RECYSTART;
 	NandMutex_Unlock(&rep->mutex);
@@ -325,8 +297,6 @@ int Recycle_OnNormalRecycle ( int context )
 
 	NandMutex_Lock(&rep->mutex);
 	rep->taskStep = RECYIDLE;
-	free_normalrecycle_memory(rep);
-
 	ndprint(RECYCLE_INFO, "normal recycle finished--------->\n\n");
 	NandMutex_Unlock(&rep->mutex);
 
@@ -1616,6 +1586,7 @@ err:
  */
 int Recycle_Init(int context)
 {
+	int ret = 0;
 	Context *conptr = (Context *)context;
 	Recycle *rep = NULL;
 	conptr->rep = (Recycle *)Nand_VirtualAlloc(sizeof(Recycle));
@@ -1626,7 +1597,6 @@ int Recycle_Init(int context)
 	}
 
 	memset(conptr->rep,0x0,sizeof(Recycle));
-
 	rep->taskStep = RECYIDLE;
 	rep->rZone = NULL;
 	rep->prevpageinfo = NULL;
@@ -1645,7 +1615,19 @@ int Recycle_Init(int context)
 	rep->force = 0;
 	rep->junk_zoneid = -1;
 
-	return 0;
+	ret = alloc_normalrecycle_memory(rep);
+	if(ret != 0) {
+		ndprint(RECYCLE_ERROR,"alloc_normalrecycle_memory error func %s line %d \n",__FUNCTION__,__LINE__);
+		return ret;
+	}
+
+	ret = alloc_forcerecycle_memory(rep);
+	if(ret != 0) {
+		ndprint(RECYCLE_ERROR,"alloc_forcerecycle_memory error func %s line %d \n",__FUNCTION__,__LINE__);
+		return ret;
+	}
+
+	return ret;
 }
 
 /**
@@ -1658,6 +1640,8 @@ void Recycle_DeInit(int context)
 	Context *conptr = (Context *)context;
 	Recycle *rep = conptr->rep;
 
+	free_forcerecycle_memory(rep);
+	free_normalrecycle_memory(rep);
 	DeinitNandMutex(&rep->mutex);
 	Nand_VirtualFree(rep);
 }
@@ -1853,9 +1837,7 @@ static int OnForce_Init ( Recycle *rep )
 	rep->force_alloc_num = 0;
 	rep->write_pagecount = 0;
 	rep->force_junk_zoneid = -1;
-
-	if (rep->force == 0)
-		return alloc_forcerecycle_memory(rep);
+	rep->force = 1;
 
 	return 0;
 }
@@ -2296,7 +2278,6 @@ err:
  */
 static void OnForce_Deinit ( Recycle *rep)
 {
-	free_forcerecycle_memory(rep);
 	rep->force = 0;
 }
 

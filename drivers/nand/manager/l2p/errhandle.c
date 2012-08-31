@@ -105,7 +105,7 @@ static int write_page0(int errinfo)
 
 	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
-		ndprint(1,"Nand_VirtualAlloc error func %s line %d \n"
+		ndprint(1,"Nand_ContinueAlloc error func %s line %d \n"
 					,__FUNCTION__,__LINE__);
 		return -1;
 	}
@@ -189,7 +189,7 @@ static PageInfo *alloc_pageinfo(ZoneManager *zonep)
 		return NULL;
 	}
 	
-	pi->L1InfoLen = zonep->L1.len;
+	pi->L1InfoLen = zonep->L1->len;
 	pi->L2InfoLen = zonep->l2infolen;
 	pi->L3InfoLen = zonep->l3infolen;
 	pi->L4InfoLen = zonep->l4infolen;

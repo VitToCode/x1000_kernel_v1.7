@@ -26,7 +26,7 @@ static void fill_infolen_unitlen(int context)
 	CacheManager *cachemanager = conptr->cachemanager;
 	unsigned int lxlen;
 	unsigned int ulxlen;
-	cachemanager->L1InfoLen = zonemanager->L1.len;
+	cachemanager->L1InfoLen = zonemanager->L1->len;
 	cachemanager->L2InfoLen = zonemanager->l2infolen;
 	cachemanager->L3InfoLen = zonemanager->l3infolen;
 	cachemanager->L4InfoLen = zonemanager->l4infolen;

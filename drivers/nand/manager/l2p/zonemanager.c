@@ -129,60 +129,17 @@ int ZoneManager_Move_UseZone_to_FreeZone(ZoneManager *zonep,unsigned short zoneI
 }
 
 /**
- *	calc_L1L2L3_len - Calculate length of L1, L2 and L3
+ *	get_L2L3_len - get length of L2 and L3
  *
  *	@zonep: operate object
  */
-static void calc_L1L2L3_len(ZoneManager *zonep)
+static void get_L2L3_len(ZoneManager *zonep)
 {
-	unsigned int l2l3len = 0;
-	unsigned int temp = 0;
-	unsigned int value = 1;
-	unsigned int i = 0;
-	unsigned int sectornum;
-	unsigned int totalsectornum;
-	unsigned int l1_secnum;
-	unsigned int l4_secnum;
-	VNandInfo *vnand = zonep->vnand;
-	int nandsize;
-    int l4size;
+	Context *conptr = (Context *)(zonep->context);
 
-	sectornum = vnand->BytePerPage / SECTOR_SIZE;
-	totalsectornum = vnand->PagePerBlock * vnand->TotalBlocks * sectornum;
-	l2l3len = (vnand->BytePerPage - (L4INFOLEN + sizeof(NandPageInfo))) / sizeof(unsigned int);
-
-	l1_secnum = vnand->BytePerPage / sizeof(unsigned int);
-	l4_secnum = L4INFOLEN / sizeof(unsigned int);
-	if(l1_secnum * l4_secnum >= totalsectornum)
-		temp = 0;
-	else
-		temp = (totalsectornum + (l1_secnum * l4_secnum) -1) / (l1_secnum * l4_secnum);
-
-	while(1)
-	{
-		i = temp / value ;
-		if(i <= l2l3len)
-			break;
-		value = value * 2;
-	}
-
-	if(value == 1)
-	{
-		zonep->l2infolen = 0;
-	}
-	else
-	{
-		zonep->l2infolen = value * sizeof(unsigned int);
-	}
-
-	zonep->l3infolen = (temp+value-1) / value * sizeof(unsigned int);
-
-	zonep->l4infolen = L4INFOLEN;
-
-	nandsize = vnand->TotalBlocks * vnand->PagePerBlock * vnand->BytePerPage;
-	l4size = L4INFOLEN / sizeof(unsigned int) * SECTOR_SIZE;
-	if ( nandsize < vnand->BytePerPage / sizeof(unsigned int) * l4size )
-		zonep->L1.len = (nandsize + l4size -1) / l4size * sizeof(unsigned int);
+	zonep->l2infolen = conptr->L2InfoLen;
+	zonep->l3infolen = conptr->L3InfoLen;
+	zonep->l4infolen = conptr->L4InfoLen;
 }
 
 /**
@@ -221,8 +178,8 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 		goto err0;
 	}
 
-	(zonep->L1).page = (unsigned int *)Nand_ContinueAlloc(vnand->BytePerPage);
-	if((zonep->L1).page == NULL)
+	zonep->mem0 = (unsigned char *)Nand_ContinueAlloc(2 * ZONEMEMSIZE(vnand));
+	if(zonep->mem0 == NULL)
 	{
 		ndprint(ZONEMANAGER_ERROR,"alloc memoey fail func %s line %d \n",
 			__FUNCTION__,__LINE__);
@@ -231,22 +188,11 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 		goto err1;
 	}
 
-	zonep->mem0 = (unsigned char *)Nand_ContinueAlloc(2 * ZONEMEMSIZE(vnand));
-	if(zonep->mem0 == NULL)
-	{
-		ndprint(ZONEMANAGER_ERROR,"alloc memoey fail func %s line %d \n",
-			__FUNCTION__,__LINE__);
-
-		ret = -1;
-		goto err2;
-	}
-
 	for(i = 0;i < zonenum;i++)
 		INIT_SIGZONEINFO(zonep->sigzoneinfo+i);
 
-	memset((void *)(zonep->L1).page, 0xff, vnand->BytePerPage);
 	memset(zonep->memflag,0x0,sizeof(zonep->memflag));
-	(zonep->L1).len = vnand->BytePerPage;
+	zonep->L1 = conptr->l1info;
 	zonep->maxserial = 0;
 	zonep->last_zone = NULL;
 	zonep->write_zone = NULL;
@@ -264,20 +210,15 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 		zonep->aheadflag[i] = 0;
 		zonep->ahead_zone[i] = NULL;
 	}
-
-	conptr->l1info = &zonep->L1;
 	conptr->top = zonep->sigzoneinfo;
 
-	InitNandMutex(&((zonep->L1).mutex));
 	InitNandMutex(&zonep->HashMutex);
 
-	calc_L1L2L3_len(zonep);
+	get_L2L3_len(zonep);
 	zonep->zonemem = ZoneMemory_Init(sizeof(Zone));
 	zonep->zoneIDcount = zonenum;
 	return 0;
 
-err2:
-	Nand_ContinueFree((zonep->L1).page);
 err1:
 	Nand_ContinueFree(zonep->sigzoneinfo);
 err0:
@@ -296,9 +237,7 @@ static void free_zonemanager_memory(ZoneManager *zonep)
 	Nand_VirtualFree(zonep->zoneID);
 	Nand_VirtualFree(zonep->sigzoneinfo);
 	Nand_ContinueFree(zonep->mem0);
-	DeinitNandMutex(&((zonep->L1).mutex));
 	DeinitNandMutex(&zonep->HashMutex);
-	Nand_ContinueFree((zonep->L1).page);
 	ZoneMemory_DeInit(zonep->zonemem);
 }
 
@@ -706,7 +645,7 @@ static int scan_page_info(ZoneManager *zonep)
 			}
 		}
 		else
-			memcpy(zonep->L1.page, zonep->mem0, zonep->vnand->BytePerPage);
+			memcpy(zonep->L1->page, zonep->mem0, zonep->vnand->BytePerPage);
 	}
 
 	return 0;
@@ -782,7 +721,7 @@ static inline void free_zone(ZoneManager *zonep,Zone *zone)
  */
 static int alloc_pageinfo(PageInfo *pageinfo, ZoneManager *zonep)
 {
-	pageinfo->L1Info = (unsigned char *)(zonep->L1.page);
+	pageinfo->L1Info = (unsigned char *)(zonep->L1->page);
 
 	if (zonep->l2infolen) {
 		pageinfo->L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l2infolen);
@@ -871,7 +810,7 @@ static Zone *get_usedzone(ZoneManager *zonep, unsigned short zoneid)
 	zoneptr->validpage= (zonep->sigzoneinfo + zoneid)->validpage;
 	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 	zoneptr->top = zonep->sigzoneinfo;
-	zoneptr->L1InfoLen = zonep->L1.len;
+	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
@@ -899,7 +838,7 @@ static Zone *get_usedzone(ZoneManager *zonep, unsigned short zoneid)
 	zoneptr->memflag = i;
 	zoneptr->ZoneID = zoneid;
 	zoneptr->mem0 = zonep->mem0 + i * zonep->vnand->BytePerPage;
-	zoneptr->L1Info = (unsigned char *)(zonep->L1).page;
+	zoneptr->L1Info = (unsigned char *)(zonep->L1->page);
 	zoneptr->vnand = zonep->vnand;
 	zoneptr->context = zonep->context;
 	return zoneptr;
@@ -1397,7 +1336,7 @@ Zone* ZoneManager_AllocZone (int context)
 	zoneptr->top = zonep->sigzoneinfo;
 	zoneptr->ZoneID = zoneptr->sigzoneinfo - zoneptr->top;
 	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneptr->ZoneID);
-	zoneptr->L1InfoLen = zonep->L1.len;
+	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
@@ -1419,7 +1358,7 @@ Zone* ZoneManager_AllocZone (int context)
 
 	zoneptr->memflag = i;
 	zoneptr->mem0 = zonep->mem0 + i * zonep->vnand->BytePerPage;
-	zoneptr->L1Info = (unsigned char *)(zonep->L1).page;
+	zoneptr->L1Info = (unsigned char *)(zonep->L1->page);
 	zoneptr->vnand = zonep->vnand;
 	zoneptr->context = (int)conptr;
 
@@ -1458,8 +1397,7 @@ void ZoneManager_FreeZone (int context,Zone* zone )
 L1Info* ZoneManager_GetL1Info (int context)
 {
 	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
-	return &(zonep->L1);
+	return conptr->l1info;
 }
 
 /**
@@ -1655,10 +1593,9 @@ unsigned short ZoneManager_ForceRecyclezoneID(int context,unsigned int lifetime)
 unsigned int L1Info_get(int context ,unsigned int sectorID)
 {
 	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
-	unsigned int index = sectorID / (zonep->vnand->PagePerBlock *
-						zonep->vnand->TotalBlocks *(zonep->vnand->BytePerPage/SECTOR_SIZE));
-	return (zonep->L1).page[index];
+	unsigned int index = sectorID / (conptr->vnand.PagePerBlock *
+						conptr->vnand.TotalBlocks *(conptr->vnand.BytePerPage/SECTOR_SIZE));
+	return conptr->l1info->page[index];
 }
 
 /**
@@ -1670,12 +1607,11 @@ unsigned int L1Info_get(int context ,unsigned int sectorID)
 void L1Info_set(int context,unsigned int sectorID,unsigned int PageID)
 {
 	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
-	unsigned int index = sectorID / (zonep->vnand->PagePerBlock *
-									 zonep->vnand->TotalBlocks *(zonep->vnand->BytePerPage/SECTOR_SIZE));
-	NandMutex_Lock(&(zonep->L1).mutex);
-	 (zonep->L1).page[index] = PageID;
-	NandMutex_Unlock(&(zonep->L1).mutex);
+	unsigned int index = sectorID / (conptr->vnand.PagePerBlock *
+			conptr->vnand.TotalBlocks *(conptr->vnand.BytePerPage/SECTOR_SIZE));
+	NandMutex_Lock(&conptr->l1info->mutex);
+	conptr->l1info->page[index] = PageID;
+	NandMutex_Unlock(&conptr->l1info->mutex);
 }
 
 /**
@@ -1712,7 +1648,7 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 		zoneptr->nextzone = NULL;
 	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,ZoneID);
 	zoneptr->top = zonep->sigzoneinfo;
-	zoneptr->L1InfoLen = zonep->L1.len;
+	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
@@ -1742,7 +1678,7 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 	zoneptr->badblock = zoneptr->sigzoneinfo->badblock;
 	zoneptr->validpage = zoneptr->sigzoneinfo->validpage;
 	zoneptr->mem0 = zonep->mem0 + i * zonep->vnand->BytePerPage;
-	zoneptr->L1Info = (unsigned char *)(zonep->L1).page;
+	zoneptr->L1Info = (unsigned char *)(zonep->L1->page);
 	zoneptr->vnand = zonep->vnand;
 	zoneptr->context = context;
 	zoneptr->sumpage = BLOCKPERZONE(zonep->vnand) * zonep->vnand->PagePerBlock;

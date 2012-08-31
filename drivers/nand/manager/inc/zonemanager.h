@@ -12,6 +12,8 @@
 #include "pagelist.h"
 #include "zoneidlist.h"
 
+#define L4INFOLEN 1024
+
 typedef struct _Wpages Wpages;
 struct _Wpages {
 	unsigned int startpage;
@@ -29,7 +31,7 @@ typedef struct _ZoneManager ZoneManager;
 struct _ZoneManager {
 	HashNode* freeZone;
 	Hash* useZone;
-	L1Info L1;
+	L1Info *L1;
 	SigZoneInfo* sigzoneinfo;
 	NandMutex HashMutex;
 	VNandInfo *vnand;
