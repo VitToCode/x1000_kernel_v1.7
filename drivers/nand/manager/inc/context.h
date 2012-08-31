@@ -29,6 +29,10 @@ struct _Context {
 	int thandle;
 	int junkzone; //l2p recycle
 	long long t_startrecycle;
+	unsigned int L2InfoLen;
+	unsigned int L3InfoLen;
+	unsigned int L4InfoLen;
+	int l2pid;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif

@@ -62,6 +62,58 @@ static int Idle_Handler(int data)
 #endif
 
 /**
+ *	calc_L1L2L3_len - Calculate length of L1, L2 and L3
+ *
+ *	@zonep: operate object
+ */
+static void calc_L1L2L3_len(Context *contr)
+{
+	unsigned int l2l3len = 0;
+	unsigned int temp = 0;
+	unsigned int value = 1;
+	unsigned int i = 0;
+	unsigned int sectornum;
+	unsigned int totalsectornum;
+	unsigned int l1_secnum;
+	unsigned int l4_secnum;
+	VNandInfo *vnand = &contr->vnand;
+	int nandsize;
+    	int l4size;
+
+	sectornum = vnand->BytePerPage / SECTOR_SIZE;
+	totalsectornum = vnand->PagePerBlock * vnand->TotalBlocks * sectornum;
+	l2l3len = (vnand->BytePerPage - (L4INFOLEN + sizeof(NandPageInfo))) / sizeof(unsigned int);
+
+	l1_secnum = vnand->BytePerPage / sizeof(unsigned int);
+	l4_secnum = L4INFOLEN / sizeof(unsigned int);
+	if(l1_secnum * l4_secnum >= totalsectornum)
+		temp = 0;
+	else
+		temp = (totalsectornum + (l1_secnum * l4_secnum) -1) / (l1_secnum * l4_secnum);
+
+	while(1)
+	{
+		i = temp / value ;
+		if(i <= l2l3len)
+			break;
+		value = value * 2;
+	}
+
+	if(value == 1)
+		contr->L2InfoLen = 0;
+	else
+		contr->L2InfoLen = value * sizeof(unsigned int);
+
+	contr->l1info->len = vnand->BytePerPage;
+	contr->L3InfoLen = (temp+value-1) / value * sizeof(unsigned int);
+	contr->L4InfoLen = L4INFOLEN;
+
+	nandsize = vnand->TotalBlocks * vnand->PagePerBlock * vnand->BytePerPage;
+	l4size = L4INFOLEN / sizeof(unsigned int) * SECTOR_SIZE;
+	if (nandsize < vnand->BytePerPage / sizeof(unsigned int) * l4size )
+		contr->l1info->len = (nandsize + l4size -1) / l4size * sizeof(unsigned int);
+}
+/**
  *	L2PConvert_ZMOpen  -  open operation
  *
  *	@vnand: virtual nand
@@ -71,6 +123,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 {
 	int ret = 0;
 	Context *conptr = NULL;
+	L2pConvert *l2p = NULL;
 	int zonecount;
 	if (pt->mode != ZONE_MANAGER) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
@@ -83,7 +136,20 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 		return -1;
 	}
 
-	conptr->blm = NULL;
+	l2p = (L2pConvert *)Nand_VirtualAlloc(sizeof(L2pConvert));
+	if (!l2p) {
+		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
+		return -1;
+	}
+
+	l2p->sectorid = (int *)Nand_ContinueAlloc(L4INFOLEN);
+	if (!(l2p->sectorid)) {
+		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
+		return -1;
+	}
+
+	conptr->l2pid = (int)l2p;
+	conptr->blm = Blm;
 	conptr->cacheinfo = NULL;
 	conptr->cachemanager = NULL;
 	conptr->l1info = NULL;
@@ -97,7 +163,21 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 #endif
 
 	CONV_PT_VN(pt,&conptr->vnand);
-	conptr->blm = Blm;
+
+	conptr->l1info = (L1Info *)Nand_VirtualAlloc(sizeof(L1Info));
+	if (!conptr->l1info) {
+		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
+		return -1;
+	}
+	conptr->l1info->page = (unsigned int *)Nand_ContinueAlloc(conptr->vnand.BytePerPage);
+	if(conptr->l1info->page == NULL) {
+		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
+		return -1;
+	}
+	memset((void *)(conptr->l1info->page), 0xff, conptr->vnand.BytePerPage);
+	InitNandMutex(&conptr->l1info->mutex);
+	calc_L1L2L3_len(conptr);
+
 	zonecount = conptr->vnand.TotalBlocks * 10 / 100;
 	if(zonecount < 8)
 		zonecount = 8;
@@ -158,10 +238,16 @@ int L2PConvert_ZMClose(int handle)
 {
 	int context = handle;
 	Context *conptr = (Context *)context;
+	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 #ifdef STATISTICS_DEBUG
 	Nd_TimerdebugDeinit(conptr->timebyte);
 	Nd_TimerdebugDeinit(conptr->vnand.timebyte);
 #endif
+	Nand_ContinueFree(l2p->sectorid);
+	Nand_VirtualFree(l2p);
+	Nand_ContinueFree(conptr->l1info->page);
+	Nand_VirtualFree(conptr->l1info);
+	DeinitNandMutex(&conptr->l1info->mutex);
 	Deinit_JunkZone(conptr->junkzone);
 	Task_Deinit(conptr->thandle);
 	Recycle_DeInit(context);
@@ -919,17 +1005,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	CacheManager *cm = conptr->cachemanager;
 	BuffListManager *blm = conptr->blm;
 	int ret = 0;
-	L2pConvert l2p;
-
-	INIT_L2P(&l2p);
-
-	l2p.sectorid = (int *)Nand_VirtualAlloc(cm->L4InfoLen);
-	if (l2p.sectorid == NULL){
-		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d\n",__func__,__LINE__);
-		return -1;
-	}
-	l2p.l4count = cm->L4InfoLen >> 2;
-	memset(l2p.sectorid, 0xff, cm->L4InfoLen);
+	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 
 	if (sl == NULL){
 		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d. SECTORLIST IS NULL!\n",__func__,__LINE__);
@@ -941,6 +1017,8 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	Get_StartTime(conptr->timebyte,1);
 #endif
 
+	INIT_L2P(l2p);
+
 	recycle_zone_prepare(context);
 
 	zone = get_write_zone(context);
@@ -951,24 +1029,24 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		goto exit;
 	}
 
-	l2p.follow_node = sl;
+	l2p->follow_node = sl;
 	while (1) {
-		if (l2p.follow_node == NULL)
+		if (l2p->follow_node == NULL)
 			break;
 
-		lock_cache((int)cm,&l2p,&pi);
+		lock_cache((int)cm,l2p,&pi);
 
-		pl = create_pagelist(&l2p,pi,&zone);
+		pl = create_pagelist(l2p,pi,&zone);
 
-		ret = update_l1l2l3l4(&l2p,pi,pl,zone);
+		ret = update_l1l2l3l4(l2p,pi,pl,zone);
 		if(ret != 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR:update_l1l2l3l4 error func %s line %d \n",
 				__FUNCTION__,__LINE__);
 			goto exit;
 		}
 
-		zone->currentLsector = l2p.sectorid[0];
-		ret = Zone_MultiWritePage(zone, l2p.pagecount, pl, pi);
+		zone->currentLsector = l2p->sectorid[0];
+		ret = Zone_MultiWritePage(zone, l2p->pagecount, pl, pi);
 		if(ret != 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR:vNand MultiPage Write error func %s line %d \n",
 				__FUNCTION__,__LINE__);
@@ -978,25 +1056,25 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		unlock_cache((int)cm, pi);
 		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
 
-		if (IS_NOT_SAME_L4(l2p.break_type))
-			l2p.l4_is_new = 1;
-		if (IS_NO_ENOUGH_PAGES(l2p.break_type)) {
+		if (IS_NOT_SAME_L4(l2p->break_type))
+			l2p->l4_is_new = 1;
+		if (IS_NO_ENOUGH_PAGES(l2p->break_type)) {
 			zone = alloc_new_zone_write (context,zone);
-			l2p.zone_is_new = 1;
+			l2p->zone_is_new = 1;
 		}
 
-		memset(l2p.sectorid, 0xff, cm->L4InfoLen);
-		l2p.pagecount = 0;
+		memset(l2p->sectorid, 0xff, cm->L4InfoLen);
+		l2p->pagecount = 0;
 
 		/* alloc 4 zone beforehand */
-		if (l2p.zone_is_new || l2p.alloced_new_zone) {
+		if (l2p->zone_is_new || l2p->alloced_new_zone) {
 			ret = write_data_prepare(context);
 			if (ret == -1) {
 				ndprint(L2PCONVERT_ERROR,"ERROR:write_data_prepare error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 				break;
 			}
-			l2p.alloced_new_zone = 0;
+			l2p->alloced_new_zone = 0;
 			zone = ZoneManager_GetCurrentWriteZone(context);
 		}
 	}
@@ -1004,7 +1082,6 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	Calc_Speed(conptr->timebyte,(void*)sl,1);
 #endif
 exit:
-	Nand_VirtualFree(l2p.sectorid);
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return ret;

@@ -276,5 +276,13 @@ static int __init test_board_init(void)
 	return 0;
 }
 
+/**
+ * Called by arch/mips/kernel/proc.c when 'cat /proc/cpuinfo'.
+ * Android requires the 'Hardware:' field in cpuinfo to setup the init.%hardware%.rc.
+ */
+const char *get_board_type(void)
+{
+	return "test";
+}
 
 arch_initcall(test_board_init);
