@@ -59,7 +59,7 @@ static int jzfb_open(struct fb_info *info, int user)
 	struct jzfb *jzfb = info->par;
 
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
-	dump_lcdc_registers(jzfb);
+	//dump_lcdc_registers(jzfb);
 
 	/* check the state of FG1 */
 	tmp = reg_read(jzfb, LCDC_OSDC);
@@ -1126,9 +1126,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "copy FB enable value failed\n");
 			return -EFAULT;
 		}
-		if(!jzfb->vidmem_phys) {
-			return -EFAULT;
-		}
+
 		if (value) {
 			jzfb_enable(info);
 		} else {
@@ -1355,8 +1353,8 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	struct jzfb *jzfb = (struct jzfb *)data;
 
 	state = reg_read(jzfb, LCDC_STATE);
-	if (state & LCDC_STATE_SOF) {
-		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_SOF);
+	if (state & LCDC_STATE_EOF) {
+		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
 		jzfb->vsync_timestamp = ktime_get();
 		wmb();
 		wake_up_interruptible(&jzfb->vsync_wq);
@@ -1411,6 +1409,7 @@ static void jzfb_late_resume(struct early_suspend *h)
 }
 #endif
 
+#if 0
 static void jzfb_display_v_color_bar(struct fb_info *info)
 {
 	int i,j;
@@ -1475,6 +1474,7 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 		}
 	}
 }
+#endif
 
 static void dump_lcdc_registers(struct jzfb *jzfb)
 {
