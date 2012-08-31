@@ -9,6 +9,7 @@
 #include "sigzoneinfo.h"
 
 #define VNANDCACHESIZE 32 * 1024
+#define BADBLOCKINFOSIZE 1
 
 int vNand_PageRead (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void * data );
 int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void* data );

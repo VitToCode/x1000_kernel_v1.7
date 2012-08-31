@@ -246,7 +246,7 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 	}
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
-	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
+	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 	if(bytes < byteperpage){
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 		ret =send_msg_to_mcu(pnand_api);
@@ -262,7 +262,7 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 		if(ret<0)
 		        goto read_page_singlenode_error1;
 	}
-	//dma_sync_single_for_cpu(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
+	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
 read_page_singlenode_error1:
 
 	do_deselect_chip(pnand_api);
@@ -352,10 +352,16 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
         int pageid =templist->startPageID;
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
-	set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
+	for(num=1; num <= temp; num++){
+	        dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),templist->Bytes,DMA_TO_DEVICE);
+		listhead = (templist->head).next;
+		templist = singlelist_entry(listhead,PageList,head);
+        }
+        set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 	ret = send_msg_to_mcu(pnand_api);
 	if(ret<0)
 		goto read_page_node_error1;
+	templist = pagelist;
 	for(num=1; num <= temp; num++){
 		if(templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage){
 			ret =-1;

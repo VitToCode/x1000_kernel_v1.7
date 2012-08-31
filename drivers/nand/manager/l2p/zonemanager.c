@@ -491,7 +491,7 @@ static int get_pt_badblock_count(VNandInfo *vnand)
 	int i;
 	int count = 0;
 
-	for (i = 0; i < vnand->BytePerPage >> 2; i++) {
+	for (i = 0; i < (vnand->BytePerPage * BADBLOCKINFOSIZE) >> 2; i++) {
 		if (vnand->pt_badblock_info[i] == 0xffffffff)
 			break;
 
@@ -1424,7 +1424,7 @@ int ZoneManager_Init (int context )
 	zonep->context = context;
 	zonep->vnand = &conptr->vnand;
 #ifdef TEST
-	memset(zonep->vnand->pt_badblock_info, 0xff, zonep->vnand->BytePerPage);
+	memset(zonep->vnand->pt_badblock_info, 0xff, zonep->vnand->BytePerPage * BADBLOCKINFOSIZE);
 #endif
 	zonep->badblockinfo = BadBlockInfo_Init((int *)zonep->vnand->pt_badblock_info,
 		zonep->vnand->startBlockID,zonep->vnand->TotalBlocks,BLOCKPERZONE(zonep->vnand));
