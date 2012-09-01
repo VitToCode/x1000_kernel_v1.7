@@ -62,7 +62,7 @@ FIXED_REGULATOR_DEF(
 	warrior_vbus,
 	"otg-Vbus",	5000000,
 	GPIO_PE(10),	HIGH_ENABLE,	0,
-	"vcc5v",	"vbus",		"lm0");
+	"vcc5v",	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
 	warrior_vmotor,
@@ -103,6 +103,7 @@ static struct regulator_info warrior_pmu_regulators[] = {
 	{"OUT6", &warrior_vwifi_init_data},
 	{"OUT7", &warrior_vtsc_init_data},
 	{"OUT8", &warrior_vgsensor_init_data},
+	{"VBUS", NULL},
 };
 
 static struct pmu_platform_data warrior_pmu_pdata = {

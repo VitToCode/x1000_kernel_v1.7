@@ -115,6 +115,8 @@ static void jz_cpm_init(void)
         udelay(300);
 	
 	__cpm_enable_otg_phy();
+
+	REG32(0xb3500000) |= 0xc;
 }
 
 extern int pcd_init(

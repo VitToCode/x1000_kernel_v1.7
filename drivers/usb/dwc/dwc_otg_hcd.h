@@ -559,6 +559,8 @@ struct dwc_otg_hcd {
 	uint32_t hfnum_other_samples_b;
 	uint64_t hfnum_other_frrem_accum_b;
 #endif
+	struct regulator *drv_vbus_power;
+	struct regulator *vbus_power;
 };
 
 /** @name Transaction Execution Functions */
