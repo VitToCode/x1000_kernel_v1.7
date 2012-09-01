@@ -141,6 +141,14 @@ config LCD_KR070LA0S_270
 	  If you have a KR070LA0S_270 Panel, say Y to enable its
 	  control driver. The panel's model is 20810700240110.
 
+config LCD_EK070TN93
+	tristate "EK070TN93 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an EK070TN93 Panel, say Y to enable its
+	  control driver.
+
 endif # LCD_CLASS_DEVICE
 
 #

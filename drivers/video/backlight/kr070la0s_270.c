@@ -18,9 +18,10 @@
 #include <linux/lcd.h>
 #include <linux/fb.h>
 #include <linux/regulator/consumer.h>
+
 #include <linux/kr070la0s_270.h>
 
-#define POWER_IS_ON(pwr)		((pwr) <= FB_BLANK_NORMAL)
+#define POWER_IS_ON(pwr)        ((pwr) <= FB_BLANK_NORMAL)
 
 struct kr070la0s_270_data {
 	int lcd_power;
@@ -32,6 +33,14 @@ struct kr070la0s_270_data {
 static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
 {
 	regulator_enable(dev->lcd_vcc_reg);
+
+	if (dev->pdata->gpio_lr && dev->pdata->left_to_right_scan)
+		gpio_direction_output(dev->pdata->gpio_lr, 1);
+	if (dev->pdata->gpio_ud && dev->pdata->bottom_to_top_scan)
+		gpio_direction_output(dev->pdata->gpio_ud, 1);
+
+	if (dev->pdata->gpio_selb && dev->pdata->six_bit_mode)
+		gpio_direction_output(dev->pdata->gpio_selb, 1);
 }
 
 static void kr070la0s_270_off(struct kr070la0s_270_data *dev)
@@ -61,8 +70,7 @@ static int kr070la0s_270_get_power(struct lcd_device *lcd)
 	return dev->lcd_power;
 }
 
-static int kr070la0s_270_set_mode(struct lcd_device *lcd,
-				  struct fb_videomode *mode)
+static int kr070la0s_270_set_mode(struct lcd_device *lcd, struct fb_videomode *mode)
 {
 	return 0;
 }
@@ -73,8 +81,9 @@ static struct lcd_ops kr070la0s_270_ops = {
 	.set_mode = kr070la0s_270_set_mode,
 };
 
-static int kr070la0s_270_probe(struct platform_device *pdev)
+static int __devinit kr070la0s_270_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct kr070la0s_270_data *dev;
 
 	dev = kzalloc(sizeof(struct kr070la0s_270_data), GFP_KERNEL);
@@ -84,27 +93,61 @@ static int kr070la0s_270_probe(struct platform_device *pdev)
 	dev->pdata = pdev->dev.platform_data;
 
 	dev_set_drvdata(&pdev->dev, dev);
-	dev->lcd_vcc_reg = regulator_get(&pdev->dev, "vlcd");
+
+	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
 	}
+
+	if (dev->pdata->gpio_lr)
+		gpio_request(dev->pdata->gpio_lr, "left_to_right ");
+	if (dev->pdata->gpio_ud)
+		gpio_request(dev->pdata->gpio_ud, "up_to_down");
+	if (dev->pdata->gpio_selb)
+		gpio_request(dev->pdata->gpio_selb, "mode_select");
+	if (dev->pdata->gpio_stbyb)
+		gpio_request(dev->pdata->gpio_stbyb, "standby_mode");
+	if (dev->pdata->gpio_rest)
+		gpio_request(dev->pdata->gpio_rest, "reset");
 
 	kr070la0s_270_on(dev);
 
 	dev->lcd = lcd_device_register("kr070la0s_270-lcd", &pdev->dev,
 				       dev, &kr070la0s_270_ops);
 
+	if (IS_ERR(dev->lcd)) {
+		ret = PTR_ERR(dev->lcd);
+		dev->lcd = NULL;
+		dev_info(&pdev->dev, "lcd device register error: %d\n", ret);
+	} else {
+		dev_info(&pdev->dev, "lcd device register success\n");
+	}
+
 	return 0;
 }
 
-static int kr070la0s_270_remove(struct platform_device *pdev)
+static int __devinit kr070la0s_270_remove(struct platform_device *pdev)
 {
-	struct kr070la0s_270_data *dev = platform_get_drvdata(pdev);
+	struct kr070la0s_270_data *dev = dev_get_drvdata(&pdev->dev);
 
-	regulator_put(dev->lcd_vcc_reg);
 	lcd_device_unregister(dev->lcd);
-	kzfree(dev);
+	kr070la0s_270_off(dev);
+	regulator_put(dev->lcd_vcc_reg);
+
+	if (dev->pdata->gpio_lr)
+		gpio_free(dev->pdata->gpio_lr);
+	if (dev->pdata->gpio_ud)
+		gpio_free(dev->pdata->gpio_ud);
+	if (dev->pdata->gpio_selb)
+		gpio_free(dev->pdata->gpio_selb);
+	if (dev->pdata->gpio_stbyb)
+		gpio_free(dev->pdata->gpio_stbyb);
+	if (dev->pdata->gpio_rest)
+		gpio_free(dev->pdata->gpio_rest);
+
+	dev_set_drvdata(&pdev->dev, NULL);
+	kfree(dev);
 
 	return 0;
 }
@@ -150,3 +193,4 @@ module_exit(kr070la0s_270_exit);
 
 MODULE_DESCRIPTION("KR070LA0S_270 lcd panel driver");
 MODULE_LICENSE("GPL");
+

@@ -33,6 +33,7 @@
 #include <linux/suspend.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
+#include <linux/gpio.h>
 
 #include <mach/jzfb.h>
 
@@ -517,8 +518,9 @@ static void jzfb_lvds_txpll0_config(struct fb_info *info)
 	unsigned int cfg = 0;
         int indiv = 0, fbdiv = 0;
 
+	cfg = LVDS_PLL_EN; /* PLL enable control. 1:enable */
 	if (txpll0->ssc_enable) {
-		cfg = LVDS_PLL_SSC_EN;
+		cfg |= LVDS_PLL_SSC_EN;
 	} else {
 		cfg &= ~LVDS_PLL_SSC_EN;
 	}
@@ -625,6 +627,14 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 	jzfb_lvds_txectrl_config(info);
 
 	jzfb_lvds_check_pll_lock(info);
+
+#if 0
+	struct jzfb *jzfb = info->par;
+	printk("txctrl =  0x%08x\n", reg_read(jzfb, LVDS_TXCTRL));
+	printk("tx_pll0 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL0));
+	printk("tx_pll1 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL1));
+	printk("txectrl =  0x%08x\n", reg_read(jzfb, LVDS_TXECTRL));
+#endif
 }
 
 static void jzfb_enable(struct fb_info *info)
@@ -1409,7 +1419,6 @@ static void jzfb_late_resume(struct early_suspend *h)
 }
 #endif
 
-#if 0
 static void jzfb_display_v_color_bar(struct fb_info *info)
 {
 	int i,j;
@@ -1474,7 +1483,6 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 		}
 	}
 }
-#endif
 
 static void dump_lcdc_registers(struct jzfb *jzfb)
 {
@@ -1743,6 +1751,15 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	if (!jzfb->id){
 		/* set pixel clock for hdmi 480p test */
 		reg_write(jzfb, LCDC_REV, 0 << 16);
+	}
+	//dump_lcdc_registers(jzfb);
+#endif
+
+#if 1
+	if (jzfb->vidmem_phys) {
+		jzfb_set_par(jzfb->fb);
+		jzfb_enable(jzfb->fb);
+		jzfb_display_v_color_bar(jzfb->fb);
 	}
 	//dump_lcdc_registers(jzfb);
 #endif

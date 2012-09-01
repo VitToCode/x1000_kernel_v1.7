@@ -148,11 +148,11 @@ static int __init warrior_board_init(void)
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 /* panel and bl */
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-	platform_device_register(&auo_a043fl01v2_device);
+#ifdef CONFIG_LCD_KR070LA0S_270
+	platform_device_register(&kr070la0s_270_device);
 #endif
-#ifdef CONFIG_LCD_AT070TN93
-	platform_device_register(&at070tn93_device);
+#ifdef CONFIG_LCD_EK070TN93
+	platform_device_register(&ek070tn93_device);
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&warrior_backlight_device);

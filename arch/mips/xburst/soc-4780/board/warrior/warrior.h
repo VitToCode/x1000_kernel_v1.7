@@ -22,11 +22,11 @@ extern struct jzfb_platform_data jzfb1_pdata;
 /**
  * lcd platform device
  **/
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-extern struct platform_device auo_a043fl01v2_device;
+#ifdef CONFIG_LCD_KR070LA0S_270
+extern struct platform_device kr070la0s_270_device;
 #endif
-#ifdef CONFIG_LCD_AT070TN93
-extern struct platform_device at070tn93_device;
+#ifdef CONFIG_LCD_EK070TN93
+extern struct platform_device ek070tn93_device;
 #endif
 extern struct platform_device warrior_backlight_device;
 

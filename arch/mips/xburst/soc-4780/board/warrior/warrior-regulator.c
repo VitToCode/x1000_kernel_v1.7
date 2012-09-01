@@ -80,7 +80,7 @@ FIXED_REGULATOR_DEF(
 	warrior_vlcd,
 	"lcd",		3300000,
 	GPIO_PB(23),	HIGH_ENABLE,	0,
-	NULL,		"vlcd",		"kr070la0s_270-lcd");
+	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&warrior_vcc5_regulator_device,

@@ -16,14 +16,14 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/pwm_backlight.h>
-#include <linux/kr070la0s_270.h>
 
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
+#ifdef CONFIG_LCD_KR070LA0S_270
+#include <linux/kr070la0s_270.h>
 static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
-	//.gpio_lr = ,
-	//.gpio_ud = ,
+/* gpio had been hardware control */
 };
 
 /* LCD Panel Device */
@@ -33,6 +33,25 @@ struct platform_device kr070la0s_270_device = {
 		.platform_data	= &kr070la0s_270_pdata,
 	},
 };
+#endif
+
+#ifdef CONFIG_LCD_EK070TN93
+#include <linux/ek070tn93.h>
+static struct platform_ek070tn93_data ek070tn93_pdata= {
+	.gpio_de = GPIO_PC(9),
+	.gpio_vs = GPIO_PC(19),
+	.gpio_hs = GPIO_PC(18),
+//	.gpio_reset = GPIO_PB(22),
+};
+
+/* LCD Panel Device */
+struct platform_device ek070tn93_device = {
+	.name		= "ek070tn93-lcd",
+	.dev		= {
+		.platform_data	= &ek070tn93_pdata,
+	},
+};
+#endif
 
 /* LCD Controller 0 output to HDMI */
 static struct fb_videomode jzfb0_videomode[] = {
@@ -61,6 +80,7 @@ struct jzfb_platform_data jzfb0_pdata = {
 
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode = {
+#ifdef CONFIG_LCD_KR070LA0S_270
 	.name = "1024x600",
 	.refresh = 60,
 	.xres = 1024,
@@ -75,9 +95,27 @@ static struct fb_videomode jzfb1_videomode = {
 	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
+#endif
+#ifdef CONFIG_LCD_EK070TN93
+	.name = "800x480",
+	.refresh = 60,
+	.xres = 800,
+	.yres = 480,
+	.pixclock = KHZ2PICOS(33300),
+	.left_margin = 28,
+	.right_margin = 210,
+	.upper_margin = 15,
+	.lower_margin = 22,
+	.hsync_len = 18,
+	.vsync_len = 8,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
+#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
+#ifdef CONFIG_LCD_KR070LA0S_270
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,
 
@@ -119,6 +157,23 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.txectrl.coarse_tuning_7x_clk = 2,
 
 	.dither_enable = 0,
+#endif
+#ifdef CONFIG_LCD_EK070TN93
+	.num_modes = 1,
+	.modes = &jzfb1_videomode,
+
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
 };
 
 #ifdef CONFIG_BACKLIGHT_PWM
@@ -135,7 +190,7 @@ static struct platform_pwm_backlight_data warrior_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
-	.pwm_period_ns	= 30000,
+	.pwm_period_ns	= 10000, /* 100 kHZ */
 	.init		= warrior_backlight_init,
 	.exit		= warrior_backlight_exit,
 };

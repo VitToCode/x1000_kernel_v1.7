@@ -112,8 +112,8 @@
 #define LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
 
-#define PWM1_PORTE							\
-	{ .name = "pwm1", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x2, }
+#define PWM_PORTE							\
+	{ .name = "pwm", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x7 << 0, }
 
 #define MII_PORTBDF							\
 	{ .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },	\
