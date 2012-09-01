@@ -4,21 +4,21 @@
 #include <asm/page.h>
 #include <linux/mm.h>
 
-#define GET_PHYADDR(a)													\
-	({																	\
-		unsigned int v;													\
+#define GET_PHYADDR(a)											\
+	({												\
+		unsigned int v;										\
 		if (unlikely((int)(a) & 0x40000000)) {							\
 			v = page_to_phys(vmalloc_to_page((const void *)(a))) | ((int)(a) & ~PAGE_MASK); \
-		} else															\
+		} else											\
 			v = ((_ACAST32_((int)(a))) & 0x1fffffff);					\
-		v;																\
+		v;		        								\
 	})
 
 /*
  * DMA_TO_MBUF: copy databuf to nand_dma->data_buf
  * DMA_FROM_MBUF: copy nand_dma->data_buf to databuf
  */
-enum buf_direction{
+enum buf_direction {
 	DMA_TO_MBUF,
 	DMA_FROM_MBUF,
 };
@@ -34,37 +34,37 @@ static void data_complete_func(void *arg)
 static void mcu_complete_func(void *arg)
 {
 	int mailbox = *(int *)arg;
-	switch(mailbox) {
-		case MB_NAND_INIT_DONE:
-			mailbox_ret = 0;
-			break;
-		case MB_NAND_READ_DONE:
-			mailbox_ret = 0;
-			break;
-		case MB_NAND_UNCOR_ECC:
-			mailbox_ret = -5;
-			break;
-		case MB_NAND_WRITE_DONE:
-			mailbox_ret = 0;
-			break;
-		case MB_NAND_WRITE_FAIL:
-			mailbox_ret = -1;
-			break;
-		case MB_NAND_WRITE_PROTECT:
-			mailbox_ret = 111;
-			break;
-		case MB_NAND_ERASE_DONE:
-			mailbox_ret = 0;
-			break;
-		case MB_NAND_ERASE_FAIL:
-			mailbox_ret = -1;
-			break;
-		case MB_NAND_ALL_FF:
-			mailbox_ret = -6;
-			break;
-		case MB_MOVE_BLOCK:
-			mailbox_ret = 1;
-			break;
+	switch (mailbox) {
+	case MB_NAND_INIT_DONE:
+		mailbox_ret = 0;
+		break;
+	case MB_NAND_READ_DONE:
+		mailbox_ret = 0;
+		break;
+	case MB_NAND_UNCOR_ECC:
+		mailbox_ret = -5;
+		break;
+	case MB_NAND_WRITE_DONE:
+		mailbox_ret = 0;
+		break;
+	case MB_NAND_WRITE_FAIL:
+		mailbox_ret = -1;
+		break;
+	case MB_NAND_WRITE_PROTECT:
+		mailbox_ret = 111;
+		break;
+	case MB_NAND_ERASE_DONE:
+		mailbox_ret = 0;
+		break;
+	case MB_NAND_ERASE_FAIL:
+		mailbox_ret = -1;
+		break;
+	case MB_NAND_ALL_FF:
+		mailbox_ret = -6;
+		break;
+	case MB_MOVE_BLOCK:
+		mailbox_ret = 1;
+		break;
 	}
 	complete(&comp);
 }
@@ -76,15 +76,12 @@ static bool filter(struct dma_chan *chan, void *data)
 	return (void *)nand_dma->chan_type == chan->private;
 }
 
-static inline int do_select_chip(const NAND_API *pnand_api,unsigned int page)
+static inline int do_select_chip(const NAND_API *pnand_api, unsigned int page)
 {
 	int chipnr = -1;
 	unsigned int page_per_chip = pnand_api->nand_chip->ppchip;
-
 	if (page > 0)
 		chipnr = page / page_per_chip + 1;
-
-//	ret =pnand_api->nand_ctrl->chip_select(pnand_api->vnand_base,pnand_api->nand_io,chipnr);
 	return chipnr;
 }
 
@@ -104,7 +101,9 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	unsigned int tmp =page / pnand_api->nand_chip->ppblock;
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
 	if(pt->use_planes)
-		page = ((page-toppage) / pnand_api->nand_chip->planenum) + (pnand_api->nand_chip->ppblock * ((page-toppage) % pnand_api->nand_chip->planenum)) + toppage;
+		page = ((page-toppage) / pnand_api->nand_chip->planenum) + 
+                        (pnand_api->nand_chip->ppblock * ((page-toppage) % 
+                        pnand_api->nand_chip->planenum)) + toppage;
 
 	return page;
 }
@@ -112,7 +111,7 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor *desc,
 		void *callback, void *callback_param)
 {
-	unsigned int timeout=0;
+	unsigned int timeout = 0;
 	dma_cookie_t cookie;
 	desc->callback = callback;
 	desc->callback_param = callback_param;
@@ -213,10 +212,10 @@ static int mcu_reset(const NAND_API *pnand_api)
 static int databuf_between_dmabuf(struct jznand_dma *nand_dma,int offset, int bytes, void *databuf,enum buf_direction direction)
 {
 	int ret = 0;
-	unsigned long flag =DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
+	unsigned long flag = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
 	struct dma_chan *data_chan = nand_dma->data_chan;
-	dma_addr_t  dma_dest;
-	dma_addr_t  dma_src;
+	dma_addr_t dma_dest;
+	dma_addr_t dma_src;
 
 	if(direction){
 		dma_src = nand_dma->data_buf_phyaddr+offset;
@@ -226,7 +225,7 @@ static int databuf_between_dmabuf(struct jznand_dma *nand_dma,int offset, int by
 		dma_src  = GET_PHYADDR((unsigned char *)databuf);
 	}
 
-	nand_dma->desc =data_chan->device->device_prep_dma_memcpy(data_chan,dma_dest,dma_src,bytes,flag);
+	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(data_chan,dma_dest,dma_src,bytes,flag);
 	if(!(nand_dma->desc))
 		ret = -1;
 	return ret;
@@ -339,8 +338,8 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 
 static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsigned int temp)
 {
-	int ret=0,cs=0;
-	int num =0;
+	int ret = 0,cs = 0;
+	int num = 0;
 	PageList *templist =pagelist;
 	struct singlelist *listhead=0;
 	int phy_pageid;
@@ -352,54 +351,55 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
         int pageid =templist->startPageID;
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
-	for(num=1; num <= temp; num++){
+	for(num = 0; num < temp; num++){
 	        dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),templist->Bytes,DMA_TO_DEVICE);
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
         }
         set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 	ret = send_msg_to_mcu(pnand_api);
-	if(ret<0)
+	if (ret < 0)
 		goto read_page_node_error1;
 	templist = pagelist;
-	for(num=1; num <= temp; num++){
-		if(templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage){
-			ret =-1;
-			templist->retVal =ret;
-			break;
-		}
-		ret = databuf_between_dmabuf(nand_dma,templist->OffsetBytes,templist->Bytes,
-				templist->pData,DMA_FROM_MBUF);
-		if(ret){
-			printk("read_page_multinode databuf_between_dmabuf error.\n");
-			templist->retVal =ret;
-			break;
-		}
-		listhead = (templist->head).next;
-		templist = singlelist_entry(listhead,PageList,head);
-	}
-	if(num>1)
-		ret = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
-	templist = pagelist;
-	while (num--) {
-		switch (ret) {
-		case 0:
-			templist->retVal = templist->Bytes;
-			dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),
-                                        templist->Bytes,DMA_FROM_DEVICE);
-			break;
-		case 1:
-			templist->retVal = templist->Bytes | (1<<16);
-			dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),
-                                        templist->Bytes,DMA_FROM_DEVICE);
-			break;
-		default:
+	for (num = 0; num < temp; num++) {
+		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes) > byteperpage) {
+			ret = -1;
 			templist->retVal = ret;
 			break;
-	        }
+		}
+		ret = databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
+				templist->pData, DMA_FROM_MBUF);
+		if (ret) {
+			printk("read_page_multinode databuf_between_dmabuf error.\n");
+			templist->retVal = ret;
+			break;
+		}
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
+	if (temp > 1) {
+		ret = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
+	        templist = pagelist;
+	        while (temp--) {
+		        switch (ret) {
+		        case 0:
+			        templist->retVal = templist->Bytes;
+        			dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+                                                templist->Bytes, DMA_FROM_DEVICE);
+		        	break;
+        		case 1:
+	        		templist->retVal = templist->Bytes | (1<<16);
+		        	dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+                                                templist->Bytes, DMA_FROM_DEVICE);
+        			break;
+	        	default:
+		        	templist->retVal = ret;
+			        break;
+        	        }
+	        	listhead = (templist->head).next;
+		        templist = singlelist_entry(listhead,PageList,head);
+        	}
+        }
 read_page_node_error1:
 	do_deselect_chip(pnand_api);
 	return ret;
@@ -436,13 +436,13 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		}else{
 			ret = read_page_multinode(pnand_api,templist,opsmodel);
 		}
-		if(ret<0){
-			flag=0;
+		if(ret < 0){
+			flag = 0;
 			break;
 		}
-		if(ret==1)
-			flag=1;
-		alignelist =alignelist->next;
+		if(ret == 1)
+			flag = 1;
+		alignelist = alignelist->next;
 	}
 	if(flag)
 		ret=1;
@@ -456,7 +456,7 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 {
 	int ret=0,cs=0;
 	int num =0;
-	PageList *templist =pagelist;
+	PageList *templist = pagelist;
 	struct singlelist *listhead=0;
 	int phy_pageid;
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
@@ -470,39 +470,40 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	memset(nand_dma->data_buf,0xff,byteperpage);
 	dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->data_buf),byteperpage,DMA_TO_DEVICE);
 
-	for(num=1;num <=temp;num++){
-		if(templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage){
+	for(num = 0; num < temp; num++){
+		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage) {
 			ret =-1;
-			templist->retVal =ret;
+			templist->retVal = ret;
 			break;
 		}
-		dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),templist->Bytes,DMA_TO_DEVICE);
-		ret=databuf_between_dmabuf(nand_dma,templist->OffsetBytes,templist->Bytes,
-				templist->pData,DMA_TO_MBUF);
-		if(ret){
-			printk("read_page_multinode databuf_between_dmabuf error.\n");
-			templist->retVal =ret;
+		dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData), templist->Bytes, DMA_TO_DEVICE);
+		ret=databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
+				templist->pData, DMA_TO_MBUF);
+		if (ret) {
+			printk("write_page_multinode databuf_between_dmabuf error.\n");
+			templist->retVal = ret;
 			break;
 		}
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
-	if (num > 1) {
-		wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
+	if (temp > 1) {
+		wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 
-		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,nand_dma->data_buf);
+		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
-	        while (num--) {
+                templist = pagelist;
+	        while (temp--) {
 		        switch (ret) {
 		        case 0:
 			        templist->retVal = templist->Bytes;
-		        	dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),
-                                                templist->Bytes,DMA_FROM_DEVICE);
+		        	dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+                                                templist->Bytes, DMA_FROM_DEVICE);
 		        	break;
 	        	case 1:
 		        	templist->retVal = templist->Bytes | (1<<16);
-			        dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),
-                                                templist->Bytes,DMA_FROM_DEVICE);
+			        dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+                                                templist->Bytes, DMA_FROM_DEVICE);
 			        break;
 		        default:
 			        templist->retVal = ret;
