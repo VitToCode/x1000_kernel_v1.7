@@ -203,9 +203,12 @@ static void dwc_otg_hcd_start_connect_timer(dwc_otg_hcd_t * hcd)
  * HCD Callback function for disconnect of the HCD.
  *
  * @param p void pointer to the <code>struct usb_hcd</code>
+*((volatile unsigned int *)(addr))
  */
+
 static int32_t dwc_otg_hcd_session_start_cb(void *p)
 {
+	
 	dwc_otg_hcd_t *dwc_otg_hcd;
 	DWC_DEBUGPL(DBG_HCDV, "%s(%p)\n", __func__, p);
 	dwc_otg_hcd = p;
@@ -224,6 +227,7 @@ static int32_t dwc_otg_hcd_start_cb(void *p)
 	dwc_otg_hcd_t *dwc_otg_hcd = p;
 	dwc_otg_core_if_t *core_if;
 	hprt0_data_t hprt0;
+
 
 	core_if = dwc_otg_hcd->core_if;
 
@@ -664,7 +668,6 @@ void dwc_otg_hcd_power_up(void *ptr)
 	dwc_otg_core_if_t *core_if = (dwc_otg_core_if_t *) ptr;
 
 	DWC_PRINTF("%s called\n", __FUNCTION__);
-
 	if (!core_if->hibernation_suspend) {
 		DWC_PRINTF("Already exited from Hibernation\n");
 		return;

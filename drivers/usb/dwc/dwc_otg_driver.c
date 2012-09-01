@@ -66,6 +66,57 @@
 
 static const char dwc_driver_name[] = "dwc_otg";
 
+static void jz_cpm_init(void)
+{
+	/* select dwc otg */
+	REG_CPM_USBPCR1 |= USBPCR1_USB_SEL;
+
+	/* select utmi data bus width of port0 to 16bit/30M */
+	REG_CPM_USBPCR1 |= USBPCR1_WORD_IF0;
+
+	/* fil */
+	//REG_CPM_USBVBFIL = 0x80;
+	REG_CPM_USBVBFIL = 0x0;		//temporary set zero by twxie
+
+	/* rdt */
+	REG_CPM_USBRDT = 0x96;
+
+	/* rdt - filload_en */
+	REG_CPM_USBRDT |= (1 << 25);
+
+	/* TXRISETUNE & TXVREFTUNE. */
+	REG_CPM_USBPCR &= ~0x3f;
+	REG_CPM_USBPCR |= 0x35;
+
+	/* enable tx pre-emphasis */
+        REG_CPM_USBPCR |= 0x40;
+
+	/* OTGTUNE adjust */
+        REG_CPM_USBPCR &= ~(7 << 14);	//temporary set -6% by twxie
+
+	printk("DWC_OTG:dwc_otg_driver_probe:jz4780: Enable USB PHY.\n");
+	__cpm_enable_otg_phy();
+        udelay(300);
+	
+	//__gpio_as_otg_drvvbus(); 
+
+        REG_CPM_USBPCR |= (USBPCR_VBUSVLDEXT | USBPCR_VBUSVLDEXTSEL);
+
+	REG_CPM_USBPCR |= (1 << 31);	//work as OTG
+
+	REG_CPM_USBPCR &= ~USBPCR_OTG_DISABLE;
+	REG_CPM_USBPCR &= ~USBPCR_IDPULLUP_MASK;
+	//REG_CPM_USBPCR &= ~(3 << 28);
+
+	/* phy reset */
+        REG_CPM_USBPCR |= USBPCR_POR;
+        udelay(30);
+        REG_CPM_USBPCR &= ~USBPCR_POR;
+        udelay(300);
+	
+	__cpm_enable_otg_phy();
+}
+
 extern int pcd_init(
 #ifdef LM_INTERFACE
 			   struct lm_device *_dev
@@ -246,7 +297,7 @@ static DRIVER_ATTR(version, S_IRUGO, version_show, NULL);
 /**
  * Global Debug Level Mask.
  */
-uint32_t g_dbg_lvl = 0xffffffff;		/* OFF */
+uint32_t g_dbg_lvl = 0;		/* OFF */
 
 /**
  * This function shows the driver Debug Level.
@@ -755,7 +806,7 @@ static int dwc_otg_driver_probe(
 {
 	int retval = 0;
 	dwc_otg_device_t *dwc_otg_device;
-#if 1
+#if 0
 	REG_CPM_USBPCR1 |= 1 << 28;
 	if (jz_dwc_init(&_dev->dev) < 0)
 		return -ENODEV;
@@ -775,6 +826,9 @@ static int dwc_otg_driver_probe(
 	}
 #endif
 #endif
+	jz_cpm_init();
+
+
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
 #ifdef LM_INTERFACE
 	dev_dbg(&_dev->dev, "start=0x%08x\n", (unsigned)_dev->resource.start);
@@ -924,7 +978,7 @@ static int dwc_otg_driver_probe(
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
 		    _dev->irq);
 	retval = request_irq(_dev->irq, dwc_otg_common_irq,
-			     IRQF_SHARED | IRQF_DISABLED /*| IRQ_LEVEL*/, "dwc_otg",
+			     IRQF_SHARED | IRQF_DISABLED | IRQ_LEVEL, "dwc_otg",
 			     dwc_otg_device);
 	if (retval) {
 		DWC_ERROR("request of irq%d failed\n", _dev->irq);
