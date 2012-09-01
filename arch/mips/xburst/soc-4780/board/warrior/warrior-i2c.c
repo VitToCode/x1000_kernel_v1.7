@@ -91,17 +91,8 @@ static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 };
 #endif /*I2C3*/
 
-#if defined(CONFIG_I2C0_JZ4780) && defined(CONFIG_MFD_ACT8600) 
-extern struct i2c_board_info warrior_pmu_board_info;
-#endif
-
 static int __init warrior_i2c_dev_init(void)
 {
-
-#if defined(CONFIG_I2C0_JZ4780) && defined(CONFIG_MFD_ACT8600) 
-	i2c_register_board_info(0, &warrior_pmu_board_info, 1);
-#endif
-
 #ifdef CONFIG_I2C1_JZ4780
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
 #endif

@@ -120,12 +120,11 @@ struct i2c_board_info warrior_pmu_board_info = {
 
 static int __init warrior_pmu_dev_init(void)
 {
-//	struct i2c_adapter *adap;
-//	struct i2c_client *client;
-//	int busnum = PMU_I2C_BUSNUM;
+	struct i2c_adapter *adap;
+	struct i2c_client *client;
+	int busnum = PMU_I2C_BUSNUM;
 	int i;
 
-#if 0
 	adap = i2c_get_adapter(busnum);
 	if (!adap) {
 		pr_err("failed to get adapter i2c%d\n", busnum);
@@ -139,7 +138,7 @@ static int __init warrior_pmu_dev_init(void)
 	}
 
 	i2c_put_adapter(adap);
-#endif
+
 	for (i = 0; i < ARRAY_SIZE(fixed_regulator_devices); i++)
 		fixed_regulator_devices[i]->id = i;
 

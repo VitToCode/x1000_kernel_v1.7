@@ -600,7 +600,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 	struct pmu_platform_data *pdata = dev_get_platdata(iodev->dev);
 	struct regulator_dev **rdev;
 	int i, ret, size;
-	printk("-----------%s:%d\n", __func__, __LINE__);
+
 	if (!pdata) {
 		dev_err(pdev->dev.parent, "No platform init data supplied\n");
 		return -ENODEV;
@@ -661,7 +661,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_CHARGER_ACT8600
+//#ifdef CONFIG_CHARGER_ACT8600
 	rdev[i] = regulator_register(&act8600_regulators[ACT8600_UCHARGER],
 				     act8600_reg->dev, &ucharger_init_data,
 				     act8600_reg);
@@ -672,7 +672,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 		rdev[i] = NULL;
 		goto err;
 	}
-#endif
+//#endif
 	return 0;
 err:
 	for (i = 0; i < pdata->num_regulators; i++)
