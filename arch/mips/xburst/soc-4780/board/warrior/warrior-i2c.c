@@ -97,6 +97,7 @@ extern struct i2c_board_info warrior_pmu_board_info;
 
 static int __init warrior_i2c_dev_init(void)
 {
+
 #if defined(CONFIG_I2C0_JZ4780) && defined(CONFIG_MFD_ACT8600) 
 	i2c_register_board_info(0, &warrior_pmu_board_info, 1);
 #endif

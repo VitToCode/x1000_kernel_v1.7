@@ -27,6 +27,7 @@
 
 #define TCU_CNT_MAX (65535UL)
 #define NR_TCU_CH 8
+#define RESERVED_CH 5
 
 static DECLARE_BITMAP(tcu_map, NR_TCU_CH) = { (1<<NR_TCU_CH) - 1, };
 
@@ -382,6 +383,8 @@ static irqreturn_t tcu_irqhandler(int irq,void *data)
 int __init tcu_init(void)
 {
 	int ret,i;
+	unsigned int mask_bit = ~(1 << RESERVED_CH);
+
 	workqueue = create_singlethread_workqueue("tcu_workqueue");
 	if (!workqueue){
 		printk(" ------tcu create workqueue fail!!!-------\n");
@@ -389,25 +392,28 @@ int __init tcu_init(void)
 		return ret;
 	}
 	mutex_init(&lock);
-
+#ifndef RESERVED_CH
 	if (0 != (ret =request_irq(IRQ_TCU1, tcu_irqhandler,IRQF_DISABLED, "tcu1",NULL))) {
 		printk(KERN_INFO "tcu_timer :%s request irq error !\n ","tcu1");
 		return ret;
 	}
-
+#endif
 	if (0 != (ret = request_irq(IRQ_TCU2, tcu_irqhandler,IRQF_DISABLED, "tcu2", NULL))) {
 		printk(KERN_INFO "tcu_timer :%s request irq error !\n ","tcu2");
 		return ret;
 	}
 
 	/*mask all interrupts*/
-	regw(0xffffffff,TCU_TMSR);
+
+	regw(mask_bit,TCU_TMSR);
 	/*clear match flags*/
-	regw(0xffffffff,TCU_TFCR);
+	regw(mask_bit,TCU_TFCR);
 	/*stop all clocks*/
-	regw(0xffffffff,TCU_TSSR);
+	regw(mask_bit,TCU_TSSR);
         /*clear half full counter to 0*/
 	for(i = 0;i < 8;i++){
+		if (i == RESERVED_CH)
+			continue;
 		set_tcu_full_half_value(i, 0, 0);
 		set_tcu_counter_value(i,0);
 	}

@@ -578,7 +578,7 @@ static int __init init_all_clk(void)
 		}
 		if(!clk_srcs[i].parent) {
 			clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT0];
-			printk(KERN_DEBUG "[CLK] %s no parent.\n",clk_srcs[i].name);
+			pr_debug("[CLK] %s no parent.\n",clk_srcs[i].name);
 		}
 		clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}

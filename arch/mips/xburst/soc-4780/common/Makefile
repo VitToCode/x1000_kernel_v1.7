@@ -5,7 +5,7 @@ else
 obj-y += clk.o
 endif
 
-obj-y += timer.o 
+obj-y += time.o 
 obj-y += serial.o 
 obj-y += irq.o 
 obj-y += gpio.o 

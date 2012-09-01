@@ -103,12 +103,13 @@ void jz4780_wait_irqoff(void)
 
 IDLE_PROGRAM:
 	if (!need_resched())
-
 		__asm__ __volatile__ ("	.set	push		\n"
-			"	.set	mips3		\n"
-			"	sync			\n"
-			"	wait			\n"
-			"	.set	pop		\n"
+				      "	.set	mips3		\n"
+				      "	sync			\n"
+				      "	lw	$0,	0(%0)	\n"
+				      "	wait			\n"
+				      "	.set	pop		\n"
+				      :: "r" (0xa0000000)
 			);
 
 	local_irq_enable();
