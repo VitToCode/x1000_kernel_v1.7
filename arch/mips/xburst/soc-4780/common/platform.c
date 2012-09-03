@@ -114,7 +114,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 	LCD_PORTC,
 	HDMI_PORTF, 
-	PWM_PORTE,
+	PWM_PORTE_BIT0,
 #ifdef CONFIG_JZ_MAC
 	MII_PORTBDF,
 #endif
