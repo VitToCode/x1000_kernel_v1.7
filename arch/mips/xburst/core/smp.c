@@ -32,6 +32,9 @@
 
 #include "smp_cp0.h"
 
+#include <soc/base.h>
+#include <soc/cpm.h>
+
 extern void smp_set_cpu_clk(int cpu, int enable);
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
@@ -165,8 +168,10 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
 	ctrl &= ~((1 << cpu) | (1 << (cpu + 16)));
+	//ctrl &= ~((1 << cpu));
 	set_smp_ctrl(ctrl);
 
+	cpm_clear_bit(31,CPM_LCR);
 wait:
 	if (!cpumask_test_cpu(cpu, cpu_ready))
 		goto wait;
@@ -185,19 +190,17 @@ wait:
  */
 static inline int smp_cpu_stop(int cpu)
 {
-	unsigned int ctrl;
+	unsigned int status;
 
 	if(cpu >= 4)
 		return -1;
 
-	printk("xxxx %08x\n",get_smp_status());
-	while(!(get_smp_status() & (1<<(cpu+16))))
-		printk("wait cpu %d sleep status\n",cpu);
+	do{
+		status = get_smp_status();
+	}while(!(status & (1<<(cpu+16))));
 
-	/* nr cpu, it depend on hardware */
-	ctrl = get_smp_ctrl();
-	ctrl |= 1 << cpu;
-	set_smp_ctrl(ctrl);
+	cpm_set_bit(31,CPM_LCR);
+
 	return 0;
 }
 
@@ -316,8 +319,6 @@ void jzsoc_cpu_die(unsigned int cpu)
 	cpumask_clear_cpu(cpu, cpu_ready);
 
 	smp_cpu_stop(cpu);
-	printk("jzsoc_cpu_die %08x\n",get_smp_ctrl());
-	printk("jzsoc_cpu_die %08x\n",get_smp_status());
 
 	spin_unlock(&smp_lock);
 }
@@ -325,14 +326,36 @@ void jzsoc_cpu_die(unsigned int cpu)
 
 void play_dead(void)
 {
-	idle_task_exit();
+#define cache_prefetch(label)						\
+	do{								\
+		unsigned long addr,size,end;				\
+		/* Prefetch codes from label */				\
+		addr = (unsigned long)(&&label) & ~(32 - 1);		\
+		size = 32 * 6; /* load 128 cachelines */		\
+		end = addr + size;					\
+		for (; addr < end; addr += 32) {			\
+			__asm__ volatile (				\
+					".set mips32\n\t"			\
+					" cache %0, 0(%1)\n\t"			\
+					".set mips32\n\t"			\
+					:					\
+					: "I" (Index_Prefetch_I), "r"(addr));	\
+		}							\
+	}								\
+	while(0)
 
 	while(1) {
-		printk("play_dead\n");
 		blast_dcache32();
-		blast_icache32();
-		local_flush_tlb_all();
-		__asm__ __volatile__ ("wait\n\t");
+		cache_prefetch(IDLE_PROGRAM);
+IDLE_PROGRAM:
+		__asm__ __volatile__ ("	.set	push		\n"
+				"	.set	mips3		\n"
+				"	sync			\n"
+				"	lw	$0,	0(%0)	\n"
+				"	wait			\n"
+				"	.set	pop		\n"
+				:: "r" (0xa0000000)
+				);
 	}
 }
 
