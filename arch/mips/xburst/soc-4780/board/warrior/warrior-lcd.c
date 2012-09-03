@@ -42,6 +42,8 @@ static struct platform_ek070tn93_data ek070tn93_pdata= {
 	.gpio_vs = GPIO_PC(19),
 	.gpio_hs = GPIO_PC(18),
 //	.gpio_reset = GPIO_PB(22),
+
+	.de_mode = 0,
 };
 
 /* LCD Panel Device */

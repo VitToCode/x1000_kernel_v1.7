@@ -34,13 +34,35 @@ static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
 {
 	regulator_enable(dev->lcd_vcc_reg);
 
-	if (dev->pdata->gpio_lr && dev->pdata->left_to_right_scan)
-		gpio_direction_output(dev->pdata->gpio_lr, 1);
-	if (dev->pdata->gpio_ud && dev->pdata->bottom_to_top_scan)
-		gpio_direction_output(dev->pdata->gpio_ud, 1);
-
-	if (dev->pdata->gpio_selb && dev->pdata->six_bit_mode)
-		gpio_direction_output(dev->pdata->gpio_selb, 1);
+	if (dev->pdata->gpio_lr) {
+		if (dev->pdata->left_to_right_scan) {
+			gpio_direction_output(dev->pdata->gpio_lr, 1);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_lr, 0);
+		}
+	}
+	if (dev->pdata->gpio_ud) {
+		if (dev->pdata->bottom_to_top_scan) {
+			gpio_direction_output(dev->pdata->gpio_ud, 1);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_ud, 0);
+		}
+	}
+	if (dev->pdata->gpio_selb) {
+		if ( dev->pdata->six_bit_mode) {
+			gpio_direction_output(dev->pdata->gpio_selb, 1);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_selb, 0);
+		}
+	}
+	if (dev->pdata->gpio_stbyb) {
+		gpio_direction_output(dev->pdata->gpio_stbyb, 1);
+	}
+	if (dev->pdata->gpio_rest) {
+		gpio_direction_output(dev->pdata->gpio_rest, 0);
+		mdelay(100);
+		gpio_direction_output(dev->pdata->gpio_rest, 1);
+	}
 }
 
 static void kr070la0s_270_off(struct kr070la0s_270_data *dev)

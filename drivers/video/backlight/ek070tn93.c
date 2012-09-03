@@ -34,7 +34,7 @@ static void ek070tn93_on(struct ek070tn93_data *dev)
 {
 	regulator_enable(dev->lcd_vcc_reg);
 
-	if (dev->pdata->mode_select) { /* DE mode */
+	if (dev->pdata->de_mode) { /* DE mode */
 		if (dev->pdata->gpio_mode)
 			gpio_direction_output(dev->pdata->gpio_mode, 1);
 		if (dev->pdata->gpio_vs)
@@ -47,13 +47,32 @@ static void ek070tn93_on(struct ek070tn93_data *dev)
 		if (dev->pdata->gpio_de)
 			gpio_direction_output(dev->pdata->gpio_de, 0);
 	}
-	if (dev->pdata->gpio_lr && dev->pdata->left_to_right_scan)
-		gpio_direction_output(dev->pdata->gpio_lr, 1);
-	if (dev->pdata->gpio_ud && dev->pdata->bottom_to_top_scan)
-		gpio_direction_output(dev->pdata->gpio_ud, 1);
-	if (dev->pdata->gpio_dithb && dev->pdata->dither_enable)
-		gpio_direction_output(dev->pdata->gpio_dithb, 1);
-
+	if (dev->pdata->gpio_lr) {
+		if (dev->pdata->left_to_right_scan) {
+			gpio_direction_output(dev->pdata->gpio_lr, 1);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_lr, 0);
+		}
+	}
+	if (dev->pdata->gpio_ud) {
+		if (dev->pdata->bottom_to_top_scan) {
+			gpio_direction_output(dev->pdata->gpio_ud, 1);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_ud, 0);
+		}
+	}
+	if (dev->pdata->gpio_reset) {
+		gpio_direction_output(dev->pdata->gpio_reset, 0);
+		mdelay(2);
+		gpio_direction_output(dev->pdata->gpio_reset, 1);
+	}
+	if (dev->pdata->gpio_dithb) {
+		if (dev->pdata->dither_enable) {
+			gpio_direction_output(dev->pdata->gpio_dithb, 0);
+		} else {
+			gpio_direction_output(dev->pdata->gpio_dithb, 1);
+		}
+	}
 	msleep(60);
 }
 

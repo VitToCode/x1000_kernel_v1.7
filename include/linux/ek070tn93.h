@@ -19,7 +19,7 @@
  * @gpio_reset: global reset pin
  * @gpio_dithb: dithering function pin
 
- * @mode_select: 1: DE mode, 0: SYNC mode
+ * @de_mode: 1: select DE mode, 0: select SYNC mode
  * @left_to_right_scan: scan direction, 0: right to left, 1: left to right
  * @bottom_to_top_scan: scan direction, 0: top to bottom, 1: bottom to top
  * @dither_enable: 1: dither enable
@@ -34,7 +34,7 @@ struct platform_ek070tn93_data {
 	unsigned int gpio_reset;
 	unsigned int gpio_dithb;
 
-	unsigned int mode_select;
+	unsigned int de_mode;
 	unsigned int left_to_right_scan;
 	unsigned int bottom_to_top_scan;
 	unsigned int dither_enable;
