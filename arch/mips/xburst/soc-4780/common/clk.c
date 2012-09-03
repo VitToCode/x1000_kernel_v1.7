@@ -476,7 +476,7 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 	x = (1 << cgu_clks[no].div) - 1;
 	tmp = clk->parent->rate / cgu_clks[no].coe;
 	for (i = 1; i <= x+1; i++) {
-		if (tmp / i < rate)
+		if ((tmp / i) <= rate)
 			break;
 	}
 	i--;
