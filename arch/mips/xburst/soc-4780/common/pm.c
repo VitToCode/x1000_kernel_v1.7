@@ -320,18 +320,12 @@ static int jz4780_pm_enter(suspend_state_t state)
 	unsigned long lcr = cpm_inl(CPM_LCR);
 	unsigned long opcr = cpm_inl(CPM_OPCR);
 	
-	if(!(lcr & CPM_LCR_GPU_IDLE)) {
-		printk("jz4780_pm_enter failed - GPU is busy.\n");
-		goto jz4780_pm_enter_exit;
-	}
-
+	/* set SRBC to stop bus transfer */
+	cpm_outl((1<<26),CPM_SRBC);
+	while(!(cpm_inl(CPM_SRBC) & (1<<25)));
+	
 	cpm_outl((lcr & ~LCR_LPM_MASK) | LCR_LPM_SLEEP | CPM_LCR_PD_MASK,CPM_LCR);
-	udelay(30);
-
-	if((cpm_inl(CPM_LCR) & CPM_LCR_STATUS_MASK) != CPM_LCR_STATUS_MASK) {
-		printk("jz4780_pm_enter failed - some module CAN NOT shutdown.\n");
-		goto jz4780_pm_enter_exit;
-	}
+	while((cpm_inl(CPM_LCR) & CPM_LCR_STATUS_MASK) != CPM_LCR_STATUS_MASK);
 
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
@@ -341,7 +335,6 @@ static int jz4780_pm_enter(suspend_state_t state)
 #else
 	cpm_outl(1<<30 | 1<<26 | 0xff<<8 | OPCR_ERCS,CPM_OPCR);
 #endif
-
 	/* shutdown memory power control */
 	cpm_outl(0xffffffff,CPM_SPCR0);
 	/* Clear previous reset status */
@@ -352,8 +345,6 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(11,CPM_PSWC2ST);
 	cpm_outl(0,CPM_PSWC3ST);
 
-	/* set SRBC to stop bus transfer */
-	cpm_outl(0,CPM_SRBC);
 #if defined(CONFIG_PM_POWERDOWN_P0)
 	/* Set resume return address */
 	cpm_outl(1,CPM_SLBC);
@@ -385,7 +376,6 @@ sleep_done:
 	}
 	/* Restore OPCR */
 	cpm_outl(opcr,CPM_OPCR);
-jz4780_pm_enter_exit:
 	/* Restore LCR */
 	cpm_outl(lcr,CPM_LCR);
 #endif
@@ -408,27 +398,4 @@ int __init jz4780_pm_init(void)
 
 
 arch_initcall(jz4780_pm_init);
-#if 0
-void jz_pm_hibernate(void)
-{
-	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 100ms */
-	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(100));
-
-	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, HRCR_WAIT_TIME(60));
-
-	/* Scratch pad register to be reserved */
-	rtc_write_reg(RTC_HSPR, HSPR_RTCV);
-
-	/* clear wakeup status register */
-	rtc_write_reg(RTC_HWRSR, 0x0);
-
-	/* Put CPU to hibernate mode */
-	rtc_write_reg(RTC_HCR, HCR_PD);
-
-	mdelay(200):
-
-		while (1) printk("We should NOT come here.\n");
-}
-#endif
 
