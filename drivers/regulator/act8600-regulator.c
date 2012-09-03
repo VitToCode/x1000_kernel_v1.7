@@ -142,7 +142,9 @@ static int act8600_dcdc_enable(struct regulator_dev *rdev)
 	struct i2c_client *client = act8600_reg->iodev->client;
 	unsigned char value, timeout;
 	unsigned char reg = get_dcdc_vcon_reg(rdev_get_id(rdev));
-
+	printk("-------%s: %d %d\n",__func__ ,__LINE__, rdev_get_id(rdev));
+	if (rdev_get_id(rdev) == 0)
+		return 0;
 	act8600_read_reg(client, reg, &value);
 	value |= VCON_ON;
 	act8600_write_reg(client, reg, value);
@@ -446,7 +448,9 @@ static int act8600_set_voltage(struct regulator_dev *rdev,
 	struct i2c_client *client = act8600_reg->iodev->client;
 	unsigned char value;
 	unsigned char reg = get_vset_reg(rdev_get_id(rdev));
-
+	printk("-------%s: %d %d\n",__func__ ,__LINE__, rdev_get_id(rdev));
+	if (rdev_get_id(rdev) == 0)
+		return 0;
 	value = voltages_to_value(min_uV, max_uV, selector);
 	act8600_write_reg(client, reg, value);
 

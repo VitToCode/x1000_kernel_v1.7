@@ -190,6 +190,8 @@ enum {
 #define CLK_NAME_CGU_LCD0	"lcd_pclk0"
 	CLK_ID_CGU_LCD1,
 #define CLK_NAME_CGU_LCD1	"lcd_pclk1"
+	CLK_ID_MSC_MUX,
+#define CLK_NAME_MSC_MUX	"msc_mux"
 	CLK_ID_CGU_MSC0,
 #define CLK_NAME_CGU_MSC0	"cgu_msc0"
 	CLK_ID_CGU_MSC1,
@@ -210,13 +212,11 @@ enum {
 #define CLK_NAME_CGU_HDMI	"cgu_hdmi"
 	CLK_ID_CGU_BCH,
 #define CLK_NAME_CGU_BCH	"cgu_bch"
-	CLK_ID_DUMMY_MUX,
-#define CLK_NAME_DUMMY_MUX	"-1"
 };
 
 enum {
 	CGU_DDR,CGU_VPU,CGU_AIC,CGU_LCD0,CGU_LCD1,CGU_MSC0,CGU_MSC1,CGU_MSC2,
-	CGU_UHC,CGU_SSI,CGU_CIMMCLK,CGU_PCM,CGU_GPU,CGU_HDMI,CGU_BCH,CGU_DUMMY_MUX,
+	CGU_UHC,CGU_SSI,CGU_CIMMCLK,CGU_PCM,CGU_GPU,CGU_HDMI,CGU_BCH,CGU_MSC_MUX,
 };
 
 static struct clk clk_srcs[] = {
@@ -301,6 +301,7 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
 	DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0)),
 	DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1)),
+	DEF_CLK(MSC_MUX,	CGU(CGU_MSC_MUX)),
 	DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0)),
 	DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1)),
 	DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2)),
@@ -311,7 +312,6 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(CGU_GPU,	CGU(CGU_GPU)),
 	DEF_CLK(CGU_HDMI,	CGU(CGU_HDMI)),
 	DEF_CLK(CGU_BCH,	CGU(CGU_BCH)),
-	DEF_CLK(DUMMY_MUX,	CGU(CGU_DUMMY_MUX)),
 #undef GATE
 #undef CPCCR
 #undef CGU
@@ -422,10 +422,10 @@ static struct cgu_clk cgu_clks[] = {
 	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EPLL}},
 	[CGU_LCD0] = 	{ CPM_LPCDR0, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
-	[CGU_DUMMY_MUX]={ CPM_MSC0CDR, 29, 2, 0, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
-	[CGU_MSC0] = 	{ CPM_MSC0CDR, 29, 2, 8, 30, {CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX}},
-	[CGU_MSC1] = 	{ CPM_MSC1CDR, 29, 2, 8, 30, {CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX}},
-	[CGU_MSC2] = 	{ CPM_MSC2CDR, 29, 2, 8, 30, {CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX,CLK_ID_DUMMY_MUX}},
+	[CGU_MSC_MUX]={ CPM_MSC0CDR, 29, 2, 0, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_MSC0] = 	{ CPM_MSC0CDR, 29, 2, 8, 30, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
+	[CGU_MSC1] = 	{ CPM_MSC1CDR, 29, 2, 8, 30, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
+	[CGU_MSC2] = 	{ CPM_MSC2CDR, 29, 2, 8, 30, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
 	[CGU_UHC] = 	{ CPM_UHCCDR, 29, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_EPLL,0}},
 	[CGU_SSI] = 	{ CPM_SSICDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_CIMMCLK] = { CPM_CIMCDR, 30, 1, 8, 31, {CLK_ID_SCLKA,CLK_ID_MPLL}},
@@ -455,6 +455,9 @@ static unsigned long cgu_get_rate(struct clk *clk)
 
 	if(clk->parent == &clk_srcs[CLK_ID_EXT1])
 		return clk->parent->rate;
+
+	if(cgu_clks[no].div == 0)
+		return clk_get_rate(clk->parent);
 
 	x = cpm_inl(cgu_clks[no].off);
 	x &= (1 << cgu_clks[no].div) - 1;
@@ -486,7 +489,7 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 
 static struct clk * cgu_get_parent(struct clk *clk)
 {
-	int no,cgu,idx,pidx;
+	unsigned int no,cgu,idx,pidx;
 
 	no = CLK_CGU_NO(clk->flags);
 	cgu = cpm_inl(cgu_clks[no].off);
