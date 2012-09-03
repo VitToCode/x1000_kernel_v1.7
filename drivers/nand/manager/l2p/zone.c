@@ -25,9 +25,8 @@
 
 /*block per zone 8 block */
 #define BLOCKPERZONE(context)   	8
-#define FIRSTPAGEINFO(context)	   	3
-#define SIGZONEINFO(context)        1
-#define ZONERESVPAGE(context)       0 /*resv page number*/
+#define FIRSTPAGEINFO(vnand)	   (((vnand)->_2kPerPage > 1)?(vnand)->_2kPerPage * 2:3)
+#define SIGZONEINFO(vnand)        ((vnand)->_2kPerPage)
 
 /*test define */
 #define MEMORY_PAGE_NUM      3 
@@ -369,7 +368,6 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	unsigned short len = 0;
 	int ret = -1;
 	PageList *pagelist = NULL;
-	PageList *l1pagelist = NULL;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
 	int sectorperpage = zone->vnand->BytePerPage / SECTOR_SIZE;
 
@@ -377,9 +375,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	nandpageinfo = (NandPageInfo *)buf;
 
 	memset(buf,0xff,zone->vnand->BytePerPage);
-	nandpageinfo->NextPageInfo = zone->allocPageCursor + 1;
+	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->_2kPerPage)
+		/ zone->vnand->_2kPerPage * zone->vnand->_2kPerPage;
 	nandpageinfo->ZoneID = pi->zoneID;
-
 	len = package_pageinfo(zone,buf,pi);   
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
 	{
@@ -392,36 +390,15 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	zone->sigzoneinfo->validpage--;
 
-	if(zone->allocedpage == zone->sumpage || zone->allocedpage == zone->sumpage - 1)
+	if(zone->allocedpage > zone->sumpage - zone->vnand->_2kPerPage)
 		nandpageinfo->NextPageInfo = 0;
 
-	/* write to zone information L1info add pagelist to list head*/
-	if(zone->pageCursor != zone_page1_pageid(zone))
-	{
-		pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-		pagelist->startPageID = pi->PageID;
-		pagelist->OffsetBytes = 0;
-		pagelist->Bytes = zone->vnand->BytePerPage;
-		pagelist->pData = buf;
-		pagelist->retVal = 0;
-	}
-	else
-	{
-		pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-		pagelist->startPageID = zone_L1Info_addr(zone);
-		pagelist->OffsetBytes = 0;
-		pagelist->Bytes = zone->vnand->BytePerPage;
-		pagelist->pData = pi->L1Info;
-		pagelist->retVal = 0;
-
-		l1pagelist = (PageList *)BuffListManager_getNextNode((int)blm, 
-				(void *)pagelist, sizeof(PageList));
-		l1pagelist->startPageID = pi->PageID;
-		l1pagelist->OffsetBytes = 0;
-		l1pagelist->Bytes = zone->vnand->BytePerPage;
-		l1pagelist->pData = buf;
-		l1pagelist->retVal = 0;
-	}
+	pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+	pagelist->startPageID = pi->PageID;
+	pagelist->OffsetBytes = 0;
+	pagelist->Bytes = zone->vnand->BytePerPage;
+	pagelist->pData = buf;
+	pagelist->retVal = 0;
 
 	BuffListManager_mergerList((int)blm, (void *)pagelist,(void *)pl);
 
@@ -434,9 +411,6 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	zone->pageCursor = zone->allocPageCursor;
 
-	if(l1pagelist != NULL)
-		BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)l1pagelist, sizeof(PageList));
-
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 
 	if (pagecount > 0)
@@ -445,9 +419,6 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 err:
 	 ret = check_pagelist_error(pagelist);
-	 if(l1pagelist != NULL)
-		BuffListManager_freeList((int)blm, (void **)&pagelist,(void*)l1pagelist, sizeof(PageList));
-
 	 BuffListManager_freeList((int)blm, (void **)&pagelist,(void*)pagelist, sizeof(PageList));
 
 	return ret;
@@ -468,7 +439,8 @@ int Zone_AllocNextPage ( Zone *zone )
 	ZoneManager *zonep = ((Context *)(zone->context))->zonep;
 
 	if(zone->allocedpage == zone->sumpage){
-		ndprint(ZONE_ERROR,"Function: %s LINE: %d Have alloced all the page in zone\n",__func__,__LINE__);
+		ndprint(ZONE_ERROR,"Function: %s LINE: %d zoneid = %d have alloced all the page in zone, allocdpage = %d\n",
+			__func__,__LINE__, zone->ZoneID, zone->allocedpage);
 		return -1;
 	}
 
@@ -489,6 +461,7 @@ int Zone_AllocNextPage ( Zone *zone )
 
 	zone->allocPageCursor = zone->allocPageCursor % pageperblock + (zone->allocPageCursor / pageperblock + badblocknum) * pageperblock;
 	zone->allocedpage++;
+
 	return zone->allocPageCursor + zone->startblockID * zone->vnand->PagePerBlock;
 }
 
@@ -499,7 +472,7 @@ int Zone_AllocNextPage ( Zone *zone )
  */
 unsigned short Zone_GetFreePageCount(Zone *zone)
 {
-	return zone->sumpage - zone->allocedpage;
+	return zone->sumpage - (zone->allocedpage + zone->vnand->_2kPerPage - 1) / zone->vnand->_2kPerPage * zone->vnand->_2kPerPage;
 }
 
 /** 
@@ -544,6 +517,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 {
 	NandZoneInfo *nandzoneinfo;
 	PageList *pagelist = NULL;
+	PageList *pagelist1 = NULL;
 	int ret = -1;
 	unsigned int blockno = 0;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
@@ -553,7 +527,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->badblock = zone->sigzoneinfo->badblock;
 	zone->ZoneID = zone->sigzoneinfo - zone->top;
 
-	zone->sumpage = calc_zone_page(zone) - ZONERESVPAGE(zone->vnand);
+	zone->sumpage = calc_zone_page(zone);
 	if (zone->sumpage <= 1)
 		return -1;
 
@@ -606,7 +580,12 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	pagelist->Bytes = zone->vnand->BytePerPage;
 	pagelist->pData = (void*)nandzoneinfo;
 	pagelist->retVal = 0;
-	(pagelist->head).next = 0;
+
+	pagelist1 = (PageList *)BuffListManager_getNextNode((int)blm,(void *)pagelist,sizeof(PageList));
+	pagelist1->startPageID = zone_L1Info_addr(zone);
+	pagelist1->OffsetBytes = 0;
+	pagelist1->Bytes = zone->vnand->BytePerPage;
+	pagelist1->pData = (void *)zonep->L1->page;
 
 	ret = vNand_MultiPageWrite(zone->vnand,pagelist);
 	if(ret != 0)
@@ -618,11 +597,19 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 
 	zone->prevzone = prev;
 	zone->nextzone = next;
-	zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
-	zone->allocPageCursor = zone->pageCursor + 1;
-	zone->allocedpage = 3;
-	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - 3;
-	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
+
+	if (zone->vnand->_2kPerPage == 1){
+		zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
+		zone->allocPageCursor = zone->pageCursor + 1;
+		zone->allocedpage = 3;
+	}
+	else if (zone->vnand->_2kPerPage > 1) {
+		zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
+		zone->allocPageCursor = zone->vnand->_2kPerPage * 2 - 1;
+		zone->allocedpage = zone->vnand->_2kPerPage * 2;
+	}
+	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - zone->allocedpage;
+	BuffListManager_freeAllList((int)blm, (void **)&pagelist, sizeof(PageList));
 
 	return 0;
 }

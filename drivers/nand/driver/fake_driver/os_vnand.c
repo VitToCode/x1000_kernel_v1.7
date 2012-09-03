@@ -47,6 +47,7 @@ static int em_vNand_InitNand (void *vd ){
 	loff_t pos;
 	mm_segment_t old_fs;
 	int cnt;
+	int pagesper1Mb = (1 * 1024 * 1024) / vNandChipInfo.BytePerPage;
 	VNandManager* vNand = vd;
 	char ptname[256];
 	struct vNand2K *vNandChip;
@@ -91,9 +92,13 @@ static int em_vNand_InitNand (void *vd ){
 		set_fs(KERNEL_DS);
 		for (i = 0; i < vNandChipInfo.PagePerBlock * vNandChipInfo.TotalBlocks; i ++) {
 			cnt = do_sync_write(filp, buf, vNandChipInfo.BytePerPage, &pos);
-			do_sync_write(filp, (char *)&spare, 4, &pos);
-			if (!(i % 512)) {
-				if (!(i % (512 * 10)))
+			if (cnt != 4)
+				printk("ERROR: %s, %d, cnt = %d, pos = %ld\n", __FUNCTION, __LINE__, cnt, pos);
+			cnt = do_sync_write(filp, (char *)&spare, 4, &pos);
+			if (cnt != 4)
+				printk("ERROR: %s, %d, cnt = %d, pos = %ld\n", __FUNCTION, __LINE__, cnt, pos);
+			if (!(i % pagesper1Mb)) {
+				if (!(i % (pagesper1Mb * 10)))
 					printk("\n");
 				printk("..%dMb..", ((int)pos >> 20) + 1);
 			}
@@ -226,11 +231,13 @@ static int em_vNand_MultiPageRead(void *pt,PageList* pl) {
 static int em_vNand_MultiPageWrite(void *pt, PageList* pl) {
 	struct vNand2K *p = (struct vNand2K *)PPARTITION(pt)->prData;
 	struct singlelist *sg;
+	PageList* pl_next;
 	int startblock = PPARTITION(pt)->startblockID;
 	loff_t pos, sparepos, rsparepos;
 	mm_segment_t old_fs;
 	unsigned int spare;
 
+#if 0
    	do {
 		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes;
 		sparepos = page2offset(p->nand,pl->startPageID,startblock) + vNandChipInfo.BytePerPage;
@@ -260,6 +267,41 @@ static int em_vNand_MultiPageWrite(void *pt, PageList* pl) {
 
 		pl = singlelist_entry(sg,PageList,head);
 	} while (pl);
+#else
+	while(pl) {
+		sg = (pl->head).next;
+		if (sg)
+			pl_next = singlelist_entry(sg,PageList,head);
+		else
+			pl_next = NULL;
+
+		pos = page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes;
+		sparepos = page2offset(p->nand,pl->startPageID,startblock) + vNandChipInfo.BytePerPage;
+
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		rsparepos = sparepos;
+		do_sync_read(p->filp, (char *)&spare, 4, &rsparepos);
+		if (spare == 0) {
+			printk("ERROR: %s, rewrite pageid = %d\n", __func__, pl->startPageID);
+			dump_stack();
+		}
+		pl->retVal = do_sync_write(p->filp, pl->pData, pl->Bytes, &pos);
+		spare = 0;
+		if (!pl_next || (pl->startPageID != pl_next->startPageID)) {
+			do_sync_write(p->filp, (char *)&spare, 4, &sparepos);
+		}
+		set_fs(old_fs);
+
+		if(pl->retVal <= 0)
+		{
+			printk("error:: %s, %d, pl->retVal = %d\n", __func__, __LINE__, pl->retVal);
+			return -1;
+		}
+
+		pl = pl_next;
+	};
+#endif
 
 	return 0;
 }

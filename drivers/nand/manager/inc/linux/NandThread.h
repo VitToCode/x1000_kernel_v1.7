@@ -31,6 +31,7 @@ static inline PNandThread CreateThread(PThreadFunction fn,void *data,int prio,ch
 	if (!IS_ERR(thread))
 		wake_up_process(thread);
 
+	index ++;
 	return thread;
 }
 

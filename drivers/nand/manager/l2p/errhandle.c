@@ -6,8 +6,8 @@
 #include "nanddebug.h"
 #include "badblockinfo.h"
 
-#define ZONEPAGE1INFO(context)      1
-#define ZONEPAGE2INFO(context)      2
+#define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
+#define ZONEPAGE2INFO(vnand)      ((vnand)->_2kPerPage + 1)
 
 static BlockList *create_blocklist(Context *conptr, int start_blockid, int total_blockcount)
 {
@@ -248,7 +248,7 @@ static int get_prev_zone(int errinfo, Zone **zone)
 	}
 
 	ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
-		vnand->PagePerBlock + ZONEPAGE1INFO(context),0,vnand->BytePerPage,buf);
+		vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"
 					,__FUNCTION__,__LINE__);
@@ -289,7 +289,7 @@ static int recover_L1info(int errinfo, Zone *zone)
 	NandMutex_Lock(&conptr->l1info->mutex);
 	
 	ret = vNand_PageRead(vnand,zone->startblockID * 
-		vnand->PagePerBlock + ZONEPAGE2INFO(context),0,vnand->BytePerPage,l1info);
+		vnand->PagePerBlock + ZONEPAGE2INFO(vnand),0,vnand->BytePerPage,l1info);
 	if(ret < 0) {
 		ndprint(1,"vNand_PageRead error func %s line %d \n"
 					,__FUNCTION__,__LINE__);

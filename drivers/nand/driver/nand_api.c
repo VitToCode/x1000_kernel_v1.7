@@ -350,7 +350,7 @@ static inline int init_nand(void * vNand)
         blocklist.head.next = 0;
 		multiblock_erase(&g_partition[0], &blocklist);
 		blocklist.startBlock = 0;
-		blocklist.BlockCount = 1;
+		blocklist.BlockCount = 128;
 		blocklist.head.next = 0;
 		multiblock_erase(&g_partition[1], &blocklist);
 	}

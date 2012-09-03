@@ -9,14 +9,15 @@ typedef struct _VNandInfo VNandInfo;
 typedef struct _VNandManager VNandManager;
 
 struct _VNandInfo {
-    int startBlockID; 
-    int PagePerBlock;
-    int BytePerPage;
-    int TotalBlocks;
-    int* prData;
-    int MaxBadBlockCount;
-    unsigned short hwSector;
-    unsigned int *pt_badblock_info;
+	int startBlockID;
+	int PagePerBlock;
+	int BytePerPage;
+	int TotalBlocks;
+	int* prData;
+	int MaxBadBlockCount;
+	unsigned short hwSector;
+	unsigned short _2kPerPage;
+	unsigned int *pt_badblock_info;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif
@@ -24,19 +25,20 @@ struct _VNandInfo {
 
 struct _VNandManager {
 	VNandInfo info;
-    PPartArray* pt;
+	PPartArray* pt;
 };
 
 #define CONV_PT_VN(pt,vn)							\
 	do{									\
-		(vn)->startBlockID = 0;;						\
-		(vn)->PagePerBlock = (pt)->pageperblock;			\
-		(vn)->BytePerPage = (pt)->byteperpage;				\
+		(vn)->_2kPerPage = (pt)->byteperpage / 2048;			\
+		(vn)->startBlockID = 0;						\
+		(vn)->PagePerBlock = (pt)->pageperblock * (vn)->_2kPerPage;	\
+		(vn)->BytePerPage = 2048;					\
 		(vn)->TotalBlocks = (pt)->totalblocks;				\
 		(vn)->MaxBadBlockCount = (pt)->badblockcount;			\
 		(vn)->hwSector = (pt)->hwsector;				\
-		(vn)->pt_badblock_info = ((pt)->pt_badblock_info + 1);		\
-		(vn)->prData = (void*)(pt);										\
+		(vn)->pt_badblock_info = (pt)->pt_badblock_info;		\
+		(vn)->prData = (void*)(pt);					\
 	}while(0)
 
 #endif

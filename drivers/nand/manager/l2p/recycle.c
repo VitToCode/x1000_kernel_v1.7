@@ -19,7 +19,6 @@
 
 #define L4UNITSIZE(context) 128 * 1024
 #define BLOCKPERZONE(context)		8
-#define SIGZONEINFO(context)        1
 #define RECYCLECACHESIZE		VNANDCACHESIZE
 
 static int getRecycleZone ( Recycle *rep);
@@ -819,6 +818,10 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	l1index = startsectorid / l1unitlen;
 	pi->zoneID = rzone->ZoneID;
 	pi->PageID = Zone_AllocNextPage(wzone);
+	if (wzone->vnand->_2kPerPage > 1) {
+		while (pi->PageID % wzone->vnand->_2kPerPage)
+			pi->PageID = Zone_AllocNextPage(wzone);
+	}
 	l1buf[l1index] = pi->PageID;
 	pi->L1Index = l1index;
 	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
@@ -840,8 +843,12 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 
 		for (i = pl_node->OffsetBytes / SECTOR_SIZE; i < (pl_node->Bytes + pl_node->OffsetBytes) / SECTOR_SIZE; i++) {
 			if (s_count % spp == 0) {
-				s_count = 0;
 				pageid = Zone_AllocNextPage(wzone);
+				if (s_count == 0) {
+					while (pageid % wzone->vnand->_2kPerPage)
+						pageid = Zone_AllocNextPage(wzone);
+				}
+				s_count = 0;
 			}
 			record_writeaddr[l4index] = pageid * spp + s_count;
 			l4buf[l4index] = record_writeaddr[l4index];
@@ -1340,7 +1347,7 @@ static int RecycleReadWrite(Recycle *rep)
 		recyclepage = (recyclesector + spp - 1) / spp;
 	}
 
-	if(zonepage >= recyclepage + 1) {
+	if(zonepage >= recyclepage + wzone->vnand->_2kPerPage) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
@@ -1350,16 +1357,16 @@ static int RecycleReadWrite(Recycle *rep)
 		}
 	}
 	else {
-		if(zonepage > 1) {
-			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (zonepage - 1) * spp);
-			ret = copy_data(rep, wzone, zonepage -1);
+		if(zonepage > wzone->vnand->_2kPerPage) {
+			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (zonepage - wzone->vnand->_2kPerPage) * spp);
+			ret = copy_data(rep, wzone, zonepage - wzone->vnand->_2kPerPage);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				goto err;
 			}
 
-			recyclesector = recyclesector - (zonepage - 1) * spp;
+			recyclesector = recyclesector - (zonepage - wzone->vnand->_2kPerPage) * spp;
 			recyclepage = (recyclesector + spp - 1) / spp;
 		}
 
@@ -2156,7 +2163,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 
 	rep->write_pagecount += recyclepage;
 
-	if(zonepage >= recyclepage + 1) {
+	if(zonepage >= recyclepage + wzone->vnand->_2kPerPage) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
@@ -2166,20 +2173,20 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		}
 	}
 	else {
-		if(zonepage > 1) {
-			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,(zonepage - 1) * spp);
-			ret = copy_data(rep, wzone, zonepage - 1);
+		if(zonepage > wzone->vnand->_2kPerPage) {
+			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,(zonepage - wzone->vnand->_2kPerPage) * spp);
+			ret = copy_data(rep, wzone, zonepage - wzone->vnand->_2kPerPage);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				goto err;
 			}
 
-			recyclesector = recyclesector - (zonepage - 1) * spp;
+			recyclesector = recyclesector - (zonepage - wzone->vnand->_2kPerPage) * spp;
 			recyclepage = (recyclesector + spp - 1) / spp;
 		}
-		else if (zonepage == 1)
-			rep->write_pagecount++;
+		else if (zonepage == wzone->vnand->_2kPerPage)
+			rep->write_pagecount += wzone->vnand->_2kPerPage;
 
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {

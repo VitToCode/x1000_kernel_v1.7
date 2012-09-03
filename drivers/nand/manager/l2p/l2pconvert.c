@@ -539,7 +539,7 @@ exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
-	return ret;
+	return 0;
 	
 first_read:
 	ret = 0;
@@ -773,8 +773,6 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 	jsectorid = -1;
 	singlelist_for_each(pos, &pagelist->head) {
 		pl_node = singlelist_entry(pos, PageList, head);
-		if (Zone_GetFreePageCount(zone) == 0 && sector_count == 0)
-			break;
 		if (sector_count == 0) {
 			pl_node->startPageID = Zone_AllocNextPage(zone);
 			old_startpageid = pl_node->startPageID;
@@ -900,6 +898,10 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 		l2p->alloced_new_zone = 1;
 	}
 	pi->PageID = Zone_AllocNextPage(zone);
+	if (zone->vnand->_2kPerPage > 1) {
+		while (pi->PageID % zone->vnand->_2kPerPage)
+			pi->PageID = Zone_AllocNextPage(zone);
+	}
 
 	singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);

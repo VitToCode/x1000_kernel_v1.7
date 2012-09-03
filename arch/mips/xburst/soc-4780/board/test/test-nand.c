@@ -52,15 +52,15 @@ static struct platform_nand_partition partition_info[] = {
 	 mode:1,
 	 eccbit:8,
 	 use_planes:TWO_PLANES,
-	 part_attrib:PART_SYSTEM},
-	{name:"NAND DATA partition",
+	 part_attrib:PART_SYSTEM},*/
+	{name:"ndisk",
 	 offset:612 * 0x100000LL,
-	 size:512 * 0x100000LL,
+	 size:128 * 0x100000LL,
 	 mode:1,
 	 eccbit:8,
 	 use_planes:TWO_PLANES,
-	 part_attrib:PART_DATA},*/
-	{name:"nd-misc",
+	 part_attrib:PART_DATA},
+	{name:"mdisk",
 	 offset:1124 * 0x100000LL,
 	 size:128 * 0x100000LL,
 	 mode:1,
@@ -82,7 +82,7 @@ static int partition_reserved_badblocks[] = {
 //	2,			/* reserved blocks of mtd0 */
 //	2,			/* reserved blocks of mtd1 */
 //	10,			/* reserved blocks of mtd2 */
-//	20,			/* reserved blocks of mtd3 */
+	20,			/* reserved blocks of mtd3 */
 	20,			/* reserved blocks of mtd4 */
 	4			/* reserved blocks of mtd5 */
 };

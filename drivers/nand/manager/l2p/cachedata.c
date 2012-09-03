@@ -13,7 +13,7 @@
 CacheData * CacheData_Init (unsigned short indexcount, unsigned int unitlen )
 {
 	int i;
-	CacheData *cachedata;	
+	CacheData *cachedata;
 	cachedata = Nand_VirtualAlloc(sizeof(CacheData));
 	if(cachedata == NULL){
 		ndprint(CACHEDATA_ERROR,"ERROR: fun %s line %d\n", __FUNCTION__, __LINE__);
@@ -29,7 +29,7 @@ CacheData * CacheData_Init (unsigned short indexcount, unsigned int unitlen )
 
 	for (i = 0; i < indexcount; i++)
 		cachedata->Index[i] = -1;
-	
+
 	cachedata->IndexID = -1;
 	cachedata->IndexCount = indexcount;
 	cachedata->unitLen = unitlen;
@@ -59,12 +59,14 @@ unsigned int CacheData_get ( CacheData *cachedata, unsigned int indexid )
 {
 	unsigned int index;
 	if(cachedata->IndexID == -1){
-		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);		
+		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 	index = (indexid - cachedata->IndexID) / cachedata->unitLen;
-	if (index < 0) {
-		ndprint(CACHEDATA_ERROR,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
+	if (index < 0 || index >= cachedata->IndexCount) {
+		ndprint(CACHEDATA_ERROR, "ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
+		ndprint(CACHEDATA_ERROR, "ERROR: indexid = %d, IndexID = %d, unitLen = %d, IndexCount = %d\n",
+				indexid, cachedata->IndexID, cachedata->unitLen, cachedata->IndexCount);
 		return -1;
 	}
 	return cachedata->Index[index];
@@ -81,7 +83,7 @@ void CacheData_set ( CacheData *cachedata,  unsigned int indexid, unsigned int d
 {
 	unsigned int index;
 	if(cachedata->IndexID == -1){
-		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);			
+		ndprint(CACHEDATA_ERROR,"ERROR func %s line %d \n", __FUNCTION__, __LINE__);
 		return;
 	}
 	index = (indexid - cachedata->IndexID) / cachedata->unitLen;
@@ -89,7 +91,7 @@ void CacheData_set ( CacheData *cachedata,  unsigned int indexid, unsigned int d
 		ndprint(CACHEDATA_ERROR,"ERROR: index = %d func %s line %d \n", index, __FUNCTION__, __LINE__);
 		return;
 	}
-	
+
 	cachedata->Index[index] = data;
 }
 
@@ -122,17 +124,16 @@ void CacheData_update ( CacheData *cachedata, unsigned int startID,unsigned char
 	cachedata->IndexID = startID;
 	memcpy(cachedata->Index,data,cachedata->IndexCount << 2);
 }
-/** 
+/**
  *	CacheData_ismatch  -  Whether indexid in the cachedata or not
- *	
+ *
  *	@cachedata: operate object
  *	@indexid: sectorid
  */
 int CacheData_ismatch ( CacheData *cachedata, unsigned int indexid)
 {
-	return (indexid >= cachedata->IndexID && 
+	return (indexid >= cachedata->IndexID &&
 		indexid < cachedata->IndexID + cachedata->unitLen * cachedata->IndexCount);
-		
 }
 
 void CacheData_Dump( CacheData *cd) {
