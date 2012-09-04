@@ -292,7 +292,7 @@ static int gpio_set_wake(struct irq_data *data, unsigned int on)
 	int pin  = data->irq - jz->irq_base;
 
 	/* gpio must set be interrupt */
-	if(test_bit(pin, jz->irq_map))
+	if(!test_bit(pin, jz->irq_map))
 		return -EINVAL;
 
 	if(on)
