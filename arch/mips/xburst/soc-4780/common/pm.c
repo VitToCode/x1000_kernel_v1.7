@@ -243,8 +243,8 @@ int regs[128];
 : : "i" (base))
 
 #define K0BASE			KSEG0
-#define CFG_DCACHE_SIZE		16384
-#define CFG_ICACHE_SIZE		16384
+#define CFG_DCACHE_SIZE		32768
+#define CFG_ICACHE_SIZE		32768
 #define CFG_CACHELINE_SIZE	32
 
 static inline void __jz_flush_cache_all(void)
@@ -319,6 +319,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	int i;
 	unsigned long lcr = cpm_inl(CPM_LCR);
 	unsigned long opcr = cpm_inl(CPM_OPCR);
+	unsigned long cpcsr = cpm_inl(CPM_CPCSR);
 	
 	/* set SRBC to stop bus transfer */
 	cpm_outl((1<<26),CPM_SRBC);
@@ -345,6 +346,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(11,CPM_PSWC2ST);
 	cpm_outl(0,CPM_PSWC3ST);
 
+	cpm_outl((cpcsr & ~0xff) | ((0x4 << 4) | 0x2),CPM_CPCSR);
 #if defined(CONFIG_PM_POWERDOWN_P0)
 	/* Set resume return address */
 	cpm_outl(1,CPM_SLBC);
@@ -354,6 +356,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	save_regs(regs);
 #endif	
 	__jz_flush_cache_all();
+
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
 			"wait\n\t"
@@ -376,8 +379,22 @@ sleep_done:
 	}
 	/* Restore OPCR */
 	cpm_outl(opcr,CPM_OPCR);
+	cpm_outl(cpcsr,CPM_CPCSR);
+
 	/* Restore LCR */
-	cpm_outl(lcr,CPM_LCR);
+#define ENABLE_LCR_MODULES(m) 					\
+	do{							\
+		unsigned long tmp = cpm_inl(CPM_LCR);		\
+		cpm_outl(tmp & ~(1<<(28+(m))),CPM_LCR);		\
+		while(!(cpm_inl(CPM_LCR) & (1<<(24+ (m)))));	\
+		udelay(500);					\
+	}while(0)
+
+	ENABLE_LCR_MODULES(0);
+	ENABLE_LCR_MODULES(1);
+	ENABLE_LCR_MODULES(2);
+	cpm_outl(cpm_inl(CPM_LCR) & ~0xff,CPM_LCR);
+#undef ENABLE_LCR_MODULES
 #endif
 	return 0;
 }
@@ -395,7 +412,6 @@ int __init jz4780_pm_init(void)
 	suspend_set_ops(&jz4780_pm_ops);
 	return 0;
 }
-
 
 arch_initcall(jz4780_pm_init);
 
