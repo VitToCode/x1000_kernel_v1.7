@@ -259,7 +259,10 @@ static int handle_req_thread(void *data)
 				break;
 			}
 
-			if (!__blk_end_request(req, err, blk_rq_bytes(req)))
+			spin_lock_irq(q->queue_lock);
+			ret = __blk_end_request(req, err, blk_rq_bytes(req));
+			spin_unlock_irq(q->queue_lock);
+			if (!ret)
 				break;
 		}
 	}
