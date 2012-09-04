@@ -72,7 +72,7 @@
 #define CPM_LCR_VPUS		(0x1<<26)
 #define CPM_LCR_GPUS		(0x1<<25) 
 #define CPM_LCR_GPSS 		(0x1<<25)
-#define CPM_LCR_STATUS_MASK 	(0xf<<25)
+#define CPM_LCR_STATUS_MASK 	(0xf<<24)
 #define CPM_LCR_GPU_IDLE 	(0x1<<24)
 
 #define OPCR_ERCS		(0x1<<2)

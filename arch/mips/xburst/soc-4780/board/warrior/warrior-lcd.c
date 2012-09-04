@@ -80,9 +80,9 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.alloc_vidmem = 0,
 };
 
+#ifdef CONFIG_LCD_KR070LA0S_270
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode = {
-#ifdef CONFIG_LCD_KR070LA0S_270
 	.name = "1024x600",
 	.refresh = 60,
 	.xres = 1024,
@@ -97,8 +97,11 @@ static struct fb_videomode jzfb1_videomode = {
 	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
+};
 #endif
 #ifdef CONFIG_LCD_EK070TN93
+/* LCD Controller 1 output to LVDS TFT panel */
+static struct fb_videomode jzfb1_videomode = {
 	.name = "800x480",
 	.refresh = 60,
 	.xres = 800,
@@ -113,11 +116,11 @@ static struct fb_videomode jzfb1_videomode = {
 	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
-#endif
 };
+#endif
 
-struct jzfb_platform_data jzfb1_pdata = {
 #ifdef CONFIG_LCD_KR070LA0S_270
+struct jzfb_platform_data jzfb1_pdata = {
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,
 
@@ -159,8 +162,10 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.txectrl.coarse_tuning_7x_clk = 2,
 
 	.dither_enable = 0,
+};
 #endif
 #ifdef CONFIG_LCD_EK070TN93
+struct jzfb_platform_data jzfb1_pdata = {
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,
 
@@ -175,8 +180,8 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.alloc_vidmem = 1,
 	.lvds = 0,
 	.dither_enable = 0,
-#endif
 };
+#endif
 
 #ifdef CONFIG_BACKLIGHT_PWM
 static int warrior_backlight_init(struct device *dev)
