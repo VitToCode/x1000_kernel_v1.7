@@ -277,14 +277,7 @@ static int lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 					"soft power off failed: %d\n", err);
 			return err;
 		}
-		if (acc->power){
-			err = regulator_disable(acc->power);
-			if (err < 0){
-				dev_err(&acc->client->dev,
-						"power_off regulator failed: %d\n", err);
-				return err;
-			}
-		}
+
 	}
 	return 0;                 
 }
@@ -301,16 +294,6 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 			return err;
 		}
 	}else{
-		if (acc->power){
-			err = regulator_enable(acc->power);
-			if (err < 0){
-				dev_err(&acc->client->dev,
-						"power_on regulator failed: %d\n", err);
-				return err;
-			}
-		}
-		udelay(10);
-		
 		buf[0] = CTRL_REG1;
 		buf[1] = LIS3DH_ACC_ENABLE_ALL_AXES;//acc->resume_state[RES_CTRL_REG1];
 		err = lis3dh_acc_i2c_write(acc, buf, 1);
@@ -780,7 +763,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
 
-
 	acc->resume_state[RES_CTRL_REG1] = LIS3DH_ACC_ENABLE_ALL_AXES;//0X27
 	acc->resume_state[RES_CTRL_REG2] = 0x00;
 	acc->resume_state[RES_CTRL_REG3] = 0xC0;
@@ -868,6 +850,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			acc->pdata->gpio_int);
 
 	dev_info(&client->dev, "%s: probed\n", LIS3DH_ACC_DEV_NAME);
+	//lis3dh_acc_enable(acc);
 	return 0;
 
 err_power_off:
@@ -886,6 +869,7 @@ exit_check_functionality_failed:
 
 static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 {
+	int err;
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 
 	if(acc->pdata->gpio_int >= 0){
@@ -903,6 +887,14 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 	kfree(acc->pdata);
 	kfree(acc);
 
+	if (acc->power){
+		err = regulator_disable(acc->power);
+		if (err < 0){
+			dev_err(&acc->client->dev,
+					"power_off regulator failed: %d\n", err);
+			return err;
+		}
+	}
 	return 0;
 }
 

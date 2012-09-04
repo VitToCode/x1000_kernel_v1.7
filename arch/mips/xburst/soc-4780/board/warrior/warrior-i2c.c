@@ -10,6 +10,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
 #include <linux/input.h>
 #include <linux/gsensor.h>
 #include <linux/tsc.h>
@@ -52,7 +53,7 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 };
 #endif
 
-#if defined(CONFIG_JZ4780_SUPPORT_TSC) && defined(CONFIG_I2C3_JZ4780)
+#if (defined(CONFIG_JZ4780_SUPPORT_TSC) && (defined(CONFIG_I2C_GPIO) ||defined(CONFIG_I2C3_JZ4780)))
 static struct jztsc_pin warrior_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
@@ -80,8 +81,14 @@ static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#ifdef CONFIG_I2C3_JZ4780 /*I2C3*/
+#if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
+#ifdef CONFIG_TOUCHSCREEN_LDWZIC
+	{
+		I2C_BOARD_INFO("ldwzic_ts", 0x01),
+		.platform_data	= &warrior_tsc_pdata,
+	},
+#endif
 #ifdef CONFIG_JZ4780_SUPPORT_TSC
 	{
 		I2C_BOARD_INFO("ft5x0x_tsc", 0x36),
@@ -91,13 +98,32 @@ static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 };
 #endif /*I2C3*/
 
+#ifdef CONFIG_I2C_GPIO
+#define GPIO_I2C3_SDA  (32*3+10)  //SDA对应的GPIO地址
+#define GPIO_I2C3_SCK  (32*3+11)  //SCL对应的GPIO地址
+static struct i2c_gpio_platform_data i2c3_gpio_data = {
+	.sda_pin	= GPIO_I2C3_SDA,
+	.scl_pin	= GPIO_I2C3_SCK,
+};
+static struct platform_device i2c3_gpio_device = {
+	.name	= "i2c-gpio",
+	.id	= 3,
+	.dev	= { .platform_data = &i2c3_gpio_data,},
+};
+#endif
+
+
 static int __init warrior_i2c_dev_init(void)
 {
+#ifdef CONFIG_I2C_GPIO
+	platform_device_register(&i2c3_gpio_device);
+#endif
+
 #ifdef CONFIG_I2C1_JZ4780
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
 #endif
 
-#ifdef CONFIG_I2C3_JZ4780
+#if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(3, warrior_i2c3_devs, ARRAY_SIZE(warrior_i2c3_devs));
 #endif	
 	return 0;

@@ -70,6 +70,7 @@ struct ldwzic_ts_data {
 	long int count;
 #endif
 	struct ldwzic_gpio gpio;
+	struct regulator *power;
 };
 
 static int ldwzic_i2c_rxdata(struct i2c_client *client, u8 *rxdata, int length)
@@ -133,6 +134,22 @@ static int ldwzic_set_reg(struct ldwzic_ts_data *ts, u8 addr, u8 para)
 	return 0;
 }
 
+static int ldwzic_ts_power_off(struct ldwzic_ts_data *ts)
+{
+	if (ts->power)
+		return regulator_disable(ts->power);
+
+	return 0;
+}
+
+static int ldwzic_ts_power_on(struct ldwzic_ts_data *ts)
+{
+	if (ts->power)
+		return regulator_enable(ts->power);
+
+	return 0;
+}
+
 static void ldwzic_ts_release(struct ldwzic_ts_data *ldwzic_ts)
 {
 #ifdef CONFIG_LDWZIC_MULTI_TOUCH	
@@ -146,9 +163,9 @@ static void ldwzic_ts_release(struct ldwzic_ts_data *ldwzic_ts)
 	del_timer(&(ldwzic_ts->penup_timeout_timer));
 #endif
 }
-
 static void ldwzic_chip_reset(struct ldwzic_ts_data *ts)
 {
+
 	set_pin_status(ts->gpio.reset, 1);
 	msleep(20);
 	set_pin_status(ts->gpio.reset, 0);
@@ -291,6 +308,7 @@ static void ldwzic_report_value(struct ldwzic_ts_data *ts)
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x2);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y2);
+	//		printk("---x2=%d  y2=%d\n",event->x2,event->y2);
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 		case 1:
@@ -298,6 +316,7 @@ static void ldwzic_report_value(struct ldwzic_ts_data *ts)
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x1);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y1);
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+	//		printk("---x1=%d  y1=%d\n",event->x1,event->y1);
 			input_mt_sync(data->input_dev);
 		default:
 			break;
@@ -414,7 +433,6 @@ static int ldwzic_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	struct ldwzic_ts_data *ldwzic_ts;
 	struct input_dev *input_dev;
 	int err = 0;
-
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
@@ -427,8 +445,14 @@ static int ldwzic_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	}
 
 	ldwzic_ts->client = client;
+	client->dev.init_name=client->name;
 	i2c_set_clientdata(client, ldwzic_ts);
 
+	ldwzic_ts->power = regulator_get(&client->dev, "vtsc");
+	if (IS_ERR(ldwzic_ts->power)) {
+		dev_warn(&client->dev, "get regulator failed\n");
+	}
+	ldwzic_ts_power_on(ldwzic_ts);
 	ldwzic_gpio_init(ldwzic_ts);
 
 	INIT_WORK(&ldwzic_ts->pen_event_work, ldwzic_ts_pen_irq_work);
@@ -496,7 +520,6 @@ static int ldwzic_ts_probe(struct i2c_client *client, const struct i2c_device_id
 				dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
-
 #ifdef PENUP_TIMEOUT_TIMER
 	init_timer(&(ldwzic_ts->penup_timeout_timer));
 	ldwzic_ts->penup_timeout_timer.data = (unsigned long)ldwzic_ts;
@@ -510,9 +533,7 @@ static int ldwzic_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	register_early_suspend(&ldwzic_ts->early_suspend);
 #endif
 
-
 	ldwzic_chip_reset(ldwzic_ts);	//add by KM: 20111010
-
 	ldwzic_set_reg(ldwzic_ts, LDWZIC_REG_CTRL_OPMODE, REG_TOUCH_USED_OPMODE); //5, 6,7,8
 	msleep(40);
 
@@ -546,7 +567,7 @@ static int __devexit ldwzic_ts_remove(struct i2c_client *client)
 	cancel_work_sync(&ldwzic_ts->pen_event_work);
 	destroy_workqueue(ldwzic_ts->ts_workqueue);
 	i2c_set_clientdata(client, NULL);
-
+	ldwzic_ts_power_off(ldwzic_ts);
 	return 0;
 }
 
