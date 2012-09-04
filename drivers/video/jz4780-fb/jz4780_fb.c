@@ -1677,7 +1677,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
 
-	jzfb->fmt_order = FORMAT_X8B8G8R8;
+	jzfb->fmt_order = FORMAT_X8R8G8B8;
 
 	jzfb_check_var(&fb->var, fb);
 
