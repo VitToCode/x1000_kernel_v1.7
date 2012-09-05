@@ -10,9 +10,7 @@
 #include <linux/syscore_ops.h>
 #include <irq.h>
 #include <linux/wakelock.h>
-#include <linux/workqueue.h>
 #include <linux/mutex.h>
-//#include <linux/delay.h>
 
 #include <asm/div64.h>
 
@@ -22,12 +20,11 @@
 #include <soc/tcu.h>
 #include <soc/irq.h>
 
-#define regr(off) 	inl(TCU_IOBASE + (off))
-#define regw(val,off)	outl(val, TCU_IOBASE + (off))
 
 #define TCU_CNT_MAX (65535UL)
 #define NR_TCU_CH 8
 #define RESERVED_CH 5
+#define TCU_SIZE 0x150
 
 static DECLARE_BITMAP(tcu_map, NR_TCU_CH) = { (1<<NR_TCU_CH) - 1, };
 
@@ -62,18 +59,20 @@ struct tcu_device {
 	unsigned int init_level; /*used in pwm output mode*/
 	unsigned int divi_ratio;
 	unsigned int pwm_shutdown; /*0-->graceful shutdown   1-->abrupt shutdown only use in TCU1_MODE*/
-	struct work_struct work;
+	struct tasklet_struct	tasklet;
 } tcu_chs[NR_TCU_CH];
 
-struct mutex lock;
-static struct workqueue_struct *workqueue;
 
-struct tcu_irq_list {
-	int id;
-	struct tcu_irq_list *next;
+struct jz47xx_tcu_t {
+	spinlock_t		spin_lock;
+	void __iomem            *reg;
+	struct mutex            lock;
+
 };
-struct tcu_irq_list *list_irq[8];
+struct jz47xx_tcu_t *jz47xx_tcu;
 
+#define regr(off) 	readl(jz47xx_tcu->reg + (off))
+#define regw(val,off)	writel(val,jz47xx_tcu->reg + (off))
 
 static inline void dump_tcu_reg(void)
 {
@@ -105,6 +104,7 @@ static inline void dump_tcu_reg(void)
 static void tcu_select_division_ratio(int id, unsigned int ratio)
 {    /*division ratio 1/4/16/256/1024/mask->no internal input clock*/
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	switch(ratio) {
 	case 0: regw((tmp | CSR_DIV1),CH_TCSR(id)); break;
@@ -117,11 +117,13 @@ static void tcu_select_division_ratio(int id, unsigned int ratio)
 		regw((tmp | CSR_DIV_MSK),CH_TCSR(id)); break;
 
 	}
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 static void tcu_select_clk(int id,int clock)
 {
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	switch(clock) {
 	case EXT_EN:  regw((tmp | CSR_EXT_EN),CH_TCSR(id));break;
@@ -130,6 +132,7 @@ static void tcu_select_clk(int id,int clock)
 	case CLK_MASK:
 		regw((tmp & (~CSR_CLK_MSK)),CH_TCSR(id));
 	}
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 static void set_tcu_counter_value(int id,int count_value)
@@ -145,45 +148,72 @@ static void set_tcu_full_half_value(int id,unsigned int full_num,unsigned int ha
 
 void tcu_disable_counter(int id)
 {
-	regw(BIT(id),TCU_TECR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TECR);
+	regw((tmp | BIT(id)),TCU_TECR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 } 
 void tcu_enable_counter(int id)
 {
-	regw(BIT(id),TCU_TESR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TESR);
+	regw((tmp | BIT(id)),TCU_TESR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 void tcu_stop_clock(int id)
 {
-	regw(BIT(id),TCU_TSSR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TSSR);
+	regw((tmp | BIT(id)),TCU_TSSR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 void tcu_start_clock(int id)
 {
-	regw(BIT(id),TCU_TSCR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TSCR);
+	regw((tmp | BIT(id)),TCU_TSCR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 
 void tcu_pwm_output_enable(int id)
 {
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	regw((tmp | TCSR_PWM_EN),CH_TCSR(id));
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 void tcu_pwm_output_disable(int id)
 {
-	int tmp = regr(CH_TCSR(id));
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(CH_TCSR(id));
 	regw(tmp & (~TCSR_PWM_EN),CH_TCSR(id));
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 void tcu_pwm_input_enable(int id)
 {
-	int tmp = regr(CH_TCSR(id));
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(CH_TCSR(id));
 	regw((tmp | (1 << 6)),CH_TCSR(id));
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 void tcu_pwm_input_disable(int id)
 {
-	int tmp = regr(CH_TCSR(id));
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(CH_TCSR(id));
 	regw(tmp & (~(1 << 6)),CH_TCSR(id));
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 
@@ -200,6 +230,7 @@ void tcu_shutdown_counter(struct tcu_device *tcu)
 static void tcu_set_pwm_output_init_level(int id,int level)
 {
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	if(level){
 		regw((tmp | TCSR_PWM_HIGH),CH_TCSR(id));
@@ -207,99 +238,100 @@ static void tcu_set_pwm_output_init_level(int id,int level)
 	else {
 		regw((tmp &(~TCSR_PWM_HIGH)),CH_TCSR(id));
 	}
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 void tcu_set_pwm_shutdown(int id,unsigned int shutdown)/*only use in TCU1_MODE*/
 {
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	if(shutdown)
 		regw((tmp | TCSR_PWM_SD),CH_TCSR(id));
 	else {
 		regw((tmp & (~TCSR_PWM_SD)),CH_TCSR(id));
 	}
-
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 static void tcu_mask_full_match_irq(int id)
 {
-	regw(BIT(id),TCU_TMSR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TMSR);
+	regw((tmp | BIT(id)),TCU_TMSR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 static void tcu_mask_half_match_irq(int id)
 {
-	regw(BIT((id) + 16),TCU_TMSR);	
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TMSR);
+	regw((tmp | BIT((id) + 16)),TCU_TMSR);	
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 static void tcu_unmask_full_match_irq(int id)
 {
-	regw(BIT(id),TCU_TMCR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TMCR);
+	regw((tmp | BIT(id)),TCU_TMCR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 static void tcu_unmask_half_match_irq(int id)
 {
-	regw(BIT((id) + 16),TCU_TMCR);	
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TMCR);
+	regw((tmp | BIT((id) + 16)),TCU_TMCR);	
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
-static struct tcu_irq_list *get_interrupt_flag(void)
-{
-	int tmp1 = 0;
-	int tmp2 = 0;
-	int i,num;
-	struct tcu_irq_list *head;
-	struct tcu_irq_list *p;
-	head = (struct tcu_irq_list *)kzalloc(sizeof(struct tcu_irq_list),GFP_KERNEL);
-	head->id = 8;
-	head->next = NULL;
-	p = head;
-	tmp1 = regr(TCU_TFR);
-	tmp2 = regr(TCU_TMR);
-//	printk("--------get_interrupt_flag :flag = %08x\n",tmp1);
-//	printk("--------get_interrupt_mask :mask = %08x\n",tmp2);
-	i = num =0;
-	while(i < 24) {
-		if(!(tmp2 & (1 << i)) && (tmp1 & (1 << i))) {
-			if(i <=7)  num =i;
-			else if(i >=16 && i<=23) 
-				num = i - 16;
-			else {
-				i ++;
-				continue;
-			}
-			list_irq[num] = (struct tcu_irq_list *)kzalloc(sizeof(struct tcu_irq_list),GFP_KERNEL);
-			p->next = list_irq[num];
-			list_irq[num]->id = num;
-			list_irq[num]->next = NULL;
-			p = list_irq[num];		
-		}
-		i++;
-	}
-	return head;
-}
 
 void tcu_set_full_match_flags(int id)
 {
-	regw(BIT(id),TCU_TFSR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TFSR);
+	regw((tmp | BIT(id)),TCU_TFSR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 void tcu_set_half_match_flags(int id)
 {
-	regw(BIT((id) + 16),TCU_TFSR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TFSR);
+	regw((tmp | BIT((id) + 16)),TCU_TFSR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 static void tcu_clear_full_match_flags(int id)
 {
-	regw(BIT(id),TCU_TFCR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TFCR);
+	regw((tmp | BIT(id)),TCU_TFCR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 static void tcu_clear_half_match_flags(int id)
 {
-	regw(BIT((id) + 16),TCU_TFCR);
+	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
+	tmp = regr(TCU_TFCR);
+	regw((tmp | BIT((id) + 16)),TCU_TFCR);
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 static void tcu_clear_counter_to_zero(int id,enum tcu_mode mode)
 {
 	int tmp;
+	spin_lock(&jz47xx_tcu->spin_lock);
 	tmp = regr(CH_TCSR(id));
 	if(mode == TCU2_MODE) {
 		regw((tmp | TCSR_CNT_CLRZ),CH_TCSR(id));
 	}else {
 		regw(0,CH_TCNT(id));	
 	}
+	spin_unlock(&jz47xx_tcu->spin_lock);
 }
 
 
@@ -355,27 +387,30 @@ static void tcu_set_close_state(struct tcu_device *tcu)
 
 static irqreturn_t tcu_irqhandler(int irq,void *data)
 {
-	int i;
-	struct tcu_irq_list *p,*q;
+	int tmp1 = 0;
+	int tmp2 = 0;
+	int i = 0;
 
-	p = get_interrupt_flag();
-	q = p;
-	p = p->next;
-	q->next = NULL;
-	kfree(q);
-	while(p != NULL) {
-		q = p;
-		i = p->id;
-		p = p->next;
+	tmp1 = regr(TCU_TFR);
+	tmp2 = regr(TCU_TMR);
+//	printk("--------get_interrupt_flag :flag = %08x\n",tmp1);
+//	printk("--------get_interrupt_mask :mask = %08x\n",tmp2);
+	while(i < NR_TCU_CH) {
+		if((!(tmp2 & (1 << i)) && (tmp1 & (1 << i))) || (!(tmp2 & (1 << (i + 16))) && (tmp1 & (1 << (i + 16))))) {
+#ifdef RESERVED_CH
+			if(i == RESERVED_CH) {
+				i++;
+				continue;
+			}
+#endif 
+			tasklet_schedule(&tcu_chs[i].tasklet);
 
-		tcu_mask_full_match_irq(i);
-		tcu_mask_half_match_irq(i);
-		tcu_clear_full_match_flags(i);
-		tcu_clear_half_match_flags(i);
-
-		queue_work(workqueue,&tcu_chs[i].work);
-		q->next = NULL;
-		kfree(q);
+			tcu_mask_full_match_irq(i);
+			tcu_mask_half_match_irq(i);
+			tcu_clear_full_match_flags(i);
+			tcu_clear_half_match_flags(i);
+		}
+		i++;
 	}
 	return IRQ_HANDLED;
 }
@@ -385,13 +420,11 @@ int __init tcu_init(void)
 	int ret,i;
 	unsigned int mask_bit = ~(1 << RESERVED_CH);
 
-	workqueue = create_singlethread_workqueue("tcu_workqueue");
-	if (!workqueue){
-		printk(" ------tcu create workqueue fail!!!-------\n");
-		ret = -ENOMEM;
-		return ret;
-	}
-	mutex_init(&lock);
+	jz47xx_tcu = (struct jz47xx_tcu_t *)kzalloc(sizeof(struct jz47xx_tcu_t),GFP_KERNEL);
+	jz47xx_tcu->reg = ioremap(TCU_IOBASE,TCU_SIZE);
+	spin_lock_init(&jz47xx_tcu->spin_lock);
+	mutex_init(&jz47xx_tcu->lock);
+
 #ifndef RESERVED_CH
 	if (0 != (ret =request_irq(IRQ_TCU1, tcu_irqhandler,IRQF_DISABLED, "tcu1",NULL))) {
 		printk(KERN_INFO "tcu_timer :%s request irq error !\n ","tcu1");
@@ -404,7 +437,6 @@ int __init tcu_init(void)
 	}
 
 	/*mask all interrupts*/
-
 	regw(mask_bit,TCU_TMSR);
 	/*clear match flags*/
 	regw(mask_bit,TCU_TFCR);
@@ -421,22 +453,28 @@ int __init tcu_init(void)
 }
 
 /*2 interrupts  chanel 0~4 & 6~7->2 , chanel 5->1  */
-struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(struct work_struct *))
+struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(unsigned long))
 {
-	mutex_lock(&lock);
+	mutex_lock(&jz47xx_tcu->lock);
 	if (channel_num < 0 || channel_num > NR_TCU_CH - 1) {
-		mutex_unlock(&lock);
+		mutex_unlock(&jz47xx_tcu->lock);
 		return ERR_PTR(-ENODEV);
 	}
 	if (!test_bit(channel_num, tcu_map)) {
-		mutex_unlock(&lock);
+		mutex_unlock(&jz47xx_tcu->lock);
 		return ERR_PTR(-EBUSY);
 	}
-	
+#ifdef RESERVED_CH
+	if(channel_num == RESERVED_CH) {
+		mutex_unlock(&jz47xx_tcu->lock);
+		return ERR_PTR(-EBUSY);
+	}
+#endif 	
+
 	tcu_chs[channel_num].id = channel_num;
 
 	if(NULL != channel_handler)
-		INIT_WORK(&tcu_chs[channel_num].work,channel_handler);
+		tasklet_init(&tcu_chs[channel_num].tasklet,channel_handler,(unsigned long)(&tcu_chs[channel_num]));
 	
 	if(tcu_chs[channel_num].id == 1 || tcu_chs[channel_num].id == 2) 
 		tcu_chs[channel_num].tcumode = TCU2_MODE;
@@ -445,7 +483,7 @@ struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(struct wo
 	printk("request channel number:%d ------\n",channel_num);
 
 	clear_bit(channel_num, tcu_map);
-	mutex_unlock(&lock);
+	mutex_unlock(&jz47xx_tcu->lock);
 	return &tcu_chs[channel_num];
 
 }
@@ -484,6 +522,7 @@ int tcu_as_timer_config(struct tcu_device *tcu)
 		tcu_set_pwm_output_init_level(tcu->id,1);
 
 //	printk("tcu_control register = 0x%08x\n",regr(CH_TCSR(tcu->id)));
+	printk(":::::::config tcu ok!!!::::::::::::::\n");
 	return 0;
        
 }
@@ -513,6 +552,8 @@ int tcu_as_counter_config(struct tcu_device *tcu)
 int tcu_enable(struct tcu_device *tcu)
 {
 	if (!tcu->using) {
+		if(tcu->pwm_flag)
+			tcu_pwm_output_enable(tcu->id);
 		tcu->using = 1;
 		tcu_enable_counter(tcu->id);
 	}

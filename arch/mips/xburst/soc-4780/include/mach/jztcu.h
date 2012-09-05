@@ -1,6 +1,7 @@
 #ifndef _LINUX_TCU_H
 #define _LINUX_TCU_H
 
+#include <linux/interrupt.h>
 enum tcu_mode {
 	TCU1_MODE = 1,
 	TCU2_MODE = 2,
@@ -33,11 +34,10 @@ struct tcu_device {
 	unsigned int init_level; /*used in pwm output mode*/
 	unsigned int divi_ratio;  /*  0/1/2/3/4/5/something else------>1/4/16/64/256/1024/mask  */
 	unsigned int pwm_shutdown; /*0-->graceful shutdown   1-->abrupt shutdown only use in TCU1_MODE*/
-	struct work_struct work;
-//	void (*channel_handler)(void);
+	struct tasklet_struct	tasklet;
 };
 
-struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(struct work_struct *));
+struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(unsigned long));
 void tcu_free(struct tcu_device *tcu);
 int tcu_as_timer_config(struct tcu_device *tcu);
 int tcu_as_counter_config(struct tcu_device *tcu);
