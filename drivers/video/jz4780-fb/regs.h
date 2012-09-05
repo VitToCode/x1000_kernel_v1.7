@@ -291,7 +291,7 @@
 #define LCDC_VSYNC_VPS_BIT	16  /* VSYNC pulse start in line clock, fixed to 0 */
 #define LCDC_VSYNC_VPS_MASK	(0xfff << LCDC_VSYNC_VPS_BIT)
 #define LCDC_VSYNC_VPE_BIT	0   /* VSYNC pulse end in line clock */
-#define LCDC_VSYNC_VPE_MASK	(0xfff << LCDC_VSYNC_VPS_BIT)
+#define LCDC_VSYNC_VPE_MASK	(0xfff << LCDC_VSYNC_VPE_BIT)
 
 /* Horizontal Synchronize Register */
 #define LCDC_HSYNC_HPS_BIT	16  /* HSYNC pulse start position in dot clock */

@@ -357,7 +357,7 @@ static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	mode = jzfb_get_mode(var, info);
 	if (mode == NULL) {
-		dev_err(info->dev, "%s get video mode faild\n", __func__);
+		dev_err(info->dev, "%s get video mode failed\n", __func__);
 		return -EINVAL;
 	}
 
@@ -619,17 +619,23 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 
 	jzfb_lvds_txpll0_is_pll_en(info, 1); /* pll enable */
 	udelay(20);
-	jzfb_lvds_txctrl_is_reset(info, 1); /* TXCTRL disable reset */
+	jzfb_lvds_txctrl_is_reset(info, 0); /* TXCTRL disable reset */
+
+	jzfb_lvds_check_pll_lock(info);
 
 	jzfb_lvds_txctrl_config(info);
 	jzfb_lvds_txpll0_config(info);
 	jzfb_lvds_txpll1_config(info);
 	jzfb_lvds_txectrl_config(info);
 
-	jzfb_lvds_check_pll_lock(info);
-
 #if 0
 	struct jzfb *jzfb = info->par;
+
+	reg_write(jzfb, LVDS_TXCTRL,  0x600784a1);
+	reg_write(jzfb, LVDS_TXPLL0,  0x40002108);
+	reg_write(jzfb, LVDS_TXPLL1,  0x8d000000);
+	reg_write(jzfb, LVDS_TXECTRL, 0x00000030);
+
 	printk("txctrl =  0x%08x\n", reg_read(jzfb, LVDS_TXCTRL));
 	printk("tx_pll0 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL0));
 	printk("tx_pll1 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL1));
@@ -707,7 +713,7 @@ static int jzfb_set_par(struct fb_info *info)
 
 	mode = jzfb_get_mode(var, info);
 	if (mode == NULL) {
-		dev_err(info->dev, "%s get video mode faild\n", __func__);
+		dev_err(info->dev, "%s get video mode failed\n", __func__);
 		return -EINVAL;
 	}
 
@@ -834,10 +840,22 @@ static int jzfb_set_par(struct fb_info *info)
 	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
 		 clk_get_rate(jzfb->lpclk));
 
-	/* panel'type is TFT LVDS, need to configure LVDS controller */
-	if (pdata->lvds && jzfb->id) {
-		jzfb_config_lvds_controller(info);
-	}
+#if 0
+#define APLL_REG (*(unsigned int *)(0xB0000010))
+#define MPLL_REG (*(unsigned int *)(0xB0000014))
+#define EPLL_REG (*(unsigned int *)(0xB0000018))
+#define VPLL_REG (*(unsigned int *)(0xB000001c))
+
+#define CPCCR_REG (*(unsigned int *)(0xB0000000))
+#define LCD_PIXEL_REG (*(unsigned int *)(0xB0000064))
+
+	printk("\tAPLL_REG = 0x%08x\n", APLL_REG);
+	printk("\tMPLL_REG = 0x%08x\n", MPLL_REG);
+	printk("\tEPLL_REG = 0x%08x\n", EPLL_REG);
+	printk("\tVPLL_REG = 0x%08x\n", VPLL_REG);
+	printk("\tLCD_PIXEL_REG = 0x%08x\n", LCD_PIXEL_REG);
+	printk("\tCPCCR_REG = 0x%08x\n", CPCCR_REG);
+#endif
 
 	/* if dither_en is 1, then set it */
 	jzfb_config_image_enh(info);
@@ -846,6 +864,11 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(is_enabled)
 		jzfb_enable(info);
+
+	/* panel'type is TFT LVDS, need to configure LVDS controller */
+	if (pdata->lvds && jzfb->id) {
+		jzfb_config_lvds_controller(info);
+	}
 
 	return 0;
 }
@@ -1435,7 +1458,7 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 	h = jzfb->osd.fg0.h;
 	bpp = jzfb->osd.fg0.bpp;
 
-	dev_info(info->dev, "LCD COLOR BAR w,h,bpp(%d,%d,%d)\n", w, h, bpp);
+	dev_info(info->dev, "LCD V COLOR BAR w,h,bpp(%d,%d,%d)\n", w, h, bpp);
 
 	for (i = 0; i < h; i++) {
 		for (j = 0; j < w; j++) {
@@ -1484,9 +1507,75 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 	}
 }
 
+static void jzfb_display_h_color_bar(struct fb_info *info)
+{
+	int i,j;
+	int w, h;
+	int bpp;
+	unsigned short *p16;
+	unsigned int *p32;
+	struct jzfb *jzfb = info->par;
+	struct fb_videomode *mode = jzfb->pdata->modes;
+
+	p16 = (unsigned short *)jzfb->vidmem;
+	p32 = (unsigned int *)jzfb->vidmem;
+	w = jzfb->osd.fg0.w;
+	h = jzfb->osd.fg0.h;
+	bpp = jzfb->osd.fg0.bpp;
+
+	dev_info(info->dev, "LCD H COLOR BAR w,h,bpp(%d,%d,%d)\n", w, h, bpp);
+
+	for (i = 0; i < h; i++) {
+		for (j = 0; j < w; j++) {
+			short c16;
+			int c32;
+			switch ((i / 10) % 4) {
+			case 0:
+				c16 = 0xF800;
+				c32 = 0x00FF0000;
+				break;
+			case 1:
+				c16 = 0x07C0;
+				c32 = 0x0000FF00;
+				break;
+			case 2:
+				c16 = 0x001F;
+				c32 = 0x000000FF;
+				break;
+			default:
+				c16 = 0xFFFF;
+				c32 = 0xFFFFFFFF;
+				break;
+			}
+			switch (bpp) {
+			case 18:
+			case 24:
+			case 32:
+				*p32++ = c32;
+				break;
+			default:
+				*p16 ++ = c16;
+			}
+		}
+		if (w % PIXEL_ALIGN) {
+			switch (bpp) {
+			case 18:
+			case 24:
+			case 32:
+				p32 += (ALIGN(mode->xres, PIXEL_ALIGN) - w);
+				break;
+			default:
+				p16 += (ALIGN(mode->yres, PIXEL_ALIGN) - w);
+				break;
+			}
+		}
+	}
+}
+
 static void dump_lcdc_registers(struct jzfb *jzfb)
 {
 	int i;
+	long unsigned int tmp;
 	struct device *dev = jzfb->fb->dev;
 
 	/* LCD Controller Resgisters */
@@ -1503,11 +1592,26 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	dev_info(dev, "LCDC_ALPHA:\t0x%08lx\n", reg_read(jzfb, LCDC_ALPHA));
 	dev_info(dev, "LCDC_IPUR:\t0x%08lx\n", reg_read(jzfb, LCDC_IPUR));
 	dev_info(dev, "==================================\n");
-	dev_info(dev, "LCDC_VAT: \t0x%08lx\n",reg_read(jzfb, LCDC_VAT));
-	dev_info(dev, "LCDC_DAH: \t0x%08lx\n", reg_read(jzfb, LCDC_DAH));
-	dev_info(dev, "LCDC_DAV: \t0x%08lx\n", reg_read(jzfb, LCDC_DAV));
-	dev_info(dev, "LCDC_VSYNC:\t0x%08lx\n", reg_read(jzfb, LCDC_VSYNC));
-	dev_info(dev, "LCDC_HSYNC:\t0x%08lx\n", reg_read(jzfb, LCDC_HSYNC));
+	tmp = reg_read(jzfb, LCDC_VAT);
+	dev_info(dev, "LCDC_VAT: \t0x%08lx, HT = %ld, VT = %ld\n", tmp,
+		 (tmp & LCDC_VAT_HT_MASK) >> LCDC_VAT_HT_BIT,
+		 (tmp & LCDC_VAT_VT_MASK) >> LCDC_VAT_VT_BIT);
+	tmp = reg_read(jzfb, LCDC_DAH);
+	dev_info(dev, "LCDC_DAH: \t0x%08lx, HDS = %ld, HDE = %ld\n", tmp,
+		 (tmp & LCDC_DAH_HDS_MASK) >> LCDC_DAH_HDS_BIT,
+		 (tmp & LCDC_DAH_HDE_MASK) >> LCDC_DAH_HDE_BIT);
+	tmp = reg_read(jzfb, LCDC_DAV);
+	dev_info(dev, "LCDC_DAV: \t0x%08lx, VDS = %ld, VDE = %ld\n", tmp,
+		 (tmp & LCDC_DAV_VDS_MASK) >> LCDC_DAV_VDS_BIT,
+		 (tmp & LCDC_DAV_VDE_MASK) >> LCDC_DAV_VDE_BIT);
+	tmp = reg_read(jzfb, LCDC_HSYNC);
+	dev_info(dev, "LCDC_HSYNC:\t0x%08lx, HPS = %ld, HPE = %ld\n", tmp,
+		 (tmp & LCDC_HSYNC_HPS_MASK) >> LCDC_HSYNC_HPS_BIT,
+		 (tmp & LCDC_HSYNC_HPE_MASK) >> LCDC_HSYNC_HPE_BIT);
+	tmp = reg_read(jzfb, LCDC_VSYNC);
+	dev_info(dev, "LCDC_VSYNC:\t0x%08lx, HPS = %ld, HPE = %ld\n", tmp,
+		 (tmp & LCDC_VSYNC_VPS_MASK) >> LCDC_VSYNC_VPS_BIT,
+		 (tmp & LCDC_VSYNC_VPE_MASK) >> LCDC_VSYNC_VPE_BIT);
 	dev_info(dev, "==================================\n");
 	dev_info(dev, "LCDC_XYP0:\t0x%08lx\n", reg_read(jzfb, LCDC_XYP0));
 	dev_info(dev, "LCDC_XYP1:\t0x%08lx\n", reg_read(jzfb, LCDC_XYP1));
@@ -1572,6 +1676,22 @@ static ssize_t dump_lcd(struct device *dev, struct device_attribute *attr, char 
 	return 0;
 }
 
+static ssize_t dump_h_color_bar(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+	jzfb_display_h_color_bar(jzfb->fb);
+
+	return 0;
+}
+
+static ssize_t dump_v_color_bar(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+	jzfb_display_v_color_bar(jzfb->fb);
+
+	return 0;
+}
+
 static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return 0;
@@ -1579,6 +1699,8 @@ static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char
 
 static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(dump_lcd, S_IRUGO|S_IWUSR, dump_lcd, NULL),
+	__ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL),
+	__ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL),
 	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
 };
 

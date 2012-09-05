@@ -132,7 +132,7 @@ enum ldo_output_vol {
 	LDO_OUTPUT_1V,
 	LDO_OUTPUT_1_1V,
 	LDO_OUTPUT_1_2V,
-	LDO_OUTPUT_1_3,
+	LDO_OUTPUT_1_3V,
 };
 
 /* struct lvds_txctrl - used to configure LVDS TXCTRL register */
