@@ -436,7 +436,7 @@ void gpio_resume(void)
 	int i;
 	struct jzgpio_chip *jz;
 
-	for(i = 0; i < GPIO_NR_PORTS; i++) {
+	for(i = 1; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
 		writel(jz->save[0], jz->reg + PXINTS);
 		writel(~jz->save[0], jz->reg + PXINTC);

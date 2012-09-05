@@ -219,105 +219,105 @@ enum {
 	CGU_UHC,CGU_SSI,CGU_CIMMCLK,CGU_PCM,CGU_GPU,CGU_HDMI,CGU_BCH,CGU_MSC_MUX,
 };
 
-static struct clk clk_srcs[] = {
+	static struct clk clk_srcs[] = {
 #define GATE(x)  (((x)<<24) | CLK_FLG_GATE)
 #define CPCCR(x) (((x)<<16) | CLK_FLG_CPCCR)
 #define CGU(no)  (((no)<<16) | CLK_FLG_CGU)
 #define PLL(no)  (((no)<<16) | CLK_FLG_PLL)
 #define PARENT(P)  (((CLK_ID_##P)<<16) | CLK_FLG_PARENT)
 #define DEF_CLK(N,FLAG)						\
-	[CLK_ID_##N] = { .name = CLK_NAME_##N, .flags = FLAG, }
+		[CLK_ID_##N] = { .name = CLK_NAME_##N, .flags = FLAG, }
 
-	DEF_CLK(EXT0,  		0),
-	DEF_CLK(EXT1,  		0),
+		DEF_CLK(EXT0,  		0),
+		DEF_CLK(EXT1,  		0),
 
-	DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
-	DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
-	DEF_CLK(EPLL,  		PLL(CPM_CPEPCR)),
-	DEF_CLK(VPLL,  		PLL(CPM_CPVPCR)),
+		DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
+		DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
+		DEF_CLK(EPLL,  		PLL(CPM_CPEPCR)),
+		DEF_CLK(VPLL,  		PLL(CPM_CPVPCR)),
 
-	DEF_CLK(SCLKA,		0),
+		DEF_CLK(SCLKA,		0),
 
-	DEF_CLK(CCLK,  		CPCCR(0)),
-	DEF_CLK(L2CLK,  	CPCCR(1)),
-	DEF_CLK(H0CLK,  	CPCCR(2)),
-	DEF_CLK(H2CLK, 		CPCCR(3)),
-	DEF_CLK(PCLK, 		CPCCR(4)),
+		DEF_CLK(CCLK,  		CPCCR(0)),
+		DEF_CLK(L2CLK,  	CPCCR(1)),
+		DEF_CLK(H0CLK,  	CPCCR(2)),
+		DEF_CLK(H2CLK, 		CPCCR(3)),
+		DEF_CLK(PCLK, 		CPCCR(4)),
 
-	DEF_CLK(NEMC,  		GATE(0)),
-	DEF_CLK(BCH,   		GATE(1)),
-	DEF_CLK(OTG0,  		GATE(2)),
-	DEF_CLK(MSC0,  		GATE(3)),
-	DEF_CLK(SSI0,  		GATE(4)),
-	DEF_CLK(I2C0,  		GATE(5) | PARENT(PCLK)),
-	DEF_CLK(I2C1,  		GATE(6) | PARENT(PCLK)),
-	DEF_CLK(SCC,   		GATE(7)),
-	DEF_CLK(AIC0,   	GATE(8)),
-	DEF_CLK(TSSI0, 		GATE(9)),
-	DEF_CLK(OWI,   		GATE(10)),
-	DEF_CLK(MSC1,  		GATE(11)),
-	DEF_CLK(MSC2,  		GATE(12)),
-	DEF_CLK(KBC,   		GATE(13)),
-	DEF_CLK(SADC,  		GATE(14)),
-	DEF_CLK(UART0, 		GATE(15) | PARENT(EXT1)),
-	DEF_CLK(UART1, 		GATE(16) | PARENT(EXT1)),
-	DEF_CLK(UART2, 		GATE(17) | PARENT(EXT1)),
-	DEF_CLK(UART3, 		GATE(18) | PARENT(EXT1)),
-	DEF_CLK(SSI1,  		GATE(19)),
-	DEF_CLK(SSI2,  		GATE(20)),
-	DEF_CLK(PDMA,  		GATE(21)),
-	DEF_CLK(GPS,   		GATE(22)),
-	DEF_CLK(MAC,   		GATE(23)),
-	DEF_CLK(UHC,   		GATE(24)),
-	DEF_CLK(OHCI,   	PARENT(UHC)),
-	DEF_CLK(EHCI,   	PARENT(UHC)),
-	DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
-	DEF_CLK(CIM,   		GATE(26)),
-	DEF_CLK(LCD1,   	GATE(27)| PARENT(LCD0)),
-	DEF_CLK(LCD0,   	GATE(28)| PARENT(LCD1)),
-	DEF_CLK(IPU1,   	GATE(29)),
-	DEF_CLK(IPU0,   	GATE(29)),
-	DEF_CLK(DDR0,  		GATE(30)),
-	DEF_CLK(DDR1,  		GATE(31)),
-	DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),
-	DEF_CLK(TSSI1, 		GATE(32+1)),
-	DEF_CLK(VPU,		GATE(32+2)),
-	DEF_CLK(PCM,		GATE(32+3)),
-	DEF_CLK(GPU,		GATE(32+4)),
-	DEF_CLK(COMPRESS,	GATE(32+5)),
-	DEF_CLK(AIC1,		GATE(32+6)),
-	DEF_CLK(GPVLC,		GATE(32+7)),
-	DEF_CLK(OTG1,		GATE(32+8)),
-	DEF_CLK(HDMI,		GATE(32+9)),
-	DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
-	DEF_CLK(AHB_MON,	GATE(32+11)),
-	DEF_CLK(I2C4,		GATE(32+12)| PARENT(PCLK)),
-	DEF_CLK(DES,		GATE(32+13)),
-	DEF_CLK(X2D,		GATE(32+14)),
-	DEF_CLK(P1,		GATE(32+15)),
+		DEF_CLK(NEMC,  		GATE(0)),
+		DEF_CLK(BCH,   		GATE(1)),
+		DEF_CLK(OTG0,  		GATE(2)),
+		DEF_CLK(MSC0,  		GATE(3)),
+		DEF_CLK(SSI0,  		GATE(4)),
+		DEF_CLK(I2C0,  		GATE(5) | PARENT(PCLK)),
+		DEF_CLK(I2C1,  		GATE(6) | PARENT(PCLK)),
+		DEF_CLK(SCC,   		GATE(7)),
+		DEF_CLK(AIC0,   	GATE(8)),
+		DEF_CLK(TSSI0, 		GATE(9)),
+		DEF_CLK(OWI,   		GATE(10)),
+		DEF_CLK(MSC1,  		GATE(11)),
+		DEF_CLK(MSC2,  		GATE(12)),
+		DEF_CLK(KBC,   		GATE(13)),
+		DEF_CLK(SADC,  		GATE(14)),
+		DEF_CLK(UART0, 		GATE(15) | PARENT(EXT1)),
+		DEF_CLK(UART1, 		GATE(16) | PARENT(EXT1)),
+		DEF_CLK(UART2, 		GATE(17) | PARENT(EXT1)),
+		DEF_CLK(UART3, 		GATE(18) | PARENT(EXT1)),
+		DEF_CLK(SSI1,  		GATE(19)),
+		DEF_CLK(SSI2,  		GATE(20)),
+		DEF_CLK(PDMA,  		GATE(21)),
+		DEF_CLK(GPS,   		GATE(22)),
+		DEF_CLK(MAC,   		GATE(23)),
+		DEF_CLK(UHC,   		GATE(24)),
+		DEF_CLK(OHCI,   	PARENT(UHC)),
+		DEF_CLK(EHCI,   	PARENT(UHC)),
+		DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
+		DEF_CLK(CIM,   		GATE(26)),
+		DEF_CLK(LCD1,   	GATE(27)| PARENT(LCD0)),
+		DEF_CLK(LCD0,   	GATE(28)| PARENT(LCD1)),
+		DEF_CLK(IPU1,   	GATE(29)),
+		DEF_CLK(IPU0,   	GATE(29)),
+		DEF_CLK(DDR0,  		GATE(30)),
+		DEF_CLK(DDR1,  		GATE(31)),
+		DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),
+		DEF_CLK(TSSI1, 		GATE(32+1)),
+		DEF_CLK(VPU,		GATE(32+2)),
+		DEF_CLK(PCM,		GATE(32+3)),
+		DEF_CLK(GPU,		GATE(32+4)),
+		DEF_CLK(COMPRESS,	GATE(32+5)),
+		DEF_CLK(AIC1,		GATE(32+6)),
+		DEF_CLK(GPVLC,		GATE(32+7)),
+		DEF_CLK(OTG1,		GATE(32+8)),
+		DEF_CLK(HDMI,		GATE(32+9)),
+		DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
+		DEF_CLK(AHB_MON,	GATE(32+11)),
+		DEF_CLK(I2C4,		GATE(32+12)| PARENT(PCLK)),
+		DEF_CLK(DES,		GATE(32+13)),
+		DEF_CLK(X2D,		GATE(32+14)),
+		DEF_CLK(P1,		GATE(32+15)),
 
-	DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
-	DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
-	DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
-	DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0)),
-	DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1)),
-	DEF_CLK(MSC_MUX,	CGU(CGU_MSC_MUX)),
-	DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0)),
-	DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1)),
-	DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2)),
-	DEF_CLK(CGU_UHC,	CGU(CGU_UHC)),
-	DEF_CLK(CGU_SSI,	CGU(CGU_SSI)),
-	DEF_CLK(CGU_CIMMCLK,	CGU(CGU_CIMMCLK)),
-	DEF_CLK(CGU_PCM,	CGU(CGU_PCM)),
-	DEF_CLK(CGU_GPU,	CGU(CGU_GPU)),
-	DEF_CLK(CGU_HDMI,	CGU(CGU_HDMI)),
-	DEF_CLK(CGU_BCH,	CGU(CGU_BCH)),
+		DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
+		DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
+		DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
+		DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0)),
+		DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1)),
+		DEF_CLK(MSC_MUX,	CGU(CGU_MSC_MUX)),
+		DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0)),
+		DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1)),
+		DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2)),
+		DEF_CLK(CGU_UHC,	CGU(CGU_UHC)),
+		DEF_CLK(CGU_SSI,	CGU(CGU_SSI)),
+		DEF_CLK(CGU_CIMMCLK,	CGU(CGU_CIMMCLK)),
+		DEF_CLK(CGU_PCM,	CGU(CGU_PCM)),
+		DEF_CLK(CGU_GPU,	CGU(CGU_GPU)),
+		DEF_CLK(CGU_HDMI,	CGU(CGU_HDMI)),
+		DEF_CLK(CGU_BCH,	CGU(CGU_BCH)),
 #undef GATE
 #undef CPCCR
 #undef CGU
 #undef PARENT
 #undef DEF_CLK
-};
+	};
 
 static void __init init_ext_pll(void)
 {
@@ -380,7 +380,7 @@ static struct cppcr_clk cppcr_clks[] = {
 	CPPCR_CLK(3, 12, 24),
 	CPPCR_CLK(4, 16, 24),
 };
-	
+
 static unsigned long cpccr_get_rate(struct clk *clk)
 {
 	unsigned long cpccr = cpm_inl(CPM_CPCCR);
@@ -568,8 +568,8 @@ static int __init init_all_clk(void)
 	init_ext_pll();
 	init_cpccr_clk();
 	init_cgu_clk();
-	printk("%s %d\n",__func__,__LINE__);
 	init_gate_clk();
+
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(clk_srcs[i].rate)
 			continue;
@@ -581,11 +581,16 @@ static int __init init_all_clk(void)
 		}
 		if(!clk_srcs[i].parent) {
 			clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT0];
-			pr_debug("[CLK] %s no parent.\n",clk_srcs[i].name);
 		}
 		clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
-	printk("%s %d\n",__func__,__LINE__);
+
+	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
+			clk_srcs[CLK_ID_CCLK].rate/1024/1024,
+			clk_srcs[CLK_ID_L2CLK].rate/1024/1024,
+			clk_srcs[CLK_ID_H0CLK].rate/1024/1024,
+			clk_srcs[CLK_ID_H2CLK].rate/1024/1024,
+			clk_srcs[CLK_ID_PCLK].rate/1024/1024);
 	return 0;
 }
 arch_initcall(init_all_clk);
@@ -759,16 +764,16 @@ void smp_set_cpu_clk(int cpu, int enable)
 {
 	struct clk *clk;
 	switch (cpu) {
-	case 1:
-		clk = clk_get(NULL, "p1");
-		if (IS_ERR(clk)) {
-			pr_err("cpu%d clock get error\n", cpu);
+		case 1:
+			clk = clk_get(NULL, "p1");
+			if (IS_ERR(clk)) {
+				pr_err("cpu%d clock get error\n", cpu);
+				return;
+			}
+			break;
+		default:
+			pr_err("can't support cpu%d\n", cpu);
 			return;
-		}
-		break;
-	default:
-		pr_err("can't support cpu%d\n", cpu);
-		return;
 	}
 
 	if (enable) {

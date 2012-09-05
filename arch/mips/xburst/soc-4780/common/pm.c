@@ -390,9 +390,11 @@ sleep_done:
 		udelay(500);					\
 	}while(0)
 
+#if 0
 	ENABLE_LCR_MODULES(0);
 	ENABLE_LCR_MODULES(1);
 	ENABLE_LCR_MODULES(2);
+#endif
 	cpm_outl(cpm_inl(CPM_LCR) & ~0xff,CPM_LCR);
 #undef ENABLE_LCR_MODULES
 #endif
