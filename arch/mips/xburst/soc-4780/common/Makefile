@@ -1,4 +1,6 @@
 
+obj-y += setup.o 
+
 ifeq ($(CONFIG_FPGA_TEST),y)
 obj-y += clk_fpga.o
 else
