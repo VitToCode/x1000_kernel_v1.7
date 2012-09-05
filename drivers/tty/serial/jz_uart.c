@@ -649,7 +649,7 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 		kfree(up->desc_rx);
 		dma_unmap_sg(up->port.dev, &up->sg_rx, 1, DMA_FROM_DEVICE);
 		dma_unmap_sg(up->port.dev, &up->sg_tx, 1, DMA_TO_DEVICE);
-		dma_free_coherent(port->dev,1024,up->rx_buf_virt,up->rx_buf_dma);
+		dma_free_coherent(port->dev,COUNT_DMA_BUFFER,up->rx_buf_virt,up->rx_buf_dma);
 	}
 	free_irq(up->port.irq, up);
 
