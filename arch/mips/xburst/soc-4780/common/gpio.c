@@ -104,6 +104,9 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 	writel(func & 0x4? 0 : pins, chip->reg + PXMSKC);
 	writel(func & 0x2? 0 : pins, chip->reg + PXPAT1C);
 	writel(func & 0x1? 0 : pins, chip->reg + PXPAT0C);
+
+	writel(func & 0x10? pins : 0, chip->reg + PXPENC);
+	writel(func & 0x10? 0 : pins, chip->reg + PXPENS);
 }
 
 int jzgpio_set_func(enum gpio_port port,
@@ -426,6 +429,11 @@ int gpio_suspend(void)
 				__enable_irq(desc, irq, true);
 			}
 		}
+		
+		gpio_set_func(jz,GPIO_OUTPUT0,jz->sleep_state.output_low);
+		gpio_set_func(jz,GPIO_OUTPUT1,jz->sleep_state.output_high);
+		gpio_set_func(jz,GPIO_INPUT,jz->sleep_state.input_nopull);
+		gpio_set_func(jz,GPIO_INPUT_PULL,jz->sleep_state.input_pull);
 	}
 
 	return 0;

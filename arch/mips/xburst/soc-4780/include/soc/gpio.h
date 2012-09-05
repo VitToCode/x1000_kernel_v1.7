@@ -8,17 +8,18 @@
 #define __JZSOC_JZ_GPIO_H__
 
 enum gpio_function {
-	GPIO_FUNC_0 	= 0x0,  //0000, GPIO as function 0 / device 0
-	GPIO_FUNC_1 	= 0x1,  //0001, GPIO as function 1 / device 1
-	GPIO_FUNC_2 	= 0x2,  //0010, GPIO as function 2 / device 2
-	GPIO_FUNC_3 	= 0x3,  //0011, GPIO as function 3 / device 3
-	GPIO_OUTPUT0 	= 0x4,  //0100, GPIO output low  level
-	GPIO_OUTPUT1 	= 0x5,  //0101, GPIO output high level
-	GPIO_INPUT 	= 0x6,  //0110, GPIO as input
-	GPIO_INT_LO 	= 0x8,  //1000,	Low  Level trigger interrupt
-	GPIO_INT_HI 	= 0x9,  //1001,	High Level trigger interrupt
-	GPIO_INT_FE 	= 0xa,  //1010,	Fall Edge trigger interrupt
-	GPIO_INT_RE 	= 0xb,  //1011,	Rise Edge trigger interrupt
+	GPIO_FUNC_0 	= 0x00,  //0000, GPIO as function 0 / device 0
+	GPIO_FUNC_1 	= 0x01,  //0001, GPIO as function 1 / device 1
+	GPIO_FUNC_2 	= 0x02,  //0010, GPIO as function 2 / device 2
+	GPIO_FUNC_3 	= 0x03,  //0011, GPIO as function 3 / device 3
+	GPIO_OUTPUT0 	= 0x04,  //0100, GPIO output low  level
+	GPIO_OUTPUT1 	= 0x05,  //0101, GPIO output high level
+	GPIO_INPUT 	= 0x06,  //0110, GPIO as input
+	GPIO_INT_LO 	= 0x08,  //1000, Low  Level trigger interrupt
+	GPIO_INT_HI 	= 0x09,  //1001, High Level trigger interrupt
+	GPIO_INT_FE 	= 0x0a,  //1010, Fall Edge trigger interrupt
+	GPIO_INT_RE 	= 0x0b,  //1011, Rise Edge trigger interrupt
+	GPIO_INPUT_PULL	= 0x16,  //0001 0110, GPIO as input and enable pull
 };
 #define GPIO_AS_FUNC(func)  (! ((func) & 0xc))
 
