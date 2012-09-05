@@ -55,6 +55,7 @@ struct platform_device ek070tn93_device = {
 };
 #endif
 
+#ifdef CONFIG_FB_JZ4780_LCDC0
 /* LCD Controller 0 output to HDMI */
 static struct fb_videomode jzfb0_videomode[] = {
 	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
@@ -79,51 +80,54 @@ struct jzfb_platform_data jzfb0_pdata = {
 
 	.alloc_vidmem = 0,
 };
+#endif /* CONFIG_FB_JZ4780_LCDC0 */
 
-#ifdef CONFIG_LCD_KR070LA0S_270
+#ifdef CONFIG_FB_JZ4780_LCDC1
 /* LCD Controller 1 output to LVDS TFT panel */
-static struct fb_videomode jzfb1_videomode = {
-	.name = "1024x600",
-	.refresh = 60,
-	.xres = 1024,
-	.yres = 600,
-	.pixclock = KHZ2PICOS(51200),
-	.left_margin = 320,
-	.right_margin = 0,
-	.upper_margin = 35,
-	.lower_margin = 0,
-	.hsync_len = 0,
-	.vsync_len = 0,
-	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-};
+static struct fb_videomode jzfb1_videomode[] = {
+#ifdef CONFIG_LCD_KR070LA0S_270
+	{
+		.name = "1024x600",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 600,
+		.pixclock = KHZ2PICOS(51200),
+		.left_margin = 320,
+		.right_margin = 0,
+		.upper_margin = 35,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
 #endif
 #ifdef CONFIG_LCD_EK070TN93
-/* LCD Controller 1 output to LVDS TFT panel */
-static struct fb_videomode jzfb1_videomode = {
-	.name = "800x480",
-	.refresh = 60,
-	.xres = 800,
-	.yres = 480,
-	.pixclock = KHZ2PICOS(33300),
-	.left_margin = 28,
-	.right_margin = 210,
-	.upper_margin = 15,
-	.lower_margin = 22,
-	.hsync_len = 18,
-	.vsync_len = 8,
-	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-};
+	{
+		.name = "800x480",
+		.refresh = 60,
+		.xres = 800,
+		.yres = 480,
+		.pixclock = KHZ2PICOS(33300),
+		.left_margin = 28,
+		.right_margin = 210,
+		.upper_margin = 15,
+		.lower_margin = 22,
+		.hsync_len = 18,
+		.vsync_len = 8,
+		.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
 #endif
+};
+
+struct jzfb_platform_data jzfb1_pdata = {
+	.num_modes = ARRAY_SIZE(jzfb1_videomode),
+	.modes = jzfb1_videomode,
 
 #ifdef CONFIG_LCD_KR070LA0S_270
-struct jzfb_platform_data jzfb1_pdata = {
-	.num_modes = 1,
-	.modes = &jzfb1_videomode,
-
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,
@@ -136,9 +140,9 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.lvds = 1,
 	.txctrl.data_format = VESA,
-	.txctrl.clk_edge_falling_7x = 0,
+	.txctrl.clk_edge_falling_7x = 1,
 	.txctrl.clk_edge_falling_1x = 1,
-	.txctrl.data_start_edge = START_EDGE_1,
+	.txctrl.data_start_edge = START_EDGE_4,
 	.txctrl.operate_mode = LVDS_1X_CLKOUT,
 	.txctrl.edge_delay = DELAY_1_5NS,
 	.txctrl.output_amplitude = VOD_350MV,
@@ -146,29 +150,24 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.txpll0.ssc_enable = 0,
 	.txpll0.ssc_mode_center_spread = 0,
 	.txpll0.post_divider = POST_DIV_1,
-	.txpll0.feedback_divider = 42,
-	.txpll0.input_divider = 6,
+	.txpll0.feedback_divider = 70,
+	.txpll0.input_divider = 10,
 
 	.txpll1.charge_pump = CHARGE_PUMP_10UA,
-	.txpll1.vco_gain = VCO_GAIN_150M_400M,
+	.txpll1.vco_gain = VCO_GAIN_900M_1G,
 	.txpll1.vco_biasing_current = VCO_BIASING_2_5UA,
 	.txpll1.sscn = 0,
 	.txpll1.ssc_counter = 0,
 
-	.txectrl.emphasis_level = 2,
-	.txectrl.emphasis_enable = 1,
-	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_2V,
-	.txectrl.fine_tuning_7x_clk = 3,
-	.txectrl.coarse_tuning_7x_clk = 2,
+	.txectrl.emphasis_level = 0,
+	.txectrl.emphasis_enable = 0,
+	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_3V,
+	.txectrl.fine_tuning_7x_clk = 0,
+	.txectrl.coarse_tuning_7x_clk = 0,
 
 	.dither_enable = 0,
-};
 #endif
 #ifdef CONFIG_LCD_EK070TN93
-struct jzfb_platform_data jzfb1_pdata = {
-	.num_modes = 1,
-	.modes = &jzfb1_videomode,
-
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,
@@ -180,8 +179,9 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.alloc_vidmem = 1,
 	.lvds = 0,
 	.dither_enable = 0,
-};
 #endif
+};
+#endif /* CONFIG_FB_JZ4780_LCDC1 */
 
 #ifdef CONFIG_BACKLIGHT_PWM
 static int warrior_backlight_init(struct device *dev)
