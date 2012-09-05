@@ -7,6 +7,7 @@ else
 obj-y += clk.o
 endif
 
+obj-y += reset.o 
 obj-y += time.o 
 obj-y += serial.o 
 obj-y += irq.o 
