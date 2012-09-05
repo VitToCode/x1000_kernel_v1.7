@@ -17,9 +17,7 @@ static DEFINE_PER_CPU(struct clock_event_device, percpu_clockevent);
 void smp_ipi_timer_interrupt(void)
 {
 	struct clock_event_device *evt = &__get_cpu_var(percpu_clockevent);
-	irq_enter();
 	evt->event_handler(evt);
-	irq_exit();
 }
 
 extern void jzsoc_ipi_func(cpumask_t mask, void (*fun)(void));
