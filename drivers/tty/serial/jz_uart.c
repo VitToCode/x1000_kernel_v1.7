@@ -593,8 +593,10 @@ static int serial_jz47xx_startup(struct uart_port *port)
 	 * (they will be reenabled in set_termios())
 	 */
 	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO);
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO |
-			UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT);
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO
+		   | UART_FCR_CLEAR_RCVR
+		   | UART_FCR_CLEAR_XMIT
+		   | UART_FCR_UME);
 	serial_out(up, UART_FCR, 0);
 
 	/*
@@ -666,10 +668,10 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 	 * Disable break condition and FIFOs
 	 */
 	serial_out(up, UART_LCR, serial_in(up, UART_LCR) & ~UART_LCR_SBC);
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO |
-			UART_FCR_CLEAR_RCVR |
-			UART_FCR_CLEAR_XMIT);
-	serial_out(up, UART_FCR, 0);
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO
+		   | UART_FCR_CLEAR_RCVR
+		   | UART_FCR_CLEAR_XMIT
+		   | UART_FCR_UME);
 }
 
 static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *termios,struct ktermios *old)
