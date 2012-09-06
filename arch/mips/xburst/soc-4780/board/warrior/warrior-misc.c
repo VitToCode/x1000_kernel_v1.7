@@ -62,7 +62,7 @@ static struct gpio_keys_button board_buttons[] = {
 		.wakeup		= 1,
 	},
 #endif
-#ifndef GPIO_VOLUMEDOWN
+#ifdef GPIO_VOLUMEDOWN
 	{
 		.gpio		= GPIO_VOLUMEDOWN,
 		.code   	= KEY_VOLUMEDOWN,
