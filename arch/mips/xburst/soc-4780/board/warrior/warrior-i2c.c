@@ -37,7 +37,7 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 };
 #endif
 
-#if defined(CONFIG_SENSORS_LIS3DH) && defined(CONFIG_I2C1_JZ4780)
+#if (defined(CONFIG_SENSORS_LIS3DH) && (defined(CONFIG_I2C_GPIO) ||defined(CONFIG_I2C1_JZ4780)))
 static struct gsensor_platform_data lis3dh_platform_data = {
 	.gpio_int = GPIO_LIS3DH_INT1, 
 	.poll_interval = 100,
@@ -61,10 +61,12 @@ static struct jztsc_pin warrior_tsc_gpio[] = {
 
 static struct jztsc_platform_data warrior_tsc_pdata = {
 	.gpio		= warrior_tsc_gpio,
+	.x_max		= 800,
+	.y_max		= 480,
 };
 #endif
 
-#ifdef CONFIG_I2C1_JZ4780 /*I2C1*/
+#if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_MMA8452
 	{
@@ -89,9 +91,9 @@ static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 		.platform_data	= &warrior_tsc_pdata,
 	},
 #endif
-#ifdef CONFIG_JZ4780_SUPPORT_TSC
+#ifdef CONFIG_TOUCHSCREEN_FT5X06
 	{
-		I2C_BOARD_INFO("ft5x0x_tsc", 0x36),
+		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
 		.platform_data	= &warrior_tsc_pdata,
 	},
 #endif
@@ -119,7 +121,7 @@ static int __init warrior_i2c_dev_init(void)
 	platform_device_register(&i2c3_gpio_device);
 #endif
 
-#ifdef CONFIG_I2C1_JZ4780
+#if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
 #endif
 

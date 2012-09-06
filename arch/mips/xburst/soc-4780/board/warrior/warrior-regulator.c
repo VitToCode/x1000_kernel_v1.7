@@ -42,7 +42,7 @@ EXCLUSIVE_REGULATOR_DEF(
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vtsc,
-	"vtsc",		"ldwzic_ts",	3300000);
+	"vtsc",		NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vgsensor,

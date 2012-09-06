@@ -51,41 +51,18 @@ config TOUCHSCREEN_FT5306
       depends on I2C && JZ4780_SUPPORT_TSC
       help
       ft5306 a CTP controller,support panel 7"~8.9"
+			
+config TOUCHSCREEN_FT5X06
+      tristate "Touchscreen ft5x06"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      ft5306 a CTP controller,support panel 7"~8.9"
 
 config TOUCHSCREEN_FT5X0X
       tristate "Touchscreen ft5X0X"
       depends on I2C && JZ4780_SUPPORT_TSC
       help
       ft5X0X a CTP controller,support panel 7"~8.9"
-
-config FT5406_X_RES
-       int "x_res"
-       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
-       default 800
-       help
-		The value of FT5406 x_res
-
-config FT5406_Y_RES
-       int "y_res"
-       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
-       default 480
-       help
-		The value of FT5406 y_res
-
-config FT5406_PRESSURE_MIN
-       int "pressure_min"
-       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
-       default 0
-       help
-		The value of FT5406 pressure_min
-
-config FT5406_PRESSURE_MAX
-       int "pressure_max"
-       depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
-       default 255
-       help
-		The value of FT5406 pressure_max
-
 config FT5X0X_MULTITOUCH
 		bool "Enable multi-touch on FocalTech FT5X0X "
 		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
@@ -137,28 +114,21 @@ config FT5X0X_TOUCHKEY_706
 		bool "product: YouYiYue(706) "
 endchoice
 
-config 	FT5406_SCREEN_1024x600
-		bool "software zoom in 800x480 to 1024x600 "
-		depends on TOUCHSCREEN_FT5X0X
-		default n
-		help
-			the screen normal size is 800*480, say Y here if you screen size is 1024x600.
-
-config 	FT5X0X_SWAP_XY
+config 	TSC_SWAP_XY
 		bool "swap x and y "
-		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+		depends on INPUT_TOUCHSCREEN
 		default n
 		help
 			say Y here if you need flip x y.
-config 	FT5X0X_SWAP_X
+config 	TSC_SWAP_X
 		bool "swap x"
-		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+		depends on INPUT_TOUCHSCREEN
 		default n
 		help
 			say Y here if you need flip x y.
-config 	FT5X0X_SWAP_Y
+config 	TSC_SWAP_Y
 		bool "swap y "
-		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+		depends on INPUT_TOUCHSCREEN
 		default n
 		help
 			say Y here if you need flip x y.

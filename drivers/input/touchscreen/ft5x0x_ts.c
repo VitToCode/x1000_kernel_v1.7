@@ -85,8 +85,6 @@ struct ft5x0x_gpio {
 struct ft5x0x_parameter {
 	unsigned short		x_res;
 	unsigned short		y_res;
-	unsigned short		pressure_min;
-	unsigned short		pressure_max;
 };
 
 struct ft5x0x_ts_data {
@@ -417,30 +415,6 @@ static void ft5x0x_chip_reset(struct ft5x0x_ts_data *ts)
 	set_pin_status(ts->gpio.wake, 1);
 }
 
-#ifdef CONFIG_FT5X0X_SWAP_XY
-static void ft5406_swap_xy(u16 * x,u16 * y)
-{
-	u16 tmp = 0;
-	tmp = *x;
-	*x =  *y;
-	*y = tmp;
-}
-#endif
-
-#ifdef CONFIG_FT5X0X_SWAP_X
-static void ft5406_swap_x(u16 * x,u16  max_x)
-{
-	*x =  max_x - *x;
-}
-#endif
-
-#ifdef CONFIG_FT5X0X_SWAP_Y
-static void ft5406_swap_y(u16 * y,u16 max_y)
-{
-	*y = max_y - *y;
-}
-#endif
-
 static int ft5x0x_read_data(struct ft5x0x_ts_data *ft5x0x_ts)
 {
 	struct ts_event *event = &ft5x0x_ts->event;
@@ -480,67 +454,67 @@ static int ft5x0x_read_data(struct ft5x0x_ts_data *ft5x0x_ts)
 		case 5:
 			event->y5 = ((((u16)buf[25])<<8)&0x0f00) |buf[26];		
 			event->x5 = ((((u16)buf[27])<<8)&0x0f00) |buf[28];
-			#ifdef CONFIG_FT5X0X_SWAP_XY
-			ft5406_swap_xy(&(event->x5),&(event->y5));
+			#ifdef CONFIG_TSC_SWAP_XY
+			tsc_swap_xy(&(event->x5),&(event->y5));
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_X
-			ft5406_swap_x(&(event->x5),ft5x0x_ts->para.x_res);
+			#ifdef CONFIG_TSC_SWAP_X
+			tsc_swap_x(&(event->x5),ft5x0x_ts->para.x_res);
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_Y
-			ft5406_swap_y(&(event->y5),ft5x0x_ts->para.y_res);
+			#ifdef CONFIG_TSC_SWAP_Y
+			tsc_swap_y(&(event->y5),ft5x0x_ts->para.y_res);
 			#endif
 			
 		case 4:
 			event->y4 = ((((u16)buf[19])<<8)&0x0f00) |buf[20];		
 			event->x4 = ((((u16)buf[21])<<8)&0x0f00) |buf[22];
-			#ifdef CONFIG_FT5X0X_SWAP_XY
-			ft5406_swap_xy(&(event->x4),&(event->y4));
+			#ifdef CONFIG_TSC_SWAP_XY
+			tsc_swap_xy(&(event->x4),&(event->y4));
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_X
-			ft5406_swap_x(&(event->x4),ft5x0x_ts->para.x_res);
+			#ifdef CONFIG_TSC_SWAP_X
+			tsc_swap_x(&(event->x4),ft5x0x_ts->para.x_res);
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_Y
-			ft5406_swap_y(&(event->y4),ft5x0x_ts->para.y_res);
+			#ifdef CONFIG_TSC_SWAP_Y
+			tsc_swap_y(&(event->y4),ft5x0x_ts->para.y_res);
 			#endif
 			
 		case 3:
 			event->y3 = ((((u16)buf[13])<<8)&0x0f00) |buf[14]; 		
 			event->x3 = ((((u16)buf[15])<<8)&0x0f00) |buf[16];
-			#ifdef CONFIG_FT5X0X_SWAP_XY
-			ft5406_swap_xy(&(event->x3),&(event->y3));
+			#ifdef CONFIG_TSC_SWAP_XY
+			tsc_swap_xy(&(event->x3),&(event->y3));
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_X
-			ft5406_swap_x(&(event->x3),ft5x0x_ts->para.x_res);
+			#ifdef CONFIG_TSC_SWAP_X
+			tsc_swap_x(&(event->x3),ft5x0x_ts->para.x_res);
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_Y
-			ft5406_swap_y(&(event->y3),ft5x0x_ts->para.y_res);
+			#ifdef CONFIG_TSC_SWAP_Y
+			tsc_swap_y(&(event->y3),ft5x0x_ts->para.y_res);
 			#endif
 			
 #endif
 		case 2:
 			event->x2 = ((((u16)buf[9])<<8)&0x0f00) |buf[10]; 		
 			event->y2 = ((((u16)buf[7])<<8)&0x0f00) |buf[8];
-			#ifdef CONFIG_FT5X0X_SWAP_XY
-			ft5406_swap_xy(&(event->x2),&(event->y2));
+			#ifdef CONFIG_TSC_SWAP_XY
+			tsc_swap_xy(&(event->x2),&(event->y2));
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_X
-			ft5406_swap_x(&(event->x2),ft5x0x_ts->para.x_res);
+			#ifdef CONFIG_TSC_SWAP_X
+			tsc_swap_x(&(event->x2),ft5x0x_ts->para.x_res);
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_Y
-			ft5406_swap_y(&(event->y2),ft5x0x_ts->para.y_res);
+			#ifdef CONFIG_TSC_SWAP_Y
+			tsc_swap_y(&(event->y2),ft5x0x_ts->para.y_res);
 			#endif
 
 		case 1:
 			event->x1 = ((((u16)buf[3])<<8)&0x0f00) |buf[4];			
 			event->y1 = ((((u16)buf[1])<<8)&0x0f00) |buf[2];
-			#ifdef CONFIG_FT5X0X_SWAP_XY
-			ft5406_swap_xy(&(event->x1),&(event->y1));
+			#ifdef CONFIG_TSC_SWAP_XY
+			tsc_swap_xy(&(event->x1),&(event->y1));
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_X
-			ft5406_swap_x(&(event->x1),ft5x0x_ts->para.x_res);
+			#ifdef CONFIG_TSC_SWAP_X
+			tsc_swap_x(&(event->x1),ft5x0x_ts->para.x_res);
 			#endif
-			#ifdef CONFIG_FT5X0X_SWAP_Y
-			ft5406_swap_y(&(event->y1),ft5x0x_ts->para.y_res);
+			#ifdef CONFIG_TSC_SWAP_Y
+			tsc_swap_y(&(event->y1),ft5x0x_ts->para.y_res);
 			#endif
 			
 			break;
@@ -551,8 +525,8 @@ static int ft5x0x_read_data(struct ft5x0x_ts_data *ft5x0x_ts)
 	if (event->touch_point == 1) {
 		event->x1 = ((((s16)buf[3])<<8)&0x0f00) |buf[4];
 		event->y1 =((((s16)buf[1])<<8)&0x0f00) |buf[2];
-		#ifdef CONFIG_FT5X0X_SWAP_XY
-		ft5406_swap_xy(&(event->x1),&(event->y1));
+		#ifdef CONFIG_TSC_SWAP_XY
+		tsc_swap_xy(&(event->x1),&(event->y1));
 		#endif
 		//printk("(aaaa (%d)(%d) \n", event->x1,event->y1);
 	}
@@ -761,10 +735,8 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_alloc_data_failed;
 	}
 
-	ft5x0x_ts->para.x_res = CONFIG_FT5406_X_RES;
-	ft5x0x_ts->para.y_res = CONFIG_FT5406_Y_RES;
-	ft5x0x_ts->para.pressure_min = CONFIG_FT5406_PRESSURE_MIN;
-	ft5x0x_ts->para.pressure_max = CONFIG_FT5406_PRESSURE_MAX;
+	ft5x0x_ts->para.x_res = pdata->x_max;
+	ft5x0x_ts->para.y_res = pdata->y_max;
 
 	ft5x0x_ts->client = client;
 	i2c_set_clientdata(client, ft5x0x_ts);
@@ -791,11 +763,9 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (IS_ERR(ft5x0x_ts->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
 	}
-
 	ft5x0x_ts_power_on(ft5x0x_ts);
 
 	client->irq = gpio_to_irq(ft5x0x_ts->gpio.irq->num);
-
 	err = request_irq(client->irq, ft5x0x_ts_interrupt,
 			    IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			  "ft5x0x_ts", ft5x0x_ts);
@@ -848,7 +818,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input_set_abs_params(input_dev,
 			ABS_MT_POSITION_Y, 0, ft5x0x_ts->para.y_res, 0, 0);
 	input_set_abs_params(input_dev,
-			ABS_MT_TOUCH_MAJOR, 0, ft5x0x_ts->para.pressure_max, 0, 0);
+			ABS_MT_TOUCH_MAJOR, 0, 250, 0, 0);
 	input_set_abs_params(input_dev,
 			ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
 #else
@@ -860,7 +830,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input_set_abs_params(input_dev, ABS_X, 0, ft5x0x_ts->para.x_res, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, ft5x0x_ts->para.x_res, 0, 0);
 	input_set_abs_params(input_dev,
-			ABS_PRESSURE, 0, ft5x0x_ts->para.pressure_max, 0 , 0);
+			ABS_PRESSURE, 0, 255, 0 , 0);
 #endif
 
 	set_bit(EV_ABS, input_dev->evbit);

@@ -11,8 +11,9 @@ struct jztsc_pin {
 };
 
 __attribute__((weak)) struct jztsc_platform_data {
-	struct jztsc_pin		*gpio;
-
+	struct jztsc_pin	*gpio;
+	unsigned int		x_max;
+	unsigned int		y_max;
 	void		*private;
 };
 
@@ -37,5 +38,23 @@ static inline void set_pin_status(struct jztsc_pin *pin, int enable)
 	if (pin->enable_level == LOW_ENABLE)
 		enable = !enable;
 	gpio_set_value(pin->num, enable);
+}
+
+static inline void tsc_swap_xy(u16 * x,u16 * y)
+{
+	u16 tmp = 0;
+	tmp = *x;
+	*x =  *y;
+	*y = tmp;
+}
+
+static inline void tsc_swap_x(u16 * x,u16  max_x)
+{
+	*x =  max_x - *x;
+}
+
+static inline void tsc_swap_y(u16 * y,u16 max_y)
+{
+	*y = max_y - *y;
 }
 #endif
