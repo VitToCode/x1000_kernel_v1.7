@@ -64,13 +64,8 @@ MODULE_VERSION("1.0");
 static const char longname[] = "Gadget Android";
 
 /* Default vendor and product IDs, overridden by userspace */
-#ifdef CONFIG_SOC_4780
-#define VENDOR_ID		0x18D1
-#define PRODUCT_ID		0xDDDD
-#else
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
-#endif
 
 struct android_usb_function {
 	char *name;
@@ -1058,19 +1053,6 @@ static int android_bind(struct usb_composite_dev *cdev)
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
-
-#ifdef CONFIG_SOC_4780
-	android_enable_function(dev, "mass_storage,adb");
-	cdev->desc.idVendor = device_desc.idVendor;
-	cdev->desc.idProduct = device_desc.idProduct;
-	cdev->desc.bcdDevice = device_desc.bcdDevice;
-	cdev->desc.bDeviceClass = device_desc.bDeviceClass;
-	cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
-	cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
-	usb_add_config(cdev, &android_config_driver,android_bind_config);
-	usb_gadget_connect(cdev->gadget);
-	dev->enabled = true;
-#endif
 
 	return 0;
 }
