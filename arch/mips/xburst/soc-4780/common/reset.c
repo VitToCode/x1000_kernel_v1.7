@@ -11,6 +11,10 @@
 #include <linux/delay.h>
 
 #include <soc/base.h>
+#include <soc/cpm.h>
+#include <soc/extal.h>
+
+#include <asm/reboot.h>
 
 #define RTC_RTCCR		(0x00)	/* rw, 32, 0x00000081 */
 #define RTC_RTCSR		(0x04)	/* rw, 32, 0x???????? */
@@ -26,6 +30,11 @@
 #define RTC_CKPCR		(0x40)  /* rw, 32, 0x00000010 */
 #define RTC_OWIPCR		(0x44)  /* rw, 32, 0x00000010 */
 #define RTC_PWRONCR		(0x48)  /* rw, 32, 0x???????? */
+
+#define WDT_TCSR		(0x0c)  /* rw, 32, 0x???????? */
+#define WDT_TCER		(0x04)  /* rw, 32, 0x???????? */
+#define WDT_TDR			(0x00)  /* rw, 32, 0x???????? */
+#define WDT_TCNT		(0x08)  /* rw, 32, 0x???????? */
 
 #define RTCCR_WRDY		BIT(7)
 #define WENR_WEN                BIT(31)
@@ -65,19 +74,50 @@ void jz_hibernate(void)
 		printk("We should NOT come here.\n");
 }
 
+void jz_wdt_restart(char *command)
+{
+	printk("Restarting after 4 ms\n");
+	if ((command != NULL) && !strcmp(command, "recovery")) {
+		while(cpm_inl(CPM_CPPSR) != RECOVERY_SIGNATURE) {
+			printk("set RECOVERY_SIGNATURE\n");
+			cpm_outl(0x5a5a,CPM_CPSPPR);
+			cpm_outl(RECOVERY_SIGNATURE,CPM_CPPSR);
+			cpm_outl(0x0,CPM_CPSPPR);
+			udelay(100);
+		}
+	} else {
+		cpm_outl(0x5a5a,CPM_CPSPPR);
+		cpm_outl(0x0,CPM_CPPSR);
+		cpm_outl(0x0,CPM_CPSPPR);
+	}
+
+	*((volatile unsigned int *)(0xb000203c)) |= 1<<16;
+	outl((1<<3 | 1<<2),WDT_IOBASE + WDT_TCSR);
+	outl(JZ_EXTAL/1000,WDT_IOBASE + WDT_TDR);
+	printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
+	outl(0,WDT_IOBASE + WDT_TCNT);
+	printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
+	outl(1,WDT_IOBASE + WDT_TCER);
+
+	while (1)
+		printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
+		printk("We should NOT come here, please check the WDT\n");
+}
+
 int __init reset_init(void)
 {
 	pm_power_off = jz_hibernate;
+	_machine_restart = jz_wdt_restart;
 
 	return 0;
 }
 arch_initcall(reset_init);
 
+
 #if 0
 void jz_hibernate_restart(char *command)
 {
 	uint32_t rtc_rtcsr;
-	pm_sync_filesystem();
 	if ((command != NULL) && !strcmp(command, "recovery")) {
 		jz_wdt_restart(command);
 	} else {
@@ -117,26 +157,6 @@ void jz_hibernate_restart(char *command)
 		printk("We should NOT come here, please check the RTC\n");
 }
 
-void jz_wdt_restart(char *command)
-{
-	printk("Restarting after 4 ms\n");
-	if ((command != NULL) && !strcmp(command, "recovery")) {
-		while(cpm_get_scrpad() != RECOVERY_SIGNATURE) {
-			printk("set RECOVERY_SIGNATURE\n");
-			cpm_set_scrpad(RECOVERY_SIGNATURE);
-			msleep(20);
-		}
-	} else {
-		cpm_set_scrpad(0);
-	}
 
-	REG_WDT_WCSR = WCSR_PRESCALE4 | WCSR_CLKIN_EXT;
-	REG_WDT_WCNT = 0;
-	REG_WDT_WDR = JZ_EXTAL/1000;   /* reset after 4ms */
-	REG_TCU_TSCR = TSCR_WDT; /* enable wdt clock */
-	REG_WDT_WCER = WCER_TCEN;  /* wdt start */
-	while (1)
-		printk("We should NOT come here, please check the RTC\n");
-}
 #endif
 
