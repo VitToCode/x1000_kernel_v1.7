@@ -384,6 +384,10 @@ static irqreturn_t gpio_handler(int irq, void *data)
 
 	pend = readl(jz->reg + PXFLG);
 
+	/*
+	 * PXFLG may be 0 because of GPIO's bounce in level triggered mode,
+	 * so we ignore it when it occurs.
+	 */
 	if (pend)
 		generic_handle_irq(ffs(pend) -1 + jz->irq_base);
 
