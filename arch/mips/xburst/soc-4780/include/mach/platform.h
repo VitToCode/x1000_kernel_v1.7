@@ -15,14 +15,14 @@
 	{ .name = "i2s0_data",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<6, },	\
 	{ .name = "i2s0_bitclk",	.port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x1<<12,},	\
 	{ .name = "i2s0_sync",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<13,},	\
-	{ .name = "i2s0_iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }	
+	{ .name = "i2s0_iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }
 /* devio define list */
 #define UART0_PORTF							\
 	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
 #define UART1_PORTD							\
 	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xf<<26, }
 #define UART2_PORTD							\
-	{ .name = "uart2", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0xf<<4, }	
+	{ .name = "uart2", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0xf<<4, }
 #define UART3_PORTDE							\
 	{ .name = "uart3-pd-f0", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<12, },\
 	{ .name = "uart3-pe-f1", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x1<<5, },	\
@@ -122,12 +122,12 @@
 
 #define OTG_DRVVUS							\
 	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
-	
+
 #define HDMI_PORTF							\
-	{ .name = "hdmi-ddc",    .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x3800000, }	
+	{ .name = "hdmi-ddc",    .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x3800000, }
 
 #define CIM_PORTB							\
-	{ .name = "cim",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }	
+	{ .name = "cim",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
@@ -144,6 +144,8 @@ extern struct platform_device jz_i2s1_device;
 extern struct platform_device jz_pcm0_device;
 extern struct platform_device jz_pcm1_device;
 extern struct platform_device jz_codec_device;
+
+extern struct platform_device jz_gpu;
 
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;

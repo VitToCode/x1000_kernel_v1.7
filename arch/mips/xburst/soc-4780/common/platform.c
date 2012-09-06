@@ -110,10 +110,10 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	NAND_PORTA_CS6,
 #endif
 #ifdef CONFIG_JZ_EXTERNAL_CODEC
-	I2S0_PORTE,	
+	I2S0_PORTE,
 #endif
 	LCD_PORTC,
-	HDMI_PORTF, 
+	HDMI_PORTF,
 	PWM_PORTE_BIT0,
 #ifdef CONFIG_JZ_MAC
 	MII_PORTBDF,
@@ -369,6 +369,27 @@ struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };
 
+/* GPU */
+static struct resource jz_gpu_resources[] = {
+	[0] = {
+		.start          = GPU_IOBASE,
+		.end            = GPU_IOBASE + 0x1000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start          = IRQ_GPU,
+		.end            = IRQ_GPU,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_gpu = {
+	.name = "pvrsrvkm",
+	.id = 0,
+	.num_resources  = ARRAY_SIZE(jz_gpu_resources),
+	.resource       = jz_gpu_resources,
+};
+
 static u64 jz_fb_dmamask = ~(u64)0;
 
 #define DEF_LCD(NO)								\
@@ -433,12 +454,12 @@ static struct resource jz_uart0_resources[] = {
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start          = IRQ_UART0,	
+		.start          = IRQ_UART0,
 		.end            = IRQ_UART0,
 		.flags          = IORESOURCE_IRQ,
 	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART0_DMA
-	[2] = {	
+	[2] = {
 		.start          = JZDMA_REQ_UART0,
 		.flags          = IORESOURCE_DMA,
 	},
@@ -460,12 +481,12 @@ static struct resource jz_uart1_resources[] = {
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start          = IRQ_UART1,	
+		.start          = IRQ_UART1,
 		.end            = IRQ_UART1,
 		.flags          = IORESOURCE_IRQ,
 	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART1_DMA
-	[2] = {	
+	[2] = {
 		.start          = JZDMA_REQ_UART1,
 		.flags          = IORESOURCE_DMA,
 	},
@@ -487,12 +508,12 @@ static struct resource jz_uart2_resources[] = {
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start          = IRQ_UART2,	
+		.start          = IRQ_UART2,
 		.end            = IRQ_UART2,
 		.flags          = IORESOURCE_IRQ,
 	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART2_DMA
-	[2] = {	
+	[2] = {
 		.start          = JZDMA_REQ_UART2,
 		.flags          = IORESOURCE_DMA,
 	},
@@ -514,12 +535,12 @@ static struct resource jz_uart3_resources[] = {
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start          = IRQ_UART3,	
+		.start          = IRQ_UART3,
 		.end            = IRQ_UART3,
 		.flags          = IORESOURCE_IRQ,
 	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART3_DMA
-	[2] = {	
+	[2] = {
 		.start          = JZDMA_REQ_UART3,
 		.flags          = IORESOURCE_DMA,
 	},
@@ -541,12 +562,12 @@ static struct resource jz_uart4_resources[] = {
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start          = IRQ_UART4,	
+		.start          = IRQ_UART4,
 		.end            = IRQ_UART4,
 		.flags          = IORESOURCE_IRQ,
 	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART4_DMA
-	[2] = {	
+	[2] = {
 		.start          = JZDMA_REQ_UART4,
 		.flags          = IORESOURCE_DMA,
 	},
@@ -823,7 +844,7 @@ static struct resource jz_rtc_resource[] = {
 		.end   = IRQ_RTC,
 		.flags = IORESOURCE_IRQ,
 	}
-};    
+};
 
 struct platform_device jz_rtc_device = {
 	.name             = "jz-rtc",
