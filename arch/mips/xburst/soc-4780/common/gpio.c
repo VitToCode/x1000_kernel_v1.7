@@ -383,7 +383,9 @@ static irqreturn_t gpio_handler(int irq, void *data)
 	unsigned long pend;
 
 	pend = readl(jz->reg + PXFLG);
-	generic_handle_irq(ffs(pend) -1 + jz->irq_base);
+
+	if (pend)
+		generic_handle_irq(ffs(pend) -1 + jz->irq_base);
 
 	return IRQ_HANDLED;
 }
