@@ -159,7 +159,8 @@ static int ft5x06_set_reg(struct ft5x06_ts_data *ts, u8 addr, u8 para)
 /*release the point*/
 static void ft5x06_ts_release(struct ft5x06_ts_data *data)
 {
-	input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0);
+	/* input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0); */
+	input_mt_sync(data->input_dev);
 	input_sync(data->input_dev);
 }
 
@@ -179,14 +180,20 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 		return ret;
 	}
 	memset(event, 0, sizeof(struct ts_event));
+	
+	event->touch_point = buf[2]&0x0f;
 
-	event->touch_point = 0;
+	if (event->touch_point == 0){
+		ft5x06_ts_release(data);
+		return 0;
+	}
+
 	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
-		else
-			event->touch_point++;
+	//	else
+	//		event->touch_point++;
 		event->au16_x[i] =
 		    (s16) (buf[FT_TOUCH_X_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
 		    8 | (s16) buf[FT_TOUCH_X_L_POS + FT_TOUCH_STEP * i];
@@ -206,11 +213,10 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 /*
  *report the point information
  */
-static void ft5x06_report_value(struct ft5x06_ts_data *data)
+static int ft5x06_report_value(struct ft5x06_ts_data *data)
 {
 	struct ts_event *event = &data->event;
 	int i = 0;
-
 	for (i = 0; i < event->touch_point; i++) {
 		event->au16_x[i] = event->au16_x[i] * data->x_max / CFG_MAX_X;
 		event->au16_y[i] = event->au16_y[i] * data->y_max / CFG_MAX_Y;
@@ -226,30 +232,33 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 #ifdef CONFIG_TSC_SWAP_Y
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
-		printk("(x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
+
+		//printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				event->au16_x[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
 				event->au16_y[i]);
-		input_report_abs(data->input_dev, ABS_MT_PRESSURE,
-				event->pressure);
-		input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
+		 input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 				event->au8_finger_id[i]);
+		input_report_abs(data->input_dev,ABS_MT_TOUCH_MAJOR,
+				event->pressure);
+		input_report_abs(data->input_dev,ABS_MT_WIDTH_MAJOR,
+				event->pressure);
+		input_mt_sync(data->input_dev);
+#if 0
 		if (event->au8_touch_event[i] == 0
-				|| event->au8_touch_event[i] == 2)\
+				|| event->au8_touch_event[i] == 2)
 			input_report_abs(data->input_dev,
 					ABS_MT_TOUCH_MAJOR,
 					event->pressure);
-		else
-			input_report_abs(data->input_dev,
-					ABS_MT_TOUCH_MAJOR, 0);
-
-		input_mt_sync(data->input_dev);
+		 else
+		 	input_report_abs(data->input_dev, 
+		 			ABS_MT_TOUCH_MAJOR, 0);
+#endif
 	}
 	input_sync(data->input_dev);
+	return 0;
 
-	if (event->touch_point == 0)
-		ft5x06_ts_release(data);
 }
 static void tsc_work_handler(struct work_struct *work)
 {
@@ -389,20 +398,22 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	ft5x06_ts->input_dev = input_dev;
-
-	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
+	
+	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
-	set_bit(ABS_MT_PRESSURE, input_dev->absbit);
+	set_bit(ABS_MT_TRACKING_ID,input_dev->absbit);
+	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
+	set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
 
 	input_set_abs_params(input_dev,
-			     ABS_MT_POSITION_X, 0, ft5x06_ts->x_max, 0, 0);
+			ABS_MT_POSITION_X, 0, ft5x06_ts->x_max, 0, 0);
 	input_set_abs_params(input_dev,
-			     ABS_MT_POSITION_Y, 0, ft5x06_ts->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, PRESS_MAX, 0, 0);
+			ABS_MT_POSITION_Y, 0, ft5x06_ts->y_max, 0, 0);
 	input_set_abs_params(input_dev,
-			     ABS_MT_TRACKING_ID, 0, CFG_MAX_TOUCH_POINTS, 0, 0);
+			ABS_MT_TOUCH_MAJOR, 0, 250, 0, 0);
+	input_set_abs_params(input_dev,
+			ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
 
 	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
@@ -415,18 +426,19 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
-	/*make sure CTP already finish startup process */
-	msleep(150);
-
-	/*get some register information */
 	
+	/*make sure CTP already finish startup process */
 	ft5x06_ts_reset(ft5x06_ts);
+	msleep(100);
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	ft5x06_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ft5x06_ts->early_suspend.suspend = ft5x06_ts_suspend;
 	ft5x06_ts->early_suspend.resume	= ft5x06_ts_resume;
 	register_early_suspend(&ft5x06_ts->early_suspend);
 #endif
+	
+	/*get some register information */
 	uc_reg_addr = FT5X06_REG_FW_VER;
 	ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] Firmware version = 0x%x\n", uc_reg_value);
