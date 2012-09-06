@@ -343,6 +343,21 @@ static void __cpuinit r4k_blast_scache_setup(void)
 	else if (sc_lsize == 128)
 		r4k_blast_scache = blast_scache128;
 }
+static void local_r4k_flush_dcache_ipi(void *args) {
+	args = args;
+	r4k_blast_dcache();
+}
+static void local_r4k_flush_icache_ipi(void *args) {
+	args = args;
+	r4k_blast_icache();
+}
+static inline void allcpu_r4k_flush_icache(void) {
+	r4k_on_each_cpu(local_r4k_flush_icache_ipi, 0);
+}
+
+static inline void allcpu_r4k_flush_dcache(void) {
+	r4k_on_each_cpu(local_r4k_flush_dcache_ipi,0);
+}
 
 static inline void local_r4k___flush_cache_all(void * args)
 {
@@ -387,12 +402,14 @@ static inline int has_valid_asid(const struct mm_struct *mm)
 
 static void r4k__flush_cache_vmap(void)
 {
-	r4k_blast_dcache();
+	//r4k_blast_dcache();
+	allcpu_r4k_flush_dcache();
 }
 
 static void r4k__flush_cache_vunmap(void)
 {
-	r4k_blast_dcache();
+	//r4k_blast_dcache();
+	allcpu_r4k_flush_dcache();
 }
 
 static inline void local_r4k_flush_cache_range(void * args)
@@ -550,10 +567,15 @@ static inline void local_r4k_flush_data_cache_page(void * addr)
 
 static void r4k_flush_data_cache_page(unsigned long addr)
 {
-	if (in_atomic())
+	local_r4k_flush_data_cache_page((void *)addr);
+/*
+	if (in_atomic()){
 		local_r4k_flush_data_cache_page((void *)addr);
-	else
+	}
+	else {
 		r4k_on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr);
+	}
+*/
 }
 
 
@@ -574,7 +596,7 @@ struct flush_icache_range_args {
 	unsigned long start;
 	unsigned long end;
 };
-
+#if 0
 static inline void local_r4k_flush_icache_range(unsigned long start, unsigned long end)
 {
 	if (!cpu_has_ic_fills_f_dc) {
@@ -611,6 +633,47 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 	r4k_on_each_cpu(local_r4k_flush_icache_range_ipi, &args);
 	instruction_hazard();
 }
+#else
+static inline void local_r4k_flush_icache_range(unsigned long start, unsigned long end)
+{
+	if (!cpu_has_ic_fills_f_dc) {
+		if (end - start >= dcache_size) {
+			r4k_blast_dcache_jz();
+		} else {
+			R4600_HIT_CACHEOP_WAR_IMPL;
+			protected_blast_dcache_range(start, end);
+		}
+	}
+
+	if (end - start > icache_size)
+		r4k_blast_icache_jz();
+	else
+		protected_blast_icache_range(start, end);
+}
+static inline void local_r4k_flush_icache_jz_ipi(void *args){
+	r4k_blast_icache_jz();
+}
+static inline void local_r4k_flush_dcache_jz_ipi(void *args){
+	r4k_blast_dcache_jz();
+}
+static void r4k_flush_icache_range(unsigned long start, unsigned long end)
+{
+	if (!cpu_has_ic_fills_f_dc) {
+		if (end - start >= dcache_size) {
+			//r4k_blast_dcache_jz();
+			r4k_on_each_cpu(local_r4k_flush_dcache_jz_ipi,0);
+		} else {
+			R4600_HIT_CACHEOP_WAR_IMPL;
+			protected_blast_dcache_range(start, end);
+		}
+	}
+
+	if (end - start > icache_size)
+		r4k_on_each_cpu(local_r4k_flush_icache_jz_ipi,0);
+	else
+		protected_blast_icache_range(start, end);
+}
+#endif
 
 #ifdef CONFIG_DMA_NONCOHERENT
 
@@ -633,7 +696,8 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	 * explicitly
 	 */
 	if (cpu_has_safe_index_cacheops && size >= dcache_size * JZ_L2C_HALFSIZE) {
-		r4k_blast_dcache();
+		//r4k_blast_dcache();
+		allcpu_r4k_flush_dcache();
 	} else {
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		blast_dcache_range(addr, addr + size);
@@ -671,7 +735,8 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 	}
 
 	if (cpu_has_safe_index_cacheops && size >= dcache_size * JZ_L2C_HALFSIZE) {
-		r4k_blast_dcache();
+		//r4k_blast_dcache();
+		allcpu_r4k_flush_dcache();
 	} else {
 		unsigned long lsize = cpu_dcache_line_size();
 		unsigned long almask = ~(lsize - 1);
@@ -729,7 +794,8 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 
 static void r4k_flush_cache_sigtramp(unsigned long addr)
 {
-	r4k_on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr);
+	//r4k_on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr);
+	local_r4k_flush_cache_sigtramp((void *) addr);
 }
 
 static void r4k_flush_icache_all(void)
@@ -748,14 +814,14 @@ static inline void local_r4k_flush_kernel_vmap_range(void *args)
 	struct flush_kernel_vmap_range_args *vmra = args;
 	unsigned long vaddr = vmra->vaddr;
 	int size = vmra->size;
-
 	/*
 	 * Aliases only affect the primary caches so don't bother with
 	 * S-caches or T-caches.
 	 */
-	if (cpu_has_safe_index_cacheops && size >= dcache_size)
-		r4k_blast_dcache();
-	else {
+	if (cpu_has_safe_index_cacheops && size >= dcache_size) {
+		//r4k_blast_dcache();
+		allcpu_r4k_flush_dcache();
+	} else {
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		blast_dcache_range(vaddr, vaddr + size);
 	}
