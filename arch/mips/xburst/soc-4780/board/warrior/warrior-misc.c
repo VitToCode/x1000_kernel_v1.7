@@ -62,7 +62,7 @@ static struct gpio_keys_button board_buttons[] = {
 		.wakeup		= 1,
 	},
 #endif
-#ifdef GPIO_VOLUMEDOWN
+#ifndef GPIO_VOLUMEDOWN
 	{
 		.gpio		= GPIO_VOLUMEDOWN,
 		.code   	= KEY_VOLUMEDOWN,
@@ -146,6 +146,10 @@ static int __init warrior_board_init(void)
 #endif
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
+#endif
+/* GPU */
+#ifdef CONFIG_PVR_SGX
+	platform_device_register(&jz_gpu);
 #endif
 /* panel and bl */
 #ifdef CONFIG_LCD_KR070LA0S_270
