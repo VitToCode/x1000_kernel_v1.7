@@ -21,7 +21,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	warrior,	1100000,	1450000);
+	warrior,	1100000,	1250000);
 
 /**
  * I/O Regulator.
@@ -30,7 +30,7 @@ CORE_REGULATOR_DEF(
  */
 IO_REGULATOR_DEF(
 	warrior_vccio,
-	"vccio",	3300000,	1);
+	"Vcc-IO",	3300000,	1);
 
 /**
  * Exclusive Regulators.
@@ -38,14 +38,17 @@ IO_REGULATOR_DEF(
  */
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vwifi,
+	"Wi-Fi",
 	"vwifi",	NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vtsc,
+	"Touch Screen",
 	"vtsc",		NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vgsensor,
+	"G-sensor",
 	"vgsensor",	NULL,		3300000);
 
 /**
@@ -54,31 +57,31 @@ EXCLUSIVE_REGULATOR_DEF(
  */
 FIXED_REGULATOR_DEF(
 	warrior_vcc5,
-	"vcc5v",	5000000,
+	"Vcc-5V",	5000000,
 	GPIO_PA(17),	HIGH_ENABLE,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
 FIXED_REGULATOR_DEF(
 	warrior_vbus,
-	"otg-Vbus",	5000000,
+	"OTG-Vbus",	5000000,
 	GPIO_PE(10),	HIGH_ENABLE,	0,
-	"vcc5v",	"vdrvvbus",	NULL);
+	"Vcc-5V",	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
 	warrior_vmotor,
-	"motor",	3300000,
+	"Motor",	3300000,
 	GPIO_PB(25),	HIGH_ENABLE,	0,
-	"vccio",	"vmotor",	"jz_motor");
+	"Vcc-IO",	"vmotor",	"jz_motor");
 
 FIXED_REGULATOR_DEF(
 	warrior_vcim,
-	"cim",		2800000,
+	"Camera",	2800000,
 	GPIO_PB(27),	HIGH_ENABLE,	0,
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
 	warrior_vlcd,
-	"lcd",		3300000,
+	"LCD",		3300000,
 	GPIO_PB(23),	HIGH_ENABLE,	0,
 	NULL,		"vlcd",		NULL);
 

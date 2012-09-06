@@ -75,9 +75,11 @@ static struct regulator_consumer_supply ucharger_consumer =
 
 static struct regulator_init_data ucharger_init_data = {
 	.constraints = {
-		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
-		.min_uA			= 400,
-		.max_uA			= 800,
+		.name			= "USB Charger",
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS
+					  | REGULATOR_CHANGE_CURRENT,
+		.min_uA			= 400000,
+		.max_uA			= 800000,
 		.boot_on		= 1,
 	},
 	.num_consumer_supplies  = 1,
@@ -89,6 +91,7 @@ static struct regulator_consumer_supply vbus_consumer =
 
 static struct regulator_init_data vbus_init_data = {
 	.constraints = {
+		.name			= "Vbus(Q1-Q3)",
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
@@ -142,9 +145,7 @@ static int act8600_dcdc_enable(struct regulator_dev *rdev)
 	struct i2c_client *client = act8600_reg->iodev->client;
 	unsigned char value, timeout;
 	unsigned char reg = get_dcdc_vcon_reg(rdev_get_id(rdev));
-	printk("-------%s: %d %d\n",__func__ ,__LINE__, rdev_get_id(rdev));
-	if (rdev_get_id(rdev) == 0)
-		return 0;
+
 	act8600_read_reg(client, reg, &value);
 	value |= VCON_ON;
 	act8600_write_reg(client, reg, value);
@@ -448,9 +449,7 @@ static int act8600_set_voltage(struct regulator_dev *rdev,
 	struct i2c_client *client = act8600_reg->iodev->client;
 	unsigned char value;
 	unsigned char reg = get_vset_reg(rdev_get_id(rdev));
-	printk("-------%s: %d %d\n",__func__ ,__LINE__, rdev_get_id(rdev));
-	if (rdev_get_id(rdev) == 0)
-		return 0;
+
 	value = voltages_to_value(min_uV, max_uV, selector);
 	act8600_write_reg(client, reg, value);
 
@@ -638,7 +637,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 			dev_err(pdev->dev.parent,
 				"can't find regulator:%s\n", reg_info->name);
 		} else {
-			dev_info(pdev->dev.parent,
+			dev_dbg(pdev->dev.parent,
 				"register regulator:%s\n", reg_info->name);
 			if (reg_info->init_data) {
 				rdev[i] = regulator_register(desc,

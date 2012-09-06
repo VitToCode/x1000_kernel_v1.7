@@ -37,7 +37,7 @@ static struct regulator_consumer_supply BOARD##_vcore_consumer =	\
 									\
 struct regulator_init_data BOARD##_vcore_init_data = {			\
 	.constraints = {						\
-		.name			= "vcore",			\
+		.name			= "Core",			\
 		.min_uV			= VCORE_MIN,			\
 		.max_uV			= VCORE_MAX,			\
 		.always_on		= 1,				\
@@ -58,12 +58,13 @@ struct regulator_init_data REG##_init_data = {				\
 	},								\
 }
 
-#define EXCLUSIVE_REGULATOR_DEF(REG, SUPPLY, DEV_NAME, VOL)		\
+#define EXCLUSIVE_REGULATOR_DEF(REG, NAME, SUPPLY, DEV_NAME, VOL)	\
 static struct regulator_consumer_supply REG##_consumer =		\
 	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);				\
 									\
 struct regulator_init_data REG##_init_data = {				\
 	.constraints = {						\
+		.name			= NAME,				\
 		.min_uV			= VOL,				\
 		.max_uV			= VOL,				\
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
