@@ -890,7 +890,7 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * no action to complete the request.
 	 */
 	mod_timer(&host->request_timer, jiffies +
-		  msecs_to_jiffies(60000 + (host->data ? host->data->blocks << 2 : 0)));
+		  msecs_to_jiffies(20000 + (host->data ? host->data->blocks << 2 : 0)));
 
 	jzmmc_command_start(host, host->cmd);
 	if (host->data)
@@ -1424,8 +1424,11 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 					gpio_to_irq(host->pdata->gpio->cd.num));
 				break;
 			}
+			disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
+
 			setup_timer(&host->detect_timer, jzmmc_detect_change,
 				    (unsigned long)host);
+			mod_timer(&host->detect_timer, jiffies);
 		} else {
 			dev_err(host->dev, "card-detect pin must be valid "
 				"when host->pdata->removal = 1, errno=%d\n",
@@ -1534,9 +1537,9 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->private_init) {
-//		ret = pdata->private_init(); 
-//		if (ret < 0)
-//			goto err_pri_init;
+		ret = pdata->private_init(); 
+		if (ret < 0)
+			goto err_pri_init;
 	}
 	ret = jzmmc_msc_init(host);
 	if (ret < 0)
