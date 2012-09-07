@@ -700,7 +700,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	}
 
 	//jz_x2d->platdev = pdev; 
-	//clk_enable(jz_x2d->x2d_clk );
+	clk_enable(jz_x2d->x2d_clk );
 
 	x2d_id = __x2d_read_devid();
 	if(x2d_id != X2D_ID)
@@ -731,10 +731,10 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	mutex_init(&jz_x2d->compose_lock);
 	mutex_init(&jz_x2d->x2d_lock);
 //#ifndef CONFIG_HAS_EARLYSUSPEND
-	jz_x2d->early_suspend.suspend = x2d_early_suspend;
-	jz_x2d->early_suspend.resume = x2d_early_resume;
-	jz_x2d->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	register_early_suspend(&jz_x2d->early_suspend);
+//	jz_x2d->early_suspend.suspend = x2d_early_suspend;
+//	jz_x2d->early_suspend.resume = x2d_early_resume;
+//	jz_x2d->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+//	register_early_suspend(&jz_x2d->early_suspend);
 //#endif
 
 	//clk_disable(jz_x2d->x2d_clk );  

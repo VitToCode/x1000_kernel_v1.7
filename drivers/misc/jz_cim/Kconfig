@@ -14,6 +14,11 @@ config OV7675
 	depends on JZ_CIM
 	default n
 
+config SP0838
+	bool "sp0838 camera sensor"
+	depends on JZ_CIM
+	default n
+
 config FAKE
 	bool "fake camera sensor only for test"
 	depends on JZ_CIM
