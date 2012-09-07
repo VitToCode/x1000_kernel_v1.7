@@ -524,16 +524,25 @@ static inline void blast_dcache_jz(void)
 	unsigned long start = INDEX_BASE;
 	unsigned long end = start + current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
 	unsigned long addr = start;
+	unsigned long dtags;
 	do {
-		i_pref(JZ_ALLOC_PREF, addr, 0);
-		addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);
-		addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);
-		addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);
-		addr += 32;
+		
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
 	} while (addr < end);
+	do {
+		i_cache(Index_Load_Tag_D,start,0); dtags = read_c0_dtaglo();
+		if(dtags & 1) {
+			i_cache(Index_Writeback_Inv_D,start,0);
+		}
+		start += 32;
+	}while(start < end);
 }
 
 static inline void blast_icache_jz(void)
@@ -551,6 +560,7 @@ static inline void blast_icache_jz(void)
 		i_cache(JZ_FETCH_LOCK, addr, 0);
 		addr += 32;
 	} while (addr < end);
+	
 }
 
 static inline void blast_dcache32(void)

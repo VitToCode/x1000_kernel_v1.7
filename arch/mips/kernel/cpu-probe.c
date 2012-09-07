@@ -28,6 +28,7 @@
 #include <asm/uaccess.h>
 #include <asm/cacheops.h>
 #include <asm/cacheflush.h> /* for run_uncached() */
+#include <asm/rjzcache.h>
 #include <asm/r4kcache.h>
 
 /*
@@ -95,10 +96,10 @@ void r4k_wait_irqoff(void)
 	}								\
 	while(0)
 
-void jz4780_wait_irqoff(void)
+static void jz4780_wait_irqoff(void)
 {
 	local_irq_disable();
-	blast_dcache32();
+	blast_dcache_jz();
 	cache_prefetch(IDLE_PROGRAM);
 
 IDLE_PROGRAM:
@@ -111,7 +112,6 @@ IDLE_PROGRAM:
 				      "	.set	pop		\n"
 				      :: "r" (0xa0000000)
 			);
-
 	local_irq_enable();
 
 	return;
