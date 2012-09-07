@@ -37,6 +37,7 @@ void __init setup_priority(unsigned int base, unsigned int target, unsigned int 
 
 void __init cpm_reset(void)
 {
+#ifndef CONFIG_FPGA_TEST
 	unsigned long lcr = cpm_inl(CPM_LCR);
 
 	cpm_outl(lcr | CPM_LCR_PD_MASK,CPM_LCR);
@@ -46,6 +47,7 @@ void __init cpm_reset(void)
 	cpm_outl(8,CPM_PSWC1ST);
 	cpm_outl(11,CPM_PSWC2ST);
 	cpm_outl(0,CPM_PSWC3ST);
+#endif
 }
 
 int __init setup_init(void)
