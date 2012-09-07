@@ -440,19 +440,30 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	
 	/*get some register information */
 	uc_reg_addr = FT5X06_REG_FW_VER;
-	ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	if(err < 0){
+		printk("ft5x06_ts  probe failed\n");
+		goto exit_input_register_device_failed;
+	}
 	dev_dbg(&client->dev, "[FTS] Firmware version = 0x%x\n", uc_reg_value);
 	
 	uc_reg_addr = FT5X06_REG_POINT_RATE;
-	ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	if(err < 0){
+		printk("ft5x06_ts  probe failed\n");
+		goto exit_input_register_device_failed;
+	}
 	dev_dbg(&client->dev, "[FTS] report rate is %dHz.\n",
 		uc_reg_value * 10);
 
 	uc_reg_addr = FT5X06_REG_THGROUP;
 	ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	if(err < 0){
+		printk("ft5x06_ts  probe failed\n");
+		goto exit_input_register_device_failed;
+	}
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
-
 	enable_irq(client->irq);
 	return 0;
 
