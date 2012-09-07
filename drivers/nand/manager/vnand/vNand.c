@@ -49,17 +49,59 @@ static void vNandPage_To_NandPage(VNandInfo *vnand, int *pageid, int *offsetbyte
 	*pageid /= vnand->_2kPerPage;
 }
 
-static void vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
+static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 {
 	struct singlelist *pos = NULL;
 	PageList *pl_node = NULL;
+	PageList *npl = NULL;
+	PageList *mpl = NULL;
+	int *retVal =  vnand->retVal;
+	int i;
+	int flag = 1;
 
 	if (vnand->_2kPerPage == 1)
-		return;
-
+		return pl;
+	npl = (PageList *)BuffListManager_getTopNode(vnand->blm, sizeof(PageList));
+	mpl = npl;
+	npl->Bytes = 0;
 	singlelist_for_each(pos,&pl->head) {
 		pl_node = singlelist_entry(pos,PageList,head);
-		vNandPage_To_NandPage(vnand,(int *)&pl_node->startPageID,(int *)&pl_node->OffsetBytes);
+		if (flag){
+			npl->startPageID = pl_node->startPageID / vnand->_2kPerPage;
+			npl->OffsetBytes = pl_node->OffsetBytes + pl_node->startPageID % vnand->_2kPerPage * 2048;
+			npl->pData = pl_node->pData;
+			for (i=0; i<vnand->_2kPerPage; i++)
+				*retVal++ = (int)pl_node;
+			flag = 0;
+		}
+		npl->Bytes += pl_node->Bytes;
+		if ((pl_node->retVal == 0 ||
+			 (npl->Bytes + npl->OffsetBytes) >= vnand->BytePerPage*vnand->_2kPerPage) &&
+			(pos->next != NULL)) {
+			npl = (PageList *)BuffListManager_getNextNode(vnand->blm, (void *)npl, sizeof(PageList));
+			npl->Bytes = 0;
+			pl_node->retVal = 0;
+			flag = 1;
+		}
+	}
+	return mpl;
+}
+
+static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
+{
+	struct singlelist *pos;
+	PageList *newpl = NULL;
+	int *retVal = vnand->retVal;
+	int i;
+	singlelist_for_each(pos,&alig_pl->head){
+		newpl = singlelist_entry(pos,PageList,head);
+		if (newpl->retVal != 0){
+			for(i=0; i< vnand->_2kPerPage; i++){
+				((PageList*)(*retVal))->retVal = newpl->retVal;
+				retVal++;
+			}
+		}else
+			retVal+=vnand->_2kPerPage;
 	}
 }
 
@@ -79,12 +121,15 @@ int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount,
 
 int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
+	PageList *alig_pl = NULL;
 
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,0);
 #endif
-	vNandPageList_To_NandPageList(vNand,pl);
-	ret = VN_OPERATOR(MultiPageRead,vNand->prData,pl);
+	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
+	vNand->align_rpl = alig_pl;
+	ret = VN_OPERATOR(MultiPageRead,vNand->prData,alig_pl);
+	Fill_Pl_Retval(vNand,alig_pl);
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte,(void*)pl,0);
 #endif
@@ -98,12 +143,15 @@ static int MultiPageRead (VNandInfo* vNand,PageList* pl )
 
 int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
+	PageList *alig_pl = NULL;
 
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,1);
 #endif
-	vNandPageList_To_NandPageList(vNand,pl);
-	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
+	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
+	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,alig_pl);
+	Fill_Pl_Retval(vNand,alig_pl);
+	BuffListManager_freeAllList(vNand->blm,(void **)&alig_pl,sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte,(void*)pl,1);
 #endif
@@ -126,12 +174,14 @@ int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	PageList *write_follow_pagelist = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
+	PageList *alig_rpl = NULL;
+	PageList *alig_wpl = NULL;
 
-	vNandPageList_To_NandPageList(vNand,rpl);
-	vNandPageList_To_NandPageList(vNand,wpl);
+	alig_rpl = vNandPageList_To_NandPageList(vNand,rpl);
+	alig_wpl = vNandPageList_To_NandPageList(vNand,wpl);
 
-	read_follow_pagelist = rpl;
-	write_follow_pagelist = wpl;
+	read_follow_pagelist = alig_rpl;
+	write_follow_pagelist = alig_wpl;
 	NandMutex_Lock(&v_nand_ops.mutex);
 	while (1) {
 		if (read_follow_pagelist == NULL || write_follow_pagelist == NULL)
@@ -188,6 +238,8 @@ int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 
 exit:
 	NandMutex_Unlock(&v_nand_ops.mutex);
+	BuffListManager_freeAllList(vNand->blm,(void **)&alig_rpl,sizeof(PageList));
+	BuffListManager_freeAllList(vNand->blm,(void **)&alig_wpl,sizeof(PageList));
 	return ret;
 }
 

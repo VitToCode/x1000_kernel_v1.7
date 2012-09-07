@@ -18,7 +18,7 @@
 #include "badblockinfo.h"
 
 static BuffListManager *Blm;
-
+#define PAGENUMBER_PERPAGELIST   (128/2+4)
 /**
  *	Idle_Handler  -  function in idle thread
  *
@@ -163,6 +163,8 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 #endif
 
 	CONV_PT_VN(pt,&conptr->vnand);
+	conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
+	conptr->vnand.blm = BuffListManager_BuffList_Init();
 
 	conptr->l1info = (L1Info *)Nand_VirtualAlloc(sizeof(L1Info));
 	if (!conptr->l1info) {
@@ -253,6 +255,8 @@ int L2PConvert_ZMClose(int handle)
 	Recycle_DeInit(context);
 	CacheManager_DeInit(context);
 	ZoneManager_DeInit(context);
+	Nand_VirtualFree(conptr->vnand.retVal);
+	BuffListManager_BuffList_DeInit(conptr->vnand.blm);
 	Nand_VirtualFree(conptr);
 
 	return 0;
@@ -348,7 +352,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
  *	@sectornode: object need to calculate
  *	@pagelist: which created when Convert finished
 */
-static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorList *sectornode, PageList **pagelist, int left_sectorcount)
+static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorList *sectornode, PageList **pagelist, int left_sectorcount, bool brokenflag)
 {
 	int i;
 	PageList *pagenode = NULL;
@@ -368,10 +372,13 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
 		pagenode->Bytes = sectorcount * SECTOR_SIZE;
 		pagenode->OffsetBytes = (sectorperpage - left_sectorcount) * SECTOR_SIZE;
 		pagenode->pData = sectornode->pData;
+		pagenode->retVal = 1;
 
-		if (sectornode->sectorCount <= left_sectorcount)
+		if (sectornode->sectorCount <= left_sectorcount) {
+			if (brokenflag)
+				pagenode->retVal = 0;
 			return 0;
-
+		}
 		sl_new.sectorCount = sectornode->sectorCount - left_sectorcount;
 		sl_new.pData = sectornode->pData + pagenode->Bytes;
 		sectornode = &sl_new;
@@ -404,7 +411,12 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
 
 		/* fill pData */
 		pagenode->pData  = sectornode->pData + conptr->vnand.BytePerPage * i;
+
+		pagenode->retVal = 1;
 	}
+
+	if (brokenflag)
+		pagenode->retVal = 0;
 
 	return 0;
 }
@@ -537,6 +549,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
+	BuffListManager_freeAllList(conptr->vnand.blm, (void **)&conptr->vnand.align_rpl, sizeof(PageList));
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return 0;
@@ -682,7 +695,7 @@ static void fill_l2p_sectorid(L2pConvert *l2p, SectorList *sl)
 	}
 }
 
-static void new_pagelist(L2pConvert *l2p, SectorList *sl, PageList **pagelist, Zone *zone)
+static void new_pagelist(L2pConvert *l2p, SectorList *sl, PageList **pagelist, Zone *zone, bool brokenflag)
 {
 	unsigned int spp = zone->vnand->BytePerPage / SECTOR_SIZE;
 
@@ -696,7 +709,7 @@ static void new_pagelist(L2pConvert *l2p, SectorList *sl, PageList **pagelist, Z
 		l2p->zone_is_new = 0;
 	}
 
-	Write_sectornode_to_pagelist(zone, spp, sl, pagelist, l2p->page_left_sector_count);
+	Write_sectornode_to_pagelist(zone, spp, sl, pagelist, l2p->page_left_sector_count, brokenflag);
 
 	if (sl->sectorCount <= l2p->page_left_sector_count)
 		l2p->page_left_sector_count -= sl->sectorCount;
@@ -888,6 +901,8 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	CacheManager *cm = conptr->cachemanager;
 	unsigned int l4count = l2p->l4count;
 	int spp = conptr->vnand.BytePerPage / SECTOR_SIZE;
+	bool brokenflag = true; /* true: current sectorlist node not be mergeable
+							   with next sectorlist node on physical address */
 
 	free_pagecount = Zone_GetFreePageCount(zone);
 	if (free_pagecount <= 1) {
@@ -943,6 +958,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 			sl_node_new.pData = sl_node->pData;
 			sl_node_new.head.next = sl_node->head.next;
 			sl_node = &sl_node_new;
+			brokenflag = false;
 		}
 
 		total_sectorcount += sl_node->sectorCount;
@@ -954,6 +970,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 				if (IS_NOT_SAME_L4(l2p->break_type)) {
 					l2p->node_left_sector_count += total_sectorcount - (free_pagecount - 1) * spp;
 					sl_node_new.sectorCount = sl_node->sectorCount - (total_sectorcount - (free_pagecount - 1) * spp);
+					brokenflag = false;
 				}
 				else {
 					l2p->node_left_sector_count = total_sectorcount - (free_pagecount - 1) * spp;
@@ -970,7 +987,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 			}
 		}
 
-		new_pagelist(l2p, sl_node, &pl, zone);
+		new_pagelist(l2p, sl_node, &pl, zone, brokenflag);
 
 		fill_l2p_sectorid(l2p, sl_node);
 
@@ -1142,4 +1159,3 @@ void L2PConvert_Deinit(int handle)
 {
 
 }
-

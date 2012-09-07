@@ -17,6 +17,9 @@ struct _VNandInfo {
 	int MaxBadBlockCount;
 	unsigned short hwSector;
 	unsigned short _2kPerPage;
+	int blm;
+	void* align_rpl;
+	int* retVal;
 	unsigned int *pt_badblock_info;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
