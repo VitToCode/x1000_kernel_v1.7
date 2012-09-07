@@ -152,20 +152,12 @@
 /*------------------*/
  #define DR_MIX_DATA            0//8 bits
   #define DR_MIX_DATA_MASK      (0xff << DR_MIX_DATA)
-/*MIX0*/
-        #define MIX0_AIDACK_SEL         4
-         #define MIX0_AIDACK_SEL_MASK   (0xf << MIX0_AIDACK_SEL)
-        #define MIX0_DAC_MIX            0
-/*MIX1*/
-        #define MIX1_MIXDACX_SEL        4
-         #define MIX1_MIXDACX_SEL_MASK  (0xf << MIX1_MIXDACX_SEL)
-/*MIX2*/
-        #define MIX2_AIADCX_SEL         4
-         #define MIX2_AIADCX_SEL_MASK   (0xf << MIX2_AIADCX_SEL)
-        #define MIX2_ADC_MIX            0
-/*MIX3*/
-        #define MIX3_MIXADCX_SEL        4
-         #define MIX3_MIXADCX_SEL_MASK  (0xf << MIX3_MIXADCX_SEL)
+/*MIX 0 - 4 register*/
+	#define MIX_L_SEL			6
+	#define MIX_L_SEL_MASK		(0xf << MIX_L_SEL)
+	#define MIX_R_SEL			4
+	#define MIX_R_SEL_MASK		(0xf << MIX_R_SEL)
+	#define MIX_MODE_SEL		0
 
 #define CODEC_REG_CR_VIC        0x1b
 /*------------------*/
@@ -615,7 +607,7 @@ do {															\
 
 #define ICR_ALL_MASK            (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_LOCK_MASK | IMR_JACK_MASK | IMR_SCLR_MASK)
 
-#ifdef CONFIG_HP_JZ_DETECT
+#ifdef CONFIG_JZ_HP0_DETECT
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK)
 #else
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_JACK_MASK)
@@ -987,11 +979,6 @@ do {	\
 /*=============================== MIXER ===============================*/
 
 /*CR_MIX , DR_MIXER :mixer ops*/
-#define CODEC_MIX_DAC		CR_MIX0
-#define CODEC_MIX_IN_DAC	CR_MIX1
-#define CODEC_MIX_ADC		CR_MIX2
-#define CODEC_MIX_IN_ADC	CR_MIX3
-
 #define __codec_mix_enable()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);	\
@@ -1032,8 +1019,8 @@ static void inline __codec_mix_write_reg(int mix_num,unsigned int data)
 
 #define __codec_set_rec_mix_mode(mode)	\
 do {	\
-	__codec_mix_write_reg(CODEC_MIX_ADC,	\
-						  ((__codec_mix_read_reg(CODEC_MIX_ADC) & (~1)) | mode)	\
+	__codec_mix_write_reg(CR_MIX2,	\
+						  ((__codec_mix_read_reg(CR_MIX2) & (~1)) | mode)	\
 						 );	\
 } while (0)
 
@@ -1043,21 +1030,23 @@ do {	\
 
 #define __codec_set_rep_mix_mode(mode)	\
 do {	\
-	__codec_mix_write_reg(CODEC_MIX_DAC,	\
-						  ((__codec_mix_read_reg(CODEC_MIX_DAC) & (~1)) |mode)	\
+	__codec_mix_write_reg(CR_MIX0,	\
+						  ((__codec_mix_read_reg(CR_MIX0) & (~1)) | mode)	\
 						 );	\
 } while (0)
 
-#define CODEC_MIX_INPUT_FUNC_NORMAL		0x00
-#define CODEC_MIX_INPUT_FUNC_CROSS		0x01
-#define CODEC_MIX_INPUT_FUNC_MIXED		0x02
-#define CODEC_MIX_INPUT_FUNC_NOINPUT	0x03
+#define CODEC_MIX_FUNC_NORMAL		0x00
+#define CODEC_MIX_FUNC_CROSS		0x01
+#define CODEC_MIX_FUNC_MIXED		0x02
+#define CODEC_MIX_FUNC_NOINPUT		0x03
 
-#define __codec_select_mix_input_func(mix_mun,func)	\
+#define __codec_set_mix(mix_num,funcl,funcr)	\
 do {	\
-	func = (func << MIX0_AIDACK_SEL)|MIX0_AIDACK_SEL_MASK;	\
+	int func = 0;	\
+	func = (funcl << MIX_L_SEL) & MIX_L_SEL_MASK;	\
+	func |= ((funcr << MIX_R_SEL) & MIX_R_SEL_MASK);	\
 	if (mix_num == CR_MIX0 || mix_num == CR_MIX2)	\
-		func |= (__codec_mix_read_reg(mix_num) & (1 << MIX0_DAC_MIX));	\
+		func |= (__codec_mix_read_reg(mix_num) & (1 << MIX_MODE_SEL));	\
 	__codec_mix_write_reg(mix_num,func);	\
 } while (0)
 

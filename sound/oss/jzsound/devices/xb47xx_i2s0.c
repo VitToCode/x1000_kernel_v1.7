@@ -29,6 +29,7 @@
 #include <soc/irq.h>
 #include <soc/base.h>
 #include "xb47xx_i2s0.h"
+#include "codecs/jz4780_codec.h"
 /**
  * global variable
  **/
@@ -37,8 +38,6 @@ static LIST_HEAD(codecs_head);
 static spinlock_t i2s0_irq_lock;
 static struct snd_switch_data switch_data;
 static volatile int jz_switch_state = 0;
-static spinlock_t i2s0_hp_detect_state;
-
 static struct dsp_endpoints i2s0_endpoints;
 
 static struct workqueue_struct *i2s0_work_queue;
@@ -58,6 +57,22 @@ static struct codec_info {
 	int (*codec_ctl)(unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints *dsp_endpoints;
 } *cur_codec;
+/*##################################################################*\
+ | dump
+\*##################################################################*/
+
+static void dump_i2s0_reg(void)
+{
+	int i;
+	unsigned long reg_addr[] = {
+		AIC0FR,AIC0CR,I2S0CR,AIC0SR,I2S0SR,I2S0DIV
+	};
+
+	for (i = 0;i < 6; i++) {
+		printk("##### num 0aic reg0x%x,=0x%x.\n",
+			(unsigned int)reg_addr[i],i2s0_read_reg(reg_addr[i]));
+	}
+}
 
 /*##################################################################*\
  |* suspand func
@@ -66,7 +81,7 @@ static int i2s0_suspend(struct platform_device *, pm_message_t state);
 static int i2s0_resume(struct platform_device *);
 static void i2s0_shutdown(struct platform_device *);
 
-#ifdef CONFIG_ANDROID
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int is_i2s0_suspended = 0;
 
 static void i2s0_late_resume(struct early_suspend *h)
@@ -134,9 +149,10 @@ static void i2s0_set_filter(int mode)
 	switch(cur_codec->record_rate) {
 		case AFMT_U8:
 		case AFMT_S8:
-			dp->filter = convert_16bits_stereomix2mono;
+			dp->filter = convert_8bits_stereo2mono;
 			break;
 		case AFMT_S16_LE:
+			dp->filter = convert_16bits_stereomix2mono;
 			break;
 		default :
 			dp->filter = NULL;
@@ -375,11 +391,11 @@ static int i2s0_set_default_route(int mode)
 	if (!cur_codec)
 		return -ENODEV;
 
-	if (mode & CODEC_RWMODE) {
+	if (mode == CODEC_RWMODE) {
 		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_HEADPHONE);
-	} else if (mode & CODEC_WMODE) {
+	} else if (mode == CODEC_WMODE) {
 		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_HEADPHONE);
-	} else if (mode & CODEC_RMODE){
+	} else if (mode == CODEC_RMODE){
 		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_RECORD_MIC);
 	}
 
@@ -430,18 +446,14 @@ static int i2s0_enable(int mode)
 	return 0;
 }
 
-static int i2s0_disable(int mode)			//CHECK codec is suspend?
+static int i2s0_disable_channel(int mode)			//CHECK codec is suspend?
 {
 	if (mode & CODEC_WMODE) {
-		__i2s0_disable_transmit_dma();
 		__i2s0_disable_replay();
 	}
 	if (mode & CODEC_RMODE) {
-		__i2s0_disable_receive_dma();
 		__i2s0_disable_record();
 	}
-	__i2s0_disable();
-
 	return 0;
 }
 
@@ -474,11 +486,9 @@ static int i2s0_dma_disable(int mode)		//CHECK seq dma and func
 {
 	if (mode & CODEC_WMODE) {
 		__i2s0_disable_transmit_dma();
-		__i2s0_disable_replay();
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s0_disable_receive_dma();
-		__i2s0_disable_record();
 	}
 	return 0;
 }
@@ -554,7 +564,7 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 
 	case SND_DSP_DISABLE_REPLAY:
 		/* disable i2s0 replay */
-		ret = i2s0_disable(CODEC_WMODE);
+		ret = i2s0_disable_channel(CODEC_WMODE);
 		break;
 
 	case SND_DSP_ENABLE_RECORD:
@@ -566,7 +576,7 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 
 	case SND_DSP_DISABLE_RECORD:
 		/* disable i2s0 record */
-		ret = i2s0_disable(CODEC_RMODE);
+		ret = i2s0_disable_channel(CODEC_RMODE);
 		break;
 
 	case SND_DSP_ENABLE_DMA_RX:
@@ -593,6 +603,19 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		ret = i2s0_set_rate((unsigned long *)arg,CODEC_RMODE);
 		break;
 
+	case SND_DSP_GET_REPLAY_RATE:
+		if (cur_codec && cur_codec->replay_rate)
+			*(unsigned long *)arg = cur_codec->replay_rate;
+		ret = 0;
+		break;
+
+	case SND_DSP_GET_RECORD_RATE:
+		if (cur_codec && cur_codec->record_rate)
+			*(unsigned long *)arg = cur_codec->record_rate;
+		ret = 0;
+		break;
+
+
 	case SND_DSP_SET_REPLAY_CHANNELS:
 		/* set replay channels */
 		ret = i2s0_set_channel((int *)arg,CODEC_WMODE);
@@ -606,6 +629,18 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		ret = i2s0_set_channel((int*)arg,CODEC_RMODE);
 		if (ret < 0)
 			break;
+		ret = 0;
+		break;
+
+	case SND_DSP_GET_REPLAY_CHANNELS:
+		if (cur_codec && cur_codec->replay_codec_channel)
+			*(unsigned long *)arg = cur_codec->replay_codec_channel;
+		ret = 0;
+		break;
+
+	case SND_DSP_GET_RECORD_CHANNELS:
+		if (cur_codec && cur_codec->record_codec_channel)
+			*(unsigned long *)arg = cur_codec->record_codec_channel;
 		ret = 0;
 		break;
 
@@ -663,6 +698,14 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 			i2s0_set_filter(CODEC_RMODE);
 		ret = 0;
 		break;
+	case SND_MIXER_DUMP_REG:
+		dump_i2s0_reg();
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_DUMP_REG,0);
+	case SND_MIXER_DUMP_GPIO:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_DUMP_GPIO,0);
+		break;
 
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
@@ -686,12 +729,12 @@ static irqreturn_t i2s0_irq_handler(int irq, void *dev_id)
 {
 	unsigned long flags;
 	irqreturn_t ret = IRQ_HANDLED;
-
 	spin_lock_irqsave(&i2s0_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	if (read_inter_codec_irq()){
+		codec_irq_set_mask();
 		queue_work(i2s0_work_queue, &i2s0_codec_work);
 	}
 #endif
@@ -866,8 +909,6 @@ static int i2s0_global_init(struct platform_device *pdev)
 	__i2s0_disable_record();
 	__i2s0_disable_replay();
 	__i2s0_disable_loopback();
-	//__i2s0_flush_rfifo();
-	__i2s0_flush_tfifo();
 	__i2s0_clear_ror();
 	__i2s0_clear_tur();
 	__i2s0_set_receive_trigger(3);
@@ -904,10 +945,9 @@ static int i2s0_init(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
-#ifdef CONFIG_ANDROID
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&jz_i2s_early_suspend);
 #endif
-	spin_lock_init(&i2s0_hp_detect_state);
 	ret = i2s0_global_init(pdev);
 
 	return ret;
@@ -922,7 +962,7 @@ static void i2s0_shutdown(struct platform_device *pdev)
 		cur_codec->codec_ctl(CODEC_SHUTDOWN,CODEC_RWMODE);
 		cur_codec->codec_ctl(CODEC_TURN_OFF,CODEC_RWMODE);
 	}
-
+	__i2s0_disable();
 	return;
 }
 
@@ -930,15 +970,17 @@ static int i2s0_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_SUSPEND,0);
-#ifdef CONFIG_ANDROID
+#ifdef CONFIG_HAS_EARLYSUSPEND
 		is_i2s0_suspended = 1;
 #endif
+	__i2s0_disable();
 	return 0;
 }
 
 static int i2s0_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_ANDROID
+	__i2s0_enable();
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_RESUME,0);
 #endif
@@ -949,16 +991,15 @@ static int i2s0_resume(struct platform_device *pdev)
  * headphone detect switch function
  *
  */
-void jz_set_hp0_switch_state(int state)
-{
-	spin_lock(&i2s0_hp_detect_state);
-	jz_switch_state = state;
-	spin_unlock(&i2s0_hp_detect_state);
-}
-
 static int jz_get_hp0_switch_state(void)
 {
-	return jz_switch_state;
+	int value = 0;
+	int ret = 0;
+	ret = cur_codec->codec_ctl(CODEC_GET_HP_STATE, (unsigned long)&value);
+	if (ret < 0) {
+		return 0;
+	}
+	return value;
 }
 
 void jz_set_hp0_detect_type(int type,unsigned int gpio)
@@ -997,6 +1038,11 @@ struct snd_dev_data i2s0_data = {
 	.shutdown		= i2s0_shutdown,
 	.suspend		= i2s0_suspend,
 	.resume			= i2s0_resume,
+};
+
+struct snd_dev_data snd_mixer0_data = {
+	.dev_ioctl	   	= i2s0_ioctl,
+	.minor			= SND_DEV_MIXER0,
 };
 
 static int __init init_i2s0(void)

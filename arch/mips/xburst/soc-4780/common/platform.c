@@ -110,7 +110,15 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	NAND_PORTA_CS6,
 #endif
 #ifdef CONFIG_JZ_EXTERNAL_CODEC
-	I2S0_PORTE,
+#ifndef CONFIG_JZ_INTERNAL_CODEC
+	I2S0_PORTDE,
+#endif
+#ifdef CONFIG_SOUND_I2S1_JZ47XX
+	I2S1_PORTEF,
+#endif
+#ifdef CONFIG_SOUND_PCM0_JZ47XX
+	PCM0_PORTD,
+#endif
 #endif
 	LCD_PORTC,
 	HDMI_PORTF,
@@ -364,6 +372,16 @@ struct platform_device jz_pcm##NO##_device = {					\
 };
 DEF_PCM(0);
 DEF_PCM(1);
+
+#define DEF_MIXER(NO)				\
+struct platform_device jz_mixer##NO##_device = {		\
+	.name	= DEV_MIXER_NAME,			\
+	.id		= minor2index(SND_DEV_MIXER##NO),	\
+};
+DEF_MIXER(0);
+DEF_MIXER(1);
+DEF_MIXER(2);
+DEF_MIXER(3);
 
 struct platform_device jz_codec_device = {
 	.name		= "jz_codec",

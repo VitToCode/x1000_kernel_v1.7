@@ -465,7 +465,12 @@ static int inline read_inter_codec_reg(int addr)
 	while(test_rw_inval());
 	i2s0_write_reg(RGADW,((addr << I2S0_RGADDR_OFFSET) & I2S0_RGADDR_MASK ));
 
-	while((reval = i2s0_read_reg(RGDATA)) & I2S0_RINVAL_MASK);
+	reval = i2s0_read_reg(RGDATA);
+	reval = i2s0_read_reg(RGDATA);
+	reval = i2s0_read_reg(RGDATA);
+	reval = i2s0_read_reg(RGDATA);
+	reval = i2s0_read_reg(RGDATA);
+	reval = i2s0_read_reg(RGDATA);
 
 	return reval & I2S0_RGDOUT_MASK;
 }
@@ -485,7 +490,8 @@ static int inline write_inter_codec_reg(int addr,int data)
 
 static int inline read_inter_codec_irq(void)
 {
-	return (i2s0_read_reg(RGDATA) & I2S0_IRQ_MASK);
+	int val = i2s0_read_reg(RGDATA);
+	return (val& I2S0_IRQ_MASK);
 }
 
 
@@ -493,7 +499,6 @@ static void inline write_inter_codec_reg_bit(int addr,int bitval,int offset)
 {
 	int val_tmp;
 	val_tmp = read_inter_codec_reg(addr);
-
 	if (bitval)
 		val_tmp |= (1 << offset);
 	else
@@ -504,7 +509,9 @@ static void inline write_inter_codec_reg_bit(int addr,int bitval,int offset)
 
 static void inline write_inter_codec_reg_mask(int addr,int val, int mask,int offset)
 {
-	write_inter_codec_reg(addr,((read_inter_codec_reg(addr)&(~mask)) | ((val << offset) & mask)));
+	int val_tmp;
+	val_tmp = read_inter_codec_reg(addr);
+	write_inter_codec_reg(addr,((val_tmp&(~mask)) | ((val << offset) & mask)));
 }
 
 /**
@@ -545,6 +552,7 @@ enum codec_ioctl_cmd_t {
 	CODEC_SET_REPLAY_VOLUME,
 	CODEC_SET_REPLAY_CHANNEL,
 	CODEC_DAC_MUTE,
+	CODEC_ADC_MUTE,
 	CODEC_DEBUG_ROUTINE,
 	CODEC_SET_STANDBY,
 	CODEC_GET_RECORD_FMT_CAP,
@@ -553,13 +561,15 @@ enum codec_ioctl_cmd_t {
 	CODEC_GET_REPLAY_FMT,
 	CODEC_IRQ_DETECT,
 	CODEC_IRQ_HANDLE,
+	CODEC_GET_HP_STATE,
+	CODEC_DUMP_REG,
+	CODEC_DUMP_GPIO,
 };
 /**
- * i2s0 switch state
+ *	i2s0 switch state
  **/
-
-void jz_set_hp0_switch_state(int state);
 void jz_set_hp0_detect_type(int type,unsigned int gpio);
+
 /**
  *	codec mode
  **/
@@ -568,4 +578,10 @@ enum codec_mode {
 	CODEC_MASTER,
 	CODEC_SLAVE,
 };
+
+
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
+extern void codec_irq_set_mask(void);
+#endif
+
 #endif /* _XB_SND_I2S_H_ */

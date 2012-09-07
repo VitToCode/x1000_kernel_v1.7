@@ -10,12 +10,17 @@
 #define __SOC_4770_H__
 
 
-#define I2S0_PORTE							\
-	{ .name = "i2s0_sysclk",	.port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x1<<5, },	\
-	{ .name = "i2s0_data",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<6, },	\
-	{ .name = "i2s0_bitclk",	.port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x1<<12,},	\
-	{ .name = "i2s0_sync",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<13,},	\
-	{ .name = "i2s0_iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }
+#define I2S0_PORTDE							\
+	{ .name = "i2s0-sysclk",	.port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x1<<5, },	\
+	{ .name = "i2s0-data",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<6, },	\
+	{ .name = "i2s0-bitclk",	.port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x1<<12,},	\
+	{ .name = "i2s0-sync",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<13,},	\
+	{ .name = "i2s0-iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }		\
+#define I2S1_PORTEF							\
+	{ .name = "i2s1-clk-data",	.port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf<<19,},	\
+	{ .name = "i2s1-iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<12,}		\
+#define PCM0_PORTD							\
+	{ .name = "pcm0"=,			.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x0f}
 /* devio define list */
 #define UART0_PORTF							\
 	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
@@ -144,6 +149,11 @@ extern struct platform_device jz_i2s1_device;
 extern struct platform_device jz_pcm0_device;
 extern struct platform_device jz_pcm1_device;
 extern struct platform_device jz_codec_device;
+
+extern struct platform_device jz_mixer0_device;
+extern struct platform_device jz_mixer1_device;
+extern struct platform_device jz_mixer2_device;
+extern struct platform_device jz_mixer3_device;
 
 extern struct platform_device jz_gpu;
 
