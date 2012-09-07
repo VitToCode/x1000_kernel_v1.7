@@ -319,7 +319,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	int i;
 	unsigned long lcr = cpm_inl(CPM_LCR);
 	unsigned long opcr = cpm_inl(CPM_OPCR);
-	unsigned long cpcsr = cpm_inl(CPM_CPCSR);
+	unsigned long cpccr = cpm_inl(CPM_CPCCR);
 	
 	/* set SRBC to stop bus transfer */
 	cpm_outl((1<<26),CPM_SRBC);
@@ -346,7 +346,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(11,CPM_PSWC2ST);
 	cpm_outl(0,CPM_PSWC3ST);
 
-	cpm_outl((cpcsr & ~0xff) | ((0x4 << 4) | 0x2),CPM_CPCSR);
+	cpm_outl((cpccr & ~0xff) | 0x31,CPM_CPCCR);
 #if defined(CONFIG_PM_POWERDOWN_P0)
 	/* Set resume return address */
 	cpm_outl(1,CPM_SLBC);
@@ -379,7 +379,7 @@ sleep_done:
 	}
 	/* Restore OPCR */
 	cpm_outl(opcr,CPM_OPCR);
-	cpm_outl(cpcsr,CPM_CPCSR);
+	cpm_outl(cpccr,CPM_CPCCR);
 
 	/* Restore LCR */
 #define ENABLE_LCR_MODULES(m) 					\
