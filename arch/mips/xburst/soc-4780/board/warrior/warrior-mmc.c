@@ -58,8 +58,15 @@ struct jzmmc_platform_data warrior_sdio_pdata = {
 	.private_init			= iw8101_wlan_init,
 };
 
+/*
+ * WARING:
+ * If a GPIO is not used or undefined, it must be set -1,
+ * or PA0 will be request.
+ */
 static struct card_gpio warrior_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
+	.wp				= {-1,			-1},
+	.pwr				= {-1,			-1},
 };
 
 struct jzmmc_platform_data warrior_tf_pdata = {

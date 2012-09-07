@@ -150,7 +150,7 @@ static int act8600_dcdc_enable(struct regulator_dev *rdev)
 	value |= VCON_ON;
 	act8600_write_reg(client, reg, value);
 
-	for (timeout = 50; timeout >= 0; timeout--) {
+	for (timeout = 0; timeout < 20; timeout++) {
 		act8600_read_reg(client, reg, &value);
 
 		if (value & VCON_OK)
@@ -204,7 +204,7 @@ static int act8600_ldo_enable(struct regulator_dev *rdev)
 	value &= ~VCON_DIS;
 	act8600_write_reg(client, reg, value);
 
-	for (timeout = 50; timeout >= 0; timeout--) {
+	for (timeout = 0; timeout < 20; timeout++) {
 		act8600_read_reg(client, reg, &value);
 
 		if (value & VCON_OK)
@@ -263,7 +263,7 @@ static int act8600_sudcdc_enable(struct regulator_dev *rdev)
 	value |= VCON_ON;
 	act8600_write_reg(client, reg, value);
 
-	for (timeout = 50; timeout >= 0; timeout--) {
+	for (timeout = 0; timeout < 20; timeout++) {
 		act8600_read_reg(client, reg, &value);
 
 		if (value & VCON_OK)
@@ -315,7 +315,7 @@ static int act8600_vbus_enable(struct regulator_dev *rdev)
 
 	act8600_write_reg(client, reg, value);
 
-	for (timeout = 50; timeout >= 0; timeout--) {
+	for (timeout = 0; timeout < 20; timeout++) {
 		act8600_read_reg(client, reg, &value);
 
 		if (value & Q1OK)
