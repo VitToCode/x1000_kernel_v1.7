@@ -21,7 +21,7 @@
 
 #include "warrior.h"
 
-#if defined(CONFIG_SENSORS_MMA8452) && defined(CONFIG_I2C1_JZ4780)
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_MMA8452))
 static struct gsensor_platform_data mma8452_platform_pdata = {
 	.gpio_int = GPIO_MMA8452_INT1,
 	.poll_interval = 100,
@@ -37,7 +37,7 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 };
 #endif
 
-#if (defined(CONFIG_SENSORS_LIS3DH) && (defined(CONFIG_I2C_GPIO) ||defined(CONFIG_I2C1_JZ4780)))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
 static struct gsensor_platform_data lis3dh_platform_data = {
 	.gpio_int = GPIO_LIS3DH_INT1, 
 	.poll_interval = 100,
@@ -53,7 +53,7 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 };
 #endif
 
-#if (defined(CONFIG_JZ4780_SUPPORT_TSC) && (defined(CONFIG_I2C_GPIO) ||defined(CONFIG_I2C3_JZ4780)))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
 static struct jztsc_pin warrior_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
@@ -100,26 +100,61 @@ static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 };
 #endif /*I2C3*/
 
-#ifdef CONFIG_I2C_GPIO
-#define GPIO_I2C3_SDA  (32*3+10)  //SDA对应的GPIO地址
-#define GPIO_I2C3_SCK  (32*3+11)  //SCL对应的GPIO地址
-static struct i2c_gpio_platform_data i2c3_gpio_data = {
-	.sda_pin	= GPIO_I2C3_SDA,
-	.scl_pin	= GPIO_I2C3_SCK,
+/*define gpio i2c,if you use gpio i2c,please enable gpio i2c and disable i2c controller*/
+#ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
+
+#define DEF_GPIO_I2C(NO,GPIO_I2C_SDA,GPIO_I2C_SCK)		\
+static struct i2c_gpio_platform_data i2c##NO##_gpio_data = {	\
+	.sda_pin	= GPIO_I2C_SDA,				\
+	.scl_pin	= GPIO_I2C_SCK,				\
+};								\
+static struct platform_device i2c##NO##_gpio_device = {     	\
+	.name	= "i2c-gpio",					\
+	.id	= NO,						\
+	.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
 };
-static struct platform_device i2c3_gpio_device = {
-	.name	= "i2c-gpio",
-	.id	= 3,
-	.dev	= { .platform_data = &i2c3_gpio_data,},
-};
+
+#ifndef CONFIG_I2C0_JZ4780
+DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PB(31));
 #endif
+#ifndef CONFIG_I2C1_JZ4780
+DEF_GPIO_I2C(1,GPIO_PE(30),GPIO_PE(31));
+#endif
+#ifndef CONFIG_I2C2_JZ4780
+DEF_GPIO_I2C(2,GPIO_PF(16),GPIO_PF(17));
+#endif
+#ifndef CONFIG_I2C3_JZ4780
+DEF_GPIO_I2C(3,GPIO_PD(10),GPIO_PD(11));
+#endif
+#ifndef CONFIG_I2C4_JZ4780
+DEF_GPIO_I2C(4,GPIO_PE(3),GPIO_PE(4));
+#endif
+
+#endif /*CONFIG_I2C_GPIO*/
 
 
 static int __init warrior_i2c_dev_init(void)
 {
 #ifdef CONFIG_I2C_GPIO
+
+#ifndef CONFIG_I2C0_JZ4780
+	platform_device_register(&i2c0_gpio_device);
+#endif
+#ifndef CONFIG_I2C1_JZ4780
+	platform_device_register(&i2c1_gpio_device);
+#endif
+#ifndef CONFIG_I2C2_JZ4780
+	platform_device_register(&i2c2_gpio_device);
+#endif
+#ifndef CONFIG_I2C3_JZ4780
 	platform_device_register(&i2c3_gpio_device);
 #endif
+#ifndef CONFIG_I2C4_JZ4780
+	platform_device_register(&i2c4_gpio_device);
+#endif
+
+#endif
+
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
