@@ -36,7 +36,7 @@
 #include <asm/cacheflush.h> /* for run_uncached() */
 
 void (*flush_insn_cache_page)(unsigned long addr);
-
+unsigned long reserved_for_alloccache[ 32 * 1024 ] __attribute__ ((aligned (32)));
 /*
  * Special Variant of smp_call_function for use by cache functions:
  *

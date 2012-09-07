@@ -19,7 +19,7 @@
 
 #ifdef CONFIG_JZRISC
 #define JZ_L2C_HALFSIZE 8
-#if 1 //add by jjiang 11/12/2010 
+#if 1 //add by jjiang 11/12/2010
 #define K0_TO_K1_CHECK(head_addr, tail_addr)	\
 do {						\
   unsigned long __k0_addr, tmp;			\
@@ -516,29 +516,45 @@ __BUILD_BLAST_CACHE(inv_s, scache, Index_Writeback_Inv_SD, Hit_Invalidate_SD, 12
 	({ __asm__ __volatile__ ("pref %0, %2(%1)"::"i"(hint), "r"(base), "i"(offset):"memory");})
 #define i_cache(opcode, base, offset) \
 	({ __asm__ __volatile__ ("cache %0, %2(%1)"::"i"(opcode), "r"(base), "i"(offset):"memory");})
+#define i_lw(base)						\
+	({ __asm__ __volatile__ ("lw $0, 0(%0)"::"r"(base));})
+
 #define JZ_ALLOC_PREF 30
 #define JZ_FETCH_LOCK 0x1c
-
+extern unsigned long reserved_for_alloccache[];
 static inline void blast_dcache_jz(void)
 {
-	unsigned long start = INDEX_BASE;
+	unsigned long start = (unsigned long)reserved_for_alloccache;
 	unsigned long end = start + current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
 	unsigned long addr = start;
-	unsigned long dtags;
-	do {
-		
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
-		i_pref(JZ_ALLOC_PREF, addr, 0);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+       do {
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
+		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
 	} while (addr < end);
 	do {
-		i_cache(Index_Load_Tag_D,start,0); dtags = read_c0_dtaglo();
-		if(dtags & 1) {
+		i_cache(Index_Load_Tag_D,start,0);
+		if(read_c0_dtaglo() & 1) {
+			i_cache(Index_Writeback_Inv_D,start,0);
+		}
+		start += 32;
+		i_cache(Index_Load_Tag_D,start,0);
+		if(read_c0_dtaglo() & 1) {
+			i_cache(Index_Writeback_Inv_D,start,0);
+		}
+		start += 32;
+		i_cache(Index_Load_Tag_D,start,0);
+		if(read_c0_dtaglo() & 1) {
+			i_cache(Index_Writeback_Inv_D,start,0);
+		}
+		start += 32;
+		i_cache(Index_Load_Tag_D,start,0);
+		if(read_c0_dtaglo() & 1) {
 			i_cache(Index_Writeback_Inv_D,start,0);
 		}
 		start += 32;
@@ -560,7 +576,7 @@ static inline void blast_icache_jz(void)
 		i_cache(JZ_FETCH_LOCK, addr, 0);
 		addr += 32;
 	} while (addr < end);
-	
+
 }
 
 static inline void blast_dcache32(void)
@@ -714,7 +730,7 @@ static inline void protected_blast_dcache_range(unsigned long start,
 	unsigned long lsize = cpu_dcache_line_size();
 	unsigned long addr = start & ~(lsize - 1);
 	unsigned long aend = (end - 1) & ~(lsize - 1);
-	
+
 	while (1) {
 		protected_cache_op(Hit_Writeback_Inv_D, addr);
 		if (addr == aend)
