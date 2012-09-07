@@ -26,8 +26,6 @@
 #include <asm/mipsregs.h>
 #include <asm/reboot.h>
 
-#include <asm/jzsoc.h>
-
 #include "dmmu_jz4780.h"
 
 #define DEV_NAME "dmmu"
