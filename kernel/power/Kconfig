@@ -307,3 +307,7 @@ config PM_POWERDOWN_P0
 	bool "power down xburst cpu core when sleep"
 	default y
 
+config HIBERNATE_RESET
+	depends on MACH_XBURST
+	bool "use hibernate reset instead watch dog reset"
+	default n

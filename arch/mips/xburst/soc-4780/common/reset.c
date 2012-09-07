@@ -48,6 +48,7 @@ static void inline rtc_write_reg(int reg,int value)
 	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	outl(value,(RTC_IOBASE + reg));
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 }
@@ -56,14 +57,17 @@ static void inline rtc_write_reg(int reg,int value)
 
 void jz_hibernate(void)
 {
+	local_irq_disable();
 	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 100ms */
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(100));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, (0x1 << 5));
+	rtc_write_reg(RTC_HRCR, (60 << 5));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
+
+	rtc_write_reg(RTC_HWCR, 0x8);
 
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
@@ -71,7 +75,7 @@ void jz_hibernate(void)
 	mdelay(200);
 
 	while(1) 
-		printk("We should NOT come here.\n");
+		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
 }
 
 void jz_wdt_restart(char *command)
@@ -94,69 +98,68 @@ void jz_wdt_restart(char *command)
 	*((volatile unsigned int *)(0xb000203c)) |= 1<<16;
 	outl((1<<3 | 1<<2),WDT_IOBASE + WDT_TCSR);
 	outl(JZ_EXTAL/1000,WDT_IOBASE + WDT_TDR);
-	printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
 	outl(0,WDT_IOBASE + WDT_TCNT);
-	printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
 	outl(1,WDT_IOBASE + WDT_TCER);
 
+	mdelay(200);
+
 	while (1)
-		printk("%d %d\n",inl(WDT_IOBASE + WDT_TCNT),JZ_EXTAL/1000);
 		printk("We should NOT come here, please check the WDT\n");
 }
 
-int __init reset_init(void)
-{
-	pm_power_off = jz_hibernate;
-	_machine_restart = jz_wdt_restart;
-
-	return 0;
-}
-arch_initcall(reset_init);
-
-
-#if 0
+#ifdef CONFIG_HIBERNATE_RESET
 void jz_hibernate_restart(char *command)
 {
-	uint32_t rtc_rtcsr;
+	uint32_t rtc_rtcsr,rtc_rtccr;
+
+	local_irq_disable();
+
 	if ((command != NULL) && !strcmp(command, "recovery")) {
 		jz_wdt_restart(command);
-	} else {
-		cpm_set_scrpad(0);
 	}
 
-	rtc_rtcsr = rtc_read_reg(RTC_RTCSR);
-	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 2);
-	rtc_set_reg(RTC_RTCCR,0x3<<2);
-
-	/* Mask all interrupts */
-	OUTREG32(INTC_ICMSR(0), 0xffffffff);
-	OUTREG32(INTC_ICMSR(1), 0x7ff);
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
+	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
+	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
 
       	/* Clear reset status */
-	CLRREG32(CPM_RSR, RSR_PR | RSR_WR | RSR_P0R);
+	cpm_outl(0,CPM_RSR);
 
 	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 100ms */
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(100));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, HRCR_WAIT_TIME(60));
-
-	/* Scratch pad register to be reserved */
-	rtc_write_reg(RTC_HSPR, HSPR_RTCV);
+	rtc_write_reg(RTC_HRCR, (60 << 5));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
 
-	/* set wake up valid level as low  and disable rtc alarm wake up.*/
-	rtc_write_reg(RTC_HWCR,0x9);
+	rtc_write_reg(RTC_HWCR, 0x9);
 
 	/* Put CPU to hibernate mode */
-	rtc_write_reg(RTC_HCR, HCR_PD);
+	rtc_write_reg(RTC_HCR, 0x1);
 
-	while (1)
-		printk("We should NOT come here, please check the RTC\n");
+	mdelay(200);
+
+	while(1) 
+		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
+
 }
-
-
 #endif
+
+int __init reset_init(void)
+{
+	pm_power_off = jz_hibernate;
+#ifdef CONFIG_HIBERNATE_RESET
+	_machine_restart = jz_hibernate_restart;
+#else
+	_machine_restart = jz_wdt_restart;
+#endif
+	return 0;
+}
+arch_initcall(reset_init);
+
+
 
