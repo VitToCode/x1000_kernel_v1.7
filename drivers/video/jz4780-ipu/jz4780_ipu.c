@@ -135,6 +135,15 @@ static void enable_csc_mode(struct jz_ipu *ipu)
 	reg_write(ipu, IPU_FM_CTRL, tmp); 
 }
 
+static void enable_lcdc_mode(struct jz_ipu *ipu)
+{
+	unsigned int tmp;
+
+	tmp = reg_read(ipu, IPU_FM_CTRL);			
+	tmp |= LCDC_SEL;
+	reg_write(ipu, IPU_FM_CTRL, tmp);
+}
+
 static void enable_pkg_mode(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
@@ -361,6 +370,20 @@ static void ipu_enable_irq(struct jz_ipu *ipu)
 	tmp = reg_read(ipu, IPU_FM_CTRL);
 	tmp |= FM_IRQ_EN;
 	reg_write(ipu, IPU_FM_CTRL, tmp);
+}
+
+static void ipu_disable_irq(struct jz_ipu *ipu)
+{
+	unsigned int tmp;
+
+	tmp = reg_read(ipu, IPU_FM_CTRL);
+	tmp &= ~FM_IRQ_EN;
+	reg_write(ipu, IPU_FM_CTRL, tmp);
+
+	tmp = reg_read(ipu, IPU_GLB_CTRL);
+	tmp &= ~(IRQ_EN | DMA_OPT_ENA);
+	reg_write(ipu, IPU_GLB_CTRL, tmp);
+
 }
 
 static void start_ipu(struct jz_ipu *ipu)
@@ -961,6 +984,12 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	if (out_fmt == OUT_FMT_YUV422) {
 		enable_csc_mode(ipu);
 	}
+	if (imgp->stlb_base) {
+		reg_write(ipu, IPU_SRC_TLB_ADDR, imgp->stlb_base);
+	}
+	if (imgp->dtlb_base) {
+		reg_write(ipu, IPU_DEST_TLB_ADDR, imgp->dtlb_base);
+	}
 
 	// set the ctrl
 	tmp = reg_read(ipu, IPU_FM_CTRL);
@@ -1056,7 +1085,7 @@ static int ipu_start(struct jz_ipu *ipu)
 static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 {
 	unsigned int py_buf, pu_buf, pv_buf;
-	unsigned int py_t_buf, pu_t_buf, pv_t_buf;
+	unsigned int py_buf_v, pu_buf_v, pv_buf_v;
 	unsigned int out_buf;
 	unsigned int spage_map, dpage_map;
 	unsigned int lcdc_sel;
@@ -1087,33 +1116,30 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	pu_buf = ((unsigned int) img->u_buf_p);
 	pv_buf = ((unsigned int) img->v_buf_p);
 
-	py_t_buf = ((unsigned int) img->y_t_addr);
-	pu_t_buf = ((unsigned int) img->u_t_addr);
-	pv_t_buf = ((unsigned int) img->v_t_addr);
+	py_buf_v = (unsigned int) img->y_buf_v;
+	pu_buf_v = (unsigned int) img->u_buf_v;
+	pv_buf_v = (unsigned int) img->v_buf_v;
 
 	in_fmt = hal_to_ipu_infmt(img->in_fmt);
 
 	dev_dbg(ipu->dev, "py_buf=0x%08x, pu_buf=0x%08x, pv_buf=0x%08x, py_t_buf=0x%08x, pu_t_buf=0x%08x, pv_t_buf=0x%08x", 
-			py_buf, pu_buf, pv_buf, py_t_buf, pu_t_buf, pv_t_buf);
+			py_buf, pu_buf, pv_buf, py_buf_v, pu_buf_v, pv_buf_v);
 	dev_dbg(ipu->dev, "reg_read(IPU_V_BASE + IPU_FM_CTRL)=%08x, spage_map=%x, dpage_map=%x, lcdc_sel=%x",
 			reg_read(ipu, IPU_FM_CTRL), spage_map, dpage_map, lcdc_sel);
 
 	if (spage_map != 0) {
 		dev_dbg(ipu->dev, "spage_map != 0\n");
 
-		if ((py_t_buf == 0) || (pu_t_buf == 0) || (pv_t_buf == 0)) {
+		if ((py_buf_v == 0) || (pu_buf_v == 0) || (pv_buf_v == 0)) {
 			printk("Can not found source map table, use no map now!\r\n");
 			spage_map = 0;
 			disable_spage_map(ipu);
 		} else {
 			dev_dbg(ipu->dev, "we force spage_map to 0\n");
-			py_t_buf = PHYS((unsigned int) img->y_t_addr);
-			pu_t_buf = PHYS((unsigned int) img->u_t_addr);
-			pv_t_buf = PHYS((unsigned int) img->v_t_addr);
 
-			py_buf = py_t_buf & 0xfff;
-			pu_buf = pu_t_buf & 0xfff;
-			pv_buf = pv_t_buf & 0xfff;
+			py_buf = py_buf_v;
+			pu_buf = pu_buf_v;
+			pv_buf = pv_buf_v;
 
 			enable_spage_map(ipu);
 		}
@@ -1127,8 +1153,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	/* set out put */
 	if ((dpage_map != 0) && (lcdc_sel == 0)) {
-		if (PHYS((unsigned int) img->out_t_addr) == 0) {
-			dev_err(ipu->dev, "Can not found destination map table, use no map now!\r\n");
+		if (PHYS((unsigned int) img->out_buf_v) == 0) {
+			dev_err(ipu->dev, " Can not found destination map table, use no map now!\r\n");
 			dpage_map = 0;
 			disable_dpage_map(ipu);
 
@@ -1352,12 +1378,15 @@ static irqreturn_t ipu_irq_handler(int irq, void *data)
 	unsigned int dummy_read;
 
 	dummy_read = reg_read(ipu, IPU_STATUS); /* avoid irq looping or disable_irq*/
-	//	disable_ipu_irq(IPU_V_BASE); // failed
+  	ipu_disable_irq(ipu); // failed
+	dev_dbg(ipu->dev, "ipu_irq_handler---------->2");
 	img = &ipu->img;
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
+	}
 
+	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		ipu->frame_done = ipu->frame_requested;
 		spin_unlock_irqrestore(&ipu->update_lock, irq_flags);
 		wake_up(&ipu->frame_wq);
