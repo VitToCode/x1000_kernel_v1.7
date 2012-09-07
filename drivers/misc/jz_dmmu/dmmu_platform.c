@@ -20,8 +20,6 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 
-#include <asm/jzsoc.h>
-
 #define DMMU_IOBASE	0x13089000
 #define IRQ_DMMU    61
 
