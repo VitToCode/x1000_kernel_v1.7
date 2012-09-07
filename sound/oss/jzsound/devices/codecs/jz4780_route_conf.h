@@ -63,7 +63,7 @@ struct __codec_route_info {
 
 /*-------------- route part selection -------------------*/
 
-/*route global init??*/
+/*route global init*/
 #define ROUTE_READY_FOR_ADC					1
 #define ROUTE_READY_FOR_DAC					2
 #define ROUTE_READY_FOR_ADC_DAC				3
@@ -116,8 +116,10 @@ struct __codec_route_info {
 #define ADC_DISABLE							DISABLE
 
 /*record mixer*/
-#define RECORD_MIXER_MIX1_INPUT_ONLY		1
-#define RECORD_MIXER_MIX1_INPUT_AND_DAC		2
+#define RECORD_MIXER_MIX_MONO_INPUT_ONLY		1
+#define RECORD_MIXER_MIX_MONO_INPUT_AND_DAC		2
+#define RECORD_MIXER_MIX_STEREO_INPUT_AND_DAC	3
+#define RECORD_MIXER_NOUSE						4
 
 /*lineout mode*/
 #define LINEOUT_ENABLE						1
@@ -150,9 +152,10 @@ struct __codec_route_info {
 
 
 /*replay mixer*/
-#define REPLAY_MIXER_PLAYBACK_DAC_ONLY		1
-#define REPLAY_MIXER_PLAYBACK_DAC_AND_ADC	2
-
+#define REPLAY_MIXER_PLAYBACK_DAC_ONLY				1
+#define REPLAY_MIXER_PLAYBACK_DAC_AND_MONO_ADC		2
+#define REPLAY_MIXER_PLAYBACK_DAC_AND_STEREO_ADC	3
+#define REPLAY_MIXER_NOUSE							4
 
 /*other control*/
 #define RECORD_WND_FILTER					0X01

@@ -23,17 +23,18 @@ route_conf_base const record_mic_mono_diff_with_bias_to_adclr  = {
 	.route_ready_mode = ROUTE_READY_FOR_ADC,	//fix
 	/*--------route-----------*/
 	//record
-	.route_mic1_mode = MIC1_DIFF_WITH_MICBIAS,	//fix
+	.route_mic1_mode = MIC1_DIFF_WITH_MICBIAS,	//..
 	.route_mic2_mode = MIC2_DISABLE,	//..
 	//.route_mic2_mode = MIC2_DIFF_WITH_MICBIAS,	//..
 	//.route_inputr_mux_mode = INPUTL_MUX_MIC2_TO_AN3	//..
-	//.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,	//..
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,	//..
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
 	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,	//..
 	//.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,	//..
-	.route_adc_mode = ADC_STEREO,	//..
-	.route_record_mixer_mode = RECORD_MIXER_MIX1_INPUT_ONLY,	//fix
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,	//fix
+	/*If you just have one mic ,you should select this for stereo output*/
+	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix
 };
 
 route_conf_base const record_linein_mono_diff_to_adclr = {
@@ -48,8 +49,9 @@ route_conf_base const record_linein_mono_diff_to_adclr = {
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,    //fix
 	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR, //fix
 	//.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,  //..
-	.route_adc_mode = ADC_STEREO,	//..
-	.route_record_mixer_mode = RECORD_MIXER_MIX1_INPUT_ONLY,	//fix
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,	//..
+	/*If you just have one mic ,you should select this for stereo output*/
+	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix
 };
 
 /*##########################################################################################################*/
@@ -58,11 +60,13 @@ route_conf_base const replay_hp_stereo = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC, //fix
 	/*--------route-----------*/
 	//replay
-	.route_replay_mixer_mode = REPLAY_MIXER_PLAYBACK_DAC_ONLY, //fix
+	.route_replay_mixer_mode = REPLAY_MIXER_NOUSE, //fix
 	.route_dac_mode = DAC_STEREO, //fix
 	.route_hp_mux_mode = HP_MUX_DACL_TO_L_DACR_TO_R, //fix
 	.route_hp_mode = HP_ENABLE, //fix
 	.route_lineout_mode = LINEOUT_DISABLE,	//fix
+	.attibute_hp_r_gain = 0,
+	.attibute_hp_l_gain = 0,
 };
 
 route_conf_base const replay_lineout_lr = {

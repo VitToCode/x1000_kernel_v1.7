@@ -36,6 +36,13 @@ extern struct platform_device warrior_backlight_device;
 extern struct snd_codec_data codec_data;
 
 /**
+ * headphone and speaker mute gpio
+ **/
+
+#define GPIO_HP_MUTE	GPIO_PD(13)
+#define GPIO_SPEAKER_EN GPIO_PE(6)
+
+/**
  * nand platform data
  **/
 

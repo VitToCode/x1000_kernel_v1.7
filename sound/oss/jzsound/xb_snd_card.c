@@ -18,10 +18,13 @@ static LIST_HEAD(ddata_head);
 static inline struct snd_dev_data* get_ddata_by_minor(int minor)
 {
 	struct snd_dev_data *ddata = NULL;
+	ENTER_FUNC()
 
 	list_for_each_entry(ddata, &ddata_head, list) {
-		if (ddata && (ddata->minor == minor))
+		if (ddata && (ddata->minor == minor)) {
+			LEAVE_FUNC()
 			return ddata;
+		}
 	}
 
 	printk("SOUND ERROR: %s(line:%d), no device has minor %d !\n",
@@ -41,6 +44,7 @@ static loff_t xb_snd_llseek(struct file *file, loff_t offset, int origin)
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:
 		ret = xb_snd_dsp_llseek(file, offset, origin, ddata);
@@ -51,6 +55,7 @@ static loff_t xb_snd_llseek(struct file *file, loff_t offset, int origin)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -63,6 +68,7 @@ static ssize_t xb_snd_read(struct file *file, char __user *buffer, size_t count,
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	if (ddata->is_suspend)
 		return -EIO;
 
@@ -79,6 +85,7 @@ static ssize_t xb_snd_read(struct file *file, char __user *buffer, size_t count,
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -91,6 +98,7 @@ static ssize_t xb_snd_write(struct file *file, const char __user *buffer, size_t
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	if (ddata->is_suspend)
 		return -EIO;
 
@@ -107,6 +115,7 @@ static ssize_t xb_snd_write(struct file *file, const char __user *buffer, size_t
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -119,6 +128,7 @@ static unsigned int xb_snd_poll(struct file *file, poll_table *wait)
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:
 		ret = xb_snd_dsp_poll(file, wait, ddata);
@@ -129,6 +139,7 @@ static unsigned int xb_snd_poll(struct file *file, poll_table *wait)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -141,6 +152,7 @@ static long xb_snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:
 		ret = xb_snd_dsp_ioctl(file, cmd, arg, ddata);
@@ -151,6 +163,7 @@ static long xb_snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -163,6 +176,7 @@ static int xb_snd_mmap(struct file *file, struct vm_area_struct *vma)
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	if (!((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_WRITE))){
 		printk("SOUND ERROR: %s(line:%d) use mmap must be opend as O_RDWR!\n",
 			   __func__, __LINE__);
@@ -182,6 +196,7 @@ static int xb_snd_mmap(struct file *file, struct vm_area_struct *vma)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -194,6 +209,7 @@ static int xb_snd_open(struct inode *inode, struct file *file)
 	int dev = iminor(inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:
 		ret = xb_snd_dsp_open(inode, file, ddata);
@@ -204,6 +220,7 @@ static int xb_snd_open(struct inode *inode, struct file *file)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -216,6 +233,7 @@ static int xb_snd_release(struct inode *inode, struct file *file)
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
 
+	ENTER_FUNC()
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:
 		ret = xb_snd_dsp_release(inode, file, ddata);
@@ -226,6 +244,7 @@ static int xb_snd_release(struct inode *inode, struct file *file)
 		break;
 	}
 
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -252,8 +271,10 @@ static int xb_snd_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret = -EINVAL;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
+	ENTER_FUNC()
 	if (ddata && ddata->suspend)
 		ret = ddata->suspend(pdev, state);
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -264,8 +285,10 @@ static int xb_snd_resume(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
+	ENTER_FUNC()
 	if (ddata && ddata->resume)
 		ret = ddata->resume(pdev);
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -275,8 +298,10 @@ static int xb_snd_resume(struct platform_device *pdev)
 static void xb_snd_shutdown(struct platform_device *pdev)
 {
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
+	ENTER_FUNC()
 	if (ddata && ddata->shutdown)
 		ddata->shutdown(pdev);
+	LEAVE_FUNC()
 }
 
 /********************************************************\
@@ -288,21 +313,20 @@ static int xb_snd_probe(struct platform_device *pdev)
 	int snd_minor = -1;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
 
+	ENTER_FUNC()
 	if (ddata) {
 		/* check minor */
 		if (ddata->minor > MAX_SND_MINOR)
 			return -EINVAL;
 		ddata->dev = &(pdev->dev);
-
 		if (ddata->init) {
-			if(ddata->init(pdev)) {
-				printk("SOUND ERROR: device init error!\n");
-				return -1;
-			}
+				if(ddata->init(pdev)) {
+					printk("SOUND ERROR: device init error!\n");
+					return -1;
+				}
 		}
-
 		/* device probe */
-		switch (ddata->minor & 0x0f) {
+		switch (ddata->minor & 0x0f ) {
 		case SND_DEV_DSP:
 			ret = xb_snd_dsp_probe(ddata);
 			break;
@@ -326,16 +350,17 @@ static int xb_snd_probe(struct platform_device *pdev)
 
 	list_add(&ddata->list ,&ddata_head);
 
+	LEAVE_FUNC()
 	return 0;
 }
 
 struct platform_device_id xb_snd_driver_ids[] = {
 	{
-		.name 			= "dsp",
+		.name 			= DEV_DSP_NAME,
 		.driver_data 	= 0,
 	},
 	{
-		.name 			= "mixer",
+		.name 			= DEV_MIXER_NAME,
 		.driver_data 	= 0,
 	},
 };

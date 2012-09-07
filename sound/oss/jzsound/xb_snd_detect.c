@@ -18,15 +18,15 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		if (switch_data->valid_level == 1) {
-			if (state) {
+			if (state)
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-				switch_data->valid_level = 0;
-			}
-		} else {
-			if (state) {
+			else
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-				switch_data->valid_level = 1;
-			}
+		} else if (switch_data->valid_level == 0) {
+			if (state)
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
+			else
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
 		}
 	}
 }
@@ -56,9 +56,8 @@ static void snd_switch_work(struct work_struct *work)
 			}
 		}
 
-		if (state == switch_data->valid_level) {
+		if (state == switch_data->valid_level)
 			state = 1;
-		}
 		else
 			state = 0;
 	}
@@ -230,5 +229,5 @@ static void __exit snd_switch_exit(void)
 	platform_driver_unregister(&snd_switch_driver);
 }
 
-module_init(snd_switch_init);
+device_initcall_sync(snd_switch_init);
 module_exit(snd_switch_exit);

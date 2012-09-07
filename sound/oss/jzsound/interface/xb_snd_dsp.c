@@ -14,11 +14,11 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
-
+#include "../devices/xb47xx_i2s0.h"
 static bool spipe_is_init = 0;
-#define DEBUG_REPLAY  0
+//#define DEBUG_REPLAY  0
 //#define AIC_DEBUG
-#if DEBUG_REPLAY
+#ifdef DEBUG_REPLAY
 struct file *f_test = NULL;
 static loff_t f_test_offset = 0;
 static mm_segment_t old_fs;
@@ -26,15 +26,8 @@ static mm_segment_t old_fs;
 
 static bool first_start_dma = true;
 
-#ifdef AIC_DEBUG
-	#define debug_print(fmt,args...)	\
-		do {	\
-			printk("#######(%s:%d):",__func__,__LINE__);	\
-			printk(fmt".\n",##args);\
-		} while (0)
-#else
-	#define debug_print(fmt,args...)  do {} while(0)
-#endif
+
+
 /*###########################################################*\
  * sub functions
 \*###########################################################*/
@@ -155,7 +148,6 @@ static void snd_reconfig_dma(struct dsp_pipe *dp)
 static bool dma_chan_filter(struct dma_chan *chan, void *filter_param)
 {
 	struct dsp_pipe *dp = filter_param;
-
 	return (void*)dp->dma_type == chan->private;
 }
 
@@ -168,27 +160,29 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	dma_cap_set(DMA_SLAVE, mask);
 	dp->dma_chan = dma_request_channel(mask, dma_chan_filter, (void*)dp);
 
-	if (dp->dma_chan == NULL)
+	if (dp->dma_chan == NULL) {
 		return -ENXIO;
-
+	}
 	snd_reconfig_dma(dp);
 
 	/* alloc one scatterlist */
 	dp->sg_len = 1;
 
 	dp->sg = vmalloc(sizeof(struct scatterlist) * dp->sg_len);
-	if (!dp->sg)
+	if (!dp->sg) {
 		return -ENOMEM;
+	}
 
 	return 0;
 }
 
 static void snd_release_dma(struct dsp_pipe *dp)
 {
-	if (dp->dma_chan) {
+	if (dp && dp->dma_chan) {
 		dmaengine_terminate_all(dp->dma_chan);
+		dma_release_channel(dp->dma_chan);
+		dp->dma_chan = NULL;
 	}
-	dma_release_channel(dp->dma_chan);
 }
 
 static int snd_prepare_dma_desc(struct dsp_pipe *dp)
@@ -279,8 +273,6 @@ static void snd_dma_callback(void *arg)
 	dp->save_node =	NULL;
 	dp->avialable_couter ++;
 
-	debug_print("avialable_counter %d",dp->avialable_couter);
-
 	if (dp->is_non_block == false)
 		wake_up_interruptible(&dp->wq);
 
@@ -301,8 +293,9 @@ static void snd_dma_callback(void *arg)
 	/* start a new transfer */
 	if (!snd_prepare_dma_desc(dp))
 		snd_start_dma_transfer(dp);
-	else
+	else {
 		dp->is_trans = false;
+	}
 }
 
 /********************************************************\
@@ -875,6 +868,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
+	ENTER_FUNC()
 	if (!(file->f_mode & FMODE_READ))
 		return -EPERM;
 
@@ -940,6 +934,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 		}
 	} while (mcount > 0);
 
+	LEAVE_FUNC()
 	return count - mcount;
 }
 
@@ -1002,7 +997,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 			put_free_dsp_node(dp,node);
 			return -EFAULT;
 		}
-#if DEBUG_REPLAY
+#ifdef DEBUG_REPLAY
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
 
@@ -1716,23 +1711,21 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	ENTER_FUNC()
 	first_start_dma = true;
 	if (ddata == NULL) {
 		return -ENODEV;
 	}
-
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL) {
 		return -ENODEV;
 	}
-
 	dpi = endpoints->in_endpoint;
 	dpo = endpoints->out_endpoint;
 
 	if (file->f_mode & FMODE_READ) {
 		if (dpi == NULL)
 			return -ENODEV;
-
 		if (dpi->is_used) {
 			printk("\nAudio read device is busy!\n");
 			return -EBUSY;
@@ -1782,7 +1775,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		}
 	}
 
-#if DEBUG_REPLAY
+#ifdef DEBUG_REPLAY
 	printk("DEBUG:----open /data/audio.pcm.pcm-%s\tline:%d\n",__func__,__LINE__);
 	f_test = filp_open("/data/audio.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
 	printk ("f_test is error %d.\n",f_test);
@@ -1791,6 +1784,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		f_test_offset = f_test->f_pos;
 	}
 #endif
+	LEAVE_FUNC()
 	return ret;
 }
 
@@ -1828,18 +1822,31 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (dpi && dpi->wait_stop_dma == true) {
 		wait_event_interruptible(dpi->wq, dpi->is_trans == false);
-		if (dpi->sg) {
-			vfree(dpi->sg);
-			dpi->sg = NULL;
-		}
 	}
+
+	if (dpi && dpi->dma_chan ) {
+		dma_release_channel(dpi->dma_chan);
+		dpi->dma_chan = NULL;
+	}
+
+	if (dpi && dpi->sg) {
+		vfree(dpi->sg);
+		dpi->sg = NULL;
+	}
+
 	if (dpo && dpo->wait_stop_dma == true) {
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
-		if (dpo->sg) {
-			vfree(dpo->sg);
-			dpo->sg = NULL;
-		}
 	}
+	if (dpo && dpo->dma_chan) {
+		dma_release_channel(dpo->dma_chan);
+		dpo->dma_chan = NULL;
+	}
+
+	if (dpo && dpo->sg) {
+		vfree(dpo->sg);
+		dpo->sg = NULL;
+	}
+
 	if (dpi) {
 		/* put all used node to free node list */
 		while(1) {
@@ -1879,8 +1886,7 @@ int xb_snd_dsp_release(struct inode *inode,
 		}
 		dpo->is_used = false;
 	}
-#if DEBUG_REPLAY
-	printk("DEBUG:----close /data/audio.pcm-%s\tline:%d\n",__func__,__LINE__);
+#ifdef DEBUG_REPLAY
 	if (!IS_ERR(f_test))
 		filp_close(f_test, NULL);
 #endif
@@ -1902,18 +1908,18 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL)
 		return -1;
-
 	/* out_endpoint init */
-	if ((dp = endpoints->out_endpoint) != NULL)
+	if ((dp = endpoints->out_endpoint) != NULL) {
 		ret = init_pipe(dp , ddata->dev,DMA_TO_DEVICE);
 		if (ret)
 			goto error1;
-
+	}
 	/* in_endpoint init */
-	if ((dp = endpoints->in_endpoint) != NULL)
+	if ((dp = endpoints->in_endpoint) != NULL) {
 		ret = init_pipe(dp , ddata->dev,DMA_FROM_DEVICE);
 		if (ret)
 			goto error2;
+	}
 
 	if (!spipe_is_init)
 		spipe_init(ddata->dev);

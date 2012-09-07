@@ -141,5 +141,9 @@ extern struct snd_dev_data i2s0_data;
 extern struct snd_dev_data i2s1_data;
 extern struct snd_dev_data pcm0_data;
 extern struct snd_dev_data pcm1_data;
+extern struct snd_dev_data snd_mixer0_data;
+//extern struct snd_dev_data snd_mixer1_data;
+//extern struct snd_dev_data snd_mixer2_data;
+//extern struct snd_dev_data snd_mixer3_data;
 
 #endif //__MACH_JZSND_H__
