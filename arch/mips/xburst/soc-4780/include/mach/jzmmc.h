@@ -32,7 +32,7 @@ struct jzmmc_pin {
 	short				num;
 #define LOW_ENABLE			0
 #define HIGH_ENABLE			1
-	unsigned short 			enable_level;
+	short 				enable_level;
 };
 
 struct card_gpio {
