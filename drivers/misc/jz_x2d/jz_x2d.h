@@ -144,6 +144,7 @@ struct src_layer{
 struct jz_x2d_config{
 	//global
 	int watchdog_cnt; 
+	unsigned int tlb_base;
 
 	//dst 
 	int dst_address;		//DST_BASE	
@@ -167,7 +168,7 @@ struct jz_x2d_config{
 
 struct x2d_process_info{
 	pid_t pid;						//进程号
-	int tlb_base;					//该进程tlb表
+	unsigned int tlb_base;					//该进程tlb表
 	int * record_addr_list;
 	int record_addr_num;
 	struct jz_x2d_config configs;			//该进程存储所需运算的配置

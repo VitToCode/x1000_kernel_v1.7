@@ -534,6 +534,9 @@ config APANIC_PLABEL
  	 crashdumps, enter it here.
 config JZ_X2D
 	bool "JZ EXtreme2D  for 2D driver"
+config JZ_DMMU
+	bool "JZ DMMU driver"
+	default y
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
