@@ -131,7 +131,7 @@ int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	ret = VN_OPERATOR(MultiPageRead,vNand->prData,alig_pl);
 	Fill_Pl_Retval(vNand,alig_pl);
 #ifdef STATISTICS_DEBUG
-	Calc_Speed(vNand->timebyte,(void*)pl,0);
+	Calc_Speed(vNand->timebyte, (void*)pl, 0, 0);
 #endif
 	return ret;
 }
@@ -153,7 +153,7 @@ int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	Fill_Pl_Retval(vNand,alig_pl);
 	BuffListManager_freeAllList(vNand->blm,(void **)&alig_pl,sizeof(PageList));
 #ifdef STATISTICS_DEBUG
-	Calc_Speed(vNand->timebyte,(void*)pl,1);
+	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif
 
 	return ret;

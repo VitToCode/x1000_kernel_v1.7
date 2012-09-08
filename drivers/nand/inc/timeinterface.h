@@ -6,6 +6,6 @@
 int Nd_TimerdebugInit(void);
 void Nd_TimerdebugDeinit(TimeByte *tb);
 void Get_StartTime(TimeByte *tb, unsigned mode);
-void Calc_Speed(TimeByte *tb, void *ps,unsigned int mode);
+void Calc_Speed(TimeByte *tb, void *ps, unsigned int mode, unsigned int listflag);
 
 #endif

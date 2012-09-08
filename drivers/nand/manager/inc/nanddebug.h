@@ -3,11 +3,11 @@
 
 #define DEBUG 1
 
-#define FUNC_DEBUG(x)				\
-	enum {					\
-		x##_INFO = 1,			\
-		x##_DEBUG,			\
-		x##_ERROR,			\
+#define FUNC_DEBUG(x)							\
+	enum {										\
+		x##_INFO = 1,							\
+		x##_DEBUG,								\
+		x##_ERROR,								\
 	}
 
 FUNC_DEBUG(VNAND);
@@ -30,7 +30,12 @@ FUNC_DEBUG(TIMER);
 #ifndef  LINUX_KERNEL
 #define ndprint(level,...) printf(__VA_ARGS__);
 #else
-#define ndprint(level,...) printk(__VA_ARGS__);
+#define ndprint(level,...)						\
+	do {										\
+		printk(__VA_ARGS__);					\
+		if (level == 3)							\
+			dump_stack();						\
+	} while (0)
 #endif
 
 #endif /* _NANDDEBUG_H_ */

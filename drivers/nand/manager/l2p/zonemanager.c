@@ -122,7 +122,7 @@ int ZoneManager_Move_UseZone_to_FreeZone(ZoneManager *zonep,unsigned short zoneI
 	ret = delete_used_node(zonep, zoneID);
 	if (ret < 0) {
 		ndprint(ZONEMANAGER_ERROR,"delete_used_node error func %s line %d \n",
-			__FUNCTION__, __LINE__)
+				__FUNCTION__, __LINE__);
 	}
 	return insert_free_node(zonep, zoneID);
 }
@@ -725,7 +725,7 @@ static int alloc_pageinfo(PageInfo *pageinfo, ZoneManager *zonep)
 	if (zonep->l2infolen) {
 		pageinfo->L2Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l2infolen);
 		if (!(pageinfo->L2Info)) {
-			ndprint(ZONEMAAGER_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+			ndprint(ZONEMANAGER_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			goto ERROR1;
 		}
 	}

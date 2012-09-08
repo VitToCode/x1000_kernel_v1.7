@@ -525,16 +525,16 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 				if (ISNOWRITE(pl_node->retVal))
 					memset(pl_node->pData, 0xff, pl_node->Bytes);
 				else if (ISECCERROR(pl_node->retVal) || ISDATAMOVE(pl_node->retVal)) {
-					ndprint(L2PCONVER_INFO,"start ecc_error_handle \n");
+					ndprint(L2PCONVERT_INFO,"start ecc_error_handle \n");
 					ret = start_ecc_error_handle(context, pl_node->startPageID);
 					if (ret != 0) {
-						ndprint(L2PCONVER_ERROR,"ecc_error_handle error func %s line %d \n",
+						ndprint(L2PCONVERT_ERROR,"ecc_error_handle error func %s line %d \n",
 							__FUNCTION__, __LINE__);
 						goto exit;
 					}
 				}
 				else {
-					ndprint(L2PCONVER_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
+					ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
 						__FUNCTION__, __LINE__);
 					break;
 				}
@@ -544,7 +544,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	}
 	
 #ifdef STATISTICS_DEBUG
-	Calc_Speed(conptr->timebyte,(void*)sl,0);
+	Calc_Speed(conptr->timebyte, (void*)sl, 0, 1);
 #endif
 
 exit:
@@ -1098,7 +1098,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		}
 	}
 #ifdef STATISTICS_DEBUG
-	Calc_Speed(conptr->timebyte,(void*)sl,1);
+	Calc_Speed(conptr->timebyte, (void*)sl, 1, 1);
 #endif
 exit:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
