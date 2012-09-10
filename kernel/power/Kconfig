@@ -302,12 +302,3 @@ config SUSPEND_TIME
 	  keeps statistics on the time spent in suspend in
 	  /sys/kernel/debug/suspend_time
 
-config PM_POWERDOWN_P0
-	depends on MACH_XBURST
-	bool "power down xburst cpu core when sleep"
-	default y
-
-config HIBERNATE_RESET
-	depends on MACH_XBURST
-	bool "use hibernate reset instead watch dog reset"
-	default n

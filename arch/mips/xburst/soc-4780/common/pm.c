@@ -34,8 +34,6 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 
-#define CONFIG_PM_POWERDOWN_P0 1
-
 int regs[128];
 
 #define save_regs(base)		\
