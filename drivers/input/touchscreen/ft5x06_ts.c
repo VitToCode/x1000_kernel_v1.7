@@ -62,7 +62,7 @@ struct ft5x06_ts_data {
 	struct jztsc_platform_data *pdata;
 	struct ft5x06_gpio gpio;
 	struct regulator *power;
-	struct early_suspend *early_suspend;
+	struct early_suspend early_suspend;
 	struct work_struct  work;
 	struct workqueue_struct *workqueue;
 };
@@ -335,6 +335,9 @@ static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 	set_pin_status(ts->gpio.wake, 1);
 }
 
+static void ft5x06_ts_resume(struct early_suspend *handler);
+static void ft5x06_ts_suspend(struct early_suspend *handler);
+
 static int ft5x06_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
@@ -486,6 +489,7 @@ exit_check_functionality_failed:
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x06_ts_suspend(struct early_suspend *handler)
 {
+	int ret = 0;
 	struct ft5x06_ts_data *ts;
 	ts = container_of(handler, struct ft5x06_ts_data,
 						early_suspend);
