@@ -178,25 +178,50 @@ static inline void disable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 #ifndef IT_IS_USED_FOR_DEBUG
 static void jzmmc_dump_reg(struct jzmmc_host *host)
 {
-	dev_info(host->dev, "\nREG dump:\n"
+	dev_info(host->dev,"\nREG dump:\n"
+		 "\tCTRL2\t= 0x%08X\n"
 		 "\tSTAT\t= 0x%08X\n"
-		 "\tRTCNT\t= 0x%08X\n"
-		 "\tDMALEN\t= 0x%08X\n"
+		 "\tCLKRT\t= 0x%08X\n"
+		 "\tCMDAT\t= 0x%08X\n"
+		 "\tRESTO\t= 0x%08X\n"
+		 "\tRDTO\t= 0x%08X\n"
 		 "\tBLKLEN\t= 0x%08X\n"
 		 "\tNOB\t= 0x%08X\n"
 		 "\tSNOB\t= 0x%08X\n"
-		 "\tIFLG\t= 0x%08X\n"
 		 "\tIMASK\t= 0x%08X\n"
-		 "\tDMAC\t= 0x%08X\n",
+		 "\tIFLG\t= 0x%08X\n"
+		 "\tCMD\t= 0x%08X\n"
+		 "\tARG\t= 0x%08X\n"
+		 "\tRES\t= 0x%08X\n"
+		 "\tLPM\t= 0x%08X\n"
+		 "\tDMAC\t= 0x%08X\n"
+		 "\tDMANDA\t= 0x%08X\n"
+		 "\tDMADA\t= 0x%08X\n"
+		 "\tDMALEN\t= 0x%08X\n"
+		 "\tDMACMD\t= 0x%08X\n"
+		 "\tRTCNT\t= 0x%08X\n",
+
+		 msc_readl(host, CTRL2),
 		 msc_readl(host, STAT),
-		 msc_readl(host, RTCNT),
-		 msc_readl(host, DMALEN),
+		 msc_readl(host, CLKRT),
+		 msc_readl(host, CMDAT),
+		 msc_readl(host, RESTO),
+		 msc_readl(host, RDTO),
 		 msc_readl(host, BLKLEN),
 		 msc_readl(host, NOB),
 		 msc_readl(host, SNOB),
-		 msc_readl(host, IFLG),
 		 msc_readl(host, IMASK),
-		 msc_readl(host, DMAC));
+		 msc_readl(host, IFLG),
+		 msc_readl(host, CMD),
+		 msc_readl(host, ARG),
+		 msc_readl(host, RES),
+		 msc_readl(host, LPM),
+		 msc_readl(host, DMAC),
+		 msc_readl(host, DMANDA),
+		 msc_readl(host, DMADA),
+		 msc_readl(host, DMALEN),
+		 msc_readl(host, DMACMD),
+		 msc_readl(host, RTCNT));
 }
 #endif
 
@@ -339,34 +364,34 @@ static void jzmmc_data_done(struct jzmmc_host *host)
  */
 static void jzmmc_state_machine(struct jzmmc_host *host, unsigned int status)
 {
-	enum jzmmc_state state = host->state;
 	struct mmc_request *mrq = host->mrq;
 	struct mmc_data *data = host->data;
-	unsigned char no_update_state = 0;
 	static unsigned char double_enter = 0;
+
 	WARN_ON(double_enter++);
 start:
-	dev_vdbg(host->dev, "enter state: %d\n", state);
+	dev_vdbg(host->dev, "enter state: %d\n", host->state);
 
-	switch (state) {
+	switch (host->state) {
 	case STATE_IDLE:
+		dev_warn(host->dev, "WARN: enter state machine with IDLE\n");
 		break;
 
 	case STATE_WAITING_RESP:
 		if (!jzmmc_check_pending(host, EVENT_CMD_COMPLETE))
 			break;
 		if (unlikely(check_error_status(host, status) != 0)) {
-			state = STATE_ERROR;
+			host->state = STATE_ERROR;
 			goto start;
 		}
 		jzmmc_command_done(host, mrq->cmd);
 		if (!data) {
-			state = STATE_IDLE;
+			host->state = STATE_IDLE;
 			del_timer_sync(&host->request_timer);
 			mmc_request_done(host->mmc, host->mrq);
 			break;
 		}
-		state = STATE_WAITING_DATA;
+		host->state = STATE_WAITING_DATA;
 		break;
 
 	case STATE_WAITING_DATA:
@@ -375,55 +400,52 @@ start:
 		if (unlikely(check_error_status(host, status) != 0)) {
 			if (request_need_stop(host->mrq))
 				send_stop_command(host);
-			state = STATE_ERROR;
+			host->state = STATE_ERROR;
 			goto start;
 		}
 
 		if (request_need_stop(host->mrq)) {
 			if (likely(msc_readl(host, STAT) & STAT_AUTO_CMD12_DONE)) {
+				host->state = STATE_IDLE;
 				jzmmc_data_done(host);
-				state = STATE_IDLE;
 			} else {
 				enable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
 				if (msc_readl(host, RES) & STAT_AUTO_CMD12_DONE) {
 					disable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
+					host->state = STATE_IDLE;
 					jzmmc_data_done(host);
-					state = STATE_IDLE;
 				} else
-					state = STATE_SENDING_STOP;
+					host->state = STATE_SENDING_STOP;
 			}
 		} else {
+			host->state = STATE_IDLE;
 			jzmmc_data_done(host);
-			state = STATE_IDLE;
 		}
 		break;
 
 	case STATE_SENDING_STOP:
 		if (!jzmmc_check_pending(host, EVENT_STOP_COMPLETE))
 			break;
+		host->state = STATE_IDLE;
 		jzmmc_data_done(host);
-		state = STATE_IDLE;
 		break;
 
 	case STATE_ERROR:
 		if (host->state == STATE_WAITING_DATA)
 			host->data->error = -1;
-		if (host->cmd->retries)
-			no_update_state = 1;
 		host->cmd->error = -1;
+
 		if (data) {
 			data->bytes_xfered = 0;
 			/* Whether should we stop DMA here? */
 		}
 		del_timer_sync(&host->request_timer);
+		host->state = STATE_IDLE;
 		mmc_request_done(host->mmc, host->mrq);
-		state = STATE_IDLE;
 		break;
 	}
 
-	if (!no_update_state)
-		host->state = state;
-	dev_vdbg(host->dev, "enter state: %d\n", state);
+	dev_vdbg(host->dev, "exit state: %d\n", host->state);
 	double_enter--;
 }
 
@@ -444,11 +466,18 @@ start:
 		return;
 
 	} else if (pending & ERROR_IFLG) {
+		unsigned int mask = ERROR_IFLG;
+
 		dev_err(host->dev, "err%d cmd%d iflg%08X status%08X\n",
 			host->state, host->cmd->opcode, iflg, status);
 
-		clear_msc_irq(host, ERROR_IFLG);
-		disable_msc_irq(host, ERROR_IFLG);
+		if (host->state == STATE_WAITING_RESP)
+			mask |= IMASK_END_CMD_RES;
+		else if (host->state == STATE_WAITING_DATA)
+			mask |= IMASK_DATA_TRAN_DONE;
+
+		clear_msc_irq(host, mask);
+		disable_msc_irq(host, mask);
 
 		/*
 		 * It seems that cmd53 CRC error occurs frequently
@@ -464,11 +493,11 @@ start:
 			del_timer_sync(&host->request_timer);
 			host->state = STATE_IDLE;
 			mmc_request_done(host->mmc, host->mrq);
-			enable_irq(host->irq);
-			return;
+			goto out;
 		}
 		host->state = STATE_ERROR;
 		jzmmc_state_machine(host, status);
+		goto out;
 
 	} else if (pending & IFLG_END_CMD_RES) {
 		jzmmc_set_pending(host, EVENT_CMD_COMPLETE);
@@ -517,6 +546,7 @@ start:
 		goto start;
 	}
 
+out:
 	enable_irq(host->irq);
 	return;
 }
@@ -1537,7 +1567,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->private_init) {
-		ret = pdata->private_init(); 
+		ret = pdata->private_init();
 		if (ret < 0)
 			goto err_pri_init;
 	}
@@ -1560,15 +1590,15 @@ err_gpio_init:
 	free_irq(host->irq, host);
 err_msc_init:
 err_pri_init:
-	kfree(host->decshds[0].dma_desc);
+	iounmap(host->decshds[0].dma_desc);
 err_dma_init:
 	iounmap(host->iomem);
 err_ioremap:
 	kfree(mmc);
-	dev_err(host->dev, "mmc probe error\n");
 err_clk_get_rate:
 	clk_put(host->clk);
 	clk_put(host->clk_gate);
+	dev_err(host->dev, "mmc probe error\n");
 	return ret;
 }
 
@@ -1587,7 +1617,7 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 
 	free_irq(host->irq, host);
 	jzmmc_gpio_deinit(host);
-	kfree(host->decshds[0].dma_desc);
+	iounmap(host->decshds[0].dma_desc);
 	regulator_put(host->power);
 	clk_disable(host->clk);
 	clk_put(host->clk);

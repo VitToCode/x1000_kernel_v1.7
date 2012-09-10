@@ -80,12 +80,12 @@ static int act8600_remove(struct i2c_client *client)
 
 	return 0;
 }
-#if 1
+
 static const struct i2c_device_id act8600_id[] = {
 	{"act8600", 0 },
 	{}
 };
-#endif
+
 static struct i2c_driver act8600_pmu_driver = {
 	.probe		= act8600_probe,
 	.remove		= act8600_remove,
