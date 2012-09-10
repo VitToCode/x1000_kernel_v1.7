@@ -8,10 +8,11 @@
 #include <mach/jzmmc.h>
 #include "warrior.h"
 
+#define GPIO_WIFI_RST_N			GPIO_PF(7)
+
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
 #define UINT32_MAX			(0xffffffffU)
-#define GPIO_WL_RST_N			GPIO_PF(17)
 #define RESET				0
 #define NORMAL				1
 
@@ -90,8 +91,8 @@ int iw8101_wlan_init(void)
 		return -EINVAL;
 	}
 
-	reset = GPIO_WL_RST_N;
-	if (gpio_request(GPIO_WL_RST_N, "wifi_reset")) {
+	reset = GPIO_WIFI_RST_N;
+	if (gpio_request(GPIO_WIFI_RST_N, "wifi_reset")) {
 		pr_err("no wifi_reset pin available\n");
 		regulator_put(power);
 
