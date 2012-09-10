@@ -44,6 +44,7 @@ struct ts_event {
 	u8 au8_finger_id[CFG_MAX_TOUCH_POINTS];	/*touch ID */
 	u16 pressure;
 	u8 touch_point;
+	u8 touch_num;
 };
 
 struct ft5x06_gpio {
@@ -181,9 +182,9 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 	}
 	memset(event, 0, sizeof(struct ts_event));
 	
-	event->touch_point = buf[2]&0x0f;
+	event->touch_num = buf[2]&0x0f;
 
-	if (event->touch_point == 0){
+	if (event->touch_num == 0){
 		ft5x06_ts_release(data);
 		return 0;
 	}
@@ -192,8 +193,8 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
-	//	else
-	//		event->touch_point++;
+		else
+			event->touch_point++;
 		event->au16_x[i] =
 		    (s16) (buf[FT_TOUCH_X_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
 		    8 | (s16) buf[FT_TOUCH_X_L_POS + FT_TOUCH_STEP * i];
@@ -233,7 +234,7 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
 
-		//printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
+	//	printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				event->au16_x[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
@@ -257,6 +258,7 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 #endif
 	}
 	input_sync(data->input_dev);
+	enable_irq(data->client->irq);
 	return 0;
 
 }
@@ -283,7 +285,6 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 		queue_work(ft5x06_ts->workqueue, &ft5x06_ts->work);
         }
 
-	enable_irq(ft5x06_ts->client->irq);
 	return IRQ_HANDLED;
 }
 
@@ -335,8 +336,10 @@ static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 	set_pin_status(ts->gpio.wake, 1);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x06_ts_resume(struct early_suspend *handler);
 static void ft5x06_ts_suspend(struct early_suspend *handler);
+#endif
 
 static int ft5x06_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)

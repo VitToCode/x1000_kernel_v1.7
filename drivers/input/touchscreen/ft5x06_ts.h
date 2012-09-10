@@ -28,7 +28,7 @@
 #define FT5X06_REG_FW_VER	0xA6
 #define FT5X06_REG_POINT_RATE	0x88
 #define FT5X06_REG_THGROUP	0x80
-#define FT5X06_REG_PMODE	0xA5,	/* Power Consume Mode		*/	
+#define FT5X06_REG_PMODE	0xA5	/* Power Consume Mode */
 #define PMODE_HIBERNATE		0x03
 
 int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf, int writelen,
