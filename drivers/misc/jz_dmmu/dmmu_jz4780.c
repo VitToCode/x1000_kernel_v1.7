@@ -342,8 +342,8 @@ static int dmmu_open(struct inode *inode, struct file *file)
 		dev_err(jz_dmmu.dev, "dmmu: unable to allocate memory for dmmu metadata.\n");
 		return -1;
 	}
-	table->pid = current->pid;
-	table->tid = current->tgid;
+	table->pid = current->tgid;
+	table->tid = current->pid;
 	table->bitmap_table_id = TABLE_ID_BITMAP_NONE;	/* clear */
 	table->base = jz_dmmu.base;
 	table->vbase = jz_dmmu.vbase;

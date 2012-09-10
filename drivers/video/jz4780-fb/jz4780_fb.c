@@ -945,6 +945,8 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	int next_frm;
 	struct jzfb *jzfb = info->par;
 	//struct timeval tv1, tv2;
+//	printk("jzfb_pan_display return 0\n");
+//	return 0;
 
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev,"No support for X panning for now\n");
@@ -1414,7 +1416,7 @@ static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = jzfb_open,
 	.fb_release = jzfb_release,
-	.fb_check_var = jzfb_check_var,
+	.fb_check_var = NULL,//jzfb_check_var,
 	.fb_set_par = jzfb_set_par,
 	.fb_blank = jzfb_blank,
 	.fb_pan_display = jzfb_pan_display,
