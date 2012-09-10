@@ -1,6 +1,7 @@
 #include "junkzone.h"
 #include "NandAlloc.h"
 #include "nanddebug.h"
+
 int Init_JunkZone(int zonecount){
 	junkzone *jzone;
 	int i;
@@ -78,7 +79,7 @@ void Insert_JunkZone(int handle,int sectors,int zoneid){
 			jzone->node[min_index].sectors = sectors;
 			jzone->node[min_index].zoneid = zoneid;
 		} else {
-			ndprint(1,"ERROR: don't run it %s %d\n",__FILE__,__LINE__);
+			ndprint(JUNKZONE_ERROR,"ERROR: don't run it %s %d\n",__FILE__,__LINE__);
 		}
 	}
 	NandMutex_Unlock(&jzone->mutex);
@@ -107,7 +108,8 @@ int Get_MaxJunkZone(int handle){
 				}
 			}
 		}
-		//ndprint(1,"jzone[%d] \t zoneid = %d \t sectors = %d\n", i, jzone->node[i].zoneid, jzone->node[i].sectors);
+		/*ndprint(JUNKZONE_INFO,"jzone[%d] \t zoneid = %d \t sectors = %d\n",
+		  i, jzone->node[i].zoneid, jzone->node[i].sectors);*/
 	}
 
 	for (i = 0; i < REMOVE_ZONECOUNT; i++) {
@@ -123,14 +125,13 @@ int Get_MaxJunkZone(int handle){
 
 	NandMutex_Unlock(&jzone->mutex);
 
-	//ndprint(1,"Get_MaxJunkZone zoneid = %d\n", zoneid);
+	//ndprint(JUNKZONE_INFO,"Get_MaxJunkZone zoneid = %d\n", zoneid);
 	return zoneid;
 }
 
 void Release_MaxJunkZone(int handle,int zoneid){
 	junkzone *jzone = (junkzone *)handle;
 	int i;
-
 	NandMutex_Lock(&jzone->mutex);
 	for (i = 0; i < REMOVE_ZONECOUNT; i++) {
 		if (jzone->removezone[i].id == zoneid) {
@@ -146,11 +147,10 @@ void Release_MaxJunkZone(int handle,int zoneid){
 void Delete_JunkZone(int handle,int zoneid){
 	junkzone *jzone = (junkzone *)handle;
 	int i;
-
 	NandMutex_Lock(&jzone->mutex);
 	for (i = 0; i < REMOVE_ZONECOUNT; i++) {
 		if (jzone->removezone[i].id == zoneid) {
-			ndprint(1, "ERROR: %s, zoneid is already in removezone, zoneid = %d\n",
+			ndprint(JUNKZONE_ERROR, "ERROR: %s, zoneid is already in removezone, zoneid = %d\n",
 					__func__, zoneid);
 			NandMutex_Unlock(&jzone->mutex);
 			return;
@@ -161,7 +161,7 @@ void Delete_JunkZone(int handle,int zoneid){
 			if(jzone->node[i].zoneid == zoneid) {
 				jzone->node[i].sectors = -1;
 				jzone->node[i].zoneid = -1;
-				ndprint(1, "%s, zoneid = %d\n", __func__, zoneid);
+				//ndprint(JUNKZONE_INFO, "%s, zoneid = %d\n", __func__, zoneid);
 			}
 		}
 	}
@@ -181,4 +181,19 @@ int Get_JunkZoneCount(int handle){
 	NandMutex_Unlock(&jzone->mutex);
 
 	return count;
+}
+
+void dump_JunkZone(int handle) {
+	junkzone *jzone = (junkzone *)handle;
+	int i;
+	ndprint(JUNKZONE_INFO, "========================== junk zone =========================\n");
+	for (i = 0; i < jzone->zonecount; i++) {
+		ndprint(JUNKZONE_INFO, "junkzone[%d]:\t zoneid = %d,\t sectors = %d\n",
+				i, jzone->node[i].zoneid, jzone->node[i].sectors);
+	}
+	ndprint(JUNKZONE_INFO, "========================== remove zone =========================\n");
+	for (i=0; i < REMOVE_ZONECOUNT; i++) {
+		ndprint(JUNKZONE_INFO, "removezone[%d]:\t zoneid = %d,\t index = %d\n",
+				i, jzone->removezone[i].id, jzone->removezone[i].index);
+	}
 }

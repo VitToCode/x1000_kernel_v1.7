@@ -1580,6 +1580,7 @@ static int FreeZone ( Recycle *rep)
 		Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
 
 	ZoneManager_FreeRecyclezone(rep->context,rep->rZone);
+	rep->rZone = NULL;
 	rep->taskStep = RECYIDLE;
 	return 0;
 err:
@@ -1763,6 +1764,7 @@ int Recycle_OnForceRecycle ( int frinfo )
 
 		recycle_pagecount += rep->force_rZone->sumpage - rep->write_pagecount - 3;
 		ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
+		rep->force_rZone = NULL;
 		if (need_pagecount == -1 || recycle_pagecount >= need_pagecount)
 			break;
 
@@ -1871,7 +1873,12 @@ static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 	}
 	else {
 		if (ZoneID == 0xffff) {
+		GET_FORCE_RECYCLE_JUNKZONE:
 			ZoneID = Get_MaxJunkZone(((Context *)(rep->context))->junkzone);
+			if ((ZoneID != 0xffff) && rep->rZone && (ZoneID == rep->rZone->ZoneID)) {
+				Release_MaxJunkZone(((Context *)(rep->context))->junkzone, ZoneID);
+				goto GET_FORCE_RECYCLE_JUNKZONE;
+			}
 			rep->force_junk_zoneid = ZoneID;
 		}
 		if (ZoneID == 0xffff) {
