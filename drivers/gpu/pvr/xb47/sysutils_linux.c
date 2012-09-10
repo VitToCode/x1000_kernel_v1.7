@@ -134,7 +134,6 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ;
 	psTimingInfo->ui32uKernelFreq = SYS_SGX_PDS_TIMER_FREQ;
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
-ddsddsd
 	psTimingInfo->bEnableActivePM = IMG_TRUE;
 #else
 	psTimingInfo->bEnableActivePM = IMG_FALSE;
@@ -300,8 +299,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 
         PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: pui32TimerEnable = %p", pui32TimerEnable));
 	
-        *pui32TimerEnable &= (~(1 << 4));
-
         // Turn on the light
         outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
         do {
@@ -311,7 +308,7 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
         // Open the gate
         *pui32TimerEnable &= (~(1 << 4));
         // Set clock
-        outl(0xA0000002, 0x10000088);
+        outl(0xA0000003, 0x10000088);
 
 	OSUnMapPhysToLin(pui32TimerEnable,
 		    4,

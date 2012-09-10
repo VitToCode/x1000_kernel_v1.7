@@ -37,7 +37,7 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
+
 */ /**************************************************************************/
 
 #include <linux/version.h>
@@ -227,7 +227,7 @@ static IMG_UINT32 gPVRPowerLevel;
 #define	LDM_DRV	struct pci_driver
 #endif /* PVR_LDM_PCI_MODULE */
 /*
- * This is the driver interface we support.  
+ * This is the driver interface we support.
  */
 #if defined(PVR_LDM_PLATFORM_MODULE)
 static int PVRSRVDriverRemove(LDM_DEV *device);
@@ -341,7 +341,7 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV *pDevice, const struct pci_device
 	{
 		return -EINVAL;
 	}
-#endif	
+#endif
 	/* SysInitialise only designed to be called once.
 	 */
 	psSysData = SysAcquireDataNoCheck();
@@ -406,7 +406,7 @@ static void __devexit PVRSRVDriverRemove(LDM_DEV *pDevice)
 #endif
 
 	SysAcquireData(&psSysData);
-	
+
 #if defined(DEBUG) && defined(PVR_MANUAL_POWER_CONTROL)
 	if (gPVRPowerLevel != 0)
 	{
@@ -453,7 +453,7 @@ static IMG_BOOL bDriverIsShutdown;
  @Description
 
  Suspend device operation for system shutdown.  This is called as part of the
- system halt/reboot process.  The driver is put into a quiescent state by 
+ system halt/reboot process.  The driver is put into a quiescent state by
  setting the power state to D3.
 
  @input pDevice - the device for which shutdown is requested
@@ -544,8 +544,22 @@ PVR_MOD_STATIC int PVRSRVDriverSuspend(LDM_DEV *pDevice, pm_message_t state)
 
 		if (PVRSRVSetPowerStateKM(PVRSRV_SYS_POWER_STATE_D3) == PVRSRV_OK)
 		{
+                    printk("PVRSRVSetPowerStateKM(PVRSRV_SYS_POWER_STATE_D3) == PVRSRV_OK\n");
 			/* The bridge mutex will be held until we resume */
 			bDriverIsSuspended = IMG_TRUE;
+
+                        do {
+                            printk("Waiting for GPU to idle\n");
+                        } while (!(inl(0x10000004) & (1 << 24)));
+
+                        // Turn off the light
+                        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
+                        do {
+                            printk("Waiting for GPU power down\n");
+                        } while (!(inl(0x10000004) & (1 << 25)));
+
+                        // Close the gate
+                        outl((inl(0x10000028) | (1 << 4)), 0x10000028);
 		}
 		else
 		{
@@ -600,6 +614,18 @@ PVR_MOD_STATIC int PVRSRVDriverResume(LDM_DEV *pDevice)
 		if (PVRSRVSetPowerStateKM(PVRSRV_SYS_POWER_STATE_D0) == PVRSRV_OK)
 		{
 			bDriverIsSuspended = IMG_FALSE;
+
+                        // Turn on the light
+                        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
+                        do {
+                            printk("Waiting for GPU power\n");
+                        } while ((inl(0x10000004) & (1 << 25)));
+
+                        // Close the gate
+                        outl((inl(0x10000028) & ~(1 << 4)), 0x10000028);
+                        // Set clock
+                        outl(0xA0000003, 0x10000088);
+
 			LinuxUnLockMutex(&gPVRSRVLock);
 		}
 		else
@@ -643,7 +669,7 @@ PVR_MOD_STATIC int PVRSRVDriverResume(LDM_DEV *pDevice)
  * 	echo 2 > /proc/pvr/power_control
  * To resume the device, type:
  * 	echo 0 > /proc/pvr/power_control
- * 
+ *
  * The following example shows how to suspend/resume the device independently
  * of the rest of the system.
  * Suspend the device:
@@ -692,7 +718,7 @@ IMG_INT PVRProcSetPowerLevel(struct file *file, const IMG_CHAR *buffer, IMG_UINT
 	return (count);
 }
 
-void ProcSeqShowPowerLevel(struct seq_file *sfile,void* el)	
+void ProcSeqShowPowerLevel(struct seq_file *sfile,void* el)
 {
 	seq_printf(sfile, "%lu\n", gPVRPowerLevel);
 }
@@ -770,7 +796,7 @@ static int PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 	psPrivateData->hBlockAlloc = hBlockAlloc;
 	PRIVATE_DATA(pFile) = psPrivateData;
 	iRet = 0;
-err_unlock:	
+err_unlock:
 	LinuxUnLockMutex(&gPVRSRVLock);
 	return iRet;
 }
@@ -1103,7 +1129,7 @@ init_failed:
 
  @Function		PVRCore_Cleanup
 
- @Description	
+ @Description
 
  Remove the driver from the kernel.
 
