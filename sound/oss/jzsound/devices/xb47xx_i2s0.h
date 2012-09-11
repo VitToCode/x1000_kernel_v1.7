@@ -120,6 +120,15 @@ do {	\
 	i2s0_set_reg(AIC0FR,0,I2S0_ICS_MASK,I2S0_ICS_OFFSET);	\
 	i2s0_set_reg(AIC0FR,0,I2S0_ICDC_MASK,I2S0_ICDC_OFFSET);	\
 } while(0)
+#define __i2s0_select_share_clk()		\
+do {	\
+	i2s0_set_reg(AIC0FR,0,I2S0_DMODE_MASK,I2S0_DMODE_OFFSET);\
+} while (0)
+#define __i2s0_select_spilt_clk()		\
+do {	\
+	i2s0_set_reg(AIC0FR,1,I2S0_DMODE_MASK,I2S0_DMODE_OFFSET);\
+} while (0)
+
 #define __i2s0_bclk_input()             \
 	i2s0_set_reg(AIC0FR,0,I2S0_BCKD_MASK,I2S0_BCKD_OFFSET)
 #define __i2s0_bclk_output()            \

@@ -178,11 +178,19 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 
 static void snd_release_dma(struct dsp_pipe *dp)
 {
-	if (dp && dp->dma_chan) {
-		dmaengine_terminate_all(dp->dma_chan);
-		dma_release_channel(dp->dma_chan);
-		dp->dma_chan = NULL;
+	if (dp) {
+		dp->is_trans = false;
+		if (dp->dma_chan) {
+			dmaengine_terminate_all(dp->dma_chan);
+			dma_release_channel(dp->dma_chan);
+			dp->dma_chan = NULL;
+		}
+		if (dp->sg) {
+			vfree(dp->sg);
+			dp->sg = NULL;
+		}
 	}
+
 }
 
 static int snd_prepare_dma_desc(struct dsp_pipe *dp)
@@ -279,7 +287,6 @@ static void snd_dma_callback(void *arg)
 	/* if device closed, release the dma */
 	if (dp->wait_stop_dma == true) {
 		snd_release_dma(dp);
-		dp->is_trans = false;
 		dp->wait_stop_dma = false;
 		wake_up_interruptible(&dp->wq);
 		return;
@@ -293,9 +300,8 @@ static void snd_dma_callback(void *arg)
 	/* start a new transfer */
 	if (!snd_prepare_dma_desc(dp))
 		snd_start_dma_transfer(dp);
-	else {
+	else
 		dp->is_trans = false;
-	}
 }
 
 /********************************************************\
@@ -1810,13 +1816,13 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (file->f_mode & FMODE_READ) {
 		dpi = endpoints->in_endpoint;
-		if (dpi->is_trans == true)
+		if (dpi && dpi->is_trans == true)
 			dpi->wait_stop_dma = true;
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
 		dpo = endpoints->out_endpoint;
-		if (dpo->is_trans == true)
+		if (dpo && dpo->is_trans == true)
 			dpo->wait_stop_dma = true;
 	}
 
@@ -1824,28 +1830,13 @@ int xb_snd_dsp_release(struct inode *inode,
 		wait_event_interruptible(dpi->wq, dpi->is_trans == false);
 	}
 
-	if (dpi && dpi->dma_chan ) {
-		dma_release_channel(dpi->dma_chan);
-		dpi->dma_chan = NULL;
-	}
-
-	if (dpi && dpi->sg) {
-		vfree(dpi->sg);
-		dpi->sg = NULL;
-	}
+	snd_release_dma(dpi);
 
 	if (dpo && dpo->wait_stop_dma == true) {
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
 	}
-	if (dpo && dpo->dma_chan) {
-		dma_release_channel(dpo->dma_chan);
-		dpo->dma_chan = NULL;
-	}
 
-	if (dpo && dpo->sg) {
-		vfree(dpo->sg);
-		dpo->sg = NULL;
-	}
+	snd_release_dma(dpo);
 
 	if (dpi) {
 		/* put all used node to free node list */

@@ -32,7 +32,7 @@
 
 /*###############################################*/
 
-#define CODEC_DUMP_IOC_CMD			1
+#define CODEC_DUMP_IOC_CMD			0
 #define CODEC_DUMP_ROUTE_REGS		0
 #define CODEC_DUMP_ROUTE_PART_REGS	0
 #define CODEC_DUMP_GAIN_PART_REGS	0
