@@ -314,14 +314,9 @@ static inline void __jz_cache_init(void)
 static int jz4780_pm_enter(suspend_state_t state)
 {
 #ifndef CONFIG_FPGA_TEST 
-	int i;
 	unsigned long lcr = cpm_inl(CPM_LCR);
 	unsigned long opcr = cpm_inl(CPM_OPCR);
 	unsigned long cpccr = cpm_inl(CPM_CPCCR);
-	
-	/* set SRBC to stop bus transfer */
-	cpm_outl((1<<26),CPM_SRBC);
-	while(!(cpm_inl(CPM_SRBC) & (1<<25)));
 	
 	cpm_outl((lcr & ~LCR_LPM_MASK) | LCR_LPM_SLEEP | CPM_LCR_PD_MASK,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & CPM_LCR_STATUS_MASK) != CPM_LCR_STATUS_MASK);
@@ -334,8 +329,6 @@ static int jz4780_pm_enter(suspend_state_t state)
 #else
 	cpm_outl(1<<30 | 1<<26 | 0xff<<8 | OPCR_ERCS,CPM_OPCR);
 #endif
-	/* shutdown memory power control */
-	cpm_outl(0xffffffff,CPM_SPCR0);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
 
@@ -354,7 +347,6 @@ static int jz4780_pm_enter(suspend_state_t state)
 	save_regs(regs);
 #endif	
 	__jz_flush_cache_all();
-
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
 			"wait\n\t"
@@ -362,19 +354,11 @@ static int jz4780_pm_enter(suspend_state_t state)
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32");
-
 #if defined(CONFIG_PM_POWERDOWN_P0)
 sleep_done:
 	__jz_cache_init();
 	load_regs(regs);
 #endif
-	/* clear SRBC */
-	cpm_outl(0,CPM_SRBC);
-	/* enable memory power control */
-	for(i=0;i<32;i++) {
-		cpm_outl(cpm_inl(CPM_SPCR0) & ~(0x1<<i),CPM_SPCR0);
-		udelay(5);
-	}
 	/* Restore OPCR */
 	cpm_outl(opcr,CPM_OPCR);
 	cpm_outl(cpccr,CPM_CPCCR);
