@@ -32,7 +32,8 @@ struct kr070la0s_270_data {
 
 static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
 {
-	regulator_enable(dev->lcd_vcc_reg);
+        dev->lcd_power = 1;
+        regulator_enable(dev->lcd_vcc_reg);
 
 	if (dev->pdata->gpio_lr) {
 		if (dev->pdata->left_to_right_scan) {
@@ -67,21 +68,19 @@ static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
 
 static void kr070la0s_270_off(struct kr070la0s_270_data *dev)
 {
-	regulator_disable(dev->lcd_vcc_reg);
+        dev->lcd_power = 0;
+        regulator_disable(dev->lcd_vcc_reg);
 }
-
 
 static int kr070la0s_270_set_power(struct lcd_device *lcd, int power)
 {
 	struct kr070la0s_270_data *dev= lcd_get_data(lcd);
 
-	if (POWER_IS_ON(power) && !POWER_IS_ON(dev->lcd_power))
-		kr070la0s_270_on(dev);
-
-	if (!POWER_IS_ON(power) && POWER_IS_ON(dev->lcd_power))
-		kr070la0s_270_off(dev);
-
-	dev->lcd_power = power;
+	if (!power && !(dev->lcd_power)) {
+                kr070la0s_270_on(dev);
+        } else if (power && (dev->lcd_power)) {
+                kr070la0s_270_off(dev);
+        }
 	return 0;
 }
 
@@ -155,6 +154,7 @@ static int __devinit kr070la0s_270_remove(struct platform_device *pdev)
 
 	lcd_device_unregister(dev->lcd);
 	kr070la0s_270_off(dev);
+
 	regulator_put(dev->lcd_vcc_reg);
 
 	if (dev->pdata->gpio_lr)
