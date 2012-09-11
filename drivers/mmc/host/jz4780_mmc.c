@@ -920,7 +920,7 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * no action to complete the request.
 	 */
 	mod_timer(&host->request_timer, jiffies +
-		  msecs_to_jiffies(20000 + (host->data ? host->data->blocks << 2 : 0)));
+		  msecs_to_jiffies(60000 + (host->data ? host->data->blocks << 2 : 0)));
 
 	jzmmc_command_start(host, host->cmd);
 	if (host->data)

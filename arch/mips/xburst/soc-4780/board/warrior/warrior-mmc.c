@@ -82,7 +82,7 @@ struct jzmmc_platform_data warrior_tf_pdata = {
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
-	struct regulator *power = iw8101_data.wifi_power;
+	struct regulator *power;
 	int reset = iw8101_data.wifi_reset;
 
 	power = regulator_get(NULL, "vwifi");
@@ -90,6 +90,7 @@ int iw8101_wlan_init(void)
 		pr_err("wifi regulator missing\n");
 		return -EINVAL;
 	}
+	iw8101_data.wifi_power = power;
 
 	reset = GPIO_WIFI_RST_N;
 	if (gpio_request(GPIO_WIFI_RST_N, "wifi_reset")) {
