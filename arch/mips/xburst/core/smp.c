@@ -167,8 +167,7 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
-	ctrl &= ~((1 << cpu) | (1 << (cpu + 16)));
-	//ctrl &= ~((1 << cpu));
+	ctrl &= ~(1 << cpu);
 	set_smp_ctrl(ctrl);
 
 	cpm_clear_bit(31,CPM_LCR);
@@ -190,7 +189,7 @@ wait:
  */
 static inline int smp_cpu_stop(int cpu)
 {
-	unsigned int status;
+	unsigned int status,ctrl;
 
 	if(cpu >= 4)
 		return -1;
@@ -200,6 +199,10 @@ static inline int smp_cpu_stop(int cpu)
 	}while(!(status & (1<<(cpu+16))));
 
 	cpm_set_bit(31,CPM_LCR);
+
+	ctrl = get_smp_ctrl();
+	ctrl |= (0x1 << cpu);
+	set_smp_ctrl(ctrl);
 
 	return 0;
 }
@@ -244,7 +247,8 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 
 	/* reset register */
 	set_smp_reim(0x0100);
-	set_smp_ctrl(0xffffe);
+	//set_smp_ctrl(0xe0e0e);
+	set_smp_ctrl(0xe0e);
 	set_smp_status(0);
 
 	reim = 0x01ff;
