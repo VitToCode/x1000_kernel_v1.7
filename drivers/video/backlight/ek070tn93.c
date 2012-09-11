@@ -32,6 +32,7 @@ struct ek070tn93_data {
 
 static void ek070tn93_on(struct ek070tn93_data *dev)
 {
+        dev->lcd_power = 1;
 	regulator_enable(dev->lcd_vcc_reg);
 
 	if (dev->pdata->de_mode) { /* DE mode */
@@ -73,12 +74,14 @@ static void ek070tn93_on(struct ek070tn93_data *dev)
 			gpio_direction_output(dev->pdata->gpio_dithb, 1);
 		}
 	}
+
 	msleep(60);
 }
 
 static void ek070tn93_off(struct ek070tn93_data *dev)
 {
-	regulator_disable(dev->lcd_vcc_reg);
+        dev->lcd_power = 0;
+        regulator_disable(dev->lcd_vcc_reg);
 	msleep(60);
 }
 
@@ -87,13 +90,12 @@ static int ek070tn93_set_power(struct lcd_device *lcd, int power)
 {
 	struct ek070tn93_data *dev= lcd_get_data(lcd);
 
-	if (POWER_IS_ON(power) && !POWER_IS_ON(dev->lcd_power))
-		ek070tn93_on(dev);
+        if (!power && !(dev->lcd_power)) {
+                ek070tn93_on(dev);
+        } else if (power && (dev->lcd_power)) {
+                ek070tn93_off(dev);
+        }
 
-	if (!POWER_IS_ON(power) && POWER_IS_ON(dev->lcd_power))
-		ek070tn93_off(dev);
-
-	dev->lcd_power = power;
 	return 0;
 }
 
