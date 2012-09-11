@@ -31,6 +31,7 @@
 #include <linux/delay.h>
 #include <asm/cacheops.h>
 
+#include <soc/cache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
 
@@ -347,6 +348,9 @@ static int jz4780_pm_enter(suspend_state_t state)
 	save_regs(regs);
 #endif	
 	__jz_flush_cache_all();
+
+	cache_prefetch(do_sleep);
+do_sleep:
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
 			"wait\n\t"
