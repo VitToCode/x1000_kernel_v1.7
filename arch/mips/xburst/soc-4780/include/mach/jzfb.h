@@ -113,10 +113,10 @@ enum pll_charge_pump {
 
 /*PLL KVCO (F_vco)*/
 enum pll_vco_gain {
-        VCO_GAIN_150M_400M = 0x0, /* 150M-400M VCO Frequency Range */
-        VCO_GAIN_400M_650M = 0x1, /* 400M-650M VCO Frequency Range */
-        VCO_GAIN_650M_900M = 0x2, /* 650M-900M VCO Frequency Range */
-        VCO_GAIN_900M_1G = 0x3, /* 900M-1G VCO Frequency Range */
+        VCO_GAIN_900M_1G = 0x0, /* 150M-400M VCO Frequency Range */
+        VCO_GAIN_650M_900M = 0x1, /* 400M-650M VCO Frequency Range */
+        VCO_GAIN_400M_650M = 0x2, /* 650M-900M VCO Frequency Range */
+        VCO_GAIN_150M_400M = 0x3, /* 900M-1G VCO Frequency Range */
 };
 
 /* vco output current */
@@ -162,6 +162,7 @@ struct lvds_txpll0 {
         unsigned ssc_mode_center_spread:1;
 	enum pll_post_divider post_divider; /* N_out : 1-4 */
         unsigned int feedback_divider; /* N_fbk : 8-260 */
+	unsigned input_divider_bypass:1;
         unsigned int input_divider; /* N_in : 2-34 */
 };
 
@@ -185,6 +186,7 @@ struct lvds_txectrl {
 	unsigned int emphasis_level;
 	unsigned emphasis_enable:1;
 	enum ldo_output_vol ldo_output_voltage;
+	unsigned phase_interpolator_bypass:1;
 	unsigned int fine_tuning_7x_clk;
 	unsigned int coarse_tuning_7x_clk;
 };

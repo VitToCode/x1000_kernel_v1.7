@@ -213,7 +213,7 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 	framedesc->databuf = jzfb->vidmem_phys;
 	framedesc->id = 0xda0;
 
-	framedesc->cmd = LCDC_CMD_SOFINT | LCDC_CMD_FRM_EN;
+	framedesc->cmd = LCDC_CMD_EOFINT | LCDC_CMD_FRM_EN;
 	if (!jzfb->osd.decompress && !jzfb->osd.block) {
 		framedesc->cmd |= size->fg0_frm_size;
 		framedesc->offsize = (size->panel_line_size
@@ -263,7 +263,7 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 			    & LCDC_CPOS_XPOS_MASK);
 
 	/* fg0 alpha value */
-	framedesc->desc_size = 0xa0 << LCDC_DESSIZE_ALPHA_BIT;
+	framedesc->desc_size = 0xff << LCDC_DESSIZE_ALPHA_BIT;
 	framedesc->desc_size |= size->height_width;
 }
 
@@ -293,7 +293,7 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 	jzfb->fg1_framedesc->next = (uint32_t)virt_to_phys(jzfb->fg1_framedesc);
 	jzfb->fg1_framedesc->databuf = 0;
 	jzfb->fg1_framedesc->id = 0xda1;
-	jzfb->fg1_framedesc->cmd = (LCDC_CMD_SOFINT & ~LCDC_CMD_FRM_EN)
+	jzfb->fg1_framedesc->cmd = (LCDC_CMD_EOFINT & ~LCDC_CMD_FRM_EN)
 		| size->fg0_frm_size;
 	jzfb->fg1_framedesc->offsize = 0;
 	jzfb->fg1_framedesc->page_width = 0;
@@ -303,7 +303,7 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 		LCDC_CPOS_YPOS_BIT | jzfb->osd.fg0.x | LCDC_CPOS_PREMULTI
 		| LCDC_CPOS_COEF_SLE_3;
 
-	jzfb->fg1_framedesc->desc_size = size->height_width | 0xa0 <<
+	jzfb->fg1_framedesc->desc_size = size->height_width | 0xff <<
 		LCDC_DESSIZE_ALPHA_BIT;
 
 	reg_write(jzfb, LCDC_DA1, jzfb->fg1_framedesc->next);
@@ -541,6 +541,13 @@ static void jzfb_lvds_txpll0_config(struct fb_info *info)
         }
 	cfg |= (fbdiv << LVDS_PLL_PLLN_BIT & LVDS_PLL_PLLN_MASK);
 
+	if (txpll0->input_divider_bypass) {
+		cfg |= LVDS_PLL_IN_BYPASS;
+		dev_info(info->dev, "LVDS PLL input divider bypass\n");
+		reg_write(jzfb, LVDS_TXPLL0, cfg);
+		return;
+	}
+
         /*input_divider*/
         if (txpll0->input_divider == 2) {
                 indiv = 0;
@@ -602,10 +609,14 @@ static void jzfb_lvds_txectrl_config(struct fb_info *info)
 	}
 	cfg |= (txectrl->ldo_output_voltage << LVDS_TX_LDO_VO_S_BIT &
 		LVDS_TX_LDO_VO_S_MASK);
-	cfg |= (txectrl->fine_tuning_7x_clk << LVDS_TX_CK_PHA_FINE_BIT &
-		LVDS_TX_CK_PHA_FINE_MASK);
-	cfg |= (txectrl->coarse_tuning_7x_clk << LVDS_TX_CK_PHA_COAR_BIT &
-		LVDS_TX_CK_PHA_COAR_MASK);
+	if (!txectrl->phase_interpolator_bypass) {
+		cfg |= (txectrl->fine_tuning_7x_clk << LVDS_TX_CK_PHA_FINE_BIT
+			& LVDS_TX_CK_PHA_FINE_MASK);
+		cfg |= (txectrl->coarse_tuning_7x_clk << LVDS_TX_CK_PHA_COAR_BIT
+			& LVDS_TX_CK_PHA_COAR_MASK);
+	} else {
+		cfg |= LVDS_PLL_PL_BP;
+	}
 
 	reg_write(jzfb, LVDS_TXECTRL, cfg);
 }
@@ -621,8 +632,6 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 	udelay(20);
 	jzfb_lvds_txctrl_is_reset(info, 0); /* TXCTRL disable reset */
 
-	jzfb_lvds_check_pll_lock(info);
-
 	jzfb_lvds_txctrl_config(info);
 	jzfb_lvds_txpll0_config(info);
 	jzfb_lvds_txpll1_config(info);
@@ -631,16 +640,18 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 #if 0
 	struct jzfb *jzfb = info->par;
 
-	reg_write(jzfb, LVDS_TXCTRL,  0x600784a1);
-	reg_write(jzfb, LVDS_TXPLL0,  0x40002108);
-	reg_write(jzfb, LVDS_TXPLL1,  0x8d000000);
-	reg_write(jzfb, LVDS_TXECTRL, 0x00000030);
+//	reg_write(jzfb, LVDS_TXCTRL,  0xe00580a1);
+//	reg_write(jzfb, LVDS_TXPLL0,  0x40002108);
+//	reg_write(jzfb, LVDS_TXPLL1,  0x8d000000);
+//	reg_write(jzfb, LVDS_TXECTRL, 0x00000030);
 
 	printk("txctrl =  0x%08x\n", reg_read(jzfb, LVDS_TXCTRL));
 	printk("tx_pll0 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL0));
 	printk("tx_pll1 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL1));
 	printk("txectrl =  0x%08x\n", reg_read(jzfb, LVDS_TXECTRL));
 #endif
+
+	jzfb_lvds_check_pll_lock(info);
 }
 
 static void jzfb_enable(struct fb_info *info)
@@ -750,7 +761,7 @@ static int jzfb_set_par(struct fb_info *info)
 		cfg |= LCDC_CFG_DEP;
 
 	/* configure LCDC control register */
-	ctrl = LCDC_CTRL_BST_64;
+	ctrl = LCDC_CTRL_BST_64 | LCDC_CTRL_OFUM;
 	if (pdata->pinmd)
 		ctrl |= LCDC_CTRL_PINMD;
 
@@ -996,7 +1007,8 @@ static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 						       & LCDC_DESSIZE_ALPHA_MASK);
 		}
 	} else {
-		cfg &= ~LCDC_OSDC_ALPHAEN;
+		dev_info(info->dev, "Failed to set alpha\n");
+		// cfg &= ~LCDC_OSDC_ALPHAEN; /* Can not disable alpha */
 	}
 	reg_write(jzfb, LCDC_OSDC, cfg);
 }
