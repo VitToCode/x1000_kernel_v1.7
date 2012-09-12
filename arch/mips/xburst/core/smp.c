@@ -403,7 +403,6 @@ void jzsoc_mbox_interrupt(void)
 	unsigned int action = 0;
 
 	//kstat_incr_irqs_this_cpu(IRQ_SMP_IPI, irq_to_desc(IRQ_SMP_IPI));
-again:
 	smp_spinlock();
 	switch(cpu) {
 #define	CASE_CPU(CPU) case CPU:			\
@@ -433,6 +432,5 @@ again:
 	if (action & SMP_IPI_TIMER)
 		smp_ipi_timer_interrupt();
 
-	goto again;
 }
 

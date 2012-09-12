@@ -20,6 +20,7 @@
 #include <soc/irq.h>
 #include <soc/ost.h>
 
+#define TRACE_IRQ        1
 #define PART_OFF	0x20
 
 #define ISR_OFF		(0x00)
@@ -155,17 +156,14 @@ static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
 
-	do {
-		ipr[0] = readl(intc_base + IPR_OFF);
-		ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
-		if (ipr[0]) {
-			do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
-		}
-		if (ipr[1]) {
-			do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
-		}
-	} while(ipr[0] || ipr[1]);
-
+	ipr[0] = readl(intc_base + IPR_OFF);
+	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
+	if (ipr[0]) {
+		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
+	}
+	if (ipr[1]) {
+		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
+	}
 	return;
 }
 
@@ -173,15 +171,30 @@ asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int cause = read_c0_cause();
 	unsigned int pending = cause & read_c0_status() & ST0_IM;
-
-	if (cause & CAUSEF_IP4) {
-		do_IRQ(IRQ_OST); 
-	} else if(pending & CAUSEF_IP2)
-		intc_irq_dispatch();
-#ifdef CONFIG_SMP
-	else if(pending & CAUSEF_IP3)
-		do_IRQ(IRQ_SMP_IPI); 
+#ifdef TRACE_IRQ
+	int count = 0;
 #endif
+	do{
+		if (cause & CAUSEF_IP4) {
+			do_IRQ(IRQ_OST); 
+		}	
+#ifdef CONFIG_SMP
+		if(pending & CAUSEF_IP3)
+			do_IRQ(IRQ_SMP_IPI); 
+#endif
+		if(pending & CAUSEF_IP2)
+			intc_irq_dispatch();
+		cause = read_c0_cause();
+		pending = cause & read_c0_status() & ST0_IM;
+#ifdef TRACE_IRQ
+		if(count++ > 64) {
+		      pr_err("cause:%x  status:%x\n",read_c0_cause(),read_c0_status());
+		      pr_err("ipr0:%x   ipi1:%x\n",readl(intc_base + IPR_OFF),readl(intc_base + PART_OFF + IPR_OFF));
+		      while(1);
+		      break;
+	         }
+#endif
+	}while(pending);
 
 	return;
 }
