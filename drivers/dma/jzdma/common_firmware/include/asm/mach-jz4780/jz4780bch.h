@@ -126,14 +126,14 @@
  *************************************************************************/
 #define __bch_encoding(n)						\
 do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE;	\
+	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
 	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE);	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)
 
 #define __bch_decoding(n)						\
 do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE;	\
+	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
 	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE);	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)

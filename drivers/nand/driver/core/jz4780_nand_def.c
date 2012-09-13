@@ -222,6 +222,8 @@ void bch_enable(NAND_BASE *host,unsigned int mode,unsigned int eccsize,unsigned 
 		bch_writel(host->bch_iomem,BCH_CRC,(~tmp));					
 		bch_writel(host->bch_iomem,BCH_CRS,tmp);		
 		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_INIT);		
+                /* set BCH_CR MZEBS = 0x7 */
+		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_MZEB(7));		
 }
 
 
