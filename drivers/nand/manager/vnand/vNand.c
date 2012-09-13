@@ -91,8 +91,11 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
 {
 	struct singlelist *pos;
 	PageList *newpl = NULL;
-	int *retVal = vnand->retVal;
+	int *retVal = NULL;
 	int i;
+	if (vnand->_2kPerPage == 1)
+		return;
+	retVal = vnand->retVal;
 	singlelist_for_each(pos,&alig_pl->head){
 		newpl = singlelist_entry(pos,PageList,head);
 		if (newpl->retVal != 0){
@@ -122,7 +125,6 @@ int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount,
 int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 	PageList *alig_pl = NULL;
-
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,0);
 #endif
@@ -151,7 +153,8 @@ int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,alig_pl);
 	Fill_Pl_Retval(vNand,alig_pl);
-	BuffListManager_freeAllList(vNand->blm,(void **)&alig_pl,sizeof(PageList));
+	if (vNand->_2kPerPage != 1)
+		BuffListManager_freeAllList(vNand->blm,(void **)&alig_pl,sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif

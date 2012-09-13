@@ -26,28 +26,14 @@
 
 static void dumpCacheList(CacheList *cachelist)
 {
-	struct singlelist *pos;
-	CacheData *cachedata;
-	
-	if (cachelist->listCount == 0) {
-		printf("no content!\n");
-		return;
-	}
-
-	printf("top.index = %d, tail.index = %d, count = %d\n", cachelist->top->IndexID, cachelist->tail->IndexID, cachelist->listCount);
-	printf("======================================\n");
-	singlelist_for_each(pos,&(cachelist->top->head)) {
-		cachedata = singlelist_entry(pos,CacheData,head);
-		printf("--indexID = %d -- \n", cachedata->IndexID);
-	}
-	printf("======================================\n\n");
+	CacheList_Dump(cachelist);
 }
 
 static int Handle(int argc, char *argv[]){
 	int i;
 	CacheList *cachelist;
 	CacheData *cachedata[CACHEDATA_COUNT];
-	unsigned int sectorid, pageid;
+	unsigned int sectorid;
 	CacheData *data;
 
 	for (i = 0; i < CACHEDATA_COUNT; i++) {
@@ -69,16 +55,6 @@ static int Handle(int argc, char *argv[]){
 	}
 	printf("CacheList_Insert %d cachedata successed!!!!!!\n\n", CACHEDATA_COUNT);
 
-	for (i = 0; i < CACHEDATA_COUNT; i++) {
-		pageid = 100 * i;
-		sectorid = CacheList_find(cachelist,pageid);
-		if (sectorid != -1)
-			printf("find:sectorid = %d, pageid = %d\n", sectorid, pageid);
-		else
-			printf("Can't find!\n");
-	}
-	printf("CacheList_find OK!!!!!!!!!!\n\n");
-	dumpCacheList(cachelist);
 
 	for (i = 0; i < CACHEDATA_COUNT - 5; i++) {
 		sectorid = INDEXCOUNT * UNITLEN * i + 10;

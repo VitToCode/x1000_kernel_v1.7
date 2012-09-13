@@ -28,7 +28,7 @@ extern NandInterface em_nand_ops;
 extern int InitNandTest(int argc, char *argv[]);
 extern void DeinitNandTest();
 
-static void dumpSectorList(SectorList *h)
+void dumpSectorList(SectorList *h)
 {
 	struct singlelist *pos;
 	SectorList *top;
@@ -44,6 +44,7 @@ static void dumpSectorList(SectorList *h)
 		top = singlelist_entry(pos, SectorList, head);
 		//printf("--startSector = %d, sectorCount = %d--\n", top->startSector, top->sectorCount);
 		printf("--startSector = %d, sectorCount = %d, pData: %x--\n", top->startSector, top->sectorCount, *(unsigned int *)(top->pData));
+		//printf("--startSector = %d, sectorCount = %d, pData: %s--\n", top->startSector, top->sectorCount, (char *)top->pData);
 	}
 
 	printf("======================================\n\n");
@@ -104,7 +105,7 @@ static void dumpPageList(PageList *h)
 	printf("======================================\n\n");
 }
 #endif
-
+#if 0
 static void init_nand_flash(VNandInfo *vnand)
 {
 	int i = 0;
@@ -139,7 +140,7 @@ static void init_nand_flash(VNandInfo *vnand)
 	BuffListManager_freeAllList(handle, (void **)&pl, sizeof(PageList));
 	BuffListManager_BuffList_DeInit(handle);
 }
-
+#endif
 extern Context context;
 int start_test_nand(int argc, char *argv[]){
 	int i, ret;
@@ -150,8 +151,6 @@ int start_test_nand(int argc, char *argv[]){
 	BuffListManager *blm;
 	PManager pm;
 
-	init_nand_flash(&conptr->vnand);
-	
 	pm.bufferlist = (BuffListManager *)BuffListManager_BuffList_Init();
 	L2PConvert_Init(&pm);
 
@@ -165,8 +164,8 @@ int start_test_nand(int argc, char *argv[]){
 	sl_write = (SectorList *)BuffListManager_getTopNode((int)blm, sizeof(SectorList));
 	for (i = 0; i < 1; i++) {
 		sl_node = (SectorList *)BuffListManager_getNextNode((int)blm, (void *)sl_write, sizeof(SectorList));
-		sl_node->startSector = 0;
-		sl_node->sectorCount = 3000;
+		sl_node->startSector = i;
+		sl_node->sectorCount = 2008*5;
 		sl_node->pData = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * sl_node->sectorCount * SECTOR_SIZE);
 		memset(sl_node->pData, 0x31 + i % 9, sizeof(unsigned char) * sl_node->sectorCount * SECTOR_SIZE);
 	}
@@ -175,8 +174,8 @@ int start_test_nand(int argc, char *argv[]){
 	sl_read = (SectorList *)BuffListManager_getTopNode((int)blm, sizeof(SectorList));
 	for (i = 0; i < 1; i++) {
 		sl_node = (SectorList *)BuffListManager_getNextNode((int)blm, (void *)sl_read, sizeof(SectorList));
-		sl_node->startSector = 0;
-		sl_node->sectorCount = 3000;
+		sl_node->startSector = i;
+		sl_node->sectorCount = 2008*5;
 		sl_node->pData = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * sl_node->sectorCount * SECTOR_SIZE);
 		memset(sl_node->pData, 0x0, sizeof(unsigned char) * sl_node->sectorCount * SECTOR_SIZE);
 	}

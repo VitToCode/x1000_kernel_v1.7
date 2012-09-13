@@ -251,7 +251,6 @@ static void free_zonemanager_memory(ZoneManager *zonep)
 static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList *pl,unsigned int page)
 {
 	unsigned int startblockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
-
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);
@@ -605,7 +604,7 @@ static int scan_page_info(ZoneManager *zonep)
 	plt->retVal = 0;
 	plt->pData = zonep->mem0;
 	(plt->head).next = NULL;
-
+ 
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		read_zone_page1(zonep,i,plt);
@@ -616,7 +615,7 @@ static int scan_page_info(ZoneManager *zonep)
 			insert_zoneidlist(zonep,PAGE1,i);
 		else
 			find_maxserialnumber(zonep,&max_serial,&max_zoneid);
-	}
+		}
 
 	ret = scan_sigzoneinfo_fill_node(zonep,plt);
 	if (ret < 0) {
@@ -628,7 +627,6 @@ static int scan_page_info(ZoneManager *zonep)
 	fill_ahead_zone(zonep);
 	zonep->maxserial = max_serial;
 	zonep->last_zone_id = max_zoneid;
-
 	if (max_zoneid != 0xffff)
 	{
 		read_zone_page2(zonep,max_zoneid,plt);
@@ -1426,7 +1424,6 @@ int ZoneManager_Init (int context )
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-
 	conptr->zonep = zonep;
 	zonep->context = context;
 	zonep->vnand = &conptr->vnand;
@@ -1451,7 +1448,6 @@ int ZoneManager_Init (int context )
 		return -1;
 
 	}
-
 	ret = alloc_zonemanager_memory(zonep,&conptr->vnand);
 	if(ret != 0)
 	{
@@ -1459,7 +1455,6 @@ int ZoneManager_Init (int context )
 					__FUNCTION__,__LINE__);
 		return ret;
 	}
-
 	ret = init_free_node(zonep);
 	if(ret != 0)
 	{
@@ -1467,7 +1462,6 @@ int ZoneManager_Init (int context )
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-
 	ret = init_used_node(zonep);
 	if(ret != 0)
 	{
@@ -1475,7 +1469,6 @@ int ZoneManager_Init (int context )
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-
 	ret = scan_page_info(zonep);
 	if (ret != 0)
 	{
@@ -1483,7 +1476,6 @@ int ZoneManager_Init (int context )
 			__FUNCTION__, __LINE__);
 		return ret;
 	}
-
 	ret = error_handle(zonep);
 	if (ret != 0)
 	{
@@ -1497,7 +1489,6 @@ int ZoneManager_Init (int context )
 
 	if (zonep->page2_error_dealt)
 		return 0;
-	
 	ret = deal_maxserial_zone(zonep);
 	if(ret != 0)
 	{

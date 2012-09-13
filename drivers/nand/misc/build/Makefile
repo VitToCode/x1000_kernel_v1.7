@@ -34,7 +34,8 @@ LIBSRC = vNand.c \
 	 NandThread.c \
 	 nandalloc.c \
 	 junkzone.c \
-	 errhandle.c 
+	 errhandle.c \
+	 badblockinfo.c	
 
 
 MVPATH= $(TOPDIR)/manager/     \
@@ -76,4 +77,8 @@ endif
 #    $(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
+	find $(TOPDIR) -name "*.o" | xargs rm -vf;
+	find $(TOPDIR) -name "*.o.cmd" | xargs rm -vf;
+	find $(TOPDIR) -name "*.o.d" | xargs rm -vf;
+	find $(TOPDIR) -name "*~" | xargs rm -vf;
 	rm -f $(TARGET) $(LIB) $(OBJS)

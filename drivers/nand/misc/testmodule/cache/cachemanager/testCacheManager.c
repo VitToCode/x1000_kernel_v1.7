@@ -32,37 +32,12 @@ extern int vNand_ScanBadBlocks (VNandManager* vnand);
 
 static void dumpCacheData(CacheData *cachedata)
 {
-	int i;
-
-	printf("=========================\n");
-	printf("indexcount = %d\n", cachedata->IndexCount);
-	for (i = 0; i < cachedata->IndexCount; i++) {
-		if (cachedata->Index[i] != (unsigned int)(-1))
-			printf("--[%d]--%d--\n", i, cachedata->Index[i]);
-	}
-	printf("=========================\n");
+	CacheData_Dump(cachedata);
 }
 
 static void dumpCacheList(CacheList *cachelist)
 {
-	struct singlelist *pos;
-	CacheData *cachedata;
-	
-	if (cachelist->listCount == 0) {
-		printf("no content!\n");
-		return;
-	}
-
-	printf("top.index = %d, tail.index = %d, count = %d\n", cachelist->top->IndexID, cachelist->tail->IndexID, cachelist->listCount);
-	printf("======================================\n");
-	singlelist_for_each(pos,&(cachelist->top->head)) {
-		cachedata = singlelist_entry(pos,CacheData,head);
-		if (cachedata->IndexID != -1) {
-			printf("--indexID = %d -- index[0] = %d --\n", cachedata->IndexID, *(cachedata->Index));
-			dumpCacheData(cachedata);
-		}
-	}
-	printf("======================================\n\n");
+	CacheList_Dump(cachelist);
 }
 
 static void dumpCacheManager(CacheManager *cachemanager)
@@ -84,41 +59,6 @@ static void dumpCacheManager(CacheManager *cachemanager)
 	dumpCacheList(cachemanager->L4Info);
 }
 
-static void init_nand_flash(VNandInfo *vnand)
-{
-	int i = 0;
-	int handle;
-	unsigned int zonenum = vnand->TotalBlocks?(vnand->TotalBlocks - 1) / BLOCKPERZONE(vnand) + 1:vnand->TotalBlocks;
-	PageList *pl = NULL;
-
-	handle = BuffListManager_BuffList_Init();
-
-	pl = (PageList *)BuffListManager_getTopNode(handle, sizeof(PageList));
-
-	unsigned char *buf = malloc(vnand->BytePerPage);	
-	memset(buf,0xff,vnand->BytePerPage);
-	NandSigZoneInfo *nandsig = (NandSigZoneInfo *)buf;
-
-	for(i = 0; i < zonenum; i++)
-	{		
-		nandsig->ZoneID = i;
-		nandsig->lifetime = random() % 300;
-		nandsig->badblock = 0;
-
-		pl->startPageID = (i * BLOCKPERZONE(vnand) + vnand->startBlockID) * vnand->PagePerBlock;
-		pl->OffsetBytes = 0;
-		pl->Bytes = vnand->BytePerPage;
-		pl->pData = buf;
-		pl->retVal = 0;
-
-		vNand_MultiPageWrite(vnand,pl);
-	}
-
-	free(buf);
-	BuffListManager_freeAllList(handle, (void **)&pl, sizeof(PageList));
-	BuffListManager_BuffList_DeInit(handle);
-}
-
 extern Context context;
 int start_test_nand(int argc, char *argv[]){
 	int i, ret;
@@ -128,8 +68,6 @@ int start_test_nand(int argc, char *argv[]){
 	Context *conptr = &context;
 
 	conptr->blm = (BuffListManager *)BuffListManager_BuffList_Init();
-
-	init_nand_flash(&conptr->vnand);
 
 	ZoneManager_Init((int)conptr);
 
@@ -147,11 +85,7 @@ int start_test_nand(int argc, char *argv[]){
 	cachemanager->L1Info->IndexID = 0;
 	for (i = 0; i < cachemanager->L1InfoLen / UNIT_SIZE; i++)
 		CacheData_set(cachemanager->L1Info, cachemanager->L1UnitLen * i, cachemanager->L1UnitLen / (conptr->vnand.BytePerPage / SECTOR_SIZE) * i);
-	cachemanager->L4Info->top->IndexID = 0;
-	for (i = 0; i < cachemanager->L4InfoLen / UNIT_SIZE; i++){
-		CacheData_set(cachemanager->L4Info->top, i, i + 1);
-	}
-	dumpCacheManager(cachemanager);
+
 
 	for (i = 0; i < 10; i++) {
 		//sectorid = cachemanager->L1InfoLen * i + 10;

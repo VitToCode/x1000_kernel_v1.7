@@ -162,41 +162,6 @@ static test_for_recycle_freenode(Recycle *rep)
 	Recycle_FreeZone(rep);	
 }
 
-static void init_nand_flash(VNandInfo *vnand)
-{
-	int i = 0;
-	int handle;
-	unsigned int zonenum = vnand->TotalBlocks?(vnand->TotalBlocks - 1) / BLOCKPERZONE(vnand) + 1:vnand->TotalBlocks;
-	PageList *pl = NULL;
-
-	handle = BuffListManager_BuffList_Init();
-
-	pl = (PageList *)BuffListManager_getTopNode(handle, sizeof(PageList));
-
-	unsigned char *buf = malloc(vnand->BytePerPage);	
-	memset(buf,0xff,vnand->BytePerPage);
-	NandSigZoneInfo *nandsig = (NandSigZoneInfo *)buf;
-
-	for(i = 0; i < zonenum; i++)
-	{		
-		nandsig->ZoneID = i;
-		nandsig->lifetime = random() % 300;
-		nandsig->badblock = 0;
-
-		pl->startPageID = (i * BLOCKPERZONE(vnand) + vnand->startBlockID) * vnand->PagePerBlock;
-		pl->OffsetBytes = 0;
-		pl->Bytes = vnand->BytePerPage;
-		pl->pData = buf;
-		pl->retVal = 0;
-
-		vNand_MultiPageWrite(vnand,pl);
-	}
-
-	free(buf);
-	BuffListManager_freeAllList(handle, (void **)&pl, sizeof(PageList));
-	BuffListManager_BuffList_DeInit(handle);
-}
-
 extern Context context;
 int start_test_nand(int argc, char *argv[]){
 	Context * conptr = &context;
@@ -214,11 +179,8 @@ int start_test_nand(int argc, char *argv[]){
 	BuffListManager *blm;
 	PPartition *pt;
 	PManager pm;
-	ForceRecycleInfo frinfo;
 	
 #ifdef TEST_FORCERECYCLE
-	init_nand_flash(&conptr->vnand);
-	
 	pm.bufferlist = (BuffListManager *)BuffListManager_BuffList_Init();
 	L2PConvert_Init(&pm);
 
