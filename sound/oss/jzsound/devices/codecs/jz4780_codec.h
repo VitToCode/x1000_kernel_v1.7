@@ -75,7 +75,7 @@
  #define CR_LO_MUTE             7
  #define CR_SB_LO               4
  #define CR_LO_SEL              0// 2 bits /FIXME CODEC_QUE/
-  #define CR_LO_SEL_MASK 		(0x3 << CR_LO_SEL)
+  #define CR_LO_SEL_MASK 		(0x7 << CR_LO_SEL)
 
 #define CODEC_REG_CR_HP         0xd
 /*------------------*/
@@ -764,13 +764,12 @@ do {	\
 } while (0)
 /*CR_LO : line out ops*/
 /*line out mux option*/
-#define CODEC_INPUTL_TO_LO		0
-#define CODEC_INPUTR_TO_LO		1
-#define	CODEC_INPUTLR_TO_LO		2
-#define CODEC_DACL_TO_LO		4
-#define CODEC_DACR_TO_LO		5
-#define CODEC_DACLR_TO_LO		6
-
+#define CODEC_DACL_TO_LO		0
+#define CODEC_DACR_TO_LO		1
+#define CODEC_DACLR_TO_LO		2
+#define CODEC_INPUTL_TO_LO		3
+#define CODEC_INPUTR_TO_LO		4
+#define	CODEC_INPUTLR_TO_LO		5
 #define __codec_set_lineout_mux(opt)	\
 do {	\
 	write_inter_codec_reg_mask(CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
@@ -790,7 +789,7 @@ do {	\
 /*adc mux option*/
 #define CODEC_INPUTL_TO_LR			0
 #define CODEC_INPUTR_TO_LR			1
-#define CODEC_INPUTLR_NORMAL			0
+#define CODEC_INPUTLR_NORMAL		0
 #define CODEC_INPUTLR_SWAP			1
 
 #define __codec_set_adc_mux(opt)	\

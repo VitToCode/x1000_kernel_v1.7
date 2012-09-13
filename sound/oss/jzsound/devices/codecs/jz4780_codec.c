@@ -1731,19 +1731,6 @@ static int codec_set_board_route(struct snd_board_route *broute)
 			if (broute->route == codec_route_info[i].route_name) {
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
-				/* set gpio after set route */
-				if (broute->gpio_hp_mute_stat == 0) {
-					gpio_disable_hp_mute();
-				}
-				else if (broute->gpio_hp_mute_stat == 1) {
-					gpio_enable_hp_mute();
-				}
-
-				if (broute->gpio_spk_en_stat == 0)
-					gpio_disable_spk_en();
-				else if (broute->gpio_spk_en_stat == 1)
-					gpio_enable_spk_en();
-
 				/* keep_old_route is used in resume part */
 				keep_old_route = cur_route;
 				/* change cur_route */
@@ -1755,6 +1742,19 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
 
+	/* set gpio after set route */
+	if (broute->gpio_hp_mute_stat == 0) {
+		gpio_disable_hp_mute();
+	}
+	else if (broute->gpio_hp_mute_stat == 1) {
+		gpio_enable_hp_mute();
+	}
+
+	if (broute->gpio_spk_en_stat == 0)
+		gpio_disable_spk_en();
+	else if (broute->gpio_spk_en_stat == 1)
+		gpio_enable_spk_en();
+
 	DUMP_ROUTE_REGS("leave");
 
 	return cur_route ? cur_route->route : 0;
@@ -1763,6 +1763,10 @@ static int codec_set_board_route(struct snd_board_route *broute)
 static int codec_set_route(enum snd_codec_route_t route)
 {
 	struct snd_board_route tmp_broute = {.route = route};
+	if (route == SND_DEVICE_HEADSET_AND_SPEAKER ||
+			route == SND_DEVICE_SPEAKER)
+		tmp_broute.gpio_spk_en_stat = codec_platform_data->replay_def_route.gpio_spk_en_stat;
+	tmp_broute.gpio_hp_mute_stat = codec_platform_data->replay_def_route.gpio_hp_mute_stat;
 	return codec_set_board_route(&tmp_broute);
 }
 
@@ -2415,7 +2419,6 @@ _ensure_stable:
 				codec_sleep(50);
 			}
 		}
-
 		__codec_set_irq_flag(codec_ifr);
 
 		codec_ifr = __codec_get_irq_flag();
@@ -2507,7 +2510,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_DEVICE:
-			ret = codec_set_device((enum snd_device_t)arg);
+			ret = codec_set_device(*(enum snd_device_t *)arg);
 			break;
 
 		case CODEC_SET_STANDBY:

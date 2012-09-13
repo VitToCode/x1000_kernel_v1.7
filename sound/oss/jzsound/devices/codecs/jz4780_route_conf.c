@@ -73,7 +73,7 @@ route_conf_base const replay_lineout_lr = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC, //fix
 	/*--------route-----------*/
 	//replay
-	.route_replay_mixer_mode = REPLAY_MIXER_PLAYBACK_DAC_ONLY, //fix
+	.route_replay_mixer_mode = REPLAY_MIXER_NOUSE,
 	.route_dac_mode = DAC_STEREO, //fix
 	.route_lineout_mux_mode = LO_MUX_DACLR_TO_LO,	//fix
 	.route_hp_mode = HP_DISABLE, //fix

@@ -352,6 +352,7 @@ static void i2s0_set_trigger(int mode)
 		case AFMT_U8:
 			data_width = 8;
 			break;
+		default:
 		case AFMT_S16_BE:
 		case AFMT_S16_LE:
 			data_width = 16;
@@ -360,7 +361,7 @@ static void i2s0_set_trigger(int mode)
 		dp = cur_codec->dsp_endpoints->out_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		if (I2S0_TX_FIFO_DEPTH - burst_length*8/data_width >= 60)
+		if (I2S0_TX_FIFO_DEPTH - burst_length/data_width >= 60)
 			__i2s0_set_transmit_trigger(30);
 		else
 			__i2s0_set_transmit_trigger((I2S0_TX_FIFO_DEPTH - burst_length/data_width) >> 1);
@@ -372,6 +373,7 @@ static void i2s0_set_trigger(int mode)
 		case AFMT_U8:
 			data_width = 8;
 			break;
+		default :
 		case AFMT_S16_BE:
 		case AFMT_S16_LE:
 			data_width = 16;
@@ -380,7 +382,7 @@ static void i2s0_set_trigger(int mode)
 		dp = cur_codec->dsp_endpoints->in_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		__i2s0_set_receive_trigger(((I2S0_RX_FIFO_DEPTH - burst_length*8/data_width) >> 1) - 1);
+		__i2s0_set_receive_trigger(((I2S0_RX_FIFO_DEPTH - burst_length/data_width) >> 1) - 1);
 	}
 
 	return;
@@ -392,9 +394,9 @@ static int i2s0_set_default_route(int mode)
 		return -ENODEV;
 
 	if (mode == CODEC_RWMODE) {
-		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_HEADPHONE);
+		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_SPEAKER);
 	} else if (mode == CODEC_WMODE) {
-		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_HEADPHONE);
+		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_REPLAY_SPEAKER);
 	} else if (mode == CODEC_RMODE){
 		cur_codec->codec_ctl(CODEC_SET_ROUTE, SND_ROUTE_RECORD_MIC);
 	}
@@ -424,11 +426,9 @@ static int i2s0_enable(int mode)
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
-		if (!dp_other->is_used) {
-			i2s0_set_fmt(&record_format,mode);
-			i2s0_set_channel(&record_channel,mode);
-			i2s0_set_rate(&record_rate,mode);
-		}
+		i2s0_set_fmt(&record_format,mode);
+		i2s0_set_channel(&record_channel,mode);
+		i2s0_set_rate(&record_rate,mode);
 	}
 	i2s0_set_trigger(mode);
 	i2s0_set_filter(mode);
@@ -546,6 +546,7 @@ static void i2s0_dma_need_reconfig(int mode)
 	}
 	return;
 }
+
 
 /********************************************************\
  * dev_ioctl
@@ -706,7 +707,14 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DUMP_GPIO,0);
 		break;
-
+	case SND_DSP_SET_STANDBY:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_SET_STANDBY,(int)arg);
+		break;
+	case SND_DSP_SET_DEVICE:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_SET_DEVICE,arg);
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
@@ -1013,7 +1021,7 @@ void jz_set_hp0_detect_type(int type,unsigned int gpio)
 
 static struct snd_switch_data switch_data = {
 	.sdev = {
-		.name = "i2s0_hp_detect",
+		.name = "h2w",
 	},
 	.state_on	=	"1",
 	.state_off	=	"0",

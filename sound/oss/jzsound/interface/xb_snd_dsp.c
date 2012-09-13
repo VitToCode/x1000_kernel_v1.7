@@ -185,10 +185,7 @@ static void snd_release_dma(struct dsp_pipe *dp)
 			dma_release_channel(dp->dma_chan);
 			dp->dma_chan = NULL;
 		}
-		if (dp->sg) {
-			vfree(dp->sg);
-			dp->sg = NULL;
-		}
+
 	}
 
 }
@@ -1477,17 +1474,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* extention: used for set standby and resume from standby */
 		int mode = -1;
 
-		if (get_user(mode, (int *)arg)) {
+		if (get_user(mode, (int*)arg)) {
 			return -EFAULT;
 		}
 
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)&mode);
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)mode);
 			if (!ret)
 				break;
 		}
 
-		ret = put_user(mode, (int *)arg);
+		ret = put_user(mode, (int*)arg);
 		break;
 	}
 
@@ -1818,9 +1815,7 @@ int xb_snd_dsp_release(struct inode *inode,
 		dpi = endpoints->in_endpoint;
 		if (dpi && dpi->is_trans == true)
 			dpi->wait_stop_dma = true;
-	}
-
-	if (file->f_mode & FMODE_WRITE) {
+	} else if (file->f_mode & FMODE_WRITE) {
 		dpo = endpoints->out_endpoint;
 		if (dpo && dpo->is_trans == true)
 			dpo->wait_stop_dma = true;
@@ -1830,13 +1825,19 @@ int xb_snd_dsp_release(struct inode *inode,
 		wait_event_interruptible(dpi->wq, dpi->is_trans == false);
 	}
 
-	snd_release_dma(dpi);
+	if (dpi && dpi->sg) {
+		vfree(dpi->sg);
+		dpi->sg = NULL;
+	}
 
 	if (dpo && dpo->wait_stop_dma == true) {
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
 	}
 
-	snd_release_dma(dpo);
+	if (dpo && dpo->sg) {
+		vfree(dpo->sg);
+		dpo->sg = NULL;
+	}
 
 	if (dpi) {
 		/* put all used node to free node list */
