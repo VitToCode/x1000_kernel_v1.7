@@ -1269,11 +1269,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			/* enable end of frame interrupt */
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
-			dev_info(info->dev, "LCDC DMA enable EOF interrupt");
 		} else {
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
-			dev_info(info->dev, "LCDC DMA disable EOF interrupt");
 		}
 		break;
 	case JZFB_SET_BACKGROUND:
