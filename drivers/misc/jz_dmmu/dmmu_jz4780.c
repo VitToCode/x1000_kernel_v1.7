@@ -31,6 +31,7 @@
 
 #include "dmmu_jz4780.h"
 
+//#define DMMU_DEBUG
 #define PAGE_VALID_BIT 0x1  
 #define TABLE_ID_BITMAP_NONE (0)
 #define TABLE_ID_BITMAP_USER_SET (~0)
@@ -155,7 +156,7 @@ static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
 		if (dup_page->phys_addr == paddr) {
 			found = 1;
 			dup_page->count++;
-			printk("%d dup_page->count: %d\n", __LINE__, dup_page->count);
+			dev_dbg(jz_dmmu.dev, "%d dup_page->count: %d\n", __LINE__, dup_page->count);
 			break;
 		}
 	}
@@ -187,8 +188,8 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 	page_num = (unsigned int)((mem->vaddr-addr) + mem->size+PAGE_SIZE-1) >> PAGE_SHIFT;
 	end = (void *)(((unsigned int)mem->vaddr + (mem->size-1)) & (~(PAGE_SIZE-1)));
 	tlb_pos = ((unsigned int)mem->vaddr >> PAGE_SHIFT) << 2;
-	printk("vaddr: %p, addr: %p, page_num: %d, end: %p, tlb_pos: %ud\n", 
-		   mem->vaddr, addr, page_num, end, tlb_pos);
+//	printk("vaddr: %p, addr: %p, page_num: %d, end: %p, tlb_pos: %ud\n", 
+//		   mem->vaddr, addr, page_num, end, tlb_pos);
 
 	mem->start_offset = (unsigned int)mem->vaddr - (unsigned int)addr;
 	mem->end_offset = ((unsigned int)mem->vaddr + mem->size) - (unsigned int)end;
@@ -200,7 +201,7 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 		paddr = get_phy_addr((unsigned int)addr);
 		if (i == 0) {
 			mem->paddr = paddr;
-			printk("%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
+			dev_dbg(jz_dmmu.dev, "%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
 			if (mem->start_offset) {
 				ret = traverse_dup_pages(head, paddr);
 				if (ret < 0) {
@@ -211,7 +212,7 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 		}
 		if (i == page_num-1) {
 			if (mem->end_offset) {
-				printk("%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
+				dev_dbg(jz_dmmu.dev, "%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
 				ret = traverse_dup_pages(head, paddr);
 				if (ret < 0) {
 					dev_err(jz_dmmu.dev, "%d traverse_dup_pages failed!\n", __LINE__);
@@ -227,7 +228,7 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 		tlb_pos += 4;
 		addr += PAGE_SIZE;
 		page_base += 4;
-//		printk("%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
+		dev_dbg(jz_dmmu.dev, "%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
 	}
 
 	dma_cache_wback((unsigned int)(proc->vbase + s_pos), page_num * 4);
@@ -243,14 +244,14 @@ static void free_dup_pages(struct list_head *head, int *p_tlb)
 	struct dup_page_info *dup_page;
 
 	found = 0;
-	printk("*p_tlb: 0x%08x\n", *p_tlb);
+	dev_dbg(jz_dmmu.dev, "*p_tlb: 0x%08x\n", *p_tlb);
 	list_for_each(pos, head) {
 		dup_page = list_entry(pos, struct dup_page_info, list);
 		if ((dup_page->phys_addr+1) == *p_tlb) {
 			found = 1;
 			dup_page->count--;
 			if (!dup_page->count) {
-				printk("%s %d\n",__func__,__LINE__);
+				dev_dbg(jz_dmmu.dev, "%s %d\n",__func__,__LINE__);
 				*p_tlb = jz_dmmu.dummy_base;
 				list_del(pos);
 			}
@@ -258,7 +259,7 @@ static void free_dup_pages(struct list_head *head, int *p_tlb)
 		}
 	}
 	if (!found) {
-		printk("%s %d i == 0 not found\n",__func__,__LINE__);
+		dev_dbg(jz_dmmu.dev, "%s %d i == 0 not found\n",__func__,__LINE__);
 	}
 
 	return;
@@ -322,7 +323,7 @@ static int dmmu_open(struct inode *inode, struct file *file)
 	struct proc_page_tab_data *table;
 	int ret = 0;
 	
-	dev_dbg(jz_dmmu.dev, "current %u (tgid=%d)file %p(%ld)\n", 
+	dev_info(jz_dmmu.dev, "current %u (tgid=%d)file %p(%ld)\n", 
 			current->pid, current->tgid, file, file_count(file));
 
 	/* setup file->private_data to indicate its unmapped */
@@ -349,9 +350,9 @@ static int dmmu_open(struct inode *inode, struct file *file)
 	table->vbase = jz_dmmu.vbase;
 	table->size = jz_dmmu.size;
 
-	dev_dbg(jz_dmmu.dev, "base: 0x%08x, vbase: %p, size: %d\n", 
+	dev_info(jz_dmmu.dev, "base: 0x%08x, vbase: %p, size: %d\n", 
 			 table->base, table->vbase, table->size);
-	dev_dbg(jz_dmmu.dev, "pid: %d, tgid: %d!\n", table->pid, table->tid);
+	dev_info(jz_dmmu.dev, "pid: %d, tgid: %d!\n", table->pid, table->tid);
 
 	mutex_init(&table->buffer_list_lock);
 	INIT_LIST_HEAD(&table->buffer_heap_list);
@@ -528,7 +529,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 
 	page_count = mem->page_count;
 	page_base = kzalloc(page_count * sizeof(int), GFP_KERNEL);
-	printk("<-----page_base: %p\n", page_base);
+	dev_dbg(jz_dmmu.dev, "<-----page_base: %p\n", page_base);
 	if (page_base == NULL) {
 		dev_err(jz_dmmu.dev, "kzalloc page_base failed");
 		return -EFAULT;
@@ -564,7 +565,9 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 	struct buffer_heap_info *buffer;
 
 	head = &table->buffer_heap_list;
+#ifdef DMMU_DEBUG
 	dump_mem_info(mem, NULL);
+#endif
 
 	/* free tlb phys address */
 	free_tlb_address(mem, table);
