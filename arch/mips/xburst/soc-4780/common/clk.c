@@ -14,6 +14,8 @@
 #include <linux/err.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
+#include <linux/syscore_ops.h>
 
 #include <soc/cpm.h>
 #include <soc/base.h>
@@ -561,6 +563,39 @@ static void __init init_gate_clk(void)
 	}
 }
 
+static unsigned long clkgr0;
+static unsigned long clkgr1;
+int clk_suspend(void)
+{
+	clkgr0 = cpm_inl(CPM_CLKGR0);
+	clkgr1 = cpm_inl(CPM_CLKGR1);
+
+	printk("%s %d\n",__func__,__LINE__);
+	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
+	mdelay(20);
+	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
+	mdelay(20);
+	cpm_outl(clkgr0 | 0x3fd0ffe0,CPM_CLKGR0);
+	udelay(20);
+	cpm_outl(0x5fff,CPM_CLKGR1);
+	udelay(20);
+	return 0;
+}
+
+void clk_resume(void)
+{
+	cpm_outl(clkgr0,CPM_CLKGR0);
+	mdelay(5);
+	cpm_outl(clkgr1,CPM_CLKGR1);
+	mdelay(5);
+	printk("%s %d\n",__func__,__LINE__);
+}
+
+struct syscore_ops clk_pm_ops = {
+	.suspend = clk_suspend,
+	.resume = clk_resume,
+};
+
 static int __init init_all_clk(void)
 {
 	int i;
@@ -585,12 +620,14 @@ static int __init init_all_clk(void)
 		clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
 
+	register_syscore_ops(&clk_pm_ops);
+
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
-			clk_srcs[CLK_ID_CCLK].rate/1024/1024,
-			clk_srcs[CLK_ID_L2CLK].rate/1024/1024,
-			clk_srcs[CLK_ID_H0CLK].rate/1024/1024,
-			clk_srcs[CLK_ID_H2CLK].rate/1024/1024,
-			clk_srcs[CLK_ID_PCLK].rate/1024/1024);
+			clk_srcs[CLK_ID_CCLK].rate/1000/1000,
+			clk_srcs[CLK_ID_L2CLK].rate/1000/1000,
+			clk_srcs[CLK_ID_H0CLK].rate/1000/1000,
+			clk_srcs[CLK_ID_H2CLK].rate/1000/1000,
+			clk_srcs[CLK_ID_PCLK].rate/1000/1000);
 	return 0;
 }
 arch_initcall(init_all_clk);

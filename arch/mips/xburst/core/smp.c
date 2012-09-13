@@ -236,6 +236,8 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 	unsigned long reim;
 	int i;
 
+	if(max_cpus <= 1) return;
+
 	for (i = 1; i < max_cpus; i++)
 		smp_set_cpu_clk(i, 1);
 
