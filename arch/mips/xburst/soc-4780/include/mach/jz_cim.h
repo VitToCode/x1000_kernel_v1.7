@@ -20,9 +20,9 @@
 #define CIMIO_SET_CAPTURE_SIZE			0x11
 #define CIMIO_GET_SUPPORT_CSIZE			0x12
 #define CIMIO_SET_VIDEO_MODE			0x13
-#define CIMIO_STOP_PREVIEW				0x14
-#define CIMIO_SET_TLB_BASE				0x15
-
+#define CIMIO_STOP_PREVIEW			0x14
+#define CIMIO_SET_TLB_BASE			0x15
+#define CIMIO_GET_SENSOR_COUNT			0x16
 
 //cim config for sensor YUYV output order
 #define SENSOR_OUTPUT_FORMAT_Y0UY1V 		0		//11 22 33 44

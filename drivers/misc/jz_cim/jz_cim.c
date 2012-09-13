@@ -19,12 +19,14 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/miscdevice.h>
-#include <linux/spinlock.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/wait.h>
+#include <linux/gpio.h>
+
+#include <linux/regulator/consumer.h>
 
 #include <mach/jz_cim.h>
 #include "cim_reg.h"
@@ -78,6 +80,7 @@ struct jz_cim {
 	struct device *dev;
 	struct clk *clk;
 	struct clk *mclk;
+	struct regulator * power;
 
 	wait_queue_head_t wait;
 
@@ -192,6 +195,37 @@ void cim_dump_reg(struct jz_cim *cim)
 
 }
 
+void cim_power_on(struct jz_cim *cim)
+{
+	if(cim->clk)
+		clk_enable(cim->clk);
+	if(cim->mclk)
+		clk_enable(cim->mclk);
+	/*if(cim->power < 0){
+		printk("fuchao -----cim power enable\n");
+		regulator_enable(cim->power);
+	}*/
+
+	gpio_direction_output(GPIO_PB(27),1);	
+	
+	gpio_set_value(GPIO_PB(27),1);
+	mdelay(10);
+	//dev_info(cim->dev," ---probe get clk rete is %d\n",clk_get_rate(cim->mclk));
+	clk_set_rate(cim->mclk, 24000000);
+
+}
+void cim_power_off(struct jz_cim *cim)
+{
+	#if 0
+	if(cim->clk)
+		clk_disable(cim->clk);
+	if(cim->mclk)
+		clk_disable(cim->mclk);
+	
+	#endif
+	if(cim->power < 0)
+		regulator_disable(cim->power);
+}
 
 void cim_set_default(struct jz_cim *cim)
 {
@@ -237,35 +271,37 @@ void cim_scan_sensor(struct jz_cim *cim)
 {
 	struct cim_sensor *desc;
 	cim->sensor_count  = 0;
-	cim->power_on();
+	cim_power_on(cim);
 
 	list_for_each_entry(desc, &sensor_list, list) {
-		desc->power_on(desc);
+		//desc->power_on(desc);
 		if(desc->probe(desc))
 			list_del(&desc->list);
-		desc->shutdown(desc);
+		//desc->shutdown(desc);
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc->facing == CAMERA_FACING_BACK) {
-			desc->id = cim->sensor_count;
-			cim->sensor_count++;
-			dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
-					desc->name,desc->id,desc->facing);
-		}
+		if(desc != NULL)
+			if(desc->facing == CAMERA_FACING_BACK) {
+				desc->id = cim->sensor_count;
+				cim->sensor_count++;
+				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
+						desc->name,desc->id,desc->facing);
+			}
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc->facing == CAMERA_FACING_FRONT) {
-			desc->id = cim->sensor_count;
-			cim->sensor_count++;
-			dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
-					desc->name,desc->id,desc->facing);
-		}
+		if(desc != NULL)
+			if(desc->facing == CAMERA_FACING_FRONT) {
+				desc->id = cim->sensor_count;
+				cim->sensor_count++;
+				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
+						desc->name,desc->id,desc->facing);
+			}
 	}
 	
 	cim->desc = desc;
-	cim->power_off();
+	cim_power_off(cim);
 }
 
 static int cim_select_sensor(struct jz_cim *cim,int id)
@@ -359,7 +395,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	if(state_reg & CIM_STATE_DMA_EOF){
 		
 		if(cim->state == CS_PREVIEW){
-			dev_dbg(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
+			dev_info(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 			spin_lock_irqsave(&cim->lock,flags);
 			cim->frm_id =  cim_get_iid(cim) - 1;
 			if(cim->frm_id == -1)
@@ -400,6 +436,8 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 
 static long cim_shutdown(struct jz_cim *cim)
 {
+	if(cim->state == CS_IDLE)
+		return 0;
 	cim->state = CS_IDLE;
 	dev_info(cim->dev," -----cim shut down\n");
 	cim->desc->shutdown(cim->desc);
@@ -412,6 +450,7 @@ static long cim_shutdown(struct jz_cim *cim)
 	//cim_dump_reg(cim);
 	
 	wake_up_interruptible(&cim->wait);
+	cim_power_off(cim);
 	return 0;
 }
 
@@ -419,8 +458,10 @@ static long cim_start_preview(struct jz_cim *cim)
 {
 	cim->state = CS_PREVIEW;
 	cim->frm_id = -1;
+
 	cim_disable(cim);
 	cim_set_default(cim);
+	cim_power_on(cim);
 	cim->desc->power_on(cim->desc);
 	cim->desc->reset(cim->desc);
 	cim->desc->init(cim->desc);
@@ -514,7 +555,7 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 	}
 	spin_lock_irqsave(&cim->lock,flags);
 	addr =  desc[cim->frm_id].buf;
-	dev_dbg(cim->dev," -------------  frm id %d\n",cim->frm_id);
+	dev_info(cim->dev," -------------  frm id %d %08lx\n",cim->frm_id,addr);
 	cim->frm_id = -1;
 	spin_unlock_irqrestore(&cim->lock,flags);
 
@@ -703,7 +744,7 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 	void __user *argp = (void __user *)arg;
 	long ret = 0;
-	dev_dbg(cim->dev," -------------------ioctl %x\n",cmd);
+	dev_info(cim->dev," -------------------ioctl %x\n",cmd);
 	switch (cmd) {
 		case CIMIO_SHUTDOWN:
 			return cim_shutdown(cim);
@@ -757,6 +798,8 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			cim->tlb_flag = 1;
 			cim->tlb_base = arg;
 			break;
+		case CIMIO_GET_SENSOR_COUNT:
+			return cim->sensor_count;
 	}
 
 	return ret;
@@ -793,30 +836,35 @@ static int cim_probe(struct platform_device *pdev)
 
 	if(pdata && pdata->power_off)
 		cim->power_off = pdata->power_off;
-	
-	cim_scan_sensor(cim);
-	
-	if(!cim->desc) {
-		dev_err(&pdev->dev,"no sensor!\n");
-		ret = -ENOMEM;
-		goto no_desc;
-	}
+
 	
 	cim->clk = clk_get(&pdev->dev,"cim");
-	if(!cim->clk) {
+	if(IS_ERR(cim->clk)) {
 		ret = -ENODEV;
 		goto no_desc;
 	}
 
-	cim->mclk = clk_get(&pdev->dev,"cim_mclk");
-	if(!cim->mclk) {
+	cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk");
+	if(IS_ERR(cim->mclk)) {
 		ret = -ENODEV;
 		goto io_failed;
 	}
+	#if 0
+	cim->power = regulator_get(&pdev->dev, "vcim");
+	if(IS_ERR(cim->power)){
+		printk("fuchao -------------power get fail\n");
+		ret = -ENODEV;
+		goto mem_failed;
+	}
+	#endif
+
+ 	cim_scan_sensor(cim); 
 	
-	//dev_info(cim->dev," ---probe get clk rete is %d\n",clk_get_rate(cim->mclk));
-	//clk_set_rate(cim->mclk, 24000000);
-	//clk_enable(cim->mclk);
+	if(!cim->desc) {
+		dev_err(&pdev->dev,"no sensor!\n");
+		ret = -ENOMEM;
+		goto io_failed1;
+	}	
 	
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	cim->iomem = ioremap(r->start,resource_size(r));
@@ -842,6 +890,7 @@ static int cim_probe(struct platform_device *pdev)
 	cim->misc_dev.minor = MISC_DYNAMIC_MINOR;
 	cim->misc_dev.name = "cim";
 	cim->misc_dev.fops = &cim_fops;
+	spin_lock_init(&cim->lock);
 
 	ret = misc_register(&cim->misc_dev);
 	if(ret) {

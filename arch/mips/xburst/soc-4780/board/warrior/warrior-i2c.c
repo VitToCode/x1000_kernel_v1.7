@@ -83,6 +83,30 @@ static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+struct sp0838_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   //camera mirror
+	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
+	uint16_t	gpio_rst;	/* resert  gpio */
+	uint16_t	gpio_en;	/* camera enable gpio */
+};
+static struct sp0838_platform_data sp0838_pdata = {
+	.facing = 0,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_SP0838_EN,
+	.gpio_rst = GPIO_SP0838_RST,
+};
+static struct i2c_board_info sp0838_i2c_dev[] __initdata = {
+	{
+		I2C_BOARD_INFO("sp0838", 0x18),
+		.platform_data	= &sp0838_pdata,
+	},
+};
+#endif	/*I2C2*/
+
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info warrior_i2c3_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_LDWZIC
@@ -113,6 +137,7 @@ static struct platform_device i2c##NO##_gpio_device = {     	\
 	.id	= NO,						\
 	.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
 };
+
 
 #ifndef CONFIG_I2C0_JZ4780
 DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PB(31));
@@ -158,6 +183,10 @@ static int __init warrior_i2c_dev_init(void)
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
+#endif
+
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+	i2c_register_board_info(2, sp0838_i2c_dev, ARRAY_SIZE(sp0838_i2c_dev));
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
