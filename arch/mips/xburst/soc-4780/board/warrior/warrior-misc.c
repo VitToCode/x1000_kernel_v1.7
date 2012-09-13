@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
+#include <linux/power/jz4780-battery.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
@@ -89,6 +90,23 @@ static struct platform_device jz_button_device = {
 	.dev		= {
 		.platform_data	= &board_button_data,
 	}
+};
+#endif
+
+/* Battery Info */
+#ifdef CONFIG_BATTERY_JZ4780
+static struct jz_battery_platform_data warrior_battery_pdata = {
+	.info = {
+		.max_vol        = 4200,
+		.min_vol        = 3700,
+		.usb_max_vol    = 4250,
+		.usb_min_vol    = 3800,
+		.ac_max_vol     = 4250,
+		.ac_min_vol     = 3800,
+		.battery_max_cpt = 4500,
+		.ac_chg_current = 800,
+		.usb_chg_current = 500,
+	},
 };
 #endif
 
@@ -171,6 +189,10 @@ static int __init warrior_board_init(void)
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
+#endif
+/* ADC*/
+#ifdef CONFIG_BATTERY_JZ4780
+	jz_device_register(&jz_adc_device, &warrior_battery_pdata);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0

@@ -885,3 +885,29 @@ struct platform_device jz_tcsm_device = {
 	.num_resources    = ARRAY_SIZE(jz_tcsm_resource),
 	.resource         = jz_tcsm_resource,
 };
+
+/* ADC controller*/
+static struct resource jz_adc_resources[] = {
+	{
+		.start	= SADC_IOBASE,
+		.end	= SADC_IOBASE + 0x32,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= IRQ_SADC,
+		.end	= IRQ_SADC,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= IRQ_SADC_BASE,
+		.end	= IRQ_SADC_BASE,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_adc_device = {
+	.name	= "jz4780-adc",
+	.id	= -1,
+	.num_resources	= ARRAY_SIZE(jz_adc_resources),
+	.resource	= jz_adc_resources,
+};
