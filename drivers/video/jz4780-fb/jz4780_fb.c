@@ -1726,14 +1726,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
 	struct resource *mem;
 
-	lco = inl(LCDC_CTRL_OUTPUT);
-#ifdef CONFIG_MAP_DATABUS_TO_LCDC0
-	lco |= LCDC_CTRL_OUTPUT_LCDC02TFT;
-#else
-	lco &= ~LCDC_CTRL_OUTPUT_LCDC02TFT;
-#endif
-	outl(lco, LCDC_CTRL_OUTPUT);
-
 	if (!pdata) {
 		dev_err(&pdev->dev, "Missing platform data\n");
 		return -ENXIO;
@@ -1812,6 +1804,14 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->var.bits_per_pixel = pdata->bpp;
 
 	jzfb->fmt_order = FORMAT_X8R8G8B8;
+
+	lco = inl(LCDC_CTRL_OUTPUT);
+#ifdef CONFIG_MAP_DATABUS_TO_LCDC0
+	lco |= LCDC_CTRL_OUTPUT_LCDC02TFT;
+#else
+	lco &= ~LCDC_CTRL_OUTPUT_LCDC02TFT;
+#endif
+	outl(lco, LCDC_CTRL_OUTPUT);
 
 	jzfb_check_var(&fb->var, fb);
 
