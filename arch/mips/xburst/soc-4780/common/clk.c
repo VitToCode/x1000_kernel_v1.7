@@ -570,11 +570,6 @@ int clk_suspend(void)
 	clkgr0 = cpm_inl(CPM_CLKGR0);
 	clkgr1 = cpm_inl(CPM_CLKGR1);
 
-	printk("%s %d\n",__func__,__LINE__);
-	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
-	mdelay(20);
-	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
-	mdelay(20);
 	cpm_outl(clkgr0 | 0x3fd0ffe0,CPM_CLKGR0);
 	udelay(20);
 	cpm_outl(0x5fff,CPM_CLKGR1);
@@ -588,7 +583,6 @@ void clk_resume(void)
 	mdelay(5);
 	cpm_outl(clkgr1,CPM_CLKGR1);
 	mdelay(5);
-	printk("%s %d\n",__func__,__LINE__);
 }
 
 struct syscore_ops clk_pm_ops = {
@@ -621,7 +615,19 @@ static int __init init_all_clk(void)
 	}
 
 	register_syscore_ops(&clk_pm_ops);
+	
+	clkgr0 = cpm_inl(CPM_CLKGR0);
+	clkgr1 = cpm_inl(CPM_CLKGR1);
 
+	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
+	mdelay(1);
+	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
+	mdelay(1);
+	cpm_outl(clkgr0,CPM_CLKGR0);
+	mdelay(1);
+	cpm_outl(clkgr1,CPM_CLKGR1);
+	mdelay(1);
+	
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
 			clk_srcs[CLK_ID_CCLK].rate/1000/1000,
 			clk_srcs[CLK_ID_L2CLK].rate/1000/1000,
