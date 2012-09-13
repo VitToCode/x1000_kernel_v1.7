@@ -32,16 +32,13 @@ static char *supply_list[] = {
 };
 
 struct act8600_charger {
+	struct device *dev;
 	struct act8600 *iodev;
 	struct delayed_work work;
 	int irq;
-	
+
 	struct power_supply usb;
 	struct power_supply ac;
-
-#define USB_ONLINE	(1 << 0)
-#define AC_ONLINE	(1 << 1)
-	unsigned int	status;
 };
 
 static unsigned int act8600_update_status(struct act8600_charger *charger)
@@ -50,20 +47,23 @@ static unsigned int act8600_update_status(struct act8600_charger *charger)
 	struct jz_battery *jz_battery;
 	struct act8600 *iodev = charger->iodev;
 	unsigned char chgst,intr1,otg_con;
-	unsigned int status_pre;
+	unsigned int charger_pre;
+	static char *status_text[] = {
+		"Unknown", "Charging", "Discharging", "Not charging", "Full"
+	};
 
 	jz_battery = container_of(psy, struct jz_battery, battery);
-	status_pre = charger->status;
-	charger->status = 0;
+	charger_pre = jz_battery->charger;
 
 #if CONFIG_CHARGER_HAS_AC
 	act8600_read_reg(iodev->client, APCH_INTR1, &intr1);
 
 	if (((intr1 & INDAT) != 0)) {
-		charger->status |= AC_ONLINE;
+		set_charger_online(jz_battery, AC);
 		act8600_write_reg(iodev->client, APCH_INTR1, INSTAT);
 		act8600_write_reg(iodev->client, APCH_INTR2, INDIS);
 	} else {
+		set_charger_offline(jz_battery, AC);
 		act8600_write_reg(iodev->client, APCH_INTR1, INSTAT);
 		act8600_write_reg(iodev->client, APCH_INTR2, INCON);
 	}
@@ -72,9 +72,10 @@ static unsigned int act8600_update_status(struct act8600_charger *charger)
 	act8600_read_reg(iodev->client, OTG_CON, &otg_con);
 
 	if ((otg_con & VBUSDAT) && !(otg_con & ONQ1)) {
-		charger->status |= USB_ONLINE;
+		set_charger_online(jz_battery, USB);
 		act8600_write_reg(iodev->client, OTG_INTR, INVBUSF);
 	} else {
+		set_charger_offline(jz_battery, USB);
 		act8600_write_reg(iodev->client, OTG_INTR, INVBUSR);
 	}
 #endif
@@ -89,12 +90,17 @@ static unsigned int act8600_update_status(struct act8600_charger *charger)
 	case CSTATE_CHAGE:
 		jz_battery->status = POWER_SUPPLY_STATUS_CHARGING;
 		break;
-	case CSTATE_SUSPEND:		
+	case CSTATE_SUSPEND:
 		jz_battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		break;
 	}
 
-	return status_pre ^ charger->status;
+	pr_info("Battery: %s \tUSB: %s\tAC: %s\n",
+		status_text[jz_battery->status],
+		(get_charger_online(jz_battery, USB) ? "online" : "offline"),
+		(get_charger_online(jz_battery, AC) ? "online" : "offline"));
+
+	return charger_pre ^ jz_battery->charger;
 }
 
 static void act8600_charger_work(struct work_struct *work)
@@ -102,12 +108,12 @@ static void act8600_charger_work(struct work_struct *work)
 	unsigned int changed_psy;
 	struct act8600_charger *charger;
 
-	charger = container_of(work, struct act8600_charger, work.work);	
+	charger = container_of(work, struct act8600_charger, work.work);
 	changed_psy = act8600_update_status(charger);
 
-	if (changed_psy & USB_ONLINE)
+	if (changed_psy & (1 << USB))
 		power_supply_changed(&charger->usb);
-	if (changed_psy & AC_ONLINE)
+	if (changed_psy & (1 << AC))
 		power_supply_changed(&charger->ac);
 
 	enable_irq(charger->irq);
@@ -118,36 +124,33 @@ static irqreturn_t act8600_charger_irq(int irq, void *data)
 	struct act8600_charger *charger = data;
 
 	disable_irq_nosync(charger->irq);
-
-	cancel_delayed_work(&charger->work);
-	schedule_delayed_work(&charger->work, 0);
+	schedule_delayed_work(&charger->work, HZ);
 
 	return IRQ_HANDLED;
 }
 
-static int act8600_get_property(struct power_supply *psy, 
-		enum power_supply_property psp, 
+static int act8600_get_property(struct power_supply *psy,
+		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct act8600_charger *charger;
+	struct power_supply *psy_bat = power_supply_get_by_name("battery");
+	struct jz_battery *jz_battery;
+
+	jz_battery = container_of(psy_bat, struct jz_battery, battery);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
-			charger = container_of(psy,
-					       struct act8600_charger, ac);
-			val->intval = (charger->status & AC_ONLINE ? 1 : 0);
+			val->intval = get_charger_online(jz_battery, AC);
 		} else if(psy->type == POWER_SUPPLY_TYPE_USB) {
-			charger = container_of(psy,
-					       struct act8600_charger, usb);
-			val->intval = (charger->status & USB_ONLINE ? 1 : 0);
+			val->intval = get_charger_online(jz_battery, USB);
 		} else
 			val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
-	
+
 	return 0;
 }
 
@@ -165,6 +168,8 @@ static void power_supply_init(struct act8600_charger *charger)
 	DEF_POWER(usb, "usb", POWER_SUPPLY_TYPE_USB);
 	DEF_POWER(ac, "ac", POWER_SUPPLY_TYPE_MAINS);
 #undef DEF_POWER
+	power_supply_register(charger->dev, &charger->usb);
+	power_supply_register(charger->dev, &charger->ac);
 }
 
 static int charger_init(struct act8600_charger *charger)
@@ -180,7 +185,7 @@ static int charger_init(struct act8600_charger *charger)
 	act8600_write_reg(iodev->client, APCH_INTR2,
 			  intr2 | CHGEOCOUT | CHGEOCIN
 			  | INDIS | INCON | TEMPOUT | TEMPIN);
-	
+
 	act8600_write_reg(iodev->client, OTG_INTR, INVBUSF | INVBUSR);
 
 	act8600_read_reg(iodev->client, OTG_CON, &otgcon);
@@ -207,35 +212,53 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	INIT_DELAYED_WORK(&charger->work, act8600_charger_work);
+
+	if (gpio_request_one(pdata->gpio,
+			     GPIOF_DIR_IN, "charger-detect")) {
+		dev_err(&pdev->dev, "no detect pin available\n");
+		pdata->gpio = -EBUSY;
+		ret = ENODEV;
+		goto err_free;
+	}
+
 	charger->irq = gpio_to_irq(pdata->gpio);
 	if (charger->irq < 0) {
 		ret = charger->irq;
 		dev_err(&pdev->dev, "Failed to get platform irq: %d\n", ret);
-		goto err_free;
+		goto err_free_gpio;
 	}
 
-	ret = request_irq(charger->irq, act8600_charger_irq, 0, pdev->name,
+	ret = request_irq(charger->irq, act8600_charger_irq,
+			  IRQF_TRIGGER_LOW | IRQF_DISABLED ,
+			  "charger-detect",
 			  charger);
+
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request irq %d\n", ret);
 		goto err_free_irq;
 	}
 	disable_irq(charger->irq);
 
+	charger->dev = &pdev->dev;
 	charger->iodev = iodev;
 
 	charger_init(charger);
 	power_supply_init(charger);
 
-	INIT_DELAYED_WORK(&charger->work, act8600_charger_work);
 	platform_set_drvdata(pdev, charger);
+
+
 	schedule_delayed_work(&charger->work, 0);
 
 	return 0;
 err_free_irq:
 	free_irq(charger->irq, charger);
+err_free_gpio:
+	gpio_free(pdata->gpio);
 err_free:
 	kfree(charger);
+
 	return ret;
 }
 

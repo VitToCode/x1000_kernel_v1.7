@@ -110,7 +110,7 @@ static struct regulator_info warrior_pmu_regulators[] = {
 };
 
 static struct pmu_platform_data warrior_pmu_pdata = {
-	.gpio = GPIO_PF(18),
+	.gpio = GPIO_PA(28),
 	.num_regulators = ARRAY_SIZE(warrior_pmu_regulators),
 	.regulators = warrior_pmu_regulators,
 };

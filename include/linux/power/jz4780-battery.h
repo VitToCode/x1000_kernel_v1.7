@@ -11,6 +11,8 @@
 #ifndef __JZ4780_BATTERY_H
 #define __JZ4780_BATTERY_H
 
+#include <linux/power_supply.h>
+
 struct jz_battery_info {
 	int max_vol;
 	int min_vol;
@@ -27,4 +29,61 @@ struct jz_battery_info {
 struct jz_battery_platform_data {
 	struct jz_battery_info info;
 };
+
+enum {
+	USB,
+	AC,
+};
+
+struct jz_battery {
+	struct jz_battery_platform_data *pdata;
+	struct platform_device *pdev;
+
+	struct resource *mem;
+	void __iomem *base;
+
+	int irq;
+
+	const struct mfd_cell *cell;
+
+	int status_charge;
+	int status;/*modified by PMU driver, return the current status of charging or discharging*/
+
+	unsigned int voltage;
+
+	struct completion read_completion;
+
+	struct power_supply battery;
+	struct delayed_work work;
+	struct delayed_work resume_work;
+
+	struct mutex lock;
+
+	unsigned int next_scan_time;
+
+	unsigned int usb;
+	unsigned int ac;
+	unsigned int usb_online;/*modified by PMU dirver, 1: online; 0: not online*/
+	unsigned int ac_online;/*modified by PMU driver, 1: online; 0: not online*/
+
+	/* Online charger modified by PMU driver */
+	unsigned int charger;
+
+
+	unsigned int ac_charge_time;
+	unsigned int usb_charge_time;
+
+	__kernel_time_t resume_time;
+	__kernel_time_t suspend_time;
+
+	int capacity;
+	int capacity_calculate;
+	unsigned long gate_voltage;
+	int capacity_div_vol;
+};
+
+#define get_charger_online(bat, n)	((bat->charger & (1 << n)) ? 1 : 0)
+#define set_charger_online(bat, n)	(bat->charger |= (1 << n))
+#define set_charger_offline(bat, n)	(bat->charger &= ~(1 << n))
+
 #endif
