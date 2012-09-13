@@ -232,7 +232,6 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 	}
 
 	dma_cache_wback((unsigned int)(proc->vbase + s_pos), page_num * 4);
-	dma_cache_wback((unsigned int)mem->vaddr, mem->size);
 
 	return 0;
 }
