@@ -83,7 +83,7 @@ int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power;
-	int reset = iw8101_data.wifi_reset;
+	int reset;
 
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
@@ -101,6 +101,7 @@ int iw8101_wlan_init(void)
 	} else {
 		gpio_direction_output(reset, 1);
 	}
+	 iw8101_data.wifi_reset = reset;
 
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
 
