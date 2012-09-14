@@ -824,6 +824,7 @@ CONFIG_I2C_COMPAT=y
 # CONFIG_I2C_CHARDEV is not set
 # CONFIG_I2C_MUX is not set
 CONFIG_I2C_HELPER_AUTO=y
+CONFIG_I2C_ALGOBIT=y
 
 #
 # I2C Hardware Bus support
@@ -833,7 +834,7 @@ CONFIG_I2C_HELPER_AUTO=y
 # I2C system bus drivers (mostly embedded / system-on-chip)
 #
 # CONFIG_I2C_DESIGNWARE is not set
-# CONFIG_I2C_GPIO is not set
+CONFIG_I2C_GPIO=y
 # CONFIG_I2C_OCORES is not set
 # CONFIG_I2C_PCA_PLATFORM is not set
 # CONFIG_I2C_PXA_PCI is not set
@@ -843,7 +844,7 @@ CONFIG_I2C_HELPER_AUTO=y
 #
 # Xburst soc 4780 internal i2c controller
 #
-CONFIG_I2C0_JZ4780=y
+# CONFIG_I2C0_JZ4780 is not set
 CONFIG_I2C1_JZ4780=y
 # CONFIG_I2C2_JZ4780 is not set
 CONFIG_I2C3_JZ4780=y
