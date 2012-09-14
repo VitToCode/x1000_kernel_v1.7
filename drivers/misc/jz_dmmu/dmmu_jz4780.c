@@ -121,26 +121,26 @@ static unsigned int get_phy_addr(unsigned int vaddr)
  
 	pgdir = pgd_offset(current->mm, vaddr);  
 	if(pgd_none(*pgdir) || pgd_bad(*pgdir))  
-		return -EINVAL;  
+		return 0;  
 
 #ifdef CONFIG_PGTABLE_4
 	pudir = pud_offset(pgdir, vaddr);
 	if (pud_none(*pudir) || pud_bad(*pudir))  
-		return -EINVAL;  
+		return 0;  
 	pmdir = pmd_offset(pudir, vaddr);  
 	if (pmd_none(*pmdir) || pmd_bad(*pmdir))  
-		return -EINVAL;  
+		return 0;  
 #else
 	pmdir = pmd_offset((pud_t *)pgdir, vaddr);  
 	if(pmd_none(*pmdir) || pmd_bad(*pmdir))  
-		return -EINVAL;  
+		return 0;  
 #endif
 	pte = pte_offset(pmdir,vaddr);  
 	if (pte_present(*pte)) {  
 		return addr | (pte_pfn(*pte) << PAGE_SHIFT);  
 	} 
 
-	return   -EINVAL;  
+	return 0;  
 }
 
 static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
@@ -199,6 +199,10 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 	for (i=0; i < page_num; i++) {
 		int *p_tlb;
 		paddr = get_phy_addr((unsigned int)addr);
+		if (!paddr) {
+			dev_err(jz_dmmu.dev, "%s %d get_phy_addr failed, paddr is 0!", __func__, __LINE__);
+			return -EFAULT;
+		}
 		if (i == 0) {
 			mem->paddr = paddr;
 			dev_dbg(jz_dmmu.dev, "%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
