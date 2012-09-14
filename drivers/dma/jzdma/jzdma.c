@@ -6,7 +6,7 @@
  * Version 2 or later at the following locations:
  */
 
-#define DEBUG
+#undef DEBUG
 #define VERBOSE_DEBUG
 
 #include <linux/init.h>

@@ -1,6 +1,6 @@
 /*
  * JZSOC Clock and Power Manager
- * 
+ *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
@@ -273,7 +273,7 @@ enum {
 		DEF_CLK(UHC,   		GATE(24)),
 		DEF_CLK(OHCI,   	PARENT(UHC)),
 		DEF_CLK(EHCI,   	PARENT(UHC)),
-		DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)), 
+		DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)),
 		DEF_CLK(CIM,   		GATE(26)),
 		DEF_CLK(LCD1,   	GATE(27)| PARENT(LCD0)),
 		DEF_CLK(LCD0,   	GATE(28)| PARENT(LCD1)),
@@ -421,7 +421,7 @@ struct cgu_clk {
 static struct cgu_clk cgu_clks[] = {
 	[CGU_DDR] = 	{ CPM_DDRCDR, 29, 1, 4, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_VPU] = 	{ CPM_VPUCDR, 29, 1, 4, 30, {CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
-	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EPLL}},
+	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 1, 8, 30, {CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EXT1,CLK_ID_EPLL}},
 	[CGU_LCD0] = 	{ CPM_LPCDR0, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 1, 8, 30, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_MSC_MUX]={ CPM_MSC0CDR, 29, 2, 0, 30, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
@@ -615,7 +615,7 @@ static int __init init_all_clk(void)
 	}
 
 	register_syscore_ops(&clk_pm_ops);
-	
+
 	clkgr0 = cpm_inl(CPM_CLKGR0);
 	clkgr1 = cpm_inl(CPM_CLKGR1);
 
@@ -627,7 +627,7 @@ static int __init init_all_clk(void)
 	mdelay(1);
 	cpm_outl(clkgr1,CPM_CLKGR1);
 	mdelay(1);
-	
+
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
 			clk_srcs[CLK_ID_CCLK].rate/1000/1000,
 			clk_srcs[CLK_ID_L2CLK].rate/1000/1000,
