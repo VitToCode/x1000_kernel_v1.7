@@ -668,6 +668,16 @@ CONFIG_BCMDHD_NVRAM_PATH="/system/lib/wifi/firmware/iw8101/nvram_iw8101.txt"
 # CONFIG_DHD_USE_STATIC_BUF is not set
 # CONFIG_DHD_USE_SCHED_SCAN is not set
 # CONFIG_HOSTAP is not set
+# CONFIG_IWM is not set
+# CONFIG_LIBERTAS is not set
+# CONFIG_P54_COMMON is not set
+# CONFIG_RT2X00 is not set
+# CONFIG_RTL8192SE is not set
+# CONFIG_RTL8192CU is not set
+# CONFIG_WL1251 is not set
+# CONFIG_WL12XX_MENU is not set
+# CONFIG_ZD1211RW is not set
+# CONFIG_MWIFIEX is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
@@ -1115,7 +1125,39 @@ CONFIG_BACKLIGHT_PWM=y
 # CONFIG_LOGO is not set
 # CONFIG_HDMI is not set
 # CONFIG_JZ4780_IPU is not set
-# CONFIG_SOUND is not set
+CONFIG_SOUND=y
+CONFIG_SOUND_OSS_CORE=y
+CONFIG_SOUND_OSS_CORE_PRECLAIM=y
+# CONFIG_SND is not set
+CONFIG_SOUND_PRIME=y
+CONFIG_SOUND_OSS_XBURST=y
+
+#
+# sound DSP devices of xburst
+#
+CONFIG_SOUND_I2S0_JZ47XX=y
+CONFIG_JZ_INTERNAL_CODEC=y
+CONFIG_JZ4780_INTERNAL_CODEC=y
+# CONFIG_SOUND_I2S1_JZ47XX is not set
+# CONFIG_SOUND_PCM0_JZ47XX is not set
+# CONFIG_SOUND_PCM1_JZ47XX is not set
+# CONFIG_JZ_EXTERNAL_CODEC is not set
+
+#
+# sound MIXER devices of xburst
+#
+# CONFIG_SOUND_MIXER0_JZ47XX is not set
+CONFIG_SOUND_XBURST_DETECT=y
+
+#
+# JZ headset detect
+#
+CONFIG_JZ_HP0_DETECT=y
+
+#
+# JZ dock detect
+#
+# CONFIG_SOUND_XBURST_DEBUG is not set
 CONFIG_HID_SUPPORT=y
 CONFIG_HID=y
 # CONFIG_HIDRAW is not set
@@ -1427,13 +1469,34 @@ CONFIG_RTC_DRV_JZ4780=y
 #
 # on-CPU RTC drivers
 #
-# CONFIG_DMADEVICES is not set
+CONFIG_DMADEVICES=y
+# CONFIG_DMADEVICES_DEBUG is not set
+
+#
+# DMA Devices
+#
+# CONFIG_DW_DMAC is not set
+CONFIG_XBURST_DMAC=y
+CONFIG_XBURST_DMAC_COMMON=y
+# CONFIG_XBURST_DMAC_TOGGLE is not set
+# CONFIG_TIMB_DMA is not set
+CONFIG_DMA_ENGINE=y
+
+#
+# DMA Clients
+#
+# CONFIG_NET_DMA is not set
+# CONFIG_ASYNC_TX_DMA is not set
+# CONFIG_DMATEST is not set
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
 CONFIG_STAGING=y
 # CONFIG_USBIP_CORE is not set
+# CONFIG_W35UND is not set
+# CONFIG_PRISM2_USB is not set
 # CONFIG_ECHO is not set
 # CONFIG_BRCMUTIL is not set
+# CONFIG_BRCMFMAC is not set
 # CONFIG_ASUS_OLED is not set
 # CONFIG_R8712U is not set
 # CONFIG_TRANZPORT is not set
@@ -1458,6 +1521,7 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 # CONFIG_ZRAM is not set
 # CONFIG_FB_SM7XX is not set
 CONFIG_MACH_NO_WESTBRIDGE=y
+# CONFIG_ATH6K_LEGACY is not set
 # CONFIG_USB_ENESTORAGE is not set
 # CONFIG_BCM_WIMAX is not set
 # CONFIG_FT1000 is not set
@@ -1831,4 +1895,4 @@ CONFIG_HAS_DMA=y
 CONFIG_CPU_RMAP=y
 CONFIG_NLATTR=y
 CONFIG_GENERIC_ATOMIC64=y
-# CONFIG_AVERAGE is not set
+CONFIG_AVERAGE=y
