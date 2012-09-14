@@ -80,11 +80,14 @@ struct ft5x06_ts_data {
 *
 *
 */
+static void ft5x06_ts_release(struct ft5x06_ts_data *data);
+static void ft5x06_ts_reset(struct ft5x06_ts_data *ts);
 int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 		    int writelen, char *readbuf, int readlen)
 {
 	int ret;
 
+	struct ft5x06_ts_data *ft5x06_ts = i2c_get_clientdata(client);
 	if (writelen > 0) {
 		struct i2c_msg msgs[] = {
 			{
@@ -101,9 +104,12 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 			 },
 		};
 		ret = i2c_transfer(client->adapter, msgs, 2);
-		if (ret < 0)
-			dev_err(&client->dev, "%s: i2c read error.\n",
+		if (ret < 0){
+			dev_err(&client->dev, "%s: -i2c read error.\n",
 				__func__);
+			ft5x06_ts_release(ft5x06_ts);
+			ft5x06_ts_reset(ft5x06_ts);
+		}
 	} else {
 		struct i2c_msg msgs[] = {
 			{
@@ -114,8 +120,11 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 			 },
 		};
 		ret = i2c_transfer(client->adapter, msgs, 1);
-		if (ret < 0)
+		if (ret < 0){
 			dev_err(&client->dev, "%s:i2c read error.\n", __func__);
+			ft5x06_ts_release(ft5x06_ts);
+			ft5x06_ts_reset(ft5x06_ts);
+		}
 	}
 	return ret;
 }
@@ -123,7 +132,8 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret;
-
+	
+	struct ft5x06_ts_data *ft5x06_ts = i2c_get_clientdata(client);
 	struct i2c_msg msg[] = {
 		{
 		 .addr = client->addr,
@@ -134,9 +144,11 @@ int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 	};
 
 	ret = i2c_transfer(client->adapter, msg, 1);
-	if (ret < 0)
+	if (ret < 0){
 		dev_err(&client->dev, "%s i2c write error.\n", __func__);
-
+		ft5x06_ts_release(ft5x06_ts);
+		ft5x06_ts_reset(ft5x06_ts);
+	}
 	return ret;
 }
 
@@ -173,20 +185,17 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 	int ret = -1;
 	int i = 0;
 	u8 pointid = FT_MAX_ID;
-
+	memset(event, 0, sizeof(struct ts_event));
+	event->touch_point = 0;
+	buf[0] = 0;
 	ret = ft5x06_i2c_Read(data->client, buf, 1, buf, POINT_READ_BUF);
 	if (ret < 0) {
-		dev_err(&data->client->dev, "%s read touchdata failed.\n",
-			__func__);
 		return ret;
 	}
-	memset(event, 0, sizeof(struct ts_event));
-	
 	event->touch_num = buf[2]&0x0f;
-
 	if (event->touch_num == 0){
 		ft5x06_ts_release(data);
-		return 0;
+		return 1;
 	}
 
 	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
@@ -221,6 +230,8 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 	for (i = 0; i < event->touch_point; i++) {
 		event->au16_x[i] = event->au16_x[i] * data->x_max / CFG_MAX_X;
 		event->au16_y[i] = event->au16_y[i] * data->y_max / CFG_MAX_Y;
+		if(event->au16_x[i] > data->x_max || event->au16_y[i] > data->y_max)
+			continue;
 
 #ifdef CONFIG_TSC_SWAP_XY
 		tsc_swap_xy(&(event->au16_x[i]),&(event->au16_y[i]));
@@ -234,7 +245,7 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
 
-	//	printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
+		//printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				event->au16_x[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
@@ -246,19 +257,8 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 		input_report_abs(data->input_dev,ABS_MT_WIDTH_MAJOR,
 				event->pressure);
 		input_mt_sync(data->input_dev);
-#if 0
-		if (event->au8_touch_event[i] == 0
-				|| event->au8_touch_event[i] == 2)
-			input_report_abs(data->input_dev,
-					ABS_MT_TOUCH_MAJOR,
-					event->pressure);
-		 else
-		 	input_report_abs(data->input_dev, 
-		 			ABS_MT_TOUCH_MAJOR, 0);
-#endif
 	}
 	input_sync(data->input_dev);
-	enable_irq(data->client->irq);
 	return 0;
 
 }
@@ -269,6 +269,7 @@ static void tsc_work_handler(struct work_struct *work)
 	ret = ft5x06_read_Touchdata(ft5x06_ts);
 	if (ret == 0)
 		ft5x06_report_value(ft5x06_ts);
+	enable_irq(ft5x06_ts->client->irq);
 }
 /*The ft5x06 device will signal the host about TRIGGER_FALLING.
 *Processed when the interrupt is asserted.
@@ -332,7 +333,7 @@ static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 {
 	set_pin_status(ts->gpio.wake, 1);
 	set_pin_status(ts->gpio.wake, 0);
-	msleep(20);
+	msleep(10);
 	set_pin_status(ts->gpio.wake, 1);
 }
 
@@ -515,6 +516,7 @@ static void ft5x06_ts_resume(struct early_suspend *handler)
 
 	ft5x06_ts_reset(ts);
 	ts->is_suspend = 0;
+
 	enable_irq(ts->client->irq);
 }
 #endif

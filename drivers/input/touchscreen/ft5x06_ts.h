@@ -5,7 +5,7 @@
 #define CFG_MAX_X	1024
 #define CFG_MAX_Y	600
 /* -- dirver configure -- */
-#define CFG_MAX_TOUCH_POINTS	2
+#define CFG_MAX_TOUCH_POINTS	5
 
 
 #define PRESS_MAX	0xFF
@@ -30,18 +30,4 @@
 #define FT5X06_REG_THGROUP	0x80
 #define FT5X06_REG_PMODE	0xA5	/* Power Consume Mode */
 #define PMODE_HIBERNATE		0x03
-
-int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf, int writelen,
-		    char *readbuf, int readlen);
-int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen);
-
-#if 0
-/* The platform data for the Focaltech ft5x06 touchscreen driver */
-struct ft5x06_platform_data {
-	unsigned int x_max;
-	unsigned int y_max;
-	unsigned int irq;
-	unsigned int reset;
-};
-#endif
 #endif
