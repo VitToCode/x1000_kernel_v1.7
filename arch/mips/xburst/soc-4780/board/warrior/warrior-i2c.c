@@ -190,7 +190,7 @@ static int __init warrior_i2c_dev_init(void)
 	i2c_register_board_info(1, warrior_i2c1_devs, ARRAY_SIZE(warrior_i2c1_devs));
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 	i2c_register_board_info(2, warrior_i2c2_devs, ARRAY_SIZE(warrior_i2c2_devs));
 #endif
 
