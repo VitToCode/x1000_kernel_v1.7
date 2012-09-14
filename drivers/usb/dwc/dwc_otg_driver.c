@@ -68,11 +68,16 @@ static const char dwc_driver_name[] = "dwc_otg";
 
 static void jz_cpm_init(void)
 {
+	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;
+
 	/* select dwc otg */
 	REG_CPM_USBPCR1 |= USBPCR1_USB_SEL;
 
 	/* select utmi data bus width of port0 to 16bit/30M */
 	REG_CPM_USBPCR1 |= USBPCR1_WORD_IF0;
+
+	REG_CPM_USBPCR1 &= ~(3 << 24);
+	REG_CPM_USBPCR1 |= (ref_clk_div << 24);
 
 	/* fil */
 	//REG_CPM_USBVBFIL = 0x80;
