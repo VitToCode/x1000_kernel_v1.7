@@ -121,8 +121,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 3 +  7,	GSS_INPUT_NOPULL}, /* PS2_KDATA */
 	{32 * 3 +  8,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 3 +  9,	GSS_INPUT_NOPULL}, /* NC */
-	{32 * 3 + 10,	GSS_OUTPUT_LOW  }, /* IR_DATA */
-	{32 * 3 + 11,	GSS_OUTPUT_LOW  }, /* MOTOR */
+	{32 * 3 + 10,	GSS_INPUT_NOPULL}, /* I2C3_SDA */
+	{32 * 3 + 11,	GSS_INPUT_NOPULL}, /* I2C3_SCK */
 	{32 * 3 + 12,	GSS_OUTPUT_LOW	}, /* HDMI_I2S_BLK */
 	{32 * 3 + 13,	GSS_OUTPUT_LOW	}, /* HDMI_I2S_WS  */
 	{32 * 3 + 14,	GSS_IGNORE}, /* CLK32 */ 
@@ -141,14 +141,14 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 3 + 27,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 3 + 28,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 3 + 29,	GSS_INPUT_NOPULL}, /* NC */
-	{32 * 3 + 30,	GSS_INPUT_NOPULL}, /* I2C0_SDA */ 
-	{32 * 3 + 31,	GSS_INPUT_NOPULL}, /* I2C0_SCK */ 
+	{32 * 3 + 30,	GSS_INPUT_NOPULL}, /* I2C0_SDA */
+	{32 * 3 + 31,	GSS_INPUT_NOPULL}, /* I2C0_SCK */
 	/* GPIO Group - E */
 	{32 * 4 +  0,	GSS_OUTPUT_LOW	}, /* NC */
 	{32 * 4 +  1,	GSS_OUTPUT_LOW	}, /* LCD_PWM/LED_EN */
 	{32 * 4 +  2,	GSS_INPUT_NOPULL}, /* NC */ 
-	{32 * 4 +  3,	GSS_OUTPUT_LOW	}, /* CIM_RST_N */ 
-	{32 * 4 +  4,	GSS_OUTPUT_LOW  }, /* CIM_PD_N */
+	{32 * 4 +  3,	GSS_INPUT_NOPULL}, /* I2C4_SDA */
+	{32 * 4 +  4,	GSS_INPUT_NOPULL}, /* I2C4_SCK */
 	{32 * 4 +  5,	GSS_OUTPUT_LOW	}, /* HDMI_I2S_MCLK */ 
 	{32 * 4 +  6,	GSS_OUTPUT_LOW	}, /* HDMI_INT_N */ 
 	{32 * 4 +  7,	GSS_OUTPUT_LOW	}, /* HDMI_I2S_D0 */ 
@@ -174,8 +174,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 4 + 27,	GSS_INPUT_NOPULL}, /* NC */ 
 	{32 * 4 + 28,	GSS_INPUT_NOPULL}, /* NC */ 
 	{32 * 4 + 29,	GSS_INPUT_NOPULL}, /* NC */ 
-	{32 * 4 + 30,	GSS_INPUT_NOPULL}, /* I2C1_SDA */ 
-	{32 * 4 + 31,	GSS_INPUT_NOPULL}, /* I2C1_SCK */ 
+	{32 * 4 + 30,	GSS_INPUT_NOPULL}, /* I2C1_SDA */
+	{32 * 4 + 31,	GSS_INPUT_NOPULL}, /* I2C1_SCK */
 	/* GPIO Group - F */
 	{32 * 5 +  0,	GSS_INPUT_NOPULL}, /* NC */ 
 	{32 * 5 +  1,	GSS_INPUT_NOPULL}, /* NC */ 
@@ -193,8 +193,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 5 + 13,	GSS_INPUT_NOPULL}, /* NC */ 
 	{32 * 5 + 14,	GSS_IGNORE	}, /* CHARG_STATA */ 
 	{32 * 5 + 15,	GSS_IGNORE	}, /* CHARG_CURENT_SET */ 
-	{32 * 5 + 16,	GSS_OUTPUT_LOW	}, /* LCD_L/R */ 
-	{32 * 5 + 17,	GSS_OUTPUT_LOW	}, /* LCD_U/D */ 
+	{32 * 5 + 16,	GSS_INPUT_NOPULL}, /* I2C2_SDA */
+	{32 * 5 + 17,	GSS_INPUT_NOPULL}, /* I2C2_SCK */
 	{32 * 5 + 18,	GSS_IGNORE	}, /* USB_ID/OTG_ID */ 
 	{32 * 5 + 19,	GSS_IGNORE	}, /* HP_MUTE */ 
 	{32 * 5 + 20,	GSS_INPUT_NOPULL}, /* NC */ 

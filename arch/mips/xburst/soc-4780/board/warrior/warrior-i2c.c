@@ -99,11 +99,16 @@ static struct sp0838_platform_data sp0838_pdata = {
 	.gpio_en = GPIO_SP0838_EN,
 	.gpio_rst = GPIO_SP0838_RST,
 };
-static struct i2c_board_info sp0838_i2c_dev[] __initdata = {
+#endif
+
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+static struct i2c_board_info warrior_i2c2_devs[] __initdata = {
+#ifdef CONFIG_SP0838
 	{
 		I2C_BOARD_INFO("sp0838", 0x18),
 		.platform_data	= &sp0838_pdata,
 	},
+#endif
 };
 #endif	/*I2C2*/
 
@@ -140,7 +145,7 @@ static struct platform_device i2c##NO##_gpio_device = {     	\
 
 
 #ifndef CONFIG_I2C0_JZ4780
-DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PB(31));
+DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
 #endif
 #ifndef CONFIG_I2C1_JZ4780
 DEF_GPIO_I2C(1,GPIO_PE(30),GPIO_PE(31));
@@ -186,7 +191,7 @@ static int __init warrior_i2c_dev_init(void)
 #endif
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
-	i2c_register_board_info(2, sp0838_i2c_dev, ARRAY_SIZE(sp0838_i2c_dev));
+	i2c_register_board_info(2, warrior_i2c2_devs, ARRAY_SIZE(warrior_i2c2_devs));
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
