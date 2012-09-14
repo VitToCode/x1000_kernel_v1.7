@@ -1763,8 +1763,9 @@ static int codec_set_board_route(struct snd_board_route *broute)
 static int codec_set_route(enum snd_codec_route_t route)
 {
 	struct snd_board_route tmp_broute = {.route = route};
-	if (route == SND_DEVICE_HEADSET_AND_SPEAKER ||
-			route == SND_DEVICE_SPEAKER)
+	if (route == SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE||
+			route == SND_ROUTE_REPLAY_SPEAKER ||
+			route == SND_ROUTE_RECORD_CLEAR)
 		tmp_broute.gpio_spk_en_stat = codec_platform_data->replay_def_route.gpio_spk_en_stat;
 	tmp_broute.gpio_hp_mute_stat = codec_platform_data->replay_def_route.gpio_hp_mute_stat;
 	return codec_set_board_route(&tmp_broute);
@@ -2119,7 +2120,7 @@ static int codec_set_record_rate(unsigned long *rate)
 	if (*rate > mrate[MAX_RATE_COUNT - 1]) {
 		speed = MAX_RATE_COUNT - 1;
 	}
-
+	__codec_enable_adc_high_pass();
 	__codec_select_adc_samp_rate(speed);
 	if ((val = __codec_get_adc_samp_rate()) == speed) {
 		*rate = mrate[speed];

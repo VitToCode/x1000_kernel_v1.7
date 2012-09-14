@@ -146,7 +146,7 @@ static void i2s0_set_filter(int mode)
 	else
 		return;
 
-	switch(cur_codec->record_rate) {
+	switch(cur_codec->record_format) {
 		case AFMT_U8:
 		case AFMT_S8:
 			dp->filter = convert_8bits_stereo2mono;
@@ -450,9 +450,13 @@ static int i2s0_disable_channel(int mode)			//CHECK codec is suspend?
 {
 	if (mode & CODEC_WMODE) {
 		__i2s0_disable_replay();
+		if (cur_codec)
+			cur_codec->codec_ctl(CODEC_SET_ROUTE,SND_ROUTE_REPLAY_CLEAR);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s0_disable_record();
+		if (cur_codec)
+			cur_codec->codec_ctl(CODEC_SET_ROUTE,SND_ROUTE_RECORD_CLEAR);
 	}
 	return 0;
 }
@@ -474,6 +478,7 @@ static int i2s0_dma_enable(int mode)		//CHECK
 	if (mode & CODEC_RMODE) {
 		//__i2s0_flush_rfifo();
 		__i2s0_enable_record();
+		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		/* read the first sample and ignore it */
 		val = __i2s0_read_rfifo();
 		__i2s0_enable_receive_dma();
@@ -484,11 +489,15 @@ static int i2s0_dma_enable(int mode)		//CHECK
 
 static int i2s0_dma_disable(int mode)		//CHECK seq dma and func
 {
+	if (!cur_codec)
+			return -ENODEV;
 	if (mode & CODEC_WMODE) {
 		__i2s0_disable_transmit_dma();
+		//cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s0_disable_receive_dma();
+		//cur_codec->codec_ctl(CODEC_ADC_MUTE,1);
 	}
 	return 0;
 }
