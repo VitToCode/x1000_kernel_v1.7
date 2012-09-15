@@ -106,7 +106,7 @@
 #define BCH_INTES_ENCFES	(1 << 2)
 #define BCH_INTES_UNCORES	(1 << 1)
 #define BCH_INTES_ERRES		(1 << 0)
- 
+
 /* BCH Interrupt Enable Clear Register (BHINTEC) */
 #define BCH_INTEC_SDMFES	(1 << 5)
 #define BCH_INTEC_ALL_FEC	(1 << 4)
@@ -127,14 +127,14 @@
 #define __bch_encoding(n)						\
 do {									\
 	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE);	\
+	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK);	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)
 
 #define __bch_decoding(n)						\
 do {									\
 	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE);	\
+	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK);	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)
 

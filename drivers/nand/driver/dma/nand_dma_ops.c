@@ -377,10 +377,10 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
-	if (temp > 1) {
+	if (num > 0) {
 		ret = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 	        templist = pagelist;
-	        while (temp--) {
+	        while (num--) {
 		        switch (ret) {
 		        case 0:
 			        templist->retVal = templist->Bytes;
@@ -487,13 +487,13 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
-	if (temp > 1) {
+	if (num > 0) {
 		wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
                 templist = pagelist;
-	        while (temp--) {
+	        while (num--) {
 		        switch (ret) {
 		        case 0:
 			        templist->retVal = templist->Bytes;

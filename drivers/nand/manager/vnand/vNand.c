@@ -310,6 +310,7 @@ static void scan_pt_badblock_info_write_to_nand(PPartition *pt, int pt_id, VNand
 				}
 			}
 		}
+
 		ret = write_pt_badblock_info(evn, pl);
 		if (ret != 0) {
 			ndprint(VNAND_ERROR, "write pt %d badblock info error, ret =%d\n", pt_id, ret);
@@ -367,7 +368,6 @@ static void read_badblock_info_page(VNandManager *vm)
 	PPartition *pt = NULL;
 	PPartition *lastpt = NULL;
 	int startblock = 0, badcnt = 0,blkcnt = 0;
-	int blkpervblk;
 	vm->info.pt_badblock_info = NULL;
 
 	if ((vm->pt->ptcount - 1) * BADBLOCKINFOSIZE > vm->info.PagePerBlock) {
@@ -406,7 +406,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	CONV_PT_VN(pt,&error_vn);
 	//for error partblock bad block
 	//for block number
-	while(blkcnt < error_vn.TotalBlocks) {
+	while(blkcnt < pt->totalblocks) {
 		startblock--;
 		if(vNand_IsBadBlock(&error_vn,startblock)) {
 			badcnt++;
@@ -422,13 +422,12 @@ static void read_badblock_info_page(VNandManager *vm)
 
 	//for error block self partition & badblock
 	//error and last patition all spec is samed
-	lastpt->totalblocks -= (badcnt + error_vn.TotalBlocks);
-	lastpt->PageCount -= (badcnt + error_vn.TotalBlocks) * error_vn.PagePerBlock;
+	lastpt->totalblocks -= (badcnt + pt->totalblocks);
+	lastpt->PageCount -= lastpt->totalblocks * pt->pageperblock;
 
 	//chanage error pt startblock for write & read
-	blkpervblk = (error_vn.PagePerBlock / error_vn._2kPerPage) / vm->info.PagePerBlock;
-	pt->startblockID += startblock * blkpervblk;
-	pt->startPage += startblock * error_vn.PagePerBlock;
+	pt->startblockID += startblock * pt->totalblocks;
+	pt->startPage += startblock * pt->pageperblock;
 
 	if ((lastpt->totalblocks <= 0) || (lastpt->PageCount <= 0)) {
 		ndprint(VNAND_ERROR,
@@ -437,7 +436,8 @@ static void read_badblock_info_page(VNandManager *vm)
 		while(1);
 	}
 
-	ndprint(VNAND_INFO, "Find bad block partition in block: %d\n", startblock);
+	ndprint(VNAND_INFO, "Find bad block partition in block: %d, startblokdID = %d, pageid = %d\n",
+			startblock, pt->startblockID, pt->startPage);
 
 	blmid = BuffListManager_BuffList_Init();
 	pl = create_pagelist(pt, blmid);

@@ -112,7 +112,7 @@ int Recycle_OnFragmentHandle ( int context )
 		default:
 			break;
 	}
-	
+
 	return ret;
 
 ERROR:
@@ -281,7 +281,7 @@ int Recycle_OnNormalRecycle ( int context )
 	Context *conptr = (Context *)context;
 	Recycle *rep = conptr->rep;
 
-	NandMutex_Lock(&rep->mutex);	
+	NandMutex_Lock(&rep->mutex);
 	ndprint(RECYCLE_INFO, "start normal recycle--------->\n");
 	if (rep->taskStep == RECYIDLE)
 		rep->taskStep = RECYSTART;
@@ -923,7 +923,7 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		pagelist->OffsetBytes = px->OffsetBytes + px->Bytes;
 		pagelist->pData += px->Bytes;
 		pagelist->retVal = 0;
-		pagelist->head.next = NULL; 
+		pagelist->head.next = NULL;
 
 		flag = 1;
 	}
@@ -1521,7 +1521,9 @@ static BlockList *create_blocklist(Recycle *rep, int start_blockid, int total_bl
 static int FreeZone ( Recycle *rep)
 {
 	int ret = 0;
+	struct singlelist *pos;
 	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
 	PageList px;
 	PageList *pl = &px;
 	NandSigZoneInfo *nandsigzoneinfo = (NandSigZoneInfo *)(rep->rZone->mem0);
@@ -1531,6 +1533,7 @@ static int FreeZone ( Recycle *rep)
 	int next_start_blockid = 0;
 	int blockcount = 0;
 	int first_ok_blockid = -1;
+	unsigned int i, j = 0;
 
 	if (rep->rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->rZone->startblockID;
@@ -1543,9 +1546,31 @@ static int FreeZone ( Recycle *rep)
 	if (bl) {
 		ret = vNand_MultiBlockErase(rep->rZone->vnand,bl);
 		if(ret < 0) {
-			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
-						,__FUNCTION__,__LINE__);
-			return -1;
+			first_ok_blockid = -1;
+			singlelist_for_each(pos,&bl->head){
+				bl_node = singlelist_entry(pos, BlockList, head);
+				for(i=j; i<8; i++){
+					if(nm_test_bit(i, (unsigned int *)&(rep->rZone->sigzoneinfo->badblock))){
+						j++;
+						continue;
+					}
+					else
+						break;
+				}
+
+				if(bl_node->retVal == -1)
+					nm_set_bit(j, (unsigned int *)&(rep->rZone->sigzoneinfo->badblock));
+				else if (-1 == first_ok_blockid)
+					first_ok_blockid = bl_node->startBlock;
+				j++;
+			}
+
+			if (-1 == first_ok_blockid) {
+				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
+				BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+				rep->rZone = NULL;
+				return -1;
+			}
 		}
 
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
@@ -1571,7 +1596,7 @@ static int FreeZone ( Recycle *rep)
 		ndprint(RECYCLE_ERROR,"Zone Raw multi write page error func %s line %d \n",__FUNCTION__,__LINE__);
 		goto err;
 	}
-	
+
 	if (rep->junk_zoneid != -1) {
 		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->junk_zoneid);
 		rep->junk_zoneid = -1;
@@ -1607,6 +1632,7 @@ int Recycle_Init(int context)
 	memset(conptr->rep,0x0,sizeof(Recycle));
 	rep->taskStep = RECYIDLE;
 	rep->rZone = NULL;
+	rep->force_rZone = NULL;
 	rep->prevpageinfo = NULL;
 	rep->curpageinfo = NULL;
 	rep->nextpageinfo = NULL;
@@ -2229,7 +2255,9 @@ err:
 static int OnForce_FreeZone ( Recycle *rep)
 {
 	int ret = 0;
+	struct singlelist *pos;
 	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
 	PageList px;
 	PageList *pl = &px;
 	NandSigZoneInfo *nandsigzoneinfo = (NandSigZoneInfo *)(rep->force_rZone->mem0);
@@ -2239,7 +2267,8 @@ static int OnForce_FreeZone ( Recycle *rep)
 	int next_start_blockid = 0;
 	int blockcount = 0;
 	int first_ok_blockid = -1;
-	
+	unsigned int i,j = 0;
+
 	if (rep->force_rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->force_rZone->startblockID;
 	else {
@@ -2251,9 +2280,30 @@ static int OnForce_FreeZone ( Recycle *rep)
 	if (bl) {
 		ret = vNand_MultiBlockErase(rep->force_rZone->vnand,bl);
 		if(ret < 0) {
-			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
-						,__FUNCTION__,__LINE__);
-			return -1;
+			first_ok_blockid = -1;
+			singlelist_for_each(pos,&bl->head){
+				bl_node = singlelist_entry(pos, BlockList, head);
+				for(i=j; i<8; i++){
+					if(nm_test_bit(i, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock))){
+						j++;
+						continue;
+					}
+					else
+						break;
+				}
+
+				if(bl_node->retVal == -1)
+					nm_set_bit(j, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock));
+				else if (-1 == first_ok_blockid)
+					first_ok_blockid = bl_node->startBlock;
+				j++;
+			}
+			if (-1 == first_ok_blockid) {
+				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
+				BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+				rep->force_rZone = NULL;
+				return -1;
+			}
 		}
 
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));

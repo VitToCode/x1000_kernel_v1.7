@@ -4,6 +4,7 @@
 #include "nandzoneinfo.h"
 #include "vNand.h"
 #include "nanddebug.h"
+#include "nmbitops.h"
 #include "badblockinfo.h"
 
 #define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
@@ -55,7 +56,9 @@ static BlockList *create_blocklist(Context *conptr, int start_blockid, int total
 static int erase_err_zone(int errinfo)
 {
 	int ret = 0;
+	struct singlelist *pos;
 	BlockList *bl;
+	BlockList *bl_node = NULL;
 	ErrInfo *einfo = (ErrInfo *)errinfo;
 	unsigned short zoneid = einfo->err_zoneid;
 	Context *conptr = (Context *)(einfo->context);
@@ -65,6 +68,7 @@ static int erase_err_zone(int errinfo)
 	int next_start_blockno = 0;
 	int blockcount = 0;
 	int blmid = (int)conptr->blm;
+	unsigned int i, j = 0;
 	
 	if (zoneid == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - start_blockno;
@@ -77,9 +81,21 @@ static int erase_err_zone(int errinfo)
 	if (bl) {
 		ret = vNand_MultiBlockErase(vnand,bl);
 		if(ret < 0) {
-			ndprint(RECYCLE_ERROR,"Multi block erase error func %s line %d \n"
-						,__FUNCTION__,__LINE__);
-			return ret;
+			singlelist_for_each(pos,&bl->head){
+				bl_node = singlelist_entry(pos, BlockList, head);
+				for(i=j; i<8; i++){
+					if(nm_test_bit(i,(unsigned int *)&(conptr->top + zoneid)->badblock)){
+						j++;
+						continue;
+					}
+					else
+						break;
+				}
+
+				if(bl_node->retVal == -1)
+					nm_set_bit(j, (unsigned int *)&(conptr->top + zoneid)->badblock);
+				j++;
+			}
 		}
 
 		BuffListManager_freeAllList(blmid,(void **)&bl,sizeof(BlockList));

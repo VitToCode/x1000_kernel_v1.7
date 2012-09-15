@@ -5,7 +5,7 @@
 /******  the operation of nemc registers  ******/
 void init_nandchip_smcr_n(NAND_BASE *host,unsigned int chip,unsigned int value)
 {
-	nemc_writel(host->nemc_iomem,NEMC_SMCR(chip),value);	
+	nemc_writel(host->nemc_iomem,NEMC_SMCR(chip),value);
 }
 void pn_enable(NAND_BASE *host)
 {
@@ -19,12 +19,12 @@ void pn_disable(NAND_BASE *host)
 
 void nand_enable(NAND_BASE *host,unsigned int n)
 {
-	nemc_writel(host->nemc_iomem,NEMC_NFCSR,(NEMC_NFCSR_NFE(n) | NEMC_NFCSR_NFCE(n)));	
+	nemc_writel(host->nemc_iomem,NEMC_NFCSR,(NEMC_NFCSR_NFE(n) | NEMC_NFCSR_NFCE(n)));
 }
 
 void nand_disable(NAND_BASE *host)
 {
-	nemc_writel(host->nemc_iomem,NEMC_NFCSR,0x0);	
+	nemc_writel(host->nemc_iomem,NEMC_NFCSR,0x0);
 }
 
 void tnand_dphtd_sync(NAND_BASE *host,unsigned int n)
@@ -93,11 +93,11 @@ void tnand_dr_sync(NAND_BASE *host,unsigned int timeout)
 {
 	unsigned int tmp =nemc_readl(host->nemc_iomem,NEMC_TGDR);
 	while(!(tmp & NEMC_TGDR_DONE_MASK) && timeout--)
-		tmp =nemc_readl(host->nemc_iomem,NEMC_TGDR);	
+		tmp =nemc_readl(host->nemc_iomem,NEMC_TGDR);
 }
 
 void tnand_delay_sync(NAND_BASE *host)
-{		
+{
 	unsigned int tmp =nemc_readl(host->nemc_iomem,NEMC_TGDR);
 	while(!(tmp & NEMC_TGDR_DONE_MASK))
 		tmp =nemc_readl(host->nemc_iomem,NEMC_TGDR);
@@ -164,7 +164,7 @@ void bch_encode_sync(NAND_BASE *host)
 	unsigned int tmp;
 		tmp = bch_readl(host->bch_iomem,BCH_INTS);
 	while(!(tmp & BCH_INTS_ENCF))
-		tmp = bch_readl(host->bch_iomem,BCH_INTS);		
+		tmp = bch_readl(host->bch_iomem,BCH_INTS);
 }
 
 void bch_decode_sync(NAND_BASE *host)
@@ -211,19 +211,19 @@ void bch_cnt_set(NAND_BASE *host,unsigned int blk,unsigned int par)
 
 void bch_enable(NAND_BASE *host,unsigned int mode,unsigned int eccsize,unsigned int eccbit)
 {
-	unsigned int tmp = BCH_CR_BCHE;	
-		if (mode)					
-			tmp |= BCH_CR_ENCE;			
-		tmp |= BCH_CR_BSEL(eccbit);		
+	unsigned int tmp = BCH_CR_BCHE;
+		if (mode)
+			tmp |= BCH_CR_ENCE;
+		tmp |= BCH_CR_BSEL(eccbit);
 		bch_cnt_set(host,eccsize,__bch_cale_eccbytes(eccbit));
-#ifdef CONFIG_MTD_NAND_DMA            
-		tmp |=BCH_CR_DMA;               
-#endif                              
-		bch_writel(host->bch_iomem,BCH_CRC,(~tmp));					
-		bch_writel(host->bch_iomem,BCH_CRS,tmp);		
-		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_INIT);		
+#ifdef CONFIG_MTD_NAND_DMA
+		tmp |=BCH_CR_DMA;
+#endif
+		bch_writel(host->bch_iomem,BCH_CRC,(~tmp));
+		bch_writel(host->bch_iomem,BCH_CRS,tmp);
+		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_INIT);
                 /* set BCH_CR MZEBS = 0x7 */
-		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_MZEB(7));		
+		bch_writel(host->bch_iomem,BCH_CRS,BCH_CR_MZEB(7));
 }
 
 
@@ -243,4 +243,4 @@ void dmac_disable(NAND_BASE *host)
 	pdma_writel(host->pdma_iomem,DMAC_DMACR,tmp);
 }
 
- 
+

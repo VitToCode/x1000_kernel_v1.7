@@ -344,15 +344,26 @@ static inline int init_nand(void * vNand)
 
 #ifdef DEBUG_ERASE
 	{
+		int ret;
 		BlockList blocklist;
         blocklist.startBlock = 0;
         blocklist.BlockCount = 128;
         blocklist.head.next = 0;
-		multiblock_erase(&g_partition[0], &blocklist);
+		ret = multiblock_erase(&g_partition[0], &blocklist);
+		if (ret != 0) {
+			printk("ndisk erase err \n");
+			dump_stack();
+			while(1);
+		}
 		blocklist.startBlock = 0;
 		blocklist.BlockCount = 128;
 		blocklist.head.next = 0;
-		multiblock_erase(&g_partition[1], &blocklist);
+		ret = multiblock_erase(&g_partition[1], &blocklist);
+		if (ret != 0) {
+			printk("mdisk erase err \n");
+			dump_stack();
+			while(1);
+		}
 	}
 #endif
 
