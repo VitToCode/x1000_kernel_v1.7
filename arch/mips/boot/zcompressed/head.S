@@ -77,6 +77,7 @@ startup:
 	la	t0, 3f
 	jr	t0
 	nop
+	sync
 3:
 	jr	ra
 	nop
