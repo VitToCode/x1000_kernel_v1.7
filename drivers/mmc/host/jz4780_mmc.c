@@ -1652,6 +1652,7 @@ static int jzmmc_resume(struct platform_device *dev)
 
 static void jzmmc_shutdown(struct platform_device *pdev)
 {
+#if 0
 	struct jzmmc_host *host = mmc_get_drvdata(pdev);
 
 	/*
@@ -1662,6 +1663,7 @@ static void jzmmc_shutdown(struct platform_device *pdev)
 	dev_vdbg(host->dev, "shutdown\n");
 	if(host->mmc->card && !mmc_card_sdio(host->mmc->card))
 	   mmc_remove_host(host->mmc);
+#endif
 }
 
 static struct platform_driver jzmmc_driver = {
