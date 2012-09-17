@@ -136,8 +136,7 @@ static void i2s0_match_codec(char *name)
 /*##################################################################*\
 |* filter opt
 \*##################################################################*/
-#ifdef CONFIG_ANDROID
-static void i2s0_set_filter(int mode)
+static void i2s0_set_filter(int mode , uint32_t channels)
 {
 	struct dsp_pipe *dp = NULL;
 
@@ -148,20 +147,37 @@ static void i2s0_set_filter(int mode)
 
 	switch(cur_codec->record_format) {
 		case AFMT_U8:
-		case AFMT_S8:
-			dp->filter = convert_8bits_stereo2mono;
+			if (channels == 1) {
+				dp->filter = convert_8bits_stereo2mono_signed2unsigned;
+				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
+			}
+			else {
+				dp->filter = convert_8bits_signed2unsigned;
+				printk("dp->filter convert_8bits_signed2unsigned.\n");
+			}
 			break;
+		case AFMT_S8:
+			if (channels == 1) {
+				dp->filter = convert_8bits_stereo2mono;
+				printk("dp->filter convert_8bits_stereo2mono");
+			}
+			else
+				dp->filter = NULL;
+			break;
+		case AFMT_S16_BE:
 		case AFMT_S16_LE:
-			dp->filter = convert_16bits_stereomix2mono;
+			if (channels == 1) {
+				dp->filter = convert_16bits_stereomix2mono;
+				printk("dp->filter convert_16bits_stereomix2mono");
+			}
+			else
+				dp->filter = NULL;
 			break;
 		default :
 			dp->filter = NULL;
 			printk("AUDIO DEVICE :filter set error.\n");
 	}
 }
-#else
-static void i2s0_set_filter(int mode) {;}
-#endif
 /*##################################################################*\
 |* dev_ioctl
 \*##################################################################*/
@@ -180,7 +196,7 @@ static int i2s0_set_fmt(unsigned long *format,int mode)
 	 * AFMT_S16_BE      0x00000020
 	 * AFMT_S8			0x00000040
 	 */
-
+	debug_print("format = %d",*format);
 	switch (*format) {
 
 	case AFMT_U8:
@@ -188,10 +204,12 @@ static int i2s0_set_fmt(unsigned long *format,int mode)
 		if (mode & CODEC_WMODE) {
 			__i2s0_set_oss_sample_size(0);
 			__i2s0_disable_byteswap();
+			__i2s0_enable_signadj();
 		}
-		if (mode & CODEC_RMODE)
+		if (mode & CODEC_RMODE) {
 			__i2s0_set_iss_sample_size(0);
-		__i2s0_disable_signadj();
+			__i2s0_disable_signadj();
+		}
 		break;
 	case AFMT_S8:
 		data_width = 8;
@@ -201,7 +219,7 @@ static int i2s0_set_fmt(unsigned long *format,int mode)
 		}
 		if (mode & CODEC_RMODE)
 			__i2s0_set_iss_sample_size(0);
-		__i2s0_enable_signadj();	//??
+		__i2s0_disable_signadj();
 		break;
 	case AFMT_S16_LE:
 		data_width = 16;
@@ -265,7 +283,7 @@ static int i2s0_set_channel(int* channel,int mode)
 
 	if (!cur_codec)
 		return -ENODEV;
-
+	debug_print("channel = %d",*channel);
 	if (mode & CODEC_WMODE) {
 		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
 		if (ret < 0) {
@@ -281,8 +299,10 @@ static int i2s0_set_channel(int* channel,int mode)
 			__i2s0_enable_mono2stereo();
 		} else
 			return -EINVAL;
-		if (cur_codec->replay_codec_channel != *channel)
+		if (cur_codec->replay_codec_channel != *channel) {
 			cur_codec->replay_codec_channel = *channel;
+			ret |= NEED_RECONF_FILTER;
+		}
 	}
 	if (mode & CODEC_RMODE) {
 #ifdef CONFIG_ANDROID
@@ -291,11 +311,14 @@ static int i2s0_set_channel(int* channel,int mode)
 		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
 		if (ret < 0)
 			return ret;
+		ret = 0;
 #ifdef CONFIG_ANDROID
 		*channel = 1;
 #endif
-		if (cur_codec->record_codec_channel != *channel)
+		if (cur_codec->record_codec_channel != *channel) {
 			cur_codec->record_codec_channel = *channel;
+			ret |= NEED_RECONF_FILTER;
+		}
 	}
 	return ret;
 }
@@ -305,6 +328,7 @@ static int i2s0_set_rate(unsigned long *rate,int mode)
 	int ret = 0;
 	if (!cur_codec)
 		return -ENODEV;
+	debug_print("rate = %ld",*rate);
 	if (mode & CODEC_WMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE)
 			*rate = __i2s0_set_sample_rate(cur_codec->codec_clk,*rate);
@@ -407,11 +431,11 @@ static int i2s0_set_default_route(int mode)
 static int i2s0_enable(int mode)
 {
 	unsigned long replay_rate = 44100;
-	unsigned long record_rate = 44100;
+	unsigned long record_rate = 8000;
 	unsigned long replay_format = 16;
 	unsigned long record_format = 16;
 	int replay_channel = 2;
-	int record_channel = 2;
+	int record_channel = 1;
 	struct dsp_pipe *dp_other = NULL;
 	if (!cur_codec)
 			return -ENODEV;
@@ -431,7 +455,7 @@ static int i2s0_enable(int mode)
 		i2s0_set_rate(&record_rate,mode);
 	}
 	i2s0_set_trigger(mode);
-	i2s0_set_filter(mode);
+	i2s0_set_filter(mode,record_channel);
 
 	i2s0_set_default_route(mode);
 	if (!dp_other->is_used) {
@@ -631,6 +655,8 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		ret = i2s0_set_channel((int *)arg,CODEC_WMODE);
 		if (ret < 0)
 			break;
+		//if (ret & NEED_RECONF_FILTER)
+		//	i2s0_set_filter(CODEC_RMODE,cur_codec->replay_codec_channel);
 		ret = 0;
 		break;
 
@@ -639,6 +665,8 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		ret = i2s0_set_channel((int*)arg,CODEC_RMODE);
 		if (ret < 0)
 			break;
+		if (ret & NEED_RECONF_FILTER)
+			i2s0_set_filter(CODEC_RMODE,cur_codec->record_codec_channel);
 		ret = 0;
 		break;
 
@@ -677,6 +705,8 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		if (ret & NEED_RECONF_DMA)
 			i2s0_dma_need_reconfig(CODEC_WMODE);
 		/* if need reconfig the filter, reconfig it */
+		//if (ret & NEED_RECONF_FILTER)
+		//	i2s0_set_filter(CODEC_RMODE,cur_codec->replay_codec_channel);
 		ret = 0;
 		break;
 
@@ -705,7 +735,7 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 			i2s0_dma_need_reconfig(CODEC_RMODE);
 		/* if need reconfig the filter, reconfig it */
 		if (ret & NEED_RECONF_FILTER)
-			i2s0_set_filter(CODEC_RMODE);
+			i2s0_set_filter(CODEC_RMODE,cur_codec->record_codec_channel);
 		ret = 0;
 		break;
 	case SND_MIXER_DUMP_REG:

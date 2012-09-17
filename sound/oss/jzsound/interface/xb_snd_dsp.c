@@ -1061,7 +1061,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	if (ddata == NULL)
 		return -ENODEV;
-
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL)
 		return -ENODEV;
@@ -1785,7 +1784,7 @@ int xb_snd_dsp_open(struct inode *inode,
 
 #ifdef DEBUG_REPLAY
 	printk("DEBUG:----open /data/audio.pcm.pcm-%s\tline:%d\n",__func__,__LINE__);
-	f_test = filp_open("/data/audio.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+	f_test = filp_open("/data/audio.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR |O_CREAT);
 	printk ("f_test is error %d.\n",f_test);
 	if (!IS_ERR(f_test)) {
 		printk("open debug audio sussess %p.\n",f_test);
@@ -1834,6 +1833,7 @@ int xb_snd_dsp_release(struct inode *inode,
 	}
 
 	if (dpi && dpi->sg) {
+		snd_release_dma(dpi);
 		vfree(dpi->sg);
 		dpi->sg = NULL;
 	}
@@ -1843,6 +1843,7 @@ int xb_snd_dsp_release(struct inode *inode,
 	}
 
 	if (dpo && dpo->sg) {
+		snd_release_dma(dpo); 
 		vfree(dpo->sg);
 		dpo->sg = NULL;
 	}
