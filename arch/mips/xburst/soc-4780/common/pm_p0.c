@@ -319,22 +319,16 @@ static inline void __jz_cache_init(void)
 #define REG_ADDR 	(TCSM_BASE+4)
 #define RESUME_ADDR 	(TCSM_BASE+8)
 
-#define DELAY 0xffffff
+#define DELAY 0x1ff
 static noinline void reset_dll(void)
 {
 	void (*return_func)(void);
 #ifndef TEST
 	register int i = DELAY;
 	
-	__jz_cache_init();
-
-	*(volatile unsigned *)  0xB0010018 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010024 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010038 |= 0x1<<25;
-
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
-        i = DELAY/10;
+        i = DELAY;
 	while(i--)
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
@@ -348,7 +342,7 @@ static noinline void reset_dll(void)
 			".set mips32");
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 
-	*(volatile unsigned *)  0xB0010044 |= 0x1<<25;//set
+	__jz_cache_init();
 #endif
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
 	return_func();
@@ -384,6 +378,7 @@ static noinline void jz4780_resume(void)
 
 static int jz4780_pm_enter(suspend_state_t state)
 {
+	char tcsm_back[512];
 	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
 	mdelay(1);
@@ -392,7 +387,8 @@ static int jz4780_pm_enter(suspend_state_t state)
 	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4780_resume;
 	*(volatile unsigned int *)REG_ADDR = (unsigned int)regs;
 	cpm_outl(RESUME_ADDR,CPM_SLPC);
-	memcpy((void *)RESUME_ADDR,reset_dll,1048);
+	memcpy(tcsm_back,(void *)RESUME_ADDR,512);
+	memcpy((void *)RESUME_ADDR,reset_dll,512);
 	mdelay(1);
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
@@ -403,14 +399,10 @@ static int jz4780_pm_enter(suspend_state_t state)
 
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 
-	*(volatile unsigned *)  0xB0010018 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010024 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010038 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010048 |= 0x1<<25;//clear
-
 	jz4780_suspend();
 
-	printk("hahahahah!\n");
+	memcpy((void *)RESUME_ADDR,tcsm_back,512);
+	cpm_outl(cpm_inl(CPM_LCR) & ~0xff,CPM_LCR);
 	return 0;
 }
 
@@ -424,14 +416,6 @@ static struct platform_suspend_ops jz4780_pm_ops = {
  */
 int __init jz4780_pm_init(void)
 {
-	*(volatile unsigned *)  0xB0010018 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010024 |= 0x1<<25;
-	*(volatile unsigned *)  0xB0010038 |= 0x1<<25;
-
-	//*(volatile unsigned *)  0xB0010048 |= 0x1<<25;//clear
-	*(volatile unsigned *) 0xB0010044 |= 0x1<<25;
-
-
 	suspend_set_ops(&jz4780_pm_ops);
 	return 0;
 }
