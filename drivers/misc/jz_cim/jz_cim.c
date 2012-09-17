@@ -369,8 +369,8 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	
 	dev_dbg(cim->dev," -------------   cim irq  state reg %lx %ld\n",state_reg,reg_read(cim,CIM_IID));
 	if (state_reg & CIM_STATE_RXF_OF){
-			
-			dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
+		dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
+
 			bit_clr(cim,CIM_STATE,CIM_STATE_RXF_OF);
 			cim_disable(cim);
 			cim_clear_rfifo(cim);
@@ -395,7 +395,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	if(state_reg & CIM_STATE_DMA_EOF){
 		
 		if(cim->state == CS_PREVIEW){
-			dev_info(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
+			dev_dbg(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 			spin_lock_irqsave(&cim->lock,flags);
 			cim->frm_id =  cim_get_iid(cim) - 1;
 			if(cim->frm_id == -1)
@@ -555,7 +555,7 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 	}
 	spin_lock_irqsave(&cim->lock,flags);
 	addr =  desc[cim->frm_id].buf;
-	dev_info(cim->dev," -------------  frm id %d %08lx\n",cim->frm_id,addr);
+	dev_dbg(cim->dev," -------------  frm id %d %08lx\n",cim->frm_id,addr);
 	cim->frm_id = -1;
 	spin_unlock_irqrestore(&cim->lock,flags);
 
@@ -701,8 +701,8 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 	int i;
 	unsigned int capture_frmsize = cim->csize.w *  cim->csize.h * 2;
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->cdesc_vaddr;
-	if(cim->state != CS_IDLE)
-		return -EBUSY;
+	//if(cim->state != CS_IDLE)
+	//	return -EBUSY;
 	for(i=0;i<CDESC_NR;i++) {
 		desc[i].next = (dma_addr_t)(&cim->capture[i+1]);
 		desc[i].id 	= i;
