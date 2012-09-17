@@ -35,212 +35,6 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 
-int regs[128];
-
-#define save_regs(base)		\
-	__asm__ __volatile__ (	\
-			".set    noat		\n\t"\
-			"la	$26,%0		\n\t"\
-			"mfhi	$27		\n\t"\
-			"sw	$0,0($26)	\n\t"\
-			"sw	$1,4($26)	\n\t"\
-			"sw	$27,120($26)	\n\t"\
-			"mflo	$27		\n\t"\
-			"sw	$2,8($26)	\n\t"\
-			"sw	$3,12($26)	\n\t"\
-			"sw	$27,124($26)	\n\t"\
-			"sw	$4,16($26)	\n\t"\
-			"sw	$5,20($26)	\n\t"\
-			"sw	$6,24($26)	\n\t"\
-			"sw	$7,28($26)	\n\t"\
-			"sw	$8,32($26)	\n\t"\
-			"sw	$9,36($26)	\n\t"\
-			"sw	$10,40($26)	\n\t"\
-			"sw	$11,44($26)	\n\t"\
-			"sw	$12,48($26)	\n\t"\
-			"sw	$13,52($26)	\n\t"\
-"sw	$14,56($26)	\n\t"\
-"sw	$15,60($26)	\n\t"\
-"sw	$16,64($26)	\n\t"\
-"sw	$17,68($26)	\n\t"\
-"sw	$18,72($26)	\n\t"\
-"sw	$19,76($26)	\n\t"\
-"sw	$20,80($26)	\n\t"\
-"sw	$21,84($26)	\n\t"\
-"sw	$22,88($26)	\n\t"\
-"sw	$23,92($26)	\n\t"\
-"sw	$24,96($26)	\n\t"\
-"sw	$25,100($26)	\n\t"\
-"sw	$28,104($26)	\n\t"\
-"sw	$29,108($26)	\n\t"\
-"sw	$30,112($26)	\n\t"\
-"sw	$31,116($26)	\n\t"\
-"mfc0	$1, $0    	\n\t"\
-"mfc0	$2, $1    	\n\t"\
-"mfc0	$3, $2    	\n\t"\
-"mfc0	$4, $3    	\n\t"\
-"mfc0	$5, $4    	\n\t"\
-"mfc0	$6, $5    	\n\t"\
-"mfc0	$7, $6    	\n\t"\
-"mfc0	$8, $8    	\n\t"\
-"mfc0	$9, $10   	\n\t"\
-"mfc0	$10,$12   	\n\t"\
-"mfc0	$11, $12,1	\n\t"\
-"mfc0	$12, $13 	\n\t"\
-"mfc0	$13, $14    	\n\t"\
-"mfc0	$14, $15    	\n\t"\
-"mfc0	$15, $15,1    	\n\t"\
-"mfc0	$16, $16    	\n\t"\
-"mfc0	$17, $16,1    	\n\t"\
-"mfc0	$18, $16,2    	\n\t"\
-"mfc0	$19, $16,3    	\n\t"\
-"mfc0	$20, $16, 7    	\n\t"\
-"mfc0	$21, $17    	\n\t"\
-"sw	$1,  128($26)    \n\t"\
-"sw	$2,  132($26)    \n\t"\
-"sw	$3,  136($26)    \n\t"\
-"sw	$4,  140($26)    \n\t"\
-"sw	$5,  144($26)    \n\t"\
-"sw	$6,  148($26)    \n\t"\
-"sw	$7,  152($26)    \n\t"\
-"sw	$8,  156($26)    \n\t"\
-"sw	$9,  160($26)    \n\t"\
-"sw	$10, 164($26)    \n\t"\
-"sw	$11, 168($26)    \n\t"\
-"sw	$12, 172($26)    \n\t"\
-"sw	$13, 176($26)    \n\t"\
-"sw	$14, 180($26)    \n\t"\
-"sw	$15, 184($26)    \n\t"\
-"sw	$16, 188($26)    \n\t"\
-"sw	$17, 192($26)    \n\t"\
-"sw	$18, 196($26)    \n\t"\
-"sw	$19, 200($26)    \n\t"\
-"sw	$20, 204($26)    \n\t"\
-"sw	$21, 208($26)    \n\t"\
-"mfc0	$1, $18    	\n\t"\
-"mfc0	$2, $19    	\n\t"\
-"mfc0	$3, $23    	\n\t"\
-"mfc0	$4, $24    	\n\t"\
-"mfc0	$5, $26    	\n\t"\
-"mfc0	$6, $28		\n\t"\
-"mfc0	$7, $28,1	\n\t"\
-"mfc0	$8, $30		\n\t"\
-"mfc0	$9, $31		\n\t"\
-"mfc0	$10,$5,4 	\n\t"\
-"sw	$1,  212($26)	\n\t"\
-"sw	$2,  216($26)	\n\t"\
-"sw	$3,  220($26)	\n\t"\
-"sw	$4,  224($26)	\n\t"\
-"sw	$5,  228($26)	\n\t"\
-"sw	$6,  232($26)	\n\t"\
-"sw	$7,  236($26)	\n\t"\
-"sw	$8,  240($26)	\n\t"\
-"sw	$9,  244($26)	\n\t"\
-"sw	$10, 248($26)	\n\t"\
-: : "i" (base))
-
-#define load_regs(base)\
-	__asm__ __volatile__ (\
-			".set    noat		\n\t"\
-			"la	$26,%0		\n\t"\
-			"lw	$1,  128($26)	\n\t"\
-			"lw	$2,  132($26)	\n\t"\
-			"lw	$3,  136($26)	\n\t"\
-			"lw	$4,  140($26)	\n\t"\
-			"lw	$5,  144($26)	\n\t"\
-			"lw	$6,  148($26)	\n\t"\
-			"lw	$7,  152($26)	\n\t"\
-			"lw	$8,  156($26)	\n\t"\
-			"lw	$9,  160($26)	\n\t"\
-			"lw	$10, 164($26)	\n\t"\
-			"lw	$11, 168($26)	\n\t"\
-			"lw	$12, 172($26)	\n\t"\
-			"lw	$13, 176($26)	\n\t"\
-			"lw	$14, 180($26)	\n\t"\
-			"lw	$15, 184($26)	\n\t"\
-			"lw	$16, 188($26)	\n\t"\
-			"lw	$17, 192($26)	\n\t"\
-			"lw	$18, 196($26)	\n\t"\
-"lw	$19, 200($26)	\n\t"\
-"lw	$20, 204($26)	\n\t"\
-"lw	$21, 208($26)	\n\t"\
-"mtc0	$1, $0		\n\t"\
-"mtc0	$2, $1		\n\t"\
-"mtc0	$3, $2		\n\t"\
-"mtc0	$4, $3		\n\t"\
-"mtc0	$5, $4		\n\t"\
-"mtc0	$6, $5		\n\t"\
-"mtc0	$7, $6		\n\t"\
-"mtc0	$8, $8		\n\t"\
-"mtc0	$9, $10		\n\t"\
-"mtc0	$10,$12		\n\t"\
-"mtc0	$11, $12,1	\n\t"\
-"mtc0	$12, $13	\n\t"\
-"mtc0	$13, $14	\n\t"\
-"mtc0	$14, $15	\n\t"\
-"mtc0	$15, $15,1	\n\t"\
-"mtc0	$16, $16	\n\t"\
-"mtc0	$17, $16,1	\n\t"\
-"mtc0	$18, $16,2	\n\t"\
-"mtc0	$19, $16,3	\n\t"\
-"mtc0	$20, $16,7	\n\t"\
-"mtc0	$21, $17	\n\t"\
-"lw	$1,  212($26)	\n\t"\
-"lw	$2,  216($26)	\n\t"\
-"lw	$3,  220($26)	\n\t"\
-"lw	$4,  224($26)	\n\t"\
-"lw	$5,  228($26)	\n\t"\
-"lw	$6,  232($26)	\n\t"\
-"lw	$7,  236($26)	\n\t"\
-"lw	$8,  240($26)	\n\t"\
-"lw	$9,  244($26)	\n\t"\
-"lw	$10, 248($26)	\n\t"\
-"mtc0	$1, $18		\n\t"\
-"mtc0	$2, $19		\n\t"\
-"mtc0	$3, $23		\n\t"\
-"mtc0	$4, $24		\n\t"\
-"mtc0	$5, $26		\n\t"\
-"mtc0	$6, $28		\n\t"\
-"mtc0	$7, $28,1	\n\t"\
-"mtc0	$8, $30		\n\t"\
-"mtc0	$9, $31		\n\t"\
-"mtc0	$10,$5,4	\n\t"\
-"lw	$27,	120($26)\n\t"\
-"lw	$0,	0($26)	\n\t"\
-"lw	$1,  	4($26)	\n\t"\
-"mthi	$27		\n\t"\
-"lw	$27,	124($26)\n\t"\
-"lw	$2,	8($26)	\n\t"\
-"lw	$3,  	12($26)	\n\t"\
-"mtlo	$27		\n\t"\
-"lw	$4,  	16($26)	\n\t"\
-"lw	$5,  	20($26)	\n\t"\
-"lw	$6,  	24($26)	\n\t"\
-"lw	$7,  	28($26)	\n\t"\
-"lw	$8,  	32($26)	\n\t"\
-"lw	$9,  	36($26)	\n\t"\
-"lw	$10, 	40($26)	\n\t"\
-"lw	$11, 	44($26)	\n\t"\
-"lw	$12, 	48($26)	\n\t"\
-"lw	$13, 	52($26)	\n\t"\
-"lw	$14, 	56($26)	\n\t"\
-"lw	$15, 	60($26)	\n\t"\
-"lw	$16, 	64($26)	\n\t"\
-"lw	$17, 	68($26)	\n\t"\
-"lw	$18, 	72($26)	\n\t"\
-"lw	$19, 	76($26)	\n\t"\
-"lw	$20, 	80($26)	\n\t"\
-"lw	$21, 	84($26)	\n\t"\
-"lw	$22, 	88($26)	\n\t"\
-"lw	$23, 	92($26)	\n\t"\
-"lw	$24, 	96($26)	\n\t"\
-"lw	$25, 	100($26)\n\t"\
-"lw	$28, 	104($26)\n\t"\
-"lw	$29, 	108($26)\n\t"\
-"lw	$30, 	112($26)\n\t"\
-"lw	$31, 	116($26)\n\t"\
-: : "i" (base))
-
 #define K0BASE			KSEG0
 #define CFG_DCACHE_SIZE		32768
 #define CFG_ICACHE_SIZE		32768
@@ -325,11 +119,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
-#if defined(CONFIG_PM_POWERDOWN_P0)
-	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
-#else
 	cpm_outl(1<<30 | 1<<26 | 0xff<<8 | OPCR_ERCS,CPM_OPCR);
-#endif
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
 
@@ -339,17 +129,9 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(0,CPM_PSWC3ST);
 
 	cpm_outl((cpccr & ~0xff) | 0x31,CPM_CPCCR);
-#if defined(CONFIG_PM_POWERDOWN_P0)
-	/* Set resume return address */
-	cpm_outl(1,CPM_SLBC);
-	cpm_outl((unsigned long)&&sleep_done,CPM_SLPC);
-	if(0) goto sleep_done;//do nothing,just make gcc happy
-
-	save_regs(regs);
-#endif	
 	__jz_flush_cache_all();
 
-	cache_prefetch(do_sleep);
+	cache_prefetch(do_sleep,sleep_end);
 do_sleep:
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
@@ -358,11 +140,7 @@ do_sleep:
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32");
-#if defined(CONFIG_PM_POWERDOWN_P0)
-sleep_done:
-	__jz_cache_init();
-	load_regs(regs);
-#endif
+sleep_end:
 	/* Restore OPCR */
 	cpm_outl(opcr,CPM_OPCR);
 	cpm_outl(cpccr,CPM_CPCCR);

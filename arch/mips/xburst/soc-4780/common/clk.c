@@ -616,18 +616,6 @@ static int __init init_all_clk(void)
 
 	register_syscore_ops(&clk_pm_ops);
 
-	clkgr0 = cpm_inl(CPM_CLKGR0);
-	clkgr1 = cpm_inl(CPM_CLKGR1);
-
-	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
-	mdelay(1);
-	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
-	mdelay(1);
-	cpm_outl(clkgr0,CPM_CLKGR0);
-	mdelay(1);
-	cpm_outl(clkgr1,CPM_CLKGR1);
-	mdelay(1);
-
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
 			clk_srcs[CLK_ID_CCLK].rate/1000/1000,
 			clk_srcs[CLK_ID_L2CLK].rate/1000/1000,

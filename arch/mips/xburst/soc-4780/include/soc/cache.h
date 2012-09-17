@@ -1,13 +1,13 @@
 #ifndef __CHIP_CACHE_H__
 #define __CHIP_CACHE_H__
 
-#define cache_prefetch(label)						\
+#define cache_prefetch(label,l2)					\
 do{									\
-	unsigned long addr,size,end;					\
+	unsigned long addr,end;						\
 	/* Prefetch codes from label */					\
 	addr = (unsigned long)(&&label) & ~(32 - 1);			\
-	size = 32 * 256; /* load 128 cachelines */			\
-	end = addr + size;						\
+	end = (unsigned long)(&&l2) & ~(32 - 1);			\
+	end += 32;							\
 	for (; addr < end; addr += 32) {				\
 		__asm__ volatile (					\
 				".set mips32\n\t"			\

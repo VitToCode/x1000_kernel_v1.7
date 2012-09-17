@@ -13,7 +13,11 @@ obj-y += serial.o
 obj-y += irq.o 
 obj-y += gpio.o 
 obj-y += pwm.o tcu.o
+ifeq ($(CONFIG_PM_POWERDOWN_P0),y)
+obj-y += pm_p0.o
+else
 obj-y += pm.o
+endif
 obj-y += platform.o
 obj-$(CONFIG_CPUFRQU) += cpufreq.o
 
