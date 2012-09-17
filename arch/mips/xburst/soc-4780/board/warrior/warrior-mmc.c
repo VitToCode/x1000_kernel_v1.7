@@ -29,8 +29,8 @@ struct mmc_partition_info warrior_inand_partition_info[] = {
 	[5] = {"battery",  26*MBYTE,   1*MBYTE, 0}, 	//26MB - 1MB
 	[6] = {"cache",    28*MBYTE,  30*MBYTE, 1}, 	//28MB - 30MB
 	[7] = {"device_id",59*MBYTE,   2*MBYTE, 0},	//59MB - 2MB
-	[8] = {"system",   64*MBYTE, 256*MBYTE, 1}, 	//64MB - 256MB
-	[9] = {"data",    321*MBYTE, 512*MBYTE, 1}, 	//321MB - 512MB
+	[8] = {"system",   64*MBYTE, 512*MBYTE, 1}, 	//64MB - 512MB
+	[9] = {"data",    580*MBYTE, 1024*MBYTE, 1}, 	//580MB - 1024MB
 };
 
 static struct mmc_recovery_info warrior_inand_recovery_info = {
