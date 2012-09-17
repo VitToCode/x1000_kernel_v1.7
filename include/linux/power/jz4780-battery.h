@@ -55,6 +55,7 @@ struct jz_battery {
 
 	struct power_supply battery;
 	struct delayed_work work;
+	struct delayed_work init_work;
 	struct delayed_work resume_work;
 
 	struct mutex lock;
@@ -63,8 +64,6 @@ struct jz_battery {
 
 	unsigned int usb;
 	unsigned int ac;
-	unsigned int usb_online;/*modified by PMU dirver, 1: online; 0: not online*/
-	unsigned int ac_online;/*modified by PMU driver, 1: online; 0: not online*/
 
 	/* Online charger modified by PMU driver */
 	unsigned int charger;
@@ -79,7 +78,6 @@ struct jz_battery {
 	int capacity;
 	int capacity_calculate;
 	unsigned long gate_voltage;
-	int capacity_div_vol;
 };
 
 #define get_charger_online(bat, n)	((bat->charger & (1 << n)) ? 1 : 0)

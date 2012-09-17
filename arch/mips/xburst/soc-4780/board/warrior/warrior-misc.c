@@ -98,14 +98,14 @@ static struct platform_device jz_button_device = {
 static struct jz_battery_platform_data warrior_battery_pdata = {
 	.info = {
 		.max_vol        = 4200,
-		.min_vol        = 3700,
+		.min_vol        = 3750,
 		.usb_max_vol    = 4250,
-		.usb_min_vol    = 3800,
+		.usb_min_vol    = 3850,
 		.ac_max_vol     = 4250,
-		.ac_min_vol     = 3800,
-		.battery_max_cpt = 4500,
-		.ac_chg_current = 800,
-		.usb_chg_current = 500,
+		.ac_min_vol     = 3850,
+		.battery_max_cpt = 3500,
+		.ac_chg_current = 400,
+		.usb_chg_current = 350,
 	},
 };
 #endif
