@@ -33,7 +33,7 @@
 
 #define PDESC_NR	4
 #define CDESC_NR	3
-//#define DEG() printk("fuchao ---------------- %s %d\n",__FUNCTION__,__LINE__)
+#define DEG() printk("fuchao ---------------- %s %d\n",__FUNCTION__,__LINE__)
 static LIST_HEAD(sensor_list);
 
 enum cim_state {
@@ -201,14 +201,15 @@ void cim_power_on(struct jz_cim *cim)
 		clk_enable(cim->clk);
 	if(cim->mclk)
 		clk_enable(cim->mclk);
-	/*if(cim->power < 0){
-		printk("fuchao -----cim power enable\n");
+	#if 1
+	if(cim->power != NULL){
+		printk(" -----cim power enable\n");
 		regulator_enable(cim->power);
-	}*/
-
-	gpio_direction_output(GPIO_PB(27),1);	
-	
+	}
+	#else
+	gpio_direction_output(GPIO_PB(27),1);
 	gpio_set_value(GPIO_PB(27),1);
+	#endif
 	mdelay(10);
 	//dev_info(cim->dev," ---probe get clk rete is %d\n",clk_get_rate(cim->mclk));
 	clk_set_rate(cim->mclk, 24000000);
@@ -270,18 +271,24 @@ int camera_sensor_register(struct cim_sensor *desc)
 void cim_scan_sensor(struct jz_cim *cim)
 {
 	struct cim_sensor *desc;
+	static struct cim_sensor *tmpdesc = NULL;
+	struct list_head *tmp;
 	cim->sensor_count  = 0;
 	cim_power_on(cim);
-
+	
 	list_for_each_entry(desc, &sensor_list, list) {
 		//desc->power_on(desc);
-		if(desc->probe(desc))
+		if(desc->probe(desc)){
+			tmp = desc->list.prev;
 			list_del(&desc->list);
+			desc = list_entry(tmp, struct cim_sensor, list);
+		}
+		else
+			tmpdesc = desc;
 		//desc->shutdown(desc);
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc != NULL)
 			if(desc->facing == CAMERA_FACING_BACK) {
 				desc->id = cim->sensor_count;
 				cim->sensor_count++;
@@ -291,7 +298,6 @@ void cim_scan_sensor(struct jz_cim *cim)
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc != NULL)
 			if(desc->facing == CAMERA_FACING_FRONT) {
 				desc->id = cim->sensor_count;
 				cim->sensor_count++;
@@ -299,7 +305,7 @@ void cim_scan_sensor(struct jz_cim *cim)
 						desc->name,desc->id,desc->facing);
 			}
 	}
-	
+
 	cim->desc = desc;
 	cim_power_off(cim);
 }
@@ -594,9 +600,10 @@ static long cim_set_param(struct jz_cim *cim, int arg)
 {
 	// used app should use this ioctl like this :
 	// ioctl(fd, CIMIO_SET_PARAM, CPCMD_SET_BALANCE | WHITE_BALANCE_AUTO);
-	int cmd,param_arg;
+	int  cmd,param_arg;
 	cmd = arg & 0xffff0000;
 	param_arg = arg & 0xffff;
+
 	switch(cmd) {
 		case CPCMD_SET_BALANCE:
 			cim->desc->para.balance = (unsigned short)param_arg;
@@ -849,7 +856,7 @@ static int cim_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto io_failed;
 	}
-	#if 0
+	#if 1
 	cim->power = regulator_get(&pdev->dev, "vcim");
 	if(IS_ERR(cim->power)){
 		printk("fuchao -------------power get fail\n");
