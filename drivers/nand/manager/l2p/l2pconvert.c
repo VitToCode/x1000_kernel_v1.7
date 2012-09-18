@@ -163,7 +163,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 
 	CONV_PT_VN(pt,&conptr->vnand);
 	if(conptr->vnand._2kPerPage != 1){
-		conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
+		conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST*sizeof(int));
 		conptr->vnand.blm = BuffListManager_BuffList_Init();
 	}
 

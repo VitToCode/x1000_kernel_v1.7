@@ -13,10 +13,10 @@ struct Nand2K
     int BytePerPage;
     int TotalBlocks;
 	int MaxBadBlockCount;
-} vNandChipInfo = {64,2048,128*8*4,20}; //512M
+} vNandChipInfo = {256,4096,128*4,20}; //512M
 
 
-PPartition ppt[] = {{NULL,128*8*0,64,2048,128*8,20,512,0,64*128*8,1, NULL}};
+PPartition ppt[] = {{"ndsystem",64,256,4096,128*4,20,512,64*256,512*256,1, NULL}};
 PPartArray partition={1,ppt};
 
 struct vNand2K
@@ -122,8 +122,8 @@ static int em_vNand_MultiPageRead (void *pt,PageList* pl ){
 		if(pl->retVal <= 0)
 		{
 			perror("error::");
-			pl->retVal = 0;
-			memset(pl->pData,0xff,pl->Bytes); 
+			pl->retVal = -6;
+			return -6;
 		}	
 		sg = (pl->head).next;
 		if(sg == NULL)
