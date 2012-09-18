@@ -16,6 +16,9 @@ config BOARD_GIANT
 config BOARD_WARRIOR
         bool "Warrior"
 
+config BOARD_M80
+        bool "M80"
+
 endchoice
 
 config BOARD_NAME
@@ -24,5 +27,5 @@ config BOARD_NAME
 	default "test" if BOARD_TEST
 	default "Giant" if BOARD_GIANT
 	default "Warrior" if BOARD_WARRIOR
-
+	default "M80" if BOARD_M80
 
