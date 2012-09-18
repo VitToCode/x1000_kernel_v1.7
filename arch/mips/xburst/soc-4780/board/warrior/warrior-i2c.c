@@ -47,8 +47,8 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 	.axis_map_x = 1,
 	.axis_map_y = 0,
 	.axis_map_z = 2,							        
-	.negate_x = 1,
-	.negate_y = 0,
+	.negate_x = 0,
+	.negate_y = 1,
 	.negate_z = 1,
 };
 #endif
