@@ -118,7 +118,21 @@
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
 
 #define PWM_PORTE_BIT0							\
-	{ .name = "pwm", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 0, }
+	{ .name = "pwm0", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 0, }
+#define PWM_PORTE_BIT1							\
+	{ .name = "pwm1", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 1, }
+#define PWM_PORTE_BIT2							\
+	{ .name = "pwm2", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 2, }
+#define PWM_PORTE_BIT3							\
+	{ .name = "pwm3", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 3, }
+#define PWM_PORTE_BIT4							\
+	{ .name = "pwm4", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 4, }
+#define PWM_PORTE_BIT5							\
+	{ .name = "pwm5", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 5, }
+#define PWM_PORTD_BIT10							\
+	{ .name = "pwm6", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 1 << 10, }
+#define PWM_PORTD_BIT11							\
+	{ .name = "pwm7", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 1 << 11, }
 
 #define MII_PORTBDF							\
 	{ .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },	\

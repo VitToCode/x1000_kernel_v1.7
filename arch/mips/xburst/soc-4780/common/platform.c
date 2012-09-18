@@ -122,7 +122,32 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 	LCD_PORTC,
 	HDMI_PORTF,
+
+#ifdef CONFIG_JZ_PWM_GPIO_E0
 	PWM_PORTE_BIT0,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_E1
+	PWM_PORTE_BIT1,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_E2
+	PWM_PORTE_BIT2,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_E3
+	PWM_PORTE_BIT3,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_E4
+	PWM_PORTE_BIT4,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_E5
+	PWM_PORTE_BIT5,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_D10
+	PWM_PORTD_BIT10,
+#endif
+#ifdef CONFIG_JZ_PWM_GPIO_D11
+	PWM_PORTD_BIT11,
+#endif
+
 #ifdef CONFIG_JZ_MAC
 	MII_PORTBDF,
 #endif

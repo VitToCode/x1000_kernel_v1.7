@@ -55,3 +55,4 @@ obj-y				+= jz_cim/
 obj-$(CONFIG_JZ_X2D)    	+= jz_x2d/
 obj-$(CONFIG_JZ_TCSM_DEFAULT)   += jz_tcsm.o
 obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
+obj-$(CONFIG_JZ_PWM)            += jz_pwm.o
