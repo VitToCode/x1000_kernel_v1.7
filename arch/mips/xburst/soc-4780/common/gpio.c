@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/gpio.h>
+#include <linux/proc_fs.h>
 #include <linux/syscore_ops.h>
 #include <irq.h>
 
@@ -574,4 +575,59 @@ int __init setup_gpio_pins(void)
 }
 
 arch_initcall(setup_gpio_pins);
+#define PXPIN		0x00   /* PIN Level Register */
+#define PXINT		0x10   /* Port Interrupt Register */
+#define PXINTS		0x14   /* Port Interrupt Set Register */
+#define PXINTC		0x18   /* Port Interrupt Clear Register */
+#define PXMSK		0x20   /* Port Interrupt Mask Reg */
+#define PXMSKS		0x24   /* Port Interrupt Mask Set Reg */
+#define PXMSKC		0x28   /* Port Interrupt Mask Clear Reg */
+#define PXPAT1		0x30   /* Port Pattern 1 Set Reg. */
+#define PXPAT1S		0x34   /* Port Pattern 1 Set Reg. */
+#define PXPAT1C		0x38   /* Port Pattern 1 Clear Reg. */
+#define PXPAT0		0x44   /* Port Pattern 0 Register */
+#define PXPAT0S		0x44   /* Port Pattern 0 Set Register */
+#define PXPAT0C		0x48   /* Port Pattern 0 Clear Register */
+#define PXFLG		0x50   /* Port Flag Register */
+#define PXFLGC		0x58   /* Port Flag clear Register */
+#define PXOENS		0x64   /* Port Output Disable Set Register */
+#define PXOENC		0x68   /* Port Output Disable Clear Register */
+#define PXPEN		0x70   /* Port Pull Disable Register */
+#define PXPENS		0x74   /* Port Pull Disable Set Register */
+#define PXPENC		0x78   /* Port Pull Disable Clear Register */
+#define PXDSS		0x84   /* Port Drive Strength set Register */
+#define PXDSC		0x88   /* Port Drive Strength clear Register */
+
+static int gpio_read_proc(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	int len = 0;
+	int i;
+#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
+	PRINT("INT\t\tMASK\t\tPAT1\t\tPAT0\n");
+	for(i = 0; i < GPIO_NR_PORTS; i++) {
+		PRINT("0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
+				readl(jz_gpio_chips[i].reg + PXINT),
+				readl(jz_gpio_chips[i].reg + PXMSK),
+				readl(jz_gpio_chips[i].reg + PXPAT1),
+				readl(jz_gpio_chips[i].reg + PXPAT0));
+	}
+
+	return len;
+}
+
+static int __init init_gpio_proc(void)
+{
+	struct proc_dir_entry *res;
+
+	res = create_proc_entry("gpios", 0444, NULL);
+	if (res) {
+		res->read_proc = gpio_read_proc;
+		res->write_proc = NULL;
+		res->data = NULL;
+	}
+	return 0;
+}
+
+module_init(init_gpio_proc);
 
