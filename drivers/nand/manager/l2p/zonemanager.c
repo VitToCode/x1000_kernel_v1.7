@@ -633,16 +633,25 @@ static int scan_page_info(ZoneManager *zonep)
 		ret = plt->retVal;
 		if(ISERROR(ret))
 		{
-			zonep->page2_error_dealt = 1;
-			ret = start_read_page2_error_handle(zonep);
-			if (ret < 0) {
-				ndprint(ZONEMANAGER_ERROR,"ERROR: page2_error_handle func %s line %d\n",
-					__FUNCTION__, __LINE__);
-				return ret;
+			if(ISNOWRITE(ret)){
+				memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
+			}
+			else{
+				zonep->page2_error_dealt = 1;
+				ret = start_read_page2_error_handle(zonep);
+				if (ret < 0) {
+					ndprint(ZONEMANAGER_ERROR,"ERROR: page2_error_handle func %s line %d\n",
+							__FUNCTION__, __LINE__);
+					return ret;
+				}
 			}
 		}
-		else
+		else{
 			memcpy(zonep->L1->page, zonep->mem0, zonep->vnand->BytePerPage);
+		}
+	}
+	else{
+		memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
 	}
 
 	return 0;
