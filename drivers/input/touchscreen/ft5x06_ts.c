@@ -122,7 +122,6 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 		ret = i2c_transfer(client->adapter, msgs, 1);
 		if (ret < 0){
 			dev_err(&client->dev, "%s:i2c read error.\n", __func__);
-			ft5x06_ts_release(ft5x06_ts);
 			ft5x06_ts_reset(ft5x06_ts);
 		}
 	}
@@ -506,7 +505,6 @@ static void ft5x06_ts_suspend(struct early_suspend *handler)
 	}
 	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
 	dev_dbg(&ts->client->dev, "[FTS]ft5x06 suspend\n");
-	disable_irq(ts->client->irq);
 }
 
 static void ft5x06_ts_resume(struct early_suspend *handler)
