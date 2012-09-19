@@ -10,6 +10,7 @@
  * published by the Free Software Foundation.
  */
 
+//#define DEBUG
 #include <linux/module.h>
 #include <linux/kernel.h>
 
@@ -303,8 +304,10 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 	unsigned int tmp;
 	unsigned int tmp1;
 
+	//	printk("ipu->img.in_width = %d,  Wdiff = %d\n", ipu->img.in_width, Wdiff);
+	//	printk("outW = %d, outH = %d\n",  outW, outH);
 	tmp1 =ipu->img.in_width - Wdiff;
-	tmp1 >>= 4;	
+	//	tmp1 >>= 4;	
 	tmp = IN_FM_W(tmp1) | IN_FM_H((ipu->img.in_height - Hdiff) & ~0x1);
 	reg_write(ipu, IPU_IN_FM_GS, tmp);
 	tmp = OUT_FM_W(outW) | OUT_FM_H(outH);
@@ -1051,11 +1054,11 @@ static int ipu_start(struct jz_ipu *ipu)
 	}
 
 	img = &ipu->img;
-	ipu_dump_regs(ipu);
+	//ipu_dump_regs(ipu);
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
-		dev_info(ipu->dev, "IPU_OUTPUT_BLOCK_MODE\n");
+	  //		dev_info(ipu->dev, "IPU_OUTPUT_BLOCK_MODE\n");
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
 		ipu->frame_requested++;
 		spin_unlock_irqrestore(&ipu->update_lock, irq_flags);
@@ -1069,8 +1072,19 @@ static int ipu_start(struct jz_ipu *ipu)
 
 	/* start ipu */
 	start_ipu(ipu);
-	ipu_dump_regs(ipu);
-
+#if 0
+	unsigned int tmp;
+	int i;
+	for (i = 0; i < 10; i++) {
+	  tmp = reg_read(ipu, IPU_STATUS);
+	  if (tmp & 0x1) {
+	    //	    printk("out end ~~~~~~~~~~~~~~~>\n");
+	  } else {
+	    //	    printk("not end ~~~~~~\n");
+	  } 
+	}
+#endif
+	//ipu_dump_regs(ipu);
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
@@ -1151,6 +1165,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	set_yuv_stride(ipu);
 
+	//	printk("dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
+	//	printk("img->out_buf_v = %x, img->out_buf_p = %x\n", img->out_buf_v, img->out_buf_p);
 	/* set out put */
 	if ((dpage_map != 0) && (lcdc_sel == 0)) {
 		if (PHYS((unsigned int) img->out_buf_v) == 0) {
@@ -1167,6 +1183,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 				reg_write(ipu, IPU_OUT_ADDR, tmp);  
 			}
 		} else {
+			tmp = PHYS((unsigned int)img->out_buf_v); /* for test */
+			reg_write(ipu, IPU_OUT_ADDR, tmp);  /* for test */
 			enable_dpage_map(ipu);
 		}
 	} else {
@@ -1527,4 +1545,3 @@ module_exit(ipu_cleanup);
 MODULE_DESCRIPTION("Jz4780 IPU driver");
 MODULE_AUTHOR("Sean Tang <ctang@ingenic.cn>");
 MODULE_LICENSE("GPL");
- 
