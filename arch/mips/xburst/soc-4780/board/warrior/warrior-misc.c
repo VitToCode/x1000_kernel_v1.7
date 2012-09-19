@@ -93,6 +93,24 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
+struct timed_gpio vibrator_timed_gpio = {
+	.name		= "vibrator",
+	.gpio		= GPIO_MOTOR_PIN,
+	.active_low	= 0,
+	.max_timeout	= 15000,
+};
+static struct timed_gpio_platform_data vibrator_platform_data = {
+	.num_gpios	= 1,
+	.gpios		= &vibrator_timed_gpio,
+};
+static struct platform_device jz_timed_gpio_device = {
+	.name	= TIMED_GPIO_NAME,
+	.id	= 0,
+	.dev	= {
+		.platform_data	= &vibrator_platform_data,
+	},
+};
+
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data warrior_battery_pdata = {
@@ -241,6 +259,8 @@ static int __init warrior_board_init(void)
 #ifdef CONFIG_RTC_DRV_JZ4780
 	platform_device_register(&jz_rtc_device);
 #endif
+/* timed_gpio */
+	platform_device_register(&jz_timed_gpio_device);
 /* gpio keyboard */
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);

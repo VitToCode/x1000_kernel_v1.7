@@ -82,6 +82,12 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
 
+/**
+ * motor gpio
+ */
+#define GPIO_MOTOR_PIN			GPIO_PB(25) /* PB25 */
+
+
 // #define GPIO_HOME
 // #define ACTIVE_LOW_HOME			1
 // #define GPIO_CALL

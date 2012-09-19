@@ -68,12 +68,6 @@ FIXED_REGULATOR_DEF(
 	"Vcc-5V",	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
-	warrior_vmotor,
-	"Motor",	3300000,
-	GPIO_PB(25),	HIGH_ENABLE,	0,
-	"Vcc-IO",	"vmotor",	"jz_motor");
-
-FIXED_REGULATOR_DEF(
 	warrior_vcim,
 	"Camera",	2800000,
 	GPIO_PB(27),	HIGH_ENABLE,	0,
@@ -88,7 +82,6 @@ FIXED_REGULATOR_DEF(
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&warrior_vcc5_regulator_device,
 	&warrior_vbus_regulator_device,
-	&warrior_vmotor_regulator_device,
 	&warrior_vcim_regulator_device,
 	&warrior_vlcd_regulator_device,
 };
