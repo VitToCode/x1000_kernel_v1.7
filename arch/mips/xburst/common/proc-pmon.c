@@ -50,18 +50,49 @@ struct pmon_data {
 	char buf[BUF_LEN];
 };
 
+void on_each_cpu_pmon_prepare(void *info)
+{
+	pmon_prepare((unsigned int)(info));
+}
+
+void on_each_cpu_pmon_start(void *info)
+{
+	pmon_start();
+}
+
+DEFINE_PER_CPU(unsigned int,csr);
+DEFINE_PER_CPU(unsigned int,high);
+DEFINE_PER_CPU(unsigned int,lc);
+DEFINE_PER_CPU(unsigned int,rc);
+
+void on_each_cpu_pmon_read(void *info)
+{
+	int cpu = smp_processor_id();
+
+	per_cpu(csr, cpu) = get_pmon_csr();
+	per_cpu(high, cpu) = get_pmon_high();
+	per_cpu(lc, cpu) = get_pmon_lc();
+	per_cpu(rc, cpu) = get_pmon_rc();
+}
+
 static int pmon_read_proc(char *page, char **start, off_t off,
 			  int count, int *eof, void *data)
 {
-	int len = 0;
+	int cpu,len = 0;
+	on_each_cpu(on_each_cpu_pmon_read, NULL, 1);
+
 #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-	PRINT("%x %x %x %x\n",
-	      get_pmon_csr(),
-	      get_pmon_high(),
-	      get_pmon_lc(),
-	      get_pmon_rc());
+
+	for_each_online_cpu(cpu)
+	PRINT("CPU%d:\n%x %x %x %x\n",cpu,
+			per_cpu(csr, cpu),
+			per_cpu(high, cpu),
+			per_cpu(lc, cpu),
+			per_cpu(rc, cpu));
+
 	return len;
 }
+
 static int pmon_write_proc(struct file *file, const char __user *buffer,
 			   unsigned long count, void *data)
 {
@@ -75,22 +106,23 @@ static int pmon_write_proc(struct file *file, const char __user *buffer,
 
 	for (i = 0; i < count; ) {
 		if (strncmp(&d->buf[i], "cycle", 5) == 0) {
-			pmon_prepare(PMON_EVENT_CYCLE);
+			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_CYCLE, 1);
 			i += 5 + 1;
 		}
 		else if (strncmp(&d->buf[i], "cache", 5) == 0) {
-			pmon_prepare(PMON_EVENT_CACHE);
+			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_CACHE, 1);
 			i += 5 + 1;
 		}
 		else if (strncmp(&d->buf[i], "inst", 5) == 0) {
-			pmon_prepare(PMON_EVENT_INST);
+			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_INST, 1);
 			i += 4 + 1;
 		}
 		else if (strncmp(&d->buf[i], "start", 5) == 0) {
-			pmon_start();
+			on_each_cpu(on_each_cpu_pmon_start, NULL, 1);
 			break;
 		}
 	}
+	
 	return count;
 }
 
