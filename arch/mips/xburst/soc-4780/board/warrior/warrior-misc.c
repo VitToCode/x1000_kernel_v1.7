@@ -19,6 +19,7 @@
 #include <gpio.h>
 
 #include "warrior.h"
+#include <../drivers/staging/android/timed_gpio.h>
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
