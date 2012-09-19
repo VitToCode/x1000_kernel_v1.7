@@ -555,7 +555,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 //			;
 		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)p->configs.lay[i].global_alpha_val;
 		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)p->configs.lay[i].transform;
-		jz_x2d->chain_p->x2d_lays[i].RGBM =	0;//defualt
+		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)p->configs.lay[i].argb_order;
 		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)p->configs.lay[i].addr;
 		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)p->configs.lay[i].v_addr;
 		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)p->configs.lay[i].u_addr;
