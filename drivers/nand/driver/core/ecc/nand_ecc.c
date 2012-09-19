@@ -134,6 +134,7 @@ static inline void bch_decode_complete(NAND_BASE *host)
 {
 	/* Wait for completion */
 	bch_decode_sync(host);
+	bch_decints_clear(host);
 	bch_disable(host);
 
 }
@@ -221,8 +222,6 @@ static inline int bch_correct_cpu(NAND_BASE *host,unsigned char *databuf, unsign
 	bch_decode_setup_data(host,databuf,eccbuf,eccbit);
 	bch_decode_complete(host);
 	ret =bch_decode_correct(host,databuf);
-
-	bch_decints_clear(host);
 
 	return ret;
 }
