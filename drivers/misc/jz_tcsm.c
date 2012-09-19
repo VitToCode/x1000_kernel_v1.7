@@ -155,13 +155,13 @@ static int tcsm_open(struct inode *inode, struct file *filp)
 		up(&tcsm->tcsm_sem.sem);
 		return -EBUSY;
 	}
-	cpm_set_bit(OPCR_IDLE,CPM_OPCR);
+	cpm_set_bit(31,CPM_OPCR);
 
 	dat = cpm_inl(CPM_CLKGR1);
 	dat &= ~CLKGR1_VPU;	
 	cpm_outl(dat,CPM_CLKGR1);
 
-	cpm_clear_bit(CPM_LCR_PD_VPU,CPM_LCR);	//vpu power on
+	cpm_clear_bit(30,CPM_LCR);	//vpu power on
 
 	__asm__ __volatile__ (
 			"mfc0  $2, $16,  7   \n\t"
@@ -185,7 +185,7 @@ static int tcsm_release(struct inode *inode, struct file *filp)
 
 	pr_info("close tcsm\n");
 	/*power down ahb1*/
-	cpm_set_bit(CPM_LCR_PD_VPU,CPM_LCR);
+	cpm_set_bit(30,CPM_LCR);
 
 	dat = cpm_inl(CPM_CLKGR1);
 
@@ -201,7 +201,7 @@ static int tcsm_release(struct inode *inode, struct file *filp)
 			"mtc0  $2, $16,  7  \n\t"
 			"nop                  \n\t");
 
-	cpm_clear_bit(OPCR_IDLE,CPM_OPCR);
+	cpm_clear_bit(31,CPM_OPCR);
 	spin_unlock_irq(&tcsm->lock);
 	wake_unlock(&tcsm->tcsm_wake_lock);
 	up(&tcsm->tcsm_sem.sem);
