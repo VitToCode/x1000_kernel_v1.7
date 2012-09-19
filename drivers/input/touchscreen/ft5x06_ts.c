@@ -449,7 +449,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	if(err < 0){
 		printk("ft5x06_ts  probe failed\n");
-		goto exit_input_register_device_failed;
+		goto exit_register_earlay_suspend;
 	}
 	dev_dbg(&client->dev, "[FTS] Firmware version = 0x%x\n", uc_reg_value);
 	
@@ -457,7 +457,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	if(err < 0){
 		printk("ft5x06_ts  probe failed\n");
-		goto exit_input_register_device_failed;
+		goto exit_register_earlay_suspend;
 	}
 	dev_dbg(&client->dev, "[FTS] report rate is %dHz.\n",
 		uc_reg_value * 10);
@@ -466,12 +466,15 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	if(err < 0){
 		printk("ft5x06_ts  probe failed\n");
-		goto exit_input_register_device_failed;
+		goto exit_register_earlay_suspend;
 	}
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
 	enable_irq(client->irq);
 	return 0;
+
+exit_register_earlay_suspend:
+	unregister_early_suspend(&ft5x06_ts->early_suspend);
 
 exit_input_register_device_failed:
 	input_free_device(input_dev);
