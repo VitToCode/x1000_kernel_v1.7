@@ -1053,7 +1053,7 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
  *   isbadblock ;
  *   return value : 0 -- valid block , -1 -- invalid block
  */
-int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读写
+int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
 {
         unsigned char state[8][NAND_ECC_POS];  // there are four page per badblock,which stores badblock message
         int ret =0;
@@ -1088,7 +1088,7 @@ int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读�
  *   markbadblock ;
  *
  */
-int markbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读写 ，
+int markbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写 ，
 {
         unsigned char state=0;
         unsigned char bbm[NAND_ECC_POS] ={0x00}; // bad block message
