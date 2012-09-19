@@ -423,7 +423,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	//for error block self partition & badblock
 	//error and last patition all spec is samed
 	lastpt->totalblocks -= (badcnt + pt->totalblocks);
-	lastpt->PageCount -= lastpt->totalblocks * pt->pageperblock;
+	lastpt->PageCount -= (badcnt + pt->totalblocks) * pt->pageperblock;
 
 	//chanage error pt startblock for write & read
 	pt->startblockID += startblock * pt->totalblocks;

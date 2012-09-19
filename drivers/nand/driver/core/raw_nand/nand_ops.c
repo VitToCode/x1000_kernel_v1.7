@@ -1062,8 +1062,8 @@ int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读�
         unsigned char times =g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
         memset(state[0],0xff,8*NAND_ECC_POS);
         pageid =g_startpage + blockid * g_pageperblock;
-        while(times){
-                do_select_chip(host,pageid);
+        while(times--){
+			do_select_chip(host,pageid);
                 while(i<4){
                         send_read_page(g_pagesize+g_pnand_chip->badblockpos,(pageid +i));
                         ret =g_pnand_io->read_data_withrb(state[j], NAND_ECC_POS);
@@ -1076,8 +1076,7 @@ int isbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式读�
                 if(times){
                         pageid +=g_pnand_chip->ppblock;
                         i=0;
-                        times--;
-                }
+				}
         }
         for(i=0;i<8;i++)
                 for(j=0;j< NAND_ECC_POS;j++)
@@ -1098,7 +1097,7 @@ int markbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式�
         unsigned int pageid=0;
         unsigned char times =g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
         pageid =g_startpage + blockid * g_pageperblock;
-        while(times){
+        while(times--){
                 do_select_chip(host,pageid);
                 while(i<4){
                         send_prog_page(g_pagesize+g_pnand_chip->badblockpos,(pageid + i));
@@ -1114,7 +1113,6 @@ int markbadblock(NAND_BASE *host,unsigned int blockid)          //按cpu方式�
                 if(times){
                         pageid +=g_pnand_chip->ppblock;
                         i=0;
-                        times--;
                 }
         }
         return state;
