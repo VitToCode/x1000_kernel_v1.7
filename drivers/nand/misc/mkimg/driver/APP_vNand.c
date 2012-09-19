@@ -13,10 +13,10 @@ struct Nand2K
     int BytePerPage;
     int TotalBlocks;
 	int MaxBadBlockCount;
-} vNandChipInfo = {256,4096,128*4,20}; //512M
+} vNandChipInfo = {128,4096,128*4*2,20}; //512M
 
 
-PPartition ppt[] = {{"ndsystem",64,256,4096,128*4,20,512,64*256,512*256,1, NULL}};
+PPartition ppt[] = {{"ndsystem",64*2,128,4096,128*4*2,20,512,64*256,512*256,1, NULL, NULL}};
 PPartArray partition={1,ppt};
 
 struct vNand2K

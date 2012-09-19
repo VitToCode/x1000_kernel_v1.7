@@ -724,8 +724,10 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 	if (pending & DMINT_N_IP) 
 		mailbox = readl(master->iomem + DMNMB);
 #if 1
-        else
-                return IRQ_HANDLED;
+	else{
+		spin_unlock(&dmac->lock);
+		return IRQ_HANDLED;
+	}
 #else
         else if(pending & DMINT_S_IP)
 		mailbox = readl(master->iomem + DMSMB);

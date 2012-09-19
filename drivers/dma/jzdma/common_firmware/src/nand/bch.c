@@ -148,10 +148,10 @@ void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_b
 	int report = 0;
 
 	__mbch_decode_sync();
-	__bch_disable();
 
 	bch_correct_handle(nand, pipe_buf->pipe_data, err_buf, &report);
 	__bch_decints_clear();
+	__bch_disable();
         
-        nand->report |= report;
+    nand->report |= report;
 }

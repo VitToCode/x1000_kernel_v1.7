@@ -17,7 +17,7 @@
 #include "../inc/vnandinfo.h"   //change later
 //#include "../inc/nand_dma_ops.h"   //change later
 
-#define DEBUG_ERASE
+//#define DEBUG_ERASE
 
 PPartArray partition;
 
