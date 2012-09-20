@@ -143,7 +143,7 @@ char *abrt_src[] = {
 
 
 #define I2C_FIFO_LEN 16
-#define TX_LEVEL 10
+#define TX_LEVEL 5
 #define TIMEOUT	0xff
 
 #define BUFSIZE 200
@@ -456,11 +456,28 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 
 static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 {
-	int i,ret;
+	int i,ret,retry;
+	int timeout = TIMEOUT;
+	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
 	}
+
+	for(retry=0;retry<3;retry++) {
+		timeout = TIMEOUT;
+		while((!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFE) || (tmp = i2c_readl(i2c,I2C_STA) & I2C_STA_MSTACT))
+					&& (--timeout > 0)){
+			msleep(1);
+		}
+		if(timeout > 0)
+			break;
+		else{
+			dev_err(&(i2c->adap.dev),"--I2C transport wait timeout\n");
+			jz_i2c_reset(i2c);
+		}
+	}
+
 	for (i=0;i<count;i++,msg++) {
 		if (msg->flags & I2C_M_RD){
 			ret = xfer_read(i2c,msg->buf,msg->len,count,i);
@@ -574,6 +591,8 @@ static int i2c_jz_probe(struct platform_device *dev)
 	tmp = i2c_readl(i2c,I2C_CTRL);
 	tmp &= ~I2C_CTRL_STPHLD;
 	i2c_writel(i2c,I2C_CTRL,tmp);
+	
+	i2c_writel(i2c,I2C_INTM,0x0); 
 
 	init_completion(&i2c->r_complete);
 	init_completion(&i2c->w_complete);

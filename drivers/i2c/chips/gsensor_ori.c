@@ -41,8 +41,8 @@
 #include <linux/uaccess.h>
 #include <linux/linux_sensors.h>
 
-#define INPUT_FUZZ	32
-#define INPUT_FLAT	32
+#define INPUT_FUZZ	1250
+#define INPUT_FLAT	0
 
 struct input_dev *input_dev;
 

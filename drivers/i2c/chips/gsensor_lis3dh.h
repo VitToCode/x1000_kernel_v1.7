@@ -152,7 +152,7 @@ Revision 1-0-7 26/11/2010
 #define	XTAZ			0x01
 
 
-#define	FUZZ			0
+#define	FUZZ			30
 #define	FLAT			0
 #define	I2C_RETRY_DELAY		5
 #define	I2C_RETRIES		5

@@ -850,7 +850,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			acc->pdata->gpio_int);
 
 	dev_info(&client->dev, "%s: probed\n", LIS3DH_ACC_DEV_NAME);
-	//lis3dh_acc_enable(acc);
+	lis3dh_acc_enable(acc);
 	return 0;
 
 err_power_off:
