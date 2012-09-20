@@ -1151,12 +1151,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		unsigned int clk_set = 0, clkrt = 0;
 		unsigned int clk_want = ios->clock;
 
-		if (host->pdata->sdio_clk) {
-			if(clk_want > SDIO_CLOCK_HIGH)
-				clk_want = SDIO_CLOCK_HIGH;
-		}
-
-		if (clk_want > 362722) {
+		if (clk_want > 25000000) {
 			clk_set_rate(host->clk, 50000000);
 			if(clk_want > SD_CLOCK_HIGH)
 				clk_want = SD_CLOCK_HIGH;
@@ -1170,7 +1165,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			clk_set >>= 1;
 		}
 
-		if ((clk_want > SD_CLOCK_FAST) && clkrt) {
+		if ((clk_want > SD_CLOCK_HIGH) && clkrt) {
 			dev_err(host->dev, "CLKRT must be set to 0 "
 				"when MSC works during normal r/w: "
 				"ios->clock=%d clk_want=%d "
@@ -1190,10 +1185,15 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 		msc_writel(host, CLKRT, clkrt);
 
-		if(host->pdata->sdio_clk)
+		if(host->pdata->sdio_clk) {
 			msc_writel(host, CTRL, CTRL_CLOCK_START);
-		else
-			msc_writel(host, LPM, LPM_LPM);
+		} else {
+			unsigned int lpm = LPM_LPM;
+			if (clk_want)
+				lpm |= 0x2 << LPM_DRV_SEL_SHF;
+
+			msc_writel(host, LPM, lpm);
+		}
 	}
 
 	switch (ios->power_mode) {
@@ -1341,7 +1341,12 @@ static void __init jzmmc_host_init(struct jzmmc_host *host, struct mmc_host *mmc
 	struct jzmmc_platform_data *pdata = host->pdata;
 	mmc->ops = &jzmmc_ops;
 	mmc->f_min = MMC_CLOCK_SLOW;
-	mmc->f_max = SD_CLOCK_HIGH;
+
+	if (host->pdata->sdio_clk)
+		mmc->f_max = SDIO_CLOCK_HIGH;
+	else
+		mmc->f_max = SD_CLOCK_HIGH;
+
 	mmc->ocr_avail = pdata->ocr_avail;
 	mmc->caps |= pdata->capacity;
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
