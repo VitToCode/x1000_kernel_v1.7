@@ -3,6 +3,12 @@
 #include <soc/gpio.h>
 #include <asm/page.h>
 #include <linux/mm.h>
+#include <linux/interrupt.h>
+
+#define CLEAR_GPIO_FLAG(n)         \
+do {						\
+        *(volatile unsigned int *)(0xB0010058+0x100*((n)/32)) = 0x1 << ((n)%32);        \
+} while (0)
 
 #define GET_PHYADDR(a)											\
 	({												\
@@ -25,6 +31,22 @@ enum buf_direction {
 
 static struct completion comp;
 static volatile int mailbox_ret = 0;
+
+static inline void enable_rb_irq(const NAND_API *pnand_api)
+{
+        int rb_irq, irq;
+        rb_irq = pnand_api->vnand_base->rb_irq;
+        irq = pnand_api->vnand_base->irq;
+        CLEAR_GPIO_FLAG(irq);
+        enable_irq(rb_irq);
+}
+
+static inline void disable_rb_irq(const NAND_API *pnand_api)
+{
+        int rb_irq;
+        rb_irq = pnand_api->vnand_base->rb_irq;
+        disable_irq_nosync(rb_irq);
+}
 
 static void data_complete_func(void *arg)
 {
@@ -68,7 +90,6 @@ static void mcu_complete_func(void *arg)
 	}
 	complete(&comp);
 }
-
 
 static bool filter(struct dma_chan *chan, void *data)
 {
@@ -271,17 +292,18 @@ read_page_singlenode_error1:
 int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
 	int ret = 0;
+        disable_rb_irq(pnand_api);
 	//printk("\n@@ read page start @@\n   ..\n");
-        jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret =mcu_reset(pnand_api);
 	if(ret < 0)
-		return ret;
+                goto nand_dma_read_page_error;
         ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
 	//printk("@@ read page ret = 0x%08x @@\n",ret);
         if (ret == 0)
                 ret = bytes;
+nand_dma_read_page_error:
+        enable_rb_irq(pnand_api);
         return ret;
 }
 
@@ -321,18 +343,20 @@ write_page_singlenode_error1:
 int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
         int ret = 0;
-		//printk("\n@@ write page start @@\n   ..\n");
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
+        disable_rb_irq(pnand_api);
+	//printk("\n@@ write page start @@\n   ..\n");
+//	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
-		return ret;
+                goto nand_dma_write_page_error;
 
         ret = write_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
 	//printk("@@ write page ret = 0x%08x @@\n",ret);
         if (ret == 0)
                 ret = bytes;
+nand_dma_write_page_error:
+        enable_rb_irq(pnand_api);
         return ret;
 }
 
@@ -411,8 +435,8 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	PageList *templist;
 	unsigned int opsmodel;
 	int ret = 0,flag =0;
+        disable_rb_irq(pnand_api);
 	//printk("\n@@ read pages start @@\n   ..\n");
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
 		goto dma_read_pages_error1;
@@ -447,7 +471,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	if(flag)
 		ret=1;
 dma_read_pages_error1:
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
+        enable_rb_irq(pnand_api);
 	//printk("@@ read pages ret = 0x%08x @@\n",ret);
 	return ret;
 }
@@ -524,8 +548,8 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	PageList *templist;
 	unsigned int opsmodel;
 	int ret = 0;
+        disable_rb_irq(pnand_api);
 	//printk("\n@@ write pages start @@\n   ..\n");
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0)
 		goto dma_write_pages_error1;
@@ -544,11 +568,10 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 		alignelist =alignelist->next;
 	}
 dma_write_pages_error1:
-	jzgpio_set_func(GPIO_PORT_A,GPIO_INT_RE,0x00100000);
+        enable_rb_irq(pnand_api);
 	//printk("@@ write pages ret = 0x%08x @@\n",ret);
 	return ret;
 }
-
 
 int nand_dma_init(NAND_API *pnand_api)
 {

@@ -158,7 +158,7 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
  * jz_nemc_ctrl_select -
  * @nand_nce:	
  */
-int jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,unsigned int nand_nce)
+int jz_nemc_ctrl_select(NAND_BASE *host,void *pnand_io,int nand_nce)
 {
 	JZ_IO *p_io = (JZ_IO *)pnand_io;
 //	dprintf("DEBUG nand:go into jz4770_nemc.c jz_nemc_ctrl_select\n");

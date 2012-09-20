@@ -17,8 +17,9 @@ struct nand_base{
 	struct clk *nemc_clk;
 	struct clk *bch_clk;
 	/* interrupt vector  */
+	int            irq;
 	int            nemc_irq;
-	int            bch_irq;
+        int            bch_irq;
 	int            rb_irq;
 	/*  physical address to virtual address  */
 	void __iomem        *nemc_iomem;
