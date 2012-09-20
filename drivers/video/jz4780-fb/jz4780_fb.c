@@ -148,6 +148,10 @@ static void jzfb_config_fg0(struct fb_info *info)
 	cfg = LCDC_OSDC_OSDEN | LCDC_OSDC_ALPHAEN;
 	cfg |= 1 << 16; /* once transfer two pixels */
 	/* OSD control register is read only */
+#ifdef CONFIG_IPU_JZ4780
+	/* enable ipu clk */
+	ctrl |= 1 << 15;
+#endif
 
 	if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
 		rgb_ctrl = LCDC_RGBC_RGBFMT | LCDC_RGBC_ODD_BGR |
