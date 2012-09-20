@@ -269,9 +269,6 @@ static inline void __jz_flush_cache_all(void)
 				:
 				: "I" (Index_Store_Tag_I), "r"(addr));
 	}
-
-	asm volatile ("sync");
-
 	/* invalidate BTB */
 	asm volatile (
 			".set mips32\n\t"
@@ -282,6 +279,10 @@ static inline void __jz_flush_cache_all(void)
 			" nop\n\t"
 			".set mips32\n\t"
 		     );
+	asm volatile ("sync\n\t"
+		      "lw $0,0(%0)"
+		      ::"r" (0xa0000000));
+
 }
 
 static inline void __jz_cache_init(void)
@@ -304,8 +305,7 @@ static inline void __jz_cache_init(void)
 				: "I" (Index_Store_Tag_I), "r"(addr));
 	}
 	/* invalidate BTB */
-	asm volatile (
-			".set mips32\n\t"
+	asm volatile (  ".set mips32\n\t"
 			" mfc0 $k0, $16, 7\n\t"
 			" nop\n\t"
 			" ori $k0, 2\n\t"
