@@ -57,8 +57,8 @@ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 #endif /* CUSTOMER_HW2 */
-extern  void IW8101_wlan_power_off(int flag);
-extern  void IW8101_wlan_power_on(int flag);
+extern  int IW8101_wlan_power_off(int flag);
+extern  int IW8101_wlan_power_on(int flag);
 
 #if defined(OOB_INTR_ONLY)
 
@@ -127,6 +127,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 void
 dhd_customer_gpio_wlan_ctrl(int onoff)
 {
+	int ret;
 	switch (onoff) {
 		case WLAN_RESET_OFF:
 			WL_TRACE(("%s: call customer specific GPIO to insert WLAN RESET\n",
@@ -139,7 +140,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 //			wifi_set_reset(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
-			IW8101_wlan_power_off(RESET);
+			ret = IW8101_wlan_power_off(RESET);
+			if(ret < 0){
+				printk("IW8101_wlan_power_off reset failed");
+			}
 		break;
 
 		case WLAN_RESET_ON:
@@ -153,7 +157,11 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			//wifi_set_reset(1, 0);
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
-            IW8101_wlan_power_on(RESET);
+			
+			ret = IW8101_wlan_power_on(RESET);
+			if(ret < 0){
+				printk("IW8101_wlan_power_on reset failed");
+			}
 		break;
 
 		case WLAN_POWER_OFF:
@@ -162,7 +170,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(1);
 #endif /* CUSTOMER_HW */
-			IW8101_wlan_power_off(NORMAL);
+			ret = IW8101_wlan_power_off(NORMAL);
+			if(ret < 0){
+				printk("IW8101_wlan_power_off failed");
+			}
 		break;
 
 		case WLAN_POWER_ON:
@@ -173,7 +184,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			/* Lets customer power to get stable */
 			OSL_DELAY(200);
 #endif /* CUSTOMER_HW */
-			IW8101_wlan_power_on(NORMAL);
+			ret = IW8101_wlan_power_on(NORMAL);
+			if(ret < 0){
+				printk("IW8101_wlan_power_on failed");
+			}
 			OSL_DELAY(300);
 		break;
 	}
