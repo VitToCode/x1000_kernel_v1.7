@@ -33,12 +33,14 @@
 #include <soc/cpm.h>
 #include <soc/irq.h>
 
+#include <linux/clk.h>
 
 #include "jz_tcsm.h"
 
 
 
 struct jz_tcsm {
+	struct device	*dev;
 	spinlock_t lock;
 	int irq;
 	struct wake_lock tcsm_wake_lock;
@@ -46,6 +48,8 @@ struct jz_tcsm {
 	struct tcsm_sem tcsm_sem;
 	struct completion tcsm_comp;
 	struct miscdevice tcsm_mdev;
+	struct clk *clk_vpu;
+	struct clk *clk_cgu_vpu;
 };
 
 #if 0
@@ -117,7 +121,6 @@ static inline enum tcsm_file_cmd tcsm_sem_get_cmd(struct jz_tcsm *tcsm)
 
 static int tcsm_open(struct inode *inode, struct file *filp)
 {
-	unsigned int dat;
 
 	struct miscdevice *dev = filp->private_data;
 	struct jz_tcsm *tcsm = container_of(dev, struct jz_tcsm,tcsm_mdev);
@@ -157,9 +160,20 @@ static int tcsm_open(struct inode *inode, struct file *filp)
 	}
 	cpm_set_bit(31,CPM_OPCR);
 
-	dat = cpm_inl(CPM_CLKGR1);
-	dat &= ~CLKGR1_VPU;	
-	cpm_outl(dat,CPM_CLKGR1);
+	tcsm->clk_vpu = clk_get(tcsm->dev,"vpu");
+	if(!tcsm->clk_vpu) {
+		pr_info("In %s:%s-->clk get vpu failed\n", __FILE__, __func__);
+		return -ENODEV;
+	}
+	clk_enable(tcsm->clk_vpu);
+
+	tcsm->clk_cgu_vpu = clk_get(tcsm->dev, "cgu_vpu");
+	if (IS_ERR(tcsm->clk_cgu_vpu)) {
+		pr_info("In %s:%s-->clk get cgu_vpu failed\n", __FILE__, __func__);
+		return -ENODEV;
+	}
+	clk_set_rate(tcsm->clk_cgu_vpu,300000000);
+	clk_enable(tcsm->clk_cgu_vpu);
 
 	cpm_clear_bit(30,CPM_LCR);	//vpu power on
 
@@ -304,7 +318,7 @@ static int tcsm_probe(struct platform_device *dev)
 		ret = -ENOMEM;
 		goto no_mem;
 	}
-
+	tcsm->dev = &dev->dev;
 	tcsm->irq = platform_get_irq(dev, 0);
 	tcsm->tcsm_mdev.minor = TCSM_MINOR;
 	tcsm->tcsm_mdev.name =  "jz-tcsm";
