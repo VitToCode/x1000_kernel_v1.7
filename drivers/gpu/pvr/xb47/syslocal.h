@@ -139,13 +139,13 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	atomic_t	sNotifyLockCPU;
 	IMG_BOOL	bCallVDD2PostFunc;
 #endif
-#if defined(DEBUG) || defined(TIMING)
-	struct clk	*psGPT11_FCK;
-	struct clk	*psGPT11_ICK;
-#endif
-	IMG_UINT32 ui32SGXFreqListSize;
+	struct clk	*psTimer_Gate;
+	struct clk	*psTimer_Divider;
+
+        IMG_UINT32 ui32SGXFreqListSize;
 	IMG_UINT32 *pui32SGXFreqList;
 	IMG_UINT32 ui32SGXFreqListIndex;
+    
 #endif	
 } SYS_SPECIFIC_DATA;
 

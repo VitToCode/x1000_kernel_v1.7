@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright (C) Imagination Technologies Ltd. All rights reserved.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
+ *
+ * This program is distributed in the hope it will be useful but, except
+ * as otherwise stated in writing, without any warranty; without even the
+ * implied warranty of merchantability or fitness for a particular purpose.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
+ *
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
  *
  ******************************************************************************/
 
@@ -128,7 +128,7 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 #if defined(SYS_XB47_HAS_DVFS_FRAMEWORK)
 	psTimingInfo->ui32CoreClockSpeed =
 		gpsSysSpecificData->pui32SGXFreqList[gpsSysSpecificData->ui32SGXFreqListIndex];
-#else 
+#else
 	psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
 #endif
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ;
@@ -137,16 +137,18 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 	psTimingInfo->bEnableActivePM = IMG_TRUE;
 #else
 	psTimingInfo->bEnableActivePM = IMG_FALSE;
-#endif 
+#endif
 	psTimingInfo->ui32ActivePowManLatencyms = SYS_SGX_ACTIVE_POWER_LATENCY_MS;
 }
 
 PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 {
+    //    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+
 #if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 
-	
+
 	if (atomic_read(&psSysSpecData->sSGXClocksEnabled) != 0)
 	{
 		return PVRSRV_OK;
@@ -164,7 +166,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 		pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
 		max_freq_index = psSysSpecData->ui32SGXFreqListSize - 2;
 
-		
+
 		if (psSysSpecData->ui32SGXFreqListIndex != max_freq_index)
 		{
 			PVR_ASSERT(pdata->device_scale != IMG_NULL);
@@ -187,7 +189,11 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 			}
 		}
 	}
-#endif 
+#endif
+        {
+            clk_enable(psSysSpecData->psTimer_Gate);
+        }
+
 	{
 		int res = pm_runtime_get_sync(&gpsPVRLDMDev->dev);
 		if (res < 0)
@@ -196,26 +202,28 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 			return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;
 		}
 	}
-#endif 
+#endif
 
 	SysEnableSGXInterrupts(psSysData);
 
-	
+
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 1);
 
-#else	
+#else
 	PVR_UNREFERENCED_PARAMETER(psSysData);
-#endif	
+#endif
 	return PVRSRV_OK;
 }
 
 
 IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 {
+    //    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+
 #if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 
-	
+
 	if (atomic_read(&psSysSpecData->sSGXClocksEnabled) == 0)
 	{
 		return;
@@ -240,7 +248,7 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 
 		pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
 
-		
+
 		if (psSysSpecData->ui32SGXFreqListIndex != 0)
 		{
 			PVR_ASSERT(pdata->device_scale != IMG_NULL);
@@ -263,66 +271,72 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 			}
 		}
 	}
-#endif 
-#endif 
+#endif
+        {
 
-	
+        }
+#endif
+
+        {
+            clk_disable(psSysSpecData->psTimer_Gate);
+        }
+
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
 
-#else	
+#else
 	PVR_UNREFERENCED_PARAMETER(psSysData);
-#endif	
+#endif
 }
 
 static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 {
 #if defined(PVR_XB47_TIMING_CPM)
-	PVRSRV_ERROR eError;
+        PVRSRV_ERROR eError;
+        struct clk *sys_ck;
+        struct clk *psCLK;
 
-	IMG_CPU_PHYADDR sTimerRegPhysBase;
-	IMG_HANDLE hTimerEnable;
-	IMG_UINT32 *pui32TimerEnable;
-
-	PVR_ASSERT(psSysSpecData->sTimerRegPhysBase.uiAddr == 0);
-	
-	sTimerRegPhysBase.uiAddr = SYS_XB4780_GPU_TIMER_ENABLE_SYS_PHYS_BASE;
-	pui32TimerEnable = OSMapPhysToLin(sTimerRegPhysBase,
-                  4,
-                  PVRSRV_HAP_KERNEL_ONLY|PVRSRV_HAP_UNCACHED,
-                  &hTimerEnable);
-
-	if (pui32TimerEnable == IMG_NULL)
-	{
-		PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: OSMapPhysToLin failed"));
-		goto ExitDisableGPT11ICK;
-	}
-
-        PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: pui32TimerEnable = %p", pui32TimerEnable));
-	
         // Turn on the light
         outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
         do {
             printk("Waiting for GPU power\n");
         } while ((inl(0x10000004) & (1 << 25)));
 
-        // Open the gate
-        *pui32TimerEnable &= (~(1 << 4));
-        // Set clock
-        outl(0xA0000003, 0x10000088);
+	sys_ck = clk_get(NULL, "gpu");
+	if (IS_ERR(sys_ck))
+	{
+            PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: Couldn't get GPTIMER11 functional clock"));
+            eError = PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
+            goto Exit;
+	}
+	psSysSpecData->psTimer_Gate = sys_ck;
 
-	OSUnMapPhysToLin(pui32TimerEnable,
-		    4,
-		    PVRSRV_HAP_KERNEL_ONLY|PVRSRV_HAP_UNCACHED,
-		    hTimerEnable);
+        psCLK = clk_get(NULL, "cgu_gpu");
+	if (IS_ERR(psCLK))
+	{
+            PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: Couldn't get GPTIMER11 functional clock"));
+            goto ExitPutGate;
+	}
+	psSysSpecData->psTimer_Divider = psCLK;
 
-	psSysSpecData->sTimerRegPhysBase = sTimerRegPhysBase;
+        clk_enable(psSysSpecData->psTimer_Gate);
+        clk_set_rate(psSysSpecData->psTimer_Divider, 300000000);
+	if (clk_get_rate(psSysSpecData->psTimer_Divider) > 300000000)
+            goto ExitDisableTimerGate;
+        clk_enable(psSysSpecData->psTimer_Divider);
+
+        //        printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
 
 	eError = PVRSRV_OK;
 
 	goto Exit;
 
-ExitDisableGPT11ICK:
+ExitDisableTimerGate:
+        clk_disable(psSysSpecData->psTimer_Gate);
 	eError = PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
+        clk_put(psSysSpecData->psTimer_Divider);
+ExitPutGate:
+        clk_put(psSysSpecData->psTimer_Gate);
+        eError = PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
 Exit:
 	return eError;
 
@@ -337,35 +351,24 @@ Exit:
 static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 {
 #if defined(PVR_XB47_TIMING_CPM)
-	IMG_HANDLE hTimerDisable;
-	IMG_UINT32 *pui32TimerDisable;
 
-	if (psSysSpecData->sTimerRegPhysBase.uiAddr == 0)
-	{
-		return;
-	}
+    //    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
 
-	
-	pui32TimerDisable = OSMapPhysToLin(psSysSpecData->sTimerRegPhysBase,
-				4,
-				PVRSRV_HAP_KERNEL_ONLY|PVRSRV_HAP_UNCACHED,
-				&hTimerDisable);
+	clk_disable(psSysSpecData->psTimer_Gate);
+        clk_disable(psSysSpecData->psTimer_Divider);
+	clk_put(psSysSpecData->psTimer_Gate);
+	clk_put(psSysSpecData->psTimer_Divider);
 
-	if (pui32TimerDisable == IMG_NULL)
-	{
-		PVR_DPF((PVR_DBG_ERROR, "DisableSystemClocks: OSMapPhysToLin failed"));
-	}
-	else
-	{
-		*pui32TimerDisable |= (1 << 4);
+        // Waiting for IDLE
+        do {
+            printk("Waiting for GPU to idle\n");
+        } while (!(inl(0x10000004) & (1 << 24)));
 
-		OSUnMapPhysToLin(pui32TimerDisable,
-				4,
-				PVRSRV_HAP_KERNEL_ONLY|PVRSRV_HAP_UNCACHED,
-				hTimerDisable);
-	}
-
-	psSysSpecData->sTimerRegPhysBase.uiAddr = 0;
+        // Turn off the light
+        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
+        do {
+            printk("Waiting for GPU power down\n");
+        } while (!(inl(0x10000004) & (1 << 25)));
 
 #else //#if defined(PVR_XB47_TIMING_CPM)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecData);
@@ -396,7 +399,7 @@ IMG_VOID DisableSystemClocks(SYS_DATA *psSysData)
 
 	PVR_TRACE(("DisableSystemClocks: Disabling System Clocks"));
 
-	
+
 	DisableSGXClocks(psSysData);
 
 	ReleaseGPTimer(psSysSpecData);
@@ -423,13 +426,13 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 #if !defined(SYS_XB47_HAS_DVFS_FRAMEWORK)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecificData);
 
-#else 
+#else
 	IMG_UINT32 i, *freq_list;
 	IMG_INT32 opp_count;
 	unsigned long freq;
 	struct opp *opp;
 
-	
+
 	rcu_read_lock();
 	opp_count = opp_get_opp_count(&gpsPVRLDMDev->dev);
 	if (opp_count < 1)
@@ -439,7 +442,7 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 		return PVRSRV_ERROR_NOT_SUPPORTED;
 	}
 
-	
+
 	freq_list = kmalloc((opp_count + 1) * sizeof(IMG_UINT32), GFP_ATOMIC);
 	if (!freq_list)
 	{
@@ -448,7 +451,7 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
 
-	
+
 	freq = 0;
 	for (i = 0; i < opp_count; i++)
 	{
@@ -469,9 +472,9 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	psSysSpecificData->ui32SGXFreqListSize = opp_count + 1;
 	psSysSpecificData->pui32SGXFreqList = freq_list;
 
-	
+
 	psSysSpecificData->ui32SGXFreqListIndex = opp_count;
-#endif 
+#endif
 
 	return PVRSRV_OK;
 }
@@ -480,8 +483,8 @@ PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
 #if !defined(SYS_XB47_HAS_DVFS_FRAMEWORK)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecificData);
-#else 
-	
+#else
+
 	if (psSysSpecificData->ui32SGXFreqListIndex != 0)
 	{
 		struct gpu_platform_data *pdata;
@@ -508,7 +511,7 @@ PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	kfree(psSysSpecificData->pui32SGXFreqList);
 	psSysSpecificData->pui32SGXFreqList = 0;
 	psSysSpecificData->ui32SGXFreqListSize = 0;
-#endif 
+#endif
 
 	return PVRSRV_OK;
 }

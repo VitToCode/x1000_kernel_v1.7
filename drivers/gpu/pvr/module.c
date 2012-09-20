@@ -76,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #if defined(PVR_LDM_PLATFORM_PRE_REGISTERED)
 #if !defined(NO_HARDWARE)
-//#define PVR_USE_PRE_REGISTERED_PLATFORM_DEV
+#define PVR_USE_PRE_REGISTERED_PLATFORM_DEV
 #endif
 #endif
 
@@ -548,18 +548,18 @@ PVR_MOD_STATIC int PVRSRVDriverSuspend(LDM_DEV *pDevice, pm_message_t state)
 			/* The bridge mutex will be held until we resume */
 			bDriverIsSuspended = IMG_TRUE;
 
-                        do {
-                            printk("Waiting for GPU to idle\n");
-                        } while (!(inl(0x10000004) & (1 << 24)));
+                        /* do { */
+                        /*     printk("Waiting for GPU to idle\n"); */
+                        /* } while (!(inl(0x10000004) & (1 << 24))); */
 
-                        // Turn off the light
-                        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
-                        do {
-                            printk("Waiting for GPU power down\n");
-                        } while (!(inl(0x10000004) & (1 << 25)));
+                        /* // Turn off the light */
+                        /* outl((inl(0x10000004) | (1 << 29)), 0x10000004); */
+                        /* do { */
+                        /*     printk("Waiting for GPU power down\n"); */
+                        /* } while (!(inl(0x10000004) & (1 << 25))); */
 
-                        // Close the gate
-                        outl((inl(0x10000028) | (1 << 4)), 0x10000028);
+                        /* // Close the gate */
+                        /* outl((inl(0x10000028) | (1 << 4)), 0x10000028); */
 		}
 		else
 		{
@@ -615,16 +615,16 @@ PVR_MOD_STATIC int PVRSRVDriverResume(LDM_DEV *pDevice)
 		{
 			bDriverIsSuspended = IMG_FALSE;
 
-                        // Turn on the light
-                        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
-                        do {
-                            printk("Waiting for GPU power\n");
-                        } while ((inl(0x10000004) & (1 << 25)));
+                        /* // Turn on the light */
+                        /* outl((inl(0x10000004) & ~(1 << 29)), 0x10000004); */
+                        /* do { */
+                        /*     printk("Waiting for GPU power\n"); */
+                        /* } while ((inl(0x10000004) & (1 << 25))); */
 
-                        // Close the gate
-                        outl((inl(0x10000028) & ~(1 << 4)), 0x10000028);
-                        // Set clock
-                        outl(0xA0000003, 0x10000088);
+                        /* // Open the gate */
+                        /* outl((inl(0x10000028) & ~(1 << 4)), 0x10000028); */
+                        /* // Set clock */
+                        /* outl(0xA0000003, 0x10000088); */
 
 			LinuxUnLockMutex(&gPVRSRVLock);
 		}
