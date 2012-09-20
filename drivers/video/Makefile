@@ -159,7 +159,7 @@ obj-$(CONFIG_FB_MXS)		  += mxsfb.o
 obj-$(CONFIG_FB_JZ4780_LCDC0)     += jz4780-fb/
 obj-$(CONFIG_FB_JZ4780_LCDC1)     += jz4780-fb/
 obj-$(CONFIG_HDMI_JZ4780)	  += jz4780-hdmi/
-obj-$(CONFIG_IPU_JZ4780)  	  += jz4780-ipu/
+obj-$(CONFIG_JZ4780_IPU)  	  += jz4780-ipu/
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
