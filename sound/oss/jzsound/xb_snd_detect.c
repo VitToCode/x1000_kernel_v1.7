@@ -86,10 +86,12 @@ static int snd_switch_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int snd_switch_resume(struct platform_device *pdev)
 {
-	struct snd_switch_data *switch_data = platform_get_drvdata(pdev);
+	struct snd_switch_data *switch_data = pdev->dev.platform_data;
 
-	if (!switch_data)
-		return -1;
+	if (!switch_data) {
+		printk("hp detect device resume fail.\n");
+		return 0;
+	}
 
 	snd_switch_work(&switch_data->work);
 
@@ -179,7 +181,7 @@ err_switch_dev_register:
 
 static int __devexit snd_switch_remove(struct platform_device *pdev)
 {
-	struct snd_switch_data *switch_data = platform_get_drvdata(pdev);
+	struct snd_switch_data *switch_data = pdev->dev.platform_data;
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		cancel_work_sync(&switch_data->work);

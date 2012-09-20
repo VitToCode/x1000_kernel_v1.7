@@ -269,7 +269,7 @@ const struct file_operations xb_snd_fops = {
 \********************************************************/
 static int xb_snd_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
 	ENTER_FUNC()
 	if (ddata && ddata->suspend)
@@ -283,7 +283,7 @@ static int xb_snd_suspend(struct platform_device *pdev, pm_message_t state)
 \********************************************************/
 static int xb_snd_resume(struct platform_device *pdev)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
 	ENTER_FUNC()
 	if (ddata && ddata->resume)
