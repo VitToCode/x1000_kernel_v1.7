@@ -32,6 +32,7 @@
 
 #include <smp_cp0.h>
 
+#include <soc/cache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
 
@@ -342,27 +343,9 @@ void jzsoc_cpu_die(unsigned int cpu)
 
 void play_dead(void)
 {
-#define cache_prefetch(label)						\
-	do{								\
-		unsigned long addr,size,end;				\
-		/* Prefetch codes from label */				\
-		addr = (unsigned long)(&&label) & ~(32 - 1);		\
-		size = 32 * 6; /* load 128 cachelines */		\
-		end = addr + size;					\
-		for (; addr < end; addr += 32) {			\
-			__asm__ volatile (				\
-					".set mips32\n\t"			\
-					" cache %0, 0(%1)\n\t"			\
-					".set mips32\n\t"			\
-					:					\
-					: "I" (Index_Prefetch_I), "r"(addr));	\
-		}							\
-	}								\
-	while(0)
-
 	while(1) {
 		blast_dcache32();
-		cache_prefetch(IDLE_PROGRAM);
+		cache_prefetch(IDLE_PROGRAM,IDLE_PROGRAM_END);
 IDLE_PROGRAM:
 		__asm__ __volatile__ ("	.set	push		\n"
 				"	.set	mips3		\n"
@@ -372,6 +355,8 @@ IDLE_PROGRAM:
 				"	.set	pop		\n"
 				:: "r" (0xa0000000)
 				);
+IDLE_PROGRAM_END:
+		__asm__ __volatile__ ("nop\n\t");
 	}
 }
 
