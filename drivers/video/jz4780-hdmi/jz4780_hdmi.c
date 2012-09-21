@@ -55,6 +55,7 @@ static void hpd_callback(void *param)
 		dev_info(global_hdmi->dev, "HPD DISCONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_DISCONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED; 
+		global_hdmi->init == 0;
 	} else {
 		dev_info(global_hdmi->dev, "HPD CONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
@@ -553,21 +554,34 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	}
 
 	jzhdmi->hdmi_clk = clk_get(&pdev->dev, "hdmi");
-	if (IS_ERR(jzhdmi->hdmi_clk)) {
-		ret = PTR_ERR(jzhdmi->hdmi_clk);
+	clk_enable(jzhdmi->hdmi_clk);
+
+	jzhdmi->hdmi_cgu_clk = clk_get(&pdev->dev, "cgu_hdmi");
+	if (IS_ERR(jzhdmi->hdmi_cgu_clk)) {
+		ret = PTR_ERR(jzhdmi->hdmi_cgu_clk);
 		dev_err(&pdev->dev, "Failed to get hdmi clock: %d\n", ret);
 		goto err_free_pVideo_mem;
 	}
+	clk_disable(jzhdmi->hdmi_cgu_clk);
+	clk_set_rate(jzhdmi->hdmi_cgu_clk,27000000);
+	clk_enable(jzhdmi->hdmi_cgu_clk);
+
+	jzhdmi->hdmi_power = regulator_get(&pdev->dev, "vhdmi");
+	if (IS_ERR(jzhdmi->hdmi_power)) {
+		dev_err(&pdev->dev, "failed to get regulator vhdmi\n");
+		ret = -EINVAL;
+		goto err_put_hdmi_clk;
+	}
+	regulator_enable(jzhdmi->hdmi_power);
 
 	jzhdmi->base = ioremap(mem->start, resource_size(mem));
 	if (!jzhdmi->base) {
 		dev_err(&pdev->dev, "Failed to ioremap register memory\n");
 		ret = -EBUSY;
-		goto err_put_hdmi_clk;
+		goto err_regulator_put;
 	}
 
 	/*request_irq in bsp/system.c*/
-
 	jzhdmi->hdmi_switch.name = "hdmi";
 	ret = switch_dev_register(&jzhdmi->hdmi_switch);
 	if (ret < 0){
@@ -629,8 +643,10 @@ err_switch_dev_unregister:
 	switch_dev_unregister(&jzhdmi->hdmi_switch);
 err_iounmap:
 	iounmap(jzhdmi->base);
+err_regulator_put:
+	regulator_put(jzhdmi->hdmi_power);
 err_put_hdmi_clk:
-	clk_put(jzhdmi->hdmi_clk);
+	clk_put(jzhdmi->hdmi_cgu_clk);
 err_free_pVideo_mem:
 	kzfree(jzhdmi->hdmi_params.pVideo);
 err_free_pHdcp_mem:
@@ -668,7 +684,9 @@ static int __devexit jzhdmi_remove(struct platform_device *pdev)
 	destroy_workqueue(jzhdmi->workqueue);
 	switch_dev_unregister(&jzhdmi->hdmi_switch);
 	iounmap(jzhdmi->base);
+	regulator_put(jzhdmi->hdmi_power);
 	clk_put(jzhdmi->hdmi_clk);
+	clk_put(jzhdmi->hdmi_cgu_clk);
 	release_mem_region(jzhdmi->mem->start, resource_size(jzhdmi->mem));
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

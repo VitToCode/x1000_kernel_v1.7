@@ -1,6 +1,7 @@
 #ifndef __JZ4780_HDMI_H__
 #define __JZ4780_HDMI_H__
 
+#include <linux/regulator/consumer.h>
 #include "api/api.h"
 #include "edid/edid.h"
 #include "util/log.h"
@@ -80,6 +81,7 @@ struct jzhdmi{
 	void __iomem *base;
 	struct resource *mem;
 	struct clk *hdmi_clk;
+	struct clk *hdmi_cgu_clk;
 	unsigned int init;
 
 	atomic_t opened;
@@ -95,6 +97,7 @@ struct jzhdmi{
 	struct hdmi_device_params hdmi_params;
 	struct early_suspend  early_suspend;
 	struct hdmi_info hdmi_info;
+	struct regulator *hdmi_power;
 
 	unsigned int hpd_connected;
 	unsigned int edid_done;

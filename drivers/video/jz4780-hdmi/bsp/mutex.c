@@ -31,7 +31,7 @@ int mutex_Lock(void* pHandle)
 {
 	struct semaphore *mutex = (struct semaphore *)pHandle;
 
-	down(mutex);
+//	down(mutex);
 	return TRUE;
 }
 
@@ -39,6 +39,6 @@ int mutex_Unlock(void* pHandle)
 {
 	struct semaphore *mutex = (struct semaphore *)pHandle;
 
-	up(mutex);
+//	up(mutex);
 	return TRUE;
 }
