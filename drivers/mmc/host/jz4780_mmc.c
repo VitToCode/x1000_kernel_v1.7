@@ -95,6 +95,7 @@ static LIST_HEAD(manual_list);
  * @decshds[]: Descriptor DMA information structure.
  * @state: It's the state for request.
  * @list: list head for manually detect card such as wifi.
+ * @double_enter: prevent state machine reenter.
  */
 struct jzmmc_host {
 	struct jzmmc_platform_data *pdata;
@@ -125,6 +126,8 @@ struct jzmmc_host {
 	struct desc_hd 		decshds[MAX_SEGS];
 	enum jzmmc_state 	state;
 	struct list_head	list;
+
+	unsigned int		double_enter;
 };
 
 #define ERROR_IFLG (				\
@@ -366,9 +369,8 @@ static void jzmmc_state_machine(struct jzmmc_host *host, unsigned int status)
 {
 	struct mmc_request *mrq = host->mrq;
 	struct mmc_data *data = host->data;
-	static unsigned char double_enter = 0;
 
-	WARN_ON(double_enter++);
+	WARN_ON(host->double_enter++);
 start:
 	dev_vdbg(host->dev, "enter state: %d\n", host->state);
 
@@ -446,7 +448,7 @@ start:
 	}
 
 	dev_vdbg(host->dev, "exit state: %d\n", host->state);
-	double_enter--;
+	host->double_enter--;
 }
 
 static void jzmmc_tasklet(unsigned long data)
