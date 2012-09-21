@@ -20,11 +20,11 @@ static const u16 MC_BASE_ADDR = 0x4000;
 static const u16 PHY_I2CM_BASE_ADDR = 0x3020;
 static const u8 PHY_I2C_SLAVE_ADDR = 0x69;
 
-
+#if 0
 #define ZCALCLK	GPIO_PE(30) /* GPE(30) */
 #define ZCALRST GPIO_PE(31) /* GPE(31) */
 #define ZCALDONE GPIO_PE(19) /* GPE(19) */
-
+#endif
 
 #define PHY_GEN2_TSMC_40LP_2_5V
 int phy_Initialize(u16 baseAddr, u8 dataEnablePolarity)
@@ -69,7 +69,6 @@ int phy_Initialize(u16 baseAddr, u8 dataEnablePolarity)
 	__gpio_as_input(ZCALCLK);
 	__gpio_disable_pull(ZCALCLK);
 	__gpio_as_input(ZCALDONE);
-#endif
 
 	gpio_request_one(ZCALRST, GPIOF_DIR_OUT, "phy-ZCALRST");
 	gpio_request_one(ZCALCLK, GPIOF_DIR_IN, "phy-ZCALCLK");
@@ -77,6 +76,7 @@ int phy_Initialize(u16 baseAddr, u8 dataEnablePolarity)
 	gpio_direction_output(ZCALRST, 1);
 	gpio_direction_input(ZCALCLK);
 	gpio_direction_input(ZCALDONE);
+#endif
 
 #else
 	LOG_NOTICE("Third Party PHY build");
@@ -116,6 +116,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	 * the bits 0x0A, and  block 2 (ie. [9:5]) the bits 0x0A */
 	/* configure PLL after core pixel repetition */
 #ifdef PHY_GEN2_TSMC_40LP_2_5V
+#if 0
 	wait_zdone = 0;
 	//while(1);
 
@@ -135,7 +136,7 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 		//kthread_stop(zcalclk);
 		wait_zdone = 0;
 	}
-
+#endif
 	halSourcePhy_Gen2TxPowerOn(baseAddr + PHY_BASE_ADDR, 0);
 	halSourcePhy_Gen2PDDQ(baseAddr + PHY_BASE_ADDR, 1);
 	halMainController_PhyReset(baseAddr + MC_BASE_ADDR, 0);
@@ -1094,7 +1095,7 @@ int phy_HotPlugDetected(u16 baseAddr)
 	 *   0			0			0			1			0
 	 *   0			1			0			0			1
 	 *   0			0			1			0			0
-	 *   0			1   		1			1			1
+	 *   0			1			1			1			1
 	 *   1			x			x			0			x
 	 */
 	int polarity = 0;
