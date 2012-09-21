@@ -148,9 +148,9 @@ static void jzfb_config_fg0(struct fb_info *info)
 	cfg = LCDC_OSDC_OSDEN | LCDC_OSDC_ALPHAEN;
 	cfg |= 1 << 16; /* once transfer two pixels */
 	/* OSD control register is read only */
-#ifdef CONFIG_IPU_JZ4780
-	/* enable ipu clk */
-	ctrl |= 1 << 15;
+#ifdef CONFIG_JZ4780_IPU
+	/* enable ipu clock */
+	ctrl |= LCDC_OSDCTRL_IPU_CLKEN;
 #endif
 
 	if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
@@ -1325,16 +1325,16 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
 		if (jzfb->id != 1) {
-			dev_err(info->dev, "LCDC 0 can't accessing 0x130a02c8");
+			dev_err(info->dev, "IPU WB isn't available in LCDC0");
 			return -EFAULT;
 		}
-		tmp = inl(LCDC_CTRL_OUTPUT);
+		tmp = reg_read(jzfb, LCDC_DUAL_CTRL);
 		if (value) {
-			tmp |= LCDC_CTRL_OUTPUT_IPU02BUF;
-			outl(tmp, LCDC_CTRL_OUTPUT);
+			tmp |= LCDC_DUAL_CTRL_IPU_WR_SEL;
+			reg_write(jzfb, LCDC_DUAL_CTRL, tmp);
 		} else {
-			tmp &= ~LCDC_CTRL_OUTPUT_IPU02BUF;
-			outl(tmp, LCDC_CTRL_OUTPUT);
+			tmp &= ~LCDC_DUAL_CTRL_IPU_WR_SEL;
+			reg_write(jzfb, LCDC_DUAL_CTRL, tmp);
 		}
 		break;
 	case JZFB_ENABLE_FG0:
@@ -1724,7 +1724,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret;
 	int i;
-	unsigned int lco; /* lcd control output */
+	unsigned int dual_ctrl; /* Dual LCDC Channel Control */
 	struct jzfb *jzfb;
 	struct fb_info *fb;
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
@@ -1809,13 +1809,15 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	jzfb->fmt_order = FORMAT_X8R8G8B8;
 
-	lco = inl(LCDC_CTRL_OUTPUT);
+	if (jzfb->id == 1) {
+		dual_ctrl = reg_read(jzfb, LCDC_DUAL_CTRL);
 #ifdef CONFIG_MAP_DATABUS_TO_LCDC0
-	lco |= LCDC_CTRL_OUTPUT_LCDC02TFT;
+		dual_ctrl |= LCDC_DUAL_CTRL_TFT_SEL;
 #else
-	lco &= ~LCDC_CTRL_OUTPUT_LCDC02TFT;
+		dual_ctrl &= ~LCDC_DUAL_CTRL_TFT_SEL;
 #endif
-	outl(lco, LCDC_CTRL_OUTPUT);
+		reg_write(jzfb, LCDC_DUAL_CTRL, dual_ctrl);
+	}
 
 	jzfb_check_var(&fb->var, fb);
 

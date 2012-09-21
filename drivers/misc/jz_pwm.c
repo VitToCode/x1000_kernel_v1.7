@@ -37,7 +37,7 @@ struct pwm_device *pwm_request(int id, const char *label)
 	tcu_pwm->pwm_flag = 1;
 	tcu_pwm->irq_type = NULL_IRQ_MODE;
 	tcu_pwm->init_level = 1;
-	printk("+++++++++++request pwm_channel successfully!!++++++++\n");
+	printk("request pwm channel %d successfully\n", id);
 	return &pwm_chs[id];
 }
 
@@ -86,7 +86,7 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	tcu_pwm->pwm_shutdown = 1;
 
 	if(tcu_as_timer_config(tcu_pwm) != 0) return -EINVAL;
-	printk("++++++++++++pwm_config successfully!!+++++++++\n");
+
 	return 0;
 }
 

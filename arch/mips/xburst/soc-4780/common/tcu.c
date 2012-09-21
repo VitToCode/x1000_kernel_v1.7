@@ -480,7 +480,7 @@ struct tcu_device *tcu_request(int channel_num,void (*channel_handler)(unsigned 
 		tcu_chs[channel_num].tcumode = TCU2_MODE;
 	else 
 		tcu_chs[channel_num].tcumode = TCU1_MODE;
-	printk("request channel number:%d ------\n",channel_num);
+	printk("request tcu channel number:%d\n", channel_num);
 
 	clear_bit(channel_num, tcu_map);
 	mutex_unlock(&jz47xx_tcu->lock);
@@ -522,7 +522,7 @@ int tcu_as_timer_config(struct tcu_device *tcu)
 		tcu_set_pwm_output_init_level(tcu->id,1);
 
 //	printk("tcu_control register = 0x%08x\n",regr(CH_TCSR(tcu->id)));
-	printk(":::::::config tcu ok!!!::::::::::::::\n");
+
 	return 0;
        
 }
@@ -533,7 +533,7 @@ int tcu_as_counter_config(struct tcu_device *tcu)
 		return -EINVAL;
 	if (test_bit(tcu->id, tcu_map))
 		return -EINVAL;
-	printk("-------tcu_config channel: %d--------\n", tcu->id);
+	//printk("-------tcu_config channel: %d--------\n", tcu->id);
 	tcu_set_start_state(tcu);
 
 	set_tcu_counter_value(tcu->id,tcu->count_value);
