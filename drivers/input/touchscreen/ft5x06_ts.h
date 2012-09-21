@@ -21,6 +21,7 @@
 #define FT_TOUCH_Y_L_POS		6
 #define FT_TOUCH_EVENT_POS		3
 #define FT_TOUCH_ID_POS			5
+#define FT_TOUCH_WEIGHT			7
 
 #define POINT_READ_BUF	(3 + FT_TOUCH_STEP * CFG_MAX_TOUCH_POINTS)
 

@@ -42,6 +42,7 @@ struct ts_event {
 	u8 au8_touch_event[CFG_MAX_TOUCH_POINTS];	/*touch event:
 					0 -- down; 1-- contact; 2 -- contact */
 	u8 au8_finger_id[CFG_MAX_TOUCH_POINTS];	/*touch ID */
+	u8 weight[CFG_MAX_TOUCH_POINTS];	/*touch weight */
 	u16 pressure;
 	u8 touch_point;
 	u8 touch_num;
@@ -183,6 +184,7 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 	u8 buf[POINT_READ_BUF] = { 0 };
 	int ret = -1;
 	int i = 0;
+
 	u8 pointid = FT_MAX_ID;
 	memset(event, 0, sizeof(struct ts_event));
 	event->touch_point = 0;
@@ -213,8 +215,8 @@ static int ft5x06_read_Touchdata(struct ft5x06_ts_data *data)
 		    buf[FT_TOUCH_EVENT_POS + FT_TOUCH_STEP * i] >> 6;
 		event->au8_finger_id[i] =
 		    (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
+		event->weight[i]=(buf[FT_TOUCH_WEIGHT + FT_TOUCH_STEP * i]);
 	}
-
 	event->pressure = FT_PRESS;
 
 	return 0;
@@ -252,9 +254,9 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 		 input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 				event->au8_finger_id[i]);
 		input_report_abs(data->input_dev,ABS_MT_TOUCH_MAJOR,
-				event->pressure);
+				event->weight[i]);
 		input_report_abs(data->input_dev,ABS_MT_WIDTH_MAJOR,
-				event->pressure);
+				event->weight[i]);
 		input_mt_sync(data->input_dev);
 	}
 	input_sync(data->input_dev);
