@@ -30,7 +30,7 @@
 #include <asm/uasm.h>
 #include <asm/r4kcache.h>
 
-#include "smp_cp0.h"
+#include <smp_cp0.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -297,6 +297,7 @@ void jzsoc_cpus_done(void)
 int jzsoc_cpu_disable(void)
 {
 	unsigned int cpu = smp_processor_id();
+	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
 
@@ -305,6 +306,15 @@ int jzsoc_cpu_disable(void)
 
 	set_cpu_online(cpu, false);
 	cpu_clear(cpu, cpu_callin_map);
+
+	smp_spinlock();
+	status = get_smp_reim();
+	if(status & (1 << (cpu + 8))) {
+		status &= ~(1 << (cpu + 8));
+		status |= (1 << 8); // irq to cpu0
+		set_smp_reim(status);
+	}
+	smp_spinunlock();
 
 	blast_dcache32();
 	blast_icache32();
@@ -436,3 +446,18 @@ void jzsoc_mbox_interrupt(void)
 
 }
 
+void switch_cpu_irq(int cpu) {
+	int status,pending;
+	int nextcpu = (cpu + 1) % 2;
+	smp_spinlock();
+	if(cpu_online(nextcpu)){
+		status = get_smp_reim();
+		status &= ~(3 << 8);
+		status |=  1 << (nextcpu + 8);
+		set_smp_reim(status);
+	}
+	pending = get_smp_status();
+	pending &= ~(1 << (cpu + 8));
+	set_smp_status(pending);
+	smp_spinunlock();
+}

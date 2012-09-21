@@ -20,6 +20,8 @@
 #include <soc/irq.h>
 #include <soc/ost.h>
 
+#include <smp_cp0.h>
+
 #define TRACE_IRQ        1
 #define PART_OFF	0x20
 
@@ -69,13 +71,49 @@ static int intc_irq_set_wake(struct irq_data *data, unsigned int on)
 	intc_irq_ctrl(data, -1, !!on);
 	return 0;
 }
+static unsigned int cpu_irq_affinity[NR_CPUS * 2];
+static unsigned int cpu_irq_unmask[NR_CPUS * 2];
 
+static inline void set_intc_cpu(unsigned long irq_num,long cpu) {
+	int mask,i;
+	int num = irq_num / 32;
+	mask = 1 << (irq_num % 32);
+	cpu_irq_affinity[num] |= mask;
+	for(i = 0;i < NR_CPUS;i++) {
+		if(i != cpu)
+			cpu_irq_unmask[i * NR_CPUS + num] &= ~mask;
+	}
+}
+static inline void init_intc_affinity(void) {
+	int i;
+	for(i = 0;i < NR_CPUS;i++) {
+		cpu_irq_unmask[i * NR_CPUS + 0] = 0xffffffff;
+		cpu_irq_unmask[i * NR_CPUS + 1] = 0xffffffff;
+		cpu_irq_affinity[i * NR_CPUS + 0] = 0;
+		cpu_irq_affinity[i * NR_CPUS + 1] = 0;
+	}
+}
+#ifdef CONFIG_SMP
+static int intc_set_affinity(struct irq_data *data, const struct cpumask *dest, bool force) {
+	long i,cpu;
+	unsigned int irq = data->irq;
+	i = cpumask_first(dest);
+
+	/* Convert logical CPU to physical CPU */
+	cpu = cpu_logical_map(i);
+	printk("intc_set_affinity = %d irq: %d i:%ld cpu:%ld\n",smp_processor_id(),irq,i,cpu);
+	return 0;
+}
+#endif
 static struct irq_chip jzintc_chip = {
 	.name 		= "jz-intc",
 	.irq_mask	= intc_irq_mask,
 	.irq_mask_ack 	= intc_irq_mask,
 	.irq_unmask 	= intc_irq_unmask,
 	.irq_set_wake 	= intc_irq_set_wake,
+#ifdef CONFIG_SMP
+	.irq_set_affinity = intc_set_affinity,
+#endif
 };
 
 #ifdef CONFIG_SMP
@@ -142,61 +180,48 @@ void __init arch_init_irq(void)
 		irq_set_chip_data(i, (void *)(i - IRQ_OST_BASE));
 		irq_set_chip_and_handler(i, &ost_irq_type, handle_level_irq);
 	}
-
+	init_intc_affinity();
+	set_intc_cpu(26,0);
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
 
 #ifdef CONFIG_SMP
 	setup_ipi();
-#endif	
+#endif
 	return;
 }
-
+extern 	void switch_cpu_irq(int cpu);
 static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
+	unsigned long cpuid = smp_processor_id();
+	ipr[0] = readl(intc_base + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS];
+	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS + 1];
 
-	ipr[0] = readl(intc_base + IPR_OFF);
-	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
 	if (ipr[0]) {
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
 	}
 	if (ipr[1]) {
 		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
 	}
-	return;
+	switch_cpu_irq(cpuid);
 }
 
 asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int cause = read_c0_cause();
 	unsigned int pending = cause & read_c0_status() & ST0_IM;
-#ifdef TRACE_IRQ
-	int count = 0;
-#endif
-	do{
-		if (cause & CAUSEF_IP4) {
-			do_IRQ(IRQ_OST); 
-		}	
+	if (cause & CAUSEF_IP4) {
+		do_IRQ(IRQ_OST);
+	}
 #ifdef CONFIG_SMP
-		if(pending & CAUSEF_IP3)
-			do_IRQ(IRQ_SMP_IPI); 
+	if(pending & CAUSEF_IP3)
+		do_IRQ(IRQ_SMP_IPI);
 #endif
-		if(pending & CAUSEF_IP2)
-			intc_irq_dispatch();
-		cause = read_c0_cause();
-		pending = cause & read_c0_status() & ST0_IM;
-#ifdef TRACE_IRQ
-		if(count++ > 64) {
-		      pr_err("cause:%x  status:%x\n",read_c0_cause(),read_c0_status());
-		      pr_err("ipr0:%x   ipi1:%x\n",readl(intc_base + IPR_OFF),readl(intc_base + PART_OFF + IPR_OFF));
-		      while(1);
-		      break;
-	         }
-#endif
-	}while(pending);
-
-	return;
+	if(pending & CAUSEF_IP2)
+		intc_irq_dispatch();
+	cause = read_c0_cause();
+	pending = cause & read_c0_status() & ST0_IM;
 }
 
 void arch_suspend_disable_irqs(void)
@@ -229,4 +254,3 @@ void arch_suspend_enable_irqs(void)
 	writel(0xffffffff & ~intc_saved[1], intc_base + PART_OFF + IMCR_OFF);
 	local_irq_enable();
 }
-
