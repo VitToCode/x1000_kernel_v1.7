@@ -92,6 +92,7 @@ struct dmmu_global_data {
 
 static struct dmmu_global_data jz_dmmu;
 
+static int dmmu_alloc_page_table(struct proc_page_tab_data *table);
 static int dmmu_free_page_table(struct proc_page_tab_data *table);
 //static int table_free_buffer_heap_list(struct proc_page_tab_data *table);
 static int check_pid(struct proc_page_tab_data *table);
@@ -340,24 +341,22 @@ static int dmmu_open(struct inode *inode, struct file *file)
 		return -1;
 	}
 #endif
-
-	table = kmalloc(sizeof(struct proc_page_tab_data), GFP_KERNEL);
+	table = kzalloc(sizeof(struct proc_page_tab_data), GFP_KERNEL);
 	if (table == NULL) {
 		dev_err(jz_dmmu.dev, "dmmu: unable to allocate memory for dmmu metadata.\n");
 		return -1;
 	}
-	table->pid = current->tgid;
-	table->tid = current->pid;
-	table->bitmap_table_id = TABLE_ID_BITMAP_NONE;	/* clear */
-	table->base = jz_dmmu.base;
-	table->vbase = jz_dmmu.vbase;
-	table->size = jz_dmmu.size;
+	mutex_init(&table->buffer_list_lock);
+	ret = dmmu_alloc_page_table(table);
+	if (ret < 0) {
+		dev_err(jz_dmmu.dev, "dmmu_alloc_page_table failed!!!");
+		return -EFAULT;
+	}
 
 	dev_info(jz_dmmu.dev, "base: 0x%08x, vbase: %p, size: %d\n", 
 			 table->base, table->vbase, table->size);
 	dev_info(jz_dmmu.dev, "pid: %d, tgid: %d!\n", table->pid, table->tid);
 
-	mutex_init(&table->buffer_list_lock);
 	INIT_LIST_HEAD(&table->buffer_heap_list);
 	INIT_LIST_HEAD(&table->dup_page_list);
 
@@ -414,7 +413,7 @@ static int dmmu_alloc_page_table(struct proc_page_tab_data *table)
 	}
 	for (i=0; i < global_data->page_table_pool_init_capacity; i++) {
 		if (bitmap & (1<<i)) {
-			dev_err(jz_dmmu.dev, "bitmap i: %d\n", i);
+			dev_info(jz_dmmu.dev, "bitmap i: %d\n", i);
 			break;
 		}
 	}
@@ -425,7 +424,7 @@ static int dmmu_alloc_page_table(struct proc_page_tab_data *table)
 	}
 
 	table->bitmap_table_id = (1<<i);
-	global_data->page_table_pool_init_capacity &= ~(table->bitmap_table_id);
+	global_data->table_pool_bitmap &= ~(table->bitmap_table_id);
 	mutex_unlock(&global_data->page_table_pool_lock);
 
 	/* get page table */
@@ -433,7 +432,8 @@ static int dmmu_alloc_page_table(struct proc_page_tab_data *table)
 	table->vbase = (unsigned char *)((unsigned int)global_data->vbase + DEFAULT_PAGE_TABLE_SIZE*i);
 
 	table->size = DEFAULT_PAGE_TABLE_SIZE;
-
+	table->pid = current->tgid;
+	table->tid = current->pid;
 	/* init table */
 	//init_page_table(table);
 

@@ -4,6 +4,8 @@
 /*
  * IOCTL_XXX commands
  */
+#define X2D_IOCTL_MAGIC 'X'
+
 #define IOCTL_X2D_SET_CONFIG			0xf01
 #define IOCTL_X2D_START_COMPOSE		0xf02
 #define IOCTL_X2D_GET_MY_CONFIG		0xf03
@@ -109,9 +111,9 @@ typedef struct x2d_chain_info
 	uint32_t   dst_argb;
 	uint32_t   dst_fmt;
 	x2d_lay_info x2d_lays[4];
-}x2d_chain_info, *x2d_chain_info_p;
+} x2d_chain_info, *x2d_chain_info_p;
 
-struct src_layer{
+struct src_layer {
 	int format;
 	int transform;// such as rotate or mirror
 	int global_alpha_val;
@@ -158,7 +160,7 @@ struct jz_x2d_config{
 	int dst_back_en;		//DST_CTRL_STR -back_en
 	int dst_preRGB_en;		//DST_CTRL_STR -preM_en
 	int dst_glb_alpha_en;	//DST_CTRL_STR -Glba_en
-	int dst_backpure_en;	//DST_CTRL_STR -Msk_en
+	int dst_mask_en;	    //DST_CTRL_STR -Msk_en
 	//int dst_backpic_alpha_en;
 
 	//src layers
