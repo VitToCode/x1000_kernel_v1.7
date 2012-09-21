@@ -38,7 +38,7 @@
 #define PXPAT1		0x30   /* Port Pattern 1 Set Reg. */
 #define PXPAT1S		0x34   /* Port Pattern 1 Set Reg. */
 #define PXPAT1C		0x38   /* Port Pattern 1 Clear Reg. */
-#define PXPAT0		0x44   /* Port Pattern 0 Register */
+#define PXPAT0		0x40   /* Port Pattern 0 Register */
 #define PXPAT0S		0x44   /* Port Pattern 0 Set Register */
 #define PXPAT0C		0x48   /* Port Pattern 0 Clear Register */
 #define PXFLG		0x50   /* Port Flag Register */
@@ -575,28 +575,6 @@ int __init setup_gpio_pins(void)
 }
 
 arch_initcall(setup_gpio_pins);
-#define PXPIN		0x00   /* PIN Level Register */
-#define PXINT		0x10   /* Port Interrupt Register */
-#define PXINTS		0x14   /* Port Interrupt Set Register */
-#define PXINTC		0x18   /* Port Interrupt Clear Register */
-#define PXMSK		0x20   /* Port Interrupt Mask Reg */
-#define PXMSKS		0x24   /* Port Interrupt Mask Set Reg */
-#define PXMSKC		0x28   /* Port Interrupt Mask Clear Reg */
-#define PXPAT1		0x30   /* Port Pattern 1 Set Reg. */
-#define PXPAT1S		0x34   /* Port Pattern 1 Set Reg. */
-#define PXPAT1C		0x38   /* Port Pattern 1 Clear Reg. */
-#define PXPAT0		0x44   /* Port Pattern 0 Register */
-#define PXPAT0S		0x44   /* Port Pattern 0 Set Register */
-#define PXPAT0C		0x48   /* Port Pattern 0 Clear Register */
-#define PXFLG		0x50   /* Port Flag Register */
-#define PXFLGC		0x58   /* Port Flag clear Register */
-#define PXOENS		0x64   /* Port Output Disable Set Register */
-#define PXOENC		0x68   /* Port Output Disable Clear Register */
-#define PXPEN		0x70   /* Port Pull Disable Register */
-#define PXPENS		0x74   /* Port Pull Disable Set Register */
-#define PXPENC		0x78   /* Port Pull Disable Clear Register */
-#define PXDSS		0x84   /* Port Drive Strength set Register */
-#define PXDSC		0x88   /* Port Drive Strength clear Register */
 
 static int gpio_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
