@@ -33,7 +33,7 @@
 
 struct nand_ctrl
 {
-        int (*chip_select) (NAND_BASE *host,void *pnand_io,unsigned int cs);
+        int (*chip_select) (NAND_BASE *host,void *pnand_io,int cs);
         void (*setup_default) (NAND_BASE *host,void *pnand_io);
         void (*setup_later) (NAND_BASE *host,void *pnand_io,void *flash_chip);
 };

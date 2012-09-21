@@ -616,6 +616,8 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	struct resource         *regs;
 	int             irq;
 	int ret=0;
+        /* disable nand 'WP' */
+        gpio_direction_output(GPIO_PF(22), 1);
 
 	g_pdev = pdev;
 	g_pnand_api.pdev = (void *)pdev;
@@ -637,10 +639,10 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	/*   get nemc clock and bch clock   */
 	g_pnand_api.vnand_base->nemc_clk =clk_get(&pdev->dev,"nemc");
 	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"bch");
-
+/*
 	clk_set_rate(g_pnand_api.vnand_base->nemc_clk,48000000);
 	clk_set_rate(g_pnand_api.vnand_base->bch_clk,48000000);
-
+*/
 	clk_enable(g_pnand_api.vnand_base->nemc_clk);
 	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
@@ -685,7 +687,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	}
 	g_pnand_api.vnand_base->pdma_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->pdma_iomem =(void __iomem *)regs->start;
-	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq=irq;
+	g_pnand_api.vnand_base->irq = g_pnand_api.pnand_base->irq=irq;
 
 	/*  nand chip port resource  */
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 3);
@@ -699,13 +701,13 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	//	printk(" nemc_cs6_iomem = 0x%x *********\n",regs->start);
 	/*   nand rb irq request */
 
-        printk("irq  is  %d\n",g_pnand_api.pnand_base->rb_irq);
-	if (gpio_request_one(g_pnand_api.pnand_base->rb_irq,
+        printk("irq  is  %d\n",g_pnand_api.pnand_base->irq);
+	if (gpio_request_one(g_pnand_api.pnand_base->irq,
 				GPIOF_DIR_IN, "nand_rb")) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
 		goto nand_probe_error4;
 	}
-	irq = gpio_to_irq(g_pnand_api.pnand_base->rb_irq);
+	irq = gpio_to_irq(g_pnand_api.pnand_base->irq);
 	printk("%d------------------\n",irq);
 	ret = request_irq(irq,jznand_waitrb_interrupt,IRQF_DISABLED | IRQF_TRIGGER_RISING,
 			"jznand-wait-rb",NULL);
@@ -713,6 +715,8 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&g_pdev->dev,"request detect irq-%d fail\n",gpio_to_irq(GPIOA_20_IRQ));
 		goto nand_probe_error4;
 	}
+	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
+
 	Register_NandDriver(&jz_nand_interface);
 
 	printk("INFO: nand probe finish!\n");
