@@ -898,10 +898,16 @@ struct platform_device jz_rtc_device = {
 
 static struct resource jz_tcsm_resource[] = {
 	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = AUX_IOBASE,
+		.end = AUX_IOBASE + 0x20000 - 1,
+	},
+	[1] = {
 		.start = IRQ_VPU,
 		.end   = IRQ_VPU,
 		.flags = IORESOURCE_IRQ,
 	},
+
 };
 
 struct platform_device jz_tcsm_device = {

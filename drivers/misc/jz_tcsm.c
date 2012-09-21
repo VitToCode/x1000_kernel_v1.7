@@ -1,7 +1,7 @@
 /*
  * linux/drivers/misc/tcsm.c
  *
- * Virtual device driver with tricky appoach to manage TCSM 
+ * Virtual device driver with tricky appoach to manage TCSM
  *
  * Copyright (C) 2006  Ingenic Semiconductor Inc.
  *
@@ -37,12 +37,34 @@
 
 #include "jz_tcsm.h"
 
+#define REG_VPU_STAT      0x00034
+#define VPU_STAT_ENDF    (0x1<<0)
+#define VPU_STAT_BPF     (0x1<<1)
+#define VPU_STAT_ACFGERR (0x1<<2)
+#define VPU_STAT_TIMEOUT (0x1<<3)
+#define VPU_STAT_JPGEND  (0x1<<4)
+#define VPU_STAT_BSERR   (0x1<<7)
+#define VPU_STAT_TLBERR  (0x1F<<10)
+#define VPU_STAT_SLDERR  (0x1<<16)
+
+#define REG_VPU_JPGC_STAT 0xE0008
+#define JPGC_STAT_ENDF   (0x1<<31)
+
+#define REG_VPU_SDE_STAT  0x90000
+#define SDE_STAT_BSEND   (0x1<<1)
+
+#define REG_VPU_DBLK_STAT 0x70070
+#define DBLK_STAT_DOEND  (0x1<<0)
+
+#define REG_VPU_AUX_STAT  0xA0010
+#define AUX_STAT_MIRQP   (0x1<<0)
 
 
 struct jz_tcsm {
 	struct device	*dev;
 	spinlock_t lock;
 	int irq;
+	void __iomem		*iomem;
 	struct wake_lock tcsm_wake_lock;
 	struct tcsm_mmap param;
 	struct tcsm_sem tcsm_sem;
@@ -50,7 +72,10 @@ struct jz_tcsm {
 	struct miscdevice tcsm_mdev;
 	struct clk *clk_vpu;
 	struct clk *clk_cgu_vpu;
+	unsigned int irq_status;
 };
+#define __tcsm_read(tcsm,offset) __raw_readl((tcsm)->iomem + offset)
+#define __tcsm_write(tcsm,offset,value) __raw_writel((value), (tcsm)->iomem + offset)
 
 #if 0
 static void init_vpu_irq(void)
@@ -107,7 +132,7 @@ static inline enum tcsm_file_cmd tcsm_sem_get_cmd(struct jz_tcsm *tcsm)
 					break;
 				case R_ONLY:
 					file_cmd = BLOCK;
-					break;			
+					break;
 				default:
 					file_cmd = RETURN_NOW;
 					break;
@@ -204,7 +229,7 @@ static int tcsm_release(struct inode *inode, struct file *filp)
 	dat = cpm_inl(CPM_CLKGR1);
 
 	disable_irq_nosync(tcsm->irq);
-	dat |= CLKGR1_VPU;	
+	dat |= CLKGR1_VPU;
 	pr_info("dat = 0x%08x\n",dat);
 	cpm_outl(dat,CPM_CLKGR1);
 
@@ -220,7 +245,7 @@ static int tcsm_release(struct inode *inode, struct file *filp)
 	wake_unlock(&tcsm->tcsm_wake_lock);
 	up(&tcsm->tcsm_sem.sem);
 	tcsm->tcsm_sem.owner_pid = 0;
-	return 0;	
+	return 0;
 }
 
 static ssize_t tcsm_read(struct file *filp, char *buf, size_t size, loff_t *l)
@@ -279,25 +304,53 @@ static int tcsm_mmap(struct file *file, struct vm_area_struct *vma)
 #endif
 	if (io_remap_pfn_range(vma,vma->vm_start, off >> PAGE_SHIFT,vma->vm_end - vma->vm_start,vma->vm_page_prot))
 		return -EAGAIN;
-	return 0; 
+	return 0;
 }
 
 /*
  * Module init and exit
  */
 
-
-/*this need modify ???*/
-#define AUX_BASE                (0xb32a0000)
-#define AUX_MIRQP               (AUX_BASE +0x10)
 static irqreturn_t vpu_interrupt(int irq, void *dev)
 {
 	struct jz_tcsm *tcsm = dev;
-	void __iomem *aux_mirqp = (void __iomem *)AUX_MIRQP;
-	writel((readl(aux_mirqp)&(~0x01)),aux_mirqp);
+	int vpu_stat;
+	vpu_stat = __tcsm_read(tcsm,REG_VPU_STAT);
+	tcsm->irq_status = vpu_stat;
+#define CLEAR_TCSM_BIT(tcsm,offset,bm)				\
+	do {							\
+		unsigned int stat;				\
+		stat = __tcsm_read(tcsm,REG_VPU_SDE_STAT);	\
+		__tcsm_write(tcsm,REG_VPU_SDE_STAT,stat & ~(bm));	\
+	}while(0)
+
+	if(vpu_stat & VPU_STAT_TLBERR) {
+		pr_info("[EYER] INTC: VPU TLB error!\n");
+	} else if(vpu_stat & VPU_STAT_BSERR) {
+		pr_info("[EYER] INTC: VPU BS error!\n");
+	} else if(vpu_stat & VPU_STAT_ACFGERR) {
+		pr_info("[EYER] INTC: VPU ACFG error!\n");
+	}
+	else if(vpu_stat & VPU_STAT_ENDF) {
+		if(vpu_stat & VPU_STAT_JPGEND) {
+			pr_debug("[EYER] INTC: VPU(JPG) successfully done!\n");
+			CLEAR_TCSM_BIT(tcsm,REG_VPU_JPGC_STAT,JPGC_STAT_ENDF);
+		} else {
+			pr_debug("[EYER] INTC: VPU(SCH) successfully done!\n");
+			CLEAR_TCSM_BIT(tcsm,REG_VPU_SDE_STAT,SDE_STAT_BSEND);
+			CLEAR_TCSM_BIT(tcsm,REG_VPU_DBLK_STAT,DBLK_STAT_DOEND);
+		}
+	} else {
+		if(__tcsm_read(tcsm,REG_VPU_AUX_STAT) & AUX_STAT_MIRQP) {
+			pr_debug("[EYER] INTC: VPU(AUX) successfully done!\n");
+			CLEAR_TCSM_BIT(tcsm,REG_VPU_AUX_STAT,AUX_STAT_MIRQP);
+		} else {
+			pr_info("[EYER] INTC: illegal interrupt happened!\n");
+		}
+	}
 
 	complete(&tcsm->tcsm_comp);
-	return IRQ_HANDLED; 
+	return IRQ_HANDLED;
 }
 
 static struct file_operations tcsm_misc_fops = {
@@ -312,23 +365,32 @@ static struct file_operations tcsm_misc_fops = {
 static int tcsm_probe(struct platform_device *dev)
 {
 	int ret;
-
+	struct resource			*regs;
 	struct jz_tcsm *tcsm = kzalloc(sizeof(struct jz_tcsm), GFP_KERNEL);
 	if (!tcsm) {
 		ret = -ENOMEM;
 		goto no_mem;
 	}
+	regs = platform_get_resource(dev, IORESOURCE_MEM, 0);
+	if (!regs) {
+		dev_err(&dev->dev, "No iomem resource\n");
+		ret = -ENXIO;
+	}
 	tcsm->dev = &dev->dev;
-	tcsm->irq = platform_get_irq(dev, 0);
+	tcsm->iomem = ioremap(regs->start, resource_size(regs));
+	if (!tcsm->iomem) {
+		ret = -ENXIO;
+		goto fail_ioremap;
+	}
+	tcsm->irq = platform_get_irq(dev, 1);
 	tcsm->tcsm_mdev.minor = TCSM_MINOR;
 	tcsm->tcsm_mdev.name =  "jz-tcsm";
 	tcsm->tcsm_mdev.fops = &tcsm_misc_fops;
-
+	spin_lock_init(&tcsm->lock);
 	ret = misc_register(&tcsm->tcsm_mdev);
 	if (ret < 0) {
-		goto no_mem;
+		goto fail_register;
 	}
-
 	platform_set_drvdata(dev, tcsm);
 
 	wake_lock_init(&tcsm->tcsm_wake_lock, WAKE_LOCK_SUSPEND, "tcsm");
@@ -336,17 +398,24 @@ static int tcsm_probe(struct platform_device *dev)
 	tcsm_sem_init(tcsm);
 
 	init_completion(&tcsm->tcsm_comp);
-	ret = request_irq(tcsm->irq,vpu_interrupt,
-			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+	ret = request_irq(tcsm->irq,vpu_interrupt,IRQF_DISABLED,
 			"vpu",tcsm);
 	if (ret < 0) {
 		ret = -ENODEV;
-		goto no_mem;
+		goto fail_irq;
 	}
 	disable_irq_nosync(tcsm->irq);
+
 	pr_info("Virtual Driver of JZ TCSM registered\n");
 	return 0;
+
+fail_register:
+	free_irq(tcsm->irq,tcsm);
+fail_irq:
+	iounmap(tcsm->iomem);
+fail_ioremap:
 no_mem:
+	kfree(tcsm);
 	return ret;
 }
 
