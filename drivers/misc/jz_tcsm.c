@@ -380,15 +380,22 @@ static int tcsm_probe(struct platform_device *dev)
 	tcsm->iomem = ioremap(regs->start, resource_size(regs));
 	if (!tcsm->iomem) {
 		ret = -ENXIO;
-		goto fail_ioremap;
+		pr_err("%s %d ioremap failed!",__FILE__,__LINE__);
+		goto fail_resource;
 	}
-	tcsm->irq = platform_get_irq(dev, 1);
+	tcsm->irq = platform_get_irq(dev, 0);
+	if(tcsm->irq < 0) {
+		ret = -ENXIO;
+		pr_err("%s %d platform_get_irq failed!",__FILE__,__LINE__);
+		goto fail_resource;
+	}
 	tcsm->tcsm_mdev.minor = TCSM_MINOR;
 	tcsm->tcsm_mdev.name =  "jz-tcsm";
 	tcsm->tcsm_mdev.fops = &tcsm_misc_fops;
 	spin_lock_init(&tcsm->lock);
 	ret = misc_register(&tcsm->tcsm_mdev);
 	if (ret < 0) {
+		pr_err("%s %d misc_register failed!\n",__FILE__,__LINE__);
 		goto fail_register;
 	}
 	platform_set_drvdata(dev, tcsm);
@@ -402,6 +409,7 @@ static int tcsm_probe(struct platform_device *dev)
 			"vpu",tcsm);
 	if (ret < 0) {
 		ret = -ENODEV;
+		pr_err("%s %d request_irq failed! %d\n",__FILE__,__LINE__,tcsm->irq);
 		goto fail_irq;
 	}
 	disable_irq_nosync(tcsm->irq);
@@ -409,13 +417,14 @@ static int tcsm_probe(struct platform_device *dev)
 	pr_info("Virtual Driver of JZ TCSM registered\n");
 	return 0;
 
-fail_register:
-	free_irq(tcsm->irq,tcsm);
+
 fail_irq:
+	misc_deregister(&tcsm->tcsm_mdev);
+fail_register:
 	iounmap(tcsm->iomem);
-fail_ioremap:
-no_mem:
+fail_resource:
 	kfree(tcsm);
+no_mem:
 	return ret;
 }
 
