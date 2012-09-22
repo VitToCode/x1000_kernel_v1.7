@@ -39,7 +39,7 @@ static spinlock_t i2s0_irq_lock;
 static struct snd_switch_data switch_data;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints i2s0_endpoints;
-
+static struct clk *codec_sysclk = NULL;
 static struct workqueue_struct *i2s0_work_queue;
 static struct work_struct	i2s0_codec_work;
 
@@ -80,23 +80,6 @@ static void dump_i2s0_reg(void)
 static int i2s0_suspend(struct platform_device *, pm_message_t state);
 static int i2s0_resume(struct platform_device *);
 static void i2s0_shutdown(struct platform_device *);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static int is_i2s0_suspended = 0;
-
-static void i2s0_late_resume(struct early_suspend *h)
-{
-	if (is_i2s0_suspended && cur_codec)
-		cur_codec->codec_ctl(CODEC_RESUME, 0);
-
-	is_i2s0_suspended = 0;
-}
-
-static struct early_suspend jz_i2s_early_suspend = {
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-	.resume = i2s0_late_resume,
-};
-#endif
 
 /*##################################################################*\
   |* codec control
@@ -587,6 +570,7 @@ static void i2s0_dma_need_reconfig(int mode)
 static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
+	unsigned long tmp_rate = 0;
 
 	switch (cmd) {
 	case SND_DSP_ENABLE_REPLAY:
@@ -752,6 +736,66 @@ static long i2s0_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 	case SND_DSP_SET_DEVICE:
 		if (cur_codec)
+			tmp_rate = cur_codec->replay_rate;
+		if (tmp_rate == 0)
+			tmp_rate = 44100;
+		ret = 0;
+		if (*(unsigned int *)arg == SND_DEVICE_HDMI) {
+			__i2s0_stop_bitclk();
+			__i2s0_stop_ibitclk();
+			if (strcmp(cur_codec->name,"hdmi")) {
+				i2s0_match_codec("hdmi");
+				__i2s0_external_codec();
+				__i2s0_master_clkset();
+				if (codec_sysclk == NULL)
+					break;
+				__i2s0_disable_sysclk_output();
+				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+					printk("codec hdmi set rate fail.\n");
+				}
+				clk_enable(codec_sysclk);
+				__i2s0_start_bitclk();
+				__i2s0_start_ibitclk();
+				i2s0_set_rate(&tmp_rate,CODEC_WMODE);
+			}
+		} else {
+			if (!strcmp(cur_codec->name,"hdmi")) {
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
+				i2s0_match_codec("internal_codec");
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC)
+				i2s0_match_codec("external_codec");
+#endif
+
+#if defined(CONFIG_JZ_EXTERNAL_CODEC)
+				__i2s0_external_codec();
+#endif
+
+				if (cur_codec->codec_mode == CODEC_MASTER) {
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
+					__i2s0_internal_codec_master();
+#endif
+					__i2s0_slave_clkset();
+					__i2s0_enable_sysclk_output();
+				} else if (cur_codec->codec_mode == CODEC_SLAVE) {
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
+					__i2s0_internal_codec_slave();
+#endif
+					__i2s0_master_clkset();
+					__i2s0_disable_sysclk_output();
+				}
+
+				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+					printk("codec hdmi set rate fail.\n");
+				}
+				clk_enable(codec_sysclk);
+				__i2s0_start_bitclk();
+				__i2s0_start_ibitclk();
+			}
+		}
+
+		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_SET_DEVICE,arg);
 		break;
 	default:
@@ -839,7 +883,6 @@ static int i2s0_global_init(struct platform_device *pdev)
 	struct dsp_pipe *i2s0_pipe_out = NULL;
 	struct dsp_pipe *i2s0_pipe_in = NULL;
 	struct clk *i2s0_clk = NULL;
-	struct clk *codec_sysclk = NULL;
 
 	i2s0_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (i2s0_resource == NULL) {
@@ -923,15 +966,15 @@ static int i2s0_global_init(struct platform_device *pdev)
 		__i2s0_internal_codec_master();
 #endif
 		__i2s0_slave_clkset();
+		/*sysclk output*/
+		__i2s0_enable_sysclk_output();
 	} else if (cur_codec->codec_mode == CODEC_SLAVE) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC)
 		__i2s0_internal_codec_slave();
 #endif
 		__i2s0_master_clkset();
+		__i2s0_disable_sysclk_output();
 	}
-
-	/*sysclk output*/
-	__i2s0_enable_sysclk_output();
 
 	/*set sysclk output for codec*/
 	codec_sysclk = clk_get(&pdev->dev,"cgu_aic");
@@ -992,9 +1035,6 @@ static int i2s0_init(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&jz_i2s_early_suspend);
-#endif
 	ret = i2s0_global_init(pdev);
 
 	return ret;
@@ -1017,9 +1057,6 @@ static int i2s0_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_SUSPEND,0);
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		is_i2s0_suspended = 1;
-#endif
 	__i2s0_disable();
 	return 0;
 }
@@ -1027,10 +1064,8 @@ static int i2s0_suspend(struct platform_device *pdev, pm_message_t state)
 static int i2s0_resume(struct platform_device *pdev)
 {
 	__i2s0_enable();
-#ifndef CONFIG_HAS_EARLYSUSPEND
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_RESUME,0);
-#endif
 	return 0;
 }
 
@@ -1049,13 +1084,14 @@ static int jz_get_hp0_switch_state(void)
 	return value;
 }
 
-void jz_set_hp0_detect_type(int type,unsigned int gpio)
+void jz_set_hp0_detect_type(int type,unsigned int gpio,int level)
 {
 	switch_data.type = type;
 	if (type == SND_SWITCH_TYPE_GPIO)
 		switch_data.gpio = gpio;
 	else
 		switch_data.gpio = 0;
+	switch_data.valid_level = level;
 }
 
 static struct snd_switch_data switch_data = {
@@ -1065,7 +1101,7 @@ static struct snd_switch_data switch_data = {
 	.state_on	=	"1",
 	.state_off	=	"0",
 	.codec_get_sate	=	jz_get_hp0_switch_state,
-	.valid_level = 0,
+	.valid_level = INVALID,
 	.type	=	SND_SWITCH_TYPE_CODEC,
 };
 

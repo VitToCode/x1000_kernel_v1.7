@@ -4,3 +4,4 @@
 #
 
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += jz4780_codec.o jz4780_route_conf.o
+obj-$(CONFIG_HDMI_JZ4780)			+= hdmi_virual_codec.o

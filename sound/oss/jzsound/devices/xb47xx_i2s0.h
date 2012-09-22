@@ -4,7 +4,7 @@
 
 #include <asm/io.h>
 #include "../interface/xb_snd_dsp.h"
-#include "../xb_snd_detect.c"
+#include "../xb_snd_detect.h"
 
 extern unsigned int DEFAULT_REPLAY_ROUTE;
 extern unsigned int DEFAULT_RECORD_ROUTE;
@@ -577,7 +577,7 @@ enum codec_ioctl_cmd_t {
 /**
  *	i2s0 switch state
  **/
-void jz_set_hp0_detect_type(int type,unsigned int gpio);
+void jz_set_hp0_detect_type(int type,unsigned int gpio,int level);
 
 /**
  *	codec mode

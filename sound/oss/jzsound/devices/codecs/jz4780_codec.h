@@ -47,8 +47,8 @@
 
 #define CODEC_REG_MR            0x7
  #define MR_ADC_MODE_UPD        5
- #define ME_JADC_MUTE_STATE     3// 2 bits
-   #define ME_JADC_MUTE_STATE_MASK (0x3 << ME_JADC_MUTE_STATE)
+ #define MR_JADC_MUTE_STATE     3// 2 bits
+   #define MR_JADC_MUTE_STATE_MASK (0x3 << MR_JADC_MUTE_STATE)
  #define MR_DAC_MODE_UPD        2
  #define MR_DAC_MUTE_STATE      0
    #define MR_DAC_MUTE_STATE_MASK  (0x3)
@@ -682,9 +682,9 @@ do {									\
                                         (1 << MR_DAC_MODE_UPD)) ?	\
                                         CODEC_OPERATION_MODE :CODEC_PROGRAME_MODE)
 #define __codec_test_jadc_mute_state()  (read_inter_codec_reg(CODEC_REG_MR) &   \
-                                        MR_JADC_MUTE_STATE) >> MR_JADC_MUTE_STATE
+                                        MR_JADC_MUTE_STATE_MASK) >> MR_JADC_MUTE_STATE
 #define __codec_test_dac_mute_state()   (read_inter_codec_reg(CODEC_REG_MR) &   \
-                                        MR_DAC_MUTE_STATE) >> MR_DAC_MUTE_STATE
+                                        MR_DAC_MUTE_STATE_MASK) >> MR_DAC_MUTE_STATE
 
 /*============================== MUTE =================================*/
 /*CR_XXX : mute*/

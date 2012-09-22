@@ -35,6 +35,8 @@ route_conf_base const record_mic_mono_diff_with_bias_to_adclr  = {
 	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,	//fix
 	/*If you just have one mic ,you should select this for stereo output*/
 	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix
+	.attibute_adc_l_gain	=	23,
+	.attibute_adc_r_gain	=	23,
 };
 
 route_conf_base const record_linein_mono_diff_to_adclr = {
