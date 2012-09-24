@@ -245,7 +245,8 @@ void cim_set_default(struct jz_cim *cim)
 	}
 	cfg = cim->desc->cim_cfg |CIM_CFG_DMA_BURST_INCR32 |CIM_CFG_DF_YUV422;
 	ctrl = CIM_CTRL_DMA_SYNC |CIM_CTRL_FRC_1;
-	ctrl2 = CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (1<< CIM_CTRL2_OPG_BIT) | CIM_CTRL2_FSC;
+	ctrl2 = CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE |
+		(1 << CIM_CTRL2_OPG_BIT) | CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
 	fs = (w -1)<< CIM_FS_FHS_BIT | (h -1)<< CIM_FS_FVS_BIT | 1<< CIM_FS_BPP_BIT;
 
 	reg_write(cim,CIM_CFG,cfg);
@@ -751,7 +752,7 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 	void __user *argp = (void __user *)arg;
 	long ret = 0;
-	dev_info(cim->dev," -------------------ioctl %x\n",cmd);
+	//dev_info(cim->dev," -------------------ioctl %x\n",cmd);
 	switch (cmd) {
 		case CIMIO_SHUTDOWN:
 			return cim_shutdown(cim);
