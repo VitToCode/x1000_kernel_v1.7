@@ -106,15 +106,15 @@ static int pmon_write_proc(struct file *file, const char __user *buffer,
 
 	for (i = 0; i < count; ) {
 		if (strncmp(&d->buf[i], "cycle", 5) == 0) {
-			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_CYCLE, 1);
+			on_each_cpu(on_each_cpu_pmon_prepare, (void *)PMON_EVENT_CYCLE, 1);
 			i += 5 + 1;
 		}
 		else if (strncmp(&d->buf[i], "cache", 5) == 0) {
-			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_CACHE, 1);
+			on_each_cpu(on_each_cpu_pmon_prepare, (void *)PMON_EVENT_CACHE, 1);
 			i += 5 + 1;
 		}
-		else if (strncmp(&d->buf[i], "inst", 5) == 0) {
-			on_each_cpu(on_each_cpu_pmon_start, (void *)PMON_EVENT_INST, 1);
+		else if (strncmp(&d->buf[i], "inst", 4) == 0) {
+			on_each_cpu(on_each_cpu_pmon_prepare, (void *)PMON_EVENT_INST, 1);
 			i += 4 + 1;
 		}
 		else if (strncmp(&d->buf[i], "start", 5) == 0) {
