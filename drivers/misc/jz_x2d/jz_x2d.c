@@ -286,6 +286,7 @@ static struct x2d_process_info* x2d_index_procinfo(struct x2d_device *jz_x2d, pi
 	return NULL;
 }
 
+#ifndef USE_DMMU_TLB
 static int create_tlb_table(struct x2d_process_info* proc)
 {
 	int *tlb_p = NULL;
@@ -324,6 +325,7 @@ static int free_tlb_table(struct x2d_process_info* proc)
 
 	return 0;
 }
+#endif
 
 static int x2d_create_procinfo(struct x2d_device *jz_x2d)
 {
@@ -383,6 +385,7 @@ static int x2d_check_allproc_free (struct x2d_device *jz_x2d)
 	return ret;
 }
 
+#ifdef X2D_DEBUG
 static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *p)
 {
 	int i;
@@ -398,7 +401,7 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *
 	dev_info(jz_x2d->dev, "dst_format: %d\t dst_back_en:%08x\t dst_preRGB_en:%08x\n", 
 			 p->configs.dst_format, p->configs.dst_back_en, p->configs.dst_preRGB_en);
 	dev_info(jz_x2d->dev, "dst_glb_alpha_en: %d\tdst_backpure_en:%08x\t configs.layer_num: %d\n", 
-			 p->configs.dst_glb_alpha_en, p->configs.dst_backpure_en, p->configs.layer_num);
+			 p->configs.dst_glb_alpha_en, p->configs.dst_mask_en, p->configs.layer_num);
 
 	for (i = 0; i < 4; i++) {
 		dev_info(jz_x2d->dev,"layer[%d]: ======================================\n", i);
@@ -421,6 +424,7 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *
 				 p->configs.lay[i].y_stride, p->configs.lay[i].v_stride);
 	}
 }
+#endif
 
 static void x2d_dump_reg(struct x2d_device *jz_x2d,struct x2d_process_info* p)
 {
@@ -499,8 +503,8 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 #if 1
 	p->configs.dst_back_en = 0;
 	p->configs.dst_glb_alpha_en = 1;
-	p->configs.dst_preRGB_en  = 0 ;
-	p->configs.dst_backpure_en =1 ;
+	p->configs.dst_preRGB_en  = 0;
+	p->configs.dst_mask_en = 1;
 	p->configs.dst_alpha_val = 0x80;
 #endif
 
@@ -509,7 +513,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 					|(p->configs.dst_back_en << BIT_X2D_DST_BG_EN) \
 					|(p->configs.dst_glb_alpha_en << BIT_X2D_DST_GLB_ALPHA_EN)\
 					|(p->configs.dst_preRGB_en << BIT_X2D_DST_PREM_EN)\
-					|(p->configs.dst_backpure_en << BIT_X2D_DST_MSK_EN)\
+					|(p->configs.dst_mask_en << BIT_X2D_DST_MSK_EN)\
 					|(p->configs.dst_alpha_val << BIT_X2D_DST_GLB_ALPHA_VAL);		
 	jz_x2d->chain_p->dst_height = (uint16_t)p->configs.dst_height;
 	jz_x2d->chain_p->dst_width = (uint16_t)p->configs.dst_width;	
@@ -534,12 +538,12 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 #endif
 
 
-#if 1 //def SRC_ALPHA_TEST
+#if 0 //def SRC_ALPHA_TEST
 		p->configs.lay[i].msk_val = 0;//0xff0000ff;
-		if (i == 0) {
-			p->configs.lay[i].glb_alpha_en = 1;
-			p->configs.lay[i].global_alpha_val = 0xFF;
-		}
+//		if (i == 0) {
+//			p->configs.lay[i].glb_alpha_en = 1;
+//			p->configs.lay[i].global_alpha_val = 0xFF;
+//		}
 		p->configs.lay[i].preRGB_en = 0;
 
 #endif
@@ -550,9 +554,6 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 			|(p->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(p->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
-		// | (1<<28)		\
-//			| (0xFF<<8)		\
-//			;
 		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)p->configs.lay[i].global_alpha_val;
 		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)p->configs.lay[i].transform;
 		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)p->configs.lay[i].argb_order;
@@ -674,7 +675,7 @@ int jz_x2d_stop_calc(struct x2d_device *jz_x2d)
 static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 {
 	struct x2d_device *jz_x2d = (struct x2d_device *)dev_id;
-	unsigned long int status_reg = 0;
+	unsigned int status_reg = 0;
 
 	status_reg = reg_read(jz_x2d,REG_X2D_GLB_STATUS);
 	
@@ -704,12 +705,14 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-//////////////////////////////suspend  resume///////////////////////////////////////////////////
+
+/**************************************suspend  resume***********************************/
 static void x2d_early_suspend(struct early_suspend *handler)
 {
 	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
 	jz_x2d->state = x2d_state_suspend;
 }
+
 static void x2d_early_resume(struct early_suspend *handler)
 {
 	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
