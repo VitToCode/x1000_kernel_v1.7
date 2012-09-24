@@ -77,9 +77,9 @@ static struct i2c_board_info m80_i2c1_devs[] __initdata = {
 
 #ifdef CONFIG_SENSORS_LIS3DH
 	{
-	    I2C_BOARD_INFO("gsensor_lis3dh",0x18),
+		I2C_BOARD_INFO("gsensor_lis3dh", 0x19),
 		.platform_data = &lis3dh_platform_data,
-	},						        
+	},
 #endif
 };
 #endif	/*I2C1*/
