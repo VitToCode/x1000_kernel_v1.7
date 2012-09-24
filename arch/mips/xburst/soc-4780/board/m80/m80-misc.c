@@ -19,6 +19,7 @@
 #include <gpio.h>
 
 #include "m80.h"
+#include <../drivers/staging/android/timed_gpio.h>
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
@@ -93,19 +94,37 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
+struct timed_gpio vibrator_timed_gpio = {
+	.name		= "vibrator",
+	.gpio		= GPIO_MOTOR_PIN,
+	.active_low	= 0,
+	.max_timeout	= 15000,
+};
+static struct timed_gpio_platform_data vibrator_platform_data = {
+	.num_gpios	= 1,
+	.gpios		= &vibrator_timed_gpio,
+};
+static struct platform_device jz_timed_gpio_device = {
+	.name	= TIMED_GPIO_NAME,
+	.id	= 0,
+	.dev	= {
+		.platform_data	= &vibrator_platform_data,
+	},
+};
+
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data m80_battery_pdata = {
 	.info = {
-		.max_vol        = 4200,
-		.min_vol        = 3750,
-		.usb_max_vol    = 4250,
-		.usb_min_vol    = 3850,
-		.ac_max_vol     = 4250,
-		.ac_min_vol     = 3850,
+		.max_vol        = 4100,
+		.min_vol        = 3600,
+		.usb_max_vol    = 4200,
+		.usb_min_vol    = 3670,
+		.ac_max_vol     = 4200,
+		.ac_min_vol     = 3670,
 		.battery_max_cpt = 3500,
-		.ac_chg_current = 400,
-		.usb_chg_current = 350,
+		.ac_chg_current = 800,
+		.usb_chg_current = 400,
 	},
 };
 #endif
@@ -241,6 +260,8 @@ static int __init m80_board_init(void)
 #ifdef CONFIG_RTC_DRV_JZ4780
 	platform_device_register(&jz_rtc_device);
 #endif
+/* timed_gpio */
+	platform_device_register(&jz_timed_gpio_device);
 /* gpio keyboard */
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);

@@ -3,18 +3,18 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/resource.h>
- 
+
 #include <soc/gpio.h>
 #include <soc/base.h>
 #include <soc/irq.h>
- 
+
 #include <mach/platform.h>
 
 #include <mach/jznand.h>
 #include "m80.h"
 
 static struct platform_nand_partition partition_info[] = {
-	{
+/*	{
                 name:"NAND BOOT partition",
                 offset:100 * 0x100000LL,
 	        size:4 * 0x100000LL,
@@ -41,24 +41,25 @@ static struct platform_nand_partition partition_info[] = {
 	        use_planes:TWO_PLANES,
 	        part_attrib:PART_SYSTEM
         },
+*/
 	{
-                name:"NAND DATA partition",
-	        offset:612 * 0x100000LL,
+            name:"ndsystem",
+	        offset:64 * 0x100000LL,
 	        size:512 * 0x100000LL,
 	        mode:1,
 	        eccbit:8,
-	        use_planes:TWO_PLANES,
-	        part_attrib:PART_DATA
-        },
+	        use_planes:ONE_PLANE,
+	        part_attrib:PART_SYSTEM
+    },
 	{
-                name:"NAND MISC partition",
+            name:"nddata",
 	        offset:1124 * 0x100000LL,
 	        size:512 * 0x100000LL,
 	        mode:1,
 	        eccbit:8,
-	        use_planes:TWO_PLANES,
-	        part_attrib:PART_MISC
-        },
+	        use_planes:ONE_PLANE,
+	        part_attrib:PART_DATA
+    },
 };
 
 /* Define max reserved bad blocks for each partition.

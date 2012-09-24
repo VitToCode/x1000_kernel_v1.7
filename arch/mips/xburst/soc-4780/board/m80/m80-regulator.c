@@ -68,12 +68,6 @@ FIXED_REGULATOR_DEF(
 	"Vcc-5V",	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
-	m80_vmotor,
-	"Motor",	3300000,
-	GPIO_PB(25),	HIGH_ENABLE,	0,
-	"Vcc-IO",	"vmotor",	"jz_motor");
-
-FIXED_REGULATOR_DEF(
 	m80_vcim,
 	"Camera",	2800000,
 	GPIO_PB(27),	HIGH_ENABLE,	0,
@@ -88,7 +82,6 @@ FIXED_REGULATOR_DEF(
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&m80_vcc5_regulator_device,
 	&m80_vbus_regulator_device,
-	&m80_vmotor_regulator_device,
 	&m80_vcim_regulator_device,
 	&m80_vlcd_regulator_device,
 };

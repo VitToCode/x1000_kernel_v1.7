@@ -108,12 +108,22 @@ int iw8101_wlan_init(void)
 	return 0;
 }
 
-void IW8101_wlan_power_on(int flag)
+int IW8101_wlan_power_on(int flag)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
 
+	if (wifi_wake_lock == NULL)
+		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
+	else if (power == NULL)
+		pr_warn("%s: invalid power\n", __func__);
+	else if (!gpio_is_valid(reset))
+		pr_warn("%s: invalid reset\n", __func__);
+	else
+		goto start;
+	return -ENODEV;
+start:
 	pr_debug("wlan power on:%d\n", flag);
 	jzrtc_switch_clk32k(1);
 	mdelay(200);
@@ -144,14 +154,26 @@ void IW8101_wlan_power_on(int flag)
 			break;
 	}
 	wake_lock(wifi_wake_lock);
+
+	return 0;
 }
 
-void IW8101_wlan_power_off(int flag)
+int IW8101_wlan_power_off(int flag)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
 
+	if (wifi_wake_lock == NULL)
+		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
+	else if (power == NULL)
+		pr_warn("%s: invalid power\n", __func__);
+	else if (!gpio_is_valid(reset))
+		pr_warn("%s: invalid reset\n", __func__);
+	else
+		goto start;
+	return -ENODEV;
+start:
 	pr_debug("wlan power off:%d\n", flag);
 	switch(flag) {
 		case RESET:
@@ -172,6 +194,8 @@ void IW8101_wlan_power_off(int flag)
 	wake_unlock(wifi_wake_lock);
 
 	jzrtc_switch_clk32k(0);
+
+	return 0;
 }
 
 EXPORT_SYMBOL(IW8101_wlan_power_on);
