@@ -66,8 +66,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 1 + 19,	GSS_INPUT_NOPULL}, /* TP_SHUTDOWN */ 
 	{32 * 1 + 20,	GSS_INPUT_PULL	}, /* MSC2_D0 */ 
 	{32 * 1 + 21,	GSS_INPUT_PULL	}, /* MSC2_D1 */ 
-	{32 * 1 + 22,	GSS_IGNORE	}, /* AVDEFUSE_EN_N ??*/ 
-	{32 * 1 + 23,	GSS_INPUT_NOPULL	}, /* NC */ 
+	{32 * 1 + 22,	GSS_OUTPUT_LOW	}, /* LCD_RST */ 
+	{32 * 1 + 23,	GSS_OUTPUT_LOW	}, /* LCD_VCC */ 
 	{32 * 1 + 24,	GSS_IGNORE	}, /* SD1_CD_N */
 	{32 * 1 + 25,	GSS_INPUT_NOPULL	}, /* NC */ 
 	{32 * 1 + 26,	GSS_INPUT_NOPULL	}, /* NC */ 

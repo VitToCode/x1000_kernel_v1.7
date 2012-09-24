@@ -25,6 +25,9 @@ extern struct jzfb_platform_data jzfb1_pdata;
 #ifdef CONFIG_LCD_KR070LA0S_270
 extern struct platform_device kr070la0s_270_device;
 #endif
+#ifdef CONFIG_LCD_HSD101PWW1
+extern struct platform_device hsd101pww1_device;
+#endif
 #ifdef CONFIG_LCD_EK070TN93
 extern struct platform_device ek070tn93_device;
 #endif

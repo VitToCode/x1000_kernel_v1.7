@@ -476,7 +476,7 @@ static void jzfb_lvds_txctrl_config(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
 	struct lvds_txctrl *txctrl = &jzfb->pdata->txctrl;
-	unsigned int ctrl;
+	unsigned int ctrl = 0;
 
 	if (txctrl->data_format) {
 		ctrl = LVDS_MODEL_SEL;

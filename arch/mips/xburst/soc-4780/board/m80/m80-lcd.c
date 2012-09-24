@@ -35,6 +35,22 @@ struct platform_device kr070la0s_270_device = {
 };
 #endif
 
+#ifdef CONFIG_LCD_HSD101PWW1
+#include <linux/hsd101pww1.h>
+static struct platform_hsd101pww1_data hsd101pww1_pdata= {
+/* gpio had been hardware control */
+	.gpio_rest = GPIO_PB(22),
+};
+
+/* LCD Panel Device */
+struct platform_device hsd101pww1_device = {
+	.name		= "hsd101pww1-lcd",
+	.dev		= {
+		.platform_data	= &hsd101pww1_pdata,
+	},
+};
+#endif
+
 #ifdef CONFIG_LCD_EK070TN93
 #include <linux/ek070tn93.h>
 static struct platform_ek070tn93_data ek070tn93_pdata= {
@@ -103,6 +119,26 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+
+#ifdef CONFIG_LCD_HSD101PWW1
+	{
+		.name = "1280x800",
+		.refresh = 60,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(65000),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
 #ifdef CONFIG_LCD_EK070TN93
 	{
 		.name = "800x480",
@@ -126,6 +162,49 @@ static struct fb_videomode jzfb1_videomode[] = {
 struct jzfb_platform_data jzfb1_pdata = {
 	.num_modes = ARRAY_SIZE(jzfb1_videomode),
 	.modes = jzfb1_videomode,
+
+#ifdef CONFIG_LCD_HSD101PWW1
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 230,
+	.height = 150,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+
+	.lvds = 1,
+	.txctrl.data_format = JEIDA,
+	.txctrl.clk_edge_falling_7x = 0,
+	.txctrl.clk_edge_falling_1x = 1,
+	.txctrl.data_start_edge = START_EDGE_4,
+	.txctrl.operate_mode = LVDS_1X_CLKOUT,
+	.txctrl.edge_delay = DELAY_0_1NS,
+	.txctrl.output_amplitude = VOD_350MV,
+
+	.txpll0.ssc_enable = 0,
+	.txpll0.ssc_mode_center_spread = 0,
+	.txpll0.post_divider = POST_DIV_1,
+	.txpll0.feedback_divider = 70,
+	.txpll0.input_divider_bypass = 0,
+	.txpll0.input_divider = 10,
+
+	.txpll1.charge_pump = CHARGE_PUMP_10UA,
+	.txpll1.vco_gain = VCO_GAIN_150M_400M,
+	.txpll1.vco_biasing_current = VCO_BIASING_2_5UA,
+	.txpll1.sscn = 0,
+	.txpll1.ssc_counter = 0,
+
+	.txectrl.emphasis_level = 0,
+	.txectrl.emphasis_enable = 0,
+	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_2V,
+	.txectrl.phase_interpolator_bypass = 1,
+	.txectrl.fine_tuning_7x_clk = 0,
+	.txectrl.coarse_tuning_7x_clk = 0,
+
+	.dither_enable = 0,
+#endif
 
 #ifdef CONFIG_LCD_KR070LA0S_270
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
@@ -169,6 +248,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.dither_enable = 0,
 #endif
+
 #ifdef CONFIG_LCD_EK070TN93
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
