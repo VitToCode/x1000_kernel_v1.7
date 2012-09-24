@@ -160,12 +160,13 @@ static int __init m80_board_init(void)
 #endif
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &m80_inand_pdata);
+	jz_device_register(&jz_msc0_device, &m80_tf_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &m80_sdio_pdata);
 #endif
 #ifdef CONFIG_MMC2_JZ4780
+/* FIXME remove the useless */
 	jz_device_register(&jz_msc2_device, &m80_tf_pdata);
 #endif
 /* sound */
