@@ -88,13 +88,13 @@ static struct fb_videomode jzfb1_videomode[] = {
 #ifdef CONFIG_LCD_KR070LA0S_270
 	{
 		.name = "1024x600",
-		.refresh = 60,
+		.refresh = 65,
 		.xres = 1024,
 		.yres = 600,
 		.pixclock = KHZ2PICOS(48000),
-		.left_margin = 236, //320
+		.left_margin = 171,
 		.right_margin = 0,
-		.upper_margin = 35,
+		.upper_margin = 18,
 		.lower_margin = 0,
 		.hsync_len = 0,
 		.vsync_len = 0,
