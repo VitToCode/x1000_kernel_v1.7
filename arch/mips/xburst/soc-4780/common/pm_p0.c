@@ -300,7 +300,6 @@ sleep_2:
 	return;
 }
 
-
 static noinline void jz4780_resume(void)
 {
 	load_regs(*(volatile unsigned int *)REG_ADDR);
@@ -309,6 +308,9 @@ static noinline void jz4780_resume(void)
 static int jz4780_pm_enter(suspend_state_t state)
 {
 	char tcsm_back[512];
+	unsigned int lcr = cpm_inl(CPM_LCR);
+	unsigned int opcr = cpm_inl(CPM_OPCR);
+
 	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
 	mdelay(1);
@@ -326,13 +328,14 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
-
+	
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 
 	jz4780_suspend();
 
 	memcpy((void *)RESUME_ADDR,tcsm_back,512);
-	cpm_outl(cpm_inl(CPM_LCR) & ~0xff,CPM_LCR);
+	cpm_outl(lcr,CPM_LCR);
+	cpm_outl(opcr,CPM_OPCR);
 	return 0;
 }
 
