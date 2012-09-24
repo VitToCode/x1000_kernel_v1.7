@@ -190,7 +190,7 @@ void __init arch_init_irq(void)
 #endif
 	return;
 }
-extern 	void switch_cpu_irq(int cpu);
+
 static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
@@ -204,7 +204,9 @@ static void intc_irq_dispatch(void)
 	if (ipr[1]) {
 		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
 	}
+#ifdef CONFIG_SMP
 	switch_cpu_irq(cpuid);
+#endif
 }
 
 asmlinkage void plat_irq_dispatch(void)

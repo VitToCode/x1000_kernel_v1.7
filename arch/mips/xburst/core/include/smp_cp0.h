@@ -43,4 +43,6 @@
 		set_smp_status(stat);			\
 	} while(0)
 
+void switch_cpu_irq(int cpu);
+
 #endif
