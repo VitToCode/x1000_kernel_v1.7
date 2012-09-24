@@ -326,8 +326,14 @@ int jzsoc_cpu_disable(void)
 
 void jzsoc_cpu_die(unsigned int cpu)
 {
+	int enable_irq = 0;
 	if (cpu == 0)		/* FIXME */
 		return;
+
+	if(!irqs_disabled()) {
+		enable_irq = 1;
+		local_irq_disable();
+	}
 
 	spin_lock(&smp_lock);
 
@@ -338,6 +344,9 @@ void jzsoc_cpu_die(unsigned int cpu)
 	smp_cpu_stop(cpu);
 
 	spin_unlock(&smp_lock);
+
+	if(enable_irq)
+		local_irq_enable();
 }
 #endif
 
