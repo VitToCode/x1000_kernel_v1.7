@@ -664,6 +664,8 @@ static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 	//     __gpio_ack_irq(acc->pdata->gpio_int);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
+	else
+		enable_irq(acc->client->irq);
 	return IRQ_HANDLED;
 
 }

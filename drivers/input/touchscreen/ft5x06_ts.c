@@ -285,7 +285,9 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 
 	if (!work_pending(&ft5x06_ts->work)) {
 		queue_work(ft5x06_ts->workqueue, &ft5x06_ts->work);
-        }
+	}else{
+		enable_irq(ft5x06_ts->client->irq);
+	}
 
 	return IRQ_HANDLED;
 }
