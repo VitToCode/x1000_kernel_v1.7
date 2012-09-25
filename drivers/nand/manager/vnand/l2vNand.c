@@ -17,6 +17,9 @@ void dump_availablebadblock(VNandManager *vm)
 	ndprint(VNAND_INFO,"================%s start =============\n",__func__);
 	for(i=0;i<vm->pt->ptcount; i++){
 		pt = &(vm->pt->ppt[i]);
+		if(pt->mode == ONCE_MANAGER) {
+                        break;
+                }
 		ndprint(VNAND_INFO,"\n pt = %p i = %d  bad block info:\n",pt ,i);
 		for(j=0;j<64;j++){
 			if(j%4==0)
@@ -70,6 +73,9 @@ static  void PtAvailableBlockID_Init(VNandManager *vm)
 
 	for(i=0; i<vm->pt->ptcount; i++){
 		pt = &vm->pt->ppt[i];
+		if(pt->mode == ONCE_MANAGER) {
+                        break;
+                }
 		blockid = 0;
 		badblock_number = 0;
 		alloc_availableblock_info(pt);
@@ -214,6 +220,9 @@ void vNand_Deinit ( VNandManager** vm)
 
 	for(i = 0; i < (*vm)->pt->ptcount; i++){
 		pt = &(*vm)->pt->ppt[i];
+		if(pt->mode == ONCE_MANAGER) {
+                        break;
+                }
 		free_availableblock_info(pt);
 	}
 	__vNand_Deinit(vm);
