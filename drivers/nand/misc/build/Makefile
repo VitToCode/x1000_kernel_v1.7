@@ -3,7 +3,7 @@ STATIC=1
 TOPDIR=../..
 LIBPATH=lib
 CFLAGS=-Wall -static -pthread -lrt -ldl -DALLOC_DEBUG -DNO_ERROR -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -fno-stack-protector -fomit-frame-pointer -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow
-LDFLAGS=-I$(LIBPATH) -L$(LIBPATH) -lfunc 
+LDFLAGS=-I$(LIBPATH) -L$(LIBPATH) -lfunc
 
 ifeq ($(STATIC), 1)
 LIB=$(LIBPATH)/libnm.a
@@ -15,7 +15,8 @@ endif
 #TARGET=main
 #SRC=main.c
 
-LIBSRC = vNand.c \
+LIBSRC = l2vNand.c \
+	 vNand.c \
 	 bufflistmanager.c \
 	 zonememory.c \
 	 hash.c  \
@@ -34,8 +35,8 @@ LIBSRC = vNand.c \
 	 NandThread.c \
 	 nandalloc.c \
 	 junkzone.c \
-	 errhandle.c 
-#	 badblockinfo.c	
+	 errhandle.c
+#	 badblockinfo.c
 
 
 MVPATH= $(TOPDIR)/manager/     \
@@ -53,11 +54,11 @@ INC_H := $(foreach subdir,$(INC),$(wildcard $(subdir)/*.h))
 
 MOBJS = $(LIBSRC:.c=.o)
 
-OBJS = $(MOBJS) 
+OBJS = $(MOBJS)
 
 CFLAGS+=$(addprefix -I,$(INC))
 
-all: $(LIB) $(OBJS) $(INC_H) 
+all: $(LIB) $(OBJS) $(INC_H)
 
 lib: $(LIB)
 

@@ -10,9 +10,36 @@
 #include "vNand.h"
 #include "timeinterface.h"
 
+void dump_availablebadblock(VNandManager *vm)
+{
+	int i=0,j=0;
+	PPartition *pt=NULL;
+	ndprint(VNAND_INFO,"================%s start =============\n",__func__);
+	for(i=0;i<vm->pt->ptcount; i++){
+		pt = &(vm->pt->ppt[i]);
+		ndprint(VNAND_INFO,"\n pt = %p i = %d  bad block info:\n",pt ,i);
+		for(j=0;j<64;j++){
+			if(j%4==0)
+				ndprint(VNAND_INFO,"\n %d: ",j);
+			ndprint(VNAND_INFO,"%8d ",pt->pt_badblock_info[j]);
+		}
+		ndprint(VNAND_INFO,"\navailable block info: \n");
+		for(j=0;j<64;j++){
+			if(j%4==0)
+				ndprint(VNAND_INFO,"\n%d: ",j);
+			ndprint(VNAND_INFO,"%8d ",pt->pt_availableblockid[j]);
+		}
+	}
+	ndprint(VNAND_INFO,"\n");
+	ndprint(VNAND_INFO,"================%s end =============\n",__func__);
+}
 
 static inline unsigned int L2PblockID(VNandInfo *vnand, unsigned int blockid)
 {
+	if(blockid >= vnand->TotalBlocks){
+		ndprint(VNAND_ERROR,"ERROR: %s blockid is too large!!!!!",__func__);
+		return -1;
+	}
 	return vnand->pt_availableblockid[blockid];
 }
 
@@ -41,27 +68,28 @@ static  void PtAvailableBlockID_Init(VNandManager *vm)
 	int pos,i=0,j=0;
 	PPartition *pt = NULL;
 
-	for(j=0; j<vm->pt->ptcount-1; j++){
+	for(i=0; i<vm->pt->ptcount; i++){
 		pt = &vm->pt->ppt[i];
 		blockid = 0;
 		badblock_number = 0;
 		alloc_availableblock_info(pt);
-		for(i=0; i< pt->byteperpage * BADBLOCKINFOSIZE/sizeof(unsigned int); i++){
-			if(pt->pt_badblock_info[i]==0xffffffff)
+		for(j=0; j< pt->byteperpage * BADBLOCKINFOSIZE/sizeof(unsigned int); j++){
+			if(pt->pt_badblock_info[j]==0xffffffff)
 				break;
 			else
 				badblock_number++;
 		}
 		for(pos=0; pos < pt->totalblocks-badblock_number; pos++){
-			for(i=0; i<badblock_number; i++){
-				if(pt->pt_badblock_info[i] == blockid){
+			for(j=0; j<badblock_number; j++){
+				if(pt->pt_badblock_info[j] == blockid){
 					blockid++;
 				}
-			}		
+			}
 			pt->pt_availableblockid[pos] = blockid;
 			blockid++;
 		}
 	}
+	//dump_availablebadblock(vm);
 }
 
 static void UpdatePageList(VNandInfo *vnand, PageList* pl)
@@ -184,7 +212,7 @@ void vNand_Deinit ( VNandManager** vm)
 	int i;
 	PPartition *pt = NULL;
 
-	for(i = 0; i < (*vm)->pt->ptcount-1; i++){
+	for(i = 0; i < (*vm)->pt->ptcount; i++){
 		pt = &(*vm)->pt->ppt[i];
 		free_availableblock_info(pt);
 	}
