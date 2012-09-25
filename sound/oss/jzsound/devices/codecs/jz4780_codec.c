@@ -102,14 +102,26 @@ static inline void codec_sleep_wait_bitset(int reg, unsigned bit, int stime, int
 
 static inline void codec_wait_event_complete(int event , int mode)
 {
-	if (__codec_test_dac_mute_state() != mode) {
-		codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
-		__codec_set_irq_flag(1 << event);
-		if (event != IFR_DAC_MODE_EVENT) {
+	if (event == IFR_ADC_MUTE_EVENT) {
+		if (__codec_test_jadc_mute_state() != mode) {
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			__codec_set_irq_flag(1 << event);
+			if (__codec_test_jadc_mute_state() != mode) {
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
+			}
+		}
+	} else if (event == IFR_DAC_MUTE_EVENT) {
+		if (__codec_test_dac_mute_state() != mode) {
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_mute_state() != mode) {
 				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
 			}
-		} else {
+		}
+	} else if (event == IFR_DAC_MODE_EVENT) {
+		if (__codec_test_dac_udp() != mode) {
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_udp() != mode) {
 				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
 			}
@@ -373,7 +385,7 @@ static void dump_codec_gain_regs(void)
  *route part and attibute                                                              *
 \***************************************************************************************/
 /*=========================power on==========================*/
-static void codec_set_route_ready(int mode)
+static void codec_prepare_ready(int mode)
 {
 	DUMP_ROUTE_PART_REGS("enter");
 	if(__codec_get_sb() == POWER_OFF)
@@ -1549,7 +1561,7 @@ static void codec_set_route_base(const void *arg)
 
 	/*codec turn on sb and sb_sleep*/
 	if (conf->route_ready_mode)
-		codec_set_route_ready(conf->route_ready_mode);
+		codec_prepare_ready(conf->route_ready_mode);
 
 	__codec_mix_disable();
 	/*--------------route---------------*/
@@ -1780,7 +1792,7 @@ static int codec_init(void)
 	gpio_enable_hp_mute();
 	gpio_disable_spk_en();
 
-	codec_set_route_ready(CODEC_WMODE);
+	codec_prepare_ready(CODEC_WMODE);
 
 	__codec_set_int_form(ICR_INT_HIGH);
 	/* set IRQ mask and clear IRQ flags*/
@@ -1797,7 +1809,7 @@ static int codec_init(void)
 
 
 	__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-	__codec_disable_dac_mute();
+	__codec_enable_dac_mute();
 	codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
 	/* set record digtal volume base */
@@ -1886,7 +1898,7 @@ static int codec_shutdown(int mode)
 static int codec_reset(void)
 {
 	/* reset codec ready for set route */
-	codec_set_route_ready(CODEC_WMODE);
+	codec_prepare_ready(CODEC_WMODE);
 
 	/* select serial interface and work mode of adc and dac */
 	__codec_select_adc_digital_interface(CODEC_I2S_INTERFACE);
@@ -1899,7 +1911,7 @@ static int codec_anti_pop(int mode)
 {
 	int	curr_hp_left_vol;
 	int	curr_hp_right_vol;
-	codec_set_route_ready(CODEC_WMODE);
+	codec_prepare_ready(CODEC_WMODE);
 	switch(mode) {
 		case CODEC_RWMODE:
 		case CODEC_RMODE:
@@ -1953,7 +1965,7 @@ static int codec_suspend(void)
 	if(ret != SND_ROUTE_ALL_CLEAR)
 	{
 		printk("JZ CODEC: codec_suspend_part error!\n");
-		return -1;
+		return 0;
 	}
 
 	return ret;
@@ -1968,7 +1980,7 @@ static int codec_resume(void)
 		if(ret != keep_old_route->route)
 		{
 			printk("JZ CODEC: codec_resume_part error!\n");
-			return -1;
+			return 0;
 		}
 	}
 
@@ -2597,7 +2609,8 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_sys_clk = CODEC_SYS_CLK_12M;
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 
-	jz_set_hp0_detect_type(SND_SWITCH_TYPE_CODEC,0);
+	jz_set_hp0_detect_type(SND_SWITCH_TYPE_CODEC,0,INVALID);
+	//jz_set_hp0_detect_type(SND_SWITCH_TYPE_GPIO,GPIO_PE(7),HIGH_VALID);
 
 	if (gpio_request(codec_platform_data->gpio_hp_mute.gpio,"gpio_hp_mute") < 0) {
 		gpio_free(codec_platform_data->gpio_hp_mute.gpio);

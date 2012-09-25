@@ -16,6 +16,12 @@
 #define SND_SWITCH_TYPE_GPIO    0x1
 #define SND_SWITCH_TYPE_CODEC   0x2
 
+enum {
+	LOW_VALID =0,
+	HIGH_VALID,
+	INVALID,
+};
+
 struct snd_switch_data {
 	struct switch_dev sdev;
 	int type;

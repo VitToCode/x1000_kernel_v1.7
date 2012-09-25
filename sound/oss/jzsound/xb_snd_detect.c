@@ -17,12 +17,12 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 	switch_set_state(&switch_data->sdev, state);
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
-		if (switch_data->valid_level == 1) {
+		if (switch_data->valid_level == HIGH_VALID) {
 			if (state)
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
 			else
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-		} else if (switch_data->valid_level == 0) {
+		} else if (switch_data->valid_level == LOW_VALID) {
 			if (state)
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
 			else
@@ -56,7 +56,7 @@ static void snd_switch_work(struct work_struct *work)
 			}
 		}
 
-		if (state == switch_data->valid_level)
+		if (state == (int)switch_data->valid_level)
 			state = 1;
 		else
 			state = 0;
