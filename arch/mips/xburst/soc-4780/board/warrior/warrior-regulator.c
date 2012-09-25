@@ -102,10 +102,16 @@ static struct regulator_info warrior_pmu_regulators[] = {
 	{"VBUS", NULL},
 };
 
+static struct charger_board_info charger_board_info = {
+	.gpio	= GPIO_PB(2),
+	.enable_level	= LOW_ENABLE,
+};
+
 static struct pmu_platform_data warrior_pmu_pdata = {
 	.gpio = GPIO_PA(28),
 	.num_regulators = ARRAY_SIZE(warrior_pmu_regulators),
 	.regulators = warrior_pmu_regulators,
+	.charger_board_info = &charger_board_info,
 };
 
 #define PMU_I2C_BUSNUM 0

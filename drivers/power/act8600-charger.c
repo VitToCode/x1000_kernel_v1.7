@@ -41,6 +41,88 @@ struct act8600_charger {
 	struct power_supply ac;
 };
 
+static int act8600_get_charge_state(struct act8600_charger *charger)
+{
+	struct act8600 *iodev = charger->iodev;
+	unsigned char chgst;
+
+	act8600_read_reg(iodev->client, APCH_STAT, &chgst);
+
+	switch(chgst & CSTATE_MASK) {
+	case CSTATE_EOC:
+		return POWER_SUPPLY_STATUS_FULL;
+	case CSTATE_PRE:
+	case CSTATE_CHAGE:
+		return POWER_SUPPLY_STATUS_CHARGING;
+	case CSTATE_SUSPEND:
+		return POWER_SUPPLY_STATUS_NOT_CHARGING;
+	}
+	return -1;
+}
+
+static int act8600_get_ac_state(struct act8600_charger *charger)
+{
+#if CONFIG_CHARGER_HAS_AC
+	struct act8600 *iodev = charger->iodev;
+	unsigned char intr1;
+
+	act8600_read_reg(iodev->client, APCH_INTR1, &intr1);
+
+	if ((intr1 & INDAT) != 0) {
+		act8600_write_reg(iodev->client, APCH_INTR1, INSTAT);
+		act8600_write_reg(iodev->client, APCH_INTR2, INDIS);
+		return 1;
+	} else {
+		act8600_write_reg(iodev->client, APCH_INTR1, INSTAT);
+		act8600_write_reg(iodev->client, APCH_INTR2, INCON);
+		return 0;
+	}
+#else
+	return -1;
+#endif
+}
+
+static int act8600_get_usb_state(struct act8600_charger *charger)
+{
+#if CONFIG_CHARGER_HAS_USB
+	struct act8600 *iodev = charger->iodev;
+	unsigned char otg_con;
+
+	act8600_read_reg(iodev->client, OTG_CON, &otg_con);
+
+	if ((otg_con & VBUSDAT) && !(otg_con & ONQ1)) {
+		act8600_write_reg(iodev->client, OTG_INTR, INVBUSF);
+		return 1;
+	} else {
+		act8600_write_reg(iodev->client, OTG_INTR, INVBUSR);
+		return 0;
+	}
+#else
+	return -1;
+#endif
+}
+
+static void pmu_work_enable(void *pmu_interface)
+{
+	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
+	enable_irq(charger->irq);
+}
+
+static int get_pmu_status(void *pmu_interface, int status)
+{
+	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
+
+	switch (status) {
+	case STATUS:
+		return act8600_get_charge_state(charger);
+	case AC:
+		return act8600_get_ac_state(charger);
+	case USB:
+		return act8600_get_usb_state(charger);
+	}
+	return -1;
+}
+
 static unsigned int act8600_update_status(struct act8600_charger *charger)
 {
 	struct power_supply *psy = power_supply_get_by_name("battery");
@@ -194,6 +276,25 @@ static int charger_init(struct act8600_charger *charger)
 	return 0;
 }
 
+static void set_max_charger_current(struct charger_board_info *charger_board_info)
+{
+	if (charger_board_info->gpio < 0) {
+		return;
+	}
+
+	gpio_set_value(charger_board_info->gpio, charger_board_info->enable_level);
+}
+
+static void act8600_callback_init(struct act8600_charger *charger)
+{
+	struct power_supply *psy = power_supply_get_by_name("battery");
+	struct jz_battery *jz_battery;
+	jz_battery = container_of(psy, struct jz_battery, battery);
+
+	jz_battery->pmu_interface = charger;
+	jz_battery->get_pmu_status = get_pmu_status;
+	jz_battery->pmu_work_enable = pmu_work_enable;
+}
 static int __devinit act8600_charger_probe(struct platform_device *pdev)
 {
 	struct act8600 *iodev = dev_get_drvdata(pdev->dev.parent);
@@ -213,6 +314,16 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&charger->work, act8600_charger_work);
+
+	if (gpio_request_one(pdata->charger_board_info->gpio,
+				GPIOF_DIR_OUT, "charger-current-set")) {
+		dev_err(&pdev->dev, "no detect pin available\n");
+		pdata->charger_board_info->gpio = -EBUSY;
+		ret = ENODEV;
+		goto err_free;
+	}
+
+	set_max_charger_current(pdata->charger_board_info);
 
 	if (gpio_request_one(pdata->gpio,
 			     GPIOF_DIR_IN, "charger-detect")) {
@@ -246,10 +357,9 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 	charger_init(charger);
 	power_supply_init(charger);
 
+	act8600_callback_init(charger);
+
 	platform_set_drvdata(pdev, charger);
-
-
-	schedule_delayed_work(&charger->work, 0);
 
 	return 0;
 err_free_irq:

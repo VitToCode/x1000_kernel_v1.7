@@ -14,6 +14,7 @@
 
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
+#include <linux/mfd/act8600-private.h>
 
 struct regulator_info {
 	const char name[8];
@@ -24,6 +25,7 @@ struct pmu_platform_data {
 	unsigned short gpio;
 	unsigned short num_regulators;
 	struct regulator_info *regulators;
+	struct charger_board_info *charger_board_info;
 };
 
 enum {

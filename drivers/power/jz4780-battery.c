@@ -169,7 +169,7 @@ static int jz_battery_calculate_capacity(struct jz_battery *jz_battery)
 			if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL)
 				return 100;
 			else {
-				return 90;
+				return 93;
 			}
 		}
 		return (jz_battery->voltage - tmp_min) * VOLTAGE_BOUNDARY / \
@@ -187,10 +187,10 @@ static int jz_battery_calculate_capacity(struct jz_battery *jz_battery)
 			if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL)
 				return 100;
 			else {
-				return 90;
+				return 93;
 			}
 		}
-		
+
 		return (jz_battery->voltage - tmp_min) * VOLTAGE_BOUNDARY / \
 			(tmp_max - tmp_min);
 	}
@@ -268,7 +268,7 @@ static void jz_battery_calculate_for_ac(struct jz_battery *jz_battery)
 	if (jz_battery->voltage > tmp_max - 3 * capacity_div_vol) {
 		if (jz_battery->capacity_calculate != jz_battery->capacity) {
 			jz_battery->capacity++;
-		} else if (jz_battery->capacity_calculate == 90)
+		} else if (jz_battery->capacity == 93)
 			jz_battery->capacity++;
 	} else if (jz_battery->capacity_calculate > jz_battery->capacity) {
 		jz_battery->capacity++;
@@ -289,7 +289,7 @@ static void jz_battery_calculate_for_usb(struct jz_battery *jz_battery)
 	if (jz_battery->voltage > tmp_max - 3 * capacity_div_vol) {
 		if (jz_battery->capacity != jz_battery->capacity_calculate) {
 			jz_battery->capacity++;
-		} else if (jz_battery->capacity_calculate == 90)
+		} else if (jz_battery->capacity == 93)
 			jz_battery->capacity++;
 	} else if (jz_battery->capacity_calculate > jz_battery->capacity) {
 		jz_battery->capacity++;
@@ -309,16 +309,26 @@ static void jz_battery_capacity_rising(struct jz_battery *jz_battery)
 		return ;
 	}
 	if (jz_battery->capacity == 98) {
-		if (jz_battery->capacity != jz_battery->capacity_calculate)
 		jz_battery->capacity++;
 		jz_battery->next_scan_time = 60;
 		return ;
 	}
 
-	if (jz_battery->ac == 1)
-		jz_battery->next_scan_time = jz_battery->ac_charge_time;
-	else if (jz_battery->usb == 1)
-		jz_battery->next_scan_time = jz_battery->usb_charge_time;
+	if (jz_battery->ac == 1) {
+		if (jz_battery->voltage >=
+				jz_battery->pdata->info.ac_max_vol - VOL_DIV) {
+			jz_battery->next_scan_time = jz_battery->ac_charge_time << 1;
+		} else {
+			jz_battery->next_scan_time = jz_battery->ac_charge_time;
+		}
+	} else if (jz_battery->usb == 1) {
+		if (jz_battery->voltage >=
+				jz_battery->pdata->info.usb_max_vol - VOL_DIV) {
+			jz_battery->next_scan_time = jz_battery->ac_charge_time << 1;
+		} else {
+			jz_battery->next_scan_time = jz_battery->usb_charge_time;
+		}
+	}
 
 	if (jz_battery->capacity_calculate - jz_battery->capacity > 20) {
 		jz_battery->next_scan_time /= 5;
@@ -329,7 +339,8 @@ static void jz_battery_capacity_rising(struct jz_battery *jz_battery)
 	} else if (jz_battery->capacity_calculate - jz_battery->capacity > 5) {
 		jz_battery->next_scan_time /= 2;
 	}
-        if (jz_battery->next_scan_time < 40)
+
+	if (jz_battery->next_scan_time < 40)
 		jz_battery->next_scan_time = 40;
 
 	if (1 == jz_battery->usb && 0 == jz_battery->ac) {
@@ -343,7 +354,7 @@ static void jz_battery_capacity_rising(struct jz_battery *jz_battery)
 
 static void jz_battery_get_capacity(struct jz_battery *jz_battery)
 {
-	switch (jz_battery->status) {
+	switch (jz_battery->status_tmp) {
 	case POWER_SUPPLY_STATUS_CHARGING:
 		jz_battery_capacity_rising(jz_battery);
 		break;
@@ -352,11 +363,7 @@ static void jz_battery_get_capacity(struct jz_battery *jz_battery)
 		break;
 	case POWER_SUPPLY_STATUS_DISCHARGING:
 	case POWER_SUPPLY_STATUS_NOT_CHARGING:
-		if (1 == jz_battery->usb && 0 == jz_battery->ac) {
-			jz_battery_calculate_for_usb(jz_battery);
-		} else {
-			jz_battery_capacity_falling(jz_battery);
-		}
+		jz_battery_capacity_falling(jz_battery);
 		break;
 	case POWER_SUPPLY_STATUS_UNKNOWN:
 		jz_battery->next_scan_time = 60;
@@ -417,12 +424,16 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 
 	usb = get_charger_online(jz_battery, USB);
 	ac = get_charger_online(jz_battery, AC);
-
+	jz_battery->status_tmp = jz_battery->status;
 	voltage = jz_battery_adjust_voltage(jz_battery);
 
-	if (jz_battery->status == POWER_SUPPLY_STATUS_FULL) {
+	if (jz_battery->capacity>=93) {
+		jz_battery->status_tmp = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, STATUS);
+	}
+
+	if (jz_battery->status_tmp == POWER_SUPPLY_STATUS_FULL) {
 		has_changed = true;
-		printk("Now the status is FULL!\n");
 	}
 
 	if (abs(voltage - jz_battery->voltage) > VOL_DIV) {
@@ -435,20 +446,20 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 		has_changed = true;
 	}
 
-	if (jz_battery->status == POWER_SUPPLY_STATUS_CHARGING) {
-		if (ac && (voltage > jz_battery->pdata->info.ac_max_vol - \
-					VOL_DIV)) {
+	if (jz_battery->status_tmp == POWER_SUPPLY_STATUS_CHARGING) {
+		if (ac && (voltage > (jz_battery->pdata->info.ac_max_vol - \
+					VOL_DIV))) {
 			has_changed = true;
 		}
-		if (usb && (voltage > jz_battery->pdata->info.usb_max_vol - \
-					VOL_DIV)) {
+		if (usb && (voltage > (jz_battery->pdata->info.usb_max_vol - \
+					VOL_DIV))) {
 			has_changed = true;
 		}
 	}
 
-	if (jz_battery->status_charge != jz_battery->status) {
+	if (jz_battery->status_charge != jz_battery->status_tmp) {
 		has_changed = true;
-		jz_battery->status_charge = jz_battery->status;
+		jz_battery->status_charge = jz_battery->status_tmp;
 		jz_battery->capacity_calculate = jz_battery->capacity;
 		jz_battery->next_scan_time = 60;
 	}
@@ -481,9 +492,6 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 		jz_battery_get_capacity(jz_battery);
 		power_supply_changed(&jz_battery->battery);
 	}
-
-	if (jz_battery->capacity == 100)
-		printk("now the capacity is full :%d\n",jz_battery->capacity);
 }
 
 static void jz_battery_work(struct work_struct *work)
@@ -503,14 +511,20 @@ static void jz_battery_init_work(struct work_struct *work)
 	struct jz_battery *jz_battery = container_of(delayed_work, \
 			struct jz_battery, init_work);
 
-        jz_battery->status_charge = jz_battery->status;
-	jz_battery->usb = get_charger_online(jz_battery, USB);
-	jz_battery->ac = get_charger_online(jz_battery, AC);
+        jz_battery->status_charge = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, STATUS);
+	jz_battery->usb = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, USB);
+	jz_battery->ac = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, AC);
 	jz_battery->voltage = jz_battery_adjust_voltage(jz_battery);
 	jz_battery->capacity = jz_battery_calculate_capacity(jz_battery);
 
 	schedule_delayed_work(&jz_battery->work, 20 * HZ);
+
+	jz_battery->pmu_work_enable(jz_battery->pmu_interface);
 }
+
 static void jz_battery_resume_work(struct work_struct *work)
 {
 	int voltage;
@@ -526,22 +540,44 @@ static void jz_battery_resume_work(struct work_struct *work)
 	timecount = jz_battery->resume_time - jz_battery->suspend_time;
 	voltage = jz_battery_adjust_voltage(jz_battery);
 
-	jz_battery->status_charge = jz_battery->status;
-	jz_battery->usb= get_charger_online(jz_battery, USB);
-	jz_battery->ac = get_charger_online(jz_battery, AC);
+	jz_battery->status_charge = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, STATUS);
+	jz_battery->ac = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, AC);
+	jz_battery->usb = jz_battery->get_pmu_status(
+			jz_battery->pmu_interface, USB);
 
-	if (timecount > 15 * 60) {
-		jz_battery->capacity = jz_battery_calculate_capacity(jz_battery);
-		if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL || \
-			jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL) {
-			jz_battery_get_capacity(jz_battery);
-		}
-	} else {
-		if (jz_battery->status_charge == POWER_SUPPLY_STATUS_CHARGING || \
-			jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL) {
-			jz_battery_get_capacity(jz_battery);
-		}
+	jz_battery->capacity_calculate =
+		jz_battery_calculate_capacity(jz_battery);
+
+	if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL) {
+		jz_battery->capacity = 100;
 	}
+
+	if ((jz_battery->status_charge == POWER_SUPPLY_STATUS_DISCHARGING) ||
+	(jz_battery->status_charge == POWER_SUPPLY_STATUS_NOT_CHARGING)) {
+		if ((jz_battery->capacity_calculate < jz_battery->capacity) &&
+			(timecount > 50 * 60)){
+			jz_battery->capacity = jz_battery->capacity_calculate;
+		}
+	} else if (jz_battery->status_charge == POWER_SUPPLY_STATUS_CHARGING) {
+		if (jz_battery->ac && (jz_battery->voltage > \
+			(jz_battery->pdata->info.ac_max_vol - VOL_DIV))) {
+			jz_battery +=
+				timecount / jz_battery->ac_charge_time;
+		} else if (jz_battery->usb && (jz_battery->voltage > \
+			(jz_battery->pdata->info.usb_max_vol - VOL_DIV))) {
+			jz_battery->capacity +=
+				timecount / jz_battery->usb_charge_time;
+		} else if ((jz_battery->capacity_calculate >
+			jz_battery->capacity) && (timecount > 3 * 60)) {
+			jz_battery->capacity = jz_battery->capacity_calculate;
+		}
+
+		if (jz_battery->capacity >= 99)
+			jz_battery->capacity = 99;
+	}
+
 	power_supply_changed(&jz_battery->battery);
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time);
 }
@@ -677,7 +713,7 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 				     pdata->info.ac_chg_current * 36;
 
 	jz_battery->next_scan_time = 15;
-	schedule_delayed_work(&jz_battery->init_work, 20 * HZ);
+	schedule_delayed_work(&jz_battery->init_work, 5 * HZ);
 
 	printk("jz4780-battery driver registers over!\n");
 
