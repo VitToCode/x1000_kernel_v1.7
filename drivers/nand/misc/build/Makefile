@@ -34,8 +34,8 @@ LIBSRC = vNand.c \
 	 NandThread.c \
 	 nandalloc.c \
 	 junkzone.c \
-	 errhandle.c \
-	 badblockinfo.c	
+	 errhandle.c 
+#	 badblockinfo.c	
 
 
 MVPATH= $(TOPDIR)/manager/     \

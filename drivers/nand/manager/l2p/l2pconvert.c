@@ -5,6 +5,7 @@
 #include "zonemanager.h"
 #include "sigzoneinfo.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "taskmanager.h"
 #include "zonemanager.h"
 #include "recycle.h"
@@ -15,7 +16,7 @@
 #include "nmbitops.h"
 #include "clib.h"
 #include "timeinterface.h"
-#include "badblockinfo.h"
+//#include "badblockinfo.h"
 
 static BuffListManager *Blm;
 #define PAGENUMBER_PERPAGELIST   (128/2+4)
@@ -432,27 +433,32 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
  */
 static int start_ecc_error_handle(int context, unsigned int pageid)
 {
-	int i;
+	//int i;
 	Message read_ecc_error_msg;
 	int blockid;
-	int badblock_count = 0;
+	//int badblock_count = 0;
 	int zone_start_blockid;
 	int msghandle;
 	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
+	//ZoneManager *zonep = conptr->zonep;
 	ErrInfo errinfo;
 	errinfo.context = context;
 	errinfo.err_zoneid = ZoneManager_convertPageToZone(context, pageid);
 
 	blockid = pageid / conptr->vnand.PagePerBlock;
-	zone_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,errinfo.err_zoneid);
+	//zone_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,errinfo.err_zoneid);
+	zone_start_blockid = errinfo.err_zoneid * BLOCKPERZONE(zonep->vnand);
 
+	/*
 	for (i = zone_start_blockid; i < blockid; i++) {
 		if (vNand_IsBadBlock(&conptr->vnand,i))
 			badblock_count++;
 	}
 	nm_set_bit(blockid - zone_start_blockid - badblock_count,
 		(unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
+	*/
+
+	nm_set_bit(blockid - zone_start_blockid, (unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
 
 	read_ecc_error_msg.msgid = READ_ECC_ERROR_ID;
 	read_ecc_error_msg.prio = READ_ECC_ERROR_PRIO;

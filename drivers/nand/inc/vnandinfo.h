@@ -21,6 +21,7 @@ struct _VNandInfo {
 	void* align_rpl;
 	int* retVal;
 	unsigned int *pt_badblock_info;
+	unsigned int *pt_availableblockid;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif
@@ -41,6 +42,7 @@ struct _VNandManager {
 		(vn)->MaxBadBlockCount = (pt)->badblockcount;			\
 		(vn)->hwSector = (pt)->hwsector;				\
 		(vn)->pt_badblock_info = (pt)->pt_badblock_info;		\
+		(vn)->pt_availableblockid = (pt)->pt_availableblockid;	\
 		(vn)->prData = (void*)(pt);					\
 	}while(0)
 

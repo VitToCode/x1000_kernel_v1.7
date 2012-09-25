@@ -18,13 +18,13 @@
 #include "NandAlloc.h"
 #include "nanddebug.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "singlelist.h"
 #include "bufflistmanager.h"
 #include "nandzoneinfo.h"
-#include "badblockinfo.h"
+//#include "badblockinfo.h"
 
 /*block per zone 8 block */
-#define BLOCKPERZONE(context)   	8
 #define FIRSTPAGEINFO(vnand)	   (((vnand)->_2kPerPage > 1)?(vnand)->_2kPerPage * 2:3)
 #define SIGZONEINFO(vnand)        ((vnand)->_2kPerPage)
 
@@ -448,11 +448,14 @@ int Zone_AllocNextPage ( Zone *zone )
 	if (zone->allocPageCursor > 0 && zone->allocPageCursor % pageperblock == 0) {
 		if (zone->ZoneID == zonep->pt_zonenum - 1)
 			end_blockid = zonep->vnand->TotalBlocks - 1;
-		else
-			end_blockid = BadBlockInfo_Get_blockID(zonep->badblockinfo,zone->ZoneID,BLOCKPERZONE(zone->vnand) - 1);
+		else {
+			//end_blockid = BadBlockInfo_Get_blockID(zonep->badblockinfo,zone->ZoneID,BLOCKPERZONE(zone->vnand) - 1);
+			end_blockid = ((zone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand)) - 1;
+		}
 
 		for (i = zone->startblockID + zone->allocPageCursor / pageperblock; i < end_blockid; i++) {
-			if (vNand_IsBadBlock(zone->vnand,i) || nm_test_bit(j++,&(zone->badblock)))
+			//if (vNand_IsBadBlock(zone->vnand,i) || nm_test_bit(j++,&(zone->badblock)))
+			if (nm_test_bit(j++,&(zone->badblock)))
 				badblocknum++;
 			else
 				break;

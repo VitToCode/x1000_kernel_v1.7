@@ -3,6 +3,7 @@
 #include "bufflistmanager.h"
 #include "nanddebug.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "context.h"
 #include "nandmanagerinterface.h"
 #include "partitioninterface.h"

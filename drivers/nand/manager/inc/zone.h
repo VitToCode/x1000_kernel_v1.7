@@ -6,6 +6,7 @@
 #include "pagelist.h"
 #include "vnandinfo.h"
 
+#define BLOCKPERZONE(context)   	8
 
 typedef struct _Zone Zone;
 

@@ -3,6 +3,7 @@
 #include "nandinterface.h"
 #include "pagelist.h"
 #include "context.h"
+#include "l2vNand.h"
 #include "vNand.h"
 
 Context context;

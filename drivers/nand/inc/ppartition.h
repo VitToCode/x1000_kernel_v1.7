@@ -23,6 +23,7 @@ struct _PPartition {
 	int mode;
 	void *prData;
 	unsigned int *pt_badblock_info;
+	unsigned int *pt_availableblockid;
 };
 
 #define PPARTITION(pt) ((PPartition *)pt)

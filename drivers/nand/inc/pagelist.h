@@ -8,6 +8,7 @@ typedef struct _PageList PageList;
 struct _PageList {
 	struct singlelist head;//must be the first member of the struct
 	unsigned int startPageID;
+	unsigned int _startPageID;
 	unsigned short OffsetBytes;
 	unsigned short Bytes;
 	void* pData;

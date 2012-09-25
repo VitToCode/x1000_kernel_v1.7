@@ -12,6 +12,7 @@
 #include "context.h"
 #include "zone.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "pageinfo.h"
 #include "l1info.h"
 #include "zonemanager.h"

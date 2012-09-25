@@ -61,7 +61,7 @@ struct _ZoneManager {
 	ZoneValidInfo zonevalidinfo;
 	int last_data_read_error;
 	unsigned int old_l1info;
-	int badblockinfo;
+	//int badblockinfo;
 	ZoneIDList *page0error_zoneidlist;
 	ZoneIDList *page1error_zoneidlist;
 	int page2_error_dealt;

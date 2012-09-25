@@ -11,6 +11,7 @@
 #include "l2pconvert.h"
 #include "simpleblockmanager.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "clib.h"
 
 #define N_UNITSIZE     8

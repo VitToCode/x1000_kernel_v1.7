@@ -3,7 +3,7 @@ CXX = g++
 CFLAGS  = -pipe -DDEBUG -D_NEW_LIC -g -D_GNU_SOURCE -shared -D_REENTRANT -DTEST -DTEST_ZONEMANAGER
 LIB     = -ldl -lrt  -g
 INCLUDE = -I../inc -I../../../inc -I../../../manager/inc -I../../../manager/utils
-OBJS    = ../common/initnand.c ../../../manager/l2p/zone.c  ../../driver/src/APP_vNand.c ../../../manager/vnand/vNand.c ../app/NandSemaphore.c ../../../manager/utils/bufflistmanager.c ../../../manager/utils/zonememory.c ../../../manager/l2p/zonemanager.c ./testzonemanager.c ../../../manager/l2p/hashnode.c ../../../manager/l2p/hash.c ../../../manager/l2p/taskmanager.c ../app/NandThread.c ../../../manager/l2p/cachemanager.c ../../../manager/l2p/cachedata.c ../../../manager/l2p/cachelist.c ../../../manager/l2p/badblockinfo.c
+OBJS    = ../common/initnand.c ../../../manager/l2p/zone.c  ../../driver/src/APP_vNand.c ../../../manager/vnand/vNand.c ../app/NandSemaphore.c ../../../manager/utils/bufflistmanager.c ../../../manager/utils/zonememory.c ../../../manager/l2p/zonemanager.c ./testzonemanager.c ../../../manager/l2p/hashnode.c ../../../manager/l2p/hash.c ../../../manager/l2p/taskmanager.c ../app/NandThread.c ../../../manager/l2p/cachemanager.c ../../../manager/l2p/cachedata.c ../../../manager/l2p/cachelist.c ../../../manager/vnand/l2vNand.c
 #OBJS = ../../manager/zone/zonemanager.c ../../manager/utils/zonememory.c
 TARGETS = ../testzonemanager.so
 all: $(TARGETS)

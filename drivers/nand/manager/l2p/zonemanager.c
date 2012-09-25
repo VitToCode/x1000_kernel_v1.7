@@ -9,6 +9,7 @@
 #include "pagelist.h"
 #include "NandAlloc.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "zonemanager.h"
 #include "nandsigzoneinfo.h"
 #include "nandzoneinfo.h"
@@ -17,9 +18,8 @@
 #include "nandpageinfo.h"
 #include "cachemanager.h"
 #include "errhandle.h"
-#include "badblockinfo.h"
+//#include "badblockinfo.h"
 
-#define BLOCKPERZONE(context)   	8
 #define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
 #define ZONEPAGE2INFO(vnand)      ((vnand)->_2kPerPage + 1)
 #define ZONEMEMSIZE(vnand)      ((vnand)->BytePerPage * 4)
@@ -250,7 +250,8 @@ static void free_zonemanager_memory(ZoneManager *zonep)
  */
 static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList *pl,unsigned int page)
 {
-	unsigned int startblockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	//unsigned int startblockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	unsigned int startblockno = zoneid * BLOCKPERZONE(zonep->vnand);
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);
@@ -484,6 +485,7 @@ static void insert_zoneidlist(ZoneManager *zonep, int errtype, unsigned short zo
  *
  *	@vnand: virtual nand
  */
+/*
 static int get_pt_badblock_count(VNandInfo *vnand)
 {
 	int i;
@@ -498,6 +500,7 @@ static int get_pt_badblock_count(VNandInfo *vnand)
 
 	return count;
 }
+*/
 
 /**
  *	scan_sigzoneinfo_fill_node - scan sigzoneinfo and fill it to hashtable
@@ -555,8 +558,10 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 		}
 	}
 
-	last_zone_badblocknum = (BLOCKPERZONE(vnand) - (vnand->TotalBlocks - get_pt_badblock_count(vnand)) %
-							 BLOCKPERZONE(vnand)) % BLOCKPERZONE(vnand);
+	/*last_zone_badblocknum = (BLOCKPERZONE(vnand) - (vnand->TotalBlocks - get_pt_badblock_count(vnand)) %
+	  BLOCKPERZONE(vnand)) % BLOCKPERZONE(vnand);*/
+
+	last_zone_badblocknum = (BLOCKPERZONE(vnand) - (vnand->TotalBlocks % BLOCKPERZONE(vnand))) % BLOCKPERZONE(vnand);
 
 	for (i = 0; i < last_zone_badblocknum; i++)
 		(zonep->sigzoneinfo + zonep->pt_zonenum - 1)->badblock |= (1 << (BLOCKPERZONE(vnand) - 1 - i));
@@ -814,7 +819,8 @@ static Zone *get_usedzone(ZoneManager *zonep, unsigned short zoneid)
 		zoneptr->nextzone = NULL;
 	zoneptr->badblock = (zonep->sigzoneinfo + zoneid)->badblock;
 	zoneptr->validpage= (zonep->sigzoneinfo + zoneid)->validpage;
-	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	//zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	zoneptr->startblockID = zoneid * BLOCKPERZONE(zonep->vnand);
 	zoneptr->top = zonep->sigzoneinfo;
 	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
@@ -1049,11 +1055,16 @@ static int page_in_current_zone (ZoneManager *zonep, unsigned short zoneid, unsi
 {
 	int ppb = zonep->vnand->PagePerBlock;
 
-	if (zoneid == zonep->pt_zonenum - 1)
-		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid)* ppb;
+	if (zoneid == zonep->pt_zonenum - 1) {
+		//return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+		return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb;
+	}
 	
-	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
-		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
+	/*return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+	  && pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;*/
+
+	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
+		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
 
 /**
@@ -1349,7 +1360,8 @@ Zone* ZoneManager_AllocZone (int context)
 
 	zoneptr->top = zonep->sigzoneinfo;
 	zoneptr->ZoneID = zoneptr->sigzoneinfo - zoneptr->top;
-	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneptr->ZoneID);
+	//zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneptr->ZoneID);
+	zoneptr->startblockID = zoneptr->ZoneID * BLOCKPERZONE(zonep->vnand);
 	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
 	zoneptr->L3InfoLen = zonep->l3infolen;
@@ -1436,13 +1448,16 @@ int ZoneManager_Init (int context )
 	conptr->zonep = zonep;
 	zonep->context = context;
 	zonep->vnand = &conptr->vnand;
-#ifdef TEST
-	memset(zonep->vnand->pt_badblock_info, 0xff, zonep->vnand->BytePerPage * BADBLOCKINFOSIZE);
-#endif
-	zonep->badblockinfo = BadBlockInfo_Init((int *)zonep->vnand->pt_badblock_info,
-		zonep->vnand->startBlockID,zonep->vnand->TotalBlocks,BLOCKPERZONE(zonep->vnand));
-	zonep->pt_zonenum = BadBlockInfo_Get_ZoneCount(zonep->badblockinfo);
-	if (zonep->pt_zonenum == 0){
+	/*
+	  #ifdef TEST
+	  memset(zonep->vnand->pt_badblock_info, 0xff, zonep->vnand->BytePerPage * BADBLOCKINFOSIZE);
+	  #endif
+	  zonep->badblockinfo = BadBlockInfo_Init((int *)zonep->vnand->pt_badblock_info,
+	  zonep->vnand->startBlockID,zonep->vnand->TotalBlocks,BLOCKPERZONE(zonep->vnand));
+	  zonep->pt_zonenum = BadBlockInfo_Get_ZoneCount(zonep->badblockinfo);
+	*/
+	zonep->pt_zonenum = (zonep->vnand->TotalBlocks + BLOCKPERZONE(zonep->vnand) - 1) / BLOCKPERZONE(zonep->vnand);
+	if (zonep->pt_zonenum == 0) {
 		ndprint(ZONEMANAGER_ERROR,"The partition has no zone that can be used!\n");
 		return -1;
 	}
@@ -1518,7 +1533,7 @@ void ZoneManager_DeInit (int context )
 {
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
-	BadBlockInfo_Deinit(zonep->badblockinfo);
+	//BadBlockInfo_Deinit(zonep->badblockinfo);
 	Nand_ContinueFree(zonep->zonevalidinfo.wpages);
 	deinit_free_node(zonep);
 	deinit_used_node(zonep);
@@ -1653,7 +1668,8 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 		zoneptr->nextzone = zonep->sigzoneinfo + zoneptr->sigzoneinfo->next_zoneid;
 	else
 		zoneptr->nextzone = NULL;
-	zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,ZoneID);
+	//zoneptr->startblockID = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,ZoneID);
+	zoneptr->startblockID = ZoneID * BLOCKPERZONE(zonep->vnand);
 	zoneptr->top = zonep->sigzoneinfo;
 	zoneptr->L1InfoLen = zonep->L1->len;
 	zoneptr->L2InfoLen = zonep->l2infolen;
@@ -1925,7 +1941,7 @@ SigZoneInfo *ZoneManager_GetNextZone(int context)
 }
 int ZoneManager_convertPageToZone(int context,unsigned int pageid){
 	Context *conptr = (Context *)context;
-	ZoneManager *zonep = conptr->zonep;
+	//ZoneManager *zonep = conptr->zonep;
 	int blockid = pageid / conptr->vnand.PagePerBlock;
 	if (blockid < 0 || blockid >= conptr->vnand.TotalBlocks) {
 		ndprint(ZONEMANAGER_ERROR, "ERROR: blockid = %d vnand.TotalBlocks = %d func: %s line: %d \n",
@@ -1933,7 +1949,8 @@ int ZoneManager_convertPageToZone(int context,unsigned int pageid){
 		return -1;
 	}
 
-	return BadBlockInfo_ConvertBlockToZoneID(zonep->badblockinfo,blockid);
+	//return BadBlockInfo_ConvertBlockToZoneID(zonep->badblockinfo,blockid);
+	return blockid / BLOCKPERZONE(zonep->vnand);
 }
 void debug_zonemanagerinfo(int context)
 {

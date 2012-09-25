@@ -3,7 +3,7 @@ CXX = g++
 CFLAGS  = -Wall -pipe -DDEBUG -D_NEW_LIC -g -D_GNU_SOURCE -shared -D_REENTRANT -DTEST_PARTITION
 LIB     = -ldl -lrt  -g
 INCLUDE = -I../inc -I../../../inc -I../../../manager/inc/ -I../../../manager/utils
-OBJS    = testpartition.c  ../../../manager/utils/bufflistmanager.c ../app/NandSemaphore.c ../../../manager/utils/zonememory.c   ../../../manager/nandmanagerinterface.c ../../../manager/vnand/vNand.c   
+OBJS    = testpartition.c  ../../../manager/utils/bufflistmanager.c ../app/NandSemaphore.c ../../../manager/utils/zonememory.c   ../../../manager/nandmanagerinterface.c ../../../manager/vnand/vNand.c   ../../../manager/vnand/l2vNand.c
 TARGETS = ../testpartition.so 
 all: $(TARGETS)
 $(TARGETS): $(OBJS)

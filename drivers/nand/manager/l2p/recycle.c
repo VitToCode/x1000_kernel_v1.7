@@ -11,14 +11,14 @@
 #include "bufflistmanager.h"
 #include "context.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "taskmanager.h"
 #include "nanddebug.h"
 #include "nandsigzoneinfo.h"
 #include "nmbitops.h"
-#include "badblockinfo.h"
+//#include "badblockinfo.h"
 
 #define L4UNITSIZE(context) 128 * 1024
-#define BLOCKPERZONE(context)		8
 #define RECYCLECACHESIZE		VNANDCACHESIZE
 
 static int getRecycleZone ( Recycle *rep);
@@ -580,11 +580,16 @@ static int data_in_rzone (Recycle *rep, unsigned int pageid)
 	zoneid = zone->ZoneID;
 	ppb = vnand->PagePerBlock;
 
-	if (zoneid == zonep->pt_zonenum - 1)
-		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+	if (zoneid == zonep->pt_zonenum - 1) {
+		//return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+		return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb;
+	}
 
-	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
-		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
+	/*return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+	  && pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;*/
+
+	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
+		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
 
 /**
@@ -613,11 +618,16 @@ static int data_in_prev_zone (Recycle *rep, unsigned int pageid)
 	zoneid = zone->prevzone- zone->top;
 	ppb = vnand->PagePerBlock;
 
-	if (zoneid == zonep->pt_zonenum - 1)
-		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+	if (zoneid == zonep->pt_zonenum - 1) {
+		//return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+		return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb;
+	}
 
-	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
-		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
+	/*return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+	  && pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;*/
+
+	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
+		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
 
 /**
@@ -646,11 +656,16 @@ static int data_in_next_zone (Recycle *rep, unsigned int pageid)
 	zoneid = zone->nextzone- zone->top;
 	ppb = vnand->PagePerBlock;
 
-	if (zoneid == zonep->pt_zonenum - 1)
-		return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+	if (zoneid == zonep->pt_zonenum - 1) {
+		//return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
+		return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb;
+	}
 
-	return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
-		&& pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;
+	/*return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
+	  && pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;*/
+
+	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
+		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
 
 /**
@@ -1459,6 +1474,40 @@ err:
 	return -1;
 }
 
+#if 1
+static BlockList *create_blocklist(Recycle *rep, int start_blockid, int total_blockcount, int *first_ok_blockid)
+{
+	int i = 0;
+	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
+	unsigned int badblockinfo;
+	Context *conptr = (Context *)(rep->context);
+	int blm = (int)conptr->blm;
+
+	if (rep->force)
+		badblockinfo = rep->force_rZone->badblock;
+	else
+		badblockinfo = rep->rZone->badblock;
+
+	for (i = start_blockid; i < start_blockid + total_blockcount; i++) {
+		if (!nm_test_bit(i, &badblockinfo)) {//block is ok
+			if (*first_ok_blockid == -1)
+				*first_ok_blockid = i;
+
+			if (bl == NULL) {
+				bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+				bl_node = bl;
+			} else
+				bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+			bl_node->startBlock = i;
+			bl_node->BlockCount = 1;
+		}
+	}
+
+	return bl;
+}
+#else
 static BlockList *create_blocklist(Recycle *rep, int start_blockid, int total_blockcount, int *first_ok_blockid)
 {
 	int i = 0;
@@ -1512,6 +1561,7 @@ static BlockList *create_blocklist(Recycle *rep, int start_blockid, int total_bl
 
 	return bl;
 }
+#endif
 
 /**
  *	FreeZone - Free recycle zone
@@ -1538,7 +1588,8 @@ static int FreeZone ( Recycle *rep)
 	if (rep->rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->rZone->startblockID;
 	else {
-		next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->rZone->ZoneID + 1);
+		//next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->rZone->ZoneID + 1);
+		next_start_blockid = (rep->rZone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand);
 		blockcount = next_start_blockid - start_blockid;
 	}
 
@@ -2272,7 +2323,8 @@ static int OnForce_FreeZone ( Recycle *rep)
 	if (rep->force_rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->force_rZone->startblockID;
 	else {
-		next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->force_rZone->ZoneID + 1);
+		//next_start_blockid = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,rep->force_rZone->ZoneID + 1);
+		next_start_blockid = (rep->force_rZone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand);
 		blockcount = next_start_blockid - start_blockid;
 	}
 

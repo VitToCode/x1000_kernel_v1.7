@@ -5,6 +5,7 @@
 #include "pagelist.h"
 #include "context.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "nandpageinfo.h"
 
 #define L1_CACHEDATA_COUNT 1

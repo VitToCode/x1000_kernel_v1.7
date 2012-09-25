@@ -3,13 +3,36 @@
 #include "nandsigzoneinfo.h"
 #include "nandzoneinfo.h"
 #include "vNand.h"
+#include "l2vNand.h"
 #include "nanddebug.h"
 #include "nmbitops.h"
-#include "badblockinfo.h"
+//#include "badblockinfo.h"
 
 #define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
 #define ZONEPAGE2INFO(vnand)      ((vnand)->_2kPerPage + 1)
 
+#if 1
+static BlockList *create_blocklist(Context *conptr, int start_blockid, int total_blockcount)
+{
+	int i = 0;
+	BlockList *bl = NULL;
+	BlockList *bl_node = NULL;
+	int blm = (int)conptr->blm;
+
+	for (i = start_blockid; i < start_blockid + total_blockcount; i++) {
+		if (bl == NULL) {
+			bl = (BlockList *)BuffListManager_getTopNode(blm,sizeof(BlockList));
+			bl_node = bl;
+		} else
+			bl_node = (BlockList *)BuffListManager_getNextNode(blm,(void *)bl,sizeof(BlockList));
+
+		bl_node->startBlock = i;
+		bl_node->BlockCount = 1;
+	}
+
+	return bl;
+}
+#else
 static BlockList *create_blocklist(Context *conptr, int start_blockid, int total_blockcount)
 {
 	int i = 0;
@@ -52,6 +75,7 @@ static BlockList *create_blocklist(Context *conptr, int start_blockid, int total
 
 	return bl;
 }
+#endif
 
 static int erase_err_zone(int errinfo)
 {
@@ -64,7 +88,8 @@ static int erase_err_zone(int errinfo)
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
-	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	//int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	int start_blockno = zoneid * BLOCKPERZONE(zonep->vnand);
 	int next_start_blockno = 0;
 	int blockcount = 0;
 	int blmid = (int)conptr->blm;
@@ -73,7 +98,8 @@ static int erase_err_zone(int errinfo)
 	if (zoneid == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - start_blockno;
 	else {
-		next_start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1);
+		//next_start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1);
+		next_start_blockno = (zoneid + 1) * BLOCKPERZONE(zonep->vnand);
 		blockcount = next_start_blockno - start_blockno;
 	}
 	
@@ -116,8 +142,9 @@ static int write_page0(int errinfo)
 	unsigned short zoneid = einfo->err_zoneid;
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
-	ZoneManager *zonep = conptr->zonep;
-	int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	//ZoneManager *zonep = conptr->zonep;
+	//int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+	int start_blockno = zoneid * BLOCKPERZONE(zonep->vnand);
 
 	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
@@ -263,7 +290,10 @@ static int get_prev_zone(int errinfo, Zone **zone)
 		return -1;
 	}
 
-	ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
+	/*ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
+	  vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);*/
+
+	ret = vNand_PageRead(vnand,(last_zoneid * BLOCKPERZONE(zonep->vnand)) * 
 		vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"

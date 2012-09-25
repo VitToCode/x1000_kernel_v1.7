@@ -122,7 +122,7 @@ int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount,
 	return VN_OPERATOR(PageWrite,vNand->prData,pageid,offsetbyte,bytecount,data);
 }
 
-int vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
+int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 	PageList *alig_pl = NULL;
 #ifdef STATISTICS_DEBUG
@@ -143,7 +143,7 @@ static int MultiPageRead (VNandInfo* vNand,PageList* pl )
 	return VN_OPERATOR(MultiPageRead,vNand->prData,pl);
 }
 
-int vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
+int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 	PageList *alig_pl = NULL;
 
@@ -167,7 +167,7 @@ static int MultiPageWrite (VNandInfo* vNand,PageList* pl )
 	return VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
 }
 
-int vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
+int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	int ret = 0;
 	unsigned int offset = 0;
 	struct singlelist *pos = NULL;
@@ -246,11 +246,11 @@ exit:
 	return ret;
 }
 
-int vNand_MultiBlockErase (VNandInfo* vNand,BlockList* pl ){
+int __vNand_MultiBlockErase (VNandInfo* vNand,BlockList* pl ){
 	return VN_OPERATOR(MultiBlockErase,vNand->prData,pl);
 }
 
-int vNand_IsBadBlock (VNandInfo* vNand,int blockid ){
+int __vNand_IsBadBlock (VNandInfo* vNand,int blockid ){
 	return VN_OPERATOR(IsBadBlock,vNand->prData,blockid);
 }
 
@@ -301,8 +301,9 @@ static void scan_pt_badblock_info_write_to_nand(PPartition *pt, int pt_id, VNand
 		ndprint(VNAND_DEBUG, "vn.TotalBlocks = %d\n", vn.TotalBlocks);
 		end_blockno = vn.startBlockID + vn.TotalBlocks;
 		for (i = start_blockno; i < end_blockno; i++) {
-			if (vNand_IsBadBlock(&vn, i) && j * 4 < size)
+			if (__vNand_IsBadBlock(&vn, i) && j * 4 < size){
 				pt->pt_badblock_info[j++] = i;
+			}
 			else {
 				if(j * 4 >= size){
 					ndprint(VNAND_ERROR,"too many bad block in pt %d\n", pt_id);
@@ -408,7 +409,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	//for block number
 	while(blkcnt < pt->totalblocks) {
 		startblock--;
-		if(vNand_IsBadBlock(&error_vn,startblock)) {
+		if(__vNand_IsBadBlock(&error_vn,startblock)) {
 			badcnt++;
 			if (badcnt > pt->badblockcount) {
 				ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
@@ -473,7 +474,7 @@ int vNand_ScanBadBlocks (VNandManager* vm)
   The following functions is for partition manager
 */
 
-int vNand_Init (VNandManager** vm)
+int __vNand_Init (VNandManager** vm)
 {
 	int ret = 0;
 
@@ -510,7 +511,7 @@ int vNand_Init (VNandManager** vm)
 	return 0;
 }
 
-void vNand_Deinit ( VNandManager** vm)
+void __vNand_Deinit ( VNandManager** vm)
 {
 	int i;
 	PPartition *pt = NULL;
