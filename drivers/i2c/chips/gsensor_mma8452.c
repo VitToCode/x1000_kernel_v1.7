@@ -487,10 +487,9 @@ static void mma8452_work(struct work_struct *work)
 static irqreturn_t mma8452_interrupt(int irq, void *dev_id)
 {
 	struct mma8452_data *mma = dev_id;
-	disable_irq_nosync(mma->client->irq);
 	if( mma->is_suspend == 1 ||atomic_read(&mma->enabled) == 0)
 		return IRQ_HANDLED;
-	//__gpio_ack_irq(mma->pdata->intr);	
+	disable_irq_nosync(mma->clien->irq);
 	if (!work_pending(&mma->pen_event_work)) {
 		queue_work(mma->mma_wqueue, &mma->pen_event_work);
 	}
