@@ -102,12 +102,6 @@ static int act8600_get_usb_state(struct act8600_charger *charger)
 #endif
 }
 
-static void pmu_work_enable(void *pmu_interface)
-{
-	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
-	enable_irq(charger->irq);
-}
-
 static int get_pmu_status(void *pmu_interface, int status)
 {
 	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
@@ -211,6 +205,13 @@ static irqreturn_t act8600_charger_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void pmu_work_enable(void *pmu_interface)
+{
+	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
+
+	schedule_delayed_work(&charger->work, 0);
+}
+
 static int act8600_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -224,7 +225,8 @@ static int act8600_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
 			val->intval = get_charger_online(jz_battery, AC);
-		} else if(psy->type == POWER_SUPPLY_TYPE_USB) {
+		} else if(psy->type == POWER_SUPPLY_TYPE_USB &&
+			jz_battery->status_charge == POWER_SUPPLY_STATUS_CHARGING) {
 			val->intval = get_charger_online(jz_battery, USB);
 		} else
 			val->intval = 0;
@@ -362,6 +364,7 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, charger);
 
 	return 0;
+
 err_free_irq:
 	free_irq(charger->irq, charger);
 err_free_gpio:

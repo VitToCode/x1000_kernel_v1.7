@@ -64,7 +64,7 @@ struct jz_battery {
 	struct mutex lock;
 
 	unsigned int next_scan_time;
-
+	unsigned int time;
 	unsigned int usb;
 	unsigned int ac;
 
