@@ -58,6 +58,7 @@
 #include <asm/uasm.h>
 #include <asm/r4kcache.h>
 
+#include <tcsm.h>
 extern void check_wait(void);
 extern asmlinkage void r4k_wait(void);
 extern asmlinkage void rollback_handle_int(void);
@@ -92,7 +93,37 @@ void (*board_ejtag_handler_setup)(void);
 void (*board_bind_eic_interrupt)(int irq, int regset);
 
 static void mt_ase_fp_affinity(void);
+#ifdef CONFIG_TRAPS_USE_TCSM
 
+struct tcsm_handler_data
+{
+	int		index;
+	int		len;
+	char		name[20];
+	void		*handler;
+};
+
+struct tcsm_handler_data tcsm_handlers[] = {
+	{0,     80 * 4, "interrupt",handle_int},
+	{1, 	56 * 4,	"tlbm",	handle_tlbm},
+	{2, 	56 * 4,	"tlbl",	handle_tlbl},
+	{3, 	56 * 4,	"tlbs",	handle_tlbs},
+};
+static inline void __cpuinit handler_immigration(
+	int index, int size, unsigned int *to, void *from);
+static inline void __cpuinit traps_to_tcsm(int cpu)
+{
+	int i;
+	struct tcsm_handler_data *th;
+	unsigned int addr;
+	for (i = 0; i < ARRAY_SIZE(tcsm_handlers); i++) {
+		th = &tcsm_handlers[i];
+		addr = get_cpu_tcsm(cpu, th->len, th->name);
+		handler_immigration(th->index, th->len,
+				    (unsigned int *)addr, th->handler);
+	}
+}
+#endif
 static void show_raw_backtrace(unsigned long reg29)
 {
 	unsigned long *sp = (unsigned long *)(reg29 & ~3);
@@ -1535,6 +1566,16 @@ NORET_TYPE void ATTRIB_NORET nmi_exception_handler(struct pt_regs *regs)
 
 unsigned long ebase;
 unsigned long exception_handlers[32];
+#ifdef CONFIG_TRAPS_USE_TCSM
+unsigned long *exception_handlers_tcsm;
+static inline void __cpuinit handler_immigration(
+	int index, int size, unsigned int *to, void *from)
+{
+	memcpy(to, (unsigned int *)from, size);
+	exception_handlers_tcsm[index] = (unsigned long)to;
+}
+
+#endif
 unsigned long vi_handlers[64];
 
 /* Install CPU exception handler */
@@ -1586,7 +1627,19 @@ void __init *set_except_vector(int n, void *addr)
 {
 	unsigned long handler = (unsigned long) addr;
 	unsigned long old_handler = exception_handlers[n];
-
+#ifdef CONFIG_TRAPS_USE_TCSM
+	old_handler = exception_handlers_tcsm[n];
+	exception_handlers_tcsm[n] = handler;
+	exception_handlers[n] = handler;
+	if (n == 0 && cpu_has_divec) {
+		u32 *buf = (u32 *)(ebase + 0x200);
+		unsigned int k0 = 26;
+		UASM_i_LA(&buf, k0, handler);
+		uasm_i_jr(&buf, k0);
+		uasm_i_nop(&buf);
+		local_flush_icache_range(ebase + 0x200, (unsigned long)buf);
+	}
+#else
 	exception_handlers[n] = handler;
 	if (n == 0 && cpu_has_divec) {
 		unsigned long jump_mask = ~((1 << 28) - 1);
@@ -1602,6 +1655,7 @@ void __init *set_except_vector(int n, void *addr)
 		}
 		local_flush_icache_range(ebase + 0x200, (unsigned long)buf);
 	}
+#endif
 	return (void *)old_handler;
 }
 
@@ -1889,6 +1943,13 @@ void __cpuinit per_cpu_trap_init(void)
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */
 	TLBMISS_HANDLER_SETUP();
+#ifdef CONFIG_TRAPS_USE_TCSM
+	exception_handlers_tcsm = (unsigned long *)get_cpu_tcsm(cpu, 128, "exception_handle");
+	if (cpu != 0) {
+		memcpy(exception_handlers_tcsm, exception_handlers, 32 * 4);
+		traps_to_tcsm(cpu);
+	}
+#endif
 }
 
 static int __initdata rdhwr_noopt;
@@ -2043,6 +2104,9 @@ void __init trap_init(void)
 	else
 		set_handler(0x080, &except_vec3_generic, 0x80);
 
+#ifdef CONFIG_TRAPS_USE_TCSM
+	traps_to_tcsm(0);
+#endif
 	local_flush_icache_range(ebase, ebase + 0x400);
 	flush_tlb_handlers();
 
