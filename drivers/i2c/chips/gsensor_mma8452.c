@@ -278,7 +278,14 @@ static void report_abs(struct mma8452_data *data)
 	//printk("x:%d y:%d z:%d\n",x,y,z);
 	input_sync(data->input_dev);
 #ifdef CONFIG_SENSORS_ORI
-orientation_report_values(x,y,z);
+	if(data->pdata->ori_pr_swap == 1){
+		sensor_swap_pr((u16*)x,(u16*)y);
+	}
+	x = (data->pdata->ori_roll_negate) ? (-x)
+			: x;
+	y = (data->pdata->ori_pith_negate) ? (-y)
+			: y;
+	orientation_report_values(x,y,z);
 #endif
 }
 struct linux_sensor_t hardware_data = {                                       

@@ -34,6 +34,10 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 	.negate_x = 1,
 	.negate_y = 0,
 	.negate_z = 1,
+	
+	.ori_pr_swap = 0,
+	.ori_pith_negate = 0,
+	.ori_roll_negate = 1,
 };
 #endif
 
@@ -50,6 +54,10 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 	.negate_x = 0,
 	.negate_y = 1,
 	.negate_z = 1,
+	
+	.ori_pr_swap = 0,
+	.ori_pith_negate = 0,
+	.ori_roll_negate = 1,
 };
 #endif
 

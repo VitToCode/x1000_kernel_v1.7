@@ -380,6 +380,13 @@ static void lis3dh_acc_report_values(struct lis3dh_acc_data *acc,
 	input_report_abs(acc->input_dev, ABS_Z, xyz[2]);
 	input_sync(acc->input_dev);
 #ifdef CONFIG_SENSORS_ORI
+	if(acc->pdata->ori_pr_swap == 1){
+		sensor_swap_pr((u16*)(xyz+0),(u16*)(xyz+1));
+	}
+	xyz[0] = ((acc->pdata->ori_roll_negate) ? (-xyz[0])
+			: (xyz[0]));
+	xyz[1] = ((acc->pdata->ori_pith_negate) ? (-xyz[1])
+			: (xyz[1]));
 	orientation_report_values(xyz[0],xyz[1],xyz[2]); 
 #endif
 }

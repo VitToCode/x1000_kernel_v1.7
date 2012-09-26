@@ -20,6 +20,10 @@ __attribute__((weak)) struct gsensor_platform_data {
 	u8 negate_y;
 	u8 negate_z;
 
+	u8 ori_pr_swap;
+	u8 ori_pith_negate;
+	u8 ori_roll_negate;
+
 	int (*init)(void);
 	void (*exit)(void);
 	int (*power_on)(void);
@@ -32,6 +36,15 @@ enum {
 	GSENSOR_8G,
 	GSENSOR_16G,
 };
+
+static inline void sensor_swap_pr(u16 * p,u16 * r)
+{
+	u16 tmp = 0;
+	tmp = *p;
+	*p =  *r;
+	*r = tmp;
+}
+
 #if 0
 static inline int get_pin_status(struct jztsc_pin *pin)
 {
