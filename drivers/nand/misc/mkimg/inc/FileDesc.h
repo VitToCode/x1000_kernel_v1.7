@@ -11,12 +11,12 @@ struct filedesc
 	int pageperblock;
 	int startblock;
 	int blocks;
-	
 };
 struct argoption
 {
 	char *configname;
 	struct filedesc file_desc;
+	int debug;
 };
 void help();
 void dumpconfig();

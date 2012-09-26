@@ -36,7 +36,7 @@ char *GetIniKeyString(char *title,char *key,char *filename)
 			szLine[--i] = '\0';
 			i = 0;
 			tmp = strchr(szLine, '=');
-			
+
 			if(( tmp != NULL )&&(flag == 1))
 			{
 				if(strstr(szLine,key)!=NULL)
@@ -44,7 +44,7 @@ char *GetIniKeyString(char *title,char *key,char *filename)
 					//注释行
 					if ('#' == szLine[0]){
 					}
-					else if ( '/' == szLine[0] && '/' == szLine[1] ){	 
+					else if ( '/' == szLine[0] && '/' == szLine[1] ){
 					}else
 					{
 						//找打key对应变量
@@ -73,7 +73,7 @@ char *GetIniKeyString(char *title,char *key,char *filename)
 int get_filelen(char *filename){
 	int size;
 	FILE *fp;
-	
+
 	if((fp = fopen(filename, "r")) == NULL)
 	{
 		printf("have no	such file(%s) \n",filename);
@@ -88,7 +88,7 @@ void get_option(int argc,char *argv[]){
     int result;
 	opterr = 0;
 	char *str;
-    while( (result = getopt(argc, argv, "i::o::pf::")) != -1 )
+    while( (result = getopt(argc, argv, "i::o::dpf::")) != -1 )
     {
 		switch(result)
 		{
@@ -106,19 +106,21 @@ void get_option(int argc,char *argv[]){
 			arg_option.file_desc.startblock = strtoul(str,0,0);
 			str = GetIniKeyString(0,"blocks",arg_option.configname);
 			arg_option.file_desc.blocks = strtoul(str,0,0);
-								  
+
 			break;
 		case 'p':
-			
+
 			arg_option.file_desc.bytesperpage = strtoul(argv[optind],0,0);
 			arg_option.file_desc.pageperblock = strtoul(argv[optind+1],0,0);
 			arg_option.file_desc.startblock = strtoul(argv[optind+2],0,0);
 			arg_option.file_desc.blocks = strtoul(argv[optind+3],0,0);
 
-			break;	
+			break;
 		case 'o':
 			arg_option.file_desc.outname = argv[optind];
-			
+			break;
+		case 'd':
+			arg_option.debug = 1; /* if 1: debug the bin to img */
 			break;
 		default:
 			help();
@@ -137,5 +139,5 @@ void dumpconfig(){
 	printf("pageperblock = %d\n",arg_option.file_desc.pageperblock);
 	printf("startblock = %d\n",arg_option.file_desc.startblock);
 	printf("blocks = %d\n",arg_option.file_desc.blocks);
-	
+
 }

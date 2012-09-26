@@ -18,8 +18,13 @@
 #include "timeinterface.h"
 //#include "badblockinfo.h"
 
+#define L4INFOLEN 1024
+
 static BuffListManager *Blm;
-#define PAGENUMBER_PERPAGELIST   (128/2+4)
+// PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
+#define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
+
+
 /**
  *	Idle_Handler  -  function in idle thread
  *
@@ -164,7 +169,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 
 	CONV_PT_VN(pt,&conptr->vnand);
 	if(conptr->vnand._2kPerPage != 1){
-		conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST*sizeof(int));
+		conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
 		conptr->vnand.blm = BuffListManager_BuffList_Init();
 	}
 
@@ -551,7 +556,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 		}
 
 	}
-	
+
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(conptr->timebyte, (void*)sl, 0, 1);
 #endif
@@ -563,7 +568,7 @@ exit:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return 0;
-	
+
 first_read:
 	ret = 0;
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
@@ -913,7 +918,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	CacheManager *cm = conptr->cachemanager;
 	unsigned int l4count = l2p->l4count;
 	int spp = conptr->vnand.BytePerPage / SECTOR_SIZE;
-	int brokenflag = 1; 
+	int brokenflag = 1;
 
 	free_pagecount = Zone_GetFreePageCount(zone);
 	if (free_pagecount <= 1) {
@@ -1040,7 +1045,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	if (sl == NULL){
 		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d. SECTORLIST IS NULL!\n",__func__,__LINE__);
 		return -1;
-	} 
+	}
 
 	Recycle_Lock(context);
 #ifdef STATISTICS_DEBUG
