@@ -51,3 +51,8 @@ config HIBERNATE_RESET
 	depends on MACH_XBURST
 	bool "use hibernate reset instead watch dog reset"
 	default n
+
+config TRAPS_USE_TCSM
+	depends on MACH_XBURST
+	bool "move irq handler to tcsm"
+	default n
