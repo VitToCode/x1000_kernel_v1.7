@@ -315,10 +315,13 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 	return 0;                 
 }
 
+static int lis3dh_acc_enable(struct lis3dh_acc_data *acc);
+static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
+
 static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		int *xyz)
 {
-	int err = -1;
+	int err = -1,i;
 	u8 buf[1]={0};
 	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
 	u8 acc_data[6];
@@ -346,9 +349,20 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 			: (hw_d[acc->pdata->axis_map_z]));
 
 	/*this is must be done in this mode*/
-	buf[0] = INT_SRC1;
-	err = lis3dh_acc_i2c_read(acc, buf, 1);
-	//printk("--int source=%x\n",buf[0]);
+
+	for (i = 0; i < 3; i++) {
+		buf[0] = INT_SRC1;
+		err = lis3dh_acc_i2c_read(acc, buf, 1);
+		if (buf[0] != 0x6a)
+			continue;
+		else
+			break;
+	}
+	if (i == 3) {
+		lis3dh_acc_disable(acc);
+		udelay(100);
+		lis3dh_acc_enable(acc);
+	}
 
 	return err;
 }
@@ -661,7 +675,6 @@ static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 	if(acc->is_suspend == 1 ||atomic_read(&acc->enabled) == 0){
 		return IRQ_HANDLED;
 	}
-	//     __gpio_ack_irq(acc->pdata->gpio_int);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
 	else
