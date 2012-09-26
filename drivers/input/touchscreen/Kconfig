@@ -146,6 +146,21 @@ config TOUCHSCREEN_GWTC9XXXB
 	help
 	  gwtc9xxxb a CTP controller
 
+config TOUCHSCREEN_CT36X
+	tristate "Touchscreen CT36X"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  ct36x a CTP controller
+
+config CT36X_FWUPDATE
+	tristate "Touchscreen CT36X Firmware update"
+	depends on TOUCHSCREEN_CT36X
+	default n
+	help
+	  ct36x CTP controller Firmware update. Before the upgrade, 
+	  you need to be copied *.dat file to the dir, each controller
+	  only need to update one time.
+
 config TOUCHSCREEN_JZ_SSD253X
 	tristate "Touchscreen SSD253X"
 	depends on I2C && JZ4780_SUPPORT_TSC
