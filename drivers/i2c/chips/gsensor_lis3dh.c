@@ -676,20 +676,18 @@ static void lis3dh_acc_work(struct work_struct *work)
 
 static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 {
-
 	struct lis3dh_acc_data *acc = dev_id;
-	disable_irq_nosync(acc->client->irq);
+
 	if(acc->is_suspend == 1 ||atomic_read(&acc->enabled) == 0){
 		return IRQ_HANDLED;
 	}
+	disable_irq_nosync(acc->client->irq);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
 	else
 		enable_irq(acc->client->irq);
 	return IRQ_HANDLED;
-
 }
-
 
 static int lis3dh_acc_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
