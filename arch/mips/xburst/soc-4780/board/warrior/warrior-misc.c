@@ -116,13 +116,13 @@ static struct platform_device jz_timed_gpio_device = {
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data warrior_battery_pdata = {
 	.info = {
-		.max_vol        = 4100,
+		.max_vol        = 4050,
 		.min_vol        = 3600,
-		.usb_max_vol    = 4200,
+		.usb_max_vol    = 4100,
 		.usb_min_vol    = 3670,
-		.ac_max_vol     = 4200,
+		.ac_max_vol     = 4100,
 		.ac_min_vol     = 3670,
-		.battery_max_cpt = 3500,
+		.battery_max_cpt = 3000,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
 	},

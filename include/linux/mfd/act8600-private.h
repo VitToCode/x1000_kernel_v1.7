@@ -71,6 +71,11 @@ struct act8600 {
 	struct i2c_client *client;
 };
 
+struct charger_board_info {
+	short gpio;
+	short enable_level;
+};
+
 extern int act8600_read_reg(struct i2c_client *client, unsigned char reg, unsigned char *val);
 extern int act8600_write_reg(struct i2c_client *client, unsigned char reg, unsigned char val);
 

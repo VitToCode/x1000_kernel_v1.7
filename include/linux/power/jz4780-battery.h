@@ -33,6 +33,7 @@ struct jz_battery_platform_data {
 enum {
 	USB,
 	AC,
+	STATUS,
 };
 
 struct jz_battery {
@@ -48,10 +49,12 @@ struct jz_battery {
 
 	int status_charge;
 	int status;/*modified by PMU driver, return the current status of charging or discharging*/
+	int status_tmp;
 
 	unsigned int voltage;
 
 	struct completion read_completion;
+	struct completion get_status_completion;
 
 	struct power_supply battery;
 	struct delayed_work work;
@@ -78,6 +81,10 @@ struct jz_battery {
 	int capacity;
 	int capacity_calculate;
 	unsigned long gate_voltage;
+
+	void *pmu_interface;
+	int (*get_pmu_status)(void *pmu_interface, int status);
+	void (*pmu_work_enable)(void *pmu_interface);
 };
 
 #define get_charger_online(bat, n)	((bat->charger & (1 << n)) ? 1 : 0)
