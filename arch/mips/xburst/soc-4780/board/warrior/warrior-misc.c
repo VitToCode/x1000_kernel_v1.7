@@ -267,8 +267,8 @@ static int __init warrior_board_init(void)
 	platform_device_register(&jz_button_device);
 #endif
 /* tcsm */
-#ifdef CONFIG_JZ_TCSM_DEFAULT
-	platform_device_register(&jz_tcsm_device);
+#ifdef CONFIG_JZ_VPU
+	platform_device_register(&jz_vpu_device);
 #endif
 
 	return 0;

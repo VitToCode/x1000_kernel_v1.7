@@ -53,6 +53,6 @@ obj-$(CONFIG_APANIC)		+= apanic.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-y				+= jz_cim/
 obj-$(CONFIG_JZ_X2D)    	+= jz_x2d/
-obj-$(CONFIG_JZ_TCSM_DEFAULT)   += jz_tcsm.o
+obj-$(CONFIG_JZ_VPU)		+= jz_vpu.o
 obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
 obj-$(CONFIG_JZ_PWM)            += jz_pwm.o

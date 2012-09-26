@@ -896,7 +896,7 @@ struct platform_device jz_rtc_device = {
 	.resource         = jz_rtc_resource,
 };
 
-static struct resource jz_tcsm_resource[] = {
+static struct resource jz_vpu_resource[] = {
 	[0] = {
 		.start = AUX_IOBASE,
 		.end = AUX_IOBASE + 0x20000 - 1,
@@ -910,11 +910,11 @@ static struct resource jz_tcsm_resource[] = {
 
 };
 
-struct platform_device jz_tcsm_device = {
-	.name             = "jz-tcsm",
+struct platform_device jz_vpu_device = {
+	.name             = "jz-vpu",
 	.id               = 0,
-	.num_resources    = ARRAY_SIZE(jz_tcsm_resource),
-	.resource         = jz_tcsm_resource,
+	.num_resources    = ARRAY_SIZE(jz_vpu_resource),
+	.resource         = jz_vpu_resource,
 };
 
 /* ADC controller*/

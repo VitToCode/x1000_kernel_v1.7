@@ -20,11 +20,6 @@ menuconfig MISC_DEVICES
 
 if MISC_DEVICES
 
-config JZ_TCSM_DEFAULT
-	bool "JZ TCSM for multimedia(default)"
-	help
-	  tcsm with the old method, it cannot support for muti-thread.
-
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
 	depends on (I2C || SPI) && SYSFS
@@ -537,6 +532,11 @@ config JZ_X2D
 config JZ_DMMU
 	bool "JZ DMMU driver"
 	default y
+
+config JZ_VPU
+	bool "VPU driver for Ingenic"
+	help
+	  Support for Ingenic VPU muti-thread operations.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
