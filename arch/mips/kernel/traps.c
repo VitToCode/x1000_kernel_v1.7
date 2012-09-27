@@ -102,7 +102,9 @@ struct tcsm_handler_data
 	char		name[20];
 	void		*handler;
 };
+
 static u32 handle_tlbrefill[64];
+
 struct tcsm_handler_data tcsm_handlers[] = {
 	{0,     80 * 4, "interrupt",handle_int},
 	{1, 	56 * 4,	"tlbm",	handle_tlbm},
@@ -111,6 +113,8 @@ struct tcsm_handler_data tcsm_handlers[] = {
 };
 static inline void __cpuinit handler_immigration(
 	int index, int size, unsigned int *to, void *from);
+static inline void __cpuinit syscall_table_immigration(int cpu);
+
 static inline void __cpuinit traps_to_tcsm(int cpu)
 {
 	int i;
@@ -122,7 +126,9 @@ static inline void __cpuinit traps_to_tcsm(int cpu)
 		handler_immigration(th->index, th->len,
 				    (unsigned int *)addr, th->handler);
 	}
+	syscall_table_immigration(cpu);
 }
+
 static inline void tlbrefill_to_tcsm(int cpu) {
 	int addr;
 	u32 *p = (u32*)ebase;
@@ -383,7 +389,7 @@ static void __show_regs(const struct pt_regs *regs)
 	unsigned int cause = regs->cp0_cause;
 
 	printk("Cpu %d\n", smp_processor_id());
-	
+
 	/*
 	 * Saved main processor registers
 	 */
@@ -1592,11 +1598,23 @@ unsigned long ebase;
 unsigned long exception_handlers[32];
 #ifdef CONFIG_TRAPS_USE_TCSM
 unsigned long *exception_handlers_tcsm;
+unsigned int *sys_call_table_tcsm;
+extern void *sys_call_table;
+
 static inline void __cpuinit handler_immigration(
 	int index, int size, unsigned int *to, void *from)
 {
 	memcpy(to, (unsigned int *)from, size);
 	exception_handlers_tcsm[index] = (unsigned long)to;
+}
+
+#define SYSCALL_TABLE_SIZE 2800
+static inline void __cpuinit syscall_table_immigration(int cpu)
+{
+	sys_call_table_tcsm = (unsigned int *)get_cpu_tcsm(cpu,
+							   SYSCALL_TABLE_SIZE,
+							   "sys_call_table");
+	memcpy(sys_call_table_tcsm, &sys_call_table, SYSCALL_TABLE_SIZE);
 }
 
 #endif
