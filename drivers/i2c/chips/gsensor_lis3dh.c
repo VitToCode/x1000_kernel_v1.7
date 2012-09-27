@@ -967,7 +967,7 @@ static void __exit lis3dh_acc_exit(void)
 	return;
 }
 
-module_init(lis3dh_acc_init);
+late_initcall(lis3dh_acc_init);
 module_exit(lis3dh_acc_exit);
 
 MODULE_DESCRIPTION("lis3dh digital accelerometer sysfs driver");
