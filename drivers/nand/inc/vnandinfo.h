@@ -7,7 +7,6 @@
 
 typedef struct _VNandInfo VNandInfo;
 typedef struct _VNandManager VNandManager;
-
 struct _VNandInfo {
 	int startBlockID;
 	int PagePerBlock;
@@ -16,12 +15,9 @@ struct _VNandInfo {
 	int* prData;
 	int MaxBadBlockCount;
 	unsigned short hwSector;
-	unsigned short _2kPerPage;
-	int blm;
-	void* align_rpl;
-	int* retVal;
-	unsigned int *pt_badblock_info;
-	unsigned int *pt_availableblockid;
+	int mode;
+	struct badblockhandle *badblock;
+	struct virt2phy_page *v2pp;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif
@@ -32,18 +28,18 @@ struct _VNandManager {
 	PPartArray* pt;
 };
 
-#define CONV_PT_VN(pt,vn)							\
-	do{									\
-		(vn)->_2kPerPage = (pt)->byteperpage / 2048;			\
-		(vn)->startBlockID = 0;						\
-		(vn)->PagePerBlock = (pt)->pageperblock * (vn)->_2kPerPage;	\
-		(vn)->BytePerPage = 2048;					\
-		(vn)->TotalBlocks = (pt)->totalblocks;				\
-		(vn)->MaxBadBlockCount = (pt)->badblockcount;			\
-		(vn)->hwSector = (pt)->hwsector;				\
-		(vn)->pt_badblock_info = (pt)->pt_badblock_info;		\
-		(vn)->pt_availableblockid = (pt)->pt_availableblockid;	\
-		(vn)->prData = (void*)(pt);					\
+#define CONV_PT_VN(pt,vn)											\
+	do{																\
+		(vn)->startBlockID = 0;										\
+		(vn)->PagePerBlock = (pt)->pageperblock * (pt)->v2pp->_2kPerPage;	\
+		(vn)->BytePerPage = 2048;									\
+		(vn)->TotalBlocks = (pt)->totalblocks;						\
+		(vn)->MaxBadBlockCount = (pt)->badblockcount;				\
+		(vn)->hwSector = (pt)->hwsector;							\
+		(vn)->prData = (void*)(pt);									\
+		(vn)->badblock = (pt)->badblock;							\
+		(vn)->v2pp = (pt)->v2pp;									\
+		(vn)->mode = (pt)->mode;									\
 	}while(0)
 
 #endif

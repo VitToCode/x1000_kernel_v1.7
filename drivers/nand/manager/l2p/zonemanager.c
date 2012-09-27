@@ -20,8 +20,8 @@
 #include "errhandle.h"
 //#include "badblockinfo.h"
 
-#define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
-#define ZONEPAGE2INFO(vnand)      ((vnand)->_2kPerPage + 1)
+#define ZONEPAGE1INFO(vnand)      ((vnand)->v2pp->_2kPerPage)
+#define ZONEPAGE2INFO(vnand)      ((vnand)->v2pp->_2kPerPage + 1)
 #define ZONEMEMSIZE(vnand)      ((vnand)->BytePerPage * 4)
 #define L4INFOLEN 1024
 
@@ -526,6 +526,7 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 		{
 			read_zone_page0(zonep,i,pl);
 			ret = pl->retVal;
+			pl->retVal = 0;
 			if (!ISNOWRITE(ret)) {
 				if(ISERROR(ret))
 					insert_zoneidlist(zonep,PAGE0,i);
@@ -614,6 +615,7 @@ static int scan_page_info(ZoneManager *zonep)
 	{
 		read_zone_page1(zonep,i,plt);
 		ret = plt->retVal;
+		plt->retVal = 0;
 		if (ISNOWRITE(ret))
 			continue;
 		else if (ISERROR(ret))
@@ -636,6 +638,7 @@ static int scan_page_info(ZoneManager *zonep)
 	{
 		read_zone_page2(zonep,max_zoneid,plt);
 		ret = plt->retVal;
+		plt->retVal = 0;
 		if(ISERROR(ret))
 		{
 			if(ISNOWRITE(ret)){
@@ -881,15 +884,15 @@ static int get_maxserial_zone(ZoneManager *zonep)
 
 	zoneptr->sumpage = (BLOCKPERZONE(zonep->vnand) - badblockcount) * zonep->vnand->PagePerBlock;
 
-	if (zoneptr->vnand->_2kPerPage == 1) {
+	if (zoneptr->vnand->v2pp->_2kPerPage == 1) {
 		zoneptr->pageCursor = badblockcount * zoneptr->vnand->PagePerBlock + ZONEPAGE1INFO(zoneptr->vnand);
 		zoneptr->allocPageCursor = zoneptr->pageCursor + 1;
 		zoneptr->allocedpage = 3;
 	}
-	else if (zoneptr->vnand->_2kPerPage > 1) {
+	else if (zoneptr->vnand->v2pp->_2kPerPage > 1) {
 		zoneptr->pageCursor = badblockcount * zoneptr->vnand->PagePerBlock + ZONEPAGE1INFO(zoneptr->vnand);
-		zoneptr->allocPageCursor = zoneptr->vnand->_2kPerPage * 2 - 1;
-		zoneptr->allocedpage = zoneptr->vnand->_2kPerPage * 2;
+		zoneptr->allocPageCursor = zoneptr->vnand->v2pp->_2kPerPage * 2 - 1;
+		zoneptr->allocedpage = zoneptr->vnand->v2pp->_2kPerPage * 2;
 	}
 
 	zonep->last_zone = zoneptr;

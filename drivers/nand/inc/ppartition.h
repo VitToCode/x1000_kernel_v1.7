@@ -10,9 +10,19 @@
 
 typedef struct _PPartition PPartition;
 typedef struct _PPartArray PPartArray;
+
+struct badblockhandle {
+	unsigned int *pt_badblock_info;
+	unsigned int *pt_availableblockid;
+};
+struct virt2phy_page {
+	int blm;
+	int* retVal;
+	unsigned short _2kPerPage;
+};
 struct _PPartition {
 	const char *name;
-	int startblockID; 
+	int startblockID;
 	int pageperblock;
 	int byteperpage;
 	int totalblocks;
@@ -22,8 +32,8 @@ struct _PPartition {
 	int PageCount;
 	int mode;
 	void *prData;
-	unsigned int *pt_badblock_info;
-	unsigned int *pt_availableblockid;
+	struct badblockhandle *badblock;
+	struct virt2phy_page *v2pp;
 };
 
 #define PPARTITION(pt) ((PPartition *)pt)

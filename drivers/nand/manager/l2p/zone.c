@@ -25,8 +25,8 @@
 //#include "badblockinfo.h"
 
 /*block per zone 8 block */
-#define FIRSTPAGEINFO(vnand)	   (((vnand)->_2kPerPage > 1)?(vnand)->_2kPerPage * 2:3)
-#define SIGZONEINFO(vnand)        ((vnand)->_2kPerPage)
+#define FIRSTPAGEINFO(vnand)	   (((vnand)->v2pp->_2kPerPage > 1)?(vnand)->v2pp->_2kPerPage * 2:3)
+#define SIGZONEINFO(vnand)        ((vnand)->v2pp->_2kPerPage)
 
 /*test define */
 #define MEMORY_PAGE_NUM      3 
@@ -375,8 +375,8 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	nandpageinfo = (NandPageInfo *)buf;
 
 	memset(buf,0xff,zone->vnand->BytePerPage);
-	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->_2kPerPage)
-		/ zone->vnand->_2kPerPage * zone->vnand->_2kPerPage;
+	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
+		/ zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
 	nandpageinfo->ZoneID = pi->zoneID;
 	len = package_pageinfo(zone,buf,pi);   
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
@@ -390,7 +390,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	zone->sigzoneinfo->validpage--;
 
-	if(zone->allocedpage > zone->sumpage - zone->vnand->_2kPerPage)
+	if(zone->allocedpage > zone->sumpage - zone->vnand->v2pp->_2kPerPage)
 		nandpageinfo->NextPageInfo = 0;
 
 	pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
@@ -475,7 +475,7 @@ int Zone_AllocNextPage ( Zone *zone )
  */
 unsigned short Zone_GetFreePageCount(Zone *zone)
 {
-	return zone->sumpage - (zone->allocedpage + zone->vnand->_2kPerPage - 1) / zone->vnand->_2kPerPage * zone->vnand->_2kPerPage;
+	return zone->sumpage - (zone->allocedpage + zone->vnand->v2pp->_2kPerPage - 1) / zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
 }
 
 /** 
@@ -589,6 +589,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	pagelist1->OffsetBytes = 0;
 	pagelist1->Bytes = zone->vnand->BytePerPage;
 	pagelist1->pData = (void *)zonep->L1->page;
+	pagelist1->retVal = 0;
 
 	ret = vNand_MultiPageWrite(zone->vnand,pagelist);
 	if(ret != 0)
@@ -601,15 +602,15 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->prevzone = prev;
 	zone->nextzone = next;
 
-	if (zone->vnand->_2kPerPage == 1){
+	if (zone->vnand->v2pp->_2kPerPage == 1){
 		zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
 		zone->allocPageCursor = zone->pageCursor + 1;
 		zone->allocedpage = 3;
 	}
-	else if (zone->vnand->_2kPerPage > 1) {
+	else if (zone->vnand->v2pp->_2kPerPage > 1) {
 		zone->pageCursor = blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand);
-		zone->allocPageCursor = zone->vnand->_2kPerPage * 2 - 1;
-		zone->allocedpage = zone->vnand->_2kPerPage * 2;
+		zone->allocPageCursor = zone->vnand->v2pp->_2kPerPage * 2 - 1;
+		zone->allocedpage = zone->vnand->v2pp->_2kPerPage * 2;
 	}
 	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - zone->allocedpage;
 	BuffListManager_freeAllList((int)blm, (void **)&pagelist, sizeof(PageList));
