@@ -14,7 +14,7 @@
 #define L4INFOLEN 1024
 // PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
 #define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
-
+/*
 struct vnand_operater{
 	NandInterface *operator;
 	unsigned char *vNand_buf;
@@ -40,10 +40,12 @@ struct vnand_operater{
 		NandMutex_Unlock(&v_nand_ops.mutex);				\
 		__ret;												\
 	})
-
+*/
 /*
   The following functions mutually exclusive call nand driver
 */
+struct vnand_operater v_nand_ops={0};
+
 static void vNandPage_To_NandPage(VNandInfo *vnand, int *pageid, int *offsetbyte)
 {
 	if (vnand->v2pp->_2kPerPage == 1)

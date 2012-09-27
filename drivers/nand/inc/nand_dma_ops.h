@@ -70,24 +70,39 @@ struct pdma_msg {
 	unsigned int cmd;
 	unsigned int info[10];
 };
-/*
-struct jznand_sg_data{
-	struct scatterlist  sg;
-	int sg_len;
-	int flag;
+#define NEW_NAND_DMA
+
+#ifdef  NEW_NAND_DMA
+
+#define MAXPAGENODE 256
+
+struct _pdma_pagelist{
+        unsigned int pageid;
+        unsigned short offset;
+        unsigned short bytes;
+        unsigned int pdata_addr;
+        unsigned int opsmodel;
+
+        PageList *pagenode;
 };
 
-struct Pdma_Data {
-	struct device *dma_dev;
-	struct dma_async_tx_descriptor *desc;
-	enum dma_ctrl_flags flags;
-	enum dma_data_direction direction;
-	dma_cookie_t cookie;
-	dma_addr_t dma_dest;
-	dma_addr_t dma_src;
-	size_t len;
+struct _pdma_blocklist{
+        int blockid;
+        unsigned int count;
+        int opsmodel;
+        BlockList *blocknode;
 };
-*/
+
+union _pdma_list{
+        struct _pdma_pagelist pagelist;
+        struct _pdma_blocklist blocklist;
+};
+
+typedef union _pdma_list PdmaList;
+
+#endif
+
+
 struct jznand_dma{
 	struct device           *dev;
 	struct device           *dma_dev;
@@ -95,12 +110,14 @@ struct jznand_dma{
 	struct dma_chan         *data_chan;
 	enum jzdma_type         chan_type;
 	struct dma_slave_config dma_config;
-	struct scatterlist      sg;
-	
+//	struct scatterlist      sg;
+#ifdef NEW_NAND_DMA
+        PdmaList                *dma_opslist;
+#else
 	unsigned char           *data_buf;
 	dma_addr_t              data_buf_phyaddr;
 	unsigned int            data_buf_len;
-
+#endif
 	struct dma_async_tx_descriptor *desc;	
 	int                     mailbox;
 	struct pdma_msg         *msg;

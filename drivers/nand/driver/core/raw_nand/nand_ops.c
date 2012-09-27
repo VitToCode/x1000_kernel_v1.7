@@ -1078,7 +1078,7 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
                         i=0;
 				}
         }
-        for(i=0;i<8;i++)
+        for(i=0;i<8;i++)  // nand two planes ops
                 for(j=0;j< NAND_ECC_POS;j++)
                         if(state[i][j] != 0xff)
                                 return ENAND;
@@ -1088,7 +1088,7 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
  *   markbadblock ;
  *
  */
-int markbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写 ，
+int markbadblock(NAND_BASE *host, int blockid)          
 {
         unsigned char state=0;
         unsigned char bbm[NAND_ECC_POS] ={0x00}; // bad block message

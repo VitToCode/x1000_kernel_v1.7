@@ -6,7 +6,8 @@ EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/manager/inc/linux/
 
 obj-y		+= manager/ nand_block.o driver/
-
+#obj-y		+= driver/
+obj-$(CONFIG_NAND_DUG) += nand_driver_debug.o
 all:
 	find . -name *.o | xargs rm -vf;
 	find . -name *.o.cmd | xargs rm -vf;

@@ -11,6 +11,32 @@
 #define VNANDCACHESIZE 32 * 1024
 #define BADBLOCKINFOSIZE 1
 
+struct vnand_operater{
+	NandInterface *operator;
+	unsigned char *vNand_buf;
+	NandMutex mutex;
+	void (*start_nand)(int);
+	int context;
+};
+#define CHECK_OPERATOR(ops)						\
+	do{								\
+		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){ \
+			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops); \
+			return -1;					\
+		}							\
+	}while(0)
+
+#define VN_OPERATOR(ops,...)						\
+	({								\
+		int __ret;						\
+		CHECK_OPERATOR(ops);					\
+		NandMutex_Lock(&v_nand_ops.mutex);			\
+		__ret = v_nand_ops.operator->i##ops (__VA_ARGS__);	\
+			NandMutex_Unlock(&v_nand_ops.mutex);		\
+			__ret;						\
+	})
+
+
 int vNand_PageRead (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void * data );
 int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void* data );
 int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl );

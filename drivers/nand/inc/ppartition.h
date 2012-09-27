@@ -22,7 +22,7 @@ struct virt2phy_page {
 };
 struct _PPartition {
 	const char *name;
-	int startblockID;
+	int startblockID; 
 	int pageperblock;
 	int byteperpage;
 	int totalblocks;
