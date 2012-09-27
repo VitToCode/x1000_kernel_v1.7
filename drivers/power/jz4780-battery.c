@@ -163,7 +163,7 @@ static int jz_battery_calculate_capacity(struct jz_battery *jz_battery)
 		tmp_max = jz_battery->pdata->info.ac_max_vol;
 		capacity_div_vol = (tmp_max - tmp_min) / VOLTAGE_BOUNDARY;
 
-		if (jz_battery->voltage <= tmp_min + 2 * capacity_div_vol)
+		if (jz_battery->voltage <= tmp_min + capacity_div_vol)
 			return 0;
 		if (jz_battery->voltage > tmp_max - 3 * capacity_div_vol) {
 			if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL)
@@ -181,7 +181,7 @@ static int jz_battery_calculate_capacity(struct jz_battery *jz_battery)
 		tmp_min = jz_battery->pdata->info.usb_min_vol;
 		capacity_div_vol = (tmp_max - tmp_min) / VOLTAGE_BOUNDARY;
 
-		if (jz_battery->voltage < tmp_min + 2 * capacity_div_vol)
+		if (jz_battery->voltage < tmp_min + capacity_div_vol)
 			return 0;
 		if (jz_battery->voltage > tmp_max - 3 * capacity_div_vol) {
 			if (jz_battery->status_charge == POWER_SUPPLY_STATUS_FULL)
@@ -201,7 +201,7 @@ static int jz_battery_calculate_capacity(struct jz_battery *jz_battery)
 	capacity_div_vol = (tmp_max - tmp_min) / 100;
 	if (jz_battery->voltage >= tmp_max - 3 * capacity_div_vol)
 		return 100;
-	if (jz_battery->voltage <= tmp_min + 2 * capacity_div_vol)
+	if (jz_battery->voltage <= tmp_min + capacity_div_vol)
 		return 0;
 
 	return (jz_battery->voltage - tmp_min) * 100 / (tmp_max - tmp_min);
