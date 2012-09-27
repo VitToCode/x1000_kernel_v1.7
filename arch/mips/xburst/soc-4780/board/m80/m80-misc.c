@@ -23,38 +23,6 @@
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
-#ifdef GPIO_CALL
-	{
-		.gpio		= GPIO_CALL,
-		.code   	= KEY_SEND,
-		.desc		= "call key",
-		.active_low	= ACTIVE_LOW_CALL,
-	},
-#endif
-#ifdef GPIO_HOME
-	{
-		.gpio		= GPIO_HOME,
-		.code   	= KEY_HOME,
-		.desc		= "home key",
-		.active_low	= ACTIVE_LOW_HOME,
-	},
-#endif
-#ifdef GPIO_BACK
-	{
-		.gpio		= GPIO_BACK,
-		.code   	= KEY_BACK,
-		.desc		= "back key",
-		.active_low	= ACTIVE_LOW_BACK,
-	},
-#endif
-#ifdef GPIO_MENU
-	{
-		.gpio		= GPIO_MENU,
-		.code   	= KEY_MENU,
-		.desc		= "menu key",
-		.active_low	= ACTIVE_LOW_MENU,
-	},
-#endif
 #ifdef GPIO_ENDCALL
 	{
 		.gpio		= GPIO_ENDCALL,

@@ -54,16 +54,16 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 #endif
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
-//static struct jztsc_pin m80_tsc_gpio[] = {
-//	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
-//	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
-//};
-//
-//static struct jztsc_platform_data m80_tsc_pdata = {
-//	.gpio		= m80_tsc_gpio,
-//	.x_max		= 800,
-//	.y_max		= 480,
-//};
+static struct jztsc_pin m80_tsc_gpio[] = {
+	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
+	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
+};
+
+static struct jztsc_platform_data m80_tsc_pdata = {
+	.gpio		= m80_tsc_gpio,
+	.x_max		= 1280,
+	.y_max		= 800,
+};
 #endif
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
@@ -74,9 +74,10 @@ static struct i2c_board_info m80_i2c1_devs[] __initdata = {
 		.platform_data = &mma8452_platform_pdata,
 	},
 #endif
+
 #ifdef CONFIG_SENSORS_LIS3DH
 	{
-	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
+	    I2C_BOARD_INFO("gsensor_lis3dh",0x18),
 		.platform_data = &lis3dh_platform_data,
 	},						        
 #endif
@@ -125,6 +126,12 @@ static struct i2c_board_info m80_i2c3_devs[] __initdata = {
 		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
 		.platform_data	= &m80_tsc_pdata,
 	},
+#endif
+#ifdef CONFIG_TOUCHSCREEN_CT36X
+	{
+		I2C_BOARD_INFO("ct36x_ts", 0x01),
+		.platform_data = &m80_tsc_pdata,
+	},						        
 #endif
 };
 #endif /*I2C3*/
