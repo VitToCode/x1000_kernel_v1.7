@@ -200,7 +200,9 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
 
-	cpu_clk = clk_get(NULL, "cclk");
+	if(!cpu_clk)
+		cpu_clk = clk_get(NULL, "cclk");
+
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
 
