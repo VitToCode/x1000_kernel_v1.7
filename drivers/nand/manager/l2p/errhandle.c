@@ -8,8 +8,8 @@
 #include "nmbitops.h"
 //#include "badblockinfo.h"
 
-#define ZONEPAGE1INFO(vnand)      ((vnand)->_2kPerPage)
-#define ZONEPAGE2INFO(vnand)      ((vnand)->_2kPerPage + 1)
+#define ZONEPAGE1INFO(vnand)      ((vnand)->v2pp->_2kPerPage)
+#define ZONEPAGE2INFO(vnand)      ((vnand)->v2pp->_2kPerPage + 1)
 
 #if 1
 static BlockList *create_blocklist(Context *conptr, int start_blockid, int total_blockcount)

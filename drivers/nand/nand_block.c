@@ -237,7 +237,11 @@ static int handle_req_thread(void *data)
 #endif
 			/* make SectorList from request */
 			ndisk->sl = NULL;
+
+			spin_lock_irq(q->queue_lock);
 			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context, ndisk->sectorsize);
+			spin_unlock_irq(q->queue_lock);
+
 			if (!ndisk->sl || (ndisk->sl_len < 0)) {
 				printk("nand_rq_map_sl error, ndisk->sl_len = %d, ndisk->sl = %p\n",
 					   ndisk->sl_len, ndisk->sl);

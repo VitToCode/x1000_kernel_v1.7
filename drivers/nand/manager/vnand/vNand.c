@@ -10,6 +10,11 @@
 #include "vNand.h"
 #include "timeinterface.h"
 
+
+#define L4INFOLEN 1024
+// PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
+#define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
+
 struct vnand_operater{
 	NandInterface *operator;
 	unsigned char *vNand_buf;
@@ -18,35 +23,45 @@ struct vnand_operater{
 	int context;
 }v_nand_ops={0};
 
-#define CHECK_OPERATOR(ops)						\
-	do{								\
-		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){ \
-			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops); \
-			return -1;					\
-		}							\
+#define CHECK_OPERATOR(ops)											\
+	do{																\
+		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){	\
+			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops);		\
+			return -1;												\
+		}															\
 	}while(0)
 
-#define VN_OPERATOR(ops,...)						\
-	({								\
-		int __ret;						\
-		CHECK_OPERATOR(ops);					\
-		NandMutex_Lock(&v_nand_ops.mutex);			\
+#define VN_OPERATOR(ops,...)								\
+	({														\
+		int __ret;											\
+		CHECK_OPERATOR(ops);								\
+		NandMutex_Lock(&v_nand_ops.mutex);					\
 		__ret = v_nand_ops.operator->i##ops (__VA_ARGS__);	\
-			NandMutex_Unlock(&v_nand_ops.mutex);		\
-			__ret;						\
+		NandMutex_Unlock(&v_nand_ops.mutex);				\
+		__ret;												\
 	})
 
 /*
   The following functions mutually exclusive call nand driver
 */
-
 static void vNandPage_To_NandPage(VNandInfo *vnand, int *pageid, int *offsetbyte)
 {
-	if (vnand->_2kPerPage == 1)
+	if (vnand->v2pp->_2kPerPage == 1)
 		return;
 
-	*offsetbyte += *pageid % vnand->_2kPerPage * 2048;
-	*pageid /= vnand->_2kPerPage;
+	*offsetbyte += *pageid % vnand->v2pp->_2kPerPage * 2048;
+	*pageid /= vnand->v2pp->_2kPerPage;
+}
+
+static void clear_pl_retval(PageList *pl)
+{
+	struct singlelist *pos = NULL;
+	PageList *pl_node = NULL;
+
+	singlelist_for_each(pos,&(pl->head)){
+		pl_node = singlelist_entry(pos,PageList,head);
+		pl_node->retVal = 0;
+	}
 }
 
 static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
@@ -55,30 +70,33 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 	PageList *pl_node = NULL;
 	PageList *npl = NULL;
 	PageList *mpl = NULL;
-	int *retVal =  vnand->retVal;
+	int *retVal =  vnand->v2pp->retVal;
 	int i;
 	int flag = 1;
 
-	if (vnand->_2kPerPage == 1)
+	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER){
+		clear_pl_retval(pl);
 		return pl;
-	npl = (PageList *)BuffListManager_getTopNode(vnand->blm, sizeof(PageList));
+	}
+	npl = (PageList *)BuffListManager_getTopNode(vnand->v2pp->blm, sizeof(PageList));
 	mpl = npl;
 	npl->Bytes = 0;
 	singlelist_for_each(pos,&pl->head) {
 		pl_node = singlelist_entry(pos,PageList,head);
 		if (flag){
-			npl->startPageID = pl_node->startPageID / vnand->_2kPerPage;
-			npl->OffsetBytes = pl_node->OffsetBytes + pl_node->startPageID % vnand->_2kPerPage * 2048;
+			npl->startPageID = pl_node->startPageID / vnand->v2pp->_2kPerPage;
+			npl->OffsetBytes = pl_node->OffsetBytes + pl_node->startPageID % vnand->v2pp->_2kPerPage * 2048;
 			npl->pData = pl_node->pData;
-			for (i=0; i<vnand->_2kPerPage; i++)
+			npl->retVal = 0;
+			for (i=0; i<vnand->v2pp->_2kPerPage; i++)
 				*retVal++ = (int)pl_node;
 			flag = 0;
 		}
 		npl->Bytes += pl_node->Bytes;
 		if ((pl_node->retVal == 0 ||
-			 (npl->Bytes + npl->OffsetBytes) >= vnand->BytePerPage*vnand->_2kPerPage) &&
+			 (npl->Bytes + npl->OffsetBytes) >= vnand->BytePerPage*vnand->v2pp->_2kPerPage) &&
 			(pos->next != NULL)) {
-			npl = (PageList *)BuffListManager_getNextNode(vnand->blm, (void *)npl, sizeof(PageList));
+			npl = (PageList *)BuffListManager_getNextNode(vnand->v2pp->blm, (void *)npl, sizeof(PageList));
 			npl->Bytes = 0;
 			pl_node->retVal = 0;
 			flag = 1;
@@ -93,18 +111,18 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
 	PageList *newpl = NULL;
 	int *retVal = NULL;
 	int i;
-	if (vnand->_2kPerPage == 1)
+	if (vnand->v2pp->_2kPerPage == 1)
 		return;
-	retVal = vnand->retVal;
+	retVal = vnand->v2pp->retVal;
 	singlelist_for_each(pos,&alig_pl->head){
 		newpl = singlelist_entry(pos,PageList,head);
 		if (newpl->retVal != 0){
-			for(i=0; i< vnand->_2kPerPage; i++){
+			for(i=0; i< vnand->v2pp->_2kPerPage; i++){
 				((PageList*)(*retVal))->retVal = newpl->retVal;
 				retVal++;
 			}
 		}else
-			retVal+=vnand->_2kPerPage;
+			retVal+=vnand->v2pp->_2kPerPage;
 	}
 }
 
@@ -129,18 +147,14 @@ int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	Get_StartTime(vNand->timebyte,0);
 #endif
 	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
-	vNand->align_rpl = alig_pl;
 	ret = VN_OPERATOR(MultiPageRead,vNand->prData,alig_pl);
 	Fill_Pl_Retval(vNand,alig_pl);
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+		BuffListManager_freeAllList(vNand->v2pp->blm, (void **)&alig_pl, sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 0, 0);
 #endif
 	return ret;
-}
-
-static int MultiPageRead (VNandInfo* vNand,PageList* pl )
-{
-	return VN_OPERATOR(MultiPageRead,vNand->prData,pl);
 }
 
 int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
@@ -153,18 +167,13 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,alig_pl);
 	Fill_Pl_Retval(vNand,alig_pl);
-	if (vNand->_2kPerPage != 1)
-		BuffListManager_freeAllList(vNand->blm,(void **)&alig_pl,sizeof(PageList));
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_pl,sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif
 
 	return ret;
-}
-
-static int MultiPageWrite (VNandInfo* vNand,PageList* pl )
-{
-	return VN_OPERATOR(MultiPageWrite,vNand->prData,pl);
 }
 
 int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
@@ -227,22 +236,24 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 		ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, read_pagelist);
 		if (ret != 0){
 			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d \n",
-				__FUNCTION__, __LINE__);
+					__FUNCTION__, __LINE__);
 			goto exit;
 		}
 
 		ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, write_pagelist);
 		if (ret != 0) {
 			ndprint(VNAND_ERROR,"MultiPageWrite failed! func: %s line: %d \n",
-				__FUNCTION__, __LINE__);
+					__FUNCTION__, __LINE__);
 			goto exit;
 		}
 	}
 
 exit:
 	NandMutex_Unlock(&v_nand_ops.mutex);
-	BuffListManager_freeAllList(vNand->blm,(void **)&alig_rpl,sizeof(PageList));
-	BuffListManager_freeAllList(vNand->blm,(void **)&alig_wpl,sizeof(PageList));
+	if (vNand->v2pp->_2kPerPage != 1){
+		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_rpl,sizeof(PageList));
+		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_wpl,sizeof(PageList));
+	}
 	return ret;
 }
 
@@ -261,215 +272,47 @@ int vNand_MarkBadBlock (VNandInfo* vNand,unsigned int blockid ){
 static int vNand_DeInitNand (VNandManager* vNand){
 	return  VN_OPERATOR(DeInitNand,vNand);
 }
-
-static int alloc_badblock_info(PPartition *pt)
+static void virt2phyPage_DeInit(VNandManager *vm)
 {
-	pt->pt_badblock_info = (unsigned int *)Nand_ContinueAlloc(pt->byteperpage * BADBLOCKINFOSIZE);
-	if(NULL == pt->pt_badblock_info) {
-		ndprint(VNAND_ERROR, "alloc memoey fail func %s line %d \n",
-			__FUNCTION__, __LINE__);
+	PPartition *pt = &vm->pt->ppt[0];
+	int i;
 
-		return -1;
-	}
-
-	memset(pt->pt_badblock_info, 0xff, pt->byteperpage * BADBLOCKINFOSIZE);
-
-	return 0;
-}
-
-static void free_badblock_info(PPartition *pt)
-{
-	Nand_ContinueFree(pt->pt_badblock_info);
-}
-
-static int write_pt_badblock_info(VNandInfo *vnand, PageList *pl)
-{
-	return MultiPageWrite(vnand,pl);
-}
-
-static void scan_pt_badblock_info_write_to_nand(PPartition *pt, int pt_id, VNandInfo *evn, PageList *pl)
-{
-	int i,j = 0, ret = 0;
-	unsigned int start_blockno;
-	unsigned int end_blockno;
-	VNandInfo vn;
-	int size = pt->byteperpage * BADBLOCKINFOSIZE;
-
-	if(pt->mode != ONCE_MANAGER){
-		CONV_PT_VN(pt,&vn);
-		start_blockno = vn.startBlockID;
-		ndprint(VNAND_DEBUG, "vn.TotalBlocks = %d\n", vn.TotalBlocks);
-		end_blockno = vn.startBlockID + vn.TotalBlocks;
-		for (i = start_blockno; i < end_blockno; i++) {
-			if (__vNand_IsBadBlock(&vn, i) && j * 4 < size){
-				pt->pt_badblock_info[j++] = i;
-			}
-			else {
-				if(j * 4 >= size){
-					ndprint(VNAND_ERROR,"too many bad block in pt %d\n", pt_id);
-					while(1);
-				}
-			}
+	BuffListManager_BuffList_DeInit(pt->v2pp->blm);
+	for(i=0; i<vm->pt->ptcount; i++){
+		pt = &vm->pt->ppt[i];
+		if(pt->v2pp->_2kPerPage != 1){
+			Nand_VirtualFree(pt->v2pp->retVal);
 		}
-
-		ret = write_pt_badblock_info(evn, pl);
-		if (ret != 0) {
-			ndprint(VNAND_ERROR, "write pt %d badblock info error, ret =%d\n", pt_id, ret);
-			while(1);
-		}
+		Nand_VirtualFree(pt->v2pp);
 	}
 }
 
-static PageList *create_pagelist(PPartition *pt, int blmid)
+static int virt2phyPage_Init(VNandManager *vm)
 {
 	int i;
-	PageList *pl = NULL;
-	PageList *pl_node = NULL;
-
-	for (i = 0; i < BADBLOCKINFOSIZE; i++) {
-		if (pl == NULL) {
-			pl = (PageList *)BuffListManager_getTopNode(blmid,sizeof(PageList));
-			pl_node = pl;
-		}
-		else
-			pl_node = (PageList *)BuffListManager_getNextNode(blmid,(void *)pl,sizeof(PageList));
-
-		pl_node->Bytes = pt->byteperpage;
-		pl_node->OffsetBytes = 0;
-		pl_node->retVal = 0;
-		pl_node->startPageID = -1;
-		pl_node->pData = NULL;
-	}
-
-	return pl;
-}
-
-static void fill_pagelist(PPartition *pt, PageList *pl, int pt_id)
-{
-	int offset = 0;
-	struct singlelist *pos = NULL;
-	PageList *pl_node = NULL;
-	unsigned int startpageid = pt_id * BADBLOCKINFOSIZE;
-
-	singlelist_for_each(pos,&pl->head) {
-		pl_node = singlelist_entry(pos,PageList,head);
-		pl_node->startPageID = startpageid;
-		pl_node->pData = (void *)((char *)pt->pt_badblock_info + offset);
-		startpageid++;
-		offset += pt->byteperpage;
-	}
-}
-
-static void read_badblock_info_page(VNandManager *vm)
-{
-	int i, ret;
-	int blmid;
-	VNandInfo error_vn;
-	PageList *pl = NULL;
 	PPartition *pt = NULL;
-	PPartition *lastpt = NULL;
-	int startblock = 0, badcnt = 0,blkcnt = 0;
-	vm->info.pt_badblock_info = NULL;
+	int blm = BuffListManager_BuffList_Init();
 
-	if ((vm->pt->ptcount - 1) * BADBLOCKINFOSIZE > vm->info.PagePerBlock) {
-		ndprint(VNAND_ERROR,"ERROR: BADBLOCKINFOSIZE = %d is too large,vnand->PagePerBlock = %d func %s line %d \n",
-				BADBLOCKINFOSIZE,vm->info.PagePerBlock,__FUNCTION__,__LINE__);
-		while(1);
-	}
-
-   	// find it which partition mode is ONCE_MANAGER
-	for(i = 0;i < vm->pt->ptcount;i++){
+	for(i=0; i<vm->pt->ptcount; i++){
 		pt = &vm->pt->ppt[i];
-		if(pt->mode == ONCE_MANAGER){
-			if (i != (vm->pt->ptcount - 1)) {
-				ndprint(VNAND_ERROR,"error block table partition position\n");
-				while(1);
-			}
-			break;
+		pt->v2pp = (struct virt2phy_page *)Nand_VirtualAlloc(sizeof(struct virt2phy_page));
+		if(pt->v2pp == NULL){
+			ndprint(VNAND_ERROR,"v2pp alloc failed!\n");
+			return -1;
 		}
-
-		ret = alloc_badblock_info(pt);
-		if(ret != 0) {
-			ndprint(VNAND_ERROR,"alloc badblock info memory error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-			while(1);
-		}
-
-		lastpt = pt;
-	}
-
-	if(i == vm->pt->ptcount){
-		ndprint(VNAND_INFO, "INFO: not find badblock partition\n");
-		return;
-	}
-
-	startblock = 0;
-	CONV_PT_VN(pt,&error_vn);
-	//for error partblock bad block
-	//for block number
-	while(blkcnt < pt->totalblocks) {
-		startblock--;
-		if(__vNand_IsBadBlock(&error_vn,startblock)) {
-			badcnt++;
-			if (badcnt > pt->badblockcount) {
-				ndprint(VNAND_ERROR,"too many badblocks, %s(line:%d) badcnt = %d,\n pt->badblockcount = %d\n",
-						__func__, __LINE__, badcnt, pt->badblockcount);
-				while(1);
+		pt->v2pp->_2kPerPage = pt->byteperpage / 2048; // 2048 = 2k ,virtual page size is 2k
+		pt->v2pp->blm = blm;
+		if(pt->v2pp->_2kPerPage != 1){
+			pt->v2pp->retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
+			if(pt->v2pp->retVal == NULL){
+				ndprint(VNAND_ERROR,"retVal alloc failed!\n");
+				Nand_VirtualFree(pt->v2pp);
+				return -1;
 			}
 		}
-		else
-			blkcnt++;
 	}
-
-	//for error block self partition & badblock
-	//error and last patition all spec is samed
-	lastpt->totalblocks -= (badcnt + pt->totalblocks);
-	lastpt->PageCount -= (badcnt + pt->totalblocks) * pt->pageperblock;
-
-	//chanage error pt startblock for write & read
-	pt->startblockID += startblock * pt->totalblocks;
-	pt->startPage += startblock * pt->pageperblock;
-
-	if ((lastpt->totalblocks <= 0) || (lastpt->PageCount <= 0)) {
-		ndprint(VNAND_ERROR,
-				"more bad blcoks,badcnt=%d,totalblocks=%d,PageCount = %d\n",
-				badcnt, lastpt->totalblocks, lastpt->PageCount);
-		while(1);
-	}
-
-	ndprint(VNAND_INFO, "Find bad block partition in block: %d, startblokdID = %d, pageid = %d\n",
-			startblock, pt->startblockID, pt->startPage);
-
-	blmid = BuffListManager_BuffList_Init();
-	pl = create_pagelist(pt, blmid);
-	if (!pl) {
-		ndprint(VNAND_ERROR,"create_pagelist error func %s line %d \n",
-					__FUNCTION__,__LINE__);
-		while(1);
-	}
-
-	for(i = 0;i < vm->pt->ptcount - 1;i++){
-		pt = &vm->pt->ppt[i];
-		fill_pagelist(pt,pl,i);
-		ret = MultiPageRead(&error_vn,pl);
-		if (ret != 0 && ISNOWRITE(pl->retVal)) {
-			ndprint(VNAND_INFO, "pt[%d] bad block table not creat\n", i);
-			scan_pt_badblock_info_write_to_nand(pt,i,&error_vn,pl);
-		}
-	}
-	BuffListManager_freeAllList(blmid,(void **)&pl,sizeof(PageList));
-	BuffListManager_BuffList_DeInit(blmid);
-}
-
-int vNand_ScanBadBlocks (VNandManager* vm)
-{
-	read_badblock_info_page(vm);
-
-	ndprint(VNAND_INFO,"vNand_ScanBadBlocks finished! \n");
-
 	return 0;
 }
-
 /*
   The following functions is for partition manager
 */
@@ -486,43 +329,41 @@ int __vNand_Init (VNandManager** vm)
 	*vm = Nand_VirtualAlloc(sizeof(VNandManager));
 	if(*vm == NULL){
 		ndprint(VNAND_ERROR,"*vm alloc failed!\n");
-		return -1;
+		goto err0;
 	}
 
 	v_nand_ops.vNand_buf = (unsigned char *)Nand_ContinueAlloc(VNANDCACHESIZE);
 	if(v_nand_ops.vNand_buf == NULL){
 		ndprint(VNAND_ERROR,"alloc bad block info failed!\n");
-		return -1;
+		goto err1;
 	}
 
 	InitNandMutex(&v_nand_ops.mutex);
 	ret = vNand_InitNand(*vm);
 	if (ret != 0) {
 		ndprint(VNAND_ERROR,"driver init failed!\n");
-		return -1;
+		goto err1;
 	}
-	(*vm)->info._2kPerPage = (*vm)->info.BytePerPage / 2048;
 
-	ret = vNand_ScanBadBlocks(*vm);
-	if(ret != 0){
-		ndprint(VNAND_ERROR,"bad block scan failed!\n");
-		return -1;
-	}
+	ret = virt2phyPage_Init(*vm);
+    if (ret != 0)
+		goto err1;
+
 	return 0;
+
+err1:
+	Nand_VirtualFree(v_nand_ops.vNand_buf);
+err0:
+	Nand_VirtualFree(*vm);
+	return ret;
 }
 
 void __vNand_Deinit ( VNandManager** vm)
 {
-	int i;
-	PPartition *pt = NULL;
-
+	virt2phyPage_DeInit(*vm);
 	vNand_DeInitNand(*vm);
 	DeinitNandMutex(&v_nand_ops.mutex);
 	Nand_ContinueFree(v_nand_ops.vNand_buf);
-	for(i = 0; i < (*vm)->pt->ptcount; i++){
-		pt = &(*vm)->pt->ppt[i];
-		free_badblock_info(pt);
-	}
 	Nand_VirtualFree(*vm);
 	*vm = NULL;
 }

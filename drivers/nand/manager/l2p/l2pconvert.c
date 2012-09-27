@@ -18,13 +18,7 @@
 #include "timeinterface.h"
 //#include "badblockinfo.h"
 
-#define L4INFOLEN 1024
-
 static BuffListManager *Blm;
-// PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
-#define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
-
-
 /**
  *	Idle_Handler  -  function in idle thread
  *
@@ -168,11 +162,6 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 #endif
 
 	CONV_PT_VN(pt,&conptr->vnand);
-	if(conptr->vnand._2kPerPage != 1){
-		conptr->vnand.retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
-		conptr->vnand.blm = BuffListManager_BuffList_Init();
-	}
-
 	conptr->l1info = (L1Info *)Nand_VirtualAlloc(sizeof(L1Info));
 	if (!conptr->l1info) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
@@ -260,10 +249,6 @@ int L2PConvert_ZMClose(int handle)
 	Recycle_DeInit(context);
 	CacheManager_DeInit(context);
 	ZoneManager_DeInit(context);
-	if(conptr->vnand._2kPerPage != 1){
-		Nand_VirtualFree(conptr->vnand.retVal);
-		BuffListManager_BuffList_DeInit(conptr->vnand.blm);
-	}
 	Nand_VirtualFree(conptr);
 
 	return 0;
@@ -345,6 +330,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 		pagenode->OffsetBytes = pageid_by_sector_prev % sectorperpage * SECTOR_SIZE;
 		pagenode->Bytes = k * SECTOR_SIZE;
 		pagenode->pData = pData;
+		pagenode->retVal = 0;
 		pData += pagenode->Bytes;
 	}
 
@@ -563,8 +549,6 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
-	if (conptr->vnand._2kPerPage != 1)
-		BuffListManager_freeAllList(conptr->vnand.blm, (void **)&conptr->vnand.align_rpl, sizeof(PageList));
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return 0;
@@ -572,8 +556,6 @@ exit:
 first_read:
 	ret = 0;
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
-	if (conptr->vnand._2kPerPage != 1)
-		BuffListManager_freeAllList(conptr->vnand.blm, (void **)&conptr->vnand.align_rpl, sizeof(PageList));
 	singlelist_for_each(pos, &(sl->head)) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		memset(sl_node->pData, 0xff, sl_node->sectorCount * SECTOR_SIZE);
@@ -929,8 +911,8 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 		l2p->alloced_new_zone = 1;
 	}
 	pi->PageID = Zone_AllocNextPage(zone);
-	if (zone->vnand->_2kPerPage > 1) {
-		while (pi->PageID % zone->vnand->_2kPerPage)
+	if (zone->vnand->v2pp->_2kPerPage > 1) {
+		while (pi->PageID % zone->vnand->v2pp->_2kPerPage)
 			pi->PageID = Zone_AllocNextPage(zone);
 	}
 
