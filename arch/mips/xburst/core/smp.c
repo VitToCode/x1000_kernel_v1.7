@@ -22,8 +22,10 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/cpu.h>
 #include <linux/smp.h>
 #include <linux/kernel_stat.h>
+#include <linux/earlysuspend.h>
 
 #include <asm/mmu_context.h>
 #include <asm/io.h>
@@ -455,3 +457,29 @@ void switch_cpu_irq(int cpu) {
 	set_smp_status(pending);
 	smp_spinunlock();
 }
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static struct early_suspend smp_early_suspend;
+
+void smp_suspend(struct early_suspend *h)
+{
+	disable_nonboot_cpus();
+}
+
+void smp_resume(struct early_suspend *h)
+{
+	enable_nonboot_cpus();
+}
+
+static int __init init_smp_early_suspend(void)
+{
+	smp_early_suspend.level	  = EARLY_SUSPEND_LEVEL_DISABLE_CPU;
+	smp_early_suspend.suspend = smp_suspend;
+	smp_early_suspend.resume  = smp_resume;
+	register_early_suspend(&smp_early_suspend);
+	return 0;
+}
+
+module_init(init_smp_early_suspend)
+#endif
+
