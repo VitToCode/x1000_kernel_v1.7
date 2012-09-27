@@ -391,8 +391,33 @@ static unsigned long cpccr_get_rate(struct clk *clk)
 	return clk->parent->rate / (v + 1);
 }
 
+struct cpccr_table {
+	unsigned long rate;
+	unsigned int cpccr;
+};
+
+#define CPNR 4
+static struct cpccr_table cpccr_table[CPNR];
+
+static int cpccr_set_rate(struct clk *clk, unsigned long rate)
+{
+	int i;
+	unsigned int cpccr;
+	if(strcmp(clk->name,"cclk"))//only support for cclk
+		return 0;
+	cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
+	for(i=0;i<CPNR;i++) 
+		if(rate >= cpccr_table[i].rate) break;
+
+	cpm_outl(cpccr | (0x1<<22) | cpccr_table[i].cpccr,CPM_CPCCR);
+
+	clk->rate = cpccr_get_rate(clk);
+	return 0;
+}
+
 static struct clk_ops clk_cpccr_ops = {
 	.get_rate = cpccr_get_rate,
+	.set_rate = cpccr_set_rate,
 };
 
 static void __init init_cpccr_clk(void)
@@ -410,6 +435,15 @@ static void __init init_cpccr_clk(void)
 		clk_srcs[i].rate = cpccr_get_rate(&clk_srcs[i]);
 		clk_srcs[i].flags |= CLK_FLG_ENABLE;
 	}
+
+	cpccr_table[0].rate = clk_srcs[CLK_ID_CCLK].rate;
+	cpccr_table[0].cpccr = (0x2<<28) | (0x1<<4) | (0x0);
+	cpccr_table[1].rate = clk_srcs[CLK_ID_CCLK].rate / 2;
+	cpccr_table[1].cpccr = (0x2<<28) | (0x3<<4) | (0x1);
+	cpccr_table[2].rate = clk_srcs[CLK_ID_CCLK].rate / 4;
+	cpccr_table[2].cpccr = (0x2<<28) | (0x7<<4) | (0x3);
+	cpccr_table[3].rate = clk_srcs[CLK_ID_CCLK].rate / 8;
+	cpccr_table[3].cpccr = (0x2<<28) | (0x7<<4) | (0x7);
 }
 
 struct cgu_clk {

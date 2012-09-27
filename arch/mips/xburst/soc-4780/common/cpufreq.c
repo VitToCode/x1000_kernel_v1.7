@@ -49,10 +49,10 @@ static unsigned long regulator_table[12][2] = {
 	{1300000,1200000},
 	{1100000,1200000},
 	{ 900000,1200000},
-	{ 700000,1200000},
-	{ 500000,1150000},
-	{ 300000,1150000},
-	{ 150000,1100000},
+	{ 700000,1150000},
+	{ 500000,1125000},
+	{ 300000,1125000},
+	{ 150000,1000000},
 };
 
 unsigned long regulator_find_voltage(int freqs)
@@ -70,12 +70,15 @@ unsigned long regulator_find_voltage(int freqs)
 
 static void freq_table_prepare(void)
 {
-	int i,max = clk_get_rate(cpu_clk) / 1000;
+	unsigned int i,max = clk_get_rate(cpu_clk) / 1000;
 	memset(freq_table,0,sizeof(freq_table));
-	for(i=0;i<CPUFREQ_NR && max >= 150000;i++,max-=200000) {
+	for(i=0;i<CPUFREQ_NR && max >= 100000;i++) {
 		freq_table[i].index = i;
 		freq_table[i].frequency = max;
+		max = max >> 1;
 	}
+	freq_table[i].index = i;
+	freq_table[i].frequency = CPUFREQ_TABLE_END;
 }
 
 static int jz4780_verify_speed(struct cpufreq_policy *policy)
@@ -103,13 +106,13 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
 			relation, &i);
 	if (ret) {
-		pr_debug("%s: cpu%d: no freq match for %d(ret=%d)\n",
+		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
 				__func__, policy->cpu, target_freq, ret);
 		return ret;
 	}
 	freqs.new = freq_table[i].frequency;
 	if (!freqs.new) {
-		pr_warning("%s: cpu%d: no match for freq %d\n", __func__,
+		printk("%s: cpu%d: no match for freq %d\n", __func__,
 				policy->cpu, target_freq);
 		return -EINVAL;
 	}
@@ -168,12 +171,11 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	for_each_cpu(i, policy->cpus) {
 		struct lpj_info *lpj = &per_cpu(lpj_ref, i);
 		if (!lpj->freq) {
-			lpj->ref = per_cpu(cpu_data, i).loops_per_jiffy;
+			lpj->ref = cpu_data[i].udelay_val;
 			lpj->freq = freqs.old;
 		}
 
-		per_cpu(cpu_data, i).loops_per_jiffy =
-			cpufreq_scale(lpj->ref, lpj->freq, freqs.new);
+		cpu_data[i].udelay_val = cpufreq_scale(lpj->ref, lpj->freq, freqs.new);
 	}
 
 	/* And don't forget to adjust the global one */
@@ -198,7 +200,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
 
-	cpu_clk = clk_get(NULL, "cpu");
+	cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
 
@@ -264,7 +266,7 @@ static struct cpufreq_driver jz4780_driver = {
 
 static int __init jz4780_cpufreq_init(void)
 {
-	cpu_regulator = regulator_get(NULL, "vcc");
+	cpu_regulator = regulator_get(NULL, "vcore");
 	if (IS_ERR(cpu_regulator)) {
 		pr_warning("%s: unable to get MPU regulator\n", __func__);
 		cpu_regulator = NULL;

@@ -25,7 +25,7 @@ else
 obj-y += pm.o
 endif
 
-obj-$(CONFIG_CPUFRQU) += cpufreq.o
+obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 

@@ -357,7 +357,7 @@ int vcore_suspend(void)
 		jz47xx_pm.vcore = regulator_get(NULL,"vcore");
 
 	jz47xx_pm.cpccr = cpm_inl(CPM_CPCCR);
-	cpm_outl((jz47xx_pm.cpccr & ~0xff) | 0x73,CPM_CPCCR);
+	cpm_outl((jz47xx_pm.cpccr & ~0xff) | 0x73 | (0x1<<22),CPM_CPCCR);
 
 	if(jz47xx_pm.vcore) {
 		jz47xx_pm.volt = regulator_get_voltage(jz47xx_pm.vcore);
