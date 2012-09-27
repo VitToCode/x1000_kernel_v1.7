@@ -6,32 +6,28 @@
 //-----------------------------------------------------
 // Constants
 //-----------------------------------------------------
-#define CT360_CHIP_VER				0x02	// CT360
-#define CT36X_CHIP_VER				0x01	// ct363, ct365
+#define CT360_CHIP_VER 0x02	// CT360
+#define CT36X_CHIP_VER 0x01	// ct363, ct365
 
-#define CT360_FW_VER_OFFSET			16372	//
-#define CT360_FW_SIZE				16384	//
+#define CT360_FW_VER_OFFSET 16372	//
+#define CT360_FW_SIZE 16384	//
 
-#define CT36X_FW_VER_OFFSET			32756	//
-#define CT36X_FW_SIZE				32768	//
-
+#define CT36X_FW_VER_OFFSET	32756	//
+#define CT36X_FW_SIZE 32768	//
 
 //-----------------------------------------------------
 // Options
 //-----------------------------------------------------
-#define CT36X_TS_DEBUG				0	// 1
+#define CT36X_TS_DEBUG 0	// 1
 
-#define CT36X_TS_CHIP_SEL			CT36X_CHIP_VER	// CT360_CHIP_VER
+#define CT36X_TS_CHIP_SEL CT36X_CHIP_VER	// CT360_CHIP_VER
 
-#define CT36X_TS_POINT_NUM			10    // max touch points supported
+#define CT36X_TS_POINT_NUM 10    // max touch points supported
 
-#define CT36X_TS_ABS_X_MAX			1280
-#define CT36X_TS_ABS_Y_MAX			800
-
-#define CT36X_TS_X_REVERSE			0
-#define CT36X_TS_Y_REVERSE			0
-#define CT36X_TS_XY_SWAP			0
-#define CT36X_TS_PTS_VER			0	// Touch Point protocol
+#define CT36X_TS_X_REVERSE	0
+#define CT36X_TS_Y_REVERSE	0
+#define CT36X_TS_XY_SWAP	0
+#define CT36X_TS_PTS_VER	0	// Touch Point protocol
 
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 #define CT36X_TS_FW_VER_OFFSET			CT360_FW_VER_OFFSET
@@ -42,16 +38,12 @@
 #endif
 
 #ifdef CONFIG_CT36X_FWUPDATE
-	#define CT36X_TS_FW_UPDATE			1			// BOOT LOADER
+	#define CT36X_TS_FW_UPDATE 1			// BOOT LOADER
 #else
-	#define CT36X_TS_FW_UPDATE			0			// BOOT LOADER
+	#define CT36X_TS_FW_UPDATE 0			// BOOT LOADER
 #endif
 
-#define CT36X_TS_I2C_BUS			3			// I2C Bus
-#define CT36X_TS_I2C_ADDRESS		0x01
 #define CT36X_TS_I2C_SPEED			(200*1024)	// 200KHz
-#define CT36X_TS_IRQ_PIN			GPIO_PF(19)
-#define CT36X_TS_RST_PIN			GPIO_PF(18)
 
 #define CT36X_TS_HAS_EARLYSUSPEND			0
 
@@ -68,23 +60,23 @@ struct ct36x_finger_info {
 	unsigned char ylo : 4;		// Y coordinate Lo
 	unsigned char xlo : 4;		// X coordinate Lo
 #if (CT36X_TS_PTS_VER)
-	unsigned char status : 4;		// Action information, 1: Down; 2: Move; 3: Up
-	unsigned char id : 4;			// ID information, from 1 to CFG_MAX_POINT_NUM
+	unsigned char status : 4;	// Action information, 1: Down; 2: Move; 3: Up
+	unsigned char id : 4;		// ID information, from 1 to CFG_MAX_POINT_NUM
 #endif
 };
 #elif (CT36X_TS_CHIP_SEL == CT36X_CHIP_VER)
 struct ct36x_finger_info {
 #if (!CT36X_TS_PTS_VER)
-	unsigned char status : 3;		// Action information, 1: Down; 2: Move; 3: Up
-	unsigned char id : 5;			// ID information, from 1 to CFG_MAX_POINT_NUM
+	unsigned char status : 3;	// Action information, 1: Down; 2: Move; 3: Up
+	unsigned char id : 5;		// ID information, from 1 to CFG_MAX_POINT_NUM
 #endif
 	unsigned char xhi;			// X coordinate Hi
 	unsigned char yhi;			// Y coordinate Hi
 	unsigned char ylo : 4;		// Y coordinate Lo
 	unsigned char xlo : 4;		// X coordinate Lo
 #if (CT36X_TS_PTS_VER)
-	unsigned char status : 3;		// Action information, 1: Down; 2: Move; 3: Up
-	unsigned char id : 5;			// ID information, from 1 to CFG_MAX_POINT_NUM
+	unsigned char status : 3;	// Action information, 1: Down; 2: Move; 3: Up
+	unsigned char id : 5;		// ID information, from 1 to CFG_MAX_POINT_NUM
 #endif
 	unsigned char area;			// Touch area
 	unsigned char pressure;		// Touch Pressure
@@ -128,7 +120,8 @@ struct ct36x_ts_info {
 	int	press;
 	int	release;
 	struct regulator *power;
+	int x_max;
+	int y_max;
 };
 
 #endif
-
