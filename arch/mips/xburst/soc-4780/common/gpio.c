@@ -381,16 +381,17 @@ static __init int jz_gpiolib_init(void)
 static irqreturn_t gpio_handler(int irq, void *data)
 {
 	struct jzgpio_chip *jz = data;
-	unsigned long pend;
+	unsigned long pend,mask;
 
 	pend = readl(jz->reg + PXFLG);
+	mask = readl(jz->reg + PXMSK);
 
 	/*
 	 * PXFLG may be 0 because of GPIO's bounce in level triggered mode,
 	 * so we ignore it when it occurs.
 	 */
 	if (pend)
-		generic_handle_irq(ffs(pend) -1 + jz->irq_base);
+		generic_handle_irq(ffs(pend & ~mask) -1 + jz->irq_base);
 
 	return IRQ_HANDLED;
 }

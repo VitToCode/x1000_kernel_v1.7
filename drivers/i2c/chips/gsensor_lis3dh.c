@@ -321,8 +321,7 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
 static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		int *xyz)
 {
-	int err = -1,i;
-	u8 buf[1]={0};
+	int err = -1;
 	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
 	u8 acc_data[6];
 	/* x,y,z hardware data */
@@ -347,22 +346,6 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 			: (hw_d[acc->pdata->axis_map_y]));
 	xyz[2] = ((acc->pdata->negate_z) ? (-hw_d[acc->pdata->axis_map_z])
 			: (hw_d[acc->pdata->axis_map_z]));
-
-	/*this is must be done in this mode*/
-
-	for (i = 0; i < 3; i++) {
-		buf[0] = INT_SRC1;
-		err = lis3dh_acc_i2c_read(acc, buf, 1);
-		if (buf[0] != 0x6a)
-			continue;
-		else
-			break;
-	}
-	if (i == 3) {
-		lis3dh_acc_disable(acc);
-		udelay(100);
-		lis3dh_acc_enable(acc);
-	}
 
 	return err;
 }
@@ -659,6 +642,12 @@ static void lis3dh_acc_work(struct work_struct *work)
 	u8 buf[2]={0};
 	acc =  container_of(work, struct lis3dh_acc_data, irq_work);
 
+	/*this is must be done in this mode*/
+	buf[0] = INT_SRC1;
+	err = lis3dh_acc_i2c_read(acc, buf, 1);
+	if(err < 0 )
+		dev_err(&acc->client->dev, "Acceleration data read failed\n");
+
 	buf[0] = STATUS_REG;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
 	if( (buf[0]& 0x08) ==0){
@@ -857,7 +846,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}                     
 	client->irq = gpio_to_irq(acc->pdata->gpio_int);
 	err = request_irq(client->irq, lis3dh_acc_interrupt,
-			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			//IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			"lis3dh_acc", acc);
 	if (err < 0)
 		printk("err == %d \n",err); 
