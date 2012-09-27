@@ -38,8 +38,6 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 
-#include <tcsm.h>
-
 extern void smp_set_cpu_clk(int cpu, int enable);
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
@@ -85,11 +83,6 @@ static void __cpuinit jzsoc_init_secondary(void)
 static void __cpuinit jzsoc_smp_finish(void)
 {
 	int cpu = smp_processor_id();
-
-#ifdef	CONFIG_TRAPS_USE_TCSM
-	cpu0_save_tscm();
-#endif
-
 	local_irq_enable();
 	jzsoc_smp_showregs();
 	pr_info("[SMP] slave cpu%d start up finished.\n",cpu);
@@ -309,10 +302,6 @@ int jzsoc_cpu_disable(void)
 	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
-
-#ifdef	CONFIG_TRAPS_USE_TCSM
-	cpu0_restore_tscm();
-#endif
 
 	if(!irqs_disabled())
 		local_irq_disable();

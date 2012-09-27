@@ -38,6 +38,8 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 
+#include <tcsm.h>
+
 struct jz47xx_pm {
 	int volt;
 	unsigned int cpccr;
@@ -322,7 +324,9 @@ static int jz4780_pm_enter(suspend_state_t state)
 	char tcsm_back[512];
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
-
+#ifdef	CONFIG_TRAPS_USE_TCSM
+	cpu0_save_tscm();
+#endif
 	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
 	mdelay(1);
@@ -348,6 +352,10 @@ static int jz4780_pm_enter(suspend_state_t state)
 	memcpy((void *)RESUME_ADDR,tcsm_back,512);
 	cpm_outl(lcr,CPM_LCR);
 	cpm_outl(opcr,CPM_OPCR);
+
+#ifdef	CONFIG_TRAPS_USE_TCSM
+	cpu0_restore_tscm();
+#endif
 	return 0;
 }
 
