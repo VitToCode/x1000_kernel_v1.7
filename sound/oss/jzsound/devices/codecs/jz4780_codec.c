@@ -2460,7 +2460,8 @@ _ensure_stable:
 
 static int codec_get_hp_state(int *state)
 {
-	*state = (__codec_get_sr() & CODEC_JACK_MASK);
+	*state = !!(__codec_get_sr() & CODEC_JACK_MASK) ^
+		codec_platform_data->hpsense_reverse;
 	if (state < 0)
 		return -EIO;
 	return 0;
