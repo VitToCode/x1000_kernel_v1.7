@@ -40,7 +40,6 @@ struct hsd101pww1_data {
 
 static void hsd101pww1_on(struct hsd101pww1_data *dev)
 {
-    dev->lcd_power = 1;
     regulator_enable(dev->lcd_vcc_reg);
 
 	if (dev->pdata->gpio_rest) {
@@ -60,11 +59,14 @@ static int hsd101pww1_set_power(struct lcd_device *lcd, int power)
 {
 	struct hsd101pww1_data *dev= lcd_get_data(lcd);
 
-	if (!power && !(dev->lcd_power)) {
-                hsd101pww1_on(dev);
-        } else if (power && (dev->lcd_power)) {
-                hsd101pww1_off(dev);
-        }
+	if (POWER_IS_ON(power) && !POWER_IS_ON(dev->lcd_power))
+		hsd101pww1_on(dev);
+
+	if (!POWER_IS_ON(power) && POWER_IS_ON(dev->lcd_power))
+		hsd101pww1_off(dev);
+
+	dev->lcd_power = power;
+
 	return 0;
 }
 
@@ -110,10 +112,11 @@ static int __devinit hsd101pww1_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_rest)
 		gpio_request(dev->pdata->gpio_rest, "reset");
 
-	hsd101pww1_on(dev);
-
 	dev->lcd = lcd_device_register("hsd101pww1-lcd", &pdev->dev,
 				       dev, &hsd101pww1_ops);
+
+	dev->lcd_power = FB_BLANK_POWERDOWN;
+	hsd101pww1_set_power(dev->lcd, FB_BLANK_UNBLANK);
 
 	if (IS_ERR(dev->lcd)) {
 		ret = PTR_ERR(dev->lcd);
