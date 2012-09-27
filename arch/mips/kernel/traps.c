@@ -102,7 +102,7 @@ struct tcsm_handler_data
 	char		name[20];
 	void		*handler;
 };
-
+static u32 handle_tlbrefill[64];
 struct tcsm_handler_data tcsm_handlers[] = {
 	{0,     80 * 4, "interrupt",handle_int},
 	{1, 	56 * 4,	"tlbm",	handle_tlbm},
@@ -122,6 +122,30 @@ static inline void __cpuinit traps_to_tcsm(int cpu)
 		handler_immigration(th->index, th->len,
 				    (unsigned int *)addr, th->handler);
 	}
+}
+static inline void tlbrefill_to_tcsm(int cpu) {
+	int addr;
+	u32 *p = (u32*)ebase;
+	u32 *p1 = (u32*)ebase;
+	int K0 = 26;
+	int K1 = 27;
+	addr = get_cpu_tcsm(cpu, 32*4,"tlbrefill");
+	memcpy((void*)addr,(void*)handle_tlbrefill,32*4);
+	uasm_i_lui(&p, K0, uasm_rel_hi((long)addr));
+	uasm_i_addiu(&p, K0, K0, uasm_rel_lo((long)addr));
+	addr = 0x80000180;
+	uasm_i_lui(&p, K1, uasm_rel_hi((long)addr));
+	uasm_i_addiu(&p, K1, K1, uasm_rel_lo((long)addr));
+	uasm_i_jr(&p, K0);
+	uasm_i_pref(&p, 0, 0, K1);
+	pr_debug("================================\n");
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug("================================\n");
 }
 #endif
 static void show_raw_backtrace(unsigned long reg29)
@@ -1709,7 +1733,7 @@ static void *set_vi_srs_handler(int n, vi_handler_t addr, int srs)
 		 * MicroMIPS requires some additional instructions for each of
 		 * the exceptions to make sure that we are in MicroMIPS mode.
 		 * This is necessary for situations where the boot loader may
-		 * use MIPS32 instructions instead of MicroMIPS. 
+		 * use MIPS32 instructions instead of MicroMIPS.
 		 */
 #ifdef CONFIG_CPU_MICROMIPS
 # ifdef CONFIG_CPU_LITTLE_ENDIAN
@@ -1948,7 +1972,10 @@ void __cpuinit per_cpu_trap_init(void)
 	if (cpu != 0) {
 		memcpy(exception_handlers_tcsm, exception_handlers, 32 * 4);
 		traps_to_tcsm(cpu);
+	}else{
+		memcpy((void*)handle_tlbrefill,(void*)ebase,32*4);
 	}
+	tlbrefill_to_tcsm(cpu);
 #endif
 }
 
