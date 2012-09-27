@@ -549,8 +549,6 @@ static void jz_battery_resume_work(struct work_struct *work)
 	timecount = jz_battery->resume_time - jz_battery->suspend_time;
 	voltage = jz_battery_adjust_voltage(jz_battery);
 
-	jz_battery->pmu_work_enable(jz_battery->pmu_interface);
-
 	jz_battery->status_charge = jz_battery->get_pmu_status(
 			jz_battery->pmu_interface, STATUS);
 	jz_battery->ac = jz_battery->get_pmu_status(
