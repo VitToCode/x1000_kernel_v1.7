@@ -113,8 +113,10 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
 	PageList *newpl = NULL;
 	int *retVal = NULL;
 	int i;
-	if (vnand->v2pp->_2kPerPage == 1)
+
+	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER)
 		return;
+
 	retVal = vnand->v2pp->retVal;
 	singlelist_for_each(pos,&alig_pl->head){
 		newpl = singlelist_entry(pos,PageList,head);
@@ -391,7 +393,6 @@ void test_operator_vnand(VNandInfo *vnandptr)
 	ndprint(VNAND_DEBUG,"iMultiPageWrite %p\n",v_nand_ops.operator->iMultiPageWrite);
 	ndprint(VNAND_DEBUG,"iMultiBlockErase %p\n",v_nand_ops.operator->iMultiBlockErase);
 	ndprint(VNAND_DEBUG,"iMarkBadBlock %p \n",v_nand_ops.operator->iMarkBadBlock);
-
 }
 #endif
 

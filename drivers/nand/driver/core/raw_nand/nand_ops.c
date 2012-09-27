@@ -1088,7 +1088,7 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
  *   markbadblock ;
  *
  */
-int markbadblock(NAND_BASE *host, int blockid)          
+int markbadblock(NAND_BASE *host, int blockid)
 {
         unsigned char state=0;
         unsigned char bbm[NAND_ECC_POS] ={0x00}; // bad block message

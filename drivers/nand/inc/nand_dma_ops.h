@@ -7,6 +7,8 @@
 #include <mach/jzdma.h>
 #include "ppartition.h"
 #include "nand_api.h"
+#include "pagelist.h"
+#include "blocklist.h"
 
 #define NAND_DMA_WRITE          0
 #define NAND_DMA_READ           1
@@ -70,7 +72,7 @@ struct pdma_msg {
 	unsigned int cmd;
 	unsigned int info[10];
 };
-#define NEW_NAND_DMA
+//#define NEW_NAND_DMA
 
 #ifdef  NEW_NAND_DMA
 

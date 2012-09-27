@@ -28,18 +28,19 @@ struct _VNandManager {
 	PPartArray* pt;
 };
 
-#define CONV_PT_VN(pt,vn)											\
-	do{																\
-		(vn)->startBlockID = 0;										\
-		(vn)->PagePerBlock = (pt)->pageperblock * (pt)->v2pp->_2kPerPage;	\
-		(vn)->BytePerPage = 2048;									\
-		(vn)->TotalBlocks = (pt)->totalblocks;						\
-		(vn)->MaxBadBlockCount = (pt)->badblockcount;				\
-		(vn)->hwSector = (pt)->hwsector;							\
-		(vn)->prData = (void*)(pt);									\
-		(vn)->badblock = (pt)->badblock;							\
-		(vn)->v2pp = (pt)->v2pp;									\
-		(vn)->mode = (pt)->mode;									\
+#define CONV_PT_VN(pt,vn)												\
+	do{																	\
+		(vn)->startBlockID = 0;											\
+		if (pt->mode != ONCE_MANAGER)									\
+			(vn)->PagePerBlock = (pt)->pageperblock * (pt)->v2pp->_2kPerPage; \
+		(vn)->BytePerPage = 2048;										\
+		(vn)->TotalBlocks = (pt)->totalblocks;							\
+		(vn)->MaxBadBlockCount = (pt)->badblockcount;					\
+		(vn)->hwSector = (pt)->hwsector;								\
+		(vn)->prData = (void*)(pt);										\
+		(vn)->badblock = (pt)->badblock;								\
+		(vn)->v2pp = (pt)->v2pp;										\
+		(vn)->mode = (pt)->mode;										\
 	}while(0)
 
 #endif
