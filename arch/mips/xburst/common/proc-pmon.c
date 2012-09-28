@@ -34,6 +34,7 @@
 #define PMON_EVENT_CYCLE 0
 #define PMON_EVENT_CACHE 1
 #define PMON_EVENT_INST  2
+#define PMON_EVENT_TLB   3
 
 #define pmon_prepare(event) do {		\
 		unsigned int csr;		\
@@ -116,6 +117,10 @@ static int pmon_write_proc(struct file *file, const char __user *buffer,
 		else if (strncmp(&d->buf[i], "inst", 4) == 0) {
 			on_each_cpu(on_each_cpu_pmon_prepare, (void *)PMON_EVENT_INST, 1);
 			i += 4 + 1;
+		}
+		else if (strncmp(&d->buf[i], "tlb", 3) == 0) {
+			on_each_cpu(on_each_cpu_pmon_prepare, (void *)PMON_EVENT_TLB, 1);
+			i += 3 + 1;
 		}
 		else if (strncmp(&d->buf[i], "start", 5) == 0) {
 			on_each_cpu(on_each_cpu_pmon_start, NULL, 1);
