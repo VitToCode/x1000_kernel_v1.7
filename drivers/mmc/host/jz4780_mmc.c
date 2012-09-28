@@ -94,8 +94,9 @@ static LIST_HEAD(manual_list);
  * @index: Number of each MSC host.
  * @decshds[]: Descriptor DMA information structure.
  * @state: It's the state for request.
- * @list: list head for manually detect card such as wifi.
- * @double_enter: prevent state machine reenter.
+ * @list: List head for manually detect card such as wifi.
+ * @double_enter: Prevent state machine reenter.
+ * @timeout_cnt: The count of timeout second.
  */
 struct jzmmc_host {
 	struct jzmmc_platform_data *pdata;
@@ -128,6 +129,7 @@ struct jzmmc_host {
 	struct list_head	list;
 
 	unsigned int		double_enter;
+	int 			timeout_cnt;
 };
 
 #define ERROR_IFLG (				\
@@ -921,8 +923,8 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * occurs such as intensity rebounding of VDD, that maybe result in
 	 * no action to complete the request.
 	 */
-	mod_timer(&host->request_timer, jiffies +
-		  msecs_to_jiffies(60000 + (host->data ? host->data->blocks << 2 : 0)));
+	host->timeout_cnt = 0;
+	mod_timer(&host->request_timer, jiffies + msecs_to_jiffies(1000));
 
 	jzmmc_command_start(host, host->cmd);
 	if (host->data)
@@ -935,6 +937,15 @@ static void jzmmc_request_timeout(unsigned long data)
 {
 	struct jzmmc_host *host = (struct jzmmc_host *)data;
 	unsigned int status = msc_readl(host, STAT);
+
+	if (host->timeout_cnt++ < 60) {
+		dev_warn(host->dev, "timeout op:%d sz:%d %ds\n",
+			 host->cmd->opcode,
+			 host->data ? host->data->blocks << 9 : 0,
+			 host->timeout_cnt);
+		mod_timer(&host->request_timer, jiffies + msecs_to_jiffies(1000));
+		return;
+	}
 
 	dev_err(host->dev, "request time out, op=%d arg=0x%08X, "
 		"sz:%dB state=%d, status=0x%08X, pending=0x%08X\n",
