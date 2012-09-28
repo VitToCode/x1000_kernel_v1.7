@@ -44,15 +44,17 @@ static struct regulator *cpu_regulator;
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
 static unsigned long regulator_table[12][2] = {
-	{1700000,1250000}, // 1.7 GHz - 1.25V
-	{1500000,1200000},
-	{1300000,1200000},
-	{1100000,1200000},
-	{ 900000,1200000},
-	{ 700000,1150000},
-	{ 500000,1125000},
-	{ 300000,1125000},
+	{1700000,1350000}, // 1.7 GHz - 1.25V
+	{1500000,1300000},
+	{1300000,1250000},
+	{1200000,1200000},
+	{1100000,1150000},
+	{ 900000,1100000},
+	{ 700000,1100000},
+	{ 500000,1100000},
+	{ 300000,1100000},
 	{ 150000,1000000},
+	{      0,1000000},
 };
 
 unsigned long regulator_find_voltage(int freqs)
@@ -198,23 +200,12 @@ done:
 
 static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 {
-	int result = 0;
-
-	if(!cpu_clk)
-		cpu_clk = clk_get(NULL, "cclk");
-
-	if (IS_ERR(cpu_clk))
-		return PTR_ERR(cpu_clk);
-
 	if (policy->cpu >= NR_CPUS) {
-		result = -EINVAL;
-		goto fail_ck;
+		return -EINVAL;
 	}
 
-	freq_table_prepare();
-	result = cpufreq_frequency_table_cpuinfo(policy, freq_table);
-	if (result)
-		goto fail_table;
+	if(cpufreq_frequency_table_cpuinfo(policy, freq_table))
+		return -ENODATA;
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
@@ -237,11 +228,6 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	policy->cpuinfo.transition_latency = 300 * 1000;
 
 	return 0;
-
-fail_table:
-fail_ck:
-	clk_put(cpu_clk);
-	return result;
 }
 
 static int jz4780_cpu_exit(struct cpufreq_policy *policy)
@@ -268,6 +254,11 @@ static struct cpufreq_driver jz4780_driver = {
 
 static int __init jz4780_cpufreq_init(void)
 {
+	cpu_clk = clk_get(NULL, "cclk");
+
+	if (IS_ERR(cpu_clk))
+		return PTR_ERR(cpu_clk);
+
 	cpu_regulator = regulator_get(NULL, "vcore");
 	if (IS_ERR(cpu_regulator)) {
 		pr_warning("%s: unable to get MPU regulator\n", __func__);
@@ -284,6 +275,8 @@ static int __init jz4780_cpufreq_init(void)
 			cpu_regulator = NULL;
 		}
 	}
+
+	freq_table_prepare();
 
 	return cpufreq_register_driver(&jz4780_driver);
 }

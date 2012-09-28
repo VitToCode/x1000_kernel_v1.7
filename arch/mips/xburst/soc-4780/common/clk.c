@@ -399,12 +399,10 @@ struct cpccr_table {
 #define CPNR 4
 static struct cpccr_table cpccr_table[CPNR];
 
-static int cpccr_set_rate(struct clk *clk, unsigned long rate)
+static int cclk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int i;
 	unsigned int cpccr;
-	if(strcmp(clk->name,"cclk"))//only support for cclk
-		return 0;
 	cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
 	for(i=0;i<CPNR;i++) 
 		if(rate >= cpccr_table[i].rate) break;
@@ -417,7 +415,11 @@ static int cpccr_set_rate(struct clk *clk, unsigned long rate)
 
 static struct clk_ops clk_cpccr_ops = {
 	.get_rate = cpccr_get_rate,
-	.set_rate = cpccr_set_rate,
+};
+
+static struct clk_ops clk_cclk_ops = {
+	.get_rate = cpccr_get_rate,
+	.set_rate = cclk_set_rate,
 };
 
 static void __init init_cpccr_clk(void)
@@ -435,6 +437,8 @@ static void __init init_cpccr_clk(void)
 		clk_srcs[i].rate = cpccr_get_rate(&clk_srcs[i]);
 		clk_srcs[i].flags |= CLK_FLG_ENABLE;
 	}
+
+	clk_srcs[CLK_ID_CCLK].ops = &clk_cclk_ops;
 
 	cpccr_table[0].rate = clk_srcs[CLK_ID_CCLK].rate;
 	cpccr_table[0].cpccr = (0x2<<28) | (0x1<<4) | (0x0);
