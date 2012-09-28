@@ -72,11 +72,10 @@ static inline int dump_mem_info(struct dmmu_mem_info *mem, char *description)
 }
 
 #define DMMU_GET_PAGE_TABLE_BASE_PHYS		_IOW(DMMU_IOCTL_MAGIC, 0x01, unsigned int)
-//#define DMMU_SET_BASE_PHYS		        _IOW(DMMU_IOCTL_MAGIC, 0x02, unsigned int)
 #define DMMU_GET_BASE_PHYS                  _IOR(DMMU_IOCTL_MAGIC, 0x02, unsigned int)
 #define DMMU_MAP_USER_MEM		            _IOWR(DMMU_IOCTL_MAGIC, 0x11, struct dmmu_mem_info)
 #define DMMU_UNMAP_USER_MEM		            _IOW(DMMU_IOCTL_MAGIC, 0x12, struct dmmu_mem_info)
-#define DMMU_GET_TLB_PHYS                   _IOWR(DMMU_IOCTL_MAGIC, 0x13, unsigned int)
+#define DMMU_GET_TLB_PHYS                   _IOWR(DMMU_IOCTL_MAGIC, 0x13, struct dmmu_mem_info)
 #define DMMU_FLUSH_CACHE		            _IOW(DMMU_IOCTL_MAGIC, 0x21, unsigned int)
 #define DMMU_ALLOC_PAGE_TABLE	            _IOW(DMMU_IOCTL_MAGIC, 0x31, unsigned int)
 #define DMMU_FREE_PAGE_TABLE	            _IOW(DMMU_IOCTL_MAGIC, 0x32, unsigned int)

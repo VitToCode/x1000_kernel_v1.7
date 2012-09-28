@@ -549,6 +549,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 		dev_err(jz_dmmu.dev, "kzalloc buffer_heap_info failed!\n");
 		return -EFAULT;
 	}
+
 	buffer->vaddr = mem->vaddr;
 	buffer->size = mem->size;
 	buffer->page_count = mem->page_count;
@@ -587,6 +588,47 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 
 	return 0;
 }
+
+static int get_user_mem_pages_phys_addr_table(struct proc_page_tab_data *table, struct dmmu_mem_info *mem)
+{
+	void *vaddr;
+	unsigned int page_num, tlb_pos;
+	unsigned int *p_tlb;
+	printk("*********** get_user_mem_pages_phys_addr_table (**************\n");
+	if ( mem->pages_phys_addr_table == NULL )
+		return -EINVAL;
+
+	printk("table->vbase=%p, mem->vaddr=%p, mem->size=%d\n", table->vbase, mem->vaddr, mem->size);
+	/* aligned vaddr */
+	vaddr = (void *)(((unsigned int)mem->vaddr >> PAGE_SHIFT) << PAGE_SHIFT);
+	page_num = ((mem->vaddr - vaddr) + mem->size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+	tlb_pos = ((unsigned int)mem->vaddr >> PAGE_SHIFT) << 2;
+
+	p_tlb = (unsigned int *)(table->vbase + tlb_pos);
+
+	printk("p_tlb=%p, tlb_pos=%d, vaddr=%p, page_num=%d\n", p_tlb, tlb_pos, vaddr, page_num);
+	if ( page_num > mem->page_count ) {
+		printk("**** page_num=%d > mem->page_count=%d\n", page_num,  mem->page_count);
+		page_num = mem->page_count;
+	}
+
+	if (copy_to_user(mem->pages_phys_addr_table, p_tlb, 
+					 page_num*sizeof(int))) {
+		dev_err(jz_dmmu.dev, "copy_to_user failed!\n");
+		return -EFAULT;
+	}
+
+	/* dump phys table */
+	{
+		printk("dump phys table, p_tlb=%p, page_num=%d\n", p_tlb, page_num);
+		while (page_num--) {
+			printk("%08X\n", *p_tlb++);
+		}
+	}
+
+	return 0;
+}
+
 
 static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -656,7 +698,14 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				break;
 			}
 		}
-		if (copy_to_user(argp, buffer->pages_phys_table, 
+
+		printk("%s %d\n",__func__,__LINE__);
+		printk("%s %d   mem.pages_phys_addr_table=%p, buffer->pages_phys_table=%p, buffer->page_count=%d\n",__func__,__LINE__, mem.pages_phys_addr_table, buffer->pages_phys_table, buffer->page_count);
+
+		get_user_mem_pages_phys_addr_table(table, &mem);
+		return 0;
+
+		if (copy_to_user(mem.pages_phys_addr_table, buffer->pages_phys_table, 
 						 buffer->page_count*sizeof(int))) {
 			dev_err(jz_dmmu.dev, "copy_to_user failed!\n");
 			return -EFAULT;

@@ -592,8 +592,8 @@ static int ipu_dump_regs(struct jz_ipu *ipu)
 	printk("ipu->base: %p\n", ipu->iomem);
 	dump_img(ipu);
 	ret = jz47_dump_ipu_regs(ipu, -1);
-	//ret = jz47_dump_ipu_regs(ipu, -2);
-	//ret = jz47_dump_ipu_regs(ipu, -3);
+	ret = jz47_dump_ipu_regs(ipu, -2);
+	ret = jz47_dump_ipu_regs(ipu, -3);
 
 	return ret;
 }
