@@ -14,7 +14,6 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
-#include "../devices/xb47xx_i2s0.h"
 static bool spipe_is_init = 0;
 //#define DEBUG_REPLAY  0
 //#define AIC_DEBUG
