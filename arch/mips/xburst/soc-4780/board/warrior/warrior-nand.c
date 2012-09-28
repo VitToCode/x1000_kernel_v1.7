@@ -72,9 +72,9 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-	2,			/* reserved blocks of mtd0 */
-	2,			/* reserved blocks of mtd1 */
-	10,			/* reserved blocks of mtd2 */
+//	2,			/* reserved blocks of mtd0 */
+//	2,			/* reserved blocks of mtd1 */
+//	10,			/* reserved blocks of mtd2 */
 	20,			/* reserved blocks of mtd3 */
 	20,			/* reserved blocks of mtd4 */
 	20,			/* reserved blocks of mtd5 */

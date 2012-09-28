@@ -14,37 +14,19 @@
 #define L4INFOLEN 1024
 // PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
 #define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
-/*
-struct vnand_operater{
-	NandInterface *operator;
-	unsigned char *vNand_buf;
-	NandMutex mutex;
-	void (*start_nand)(int);
-	int context;
-}v_nand_ops={0};
 
-#define CHECK_OPERATOR(ops)											\
-	do{																\
-		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){	\
-			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops);		\
-			return -1;												\
-		}															\
-	}while(0)
-
-#define VN_OPERATOR(ops,...)								\
-	({														\
-		int __ret;											\
-		CHECK_OPERATOR(ops);								\
-		NandMutex_Lock(&v_nand_ops.mutex);					\
-		__ret = v_nand_ops.operator->i##ops (__VA_ARGS__);	\
-		NandMutex_Unlock(&v_nand_ops.mutex);				\
-		__ret;												\
-	})
-*/
 /*
   The following functions mutually exclusive call nand driver
 */
 struct vnand_operater v_nand_ops={0};
+
+void vNand_Lock(void) {
+	NandMutex_Lock(&v_nand_ops.mutex);
+}
+
+void vNand_unLock(void) {
+	NandMutex_Unlock(&v_nand_ops.mutex);
+}
 
 static void vNandPage_To_NandPage(VNandInfo *vnand, int *pageid, int *offsetbyte)
 {
@@ -131,33 +113,48 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
 }
 
 static int vNand_InitNand (VNandManager *vm){
-	return VN_OPERATOR(InitNand,vm);
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(InitNand,vm);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 int vNand_PageRead (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void * data ){
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
 	vNandPage_To_NandPage(vNand,&pageid,&offsetbyte);
-	return VN_OPERATOR(PageRead,vNand->prData,pageid,offsetbyte,bytecount,data);
+	ret = VN_OPERATOR(PageRead,vNand->prData,pageid,offsetbyte,bytecount,data);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 int vNand_PageWrite (VNandInfo* vNand,int pageid, int offsetbyte, int bytecount, void* data ){
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
 	vNandPage_To_NandPage(vNand,&pageid,&offsetbyte);
-	return VN_OPERATOR(PageWrite,vNand->prData,pageid,offsetbyte,bytecount,data);
+	ret = VN_OPERATOR(PageWrite,vNand->prData,pageid,offsetbyte,bytecount,data);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 	PageList *alig_pl = NULL;
+
+	NandMutex_Lock(&v_nand_ops.mutex);
+	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,0);
 #endif
-	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 	ret = VN_OPERATOR(MultiPageRead,vNand->prData,alig_pl);
-	Fill_Pl_Retval(vNand,alig_pl);
-	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
-		BuffListManager_freeAllList(vNand->v2pp->blm, (void **)&alig_pl, sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 0, 0);
 #endif
+	Fill_Pl_Retval(vNand,alig_pl);
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+		BuffListManager_freeAllList(vNand->v2pp->blm, (void **)&alig_pl, sizeof(PageList));
+	NandMutex_Unlock(&v_nand_ops.mutex);
 	return ret;
 }
 
@@ -165,17 +162,19 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	int ret = 0;
 	PageList *alig_pl = NULL;
 
+	NandMutex_Lock(&v_nand_ops.mutex);
+	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(vNand->timebyte,1);
 #endif
-	alig_pl = vNandPageList_To_NandPageList(vNand,pl);
 	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,alig_pl);
-	Fill_Pl_Retval(vNand,alig_pl);
-	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
-		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_pl,sizeof(PageList));
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif
+	Fill_Pl_Retval(vNand,alig_pl);
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_pl,sizeof(PageList));
+	NandMutex_Unlock(&v_nand_ops.mutex);
 
 	return ret;
 }
@@ -262,19 +261,35 @@ exit:
 }
 
 int __vNand_MultiBlockErase (VNandInfo* vNand,BlockList* pl ){
-	return VN_OPERATOR(MultiBlockErase,vNand->prData,pl);
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(MultiBlockErase,vNand->prData,pl);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 int __vNand_IsBadBlock (VNandInfo* vNand,int blockid ){
-	return VN_OPERATOR(IsBadBlock,vNand->prData,blockid);
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(IsBadBlock,vNand->prData,blockid);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 int vNand_MarkBadBlock (VNandInfo* vNand,unsigned int blockid ){
-	return VN_OPERATOR(MarkBadBlock,vNand->prData,blockid);
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(MarkBadBlock,vNand->prData,blockid);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 
 static int vNand_DeInitNand (VNandManager* vNand){
-	return  VN_OPERATOR(DeInitNand,vNand);
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(DeInitNand,vNand);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
 }
 static void virt2phyPage_DeInit(VNandManager *vm)
 {
@@ -372,7 +387,6 @@ void __vNand_Deinit ( VNandManager** vm)
 	*vm = NULL;
 }
 
-
 void Register_StartNand(void *start,int context){
 	v_nand_ops.start_nand = start;
 	v_nand_ops.context = context;
@@ -395,4 +409,3 @@ void test_operator_vnand(VNandInfo *vnandptr)
 	ndprint(VNAND_DEBUG,"iMarkBadBlock %p \n",v_nand_ops.operator->iMarkBadBlock);
 }
 #endif
-
