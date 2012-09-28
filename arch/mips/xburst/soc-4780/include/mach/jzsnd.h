@@ -82,7 +82,7 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_spk_en;
 	struct snd_board_gpio gpio_head_det;
 	/* other */
-	int hpsense_reverse;
+	int hpsense_active_level;
 };
 
 
