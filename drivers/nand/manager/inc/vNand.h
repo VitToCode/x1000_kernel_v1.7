@@ -18,22 +18,20 @@ struct vnand_operater{
 	void (*start_nand)(int);
 	int context;
 };
-#define CHECK_OPERATOR(ops)						\
-	do{								\
-		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){ \
-			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops); \
-			return -1;					\
-		}							\
+#define CHECK_OPERATOR(ops)											\
+	do{																\
+		if(v_nand_ops.operator && !v_nand_ops.operator->i##ops){	\
+			ndprint(VNAND_INFO,"i%s isn't registed\n",#ops);		\
+			return -1;												\
+		}															\
 	}while(0)
 
-#define VN_OPERATOR(ops,...)						\
-	({								\
-		int __ret;						\
-		CHECK_OPERATOR(ops);					\
-		NandMutex_Lock(&v_nand_ops.mutex);			\
+#define VN_OPERATOR(ops,...)								\
+	({														\
+		int __ret;											\
+		CHECK_OPERATOR(ops);								\
 		__ret = v_nand_ops.operator->i##ops (__VA_ARGS__);	\
-			NandMutex_Unlock(&v_nand_ops.mutex);		\
-			__ret;						\
+		__ret;												\
 	})
 
 
@@ -51,5 +49,8 @@ void __vNand_Deinit ( VNandManager** context );
 void Register_StartNand(void *start,int context);
 
 int vNand_register_nanddriver (int context,NandInterface* interface);
+
+void vNand_Lock(void);
+void vNand_unLock(void);
 
 #endif
