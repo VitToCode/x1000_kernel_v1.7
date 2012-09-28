@@ -103,11 +103,11 @@ static int voltages_to_value(int min_uV, int max_uV, unsigned *selector)
 	unsigned char i;
 
 	for (i = 0; i <= VSEL_MASK; i++) {
-		if ((act8600_voltage_map[i][1] >= min_uV)
-		    && (act8600_voltage_map[i][1] <= max_uV)) {
+		if ((act8600_voltage_map[i][0] >= min_uV)
+		    && (act8600_voltage_map[i][0] <= max_uV)) {
 
 			*selector = i;
-			return act8600_voltage_map[i][2];
+			return act8600_voltage_map[i][1];
 		}
 	}
 
@@ -119,8 +119,8 @@ static int value_to_voltage(int value)
 	unsigned char i;
 
 	for (i = 0; i <= VSEL_MASK; i++) {
-		if (value == act8600_voltage_map[i][2])
-			return act8600_voltage_map[i][1];
+		if (value == act8600_voltage_map[i][1])
+			return act8600_voltage_map[i][0];
 	}
 
 	return -1;
