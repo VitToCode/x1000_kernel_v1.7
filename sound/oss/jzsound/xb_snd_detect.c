@@ -135,8 +135,10 @@ static int snd_switch_probe(struct platform_device *pdev)
 	switch_data->sdev.print_name = switch_snd_print_name;
 
 	ret = switch_dev_register(&switch_data->sdev);
-	if (ret < 0)
+	if (ret < 0) {
+		printk("switch dev register fail.\n");
 		goto err_switch_dev_register;
+	}
 
 	INIT_WORK(&switch_data->work, snd_switch_work);
 
@@ -152,14 +154,17 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 		switch_data->irq = gpio_to_irq(switch_data->gpio);
 		if (switch_data->irq < 0) {
+			printk("get irq error.\n");
 			ret = switch_data->irq;
 			goto err_detect_irq_num_failed;
 		}
 
 		ret = request_irq(switch_data->irq, snd_irq_handler,
 						  IRQF_TRIGGER_FALLING, pdev->name, switch_data);
-		if (ret < 0)
+		if (ret < 0) {
+			printk("requst irq fail.\n");
 			goto err_request_irq;
+		}
 
 	}
 
@@ -201,8 +206,6 @@ static struct platform_device_id xb_snd_det_ids[] = {
 								{.name = DEV_DSP_DOCK_DET_NAME,.driver_data = SND_DEV_DETECT##NO##_ID}
 	JZ_HP_DETECT_TABLE(0),
 	//JZ_HP_DETECT_TABLE(1),
-	//JZ_HP_DETECT_TABLE(2),
-	//JZ_HP_DETECT_TABLE(3),
 	{}
 #undef JZ_HP_DETECT_TABLE
 };

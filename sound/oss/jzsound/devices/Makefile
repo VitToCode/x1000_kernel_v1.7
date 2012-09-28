@@ -5,10 +5,6 @@
 
 obj-$(CONFIG_SOUND_OSS_XBURST) 	+= codecs/
 
-obj-$(CONFIG_SOUND_I2S0_JZ47XX) 	+= xb47xx_i2s0.o
+obj-$(CONFIG_SOUND_I2S_JZ47XX) 	+= xb47xx_i2s.o
 
-obj-$(CONFIG_SOUND_I2S1_JZ47XX) 	+= xb47xx_i2s1.o
-
-obj-$(CONFIG_SOUND_PCM0_JZ47XX) 	+= xb47xx_pcm0.o
-
-obj-$(CONFIG_SOUND_PCM1_JZ47XX) 	+= xb47xx_pcm1.o
+obj-$(CONFIG_SOUND_PCM_JZ47XX) 	+= xb47xx_pcm.o

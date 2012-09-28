@@ -7,6 +7,7 @@
  *
  * Copyright (c) Ingenic Semiconductor Co., Ltd.
  */
+#ifdef CONFIG_SOUND_I2S_JZ47XX
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
@@ -26,9 +27,9 @@
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <mach/jzsnd.h>
-#include "../xb47xx_i2s0.h"
+#include "../xb47xx_i2s.h"
 
-extern int i2s0_register_codec(char*, void *,unsigned long,enum codec_mode);
+extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 
 static void codec_get_format_cap(unsigned long *format)
 {
@@ -53,7 +54,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 #define WM8594_OVER_SMAPLE_RATE	11289600
 static int __init init_codec(void)
 {
-	i2s0_register_codec("hdmi", (void *)jzcodec_ctl,WM8594_OVER_SMAPLE_RATE,CODEC_SLAVE);
+	i2s_register_codec("hdmi", (void *)jzcodec_ctl,WM8594_OVER_SMAPLE_RATE,CODEC_SLAVE);
 	return 0;
 }
 
@@ -67,3 +68,4 @@ static void __exit cleanup_codec(void)
 arch_initcall_sync(init_codec);
 module_exit(cleanup_codec);
 MODULE_LICENSE("GPL");
+#endif

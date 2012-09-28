@@ -8,7 +8,7 @@
 #define __JZ4780_CODEC_H__
 
 #include <mach/jzsnd.h>
-#include "../xb47xx_i2s0.h"
+#include "../xb47xx_i2s.h"
 #include <linux/bitops.h>
 /* Enable headphone detection */
 //#define HP_SENSE_DETECT
@@ -607,7 +607,7 @@ do {															\
 
 #define ICR_ALL_MASK            (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_LOCK_MASK | IMR_JACK_MASK | IMR_SCLR_MASK)
 
-#ifdef CONFIG_JZ_HP0_DETECT
+#ifdef CONFIG_JZ_HP_DETECT_CODEC
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK)
 #else
  #define ICR_COMMON_MASK        (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_JACK_MASK)

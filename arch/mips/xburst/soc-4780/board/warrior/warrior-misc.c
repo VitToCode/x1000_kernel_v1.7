@@ -169,21 +169,13 @@ static int __init warrior_board_init(void)
 	jz_device_register(&jz_msc2_device, &warrior_tf_pdata);
 #endif
 /* sound */
-#ifdef CONFIG_SOUND_I2S0_JZ47XX
-	jz_device_register(&jz_i2s0_device,&i2s0_data);
+#ifdef CONFIG_SOUND_I2S_JZ47XX
+	jz_device_register(&jz_i2s_device,&i2s_data);
 	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
 #endif
-#ifdef CONFIG_SOUND_I2S1_JZ47XX
-	jz_device_register(&jz_i2s1_device,&i2s1_data);
+#ifdef CONFIG_SOUND_PCM_JZ47XX
+	jz_device_register(&jz_pcm_device,&pcm_data);
 	jz_device_register(&jz_mixer1_device,&snd_mixer1_data);
-#endif
-#ifdef CONFIG_SOUND_PCM0_JZ47XX
-	jz_device_register(&jz_pcm0_device,&pcm0_data);
-	jz_device_register(&jz_mixer2_device,&snd_mixer2_data);
-#endif
-#ifdef CONFIG_SOUND_PCM1_JZ47XX
-	jz_device_register(&jz_pcm1_device,&pcm1_data);
-	jz_device_register(&jz_mixer3_device,&snd_mixer3_data);
 #endif
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);

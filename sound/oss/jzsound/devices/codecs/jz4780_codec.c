@@ -26,9 +26,13 @@
 #include <linux/vmalloc.h>
 #include <linux/semaphore.h>
 
-#include "../xb47xx_i2s0.h"
+#include "../xb47xx_i2s.h"
 #include "jz4780_codec.h"
 #include "jz4780_route_conf.h"
+
+#ifdef CONFIG_JZ_HP_DETECT_GPIO
+#define GPIO_HP_DETECT GPIO_PE(7)
+#endif
 
 /*###############################################*/
 
@@ -48,7 +52,7 @@ static struct snd_board_route *keep_old_route = NULL;
 static struct snd_codec_data *codec_platform_data = NULL;
 enum snd_device_t g_current_out_dev;
 
-extern int i2s0_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
+extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
 
 /*=================== lock ============================*/
 static spinlock_t codec_lock;
@@ -142,7 +146,7 @@ static void codec_print_ioc_cmd(int cmd)
 		CODEC_INIT,					CODEC_TURN_OFF,
 		CODEC_SHUTDOWN,				CODEC_RESET,
 		CODEC_SUSPEND,				CODEC_RESUME,
-		CODEC_ANTI_POP,				CODEC_SET_ROUTE,
+		CODEC_ANTI_POP,				CODEC_SET_DEFROUTE,
 		CODEC_SET_DEVICE,			CODEC_SET_RECORD_RATE,
 		CODEC_SET_RECORD_DATA_WIDTH,	CODEC_SET_MIC_VOLUME,
 		CODEC_SET_RECORD_CHANNEL,		CODEC_SET_REPLAY_RATE,
@@ -159,7 +163,7 @@ static void codec_print_ioc_cmd(int cmd)
 		"CODEC_INIT", 			"CODEC_TURN_OFF",
 		"CODEC_SHUTDOWN", 		"CODEC_RESET",
 		"CODEC_SUSPEND",		"CODEC_RESUME",
-		"CODEC_ANTI_POP", 		"CODEC_SET_ROUTE",
+		"CODEC_ANTI_POP",		"CODEC_SET_DEFROUTE",
 		"CODEC_SET_DEVICE",		"CODEC_SET_RECORD_RATE",
 		"CODEC_SET_RECORD_DATA_WIDTH", 	"CODEC_SET_MIC_VOLUME",
 		"CODEC_SET_RECORD_CHANNEL", 	"CODEC_SET_REPLAY_RATE",
@@ -245,14 +249,21 @@ static void codec_print_route_name(int route)
 static void dump_gpio_state(void)
 {
 	int val = -1;
+
 	if(codec_platform_data &&
 	   (codec_platform_data->gpio_hp_mute.gpio != -1))
 		val = __gpio_get_value(codec_platform_data->gpio_hp_mute.gpio);
 	printk("gpio hp mute %d statue is %d.\n",codec_platform_data->gpio_hp_mute.gpio, val);
+
 	if(codec_platform_data &&
 	   (codec_platform_data->gpio_spk_en.gpio != -1))
 		val = __gpio_get_value(codec_platform_data->gpio_spk_en.gpio);
 	printk("gpio speaker enable %d statue is %d.\n",codec_platform_data->gpio_spk_en.gpio, val);
+
+#ifdef GPIO_HP_DETECT
+	val = __gpio_get_value(GPIO_HP_DETECT);
+	printk("gpio hp detect %d statue is %d.\n",GPIO_HP_DETECT, val);
+#endif
 }
 
 static void dump_codec_regs(void)
@@ -1743,10 +1754,14 @@ static int codec_set_board_route(struct snd_board_route *broute)
 			if (broute->route == codec_route_info[i].route_name) {
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
-				/* keep_old_route is used in resume part */
-				keep_old_route = cur_route;
-				/* change cur_route */
-				cur_route = broute;
+				if (broute->route != SND_ROUTE_RECORD_CLEAR) {
+					/* keep_old_route is used in resume part */
+					keep_old_route = cur_route;
+					/* change cur_route */
+					cur_route = broute;
+				} else {
+					cur_route = keep_old_route;
+				}
 				break;
 			}
 		if (i == SND_ROUTE_COUNT)
@@ -1770,6 +1785,30 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	DUMP_ROUTE_REGS("leave");
 
 	return cur_route ? cur_route->route : 0;
+}
+
+static int codec_set_default_route(int mode)
+{
+	int ret = 0;
+	if (codec_platform_data) {
+		if (codec_platform_data->replay_def_route.route == SND_ROUTE_NONE){
+			codec_platform_data->replay_def_route.route = SND_ROUTE_REPLAY_SPEAKER;
+		}
+
+		if (codec_platform_data->record_def_route.route == SND_ROUTE_NONE) {
+			codec_platform_data->record_def_route.route = SND_ROUTE_RECORD_MIC;
+		}
+	}
+
+	if (mode == CODEC_RWMODE) {
+		ret =  codec_set_board_route(&codec_platform_data->replay_def_route);
+	} else if (mode == CODEC_WMODE) {
+		ret =  codec_set_board_route(&codec_platform_data->replay_def_route);
+	} else if (mode == CODEC_RMODE){
+		ret =  codec_set_board_route(&codec_platform_data->record_def_route);
+	}
+
+	return 0;
 }
 
 static int codec_set_route(enum snd_codec_route_t route)
@@ -1845,51 +1884,46 @@ static int codec_turn_off(int mode)
 			printk("JZ CODEC: codec_turn_off_part record mode error!\n");
 			return -1;
 		}
-
-		if (keep_old_route) {
-			ret = codec_set_board_route(keep_old_route);
-			if(ret != keep_old_route->route)
-			{
-				printk("JZ CODEC: %s record mode error!\n", __func__);
-				return -1;
-			}
+	}
+	if (mode & CODEC_RMODE) {
+		ret = codec_set_route(SND_ROUTE_REPLAY_CLEAR);
+		if(ret != SND_ROUTE_REPLAY_CLEAR)
+		{
+			printk("JZ CODEC: codec_turn_off_part replay mode error!\n");
+			return -1;
 		}
 	}
-	codec_sleep(10);
-	__codec_switch_sb(POWER_OFF);
-	codec_sleep(10);
-
 
 	return ret;
 }
 
 /****** codec_shutdown *******/
-static int codec_shutdown(int mode)
+static int codec_shutdown(void)
 {
-	if (mode & CODEC_WMODE) {
-		/* disbale speaker and enbale hp mute */
-		gpio_enable_hp_mute();
-		gpio_disable_spk_en();
-		/* shutdown sequence */
-		__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-		__codec_enable_dac_mute();
-		codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+	/* disbale speaker and enbale hp mute */
+	gpio_enable_hp_mute();
+	gpio_disable_spk_en();
+	/* shutdown sequence */
+	__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
+	__codec_enable_dac_mute();
+	codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
-		__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
-		__codec_switch_sb_hp(POWER_OFF);
-		codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
+	__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
+	__codec_switch_sb_hp(POWER_OFF);
+	codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
 
-		__codec_enable_hp_mute();
-		udelay(500);
+	__codec_enable_hp_mute();
+	udelay(500);
 
-		__codec_switch_sb_dac(POWER_OFF);
-		udelay(500);
+	__codec_switch_sb_dac(POWER_OFF);
+	udelay(500);
 
-		__codec_disable_dac_interface();
-	}
-	if (mode & CODEC_RMODE)
-		__codec_disable_adc_interface();
+	__codec_disable_dac_interface();
+	__codec_disable_adc_interface();
 
+	codec_sleep(10);
+	__codec_switch_sb(POWER_OFF);
+	codec_sleep(10);
 
 	return 0;
 }
@@ -1968,6 +2002,7 @@ static int codec_suspend(void)
 		return 0;
 	}
 
+	printk("suspend SOUND OLD ROUTE == %d.\n",keep_old_route->route);
 	return ret;
 }
 
@@ -1975,6 +2010,7 @@ static int codec_resume(void)
 {
 	int ret = 0;
 
+	printk("resume SOUND OLD ROUTE == %d.\n",keep_old_route->route);
 	if (keep_old_route) {
 		ret = codec_set_board_route(keep_old_route);
 		if(ret != keep_old_route->route)
@@ -2356,14 +2392,14 @@ static inline void codec_short_circut_handler(void)
 	printk("Short circut volume delay %d ms curr_hp_left_vol=%x curr_hp_right_vol=%x \n",
 			delay, curr_hp_left_vol, curr_hp_right_vol);
 	codec_sleep(delay);
-#ifndef CONFIG_JZ_HP0_DETECT
+#ifndef CONFIG_JZ_HP_DETECT_CODEC
 
 	/* turn off sb_hp */
 	__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
 	__codec_switch_sb_hp(POWER_OFF);
 	codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
 
-#endif //nodef CONFIG_JZ_HP0_DETECT
+#endif //nodef CONFIG_JZ_HP_DETECT_CODEC
 
 	while (1) {
 		codec_ifr = __codec_get_irq_flag();
@@ -2373,13 +2409,13 @@ static inline void codec_short_circut_handler(void)
 		codec_sleep(10);
 	}
 
-#ifndef CONFIG_JZ_HP0_DETECT
+#ifndef CONFIG_JZ_HP_DETECT_CODEC
 	/* turn on sb_hp */
 	__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
 	__codec_switch_sb_hp(POWER_ON);
 	 codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
 
-#endif //nodef CONFIG_JZ_HP0_DETECT
+#endif //nodef CONFIG_JZ_HP_DETECT_CODEC
 
 	/* restore hp gain */
 	codec_set_gain_hp_left(curr_hp_left_vol);
@@ -2397,11 +2433,11 @@ static int codec_irq_handle(struct work_struct *detect_work)
 {
 	unsigned char codec_ifr;
 	unsigned char codec_ifr2;
-#ifdef CONFIG_JZ_HP0_DETECT
+#ifdef CONFIG_JZ_HP_DETECT_CODEC
 	int old_status = 0;
 	int new_status = 0;
 	int i;
-#endif /*CONFIG_JZ_HP0_DETECT*/
+#endif /*CONFIG_JZ_HP_DETECT_CODEC*/
 	codec_ifr = __codec_get_irq_flag();
 	codec_ifr2 = __codec_get_irq_flag2();
 
@@ -2421,7 +2457,7 @@ static int codec_irq_handle(struct work_struct *detect_work)
 
 		} while(codec_ifr & (1 << IFR_SCLR_EVENT));
 
-#ifdef CONFIG_JZ_HP0_DETECT
+#ifdef CONFIG_JZ_HP_DETECT_CODEC
 
 		if (codec_ifr & (1 << IFR_JACK_EVENT)) {
 _ensure_stable:
@@ -2448,11 +2484,11 @@ _ensure_stable:
 		/* Report status */
 		schedule_work(detect_work);
 
-#endif /*CONFIG_JZ_HP0_DETECT*/
+#endif /*CONFIG_JZ_HP_DETECT_CODEC*/
 	}
 
 	__codec_set_irq_flag(codec_ifr);
-	/* Unmask SCMC & JACK (ifdef CONFIG_JZ_HP0_DETECT) */
+	/* Unmask SCMC & JACK (ifdef CONFIG_JZ_HP_DETECT_CODEC) */
 	__codec_set_irq_mask(ICR_COMMON_MASK);
 
 	return 0;
@@ -2460,8 +2496,8 @@ _ensure_stable:
 
 static int codec_get_hp_state(int *state)
 {
-	*state = !!(__codec_get_sr() & CODEC_JACK_MASK) ^
-		!codec_platform_data->hpsense_active_level;
+	*state = ((__codec_get_sr() & CODEC_JACK_MASK) >> SR_JACK) ^
+		(!codec_platform_data->hpsense_active_level);	
 	if (state < 0)
 		return -EIO;
 	return 0;
@@ -2500,7 +2536,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SHUTDOWN:
-			ret = codec_shutdown((int)arg);
+			ret = codec_shutdown();
 			break;
 
 		case CODEC_RESET:
@@ -2519,8 +2555,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			ret = codec_anti_pop((int)arg);
 			break;
 
-		case CODEC_SET_ROUTE:
-			ret = codec_set_route((enum snd_codec_route_t)arg);
+		case CODEC_SET_DEFROUTE:
+			ret = codec_set_default_route((int )arg);
 			break;
 
 		case CODEC_SET_DEVICE:
@@ -2610,8 +2646,11 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_sys_clk = CODEC_SYS_CLK_12M;
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 
-	jz_set_hp0_detect_type(SND_SWITCH_TYPE_CODEC,0,INVALID);
-	//jz_set_hp0_detect_type(SND_SWITCH_TYPE_GPIO,GPIO_PE(7),HIGH_VALID);
+#if defined(CONFIG_JZ_HP_DETECT_CODEC)
+	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,0,INVALID);
+#elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
+	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,GPIO_HP_DETECT,LOW_VALID);
+#endif
 
 	if (gpio_request(codec_platform_data->gpio_hp_mute.gpio,"gpio_hp_mute") < 0) {
 		gpio_free(codec_platform_data->gpio_hp_mute.gpio);
@@ -2660,7 +2699,7 @@ static int __init init_codec(void)
 {
 	int retval;
 
-	i2s0_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4780_INTERNAL_CODEC_CLOCK,CODEC_MASTER);
+	i2s_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4780_INTERNAL_CODEC_CLOCK,CODEC_MASTER);
 	retval = platform_driver_register(&jz_codec_driver);
 	if (retval) {
 		printk("JZ CODEC: Could net register jz_codec_driver\n");
