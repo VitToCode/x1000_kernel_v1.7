@@ -336,9 +336,14 @@ static int xb_snd_probe(struct platform_device *pdev)
 			break;
 
 		default:
+			printk("SOUND ERROR:Unkown snd device.\n");
 			return -EINVAL;
 		}
 
+		if (ret < 0) {
+			printk("SOUND ERROR:Snd device register error.\n");
+			return ret;
+		}
 		/* register device */
 		ret = register_sound_special(&xb_snd_fops, ddata->minor);
 		if (ret != ddata->minor) {
