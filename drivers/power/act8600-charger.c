@@ -351,6 +351,7 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to request irq %d\n", ret);
 		goto err_free_irq;
 	}
+	enable_irq_wake(charger->irq);
 	disable_irq(charger->irq);
 
 	charger->dev = &pdev->dev;
