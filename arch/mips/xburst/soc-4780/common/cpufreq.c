@@ -53,8 +53,8 @@ static unsigned long regulator_table[12][2] = {
 	{ 700000,1100000},
 	{ 500000,1100000},
 	{ 300000,1100000},
-	{ 150000,1000000},
-	{      0,1000000},
+	{ 150000,1025000},
+	{      0,1025000},
 };
 
 unsigned long regulator_find_voltage(int freqs)

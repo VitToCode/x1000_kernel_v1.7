@@ -369,7 +369,7 @@ int vcore_suspend(void)
 
 	if(jz47xx_pm.vcore) {
 		jz47xx_pm.volt = regulator_get_voltage(jz47xx_pm.vcore);
-		regulator_set_voltage(jz47xx_pm.vcore, 1000000, 1000000);
+		regulator_set_voltage(jz47xx_pm.vcore, 1025000, 1025000);
 	}
 
 	return 0;
