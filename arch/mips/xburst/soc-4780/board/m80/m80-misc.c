@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
+#include <linux/power/gpio-charger.h>
+#include <linux/power/li-ion-charger.h>
 #include <linux/power/jz4780-battery.h>
 
 #include <mach/platform.h>
@@ -84,18 +86,52 @@ static struct platform_device jz_timed_gpio_device = {
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data m80_battery_pdata = {
 	.info = {
-		.max_vol        = 4050,
-		.min_vol        = 3600,
+		.max_vol        = 4070,
+		.min_vol        = 3650,
 		.usb_max_vol    = 4100,
 		.usb_min_vol    = 3760,
-		.ac_max_vol     = 4100,
-		.ac_min_vol     = 3760,
-		.battery_max_cpt = 3000,
-		.ac_chg_current = 800,
+		.ac_max_vol     = 4150,
+		.ac_min_vol     = 3750,
+		.battery_max_cpt = 6000,
+		.ac_chg_current = 1000,
 		.usb_chg_current = 400,
 	},
 };
 #endif
+
+/* ac charger */
+static char *m80_ac_supplied_to[] = {
+	"li_ion_charge",
+};
+
+static struct gpio_charger_platform_data m80_ac_charger_pdata = {
+	.name = "ac",
+	.type = POWER_SUPPLY_TYPE_MAINS,
+	.gpio = GPIO_PA(16),
+	.gpio_active_low = 0,
+	.supplied_to = m80_ac_supplied_to,
+	.num_supplicants = ARRAY_SIZE(m80_ac_supplied_to),
+};
+
+static struct platform_device m80_ac_charger_device = {
+	.name = "gpio-charger",
+	.dev = {
+		.platform_data = &m80_ac_charger_pdata,
+	},
+};
+
+/* li-ion charger */
+static struct li_ion_charger_platform_data m80_li_ion_charger_pdata = {
+	.gpio = GPIO_PB(3),
+	.gpio_active_low = 1,
+};
+
+static struct platform_device m80_li_ion_charger_device = {
+	.name = "li-ion-charger",
+	.dev = {
+		.platform_data = &m80_li_ion_charger_pdata,
+	},
+};
 
 static int __init m80_board_init(void)
 {
@@ -176,6 +212,10 @@ static int __init m80_board_init(void)
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &m80_battery_pdata);
 #endif
+/* ac charger */
+	platform_device_register(&m80_ac_charger_device);
+/* li-ion charger */
+	platform_device_register(&m80_li_ion_charger_device);
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);

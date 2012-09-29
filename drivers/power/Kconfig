@@ -262,4 +262,8 @@ config CHARGER_GPIO
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
 
+config CHARGER_LI_ION
+	tristate "JZ4780 Li-ion charger"
+	depends on GPIOLIB
+
 endif # POWER_SUPPLY
