@@ -217,8 +217,9 @@ asmlinkage void plat_irq_dispatch(void)
 		do_IRQ(IRQ_OST);
 	}
 #ifdef CONFIG_SMP
-	if(pending & CAUSEF_IP3)
-		do_IRQ(IRQ_SMP_IPI);
+	if(pending & CAUSEF_IP3) {
+		generic_handle_irq(IRQ_SMP_IPI);
+	}
 #endif
 	if(pending & CAUSEF_IP2)
 		intc_irq_dispatch();
