@@ -1992,37 +1992,14 @@ static int codec_anti_pop(int mode)
 /******** codec_suspend ************/
 static int codec_suspend(void)
 {
-	int ret;
-
 	g_codec_sleep_mode = 0;
-	ret = codec_set_route(SND_ROUTE_ALL_CLEAR);
-	if(ret != SND_ROUTE_ALL_CLEAR)
-	{
-		printk("JZ CODEC: codec_suspend_part error!\n");
-		return 0;
-	}
-
-	printk("suspend SOUND OLD ROUTE == %d.\n",keep_old_route->route);
-	return ret;
+	return 0;
 }
 
 static int codec_resume(void)
 {
-	int ret = 0;
-
-	printk("resume SOUND OLD ROUTE == %d.\n",keep_old_route->route);
-	if (keep_old_route) {
-		ret = codec_set_board_route(keep_old_route);
-		if(ret != keep_old_route->route)
-		{
-			printk("JZ CODEC: codec_resume_part error!\n");
-			return 0;
-		}
-	}
-
 	g_codec_sleep_mode = 1;
-
-	return ret;
+	return 0;
 }
 
 /*---------------------------------------*/
@@ -2523,7 +2500,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 	int ret = 0;
 
 	DUMP_IOC_CMD("enter");
-	CODEC_LOCK();
 	{
 		switch (cmd) {
 
@@ -2632,8 +2608,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			ret = -1;
 		}
 	}
-
-	CODEC_UNLOCK();
 
 	DUMP_IOC_CMD("leave");
 	return ret;
