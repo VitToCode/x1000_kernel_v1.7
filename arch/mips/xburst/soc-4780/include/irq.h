@@ -12,8 +12,9 @@
 #define __ASM_MACH_INGENIC_IRQ_H__
 
 /* IRQ for MIPS CPU */
-#define MIPS_CPU_IRQ_BASE 	0
-#define IRQ_SMP_IPI 		3
+#define MIPS_CPU_IRQ_BASE 		0
+#define IRQ_SMP_RESCHEDULE_YOURSELF	3
+#define IRQ_SMP_CALL_FUNCTION		4
 
 #define INTC_IRQ_BASE		8
 

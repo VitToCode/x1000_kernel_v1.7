@@ -11,6 +11,7 @@
  */
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 
@@ -118,19 +119,32 @@ static struct irq_chip jzintc_chip = {
 
 #ifdef CONFIG_SMP
 extern void jzsoc_mbox_interrupt(void);
-static irqreturn_t ipi_interrupt(int irq, void *d)
+static irqreturn_t ipi_reschedule(int irq, void *d)
 {
-	jzsoc_mbox_interrupt();
+	scheduler_ipi();
 	return IRQ_HANDLED;
 }
+
+static irqreturn_t ipi_call_function(int irq, void *d)
+{
+	smp_call_function_interrupt();
+	return IRQ_HANDLED;
+}
+
 static int setup_ipi(void)
 {
-	set_c0_status(STATUSF_IP3);
-	if (request_irq(IRQ_SMP_IPI, ipi_interrupt, IRQF_DISABLED,
-				"SMP IPI", NULL))
+	if (request_irq(IRQ_SMP_RESCHEDULE_YOURSELF, ipi_reschedule, IRQF_DISABLED,
+				"ipi_reschedule", NULL))
 		BUG();
+	if (request_irq(IRQ_SMP_CALL_FUNCTION, ipi_call_function, IRQF_DISABLED,
+				"ipi_call_function", NULL))
+		BUG();
+
+	set_c0_status(STATUSF_IP3);
 	return 0;
 }
+
+
 #endif
 
 static void ost_irq_unmask(struct irq_data *data)
@@ -218,7 +232,7 @@ asmlinkage void plat_irq_dispatch(void)
 	}
 #ifdef CONFIG_SMP
 	if(pending & CAUSEF_IP3) {
-		generic_handle_irq(IRQ_SMP_IPI);
+		jzsoc_mbox_interrupt();
 	}
 #endif
 	if(pending & CAUSEF_IP2)

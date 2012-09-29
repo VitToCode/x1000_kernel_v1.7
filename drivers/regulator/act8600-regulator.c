@@ -450,7 +450,7 @@ static int act8600_set_voltage(struct regulator_dev *rdev,
 	value = voltages_to_value(min_uV, max_uV, selector);
 	act8600_write_reg(client, reg, value);
 
-	return value_to_voltage(value);
+	return 0;
 }
 
 static struct regulator_ops act8600_dcdc_ops = {

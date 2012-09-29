@@ -404,6 +404,7 @@ static void jzsoc_smp_showregs(void)
 #endif
 
 extern void smp_ipi_timer_interrupt(void);
+
 void jzsoc_mbox_interrupt(void)
 {
 	int cpu = smp_processor_id();
@@ -433,9 +434,9 @@ void jzsoc_mbox_interrupt(void)
 	 * we changed here in linux-3.0.8
 	 */
 	if (action & SMP_RESCHEDULE_YOURSELF)
-		scheduler_ipi();
+		generic_handle_irq(IRQ_SMP_RESCHEDULE_YOURSELF);
 	if (action & SMP_CALL_FUNCTION)
-		smp_call_function_interrupt();
+		generic_handle_irq(IRQ_SMP_CALL_FUNCTION);
 	if (action & SMP_IPI_TIMER)
 		smp_ipi_timer_interrupt();
 
