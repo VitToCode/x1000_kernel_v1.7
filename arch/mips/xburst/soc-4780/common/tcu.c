@@ -384,7 +384,7 @@ static void tcu_set_close_state(struct tcu_device *tcu)
 	tcu_chs[tcu->id].clock = CLK_MASK;
 	tcu_chs[tcu->id].pwm_flag = 0;
 }
-
+#if 0
 static irqreturn_t tcu_irqhandler(int irq,void *data)
 {
 	int tmp1 = 0;
@@ -414,11 +414,12 @@ static irqreturn_t tcu_irqhandler(int irq,void *data)
 	}
 	return IRQ_HANDLED;
 }
-
+#endif
 int __init tcu_init(void)
 {
-	int ret,i;
-	unsigned int mask_bit = ~(1 << RESERVED_CH);
+	//int ret,i;
+//	int i;
+//	unsigned int mask_bit = ~(1 << RESERVED_CH);
 
 	jz47xx_tcu = (struct jz47xx_tcu_t *)kzalloc(sizeof(struct jz47xx_tcu_t),GFP_KERNEL);
 	jz47xx_tcu->reg = ioremap(TCU_IOBASE,TCU_SIZE);
@@ -430,12 +431,12 @@ int __init tcu_init(void)
 		printk(KERN_INFO "tcu_timer :%s request irq error !\n ","tcu1");
 		return ret;
 	}
-#endif
 	if (0 != (ret = request_irq(IRQ_TCU2, tcu_irqhandler,IRQF_DISABLED, "tcu2", NULL))) {
 		printk(KERN_INFO "tcu_timer :%s request irq error !\n ","tcu2");
 		return ret;
 	}
-
+#endif
+#if 0
 	/*mask all interrupts*/
 	regw(mask_bit,TCU_TMSR);
 	/*clear match flags*/
@@ -449,6 +450,7 @@ int __init tcu_init(void)
 		set_tcu_full_half_value(i, 0, 0);
 		set_tcu_counter_value(i,0);
 	}
+#endif
 	return 0;
 }
 
