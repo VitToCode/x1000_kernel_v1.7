@@ -630,7 +630,7 @@ struct syscore_ops clk_pm_ops = {
 	.resume = clk_resume,
 };
 
-static int __init init_all_clk(void)
+void __init init_all_clk(void)
 {
 	int i;
 
@@ -662,9 +662,7 @@ static int __init init_all_clk(void)
 			clk_srcs[CLK_ID_H0CLK].rate/1000/1000,
 			clk_srcs[CLK_ID_H2CLK].rate/1000/1000,
 			clk_srcs[CLK_ID_PCLK].rate/1000/1000);
-	return 0;
 }
-arch_initcall(init_all_clk);
 
 static int clk_gate_ctrl(struct clk *clk, int enable)
 {

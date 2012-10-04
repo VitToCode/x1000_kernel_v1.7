@@ -4,7 +4,8 @@
 
 obj-y += setup.o 
 obj-y += reset.o 
-obj-y += maintimer.o cpu0timer.o cpu1timer.o 
+obj-y += timer.o
+#maintimer.o cpu0timer.o cpu1timer.o 
 obj-y += serial.o 
 obj-y += tcu.o
 
