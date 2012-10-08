@@ -14,6 +14,8 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/proc_fs.h>
+#include <linux/ioport.h>
+
 
 #include <soc/cpm.h>
 #include <soc/base.h>
@@ -72,5 +74,37 @@ int __init setup_init(void)
 
 	return 0;
 }
-arch_initcall(setup_init);
+void __cpuinit jzcpu_timer_setup(void);
+void __cpuinit jz_clocksource_init(void);
+void __init init_all_clk(void);
+/* used by linux-mti code */
+int coherentio;			/* init to 0, no DMA cache coherency */
+int hw_coherentio;		/* init to 0, no HW DMA cache coherency */
 
+void __init plat_mem_setup(void)
+{
+	/* jz mips cpu special */
+	__asm__ (
+		"li    $2, 0xa9000000 \n\t"
+		"mtc0  $2, $5, 4      \n\t"
+		"nop                  \n\t"
+		::"r"(2));
+
+	/* use IO_BASE, so that we can use phy addr on hard manual
+	 * directly with in(bwlq)/out(bwlq) in io.h.
+	 */
+	set_io_port_base(IO_BASE);
+	ioport_resource.start	= 0x00000000;
+	ioport_resource.end	= 0xffffffff;
+	iomem_resource.start	= 0x00000000;
+	iomem_resource.end	= 0xffffffff;
+	setup_init();
+	init_all_clk();
+	return;
+}
+
+void __init plat_time_init(void)
+{
+	jzcpu_timer_setup();
+	jz_clocksource_init();
+}

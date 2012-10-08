@@ -68,8 +68,6 @@ static void __cpuinit jzsoc_smp_init(void)
 /*
  * Code to run on secondary just after probing the CPU
  */
-void jz_cpu1_clockevent_init(void);
-void jz_cpu0_clockevent_init(void);
 void percpu_timer_setup(void);
 static void __cpuinit jzsoc_init_secondary(void)
 {
@@ -82,11 +80,13 @@ static void __cpuinit jzsoc_init_secondary(void)
  * Do any tidying up before marking online and running the idle
  * loop
  */
+extern void __cpuinit jzcpu_timer_setup(void);
 static void __cpuinit jzsoc_smp_finish(void)
 {
 	int cpu = smp_processor_id();
 	local_irq_enable();
-	jz_cpu1_clockevent_init();
+	//jz_cpu1_clockevent_init();
+	jzcpu_timer_setup();
 	jzsoc_smp_showregs();
 	pr_info("[SMP] slave cpu%d start up finished.\n",cpu);
 }
