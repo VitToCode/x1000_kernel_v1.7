@@ -144,7 +144,6 @@ static void jz_set_mode(enum clock_event_mode mode,
 	struct jz_timerevent *evt_dev = container_of(clkevt,struct jz_timerevent,clkevt);
 	unsigned long flags;
 	unsigned int latch = (evt_dev->rate + (HZ >> 1)) / HZ;
-	pr_info("current time mode = %d\n",mode);
 	spin_lock_irqsave(&evt_dev->lock,flags);
 	evt_dev->curmode = mode;
 	switch (mode) {
@@ -190,7 +189,8 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	spin_lock_init(&evt_dev->lock);
 
 	evt_dev->rate = clk_get_rate(ext_clk) / CLKEVENT_DIV;
-clk_put(ext_clk);
+	clk_put(ext_clk);
+
        	stoptimer(evt_dev);
 	outl((1 << evt_dev->ch),evt_dev->ctrl_addr + TCU_TMCR);
 	outl(CSRDIV(CLKEVENT_DIV) | CSR_EXT_EN,evt_dev->config_addr);
