@@ -571,12 +571,12 @@ static void jz_battery_resume_work(struct work_struct *work)
 	} else if (jz_battery->status_charge == POWER_SUPPLY_STATUS_CHARGING) {
 		if (jz_battery->ac && (jz_battery->voltage > \
 			(jz_battery->pdata->info.ac_max_vol - VOL_DIV))) {
-			jz_battery +=
-				timecount / jz_battery->ac_charge_time;
+			jz_battery->capacity +=
+				timecount / (jz_battery->ac_charge_time << 1);
 		} else if (jz_battery->usb && (jz_battery->voltage > \
 			(jz_battery->pdata->info.usb_max_vol - VOL_DIV))) {
 			jz_battery->capacity +=
-				timecount / jz_battery->usb_charge_time;
+				timecount / (jz_battery->usb_charge_time << 1);
 		} else if ((jz_battery->capacity_calculate >
 			jz_battery->capacity) && (timecount > 3 * 60)) {
 			jz_battery->capacity = jz_battery->capacity_calculate;
