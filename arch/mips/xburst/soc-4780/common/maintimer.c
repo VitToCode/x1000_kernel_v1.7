@@ -37,16 +37,39 @@
 
 #define TCU_TIMER_CH			5
 #define TCU_TIMER_CLOCK			(JZ_EXTAL / 16)
-#define SYS_TIMER_CLK			(JZ_EXTAL / 16)
+#define SYS_TIMER_CLK			(JZ_EXTAL / 4)
+
 
 #define tcu_readl(reg)			inl(TCU_IOBASE + reg)
 #define tcu_writel(reg,value)		outl(value, TCU_IOBASE + reg)
 #define ost_readl(reg)			inl(OST_IOBASE + reg)
 #define ost_writel(reg,value)		outl(value, OST_IOBASE + reg)
+static cycle_t jz_get_cycles(struct clocksource *cs);
+static int jz_set_next_event(unsigned long evt,
+			     struct clock_event_device *unused);
+static void jz_set_mode(enum clock_event_mode mode,
+			struct clock_event_device *evt);
+static struct clocksource clocksource_jz = {
+	.name 		= "jz_clocksource",
+	.rating		= 400,
+	.read		= jz_get_cycles,
+	.mask		= 0x7FFFFFFFFFFFFFFFULL,
+	.shift 		= 10,
+	.flags		= CLOCK_SOURCE_WATCHDOG | CLOCK_SOURCE_IS_CONTINUOUS,
+};
+static struct clock_event_device jz_clockevent_device = {
+	.name		= "jz-clockenvent",
+	.features	= CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
+	.shift          = 10,
+	.rating		= 400,
+	.irq		= IRQ_TCU1,
+	.set_mode	= jz_set_mode,
+	.set_next_event	= jz_set_next_event,
 
-static struct clock_event_device jz_clockevent_device;
-static struct clocksource clocksource_jz;
+};
 
+static int curmode;
+static DEFINE_SPINLOCK(timer_lock);
 static cycle_t jz_get_cycles(struct clocksource *cs)
 {
 	union clycle_type
@@ -66,53 +89,68 @@ unsigned long long sched_clock(void)
 	return ((cycle_t)jz_get_cycles(0) * clocksource_jz.mult) >> clocksource_jz.shift;
 }
 
-static struct clocksource clocksource_jz = {
-	.name 		= "jz_clocksource",
-	.rating		= 300,
-	.read		= jz_get_cycles,
-	.mask		= 0x7FFFFFFFFFFFFFFFULL,
-	.shift 		= 10,
-	.flags		= CLOCK_SOURCE_WATCHDOG,
-};
-
 static int jz_set_next_event(unsigned long evt,
 			     struct clock_event_device *unused)
 {
+	unsigned long flags;
+	spin_lock_irqsave(&timer_lock,flags);
+	tcu_writel(CH_TDFR(TCU_TIMER_CH), evt - 1);
+	tcu_writel(CH_TCNT(TCU_TIMER_CH), 0);
+	tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
+	tcu_writel(TCU_TMCR, (1 << TCU_TIMER_CH));
+	tcu_writel(TCU_TESR, (1 << TCU_TIMER_CH));
+	spin_unlock_irqrestore(&timer_lock,flags);
 	return 0;
 }
 
 static void jz_set_mode(enum clock_event_mode mode,
 			struct clock_event_device *evt)
 {
+	unsigned long flags;
+	unsigned int latch = (TCU_TIMER_CLOCK + (HZ >> 1)) / HZ;
+		
+	printk("%s %d mode = %d\n",__FILE__,__LINE__,mode);
+	spin_lock_irqsave(&timer_lock,flags);
+	curmode = mode;
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
+		tcu_writel(CH_TDFR(TCU_TIMER_CH), latch - 1);
+		tcu_writel(CH_TCNT(TCU_TIMER_CH), 0);
+		tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
+		tcu_writel(TCU_TMCR, (1 << TCU_TIMER_CH));
+		tcu_writel(TCU_TESR, (1 << TCU_TIMER_CH));
                 break;
         case CLOCK_EVT_MODE_ONESHOT:
+		break;
         case CLOCK_EVT_MODE_UNUSED:
         case CLOCK_EVT_MODE_SHUTDOWN:
+		tcu_writel(TCU_TECR, (1 << TCU_TIMER_CH));
+		tcu_writel(TCU_TMSR, ((1 << TCU_TIMER_CH) | (1 << (TCU_TIMER_CH + 16))));
+		tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
                 break;
         case CLOCK_EVT_MODE_RESUME:
+		tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
+		tcu_writel(TCU_TMCR, (1 << TCU_TIMER_CH));
+		tcu_writel(TCU_TESR, (1 << TCU_TIMER_CH));
                 break;
         }
+	spin_unlock_irqrestore(&timer_lock,flags);
 }
 
-static struct clock_event_device jz_clockevent_device = {
-	.name		= "jz-clockenvent",
-	.features	= CLOCK_EVT_FEAT_PERIODIC,
-	.shift          = 10,
-	.rating		= 100,
-	.irq		= IRQ_TCU1,
-	.set_mode	= jz_set_mode,
-	.set_next_event	= jz_set_next_event,
-};
 
 static irqreturn_t jz_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *cd = dev_id;
-
-	tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
-	cd->event_handler(cd);
-
+//	printk("main cd = %p\n",cd);
+	if(tcu_readl(TCU_TFR) & (1 << TCU_TIMER_CH)){
+		tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
+		if(curmode == CLOCK_EVT_MODE_ONESHOT) {
+			tcu_writel(TCU_TECR, (1 << TCU_TIMER_CH));		
+			tcu_writel(TCU_TMSR, ((1 << TCU_TIMER_CH) | (1 << (TCU_TIMER_CH + 16))));
+		}
+		
+		cd->event_handler(cd);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -127,31 +165,24 @@ static void __init jz_clocksource_init(void)
 	ost_writel(OST_TSCR, TSR_OSTS);
 
 	ost_writel(OST_CSR, OSTCSR_CNT_MD);
-	ost_writel(OST_TCSR, CSR_DIV16);
+	ost_writel(OST_TCSR, CSR_DIV4);
 	ost_writel(OST_TESR, OST_EN);
 
 	clocksource_jz.mult =
 		clocksource_hz2mult(SYS_TIMER_CLK, clocksource_jz.shift);
+	
 	clocksource_register(&clocksource_jz);
-}
-
-static void __init jz_clockevent_init(void)
-{
-	struct clock_event_device *cd = &jz_clockevent_device;
-	unsigned int cpu = smp_processor_id();
-
-	cd->cpumask = cpumask_of(cpu);
-	clockevents_register_device(cd);
 }
 
 static void __init jz_timer_setup(void)
 {
   	unsigned int latch = (TCU_TIMER_CLOCK + (HZ >> 1)) / HZ;
 	int ret;
-
+	struct clock_event_device *cd = &jz_clockevent_device;
+	unsigned int cpu = smp_processor_id();
 	jz_clocksource_init();
-	jz_clockevent_init();
-
+	printk("maintimer init\n");
+	tcu_writel(TCU_TECR, (1 << TCU_TIMER_CH));
 	ret = request_irq(IRQ_TCU1, jz_timer_interrupt,
 			  IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
 			  "jz-timerirq",
@@ -160,28 +191,36 @@ static void __init jz_timer_setup(void)
 		pr_err("timer request irq error\n");
 		BUG();
 	}
-
-	tcu_writel(TCU_TECR, (1 << TCU_TIMER_CH));
-	
 	tcu_writel(TCU_TMSR, ((1 << TCU_TIMER_CH) | (1 << (TCU_TIMER_CH + 16))));
 	tcu_writel(CH_TCSR(TCU_TIMER_CH), CSR_DIV16 | CSR_EXT_EN);
 	tcu_writel(CH_TDFR(TCU_TIMER_CH), latch - 1);
-	tcu_writel(CH_TDHR(TCU_TIMER_CH), latch + 1);
+	tcu_writel(CH_TDHR(TCU_TIMER_CH), 0xffff);
 	tcu_writel(CH_TCNT(TCU_TIMER_CH), 0);
 
 	tcu_writel(TCU_TFCR, (1 << TCU_TIMER_CH));
 	tcu_writel(TCU_TMCR, (1 << TCU_TIMER_CH));
 	tcu_writel(TCU_TESR, (1 << TCU_TIMER_CH));
+/*
+	cd->mult =
+		clocksource_hz2mult(TCU_TIMER_CLOCK, cd->shift);
+	cd->min_delta_ticks = 1;
+	cd->max_delta_ticks = 0xfffe;
+*/
+	cd->cpumask = cpumask_of(cpu);
+	clockevents_config_and_register(cd,TCU_TIMER_CLOCK,4,65530);
+	//clockevents_register_device(cd);	
 }
 
 #ifdef CONFIG_SMP
 extern void percpu_timer_setup(void);
+void jz_cpu0_clockevent_init(void);
 #endif
 
 void __init plat_time_init(void)
 {
 #ifdef CONFIG_SMP
-	percpu_timer_setup();
+//	percpu_timer_setup();
+//	jz_cpu0_clockevent_init();
 #endif
 	jz_timer_setup();
 }

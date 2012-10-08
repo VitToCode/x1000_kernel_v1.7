@@ -84,6 +84,10 @@ static inline void set_intc_cpu(unsigned long irq_num,long cpu) {
 		if(i != cpu)
 			cpu_irq_unmask[i * NR_CPUS + num] &= ~mask;
 	}
+	for(i = 0;i < NR_CPUS;i++) {
+		printk("cpu %d cpu_irq_unmask[%d] = 0x%08x\n",i,i * NR_CPUS + 0,cpu_irq_unmask[i * NR_CPUS + 0]);
+		printk("cpu %d cpu_irq_unmask[%d] = 0x%08x\n",i,i * NR_CPUS + 1,cpu_irq_unmask[i * NR_CPUS + 1]);
+	}
 }
 static inline void init_intc_affinity(void) {
 	int i;
@@ -196,6 +200,8 @@ void __init arch_init_irq(void)
 	}
 	init_intc_affinity();
 	set_intc_cpu(26,0);
+	set_intc_cpu(27,1);
+	set_intc_cpu(25,0);
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
 
@@ -204,14 +210,18 @@ void __init arch_init_irq(void)
 #endif
 	return;
 }
-
+/*
+	if(cpuid == 1)
+	{
+		printk("cpu = %ld 0x%08x 0x%08x\n",cpuid,readl(intc_base + IPR_OFF),cpu_irq_unmask[cpuid * NR_CPUS]);
+	}
+*/
 static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
 	unsigned long cpuid = smp_processor_id();
 	ipr[0] = readl(intc_base + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS];
 	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS + 1];
-
 	if (ipr[0]) {
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
 	}

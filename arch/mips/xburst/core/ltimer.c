@@ -34,15 +34,16 @@ static void smp_timer_broadcast(const struct cpumask *mask)
 static void broadcast_timer_set_mode(enum clock_event_mode mode,
 	struct clock_event_device *evt)
 {
+	
+	printk("%s %d mode = %d cpu = %d\n",__FILE__,__LINE__,mode,smp_processor_id());
 }
 
 static void local_timer_setup(struct clock_event_device *evt)
 {
 	evt->name	= "dummy_timer";
-	evt->features	= CLOCK_EVT_FEAT_ONESHOT |
-			  CLOCK_EVT_FEAT_PERIODIC |
+	evt->features	= CLOCK_EVT_FEAT_PERIODIC |
 			  CLOCK_EVT_FEAT_DUMMY;
-	evt->rating	= 400;
+	evt->rating	= 100;
 	evt->mult	= 1;
 	evt->set_mode	= broadcast_timer_set_mode;
 	evt->broadcast	= smp_timer_broadcast;
