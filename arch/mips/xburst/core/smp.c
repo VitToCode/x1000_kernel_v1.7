@@ -68,11 +68,13 @@ static void __cpuinit jzsoc_smp_init(void)
 /*
  * Code to run on secondary just after probing the CPU
  */
+extern void __cpuinit jzcpu_timer_setup(void);
 void percpu_timer_setup(void);
 static void __cpuinit jzsoc_init_secondary(void)
 {
 	jzsoc_smp_init();
 	jzsoc_smp_showregs();
+	jzcpu_timer_setup();		
 //	percpu_timer_setup();
 }
 
@@ -80,13 +82,12 @@ static void __cpuinit jzsoc_init_secondary(void)
  * Do any tidying up before marking online and running the idle
  * loop
  */
-extern void __cpuinit jzcpu_timer_setup(void);
+
 static void __cpuinit jzsoc_smp_finish(void)
 {
 	int cpu = smp_processor_id();
 	local_irq_enable();
 	//jz_cpu1_clockevent_init();
-	jzcpu_timer_setup();
 	jzsoc_smp_showregs();
 	pr_info("[SMP] slave cpu%d start up finished.\n",cpu);
 }
@@ -445,20 +446,25 @@ void jzsoc_mbox_interrupt(void)
 
 }
 
-void switch_cpu_irq(int cpu) {
+long switch_cpu_irq(int cpu) {
 	int status,pending;
 	int nextcpu = (cpu + 1) % 2;
+	long ret = 0;
 	smp_spinlock();
 	if(cpu_online(nextcpu)){
 		status = get_smp_reim();
 		status &= ~(3 << 8);
 		status |=  1 << (nextcpu + 8);
 		set_smp_reim(status);
+		ret = nextcpu;
+	}else {
+		ret = nextcpu | 0x80000000;
 	}
 	pending = get_smp_status();
 	pending &= ~(1 << (cpu + 8));
 	set_smp_status(pending);
 	smp_spinunlock();
+	return ret;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

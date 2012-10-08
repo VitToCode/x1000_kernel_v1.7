@@ -72,41 +72,32 @@ static int intc_irq_set_wake(struct irq_data *data, unsigned int on)
 	intc_irq_ctrl(data, -1, !!on);
 	return 0;
 }
-static unsigned int cpu_irq_affinity[NR_CPUS * 2];
-static unsigned int cpu_irq_unmask[NR_CPUS * 2];
+
+static unsigned int cpu_irq_affinity[NR_CPUS];
+static unsigned int cpu_irq_unmask[NR_CPUS];
+static unsigned int cpu_mask_affinity[NR_CPUS];
 
 static inline void set_intc_cpu(unsigned long irq_num,long cpu) {
 	int mask,i;
 	int num = irq_num / 32;
 	mask = 1 << (irq_num % 32);
-	cpu_irq_affinity[num] |= mask;
+	BUG_ON(num);
+
+	cpu_irq_affinity[cpu] |= mask;
 	for(i = 0;i < NR_CPUS;i++) {
 		if(i != cpu)
-			cpu_irq_unmask[i * NR_CPUS + num] &= ~mask;
-	}
-	for(i = 0;i < NR_CPUS;i++) {
-		printk("cpu %d cpu_irq_unmask[%d] = 0x%08x\n",i,i * NR_CPUS + 0,cpu_irq_unmask[i * NR_CPUS + 0]);
-		printk("cpu %d cpu_irq_unmask[%d] = 0x%08x\n",i,i * NR_CPUS + 1,cpu_irq_unmask[i * NR_CPUS + 1]);
+			cpu_irq_unmask[i] &= ~mask;
 	}
 }
 static inline void init_intc_affinity(void) {
 	int i;
 	for(i = 0;i < NR_CPUS;i++) {
-		cpu_irq_unmask[i * NR_CPUS + 0] = 0xffffffff;
-		cpu_irq_unmask[i * NR_CPUS + 1] = 0xffffffff;
-		cpu_irq_affinity[i * NR_CPUS + 0] = 0;
-		cpu_irq_affinity[i * NR_CPUS + 1] = 0;
+		cpu_irq_unmask[i] = 0xffffffff;
+		cpu_irq_affinity[i] = 0;
 	}
 }
 #ifdef CONFIG_SMP
 static int intc_set_affinity(struct irq_data *data, const struct cpumask *dest, bool force) {
-	long i,cpu;
-	unsigned int irq = data->irq;
-	i = cpumask_first(dest);
-
-	/* Convert logical CPU to physical CPU */
-	cpu = cpu_logical_map(i);
-	printk("intc_set_affinity = %d irq: %d i:%ld cpu:%ld\n",smp_processor_id(),irq,i,cpu);
 	return 0;
 }
 #endif
@@ -201,7 +192,6 @@ void __init arch_init_irq(void)
 	init_intc_affinity();
 	set_intc_cpu(26,0);
 	set_intc_cpu(27,1);
-	set_intc_cpu(25,0);
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
 
@@ -210,18 +200,17 @@ void __init arch_init_irq(void)
 #endif
 	return;
 }
-/*
-	if(cpuid == 1)
-	{
-		printk("cpu = %ld 0x%08x 0x%08x\n",cpuid,readl(intc_base + IPR_OFF),cpu_irq_unmask[cpuid * NR_CPUS]);
-	}
-*/
+
 static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
+	unsigned long ipr_intc;
 	unsigned long cpuid = smp_processor_id();
-	ipr[0] = readl(intc_base + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS];
-	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF) & cpu_irq_unmask[cpuid * NR_CPUS + 1];
+	unsigned long nextcpu;
+	ipr_intc = readl(intc_base + IPR_OFF);
+	ipr[0] = ipr_intc & cpu_irq_unmask[cpuid];
+	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
+
 	if (ipr[0]) {
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
 	}
@@ -229,7 +218,20 @@ static void intc_irq_dispatch(void)
 		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
 	}
 #ifdef CONFIG_SMP
-	switch_cpu_irq(cpuid);
+	nextcpu = switch_cpu_irq(cpuid);
+	if(nextcpu & 0x80000000) {
+		nextcpu &= ~0x80000000;
+		ipr_intc = ipr_intc & cpu_irq_affinity[nextcpu];
+		if(ipr_intc) {
+			cpu_mask_affinity[nextcpu] |= ipr_intc;
+			writel(ipr_intc, intc_base + IMSR_OFF);
+		}
+	}else if(nextcpu) {
+		if(cpu_mask_affinity[nextcpu]) {
+			writel(cpu_mask_affinity[nextcpu], intc_base + IMCR_OFF);
+			cpu_mask_affinity[nextcpu] = 0;
+		}
+	}
 #endif
 }
 

@@ -29,6 +29,8 @@
 #include <linux/time.h>
 #include <linux/clockchips.h>
 #include <linux/clk.h>
+#include <linux/notifier.h>
+#include <linux/cpu.h>
 
 #include <soc/base.h>
 #include <soc/extal.h>
@@ -74,7 +76,6 @@ unsigned long long sched_clock(void)
 void __cpuinit jz_clocksource_init(void)
 {
 	struct clk *ext_clk = clk_get(NULL,"ext1");
-	printk("ext1 %p\n",ext_clk);
 	ost_writel(OST_CNTL, 0);
 	ost_writel(OST_CNTH, 0);
 	ost_writel(OST_DR, 0);
@@ -86,7 +87,6 @@ void __cpuinit jz_clocksource_init(void)
 	ost_writel(OST_CSR, OSTCSR_CNT_MD);
 	ost_writel(OST_TCSR, CSRDIV(CLKSOURCE_DIV));
 	ost_writel(OST_TESR, OST_EN);
-	printk("ext  %ld CLKSOURCE_DIV %d\n",clk_get_rate(ext_clk),CLKSOURCE_DIV);
 	clocksource_jz.mult =
 		clocksource_hz2mult(clk_get_rate(ext_clk) / CLKSOURCE_DIV, clocksource_jz.shift);
 	clk_put(ext_clk);
@@ -98,15 +98,16 @@ struct jz_timerevent {
 	unsigned int latch_addr;
 	unsigned int config_addr;
 	unsigned int ctrl_addr;
-	
-	
 	unsigned int ch;
 	unsigned int irq;
+	unsigned int requestirq;
 	int curmode;
 	spinlock_t lock;
 	unsigned int rate;
 	struct clock_event_device clkevt;
+	struct notifier_block  cpu_notify;
 };
+static DEFINE_PER_CPU(struct jz_timerevent, jzclockevent);
 
 static inline void stoptimer(struct jz_timerevent *tc) {
 	outl((1 << tc->ch),tc->ctrl_addr + TCU_TECR);
@@ -145,12 +146,13 @@ static void jz_set_mode(enum clock_event_mode mode,
 	unsigned long flags;
 	unsigned int latch = (evt_dev->rate + (HZ >> 1)) / HZ;
 	spin_lock_irqsave(&evt_dev->lock,flags);
-	evt_dev->curmode = mode;
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
+		evt_dev->curmode = mode;
 		resettimer(evt_dev,latch - 1);
                 break;
         case CLOCK_EVT_MODE_ONESHOT:
+		evt_dev->curmode = mode;
 		break;
         case CLOCK_EVT_MODE_UNUSED:
         case CLOCK_EVT_MODE_SHUTDOWN:
@@ -180,6 +182,22 @@ static irqreturn_t jz_timer_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int broadcast_cpuhp_notify(struct notifier_block *n,
+					unsigned long action, void *hcpu){
+	int hotcpu = (unsigned long)hcpu;
+	struct jz_timerevent *evt = &per_cpu(jzclockevent, hotcpu);
+	if(hotcpu != 0) {
+		switch(action & 0xf) {
+		case CPU_DEAD:
+			jz_set_mode(CLOCK_EVT_MODE_SHUTDOWN,&evt->clkevt);
+			break;
+		case CPU_ONLINE:
+			jz_set_mode(CLOCK_EVT_MODE_RESUME,&evt->clkevt);
+			break;	
+		}
+	}
+	return NOTIFY_OK;
+}
 
 static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	struct clock_event_device *cd = &evt_dev->clkevt;
@@ -187,21 +205,24 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	struct clk *ext_clk = clk_get(NULL,"ext1");
 	
 	spin_lock_init(&evt_dev->lock);
-
+	
 	evt_dev->rate = clk_get_rate(ext_clk) / CLKEVENT_DIV;
 	clk_put(ext_clk);
-
        	stoptimer(evt_dev);
 	outl((1 << evt_dev->ch),evt_dev->ctrl_addr + TCU_TMCR);
 	outl(CSRDIV(CLKEVENT_DIV) | CSR_EXT_EN,evt_dev->config_addr);
-	ret = request_irq(evt_dev->irq, jz_timer_interrupt,
-			  IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
-			  "jz-timerirq",
-			  (void*)evt_dev);
-	if (ret < 0) {
-		pr_err("timer request irq error\n");
-		BUG();
+	if(evt_dev->requestirq == 0){
+		ret = request_irq(evt_dev->irq, jz_timer_interrupt,
+				  IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
+				  "jz-timerirq",
+				  (void*)evt_dev);
+		if (ret < 0) {
+			pr_err("timer request irq error\n");
+			BUG();
+		}
+		evt_dev->requestirq = 1;
 	}
+
 	memset(cd,0,sizeof(struct clock_event_device));
 	cd->name = "jz-clockenvent";
 	cd->features = CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_PERIODIC;
@@ -212,9 +233,11 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	cd->irq = evt_dev->irq;
 	cd->cpumask = cpumask_of(cpu);
 	clockevents_config_and_register(cd,evt_dev->rate,4,65536);
+	evt_dev->cpu_notify.notifier_call = broadcast_cpuhp_notify;
+	if(cpu == 0){
+		register_cpu_notifier(&evt_dev->cpu_notify);
+	}
 }
-
-static DEFINE_PER_CPU(struct jz_timerevent, jzclockevent);
 
 #define  APB_OST_IOBASE   0x10002000
 #define  OSTCSR        0xec
@@ -232,7 +255,6 @@ void __cpuinit jzcpu_timer_setup(void)
 {
 	int cpu = smp_processor_id();
 	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
-	printk("setup timer for cpu %d\n",cpu);
 	switch(cpu) {
 	case 0:
 		evt->ch = 5;
