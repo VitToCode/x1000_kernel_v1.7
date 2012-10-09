@@ -287,3 +287,16 @@ const char *get_board_type(void)
 }
 
 arch_initcall(m80_board_init);
+
+
+static int __init m80_board_lateinit(void)
+{
+/* FIXME! remove this ugly, our board was shit */
+
+	gpio_request(GPIO_PA(17), "5v_en");
+	gpio_direction_output(GPIO_PA(17), 1);
+
+	return 0;
+}
+
+late_initcall(m80_board_lateinit);
