@@ -204,15 +204,22 @@ void __init arch_init_irq(void)
 static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2];
-	unsigned long ipr_intc;
+	unsigned long ipr_intc,gpr;
 	unsigned long cpuid = smp_processor_id();
 	unsigned long nextcpu;
+
 	ipr_intc = readl(intc_base + IPR_OFF);
+
 	ipr[0] = ipr_intc & cpu_irq_unmask[cpuid];
+	gpr = ipr[0] & 0x3f000;
+	ipr[0] &= ~0x3f000;
 	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
 
 	if (ipr[0]) {
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
+	}
+	if (gpr) {
+		generic_handle_irq(ffs(gpr) -1 +IRQ_INTC_BASE);
 	}
 	if (ipr[1]) {
 		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
