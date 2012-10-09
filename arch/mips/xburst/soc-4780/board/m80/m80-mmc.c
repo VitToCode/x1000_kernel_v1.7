@@ -47,6 +47,12 @@ struct jzmmc_platform_data m80_inand_pdata = {
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
 	.recovery_info			= &m80_inand_recovery_info,
 	.gpio				= NULL,
+#ifdef CONFIG_MMC0_PIO_MODE
+	.pio_mode			= 1,
+#else
+	.pio_mode			= 0,
+#endif
+	.private_init			= NULL,
 };
 
 struct jzmmc_platform_data m80_sdio_pdata = {
@@ -56,6 +62,11 @@ struct jzmmc_platform_data m80_sdio_pdata = {
 	.capacity  			= MMC_CAP_4_BIT_DATA,
 	.recovery_info			= NULL,
 	.gpio				= NULL,
+#ifdef CONFIG_MMC1_PIO_MODE
+	.pio_mode			= 1,
+#else
+	.pio_mode			= 0,
+#endif
 	.private_init			= iw8101_wlan_init,
 };
 
@@ -77,6 +88,12 @@ struct jzmmc_platform_data m80_tf_pdata = {
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA,
 	.recovery_info			= NULL,
 	.gpio				= &m80_tf_gpio,
+#ifdef CONFIG_MMC0_PIO_MODE
+	.pio_mode			= 1,
+#else
+	.pio_mode			= 0,
+#endif
+	.private_init			= NULL,
 };
 
 int iw8101_wlan_init(void)
