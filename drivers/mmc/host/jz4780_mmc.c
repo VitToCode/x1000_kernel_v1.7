@@ -27,14 +27,8 @@
 #include <mach/jzmmc.h>
 #include "jz4780_mmc.h"
 
-#define MAX_SEGS		128
-
-/* #define PIO_MODE */
-#if defined(PIO_MODE) && !defined(CONFIG_MMC_BLOCK_BOUNCE)
-#error ***********************Warning!*************************
-#error ****PIO mode must work with CONFIG_MMC_BLOCK_BOUNCE!****
-#error ********************************************************
-#endif
+#define MAX_SEGS		128	/* max count of sg */
+#define TIMEOUT_PERIOD		1000	/* msc operation timeout detect period */
 
 enum {
 	EVENT_CMD_COMPLETE = 0,
@@ -149,7 +143,8 @@ struct jzmmc_host {
 	test_and_clear_bit(event, &host->pending_events)
 #define jzmmc_set_pending(host, event)		\
 	set_bit(event, &host->pending_events)
-
+#define is_pio_mode(host)			\
+	(host->flags & (1 << JZMMC_USE_PIO))
 /*-------------------End structure and macro define------------------------*/
 
 /*
@@ -819,7 +814,7 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 	}
 	host->cmdat |= cmdat;
 
-	if (!test_bit(JZMMC_USE_PIO, &host->flags)) {
+	if (!is_pio_mode(host)) {
 		jzmmc_submit_dma(host, data);
 		enable_msc_irq(host, imsk);
 	}
@@ -827,13 +822,13 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 static void jzmmc_data_start(struct jzmmc_host *host, struct mmc_data *data)
 {
-	if (likely(!test_bit(JZMMC_USE_PIO, &host->flags))) {
-		jzmmc_dma_start(host, data);
-	} else {
+	if (is_pio_mode(host)) {
 		pio_trans_start(host, data);
 		pio_trans_done(host, data);
 		del_timer_sync(&host->request_timer);
 		mmc_request_done(host->mmc, host->mrq);
+	} else {
+		jzmmc_dma_start(host, data);
 	}
 }
 
@@ -858,7 +853,7 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 #undef _CASE
 	}
 	host->cmdat |= cmdat;
-	if (!test_bit(JZMMC_USE_PIO, &host->flags)) {
+	if (!is_pio_mode(host)) {
 		imsk = IMASK_TIME_OUT_RES | IMASK_END_CMD_RES;
 		enable_msc_irq(host, imsk);
 		host->state = STATE_WAITING_RESP;
@@ -867,7 +862,7 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 	msc_writel(host, ARG, cmd->arg);
 	msc_writel(host, CMDAT, host->cmdat);
 	msc_writel(host, CTRL, CTRL_START_OP);
-	if (test_bit(JZMMC_USE_PIO, &host->flags)) {
+	if (is_pio_mode(host)) {
 		if (wait_cmd_response(host) < 0) {
 			cmd->error = -ETIMEDOUT;
 			del_timer_sync(&host->request_timer);
@@ -924,7 +919,8 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * no action to complete the request.
 	 */
 	host->timeout_cnt = 0;
-	mod_timer(&host->request_timer, jiffies + msecs_to_jiffies(1000));
+	mod_timer(&host->request_timer, jiffies +
+		  msecs_to_jiffies(TIMEOUT_PERIOD));
 
 	jzmmc_command_start(host, host->cmd);
 	if (host->data)
@@ -938,12 +934,22 @@ static void jzmmc_request_timeout(unsigned long data)
 	struct jzmmc_host *host = (struct jzmmc_host *)data;
 	unsigned int status = msc_readl(host, STAT);
 
-	if (host->timeout_cnt++ < 60) {
-		dev_warn(host->dev, "timeout op:%d sz:%d %ds\n",
+	if (host->timeout_cnt++ < (2000 / TIMEOUT_PERIOD)) {
+		dev_warn(host->dev, "timeout %dms op:%d sz:%d state:%d "
+			 "STAT:0x%08X DMALEN:0x%08X blks:%d/%d\n",
+			 host->timeout_cnt * TIMEOUT_PERIOD,
 			 host->cmd->opcode,
 			 host->data ? host->data->blocks << 9 : 0,
-			 host->timeout_cnt);
-		mod_timer(&host->request_timer, jiffies + msecs_to_jiffies(1000));
+			 host->state,
+			 status,
+			 msc_readl(host, DMALEN),
+			 msc_readl(host, SNOB),
+			 msc_readl(host, NOB));
+		mod_timer(&host->request_timer, jiffies +
+			  msecs_to_jiffies(TIMEOUT_PERIOD));
+		return;
+
+	} else if (host->timeout_cnt++ < (60000 / TIMEOUT_PERIOD)) {
 		return;
 	}
 
@@ -1574,9 +1580,8 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		dev_warn(host->dev, "vmmc regulator missing\n");
 	}
 
-#ifdef PIO_MODE
-	set_bit(JZMMC_USE_PIO, &host->flags);
-#endif
+	if (host->pdata->pio_mode)
+		set_bit(JZMMC_USE_PIO, &host->flags);
 
 	if (!test_bit(JZMMC_USE_PIO, &host->flags)) {
 		ret = jzmmc_dma_init(host);

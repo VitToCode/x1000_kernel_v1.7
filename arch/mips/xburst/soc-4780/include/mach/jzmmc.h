@@ -56,6 +56,7 @@ struct wifi_data {
  * @capacity: Shows the host's speed capacity and bus width.
  * @recovery_info: Informations that Android recovery mode uses.
  * @gpio: Slot's gpio information including pins of write-protect, card-detect and power.
+ * @pio_mode: Indicate that whether the MSC host use PIO mode.
  * @private_init: Board private initial function, mostly for SDIO devices.
  */
 struct jzmmc_platform_data {
@@ -65,6 +66,7 @@ struct jzmmc_platform_data {
 	unsigned int			capacity;
 	struct mmc_recovery_info	*recovery_info;
 	struct card_gpio		*gpio;
+	unsigned int			pio_mode;
 	int				(*private_init)(void);
 };
 
