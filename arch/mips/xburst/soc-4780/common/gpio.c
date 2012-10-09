@@ -390,8 +390,9 @@ static irqreturn_t gpio_handler(int irq, void *data)
 	 * PXFLG may be 0 because of GPIO's bounce in level triggered mode,
 	 * so we ignore it when it occurs.
 	 */
+	pend = pend & ~mask;
 	if (pend)
-		generic_handle_irq(ffs(pend & ~mask) -1 + jz->irq_base);
+		generic_handle_irq(ffs(pend) -1 + jz->irq_base);
 
 	return IRQ_HANDLED;
 }
