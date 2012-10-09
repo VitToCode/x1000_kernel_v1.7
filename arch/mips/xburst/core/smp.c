@@ -246,7 +246,12 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 
 	for (i = 1; i < max_cpus; i++)
 		smp_set_cpu_clk(i, 1);
-
+		
+	set_smp_mbox0(0);	
+	set_smp_mbox1(0);
+	set_smp_mbox2(0);
+	set_smp_mbox3(0);
+	
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
 	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
