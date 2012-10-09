@@ -1762,6 +1762,11 @@ static int codec_set_board_route(struct snd_board_route *broute)
 				} else {
 					cur_route = keep_old_route;
 				}
+				printk("__func__ : %s keep_old_route = ",__func__);
+				if (keep_old_route != NULL)
+					DUMP_ROUTE_NAME(keep_old_route->route);
+				else
+					printk("NULL\n");
 				break;
 			}
 		if (i == SND_ROUTE_COUNT)
@@ -1992,13 +1997,46 @@ static int codec_anti_pop(int mode)
 /******** codec_suspend ************/
 static int codec_suspend(void)
 {
+	int ret;
+
 	g_codec_sleep_mode = 0;
+	ret = codec_set_route(SND_ROUTE_ALL_CLEAR);
+	if(ret != SND_ROUTE_ALL_CLEAR)
+	{
+		printk("JZ CODEC: codec_suspend_part error!\n");
+		return 0;
+	}
+	if (keep_old_route) {
+		DUMP_ROUTE_NAME(keep_old_route->route);
+	}
+
+	__codec_disable_dac_interface();
+	__codec_disable_adc_interface();
+
+	//dump_codec_regs();
+	//codec_sleep(10);
+	__codec_switch_sb(POWER_OFF);
+	//codec_sleep(10);
+
 	return 0;
 }
 
 static int codec_resume(void)
 {
+	int ret = 0;
+
+	if (keep_old_route) {
+		DUMP_ROUTE_NAME(keep_old_route->route);
+		ret = codec_set_board_route(keep_old_route);
+		if(ret != keep_old_route->route)
+		{
+			printk("JZ CODEC: codec_resume_part error!\n");
+			return 0;
+		}
+	}
+
 	g_codec_sleep_mode = 1;
+
 	return 0;
 }
 
@@ -2474,7 +2512,7 @@ _ensure_stable:
 static int codec_get_hp_state(int *state)
 {
 	*state = ((__codec_get_sr() & CODEC_JACK_MASK) >> SR_JACK) ^
-		(!codec_platform_data->hpsense_active_level);	
+		(!codec_platform_data->hpsense_active_level);
 	if (state < 0)
 		return -EIO;
 	return 0;
@@ -2500,6 +2538,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 	int ret = 0;
 
 	DUMP_IOC_CMD("enter");
+	//CODEC_LOCK();
 	{
 		switch (cmd) {
 
@@ -2608,6 +2647,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			ret = -1;
 		}
 	}
+
+	//CODEC_UNLOCK();
 
 	DUMP_IOC_CMD("leave");
 	return ret;
