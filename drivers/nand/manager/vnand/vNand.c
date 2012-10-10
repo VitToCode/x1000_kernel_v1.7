@@ -11,10 +11,6 @@
 #include "timeinterface.h"
 
 
-#define L4INFOLEN 1024
-// PAGENUMBER_PERPAGELIST is the max pages in transmit pagelist
-#define PAGENUMBER_PERPAGELIST   (L4INFOLEN + 3*sizeof(int))
-
 /*
   The following functions mutually exclusive call nand driver
 */
@@ -54,8 +50,6 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 	PageList *pl_node = NULL;
 	PageList *npl = NULL;
 	PageList *mpl = NULL;
-	int *retVal =  vnand->v2pp->retVal;
-	int i;
 	int flag = 1;
 
 	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER){
@@ -72,8 +66,6 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 			npl->OffsetBytes = pl_node->OffsetBytes + pl_node->startPageID % vnand->v2pp->_2kPerPage * 2048;
 			npl->pData = pl_node->pData;
 			npl->retVal = 0;
-			for (i=0; i<vnand->v2pp->_2kPerPage; i++)
-				*retVal++ = (int)pl_node;
 			flag = 0;
 		}
 		npl->Bytes += pl_node->Bytes;
@@ -82,33 +74,47 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 			(pos->next != NULL)) {
 			npl = (PageList *)BuffListManager_getNextNode(vnand->v2pp->blm, (void *)npl, sizeof(PageList));
 			npl->Bytes = 0;
-			pl_node->retVal = 0;
+			pl_node->retVal = 0; //set break node's retVal is 0,other is 1.
 			flag = 1;
 		}
 	}
 	return mpl;
 }
 
-static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl)
+static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl, PageList *pl)
 {
 	struct singlelist *pos;
-	PageList *newpl = NULL;
-	int *retVal = NULL;
-	int i;
+	struct singlelist *alig_pos;
+	int cnt = 0;
+	PageList *pl_node = NULL;
 
 	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER)
 		return;
 
-	retVal = vnand->v2pp->retVal;
-	singlelist_for_each(pos,&alig_pl->head){
-		newpl = singlelist_entry(pos,PageList,head);
-		if (newpl->retVal != 0){
-			for(i=0; i< vnand->v2pp->_2kPerPage; i++){
-				((PageList*)(*retVal))->retVal = newpl->retVal;
-				retVal++;
+	if (alig_pl == NULL || pl == NULL){
+		ndprint(VNAND_INFO,"WARNING: Pagelist is null !!\n");
+		return;
+	}
+
+	singlelist_for_each(pos,&pl->head){
+		pl_node = singlelist_entry(pos,PageList,head);
+		if (pl_node->retVal == 1)
+			cnt ++;
+		if ((pl_node->retVal == 0) ||
+		   (pl_node->retVal == 1 && cnt >= vnand->v2pp->_2kPerPage)) {
+			pl_node->retVal = alig_pl->retVal;
+			alig_pos = alig_pl->head.next;
+			if(alig_pos == NULL){
+				if(pos->next == NULL)
+					break;
+				else
+					ndprint(VNAND_ERROR,"ERROR:%s LINE:%d\n",__func__,__LINE__);
 			}
-		}else
-			retVal+=vnand->v2pp->_2kPerPage;
+			alig_pl = singlelist_entry(alig_pos,PageList,head);
+			cnt = 0;
+			continue;
+		}
+		pl_node->retVal = alig_pl->retVal;
 	}
 }
 
@@ -151,7 +157,7 @@ int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 0, 0);
 #endif
-	Fill_Pl_Retval(vNand,alig_pl);
+	Fill_Pl_Retval(vNand,alig_pl,pl);
 	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
 		BuffListManager_freeAllList(vNand->v2pp->blm, (void **)&alig_pl, sizeof(PageList));
 	NandMutex_Unlock(&v_nand_ops.mutex);
@@ -171,7 +177,7 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif
-	Fill_Pl_Retval(vNand,alig_pl);
+	Fill_Pl_Retval(vNand,alig_pl,pl);
 	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
 		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_pl,sizeof(PageList));
 	NandMutex_Unlock(&v_nand_ops.mutex);
@@ -299,9 +305,6 @@ static void virt2phyPage_DeInit(VNandManager *vm)
 	BuffListManager_BuffList_DeInit(pt->v2pp->blm);
 	for(i=0; i<vm->pt->ptcount; i++){
 		pt = &vm->pt->ppt[i];
-		if(pt->v2pp->_2kPerPage != 1){
-			Nand_VirtualFree(pt->v2pp->retVal);
-		}
 		Nand_VirtualFree(pt->v2pp);
 	}
 }
@@ -321,14 +324,6 @@ static int virt2phyPage_Init(VNandManager *vm)
 		}
 		pt->v2pp->_2kPerPage = pt->byteperpage / 2048; // 2048 = 2k ,virtual page size is 2k
 		pt->v2pp->blm = blm;
-		if(pt->v2pp->_2kPerPage != 1){
-			pt->v2pp->retVal = (int*)Nand_VirtualAlloc(PAGENUMBER_PERPAGELIST);
-			if(pt->v2pp->retVal == NULL){
-				ndprint(VNAND_ERROR,"retVal alloc failed!\n");
-				Nand_VirtualFree(pt->v2pp);
-				return -1;
-			}
-		}
 	}
 	return 0;
 }

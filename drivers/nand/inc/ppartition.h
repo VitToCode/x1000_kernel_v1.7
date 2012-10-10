@@ -17,7 +17,6 @@ struct badblockhandle {
 };
 struct virt2phy_page {
 	int blm;
-	int* retVal;
 	unsigned short _2kPerPage;
 };
 struct _PPartition {

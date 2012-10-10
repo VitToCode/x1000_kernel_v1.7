@@ -330,9 +330,10 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 		pagenode->OffsetBytes = pageid_by_sector_prev % sectorperpage * SECTOR_SIZE;
 		pagenode->Bytes = k * SECTOR_SIZE;
 		pagenode->pData = pData;
-		pagenode->retVal = 0;
+		pagenode->retVal = 1;
 		pData += pagenode->Bytes;
 	}
+	pagenode->retVal = 0;
 
 	return 0;
 }
@@ -918,6 +919,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 
 	singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
+		brokenflag = 1;
 		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * cm->L1InfoLen >> 2
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: startsectorid = %d, sectorcount = %d func %s line %d\n",
