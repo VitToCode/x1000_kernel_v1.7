@@ -88,7 +88,7 @@ void codec_sleep(int ms)
 	if(g_codec_sleep_mode)
 		mdelay(ms);
 	else
-		mdelay(ms);
+		msleep(ms);
 }
 
 static inline void codec_sleep_wait_bitset(int reg, unsigned bit, int stime, int line)
@@ -413,13 +413,14 @@ static void codec_prepare_ready(int mode)
 		else
 			mdelay(400);
 	}
-
-	//if (mode & CODEC_WMODE)
-		//__codec_select_adc_digital_interface(CODEC_I2S_INTERFACE);
-		//__codec_select_dac_digital_interface(CODEC_I2S_INTERFACE);
-	//if (mode & CODEC_RMODE)
-	__codec_enable_adc_interface();
-	__codec_enable_dac_interface();
+	if (mode & CODEC_WMODE) {
+		__codec_select_dac_digital_interface(CODEC_I2S_INTERFACE);
+		__codec_enable_dac_interface();
+	}
+	if (mode & CODEC_RMODE) {
+		__codec_select_adc_digital_interface(CODEC_I2S_INTERFACE);
+		__codec_enable_adc_interface();
+	}
 
 	DUMP_ROUTE_PART_REGS("leave");
 }
@@ -1755,18 +1756,13 @@ static int codec_set_board_route(struct snd_board_route *broute)
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
 				if (broute->route != SND_ROUTE_RECORD_CLEAR) {
-					/* keep_old_route is used in resume part */
+					/* keep_old_route is used in resume part and record release */
 					keep_old_route = cur_route;
 					/* change cur_route */
 					cur_route = broute;
 				} else {
 					cur_route = keep_old_route;
 				}
-				printk("__func__ : %s keep_old_route = ",__func__);
-				if (keep_old_route != NULL)
-					DUMP_ROUTE_NAME(keep_old_route->route);
-				else
-					printk("NULL\n");
 				break;
 			}
 		if (i == SND_ROUTE_COUNT)
@@ -1789,7 +1785,7 @@ static int codec_set_board_route(struct snd_board_route *broute)
 
 	DUMP_ROUTE_REGS("leave");
 
-	return cur_route ? cur_route->route : 0;
+	return (broute && cur_route) ? broute->route : 0;
 }
 
 static int codec_set_default_route(int mode)
@@ -1890,7 +1886,7 @@ static int codec_turn_off(int mode)
 			return -1;
 		}
 	}
-	if (mode & CODEC_RMODE) {
+	if (mode & CODEC_WMODE) {
 		ret = codec_set_route(SND_ROUTE_REPLAY_CLEAR);
 		if(ret != SND_ROUTE_REPLAY_CLEAR)
 		{
@@ -2006,17 +2002,13 @@ static int codec_suspend(void)
 		printk("JZ CODEC: codec_suspend_part error!\n");
 		return 0;
 	}
-	if (keep_old_route) {
-		DUMP_ROUTE_NAME(keep_old_route->route);
-	}
 
 	__codec_disable_dac_interface();
 	__codec_disable_adc_interface();
 
-	//dump_codec_regs();
-	//codec_sleep(10);
+	codec_sleep(10);
 	__codec_switch_sb(POWER_OFF);
-	//codec_sleep(10);
+	codec_sleep(10);
 
 	return 0;
 }
@@ -2026,7 +2018,7 @@ static int codec_resume(void)
 	int ret = 0;
 
 	if (keep_old_route) {
-		DUMP_ROUTE_NAME(keep_old_route->route);
+
 		ret = codec_set_board_route(keep_old_route);
 		if(ret != keep_old_route->route)
 		{
