@@ -104,6 +104,7 @@ Revision 1-0-7 26/11/2010
 
 #define LIS3DH_ACC_PM_OFF		0x00
 #define LIS3DH_ACC_ENABLE_ALL_AXES	0x27
+#define LIS3DH_ACC_ENABLE_ALL		0x07
 
 
 #define PMODE_MASK			0x08

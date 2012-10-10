@@ -3,7 +3,7 @@
 #include        <linux/delay.h>
 #include        <linux/fs.h>
 #include        <linux/i2c.h>
-#include        <linux/input.h>  
+#include        <linux/input.h>
 #include        <linux/uaccess.h>
 #include        <linux/workqueue.h>
 #include        <linux/irq.h>
@@ -28,7 +28,7 @@ struct {
 	{ 10,	ODR200  },
 	{ 20,	ODR100  },
 	{ 100,	ODR50   },
-	{ 300,	ODR50   },
+	{ 300,	ODR25   },
 	{ 500,	ODR10   },
 	{ 1000, ODR1    },
 };
@@ -53,17 +53,17 @@ struct lis3dh_acc_data {
 	int irq;
 	struct work_struct irq_work;
 	struct workqueue_struct *irq_work_queue;
-	
+
 	struct miscdevice lis3dh_misc_device;
 
 	struct regulator *power;
 };
 
 static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
-		u8 * buf, int len)                                                                                         
+		u8 * buf, int len)
 {
 	int err;
-	int tries = 0;
+//	int tries = 0;
 
 	struct i2c_msg  msgs[] = {
 		{
@@ -80,18 +80,9 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
 		},
 	};
 
-	do {
-		err = i2c_transfer(acc->client->adapter, msgs, 2);
-		if (err != 2)
-			msleep_interruptible(I2C_RETRY_DELAY);
-	} while ((err != 2) && (++tries < I2C_RETRIES));
-
-	if (err != 2) {
-		dev_err(&acc->client->dev, "read transfer error\n");
-		err = -EIO;
-	} else {
-		err = 0;
-	}
+	err = i2c_transfer(acc->client->adapter, msgs, 2);
+	if (err < 0)
+		dev_err(&acc->client->dev, "gsensor lis3dh i2c read error\n");
 
 	return err;
 }
@@ -99,7 +90,7 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
 static int lis3dh_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
 {
 	int err;
-	int tries = 0;
+//	int tries = 0;
 
 	struct i2c_msg msgs[] = {
 		{
@@ -110,18 +101,9 @@ static int lis3dh_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
 		},
 	};
 
-	do {
-		err = i2c_transfer(acc->client->adapter, msgs, 1);
-		if (err != 1)
-			msleep_interruptible(I2C_RETRY_DELAY);
-	} while ((err != 1) && (++tries < I2C_RETRIES));
-
-	if (err != 1) {
-		dev_err(&acc->client->dev, "write transfer error\n");
-		err = -EIO;
-	} else {
-		err = 0;
-	}
+	err = i2c_transfer(acc->client->adapter, msgs, 1);
+	if (err < 0)
+		dev_err(&acc->client->dev, "gsensor lis3dh i2c write error\n");
 
 	return err;
 }
@@ -143,20 +125,32 @@ static int lis3dh_acc_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len)
 	return ret;
 }
 int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
-{                                                                                                                                          
+{
 	int err = -1;
 	int i;
 	u8 config[2];
+	u8 config1[2];
+	config[1] = lis3dh_acc_odr_table[0].mask;
 	for(i = 0;i < ARRAY_SIZE(lis3dh_acc_odr_table);i++){
 		config[1] = lis3dh_acc_odr_table[i].mask;
 		if(poll_interval_ms < lis3dh_acc_odr_table[i].cutoff_ms){
 			//  printk("conifg=%x  poll_interval_ms=%d cut=%d \n",
 			//	config[1],poll_interval_ms,lis3dh_acc_odr_table[i].cutoff_ms);
-			break;  
+			break;
 		}
 	}
-	config[1] |= LIS3DH_ACC_ENABLE_ALL_AXES;
 
+#if 1
+	switch (config[1])
+	{
+		case ODR10:	config1[1] = 0x2C;break;//INT_DUR1 register set to 0x2C irq rate is:10Hz
+		case ODR25:	config1[1] = 0x11;break;//set to 0x11 irq rate:25Hz
+		case ODR50:	config1[1] = 0x07;break;//set to 0x07 irq rate:50Hz
+		default:	config1[1] = 0x2c;break;//default situation set to 0x2c:irq rate:10Hz
+	}
+#endif
+	config[1] = 0x50;
+	config[1] |= LIS3DH_ACC_ENABLE_ALL;
 	if (atomic_read(&acc->enabled)) {
 		config[0] = CTRL_REG1;
 		err = lis3dh_acc_i2c_write(acc, config, 1);
@@ -164,8 +158,14 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 			goto error;
 		acc->resume_state[RES_CTRL_REG1] = config[1];
 	}
-
-	return err;   
+	if (atomic_read(&acc->enabled)) {
+		config1[0] = INT_DUR1;
+		err = lis3dh_acc_i2c_write(acc, config1, 1);
+		if (err < 0)
+			goto error;
+		acc->resume_state[RES_INT_DUR1] = config1[1];
+	}
+	return err;
 error:
 	dev_err(&acc->client->dev, "update odr failed 0x%x,0x%x: %d\n",
 			config[0], config[1], err);
@@ -210,7 +210,7 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	buf[0] = FIFO_CTRL_REG;
 	buf[1] = acc->resume_state[RES_FIFO_CTRL_REG];
 	err = lis3dh_acc_i2c_write(acc, buf, 1);
-	if (err < 0)                                                             
+	if (err < 0)
 		goto err_resume_state;
 
 	buf[0] = (I2C_AUTO_INCREMENT | TT_THS);
@@ -279,7 +279,7 @@ static int lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 		}
 
 	}
-	return 0;                 
+	return 0;
 }
 
 static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
@@ -312,7 +312,7 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 		}
 
 	}
-	return 0;                 
+	return 0;
 }
 
 static int lis3dh_acc_enable(struct lis3dh_acc_data *acc);
@@ -321,15 +321,18 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
 static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		int *xyz)
 {
-	int err = -1;
+	int err = -1;//,i;
+//	u8 buf[1]={0};
 	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
 	u8 acc_data[6];
 	/* x,y,z hardware data */
 	s16 hw_d[3] = { 0 };
 	acc_data[0] = (I2C_AUTO_INCREMENT | AXISDATA_REG);
 	err = lis3dh_acc_i2c_read(acc, acc_data, 6);
-	if (err < 0)
+	if (err < 0){
+		printk("------gsensor read data error\n");
 		return err;
+	}
 
 	hw_d[0] = (((s16) ((acc_data[1] << 8) | acc_data[0])) >> 4);
 	hw_d[1] = (((s16) ((acc_data[3] << 8) | acc_data[2])) >> 4);
@@ -347,11 +350,13 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 	xyz[2] = ((acc->pdata->negate_z) ? (-hw_d[acc->pdata->axis_map_z])
 			: (hw_d[acc->pdata->axis_map_z]));
 
+	/*this is must be done in this mode*/
+
 	return err;
 }
 
 #ifdef CONFIG_SENSORS_ORI
-extern void orientation_report_values(int x,int y,int z); 
+extern void orientation_report_values(int x,int y,int z);
 #endif
 static void lis3dh_acc_report_values(struct lis3dh_acc_data *acc,
 		int *xyz)
@@ -370,7 +375,7 @@ static void lis3dh_acc_report_values(struct lis3dh_acc_data *acc,
 			: (xyz[0]));
 	xyz[1] = ((acc->pdata->ori_pith_negate) ? (-xyz[1])
 			: (xyz[1]));
-	orientation_report_values(xyz[0],xyz[1],xyz[2]); 
+	orientation_report_values(xyz[0],xyz[1],xyz[2]);
 #endif
 }
 
@@ -379,7 +384,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 {
 	int err;
 	u8 buf[2]={0};
+	printk("---0----acc enable\n");
 	if ((acc->is_suspend == 0) && !atomic_cmpxchg(&acc->enabled, 0, 1)) {
+	printk("---1----acc enable\n");
 		err = lis3dh_acc_device_power_on(acc);
 		if (err < 0) {
 			atomic_set(&acc->enabled, 0);
@@ -389,6 +396,7 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 		buf[0] = INT_SRC1;
 		err = lis3dh_acc_i2c_read(acc, buf, 1);
+		printk("----enable -----buf[0]=%x\n",buf[0]);
 
 	}
 	return 0;
@@ -396,16 +404,18 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
+	printk("---0----acc disenable\n");
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
+	printk("---0----acc disenable\n");
 		disable_irq_nosync(acc->client->irq);
 		flush_workqueue(acc->irq_work_queue);
 		lis3dh_acc_device_power_off(acc);
 	}
 
-	return 0;                                                   
+	return 0;
 }
 
-struct linux_sensor_t hardware_data_lis3dh = {                                                                                             
+struct linux_sensor_t hardware_data_lis3dh = {
 	"lis3dh 3-axis Accelerometer",
 	"ST sensor",
 	SENSOR_TYPE_ACCELEROMETER,0,1024,1, 1, { }
@@ -413,12 +423,12 @@ struct linux_sensor_t hardware_data_lis3dh = {
 
 static int lis3dh_acc_validate_pdata(struct lis3dh_acc_data *acc)
 {
-	acc->pdata->poll_interval = max(acc->pdata->poll_interval, 
-			acc->pdata->min_interval);     
+	acc->pdata->poll_interval = max(acc->pdata->poll_interval,
+			acc->pdata->min_interval);
 
-	if (acc->pdata->axis_map_x > 2 || 
-			acc->pdata->axis_map_y > 2 ||  
-			acc->pdata->axis_map_z > 2) {  
+	if (acc->pdata->axis_map_x > 2 ||
+			acc->pdata->axis_map_y > 2 ||
+			acc->pdata->axis_map_z > 2) {
 		dev_err(&acc->client->dev, "invalid axis_map value "
 				"x:%u y:%u z%u\n", acc->pdata->axis_map_x,
 				acc->pdata->axis_map_y, acc->pdata->axis_map_z);
@@ -435,7 +445,7 @@ static int lis3dh_acc_validate_pdata(struct lis3dh_acc_data *acc)
 	/* Enforce minimum polling interval */
 	if (acc->pdata->poll_interval < acc->pdata->min_interval) {
 		dev_err(&acc->client->dev, "minimum poll interval violated\n");
-		return -EINVAL;                                         
+		return -EINVAL;
 	}
 
 	return 0;
@@ -543,7 +553,7 @@ err0:
 	return err;
 }
 
-static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)                       
+static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)
 {
 	input_unregister_device(acc->input_dev);
 	input_free_device(acc->input_dev);
@@ -552,10 +562,10 @@ static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)
 
 static int lis3dh_misc_open(struct inode *inode, struct file *file)
 {
-	int err;              
+	int err;
 	err = nonseekable_open(inode, file);
 	if (err < 0)
-		return err;   
+		return err;
 
 	return 0;
 }
@@ -564,7 +574,7 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
 	int interval;
-	
+
 	struct miscdevice *dev = file->private_data;
 	struct lis3dh_acc_data *lis3dh = container_of(dev, struct lis3dh_acc_data,lis3dh_misc_device);
 
@@ -578,12 +588,14 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			mutex_lock(&lis3dh->lock);
 			if (copy_from_user(&interval, argp, sizeof(interval)))
 				return -EFAULT;
+	//		printk("------the first value interval = %d -----\n",interval);
 			interval *= 10;  //for Sensor_new
 			if (interval < lis3dh->pdata->min_interval )
 				interval = lis3dh->pdata->min_interval;
 			else if (interval > lis3dh->pdata->max_interval)
 				interval = lis3dh->pdata->max_interval;
 			lis3dh->pdata->poll_interval = interval;
+	//		printk("------the second value interval = %d -----\n",interval);
 			lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
 			mutex_unlock(&lis3dh->lock);
 			break;
@@ -604,7 +616,7 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case SENSOR_IOCTL_GET_ACTIVE:
 			interval = atomic_read(&lis3dh->enabled);
 			if (copy_to_user(argp, &interval, sizeof(interval)))
-				return -EINVAL;                                         
+				return -EINVAL;
 			break;
 		case SENSOR_IOCTL_GET_DATA:
 			if (copy_to_user(argp, &hardware_data_lis3dh, sizeof(hardware_data_lis3dh)))
@@ -636,28 +648,29 @@ static const struct file_operations lis3dh_misc_fops = {
 
 static void lis3dh_acc_work(struct work_struct *work)
 {
-	struct lis3dh_acc_data *acc;   
+	struct lis3dh_acc_data *acc;
+//	acc->sum = 0;
 	int xyz[3] = { 0 };
 	int err;
 	u8 buf[2]={0};
 	acc =  container_of(work, struct lis3dh_acc_data, irq_work);
 
-	/*this is must be done in this mode*/
 	buf[0] = INT_SRC1;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
-	if(err < 0 )
-		dev_err(&acc->client->dev, "Acceleration data read failed\n");
-
+#if 0
+	enable_irq(acc->client->irq);
+	return;
+#endif
 	buf[0] = STATUS_REG;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
-	if( (buf[0]& 0x08) ==0){
+	if( (buf[0]& 0x08) ==0 || err < 0){
 		enable_irq(acc->client->irq);
 		return;
 	}
 
 	err = lis3dh_acc_get_acceleration_data(acc, xyz);
 	if(err < 0 )
-		dev_err(&acc->client->dev, "Acceleration data read failed\n");        
+		dev_err(&acc->client->dev, "Acceleration data read failed\n");
 	else
 		lis3dh_acc_report_values(acc, xyz);
 	enable_irq(acc->client->irq);
@@ -665,18 +678,22 @@ static void lis3dh_acc_work(struct work_struct *work)
 
 static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 {
+
 	struct lis3dh_acc_data *acc = dev_id;
 
-	if(acc->is_suspend == 1 ||atomic_read(&acc->enabled) == 0){
+	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
+		printk("---interrupt -suspend or disable\n");
 		return IRQ_HANDLED;
 	}
 	disable_irq_nosync(acc->client->irq);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
-	else
+	else{
 		enable_irq(acc->client->irq);
+	}
 	return IRQ_HANDLED;
 }
+
 
 static int lis3dh_acc_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -738,7 +755,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		dev_err(&client->dev, "failed to validate platform data\n");
 		goto exit_kfree_pdata;
 	}
-	
+
 	client->dev.init_name=client->name;
 	acc->power = regulator_get(&client->dev, "vgsensor");
 	if (IS_ERR(acc->power)) {
@@ -754,7 +771,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	udelay(100);
 
-	/*--read id must add to load mma8452 or lis3dh--*/ 
+	/*--read id must add to load mma8452 or lis3dh--*/
 	buf[0] = WHO_AM_I;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
 	if (err < 0 || buf[0] != WHOAMI_LIS3DH_ACC) {
@@ -772,7 +789,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
 
-	acc->resume_state[RES_CTRL_REG1] = LIS3DH_ACC_ENABLE_ALL_AXES;//0X27
+	//acc->resume_state[RES_CTRL_REG1] = LIS3DH_ACC_ENABLE_ALLS;//0X27
+	acc->resume_state[RES_CTRL_REG1] = 0X57;
 	acc->resume_state[RES_CTRL_REG2] = 0x00;
 	acc->resume_state[RES_CTRL_REG3] = 0xC0;
 
@@ -785,13 +803,16 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	acc->resume_state[RES_INT_CFG1] = 0x3F;
 	acc->resume_state[RES_INT_THS1] = 0x00;
-	acc->resume_state[RES_INT_DUR1] = 0x00;
+
+
+	acc->resume_state[RES_INT_DUR1] = 0x08;
 
 	acc->resume_state[RES_TT_CFG] = 0x3F;
 	acc->resume_state[RES_TT_THS] = 0x00;
 	acc->resume_state[RES_TT_LIM] = 0x00;
 	acc->resume_state[RES_TT_TLAT] = 0x00;
 	acc->resume_state[RES_TT_TW] = 0x00;
+
 
 	lis3dh_acc_device_power_off(acc);
 	udelay(100);
@@ -834,23 +855,22 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	lis3dh_acc_device_power_off(acc);
 	/* As default, do not report information */
-	atomic_set(&acc->enabled, 0);  
+	atomic_set(&acc->enabled, 0);
 	acc->is_suspend = 0;
 	INIT_WORK(&acc->irq_work, lis3dh_acc_work);
 
 	acc->irq_work_queue = create_singlethread_workqueue("lis3dh_acc");
 
-	if(!(acc->irq_work_queue)){   
-		err = -ESRCH; 
+	if(!(acc->irq_work_queue)){
+		err = -ESRCH;
 		printk("creating workqueue failed\n");
-	}                     
+	}
 	client->irq = gpio_to_irq(acc->pdata->gpio_int);
 	err = request_irq(client->irq, lis3dh_acc_interrupt,
-			//IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			"lis3dh_acc", acc);
 	if (err < 0)
-		printk("err == %d \n",err); 
+		printk("err == %d \n",err);
 
 	disable_irq_nosync(acc->client->irq);
 
@@ -923,8 +943,8 @@ static int lis3dh_acc_resume(struct i2c_client *client)
 static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
-	acc->is_suspend = 1;
 	disable_irq_nosync(client->irq);
+	acc->is_suspend = 1;
 	return lis3dh_acc_disable(acc);
 }
 
@@ -967,7 +987,7 @@ static void __exit lis3dh_acc_exit(void)
 	return;
 }
 
-late_initcall(lis3dh_acc_init);
+module_init(lis3dh_acc_init);
 module_exit(lis3dh_acc_exit);
 
 MODULE_DESCRIPTION("lis3dh digital accelerometer sysfs driver");

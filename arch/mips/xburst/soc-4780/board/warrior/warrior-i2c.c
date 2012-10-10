@@ -34,7 +34,7 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 	.negate_x = 1,
 	.negate_y = 0,
 	.negate_z = 1,
-	
+
 	.ori_pr_swap = 0,
 	.ori_pith_negate = 0,
 	.ori_roll_negate = 1,
@@ -43,18 +43,18 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
 static struct gsensor_platform_data lis3dh_platform_data = {
-	.gpio_int = GPIO_LIS3DH_INT1, 
+	.gpio_int = GPIO_LIS3DH_INT1,
 	.poll_interval = 100,
        	.min_interval = 40,
-	.max_interval = 200,
+	.max_interval = 400,
 	.g_range = GSENSOR_2G,
 	.axis_map_x = 1,
 	.axis_map_y = 0,
-	.axis_map_z = 2,							        
+	.axis_map_z = 2,
 	.negate_x = 0,
 	.negate_y = 1,
 	.negate_z = 1,
-	
+
 	.ori_pr_swap = 0,
 	.ori_pith_negate = 0,
 	.ori_roll_negate = 1,
@@ -86,7 +86,7 @@ static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 	{
 	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
 		.platform_data = &lis3dh_platform_data,
-	},						        
+	},
 #endif
 };
 #endif	/*I2C1*/
@@ -204,7 +204,7 @@ static int __init warrior_i2c_dev_init(void)
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(3, warrior_i2c3_devs, ARRAY_SIZE(warrior_i2c3_devs));
-#endif	
+#endif
 	return 0;
 }
 
