@@ -89,6 +89,7 @@ static LIST_HEAD(manual_list);
  * @decshds[]: Descriptor DMA information structure.
  * @state: It's the state for request.
  * @list: List head for manually detect card such as wifi.
+ * @lock: Lock the registers operation.
  * @double_enter: Prevent state machine reenter.
  * @timeout_cnt: The count of timeout second.
  */
@@ -121,6 +122,7 @@ struct jzmmc_host {
 	struct desc_hd 		decshds[MAX_SEGS];
 	enum jzmmc_state 	state;
 	struct list_head	list;
+	spinlock_t		lock;
 
 	unsigned int		double_enter;
 	int 			timeout_cnt;
@@ -156,9 +158,11 @@ static inline void enable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 {
 	unsigned long imsk;
 
+	spin_lock_bh(&host->lock);
 	imsk = msc_readl(host, IMASK);
 	imsk &= ~bits;
 	msc_writel(host, IMASK, imsk);
+	spin_unlock_bh(&host->lock);
 }
 
 static inline void clear_msc_irq(struct jzmmc_host *host, unsigned long bits)
@@ -170,9 +174,11 @@ static inline void disable_msc_irq(struct jzmmc_host *host, unsigned long bits)
 {
 	unsigned long imsk;
 
+	spin_lock_bh(&host->lock);
 	imsk = msc_readl(host, IMASK);
 	imsk |= bits;
 	msc_writel(host, IMASK, imsk);
+	spin_unlock_bh(&host->lock);
 }
 
 #ifndef IT_IS_USED_FOR_DEBUG
@@ -405,12 +411,15 @@ start:
 
 		if (request_need_stop(host->mrq)) {
 			if (likely(msc_readl(host, STAT) & STAT_AUTO_CMD12_DONE)) {
+				disable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
+				clear_msc_irq(host, IFLG_AUTO_CMD12_DONE);
 				host->state = STATE_IDLE;
 				jzmmc_data_done(host);
 			} else {
 				enable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
 				if (msc_readl(host, RES) & STAT_AUTO_CMD12_DONE) {
 					disable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
+					clear_msc_irq(host, IFLG_AUTO_CMD12_DONE);
 					host->state = STATE_IDLE;
 					jzmmc_data_done(host);
 				} else
@@ -461,8 +470,11 @@ start:
 		 __func__, iflg, imask, status);
 
 	if (!pending) {
-		enable_irq(host->irq);
-		return;
+		goto out;
+
+	} else if (pending & IFLG_SDIO) {
+		mmc_signal_sdio_irq(host->mmc);
+		goto out;
 
 	} else if (pending & ERROR_IFLG) {
 		unsigned int mask = ERROR_IFLG;
@@ -508,6 +520,8 @@ start:
 		jzmmc_set_pending(host, EVENT_TRANS_COMPLETE);
 		disable_msc_irq(host, IMASK_DATA_TRAN_DONE | IMASK_CRC_READ_ERR);
 		if (jzmmc_check_pending(host, EVENT_DMA_COMPLETE)) {
+			disable_msc_irq(host, IMASK_DMAEND);
+			clear_msc_irq(host, IFLG_DMAEND);
 			clear_bit(EVENT_TRANS_COMPLETE, &host->pending_events);
 			jzmmc_set_pending(host, EVENT_DATA_COMPLETE);
 			jzmmc_state_machine(host, status);
@@ -516,7 +530,9 @@ start:
 	} else if (pending & IFLG_DMAEND) {
 		jzmmc_set_pending(host, EVENT_DMA_COMPLETE);
 		disable_msc_irq(host, IMASK_DMAEND);
+		clear_msc_irq(host, IFLG_DMAEND);
 		if (jzmmc_check_pending(host, EVENT_TRANS_COMPLETE)) {
+			disable_msc_irq(host, IMASK_DATA_TRAN_DONE | IMASK_CRC_READ_ERR);
 			clear_bit(EVENT_DMA_COMPLETE, &host->pending_events);
 			jzmmc_set_pending(host, EVENT_DATA_COMPLETE);
 			jzmmc_state_machine(host, status);
@@ -554,8 +570,8 @@ static irqreturn_t jzmmc_irq(int irq, void *dev_id)
 {
 	struct jzmmc_host *host = (struct jzmmc_host *)dev_id;
 
-	tasklet_schedule(&host->tasklet);
 	disable_irq_nosync(host->irq);
+	tasklet_schedule(&host->tasklet);
 
 	return IRQ_HANDLED;
 }
@@ -581,11 +597,9 @@ static void jzmmc_submit_dma(struct jzmmc_host *host, struct mmc_data *data)
 	struct scatterlist *sgentry;
 	struct desc_hd *dhd = &(host->decshds[0]);
 
-	preempt_disable();
 	dma_map_sg(host->dev, data->sg, data->sg_len,
 		   data->flags & MMC_DATA_WRITE
 		   ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-	preempt_enable_no_resched();
 
 	for_each_sg(data->sg, sgentry, data->sg_len, i) {
 		sg_to_desc(sgentry, dhd);
@@ -599,11 +613,9 @@ static void jzmmc_submit_dma(struct jzmmc_host *host, struct mmc_data *data)
 		}
 	}
 
-	preempt_disable();
 	dma_unmap_sg(host->dev, data->sg, data->sg_len,
 		     data->flags & MMC_DATA_WRITE
 		     ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-	preempt_enable_no_resched();
 
 	if (data->flags & MMC_DATA_READ)
 		dhd->dma_desc->dcmd |= DMACMD_ENDI;
@@ -906,9 +918,6 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		dev_vdbg(host->dev, "op:%d\n", host->cmd->opcode);
 
 	host->cmdat = host->cmdat_def;
-	msc_writel(host, IFLG, 0xffffffff);
-	msc_writel(host, IMASK, 0xffffffff);
-	msc_writel(host, RESTO, 0xff);
 
 	if(host->data)
 		jzmmc_data_pre(host, host->data);
@@ -1231,11 +1240,24 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 }
 
+static void jzmmc_enable_sdio_irq(struct mmc_host *mmc, int enable)
+{
+	struct jzmmc_host *host = mmc_priv(mmc);
+
+	if (enable) {
+		enable_msc_irq(host, IMASK_SDIO);
+	} else {
+		clear_msc_irq(host, IFLG_SDIO);
+		disable_msc_irq(host, IMASK_SDIO);
+	}
+}
+
 static const struct mmc_host_ops jzmmc_ops = {
-	.request	= jzmmc_request,
-	.set_ios	= jzmmc_set_ios,
-	.get_ro		= jzmmc_get_read_only,
-	.get_cd		= jzmmc_get_card_detect,
+	.request		= jzmmc_request,
+	.set_ios		= jzmmc_set_ios,
+	.get_ro			= jzmmc_get_read_only,
+	.get_cd			= jzmmc_get_card_detect,
+	.enable_sdio_irq	= jzmmc_enable_sdio_irq,
 };
 
 /*--------------------------End other mmc_ops------------------------------*/
@@ -1588,6 +1610,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_dma_init;
 	}
+	spin_lock_init(&host->lock);
 
 	if (pdata->private_init) {
 		ret = pdata->private_init();
@@ -1600,6 +1623,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	ret = jzmmc_gpio_init(host);
 	if (ret < 0)
 		goto err_gpio_init;
+
 	jzmmc_host_init(host, mmc);
 	ret = sysfs_create_group(&pdev->dev.kobj, &jzmmc_attr_group);
 	if (ret < 0)
