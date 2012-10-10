@@ -48,9 +48,9 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 {
 	struct singlelist *pos = NULL;
 	PageList *pl_node = NULL;
+	PageList *pl_next = NULL;
 	PageList *npl = NULL;
 	PageList *mpl = NULL;
-	int flag = 1;
 
 	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER){
 		clear_pl_retval(pl);
@@ -59,25 +59,33 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 	npl = (PageList *)BuffListManager_getTopNode(vnand->v2pp->blm, sizeof(PageList));
 	mpl = npl;
 	npl->Bytes = 0;
-	singlelist_for_each(pos,&pl->head) {
+	while(1){
+		pos = &pl->head;
 		pl_node = singlelist_entry(pos,PageList,head);
-		if (flag){
+		if(pos->next != NULL){
+			pl_next = singlelist_entry(pos->next,PageList,head);
+			pl = pl_next;
+		}
+		if(npl->Bytes == 0){
 			npl->startPageID = pl_node->startPageID / vnand->v2pp->_2kPerPage;
 			npl->OffsetBytes = pl_node->OffsetBytes + pl_node->startPageID % vnand->v2pp->_2kPerPage * 2048;
 			npl->pData = pl_node->pData;
 			npl->retVal = 0;
-			flag = 0;
 		}
 		npl->Bytes += pl_node->Bytes;
-		if ((pl_node->retVal == 0 ||
-			 (npl->Bytes + npl->OffsetBytes) >= vnand->BytePerPage*vnand->v2pp->_2kPerPage) &&
-			(pos->next != NULL)) {
+
+		if ((pl_node->retVal == 0 || npl->Bytes >= vnand->BytePerPage*vnand->v2pp->_2kPerPage ||
+			 (pl_next && pl_next->startPageID-pl_node->startPageID != 1) ||
+			 (pl_next && pl_node->startPageID%2==1 && pl_next->startPageID != pl_node->startPageID)) &&
+			(pos->next != NULL)){
 			npl = (PageList *)BuffListManager_getNextNode(vnand->v2pp->blm, (void *)npl, sizeof(PageList));
 			npl->Bytes = 0;
 			pl_node->retVal = 0; //set break node's retVal is 0,other is 1.
-			flag = 1;
 		}
+		if(pos->next == NULL)
+			break;
 	}
+
 	return mpl;
 }
 

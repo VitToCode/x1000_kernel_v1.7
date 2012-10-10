@@ -145,7 +145,7 @@ static  void PtAvailableBlockID_Init(VNandManager *vm)
 			else
 				badblock_number++;
 		}
-		for(pos=0; pos < pt->totalblocks-badblock_number; pos++){
+		for(pos=0; pos < pt->totalblocks; pos++){
 			for(j=0; j<badblock_number; j++){
 				if(pt->badblock->pt_badblock_info[j] == blockid){
 					blockid++;
