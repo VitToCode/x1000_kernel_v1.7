@@ -116,6 +116,10 @@
 #define GLB_ALPHA(val)  ((val) << 8)
 #define MOD_OSD(val)    ((val) << 0)
 
+/* FM_XYOFT field define */
+#define SCREEN_YOFT(val)    ((val) << 16)
+#define SCREEN_XOFT(val)    ((val) << 0)
+
 /* REG_IN_GS field define */
 #define IN_FM_W(val)    ((val) << 16)
 #define IN_FM_H(val)    ((val) << 0)
