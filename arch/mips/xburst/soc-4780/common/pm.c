@@ -40,15 +40,6 @@
 
 void (*__reset_dll)(void);
 
-struct jz47xx_pm {
-	int volt;
-	unsigned int cpccr;
-	struct regulator *vcore;
-	struct syscore_ops vcore_pm_ops;
-	struct platform_suspend_ops pm_ops;
-};
-
-static struct jz47xx_pm jz47xx_pm;
 
 
 void inline reset_dll(void)
@@ -153,48 +144,18 @@ static int jz4780_pm_enter(suspend_state_t state)
 	return 0;
 }
 
-int vcore_suspend(void)
-{
-	if(!jz47xx_pm.vcore)
-		jz47xx_pm.vcore = regulator_get(NULL,"vcore");
-
-	jz47xx_pm.cpccr = cpm_inl(CPM_CPCCR);
-	cpm_outl((jz47xx_pm.cpccr & ~0xff) | 0x73 | (0x1<<22),CPM_CPCCR);
-
-	if(jz47xx_pm.vcore) {
-		jz47xx_pm.volt = regulator_get_voltage(jz47xx_pm.vcore);
-		regulator_set_voltage(jz47xx_pm.vcore, 1025000, 1025000);
-	}
-
-	return 0;
-}
-
-void vcore_resume(void)
-{
-	if(!jz47xx_pm.vcore)
-		jz47xx_pm.vcore = regulator_get(NULL,"vcore");
-
-	if(jz47xx_pm.vcore && jz47xx_pm.volt) {
-		regulator_set_voltage(jz47xx_pm.vcore, jz47xx_pm.volt, jz47xx_pm.volt);
-		jz47xx_pm.volt = 0;
-	}
-
-	cpm_outl(jz47xx_pm.cpccr,CPM_CPCCR);
-}
-
 /*
  * Initialize power interface
  */
 
+struct platform_suspend_ops pm_ops = {
+	.valid = suspend_valid_only_mem,
+	.enter = jz4780_pm_enter,
+};
+
 int __init jz4780_pm_init(void)
 {
-	jz47xx_pm.vcore_pm_ops.suspend = vcore_suspend;
-	jz47xx_pm.vcore_pm_ops.resume = vcore_resume;
-	register_syscore_ops(&jz47xx_pm.vcore_pm_ops);
-
-	jz47xx_pm.pm_ops.valid = suspend_valid_only_mem,
-	jz47xx_pm.pm_ops.enter = jz4780_pm_enter,
-	suspend_set_ops(&jz47xx_pm.pm_ops);
+	suspend_set_ops(&pm_ops);
 	return 0;
 }
 

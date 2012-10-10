@@ -43,18 +43,20 @@ static struct regulator *cpu_regulator;
 #define CPUFREQ_NR 8
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
+#define MIN_FREQ 150000
+#define MIN_VOLT 1025000
 static unsigned long regulator_table[12][2] = {
-	{1700000,1350000}, // 1.7 GHz - 1.25V
-	{1500000,1300000},
-	{1300000,1250000},
-	{1200000,1200000},
-	{1100000,1150000},
-	{ 900000,1100000},
-	{ 700000,1100000},
-	{ 500000,1100000},
-	{ 300000,1100000},
-	{ 150000,1025000},
-	{      0,1025000},
+	{ 1700000,1350000 }, // 1.7 GHz - 1.25V
+	{ 1500000,1300000 },
+	{ 1300000,1250000 },
+	{ 1200000,1200000 },
+	{ 1100000,1150000 },
+	{  900000,1100000 },
+	{  700000,1100000 },
+	{  500000,1100000 },
+	{  300000,1100000 },
+	{MIN_FREQ,MIN_VOLT},
+	{       0,1025000 },
 };
 
 unsigned long regulator_find_voltage(int freqs)
@@ -156,7 +158,8 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	if (cpu_regulator && (freqs.new < freqs.old)) {
 		r = regulator_set_voltage(cpu_regulator, volt, volt);
 		if (r < 0) {
-			pr_warning("%s: unable to scale voltage down.\n",__func__);
+			pr_warning("%s: unable to scale voltage down. old:%d new:%d volt:%lu\n",__func__,
+					freqs.old,freqs.new,volt);
 			ret = clk_set_rate(cpu_clk, freqs.old * 1000);
 			freqs.new = freqs.old;
 			goto done;
@@ -230,9 +233,38 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int jz4780_cpu_exit(struct cpufreq_policy *policy)
+static unsigned int rate,volt;
+int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 {
-	clk_put(cpu_clk);
+	if(cpu_clk) {
+		rate = clk_get_rate(cpu_clk);
+		clk_set_rate(cpu_clk,MIN_FREQ * 1000);
+	}
+	
+	if (cpu_regulator) {
+		volt = regulator_get_voltage(cpu_regulator);
+		if(regulator_set_voltage(cpu_regulator,MIN_VOLT,MIN_VOLT)) {
+			printk("cpufreq suspend failed.\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int jz4780_cpu_resume(struct cpufreq_policy *policy)
+{
+	if(cpu_clk) {
+		clk_set_rate(cpu_clk,rate);
+	}
+
+	if (cpu_regulator) {
+		if(regulator_set_voltage(cpu_regulator,volt,volt)) {
+			printk("cpufreq suspend failed.\n");
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -242,13 +274,14 @@ static struct freq_attr *jz4780_cpufreq_attr[] = {
 };
 
 static struct cpufreq_driver jz4780_driver = {
+	.name		= "jz4780",
 	.flags		= CPUFREQ_STICKY,
 	.verify		= jz4780_verify_speed,
 	.target		= jz4780_target,
 	.get		= jz4780_getspeed,
 	.init		= jz4780_cpu_init,
-	.exit		= jz4780_cpu_exit,
-	.name		= "jz4780",
+	.suspend	= jz4780_cpu_suspend,
+	.resume		= jz4780_cpu_resume,
 	.attr		= jz4780_cpufreq_attr,
 };
 
@@ -269,7 +302,7 @@ static int __init jz4780_cpufreq_init(void)
 		 * (e.g. could be dummy regulator.)
 		 */
 		if (regulator_get_voltage(cpu_regulator) < 0) {
-			pr_warn("%s: physical regulator not present for MPU\n",
+			pr_warn("%s: physical regulator not present for CPU\n",
 					__func__);
 			regulator_put(cpu_regulator);
 			cpu_regulator = NULL;
@@ -283,6 +316,10 @@ static int __init jz4780_cpufreq_init(void)
 
 static void __exit jz4780_cpufreq_exit(void)
 {
+	if(cpu_clk) 
+		clk_put(cpu_clk);
+	if(cpu_regulator)
+		regulator_put(cpu_regulator);
 	cpufreq_unregister_driver(&jz4780_driver);
 }
 
