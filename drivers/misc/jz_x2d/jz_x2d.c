@@ -749,8 +749,8 @@ static int x2d_release(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct x2d_device *jz_x2d = NULL;
 
-	dev_info(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 	jz_x2d = file_to_x2d(filp);
+	dev_info(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 	mutex_lock(&jz_x2d->x2d_lock);
 	ret = x2d_free_procinfo(jz_x2d,current->pid);
 	if(x2d_check_allproc_free(jz_x2d))
