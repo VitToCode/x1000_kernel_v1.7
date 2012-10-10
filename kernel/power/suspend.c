@@ -159,9 +159,11 @@ static int suspend_enter(suspend_state_t state)
 	if (suspend_test(TEST_PLATFORM))
 		goto Platform_wake;
 
+#ifndef CONFIG_EARLYSUSPEND_CPU
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS))
 		goto Enable_cpus;
+#endif
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
@@ -178,8 +180,10 @@ static int suspend_enter(suspend_state_t state)
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
+#ifndef CONFIG_EARLYSUSPEND_CPU
  Enable_cpus:
 	enable_nonboot_cpus();
+#endif
 
  Platform_wake:
 	if (suspend_ops->wake)
