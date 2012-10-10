@@ -64,12 +64,16 @@ static void kr070la0s_270_on(struct kr070la0s_270_data *dev)
 		mdelay(100);
 		gpio_direction_output(dev->pdata->gpio_rest, 1);
 	}
+
+	mdelay(80);
 }
 
 static void kr070la0s_270_off(struct kr070la0s_270_data *dev)
 {
         dev->lcd_power = 0;
         regulator_disable(dev->lcd_vcc_reg);
+
+	mdelay(30);
 }
 
 static int kr070la0s_270_set_power(struct lcd_device *lcd, int power)

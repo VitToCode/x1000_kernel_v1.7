@@ -892,6 +892,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
+		mdelay(5);
 		jzfb_enable(info);
 		break;
 	default:
@@ -1006,6 +1007,7 @@ static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 			} else {
 				(framedesc + i)->cpos |= LCDC_CPOS_ALPHAMD1;
 			}
+			(framedesc + i)->desc_size &= ~LCDC_DESSIZE_ALPHA_MASK;
 			(framedesc + i)->desc_size |= (fg_alpha->value <<
 						       LCDC_DESSIZE_ALPHA_BIT
 						       & LCDC_DESSIZE_ALPHA_MASK);
@@ -1409,8 +1411,6 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 		wake_up_interruptible(&jzfb->vsync_wq);
 	}
 
-	return IRQ_HANDLED;
-#if 0
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if (jzfb->irq_cnt++ > 100) {
@@ -1423,7 +1423,6 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	}
 
 	return IRQ_HANDLED;
-#endif
 }
 
 static struct fb_ops jzfb_ops = {
@@ -1445,16 +1444,26 @@ static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
-	fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
-	fb_set_suspend(jzfb->fb, 1);
+	if (jzfb->pdata->alloc_vidmem) {
+		/* set suspend state and notify panel, backlight client */
+		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+		fb_set_suspend(jzfb->fb, 1);
+	} else {
+		/* disable LCDC */
+		jzfb_blank(FB_BLANK_POWERDOWN, jzfb->fb);
+	}
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
-	fb_set_suspend(jzfb->fb, 0);
-	fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
+	if (jzfb->pdata->alloc_vidmem) {
+		fb_set_suspend(jzfb->fb, 0);
+		fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
+	} else {
+		jzfb_blank(FB_BLANK_UNBLANK, jzfb->fb);
+	}
 }
 #endif
 
