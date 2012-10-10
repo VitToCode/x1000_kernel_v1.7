@@ -117,134 +117,35 @@ unsigned char	MCS_rate_1R[16] = {0xff, 0x00, 0x0, 0x0, 0x01, 0x0, 0x0, 0x0, 0x0,
 /********************************************************
 ChannelPlan definitions
 *********************************************************/
-/*static RT_CHANNEL_PLAN	DefaultChannelPlan[RT_CHANNEL_DOMAIN_MAX] = {
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140,149,153,157,161,165},32},					// 0x00, RT_CHANNEL_DOMAIN_FCC
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},31},						// 0x01, RT_CHANNEL_DOMAIN_IC
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},32},						// 0x02, RT_CHANNEL_DOMAIN_ETSI
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},																					// 0x03, RT_CHANNEL_DOMAIN_SPAIN
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},																					// 0x04, RT_CHANNEL_DOMAIN_FRANCE
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},																					// 0x05, RT_CHANNEL_DOMAIN_MKK
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},																					// 0x06, RT_CHANNEL_DOMAIN_MKK1
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64},21},																// 0x07, RT_CHANNEL_DOMAIN_ISRAEL
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,36,40,44,48,52,56,60,64},22},															// 0x08, RT_CHANNEL_DOMAIN_TELEC
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,14},14},																				// 0x09, RT_CHANNEL_DOMAIN_GLOBAL_DOAMIN
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},																					// 0x0A, RT_CHANNEL_DOMAIN_WORLD_WIDE_13
-	{{1,2,3,4,5,6,7,8,9,10,11,56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},26},									// 0x0B, RT_CHANNEL_DOMAIN_TAIWAN
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,149,153,157,161,165},18},																// 0x0C, RT_CHANNEL_DOMAIN_CHINA
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,149,153,157,161,165},24},												// 0x0D, RT_CHANNEL_DOMAIN_SINGAPORE_INDIA_MEXICO
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,149,153,157,161,165},31},						// 0x0E, RT_CHANNEL_DOMAIN_KOREA
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64},19},																	// 0x0F, RT_CHANNEL_DOMAIN_TURKEY
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},32},						// 0x10, RT_CHANNEL_DOMAIN_JAPAN
-	{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,149,153,157,161,165},20},															// 0x11, RT_CHANNEL_DOMAIN_FCC_NO_DFS
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48},17},																		// 0x12, RT_CHANNEL_DOMAIN_JAPAN_NO_DFS
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,149,153,157,161,165},37},	// 0x13, RT_CHANNEL_DOMAIN_WORLD_WIDE_5G
-	{{1,2,3,4,5,6,7,8,9,10,11,56,60,64,149,153,157,161,165},19},																// 0x14, RT_CHANNEL_DOMAIN_TAIWAN_NO_DFS
-};*/
+static RT_CHANNEL_PLAN	DefaultChannelPlan[RT_CHANNEL_DOMAIN_MAX] = {
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140,149,153,157,161,165},32},	// 0x00, RT_CHANNEL_DOMAIN_FCC
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},31},					// 0x01, RT_CHANNEL_DOMAIN_IC
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},32},				// 0x02, RT_CHANNEL_DOMAIN_ETSI
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},												// 0x03, RT_CHANNEL_DOMAIN_SPAIN
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},												// 0x04, RT_CHANNEL_DOMAIN_FRANCE
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,36,40,44,48,52,56,60,64},22},						// 0x05, RT_CHANNEL_DOMAIN_MKK
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,36,40,44,48,52,56,60,64},22},						// 0x06, RT_CHANNEL_DOMAIN_MKK1
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64},21},							// 0x07, RT_CHANNEL_DOMAIN_ISRAEL
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,36,40,44,48,52,56,60,64},22},						// 0x08, RT_CHANNEL_DOMAIN_TELEC
+#if 0 /* Not using EEPROM_CHANNEL_PLAN directly */
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64},21},							// 0x09, RT_CHANNEL_DOMAIN_MIC
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,14},14},									// 0x0A, RT_CHANNEL_DOMAIN_GLOBAL_DOAMIN
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},										// 0x0B, RT_CHANNEL_DOMAIN_WORLD_WIDE_13
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64},21},							// 0x0C, RT_CHANNEL_DOMAIN_TELEC_NETGEAR
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,149,153,157,161,165},24},					// 0x0D, RT_CHANNEL_DOMAIN_NCC
+#endif /* Not using EEPROM_CHANNEL_PLAN directly */
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,14},14},									// 0x09, RT_CHANNEL_DOMAIN_GLOBAL_DOAMIN
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},										// 0x0A, RT_CHANNEL_DOMAIN_WORLD_WIDE_13
+							{{1,2,3,4,5,6,7,8,9,10,11,56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},26},			// 0x0B, RT_CHANNEL_DOMAIN_NCC
+							{{1,2,3,4,5,6,7,8,9,10,11,149,153,157,161,165},16},								// 0x0C, RT_CHANNEL_DOMAIN_CHINA
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,149,153,157,161,165},24},					// 0x0D, RT_CHANNEL_DOMAIN__SINGAPORE_INDIA_MEXICO
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,149,153,157,161,165},31},		// 0x0E, RT_CHANNEL_DOMAIN_KOREA
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,52,56,60,64},19},								// 0x0F, RT_CHANNEL_DOMAIN_TURKEY
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},32},	// 0x10, RT_CHANNEL_DOMAIN_JAPAN
+							{{1,2,3,4,5,6,7,8,9,10,11,36,40,44,48,149,153,157,161,165},20},							// 0x11, RT_CHANNEL_DOMAIN_FCC_NO_DFS
+							{{1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,149,153,157,161,165},37},	// 0x12, RT_CHANNEL_DOMAIN_WORLD_WIDE37
+							};
 
-static RT_CHANNEL_PLAN_2G	RTW_ChannelPlan2G[RT_CHANNEL_DOMAIN_2G_MAX] = {
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},		// 0x00, RT_CHANNEL_DOMAIN_2G_WORLD , Passive scan CH 12, 13
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13},13},		// 0x01, RT_CHANNEL_DOMAIN_2G_ETSI1
-	{{1,2,3,4,5,6,7,8,9,10,11},11},			// 0x02, RT_CHANNEL_DOMAIN_2G_FCC1
-	{{1,2,3,4,5,6,7,8,9,10,11,12,13,14},14},	// 0x03, RT_CHANNEL_DOMAIN_2G_MIKK1
-	{{10,11,12,13},4},						// 0x04, RT_CHANNEL_DOMAIN_2G_ETSI2
-};
-
-static RT_CHANNEL_PLAN_5G	RTW_ChannelPlan5G[RT_CHANNEL_DOMAIN_5G_MAX] = {
-	{{},0},																					// 0x00, RT_CHANNEL_DOMAIN_5G_NULL
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},19},						// 0x01, RT_CHANNEL_DOMAIN_5G_ETSI1
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,149,153,157,161,165},24},	// 0x02, RT_CHANNEL_DOMAIN_5G_ETSI2
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,149,153,157,161,165},22},			// 0x03, RT_CHANNEL_DOMAIN_5G_ETSI3
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,149,153,157,161,165},24},	// 0x04, RT_CHANNEL_DOMAIN_5G_FCC1
-	{{36,40,44,48,149,153,157,161,165},9},														// 0x05, RT_CHANNEL_DOMAIN_5G_FCC2
-	{{36,40,44,48,52,56,60,64,149,153,157,161,165},13},											// 0x06, RT_CHANNEL_DOMAIN_5G_FCC3
-	{{36,40,44,48,52,56,60,64,149,153,157,161},12},												// 0x07, RT_CHANNEL_DOMAIN_5G_FCC4
-	{{149,153,157,161,165},5},																	// 0x08, RT_CHANNEL_DOMAIN_5G_FCC5
-	{{36,40,44,48,52,56,60,64},8},																// 0x09, RT_CHANNEL_DOMAIN_5G_FCC6
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},20},					// 0x0A, RT_CHANNEL_DOMAIN_5G_FCC7_IC1
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,149,153,157,161,165},20},					// 0x0B, RT_CHANNEL_DOMAIN_5G_KCC1
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140},19},						// 0x0C, RT_CHANNEL_DOMAIN_5G_MKK1
-	{{36,40,44,48,52,56,60,64},8},																// 0x0D, RT_CHANNEL_DOMAIN_5G_MKK2
-	{{100,104,108,112,116,120,124,128,132,136,140},11},											// 0x0E, RT_CHANNEL_DOMAIN_5G_MKK3
-	{{56,60,64,100,104,108,112,116,136,140,149,153,157,161,165},15},								// 0x0F, RT_CHANNEL_DOMAIN_5G_NCC1
-	{{56,60,64,149,153,157,161,165},8},															// 0x10, RT_CHANNEL_DOMAIN_5G_NCC2
-
-	//===== Driver self defined for old channel plan Compatible ,Remember to modify if have new channel plan definition =====
-	{{36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140,149,153,157,161,165},21},				// 0x11, RT_CHANNEL_DOMAIN_5G_FCC
-	{{36,40,44,48},4},																			// 0x12, RT_CHANNEL_DOMAIN_5G_JAPAN_NO_DFS
-};
-
-static RT_CHANNEL_PLAN_MAP	RTW_ChannelPlanMap[RT_CHANNEL_DOMAIN_MAX] = {
-	//===== 0x00 ~ 0x1F , Old Define =====
-	{0x02,0x11},	//0x00, RT_CHANNEL_DOMAIN_FCC
-	{0x02,0x0A},	//0x01, RT_CHANNEL_DOMAIN_IC
-	{0x01,0x01},	//0x02, RT_CHANNEL_DOMAIN_ETSI
-	{0x01,0x00},	//0x03, RT_CHANNEL_DOMAIN_SPAIN
-	{0x01,0x00},	//0x04, RT_CHANNEL_DOMAIN_FRANCE
-	{0x01,0x00},	//0x05, RT_CHANNEL_DOMAIN_MKK
-	{0x01,0x00},	//0x06, RT_CHANNEL_DOMAIN_MKK1
-	{0x01,0x09},	//0x07, RT_CHANNEL_DOMAIN_ISRAEL
-	{0x03,0x09},	//0x08, RT_CHANNEL_DOMAIN_TELEC
-	{0x03,0x00},	//0x09, RT_CHANNEL_DOMAIN_GLOBAL_DOAMIN
-	{0x00,0x00},	//0x0A, RT_CHANNEL_DOMAIN_WORLD_WIDE_13
-	{0x02,0x0F},	//0x0B, RT_CHANNEL_DOMAIN_TAIWAN
-	{0x01,0x08},	//0x0C, RT_CHANNEL_DOMAIN_CHINA
-	{0x02,0x06},	//0x0D, RT_CHANNEL_DOMAIN_SINGAPORE_INDIA_MEXICO
-	{0x02,0x0B},	//0x0E, RT_CHANNEL_DOMAIN_KOREA
-	{0x02,0x09},	//0x0F, RT_CHANNEL_DOMAIN_TURKEY
-	{0x01,0x01},	//0x10, RT_CHANNEL_DOMAIN_JAPAN
-	{0x02,0x05},	//0x11, RT_CHANNEL_DOMAIN_FCC_NO_DFS
-	{0x01,0x12},	//0x12, RT_CHANNEL_DOMAIN_JAPAN_NO_DFS
-	{0x00,0x04},	//0x13, RT_CHANNEL_DOMAIN_WORLD_WIDE_5G
-	{0x02,0x10},	//0x14, RT_CHANNEL_DOMAIN_TAIWAN_NO_DFS
-	{0x00,0x00},	//0x15,
-	{0x00,0x00},	//0x16,
-	{0x00,0x00},	//0x17,
-	{0x00,0x00},	//0x18,
-	{0x00,0x00},	//0x19,
-	{0x00,0x00},	//0x1A,
-	{0x00,0x00},	//0x1B,
-	{0x00,0x00},	//0x1C,
-	{0x00,0x00},	//0x1D,
-	{0x00,0x00},	//0x1E,
-	{0x00,0x00},	//0x1F,
-
-	//===== 0x20 ~ 0x7F ,New Define =====
-	{0x00,0x00},	//0x20, RT_CHANNEL_DOMAIN_WORLD_NULL
-	{0x01,0x00},	//0x21, RT_CHANNEL_DOMAIN_ETSI1_NULL
-	{0x02,0x00},	//0x22, RT_CHANNEL_DOMAIN_FCC1_NULL
-	{0x03,0x00},	//0x23, RT_CHANNEL_DOMAIN_MKK1_NULL
-	{0x04,0x00},	//0x24, RT_CHANNEL_DOMAIN_ETSI2_NULL
-	{0x02,0x04},	//0x25, RT_CHANNEL_DOMAIN_FCC1_FCC1
-	{0x00,0x01},	//0x26, RT_CHANNEL_DOMAIN_WORLD_ETSI1
-	{0x03,0x0C},	//0x27, RT_CHANNEL_DOMAIN_MKK1_MKK1
-	{0x00,0x0B},	//0x28, RT_CHANNEL_DOMAIN_WORLD_KCC1
-	{0x00,0x05},	//0x29, RT_CHANNEL_DOMAIN_WORLD_FCC2
-	{0x00,0x00},	//0x2A,
-	{0x00,0x00},	//0x2B,
-	{0x00,0x00},	//0x2C,
-	{0x00,0x00},	//0x2D,
-	{0x00,0x00},	//0x2E,
-	{0x00,0x00},	//0x2F,
-	{0x00,0x06},	//0x30, RT_CHANNEL_DOMAIN_WORLD_FCC3
-	{0x00,0x07},	//0x31, RT_CHANNEL_DOMAIN_WORLD_FCC4
-	{0x00,0x08},	//0x32, RT_CHANNEL_DOMAIN_WORLD_FCC5
-	{0x00,0x09},	//0x33, RT_CHANNEL_DOMAIN_WORLD_FCC6
-	{0x02,0x0A},	//0x34, RT_CHANNEL_DOMAIN_FCC1_FCC7
-	{0x00,0x02},	//0x35, RT_CHANNEL_DOMAIN_WORLD_ETSI2
-	{0x00,0x03},	//0x36, RT_CHANNEL_DOMAIN_WORLD_ETSI3
-	{0x03,0x0D},	//0x37, RT_CHANNEL_DOMAIN_MKK1_MKK2
-	{0x03,0x0E},	//0x38, RT_CHANNEL_DOMAIN_MKK1_MKK3
-	{0x02,0x0F},	//0x39, RT_CHANNEL_DOMAIN_FCC1_NCC1
-	{0x00,0x00},	//0x3A,
-	{0x00,0x00},	//0x3B,
-	{0x00,0x00},	//0x3C,
-	{0x00,0x00},	//0x3D,
-	{0x00,0x00},	//0x3E,
-	{0x00,0x00},	//0x3F,
-	{0x02,0x10},	//0x40, RT_CHANNEL_DOMAIN_FCC1_NCC2
-};
-
-static RT_CHANNEL_PLAN_MAP	RTW_CHANNEL_PLAN_MAP_REALTEK_DEFINE = {0x02,0x05};
 
 /*
 * Test if the given @param channel_set contains the channel specified by @param channel_num
@@ -339,39 +240,30 @@ static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *
 {
 	u8	index,chanset_size = 0;
 	u8	b5GBand = _FALSE, b2_4GBand = _FALSE;
-	u8	Index2G = 0, Index5G=0;
 
 	_rtw_memset(channel_set, 0, sizeof(RT_CHANNEL_INFO)*MAX_CHANNEL_NUM);
 
-	if(ChannelPlan >= RT_CHANNEL_DOMAIN_MAX && ChannelPlan != RT_CHANNEL_DOMAIN_REALTEK_DEFINE)
+	if(ChannelPlan >= RT_CHANNEL_DOMAIN_MAX)
 	{
-		DBG_871X("ChannelPlan ID %x error !!!!!\n",ChannelPlan);
+		DBG_871X("channel plan id error \n");
 		return chanset_size;
 	}
 
 	if(padapter->registrypriv.wireless_mode & WIRELESS_11G)
 	{
 		b2_4GBand = _TRUE;
-		if(RT_CHANNEL_DOMAIN_REALTEK_DEFINE == ChannelPlan)
-			Index2G = RTW_CHANNEL_PLAN_MAP_REALTEK_DEFINE.Index2G;
-		else
-			Index2G = RTW_ChannelPlanMap[ChannelPlan].Index2G;
 	}
 
 	if(padapter->registrypriv.wireless_mode & WIRELESS_11A)
 	{
 		b5GBand = _TRUE;
-		if(RT_CHANNEL_DOMAIN_REALTEK_DEFINE == ChannelPlan)
-			Index5G = RTW_CHANNEL_PLAN_MAP_REALTEK_DEFINE.Index5G;
-		else
-			Index5G = RTW_ChannelPlanMap[ChannelPlan].Index5G;
 	}
 
-	if(b2_4GBand)
+	for(index=0;index<DefaultChannelPlan[ChannelPlan].Len;index++)
 	{
-		for(index=0;index<RTW_ChannelPlan2G[Index2G].Len;index++)
+		if((DefaultChannelPlan[ChannelPlan].Channel[index]  <= 14) && (b2_4GBand))
 		{
-			channel_set[chanset_size].ChannelNum = RTW_ChannelPlan2G[Index2G].Channel[index];
+			channel_set[chanset_size].ChannelNum = DefaultChannelPlan[ChannelPlan].Channel[index];
 
 			if(RT_CHANNEL_DOMAIN_GLOBAL_DOAMIN == ChannelPlan) //Channel 1~11 is active, and 12~14 is passive
 			{
@@ -381,8 +273,7 @@ static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *
 					channel_set[chanset_size].ScanType  = SCAN_PASSIVE;			
 			}
 			else if(RT_CHANNEL_DOMAIN_WORLD_WIDE_13 == ChannelPlan ||
-				RT_CHANNEL_DOMAIN_WORLD_WIDE_5G == ChannelPlan ||
-				RT_CHANNEL_DOMAIN_2G_WORLD == Index2G)// channel 12~13, passive scan
+				RT_CHANNEL_DOMAIN_WORLD_WIDE37 == ChannelPlan)// channel 12~13, passive scan
 			{
 				if(channel_set[chanset_size].ChannelNum <= 11)
 					channel_set[chanset_size].ScanType = SCAN_ACTIVE;
@@ -396,18 +287,14 @@ static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *
 
 			chanset_size++;
 		}
-	}
-
-	if(b5GBand)
-	{
-		for(index=0;index<RTW_ChannelPlan5G[Index5G].Len;index++)
+		else if((DefaultChannelPlan[ChannelPlan].Channel[index]  >= 36) && (b5GBand))
 		{
 #ifdef CONFIG_DFS
-			channel_set[chanset_size].ChannelNum = RTW_ChannelPlan5G[Index5G].Channel[index];
+			channel_set[chanset_size].ChannelNum = DefaultChannelPlan[ChannelPlan].Channel[index];
 			if ( channel_set[chanset_size].ChannelNum <= 48 
 				|| channel_set[chanset_size].ChannelNum >= 149 )
 			{
-				if(RT_CHANNEL_DOMAIN_WORLD_WIDE_5G== ChannelPlan)//passive scan for all 5G channels
+				if(RT_CHANNEL_DOMAIN_WORLD_WIDE37 == ChannelPlan)//passive scan for all 5G channels
 					channel_set[chanset_size].ScanType = SCAN_PASSIVE;
 				else
 					channel_set[chanset_size].ScanType = SCAN_ACTIVE;
@@ -418,10 +305,10 @@ static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *
 			}
 			chanset_size++;
 #else /* CONFIG_DFS */
-			if ( RTW_ChannelPlan5G[Index5G].Channel[index] <= 48 
-				|| RTW_ChannelPlan5G[Index5G].Channel[index] >= 149 ) {
-				channel_set[chanset_size].ChannelNum = RTW_ChannelPlan5G[Index5G].Channel[index];
-				if(RT_CHANNEL_DOMAIN_WORLD_WIDE_5G== ChannelPlan)//passive scan for all 5G channels
+			if ( DefaultChannelPlan[ChannelPlan].Channel[index] <= 48 
+				|| DefaultChannelPlan[ChannelPlan].Channel[index] >= 149 ) {
+				channel_set[chanset_size].ChannelNum = DefaultChannelPlan[ChannelPlan].Channel[index];
+				if(RT_CHANNEL_DOMAIN_WORLD_WIDE37 == ChannelPlan)//passive scan for all 5G channels
 					channel_set[chanset_size].ScanType = SCAN_PASSIVE;
 				else
 					channel_set[chanset_size].ScanType = SCAN_ACTIVE;
@@ -431,7 +318,7 @@ static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *
 #endif /* CONFIG_DFS */
 		}
 	}
-
+		
 	return chanset_size;
 }
 
@@ -812,9 +699,7 @@ _continue:
 			goto _issue_probersp;
 		}
 
-		if ( (ielen != 0 && _FALSE ==_rtw_memcmp((void *)(p+2), (void *)cur->Ssid.Ssid, cur->Ssid.SsidLength))
-			|| (ielen == 0 && pmlmeinfo->hidden_ssid_mode)
-		)
+		if ((ielen != 0) && (!_rtw_memcmp((void *)(p+2), (void *)cur->Ssid.Ssid, le32_to_cpu(cur->Ssid.SsidLength))))
 		{
 			return _SUCCESS;
 		}
@@ -5565,44 +5450,6 @@ sint On_TDLS_Dis_Rsp(_adapter *adapter, union recv_frame *precv_frame)
 
 #endif
 
-int update_hidden_ssid(u8 *ies, u32 ies_len, u8 hidden_ssid_mode)
-{
-	u8 *ssid_ie;
-	sint ssid_len_ori;
-	int len_diff = 0;
-	
-	ssid_ie = rtw_get_ie(ies,  WLAN_EID_SSID, &ssid_len_ori, ies_len);
-
-	//DBG_871X("%s hidden_ssid_mode:%u, ssid_ie:%p, ssid_len_ori:%d\n", __FUNCTION__, hidden_ssid_mode, ssid_ie, ssid_len_ori);
-	
-	if(ssid_ie && ssid_len_ori>0)
-	{
-		switch(hidden_ssid_mode)
-		{
-			case 1:
-			{
-				u8 *next_ie = ssid_ie + 2 + ssid_len_ori;
-				u32 remain_len = 0;
-				
-				remain_len = ies_len -(next_ie-ies);
-				
-				ssid_ie[1] = 0;				
-				_rtw_memcpy(ssid_ie+2, next_ie, remain_len);
-				len_diff -= ssid_len_ori;
-				
-				break;
-			}		
-			case 2:
-				_rtw_memset(&ssid_ie[2], 0, ssid_len_ori);
-				break;
-			default:
-				break;
-		}
-	}
-
-	return len_diff;
-}
-
 void issue_beacon(_adapter *padapter)
 {
 	_irqL irqL;		
@@ -5769,15 +5616,9 @@ void issue_beacon(_adapter *padapter)
 		else
 #endif //CONFIG_P2P
 		{
-			int len_diff;
 			_rtw_memcpy(pframe, cur_network->IEs, cur_network->IELength);
-			len_diff = update_hidden_ssid(
-				pframe+_BEACON_IE_OFFSET_
-				, cur_network->IELength-_BEACON_IE_OFFSET_
-				, pmlmeinfo->hidden_ssid_mode
-			);
-			pframe += (cur_network->IELength+len_diff);
-			pattrib->pktlen += (cur_network->IELength+len_diff);
+			pframe += cur_network->IELength;
+			pattrib->pktlen += cur_network->IELength;
 		}
 
 #ifdef CONFIG_P2P
@@ -6169,7 +6010,7 @@ void issue_probereq(_adapter *padapter, NDIS_802_11_SSID *pssid, u8 blnbc)
 		pframe = rtw_set_ie(pframe, _SUPPORTEDRATES_IE_ , bssrate_len , bssrate, &(pattrib->pktlen));
 	}
 
-#if 0
+
 	//add wps_ie for wps2.0
 	if(pmlmepriv->probereq_wpsie_len>0 && pmlmepriv->probereq_wpsie_len<MAX_WPS_IE_LEN)
 	{
@@ -6178,16 +6019,7 @@ void issue_probereq(_adapter *padapter, NDIS_802_11_SSID *pssid, u8 blnbc)
 		pattrib->pktlen += pmlmepriv->probereq_wpsie_len;
 		//pmlmepriv->probereq_wpsie_len = 0 ;//reset to zero		
 	}	
-#else
-	//add wps_ie for wps2.0
-	if(pmlmepriv->wps_probe_req_ie_len>0 && pmlmepriv->wps_probe_req_ie)
-	{
-		_rtw_memcpy(pframe, pmlmepriv->wps_probe_req_ie, pmlmepriv->wps_probe_req_ie_len);
-		pframe += pmlmepriv->wps_probe_req_ie_len;
-		pattrib->pktlen += pmlmepriv->wps_probe_req_ie_len;
-		//pmlmepriv->wps_probe_req_ie_len = 0 ;//reset to zero		
-	}	
-#endif
+
 
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
@@ -7542,41 +7374,58 @@ BOOLEAN IsLegal5GChannel(
 
 void site_survey(_adapter *padapter)
 {
-	unsigned char		survey_channel = 0, val8;
-	RT_SCAN_TYPE	ScanType = SCAN_PASSIVE;
+	unsigned char		survey_channel, val8;
+	RT_SCAN_TYPE	ScanType;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u32 initialgain = 0;
-	
 #ifdef CONFIG_P2P
 	struct wifidirect_info *pwdinfo= &(padapter->wdinfo);
 	static unsigned char  prev_survey_channel = 0;
 	static unsigned int p2p_scan_count = 0;	
-	
-	if(rtw_p2p_findphase_ex_is_social(pwdinfo))
-	{
-		//	Commented by Albert 2011/06/03
-		//	The driver is in the find phase, it should go through the social channel.
-		survey_channel = pwdinfo->social_chan[pmlmeext->sitesurvey_res.channel_idx];
-	}
-	else
 #endif //CONFIG_P2P
+	
+#ifdef CONFIG_P2P
+	survey_channel = 0;
+	ScanType = SCAN_PASSIVE;
+	
+	if(rtw_p2p_chk_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH))
+	{
+		if ( pwdinfo->find_phase_state_exchange_cnt != 0 )
+		{
+			//	Commented by Albert 2011/06/03
+			//	The driver is in the find phase, it should go through the social channel.
+			survey_channel = pwdinfo->social_chan[pmlmeext->sitesurvey_res.channel_idx];
+			ScanType = SCAN_ACTIVE;
+		}
+		else
+		{
+			//	Commented by Albert 2011/06/03
+			//	The driver is in the scan phase, it should go through all the channel.
+			survey_channel = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ChannelNum;
+			ScanType = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ScanType;
+		}
+	}
+	else if(rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE) || rtw_p2p_chk_state(pwdinfo, P2P_STATE_IDLE))
+	{
+		//	Commented by Albert 20110805
+		//	The following code will be executed only when the P2P is disable.
+		survey_channel = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ChannelNum;
+		ScanType = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ScanType;
+	}
+#else
 	{
 		survey_channel = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ChannelNum;
+		ScanType = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ScanType;
 	}
-
-	ScanType = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ScanType;
-	
-	//DBG_871X("switching to ch:%d (cnt:%u,idx:%d) at %dms, %c%c%c\n"
-	//	, survey_channel
-	//	, pwdinfo->find_phase_state_exchange_cnt, pmlmeext->sitesurvey_res.channel_idx
-	//	, rtw_get_passing_time_ms(padapter->mlmepriv.scan_start_time)
-	//	, ScanType?'A':'P', pmlmeext->sitesurvey_res.scan_mode?'A':'P'
-	//	, pmlmeext->sitesurvey_res.ssid[0].SsidLength?'S':' ' 
-	//);
+#endif //CONFIG_P2P
 
 	if(survey_channel != 0)
 	{
+
+		//DBG_871X("switching to channel:%d at %dms\n", 
+		//	survey_channel, rtw_get_passing_time_ms(padapter->mlmepriv.scan_start_time)
+		//);
 		//PAUSE 4-AC Queue when site_survey
 		//padapter->HalFunc.GetHwRegHandler(padapter, HW_VAR_TXPAUSE, (u8 *)(&val8));
 		//val8 |= 0x0f;
@@ -7591,6 +7440,9 @@ void site_survey(_adapter *padapter)
 			SelectChannel(padapter, survey_channel);
 		}
 
+		//DBG_871X("%s scan_mode:%d, ScanType:%d%s\n", __FUNCTION__, pmlmeext->sitesurvey_res.scan_mode, ScanType
+		//	, pmlmeext->sitesurvey_res.ssid[0].SsidLength?", with ssid list":""
+		//);
 
 		if(ScanType == SCAN_ACTIVE) //obey the channel plan setting...
 		{		
@@ -7642,18 +7494,25 @@ void site_survey(_adapter *padapter)
 			#endif
 		}
 		
-		if(rtw_p2p_findphase_ex_is_needed(pwdinfo))
+		if ( ( rtw_p2p_chk_state(pwdinfo, P2P_STATE_SCAN) || rtw_p2p_chk_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH) ) && 
+			( pwdinfo->find_phase_state_exchange_cnt < P2P_FINDPHASE_EX_CNT ) )
 		{
 			//	Set the P2P State to the listen state of find phase and set the current channel to the listen channel
 			set_channel_bwmode(padapter, pwdinfo->listen_channel, HAL_PRIME_CHNL_OFFSET_DONT_CARE, HT_CHANNEL_WIDTH_20);
 			rtw_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_LISTEN);
-			
 			pmlmeext->sitesurvey_res.state = SCAN_DISABLE;
 
+			initialgain = 0xff; //restore RX GAIN
+			padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_INITIAL_GAIN, (u8 *)(&initialgain));	
+			//turn on dynamic functions
+			Restore_DM_Func_Flag(padapter);
+			//Switch_DM_Func(padapter, DYNAMIC_FUNC_DIG|DYNAMIC_FUNC_HP|DYNAMIC_FUNC_SS, _TRUE);
+			
 			_set_timer( &pwdinfo->find_phase_timer, ( u32 ) ( ( u32 ) ( pwdinfo->listen_dwell ) * 100 ) );
 		}
 		else
 #endif //CONFIG_P2P
+
 		{
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
@@ -7675,7 +7534,6 @@ void site_survey(_adapter *padapter)
 			{
 				rtw_p2p_set_state(pwdinfo, P2P_STATE_LISTEN);
 			}
-			rtw_p2p_findphase_ex_set(pwdinfo, P2P_FINDPHASE_EX_NONE);
 #endif //CONFIG_P2P
 			
 			pmlmeext->sitesurvey_res.state = SCAN_COMPLETE;
@@ -8805,23 +8663,16 @@ void survey_timer_hdl(_adapter *padapter)
 
 		if(pmlmeext->scan_abort == _TRUE)
 		{
-			#ifdef CONFIG_P2P
-			if(!rtw_p2p_chk_state(&padapter->wdinfo, P2P_STATE_NONE))
+#ifdef CONFIG_P2P
+			if ( pwdinfo->find_phase_state_exchange_cnt != 0 )
 			{
-				rtw_p2p_findphase_ex_set(pwdinfo, P2P_FINDPHASE_EX_MAX);
+				//the channel_set is social_chan
 				pmlmeext->sitesurvey_res.channel_idx = 3;
-				DBG_871X("%s idx:%d, cnt:%u\n", __FUNCTION__
-					, pmlmeext->sitesurvey_res.channel_idx
-					, pwdinfo->find_phase_state_exchange_cnt
-				);
 			}
 			else
-			#endif
+#endif				
 			{
 				pmlmeext->sitesurvey_res.channel_idx = pmlmeext->max_chan_nums;
-				DBG_871X("%s idx:%d\n", __FUNCTION__
-					, pmlmeext->sitesurvey_res.channel_idx
-				);
 			}
 
 			pmlmeext->scan_abort = _FALSE;//reset
@@ -9241,11 +9092,9 @@ u8 join_cmd_hdl(_adapter *padapter, u8 *pbuf)
 	//Switch_DM_Func(padapter, DYNAMIC_FUNC_DISABLE, _FALSE);
 
 	//config the initial gain under linking, need to write the BB registers
-	#ifndef CONFIG_BEFORE_LINKED_DIG
 	initialgain = 0x1E;
 	padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_INITIAL_GAIN, (u8 *)(&initialgain));
-	#endif
-	
+
 	padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_BSSID, pmlmeinfo->network.MacAddress);
 	join_type = 0;
 	padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_MLME_JOIN, (u8 *)(&join_type));
@@ -9324,15 +9173,15 @@ u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 		pmlmeext->sitesurvey_res.channel_idx = 0;
 
 		for(i=0;i<RTW_SSID_SCAN_AMOUNT;i++){
-			if(pparm->ssid[i].SsidLength) {
+			if(le32_to_cpu(pparm->ssid[i].SsidLength)) {
 				_rtw_memcpy(pmlmeext->sitesurvey_res.ssid[i].Ssid, pparm->ssid[i].Ssid, IW_ESSID_MAX_SIZE);
-				pmlmeext->sitesurvey_res.ssid[i].SsidLength= pparm->ssid[i].SsidLength;
+				pmlmeext->sitesurvey_res.ssid[i].SsidLength= le32_to_cpu(pparm->ssid[i].SsidLength);
 			} else {
 				pmlmeext->sitesurvey_res.ssid[i].SsidLength= 0;
 			}	
 		}
 
-		pmlmeext->sitesurvey_res.scan_mode = pparm->scan_mode;
+		pmlmeext->sitesurvey_res.scan_mode = le32_to_cpu(pparm->scan_mode);			
 
 		//issue null data if associating to the AP
 		if (is_client_associated_to_ap(padapter) == _TRUE)
@@ -9368,13 +9217,8 @@ u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 		if((wdev_to_priv(padapter->rtw_wdev))->p2p_enabled == _TRUE)
 			initialgain = 0x27;
 		else
-#endif		
+#endif			
 			initialgain = 0x17;
-
-#ifdef CONFIG_P2P
-		if(!rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE) && !rtw_p2p_chk_state(pwdinfo, P2P_STATE_IDLE))
-			initialgain = 0x27;
-#endif //CONFIG_P2P
 
 		padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_INITIAL_GAIN, (u8 *)(&initialgain));		
 		
@@ -9543,7 +9387,6 @@ u8 set_tx_beacon_cmd(_adapter* padapter)
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u8	res = _SUCCESS;
-	int len_diff = 0;
 	
 _func_enter_;	
 	
@@ -9561,14 +9404,6 @@ _func_enter_;
 	}
 
 	_rtw_memcpy(&(ptxBeacon_parm->network), &(pmlmeinfo->network), sizeof(WLAN_BSSID_EX));
-	
-	len_diff = update_hidden_ssid(
-		ptxBeacon_parm->network.IEs+_BEACON_IE_OFFSET_
-		, ptxBeacon_parm->network.IELength-_BEACON_IE_OFFSET_
-		, pmlmeinfo->hidden_ssid_mode
-	);
-	ptxBeacon_parm->network.IELength += len_diff;
-		
 	init_h2fwcmd_w_parm_no_rsp(ph2c, ptxBeacon_parm, GEN_CMD_CODE(_TX_Beacon));
 
 	res = rtw_enqueue_cmd(pcmdpriv, ph2c);

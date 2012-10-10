@@ -899,6 +899,9 @@ static int rtw_resume(struct usb_interface *pusb_intf)
 	_adapter *padapter = (_adapter*)rtw_netdev_priv(pnetdev);
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 	 int ret = 0;
+#ifdef CONFIG_WOWLAN
+	 struct wowlan_ioctl_param poidparam;
+#endif //CONFIG_WOWLAN
  
 	if(pwrpriv->bInternalAutoSuspend ){
  		ret = rtw_resume_process(pusb_intf);
@@ -916,6 +919,20 @@ static int rtw_resume(struct usb_interface *pusb_intf)
 		ret = rtw_resume_process(pusb_intf);
 #endif //CONFIG_RESUME_IN_WORKQUEUE
 	}
+	
+#ifdef CONFIG_WOWLAN
+		if(padapter->pwrctrlpriv.bSupportRemoteWakeup==_TRUE&&padapter->pwrctrlpriv.wowlan_mode==_TRUE){
+			u8 ps_mode=PS_MODE_MIN;
+			//set H2C command
+			poidparam.subcode=WOWLAN_ENABLE;
+			padapter->HalFunc.SetHwRegHandler(padapter,HW_VAR_WOWLAN,(u8 *)&poidparam);
+			padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_H2C_FW_PWRMODE, &ps_mode);	
+			rtw_set_rpwm(padapter, PS_STATE_S2);
+			//set H2C command
+			poidparam.subcode=WOWLAN_DISABLE;
+			padapter->HalFunc.SetHwRegHandler(padapter,HW_VAR_WOWLAN,(u8 *)&poidparam);
+		}
+#endif //CONFIG_WOWLAN
 	
 	return ret;
 
@@ -942,7 +959,7 @@ int rtw_resume_process(struct usb_interface *pusb_intf)
 
 	padapter = (_adapter*)rtw_netdev_priv(pnetdev);
 	pwrpriv = &padapter->pwrctrlpriv;	
-
+	
 	if(padapter)//system resume
 	{
 		_enter_pwrlock(&pwrpriv->lock);
@@ -1391,7 +1408,7 @@ _func_exit_;
 		rtw_cancel_all_timer(padapter);
 #ifdef CONFIG_WOWLAN
 		padapter->pwrctrlpriv.wowlan_mode=_FALSE;
-#endif //CONFIG_WOWLAN
+#endif
 		rtw_dev_unload(padapter);
 
 		DBG_8192C("+r871xu_dev_remove, hw_init_completed=%d\n", padapter->hw_init_completed);

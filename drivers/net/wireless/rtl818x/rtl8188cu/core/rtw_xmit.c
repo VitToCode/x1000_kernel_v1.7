@@ -533,34 +533,6 @@ static void update_attrib_phy_info(struct pkt_attrib *pattrib, struct sta_info *
 	
 }
 
-static void qos_acm(u8 acm_mask, struct pkt_attrib *pattrib)
-{
-	switch (pattrib->priority)
-	{
-		case 0:
-		case 3:
-			if(acm_mask & BIT(1))
-				pattrib->priority = 2;
-			break;
-		case 1:
-		case 2:
-			break;
-		case 4:
-		case 5:
-			if(acm_mask & BIT(2))
-				pattrib->priority = 3;
-			break;
-		case 6:
-		case 7:
-			if(acm_mask & BIT(3))
-				pattrib->priority = 5;
-			break;
-		default:
-			DBG_871X("qos_acm(): invalid pattrib->priority: %d!!!\n", pattrib->priority);
-			break;
-	}
-}
-
 static void set_qos(struct pkt_file *ppktfile, struct pkt_attrib *pattrib)
 {
 	struct ethhdr etherhdr;
@@ -723,18 +695,12 @@ static s32 update_attrib(_adapter *padapter, _pkt *pkt, struct pkt_attrib *pattr
 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE|WIFI_ADHOC_STATE|WIFI_ADHOC_MASTER_STATE))
 	{
 		if(psta->qos_option)
-			set_qos(&pktfile, pattrib);
+			set_qos(&pktfile, pattrib);	
 	}
 	else
 	{
 		if(pqospriv->qos_option)
-		{
 			set_qos(&pktfile, pattrib);
-			if(pmlmepriv->acm_mask != 0)
-			{
-				qos_acm(pmlmepriv->acm_mask, pattrib);
-			}
-		}
 	}
 
 	//pattrib->priority = 5; //force to used VI queue, for testing
@@ -1130,6 +1096,7 @@ _func_enter_;
 
 			if (pattrib->priority)
 				SetPriority(qc, pattrib->priority);
+
 
 			SetEOSP(qc, pattrib->eosp);
 

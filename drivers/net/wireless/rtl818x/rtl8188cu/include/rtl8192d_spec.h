@@ -921,7 +921,6 @@ Default: 00b.
 #define EEPROM_VID								0xC // SE Vendor ID.A-B
 #define EEPROM_PID								0xE // SE Device ID. C-D
 #define EEPROM_ENDPOINT_SETTING				0x10
-#define EEPROM_Option_Setting				0x11
 #define EEPROM_CHIRP_K							0x12	// Changed
 #define EEPROM_USB_PHY							0x13	// Changed
 #define EEPROM_NORMAL_BoardType				EEPROM_RF_OPT1	//[7:5]

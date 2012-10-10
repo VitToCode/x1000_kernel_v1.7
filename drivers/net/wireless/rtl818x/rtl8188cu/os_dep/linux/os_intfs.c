@@ -102,8 +102,6 @@ int rtw_mp_mode = 0;
 #endif
 int rtw_software_encrypt = 0;
 int rtw_software_decrypt = 0;	  
-
-int rtw_acm_method = 0;// 0:By SW 1:By HW.
  
 int rtw_wmm_enable = 1;// default is set to enable the wmm.
 int rtw_uapsd_enable = 0;	  
@@ -558,8 +556,6 @@ _func_enter_;
 	registry_par->mp_mode = (u8)rtw_mp_mode;	
 	registry_par->software_encrypt = (u8)rtw_software_encrypt;
 	registry_par->software_decrypt = (u8)rtw_software_decrypt;	  
-
-	registry_par->acm_method = (u8)rtw_acm_method;
 
 	 //UAPSD
 	registry_par->wmm_enable = (u8)rtw_wmm_enable;
@@ -1209,7 +1205,7 @@ u8 rtw_free_drv_sw(_adapter *padapter)
 	
 }
 
-int _netdev_open(struct net_device *pnetdev)
+int netdev_open(struct net_device *pnetdev)
 {
 	uint status;	
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(pnetdev);
@@ -1360,18 +1356,7 @@ netdev_open_error:
 	
 }
 
-int netdev_open(struct net_device *pnetdev)
-{
-	int ret;
-	_adapter *padapter = (_adapter *)rtw_netdev_priv(pnetdev);
-	struct pwrctrl_priv *pwrctrlpriv = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrlpriv->lock);
-	ret = _netdev_open(pnetdev);
-	_exit_pwrlock(&pwrctrlpriv->lock);
-
-	return ret;
-}
 
 #ifdef CONFIG_IPS
 int  ips_netdrv_open(_adapter *padapter)
@@ -1466,7 +1451,7 @@ int pm_netdev_open(struct net_device *pnetdev,u8 bnormal)
 {
 	int status;
 	if(bnormal)
-		status = _netdev_open(pnetdev);
+		status = netdev_open(pnetdev);
 #ifdef CONFIG_IPS
 	else
 		status =  (_SUCCESS == ips_netdrv_open((_adapter *)rtw_netdev_priv(pnetdev)))?(0):(-1);
@@ -1540,7 +1525,8 @@ static int netdev_close(struct net_device *pnetdev)
 #endif //CONFIG_P2P
 
 #ifdef CONFIG_IOCTL_CFG80211
-	rtw_cfg80211_indicate_scan_done(wdev_to_priv(padapter->rtw_wdev), _TRUE);
+	DBG_871X("call rtw_indicate_scan_done when drv_close\n");
+	rtw_indicate_scan_done(padapter, _TRUE);
 	padapter->rtw_wdev->iftype = NL80211_IFTYPE_MONITOR; //set this at the end
 #endif
 	

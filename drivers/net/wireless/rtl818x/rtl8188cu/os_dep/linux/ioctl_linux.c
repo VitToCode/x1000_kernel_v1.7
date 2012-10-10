@@ -1834,7 +1834,7 @@ _func_enter_;
 	if(!rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE) && !rtw_p2p_chk_state(pwdinfo, P2P_STATE_IDLE))
 	{
 		rtw_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
-		rtw_p2p_findphase_ex_set(pwdinfo, P2P_FINDPHASE_EX_FULL);
+		pwdinfo->find_phase_state_exchange_cnt = 0;
 		rtw_free_network_queue(padapter, _TRUE);
 	}
 #endif //CONFIG_P2P
@@ -3986,10 +3986,6 @@ static int rtw_p2p_set_op_ch(struct net_device *dev,
 	}
 
 	if ( op_ch > 0 && op_ch <= 13 )
-	{
-		pwdinfo->operating_channel = op_ch;
-	}
-	else if(IsLegal5GChannel(padapter, op_ch))
 	{
 		pwdinfo->operating_channel = op_ch;
 	}
@@ -6637,38 +6633,6 @@ static int rtw_set_wps_probe_resp(struct net_device *dev, struct ieee_param *par
 
 }
 
-static int rtw_set_hidden_ssid(struct net_device *dev, struct ieee_param *param, int len)
-{
-	int ret=0;
-	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);	
-	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
-	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-
-	u8 value;
-
-	if(check_fwstate(pmlmepriv, WIFI_AP_STATE) != _TRUE)
-		return -EINVAL;
-
-	if(param->u.wpa_param.name != 0) //dummy test...
-	{
-		DBG_871X("%s name(%u) != 0\n", __FUNCTION__, param->u.wpa_param.name);
-	}
-	
-	value = param->u.wpa_param.value;
-
-	//use the same definition of hostapd's ignore_broadcast_ssid
-	if(value != 1 && value != 2)
-		value = 0;
-
-	DBG_871X("%s value(%u)\n", __FUNCTION__, value);
-	pmlmeinfo->hidden_ssid_mode = value;
-
-	return ret;		
-
-}
-
-
 static int rtw_set_wps_assoc_resp(struct net_device *dev, struct ieee_param *param, int len)
 {
 	int ret=0;
@@ -6803,12 +6767,6 @@ static int rtw_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
 			ret = rtw_set_wps_assoc_resp(dev, param, p->length);
 			
 	 		break;
-
-		case RTL871X_HOSTAPD_SET_HIDDEN_SSID:
-
-			ret = rtw_set_hidden_ssid(dev, param, p->length);
-
-			break;
 			
 		default:
 			DBG_8192C("Unknown hostapd request: %d\n", param->cmd);
@@ -6887,31 +6845,11 @@ static int rtw_wx_set_priv(struct net_device *dev,
 		if((_VENDOR_SPECIFIC_IE_ == probereq_wpsie[0]) &&
 			(_rtw_memcmp(&probereq_wpsie[2], wps_oui, 4) ==_TRUE))
 		{
+
 			cp_sz = probereq_wpsie_len>MAX_WPS_IE_LEN ? MAX_WPS_IE_LEN:probereq_wpsie_len;
 
-			//_rtw_memcpy(pmlmepriv->probereq_wpsie, probereq_wpsie, cp_sz);
-			//pmlmepriv->probereq_wpsie_len = cp_sz;
-					
-			printk("probe_req_wps_ielen=%d\n", cp_sz);
-						
-			if(pmlmepriv->wps_probe_req_ie)
-			{
-				u32 free_len = pmlmepriv->wps_probe_req_ie_len;
-				pmlmepriv->wps_probe_req_ie_len = 0;
-				rtw_mfree(pmlmepriv->wps_probe_req_ie, free_len);
-				pmlmepriv->wps_probe_req_ie = NULL;			
-			}	
-
-			pmlmepriv->wps_probe_req_ie = rtw_malloc(cp_sz);
-			if ( pmlmepriv->wps_probe_req_ie == NULL) {
-				printk("%s()-%d: rtw_malloc() ERROR!\n", __FUNCTION__, __LINE__);
-				ret =  -EINVAL;
-				goto FREE_EXT;
-			
-			}
-			
-			_rtw_memcpy(pmlmepriv->wps_probe_req_ie, probereq_wpsie, cp_sz);
-			pmlmepriv->wps_probe_req_ie_len = cp_sz;					
+			_rtw_memcpy(pmlmepriv->probereq_wpsie, probereq_wpsie, cp_sz);
+			pmlmepriv->probereq_wpsie_len = cp_sz;
 			
 		}	
 		

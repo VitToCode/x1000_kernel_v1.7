@@ -22,17 +22,17 @@
  * Public  General Config
  */
 #define AUTOCONF_INCLUDED
-#define RTL871X_MODULE_NAME "92CU"
-#define DRV_NAME "rtl8192cu"
+#define RTL871X_MODULE_NAME "92DU"
+#define DRV_NAME "rtl8192du"
 
 #define CONFIG_USB_HCI	1
 
-#define CONFIG_RTL8192C	1
+#define CONFIG_RTL8192D	1
 
 #define PLATFORM_LINUX	1
 
 
-#define CONFIG_IOCTL_CFG80211 1
+//#define CONFIG_IOCTL_CFG80211 1
 #ifdef CONFIG_IOCTL_CFG80211
 	#define CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER
 	//#define CONFIG_DEBUG_CFG80211 1
@@ -41,15 +41,11 @@
 /*
  * Internal  General Config
  */
-//#define CONFIG_PWRCTRL
-//#define CONFIG_H2CLBK
+//#define CONFIG_PWRCTRL	1
+//#define CONFIG_H2CLBK	1
 
 #define CONFIG_EMBEDDED_FWIMG	1
 //#define CONFIG_FILE_FWIMG
-
-#ifdef CONFIG_WAKE_ON_WLAN
-#define CONFIG_WOWLAN 1
-#endif //CONFIG_WAKE_ON_WLAN
 
 #define CONFIG_R871X_TEST	1
 
@@ -61,34 +57,21 @@
 
 //#define CONFIG_DRVEXT_MODULE	1
 
-#ifndef CONFIG_MP_INCLUDED
-	#define CONFIG_IPS	1
-	#ifdef CONFIG_IPS
-		//#define CONFIG_IPS_LEVEL_2	1 //enable this to set default IPS mode to IPS_LEVEL_2
-	#endif
-	#define SUPPORT_HW_RFOFF_DETECTED	1
-	
-	#define CONFIG_LPS	1
-	#define CONFIG_BT_COEXIST	1
-	//befor link
-	#define CONFIG_ANTENNA_DIVERSITY	 	
-	//after link
-	#ifdef CONFIG_ANTENNA_DIVERSITY
-	#define CONFIG_SW_ANTENNA_DIVERSITY	 
-	//#define CONFIG_HW_ANTENNA_DIVERSITY	
-	#endif
-	
-	#define CONFIG_IOL
-#else  //#ifndef CONFIG_MP_INCLUDED
-	#define CONFIG_MP_IWPRIV_SUPPORT	1
-#endif  //#ifndef CONFIG_MP_INCLUDED
 
-#define CONFIG_AP_MODE	1
-#define CONFIG_NATIVEAP_MLME	1
+#ifndef CONFIG_MP_INCLUDED
+//#define CONFIG_IPS	1
+#define CONFIG_LPS	1
+//#define CONFIG_BT_COEXIST  	1
+//#define SUPPORT_HW_RFOFF_DETECTED	1
+#else
+#define CONFIG_MP_IWPRIV_SUPPORT 1
+#endif
+
+#define CONFIG_AP_MODE 1
+#define CONFIG_NATIVEAP_MLME 1
 
 //	Added by Albert 20110314
 #define CONFIG_P2P	1
-
 
 #ifdef CONFIG_P2P
 //	Added by Albert 20110812
@@ -102,12 +85,12 @@
 #endif
 
 //	Added by Kurt 20110511
-//#define CONFIG_TDLS	1
+//#define CONFIG_TDLS 1
 #ifdef CONFIG_TDLS
 	#define CONFIG_TDLS_AUTOSETUP			1
 	#define CONFIG_TDLS_AUTOCHECKALIVE		1
-#endif
-			
+#endif	
+
 #ifdef CONFIG_AP_MODE
 	#ifndef CONFIG_NATIVEAP_MLME
 		#define CONFIG_HOSTAPD_MLME	1
@@ -117,36 +100,19 @@
 
 #define CONFIG_SKB_COPY	1//for amsdu
 
+#define CONFIG_DFS	1
+
 #define CONFIG_LED
 #ifdef CONFIG_LED
-	#define CONFIG_SW_LED
-	#ifdef CONFIG_SW_LED
-		//#define CONFIG_LED_HANDLED_BY_CMD_THREAD
-	#endif
-#endif // CONFIG_LED
+#define CONFIG_SW_LED
+#endif //CONFIG_LED
 
 
-
-#define USB_INTERFERENCE_ISSUE // this should be checked in all usb interface
-#define CONFIG_GLOBAL_UI_PID
-
-#define CONFIG_LAYER2_ROAMING
-#define CONFIG_LAYER2_ROAMING_RESUME
-//#define CONFIG_ADAPTOR_INFO_CACHING_FILE // now just applied on 8192cu only, should make it general...
-//#define CONFIG_RESUME_IN_WORKQUEUE
+//#define CONFIG_LAYER2_ROAMING
+//#define CONFIG_LAYER2_ROAMING_RESUME
 //#define CONFIG_SET_SCAN_DENY_TIMER
-#define CONFIG_LONG_DELAY_ISSUE
 #define CONFIG_NEW_SIGNAL_STAT_PROCESS
 //#define CONFIG_SIGNAL_DISPLAY_DBM //display RX signal with dbm
-
-#ifdef CONFIG_IOL
-	#define CONFIG_IOL_LLT
-	#define CONFIG_IOL_MAC
-	#define CONFIG_IOL_BB_PHY_REG
-	#define CONFIG_IOL_BB_AGC_TAB
-	#define CONFIG_IOL_RF_RF90_PATH_A
-	#define CONFIG_IOL_RF_RF90_PATH_B
-#endif
 
 #define CONFIG_BR_EXT	1	// Enable NAT2.5 support for STA mode interface with a L2 Bridge
 #ifdef CONFIG_BR_EXT
@@ -154,8 +120,9 @@
 #endif	// CONFIG_BR_EXT
 
 #define CONFIG_TX_MCAST2UNI	1	// Support IP multicast->unicast
-//#define CONFIG_CHECK_AC_LIFETIME 1	// Check packet lifetime of 4 ACs.
 
+//#define CONFIG_CHECK_AC_LIFETIME	1	// Check packet lifetime of 4 ACs.
+//#define CONFIG_DISABLE_MCS13TO15	1	// Disable MSC13-15 rates for more stable throughput with some 5G APs
 
 /*
  * Interface  Related Config
@@ -171,6 +138,8 @@
 //#define CONFIG_REDUCE_USB_TX_INT	1	// Trade-off: Improve performance, but may cause TX URBs blocked by USB Host/Bus driver on few platforms.
 //#define CONFIG_EASY_REPLACEMENT	1
 
+
+
 /* 
  * CONFIG_USE_USB_BUFFER_ALLOC_XX uses Linux USB Buffer alloc API and is for Linux platform only now!
  */
@@ -185,7 +154,7 @@
 #define CONFIG_USB_VENDOR_REQ_BUFFER_PREALLOC
 
 #define CONFIG_USB_VENDOR_REQ_MUTEX
-#define CONFIG_VENDOR_REQ_RETRY
+
 
 //#define CONFIG_USB_SUPPORT_ASYNC_VDN_REQ 1
 
@@ -196,12 +165,6 @@
 
 #define RTL8192C_RX_PACKET_NO_INCLUDE_CRC	1
 
-#define SUPPORTED_BLOCK_IO
-
-
-
-#define RTL8192CU_FW_DOWNLOAD_ENABLE	1
-
 #define CONFIG_ONLY_ONE_OUT_EP_TO_LOW	0
 
 #define CONFIG_OUT_EP_WIFI_MODE	0
@@ -210,11 +173,23 @@
 
 #define RTL8192CU_ASIC_VERIFICATION	0	// For ASIC verification.
 
-#define RTL8192CU_ADHOC_WORKAROUND_SETTING	1
+#define RTL8192CU_ADHOC_WORKAROUND_SETTING 1
 
-#define DISABLE_BB_RF	0
+#define DISABLE_BB_RF	0	
 
 #define RTL8191C_FPGA_NETWORKTYPE_ADHOC 0
+
+#define ANTENNA_SELECTION_STATIC_SETTING 0
+
+#define TX_POWER_FOR_5G_BAND				1	//For 5G band TX Power
+
+#define RTL8192D_EASY_SMART_CONCURRENT	0
+
+#define RTL8192D_DUAL_MAC_MODE_SWITCH	0
+
+#define SWLCK   1
+
+#define FW_PROCESS_VENDOR_CMD 1
 
 #ifdef CONFIG_MP_INCLUDED
 	#define MP_DRIVER 1
@@ -224,62 +199,22 @@
 	#define MP_DRIVER 0
 #endif
 
-
 /*
  * Platform  Related Config
  */
-#ifdef CONFIG_PLATFORM_MN10300
-#define CONFIG_SPECIAL_SETTING_FOR_FUNAI_TV
-
-#if	defined (CONFIG_SW_ANTENNA_DIVERSITY)
-	#undef CONFIG_SW_ANTENNA_DIVERSITY
-	#define CONFIG_HW_ANTENNA_DIVERSITY
+#ifndef CONFIG_WISTRON_PLATFORM
+//#define CONFIG_USB_VENDOR_REQ_BUFFER_DYNAMIC_ALLOCATE	1
 #endif
-
-#endif
-
-#ifdef CONFIG_WISTRON_PLATFORM
-
-#endif
-
-#ifdef CONFIG_PLATFORM_TI_DM365
-#define CONFIG_USE_USB_BUFFER_ALLOC_RX 1
-#endif
-
 
 /*
  * Debug  Related Config
  */
 //#define CONFIG_DEBUG_RTL871X
 
-#define DBG	0
+#define DBG 0
+
 #define CONFIG_DEBUG_RTL819X
 
-#define CONFIG_PROC_DEBUG	1
+#define CONFIG_PROC_DEBUG 1
 
-//#define DBG_IO
-//#define DBG_DELAY_OS
-//#define DBG_MEM_ALLOC
-//#define DBG_IOCTL
-
-//#define DBG_TX
-//#define DBG_XMIT_BUF
-//#define DBG_TX_DROP_FRAME
-
-//#define DBG_RX_DROP_FRAME
-//#define DBG_RX_SEQ
-//#define DBG_RX_SIGNAL_DISPLAY_PROCESSING
-//#define DBG_RX_SIGNAL_DISPLAY_SSID_MONITORED "jeff-ap"
-
-//#define DBG_EXPIRATION_CHK
-
-
-//#define DBG_SHOW_MCUFWDL_BEFORE_51_ENABLE
-//#define DBG_ROAMING_TEST
-
-//#define DBG_HAL_INIT_PROFILING
 #define DBG_MEMORY_LEAK	1
-
-#define DBG_CONFIG_ERROR_DETECT
-//#define DBG_CONFIG_ERROR_RESET
-

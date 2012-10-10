@@ -1,5 +1,4 @@
-EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
-EXTRA_CFLAGS += -O1
+EXTRA_CFLAGS += -O1 
 #EXTRA_CFLAGS += -O3
 #EXTRA_CFLAGS += -Wall 
 #EXTRA_CFLAGS += -Wextra 
@@ -18,7 +17,7 @@ EXTRA_CFLAGS += -Wno-uninitialized
 
 EXTRA_CFLAGS += -I$(src)/include
 
-CONFIG_AUTOCFG_CP = n
+CONFIG_AUTOCFG_CP = y
 
 CONFIG_RTL8192C = y
 CONFIG_RTL8192D = n
@@ -28,7 +27,7 @@ CONFIG_PCI_HCI = n
 CONFIG_SDIO_HCI = n
 
 CONFIG_MP_INCLUDED = n
-CONFIG_POWER_SAVING			=	y
+CONFIG_POWER_SAVING			=	n
 CONFIG_USB_AUTOSUSPEND			=	n
 CONFIG_HW_PWRP_DETECTION		=	n
 CONFIG_WIFI_TEST						=	n
@@ -56,7 +55,8 @@ CONFIG_PLATFORM_ARM_TCC8900 = n
 CONFIG_PLATFORM_ARM_TCC8920 = n
 CONFIG_PLATFORM_ARM_RK2818 = n
 CONFIG_PLATFORM_ARM_TI_PANDA = n
-CONFIG_PLATFORM_MIPS_JZ4760 = y
+CONFIG_PLATFORM_MIPS_JZ4760 = n
+CONFIG_PLATFORM_MIPS_JZ4770 = y
 CONFIG_PLATFORM_DMP_PHILIPS = n
 CONFIG_PLATFORM_TI_DM365	=	n
 CONFIG_PLATFORM_MN10300 = n
@@ -114,9 +114,6 @@ ifeq ($(CONFIG_USB_HCI), y)
 MODULE_NAME = 8192du
 FW_FILES := hal/$(RTL871X)/usb/Hal8192DUHWImg.o \
 			hal/$(RTL871X)/usb/Hal8192DUTestHWImg.o
-ifneq ($(CONFIG_WAKE_ON_WLAN), n)
-FW_FILES += hal/$(RTL871X)/usb/Hal8192DUHWImg_wowlan.o
-endif
 endif
 ifeq ($(CONFIG_PCI_HCI), y)
 MODULE_NAME = 8192de
@@ -147,7 +144,7 @@ _HAL_INTFS_FILES := hal/$(RTL871X)/hal_init.o \
 
 endif
 
-
+#CONFIG_USB_HCI ?= y
 ifeq ($(CONFIG_USB_HCI), y)
 
 HCI_NAME = usb
@@ -212,9 +209,9 @@ _HAL_INTFS_FILES += $(CHIP_FILES)
 
 endif
 
-ifeq ($(CONFIG_AUTOCFG_CP), y)
-$(shell cp $(TopDIR)/autoconf_$(RTL871X)_$(HCI_NAME)_linux.h $(TopDIR)/include/autoconf.h)
-endif
+#ifeq ($(CONFIG_AUTOCFG_CP), y)
+#$(shell cp $(TopDIR)/autoconf_$(RTL871X)_$(HCI_NAME)_linux.h $(TopDIR)/include/autoconf.h)
+#endif
 
 
 ifeq ($(CONFIG_USB_HCI), y)
@@ -412,7 +409,7 @@ endif
 ifeq ($(CONFIG_PLATFORM_ARM_TCC8920), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN #-DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH := arm
-CROSS_COMPILE := /media/DATA-2/telechips/ics_sdk/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
+CROSS_COMPILE ?= /media/DATA-1/telechips/SDK_2302_20110425/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 KSRC := /media/DATA-2/telechips/ics_sdk/kernel
 MODULE_NAME := wlan
 endif
@@ -435,7 +432,7 @@ KSRC := /media/DATA-1/android-4.0/panda_kernel/omap
 MODULE_NAME := wlan
 endif
 
-ifeq ($(CONFIG_PLATFORM_MIPS_JZ4760), y)
+ifeq ($(CONFIG_PLATFORM_MIPS_JZ4770), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH ?= mips
 CROSS_COMPILE ?= /opt/mips-4.3/bin/mips-linux-gnu-

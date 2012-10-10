@@ -112,9 +112,7 @@
 #elif defined(CONFIG_USB_HCI)
 
 	#include "Hal8192CUHWImg.h"
-#ifdef CONFIG_WOWLAN
 	#include "Hal8192CUHWImg_wowlan.h"
-#endif //CONFIG_WOWLAN
 	//2TODO: We should define 8192S firmware related macro settings here!!
 	#define RTL819X_DEFAULT_RF_TYPE			RF_1T2R
 	#define RTL819X_TOTAL_RF_PATH				2
@@ -165,11 +163,10 @@
 	#define Rtl819XFwTSMCImageArray			Rtl8192CUFwTSMCImgArray
 	#define Rtl819XFwUMCACutImageArray			Rtl8192CUFwUMCACutImgArray
 	#define Rtl819XFwUMCBCutImageArray			Rtl8192CUFwUMCBCutImgArray
-#ifdef CONFIG_WOWLAN
 	#define Rtl8192C_FwTSMCWWImageArray		Rtl8192CUFwTSMCWWImgArray
 	#define Rtl8192C_FwUMCWWImageArray		Rtl8192CUFwUMCACutWWImgArray
 	#define Rtl8192C_FwUMCBCutWWImageArray	Rtl8192CUFwUMCBCutWWImgArray		
-#endif //CONFIG_WOWLAN
+
 	#define Rtl819XMAC_Array					Rtl8192CUMAC_2T_Array
 	#define Rtl819XAGCTAB_2TArray				Rtl8192CUAGCTAB_2TArray
 	#define Rtl819XAGCTAB_1TArray				Rtl8192CUAGCTAB_1TArray
@@ -218,7 +215,7 @@ typedef struct _RT_FIRMWARE{
 #ifdef CONFIG_WOWLAN
 	u8*			szWoWLANFwBuffer;
 	u32			ulWoWLANFwLength;
-#endif //CONFIG_WOWLAN
+#endif	
 }RT_FIRMWARE, *PRT_FIRMWARE, RT_FIRMWARE_92C, *PRT_FIRMWARE_92C;
 
 //

@@ -678,20 +678,17 @@ int WMM_param_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs	pIE)
 void WMMOnAssocRsp(_adapter *padapter)
 {
 	u8	ACI, ACM, AIFS, ECWMin, ECWMax, aSifsTime;
-	u8	acm_mask;
+	u8	acm_ctrl;
 	u16	TXOP;
 	u32	acParm, i;
 	struct registry_priv	*pregpriv = &padapter->registrypriv;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-
+	
 	if (pmlmeinfo->WMM_enable == 0)
-	{
-		padapter->mlmepriv.acm_mask = 0;
 		return;
-	}
 
-	acm_mask = 0;
+	acm_ctrl = 0;
 
 	if( pmlmeext->cur_wireless_mode == WIRELESS_11B)
 		aSifsTime = 10;
@@ -705,43 +702,40 @@ void WMMOnAssocRsp(_adapter *padapter)
 
 		//AIFS = AIFSN * slot time + SIFS - r2t phy delay
 		AIFS = (pmlmeinfo->WMM_param.ac_param[i].ACI_AIFSN & 0x0f) * pmlmeinfo->slotTime + aSifsTime;
-
+		
 		ECWMin = (pmlmeinfo->WMM_param.ac_param[i].CW & 0x0f);
 		ECWMax = (pmlmeinfo->WMM_param.ac_param[i].CW & 0xf0) >> 4;
 		TXOP = le16_to_cpu(pmlmeinfo->WMM_param.ac_param[i].TXOP_limit);
-
+		
 		acParm = AIFS | (ECWMin << 8) | (ECWMax << 12) | (TXOP << 16);
 
 		switch (ACI)
 		{
 			case 0x0:
 				padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_AC_PARAM_BE, (u8 *)(&acParm));
-				acm_mask |= (ACM? BIT(1):0);
+				acm_ctrl |= (ACM? BIT(1):0);
 				break;
-
+								
 			case 0x1:
 				padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_AC_PARAM_BK, (u8 *)(&acParm));
-				//acm_mask |= (ACM? BIT(0):0);
+				acm_ctrl |= (ACM? BIT(0):0);
 				break;
-
+								
 			case 0x2:
 				padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_AC_PARAM_VI, (u8 *)(&acParm));
-				acm_mask |= (ACM? BIT(2):0);
+				acm_ctrl |= (ACM? BIT(2):0);
 				break;
-
+								
 			case 0x3:
 				padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_AC_PARAM_VO, (u8 *)(&acParm));
-				acm_mask |= (ACM? BIT(3):0);
+				acm_ctrl |= (ACM? BIT(3):0);
 				break;							
 		}
-
+		
 		DBG_871X("WMM(%x): %x, %x\n", ACI, ACM, acParm);
 	}
 
-	if(padapter->registrypriv.acm_method == 1)
-		padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_ACM_CTRL, (u8 *)(&acm_mask));
-	else
-		padapter->mlmepriv.acm_mask = acm_mask;
+	padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_ACM_CTRL, (u8 *)(&acm_ctrl));
 
 	return;	
 }

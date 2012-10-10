@@ -98,9 +98,7 @@
 #elif defined(CONFIG_USB_HCI)
 
 	#include "Hal8192DUHWImg.h"
-#ifdef CONFIG_WOWLAN
-	#include "Hal8192DUHWImg_wowlan.h"
-#endif //CONFIG_WOWLAN
+
 	#define RTL819X_DEFAULT_RF_TYPE		RF_1T2R
 
 //---------------------------------------------------------------------
@@ -127,9 +125,7 @@
 		
 	// Fw Array
 	#define Rtl8192D_FwImageArray 					Rtl8192DUFwImgArray
-#ifdef CONFIG_WOWLAN
-	#define Rtl8192D_FwWWImageArray				Rtl8192DUFwWWImgArray
-#endif //CONFIG_WOWLAN
+	
 	// MAC/BB/PHY Array
 	#define Rtl8192D_MAC_Array						Rtl8192DUMAC_2T_Array
 	#define Rtl8192D_AGCTAB_Array					Rtl8192DUAGCTAB_Array
@@ -215,10 +211,10 @@ typedef struct _RT_FIRMWARE{
 	FIRMWARE_SOURCE	eFWSource;
 	u8*			szFwBuffer;
 	u32			ulFwLength;
-#ifdef CONFIG_WOWLAN
+#ifdef CONFIG_WOWLAN_92D
 	u8*			szWoWLANFwBuffer;
 	u32			ulWoWLANFwLength;
-#endif //CONFIG_WOWLAN
+#endif //CONFIG_WOWLAN_92D
 }RT_FIRMWARE, *PRT_FIRMWARE, RT_FIRMWARE_92D, *PRT_FIRMWARE_92D;
 
 //

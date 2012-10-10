@@ -729,7 +729,7 @@ static u8 InitLLTTable(
 	u32		i;
 
 #ifdef CONFIG_IOL_LLT
-	if(rtw_IOL_applied(Adapter))
+	if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 	{
 		struct xmit_frame	*xmit_frame;
 		if((xmit_frame=rtw_IOL_accquire_xmit_frame(Adapter)) == NULL)
@@ -2586,9 +2586,6 @@ HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_MISC31);
 		DBG_8192C("MAC Address from REG_MACID = "MAC_FMT"\n", MAC_ARG(mac_addr));
 	}
 
-#ifdef CONFIG_ENABLE_NOTCH_FILTER
-	rtw_write8(Adapter, 0xc41, 0x42);	
-#endif
 exit:
 HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_END);
 
@@ -4100,11 +4097,10 @@ static void _ReadPSSetting(IN PADAPTER Adapter,IN u8*PROMContent,IN u8	AutoloadF
 			Adapter->pwrctrlpriv.bHWPowerdown = (PROMContent[EEPROM_RF_OPT3] & BIT4);
 		else
 			Adapter->pwrctrlpriv.bHWPowerdown = Adapter->registrypriv.hwpdn_mode;
-#ifdef CONFIG_WOWLAN			
+				
 		// decide hw if support remote wakeup function
 		// if hw supported, 8051 (SIE) will generate WeakUP signal( D+/D- toggle) when autoresume
 		Adapter->pwrctrlpriv.bSupportRemoteWakeup = (PROMContent[EEPROM_TEST_USB_OPT] & BIT1)?_TRUE :_FALSE;
-#endif //CONFIG_WOWLAN
 
 		//if(SUPPORT_HW_RADIO_DETECT(Adapter))	
 			//Adapter->registrypriv.usbss_enable = Adapter->pwrctrlpriv.bSupportRemoteWakeup ;
@@ -4458,7 +4454,6 @@ u16 calc_crc(u8 * pdata,int length)
 	return CRC;
 }
 
-#ifdef CONFIG_WOWLAN
 static int rtw_wowlan_set_pattern(_adapter *padapter ,u8* pbuf){
 	struct pwrctrl_priv *pwrpriv=&padapter->pwrctrlpriv;
 	int res=0,crc_idx;
@@ -4620,7 +4615,6 @@ void rtw_wowlan_reload_pattern(_adapter *padapter){
 
 	}
 }
-#endif //CONFIG_WOWLAN
 
 void SetHwReg8192CU(PADAPTER Adapter, u8 variable, u8* val)
 {
@@ -5490,7 +5484,7 @@ _func_enter_;
 			}
 
 			break;
-#endif //CONFIG_WOWLAN
+#endif			
 		default:
 			break;
 	}

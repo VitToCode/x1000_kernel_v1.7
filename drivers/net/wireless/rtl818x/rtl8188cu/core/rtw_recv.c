@@ -582,7 +582,6 @@ _func_exit_;
 //decrypt and set the ivlen,icvlen of the recv_frame
 static union recv_frame * decryptor(_adapter *padapter,union recv_frame *precv_frame)
 {
-	u32	 res=_SUCCESS;
 
 	struct rx_pkt_attrib *prxattrib = &precv_frame->u.hdr.attrib;
 	struct security_priv *psecuritypriv=&padapter->securitypriv;
@@ -630,10 +629,10 @@ _func_enter_;
 			rtw_wep_decrypt(padapter, (u8 *)precv_frame);
 			break;
 		case _TKIP_:
-			res = rtw_tkip_decrypt(padapter, (u8 *)precv_frame);
+			rtw_tkip_decrypt(padapter, (u8 *)precv_frame);
 			break;
 		case _AES_:
-			res = rtw_aes_decrypt(padapter, (u8 * )precv_frame);
+			rtw_aes_decrypt(padapter, (u8 * )precv_frame);
 			break;
 		default:
 				break;
@@ -674,12 +673,6 @@ _func_enter_;
 		#endif
 	}
 
-	if(res == _FAIL)
-	{
-		rtw_free_recvframe(return_packet,&padapter->recvpriv.free_recv_queue);			
-		return_packet = NULL;
-		
-	}
 	//recvframe_chkmic(adapter, precv_frame);   //move to recvframme_defrag function
 
 _func_exit_;

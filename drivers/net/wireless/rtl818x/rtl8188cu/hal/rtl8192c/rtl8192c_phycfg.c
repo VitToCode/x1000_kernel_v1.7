@@ -665,7 +665,7 @@ phy_ConfigMACWithHeaderFile(
 	ptrArray = Rtl819XMAC_Array;
 
 #ifdef CONFIG_IOL_MAC
-	if(rtw_IOL_applied(Adapter))
+	if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 	{
 		struct xmit_frame	*xmit_frame;
 		if((xmit_frame=rtw_IOL_accquire_xmit_frame(Adapter)) == NULL)
@@ -1036,7 +1036,7 @@ phy_ConfigBBWithHeaderFile(
 	if(ConfigType == BaseBand_Config_PHY_REG)
 	{
 		#ifdef CONFIG_IOL_BB_PHY_REG
-		if(rtw_IOL_applied(Adapter))
+		if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 		{
 			struct xmit_frame	*xmit_frame;
 			u32 tmp_value;
@@ -1107,7 +1107,7 @@ phy_ConfigBBWithHeaderFile(
 	else if(ConfigType == BaseBand_Config_AGC_TAB)
 	{
 		#ifdef CONFIG_IOL_BB_AGC_TAB
-		if(rtw_IOL_applied(Adapter))
+		if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 		{
 			struct xmit_frame	*xmit_frame;
 
@@ -2100,7 +2100,7 @@ rtl8192c_PHY_ConfigRFWithHeaderFile(
 	switch(eRFPath){
 		case RF90_PATH_A:
 			#ifdef CONFIG_IOL_RF_RF90_PATH_A
-			if(rtw_IOL_applied(Adapter))
+			if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 			{
 				struct xmit_frame	*xmit_frame;
 				if((xmit_frame=rtw_IOL_accquire_xmit_frame(Adapter)) == NULL) {
@@ -2171,7 +2171,7 @@ rtl8192c_PHY_ConfigRFWithHeaderFile(
 			break;
 		case RF90_PATH_B:
 			#ifdef CONFIG_IOL_RF_RF90_PATH_B
-			if(rtw_IOL_applied(Adapter))
+			if(Adapter->registrypriv.force_iol || !Adapter->dvobjpriv.ishighspeed)
 			{
 				struct xmit_frame	*xmit_frame;
 				if((xmit_frame=rtw_IOL_accquire_xmit_frame(Adapter)) == NULL) {
