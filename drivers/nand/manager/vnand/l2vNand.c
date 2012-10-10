@@ -302,13 +302,14 @@ static void fill_pagelist(PPartition *pt, PageList *pl, int pt_id)
 
 static void read_badblock_info_page(VNandManager *vm)
 {
-	int i, ret;
+	int i, j, ret;
 	int blmid;
 	VNandInfo error_vn;
 	PageList *pl = NULL;
 	PPartition *pt = NULL;
 	PPartition *lastpt = NULL;
 	int startblock = 0, badcnt = 0,blkcnt = 0;
+	int badblockcount = 0;
 
 	if ((vm->pt->ptcount - 1) * BADBLOCKINFOSIZE > vm->info.PagePerBlock) {
 		ndprint(VNAND_ERROR,"ERROR: BADBLOCKINFOSIZE = %d is too large,vnand->PagePerBlock = %d func %s line %d \n",
@@ -406,6 +407,15 @@ static void read_badblock_info_page(VNandManager *vm)
 				ndprint(VNAND_ERROR, "ERROR: pt[%d] bad bad block error!\n", i);
 				while(1);
 			}
+		}
+		for(j = 0; j < pt->totalblocks; j++) {
+		        if(pt->badblock->pt_badblock_info[j] == -1)
+		                break;
+		        badblockcount++;
+		}
+		if(badblockcount > 0) {
+		    pt->totalblocks -= badblockcount;
+			pt->PageCount -= badblockcount * pt->pageperblock;
 		}
 	}
 	BuffListManager_freeAllList(blmid,(void **)&pl,sizeof(PageList));
