@@ -56,3 +56,9 @@ config TRAPS_USE_TCSM
 	depends on MACH_XBURST
 	bool "move irq handler to tcsm"
 	default n
+
+config EARLYSUSPEND_CPU
+	depends on EARLYSUSPEND
+	bool "suspend non-boot cpu when enter early suspend"
+	default n
+

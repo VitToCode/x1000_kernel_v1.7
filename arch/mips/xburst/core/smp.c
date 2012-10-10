@@ -472,17 +472,17 @@ long switch_cpu_irq(int cpu) {
 	return ret;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND_CPU)
 static struct early_suspend smp_early_suspend;
 
 void smp_suspend(struct early_suspend *h)
 {
-	//disable_nonboot_cpus();
+	disable_nonboot_cpus();
 }
 
 void smp_resume(struct early_suspend *h)
 {
-	//enable_nonboot_cpus();
+	enable_nonboot_cpus();
 }
 
 static int __init init_smp_early_suspend(void)
