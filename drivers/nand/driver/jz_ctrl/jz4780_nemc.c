@@ -57,7 +57,7 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	smcr_val |= (data & NEMC_SMCR_STRV_MASK) << NEMC_SMCR_STRV_BIT;
 
 	dprintf("==>%s L%d, tals=%d, talh=%d, twp=%d, trp=%d, smcr=0x%08x\n", __func__, __LINE__, flash->tals, flash->talh, flash->twp, flash->trp, smcr_val);
-
+//	smcr_val =0x18331400;
 	return smcr_val;
 }
 
@@ -105,7 +105,7 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	dbg_line();	
 	/* Read/Write timings */
 //	init_nandchip_smcr_n(host,1,SMCR_DEFAULT_VAL);
-	*(volatile unsigned int *)0xb3410014 = 0x11444400;
+	//*(volatile unsigned int *)0xb3410014 = 0x11444400;
 	g_chips_mark[0]=1;
 	
 #if defined(CONFIG_NAND_CS2)
@@ -247,7 +247,6 @@ void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
 	JZ_IO *p_io = (JZ_IO *)pnand_io;
 	/* Calculate appropriate Read/Write timings */
 	int smcr = nand_calc_smcr(host,flash_chip);	
-	
 	NAND_FLASH_DEV *pnand_type = flash_chip;
 	if(pnand_type->buswidth == 16)
 	{
@@ -262,8 +261,8 @@ void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
 	}
 	p_io->pagesize = pnand_type->pagesize;
 	
-	dprintf("SMCR = 0x%08x\n", nemc_readl(host->nemc_iomem,NEMC_SMCR1));	
 	nemc_writel(host->nemc_iomem,NEMC_SMCR1,smcr);
+	dprintf("SMCR = 0x%08x\n", nemc_readl(host->nemc_iomem,NEMC_SMCR1));	
 	
 	while(ret <= g_maxchips && ret < NEMC_CS_COUNT)
 	{

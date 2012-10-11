@@ -81,10 +81,10 @@ void irq_bch_calculate_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe
 				unsigned char *par_buf)
 {
 	__mbch_encode_sync();
-	__bch_disable();
 
 	bch_calculate_handle(nand, pipe_buf, par_buf);
 	__bch_encints_clear();
+	__bch_disable();
 }
 
 /* BCH DECOGING HANDLE */
