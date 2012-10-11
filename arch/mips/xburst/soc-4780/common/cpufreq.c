@@ -260,7 +260,7 @@ int jz4780_cpu_resume(struct cpufreq_policy *policy)
 
 	if (cpu_regulator) {
 		if(regulator_set_voltage(cpu_regulator,volt,volt)) {
-			printk("cpufreq suspend failed.\n");
+			printk("cpufreq resume failed.\n");
 			return -1;
 		}
 	}
@@ -294,7 +294,7 @@ static int __init jz4780_cpufreq_init(void)
 
 	cpu_regulator = regulator_get(NULL, "vcore");
 	if (IS_ERR(cpu_regulator)) {
-		pr_warning("%s: unable to get MPU regulator\n", __func__);
+		pr_warning("%s: unable to get CPU regulator\n", __func__);
 		cpu_regulator = NULL;
 	} else {
 		/* 
