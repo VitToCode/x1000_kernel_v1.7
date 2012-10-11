@@ -81,9 +81,10 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc,
 	};
 
 	err = i2c_transfer(acc->client->adapter, msgs, 2);
-	if (err < 0)
+	if (err < 0) {
+		printk("------lid3dh_gsensor run to this reading-------");
 		dev_err(&acc->client->dev, "gsensor lis3dh i2c read error\n");
-
+	}
 	return err;
 }
 
@@ -294,7 +295,7 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 			return err;
 		}
 	}else{
-		buf[0] = CTRL_REG1;
+			buf[0] = CTRL_REG1;
 		buf[1] = LIS3DH_ACC_ENABLE_ALL_AXES;//acc->resume_state[RES_CTRL_REG1];
 		err = lis3dh_acc_i2c_write(acc, buf, 1);
 		if (err < 0){
@@ -915,7 +916,6 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 	if (acc->pdata->exit)
 		acc->pdata->exit();
 	kfree(acc->pdata);
-	kfree(acc);
 
 	if (acc->power){
 		err = regulator_disable(acc->power);
@@ -924,16 +924,29 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 					"power_off regulator failed: %d\n", err);
 			return err;
 		}
+		regulator_put(acc->power);
 	}
+	kfree(acc);
 	return 0;
 }
 
 #ifdef CONFIG_PM
 static int lis3dh_acc_resume(struct i2c_client *client)
 {
+	int err = 0;
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 	mutex_lock(&acc->lock);
 	acc->is_suspend = 0;
+	if (acc->power) {
+		err = regulator_enable(acc->power);
+		if (err < 0){
+			dev_err(&acc->client->dev,
+				"power_on regulator failed: %d\n", err);
+			return err;
+		}
+	}
+	udelay(100);
+
 	lis3dh_acc_enable(acc);
 	mutex_unlock(&acc->lock);
 	enable_irq(client->irq);
@@ -942,9 +955,19 @@ static int lis3dh_acc_resume(struct i2c_client *client)
 
 static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
 {
+	int err = 0;
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 	disable_irq_nosync(client->irq);
 	acc->is_suspend = 1;
+	if (acc->power) {
+	err = regulator_disable(acc->power);
+	if (err < 0){
+		dev_err(&acc->client->dev,
+				"power_off regulator failed: %d\n", err);
+		return err;
+		}
+	}
+	udelay(100);
 	return lis3dh_acc_disable(acc);
 }
 
