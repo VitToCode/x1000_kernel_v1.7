@@ -13,52 +13,53 @@
 #include <mach/jznand.h>
 #include "warrior.h"
 
+#define ECCBIT 24
+
 static struct platform_nand_partition partition_info[] = {
-/*	{
-                name:"NAND BOOT partition",
-                offset:100 * 0x100000LL,
-	        size:4 * 0x100000LL,
-	        mode:0,
-	        eccbit:16,
-	        use_planes:ONE_PLANE,
-	        part_attrib:PART_XBOOT
-        },
 	{
-                name:"NAND KERNEL partition",
-	        offset:104 * 0x100000LL,
-	        size:4 * 0x100000LL,
-	        mode:1,
-	        eccbit:16,
-	        use_planes:ONE_PLANE,
-	        part_attrib:PART_KERNEL
-        },
+	name:"x-boot",
+	offset:0 * 0x100000LL,
+	size:4 * 0x100000LL,
+	mode:DIRECT_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_XBOOT
+	},
 	{
-                name:"NAND SYSTEM partition",
-	        offset:108 * 0x100000LL,
-	        size:504 * 0x100000LL,
-	        mode:1,
-	        eccbit:8,
-	        use_planes:TWO_PLANES,
-	        part_attrib:PART_SYSTEM
-        },
-*/
+	name:"boot",
+	offset:4 * 0x100000LL,
+	size:8 * 0x100000LL,
+	mode:DIRECT_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_KERNEL
+	},
 	{
-            name:"ndsystem",
-	        offset:64 * 0x100000LL,
-	        size:512 * 0x100000LL,
-	        mode:1,
-	        eccbit:8,
-	        use_planes:ONE_PLANE,
-	        part_attrib:PART_SYSTEM
+	name:"system",
+	offset:12 * 0x100000LL,
+	size:512 * 0x100000LL,
+	mode:ZONE_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_SYSTEM
     },
 	{
-            name:"nddata",
-	        offset:1124 * 0x100000LL,
-	        size:512 * 0x100000LL,
-	        mode:1,
-	        eccbit:8,
-	        use_planes:ONE_PLANE,
-	        part_attrib:PART_DATA
+	name:"data",
+	offset:524 * 0x100000LL,
+	size:512 * 0x100000LL,
+	mode:ZONE_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_DATA
+    },
+	{
+	name:"misc",
+	offset:1036 * 0x100000LL,
+	size:512 * 0x100000LL,
+	mode:ZONE_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_MISC
     },
 };
 
@@ -72,12 +73,12 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-//	2,			/* reserved blocks of mtd0 */
-//	2,			/* reserved blocks of mtd1 */
-//	10,			/* reserved blocks of mtd2 */
+	2,			/* reserved blocks of mtd0 */
+	4,			/* reserved blocks of mtd1 */
+	20,			/* reserved blocks of mtd2 */
 	20,			/* reserved blocks of mtd3 */
 	20,			/* reserved blocks of mtd4 */
-	20,			/* reserved blocks of mtd5 */
+	0,			/* reserved blocks of mtd5 */
 };
 
 struct platform_nand_data jz_nand_chip_data = {

@@ -26,6 +26,10 @@
 #define dprintk(x...)
 #endif
 
+#define DIRECT_MANAGER 0
+#define ZONE_MANAGER   1
+#define ONCE_MANAGER   2
+
 #define PART_OOB       0
 #define PART_NO_OOB    1
 #define PART_PROTECT   2
