@@ -196,9 +196,6 @@ static struct spi_board_info jz_spi0_board_info[] = {
 
 static int __init m80701_board_init(void)
 {
-
-	printk(KERN_INFO "init board m80701 func: %s %s", __DATE__, __TIME__);
-
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
