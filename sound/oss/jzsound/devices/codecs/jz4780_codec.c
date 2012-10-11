@@ -242,7 +242,7 @@ static void codec_print_route_name(int route)
 	}
 
 	if (i == sizeof(route_arr) / sizeof(unsigned int)) {
-		printk("\nCODEC SET ROUTE: Route is not configed yet!\n");
+		printk("\nCODEC SET ROUTE: Route %d is not configed yet! \n",i);
 	}
 }
 #endif //CODEC_DUMP_ROUTE_NAME
@@ -1743,21 +1743,25 @@ static void gpio_disable_spk_en(void)
 static int codec_set_board_route(struct snd_board_route *broute)
 {
 	int i = 0;
+
+	if (broute == NULL)
+		return 0;
+
 	/* set hp mute and disable speaker by gpio */
 	gpio_enable_hp_mute();
 	gpio_disable_spk_en();
-
 	/* set route */
 	DUMP_ROUTE_NAME(broute->route);
 
 	if (broute && ((cur_route == NULL) || (cur_route->route != broute->route))) {
-		for (i = 0; i < SND_ROUTE_COUNT; i ++)
+		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++)
 			if (broute->route == codec_route_info[i].route_name) {
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
 				if (broute->route != SND_ROUTE_RECORD_CLEAR) {
 					/* keep_old_route is used in resume part and record release */
-					keep_old_route = cur_route;
+					if (cur_route == NULL || cur_route->route != SND_ROUTE_ALL_CLEAR)
+						keep_old_route = cur_route;
 					/* change cur_route */
 					cur_route = broute;
 				} else {
@@ -1765,7 +1769,7 @@ static int codec_set_board_route(struct snd_board_route *broute)
 				}
 				break;
 			}
-		if (i == SND_ROUTE_COUNT)
+		if (codec_route_info[i].route_name == SND_ROUTE_NONE)
 			printk("SET_ROUTE: codec set route error!, undecleard route, route = %d\n", broute->route);
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
@@ -1812,9 +1816,11 @@ static int codec_set_default_route(int mode)
 	return 0;
 }
 
+static struct snd_board_route tmp_broute;
+
 static int codec_set_route(enum snd_codec_route_t route)
 {
-	struct snd_board_route tmp_broute = {.route = route};
+	tmp_broute.route = route;
 	if (route == SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE||
 			route == SND_ROUTE_REPLAY_SPEAKER ||
 			route == SND_ROUTE_RECORD_CLEAR)
@@ -2016,12 +2022,11 @@ static int codec_suspend(void)
 static int codec_resume(void)
 {
 	int ret = 0;
+	int tmp_route = keep_old_route->route;
 
 	if (keep_old_route) {
-
 		ret = codec_set_board_route(keep_old_route);
-		if(ret != keep_old_route->route)
-		{
+		if(ret != tmp_route) {
 			printk("JZ CODEC: codec_resume_part error!\n");
 			return 0;
 		}
