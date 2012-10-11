@@ -1183,7 +1183,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			clk_want = SD_CLOCK_HIGH;
 
 		if (clk_want > 25000000) {
-			clk_set_rate(host->clk, 50000000);
+			clk_set_rate(host->clk, SD_CLOCK_HIGH);
 			if(clk_want > SD_CLOCK_HIGH)
 				clk_want = SD_CLOCK_HIGH;
 		} else {
@@ -1584,8 +1584,8 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk)) {
 		return PTR_ERR(host->clk);
 	}
-	clk_set_rate(host->clk, 50000000);
-	if (clk_get_rate(host->clk) > 50000000)
+	clk_set_rate(host->clk, SD_CLOCK_HIGH);
+	if (clk_get_rate(host->clk) > SD_CLOCK_HIGH)
 		goto err_clk_get_rate;
 	clk_enable(host->clk);
 

@@ -13,7 +13,7 @@
 #define __JZ4780_MMC_H__
 
 #define MMC_CLOCK_SLOW			200000		/* 200 kHz for initial setup */
-#define SD_CLOCK_HIGH			50000000	/* 50 MHz for SD Cards */
+#define SD_CLOCK_HIGH			40000000	/* 40 MHz for SD Cards */
 #define SDIO_CLOCK_HIGH			25000000	/* 25 MHz for SDIO Cards */
 #define MMC_BOOT_AREA_PROTECTED		(0x1234)	/* Can not modified the area protected */
 #define MMC_BOOT_AREA_OPENED		(0x4321)	/* Can modified the area protected */
