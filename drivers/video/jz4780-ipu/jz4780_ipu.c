@@ -357,7 +357,12 @@ static void enable_ctrl_regs(struct jz_ipu *ipu)
 {
 	unsigned int tmp = 0;
 
-	tmp = 0xffffffff;
+	if (ipu->img.output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		/* No need to make destination TLB base and address ready */
+		tmp = 0xffffffd7;
+	} else {
+		tmp = 0xffffffff;
+	}
 	reg_write(ipu, IPU_ADDR_CTRL, tmp);
 	tmp = reg_read(ipu, IPU_ADDR_CTRL);
 }
@@ -466,6 +471,7 @@ static void stop_ipu_to_lcd(struct jz_ipu *ipu)
 	tmp = reg_read(ipu, IPU_TRIG);
 	tmp |= IPU_STOP_LCD;
 	reg_write(ipu, IPU_TRIG, tmp);
+	jz47_ipu_wait_frame_end_flag(ipu);
 }
 
 static void dump_img(struct jz_ipu *ipu)
@@ -749,6 +755,21 @@ static int jz47_set_ipu_resize(struct jz_ipu *ipu)
 	return 0;
 }
 
+static void jz47_set_xy_offset(struct jz_ipu *ipu)
+{
+	unsigned int tmp;
+	struct ipu_img_param *img;
+
+	if (ipu == NULL) {
+		dev_err(ipu->dev, "ipu is NULL\n");
+		return;
+	}
+	img = &ipu->img;
+
+	tmp = SCREEN_XOFT(img->out_x) | SCREEN_YOFT(img->out_y);
+	reg_write(ipu, IPU_FM_XYOFT, tmp);
+}
+
 /* get RGB order */
 static unsigned int get_out_fmt_rgb_order(int hal_out_fmt) 
 {
@@ -943,10 +964,8 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	dev_dbg(ipu->dev, "enter jz47_ipu_init\n");
 
 	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-		tmp = reg_read(ipu, IPU_FM_CTRL);			
-		tmp |= LCDC_SEL;
-		reg_write(ipu, IPU_FM_CTRL, tmp);
-	} 
+		enable_lcdc_mode(ipu);
+	}
 
 	dev_dbg(ipu->dev, "<-----outW: %d, outH: %d\n", imgp->out_width, imgp->out_height);
 	outW = imgp->out_width;
@@ -972,6 +991,9 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	if (ret != 0) {
 		dev_err(ipu->dev, "jz47_set_ipu_resize error : out!\n");
 		return ret;
+	}
+	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		jz47_set_xy_offset(ipu);
 	}
 	ret = jz47_set_ipu_csc_cfg(ipu, outW, outH, Wdiff, Hdiff);
 	if (ret != 0) {
@@ -1004,6 +1026,8 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		enable_blk_mode(ipu);
 	}
 	config_osd_regs(ipu);
+
+	enable_ctrl_regs(ipu);
 
 	return ret;
 }
@@ -1065,7 +1089,6 @@ static int ipu_start(struct jz_ipu *ipu)
 	}
 
 	clear_ipu_out_end(ipu);
-	enable_ctrl_regs(ipu);
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		ipu_enable_irq(ipu);
 	}
@@ -1084,7 +1107,6 @@ static int ipu_start(struct jz_ipu *ipu)
 	  } 
 	}
 #endif
-	//ipu_dump_regs(ipu);
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
@@ -1202,7 +1224,15 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 			}
 		}
 	}
-	reg_write(ipu, IPU_ADDR_CTRL, 0xf); /* enable address reset */
+
+	tmp = reg_read(ipu, IPU_ADDR_CTRL);
+	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		tmp &= ~D_RY;
+		tmp |= (Y_RY | U_RY | V_RY);
+	} else {
+		tmp |= (Y_RY | U_RY | V_RY | D_RY);
+	}
+	reg_write(ipu, IPU_ADDR_CTRL, tmp); /* enable address reset */
 
 	return 0;
 }
@@ -1221,7 +1251,7 @@ static int ipu_stop(struct jz_ipu *ipu)
 
 	img = &ipu->img;
 
-	if (!(img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
+	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		stop_ipu_to_lcd(ipu);
 	} else {
 		tmp = IPU_STOP;
