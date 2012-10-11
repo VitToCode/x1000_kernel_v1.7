@@ -511,6 +511,7 @@ static void ft5x06_ts_suspend(struct early_suspend *handler)
 		enable_irq(ts->client->irq);
 	}
 	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
+	ft5x06_ts_power_off(ts);
 	dev_dbg(&ts->client->dev, "[FTS]ft5x06 suspend\n");
 }
 
@@ -521,6 +522,7 @@ static void ft5x06_ts_resume(struct early_suspend *handler)
 
 	ft5x06_ts_reset(ts);
 	ts->is_suspend = 0;
+	ft5x06_ts_power_on(ts);
 
 	enable_irq(ts->client->irq);
 }
@@ -533,9 +535,10 @@ static int __devexit ft5x06_ts_remove(struct i2c_client *client)
 	input_unregister_device(ft5x06_ts->input_dev);
 	gpio_free(ft5x06_ts->gpio.wake->num);
 	free_irq(client->irq, ft5x06_ts);
-	kfree(ft5x06_ts);
 	i2c_set_clientdata(client, NULL);
 	ft5x06_ts_power_off(ft5x06_ts);
+	regulator_put(ft5x06_ts->power);
+	kfree(ft5x06_ts);
 	return 0;
 }
 
