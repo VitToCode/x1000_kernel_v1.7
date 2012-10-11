@@ -53,7 +53,11 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 		pwm_disable(pb->pwm);
 		brightness = pb->lth_brightness +
 			(brightness * (pb->period - pb->lth_brightness) / max);
+#ifdef CONFIG_BOARD_M80		//FIXME: max pwm output 30%
+		pwm_config(pb->pwm, (brightness * 30)/100, pb->period);
+#else
 		pwm_config(pb->pwm, brightness, pb->period);
+#endif
 		pwm_enable(pb->pwm);
 	}
 	return 0;
