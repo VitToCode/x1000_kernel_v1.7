@@ -336,7 +336,7 @@ static int x2d_create_procinfo(struct x2d_device *jz_x2d)
 		dev_err(jz_x2d->dev,"malloc for struct proc_info fail\n");
 		return -1;
 	}
-	p->pid = current->pid;
+	p->pid = current->tgid;
 	list_add_tail(&p->list,&jz_x2d->proc_list);
 	dev_dbg(jz_x2d->dev, "%d, %s, pid: %d, p: %p~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__, p->pid, p);
 #ifdef USE_DMMU_TLB
@@ -357,7 +357,7 @@ static int x2d_free_procinfo(struct x2d_device *jz_x2d,pid_t pid)
 {
 	struct x2d_process_info* p = NULL;
 
-	p = x2d_index_procinfo(jz_x2d, current->pid);
+	p = x2d_index_procinfo(jz_x2d, current->tgid);
 	if (!p) {
 		dev_err(jz_x2d->dev,"free_tlb_table  cannot find proc %d\n",pid);
 		return -1;
@@ -468,7 +468,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 	jz_x2d->state = x2d_state_calc;
 	dev_dbg(jz_x2d->dev, "current->pid: %d\n", current->pid);
-	p = x2d_index_procinfo(jz_x2d,current->pid);
+	p = x2d_index_procinfo(jz_x2d,current->tgid);
 	if (p == NULL) {
 		dev_dbg(jz_x2d->dev, "p ===NULL, %d, %s~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__);
 	}
@@ -616,7 +616,7 @@ int jz_x2d_set_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
 	struct x2d_process_info * p;
 
 	mutex_lock(&jz_x2d->x2d_lock);
-	p = x2d_index_procinfo(jz_x2d,current->pid);
+	p = x2d_index_procinfo(jz_x2d,current->tgid);
 	if (copy_from_user(&p->configs, (void *)config, sizeof(struct jz_x2d_config)))
 		return -EFAULT;
 #ifdef X2D_DEBUG
@@ -637,7 +637,7 @@ int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,struct jz_x2d_config* confi
 {	
 	struct x2d_process_info * p;
 
-	p = x2d_index_procinfo( jz_x2d,current->pid);
+	p = x2d_index_procinfo( jz_x2d,current->tgid);
 	if (copy_to_user((void *)config, &p->configs, sizeof(struct jz_x2d_config)))
 		return -EFAULT;
 
@@ -752,6 +752,8 @@ static int x2d_release(struct inode *inode, struct file *filp)
 	jz_x2d = file_to_x2d(filp);
 	dev_info(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 	mutex_lock(&jz_x2d->x2d_lock);
+	dev_dbg(jz_x2d->dev, "function: %s line: %d pid: %d, tgid: %d------------->\n", 
+			 __func__, __LINE__, current->pid, current->tgid);
 	ret = x2d_free_procinfo(jz_x2d,current->pid);
 	if(x2d_check_allproc_free(jz_x2d))
 		clk_disable(jz_x2d->x2d_clk );///////stop x2d hardware
