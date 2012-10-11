@@ -157,23 +157,23 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 
 #ifdef CONFIG_SPI0_JZ4780_PB
-       SSI0_PORTB
+       SSI0_PORTB,
 #endif
 #ifdef CONFIG_SPI0_JZ4780_PD
-       SSI0_PORTD
+       SSI0_PORTD,
 #endif
 #ifdef CONFIG_SPI0_JZ4780_PE
-       SSI0_PORTE
+       SSI0_PORTE,
 #endif
 
 #ifdef CONFIG_SPI1_JZ4780_PB
-       SSI1_PORTB
+       SSI1_PORTB,
 #endif
 #ifdef CONFIG_SPI1_JZ4780_PD
-       SSI1_PORTD
+       SSI1_PORTD,
 #endif
 #ifdef CONFIG_SPI1_JZ4780_PE
-       SSI1_PORTE
+       SSI1_PORTE,
 #endif
 
 };
