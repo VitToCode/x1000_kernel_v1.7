@@ -196,4 +196,9 @@ struct __codec_route_info codec_route_info[] = {
 		.route_name = SND_ROUTE_REPLAY_INCALL_WITH_HEADSET,
 		.route_conf = &replay_linein2_bypass_to_hp_lr,
 	},
+	/***************************end of array***************************/
+	{
+		.route_name = SND_ROUTE_NONE,
+		.route_conf = NULL,
+	},
 };
