@@ -275,6 +275,11 @@ static void m80_backlight_exit(struct device *dev)
 {
 }
 
+static int m80_notify(struct device *dev, int brightness)
+{
+	return (brightness * 30 / 100);
+}
+
 static struct platform_pwm_backlight_data m80_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
@@ -282,6 +287,7 @@ static struct platform_pwm_backlight_data m80_backlight_data = {
 	.pwm_period_ns	= 10000, /* 100 kHZ */
 	.init		= m80_backlight_init,
 	.exit		= m80_backlight_exit,
+	.notify		= m80_notify,
 };
 
 /* Backlight Device */
