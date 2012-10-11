@@ -15,10 +15,13 @@
 #include <linux/power/gpio-charger.h>
 #include <linux/power/li-ion-charger.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/spi_gpio.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
+#include <mach/jzssi.h>
 #include <gpio.h>
 
 #include "m80.h"
@@ -133,7 +136,67 @@ static struct platform_device m80_li_ion_charger_device = {
 		.platform_data = &m80_li_ion_charger_pdata,
 	},
 };
+#ifdef CONFIG_SPI_JZ4780
+#ifdef CONFIG_SPI0_JZ4780
+static struct spi_board_info jz_spi0_board_info[] = {
+       [0] = {
+	       .modalias       = "spidev",
+	       .bus_num	       = 0,
+	       .chip_select    = 0,
+	       .max_speed_hz   = 1200000,
+       },
+};
 
+static struct jz47xx_spi_info spi0_info_cfg = {
+       .chnl = 0,
+       .bus_num = 0,
+       .max_clk = 54000000,
+       .num_chipselect = 2,
+};
+#endif
+
+#ifdef CONFIG_SPI1_JZ4780
+static struct spi_board_info jz_spi1_board_info[] = {
+    [0] = {
+	       .modalias       = "spidev",
+	       .bus_num	       = 1,
+	       .chip_select    = 1,
+	       .max_speed_hz   = 120000,
+    },
+};
+
+static struct jz47xx_spi_info spi1_info_cfg = {
+       .chnl = 1,
+       .bus_num = 1,
+       .max_clk = 54000000,
+       .num_chipselect = 2,
+};
+#endif
+#endif
+#if defined(CONFIG_SPI_GPIO)
+static struct spi_gpio_platform_data jz4780_spi_gpio_data = {
+	.sck	= (4*32 + 15),
+	.mosi	= (4*32 + 17),
+	.miso	= (4*32 + 14),
+	.num_chipselect	= 2,
+};
+
+static struct platform_device jz4780_spi_gpio_device = {
+	.name	= "spi_gpio",
+	.dev	= {
+		.platform_data = &jz4780_spi_gpio_data,
+	},
+};
+
+static struct spi_board_info jz_spi0_board_info[] = {
+       [0] = {
+	       .modalias       = "spidev",
+	       .bus_num	       = 0,
+	       .chip_select    = 0,
+	       .max_speed_hz   = 120000,
+       },
+};
+#endif
 static int __init m80_board_init(void)
 {
 /* dma */
@@ -274,6 +337,26 @@ static int __init m80_board_init(void)
 #ifdef CONFIG_JZ_VPU
 	platform_device_register(&jz_vpu_device);
 #endif
+/* spi */
+#ifdef CONFIG_SPI_JZ4780
+#ifdef CONFIG_SPI0_JZ4780
+       spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
+       platform_device_register(&jz_ssi0_device);
+       platform_device_add_data(&jz_ssi0_device, &spi0_info_cfg, sizeof(struct jz47xx_spi_info));
+#endif
+
+#ifdef CONFIG_SPI1_JZ4780
+       spi_register_board_info(jz_spi1_board_info, ARRAY_SIZE(jz_spi1_board_info));
+       platform_device_register(&jz_ssi1_device);
+       platform_device_add_data(&jz_ssi1_device, &spi1_info_cfg, sizeof(struct jz47xx_spi_info));
+#endif
+#endif
+
+#ifdef CONFIG_SPI_GPIO
+       spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
+       platform_device_register(&jz4780_spi_gpio_device);
+#endif
+
 
 	return 0;
 }
