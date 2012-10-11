@@ -52,6 +52,7 @@ struct wifi_data {
  * @removal: This shows the card slot's type:
  *	REMOVABLE/IRREMOVABLE/MANUAL (Tablet card/Phone card/build-in SDIO).
  * @sdio_clk: SDIO device's clock can't use Low-Power-Mode.
+ * @top_speed: Hard set MSC clock to top.
  * @ocr_mask: This one shows the voltage that host provide.
  * @capacity: Shows the host's speed capacity and bus width.
  * @recovery_info: Informations that Android recovery mode uses.
@@ -62,6 +63,7 @@ struct wifi_data {
 struct jzmmc_platform_data {
 	unsigned short			removal;
 	unsigned short			sdio_clk;
+	int				top_speed;
 	unsigned int			ocr_avail;
 	unsigned int			capacity;
 	struct mmc_recovery_info	*recovery_info;

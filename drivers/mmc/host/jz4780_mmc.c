@@ -1179,6 +1179,9 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		unsigned int clk_set = 0, clkrt = 0;
 		unsigned int clk_want = ios->clock;
 
+		if (host->pdata && host->pdata->top_speed)
+			clk_want = SD_CLOCK_HIGH;
+
 		if (clk_want > 25000000) {
 			clk_set_rate(host->clk, 50000000);
 			if(clk_want > SD_CLOCK_HIGH)
