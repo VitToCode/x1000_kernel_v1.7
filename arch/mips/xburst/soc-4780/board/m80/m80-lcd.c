@@ -277,7 +277,7 @@ static void m80_backlight_exit(struct device *dev)
 
 static int m80_notify(struct device *dev, int brightness)
 {
-	return (brightness * 30 / 100);
+	return (brightness * 30 / 100) + 20;
 }
 
 static struct platform_pwm_backlight_data m80_backlight_data = {
