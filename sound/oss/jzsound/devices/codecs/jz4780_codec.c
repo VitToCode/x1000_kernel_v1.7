@@ -2021,10 +2021,10 @@ static int codec_suspend(void)
 
 static int codec_resume(void)
 {
-	int ret = 0;
-	int tmp_route = keep_old_route->route;
+	int ret,tmp_route = 0;
 
 	if (keep_old_route) {
+		tmp_route = keep_old_route->route;
 		ret = codec_set_board_route(keep_old_route);
 		if(ret != tmp_route) {
 			printk("JZ CODEC: codec_resume_part error!\n");

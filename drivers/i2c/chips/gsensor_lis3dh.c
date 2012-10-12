@@ -959,16 +959,14 @@ static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 	disable_irq_nosync(client->irq);
 	acc->is_suspend = 1;
-	if (acc->power) {
-	err = regulator_disable(acc->power);
-	if (err < 0){
-		dev_err(&acc->client->dev,
-				"power_off regulator failed: %d\n", err);
-		return err;
-		}
-	}
+	
+	err |= lis3dh_acc_disable(acc);
 	udelay(100);
-	return lis3dh_acc_disable(acc);
+
+	if (acc->power)
+		err |= regulator_disable(acc->power);
+
+	return err;
 }
 
 #else
