@@ -970,6 +970,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	}
 
 	next_frm = var->yoffset / var->yres;
+	jzfb->current_buffer = next_frm;
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
@@ -1253,6 +1254,12 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		if (copy_to_user(argp, &osd.fg_pos, sizeof(
 					 struct jzfb_fg_pos))) {
 			dev_info(info->dev, "copy FG pos to user failed\n");
+			return -EFAULT;
+		}
+		break;
+	case JZFB_GET_BUFFER:
+		if (copy_to_user(argp, &jzfb->current_buffer, sizeof(int))) {
+			dev_info(info->dev, "user get current buffer failed\n");
 			return -EFAULT;
 		}
 		break;

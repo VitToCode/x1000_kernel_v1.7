@@ -98,6 +98,7 @@ struct jzfb {
 	dma_addr_t vidmem_phys;
 
 	int frm_size;
+	int current_buffer;
 	/* dma 0 descriptor base address */
 	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */
@@ -180,6 +181,7 @@ struct jzfb_color_key {
 #define JZFB_GET_FG_SIZE		_IOWR('F', 0x117, struct jzfb_fg_size)
 #define JZFB_SET_FG_POS			_IOW('F', 0x118, struct jzfb_fg_pos)
 #define JZFB_GET_FG_POS			_IOWR('F', 0x119, struct jzfb_fg_pos)
+#define JZFB_GET_BUFFER			_IOWR('F', 0x120, int)
 /* Reserved for future extend */
 #define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
 #define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)
