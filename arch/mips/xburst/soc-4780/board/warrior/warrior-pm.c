@@ -110,12 +110,12 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 3 + 17,	GSS_INPUT_NOPULL}, /* BOOT_SEL0/VOL- */
 	{32 * 3 + 18,	GSS_INPUT_NOPULL}, /* BOOT_SEL1/VOL+ */
 	{32 * 3 + 19,	GSS_INPUT_NOPULL}, /* BOOT_SEL2 */
-	{32 * 3 + 20,	GSS_OUTPUT_LOW	}, /* WL_MSC1_D0 */
-	{32 * 3 + 21,	GSS_OUTPUT_LOW	}, /* WL_MSC1_D1 */
-	{32 * 3 + 22,	GSS_OUTPUT_LOW	}, /* WL_MSC1_D2*/
-	{32 * 3 + 23,	GSS_OUTPUT_LOW	}, /* WL_MSC1_D3 */
-	{32 * 3 + 24,	GSS_IGNORE	}, /* WL_MSC1_CLK */
-	{32 * 3 + 25,	GSS_IGNORE	}, /* WL_MSC1_CMD */
+	{32 * 3 + 20,	GSS_INPUT_NOPULL}, /* WL_MSC1_D0 */
+	{32 * 3 + 21,	GSS_INPUT_NOPULL}, /* WL_MSC1_D1 */
+	{32 * 3 + 22,	GSS_INPUT_NOPULL}, /* WL_MSC1_D2*/
+	{32 * 3 + 23,	GSS_INPUT_NOPULL}, /* WL_MSC1_D3 */
+	{32 * 3 + 24,	GSS_INPUT_NOPULL}, /* WL_MSC1_CLK */
+	{32 * 3 + 25,	GSS_INPUT_NOPULL}, /* WL_MSC1_CMD */
 	{32 * 3 + 30,	GSS_INPUT_NOPULL}, /* I2C0_SDA */
 	{32 * 3 + 31,	GSS_INPUT_NOPULL}, /* I2C0_SCK */
 
