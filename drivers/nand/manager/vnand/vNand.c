@@ -53,7 +53,7 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 	PageList *mpl = NULL;
 	int bytecnt = 0;
 
-	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER){
+	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode != ZONE_MANAGER){
 		clear_pl_retval(pl);
 		return pl;
 	}
@@ -101,7 +101,7 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl, PageList *pl)
 	int cnt = 0;
 	PageList *pl_node = NULL;
 
-	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode == ONCE_MANAGER)
+	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode != ZONE_MANAGER)
 		return;
 
 	if (alig_pl == NULL || pl == NULL){
@@ -171,7 +171,7 @@ int __vNand_MultiPageRead (VNandInfo* vNand,PageList* pl ){
 	Calc_Speed(vNand->timebyte, (void*)pl, 0, 0);
 #endif
 	Fill_Pl_Retval(vNand,alig_pl,pl);
-	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode == ZONE_MANAGER)
 		BuffListManager_freeAllList(vNand->v2pp->blm, (void **)&alig_pl, sizeof(PageList));
 	NandMutex_Unlock(&v_nand_ops.mutex);
 	return ret;
@@ -191,7 +191,7 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif
 	Fill_Pl_Retval(vNand,alig_pl,pl);
-	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode != ONCE_MANAGER)
+	if (vNand->v2pp->_2kPerPage != 1 && vNand->mode == ZONE_MANAGER)
 		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_pl,sizeof(PageList));
 	NandMutex_Unlock(&v_nand_ops.mutex);
 

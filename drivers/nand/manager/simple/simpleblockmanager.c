@@ -173,37 +173,55 @@ static int erase_single_block(SmbContext *conptr, int blockid, int first)
 	int ret, statpage = blockid * conptr->ppb;
 	unsigned char *buf;
 	BlockList *bl_top;
+    PageList *pagelist = NULL;
 
 	if (BLOCK_FIRST_PAGE != first)
 		return SUCCESS;
 
-	buf = (unsigned char *)Nand_VirtualAlloc(
+	buf = (unsigned char *)Nand_ContinueAlloc(
 			sizeof(unsigned char) * conptr->bpp);
 	memset(buf, 0x0, sizeof(unsigned char)  * conptr->bpp);
 
-	ret = vNand_PageRead(&conptr->vnand, statpage, 0, conptr->bpp, buf);
-	if(ret < 0) {
-		if(DATA_WRITED != ret){
+	//ret = vNand_PageRead(&conptr->vnand, statpage, 0, conptr->bpp, buf);
+    pagelist = (PageList *)BuffListManager_getTopNode((int)conptr->blm, sizeof(PageList));
+    pagelist->startPageID = statpage;
+    pagelist->OffsetBytes = 0;
+    pagelist->Bytes = conptr->bpp;
+    pagelist->pData = (void *)buf;
+    pagelist->retVal = 0;
+
+    ret = vNand_MultiPageRead(&conptr->vnand, pagelist);
+	if(ret != 0) {
+		if(DATA_WRITED != pagelist->retVal){
 			ndprint(SIGBLOCK_ERROR,
-					"read first page err: %s, %d retVal = %d\n",
-					__FILE__, __LINE__, ret);
-			Nand_VirtualFree((void *)buf);
-			return ret;
+					"read first page err: %s, %d, pageid = %d, blockid = %d, retVal = %d\n",
+					__FILE__, __LINE__, statpage, blockid, ret);
 		}
-	} else {
-		bl_top = (BlockList *)BuffListManager_getTopNode(
-				(int)conptr->blm,sizeof(BlockList));
-		bl_top->startBlock = blockid;
-		bl_top->BlockCount = 1;
-		(bl_top->head).next = NULL;
-		vNand_MultiBlockErase(&conptr->vnand, bl_top );
-		BuffListManager_freeAllList((int)conptr->blm,
-				(void **)&bl_top, sizeof(BlockList));
+		goto done;
 	}
 
-	Nand_VirtualFree((void *)buf);
+	bl_top = (BlockList *)BuffListManager_getTopNode((int)conptr->blm, sizeof(BlockList));
+	bl_top->startBlock = blockid;
+	bl_top->BlockCount = 1;
+	ret = vNand_MultiBlockErase(&conptr->vnand, bl_top);
+	if (ret != 0) {
+		ndprint(SIGBLOCK_ERROR,
+				"erase block err: %s, %d, blockid = %d, retVal = %d\n",
+				__FILE__, __LINE__, bl_top->startBlock, ret);
+	}
 
-	return SUCCESS;
+	BuffListManager_freeList((int)conptr->blm,
+								 (void **)&bl_top,
+								 (void *)bl_top,
+								 sizeof(BlockList));
+
+done:
+	BuffListManager_freeList((int)conptr->blm,
+							 (void **)&pagelist,
+							 (void *)pagelist,
+							 sizeof(PageList));
+	Nand_ContinueFree((void *)buf);
+	return ret;
 }
 
 static inline PageList *get_plnode_from_top(int blm, PageList **top)
@@ -356,7 +374,8 @@ static int mWrite (SmbContext *conptr, SectorList *sl_node )
 //retry:
 	ret = erase_single_block(conptr, conptr->lblockid, conptr->poffb);
 	if(ret < 0){
-		ndprint(SIGBLOCK_ERROR, "erase_single_block error, %s\n", __func__);
+		ndprint(SIGBLOCK_ERROR, "%s, erase_single_block error, lblockid = %d\n",
+				__func__, conptr->lblockid);
 		goto werror_erase_block;
 	}
 
