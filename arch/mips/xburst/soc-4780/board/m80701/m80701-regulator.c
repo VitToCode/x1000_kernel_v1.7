@@ -33,6 +33,13 @@ IO_REGULATOR_DEF(
 	"Vcc-IO",	3300000,	1);
 
 /**
+ * USB VBUS Regulators.
+ * Switch of USB VBUS. It may be a actual or virtual regulator.
+ */
+VBUS_REGULATOR_DEF(
+	m80701,		"OTG-Vbus");
+
+/**
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
@@ -99,7 +106,7 @@ static struct regulator_info m80701_pmu_regulators[] = {
 	{"OUT6", &m80701_vwifi_init_data},
 	{"OUT7", &m80701_vtsc_init_data},
 	{"OUT8", &m80701_vgsensor_init_data},
-	{"VBUS", NULL},
+	{"VBUS", &m80701_vbus_init_data},
 };
 
 static struct charger_board_info charger_board_info = {

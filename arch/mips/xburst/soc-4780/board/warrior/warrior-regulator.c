@@ -33,6 +33,13 @@ IO_REGULATOR_DEF(
 	"Vcc-IO",	3300000,	1);
 
 /**
+ * USB VBUS Regulators.
+ * Switch of USB VBUS. It may be a actual or virtual regulator.
+ */
+VBUS_REGULATOR_DEF(
+	warrior,	"OTG-Vbus");
+
+/**
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
@@ -99,7 +106,7 @@ static struct regulator_info warrior_pmu_regulators[] = {
 	{"OUT6", &warrior_vwifi_init_data},
 	{"OUT7", &warrior_vtsc_init_data},
 	{"OUT8", &warrior_vgsensor_init_data},
-	{"VBUS", NULL},
+	{"VBUS", &warrior_vbus_init_data},
 };
 
 static struct charger_board_info charger_board_info = {

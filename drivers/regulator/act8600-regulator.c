@@ -86,18 +86,6 @@ static struct regulator_init_data ucharger_init_data = {
 	.consumer_supplies      = &ucharger_consumer,
 };
 
-static struct regulator_consumer_supply vbus_consumer =
-	REGULATOR_SUPPLY("vbus", NULL);
-
-static struct regulator_init_data vbus_init_data = {
-	.constraints = {
-		.name			= "Vbus(Q1-Q3)",
-		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &vbus_consumer,
-};
-
 static int voltages_to_value(int min_uV, int max_uV, unsigned *selector)
 {
 	unsigned char i;
@@ -632,7 +620,7 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 
 		if (!desc) {
 			dev_err(pdev->dev.parent,
-				"can't find regulator:%s\n", reg_info->name);
+				"WARNING: can't find regulator:%s\n", reg_info->name);
 		} else {
 			dev_dbg(pdev->dev.parent,
 				"register regulator:%s\n", reg_info->name);
@@ -641,14 +629,9 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 							     act8600_reg->dev,
 							     reg_info->init_data,
 							     act8600_reg);
-			} else if (reg_is_vbus(reg_info)) {
-				rdev[i] = regulator_register(desc,
-							     act8600_reg->dev,
-							     &vbus_init_data,
-							     act8600_reg);
 			} else {
 				dev_err(act8600_reg->dev,
-					"no init_data available\n");
+					"ERROR: no init_data available\n");
 			}
 
 			if (IS_ERR(rdev[i])) {
@@ -656,7 +639,6 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 				dev_err(act8600_reg->dev,
 					"regulator init failed\n");
 				rdev[i] = NULL;
-				goto err;
 			}
 		}
 	}

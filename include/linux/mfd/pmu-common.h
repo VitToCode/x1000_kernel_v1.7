@@ -108,4 +108,18 @@ static struct platform_device NAME##_regulator_device = {				\
 	}										\
 }
 
+#define VBUS_REGULATOR_DEF(BOARD, SREG)							\
+static struct regulator_consumer_supply vbus_consumer =					\
+	REGULATOR_SUPPLY("vbus", NULL);							\
+											\
+static struct regulator_init_data BOARD##_vbus_init_data = {				\
+	.supply_regulator = SREG,							\
+	.constraints = {								\
+		.name			= "Vbus",					\
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,			\
+	},										\
+	.num_consumer_supplies  = 1,							\
+	.consumer_supplies      = &vbus_consumer,					\
+}
+
 #endif /* __LINUX_MFD_ACT8600_H */
