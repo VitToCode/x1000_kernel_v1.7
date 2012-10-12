@@ -34,9 +34,27 @@ static struct platform_nand_partition partition_info[] = {
 	use_planes:ONE_PLANE,
 	part_attrib:PART_KERNEL
 	},
+    {
+    name:"recovery",
+    offset:12 * 0x100000LL,
+    size:16 * 0x100000LL,
+    mode:DIRECT_MANAGER,
+    eccbit:ECCBIT,
+    use_planes:ONE_PLANE,
+    part_attrib:PART_KERNEL
+    },
 	{
-	name:"system",
-	offset:12 * 0x100000LL,
+    name:"ndcache",
+    offset:28 * 0x100000LL,
+    size:36 * 0x100000LL,
+    mode:ZONE_MANAGER,
+    eccbit:ECCBIT,
+    use_planes:ONE_PLANE,
+    part_attrib:PART_KERNEL
+    },
+	{
+	name:"ndsystem",
+	offset:64 * 0x100000LL,
 	size:512 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
@@ -44,8 +62,8 @@ static struct platform_nand_partition partition_info[] = {
 	part_attrib:PART_SYSTEM
     },
 	{
-	name:"data",
-	offset:524 * 0x100000LL,
+	name:"nddata",
+	offset:576 * 0x100000LL,
 	size:512 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
@@ -53,8 +71,8 @@ static struct platform_nand_partition partition_info[] = {
 	part_attrib:PART_DATA
     },
 	{
-	name:"misc",
-	offset:1036 * 0x100000LL,
+	name:"ndmisc",
+	offset:1088 * 0x100000LL,
 	size:512 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
@@ -78,7 +96,8 @@ static int partition_reserved_badblocks[] = {
 	20,			/* reserved blocks of mtd2 */
 	20,			/* reserved blocks of mtd3 */
 	20,			/* reserved blocks of mtd4 */
-	0,			/* reserved blocks of mtd5 */
+	20,			/* reserved blocks of mtd5 */
+	1,          /* reserved blocks of mtd6 */
 };
 
 struct platform_nand_data jz_nand_chip_data = {
