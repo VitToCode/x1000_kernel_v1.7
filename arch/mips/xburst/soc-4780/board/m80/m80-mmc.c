@@ -97,6 +97,7 @@ struct jzmmc_platform_data m80_tf_pdata = {
 #ifdef CONFIG_MMC2_JZ4780
 	.max_freq			= CONFIG_MMC2_MAX_FREQ,
 #endif
+	.fixed_max_freq		= 1,
 	.recovery_info			= NULL,
 	.gpio				= &m80_tf_gpio,
 #ifdef CONFIG_MMC0_PIO_MODE
