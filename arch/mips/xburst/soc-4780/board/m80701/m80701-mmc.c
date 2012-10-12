@@ -19,7 +19,7 @@
 static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
-
+#ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info m80701_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
 	[1] = {"xboot",		0,     2*MBYTE, 0}, 	//0 - 2MB
@@ -45,6 +45,7 @@ struct jzmmc_platform_data m80701_inand_pdata = {
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 	.recovery_info			= &m80701_inand_recovery_info,
 	.gpio				= NULL,
 #ifdef CONFIG_MMC0_PIO_MODE
@@ -54,12 +55,14 @@ struct jzmmc_platform_data m80701_inand_pdata = {
 #endif
 	.private_init			= NULL,
 };
-
+#endif
+#ifdef CONFIG_MMC1_JZ4780
 struct jzmmc_platform_data m80701_sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_4_BIT_DATA,
+	.max_freq			= CONFIG_MMC1_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= NULL,
 #ifdef CONFIG_MMC1_PIO_MODE
@@ -69,7 +72,8 @@ struct jzmmc_platform_data m80701_sdio_pdata = {
 #endif
 	.private_init			= iw8101_wlan_init,
 };
-
+#endif
+#ifdef CONFIG_MMC2_JZ4780
 /*
  * WARING:
  * If a GPIO is not used or undefined, it must be set -1,
@@ -86,6 +90,7 @@ struct jzmmc_platform_data m80701_tf_pdata = {
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA,
+	.max_freq			= CONFIG_MMC2_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= &m80701_tf_gpio,
 #ifdef CONFIG_MMC0_PIO_MODE
@@ -95,7 +100,7 @@ struct jzmmc_platform_data m80701_tf_pdata = {
 #endif
 	.private_init			= NULL,
 };
-
+#endif
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;

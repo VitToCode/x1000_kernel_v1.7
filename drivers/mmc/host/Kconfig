@@ -37,6 +37,15 @@ config MMC0_JZ4780_PA_8BIT_RESET
 	bool "GPIO A, Data width 8 bit, use Reset pin(eMMC)"
 endchoice
 
+config MMC0_MAX_FREQ
+	int "MSC0 max frequency"
+	depends on MMC0_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc0, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
 config MMC0_PIO_MODE
 	bool "Use PIO mode for MSC0"
 	depends on MMC0_JZ4780 && MMC_BLOCK_BOUNCE
@@ -63,6 +72,15 @@ config MMC1_JZ4780_PE_4BIT
 	bool "GPIO E, Data width 4 bit"
 endchoice
 
+config MMC1_MAX_FREQ
+	int "MSC1 max frequency"
+	depends on MMC1_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc1, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
 config MMC1_PIO_MODE
 	bool "Use PIO mode for MSC1"
 	depends on MMC1_JZ4780 && MMC_BLOCK_BOUNCE
@@ -88,6 +106,15 @@ config MMC2_JZ4780_PB_4BIT
 config MMC2_JZ4780_PE_4BIT
 	bool "GPIO E, Data width 4 bit"
 endchoice
+
+config MMC2_MAX_FREQ
+	int "MSC2 max frequency"
+	depends on MMC2_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc2, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
 
 config MMC2_PIO_MODE
 	bool "Use PIO mode for MSC2"

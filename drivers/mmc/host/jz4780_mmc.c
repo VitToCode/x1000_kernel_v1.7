@@ -1179,15 +1179,10 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		unsigned int clk_set = 0, clkrt = 0;
 		unsigned int clk_want = ios->clock;
 
-		if (host->pdata && host->pdata->top_speed)
-			clk_want = SD_CLOCK_HIGH;
-
-		if (clk_want > 25000000) {
-			clk_set_rate(host->clk, SD_CLOCK_HIGH);
-			if(clk_want > SD_CLOCK_HIGH)
-				clk_want = SD_CLOCK_HIGH;
+		if (clk_want > 1000000) {
+			clk_set_rate(host->clk, ios->clock);
 		} else {
-			clk_set_rate(host->clk, 25000000);
+			clk_set_rate(host->clk, 24000000);
 		}
 
 		clk_set = clk_get_rate(host->clk);
@@ -1196,7 +1191,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			clk_set >>= 1;
 		}
 
-		if ((clk_want > SD_CLOCK_HIGH) && clkrt) {
+		if ((clk_want > 1000000) && clkrt) {
 			dev_err(host->dev, "CLKRT must be set to 0 "
 				"when MSC works during normal r/w: "
 				"ios->clock=%d clk_want=%d "
@@ -1214,6 +1209,9 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			return;
 		}
 
+		if (!clkrt)
+			dev_info(host->dev, "clk_want: %u, clk_set: %luHz\n",
+				 ios->clock, clk_get_rate(host->clk));
 		msc_writel(host, CLKRT, clkrt);
 
 		if(host->pdata->sdio_clk) {
@@ -1384,13 +1382,8 @@ static void __init jzmmc_host_init(struct jzmmc_host *host, struct mmc_host *mmc
 {
 	struct jzmmc_platform_data *pdata = host->pdata;
 	mmc->ops = &jzmmc_ops;
-	mmc->f_min = MMC_CLOCK_SLOW;
-
-	if (host->pdata->sdio_clk)
-		mmc->f_max = SDIO_CLOCK_HIGH;
-	else
-		mmc->f_max = SD_CLOCK_HIGH;
-
+	mmc->f_min = 200000;
+	mmc->f_max = pdata->max_freq;
 	mmc->ocr_avail = pdata->ocr_avail;
 	mmc->caps |= pdata->capacity;
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
@@ -1584,8 +1577,8 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk)) {
 		return PTR_ERR(host->clk);
 	}
-	clk_set_rate(host->clk, SD_CLOCK_HIGH);
-	if (clk_get_rate(host->clk) > SD_CLOCK_HIGH)
+	clk_set_rate(host->clk, 24000000);
+	if (clk_get_rate(host->clk) > 24000000)
 		goto err_clk_get_rate;
 	clk_enable(host->clk);
 
