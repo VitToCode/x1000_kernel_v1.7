@@ -72,6 +72,7 @@ static int intc_irq_set_wake(struct irq_data *data, unsigned int on)
 	intc_irq_ctrl(data, -1, !!on);
 	return 0;
 }
+#ifdef CONFIG_SMP
 
 static unsigned int cpu_irq_affinity[NR_CPUS];
 static unsigned int cpu_irq_unmask[NR_CPUS];
@@ -96,7 +97,6 @@ static inline void init_intc_affinity(void) {
 		cpu_irq_affinity[i] = 0;
 	}
 }
-#ifdef CONFIG_SMP
 static int intc_set_affinity(struct irq_data *data, const struct cpumask *dest, bool force) {
 	return 0;
 }
@@ -189,9 +189,11 @@ void __init arch_init_irq(void)
 		irq_set_chip_data(i, (void *)(i - IRQ_OST_BASE));
 		irq_set_chip_and_handler(i, &ost_irq_type, handle_level_irq);
 	}
+#ifdef CONFIG_SMP
 	init_intc_affinity();
 	set_intc_cpu(26,0);
 	set_intc_cpu(27,1);
+#endif
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
 
@@ -205,12 +207,17 @@ static void intc_irq_dispatch(void)
 {
 	unsigned long ipr[2],gpr[2];
 	unsigned long ipr_intc;
+#ifdef CONFIG_SMP
 	unsigned long cpuid = smp_processor_id();
 	unsigned long nextcpu;
-
+#endif
 	ipr_intc = readl(intc_base + IPR_OFF);
+#ifdef CONFIG_SMP
 
 	ipr[0] = ipr_intc & cpu_irq_unmask[cpuid];
+#else
+	ipr[0] = ipr_intc;
+#endif
 	gpr[0] = ipr[0] & 0x3f000;
 	ipr[0] &= ~0x3f000;
 
