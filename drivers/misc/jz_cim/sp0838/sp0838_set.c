@@ -1,7 +1,8 @@
 #include <linux/kernel.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
-#include <mach/jz_cim.h>
+#include <mach/jz_cim.h>
+
 #include "sp0838_camera.h"
 
 
@@ -23,14 +24,14 @@ int sp0838_init(struct cim_sensor *sensor_info)
 	sp0838_write_reg(client,0x32,0x00);
 	sp0838_write_reg(client,0x22,0xc0);
 	sp0838_write_reg(client,0x26,0x10);	
-	sp0838_write_reg(client,0x31,0x10);	
+	sp0838_write_reg(client,0x31,0x10 | 0x20);	//set mirror bit
 	sp0838_write_reg(client,0x5f,0x11);
 	sp0838_write_reg(client,0xfd,0x01);
 	sp0838_write_reg(client,0x25,0x1a);
 	sp0838_write_reg(client,0x26,0xfb);
 	sp0838_write_reg(client,0x28,0x75);
 	sp0838_write_reg(client,0x29,0x4e);
-	sp0838_write_reg(client,0x31,0x60);
+	sp0838_write_reg(client,0x31,0x60); 
 	sp0838_write_reg(client,0x32,0x18);
 	sp0838_write_reg(client,0x4d,0xdc);
 	sp0838_write_reg(client,0x4e,0x53);
