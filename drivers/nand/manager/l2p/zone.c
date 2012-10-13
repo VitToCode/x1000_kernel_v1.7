@@ -29,12 +29,12 @@
 #define SIGZONEINFO(vnand)        ((vnand)->v2pp->_2kPerPage)
 
 /*test define */
-#define MEMORY_PAGE_NUM      3 
+#define MEMORY_PAGE_NUM      3
 /*define bad block bit = 1 */
 /*define max l2info l3info size 5K*/
 /*read page info form nand flash */
 
-static int get_invalidpagecount(unsigned int startpage, 
+static int get_invalidpagecount(unsigned int startpage,
 		unsigned short pagecnt, ZoneValidInfo * zonevalidinfo)
 {
 	Wpages *wpages = zonevalidinfo->wpages;
@@ -42,7 +42,7 @@ static int get_invalidpagecount(unsigned int startpage,
 	int i = 0, invalidpage = 0;
 
 	for (i = 0; i < current_count; i++) {
-		if (startpage >= (wpages + i)->startpage + (wpages + i)->pagecnt || 
+		if (startpage >= (wpages + i)->startpage + (wpages + i)->pagecnt ||
 				startpage + pagecnt <= (wpages + i)->startpage) {
 			continue;
 		}
@@ -92,7 +92,7 @@ static void check_invalidpage(Zone *zone, unsigned int startpage, unsigned short
 	}
 }
 
-/** 
+/**
  *	read_info_l2l3l4info - read and unpackage info page
  *
  *	@zone: operate object
@@ -106,7 +106,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	NandPageInfo *nandpageinfo;
 	PageList *pagelist = NULL;
 	BuffListManager *blm = NULL;
-	
+
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
 	blm = ((Context *)(zone->context))->blm;
@@ -119,7 +119,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	pagelist->retVal = 0;
 	(pagelist->head).next = NULL;
 
-	ret = vNand_MultiPageRead(zone->vnand,pagelist);	
+	ret = vNand_MultiPageRead(zone->vnand,pagelist);
 	if(ret != 0)
 	{
 		if (ISNOWRITE(pagelist->retVal)) {
@@ -153,7 +153,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 		if(pi->L2InfoLen == 0)
 		{
 			pi->L3Index = nandpageinfo->L3Index;
-			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen; 
+			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
 			memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
 		}
 		else
@@ -161,14 +161,14 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 			pi->L2Index = nandpageinfo->L2Index;
 			nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
 			memcpy(pi->L2Info,nandpageinfo->L2Info,pi->L2InfoLen);
-			
+
 			pi->L3Index = nandpageinfo->L3Index;
-			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen; 
+			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
 			memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
-		}	
+		}
 	}
 
-err:	
+err:
 	ret = pagelist->retVal;
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 	return ret;
@@ -179,7 +179,7 @@ static int release_l2l3l4info(Zone *zone,PageInfo *pi)
 	return 0;
 }
 
-/** 
+/**
  *	package_pageinfo - package info page
  *
  *	@zone: operate object
@@ -195,7 +195,7 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 	nandpageinfo->L4Info = buf + sizeof(NandPageInfo);
 	memcpy(nandpageinfo->L4Info,pi->L4Info,pi->L4InfoLen);
 	len = pi->L4InfoLen;
-	
+
 	if (zone->L3InfoLen != 0)
 	{
 		if(zone->L2InfoLen == 0)
@@ -211,19 +211,19 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 			nandpageinfo->L2Index = pi->L2Index;
 			nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
 			memcpy(nandpageinfo->L2Info,pi->L2Info,pi->L2InfoLen);
-			
+
 			nandpageinfo->L3Index = pi->L3Index;
 			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
 			memcpy(nandpageinfo->L3Info,pi->L3Info,pi->L3InfoLen);
 
 			len += pi->L2InfoLen + pi->L3InfoLen;
-		}	
+		}
 	}
 
 	return len;
 }
 
-/** 
+/**
  *	check_pagelist_error - check return value of pagelist
  *
  *	@pl: which need to check
@@ -240,13 +240,13 @@ static int check_pagelist_error(PageList *pl)
 		sg = (pl->head).next;
 		if(sg == NULL)/*if exec then buf happen*/
 			break;
-		pl = singlelist_entry(sg,PageList,head);	
+		pl = singlelist_entry(sg,PageList,head);
 	}while(pl);
 
 	return -1;
 }
 
-/** 
+/**
  *	zone_page1_pageid - get pageid of zone'page1
  *
  *	@zone: operate object
@@ -260,18 +260,18 @@ static inline unsigned short zone_page1_pageid(Zone *zone)
 	return ( blockno * zone->vnand->PagePerBlock + SIGZONEINFO(zone->vnand));
 }
 
-/** 
+/**
  *	zone_L1Info_addr - get pageid of zone'L1Info
  *
  *	@zone: operate object
  */
 static inline unsigned int zone_L1Info_addr(Zone *zone)
 {
-	return (zone_page1_pageid(zone) + 
+	return (zone_page1_pageid(zone) +
 			zone->startblockID * zone->vnand->PagePerBlock + 1);
 }
 
-/** 
+/**
  *	calc_zone_page - calc page count of zone
  *
  *	@zone: operate object
@@ -292,7 +292,7 @@ static unsigned short calc_zone_page(Zone *zone)
 	return page;
 }
 
-/** 
+/**
  *	Zone_FindFirstPageInfo - find first pageinfo of zone
  *
  *	@zone: operate object
@@ -302,16 +302,16 @@ int Zone_FindFirstPageInfo ( Zone *zone, PageInfo* pi )
 {
 	int blockno = 0;
 	unsigned int pageid = 0;
-	
+
 	while(nm_test_bit(blockno,&zone->badblock) && (++blockno));
 
-	pageid = (zone->vnand->PagePerBlock) * (zone->startblockID + blockno) 
+	pageid = (zone->vnand->PagePerBlock) * (zone->startblockID + blockno)
 			+ FIRSTPAGEINFO(zone->vnand);
 
 	return read_info_l2l3l4info(zone,pageid,pi);
 }
 
-/** 
+/**
  *	Zone_FindNextPageInfo - find next pageinfo of zone
  *
  *	@zone: operate object
@@ -320,7 +320,7 @@ int Zone_FindFirstPageInfo ( Zone *zone, PageInfo* pi )
 int Zone_FindNextPageInfo ( Zone *zone, PageInfo* pi )
 {
 	unsigned int pageid = 0;
-	
+
 	if(zone->NextPageInfo == 0)
 		return -1;
 
@@ -330,7 +330,7 @@ int Zone_FindNextPageInfo ( Zone *zone, PageInfo* pi )
 	return read_info_l2l3l4info(zone,pageid,pi);
 }
 
-/** 
+/**
  *	Zone_ReleasePageInfo - release pageinfo
  *
  *	@zone: operate object
@@ -341,7 +341,7 @@ int Zone_ReleasePageInfo ( Zone *zone, PageInfo* pi )
 	return release_l2l3l4info(zone,pi);
 }
 
-/** 
+/**
  *	Zone_ReadPageInfo - read pageinfo
  *
  *	@zone: operate object
@@ -353,7 +353,7 @@ int Zone_ReadPageInfo ( Zone *zone, unsigned int pageID, PageInfo* pi )
 	return read_info_l2l3l4info(zone,pageID,pi);
 }
 
-/** 
+/**
  *	Zone_MultiWritePage - MultiWritePage operation
  *
  *	@zone: operate object
@@ -378,7 +378,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
 		/ zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
 	nandpageinfo->ZoneID = pi->zoneID;
-	len = package_pageinfo(zone,buf,pi);   
+	len = package_pageinfo(zone,buf,pi);
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
 	{
 		ndprint(ZONE_ERROR,"package page info error func %s line %d \n",
@@ -424,7 +424,7 @@ err:
 	return ret;
 }
 
-/** 
+/**
  *	Zone_AllocNextPage - alloc next page of zone to write
  *
  *	@zone: operate object
@@ -452,7 +452,7 @@ int Zone_AllocNextPage ( Zone *zone )
 			//end_blockid = BadBlockInfo_Get_blockID(zonep->badblockinfo,zone->ZoneID,BLOCKPERZONE(zone->vnand) - 1);
 			end_blockid = ((zone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand)) - 1;
 		}
-
+		j = zone->allocPageCursor / pageperblock;
 		for (i = zone->startblockID + zone->allocPageCursor / pageperblock; i < end_blockid; i++) {
 			//if (vNand_IsBadBlock(zone->vnand,i) || nm_test_bit(j++,&(zone->badblock)))
 			if (nm_test_bit(j++,&(zone->badblock)))
@@ -464,11 +464,15 @@ int Zone_AllocNextPage ( Zone *zone )
 
 	zone->allocPageCursor = zone->allocPageCursor % pageperblock + (zone->allocPageCursor / pageperblock + badblocknum) * pageperblock;
 	zone->allocedpage++;
+	if(zone->allocPageCursor >= pageperblock * BLOCKPERZONE(zonep->vnand)){
+		ndprint(ZONE_ERROR,"ERROR: allocPageCursor have too large = %d !!\n",zone->allocPageCursor);
+		return -1;
+	}
 
 	return zone->allocPageCursor + zone->startblockID * zone->vnand->PagePerBlock;
 }
 
-/** 
+/**
  *	Zone_GetFreePageCount - get free page count of zone
  *
  *	@zone: operate object
@@ -478,7 +482,7 @@ unsigned short Zone_GetFreePageCount(Zone *zone)
 	return zone->sumpage - (zone->allocedpage + zone->vnand->v2pp->_2kPerPage - 1) / zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
 }
 
-/** 
+/**
  *	Zone_MarkEraseBlock - mark erase blcok
  *
  *	@zone: operate object
@@ -490,7 +494,7 @@ int Zone_MarkEraseBlock ( Zone *zone, unsigned int PageID, int Mode )
 	BlockList *blocklist = NULL;
 	int ret = -1;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
-	
+
 	blocklist = (BlockList*)BuffListManager_getTopNode((int)blm, sizeof(BlockList));
 	blocklist->startBlock = PageID / zone->vnand->PagePerBlock;
 	blocklist->BlockCount = 1;
@@ -507,7 +511,7 @@ int Zone_MarkEraseBlock ( Zone *zone, unsigned int PageID, int Mode )
 	return 0;
 }
 
-/** 
+/**
  *	Zone_Init - Initialize operation
  *
  *	@zone: operate object
@@ -542,7 +546,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	CONV_SZ_ZI(zone->sigzoneinfo, &nandzoneinfo->localZone);
 
 	if(prev != NULL)
-	{	
+	{
 		/*file prev zone information to page1 buf*/
 		nandzoneinfo->preZone.ZoneID = prev - zone->top;
 		zone->sigzoneinfo->pre_zoneid = prev - zone->top;
@@ -550,9 +554,9 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	}
 	else
 		nandzoneinfo->preZone.ZoneID = 0xffff;
-	
+
 	if(next != NULL)
-	{	
+	{
 		/*file next zone information to page1 buf*/
 		nandzoneinfo->nextZone.ZoneID = next - zone->top;
 		zone->sigzoneinfo->next_zoneid = next - zone->top;
@@ -570,11 +574,11 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 
 #ifdef TEST_ZONE //for test
 	pagelist->startPageID = (zone->ZoneID * BLOCKPERZONE(zone->vnand) + blockno)*
-								(zone->vnand->PagePerBlock) 
+								(zone->vnand->PagePerBlock)
 								+ SIGZONEINFO(zone->vnand);
 #else
 	pagelist->startPageID = (zone->startblockID + blockno)*
-							(zone->vnand->PagePerBlock) 
+							(zone->vnand->PagePerBlock)
 							+ SIGZONEINFO(zone->vnand);
 
 #endif
@@ -618,7 +622,7 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	return 0;
 }
 
-/** 
+/**
  *	Zone_DeInit - Deinit operation
  *
  *	@zone: operate object
@@ -628,7 +632,7 @@ int Zone_DeInit ( Zone *zone )
 	return 0;
 }
 
-/** 
+/**
  *	Zone_RawMultiWritePage - MultiPageWrite without pageinfo
  *
  *	@zone: operate object
@@ -639,7 +643,7 @@ int Zone_RawMultiWritePage ( Zone *zone, PageList *pl )
 	return vNand_MultiPageWrite(zone->vnand,pl);
 }
 
-/** 
+/**
  *	Zone_RawMultiReadPage - MultiPageRead without pageinfo
  *
  *	@zone: operate object
