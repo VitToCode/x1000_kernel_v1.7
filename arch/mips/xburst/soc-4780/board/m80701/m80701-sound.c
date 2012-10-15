@@ -42,5 +42,5 @@ struct snd_codec_data codec_data = {
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = 1},
 	.gpio_head_det = {.gpio = -1, .active_level = 0},
 
-	.hpsense_active_level = 1,
+	.hpsense_active_level = 0,
 };
