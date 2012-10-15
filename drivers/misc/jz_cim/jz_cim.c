@@ -420,7 +420,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 			//dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
 			dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
 
-			if( wait_count== 3)
+			if( wait_count == 6)
 			{
 				wait_count = 0;
 				cim_disable(cim);
@@ -447,7 +447,7 @@ static long cim_shutdown(struct jz_cim *cim)
 		return 0;
 	cim->state = CS_IDLE;
 	dev_info(cim->dev," -----cim shut down\n");
-	cim->desc->shutdown(cim->desc);
+	//cim->desc->shutdown(cim->desc);
 	cim_disable(cim);
 	cim_disable_dma(cim);
 	
@@ -508,20 +508,10 @@ static long cim_start_capture(struct jz_cim *cim)
 	cim_set_da(cim,cim->capture);
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_set_default(cim);
-	dev_info(cim->dev,"%s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+//	dev_info(cim->dev,"%s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
 
-	cim->desc->power_on(cim->desc);
-	cim->desc->init(cim->desc);
-	cim->desc->set_antibanding(cim->desc,cim->desc->para.antibanding);
-	cim->desc->set_balance(cim->desc,cim->desc->para.balance);
-	cim->desc->set_effect(cim->desc,cim->desc->para.effect);
-	cim->desc->set_flash_mode(cim->desc,cim->desc->para.flash_mode);
-	cim->desc->set_focus_mode(cim->desc,cim->desc->para.focus_mode);
-	//cim->desc->set_fps(cim->desc,cim->desc->para.fps);
-	cim->desc->set_scene_mode(cim->desc,cim->desc->para.scene_mode);
 	cim->desc->set_capture_mode(cim->desc);
 	cim_set_capture_size(cim);
-	dev_info(cim->dev,"%s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
 	if(cim->tlb_flag) {
 		cim_reset_tlb(cim);
 		cim_enable_tlb_error_intr(cim);
