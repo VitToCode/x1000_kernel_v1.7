@@ -225,13 +225,13 @@ static int __init m80701_board_init(void)
 #endif
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &m80701_inand_pdata);
+	jz_device_register(&jz_msc2_device, &m80701_tf_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &m80701_sdio_pdata);
 #endif
 #ifdef CONFIG_MMC2_JZ4780
-	jz_device_register(&jz_msc2_device, &m80701_tf_pdata);
+	jz_device_register(&jz_msc0_device, &m80701_inand_pdata);
 #endif
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
