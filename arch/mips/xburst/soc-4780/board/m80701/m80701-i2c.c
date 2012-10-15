@@ -117,6 +117,12 @@ static struct i2c_board_info m80701_i2c2_devs[] __initdata = {
 		.platform_data	= &sp0838_pdata,
 	},
 #endif
+
+#ifdef CONFIG_RTC_DRV_PCF8563
+	{
+		I2C_BOARD_INFO("pcf8563",0x51),
+	},
+#endif
 };
 #endif	/*I2C2*/
 
