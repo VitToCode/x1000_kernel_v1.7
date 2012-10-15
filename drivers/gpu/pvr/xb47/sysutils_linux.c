@@ -319,8 +319,8 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	psSysSpecData->psTimer_Divider = psCLK;
 
         clk_enable(psSysSpecData->psTimer_Gate);
-        clk_set_rate(psSysSpecData->psTimer_Divider, 300000000);
-	if (clk_get_rate(psSysSpecData->psTimer_Divider) > 300000000)
+        clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
+	if (clk_get_rate(psSysSpecData->psTimer_Divider) > SYS_SGX_CLOCK_SPEED)
             goto ExitDisableTimerGate;
         clk_enable(psSysSpecData->psTimer_Divider);
 
