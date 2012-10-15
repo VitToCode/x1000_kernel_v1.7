@@ -2400,6 +2400,13 @@ config MAP_DATABUS_TO_LCDC0
 	depends on FB && SOC_4780
 	default n
 
+config NO_TFT_LVDS_PANEL
+       bool "no TFT LVDS panel"
+       depends on FB && SOC_4780
+       default n
+       help
+	If your LCD panel is not TFT LVDS panel, say Y to enable PORT C as GPIO function 0.
+
 choice
 	depends on FB && SOC_4780
 	prompt "allocation frame buffer"
