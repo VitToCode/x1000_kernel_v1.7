@@ -336,7 +336,8 @@ static int x2d_create_procinfo(struct x2d_device *jz_x2d)
 		dev_err(jz_x2d->dev,"malloc for struct proc_info fail\n");
 		return -1;
 	}
-	p->pid = current->tgid;
+//	p->pid = current->tgid;
+	p->pid = current->pid;
 	list_add_tail(&p->list,&jz_x2d->proc_list);
 	dev_dbg(jz_x2d->dev, "%d, %s, pid: %d, p: %p~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__, p->pid, p);
 #ifdef USE_DMMU_TLB
@@ -357,7 +358,7 @@ static int x2d_free_procinfo(struct x2d_device *jz_x2d,pid_t pid)
 {
 	struct x2d_process_info* p = NULL;
 
-	p = x2d_index_procinfo(jz_x2d, current->tgid);
+	p = x2d_index_procinfo(jz_x2d, current->pid);
 	if (!p) {
 		dev_err(jz_x2d->dev,"free_tlb_table  cannot find proc %d\n",pid);
 		return -1;
@@ -385,7 +386,7 @@ static int x2d_check_allproc_free (struct x2d_device *jz_x2d)
 	return ret;
 }
 
-#ifdef X2D_DEBUG
+//#ifdef X2D_DEBUG
 static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *p)
 {
 	int i;
@@ -424,6 +425,7 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *
 				 p->configs.lay[i].y_stride, p->configs.lay[i].v_stride);
 	}
 }
+#ifdef X2D_DEBUG
 #endif
 
 static void x2d_dump_reg(struct x2d_device *jz_x2d,struct x2d_process_info* p)
@@ -468,7 +470,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 	jz_x2d->state = x2d_state_calc;
 	dev_dbg(jz_x2d->dev, "current->pid: %d\n", current->pid);
-	p = x2d_index_procinfo(jz_x2d,current->tgid);
+	p = x2d_index_procinfo(jz_x2d,current->pid);
 	if (p == NULL) {
 		dev_dbg(jz_x2d->dev, "p ===NULL, %d, %s~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__);
 	}
@@ -525,6 +527,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	jz_x2d->chain_p->dst_argb =  p->configs.dst_bcground;
 
 
+//	for(i=0;i<p->configs.layer_num;i++)
 	for(i=0;i<p->configs.layer_num;i++)
 	{
 #ifdef CLEAR_DST
@@ -539,12 +542,12 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 
 #if 0 //def SRC_ALPHA_TEST
-		p->configs.lay[i].msk_val = 0;//0xff0000ff;
-//		if (i == 0) {
-//			p->configs.lay[i].glb_alpha_en = 1;
-//			p->configs.lay[i].global_alpha_val = 0xFF;
+//		p->configs.lay[i].msk_val = 0;//0xff0000ff;
+//		if (i == 1) {
+			p->configs.lay[i].glb_alpha_en = 1;
+			p->configs.lay[i].global_alpha_val = 0x80;
 //		}
-		p->configs.lay[i].preRGB_en = 0;
+//		p->configs.lay[i].preRGB_en = 0;
 
 #endif
 
@@ -572,6 +575,15 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)p->configs.lay[i].v_scale_ratio;
 		jz_x2d->chain_p->x2d_lays[i].bk_argb = p->configs.lay[i].msk_val;
 
+//		if (p->configs.lay[i].format == X2D_INFORMAT_TILE420) {
+//			printk("+++++++++++++++++++++++++\n");
+//			jz_x2d->chain_p->overlay_num = 1;
+//			reg_write(jz_x2d,REG_X2D_LAY_GCTRL,1);
+//			x2d_dump_config(jz_x2d, p);
+//			x2d_dump_reg(jz_x2d,p);
+//			break;
+//		}
+
 	}	
 	dma_cache_wback((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
 
@@ -595,11 +607,11 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 //#if 0
 	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue,10*HZ))
 	{
-		dev_dbg(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));		
+		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));		
 		__x2d_stop_trig();
 		x2d_dump_reg(jz_x2d,p);
 		mutex_unlock(&jz_x2d->compose_lock);
-		dev_dbg(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
+		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		return -1;   
 	}
 //#endif
@@ -616,7 +628,7 @@ int jz_x2d_set_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
 	struct x2d_process_info * p;
 
 	mutex_lock(&jz_x2d->x2d_lock);
-	p = x2d_index_procinfo(jz_x2d,current->tgid);
+	p = x2d_index_procinfo(jz_x2d,current->pid);
 	if (copy_from_user(&p->configs, (void *)config, sizeof(struct jz_x2d_config)))
 		return -EFAULT;
 #ifdef X2D_DEBUG
@@ -637,7 +649,7 @@ int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,struct jz_x2d_config* confi
 {	
 	struct x2d_process_info * p;
 
-	p = x2d_index_procinfo( jz_x2d,current->tgid);
+	p = x2d_index_procinfo( jz_x2d,current->pid);
 	if (copy_to_user((void *)config, &p->configs, sizeof(struct jz_x2d_config)))
 		return -EFAULT;
 
