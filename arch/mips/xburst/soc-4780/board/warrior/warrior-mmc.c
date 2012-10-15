@@ -149,17 +149,17 @@ int IW8101_wlan_power_on(int flag)
 start:
 	pr_debug("wlan power on:%d\n", flag);
 	jzrtc_switch_clk32k(1);
-	mdelay(200);
+	msleep(200);
 
 	switch(flag) {
 		case RESET:
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
-			mdelay(200);
+			msleep(200);
 
 			gpio_set_value(reset, 1);
-			mdelay(200);
+			msleep(200);
 
 			break;
 
@@ -167,11 +167,11 @@ start:
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
-			mdelay(200);
+			msleep(200);
 
 			gpio_set_value(reset, 1);
 
-			mdelay(200);
+			msleep(200);
 			jzmmc_manual_detect(1, 1);
 
 			break;
