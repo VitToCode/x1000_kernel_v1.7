@@ -460,7 +460,7 @@ static void config_osd_regs(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
 	
-	tmp = GLB_ALPHA(0xa0) | MOD_OSD(0x3) | OSD_PM;
+	tmp = GLB_ALPHA(0xff) | MOD_OSD(0x3) | OSD_PM;
 	reg_write(ipu, IPU_OSD_CTRL, tmp);
 }
 
@@ -620,30 +620,43 @@ static unsigned int hal_to_ipu_infmt(int hal_fmt)
 
 	/* hardware/libhardware/include/hardware/hardware.h */
 	switch ( hal_fmt ) {
-		case HAL_PIXEL_FORMAT_YCbCr_422_SP:
-			ipu_fmt = IN_FMT_YUV422;
-			break;
-		case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-			ipu_fmt = IN_FMT_YUV420;
-			break;
-		case HAL_PIXEL_FORMAT_YCbCr_422_P:
-			ipu_fmt = IN_FMT_YUV422;
-			break;
-		case HAL_PIXEL_FORMAT_YCbCr_422_I:
-			ipu_fmt = IN_FMT_YUV422;
-			break;
-		case HAL_PIXEL_FORMAT_YCbCr_420_I:
-			ipu_fmt = IN_FMT_YUV420;
-			break;
-		case HAL_PIXEL_FORMAT_YCbCr_420_B:
-		case HAL_PIXEL_FORMAT_JZ_YUV_420_B:
-			ipu_fmt = IN_FMT_YUV420_B;
-			break;		
-		case HAL_PIXEL_FORMAT_YCbCr_420_P:
-		case HAL_PIXEL_FORMAT_JZ_YUV_420_P:
-		default:
-			ipu_fmt = IN_FMT_YUV420;
-			break;
+	case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+		ipu_fmt = IN_FMT_YUV422;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+		ipu_fmt = IN_FMT_YUV420;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_422_P:
+		ipu_fmt = IN_FMT_YUV422;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_422_I:
+		ipu_fmt = IN_FMT_YUV422;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_420_I:
+		ipu_fmt = IN_FMT_YUV420;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_420_B:
+	case HAL_PIXEL_FORMAT_JZ_YUV_420_B:
+		ipu_fmt = IN_FMT_YUV420_B;
+		break;
+	case HAL_PIXEL_FORMAT_RGBA_5551:
+		ipu_fmt = IN_FMT_RGB_555;
+		break;
+	case HAL_PIXEL_FORMAT_RGBA_8888:
+	case HAL_PIXEL_FORMAT_RGBX_8888:
+	case HAL_PIXEL_FORMAT_RGB_888:
+	case HAL_PIXEL_FORMAT_BGRA_8888:
+	case HAL_PIXEL_FORMAT_BGRX_8888:
+		ipu_fmt = IN_FMT_RGB_888;
+		break;
+	case HAL_PIXEL_FORMAT_RGB_565:
+		ipu_fmt = IN_FMT_RGB_565;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_420_P:
+	case HAL_PIXEL_FORMAT_JZ_YUV_420_P:
+	default:
+		ipu_fmt = IN_FMT_YUV420;
+		break;
 	}
 
 	return ipu_fmt;
@@ -982,6 +995,9 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	if ((in_fmt == IN_FMT_YUV444) && (out_fmt != OUT_FMT_YUV422)) {
 		disable_pkg_mode(ipu);
 	}
+	if (in_fmt == IN_FMT_RGB_555 || IN_FMT_RGB_888 || IN_FMT_RGB_565) {
+		enable_pkg_mode(ipu);
+	}
 
 	if ((in_fmt == IN_FMT_YUV422)) { 
 		enable_pkg_mode(ipu);
@@ -1166,7 +1182,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	if (spage_map != 0) {
 		dev_dbg(ipu->dev, "spage_map != 0\n");
 
-		if ((py_buf_v == 0) || (pu_buf_v == 0) || (pv_buf_v == 0)) {
+		if (py_buf_v == 0) {
 			printk("Can not found source map table, use no map now!\r\n");
 			spage_map = 0;
 			disable_spage_map(ipu);
