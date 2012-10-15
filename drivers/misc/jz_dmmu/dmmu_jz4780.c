@@ -798,6 +798,8 @@ static int dmmu_probe(struct platform_device *pdev)
 	num = jz_dmmu.page_table_pool_init_capacity;
 	jz_dmmu.table_pool_bitmap = (1<<num) - 1;
 
+        dev_err(&pdev->dev, "page_table_pool_init_capacity=%d table_pool_bitmap=%#x\n", num, jz_dmmu.table_pool_bitmap);
+
 	err = misc_register(&jz_dmmu.misc_dev);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Unable to register dmmu driver!\n");
