@@ -197,12 +197,13 @@ static int erase_single_block(SmbContext *conptr, int blockid, int first)
 					"read first page err: %s, %d, pageid = %d, blockid = %d, retVal = %d\n",
 					__FILE__, __LINE__, statpage, blockid, ret);
 		}
-		goto done;
 	}
 
 	bl_top = (BlockList *)BuffListManager_getTopNode((int)conptr->blm, sizeof(BlockList));
 	bl_top->startBlock = blockid;
 	bl_top->BlockCount = 1;
+
+	ndprint(SIGBLOCK_INFO, "Erase block %d!\n", blockid);
 	ret = vNand_MultiBlockErase(&conptr->vnand, bl_top);
 	if (ret != 0) {
 		ndprint(SIGBLOCK_ERROR,
@@ -569,8 +570,8 @@ static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
 			continue;
 		}
 		blockcnt = get_unit_count_from_sl(sl_node, conptr->spb);
-		ndprint(SIGBLOCK_INFO, ">>>>>> sl_node = %p, blockcnt = %d, startSector = %d, sectorCount = %d\n\n",
-			   sl_node, blockcnt, sl_node->startSector, sl_node->sectorCount);
+		ndprint(SIGBLOCK_INFO, "Simple %s: sl_node = %p, blockcnt = %d, startSector = %d, sectorCount = %d\n\n",
+				(SIMP_WRITE == rwflag ? "Write" : "Read"), sl_node, blockcnt, sl_node->startSector, sl_node->sectorCount);
 		if (1 == blockcnt) {
 			ret = single_block_rw(conptr, sl_node, rwflag);
 		} else {
