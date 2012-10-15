@@ -59,6 +59,8 @@
 #include "dwc_otg_cil.h"
 
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
+
 #include "jzsoc.h"
 
 #define DWC_DRIVER_VERSION	"2.94a 27-OCT-2011"
@@ -801,6 +803,19 @@ static inline int jz_dwc_init(struct device *dev)
 	return 0;
 }
 
+static void jz47xx_set_vbus(struct dwc_otg_core_if *core_if,int on)
+{
+	int err;
+	if (!core_if->vbus_power)
+		return;
+	if(on)
+		err = regulator_enable(core_if->vbus_power);
+	else
+		err = regulator_disable(core_if->vbus_power);
+
+	if (err < 0)
+		printk("%s-%svbus regulator failed\n",__func__,on?"enable":"disable");
+}
 
 static int dwc_otg_driver_probe(
 #ifdef LM_INTERFACE
@@ -945,6 +960,12 @@ static int dwc_otg_driver_probe(
 		goto fail;
 	}
 
+	dwc_otg_device->core_if->vbus_power = regulator_get(NULL, "vbus");
+	if (IS_ERR(dwc_otg_device->core_if->vbus_power)) {
+		printk("%s-get vbus regulator failed\n",__func__);
+	}
+
+	dwc_otg_device->core_if->set_vbus = jz47xx_set_vbus; 
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.
 	 * Read and verify the SNPSID register contents. The value should be

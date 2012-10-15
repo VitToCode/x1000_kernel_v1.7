@@ -1509,9 +1509,13 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	if (dwc_otg_is_host_mode(core_if)) {
 		DWC_DEBUGPL(DBG_ANY, "Host Mode\n");
 		core_if->op_state = A_HOST;
+		if(core_if->set_vbus)
+			core_if->set_vbus(core_if,1);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "Device Mode\n");
 		core_if->op_state = B_PERIPHERAL;
+		if(core_if->set_vbus)
+			core_if->set_vbus(core_if,0);
 #ifdef DWC_DEVICE_ONLY
 		dwc_otg_core_dev_init(core_if);
 #endif

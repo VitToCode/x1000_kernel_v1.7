@@ -41,7 +41,7 @@
 
 #include "dwc_otg_hcd.h"
 #include "dwc_otg_regs.h"
-#include <linux/regulator/consumer.h>
+
 dwc_otg_hcd_t *dwc_otg_hcd_alloc_hcd(void)
 {
 	return DWC_ALLOC(sizeof(dwc_otg_hcd_t));
@@ -228,30 +228,6 @@ static int32_t dwc_otg_hcd_start_cb(void *p)
 	dwc_otg_core_if_t *core_if;
 	hprt0_data_t hprt0;
 	int err;	
-	dwc_otg_hcd->drv_vbus_power = regulator_get(NULL, "vdrvvbus");
-	if (IS_ERR(dwc_otg_hcd->drv_vbus_power)) {
-		printk("%s-get vdrvvbus regulator failed\n",__func__);
-	}
-	if (dwc_otg_hcd->drv_vbus_power){
-		err = regulator_enable(dwc_otg_hcd->drv_vbus_power);
-		if (err < 0){
-			printk("%s-enable vdrvvbus regulator failed\n",__func__);
-			return err;
-		}
-	}
-	udelay(100);
-
-	dwc_otg_hcd->vbus_power = regulator_get(NULL, "vbus");
-	if (IS_ERR(dwc_otg_hcd->vbus_power)) {
-		printk("%s-get vbus regulator failed\n",__func__);
-	}
-	if (dwc_otg_hcd->vbus_power){
-		err = regulator_enable(dwc_otg_hcd->vbus_power);
-		if (err < 0){
-			printk("%s-enable vbus regulator failed\n",__func__);
-			return err;
-		}
-	}
 
 	core_if = dwc_otg_hcd->core_if;
 
@@ -403,22 +379,6 @@ static int32_t dwc_otg_hcd_stop_cb(void *p)
 	int err;
 	DWC_DEBUGPL(DBG_HCDV, "%s(%p)\n", __func__, p);
 	dwc_otg_hcd_stop(dwc_otg_hcd);
-
-	if (dwc_otg_hcd->vbus_power){
-		err = regulator_disable(dwc_otg_hcd->vbus_power);
-		if (err < 0){
-			printk("%s-enable vbus regulator failed\n",__func__);
-			return err;
-		}
-	}
-
-	if (dwc_otg_hcd->drv_vbus_power){
-		err = regulator_disable(dwc_otg_hcd->drv_vbus_power);
-		if (err < 0){
-			printk("%s-enable vdrvvbus regulator failed\n",__func__);
-			return err;
-		}
-	}
 
 	return 1;
 }
