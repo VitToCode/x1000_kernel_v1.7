@@ -227,7 +227,6 @@ static int32_t dwc_otg_hcd_start_cb(void *p)
 	dwc_otg_hcd_t *dwc_otg_hcd = p;
 	dwc_otg_core_if_t *core_if;
 	hprt0_data_t hprt0;
-	int err;	
 
 	core_if = dwc_otg_hcd->core_if;
 
@@ -376,7 +375,6 @@ static int32_t dwc_otg_hcd_disconnect_cb(void *p)
 static int32_t dwc_otg_hcd_stop_cb(void *p)
 {
 	dwc_otg_hcd_t *dwc_otg_hcd = p;
-	int err;
 	DWC_DEBUGPL(DBG_HCDV, "%s(%p)\n", __func__, p);
 	dwc_otg_hcd_stop(dwc_otg_hcd);
 

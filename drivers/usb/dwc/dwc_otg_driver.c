@@ -808,13 +808,15 @@ static void jz47xx_set_vbus(struct dwc_otg_core_if *core_if,int on)
 	int err;
 	if (!core_if->vbus_power)
 		return;
-	if(on)
+	if(on && !core_if->vbus_is_on)
 		err = regulator_enable(core_if->vbus_power);
 	else
 		err = regulator_disable(core_if->vbus_power);
 
 	if (err < 0)
 		printk("%s-%svbus regulator failed\n",__func__,on?"enable":"disable");
+	
+	core_if->vbus_is_on = regulator_is_enabled(core_if->vbus_power);
 }
 
 static int dwc_otg_driver_probe(
@@ -965,6 +967,7 @@ static int dwc_otg_driver_probe(
 		printk("%s-get vbus regulator failed\n",__func__);
 	}
 
+	dwc_otg_device->core_if->vbus_is_on = regulator_is_enabled(dwc_otg_device->core_if->vbus_power);
 	dwc_otg_device->core_if->set_vbus = jz47xx_set_vbus; 
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.
