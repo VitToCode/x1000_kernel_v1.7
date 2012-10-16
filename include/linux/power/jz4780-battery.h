@@ -36,6 +36,11 @@ enum {
 	STATUS,
 };
 
+struct private {
+	int timecount;
+	unsigned int voltage;
+};
+
 struct jz_battery {
 	struct jz_battery_platform_data *pdata;
 	struct platform_device *pdev;
@@ -62,6 +67,8 @@ struct jz_battery {
 	struct delayed_work resume_work;
 
 	struct mutex lock;
+
+	struct private private;
 
 	unsigned int next_scan_time;
 	unsigned int time;
