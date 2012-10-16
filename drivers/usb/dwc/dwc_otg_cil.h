@@ -987,7 +987,6 @@ struct dwc_otg_core_if {
 	/** Frame number while entering to ISR - needed for ISOCs **/
 	uint32_t frame_num; 
 
-	int vbus_is_on;
 	struct regulator *vbus_power;
 	void (*set_vbus)(struct dwc_otg_core_if *,int);
 };
