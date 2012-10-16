@@ -613,6 +613,38 @@ static int ipu_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
+static unsigned int hal_infmt_is_packaged(int hal_fmt)
+{
+	unsigned int is_packaged = 0;
+
+	/* hardware/libhardware/include/hardware/hardware.h */
+	switch (hal_fmt) {
+	case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+	case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+	case HAL_PIXEL_FORMAT_YCbCr_422_P:
+	case HAL_PIXEL_FORMAT_YCbCr_420_P:
+	case HAL_PIXEL_FORMAT_JZ_YUV_420_P:
+	case HAL_PIXEL_FORMAT_YCbCr_420_B:
+	case HAL_PIXEL_FORMAT_JZ_YUV_420_B:
+		is_packaged = 0;
+		break;
+	case HAL_PIXEL_FORMAT_RGBA_5551:
+	case HAL_PIXEL_FORMAT_RGBA_8888:
+	case HAL_PIXEL_FORMAT_RGBX_8888:
+	case HAL_PIXEL_FORMAT_RGB_888:
+	case HAL_PIXEL_FORMAT_BGRA_8888:
+	case HAL_PIXEL_FORMAT_BGRX_8888:
+	case HAL_PIXEL_FORMAT_RGB_565:
+	case HAL_PIXEL_FORMAT_YCbCr_422_I:
+	case HAL_PIXEL_FORMAT_YCbCr_420_I:
+	default:
+		is_packaged = 1;
+		break;
+	}
+
+	return is_packaged;
+}
+
 /* pixel format definitions to ipu pixel format */
 static unsigned int hal_to_ipu_infmt(int hal_fmt)
 {
@@ -892,11 +924,11 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 	in_fmt_tmp = in_fmt;
 	out_fmt_tmp = out_fmt;
 	if ( in_fmt == IN_FMT_YUV422 ) {
-		printk("*** jz47xx ipu driver: IN_FMT_YUV422 use IN_OFT_Y1VY0U\n");
+		//printk("*** jz47xx ipu driver: IN_FMT_YUV422 use IN_OFT_Y1VY0U\n");
 		in_fmt_tmp |= IN_OFT_VY1UY0;
 	}
 	if (out_fmt == OUT_FMT_YUV422) {
-		printk("*** outformat use YUV_PKG_OUT_OFT_Y0UY1V\n");
+		//printk("*** outformat use YUV_PKG_OUT_OFT_Y0UY1V\n");
 		out_fmt_tmp |= YUV_PKG_OUT_OFT_VY1UY0;
 	}
 
@@ -992,15 +1024,12 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	in_fmt = hal_to_ipu_infmt(imgp->in_fmt);
 	out_fmt = hal_to_ipu_outfmt(imgp->out_fmt);
 
-	if ((in_fmt == IN_FMT_YUV444) && (out_fmt != OUT_FMT_YUV422)) {
+	if (hal_infmt_is_packaged(imgp->in_fmt)) {
+		enable_pkg_mode(ipu);
+	} else {
+		//if (out_fmt != OUT_FMT_YUV422) {
 		disable_pkg_mode(ipu);
-	}
-	if (in_fmt == IN_FMT_RGB_555 || IN_FMT_RGB_888 || IN_FMT_RGB_565) {
-		enable_pkg_mode(ipu);
-	}
-
-	if ((in_fmt == IN_FMT_YUV422)) { 
-		enable_pkg_mode(ipu);
+		//}
 	}
 
 	ret = jz47_set_ipu_resize(ipu);
