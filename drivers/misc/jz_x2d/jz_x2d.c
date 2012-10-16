@@ -502,7 +502,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 	memset(jz_x2d->chain_p, 0, sizeof(x2d_chain_info));
 
-#if 1
+#if 0
 	p->configs.dst_back_en = 0;
 	p->configs.dst_glb_alpha_en = 1;
 	p->configs.dst_preRGB_en  = 0;
