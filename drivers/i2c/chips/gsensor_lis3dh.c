@@ -150,7 +150,11 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		default:	config1[1] = 0x2c;break;//default situation set to 0x2c:irq rate:10Hz
 	}
 #endif
+#ifdef CONFIG_SMP 
 	config[1] = 0x50;
+#else
+	config[1] = 0x40;
+#endif
 	config[1] |= LIS3DH_ACC_ENABLE_ALL;
 	if (atomic_read(&acc->enabled)) {
 		config[0] = CTRL_REG1;
@@ -385,9 +389,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 {
 	int err;
 	u8 buf[2]={0};
-	printk("---0----acc enable\n");
+//	printk("---0----acc enable\n");
 	if ((acc->is_suspend == 0) && !atomic_cmpxchg(&acc->enabled, 0, 1)) {
-	printk("---1----acc enable\n");
+//	printk("---1----acc enable\n");
 		err = lis3dh_acc_device_power_on(acc);
 		if (err < 0) {
 			atomic_set(&acc->enabled, 0);
@@ -405,9 +409,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
-	printk("---0----acc disenable\n");
+//	printk("---0----acc disenable\n");
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
-	printk("---0----acc disenable\n");
+//	printk("---0----acc disenable\n");
 		disable_irq_nosync(acc->client->irq);
 		flush_workqueue(acc->irq_work_queue);
 		lis3dh_acc_device_power_off(acc);
@@ -670,10 +674,15 @@ static void lis3dh_acc_work(struct work_struct *work)
 	}
 
 	err = lis3dh_acc_get_acceleration_data(acc, xyz);
-	if(err < 0 )
-		dev_err(&acc->client->dev, "Acceleration data read failed\n");
-	else
-		lis3dh_acc_report_values(acc, xyz);
+	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0) {
+		printk("-----interrupt -suspend or disable-----\n");
+	}
+	else {
+		if(err < 0 )
+			dev_err(&acc->client->dev, "Acceleration data read failed\n");
+		else
+			lis3dh_acc_report_values(acc, xyz);
+	}
 	enable_irq(acc->client->irq);
 }
 
@@ -681,11 +690,12 @@ static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 {
 
 	struct lis3dh_acc_data *acc = dev_id;
-
+/*
 	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
-		printk("---interrupt -suspend or disable\n");
+		printk("-----interrupt -suspend or disable-----\n");
 		return IRQ_HANDLED;
 	}
+	*/
 	disable_irq_nosync(acc->client->irq);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
@@ -868,6 +878,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	client->irq = gpio_to_irq(acc->pdata->gpio_int);
 	err = request_irq(client->irq, lis3dh_acc_interrupt,
+	//		IRQF_TRIGGER_HIGH | IRQF_DISABLED,
 			IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			"lis3dh_acc", acc);
 	if (err < 0)
@@ -881,6 +892,9 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			acc->pdata->gpio_int);
 
 	dev_info(&client->dev, "%s: probed\n", LIS3DH_ACC_DEV_NAME);
+//	atomic_set(&acc->enabled, 0);
+//	acc->is_suspend = 0;
+
 	lis3dh_acc_enable(acc);
 	return 0;
 
@@ -947,6 +961,7 @@ static int lis3dh_acc_resume(struct i2c_client *client)
 	}
 	udelay(100);
 
+	lis3dh_acc_hw_init(acc);
 	lis3dh_acc_enable(acc);
 	mutex_unlock(&acc->lock);
 	enable_irq(client->irq);
@@ -960,11 +975,11 @@ static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
 	disable_irq_nosync(client->irq);
 	acc->is_suspend = 1;
 	
-	err |= lis3dh_acc_disable(acc);
+	err = lis3dh_acc_disable(acc);
 	udelay(100);
 
 	if (acc->power)
-		err |= regulator_disable(acc->power);
+		err = regulator_disable(acc->power);
 
 	return err;
 }
