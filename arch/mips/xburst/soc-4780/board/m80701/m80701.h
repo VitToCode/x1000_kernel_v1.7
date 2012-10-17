@@ -65,11 +65,6 @@ extern struct platform_nand_data jz_nand_chip_data;
 /**
  * keyboard gpio interface
  **/
-#define GPIO_BACK			GPIO_PB(5)
-#define ACTIVE_LOW_BACK			1
-
-#define GPIO_MENU			GPIO_PB(4)
-#define ACTIVE_LOW_MENU			1
 
 #define GPIO_ENDCALL			GPIO_PA(30)
 #define ACTIVE_LOW_ENDCALL		1

@@ -197,17 +197,18 @@ static void m80701_backlight_exit(struct device *dev)
 
 static int m80701_notify(struct device *dev, int brightness)
 {
-	return (brightness * 30 / 100);
+	brightness = 50 + (brightness * 4)/5;
+	return brightness;
 }
 
 static struct platform_pwm_backlight_data m80701_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
-	.dft_brightness	= 80,
-	.pwm_period_ns	= 10000, /* 100 kHZ */
+	.dft_brightness	= 120,
+	.pwm_period_ns	= 1000000, /* 1 kHZ */
 	.init		= m80701_backlight_init,
 	.exit		= m80701_backlight_exit,
-	.notify         = m80701_notify,
+	.notify     = m80701_notify,
 };
 
 /* Backlight Device */
