@@ -427,11 +427,6 @@ int gpio_suspend(void)
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
-		jz->save[0] = readl(jz->reg + PXINT);
-		jz->save[1] = readl(jz->reg + PXMSK);
-		jz->save[2] = readl(jz->reg + PXPAT1);
-		jz->save[3] = readl(jz->reg + PXPAT0);
-		jz->save[4] = readl(jz->reg + PXPEN);
 
 		for(j=0;j<32;j++) {
 			if (test_bit(j, jz->wake_map)) {
@@ -440,7 +435,13 @@ int gpio_suspend(void)
 				__enable_irq(desc, irq, true);
 			}
 		}
-		
+
+		jz->save[0] = readl(jz->reg + PXINT);
+		jz->save[1] = readl(jz->reg + PXMSK);
+		jz->save[2] = readl(jz->reg + PXPAT1);
+		jz->save[3] = readl(jz->reg + PXPAT0);
+		jz->save[4] = readl(jz->reg + PXPEN);
+	
 		gpio_set_func(jz,GPIO_OUTPUT0,jz->sleep_state.output_low);
 		gpio_set_func(jz,GPIO_OUTPUT1,jz->sleep_state.output_high);
 		gpio_set_func(jz,GPIO_INPUT,jz->sleep_state.input_nopull);
