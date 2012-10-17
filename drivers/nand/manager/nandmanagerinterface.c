@@ -17,7 +17,7 @@
 #define N_UNITSIZE     8
 #define N_UNITDIM(x)  (((x) + N_UNITSIZE - 1 ) / N_UNITSIZE)
 #define BLOCK_PER_ZONE 8
-#define ZONEINFO_PAGES 3 
+#define ZONEINFO_PAGES 3
 #define SECTOR_SIZE    512
 
 /* Translate the physical partition structto logicla partition struct */
@@ -30,21 +30,25 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 
 	if (ppa == NULL || lpa == NULL){
 		ndprint(PARTITION_ERROR,"ERROR:FUNCTION: %s  LINE: %d  Nand alloc continue memory error!\n",__FUNCTION__,__LINE__);
-		return -1;		
+		return -1;
 	}
-	pageperzone = ppa->pageperblock * BLOCK_PER_ZONE;
-	maxdatapage = 1024 / sizeof(unsigned int) / (ppa->byteperpage / SECTOR_SIZE);
-	zonenum = (ppa->totalblocks - ppa->badblockcount) / BLOCK_PER_ZONE;
-	zonevalidpage = (pageperzone - ZONEINFO_PAGES) / (maxdatapage + 1) * maxdatapage;
-	extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1)-1;
-	
-	if (extrapage > 1)
-		lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage / SECTOR_SIZE * zonenum;
-	else
-		lpa->sectorCount = zonevalidpage * ppa->byteperpage / SECTOR_SIZE * zonenum;
+
+	if (ppa->mode == ZONE_MANAGER) {
+		pageperzone = ppa->pageperblock * BLOCK_PER_ZONE;
+		maxdatapage = 1024 / sizeof(unsigned int) / (ppa->byteperpage / SECTOR_SIZE);
+		zonenum = (ppa->totalblocks - ppa->badblockcount) / BLOCK_PER_ZONE;
+		zonevalidpage = (pageperzone - ZONEINFO_PAGES) / (maxdatapage + 1) * maxdatapage;
+		extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1)-1;
+
+		if (extrapage > 1)
+			lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage / SECTOR_SIZE * zonenum;
+		else
+			lpa->sectorCount = zonevalidpage * ppa->byteperpage / SECTOR_SIZE * zonenum;
+	} else
+		lpa->sectorCount = ((ppa->totalblocks - ppa->badblockcount) * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
 
 	lpa->startSector = 0;
-	lpa->name = ppa->name; 
+	lpa->name = ppa->name;
 	lpa->hwsector = ppa->hwsector;
 	lpa->segmentsize = 1024/4*(ppa->hwsector);
 
@@ -61,16 +65,16 @@ static void start(int handle){
 	if(-1 == vNand_Init(&pm->vnand)){
 		ndprint(PARTITION_ERROR, "ERROR:vNand_Init error  func %s line %d\n",__FUNCTION__,__LINE__);
 		return;
-	}	
+	}
 
 #ifndef TEST_PARTITION
 	if (-1 == SimpleBlockManager_Init(pm)){
 		ndprint(PARTITION_ERROR, "ERROR:SimpleBlockManager_Init failed\n");
-		return;	
+		return;
 	}
 	if (-1 == L2PConvert_Init(pm)){
 		ndprint(PARTITION_ERROR, "ERROR:L2PConvert_Init failed\n");
-		return;			
+		return;
 	}
 #endif
 
@@ -112,7 +116,7 @@ int  NandManger_open ( int handle,const char* name, int mode ){
 		if (!strncmp(lp->name, name, strlen(name))){
 			name_exit = 1;
 			break;
-		}		
+		}
 	}
 	if (name_exit == 0){
 		ndprint(PARTITION_ERROR, "ERROR:FUNCTION:%s  LINE:%d  The partition name is not exit , it can't be open!\n",__FUNCTION__,__LINE__);
@@ -140,7 +144,7 @@ int  NandManger_open ( int handle,const char* name, int mode ){
 		if (!strncmp((ppartition+i)->name, name, strlen(name))){
 			nmhandle = pInterface->PartitionInterface_iOpen(vInfo, (ppartition+i));
 			if (nmhandle == 0){
-				ndprint(PARTITION_ERROR, "ERROR:FUNCTION:%s  LINE:%d \n The partition open failed! \n",__FUNCTION__,__LINE__);	
+				ndprint(PARTITION_ERROR, "ERROR:FUNCTION:%s  LINE:%d \n The partition open failed! \n",__FUNCTION__,__LINE__);
 				return 0;
 			}
 			break;
@@ -209,12 +213,12 @@ int NandManger_getPartition ( int handle, LPartition** pt ){
 			if ( -1 == (ret = p2lPartition((ppa+i), lpa)) ){
 				ndprint(PARTITION_ERROR, "ERROR:FUNCTION: %s  LINE: %d  Get partition%d failed !\n",__FUNCTION__,__LINE__,i);
 				return -1;
-			}	
+			}
 		}else{
 			ndprint(PARTITION_ERROR,"ERROR:func: %s line: %d  Alloc memory error !\n",__func__,__LINE__);
 			return -1;
 		}
-		
+
 	}
 
 	ndprint(PARTITION_INFO, "Nand manager interface get partition  ok !\n");
@@ -226,18 +230,18 @@ int NandManger_getPartition ( int handle, LPartition** pt ){
 int NandManger_Register_Manager ( int handle, int mode, PartitionInterface* pi ){
 	PManager *pm = (PManager*)handle;
 	ManagerList *mlist = pm->Mlist;
-	
+
 	if (pi == NULL){
-		ndprint(PARTITION_ERROR, "ERROR:PartitionInterface is NULL. func %s line %d \n",__FUNCTION__,__LINE__);		
+		ndprint(PARTITION_ERROR, "ERROR:PartitionInterface is NULL. func %s line %d \n",__FUNCTION__,__LINE__);
 		return -1;
 	}
 
 	if (mlist == NULL){
-		mlist = (ManagerList*)BuffListManager_getTopNode((int)pm->bufferlist, sizeof(ManagerList)); 
+		mlist = (ManagerList*)BuffListManager_getTopNode((int)pm->bufferlist, sizeof(ManagerList));
 		pm->Mlist = mlist;
 	}
 	else
-		mlist = (ManagerList*)BuffListManager_getNextNode((int)pm->bufferlist,(void*)mlist,sizeof(ManagerList)); 
+		mlist = (ManagerList*)BuffListManager_getNextNode((int)pm->bufferlist,(void*)mlist,sizeof(ManagerList));
 
 	if (mlist){
 		mlist -> mode = mode;
@@ -248,7 +252,7 @@ int NandManger_Register_Manager ( int handle, int mode, PartitionInterface* pi )
 		return -1;
 	}
 
-	ndprint(PARTITION_INFO, "Nand manager interface register  ok !\n");	
+	ndprint(PARTITION_INFO, "Nand manager interface register  ok !\n");
 	return 0;
 }
 
@@ -262,7 +266,7 @@ int NandManger_Init (void){
 		ndprint(PARTITION_ERROR, "ERROR:Nand alloc continue memory error func %s line %d \n",__FUNCTION__,__LINE__);
 		return 0;
 	}
-	if (0 == (blm=BuffListManager_BuffList_Init())){    
+	if (0 == (blm=BuffListManager_BuffList_Init())){
 		ndprint(PARTITION_ERROR, "ERROR:BuffListManager_BuffList_Init failed\n");
 		return 0;
 	}
@@ -271,9 +275,9 @@ int NandManger_Init (void){
 	pm->vnand = NULL;
 	pm->Mlist = NULL;
 	pm->nl = NULL;
- 
+
 	Register_StartNand(start, (int)pm);
-	ndprint(PARTITION_INFO, "Nand manager interface init  ok !\n");	
+	ndprint(PARTITION_INFO, "Nand manager interface init  ok !\n");
 	return (int)pm;
 }
 
@@ -281,7 +285,7 @@ int NandManger_Init (void){
 void NandManger_Deinit (int handle){
 	PManager *pm = (PManager*)handle;
 
-	vNand_Deinit(&pm->vnand);	
+	vNand_Deinit(&pm->vnand);
 #ifndef TEST_PARTITION
 	SimpleBlockManager_Deinit(0);
 	L2PConvert_Deinit(0);
@@ -290,21 +294,21 @@ void NandManger_Deinit (int handle){
 	BuffListManager_freeAllList((int)(pm->bufferlist), (void**)(&(pm->lpt.pt)), sizeof(LPartition));
 	BuffListManager_freeAllList((int)(pm->bufferlist),(void**)(&(pm->nl)), sizeof(struct NotifyList));
 	BuffListManager_freeAllList((int)(pm->bufferlist), (void**)(&(pm->Mlist)), sizeof(ManagerList));
-	BuffListManager_BuffList_DeInit ((int)(pm->bufferlist)); 
+	BuffListManager_BuffList_DeInit ((int)(pm->bufferlist));
 	Nand_VirtualFree(pm);
 }
 
 void NandManger_startNotify(int handle,void (*start)(int),int prdata){
 	PManager *pm = (PManager*)handle;
 	struct NotifyList* nlist = pm->nl;
-	
+
 	if (nlist == NULL){
-		nlist = (struct NotifyList*)BuffListManager_getTopNode((int)pm->bufferlist, sizeof(struct NotifyList)); 
+		nlist = (struct NotifyList*)BuffListManager_getTopNode((int)pm->bufferlist, sizeof(struct NotifyList));
 		pm->nl = nlist;
 	}
 	else
 		nlist = (struct NotifyList*)BuffListManager_getNextNode((int)pm->bufferlist,(void*)nlist,sizeof(struct NotifyList));
- 
+
 	if(nlist){
 		nlist->start = start;
 		nlist->prdata = prdata;
