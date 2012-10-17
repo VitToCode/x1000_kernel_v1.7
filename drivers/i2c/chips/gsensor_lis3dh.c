@@ -6,6 +6,7 @@
 #include        <linux/input.h>
 #include        <linux/uaccess.h>
 #include        <linux/workqueue.h>
+#include	<linux/earlysuspend.h>
 #include        <linux/irq.h>
 #include        <linux/gpio.h>
 #include        <linux/interrupt.h>
@@ -47,12 +48,15 @@ struct lis3dh_acc_data {
 	/* hw_working=-1 means not tested yet */
 	int hw_working;
 	atomic_t enabled;
+	atomic_t regulator_enabled;
+	int power_tag;
 	int is_suspend;
 	u8 sensitivity;
 	u8 resume_state[RESUME_ENTRIES];
 	int irq;
 	struct work_struct irq_work;
 	struct workqueue_struct *irq_work_queue;
+	struct early_suspend early_suspend;
 
 	struct miscdevice lis3dh_misc_device;
 
@@ -150,7 +154,8 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		default:	config1[1] = 0x2c;break;//default situation set to 0x2c:irq rate:10Hz
 	}
 #endif
-#ifdef CONFIG_SMP 
+
+#ifdef CONFIG_SMP
 	config[1] = 0x50;
 #else
 	config[1] = 0x40;
@@ -184,7 +189,7 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	int err = -1;
 	u8 buf[7];
 
-	printk(KERN_INFO "%s: hw init start\n", LIS3DH_ACC_DEV_NAME);
+//	printk(KERN_INFO "%s: hw init start\n", LIS3DH_ACC_DEV_NAME);
 	buf[0] = WHO_AM_I;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
 	if (err < 0) {
@@ -200,6 +205,8 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 		err = -1; /* choose the right coded error */
 		goto err_unknown_device;
 	}
+
+
 	buf[0] = CTRL_REG1;
 	buf[1] = acc->resume_state[RES_CTRL_REG1];
 	err = lis3dh_acc_i2c_write(acc, buf, 1);
@@ -226,16 +233,19 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	err = lis3dh_acc_i2c_write(acc, buf, 4);
 	if (err < 0)
 		goto err_resume_state;
+
 	buf[0] = TT_CFG;
 	buf[1] = acc->resume_state[RES_TT_CFG];
 	err = lis3dh_acc_i2c_write(acc, buf, 1);
 	if (err < 0)
 		goto err_resume_state;
 
+
 	buf[0] = (I2C_AUTO_INCREMENT | INT_THS1);
 	buf[1] = acc->resume_state[RES_INT_THS1];
 	buf[2] = acc->resume_state[RES_INT_DUR1];
 	err = lis3dh_acc_i2c_write(acc, buf, 2);
+
 	if (err < 0)
 		goto err_resume_state;
 	buf[0] = INT_CFG1;
@@ -253,9 +263,10 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	err = lis3dh_acc_i2c_write(acc, buf, 5);
 	if (err < 0)
 		goto err_resume_state;
-	mdelay(100);
+	udelay(100);
 	acc->hw_initialized = 1;
-	printk(KERN_INFO "%s: hw init done\n", LIS3DH_ACC_DEV_NAME);
+//	printk(KERN_INFO "%s: hw init done\n", LIS3DH_ACC_DEV_NAME);
+
 	return 0;
 err_firstread:
 	acc->hw_working = 0;
@@ -299,8 +310,9 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 			return err;
 		}
 	}else{
-			buf[0] = CTRL_REG1;
-		buf[1] = LIS3DH_ACC_ENABLE_ALL_AXES;//acc->resume_state[RES_CTRL_REG1];
+		buf[0] = CTRL_REG1;
+	//	buf[1] = LIS3DH_ACC_ENABLE_ALL;//acc->resume_state[RES_CTRL_REG1];
+		buf[1] = 0x57;
 		err = lis3dh_acc_i2c_write(acc, buf, 1);
 		if (err < 0){
 			dev_err(&acc->client->dev,
@@ -322,6 +334,14 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 
 static int lis3dh_acc_enable(struct lis3dh_acc_data *acc);
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
+
+static void lis3dh_acc_regulator_enbale(struct lis3dh_acc_data *acc)
+{
+	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0)
+		regulator_enable(acc->power);
+	udelay(100);
+	lis3dh_acc_hw_init(acc);
+}
 
 static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		int *xyz)
@@ -389,9 +409,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 {
 	int err;
 	u8 buf[2]={0};
-//	printk("---0----acc enable\n");
+//	printk("------acc enabled 0------\n");
 	if ((acc->is_suspend == 0) && !atomic_cmpxchg(&acc->enabled, 0, 1)) {
-//	printk("---1----acc enable\n");
+//	printk("------acc enabled 1------\n");
 		err = lis3dh_acc_device_power_on(acc);
 		if (err < 0) {
 			atomic_set(&acc->enabled, 0);
@@ -401,7 +421,6 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 		buf[0] = INT_SRC1;
 		err = lis3dh_acc_i2c_read(acc, buf, 1);
-		printk("----enable -----buf[0]=%x\n",buf[0]);
 
 	}
 	return 0;
@@ -409,9 +428,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
-//	printk("---0----acc disenable\n");
+//	printk("------acc disabled 0------\n");
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
-//	printk("---0----acc disenable\n");
+//	printk("------acc disabled 1------\n");
 		disable_irq_nosync(acc->client->irq);
 		flush_workqueue(acc->irq_work_queue);
 		lis3dh_acc_device_power_off(acc);
@@ -593,14 +612,12 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			mutex_lock(&lis3dh->lock);
 			if (copy_from_user(&interval, argp, sizeof(interval)))
 				return -EFAULT;
-	//		printk("------the first value interval = %d -----\n",interval);
 			interval *= 10;  //for Sensor_new
 			if (interval < lis3dh->pdata->min_interval )
 				interval = lis3dh->pdata->min_interval;
 			else if (interval > lis3dh->pdata->max_interval)
 				interval = lis3dh->pdata->max_interval;
 			lis3dh->pdata->poll_interval = interval;
-	//		printk("------the second value interval = %d -----\n",interval);
 			lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
 			mutex_unlock(&lis3dh->lock);
 			break;
@@ -611,10 +628,15 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (interval > 1)
 				return -EINVAL;
 			if (interval){
+				lis3dh->power_tag = interval;
+				lis3dh_acc_regulator_enbale(lis3dh);
 				lis3dh_acc_enable(lis3dh);
 				lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
 			}else{
+				lis3dh->power_tag = interval;
 				lis3dh_acc_disable(lis3dh);
+				if (atomic_cmpxchg(&lis3dh->regulator_enabled, 1, 0))
+					regulator_disable(lis3dh->power);
 			}
 			mutex_unlock(&lis3dh->lock);
 			break;
@@ -654,7 +676,6 @@ static const struct file_operations lis3dh_misc_fops = {
 static void lis3dh_acc_work(struct work_struct *work)
 {
 	struct lis3dh_acc_data *acc;
-//	acc->sum = 0;
 	int xyz[3] = { 0 };
 	int err;
 	u8 buf[2]={0};
@@ -662,10 +683,7 @@ static void lis3dh_acc_work(struct work_struct *work)
 
 	buf[0] = INT_SRC1;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
-#if 0
-	enable_irq(acc->client->irq);
-	return;
-#endif
+
 	buf[0] = STATUS_REG;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
 	if( (buf[0]& 0x08) ==0 || err < 0){
@@ -674,8 +692,8 @@ static void lis3dh_acc_work(struct work_struct *work)
 	}
 
 	err = lis3dh_acc_get_acceleration_data(acc, xyz);
-	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0) {
-		printk("-----interrupt -suspend or disable-----\n");
+	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
+		printk("---interrupt -suspend or disable\n");
 	}
 	else {
 		if(err < 0 )
@@ -690,9 +708,10 @@ static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 {
 
 	struct lis3dh_acc_data *acc = dev_id;
-/*
+
+	/*
 	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
-		printk("-----interrupt -suspend or disable-----\n");
+		printk("---interrupt -suspend or disable\n");
 		return IRQ_HANDLED;
 	}
 	*/
@@ -705,6 +724,10 @@ static irqreturn_t lis3dh_acc_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void lis3dh_acc_late_resume(struct early_suspend *handler);
+static void lis3dh_acc_early_suspend(struct early_suspend *handler);
+#endif
 
 static int lis3dh_acc_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -766,13 +789,14 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		dev_err(&client->dev, "failed to validate platform data\n");
 		goto exit_kfree_pdata;
 	}
-
 	client->dev.init_name=client->name;
 	acc->power = regulator_get(&client->dev, "vgsensor");
 	if (IS_ERR(acc->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
 	}
 	if (acc->power){
+	
+		printk("----------g_sensor enable ------\n");
 		err = regulator_enable(acc->power);
 		if (err < 0){
 			dev_err(&acc->client->dev,
@@ -781,6 +805,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 	}
 	udelay(100);
+	atomic_set(&acc->regulator_enabled, 1);
 
 	/*--read id must add to load mma8452 or lis3dh--*/
 	buf[0] = WHO_AM_I;
@@ -800,7 +825,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
 
-	//acc->resume_state[RES_CTRL_REG1] = LIS3DH_ACC_ENABLE_ALLS;//0X27
 	acc->resume_state[RES_CTRL_REG1] = 0X57;
 	acc->resume_state[RES_CTRL_REG2] = 0x00;
 	acc->resume_state[RES_CTRL_REG3] = 0xC0;
@@ -816,7 +840,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->resume_state[RES_INT_THS1] = 0x00;
 
 
-	acc->resume_state[RES_INT_DUR1] = 0x08;
+	acc->resume_state[RES_INT_DUR1] = 0x2C;
 
 	acc->resume_state[RES_TT_CFG] = 0x3F;
 	acc->resume_state[RES_TT_THS] = 0x00;
@@ -838,8 +862,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	err = lis3dh_acc_hw_init(acc);
 	if (err < 0) {
-		lis3dh_acc_device_power_off(acc);
-		return err;
+//		lis3dh_acc_device_power_off(acc);
+//		return err;
+		dev_err(&client->dev, "update_g_range failed\n");
+		goto  err_power_off;
 	}
 
 	err = lis3dh_acc_update_g_range(acc, acc->pdata->g_range);
@@ -865,9 +891,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	misc_register(&acc->lis3dh_misc_device);
 
 	lis3dh_acc_device_power_off(acc);
-	/* As default, do not report information */
+	udelay(100);
 	atomic_set(&acc->enabled, 0);
 	acc->is_suspend = 0;
+
 	INIT_WORK(&acc->irq_work, lis3dh_acc_work);
 
 	acc->irq_work_queue = create_singlethread_workqueue("lis3dh_acc");
@@ -876,10 +903,12 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		err = -ESRCH;
 		printk("creating workqueue failed\n");
 	}
+
 	client->irq = gpio_to_irq(acc->pdata->gpio_int);
-	err = request_irq(client->irq, lis3dh_acc_interrupt,
-	//		IRQF_TRIGGER_HIGH | IRQF_DISABLED,
+
+	err = request_irq(acc->client->irq, lis3dh_acc_interrupt,
 			IRQF_TRIGGER_LOW | IRQF_DISABLED,
+//			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			"lis3dh_acc", acc);
 	if (err < 0)
 		printk("err == %d \n",err);
@@ -891,15 +920,22 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			LIS3DH_ACC_DEV_NAME, __func__, acc->client->irq,
 			acc->pdata->gpio_int);
 
+	/* As default, do not report information */
 	dev_info(&client->dev, "%s: probed\n", LIS3DH_ACC_DEV_NAME);
-//	atomic_set(&acc->enabled, 0);
-//	acc->is_suspend = 0;
+	lis3dh_acc_enable(acc);;
 
-	lis3dh_acc_enable(acc);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	acc->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	acc->early_suspend.suspend = lis3dh_acc_early_suspend;
+	acc->early_suspend.resume = lis3dh_acc_late_resume;
+	register_early_suspend(&acc->early_suspend);
+#endif
 	return 0;
 
 err_power_off:
-	lis3dh_acc_device_power_off(acc);
+//	lis3dh_acc_device_power_off(acc);
+	regulator_disable(acc->power);
 err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
@@ -931,7 +967,7 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 		acc->pdata->exit();
 	kfree(acc->pdata);
 
-	if (acc->power){
+	if (acc->power && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)){
 		err = regulator_disable(acc->power);
 		if (err < 0){
 			dev_err(&acc->client->dev,
@@ -944,50 +980,35 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int lis3dh_acc_resume(struct i2c_client *client)
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void lis3dh_acc_late_resume(struct early_suspend *handler)
 {
-	int err = 0;
-	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
-	mutex_lock(&acc->lock);
-	acc->is_suspend = 0;
-	if (acc->power) {
-		err = regulator_enable(acc->power);
-		if (err < 0){
-			dev_err(&acc->client->dev,
-				"power_on regulator failed: %d\n", err);
-			return err;
-		}
+	struct lis3dh_acc_data *acc;
+
+	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
+	if (acc->power_tag && atomic_read(&acc->regulator_enabled))
+	{
+		acc->is_suspend = 0;
+		lis3dh_acc_regulator_enbale(acc);
+		mutex_lock(&acc->lock);
+		lis3dh_acc_enable(acc);
+		mutex_unlock(&acc->lock);
 	}
-	udelay(100);
-
-	lis3dh_acc_hw_init(acc);
-	lis3dh_acc_enable(acc);
-	mutex_unlock(&acc->lock);
-	enable_irq(client->irq);
-	return 0;
 }
 
-static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
+static void lis3dh_acc_early_suspend(struct early_suspend *handler)
 {
-	int err = 0;
-	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
-	disable_irq_nosync(client->irq);
-	acc->is_suspend = 1;
+	struct lis3dh_acc_data *acc ;
+	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
 	
-	err = lis3dh_acc_disable(acc);
-	udelay(100);
-
-	if (acc->power)
-		err = regulator_disable(acc->power);
-
-	return err;
+	if (acc->power_tag && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
+		acc->is_suspend = 1;
+		lis3dh_acc_disable(acc);
+		regulator_disable(acc->power);
+	}
 }
-
-#else
-#define lis3dh_acc_suspend      NULL
-#define lis3dh_acc_resume       NULL
 #endif
+
 
 static const struct i2c_device_id lis3dh_acc_id[]
 = { { LIS3DH_ACC_DEV_NAME, 0 }, { }, };
@@ -1001,8 +1022,6 @@ static struct i2c_driver lis3dh_acc_driver = {
 	},
 	.probe = lis3dh_acc_probe,
 	.remove = __devexit_p(lis3dh_acc_remove),
-	.suspend = lis3dh_acc_suspend,
-	.resume = lis3dh_acc_resume,
 	.id_table = lis3dh_acc_id,
 };
 
