@@ -31,9 +31,13 @@ struct _VNandManager {
 #define CONV_PT_VN(pt,vn)												\
 	do{																	\
 		(vn)->startBlockID = 0;											\
-		if (pt->mode != ONCE_MANAGER)									\
+		if (pt->mode == ZONE_MANAGER) {									\
 			(vn)->PagePerBlock = (pt)->pageperblock * (pt)->v2pp->_2kPerPage; \
-		(vn)->BytePerPage = 2048;										\
+			(vn)->BytePerPage = 2048;									\
+		} else {														\
+			(vn)->PagePerBlock = (pt)->pageperblock;					\
+			(vn)->BytePerPage = (pt)->byteperpage;						\
+		}																\
 		(vn)->TotalBlocks = (pt)->totalblocks;							\
 		(vn)->MaxBadBlockCount = (pt)->badblockcount;					\
 		(vn)->hwSector = (pt)->hwsector;								\
@@ -41,7 +45,7 @@ struct _VNandManager {
 		(vn)->badblock = (pt)->badblock;								\
 		(vn)->v2pp = (pt)->v2pp;										\
 		(vn)->mode = (pt)->mode;										\
-	}while(0)
+	} while(0)
 
 #endif
 
