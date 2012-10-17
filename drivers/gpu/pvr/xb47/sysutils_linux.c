@@ -288,6 +288,10 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 #endif
 }
 
+#include <soc/cpm.h>
+#include <soc/base.h>
+
+
 static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 {
 #if defined(PVR_XB47_TIMING_CPM)
@@ -295,11 +299,13 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
         struct clk *sys_ck;
         struct clk *psCLK;
 
-        // Turn on the light
-        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
-        do {
-            printk("Waiting for GPU power\n");
-        } while ((inl(0x10000004) & (1 << 25)));
+        if ((inl(0x10000004) & (1 << 25))) {
+            // Turn on the light
+            outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
+            do {
+                printk("Waiting for GPU power\n");
+            } while ((inl(0x10000004) & (1 << 25)));
+        }
 
 	sys_ck = clk_get(NULL, "gpu");
 	if (IS_ERR(sys_ck))
@@ -323,8 +329,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	if (clk_get_rate(psSysSpecData->psTimer_Divider) > SYS_SGX_CLOCK_SPEED)
             goto ExitDisableTimerGate;
         clk_enable(psSysSpecData->psTimer_Divider);
-
-        //        printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
 
 	eError = PVRSRV_OK;
 
@@ -364,11 +368,13 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
             printk("Waiting for GPU to idle\n");
         } while (!(inl(0x10000004) & (1 << 24)));
 
-        // Turn off the light
-        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
-        do {
-            printk("Waiting for GPU power down\n");
-        } while (!(inl(0x10000004) & (1 << 25)));
+        if (!(inl(0x10000004) & (1 << 25))) {
+            // Turn off the light
+            outl((inl(0x10000004) | (1 << 29)), 0x10000004);
+            do {
+                printk("Waiting for GPU power down\n");
+            } while (!(inl(0x10000004) & (1 << 25)));
+        }
 
 #else //#if defined(PVR_XB47_TIMING_CPM)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecData);
