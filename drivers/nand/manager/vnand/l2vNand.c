@@ -84,14 +84,19 @@ void dump_availablebadblock(VNandManager *vm)
 	ndprint(VNAND_INFO,"================%s start =============\n",__func__);
 	for(i=0;i<vm->pt->ptcount; i++){
 		pt = &(vm->pt->ppt[i]);
-		ndprint(VNAND_INFO,"\n pt = %p i = %d  bad block info:\n",pt ,i);
-		for(j=0;j<64;j++){
+		if(pt->mode == ONCE_MANAGER)
+			break;
+
+		ndprint(VNAND_INFO,"\n pt->name = %s, pt = %p i = %d  bad block info:\n", pt->name, pt ,i);
+		for(j=0; j<pt->byteperpage * BADBLOCKINFOSIZE; j++){
 			if(j%4==0)
 				ndprint(VNAND_INFO,"\n %d: ",j);
 			ndprint(VNAND_INFO,"%8d ",pt->badblock->pt_badblock_info[j]);
+			if ((j > 8) && (pt->badblock->pt_badblock_info[j] == -1))
+				break;
 		}
-		ndprint(VNAND_INFO,"\navailable block info: \n");
-		for(j=0;j<64;j++){
+		ndprint(VNAND_INFO,"\navailable block info: pt->totalblocks = %d \n", pt->totalblocks);
+		for(j=0; j < pt->totalblocks; j++) {
 			if(j%4==0)
 				ndprint(VNAND_INFO,"\n%d: ",j);
 			ndprint(VNAND_INFO,"%8d ",pt->badblock->pt_availableblockid[j]);

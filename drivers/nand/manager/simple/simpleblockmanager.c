@@ -196,6 +196,7 @@ static int erase_single_block(SmbContext *conptr, int blockid, int first)
 			ndprint(SIGBLOCK_ERROR,
 					"read first page err: %s, %d, pageid = %d, blockid = %d, retVal = %d\n",
 					__FILE__, __LINE__, statpage, blockid, ret);
+			goto done;
 		}
 	}
 
@@ -534,11 +535,12 @@ static int split_sectornode_to_block_rw(SmbContext *conptr,
 
 		rwnode.pData = (unsigned char *)(node->pData) + bufoffset;
 
+/*
 		ndprint(SIGBLOCK_DEBUG, "%s:start Sec:%d,Count:%d,buffoffset in sector:%d\n",
 				rwflag == 0 ? "write" : "read",
 				rwnode.startSector, rwnode.sectorCount,
 				bufoffset / SECTOR_SIZE);
-
+*/
 		bufoffset += rwnode.sectorCount * SECTOR_SIZE;
 
 		ret = single_block_rw(conptr, &rwnode, rwflag);
