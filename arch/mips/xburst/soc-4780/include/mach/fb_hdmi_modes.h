@@ -23,7 +23,7 @@
 /* 1 */
 #define HDMI_640X480_P_60HZ_4X3						\
 	{"640x480-p-60hz-4:3",						\
-			60, 640, 480, KHZ2PICOS(2520), 48, 16,		\
+			60, 640, 480, KHZ2PICOS(25200), 48, 16,		\
 			33, 10, 96, 2,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
@@ -31,7 +31,7 @@
 /* 2 */
 #define HDMI_720X480_P_60HZ_4X3						\
 	{"720x480-p-60hz-4:3",						\
-			60, 720, 480, KHZ2PICOS(2702), 60, 16,		\
+			60, 720, 480, KHZ2PICOS(27020), 60, 16,		\
 			30, 9, 62, 6,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
@@ -39,7 +39,7 @@
 /* 3 */
 #define HDMI_720X480_P_60HZ_16X9					\
 	{"720x480-p-60hz-16:9",						\
-			60, 720, 480, KHZ2PICOS(2702), 60, 16,		\
+			60, 720, 480, KHZ2PICOS(27020), 60, 16,		\
 			30, 9, 62, 6,					\
 			~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,	\
 			FB_VMODE_NONINTERLACED, 0}
