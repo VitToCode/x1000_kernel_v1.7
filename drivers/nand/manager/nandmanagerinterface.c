@@ -10,6 +10,7 @@
 #include "partitioninterface.h"
 #include "l2pconvert.h"
 #include "simpleblockmanager.h"
+#include "splblockmanager.h"
 #include "vNand.h"
 #include "l2vNand.h"
 #include "clib.h"
@@ -68,6 +69,10 @@ static void start(int handle){
 	}
 
 #ifndef TEST_PARTITION
+	if (-1 == SplBlockManager_Init(pm)){
+		ndprint(PARTITION_ERROR, "ERROR:SimpleBlockManager_Init failed\n");
+		return;
+	}
 	if (-1 == SimpleBlockManager_Init(pm)){
 		ndprint(PARTITION_ERROR, "ERROR:SimpleBlockManager_Init failed\n");
 		return;

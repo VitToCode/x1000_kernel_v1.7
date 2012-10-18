@@ -20,7 +20,7 @@ static struct platform_nand_partition partition_info[] = {
 	name:"x-boot",
 	offset:0 * 0x100000LL,
 	size:4 * 0x100000LL,
-	mode:DIRECT_MANAGER,
+	mode:SPL_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
 	part_attrib:PART_XBOOT

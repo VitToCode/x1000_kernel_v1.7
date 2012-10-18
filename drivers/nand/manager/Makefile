@@ -12,10 +12,13 @@ obj-y		+= utils/bufflistmanager.o utils/zonememory.o utils/timerdebug.o
 
 obj-y		+= vnand/vNand.o vnand/l2vNand.o
 
-obj-y		+= simple/simpleblockmanager.o
+obj-y		+= simple_manager/simpleblockmanager.o
 
-obj-y		+= l2p/errhandle.o l2p/taskmanager.o l2p/hash.o l2p/hashnode.o l2p/recycle.o \
-		l2p/zone.o l2p/zonemanager.o l2p/cachedata.o l2p/cachelist.o \
-		l2p/cachemanager.o l2p/l2pconvert.o l2p/junkzone.o
+obj-y		+= spl_manager/splblockmanager.o
+
+obj-y		+= zone_manager/errhandle.o zone_manager/taskmanager.o zone_manager/hash.o \
+		zone_manager/hashnode.o zone_manager/recycle.o zone_manager/zone.o \
+		zone_manager/zonemanager.o zone_manager/cachedata.o zone_manager/cachelist.o \
+		zone_manager/cachemanager.o zone_manager/l2pconvert.o zone_manager/junkzone.o
 
 obj-y		+= nandmanagerinterface.o
