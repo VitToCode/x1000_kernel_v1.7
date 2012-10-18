@@ -33,6 +33,7 @@ struct _SmbContext {
     int mode;
     int morebadblocks;
     int lblockid;
+    int pblockid;
     int poffb;		//start page offset in block
     int spp;
     int spb;

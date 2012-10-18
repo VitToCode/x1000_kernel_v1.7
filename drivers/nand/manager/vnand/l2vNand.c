@@ -31,44 +31,44 @@ static void dump_uppl (PageList *pl) {
 		if (this) {
 
 			if (((prev->retVal != 0) && (prev->retVal != 1))
-                                        || ((this->retVal != 0) && (this->retVal != 1))) {
+				|| ((this->retVal != 0) && (this->retVal != 1))) {
 				ndprint(VNAND_ERROR, "ERROR: retVal is not inited:\n"
-                                                "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
+						"prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
 						prev->startPageID, prev->pData,
-                                                prev->retVal, prev->OffsetBytes ,prev->Bytes,
+						prev->retVal, prev->OffsetBytes ,prev->Bytes,
 						this->startPageID, this->pData,
-                                                this->retVal, this->OffsetBytes, this->Bytes);
+						this->retVal, this->OffsetBytes, this->Bytes);
 			}
 
 			if (((this->pData - prev->pData) != prev->Bytes) && (prev->retVal == 1)) {
 				ndprint(VNAND_ERROR, "ERROR: pData can not mergeable, but combineed:\n"
-                                                "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
+						"prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
 						prev->startPageID, prev->pData,
-                                                prev->retVal, prev->OffsetBytes ,prev->Bytes,
+						prev->retVal, prev->OffsetBytes ,prev->Bytes,
 						this->startPageID, this->pData,
-                                                this->retVal, this->OffsetBytes, this->Bytes);
+						this->retVal, this->OffsetBytes, this->Bytes);
 			}
 
 			if (((this->pData - prev->pData) == prev->Bytes) && (prev->retVal == 0)) {
 				ndprint(VNAND_ERROR, "ERROR: pData can mergeable, but not combineed:\n"
-                                                "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
+						"prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
 						prev->startPageID, prev->pData,
-                                                prev->retVal, prev->OffsetBytes ,prev->Bytes,
+						prev->retVal, prev->OffsetBytes ,prev->Bytes,
 						this->startPageID, this->pData,
-                                                this->retVal, this->OffsetBytes, this->Bytes);
+						this->retVal, this->OffsetBytes, this->Bytes);
 			}
 /*
-			if (((this->pData - prev->pData) == prev->Bytes) && (prev->retVal == 1)
-                                        && ((this->startPageID - prev->startPageID != 0)
-                                                 && (this->startPageID - prev->startPageID != 1))
-                                        ) {
-				ndprint(VNAND_ERROR, "ERROR: pageid can not mergeable:\n"
-                                                "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
-						prev->startPageID, prev->pData,
-                                                prev->retVal, prev->OffsetBytes ,prev->Bytes,
-						this->startPageID, this->pData,
-                                                this->retVal, this->OffsetBytes, this->Bytes);
-			}
+  if (((this->pData - prev->pData) == prev->Bytes) && (prev->retVal == 1)
+  && ((this->startPageID - prev->startPageID != 0)
+  && (this->startPageID - prev->startPageID != 1))
+  ) {
+  ndprint(VNAND_ERROR, "ERROR: pageid can not mergeable:\n"
+  "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
+  prev->startPageID, prev->pData,
+  prev->retVal, prev->OffsetBytes ,prev->Bytes,
+  this->startPageID, this->pData,
+  this->retVal, this->OffsetBytes, this->Bytes);
+  }
 */		}
 
 		prev = this;
@@ -112,6 +112,10 @@ static inline unsigned int L2PblockID(VNandInfo *vnand, unsigned int blockid)
 		ndprint(VNAND_ERROR,"ERROR: %s blockid is too large!!!!!",__func__);
 		return -1;
 	}
+
+	if (vnand->mode == DIRECT_MANAGER)
+		return blockid;
+
 	return vnand->badblock->pt_availableblockid[blockid];
 }
 
@@ -209,6 +213,9 @@ static void PtAvailableBlockID_Init(VNandManager *vm)
 			break;
 		}
 
+		if (pt->mode == DIRECT_MANAGER)
+			continue;
+
 		blockid = 0;
 		badblock_number = 0;
 		for(j=0; j < (pt->byteperpage * BADBLOCKINFOSIZE) / sizeof(unsigned int); j++){
@@ -243,15 +250,15 @@ static void UpdatePageList(VNandInfo *vnand, PageList* pl)
 		blockid = pagelist->startPageID / vnand->PagePerBlock;
 		pageoffset = pagelist->startPageID % vnand->PagePerBlock;
 		pagelist->startPageID = L2PblockID(vnand, blockid) * vnand->PagePerBlock + pageoffset;
-                if(pagelist->startPageID < 0 ||
-                                pagelist->startPageID >= vnand->PagePerBlock * vnand->TotalBlocks) {
-                        ndprint(VNAND_ERROR,"%s: _pageid = %d pageid = %d totalblocks = %d \n"
-                                        , ((PPartition *)vnand->prData)->name
-                                        , pagelist->_startPageID
-                                        , pagelist->startPageID
-                                        , vnand->TotalBlocks
-                                        );
-                }
+		if(pagelist->startPageID < 0 ||
+		   pagelist->startPageID >= vnand->PagePerBlock * vnand->TotalBlocks) {
+			ndprint(VNAND_ERROR,"%s: _pageid = %d pageid = %d totalblocks = %d \n"
+					, ((PPartition *)vnand->prData)->name
+					, pagelist->_startPageID
+					, pagelist->startPageID
+					, vnand->TotalBlocks
+				);
+		}
 	}
 }
 
@@ -415,14 +422,17 @@ static void read_badblock_info_page(VNandManager *vm)
 			break;
 		}
 
+		lastpt = pt;
+
+		if (pt->mode == DIRECT_MANAGER)
+			continue;
+
 		ret = alloc_badblock_info(pt);
 		if(ret != 0) {
 			ndprint(VNAND_ERROR,"alloc badblock info memory error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 			while(1);
 		}
-
-		lastpt = pt;
 	}
 
 	if(i == vm->pt->ptcount){
@@ -484,6 +494,9 @@ static void read_badblock_info_page(VNandManager *vm)
 			break;
 		}
 
+		if (pt->mode == DIRECT_MANAGER)
+			continue;
+
 		fill_pagelist(pt, pl, i);
 		ret = __vNand_MultiPageRead(&error_vn, pl);
 		if (ret != 0) {
@@ -495,31 +508,31 @@ static void read_badblock_info_page(VNandManager *vm)
 				while(1);
 			}
 		}
-                /*
-                 * pt->totalblocks -= pt's badblockcounts
-                 * pt->PageCount -= pt's badblockcount * pt's pageperblock
-                 * print (all pt)'s badblockinfo
-                 **/
-                ndprint(VNAND_INFO,"%s badblock info table\n",pt->name);
+		/*
+		 * pt->totalblocks -= pt's badblockcounts
+		 * pt->PageCount -= pt's badblockcount * pt's pageperblock
+		 * print (all pt)'s badblockinfo
+		 **/
+		ndprint(VNAND_INFO,"%s badblock info table\n",pt->name);
 		for(j = 0; j < pt->totalblocks; j++) {
-		        if(pt->badblock->pt_badblock_info[j] == -1)
-		                break;
-		        badblockcount++;
-                        ndprint(VNAND_INFO,"%d ",pt->badblock->pt_badblock_info[j]);
+			if(pt->badblock->pt_badblock_info[j] == -1)
+				break;
+			badblockcount++;
+			ndprint(VNAND_INFO,"%d ",pt->badblock->pt_badblock_info[j]);
 		}
-                ndprint(VNAND_INFO,"\n");
+		ndprint(VNAND_INFO,"\n");
 		if(badblockcount > 0) {
-                        pt->totalblocks -= badblockcount;
+			pt->totalblocks -= badblockcount;
 			pt->PageCount -= badblockcount * pt->pageperblock;
-                        badblockcount = 0;
+			badblockcount = 0;
 		}
-                ndprint(VNAND_INFO,"%s: totalblocks = %d PageCount = %d"
-                                " badblockcount = %d\n"
-                                ,pt->name
-                                ,pt->totalblocks
-                                ,pt->PageCount
-                                ,badblockcount
-                                );
+		ndprint(VNAND_INFO,"%s: totalblocks = %d PageCount = %d"
+				" badblockcount = %d\n"
+				,pt->name
+				,pt->totalblocks
+				,pt->PageCount
+				,badblockcount
+			);
 	}
 	BuffListManager_freeAllList(blmid,(void **)&pl,sizeof(PageList));
 	BuffListManager_BuffList_DeInit(blmid);
@@ -576,6 +589,9 @@ void vNand_Deinit ( VNandManager** vm)
 			}
 			break;
 		}
+
+		if (pt->mode == DIRECT_MANAGER)
+			continue;
 
 		free_badblock_info(pt);
 	}

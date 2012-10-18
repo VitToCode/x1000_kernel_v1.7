@@ -15,7 +15,7 @@ static BuffListManager *Blm;
  *
  *	@sl_node: the sector list node
  *	@unit: the unit size in sector
-*/
+ */
 static inline int get_unit_count_from_sl(SectorList *snode, int unit)
 {
 	int sectors = (snode->startSector % unit) + snode->sectorCount;
@@ -24,15 +24,44 @@ static inline int get_unit_count_from_sl(SectorList *snode, int unit)
 }
 
 /**
+ *	get_phy_block  - get physical block id
+ *
+ *	@conptr: a global variable
+ *	@blockid: the logic block id
+ */
+static int get_phy_block(SmbContext *conptr, int blockid)
+{
+	int i = 0;
+	PPartition *pt = (PPartition *)conptr->vnand.prData;
+
+	ndprint(SIGBLOCK_DEBUG, "request block is: %d", blockid);
+	ndprint(SIGBLOCK_DEBUG, "bad block is:");
+	for(i = 0; i < blockid + 1; i++) {
+		if(vNand_IsBadBlock(&conptr->vnand, i)) {
+			blockid++;
+			ndprint(SIGBLOCK_DEBUG, " %d ", i);
+		}
+		if(i > pt->totalblocks) {
+			ndprint(SIGBLOCK_ERROR, "bad block overrun the partition\n");
+			return ERROR_BADBLOCK_TANTO;
+		}
+	}
+
+	ndprint(SIGBLOCK_DEBUG, "phy block is %d\n", blockid);
+
+	return blockid;
+}
+
+/**
  *	get_pagenode  - get a page node from pagelist top
  *
  *	@conptr: a global variable
  *	@top: the pagelist top
-*/
+ */
 static inline PageList *get_pagenode(SmbContext *conptr, void *top)
 {
 	return (PageList *)BuffListManager_getNextNode(
-			(int)conptr->blm, (void *)top,sizeof(PageList));
+		(int)conptr->blm, (void *)top,sizeof(PageList));
 }
 
 /**
@@ -40,10 +69,10 @@ static inline PageList *get_pagenode(SmbContext *conptr, void *top)
  *
  *	@conptr: a global variable
  *	@pagenum: current pagenode in pagelist number
-*/
+ */
 static inline int get_startpage(SmbContext *conptr, int pagenum)
 {
-	return conptr->lblockid * conptr->ppb + conptr->poffb + pagenum;
+	return conptr->pblockid * conptr->ppb + conptr->poffb + pagenum;
 }
 
 /**
@@ -53,9 +82,9 @@ static inline int get_startpage(SmbContext *conptr, int pagenum)
  *	@total: the pagelist contain pagenode total count
  *	@pagenum: current pagenode in pagelist number
  *	@sl: the sector list.
-*/
+ */
 static inline int get_bytes(SmbContext *conptr, int total,
-		SectorList *sl, int pagenum)
+							SectorList *sl, int pagenum)
 {
 	int firstpage = conptr->spp - sl->startSector % conptr->spp;
 	int lastpage = ((sl->sectorCount - firstpage) % conptr->spp == 0) ?
@@ -68,7 +97,7 @@ static inline int get_bytes(SmbContext *conptr, int total,
 			return ((conptr->spp - sl->startSector % conptr->spp)
 					* SECTOR_SIZE);
 		} else if ((total - 1) == pagenum &&
-				lastpage != conptr->spp) {
+				   lastpage != conptr->spp) {
 			return (lastpage * SECTOR_SIZE);
 		} else {
 			return conptr->bpp;
@@ -82,7 +111,7 @@ static inline int get_bytes(SmbContext *conptr, int total,
  *	@conptr:  a global variable
  *	@sl:	  sector node
  *	@pagenum: this pagenode in pagelist number
-*/
+ */
 static inline int get_offsetbytes(SmbContext *conptr, SectorList *sl, int pagenum)
 {
 	if (0 == pagenum) {
@@ -98,9 +127,9 @@ static inline int get_offsetbytes(SmbContext *conptr, SectorList *sl, int pagenu
  *	@conptr: global variable
  *	@snod: object need to calculate
  *	@pl: which created when Convert finished
-*/
+ */
 static void sectornode_to_pagelist(SmbContext *conptr,
-		SectorList *snod, PageList *pl)
+								   SectorList *snod, PageList *pl)
 {
 	int i, offset = 0, frontbytes = 0, totalpages;
 	PageList *pagenode = NULL;
@@ -130,14 +159,20 @@ static void sectornode_to_pagelist(SmbContext *conptr,
  *
  *	@conptr: a global variable
  *	@sl_node:   the physics sector node must be in a block
-*/
+ */
 static int mRead (SmbContext *conptr, SectorList *sl_node)
 {
 	int ret;
 	PageList *pl_top;
 
+	conptr->pblockid = get_phy_block(conptr, conptr->lblockid);
+	if (conptr->pblockid < 0) {
+		ret = ERROR_BADBLOCK_TANTO;
+		goto rerror_badblock_tanto;
+	}
+
 	pl_top = (PageList *)BuffListManager_getTopNode(
-			(int)conptr->blm, sizeof(PageList));
+		(int)conptr->blm, sizeof(PageList));
 	if (NULL == pl_top) {
 		ndprint(SIGBLOCK_ERROR, "ERROR: fun %s line %d\n",
 				__func__, __LINE__);
@@ -155,8 +190,9 @@ static int mRead (SmbContext *conptr, SectorList *sl_node)
 	}
 
 	BuffListManager_freeAllList((int)conptr->blm,
-			(void **)&pl_top, sizeof(PageList));
+								(void **)&pl_top, sizeof(PageList));
 
+rerror_badblock_tanto:
 rerror_get_pltop:
 	return ret;
 }
@@ -167,62 +203,43 @@ rerror_get_pltop:
  *	@conptr: a global variable
  *	@blockid: the block number
  *	@first : first page of the block or not
-*/
+ */
 static int erase_single_block(SmbContext *conptr, int blockid, int first)
 {
-	int ret, statpage = blockid * conptr->ppb;
-	unsigned char *buf;
+	int ret;
 	BlockList *bl_top;
-    PageList *pagelist = NULL;
 
 	if (BLOCK_FIRST_PAGE != first)
 		return SUCCESS;
-
-	buf = (unsigned char *)Nand_ContinueAlloc(
-			sizeof(unsigned char) * conptr->bpp);
-	memset(buf, 0x0, sizeof(unsigned char)  * conptr->bpp);
-
-	//ret = vNand_PageRead(&conptr->vnand, statpage, 0, conptr->bpp, buf);
-    pagelist = (PageList *)BuffListManager_getTopNode((int)conptr->blm, sizeof(PageList));
-    pagelist->startPageID = statpage;
-    pagelist->OffsetBytes = 0;
-    pagelist->Bytes = conptr->bpp;
-    pagelist->pData = (void *)buf;
-    pagelist->retVal = 0;
-
-    ret = vNand_MultiPageRead(&conptr->vnand, pagelist);
-	if(ret != 0) {
-		if(DATA_WRITED != pagelist->retVal){
-			ndprint(SIGBLOCK_ERROR,
-					"read first page err: %s, %d, pageid = %d, blockid = %d, retVal = %d\n",
-					__FILE__, __LINE__, statpage, blockid, ret);
-			goto done;
-		}
-	}
 
 	bl_top = (BlockList *)BuffListManager_getTopNode((int)conptr->blm, sizeof(BlockList));
 	bl_top->startBlock = blockid;
 	bl_top->BlockCount = 1;
 
 	ndprint(SIGBLOCK_INFO, "Erase block %d!\n", blockid);
+retry:
 	ret = vNand_MultiBlockErase(&conptr->vnand, bl_top);
 	if (ret != 0) {
 		ndprint(SIGBLOCK_ERROR,
 				"erase block err: %s, %d, blockid = %d, retVal = %d\n",
 				__FILE__, __LINE__, bl_top->startBlock, ret);
+
+		/* mark badblock */
+		ret = vNand_MarkBadBlock(&conptr->vnand, blockid);
+		if (ret != 0) {
+			ndprint(SIGBLOCK_ERROR,
+					"mark block err: %s, %d, blockid = %d, retVal = %d\n",
+					__FILE__, __LINE__, bl_top->startBlock, ret);
+			goto retry;
+		} else
+			ret = -1;
 	}
 
 	BuffListManager_freeList((int)conptr->blm,
-								 (void **)&bl_top,
-								 (void *)bl_top,
-								 sizeof(BlockList));
+							 (void **)&bl_top,
+							 (void *)bl_top,
+							 sizeof(BlockList));
 
-done:
-	BuffListManager_freeList((int)conptr->blm,
-							 (void **)&pagelist,
-							 (void *)pagelist,
-							 sizeof(PageList));
-	Nand_ContinueFree((void *)buf);
 	return ret;
 }
 
@@ -234,7 +251,7 @@ static inline PageList *get_plnode_from_top(int blm, PageList **top)
 		return (*top);
 	} else {
 		return (PageList *)BuffListManager_getNextNode(
-				blm, (void *)(*top), sizeof(PageList));
+			blm, (void *)(*top), sizeof(PageList));
 	}
 }
 
@@ -257,19 +274,18 @@ static inline void fill_fullpage_pagenode(PageList *pl, int startpageid, int bpp
  *
  *	@count: total page number
  *	@unitsize: a unit page number
-*/
+ */
 static inline int get_unit_count_start_firstpage(int count, int unitsize)
 {
 	return (count + unitsize - 1) / unitsize;
 }
 
-#if 0
 /**
  *	block_data_copy_to_next - copy current block to
  *	next writeable block.
-*/
+ */
 static int block_data_copy_to_next(SmbContext *conptr,
-		int srcblock, int destblock)
+								   int srcblock, int destblock)
 {
 	int i, j, ret, startpageid;
 	int pageperunit = VNANDCACHESIZE / conptr->bpp;
@@ -296,7 +312,7 @@ static int block_data_copy_to_next(SmbContext *conptr,
 
 			fill_fullpage_pagenode(rpl_node, conptr->bpp, startpageid + i);
 			fill_fullpage_pagenode(wpl_node, conptr->bpp,
-					startpageid + i + conptr->ppb * (destblock - srcblock));
+								   startpageid + i + conptr->ppb * (destblock - srcblock));
 		}
 		ret = vNand_CopyData (&conptr->vnand,rpl, wpl);
 
@@ -318,7 +334,7 @@ static int block_data_copy_to_next(SmbContext *conptr,
  *
  *	@conptr: a global variable
  *	@retval: error flag
-*/
+ */
 static int write_error_copydata(SmbContext *conptr, int retval)
 {
 	PPartition *pt = (PPartition *)conptr->vnand.prData;
@@ -359,26 +375,31 @@ static int write_error_copydata(SmbContext *conptr, int retval)
 
 	return ret;
 }
-#endif
 
 /**
  *	mWrite  -  single block write
  *
  *	@conptr: a global variable
  *	@sl_node:   the physics sector node must be in a block
-*/
+ */
 static int mWrite (SmbContext *conptr, SectorList *sl_node )
 {
 	int ret = -1;
 	PageList *pl_top;
 	BuffListManager *blm = conptr->blm;
 
-//retry:
-	ret = erase_single_block(conptr, conptr->lblockid, conptr->poffb);
+retry:
+	conptr->pblockid = get_phy_block(conptr, conptr->lblockid);
+	if (conptr->pblockid < 0) {
+		ret = ERROR_BADBLOCK_TANTO;
+		goto werror_badblock_tanto;
+	}
+
+	ret = erase_single_block(conptr, conptr->pblockid, conptr->poffb);
 	if(ret < 0){
-		ndprint(SIGBLOCK_ERROR, "%s, erase_single_block error, lblockid = %d\n",
-				__func__, conptr->lblockid);
-		goto werror_erase_block;
+		ndprint(SIGBLOCK_ERROR, "%s, erase_single_block error, pblockid = %d\n",
+				__func__, conptr->pblockid);
+		goto retry;
 	}
 
 	pl_top = (PageList *)BuffListManager_getTopNode((int)blm,sizeof(PageList));
@@ -406,23 +427,21 @@ static int mWrite (SmbContext *conptr, SectorList *sl_node )
 		default:
 			break;
 		}
-/*
+
 		ret =  write_error_copydata(conptr, ret);
 		if (SUCCESS == ret) {
 			BuffListManager_freeAllList((int)conptr->blm,
-					(void **)&pl_top, sizeof(PageList));
+										(void **)&pl_top, sizeof(PageList));
 			goto retry;
 		} else {
 			ndprint(SIGBLOCK_ERROR, "copydata failed line:%d,ret=%d\n",
 					__LINE__, ret);
 		}
-*/
 	}
 
 	BuffListManager_freeAllList((int)conptr->blm,
-			(void **)&pl_top, sizeof(PageList));
-
-werror_erase_block:
+								(void **)&pl_top, sizeof(PageList));
+werror_badblock_tanto:
 werror_nomem:
 	return ret;
 }
@@ -434,7 +453,7 @@ werror_nomem:
  *	@pt: physical partition
  *
  *	This return a handle to read, write and close
-*/
+ */
 int SimpleBlockManager_Open(VNandInfo *vn, PPartition *pt)
 {
 	SmbContext *conptr = NULL;
@@ -467,7 +486,7 @@ static inline int check_mode(SmbContext *conptr)
  *	SimpleBlockManager_Close  -  Close operation
  *
  *	@handle: return value of SimpleBlockManager_Open
-*/
+ */
 int SimpleBlockManager_Close(int handle)
 {
 	SmbContext *conptr = (SmbContext *)handle;
@@ -490,9 +509,9 @@ int SimpleBlockManager_Close(int handle)
  *	@conptr: a global variable
  *	@sl_node:   the physics sector node must be in a block
  *	@rwflag: a flag of read of write
-*/
+ */
 static inline int single_block_rw(SmbContext *conptr,
-		SectorList *sl_node, int rwflag)
+								  SectorList *sl_node, int rwflag)
 {
 	int startpage = sl_node->startSector / conptr->spp;
 
@@ -514,9 +533,9 @@ static inline int single_block_rw(SmbContext *conptr,
  *	@node:   the physics sector node
  *	@rwflag: a flag of read of write
  *	@blockcnt: current sector node over block numbers
-*/
+ */
 static int split_sectornode_to_block_rw(SmbContext *conptr,
-		SectorList *node, int rwflag, int blockcnt)
+										SectorList *node, int rwflag, int blockcnt)
 {
 	SectorList rwnode;
 	int start = node->startSector;
@@ -536,10 +555,10 @@ static int split_sectornode_to_block_rw(SmbContext *conptr,
 		rwnode.pData = (unsigned char *)(node->pData) + bufoffset;
 
 /*
-		ndprint(SIGBLOCK_DEBUG, "%s:start Sec:%d,Count:%d,buffoffset in sector:%d\n",
-				rwflag == 0 ? "write" : "read",
-				rwnode.startSector, rwnode.sectorCount,
-				bufoffset / SECTOR_SIZE);
+  ndprint(SIGBLOCK_DEBUG, "%s:start Sec:%d,Count:%d,buffoffset in sector:%d\n",
+  rwflag == 0 ? "write" : "read",
+  rwnode.startSector, rwnode.sectorCount,
+  bufoffset / SECTOR_SIZE);
 */
 		bufoffset += rwnode.sectorCount * SECTOR_SIZE;
 
@@ -558,7 +577,7 @@ static int split_sectornode_to_block_rw(SmbContext *conptr,
  *	@conptr: a global variable
  *	@sl: physics sectorlist
  *	@rwflag: a flag of read of write
-*/
+ */
 static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
 {
 	struct singlelist *pos;
@@ -578,7 +597,7 @@ static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
 			ret = single_block_rw(conptr, sl_node, rwflag);
 		} else {
 			ret = split_sectornode_to_block_rw(conptr, sl_node,
-					rwflag, blockcnt);
+											   rwflag, blockcnt);
 		}
 
 		if (ret < 0) {
@@ -597,7 +616,7 @@ static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
  *
  *	Transform SectorList to PageList directly,
  *	no use L2P cache, and don't go through NandManager.
-*/
+ */
 int SimpleBlockManager_Read(int context, SectorList *sl)
 {
 	SmbContext *conptr = (SmbContext *)context;
@@ -625,7 +644,7 @@ int SimpleBlockManager_Read(int context, SectorList *sl)
  *
  *	Transform SectorList to PageList directly,
  *	no use L2P cache, and don't go through NandManager.
-*/
+ */
 int SimpleBlockManager_Write(int context, SectorList *sl)
 {
 	SmbContext *conptr = (SmbContext *)context;
@@ -651,7 +670,7 @@ int SimpleBlockManager_Write(int context, SectorList *sl)
  *	@context: return value of SimpleBlockManager_Open
  *	@cmd: command
  *	@argv: argument of command
-*/
+ */
 int SimpleBlockManager_Ioctrl(int context, int cmd, int argv)
 {
 	SmbContext *conptr = (SmbContext *)context;
