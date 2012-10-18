@@ -14,6 +14,7 @@
 #include <linux/power/jz4780-battery.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
+#include <linux/jz_dwc.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
@@ -191,6 +192,13 @@ static struct spi_board_info jz_spi0_board_info[] = {
 	       .chip_select    = 0,
 	       .max_speed_hz   = 120000,
        },
+};
+#endif
+
+#ifdef CONFIG_USB_DWC_OTG
+struct jzdwc_pin dete_pin = {
+	.num				= GPIO_PF(13),
+	.enable_level			= HIGH_ENABLE,
 };
 #endif
 

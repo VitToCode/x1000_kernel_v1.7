@@ -59,72 +59,12 @@
 #include "dwc_otg_cil.h"
 
 #include <linux/clk.h>
-#include <linux/regulator/consumer.h>
-
-#include "jzsoc.h"
 
 #define DWC_DRIVER_VERSION	"2.94a 27-OCT-2011"
 #define DWC_DRIVER_DESC		"HS OTG USB Controller driver"
 
 static const char dwc_driver_name[] = "dwc_otg";
-
-static void jz_cpm_init(void)
-{
-	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;
-
-	/* select dwc otg */
-	REG_CPM_USBPCR1 |= USBPCR1_USB_SEL;
-
-	/* select utmi data bus width of port0 to 16bit/30M */
-	REG_CPM_USBPCR1 |= USBPCR1_WORD_IF0;
-
-	REG_CPM_USBPCR1 &= ~(3 << 24);
-	REG_CPM_USBPCR1 |= (ref_clk_div << 24);
-
-	/* fil */
-	//REG_CPM_USBVBFIL = 0x80;
-	REG_CPM_USBVBFIL = 0x0;		//temporary set zero by twxie
-
-	/* rdt */
-	REG_CPM_USBRDT = 0x96;
-
-	/* rdt - filload_en */
-	REG_CPM_USBRDT |= (1 << 25);
-
-	/* TXRISETUNE & TXVREFTUNE. */
-	REG_CPM_USBPCR &= ~0x3f;
-	REG_CPM_USBPCR |= 0x35;
-
-	/* enable tx pre-emphasis */
-        REG_CPM_USBPCR |= 0x40;
-
-	/* OTGTUNE adjust */
-        REG_CPM_USBPCR &= ~(7 << 14);	//temporary set -6% by twxie
-
-	printk("DWC_OTG:dwc_otg_driver_probe:jz4780: Enable USB PHY.\n");
-	__cpm_enable_otg_phy();
-        udelay(300);
-	
-	//__gpio_as_otg_drvvbus(); 
-
-        REG_CPM_USBPCR |= (USBPCR_VBUSVLDEXT | USBPCR_VBUSVLDEXTSEL);
-
-	REG_CPM_USBPCR |= (1 << 31);	//work as OTG
-
-	REG_CPM_USBPCR &= ~USBPCR_OTG_DISABLE;
-	REG_CPM_USBPCR &= ~USBPCR_IDPULLUP_MASK;
-	//REG_CPM_USBPCR &= ~(3 << 28);
-
-	/* phy reset */
-        REG_CPM_USBPCR |= USBPCR_POR;
-        udelay(30);
-        REG_CPM_USBPCR &= ~USBPCR_POR;
-        udelay(300);
-	
-	__cpm_enable_otg_phy();
-
-	REG32(0xb3500000) |= 0xc;
-}
+extern struct dwc_jz_pri *jz_dwc_init(void);
 
 extern int pcd_init(
 #ifdef LM_INTERFACE
@@ -712,112 +652,6 @@ static void dwc_otg_driver_remove(
  *
  * @param _dev Bus device
  */
-static inline void jz_dwc_phy_enable(void)
-{
-	printk(KERN_INFO "Enable USB PHY.\n");
-
-	__cpm_enable_otg_phy();
-
-	/* Wait PHY Clock Stable. */
-	udelay(300);
-
-	return;
-}
-
-static inline void jz_dwc_phy_disable(void)
-{
-	printk(KERN_INFO "Disable USB PHY.\n");
-
-	__cpm_suspend_otg_phy();
-
-	return;
-}
-
-static inline void jz_dwc_phy_reset(void)
-{
-	REG_CPM_USBPCR |= USBPCR_POR;
-	udelay(30);
-	REG_CPM_USBPCR &= ~USBPCR_POR;
-
-	udelay(300);
-
-	return;
-}
-
-static inline void jz_dwc_set_device_only_mode(void)
-{
-	/* Device Mode. */
-	REG_CPM_USBPCR &= ~(1 << 31);
-	REG_CPM_USBPCR |= USBPCR_VBUSVLDEXT;
-
-	return;
-}
-
-static inline void jz_dwc_set_normal_mode(void)
-{
-	/* OTG Mode. */
-	REG_CPM_USBPCR |= (1 << 31);
-	REG_CPM_USBPCR &= ~((1 << 24) | (1 << 23) | (1 << 20));
-	REG_CPM_USBPCR |= ((1 << 28) | (1 << 29));
-
-	return;
-}
-
-static inline int jz_dwc_init(struct device *dev)
-{
-	char *clk_gate_name = "otg1";
-
-	struct clk *clk_gate = clk_get(dev, clk_gate_name);
-	if (IS_ERR(clk_gate)) {
-		dev_err(dev, "clk gate get error\n");
-		WARN_ON(1);
-		return -ENODEV;;
-	}
-	clk_enable(clk_gate);
-
-	/* fil */
-	REG_CPM_USBVBFIL = 0x80;
-
-	/* rdt */
-	REG_CPM_USBRDT = 0x96;
-
-	/* rdt - filload_en */
-	REG_CPM_USBRDT |= (1 << 25);
-
-	/* TXRISETUNE & TXVREFTUNE. */
-	REG_CPM_USBPCR &= ~0x3f;
-	REG_CPM_USBPCR |= 0x35;
-
-	/* enable tx pre-emphasis */
-        REG_CPM_USBPCR |= 0x40;
-
-        /* most DC leave of tx */
-	jz_dwc_phy_enable();
-
-//	if (is_host_enabled()) {
-		jz_dwc_set_normal_mode();
-//	}else
-//		jz_dwc_set_device_only_mode();
-	jz_dwc_phy_reset();
-
-	return 0;
-}
-
-static void jz47xx_set_vbus(struct dwc_otg_core_if *core_if,int on)
-{
-	int err = 0;
-	if (!core_if->vbus_power)
-		return;
-	if(on && !regulator_is_enabled(core_if->vbus_power))
-		err = regulator_enable(core_if->vbus_power);
-
-	if(!on && regulator_is_enabled(core_if->vbus_power))
-		err = regulator_disable(core_if->vbus_power);
-
-	if (err < 0)
-		printk("%s-%svbus regulator failed\n",__func__,on?"enable":"disable");
-}
-
 static int dwc_otg_driver_probe(
 #ifdef LM_INTERFACE
 				       struct lm_device *_dev
@@ -829,28 +663,13 @@ static int dwc_otg_driver_probe(
 {
 	int retval = 0;
 	dwc_otg_device_t *dwc_otg_device;
-#if 0
-	REG_CPM_USBPCR1 |= 1 << 28;
-	if (jz_dwc_init(&_dev->dev) < 0)
-		return -ENODEV;
-	__cpm_enable_otg_phy();
-	REG_CPM_OPCR |= 3 << 6;
-//	printk("REG_CPM_USBOPCR =%08x\n",REG_CPM_OPCR);	
-#if 0
-	while(1) {
-		int i = 0;
+	struct dwc_jz_pri *jz_pri;
 
-		for (i = 0; i < 16; i++) {
-			REG32(0xb3520000 + i) =  0xa5a55a5a;
-			if (REG32(0xb3520000 + i) !=  0xa5a55a5a) {
-				printk("ERROR %08x != %08x\n", REG32(0xb3520000 + i),  0xa5a55a5a);
-			}
-		}
+	jz_pri = jz_dwc_init();
+	if (jz_pri == NULL){
+		DWC_ERROR("jz private initialize failded\n");
+		return -EINVAL;
 	}
-#endif
-#endif
-	jz_cpm_init();
-
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
 #ifdef LM_INTERFACE
@@ -960,13 +779,8 @@ static int dwc_otg_driver_probe(
 		retval = -ENOMEM;
 		goto fail;
 	}
+	dwc_otg_device->core_if->jz_pri = jz_pri;
 
-	dwc_otg_device->core_if->vbus_power = regulator_get(NULL, "vbus");
-	if (IS_ERR(dwc_otg_device->core_if->vbus_power)) {
-		printk("%s-get vbus regulator failed\n",__func__);
-	}
-
-	dwc_otg_device->core_if->set_vbus = jz47xx_set_vbus; 
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.
 	 * Read and verify the SNPSID register contents. The value should be

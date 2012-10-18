@@ -4,6 +4,14 @@ config USB_DWC_OTG
 	select DWC_LM_INTERFACE
 	help
 	  Say Y here to select Synopsys otg.
+
+config DISABLE_PHY
+	depends on USB_DWC_OTG
+	bool "Disable PHY when USB is disconnected"
+	default y
+	help
+	  Disable PHY when USB is disconnected.
+
 choice
 	prompt "Synopsys otg mode"
 	depends on USB_DWC_OTG

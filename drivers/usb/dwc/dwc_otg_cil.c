@@ -62,6 +62,7 @@
 #include "dwc_otg_cil.h"
 
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
+extern void jz_dwc_set_vbus(dwc_otg_core_if_t *core_if, int is_on);
 
 /**
  * This function is called to initialize the DWC_otg CSR data
@@ -1509,13 +1510,11 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	if (dwc_otg_is_host_mode(core_if)) {
 		DWC_DEBUGPL(DBG_ANY, "Host Mode\n");
 		core_if->op_state = A_HOST;
-		if(core_if->set_vbus)
-			core_if->set_vbus(core_if,1);
+		jz_dwc_set_vbus(core_if, 1);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "Device Mode\n");
 		core_if->op_state = B_PERIPHERAL;
-		if(core_if->set_vbus)
-			core_if->set_vbus(core_if,0);
+		jz_dwc_set_vbus(core_if, 0);
 #ifdef DWC_DEVICE_ONLY
 		dwc_otg_core_dev_init(core_if);
 #endif
