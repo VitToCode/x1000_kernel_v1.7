@@ -162,6 +162,13 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
+#ifdef CONFIG_USB_DWC_OTG
+struct jzdwc_pin dete_pin = {
+	.num				= GPIO_PF(13),
+	.enable_level			= HIGH_ENABLE,
+};
+#endif
+
 static int __init m80701_board_init(void)
 {
 /* dma */
