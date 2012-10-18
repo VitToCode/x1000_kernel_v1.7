@@ -69,8 +69,8 @@ static struct jztsc_pin warrior_tsc_gpio[] = {
 
 static struct jztsc_platform_data warrior_tsc_pdata = {
 	.gpio		= warrior_tsc_gpio,
-	.x_max		= 800,
-	.y_max		= 480,
+	.x_max		= 1024,
+	.y_max		= 600,
 };
 #endif
 
