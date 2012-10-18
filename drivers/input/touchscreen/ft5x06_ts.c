@@ -229,8 +229,11 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 	struct ts_event *event = &data->event;
 	int i = 0;
 	for (i = 0; i < event->touch_point; i++) {
-		event->au16_x[i] = event->au16_x[i] * data->x_max / CFG_MAX_X;
-		event->au16_y[i] = event->au16_y[i] * data->y_max / CFG_MAX_Y;
+	//	if (data->x_max != CFG_MAX_X) 
+	//		event->au16_x[i] = event->au16_x[i] * data->x_max / CFG_MAX_X;
+	//	if (data->y_max != CFG_MAX_Y) 
+	//		event->au16_y[i] = event->au16_y[i] * data->y_max / CFG_MAX_Y;
+
 		if(event->au16_x[i] > data->x_max || event->au16_y[i] > data->y_max)
 			continue;
 
@@ -246,7 +249,6 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
 
-		//printk("  (x,y)=(%d, %d)\n",event->au16_x[i],event->au16_y[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				event->au16_x[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
@@ -474,6 +476,12 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
+	if(err < 0){
+		printk("ft5x06_ts  probe failed\n");
+		goto exit_register_earlay_suspend;
+	}
+	//ft5x06_set_reg(ft5x06_ts, FT5X06_REG_THCAL, 4);
+
 	enable_irq(client->irq);
 	return 0;
 
