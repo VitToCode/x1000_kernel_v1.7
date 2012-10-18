@@ -1374,6 +1374,43 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	return 0;
 }
 
+static int jzfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned long start;
+	unsigned long off;
+	u32 len;
+
+	off = vma->vm_pgoff << PAGE_SHIFT;
+
+	/* frame buffer memory */
+	start = jzfb->fb->fix.smem_start;
+	len = PAGE_ALIGN((start & ~PAGE_MASK) + jzfb->fb->fix.smem_len);
+	start &= PAGE_MASK;
+
+	if ((vma->vm_end - vma->vm_start + off) > len)
+		return -EINVAL;
+	off += start;
+
+	vma->vm_pgoff = off >> PAGE_SHIFT;
+	vma->vm_flags |= VM_IO;
+	/* Uncacheable */
+//	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+ 	pgprot_val(vma->vm_page_prot) &= ~_CACHE_MASK;
+// 	pgprot_val(vma->vm_page_prot) |= _CACHE_UNCACHED; /* Uncacheable */
+	/* Write-Back */
+	pgprot_val(vma->vm_page_prot) |= _CACHE_CACHABLE_NONCOHERENT;
+
+	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
+			       vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot)) {
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static int jzfb_vsync_timestamp_changed(struct jzfb *jzfb,
 					ktime_t prev_timestamp)
 {
@@ -1444,6 +1481,7 @@ static struct fb_ops jzfb_ops = {
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
 	.fb_ioctl = jzfb_ioctl,
+	.fb_mmap = jzfb_mmap,
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
