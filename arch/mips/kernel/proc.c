@@ -31,67 +31,86 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		return 0;
 #endif
 
-	/*
-	 * For the first processor also print the system type
-	 */
-	if (n == 0) {
-		seq_printf(m, "system type\t\t: %s\n", get_system_type());
-		if (mips_get_machine_name())
-			seq_printf(m, "machine\t\t\t: %s\n",
-				   mips_get_machine_name());
+/* For Magiccode */
+	if (test_thread_flag(TIF_MAGIC_CPUINFO)){
+		/* for test armv7*/
+		seq_printf(m, "Processor	: ARMv7 Processor rev 2 (v7l)\n");
+		seq_printf(m, "BogoMIPS	        : 1001.88\n");
+		seq_printf(m, "Features	        : swp half thumb fastmult vfp edsp neon vfpv3\n");
+		seq_printf(m, "CPU implementer	: 0x41\n");
+		seq_printf(m, "CPU architecture : 7\n");
+		seq_printf(m, "CPU variant	: 0x3\n");
+		seq_printf(m, "CPU part	        : 0xc08\n");
+		seq_printf(m, "CPU variant	: 0x3\n");
+		seq_printf(m, "CPU revision	: 2\n");
+		seq_printf(m, "Hardware	        : sun4i\n");
+		seq_printf(m, "Revision	        : 0000\n");
+		seq_printf(m, "Serial		: 0000000000000000\n");
+		seq_printf(m, "\n");
+		
+	}else{
+		
+		/*
+		 * For the first processor also print the system type
+		 */
+		if (n == 0) {
+			seq_printf(m, "system type\t\t: %s\n", get_system_type());
+			if (mips_get_machine_name())
+				seq_printf(m, "machine\t\t\t: %s\n",
+					   mips_get_machine_name());
+		}
+		
+		seq_printf(m, "processor\t\t: %ld\n", n);
+		sprintf(fmt, "cpu model\t\t: %%s V%%d.%%d%s\n",
+			cpu_data[n].options & MIPS_CPU_FPU ? "  FPU V%d.%d" : "");
+		seq_printf(m, fmt, __cpu_name[n],
+			   (version >> 4) & 0x0f, version & 0x0f,
+			   (fp_vers >> 4) & 0x0f, fp_vers & 0x0f);
+		seq_printf(m, "BogoMIPS\t\t: %u.%02u\n",
+			   cpu_data[n].udelay_val / (500000/HZ),
+			   (cpu_data[n].udelay_val / (5000/HZ)) % 100);
+		seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
+		seq_printf(m, "microsecond timers\t: %s\n",
+			   cpu_has_counter ? "yes" : "no");
+		seq_printf(m, "tlb_entries\t\t: %d\n", cpu_data[n].tlbsize);
+		seq_printf(m, "extra interrupt vector\t: %s\n",
+			   cpu_has_divec ? "yes" : "no");
+		seq_printf(m, "hardware watchpoint\t: %s",
+			   cpu_has_watch ? "yes, " : "no\n");
+		if (cpu_has_watch) {
+			seq_printf(m, "count: %d, address/irw mask: [",
+				   cpu_data[n].watch_reg_count);
+			for (i = 0; i < cpu_data[n].watch_reg_count; i++)
+				seq_printf(m, "%s0x%04x", i ? ", " : "" ,
+					   cpu_data[n].watch_reg_masks[i]);
+			seq_printf(m, "]\n");
+		}
+		seq_printf(m, "microMIPS\t\t: %s\n", cpu_has_mmips ? "yes" : "no");
+		seq_printf(m, "ASEs implemented\t:%s%s%s%s%s%s%s\n",
+			   cpu_has_mips16 ? " mips16" : "",
+			   cpu_has_mdmx ? " mdmx" : "",
+			   cpu_has_mips3d ? " mips3d" : "",
+			   cpu_has_smartmips ? " smartmips" : "",
+			   cpu_has_dsp ? " dsp" : "",
+			   cpu_has_mipsmt ? " mt" : "",
+			   cpu_has_mxu ? " mxu" : ""
+			);
+		seq_printf(m, "shadow register sets\t: %d\n",
+			   cpu_data[n].srsets);
+		seq_printf(m, "kscratch registers\t: %d\n",
+			   hweight8(cpu_data[n].kscratch_mask));
+		seq_printf(m, "core\t\t\t: %d\n", cpu_data[n].core);
+		
+		sprintf(fmt, "VCE%%c exceptions\t\t: %s\n",
+			cpu_has_vce ? "%u" : "not available");
+		seq_printf(m, fmt, 'D', vced_count);
+		seq_printf(m, fmt, 'I', vcei_count);
+		
+		/* Android requires 'Hardware' to setup the init.%hardware%.rc */
+		seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
+		
+		seq_printf(m, "\n");
 	}
-
-	seq_printf(m, "processor\t\t: %ld\n", n);
-	sprintf(fmt, "cpu model\t\t: %%s V%%d.%%d%s\n",
-	cpu_data[n].options & MIPS_CPU_FPU ? "  FPU V%d.%d" : "");
-	seq_printf(m, fmt, __cpu_name[n],
-		      (version >> 4) & 0x0f, version & 0x0f,
-		      (fp_vers >> 4) & 0x0f, fp_vers & 0x0f);
-	seq_printf(m, "BogoMIPS\t\t: %u.%02u\n",
-		      cpu_data[n].udelay_val / (500000/HZ),
-		      (cpu_data[n].udelay_val / (5000/HZ)) % 100);
-	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
-	seq_printf(m, "microsecond timers\t: %s\n",
-		      cpu_has_counter ? "yes" : "no");
-	seq_printf(m, "tlb_entries\t\t: %d\n", cpu_data[n].tlbsize);
-	seq_printf(m, "extra interrupt vector\t: %s\n",
-		      cpu_has_divec ? "yes" : "no");
-	seq_printf(m, "hardware watchpoint\t: %s",
-		      cpu_has_watch ? "yes, " : "no\n");
-	if (cpu_has_watch) {
-		seq_printf(m, "count: %d, address/irw mask: [",
-		      cpu_data[n].watch_reg_count);
-		for (i = 0; i < cpu_data[n].watch_reg_count; i++)
-			seq_printf(m, "%s0x%04x", i ? ", " : "" ,
-				cpu_data[n].watch_reg_masks[i]);
-		seq_printf(m, "]\n");
-	}
-	seq_printf(m, "microMIPS\t\t: %s\n", cpu_has_mmips ? "yes" : "no");
-	seq_printf(m, "ASEs implemented\t:%s%s%s%s%s%s%s\n",
-		      cpu_has_mips16 ? " mips16" : "",
-		      cpu_has_mdmx ? " mdmx" : "",
-		      cpu_has_mips3d ? " mips3d" : "",
-		      cpu_has_smartmips ? " smartmips" : "",
-		      cpu_has_dsp ? " dsp" : "",
-		      cpu_has_mipsmt ? " mt" : "",
-		      cpu_has_mxu ? " mxu" : ""
-		);
-	seq_printf(m, "shadow register sets\t: %d\n",
-		       cpu_data[n].srsets);
-	seq_printf(m, "kscratch registers\t: %d\n",
-		   hweight8(cpu_data[n].kscratch_mask));
-	seq_printf(m, "core\t\t\t: %d\n", cpu_data[n].core);
-
-	sprintf(fmt, "VCE%%c exceptions\t\t: %s\n",
-		      cpu_has_vce ? "%u" : "not available");
-	seq_printf(m, fmt, 'D', vced_count);
-	seq_printf(m, fmt, 'I', vcei_count);
-
-	/* Android requires 'Hardware' to setup the init.%hardware%.rc */
-	seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
-
-	seq_printf(m, "\n");
-
 	return 0;
 }
 
