@@ -17,6 +17,7 @@
 #include <linux/power/jz4780-battery.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
+#include <linux/jz_dwc.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
