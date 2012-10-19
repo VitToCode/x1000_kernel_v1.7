@@ -991,8 +991,6 @@ PVRSRV_ERROR IMG_CALLCONV PollForValueKM (volatile IMG_UINT32*	pui32LinMemAddr,
 		/* PRQA S 3415,4109 1 */ /* macro format critical - leave alone */
 		LOOP_UNTIL_TIMEOUT(ui32Timeoutus)
 		{
-                    PVR_DPF((PVR_DBG_ERROR,"PollForValueKM: pui32LinMemAddr = %p", pui32LinMemAddr));
-                    
 			ui32ActualValue = (*pui32LinMemAddr & ui32Mask);
 			if(ui32ActualValue == ui32Value)
 			{
