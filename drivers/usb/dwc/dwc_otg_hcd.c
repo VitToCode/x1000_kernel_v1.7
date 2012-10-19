@@ -470,9 +470,10 @@ int dwc_otg_hcd_urb_enqueue(dwc_otg_hcd_t * hcd,
 		DWC_ERROR("DWC OTG HCD URB Enqueue failed adding QTD. "
 			  "Error status %d\n", retval);
 		dwc_otg_hcd_qtd_free(qtd);
-	} else {
-		qtd->qh = *ep_handle;
 	}
+	//} else {
+		//qtd->qh = *ep_handle;
+	//}
 	intr_mask.d32 = DWC_READ_REG32(&hcd->core_if->core_global_regs->gintmsk);
 	if (!intr_mask.b.sofintr && retval == 0) {
 		dwc_otg_transaction_type_e tr_type;
