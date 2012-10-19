@@ -787,7 +787,10 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 	int i;
 	dwc_hc_t *channel;
 
-	hcd->lock = DWC_SPINLOCK_ALLOC();
+	if(core_if->lock)
+		hcd->lock = core_if->lock;
+	else
+		hcd->lock = DWC_SPINLOCK_ALLOC();
 	if (!hcd->lock) {
 		DWC_ERROR("Could not allocate lock for pcd");
 		DWC_FREE(hcd);

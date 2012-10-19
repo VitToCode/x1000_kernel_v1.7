@@ -95,6 +95,12 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 	}
 	core_if->core_global_regs = (dwc_otg_core_global_regs_t *) reg_base;
 
+	core_if->lock = DWC_SPINLOCK_ALLOC();
+	if(!core_if->lock) {
+		DWC_DEBUGPL(DBG_CIL,
+			    "Allocation of core interface spin lock failed\n");
+		return 0;
+	}
 	/*
 	 * Allocate the Device Mode structures.
 	 */

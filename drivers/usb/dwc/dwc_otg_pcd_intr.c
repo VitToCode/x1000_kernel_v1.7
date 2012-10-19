@@ -665,13 +665,11 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 		dwc_otg_request_nuke(ep);
 	}
 
+	DWC_SPINUNLOCK(pcd->lock);
 	/* report disconnect; the driver is already quiesced */
 	if (pcd->fops->disconnect) {
-		DWC_SPINUNLOCK(pcd->lock);
 		pcd->fops->disconnect(pcd);
-		DWC_SPINLOCK(pcd->lock);
 	}
-	DWC_SPINUNLOCK(pcd->lock);
 }
 
 /**

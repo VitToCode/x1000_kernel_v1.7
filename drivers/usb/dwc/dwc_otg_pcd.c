@@ -1123,7 +1123,10 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 		return NULL;
 	}
 
-	pcd->lock = DWC_SPINLOCK_ALLOC();
+	if(core_if->lock)
+		pcd->lock = core_if->lock;
+	else
+		pcd->lock = DWC_SPINLOCK_ALLOC();
 	if (!pcd->lock) {
 		DWC_ERROR("Could not allocate lock for pcd");
 		DWC_FREE(pcd);
