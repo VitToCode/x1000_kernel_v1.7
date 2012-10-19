@@ -26,6 +26,13 @@
 
 /*CIM Configuration Register (CIMCFG)*/
 #define CIM_CFG_SEP	(1<<20)
+#define	CIM_CFG_ORDER		18
+
+#define	CIM_CFG_ORDER_YUYV		(0 << 	CIM_CFG_ORDER)
+#define	CIM_CFG_ORDER_YVYU		(1 << 	CIM_CFG_ORDER)
+#define	CIM_CFG_ORDER_UYVY		(2 << 	CIM_CFG_ORDER)
+#define	CIM_CFG_ORDER_VYUY		(3 << 	CIM_CFG_ORDER)
+
 #define	CIM_CFG_DF_BIT		16
 #define	CIM_CFG_DF_MASK		  (0x3 << CIM_CFG_DF_BIT)
   #define CIM_CFG_DF_YUV444	  (0x1 << CIM_CFG_DF_BIT) 	/* YCbCr444 */
@@ -77,8 +84,12 @@
 /*CIM Control Register (CIMCR)*/
 #define	CIM_CTRL_FRC_BIT	16
 #define	CIM_CTRL_FRC_MASK	(0xf << CIM_CTRL_FRC_BIT)
-  #define CIM_CTRL_FRC_1	  (0x0 << CIM_CTRL_FRC_BIT) /* Sample every frame */
+#define CIM_CTRL_FRC_1	        (0x0 << CIM_CTRL_FRC_BIT) /* Sample every frame */
+#define CIM_CTRL_FRC_10         (10 << CIM_CTRL_FRC_BIT)
+
+#define CIM_CTRL_MBEN           (1 << 6)    /* 16x16 yuv420  macro blocks */
 #define	CIM_CTRL_DMA_SYNC	(1 << 7)	/*when change DA, do frame sync */
+
 #define CIM_CTRL_CIM_RST	(1 << 3)
 #define	CIM_CTRL_DMA_EN		(1 << 2) /* Enable DMA */
 #define	CIM_CTRL_RXF_RST	(1 << 1) /* RxFIFO reset */
@@ -115,6 +126,7 @@
 
 /*CIM Interrupt Mask Register (CIMIMR)*/
 #define CIM_IMR_EOFM		(1<<9)
+#define CIM_IMR_SOFM		(1<<8)
 #define CIM_IMR_TLBEM		(1<<4)
 #define CIM_IMR_FSEM		(1<<3)
 #define CIM_IMR_RFIFO_OFM		(1<<2)
