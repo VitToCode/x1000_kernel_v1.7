@@ -77,7 +77,7 @@
 #define SPL_BCH_BLOCK 256
 #define SPL_BCH_SIZE 112
 #define SPL_BCH_BIT 64
-
+#define X_BOOT_BLOCK 2 	// block 0,1 write spl, block 2 write x-boot
 
 typedef struct alignedlist{
 	PageList *pagelist;

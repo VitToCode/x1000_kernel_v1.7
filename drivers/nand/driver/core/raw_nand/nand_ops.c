@@ -1316,7 +1316,9 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 	alignelist = list;
 	while(alignelist != NULL) {
 		if(alignelist->pagelist->startPageID < g_pnand_chip->ppblock) {
-			for(i=0; i < 3; i++) {
+			/* block 0 write spl, block 1 bakup block 0, X_BOOT_BLOCK is block 2,
+			 which block start write x-boot*/
+			for(i=0; i < X_BOOT_BLOCK; i++) {
 				ret = spl_write_nand(host, alignelist, bchbuf, bchsize, i);
 
 				if(ret < 0) {

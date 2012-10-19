@@ -22,7 +22,7 @@
 #define SECTOR_SIZE 	512
 // spl size is 16k, so x-boot offset start at sector 16k / SECTOR_SIZE
 #define X_BOOT_OFFSET 	((16 * 1024) / SECTOR_SIZE)
-#define X_BOOT_BLOCK	3 	// block 0,1,2 write spl, block 3 write x-boot
+#define X_BOOT_BLOCK	2 	// block 0,1 write spl, block 2 write x-boot
 #define X_BOOT_START_SECTOR(spb) (X_BOOT_BLOCK * (spb))
 
 #define	SPL_WRITE		0

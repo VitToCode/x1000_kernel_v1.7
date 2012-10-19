@@ -34,13 +34,10 @@ static int get_phy_block(SplContext *conptr, int blockid)
 	int i = 0;
 	PPartition *pt = (PPartition *)conptr->vnand.prData;
 
-	ndprint(SIGBLOCK_DEBUG, "request block is: %d", blockid);
+	ndprint(SIGBLOCK_DEBUG, "request block is: %d\n", blockid);
 	ndprint(SIGBLOCK_DEBUG, "bad block is:");
 
-	if (conptr->lblockid < X_BOOT_BLOCK)
-		return blockid;
-
-	for(i = 0; i < blockid + 1; i++) {
+	for(i = X_BOOT_BLOCK; i < blockid + 1; i++) {
 		if(vNand_IsBadBlock(&conptr->vnand, i)) {
 			blockid++;
 			ndprint(SIGBLOCK_DEBUG, " %d ", i);
@@ -51,7 +48,7 @@ static int get_phy_block(SplContext *conptr, int blockid)
 		}
 	}
 
-	ndprint(SIGBLOCK_DEBUG, "phy block is %d\n", blockid);
+	ndprint(SIGBLOCK_DEBUG, "\nphy block is %d\n", blockid);
 
 	return blockid;
 }
@@ -586,6 +583,36 @@ static int split_sectornode_to_block_rw(SplContext *conptr,
 	return SUCCESS;
 }
 
+
+/**
+ *	__splblock_rw  -  spl read or wirte
+ *
+ *	@conptr: a global variable
+ *	@sl: physics sectorlist
+ *	@rwflag: a flag of read of write
+ */
+static int splblock_slnode_rw(SplContext *conptr, SectorList *sl_node, int rwflag)
+{
+	int ret = 0;
+	int blockcnt;
+
+	blockcnt = get_unit_count_from_sl(sl_node, conptr->spb);
+
+	ndprint(SIGBLOCK_INFO, "Spl %s: startSector = %d, sectorCount = %d, pData = %p\n",
+			(SPL_WRITE == rwflag ? "Write" : "Read"), sl_node->startSector, sl_node->sectorCount, sl_node->pData);
+
+	if (1 == blockcnt) {
+		ret = single_block_rw(conptr, sl_node, rwflag);
+	} else {
+		ret = split_sectornode_to_block_rw(conptr, sl_node, rwflag, blockcnt);
+	}
+
+	if (ret < 0) {
+		return ret;
+	}
+
+	return SUCCESS;
+}
 /**
  *	splblock_rw  -  spl read or wirte
  *
@@ -595,41 +622,52 @@ static int split_sectornode_to_block_rw(SplContext *conptr,
  */
 static int splblock_rw(SplContext *conptr, SectorList *sl, int rwflag)
 {
+	int ret = 0;
 	struct singlelist *pos;
 	SectorList *sl_node;
-	int ret = 0;
-	int blockcnt;
+	SectorList *sl_node_tmp = NULL;
 
 	singlelist_for_each(pos, &(sl->head)) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 
 		ndprint(SIGBLOCK_INFO, "Spl >>>>>>>>>>>>>>>> %s: startSector = %d, sectorCount = %d\n\n",
-				(SPL_WRITE == rwflag ? "Write" : "Read"), sl_node->startSector, sl_node->sectorCount);		
+				(SPL_WRITE == rwflag ? "Write" : "Read"), sl_node->startSector, sl_node->sectorCount);
 
-		if (0 == sl_node->sectorCount) {
+		if (0 == sl_node->sectorCount)
 			continue;
-		}
 
-		if (sl_node->startSector >= X_BOOT_OFFSET)
+		if (sl_node->startSector >= X_BOOT_OFFSET) {
 			sl_node->startSector += X_BOOT_START_SECTOR(conptr->spb) - X_BOOT_OFFSET;
-
-		blockcnt = get_unit_count_from_sl(sl_node, conptr->spb);
-
-		ndprint(SIGBLOCK_INFO, "Spl %s: blockcnt = %d, startSector = %d, sectorCount = %d\n\n",
-				(SPL_WRITE == rwflag ? "Write" : "Read"), blockcnt, sl_node->startSector, sl_node->sectorCount);
-
-		if (1 == blockcnt) {
-			ret = single_block_rw(conptr, sl_node, rwflag);
-		} else {
-			ret = split_sectornode_to_block_rw(conptr, sl_node, rwflag, blockcnt);
 		}
 
+		if ((sl_node->startSector < X_BOOT_OFFSET) &&
+			((sl_node->startSector + sl_node->sectorCount - 1) >= X_BOOT_OFFSET)) {
+			sl_node_tmp = (SectorList *)Nand_VirtualAlloc(sizeof(SectorList));
+			if (!sl_node_tmp)
+				return -ENOMEM;
+			sl_node_tmp->startSector = X_BOOT_OFFSET;
+			sl_node_tmp->sectorCount = (sl_node->startSector + sl_node->sectorCount) - X_BOOT_OFFSET;
+			sl_node->sectorCount = sl_node->sectorCount - sl_node_tmp->sectorCount;
+			sl_node_tmp->pData = (void *)((char *)sl_node->pData + sl_node->sectorCount * SECTOR_SIZE);
+		}
+
+		ret = splblock_slnode_rw(conptr, sl_node, rwflag);
 		if (ret < 0) {
+			if (sl_node_tmp)
+				Nand_VirtualFree(sl_node_tmp);
 			return ret;
+		}
+
+		if (sl_node_tmp) {
+			ret = splblock_slnode_rw(conptr, sl_node_tmp, rwflag);
+			Nand_VirtualFree(sl_node_tmp);
+			sl_node_tmp = NULL;
+			if (ret < 0)
+				return ret;
 		}
 	}
 
-	return SUCCESS;
+	return ret;
 }
 
 /**
