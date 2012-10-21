@@ -645,7 +645,7 @@ static int splblock_rw(SplContext *conptr, SectorList *sl, int rwflag)
 			sl_node_tmp = (SectorList *)Nand_VirtualAlloc(sizeof(SectorList));
 			if (!sl_node_tmp)
 				return -ENOMEM;
-			sl_node_tmp->startSector = X_BOOT_OFFSET;
+			sl_node_tmp->startSector = X_BOOT_START_SECTOR(conptr->spb);
 			sl_node_tmp->sectorCount = (sl_node->startSector + sl_node->sectorCount) - X_BOOT_OFFSET;
 			sl_node->sectorCount = sl_node->sectorCount - sl_node_tmp->sectorCount;
 			sl_node_tmp->pData = (void *)((char *)sl_node->pData + sl_node->sectorCount * SECTOR_SIZE);

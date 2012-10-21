@@ -17,7 +17,7 @@
 
 static struct platform_nand_partition partition_info[] = {
 	{
-	name:"x-boot",
+	name:"ndxboot",
 	offset:0 * 0x100000LL,
 	size:4 * 0x100000LL,
 	mode:SPL_MANAGER,
@@ -26,7 +26,7 @@ static struct platform_nand_partition partition_info[] = {
 	part_attrib:PART_XBOOT
 	},
 	{
-	name:"boot",
+	name:"ndboot",
 	offset:4 * 0x100000LL,
 	size:8 * 0x100000LL,
 	mode:DIRECT_MANAGER,
@@ -35,7 +35,7 @@ static struct platform_nand_partition partition_info[] = {
 	part_attrib:PART_KERNEL
 	},
     {
-    name:"recovery",
+    name:"ndrecovery",
     offset:12 * 0x100000LL,
     size:16 * 0x100000LL,
     mode:DIRECT_MANAGER,
