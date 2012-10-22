@@ -1791,7 +1791,7 @@ static int codec_set_board_route(struct snd_board_route *broute)
 
 	return (broute && cur_route) ? broute->route : 0;
 }
-
+static int pretest_sound_replayroute = 0;
 static int codec_set_default_route(int mode)
 {
 	int ret = 0;
@@ -1804,7 +1804,10 @@ static int codec_set_default_route(int mode)
 			codec_platform_data->record_def_route.route = SND_ROUTE_RECORD_MIC;
 		}
 	}
-
+	if (pretest_sound_replayroute ==0)
+		codec_platform_data->replay_def_route.route = SND_ROUTE_REPLAY_HEADPHONE;
+	else
+		codec_platform_data->replay_def_route.route = SND_ROUTE_REPLAY_SPEAKER;
 	if (mode == CODEC_RWMODE) {
 		ret =  codec_set_board_route(&codec_platform_data->replay_def_route);
 	} else if (mode == CODEC_WMODE) {
@@ -2059,6 +2062,7 @@ static int codec_set_device(enum snd_device_t device)
 				return -1;
 			}
 		}
+		pretest_sound_replayroute = 0;
 		break;
 
 	case SND_DEVICE_HANDSET:
@@ -2077,6 +2081,7 @@ static int codec_set_device(enum snd_device_t device)
 				return -1;
 			}
 		}
+		pretest_sound_replayroute = 1;
 		break;
 
 	case SND_DEVICE_HEADSET_AND_SPEAKER:
