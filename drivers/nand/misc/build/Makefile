@@ -31,6 +31,7 @@ LIBSRC = l2vNand.c \
 	 l2pconvert.c    \
 	 nandmanagerinterface.c  \
 	 simpleblockmanager.c    \
+	 splblockmanager.c    \
 	 NandSemaphore.c  \
 	 NandThread.c \
 	 nandalloc.c \
@@ -41,6 +42,9 @@ LIBSRC = l2vNand.c \
 
 MVPATH= $(TOPDIR)/manager/     \
 	$(TOPDIR)/manager/vnand \
+	$(TOPDIR)/manager/zone_manager \
+	$(TOPDIR)/manager/simple_manager \
+	$(TOPDIR)/manager/spl_manager \
 	$(TOPDIR)/manager/utils \
 	$(TOPDIR)/manager/l2p \
 	$(TOPDIR)/manager/simple/  \

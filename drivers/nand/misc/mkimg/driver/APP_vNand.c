@@ -246,7 +246,7 @@ void ND_probe(struct filedesc *file_desc){
 	ppt[0].hwsector = 512;
 	ppt[0].startPage = 0 * vNandChipInfo.PagePerBlock;
 	ppt[0].PageCount = vNandChipInfo.TotalBlocks * vNandChipInfo.PagePerBlock;
-	ppt[0].mode = 1;
+	ppt[0].mode = ZONE_MANAGER;
 	ppt[0].prData = NULL;
 	printf("ppt[0].pageperblock = %d\n",ppt[0].pageperblock);
 	printf("ppt[0].byteperpage = %d\n",ppt[0].byteperpage);

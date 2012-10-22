@@ -638,13 +638,13 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		goto nand_probe_error3;
 	}
 	/*   get nemc clock and bch clock   */
-	g_pnand_api.vnand_base->nemc_clk =clk_get(&pdev->dev,"nemc");
-	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"bch");
-/*
-	clk_set_rate(g_pnand_api.vnand_base->nemc_clk,48000000);
-	clk_set_rate(g_pnand_api.vnand_base->bch_clk,48000000);
-*/
-	clk_enable(g_pnand_api.vnand_base->nemc_clk);
+	g_pnand_api.vnand_base->nemc_gate =clk_get(&pdev->dev,"nemc");
+	clk_enable(g_pnand_api.vnand_base->nemc_gate);
+	g_pnand_api.vnand_base->bch_gate =clk_get(&pdev->dev,"bch");
+	clk_enable(g_pnand_api.vnand_base->bch_gate);
+	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"cgu_bch");
+        //the bch clk is nodiv for AHB2 CLK
+        //clk_set_rate(g_pnand_api.vnand_base->bch_clk,100000000);
 	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
 	/*   nemc resource  */
@@ -744,10 +744,12 @@ static int __devexit plat_nand_remove(struct platform_device *pdev)
 	iounmap(g_pnand_api.vnand_base->pdma_iomem);
 	iounmap(g_pnand_api.vnand_base->nemc_cs6_iomem);
 
+	clk_disable(g_pnand_api.vnand_base->bch_gate);
 	clk_disable(g_pnand_api.vnand_base->bch_clk);
-	clk_disable(g_pnand_api.vnand_base->nemc_clk);
+	clk_disable(g_pnand_api.vnand_base->nemc_gate);
+	clk_put(g_pnand_api.vnand_base->bch_gate);
 	clk_put(g_pnand_api.vnand_base->bch_clk);
-	clk_put(g_pnand_api.vnand_base->nemc_clk);
+	clk_put(g_pnand_api.vnand_base->nemc_gate);
 
 	return 0;
 }

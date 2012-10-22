@@ -14,8 +14,9 @@
 #include "jz4780_pdma.h"
 
 struct nand_base{
-	struct clk *nemc_clk;
+	struct clk *nemc_gate;
 	struct clk *bch_clk;
+	struct clk *bch_gate;
 	/* interrupt vector  */
 	int            irq;
 	int            nemc_irq;

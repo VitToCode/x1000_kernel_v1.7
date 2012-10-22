@@ -28,12 +28,13 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	int h2clk = cclk / div[h2div];
 	
 	int cycle = 1000 / h2clk + 1;	// unit: ns */
-	int clk =clk_get_rate(host->nemc_clk);
+	int clk =clk_get_rate(host->nemc_gate);
+	int bchclk =clk_get_rate(host->bch_clk);
 	int cycle = 1000000000 / clk +1;  //unit: ns
 	int smcr_val = 0;
 	int data;
 	
-	dprintf("==>%s L%d, clk=%d, cycle=%d\n",__func__,__LINE__,clk,cycle);
+	dprintf("==>%s L%d, bchclk=%d, clk=%d, cycle=%d\n",__func__,__LINE__,bchclk,clk,cycle);
 /*	dprintf("==>%s L%d, h2div=%d, cclk=%d, h2clk=%d, cycle=%d\n",
 			__func__, __LINE__,
 			div[h2div], cclk,

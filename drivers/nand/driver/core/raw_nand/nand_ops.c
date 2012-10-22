@@ -913,7 +913,7 @@ int nand_read_page(NAND_BASE *host,unsigned int pageid,unsigned int offset,unsig
 	ret =nand_read_page_data(host,offset,bytes,(unsigned char *)databuf);
 	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 	do_deselect_chip(host);
-	return (ret < 0) ? ret : SUCCESS;           //return Uncorrectable error or success
+	return (ret < 0) ? ret : bytes;           //return Uncorrectable error or success
 }
 /******************************************************
  *   nand_read_pages ;
