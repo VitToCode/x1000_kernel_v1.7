@@ -498,6 +498,7 @@ exit_input_dev_alloc_failed:
 exit_irq_request_failed:
 	i2c_set_clientdata(client, NULL);
 	kfree(ft5x06_ts);
+	ft5x06_ts_power_off(ft5x06_ts);
 
 exit_alloc_data_failed:
 exit_check_functionality_failed:

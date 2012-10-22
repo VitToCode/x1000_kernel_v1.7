@@ -801,7 +801,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		if (err < 0){
 			dev_err(&acc->client->dev,
 					"power_on regulator failed: %d\n", err);
-			return err;
+			goto err_read_who_am_i;
 		}
 	}
 	udelay(100);
@@ -812,7 +812,12 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
 	if (err < 0 || buf[0] != WHOAMI_LIS3DH_ACC) {
 		printk("ERROR: Can't load lis3dh g_sensor driver,may use mma8452 g_sensor driver\n");
-		return -EINVAL;
+		err = -EINVAL;
+		dev_err(&client->dev,
+				"ERROR: Can't load lis3dh g_sensor driver,may use mma8452 g_sensor driver: %d\n",
+				err);
+		goto err_read_who_am_i; 
+
 	}
 	printk("Gsensor is lis3dh\n");
 
@@ -934,11 +939,12 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	return 0;
 
 err_power_off:
-//	lis3dh_acc_device_power_off(acc);
-	regulator_disable(acc->power);
+
 err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
+err_read_who_am_i:
+	regulator_disable(acc->power);
 exit_kfree_pdata:
 	kfree(acc->pdata);
 err_free:
