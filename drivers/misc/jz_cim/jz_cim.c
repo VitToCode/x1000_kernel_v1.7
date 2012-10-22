@@ -199,33 +199,31 @@ void cim_power_on(struct jz_cim *cim)
 {
 	if(cim->clk)
 		clk_enable(cim->clk);
+		
 	if(cim->mclk)
 		clk_enable(cim->mclk);
-	#if 1
-	if(cim->power != NULL){
-		printk(" -----cim power enable\n");
+		
+	if(cim->power) {
+		dev_info(cim->dev, "cim power on\n");
 		regulator_enable(cim->power);
 	}
-	#else
-	gpio_direction_output(GPIO_PB(27),1);
-	gpio_set_value(GPIO_PB(27),1);
-	#endif
-	mdelay(10);
-	//dev_info(cim->dev," ---probe get clk rete is %d\n",clk_get_rate(cim->mclk));
-	clk_set_rate(cim->mclk, 24000000);
 
+	mdelay(10);
+	clk_set_rate(cim->mclk, 24000000);
 }
+
 void cim_power_off(struct jz_cim *cim)
 {
-	#if 0
 	if(cim->clk)
 		clk_disable(cim->clk);
+		
 	if(cim->mclk)
 		clk_disable(cim->mclk);
 	
-	#endif
-	if(cim->power < 0)
+	if(cim->power) {
+		dev_info(cim->dev, "cim power off\n");
 		regulator_disable(cim->power);
+	}
 }
 
 void cim_set_default(struct jz_cim *cim)
@@ -454,7 +452,6 @@ static long cim_shutdown(struct jz_cim *cim)
 		return 0;
 	cim->state = CS_IDLE;
 	dev_info(cim->dev," -----cim shut down\n");
-	//cim->desc->shutdown(cim->desc);
 	cim_disable(cim);
 	cim_disable_dma(cim);
 	
@@ -464,7 +461,6 @@ static long cim_shutdown(struct jz_cim *cim)
 	//cim_dump_reg(cim);
 	
 	wake_up_interruptible(&cim->wait);
-	cim_power_off(cim);
 	return 0;
 }
 
@@ -474,8 +470,8 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim->frm_id = -1;
 
 	cim_disable(cim);
-	cim_set_default(cim);
 	cim_power_on(cim);
+	cim_set_default(cim);
 	cim->desc->power_on(cim->desc);
 	cim->desc->reset(cim->desc);
 	cim->desc->init(cim->desc);
@@ -741,6 +737,7 @@ static int cim_close(struct inode *inode, struct file *file)
 	struct miscdevice *dev = file->private_data;
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 
+	cim_power_off(cim);
 	cim->state = CS_IDLE;
 	cim->tlb_flag = 0;
 	cim->tlb_base = 0;
