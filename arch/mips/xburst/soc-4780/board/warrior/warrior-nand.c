@@ -98,6 +98,7 @@ static int partition_reserved_badblocks[] = {
 	20,			/* reserved blocks of mtd4 */
 	20,			/* reserved blocks of mtd5 */
 	20,         /* reserved blocks of mtd6 */
+	1,          /* reserved blocks of mtd6 */
 };
 
 struct platform_nand_data jz_nand_chip_data = {

@@ -13,6 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/device.h>
 #include <linux/math64.h>
+#include <mach/jznand.h>
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
 //#include "../inc/nand_dma_ops.h"   //change later
@@ -70,7 +71,7 @@ void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
 	/*
 	 * Set the number of read / write steps for one page depending on ECC
 	 * mode
-	 */	 
+	 */
 
 	this->nand_ecc->eccsteps = this->writesize / this->nand_ecc->eccsize;
 	if (this->nand_ecc->eccsteps * this->nand_ecc->eccsize != this->writesize) {
@@ -292,9 +293,9 @@ static inline int init_nand(void * vNand)
 		(g_partition+ret)->hwsector =512;
 		(g_partition+ret)->byteperpage = tmp_info->BytePerPage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
-		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock)); 
+		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock));
 		/*  two-plane operation : startblockID must be even  */
-		(g_partition+ret)->startblockID +=(g_partition+ret)->startblockID % use_planenum; 
+		(g_partition+ret)->startblockID +=(g_partition+ret)->startblockID % use_planenum;
 		(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * (tmp_info->PagePerBlock);
 		(g_partition+ret)->pageperblock = tmp_info->PagePerBlock * use_planenum;
 		(g_partition+ret)->PageCount = div_s64_32(((ptemp+ret)->size),((g_partition+ret)->byteperpage));
@@ -318,7 +319,7 @@ static inline int init_nand(void * vNand)
 	 *   is as badblock partition.
 	 */
 	t_partition = g_partition+ipartition_num-1;  //last partiton from board
-	(g_partition+ret)->name =" BADBLOCK_TABEL"; 
+	(g_partition+ret)->name =" BADBLOCK_TABEL";
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
 	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 	(g_partition+ret)->startblockID = blockid;
@@ -326,7 +327,7 @@ static inline int init_nand(void * vNand)
 	(g_partition+ret)->pageperblock = t_partition->pageperblock;
 	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * 1 ;
 	(g_partition+ret)->totalblocks = 1;
-	(g_partition+ret)->mode = 2;   // this is special mark of badblock tabel partition
+	(g_partition+ret)->mode = ONCE_MANAGER;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
 	(g_partition+ret)->hwsector =512;
 	tmp_manager->pt = &partition;
@@ -334,8 +335,8 @@ static inline int init_nand(void * vNand)
 	tmp_manager->pt->ptcount = ipartition_num+1;
 
 	g_aligned_list =nand_malloc_buf(256*sizeof(Aligned_List));
-	if (!g_aligned_list){ 
-		eprintf("ERROR: g_aligned_list malloc Failed\n");	
+	if (!g_aligned_list){
+		eprintf("ERROR: g_aligned_list malloc Failed\n");
 		goto init_nand_error2;
 	}
 	memset(g_aligned_list,0,256*sizeof(Aligned_List));
@@ -372,14 +373,14 @@ static inline int init_nand(void * vNand)
 init_nand_error2:
 	nand_free_buf(g_partition);
 init_nand_error1:
-	return -1;	
+	return -1;
 }
 
 /*
  * page_aligned -- pagelist will be transformed into aligned_list,
- * 
+ *
  */
-static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list)  
+static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list)
 {
 	struct singlelist *listhead;
 	PageList *pnextpagelist=0;
@@ -415,7 +416,7 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 		i++;
 		listhead = (pagelist->head).next;
 	}
-	return;	
+	return;
 }
 
 /*
@@ -442,7 +443,7 @@ static inline int page_read(void *ppartition,int pageid, int offset,int bytes,vo
 
 /*
  * multipage_read - read many pages data
- * 
+ *
  */
 static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 {
@@ -491,11 +492,11 @@ static inline int page_write(void *ppartition,int pageid,int offset,int bytes,vo
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
 #endif
-	return ret; 
+	return ret;
 }
 /*
  * multipage_write - read many pages data
- * 
+ *
  */
 static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 {
@@ -530,7 +531,7 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 
 /*
  * multiblock_erase - erase blocks
- * 
+ *
  */
 static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 {
@@ -547,7 +548,7 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 
 /*
  * is_badblock - judge badblock
- * 
+ *
  */
 static inline int is_badblock(void *ppartition,int blockid)
 {
@@ -560,7 +561,7 @@ static inline int is_badblock(void *ppartition,int blockid)
 
 /*
  * mark_badblock - mark badblock
- * 
+ *
  */
 static inline int mark_badblock(void *ppartition,int blockid)
 {
@@ -571,8 +572,8 @@ static inline int mark_badblock(void *ppartition,int blockid)
 	return markbadblock(g_pnand_api.vnand_base,blockid);
 }
 /*
- * deinit_nand 
- * 
+ * deinit_nand
+ *
  */
 static inline int deinit_nand(void *vNand)
 {
@@ -606,7 +607,7 @@ NandInterface jz_nand_interface = {
 	.iMultiBlockErase = multiblock_erase,
 	.iIsBadBlock = is_badblock,
 	.iMarkBadBlock = mark_badblock,
-	.iDeInitNand = deinit_nand,	
+	.iDeInitNand = deinit_nand,
 };
 /*
  * Probe for the NAND device.
@@ -728,7 +729,7 @@ nand_probe_error3:
 	nand_free_buf(g_pnand_api.vnand_base);
 nand_probe_error2:
 	nand_free_buf(g_pnand_data);
-nand_probe_error1:	
+nand_probe_error1:
 	return -ENXIO;
 }
 
