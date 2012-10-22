@@ -87,6 +87,9 @@ void dump_availablebadblock(VNandManager *vm)
 		if(pt->mode == ONCE_MANAGER)
 			break;
 
+		if (pt->mode == SPL_MANAGER || pt->mode == DIRECT_MANAGER)
+			continue;
+
 		ndprint(VNAND_INFO,"\n pt->name = %s, pt = %p i = %d  bad block info:\n", pt->name, pt ,i);
 		for(j=0; j<pt->byteperpage * BADBLOCKINFOSIZE; j++){
 			if(j%4==0)
@@ -213,7 +216,7 @@ static void PtAvailableBlockID_Init(VNandManager *vm)
 			break;
 		}
 
-		if (pt->mode == DIRECT_MANAGER)
+		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
 		blockid = 0;
@@ -424,7 +427,7 @@ static void read_badblock_info_page(VNandManager *vm)
 
 		lastpt = pt;
 
-		if (pt->mode == DIRECT_MANAGER)
+		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
 		ret = alloc_badblock_info(pt);
@@ -494,7 +497,7 @@ static void read_badblock_info_page(VNandManager *vm)
 			break;
 		}
 
-		if (pt->mode == DIRECT_MANAGER)
+		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
 		fill_pagelist(pt, pl, i);
@@ -590,7 +593,7 @@ void vNand_Deinit ( VNandManager** vm)
 			break;
 		}
 
-		if (pt->mode == DIRECT_MANAGER)
+		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
 		free_badblock_info(pt);
