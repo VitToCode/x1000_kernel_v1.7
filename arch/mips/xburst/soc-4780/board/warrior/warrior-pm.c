@@ -19,7 +19,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 0 +  6,	GSS_INPUT_NOPULL}, /* SD6 */
 	{32 * 0 +  7,	GSS_INPUT_NOPULL}, /* SD7 */
 	{32 * 0 + 16,	GSS_IGNORE	}, /* DC_DETE */
-	{32 * 0 + 17,	GSS_INPUT_NOPULL}, /* OTG_POWER_EN */
+	{32 * 0 + 17,	GSS_IGNORE	}, /* OTG_POWER_EN */
 	{32 * 0 + 18,	GSS_IGNORE	}, /* FRE_N */
 	{32 * 0 + 19,	GSS_IGNORE	}, /* FWE_N */
 	{32 * 0 + 20,	GSS_IGNORE	}, /* FRB_N */
@@ -126,6 +126,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 4 +  4,	GSS_INPUT_NOPULL}, /* AVDEFUSE_EN_N */
 	{32 * 4 +  6,	GSS_OUTPUT_LOW	}, /* AMPEN */
 	{32 * 4 +  7,	GSS_INPUT_NOPULL}, /* JD */
+	{32 * 4 + 10,	GSS_IGNORE	}, /* */
 	{32 * 4 + 20,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 4 + 21,	GSS_INPUT_NOPULL}, /* NC */
 	{32 * 4 + 22,	GSS_INPUT_NOPULL}, /* NC */
