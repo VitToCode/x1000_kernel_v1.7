@@ -23,6 +23,18 @@
 #define CIMIO_STOP_PREVIEW			0x14
 #define CIMIO_SET_TLB_BASE			0x15
 #define CIMIO_GET_SENSOR_COUNT			0x16
+#define CIMIO_SET_PREVIEW_FMT		0x17
+#define CIMIO_SET_CAPTURE_FMT		0x18
+
+//cim output format, set according system/core/include/system/graphics.h
+#define HAL_PIXEL_FORMAT_YV12				0x32315659
+#define HAL_PIXEL_FORMAT_JZ_YUV_420_P		0x47700001
+#define HAL_PIXEL_FORMAT_JZ_YUV_420_B		0x47700002
+#define HAL_PIXEL_FORMAT_YCbCr_422_I        0x14
+
+#define CIM_CSC_YUV420B				0x1
+#define CIM_CSC_YUV420P				0x2
+#define CIM_BYPASS_YUV422I			0X3
 
 //cim config for sensor YUYV output order
 #define SENSOR_OUTPUT_FORMAT_Y0UY1V 		0		//11 22 33 44
