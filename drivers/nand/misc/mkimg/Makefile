@@ -6,7 +6,7 @@ MLIB   = ../build/lib/libnm.a
  
 INCLUDE = -I./inc -I../../inc -I../../manager/inc -I../testmodule/inc
 
-CFLAGS  = -Wall -pipe -DDEBUG  -g -D_GNU_SOURCE  
+CFLAGS  = -Wall -pipe -DDEBUG  -g -D_GNU_SOURCE  -m32
 OBJS    = main.o argument.o driver/APP_vNand.c
 
 TARGETS = mkimg

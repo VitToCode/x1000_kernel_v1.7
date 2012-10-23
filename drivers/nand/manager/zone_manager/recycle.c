@@ -20,6 +20,7 @@
 
 #define L4UNITSIZE(context) 128 * 1024
 #define RECYCLECACHESIZE		VNANDCACHESIZE
+#define BALANCECOUNT        50
 
 static int getRecycleZone ( Recycle *rep);
 static int FindFirstPageInfo ( Recycle *rep);
@@ -372,10 +373,12 @@ static unsigned short get_normal_zoneID(int context)
 	minlifetime = ZoneManager_Getminlifetime(context);
 	maxlifetime = ZoneManager_Getmaxlifetime(context);
 	lifetime = minlifetime + ( maxlifetime - minlifetime ) / 3;
-
+/*
 	if (lifetime == minlifetime)
 		return ZoneManager_ForceRecyclezoneID(context,lifetime + 1);
-
+*/
+	if(lifetime < minlifetime + BALANCECOUNT)
+		return -1;
 	return ZoneManager_RecyclezoneID(context,lifetime);
 }
 
@@ -1359,9 +1362,9 @@ static int RecycleReadWrite(Recycle *rep)
 		goto exit;
 	else if (write_sectorcount < recyclesector) {
 		recyclesector = write_sectorcount;
-		recyclepage = (recyclesector + spp - 1) / spp;
+		
 	}
-
+	recyclepage = (recyclesector + spp - 1) / spp;
 	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);

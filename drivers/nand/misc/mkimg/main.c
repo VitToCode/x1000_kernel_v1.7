@@ -69,8 +69,7 @@ static void start(int handle){
 			if(rlen < 256*512){
 				memset(buf+ rlen, 0xff, 512*256 - rlen);
 			}
-			printf("******************** write sl = %p ****************\n",sl);
- 			if(NandManger_write(pHandle,sl) < 0){
+			if(NandManger_write(pHandle,sl) < 0){
 				printf("NandManger write failed!\n");
 				exit(1);
 			}
@@ -81,7 +80,7 @@ static void start(int handle){
 
 	}
 	fclose(fp);
-	printf("ssssssssssssssss end write ssssssssssssssss\n");
+	printf("end write\n");
 
 	if (arg_option.debug) {
 		int sum_sectorid = sectorid - last_sectorcount;
@@ -111,14 +110,12 @@ static void start(int handle){
 
 			sl->startSector = sectorid;
 			sl->sectorCount = 256;
-            sl->pData = buf;
+			sl->pData = buf;
 			sectorid += 256;
-			printf("******************** read sl->startSector = %d****************\n", sl->startSector);
 			if(NandManger_read(pHandle, sl) < 0){
 				printf("NandManger read failed!\n");
 				exit(1);
 			}
-			printf("******************** fwrite debug.img****************\n");
 			rlen = fwrite(buf,1,256*512,w_fp);
 			if(i == sum_sectorid - 256){
 
@@ -142,7 +139,7 @@ static void start(int handle){
 	NandManger_close(pHandle);
 	free(buf);
 	BuffListManager_BuffList_DeInit(bl);
-	printf("ssssssssssssssss end read ssssssssssssssss\n");
+	printf("end read\n");
 }
 
 /*
@@ -156,7 +153,7 @@ static int caloutfilelen(int len){
 	int trimzoneinfolen = zonelen - 8 * 3 * arg_option.file_desc.bytesperpage;
 	int realzonelen = trimzoneinfolen * 63 / 64;
 	int l;
-   	l = (len + realzonelen - 1) / realzonelen * blocklen * 8;
+	l = (len + realzonelen - 1) / realzonelen * blocklen * 8;
 	printf("l = %d\n",l);
 	return l;
 }

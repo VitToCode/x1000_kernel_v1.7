@@ -8,13 +8,13 @@ struct _NandPageInfo {
 	unsigned short len;
 	unsigned short L1Index;
 	unsigned char *L2Info;
-	unsigned short L2Index;
+	unsigned int L2Index;
 	unsigned char *L3Info;
-	unsigned short L3Index;
+	unsigned int L3Index;
 	unsigned char* L4Info;
 	unsigned short MagicID;
 	unsigned short crc;
-};
+} __attribute__ ((packed));
 #define CONVERT_DATA_NANDPAGEINFO(data,p,l4,l3,l2)			\
 	do{								\
 		unsigned char *d = (unsigned char *)data;		\

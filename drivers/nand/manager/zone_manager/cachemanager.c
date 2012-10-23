@@ -40,7 +40,7 @@ static void fill_infolen_unitlen(int context)
 		lxlen = cachemanager->L3InfoLen;
 		ulxlen = cachemanager->L3UnitLen;
 	}
-       	if (zonemanager->l2infolen){
+	if (zonemanager->l2infolen){
 		cachemanager->L2UnitLen = (lxlen / 4) * ulxlen;
 		lxlen = cachemanager->L2InfoLen;
 		ulxlen = cachemanager->L2UnitLen;
@@ -317,6 +317,9 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 	}else{
 		CONVERT_DATA_NANDPAGEINFO(pc->pageinfobuf,pc->nandpageinfo,
 					  cm->L4InfoLen,cm->L3InfoLen,cm->L2InfoLen);
+
+		if(((NandPageInfo *)pc->pageinfobuf)->MagicID != 0xaaaa)
+			ndprint(ZONE_ERROR,"readpageinfo read nandpageinfo error MageicID = 0x%04X\n",((NandPageInfo *)pc->pageinfobuf)->MagicID);
 		pc->pageid = pageid;
 		dtmp = (unsigned char **)((unsigned char *)pc->nandpageinfo + lxoff[lxoffset - 1]);
 		data = *dtmp;
@@ -333,14 +336,13 @@ static CacheData * fillcache(CacheManager *cm,unsigned int sectorid,CacheData *s
 	unsigned int startid;
 	unsigned int sectoralign;
 	CacheData *cd;
-       	pageid = CacheData_get(src,sectorid);
+	pageid = CacheData_get(src,sectorid);
 	if(pageid == -1){
-//		ndprint(CACHEMANAGER_INFO,"INFO: cachedata not find the sectotid %d\n",sectorid);
 		return 0;
 	}
 
 	data = readpageinfo(cm,pageid,lxoffset);
-       	if(data == 0){
+	if(data == 0){
 		ndprint(CACHEMANAGER_ERROR,"ERROR: read page info error! pageid = %d\n",pageid);
 		pageid = -1;
 		return 0;
@@ -373,7 +375,7 @@ void dumpcachedate(CacheData *cd){
 unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 {
 	CacheManager *cachemanager = (CacheManager *)context;
-       	unsigned int pageid = -1;
+	unsigned int pageid = -1;
 
 	CacheData *cd,*ucd;
 	CacheList *lx;

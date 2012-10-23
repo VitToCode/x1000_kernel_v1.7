@@ -6,6 +6,6 @@ struct _NandSigZoneInfo {
 	unsigned short ZoneID;
     	unsigned short badblock;
 	unsigned int lifetime;
-};
+}__attribute__ ((packed));
 
 #endif

@@ -2,7 +2,7 @@ STATIC=1
 
 TOPDIR=../..
 LIBPATH=lib
-CFLAGS=-Wall -static -pthread -lrt -ldl -DALLOC_DEBUG -DNO_ERROR -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -fno-stack-protector -fomit-frame-pointer -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow
+CFLAGS=-Wall -static -pthread -lrt -ldl -DALLOC_DEBUG -DNO_ERROR -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -fno-stack-protector -fomit-frame-pointer -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -m32
 LDFLAGS=-I$(LIBPATH) -L$(LIBPATH) -lfunc
 
 ifeq ($(STATIC), 1)

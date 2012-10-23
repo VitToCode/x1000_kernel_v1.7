@@ -132,6 +132,9 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 		}
 		goto err;
 	}
+	if(nandpageinfo->MagicID != 0xaaaa) {
+		ndprint(ZONE_ERROR,"read_info_l2l3l4info read nandpageinfo error MageicID = 0x%04X\n",nandpageinfo->MagicID);
+	}
 
 	zone->NextPageInfo = nandpageinfo->NextPageInfo;
 
@@ -219,7 +222,8 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 			len += pi->L2InfoLen + pi->L3InfoLen;
 		}
 	}
-
+	nandpageinfo->MagicID = 0xaaaa;
+	nandpageinfo->crc = 0;
 	return len;
 }
 
