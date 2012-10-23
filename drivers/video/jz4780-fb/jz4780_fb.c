@@ -436,6 +436,22 @@ static void jzfb_lvds_txpll0_is_pll_en(struct fb_info *info, int pll_en)
 	}
 }
 
+static void jzfb_lvds_txctrl_is_tx_en(struct fb_info *info, int tx_en)
+{
+	struct jzfb *jzfb = info->par;
+	unsigned int tmp;
+
+	tmp = reg_read(jzfb, LVDS_TXCTRL);
+	if (tx_en) {
+		/* 1:enable */
+		tmp |= LVDS_TX_OD_EN;
+		reg_write(jzfb, LVDS_TXCTRL, tmp);
+	} else {
+		tmp &= ~LVDS_TX_OD_EN;
+		reg_write(jzfb, LVDS_TXCTRL, tmp);
+	}
+}
+
 static void jzfb_lvds_txpll0_is_bg_pwd(struct fb_info *info, int bg)
 {
 	struct jzfb *jzfb = info->par;
@@ -456,19 +472,14 @@ static void jzfb_lvds_txpll0_is_bg_pwd(struct fb_info *info, int bg)
 static void jzfb_lvds_check_pll_lock(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
-	unsigned int tmp;
 	int count = 0;
 
-	do {
-		mdelay(10);
-		tmp = reg_read(jzfb, LVDS_TXPLL0);
-		if (count++ > 100) {
+	while (!(reg_read(jzfb, LVDS_TXPLL0) & LVDS_PLL_LOCK)) {
+		mdelay(1);
+		if (count++ > 1000) {
 			dev_info(info->dev, "Wait LVDS PLL LOCK timeout\n");
 			break;
 		}
-	} while (!(tmp & LVDS_PLL_LOCK));
-	if (count <= 100) {
-		dev_info(info->dev, "LVDS PLL LOCK OK\n");
 	}
 }
 
@@ -625,7 +636,7 @@ static void jzfb_lvds_txectrl_config(struct fb_info *info)
 	reg_write(jzfb, LVDS_TXECTRL, cfg);
 }
 
-static void jzfb_config_lvds_controller(struct fb_info *info)
+static void jzfb_lvds_pll_reset(struct fb_info *info)
 {
 	jzfb_lvds_txctrl_is_reset(info, 1); /* TXCTRL enable reset */
 	jzfb_lvds_txpll0_is_bg_pwd(info, 0); /* band-gap power on */
@@ -635,6 +646,11 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 	jzfb_lvds_txpll0_is_pll_en(info, 1); /* pll enable */
 	udelay(20);
 	jzfb_lvds_txctrl_is_reset(info, 0); /* TXCTRL disable reset */
+}
+
+static void jzfb_config_lvds_controller(struct fb_info *info)
+{
+	jzfb_lvds_pll_reset(info);
 
 	jzfb_lvds_txctrl_config(info);
 	jzfb_lvds_txpll0_config(info);
@@ -890,10 +906,23 @@ static int jzfb_set_par(struct fb_info *info)
 
 static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
+	struct jzfb *jzfb = info->par;
+
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
-		mdelay(5);
 		jzfb_enable(info);
+
+		spin_lock(&jzfb->suspend_lock);
+		if (jzfb->is_suspend) {
+			spin_unlock(&jzfb->suspend_lock);
+			if (jzfb->pdata->lvds && jzfb->id) {
+				jzfb_lvds_pll_reset(jzfb->fb);
+				jzfb_lvds_check_pll_lock(jzfb->fb);
+				jzfb_lvds_txctrl_is_tx_en(jzfb->fb, 1);
+			}
+		} else {
+			spin_unlock(&jzfb->suspend_lock);
+		}
 		break;
 	default:
 		jzfb_disable(info);
@@ -1508,15 +1537,31 @@ static void jzfb_early_suspend(struct early_suspend *h)
 		/* set suspend state and notify panel, backlight client */
 		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
 		fb_set_suspend(jzfb->fb, 1);
+
+		if (jzfb->pdata->lvds && jzfb->id) {
+			/* disable TX output */
+			jzfb_lvds_txctrl_is_tx_en(jzfb->fb, 0);
+			/* disable LVDS PLL */
+			jzfb_lvds_txpll0_is_pll_en(jzfb->fb, 0);
+			/* band-gap power down */
+			jzfb_lvds_txpll0_is_bg_pwd(jzfb->fb, 1);
+		}
 	} else {
 		/* disable LCDC */
 		jzfb_blank(FB_BLANK_POWERDOWN, jzfb->fb);
 	}
+	spin_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 1;
+	spin_unlock(&jzfb->suspend_lock);
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+
+	spin_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 0;
+	spin_unlock(&jzfb->suspend_lock);
 
 	if (jzfb->pdata->alloc_vidmem) {
 		fb_set_suspend(jzfb->fb, 0);
@@ -1868,6 +1913,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, jzfb);
 
 	mutex_init(&jzfb->lock);
+	spin_lock_init(&jzfb->suspend_lock);
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
