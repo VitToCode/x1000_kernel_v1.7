@@ -16,6 +16,7 @@ obj-y += clk.o
 endif
 
 obj-y += gpio.o 
+obj-y += pmmon.o
 obj-y += irq.o 
 
 obj-y += platform.o
