@@ -203,6 +203,7 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	if (gpio_request_one(jz_pri->dete->num,
 			     GPIOF_DIR_IN, "usb-charger-detect")) {
 		dwc_error("no detect pin available\n");
+		jz_pri->dete->num = -1;
 	} else {
 		dwc_info("request GPIO_USB_DETE: %d\n", jz_pri->dete->num);
 	}
@@ -288,7 +289,8 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	 * Close VBUS detect in DWC-OTG PHY.
 	 */
 	*(unsigned int*)0xb3500000 |= 0xc;
-	schedule_delayed_work(&jz_pri->work, 0);
+	if (jz_pri->irq > 0)
+		schedule_delayed_work(&jz_pri->work, 0);
 
 	return jz_pri;
 }
