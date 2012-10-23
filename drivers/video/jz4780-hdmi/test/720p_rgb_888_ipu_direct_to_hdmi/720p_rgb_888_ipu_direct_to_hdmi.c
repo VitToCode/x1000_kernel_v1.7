@@ -9,26 +9,22 @@
 #include "../../../../../hardware/xb4780/libdmmu/dmmu.h"
 
 
-#define SOURCE_BUFFER_SIZE 0x200000 /* 2M */
+//#define SOURCE_BUFFER_SIZE 0x400000 /* 4M */
+#define SOURCE_BUFFER_SIZE 0x1000000 /* 16M */
 #define START_ADDR_ALIGN 0x1000 /* 4096 byte */
 #define STRIDE_ALIGN 0x800 /* 2048 byte */
 #define PIXEL_ALIGN 16 /* 16 pixel */
 
-#define MODE_NAME_LEN 32
-
 //#define FRAME_SIZE  70 /* 70 frame of y and u/v video data */
-#define FRAME_SIZE  10 /* 70 frame of y and u/v video data */ /* test */
-
-#define KEY_COLOR_RED     0x00
-#define KEY_COLOR_GREEN   0x04
-#define KEY_COLOR_BLUE    0x00
+#define FRAME_SIZE 60  /* 60 frame of y and u/v video data */ /* test */
 
 /* LCDC ioctl commands */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
-#define JZFB_GET_MODELIST		_IOR('F', 0x101, char *)
+#define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
 #define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
-#define JZFB_SET_MODE			_IOW('F', 0x103, char *)
+#define JZFB_SET_MODE			_IOW('F', 0x103, int)
 #define JZFB_ENABLE			_IOW('F', 0x104, int)
+#define JZFB_GET_RESOLUTION		_IOWR('F', 0x105, struct jzfb_mode_res)
 
 #define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
 #define JZFB_SET_COLORKEY		_IOW('F', 0x125, struct jzfb_color_key)
@@ -38,7 +34,7 @@
 
 /* hdmi ioctl commands */
 #define HDMI_POWER_OFF			_IO('F', 0x301)
-#define	HDMI_VIDEOMODE_CHANGE		_IOW('F', 0x302, char *)
+#define	HDMI_VIDEOMODE_CHANGE		_IOW('F', 0x302, int)
 #define	HDMI_POWER_ON			_IO('F', 0x303)
 
 static unsigned int tlb_base_phys;
@@ -81,6 +77,12 @@ struct jzfb_bg {
 	__u32 red;
 	__u32 green;
 	__u32 blue;
+};
+
+struct jzfb_mode_res {
+	__u32 index; /* 1-64 */
+	__u32 w;
+	__u32 h;
 };
 
 static int line_pixel = 10;
@@ -196,7 +198,6 @@ int main(int argc, char *argv[])
 	int loop;
 	int frameCount = 0;
 	struct ipu_image_info * ipu_image_info;
-	struct fb_var_screeninfo *var_info;
 	void *source_buffer;
 	struct source_info source_info;
 	struct dest_info dst_info;
@@ -207,12 +208,13 @@ int main(int argc, char *argv[])
 	struct jzfb_fg_alpha fg0_alpha;
 	struct jzfb_color_key color_key;
 	struct jzfb_bg fg1_background;
+	struct jzfb_mode_res hdmi_resolution;
 
 	int fb_fd1;
 	int mode_num;
-	char (*ml)[32];
+	int *ml;
 	int hdmi_fd = -1;
-	int tmp_mode;
+	int current_mode;
 	int enable;
 
 	int mIPU_inited = 0;
@@ -223,30 +225,11 @@ int main(int argc, char *argv[])
 		ipu_out_height = atoi(argv[2]);
 	}
 
-	var_info = malloc(sizeof(struct fb_var_screeninfo));
-	if (!var_info) {
-		printf("alloc framebuffer var screen info fail\n");
-		return -1;
-	}
-	memset(var_info, 0, sizeof(struct fb_var_screeninfo));
 	fb_fd1 = open("/dev/graphics/fb1", O_RDWR);
 	if (fb_fd1 < 0) {
-		printf("open fb 0 fail\n");
+		printf("open fb 1 fail\n");
 		return -1;
 	}
-	if (ioctl(fb_fd1, FBIOGET_VSCREENINFO, var_info) < 0) {
-		printf("get framebuffer var screen info fail\n");
-		return -1;
-	}
-
-
-#if 1
-	dst_info.out_buf_v = mmap(0, dst_info.size, PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd1, 0);
-	if (!dst_info.out_buf_v) {
-		printf("mmap framebuffer fail\n");
-		return -1;
-	}
-#endif
 
 	/* get hdmi modes number */
 	if (ioctl(fb_fd1, JZFB_GET_MODENUM, &mode_num) < 0) {
@@ -254,23 +237,24 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	printf("API FB mode number = %d\n", mode_num);
-	ml = (char (*)[MODE_NAME_LEN])malloc(sizeof(char)* MODE_NAME_LEN * mode_num);
+
+	ml = (int *)malloc(sizeof(int) * mode_num);
 	if (ioctl(fb_fd1, JZFB_GET_MODELIST, ml) < 0) {
 		printf("JZFB_GET_MODELIST faild\n");
 		return -1;
 	}
-	for(i=0;i<mode_num;i++)
-		printf("List[%d]: %s\n",i, ml[i]);
 
-	tmp_mode = 0;
+	for(i=0;i<mode_num;i++)
+		printf("List[%d]: %d\n",i, ml[i]);
+
+	current_mode = 0;
 	printf("please enter the hdmi video mode number\n");
-	scanf("%d", &tmp_mode);
-	if (ioctl(fb_fd1, JZFB_SET_MODE, ml[tmp_mode]) < 0) {
+	scanf("%d", &current_mode);
+	if (ioctl(fb_fd1, JZFB_SET_MODE, &current_mode) < 0) {
 		printf("JZFB set hdmi mode faild\n");
 		return -1;
 	}
-	printf("API set mode name = %s success\n", ml[tmp_mode]);
-
+	printf("API set mode name = %d success\n", current_mode);
 
 	fg0_alpha.fg = 0;
 	fg0_alpha.enable = 1;
@@ -282,24 +266,19 @@ int main(int argc, char *argv[])
 	}
 	printf("set fg 0 global alpha success\n");
 
-#if 0
-	color_key.fg = 0;
-	color_key.enable = 1; /* enable the color key of FG 0 */
-	color_key.mode = 0;
-	color_key.red = KEY_COLOR_RED;
-	color_key.green = KEY_COLOR_GREEN;
-	color_key.blue = KEY_COLOR_BLUE;
-	if (ioctl(fb_fd1, JZFB_SET_COLORKEY, &color_key) < 0) {
-		printf("set fg 0 color key fail\n");
-		return -1;
-	}
-#endif
 	/* disble LCD controller FG 0 */
 	enable = 0;
 	if (ioctl(fb_fd1, JZFB_ENABLE_FG0, &enable) < 0) {
 		printf("disable LCDC 0 FG 0 faild\n");
 		return -1;
 	}
+
+	hdmi_resolution.index = current_mode;
+	if (ioctl(fb_fd1, JZFB_GET_RESOLUTION, &hdmi_resolution) < 0) {
+		printf("JZFB_GET_RESOLUTION faild\n");
+		return -1;
+	}
+	printf("current resolution w = %d, h = %d\n", hdmi_resolution.w, hdmi_resolution.h);
 
 	source_buffer = (void *)malloc(SOURCE_BUFFER_SIZE);
 	if (!source_buffer) {
@@ -319,15 +298,13 @@ int main(int argc, char *argv[])
 
 	dst_info.width = ipu_out_width;
 	dst_info.height = ipu_out_height;
-//	dst_info.width = var_info->xres;
-//	dst_info.height = var_info->yres;
 
-	dst_info.size = ((var_info->xres + (PIXEL_ALIGN - 1)) &
-		(~(PIXEL_ALIGN - 1))) * var_info->yres
-		* (var_info->bits_per_pixel >> 3) * 3; /* double buffer */
+	dst_info.size = ((dst_info.width + (PIXEL_ALIGN - 1)) &
+		(~(PIXEL_ALIGN - 1))) * dst_info.height
+		* (32 >> 3);
 
-	dst_info.y_stride = ((var_info->xres + (PIXEL_ALIGN - 1)) &
-			     (~(PIXEL_ALIGN - 1))) * var_info->bits_per_pixel >> 3;
+	dst_info.y_stride = ((dst_info.width + (PIXEL_ALIGN - 1)) &
+			     (~(PIXEL_ALIGN - 1))) * (32 >> 3);
 	dst_info.u_stride = 0;
 	dst_info.v_stride = 0;
 
@@ -364,7 +341,7 @@ int main(int argc, char *argv[])
 		jzfb_display_h_color_bar(&source_info);
 		initIPUSourceBuffer(ipu_image_info, &source_info);
 
-		if (mIPU_inited == 0) {	
+		if (mIPU_inited == 0) {
 			if ((ret = ipu_init(ipu_image_info)) < 0) {
 				printf("ipu_init() failed mIPUHandler=%p\n", ipu_image_info);
 				return -1;
@@ -388,21 +365,12 @@ int main(int argc, char *argv[])
 			if (hdmi_fd < 0)
 				printf("open hdmi device fail\n");
 
-			if (ioctl(hdmi_fd, HDMI_VIDEOMODE_CHANGE, ml[tmp_mode]) < 0) {
+			if (ioctl(hdmi_fd, HDMI_VIDEOMODE_CHANGE, &current_mode) < 0) {
 				printf("HDMI_VIDEOMODE_CHANGE faild\n");
 				return -1;
 			}
 		}
 		ipu_postBuffer(ipu_image_info);
-		printf("ipu_postBuffer success\n");
-
-//		android_memset32(dst_info.out_buf_v, KEY_COLOR_RED | KEY_COLOR_GREEN
-//		       | KEY_COLOR_BLUE, dst_info.size);
-
-		var_info->yoffset = 0;
-		if (ioctl(fb_fd1, FBIOPAN_DISPLAY, var_info) < 0)
-			printf("pan display fail\n");
-
 		sleep(1);
 //		frameCount++;
 		printf("while() loop = %d\n", loop);
@@ -423,14 +391,6 @@ int main(int argc, char *argv[])
 	}
 	printf("set fg 0 original global alpha success\n");
 
-#if 0
-	color_key.fg = 0;
-	color_key.enable = 0; /* disable the color key of FG 0 */
-	if (ioctl(fb_fd1, JZFB_SET_COLORKEY, &color_key) < 0) {
-		printf("disable fg 0 color key fail\n");
-		return -1;
-	}
-#endif
 	enable = 0;
 	if (ioctl(fb_fd1, JZFB_ENABLE, &enable) < 0) {
 		printf(" JZFB_ENABLE faild\n");

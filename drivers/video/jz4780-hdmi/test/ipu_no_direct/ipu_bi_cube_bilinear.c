@@ -9,7 +9,7 @@
 #include "../../../../../hardware/xb4780/libdmmu/dmmu.h"
 
 
-#define SOURCE_BUFFER_SIZE 0x200000 /* 2M */
+#define SOURCE_BUFFER_SIZE 0x1000000 /* 16M */
 #define START_ADDR_ALIGN 0x1000 /* 4096 byte */
 #define STRIDE_ALIGN 0x800 /* 2048 byte */
 #define PIXEL_ALIGN 16 /* 16 pixel */
@@ -84,6 +84,7 @@ int initIPUDestBuffer(struct ipu_image_info * ipu_img, struct dest_info *dst_inf
 	dstInfo->width = dst_info->width;
 	dstInfo->height = dst_info->height;
 	dstInfo->dtlb_base = tlb_base_phys;
+	dstInfo->lcdc_id = 0;
 
 	dstInfo->out_buf_v = dst_info->out_buf_v;
 	dstBuf->y_stride = dst_info->y_stride;

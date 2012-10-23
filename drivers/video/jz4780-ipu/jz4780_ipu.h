@@ -19,14 +19,15 @@
 
 #ifdef __KERNEL__
 
-/* match HAL_PIXEL_FORMAT_ in hardware/libhardware/include/hardware/hardware.h */
+/* match HAL_PIXEL_FORMAT_ in system/core/include/system/graphics.h */
 enum {
 	HAL_PIXEL_FORMAT_RGBA_8888    = 1,
 	HAL_PIXEL_FORMAT_RGBX_8888    = 2,
 	HAL_PIXEL_FORMAT_RGB_888      = 3,
 	HAL_PIXEL_FORMAT_RGB_565      = 4,
 	HAL_PIXEL_FORMAT_BGRA_8888    = 5,
-	HAL_PIXEL_FORMAT_BGRX_8888    = 0x8000, /* Add BGRX_8888, Wolfgang, 2010-07-24 */
+	//HAL_PIXEL_FORMAT_BGRX_8888    = 0x8000, /* Add BGRX_8888, Wolfgang, 2010-07-24 */
+	HAL_PIXEL_FORMAT_BGRX_8888  	= 0x1ff, /* 2012-10-23 */
 	HAL_PIXEL_FORMAT_RGBA_5551    = 6,
 	HAL_PIXEL_FORMAT_RGBA_4444    = 7,
 	HAL_PIXEL_FORMAT_YCbCr_422_SP = 0x10,

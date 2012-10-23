@@ -168,12 +168,19 @@ struct jzfb_color_key {
 	__u32 blue;
 };
 
+struct jzfb_mode_res {
+	__u32 index; /* 1-64 */
+	__u32 w;
+	__u32 h;
+};
+
 /* ioctl commands */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
-#define JZFB_GET_MODELIST		_IOR('F', 0x101, char *)
+#define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
 #define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
-#define JZFB_SET_MODE			_IOW('F', 0x103, char *)
+#define JZFB_SET_MODE			_IOW('F', 0x103, int)
 #define JZFB_ENABLE			_IOW('F', 0x104, int)
+#define JZFB_GET_RESOLUTION		_IOWR('F', 0x105, struct jzfb_mode_res)
 /* Reserved for future extend */
 #define JZFB_SET_VSYNCINT		_IOW('F', 0x110, int)
 /* Reserved for future extend */
@@ -181,7 +188,7 @@ struct jzfb_color_key {
 #define JZFB_GET_FG_SIZE		_IOWR('F', 0x117, struct jzfb_fg_size)
 #define JZFB_SET_FG_POS			_IOW('F', 0x118, struct jzfb_fg_pos)
 #define JZFB_GET_FG_POS			_IOWR('F', 0x119, struct jzfb_fg_pos)
-#define JZFB_GET_BUFFER			_IOWR('F', 0x120, int)
+#define JZFB_GET_BUFFER			_IOR('F', 0x120, int)
 /* Reserved for future extend */
 #define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
 #define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)

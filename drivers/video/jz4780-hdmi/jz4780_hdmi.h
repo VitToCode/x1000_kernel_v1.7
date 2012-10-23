@@ -50,29 +50,6 @@ struct hdmi_video_mode {
 	unsigned int refresh;
 };
 
-struct hdmi_video_mode mode_index[] = {
-	{"640x480-p-60hz-4:3", 60}, /* 1 */
-	{"720x480-p-60hz-4:3", 60},
-	{"720x480-p-60hz-16:9", 60},
-	{"1280x720-p-60hz-16:9", 60},
-	{"1920x1080-i-60hz-16:9", 60}, /* 5 */
-	{"720-1440x480-i-60hz-4:3", 60},
-	{"720-1440x480-i-60hz-16:9", 60},
-	{"720-1440x240-p-60hz-4:3", 60},
-	{"720-1440x240-p-60hz-16:9", 60},
-	{"2880x480-i-60hz-4:3", 60}, /* 10 */
-	{"2880x480-i-60hz-16:9", 60},
-	{"2880x240-p-60hz-4:3", 60},
-	{"2880x240-p-60hz-16:9", 60},
-	{"1440x480-p-60hz-4:3", 60},
-	{"1440x480-p-60hz-16:9", 60}, /* 15 */
-	{"1920x1080-p-60hz-16:9", 60},
-	{"720x576-p-50hz-4:3", 50},
-	{"720x576-p-50hz-16:9", 50},
-	{"1280x720-p-50hz-16:9", 50},
-	{"1920x1080-i-50hz-16:9", 50}, /* 20 */
-};
-
 struct hdmi_device_params{
 	videoParams_t *pVideo;
 	audioParams_t *pAudio;
@@ -123,7 +100,7 @@ struct jzhdmi{
 
 /* ioctl commands */
 #define HDMI_POWER_OFF			_IO('F', 0x301)
-#define	HDMI_VIDEOMODE_CHANGE		_IOW('F', 0x302, char *)
+#define	HDMI_VIDEOMODE_CHANGE		_IOW('F', 0x302, int)
 #define	HDMI_POWER_ON			_IO('F', 0x303)
 
 #endif

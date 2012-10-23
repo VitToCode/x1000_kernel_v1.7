@@ -1125,8 +1125,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	struct jzfb *jzfb = info->par;
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_videomode *mode = info->mode;
-	char (*buf)[MODE_NAME_LEN];
-	char name[MODE_NAME_LEN];
+	int *buf;
 
 	union {
 		struct jzfb_fg_pos fg_pos;
@@ -1134,6 +1133,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		struct jzfb_fg_alpha fg_alpha;
 		struct jzfb_bg background;
 		struct jzfb_color_key color_key;
+		struct jzfb_mode_res res;
 	} osd;
 
 	switch (cmd) {
@@ -1141,17 +1141,13 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		copy_to_user(argp, &pdata->num_modes, sizeof(int));
 		break;
 	case JZFB_GET_MODELIST:
-		buf = kzalloc(sizeof(char) * MODE_NAME_LEN * pdata->num_modes,
-			      GFP_KERNEL);
+		buf = kzalloc(sizeof(int) * pdata->num_modes, GFP_KERNEL);
 		for (i = 0; i < pdata->num_modes; i++) {
-			if (!pdata->modes[i].name)
+			if (!pdata->modes[i].flag)
 				continue;
-			memcpy(buf[i], pdata->modes[i].name, strlen(
-				       pdata->modes[i].name) + 1);
+			buf[i] = pdata->modes[i].flag;
 		}
-
-		copy_to_user(argp, buf, sizeof(char) * MODE_NAME_LEN
-			     * pdata->num_modes);
+		copy_to_user(argp, buf, sizeof(int) * pdata->num_modes);
 		kzfree(buf);
 		break;
 	case JZFB_SET_VIDMEM:
@@ -1160,13 +1156,11 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		break;
 	case JZFB_SET_MODE:
-		if (copy_from_user(name, argp, sizeof(char) * MODE_NAME_LEN))
+		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
 
 		for (i = 0; i < pdata->num_modes; i++) {
-			if (!pdata->modes[i].name)
-				continue;
-			if (!strcmp(pdata->modes[i].name, name)) {
+			if (pdata->modes[i].flag == value) {
 				jzfb_videomode_to_var(&info->var,
 						      &pdata->modes[i]);
 				return jzfb_set_par(info);
@@ -1185,6 +1179,27 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb_enable(info);
 		} else {
 			jzfb_disable(info);
+		}
+		break;
+	case JZFB_GET_RESOLUTION:
+		if (copy_from_user(&osd.res, argp, sizeof(
+					   struct jzfb_mode_res))) {
+			dev_info(info->dev, "get resolution index failed\n");
+			return -EFAULT;
+		} else {
+			for (i = 0; i < pdata->num_modes; i++) {
+				if (pdata->modes[i].flag != osd.res.index)
+					continue;
+				osd.res.w = pdata->modes[i].xres;
+				osd.res.h = pdata->modes[i].yres;
+				break;
+			}
+		}
+		if (i > pdata->num_modes || copy_to_user(
+			    argp, &osd.res, sizeof(
+				    struct jzfb_mode_res))) {
+			dev_info(info->dev, "copy resolution to user failed\n");
+			return -EFAULT;
 		}
 		break;
 	case JZFB_SET_FG_SIZE:

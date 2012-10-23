@@ -369,9 +369,7 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int i;
-	int refresh = 0;
-	char name[MODE_NAME_LEN];
+	int index;
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
 	switch (cmd) {
@@ -382,15 +380,14 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			hdmi_read_edid(jzhdmi);
 		}
 
-		if (copy_from_user(name, (void __user *)arg, sizeof(char)
-				   * MODE_NAME_LEN))
+		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
-		for (i = 0; i < HDMI_VIDEO_MODE_NUM; i++) {
-			if (!strcmp(name, mode_index[i].name)) {
-				refresh = mode_index[i].refresh;
-				jzhdmi->hdmi_info.out_type = i + 1;
-				break;
-			}
+		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
+			jzhdmi->hdmi_info.out_type = index;
+		} else {
+			dev_err(jzhdmi->dev, "HDMI not support mode:%d\n",
+				  index);
+			return -EFAULT;
 		}
 		hdmi_config(jzhdmi);
 
