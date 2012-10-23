@@ -10,6 +10,7 @@
 #include "xb_snd_mixer.h"
 #include "xb_snd_dsp.h"
 #include <linux/soundcard.h>
+#include <linux/gpio.h>
 /*###########################################################*\
  * interfacees
 \*###########################################################*/
@@ -72,6 +73,8 @@ ssize_t xb_snd_mixer_write(struct file *file,
 	unsigned int  channels_out = 0;
 	unsigned long rate_in = 0;
 	unsigned long rate_out = 0;
+	unsigned hp_state = 0;
+	unsigned long devices = 0;
 	if (copy_from_user((void *)&buf_byte, buffer, 1)) {
 		printk("JZ MIX: copy_from_user failed !\n");
 		return -EFAULT;
@@ -103,11 +106,29 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk("record samplerate : %ld.\n", rate_in);
 			printk("replay samplerate : %ld.\n", rate_out);
 			break;
+		/*case '4':
+			printk(" \"4\" command:print headphone detect state.\n");
+			ddata->dev_ioctl(SND_DSP_GET_HP_DETECT,(unsigned long)&hp_state);
+			printk("headphone state : %d.\n ",hp_state);
+			break;*/
+		case '5':
+			printk(" \"5\" set headphone route.\n");
+			devices = SND_DEVICE_HEADSET;
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,&devices);
+			break;
+		case '6':
+			printk(" \"6\" set speaker route.\n");
+			devices = SND_DEVICE_SPEAKER;
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,&devices);
+			break;
 		default:
 			printk("undefine debug interface \"%c\".\n", buf_byte);
 			printk(" \"1\" command :print codec and aic register.\n");
 			printk(" \"2\" command :print audio hp and speaker gpio state.\n");
 			printk(" \"3\" command :print current format channels and rate.\n");
+			printk(" \"4\" command:print headphone detect state.\n");
+			printk(" \"5\" set headphone route.\n");
+			printk(" \"6\" set speaker route.\n");
 	}
 	return count;
 }
