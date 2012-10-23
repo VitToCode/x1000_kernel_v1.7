@@ -135,7 +135,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 	int i;
 	u8 config[2];
 	u8 config1[2];
-	config[1] = lis3dh_acc_odr_table[0].mask;
+
 	for(i = 0;i < ARRAY_SIZE(lis3dh_acc_odr_table);i++){
 		config[1] = lis3dh_acc_odr_table[i].mask;
 		if(poll_interval_ms < lis3dh_acc_odr_table[i].cutoff_ms){
@@ -148,19 +148,20 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 #if 1
 	switch (config[1])
 	{
-		case ODR10:	config1[1] = 0x2C;break;//INT_DUR1 register set to 0x2C irq rate is:10Hz
-		case ODR25:	config1[1] = 0x11;break;//set to 0x11 irq rate:25Hz
-		case ODR50:	config1[1] = 0x07;break;//set to 0x07 irq rate:50Hz
-		default:	config1[1] = 0x2c;break;//default situation set to 0x2c:irq rate:10Hz
+		case ODR10:	config1[1] = 0x1D;break;//INT_DUR1 register set to 0x2d irq rate is:12Hz
+		case ODR25:	config1[1] = 0x0E;break;//set to 0x0e irq rate:25Hz
+		case ODR50:	config1[1] = 0x06;break;//set to 0x06 irq rate:50Hz
+		default:	config1[1] = 0x1D;break;//default situation set to 0x1D:irq rate:12Hz
 	}
 #endif
 
 #ifdef CONFIG_SMP
-	config[1] = 0x50;
+	config[1] = 0x60;
 #else
-	config[1] = 0x40;
+	config[1] = 0x50;
 #endif
 	config[1] |= LIS3DH_ACC_ENABLE_ALL;
+//	printk("---gsensor odr config[1] = %x, config1[1] = %x---\n",config[1], config1[1]);
 	if (atomic_read(&acc->enabled)) {
 		config[0] = CTRL_REG1;
 		err = lis3dh_acc_i2c_write(acc, config, 1);
@@ -312,7 +313,7 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 	}else{
 		buf[0] = CTRL_REG1;
 	//	buf[1] = LIS3DH_ACC_ENABLE_ALL;//acc->resume_state[RES_CTRL_REG1];
-		buf[1] = 0x57;
+		buf[1] = 0x67;
 		err = lis3dh_acc_i2c_write(acc, buf, 1);
 		if (err < 0){
 			dev_err(&acc->client->dev,
@@ -830,7 +831,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	}
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
 
-	acc->resume_state[RES_CTRL_REG1] = 0X57;
+	acc->resume_state[RES_CTRL_REG1] = 0X67;
 	acc->resume_state[RES_CTRL_REG2] = 0x00;
 	acc->resume_state[RES_CTRL_REG3] = 0xC0;
 
@@ -845,7 +846,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->resume_state[RES_INT_THS1] = 0x00;
 
 
-	acc->resume_state[RES_INT_DUR1] = 0x2C;
+	acc->resume_state[RES_INT_DUR1] = 0x1D;
 
 	acc->resume_state[RES_TT_CFG] = 0x3F;
 	acc->resume_state[RES_TT_THS] = 0x00;
