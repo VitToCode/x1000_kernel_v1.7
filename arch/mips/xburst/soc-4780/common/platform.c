@@ -886,8 +886,8 @@ struct platform_device jz_rtc_device = {
 
 static struct resource jz_vpu_resource[] = {
 	[0] = {
-		.start = AUX_IOBASE,
-		.end = AUX_IOBASE + 0x20000 - 1,
+		.start = SCH_IOBASE,
+		.end = SCH_IOBASE + 0xF0000 - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {

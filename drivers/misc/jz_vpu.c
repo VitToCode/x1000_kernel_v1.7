@@ -218,11 +218,14 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 #define CLEAR_VPU_BIT(vpu,offset,bm)				\
 	do {							\
 		unsigned int stat;				\
-		stat = vpu_readl(vpu,REG_VPU_SDE_STAT);		\
-		vpu_writel(vpu,REG_VPU_SDE_STAT,stat & ~(bm));	\
+		stat = vpu_readl(vpu,offset);		\
+		vpu_writel(vpu,offset,stat & ~(bm));	\
 	} while(0)
 
-	if(vpu_stat & VPU_STAT_TLBERR) {
+	if(vpu_stat & VPU_STAT_SLDERR) {
+		dev_err(vpu->dev, "SHLD error!\n");
+
+	} else if(vpu_stat & VPU_STAT_TLBERR) {
 		dev_err(vpu->dev, "TLB error!\n");
 
 	} else if(vpu_stat & VPU_STAT_BSERR) {
@@ -230,6 +233,9 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 
 	} else if(vpu_stat & VPU_STAT_ACFGERR) {
 		dev_err(vpu->dev, "ACFG error!\n");
+
+	} else if(vpu_stat & VPU_STAT_TIMEOUT) {
+		dev_err(vpu->dev, "TIMEOUT error!\n");
 
 	} else if(vpu_stat & VPU_STAT_ENDF) {
 		if(vpu_stat & VPU_STAT_JPGEND) {
