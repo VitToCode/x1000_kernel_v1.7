@@ -87,7 +87,7 @@ void dump_availablebadblock(VNandManager *vm)
 		if(pt->mode == ONCE_MANAGER)
 			break;
 
-		if (pt->mode == SPL_MANAGER || pt->mode == DIRECT_MANAGER)
+		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
 		ndprint(VNAND_INFO,"\n pt->name = %s, pt = %p i = %d  bad block info:\n", pt->name, pt ,i);
@@ -116,7 +116,7 @@ static inline unsigned int L2PblockID(VNandInfo *vnand, unsigned int blockid)
 		return -1;
 	}
 
-	if (vnand->mode == DIRECT_MANAGER)
+	if (vnand->mode == DIRECT_MANAGER || vnand->mode == SPL_MANAGER)
 		return blockid;
 
 	return vnand->badblock->pt_availableblockid[blockid];

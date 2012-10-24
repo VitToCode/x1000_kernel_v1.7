@@ -4,6 +4,21 @@
 #include <asm/page.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
+
+//#define NAND_DMA_CALC_TIME
+#ifdef NAND_DMA_CALC_TIME
+static long long time =0;
+static inline  void b_time(void)
+{
+	time = sched_clock();
+}
+static inline void e_time(void)
+{
+	long long etime = sched_clock();
+	printk("time = %llu ********",etime-time);
+}
+#endif
 
 #define CLEAR_GPIO_FLAG(n)         \
 	do {						\
@@ -56,6 +71,10 @@ static void data_complete_func(void *arg)
 static void mcu_complete_func(void *arg)
 {
 	int mailbox = *(int *)arg;
+//	unsigned int times = (mailbox & (0xffff<<8))>>8;
+//	if(times)
+//		printk("^^^^^ the time of mcu operation is : %d, %08x\n",times,mailbox);
+//	mailbox &= 0xff;
 	switch (mailbox) {
 		case MB_NAND_INIT_DONE:
 			mailbox_ret = 0;
@@ -122,8 +141,8 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	unsigned int tmp =page / pnand_api->nand_chip->ppblock;
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
 	if(pt->use_planes)
-		page = ((page-toppage) / pnand_api->nand_chip->planenum) + 
-			(pnand_api->nand_chip->ppblock * ((page-toppage) % 
+		page = ((page-toppage) / pnand_api->nand_chip->planenum) +
+			(pnand_api->nand_chip->ppblock * ((page-toppage) %
 											  pnand_api->nand_chip->planenum)) + toppage;
 
 	return page;
@@ -140,7 +159,7 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 	cookie = dmaengine_submit(desc);
 	if (dma_submit_error(cookie)) {
 		printk("Failed: to do DMA submit\n");
-		return -2;  // error memory  
+		return -2;  // error memory
 	}
 
 	dma_async_issue_pending(chan);
@@ -260,6 +279,9 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
+#ifdef NAND_DMA_CALC_TIME
+	b_time();
+#endif
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
 		goto read_page_singlenode_error1;
@@ -267,6 +289,11 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
 	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+	b_time();
+#endif
 	if(bytes < byteperpage){
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 		ret =send_msg_to_mcu(pnand_api);
@@ -284,9 +311,18 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 		if(ret<0)
 			goto read_page_singlenode_error1;
 	}
-	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+	b_time();
+#endif
+//	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
 read_page_singlenode_error1:
 
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+#endif
 	do_deselect_chip(pnand_api);
 	return ret;
 }
@@ -323,6 +359,9 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	}
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
+#ifdef NAND_DMA_CALC_TIME
+	b_time();
+#endif
 	if(bytes < byteperpage){
 		memset(nand_dma->data_buf,0xff,byteperpage);
 		dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->data_buf),byteperpage,       DMA_TO_DEVICE);
@@ -338,7 +377,16 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 		dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,databuf);
 	}
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+	b_time();
+#endif
 	ret =send_msg_to_mcu(pnand_api);
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+#endif
 	do_deselect_chip(pnand_api);
 write_page_singlenode_error1:
 	return ret;
@@ -379,6 +427,9 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	int pageid =templist->startPageID;
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
+#ifdef NAND_DMA_CALC_TIME
+	b_time();
+#endif
 	for(num = 0; num < temp; num++){
 		dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),templist->Bytes,DMA_TO_DEVICE);
 		listhead = (templist->head).next;
@@ -386,6 +437,11 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	}
 	set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 	ret = send_msg_to_mcu(pnand_api);
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+	b_time();
+#endif
 	if (ret < 0)
 		goto read_page_node_error1;
 	templist = pagelist;
@@ -405,6 +461,10 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
+#ifdef NAND_DMA_CALC_TIME
+	e_time();
+	printk("  %s  %d\n",__func__,__LINE__);
+#endif
 	if (num > 0) {
 		ret1 = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 		if(ret1)

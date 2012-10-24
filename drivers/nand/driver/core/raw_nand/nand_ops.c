@@ -325,7 +325,7 @@ static inline void do_select_chip(NAND_BASE *host,unsigned int page)
 	int chipnr = -1;
 	unsigned int page_per_chip = g_pnand_chip->ppchip;
 
-	if (page > 0)
+	if (page >= 0)
 		chipnr = page / page_per_chip;
 
 	g_pnand_ctrl->chip_select(host,g_pnand_io,chipnr);

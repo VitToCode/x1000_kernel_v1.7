@@ -18,12 +18,14 @@ struct nand_dug_msg{
         unsigned int  totalblocks;
 };
 
-enum nand_dug_cmd{
-        GET_NAND_PTC,  // the count of nand's partition
-        GET_NAND_MSG,
-        NAND_DUG_READ,
-        NAND_DUG_WRITE,
-        NAND_DUG_ERASE
+enum nand_dug_cmd {
+        CMD_GET_NAND_PTC,  // the count of nand's partition
+        CMD_GET_NAND_MSG,
+        CMD_NAND_DUG_READ,
+        CMD_NAND_DUG_WRITE,
+        CMD_NAND_DUG_ERASE,
+		CMD_PARTITION_ERASE = 98,
+		CMD_INSTALL_PARTITION = 99,
 };
 
 struct NandInfo{
@@ -33,4 +35,5 @@ struct NandInfo{
         unsigned char *data;
 };
 
+int Register_CharNandDriver(unsigned int interface,unsigned int partarray);
 #endif /* __NAND_DUG_H__ */

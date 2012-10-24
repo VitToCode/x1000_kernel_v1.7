@@ -16,11 +16,28 @@
 #include <mach/jznand.h>
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
-//#include "../inc/nand_dma_ops.h"   //change later
+#include "../inc/char_nand_driver.h"   //change later
 
 //#define DEBUG_ERASE
+//#define NAND_DRIVE_CACL_TIME
+#ifdef NAND_DRIVE_CACL_TIME
+static long long time =0;
+static int cacl_bytes =0;
+static int total_pages =0;
+static inline  void b_time(void)
+{
+	time = sched_clock();
+}
+static inline void e_time(void)
+{
+	long long etime = sched_clock();
+	printk("*****time = %llu ,bytes = %d ,pages = %d  ********\n",etime-time,cacl_bytes,total_pages);
+}
+#else
+static inline void b_time(void){}
+static inline void e_time(void){}
+#endif
 
-PPartArray partition;
 
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
 {
@@ -30,6 +47,9 @@ static inline int div_s64_32(long long dividend , int divisor)  // for example: 
 	result = remainder ? (result +1):result;
 	return result;
 }
+
+#define NAND_API_DUMP
+#ifdef NAND_API_DUMP
 /**
  * ffs_ll - find first bit set in a 64bit word.
  * @word: The word to search
@@ -140,6 +160,7 @@ void dump_nand_api(NAND_API *pnand_api)
 	dprintf("chip:0x%x\n",(unsigned int)(pnand_api->nand_chip));
 	dprintf("---\n");
 }
+#endif
 
 /*************       nand  configure        ************/
 #define GPIOA_20_IRQ (0*32 + 20)
@@ -157,7 +178,8 @@ static NAND_API  g_pnand_api;
 static Aligned_List * g_aligned_list;
 static struct platform_device *g_pdev;
 static struct platform_nand_data *g_pnand_data;
-static PPartition *g_partition;
+static PPartArray g_partarray;
+static PPartition *g_partition = NULL;
 
 /*
  * nand_board_init
@@ -226,11 +248,25 @@ int nand_wait_rb(void)
 
 /*  nand driver init    */
 static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist);
-static inline int init_nand(void * vNand)
+static inline int init_nand_vm(void * vNand)
 {
 	VNandManager *tmp_manager =(VNandManager *)vNand;
 	VNandInfo *tmp_info = &(tmp_manager->info);
-	//	PPartArray* tmp_part;
+
+	tmp_info->startBlockID = 0;
+	tmp_info->PagePerBlock = g_pnand_api.nand_chip->ppblock;
+	tmp_info->BytePerPage =  g_pnand_api.nand_chip->pagesize;
+	tmp_info->TotalBlocks =  g_pnand_api.totalblock;
+	tmp_info->MaxBadBlockCount = g_pnand_api.nand_chip->maxbadblockcount;
+	tmp_info->hwSector = g_pnand_api.nand_ecc->eccsize;
+	if(!g_partition)
+		return -1;
+	tmp_manager->pt = &g_partarray;
+	printk("*** init_nand_vm is ok ***\n");
+	return 0;
+}
+static int init_nand_driver(void)
+{
 	static PPartition *t_partition;  // temporary partition
 
 	int ret;
@@ -242,33 +278,34 @@ static inline int init_nand(void * vNand)
 	int blockid =0;
 	int lastblockid =0;
 	unsigned int use_planenum=0;
+	unsigned int pageperblock = 0;
+	unsigned int byteperpage =  0;
+	unsigned int totalblocks =  0;
+	unsigned int hwsector = 0;
 
 	ret =nand_board_init(&g_pnand_api);
 	if(ret){
 		eprintf("ERROR: nand_board_init Failed\n");
-		goto init_nand_error1;
+		goto init_nand_driver_error1;
 	}
 	setup_mtd_struct(&g_pnand_api,g_pnand_api.nand_chip);
 	if(g_pnand_api.nand_chip->pagesize < g_pnand_api.nand_ecc->eccsize){
 		eprintf("ERROR: pagesize < eccsize\n");
-		goto init_nand_error1;
+		goto init_nand_driver_error1;
 	}
-
+	pageperblock = g_pnand_api.nand_chip->ppblock;
+	byteperpage =  g_pnand_api.nand_chip->pagesize;
+	totalblocks =  g_pnand_api.totalblock;
+	hwsector = g_pnand_api.nand_ecc->eccsize;
+#ifdef NAND_API_DUMP
 	dump_nand_api(&g_pnand_api);
 	dump_nand_chip(g_pnand_api.nand_chip);
 	dump_nand_io(g_pnand_api.nand_io);
 	dump_nand_ecc(g_pnand_api.nand_ecc);
-
+#endif
 	tmp_oobsize =g_pnand_api.nand_chip->oobsize;
 	tmp_eccpos  =g_pnand_api.nand_ecc->eccpos;
 	tmp_badblock_info =(unsigned int *)g_pnand_data->priv;
-
-	tmp_info->startBlockID = 0;
-	tmp_info->PagePerBlock = g_pnand_api.nand_chip->ppblock;
-	tmp_info->BytePerPage =  g_pnand_api.nand_chip->pagesize;
-	tmp_info->TotalBlocks =  g_pnand_api.totalblock;
-	tmp_info->MaxBadBlockCount = g_pnand_api.nand_chip->maxbadblockcount;
-	tmp_info->hwSector = g_pnand_api.nand_ecc->eccsize;
 
 	ipartition_num =g_pnand_data->nr_partitions;
 	ptemp =g_pnand_data->partitions;
@@ -276,42 +313,42 @@ static inline int init_nand(void * vNand)
 	g_partition =(PPartition *)nand_malloc_buf((ipartition_num+1)*(sizeof(PPartition)));
 	if (!g_partition) {
 		eprintf("ERROR: g_partition malloc Failed\n");
-		goto init_nand_error1;
+		goto init_nand_driver_error1;
 	}
 	for(ret=0; ret<ipartition_num; ret++)
 	{
 		tmp_eccbit =(ptemp+ret)->eccbit;
 		/**  cale freesize  **/
 		tmp_eccbytes =__bch_cale_eccbytes(tmp_eccbit);  //eccbytes per eccstep
-		if(((tmp_info->BytePerPage/tmp_info->hwSector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize)
-			tmp_freesize =tmp_info->hwSector;
+		if(((byteperpage/hwsector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize)
+			tmp_freesize =hwsector;
 		else
 			tmp_freesize =0;
 		/*   cale ppartition vnand info     */
 		use_planenum = (ptemp+ret)->use_planes ? g_pnand_api.nand_chip->planenum : 1;
 		(g_partition+ret)->name = (ptemp+ret)->name;
 		(g_partition+ret)->hwsector =512;
-		(g_partition+ret)->byteperpage = tmp_info->BytePerPage-tmp_freesize;
+		(g_partition+ret)->byteperpage = byteperpage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
-		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * tmp_info->PagePerBlock));
+		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * pageperblock));
 		/*  two-plane operation : startblockID must be even  */
 		(g_partition+ret)->startblockID +=(g_partition+ret)->startblockID % use_planenum;
-		(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * (tmp_info->PagePerBlock);
-		(g_partition+ret)->pageperblock = tmp_info->PagePerBlock * use_planenum;
+		(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
+		(g_partition+ret)->pageperblock = pageperblock * use_planenum;
 		(g_partition+ret)->PageCount = div_s64_32(((ptemp+ret)->size),((g_partition+ret)->byteperpage));
 		(g_partition+ret)->totalblocks = (g_partition+ret)->PageCount / (g_partition+ret)->pageperblock;
 		(g_partition+ret)->PageCount = (g_partition+ret)->totalblocks * (g_partition+ret)->pageperblock;
 		(g_partition+ret)->mode = (ptemp+ret)->mode;
 		(g_partition+ret)->prData = (void *)(ptemp+ret);
-		if(tmp_info->BytePerPage-tmp_freesize == 0){
+		if(byteperpage-tmp_freesize == 0){
 			eprintf("ERROR: pagesize equal 0\n");
-			goto init_nand_error2;
+			goto init_nand_driver_error2;
 		}
 		/*  blockid is physcial block id  */
-		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / tmp_info->PagePerBlock;
-		if(blockid > (tmp_info->TotalBlocks) || lastblockid > (g_partition +ret)->startblockID){
+		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / pageperblock;
+		if(blockid > (totalblocks) || lastblockid > (g_partition +ret)->startblockID){
 			eprintf("ERROR: nand capacity insufficient\n");
-			goto init_nand_error2;
+			goto init_nand_driver_error2;
 		}
 		lastblockid = blockid;
 	}
@@ -323,21 +360,20 @@ static inline int init_nand(void * vNand)
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
 	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 	(g_partition+ret)->startblockID = blockid;
-	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * (tmp_info->PagePerBlock);
+	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
 	(g_partition+ret)->pageperblock = t_partition->pageperblock;
 	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * 1 ;
 	(g_partition+ret)->totalblocks = 1;
 	(g_partition+ret)->mode = ONCE_MANAGER;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
 	(g_partition+ret)->hwsector =512;
-	tmp_manager->pt = &partition;
-	tmp_manager->pt->ppt = g_partition;
-	tmp_manager->pt->ptcount = ipartition_num+1;
+	g_partarray.ppt = g_partition;
+	g_partarray.ptcount = ipartition_num+1;
 
 	g_aligned_list =nand_malloc_buf(256*sizeof(Aligned_List));
 	if (!g_aligned_list){
 		eprintf("ERROR: g_aligned_list malloc Failed\n");
-		goto init_nand_error2;
+		goto init_nand_driver_error2;
 	}
 	memset(g_aligned_list,0,256*sizeof(Aligned_List));
 
@@ -370,9 +406,9 @@ static inline int init_nand(void * vNand)
 
 	dprintf("\nDEBUG nand:nand_init over *******\n");
 	return 0;
-init_nand_error2:
+init_nand_driver_error2:
 	nand_free_buf(g_partition);
-init_nand_error1:
+init_nand_driver_error1:
 	return -1;
 }
 
@@ -391,7 +427,11 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 	aligned_list->next =0;
 	i++;
 	listhead = (pagelist->head).next;
-
+#ifdef NAND_DRIVE_CACL_TIME
+	cacl_bytes = 0;
+	total_pages = 1;
+	cacl_bytes += pagelist->Bytes;
+#endif
 	while(listhead)
 	{
 		pnextpagelist = singlelist_entry(listhead,PageList,head);
@@ -411,10 +451,16 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 				aligned_list->pagelist =pagelist;
 				aligned_list->opsmodel =1;
 				aligned_list->next =0;
+#ifdef NAND_DRIVE_CACL_TIME
+				total_pages++;
+#endif
 				break;
 		}
 		i++;
 		listhead = (pagelist->head).next;
+#ifdef NAND_DRIVE_CACL_TIME
+	cacl_bytes += pagelist->Bytes;
+#endif
 	}
 	return;
 }
@@ -451,6 +497,7 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
+	b_time();
 	if(!read_pagelist){
 		dev_err(&g_pdev->dev," nand read_pagelist is null\n");
 		return -1;
@@ -470,6 +517,7 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 		ret =nand_read_pages(g_pnand_api.vnand_base,g_aligned_list);
 #endif
 	}
+	e_time();
 	return ret;
 }
 
@@ -599,7 +647,7 @@ static inline int deinit_nand(void *vNand)
 /*********************************************/
 
 NandInterface jz_nand_interface = {
-	.iInitNand = init_nand,
+	.iInitNand = init_nand_vm,
 	.iPageRead = page_read,
 	.iPageWrite = page_write,
 	.iMultiPageRead = multipage_read,
@@ -643,8 +691,6 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	g_pnand_api.vnand_base->bch_gate =clk_get(&pdev->dev,"bch");
 	clk_enable(g_pnand_api.vnand_base->bch_gate);
 	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"cgu_bch");
-        //the bch clk is nodiv for AHB2 CLK
-        //clk_set_rate(g_pnand_api.vnand_base->bch_clk,100000000);
 	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
 	/*   nemc resource  */
@@ -718,10 +764,21 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	}
 	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
 
-	Register_NandDriver(&jz_nand_interface);
+//	printk("### %s ------------------\n",__func__);
+	ret = init_nand_driver();
+	if(ret){
+		dev_err(&g_pdev->dev,"init_nand_driver failed\n");
+		goto nand_probe_error4;
+		}
+
+//	printk("@@@@------------------\n");
+	ret = Register_CharNandDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
+	if(ret){
+		dev_err(&g_pdev->dev,"init char_nand_driver failed\n");
+		}
+
 
 	printk("INFO: nand probe finish!\n");
-
 	return 0;
 nand_probe_error4:
 	nand_free_buf(g_pnand_api.pnand_base);

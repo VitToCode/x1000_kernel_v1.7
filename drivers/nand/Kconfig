@@ -203,13 +203,4 @@ config 	TOGGLE_NAND
 	  This enables that Toggle NAND flash is used, if not selected,
           Connection nand flash is used.
 
-config  NAND_DUG
-	tristate "NAND Dug"
-	depends on NAND_JZ4780
-	help
-          This enables those operation,which user could debug directly nand through,
-          for example: nand_page_read, nand_page_write and nand_erase_block.
-
-
-
 endif # NAND
