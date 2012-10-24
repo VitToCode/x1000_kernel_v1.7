@@ -142,19 +142,23 @@ static void i2s_set_filter(int mode , uint32_t channels)
 		case AFMT_S8:
 			if (channels == 1) {
 				dp->filter = convert_8bits_stereo2mono;
-				printk("dp->filter convert_8bits_stereo2mono");
+				printk("dp->filter convert_8bits_stereo2mono\n");
 			}
-			else
+			else {
 				dp->filter = NULL;
+				printk("dp->filter null\n");
+			}
 			break;
 		case AFMT_S16_BE:
 		case AFMT_S16_LE:
 			if (channels == 1) {
 				dp->filter = convert_16bits_stereomix2mono;
-				printk("dp->filter convert_16bits_stereomix2mono");
+				printk("dp->filter convert_16bits_stereomix2mono\n");
 			}
-			else
+			else {
 				dp->filter = NULL;
+				printk("dp->filter null\n");
+			}
 			break;
 		default :
 			dp->filter = NULL;
@@ -263,7 +267,9 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 static int i2s_set_channel(int* channel,int mode)
 {
 	int ret = 0;
-
+#ifdef CONFIG_ANDROID
+	int channel_save = 0;
+#endif
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("channel = %d",*channel);
@@ -289,14 +295,18 @@ static int i2s_set_channel(int* channel,int mode)
 	}
 	if (mode & CODEC_RMODE) {
 #ifdef CONFIG_ANDROID
-		*channel = 2;
+		{
+			channel_save = *channel;
+			if (*channel == 1)
+				*channel = 2;
+		}
 #endif
 		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
 		if (ret < 0)
 			return ret;
 		ret = 0;
 #ifdef CONFIG_ANDROID
-		*channel = 1;
+		*channel = channel_save;
 #endif
 		if (cur_codec->record_codec_channel != *channel) {
 			cur_codec->record_codec_channel = *channel;
@@ -769,7 +779,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (ret < 0)
 			break;
 		//if (ret & NEED_RECONF_FILTER)
-		//	i2s_set_filter(CODEC_RMODE,cur_codec->replay_codec_channel);
+		//	i2s_set_filter(CODEC_WMODE,cur_codec->replay_codec_channel);
 		ret = 0;
 		break;
 
