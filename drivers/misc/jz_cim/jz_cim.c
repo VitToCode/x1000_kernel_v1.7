@@ -236,27 +236,28 @@ void cim_set_default(struct jz_cim *cim)
 	unsigned long fs = 0;
 	int w = 0,h = 0;
 	
-	if(cim->state == CS_PREVIEW){
-	w = cim->psize.w;
-	h = cim->psize.h;
+	if(cim->state == CS_PREVIEW) {
+		w = cim->psize.w;
+		h = cim->psize.h;
 	
-	if(cim->preview_output_format == CIM_CSC_YUV420P) {
-	ctrl2 |= CIM_CTRL2_CSC_YUV420;
-	cfg |= CIM_CFG_SEP;
+		if(cim->preview_output_format == CIM_CSC_YUV420P) {
+			ctrl2 |= CIM_CTRL2_CSC_YUV420;
+			cfg |= CIM_CFG_SEP;
 	
-	} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
-		ctrl |= CIM_CTRL_MBEN;
-		ctrl2 |= CIM_CTRL2_CSC_YUV420;
-		cfg |= CIM_CFG_SEP;	
-	} 
-	} else if (cim->state == CS_CAPTURE){
+		} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
+			ctrl |= CIM_CTRL_MBEN;
+			ctrl2 |= CIM_CTRL2_CSC_YUV420;
+			cfg |= CIM_CFG_SEP;	
+		} 
+		
+	} else if (cim->state == CS_CAPTURE) {
 		w = cim->csize.w;
 		h = cim->csize.h;
 		
 		if(cim->capture_output_format == CIM_CSC_YUV420P) {
-		ctrl2 |= CIM_CTRL2_CSC_YUV420;
-		cfg |= CIM_CFG_SEP;
-		
+			ctrl2 |= CIM_CTRL2_CSC_YUV420;
+			cfg |= CIM_CFG_SEP;
+			
 		} else if(cim->capture_output_format == CIM_CSC_YUV420B) {
 			ctrl |= CIM_CTRL_MBEN;
 			ctrl2 |= CIM_CTRL2_CSC_YUV420;
@@ -804,6 +805,7 @@ static int cim_set_output_format(struct jz_cim *cim, unsigned int cmd, unsigned 
 		}
 	} else {
 		dev_err(cim->dev,"unknow format, code: 0x%x\n", format);
+		return -1;
 	}
 	
 	if(cmd == CIMIO_SET_PREVIEW_FMT) {
