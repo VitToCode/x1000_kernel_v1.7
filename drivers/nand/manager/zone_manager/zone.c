@@ -123,8 +123,8 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	if(ret != 0)
 	{
 		if (ISNOWRITE(pagelist->retVal)) {
-			ndprint(ZONE_INFO,"WARNING: no write to read func %s line %d \n",
-				__FUNCTION__,__LINE__);
+			ndprint(ZONE_INFO,"WARNING: no write to read func %s line %d pageid=%d \n",
+					__FUNCTION__,__LINE__,pageid);
 		}
 		else {
 			ndprint(ZONE_ERROR,"vNand read pageinfo error ret = %d pageid = %d func %s line %d \n",
@@ -405,6 +405,12 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	pagelist->retVal = 0;
 
 	BuffListManager_mergerList((int)blm, (void *)pagelist,(void *)pl);
+	zone->pageCursor = zone->allocPageCursor;
+	if (pagecount > 0)
+		check_invalidpage(zone, zone->currentLsector / sectorperpage, pagecount);
+
+	if (pl->pData == NULL)    // when recycle write pageinfo,pData is null.
+		return (int)pagelist;
 
 	ret = vNand_MultiPageWrite(zone->vnand,pagelist);
 	if(ret != 0)
@@ -412,15 +418,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 		ndprint(ZONE_ERROR,"vNand MultiPage Write error func %s line %d \n",__FUNCTION__,__LINE__);
 		goto err;
 	}
-
-	zone->pageCursor = zone->allocPageCursor;
-
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 
-	if (pagecount > 0)
-		check_invalidpage(zone, zone->currentLsector / sectorperpage, pagecount);
 	return ret;
-
 err:
 	 ret = check_pagelist_error(pagelist);
 	 BuffListManager_freeList((int)blm, (void **)&pagelist,(void*)pagelist, sizeof(PageList));

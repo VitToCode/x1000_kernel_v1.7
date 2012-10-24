@@ -201,22 +201,19 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 	int ret = 0;
 	unsigned int offset = 0;
-	struct singlelist *pos = NULL;
-	PageList *pl_node = NULL;
+	struct singlelist *pos;
+	PageList *pl_node ;
 	PageList *pagelist = NULL;
-	PageList *read_follow_pagelist = NULL;
-	PageList *write_follow_pagelist = NULL;
-	PageList *read_pagelist = NULL;
-	PageList *write_pagelist = NULL;
-	PageList *alig_rpl = NULL;
-	PageList *alig_wpl = NULL;
+	PageList *read_follow_pagelist ;
+	PageList *write_follow_pagelist ;
+	PageList *read_pagelist ;
+	PageList *write_pagelist ;
+	PageList *alig_rpl ;
+	PageList *alig_wpl ;
 
-	alig_rpl = vNandPageList_To_NandPageList(vNand,rpl);
-	alig_wpl = vNandPageList_To_NandPageList(vNand,wpl);
-
-	read_follow_pagelist = alig_rpl;
-	write_follow_pagelist = alig_wpl;
 	NandMutex_Lock(&v_nand_ops.mutex);
+	read_follow_pagelist = rpl;
+	write_follow_pagelist = wpl;
 	while (1) {
 		if (read_follow_pagelist == NULL || write_follow_pagelist == NULL)
 			break;
@@ -240,8 +237,11 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 			read_follow_pagelist = NULL;
 
 		offset = 0;
-		singlelist_for_each(pos, &write_follow_pagelist->head) {
-			pl_node = singlelist_entry(pos, PageList, head);
+		singlelist_for_each(pos, &write_follow_pagelist->head){
+			if (write_follow_pagelist->pData == NULL){
+				pl_node = singlelist_entry(pos, PageList, head);
+			}else
+				pl_node = singlelist_entry(pos->next, PageList, head);
 			pl_node->pData = v_nand_ops.vNand_buf + offset;
 			offset += pl_node->Bytes;
 			if (offset > VNANDCACHESIZE)
@@ -255,27 +255,30 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 		else
 			write_follow_pagelist = NULL;
 
-		ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, read_pagelist);
+		alig_rpl = vNandPageList_To_NandPageList(vNand,read_pagelist);
+		ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, alig_rpl);
+		Fill_Pl_Retval(vNand,alig_rpl,read_pagelist);
 		if (ret != 0){
-			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d \n",
-					__FUNCTION__, __LINE__);
+			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d ret=%d\n",
+					__FUNCTION__, __LINE__,ret);
 			goto exit;
 		}
-
-		ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, write_pagelist);
+		alig_wpl = vNandPageList_To_NandPageList(vNand,write_pagelist);
+		ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, alig_wpl);
+		Fill_Pl_Retval(vNand,alig_wpl,write_pagelist);
 		if (ret != 0) {
-			ndprint(VNAND_ERROR,"MultiPageWrite failed! func: %s line: %d \n",
-					__FUNCTION__, __LINE__);
+			ndprint(VNAND_ERROR,"MultiPageWrite failed! func: %s line: %d ret=%d\n",
+					__FUNCTION__, __LINE__,ret);
 			goto exit;
+		}
+		if (vNand->v2pp->_2kPerPage != 1 && vNand->mode == ZONE_MANAGER){
+			BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_rpl,sizeof(PageList));
+			BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_wpl,sizeof(PageList));
 		}
 	}
 
 exit:
 	NandMutex_Unlock(&v_nand_ops.mutex);
-	if (vNand->v2pp->_2kPerPage != 1){
-		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_rpl,sizeof(PageList));
-		BuffListManager_freeAllList(vNand->v2pp->blm,(void **)&alig_wpl,sizeof(PageList));
-	}
 	return ret;
 }
 

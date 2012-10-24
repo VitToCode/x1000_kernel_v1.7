@@ -8,7 +8,7 @@
 #include "l1info.h"
 #include "sigzoneinfo.h"
 
-#define VNANDCACHESIZE 32 * 1024
+#define VNANDCACHESIZE 128 * 1024
 #define BADBLOCKINFOSIZE 1
 
 struct vnand_operater{

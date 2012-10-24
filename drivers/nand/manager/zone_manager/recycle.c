@@ -862,10 +862,10 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 		for (i = pl_node->OffsetBytes / SECTOR_SIZE; i < (pl_node->Bytes + pl_node->OffsetBytes) / SECTOR_SIZE; i++) {
 			if (s_count % spp == 0) {
 				pageid = Zone_AllocNextPage(wzone);
-				if (s_count == 0) {
+				/*	if (s_count == 0) {
 					while (pageid % wzone->vnand->v2pp->_2kPerPage)
 						pageid = Zone_AllocNextPage(wzone);
-				}
+						}*/
 				s_count = 0;
 			}
 			record_writeaddr[l4index] = pageid * spp + s_count;
@@ -936,10 +936,14 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		px->Bytes = px->Bytes - (0 - datalen);
 
 		pagelist = (PageList *)BuffListManager_getTopNode(blmid, sizeof(PageList));
+		if(pagelist == NULL){
+			ndprint(RECYCLE_ERROR,"%s %d ALLOC memory failed!\n",__func__,__LINE__);
+			return -1;
+		}
 		pagelist->startPageID = px->startPageID;
 		pagelist->Bytes = 0 - datalen;
 		pagelist->OffsetBytes = px->OffsetBytes + px->Bytes;
-		pagelist->pData += px->Bytes;
+		pagelist->pData = NULL;
 		pagelist->retVal = 0;
 		pagelist->head.next = NULL;
 
@@ -967,11 +971,18 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 
 	if(flag == 1) {
 		if (rep->force) {
-			pagelist->head.next = &rep->force_pagelist->head;
+			if(rep->force_pagelist != NULL){
+				BuffListManager_mergerList(blmid,(void*)(&pagelist->head),(void*)(&rep->force_pagelist->head));
+			}
+			else
+				pagelist->head.next = NULL;
 			rep->force_pagelist = pagelist;
 		}
 		else {
-			pagelist->head.next = &rep->pagelist->head;
+			if(rep->pagelist != NULL){
+				BuffListManager_mergerList(blmid,(void*)(&pagelist->head),(void*)(&rep->pagelist->head));
+			}else
+				pagelist->head.next = NULL;
 			rep->pagelist = pagelist;
 		}
 	}
@@ -1025,6 +1036,7 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 
 		px->startPageID = addr[write_cursor] / spp;
 		px->OffsetBytes = 0;
+		px->pData = NULL;
 		px->retVal = 0;
 		if (i == len - 1) {
 			for (j = write_cursor; j < l4count; j++) {
@@ -1049,7 +1061,6 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 		}
 		write_cursor = j;
 	}
-
 	BuffListManager_freeList((int)blm, (void **)&pl, (void *)pl, sizeof(PageList));
 
 	if (rep->force) {
@@ -1081,6 +1092,7 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 	PageInfo *writepageinfo = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
+	int pagelist;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	if (rep->force) {
@@ -1117,22 +1129,16 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 		}
 
 		if(i == 0) {
-			ret = Zone_MultiWritePage(wzone,0,NULL,writepageinfo);
-			if(ret != 0) {
-				ndprint(RECYCLE_ERROR,"zone multi write error func %s line %d \n",
-							__FUNCTION__,__LINE__);
-				return -1;
-			}
+			pagelist = Zone_MultiWritePage(wzone, bufpage, write_pagelist, writepageinfo);
+			write_pagelist =(PageList*)pagelist;
 			rep->write_pagecount++;
 		}
-
 		ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
 		if(ret != 0) {
-			ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d \n",
-							__FUNCTION__,__LINE__);
+			ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d ret=%d startblockid=%d badblock=%08x\n",
+					__FUNCTION__,__LINE__,ret,wzone->startblockID,wzone->badblock);
 			return -1;
 		}
-
 		BuffListManager_freeAllList((int)blm,(void **)&read_pagelist,sizeof(PageList));
 		BuffListManager_freeAllList((int)blm,(void **)&write_pagelist,sizeof(PageList));
 	}
@@ -1154,6 +1160,7 @@ static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,uns
 	PageInfo *writepageinfo = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
+	int pagelist;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
 	if(numpage == 0)
@@ -1183,24 +1190,19 @@ static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,uns
 		read_pagelist = rep->read_pagelist;
 		write_pagelist = rep->write_pagelist;
 	}
-
 	if(flag == 1) {
-		ret = Zone_MultiWritePage(wzone,0,NULL,writepageinfo);
-		if(ret != 0) {
-			ndprint(RECYCLE_ERROR,"zone multi write error func %s line %d \n",
-						__FUNCTION__,__LINE__);
-			return -1;
+
+			pagelist = Zone_MultiWritePage(wzone, numpage, write_pagelist, writepageinfo);
+			write_pagelist = (PageList*)pagelist;
+			rep->write_pagecount++;
 		}
-		rep->write_pagecount++;
-	}
 
 	ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
 	if(ret != 0) {
-		ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d \n",
-						__FUNCTION__,__LINE__);
+		ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d ret=%d\n",
+				__FUNCTION__,__LINE__,ret);
 		return -1;
 	}
-
 	BuffListManager_freeAllList((int)blm,(void **)&read_pagelist,sizeof(PageList));
 	BuffListManager_freeAllList((int)blm,(void **)&write_pagelist,sizeof(PageList));
 
@@ -1309,8 +1311,8 @@ static int copy_data(Recycle *rep, Zone *wzone, unsigned int recyclepage)
 	if (temppage) {
 		ret = all_recycle_buflen(rep,wzone,temppage);
 		if(ret != 0) {
-			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
-						__FUNCTION__,__LINE__);
+			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d ret=%d\n",
+					__FUNCTION__,__LINE__,ret);
 			return -1;
 		}
 	}
@@ -1318,8 +1320,8 @@ static int copy_data(Recycle *rep, Zone *wzone, unsigned int recyclepage)
 	if (temppage1) {
 		ret = part_recycle_buflen(rep,wzone,temppage1,!temppage);
 		if(ret != 0) {
-			ndprint(RECYCLE_ERROR,"part recycle buflen error func %s line %d \n",
-						__FUNCTION__,__LINE__);
+			ndprint(RECYCLE_ERROR,"part recycle buflen error func %s line %d ret=%d\n",
+					__FUNCTION__,__LINE__,ret);
 			return -1;
 
 		}
@@ -1347,7 +1349,7 @@ static int RecycleReadWrite(Recycle *rep)
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
 	zonepage = Zone_GetFreePageCount(wzone);
-	if (zonepage == 0) {
+	if (zonepage <= rep->rZone->vnand->v2pp->_2kPerPage) {
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
 			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
@@ -1362,8 +1364,7 @@ static int RecycleReadWrite(Recycle *rep)
 		goto exit;
 	else if (write_sectorcount < recyclesector) {
 		recyclesector = write_sectorcount;
-		
-	}
+	} 
 	recyclepage = (recyclesector + spp - 1) / spp;
 	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
@@ -1416,7 +1417,6 @@ exit:
 	}
 	else
 		rep->taskStep = READNEXTINFO;
-
 	return 0;
 
 err:
@@ -1626,7 +1626,6 @@ static int FreeZone ( Recycle *rep)
 				return -1;
 			}
 		}
-
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
 	}
 
@@ -2360,7 +2359,6 @@ static int OnForce_FreeZone ( Recycle *rep)
 				return -1;
 			}
 		}
-
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
 	}
 
