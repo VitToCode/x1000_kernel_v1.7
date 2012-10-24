@@ -77,7 +77,6 @@ struct ipu_reg_struct jz47_ipu_regs_name[] = {
 	{"IPU_OUT_ADDR_N",      IPU_OUT_ADDR_N},
 	{"IPU_SRC_TLB_ADDR_N",  IPU_SRC_TLB_ADDR_N},
 	{"IPU_DEST_TLB_ADDR_N", IPU_DEST_TLB_ADDR_N},
-	{"IPU_REG_EN_MSK",      IPU_REG_EN_MSK},
 	{"IPU_TRIG",            IPU_TRIG},
 	{"IPU_FM_XYOFT",        IPU_FM_XYOFT},
 	{"IPU_GLB_CTRL",        IPU_GLB_CTRL},
@@ -104,16 +103,6 @@ static inline int jz47_ipu_wait_frame_end_flag(struct jz_ipu *ipu)
 	}
 
 	return 0;
-}
-
-static void enable_ipu(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-	
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= IPU_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-	reg_write(ipu, IPU_STATUS, 0);	
 }
 
 static void reset_ipu(struct jz_ipu *ipu)
@@ -1004,7 +993,7 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 {
 	int ret, in_fmt, out_fmt;
 	int outW, outH, Wdiff, Hdiff;
-	unsigned int tmp;
+	//unsigned int tmp;
 
 	dev_dbg(ipu->dev, "enter jz47_ipu_init\n");
 
@@ -1061,12 +1050,6 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		reg_write(ipu, IPU_DEST_TLB_ADDR, imgp->dtlb_base);
 	}
 
-	// set the ctrl
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~(0x300);
-	tmp |= IPU_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-
 	if (in_fmt == IN_FMT_YUV420_B) {
 		enable_blk_mode(ipu);
 	}
@@ -1096,7 +1079,6 @@ static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	dev_dbg(ipu->dev, "ipu->inited = %d", ipu->inited);
 	if (!ipu->inited) {
    		clk_enable(ipu->clk);
-		enable_ipu(ipu);
 	}
 
 	reset_ipu(ipu);
@@ -1278,6 +1260,11 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		tmp |= (Y_RY | U_RY | V_RY | D_RY);
 	}
 	reg_write(ipu, IPU_ADDR_CTRL, tmp); /* enable address reset */
+
+	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		/* start ipu */
+		start_ipu(ipu);
+	}
 
 	return 0;
 }
@@ -1492,8 +1479,6 @@ static int ipu_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct jz_ipu *ipu;
-
-	dev_info(&pdev->dev, "%s %d\n",__func__,__LINE__);
 
 	ipu = (struct jz_ipu *)kzalloc(sizeof(struct jz_ipu), GFP_KERNEL);
 	if (!ipu) {

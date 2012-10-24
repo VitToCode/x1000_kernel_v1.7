@@ -64,7 +64,6 @@
 #define IPU_RESET       (1 << 3)
 
 /* REG_FM_CTRL field define */
-#define IPU_EN          (1 << 0)
 #define HRSZ_EN         (1 << 2)
 #define VRSZ_EN         (1 << 3)
 #define CSC_EN          (1 << 4)
