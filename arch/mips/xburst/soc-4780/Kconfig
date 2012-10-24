@@ -21,6 +21,9 @@ config BOARD_M80
 
 config BOARD_M80701
 		bool "M80701"
+		
+config BOARD_HDMI_80
+		bool "HDMI_80"
 
 endchoice
 
@@ -30,6 +33,7 @@ config BOARD_NAME
 	default "test" if BOARD_TEST
 	default "Giant" if BOARD_GIANT
 	default "Warrior" if BOARD_WARRIOR
+	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
 	default "M80701" if BOARD_M80701
 
