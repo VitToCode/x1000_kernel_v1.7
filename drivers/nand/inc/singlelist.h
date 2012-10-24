@@ -26,7 +26,6 @@ static inline  void singlelist_add(struct singlelist *prev,struct singlelist *he
 static inline  void singlelist_del(struct singlelist *top,struct singlelist *head){
 	struct singlelist *next;
 	if((top != NULL) && (head != NULL)){
-		head->next = NULL;
 		if(top == head){
 			top = top->next;
 			return;
