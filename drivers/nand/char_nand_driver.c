@@ -176,12 +176,12 @@ static ssize_t char_nand_write(struct file * fd, const char __user * pdata, size
 		goto nand_kmalloc_databuf_failed;
 	}
 	printk("nand_manager install successful !!!\n");
-	return 0;
+	return size;
 nand_init_vm_failed:
 nand_kmalloc_databuf_failed:
 	kfree(nand_ops->vm);
 nand_vm_kmalloc_failed:
-	return -1;
+	return 0;
 }
 static int char_nand_open(struct inode *pnode,struct file *fd)
 {
