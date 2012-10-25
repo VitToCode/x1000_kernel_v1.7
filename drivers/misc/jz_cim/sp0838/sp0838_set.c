@@ -370,6 +370,10 @@ int sp0838_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
 		case ANTIBANDING_OFF :
 			dev_info(&client->dev,"ANTIBANDING_OFF ");
 			break;
+		default:
+			sp0838_set_ab_50hz(client);
+			dev_info(&client->dev,"ANTIBANDING_AUTO ");
+			break;
 	}
 	return 0;
 }
@@ -453,6 +457,10 @@ int sp0838_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 			break;
 		case EFFECT_RESIZE:
 			dev_info(&client->dev,"EFFECT_RESIZE");
+			break;
+		default:
+			sp0838_set_effect_normal(client);
+			dev_info(&client->dev,"EFFECT_NONE");
 			break;
 	}
 
@@ -564,6 +572,10 @@ int sp0838_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 			break;
 		case WHITE_BALANCE_SHADE :
 			dev_info(&client->dev,"WHITE_BALANCE_SHADE ");
+			break;
+		default:
+			sp0838_set_wb_auto(client);
+			dev_info(&client->dev,"WHITE_BALANCE_AUTO");
 			break;
 	}
 
