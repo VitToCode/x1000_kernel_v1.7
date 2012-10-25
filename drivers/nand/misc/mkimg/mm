@@ -1,1 +1,1 @@
-cd ../build;make;cd -;make
+cd ../build;rm -r lib;mkdir lib;make clean;make;cd -;make

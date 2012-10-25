@@ -1586,7 +1586,6 @@ static int FreeZone ( Recycle *rep)
 	int next_start_blockid = 0;
 	int blockcount = 0;
 	int first_ok_blockid = -1;
-	unsigned int i, j = 0;
 
 	if (rep->rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->rZone->startblockID;
@@ -1603,20 +1602,10 @@ static int FreeZone ( Recycle *rep)
 			first_ok_blockid = -1;
 			singlelist_for_each(pos,&bl->head){
 				bl_node = singlelist_entry(pos, BlockList, head);
-				for(i=j; i<8; i++){
-					if(nm_test_bit(i, (unsigned int *)&(rep->rZone->sigzoneinfo->badblock))){
-						j++;
-						continue;
-					}
-					else
-						break;
-				}
-
 				if(bl_node->retVal == -1)
-					nm_set_bit(j, (unsigned int *)&(rep->rZone->sigzoneinfo->badblock));
+					nm_set_bit(bl_node->startBlock - start_blockid, (unsigned int *)&(rep->rZone->sigzoneinfo->badblock));
 				else if (-1 == first_ok_blockid)
 					first_ok_blockid = bl_node->startBlock;
-				j++;
 			}
 
 			if (-1 == first_ok_blockid) {
@@ -2320,7 +2309,6 @@ static int OnForce_FreeZone ( Recycle *rep)
 	int next_start_blockid = 0;
 	int blockcount = 0;
 	int first_ok_blockid = -1;
-	unsigned int i,j = 0;
 
 	if (rep->force_rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->force_rZone->startblockID;
@@ -2337,20 +2325,10 @@ static int OnForce_FreeZone ( Recycle *rep)
 			first_ok_blockid = -1;
 			singlelist_for_each(pos,&bl->head){
 				bl_node = singlelist_entry(pos, BlockList, head);
-				for(i=j; i<8; i++){
-					if(nm_test_bit(i, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock))){
-						j++;
-						continue;
-					}
-					else
-						break;
-				}
-
 				if(bl_node->retVal == -1)
-					nm_set_bit(j, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock));
+					nm_set_bit(bl_node->startBlock - start_blockid, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock));
 				else if (-1 == first_ok_blockid)
 					first_ok_blockid = bl_node->startBlock;
-				j++;
 			}
 			if (-1 == first_ok_blockid) {
 				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);

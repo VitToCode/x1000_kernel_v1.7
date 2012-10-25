@@ -453,10 +453,10 @@ int Zone_AllocNextPage ( Zone *zone )
 	zone->allocPageCursor++;
 	if (zone->allocPageCursor > 0 && zone->allocPageCursor % pageperblock == 0) {
 		if (zone->ZoneID == zonep->pt_zonenum - 1)
-			end_blockid = zonep->vnand->TotalBlocks - 1;
+			end_blockid = zonep->vnand->TotalBlocks;
 		else {
 			//end_blockid = BadBlockInfo_Get_blockID(zonep->badblockinfo,zone->ZoneID,BLOCKPERZONE(zone->vnand) - 1);
-			end_blockid = ((zone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand)) - 1;
+			end_blockid = ((zone->ZoneID + 1) * BLOCKPERZONE(zonep->vnand));
 		}
 		j = zone->allocPageCursor / pageperblock;
 		for (i = zone->startblockID + zone->allocPageCursor / pageperblock; i < end_blockid; i++) {

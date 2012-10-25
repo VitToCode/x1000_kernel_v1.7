@@ -395,7 +395,10 @@ static int unpackage_page0_info(ZoneManager *zonep,unsigned short zoneid)
 
 	sigzoneinfo->badblock = nandsigzoneinfo->badblock;
 	sigzoneinfo->lifetime = nandsigzoneinfo->lifetime;
-	sigzoneinfo->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - 3;
+	if (zonep->vnand->v2pp->_2kPerPage == 1)
+		sigzoneinfo->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - 3;
+	else
+		sigzoneinfo->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - zonep->vnand->v2pp->_2kPerPage * 2;
 
 	return 0;
 }
@@ -535,7 +538,10 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 			else {
 				sigp->badblock = 0;
 				sigp->lifetime = -1;
-				sigp->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - 3;
+				if (vnand->v2pp->_2kPerPage == 1)
+					sigp->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - 3;
+				else
+					sigp->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - zonep->vnand->v2pp->_2kPerPage * 2;
 			}
 			ret = insert_free_node(zonep,i);
 			if(ret != 0)
@@ -1105,6 +1111,7 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 	unsigned int l4count = 0;
 	struct singlelist *pos;
 	PageList *pl = NULL;
+	PageList *mpl = NULL;
 	unsigned int spp = zonep->vnand->BytePerPage / SECTOR_SIZE;
 	BuffListManager *blm = ((Context *)(zonep->context))->blm;
 	unsigned short l4infolen = pi->L4InfoLen;
@@ -1131,9 +1138,10 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 				break;
 		}
 
-		if (pl == NULL)
+		if (pl == NULL){
 			pl = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-		else
+			mpl = pl;
+		}else
 			pl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)pl, sizeof(PageList));
 		pl->startPageID = tmp0;
 		pl->OffsetBytes = l4info[i] % spp;
@@ -1154,12 +1162,12 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 	}
 
 	pagecount = 0;
-	singlelist_for_each(pos,&pl->head) {
+	singlelist_for_each(pos,&mpl->head) {
 		pl = singlelist_entry(pos,PageList,head);
 		pl->pData = zonep->last_data_buf + (pagecount++) * zonep->vnand->BytePerPage;
 	}
 
-	return pl;
+	return mpl;
 }
 
 /**
@@ -1245,13 +1253,13 @@ static int deal_last_pageinfo_data(ZoneManager *zonep, PageInfo *pi)
 	unsigned int *l1info = conptr->l1info->page;
 	BuffListManager *blm = conptr->blm;
 
-	if (!pl)
+	if (!pl){
+		BuffListManager_freeAllList((int)blm, (void **)&pl, sizeof(PageList));
 		return 0;
+	}
 
 	if (zonep->last_data_read_error)
 		l1info[pi->L1Index] = zonep->old_l1info;
-
-	BuffListManager_freeAllList((int)blm, (void **)&pl, sizeof(PageList));
 
 	return 0;
 }
@@ -1589,6 +1597,9 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 
 	if (flag >= count - 1)
 		Hash_FindFirstLessLifeTime(zonep->useZone,zonep->useZone->minlifetime + 1,&sigpt);
+	if (sigpt >= zonep->sigzoneinfo + zonep->pt_zonenum || sigpt < zonep->sigzoneinfo){
+		ndprint(ZONEMANAGER_ERROR,"%s %d sigpt:%p sigzoneinfo:%p zonenum:%d \n",__func__,__LINE__,sigpt,zonep->sigzoneinfo,zonep->pt_zonenum);
+	}
 
 	return (sigpt - zonep->sigzoneinfo);
 }
@@ -1664,7 +1675,8 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 					__FUNCTION__,__LINE__);
 		return NULL;
 	}
-
+	if (ZoneID < 0 || ZoneID >= zonep->pt_zonenum)
+		ndprint(ZONEMANAGER_ERROR,"%s %d zoneid: %d ERROR! total zonenum is %d\n",__func__,__LINE__,ZoneID,zonep->pt_zonenum);
 	zoneptr->sigzoneinfo = zonep->sigzoneinfo + ZoneID;
 	if (zoneptr->sigzoneinfo->pre_zoneid != 0xffff)
 		zoneptr->prevzone = zonep->sigzoneinfo + zoneptr->sigzoneinfo->pre_zoneid;

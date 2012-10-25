@@ -93,7 +93,6 @@ static int erase_err_zone(int errinfo)
 	int next_start_blockno = 0;
 	int blockcount = 0;
 	int blmid = (int)conptr->blm;
-	unsigned int i, j = 0;
 	
 	if (zoneid == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - start_blockno;
@@ -109,18 +108,8 @@ static int erase_err_zone(int errinfo)
 		if(ret < 0) {
 			singlelist_for_each(pos,&bl->head){
 				bl_node = singlelist_entry(pos, BlockList, head);
-				for(i=j; i<8; i++){
-					if(nm_test_bit(i,(unsigned int *)&(conptr->top + zoneid)->badblock)){
-						j++;
-						continue;
-					}
-					else
-						break;
-				}
-
 				if(bl_node->retVal == -1)
-					nm_set_bit(j, (unsigned int *)&(conptr->top + zoneid)->badblock);
-				j++;
+					nm_set_bit(bl_node->startBlock - start_blockno, (unsigned int *)&(conptr->top + zoneid)->badblock);
 			}
 		}
 
