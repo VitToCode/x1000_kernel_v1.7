@@ -139,6 +139,10 @@ int iw8101_wlan_init(void)
 	gpio_bakup[2] = readl((void *)((void *)0xb0010300 + PXPAT1)) & 0x1f00000;
 	gpio_bakup[3] = readl((void *)((void *)0xb0010300 + PXPAT0)) & 0x1f00000;
 
+	writel(0x1f00000, (void *)0xb0010300 + PXINTC);
+	writel(0x1f00000, (void *)0xb0010300 + PXMSKS);
+	writel(0x1f00000, (void *)0xb0010300 + PXPAT1S);
+
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
 		pr_err("wifi regulator missing\n");
