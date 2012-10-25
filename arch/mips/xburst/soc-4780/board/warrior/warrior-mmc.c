@@ -134,14 +134,14 @@ int iw8101_wlan_init(void)
 	struct regulator *power;
 	int reset;
 
-	gpio_bakup[0] = readl((void *)((void *)0xb0010300 + PXINT)) & 0x1f00000;
-	gpio_bakup[1] = readl((void *)((void *)0xb0010300 + PXMSK)) & 0x1f00000;
-	gpio_bakup[2] = readl((void *)((void *)0xb0010300 + PXPAT1)) & 0x1f00000;
-	gpio_bakup[3] = readl((void *)((void *)0xb0010300 + PXPAT0)) & 0x1f00000;
+	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
+	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
+	gpio_bakup[2] = readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
+	gpio_bakup[3] = readl((void *)(0xb0010300 + PXPAT0)) & 0x1f00000;
 
-	writel(0x1f00000, (void *)0xb0010300 + PXINTC);
-	writel(0x1f00000, (void *)0xb0010300 + PXMSKS);
-	writel(0x1f00000, (void *)0xb0010300 + PXPAT1S);
+	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
+	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
+	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
 
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
@@ -184,14 +184,14 @@ int IW8101_wlan_power_on(int flag)
 start:
 	pr_debug("wlan power on:%d\n", flag);
 
-	writel(gpio_bakup[0], (void *)0xb0010300 + PXINTS);
-	writel(~gpio_bakup[0], (void *)0xb0010300 + PXINTC);
-	writel(gpio_bakup[1], (void *)0xb0010300 + PXMSKS);
-	writel(~gpio_bakup[1], (void *)0xb0010300 + PXMSKC);
-	writel(gpio_bakup[2], (void *)0xb0010300 + PXPAT1S);
-	writel(~gpio_bakup[2], (void *)0xb0010300 + PXPAT1C);
-	writel(gpio_bakup[3], (void *)0xb0010300 + PXPAT0S);
-	writel(~gpio_bakup[3], (void *)0xb0010300 + PXPAT0C);
+	writel(gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTS));
+	writel(~gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTC));
+	writel(gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKS));
+	writel(~gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKC));
+	writel(gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1S));
+	writel(~gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1C));
+	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
+	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
 	jzrtc_switch_clk32k(1);
 	msleep(200);
@@ -263,14 +263,14 @@ start:
 
 	jzrtc_switch_clk32k(0);
 
-	gpio_bakup[0] = (unsigned int)readl((void *)0xb0010300 + PXINT) & 0x1f00000;
-	gpio_bakup[1] = (unsigned int)readl((void *)0xb0010300 + PXMSK) & 0x1f00000;
-	gpio_bakup[2] = (unsigned int)readl((void *)0xb0010300 + PXPAT1) & 0x1f00000;
-	gpio_bakup[3] = (unsigned int)readl((void *)0xb0010300 + PXPAT0) & 0x1f00000;
+	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
+	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
+	gpio_bakup[2] = (unsigned int)readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
+	gpio_bakup[3] = (unsigned int)readl((void *)(0xb0010300 + PXPAT0)) & 0x1f00000;
 	
-	writel(0x1f00000, (void *)0xb0010300 + PXINTC);
-	writel(0x1f00000, (void *)0xb0010300 + PXMSKS);
-	writel(0x1f00000, (void *)0xb0010300 + PXPAT1S);
+	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
+	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
+	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
 
 	return 0;
 }
