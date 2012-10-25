@@ -102,11 +102,42 @@ struct jzmmc_platform_data warrior_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
+
+#define PXPIN		0x00   /* PIN Level Register */
+#define PXINT		0x10   /* Port Interrupt Register */
+#define PXINTS		0x14   /* Port Interrupt Set Register */
+#define PXINTC		0x18   /* Port Interrupt Clear Register */
+#define PXMSK		0x20   /* Port Interrupt Mask Reg */
+#define PXMSKS		0x24   /* Port Interrupt Mask Set Reg */
+#define PXMSKC		0x28   /* Port Interrupt Mask Clear Reg */
+#define PXPAT1		0x30   /* Port Pattern 1 Set Reg. */
+#define PXPAT1S		0x34   /* Port Pattern 1 Set Reg. */
+#define PXPAT1C		0x38   /* Port Pattern 1 Clear Reg. */
+#define PXPAT0		0x40   /* Port Pattern 0 Register */
+#define PXPAT0S		0x44   /* Port Pattern 0 Set Register */
+#define PXPAT0C		0x48   /* Port Pattern 0 Clear Register */
+#define PXFLG		0x50   /* Port Flag Register */
+#define PXFLGC		0x58   /* Port Flag clear Register */
+#define PXOENS		0x64   /* Port Output Disable Set Register */
+#define PXOENC		0x68   /* Port Output Disable Clear Register */
+#define PXPEN		0x70   /* Port Pull Disable Register */
+#define PXPENS		0x74   /* Port Pull Disable Set Register */
+#define PXPENC		0x78   /* Port Pull Disable Clear Register */
+#define PXDSS		0x84   /* Port Drive Strength set Register */
+#define PXDSC		0x88   /* Port Drive Strength clear Register */
+
+static unsigned int gpio_bakup[4];
+
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power;
 	int reset;
+
+	gpio_bakup[0] = readl((void *)((void *)0xb0010300 + PXINT)) & 0x1f00000;
+	gpio_bakup[1] = readl((void *)((void *)0xb0010300 + PXMSK)) & 0x1f00000;
+	gpio_bakup[2] = readl((void *)((void *)0xb0010300 + PXPAT1)) & 0x1f00000;
+	gpio_bakup[3] = readl((void *)((void *)0xb0010300 + PXPAT0)) & 0x1f00000;
 
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
@@ -148,6 +179,16 @@ int IW8101_wlan_power_on(int flag)
 	return -ENODEV;
 start:
 	pr_debug("wlan power on:%d\n", flag);
+
+	writel(gpio_bakup[0], (void *)0xb0010300 + PXINTS);
+	writel(~gpio_bakup[0], (void *)0xb0010300 + PXINTC);
+	writel(gpio_bakup[1], (void *)0xb0010300 + PXMSKS);
+	writel(~gpio_bakup[1], (void *)0xb0010300 + PXMSKC);
+	writel(gpio_bakup[2], (void *)0xb0010300 + PXPAT1S);
+	writel(~gpio_bakup[2], (void *)0xb0010300 + PXPAT1C);
+	writel(gpio_bakup[3], (void *)0xb0010300 + PXPAT0S);
+	writel(~gpio_bakup[3], (void *)0xb0010300 + PXPAT0C);
+
 	jzrtc_switch_clk32k(1);
 	msleep(200);
 
@@ -217,6 +258,15 @@ start:
 	wake_unlock(wifi_wake_lock);
 
 	jzrtc_switch_clk32k(0);
+
+	gpio_bakup[0] = (unsigned int)readl((void *)0xb0010300 + PXINT) & 0x1f00000;
+	gpio_bakup[1] = (unsigned int)readl((void *)0xb0010300 + PXMSK) & 0x1f00000;
+	gpio_bakup[2] = (unsigned int)readl((void *)0xb0010300 + PXPAT1) & 0x1f00000;
+	gpio_bakup[3] = (unsigned int)readl((void *)0xb0010300 + PXPAT0) & 0x1f00000;
+	
+	writel(0x1f00000, (void *)0xb0010300 + PXINTC);
+	writel(0x1f00000, (void *)0xb0010300 + PXMSKS);
+	writel(0x1f00000, (void *)0xb0010300 + PXPAT1S);
 
 	return 0;
 }
