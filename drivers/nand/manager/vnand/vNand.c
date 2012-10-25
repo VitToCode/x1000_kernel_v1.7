@@ -237,11 +237,11 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 			read_follow_pagelist = NULL;
 
 		offset = 0;
+		if(write_follow_pagelist->pData)
+			write_follow_pagelist = singlelist_entry(write_follow_pagelist->head.next, PageList, head);
+
 		singlelist_for_each(pos, &write_follow_pagelist->head){
-			if (write_follow_pagelist->pData == NULL){
-				pl_node = singlelist_entry(pos, PageList, head);
-			}else
-				pl_node = singlelist_entry(pos->next, PageList, head);
+			pl_node = singlelist_entry(pos, PageList, head);
 			pl_node->pData = v_nand_ops.vNand_buf + offset;
 			offset += pl_node->Bytes;
 			if (offset > VNANDCACHESIZE)
