@@ -135,35 +135,27 @@ static int em_vNand_MultiPageRead (void *pt,PageList* pl ){
 }
 
 static int em_vNand_MultiPageWrite (void *pt,PageList* pl ){
-	printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 	
 	struct vNand2K *p = (struct vNand2K *)PPARTITION(pt)->prData;
 	struct singlelist *sg;
 	int startblock = PPARTITION(pt)->startblockID;
-   	printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 	
 	do{		
-		printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 		
 		fseek(p->fp,page2offset(p->nand,pl->startPageID,startblock) + pl->OffsetBytes,SEEK_SET);
-		printf("%s(%s) %d %p %d\n",__FUNCTION__,__FILE__,__LINE__,pl->pData,pl->Bytes);
 		
 		pl->retVal = fwrite(pl->pData,1,pl->Bytes,p->fp);
-		printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 		fsync((int)p->fp);
 		if(pl->retVal <= 0)
 		{
 			perror("error::");
 			return -1;	
 		}	
-		printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 		sg = (pl->head).next;
 		if(sg == NULL)
 			break;
-		printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 		pl = singlelist_entry(sg,PageList,head);
 	}while(pl);
-printf("%s(%s) %d\n",__FUNCTION__,__FILE__,__LINE__);
 
 	return 0;
 }
