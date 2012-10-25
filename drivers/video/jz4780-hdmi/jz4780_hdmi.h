@@ -19,8 +19,6 @@
 
 #define GPA_ENABLE 0
 
-#define PHY_BASE_ADDR 0x3000
-
 #define HDMI_VIDEO_MODE_NUM 64 /* for test */
 #define MODE_NAME_LEN 32
 

@@ -13,6 +13,9 @@
 
 #include "../util/types.h"
 
+#define PHY_BASE_ADDR 0x3000
+#define MC_BASE_ADDR  0x4000
+
 void halSourcePhy_PowerDown(u16 baseAddr, u8 bit);
 
 void halSourcePhy_EnableTMDS(u16 baseAddr, u8 bit);

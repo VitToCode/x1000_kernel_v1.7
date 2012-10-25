@@ -42,6 +42,13 @@
 
 #define strtoul simple_strtoul
 
+typedef enum
+{
+	PHY_ENABLE = 4,		//enable phy
+	PHY_ENABLE_HPD	,	//disable phy,but enable hpd
+	PHY_DISABLE_ALL,	//disable phy complete
+}
+phy_state;
 /** event_t events to register a callback for in the API
  */
 typedef enum
@@ -95,6 +102,9 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force);
  * @note during this function, all controller's interrupts are disabled
  * @note this function needs to have the HW initialised before the first call
  */
+
+int api_phy_enable(phy_state is_enable);
+
 int api_Configure(videoParams_t * video, audioParams_t * audio,
 		productParams_t * product, hdcpParams_t * hdcp);
 /**

@@ -14,6 +14,9 @@
 #include "../hdcp/hdcp.h"
 #include "../edid/edid.h"
 #include "../util/error.h"
+#include "../phy/halSourcePhy.h"
+#include "../core/halMainController.h"
+
 
 static u16 api_mBaseAddress = 0;
 static state_t api_mCurrentState = API_NOT_INIT;
@@ -27,14 +30,16 @@ static u8 api_mDataEnablePolarity = FALSE;
 static u8 api_mSendGamutOk = FALSE;
 static u16 api_mSfrClock = 0;
 
+static u16 pixelClock = 0;
+
 static int api_CheckParamsVideo(videoParams_t * video);
 static int api_CheckParamsAudio(audioParams_t * audio);
 
+int api_phy_enable(phy_state is_enable);
 int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) //cmd:auto argument: 0, 1, 2500, 0
 {
 	dtd_t dtd;
 	videoParams_t params;
-	u16 pixelClock = 0;
 	dataEnablePolarity = 1;
 
 	api_mDataEnablePolarity = dataEnablePolarity;
@@ -127,10 +132,7 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 #ifdef CONFIG_HMDI_JZ4780_DEBUG
 	printk("jz4780 hdmi %s  %d  phy init\n",__func__,__LINE__);
 #endif
-	if (phy_Initialize(api_mBaseAddress, api_mDataEnablePolarity) != TRUE)
-	{
-		return FALSE;
-	}
+
 	control_InterruptClearAll(api_mBaseAddress);
 
 	if (board_PixelClock(api_mBaseAddress, pixelClock, videoParams_GetColorResolution(&params))!= TRUE)
@@ -164,21 +166,7 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 #ifdef CONFIG_HMDI_JZ4780_DEBUG
 	printk("jz4780 hdmi %s  %d phy configured\n",__func__,__LINE_);
 #endif
-	if (phy_Configure (api_mBaseAddress, pixelClock, 8, 0) != TRUE)
-	{
-		return FALSE;
-	}
-	phy_EnableHpdSense(api_mBaseAddress); /* enable HPD sending on phy */
-	phy_InterruptEnable(api_mBaseAddress, ~0x02);
-	if (force)
-	{
-		printk("hdmi  init force\n");
-		api_mCurrentState = API_HPD;
-	}
-	else
-	{
-		printk("Waiting for hot plug detection...\n");
-	}
+
 #if 0
 	/* enable interrupts */
 	access_CoreWriteByte(0x0, 0x10D2);
@@ -191,6 +179,7 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	access_CoreWriteByte(0x0, 0x0180);   //intc mute
 #endif
 
+	api_phy_enable(PHY_ENABLE_HPD); 
 
 	control_InterruptMute(api_mBaseAddress, 0);
 	if (system_InterruptHandlerRegister(TX_INT, api_EventHandler, NULL) == TRUE)
@@ -201,6 +190,53 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	}
 	return FALSE;
 }
+
+int api_phy_enable(phy_state is_enable) //1 is enable 
+{
+	int force = 0;
+	switch(is_enable){
+	case PHY_ENABLE:
+		printk("hdmi-phy-enable\n");
+		if (phy_Initialize(api_mBaseAddress, api_mDataEnablePolarity) != TRUE){
+			return FALSE;
+		}
+		if (phy_Configure (api_mBaseAddress, pixelClock, 8, 0) != TRUE){
+			return FALSE;
+		}
+		phy_EnableHpdSense(api_mBaseAddress); /* enable HPD sending on phy */
+		phy_InterruptEnable(api_mBaseAddress, ~0x02);
+		if (force){
+			printk("hdmi  init force\n");
+			api_mCurrentState = API_HPD;
+		}else{
+			printk("Waiting for hot plug detection...\n");
+		}
+		break;
+	case PHY_ENABLE_HPD:
+		printk("hdmi phy disable,enable hpd\n");
+		phy_EnableHpdSense(api_mBaseAddress);
+		phy_InterruptEnable(api_mBaseAddress, ~0x02);
+
+		halSourcePhy_Gen2PDDQ(api_mBaseAddress + PHY_BASE_ADDR, 1);
+		halSourcePhy_Gen2TxPowerOn(api_mBaseAddress + PHY_BASE_ADDR, 0);
+		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 1); /*  reset PHY */
+		break;
+	case PHY_DISABLE_ALL:
+		printk("hdmi phy disable complete\n");
+		phy_DisableHpdSense(api_mBaseAddress);
+
+		halSourcePhy_Gen2PDDQ(api_mBaseAddress + PHY_BASE_ADDR, 1);
+		halSourcePhy_Gen2TxPowerOn(api_mBaseAddress + PHY_BASE_ADDR, 0);
+		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 1); /*  reset PHY */
+		break;
+	default: 
+		printk("====hdmi phy param is err\n");
+		return FALSE;
+	}
+	printk("====phy conf0=%x\n",*(unsigned int *)0xb018c000);
+	return TRUE;
+}
+
 
 int api_Configure(videoParams_t * video, audioParams_t * audio,
 		productParams_t * product, hdcpParams_t * hdcp)

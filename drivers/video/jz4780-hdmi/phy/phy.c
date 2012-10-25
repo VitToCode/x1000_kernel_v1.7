@@ -15,8 +15,6 @@
 #include <linux/kthread.h>
 #include <linux/gpio.h>
 
-static const u16 PHY_BASE_ADDR = 0x3000;
-static const u16 MC_BASE_ADDR = 0x4000;
 static const u16 PHY_I2CM_BASE_ADDR = 0x3020;
 static const u8 PHY_I2C_SLAVE_ADDR = 0x69;
 

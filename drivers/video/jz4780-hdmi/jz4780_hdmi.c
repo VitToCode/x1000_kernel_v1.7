@@ -123,7 +123,6 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 	if (!api_EdidRead(edid_callback)){
 		dev_info(jzhdmi->dev, "---edid failed\n");
 	}
-/*need modify*/
 #if 0
 	while(jzhdmi->hdmi_info.hdmi_status != HDMI_HOTPLUG_CONNECTED  || jzhdmi->edid_done != HDMI_HOTPLUG_EDID_DONE){
 			msleep(1);
@@ -375,10 +374,10 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case HDMI_VIDEOMODE_CHANGE:
 		if (jzhdmi->init == 0) {
-			halSourcePhy_PowerDown(0 + PHY_BASE_ADDR, 1); /* enable PHY */
+			api_phy_enable(PHY_ENABLE); 
 			hdmi_init(jzhdmi);
-			hdmi_read_edid(jzhdmi);
 		}
+		hdmi_read_edid(jzhdmi);
 
 		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
@@ -407,7 +406,7 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		}
 #endif
-		halSourcePhy_PowerDown(0 + PHY_BASE_ADDR, 0); /* disable PHY */
+		api_phy_enable(PHY_ENABLE_HPD); 
 		break;
 	default:
 		dev_info(jzhdmi->dev, "%s, cmd = %d is error\n",
@@ -427,8 +426,8 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
 	jzhdmi->is_suspended = 1;
 	system_InterruptDisable(TX_INT);
-	regulator_disable(jzhdmi->hdmi_power);
-	halSourcePhy_PowerDown(0 + PHY_BASE_ADDR, 0); /* disable PHY */
+	api_phy_enable(PHY_DISABLE_ALL); 
+//	regulator_disable(jzhdmi->hdmi_power);
 }
 static void hdmi_late_resume(struct early_suspend *h)
 {
@@ -436,8 +435,8 @@ static void hdmi_late_resume(struct early_suspend *h)
 	struct jzhdmi *jzhdmi;
 
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
-	halSourcePhy_PowerDown(0 + PHY_BASE_ADDR, 1); /* enable PHY */
-	regulator_enable(jzhdmi->hdmi_power);
+//	regulator_enable(jzhdmi->hdmi_power);
+	api_phy_enable(PHY_ENABLE_HPD); 
 	jzhdmi->is_suspended = 0;
 	system_InterruptEnable(TX_INT);
 	api_mHpd = (phy_HotPlugDetected(0) > 0);
@@ -610,8 +609,10 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	if (!api_Initialize(0, 1, 2500,0)) {
 		dev_err(jzhdmi->dev, "api_Initialize fail\n");
 		ret = -EINVAL;
+		goto err_destroy_workqueue;
 	}
 #endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	jzhdmi->early_suspend.suspend = hdmi_early_suspend;
 	jzhdmi->early_suspend.resume =  hdmi_late_resume;
@@ -633,7 +634,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
-
 
 	return 0;
 
@@ -674,8 +674,8 @@ static void jzhdmi_shutdown(struct platform_device *pdev)
 		dev_err(jzhdmi->dev, "API standby fail\n");
 		return;
 	}
-	halSourcePhy_PowerDown(0 + PHY_BASE_ADDR, 0); /* disable PHY */
-	regulator_disable(jzhdmi->hdmi_power);
+	api_phy_enable(0); 
+	//regulator_disable(jzhdmi->hdmi_power);
 }
 
 static int __devexit jzhdmi_remove(struct platform_device *pdev)
