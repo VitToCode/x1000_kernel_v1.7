@@ -2,6 +2,12 @@
 #ifndef __JZ_TCSM_H
 #define __JZ_TCSM_H
 
+#define REG_VPU_GLBC      0x00000
+#define VPU_INTE_ACFGERR     (0x1<<20)
+#define VPU_INTE_TLBERR      (0x1<<18)
+#define VPU_INTE_BSERR       (0x1<<17)
+#define VPU_INTE_ENDF        (0x1<<16)
+
 #define REG_VPU_STAT      0x00034
 #define VPU_STAT_ENDF    (0x1<<0)
 #define VPU_STAT_BPF     (0x1<<1)

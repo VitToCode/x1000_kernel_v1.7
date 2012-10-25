@@ -224,18 +224,48 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 
 	if(vpu_stat & VPU_STAT_SLDERR) {
 		dev_err(vpu->dev, "SHLD error!\n");
+		CLEAR_VPU_BIT(vpu,REG_VPU_GLBC,
+			      (VPU_INTE_ACFGERR |
+			       VPU_INTE_TLBERR |
+			       VPU_INTE_BSERR |
+			       VPU_INTE_ENDF
+			       ));
 
 	} else if(vpu_stat & VPU_STAT_TLBERR) {
 		dev_err(vpu->dev, "TLB error!\n");
+		CLEAR_VPU_BIT(vpu,REG_VPU_GLBC,
+			      (VPU_INTE_ACFGERR |
+			       VPU_INTE_TLBERR |
+			       VPU_INTE_BSERR |
+			       VPU_INTE_ENDF
+			       ));
 
 	} else if(vpu_stat & VPU_STAT_BSERR) {
 		dev_err(vpu->dev, "BS error!\n");
+		CLEAR_VPU_BIT(vpu,REG_VPU_GLBC,
+			      (VPU_INTE_ACFGERR |
+			       VPU_INTE_TLBERR |
+			       VPU_INTE_BSERR |
+			       VPU_INTE_ENDF
+			       ));
 
 	} else if(vpu_stat & VPU_STAT_ACFGERR) {
 		dev_err(vpu->dev, "ACFG error!\n");
+		CLEAR_VPU_BIT(vpu,REG_VPU_GLBC,
+			      (VPU_INTE_ACFGERR |
+			       VPU_INTE_TLBERR |
+			       VPU_INTE_BSERR |
+			       VPU_INTE_ENDF
+			       ));
 
 	} else if(vpu_stat & VPU_STAT_TIMEOUT) {
 		dev_err(vpu->dev, "TIMEOUT error!\n");
+		CLEAR_VPU_BIT(vpu,REG_VPU_GLBC,
+			      (VPU_INTE_ACFGERR |
+			       VPU_INTE_TLBERR |
+			       VPU_INTE_BSERR |
+			       VPU_INTE_ENDF
+			       ));
 
 	} else if(vpu_stat & VPU_STAT_ENDF) {
 		if(vpu_stat & VPU_STAT_JPGEND) {
@@ -255,6 +285,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 			dev_err(vpu->dev, "illegal interrupt happened!\n");
 		}
 	}
+
 	vpu->status = vpu_stat;
 	complete(&vpu->done);
 
