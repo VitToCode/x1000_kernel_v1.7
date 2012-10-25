@@ -1440,7 +1440,9 @@ int ZoneManager_Init (int context )
 {
 	int ret = -1;
 	Context *conptr  = (Context *)context;
+#ifndef RECHECK_VALIDPAGE
 	int pageperzone = conptr->vnand.PagePerBlock * BLOCKPERZONE(zone->vnand);
+#endif
 	ZoneManager *zonep = Nand_VirtualAlloc(sizeof(ZoneManager));
 	if(zonep == NULL)
 	{
@@ -1464,7 +1466,7 @@ int ZoneManager_Init (int context )
 		ndprint(ZONEMANAGER_ERROR,"The partition has no zone that can be used!\n");
 		return -1;
 	}
-
+#ifndef RECHECK_VALIDPAGE
 	zonep->zonevalidinfo.zoneid = -1;
 	zonep->zonevalidinfo.current_count = -1;
 	zonep->zonevalidinfo.wpages = (Wpages *)Nand_ContinueAlloc(sizeof(Wpages) * pageperzone);
@@ -1475,6 +1477,7 @@ int ZoneManager_Init (int context )
 		return -1;
 
 	}
+#endif
 	ret = alloc_zonemanager_memory(zonep,&conptr->vnand);
 	if(ret != 0)
 	{

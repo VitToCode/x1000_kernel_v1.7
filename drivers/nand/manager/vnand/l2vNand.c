@@ -253,15 +253,6 @@ static void UpdatePageList(VNandInfo *vnand, PageList* pl)
 		blockid = pagelist->startPageID / vnand->PagePerBlock;
 		pageoffset = pagelist->startPageID % vnand->PagePerBlock;
 		pagelist->startPageID = L2PblockID(vnand, blockid) * vnand->PagePerBlock + pageoffset;
-		if(pagelist->startPageID < 0 ||
-		   pagelist->startPageID >= vnand->PagePerBlock * vnand->TotalBlocks) {
-			ndprint(VNAND_ERROR,"%s: _pageid = %d pageid = %d totalblocks = %d \n"
-					, ((PPartition *)vnand->prData)->name
-					, pagelist->_startPageID
-					, pagelist->startPageID
-					, vnand->TotalBlocks
-				);
-		}
 	}
 }
 

@@ -14,7 +14,7 @@
 
 #define SECTOR_SIZE 512
 #define INTERNAL_TIME  2*1000000000
-
+#define RECHECK_VALIDPAGE
 typedef struct _Context Context;
 
 struct _Context {

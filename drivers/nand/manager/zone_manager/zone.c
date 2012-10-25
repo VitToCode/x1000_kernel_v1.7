@@ -33,7 +33,7 @@
 /*define bad block bit = 1 */
 /*define max l2info l3info size 5K*/
 /*read page info form nand flash */
-
+#ifndef RECHECK_VALIDPAGE
 static int get_invalidpagecount(unsigned int startpage,
 		unsigned short pagecnt, ZoneValidInfo * zonevalidinfo)
 {
@@ -91,7 +91,7 @@ static void check_invalidpage(Zone *zone, unsigned int startpage, unsigned short
 		zonevalidinfo->current_count++;
 	}
 }
-
+#endif
 /**
  *	read_info_l2l3l4info - read and unpackage info page
  *
@@ -373,8 +373,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	int ret = -1;
 	PageList *pagelist = NULL;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
+#ifndef RECHECK_VALIDPAGE
 	int sectorperpage = zone->vnand->BytePerPage / SECTOR_SIZE;
-
+#endif
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
 
@@ -406,9 +407,10 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	BuffListManager_mergerList((int)blm, (void *)pagelist,(void *)pl);
 	zone->pageCursor = zone->allocPageCursor;
+#ifndef RECHECK_VALIDPAGE
 	if (pagecount > 0)
 		check_invalidpage(zone, zone->currentLsector / sectorperpage, pagecount);
-
+#endif
 	if (pl->pData == NULL)    // when recycle write pageinfo,pData is null.
 		return (int)pagelist;
 
