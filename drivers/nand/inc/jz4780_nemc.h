@@ -12,7 +12,6 @@
 #ifndef __JZ4780_NEMC_H__
 #define __JZ4780_NEMC_H__
 
-#define NEMC_SMCR(n) (NEMC_SMCR1 + (0x02<<((n)-1)))
 #define NEMC_SMCR1	0x014 /* Static Memory Control Register 1 */
 #define NEMC_SMCR2	0x018 /* Static Memory Control Register 2 */
 #define NEMC_SMCR3	0x01c /* Static Memory Control Register 3 */
@@ -30,6 +29,7 @@
 #define NEMC_PNDR 	0x104 /* NAND PN Data Register */
 #define NEMC_BITCNT	0x108 /* NAND Bit Counter */
 
+#define NEMC_SMCR(n) (NEMC_SMCR1 + 4 * (n))
 /* NEMC for TOGGLE NAND */
 #define NEMC_TGWE	0x10C /* Toggle NAND Data Write Access */
 #define NEMC_TGCR1	0x110 /* Toggle NAND Control Register 1 */
