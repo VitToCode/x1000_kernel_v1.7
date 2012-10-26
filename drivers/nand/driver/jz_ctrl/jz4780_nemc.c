@@ -265,7 +265,7 @@ void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
 	nemc_writel(host->nemc_iomem,NEMC_SMCR1,smcr);
 	dprintf("SMCR = 0x%08x\n", nemc_readl(host->nemc_iomem,NEMC_SMCR1));	
 	
-	while(ret <= g_maxchips && ret < NEMC_CS_COUNT)
+	while(ret < g_maxchips)
 	{
 		if(g_chips_mark[i]){
 			ret++;
