@@ -111,6 +111,8 @@
 
 
 /*******************************************************************************************************************/
+#define DISABLE_LCD_PORTC							\
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fffffff, }
 
 #define LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }

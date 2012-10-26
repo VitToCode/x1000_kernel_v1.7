@@ -2395,18 +2395,6 @@ config FB_JZ4780_LCDC1
 	help
 	  Framebuffer support for the JZ4780 SoC.
 
-config MAP_DATABUS_TO_LCDC0
-	bool "map lcd databus to lcdc0"
-	depends on FB && SOC_4780
-	default n
-
-config NO_TFT_LVDS_PANEL
-       bool "no TFT LVDS panel"
-       depends on FB && SOC_4780
-       default n
-       help
-	If your LCD panel is not TFT LVDS panel, say Y to enable PORT C as GPIO function 0.
-
 choice
 	depends on FB && SOC_4780
 	prompt "allocation frame buffer"
@@ -2421,8 +2409,17 @@ config THREE_FRAME_BUFFERS
        bool "allocation 3 frame buffers"
        help
 	treble frame buffer
-
 endchoice
+
+config MAP_DATABUS_TO_LCDC0
+	bool "map lcd databus to lcdc0"
+	depends on FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
+	default n
+
+config DISABLE_LVDS_FUNCTION
+       bool "disable LVDS function for JZSOC lcd controller"
+       depends on FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
+       default n
 
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"

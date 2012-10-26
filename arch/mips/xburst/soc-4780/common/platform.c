@@ -118,7 +118,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	PCM_PORTD,
 #endif
-#ifdef CONFIG_NO_TFT_LVDS_PANEL
+#ifndef CONFIG_DISABLE_LVDS_FUNCTION
+	DISABLE_LCD_PORTC,
+#else
 	LCD_PORTC,
 #endif
 	HDMI_PORTF,
