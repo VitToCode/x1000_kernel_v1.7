@@ -57,6 +57,14 @@
 //#define X2D_DEBUG
 //#define CLEAR_DST
 
+#ifdef X2D_DEBUG
+#define X2D_SLV_GLB_TIME 0xf01c
+#define X2D_SLV_BWR_DATA 0xf020
+#define X2D_SLV_BWR_CYC 0xf024
+#define X2D_SLV_BRD_DATA 0xf028
+#define X2D_SLV_BRD_CYC 0xf02c
+#endif
+
 /**************************************global parameters********************************/
 #define X2D_NAME        "x2d"
 
@@ -386,7 +394,7 @@ static int x2d_check_allproc_free (struct x2d_device *jz_x2d)
 	return ret;
 }
 
-//#ifdef X2D_DEBUG
+#ifdef X2D_DEBUG
 static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *p)
 {
 	int i;
@@ -425,7 +433,6 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *
 				 p->configs.lay[i].y_stride, p->configs.lay[i].v_stride);
 	}
 }
-#ifdef X2D_DEBUG
 #endif
 
 static void x2d_dump_reg(struct x2d_device *jz_x2d,struct x2d_process_info* p)
@@ -464,7 +471,6 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 {
 	int i = 0;
 	struct x2d_process_info * p;
-	static int bg_count;
 
 	mutex_lock(&jz_x2d->compose_lock);
 
@@ -481,6 +487,7 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	x2d_dump_config(jz_x2d, p);
 #endif
 
+	clk_enable(jz_x2d->x2d_clk);
 	__x2d_reset_trig();
 	//udelay(1);
 	__x2d_setup_default();
@@ -526,11 +533,10 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 				   |(X2D_RGBORDER_RGB << BIT_X2D_DST_RGB_ORDER);	 
 	jz_x2d->chain_p->dst_argb =  p->configs.dst_bcground;
 
-
-//	for(i=0;i<p->configs.layer_num;i++)
 	for(i=0;i<p->configs.layer_num;i++)
 	{
 #ifdef CLEAR_DST
+		static int bg_count;
 		p->configs.lay[i].mask_en = 1;
 		if (bg_count % 2) {
 			p->configs.lay[i].msk_val =  = 0xffff0000;;
@@ -604,7 +610,6 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 //	mdelay(1000);
 
-//#if 0
 	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue,10*HZ))
 	{
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));		
@@ -614,11 +619,35 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		return -1;   
 	}
-//#endif
+
+#ifdef X2D_DEBUG
+	uint32_t consum_time = reg_read(jz_x2d, X2D_SLV_GLB_TIME);
+    int cycle_per_pixel = (consum_time)/(p->configs.dst_height*p->configs.dst_width+1);
+	int taget_cycle_per_pixel = (400*1000000)/(1920*1280*30);  
+
+	uint32_t wdata_trans_num = reg_read(jz_x2d, X2D_SLV_BWR_DATA);
+	uint32_t wdata_trans_cycle = reg_read(jz_x2d, X2D_SLV_BWR_CYC);
+
+	uint32_t rdata_trans_num = reg_read(jz_x2d, X2D_SLV_BRD_DATA);
+	uint32_t rdata_trans_cycle = reg_read(jz_x2d, X2D_SLV_BRD_CYC);
+	        
+	printk(" > GKER_W --cycle: %d time:%dns/per_pix   target: %dns   %d%% \n", consum_time, 
+		   cycle_per_pixel, 
+		   taget_cycle_per_pixel, cycle_per_pixel/taget_cycle_per_pixel
+		); 
+	printk(" > write data num: %d, cycle: %d, effect: %d%%\n", wdata_trans_num, wdata_trans_cycle, 
+		   wdata_trans_num/(wdata_trans_cycle+1)
+		);
+	printk(" > read data num: %d, cycle: %d, effect: %d%%\n", rdata_trans_num, rdata_trans_cycle,
+		   rdata_trans_num/(rdata_trans_cycle+1)
+		);
+#endif
+
 #ifdef X2D_DEBUG
 	x2d_dump_reg(jz_x2d,p);
 	dev_dbg(jz_x2d->dev, "+++++++++<================================>\n");
 #endif
+	clk_disable(jz_x2d->x2d_clk);
 	mutex_unlock(&jz_x2d->compose_lock);
 
 	return 0;
@@ -629,8 +658,10 @@ int jz_x2d_set_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
 
 	mutex_lock(&jz_x2d->x2d_lock);
 	p = x2d_index_procinfo(jz_x2d,current->pid);
-	if (copy_from_user(&p->configs, (void *)config, sizeof(struct jz_x2d_config)))
+	if (copy_from_user(&p->configs, (void *)config, sizeof(struct jz_x2d_config))) {
+		dev_err(jz_x2d->dev, "copy_from_user Failed!!!");
 		return -EFAULT;
+	}
 #ifdef X2D_DEBUG
 	x2d_dump_config(jz_x2d, p);
 #endif
@@ -927,9 +958,9 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	register_early_suspend(&jz_x2d->early_suspend);
 #endif
 
-	//clk_disable(jz_x2d->x2d_clk );  
+	clk_disable(jz_x2d->x2d_clk);  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
-	 printk("Virtual Driver of JZ X2D registered\n");
+	printk("Virtual Driver of JZ X2D registered\n");
 	return 0;
 
 err_exit:
