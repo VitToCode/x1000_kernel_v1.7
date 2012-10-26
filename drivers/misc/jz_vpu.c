@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/syscalls.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -153,6 +154,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct miscdevice *dev = filp->private_data;
 	struct jz_vpu *vpu = container_of(dev, struct jz_vpu, mdev);
+	struct flush_cache_info info;
 	int ret = 0;
 
 	switch (cmd) {
@@ -187,6 +189,16 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&vpu->mutex);
 		vpu->owner_pid = 0;
 		dev_dbg(vpu->dev, "[%d:%d] unlock\n", current->tgid, current->pid);
+		break;
+
+	case FLUSH_CACHE:
+		if (copy_from_user(&info, (void *)arg, sizeof(info))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		dma_cache_sync(NULL, (void *)info.addr, info.len, info.dir);
+		dev_dbg(vpu->dev, "[%d:%d] flush cache\n", current->tgid, current->pid);
 		break;
 	default:
 		break;

@@ -34,6 +34,16 @@ enum {
 	WAIT_COMPLETE = 0,
 	LOCK,
 	UNLOCK,
+	FLUSH_CACHE,
+};
+
+struct flush_cache_info {
+	unsigned int	addr;
+	unsigned int	len;
+#define WBACK		DMA_TO_DEVICE
+#define INV		DMA_FROM_DEVICE
+#define WBACK_INV	DMA_BIDIRECTIONAL
+	unsigned int	dir;
 };
 
 #define vpu_readl(vpu, offset)		__raw_readl((vpu)->iomem + offset)
