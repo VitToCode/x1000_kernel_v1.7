@@ -55,6 +55,21 @@ struct platform_device ek070tn93_device = {
 };
 #endif
 
+#ifdef CONFIG_LCD_HSD070IDW1
+#include <linux/hsd070idw1.h>
+static struct platform_hsd070idw1_data hsd070idw1_pdata= {
+	.gpio_rest = GPIO_PB(22),
+};
+
+/* LCD Panel Device */
+struct platform_device hsd070idw1_device = {
+	.name		= "hsd070idw1-lcd",
+	.dev		= {
+		.platform_data	= &hsd070idw1_pdata,
+	},
+};
+#endif
+
 #ifdef CONFIG_FB_JZ4780_LCDC0
 /* LCD Controller 0 output to HDMI */
 static struct fb_videomode jzfb0_videomode[] = {
@@ -121,6 +136,25 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+
+#ifdef CONFIG_LCD_HSD070IDW1
+	{
+		.name = "800x480",
+		.refresh = 60,
+		.xres = 800,
+		.yres = 480,
+		.pixclock = KHZ2PICOS(33300),
+		.left_margin = 40,
+		.right_margin = 40,
+		.upper_margin = 29,
+		.lower_margin = 13,
+		.hsync_len = 48,
+		.vsync_len = 3,
+		.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
@@ -170,6 +204,19 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.dither_enable = 0,
 #endif
 #ifdef CONFIG_LCD_EK070TN93
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+#ifdef CONFIG_LCD_HSD070IDW1
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,

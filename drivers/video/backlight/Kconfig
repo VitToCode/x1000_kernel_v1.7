@@ -151,10 +151,18 @@ config LCD_HSD101PWW1
 
 config LCD_EK070TN93
 	tristate "EK070TN93 LCD Driver"
-	depends on BACKLIGHT_CLASS_DEVICE
+	depends on BACKLIGHT_CLASS_DEVICE 
 	default n
 	help
 	  If you have an EK070TN93 Panel, say Y to enable its
+	  control driver.
+
+config LCD_HSD070IDW1
+	tristate "HSD070IDW1 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE && DISABLE_LVDS_FUNCTION
+	default n
+	help
+	  If you have an HSD070IDW1 Panel, say Y to enable its
 	  control driver.
 
 endif # LCD_CLASS_DEVICE

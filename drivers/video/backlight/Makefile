@@ -18,6 +18,7 @@ obj-$(CONFIG_LCD_AUO_A043FL01V2)	+= auo_a043fl01v2.o
 obj-$(CONFIG_LCD_KR070LA0S_270)		+= kr070la0s_270.o
 obj-$(CONFIG_LCD_EK070TN93)		+= ek070tn93.o
 obj-$(CONFIG_LCD_HSD101PWW1)	+= hsd101pww1.o
+obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1.o
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o

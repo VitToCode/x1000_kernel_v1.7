@@ -232,6 +232,9 @@ static int __init m80701_board_init(void)
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
 #endif
+#ifdef CONFIG_LCD_HSD070IDW1
+	platform_device_register(&hsd070idw1_device);
+#endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&m80701_backlight_device);
 #endif
