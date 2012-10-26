@@ -356,7 +356,7 @@ static int init_nand_driver(void)
 	 *   is as badblock partition.
 	 */
 	t_partition = g_partition+ipartition_num-1;  //last partiton from board
-	(g_partition+ret)->name =" BADBLOCK_TABEL";
+	(g_partition+ret)->name = "nderror";
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
 	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 	(g_partition+ret)->startblockID = blockid;

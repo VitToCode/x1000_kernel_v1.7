@@ -623,7 +623,7 @@ struct device_driver nand_block_driver = {
 /*#################################################################*\
  *# start
 \*#################################################################*/
-static void nand_disk_start(int data)
+static void nand_disk_install(int data)
 {
 	int ret = -EFAULT;
 	int context = 0;
@@ -642,6 +642,11 @@ static void nand_disk_start(int data)
 
 	singlelist_for_each(plist, &phead->head) {
 		pt = singlelist_entry(plist, LPartition, head);
+
+		/* partiton with this mode do not need to open */
+		if (pt->mode == ONCE_MANAGER)
+			return;
+
 		if ((context = NandManger_open(nand_block.pm_handler, pt->name, pt->mode)) == 0) {
 			printk("can not open NandManger %s, mode = %d\n",
 				   pt->name, pt->mode);
@@ -742,7 +747,7 @@ static int __init nand_block_init(void)
 		goto out_init;
 	}
 
-	NandManger_startNotify(nand_block.pm_handler, nand_disk_start, 0);
+	NandManger_startNotify(nand_block.pm_handler, nand_disk_install, 0);
 
 	return 0;
 
