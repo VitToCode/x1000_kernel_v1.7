@@ -378,7 +378,7 @@ static unsigned short get_normal_zoneID(int context)
 		return ZoneManager_ForceRecyclezoneID(context,lifetime + 1);
 */
 	if(lifetime < minlifetime + BALANCECOUNT)
-		return -2;
+		return -1;
 	return ZoneManager_RecyclezoneID(context,lifetime);
 }
 
@@ -399,8 +399,6 @@ static int getRecycleZone ( Recycle *rep)
 		ZoneID = get_normal_zoneID(context);
 
 	if(ZoneID == 0xffff) {
-		ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
-					__FUNCTION__,__LINE__);
 		ret = -1;
 		goto err;
 	}
