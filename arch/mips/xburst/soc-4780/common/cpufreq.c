@@ -291,7 +291,7 @@ static int __init jz4780_cpufreq_init(void)
 
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
-
+#ifndef CONFIG_CPUFREQ_CHANGE_VCORE
 	cpu_regulator = regulator_get(NULL, "vcore");
 	if (IS_ERR(cpu_regulator)) {
 		pr_warning("%s: unable to get CPU regulator\n", __func__);
@@ -308,7 +308,9 @@ static int __init jz4780_cpufreq_init(void)
 			cpu_regulator = NULL;
 		}
 	}
-
+#else
+	cpu_regulator = NULL;
+#endif
 	freq_table_prepare();
 
 	return cpufreq_register_driver(&jz4780_driver);

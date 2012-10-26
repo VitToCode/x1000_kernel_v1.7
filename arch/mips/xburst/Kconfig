@@ -62,3 +62,9 @@ config EARLYSUSPEND_CPU
 	bool "suspend non-boot cpu when enter early suspend"
 	default n
 
+config CPUFREQ_CHANGE_VCORE
+	depends on CPU_FREQ
+	bool "change vcore voltage when cpu frequency has changed"
+	default n
+
+
