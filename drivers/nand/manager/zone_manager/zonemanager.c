@@ -1216,6 +1216,10 @@ static void get_current_write_zone_info(ZoneManager *zonep)
 	BuffListManager *blm = ((Context *)(zonep->context))->blm;
 
 	zonep->pl = Create_read_pagelist(zonep, zonep->last_pi);
+	if (zonep->pl == NULL){
+		ndprint(ZONEMANAGER_ERROR,"%s %d zonep->pl shouldn't be NULL!\n",__func__,__LINE__);
+		while(1);
+	}
 	if (zonep->pl) {
 		ret = Zone_RawMultiReadPage(zonep->last_zone, zonep->pl);
 		if (ret != 0)
@@ -1248,7 +1252,6 @@ static void free_last_data_buf(ZoneManager *zonep)
  */
 static int deal_last_pageinfo_data(ZoneManager *zonep, PageInfo *pi)
 {
-	PageList *pl = zonep->pl;
 	Context *conptr = (Context *)(zonep->context);
 	unsigned int *l1info = conptr->l1info->page;
 
@@ -1311,15 +1314,14 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 	else
 		get_current_write_zone_info(zonep);
 
-	if (pi->zoneID != 0xffff) {
+	ret = deal_last_pageinfo_data(zonep, pi);
+	if (pi->zoneID != 0xffff) { 
 		if (zonep->last_data_read_error) {
 			zonep->last_rzone_id = pi->zoneID;
 			CacheManager_Init(zonep->context);
 			start_follow_recycle(zonep);
 		}
 	}
-	else
-		ret = deal_last_pageinfo_data(zonep, pi);
 
 exit:
 	free_last_data_buf(zonep);
