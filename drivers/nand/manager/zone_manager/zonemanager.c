@@ -1251,12 +1251,6 @@ static int deal_last_pageinfo_data(ZoneManager *zonep, PageInfo *pi)
 	PageList *pl = zonep->pl;
 	Context *conptr = (Context *)(zonep->context);
 	unsigned int *l1info = conptr->l1info->page;
-	BuffListManager *blm = conptr->blm;
-
-	if (!pl){
-		BuffListManager_freeAllList((int)blm, (void **)&pl, sizeof(PageList));
-		return 0;
-	}
 
 	if (zonep->last_data_read_error)
 		l1info[pi->L1Index] = zonep->old_l1info;

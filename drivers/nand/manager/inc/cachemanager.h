@@ -58,5 +58,5 @@ void CacheManager_DeInit ( int context );
 unsigned int CacheManager_getPageID ( int context, unsigned int sectorid );
 void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **pi);
 void CacheManager_unlockCache ( int context,PageInfo *pi);
-
+int CacheManager_CheckIsCacheMem ( int context,unsigned int startpageid,unsigned int count);
 #endif

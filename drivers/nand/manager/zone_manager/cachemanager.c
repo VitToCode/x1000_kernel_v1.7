@@ -598,4 +598,97 @@ void CacheManager_unlockCache ( int context, PageInfo *pi )
 	cachemanager->pagecache.pageid = -1;  //erase pagecache
 	NandMutex_Unlock(&(cachemanager->mutex));
 }
+static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count) {
+	int i;
+	unsigned int pageid;
+	int ret = 0;
+	for(i = 0;i < 512;i++) {
+		if(ld->Index[i] == -1) continue;
+		pageid = ld->Index[i];
+		if(pageid >= startpageid && pageid < startpageid + count){
+			ret = 1;
+		}
+	}
+	return ret;
+}
+static int checklxinfo(CacheList *lx,unsigned int startpageid,unsigned int count) {
+	struct list_head *pos;
+	CacheData *cd;
+	list_for_each(pos,&lx->top) {
+		cd = list_entry(pos,CacheData,head);
+		if(checkldinfo(cd,startpageid,count))
+			return 1;
+	}
+	return 0;
+}
+int CacheManager_CheckIsCacheMem ( int context,unsigned int startpageid,unsigned int count)
+{
+	CacheManager *cachemanager = (CacheManager *)context;
+	int ret = 0;
+	NandMutex_Lock(&(cachemanager->mutex));
+	if(checkldinfo(cachemanager->L1Info,startpageid,count)){
+		ret = 1;
+		goto exitCheck;
+	}
+	if(cachemanager->L2InfoLen  && checklxinfo(cachemanager->L2Info,startpageid,count)) {
+		ret = 1;
+		goto exitCheck;
+	}
 
+	if(cachemanager->L3InfoLen  && checklxinfo(cachemanager->L3Info,startpageid,count)) {
+		ret = 1;
+		goto exitCheck;
+	}
+	if(cachemanager->L4InfoLen  && checklxinfo(cachemanager->L4Info,startpageid,count)) {
+		ret = 1;
+		goto exitCheck;
+	}
+exitCheck:
+	NandMutex_Unlock(&(cachemanager->mutex));
+	return ret;
+}
+static int checkdatainfo(unsigned int *d,int size,unsigned int startpageid,unsigned int count) {
+	int i;
+
+	for(i = 0;i < size;i++) {
+		if(d[i] >= startpageid && d[i] < startpageid + count){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void CacheManager_CheckCacheAll ( int context,unsigned int startpageid,unsigned int count)
+{
+	CacheManager *cachemanager = (CacheManager *)context;
+	CacheData *ld;
+	CacheList *lx;
+	int i,j;
+	int ret = 0;
+	unsigned int pageid;
+	unsigned int *l2data = NULL;
+	unsigned int *l3data = NULL;
+	unsigned int *lxdata = NULL;
+
+	NandMutex_Lock(&(cachemanager->mutex));
+	if(cachemanager->L2InfoLen) l2data = Nand_VirtualAlloc(cachemanager->L2InfoLen);
+	if(cachemanager->L3InfoLen) l3data = Nand_VirtualAlloc(cachemanager->L2InfoLen);
+
+	ld = cachemanager->L1Info;
+	lx = ld;
+	for(i = 0;i < 512;i++) {
+		if(ld->Index[i] == -1) continue;
+		pageid = ld->Index[i];
+		if(pageid >= startpageid && pageid < startpageid + count){
+			ret = 1;
+			goto exit;
+		}
+
+	}
+
+	if(l2data) Nand_VirtualFree(l2data);
+	if(l3data) Nand_VirtualFree(l3data);
+exit:
+	NandMutex_Unlock(&(cachemanager->mutex));
+	return ret;
+}
