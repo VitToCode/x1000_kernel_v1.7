@@ -31,3 +31,4 @@ obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
+obj-$(CONFIG_FB_JZ4780_LCDC0) += lcdc0_hdmi_cfg.o

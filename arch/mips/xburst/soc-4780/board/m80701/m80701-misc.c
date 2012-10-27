@@ -243,7 +243,7 @@ static int __init m80701_board_init(void)
 	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
-	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
+	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780

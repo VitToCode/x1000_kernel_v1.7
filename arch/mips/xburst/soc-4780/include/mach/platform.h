@@ -170,6 +170,8 @@ extern struct platform_device jz_gpu;
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;
 
+extern struct jzfb_platform_data jzfb0_hdmi_pdata;
+
 extern struct platform_device jz_ipu0_device;
 extern struct platform_device jz_ipu1_device;
 
