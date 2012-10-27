@@ -147,9 +147,11 @@ static void sectornode_to_pagelist(SplContext *conptr,
 		pagenode->pData  = (unsigned char *)snod->pData + offset;
 		frontbytes = pagenode->Bytes;
 
+		/*
 		ndprint(SIGBLOCK_DEBUG, "start=%d,bytes=%d,offsetbytes=%d,offset=%d\n",
 				pagenode->startPageID, pagenode->Bytes,
 				pagenode->OffsetBytes, offset);
+		*/
 	}
 	if (pagenode)
 		pagenode->retVal = 0;

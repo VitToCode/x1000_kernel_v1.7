@@ -136,7 +136,9 @@ static int nand_rq_map_sl(struct request_queue *q,
 						  struct request *req,
 						  SectorList **sllist,
 						  int bufflist_context,
-						  int sectorsize)
+						  int sectorsize,
+						  void *buf,
+						  int needmerge)
 {
 	struct bio_vec *bvec, *bvprv = NULL;
 	struct req_iterator iter;
@@ -151,7 +153,29 @@ static int nand_rq_map_sl(struct request_queue *q,
 	cluster = blk_queue_cluster(q);
 	rq_for_each_segment(bvec, req, iter) {
 		int nbytes = bvec->bv_len;
-		if (bvprv && cluster) {
+
+		if (needmerge) {
+			if (!sl) {
+				sl = (SectorList *)BuffListManager_getTopNode(bufflist_context, sizeof(*sl));
+				if (!sl) {
+					printk("ERROR: BuffListManager_getTopNode error!\n");
+					return -ENOMEM;
+				}
+
+				sl->startSector = startSector;
+				sl->sectorCount = 0;
+				sl->pData = buf;
+
+				nsegs ++;
+				*sllist = sl;
+			}
+
+			memcpy((buf + sl->sectorCount * sectorsize), (page_address(bvec->bv_page) + bvec->bv_offset), nbytes);
+			sl->sectorCount += nbytes / sectorsize;
+			continue;
+		}
+
+		if (bvprv && cluster && sl) {
 			if ((sl->sectorCount * sectorsize + nbytes) > queue_max_segment_size(q))
 				goto new_segment;
 			if (!BIOVEC_PHYS_MERGEABLE(bvprv, bvec))
@@ -197,6 +221,8 @@ static int handle_req_thread(void *data)
 {
 	int err = 0;
 	int ret = 0;
+	int needmerge = 0;
+	void *buf = NULL;
 	struct request *req = NULL;
 	struct __nand_disk *ndisk = NULL;
 	struct request_queue *q = (struct request_queue *)data;
@@ -239,7 +265,16 @@ static int handle_req_thread(void *data)
 			ndisk->sl = NULL;
 
 			spin_lock_irq(q->queue_lock);
-			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context, ndisk->sectorsize);
+			if ((rq_data_dir(req) != READ) && (ndisk->pinfo->pt->mode != ZONE_MANAGER)) {
+				buf = kmalloc(ndisk->segmentsize, GFP_KERNEL);
+				if (buf == NULL) {
+					printk("%s, alloc memory error\n", __func__);
+					break;
+				}
+				needmerge = 1;
+			}
+			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context,
+										   ndisk->sectorsize, buf, needmerge);
 			spin_unlock_irq(q->queue_lock);
 
 			if (!ndisk->sl || (ndisk->sl_len < 0)) {
@@ -255,6 +290,11 @@ static int handle_req_thread(void *data)
 				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
 			else
 				ret = NandManger_write(ndisk->pinfo->context, ndisk->sl);
+
+			if (buf) {
+				kfree(buf);
+				needmerge = 0;
+			}
 
 			BuffListManager_freeAllList(ndisk->sl_context, (void **)(&ndisk->sl), sizeof(*ndisk->sl));
 

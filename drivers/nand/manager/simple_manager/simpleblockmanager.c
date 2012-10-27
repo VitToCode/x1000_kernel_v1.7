@@ -146,9 +146,11 @@ static void sectornode_to_pagelist(SmbContext *conptr,
 		pagenode->pData  = (unsigned char *)snod->pData + offset;
 		frontbytes = pagenode->Bytes;
 
+		/*
 		ndprint(SIGBLOCK_DEBUG, "start=%d,bytes=%d,offsetbytes=%d,offset=%d\n",
 				pagenode->startPageID, pagenode->Bytes,
 				pagenode->OffsetBytes, offset);
+		*/
 	}
 	if (pagenode)
 		pagenode->retVal = 0;
@@ -554,12 +556,12 @@ static int split_sectornode_to_block_rw(SmbContext *conptr,
 
 		rwnode.pData = (unsigned char *)(node->pData) + bufoffset;
 
-/*
-  ndprint(SIGBLOCK_DEBUG, "%s:start Sec:%d,Count:%d,buffoffset in sector:%d\n",
-  rwflag == 0 ? "write" : "read",
-  rwnode.startSector, rwnode.sectorCount,
-  bufoffset / SECTOR_SIZE);
-*/
+		/*
+		  ndprint(SIGBLOCK_DEBUG, "%s:start Sec:%d,Count:%d,buffoffset in sector:%d\n",
+		  rwflag == 0 ? "write" : "read",
+		  rwnode.startSector, rwnode.sectorCount,
+		  bufoffset / SECTOR_SIZE);
+		*/
 		bufoffset += rwnode.sectorCount * SECTOR_SIZE;
 
 		ret = single_block_rw(conptr, &rwnode, rwflag);
@@ -591,8 +593,9 @@ static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
 			continue;
 		}
 		blockcnt = get_unit_count_from_sl(sl_node, conptr->spb);
-		ndprint(SIGBLOCK_INFO, "Simple %s: sl_node = %p, blockcnt = %d, startSector = %d, sectorCount = %d\n\n",
-				(SIMP_WRITE == rwflag ? "Write" : "Read"), sl_node, blockcnt, sl_node->startSector, sl_node->sectorCount);
+		ndprint(SIGBLOCK_INFO, "Simple %s: sl_node = %p, startSector = %d, sectorCount = %d, pData = %p\n\n",
+				(SIMP_WRITE == rwflag ? "Write" : "Read"), sl_node, sl_node->startSector,
+				sl_node->sectorCount, sl_node->pData);
 		if (1 == blockcnt) {
 			ret = single_block_rw(conptr, sl_node, rwflag);
 		} else {
