@@ -105,6 +105,7 @@ static inline int jz47_ipu_wait_frame_end_flag(struct jz_ipu *ipu)
 	return 0;
 }
 
+#if 0
 static void reset_ipu(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
@@ -112,9 +113,8 @@ static void reset_ipu(struct jz_ipu *ipu)
 	tmp = reg_read(ipu, IPU_TRIG);
 	tmp |= IPU_RESET;
 	reg_write(ipu, IPU_TRIG, tmp);
-	tmp &= ~IPU_RESET;
-	reg_write(ipu, IPU_TRIG, tmp);
 }
+#endif
 
 static void enable_csc_mode(struct jz_ipu *ipu)
 {
@@ -1081,7 +1081,7 @@ static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
    		clk_enable(ipu->clk);
 	}
 
-	reset_ipu(ipu);
+	//reset_ipu(ipu);
 	ret = jz47_ipu_init(ipu, img);
 	if (ret < 0) {
 		dev_err(ipu->dev, "jz47_ipu_init failed\n");

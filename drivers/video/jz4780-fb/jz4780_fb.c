@@ -914,6 +914,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 		spin_lock(&jzfb->suspend_lock);
 		if (jzfb->is_suspend) {
+			jzfb->is_suspend = 0;
 			spin_unlock(&jzfb->suspend_lock);
 			if (jzfb->pdata->lvds && jzfb->id) {
 				jzfb_lvds_pll_reset(jzfb->fb);
@@ -1559,16 +1560,16 @@ static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
-	spin_lock(&jzfb->suspend_lock);
-	jzfb->is_suspend = 0;
-	spin_unlock(&jzfb->suspend_lock);
-
 	if (jzfb->pdata->alloc_vidmem) {
 		fb_set_suspend(jzfb->fb, 0);
 		fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
 	} else {
 		jzfb_blank(FB_BLANK_UNBLANK, jzfb->fb);
 	}
+
+	spin_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 0;
+	spin_unlock(&jzfb->suspend_lock);
 }
 #endif
 
