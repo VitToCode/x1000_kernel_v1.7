@@ -1566,7 +1566,7 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 	SigZoneInfo *sigpt = NULL;
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
-	short vaildpage =  conptr->vnand.PagePerBlock * BLOCKPERZONE(zonep->vnand);
+	unsigned short vaildpage =  conptr->vnand.PagePerBlock * BLOCKPERZONE(zonep->vnand);
 
 	index = Hash_FindFirstLessLifeTime(zonep->useZone,lifetime,&sigp);
 	if(index == -1){
@@ -1575,7 +1575,7 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 	}
 
 	do {
-		if(vaildpage > (short)sigp->validpage)
+		if(vaildpage > (unsigned short)sigp->validpage)
 		{
 			vaildpage = sigp->validpage;
 			sigpt = sigp;
