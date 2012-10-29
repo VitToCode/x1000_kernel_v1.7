@@ -125,6 +125,7 @@ struct jznand_dma{
 	struct pdma_msg         *msg;
         dma_addr_t              msg_phyaddr;
 	PPartition              *ppt;
+	int                     cache_phypageid;
 };
 /*
 int nand_dma_init(NAND_API *pnand_api);
