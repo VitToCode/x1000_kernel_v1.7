@@ -25,6 +25,9 @@ config BOARD_M80701
 config BOARD_HDMI_80
 		bool "HDMI_80"
 
+config BOARD_NPM801
+		bool "NPM801"
+
 endchoice
 
 config BOARD_NAME
@@ -36,4 +39,5 @@ config BOARD_NAME
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
 	default "M80701" if BOARD_M80701
+	default "NPM801" if BOARD_NPM801
 
