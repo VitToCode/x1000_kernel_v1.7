@@ -217,6 +217,9 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 			__FUNCTION__, __LINE__);
 		return -1;
 	}
+	if(CacheManager_CheckCacheAll ((int)conptr->cachemanager,0,0)){
+		while(1);
+	}
 
 #ifndef NO_ERROR
 	Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
