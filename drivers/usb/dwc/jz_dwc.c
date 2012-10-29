@@ -148,13 +148,15 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 
 void jz_dwc_set_vbus(dwc_otg_core_if_t *core_if, int is_on)
 {
-	struct dwc_jz_pri *jz_pri = core_if->jz_pri;
 	int ret = 0;
+	dwc_irqflags_t flags;
+	struct dwc_jz_pri *jz_pri = core_if->jz_pri;
 
 	if (jz_pri == NULL || jz_pri->vbus == NULL) {
 		return;
 	}
 
+	DWC_SPINLOCK_IRQSAVE(core_if->lock, &flags);
 	if (is_on) {
 		if (!regulator_is_enabled(jz_pri->vbus))
 			ret = regulator_enable(jz_pri->vbus);
@@ -162,6 +164,7 @@ void jz_dwc_set_vbus(dwc_otg_core_if_t *core_if, int is_on)
 		if (regulator_is_enabled(jz_pri->vbus))
 			ret = regulator_disable(jz_pri->vbus);
 	}
+	DWC_SPINUNLOCK_IRQRESTORE(core_if->lock, flags);
 }
 
 struct dwc_jz_pri *jz_dwc_init(void)

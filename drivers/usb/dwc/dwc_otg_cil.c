@@ -1508,9 +1508,6 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	}
 	
 
-	/* Enable common interrupts */
-	dwc_otg_enable_common_interrupts(core_if);
-
 	/* Do device or host intialization based on mode during PCD
 	 * and HCD initialization  */
 	if (dwc_otg_is_host_mode(core_if)) {
@@ -1525,6 +1522,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		dwc_otg_core_dev_init(core_if);
 #endif
 	}
+
+	/* Enable common interrupts */
+	dwc_otg_enable_common_interrupts(core_if);
 }
 
 /**
