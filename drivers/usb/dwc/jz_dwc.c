@@ -258,17 +258,7 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	/* OTGTUNE adjust */
 	cpm_outl(7 << 14, CPM_USBPCR);
 
-	if (regulator_is_enabled(jz_pri->vbus)) {
-		/*
-		 * If device crashed with vbus on, vbus regulator may be unbalenced.
-		 */
-		dwc_warn("vbus regulator already enabled, then disable it\n");
-		regulator_enable(jz_pri->vbus);
-		regulator_disable(jz_pri->vbus);
-	}
-
         /* enalbe OTG PHY */
-
 #ifndef CONFIG_DISABLE_PHY
 	jz_dwc_phy_switch(jz_pri, 1);
 #else
