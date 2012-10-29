@@ -673,17 +673,17 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	g_pnand_data = (struct platform_nand_data *)(pdev->dev.platform_data);
 	if (!g_pnand_data) {
 		dev_err(&pdev->dev, "No platform_data\n");
-		goto nand_probe_error1;
+                return -1;
 	}
 	g_pnand_api.vnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
 	if(!g_pnand_api.vnand_base){
 		dev_err(&pdev->dev,"Malloc virtual nand base info \n");
-		goto nand_probe_error2;
+		goto nand_probe_error1;
 	}
 	g_pnand_api.pnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
 	if(!g_pnand_api.pnand_base){
 		dev_err(&pdev->dev,"Malloc physical nand base info \n");
-		goto nand_probe_error3;
+		goto nand_probe_error2;
 	}
 	/*   get nemc clock and bch clock   */
 	g_pnand_api.vnand_base->nemc_gate =clk_get(&pdev->dev,"nemc");
@@ -697,12 +697,12 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs) {
 		dev_err(&pdev->dev, "No nemc iomem resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "No nemc irq resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->nemc_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->nemc_iomem =(void __iomem *)regs->start;
@@ -711,12 +711,12 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!regs) {
 		dev_err(&pdev->dev, "No bch iomem resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	irq = platform_get_irq(pdev, 1);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "No bch irq resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->bch_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->bch_iomem =(void __iomem *)regs->start;
@@ -725,12 +725,12 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	if (!regs) {
 		dev_err(&pdev->dev, "No pdma iomem resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	irq = platform_get_irq(pdev, 2);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "No pdma irq resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->pdma_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->pdma_iomem =(void __iomem *)regs->start;
@@ -740,7 +740,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 3);
 	if (!regs) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
@@ -752,7 +752,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	if (gpio_request_one(g_pnand_api.pnand_base->irq,
 				GPIOF_DIR_IN, "nand_rb")) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	irq = gpio_to_irq(g_pnand_api.pnand_base->irq);
 	printk("%d------------------\n",irq);
@@ -760,7 +760,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 			"jznand-wait-rb",NULL);
 	if (ret) {
 		dev_err(&g_pdev->dev,"request detect irq-%d fail\n",gpio_to_irq(GPIOA_20_IRQ));
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
 
@@ -768,7 +768,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	ret = init_nand_driver();
 	if(ret){
 		dev_err(&g_pdev->dev,"init_nand_driver failed\n");
-		goto nand_probe_error4;
+		goto nand_probe_error3;
 		}
 
 //	printk("@@@@------------------\n");
@@ -780,12 +780,10 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 
 	printk("INFO: nand probe finish!\n");
 	return 0;
-nand_probe_error4:
-	nand_free_buf(g_pnand_api.pnand_base);
 nand_probe_error3:
-	nand_free_buf(g_pnand_api.vnand_base);
+	nand_free_buf(g_pnand_api.pnand_base);
 nand_probe_error2:
-	nand_free_buf(g_pnand_data);
+	nand_free_buf(g_pnand_api.vnand_base);
 nand_probe_error1:
 	return -ENXIO;
 }

@@ -56,18 +56,16 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 
 			if (nand->report & ALL_FF) { /* Read Ecc all 0xff */
 				nand->mode = PNAND_HALT;
-				__pdmac_mnmb_send(MB_NAND_ALL_FF);
-
 				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
 				__nand_disable();
 				channel_irq &= ~(1 << PDMA_NEMC_CHANNEL);
+				__pdmac_mnmb_send(MB_NAND_ALL_FF);
                         } else if (nand->report & UNCOR_ECC) { /* Uncorrectable Error */
 				nand->mode = PNAND_HALT;
-				__pdmac_mnmb_send(MB_NAND_UNCOR_ECC);
-
 				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
 				__nand_disable();
 				channel_irq &= ~(1 << PDMA_NEMC_CHANNEL);
+				__pdmac_mnmb_send(MB_NAND_UNCOR_ECC);
 			} else {
 				ddr_channel_cfg((pipe_buf + ((nand->pipe_cnt - 1) & 0x1))->pipe_data,
 						nand->ddr_addr + (nand->pipe_cnt -1) * nand->eccsize,
