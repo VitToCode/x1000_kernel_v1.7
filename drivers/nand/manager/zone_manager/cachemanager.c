@@ -240,13 +240,11 @@ int CacheManager_Init ( int context )
 	ret = init_L2L3L4cache(cm);
 	if (ret == -1)
 		goto ERROR;
-
 	/* init mutex */
 	InitNandMutex(&cm->mutex);
 
 	/* init lct */
 	init_lct(cm);
-
 	return 0;
 
 ERROR:
@@ -657,25 +655,55 @@ static int checkdatainfo(unsigned int *d,int size,unsigned int startpageid,unsig
 	}
 	return 0;
 }
+static int checkreaddatainfo(CacheManager *cm,unsigned int pageid,unsigned int startpageid,unsigned int count,int layer) {
+	int i;
+	unsigned int *ldata;
+	unsigned int *data;
+	int ret = 0;
+	int len = 0;
 
-void CacheManager_CheckCacheAll ( int context,unsigned int startpageid,unsigned int count)
+	if(layer == 1)
+		len = cm->L2InfoLen;
+	if(layer == 2)
+		len = cm->L3InfoLen;
+	if(layer == 3)
+		len = cm->L4InfoLen;
+	data = (unsigned int *)readpageinfo(cm,pageid,layer);
+	if(data){
+		if(layer == 3){
+			if(checkdatainfo(data,len / 4,startpageid,count))
+				return 1;
+		}
+		return 0;
+	 }else return 0;
+
+	ldata = Nand_VirtualAlloc(len);
+	for( i = 0;i < len/4;i++)
+	{
+		if(data[i] == -1) continue;
+		if(data[i] >= startpageid && data[i] < startpageid + count){
+			ret = 1;
+			break;
+		}else{
+
+			if(checkreaddatainfo(cm,pageid,startpageid,count,layer++)){
+				ret = 1;
+				break;			}
+		}
+	}
+	Nand_VirtualFree(ldata);
+	return ret;
+}
+int CacheManager_CheckCacheAll ( int context,unsigned int startpageid,unsigned int count)
 {
 	CacheManager *cachemanager = (CacheManager *)context;
 	CacheData *ld;
-	CacheList *lx;
-	int i,j;
+	int i;
 	int ret = 0;
 	unsigned int pageid;
-	unsigned int *l2data = NULL;
-	unsigned int *l3data = NULL;
-	unsigned int *lxdata = NULL;
-
 	NandMutex_Lock(&(cachemanager->mutex));
-	if(cachemanager->L2InfoLen) l2data = Nand_VirtualAlloc(cachemanager->L2InfoLen);
-	if(cachemanager->L3InfoLen) l3data = Nand_VirtualAlloc(cachemanager->L2InfoLen);
 
 	ld = cachemanager->L1Info;
-	lx = ld;
 	for(i = 0;i < 512;i++) {
 		if(ld->Index[i] == -1) continue;
 		pageid = ld->Index[i];
@@ -683,11 +711,19 @@ void CacheManager_CheckCacheAll ( int context,unsigned int startpageid,unsigned 
 			ret = 1;
 			goto exit;
 		}
+		if(cachemanager->L2InfoLen && checkreaddatainfo(cachemanager,pageid,startpageid,count,1)) {
+			ret = 1;
+			goto exit;
+		}else if(cachemanager->L3InfoLen && checkreaddatainfo(cachemanager,pageid,startpageid,count,2)) {
+			ret = 1;
+			goto exit;
+		} else if(cachemanager->L4InfoLen &&  checkreaddatainfo(cachemanager,pageid,startpageid,count,3)){
+			ret = 1;
+			goto exit;
+		}
 
 	}
 
-	if(l2data) Nand_VirtualFree(l2data);
-	if(l3data) Nand_VirtualFree(l3data);
 exit:
 	NandMutex_Unlock(&(cachemanager->mutex));
 	return ret;
