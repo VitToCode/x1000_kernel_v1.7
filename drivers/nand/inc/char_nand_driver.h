@@ -25,7 +25,7 @@ enum nand_dug_cmd {
         CMD_NAND_DUG_WRITE,
         CMD_NAND_DUG_ERASE,
 		CMD_PARTITION_ERASE = 98,
-		CMD_INSTALL_PARTITION = 99,
+		CMD_ERASE_ALL = 99,
 };
 
 struct NandInfo{

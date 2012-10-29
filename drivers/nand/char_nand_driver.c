@@ -113,7 +113,7 @@ static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 			int ptIndex = -1;
 			ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
 			if (!ret) {
-				for (i=0; i < nand_ops->ppa.ptcount; i ++) {
+				for (i=0; i < nand_ops->ppa.ptcount; i++) {
 					printk("match partition: ppt[%d] = [%s], ptname = [%s]\n", i, nand_ops->ppa.ppt[i].name, ptname);
 					if (!strcmp(nand_ops->ppa.ppt[i].name, ptname)) {
 						ptIndex = i;
@@ -127,11 +127,39 @@ static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 					break;
 				}
 
+				printk("erase nand partition %s\n", nand_ops->ppa.ppt[ptIndex].name);
 				for (i=0; i < nand_ops->ppa.ppt[ptIndex].totalblocks; i++){
 					bl.startBlock = i;
 					bl.BlockCount = 1;
 					bl.head.next = NULL;
-					nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[ptIndex]),&bl);
+					ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[ptIndex]),&bl);
+					if (ret != 0) {
+						ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[ptIndex]), bl.startBlock);
+						if (ret != 0) {
+							printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
+								   __func__, __LINE__, bl.startBlock);
+						}
+					}
+				}
+			}
+			break;
+		}
+		case CMD_ERASE_ALL: {
+			int j = 0;
+			for (i = 0; i < nand_ops->ppa.ptcount; i ++) {
+				printk("erase nand partition %s\n", nand_ops->ppa.ppt[i].name);
+				for (j = 0; j < nand_ops->ppa.ppt[i].totalblocks; j++) {
+					bl.startBlock = j;
+					bl.BlockCount = 1;
+					bl.head.next = NULL;
+					ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[i]), &bl);
+					if (ret != 0) {
+						ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[i]), bl.startBlock);
+						if (ret != 0) {
+							printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
+								   __func__, __LINE__, bl.startBlock);
+						}
+					}
 				}
 			}
 			break;
