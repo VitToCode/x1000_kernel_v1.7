@@ -32,7 +32,7 @@
 #include "cim_reg.h"
 
 #define PDESC_NR	4
-#define CDESC_NR	3
+#define CDESC_NR	1
 #define DEG() printk("fuchao ---------------- %s %d\n",__FUNCTION__,__LINE__)
 static LIST_HEAD(sensor_list);
 
@@ -109,6 +109,8 @@ struct jz_cim {
 	unsigned long tlb_base;
 	unsigned long preview_output_format;
 	unsigned long capture_output_format;
+	CameraYUVMeta p_yuv_meta_data[PDESC_NR];
+	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
 };
 
 static   unsigned long inline reg_read(struct jz_cim *cim,int offset)
@@ -269,7 +271,7 @@ void cim_set_default(struct jz_cim *cim)
 	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE |
 			(1 << CIM_CTRL2_OPG_BIT) | CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
 
-	cfg |= cim->desc->cim_cfg |CIM_CFG_DMA_BURST_INCR32 | CIM_CFG_DF_YUV422;
+	cfg |= cim->desc->cim_cfg | CIM_CFG_DMA_BURST_INCR32 | CIM_CFG_DF_YUV422;
 	fs = (w -1)<< CIM_FS_FHS_BIT | (h -1)<< CIM_FS_FVS_BIT | 1<< CIM_FS_BPP_BIT;
 
 	reg_write(cim,CIM_CFG,cfg);
@@ -698,6 +700,7 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 	int i;
 	unsigned int preview_imgsize = cim->psize.w * cim->psize.h;
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->pdesc_vaddr;
+	CameraYUVMeta *yuv_meta_data = (CameraYUVMeta *) addr;
 	
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
@@ -705,27 +708,27 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 	for(i=0;i<PDESC_NR;i++) {
 		desc[i].next = (dma_addr_t)(&cim->preview[i+1]);
 		desc[i].id 	= i;
-		desc[i].buf	= addr + i * preview_imgsize * 2;
+		desc[i].buf = yuv_meta_data[i].yPhy;
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 		else
 			desc[i].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
-		dev_info(cim->dev,"cim set Y buffer phys is %d  %x\n",i,desc[i].buf);
+		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n", i, desc[i].buf);
 		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = (desc[i].buf + preview_imgsize) & 0xffffff80; //aligned to 32-word boundary
-				desc[i].cr_frame = (desc[i].cb_frame + (preview_imgsize >> 2)) & 0xffffff80;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80; //aligned to 32-word boundary
+				desc[i].cr_frame = yuv_meta_data[i].vPhy & 0xffffff80;
 			
 			} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
-				desc[i].cb_frame = desc[i].buf + preview_imgsize;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy;
 				desc[i].cr_frame = desc[i].cb_frame + 64;	
 			} 
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
-			dev_info(cim->dev,"cim set C buffer phys is %d  %x\n",i,desc[i].cb_frame);
+			dev_info(cim->dev,"cim set C buffer[%d] phys is: %x\n", i, desc[i].cb_frame);
 		}
 	}
 
@@ -739,31 +742,32 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 	int i;
 	unsigned int capture_imgsize = cim->csize.w * cim->csize.h;
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->cdesc_vaddr;
-
+	CameraYUVMeta *yuv_meta_data = (CameraYUVMeta *) addr;
+	
 	for(i = 0; i < CDESC_NR; i++) {
 		desc[i].next = (dma_addr_t)(&cim->capture[i+1]);
 		desc[i].id 	= i;
-		desc[i].buf	= addr + i * capture_imgsize * 2;
+		desc[i].buf = yuv_meta_data[i].yPhy;
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (capture_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 		else
 			desc[i].cmd = ((capture_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
-		dev_info(cim->dev,"cim set Y buffer phys is %d  %x\n",i,desc[i].buf);
+		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n",i,desc[i].buf);
 		
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->capture_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = (desc[i].buf + capture_imgsize) & 0xffffff80; //aligned to 32-word boundary
-				desc[i].cr_frame = (desc[i].cb_frame + (capture_imgsize >> 2)) & 0xffffff80;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80;
+				desc[i].cr_frame = yuv_meta_data[i].vPhy & 0xffffff80;
 			
 			} else if(cim->capture_output_format == CIM_CSC_YUV420B) {
-				desc[i].cb_frame = desc[i].buf + capture_imgsize;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80;
 				desc[i].cr_frame = desc[i].cb_frame + 64;	
 			} 
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
-			dev_info(cim->dev,"cim set C buffer phys is %d  %x\n",i,desc[i].cb_frame);
+			dev_info(cim->dev,"cim set C buffer[%d] phys is: %x\n",i,desc[i].cb_frame);
 		}
 	}
 	
