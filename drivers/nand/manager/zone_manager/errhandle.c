@@ -131,9 +131,10 @@ static int write_page0(int errinfo)
 	unsigned short zoneid = einfo->err_zoneid;
 	Context *conptr = (Context *)(einfo->context);
 	VNandInfo *vnand = &conptr->vnand;
-	//ZoneManager *zonep = conptr->zonep;
+	ZoneManager *zonep = conptr->zonep;
 	//int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 	int start_blockno = zoneid * BLOCKPERZONE(zonep->vnand);
+	unsigned short badblockno = 0;
 
 	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
@@ -148,7 +149,9 @@ static int write_page0(int errinfo)
 	nandsigzoneinfo->lifetime = sigzoneinfo->lifetime;
 	nandsigzoneinfo->badblock = sigzoneinfo->badblock;
 
-	pl->startPageID = start_blockno * vnand->PagePerBlock;
+	while(nm_test_bit(badblockno,&((zonep->sigzoneinfo+zoneid)->badblock)) && (++badblockno));
+
+	pl->startPageID = (start_blockno +badblockno)* vnand->PagePerBlock;
 	pl->pData = (void *)buf;
 	pl->Bytes = vnand->BytePerPage;
 	pl->retVal = 0;
@@ -157,8 +160,8 @@ static int write_page0(int errinfo)
 	
 	ret = vNand_MultiPageWrite(vnand,pl);
 	if(ret < 0) {
-		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"
-					,__FUNCTION__,__LINE__);
+		ndprint(1,"vNand_MultiPageWrite error func %s line %d pageid:%d\n"
+				,__FUNCTION__,__LINE__,pl->startPageID);
 		return -1;
 	}
 
@@ -271,7 +274,7 @@ static int get_prev_zone(int errinfo, Zone **zone)
 	Context *conptr = (Context *)context;
 	VNandInfo *vnand = &conptr->vnand;
 	ZoneManager *zonep = conptr->zonep;
-	
+	unsigned short badblockno = 0;
 	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
 		ndprint(1,"Nand_VirtualAlloc error func %s line %d \n"
@@ -281,8 +284,9 @@ static int get_prev_zone(int errinfo, Zone **zone)
 
 	/*ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
 	  vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);*/
+	while(nm_test_bit(badblockno,&((zonep->sigzoneinfo+last_zoneid)->badblock)) && (++badblockno));
 
-	ret = vNand_PageRead(vnand,(last_zoneid * BLOCKPERZONE(zonep->vnand)) * 
+	ret = vNand_PageRead(vnand,(last_zoneid * BLOCKPERZONE(zonep->vnand) + badblockno) *
 		vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d \n"
