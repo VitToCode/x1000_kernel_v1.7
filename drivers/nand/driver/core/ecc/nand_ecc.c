@@ -313,7 +313,6 @@ static inline void ecc_init(void *nand_ecc, void *flash_type)
 {
 
 	NAND_FLASH_DEV *type = (NAND_FLASH_DEV *)flash_type;
-	dbg_line();
 
 	pnand_ecc = (JZ_ECC *)nand_ecc;
 

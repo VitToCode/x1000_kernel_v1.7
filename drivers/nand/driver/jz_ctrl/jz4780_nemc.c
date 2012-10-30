@@ -34,7 +34,7 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	int smcr_val = 0;
 	int data;
 	
-	dprintf("==>%s L%d, bchclk=%d, clk=%d, cycle=%d\n",__func__,__LINE__,bchclk,clk,cycle);
+	dprintf("INFO: bchclk=%dMHz clk=%dMHz cycle=%dns\n",bchclk/1000000,clk/1000000,cycle);
 /*	dprintf("==>%s L%d, h2div=%d, cclk=%d, h2clk=%d, cycle=%d\n",
 			__func__, __LINE__,
 			div[h2div], cclk,
@@ -57,8 +57,8 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	data = data / cycle + 1;
 	smcr_val |= (data & NEMC_SMCR_STRV_MASK) << NEMC_SMCR_STRV_BIT;
 
-	dprintf("==>%s L%d, tals=%d, talh=%d, twp=%d, trp=%d, smcr=0x%08x\n", __func__, __LINE__, flash->tals, flash->talh, flash->twp, flash->trp, smcr_val);
-//	smcr_val =0x18331400;
+	dprintf("INFO: tals=%d talh=%d twp=%d trp=%d smcr=0x%08x\n"
+                        , flash->tals, flash->talh, flash->twp, flash->trp, smcr_val);
 	return smcr_val;
 }
 
@@ -73,11 +73,11 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	if(p_io == 0)
 	  dprintf("error addr!p_io is 0x%x\n",(unsigned int)p_io);
 /*      gpio init          */
+#if 0
 	*(volatile unsigned int *)(0xb0010018) =0x00430000;
 	*(volatile unsigned int *)(0xb0010028) =0x00430000;
 	*(volatile unsigned int *)(0xb0010038) =0x00430000;
 	*(volatile unsigned int *)(0xb0010048) =0x00430000;
-#if 0
 	*(volatile unsigned int *)(0xb0010014) =0x00100000;
 	*(volatile unsigned int *)(0xb0010028) =0x00100000;
 	*(volatile unsigned int *)(0xb0010034) =0x00100000;
@@ -89,7 +89,6 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	*(volatile unsigned int *)(0xb0010048) =0x002c00ff;
 	*(volatile unsigned int *)(0xb0010074) =0x002c00ff;
 	*(volatile unsigned int *)(0xb0010174) =0x00000003;
-#endif
 	dprintf("gpioa int =0x%x \n ",*(unsigned int *)0xb0010010);
 	dprintf("gpioa mask =0x%x \n ",*(unsigned int *)0xb0010020);
 	dprintf("gpioa pat1 =0x%x \n ",*(unsigned int *)0xb0010030);
@@ -100,10 +99,9 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	dprintf("gpiob pat0 =0x%x \n ",*(unsigned int *)0xb0010140);
 	dprintf("nemc nfcsr =0x%x \n ",*(unsigned int *)0xb3410050);
 	dprintf("nemc smcr =0x%x \n ",*(unsigned int *)0xb3410014);
-
+#endif
 	p_io->buswidth = 8;
 	p_io->pagesize = 2048;
-	dbg_line();	
 	/* Read/Write timings */
 //	init_nandchip_smcr_n(host,1,SMCR_DEFAULT_VAL);
 	//*(volatile unsigned int *)0xb3410014 = 0x11444400;
@@ -261,10 +259,7 @@ void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
 #endif
 	}
 	p_io->pagesize = pnand_type->pagesize;
-	
 	nemc_writel(host->nemc_iomem,NEMC_SMCR1,smcr);
-	dprintf("SMCR = 0x%08x\n", nemc_readl(host->nemc_iomem,NEMC_SMCR1));	
-	
 	while(ret < g_maxchips)
 	{
 		if(g_chips_mark[i]){

@@ -118,7 +118,7 @@ void dump_nand_chip(JZ_NAND_CHIP *pnand_chip)
 	dprintf("  writesize     %d\n", pnand_chip->writesize);
 	dprintf("  erasesize     %d\n", pnand_chip->erasesize);
 	dprintf("  chipsize     %lld\n", pnand_chip->chipsize);
-	dprintf("---\n");
+	dprintf("^_^\n");
 
 }
 
@@ -131,7 +131,7 @@ static void dump_nand_io(JZ_IO *pnand_io)
 	dprintf("  addrport    0x%x\n", (int)pnand_io->addrport);
 	dprintf("  buswidth    %d\n", pnand_io->buswidth);
 	dprintf("  pagesize    %d\n", pnand_io->pagesize);
-	dprintf("---\n");
+	dprintf("-_-\n");
 }
 
 static void dump_nand_ecc(JZ_ECC *pnand_ecc)
@@ -143,22 +143,21 @@ static void dump_nand_ecc(JZ_ECC *pnand_ecc)
 	dprintf("  eccbit    %d\n", pnand_ecc->eccbit);
 	dprintf("  eccpos    %d\n", pnand_ecc->eccpos);
 	dprintf("  eccsteps   %d\n", pnand_ecc->eccsteps);
-	dprintf("---\n");
+	dprintf("-_-\n");
 }
 
 void dump_nand_api(NAND_API *pnand_api)
 {
 	dprintf("NAND API:\n");
-
 	dprintf("  writesize=%d\n", pnand_api->writesize);
 	dprintf("  erasesize=%d\n", pnand_api->erasesize);
 	dprintf("  ppblock=%d\n", pnand_api->ppblock);
 	dprintf("  totalblock=%d\n", pnand_api->totalblock);
-	dprintf("nemc:0x%x\n",(unsigned int)(pnand_api->nand_ctrl));
-	dprintf("ecc:0x%x\n",(unsigned int)(pnand_api->nand_ecc));
-	dprintf("io:0x%x\n",(unsigned int)(pnand_api->nand_io));
-	dprintf("chip:0x%x\n",(unsigned int)(pnand_api->nand_chip));
-	dprintf("---\n");
+	dprintf("  nemc:0x%x\n",(unsigned int)(pnand_api->nand_ctrl));
+	dprintf("  ecc:0x%x\n",(unsigned int)(pnand_api->nand_ecc));
+	dprintf("  io:0x%x\n",(unsigned int)(pnand_api->nand_io));
+	dprintf("  chip:0x%x\n",(unsigned int)(pnand_api->nand_chip));
+	dprintf("o_o\n");
 }
 #endif
 
@@ -404,7 +403,7 @@ static int init_nand_driver(void)
 	}
 #endif
 
-	dprintf("\nDEBUG nand:nand_init over *******\n");
+	dprintf("INFO: nand init finish\n");
 	return 0;
 init_nand_driver_error2:
 	nand_free_buf(g_partition);
@@ -665,9 +664,8 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	struct resource         *regs;
 	int             irq;
 	int ret=0;
-        /* disable nand 'WP' */
-        gpio_direction_output(GPIO_PF(22), 1);
 
+	printk("INFO: Nand driver start...\n");
 	g_pdev = pdev;
 	g_pnand_api.pdev = (void *)pdev;
 	g_pnand_data = (struct platform_nand_data *)(pdev->dev.platform_data);
@@ -675,6 +673,14 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No platform_data\n");
                 return -1;
 	}
+        g_pnand_api.gpio_wp = g_pnand_data->gpio_wp;
+	if (gpio_request(g_pnand_api.gpio_wp, "nand_wp")) {
+		dev_err(&pdev->dev, "No platform_data\n");
+                return -1;
+        }
+        /* disable nand 'WP' */
+        gpio_direction_output(g_pnand_api.gpio_wp, 1);
+
 	g_pnand_api.vnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
 	if(!g_pnand_api.vnand_base){
 		dev_err(&pdev->dev,"Malloc virtual nand base info \n");
@@ -745,17 +751,13 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	g_pnand_api.vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
 	g_pnand_api.pnand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
 
-	//	printk(" nemc_cs6_iomem = 0x%x *********\n",regs->start);
 	/*   nand rb irq request */
-
-        printk("irq  is  %d\n",g_pnand_api.pnand_base->irq);
 	if (gpio_request_one(g_pnand_api.pnand_base->irq,
 				GPIOF_DIR_IN, "nand_rb")) {
 		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
 		goto nand_probe_error3;
 	}
 	irq = gpio_to_irq(g_pnand_api.pnand_base->irq);
-	printk("%d------------------\n",irq);
 	ret = request_irq(irq,jznand_waitrb_interrupt,IRQF_DISABLED | IRQF_TRIGGER_RISING,
 			"jznand-wait-rb",NULL);
 	if (ret) {
@@ -764,21 +766,19 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	}
 	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
 
-//	printk("### %s ------------------\n",__func__);
 	ret = init_nand_driver();
 	if(ret){
 		dev_err(&g_pdev->dev,"init_nand_driver failed\n");
 		goto nand_probe_error3;
 		}
 
-//	printk("@@@@------------------\n");
 	ret = Register_CharNandDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
 	if(ret){
 		dev_err(&g_pdev->dev,"init char_nand_driver failed\n");
 		}
 
 
-	printk("INFO: nand probe finish!\n");
+	printk("INFO: Nand probe success!\n");
 	return 0;
 nand_probe_error3:
 	nand_free_buf(g_pnand_api.pnand_base);

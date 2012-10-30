@@ -76,9 +76,10 @@ struct  platform_nand_partition{
  * @priv:		hardware controller specific settings
  */
 struct platform_nand_data {
-	int			nr_partitions;
+	int	nr_partitions;
 	struct platform_nand_partition	*partitions;
-	void			*priv;
+	void	*priv;
+        unsigned        gpio_wp;
 };
 
 #endif /* __LINUX_MTD_NAND_H */

@@ -24,16 +24,10 @@ static inline void dump_id(unsigned char *nand_id)
 	unsigned char dev_id = 0;
 	unsigned int  ext_id;
 
-	printk("DEBUG nand: nand_id 0x%x\n", (int)nand_id);
-
 	/* Read manufacturer and device IDs */	
 	maf_id = nand_id[0];
 	dev_id = nand_id[1];
 	ext_id = ((nand_id[4] << 16) | (nand_id[3] << 8) | nand_id[2]);
-
-	dprintf("DEBUG nand: maf_id 0x%08X\n", (int)maf_id);
-	dprintf("DEBUG nand: dev_id 0x%08X\n", (int)dev_id);
-	dprintf("DEBUG nand: ext_id 0x%08X\n", ext_id);
 }
 
 /**
@@ -47,8 +41,6 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	NAND_FLASH_DEV *pnand_type;
 	NAND_CTRL *pnand_ctrl = pnand_api->nand_ctrl;
 	JZ_IO *pnand_io = pnand_api->nand_io;
-	
-	dprintf("DEBUG nand:go into nand_init.c nand_get_flash_type\n");
 	/* select nand chip */
 	pnand_ctrl->chip_select(host,pnand_io,0);
 
@@ -56,7 +48,6 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	ret =nand_reset();
 	if(ret < 0)
 		return 0;
-	dprintf("DEBUG nand:go into nand_init.c nand_get_flash_type  ********************************\n");
 
 	/* read nand id */
 	nand_get_id(&nand_id[0]);
@@ -65,12 +56,9 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	/*get nand info from nand type info table in nand_ids.c*/
 	pnand_type = nand_scan_table(&nand_id[0]);
 #ifdef CONFIG_HW_BCH
-     printk(" nand hardware bch\n");
+        printk("nand hardware bch\n");
 #endif	
-	
 	pnand_ctrl->chip_select(host,pnand_io,-1);
-	dprintf("DEBUG nand:go out nand_init.c nand_get_flash_type\n");
-	
 	return pnand_type;
 }
 
@@ -111,10 +99,8 @@ static inline unsigned int calc_free_size(NAND_API *pnand_api)
 	else
 		freesize = 0;
 
-	dprintf("==>%s:\n pagesize=%d, eccsize=%d\n eccbytes=%d, eccpos=%d\n oobsize=%d, freesize=%d\n",
-			__func__, pagesize, eccsize,
-			eccbytes, eccpos,
-			oobsize, freesize);
+	dprintf("INFO: pagesize=%d eccsize=%d eccbytes=%d eccpos=%d oobsize=%d freesize=%d\n"
+                        ,pagesize, eccsize, eccbytes, eccpos, oobsize, freesize);
 
 	return freesize;
 }
@@ -169,11 +155,6 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	NAND_CTRL 		*pnand_ctrl = pnand_api->nand_ctrl;
 	JZ_IO 			*pnand_io = pnand_api->nand_io;
 	JZ_ECC 			*pnand_ecc = pnand_api->nand_ecc;
-	
-	dprintf("DEBUG nand:pnand_api 0x%x\n", (int)pnand_api);
-	dprintf("DEBUG nand:pnand_ctrl 0x%x\n", (int)pnand_ctrl);
-	dprintf("DEBUG nand:pnand_ecc 0x%x\n", (int)pnand_ecc);
-	dprintf("DEBUG nand:pnand_io 0x%x\n", (int)pnand_io);
 
 	do_nand_register(pnand_api);
 
@@ -194,7 +175,6 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	for (i = 1; i < g_maxchips; i++) {
 		/* select this device */
 		pnand_ctrl->chip_select(host,pnand_io,i);
-		
 		/* See comment in nand_get_flash_type for reset */
 		ret =nand_reset();
 		if(ret < 0)
@@ -205,13 +185,14 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 		/* De-select the device */
 		pnand_ctrl->chip_select(host,pnand_io,-1);
 		
-		/*compare this id with the first chip id, if not same, break,we cann't support, at the same time,
+		/*compare this id with the first chip id,
+                 * if not same, break,we cann't support,
+                 * at the same time,
 		 *ingore more chips which have been link to  CE.
 		 */
-		if (!issamechip(&nand_id[0],pnand_type))
-		{
-		  i--; 
-		  break;
+		if (!issamechip(&nand_id[0],pnand_type)){
+		        i--;
+		        break;
 		}
 	}
 	
@@ -221,13 +202,8 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	/*set really confige now*/
 	g_maxchips = i;
 	pnand_ctrl->setup_later(host,pnand_io,pnand_type);
-	dbg_line();
 	pnand_ecc->ecc_init(pnand_ecc,pnand_type);
-	dbg_line();
 	get_nand_chip(pnand_api,pnand_type);
-	dbg_line();
 	pnand_io->io_init(pnand_io);	
-	dbg_line();
 	return 0;
 }
-

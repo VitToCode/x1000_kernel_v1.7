@@ -16,13 +16,10 @@ static inline void jz4780_bch_init(void *nand_ecc, void *flash_type)
         //	__cpm_set_bchdiv(3);
         //	cpm_start_clock(CGM_BCH);
 
-        dbg_line();
-
         /*Inherit the default ecc operation*/
-
         jz_default_ecc.ecc_init(pjz4780_nand_ecc,flash_type);
-
         /*You can define the derived operations here*/
+        printk("INFO: BCH init ok\n");
 }
 
 /*

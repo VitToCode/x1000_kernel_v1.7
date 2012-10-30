@@ -53,14 +53,18 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 		} else if (nand->mode & PNAND_BCH_DEC) {
 			irq_bch_correct_handle(nand, pipe_buf + ((nand->pipe_cnt - 1) & 0x1));
 			nand->mode &= ~PNAND_BCH_DEC;
-
-			if (nand->report & ALL_FF) { /* Read Ecc all 0xff */
+			ddr_channel_cfg((pipe_buf + ((nand->pipe_cnt - 1) & 0x1))->pipe_data,
+					nand->ddr_addr + (nand->pipe_cnt -1) * nand->eccsize,
+					nand->eccsize, TCSM_TO_DDR);
+			__pdmac_channel_launch(PDMA_DDR_CHANNEL);
+/*
+			if (nand->report & ALL_FF) { // Read Ecc all 0xff
 				nand->mode = PNAND_HALT;
 				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
 				__nand_disable();
 				channel_irq &= ~(1 << PDMA_NEMC_CHANNEL);
 				__pdmac_mnmb_send(MB_NAND_ALL_FF);
-                        } else if (nand->report & UNCOR_ECC) { /* Uncorrectable Error */
+                        } else if (nand->report & UNCOR_ECC) { // Uncorrectable Error
 				nand->mode = PNAND_HALT;
 				while (REG_PDMAC_DCCS(PDMA_NEMC_CHANNEL) & PDMAC_DCCS_CTE);
 				__nand_disable();
@@ -72,6 +76,7 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 						nand->eccsize, TCSM_TO_DDR);
 				__pdmac_channel_launch(PDMA_DDR_CHANNEL);
 			}
+*/
 		}
 	}
 
@@ -127,10 +132,15 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 				nand->mode = PNAND_HALT;
 				__pn_disable();
 				__nand_disable();
-                                if(nand->report & MOVE_BLOCK)
+                                if(nand->report & ALL_FF) {
+                                        __pdmac_mnmb_send(MB_NAND_ALL_FF);
+                                } else if(nand->report & UNCOR_ECC) {
+                                        __pdmac_mnmb_send(MB_NAND_UNCOR_ECC);
+                                } else if(nand->report & MOVE_BLOCK) {
         				__pdmac_mnmb_send(MB_MOVE_BLOCK);
-	                        else
+                                } else {
         				__pdmac_mnmb_send(MB_NAND_READ_DONE);
+                                }
                         }
 			break;
 		case CTRL_WRITE_DATA :

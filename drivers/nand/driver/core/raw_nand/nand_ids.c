@@ -205,8 +205,7 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	dev_id = ((nand_id[0] << 8) | nand_id[1]);
 	ext_id = ((nand_id[4] << 16) | (nand_id[3] << 8) | nand_id[2]);
-	dprintf("dev_id 0x%x\n",dev_id);
-	dprintf("ext_id 0x%x\n",ext_id);
+	dprintf("INFO: Nand Flash dev_id:0x%x ext_id:0x%x\n", dev_id, ext_id);
 	/* Lookup the flash id */
 	for (i = 0; i < flash_num; i++)
 	{
@@ -225,6 +224,3 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	return &nand_flash_chips[index];
 }
-
-
-

@@ -6,7 +6,10 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 
+#define MCU_ONCE_RESERT
+#define NO_MEMSET
 //#define NAND_DMA_CALC_TIME
+
 #ifdef NAND_DMA_CALC_TIME
 static long long time =0;
 static inline  void b_time(void)
@@ -46,7 +49,9 @@ enum buf_direction {
 
 static struct completion comp;
 static volatile int mailbox_ret = 0;
-
+#ifdef MCU_ONCE_RESERT
+static volatile int mcuresflag = 1;
+#endif
 static inline void enable_rb_irq(const NAND_API *pnand_api)
 {
 	int rb_irq, irq;
@@ -71,10 +76,6 @@ static void data_complete_func(void *arg)
 static void mcu_complete_func(void *arg)
 {
 	int mailbox = *(int *)arg;
-//	unsigned int times = (mailbox & (0xffff<<8))>>8;
-//	if(times)
-//		printk("^^^^^ the time of mcu operation is : %d, %08x\n",times,mailbox);
-//	mailbox &= 0xff;
 	switch (mailbox) {
 		case MB_NAND_INIT_DONE:
 			mailbox_ret = 0;
@@ -130,7 +131,7 @@ static inline int do_select_chip(const NAND_API *pnand_api, unsigned int page)
  */
 static inline void do_deselect_chip(const NAND_API *pnand_api)
 {
-	//	pnand_api->nand_ctrl->chip_select(pnand_api->vnand_base,pnand_api->nand_io,-1);
+	//pnand_api->nand_ctrl->chip_select(pnand_api->vnand_base,pnand_api->nand_io,-1);
 }
 
 /*   get_physical_addr  */
@@ -142,8 +143,8 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
 	if(pt->use_planes)
 		page = ((page-toppage) / pnand_api->nand_chip->planenum) +
-			(pnand_api->nand_chip->ppblock * ((page-toppage) %
-											  pnand_api->nand_chip->planenum)) + toppage;
+			        (pnand_api->nand_chip->ppblock * ((page-toppage) %
+                                pnand_api->nand_chip->planenum)) + toppage;
 
 	return page;
 }
@@ -187,44 +188,30 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	struct jznand_dma *nand_dma = pnand_api->nand_dma;
 	struct device *nand_dev =nand_dma->mcu_chan->device->dev;
 	unsigned long flags = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
-	//enum dma_data_direction direction =DMA_TO_DEVICE;
 
 	dma_sync_single_for_device(nand_dev,nand_dma->msg_phyaddr,sizeof(struct pdma_msg),
 			DMA_TO_DEVICE);
-	//	sg_init_one(nand_dma->sgl, &nand_dma->msg, sizeof(nand_dma->msg));
-	/*
-	   ret = dma_map_sg(nand_dev, &nand_dma->sg, 1, direction);
-	   if(ret < 0) {
-	   printk("Failed: to do dma map sgl\n");
-	   ret = -1;
-	   goto err_map;
-	   }
-	   printk("@@@@@@@@@ mcu dma chan start  @@@@@@@@@@\n");
-	   nand_dma->desc = nand_dma->mcu_chan->device->device_prep_slave_sg(nand_dma->mcu_chan,
-	   &nand_dma->sg, 1, direction, flags);
-	 */
-	nand_dma->desc = nand_dma->mcu_chan->device->device_prep_dma_memcpy(nand_dma->mcu_chan,CPHYSADDR(PDMA_MSG_TCSMVA),
-			nand_dma->msg_phyaddr,sizeof(struct pdma_msg),flags);
+	nand_dma->desc = nand_dma->mcu_chan->device->device_prep_dma_memcpy(
+                                nand_dma->mcu_chan,CPHYSADDR(PDMA_MSG_TCSMVA),
+                                nand_dma->msg_phyaddr,sizeof(struct pdma_msg),flags);
 	if(nand_dma->desc == NULL) {
 		printk("Failed: nand mcu dma desc is NULL\n");
 		ret = -1;
 		goto err_desc;
 	}
 
-	//printk("@@nand dma ops@@ src = 0x%x @@@@@\n", CPHYSADDR(nand_dma->msg) );
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
-		printk("Failed: mcu dma tran\n");
+		printk("Error: mcu dma tran faild,please reboot\n");
+                dump_stack();
+                while(1);
 	} else {
-		//printk("Success: mcu dma tran\n");
 		ret = mailbox_ret;
 		mailbox_ret = 0;
 	}
 
 err_desc:
-	//	dma_unmap_sg(nand_dev, &nand_dma->sg, 1, direction);
-	//err_map:
 	return ret;
 }
 
@@ -236,20 +223,21 @@ static int mcu_reset(const NAND_API *pnand_api)
 	nand_dma->msg->cmd = MSG_NAND_INIT;
 	nand_dma->msg->info[MSG_NANDTYPE] = 0;
 	nand_dma->msg->info[MSG_PAGESIZE] = ppt->byteperpage;
-	nand_dma->msg->info[MSG_OOBSIZE]  = pnand_api->nand_chip->oobsize;
+	nand_dma->msg->info[MSG_OOBSIZE] = pnand_api->nand_chip->oobsize;
 	nand_dma->msg->info[MSG_ROWCYCLE] = pnand_api->nand_chip->row_cycles;
 	nand_dma->msg->info[MSG_ECCLEVEL] = pt->eccbit;
 	nand_dma->msg->info[MSG_ECCSIZE]  = pnand_api->nand_ecc->eccsize;
 	nand_dma->msg->info[MSG_ECCBYTES] = __bch_cale_eccbytes(pt->eccbit);
 	nand_dma->msg->info[MSG_ECCSTEPS] = ppt->byteperpage / pnand_api->nand_ecc->eccsize ;
-	nand_dma->msg->info[MSG_ECCTOTAL] = __bch_cale_eccbytes(pt->eccbit)  * nand_dma->msg->info[MSG_ECCSTEPS];
-	nand_dma->msg->info[MSG_ECCPOS]   = pnand_api->nand_ecc->eccpos;
+	nand_dma->msg->info[MSG_ECCTOTAL] = __bch_cale_eccbytes(pt->eccbit)
+                                                * nand_dma->msg->info[MSG_ECCSTEPS];
+	nand_dma->msg->info[MSG_ECCPOS] = pnand_api->nand_ecc->eccpos;
 
 	return send_msg_to_mcu(pnand_api);
 }
 
-/*  databuf_between_dmabuf  */
-static int databuf_between_dmabuf(struct jznand_dma *nand_dma,int offset, int bytes, void *databuf,enum buf_direction direction)
+static int databuf_between_dmabuf(struct jznand_dma *nand_dma
+                        , int offset, int bytes, void *databuf,enum buf_direction direction)
 {
 	int ret = 0;
 	unsigned long flag = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
@@ -265,20 +253,22 @@ static int databuf_between_dmabuf(struct jznand_dma *nand_dma,int offset, int by
 		dma_src  = GET_PHYADDR((unsigned char *)databuf);
 	}
 
-	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(data_chan,dma_dest,dma_src,bytes,flag);
+	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(
+                                data_chan,dma_dest,dma_src,bytes,flag);
 	if(!(nand_dma->desc))
 		ret = -2;  // error memory
 	return ret;
 }
 
-static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
+static int read_page_singlenode(const NAND_API *pnand_api
+                        , int pageid, int offset, int bytes, void *databuf)
 {
-	int ret =0,ret1=0,cs=0;
+	int ret = 0,ret1 = 0,cs = 0;
 	int rw = NAND_DMA_READ;
 	int phy_pageid;
-	struct jznand_dma *nand_dma =pnand_api->nand_dma;
-	struct device *nand_dev =nand_dma->data_chan->device->dev;
-	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
+	struct jznand_dma *nand_dma = pnand_api->nand_dma;
+	struct device *nand_dev = nand_dma->data_chan->device->dev;
+	int byteperpage = pnand_api->nand_dma->ppt->byteperpage;
 #ifdef NAND_DMA_CALC_TIME
 	b_time();
 #endif
@@ -286,8 +276,8 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 		ret =-1;
 		goto read_page_singlenode_error1;
 	}
-	phy_pageid =get_physical_addr(pnand_api,pageid);
-	cs =do_select_chip(pnand_api,phy_pageid);
+	phy_pageid = get_physical_addr(pnand_api,pageid);
+	cs = do_select_chip(pnand_api,phy_pageid);
 	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
@@ -312,8 +302,8 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 		}
 	}else{
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
-		ret =send_msg_to_mcu(pnand_api);
-		if(ret<0)
+		ret = send_msg_to_mcu(pnand_api);
+		if(ret < 0)
 			goto read_page_singlenode_error1;
 	}
 #ifdef NAND_DMA_CALC_TIME
@@ -321,7 +311,6 @@ static int read_page_singlenode(const NAND_API *pnand_api,int pageid,int offset,
 	printk("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
-//	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_FROM_DEVICE);
 read_page_singlenode_error1:
 
 #ifdef NAND_DMA_CALC_TIME
@@ -336,13 +325,18 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 {
 	int ret = 0;
 	disable_rb_irq(pnand_api);
-	//printk("\n@@ read page start @@\n   ..\n");
-	ret =mcu_reset(pnand_api);
-	if(ret < 0)
-		goto nand_dma_read_page_error;
+#ifdef MCU_ONCE_RESERT
+        if(mcuresflag) {
+#endif
+                ret = mcu_reset(pnand_api);
+                if(ret < 0)
+                goto nand_dma_read_page_error;
+#ifdef MCU_ONCE_RESERT
+                mcuresflag = 0;
+        }
+#endif
 	ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
-	//printk("@@ read page ret = 0x%08x @@\n",ret);
 	if (ret == 0)
 		ret = bytes;
 nand_dma_read_page_error:
@@ -355,7 +349,6 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	int ret =0,cs=0;
 	int phy_pageid;
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
-	//struct platform_device *pdev = (struct platform_device *)pnand_api->pdev;
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	nand_dma->cache_phypageid = -1;
@@ -363,24 +356,25 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 		ret =-1;
 		goto write_page_singlenode_error1;
 	}
-	phy_pageid =get_physical_addr(pnand_api,pageid);
-	cs =do_select_chip(pnand_api,phy_pageid);
+	phy_pageid = get_physical_addr(pnand_api,pageid);
+	cs = do_select_chip(pnand_api,phy_pageid);
 #ifdef NAND_DMA_CALC_TIME
 	b_time();
 #endif
+	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 	if(bytes < byteperpage){
+#ifndef NO_MEMSET
 		memset(nand_dma->data_buf,0xff,byteperpage);
 		dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->data_buf),byteperpage, DMA_TO_DEVICE);
-		dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
-		ret =databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_TO_MBUF);
+#endif
+		ret = databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_TO_MBUF);
 		if(ret<0)
 			goto write_page_singlenode_error1;
-		ret =wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
+		ret = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
 		if(ret<0)
 			goto write_page_singlenode_error1;
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,nand_dma->data_buf);
 	}else{
-		dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,databuf);
 	}
 #ifdef NAND_DMA_CALC_TIME
@@ -388,7 +382,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	printk("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
-	ret =send_msg_to_mcu(pnand_api);
+	ret = send_msg_to_mcu(pnand_api);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
 	printk("  %s  %d\n",__func__,__LINE__);
@@ -402,15 +396,18 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 {
 	int ret = 0;
 	disable_rb_irq(pnand_api);
-	//printk("\n@@ write page start @@\n   ..\n");
-	//	jzgpio_set_func(GPIO_PORT_A,GPIO_INPUT,0x00100000);
-	ret = mcu_reset(pnand_api);
-	if(ret < 0)
-		goto nand_dma_write_page_error;
-
+#ifdef MCU_ONCE_RESERT
+        if(mcuresflag) {
+#endif
+                ret = mcu_reset(pnand_api);
+                if(ret < 0)
+                        goto nand_dma_write_page_error;
+#ifdef MCU_ONCE_RESERT
+                mcuresflag = 0;
+        }
+#endif
 	ret = write_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
-	//printk("@@ write page ret = 0x%08x @@\n",ret);
 	if (ret == 0)
 		ret = bytes;
 nand_dma_write_page_error:
@@ -426,7 +423,6 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	struct singlelist *listhead=0;
 	int phy_pageid;
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
-	//struct platform_device *pdev = (struct platform_device *)pnand_api->pdev;
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 
@@ -437,7 +433,9 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	b_time();
 #endif
 	for(num = 0; num < temp; num++){
-		dma_sync_single_for_device(nand_dev,GET_PHYADDR(templist->pData),templist->Bytes,DMA_TO_DEVICE);
+		dma_sync_single_for_device(nand_dev
+                                , GET_PHYADDR(templist->pData)
+                                , templist->Bytes,DMA_TO_DEVICE);
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
@@ -485,13 +483,17 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 			switch (ret) {
 				case 0:
 					templist->retVal = templist->Bytes;
+#ifndef NO_MEMSET
 					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
 							templist->Bytes, DMA_FROM_DEVICE);
+#endif
 					break;
 				case 1:
 					templist->retVal = templist->Bytes | (1<<16);
+#ifndef NO_MEMSET
 					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
 							templist->Bytes, DMA_FROM_DEVICE);
+#endif
 					break;
 				default:
 					templist->retVal = ret;
@@ -513,10 +515,16 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	unsigned int opsmodel;
 	int ret = 0,flag =0;
 	disable_rb_irq(pnand_api);
-	//printk("\n@@ read pages start @@\n   ..\n");
-	ret = mcu_reset(pnand_api);
-	if(ret < 0)
-		goto dma_read_pages_error1;
+#ifdef MCU_ONCE_RESERT
+        if(mcuresflag) {
+#endif
+                ret = mcu_reset(pnand_api);
+                if(ret < 0)
+                        goto dma_read_pages_error1;
+#ifdef MCU_ONCE_RESERT
+                mcuresflag = 0;
+        }
+#endif
 	while(alignelist != NULL) {
 		opsmodel = alignelist->opsmodel & 0x00ffffff;
 		templist =alignelist->pagelist;
@@ -549,7 +557,6 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		ret=1;
 dma_read_pages_error1:
 	enable_rb_irq(pnand_api);
-	//printk("@@ read pages ret = 0x%08x @@\n",ret);
 	return ret;
 }
 
@@ -561,24 +568,25 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	struct singlelist *listhead=0;
 	int phy_pageid;
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
-	//struct platform_device *pdev = (struct platform_device *)pnand_api->pdev;
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	int pageid = templist->startPageID;
 	nand_dma->cache_phypageid = -1;
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
-
+#ifndef NO_MEMSET
 	memset(nand_dma->data_buf,0xff,byteperpage);
 	dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->data_buf),byteperpage,DMA_TO_DEVICE);
-
+#endif
 	for(num = 0; num < temp; num++){
 		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage) {
 			ret =-1;
 			templist->retVal = ret;
 			break;
 		}
-		dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData), templist->Bytes, DMA_TO_DEVICE);
+		dma_sync_single_for_device(nand_dev
+                                        , GET_PHYADDR(templist->pData)
+                                        , templist->Bytes, DMA_TO_DEVICE);
 		ret=databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
 				templist->pData, DMA_TO_MBUF);
 		if (ret) {
@@ -601,13 +609,17 @@ write_multinode_error1:
 			switch (ret) {
 				case 0:
 					templist->retVal = templist->Bytes;
+#ifndef NO_MEMSET
 					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
 							templist->Bytes, DMA_FROM_DEVICE);
+#endif
 					break;
 				case 1:
 					templist->retVal = templist->Bytes | (1<<16);
+#ifndef NO_MEMSET
 					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
 							templist->Bytes, DMA_FROM_DEVICE);
+#endif
 					break;
 				default:
 					templist->retVal = ret;
@@ -629,10 +641,16 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	unsigned int opsmodel;
 	int ret = 0;
 	disable_rb_irq(pnand_api);
-	//printk("\n@@ write pages start @@\n   ..\n");
-	ret = mcu_reset(pnand_api);
-	if(ret < 0)
-		goto dma_write_pages_error1;
+#ifdef MCU_ONCE_RESERT
+        if(mcuresflag) {
+#endif
+                ret = mcu_reset(pnand_api);
+                if(ret < 0)
+                        goto dma_write_pages_error1;
+#ifdef MCU_ONCE_RESERT
+                mcuresflag = 0;
+        }
+#endif
 	while(alignelist != NULL) {
 		opsmodel = alignelist->opsmodel & 0x00ffffff;
 		templist =alignelist->pagelist;
@@ -649,7 +667,6 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	}
 dma_write_pages_error1:
 	enable_rb_irq(pnand_api);
-	//printk("@@ write pages ret = 0x%08x @@\n",ret);
 	return ret;
 }
 
@@ -673,7 +690,7 @@ int nand_dma_init(NAND_API *pnand_api)
 		dev_err(&pdev->dev, "No nand dma resource 1\n");
 		goto nand_dma_init_error2;
 	}
-	nand_dma->chan_type =regs->start;
+	nand_dma->chan_type = regs->start;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
 	nand_dma->mcu_chan = dma_request_channel(mask, filter, nand_dma);
@@ -687,7 +704,7 @@ int nand_dma_init(NAND_API *pnand_api)
 		dev_err(&pdev->dev, "No nand dma resource 2\n");
 		goto nand_dma_init_error3;
 	}
-	nand_dma->chan_type =regs->start;
+	nand_dma->chan_type = regs->start;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 	nand_dma->data_chan = dma_request_channel(mask, filter, nand_dma);
@@ -696,15 +713,12 @@ int nand_dma_init(NAND_API *pnand_api)
 		goto nand_dma_init_error3;
 	}
 	/*  init sg of message channel */
-	//nand_dma->msg =(struct pdma_msg *)nand_malloc_buf(sizeof(struct pdma_msg));
 	nand_dma->msg = (struct pdma_msg *)dma_alloc_coherent(nand_dma->mcu_chan->device->dev,
 			sizeof(struct pdma_msg),&nand_dma->msg_phyaddr, GFP_ATOMIC);
 	if(!(nand_dma->msg)){
 		printk("Failed: nand_dma->msg malloc failed\n");
 		goto nand_dma_init_error4;
 	}
-	//sg_init_one(&(nand_dma->sg),nand_dma->msg,sizeof(struct pdma_msg));
-
 
 	nand_dma->data_buf_len = pnand_api->nand_chip->pagesize;
 	nand_dma->data_buf = (unsigned char *)dma_alloc_coherent(nand_dma->data_chan->device->dev,
@@ -713,46 +727,13 @@ int nand_dma_init(NAND_API *pnand_api)
 		printk("Failed: nand_dma_init data buf malloc failed !\n");
 		goto nand_dma_init_error5;
 	}
-	/*
-	   nand_dma->dma_config.direction = DMA_TO_DEVICE;
-	   nand_dma->dma_config.dst_addr = CPHYSADDR(PDMA_MSG_TCSMVA);
-	   nand_dma->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	   nand_dma->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	   nand_dma->dma_config.src_maxburst = 0;
-	   nand_dma->dma_config.dst_maxburst = 0;
-	   ret = dmaengine_slave_config(nand_dma->mcu_chan, &nand_dma->dma_config);
-	   if(ret < 0){
-	   printk("Failed: mcu chan config\n");
-	   goto nand_dma_init_error6;
-	   }
-
-	   nand_dma->dma_config.direction = 0;
-	   nand_dma->dma_config.src_addr = 0;
-	   nand_dma->dma_config.dst_addr = nand_dma->data_buf_phyaddr;
-	   nand_dma->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	   nand_dma->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	   nand_dma->dma_config.src_maxburst = 1;
-	   nand_dma->dma_config.dst_maxburst = 1;
-	   ret = dmaengine_slave_config(nand_dma->data_chan, &nand_dma->dma_config);
-	   if(ret < 0){
-	   kfree(nand_dma->sgl);
-	   kfree(nand_dma->buf);
-	   printk("Failed: mcu chan config\n");
-	   return -1;
-	   }
-	 */
 
 	init_completion(&comp);
 	nand_dma->cache_phypageid = -1;
 
 	pnand_api->nand_dma =(void *)nand_dma;
-	printk("@@@ %s is finish ! @@@\n",__func__);
+	printk("INFO: Nand DMA ops init success!\n");
 	return ret;
-	/*
-nand_dma_init_error6:
-dma_free_coherent(nand_dma->data_chan->device->dev, nand_dma->data_buf_len,
-nand_dma->data_buf, nand_dma->data_buf_phyaddr);
-	 */
 nand_dma_init_error5:
 	nand_free_buf(nand_dma->msg);
 nand_dma_init_error4:

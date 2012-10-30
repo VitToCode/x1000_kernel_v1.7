@@ -134,6 +134,7 @@ struct nand_api {
         struct jznand_dma  *nand_dma;
         NAND_BASE * vnand_base; //virtual nand base
         NAND_BASE * pnand_base; // physical nand base
+        unsigned gpio_wp;
 };
 
 typedef struct nand_api NAND_API;
