@@ -91,6 +91,12 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_SP0838_RST			GPIO_PB(26)
 
 /**
+ * pmem information
+ **/
+#define JZ_PMEM_CAMERA_BASE	0x5f000000
+#define JZ_PMEM_CAMERA_SIZE	0x01000000
+
+/**
  * motor gpio
  */
 #define GPIO_MOTOR_PIN			GPIO_PB(25) /* PB25 */
