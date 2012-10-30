@@ -295,6 +295,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 			CLEAR_VPU_BIT(vpu,REG_VPU_AUX_STAT,AUX_STAT_MIRQP);
 		} else {
 			dev_err(vpu->dev, "illegal interrupt happened!\n");
+			return IRQ_HANDLED;
 		}
 	}
 
