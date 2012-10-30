@@ -212,6 +212,23 @@ struct jz_cim_platform_data {
 	void (*power_off)(void);
 };
 
+typedef struct CameraYUVMeta {
+	int32_t index;
+	int32_t width;
+	int32_t height;
+	int32_t yPhy;
+	int32_t uPhy;
+	int32_t vPhy;
+	int32_t yAddr;
+	int32_t uAddr;
+	int32_t vAddr;
+	int32_t yStride;
+	int32_t uStride;
+	int32_t vStride;
+	int32_t count;
+	int32_t format;
+}CameraYUVMeta;
+
 #define CAMERA_FACING_FRONT  1
 #define CAMERA_FACING_BACK  0
 
