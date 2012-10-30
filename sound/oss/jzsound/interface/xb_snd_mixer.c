@@ -106,20 +106,20 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk("record samplerate : %ld.\n", rate_in);
 			printk("replay samplerate : %ld.\n", rate_out);
 			break;
-		/*case '4':
+		case '4':
 			printk(" \"4\" command:print headphone detect state.\n");
 			ddata->dev_ioctl(SND_DSP_GET_HP_DETECT,(unsigned long)&hp_state);
 			printk("headphone state : %d.\n ",hp_state);
-			break;*/
+			break;
 		case '5':
 			printk(" \"5\" set headphone route.\n");
 			devices = SND_DEVICE_HEADSET;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,&devices);
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
 		case '6':
 			printk(" \"6\" set speaker route.\n");
 			devices = SND_DEVICE_SPEAKER;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,&devices);
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
 		default:
 			printk("undefine debug interface \"%c\".\n", buf_byte);

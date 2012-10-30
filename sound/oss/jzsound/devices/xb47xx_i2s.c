@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/soundcard.h>
 #include <linux/earlysuspend.h>
+#include <linux/wait.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
 #include <soc/irq.h>
@@ -40,8 +41,13 @@ struct snd_switch_data switch_data;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints i2s_endpoints;
 static struct clk *codec_sysclk = NULL;
+
+#ifdef CONFIG_JZ4780_INTERNAL_CODEC
 static struct workqueue_struct *i2s_work_queue;
 static struct work_struct	i2s_codec_work;
+#endif
+
+static int jz_get_hp_switch_state(void);
 
 static struct codec_info {
 	struct list_head list;
@@ -57,6 +63,7 @@ static struct codec_info {
 	int (*codec_ctl)(unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints *dsp_endpoints;
 } *cur_codec;
+
 /*##################################################################*\
  | dump
 \*##################################################################*/
@@ -355,7 +362,7 @@ static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 			*rate = mrate[i];
 			break;
 	}
-	if (i == 8) {
+	if (i == 10) {
 		*rate = 44100; /*unsupport rate use default*/
 		return mcguclk[6];
 	}
@@ -879,7 +886,10 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 	case SND_DSP_SET_DEVICE:
 		ret = i2s_set_device(*(unsigned long*)arg);
 		break;
-
+	case SND_DSP_GET_HP_DETECT:
+		*(int*)arg = jz_get_hp_switch_state();
+		ret = 0;
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
@@ -893,10 +903,13 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 |* functions
 \*##################################################################*/
 
+#ifdef CONFIG_JZ4780_INTERNAL_CODEC
 static void i2s_codec_work_handler(struct work_struct *work)
 {
+	wait_event_interruptible(switch_data.wq,switch_data.work.entry.next != NULL);
 	cur_codec->codec_ctl(CODEC_IRQ_HANDLE,(unsigned long)(&(switch_data.work)));
 }
+#endif
 
 static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 {
@@ -1213,15 +1226,17 @@ struct snd_dev_data snd_mixer0_data = {
 
 static int __init init_i2s(void)
 {
-	INIT_WORK(&i2s_codec_work, i2s_codec_work_handler);
+	init_waitqueue_head(&switch_data.wq);
 
+#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+	INIT_WORK(&i2s_codec_work, i2s_codec_work_handler);
 	i2s_work_queue = create_singlethread_workqueue("i2s_codec_irq_wq");
 
 	if (!i2s_work_queue) {
 		// this can not happen, if happen, we die!
         BUG();
 	}
-
+#endif
 	return platform_device_register(&xb47xx_i2s_switch);
 }
 module_init(init_i2s);

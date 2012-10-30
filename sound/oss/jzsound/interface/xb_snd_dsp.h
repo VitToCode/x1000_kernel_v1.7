@@ -154,6 +154,7 @@ enum snd_dsp_command {
 	 **/
 	SND_MIXER_DUMP_REG,
 	SND_MIXER_DUMP_GPIO,
+	SND_DSP_GET_HP_DETECT,
 };
 
 /**

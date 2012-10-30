@@ -3,6 +3,7 @@
 
 #include <linux/workqueue.h>
 #include <linux/switch.h>
+#include <linux/wait.h>
 
 /*detect id and name*/
 #define DEV_DSP_HP_DET_NAME     "hp_detect"
@@ -24,6 +25,7 @@ enum {
 
 struct snd_switch_data {
 	struct switch_dev sdev;
+	wait_queue_head_t wq;
 	int type;
 	unsigned gpio;
 	const char *name_on;

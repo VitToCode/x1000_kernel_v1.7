@@ -315,13 +315,12 @@ static void dump_codec_gain_regs(void)
 
 /*-------------------*/
 #if CODEC_DUMP_IOC_CMD
-#define DUMP_IOC_CMD(value)												\
-	do {															\
-		printk("[codec IOCTL]++++++++++++++++++++++++++++\n");		\
+#define DUMP_IOC_CMD(value)	\
+	do {	\
+		printk("[codec IOCTL]++++++++++++++++++++++++++++\n");			\
 		printk("%s  cmd = %d, arg = %lu-----%s\n", __func__, cmd, arg, value); 	\
-		codec_print_ioc_cmd(cmd);									\
-		printk("[codec IOCTL]----------------------------\n");		\
-																	\
+		codec_print_ioc_cmd(cmd);						\
+		printk("[codec IOCTL]----------------------------\n");			\
 	} while (0)
 #else //CODEC_DUMP_IOC_CMD
 #define DUMP_IOC_CMD(value)
@@ -337,58 +336,55 @@ static void dump_codec_gain_regs(void)
 #endif
 
 #if CODEC_DUMP_ROUTE_REGS
-#define DUMP_ROUTE_REGS(value)									\
-	do {														\
-		printk("codec register dump,%s\tline:%d-----%s:\n",		\
-		       __func__, __LINE__, value);						\
-		dump_codec_regs();										\
-																\
+#define DUMP_ROUTE_REGS(value)	\
+	do {	\
+		printk("codec register dump,%s\tline:%d-----%s:\n",	\
+		       __func__, __LINE__, value);			\
+		dump_codec_regs();					\
 	} while (0)
 #else //CODEC_DUMP_ROUTE_REGS
-#define DUMP_ROUTE_REGS(value)\
-	do {		\
-		if (!strcmp("enter",value))			\
-		ENTER_FUNC()	\
-		else if (!strcmp("leave",value))	\
-		LEAVE_FUNC()	\
+#define DUMP_ROUTE_REGS(value)	\
+	do {	\
+		if (!strcmp("enter",value))	\
+		ENTER_FUNC()			\
+		else if (!strcmp("leave",value))\
+		LEAVE_FUNC()			\
 	} while (0)
 #endif //CODEC_DUMP_ROUTE_REGS
 
 #if CODEC_DUMP_ROUTE_PART_REGS
-#define DUMP_ROUTE_PART_REGS(value)									\
-	do {															\
-		if (mode != DISABLE) {										\
-			printk("codec register dump,%s\tline:%d-----%s:\n", 	\
-			       __func__, __LINE__, value);						\
-			dump_codec_route_regs();								\
-		}															\
-																	\
+#define DUMP_ROUTE_PART_REGS(value)	\
+	do {	\
+		if (mode != DISABLE) {					\
+		printk("codec register dump,%s\tline:%d-----%s:\n", 	\
+			__func__, __LINE__, value);			\
+			dump_codec_route_regs();			\
+		}							\
 	} while (0)
 #else //CODEC_DUMP_ROUTE_PART_REGS
-#define DUMP_ROUTE_PART_REGS(value)			\
-	do {		\
-		if (!strcmp("enter",value))			\
-		ENTER_FUNC()	\
-		else if (!strcmp("leave",value))	\
-		LEAVE_FUNC()	\
+#define DUMP_ROUTE_PART_REGS(value)	\
+	do {	\
+		if (!strcmp("enter",value))	\
+		ENTER_FUNC()			\
+		else if (!strcmp("leave",value))\
+		LEAVE_FUNC()			\
 	} while (0)
 #endif //CODEC_DUMP_ROUTE_PART_REGS
 
 #if CODEC_DUMP_GAIN_PART_REGS
-#define DUMP_GAIN_PART_REGS(value)									\
-	do {															\
-		printk("codec register dump,%s\tline:%d-----%s:\n", 		\
-		       __func__, __LINE__, value);							\
-		dump_codec_gain_regs();										\
-																	\
+#define DUMP_GAIN_PART_REGS(value)	\
+	do {	\
+		printk("codec register dump,%s\tline:%d-----%s:\n",	\
+		       __func__, __LINE__, value);			\
+		dump_codec_gain_regs();					\
 	} while (0)
 #else //CODEC_DUMP_GAIN_PART_REGS
 #define DUMP_GAIN_PART_REGS(value) \
-	do {		\
-		if (!strcmp("enter",value))			\
-		ENTER_FUNC()	\
-		else if (!strcmp("leave",value))	\
-		LEAVE_FUNC()	\
+	do {	\
+		if (!strcmp("enter",value))	\
+		ENTER_FUNC()			\
+		else if (!strcmp("leave",value))\
+		LEAVE_FUNC()			\
 	} while (0)
 #endif //CODEC_DUMP_GAIN_PART_REGS
 
@@ -1765,7 +1761,8 @@ static int codec_set_board_route(struct snd_board_route *broute)
 					/* change cur_route */
 					cur_route = broute;
 				} else {
-					cur_route = keep_old_route;
+					if (cur_route->route == SND_ROUTE_RECORD_MIC)
+						cur_route = keep_old_route;
 				}
 				break;
 			}
@@ -2492,8 +2489,10 @@ _ensure_stable:
 				goto _ensure_stable;
 			}
 		}
+
 		/* Report status */
-		schedule_work(detect_work);
+		if(!work_pending(detect_work))
+			schedule_work(detect_work);
 
 #endif /*CONFIG_JZ_HP_DETECT_CODEC*/
 	}
@@ -2507,10 +2506,17 @@ _ensure_stable:
 
 static int codec_get_hp_state(int *state)
 {
+#ifdef CONFIG_JZ_HP_DETECT_CODEC
 	*state = ((__codec_get_sr() & CODEC_JACK_MASK) >> SR_JACK) ^
 		(!codec_platform_data->hpsense_active_level);
 	if (state < 0)
 		return -EIO;
+#elif CONFIG_JZ_HP_DETECT_GPIO
+	if(gpio_is_valid(GPIO_HP_DETECT))
+		*state = gpio_get_value(GPIO_HP_DETECT);
+	else
+		return -EIO;
+#endif
 	return 0;
 }
 
@@ -2681,6 +2687,7 @@ static int __devexit jz_codec_remove(struct platform_device *pdev)
 	gpio_free(codec_platform_data->gpio_hp_mute.gpio);
 	gpio_free(codec_platform_data->gpio_spk_en.gpio);
 	codec_platform_data = NULL;
+
 	return 0;
 }
 

@@ -7,6 +7,8 @@
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 
 #include <mach/jzsnd.h>
 
@@ -166,11 +168,12 @@ static int snd_switch_probe(struct platform_device *pdev)
 			goto err_request_irq;
 		}
 
+	} else {
+		wake_up_interruptible(&switch_data->wq);
 	}
-
 	/* Perform initial detection */
 	snd_switch_work(&switch_data->work);
-
+	printk("snd_switch_probe susccess\n");
 	return 0;
 
 err_request_irq:
@@ -193,7 +196,7 @@ static int __devexit snd_switch_remove(struct platform_device *pdev)
 		gpio_free(switch_data->gpio);
 	}
 
-    switch_dev_unregister(&switch_data->sdev);
+	switch_dev_unregister(&switch_data->sdev);
 
 	kfree(switch_data);
 

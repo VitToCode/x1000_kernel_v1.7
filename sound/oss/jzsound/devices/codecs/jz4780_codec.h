@@ -600,10 +600,10 @@ do {															\
 
 /*============================== IRQ ==================================*/
 /*IFR ,IMR ,IMR2 ,IFR2 :set irq mask and clear irq flag*/
-#define ICR_INT_HIGH			0
-#define ICR_INT_LOW				1
+#define ICR_INT_HIGH		0
+#define ICR_INT_LOW		1
 #define ICR_INT_HIGH_8CYCLES	2
-#define ICR_INT_LOW_8CYCLES		3
+#define ICR_INT_LOW_8CYCLES	3
 
 #define ICR_ALL_MASK            (IMR_ADC_MUTE_MASK | IMR_DAC_MODE_MASK | IMR_DAC_MUTE_MASK | IMR_LOCK_MASK | IMR_JACK_MASK | IMR_SCLR_MASK)
 
@@ -625,35 +625,35 @@ do {															\
 #define REG_IMR_MASK            (0xff)
 #define REG_IMR_MASK2           (0xff)
 
-#define __codec_set_int_form(opt)						\
-do {	                                                                                \
-	write_inter_codec_reg(CODEC_REG_ICR, ((opt & ICR_INT_FORM_MASK) << ICR_INT_FORM)); 	\
-										        \
+#define __codec_set_int_form(opt)												\
+do {																				\
+	write_inter_codec_reg_mask(CODEC_REG_ICR, opt,ICR_INT_FORM_MASK,ICR_INT_FORM); 	\
+																					\
 } while (0)
 
 
 
-#define __codec_set_irq_mask(mask)					\
-do {									\
-	write_inter_codec_reg(CODEC_REG_IMR, mask);     		\
-									\
+#define __codec_set_irq_mask(mask)				\
+do {												\
+	write_inter_codec_reg(CODEC_REG_IMR, mask);     \
+													\
 } while (0)
 
-#define __codec_set_irq_mask2(mask)					\
-do {									\
-	write_inter_codec_reg(CODEC_REG_IMR2, mask);	        	\
-									\
+#define __codec_set_irq_mask2(mask)				\
+do {												\
+	write_inter_codec_reg(CODEC_REG_IMR2, mask);	\
+													\
 } while (0)
-#define __codec_set_irq_flag(flag)					\
-do {									\
-	write_inter_codec_reg(CODEC_REG_IFR, flag);				\
-									\
+#define __codec_set_irq_flag(flag)				\
+do {												\
+	write_inter_codec_reg(CODEC_REG_IFR, flag);		\
+													\
 } while (0)
 
-#define __codec_set_irq_flag2(flag)					\
-do {									\
-	write_inter_codec_reg(CODEC_REG_IFR2, flag);                    \
-									\
+#define __codec_set_irq_flag2(flag)				\
+do {												\
+	write_inter_codec_reg(CODEC_REG_IFR2, flag);	\
+													\
 } while (0)
 #define __codec_get_irq_flag()		(read_inter_codec_reg(CODEC_REG_IFR) &	\
 					 REG_IFR_MASK)
@@ -879,9 +879,9 @@ do {																\
 
 
 #define __codec_select_mic2_input(opt)							\
-do {																	\
+do {																\
     write_inter_codec_reg_bit(CODEC_REG_CR_MIC2,opt,CR_MIC2_SEL);	\
-																		\
+																	\
 } while (0)
 
 /*CR_LI  :	line in opt	*/

@@ -82,6 +82,21 @@ route_conf_base const replay_lineout_lr = {
 	.route_lineout_mode = LINEOUT_ENABLE, //FIX
 };
 
+route_conf_base const repaly_hp_stereo_and_lineout_lr = {
+	.route_ready_mode = ROUTE_READY_FOR_DAC, //fix
+	/*--------route-----------*/
+	//replay
+	.route_replay_mixer_mode = REPLAY_MIXER_NOUSE, //fix
+	.route_dac_mode = DAC_STEREO, //fix
+	.route_hp_mux_mode = HP_MUX_DACL_TO_L_DACR_TO_R, //fix
+	.route_hp_mode = HP_ENABLE, //fix
+	.route_lineout_mux_mode = LO_MUX_DACLR_TO_LO,	//fix
+	.route_lineout_mode = LINEOUT_ENABLE, //FIX
+	.attibute_hp_r_gain = 0,
+	.attibute_hp_l_gain = 0,
+
+};
+
 /*########################################################################################################*/
 route_conf_base const replay_linein2_bypass_to_hp_lr = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC,
@@ -186,6 +201,10 @@ struct __codec_route_info codec_route_info[] = {
 	{
 		.route_name = SND_ROUTE_REPLAY_SPEAKER,
 		.route_conf = &replay_lineout_lr,
+	},
+	{
+		.route_name = SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE,
+		.route_conf = &repaly_hp_stereo_and_lineout_lr,
 	},
 	/*********************** bypass route *************************/
 	{
