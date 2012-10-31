@@ -1378,10 +1378,9 @@ static int RecycleReadWrite(Recycle *rep)
 	}
 	else {
             if(zonepage >  wzone->vnand->v2pp->_2kPerPage) {
-                // alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (zonepage - wzone->vnand->v2pp->_2kPerPage) * spp);
                 wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
                 alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (wpagecount - PAGEINFO_PAGES)*spp);
-                ret = copy_data(rep, wzone, zonepage*spp/*zonepage - wzone->vnand->v2pp->_2kPerPage*/);
+                ret = copy_data(rep, wzone, wpagecount - PAGEINFO_PAGES);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
@@ -2256,7 +2255,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
 
 			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,(wpagecount - PAGEINFO_PAGES) * spp);
-			ret = copy_data(rep, wzone, zonepage - PAGEINFO_PAGES);
+			ret = copy_data(rep, wzone, wpagecount - PAGEINFO_PAGES);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
