@@ -44,13 +44,13 @@ static inline int mark_bakblock(int blm, VNandInfo* vNand, int blockid)
 
 	bl_top = (BlockList *)BuffListManager_getTopNode(blm, sizeof(BlockList));
 	if (!bl_top)
-		ndprint(SIGBLOCK_ERROR,	"%s, line:%d, alloc BlockList error!\n\n", __func__, __LINE__);
+		ndprint(SIGBLOCK_ERROR, "%s, line:%d, alloc BlockList error!\n\n", __func__, __LINE__);
 
 	bl_top->startBlock = blockid;
 	bl_top->BlockCount = 1;
 
 	if (vNand_MultiBlockErase(vNand, bl_top))
-		ndprint(SIGBLOCK_ERROR,	"%s, line:%d, erase blockid %d error!\n", __func__, __LINE__, bl_top->startBlock);
+		ndprint(SIGBLOCK_ERROR, "%s, line:%d, erase blockid %d error!\n", __func__, __LINE__, bl_top->startBlock);
 
 	BuffListManager_freeList(blm, (void **)&bl_top, (void *)bl_top, sizeof(BlockList));
 
