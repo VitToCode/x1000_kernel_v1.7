@@ -904,9 +904,8 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	unsigned int l4count = l2p->l4count;
 	int spp = conptr->vnand.BytePerPage / SECTOR_SIZE;
 	int brokenflag = 1;
-
-	free_pagecount = Zone_GetFreePageCount(zone);
-	if (free_pagecount <= 1) {
+        free_pagecount = Zone_GetFreePageCount(zone);
+	if (free_pagecount < zone->vnand->v2pp->_2kPerPage) {
 		zone = alloc_new_zone_write(zone->context,zone);
 		free_pagecount = Zone_GetFreePageCount(zone);
 		*czone = zone;
@@ -918,8 +917,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 		while (pi->PageID % zone->vnand->v2pp->_2kPerPage)
 			pi->PageID = Zone_AllocNextPage(zone);
 	}
-
-	singlelist_for_each(pos,&l2p->follow_node->head) {
+        singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		brokenflag = 1;
 		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * cm->L1InfoLen >> 2

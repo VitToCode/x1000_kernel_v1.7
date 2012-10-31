@@ -31,11 +31,12 @@ FUNC_DEBUG(JUNKZONE);
 #ifndef  LINUX_KERNEL
 #define ndprint(level,...) printf(__VA_ARGS__);
 #else
-#define ndprint(level,...)						\
-	do {										\
-		printk(__VA_ARGS__);					\
-		if (level == 3)							\
+#define ndprint(level,...)						        \
+	do {									\
+		if (level == 3)	{						\
+		        printk(__VA_ARGS__);					\
 			dump_stack();						\
+                }                                                               \
 	} while (0)
 #endif
 

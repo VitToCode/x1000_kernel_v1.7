@@ -35,7 +35,7 @@
 /*read page info form nand flash */
 #ifndef RECHECK_VALIDPAGE
 static int get_invalidpagecount(unsigned int startpage,
-		unsigned short pagecnt, ZoneValidInfo * zonevalidinfo)
+				unsigned short pagecnt, ZoneValidInfo * zonevalidinfo)
 {
 	Wpages *wpages = zonevalidinfo->wpages;
 	int current_count = zonevalidinfo->current_count;
@@ -43,7 +43,7 @@ static int get_invalidpagecount(unsigned int startpage,
 
 	for (i = 0; i < current_count; i++) {
 		if (startpage >= (wpages + i)->startpage + (wpages + i)->pagecnt ||
-				startpage + pagecnt <= (wpages + i)->startpage) {
+		    startpage + pagecnt <= (wpages + i)->startpage) {
 			continue;
 		}
 
@@ -124,7 +124,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	{
 		if (ISNOWRITE(pagelist->retVal)) {
 			ndprint(ZONE_INFO,"WARNING: no write to read func %s line %d pageid=%d \n",
-					__FUNCTION__,__LINE__,pageid);
+				__FUNCTION__,__LINE__,pageid);
 		}
 		else {
 			ndprint(ZONE_ERROR,"vNand read pageinfo error ret = %d pageid = %d func %s line %d \n",
@@ -272,7 +272,7 @@ static inline unsigned short zone_page1_pageid(Zone *zone)
 static inline unsigned int zone_L1Info_addr(Zone *zone)
 {
 	return (zone_page1_pageid(zone) +
-			zone->startblockID * zone->vnand->PagePerBlock + 1);
+		zone->startblockID * zone->vnand->PagePerBlock + 1);
 }
 
 /**
@@ -310,7 +310,7 @@ int Zone_FindFirstPageInfo ( Zone *zone, PageInfo* pi )
 	while(nm_test_bit(blockno,&zone->badblock) && (++blockno));
 
 	pageid = (zone->vnand->PagePerBlock) * (zone->startblockID + blockno)
-			+ FIRSTPAGEINFO(zone->vnand);
+		+ FIRSTPAGEINFO(zone->vnand);
 
 	return read_info_l2l3l4info(zone,pageid,pi);
 }
@@ -329,7 +329,7 @@ int Zone_FindNextPageInfo ( Zone *zone, PageInfo* pi )
 		return -1;
 
 	pageid = (zone->vnand->PagePerBlock) * zone->startblockID
-			+ zone->NextPageInfo;
+		+ zone->NextPageInfo;
 
 	return read_info_l2l3l4info(zone,pageid,pi);
 }
@@ -373,16 +373,32 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	int ret = -1;
 	PageList *pagelist = NULL;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
+        int zoneblockid;
+        int badpages = 0;
 #ifndef RECHECK_VALIDPAGE
 	int sectorperpage = zone->vnand->BytePerPage / SECTOR_SIZE;
 #endif
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
-
 	memset(buf,0xff,zone->vnand->BytePerPage);
-	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
-		/ zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
-	nandpageinfo->ZoneID = pi->zoneID;
+        nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
+                / zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
+        if((nandpageinfo->NextPageInfo % zone->vnand->PagePerBlock) == 0) {
+		zoneblockid = zone->allocPageCursor / zone->vnand->PagePerBlock + 1;
+		while(zoneblockid < BLOCKPERZONE(zone->vnand)) {
+			if(nm_test_bit(zoneblockid,&(zone->badblock)))
+			{
+				badpages += zone->vnand->PagePerBlock;
+			}else
+				break;
+			zoneblockid++;
+		}
+		nandpageinfo->NextPageInfo += badpages;
+		if(zoneblockid >= BLOCKPERZONE(zone->vnand)) {
+			nandpageinfo->NextPageInfo = 0;
+		}
+        }
+        nandpageinfo->ZoneID = pi->zoneID;
 	len = package_pageinfo(zone,buf,pi);
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
 	{
@@ -424,8 +440,8 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 
 	return ret;
 err:
-	 ret = check_pagelist_error(pagelist);
-	 BuffListManager_freeList((int)blm, (void **)&pagelist,(void*)pagelist, sizeof(PageList));
+	ret = check_pagelist_error(pagelist);
+	BuffListManager_freeList((int)blm, (void **)&pagelist,(void*)pagelist, sizeof(PageList));
 
 	return ret;
 }

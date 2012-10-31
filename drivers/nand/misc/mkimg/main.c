@@ -84,7 +84,7 @@ static void start(int handle){
 
 	if (arg_option.debug) {
 		int sum_sectorid = sectorid - last_sectorcount;
-		int i = 0, j = 0;
+		int i = 0;
 		fp = NULL;
 		FILE *w_fp;
 
