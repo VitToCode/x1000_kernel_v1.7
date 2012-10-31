@@ -241,7 +241,7 @@ int nand_wait_rb(void)
 #endif
 	nand_rb =0;
 	if(!ret)
-		return IO_ERROR;
+		return TIMEOUT;
 	return 0;
 }
 
