@@ -71,7 +71,7 @@ FIXED_REGULATOR_DEF(
 FIXED_REGULATOR_DEF(
 	hdmi_80_vbus,
 	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	GPIO_PB(10),	HIGH_ENABLE,	0,
 	NULL,	"vbus",	NULL);
 
 FIXED_REGULATOR_DEF(
@@ -101,11 +101,11 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  * it as a fixed regulator.
  */
 static struct regulator_info hdmi_80_pmu_regulators[] = {
-//	{"OUT1", &hdmi_80_vcore_init_data},
-//	{"OUT2", &hdmi_80_vccio_init_data},
-//	{"OUT6", &hdmi_80_vwifi_init_data},
-//	{"OUT7", &hdmi_80_vtsc_init_data},
-//	{"OUT8", &hdmi_80_vgsensor_init_data},
+	{"OUT1", &hdmi_80_vcore_init_data},
+	{"OUT2", &hdmi_80_vccio_init_data},
+	{"OUT6", &hdmi_80_vwifi_init_data},
+	{"OUT7", &hdmi_80_vtsc_init_data},
+	{"OUT8", &hdmi_80_vgsensor_init_data},
 	{"VBUS", &hdmi_80_vbus_init_data},
 };
 
@@ -130,10 +130,12 @@ struct i2c_board_info hdmi_80_pmu_board_info = {
 
 static int __init hdmi_80_pmu_dev_init(void)
 {
+	int i;
+	/*
 	struct i2c_adapter *adap;
 	struct i2c_client *client;
 	int busnum = PMU_I2C_BUSNUM;
-	int i;
+
 
 	adap = i2c_get_adapter(busnum);
 	if (!adap) {
@@ -148,6 +150,7 @@ static int __init hdmi_80_pmu_dev_init(void)
 	}
 
 	i2c_put_adapter(adap);
+*/
 
 	for (i = 0; i < ARRAY_SIZE(fixed_regulator_devices); i++)
 		fixed_regulator_devices[i]->id = i;

@@ -75,6 +75,8 @@ static struct gpio_keys_button board_buttons[] = {
 		.desc		= "volum down key",
 		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
 	},
+#endif
+#ifdef GPIO_VOLUMEUP
 	{
 		.gpio		= GPIO_VOLUMEUP,
 		.code   	= KEY_VOLUMEUP,
@@ -272,7 +274,7 @@ static int __init hdmi_80_board_init(void)
 	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
-	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
+	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780

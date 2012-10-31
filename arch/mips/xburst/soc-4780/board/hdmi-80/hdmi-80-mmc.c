@@ -16,7 +16,7 @@
 #define RESET				0
 #define NORMAL				1
 
-static struct wifi_data			iw8101_data;
+//static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
 
@@ -102,6 +102,7 @@ struct jzmmc_platform_data hdmi_80_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
+#if 0
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
@@ -223,3 +224,4 @@ start:
 
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);
+#endif
