@@ -9,10 +9,12 @@
 #include <linux/irq.h>
 #include <linux/tty.h>
 #include <linux/delay.h>
+#include <linux/proc_fs.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
 #include <soc/extal.h>
+#include <soc/tcu.h>
 
 #include <asm/reboot.h>
 
@@ -95,9 +97,11 @@ void jz_wdt_restart(char *command)
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
 
-	*((volatile unsigned int *)(0xb000203c)) |= 1<<16;
+
 	outl((1<<3 | 1<<2),WDT_IOBASE + WDT_TCSR);
 	outl(JZ_EXTAL/1000,WDT_IOBASE + WDT_TDR);
+
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
 	outl(0,WDT_IOBASE + WDT_TCNT);
 	outl(1,WDT_IOBASE + WDT_TCER);
 
@@ -106,18 +110,8 @@ void jz_wdt_restart(char *command)
 	while (1)
 		printk("We should NOT come here, please check the WDT\n");
 }
-
-#ifdef CONFIG_HIBERNATE_RESET
-void jz_hibernate_restart(char *command)
-{
+static void hibernate_restart(void) {
 	uint32_t rtc_rtcsr,rtc_rtccr;
-
-	local_irq_disable();
-
-	if ((command != NULL) && !strcmp(command, "recovery")) {
-		jz_wdt_restart(command);
-	}
-
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
@@ -137,15 +131,24 @@ void jz_hibernate_restart(char *command)
 	rtc_write_reg(RTC_HWRSR, 0x0);
 
 	rtc_write_reg(RTC_HWCR, 0x9);
-
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
 	mdelay(200);
-
 	while(1) 
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
 
+}
+#ifdef CONFIG_HIBERNATE_RESET
+void jz_hibernate_restart(char *command)
+{
+	local_irq_disable();
+
+	if ((command != NULL) && !strcmp(command, "recovery")) {
+		jz_wdt_restart(command);
+	}
+
+	hibernate_restart();
 }
 #endif
 
@@ -160,6 +163,62 @@ int __init reset_init(void)
 	return 0;
 }
 arch_initcall(reset_init);
+
+static char *reset_command[] = {"wdt","hibernate","recovery"};
+
+static int reset_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data){
+	int len = 0,i;
+	for(i = 0;i < ARRAY_SIZE(reset_command);i++)
+		len += sprintf(page+len,"%s\t",reset_command[i]);
+	len += sprintf(page+len,"\n");
+	return len;
+}
+
+static int reset_write_proc(struct file *file, const char __user *buffer,
+			    unsigned long count, void *data) {
+	int command = 0;
+	int i;
+
+	if(count == 0) return count;
+	for(i = 0;i < ARRAY_SIZE(reset_command);i++) {
+		if(!strncmp(buffer,reset_command[i],strlen(reset_command[i]))) {
+			command++;
+			break;
+		}
+	}
+	if(command == 0) return count;
+	local_irq_disable();
+	switch(command) {
+	case 1:
+		jz_wdt_restart(NULL);
+		break;
+	case 2:
+		hibernate_restart();
+		break;
+	case 3:
+		jz_wdt_restart("recovery");
+		break;
+
+	}
+	return count;
+}
+
+static int __init init_reset_proc(void)
+{
+	struct proc_dir_entry *res;
+
+	res = create_proc_entry("jzreset", 0444, NULL);
+
+	if (res) {
+		res->read_proc = reset_read_proc;
+		res->write_proc = reset_write_proc;
+		res->data = NULL;
+	}
+	return 0;
+}
+
+module_init(init_reset_proc);
 
 
 
