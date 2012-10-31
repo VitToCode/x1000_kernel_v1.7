@@ -13,7 +13,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include "../dwc/jzsoc.h"
+//#include "../dwc/jzsoc.h"
 
 extern int usb_disabled(void);
 
@@ -28,7 +28,7 @@ static void jz_start_ehc(struct jz_ehci_pri *ehci_pri)
 /*
  * Make sure which is phy0 which is phy1 after the real chip come back.
  */
-	REG_CPM_OPCR |= (3 << 6);
+	//REG_CPM_OPCR |= (3 << 6);
 #endif
 }
 
