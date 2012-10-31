@@ -149,7 +149,7 @@ static int write_page0(int errinfo)
 	nandsigzoneinfo->lifetime = sigzoneinfo->lifetime;
 	nandsigzoneinfo->badblock = sigzoneinfo->badblock;
 
-	while(nm_test_bit(badblockno,&((zonep->sigzoneinfo+zoneid)->badblock)) && (++badblockno));
+	while(nm_test_bit(badblockno,(unsigned int *)&((zonep->sigzoneinfo+zoneid)->badblock)) && (++badblockno));
 
 	pl->startPageID = (start_blockno +badblockno)* vnand->PagePerBlock;
 	pl->pData = (void *)buf;
@@ -284,7 +284,7 @@ static int get_prev_zone(int errinfo, Zone **zone)
 
 	/*ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
 	  vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);*/
-	while(nm_test_bit(badblockno,&((zonep->sigzoneinfo+last_zoneid)->badblock)) && (++badblockno));
+	while(nm_test_bit(badblockno,(unsigned int *)&((zonep->sigzoneinfo+last_zoneid)->badblock)) && (++badblockno));
 
 	ret = vNand_PageRead(vnand,(last_zoneid * BLOCKPERZONE(zonep->vnand) + badblockno) *
 		vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);
