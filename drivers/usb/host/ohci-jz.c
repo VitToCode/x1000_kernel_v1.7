@@ -22,7 +22,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include "../dwc/jzsoc.h"
+//#include "../dwc/jzsoc.h"
 
 extern int usb_disabled(void);
 
@@ -37,7 +37,7 @@ struct jz_ohci_pri {
 static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
 {
 	dev_dbg(ohci_pri->dev, "Starting JZ OHCI USB Controller\n");
-	REG_CPM_OPCR |= (3 << 6);	
+	//REG_CPM_OPCR |= (3 << 6);
 	/* Set UHC clock and start */
 }
 
