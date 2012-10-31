@@ -237,40 +237,26 @@ static const struct file_operations char_nand_driver_ops = {
 
 int Register_CharNandDriver(unsigned int interface,unsigned int partarray)
 {
+	int ret;
 	PPartArray *ppa = (PPartArray *)partarray;
-	if(!nand_ops)
+/*	if(!nand_ops){
 		return -1;
+	}*/
 	nand_ops->iface = (NandInterface *)interface;
 	nand_ops->ppa.ptcount = ppa->ptcount;
 	nand_ops->ppa.ppt = ppa->ppt;
-	return 0;
-}
 
-static int __init char_nand_init(void)
-{
-	int ret=0;
-	nand_ops = (struct char_nand_ops *)kmalloc(sizeof(struct char_nand_ops),GFP_KERNEL);
-	if(!nand_ops){
-		ret =-1;
-		goto char_nand_kmalloc_failed;
-	}
-	nand_ops->model = NAND_RECOVERY;
-	nand_ops->status = NAND_DRIVER_FREE;
-
-	char_nand_class = class_create(THIS_MODULE,"char_nand_class");
-	if(!char_nand_class){
-		printk("%s  %d\n",__func__,__LINE__);
-		return -1;
-	}
 	ret = alloc_chrdev_region(&ndev,0,1,"char_nand_dev");
 	if(ret < 0){
 		ret = -1;
+		printk("DEBUG : char_nand_driver  alloc_chrdev_region\n");
 		goto char_nand_alloc_chrdev_failed;
 	}
 	cdev_init(&char_nand_dev,&char_nand_driver_ops);
 	ret = cdev_add(&char_nand_dev,ndev,1);
 	if(ret < 0){
 		ret = -1;
+		printk("DEBUG : char_nand_driver cdev_add error\n");
 		goto char_nand_cdev_add_failed;
 	}
 
@@ -283,6 +269,30 @@ char_nand_cdev_add_failed:
 char_nand_alloc_chrdev_failed:
 	kfree(nand_ops);
 	nand_ops = NULL;
+
+	return ret;
+}
+
+static int __init char_nand_init(void)
+{
+	int ret=0;
+	nand_ops = (struct char_nand_ops *)kmalloc(sizeof(struct char_nand_ops),GFP_KERNEL);
+	if(!nand_ops){
+		printk("DEBUG : char_nand_kmalloc_failed\n");
+		ret =-1;
+		goto char_nand_kmalloc_failed;
+	}
+	nand_ops->model = NAND_RECOVERY;
+	nand_ops->status = NAND_DRIVER_FREE;
+
+	char_nand_class = class_create(THIS_MODULE,"char_nand_class");
+	if(!char_nand_class){
+		printk("%s  %d\n",__func__,__LINE__);
+		return -1;
+	}
+
+	return 0;
+
 char_nand_kmalloc_failed:
 	return ret;
 }

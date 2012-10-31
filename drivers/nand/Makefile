@@ -7,9 +7,3 @@ EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 
 obj-y		+= manager/ nand_block.o char_nand_driver.o
 obj-y		+= driver/
-all:
-	find . -name *.o | xargs rm -vf;
-	find . -name *.o.cmd | xargs rm -vf;
-	find . -name *.o.d | xargs rm -vf;
-	find . -name *~ | xargs rm -vf;
-	cd ../../;make uImage;cd -
