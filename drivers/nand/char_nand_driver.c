@@ -7,6 +7,7 @@
 #include "inc/char_nand_driver.h"
 #include "manager/inc/nanddebug.h"
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 
