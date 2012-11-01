@@ -122,10 +122,11 @@ static PageList* sectornode_to_lpagelist(SplContext *conptr,  SectorList *sl_nod
 	startpage = sl_node->startSector / conptr->spp;
 	totalpages = get_unit_count_from_sl(sl_node, conptr->spp);
 
+	/*
 	ndprint(SIGBLOCK_DEBUG,
 			"slnode->lpl: startSector = %d, sectorCount = %d, startpage = %d, totalpages = %d\n",
 			sl_node->startSector, sl_node->sectorCount, startpage, totalpages);
-
+	*/
 	for (i = 0; i < totalpages; i++) {
 		pagenode = get_plnode((int)conptr->blm, pl, pagenode);
 		if (!pagenode) {
@@ -154,10 +155,11 @@ static PageList* sectornode_to_lpagelist(SplContext *conptr,  SectorList *sl_nod
 
 		pagenode->pData = (unsigned char *)sl_node->pData + data_offset;
 		data_offset += pagenode->Bytes;
-
+		/*
 		ndprint(SIGBLOCK_DEBUG,
 				"slnode->lpl: startpageID = %d, offsetBytes = %d, Bytes = %d, pData = %p\n",
 				pagenode->startPageID, pagenode->OffsetBytes, pagenode->Bytes, pagenode->pData);
+		*/
 	}
 	if (pagenode)
 		pagenode->retVal = 0;
@@ -265,9 +267,11 @@ static PageList* get_first_block_lpl(SplContext *conptr, PageList **pl) {
 		}
 		pl_prev = pl_tmp;
 
+		/*
 		ndprint(SIGBLOCK_DEBUG,
 				"plpl: startpageID = %d, offsetBytes = %d, Bytes = %d, pData = %p\n",
 				pl_tmp->startPageID, pl_tmp->OffsetBytes, pl_tmp->Bytes, pl_tmp->pData);
+		*/
 	}
 
 	*pl = NULL;
@@ -332,10 +336,12 @@ static int block_data_copy_to_next(SplContext *conptr, int srcblock, int dstbloc
 		rpl_node->pData = NULL;
 		wpl_node->pData = NULL;
 
+		/*
 		ndprint(SIGBLOCK_DEBUG, "copy data: rpl, startPageID = %d, OffsetBytes = %d, Bytes = %d\n",
 				rpl_node->startPageID, rpl_node->OffsetBytes, rpl_node->Bytes);
 		ndprint(SIGBLOCK_DEBUG, "copy data: wpl, startPageID = %d, OffsetBytes = %d, Bytes = %d\n",
 				wpl_node->startPageID, wpl_node->OffsetBytes, wpl_node->Bytes);
+		*/
 
 		srcStartPageID ++;
 		dstStartPageID ++;

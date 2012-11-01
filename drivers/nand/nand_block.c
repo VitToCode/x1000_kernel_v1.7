@@ -1,7 +1,5 @@
 /**
- * test.c
- * jbbi (jbbi@ingenic.cn)
- *
+ * nand_block.c
  **/
 #include <linux/major.h>
 #include <linux/init.h>
@@ -21,7 +19,6 @@
 #include <linux/suspend.h>
 
 #include "nandmanagerinterface.h"
-#include "bufflistmanager.h"
 
 /* debug switchs */
 //#define DEBUG_FUNC
@@ -49,7 +46,6 @@ struct __nand_disk {
 	struct device_attribute dattr;
 	struct __partition_info *pinfo;
 	SectorList *sl;
-	int sl_context;
 	unsigned int sl_len;
 	unsigned int sectorsize;
 	unsigned int segmentsize;
@@ -100,8 +96,8 @@ static inline void dump_sectorlist(SectorList *top)
 	if (top) {
 		singlelist_for_each(plist, &top->head) {
 			sl = singlelist_entry(plist, SectorList, head);
-			printk("dump SectorList: sl = %p, sl->startSector = %d, sl->sectorCount = %d\n",
-				   sl, sl->startSector, sl->sectorCount);
+			printk("\ndump SectorList: startSector = %d, sectorCount = %d, pData = %p\n\n",
+				   sl->startSector, sl->sectorCount, sl->pData);
 		}
 	}
 }
@@ -134,62 +130,46 @@ static struct __nand_disk * get_ndisk_form_queue(const struct request_queue *q)
  **/
 static int nand_rq_map_sl(struct request_queue *q,
 						  struct request *req,
-						  SectorList **sllist,
-						  int bufflist_context,
+						  SectorList *sl_array,
 						  int sectorsize)
 {
 	struct bio_vec *bvec, *bvprv = NULL;
 	struct req_iterator iter;
-	SectorList *sl = NULL;
-	unsigned int nsegs, cluster;
+	unsigned int cluster;
 	unsigned int startSector;
+	unsigned int index = -1;
 
 	DBG_FUNC();
-
-	nsegs = 0;
 	startSector = blk_rq_pos(req);
 	cluster = blk_queue_cluster(q);
 	rq_for_each_segment(bvec, req, iter) {
 		int nbytes = bvec->bv_len;
 		if (bvprv && cluster) {
-			if ((sl->sectorCount * sectorsize + nbytes) > queue_max_segment_size(q))
+			if ((sl_array[index].sectorCount * sectorsize + nbytes) > queue_max_segment_size(q))
 				goto new_segment;
 			if (!BIOVEC_PHYS_MERGEABLE(bvprv, bvec))
 				goto new_segment;
 			if (!BIOVEC_SEG_BOUNDARY(q, bvprv, bvec))
 				goto new_segment;
 
-			sl->sectorCount += nbytes / sectorsize;
+			sl_array[index].sectorCount += nbytes / sectorsize;
 			startSector += nbytes / sectorsize;
 		} else {
 		new_segment:
-			if (!sl) {
-				sl = (SectorList *)BuffListManager_getTopNode(bufflist_context, sizeof(*sl));
-				if (!sl) {
-					printk("ERROR: BuffListManager_getTopNode error!\n");
-					return -ENOMEM;
-				}
-				*sllist = sl;
-			} else {
-				sl = (SectorList *)BuffListManager_getNextNode(bufflist_context, (void *)sl, sizeof(*sl));
-				if (!sl) {
-					printk("ERROR: BuffListManager_getNextNode error!\n");
-					BuffListManager_freeAllList(bufflist_context, (void **)sllist, sizeof(*sl));
-					*sllist = NULL;
-					return -ENOMEM;
-				}
-			}
+			index ++;
+			if (index)
+				sl_array[index - 1].head.next = &sl_array[index].head;
 
-			sl->startSector = startSector;
-			sl->sectorCount = nbytes / sectorsize;
-			sl->pData = page_address(bvec->bv_page) + bvec->bv_offset;
-			startSector += sl->sectorCount;
-			nsegs ++;
+			sl_array[index].head.next = NULL;
+			sl_array[index].startSector = startSector;
+			sl_array[index].sectorCount = nbytes / sectorsize;
+			sl_array[index].pData = page_address(bvec->bv_page) + bvec->bv_offset;
+			startSector += sl_array[index].sectorCount;
 		}
 		bvprv = bvec;
 	}
 
-	return nsegs;
+	return index + 1;
 }
 
 /* thread to handle request */
@@ -236,15 +216,12 @@ static int handle_req_thread(void *data)
 				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
 #endif
 			/* make SectorList from request */
-			ndisk->sl = NULL;
-
 			spin_lock_irq(q->queue_lock);
-			ndisk->sl_len = nand_rq_map_sl(q, req, &ndisk->sl, ndisk->sl_context, ndisk->sectorsize);
+			ndisk->sl_len = nand_rq_map_sl(q, req, ndisk->sl, ndisk->sectorsize);
 			spin_unlock_irq(q->queue_lock);
 
-			if (!ndisk->sl || (ndisk->sl_len < 0)) {
-				printk("nand_rq_map_sl error, ndisk->sl_len = %d, ndisk->sl = %p\n",
-					   ndisk->sl_len, ndisk->sl);
+			if ((ndisk->sl_len <= 0)) {
+				printk("nand_rq_map_sl error, ndisk->sl_len = %d\n", ndisk->sl_len);
 				break;
 			}
 #ifdef DEBUG_STLIST
@@ -255,8 +232,6 @@ static int handle_req_thread(void *data)
 				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
 			else
 				ret = NandManger_write(ndisk->pinfo->context, ndisk->sl);
-
-			BuffListManager_freeAllList(ndisk->sl_context, (void **)(&ndisk->sl), sizeof(*ndisk->sl));
 
 			if (ret < 0) {
 				printk("NandManger_read/write error!\n");
@@ -460,12 +435,6 @@ static int nand_block_probe(struct device *dev)
 		goto probe_err2;
 	}
 
-	ndisk->sl_context = BuffListManager_BuffList_Init();
-	if (ndisk->sl_context == 0) {
-		printk("ERROR(nand block): BuffListManager_BuffList_Init error!\n");
-		goto probe_err3;
-	}
-
 	/* init ndisk */
 	ndisk->sl_len = 0;
 	ndisk->dev = dev;
@@ -482,6 +451,13 @@ static int nand_block_probe(struct device *dev)
     ndisk->disk->queue = ndisk->queue;
 
 	cur_minor += DISK_MINORS;
+
+	/* alloc memory for sectorlist */
+	ndisk->sl = kmalloc((ndisk->segmentsize / ndisk->sectorsize) * sizeof(SectorList), GFP_KERNEL);
+	if (!ndisk->sl) {
+		printk("ERROR(nand block): can not alloc memory for SectorList!\n");
+		goto probe_err3;
+	}
 
 	/* add gendisk */
     add_disk(ndisk->disk);
@@ -523,7 +499,7 @@ static int nand_block_probe(struct device *dev)
 probe_err4:
 	del_gendisk(ndisk->disk);
 	singlelist_del(&nand_block.disk_list, &ndisk->list);
-	BuffListManager_BuffList_DeInit(ndisk->sl_context);
+	kfree(ndisk->sl);
 probe_err3:
 	blk_cleanup_queue(ndisk->queue);
 probe_err2:
@@ -541,7 +517,7 @@ static int nand_block_remove(struct device *dev)
 	DBG_FUNC();
 
 	if (ndisk) {
-		BuffListManager_BuffList_DeInit(ndisk->sl_context);
+		kfree(ndisk->sl);
 		del_gendisk(ndisk->disk);
 		blk_cleanup_queue(ndisk->queue);
 		put_disk(ndisk->disk);
