@@ -29,13 +29,12 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	
 	int cycle = 1000 / h2clk + 1;	// unit: ns */
 	int clk =clk_get_rate(host->nemc_gate);
-	int bchclk =clk_get_rate(host->bch_clk);
 	int cycle = 1000000000 / clk +1;  //unit: ns
 	int smcr_val = 0;
 	int data;
-	
+/*
 	dprintf("INFO: bchclk=%dMHz clk=%dMHz cycle=%dns\n",bchclk/1000000,clk/1000000,cycle);
-/*	dprintf("==>%s L%d, h2div=%d, cclk=%d, h2clk=%d, cycle=%d\n",
+	dprintf("==>%s L%d, h2div=%d, cclk=%d, h2clk=%d, cycle=%d\n",
 			__func__, __LINE__,
 			div[h2div], cclk,
 			h2clk, cycle);
@@ -70,8 +69,10 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 {
 	JZ_IO *p_io = (JZ_IO *)pnand_io;
 	unsigned int ret =0, i=NEMC_CS_COUNT;
+	int clk =clk_get_rate(host->nemc_gate);
+	int bchclk =clk_get_rate(host->bch_clk);
 	if(p_io == 0)
-	  dprintf("error addr!p_io is 0x%x\n",(unsigned int)p_io);
+                dprintf("error addr!p_io is 0x%x\n",(unsigned int)p_io);
 /*      gpio init          */
 #if 0
 	*(volatile unsigned int *)(0xb0010018) =0x00430000;
@@ -104,6 +105,9 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	p_io->pagesize = 2048;
 	/* Read/Write timings */
 //	init_nandchip_smcr_n(host,1,SMCR_DEFAULT_VAL);
+        dprintf("INFO: Nand Driver Timing SMCR=0x%08x BCHCLK=%dMHz NEMCLK=%dMHz\n"
+                        ,*(volatile unsigned int *)0xb3410014
+                        ,bchclk/1000000,clk/1000000);
 	//*(volatile unsigned int *)0xb3410014 = 0x11444400;
 	g_chips_mark[0]=1;
 	

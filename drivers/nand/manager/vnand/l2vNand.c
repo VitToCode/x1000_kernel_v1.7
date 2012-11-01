@@ -518,7 +518,6 @@ static void read_badblock_info_page(VNandManager *vm)
 		if(badblockcount > 0) {
 			pt->totalblocks -= badblockcount;
 			pt->PageCount -= badblockcount * pt->pageperblock;
-			badblockcount = 0;
 		}
 		ndprint(VNAND_INFO,"%s: totalblocks = %d PageCount = %d"
 				" badblockcount = %d\n"
@@ -527,6 +526,7 @@ static void read_badblock_info_page(VNandManager *vm)
 				,pt->PageCount
 				,badblockcount
 			);
+		badblockcount = 0;
 	}
 	BuffListManager_freeAllList(blmid,(void **)&pl,sizeof(PageList));
 	BuffListManager_BuffList_DeInit(blmid);
