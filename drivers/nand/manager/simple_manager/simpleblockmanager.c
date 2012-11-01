@@ -7,7 +7,6 @@
 #include "context.h"
 #include "nandmanagerinterface.h"
 #include "partitioninterface.h"
-#include "nand_api.h"
 
 static BuffListManager *Blm;
 
