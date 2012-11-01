@@ -381,11 +381,8 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
-		
-		dev_err(jzhdmi->dev, "==== index:%d .... \n", index);
-		index = 4;
 		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
-			jzhdmi->hdmi_info.out_type = 4;//index;
+			jzhdmi->hdmi_info.out_type = index;
 		} else {
 			dev_err(jzhdmi->dev, "HDMI not support mode:%d\n",
 				  index);
@@ -637,17 +634,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
-	
-	
-	if (phy_HotPlugDetected(0) > 0) {
-		api_phy_enable(PHY_ENABLE);
-		hdmi_init(jzhdmi);
-		hdmi_read_edid(jzhdmi);
-		
-		jzhdmi->hdmi_info.out_type = 4;
-		hdmi_config(jzhdmi);
-	}
-
 
 	return 0;
 
