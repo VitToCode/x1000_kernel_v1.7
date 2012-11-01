@@ -107,4 +107,5 @@ struct platform_nand_data jz_nand_chip_data = {
 	/* there is no room for bad block info in struct platform_nand_data */
 	/* so we have to use chip.priv */
 	.priv = &partition_reserved_badblocks,
+	.gpio_wp = GPIO_PF(22),
 };
