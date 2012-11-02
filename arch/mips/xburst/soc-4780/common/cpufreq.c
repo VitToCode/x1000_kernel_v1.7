@@ -83,22 +83,22 @@ static int freq_table_prepare(void)
 		return -EINVAL;
 	}
 
-	apll_rate = clk_get_rate(apll);
-	mpll_rate = clk_get_rate(mpll);
+	apll_rate = clk_get_rate(apll) / 1000;
+	mpll_rate = clk_get_rate(mpll) / 1000;
 	memset(freq_table,0,sizeof(freq_table));
 
 	printk("%u %u\n",apll_rate,mpll_rate);
 	if(apll_rate > mpll_rate) {
 		max = apll_rate;
-		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000000);i++) {
+		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000);i++) {
 			freq_table[i].index = i;
 			freq_table[i].frequency = max;
-			max -= 200000000;
+			max -= 200000;
 		}
 	}
 
 	max = mpll_rate;
-	for(;i<CPUFREQ_NR && max > 100000000;i++) {
+	for(;i<CPUFREQ_NR && max > 100000;i++) {
 		freq_table[i].index = i;
 		freq_table[i].frequency = max;
 		max = max >> 1;
@@ -345,7 +345,7 @@ static int __init jz4780_cpufreq_init(void)
 #else
 	cpu_regulator = NULL;
 #endif
-	if(!freq_table_prepare())
+	if(freq_table_prepare())
 		return -EINVAL;
 
 	return cpufreq_register_driver(&jz4780_driver);
