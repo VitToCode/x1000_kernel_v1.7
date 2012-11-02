@@ -1046,8 +1046,11 @@ static void jzmmc_detect_change(unsigned long data)
 			}
 		} else {
 			set_bit(JZMMC_CARD_PRESENT, &host->flags);
+			clk_enable(host->clk_gate);
 		}
 		mmc_detect_change(host->mmc, 100);
+		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags))
+			clk_disable(host->clk_gate);
 	}
 
 	enable_irq(gpio_to_irq(host->pdata->gpio->cd.num));
@@ -1082,17 +1085,55 @@ int jzmmc_manual_detect(int index, int on)
 	if (on) {
 		dev_vdbg(host->dev, "card insert manually\n");
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
+		clk_enable(host->clk_gate);
 		mmc_detect_change(host->mmc, 0);
 
 	} else {
 		dev_vdbg(host->dev, "card remove manually\n");
 		clear_bit(JZMMC_CARD_PRESENT, &host->flags);
 		mmc_detect_change(host->mmc, 0);
+		clk_disable(host->clk_gate);
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL(jzmmc_manual_detect);
+
+/**
+ *	jzmmc_clk_ctrl - enable or disable msc clock gate
+ *	@index: host->index, namely the index of the controller.
+ *	@on: 1-enable msc clock gate, 0-disable msc clock gate.
+ */
+int jzmmc_clk_ctrl(int index, int on)
+{
+	struct jzmmc_host *host;
+	struct list_head *pos;
+
+	list_for_each(pos, &manual_list) {
+		host = list_entry(pos, struct jzmmc_host, list);
+		if (host->index == index)
+			break;
+		else
+			host = NULL;
+	}
+
+	if (!host) {
+		dev_err(host->dev, "no manual card detect\n");
+		return -1;
+	}
+
+	if (on) {
+		dev_vdbg(host->dev, "clk enable\n");
+		clk_enable(host->clk_gate);
+
+	} else {
+		dev_vdbg(host->dev, "clk disable\n");
+		clk_disable(host->clk_gate);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(jzmmc_clk_ctrl);
 
 /*-------------------End card insert and remove handler--------------------*/
 
@@ -1519,6 +1560,7 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		break;
 
 	default:
+		clk_enable(host->clk_gate);
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 		break;
 	}
@@ -1575,7 +1617,6 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk_gate)) {
 		return PTR_ERR(host->clk_gate);
 	}
-	clk_enable(host->clk_gate);
 
 	sprintf(clkname, "cgu_msc%d", pdev->id);
 	host->clk = clk_get(&pdev->dev, clkname);

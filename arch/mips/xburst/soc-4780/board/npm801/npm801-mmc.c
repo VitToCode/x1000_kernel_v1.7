@@ -199,6 +199,7 @@ start:
 	switch(flag) {
 		case RESET:
 			regulator_enable(power);
+			jzmmc_clk_ctrl(1, 1);
 
 			gpio_set_value(reset, 0);
 			msleep(200);
@@ -248,6 +249,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			jzmmc_clk_ctrl(1, 0);
 			break;
 
 		case NORMAL:

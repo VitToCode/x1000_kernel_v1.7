@@ -77,5 +77,6 @@ struct jzmmc_platform_data {
 
 #define jzrtc_switch_clk32k(ON)
 extern int jzmmc_manual_detect(int index, int on);
+extern int jzmmc_clk_ctrl(int index, int on);
 
 #endif
