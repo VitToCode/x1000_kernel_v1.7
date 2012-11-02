@@ -36,10 +36,10 @@ struct _CacheManager {
 	unsigned int L2InfoLen;
 	unsigned int L3InfoLen;
 	unsigned int L4InfoLen;
-	unsigned short L1UnitLen;	//how mang sectors one pageid indicate
-	unsigned short L2UnitLen;
-	unsigned short L3UnitLen;
-	unsigned short L4UnitLen;
+	unsigned int L1UnitLen;	//how mang sectors one pageid indicate
+	unsigned int L2UnitLen;
+	unsigned int L3UnitLen;
+	unsigned int L4UnitLen;
 	NandMutex mutex;
 
 	PageCache pagecache;

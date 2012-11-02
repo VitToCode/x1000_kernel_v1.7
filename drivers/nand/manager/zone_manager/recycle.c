@@ -282,7 +282,7 @@ int Recycle_OnNormalRecycle ( int context )
 	int ret = 0;
 	Context *conptr = (Context *)context;
 	Recycle *rep = conptr->rep;
-
+	
 	NandMutex_Lock(&rep->mutex);
 	ndprint(RECYCLE_INFO, "start normal recycle--------->\n");
 	if (rep->taskStep == RECYIDLE)
@@ -721,14 +721,15 @@ static int MergerSectorID ( Recycle *rep)
 		tmp0 = l4info[i] / spp;
 		tmp1 = latest_l4info[i] / spp;
 
-		if (tmp0 == tmp1 && data_in_3_zone(rep, tmp0)) {
+		if ((tmp0 == tmp1 || latest_l4info[i] == -1) && data_in_3_zone(rep, tmp0)) {
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
 
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
-				if(tmp2 == tmp0 && tmp2 == tmp3)
+
+				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1))
 					k++;
 				else
 					break;
@@ -836,13 +837,13 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	l1index = startsectorid / l1unitlen;
 	pi->zoneID = rzone->ZoneID;
 	pi->PageID = Zone_AllocNextPage(wzone);
-#ifdef RECYCLE_DEBUG_PAGEINFO
-	L2p_Debug_SetstartPageid(rep->debug,pi->PageID);
-#endif
 	if (wzone->vnand->v2pp->_2kPerPage > 1) {
 		while (pi->PageID % wzone->vnand->v2pp->_2kPerPage)
 			pi->PageID = Zone_AllocNextPage(wzone);
 	}
+#ifdef RECYCLE_DEBUG_PAGEINFO
+	L2p_Debug_SetstartPageid(rep->debug,pi->PageID);
+#endif
 	l1buf[l1index] = pi->PageID;
 	pi->L1Index = l1index;
 	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
@@ -1373,6 +1374,7 @@ static int RecycleReadWrite(Recycle *rep)
 	}
 	recyclepage = (recyclesector + spp - 1) / spp;
 #ifdef RECYCLE_DEBUG_PAGEINFO
+	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->writepageinfo);
 #endif
 	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {
@@ -1708,9 +1710,6 @@ int Recycle_Init(int context)
 	rep->context = context;
 	rep->force = 0;
 	rep->junk_zoneid = -1;
-#ifdef RECYCLE_DEBUG_PAGEINFO
-	rep->debug = Init_L2p_Debug((int)conptr);
-#endif
 	ret = alloc_normalrecycle_memory(rep);
 	if(ret != 0) {
 		ndprint(RECYCLE_ERROR,"alloc_normalrecycle_memory error func %s line %d \n",__FUNCTION__,__LINE__);
@@ -1736,7 +1735,8 @@ void Recycle_DeInit(int context)
 	Context *conptr = (Context *)context;
 	Recycle *rep = conptr->rep;
 #ifdef RECYCLE_DEBUG_PAGEINFO
-	Deinit_L2p_Debug(rep->debug);
+	if(rep->debug != NULL)
+		Deinit_L2p_Debug(rep->debug);
 #endif
 	free_forcerecycle_memory(rep);
 	free_normalrecycle_memory(rep);
@@ -2257,11 +2257,11 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		goto exit;
 	else if (write_sectorcount < recyclesector) {
 		recyclesector = write_sectorcount;
-		recyclepage = (recyclesector + spp - 1) / spp;
 	}
-
+	recyclepage = (recyclesector + spp - 1) / spp;
 	rep->write_pagecount += recyclepage;
 #ifdef RECYCLE_DEBUG_PAGEINFO
+	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->force_writepageinfo);
 #endif
 	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {

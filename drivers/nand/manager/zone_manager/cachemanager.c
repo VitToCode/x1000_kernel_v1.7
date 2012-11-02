@@ -288,6 +288,7 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 	PageCache *pc = &cm->pagecache;
 	VNandInfo *vnand = pc->vnand;
 	unsigned char **dtmp;
+	int ret = 0;
 	const unsigned int lxoff[] ={NAND_LXOFFSET(2),NAND_LXOFFSET(3),NAND_LXOFFSET(4)};
 	if(lxoffset < 1){
 		ndprint(CACHEMANAGER_ERROR,"ERROR: lxoffset(%d) not less 1\n",lxoffset);
@@ -307,9 +308,10 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 	pagelist->retVal = 0;
 	pagelist->head.next = NULL;
 
-	if(vNand_MultiPageRead(vnand, pagelist) < 0) {
-		ndprint(CACHEMANAGER_ERROR,"vNand read pageinfo error func %s line %d \n",
-					__FUNCTION__,__LINE__);
+	ret = vNand_MultiPageRead(vnand, pagelist);
+	if(ret < 0) {
+		ndprint(CACHEMANAGER_ERROR,"vNand read pageinfo error func %s line %d ret = %d pageid = %d \n",
+				__FUNCTION__,__LINE__,ret,pagelist->startPageID);
 		pc->pageid = -1;
 		goto err;
 	}else{

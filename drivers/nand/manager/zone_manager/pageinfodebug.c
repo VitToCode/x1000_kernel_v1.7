@@ -10,8 +10,8 @@ struct PageInfoDebug *Init_L2p_Debug(int context) {
 #define InitCacheData(x)						\
 	do{								\
 		if(cachemanager->L##x##UnitLen){			\
-			pdebug->l##x##cache = Nand_VirtualAlloc(cachemanager->L##x##UnitLen * 4); \
-				pdebug->l##x##len = cachemanager->L##x##UnitLen; \
+			pdebug->l##x##cache = Nand_VirtualAlloc(cachemanager->L##x##InfoLen); \
+				pdebug->l##x##len = cachemanager->L##x##InfoLen / 4; \
 		}else{							\
 			pdebug->l##x##cache = NULL;			\
 				pdebug->l##x##len = 0;			\
@@ -22,7 +22,8 @@ struct PageInfoDebug *Init_L2p_Debug(int context) {
 	InitCacheData(2);
 	InitCacheData(3);
 	InitCacheData(4);
-	pdebug->diffdata = (unsigned int *)Nand_VirtualAlloc(2048);
+	ndprint(1,"cachemanager->L4InfoLen  = %d\n",cachemanager->L4InfoLen); 
+	pdebug->diffdata = (unsigned int *)Nand_VirtualAlloc(2048 * 4);
 	pdebug->pageid = -1;
 #undef InitCacheData
 	return pdebug;
@@ -45,7 +46,7 @@ void L2p_Debug_SaveCacheData(struct PageInfoDebug *pdebug,PageInfo *pi) {
 
 #define savedata(x) do{							\
 		if(pdebug->l##x##cache) {				\
-			memcpy(pdebug->l##x##cache,pi->L##x##Info,pdebug->l##x##len); \
+			memcpy(pdebug->l##x##cache,pi->L##x##Info,pdebug->l##x##len * 4); \
 		}							\
 	}while(0)
 	
@@ -82,13 +83,16 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 
 #define checkdata(x) do{						\
 		int i;							\
-		for(i = 0;i < pdebug->l##x##len;i++) {			\
-			if(l##x##info[i] != pdebug->l##x##cache[i]){	\
-				pdebug->diffdata[errorcount] = l##x##info[i]; \
-					errorcount++;			\
-			}						\
-		}							\
-		pdebug->diffdata[errorcount] = 0;			\
+		for(i = 0;i < pdebug->l##x##len;i++) {							\
+			if(l##x##info[i] != pdebug->l##x##cache[i]){				\
+				if(x == 4)												\
+					pdebug->diffdata[errorcount] = l##x##info[i] / 4;	\
+	            else													\
+					pdebug->diffdata[errorcount] = l##x##info[i];		\
+				errorcount++;											\
+			}															\
+		}																\
+		pdebug->diffdata[errorcount] = 0;								\
 	}while(0)
 
 	checkdata(1);
@@ -98,12 +102,13 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 
 	for(n = 0;n < errorcount;n++) {
 		if ((pdebug->diffdata[n] < pdebug->pageid) || (pdebug->diffdata[n] >= pdebug->pageid + count)) {
+			ndprint(1,"count:%d diffdata[%d]:%d pdebug->pageid:%d errcount:%d\n",count,n,pdebug->diffdata[n],pdebug->pageid,errorcount);
 			break;
 		}
 	}
 	if(n < errorcount) {
 		ndprint(1,"pageid = %d\n",pdebug->pageid);
-		ndprint(1,"error: old pageinfo\n");
+		ndprint(1,"error: new pageinfo\n");
 		if(pdebug->l1cache){
 			ndprint(1,"l1 pageinfo:\n");
 			dump_data(l1info,pdebug->l1len);
@@ -116,7 +121,7 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 			ndprint(1,"l3 pageinfo:\n");
 			dump_data(l3info,pdebug->l3len);
 		}
-		if(pdebug->l1cache){
+		if(pdebug->l4cache){
 			ndprint(1,"l4 pageinfo:\n");
 			dump_data(l4info,pdebug->l4len);
 		}
@@ -137,7 +142,9 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 			ndprint(1,"l4 pageinfo:\n");
 			dump_data(pdebug->l4cache,pdebug->l4len);
 		}
+		ndprint(1,"error: diffpageinfo\n");
 
+		dump_data(pdebug->diffdata,errorcount);
 	}
 
 
@@ -145,7 +152,7 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 
 #define savedata(x) do{							\
 		if(pdebug->l##x##cache) {				\
-			memcpy(pdebug->l##x##cache,pi->L1Info,pdebug->l##x##len); \
+			memcpy(pdebug->l##x##cache,pi->L##x##Info,pdebug->l##x##len * 4); \
 		}							\
 	}while(0)
 	savedata(1);

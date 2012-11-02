@@ -920,13 +920,14 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 		l2p->alloced_new_zone = 1;
 	}
 	pi->PageID = Zone_AllocNextPage(zone);
-#ifdef L2P_PAGEINFO_DEBUG
-	L2p_Debug_SetstartPageid(l2p->debug,pi->PageID);
-#endif
 	if (zone->vnand->v2pp->_2kPerPage > 1) {
 		while (pi->PageID % zone->vnand->v2pp->_2kPerPage)
 			pi->PageID = Zone_AllocNextPage(zone);
 	}
+#ifdef L2P_PAGEINFO_DEBUG
+	L2p_Debug_SetstartPageid(l2p->debug,pi->PageID);
+#endif
+
         singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		brokenflag = 1;
@@ -1075,7 +1076,6 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 				__FUNCTION__,__LINE__);
 			goto exit;
 		}
-
 		zone->currentLsector = l2p->sectorid[0];
 		ret = Zone_MultiWritePage(zone, l2p->pagecount, pl, pi);
 		if(ret != 0) {
