@@ -920,6 +920,9 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 		l2p->alloced_new_zone = 1;
 	}
 	pi->PageID = Zone_AllocNextPage(zone);
+#ifdef L2P_PAGEINFO_DEBUG
+	L2p_Debug_SetstartPageid(l2p->debug,pi->PageID);
+#endif
 	if (zone->vnand->v2pp->_2kPerPage > 1) {
 		while (pi->PageID % zone->vnand->v2pp->_2kPerPage)
 			pi->PageID = Zone_AllocNextPage(zone);
@@ -1061,7 +1064,9 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 			break;
 
 		lock_cache((int)cm,l2p,&pi);
-
+#ifdef L2P_PAGEINFO_DEBUG
+		L2p_Debug_SaveCacheData(l2p->debug,pi);
+#endif
 		pl = create_pagelist(l2p,pi,&zone);
 
 		ret = update_l1l2l3l4(l2p,pi,pl,zone);
@@ -1078,7 +1083,9 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 				__FUNCTION__,__LINE__);
 			goto exit;
 		}
-
+#ifdef L2P_PAGEINFO_DEBUG
+		L2p_Debug_CheckData(l2p->debug,pi,l2p->pagecount + 1);
+#endif
 		unlock_cache((int)cm, pi);
 		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
 

@@ -97,7 +97,7 @@ void L2p_Debug_CheckData(struct PageInfoDebug *pdebug,PageInfo *pi,int count) {
 	checkdata(4);
 
 	for(n = 0;n < errorcount;n++) {
-		if (pdebug->diffdata[n] >= pdebug->pageid) {
+		if ((pdebug->diffdata[n] < pdebug->pageid) || (pdebug->diffdata[n] >= pdebug->pageid + count)) {
 			break;
 		}
 	}
