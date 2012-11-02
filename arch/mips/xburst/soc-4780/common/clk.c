@@ -403,11 +403,18 @@ static int cclk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int i;
 	unsigned int cpccr;
-	cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-	for(i=0;i<CPNR;i++) 
-		if(rate >= cpccr_table[i].rate) break;
-
-	cpm_outl(cpccr | (0x1<<22) | cpccr_table[i].cpccr,CPM_CPCCR);
+	if(rate <= clk_srcs[CLK_ID_MPLL].rate) {
+		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
+		for(i=0;i<CPNR;i++) 
+			if(rate >= cpccr_table[i].rate) break;
+	
+		cpm_outl(cpccr | (0x1<<22) | cpccr_table[i].cpccr,CPM_CPCCR);
+	} else {
+		cclk_set_rate(clk, clk_srcs[CLK_ID_MPLL].rate);
+		//set apll
+		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
+		cpm_outl(cpccr | (0x1<<22) | (0x1<<28) | (1<<4),CPM_CPCCR);
+	}
 
 	clk->rate = cpccr_get_rate(clk);
 	return 0;

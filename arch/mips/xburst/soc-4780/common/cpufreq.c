@@ -44,19 +44,12 @@ static struct regulator *cpu_regulator;
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
 #define MIN_FREQ 150000
-#define MIN_VOLT 1025000
+#define MIN_VOLT 1200000
 static unsigned long regulator_table[12][2] = {
-	{ 1700000,1350000 }, // 1.7 GHz - 1.25V
-	{ 1500000,1300000 },
-	{ 1300000,1250000 },
+	{ 1700000,1400000 }, // 1.7 GHz - 1.25V
+	{ 1400000,1300000 }, // 1.7 GHz - 1.25V
 	{ 1200000,1200000 },
-	{ 1100000,1150000 },
-	{  900000,1100000 },
-	{  700000,1100000 },
-	{  500000,1100000 },
-	{  300000,1100000 },
 	{MIN_FREQ,MIN_VOLT},
-	{       0,1025000 },
 };
 
 unsigned long regulator_find_voltage(int freqs)
@@ -72,17 +65,58 @@ unsigned long regulator_find_voltage(int freqs)
 	return 0;
 }
 
-static void freq_table_prepare(void)
+static int freq_table_prepare(void)
 {
-	unsigned int i,max = clk_get_rate(cpu_clk) / 1000;
+	struct clk *apll;
+	struct clk *mpll;
+	unsigned int i,max;
+	unsigned int apll_rate,mpll_rate;
+
+	apll = clk_get(NULL,"apll");
+	if (IS_ERR(apll)) {
+		return -EINVAL;
+	}
+
+	mpll = clk_get(NULL,"mpll");
+	if (IS_ERR(mpll)) {
+		clk_put(apll);
+		return -EINVAL;
+	}
+
+	apll_rate = clk_get_rate(apll);
+	mpll_rate = clk_get_rate(mpll);
 	memset(freq_table,0,sizeof(freq_table));
-	for(i=0;i<CPUFREQ_NR && max >= 100000;i++) {
+
+	printk("%u %u\n",apll_rate,mpll_rate);
+	if(apll_rate > mpll_rate) {
+		max = apll_rate;
+		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000000);i++) {
+			freq_table[i].index = i;
+			freq_table[i].frequency = max;
+			max -= 200000000;
+		}
+	}
+
+	max = mpll_rate;
+	for(;i<CPUFREQ_NR && max > 100000000;i++) {
 		freq_table[i].index = i;
 		freq_table[i].frequency = max;
 		max = max >> 1;
 	}
+
 	freq_table[i].index = i;
 	freq_table[i].frequency = CPUFREQ_TABLE_END;
+	freq_table[CPUFREQ_NR-1].index = CPUFREQ_NR-1;
+	freq_table[CPUFREQ_NR-1].frequency = CPUFREQ_TABLE_END;
+
+	clk_put(apll);
+	clk_put(mpll);
+#if 0
+	for(i=0;i<CPUFREQ_NR;i++) {
+		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
+	}
+#endif
+	return 0;
 }
 
 static int jz4780_verify_speed(struct cpufreq_policy *policy)
@@ -291,7 +325,7 @@ static int __init jz4780_cpufreq_init(void)
 
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
-#ifndef CONFIG_CPUFREQ_CHANGE_VCORE
+#ifdef CONFIG_CPUFREQ_CHANGE_VCORE
 	cpu_regulator = regulator_get(NULL, "vcore");
 	if (IS_ERR(cpu_regulator)) {
 		pr_warning("%s: unable to get CPU regulator\n", __func__);
@@ -311,7 +345,8 @@ static int __init jz4780_cpufreq_init(void)
 #else
 	cpu_regulator = NULL;
 #endif
-	freq_table_prepare();
+	if(!freq_table_prepare())
+		return -EINVAL;
 
 	return cpufreq_register_driver(&jz4780_driver);
 }
