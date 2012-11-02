@@ -477,6 +477,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	int timeout = TIMEOUT;
 	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
+	clk_enable(i2c->clk);
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
 	}
@@ -501,9 +502,13 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 		}else{
 			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
 		}
-		if (ret) return ret;
+		if (ret) {
+			clk_disable(i2c->clk);
+			return ret;
+		}
 	}
 
+	clk_disable(i2c->clk);
 	return i;
 }
 
@@ -628,6 +633,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 
 	jz_i2c_enable(i2c);
 
+	clk_disable(i2c->clk);
 	return 0;
 
 adapt_failed:
