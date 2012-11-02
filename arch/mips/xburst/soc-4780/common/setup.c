@@ -49,7 +49,7 @@ void __init cpm_reset(void)
 	mdelay(1);
 	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
 	mdelay(1);
-	cpm_outl(0x27f87fff,CPM_CLKGR0);
+	cpm_outl(0x27f87ff0,CPM_CLKGR0);
 	mdelay(1);
 	cpm_outl(0xffffffff,CPM_CLKGR1);
 	mdelay(1);
