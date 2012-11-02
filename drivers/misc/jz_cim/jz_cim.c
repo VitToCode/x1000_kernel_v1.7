@@ -974,10 +974,16 @@ static int cim_probe(struct platform_device *pdev)
 	}	
 	
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	r = request_mem_region(r->start, resource_size(r), pdev->name);
+	if (!r) {
+		dev_err(&pdev->dev, "request memory region failed\n");
+		ret = -EBUSY;
+	}
+
 	cim->iomem = ioremap(r->start,resource_size(r));
 	if (!cim->iomem) {
 		ret = -ENODEV;
-		goto io_failed1;
+		goto io_failed2;
 	}
 
 	if(cim_alloc_mem(cim)) {
@@ -1017,6 +1023,8 @@ irq_failed:
 	cim_free_mem(cim);
 mem_failed:
 	iounmap(cim->iomem);
+io_failed2:
+	release_mem_region(r->start, resource_size(r));	
 io_failed1:
 	clk_put(cim->mclk);
 io_failed:
