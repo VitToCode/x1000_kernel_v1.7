@@ -1,5 +1,6 @@
 #ifndef __RECYCLE_H__
 #define __RECYCLE_H__
+//#define RECYCLE_DEBUG_PAGEINFO 1
 
 #include "hash.h"
 #include "zone.h"
@@ -7,6 +8,10 @@
 #include "pageinfo.h"
 #include "cachemanager.h"
 #include "NandSemaphore.h"
+
+#ifdef RECYCLE_DEBUG_PAGEINFO
+#include "pageinfodebug.h"
+#endif
 
 typedef struct _Recycle Recycle;
 
@@ -51,6 +56,9 @@ struct _Recycle {
 	unsigned short force_junk_zoneid;
 	
 	int write_pagecount;
+#ifdef RECYCLE_DEBUG_PAGEINFO
+	struct PageInfoDebug *debug;
+#endif
 };
 
 typedef struct _ForceRecycleInfo ForceRecycleInfo;
