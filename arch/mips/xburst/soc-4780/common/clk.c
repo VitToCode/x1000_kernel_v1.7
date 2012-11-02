@@ -829,31 +829,5 @@ static int __init init_clk_proc(void)
 	return 0;
 }
 
-void smp_set_cpu_clk(int cpu, int enable)
-{
-	struct clk *clk;
-	switch (cpu) {
-		case 1:
-			clk = clk_get(NULL, "p1");
-			if (IS_ERR(clk)) {
-				pr_err("cpu%d clock get error\n", cpu);
-				return;
-			}
-			break;
-		default:
-			pr_err("can't support cpu%d\n", cpu);
-			return;
-	}
-
-	if (enable) {
-		if (!clk_enable(clk))
-			pr_debug("cpu%d clock enabled\n", cpu);
-		else
-			pr_err("cpu%d clock enabled error\n", cpu);
-	}
-	else
-		clk_disable(clk);
-}
-
 module_init(init_clk_proc);
 

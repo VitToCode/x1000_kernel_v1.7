@@ -38,7 +38,6 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 
-extern void smp_set_cpu_clk(int cpu, int enable);
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
 #else
@@ -176,6 +175,7 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	ctrl &= ~(1 << cpu);
 	set_smp_ctrl(ctrl);
 
+	cpm_clear_bit(15,CPM_CLKGR1);
 	cpm_clear_bit(31,CPM_LCR);
 wait:
 	if (!cpumask_test_cpu(cpu, cpu_ready))
@@ -195,7 +195,7 @@ wait:
  */
 static inline int smp_cpu_stop(int cpu)
 {
-	unsigned int status,ctrl;
+	unsigned int status;
 
 	if(cpu >= 4)
 		return -1;
@@ -205,10 +205,7 @@ static inline int smp_cpu_stop(int cpu)
 	}while(!(status & (1<<(cpu+16))));
 
 	cpm_set_bit(31,CPM_LCR);
-
-	ctrl = get_smp_ctrl();
-	ctrl |= (0x1 << cpu);
-	set_smp_ctrl(ctrl);
+	cpm_set_bit(15,CPM_CLKGR1);
 
 	return 0;
 }
@@ -240,13 +237,9 @@ static void __init jzsoc_smp_setup(void)
 static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned long reim;
-	int i;
 
 	if(max_cpus <= 1) return;
 
-	for (i = 1; i < max_cpus; i++)
-		smp_set_cpu_clk(i, 1);
-		
 	set_smp_mbox0(0);	
 	set_smp_mbox1(0);
 	set_smp_mbox2(0);
