@@ -3,6 +3,8 @@
 
 #define MAXDIFFTIME 20
 
+//#define L2P_PAGEINFO_DEBUG 1
+
 #include "context.h"
 #include "partitioninterface.h"
 #include "bufflistmanager.h"
@@ -10,8 +12,11 @@
 #include "vnandinfo.h"
 #include "ppartition.h"
 #include "sectorlist.h"
-
+#ifdef L2P_PAGEINFO_DEBUG
+#include "pageinfodebug.h"
+#endif
 typedef struct _L2pConvert L2pConvert;
+
 struct _L2pConvert {
 	SectorList *follow_node;
 	int break_type;
@@ -24,6 +29,9 @@ struct _L2pConvert {
 	int pagecount;
 	int alloced_new_zone;
 	int *sectorid;
+#ifdef L2P_PAGEINFO_DEBUG
+	struct PageInfoDebug *debug;
+#endif
 };
 
 enum cmd {

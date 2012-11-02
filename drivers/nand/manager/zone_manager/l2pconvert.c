@@ -16,6 +16,8 @@
 #include "nmbitops.h"
 #include "clib.h"
 #include "timeinterface.h"
+#include "pageinfodebug.h"
+
 //#include "badblockinfo.h"
 
 static BuffListManager *Blm;
@@ -220,11 +222,12 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	if(CacheManager_CheckCacheAll ((int)conptr->cachemanager,0,0)){
 		while(1);
 	}
-
 #ifndef NO_ERROR
 	Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
 #endif
-
+#ifdef L2P_PAGEINFO_DEBUG
+	l2p->debug = Init_L2p_Debug((int)conptr);
+#endif
 	return (int)conptr;
 }
 
@@ -238,6 +241,10 @@ int L2PConvert_ZMClose(int handle)
 	int context = handle;
 	Context *conptr = (Context *)context;
 	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
+#ifdef L2P_PAGEINFO_DEBUG
+	Deinit_L2p_Debug(l2p->debug);
+#endif
+
 #ifdef STATISTICS_DEBUG
 	Nd_TimerdebugDeinit(conptr->timebyte);
 	Nd_TimerdebugDeinit(conptr->vnand.timebyte);
