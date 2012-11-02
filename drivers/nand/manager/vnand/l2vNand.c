@@ -112,7 +112,8 @@ void dump_availablebadblock(VNandManager *vm)
 static inline unsigned int L2PblockID(VNandInfo *vnand, unsigned int blockid)
 {
 	if(blockid >= vnand->TotalBlocks){
-		ndprint(VNAND_ERROR,"ERROR: %s blockid is too large!!!!!",__func__);
+		ndprint(VNAND_ERROR,"ERROR: %s blockid=%d > vnand->TotalBlocks=%d!!!!!\n"
+                                ,__func__,blockid,vnand->TotalBlocks);
 		return -1;
 	}
 
@@ -201,9 +202,8 @@ static void free_badblock_info(PPartition *pt)
 
 static void PtAvailableBlockID_Init(VNandManager *vm)
 {
-	int badblock_number = 0;
 	int blockid = 0;
-	int pos,i=0,j=0;
+	int pos,i=0,j=0,k=0;
 	PPartition *pt = NULL;
 
 	for(i=0; i<vm->pt->ptcount; i++){
@@ -220,6 +220,8 @@ static void PtAvailableBlockID_Init(VNandManager *vm)
 			continue;
 
 		blockid = 0;
+                k = 0;
+                /*
 		badblock_number = 0;
 		for(j=0; j < (pt->byteperpage * BADBLOCKINFOSIZE) / sizeof(unsigned int); j++){
 			if(pt->badblock->pt_badblock_info[j]==0xffffffff)
@@ -227,10 +229,12 @@ static void PtAvailableBlockID_Init(VNandManager *vm)
 			else
 				badblock_number++;
 		}
-		for(pos=0; pos < pt->totalblocks; pos++){
-			for(j=0; j<badblock_number; j++){
+                */
+		for(pos=0; pos < pt->totalblocks - pt->actualbadblockcount; pos++){
+			for(j=k; j<pt->actualbadblockcount; j++){
 				if(pt->badblock->pt_badblock_info[j] == blockid){
 					blockid++;
+                                        k++;
 				}
 			}
 			pt->badblock->pt_availableblockid[pos] = blockid;
@@ -393,6 +397,7 @@ static void read_badblock_info_page(VNandManager *vm)
 	int i, j, ret;
 	int blmid;
 	VNandInfo error_vn;
+	VNandInfo vn;
 	PageList *pl = NULL;
 	PPartition *pt = NULL;
 	PPartition *lastpt = NULL;
@@ -516,15 +521,18 @@ static void read_badblock_info_page(VNandManager *vm)
 		}
 		ndprint(VNAND_INFO,"\n");
 		if(badblockcount > 0) {
-			pt->totalblocks -= badblockcount;
-			pt->PageCount -= badblockcount * pt->pageperblock;
+		//	pt->totalblocks -= badblockcount;
+		//	pt->PageCount -= badblockcount * pt->pageperblock;
+	                pt->actualbadblockcount = badblockcount;
 		}
-		ndprint(VNAND_INFO,"%s: totalblocks = %d PageCount = %d"
-				" badblockcount = %d\n"
+	        CONV_PT_VN(pt,&vn);
+		ndprint(VNAND_INFO,"%s: pt:totalblocks=%d PageCount=%d"
+				" badblockcount = %d vn:TotalBlocks=%d\n"
 				,pt->name
 				,pt->totalblocks
 				,pt->PageCount
-				,badblockcount
+				,pt->actualbadblockcount
+                                ,vn.TotalBlocks
 			);
 		badblockcount = 0;
 	}

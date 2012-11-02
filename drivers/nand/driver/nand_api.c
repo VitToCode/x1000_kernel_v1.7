@@ -329,6 +329,7 @@ static int init_nand_driver(void)
 		(g_partition+ret)->hwsector =512;
 		(g_partition+ret)->byteperpage = byteperpage-tmp_freesize;
 		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
+		(g_partition+ret)->actualbadblockcount = 0;
 		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * pageperblock));
 		/*  two-plane operation : startblockID must be even  */
 		(g_partition+ret)->startblockID +=(g_partition+ret)->startblockID % use_planenum;
@@ -358,6 +359,7 @@ static int init_nand_driver(void)
 	(g_partition+ret)->name = "nderror";
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
 	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
+	(g_partition+ret)->actualbadblockcount = 0;
 	(g_partition+ret)->startblockID = blockid;
 	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
 	(g_partition+ret)->pageperblock = t_partition->pageperblock;
@@ -382,9 +384,9 @@ static int init_nand_driver(void)
 	{
 		int ret;
 		BlockList blocklist;
-        blocklist.startBlock = 0;
-        blocklist.BlockCount = 128;
-        blocklist.head.next = 0;
+                blocklist.startBlock = 0;
+                blocklist.BlockCount = 128;
+                blocklist.head.next = 0;
 		ret = multiblock_erase(&g_partition[0], &blocklist);
 		if (ret != 0) {
 			printk("ndisk erase err \n");
@@ -674,8 +676,12 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
                 return -1;
 	}
         g_pnand_api.gpio_wp = g_pnand_data->gpio_wp;
+        if (!g_pnand_api.gpio_wp) {
+		dev_err(&pdev->dev, "No set gpio wp pin\n");
+                return -1;
+        }
 	if (gpio_request(g_pnand_api.gpio_wp, "nand_wp")) {
-		dev_err(&pdev->dev, "No platform_data\n");
+		dev_err(&pdev->dev, "the gpio wp pin is err\n");
                 return -1;
         }
         /* disable nand 'WP' */

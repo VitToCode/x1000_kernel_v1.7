@@ -27,6 +27,7 @@ struct _PPartition {
 	int byteperpage;
 	int totalblocks;
 	int badblockcount;
+	int actualbadblockcount;
 	int hwsector;
 	int startPage;
 	int PageCount;

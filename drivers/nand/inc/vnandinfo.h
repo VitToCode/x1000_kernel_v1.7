@@ -38,7 +38,7 @@ struct _VNandManager {
 			(vn)->PagePerBlock = (pt)->pageperblock;					\
 			(vn)->BytePerPage = (pt)->byteperpage;						\
 		}																\
-		(vn)->TotalBlocks = (pt)->totalblocks;							\
+		(vn)->TotalBlocks = (pt)->totalblocks - (pt)->actualbadblockcount;		\
 		(vn)->MaxBadBlockCount = (pt)->badblockcount;					\
 		(vn)->hwSector = (pt)->hwsector;								\
 		(vn)->prData = (void*)(pt);										\
