@@ -44,15 +44,14 @@ void __init cpm_reset(void)
 	unsigned long clkgr0 = cpm_inl(CPM_CLKGR0);
 	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
 	unsigned long lcr = cpm_inl(CPM_LCR);
-
 #if 1
 	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
 	mdelay(1);
 	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
 	mdelay(1);
-	cpm_outl(clkgr0 | (1<<26|1<<27|1<<28),CPM_CLKGR0);
+	cpm_outl(0x3ff87fff,CPM_CLKGR0);
 	mdelay(1);
-	cpm_outl(clkgr1 | (1<<2|1<<4),CPM_CLKGR1);
+	cpm_outl(0xffffffff,CPM_CLKGR1);
 	mdelay(1);
 #endif
 	cpm_outl(lcr | CPM_LCR_PD_MASK,CPM_LCR);
