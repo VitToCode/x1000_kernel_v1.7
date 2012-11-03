@@ -803,6 +803,57 @@ struct clk *clk_get_parent(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_parent);
 
+int clk_start_ehci(void)
+{
+#ifdef CONFIG_SOC_4780
+
+	/* enable clock gate */
+	cpm_clear_bit(24, CPM_CLKGR0);
+
+	/* UHC clock source is OTG_PHY */
+	cpm_set_bit(30, CPM_UHCCDR);
+	cpm_set_bit(31, CPM_UHCCDR);
+
+	cpm_clear_bit(20, CPM_USBPCR);
+
+	/* The PLL uses CLKCORE as reference */
+	cpm_set_bit(26, CPM_USBPCR1);
+	cpm_set_bit(27, CPM_USBPCR1);
+
+	/* selects the reference clock frequency 48M */
+	cpm_set_bit(25, CPM_USBPCR1);
+	cpm_clear_bit(24, CPM_USBPCR1);
+
+	/* port1(uhc) hasn't forced to entered SUSPEND mode */
+	cpm_set_bit(6, CPM_OPCR);
+
+	/* The pull-down resistance on D-/D+ of port1 */
+	cpm_set_bit(22, CPM_USBPCR1);
+	cpm_set_bit(23, CPM_USBPCR1);
+
+	/* select utmi data bus width of port1 to 16bit/30M */
+	cpm_set_bit(18, CPM_USBPCR1);
+	//printk("%s:%d  REG_CPM_USBPCR1 = %#08x\n", __func__, __LINE__, REG_CPM_USBPCR1);
+
+	/* select utmi data bus width of controller to 16bit */
+	*((volatile int *) 0xb34900b0) |= (1 << 6);
+
+	/* phy reset */
+	cpm_set_bit(22, CPM_USBPCR);
+	udelay(30);
+	cpm_clear_bit(22, CPM_USBPCR);
+	udelay(300);
+
+	/* UHC soft reset */
+	cpm_set_bit(14, CPM_SRBC);
+	udelay(300);
+	cpm_clear_bit(14, CPM_SRBC);
+	udelay(300);
+
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(clk_start_ehci);
 
 static int clk_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data)

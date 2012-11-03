@@ -95,4 +95,5 @@
 #define cpm_set_bit(off,x)	do{}while(0)
 #endif
 
+int clk_start_ehci(void);
 #endif
