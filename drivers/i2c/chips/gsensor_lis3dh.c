@@ -151,6 +151,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		case ODR10:	config1[1] = 0x1D;break;//INT_DUR1 register set to 0x2d irq rate is:12Hz
 		case ODR25:	config1[1] = 0x0E;break;//set to 0x0e irq rate:25Hz
 		case ODR50:	config1[1] = 0x06;break;//set to 0x06 irq rate:50Hz
+	
 		default:	config1[1] = 0x1D;break;//default situation set to 0x1D:irq rate:12Hz
 	}
 #endif
@@ -161,13 +162,13 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 	config[1] = 0x50;
 #endif
 	config[1] |= LIS3DH_ACC_ENABLE_ALL;
-//	printk("---gsensor odr config[1] = %x, config1[1] = %x---\n",config[1], config1[1]);
 	if (atomic_read(&acc->enabled)) {
 		config[0] = CTRL_REG1;
 		err = lis3dh_acc_i2c_write(acc, config, 1);
 		if (err < 0)
 			goto error;
 		acc->resume_state[RES_CTRL_REG1] = config[1];
+	//	printk("---gsensor odr config[1] = %x---\n",config[1]);
 	}
 	if (atomic_read(&acc->enabled)) {
 		config1[0] = INT_DUR1;
@@ -175,6 +176,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		if (err < 0)
 			goto error;
 		acc->resume_state[RES_INT_DUR1] = config1[1];
+	//	printk("---gsensor odr config1[1] = %x---\n", config1[1]);
 	}
 	return err;
 error:
@@ -338,10 +340,12 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
 
 static void lis3dh_acc_regulator_enbale(struct lis3dh_acc_data *acc)
 {
-	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0)
+	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0) {
 		regulator_enable(acc->power);
-	udelay(100);
-	lis3dh_acc_hw_init(acc);
+		udelay(100);
+		lis3dh_acc_hw_init(acc);
+//		printk("&&&&&&&&&=gsensor regulator_enable &&&\n");
+	}
 }
 
 static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
@@ -610,17 +614,20 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				return -EFAULT;
 			break;
 		case SENSOR_IOCTL_SET_DELAY:
-			mutex_lock(&lis3dh->lock);
-			if (copy_from_user(&interval, argp, sizeof(interval)))
-				return -EFAULT;
-			interval *= 10;  //for Sensor_new
-			if (interval < lis3dh->pdata->min_interval )
-				interval = lis3dh->pdata->min_interval;
-			else if (interval > lis3dh->pdata->max_interval)
-				interval = lis3dh->pdata->max_interval;
-			lis3dh->pdata->poll_interval = interval;
-			lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
-			mutex_unlock(&lis3dh->lock);
+			if (atomic_read(&lis3dh->enabled)) {
+				mutex_lock(&lis3dh->lock);
+				if (copy_from_user(&interval, argp, sizeof(interval)))
+					return -EFAULT;
+				interval *= 10;  //for Sensor_new
+				if (interval < lis3dh->pdata->min_interval )
+					interval = lis3dh->pdata->min_interval;
+				else if (interval > lis3dh->pdata->max_interval)
+					interval = lis3dh->pdata->max_interval;
+				lis3dh->pdata->poll_interval = interval;
+				lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
+				mutex_unlock(&lis3dh->lock);
+			//	printk("----lis3dh call SET_DELAY ----\n");
+			}
 			break;
 		case SENSOR_IOCTL_SET_ACTIVE:
 			mutex_lock(&lis3dh->lock);
@@ -633,11 +640,13 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				lis3dh_acc_regulator_enbale(lis3dh);
 				lis3dh_acc_enable(lis3dh);
 				lis3dh_acc_update_odr(lis3dh, lis3dh->pdata->poll_interval);
+			//	printk("----lis3dh call SET_ACTIVE ----\n");
 			}else{
 				lis3dh->power_tag = interval;
 				lis3dh_acc_disable(lis3dh);
 				if (atomic_cmpxchg(&lis3dh->regulator_enabled, 1, 0))
 					regulator_disable(lis3dh->power);
+			//	printk("----lis3dh call SET_NOt_ACTIVE ----\n");
 			}
 			mutex_unlock(&lis3dh->lock);
 			break;
@@ -806,7 +815,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 	}
 	udelay(100);
-	atomic_set(&acc->regulator_enabled, 1);
+	atomic_set(&acc->regulator_enabled, 0);
 
 	/*--read id must add to load mma8452 or lis3dh--*/
 	buf[0] = WHO_AM_I;
@@ -917,7 +926,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 //			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			"lis3dh_acc", acc);
 	if (err < 0)
+	{
 		printk("err == %d \n",err);
+		goto err_power_off;
+	}
 
 	disable_irq_nosync(acc->client->irq);
 
@@ -993,10 +1005,11 @@ static void lis3dh_acc_late_resume(struct early_suspend *handler)
 	struct lis3dh_acc_data *acc;
 
 	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
-	if (acc->power_tag && atomic_read(&acc->regulator_enabled))
-	{
-		acc->is_suspend = 0;
-		lis3dh_acc_regulator_enbale(acc);
+	acc->is_suspend = 0;
+
+	enable_irq(acc->client->irq);
+	lis3dh_acc_regulator_enbale(acc);
+	if (!atomic_read(&acc->enabled)) {
 		mutex_lock(&acc->lock);
 		lis3dh_acc_enable(acc);
 		mutex_unlock(&acc->lock);
@@ -1008,11 +1021,16 @@ static void lis3dh_acc_early_suspend(struct early_suspend *handler)
 	struct lis3dh_acc_data *acc ;
 	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
 	
-	if (acc->power_tag && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
-		acc->is_suspend = 1;
+	acc->is_suspend = 1;
+
+	disable_irq_nosync(acc->client->irq);
+	if (atomic_read(&acc->enabled)) {
 		lis3dh_acc_disable(acc);
+	}
+	if (atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
 		regulator_disable(acc->power);
 	}
+
 }
 #endif
 
