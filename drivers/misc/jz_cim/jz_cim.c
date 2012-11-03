@@ -33,7 +33,10 @@
 
 #define PDESC_NR	4
 #define CDESC_NR	1
-#define DEG() printk("fuchao ---------------- %s %d\n",__FUNCTION__,__LINE__)
+
+//#define KERNEL_INFO_PRINT
+//#define SP0838_REGS_PRINT
+
 static LIST_HEAD(sensor_list);
 
 enum cim_state {
@@ -161,9 +164,12 @@ void cim_enable_tlb(struct jz_cim *cim){bit_set(cim,CIM_TC,CIM_TC_ENA);}
 int  cim_set_tlbbase(struct jz_cim *cim)
 {
 	unsigned long regval = 0;
+
+#ifdef KERNEL_INFO_PRINT
 	dev_info(cim->dev,"cim set tlb base is %lx\n",cim->tlb_base);
+#endif
 	if(cim->tlb_base & 0x3){//bit[0:1] must be 0.double word aligned
-		dev_info(cim->dev,"cim tlb base is not valid address\n");
+		dev_err(cim->dev,"cim tlb base is not valid address\n");
 		return -1;
 	}
 	regval = reg_read(cim,CIM_TC);
@@ -356,14 +362,17 @@ static long cim_set_capture_size(struct jz_cim *cim)
 	struct frm_size * p = cim->desc->capture_size;
 	for(i=0;i<cim->desc->cap_resolution_nr;i++){	 
 		if(cim->csize.w == p->w && cim->csize.h == p->h){
+			
+#ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"Found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
+#endif
 			break;
 		}
 		p++;
 	}
 	
 	if(i>= cim->desc->cap_resolution_nr){
-		dev_info(cim->dev,"Cannot found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
+		dev_err(cim->dev,"Cannot found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
 		return -1;
 	}
 	if(cim->state == CS_CAPTURE)
@@ -376,15 +385,17 @@ static long cim_set_preview_size(struct jz_cim *cim)
 	int i =0;
 	struct frm_size * p = cim->desc->preview_size;
 	for(i=0;i<cim->desc->prev_resolution_nr;i++){	 
-		if(cim->psize.w == p->w && cim->psize.h == p->h){
+		if(cim->psize.w == p->w && cim->psize.h == p->h){			
+#ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"Found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+#endif
 			break;
 		}
 		p++;
 	}
 	
 	if(i>= cim->desc->prev_resolution_nr){
-		dev_info(cim->dev,"Cannot found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+		dev_err(cim->dev,"Cannot found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
 		return -1;
 	}
 	if(cim->state == CS_PREVIEW)
@@ -443,8 +454,10 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 		else if(cim->state == CS_CAPTURE){
 			wait_count ++;
 			//dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
-			dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
 
+#ifdef KERNEL_INFO_PRINT
+			dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
+#endif
 			if( wait_count == 6)
 			{
 				wait_count = 0;
@@ -478,6 +491,7 @@ static long cim_shutdown(struct jz_cim *cim)
 	cim_reset(cim);
 	cim_clear_state(cim);	// clear state register
 	cim_clear_rfifo(cim);	// resetting rxfifo
+	
 	//cim_dump_reg(cim);
 	
 	wake_up_interruptible(&cim->wait);
@@ -516,6 +530,9 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_enable_dma(cim);
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_enable(cim);
+#ifdef SP0838_REGS_PRINT	
+	cim->desc->read_all_regs(cim->desc);
+#endif
 	//cim_dump_reg(cim);
 	return 0;
 }
@@ -547,7 +564,7 @@ static long cim_start_capture(struct jz_cim *cim)
 
 	if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(15000))) {
 			cim_dump_reg(cim);
-			dev_info(cim->dev,"cim ---------------capture wait timeout\n");
+			dev_err(cim->dev,"cim ---------------capture wait timeout\n");
 			cim_disable(cim);
 			cim_clear_rfifo(cim);
 			cim_clear_state(cim);
@@ -564,11 +581,11 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
 	while(cim->frm_id == -1) {
 			if(cim->state  != CS_PREVIEW){
-				dev_info(cim->dev,"cim state is not CS_PREVIEW,so return\n");
+				dev_err(cim->dev,"cim state is not CS_PREVIEW,so return\n");
 				return 0;
 			}
 			if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(5000))){
-				dev_info(cim->dev,"wait preview queue timeout!\n");
+				dev_err(cim->dev,"wait preview queue timeout!\n");
 				cim_dump_reg(cim);
 				return 0;
 			}
@@ -714,8 +731,9 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 		else
 			desc[i].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
+#ifdef KERNEL_INFO_PRINT
 		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n", i, desc[i].buf);
-		
+#endif		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
 				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80; //aligned to 32-word boundary
@@ -728,7 +746,9 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
+#ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"cim set C buffer[%d] phys is: %x\n", i, desc[i].cb_frame);
+#endif
 		}
 	}
 
@@ -753,8 +773,9 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 		else
 			desc[i].cmd = ((capture_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
+#ifdef KERNEL_INFO_PRINT
 		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n",i,desc[i].buf);
-		
+#endif		
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->capture_output_format == CIM_CSC_YUV420P) {
 				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80;
@@ -767,7 +788,9 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
+#ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"cim set C buffer[%d] phys is: %x\n",i,desc[i].cb_frame);
+#endif
 		}
 	}
 	
@@ -811,13 +834,14 @@ static int cim_set_output_format(struct jz_cim *cim, unsigned int cmd, unsigned 
 		dev_err(cim->dev,"unknow format, code: 0x%x\n", format);
 		return -1;
 	}
-	
+
+#ifdef KERNEL_INFO_PRINT
 	if(cmd == CIMIO_SET_PREVIEW_FMT) {
 		dev_info(cim->dev,"set preview format to %s\n", format_desc);
 	} else if(cmd == CIMIO_SET_CAPTURE_FMT) {
 		dev_info(cim->dev,"set capture format to %s\n", format_desc);
 	}
-	
+#endif	
 	return 0;
 }
 
