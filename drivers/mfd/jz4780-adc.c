@@ -133,6 +133,7 @@ static inline void jz_adc_enable(struct jz_adc *adc)
 	uint8_t val;
 
 	if (atomic_inc_return(&adc->clk_ref) == 1) {
+		clk_enable(adc->clk);
 		val = readb(adc->base + JZ_REG_ADC_ENABLE);
 		val &= ~BIT(7);
 		writeb(val, adc->base + JZ_REG_ADC_ENABLE);
@@ -148,6 +149,7 @@ static inline void jz_adc_disable(struct jz_adc *adc)
 		val = readb(adc->base + JZ_REG_ADC_ENABLE);
 		val |= BIT(7);
 		writeb(val, adc->base + JZ_REG_ADC_ENABLE);
+		clk_disable(adc->clk);
 	}
 }
 
