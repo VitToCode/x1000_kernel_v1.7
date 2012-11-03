@@ -17,7 +17,6 @@
 #include "clib.h"
 #include "timeinterface.h"
 #include "pageinfodebug.h"
-
 //#include "badblockinfo.h"
 
 static BuffListManager *Blm;
@@ -278,6 +277,11 @@ static int get_pagecount(int sectorperpage, SectorList *sectornode)
 	return (sectornode->sectorCount - 1) / sectorperpage + 1;
 }
 
+static void handle_unCached_sector(SectorList *sectornode, int sector_offset) {
+	void *start = (void *)(unsigned char *)sectornode->pData + sector_offset * SECTOR_SIZE;
+	memset(start, 0xff, SECTOR_SIZE);
+}
+
 /**
  *	Read_sectornode_to_pagelist  -  Convert one node of SectorList to a PageList in read operation
  *
@@ -288,7 +292,7 @@ static int get_pagecount(int sectorperpage, SectorList *sectornode)
 */
 static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorList *sectornode, PageList *pagelist)
 {
-	int i, j, k;
+	int i, j, k, l;
 	unsigned int sectorid;
 	unsigned int pageid_prev, pageid_next;
 	unsigned int pageid_by_sector_prev, pageid_by_sector_next;
@@ -300,14 +304,17 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 	unsigned int left_sector_count = 0;
 
 	sectorid = sectornode->startSector;
-	for (i = sectorid; i < sectorid + sectorcount; i += k) {
-		k = 1;
+	for (i = sectorid; i < sectorid + sectorcount; i += (k + l)) {
+		l = k = 0;
 		pageid_by_sector_prev = CacheManager_getPageID((int)conptr->cachemanager, i);
 		if (pageid_by_sector_prev == -1) {
 			ndprint(L2PCONVERT_INFO,"CacheManager_getPageID when sectorid = %d fun %s line %d\n",
 				i, __FUNCTION__, __LINE__);
-			return -1;
+			handle_unCached_sector(sectornode, i - sectorid);
+			l++;
+			continue;
 		}
+		k++;
 
 		pageid_prev = pageid_by_sector_prev / sectorperpage;
 
@@ -323,8 +330,11 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 		for(j = i + 1; j < (left_sector_count + i) && j < sectorid + sectorcount; j++) {
 			pageid_by_sector_next = CacheManager_getPageID((int)conptr->cachemanager, j);
 			if (pageid_by_sector_next == -1) {
-				ndprint(L2PCONVERT_INFO,"CacheManager_getPageID when sectorid = %d fun %s line %d\n",i, __FUNCTION__, __LINE__);
-				return -1;
+				ndprint(L2PCONVERT_INFO,"CacheManager_getPageID when sectorid = %d fun %s line %d\n",
+						i, __FUNCTION__, __LINE__);
+				handle_unCached_sector(sectornode, j - sectorid);
+				l++;
+				break;
 			}
 
 			pageid_next = pageid_by_sector_next / sectorperpage;
@@ -342,7 +352,8 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 		pagenode->retVal = 1;
 		pData += pagenode->Bytes;
 	}
-	pagenode->retVal = 0;
+	if (pagenode)
+		pagenode->retVal = 0;
 
 	return 0;
 }
@@ -520,12 +531,16 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 		}
 
 		ret = Read_sectornode_to_pagelist(context, sectorperpage, sl_node, pl);
+		/*
 		if (ret == -1)
 			goto first_read;
+		*/
 	}
 
 	/* delete head node of Pagelist */
 	BuffListManager_freeList((int)(conptr->blm), (void **)&pl, (void *)pl, sizeof(PageList));
+	if (!pl)
+		goto null_pl;
 
 	ret = vNand_MultiPageRead(&conptr->vnand, pl);
 	if (ret != 0){
@@ -559,10 +574,11 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 exit:
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
+null_pl:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return 0;
-
+/*
 first_read:
 	ret = 0;
 	BuffListManager_freeAllList((int)(conptr->blm), (void **)&pl, sizeof(PageList));
@@ -574,6 +590,7 @@ first_read:
 	Recycle_Unlock(context);
 
 	return ret;
+*/
 }
 
 /*recycle zone when freezone < sumzone*4% */

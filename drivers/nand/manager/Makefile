@@ -6,7 +6,6 @@ EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/inc/ \
 		-Idrivers/nand/manager/utils/ \
 		-Idrivers/nand/manager/inc/linux/ \
-		-DLINUX_KERNEL
 
 obj-y		+= utils/bufflistmanager.o utils/zonememory.o utils/timerdebug.o
 

@@ -16,7 +16,7 @@
 #include <mach/jznand.h>
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
-#include "../inc/char_nand_driver.h"   //change later
+#include "../inc/nand_char.h"   //change later
 
 //#define DEBUG_ERASE
 //#define NAND_DRIVE_CACL_TIME

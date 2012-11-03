@@ -88,7 +88,7 @@ void Calc_Speed(TimeByte *tb, void *ps,unsigned int mode,unsigned int listflag)
 	if (mode){/*write*/
 		if ((totalbyte=get_plslbyte(tb,ps,mode,listflag)) >= TOTAL_BYTE){
 			tb->EW_time += nd_getcurrentsec_ns();
-#ifdef LINUX_KERNEL
+#ifdef __KERNEL__
             time = (unsigned int)div_s64_rem((tb->EW_time - tb->SW_time), 1000000 ,&rema);
 #else
 			time = (unsigned int)((tb->EW_time - tb->SW_time) / 1000000);
@@ -110,7 +110,7 @@ void Calc_Speed(TimeByte *tb, void *ps,unsigned int mode,unsigned int listflag)
 	}else{/*read*/
 		if ((totalbyte=get_plslbyte(tb,ps,mode,listflag)) >= TOTAL_BYTE){
 			tb->ER_time += nd_getcurrentsec_ns();
-#ifdef LINUX_KERNEL
+#ifdef __KERNEL__
             time = (unsigned int)div_s64_rem((tb->ER_time - tb->SR_time), 1000000, &rema);
 #else
 			time = (unsigned int)((tb->ER_time - tb->SR_time) / 1000000);

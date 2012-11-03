@@ -28,7 +28,7 @@ FUNC_DEBUG(RECYCLE);
 FUNC_DEBUG(TIMER);
 FUNC_DEBUG(JUNKZONE);
 
-#ifndef  LINUX_KERNEL
+#ifndef  __KERNEL__
 #define ndprint(level,...) printf(__VA_ARGS__);
 #else
 #define ndprint(level,...)						        \

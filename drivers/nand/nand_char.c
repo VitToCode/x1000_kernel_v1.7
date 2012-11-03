@@ -1,15 +1,15 @@
-#define LINUX_KERNEL
 
-#include "inc/nand_api.h"
-#include "manager/inc/vNand.h"
-#include "inc/vnandinfo.h"
-#include "inc/nandinterface.h"
-#include "inc/char_nand_driver.h"
-#include "manager/inc/nanddebug.h"
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+
+#include "nand_api.h"
+#include "vNand.h"
+#include "vnandinfo.h"
+#include "nandinterface.h"
+#include "nand_char.h"
+#include "nanddebug.h"
 
 struct char_nand_ops{
 	VNandManager *vm;

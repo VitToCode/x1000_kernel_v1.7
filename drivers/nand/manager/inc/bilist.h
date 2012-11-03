@@ -3,7 +3,7 @@
 /*
   from linux / list.h
  */
-#ifndef  LINUX_KERNEL 
+#ifndef  __KERNEL__ 
 struct list_head {
 	struct list_head *next, *prev;
 };

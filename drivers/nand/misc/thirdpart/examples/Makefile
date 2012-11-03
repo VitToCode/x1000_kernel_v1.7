@@ -4,7 +4,7 @@ KERNEL  = /usr/src/linux
 # get the Linux architecture. Needed to find proper include file for CFLAGS
 ARCH=$(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
 # set default flags to compile module
-CFLAGS = -D__KERNEL__ -DMODULE -I$(KERNEL)/include
+CFLAGS = -DMODULE -I$(KERNEL)/include
 CFLAGS+= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -fno-strict-aliasing
 
 all:	thread_mod.o mmap_mod.o mmap
