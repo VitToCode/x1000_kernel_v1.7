@@ -2459,6 +2459,18 @@ config HDMI_JZ4780
        depends on HDMI
        default y
 
+config FORCE_RESOLUTION
+	depends on HDMI
+	int "Force HDMI initialization resolution"
+	default 0
+	help
+	  This is the function of force LCD controller and HDMI driver to
+	  initialization the same resolution. If initialization 720P 60Hz
+	  please fill "4", 1080P 60Hz please fill "16" or other resolution
+	  which is supported by LCD controller and TV.
+	  If choice this function, then may sure the HDMI cable is connected
+	  when kernel is boot.
+
 config HDMI_JZ4780_DEBUG
        tristate "JZ4780 HDMI DEBUG"
        depends on HDMI

@@ -1305,6 +1305,7 @@ static int ipu_shut(struct jz_ipu *ipu)
 
 	img = &ipu->img;
 
+	clk_disable(ipu->clk);
 	ipu->inited = 0;
 
 	return 0;

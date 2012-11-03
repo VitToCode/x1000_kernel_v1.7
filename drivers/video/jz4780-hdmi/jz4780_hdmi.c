@@ -490,6 +490,7 @@ static struct file_operations jzhdmi_fops = {
 static int __devinit jzhdmi_probe(struct platform_device *pdev)
 {
 	int ret;
+	int i;
 	struct jzhdmi *jzhdmi;
 	struct resource *mem;
 
@@ -634,6 +635,28 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
+
+#ifdef CONFIG_FORCE_RESOLUTION
+	for (i = 0; i < 5; i++) {
+		if (!CONFIG_FORCE_RESOLUTION)
+			break;
+		if ((phy_HotPlugDetected(0) > 0)) {
+			dev_info(jzhdmi->dev, "Force HDMI init VIC %d\n",
+				 CONFIG_FORCE_RESOLUTION);
+			api_phy_enable(PHY_ENABLE);
+			hdmi_init(jzhdmi);
+			hdmi_read_edid(jzhdmi);
+			jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+			hdmi_config(jzhdmi);
+			break;
+		} else {
+			if (i >= 4)
+				dev_err(jzhdmi->dev, "HDMI HPD fail\n");
+			mdelay(100);
+		}
+
+	}
+#endif
 
 	return 0;
 

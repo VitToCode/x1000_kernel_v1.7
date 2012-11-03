@@ -147,11 +147,8 @@ static void jzfb_config_fg0(struct fb_info *info)
 	/* OSD mode enable and alpha blending is enabled */
 	cfg = LCDC_OSDC_OSDEN | LCDC_OSDC_ALPHAEN;
 	cfg |= 1 << 16; /* once transfer two pixels */
-	/* OSD control register is read only */
-#ifdef CONFIG_JZ4780_IPU
-	/* enable ipu clock */
-	ctrl |= LCDC_OSDCTRL_IPU_CLKEN;
-#endif
+
+	/* OSD control register enable IPU clock at jzfb_ioctl() */
 
 	if (jzfb->fmt_order == FORMAT_X8B8G8R8) {
 		rgb_ctrl = LCDC_RGBC_RGBFMT | LCDC_RGBC_ODD_BGR |
@@ -650,7 +647,14 @@ static void jzfb_lvds_pll_reset(struct fb_info *info)
 
 static void jzfb_config_lvds_controller(struct fb_info *info)
 {
-	jzfb_lvds_pll_reset(info);
+	unsigned int tmp;
+	struct jzfb *jzfb = info->par;
+
+	tmp = reg_read(jzfb, LVDS_TXCTRL);
+	if (!(tmp & LVDS_TX_OD_EN)) {
+		/* x-boot is not configure lvds controller */
+		jzfb_lvds_pll_reset(info);
+	}
 
 	jzfb_lvds_txctrl_config(info);
 	jzfb_lvds_txpll0_config(info);
@@ -935,10 +939,10 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 static int jzfb_alloc_devmem(struct jzfb *jzfb)
 {
-	unsigned int max_videosize = 0;
-	struct fb_videomode *mode = jzfb->pdata->modes;
-	void *page;
 	int i;
+	unsigned int videosize = 0;
+	struct fb_videomode *mode;
+	void *page;
 
 	jzfb->framedesc = dma_alloc_coherent(jzfb->dev, sizeof(*jzfb->framedesc)
 					     * jzfb->desc_num,
@@ -951,15 +955,27 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 		return 0;
 	}
 
-	for (i = 0; i < jzfb->pdata->num_modes; ++mode, ++i) {
-		if (max_videosize < mode->xres * mode->yres)
-			max_videosize = mode->xres * mode->yres;
+#ifdef CONFIG_FORCE_RESOLUTION
+	if (!CONFIG_FORCE_RESOLUTION) {
+		mode = jzfb->pdata->modes;
+	} else {
+		for (i = 0; i < jzfb->pdata->num_modes; i++) {
+			if (jzfb->pdata->modes[i].flag !=
+			    CONFIG_FORCE_RESOLUTION)
+				continue;
+			mode = &jzfb->pdata->modes[i];
+			break;
+		}
 	}
+#else
+	mode = jzfb->pdata->modes;
+#endif
 
-	max_videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
-	max_videosize *= NUM_FRAME_BUFFERS;
+	videosize = mode->xres * mode->yres;
+	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
+	videosize *= NUM_FRAME_BUFFERS;
 
-	jzfb->vidmem_size = PAGE_ALIGN(max_videosize);
+	jzfb->vidmem_size = PAGE_ALIGN(videosize);
 	jzfb->vidmem = dma_alloc_coherent(jzfb->dev,
 					  jzfb->vidmem_size,
 					  &jzfb->vidmem_phys, GFP_KERNEL);
@@ -1391,6 +1407,39 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			reg_write(jzfb, LCDC_DUAL_CTRL, tmp);
 		}
 		break;
+	case JZFB_ENABLE_IPU_CLK:
+#ifdef CONFIG_JZ4780_IPU
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_info(info->dev, "Enable IPU clock data error\n");
+			return -EFAULT;
+		}
+
+		tmp = reg_read(jzfb, LCDC_OSDCTRL);
+		if (value) {
+			/* enable ipu0 clock */
+			tmp |= LCDC_OSDCTRL_IPU_CLKEN;
+		} else {
+			tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
+		}
+		reg_write(jzfb, LCDC_OSDCTRL, tmp);
+#else
+		dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
+		return -EFAULT;
+#endif
+		break;
+	case JZFB_ENABLE_LCDC_CLK:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_info(info->dev, "Enable LCDC0 clock data error\n");
+			return -EFAULT;
+		}
+
+		if (value) {
+			clk_enable(jzfb->ldclk);
+		} else {
+			clk_disable(jzfb->ldclk);
+			clk_disable(jzfb->lpclk);
+		}
+		break;
 	case JZFB_ENABLE_FG0:
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
@@ -1572,6 +1621,28 @@ static void jzfb_late_resume(struct early_suspend *h)
 	spin_unlock(&jzfb->suspend_lock);
 }
 #endif
+
+static void jzfb_copy_xboot_logo(struct fb_info *info)
+{
+	unsigned long src_addr = 0; /* x-boot logo buffer address */
+	unsigned long dst_addr = 0; /* kernel frame buffer address */
+	unsigned int size;
+	struct jzfb *jzfb = info->par;
+
+	/* get buffer physical address */
+	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
+	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {
+		/* x-boot is not display logo */
+		return;
+	}
+	if (src_addr) {
+		src_addr = (unsigned long)phys_to_virt(src_addr);
+		dst_addr = (unsigned long)info->screen_base;
+
+		size = info->fix.line_length * info->var.yres;
+		memcpy((void *)dst_addr, (void *)src_addr, size);
+	}
+}
 
 static void jzfb_display_v_color_bar(struct fb_info *info)
 {
@@ -1895,7 +1966,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
-	clk_enable(jzfb->ldclk);
 
 	jzfb->lpclk = clk_get(&pdev->dev, jzfb->pclk_name);
 	if (IS_ERR(jzfb->lpclk)) {
@@ -1918,22 +1988,30 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
+#ifdef CONFIG_FORCE_RESOLUTION
+	if (!CONFIG_FORCE_RESOLUTION) {
+		jzfb_videomode_to_var(&fb->var, pdata->modes);
+	} else {
+		for (i = 0; i < pdata->num_modes; i++) {
+			if (pdata->modes[i].flag != CONFIG_FORCE_RESOLUTION)
+				continue;
+			jzfb_videomode_to_var(&fb->var, &pdata->modes[i]);
+			break;
+		}
+		if (i >= pdata->num_modes) {
+			dev_err(&pdev->dev, "Find video mode fail\n");
+			ret = -EINVAL;
+			goto err_iounmap;
+		}
+	}
+#else
 	jzfb_videomode_to_var(&fb->var, pdata->modes);
+#endif
 	fb->var.width = pdata->width;
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
 
 	jzfb->fmt_order = FORMAT_X8R8G8B8;
-
-	if (jzfb->id == 1) {
-		dual_ctrl = reg_read(jzfb, LCDC_DUAL_CTRL);
-#ifdef CONFIG_MAP_DATABUS_TO_LCDC0
-		dual_ctrl |= LCDC_DUAL_CTRL_TFT_SEL;
-#else
-		dual_ctrl &= ~LCDC_DUAL_CTRL_TFT_SEL;
-#endif
-		reg_write(jzfb, LCDC_DUAL_CTRL, dual_ctrl);
-	}
 
 	jzfb_check_var(&fb->var, fb);
 
@@ -1993,6 +2071,19 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_kthread_stop;
 	}
 
+	/* Don't read or write lcdc registers until here. */
+	clk_enable(jzfb->ldclk);
+
+	if (jzfb->id == 1) {
+		dual_ctrl = reg_read(jzfb, LCDC_DUAL_CTRL);
+#ifdef CONFIG_MAP_DATABUS_TO_LCDC0
+		dual_ctrl |= LCDC_DUAL_CTRL_TFT_SEL;
+#else
+		dual_ctrl &= ~LCDC_DUAL_CTRL_TFT_SEL;
+#endif
+		reg_write(jzfb, LCDC_DUAL_CTRL, dual_ctrl);
+	}
+
 #ifdef CONFIG_FPGA_TEST
 	if (jzfb->vidmem_phys) {
 		jzfb_set_par(jzfb->fb);
@@ -2013,12 +2104,17 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 #if 1
 	if (jzfb->vidmem_phys) {
+		jzfb_copy_xboot_logo(jzfb->fb);
 		jzfb_set_par(jzfb->fb);
 		jzfb_enable(jzfb->fb);
-		jzfb_display_v_color_bar(jzfb->fb);
+		//jzfb_display_v_color_bar(jzfb->fb);
 	}
 	//dump_lcdc_registers(jzfb);
 #endif
+	if (!jzfb->vidmem_phys && (jzfb->id != 1)) {
+		/* If enable LCDC0, can not disable the clock of LCDC1 */
+		clk_disable(jzfb->ldclk);
+	}
 
 	return 0;
 

@@ -198,6 +198,8 @@ struct jzfb_mode_res {
 #define JZFB_COMPRESS_EN		_IOW('F', 0x126, int)
 #define JZFB_16X16_BLOCK_EN		_IOW('F', 0x127, int)
 #define JZFB_IPU0_TO_BUF		_IOW('F', 0x128, int)
+#define JZFB_ENABLE_IPU_CLK		_IOW('F', 0x129, int)
+#define JZFB_ENABLE_LCDC_CLK		_IOW('F', 0x130, int)
 /* Reserved for future extend */
 #define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)
 #define JZFB_ENABLE_FG1			_IOW('F', 0x140, int)
