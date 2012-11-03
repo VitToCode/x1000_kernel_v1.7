@@ -250,6 +250,7 @@ static int __init warrior_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
+#ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &warrior_inand_pdata);
 #endif
@@ -258,6 +259,14 @@ static int __init warrior_board_init(void)
 #endif
 #ifdef CONFIG_MMC2_JZ4780
 	jz_device_register(&jz_msc2_device, &warrior_tf_pdata);
+#endif
+#else
+#ifdef CONFIG_MMC0_JZ4780
+	jz_device_register(&jz_msc0_device, &warrior_tf_pdata);
+#endif
+#ifdef CONFIG_MMC1_JZ4780
+	jz_device_register(&jz_msc1_device, &warrior_sdio_pdata);
+#endif
 #endif
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
