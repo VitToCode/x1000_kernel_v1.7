@@ -324,7 +324,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	}
 	psSysSpecData->psTimer_Divider = psCLK;
 
-        clk_enable(psSysSpecData->psTimer_Gate);
         clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
 	if (clk_get_rate(psSysSpecData->psTimer_Divider) > SYS_SGX_CLOCK_SPEED)
             goto ExitDisableTimerGate;
@@ -335,7 +334,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	goto Exit;
 
 ExitDisableTimerGate:
-        clk_disable(psSysSpecData->psTimer_Gate);
 	eError = PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
         clk_put(psSysSpecData->psTimer_Divider);
 ExitPutGate:
@@ -358,7 +356,6 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 
     //    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
 
-	clk_disable(psSysSpecData->psTimer_Gate);
         clk_disable(psSysSpecData->psTimer_Divider);
 	clk_put(psSysSpecData->psTimer_Gate);
 	clk_put(psSysSpecData->psTimer_Divider);
