@@ -10,6 +10,8 @@
 #include "sp0838_set.h"
 #include "../cim_reg.h"
 
+//#define SP0838_KERNEL_PRINT
+
 static struct frm_size sp0838_capture_table[]= {
 	{640,480},
 };
@@ -100,11 +102,42 @@ unsigned char sp0838_read_reg(struct i2c_client *client,unsigned char reg)
 	return retval;
 }
 
+void sp0838_read_all_regs(struct cim_sensor *sensor_info) {
+	unsigned char i;
+	unsigned char p0_regs[256] = {0};
+	unsigned char p1_regs[256] = {0};
+	
+	struct sp0838_sensor *s;
+	struct i2c_client * client ;
+	s = container_of(sensor_info, struct sp0838_sensor, cs);
+	client = s->client;
+	
+	sp0838_write_reg(client, 0xfd, 0);
+	for(i = 0; i < 0xff; i++) {
+		p0_regs[i] = sp0838_read_reg(client, i);
+	}
+	
+	sp0838_write_reg(client, 0xfd, 1);
+	for(i = 0; i < 0xff; i++) {
+		p1_regs[i] = sp0838_read_reg(client, i);
+	}
+	
+	for(i = 0; i < 0xff; i++) {
+		printk("P0: reg[0x%x] = 0x%x\n", i, p0_regs[i]);
+	}
+	
+	for(i = 0; i < 0xff; i++) {
+		printk("P1: reg[0x%x] = 0x%x\n", i, p1_regs[i]);
+	}
+}
+
 int sp0838_power_up(struct cim_sensor *sensor_info)
 {
 	struct sp0838_sensor *s;
 	s = container_of(sensor_info, struct sp0838_sensor, cs);
-	dev_info(&s->client->dev,"sp0838-----------power up\n");
+#ifdef SP0838_KERNEL_PRINT	
+	dev_info(&s->client->dev,"sp0838 power up\n");
+#endif	
 	gpio_set_value(s->gpio_en,0);
 	msleep(50);
 	return 0;
@@ -114,7 +147,9 @@ int sp0838_power_down(struct cim_sensor *sensor_info)
 {
 	struct sp0838_sensor *s;
 	s = container_of(sensor_info, struct sp0838_sensor, cs);
-	dev_info(&s->client->dev,"sp0838-----------power down\n");
+#ifdef SP0838_KERNEL_PRINT	
+	dev_info(&s->client->dev,"sp0838 power down\n");
+#endif	
 	gpio_set_value(s->gpio_en,1);
 	msleep(50);
 	return 0;
@@ -124,7 +159,9 @@ int sp0838_reset(struct cim_sensor *sensor_info)
 {
 	struct sp0838_sensor *s;
 	s = container_of(sensor_info, struct sp0838_sensor, cs);
-	dev_info(&s->client->dev,"sp0838-----------reset %x\n",s->gpio_rst);
+#ifdef SP0838_KERNEL_PRINT
+	dev_info(&s->client->dev,"sp0838 reset %x\n",s->gpio_rst);
+#endif
 	gpio_set_value(s->gpio_rst,0);
 	msleep(250);
 	gpio_set_value(s->gpio_rst,1);
@@ -145,7 +182,7 @@ int sp0838_sensor_probe(struct cim_sensor *sensor_info)
 
 	if(retval == 0x27)//read id,sp0838 id is 0x27
 		return 0;
-	dev_info(&s->client->dev,"sp0838 sensor probe fail %x\n",retval);
+	dev_err(&s->client->dev,"sp0838 sensor probe fail %x\n",retval);
 	return -1;
 }
 
@@ -189,6 +226,7 @@ static int sp0838_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.af_init = sp0838_none;
 	s->cs.start_af = sp0838_none;
 	s->cs.stop_af = sp0838_none;
+	s->cs.read_all_regs = sp0838_read_all_regs;
 
 	s->cs.set_preivew_mode = sp0838_preview_set;
 	s->cs.set_capture_mode = sp0838_capture_set;

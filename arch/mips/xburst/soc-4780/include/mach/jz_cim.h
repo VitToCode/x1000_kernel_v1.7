@@ -184,6 +184,7 @@ struct cim_sensor {
 	int (*af_init)(struct cim_sensor *data);
 	int (*start_af)(struct cim_sensor *data);
 	int (*stop_af)(struct cim_sensor *data);
+	void (*read_all_regs)(struct cim_sensor *data);
 
 	int (*set_preivew_mode)(struct cim_sensor *data);
 	int (*set_capture_mode)(struct cim_sensor *data);
