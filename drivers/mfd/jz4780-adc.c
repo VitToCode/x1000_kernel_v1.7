@@ -144,7 +144,7 @@ static inline void jz_adc_disable(struct jz_adc *adc)
 {
 	uint8_t val;
 
-	if (atomic_inc_return(&adc->clk_ref) == 0) {
+	if (atomic_dec_return(&adc->clk_ref) == 0) {
 
 		val = readb(adc->base + JZ_REG_ADC_ENABLE);
 		val |= BIT(7);
