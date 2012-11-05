@@ -1761,8 +1761,9 @@ static int codec_set_board_route(struct snd_board_route *broute)
 					/* change cur_route */
 					cur_route = broute;
 				} else {
-					if (cur_route->route == SND_ROUTE_RECORD_MIC)
-						cur_route = keep_old_route;
+					if (cur_route != NULL)
+						if (cur_route->route == SND_ROUTE_RECORD_MIC)
+							cur_route = keep_old_route;
 				}
 				break;
 			}
