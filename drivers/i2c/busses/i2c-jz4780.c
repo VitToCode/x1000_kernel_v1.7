@@ -175,6 +175,8 @@ struct jz_i2c {
 	struct i2c_sg_data *data;
 	struct completion r_complete;
 	struct completion w_complete;
+
+	struct delayed_work clk_work;
 };
 
 //#define CONFIG_I2C_DEBUG
@@ -477,6 +479,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	int timeout = TIMEOUT;
 	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
+	cancel_delayed_work_sync(&i2c->clk_work);
 	clk_enable(i2c->clk);
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
@@ -503,12 +506,12 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
 		}
 		if (ret) {
-			clk_disable(i2c->clk);
+			schedule_delayed_work(&i2c->clk_work, 15 * HZ);
 			return ret;
 		}
 	}
 
-	clk_disable(i2c->clk);
+	schedule_delayed_work(&i2c->clk_work, 15 * HZ);
 	return i;
 }
 
@@ -567,6 +570,12 @@ static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 	return 0;
 }
 
+static void i2c_clk_work(struct work_struct *work)
+{	
+	struct jz_i2c *i2c = container_of(work, struct jz_i2c, clk_work.work);
+	clk_disable(i2c->clk);
+}
+
 static int i2c_jz_probe(struct platform_device *dev)
 {
 	int ret = 0;
@@ -606,6 +615,8 @@ static int i2c_jz_probe(struct platform_device *dev)
 		ret = -ENODEV;
 		goto irq_failed;
 	}
+
+	INIT_DELAYED_WORK(&i2c->clk_work, i2c_clk_work);
 
 	clk_enable(i2c->clk);
 	i2c_set_speed(i2c,100000);
@@ -659,9 +670,18 @@ static int i2c_jz_remove(struct platform_device *dev)
 	return 0;
 }
 
+static int i2c_jz_suspend(struct platform_device *dev, pm_message_t state)
+{
+	struct jz_i2c *i2c = platform_get_drvdata(dev);
+	cancel_delayed_work(&i2c->clk_work);
+	clk_disable(i2c->clk);
+	return 0;
+}
+
 static struct platform_driver jz_i2c_driver = {
 	.probe		= i2c_jz_probe,
 	.remove		= i2c_jz_remove,
+	.suspend 	= i2c_jz_suspend,
 	.driver		= {
 		.name	= "jz-i2c",
 	},
