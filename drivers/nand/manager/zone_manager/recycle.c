@@ -1224,12 +1224,12 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	Zone *new_zone = NULL;
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
-
+	int ret,count = 0;
 	if (zone) {
 		ZoneManager_SetPrevZone(context,zone);
 		ZoneManager_FreeZone(context,zone);
 	}
-
+retry:
 	if (ZoneManager_GetAheadCount(context) == 0) {
 		new_zone = ZoneManager_AllocZone(context);
 		if (!new_zone) {
@@ -1244,8 +1244,15 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	ZoneManager_SetCurrentWriteZone(context,new_zone);
 	prev = ZoneManager_GetPrevZone(context);
 	next = ZoneManager_GetNextZone(context);
-	Zone_Init(new_zone,prev,next);
-
+	ret = Zone_Init(new_zone,prev,next);
+	if(ret != 0) {
+		count++;
+		if(count > 4) {
+			ndprint(L2PCONVERT_ERROR,"too many zone\n");
+		}
+		ZoneManager_DropZone(context,new_zone);
+		goto retry;
+	}
 	return new_zone;
 }
 
@@ -2512,9 +2519,10 @@ int Recycle_OnFollowRecycle ( int context )
 			ret = OnFollow_FindFirstValidPageInfo(rep);
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
-		if (ret == -1)
-			goto exit;
-
+		if (ret == -1) {
+			ndprint(RECYCLE_ERROR,"find infopage error\n");
+			break;
+		}
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
 			goto exit;
@@ -2556,8 +2564,9 @@ static int OnBoot_GetRecycleZone ( Recycle *rep)
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
 	ZoneManager *zonep = ((Context *)(rep->context))->zonep;
+	int ret,count = 0;
 	rep->force_rZone = zonep->last_zone;
-
+retry:
 	if (ZoneManager_GetAheadCount(zonep->context) == 0) {
 		zone = ZoneManager_AllocZone(zonep->context);
 		if (!zone) {
@@ -2572,8 +2581,15 @@ static int OnBoot_GetRecycleZone ( Recycle *rep)
 	ZoneManager_SetCurrentWriteZone(zonep->context,zone);
 	prev = ZoneManager_GetPrevZone(zonep->context);
 	next = ZoneManager_GetNextZone(zonep->context);
-	Zone_Init(zone,prev,next);
-
+	ret = Zone_Init(zone,prev,next);
+	if(ret != 0) {
+		count++;
+		if(count > 4){
+			ndprint(L2PCONVERT_ERROR,"too many zone\n");
+		}
+		ZoneManager_DropZone(zonep->context,zone);
+		goto retry;
+	}
 	return 0;
 }
 

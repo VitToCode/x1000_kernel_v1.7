@@ -373,8 +373,12 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	int ret = -1;
 	PageList *pagelist = NULL;
 	BuffListManager *blm = ((Context *)(zone->context))->blm;
-        int zoneblockid;
-        int badpages = 0;
+	int zoneblockid;
+	int badpages = 0;
+#ifdef REREAD_PAGEINFO
+	PageList *pipagelist;
+	int readret = 0;
+#endif
 #ifndef RECHECK_VALIDPAGE
 	int sectorperpage = zone->vnand->BytePerPage / SECTOR_SIZE;
 #endif
@@ -437,6 +441,19 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 		goto err;
 	}
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
+#ifdef REREAD_PAGEINFO
+	pipagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+	pipagelist->startPageID = pi->PageID;
+	pipagelist->OffsetBytes = 0;
+	pipagelist->Bytes = zone->vnand->BytePerPage;
+	pipagelist->pData = buf;
+	pipagelist->retVal = 0;
+	readret = vNand_MultiPageRead(zone->vnand,pipagelist);
+	BuffListManager_freeList((int)blm, (void **)&pipagelist,(void *)pipagelist, sizeof(PageList));
+	if(ISECCERROR(readret) || ISDATAMOVE(readret)){
+		return readret;
+	}
+#endif
 
 	return ret;
 err:
@@ -460,12 +477,11 @@ int Zone_AllocNextPage ( Zone *zone )
 	unsigned int pageperblock = zone->vnand->PagePerBlock;
 	ZoneManager *zonep = ((Context *)(zone->context))->zonep;
 
-	if(zone->allocedpage == zone->sumpage){
+	if(zone->allocedpage >= zone->sumpage){
 		ndprint(ZONE_ERROR,"Function: %s LINE: %d zoneid = %d have alloced all the page in zone, allocdpage = %d\n",
 			__func__,__LINE__, zone->ZoneID, zone->allocedpage);
 		return -1;
 	}
-
 	zone->allocPageCursor++;
 	if (zone->allocPageCursor > 0 && zone->allocPageCursor % pageperblock == 0) {
 		if (zone->ZoneID == zonep->pt_zonenum - 1)
@@ -487,7 +503,7 @@ int Zone_AllocNextPage ( Zone *zone )
 	zone->allocPageCursor = zone->allocPageCursor % pageperblock + (zone->allocPageCursor / pageperblock + badblocknum) * pageperblock;
 	zone->allocedpage++;
 	if(zone->allocPageCursor >= pageperblock * BLOCKPERZONE(zonep->vnand)){
-		ndprint(ZONE_ERROR,"ERROR: allocPageCursor have too large = %d !!\n",zone->allocPageCursor);
+		ndprint(ZONE_ERROR,"ERROR:%s %d : allocedpage=%d allocpagecursor=%d badblocknum=%d zoneid=%d\n",__func__,__LINE__,zone->allocedpage,zone->allocPageCursor,badblocknum,zone->ZoneID);
 		return -1;
 	}
 
@@ -557,8 +573,10 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 	zone->ZoneID = zone->sigzoneinfo - zone->top;
 
 	zone->sumpage = calc_zone_page(zone);
-	if (zone->sumpage <= 1)
+	if (zone->sumpage <= 1){
+		ndprint(ZONE_ERROR,"%s %d zoneid:%d sumpage:%d\n",__func__,__LINE__,zone->ZoneID,zone->sumpage);
 		return -1;
+	}
 
 	memset(nandzoneinfo,0xff,zone->vnand->BytePerPage);
 	/*file local zone information to page1 buf*/

@@ -19,6 +19,7 @@ typedef struct _L2pConvert L2pConvert;
 
 struct _L2pConvert {
 	SectorList *follow_node;
+	SectorList *prev_node;
 	int break_type;
 	int node_left_sector_count;
 	int page_left_sector_count;
@@ -41,6 +42,7 @@ enum cmd {
 
 #define INIT_L2P(x) do{					\
 		(x)->follow_node = NULL;		\
+		(x)->prev_node = NULL;		\
 		(x)->break_type = 0;			\
 		(x)->node_left_sector_count = 0;	\
 		(x)->page_left_sector_count = 0;	\

@@ -75,6 +75,7 @@ enum ErrType {
 Zone *ZoneManager_Get_Used_Zone(ZoneManager *zonep, unsigned short zoneid);
 Zone* ZoneManager_AllocZone (int context);
 void ZoneManager_FreeZone (int context,Zone* zone );
+void ZoneManager_DropZone (int context,Zone* zone );
 L1Info* ZoneManager_GetL1Info (int context);
 Hash* ZoneManager_GetUsedZoneTable (int context);
 void ZoneManager_PutUsedZoneTable (int context,Hash* tbl );
