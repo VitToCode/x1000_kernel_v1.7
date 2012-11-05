@@ -1304,6 +1304,8 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 		goto exit;
 	}
 
+	get_current_write_zone_info(zonep);
+	ret = deal_last_pageinfo_data(zonep, pi);
 	if (zonep->last_zone->NextPageInfo == 0) {
 		ZoneManager_SetCurrentWriteZone(zonep->context,NULL);
 		if (pi->zoneID == 0xffff) {
@@ -1311,10 +1313,6 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 			goto exit;
 		}
 	}
-	else
-		get_current_write_zone_info(zonep);
-
-	ret = deal_last_pageinfo_data(zonep, pi);
 	if (pi->zoneID != 0xffff) { 
 		if (zonep->last_data_read_error) {
 			zonep->last_rzone_id = pi->zoneID;
@@ -1420,6 +1418,16 @@ void ZoneManager_FreeZone (int context,Zone* zone )
 	ndprint(ZONEMANAGER_INFO, "zoneID: %d, free count %d used count %d func %s \n",
 		zone->ZoneID, zonep->freeZone->count,zonep->useZone->usezone_count, __FUNCTION__);
 	free_zone(zonep,zone);
+}
+void ZoneManager_DropZone (int context,Zone* zone )
+{
+	Context *conptr = (Context *)context;
+	ZoneManager *zonep = conptr->zonep;
+
+	zonep->memflag[zone->memflag] = 0;
+	free_zone(zonep,zone);
+	ndprint(ZONEMANAGER_ERROR, "zoneID: %d, free count %d used count %d func %s \n",
+		zone->ZoneID, zonep->freeZone->count,zonep->useZone->usezone_count, __FUNCTION__);
 }
 
 /**

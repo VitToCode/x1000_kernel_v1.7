@@ -201,6 +201,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnFollowRecycle, FOLLOW_RECYCLE_ID);
 	Task_RegistMessageHandle(conptr->thandle, Recycle_OnBootRecycle, BOOT_RECYCLE_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_first_pageinfo_err_handler, READ_FIRST_PAGEINFO_ERROR_ID);
+	Task_RegistMessageHandle(conptr->thandle, Recycle_OnForceRecycle, WRITE_READ_ECC_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page0_err_handler, READ_PAGE0_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page1_err_handler, READ_PAGE1_ERROR_ID);
 	Task_RegistMessageHandle(conptr->thandle, read_page2_err_handler, READ_PAGE2_ERROR_ID);
@@ -543,26 +544,22 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 		goto null_pl;
 
 	ret = vNand_MultiPageRead(&conptr->vnand, pl);
-	if (ret != 0){
-		singlelist_for_each(pos, &(pl->head)) {
-			pl_node = singlelist_entry(pos, PageList, head);
-			if (ISERROR(pl_node->retVal)) {
-				if (ISNOWRITE(pl_node->retVal))
-					memset(pl_node->pData, 0xff, pl_node->Bytes);
-				else if (ISECCERROR(pl_node->retVal) || ISDATAMOVE(pl_node->retVal)) {
-					ndprint(L2PCONVERT_INFO,"start ecc_error_handle \n");
-					ret = start_ecc_error_handle(context, pl_node->startPageID);
-					if (ret != 0) {
-						ndprint(L2PCONVERT_ERROR,"ecc_error_handle error func %s line %d \n",
-							__FUNCTION__, __LINE__);
-						goto exit;
-					}
+	singlelist_for_each(pos, &(pl->head)) {
+		pl_node = singlelist_entry(pos, PageList, head);
+		if (pl_node->retVal != pl_node->Bytes){
+			/*if (ISNOWRITE(pl_node->retVal)){
+				ndprint(L2PCONVERT_ERROR,"ERROR:ret shouldn't be -6!!!!\n");
+				while(1);
+				}*/
+			if (ISERROR(pl_node->retVal) || ISERROR(pl_node->retVal)) {
+				ndprint(L2PCONVERT_INFO,"start ecc_error_handle,ret=%d \n",pl_node->retVal);
+				ret = start_ecc_error_handle(context, pl_node->startPageID);
+				if (ret != 0) {
+					ndprint(L2PCONVERT_ERROR,"ecc_error_handle error func %s line %d ret:%d\n",
+							__FUNCTION__, __LINE__,ret);
+					goto exit;
 				}
-				else {
-					ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d vNand_MultiPageRead failed!\n",
-						__FUNCTION__, __LINE__);
-					break;
-				}
+				break;
 			}
 		}
 
@@ -692,15 +689,25 @@ static Zone *get_write_zone(int context)
 	Zone *zone = NULL;
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
-
+	int ret;
+	int count = 0;
 	zone = ZoneManager_GetCurrentWriteZone(context);
 	if(zone == NULL) {
+retry:
 		write_data_prepare(context);
 		ZoneManager_GetAheadZone(context, &zone);
 		ZoneManager_SetCurrentWriteZone(context,zone);
 		prev = ZoneManager_GetPrevZone(context);
 		next = ZoneManager_GetNextZone(context);
-		Zone_Init(zone,prev,next);
+		ret = Zone_Init(zone,prev,next);
+		if(ret != 0) {
+			count++;
+			if(count > 4){
+				ndprint(L2PCONVERT_ERROR,"too many zone\n");
+			}
+			ZoneManager_DropZone(context,zone);
+			goto retry;
+		}
 	}
 
 	return zone;
@@ -895,12 +902,13 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	Zone *new_zone = NULL;
 	SigZoneInfo *prev = NULL;
 	SigZoneInfo *next = NULL;
-
+	int ret;
+	int count = 0;
 	if (zone) {
 		ZoneManager_SetPrevZone(context,zone);
 		ZoneManager_FreeZone(context,zone);
 	}
-
+retry:
 	if (ZoneManager_GetAheadCount(context) == 0)
 		write_data_prepare(context);
 
@@ -908,8 +916,16 @@ static Zone *alloc_new_zone_write (int context,Zone *zone)
 	ZoneManager_SetCurrentWriteZone(context,new_zone);
 	prev = ZoneManager_GetPrevZone(context);
 	next = ZoneManager_GetNextZone(context);
-	Zone_Init(new_zone,prev,next);
-
+	ret = Zone_Init(new_zone,prev,next);
+	if(ret != 0) {
+		count++;
+		ZoneManager_DropZone(context,new_zone);
+		write_data_prepare(context);
+		if(count > 4) {
+			ndprint(L2PCONVERT_ERROR,"too many bad block\n");
+		}
+		goto retry;
+	}
 	return new_zone;
 }
 
@@ -945,13 +961,14 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	L2p_Debug_SetstartPageid(l2p->debug,pi->PageID);
 #endif
 
-        singlelist_for_each(pos,&l2p->follow_node->head) {
+	l2p->prev_node = l2p->follow_node;
+	singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		brokenflag = 1;
 		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * cm->L1InfoLen >> 2
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: startsectorid = %d, sectorcount = %d func %s line %d\n",
-				sl_node->startSector, sl_node->sectorCount, __FUNCTION__, __LINE__);
+					sl_node->startSector, sl_node->sectorCount, __FUNCTION__, __LINE__);
 			goto err;
 		}
 
@@ -1042,6 +1059,24 @@ static void unlock_cache(int cm, PageInfo *pi)
 	CacheManager_unlockCache(cm,pi);
 }
 
+static int start_reread_ecc_error_handle(int context, unsigned int zoneid)
+{
+	Message reread_ecc_error_msg;
+	int msghandle;
+	Context *conptr = (Context *)context;
+	ForceRecycleInfo forceinfo;
+
+	forceinfo.context = context;
+	forceinfo.pagecount = -1;
+	forceinfo.suggest_zoneid = zoneid;
+	reread_ecc_error_msg.msgid = WRITE_READ_ECC_ERROR_ID;
+	reread_ecc_error_msg.prio = READ_ECC_ERROR_PRIO;
+	reread_ecc_error_msg.data = (int)&forceinfo;
+
+	msghandle = Message_Post(conptr->thandle, &reread_ecc_error_msg, WAIT);
+	return Message_Recieve(conptr->thandle, msghandle);
+}
+
 int L2PConvert_WriteSector ( int handle, SectorList *sl )
 {
 	Zone *zone = NULL;
@@ -1053,6 +1088,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	BuffListManager *blm = conptr->blm;
 	int ret = 0;
 	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
+	int pageinfo_eccislarge = 0;
 
 	if (sl == NULL){
 		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d. SECTORLIST IS NULL!\n",__func__,__LINE__);
@@ -1095,16 +1131,20 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		}
 		zone->currentLsector = l2p->sectorid[0];
 		ret = Zone_MultiWritePage(zone, l2p->pagecount, pl, pi);
-		if(ret != 0) {
-			ndprint(L2PCONVERT_ERROR,"ERROR:vNand MultiPage Write error func %s line %d \n",
-				__FUNCTION__,__LINE__);
-			goto exit;
-		}
 #ifdef L2P_PAGEINFO_DEBUG
 		L2p_Debug_CheckData(l2p->debug,pi,l2p->pagecount + 1);
 #endif
 		unlock_cache((int)cm, pi);
 		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
+		if(ISERROR(ret)) {
+			ndprint(L2PCONVERT_INFO,"Start reread pageinfo ecc error handle,func %s line %d \n",
+					__FUNCTION__,__LINE__);
+				start_reread_ecc_error_handle(context, zone->ZoneID);
+				zone = ZoneManager_GetCurrentWriteZone(context);
+				l2p->follow_node = l2p->prev_node;
+		}else if(ISDATAMOVE(ret)){
+			pageinfo_eccislarge = 1;
+		}
 
 		if (IS_NOT_SAME_L4(l2p->break_type))
 			l2p->l4_is_new = 1;
@@ -1133,6 +1173,10 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #endif
 exit:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
+	if(pageinfo_eccislarge){
+		ndprint(L2PCONVERT_INFO,"Pageinfo ecc is too large,Start reread pageinfo ecc error handle\n");
+		start_reread_ecc_error_handle(context, zone->ZoneID);
+	}
 	Recycle_Unlock(context);
 	return ret;
 }
