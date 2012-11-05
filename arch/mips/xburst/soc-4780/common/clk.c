@@ -861,15 +861,16 @@ static int clk_read_proc(char *page, char **start, off_t off,
 	int len = 0;
 	int i;
 #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-	PRINT("ID NAME       FRE        stat    parent\n");
+	PRINT("ID NAME       FRE        stat       count     parent\n");
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		unsigned int mhz = clk_srcs[i].rate / 10000;
-		PRINT("%2d %-10s %4d.%02dMHz %3sable %s\n",i,clk_srcs[i].name
+		PRINT("%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name
 				, mhz/100, mhz%100
 				, clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis"
+				, clk_srcs[i].count
 				, clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
 	}
-	PRINT("CLKGR0\t: %08x\tCLKGR1\t: %08x\n",
+	PRINT("CLKGR0\t: %08x\nCLKGR1\t: %08x\n",
 			cpm_inl(CPM_CLKGR0),cpm_inl(CPM_CLKGR1));
 	return len;
 }

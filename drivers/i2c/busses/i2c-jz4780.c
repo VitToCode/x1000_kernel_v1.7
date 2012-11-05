@@ -176,6 +176,7 @@ struct jz_i2c {
 	struct completion r_complete;
 	struct completion w_complete;
 
+	int enabled;
 	struct delayed_work clk_work;
 };
 
@@ -480,7 +481,10 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
 	cancel_delayed_work_sync(&i2c->clk_work);
-	clk_enable(i2c->clk);
+	if(!i2c->enabled) {
+		clk_enable(i2c->clk);
+		i2c->enabled = 1;
+	}
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
 	}
@@ -574,6 +578,7 @@ static void i2c_clk_work(struct work_struct *work)
 {	
 	struct jz_i2c *i2c = container_of(work, struct jz_i2c, clk_work.work);
 	clk_disable(i2c->clk);
+	i2c->enabled = 0;
 }
 
 static int i2c_jz_probe(struct platform_device *dev)
@@ -645,6 +650,8 @@ static int i2c_jz_probe(struct platform_device *dev)
 	jz_i2c_enable(i2c);
 
 	clk_disable(i2c->clk);
+	i2c->enabled = 0;
+
 	return 0;
 
 adapt_failed:
