@@ -65,36 +65,36 @@ EXCLUSIVE_REGULATOR_DEF(
 #if 0 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	m80_vcc5,
-	"Vcc-5V",	5000000,
-	GPIO_PA(17),	HIGH_ENABLE,	0,
+	"Vcc-5V",	5000000,	GPIO_PA(17),
+	HIGH_ENABLE,	0,		UN_AT_BOOT,
 	NULL,		"vhdmi",	"jz-hdmi");
 #endif
 
 #if 0 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	m80_vbus,
-	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	"OTG-Vbus",	5000000,	GPIO_PE(10),
+	HIGH_ENABLE,	0,		UN_AT_BOOT,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
 
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
 	m80_vbus,
-	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	"OTG-Vbus",	5000000,	GPIO_PE(10),
+	HIGH_ENABLE,	0,		UN_AT_BOOT,
 	NULL,	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
 	m80_vcim,
-	"Camera",	2800000,
-	GPIO_PB(27),	HIGH_ENABLE,	0,
+	"Camera",	2800000,	GPIO_PB(27),
+	HIGH_ENABLE,	0,		UN_AT_BOOT,
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
 	m80_vlcd,
-	"LCD",		3300000,
-	GPIO_PB(23),	HIGH_ENABLE,	0,
+	"LCD",		3300000,	GPIO_PB(23),
+	HIGH_ENABLE,	0,		EN_AT_BOOT,
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {

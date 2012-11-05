@@ -29,8 +29,13 @@ struct pmu_platform_data {
 };
 
 enum {
-	LOW_ENABLE,
+	LOW_ENABLE=0,
 	HIGH_ENABLE,
+};
+
+enum {
+	UN_AT_BOOT=0,
+	EN_AT_BOOT,
 };
 
 #define CORE_REGULATOR_DEF(BOARD, VCORE_MIN, VCORE_MAX)			\
@@ -75,7 +80,7 @@ struct regulator_init_data REG##_init_data = {				\
 	.consumer_supplies      = &REG##_consumer,			\
 }
 
-#define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, DELAY, SREG, SUPPLY, DEV_NAME)	\
+#define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, EB, DELAY, SREG, SUPPLY, DEV_NAME)\
 static struct regulator_consumer_supply NAME##_regulator_consumer =			\
 	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);						\
 											\
@@ -96,6 +101,7 @@ static struct fixed_voltage_config NAME##_regulator_data = {				\
 	.microvolts = MV,								\
 	.gpio = GPIO,									\
 	.enable_high = EH,								\
+	.enabled_at_boot = EB,								\
 	.startup_delay = DELAY,								\
 	.init_data = &NAME##_regulator_init_data,					\
 };											\
