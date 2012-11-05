@@ -5,49 +5,51 @@
 #include <linux/fs.h>
 
 #include "nand_api.h"
-#include "vNand.h"
-#include "vnandinfo.h"
 #include "nandinterface.h"
 #include "nand_char.h"
 #include "nanddebug.h"
 
-struct char_nand_ops{
-	VNandManager *vm;
+#define DBG_FUNC() printk("##### nand char debug #####: func = %s \n", __func__)
+
+struct nand_char_ops{
 	PPartArray ppa;
 	NandInterface  *iface;
 	struct NandInfo nand_info;
-	unsigned short model;
+	unsigned short mode;
 	unsigned short status;
 };
-enum char_nand_ops_model{
+
+enum nand_char_ops_mode{
 	NAND_RECOVERY,
 	NAND_DEBUG,
 };
-enum char_nand_ops_status{
+
+enum nand_char_ops_status{
 	NAND_DRIVER_FREE,
 	NAND_DRIVER_BUSY,
 };
 
-static unsigned char argbuf[30];
-extern struct vnand_operater v_nand_ops;  // manage/vnand/vnand.c
-static struct cdev char_nand_dev;
 static dev_t ndev;
-static struct class *char_nand_class;
+static struct cdev nand_char_dev;
+static struct class *nand_char_class;
+static struct nand_char_ops *nand_ops;
+extern void vNand_Lock(void);
+extern void vNand_unLock(void);
 
-static struct char_nand_ops *nand_ops;
-static unsigned char *databuf = NULL;  //use for nand_read and nand_write
-
-static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
+static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0,i=0;
 	int partnum = 0;
 	int ptcount = 0;
 	struct nand_dug_msg *dug_msg = NULL;
 	struct NandInfo *nand_info = &(nand_ops->nand_info);
+	static unsigned char *databuf = NULL;
 	BlockList bl;
 
-	if((nand_ops->model == NAND_DEBUG)){
-		ptcount = nand_ops->vm->pt->ptcount -1; //sub nand_badblock_partition
+	DBG_FUNC();
+	vNand_Lock();
+	if((nand_ops->mode == NAND_DEBUG)){
+		ptcount = nand_ops->ppa.ptcount -1; //sub nand_badblock_partition
 		switch(cmd){
 		case CMD_GET_NAND_PTC:
 			put_user(ptcount,(int *)arg);
@@ -71,26 +73,41 @@ static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		case CMD_NAND_DUG_READ:
 			ret = copy_from_user(nand_info, (unsigned char *)arg, sizeof(struct NandInfo));
 			if(!ret){
+				databuf =(unsigned char *)kmalloc(nand_info->bytes, GFP_KERNEL);
+				if(!databuf) {
+					ret = -1;
+					break;
+				}
 				partnum = nand_info->partnum;
-				ret = VN_OPERATOR(PageRead,&(nand_ops->ppa.ppt[partnum]),nand_info->id,0,nand_info->bytes,databuf);
+				ret = nand_ops->iface->iPageRead(&(nand_ops->ppa.ppt[partnum]), nand_info->id,
+												 0, nand_info->bytes, databuf);
 				if(ret == nand_info->bytes){
 					copy_to_user(nand_info->data, databuf, nand_info->bytes);
 					ret = 0;
 				}
 				else
 					ret = -1;
+
+				kfree(databuf);
 			}
 			break;
 		case CMD_NAND_DUG_WRITE:
 			ret = copy_from_user(nand_info, (unsigned char *)arg, sizeof(struct NandInfo));
 			if(!ret){
+				databuf =(unsigned char *)kmalloc(nand_info->bytes, GFP_KERNEL);
+				if(!databuf) {
+					ret = -1;
+					break;
+				}
 				copy_from_user(databuf, nand_info->data, nand_info->bytes);
 				partnum = nand_info->partnum;
-				ret = VN_OPERATOR(PageWrite,&(nand_ops->ppa.ppt[partnum]),nand_info->id,0,nand_info->bytes,databuf);
+				ret = nand_ops->iface->iPageWrite(&(nand_ops->ppa.ppt[partnum]), nand_info->id,
+												  0, nand_info->bytes, databuf);
 				if(ret == nand_info->bytes)
 					ret = 0;
 				else
 					ret = -1;
+				kfree(databuf);
 			}
 			break;
 		case CMD_NAND_DUG_ERASE:
@@ -99,7 +116,7 @@ static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 				bl.startBlock = nand_info->id;
 				bl.BlockCount = 1;
 				bl.head.next = NULL;
-				ret = VN_OPERATOR(MultiBlockErase,&(nand_ops->ppa.ppt[partnum]),&bl);
+				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[partnum]), &bl);
 			}
 			break;
 		default:
@@ -171,50 +188,49 @@ static long char_nand_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 			break;
 		}
 	}
-
+	vNand_unLock();
 	return ret != 0 ? -EFAULT : 0 ;
 }
 
-static ssize_t char_nand_write(struct file * fd, const char __user * pdata, size_t size, loff_t * pt)
+static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size_t size, loff_t * pt)
 {
-	int ret = -1;
+	int copysize;
+	char argbuf[128];
+	char *cmd_install = "CMD_INSTALL_PARTITION";
 
-	if((nand_ops->model == NAND_DEBUG)){
+	DBG_FUNC();
+	if((nand_ops->mode == NAND_DEBUG)){
+		printk("%s, line:%d, mode error, mode = %d\n", __func__, __LINE__, nand_ops->mode);
 		return -EFAULT;
 	}
-	memset(argbuf,0,30);
-	if(copy_from_user(argbuf,pdata,size))
+
+	if (size > 128)
+		copysize = 128;
+	else
+		copysize = size;
+
+	if(copy_from_user(argbuf, pdata, copysize)) {
+		printk("%s, line:%d, copy from user error, copysize = %d\n", __func__, __LINE__, copysize);
 		return -EFAULT;
-	if(strcmp(argbuf,"CMD_INSTALL_PARTITION"))
+	}
+
+	if (strcmp(argbuf, cmd_install)) {
+		printk("%s, cmd error, cmd [%s] len[%d], need [%s] len[%d]\n",
+			   __func__, argbuf, strlen(argbuf), cmd_install, strlen(cmd_install));
 		return -EFAULT;
-	nand_ops->model = NAND_DEBUG;
+	}
+
 	Register_NandDriver(nand_ops->iface);
-	nand_ops->vm =(VNandManager *)kmalloc(sizeof(VNandManager),GFP_KERNEL);
-	if(!nand_ops->vm){
-		ret =-1;
-		goto nand_vm_kmalloc_failed;
-	}
-	ret = VN_OPERATOR(InitNand,nand_ops->vm);
-	if(ret){
-		ret = -1;
-		goto nand_init_vm_failed;
-	}
-	databuf =(unsigned char *)kmalloc(nand_ops->vm->info.BytePerPage,GFP_KERNEL);
-	if(!databuf){
-		ret = -1;
-		goto nand_kmalloc_databuf_failed;
-	}
+
+	nand_ops->mode = NAND_DEBUG;
+
 	printk("nand_manager install successful !!!\n");
 	return size;
-nand_init_vm_failed:
-nand_kmalloc_databuf_failed:
-	kfree(nand_ops->vm);
-nand_vm_kmalloc_failed:
-	return 0;
 }
 
-static int char_nand_open(struct inode *pnode,struct file *fd)
+static int nand_char_open(struct inode *pnode,struct file *fd)
 {
+	DBG_FUNC();
 	if(nand_ops->status == NAND_DRIVER_FREE){
 		nand_ops->status = NAND_DRIVER_BUSY;
 		return 0;
@@ -222,94 +238,95 @@ static int char_nand_open(struct inode *pnode,struct file *fd)
 	return -EBUSY;
 }
 
-static int char_nand_close(struct inode *pnode,struct file *fd)
+static int nand_char_close(struct inode *pnode,struct file *fd)
 {
+	DBG_FUNC();
 	nand_ops->status = NAND_DRIVER_FREE;
 	return 0;
 }
 
-static const struct file_operations char_nand_driver_ops = {
+static const struct file_operations nand_char_ops = {
 	.owner	= THIS_MODULE,
-	.open   = char_nand_open,
-	.release = char_nand_close,
-	.write   = char_nand_write,
-	.unlocked_ioctl	= char_nand_unlocked_ioctl,
+	.open   = nand_char_open,
+	.release = nand_char_close,
+	.write   = nand_char_write,
+	.unlocked_ioctl	= nand_char_unlocked_ioctl,
 };
 
 int Register_CharNandDriver(unsigned int interface,unsigned int partarray)
 {
 	int ret;
 	PPartArray *ppa = (PPartArray *)partarray;
-/*	if(!nand_ops){
-		return -1;
-	}*/
+
+	DBG_FUNC();
 	nand_ops->iface = (NandInterface *)interface;
 	nand_ops->ppa.ptcount = ppa->ptcount;
 	nand_ops->ppa.ppt = ppa->ppt;
 
-	ret = alloc_chrdev_region(&ndev,0,1,"char_nand_dev");
+	ret = alloc_chrdev_region(&ndev,0,1,"nand_char");
 	if(ret < 0){
 		ret = -1;
-		printk("DEBUG : char_nand_driver  alloc_chrdev_region\n");
-		goto char_nand_alloc_chrdev_failed;
+		printk("DEBUG : nand_char_driver  alloc_chrdev_region\n");
+		goto alloc_chrdev_failed;
 	}
-	cdev_init(&char_nand_dev,&char_nand_driver_ops);
-	ret = cdev_add(&char_nand_dev,ndev,1);
+	cdev_init(&nand_char_dev, &nand_char_ops);
+	ret = cdev_add(&nand_char_dev,ndev,1);
 	if(ret < 0){
 		ret = -1;
-		printk("DEBUG : char_nand_driver cdev_add error\n");
-		goto char_nand_cdev_add_failed;
+		printk("DEBUG : nand_char_driver cdev_add error\n");
+		goto cdev_add_failed;
 	}
 
-	device_create(char_nand_class,NULL,ndev,NULL,"char_nand_dev");
+	device_create(nand_char_class,NULL,ndev,NULL,"nand_char");
 
+	printk("nand char register ok!!!\n");
 	return 0;
 
-char_nand_cdev_add_failed:
+cdev_add_failed:
 	unregister_chrdev_region(ndev,1);
-char_nand_alloc_chrdev_failed:
+alloc_chrdev_failed:
 	kfree(nand_ops);
 	nand_ops = NULL;
 
 	return ret;
 }
 
-static int __init char_nand_init(void)
+static int __init nand_char_init(void)
 {
 	int ret=0;
-	nand_ops = (struct char_nand_ops *)kmalloc(sizeof(struct char_nand_ops),GFP_KERNEL);
+
+	DBG_FUNC();
+	nand_ops = (struct nand_char_ops *)kmalloc(sizeof(struct nand_char_ops),GFP_KERNEL);
 	if(!nand_ops){
-		printk("DEBUG : char_nand_kmalloc_failed\n");
+		printk("DEBUG : nand_char_kmalloc_failed\n");
 		ret =-1;
-		goto char_nand_kmalloc_failed;
+		goto nand_char_kmalloc_failed;
 	}
-	nand_ops->model = NAND_RECOVERY;
+	nand_ops->mode = NAND_RECOVERY;
 	nand_ops->status = NAND_DRIVER_FREE;
 
-	char_nand_class = class_create(THIS_MODULE,"char_nand_class");
-	if(!char_nand_class){
+	nand_char_class = class_create(THIS_MODULE,"nand_char_class");
+	if(!nand_char_class){
 		printk("%s  %d\n",__func__,__LINE__);
 		return -1;
 	}
 
 	return 0;
 
-char_nand_kmalloc_failed:
+nand_char_kmalloc_failed:
 	return ret;
 }
 
-static void __exit char_nand_exit(void)
+static void __exit nand_char_exit(void)
 {
-	kfree(nand_ops->vm);
-	kfree(databuf);
+	DBG_FUNC();
 	kfree(nand_ops);
-
-	cdev_del(&char_nand_dev);
+	cdev_del(&nand_char_dev);
 	unregister_chrdev_region(ndev,1);
 }
 
-module_init(char_nand_init);
-module_exit(char_nand_exit);
+module_init(nand_char_init);
+module_exit(nand_char_exit);
 MODULE_DESCRIPTION("JZ4780 char Nand driver");
 MODULE_AUTHOR(" ingenic ");
 MODULE_LICENSE("GPL v2");
