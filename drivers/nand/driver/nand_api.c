@@ -13,6 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/device.h>
 #include <linux/math64.h>
+#include <linux/completion.h>
 #include <mach/jznand.h>
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
@@ -163,7 +164,7 @@ void dump_nand_api(NAND_API *pnand_api)
 
 /*************       nand  configure        ************/
 #define GPIOA_20_IRQ (0*32 + 20)
-static volatile unsigned int nand_rb =0;
+static struct completion nand_rb;
 DECLARE_WAIT_QUEUE_HEAD(nand_rb_queue);
 
 extern JZ_NAND_CHIP jz_raw_nand;
@@ -224,10 +225,7 @@ static void nand_board_deinit(NAND_API * pnand_api)
 /*    nand_wait_rb interrupt handler  */
 static irqreturn_t jznand_waitrb_interrupt(int irq, void *dev_id)
 {
-	//	disable_irq_nosync(irq);
-	nand_rb =1;
-	wake_up_interruptible(&nand_rb_queue);
-	//	enable_irq(irq);
+	complete(&nand_rb);
 	return IRQ_HANDLED;
 }
 /*    nand_wait_rb  */
@@ -235,11 +233,10 @@ int nand_wait_rb(void)
 {
 	unsigned int ret;
 #if 1
-	ret =wait_event_interruptible_timeout(nand_rb_queue,nand_rb,(msecs_to_jiffies(200)));
+	ret = wait_for_completion_timeout(&nand_rb,(msecs_to_jiffies(100)));
 #else
-	ret =wait_event_interruptible(nand_rb_queue,nand_rb);
+	ret =wait_for_completion(&nand_rb);
 #endif
-	nand_rb =0;
 	if(!ret)
 		return TIMEOUT;
 	return 0;
@@ -384,9 +381,9 @@ static int init_nand_driver(void)
 	{
 		int ret;
 		BlockList blocklist;
-                blocklist.startBlock = 0;
-                blocklist.BlockCount = 128;
-                blocklist.head.next = 0;
+        blocklist.startBlock = 0;
+        blocklist.BlockCount = 128;
+        blocklist.head.next = 0;
 		ret = multiblock_erase(&g_partition[0], &blocklist);
 		if (ret != 0) {
 			printk("ndisk erase err \n");
@@ -771,6 +768,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		goto nand_probe_error3;
 	}
 	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
+	init_completion(&nand_rb);
 
 	ret = init_nand_driver();
 	if(ret){
