@@ -12,9 +12,16 @@ struct PageInfoDebug
 	unsigned int l2len;
 	unsigned int *l1cache;
 	unsigned int l1len;
-	
+
+	unsigned int L1UnitLen;	//how mang sectors one pageid indicate
+	unsigned int L2UnitLen;
+	unsigned int L3UnitLen;
+	unsigned int L4UnitLen;
+
 	unsigned int pageid;
 	unsigned int *diffdata;
+
+	unsigned int *sectorid;
 };
 struct PageInfoDebug *Init_L2p_Debug(int context);
 void Deinit_L2p_Debug(struct PageInfoDebug *pdebug);
