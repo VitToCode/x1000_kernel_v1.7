@@ -2,6 +2,8 @@
 #include "NandAlloc.h"
 #include "nanddebug.h"
 
+//#define CACHELIST_DEBUG_DATA 1
+
 /**
  *	CacheList_Init  -  Initialize operation
  *
@@ -73,8 +75,29 @@ CacheData *CacheList_get ( CacheList *cachelist, unsigned int indexid ) {
  *	@cachelist: operate object
  *	@data: the cachedata wanted to insert
  */
+#ifdef CACHELIST_DEBUG_DATA
+static CacheData * checklist(CacheList *cachelist, CacheData *data ) {
+	struct list_head *pos;
+	CacheData *cd;	
+	list_for_each(pos,&cachelist->top) {
+		cd = list_entry(pos,CacheData,head);
+		if(cd->IndexID == data->IndexID) {
+			ndprint(CACHELIST_ERROR,"cacheid %d is dup\n",data->IndexID);
+			CacheList_Dump(cachelist);
+			return cd;
+		}
+	}
+	return 0;
+}
+#endif
 void CacheList_Insert ( CacheList *cachelist, CacheData *data )
 {
+#ifdef CACHELIST_DEBUG_DATA
+	CacheData *cd = checklist(cachelist,data);
+	if(cd) {
+		list_del(&cd->head);
+	}
+#endif
 	list_add(&data->head,&cachelist->top);
 	cachelist->listCount++;
 }
