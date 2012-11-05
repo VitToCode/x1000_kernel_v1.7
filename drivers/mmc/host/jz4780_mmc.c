@@ -1046,11 +1046,14 @@ static void jzmmc_detect_change(unsigned long data)
 			}
 		} else {
 			set_bit(JZMMC_CARD_PRESENT, &host->flags);
+			clk_enable(host->clk);
 			clk_enable(host->clk_gate);
 		}
 		mmc_detect_change(host->mmc, 100);
-		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags))
+		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_disable(host->clk_gate);
+			clk_disable(host->clk);
+		}
 	}
 
 	enable_irq(gpio_to_irq(host->pdata->gpio->cd.num));
@@ -1085,6 +1088,7 @@ int jzmmc_manual_detect(int index, int on)
 	if (on) {
 		dev_vdbg(host->dev, "card insert manually\n");
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
+		clk_enable(host->clk);
 		clk_enable(host->clk_gate);
 		mmc_detect_change(host->mmc, 0);
 
@@ -1093,6 +1097,7 @@ int jzmmc_manual_detect(int index, int on)
 		clear_bit(JZMMC_CARD_PRESENT, &host->flags);
 		mmc_detect_change(host->mmc, 0);
 		clk_disable(host->clk_gate);
+		clk_disable(host->clk);
 	}
 
 	return 0;
@@ -1124,11 +1129,12 @@ int jzmmc_clk_ctrl(int index, int on)
 
 	if (on) {
 		dev_vdbg(host->dev, "clk enable\n");
+		clk_enable(host->clk);
 		clk_enable(host->clk_gate);
-
 	} else {
 		dev_vdbg(host->dev, "clk disable\n");
 		clk_disable(host->clk_gate);
+		clk_disable(host->clk);
 	}
 
 	return 0;
@@ -1485,8 +1491,11 @@ static int __init jzmmc_dma_init(struct jzmmc_host *host)
 static int __init jzmmc_msc_init(struct jzmmc_host *host)
 {
 	int ret = 0;
-
+	clk_enable(host->clk);
+	clk_enable(host->clk_gate);
 	jzmmc_reset(host);
+	clk_disable(host->clk_gate);
+	clk_disable(host->clk);
 	host->cmdat_def = CMDAT_RTRG_EQUALT_16 |		\
 		CMDAT_TTRG_LESS_16 |			\
 		CMDAT_BUS_WIDTH_1BIT;
@@ -1560,6 +1569,7 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		break;
 
 	default:
+		clk_enable(host->clk);
 		clk_enable(host->clk_gate);
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 		break;
@@ -1626,7 +1636,6 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	clk_set_rate(host->clk, 24000000);
 	if (clk_get_rate(host->clk) > 24000000)
 		goto err_clk_get_rate;
-	clk_enable(host->clk);
 
 	tasklet_init(&host->tasklet, jzmmc_tasklet, (unsigned long)host);
 	host->irq = irq;
