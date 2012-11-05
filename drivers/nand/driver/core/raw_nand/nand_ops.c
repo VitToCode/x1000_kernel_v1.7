@@ -643,12 +643,14 @@ static inline int nand_read_1p_page(NAND_BASE *host,Aligned_List * aligned_list)
 		dprintf("\n\n**********nand_read_1p_page, read oob wrong: ret =%d************\n",ret);
 		templist->retVal =ret;
 		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		do_deselect_chip(host);
-		return ret;
+		goto nand_read_1p_page_error;
 	}
 	ret =data_process(host,templist,temp,READ);
 	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
+nand_read_1p_page_error:
 	do_deselect_chip(host);
+	if(ret<0)
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 	return ret;
 }
 
@@ -679,20 +681,17 @@ static inline int nand_read_2p_page_real(NAND_BASE *host,Aligned_List *aligned_l
 		dprintf("\n\n**********nand_read_2p_page, read oob of first page wrong: ret =%d************\n",ret);
 		templist->retVal =ret;
 		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		return ENAND;
+		goto nand_read_2p_page_error;
 	}
 	ret =data_process(host,templist,temp,READ);
 	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-	if(ret < 0){
-		do_deselect_chip(host);
-		return ret;
-	}
+	if(ret < 0)
+		goto nand_read_2p_page_error;
 	templist =aligned_list->next->pagelist;        //second page
 	if((templist->startPageID < 0) || (templist->startPageID > g_pagecount))  //judge startPageID
 	{
 		templist->retVal =-1;
-		do_deselect_chip(host);
-		return ENAND;
+		goto nand_read_2p_page_error;
 	}
 	temp = aligned_list->next->opsmodel & 0x00ffffff;   // 23 ~ 0 : the number of pagelist
 	ret =nand_read_2p_page_oob(p_pageid+g_pnand_chip->ppblock,0);    // read oobsize of second page
@@ -700,11 +699,15 @@ static inline int nand_read_2p_page_real(NAND_BASE *host,Aligned_List *aligned_l
 		dprintf("\n\n**********nand_read_2p_page, read oob of second page wrong: ret =%d************\n",ret);
 		templist->retVal =ret;
 		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		return ENAND;
+		goto nand_read_2p_page_error;
 	}
 	ret =data_process(host,templist,temp,READ);
 	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
+nand_read_2p_page_error:
 	do_deselect_chip(host);
+	if(ret<0)
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+
 	return ret;
 }
 
@@ -800,8 +803,10 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 
 	if(ret == 0)
 		ret =(state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS);
-	if(ret < 0)
+	if(ret < 0){
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		aligned_list->pagelist->retVal =ret;
+	}
 	return ret;
 }
 
@@ -818,11 +823,10 @@ static inline int nand_write_2p_page_real(NAND_BASE *host,Aligned_List *aligned_
 	unsigned int p_pageid;
 	PageList * templist;
 
-	//   dprintf("\nDEBUG nand : nand_write_2p_page_real\n");
 	//  first page
 	temp = aligned_list->opsmodel & 0x00ffffff; //23~0 : the number of pagelist
 	templist =aligned_list->pagelist;
-	printk("   go into nand_write_2p_page_real ^^^^^^^^^^^^^^^\n");
+//	printk("   go into nand_write_2p_page_real ^^^^^^^^^^^^^^^\n");
 	if((templist->startPageID < 0) || (templist->startPageID > g_pagecount))  //judge startPageID
 	{
 		templist->retVal =-1;
@@ -864,8 +868,10 @@ static inline int nand_write_2p_page_real(NAND_BASE *host,Aligned_List *aligned_
 	//	dprintf("DEBUG %s: State 0x%02X\n", __func__, state);
 	if(ret == 0)
 		ret =(state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS);
-	if(ret < 0)
+	if(ret < 0){
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		aligned_list->pagelist->retVal =ret;
+	}
 	return ret;
 }
 
@@ -1019,8 +1025,10 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
 			{
 				state = nand_erase_2p_block(host,startblock);
 				templist->retVal = state;
-				if (state < 0)
+				if (state < 0){
+					printk("DEBUG: %s [%d] state = %d \n ",__func__,__LINE__,state);
 					errflag = 1;
+				}
 				startblock++;
 			}
 			listhead = (templist->head).next;
@@ -1037,8 +1045,10 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
 			{
 				state = nand_erase_block(host,startblock);
 				templist->retVal = state;
-				if (state < 0)
+				if (state < 0){
+					printk("DEBUG: %s [%d] state = %d \n ",__func__,__LINE__,state);
 					errflag = 1;
+				}
 				startblock++;
 			}
 			listhead = (templist->head).next;
@@ -1067,8 +1077,10 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
 		while(i<4){
 			send_read_page(g_pagesize+g_pnand_chip->badblockpos,(pageid +i));
 			ret =g_pnand_io->read_data_withrb(state[j], NAND_ECC_POS);
-			if(ret)
+			if(ret){
+				printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 				return ret;  // nand io_error
+			}
 			i++;
 			j++;
 		}
@@ -1105,8 +1117,10 @@ int markbadblock(NAND_BASE *host, int blockid)
 			send_prog_confirm();
 			ret =send_read_status(&state);
 			state = (state & NAND_STATUS_FAIL) ? IO_ERROR : SUCCESS;
-			if(ret || state)
+			if(ret || state){
+				printk("DEBUG: %s [%d] ret = %d state %d \n ",__func__,__LINE__,ret,state);
 				return ret;  // nand io_error
+			}
 			i++;
 		}
 		do_deselect_chip(host);

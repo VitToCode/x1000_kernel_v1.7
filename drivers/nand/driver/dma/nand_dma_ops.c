@@ -288,6 +288,8 @@ static int read_page_singlenode(const NAND_API *pnand_api
 		if(phy_pageid != nand_dma->cache_phypageid){
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 			ret =send_msg_to_mcu(pnand_api);
+			if(ret && (ret != -6))
+				printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
 				goto read_page_singlenode_error1;
@@ -303,8 +305,12 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	}else{
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
 		ret = send_msg_to_mcu(pnand_api);
-		if(ret < 0)
+		if(ret && (ret != -6))
+			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
+		if(ret != 0){
+			nand_dma->cache_phypageid = -1;
 			goto read_page_singlenode_error1;
+		}
 	}
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
@@ -383,6 +389,8 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	b_time();
 #endif
 	ret = send_msg_to_mcu(pnand_api);
+	if(ret && (ret != -6))
+		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
 	printk("  %s  %d\n",__func__,__LINE__);
@@ -447,9 +455,11 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	printk("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
+		if(ret && (ret != -6))
+			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
-			goto read_page_node_error1;
+		  	goto read_page_node_error1;
 		}
 		nand_dma->cache_phypageid = phy_pageid;
 	}
@@ -474,6 +484,8 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	e_time();
 	printk("  %s  %d\n",__func__,__LINE__);
 #endif
+	if(ret)
+		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 	if (num > 0) {
 		ret1 = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 		if(ret1)
@@ -603,6 +615,8 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 			goto write_multinode_error1;
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
+		if(ret && (ret != -6))
+			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 write_multinode_error1:
 		templist = pagelist;
 		while (num--) {
