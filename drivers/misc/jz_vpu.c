@@ -53,6 +53,7 @@ static int vpu_on(struct jz_vpu *vpu)
 		return -EBUSY;
 
 	cpm_set_bit(31, CPM_OPCR);
+	clk_enable(vpu->clk);
 	clk_enable(vpu->clk_gate);
 	cpm_clear_bit(30, CPM_LCR);	//vpu power on
 
@@ -79,9 +80,10 @@ static long vpu_off(struct jz_vpu *vpu)
 			"mtc0  $2, $16,  7  \n\t"
 			"nop                  \n\t");
 
-	cpm_set_bit(30,CPM_LCR);
 	cpm_clear_bit(31,CPM_OPCR);
+	clk_disable(vpu->clk);
 	clk_disable(vpu->clk_gate);
+	cpm_set_bit(30,CPM_LCR);
 	wake_unlock(&vpu->wake_lock);
 	dev_dbg(vpu->dev, "[%d:%d] off\n", current->tgid, current->pid);
 
@@ -357,7 +359,6 @@ static int vpu_probe(struct platform_device *pdev)
 		goto err_get_clk_cgu;
 	}
 	clk_set_rate(vpu->clk,300000000);
-	clk_enable(vpu->clk);
 
 	vpu->dev = &pdev->dev;
 	vpu->mdev.minor = MISC_DYNAMIC_MINOR;
