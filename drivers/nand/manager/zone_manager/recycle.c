@@ -952,6 +952,9 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		pagelist->head.next = NULL;
 
 		flag = 1;
+		ndprint(RECYCLE_INFO,"<warning> %s %d px->bytes=%d offset=%d pageid=%d\n",__func__,__LINE__,px->Bytes,pagelist->OffsetBytes,pagelist->startPageID);
+		if(pagelist->OffsetBytes % 512 != 0)
+			dump_stack();
 	}
 
 	if((px->head).next != NULL) {
@@ -1360,7 +1363,7 @@ static int RecycleReadWrite(Recycle *rep)
 	unsigned int recyclesector = recyclepage * spp;
 	int wpagecount;
 	wzone = get_current_write_zone(rep->context);
-	if (!wzone)
+	if (!wzone || wzone->ZoneID == rep->rZone->ZoneID)
 		wzone = alloc_new_zone_write(rep->context, wzone);
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage < wzone->vnand->v2pp->_2kPerPage) {
@@ -2246,7 +2249,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	unsigned int recyclesector = recyclepage * spp;
         int wpagecount;
 	wzone = get_current_write_zone(rep->context);
-	if (!wzone)
+	if (!wzone || wzone->ZoneID == rep->force_rZone->ZoneID)
 		wzone = alloc_new_zone_write(rep->context, wzone);
 	zonepage = Zone_GetFreePageCount(wzone);
 	if (zonepage < wzone->vnand->v2pp->_2kPerPage) {
