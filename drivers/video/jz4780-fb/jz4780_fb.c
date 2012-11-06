@@ -60,13 +60,6 @@ static int jzfb_open(struct fb_info *info, int user)
 	struct jzfb *jzfb = info->par;
 
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
-	//dump_lcdc_registers(jzfb);
-
-	/* check the state of FG1 */
-	tmp = reg_read(jzfb, LCDC_OSDC);
-	if (tmp & LCDC_OSDC_F1EN) {
-		dev_info(info->dev, "jzfb_open() OSDC_F1EN: state is wrong\n");
-	}
 
 	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
 		jzfb_set_par(info);

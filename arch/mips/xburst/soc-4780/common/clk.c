@@ -275,8 +275,8 @@ enum {
 		DEF_CLK(EHCI,   	PARENT(UHC)),
 		DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)),
 		DEF_CLK(CIM,   		GATE(26)),
-		DEF_CLK(LCD1,   	GATE(27)| PARENT(LCD0)),
-		DEF_CLK(LCD0,   	GATE(28)| PARENT(LCD1)),
+		DEF_CLK(LCD0,   	GATE(27)| PARENT(LCD1)),
+		DEF_CLK(LCD1,   	GATE(28)),
 		DEF_CLK(IPU1,   	GATE(29)),
 		DEF_CLK(IPU0,   	GATE(29)),
 		DEF_CLK(DDR0,  		GATE(30)),
@@ -598,13 +598,8 @@ static void __init init_gate_clk(void)
 	clkgr[0] = cpm_inl(CPM_CLKGR0);
 	clkgr[1] = cpm_inl(CPM_CLKGR1);
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
-		int bit = CLK_GATE_BIT(clk_srcs[i].flags);
 		if(! (clk_srcs[i].flags & CLK_FLG_GATE))
 			continue;
-
-		if(! (clkgr[bit/32] & BIT(bit%32)))
-			clk_srcs[i].flags |= CLK_FLG_ENABLE;
-
 		if(!clk_srcs[i].rate && clk_srcs[i].parent)
 			clk_srcs[i].rate = clk_srcs[i].parent->rate;
 	}
@@ -649,7 +644,8 @@ void __init init_all_clk(void)
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(clk_srcs[i].rate)
 			continue;
-		if(clk_srcs[i].flags & CLK_FLG_ENABLE)
+		if((clk_srcs[i].flags & CLK_FLG_ENABLE) 
+				&& !(clk_srcs[i].flags & CLK_FLG_GATE))
 			clk_srcs[i].count = 1;
 		if(clk_srcs[i].flags & CLK_FLG_PARENT) {
 			int id = CLK_PARENT(clk_srcs[i].flags);
@@ -709,12 +705,10 @@ int clk_enable(struct clk *clk)
 	if(!clk)
 		return -EINVAL;
 
-	clk->count++;
-
-	if(clk->flags & CLK_FLG_ENABLE)
+	if(clk->flags & CLK_FLG_ENABLE) {
+		clk->count++;
 		return 0;
-
-	clk->flags |= CLK_FLG_ENABLE;
+	}
 
 	clk_enable(clk->parent);
 
@@ -724,6 +718,7 @@ int clk_enable(struct clk *clk)
 	if(clk->ops && clk->ops->enable)
 		clk->ops->enable(clk,1);
 
+	clk->flags |= CLK_FLG_ENABLE;
 	clk->count = 1;
 
 	return 0;
