@@ -21,6 +21,8 @@
 #include "nandmanagerinterface.h"
 
 /* debug switchs */
+//#define DEBUG_TIME_WRITE
+//#define DEBUG_TIME_READ
 //#define DEBUG_FUNC
 //#define DEBUG_SYS
 //#define DEBUG_REQ
@@ -70,6 +72,73 @@ static struct __nand_block nand_block;
 #define DBG_FUNC() printk("##### nand block debug #####: func = %s \n", __func__)
 #else
 #define DBG_FUNC()
+#endif
+
+#if defined(DEBUG_TIME_WRITE) || defined(DEBUG_TIME_READ)
+#define DEBUG_TIME_BYTES (10 * 1024 *1024)
+static unsigned long long rd_btime = 0;
+static unsigned long long wr_btime = 0;
+static unsigned long long rd_sum_time = 0;
+static unsigned long long wr_sum_time = 0;
+static unsigned int rd_sum_bytes = 0;
+static unsigned int wr_sum_bytes = 0;
+/*for example: div_s64_32(3,2) = 2*/
+static inline int div_s64_32(long long dividend , int divisor)
+{
+	long long result=0;
+	int remainder=0;
+	result =div_s64_rem(dividend,divisor,&remainder);
+	result = remainder ? (result +1):result;
+	return result;
+}
+
+static inline void calc_bytes(int mode, int bytes)
+{
+	if (mode == READ)
+		rd_sum_bytes += bytes;
+	else
+		wr_sum_bytes += bytes;
+}
+
+static inline void begin_time(int mode)
+{
+	if (mode == READ)
+		rd_btime = sched_clock();
+	else
+		wr_btime = sched_clock();
+}
+
+static inline void end_time(int mode)
+{
+	int times, bytes;
+	unsigned long long etime = sched_clock();
+
+	if (mode == READ) {
+		rd_sum_time += (etime - rd_btime);
+		if (rd_sum_bytes >= DEBUG_TIME_BYTES) {
+#ifdef DEBUG_TIME_READ
+			times = div_s64_32(rd_sum_time, 1000 * 1000);
+			bytes = rd_sum_bytes / 1024;
+			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+#endif
+			rd_sum_bytes = rd_sum_time = 0;
+		}
+	} else {
+		wr_sum_time += (etime - wr_btime);
+		if (wr_sum_bytes >= DEBUG_TIME_BYTES) {
+#ifdef DEBUG_TIME_WRITE
+			times = div_s64_32(wr_sum_time, 1000 * 1000);
+			bytes = wr_sum_bytes / 1024;
+			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+#endif
+			wr_sum_bytes = wr_sum_time = 0;
+		}
+	}
+}
+#else
+static inline void calc_bytes(int mode, int bytes) {};
+static inline void begin_time(int mode) {};
+static inline void end_time(int mode) {};
 #endif
 
 #ifdef DEBUG_SYS
@@ -215,6 +284,11 @@ static int handle_req_thread(void *data)
 				   (rq_data_dir(req) == READ)? "READ":"WRITE",
 				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
 #endif
+			if (rq_data_dir(req) == READ)
+				calc_bytes(READ, (int)blk_rq_sectors(req) * ndisk->sectorsize);
+			else
+				calc_bytes(WRITE, (int)blk_rq_sectors(req) * ndisk->sectorsize);
+
 			/* make SectorList from request */
 			spin_lock_irq(q->queue_lock);
 			ndisk->sl_len = nand_rq_map_sl(q, req, ndisk->sl, ndisk->sectorsize);
@@ -228,10 +302,15 @@ static int handle_req_thread(void *data)
 			dump_sectorlist(ndisk->sl);
 #endif
 			/* nandmanager read || write */
-			if (rq_data_dir(req) == READ)
+			if (rq_data_dir(req) == READ) {
+				begin_time(READ);
 				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
-			else
+				end_time(READ);
+			} else {
+				begin_time(WRITE);
 				ret = NandManger_write(ndisk->pinfo->context, ndisk->sl);
+				end_time(WRITE);
+			}
 
 			if (ret < 0) {
 				printk("NandManger_read/write error!\n");

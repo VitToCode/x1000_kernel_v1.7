@@ -368,12 +368,12 @@ static int init_nand_driver(void)
 	g_partarray.ppt = g_partition;
 	g_partarray.ptcount = ipartition_num+1;
 
-	g_aligned_list =nand_malloc_buf(256*sizeof(Aligned_List));
+	g_aligned_list =nand_malloc_buf((256 + 4)*sizeof(Aligned_List));
 	if (!g_aligned_list){
 		eprintf("ERROR: g_aligned_list malloc Failed\n");
 		goto init_nand_driver_error2;
 	}
-	memset(g_aligned_list,0,256*sizeof(Aligned_List));
+	memset(g_aligned_list,0,(256 + 4)*sizeof(Aligned_List));
 
 	nand_ops_parameter_init();
 
@@ -419,7 +419,7 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 	struct singlelist *listhead;
 	PageList *pnextpagelist=0;
 	int i=0;
-	memset(aligned_list,0,sizeof(Aligned_List));
+	//memset(aligned_list,0,sizeof(Aligned_List));
 	aligned_list->pagelist =pagelist;
 	aligned_list->opsmodel =1;
 	aligned_list->next =0;
@@ -444,7 +444,7 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 			default :
 				aligned_list->next = aligned_list+1;
 				aligned_list =aligned_list->next;
-				memset(aligned_list,0,sizeof(Aligned_List));
+				//memset(aligned_list,0,sizeof(Aligned_List));
 				pagelist = pnextpagelist;
 				aligned_list->pagelist =pagelist;
 				aligned_list->opsmodel =1;
