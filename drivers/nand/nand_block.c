@@ -76,12 +76,25 @@ static struct __nand_block nand_block;
 
 #if defined(DEBUG_TIME_WRITE) || defined(DEBUG_TIME_READ)
 #define DEBUG_TIME_BYTES (10 * 1024 *1024)
+struct __data_distrib {
+	unsigned int _1_4sectors;
+	unsigned int _5_8sectors;
+	unsigned int _9_16sectors;
+	unsigned int _17_32sectors;
+	unsigned int _33_64sectors;
+	unsigned int _65_128sectors;
+	unsigned int _129_256sectors;
+};
+
 static unsigned long long rd_btime = 0;
 static unsigned long long wr_btime = 0;
 static unsigned long long rd_sum_time = 0;
 static unsigned long long wr_sum_time = 0;
 static unsigned int rd_sum_bytes = 0;
 static unsigned int wr_sum_bytes = 0;
+static struct __data_distrib rd_dbg_distrib = {0};
+static struct __data_distrib wr_dbg_distrib = {0};
+
 /*for example: div_s64_32(3,2) = 2*/
 static inline int div_s64_32(long long dividend , int divisor)
 {
@@ -98,6 +111,34 @@ static inline void calc_bytes(int mode, int bytes)
 		rd_sum_bytes += bytes;
 	else
 		wr_sum_bytes += bytes;
+}
+
+static inline void calc_distrib(int mode, int sectors)
+{
+	struct __data_distrib *distrib;
+
+	if (mode == READ)
+		distrib = &rd_dbg_distrib;
+	else
+		distrib = &wr_dbg_distrib;
+
+	if ((sectors > 0) && (sectors <= 4)) {
+		distrib->_1_4sectors ++;
+	} else if (sectors <= 8) {
+		distrib->_5_8sectors ++;
+	} else if (sectors <= 16) {
+		distrib->_9_16sectors ++;
+	} else if (sectors <= 32) {
+		distrib->_17_32sectors ++;
+	} else if (sectors <= 64) {
+		distrib->_33_64sectors ++;
+	} else if (sectors <= 128) {
+		distrib->_65_128sectors ++;
+	} else if (sectors <= 256) {
+		distrib->_129_256sectors ++;
+	} else {
+		printk("%s, line:%d, SectorCount error!, count = %d\n", __func__, __LINE__, sectors);
+	}
 }
 
 static inline void begin_time(int mode)
@@ -120,8 +161,16 @@ static inline void end_time(int mode)
 			times = div_s64_32(rd_sum_time, 1000 * 1000);
 			bytes = rd_sum_bytes / 1024;
 			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
+				   rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
+				   rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
+			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n",
+				   rd_dbg_distrib._33_64sectors, rd_dbg_distrib._65_128sectors,
+				   rd_dbg_distrib._129_256sectors);
 #endif
+
 			rd_sum_bytes = rd_sum_time = 0;
+			memset(&rd_dbg_distrib, 0, sizeof(struct __data_distrib));
 		}
 	} else {
 		wr_sum_time += (etime - wr_btime);
@@ -130,13 +179,21 @@ static inline void end_time(int mode)
 			times = div_s64_32(wr_sum_time, 1000 * 1000);
 			bytes = wr_sum_bytes / 1024;
 			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
+				   wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
+				   wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
+			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n",
+				   wr_dbg_distrib._33_64sectors, wr_dbg_distrib._65_128sectors,
+				   wr_dbg_distrib._129_256sectors);
 #endif
 			wr_sum_bytes = wr_sum_time = 0;
+			memset(&wr_dbg_distrib, 0, sizeof(struct __data_distrib));
 		}
 	}
 }
 #else
 static inline void calc_bytes(int mode, int bytes) {};
+static inline void calc_distrib(int mode, int sectors) {};
 static inline void begin_time(int mode) {};
 static inline void end_time(int mode) {};
 #endif
@@ -284,10 +341,13 @@ static int handle_req_thread(void *data)
 				   (rq_data_dir(req) == READ)? "READ":"WRITE",
 				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
 #endif
-			if (rq_data_dir(req) == READ)
+			if (rq_data_dir(req) == READ) {
 				calc_bytes(READ, (int)blk_rq_sectors(req) * ndisk->sectorsize);
-			else
+				calc_distrib(READ, (int)blk_rq_sectors(req));
+			} else {
 				calc_bytes(WRITE, (int)blk_rq_sectors(req) * ndisk->sectorsize);
+				calc_distrib(WRITE, (int)blk_rq_sectors(req));
+			}
 
 			/* make SectorList from request */
 			spin_lock_irq(q->queue_lock);
