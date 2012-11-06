@@ -682,6 +682,7 @@ static int i2c_jz_suspend(struct platform_device *dev, pm_message_t state)
 	struct jz_i2c *i2c = platform_get_drvdata(dev);
 	cancel_delayed_work(&i2c->clk_work);
 	clk_disable(i2c->clk);
+	i2c->enabled = 0;
 	return 0;
 }
 
