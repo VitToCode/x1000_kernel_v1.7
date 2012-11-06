@@ -132,8 +132,8 @@ void CacheData_update ( CacheData *cachedata, unsigned int startID,unsigned char
  */
 int CacheData_ismatch ( CacheData *cachedata, unsigned int indexid)
 {
-	return (indexid >= cachedata->IndexID &&
-		indexid < cachedata->IndexID + cachedata->unitLen * cachedata->IndexCount);
+	return  (indexid >= cachedata->IndexID &&
+		indexid < cachedata->IndexID + cachedata->unitLen * cachedata->IndexCount && cachedata->IndexID != -1); 
 }
 
 void CacheData_Dump( CacheData *cd) {

@@ -350,8 +350,6 @@ static CacheData * fillcache(CacheManager *cm,unsigned int sectorid,CacheData *s
 	cd = CacheList_getTail(tar);
 	sectoralign = cd->IndexCount * cd->unitLen;
 	startid = sectorid / sectoralign * sectoralign;
-
-
 	CacheData_update(cd,startid,data);
 	return cd;
 }
@@ -387,24 +385,20 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 		return -1;
 	}
 	NandMutex_Lock(&(cachemanager->mutex));
-	l1count = l2count = l3count = 0;
-	l4count = 0;
+	l1count = l2count = l3count = l4count = 0;
 
 	while (1) {
 		pageid = -1;
-		if(l4count == 0){
-			cd = CacheList_get(cachemanager->L4Info, sectorid);
-		}else
-			cd = CacheList_getTop(cachemanager->L4Info);
-
+		cd = CacheList_get(cachemanager->L4Info, sectorid);
 		if (cd) {
 			CacheList_Insert(cachemanager->L4Info, cd);
 			pageid = CacheData_get(cd, sectorid);
 			l4count = 1;
 		}
-
-		if (pageid != -1) // cache hit
+		if(l4count)
+		{
 			break;
+		}
 		lx = cachemanager->L4Info;
 		lxoffset = GET_LX_OFFSET(cachemanager,4);
 		if(l3count > 0) break;
@@ -416,7 +410,6 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 				CacheList_Insert(cachemanager->L3Info,cd);
 				if(ucd){
 					CacheList_Insert(lx,ucd);
-					l4count = 1;
 					continue;
 				}
 			}
@@ -483,6 +476,7 @@ void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **ppi
 	}
 
 	NandMutex_Lock(&(cachemanager->mutex));
+
 	lct->L1 = lct->L2 = lct->L3 = lct->L4 = NULL;
 FINDDATACACHE:
 	updatelx = &lct->L4;
@@ -499,6 +493,7 @@ FINDDATACACHE:
 		}
 		if(*updatelx && (lct->L4 == NULL))
 			lct->L4 = fillcache(cachemanager,sectorid,*updatelx,lx,lxoffset);
+
 		lx = cachemanager->L3Info;
 		lxoffset = GET_LX_OFFSET(cachemanager,3);
 	}
@@ -580,6 +575,7 @@ void CacheManager_unlockCache ( int context, PageInfo *pi )
 	if(cachemanager->L3InfoLen){
 		lct->L3->IndexID = calc_IndexID(lct->sectorid,cachemanager->L3UnitLen,cachemanager->L3InfoLen);
 		CacheList_Insert(cachemanager->L3Info,lct->L3);
+
 	}
 
 	lct->L4->IndexID = calc_IndexID(lct->sectorid,cachemanager->L4UnitLen,cachemanager->L4InfoLen);
