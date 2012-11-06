@@ -148,16 +148,16 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 #if 1
 	switch (config[1])
 	{
-		case ODR10:	config1[1] = 0x1D;break;//INT_DUR1 register set to 0x2d irq rate is:12Hz
-		case ODR25:	config1[1] = 0x0E;break;//set to 0x0e irq rate:25Hz
-		case ODR50:	config1[1] = 0x06;break;//set to 0x06 irq rate:50Hz
-	
-		default:	config1[1] = 0x1D;break;//default situation set to 0x1D:irq rate:12Hz
+		case ODR10:	config1[1] = 0x45;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
+		case ODR25:	config1[1] = 0x20;break;//set to 0x0e irq rate:23Hz
+		case ODR50:	config1[1] = 0x10;break;//set to 0x06 irq rate:42Hz
+
+		default:	config1[1] = 0x45;break;//default situation set to 0x1D:irq rate:11Hz
 	}
 #endif
 
 #ifdef CONFIG_SMP
-	config[1] = 0x60;
+	config[1] = 0x70;
 #else
 	config[1] = 0x50;
 #endif
@@ -168,7 +168,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		if (err < 0)
 			goto error;
 		acc->resume_state[RES_CTRL_REG1] = config[1];
-	//	printk("---gsensor odr config[1] = %x---\n",config[1]);
+//		printk("---gsensor odr config[1] = %x---\n",config[1]);
 	}
 	if (atomic_read(&acc->enabled)) {
 		config1[0] = INT_DUR1;
@@ -176,7 +176,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 		if (err < 0)
 			goto error;
 		acc->resume_state[RES_INT_DUR1] = config1[1];
-	//	printk("---gsensor odr config1[1] = %x---\n", config1[1]);
+//		printk("---gsensor odr config1[1] = %x---\n", config1[1]);
 	}
 	return err;
 error:
@@ -426,7 +426,6 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 
 		buf[0] = INT_SRC1;
 		err = lis3dh_acc_i2c_read(acc, buf, 1);
-
 	}
 	return 0;
 }
@@ -644,6 +643,7 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}else{
 				lis3dh->power_tag = interval;
 				lis3dh_acc_disable(lis3dh);
+				mdelay(2);
 				if (atomic_cmpxchg(&lis3dh->regulator_enabled, 1, 0))
 					regulator_disable(lis3dh->power);
 			//	printk("----lis3dh call SET_NOt_ACTIVE ----\n");
@@ -1019,8 +1019,8 @@ static void lis3dh_acc_late_resume(struct early_suspend *handler)
 static void lis3dh_acc_early_suspend(struct early_suspend *handler)
 {
 	struct lis3dh_acc_data *acc ;
+
 	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
-	
 	acc->is_suspend = 1;
 
 	disable_irq_nosync(acc->client->irq);
