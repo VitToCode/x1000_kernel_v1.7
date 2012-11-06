@@ -1044,7 +1044,7 @@ static int Create_write_pagelist(Recycle *rep,unsigned int len)
 		px->startPageID = addr[write_cursor] / spp;
 		px->OffsetBytes = 0;
 		px->pData = NULL;
-		px->retVal = 0;
+		px->retVal = 1;
 		if (i == len - 1) {
 			for (j = write_cursor; j < l4count; j++) {
 				if (addr[j] != -1)
@@ -2160,9 +2160,6 @@ static int OnForce_FindValidSector ( Recycle *rep)
 
 	rep->force_startsectorID = start_sectorID;
 	rep->force_writepageinfo = get_pageinfo_from_cache(rep,rep->force_startsectorID);
-#ifdef RECYCLE_DEBUG_PAGEINFO
-	L2p_Debug_SaveCacheData(rep->debug,rep->force_writepageinfo);
-#endif
 	return 0;
 err:
 	return -1;
