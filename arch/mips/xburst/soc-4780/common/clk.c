@@ -875,6 +875,26 @@ static int clk_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
+static int clk_write_proc(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	int ret;
+	char buf[32];
+	unsigned int cgr0,cgr1;
+
+	if (count > 32)
+		count = 32;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+
+	ret = sscanf(buf,"0x%x@0x%x",&cgr0,&cgr1);
+
+	if(ret >= 1) cpm_outl(cgr0,CPM_CLKGR0);
+	if(ret == 2) cpm_outl(cgr1,CPM_CLKGR1);
+
+	return count;
+}
+
 static int __init init_clk_proc(void)
 {
 	struct proc_dir_entry *res;
@@ -882,7 +902,7 @@ static int __init init_clk_proc(void)
 	res = create_proc_entry("clocks", 0444, NULL);
 	if (res) {
 		res->read_proc = clk_read_proc;
-		res->write_proc = NULL;
+		res->write_proc = clk_write_proc;
 		res->data = NULL;
 	}
 	return 0;
