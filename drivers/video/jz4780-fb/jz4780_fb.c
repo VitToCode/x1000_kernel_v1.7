@@ -56,14 +56,15 @@ static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 
 static int jzfb_open(struct fb_info *info, int user)
 {
-	unsigned int tmp;
 	struct jzfb *jzfb = info->par;
 
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
 
 	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
+		clk_enable(jzfb->ldclk);
 		jzfb_set_par(info);
 		jzfb_enable(info);
+		clk_disable(jzfb->ldclk);
 	}
 
 	return 0;
@@ -905,6 +906,8 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
 
+	clk_enable(jzfb->ldclk);
+
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		jzfb_enable(info);
@@ -926,6 +929,8 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		jzfb_disable(info);
 		break;
 	}
+
+	clk_disable(jzfb->ldclk);
 
 	return 0;
 }
@@ -1407,14 +1412,19 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-		tmp = reg_read(jzfb, LCDC_OSDCTRL);
 		if (value) {
+			/* the clock of ipu is depends on lcdc's clock */
+			clk_enable(jzfb->ldclk);
+			tmp = reg_read(jzfb, LCDC_OSDCTRL);
 			/* enable ipu0 clock */
 			tmp |= LCDC_OSDCTRL_IPU_CLKEN;
+			reg_write(jzfb, LCDC_OSDCTRL, tmp);
 		} else {
+			tmp = reg_read(jzfb, LCDC_OSDCTRL);
 			tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
+			reg_write(jzfb, LCDC_OSDCTRL, tmp);
+			clk_disable(jzfb->ldclk);
 		}
-		reg_write(jzfb, LCDC_OSDCTRL, tmp);
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
 		return -EFAULT;
@@ -1596,11 +1606,15 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	spin_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 1;
 	spin_unlock(&jzfb->suspend_lock);
+
+	clk_disable(jzfb->ldclk);
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+
+	clk_enable(jzfb->ldclk);
 
 	if (jzfb->pdata->alloc_vidmem) {
 		fb_set_suspend(jzfb->fb, 0);
@@ -2104,7 +2118,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	}
 	//dump_lcdc_registers(jzfb);
 #endif
-	if (!jzfb->vidmem_phys && (jzfb->id != 1)) {
+	if (!jzfb->pdata->alloc_vidmem && (jzfb->id != 1)) {
 		/* If enable LCDC0, can not disable the clock of LCDC1 */
 		clk_disable(jzfb->ldclk);
 	}
