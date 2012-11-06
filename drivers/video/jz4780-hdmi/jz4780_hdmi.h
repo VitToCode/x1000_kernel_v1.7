@@ -65,7 +65,8 @@ enum HMDI_STATUS {
 struct hdmi_info{
 	enum HMDI_STATUS  hdmi_status;
 	unsigned int out_type;
-	//unsigned int hdmi_status;
+	unsigned int support_modenum;
+	unsigned int *support_mode;
 };
 
 struct jzhdmi{
@@ -74,7 +75,6 @@ struct jzhdmi{
 	struct resource *mem;
 	struct clk *hdmi_clk;
 	struct clk *hdmi_cgu_clk;
-	unsigned int init;
 
 	atomic_t opened;
 	struct miscdevice hdmi_miscdev;
@@ -100,5 +100,8 @@ struct jzhdmi{
 #define HDMI_POWER_OFF			_IO('F', 0x301)
 #define	HDMI_VIDEOMODE_CHANGE		_IOW('F', 0x302, int)
 #define	HDMI_POWER_ON			_IO('F', 0x303)
+#define	HDMI_GET_TVMODENUM		_IOR('F', 0x304, int)
+#define	HDMI_GET_TVMODE			_IOR('F', 0x305, int)
+#define HDMI_POWER_OFF_COMPLETE		_IO('F', 0x306)
 
 #endif

@@ -32,22 +32,7 @@ static void edid_callback(void *param)
 	global_hdmi->edid_done = HDMI_HOTPLUG_EDID_DONE;
 	wake_up(&global_hdmi->wait);
 }
-#if 0
-static void hdcp_ksv_callback(void *param)
-{
-	int i = 0;
-	u8 ksv_list[128] = {0};
-	unsigned size = 0;
-	buffer_t *temp_buffer = (buffer_t*)(param);
-	size = temp_buffer->size;
-	dev_info(global_hdmi->dev, "KSV list ready\n");
-	for (i = 0; i < size; i++) {
-		ksv_list[i] = temp_buffer->buffer[i];
-		dev_info(global_hdmi->dev, "ksv_list[%d] = %d\n",
-			 i, ksv_list[i]);
-	}
-}
-#endif
+
 static void hpd_callback(void *param)
 {
 	u8 hpd = *((u8*)(param));
@@ -55,7 +40,6 @@ static void hpd_callback(void *param)
 		dev_info(global_hdmi->dev, "HPD DISCONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_DISCONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED;
-		global_hdmi->init = 0;
 	} else {
 		dev_info(global_hdmi->dev, "HPD CONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
@@ -166,7 +150,7 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		videoParams_SetColorResolution(pVideo, 16);
 		} else {
 		}
-		*/
+			*/
 		if (hdmivsdb_GetDeepColor36(&vsdb)) {
 			videoParams_SetColorResolution(pVideo, 12);
 		} /*else if (hdmivsdb_GetDeepColor30(&vsdb)) {
@@ -274,13 +258,6 @@ static bool hdmi_init(struct jzhdmi *jzhdmi)
 
 	const u8 vName[] = "Synopsys";
 	const u8 pName[] = "Complnce";
-#if 0
-	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
-	if (!api_Initialize(0, 1, 2500,0)) {
-		dev_err(jzhdmi->dev, "api_Initialize fail\n");
-		return FALSE;
-	}
-#endif
 
 	if (!pProduct) {
 		dev_err(jzhdmi->dev, "pVideo is NULL\n");
@@ -329,7 +306,6 @@ static bool hdmi_init(struct jzhdmi *jzhdmi)
 	videoParams_Reset(pVideo);
 	videoParams_SetEncodingIn(pVideo, RGB);
 	videoParams_SetEncodingOut(pVideo, RGB);
-	jzhdmi->init = 1;
 	return TRUE;
 }
 
@@ -368,17 +344,49 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int index;
+	int index,i;
+	shortVideoDesc_t tmpsvd;
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
 	switch (cmd) {
-	case HDMI_VIDEOMODE_CHANGE:
-		if (jzhdmi->init == 0) {
-			api_phy_enable(PHY_ENABLE); 
-			hdmi_init(jzhdmi);
-		}
+	case HDMI_POWER_ON:
+		dev_info(jzhdmi->dev, "Hdmi power on\n");
+		api_phy_enable(PHY_ENABLE);
+		hdmi_init(jzhdmi);
 		hdmi_read_edid(jzhdmi);
+		jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
+		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
+		dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
+		for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
+			api_EdidSvd(i,&tmpsvd);
+			printk("%d ",tmpsvd.mCode);
+			jzhdmi->hdmi_info.support_mode[i] = tmpsvd.mCode;
+		}
+		printk("\n");
+		break;
 
+	case HDMI_GET_TVMODENUM:
+		if (copy_to_user((void __user *)arg, &jzhdmi->hdmi_info.support_modenum, sizeof(int))) {
+			dev_err(jzhdmi->dev, "HDMI get support mode num failed\n");
+			return -EFAULT;
+		}
+		break;
+
+	case HDMI_GET_TVMODE:
+		if(jzhdmi->hdmi_info.support_modenum != 0) {
+			if (copy_to_user((void __user *)arg, jzhdmi->hdmi_info.support_mode,
+						sizeof(int)*(jzhdmi->hdmi_info.support_modenum))) {
+				dev_err(jzhdmi->dev, "HDMI get support mode failed\n");
+				return -EFAULT;
+			}
+		} else {
+			dev_err(jzhdmi->dev, "HDMI not have support mode:\n");
+			return -EFAULT;
+		}
+		break;
+
+	case HDMI_VIDEOMODE_CHANGE:
+		hdmi_read_edid(jzhdmi);
 		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
 		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
@@ -397,17 +405,28 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pri_hdmi_info(jzhdmi);
 #endif
 		break;
+
 	case HDMI_POWER_OFF:
 		dev_info(jzhdmi->dev, "hdmi power off\n");
-		jzhdmi->init = 0;
+
+		if(jzhdmi->hdmi_info.support_mode != NULL)
+			kzfree(jzhdmi->hdmi_info.support_mode);
+		api_phy_enable(PHY_ENABLE_HPD);
+		break;
+
+	case HDMI_POWER_OFF_COMPLETE:
+		dev_info(jzhdmi->dev, "hdmi power off complete\n");
 #if 0
 		if (!api_Standby()) {
 			dev_err(jzhdmi->dev, "API standby fail\n");
 			return -EINVAL;
 		}
 #endif
-		api_phy_enable(PHY_ENABLE_HPD); 
+		if(jzhdmi->hdmi_info.support_mode != NULL)
+		kzfree(jzhdmi->hdmi_info.support_mode);
+		api_phy_enable(PHY_DISABLE_ALL);
 		break;
+
 	default:
 		dev_info(jzhdmi->dev, "%s, cmd = %d is error\n",
 			 __func__, cmd);
@@ -426,7 +445,7 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
 	jzhdmi->is_suspended = 1;
 	system_InterruptDisable(TX_INT);
-	api_phy_enable(PHY_DISABLE_ALL); 
+	api_phy_enable(PHY_DISABLE_ALL);
 //	regulator_disable(jzhdmi->hdmi_power);
 }
 static void hdmi_late_resume(struct early_suspend *h)
@@ -436,7 +455,7 @@ static void hdmi_late_resume(struct early_suspend *h)
 
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
 //	regulator_enable(jzhdmi->hdmi_power);
-	api_phy_enable(PHY_ENABLE_HPD); 
+	api_phy_enable(PHY_ENABLE_HPD);
 	jzhdmi->is_suspended = 0;
 	system_InterruptEnable(TX_INT);
 	api_mHpd = (phy_HotPlugDetected(0) > 0);
@@ -452,12 +471,13 @@ static int jzhdmi_open(struct inode * inode, struct file * filp)
 {
 	struct miscdevice *dev = filp->private_data;
 	struct jzhdmi *jzhdmi = container_of(dev, struct jzhdmi, hdmi_miscdev);
-
+#if 0
 	if (!(atomic_dec_and_test(&jzhdmi->opened))) {
 		dev_info(jzhdmi->dev, "HDMI already opened\n");
 		atomic_inc(&jzhdmi->opened);
 		return -EBUSY; /* already open */
 	} /* If open success, jzhdmi->opened.counter is 0. */
+#endif
 	filp->private_data = jzhdmi;
 	dev_info(jzhdmi->dev, "Ingenic Onchip HDMI opened\n");
 
@@ -466,8 +486,10 @@ static int jzhdmi_open(struct inode * inode, struct file * filp)
 
 static int jzhdmi_close(struct inode * inode, struct file * filp)
 {
+	filp->private_data = NULL;
+	return 0;
+#if 0
 	struct jzhdmi *jzhdmi = filp->private_data;
-
 	if (!(atomic_inc_and_test(&jzhdmi->opened)) &&
 	    jzhdmi->opened.counter == 1) {
 		dev_info(jzhdmi->dev, "Ingenic Onchip HDMI close\n");
@@ -476,8 +498,8 @@ static int jzhdmi_close(struct inode * inode, struct file * filp)
 		dev_info(jzhdmi->dev, "Failed to close HDMI device\n");
 		atomic_dec(&jzhdmi->opened);
 	}
-
 	return 0;
+#endif
 }
 
 static struct file_operations jzhdmi_fops = {
@@ -489,8 +511,7 @@ static struct file_operations jzhdmi_fops = {
 
 static int __devinit jzhdmi_probe(struct platform_device *pdev)
 {
-	int ret;
-	int i;
+	int ret,i;
 	struct jzhdmi *jzhdmi;
 	struct resource *mem;
 
@@ -518,7 +539,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->dev = &pdev->dev;
 	jzhdmi->mem = mem;
 	jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED,
-	jzhdmi->init = 0;
 
 	jzhdmi->hdmi_params.pProduct = (productParams_t*)kzalloc(
 		sizeof(productParams_t),GFP_KERNEL);
@@ -605,14 +625,13 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_destroy_workqueue;
 	}
-#if 1
+
 	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
 	if (!api_Initialize(0, 1, 2500,0)) {
 		dev_err(jzhdmi->dev, "api_Initialize fail\n");
 		ret = -EINVAL;
 		goto err_destroy_workqueue;
 	}
-#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	jzhdmi->early_suspend.suspend = hdmi_early_suspend;
@@ -658,6 +677,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	}
 #endif
 
+
 	return 0;
 
 err_unregister_early_suspend:
@@ -697,7 +717,7 @@ static void jzhdmi_shutdown(struct platform_device *pdev)
 		dev_err(jzhdmi->dev, "API standby fail\n");
 		return;
 	}
-	api_phy_enable(0); 
+	api_phy_enable(0);
 	//regulator_disable(jzhdmi->hdmi_power);
 }
 
@@ -753,5 +773,4 @@ module_init(jzhdmi_init);
 module_exit(jzhdmi_exit);
 
 MODULE_DESCRIPTION("Jz4780 HDMI driver");
-//MODULE_AUTHOR("@ingenic.cn>");
 MODULE_LICENSE("GPL");
