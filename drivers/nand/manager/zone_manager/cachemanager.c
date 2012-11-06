@@ -374,7 +374,7 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 {
 	CacheManager *cachemanager = (CacheManager *)context;
 	unsigned int pageid = -1;
-
+	unsigned int l1page = 0;
 	CacheData *cd,*ucd;
 	CacheList *lx;
 	int lxoffset;
@@ -421,8 +421,8 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 			lx = cachemanager->L2Info;
 			lxoffset = GET_LX_OFFSET(cachemanager,2);
 		}
-		pageid = CacheData_get(cachemanager->L1Info,sectorid);
-		if (pageid != -1){
+		l1page = CacheData_get(cachemanager->L1Info,sectorid);
+		if (l1page != -1){
 			ucd = fillcache(cachemanager,sectorid,cachemanager->L1Info,lx,lxoffset);
 			if(ucd){
 				CacheList_Insert(lx,ucd);
