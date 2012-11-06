@@ -106,6 +106,7 @@ struct jz_timerevent {
 	unsigned int rate;
 	struct clock_event_device clkevt;
 	struct notifier_block  cpu_notify;
+	struct irqaction evt_action;
 };
 static DEFINE_PER_CPU(struct jz_timerevent, jzclockevent);
 
@@ -201,7 +202,6 @@ static int broadcast_cpuhp_notify(struct notifier_block *n,
 
 static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	struct clock_event_device *cd = &evt_dev->clkevt;
-	int ret;
 	struct clk *ext_clk = clk_get(NULL,"ext1");
 	
 	spin_lock_init(&evt_dev->lock);
@@ -212,11 +212,13 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	outl((1 << evt_dev->ch),evt_dev->ctrl_addr + TCU_TMCR);
 	outl(CSRDIV(CLKEVENT_DIV) | CSR_EXT_EN,evt_dev->config_addr);
 	if(evt_dev->requestirq == 0){
-		ret = request_irq(evt_dev->irq, jz_timer_interrupt,
-				  IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER,
-				  "jz-timerirq",
-				  (void*)evt_dev);
-		if (ret < 0) {
+		evt_dev->evt_action.handler = jz_timer_interrupt;
+		evt_dev->evt_action.thread_fn = NULL;
+		evt_dev->evt_action.flags = IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER;
+		evt_dev->evt_action.name = "jz-timerirq";
+		evt_dev->evt_action.dev_id = (void*)evt_dev;
+		
+		if(setup_irq(evt_dev->irq, &evt_dev->evt_action) < 0) {
 			pr_err("timer request irq error\n");
 			BUG();
 		}
