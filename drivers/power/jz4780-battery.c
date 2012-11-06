@@ -61,8 +61,8 @@ static unsigned int jz_battery_read_value(struct jz_battery *jz_battery)
 
 	INIT_COMPLETION(jz_battery->read_completion);
 
-	enable_irq(jz_battery->irq);
 	jz_battery->cell->enable(jz_battery->pdev);
+	enable_irq(jz_battery->irq);
 
 	tmp = wait_for_completion_interruptible_timeout(
 			&jz_battery->read_completion, HZ);
@@ -72,8 +72,8 @@ static unsigned int jz_battery_read_value(struct jz_battery *jz_battery)
 		value = tmp ? tmp : -ETIMEDOUT;
 	}
 
-	jz_battery->cell->disable(jz_battery->pdev);
 	disable_irq(jz_battery->irq);
+	jz_battery->cell->disable(jz_battery->pdev);
 
 	mutex_unlock(&jz_battery->lock);
 
@@ -473,7 +473,6 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 		jz_battery->next_scan_time = 60;
 	}
 
-
 	if (((jz_battery->ac == 1) && (jz_battery->usb == 1)) &&
 		(((ac == 0) && (usb == 1)) || ((ac == 1) && (usb == 0)))) {
 		has_changed = true;
@@ -531,6 +530,8 @@ static void jz_battery_init_work(struct work_struct *work)
 		jz_battery->status_charge = POWER_SUPPLY_STATUS_CHARGING;
 	jz_battery->voltage = jz_battery_adjust_voltage(jz_battery);
 	jz_battery->capacity = jz_battery_calculate_capacity(jz_battery);
+
+	power_supply_changed(&jz_battery->battery);
 
 	cancel_delayed_work_sync(&jz_battery->work);
 	schedule_delayed_work(&jz_battery->work, 20 * HZ);
@@ -819,7 +820,7 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 	jz_battery->voltage = jz_battery_adjust_voltage(jz_battery);
 
 	jz_battery->next_scan_time = 15;
-	schedule_delayed_work(&jz_battery->init_work, 10 * HZ);
+	schedule_delayed_work(&jz_battery->init_work, 5 * HZ);
 
 	printk("=====jz4780-battery driver registers over!=====\n");
 
