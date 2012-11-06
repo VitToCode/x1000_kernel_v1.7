@@ -65,7 +65,8 @@ struct platform_device ek070tn93_device = {
 #ifdef CONFIG_FB_JZ4780_LCDC1
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode[] = {
-#ifdef CONFIG_LCD_KR070LA0S_270
+
+#ifdef CONFIG_LCD_KR070LA0S_270_65HZ // 65Hz@vpll=480MHz, 63Hz@vpll=888MHz
 	{
 		.name = "1024x600",
 		.refresh = 65,
@@ -83,6 +84,45 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+
+#ifdef CONFIG_LCD_KR070LA0S_270 // 60Hz@vpll=888MHz
+	{
+		.name = "1024x600",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 600,
+		.pixclock = KHZ2PICOS(52240),
+		.left_margin = 336,
+		.right_margin = 0,
+		.upper_margin = 40,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_LCD_KR070LA0S_270_55HZ // 55Hz@vpll=888MHz
+	{
+		.name = "1024x600",
+		.refresh = 55,
+		.xres = 1024,
+		.yres = 600,
+		.pixclock = KHZ2PICOS(46800),
+		.left_margin = 320,
+		.right_margin = 0,
+		.upper_margin = 32,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
 #ifdef CONFIG_LCD_EK070TN93
 	{
 		.name = "800x480",
