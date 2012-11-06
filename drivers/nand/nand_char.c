@@ -47,8 +47,8 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 	BlockList bl;
 
 	DBG_FUNC();
-	vNand_Lock();
 	if((nand_ops->mode == NAND_DEBUG)){
+		vNand_Lock();
 		ptcount = nand_ops->ppa.ptcount -1; //sub nand_badblock_partition
 		switch(cmd){
 		case CMD_GET_NAND_PTC:
@@ -124,6 +124,7 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 			ret = -1;
 			break;
 		}
+		vNand_unLock();
 	}else{
 		switch(cmd){
 		case CMD_PARTITION_ERASE: {
@@ -188,7 +189,6 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 			break;
 		}
 	}
-	vNand_unLock();
 	return ret != 0 ? -EFAULT : 0 ;
 }
 
