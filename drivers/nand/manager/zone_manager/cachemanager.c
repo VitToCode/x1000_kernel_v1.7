@@ -378,14 +378,12 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 	CacheData *cd,*ucd;
 	CacheList *lx;
 	int lxoffset;
-	int l1count,l2count,l3count,l4count;
 
 	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2) {
 		ndprint(CACHEMANAGER_ERROR,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
 		return -1;
 	}
 	NandMutex_Lock(&(cachemanager->mutex));
-	l1count = l2count = l3count = l4count = 0;
 
 	while (1) {
 		pageid = -1;
@@ -393,54 +391,44 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 		if (cd) {
 			CacheList_Insert(cachemanager->L4Info, cd);
 			pageid = CacheData_get(cd, sectorid);
-			l4count = 1;
-		}
-		if(l4count)
-		{
 			break;
 		}
 		lx = cachemanager->L4Info;
 		lxoffset = GET_LX_OFFSET(cachemanager,4);
-		if(l3count > 0) break;
 		if (cachemanager->L3InfoLen) {
 			cd = CacheList_get(cachemanager->L3Info,sectorid);
 			if(cd){
-				l3count = 1;
 				ucd = fillcache(cachemanager,sectorid,cd,lx,lxoffset);
 				CacheList_Insert(cachemanager->L3Info,cd);
 				if(ucd){
 					CacheList_Insert(lx,ucd);
 					continue;
-				}
+				}else break;
 			}
 			lx = cachemanager->L3Info;
 			lxoffset = GET_LX_OFFSET(cachemanager,3);
 		}
-		if(l2count > 0) break;
 		if (cachemanager->L2InfoLen) {
 			cd = CacheList_get(cachemanager->L2Info,sectorid);
 			if(cd){
-				l2count = 1;
 				ucd = fillcache(cachemanager,sectorid,cd,lx,lxoffset);
 				CacheList_Insert(cachemanager->L2Info,cd);
 				if(ucd){
 					CacheList_Insert(lx,ucd);
 					continue;
-				}
+				}else break;
 			}
 			lx = cachemanager->L2Info;
 			lxoffset = GET_LX_OFFSET(cachemanager,2);
 		}
-		if(l1count > 0)
-			break;
 		pageid = CacheData_get(cachemanager->L1Info,sectorid);
-		l1count = 1;
 		if (pageid != -1){
 			ucd = fillcache(cachemanager,sectorid,cachemanager->L1Info,lx,lxoffset);
 			if(ucd){
 				CacheList_Insert(lx,ucd);
 				continue;
-			}
+			}else
+				break;
 		}
 
 		ndprint(CACHEMANAGER_INFO,"INFO:L1Info not find this sector[%d]\n",sectorid);
