@@ -39,6 +39,7 @@ static struct lpj_info global_lpj_ref;
 
 static struct clk *cpu_clk;
 static struct regulator *cpu_regulator;
+static spinlock_t freq_lock;
 
 #define CPUFREQ_NR 8
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
@@ -46,7 +47,7 @@ static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 #define MIN_FREQ 150000
 #define MIN_VOLT 1200000
 static unsigned long regulator_table[12][2] = {
-	{ 1700000,1400000 }, // 1.7 GHz - 1.25V
+	{ 1750000,1400000 }, // 1.7 GHz - 1.25V
 	{ 1400000,1300000 }, // 1.7 GHz - 1.25V
 	{ 1200000,1200000 },
 	{MIN_FREQ,MIN_VOLT},
@@ -88,15 +89,20 @@ static int freq_table_prepare(void)
 	memset(freq_table,0,sizeof(freq_table));
 
 	printk("%u %u\n",apll_rate,mpll_rate);
+#if 0
 	if(apll_rate > mpll_rate) {
 		max = apll_rate;
 		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000);i++) {
 			freq_table[i].index = i;
 			freq_table[i].frequency = max;
-			max -= 200000;
+			max -= 192000;
 		}
 	}
-
+#else
+	freq_table[0].index = 0;
+	freq_table[0].frequency = apll_rate;
+	i = 1;
+#endif
 	max = mpll_rate;
 	for(;i<CPUFREQ_NR && max > 100000;i++) {
 		freq_table[i].index = i;
@@ -139,7 +145,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	unsigned int i;
 	int r,ret = 0;
 	struct cpufreq_freqs freqs;
-	unsigned long freq, volt = 0, volt_old = 0;
+	unsigned long freq, flags, volt = 0, volt_old = 0;
 
 	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
 			relation, &i);
@@ -161,12 +167,6 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
 		return ret;
 
-	/* notifiers */
-	for_each_cpu(i, policy->cpus) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-	}
-
 	freq = freqs.new * 1000;
 	
 	if (cpu_regulator) {
@@ -186,19 +186,15 @@ static int jz4780_target(struct cpufreq_policy *policy,
 			goto done;
 		}
 	}
+	/* notifiers */
+	for_each_cpu(i, policy->cpus) {
+		freqs.cpu = i;
+		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+	}
 
+	spin_lock_irqsave(&freq_lock, flags);
 	ret = clk_set_rate(cpu_clk, freqs.new * 1000);
 
-	if (cpu_regulator && (freqs.new < freqs.old)) {
-		r = regulator_set_voltage(cpu_regulator, volt, volt);
-		if (r < 0) {
-			pr_warning("%s: unable to scale voltage down. old:%d new:%d volt:%lu\n",__func__,
-					freqs.old,freqs.new,volt);
-			ret = clk_set_rate(cpu_clk, freqs.old * 1000);
-			freqs.new = freqs.old;
-			goto done;
-		}
-	}
 
 	freqs.new = jz4780_getspeed(policy->cpu);
 #ifdef CONFIG_SMP
@@ -225,6 +221,17 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	loops_per_jiffy = cpufreq_scale(global_lpj_ref.ref, global_lpj_ref.freq,
 			freqs.new);
 #endif
+	spin_unlock_irqrestore(&freq_lock, flags);
+	if (cpu_regulator && (freqs.new < freqs.old)) {
+		r = regulator_set_voltage(cpu_regulator, volt, volt);
+		if (r < 0) {
+			pr_warning("%s: unable to scale voltage down. old:%d new:%d volt:%lu\n",__func__,
+					freqs.old,freqs.new,volt);
+			ret = clk_set_rate(cpu_clk, freqs.old * 1000);
+			freqs.new = freqs.old;
+			goto done;
+		}
+	}
 done:
 	/* notifiers */
 	for_each_cpu(i, policy->cpus) {
@@ -262,7 +269,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 #endif
 
 	/* 300us for latency. FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 300 * 1000;
+	policy->cpuinfo.transition_latency = 500 * 1000;
 
 	return 0;
 }
@@ -345,6 +352,8 @@ static int __init jz4780_cpufreq_init(void)
 #else
 	cpu_regulator = NULL;
 #endif
+	spin_lock_init(&freq_lock);
+
 	if(freq_table_prepare())
 		return -EINVAL;
 

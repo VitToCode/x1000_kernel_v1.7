@@ -409,13 +409,16 @@ static int cclk_set_rate(struct clk *clk, unsigned long rate)
 			if(rate >= cpccr_table[i].rate) break;
 	
 		cpm_outl(cpccr | (0x1<<22) | cpccr_table[i].cpccr,CPM_CPCCR);
+		clk->parent = &clk_srcs[CLK_ID_MPLL];
+		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_MPLL];
 	} else {
-		cclk_set_rate(clk, clk_srcs[CLK_ID_MPLL].rate);
-		//set apll
 		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
 		cpm_outl(cpccr | (0x1<<22) | (0x1<<28) | (1<<4),CPM_CPCCR);
+		clk->parent = &clk_srcs[CLK_ID_SCLKA];
+		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_SCLKA];
 	}
 
+	clk_srcs[CLK_ID_L2CLK].rate = cpccr_get_rate(&clk_srcs[CLK_ID_L2CLK]);
 	clk->rate = cpccr_get_rate(clk);
 	return 0;
 }
@@ -447,13 +450,13 @@ static void __init init_cpccr_clk(void)
 
 	clk_srcs[CLK_ID_CCLK].ops = &clk_cclk_ops;
 
-	cpccr_table[0].rate = clk_srcs[CLK_ID_CCLK].rate;
+	cpccr_table[0].rate = clk_srcs[CLK_ID_MPLL].rate;
 	cpccr_table[0].cpccr = (0x2<<28) | (0x1<<4) | (0x0);
-	cpccr_table[1].rate = clk_srcs[CLK_ID_CCLK].rate / 2;
+	cpccr_table[1].rate = clk_srcs[CLK_ID_MPLL].rate / 2;
 	cpccr_table[1].cpccr = (0x2<<28) | (0x3<<4) | (0x1);
-	cpccr_table[2].rate = clk_srcs[CLK_ID_CCLK].rate / 4;
+	cpccr_table[2].rate = clk_srcs[CLK_ID_MPLL].rate / 4;
 	cpccr_table[2].cpccr = (0x2<<28) | (0x7<<4) | (0x3);
-	cpccr_table[3].rate = clk_srcs[CLK_ID_CCLK].rate / 8;
+	cpccr_table[3].rate = clk_srcs[CLK_ID_MPLL].rate / 8;
 	cpccr_table[3].cpccr = (0x2<<28) | (0x7<<4) | (0x7);
 }
 

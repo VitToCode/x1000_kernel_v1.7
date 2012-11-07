@@ -21,7 +21,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	hdmi_80,	1000000,	1350000);
+	hdmi_80,	1000000,	1400000);
 
 /**
  * I/O Regulator.
