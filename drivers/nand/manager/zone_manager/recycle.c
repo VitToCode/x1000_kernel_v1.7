@@ -952,9 +952,7 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		pagelist->head.next = NULL;
 
 		flag = 1;
-		ndprint(RECYCLE_INFO,"<warning> %s %d px->bytes=%d offset=%d pageid=%d\n",__func__,__LINE__,px->Bytes,pagelist->OffsetBytes,pagelist->startPageID);
-		if(pagelist->OffsetBytes % 512 != 0)
-			dump_stack();
+		ndprint(RECYCLE_ERROR,"<warning> %s %d px->bytes=%d offset=%d pageid=%d\n",__func__,__LINE__,px->Bytes,pagelist->OffsetBytes,pagelist->startPageID);
 	}
 
 	if((px->head).next != NULL) {
