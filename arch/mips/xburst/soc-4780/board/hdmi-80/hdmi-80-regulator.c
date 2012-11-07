@@ -65,25 +65,25 @@ EXCLUSIVE_REGULATOR_DEF(
 FIXED_REGULATOR_DEF(
 	hdmi_80_vcc5,
 	"Vcc-5V",	5000000,	GPIO_PA(17),
-	HIGH_ENABLE,	0,		UN_AT_BOOT,
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
 FIXED_REGULATOR_DEF(
 	hdmi_80_vbus,
 	"OTG-Vbus",	5000000,	GPIO_PB(10),
-	HIGH_ENABLE,	0,		UN_AT_BOOT,
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,	"vbus",	NULL);
 
 FIXED_REGULATOR_DEF(
 	hdmi_80_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
-	HIGH_ENABLE,	0,		UN_AT_BOOT,
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
 	hdmi_80_vlcd,
 	"LCD",		3300000,	GPIO_PB(23),
-	HIGH_ENABLE,	0,		EN_AT_BOOT,
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
