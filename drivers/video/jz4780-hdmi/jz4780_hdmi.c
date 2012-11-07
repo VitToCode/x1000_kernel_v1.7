@@ -440,9 +440,11 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void hdmi_early_suspend(struct early_suspend *h)
 {
+	int api_mHpd = FALSE;
 	struct jzhdmi *jzhdmi;
 
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
+	hpd_callback(&api_mHpd);
 	jzhdmi->is_suspended = 1;
 	system_InterruptDisable(TX_INT);
 	api_phy_enable(PHY_DISABLE_ALL);
