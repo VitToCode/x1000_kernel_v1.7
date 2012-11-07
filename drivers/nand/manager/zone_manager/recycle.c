@@ -1399,6 +1399,7 @@ static int RecycleReadWrite(Recycle *rep)
 
 	}
 	else {
+/*
 		if(zonepage >  wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
 			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (wpagecount - PAGEINFO_PAGES)*spp);
@@ -1414,6 +1415,7 @@ static int RecycleReadWrite(Recycle *rep)
 			L2p_Debug_CheckData(rep->debug,rep->writepageinfo,wpagecount);
 #endif
 }
+*/
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
 			ndprint(RECYCLE_ERROR,"ERROR:alloc new zone func %s line %d \n",
@@ -2282,6 +2284,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 #endif
 	}
 	else {
+/*
 		if(zonepage > wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
 
@@ -2299,7 +2302,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,wpagecount);
 #endif
 		}
-
+*/
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
 			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
