@@ -63,6 +63,9 @@
 #define IPU_STOP_LCD    (1 << 2)
 #define IPU_RESET       (1 << 3)
 
+/* IPU_D_FMT Register */
+#define BLK_SEL         (1 << 4)
+
 /* REG_FM_CTRL field define */
 #define HRSZ_EN         (1 << 2)
 #define VRSZ_EN         (1 << 3)
@@ -251,5 +254,34 @@
 #define IN_FMT_RGB_565				( 3 << IN_FMT_BIT )
 #define IN_FMT_YUV411				( 3 << IN_FMT_BIT )
 
+#define __enable_csc_mode() bit_set(ipu, IPU_FM_CTRL, CSC_EN)
+#define __disable_csc_mode() bit_clr(ipu, IPU_FM_CTRL, CSC_EN)
+#define __enable_lcdc_mode() bit_set(ipu, IPU_FM_CTRL, LCDC_SEL)
+#define __disable_lcdc_mode() bit_clr(ipu, IPU_FM_CTRL, LCDC_SEL)
+#define __enable_pkg_mode() bit_set(ipu, IPU_FM_CTRL, SPKG_SEL)
+#define __disable_pkg_mode() bit_clr(ipu, IPU_FM_CTRL, SPKG_SEL)
+#define __enable_blk_mode() bit_set(ipu, IPU_D_FMT, BLK_SEL)
+#define __disable_blk_mode() bit_clr(ipu, IPU_D_FMT, BLK_SEL)
+#define __enable_hrsz() bit_set(ipu, IPU_FM_CTRL, HRSZ_EN)
+#define __disable_hrsz() bit_clr(ipu, IPU_FM_CTRL, HRSZ_EN)
+#define __enable_vrsz() bit_set(ipu, IPU_FM_CTRL, VRSZ_EN)
+#define __disable_vrsz()  bit_clr(ipu, IPU_FM_CTRL, VRSZ_EN)
+#define __sel_zoom_mode() bit_set(ipu, IPU_FM_CTRL, ZOOM_SEL)
+#define __disable_zoom_mode() bit_clr(ipu, IPU_FM_CTRL, ZOOM_SEL)
+#define __clear_ipu_out_end() bit_clr(ipu, IPU_STATUS, OUT_END)
+#define __ipu_enable_irq() do {unsigned int val = IRQ_EN | DMA_OPT_ENA;	\
+		bit_set(ipu, IPU_GLB_CTRL, val);								\
+		bit_set(ipu, IPU_FM_CTRL, FM_IRQ_EN);							\
+	}while(0)
+#define __ipu_disable_irq() do {unsigned int val = IRQ_EN | DMA_OPT_ENA; \
+		bit_clr(ipu, IPU_FM_CTRL, FM_IRQ_EN);							\
+		bit_clr(ipu, IPU_GLB_CTRL, val);								\
+	}while(0)
+#define __start_ipu() bit_set(ipu, IPU_TRIG, IPU_RUN)
+#define __reset_ipu() bit_set(ipu, IPU_TRIG, IPU_RESET)
+#define __enable_spage_map() bit_set(ipu, IPU_FM_CTRL, SPAGE_MAP)
+#define __disable_spage_map() bit_clr(ipu, IPU_FM_CTRL, SPAGE_MAP)
+#define __enable_dpage_map() bit_set(ipu, IPU_FM_CTRL, DPAGE_MAP)
+#define __disable_dpage_map() bit_clr(ipu, IPU_FM_CTRL, DPAGE_MAP)
 
 #endif // _REGS_IPU_H_

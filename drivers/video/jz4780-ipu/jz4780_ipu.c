@@ -46,6 +46,9 @@ static int bypass;
 static int ipu_id;
 static int ipu0_direct;
 static int ipu1_direct;
+static struct mutex ipu_lock;
+
+static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid);
 
 struct ipu_reg_struct jz47_ipu_regs_name[] = {
 	{"IPU_FM_CTRL",	        IPU_FM_CTRL},
@@ -105,118 +108,35 @@ static inline int jz47_ipu_wait_frame_end_flag(struct jz_ipu *ipu)
 	return 0;
 }
 
-#if 0
-static void reset_ipu(struct jz_ipu *ipu)
+static void bit_set(struct jz_ipu *ipu, int offset, unsigned int bit)
 {
-	unsigned int tmp;
+	unsigned int tmp = 0;
 
-	tmp = reg_read(ipu, IPU_TRIG);
-	tmp |= IPU_RESET;
-	reg_write(ipu, IPU_TRIG, tmp);
-}
-#endif
-
-static void enable_csc_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~CSC_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp); 
+	tmp = reg_read(ipu, offset);
+	tmp |= bit;
+	reg_write(ipu, offset, tmp);	
 }
 
-static void enable_lcdc_mode(struct jz_ipu *ipu)
+static void bit_clr(struct jz_ipu *ipu, int offset, unsigned int bit)
 {
-	unsigned int tmp;
+	unsigned int tmp = 0;
 
-	tmp = reg_read(ipu, IPU_FM_CTRL);			
-	tmp |= LCDC_SEL;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
+	tmp = reg_read(ipu, offset);
+	tmp &= ~(bit);
+	reg_write(ipu, offset, tmp);
 }
 
-static void enable_pkg_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= SPKG_SEL;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void disable_pkg_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~SPKG_SEL;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void enable_blk_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_D_FMT);
-	tmp |= 1 << 4; //BLK_SEL
-	reg_write(ipu, IPU_D_FMT, tmp); 
-}
-
-static void clear_hvsz_vrsz_bits(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~(VRSZ_EN | HRSZ_EN);
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void enable_hrsz(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= HRSZ_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void enable_vrsz(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= VRSZ_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void sel_zoom_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= ZOOM_SEL;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void disable_zoom_mode(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~ZOOM_SEL;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void set_hrsz_lut_weigth_cube(struct jz_ipu *ipu)
+static void set_hrsz_lut_weigth_cube(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	int i;
 	unsigned int tmp;
 	int *oft_table;
-	struct ipu_table *table = &ipu->table;
+	struct ipu_table *table = &ipu_proc->table;
 
 	oft_table = &table->hoft[1];
 	tmp = 1 << START_N_SFT;
 	reg_write(ipu, HRSZ_LUT_BASE, tmp);
-	for (i=0;i<ipu->img.hcoef_real_heiht;i++) {
+	for (i=0;i<ipu_proc->img.hcoef_real_heiht;i++) {
 		tmp = ((table->cube_hcoef[i][0] & W_COEF_20_MSK)<<W_COEF_20_SFT) | 
 			((table->cube_hcoef[i][1] & W_COEF_31_MSK)<<W_COEF_31_SFT);
 		reg_write(ipu, HRSZ_LUT_BASE, tmp); 
@@ -227,17 +147,17 @@ static void set_hrsz_lut_weigth_cube(struct jz_ipu *ipu)
 	}
 }
 
-static void set_vrsz_lut_weigth_cube(struct jz_ipu *ipu)
+static void set_vrsz_lut_weigth_cube(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	int i;
 	unsigned int tmp;
 	int *oft_table;
-	struct ipu_table *table = &ipu->table;
+	struct ipu_table *table = &ipu_proc->table;
 
 	oft_table = &table->voft[1];
 	tmp = 1 << START_N_SFT;
 	reg_write(ipu, VRSZ_LUT_BASE, tmp);
-	for (i=0;i<ipu->img.vcoef_real_heiht;i++) {
+	for (i=0;i<ipu_proc->img.vcoef_real_heiht;i++) {
 		tmp = ((table->cube_vcoef[i][0] & W_COEF_20_MSK)<<W_COEF_20_SFT) | 
 			((table->cube_vcoef[i][1] & W_COEF_31_MSK)<<W_COEF_31_SFT);
 		reg_write(ipu, VRSZ_LUT_BASE, tmp); 
@@ -248,13 +168,13 @@ static void set_vrsz_lut_weigth_cube(struct jz_ipu *ipu)
 	}
 }
 
-static void set_vrsz_lut_coef_line(struct jz_ipu *ipu)
+static void set_vrsz_lut_coef_line(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	int i;
 	unsigned int tmp;
 	int *oft_table, *coef_table;
-	struct ipu_table *table = &ipu->table;
-	struct ipu_img_param *img = &ipu->img;
+	struct ipu_table *table = &ipu_proc->table;
+	struct ipu_img_param *img = &ipu_proc->img;
 
 	oft_table = &table->voft[1];
 	coef_table = &table->vcoef[1];
@@ -268,13 +188,13 @@ static void set_vrsz_lut_coef_line(struct jz_ipu *ipu)
 	}
 }
 
-static void set_hrsz_lut_coef_line(struct jz_ipu *ipu)
+static void set_hrsz_lut_coef_line(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	int i;
 	unsigned int tmp;
 	int *oft_table, *coef_table;
-	struct ipu_table *table = &ipu->table;
-	struct ipu_img_param *img = &ipu->img;
+	struct ipu_table *table = &ipu_proc->table;
+	struct ipu_img_param *img = &ipu_proc->img;
 
 	oft_table = &table->hoft[1];
 	coef_table = &table->hcoef[1];
@@ -292,12 +212,20 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 {
 	unsigned int tmp;
 	unsigned int tmp1;
+	struct ipu_proc_info *ipu_proc = NULL;
+
+	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+ 	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
+		return;
+	}
 
 	//	printk("ipu->img.in_width = %d,  Wdiff = %d\n", ipu->img.in_width, Wdiff);
 	//	printk("outW = %d, outH = %d\n",  outW, outH);
-	tmp1 =ipu->img.in_width - Wdiff;
+	tmp1 =ipu_proc->img.in_width - Wdiff;
 	//	tmp1 >>= 4;	
-	tmp = IN_FM_W(tmp1) | IN_FM_H((ipu->img.in_height - Hdiff) & ~0x1);
+	tmp = IN_FM_W(tmp1) | IN_FM_H((ipu_proc->img.in_height - Hdiff) & ~0x1);
 	reg_write(ipu, IPU_IN_FM_GS, tmp);
 	tmp = OUT_FM_W(outW) | OUT_FM_H(outH);
 	reg_write(ipu, IPU_OUT_GS, tmp);
@@ -305,12 +233,8 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 
 static void set_csc_param(struct jz_ipu *ipu, unsigned int in_fmt, unsigned int out_fmt)
 {
-	unsigned int tmp;
-
 	if ((in_fmt != IN_FMT_YUV444) && (out_fmt != OUT_FMT_YUV422)) {
-		tmp = reg_read(ipu, IPU_FM_CTRL);
-		tmp |= CSC_EN; 
-		reg_write(ipu, IPU_FM_CTRL, tmp);
+		__enable_csc_mode();
 		reg_write(ipu, IPU_CSC_C0_COEF, YUV_CSC_C0);
 		if (in_fmt == IN_FMT_YUV420_B) {
 			// interchange C1 with C4, C2 with C3 for IPU Block format
@@ -326,27 +250,16 @@ static void set_csc_param(struct jz_ipu *ipu, unsigned int in_fmt, unsigned int 
 		}
 		reg_write(ipu, IPU_CSC_OFFSET_PARA, YUV_CSC_OFFSET_PARA);
 	} else {
-		tmp = reg_read(ipu, IPU_FM_CTRL);
-		tmp &= ~CSC_EN;
-		reg_write(ipu, IPU_FM_CTRL, tmp); 
+		__disable_csc_mode();
 		reg_write(ipu, IPU_CSC_OFFSET_PARA, 0x0);
 	}
 }
 
-static void clear_ipu_out_end(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_STATUS);
-	tmp &= ~OUT_END;
-	reg_write(ipu, IPU_STATUS, tmp);
-}
-
-static void enable_ctrl_regs(struct jz_ipu *ipu)
+static void enable_ctrl_regs(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	unsigned int tmp = 0;
 
-	if (ipu->img.output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+	if (ipu_proc->img.output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		/* No need to make destination TLB base and address ready */
 		tmp = 0xffffffd7;
 	} else {
@@ -356,89 +269,10 @@ static void enable_ctrl_regs(struct jz_ipu *ipu)
 	tmp = reg_read(ipu, IPU_ADDR_CTRL);
 }
 
-static void ipu_enable_irq(struct jz_ipu *ipu)
+static void set_yuv_stride(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_GLB_CTRL);
-	tmp |= (IRQ_EN | DMA_OPT_ENA);
-	reg_write(ipu, IPU_GLB_CTRL, tmp);
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= FM_IRQ_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void ipu_disable_irq(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~FM_IRQ_EN;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-
-	tmp = reg_read(ipu, IPU_GLB_CTRL);
-	tmp &= ~(IRQ_EN | DMA_OPT_ENA);
-	reg_write(ipu, IPU_GLB_CTRL, tmp);
-
-}
-
-static void start_ipu(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_TRIG);
-	tmp |= IPU_RUN;
-	reg_write(ipu, IPU_TRIG, tmp);
-}
-
-static void enable_spage_map(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= SPAGE_MAP;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void disable_spage_map(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~SPAGE_MAP;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void disable_dpage_map(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp &= ~DPAGE_MAP;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-}
-
-static void enable_dpage_map(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-//	struct ipu_img_param *img = &ipu->img;
-
-	tmp = reg_read(ipu, IPU_FM_CTRL);
-	tmp |= DPAGE_MAP;
-	reg_write(ipu, IPU_FM_CTRL, tmp);
-#if 0
-	tmp = PHYS((unsigned int) img->out_t_addr) & 0xfff;
-	reg_write(ipu, IPU_OUT_ADDR, tmp);
-	tmp = PHYS((unsigned int) img->out_t_addr);    
-	reg_write(ipu, REG_OUT_PHY_T_ADDR, tmp);			    
-#endif
-}
-
-static void set_yuv_stride(struct jz_ipu *ipu)
-{
-	unsigned int tmp;
-	struct ipu_img_param *img = &ipu->img;
+	struct ipu_img_param *img = &ipu_proc->img;
 
 	reg_write(ipu, IPU_Y_STRIDE,  img->stride.y);
 	tmp = U_STRIDE(img->stride.u) | V_STRIDE(img->stride.v);
@@ -465,13 +299,20 @@ static void stop_ipu_to_lcd(struct jz_ipu *ipu)
 
 static void dump_img(struct jz_ipu *ipu)
 {
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return;
 	}
 
-	img = &ipu->img;
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+ 	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
+		return;
+	}
+
+	img = &ipu_proc->img;
 	printk("ipu_cmd = %x\n", img->ipu_cmd);
 	printk("lcdc_id = %d\n", img->lcdc_id);
 	printk("output_mode[%#x]\r\n", (unsigned int) img->output_mode);
@@ -523,15 +364,23 @@ static int jz47_dump_ipu_regs(struct jz_ipu *ipu, int num)
 	int *hoft_table, *voft_table; 
 	int *hcoef_table, *vcoef_table;
 	int hcoef_real_heiht, vcoef_real_heiht;
-	struct ipu_img_param *img;
-	struct ipu_table *table = &ipu->table;
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
+	struct ipu_table *table = NULL;
 
-	dev_dbg(ipu->dev, "enter jz47_dump_ipu_regs\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL!\n");
 		return -1;
 	}
-	img = &ipu->img;
+	dev_dbg(ipu->dev, "enter jz47_dump_ipu_regs\n");
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+ 	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
+		return -1;
+	}
+
+	table = &ipu_proc->table;
+	img = &ipu_proc->img;
 	hoft_table = table->hoft; 
 	hcoef_table= table->hcoef;
 	hcoef_real_heiht = img->hcoef_real_heiht;
@@ -600,6 +449,82 @@ static int ipu_read_proc(char *page, char **start, off_t off,
 #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
 	PRINT("hello world!\n");
 	return len;
+}
+
+static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid)
+{
+	struct ipu_proc_info *ipu_proc = NULL;
+
+	dev_dbg(ipu->dev, "input pid: %d", pid);
+	list_for_each_entry(ipu_proc, &ipu->process_list, list) {
+		if (ipu_proc->pid == pid)
+			return ipu_proc;
+	}
+	dev_err(ipu->dev, "not find related pid ipu process info!!! pid: %d, tgid: %d", current->pid, current->tgid);
+
+	return NULL;
+}
+
+static int create_proc_info(struct jz_ipu *ipu)
+{
+	struct ipu_proc_info *ipu_proc = NULL;
+
+	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);	
+	ipu_proc = kzalloc(sizeof(struct ipu_proc_info), GFP_KERNEL);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "kzalloc struct ipu_proc_info failed!");
+		return -1;
+	}
+	ipu_proc->pid = current->pid;
+	list_add_tail(&ipu_proc->list, &ipu->process_list);
+	ipu->proc_num++;
+	dev_dbg(ipu->dev, "+++++++++++++++++++++++proc_num: %d", ipu->proc_num);
+
+	return 0;
+}
+
+#if 0   //wait for further debug
+static int destroy_proc_info(struct jz_ipu *ipu)
+{
+	struct ipu_proc_info *ipu_proc = NULL;
+
+	dev_dbg(ipu->dev, "destroy_proc_info pid: %d, tgid: %d", current->pid, current->tgid);
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		return -1;
+	}
+
+	list_del_init(&ipu_proc->list);
+	kfree(ipu_proc);
+	ipu->proc_num--;
+
+	return 0;
+}
+#endif
+
+static int destroy_allproc_info(struct jz_ipu *ipu)
+{
+	int i, record_proc_num;
+	struct ipu_proc_info *ipu_proc = NULL;
+	struct list_head *head = NULL;
+
+	dev_info(ipu->dev, "destroy_allproc_info pid: %d, tgid: %d", current->pid, current->tgid);
+	record_proc_num = ipu->proc_num;
+	for (i = 0; i < record_proc_num; i++) {
+		head = &ipu->process_list;
+		list_for_each_entry(ipu_proc, head, list) {
+			if (ipu_proc) {
+				list_del_init(&ipu_proc->list);
+				kfree(ipu_proc);
+				ipu->proc_num--;
+				break;
+			}
+		}
+	}
+	dev_info(ipu->dev, "ipu->proc_num: %d++++++", ipu->proc_num);
+
+	return 0;
 }
 
 static unsigned int hal_infmt_is_packaged(int hal_fmt)
@@ -713,7 +638,17 @@ static unsigned int hal_to_ipu_outfmt(int hal_fmt)
 
 static void copy_ipu_tabel_from_user(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 {
-	struct ipu_table *table = &ipu->table;
+	struct ipu_proc_info *ipu_proc = NULL;
+	struct ipu_table *table = NULL;
+
+	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		return;
+	}
+
+	table = &ipu_proc->table;
 
 	copy_from_user((void *)table->hoft,
 			(void *)imgp->hoft_table,
@@ -742,26 +677,27 @@ static void copy_ipu_tabel_from_user(struct jz_ipu *ipu, struct ipu_img_param *i
 	}
 }
 
-static int jz47_set_ipu_resize(struct jz_ipu *ipu)
+static int jz47_set_ipu_resize(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	unsigned int tmp;
 	struct ipu_img_param *img;
 
-	dev_dbg(ipu->dev, "enter jz47_set_ipu_resize\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return -1;
 	}
+	dev_dbg(ipu->dev, "enter jz47_set_ipu_resize\n");
 
-	img = &ipu->img;
+	img = &ipu_proc->img;
 
-	clear_hvsz_vrsz_bits(ipu);
+	__disable_hrsz();
+	__disable_vrsz();
 
 	if (img->out_width != img->in_width) {
-		enable_hrsz(ipu);
+		__enable_hrsz();
 	}
 	if (img->out_height != img->in_height) {
-		enable_vrsz(ipu);
+		__enable_vrsz();
 	}
 
 	tmp = ((img->vcoef_real_heiht - 1) << VE_IDX_SFT) | 
@@ -769,36 +705,36 @@ static int jz47_set_ipu_resize(struct jz_ipu *ipu)
 	reg_write(ipu, IPU_RSZ_COEF_INDEX, tmp);
 
 	if (img->zoom_mode != ZOOM_MODE_BILINEAR) {
-		sel_zoom_mode(ipu);
+		__sel_zoom_mode();
 
 		/* set_hrsz_lut_weigth_cube */
-		set_hrsz_lut_weigth_cube(ipu);
+		set_hrsz_lut_weigth_cube(ipu, ipu_proc);
 
 		/* set_vrsz_lut_weigth_cube */
-		set_vrsz_lut_weigth_cube(ipu);
+		set_vrsz_lut_weigth_cube(ipu, ipu_proc);
 	} else {
-		disable_zoom_mode(ipu);
+		__disable_zoom_mode();
 
 		/* set_vrsz_lut_coef_line */
-		set_vrsz_lut_coef_line(ipu);
+		set_vrsz_lut_coef_line(ipu, ipu_proc);
 
 		/* set_hrsz_lut_coef_line */
-		set_hrsz_lut_coef_line(ipu);
+		set_hrsz_lut_coef_line(ipu, ipu_proc);
 	}
 
 	return 0;
 }
 
-static void jz47_set_xy_offset(struct jz_ipu *ipu)
+static void jz47_set_xy_offset(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	unsigned int tmp;
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
 
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return;
 	}
-	img = &ipu->img;
+	img = &ipu_proc->img;
 
 	tmp = SCREEN_XOFT(img->out_x) | SCREEN_YOFT(img->out_y);
 	reg_write(ipu, IPU_FM_XYOFT, tmp);
@@ -830,18 +766,25 @@ static unsigned int get_out_fmt_rgb_order(int hal_out_fmt)
 static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW, 
 								int outH, int Wdiff, int Hdiff)
 {
-	struct ipu_img_param *img;
+	unsigned int out_rgb_order;
 	unsigned int in_fmt, out_fmt, tmp;
 	unsigned int in_fmt_tmp, out_fmt_tmp;
-	unsigned int out_rgb_order;
+	struct ipu_proc_info *ipu_proc = NULL;
+	struct ipu_img_param *img = NULL;
 
-	dev_dbg(ipu->dev, "enter jz47_set_ipu_csc_cfg\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return -1;
 	}
+	dev_dbg(ipu->dev, "enter jz47_set_ipu_csc_cfg\n");
 
-	img = &ipu->img;
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		return -1;
+	}
+
+	img = &ipu_proc->img;
 
 	in_fmt = hal_to_ipu_infmt(img->in_fmt);
 	out_fmt = hal_to_ipu_outfmt(img->out_fmt);
@@ -931,20 +874,20 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 	return 0;
 }
 
-static int jz47_set_ipu_stride(struct jz_ipu *ipu)
+static int jz47_set_ipu_stride(struct jz_ipu *ipu, struct ipu_proc_info *ipu_proc)
 {
 	int in_fmt;
 	int out_fmt;
 	unsigned int tmp;
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
 
-	dev_dbg(ipu->dev, "Enter jz47_set_ipu_stride\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return -1;
 	}
+	dev_dbg(ipu->dev, "Enter jz47_set_ipu_stride\n");
 
-	img = &ipu->img;
+	img = &ipu_proc->img;
 
 	in_fmt = hal_to_ipu_infmt(img->in_fmt);
 	out_fmt = hal_to_ipu_outfmt(img->out_fmt);
@@ -994,11 +937,23 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	int ret, in_fmt, out_fmt;
 	int outW, outH, Wdiff, Hdiff;
 	//unsigned int tmp;
+	struct ipu_proc_info *ipu_proc = NULL;
 
 	dev_dbg(ipu->dev, "enter jz47_ipu_init\n");
 
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		return -1;
+	}
+
 	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-		enable_lcdc_mode(ipu);
+		ipu->cur_output_mode = IPU_OUTPUT_TO_LCD_FG1;
+		__enable_lcdc_mode();
+	}
+
+	if (imgp->output_mode & IPU_OUTPUT_BLOCK_MODE) {
+		ipu->cur_output_mode = IPU_OUTPUT_BLOCK_MODE;
 	}
 
 	dev_dbg(ipu->dev, "<-----outW: %d, outH: %d\n", imgp->out_width, imgp->out_height);
@@ -1014,34 +969,34 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	out_fmt = hal_to_ipu_outfmt(imgp->out_fmt);
 
 	if (hal_infmt_is_packaged(imgp->in_fmt)) {
-		enable_pkg_mode(ipu);
+		__enable_pkg_mode();
 	} else {
 		//if (out_fmt != OUT_FMT_YUV422) {
-		disable_pkg_mode(ipu);
+		__disable_pkg_mode();
 		//}
 	}
 
-	ret = jz47_set_ipu_resize(ipu);
+	ret = jz47_set_ipu_resize(ipu, ipu_proc);
 	if (ret != 0) {
 		dev_err(ipu->dev, "jz47_set_ipu_resize error : out!\n");
 		return ret;
 	}
 	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-		jz47_set_xy_offset(ipu);
+		jz47_set_xy_offset(ipu, ipu_proc);
 	}
 	ret = jz47_set_ipu_csc_cfg(ipu, outW, outH, Wdiff, Hdiff);
 	if (ret != 0) {
 		dev_err(ipu->dev, "jz47_set_ipu_csc_cfg error : out!\n");
 		return ret;
 	}
-	ret = jz47_set_ipu_stride(ipu);
+	ret = jz47_set_ipu_stride(ipu, ipu_proc);
 	if (ret != 0) {
 		dev_err(ipu->dev, "jz47_set_ipu_stride error : out!\n");
 		return ret;
 	}
 
 	if (out_fmt == OUT_FMT_YUV422) {
-		enable_csc_mode(ipu);
+		__enable_csc_mode();
 	}
 	if (imgp->stlb_base) {
 		reg_write(ipu, IPU_SRC_TLB_ADDR, imgp->stlb_base);
@@ -1051,11 +1006,11 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	}
 
 	if (in_fmt == IN_FMT_YUV420_B) {
-		enable_blk_mode(ipu);
+		__enable_blk_mode();
 	}
 	config_osd_regs(ipu);
 
-	enable_ctrl_regs(ipu);
+	enable_ctrl_regs(ipu, ipu_proc);
 
 	return ret;
 }
@@ -1063,15 +1018,25 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 {
 	int ret = 0;
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
 
 	if (!ipu || !imgp) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return -1;
 	}
-	dev_dbg(ipu->dev, "enter ipu_init\n");
+	dev_dbg(ipu->dev, "enter ipu_init, %d\n", current->pid);
 
-	img = &ipu->img;
+	mutex_lock(&ipu->lock);
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		mutex_unlock(&ipu->lock);
+		return -1;
+	}
+	ipu->cur_proc = current->pid;
+	
+	img = &ipu_proc->img;
 	dev_dbg(ipu->dev, "--->outW: %d, outH: %d\n", imgp->out_width, imgp->out_height);
 	memcpy(img, imgp, sizeof(struct ipu_img_param));
 	//*img = *imgp; /* use the new parameter */
@@ -1085,43 +1050,57 @@ static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	ret = jz47_ipu_init(ipu, img);
 	if (ret < 0) {
 		dev_err(ipu->dev, "jz47_ipu_init failed\n");
+		mutex_unlock(&ipu->lock);
 		return ret;
 	}
 
 	ipu->inited = 1;
+
+	mutex_unlock(&ipu->lock);
 
 	return ret;
 }
 
 static int ipu_start(struct jz_ipu *ipu)
 {
+	pid_t cur_pid;
 	unsigned long irq_flags;
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
 
-	dev_dbg(ipu->dev, "enter ipu_start\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
+		mutex_unlock(&ipu->run_lock);
 		return -1;
 	}
 
-	img = &ipu->img;
+	cur_pid = current->pid;
+	dev_dbg(ipu->dev, "enter ipu_start %d\n", current->pid);
+
+	ipu_proc = get_ipu_procinfo(ipu, cur_pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed, %d!", current->pid);
+		return -1;
+	}
+
+	img = &ipu_proc->img;
 	//ipu_dump_regs(ipu);
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
-	  //		dev_info(ipu->dev, "IPU_OUTPUT_BLOCK_MODE\n");
+	   	dev_dbg(ipu->dev, "IPU_OUTPUT_BLOCK_MODE\n");
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
 		ipu->frame_requested++;
 		spin_unlock_irqrestore(&ipu->update_lock, irq_flags);
 	}
 
-	clear_ipu_out_end(ipu);
+	__clear_ipu_out_end();
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
-		ipu_enable_irq(ipu);
+		__ipu_enable_irq();
 	}
 
 	/* start ipu */
-	start_ipu(ipu);
+	__start_ipu();
 #if 0
 	unsigned int tmp;
 	int i;
@@ -1141,6 +1120,8 @@ static int ipu_start(struct jz_ipu *ipu)
 			wait_event_interruptible_timeout(
 					ipu->frame_wq, ipu->frame_done == ipu->frame_requested, HZ/10 + 1); /* HZ = 100 */
 	}
+	dev_dbg(ipu->dev, "exit ipu_start %d\n", current->pid);	
+	mutex_unlock(&ipu->run_lock);
 
 	return 0;
 }
@@ -1155,17 +1136,28 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	unsigned int in_fmt;
 	unsigned int tmp;
 
-	struct ipu_img_param *img;
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
 
-	dev_dbg(ipu->dev, "enter ipu_setbuffer\n");
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL\n");
 		return -1;
 	}
+	dev_dbg(ipu->dev, "enter ipu_setbuffer %d\n", current->pid);
 
-	img = &ipu->img;
+	mutex_lock(&ipu->run_lock);
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		return -1;
+	}
+	if ((ipu->cur_proc != current->pid) || !ipu->inited) {
+		ipu_init(ipu, &ipu_proc->img);
+	}
+
+	img = &ipu_proc->img;
 	if (imgp) {
-		unsigned int old_bpp = ipu->img.in_bpp;
+		unsigned int old_bpp = ipu_proc->img.in_bpp;
 		*img = *imgp;
 		img->in_bpp = old_bpp;
 	}
@@ -1196,7 +1188,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		if (py_buf_v == 0) {
 			printk("Can not found source map table, use no map now!\r\n");
 			spage_map = 0;
-			disable_spage_map(ipu);
+			__disable_spage_map();
 		} else {
 			dev_dbg(ipu->dev, "we force spage_map to 0\n");
 
@@ -1204,7 +1196,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 			pu_buf = pu_buf_v;
 			pv_buf = pv_buf_v;
 
-			enable_spage_map(ipu);
+			__enable_spage_map();
 		}
 	}
 
@@ -1212,7 +1204,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	reg_write(ipu, IPU_U_ADDR, pu_buf);
 	reg_write(ipu, IPU_V_ADDR, pv_buf);
 
-	set_yuv_stride(ipu);
+	set_yuv_stride(ipu, ipu_proc);
 
 	//	printk("dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
 	//	printk("img->out_buf_v = %x, img->out_buf_p = %x\n", img->out_buf_v, img->out_buf_p);
@@ -1221,11 +1213,12 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		if (PHYS((unsigned int) img->out_buf_v) == 0) {
 			dev_err(ipu->dev, " Can not found destination map table, use no map now!\r\n");
 			dpage_map = 0;
-			disable_dpage_map(ipu);
+			__disable_dpage_map();
 
 			if (PHYS((unsigned int) img->out_buf_p) == 0) {
 				dev_err(ipu->dev, "Can not found the destination buf[%#x]\r\n",
 						(unsigned int)img->out_buf_p);
+				mutex_unlock(&ipu->run_lock);
 				return (-1);
 			} else {
 				tmp = PHYS((unsigned int)img->out_buf_p);
@@ -1234,15 +1227,16 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		} else {
 			tmp = PHYS((unsigned int)img->out_buf_v); /* for test */
 			reg_write(ipu, IPU_OUT_ADDR, tmp);  /* for test */
-			enable_dpage_map(ipu);
+			__enable_dpage_map();
 		}
 	} else {
 		dpage_map = 0;
-		disable_dpage_map(ipu);
+		__disable_dpage_map();
 		if (lcdc_sel == 0) {
 			if (PHYS((unsigned int)img->out_buf_p) == 0) {
 				dev_err(ipu->dev, "Can not found the destination buf[%#x]\r\n",
 						(unsigned int)img->out_buf_p);
+				mutex_unlock(&ipu->run_lock);
 				return (-1);
 			} else {
 				dev_dbg(ipu->dev, "img->out_buf_p=0x%x",img->out_buf_p);
@@ -1263,7 +1257,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		/* start ipu */
-		start_ipu(ipu);
+		__start_ipu();
 	}
 
 	return 0;
@@ -1272,48 +1266,52 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 static int ipu_stop(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
-	struct ipu_img_param *img;
 
+	mutex_lock(&ipu->run_lock);
 	dev_dbg(ipu->dev, "enter ipu_stop\n");
 
 	if (!ipu) {
 		dev_err(ipu->dev, "ipu is NULL!\n");
+		mutex_unlock(&ipu->run_lock);
 		return -1;
 	}
+	dev_info(ipu->dev, "ipu_stop %s %d", __func__, current->pid);
 
-	img = &ipu->img;
-
-	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+	if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		stop_ipu_to_lcd(ipu);
 	} else {
 		tmp = IPU_STOP;
 		reg_write(ipu, IPU_TRIG, tmp);
 	}
+	mutex_unlock(&ipu->run_lock);
 
 	return 0;
 }
 
 static int ipu_shut(struct jz_ipu *ipu)
 {
-	struct ipu_img_param *img;
+	struct ipu_proc_info *ipu_proc = NULL;
 
-	dev_dbg(ipu->dev, "enter ipu_shut\n");
+	dev_dbg(ipu->dev, "enter ipu_shut %d \n", current->pid);
 	if (ipu == NULL) {
 		dev_err(ipu->dev, "ipu is NULL");
 		return -1;
 	}
 
-	img = &ipu->img;
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (!ipu_proc) {
+		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
+		ipu->inited = 0;
 
-	clk_disable(ipu->clk);
-	ipu->inited = 0;
+		return -1;
+	}
 
 	return 0;
 }
 
 static int ipu_set_bypass(struct jz_ipu *ipu)
 {
-	mutex_lock(&ipu->lock);
+	mutex_lock(&ipu_lock);
 	if (!strcmp(ipu->name, "ipu0") && !ipu0_direct) {
 		ipu_id = 0;
 	} else if (!strcmp(ipu->name, "ipu1") && !ipu1_direct) {
@@ -1323,7 +1321,7 @@ static int ipu_set_bypass(struct jz_ipu *ipu)
 		return -EFAULT;
 	}
 	bypass += 1;
-	mutex_unlock(&ipu->lock);
+	mutex_unlock(&ipu_lock);
 
 	return 0;
 }
@@ -1342,14 +1340,14 @@ static int ipu_get_bypass_state(struct jz_ipu *ipu)
 
 static int ipu_clr_bypass(struct jz_ipu *ipu)
 {
-	mutex_lock(&ipu->lock);
+	mutex_lock(&ipu_lock);
 	if (!strcmp(ipu->name, "ipu0") || !strcmp(ipu->name, "ipu1")) {
 		bypass -= 1;
 	}
 	if (!bypass) {
 		ipu_id = 0;
 	}
-	mutex_unlock(&ipu->lock);
+	mutex_unlock(&ipu_lock);
 
 	return 0;
 }
@@ -1361,7 +1359,6 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	void __user *argp = (void __user *)arg;
 	struct miscdevice *dev = file->private_data;
 	struct jz_ipu *ipu= container_of(dev, struct jz_ipu, misc_dev);
-
 
 	if (_IOC_TYPE(cmd) != JZIPU_IOC_MAGIC) {
 		dev_err(ipu->dev, "invalid cmd!\n");
@@ -1423,23 +1420,53 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int ipu_open(struct inode *inode, struct file *filp)
 {
+	int ret = 0;
 	struct miscdevice *dev = filp->private_data;
 	struct jz_ipu *ipu = container_of(dev, struct jz_ipu, misc_dev);
 
 	ipu->open_cnt++;
-	dev_info(ipu->dev,"Enter ipu_open open_cnt: %d\n", ipu->open_cnt);
+	dev_info(ipu->dev,"+++++Enter ipu_open open_cnt: %d pid: %d, tgid: %d\n", ipu->open_cnt, current->pid, current->tgid);
+
+	mutex_lock(&ipu->lock);
+	/* create process struct */
+	dev_info(ipu->dev, "%s %d", __func__, __LINE__);
+	ret = create_proc_info(ipu);
+	if (ret < 0) {
+		dev_err(ipu->dev, "create_proc_info failed!");
+		mutex_unlock(&ipu->lock);
+		return -1;
+	}
+	mutex_unlock(&ipu->lock);
 
 	return 0;
 }
 
 static int ipu_release(struct inode *inode, struct file *filp)
 {
+	int ret = 0;
 	struct miscdevice *dev = filp->private_data;
 	struct jz_ipu *ipu = container_of(dev,struct jz_ipu,misc_dev);
 
+	mutex_lock(&ipu->run_lock);
 	ipu->open_cnt--;
 
-	dev_info(ipu->dev,"Enter ipu_release open_cnt: %d\n", ipu->open_cnt);
+	dev_info(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
+	dev_info(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
+#if 0      //wait for further debug
+	ret = destroy_proc_info(ipu);
+	if (ret < 0) {
+		dev_err(ipu->dev, "%s failed!, %d", __func__, __LINE__);
+		return -1;
+	}
+#endif
+
+	if (ipu->open_cnt == 0)
+		ret = destroy_allproc_info(ipu);
+	if (ipu->proc_num == 0)
+		clk_disable(ipu->clk);
+
+	ipu->inited = 0;
+	mutex_unlock(&ipu->run_lock);
 
 	return 0;
 }
@@ -1453,21 +1480,19 @@ static struct file_operations ipu_ops = {
 
 static irqreturn_t ipu_irq_handler(int irq, void *data)
 {
-	struct ipu_img_param *img;
 	struct jz_ipu *ipu = (struct jz_ipu *)data;
 	unsigned long irq_flags;
 	unsigned int dummy_read;
 
 	dummy_read = reg_read(ipu, IPU_STATUS); /* avoid irq looping or disable_irq*/
-  	ipu_disable_irq(ipu); // failed
+  	__ipu_disable_irq(); // failed
 	dev_dbg(ipu->dev, "ipu_irq_handler---------->2");
-	img = &ipu->img;
 
-	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
+	if (ipu->cur_output_mode == IPU_OUTPUT_BLOCK_MODE) {
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
 	}
 
-	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
+	if (ipu->cur_output_mode == IPU_OUTPUT_BLOCK_MODE) {
 		ipu->frame_done = ipu->frame_requested;
 		spin_unlock_irqrestore(&ipu->update_lock, irq_flags);
 		wake_up(&ipu->frame_wq);
@@ -1498,9 +1523,12 @@ static int ipu_probe(struct platform_device *pdev)
 	ipu->misc_dev.fops      = &ipu_ops;
 	ipu->dev = &pdev->dev;
 
+	mutex_init(&ipu_lock);
 	mutex_init(&ipu->lock);
+	mutex_init(&ipu->run_lock);
 	spin_lock_init(&ipu->update_lock);
 	init_waitqueue_head(&ipu->frame_wq);
+	INIT_LIST_HEAD(&ipu->process_list);
 
 	ipu->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!ipu->res) {
@@ -1546,7 +1574,7 @@ static int ipu_probe(struct platform_device *pdev)
 	}
 
 	/* for test */
-	ipu->pde = create_proc_entry(ipu->name, 0444, (void *)ipu);
+	ipu->pde = create_proc_entry(ipu->name, 0444, NULL);
 	if (ipu->pde) ipu->pde->read_proc = ipu_read_proc;
 
 	return 0;

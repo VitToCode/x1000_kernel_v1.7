@@ -156,31 +156,42 @@ struct ipu_table {
 	int pic_enhance[256];
 };
 
+struct ipu_proc_info {
+	struct list_head list;
+
+	pid_t pid;
+
+	struct ipu_img_param img;
+	struct ipu_table table;
+};
+
 struct jz_ipu {
 	int irq;
+	int inited;
 	char name[16];
+	int open_cnt;
+	int proc_num;
+	int cur_proc;
+	unsigned int cur_output_mode;
+
 	struct clk *clk;
 	void __iomem *iomem;
 	struct device *dev;
 	struct resource *res;
 	struct miscdevice misc_dev;
 
-	void __iomem *bypass;
-	unsigned int frame_done;
-	unsigned int frame_requested;	
+	struct mutex lock;
+	struct mutex run_lock;
+	spinlock_t update_lock;
 
+ 	unsigned int frame_done;
+	unsigned int frame_requested;	
 	wait_queue_head_t frame_wq;
 
-	spinlock_t update_lock;
-	struct mutex		lock;
-	int open_cnt;
-
-	int inited;
-	struct ipu_img_param img;
-	struct ipu_table table;
-
 	struct proc_dir_entry *pde;
+	struct list_head process_list;
 };
+
 
 #define	IOCTL_IPU_SHUT               _IO(JZIPU_IOC_MAGIC, 102)
 #define IOCTL_IPU_INIT               _IOW(JZIPU_IOC_MAGIC, 103, struct ipu_img_param)
