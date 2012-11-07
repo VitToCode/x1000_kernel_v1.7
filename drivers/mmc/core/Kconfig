@@ -44,3 +44,12 @@ config MMC_PARANOID_SD_INIT
 	  about re-trying SD init requests. This can be a useful
 	  work-around for buggy controllers and hardware. Enable
 	  if you are experiencing issues with SD detection.
+
+config MMC_RADICAL_CLKRATE
+	bool "Radical clock rate"
+	depends on SOC_4780
+	default n
+	help
+	  If you say Y here, Card clk will be set to the max clock rate
+	  that was defined in mmc host config if it's a high speed card,
+	  in spite of its max clock rate.

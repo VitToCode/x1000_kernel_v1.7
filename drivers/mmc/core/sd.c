@@ -305,7 +305,7 @@ static int mmc_read_switch(struct mmc_card *card)
 
 		goto out;
 	}
-
+#ifdef CONFIG_MMC_RADICAL_CLKRATE
 	if (card->scr.sda_spec3) {
 		card->sw_caps.sd3_bus_mode = status[13];
 
@@ -352,7 +352,7 @@ static int mmc_read_switch(struct mmc_card *card)
 		if (status[13] & 0x02)
 			card->sw_caps.hs_max_dtr = 50000000;
 	}
-
+#endif
 out:
 	kfree(status);
 

@@ -55,7 +55,6 @@ struct wifi_data {
  * @ocr_mask: This one shows the voltage that host provide.
  * @capacity: Shows the host's speed capacity and bus width.
  * @max_freq: The max freqency of mmc host.
- * @fixed_max_freq: The msc clk fixed set to max
  *
  * @recovery_info: Informations that Android recovery mode uses.
  * @gpio: Slot's gpio information including pins of write-protect, card-detect and power.
@@ -68,7 +67,6 @@ struct jzmmc_platform_data {
 	unsigned int			ocr_avail;
 	unsigned int			capacity;
 	unsigned int			max_freq;
-	int				fixed_max_freq;
 	struct mmc_recovery_info	*recovery_info;
 	struct card_gpio		*gpio;
 	unsigned int			pio_mode;

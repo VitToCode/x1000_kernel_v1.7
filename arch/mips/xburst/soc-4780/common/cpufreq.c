@@ -47,8 +47,8 @@ static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 #define MIN_FREQ 150000
 #define MIN_VOLT 1200000
 static unsigned long regulator_table[12][2] = {
-	{ 1750000,1400000 }, // 1.7 GHz - 1.25V
-	{ 1400000,1300000 }, // 1.7 GHz - 1.25V
+	{ 1750000,1400000 }, // 1.7 GHz - 1.4V
+	{ 1400000,1400000 }, // 1.4 GHz - 1.4V
 	{ 1200000,1200000 },
 	{MIN_FREQ,MIN_VOLT},
 };
