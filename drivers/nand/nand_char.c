@@ -9,7 +9,7 @@
 #include "nand_char.h"
 #include "nanddebug.h"
 
-#define DBG_FUNC() printk("##### nand char debug #####: func = %s \n", __func__)
+#define DBG_FUNC() //printk("##### nand char debug #####: func = %s \n", __func__)
 
 struct nand_char_ops{
 	PPartArray ppa;
@@ -165,7 +165,7 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		}
 		case CMD_ERASE_ALL: {
 			int j = 0;
-			for (i = 0; i < nand_ops->ppa.ptcount; i ++) {
+			for (i = 0; i < nand_ops->ppa.ptcount - 1; i ++) {
 				printk("erase nand partition %s\n", nand_ops->ppa.ppt[i].name);
 				for (j = 0; j < nand_ops->ppa.ppt[i].totalblocks; j++) {
 					bl.startBlock = j;
@@ -214,7 +214,7 @@ static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size
 		return -EFAULT;
 	}
 
-	if (strcmp(argbuf, cmd_install)) {
+	if (strncmp(argbuf, cmd_install, sizeof(cmd_install))) {
 		printk("%s, cmd error, cmd [%s] len[%d], need [%s] len[%d]\n",
 			   __func__, argbuf, strlen(argbuf), cmd_install, strlen(cmd_install));
 		return -EFAULT;
