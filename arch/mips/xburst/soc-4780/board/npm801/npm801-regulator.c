@@ -69,28 +69,28 @@ EXCLUSIVE_REGULATOR_DEF(
  */
 FIXED_REGULATOR_DEF(
 	npm801_vhdmi,
-	"Vcc5V",	5000000,
-	-EINVAL,	0,	0,
+	"Vcc5V",	5000000,	-EINVAL,
+	0,		UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
 #if 0
 FIXED_REGULATOR_DEF(
 	npm801_vbus,
-	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	"OTG-Vbus",	5000000,	GPIO_PE(10),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
 
 FIXED_REGULATOR_DEF(
 	npm801_vcim,
-	"Camera",	2800000,
-	GPIO_PB(27),	HIGH_ENABLE,	0,
+	"Camera",	2800000,	GPIO_PB(27),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
 	npm801_vlcd,
-	"LCD",		3000000,
-	GPIO_PB(23),	HIGH_ENABLE,	0,
+	"LCD",		3000000,	GPIO_PB(23),
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {

@@ -21,7 +21,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	m80701,	1000000,	1350000);
+	m80701,	1000000,	1400000);
 
 /**
  * I/O Regulator.
