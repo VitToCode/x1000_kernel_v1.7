@@ -16,7 +16,8 @@ obj-y += clk.o
 endif
 
 obj-y += gpio.o 
-obj-y += pmmon.o
+# only for debug
+#obj-y += pmmon.o 
 obj-y += irq.o 
 
 obj-y += platform.o
@@ -31,4 +32,3 @@ obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
-obj-$(CONFIG_FB_JZ4780_LCDC0) += lcdc0_hdmi_cfg.o
