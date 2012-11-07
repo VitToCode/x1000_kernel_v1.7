@@ -70,15 +70,15 @@ static struct jztsc_pin npm801_tsc_gpio[] = {
 static struct jztsc_platform_data npm801_tsc_pdata = {
 	.gpio		= npm801_tsc_gpio,
 	.x_max		= 1024,
-	.y_max		= 600,
+	.y_max		= 768,
 };
 #endif
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info npm801_i2c1_devs[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_LDWZIC
+#ifdef CONFIG_TOUCHSCREEN_MG8698S
 	{
-		I2C_BOARD_INFO("ldwzic_ts", 0x01),
+		I2C_BOARD_INFO("mg8698s_tsc", 0x44),
 		.platform_data	= &npm801_tsc_pdata,
 	},
 #endif

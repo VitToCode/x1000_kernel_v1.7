@@ -14,6 +14,9 @@
 #include <linux/gpio.h>
 #include <linux/proc_fs.h>
 #include <linux/syscore_ops.h>
+#ifdef CONFIG_QUICK_POWEROFF
+#include <linux/suspend.h>
+#endif
 #include <irq.h>
 
 #include <soc/base.h>
@@ -421,20 +424,34 @@ static int __init setup_gpio_irq(void)
 
 int gpio_suspend(void)
 {
-	int i,j,irq;
+	int i,j,irq = 0;
 	struct irq_desc *desc;
 	struct jzgpio_chip *jz;
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
 
-		for(j=0;j<32;j++) {
-			if (test_bit(j, jz->wake_map)) {
-				irq = jz->irq_base + j;
-				desc = irq_to_desc(irq);
-				__enable_irq(desc, irq, true);
-			}
-		}
+#ifdef CONFIG_QUICK_POWEROFF
+        if (!suspend_type_is_quick_poweroff()) {
+#endif
+            for(j=0;j<32;j++) {
+                if (test_bit(j, jz->wake_map)) {
+                    irq = jz->irq_base + j;
+                    desc = irq_to_desc(irq);
+                    __enable_irq(desc, irq, true);
+                }
+            }
+#ifdef CONFIG_QUICK_POWEROFF
+        } else if (0 == irq){
+            irq = IRQ_GPIO_BASE + GPIO_ENDCALL;
+            desc = irq_to_desc(irq);
+            __enable_irq(desc, irq, true);
+
+            irq = IRQ_GPIO_BASE + GPIO_USB_DETC;
+            desc = irq_to_desc(irq);
+            __enable_irq(desc, irq, true);
+        }
+#endif
 
 		jz->save[0] = readl(jz->reg + PXINT);
 		jz->save[1] = readl(jz->reg + PXMSK);
@@ -614,3 +631,24 @@ static int __init init_gpio_proc(void)
 
 module_init(init_gpio_proc);
 
+#ifdef CONFIG_QUICK_POWEROFF
+int suspend_get_pin(int pin)
+{
+    int p = pin / 32;
+    int offset = pin % 32;
+	struct jzgpio_chip *jz = &jz_gpio_chips[p];
+
+	return !!(readl(jz->reg + PXPIN) & BIT(offset));
+}
+
+void suspend_set_pin(int pin, int value)
+{
+    int p = pin / 32;
+    int offset = pin % 32;
+	struct jzgpio_chip *jz = &jz_gpio_chips[p];
+	if (value)
+		writel(BIT(offset), jz->reg + PXPAT0S);
+	else
+		writel(BIT(offset), jz->reg + PXPAT0C);
+}
+#endif

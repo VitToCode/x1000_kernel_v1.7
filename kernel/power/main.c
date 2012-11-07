@@ -212,6 +212,50 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 power_attr(state);
 
+#ifdef CONFIG_SUSPEND
+#ifdef CONFIG_QUICK_POWEROFF
+static bool quick_poweroff_on = false;
+
+bool suspend_type_is_quick_poweroff(void)
+{
+    return quick_poweroff_on;
+}
+
+static ssize_t quick_poweroff_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	char *s = buf;
+    if (quick_poweroff_on) {
+        s += sprintf(s, "%s", "on\n");
+    } else {
+        s += sprintf(s, "%s", "off\n");
+    }
+
+	return (s - buf);
+}
+
+static ssize_t quick_poweroff_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	char *p;
+	int len;
+
+	p = memchr(buf, '\n', n);
+	len = p ? p - buf : n;
+
+	if (len == 2 && !strncmp(buf, "on", len)) {
+        quick_poweroff_on = true;
+	} else if (len == 3 && !strncmp(buf, "off", len)) {
+        quick_poweroff_on = false;
+    }
+
+	return n;
+}
+
+power_attr(quick_poweroff);
+#endif
+#endif
+
 #ifdef CONFIG_PM_SLEEP
 /*
  * The 'wakeup_count' attribute, along with the functions defined in
@@ -315,6 +359,9 @@ power_attr(wake_unlock);
 
 static struct attribute * g[] = {
 	&state_attr.attr,
+#ifdef CONFIG_QUICK_POWEROFF
+    &quick_poweroff_attr.attr,
+#endif
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
 	&pm_trace_dev_match_attr.attr,

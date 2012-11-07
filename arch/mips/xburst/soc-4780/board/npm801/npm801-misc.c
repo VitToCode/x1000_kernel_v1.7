@@ -294,8 +294,8 @@ static int __init npm801_board_init(void)
 	platform_device_register(&jz_gpu);
 #endif
 /* panel and bl */
-#ifdef CONFIG_LCD_KR070LA0S_270
-	platform_device_register(&kr070la0s_270_device);
+#ifdef CONFIG_LCD_KR080LA4S_250
+	platform_device_register(&kr080la4s_250_device);
 #endif
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
