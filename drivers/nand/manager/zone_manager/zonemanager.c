@@ -252,6 +252,8 @@ static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList
 {
 	//unsigned int startblockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 	unsigned int startblockno = zoneid * BLOCKPERZONE(zonep->vnand);
+
+	while(vNand_IsBadBlock (zonep->vnand, startblockno) && startblockno++);
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);
@@ -616,7 +618,7 @@ static int scan_page_info(ZoneManager *zonep)
 	plt->retVal = 0;
 	plt->pData = zonep->mem0;
 	(plt->head).next = NULL;
- 
+
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		read_zone_page1(zonep,i,plt);
@@ -682,7 +684,7 @@ static int error_handle(ZoneManager *zonep)
 	struct singlelist *pos;
 	ZoneIDList *zl;
 	int blmid = (int)((Context *)(zonep->context))->blm;
-	
+
 	if (zonep->page0error_zoneidlist) {
 		singlelist_for_each(pos,&zonep->page0error_zoneidlist->head) {
 			zl = singlelist_entry(pos,ZoneIDList,head);
@@ -1068,7 +1070,7 @@ static int page_in_current_zone (ZoneManager *zonep, unsigned short zoneid, unsi
 		//return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb;
 		return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb;
 	}
-	
+
 	/*return pageid >= BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid) * ppb
 	  && pageid < BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid + 1) * ppb;*/
 
@@ -1313,7 +1315,7 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 			goto exit;
 		}
 	}
-	if (pi->zoneID != 0xffff) { 
+	if (pi->zoneID != 0xffff) {
 		if (zonep->last_data_read_error) {
 			zonep->last_rzone_id = pi->zoneID;
 			CacheManager_Init(zonep->context);

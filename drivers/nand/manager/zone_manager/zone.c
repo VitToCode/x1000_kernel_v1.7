@@ -357,6 +357,24 @@ int Zone_ReadPageInfo ( Zone *zone, unsigned int pageID, PageInfo* pi )
 	return read_info_l2l3l4info(zone,pageID,pi);
 }
 
+int Pageinfo_Reread(Zone *zone, int pageid, int blm)
+{
+	unsigned char *buf = NULL;
+	PageList *pl = NULL;
+	int ret = 0;
+
+	buf = zone->mem0;
+	pl = (PageList *)BuffListManager_getTopNode(blm, sizeof(PageList));
+	pl->startPageID = pageid;
+	pl->OffsetBytes = 0;
+	pl->Bytes = zone->vnand->BytePerPage;
+	pl->pData = buf;
+	pl->retVal = 0;
+	ret = vNand_MultiPageRead(zone->vnand,pl);
+	BuffListManager_freeList(blm, (void **)&pl,(void *)pl, sizeof(PageList));
+
+	return ret;
+}
 /**
  *	Zone_MultiWritePage - MultiWritePage operation
  *
@@ -376,7 +394,6 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	int zoneblockid;
 	int badpages = 0;
 #ifdef REREAD_PAGEINFO
-	PageList *pipagelist;
 	int readret = 0;
 #endif
 #ifndef RECHECK_VALIDPAGE
@@ -442,14 +459,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	}
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 #ifdef REREAD_PAGEINFO
-	pipagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
-	pipagelist->startPageID = pi->PageID;
-	pipagelist->OffsetBytes = 0;
-	pipagelist->Bytes = zone->vnand->BytePerPage;
-	pipagelist->pData = buf;
-	pipagelist->retVal = 0;
-	readret = vNand_MultiPageRead(zone->vnand,pipagelist);
-	BuffListManager_freeList((int)blm, (void **)&pipagelist,(void *)pipagelist, sizeof(PageList));
+	readret = Pageinfo_Reread(zone,pi->PageID,(int)blm);
 	if(ISECCERROR(readret) || ISDATAMOVE(readret)){
 		return readret;
 	}
