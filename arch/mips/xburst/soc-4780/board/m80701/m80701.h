@@ -13,6 +13,7 @@ extern struct jzmmc_platform_data m80701_sdio_pdata;
  * lcd platform data
  **/
 #ifdef CONFIG_FB_JZ4780_LCDC0
+extern struct jzfb_platform_data jzfb0_hdmi_pdata;
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC1
 extern struct jzfb_platform_data jzfb1_pdata;

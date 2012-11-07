@@ -56,8 +56,8 @@ struct platform_device ek070tn93_device = {
 #endif
 
 #ifdef CONFIG_FB_JZ4780_LCDC0
-/* LCDC0 output to HDMI and the common platform data
- * initialization in soc-4780/common/lcdc0_hdmi_cfg.c
+/* LCDC0 output to HDMI and the default hdmi video mode list
+ * define in soc-4780/include/mach/fb_hdmi_modes.h
  * or initialization a different platform data at here
  */
 static struct fb_videomode jzfb0_hdmi_videomode[] = {
