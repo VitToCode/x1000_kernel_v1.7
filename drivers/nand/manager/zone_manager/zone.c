@@ -460,7 +460,7 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 #ifdef REREAD_PAGEINFO
 	readret = Pageinfo_Reread(zone,pi->PageID,(int)blm);
-	if(ISECCERROR(readret) || ISDATAMOVE(readret)){
+	if(ISECCERROR(readret) || ECCTOOLARGE(readret)){
 		return readret;
 	}
 #endif

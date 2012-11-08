@@ -551,7 +551,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 				ndprint(L2PCONVERT_ERROR,"ERROR:ret shouldn't be -6!!!!\n");
 				while(1);
 				}*/
-			if (ISERROR(pl_node->retVal) || ISERROR(pl_node->retVal)) {
+			if (ISERROR(pl_node->retVal) || ISDATAMOVE(pl_node->retVal)) {
 				ndprint(L2PCONVERT_INFO,"start ecc_error_handle,ret=%d \n",pl_node->retVal);
 				ret = start_ecc_error_handle(context, pl_node->startPageID);
 				if (ret != 0) {
@@ -1142,7 +1142,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 				start_reread_ecc_error_handle(context, zone->ZoneID);
 				zone = ZoneManager_GetCurrentWriteZone(context);
 				l2p->follow_node = l2p->prev_node;
-		}else if(ISDATAMOVE(ret)){
+		}else if(ECCTOOLARGE(ret)){
 			pageinfo_eccislarge = 1;
 		}
 

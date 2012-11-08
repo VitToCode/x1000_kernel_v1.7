@@ -14,6 +14,8 @@ struct _PageList {
 	void* pData;
 	int retVal;
 };
+#define ND_ECC_TOOLARGE   1
+
 #define ND_ERROR_ARGS    -1
 #define ND_ERROR_MEMORY  -2
 #define ND_ERROR_IO      -3
@@ -29,7 +31,8 @@ struct _PageList {
 #define ISECCERROR(x) (x == ND_ERROR_ECC)
 #define ISNOWRITE(x) (x == ND_ERROR_NOWRITE)
 
-#define ISDATAMOVE(x) ( x >> 16)
+#define ISDATAMOVE(x) (x >> 16)
+#define ECCTOOLARGE(x) (x == ND_ECC_TOOLARGE)
 
 #define DATALEN(x) (x & 0xffff)
 
