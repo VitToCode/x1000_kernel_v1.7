@@ -583,6 +583,32 @@ void CacheManager_unlockCache ( int context, PageInfo *pi )
 	cachemanager->pagecache.pageid = -1;  //erase pagecache
 	NandMutex_Unlock(&(cachemanager->mutex));
 }
+void CacheManager_DropCache ( int context, unsigned int *sectorid )
+{
+	CacheManager *cachemanager = (CacheManager *)context;
+	unsigned int *data;
+	LockCacheDataTable *lct = &cachemanager->lct;
+	unsigned  int startsectorid;
+	data = lct->L1->Index;
+	data[lct->sectorid / cachemanager->L1UnitLen] = -1;
+	if(cachemanager->L2InfoLen){
+		data = lct->L2->Index;
+		startsectorid = lct->sectorid - calc_IndexID(lct->sectorid,cachemanager->L2UnitLen,cachemanager->L2InfoLen);
+		data[startsectorid / cachemanager->L2UnitLen] = -1;
+	}
+	if(cachemanager->L3InfoLen){
+		data = lct->L3->Index;
+		startsectorid = lct->sectorid - calc_IndexID(lct->sectorid,cachemanager->L3UnitLen,cachemanager->L3InfoLen);
+		data[startsectorid / cachemanager->L3UnitLen] = -1;
+	}
+
+	startsectorid = calc_IndexID(lct->sectorid,cachemanager->L4UnitLen,cachemanager->L4InfoLen);
+	data = lct->L4->Index;
+	while(*sectorid != -1){
+		data[*sectorid - startsectorid] = -1;
+		sectorid++;
+	}
+}
 static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count) {
 	int i;
 	unsigned int pageid;
