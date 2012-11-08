@@ -19,6 +19,11 @@ config OV2650
 	depends on JZ_CIM
 	default n
 
+config OV2659_MODULE
+	bool "ov2659 camera sensor module"
+	depends on JZ_CIM
+	default n
+
 config SP0838
 	bool "sp0838 camera sensor"
 	depends on JZ_CIM
