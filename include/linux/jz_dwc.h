@@ -22,6 +22,7 @@ struct dwc_jz_pri {
 	struct regulator 	*ucharger;
 
 	spinlock_t		lock;
+	struct mutex		mutex;
 };
 
 #endif

@@ -70,6 +70,7 @@ static int freq_table_prepare(void)
 {
 	struct clk *apll;
 	struct clk *mpll;
+	struct clk *cparent;
 	unsigned int i,max;
 	unsigned int apll_rate,mpll_rate;
 
@@ -86,9 +87,8 @@ static int freq_table_prepare(void)
 
 	apll_rate = clk_get_rate(apll) / 1000;
 	mpll_rate = clk_get_rate(mpll) / 1000;
+	cparent = clk_get_parent(cpu_clk);
 	memset(freq_table,0,sizeof(freq_table));
-
-	printk("%u %u\n",apll_rate,mpll_rate);
 #if 0
 	if(apll_rate > mpll_rate) {
 		max = apll_rate;
@@ -99,9 +99,13 @@ static int freq_table_prepare(void)
 		}
 	}
 #else
-	freq_table[0].index = 0;
-	freq_table[0].frequency = apll_rate;
-	i = 1;
+	if (cparent == apll) {
+		freq_table[0].index = 0;
+		freq_table[0].frequency = apll_rate;
+		i = 1;
+	} else {
+		i = 0;
+	}
 #endif
 	max = mpll_rate;
 	for(;i<CPUFREQ_NR && max > 100000;i++) {
