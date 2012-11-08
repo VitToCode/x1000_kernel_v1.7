@@ -214,8 +214,10 @@ void cim_power_on(struct jz_cim *cim)
 		clk_enable(cim->mclk);
 		
 	if(cim->power) {
-		dev_info(cim->dev, "cim power on\n");
-		regulator_enable(cim->power);
+		if (!regulator_is_enabled(cim->power)) {
+			regulator_enable(cim->power);
+			dev_info(cim->dev, "cim power on\n");
+		}
 	}
 
 	mdelay(10);
@@ -231,8 +233,10 @@ void cim_power_off(struct jz_cim *cim)
 		clk_disable(cim->mclk);
 	
 	if(cim->power) {
-		dev_info(cim->dev, "cim power off\n");
-		regulator_disable(cim->power);
+		if (regulator_is_enabled(cim->power)) {
+			regulator_disable(cim->power);
+			dev_info(cim->dev, "cim power off\n");
+		}
 	}
 }
 
