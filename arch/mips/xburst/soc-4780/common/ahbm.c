@@ -42,9 +42,18 @@ static int ahbm_read_proc(char *page, char **start, off_t off,
 		PRINT("0x1c = %d\n",ahbm_read(M,0x1c));	\
 		PRINT("0x20 = %d\n",ahbm_read(M,0x20));	\
 		PRINT("0x24 = %d\n",ahbm_read(M,0x24));	\
-		PRINT("0x28 = %d\n\n",ahbm_read(M,0x28));	\
+		PRINT("0x28 = %d\n",ahbm_read(M,0x28));	\
 	}while(0);
 
+#define PRINT_ARRAY_GPU(M) \
+	do{					\
+		PRINT_ARRAY(M); \
+		PRINT("0x2c = %d\n",ahbm_read(M,0x2c));	\
+		PRINT("0x30 = %d\n",ahbm_read(M,0x30));	\
+		PRINT("0x34 = %d\n",ahbm_read(M,0x34));	\
+		PRINT("0x38 = %d\n",ahbm_read(M,0x38));	\
+		PRINT("0x3c = %d\n",ahbm_read(M,0x3c));	\
+	}while(0);
 
 	outl(0x0,DDR_MC);
 	outl(0x0,DDR_RESULT_1);
@@ -71,16 +80,22 @@ static int ahbm_read_proc(char *page, char **start, off_t off,
 
 	outl(0x0,DDR_MC);
 	PRINT("DDR:\n");
-	PRINT("DDR_RESULT_1:%08x\n",inl(DDR_RESULT_1));
-	PRINT("DDR_RESULT_2:%08x\n",inl(DDR_RESULT_2));
-	PRINT("DDR_RESULT_3:%08x\n",inl(DDR_RESULT_3));
-	PRINT("DDR_RESULT_4:%08x\n",inl(DDR_RESULT_4));
+	PRINT("RESULT_1:%d\n",inl(DDR_RESULT_1));
+	PRINT("RESULT_2:%d\n",inl(DDR_RESULT_2));
+	PRINT("RESULT_3:%d\n",inl(DDR_RESULT_3));
+	PRINT("RESULT_4:%d\n",inl(DDR_RESULT_4));
 
+	PRINT("CIM\n");
 	PRINT_ARRAY(CIM);
+	PRINT("AHB0\n");
 	PRINT_ARRAY(AHB0);
-	PRINT_ARRAY(GPU);
-	PRINT_ARRAY(LCD);
+	PRINT("AHB2\n");
 	PRINT_ARRAY(AHB2);
+
+	PRINT("GPU\n");
+	PRINT_ARRAY_GPU(GPU);
+	PRINT("LCD\n");
+	PRINT_ARRAY_GPU(LCD);
 
 	cpm_set_bit(11,CPM_CLKGR1);
 	return len;
