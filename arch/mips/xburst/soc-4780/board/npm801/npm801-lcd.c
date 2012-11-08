@@ -20,17 +20,17 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-#ifdef CONFIG_LCD_KR070LA0S_270
-#include <linux/kr070la0s_270.h>
-static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
+#ifdef CONFIG_LCD_KR080LA4S_250
+#include <linux/kr080la4s_250.h>
+static struct platform_kr080la4s_250_data kr080la4s_250_pdata= {
 /* gpio had been hardware control */
 };
 
 /* LCD Panel Device */
-struct platform_device kr070la0s_270_device = {
-	.name		= "kr070la0s_270-lcd",
+struct platform_device kr080la4s_250_device = {
+	.name		= "kr080la4s_250-lcd",
 	.dev		= {
-		.platform_data	= &kr070la0s_270_pdata,
+		.platform_data	= &kr080la4s_250_pdata,
 	},
 };
 #endif
@@ -86,12 +86,12 @@ struct jzfb_platform_data jzfb0_pdata = {
 #ifdef CONFIG_FB_JZ4780_LCDC1
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode[] = {
-#ifdef CONFIG_LCD_KR070LA0S_270
+#ifdef CONFIG_LCD_KR080LA4S_250
 	{
-		.name = "1024x600",
+		.name = "1024x768",
 		.refresh = 65,
 		.xres = 1024,
-		.yres = 600,
+		.yres = 768,
 		.pixclock = KHZ2PICOS(48000),
 		.left_margin = 171,
 		.right_margin = 0,
@@ -128,7 +128,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.num_modes = ARRAY_SIZE(jzfb1_videomode),
 	.modes = jzfb1_videomode,
 
-#ifdef CONFIG_LCD_KR070LA0S_270
+#ifdef CONFIG_LCD_KR080LA4S_250
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,

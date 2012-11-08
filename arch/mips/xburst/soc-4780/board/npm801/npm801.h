@@ -22,8 +22,8 @@ extern struct jzfb_platform_data jzfb1_pdata;
 /**
  * lcd platform device
  **/
-#ifdef CONFIG_LCD_KR070LA0S_270
-extern struct platform_device kr070la0s_270_device;
+#ifdef CONFIG_LCD_KR080LA4S_250
+extern struct platform_device kr080la4s_250_device;
 #endif
 #ifdef CONFIG_LCD_EK070TN93
 extern struct platform_device ek070tn93_device;
@@ -99,6 +99,10 @@ extern struct platform_nand_data jz_nand_chip_data;
  */
 #define GPIO_MOTOR_PIN			GPIO_PB(24) /* PB24 */
 
+/**
+ * usb detect gpio
+ */
+#define GPIO_USB_DETC			GPIO_PF(13) /* PF13 */
 
 // #define GPIO_HOME
 // #define ACTIVE_LOW_HOME			1
