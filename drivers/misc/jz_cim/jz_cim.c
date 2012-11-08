@@ -856,6 +856,7 @@ static int cim_close(struct inode *inode, struct file *file)
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 
 	cim_power_off(cim);
+	cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
 	cim->tlb_flag = 0;
 	cim->tlb_base = 0;
