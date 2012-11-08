@@ -102,7 +102,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  */
 static struct regulator_info m80701_pmu_regulators[] = {
 	{"OUT1", &m80701_vcore_init_data},
-	{"OUT2", &m80701_vccio_init_data},
+	{"OUT3", &m80701_vccio_init_data},
 	{"OUT6", &m80701_vwifi_init_data},
 	{"OUT7", &m80701_vtsc_init_data},
 	{"OUT8", &m80701_vgsensor_init_data},
