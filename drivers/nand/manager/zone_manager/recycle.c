@@ -491,7 +491,7 @@ static int FindFirstPageInfo ( Recycle *rep)
 			rep->end_findnextpageinfo = 1;
 			goto exit;
 		}
-		else if((ret & 0xffff) < 0) {
+		else if(ret < 0) {
 			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 			goto err0;
@@ -1496,7 +1496,7 @@ static int FindNextPageInfo ( Recycle *rep)
 			rep->end_findnextpageinfo = 1;
 			goto exit;
 		}
-		else if((ret & 0xffff) < 0) {
+		else if(ret < 0) {
 			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 			goto err;
@@ -1924,8 +1924,10 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 			ret = OnForce_FindFirstValidPageInfo(rep);
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
-		if (ret == -1)
+		if (ret == -1){
+			ndprint(RECYCLE_INFO, "%s %d ret=%d --------->\n",__func__,__LINE__,ret);
 			goto exit;
+		}
 
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
@@ -2061,7 +2063,7 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 			rep->force_end_findnextpageinfo = 1;
 			return 0;
 		}
-		else if ((ret & 0xffff) < 0) {
+		else if (ret < 0) {
 			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 			return -1;
@@ -2109,7 +2111,7 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 			rep->force_end_findnextpageinfo = 1;
 			return 0;
 		}
-		else if((ret & 0xffff) < 0) {
+		else if(ret < 0) {
 			ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 			return -1;
@@ -2493,7 +2495,7 @@ static int OnFollow_FindFirstValidPageInfo ( Recycle *rep)
 				rep->force_end_findnextpageinfo = 1;
 				return 0;
 			}
-			else if((ret & 0xffff) < 0) {
+			else if(ret < 0) {
 				ndprint(RECYCLE_ERROR,"find next pageinfo error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 				return -1;
