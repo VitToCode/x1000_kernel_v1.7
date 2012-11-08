@@ -31,6 +31,8 @@ int Get_MaxJunkZone(int handle);
 void Release_MaxJunkZone(int handle,int zoneid);
 void Delete_JunkZone(int handle,int zoneid);
 int Get_JunkZoneCount(int handle);
+int Get_JunkZoneRecycleTrig(int handle);
+
 void dump_JunkZone(int handle);
 
 #endif /* _JUNKZONE_H_ */

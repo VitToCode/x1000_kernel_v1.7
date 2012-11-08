@@ -183,6 +183,12 @@ int Get_JunkZoneCount(int handle){
 	return count;
 }
 
+int Get_JunkZoneRecycleTrig(int handle) {
+	junkzone *jzone = (junkzone *)handle;
+	int usedcount = Get_JunkZoneCount(handle);
+	return usedcount > jzone->zonecount * 2 / 3;
+}
+
 void dump_JunkZone(int handle) {
 	junkzone *jzone = (junkzone *)handle;
 	int i;

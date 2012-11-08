@@ -50,9 +50,9 @@ static int Idle_Handler(int data)
 		minlifetime = ZoneManager_Getminlifetime(context);
 		l2pwritetime = conptr->t_startrecycle;
 		Recycle_Unlock(context);
-		if ( (nd_getcurrentsec_ns() >= (l2pwritetime + INTERNAL_TIME)) &&
+		if ( ((nd_getcurrentsec_ns() >= (l2pwritetime + INTERNAL_TIME)) &&
 			 conptr->rep->taskStep == RECYIDLE &&
-			(used_count > 2 * free_count || maxlifetime - minlifetime > MAXDIFFTIME) )
+		     (used_count > 2 * free_count || maxlifetime - minlifetime > MAXDIFFTIME)) || Get_JunkZoneRecycleTrig(conptr->junkzone))
 			Recycle_OnNormalRecycle(context);
 
 		nm_sleep(1);
