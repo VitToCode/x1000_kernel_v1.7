@@ -92,7 +92,9 @@ static struct i2c_board_info m80_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)))
+
+#if (defined(CONFIG_SP0838))
 struct sp0838_platform_data {
 	int facing;
 	int orientation;
@@ -101,6 +103,7 @@ struct sp0838_platform_data {
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
 };
+
 static struct sp0838_platform_data sp0838_pdata = {
 	.facing = 0,
 	.orientation = 0,
@@ -110,12 +113,53 @@ static struct sp0838_platform_data sp0838_pdata = {
 };
 #endif
 
+#if (defined(CONFIG_OV2659_MODULE))
+struct ov2659_platform_data {
+	int facing_f;
+	int orientation_f;
+	int mirror_f;
+
+	int facing_b;
+	int orientation_b;
+	int mirror_b;
+
+	uint16_t gpio_rst;
+
+	uint16_t gpio_en_f;
+	uint16_t gpio_en_b;
+};
+
+static struct ov2659_platform_data ov2659_module_pdata = {
+	.facing_f = 0,
+	.orientation_f = 0,
+	.mirror_f = 0,
+
+	.facing_b = 1,
+	.orientation_b = 0,
+	.mirror_b = 1,
+
+	.gpio_en_f = GPIO_OV2659_EN_F,
+	.gpio_en_b = GPIO_OV2659_EN_B,
+
+	.gpio_rst = GPIO_OV2659_RST,
+};
+#endif
+
+#endif
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 static struct i2c_board_info m80_i2c2_devs[] __initdata = {
 #ifdef CONFIG_SP0838
 	{
 		I2C_BOARD_INFO("sp0838", 0x18),
 		.platform_data	= &sp0838_pdata,
+	},
+#endif
+
+#ifdef CONFIG_OV2659_MODULE
+	{
+		I2C_BOARD_INFO("ov2659-module", 0x30),
+		.platform_data	= &ov2659_module_pdata,
 	},
 #endif
 };
