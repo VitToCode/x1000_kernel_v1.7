@@ -83,6 +83,11 @@ config PVR_ACTIVE_POWER_LATENCY_MS
 	depends on PVR_ACTIVE_POWER_MANAGEMENT
 	default 100
 
+config PVR_ACTIVE_POWER_POWER_DOWN_LATENCY_MS
+	int "Active power down latency (ms) while Active power event happening"
+	depends on PVR_ACTIVE_POWER_MANAGEMENT
+	default 200
+
 config PVR_SGX_LOW_LATENCY_SCHEDULING
 	bool "Enable low-latency scheduling"
 	depends on PVR_SGX

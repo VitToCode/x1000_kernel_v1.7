@@ -30,6 +30,7 @@
 #include <linux/hardirq.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/timer.h>
 
 #include "sgxdefs.h"
 #include "services_headers.h"
@@ -63,6 +64,37 @@
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
 extern struct platform_device *gpsPVRLDMDev;
 #endif
+static IMG_BOOL PowerSupplyIsOFF(IMG_VOID)
+{
+    return (inl(0x10000004) & (1 << 25));
+}
+
+static IMG_VOID TurnOffPowerSupply(IMG_VOID)
+{
+    if(!PowerSupplyIsOFF())
+    {
+        // Wait for GPU IDLE
+        do {
+        } while (!(inl(0x10000004) & (1 << 24)));
+        // Turn off the light
+        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
+        // Wait for power down
+        do {
+        } while (!(inl(0x10000004) & (1 << 25)));
+    }
+}
+
+static IMG_VOID TurnOnPowerSupply(IMG_VOID)
+{
+    if(PowerSupplyIsOFF())
+    {
+        // Turn on the light
+        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
+        // Wait for power on
+        do {
+        } while ((inl(0x10000004) & (1 << 25)));
+    }
+}
 
 static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
 {
@@ -191,6 +223,9 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 	}
 #endif
         {
+            del_timer_sync(&psSysSpecData->psPowerDown_Timer);
+            TurnOnPowerSupply();
+            clk_enable(psSysSpecData->psTimer_Divider);
             clk_enable(psSysSpecData->psTimer_Gate);
         }
 
@@ -279,6 +314,9 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 
         {
             clk_disable(psSysSpecData->psTimer_Gate);
+            clk_disable(psSysSpecData->psTimer_Divider);
+            mod_timer(&psSysSpecData->psPowerDown_Timer,
+                      jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS));
         }
 
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
@@ -298,14 +336,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
         PVRSRV_ERROR eError;
         struct clk *sys_ck;
         struct clk *psCLK;
-
-        if ((inl(0x10000004) & (1 << 25))) {
-            // Turn on the light
-            outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
-            do {
-                printk("Waiting for GPU power\n");
-            } while ((inl(0x10000004) & (1 << 25)));
-        }
 
 	sys_ck = clk_get(NULL, "gpu");
 	if (IS_ERR(sys_ck))
@@ -327,7 +357,11 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
         clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
 	if (clk_get_rate(psSysSpecData->psTimer_Divider) > SYS_SGX_CLOCK_SPEED)
             goto ExitDisableTimerGate;
-        clk_enable(psSysSpecData->psTimer_Divider);
+
+        // Init the timer for turning off the power supply
+        psSysSpecData->psPowerDown_Timer.expires = jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS);
+        psSysSpecData->psPowerDown_Timer.function = TurnOffPowerSupply;
+        init_timer(&psSysSpecData->psPowerDown_Timer);
 
 	eError = PVRSRV_OK;
 
@@ -356,22 +390,8 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 
     //    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
 
-        clk_disable(psSysSpecData->psTimer_Divider);
 	clk_put(psSysSpecData->psTimer_Gate);
 	clk_put(psSysSpecData->psTimer_Divider);
-
-        // Waiting for IDLE
-        do {
-            printk("Waiting for GPU to idle\n");
-        } while (!(inl(0x10000004) & (1 << 24)));
-
-        if (!(inl(0x10000004) & (1 << 25))) {
-            // Turn off the light
-            outl((inl(0x10000004) | (1 << 29)), 0x10000004);
-            do {
-                printk("Waiting for GPU power down\n");
-            } while (!(inl(0x10000004) & (1 << 25)));
-        }
 
 #else //#if defined(PVR_XB47_TIMING_CPM)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecData);
