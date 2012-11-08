@@ -298,7 +298,7 @@ int __vNand_IsBadBlock (VNandInfo* vNand,int blockid ){
 	return ret;
 }
 
-int vNand_MarkBadBlock (VNandInfo* vNand,unsigned int blockid ){
+int __vNand_MarkBadBlock (VNandInfo* vNand,int blockid ){
 	int ret;
 	NandMutex_Lock(&v_nand_ops.mutex);
 	ret = VN_OPERATOR(MarkBadBlock,vNand->prData,blockid);
