@@ -319,7 +319,8 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 					  cm->L4InfoLen,cm->L3InfoLen,cm->L2InfoLen);
 
 		if(((NandPageInfo *)pc->pageinfobuf)->MagicID != 0xaaaa)
-			ndprint(ZONE_ERROR,"readpageinfo read nandpageinfo error MageicID = 0x%04X\n",((NandPageInfo *)pc->pageinfobuf)->MagicID);
+			ndprint(ZONE_ERROR,"readpageinfo read nandpageinfo error pageid = %d MageicID = 0x%04X\n",pageid,
+																			((NandPageInfo *)pc->pageinfobuf)->MagicID);
 		pc->pageid = pageid;
 		dtmp = (unsigned char **)((unsigned char *)pc->nandpageinfo + lxoff[lxoffset - 1]);
 		data = *dtmp;
