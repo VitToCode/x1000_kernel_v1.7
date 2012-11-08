@@ -1937,9 +1937,8 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 		if (ret == -1)
 			goto exit;
 	}
-
-	ret = OnForce_FreeZone(rep);
 exit:
+	ret = OnForce_FreeZone(rep);
 	if (rep->force_junk_zoneid != -1)
 		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
 	else
@@ -2678,7 +2677,7 @@ int Recycle_OnBootRecycle ( int context )
 				goto exit;
 		}
 	}
-
+exit:
 	ret = OnForce_FreeZone(rep);
 	if (ret == -1)
 		goto exit;
@@ -2686,7 +2685,6 @@ int Recycle_OnBootRecycle ( int context )
 
 	ndprint(RECYCLE_INFO, "boot recycle finished--------->\n\n");
 
-exit:
 	OnForce_Deinit(rep);
 	return ret;
 }

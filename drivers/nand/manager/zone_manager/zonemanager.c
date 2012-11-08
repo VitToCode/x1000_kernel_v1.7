@@ -970,8 +970,8 @@ static void start_boot_recycle(ZoneManager *zonep)
 	Context *conptr = (Context *)(zonep->context);
 	ndprint(ZONEMANAGER_INFO,"WARNNING: bootprepare find a error,Deal with it!\n");
 
-	boot_recycle_msg.msgid = FOLLOW_RECYCLE_ID;
-	boot_recycle_msg.prio = FOLLOW_RECYCLE_PRIO;
+	boot_recycle_msg.msgid = BOOT_RECYCLE_ID;
+	boot_recycle_msg.prio = BOOT_RECYCLE_PRIO;
 	boot_recycle_msg.data = zonep->context;
 
 	msghandle = Message_Post(conptr->thandle, &boot_recycle_msg, WAIT);
