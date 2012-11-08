@@ -19,6 +19,9 @@
 struct hdmi_irq_handler {
 	handler_t handler;
 	void *param;
+	int irq;
+	struct work_struct  work;
+	struct workqueue_struct *workqueue;
 };
 
 static struct hdmi_irq_handler m_irq_handler[3];
@@ -80,12 +83,20 @@ int system_InterruptAcknowledge(interrupt_id_t id)
 	return TRUE;
 }
 
+static void interrupt_work_handler(struct work_struct *work)
+{
+	struct hdmi_irq_handler *handler = container_of(work, struct hdmi_irq_handler,work);
+	handler->handler(handler->param);
+	enable_irq(handler->irq);
+}
+
 static irqreturn_t jzhdmi_irq_handler(int irq, void *devid)
 {
 	struct hdmi_irq_handler *handler = (struct hdmi_irq_handler *)devid;
-
-	//printk("-----=======irq irq=%d---\n",irq);
-	handler->handler(handler->param);
+	disable_irq_nosync(handler->irq);
+	if (!work_pending(&handler->work)) {
+		queue_work(handler->workqueue, &handler->work);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -107,6 +118,10 @@ int system_InterruptHandlerRegister(interrupt_id_t id, handler_t handler,
 #ifdef CONFIG_HDMI_JZ4780_DEBUG
 	printk("hdmid %s  id=%d irq=%d---\n",__func__,id,irq);
 #endif
+
+	INIT_WORK(&irq_handler->work, interrupt_work_handler);
+	irq_handler->workqueue = create_singlethread_workqueue("hdmi_workqueue");
+	irq_handler->irq = irq;
 	ret = request_irq(irq,
 			  jzhdmi_irq_handler,
 			  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
