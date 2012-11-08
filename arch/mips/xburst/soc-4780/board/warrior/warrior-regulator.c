@@ -102,7 +102,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  */
 static struct regulator_info warrior_pmu_regulators[] = {
 	{"OUT1", &warrior_vcore_init_data},
-	{"OUT2", &warrior_vccio_init_data},
+	{"OUT3", &warrior_vccio_init_data},
 	{"OUT6", &warrior_vwifi_init_data},
 	{"OUT7", &warrior_vtsc_init_data},
 	{"OUT8", &warrior_vgsensor_init_data},

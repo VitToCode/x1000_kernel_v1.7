@@ -59,6 +59,7 @@ struct regulator_init_data REG##_init_data = {				\
 	.constraints = {						\
 		.name			= NAME,				\
 		.min_uV			= VOL,				\
+        .apply_uV       = 1,                \
 		.max_uV			= VOL,				\
 		.always_on		= ALWAYS_ON,			\
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
