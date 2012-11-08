@@ -109,7 +109,7 @@ void dump_availablebadblock(VNandManager *vm)
 	ndprint(VNAND_INFO,"================%s end =============\n",__func__);
 }
 
-static inline unsigned int L2PblockID(VNandInfo *vnand, unsigned int blockid)
+static inline int L2PblockID(VNandInfo *vnand, int blockid)
 {
 	if(blockid >= vnand->TotalBlocks){
 		ndprint(VNAND_ERROR,"ERROR: %s blockid=%d > vnand->TotalBlocks=%d!!!!!\n"
@@ -248,7 +248,7 @@ static void UpdatePageList(VNandInfo *vnand, PageList* pl)
 {
 	PageList *pagelist = NULL;
 	struct singlelist *list = NULL;
-	unsigned int blockid = 0;
+	int blockid = 0;
 	unsigned int pageoffset = 0;
 
 	singlelist_for_each(list,&pl->head) {
@@ -345,11 +345,18 @@ int vNand_CopyData(VNandInfo* vNand,PageList* rpl, PageList* wpl){
 int vNand_IsBadBlock (VNandInfo* vNand,int blockid )
 {
 	int ret = 0;
-
-	L2PblockID(vNand, blockid);
+	blockid = L2PblockID(vNand, blockid);
 	ret = __vNand_IsBadBlock(vNand, blockid);
 
 	return ret;
+}
+int vNand_MarkBadBlock (VNandInfo* vNand,int blockid )
+{
+        int ret = 0;
+        blockid = L2PblockID(vNand, blockid);
+        ret = __vNand_MarkBadBlock(vNand, blockid);
+
+        return ret;
 }
 
 static PageList *create_pagelist(PPartition *pt, int blmid)

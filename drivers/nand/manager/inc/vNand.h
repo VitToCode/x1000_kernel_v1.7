@@ -42,7 +42,7 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl );
 int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl );
 int __vNand_MultiBlockErase (VNandInfo* vNand,BlockList* pl );
 int __vNand_IsBadBlock (VNandInfo* vNand,int blockid );
-int vNand_MarkBadBlock (VNandInfo* vNand,unsigned int blockid);
+int __vNand_MarkBadBlock (VNandInfo* vNand,int blockid);
 
 int  __vNand_Init ( VNandManager** context );
 void __vNand_Deinit ( VNandManager** context );
