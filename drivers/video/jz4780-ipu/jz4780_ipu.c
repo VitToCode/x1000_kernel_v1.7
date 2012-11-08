@@ -457,8 +457,13 @@ static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid)
 
 	dev_dbg(ipu->dev, "input pid: %d", pid);
 	list_for_each_entry(ipu_proc, &ipu->process_list, list) {
-		if (ipu_proc->pid == pid)
-			return ipu_proc;
+		if (ipu->cur_output_mode == IPU_OUTPUT_TO_LCD_FG1) {
+			if (ipu_proc)
+				return ipu_proc;
+		} else {
+			if (ipu_proc->pid == pid)
+				return ipu_proc;
+		}
 	}
 	dev_err(ipu->dev, "not find related pid ipu process info!!! pid: %d, tgid: %d", current->pid, current->tgid);
 
@@ -1151,9 +1156,10 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
 	}
-	if ((ipu->cur_proc != current->pid) || !ipu->inited) {
-		ipu_init(ipu, &ipu_proc->img);
-	}
+	if (ipu->cur_output_mode != IPU_OUTPUT_TO_LCD_FG1)
+		if ((ipu->cur_proc != current->pid) || !ipu->inited) {
+			ipu_init(ipu, &ipu_proc->img);
+		}
 
 	img = &ipu_proc->img;
 	if (imgp) {
@@ -1249,15 +1255,16 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	tmp = reg_read(ipu, IPU_ADDR_CTRL);
 	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		tmp &= ~D_RY;
-		tmp |= (Y_RY | U_RY | V_RY);
+		tmp |= (Y_RY | U_RY | V_RY | PTS_RY);
 	} else {
-		tmp |= (Y_RY | U_RY | V_RY | D_RY);
+		tmp |= (Y_RY | U_RY | V_RY | D_RY | PTS_RY | PTD_RY);
 	}
 	reg_write(ipu, IPU_ADDR_CTRL, tmp); /* enable address reset */
 
 	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
 		/* start ipu */
 		__start_ipu();
+		mutex_unlock(&ipu->run_lock);
 	}
 
 	return 0;
@@ -1378,6 +1385,9 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	//		dev_err(ipu->dev, "<---Warning, ipu_img_param.version wrong--->\n");
 	//		return -EFAULT;
 	//	}
+		if (img.output_mode & IPU_OUTPUT_TO_LCD_FG1)
+			ipu->cur_output_mode = IPU_OUTPUT_TO_LCD_FG1;
+
 		copy_ipu_tabel_from_user(ipu, &img);
 		ret = ipu_init(ipu, &img);
 		break;
@@ -1447,7 +1457,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	struct miscdevice *dev = filp->private_data;
 	struct jz_ipu *ipu = container_of(dev,struct jz_ipu,misc_dev);
 
-	mutex_lock(&ipu->run_lock);
+	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
 
 	dev_info(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
@@ -1466,7 +1476,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
 		clk_disable(ipu->clk);
 
 	ipu->inited = 0;
-	mutex_unlock(&ipu->run_lock);
+	mutex_unlock(&ipu->lock);
 
 	return 0;
 }
