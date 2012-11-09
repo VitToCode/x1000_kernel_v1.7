@@ -6,8 +6,8 @@
 #include "pagelist.h"
 #include "vnandinfo.h"
 
-#define BLOCKPERZONE(context)   	8
-//#define REREAD_PAGEINFO
+#define BLOCKPERZONE(context)   	4
+#define REREAD_PAGEINFO
 typedef struct _Zone Zone;
 
 struct _Zone {

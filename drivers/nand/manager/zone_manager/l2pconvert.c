@@ -176,13 +176,16 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	memset((void *)(conptr->l1info->page), 0xff, conptr->vnand.BytePerPage);
 	InitNandMutex(&conptr->l1info->mutex);
 	calc_L1L2L3_len(conptr);
-
+/*
 	zonecount = conptr->vnand.TotalBlocks * 10 / 100;
 	if(zonecount < 8)
 		zonecount = 8;
 	if(zonecount > 64)
 		zonecount = 64;
-	conptr->junkzone = Init_JunkZone(zonecount);
+*/
+        zonecount = (conptr->vnand.TotalBlocks + BLOCKPERZONE(conptr->vnand) - 1)
+                        / BLOCKPERZONE(conptr->vnand);
+        conptr->junkzone = Init_JunkZone(zonecount);
 	ret = Recycle_Init((int)conptr);
 	if (ret != 0) {
 		ndprint(L2PCONVERT_ERROR,"ERROR:Recycle_Init failed func %s line %d \n",

@@ -284,7 +284,8 @@ int Recycle_OnNormalRecycle ( int context )
 	Recycle *rep = conptr->rep;
 
 	NandMutex_Lock(&rep->mutex);
-	ndprint(RECYCLE_INFO, "start normal recycle--------->\n");
+	ndprint(RECYCLE_INFO, "\n%s: start normal recycle--------->\n"
+                        ,((PPartition *)(conptr->vnand.prData))->name);
 	if (rep->taskStep == RECYIDLE)
 		rep->taskStep = RECYSTART;
 	NandMutex_Unlock(&rep->mutex);
@@ -298,7 +299,8 @@ int Recycle_OnNormalRecycle ( int context )
 
 	NandMutex_Lock(&rep->mutex);
 	rep->taskStep = RECYIDLE;
-	ndprint(RECYCLE_INFO, "normal recycle finished--------->\n\n");
+	ndprint(RECYCLE_INFO, "%s: normal recycle finished--------->\n\n"
+                        ,((PPartition *)(conptr->vnand.prData))->name);
 	NandMutex_Unlock(&rep->mutex);
 
 	return ret;
@@ -1377,7 +1379,7 @@ static int RecycleReadWrite(Recycle *rep)
 	unsigned int write_sectorcount = 0;
 	int spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int recyclesector = recyclepage * spp;
-	//int wpagecount;
+	int wpagecount;
 	wzone = get_current_write_zone(rep->context);
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -1403,7 +1405,8 @@ static int RecycleReadWrite(Recycle *rep)
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->writepageinfo);
 #endif
-	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {
+	if((zonepage / wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage)
+                        >= (recyclepage + PAGEINFO_PAGES)) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
@@ -1417,7 +1420,6 @@ static int RecycleReadWrite(Recycle *rep)
 
 	}
 	else {
-/*
 		if(zonepage >  wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
 			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (wpagecount - PAGEINFO_PAGES)*spp);
@@ -1432,8 +1434,7 @@ static int RecycleReadWrite(Recycle *rep)
 #ifdef RECYCLE_DEBUG_PAGEINFO
 			L2p_Debug_CheckData(rep->debug,rep->writepageinfo,wpagecount);
 #endif
-}
-*/
+                }
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
 			ndprint(RECYCLE_ERROR,"ERROR:alloc new zone func %s line %d \n",
@@ -1871,7 +1872,8 @@ int Recycle_OnForceRecycle ( int frinfo )
 	unsigned short zoneid = FRInfo->suggest_zoneid;
 	int need_pagecount = FRInfo->pagecount;
 
-	ndprint(RECYCLE_INFO, "start force recycle--------->\n");
+	ndprint(RECYCLE_INFO, "\n%s: start force recycle--------->\n"
+                        ,((PPartition *)(conptr->vnand.prData))->name);
 
 	while (1) {
 		ret = OnForce_Init(rep);
@@ -1897,7 +1899,8 @@ int Recycle_OnForceRecycle ( int frinfo )
 
 	OnForce_Deinit(rep);
 
-	ndprint(RECYCLE_INFO, "force recycle finished--------->\n\n");
+	ndprint(RECYCLE_INFO, "%s: force recycle finished RecPagecount = %d---->\n\n"
+                        ,((PPartition *)(conptr->vnand.prData))->name,recycle_pagecount);
 
 	return ret;
 }
@@ -2274,7 +2277,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	unsigned int write_sectorcount = 0;
 	int spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int recyclesector = recyclepage * spp;
-    //int wpagecount;
+        int wpagecount;
 	wzone = get_current_write_zone(rep->context);
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -2301,7 +2304,8 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->force_writepageinfo);
 #endif
-	if(zonepage >= recyclepage + wzone->vnand->v2pp->_2kPerPage) {
+	if((zonepage / wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage)
+                        >= (recyclepage + PAGEINFO_PAGES)) {
 		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
@@ -2314,7 +2318,6 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 #endif
 	}
 	else {
-/*
 		if(zonepage > wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
 
@@ -2332,7 +2335,6 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,wpagecount);
 #endif
 		}
-*/
 		wzone = alloc_new_zone_write(rep->context, wzone);
 		if(wzone == NULL) {
 			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
