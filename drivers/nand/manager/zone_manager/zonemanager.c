@@ -1577,7 +1577,10 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
 	unsigned short vaildpage =  conptr->vnand.PagePerBlock * BLOCKPERZONE(zonep->vnand);
-
+	if(lifetime == 0) {
+		Hash_FindFirstLessLifeTime(zonep->useZone,zonep->useZone->minlifetime + 1,&sigpt);
+		return (sigpt - zonep->sigzoneinfo);
+	}
 	index = Hash_FindFirstLessLifeTime(zonep->useZone,lifetime,&sigp);
 	if(index == -1){
 		ndprint(ZONEMANAGER_ERROR,"Can't find the lifetime. Please give a new larger lifetime!! \n");
@@ -1601,12 +1604,11 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 	}
 	while(index != -1);
 
-	if (flag >= count - 1)
-		Hash_FindFirstLessLifeTime(zonep->useZone,zonep->useZone->minlifetime + 1,&sigpt);
+	if (flag >= count - 1 )
+		return -1;
 	if (sigpt >= zonep->sigzoneinfo + zonep->pt_zonenum || sigpt < zonep->sigzoneinfo){
 		ndprint(ZONEMANAGER_ERROR,"%s %d sigpt:%p sigzoneinfo:%p zonenum:%d \n",__func__,__LINE__,sigpt,zonep->sigzoneinfo,zonep->pt_zonenum);
 	}
-
 	return (sigpt - zonep->sigzoneinfo);
 }
 

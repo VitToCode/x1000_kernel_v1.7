@@ -186,11 +186,11 @@ static int seek_pageinfo(Zone *zone,unsigned int pageid , PageInfo *pi){
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
 	blm = ((Context *)(zone->context))->blm;
-	
+
 	pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
 	pageid++;
 	while(pageid < zone->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand)) {
-		
+
 		pagelist->startPageID = pageid++;
 		pagelist->OffsetBytes = 0;
 		pagelist->Bytes = zone->vnand->BytePerPage;
@@ -407,6 +407,11 @@ int Zone_FindNextPageInfo ( Zone *zone, PageInfo* pi )
 		+ zone->NextPageInfo;
 
 	return read_info_l2l3l4info(zone,pageid,pi);
+}
+
+int Zone_SeekToNextPageInfo ( Zone *zone,unsigned int startpageid,PageInfo* pi)
+{
+	return seek_pageinfo(zone,startpageid,pi);
 }
 
 /**

@@ -616,7 +616,7 @@ static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count
 	for(i = 0;i < 512;i++) {
 		if(ld->Index[i] == -1) continue;
 		pageid = ld->Index[i];
-		if(pageid / (issector * 4)  >= startpageid && pageid /(issector * 4) < startpageid + count){
+		if(pageid >= startpageid * issector * 4 && pageid  < (startpageid + count) * issector * 4){
 			ret = 1;
 		}
 	}

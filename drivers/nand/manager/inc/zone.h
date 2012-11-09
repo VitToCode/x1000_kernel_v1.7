@@ -50,5 +50,5 @@ int Zone_DeInit ( Zone *zone );
 int Zone_RawMultiWritePage ( Zone *zone, PageList* pl );
 unsigned short Zone_GetFreePageCount(Zone *zone);
 int Pageinfo_Reread(Zone *zone, int pageid, int blm);
-
+int Zone_SeekToNextPageInfo ( Zone *zone,unsigned int startpageid,PageInfo* pi);
 #endif
