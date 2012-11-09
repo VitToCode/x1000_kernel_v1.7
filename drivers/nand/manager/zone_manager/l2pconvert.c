@@ -448,7 +448,7 @@ static int start_ecc_error_handle(int context, unsigned int pageid)
 {
 	//int i;
 	Message read_ecc_error_msg;
-	int blockid;
+	int blockid,ret = 0;
 	//int badblock_count = 0;
 	int zone_start_blockid;
 	int msghandle;
@@ -471,14 +471,15 @@ static int start_ecc_error_handle(int context, unsigned int pageid)
 		(unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
 	*/
 
-	nm_set_bit(blockid - zone_start_blockid, (unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
-
 	read_ecc_error_msg.msgid = READ_ECC_ERROR_ID;
 	read_ecc_error_msg.prio = READ_ECC_ERROR_PRIO;
 	read_ecc_error_msg.data = (int)&errinfo;
 
 	msghandle = Message_Post(conptr->thandle, &read_ecc_error_msg, WAIT);
-	return Message_Recieve(conptr->thandle, msghandle);
+	ret = Message_Recieve(conptr->thandle, msghandle);
+	nm_set_bit(blockid - zone_start_blockid, (unsigned int *)&(conptr->top + errinfo.err_zoneid)->badblock);
+
+	return ret;
 }
 
 /**
@@ -547,10 +548,10 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 	singlelist_for_each(pos, &(pl->head)) {
 		pl_node = singlelist_entry(pos, PageList, head);
 		if (pl_node->retVal != pl_node->Bytes){
-			/*if (ISNOWRITE(pl_node->retVal)){
+			if (ISNOWRITE(pl_node->retVal)){
 				ndprint(L2PCONVERT_ERROR,"ERROR:ret shouldn't be -6!!!!\n");
 				while(1);
-				}*/
+				}
 			if (ISERROR(pl_node->retVal) || ISDATAMOVE(pl_node->retVal)) {
 				ndprint(L2PCONVERT_INFO,"start ecc_error_handle,ret=%d \n",pl_node->retVal);
 				ret = start_ecc_error_handle(context, pl_node->startPageID);
@@ -1089,6 +1090,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	int ret = 0;
 	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 	int pageinfo_eccislarge = 0;
+	int is_not_ecc_error = 1;
 
 	if (sl == NULL){
 		ndprint(L2PCONVERT_ERROR,"ERROR:func: %s line: %d. SECTORLIST IS NULL!\n",__func__,__LINE__);
@@ -1134,17 +1136,22 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #ifdef L2P_PAGEINFO_DEBUG
 		L2p_Debug_CheckData(l2p->debug,pi,l2p->pagecount + 1);
 #endif
-		unlock_cache((int)cm, pi);
-		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
-		if(ISERROR(ret)) {
+		if(ISECCERROR(ret)) {
 			ndprint(L2PCONVERT_INFO,"Start reread pageinfo ecc error handle,func %s line %d \n",
 					__FUNCTION__,__LINE__);
-				start_reread_ecc_error_handle(context, zone->ZoneID);
-				zone = ZoneManager_GetCurrentWriteZone(context);
-				l2p->follow_node = l2p->prev_node;
-		}else if(ECCTOOLARGE(ret)){
-			pageinfo_eccislarge = 1;
+			CacheManager_DropCache (context,l2p->sectorid);
+			unlock_cache((int)cm, pi);
+			start_reread_ecc_error_handle(context, zone->ZoneID);
+			zone = ZoneManager_GetCurrentWriteZone(context);
+			l2p->follow_node = l2p->prev_node;
+			is_not_ecc_error = 0;
+		}else {
+			if(ECCTOOLARGE(ret)){
+				pageinfo_eccislarge = 1;
+			}
+			unlock_cache((int)cm, pi);
 		}
+		BuffListManager_freeAllList((int)blm,(void **)&pl,sizeof(PageList));
 
 		if (IS_NOT_SAME_L4(l2p->break_type))
 			l2p->l4_is_new = 1;
@@ -1173,7 +1180,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #endif
 exit:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
-	if(pageinfo_eccislarge){
+	if(pageinfo_eccislarge && is_not_ecc_error){
 		ndprint(L2PCONVERT_INFO,"Pageinfo ecc is too large,Start reread pageinfo ecc error handle\n");
 		start_reread_ecc_error_handle(context, zone->ZoneID);
 	}
