@@ -142,7 +142,7 @@ int ov2650_sensor_probe(struct cim_sensor *sensor_info)
 	struct ov2650_sensor *s;
 	s = container_of(sensor_info, struct ov2650_sensor, cs);
 	ov2650_power_up(sensor_info);
-	//ov2650_reset(sensor_info);
+	ov2650_reset(sensor_info);
 	mdelay(10);
 	retval=ov2650_read_reg(s->client,0x300A);
 	ov2650_power_down(sensor_info);
@@ -219,8 +219,9 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 		printk("err!!! no camera i2c pdata!!! \n\n");
 		return -1;
 	}
-	//if(!gpio_request(pdata->gpio_en, "ov2650_en"))
-		//s->gpio_en= pdata->gpio_en;
+	if(!gpio_request(pdata->gpio_en, "ov2650_en"))
+		s->gpio_en= pdata->gpio_en;
+
 	s->gpio_rst = pdata->gpio_rst;
 	if(gpio_is_valid(s->gpio_rst))
 		printk("  gpio is valid\n");
@@ -230,6 +231,7 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 		
 	}
 	gpio_direction_output(s->gpio_rst,0);
+	gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
 	//sensor_set_i2c_speed(client,400000);//set ov2650 i2c speed : 400khz
