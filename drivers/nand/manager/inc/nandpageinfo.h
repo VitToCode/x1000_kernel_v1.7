@@ -1,6 +1,6 @@
 #ifndef __NANDPAGEINFO_H__
 #define __NANDPAGEINFO_H__
-
+#include "ncrc16.h"
 typedef struct _NandPageInfo NandPageInfo;
 struct _NandPageInfo {
 	unsigned short NextPageInfo;
@@ -14,7 +14,12 @@ struct _NandPageInfo {
 	unsigned char* L4Info;
 	unsigned short MagicID;
 	unsigned short crc;
-} __attribute__ ((packed));
+};
+
+#define PACKAGE_PAGEINFO_CRC(p) (p)->crc = nand_crc16(0,(unsigned char *)(p),(unsigned int)&(((NandPageInfo *)0)->crc))
+
+#define IS_PAGEINFO(p) (((p)->MagicID == 0xaaaa) && (p)->crc == nand_crc16(0,(unsigned char *)(p),(unsigned int)&(((NandPageInfo *)0)->crc)))
+
 #define CONVERT_DATA_NANDPAGEINFO(data,p,l4,l3,l2)			\
 	do{								\
 		unsigned char *d = (unsigned char *)data;		\

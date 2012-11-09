@@ -176,7 +176,82 @@ err:
 	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
 	return ret;
 }
+static int seek_pageinfo(Zone *zone,unsigned int pageid , PageInfo *pi){
+	int ret = -1;
+	unsigned char *buf = NULL;
+	NandPageInfo *nandpageinfo;
+	PageList *pagelist = NULL;
+	BuffListManager *blm = NULL;
 
+	buf = zone->mem0;
+	nandpageinfo = (NandPageInfo *)buf;
+	blm = ((Context *)(zone->context))->blm;
+	
+	pagelist = (PageList *)BuffListManager_getTopNode((int)blm, sizeof(PageList));
+	pageid++;
+	while(pageid < zone->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand)) {
+		
+		pagelist->startPageID = pageid++;
+		pagelist->OffsetBytes = 0;
+		pagelist->Bytes = zone->vnand->BytePerPage;
+		pagelist->pData = (void *)buf;
+		pagelist->retVal = 0;
+		(pagelist->head).next = NULL;
+		ret = vNand_MultiPageRead(zone->vnand,pagelist);
+		if(ret != 0)
+		{
+			if (ISNOWRITE(pagelist->retVal)) {
+				continue;
+			}else{
+				if(IS_PAGEINFO(nandpageinfo)) {
+					ret = pageid - 1;
+					ndprint(ZONE_INFO,"finded page info id = %d\n",pageid);
+					break;
+				}
+			}
+		}
+	}
+	if(ret != -1) {
+		zone->NextPageInfo = nandpageinfo->NextPageInfo;
+
+		pi->L1InfoLen = zone->L1InfoLen;
+		pi->L2InfoLen = zone->L2InfoLen;
+		pi->L3InfoLen = zone->L3InfoLen;
+		pi->L4InfoLen = zone->L4InfoLen;
+
+		pi->L1Info = zone->L1Info;
+		pi->PageID = pageid;
+		pi->zoneID = nandpageinfo->ZoneID;
+
+		pi->L1Index = nandpageinfo->L1Index;
+		nandpageinfo->L4Info = buf + sizeof(NandPageInfo);
+		memcpy(pi->L4Info,nandpageinfo->L4Info,pi->L4InfoLen);
+
+		if(pi->L3InfoLen != 0)
+		{
+			if(pi->L2InfoLen == 0)
+			{
+				pi->L3Index = nandpageinfo->L3Index;
+				nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
+				memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
+			}
+			else
+			{
+				pi->L2Index = nandpageinfo->L2Index;
+				nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
+				memcpy(pi->L2Info,nandpageinfo->L2Info,pi->L2InfoLen);
+
+				pi->L3Index = nandpageinfo->L3Index;
+				nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
+				memcpy(pi->L3Info,nandpageinfo->L3Info,pi->L3InfoLen);
+			}
+		}
+
+
+	}
+	BuffListManager_freeList((int)blm, (void **)&pagelist,(void *)pagelist, sizeof(PageList));
+	return ret;
+}
 static int release_l2l3l4info(Zone *zone,PageInfo *pi)
 {
 	return 0;
@@ -223,7 +298,7 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 		}
 	}
 	nandpageinfo->MagicID = 0xaaaa;
-	nandpageinfo->crc = 0;
+	PACKAGE_PAGEINFO_CRC(nandpageinfo);
 	return len;
 }
 

@@ -609,25 +609,25 @@ void CacheManager_DropCache ( int context, unsigned int *sectorid )
 		sectorid++;
 	}
 }
-static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count) {
+static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count,int issector) {
 	int i;
 	unsigned int pageid;
 	int ret = 0;
 	for(i = 0;i < 512;i++) {
 		if(ld->Index[i] == -1) continue;
 		pageid = ld->Index[i];
-		if(pageid >= startpageid && pageid < startpageid + count){
+		if(pageid / (issector * 4)  >= startpageid && pageid /(issector * 4) < startpageid + count){
 			ret = 1;
 		}
 	}
 	return ret;
 }
-static int checklxinfo(CacheList *lx,unsigned int startpageid,unsigned int count) {
+static int checklxinfo(CacheList *lx,unsigned int startpageid,unsigned int count,int issector) {
 	struct list_head *pos;
 	CacheData *cd;
 	list_for_each(pos,&lx->top) {
 		cd = list_entry(pos,CacheData,head);
-		if(checkldinfo(cd,startpageid,count))
+		if(checkldinfo(cd,startpageid,count,issector))
 			return 1;
 	}
 	return 0;
@@ -637,20 +637,20 @@ int CacheManager_CheckIsCacheMem ( int context,unsigned int startpageid,unsigned
 	CacheManager *cachemanager = (CacheManager *)context;
 	int ret = 0;
 	NandMutex_Lock(&(cachemanager->mutex));
-	if(checkldinfo(cachemanager->L1Info,startpageid,count)){
+	if(checkldinfo(cachemanager->L1Info,startpageid,count,0)){
 		ret = 1;
 		goto exitCheck;
 	}
-	if(cachemanager->L2InfoLen  && checklxinfo(cachemanager->L2Info,startpageid,count)) {
+	if(cachemanager->L2InfoLen  && checklxinfo(cachemanager->L2Info,startpageid,count,0)) {
 		ret = 1;
 		goto exitCheck;
 	}
 
-	if(cachemanager->L3InfoLen  && checklxinfo(cachemanager->L3Info,startpageid,count)) {
+	if(cachemanager->L3InfoLen  && checklxinfo(cachemanager->L3Info,startpageid,count,0)) {
 		ret = 1;
 		goto exitCheck;
 	}
-	if(cachemanager->L4InfoLen  && checklxinfo(cachemanager->L4Info,startpageid,count)) {
+	if(cachemanager->L4InfoLen  && checklxinfo(cachemanager->L4Info,startpageid,count,1)) {
 		ret = 1;
 		goto exitCheck;
 	}
@@ -662,7 +662,7 @@ static int checkdatainfo(unsigned int *d,int size,unsigned int startpageid,unsig
 	int i;
 
 	for(i = 0;i < size;i++) {
-		if(d[i] >= startpageid && d[i] < startpageid + count){
+		if(d[i] / 4 >= startpageid  && d[i] / 4 < startpageid + count){
 			return 1;
 		}
 	}

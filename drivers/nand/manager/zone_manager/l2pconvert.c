@@ -1139,7 +1139,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		if(ISECCERROR(ret)) {
 			ndprint(L2PCONVERT_INFO,"Start reread pageinfo ecc error handle,func %s line %d \n",
 					__FUNCTION__,__LINE__);
-			CacheManager_DropCache (context,l2p->sectorid);
+			CacheManager_DropCache ((int)cm,l2p->sectorid);
 			unlock_cache((int)cm, pi);
 			start_reread_ecc_error_handle(context, zone->ZoneID);
 			zone = ZoneManager_GetCurrentWriteZone(context);

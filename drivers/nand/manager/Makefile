@@ -7,7 +7,7 @@ EXTRA_CFLAGS	+= -Idrivers/nand/manager/inc/ \
 		-Idrivers/nand/manager/utils/ \
 		-Idrivers/nand/manager/inc/linux/ \
 
-obj-y		+= utils/bufflistmanager.o utils/zonememory.o utils/timerdebug.o
+obj-y		+= utils/bufflistmanager.o utils/zonememory.o utils/timerdebug.o utils/ncrc16.o
 
 obj-y		+= vnand/vNand.o vnand/l2vNand.o
 

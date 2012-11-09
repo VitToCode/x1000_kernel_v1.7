@@ -8,7 +8,7 @@ struct _SigZoneInfo {
     unsigned short validpage;
     unsigned short pre_zoneid;
     unsigned short next_zoneid;
-} __attribute__ ((packed));
+};
 
 #define INIT_SIGZONEINFO(x) do{					\
 		(x)->lifetime = 0xffffffff;				\

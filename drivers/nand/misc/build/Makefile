@@ -37,7 +37,8 @@ LIBSRC = l2vNand.c \
 	 nandalloc.c \
 	 junkzone.c \
 	 errhandle.c \
-         pageinfodebug.c 
+         pageinfodebug.c \
+	 ncrc16.c
 
 #	 badblockinfo.c
 

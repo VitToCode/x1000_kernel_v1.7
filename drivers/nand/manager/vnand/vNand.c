@@ -261,7 +261,7 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl ){
 		if (ret != 0){
 			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d ret=%d\n",
 					__FUNCTION__, __LINE__,ret);
-			goto exit;
+			//goto exit;
 		}
 		alig_wpl = vNandPageList_To_NandPageList(vNand,write_pagelist);
 		ret = v_nand_ops.operator->iMultiPageWrite(vNand->prData, alig_wpl);
