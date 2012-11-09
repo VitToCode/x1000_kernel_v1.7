@@ -120,7 +120,7 @@ struct ov2650_platform_data {
 };
 
 static struct ov2650_platform_data ov2650_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV2650_EN,

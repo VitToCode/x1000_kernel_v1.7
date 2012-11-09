@@ -92,6 +92,7 @@ unsigned char ov7675_read_reg(struct i2c_client *client,unsigned char reg)
 	if (ret != 1)
 		return -EIO;
 
+    mdelay(1);
 	ret = sensor_i2c_master_recv(client, &retval, 1);
 	if (ret < 0)
 		return ret;
@@ -105,8 +106,8 @@ int ov7675_power_up(struct cim_sensor *sensor_info)
 	struct ov7675_sensor *s;
 	s = container_of(sensor_info, struct ov7675_sensor, cs);
 	dev_info(&s->client->dev,"ov7675-----------power up\n");
+    mdelay(50);
 	gpio_set_value(s->gpio_en,0);
-	mdelay(20);
 	return 0;
 }
 
@@ -122,14 +123,6 @@ int ov7675_power_down(struct cim_sensor *sensor_info)
 
 int ov7675_reset(struct cim_sensor *sensor_info)
 {
-	struct ov7675_sensor *s;
-	s = container_of(sensor_info, struct ov7675_sensor, cs);
-	dev_info(&s->client->dev,"ov7675-----------reset %x\n",s->gpio_rst);
-	gpio_set_value(s->gpio_rst,0);
-	mdelay(100);
-	gpio_set_value(s->gpio_rst,1);
-	mdelay(100);
-	return 0;
 }
 
 int ov7675_sensor_probe(struct cim_sensor *sensor_info)
@@ -138,16 +131,17 @@ int ov7675_sensor_probe(struct cim_sensor *sensor_info)
 	struct ov7675_sensor *s;
 	s = container_of(sensor_info, struct ov7675_sensor, cs);
 	ov7675_power_up(sensor_info);
-	//ov7675_reset(sensor_info);
-	mdelay(10);
-	ov7675_write_reg(s->client,0x12,0x80);
-	mdelay(10);
-	retval=ov7675_read_reg(s->client,0x0a);
-	ov7675_power_down(sensor_info);
+    mdelay(50);
+    ov7675_write_reg(s->client,0x12,0x80);
+    mdelay(10);
+    retval=ov7675_read_reg(s->client,0x0a);
+    printk("retval = 0x%x\n", retval);
+    ov7675_power_down(sensor_info);
 
 	if(retval == 0x76)//read id,ov7675 id is 0x76
 		return 0;
 	dev_info(&s->client->dev,"ov7675 sensor probe fail %x\n",retval);
+
 	return -1;
 }
 
@@ -217,17 +211,10 @@ static int ov7675_probe(struct i2c_client *client, const struct i2c_device_id *i
 		printk("err!!! no camera i2c pdata!!! \n\n");
 		return -1;
 	}
-	//if(!gpio_request(pdata->gpio_en, "ov7675_en"))
-		//s->gpio_en= pdata->gpio_en;
-	s->gpio_rst = pdata->gpio_rst;
-	if(gpio_is_valid(s->gpio_rst))
-		printk("  gpio is valid\n");
-	if(gpio_request(pdata->gpio_rst, "ov7675_rst"))
-	{	
-		printk(" ------------------gpio fail\n");
-		
-	}
-	gpio_direction_output(s->gpio_rst,0);
+	if(!gpio_request(pdata->gpio_en, "ov7675_en"))
+		s->gpio_en= pdata->gpio_en;
+
+	gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
 	//sensor_set_i2c_speed(client,400000);//set ov7675 i2c speed : 400khz

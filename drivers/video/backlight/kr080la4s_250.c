@@ -110,16 +110,6 @@ static int __devinit kr080la4s_250_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct kr080la4s_250_data *dev;
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
-    printk("=================\n");
 
 	dev = kzalloc(sizeof(struct kr080la4s_250_data), GFP_KERNEL);
 	if (!dev)
@@ -217,7 +207,6 @@ static struct platform_driver kr080la4s_250_driver = {
 
 static int __init kr080la4s_250_init(void)
 {
-    printk("\n\n\n------------------\n\n\n\n");
 	return platform_driver_register(&kr080la4s_250_driver);
 }
 module_init(kr080la4s_250_init);
