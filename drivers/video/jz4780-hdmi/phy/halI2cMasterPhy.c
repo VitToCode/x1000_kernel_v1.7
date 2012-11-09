@@ -42,7 +42,7 @@ void halI2cMasterPhy_ReadData(u16 baseAddr, u16 *value)
 {
 	u8 msb, lsb;
 	msb = access_CoreReadByte((baseAddr + PHY_I2CM_DATAI + 0));
-	lsb = access_CoreReadByte((baseAddr + PHY_I2CM_DATAI + 0));
+	lsb = access_CoreReadByte((baseAddr + PHY_I2CM_DATAI + 1));
 
 	*value = (msb << 8) | lsb;
 }
