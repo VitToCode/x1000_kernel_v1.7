@@ -7,7 +7,7 @@
 #include "vnandinfo.h"
 
 #define BLOCKPERZONE(context)   	8
-#define REREAD_PAGEINFO
+//#define REREAD_PAGEINFO
 typedef struct _Zone Zone;
 
 struct _Zone {
