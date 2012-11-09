@@ -19,6 +19,9 @@ config BOARD_WARRIOR
 config BOARD_M80
         bool "M80"
 
+config BOARD_JI8070A
+        bool "JI8070A"
+
 config BOARD_M80701
 		bool "M80701"
 		
@@ -38,6 +41,7 @@ config BOARD_NAME
 	default "Warrior" if BOARD_WARRIOR
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
+	default "JI8070A" if BOARD_JI8070A
 	default "M80701" if BOARD_M80701
 	default "NPM801" if BOARD_NPM801
 
