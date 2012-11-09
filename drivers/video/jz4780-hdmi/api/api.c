@@ -219,7 +219,7 @@ int api_phy_enable(phy_state is_enable) //1 is enable
 
 		halSourcePhy_Gen2PDDQ(api_mBaseAddress + PHY_BASE_ADDR, 1);
 		halSourcePhy_Gen2TxPowerOn(api_mBaseAddress + PHY_BASE_ADDR, 0);
-		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 1); /*  reset PHY */
+		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 0); /*  reset PHY */
 		break;
 	case PHY_DISABLE_ALL:
 		printk("hdmi phy disable complete\n");
@@ -227,13 +227,13 @@ int api_phy_enable(phy_state is_enable) //1 is enable
 
 		halSourcePhy_Gen2PDDQ(api_mBaseAddress + PHY_BASE_ADDR, 1);
 		halSourcePhy_Gen2TxPowerOn(api_mBaseAddress + PHY_BASE_ADDR, 0);
-		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 1); /*  reset PHY */
+		halMainController_PhyReset(api_mBaseAddress + MC_BASE_ADDR, 0); /*  reset PHY */
 		break;
 	default: 
 		printk("====hdmi phy param is err\n");
 		return FALSE;
 	}
-	printk("====phy conf0=%x\n",*(unsigned int *)0xb018c000);
+	printk("====phy conf0=%x reset=%x\n",*(unsigned int *)0xb018c000,*(unsigned int *)0xb0190014);
 	return TRUE;
 }
 
