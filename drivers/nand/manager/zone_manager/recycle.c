@@ -395,18 +395,21 @@ static int getRecycleZone ( Recycle *rep)
 	int ret = 0;
 	int context = rep->context;
 	Zone *zone;
+	Zone *current_zone;
 
 	ZoneID = Get_MaxJunkZone(((Context *)context)->junkzone);
 	rep->junk_zoneid = ZoneID;
-	if(ZoneID == 0xffff)
+	if(ZoneID == 0xffff){
 		ZoneID = get_normal_zoneID(context);
+	}
 
 	if(ZoneID == 0xffff) {
 		ret = -1;
 		goto err;
 	}
 
-	if(ZoneID == ZoneManager_GetCurrentWriteZone(rep->context)->ZoneID){
+	current_zone = ZoneManager_GetCurrentWriteZone(rep->context);
+	if(current_zone && (ZoneID == current_zone->ZoneID)){
 		ndprint(RECYCLE_INFO,"Start handle recyclezone=currentzone!!! func %s line %d ZoneID = %d\n",
 				__FUNCTION__,__LINE__,ZoneID);
 		zone = ZoneManager_Get_Used_Zone(((Context*)(rep->context))->zonep, ZoneID);
