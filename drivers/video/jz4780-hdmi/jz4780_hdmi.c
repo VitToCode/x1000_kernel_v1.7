@@ -411,7 +411,9 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		if(jzhdmi->hdmi_info.support_mode != NULL)
 			kzfree(jzhdmi->hdmi_info.support_mode);
-		api_phy_enable(PHY_ENABLE_HPD);
+		if(jzhdmi->is_suspended == 0){
+			api_phy_enable(PHY_ENABLE_HPD);
+		}
 		break;
 
 	case HDMI_POWER_OFF_COMPLETE:
@@ -444,8 +446,8 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	struct jzhdmi *jzhdmi;
 
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
-	hpd_callback(&api_mHpd);
 	jzhdmi->is_suspended = 1;
+	hpd_callback(&api_mHpd);
 	system_InterruptDisable(TX_INT);
 	api_phy_enable(PHY_DISABLE_ALL);
 //	regulator_disable(jzhdmi->hdmi_power);
