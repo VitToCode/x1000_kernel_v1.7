@@ -89,7 +89,7 @@ static struct i2c_board_info ji8070a_i2c1_devs[] __initdata = {
 		.platform_data	= &ji8070a_tsc_pdata,
 	},
 #endif
-#if (defined(CONFIG_TOUCHSCREEN_CT36X) || defined(CONFIG_TOUCHSCREEN_CT360)
+#if (defined(CONFIG_TOUCHSCREEN_CT36X) || defined(CONFIG_TOUCHSCREEN_CT360))
 	{
 		I2C_BOARD_INFO("ct36x_ts", 0x01),
 		.platform_data = &ji8070a_tsc_pdata,

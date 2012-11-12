@@ -21,7 +21,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	ji8070a,	1000000,	1350000);
+	ji8070a,	1000000,	1400000);
 
 /**
  * I/O Regulator.
@@ -81,20 +81,20 @@ FIXED_REGULATOR_DEF(
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
 	ji8070a_vbus,
-	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	"OTG-Vbus",	5000000,GPIO_PE(10),	
+	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,	"vdrvvbus",	NULL);
 
 FIXED_REGULATOR_DEF(
 	ji8070a_vcim,
-	"Camera",	2800000,
-	GPIO_PB(27),	HIGH_ENABLE,	0,
+	"Camera",	2800000,GPIO_PB(27),	
+	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
 	ji8070a_vlcd,
-	"LCD",		3300000,
-	GPIO_PB(23),	HIGH_ENABLE,	0,
+	"LCD",		3300000,GPIO_PB(23),	
+	HIGH_ENABLE,EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
@@ -115,7 +115,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  */
 static struct regulator_info ji8070a_pmu_regulators[] = {
 	{"OUT1", &ji8070a_vcore_init_data},
-	{"OUT2", &ji8070a_vccio_init_data},
+	{"OUT3", &ji8070a_vccio_init_data},
 	{"OUT6", &ji8070a_vwifi_init_data},
 	{"OUT7", &ji8070a_vtsc_init_data},
 	{"OUT8", &ji8070a_vgsensor_init_data},
