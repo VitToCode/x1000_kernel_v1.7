@@ -1146,6 +1146,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 			unlock_cache((int)cm, pi);
 			start_reread_ecc_error_handle(context, zone->ZoneID);
 			zone = ZoneManager_GetCurrentWriteZone(context);
+			INIT_L2P(l2p);
 			l2p->follow_node = l2p->prev_node;
 			is_not_ecc_error = 0;
 		}else {
