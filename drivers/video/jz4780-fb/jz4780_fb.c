@@ -856,13 +856,12 @@ static int jzfb_set_par(struct fb_info *info)
 	reg_write(jzfb, LCDC_CTRL, ctrl);
 	reg_write(jzfb, LCDC_PCFG, pcfg);
 
-	mutex_unlock(&jzfb->lock);
-
-	if(is_enabled)
-		jzfb_enable(info);
-
 	jzfb_config_fg0(info);
 	jzfb_prepare_dma_desc(info);
+
+	mutex_unlock(&jzfb->lock);
+	if(is_enabled)
+		jzfb_enable(info);
 
 	clk_disable(jzfb->lpclk);
 	clk_set_rate(jzfb->lpclk, rate);
