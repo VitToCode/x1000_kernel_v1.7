@@ -68,30 +68,30 @@ unsigned long regulator_find_voltage(int freqs)
 
 static int freq_table_prepare(void)
 {
-	struct clk *apll;
+	struct clk *sclka;
 	struct clk *mpll;
 	struct clk *cparent;
 	unsigned int i,max;
-	unsigned int apll_rate,mpll_rate;
+	unsigned int sclka_rate,mpll_rate;
 
-	apll = clk_get(NULL,"apll");
-	if (IS_ERR(apll)) {
+	sclka = clk_get(NULL,"sclka");
+	if (IS_ERR(sclka)) {
 		return -EINVAL;
 	}
 
 	mpll = clk_get(NULL,"mpll");
 	if (IS_ERR(mpll)) {
-		clk_put(apll);
+		clk_put(sclka);
 		return -EINVAL;
 	}
 
-	apll_rate = clk_get_rate(apll) / 1000;
+	sclka_rate = clk_get_rate(sclka) / 1000;
 	mpll_rate = clk_get_rate(mpll) / 1000;
 	cparent = clk_get_parent(cpu_clk);
 	memset(freq_table,0,sizeof(freq_table));
 #if 0
-	if(apll_rate > mpll_rate) {
-		max = apll_rate;
+	if(sclka_rate > mpll_rate) {
+		max = sclka_rate;
 		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000);i++) {
 			freq_table[i].index = i;
 			freq_table[i].frequency = max;
@@ -99,9 +99,9 @@ static int freq_table_prepare(void)
 		}
 	}
 #else
-	if (cparent == apll) {
+	if (cparent == sclka) {
 		freq_table[0].index = 0;
-		freq_table[0].frequency = apll_rate;
+		freq_table[0].frequency = sclka_rate;
 		i = 1;
 	} else {
 		i = 0;
@@ -119,7 +119,7 @@ static int freq_table_prepare(void)
 	freq_table[CPUFREQ_NR-1].index = CPUFREQ_NR-1;
 	freq_table[CPUFREQ_NR-1].frequency = CPUFREQ_TABLE_END;
 
-	clk_put(apll);
+	clk_put(sclka);
 	clk_put(mpll);
 #if 0
 	for(i=0;i<CPUFREQ_NR;i++) {
