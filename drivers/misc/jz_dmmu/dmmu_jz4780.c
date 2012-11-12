@@ -36,6 +36,7 @@
 #define TABLE_ID_BITMAP_NONE (0)
 #define TABLE_ID_BITMAP_USER_SET (~0)
 
+#define VIDEO_TABLE_FLAGE 1
 
 struct buffer_heap_info {
 	struct list_head list;
@@ -62,6 +63,7 @@ struct dup_page_info {
 struct proc_page_tab_data {
 	int pid;					/* process id(tgid) */
 	int tid;					/* thread id */
+	int table_flag;
 
 	void *global_data;			    /* point to global_data */
 	unsigned int base;              /* physical start address of the remaped dmmu space */
@@ -306,9 +308,11 @@ static int dmmu_release(struct inode *inode, struct file *file)
 	int ret = 0;
 
 	/* check pid */
-	if (check_pid(table) != 0) {
-		dev_err(jz_dmmu.dev, "check_pid failed!\n");
-		return -EFAULT;
+	if (table->table_flag != VIDEO_TABLE_FLAGE) {
+		if (check_pid(table) != 0) {
+			dev_err(jz_dmmu.dev, "check_pid failed!\n");
+			return -EFAULT;
+		}
 	}
 
 	/* release page table space */
@@ -633,6 +637,7 @@ static int get_user_mem_pages_phys_addr_table(struct proc_page_tab_data *table, 
 static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
+	int flag = 0;
 	unsigned int pbase;
 	void __user *argp = (void __user *)arg;
 
@@ -728,6 +733,13 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* 	return -EFAULT; */
 		//return dmmu_set_page_table(table, &table);
 		//return -EINVAL;
+		break;
+	case DMMU_SET_TABLE_FLAG:
+		if (copy_from_user(&flag, argp, sizeof(int))) {
+				dev_err(jz_dmmu.dev, "copy_from_user failed!\n");
+				return -EFAULT;
+			}
+		table->table_flag = flag;
 		break;
 	default:
 		dev_err(jz_dmmu.dev, "unknown command!\n");

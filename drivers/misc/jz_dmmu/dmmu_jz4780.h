@@ -80,5 +80,6 @@ static inline int dump_mem_info(struct dmmu_mem_info *mem, char *description)
 #define DMMU_ALLOC_PAGE_TABLE	            _IOW(DMMU_IOCTL_MAGIC, 0x31, unsigned int)
 #define DMMU_FREE_PAGE_TABLE	            _IOW(DMMU_IOCTL_MAGIC, 0x32, unsigned int)
 #define DMMU_SET_PAGE_TABLE 	            _IOW(DMMU_IOCTL_MAGIC, 0x33, unsigned int)
+#define DMMU_SET_TABLE_FLAG 	            _IOW(DMMU_IOCTL_MAGIC, 0x34, int)
 
 #endif	/*  _JZ_DMMU_JZ4780_H_ */
