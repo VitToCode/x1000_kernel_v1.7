@@ -90,7 +90,7 @@ static int act8600_get_ac_state(struct act8600_charger *charger,
 		return 0;
 	}
 #else
-	return -1;
+	return 0;
 #endif
 }
 
@@ -113,7 +113,7 @@ static int act8600_get_usb_state(struct act8600_charger *charger,
 		return 0;
 	}
 #else
-	return -1;
+	return 0;
 #endif
 }
 
