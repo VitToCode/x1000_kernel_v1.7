@@ -107,6 +107,8 @@ struct jzfb {
 	wait_queue_head_t vsync_wq;
 	struct task_struct *vsync_thread;
 	ktime_t	vsync_timestamp;
+	unsigned int vsync_skip_map; /* 10 bits width */
+	int vsync_skip_ratio;
 
 	struct mutex lock;
 	spinlock_t suspend_lock;

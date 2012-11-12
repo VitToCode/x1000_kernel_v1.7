@@ -1513,6 +1513,18 @@ static int jzfb_vsync_timestamp_changed(struct jzfb *jzfb,
 	return !ktime_equal(prev_timestamp, jzfb->vsync_timestamp);
 }
 
+static unsigned int ror_wide10_bit1(unsigned int num)
+{
+	num &= 0x3ff;
+	if (num & 0x1) {
+		num = num >> 1;
+		num |= 0x200;
+	} else {
+		num = num >> 1;
+	}
+	return num;
+}
+
 static int jzfb_wait_for_vsync_thread(void *data)
 {
 	struct jzfb *jzfb = (struct jzfb *)data;
@@ -1526,6 +1538,14 @@ static int jzfb_wait_for_vsync_thread(void *data)
 		if (ret > 0) {
 			char *envp[2];
 			char buf[64];
+
+			mutex_lock(&jzfb->lock);
+			jzfb->vsync_skip_map =
+				ror_wide10_bit1(jzfb->vsync_skip_map);
+			mutex_unlock(&jzfb->lock);
+			if (!(jzfb->vsync_skip_map & 0x1))
+			        continue;
+
 			snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(
 					 jzfb->vsync_timestamp));
 			envp[0] = buf;
@@ -1910,11 +1930,57 @@ static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char
 	return 0;
 }
 
+static ssize_t vsync_skip_r(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+	mutex_lock(&jzfb->lock);
+	snprintf(buf, 3, "%d\n", jzfb->vsync_skip_ratio);
+	dev_info(dev, "vsync_skip_map = 0x%08x\n", jzfb->vsync_skip_map);
+	mutex_unlock(&jzfb->lock);
+	return 3;	/* sizeof ("%d\n") */
+}
+
+static ssize_t vsync_skip_w(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+	unsigned int map_wide10 = 0;
+	int rate, i, p, n;
+	int fake_float_1k;
+
+	if ((count != 1) && (count != 2))
+		return -EINVAL;
+	if ((*buf < '0') && (*buf > '9'))
+		return -EINVAL;
+
+	rate = *buf - '0' + 1;			/* 1 ~ 10 */
+        fake_float_1k = 10000 / rate;		/* 10.0 / rate */
+
+	p = 1;
+	n = (fake_float_1k * p + 500) / 1000;	/* +0.5 to int */
+
+        for (i = 1; i <= 10; i++) {
+		map_wide10 = map_wide10 << 1;
+		if (i == n) {
+		        map_wide10++;
+			p++;
+			n = (fake_float_1k * p + 500) / 1000;
+		}
+	}
+	mutex_lock(&jzfb->lock);
+	jzfb->vsync_skip_map = map_wide10;
+	jzfb->vsync_skip_ratio = rate - 1;	/* 0 ~ 9 */
+        mutex_unlock(&jzfb->lock);
+        return count;
+}
+
 static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(dump_lcd, S_IRUGO|S_IWUSR, dump_lcd, NULL),
 	__ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL),
 	__ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL),
 	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
+	__ATTR(vsync_skip, S_IRUGO|S_IWUGO, vsync_skip_r, vsync_skip_w),
 };
 
 static int __devinit jzfb_probe(struct platform_device *pdev)
@@ -2068,6 +2134,8 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
+	jzfb->vsync_skip_ratio = 9;
+	jzfb->vsync_skip_map = 0x3ff;
 	init_waitqueue_head(&jzfb->vsync_wq);
 	jzfb->vsync_thread = kthread_run(jzfb_wait_for_vsync_thread,
 					 jzfb, "jzfb-vsync");
