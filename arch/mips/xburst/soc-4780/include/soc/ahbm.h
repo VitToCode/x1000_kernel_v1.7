@@ -28,32 +28,6 @@ do{ 								\
 
 #define ahbm_read(M,off) inl((AHBM_##M##_IOB)+(off))
 
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-
-#define PRINT_ARRAY(n,M) \
-	do{					\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x04),ahbm_read(M,0x04));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x08),ahbm_read(M,0x08));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x10),ahbm_read(M,0x10));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x14),ahbm_read(M,0x14));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x18),ahbm_read(M,0x18));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x1c),ahbm_read(M,0x1c));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x20),ahbm_read(M,0x20));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x24),ahbm_read(M,0x24));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x28),ahbm_read(M,0x28));	\
-	}while(0);
-
-#define PRINT_ARRAY2(n,M) \
-	do{					\
-		PRINT_ARRAY(n,M); \
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x2c),ahbm_read(M,0x2c));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x30),ahbm_read(M,0x30));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x34),ahbm_read(M,0x34));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x38),ahbm_read(M,0x38));	\
-		PRINT("CH%d(%x):%x\n",n,(AHBM_##M##_IOB+0x3c),ahbm_read(M,0x3c));	\
-	}while(0);
-
-
 #endif
 
 
