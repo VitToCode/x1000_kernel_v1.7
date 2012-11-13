@@ -116,7 +116,7 @@ static int freq_table_prepare(void)
 
 	clk_put(sclka);
 	clk_put(mpll);
-#if 1
+#if 0
 	for(i=0;i<CPUFREQ_NR;i++) {
 		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
 	}
