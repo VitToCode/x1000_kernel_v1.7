@@ -36,11 +36,22 @@ extern struct platform_device warrior_backlight_device;
 extern struct snd_codec_data codec_data;
 
 /**
- * headphone and speaker mute gpio
+ * audio gpio
  **/
+#define GPIO_HP_MUTE		GPIO_PD(13)	/*hp mute gpio*/
+#define GPIO_HP_MUTE_LEVEL	1		/*vaild level*/
 
-#define GPIO_HP_MUTE	GPIO_PD(13)
-#define GPIO_SPEAKER_EN GPIO_PE(6)
+#define GPIO_SPEAKER_EN		GPIO_PE(6)	/*speaker enable gpio*/
+#define GPIO_SPEAKER_EN_LEVEL	1
+
+#define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
+#define GPIO_HP_INSERT_LEVEL	1
+
+#define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
+#define GPIO_MIC_INSERT_LEVEL	-1
+
+#define GPIO_MIC_SELECT		-1		/*mic select gpio*/
+#define GPIO_HP_MIC_LEVEL	-1		/*headset mic select level*/
 
 /**
  * nand platform data

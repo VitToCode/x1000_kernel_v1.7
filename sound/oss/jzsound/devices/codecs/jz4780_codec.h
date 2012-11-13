@@ -900,12 +900,12 @@ do {	\
 
 #define __codec_enable_linein2_diff()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_DIFF,CR_LI2_LIN1DIF);	\
+	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_DIFF,CR_LI2_LIN2DIF);	\
 } while (0)
 
 #define __codec_disable_linein2_diff()	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_SING,CR_LI2_LIN1DIF);	\
+	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_SING,CR_LI2_LIN2DIF);	\
 } while (0)
 
 /*line in mux option*/

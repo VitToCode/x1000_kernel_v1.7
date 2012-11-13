@@ -23,18 +23,30 @@ enum {
 	INVALID,
 };
 
+enum mic_route{
+	CODEC_HEADSET_ROUTE,
+	CODEC_HEADPHONE_ROUTE,
+};
+
 struct snd_switch_data {
 	struct switch_dev sdev;
 	wait_queue_head_t wq;
 	int type;
-	unsigned gpio;
-	const char *name_on;
+	const char *name_headset_on;
+	const char *name_headphone_on;
 	const char *name_off;
-	const char *state_on;
+	const char *state_headset_on;
+	const char *state_headphone_on;
 	const char *state_off;
 	int irq;
 	struct work_struct work;
-	int valid_level;
+	int hp_gpio;
+	int hp_valid_level;
+
+	/*mic detect and select*/
+	int mic_gpio;
+	int	mic_vaild_level;
+
 	int (*codec_get_sate)(void);
 };
 

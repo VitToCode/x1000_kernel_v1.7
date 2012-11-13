@@ -19,8 +19,12 @@ typedef struct __route_conf_base {
 	//record//
 	int route_mic1_mode;
 	int route_mic2_mode;
+	int route_line1_mode;
+	int route_line2_mode;
 	int route_inputl_mux_mode;
 	int route_inputr_mux_mode;
+	int route_inputl_mode;
+	int route_inputr_mode;
 	int route_inputl_to_bypass_mode;
 	int route_inputr_to_bypass_mode;
 	int route_record_mux_mode;
@@ -68,17 +72,20 @@ struct __codec_route_info {
 #define ROUTE_READY_FOR_DAC					2
 #define ROUTE_READY_FOR_ADC_DAC				3
 
+#define INPUT_MASK_INPUT_MUX				0x3
+#define INPUT_MASK_BYPASS_MUX				0xC
+
 /*left input mux */
-#define INPUTL_MUX_MIC1_TO_AN1				1
-#define INPUTL_MUX_MIC1_TO_AN2				2
-#define INPUTL_MUX_LINEIN1_TO_AN1			4
-#define INPUTL_MUX_LINEIN1_TO_AN2			8
+#define INPUTL_MUX_MIC1_TO_AN1			0x01
+#define INPUTL_MUX_MIC1_TO_AN2			0x02
+#define INPUTL_MUX_LINEIN1_TO_AN1			0x04
+#define INPUTL_MUX_LINEIN1_TO_AN2			0x08
 
 /*right input mux*/
-#define INPUTR_MUX_MIC2_TO_AN3				1
-#define INPUTR_MUX_MIC2_TO_AN4				2
-#define INPUTR_MUX_LINEIN2_TO_AN3			4
-#define INPUTR_MUX_LINEIN2_TO_AN4			8
+#define INPUTR_MUX_MIC2_TO_AN3			0x01
+#define INPUTR_MUX_MIC2_TO_AN4			0x02
+#define INPUTR_MUX_LINEIN2_TO_AN3			0x04
+#define INPUTR_MUX_LINEIN2_TO_AN4			0x08
 
 /*mic1 mode select*/
 #define MIC1_DIFF_WITH_MICBIAS				1
@@ -87,12 +94,24 @@ struct __codec_route_info {
 #define MIC1_SING_WITHOUT_MICBIAS			4
 #define MIC1_DISABLE						DISABLE
 
+/*input mode select*/
+#define INPUTR_TO_ADC_ENABLE				1
+#define INPUTR_TO_ADC_DISABLE				DISABLE
+#define INPUTL_TO_ADC_ENABLE				1
+#define INPUTL_TO_ADC_DISABLE				DISABLE
+
+
 /*mic2 mode select*/
-#define MIC2_DIFF_WITH_MICBIAS				1
-#define MIC2_DIFF_WITHOUT_MICBIAS			2
-#define MIC2_SING_WITH_MICBIAS				3
-#define MIC2_SING_WITHOUT_MICBIAS			4
+#define MIC2_SING_WITH_MICBIAS				1
+#define MIC2_SING_WITHOUT_MICBIAS			2
 #define MIC2_DISABLE						DISABLE
+
+/*line1 mode select*/
+#define LINE1_DIFF							1
+#define LINE1_SING							2
+
+/*line2 mode select*/
+#define LINE2_SING							1
 
 /*left input bypass to output*/
 #define INPUTL_TO_BYPASS_ENABLE				1

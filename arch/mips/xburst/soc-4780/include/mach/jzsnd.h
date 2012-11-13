@@ -9,41 +9,49 @@
 #include <linux/sound.h>
 #include <linux/platform_device.h>
 
-/*####################################################*\
- * used for codec
-\*####################################################*/
 enum snd_codec_route_t {
 	SND_ROUTE_NONE = 0,
+	/*
+	 * clear route
+	 */
 	SND_ROUTE_ALL_CLEAR,
 	SND_ROUTE_REPLAY_CLEAR,
 	SND_ROUTE_RECORD_CLEAR,
+	/*
+	 * replay route
+	 */
+	SND_ROUTE_REPLAY_ROUTE_START,
 	/*internal codec: linein2 bypass to lineout */
-	SND_ROUTE_REPLAY_INCALL_WITH_HANDSET,
+	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT = SND_ROUTE_REPLAY_ROUTE_START,
 	/*internal codec: linein2 bypass to hprl */
-	SND_ROUTE_REPLAY_INCALL_WITH_HEADSET,
-	/*internal codec: ..*/
-	SND_ROUTE_REPLAY_INCALL_WITH_HEADPHONE,
-	/*internal codec: dacrl to hprl*/
-	SND_ROUTE_REPLAY_SPEAKER,
+	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
 	/*internal codec: dacrl to lineout*/
-	SND_ROUTE_REPLAY_HEADPHONE,
+	SND_ROUTE_REPLAY_DACRL_TO_LO,
+	/*internal codec: dacrl to hprl*/
+	SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 	/*internal codec: ..*/
-	SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE,
-	/*internal codec: ..*/
-	SND_ROUTE_REPLAY_FM_SPEAKER,
-	/*internal codec: ..*/
-	SND_ROUTE_REPLAY_FM_HEADSET,
+	SND_ROUTE_REPLAY_DACRL_TO_ALL,
+	/*internal codec replay route end*/
+	SND_ROUTE_REPLAY_ROUTE_END = SND_ROUTE_REPLAY_DACRL_TO_ALL,
+	/*
+	 * record route
+	 */
+	SND_ROUTE_RECORD_ROUTE_START,
 	/*internal codec: mic 1 to adcrl*/
-	SND_ROUTE_RECORD_MIC,
+	SND_ROUTE_RECORD_MIC1_AN1 = SND_ROUTE_RECORD_ROUTE_START,
+	/*internal codec: mic 2 to adcrl*/
+	SND_ROUTE_RECORD_MIC1_SIN_AN2,
+	/*internal codec: mic 2 to adcrl*/
+	SND_ROUTE_RECORD_MIC2_SIN_AN3,
 	/*internal codec: linein 1 to adcrl*/
-	SND_ROUTE_RECORD_LINEIN,
-	/*internal codec: ..*/
-	SND_ROUTE_RECORD_INCALL_WITH_HANDSET,
-	/*internal codec: ..*/
-	SND_ROUTE_RECORD_INCALL_WITH_HEADSET,
-	/*internal codec: ..*/
-	SND_ROUTE_RECORD_INCALL_WITH_HEADPHONE,
-	SND_ROUTE_COUNT,
+	SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	/*internal codec record route end*/
+	SND_ROUTE_RECORD_ROUTE_END = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+
+	/*
+	 *route count
+	 */
+	SND_ROUTE_COUNT = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 };
 
 struct snd_board_route {
@@ -70,17 +78,23 @@ struct snd_codec_data {
 	/* default route */
 	struct snd_board_route replay_def_route;
 	struct snd_board_route record_def_route;
-	/* device <-> route map */
-	struct snd_board_route handset_route;
-	struct snd_board_route headset_route;
-	struct snd_board_route speaker_route;
-	struct snd_board_route headset_and_speaker_route;
+
+	/* device <-> route map record*/
+	struct snd_board_route record_headset_mic_route;
+	struct snd_board_route record_buildin_mic_route;
+	/* device <-> route map replay*/
+	struct snd_board_route replay_handset_route;
+	struct snd_board_route replay_headset_route;
+	struct snd_board_route replay_speaker_route;
+	struct snd_board_route replay_headset_and_speaker_route;
 	struct snd_board_route fm_speaker_route;
 	struct snd_board_route fm_headset_route;
 	/* gpio */
 	struct snd_board_gpio gpio_hp_mute;
 	struct snd_board_gpio gpio_spk_en;
-	struct snd_board_gpio gpio_head_det;
+	struct snd_board_gpio gpio_hp_detect;
+	struct snd_board_gpio gpio_mic_detect;
+	struct snd_board_gpio gpio_mic_select;
 	/* other */
 	int hpsense_active_level;
 };

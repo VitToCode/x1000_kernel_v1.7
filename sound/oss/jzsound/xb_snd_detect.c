@@ -19,12 +19,12 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 	switch_set_state(&switch_data->sdev, state);
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
-		if (switch_data->valid_level == HIGH_VALID) {
+		if (switch_data->hp_valid_level == HIGH_VALID) {
 			if (state)
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
 			else
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-		} else if (switch_data->valid_level == LOW_VALID) {
+		} else if (switch_data->hp_valid_level == LOW_VALID) {
 			if (state)
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
 			else
@@ -43,22 +43,22 @@ static void snd_switch_work(struct work_struct *work)
 
 	/* if gipo switch */
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
-		//__gpio_disable_pull(switch_data->gpio);
-		gpio_direction_input(switch_data->gpio);
-		state = gpio_get_value(switch_data->gpio);
+		//__gpio_disable_pull(switch_data->hp_gpio);
+		gpio_direction_input(switch_data->hp_gpio);
+		state = gpio_get_value(switch_data->hp_gpio);
 		for (i = 0; i < 5; i++) {
 			msleep(20);
-			//__gpio_disable_pull(data->gpio);
-			tmp_state = gpio_get_value(switch_data->gpio);
+			//__gpio_disable_pull(data->hp_gpio);
+			tmp_state = gpio_get_value(switch_data->hp_gpio);
 			if (tmp_state != state) {
 				i = -1;
-				//__gpio_disable_pull(data->gpio);
-				state = gpio_get_value(switch_data->gpio);
+				//__gpio_disable_pull(data->hp_gpio);
+				state = gpio_get_value(switch_data->hp_gpio);
 				continue;
 			}
 		}
 
-		if (state == (int)switch_data->valid_level)
+		if (state == (int)switch_data->hp_valid_level)
 			state = 1;
 		else
 			state = 0;
@@ -68,6 +68,15 @@ static void snd_switch_work(struct work_struct *work)
 	if (switch_data->type == SND_SWITCH_TYPE_CODEC) {
 		state = switch_data->codec_get_sate();
 	}
+
+	if (state == 1 && switch_data->mic_gpio != -1) {
+		gpio_direction_input(switch_data->mic_gpio);
+		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
+			state <<= 1;
+		else
+			state <<= 0;
+	} else
+		state <<= 1;
 
 	snd_switch_set_state(switch_data, state);
 }
@@ -105,7 +114,9 @@ static ssize_t switch_snd_print_name(struct switch_dev *sdev, char *buf)
 	struct snd_switch_data *switch_data =
 		container_of(sdev ,struct snd_switch_data, sdev);
 
-	if (!switch_data->name_on&&!switch_data->name_off)
+	if (!switch_data->name_headset_on &&
+			!switch_data->name_headset_on&&
+			!switch_data->name_off)
 		return sprintf(buf,"%s.\n",sdev->name);
 
 	return -1;
@@ -116,9 +127,11 @@ static ssize_t switch_snd_print_state(struct switch_dev *sdev, char *buf)
 	struct snd_switch_data *switch_data =
 		container_of(sdev, struct snd_switch_data, sdev);
 	const char *state;
-
-	if (switch_get_state(sdev))
-		state = switch_data->state_on;
+	unsigned int state_val = switch_get_state(sdev);
+	if ( state_val == 1)
+		state = switch_data->state_headset_on;
+	else if ( state_val == 2)
+		state = switch_data->state_headphone_on;
 	else
 		state = switch_data->state_off;
 
@@ -146,15 +159,15 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 
-		if (!gpio_is_valid(switch_data->gpio))
+		if (!gpio_is_valid(switch_data->hp_gpio))
 			goto err_test_gpio;
 
-		ret = gpio_request(switch_data->gpio, pdev->name);
+		ret = gpio_request(switch_data->hp_gpio, pdev->name);
 		if (ret < 0)
 			goto err_request_gpio;
 
 
-		switch_data->irq = gpio_to_irq(switch_data->gpio);
+		switch_data->irq = gpio_to_irq(switch_data->hp_gpio);
 		if (switch_data->irq < 0) {
 			printk("get irq error.\n");
 			ret = switch_data->irq;
@@ -178,7 +191,7 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 err_request_irq:
 err_detect_irq_num_failed:
-	gpio_free(switch_data->gpio);
+	gpio_free(switch_data->hp_gpio);
 err_request_gpio:
 err_test_gpio:
     switch_dev_unregister(&switch_data->sdev);
@@ -193,7 +206,7 @@ static int __devexit snd_switch_remove(struct platform_device *pdev)
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		cancel_work_sync(&switch_data->work);
-		gpio_free(switch_data->gpio);
+		gpio_free(switch_data->hp_gpio);
 	}
 
 	switch_dev_unregister(&switch_data->sdev);

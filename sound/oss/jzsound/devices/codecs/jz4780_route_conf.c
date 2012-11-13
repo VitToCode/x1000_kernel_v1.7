@@ -19,39 +19,75 @@
 
 /*######################################################################################################*/
 
-route_conf_base const record_mic_mono_diff_with_bias_to_adclr  = {
+route_conf_base const record_mic1_an1_to_adclr  = {
 	.route_ready_mode = ROUTE_READY_FOR_ADC,	//fix
 	/*--------route-----------*/
 	//record
-	.route_mic1_mode = MIC1_DIFF_WITH_MICBIAS,	//..
-	.route_mic2_mode = MIC2_DISABLE,	//..
-	//.route_mic2_mode = MIC2_DIFF_WITH_MICBIAS,	//..
-	//.route_inputr_mux_mode = INPUTL_MUX_MIC2_TO_AN3	//..
-	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,	//..
+	.route_mic1_mode = MIC1_DIFF_WITH_MICBIAS,					//fix
+	.route_mic2_mode = MIC2_DISABLE,							//fix
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,			//fix
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,					//fix
+	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,					//fix
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
-	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,	//..
-	//.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,	//..
-	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,	//fix
+	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,			//fix
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,				//fix
 	/*If you just have one mic ,you should select this for stereo output*/
 	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix
 	.attibute_adc_l_gain	=	23,
 	.attibute_adc_r_gain	=	23,
 };
 
-route_conf_base const record_linein_mono_diff_to_adclr = {
-	.route_ready_mode = ROUTE_READY_FOR_ADC, //fix
+route_conf_base const record_mic1_single_an2_to_adclr = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,					//fix
 	/*--------route-----------*/
 	//record
-	.route_mic1_mode = MIC1_DISABLE,	//fix
-	.route_mic2_mode = MIC2_DISABLE,	//fix
-	.route_inputl_mux_mode = INPUTL_MUX_LINEIN1_TO_AN1,			//..
-	//.route_inputr_mux_mode = INPUTR_MUX_LINEIN2_TO_AN3,			//..
+	.route_mic1_mode = MIC1_SING_WITH_MICBIAS,					//..
+	.route_mic2_mode = MIC2_DISABLE,							//fix
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,			//fix
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,					//fix
+	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,					//fix
+	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
+	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
+	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,			//fix
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,				//fix
+	/*If you just have one mic ,you should select this for stereo output*/
+	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,//fix
+	.attibute_adc_l_gain	=	23,
+	.attibute_adc_r_gain	=	23,
+};
+route_conf_base const record_mic2_single_an3_to_adclr  = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,	//fix
+	/*--------route-----------*/
+	//record
+	.route_mic1_mode = MIC1_DISABLE,							//..
+	.route_mic2_mode = MIC2_SING_WITH_MICBIAS,					//fix
+	.route_inputr_mux_mode = INPUTR_MUX_MIC2_TO_AN3,			//fix
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,					//fix
+	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,					//fix
+	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
+	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
+	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,			//..
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,				//fix
+	/*If you just have one mic ,you should select this for stereo output*/
+	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,//fix
+	.attibute_adc_l_gain	=	23,
+	.attibute_adc_r_gain	=	23,
+};
+route_conf_base const record_linein1_diff_to_adclr = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,					//fix
+	/*--------route-----------*/
+	//record
+	.route_mic1_mode = MIC1_DISABLE,							//fix
+	.route_mic2_mode = MIC2_DISABLE,							//fix
+	.route_line1_mode = LINE1_DIFF,								//fix
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,					//fix
+	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,					//fix
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,			//..
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,    //fix
-	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR, //fix
-	//.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,  //..
-	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,	//..
+	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,			//fix
+	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,				//fix
 	/*If you just have one mic ,you should select this for stereo output*/
 	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix
 };
@@ -186,33 +222,42 @@ struct __codec_route_info codec_route_info[] = {
 
 	/*********************** record route *************************/
 	{
-		.route_name = SND_ROUTE_RECORD_MIC,
-		.route_conf = &record_mic_mono_diff_with_bias_to_adclr,
+		.route_name = SND_ROUTE_RECORD_MIC1_AN1,
+		.route_conf = &record_mic1_an1_to_adclr,
 	},
 	{
-		.route_name = SND_ROUTE_RECORD_LINEIN,
-		.route_conf = &record_linein_mono_diff_to_adclr,
+		.route_name = SND_ROUTE_RECORD_MIC1_SIN_AN2,
+		.route_conf = &record_mic1_single_an2_to_adclr,
 	},
+	{
+		.route_name = SND_ROUTE_RECORD_MIC2_SIN_AN3,
+		.route_conf = &record_mic2_single_an3_to_adclr,
+	},
+	{
+		.route_name = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+		.route_conf = &record_linein1_diff_to_adclr,
+	},
+
 	/*********************** replay route **************************/
 	{
-		.route_name = SND_ROUTE_REPLAY_HEADPHONE,
+		.route_name = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 		.route_conf = &replay_hp_stereo,
 	},
 	{
-		.route_name = SND_ROUTE_REPLAY_SPEAKER,
+		.route_name = SND_ROUTE_REPLAY_DACRL_TO_LO,
 		.route_conf = &replay_lineout_lr,
 	},
 	{
-		.route_name = SND_ROUTE_REPLAY_SPEAKER_AND_HEADPHONE,
+		.route_name = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 		.route_conf = &repaly_hp_stereo_and_lineout_lr,
 	},
 	/*********************** bypass route *************************/
 	{
-		.route_name = SND_ROUTE_REPLAY_INCALL_WITH_HANDSET,
+		.route_name = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		.route_conf = &replay_linein2_bypass_to_lo_lr,
 	},
 	{
-		.route_name = SND_ROUTE_REPLAY_INCALL_WITH_HEADSET,
+		.route_name = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
 		.route_conf = &replay_linein2_bypass_to_hp_lr,
 	},
 	/***************************end of array***************************/

@@ -285,7 +285,10 @@ static void snd_dma_callback(void *arg)
 
 	/* if device closed, release the dma */
 	if (dp->wait_stop_dma == true) {
-		snd_release_dma(dp);
+		if (dp->dma_chan) {
+			dmaengine_terminate_all(dp->dma_chan);
+			dp->is_trans = false;
+		}
 		dp->wait_stop_dma = false;
 		wake_up_interruptible(&dp->wq);
 		return;
@@ -427,6 +430,10 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 	if (spipe[spipe_id].src_dp->wait_stop_dma == true) {
 		wait_event_interruptible(spipe[spipe_id].src_dp->wq,
 				spipe[spipe_id].src_dp->is_trans == false);
+		if (spipe[spipe_id].src_dp->dma_chan) {
+			dma_release_channel(dp->dma_chan);
+			dp->dma_chan = NULL;
+		}
 		if (spipe[spipe_id].src_dp->sg) {
 			vfree(spipe[spipe_id].src_dp->sg);
 			spipe[spipe_id].src_dp->sg = NULL;
@@ -435,6 +442,10 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 	if (spipe[spipe_id].dst_dp->wait_stop_dma == true) {
 		wait_event_interruptible(spipe[spipe_id].dst_dp->wq,
 								 spipe[spipe_id].dst_dp->is_trans == false);
+		if (spipe[spipe_id].dst_dp->dma_chan) {
+			dma_release_channel(dp->dma_chan);
+			dp->dma_chan = NULL;
+		}
 		if (spipe[spipe_id].dst_dp->sg) {
 			vfree(spipe[spipe_id].dst_dp->sg);
 			spipe[spipe_id].dst_dp->sg = NULL;
@@ -1479,7 +1490,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		}
 
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)mode);
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)&mode);
 			if (!ret)
 				break;
 		}
@@ -1829,6 +1840,10 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (dpi && dpi->wait_stop_dma == true) {
 		wait_event_interruptible(dpi->wq, dpi->is_trans == false);
+		if (dpi->dma_chan) {
+			dma_release_channel(dpi->dma_chan);
+			dpi->dma_chan = NULL;
+		}
 	}
 
 	if (dpi && dpi->sg) {
@@ -1839,10 +1854,14 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (dpo && dpo->wait_stop_dma == true) {
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
+		if (dpo->dma_chan) {
+			dma_release_channel(dpo->dma_chan);
+			dpo->dma_chan = NULL;
+		}
 	}
 
 	if (dpo && dpo->sg) {
-		snd_release_dma(dpo); 
+		snd_release_dma(dpo);
 		vfree(dpo->sg);
 		dpo->sg = NULL;
 	}

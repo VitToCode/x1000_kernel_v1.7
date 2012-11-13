@@ -172,11 +172,12 @@ static void i2s_set_filter(int mode , uint32_t channels)
 			printk("AUDIO DEVICE :filter set error.\n");
 	}
 }
+
 /*##################################################################*\
 |* dev_ioctl
 \*##################################################################*/
 static int i2s_set_fmt(unsigned long *format,int mode)
-{/*??*/
+{
 	int ret = 0;
 	int data_width = 0;
 
@@ -506,6 +507,7 @@ static int i2s_enable(int mode)
 	int replay_channel = 2;
 	int record_channel = 1;
 	struct dsp_pipe *dp_other = NULL;
+
 	if (!cur_codec)
 			return -ENODEV;
 
@@ -537,6 +539,7 @@ static int i2s_enable(int mode)
 		__i2s_select_i2s();
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 	}
+
 	return 0;
 }
 
@@ -921,7 +924,8 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	if (read_inter_codec_irq()){
 		codec_irq_set_mask();
-		queue_work(i2s_work_queue, &i2s_codec_work);
+		if(!work_pending(&i2s_codec_work))
+			queue_work(i2s_work_queue, &i2s_codec_work);
 	}
 #endif
 	/* if irq source is aic, process it here */
@@ -1179,14 +1183,23 @@ static int jz_get_hp_switch_state(void)
 	return value;
 }
 
-void *jz_set_hp_detect_type(int type,unsigned int gpio,int level)
+void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
+		struct snd_board_gpio *mic_det)
 {
 	switch_data.type = type;
-	if (type == SND_SWITCH_TYPE_GPIO)
-		switch_data.gpio = gpio;
-	else
-		switch_data.gpio = 0;
-	switch_data.valid_level = level;
+	if (type == SND_SWITCH_TYPE_GPIO && hp_det != NULL) {
+		switch_data.hp_gpio = hp_det->gpio;
+		switch_data.hp_valid_level = hp_det->active_level;
+	} else {
+		switch_data.hp_gpio = -1;
+	}
+	if (mic_det != NULL) {
+		switch_data.mic_gpio = mic_det->gpio;
+		switch_data.mic_vaild_level = mic_det->active_level;
+	} else {
+		switch_data.mic_gpio = -1;
+	}
+
 	return (&switch_data.work);
 }
 
@@ -1194,10 +1207,10 @@ struct snd_switch_data switch_data = {
 	.sdev = {
 		.name = "h2w",
 	},
-	.state_on	=	"1",
+	.state_headset_on	=	"1",
+	.state_headphone_on =   "2",
 	.state_off	=	"0",
 	.codec_get_sate	=	jz_get_hp_switch_state,
-	.valid_level = INVALID,
 	.type	=	SND_SWITCH_TYPE_CODEC,
 };
 
