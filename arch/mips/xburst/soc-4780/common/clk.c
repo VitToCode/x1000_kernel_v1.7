@@ -396,7 +396,7 @@ struct cpccr_table {
 	unsigned int cpccr;
 };
 
-#define CPNR 4
+#define CPNR 7
 static struct cpccr_table cpccr_table[CPNR];
 
 static int cclk_set_rate(struct clk *clk, unsigned long rate)
@@ -450,14 +450,20 @@ static void __init init_cpccr_clk(void)
 
 	clk_srcs[CLK_ID_CCLK].ops = &clk_cclk_ops;
 
-	cpccr_table[0].rate = clk_srcs[CLK_ID_MPLL].rate;
+	cpccr_table[0].rate = clk_srcs[CLK_ID_MPLL].rate / 1;
 	cpccr_table[0].cpccr = (0x2<<28) | (0x1<<4) | (0x0);
 	cpccr_table[1].rate = clk_srcs[CLK_ID_MPLL].rate / 2;
 	cpccr_table[1].cpccr = (0x2<<28) | (0x3<<4) | (0x1);
-	cpccr_table[2].rate = clk_srcs[CLK_ID_MPLL].rate / 4;
-	cpccr_table[2].cpccr = (0x2<<28) | (0x7<<4) | (0x3);
-	cpccr_table[3].rate = clk_srcs[CLK_ID_MPLL].rate / 8;
-	cpccr_table[3].cpccr = (0x2<<28) | (0x7<<4) | (0x7);
+	cpccr_table[2].rate = clk_srcs[CLK_ID_MPLL].rate / 3;
+	cpccr_table[2].cpccr = (0x2<<28) | (0x5<<4) | (0x2);
+	cpccr_table[3].rate = clk_srcs[CLK_ID_MPLL].rate / 4;
+	cpccr_table[3].cpccr = (0x2<<28) | (0x7<<4) | (0x3);
+	cpccr_table[4].rate = clk_srcs[CLK_ID_MPLL].rate / 5;
+	cpccr_table[4].cpccr = (0x2<<28) | (0x9<<4) | (0x4);
+	cpccr_table[5].rate = clk_srcs[CLK_ID_MPLL].rate / 6;
+	cpccr_table[5].cpccr = (0x2<<28) | (0xb<<4) | (0x5);
+	cpccr_table[6].rate = clk_srcs[CLK_ID_MPLL].rate / 7;
+	cpccr_table[6].cpccr = (0x2<<28) | (0xd<<4) | (0x6);
 }
 
 struct cgu_clk {

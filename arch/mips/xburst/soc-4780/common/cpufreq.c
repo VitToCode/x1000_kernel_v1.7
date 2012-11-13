@@ -41,10 +41,10 @@ static struct clk *cpu_clk;
 static struct regulator *cpu_regulator;
 static spinlock_t freq_lock;
 
-#define CPUFREQ_NR 8
+#define CPUFREQ_NR 16
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
-#define MIN_FREQ 150000
+#define MIN_FREQ 200000
 #define MIN_VOLT 1200000
 static unsigned long regulator_table[12][2] = {
 	{ 1750000,1400000 }, // 1.7 GHz - 1.4V
@@ -71,7 +71,7 @@ static int freq_table_prepare(void)
 	struct clk *sclka;
 	struct clk *mpll;
 	struct clk *cparent;
-	unsigned int i,max;
+	unsigned int j,i = 0,max;
 	unsigned int sclka_rate,mpll_rate;
 
 	sclka = clk_get(NULL,"sclka");
@@ -89,29 +89,24 @@ static int freq_table_prepare(void)
 	mpll_rate = clk_get_rate(mpll) / 1000;
 	cparent = clk_get_parent(cpu_clk);
 	memset(freq_table,0,sizeof(freq_table));
-#if 0
+	
 	if(sclka_rate > mpll_rate) {
 		max = sclka_rate;
-		for(i=0;i<CPUFREQ_NR && max >= (mpll_rate + 200000);i++) {
+		for(;i<CPUFREQ_NR && max >= (mpll_rate + 192000);i++) {
 			freq_table[i].index = i;
 			freq_table[i].frequency = max;
+#if 0
 			max -= 192000;
+#else
+			max = mpll_rate;
+#endif
 		}
 	}
-#else
-	if (cparent == sclka) {
-		freq_table[0].index = 0;
-		freq_table[0].frequency = sclka_rate;
-		i = 1;
-	} else {
-		i = 0;
-	}
-#endif
+	
 	max = mpll_rate;
-	for(;i<CPUFREQ_NR && max >= MIN_FREQ;i++) {
+	for(j=1;i<CPUFREQ_NR && max/j >= MIN_FREQ;i++) {
 		freq_table[i].index = i;
-		freq_table[i].frequency = max;
-		max = max >> 1;
+		freq_table[i].frequency = max / j++;
 	}
 
 	freq_table[i].index = i;
@@ -121,7 +116,7 @@ static int freq_table_prepare(void)
 
 	clk_put(sclka);
 	clk_put(mpll);
-#if 0
+#if 1
 	for(i=0;i<CPUFREQ_NR;i++) {
 		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
 	}
