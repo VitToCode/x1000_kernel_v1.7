@@ -44,7 +44,7 @@ static spinlock_t freq_lock;
 #define CPUFREQ_NR 8
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
-#define MIN_FREQ 150000
+#define MIN_FREQ 300000
 #define MIN_VOLT 1200000
 static unsigned long regulator_table[12][2] = {
 	{ 1750000,1400000 }, // 1.7 GHz - 1.4V
@@ -108,7 +108,7 @@ static int freq_table_prepare(void)
 	}
 #endif
 	max = mpll_rate;
-	for(;i<CPUFREQ_NR && max > 100000;i++) {
+	for(;i<CPUFREQ_NR && max >= MIN_FREQ;i++) {
 		freq_table[i].index = i;
 		freq_table[i].frequency = max;
 		max = max >> 1;
