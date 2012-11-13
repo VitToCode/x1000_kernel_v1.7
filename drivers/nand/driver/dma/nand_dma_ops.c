@@ -9,6 +9,7 @@
 #define MCU_ONCE_RESERT
 #define NO_MEMSET
 //#define NAND_DMA_CALC_TIME
+#define NAND_DMA_TEST_TIMEOUT
 
 #ifdef NAND_DMA_CALC_TIME
 static long long time =0;
@@ -49,6 +50,9 @@ enum buf_direction {
 
 static struct completion comp;
 static volatile int mailbox_ret = 0;
+#ifdef NAND_DMA_TEST_TIMEOUT
+static volatile int test_timeout = 0;
+#endif
 #ifdef MCU_ONCE_RESERT
 static volatile int mcuresflag = 1;
 #endif
@@ -108,6 +112,9 @@ static void mcu_complete_func(void *arg)
 			mailbox_ret = 1;
 			break;
 	}
+#ifdef NAND_DMA_TEST_TIMEOUT
+	test_timeout = 1;
+#endif
 	complete(&comp);
 }
 
@@ -165,8 +172,16 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 
 	dma_async_issue_pending(chan);
 	timeout = wait_for_completion_timeout(&comp,HZ);
-	if(!timeout)
+	if(!timeout){
+#ifdef NAND_DMA_TEST_TIMEOUT
+	printk("Error: mcu dma tran; whether mailbox has been returned (%d)\n",test_timeout);
+	test_timeout = 0;
+#endif
 		return -4;  // this operation is timeout
+	}
+#ifdef NAND_DMA_TEST_TIMEOUT
+	test_timeout = 0;
+#endif
 	return 0;
 }
 

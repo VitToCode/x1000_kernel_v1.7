@@ -1026,7 +1026,8 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
 				state = nand_erase_2p_block(host,startblock);
 				templist->retVal = state;
 				if (state < 0){
-					printk("DEBUG: %s [%d] state = %d \n ",__func__,__LINE__,state);
+					printk("DEBUG: %s [%d] phy_blockid = %d state = %d \n ",__func__,__LINE__,
+														(startblock * g_pnand_chip->planenum +g_startblock),state);
 					errflag = 1;
 				}
 				startblock++;
@@ -1046,7 +1047,7 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
 				state = nand_erase_block(host,startblock);
 				templist->retVal = state;
 				if (state < 0){
-					printk("DEBUG: %s [%d] state = %d \n ",__func__,__LINE__,state);
+					printk("DEBUG: %s [%d] phy_blockid = %d state = %d \n ",__func__,__LINE__,startblock+g_startblock,state);
 					errflag = 1;
 				}
 				startblock++;
