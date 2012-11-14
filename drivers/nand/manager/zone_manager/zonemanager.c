@@ -250,10 +250,21 @@ static void free_zonemanager_memory(ZoneManager *zonep)
  */
 static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList *pl,unsigned int page)
 {
-	//unsigned int startblockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
+        unsigned int i, blocknum;
 	unsigned int startblockno = zoneid * BLOCKPERZONE(zonep->vnand);
 
-	while(vNand_IsBadBlock (zonep->vnand, startblockno) && startblockno++);
+        if(zoneid == zonep->pt_zonenum - 1)
+                blocknum = zonep->vnand->TotalBlocks % BLOCKPERZONE(zonep->vnand);
+        else
+                blocknum = BLOCKPERZONE(zonep->vnand);
+
+        for(i = 0; i < blocknum; i++) {
+                startblockno += i;
+                if(vNand_IsBadBlock(zonep->vnand, startblockno) == 0)
+                        break;
+        }
+        if(i == BLOCKPERZONE(zonep->vnand))
+                return -1;
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);
@@ -527,40 +538,37 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 	{
 		sigp = (SigZoneInfo *)(zonep->sigzoneinfo + i);
 
-		if(sigp->lifetime == 0xffffffff)
-		{
-			read_zone_page0(zonep,i,pl);
-			ret = pl->retVal;
-			pl->retVal = 0;
-			if (!ISNOWRITE(ret)) {
-				if(ISERROR(ret))
-					insert_zoneidlist(zonep,PAGE0,i);
-				unpackage_page0_info(zonep,i);
-			}
-			else {
-				sigp->badblock = 0;
-				sigp->lifetime = -1;
-				if (vnand->v2pp->_2kPerPage == 1)
-					sigp->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - 3;
-				else
-					sigp->validpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->vnand) - zonep->vnand->v2pp->_2kPerPage * 2;
-			}
+		if (sigp->lifetime == 0xffffffff) {
+			ret = read_zone_page0(zonep,i,pl);
+                        if (ISERROR(ret)) {
+			        ret = pl->retVal;
+                                pl->retVal = 0;
+                                if (ISNOWRITE(ret)) {
+                                        sigp->badblock = 0;
+                                        sigp->lifetime = -1;
+                                        if (vnand->v2pp->_2kPerPage == 1)
+                                                sigp->validpage = zonep->vnand->PagePerBlock
+                                                        * BLOCKPERZONE(zonep->vnand) - 3;
+                                        else
+                                                sigp->validpage = zonep->vnand->PagePerBlock
+                                                        * BLOCKPERZONE(zonep->vnand)
+                                                        - zonep->vnand->v2pp->_2kPerPage * 2;
+                                } else {
+                                        insert_zoneidlist(zonep,PAGE0,i);
+				        unpackage_page0_info(zonep,i);
+                                }
+                        }
+                        pl->retVal = 0;
 			ret = insert_free_node(zonep,i);
-			if(ret != 0)
-			{
+			if(ret != 0) {
 				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
-
 							__FUNCTION__,__LINE__);
 				return ret;
 			}
-		}
-		else
-		{
+		} else {
 			ret = insert_used_node(zonep,sigp);
-			if(ret != 0)
-			{
+			if(ret != 0) {
 				ndprint(ZONEMANAGER_ERROR,"insert used node error func %s line %d \n",
-
 							__FUNCTION__,__LINE__);
 				return ret;
 			}
@@ -621,16 +629,19 @@ static int scan_page_info(ZoneManager *zonep)
 
 	for(i = 0 ; i < zonenum ; i++)
 	{
-		read_zone_page1(zonep,i,plt);
-		ret = plt->retVal;
-		plt->retVal = 0;
-		if (ISNOWRITE(ret))
-			continue;
-		else if (ISERROR(ret))
-			insert_zoneidlist(zonep,PAGE1,i);
-		else
-			find_maxserialnumber(zonep,&max_serial,&max_zoneid);
-		}
+		ret = read_zone_page1(zonep,i,plt);
+                if (ISERROR(ret)) {
+                        ret = plt->retVal;
+                        plt->retVal = 0;
+                        if (ISNOWRITE(ret))
+                                continue;
+                        else
+                                insert_zoneidlist(zonep,PAGE1,i);
+                } else {
+                        plt->retVal = 0;
+                        find_maxserialnumber(zonep,&max_serial,&max_zoneid);
+                }
+	}
 
 	ret = scan_sigzoneinfo_fill_node(zonep,plt);
 	if (ret < 0) {
@@ -642,35 +653,31 @@ static int scan_page_info(ZoneManager *zonep)
 	fill_ahead_zone(zonep);
 	zonep->maxserial = max_serial;
 	zonep->last_zone_id = max_zoneid;
-	if (max_zoneid != 0xffff)
-	{
-		read_zone_page2(zonep,max_zoneid,plt);
-		ret = plt->retVal;
-		plt->retVal = 0;
-		if(ISERROR(ret))
-		{
-			if(ISNOWRITE(ret)){
-				memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
-			}
-			else{
-				zonep->page2_error_dealt = 1;
-				ret = start_read_page2_error_handle(zonep);
+	if (max_zoneid != 0xffff) {
+		ret = read_zone_page2(zonep,max_zoneid,plt);
+                if (ISERROR(ret)) {
+                        ret = plt->retVal;
+                        plt->retVal = 0;
+                        if (ISNOWRITE(ret)) {
+                                memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
+                        } else {
+                                zonep->page2_error_dealt = 1;
+                                ret = start_read_page2_error_handle(zonep);
 				if (ret < 0) {
 					ndprint(ZONEMANAGER_ERROR,"ERROR: page2_error_handle func %s line %d\n",
 							__FUNCTION__, __LINE__);
 					return ret;
 				}
 			}
-		}
-		else{
-			memcpy(zonep->L1->page, zonep->mem0, zonep->vnand->BytePerPage);
-		}
-	}
-	else{
-		memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
-	}
+                } else {
+                        plt->retVal = 0;
+                        memcpy(zonep->L1->page, zonep->mem0, zonep->vnand->BytePerPage);
+                }
+        } else {
+                memset(zonep->L1->page,0xff,zonep->vnand->BytePerPage);
+        }
 
-	return 0;
+        return 0;
 }
 
 /**

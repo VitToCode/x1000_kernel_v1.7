@@ -511,6 +511,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	nandpageinfo->len = len + sizeof(NandPageInfo);
 
 	zone->sigzoneinfo->validpage--;
+        if(zone->sigzoneinfo->validpage <= 0) {
+                ndprint(3,"zone->sigzoneinfo->validpage = %d\n",zone->sigzoneinfo->validpage);
+        }
 
 	if(zone->allocedpage > zone->sumpage - zone->vnand->v2pp->_2kPerPage)
 		nandpageinfo->NextPageInfo = 0;
@@ -746,9 +749,11 @@ int Zone_Init (Zone *zone, SigZoneInfo* prev, SigZoneInfo* next )
 		zone->allocPageCursor = zone->vnand->v2pp->_2kPerPage * 2 - 1;
 		zone->allocedpage = zone->vnand->v2pp->_2kPerPage * 2;
 	}
+#ifndef RECHECK_VALIDPAGE
 	zone->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - zone->allocedpage;
+#endif
+	zone->sigzoneinfo->validpage = zone->vnand->PagePerBlock * BLOCKPERZONE(zone->vnand) - zone->allocedpage;
 	BuffListManager_freeAllList((int)blm, (void **)&pagelist, sizeof(PageList));
-
 	return 0;
 }
 
