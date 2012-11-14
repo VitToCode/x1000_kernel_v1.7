@@ -47,20 +47,21 @@ struct enh_dither {
 };
 
 /* image enhancement ioctl commands */
-#define JZFB_GET_GAMMA			_IOW('F', 0x141, struct enh_gamma)
+#define JZFB_GET_GAMMA			_IOR('F', 0x141, struct enh_gamma)
 #define JZFB_SET_GAMMA			_IOW('F', 0x142, struct enh_gamma)
-#define JZFB_GET_CSC			_IOW('F', 0x143, struct enh_csc)
+#define JZFB_GET_CSC			_IOR('F', 0x143, struct enh_csc)
 #define JZFB_SET_CSC			_IOW('F', 0x144, struct enh_csc)
-#define JZFB_GET_LUMA			_IOW('F', 0x145, struct enh_luma)
+#define JZFB_GET_LUMA			_IOR('F', 0x145, struct enh_luma)
 #define JZFB_SET_LUMA			_IOW('F', 0x146, struct enh_luma)
-#define JZFB_GET_HUE			_IOW('F', 0x147, struct enh_hue)
+#define JZFB_GET_HUE			_IOR('F', 0x147, struct enh_hue)
 #define JZFB_SET_HUE			_IOW('F', 0x148, struct enh_hue)
-#define JZFB_GET_CHROMA			_IOW('F', 0x149, struct enh_chroma)
+#define JZFB_GET_CHROMA			_IOR('F', 0x149, struct enh_chroma)
 #define JZFB_SET_CHROMA			_IOW('F', 0x150, struct enh_chroma)
-#define JZFB_GET_VEE			_IOW('F', 0x151, struct enh_vee)
+#define JZFB_GET_VEE			_IOR('F', 0x151, struct enh_vee)
 #define JZFB_SET_VEE			_IOW('F', 0x152, struct enh_vee)
 /* Reserved for future extend */
-#define JZFB_GET_DITHER			_IOW('F', 0x158, struct enh_dither)
+#define JZFB_GET_DITHER			_IOR('F', 0x158, struct enh_dither)
 #define JZFB_SET_DITHER			_IOW('F', 0x159, struct enh_dither)
+#define JZFB_ENABLE_ENH			_IOW('F', 0x158, struct enh_dither)
 
 #endif /* _IMAGE_ENH_H_ */

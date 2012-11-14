@@ -39,6 +39,14 @@ static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 	struct jzfb *jzfb = info->par;
 	unsigned int tmp;
 	int i = 1000;
+	
+	for (i = 0; i < LCDC_ENH_GAMMA_LEN >> 2; i++) {
+		tmp = gamma->gamma_data0[i] << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT
+			& LCDC_ENH_GAMMA_GAMMA_DATA0_MASK;
+		tmp |= (gamma->gamma_data1[i] << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT
+			& LCDC_ENH_GAMMA_GAMMA_DATA1_MASK);
+		reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
+	}
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (gamma->gamma_en) {
@@ -52,19 +60,10 @@ static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_GAMMA_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable gamma time out");
 		return 0;
 	}
-
-	for (i = 0; i < LCDC_ENH_GAMMA_LEN >> 2; i++) {
-		tmp = gamma->gamma_data0[i] << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT
-			& LCDC_ENH_GAMMA_GAMMA_DATA0_MASK;
-		tmp |= (gamma->gamma_data1[i] << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT
-			& LCDC_ENH_GAMMA_GAMMA_DATA1_MASK);
-		reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
-	}
-
 	return 0;
 }
 
@@ -108,7 +107,7 @@ static void jzfb_set_csc(struct fb_info *info, struct enh_csc *csc)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_RGB2YCC_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable rgb2ycc time out");
 	}
 
@@ -125,7 +124,7 @@ static void jzfb_set_csc(struct fb_info *info, struct enh_csc *csc)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_YCC2RGB_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable ycc2rgb time out");
 	}
 }
@@ -152,17 +151,17 @@ static void jzfb_set_luma(struct fb_info *info, struct enh_luma *luma)
 	unsigned int tmp;
 	int i = 1000;
 
+	tmp = luma->contrast << LCDC_ENH_LUMACFG_CONTRAST_BIT &
+		LCDC_ENH_LUMACFG_CONTRAST_MASK;
+	tmp |= luma->brightness << LCDC_ENH_LUMACFG_BRIGHTNESS_BIT &
+		LCDC_ENH_LUMACFG_BRIGHTNESS_MASK;
+	reg_write(jzfb, LCDC_ENH_LUMACFG, tmp);
+
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (luma->brightness_en) {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp |= LCDC_ENH_CFG_BRIGHTNESS_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
-
-		tmp = reg_read(jzfb, LCDC_ENH_LUMACFG);
-		luma->brightness = (tmp & LCDC_ENH_LUMACFG_BRIGHTNESS_MASK) >>
-			LCDC_ENH_LUMACFG_BRIGHTNESS_BIT;
-		reg_write(jzfb, LCDC_ENH_LUMACFG, tmp);
 	} else {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp &= ~LCDC_ENH_CFG_BRIGHTNESS_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
@@ -170,21 +169,15 @@ static void jzfb_set_luma(struct fb_info *info, struct enh_luma *luma)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_BRIGHTNESS_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable brightness time out");
 	}
 	
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (luma->contrast_en) {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp |= LCDC_ENH_CFG_CONTRAST_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
-
-		tmp = reg_read(jzfb, LCDC_ENH_LUMACFG);
-		luma->contrast = (tmp & LCDC_ENH_LUMACFG_CONTRAST_MASK) >>
-			LCDC_ENH_LUMACFG_CONTRAST_BIT;
-		reg_write(jzfb, LCDC_ENH_LUMACFG, tmp);
 	} else {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp &= ~LCDC_ENH_CFG_CONTRAST_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
@@ -192,7 +185,7 @@ static void jzfb_set_luma(struct fb_info *info, struct enh_luma *luma)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_CONTRAST_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable contrast time out");
 	}
 }
@@ -218,18 +211,17 @@ static void jzfb_set_hue(struct fb_info *info, struct enh_hue *hue)
 	unsigned int tmp;
 	int i = 1000;
 
+	tmp = hue->hue_sin << LCDC_ENH_CHROCFG0_HUE_SIN_BIT
+		& LCDC_ENH_CHROCFG0_HUE_SIN_MASK;
+	tmp |= (hue->hue_cos << LCDC_ENH_CHROCFG0_HUE_COS_BIT
+			& LCDC_ENH_CHROCFG0_HUE_COS_MASK); 
+	reg_write(jzfb, LCDC_ENH_CHROCFG0, tmp);
+
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (hue->hue_en) {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp |= LCDC_ENH_CFG_HUE_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
-
-		tmp = hue->hue_sin << LCDC_ENH_CHROCFG0_HUE_SIN_BIT
-			& LCDC_ENH_CHROCFG0_HUE_SIN_MASK;
-		tmp |= (hue->hue_cos << LCDC_ENH_CHROCFG0_HUE_COS_BIT
-			& LCDC_ENH_CHROCFG0_HUE_COS_MASK); 
-		reg_write(jzfb, LCDC_ENH_CHROCFG0, tmp);
 	} else {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp &= ~LCDC_ENH_CFG_HUE_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
@@ -237,7 +229,7 @@ static void jzfb_set_hue(struct fb_info *info, struct enh_hue *hue)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_HUE_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable hue time out");
 	}
 }
@@ -261,16 +253,17 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	unsigned int tmp;
 	int i = 1000;
 
+	tmp = chroma->saturation << LCDC_ENH_CHROCFG1_SATURATION_BIT
+		& LCDC_ENH_CHROCFG1_SATURATION_MASK; 
+	reg_write(jzfb, LCDC_ENH_CHROCFG1, tmp);
+
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (chroma->saturation_en) {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp |= LCDC_ENH_CFG_SATURATION_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 
-		tmp = chroma->saturation << LCDC_ENH_CHROCFG1_SATURATION_BIT
-			& LCDC_ENH_CHROCFG1_SATURATION_MASK; 
-		reg_write(jzfb, LCDC_ENH_CHROCFG0, tmp);
+
 	} else {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp &= ~LCDC_ENH_CFG_SATURATION_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
@@ -278,7 +271,7 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_SATURATION_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable saturation time out");
 	}
 }
@@ -307,6 +300,14 @@ static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 	unsigned int tmp;
 	int i = 1000;
 
+	for (i = 0; i < LCDC_ENH_VEE_LEN >> 2; i++) {
+		tmp = vee->vee_data0[i] << LCDC_ENH_VEE_VEE_DATA0_BIT
+			& LCDC_ENH_VEE_VEE_DATA0_MASK;
+		tmp |= (vee->vee_data1[i] << LCDC_ENH_VEE_VEE_DATA1_BIT
+			& LCDC_ENH_VEE_VEE_DATA1_MASK);
+		reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
+	}
+
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
 	if (vee->vee_en) {
 		tmp |= LCDC_ENH_CFG_VEE_EN;
@@ -319,17 +320,9 @@ static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_VEE_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable vee time out");
 		return 0;
-	}
-
-	for (i = 0; i < LCDC_ENH_VEE_LEN >> 2; i++) {
-		tmp = vee->vee_data0[i] << LCDC_ENH_VEE_VEE_DATA0_BIT
-			& LCDC_ENH_VEE_VEE_DATA0_MASK;
-		tmp |= (vee->vee_data1[i] << LCDC_ENH_VEE_VEE_DATA1_BIT
-			& LCDC_ENH_VEE_VEE_DATA1_MASK);
-		reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
 	}
 
 	return 0;
@@ -357,19 +350,21 @@ static void jzfb_set_dither(struct fb_info *info, struct enh_dither *dither)
 	struct jzfb *jzfb = info->par;
 	unsigned int tmp;
 	int i = 1000;
-
+	
+	tmp = dither->dither_red << LCDC_ENH_DITHERCFG_DITHERMD_RED_BIT
+		& LCDC_ENH_DITHERCFG_DITHERMD_RED_MASK;
+	tmp |= (dither->dither_green << LCDC_ENH_DITHERCFG_DITHERMD_GREEN_BIT
+			& LCDC_ENH_DITHERCFG_DITHERMD_GREEN_MASK);
+	tmp |= (dither->dither_blue << LCDC_ENH_DITHERCFG_DITHERMD_BLUE_BIT
+			& LCDC_ENH_DITHERCFG_DITHERMD_BLUE_MASK);
+	reg_write(jzfb, LCDC_ENH_DITHERCFG, tmp);
+	
 	if (dither->dither_en) {
 		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp |= LCDC_ENH_CFG_DITHER_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 
-		tmp = dither->dither_red << LCDC_ENH_DITHERCFG_DITHERMD_RED_BIT
-			& LCDC_ENH_DITHERCFG_DITHERMD_RED_MASK;
-		tmp |= (dither->dither_green << LCDC_ENH_DITHERCFG_DITHERMD_GREEN_BIT
-			& LCDC_ENH_DITHERCFG_DITHERMD_GREEN_MASK);
-		tmp |= (dither->dither_blue << LCDC_ENH_DITHERCFG_DITHERMD_BLUE_BIT
-			& LCDC_ENH_DITHERCFG_DITHERMD_BLUE_MASK);
-		reg_write(jzfb, LCDC_ENH_DITHERCFG, tmp);
+
 	} else {
 		tmp = reg_read(jzfb, LCDC_ENH_CFG);
 		tmp &= ~LCDC_ENH_CFG_DITHER_EN;
@@ -379,8 +374,24 @@ static void jzfb_set_dither(struct fb_info *info, struct enh_dither *dither)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_DITHER_DIS) && i--);
-		if (!i)
+		if (i < 0)
 			dev_info(info->dev, "Disable dither time out");
+	}
+}
+
+static void jzfb_enable_enh(struct fb_info *info,unsigned int value)
+{
+	unsigned int tmp;
+	struct jzfb *jzfb = info->par;
+
+	if(value == 0){
+		tmp = reg_read(jzfb, LCDC_ENH_CFG);
+		tmp &= ~LCDC_ENH_CFG_ENH_EN;
+		reg_write(jzfb, LCDC_ENH_CFG, tmp);
+	} else {
+		tmp = reg_read(jzfb, LCDC_ENH_CFG);
+		tmp |= LCDC_ENH_CFG_ENH_EN;
+		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	}
 }
 
@@ -413,6 +424,7 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
+	unsigned int value;
 
 	union {
 		struct enh_gamma gamma;
@@ -514,6 +526,14 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		} else {
 			jzfb_set_dither(info, &enh.dither);
+		}
+		break;
+	case JZFB_ENABLE_ENH:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_err(info->dev, "copy value from user error");
+			return -EFAULT;
+		} else {
+			jzfb_enable_enh(info,value);
 		}
 		break;
 	default:
