@@ -54,10 +54,8 @@ void __init cpm_reset(void)
 	cpm_outl(0xffffffff,CPM_CLKGR1);
 	mdelay(1);
 #endif
-	cpm_outl(lcr | CPM_LCR_PD_MASK,CPM_LCR);
+	cpm_outl(lcr | CPM_LCR_PD_MASK | 0x8f<<8,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & (0x7<<24)) != (0x7<<24));
-
-	cpm_set_bit(9,CPM_LCR);
 
 	cpm_outl(0,CPM_PSWC0ST);
 	cpm_outl(16,CPM_PSWC1ST);
