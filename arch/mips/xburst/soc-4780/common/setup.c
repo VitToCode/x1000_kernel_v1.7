@@ -57,10 +57,12 @@ void __init cpm_reset(void)
 	cpm_outl(lcr | CPM_LCR_PD_MASK,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & (0x7<<24)) != (0x7<<24));
 
+	cpm_set_bit(9,CPM_LCR);
+
 	cpm_outl(0,CPM_PSWC0ST);
-	cpm_outl(8,CPM_PSWC1ST);
-	cpm_outl(11,CPM_PSWC2ST);
-	cpm_outl(0,CPM_PSWC3ST);
+	cpm_outl(16,CPM_PSWC1ST);
+	cpm_outl(24,CPM_PSWC2ST);
+	cpm_outl(8,CPM_PSWC3ST);
 #endif
 }
 

@@ -505,12 +505,7 @@ static int cgu_enable(struct clk *clk,int on)
 			WARN(1,"cgu clk should not enabled before rate had setted.");
 		cpm_clear_bit(cgu_clks[no].stop,cgu_clks[no].off);
 	} else {
-		/*
-		 * It seems that cgu_gpu can NOT be stop when it works,
-		 * otherwise it will be crashed.
-		 */
-		if (strcmp("cgu_gpu", clk->name))
-			cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
+		cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
 	}
 
 	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) printk("wait stable.\n");

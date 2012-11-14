@@ -224,9 +224,9 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 #endif
         {
             del_timer_sync(&psSysSpecData->psPowerDown_Timer);
-            TurnOnPowerSupply();
             clk_enable(psSysSpecData->psTimer_Divider);
             clk_enable(psSysSpecData->psTimer_Gate);
+            TurnOnPowerSupply();
         }
 
 	{
