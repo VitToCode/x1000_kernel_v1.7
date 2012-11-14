@@ -1660,8 +1660,11 @@ static int FreeZone ( Recycle *rep)
 			if (-1 == first_ok_blockid) {
 				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
 				BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+				rep->rZone->sigzoneinfo->pre_zoneid = -1;
+				rep->rZone->sigzoneinfo->next_zoneid = -1;
+				ZoneManager_DropZone(rep->context,rep->rZone);
 				rep->rZone = NULL;
-				return -1;
+				goto err;
 			}
 		}
 		pl->pData = (void *)nandsigzoneinfo;
@@ -1699,6 +1702,7 @@ static int FreeZone ( Recycle *rep)
 		ndprint(RECYCLE_INFO,"badblcok: %08x zoneid:%d \n",rep->rZone->sigzoneinfo->badblock,rep->rZone->ZoneID);
 		ZoneManager_DropZone(rep->context,rep->rZone);
 	}
+exit:
 	rep->rZone = NULL;
 	rep->taskStep = RECYIDLE;
 	return 0;
@@ -1942,8 +1946,8 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 		if (ret == -1)
 			goto exit;
 	}
-exit:
 	ret = OnForce_FreeZone(rep);
+exit:
 	if (rep->force_junk_zoneid != -1)
 		Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
 	else
@@ -2407,6 +2411,9 @@ static int OnForce_FreeZone ( Recycle *rep)
 			if (-1 == first_ok_blockid) {
 				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
 				BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+				rep->force_rZone->sigzoneinfo->pre_zoneid = -1;
+				rep->force_rZone->sigzoneinfo->next_zoneid = -1;
+				ZoneManager_DropZone(rep->context,rep->force_rZone);
 				rep->force_rZone = NULL;
 				return -1;
 			}
@@ -2576,10 +2583,10 @@ int Recycle_OnFollowRecycle ( int context )
 		goto exit;
 	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 
-	ndprint(RECYCLE_INFO, "follow recycle finished--------->\n\n");
-
 exit:
 	OnForce_Deinit(rep);
+	ndprint(RECYCLE_INFO, "follow recycle finished--------->\n\n");
+
 	return ret;
 }
 
@@ -2681,15 +2688,15 @@ int Recycle_OnBootRecycle ( int context )
 				goto exit;
 		}
 	}
-exit:
 	ret = OnForce_FreeZone(rep);
 	if (ret == -1)
 		goto exit;
 	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
 
+exit:
+	OnForce_Deinit(rep);
 	ndprint(RECYCLE_INFO, "boot recycle finished--------->\n\n");
 
-	OnForce_Deinit(rep);
 	return ret;
 }
 

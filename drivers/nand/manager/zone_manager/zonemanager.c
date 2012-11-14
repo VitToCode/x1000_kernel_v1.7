@@ -250,21 +250,20 @@ static void free_zonemanager_memory(ZoneManager *zonep)
  */
 static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList *pl,unsigned int page)
 {
-        unsigned int i, blocknum;
-	unsigned int startblockno = zoneid * BLOCKPERZONE(zonep->vnand);
+	unsigned int i, blocknum, startblockno;
 
-        if(zoneid == zonep->pt_zonenum - 1)
-                blocknum = zonep->vnand->TotalBlocks % BLOCKPERZONE(zonep->vnand);
-        else
-                blocknum = BLOCKPERZONE(zonep->vnand);
+	if(zoneid == zonep->pt_zonenum - 1)
+		blocknum = zonep->vnand->TotalBlocks % BLOCKPERZONE(zonep->vnand);
+	else
+		blocknum = BLOCKPERZONE(zonep->vnand);
 
-        for(i = 0; i < blocknum; i++) {
-                startblockno += i;
-                if(vNand_IsBadBlock(zonep->vnand, startblockno) == 0)
-                        break;
-        }
-        if(i == BLOCKPERZONE(zonep->vnand))
-                return -1;
+	for(i = 0; i < blocknum; i++) {
+		startblockno = zoneid * BLOCKPERZONE(zonep->vnand) + i;
+		if(vNand_IsBadBlock(zonep->vnand, startblockno) == 0)
+			break;
+	}
+	if(i == BLOCKPERZONE(zonep->vnand))
+		return -1;
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);

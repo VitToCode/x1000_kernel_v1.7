@@ -642,7 +642,7 @@ static int write_data_prepare ( int context )
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
 		if (!zone  && count > 0) {
-			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle \n");
+			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle,i=%d count=%d\n",i,count);
 #ifndef NO_ERROR
 			/* force recycle */
 			frinfo.context = context;
@@ -1149,6 +1149,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 			INIT_L2P(l2p);
 			l2p->follow_node = l2p->prev_node;
 			is_not_ecc_error = 0;
+			ret = 0;
 		}else {
 			if(ECCTOOLARGE(ret)){
 				pageinfo_eccislarge = 1;
