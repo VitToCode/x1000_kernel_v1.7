@@ -145,6 +145,46 @@ static struct ov2659_platform_data ov2659_module_pdata = {
 };
 #endif
 
+#if (defined(CONFIG_GC0308))
+
+struct gc0308_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   //camera mirror
+	uint16_t	gpio_rst;	/* resert  gpio */
+	uint16_t	gpio_en;	/* camera enable gpio */
+};
+
+static struct gc0308_platform_data gc0308_pdata = {
+	.facing = 0,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_GC0308_EN,
+	.gpio_rst = GPIO_GC0308_RST,
+};
+
+#endif
+
+#if (defined(CONFIG_HI253))
+
+struct hi253_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   //camera mirror
+	uint16_t	gpio_rst;	/* resert  gpio */
+	uint16_t	gpio_en;	/* camera enable gpio */
+};
+
+static struct hi253_platform_data hi253_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 1,
+	.gpio_en = GPIO_HI253_EN,
+	.gpio_rst = GPIO_HI253_RST,
+};
+
+#endif
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
@@ -162,6 +202,21 @@ static struct i2c_board_info m80_i2c2_devs[] __initdata = {
 		.platform_data	= &ov2659_module_pdata,
 	},
 #endif
+
+#ifdef CONFIG_GC0308
+	{
+		I2C_BOARD_INFO("gc0308", 0x21),
+		.platform_data	= &gc0308_pdata,
+	},
+#endif
+
+#ifdef CONFIG_HI253
+	{
+		I2C_BOARD_INFO("hi253", 0x20),
+		.platform_data	= &hi253_pdata,
+	},
+#endif
+
 };
 #endif	/*I2C2*/
 

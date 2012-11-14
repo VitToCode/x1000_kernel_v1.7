@@ -29,6 +29,16 @@ config SP0838
 	depends on JZ_CIM
 	default n
 
+config GC0308
+	bool "gc0308 camera sensor"
+	depends on JZ_CIM
+	default n
+
+config HI253
+	bool "hi253 camera sensor"
+	depends on JZ_CIM
+	default n
+
 config FAKE
 	bool "fake camera sensor only for test"
 	depends on JZ_CIM
