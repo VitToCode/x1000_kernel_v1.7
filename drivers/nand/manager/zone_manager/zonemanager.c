@@ -556,7 +556,7 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
                                                         - zonep->vnand->v2pp->_2kPerPage * 2;
                                 } else {
                                         insert_zoneidlist(zonep,PAGE0,i);
-				        unpackage_page0_info(zonep,i);
+										//unpackage_page0_info(zonep,i);
                                 }
                         }
                         pl->retVal = 0;

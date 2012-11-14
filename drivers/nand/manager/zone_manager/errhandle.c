@@ -93,7 +93,7 @@ static int erase_err_zone(int errinfo)
 	int next_start_blockno = 0;
 	int blockcount = 0;
 	int blmid = (int)conptr->blm;
-	
+
 	if (zoneid == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - start_blockno;
 	else {
@@ -101,7 +101,7 @@ static int erase_err_zone(int errinfo)
 		next_start_blockno = (zoneid + 1) * BLOCKPERZONE(zonep->vnand);
 		blockcount = next_start_blockno - start_blockno;
 	}
-	
+
 	bl = create_blocklist(conptr, start_blockno, blockcount);
 	if (bl) {
 		ret = vNand_MultiBlockErase(vnand,bl);
@@ -135,6 +135,7 @@ static int write_page0(int errinfo)
 	//int start_blockno = BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,zoneid);
 	int start_blockno = zoneid * BLOCKPERZONE(zonep->vnand);
 	unsigned short badblockno = 0;
+	int last_blockno = vnand->TotalBlocks - start_blockno;
 
 	buf = (unsigned char *)Nand_ContinueAlloc(vnand->BytePerPage);
 	if (!buf) {
@@ -146,18 +147,20 @@ static int write_page0(int errinfo)
 	sigzoneinfo = conptr->top + zoneid;
 	nandsigzoneinfo = (NandSigZoneInfo *)buf;
 	nandsigzoneinfo->ZoneID = zoneid;
-	nandsigzoneinfo->lifetime = sigzoneinfo->lifetime;
+	nandsigzoneinfo->lifetime = sigzoneinfo->lifetime + 1;
 	nandsigzoneinfo->badblock = sigzoneinfo->badblock;
-
 	while(nm_test_bit(badblockno,(unsigned int *)&((zonep->sigzoneinfo+zoneid)->badblock)) && (++badblockno));
-
+	if(badblockno >= last_blockno){
+		ndprint(1," %s %d badblockno:%d blocknum:%d",__func__,__LINE__,badblockno,last_blockno);
+		return 0;
+	}
 	pl->startPageID = (start_blockno +badblockno)* vnand->PagePerBlock;
 	pl->pData = (void *)buf;
 	pl->Bytes = vnand->BytePerPage;
 	pl->retVal = 0;
 	(pl->head).next = NULL;
 	pl->OffsetBytes = 0;
-	
+
 	ret = vNand_MultiPageWrite(vnand,pl);
 	if(ret < 0) {
 		ndprint(1,"vNand_MultiPageWrite error func %s line %d pageid:%d\n"
@@ -166,14 +169,14 @@ static int write_page0(int errinfo)
 	}
 
 	Nand_ContinueFree(buf);
-	
+
 	return ret;
 }
 
 int read_page0_err_handler(int errinfo)
 {
 	int ret;
-	
+
 	ret = erase_err_zone(errinfo);
 	if(ret < 0)
 		return -1;
@@ -194,7 +197,7 @@ int read_page1_err_handler(int errinfo)
 static PageInfo *alloc_pageinfo(ZoneManager *zonep)
 {
 	PageInfo *pi = NULL;
-	
+
 	pi = (PageInfo *)Nand_VirtualAlloc(sizeof(PageInfo));
 	if (!pi) {
 		ndprint(1,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
@@ -208,7 +211,7 @@ static PageInfo *alloc_pageinfo(ZoneManager *zonep)
 			goto ERROR1;
 		}
 	}
-	
+
 	if (zonep->l3infolen) {
 		pi->L3Info = (unsigned char *)Nand_VirtualAlloc(sizeof(unsigned char) * zonep->l3infolen);
 		if (!(pi->L3Info)) {
@@ -223,7 +226,7 @@ static PageInfo *alloc_pageinfo(ZoneManager *zonep)
 		goto ERROR3;
 		return NULL;
 	}
-	
+
 	pi->L1InfoLen = zonep->L1->len;
 	pi->L2InfoLen = zonep->l2infolen;
 	pi->L3InfoLen = zonep->l3infolen;
@@ -251,10 +254,10 @@ static void free_pageinfo(ZoneManager *zonep, PageInfo *pageinfo)
 {
 	if (!pageinfo)
 		return;
-		
+
 	if (zonep->l2infolen)
 		Nand_VirtualFree(pageinfo->L2Info);
-	
+
 	if (zonep->l3infolen)
 		Nand_VirtualFree(pageinfo->L3Info);
 
@@ -282,7 +285,7 @@ static int get_prev_zone(int errinfo, Zone **zone)
 		return -1;
 	}
 
-	/*ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) * 
+	/*ret = vNand_PageRead(vnand,BadBlockInfo_Get_Zone_startBlockID(zonep->badblockinfo,last_zoneid) *
 	  vnand->PagePerBlock + ZONEPAGE1INFO(vnand),0,vnand->BytePerPage,buf);*/
 	while(nm_test_bit(badblockno,(unsigned int *)&((zonep->sigzoneinfo+last_zoneid)->badblock)) && (++badblockno));
 
@@ -326,8 +329,8 @@ static int recover_L1info(int errinfo, Zone *zone)
 	}
 
 	NandMutex_Lock(&conptr->l1info->mutex);
-	
-	ret = vNand_PageRead(vnand,zone->startblockID * 
+
+	ret = vNand_PageRead(vnand,zone->startblockID *
 		vnand->PagePerBlock + ZONEPAGE2INFO(vnand),0,vnand->BytePerPage,l1info);
 	if(ret < 0) {
 		ndprint(1,"vNand_PageRead error func %s line %d \n"
@@ -340,7 +343,7 @@ static int recover_L1info(int errinfo, Zone *zone)
 		goto err;
 	else if (ISNOWRITE(ret))
 		goto exit;
-	
+
 	l1info[pi->L1Index] = pi->PageID;
 
 	while (1) {
@@ -357,7 +360,7 @@ static int recover_L1info(int errinfo, Zone *zone)
 			goto err;
 		else if (ISNOWRITE(ret))
 			goto exit;
-		
+
 		l1info[pi->L1Index] = pi->PageID;
 	}
 
@@ -438,7 +441,7 @@ int read_first_pageinfo_err_handler(int errinfo)
 	int ret;
 	ErrInfo *einfo = (ErrInfo *)errinfo;
 	ZoneManager *zonep = ((Context *)(einfo->context))->zonep;
-	
+
 	ret = erase_err_zone(errinfo);
 	if(ret < 0)
 		return -1;
