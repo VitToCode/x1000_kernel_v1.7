@@ -103,6 +103,16 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_OV2659_RST			GPIO_PB(26)
 #endif
 
+#ifdef	CONFIG_GC0308
+#define GPIO_GC0308_EN			GPIO_PB(19)
+#define GPIO_GC0308_RST			GPIO_PB(26)
+#endif
+
+#ifdef	CONFIG_HI253
+#define GPIO_HI253_EN			GPIO_PB(18)
+#define GPIO_HI253_RST			GPIO_PB(26)
+#endif
+
 /**
  * motor gpio
  */
