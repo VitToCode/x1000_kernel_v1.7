@@ -100,6 +100,32 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
+#ifdef CONFIG_HDMI_80_KEY
+static struct gpio_keys_button board_keys[] = {
+#ifdef GPIO_OTG_SEL
+	{
+		.gpio		= GPIO_OTG_SEL,
+		.code   	= KEY_MENU,
+		.desc		= "otg select key",
+		.active_low	= ACTIVE_LOW_OTG_SEL,
+	},
+#endif
+};
+static struct gpio_keys_platform_data board_key_data = {
+	.buttons	= board_keys,
+	.nbuttons	= ARRAY_SIZE(board_keys),
+};
+
+static struct platform_device jz_key_device = {
+	.name		= "hdmi-80-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev		= {
+		.platform_data	= &board_key_data,
+	}
+};
+#endif
+
 struct timed_gpio vibrator_timed_gpio = {
 	.name		= "vibrator",
 	.gpio		= GPIO_MOTOR_PIN,
@@ -333,6 +359,11 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
+
+#ifdef CONFIG_HDMI_80_KEY
+	platform_device_register(&jz_key_device);
+#endif
+
 /* tcsm */
 #ifdef CONFIG_JZ_VPU
 	platform_device_register(&jz_vpu_device);
