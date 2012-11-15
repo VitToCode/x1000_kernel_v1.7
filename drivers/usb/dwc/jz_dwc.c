@@ -121,18 +121,56 @@ static inline void jz_dwc_set_dual_mode(void)
 	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
+static void set_charger_current_work(struct work_struct *work)
+{
+	struct dwc_jz_pri *jz_pri;
+	dwc_otg_core_if_t *core_if;
+	int insert;
+	int ret;
+
+	jz_pri = container_of(work, struct dwc_jz_pri, charger_delay_work.work);
+
+	if (jz_pri->core_if == NULL) {
+		schedule_delayed_work(&jz_pri->charger_delay_work, msecs_to_jiffies(500));
+	} else {
+		core_if = (dwc_otg_core_if_t *)jz_pri->core_if;
+
+		ret = regulator_get_current_limit(jz_pri->ucharger);
+		printk("Before changed: the current is %d\n", ret);
+
+		insert = get_pin_status(jz_pri->dete);
+		if ((insert == 1) && (core_if->frame_num == 0) &&	\
+			(core_if->op_state == B_PERIPHERAL) &&		\
+			(jz_pri->pullup_on == 1)) {
+			regulator_set_current_limit(jz_pri->ucharger, 0, 800000);
+		}
+		ret = regulator_get_current_limit(jz_pri->ucharger);
+		printk("After changed: the current is %d\n", ret);
+	}
+}
+
 static void usb_detect_work(struct work_struct *work)
 {
 	struct dwc_jz_pri *jz_pri;
 	int insert;
 
-	jz_pri = container_of(work, struct dwc_jz_pri, work.work);	
+	jz_pri = container_of(work, struct dwc_jz_pri, work.work);
 	insert = get_pin_status(jz_pri->dete);
 
 	pr_info("USB %s", insert ? "connect" : "disconnect");
 #ifdef CONFIG_DISABLE_PHY
 	jz_dwc_phy_switch(jz_pri, insert);
 #endif
+
+	if (jz_pri->ucharger != NULL) {
+		if (insert) {
+			schedule_delayed_work(&jz_pri->charger_delay_work,
+					msecs_to_jiffies(500));
+		} else {
+			regulator_set_current_limit(jz_pri->ucharger, 0, 400000);
+			printk("Now recovery 400mA\n");
+		}
+	}
 	enable_irq(jz_pri->irq);
 }
 
@@ -225,18 +263,19 @@ struct dwc_jz_pri *jz_dwc_init(void)
 			jz_pri->irq = gpio_to_irq(jz_pri->dete->num);
 			disable_irq_nosync(jz_pri->irq);
 			INIT_DELAYED_WORK(&jz_pri->work, usb_detect_work);
+			INIT_DELAYED_WORK(&jz_pri->charger_delay_work, set_charger_current_work);
 		}
 	}
 
 	/* select dwc otg */
 	cpm_set_bit(USBPCR1_USB_SEL, CPM_USBPCR1);
-	
+
 	/* select utmi data bus width of port0 to 16bit/30M */
 	cpm_set_bit(USBPCR1_WORD_IF0, CPM_USBPCR1);
 
 	usbpcr1 = cpm_inl(CPM_USBPCR1);
-	usbpcr1 &= ~(0x3 << 24); 
-	usbpcr1 |= (ref_clk_div << 24); 
+	usbpcr1 &= ~(0x3 << 24);
+	usbpcr1 |= (ref_clk_div << 24);
 	cpm_outl(usbpcr1, CPM_USBPCR1);
 
 	/* fil */

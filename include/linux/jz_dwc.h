@@ -3,6 +3,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 
 struct jzdwc_pin {
 	short				num;
@@ -17,12 +18,15 @@ struct dwc_jz_pri {
 	int 			irq;
 	struct jzdwc_pin 	*dete;
 	struct delayed_work	work;
+	struct delayed_work	charger_delay_work;
 
 	struct regulator 	*vbus;
 	struct regulator 	*ucharger;
 
 	spinlock_t		lock;
 	struct mutex		mutex;
+	void			*core_if;
+	int			pullup_on;
 };
 
 #endif

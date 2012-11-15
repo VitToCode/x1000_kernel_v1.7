@@ -59,7 +59,7 @@
 #include "dwc_otg_cil.h"
 
 #include <linux/clk.h>
-
+#include <linux/jz_dwc.h>
 #define DWC_DRIVER_VERSION	"2.94a 27-OCT-2011"
 #define DWC_DRIVER_DESC		"HS OTG USB Controller driver"
 
@@ -780,7 +780,7 @@ static int dwc_otg_driver_probe(
 		goto fail;
 	}
 	dwc_otg_device->core_if->jz_pri = jz_pri;
-
+	jz_pri->core_if = dwc_otg_device->core_if;
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.
 	 * Read and verify the SNPSID register contents. The value should be
