@@ -55,6 +55,8 @@ void pdma_nand_read_ctrl(struct nand_chip *nand, int page, const int ctrl)
 			__nand_cmd(NAND_CMD_READSTART, nandport);
 
 		nand_wait_rb();
+
+		*(unsigned int *)(nand->mcu_test) = 2;
 	} else { /* CTRL_READ_DATA */
 		__nand_cmd(NAND_CMD_RNDOUT, nandport);
 		nand_send_addr(nand, 0x00, -1);
@@ -73,6 +75,7 @@ int pdma_nand_write_ctrl(struct nand_chip *nand, int page, const int ctrl)
 		__nand_cmd(NAND_CMD_SEQIN, nandport);
 		nand_send_addr(nand, 0x00, page);
 		__pn_enable();
+			*(unsigned int *)(nand->mcu_test) = 3;
 	} else if (ctrl == CTRL_WRITE_OOB) {
 		__pn_disable();
 		__nand_cmd(NAND_CMD_RNDIN, nandport);

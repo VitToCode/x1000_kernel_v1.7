@@ -46,11 +46,13 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 
 		if (nand->mode & PNAND_BCH_ENC) {
 			unsigned char *par_buf = oob_buf + nand->eccpos;
+			*(unsigned int *)(nand->mcu_test) = 5;
 
 			irq_bch_calculate_handle(nand, pipe_buf + (nand->pipe_cnt & 0x1),
 						par_buf + nand->pipe_cnt * nand->eccbytes);
 			nand->mode &= ~PNAND_BCH_ENC;
 		} else if (nand->mode & PNAND_BCH_DEC) {
+			*(unsigned int *)(nand->mcu_test) = 6;
 			irq_bch_correct_handle(nand, pipe_buf + ((nand->pipe_cnt - 1) & 0x1));
 			nand->mode &= ~PNAND_BCH_DEC;
 			ddr_channel_cfg((pipe_buf + ((nand->pipe_cnt - 1) & 0x1))->pipe_data,
@@ -87,6 +89,7 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 
 		if (nand->ctrl == CTRL_READ_OOB) {
 			nand->ctrl = CTRL_READ_DATA;
+			*(unsigned int *)(nand->mcu_test) = 3;
 			pdma_nand_read_ctrl(nand, 0, CTRL_READ_DATA);
 
 			nand->pipe_cnt = 0;
@@ -94,9 +97,11 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 			pdma_nand_read_data(nand, pipe_buf, NULL);
 		} else if (nand->ctrl == CTRL_WRITE_OOB) {
 			int ret;
+			*(unsigned int *)(nand->mcu_test) = 8;
 			ret = pdma_nand_write_ctrl(nand, 0, CTRL_WRITE_CONFIRM);
 			nand->mode = PNAND_HALT;
 			__nand_disable();
+			*(unsigned int *)(nand->mcu_test) = 9;
 
 			if (ret < 0)
 				__pdmac_mnmb_send(MB_NAND_WRITE_FAIL);
@@ -110,8 +115,10 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 		channel_irq &= ~(1 << PDMA_DDR_CHANNEL);
 		nand->mode &= ~PNAND_DDR;
 
-		if (nand->mode & PNAND_BCH_ENC)
+		if (nand->mode & PNAND_BCH_ENC){
+			*(unsigned int *)(nand->mcu_test) = 4;
 			pdma_bch_calculate(nand, pipe_buf + (nand->pipe_cnt & 0x1));
+		}
 
 	}
 
@@ -121,6 +128,7 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 
 		switch (nand->ctrl) {
 		case CTRL_READ_DATA :
+			*(unsigned int *)(nand->mcu_test) = 4;
 			if (nand->pipe_cnt < nand->eccsteps)
 				nand->mode |= PNAND_NEMC;
 			if (nand->pipe_cnt < nand->eccsteps + 1) {
@@ -132,6 +140,7 @@ void pdma_nand_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 				nand->mode = PNAND_HALT;
 				__pn_disable();
 				__nand_disable();
+			*(unsigned int *)(nand->mcu_test) = 10;
                                 if(nand->report & ALL_FF) {
                                         __pdmac_mnmb_send(MB_NAND_ALL_FF);
                                 } else if(nand->report & UNCOR_ECC) {
@@ -183,6 +192,9 @@ void pdma_msg_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
 			nand->chipsel = msg->info[MSG_NAND_BANK];
 			nand->ddr_addr = (void *)msg->info[MSG_DDR_ADDR];
 			nand->nand_io = (void *)NEMC_CS(nand->chipsel);
+			/*test mcu */
+			nand->mcu_test = msg->info[MSG_PAGEOFF +1];
+			*(unsigned int *)(nand->mcu_test) = 1;
 
 			nand->ctrl = CTRL_READ_OOB;
 			__nand_enable(nand->chipsel);
@@ -194,6 +206,9 @@ void pdma_msg_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
 			nand->chipsel = msg->info[MSG_NAND_BANK];
 			nand->ddr_addr = (void *)msg->info[MSG_DDR_ADDR];
 			nand->nand_io = (void *)NEMC_CS(nand->chipsel);
+			/*test mcu */
+			nand->mcu_test = msg->info[MSG_PAGEOFF +1];
+			*(unsigned int *)(nand->mcu_test) = 1;
 
 			__nand_enable(nand->chipsel);
 			pdma_nand_status(nand, &state);
@@ -201,6 +216,7 @@ void pdma_msg_irq_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
 				__pdmac_mnmb_send(MB_NAND_WRITE_PROTECT);
 				break;
 			}
+			*(unsigned int *)(nand->mcu_test) = 2;
 
 			nand->ctrl = CTRL_WRITE_DATA;
 			pdma_nand_write_ctrl(nand, msg->info[MSG_PAGEOFF], CTRL_WRITE_DATA);
