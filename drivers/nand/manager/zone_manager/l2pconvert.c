@@ -636,13 +636,15 @@ static int write_data_prepare ( int context )
 	int msghandle;
 	ForceRecycleInfo frinfo;
 	VNandInfo *vnand = &conptr->vnand;
+	unsigned int freecount = 0;
 #endif
 
 	count = ZoneManager_GetAheadCount(context);
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
-		if (!zone  && count > 0) {
-			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle,i=%d count=%d\n",i,count);
+		freecount = ZoneManager_Getfreecount(context);
+		if ((!zone || freecount < 9) && count > 0) {
+			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle,i:%d count:%d freecount:%d\n",i,count,freecount);
 #ifndef NO_ERROR
 			/* force recycle */
 			frinfo.context = context;
