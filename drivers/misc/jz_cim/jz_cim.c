@@ -940,7 +940,8 @@ static int cim_close(struct inode *inode, struct file *file)
 
 	cim_shutdown(cim);
 	cim_power_off(cim);
-	cim->desc->shutdown(cim->desc);
+	if(cim->desc->shutdown)
+		cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
 	cim->tlb_flag = 0;
 	cim->tlb_base = 0;
@@ -1059,13 +1060,13 @@ static int cim_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto no_desc;
 	}
-/*
+
 	cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk");
 	if(IS_ERR(cim->mclk)) {
 		ret = -ENODEV;
 		goto io_failed;
 	}
-*/
+
 	#if 1
 	cim->power = regulator_get(&pdev->dev, "vcim");
 	if(IS_ERR(cim->power)){
@@ -1080,8 +1081,7 @@ static int cim_probe(struct platform_device *pdev)
 	if(!cim->desc) {
 		dev_err(&pdev->dev,"no sensor!\n");
 		ret = -ENOMEM;
-		//goto io_failed1;
-		goto io_failed;
+		goto io_failed1;
 	}	
 	
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1136,8 +1136,8 @@ mem_failed:
 	iounmap(cim->iomem);
 io_failed2:
 	release_mem_region(r->start, resource_size(r));	
-//io_failed1:
-//	clk_put(cim->mclk);
+io_failed1:
+	clk_put(cim->mclk);
 io_failed:
 	clk_put(cim->clk);
 no_desc:
@@ -1150,7 +1150,7 @@ static int __devexit cim_remove(struct platform_device *pdev)
 {
 	struct jz_cim *cim = platform_get_drvdata(pdev);
 	iounmap(cim->iomem);
-//	clk_put(cim->mclk);
+	clk_put(cim->mclk);
 	clk_put(cim->clk);
 	free_irq(cim->irq,cim);
 	misc_deregister(&cim->misc_dev);
