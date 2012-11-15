@@ -77,6 +77,7 @@ struct nand_chip {
 	int mode;
 	int report;
 	
+	unsigned int mcu_test;
 	void *priv;
 };
 

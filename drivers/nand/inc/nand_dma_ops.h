@@ -43,6 +43,7 @@
 #define MSG_NAND_BANK           0
 #define MSG_DDR_ADDR            1
 #define MSG_PAGEOFF             2
+#define MSG_MCU_TEST			3
 
 /* PDMA MailBox msg */
 #define MB_NAND_INIT_DONE       0x01

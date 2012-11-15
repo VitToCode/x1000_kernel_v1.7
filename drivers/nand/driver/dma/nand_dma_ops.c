@@ -195,6 +195,7 @@ static void set_rw_msg(struct jznand_dma *nand_dma,int nand_cs, int rw, int phy_
 	nand_dma->msg->info[MSG_NAND_BANK] = nand_cs;
 	nand_dma->msg->info[MSG_DDR_ADDR] = GET_PHYADDR(databuf);
 	nand_dma->msg->info[MSG_PAGEOFF] = phy_pageid;
+	nand_dma->msg->info[MSG_MCU_TEST] = (unsigned int)(nand_dma->msg_phyaddr) + (MSG_MCU_TEST + 1)*4;
 }
 
 static int send_msg_to_mcu(const NAND_API *pnand_api)
@@ -218,7 +219,7 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
-		printk("Error: mcu dma tran faild,please reboot\n");
+		printk("Error: mcu dma tran faild,mcu_steps(%d);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
                 dump_stack();
                 while(1);
 	} else {
