@@ -589,6 +589,7 @@ void CacheManager_DropCache ( int context, unsigned int *sectorid )
 	unsigned int *data;
 	LockCacheDataTable *lct = &cachemanager->lct;
 	unsigned  int startsectorid;
+	int i;
 	data = lct->L1->Index;
 	data[lct->sectorid / cachemanager->L1UnitLen] = -1;
 	if(cachemanager->L2InfoLen){
@@ -604,9 +605,9 @@ void CacheManager_DropCache ( int context, unsigned int *sectorid )
 
 	startsectorid = calc_IndexID(lct->sectorid,cachemanager->L4UnitLen,cachemanager->L4InfoLen);
 	data = lct->L4->Index;
-	while(*sectorid != -1){
-		data[*sectorid - startsectorid] = -1;
-		sectorid++;
+	for(i = 0;i < cachemanager->L4InfoLen / 4;i++) {
+		if(sectorid[i] == -1) break;
+		data[sectorid[i] - startsectorid] = -1;
 	}
 }
 static int checkldinfo(CacheData *ld,unsigned int startpageid,unsigned int count,int issector) {
