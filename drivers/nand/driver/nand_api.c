@@ -700,6 +700,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	g_pnand_api.vnand_base->bch_gate =clk_get(&pdev->dev,"bch");
 	clk_enable(g_pnand_api.vnand_base->bch_gate);
 	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"cgu_bch");
+        clk_set_rate(g_pnand_api.vnand_base->bch_clk, clk_get_rate(g_pnand_api.vnand_base->nemc_gate));
 	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
 	/*   nemc resource  */
