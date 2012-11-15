@@ -87,12 +87,14 @@
 #define cpm_outl(val,off)	outl(val,CPM_IOBASE + (off))
 #define cpm_clear_bit(val,off)	do{cpm_outl((cpm_inl(off) & ~(1<<(val))),off);}while(0)
 #define cpm_set_bit(val,off)	do{cpm_outl((cpm_inl(off) |  (1<<val)),off);}while(0)
+#define cpm_test_bit(val,off)	(cpm_inl(off) & (0x1<<val))
 #else
 #define cpm_inl(x)		0x3
 #define cpm_outl(val,off)	do{}while(0)
 //#define cpm_outl(v,x)		do{}while(0)
 #define cpm_clear_bit(off,x)	do{}while(0)
 #define cpm_set_bit(off,x)	do{}while(0)
+#define cpm_test_bit(val,off)	do{}while(0)
 #endif
 
 int clk_start_ehci(void);

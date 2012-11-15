@@ -469,7 +469,7 @@ static void __init init_cpccr_clk(void)
 struct cgu_clk {
 	/* off: reg offset. ce: CE offset. coe : coe for div .div: div bit width */
 	/* ext: extal/pll sel bit. sels: {select} */
-	int off,ce,stop,coe,div,ext,busy,sel[8],flags;
+	int off,ce,stop,coe,div,ext,busy,sel[8],cache;
 };
 
 static struct cgu_clk cgu_clks[] = {
@@ -478,7 +478,7 @@ static struct cgu_clk cgu_clks[] = {
 	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EXT1,CLK_ID_EPLL}},
 	[CGU_LCD0] = 	{ CPM_LPCDR0, 28, 26, 1, 8, 30, 27, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
 	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 26, 1, 8, 30, 27, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
-	[CGU_MSC_MUX]={ CPM_MSC0CDR, 29, 27, 2, 0, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}, 1},
+	[CGU_MSC_MUX]=	{ CPM_MSC0CDR, 29, 27, 2, 0, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_MSC0] = 	{ CPM_MSC0CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
 	[CGU_MSC1] = 	{ CPM_MSC1CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
 	[CGU_MSC2] = 	{ CPM_MSC2CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
@@ -496,19 +496,18 @@ static int cgu_enable(struct clk *clk,int on)
 {
 	int no = CLK_CGU_NO(clk->flags);
 
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
-		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	if(on) {
-		if(cgu_clks[no].flags)
-			cpm_set_bit(cgu_clks[no].ce,cgu_clks[no].off);
-		else
-			WARN(1,"cgu clk should not enabled before rate had setted.");
-		cpm_clear_bit(cgu_clks[no].stop,cgu_clks[no].off);
+		if(cgu_clks[no].cache) {
+			cpm_outl(cgu_clks[no].cache,cgu_clks[no].off);
+
+			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+				printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
+		} else {
+			BUG();
+		}
 	} else {
 		cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
 	}
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
-		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 
 	return 0;
 }
@@ -529,15 +528,18 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 	}
 	i--;
 
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
-		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	x = cpm_inl(cgu_clks[no].off) & ~x;
 	x |= i;
-	cpm_outl(x, cgu_clks[no].off);
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
-		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 
-	cgu_clks[no].flags |= 1;
+	cgu_clks[no].cache = (x & ~(0x1<<cgu_clks[no].stop)) | (0x1<<cgu_clks[no].ce);
+
+	if(cpm_test_bit(cgu_clks[no].ce,cgu_clks[no].off) 
+			&& !cpm_test_bit(cgu_clks[no].stop,cgu_clks[no].off)) {
+		cpm_outl(cgu_clks[no].cache, cgu_clks[no].off);
+
+		while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+			printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
+	}
 
 	return 0;
 }
@@ -553,7 +555,11 @@ static unsigned long cgu_get_rate(struct clk *clk)
 	if(cgu_clks[no].div == 0)
 		return clk_get_rate(clk->parent);
 
-	x = cpm_inl(cgu_clks[no].off);
+	if(!cgu_clks[no].cache)
+		x = cpm_inl(cgu_clks[no].off);
+	else
+		x = cgu_clks[no].cache;
+
 	x &= (1 << cgu_clks[no].div) - 1;
 	x = (x + 1) * cgu_clks[no].coe;
 	return clk->parent->rate / x;
@@ -613,9 +619,10 @@ static void __init init_cgu_clk(void)
 		clk_srcs[i].rate = cgu_get_rate(&clk_srcs[i]);
 
 		no = CLK_CGU_NO(clk_srcs[i].flags);
-		if(cpm_inl(cgu_clks[no].off) & cgu_clks[no].ce)
-			cgu_clks[no].flags |= 1;
+		cgu_clks[no].cache = 0;
 	}
+
+	clk_srcs[CLK_ID_MSC_MUX].ops = NULL;
 }
 
 static void __init init_gate_clk(void)
