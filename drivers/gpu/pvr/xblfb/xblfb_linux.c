@@ -459,7 +459,7 @@ XBLFB_ERROR XBLFBEnableLFBEventNotification(XBLFB_DEVINFO *psDevInfo)
 	psDevInfo->sEarlySuspend.suspend = XBLFBEarlySuspendHandler;
 	psDevInfo->sEarlySuspend.resume = XBLFBEarlyResumeHandler;
 	psDevInfo->sEarlySuspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
-	register_early_suspend(&psDevInfo->sEarlySuspend);
+	//register_early_suspend(&psDevInfo->sEarlySuspend);
 #endif
 
 	return (XBLFB_OK);
