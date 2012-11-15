@@ -99,32 +99,13 @@ struct jzfb_platform_data jzfb0_hdmi_pdata = {
 #ifdef CONFIG_FB_JZ4780_LCDC1
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode[] = {
-#ifdef CONFIG_LCD_KR070LA0S_270
-	{
-		.name = "1024x600",
-		.refresh = 65,
-		.xres = 1024,
-		.yres = 600,
-		.pixclock = KHZ2PICOS(48000),
-		.left_margin = 171,
-		.right_margin = 0,
-		.upper_margin = 18,
-		.lower_margin = 0,
-		.hsync_len = 0,
-		.vsync_len = 0,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
-#endif
-
 #ifdef CONFIG_LCD_HSD101PWW1
 	{
 		.name = "1280x800",
-		.refresh = 60,
+		.refresh = 55,
 		.xres = 1280,
 		.yres = 800,
-		.pixclock = KHZ2PICOS(65000),
+		.pixclock = KHZ2PICOS(65182),
 		.left_margin = 160,
 		.right_margin = 0,
 		.upper_margin = 23,
@@ -135,21 +116,82 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.vmode = FB_VMODE_NONINTERLACED,
 		.flag = 0
 	},
-#endif
-
-#ifdef CONFIG_LCD_EK070TN93
 	{
-		.name = "800x480",
-		.refresh = 60,
-		.xres = 800,
-		.yres = 480,
-		.pixclock = KHZ2PICOS(33300),
-		.left_margin = 28,
-		.right_margin = 210,
-		.upper_margin = 15,
-		.lower_margin = 22,
-		.hsync_len = 18,
-		.vsync_len = 8,
+		.name = "1280x800",
+		.refresh = 50,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(59256),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+	{
+		.name = "1280x800",
+		.refresh = 45,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(53331),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+	{
+		.name = "1280x800",
+		.refresh = 40,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(47405),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+	{
+		.name = "1280x800",
+		.refresh = 35,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(41480),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+	{
+		.name = "1280x800",
+		.refresh = 30,
+		.xres = 1280,
+		.yres = 800,
+		.pixclock = KHZ2PICOS(35554),
+		.left_margin = 160,
+		.right_margin = 0,
+		.upper_margin = 23,
+		.lower_margin = 0,
+		.hsync_len = 0,
+		.vsync_len = 0,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
 		.flag = 0
