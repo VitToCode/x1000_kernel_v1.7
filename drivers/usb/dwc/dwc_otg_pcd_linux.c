@@ -52,7 +52,7 @@
  * <code>usb_gadget_ops</code>.
  *
  */
-
+#include <linux/jz_dwc.h>
 #include "dwc_otg_os_dep.h"
 #include "dwc_otg_pcd_if.h"
 #include "dwc_otg_pcd.h"
@@ -365,16 +365,16 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
                                 dev,
                                 usb_req->buf,
                                 usb_req->length,
-				ep->dwc_ep.is_in 
+				ep->dwc_ep.is_in
                                         ? DMA_TO_DEVICE
                                         : DMA_FROM_DEVICE);
-	
+
 }
 #else
 	if (GET_CORE_IF(pcd)->dma_enable) {
 		struct pci_dev *dev = gadget_wrapper->pcd->otg_dev->os_dep.pcidev;
 		if (usb_req->length != 0 && usb_req->dma == DWC_DMA_ADDR_INVALID) {
-			dma_addr = pci_map_single(dev, usb_req->buf, usb_req->length, 
+			dma_addr = pci_map_single(dev, usb_req->buf, usb_req->length,
 					ep->dwc_ep.is_in ? PCI_DMA_TODEVICE : PCI_DMA_FROMDEVICE);
 		}
 	}
@@ -690,8 +690,15 @@ static int gadget_pullup(struct usb_gadget *gadget, int is_on)
 	dctl.b.sftdiscon = 1;
 	if (is_on) {
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32,0);
+		if (core_if->jz_pri->ucharger != NULL) {
+			core_if->jz_pri->pullup_on = 1;
+			schedule_delayed_work(&core_if->jz_pri->charger_delay_work,
+				msecs_to_jiffies(500));
+		}
 	} else {
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
+		if (core_if->jz_pri->ucharger != NULL)
+			core_if->jz_pri->pullup_on = 0;
 		dwc_udelay(50);
 	}
 	DWC_SPINUNLOCK_IRQRESTORE(d->pcd->lock, flags);
