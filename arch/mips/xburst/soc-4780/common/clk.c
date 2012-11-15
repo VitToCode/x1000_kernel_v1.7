@@ -496,8 +496,8 @@ static int cgu_enable(struct clk *clk,int on)
 {
 	int no = CLK_CGU_NO(clk->flags);
 
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) printk("wait stable.\n");
-
+	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
+		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	if(on) {
 		if(cgu_clks[no].flags)
 			cpm_set_bit(cgu_clks[no].ce,cgu_clks[no].off);
@@ -507,8 +507,8 @@ static int cgu_enable(struct clk *clk,int on)
 	} else {
 		cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
 	}
-
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) printk("wait stable.\n");
+	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
+		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 
 	return 0;
 }
@@ -529,11 +529,13 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 	}
 	i--;
 
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) printk("wait stable.\n");
+	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
+		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	x = cpm_inl(cgu_clks[no].off) & ~x;
 	x |= i;
 	cpm_outl(x, cgu_clks[no].off);
-	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) printk("wait stable.\n");
+	while(cpm_inl(cgu_clks[no].off) & (0x1 << cgu_clks[no].busy)) 
+		printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 
 	cgu_clks[no].flags |= 1;
 
