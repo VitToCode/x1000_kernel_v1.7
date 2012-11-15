@@ -116,14 +116,16 @@ struct jz_cim {
 	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
 };
 
-static   unsigned long inline reg_read(struct jz_cim *cim,int offset)
+static unsigned long inline reg_read(struct jz_cim *cim,int offset)
 {
 	return readl(cim->iomem+ offset); 
 }
-static   void inline reg_write(struct jz_cim *cim,int offset, unsigned long val)
+
+static void inline reg_write(struct jz_cim *cim,int offset, unsigned long val)
 {
 	writel(val, cim->iomem + offset); 
 }
+
 static void inline bit_set(struct jz_cim *cim ,int offset,int bit)
 {
 	unsigned long val;
@@ -131,6 +133,7 @@ static void inline bit_set(struct jz_cim *cim ,int offset,int bit)
 	val |= bit;
 	reg_write(cim,offset,val);
 }
+
 static void inline bit_clr(struct jz_cim *cim ,int offset,int bit)
 {
 	unsigned long val;
@@ -138,30 +141,105 @@ static void inline bit_clr(struct jz_cim *cim ,int offset,int bit)
 	val &= ~bit;
 	reg_write(cim,offset,val);
 }
-void  cim_enable(struct jz_cim *cim){bit_set(cim,CIM_CTRL,CIM_CTRL_ENA);}
-void  cim_disable(struct jz_cim *cim){bit_clr(cim,CIM_CTRL,CIM_CTRL_ENA);}
-void  cim_reset(struct jz_cim *cim){bit_set(cim,CIM_CTRL,CIM_CTRL_CIM_RST);}
-void  cim_enable_dma(struct jz_cim *cim){bit_set(cim,CIM_CTRL,CIM_CTRL_DMA_EN);}
-void  cim_disable_dma(struct jz_cim *cim){bit_clr(cim,CIM_CTRL,CIM_CTRL_DMA_EN);}
-void  cim_clear_rfifo(struct jz_cim *cim){bit_set(cim,CIM_CTRL,CIM_CTRL_RXF_RST);bit_clr(cim,CIM_CTRL,CIM_CTRL_RXF_RST);}
 
-void   cim_clear_state(struct jz_cim *cim){reg_write(cim,CIM_STATE,0);}
-void   cim_enable_fsc_intr(struct jz_cim *cim){bit_clr(cim,CIM_IMR,CIM_IMR_FSEM);}
-void   cim_enable_eof_intr(struct jz_cim *cim){bit_clr(cim,CIM_IMR,CIM_IMR_EOFM);}
-void   cim_enable_rxfifo_overflow_intr(struct jz_cim *cim){bit_clr(cim,CIM_IMR,CIM_IMR_RFIFO_OFM);}
-void   cim_enable_priority_control(struct jz_cim *cim){bit_set(cim,CIM_CTRL2,CIM_CTRL2_APM);}
-void   cim_enable_emergency(struct jz_cim *cim){bit_set(cim,CIM_CTRL2,CIM_CTRL2_EME);}
-void   cim_enable_tlb_error_intr(struct jz_cim *cim){bit_clr(cim,CIM_IMR,CIM_IMR_TLBEM);}
+static inline void cim_enable(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL,CIM_CTRL_ENA);
+}
 
+static inline void cim_disable(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_CTRL,CIM_CTRL_ENA);
+}
 
-void   cim_set_da(struct jz_cim *cim,void * addr){reg_write(cim,CIM_DA,(unsigned long)addr);}
-unsigned long  cim_get_iid(struct jz_cim *cim){return reg_read(cim,CIM_IID);}
-unsigned long  cim_get_fid(struct jz_cim *cim){return reg_read(cim,CIM_FID);}
-unsigned long  cim_read_state(struct jz_cim *cim){return reg_read(cim,CIM_STATE);}
+static inline void cim_reset(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL,CIM_CTRL_CIM_RST);
+}
 
-void cim_reset_tlb(struct jz_cim *cim){bit_set(cim,CIM_TC,CIM_TC_RST);bit_clr(cim,CIM_TC,CIM_TC_RST);}
-void cim_enable_tlb(struct jz_cim *cim){bit_set(cim,CIM_TC,CIM_TC_ENA);}
-int  cim_set_tlbbase(struct jz_cim *cim)
+static inline void cim_enable_dma(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL,CIM_CTRL_DMA_EN);
+}
+
+static inline void cim_disable_dma(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_CTRL,CIM_CTRL_DMA_EN);
+}
+
+static inline void cim_clear_rfifo(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL,CIM_CTRL_RXF_RST);
+	bit_clr(cim,CIM_CTRL,CIM_CTRL_RXF_RST);
+}
+
+static inline void cim_clear_state(struct jz_cim *cim)
+{
+	reg_write(cim,CIM_STATE,0);
+}
+
+static inline void cim_enable_fsc_intr(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_IMR,CIM_IMR_FSEM);
+}
+
+static inline void cim_enable_eof_intr(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_IMR,CIM_IMR_EOFM);
+}
+
+static inline void cim_enable_rxfifo_overflow_intr(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_IMR,CIM_IMR_RFIFO_OFM);
+}
+
+static inline void cim_enable_priority_control(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL2,CIM_CTRL2_APM);
+}
+
+static inline void cim_enable_emergency(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_CTRL2,CIM_CTRL2_EME);
+}
+
+static inline void cim_enable_tlb_error_intr(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_IMR,CIM_IMR_TLBEM);
+}
+
+static inline void cim_set_da(struct jz_cim *cim,void * addr)
+{
+	reg_write(cim,CIM_DA,(unsigned long)addr);
+}
+
+static inline unsigned long cim_get_iid(struct jz_cim *cim)
+{
+	return reg_read(cim,CIM_IID);
+}
+
+static inline unsigned long cim_get_fid(struct jz_cim *cim)
+{
+	return reg_read(cim,CIM_FID);
+}
+
+static inline unsigned long cim_read_state(struct jz_cim *cim)
+{
+	return reg_read(cim,CIM_STATE);
+}
+
+static inline void cim_reset_tlb(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_TC,CIM_TC_RST);
+	bit_clr(cim,CIM_TC,CIM_TC_RST);
+}
+
+static inline void cim_enable_tlb(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_TC,CIM_TC_ENA);
+}
+
+int cim_set_tlbbase(struct jz_cim *cim)
 {
 	unsigned long regval = 0;
 
@@ -210,8 +288,10 @@ void cim_power_on(struct jz_cim *cim)
 	if(cim->clk)
 		clk_enable(cim->clk);
 		
-	if(cim->mclk)
+	if(cim->mclk) {
+		clk_set_rate(cim->mclk, 24000000);
 		clk_enable(cim->mclk);
+	}
 		
 	if(cim->power) {
 		if (!regulator_is_enabled(cim->power)) {
@@ -220,8 +300,7 @@ void cim_power_on(struct jz_cim *cim)
 		}
 	}
 
-	mdelay(10);
-	clk_set_rate(cim->mclk, 24000000);
+	msleep(10);
 }
 
 void cim_power_off(struct jz_cim *cim)
@@ -859,6 +938,7 @@ static int cim_close(struct inode *inode, struct file *file)
 	struct miscdevice *dev = file->private_data;
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 
+	cim_shutdown(cim);
 	cim_power_off(cim);
 	cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
@@ -952,7 +1032,7 @@ void cim_dummy_power(void) {}
 static int cim_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct resource *r;
+	struct resource *r = NULL;
 	struct jz_cim_platform_data *pdata;
 	struct jz_cim *cim = kzalloc(sizeof(struct jz_cim), GFP_KERNEL);
 	if(!cim) {
