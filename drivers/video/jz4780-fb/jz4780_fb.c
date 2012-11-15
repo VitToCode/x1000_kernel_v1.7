@@ -1513,18 +1513,6 @@ static int jzfb_vsync_timestamp_changed(struct jzfb *jzfb,
 	return !ktime_equal(prev_timestamp, jzfb->vsync_timestamp);
 }
 
-static unsigned int ror_wide10_bit1(unsigned int num)
-{
-	num &= 0x3ff;
-	if (num & 0x1) {
-		num = num >> 1;
-		num |= 0x200;
-	} else {
-		num = num >> 1;
-	}
-	return num;
-}
-
 static int jzfb_wait_for_vsync_thread(void *data)
 {
 	struct jzfb *jzfb = (struct jzfb *)data;
@@ -1540,8 +1528,10 @@ static int jzfb_wait_for_vsync_thread(void *data)
 			char buf[64];
 
 			mutex_lock(&jzfb->lock);
-			jzfb->vsync_skip_map =
-				ror_wide10_bit1(jzfb->vsync_skip_map);
+			/* rotate right */
+			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 |
+				 		jzfb->vsync_skip_map << 9) &
+						0x3ff;
 			mutex_unlock(&jzfb->lock);
 			if (!(jzfb->vsync_skip_map & 0x1))
 			        continue;
@@ -1588,7 +1578,7 @@ static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = jzfb_open,
 	.fb_release = jzfb_release,
-	.fb_check_var = NULL,//jzfb_check_var,
+	.fb_check_var = jzfb_check_var,
 	.fb_set_par = jzfb_set_par,
 	.fb_blank = jzfb_blank,
 	.fb_pan_display = jzfb_pan_display,
