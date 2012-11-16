@@ -5,7 +5,7 @@
 
 #include "hi253_camera.h"
 
-#define hi253_SET_KERNEL_PRINT
+//#define HI253_SET_KERNEL_PRINT
 
 
 int hi253_init(struct cim_sensor *sensor_info)
@@ -17,7 +17,7 @@ int hi253_init(struct cim_sensor *sensor_info)
 	/***************** init reg set **************************/
 	/*** VGA preview (640X480) 30fps 24MCLK input ***********/
 
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"hi253 init\n");
 #endif
 
@@ -1087,7 +1087,7 @@ int hi253_size_switch(struct cim_sensor *sensor_info,int width,int height)
 	struct i2c_client * client ;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
 	client = s->client;
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"hi253 size switch %d * %d\n",width,height);
 #endif
 
@@ -1258,7 +1258,7 @@ int hi253_capture_set(struct cim_sensor *sensor_info)
 	s = container_of(sensor_info, struct hi253_sensor, cs);
 	client = s->client;
 	/***************** capture reg set **************************/
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"capture\n");
 #endif
 	return 0;
@@ -1283,7 +1283,7 @@ int hi253_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
 	unsigned char *str_antibanding;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
 	client = s->client;
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"hi253_set_antibanding");
 #endif
 	switch(arg)
@@ -1308,7 +1308,7 @@ int hi253_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
 			str_antibanding = "ANTIBANDING_AUTO";
 			break;
 	}
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev, "set antibanding to %s\n", str_antibanding);
 #endif
 	return 0;
@@ -1385,7 +1385,7 @@ int hi253_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 
 	s = container_of(sensor_info, struct hi253_sensor, cs);
 	client = s->client;
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"hi253_set_effect");
 #endif
 	switch(arg)
@@ -1436,7 +1436,7 @@ int hi253_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 			str_effect = "EFFECT_NONE";
 			break;
 	}
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"set effect to %s\n", str_effect);
 #endif
 	return 0;
@@ -1521,7 +1521,7 @@ int hi253_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 	unsigned char *str_balance;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
 	client = s->client;
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"hi253_set_balance");
 #endif
 	switch(arg)
@@ -1560,7 +1560,7 @@ int hi253_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 			str_balance = "WHITE_BALANCE_AUTO";
 			break;
 	}
-#ifdef hi253_SET_KERNEL_PRINT
+#ifdef HI253_SET_KERNEL_PRINT
 	dev_info(&client->dev,"set balance to %s\n", str_balance);
 #endif
 	return 0;

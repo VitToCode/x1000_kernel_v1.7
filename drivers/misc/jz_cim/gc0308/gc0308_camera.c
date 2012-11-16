@@ -10,7 +10,7 @@
 #include "gc0308_set.h"
 #include "../cim_reg.h"
 
-//#define gc0308_KERNEL_PRINT
+//#define GC0308_KERNEL_PRINT
 
 static struct frm_size gc0308_capture_table[]= {
 	{640,480},
@@ -135,7 +135,7 @@ int gc0308_power_up(struct cim_sensor *sensor_info)
 {
 	struct gc0308_sensor *s;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
-#ifdef gc0308_KERNEL_PRINT
+#ifdef GC0308_KERNEL_PRINT
 	dev_info(&s->client->dev,"gc0308 power up\n");
 #endif
 	gpio_set_value(s->gpio_en, 0);
@@ -147,7 +147,7 @@ int gc0308_power_down(struct cim_sensor *sensor_info)
 {
 	struct gc0308_sensor *s;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
-#ifdef gc0308_KERNEL_PRINT
+#ifdef GC0308_KERNEL_PRINT
 	dev_info(&s->client->dev,"gc0308 power down\n");
 #endif
 	gpio_set_value(s->gpio_en, 1);
@@ -159,7 +159,7 @@ int gc0308_reset(struct cim_sensor *sensor_info)
 {
 	struct gc0308_sensor *s;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
-#ifdef gc0308_KERNEL_PRINT
+#ifdef GC0308_KERNEL_PRINT
 	dev_info(&s->client->dev,"gc0308 reset %x\n",s->gpio_rst);
 #endif
 	gpio_set_value(s->gpio_rst, 0);

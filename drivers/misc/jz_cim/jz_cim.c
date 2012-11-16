@@ -35,7 +35,6 @@
 #define CDESC_NR	1
 
 //#define KERNEL_INFO_PRINT
-//#define SP0838_REGS_PRINT
 
 static LIST_HEAD(sensor_list);
 
@@ -613,9 +612,6 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_enable_dma(cim);
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_enable(cim);
-#ifdef SP0838_REGS_PRINT	
-	cim->desc->read_all_regs(cim->desc);
-#endif
 	//cim_dump_reg(cim);
 	return 0;
 }
@@ -1070,7 +1066,7 @@ static int cim_probe(struct platform_device *pdev)
 	#if 1
 	cim->power = regulator_get(&pdev->dev, "vcim");
 	if(IS_ERR(cim->power)){
-		printk("fuchao -------------power get fail\n");
+		dev_err(&pdev->dev,"get regulator fail!\n");
 		ret = -ENODEV;
 		goto mem_failed;
 	}
