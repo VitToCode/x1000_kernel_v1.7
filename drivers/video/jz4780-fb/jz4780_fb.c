@@ -1412,6 +1412,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 
 		if (value) {
 			/* the clock of ipu is depends on lcdc's clock */
+			clk_enable(jzfb->lpclk);
 			clk_enable(jzfb->ldclk);
 			tmp = reg_read(jzfb, LCDC_OSDCTRL);
 			/* enable ipu0 clock */
@@ -1422,6 +1423,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
 			reg_write(jzfb, LCDC_OSDCTRL, tmp);
 			clk_disable(jzfb->ldclk);
+			clk_disable(jzfb->lpclk);
 		}
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
@@ -1435,6 +1437,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		}
 
 		if (value) {
+			clk_enable(jzfb->lpclk);
 			clk_enable(jzfb->ldclk);
 		} else {
 			clk_disable(jzfb->ldclk);
@@ -2040,6 +2043,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get lcd pixel clock: %d\n", ret);
 		goto err_put_ldclk;
 	}
+	clk_set_rate(jzfb->lpclk, 27000000);
 
 	jzfb->base = ioremap(mem->start, resource_size(mem));
 	if (!jzfb->base) {
