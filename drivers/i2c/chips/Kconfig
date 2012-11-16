@@ -20,6 +20,11 @@ config SENSORS_LIS3DH
 	depends on GSENSOR
 	help
 
+config SENSORS_DMARD06
+	tristate "g_sensor DMARD06 driver"
+	depends on GSENSOR
+	help
+
 config SENSORS_MMA8452
         tristate "g_sensor MMA8452 driver"
         depends on GSENSOR
