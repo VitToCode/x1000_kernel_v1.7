@@ -16,7 +16,7 @@
 #include        <linux/gsensor.h>
 #include        <linux/hwmon-sysfs.h>
 #include        "gsensor_dmard06.h"
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 	#define dprintk(x...)	do{printk("~~~~~%s~~~~~\n",__FUNCTION__);printk(x);}while(0)
 #else
@@ -102,7 +102,6 @@ static int dmard06_i2c_read(struct dmard06_acc_data *acc,
 
 	err = i2c_transfer(acc->client->adapter, msgs, 2);
 	if (err < 0) {
-		dprintk("------lid3dh_gsensor run to this reading-------");
 		dev_err(&acc->client->dev, "gsensor dmard06 i2c read error\n");
 	}
 	return err;
@@ -165,7 +164,6 @@ int dmard06_acc_update_odr(struct dmard06_acc_data *acc, int poll_interval_ms)
 		case ODR10:	config1[1] = 0x45;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
 		case ODR25:	config1[1] = 0x20;break;//set to 0x0e irq rate:23Hz
 		case ODR50:	config1[1] = 0x10;break;//set to 0x06 irq rate:42Hz
-
 		default:	config1[1] = 0x45;break;//default situation set to 0x1D:irq rate:11Hz
 	}
 #endif
@@ -295,7 +293,10 @@ err_resume_state:
 
 static int dmard06_acc_device_power_off(struct dmard06_acc_data *acc)
 {
-	int err;
+	if (atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
+	regulator_disable(acc->power);
+    }
+	/*int err;
 
 	if (acc->pdata->power_off) {
 		acc->pdata->power_off();
@@ -310,12 +311,19 @@ static int dmard06_acc_device_power_off(struct dmard06_acc_data *acc)
 		}
 
 	}
+    */
 	return 0;
 }
 
+ int dmard_acc_regulator_enbale(struct dmard06_acc_data *acc)
+{
+    atomic_set(&acc->regulator_enabled,1);
+	return 	regulator_enable(acc->power);
+}
 static int dmard06_acc_device_power_on(struct dmard06_acc_data *acc)
 {
-	int err = -1;
+  dmard_acc_regulator_enbale(acc);
+	/*int err = -1;
 	u8 buf[2];
 	if (acc->pdata->power_on) {
 		err = acc->pdata->power_on();
@@ -326,7 +334,6 @@ static int dmard06_acc_device_power_on(struct dmard06_acc_data *acc)
 		}
 	}else{
 		buf[0] = CTRL_REG1;
-	//	buf[1] = DMARD06_ACC_ENABLE_ALL;//acc->resume_state[RES_CTRL_REG1];
 		buf[1] = 0x67;
 		err = dmard06_acc_i2c_write(acc, buf, 1);
 		if (err < 0){
@@ -344,6 +351,7 @@ static int dmard06_acc_device_power_on(struct dmard06_acc_data *acc)
 		}
 
 	}
+    */
 	return 0;
 }
 
@@ -353,10 +361,9 @@ static int dmard06_acc_disable(struct dmard06_acc_data *acc);
 static void dmard06_acc_regulator_enbale(struct dmard06_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0) {
-		regulator_enable(acc->power);
+  dmard_acc_regulator_enbale(acc);
 		udelay(100);
-		dmard06_acc_hw_init(acc);
-//		dprintk("&&&&&&&&&=gsensor regulator_enable &&&\n");
+		//dmard06_acc_hw_init(acc);
 	}
 }
 
@@ -364,10 +371,7 @@ static int dmard06_acc_get_acceleration_data(struct dmard06_acc_data *acc,
 		int *xyz)
 {
 	int err = -1;//,i;
-//	u8 buf[1]={0};
-	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
 	u8 acc_data[6];
-	/* x,y,z hardware data */
 	s16 hw_d[3] = { 0 };
 	acc_data[0] = (I2C_AUTO_INCREMENT | AXISDATA_REG);
 	err = dmard06_acc_i2c_read(acc, acc_data, 6);
@@ -405,9 +409,9 @@ static void dmard06_acc_report_values(struct dmard06_acc_data *acc,
 {
 	//dprintk(KERN_INFO "%s read x=%d, y=%d, z=%d\n",DMARD06_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
 
-	input_report_abs(acc->input_dev, ABS_X, -xyz[0]);
-	input_report_abs(acc->input_dev, ABS_Y, -xyz[1]);
-	input_report_abs(acc->input_dev, ABS_Z, -xyz[2]);
+	input_report_abs(acc->input_dev, ABS_X, -xyz[0]*2);
+	input_report_abs(acc->input_dev, ABS_Y, -xyz[1]*2);
+	input_report_abs(acc->input_dev, ABS_Z, -xyz[2]*2);
 	input_sync(acc->input_dev);
 #ifdef CONFIG_SENSORSpass the event_ORI
 	if(acc->pdata->ori_pr_swap == 1){
@@ -426,29 +430,24 @@ static int dmard06_acc_enable(struct dmard06_acc_data *acc)
 {
 	int err;
 	u8 buf[2]={0};
-//	dprintk("------acc enabled 0------\n");
 	if ((acc->is_suspend == 0) && !atomic_cmpxchg(&acc->enabled, 0, 1)) {
-//	dprintk("------acc enabled 1------\n");
 		err = dmard06_acc_device_power_on(acc);
 		if (err < 0) {
 			atomic_set(&acc->enabled, 0);
 			return err;
 		}
-		enable_irq(acc->client->irq);
+//		enable_irq(acc->client->irq);
 
-		buf[0] = INT_SRC1;
-		err = dmard06_acc_i2c_read(acc, buf, 1);
+//		buf[0] = INT_SRC1;
+	//	err = dmard06_acc_i2c_read(acc, buf, 1);
 	}
 	return 0;
 }
 
 static int dmard06_acc_disable(struct dmard06_acc_data *acc)
 {
-//	dprintk("------acc disabled 0------\n");
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
-//	dprintk("------acc disabled 1------\n");
-		disable_irq_nosync(acc->client->irq);
-		flush_workqueue(acc->irq_work_queue);
+//		flush_workqueue(acc->irq_work_queue);
 		dmard06_acc_device_power_off(acc);
 	}
 
@@ -458,7 +457,7 @@ static int dmard06_acc_disable(struct dmard06_acc_data *acc)
 struct linux_sensor_t hardware_data_dmard06 = {
 	"dmard06 3-axis Accelerometer",
 	"ST sensor",
-	SENSOR_TYPE_ACCELEROMETER,0,1024,1, 1, { }
+	SENSOR_TYPE_ACCELEROMETER,0,64,1, 1, { }
 };
 
 static int dmard06_acc_validate_pdata(struct dmard06_acc_data *acc)
@@ -605,15 +604,11 @@ int acc_input_open(struct input_dev *input)
 	input_set_drvdata(acc->input_dev, acc);
 
 	set_bit(EV_ABS, acc->input_dev->evbit);
-//	input_set_abs_params(acc->input_dev, ABS_X, -G_MAX, G_MAX, FUZZ, FLAT);
 	input_set_abs_params(acc->input_dev, ABS_X, -G_MAX, G_MAX, 1, FLAT);
-//	input_set_abs_params(acc->input_dev, ABS_Y, -G_MAX, G_MAX, FUZZ, FLAT);
 	input_set_abs_params(acc->input_dev, ABS_Y, -G_MAX, G_MAX, 1, FLAT);
-//	input_set_abs_params(acc->input_dev, ABS_Z, -G_MAX, G_MAX, FUZZ, FLAT);
 	input_set_abs_params(acc->input_dev, ABS_Z, -G_MAX, G_MAX, 1, FLAT);
 	err = input_register_device(acc->input_dev);
 	if (err) {
-        printk("~~~~~~~~~dmard wrong~~");
 		dev_err(&acc->client->dev,
 				"unable to register input device %s\n",
 				acc->input_dev->name);
@@ -753,8 +748,6 @@ s16 filter_call(s8* data, int size)
     s8 max, min;
     int count = 0;
     s8 value = 0;
-
-    //			printk("~~~~~~~~2.5~~~~~~~~\n");
     max = min = data[0];
     for (index=0; index < size; index++) {
     if (data[index] > max) {
@@ -785,7 +778,6 @@ static s8 sensorlayout7[3][3]={{ 1, 0, 0},	{ 0,-1,	0}, { 0, 0,-1}};
 static s8 sensorlayout8[3][3]={{ 0, 1, 0},	{ 1, 0,	0}, { 0, 0,-1}};
 void remap_layout()
 {
-   // switch(position)
     switch(1)
     {
     case 1:
@@ -884,45 +876,14 @@ static void dmard06_acc_delayed_work_fun()
  //     s8 xyz[SENSOR_DATA_SIZE];
         s8 xyz[3];
         device_i2c_read_xyz( dmard06_acc->client, (s8 *)&xyz);
-        input_report_abs(dmard06_acc->input_dev, ABS_X, xyz[0]);
-        input_report_abs(dmard06_acc->input_dev, ABS_Y, xyz[1]);
-        input_report_abs(dmard06_acc->input_dev, ABS_Z, xyz[2]);
+        input_report_abs(dmard06_acc->input_dev, ABS_X, -xyz[0]*2);
+        input_report_abs(dmard06_acc->input_dev, ABS_Y, -xyz[1]*2);
+        input_report_abs(dmard06_acc->input_dev, ABS_Z, -xyz[2]*2);
         input_sync(dmard06_acc->input_dev);        
  //       queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(dmard06_acc->pdata->poll_interval));
         queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(100));
-      printk("~~~~~~~~~~~~~~DMard X=%d,Y=%d,Z=%d\n ", xyz[0],xyz[1],xyz[2]);        
+     // printk("~~~~~~~~~~~~~~DMard X=%d,Y=%d,Z=%d\n ", xyz[0],xyz[1],xyz[2]);        
         return ;
-}
-
-static void dmard06_acc_work(struct work_struct *work)
-{
-	struct dmard06_acc_data *acc;
-	int xyz[3] = { 0 };
-	int err;
-	u8 buf[2]={0};
-	acc =  container_of(work, struct dmard06_acc_data, irq_work);
-
-	buf[0] = INT_SRC1;
-	err = dmard06_acc_i2c_read(acc, buf, 1);
-
-	buf[0] = STATUS_REG;
-	err = dmard06_acc_i2c_read(acc, buf, 1);
-	if( (buf[0]& 0x08) ==0 || err < 0){
-		enable_irq(acc->client->irq);
-		return;
-	}
-
-	err = dmard06_acc_get_acceleration_data(acc, xyz);
-	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
-		dprintk("---interrupt -suspend or disable\n");
-	}
-	else {
-		if(err < 0 )
-			dev_err(&acc->client->dev, "Acceleration data read failed\n");
-		else
-			dmard06_acc_report_values(acc, xyz);
-	}
-	//enable_irq(acc->client->irq);
 }
 
 static irqreturn_t dmard06_acc_interrupt(int irq, void *dev_id)
@@ -940,7 +901,6 @@ static irqreturn_t dmard06_acc_interrupt(int irq, void *dev_id)
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
 	else{
-		enable_irq(acc->client->irq);
 	}
 	return IRQ_HANDLED;
 }
@@ -950,20 +910,15 @@ static void dmard06_acc_late_resume(struct early_suspend *handler);
 static void dmard06_acc_early_suspend(struct early_suspend *handler);
 #endif
 
-static int dmard_acc_regulator_enbale(struct dmard06_acc_data *acc)
-{
-	return 	regulator_enable(acc->power);
-}
 int gsensor_reset(struct dmard06_acc_data *acc)
 {
-	struct regular *re = regulator_get(&acc->client->dev, "vgsensor");//get regular 
+acc->power= regulator_get(&acc->client->dev, "vgsensor");//get regular 
 	char cAddress = 0 , cData = 0;
 	int result;
 	s8 xyz[SENSOR_DATA_SIZE];
 	int buffer[3];
     //if(!dmard_acc_regulator_enbale(acc));
-    if(!regulator_enable(re));
-	dprintk("DMARD06%s  regular enable failed , client = %x  \n",__FUNCTION__,acc->client);
+    dmard_acc_regulator_enbale(acc);
 	cAddress = SW_RESET;
     result = i2c_smbus_read_byte_data(acc->client,cAddress);
     dprintk(KERN_INFO "i2c Read SW_RESET = %x \n", result);
@@ -987,8 +942,6 @@ int gsensor_reset(struct dmard06_acc_data *acc)
 }
 static int dmard06_acc_probe(struct i2c_client *client,		const struct i2c_device_id *id)
 {
-    int t=10;
-    while(t--)
 	struct dmard06_acc_data *acc;
 	int err = -1,result=0;
 	u8 buf[7]={0};
@@ -1062,7 +1015,7 @@ err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
 err_read_who_am_i:
-	regulator_disable(acc->power);
+dmard_acc_regulator_enbale(acc);
 exit_kfree_pdata:
 	kfree(acc->pdata);
 err_free:
@@ -1078,8 +1031,6 @@ static int __devexit dmard06_acc_remove(struct i2c_client *client)
 	struct dmard06_acc_data *acc = i2c_get_clientdata(client);
 
 	if(acc->pdata->gpio_int >= 0){
-		free_irq(acc->irq, acc);
-		gpio_free(acc->pdata->gpio_int);
 		destroy_workqueue(acc->irq_work_queue);
 	}
 
@@ -1089,7 +1040,7 @@ static int __devexit dmard06_acc_remove(struct i2c_client *client)
 		acc->pdata->exit();
         kfree(acc->pdata);
 	if (acc->power && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)){
-		err = regulator_disable(acc->power);
+err=dmard_acc_regulator_enbale(acc);
 		if (err < 0){
 			dev_err(&acc->client->dev,
 					"power_off regulator failed: %d\n", err);
@@ -1122,7 +1073,7 @@ static void dmard06_acc_early_suspend(struct early_suspend *handler)
 	acc = container_of(handler, struct dmard06_acc_data, early_suspend);
 	acc->is_suspend = 1;
 
-	disable_irq_nosync(acc->client->irq);
+//	disable_irq_nosync(acc->client->irq);
 	if (atomic_read(&acc->enabled)) {
 		dmard06_acc_disable(acc);
 	}
