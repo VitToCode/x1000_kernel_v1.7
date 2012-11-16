@@ -877,7 +877,7 @@ static void dmard06_acc_delayed_work_fun()
         s8 xyz[3];
         device_i2c_read_xyz( dmard06_acc->client, (s8 *)&xyz);
         input_report_abs(dmard06_acc->input_dev, ABS_X, -xyz[0]*2);
-        input_report_abs(dmard06_acc->input_dev, ABS_Y, -xyz[1]*2);
+        input_report_abs(dmard06_acc->input_dev, ABS_Y, xyz[1]*2);
         input_report_abs(dmard06_acc->input_dev, ABS_Z, -xyz[2]*2);
         input_sync(dmard06_acc->input_dev);        
  //       queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(dmard06_acc->pdata->poll_interval));
@@ -909,6 +909,7 @@ static irqreturn_t dmard06_acc_interrupt(int irq, void *dev_id)
 static void dmard06_acc_late_resume(struct early_suspend *handler);
 static void dmard06_acc_early_suspend(struct early_suspend *handler);
 #endif
+
 
 int gsensor_reset(struct dmard06_acc_data *acc)
 {
