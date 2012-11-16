@@ -179,6 +179,7 @@ struct jz_ipu {
 	struct device *dev;
 	struct resource *res;
 	struct miscdevice misc_dev;
+	struct early_suspend early_suspend;
 
 	struct mutex lock;
 	struct mutex run_lock;

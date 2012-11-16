@@ -32,6 +32,7 @@
 #include <linux/suspend.h>
 #include <linux/miscdevice.h>
 #include <linux/proc_fs.h>
+#include <linux/earlysuspend.h>
 
 #include "regs_ipu.h"
 #include "jz4780_ipu.h"
@@ -1511,6 +1512,27 @@ static irqreturn_t ipu_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void ipu_early_suspend(struct early_suspend *h)
+{
+	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
+
+	if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		printk("early_suspend stop_ipu_to_lcd+++++++++++");
+		stop_ipu_to_lcd(ipu);
+	} else {
+		reg_write(ipu, IPU_TRIG, IPU_STOP);
+	}
+	return;
+}
+
+static void ipu_late_resume(struct early_suspend *h)
+{
+	printk("ipu_late_resume+++");
+	return;
+}
+#endif
+
 static int ipu_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1582,6 +1604,14 @@ static int ipu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register misc device failed!\n");
 		goto err_set_drvdata;
 	}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	ipu->early_suspend.suspend = ipu_early_suspend;
+	ipu->early_suspend.resume = ipu_late_resume;
+	ipu->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB-15;
+	register_early_suspend(&ipu->early_suspend);
+#endif
+
 
 	/* for test */
 	ipu->pde = create_proc_entry(ipu->name, 0444, NULL);
