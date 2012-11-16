@@ -21,7 +21,7 @@
 
 #include "ji8070a.h"
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_MMA8452))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_SENSORS_MMA8452))
 static struct gsensor_platform_data mma8452_platform_pdata = {
 	.gpio_int = GPIO_MMA8452_INT1,
 	.poll_interval = 100,
@@ -41,7 +41,7 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 };
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
 static struct gsensor_platform_data lis3dh_platform_data = {
 	.gpio_int = GPIO_LIS3DH_INT1, 
 	.poll_interval = 100,
@@ -61,6 +61,25 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 };
 #endif
 
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_SENSORS_DMARD06))
+static struct gsensor_platform_data dmard06_platform_data = {
+//	.gpio_int = GPIO_LIS3DH_INT1, 
+	.poll_interval = 100,
+    .min_interval = 40,
+	.max_interval = 400,
+	.g_range = GSENSOR_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,							        
+	.negate_x = 0,
+	.negate_y = 1,
+	.negate_z = 1,
+	
+	.ori_pr_swap = 0,
+	.ori_pith_negate = 0,
+	.ori_roll_negate = 1,
+};
+#endif
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
 static struct jztsc_pin ji8070a_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
@@ -146,6 +165,12 @@ static struct i2c_board_info ji8070a_i2c3_devs[] __initdata = {
 		.platform_data = &lis3dh_platform_data,
 	},
 #endif
+#ifdef CONFIG_SENSORS_DMARD06
+	{
+		I2C_BOARD_INFO("gsensor_dmard06", 0x1c),
+		.platform_data = &dmard06_platform_data,
+	},
+#endif	/*I2C3*/
 };
 #endif	/*I2C3*/
 
