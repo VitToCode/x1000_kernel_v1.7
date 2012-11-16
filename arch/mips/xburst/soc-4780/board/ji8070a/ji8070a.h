@@ -95,10 +95,32 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
 
+
+#ifdef	CONFIG_GC0308
+#define GPIO_GC0308_EN			GPIO_PB(18)
+#define GPIO_GC0308_RST			GPIO_PB(26)
+#endif
+
+#ifdef	CONFIG_GC2015
+#define GPIO_GC2015_EN			GPIO_PB(19)
+#define GPIO_GC2015_RST			GPIO_PB(26)
+#endif
 /**
  * motor gpio
  */
 #define GPIO_MOTOR_PIN			GPIO_PB(25) /* PB25 */
+
+/**
+ * usb gpio
+ */
+#define GPIO_USB_ID                     GPIO_PE(2)
+#define GPIO_DRVVBUS                    GPIO_PE(10)
+
+/**
+ * hdmi gpio
+ */
+#define GPIO_HDMI_CEC			GPIO_PF(23)
+#define GPIO_HDMI_DETE			GPIO_PE(1)
 
 /**
  * pmem information
