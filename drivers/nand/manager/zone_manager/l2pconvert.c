@@ -629,6 +629,7 @@ static int write_data_prepare ( int context )
 	int i;
 	unsigned int count = 0;
 	Zone *zone = NULL;
+	unsigned int freecount = 0;
 #ifndef NO_ERROR
 	int ret = 0;
 	Context *conptr = (Context *)context;
@@ -636,7 +637,6 @@ static int write_data_prepare ( int context )
 	int msghandle;
 	ForceRecycleInfo frinfo;
 	VNandInfo *vnand = &conptr->vnand;
-	unsigned int freecount = 0;
 #endif
 
 	count = ZoneManager_GetAheadCount(context);

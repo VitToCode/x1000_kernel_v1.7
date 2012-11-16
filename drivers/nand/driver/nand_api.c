@@ -694,12 +694,13 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,"Malloc physical nand base info \n");
 		goto nand_probe_error2;
 	}
-	/*   get nemc clock and bch clock   */
+	/* get nemc clock and bch clock */
 	g_pnand_api.vnand_base->nemc_gate =clk_get(&pdev->dev,"nemc");
 	clk_enable(g_pnand_api.vnand_base->nemc_gate);
 	g_pnand_api.vnand_base->bch_gate =clk_get(&pdev->dev,"bch");
 	clk_enable(g_pnand_api.vnand_base->bch_gate);
 	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"cgu_bch");
+        clk_disable(g_pnand_api.vnand_base->bch_clk);
         clk_set_rate(g_pnand_api.vnand_base->bch_clk, clk_get_rate(g_pnand_api.vnand_base->nemc_gate));
 	clk_enable(g_pnand_api.vnand_base->bch_clk);
 
