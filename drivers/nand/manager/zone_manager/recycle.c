@@ -395,8 +395,8 @@ static int getRecycleZone ( Recycle *rep)
 	int context = rep->context;
 	Zone *zone;
 	Zone *current_zone;
-
-	ZoneID = Get_MaxJunkZone(((Context *)context)->junkzone);
+	//min sector count 128 sectors
+	ZoneID = Get_MaxJunkZone(((Context *)context)->junkzone,128);
 	rep->junk_zoneid = ZoneID;
 	if(ZoneID == 0xffff){
 		ZoneID = get_normal_zoneID(context);
@@ -1702,7 +1702,6 @@ static int FreeZone ( Recycle *rep)
 		ndprint(RECYCLE_INFO,"badblcok: %08x zoneid:%d \n",rep->rZone->sigzoneinfo->badblock,rep->rZone->ZoneID);
 		ZoneManager_DropZone(rep->context,rep->rZone);
 	}
-exit:
 	rep->rZone = NULL;
 	rep->taskStep = RECYIDLE;
 	return 0;
@@ -2007,9 +2006,10 @@ static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 	}
 	else {
 		if (ZoneID == 0xffff) {
-		GET_FORCE_RECYCLE_JUNKZONE:
-			ZoneID = Get_MaxJunkZone(((Context *)(rep->context))->junkzone);
-			if ((ZoneID != 0xffff) && rep->rZone && (ZoneID == rep->rZone->ZoneID)) {
+GET_FORCE_RECYCLE_JUNKZONE:
+		//seek min sectors count is 128 sectors
+		ZoneID = Get_MaxJunkZone(((Context *)(rep->context))->junkzone,128);
+		if ((ZoneID != 0xffff) && rep->rZone && (ZoneID == rep->rZone->ZoneID)) {
 				Release_MaxJunkZone(((Context *)(rep->context))->junkzone, ZoneID);
 				goto GET_FORCE_RECYCLE_JUNKZONE;
 			}

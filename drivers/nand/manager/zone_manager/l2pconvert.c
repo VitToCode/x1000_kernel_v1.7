@@ -629,10 +629,11 @@ static int write_data_prepare ( int context )
 	int i;
 	unsigned int count = 0;
 	Zone *zone = NULL;
+	Context *conptr = (Context *)context;
+	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 	unsigned int freecount = 0;
 #ifndef NO_ERROR
 	int ret = 0;
-	Context *conptr = (Context *)context;
 	Message force_recycle_msg;
 	int msghandle;
 	ForceRecycleInfo frinfo;
@@ -643,9 +644,10 @@ static int write_data_prepare ( int context )
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
 		freecount = ZoneManager_Getfreecount(context);
-		if ((!zone || freecount < 9) && count > 0) {
+		if ((!zone || freecount < 9 || l2p->force_recycle == 1) && count > 0) {
 			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle,i:%d count:%d freecount:%d\n",i,count,freecount);
 #ifndef NO_ERROR
+			l2p->force_recycle = 1;
 			/* force recycle */
 			frinfo.context = context;
 			frinfo.pagecount = vnand->PagePerBlock + 1;
@@ -671,7 +673,9 @@ static int write_data_prepare ( int context )
 		}
 		ZoneManager_SetAheadZone(context,zone);
 	}
-
+	freecount = ZoneManager_Getfreecount(context);
+	if(freecount > 25)
+		l2p->force_recycle = 0;
 	count = ZoneManager_GetAheadCount(context);
 	if (count > 0 && count < 4) {
 		ndprint(L2PCONVERT_INFO,"WARNING: can't alloc four zone beforehand, free zone count is %d \n", count);
@@ -827,6 +831,7 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 		pl_node = singlelist_entry(pos, PageList, head);
 		if (sector_count == 0) {
 			pl_node->startPageID = Zone_AllocNextPage(zone);
+			SetCurrentZoneID_JunkZone(jzone,zone->ZoneID);
 			old_startpageid = pl_node->startPageID;
 			l2p->pagecount++;
 		}
@@ -849,8 +854,7 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 							__func__,__LINE__, (jsectorid - 1)/spp);
 						return -1;
 					}
-					else if(oldzoneid != zone->ZoneID)
-						Insert_JunkZone(jzone,sectorcount,oldzoneid);
+					Insert_JunkZone(jzone,sectorcount,oldzoneid);
 					jsectorid = l4buf[i];
 					jsectorid++;
 					sectorcount = 1;
@@ -866,8 +870,8 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 							__func__,__LINE__, (jsectorid - 1)/spp);
 						return -1;
 					}
-					else if(oldzoneid != zone->ZoneID)
-						Insert_JunkZone(jzone,sectorcount,oldzoneid);
+
+					Insert_JunkZone(jzone,sectorcount,oldzoneid);
 					jsectorid = -1;
 					sectorcount = 0;
 				}
@@ -890,8 +894,7 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 				__func__,__LINE__, (jsectorid - 1)/spp);
 			return -1;
 		}
-		else if(oldzoneid != zone->ZoneID)
-			Insert_JunkZone(jzone,sectorcount,oldzoneid);
+		Insert_JunkZone(jzone,sectorcount,oldzoneid);
 	}
 
 	return 0;
