@@ -56,6 +56,37 @@ static inline int mark_bakblock(int blm, VNandInfo* vNand, int blockid)
 	return vNand_MarkBadBlock(vNand, blockid);
 }
 
+static inline void erase_partition(int blm, VNandInfo* vNand)
+{
+	int i, ret;
+	BlockList *bl_top;
+
+	bl_top = (BlockList *)BuffListManager_getTopNode(blm, sizeof(BlockList));
+	if (!bl_top)
+		ndprint(SIGBLOCK_ERROR, "%s, line:%d, alloc BlockList error!\n\n", __func__, __LINE__);
+
+	ndprint(SIGBLOCK_DEBUG, "Erase block:");
+	for (i=0; i < vNand->TotalBlocks; i++){
+		bl_top->startBlock = i;
+		bl_top->BlockCount = 1;
+		if (!(i % 8))
+			ndprint(SIGBLOCK_DEBUG, "\n");
+		ndprint(SIGBLOCK_DEBUG,"\t%d", i);
+		ret = vNand_MultiBlockErase(vNand, bl_top);
+		if (ret != 0) {
+			ndprint(SIGBLOCK_DEBUG, "(bad)");
+			ret = vNand_MarkBadBlock(vNand, bl_top->startBlock);
+			if (ret != 0) {
+				ndprint(SIGBLOCK_ERROR, "%s: line:%d, nand mark badblock error, blockID = %d\n",
+						__func__, __LINE__, bl_top->startBlock);
+			}
+		}
+	}
+	ndprint(SIGBLOCK_DEBUG, "\n");
+
+	BuffListManager_freeList(blm, (void **)&bl_top, (void *)bl_top, sizeof(BlockList));
+}
+
 static inline PageList *get_plnode(int blm, PageList **top, PageList *prev)
 {
 	PageList *refer = prev ? prev : (*top);
@@ -155,6 +186,7 @@ static PageList* sectornode_to_lpagelist(SplContext *conptr,  SectorList *sl_nod
 
 		pagenode->pData = (unsigned char *)sl_node->pData + data_offset;
 		data_offset += pagenode->Bytes;
+
 		/*
 		ndprint(SIGBLOCK_DEBUG,
 				"slnode->lpl: startpageID = %d, offsetBytes = %d, Bytes = %d, pData = %p\n",
@@ -435,6 +467,10 @@ static int splblock_rw(SplContext *conptr, SectorList *sl, int rwflag)
 		ndprint(SIGBLOCK_ERROR, "%s, line:%d, create pagelist error!\n", __func__, __LINE__);
 		return -1;
 	}
+
+	/* erase all blocks in the partition before write it */
+	if ((rwflag == SPL_WRITE) && lpl->startPageID == 0)
+		erase_partition((int)conptr->blm, &conptr->vnand);
 
 	/* split the whole logical pagelist align block and
 	 convert it to physical pagelist */

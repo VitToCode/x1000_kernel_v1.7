@@ -33,12 +33,13 @@ struct _VNandManager {
 		(vn)->startBlockID = 0;											\
 		if (pt->mode == ZONE_MANAGER) {									\
 			(vn)->PagePerBlock = (pt)->pageperblock * (pt)->v2pp->_2kPerPage; \
+			(vn)->TotalBlocks = (pt)->totalblocks - (pt)->actualbadblockcount; \
 			(vn)->BytePerPage = 2048;									\
 		} else {														\
 			(vn)->PagePerBlock = (pt)->pageperblock;					\
+			(vn)->TotalBlocks = (pt)->totalblocks;						\
 			(vn)->BytePerPage = (pt)->byteperpage;						\
 		}																\
-		(vn)->TotalBlocks = (pt)->totalblocks - (pt)->actualbadblockcount;		\
 		(vn)->MaxBadBlockCount = (pt)->badblockcount;					\
 		(vn)->hwSector = (pt)->hwsector;								\
 		(vn)->prData = (void*)(pt);										\
