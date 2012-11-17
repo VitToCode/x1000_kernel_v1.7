@@ -161,6 +161,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case WAIT_COMPLETE:
+		vpu->status = 0;
 		ret = wait_for_completion_interruptible_timeout(
 			&vpu->done, msecs_to_jiffies(200));
 		
