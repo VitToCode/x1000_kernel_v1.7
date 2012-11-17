@@ -3,7 +3,7 @@
 
 #define MAXDIFFTIME 20
 
-//#define L2P_PAGEINFO_DEBUG 1
+#define L2P_PAGEINFO_DEBUG 1
 
 #include "context.h"
 #include "partitioninterface.h"
@@ -30,6 +30,7 @@ struct _L2pConvert {
 	int pagecount;
 	int alloced_new_zone;
 	int *sectorid;
+	int force_recycle;
 #ifdef L2P_PAGEINFO_DEBUG
 	struct PageInfoDebug *debug;
 #endif
@@ -40,18 +41,19 @@ enum cmd {
 	RESUME,
 };
 
-#define INIT_L2P(x) do{					\
-		(x)->follow_node = NULL;		\
-		(x)->prev_node = NULL;		\
-		(x)->break_type = 0;			\
-		(x)->node_left_sector_count = 0;	\
-		(x)->page_left_sector_count = 0;	\
-		(x)->L4_startsectorid = -1;		\
+#define INIT_L2P(x) do{							\
+		(x)->follow_node = NULL;				\
+		(x)->prev_node = NULL;					\
+		(x)->break_type = 0;					\
+		(x)->node_left_sector_count = 0;		\
+		(x)->page_left_sector_count = 0;		\
+		(x)->L4_startsectorid = -1;				\
 		(x)->l4count = L4INFOLEN >> 2;			\
-		(x)->l4_is_new = 0;			\
-		(x)->zone_is_new = 0;			\
-		(x)->pagecount = 0;			\
-		(x)->alloced_new_zone = 0;		\
+		(x)->l4_is_new = 0;						\
+		(x)->zone_is_new = 0;					\
+		(x)->pagecount = 0;						\
+		(x)->alloced_new_zone = 0;				\
+		(x)->force_recycle = 0;					\
 		memset((x)->sectorid, 0xff, L4INFOLEN);	\
 	}while(0)
 
