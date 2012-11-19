@@ -662,7 +662,11 @@ static int scan_page_info(ZoneManager *zonep)
                         find_maxserialnumber(zonep,&max_serial,&max_zoneid,i);
                 }
 	}
-	if(max_zoneid >= zonenum) {
+	if(max_zoneid == 65535) {
+		max_serial = 0;
+		max_zoneid = 0;
+	}
+	if(max_zoneid > zonenum) {
 		ndprint(ZONEMANAGER_ERROR, "maxserialnum %d maxserial zoneid %d \n",max_serial,max_zoneid);
 		while(1);
 	}
