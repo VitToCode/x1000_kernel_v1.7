@@ -254,7 +254,7 @@ int HashNode_FindFirstLessLifeTime(HashNode *hashnode, unsigned int lifetime, Si
 	
 	hashnode->find_lifetime = lifetime;
 
-	if (hashnode->minlifetime >= lifetime) {
+	if (hashnode->minlifetime > lifetime) {
 		ndprint(HASHNODE_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 		*sigzoneinfo = NULL;
 		return -1;

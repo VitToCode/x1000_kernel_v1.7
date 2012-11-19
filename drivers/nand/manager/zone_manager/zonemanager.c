@@ -1619,6 +1619,7 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 		return -1;
 	if (sigpt >= zonep->sigzoneinfo + zonep->pt_zonenum || sigpt < zonep->sigzoneinfo){
 		ndprint(ZONEMANAGER_ERROR,"%s %d sigpt:%p sigzoneinfo:%p zonenum:%d \n",__func__,__LINE__,sigpt,zonep->sigzoneinfo,zonep->pt_zonenum);
+                return -1;
 	}
 	return (sigpt - zonep->sigzoneinfo);
 }

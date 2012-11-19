@@ -167,8 +167,9 @@ int Hash_FindFirstLessLifeTime ( Hash *hash, unsigned int lifetime, SigZoneInfo 
 
 	hash->find_lifetime = lifetime;
 	
-	if (lifetime <= hash->minlifetime) {
-		ndprint(HASH_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
+	if (lifetime < hash->minlifetime) {
+		ndprint(HASH_ERROR,"ERROR: func %s line %d lifetime=%d hash->minilifetime = %d\n"
+                                , __FUNCTION__, __LINE__,lifetime,hash->minlifetime);
 		*szi = NULL;
 		return -1;
 	}
