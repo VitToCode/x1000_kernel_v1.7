@@ -34,6 +34,10 @@ config GC0308
 	depends on JZ_CIM
 	default n
 
+config GC2015
+	bool "gc2015 camera sensor"
+	depends on JZ_CIM
+	default n
 config HI253
 	bool "hi253 camera sensor"
 	depends on JZ_CIM
