@@ -36,7 +36,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		/* for test armv7*/
 		seq_printf(m, "Processor	: ARMv7 Processor rev 2 (v7l)\n");
 		seq_printf(m, "BogoMIPS	        : 1001.88\n");
-		seq_printf(m, "Features	        : swp half thumb fastmult vfp edsp neon vfpv3\n");
+		seq_printf(m, "Features	        : swp half thumb fastmult vfp vfpv3\n");
 		seq_printf(m, "CPU implementer	: 0x41\n");
 		seq_printf(m, "CPU architecture : 7\n");
 		seq_printf(m, "CPU variant	: 0x3\n");
