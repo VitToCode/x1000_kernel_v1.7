@@ -27,12 +27,18 @@ struct _ZoneValidInfo {
 	int current_count;
 };
 
+#define NULL_INIT  0
+#define LOCAL_INIT 1
+#define PRE_INIT   2
+#define ALL_INIT (LOCAL_INIT | PRE_INIT)
 typedef struct _ZoneManager ZoneManager;
 struct _ZoneManager {
 	HashNode* freeZone;
 	Hash* useZone;
 	L1Info *L1;
 	SigZoneInfo* sigzoneinfo;
+	unsigned char *sigzoneinfo_initflag;
+
 	NandMutex HashMutex;
 	VNandInfo *vnand;
 	unsigned short* zoneID;
@@ -69,7 +75,7 @@ struct _ZoneManager {
 
 enum ErrType {
 	PAGE0,
-	PAGE1,	
+	PAGE1,
 };
 
 Zone *ZoneManager_Get_Used_Zone(ZoneManager *zonep, unsigned short zoneid);
