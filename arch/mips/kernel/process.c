@@ -25,6 +25,7 @@
 #include <linux/completion.h>
 #include <linux/kallsyms.h>
 #include <linux/random.h>
+#include <linux/cpu.h>
 
 #include <asm/asm.h>
 #include <asm/bootinfo.h>
@@ -56,6 +57,7 @@ void __noreturn cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+		idle_notifier_call_chain(IDLE_START);
 		tick_nohz_stop_sched_tick(1);
 		while (!need_resched() && cpu_online(cpu)) {
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -78,6 +80,7 @@ void __noreturn cpu_idle(void)
 			play_dead();
 #endif
 		tick_nohz_restart_sched_tick();
+		idle_notifier_call_chain(IDLE_END);
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
