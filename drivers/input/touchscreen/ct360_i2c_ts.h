@@ -38,7 +38,7 @@
 #endif
 
 #ifdef CONFIG_CT36X_FWUPDATE
-	#define CT36X_TS_FW_UPDATE 0			// BOOT LOADER //fix
+	#define CT36X_TS_FW_UPDATE 1			// BOOT LOADER //fix
 #else
 	#define CT36X_TS_FW_UPDATE 0			// BOOT LOADER
 #endif
