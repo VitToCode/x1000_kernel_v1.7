@@ -201,7 +201,10 @@ static int mg8698s_report_value(struct mg8698s_ts_data *data)
 #ifdef CONFIG_TSC_SWAP_Y
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
-
+#if 0
+        printk("event->au16_x[%d], event->au16_y[%d] = (%d, %d)\n",
+                i, i, event->au16_x[i], event->au16_y[i]);
+#endif
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				event->au16_x[i]);
 		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
@@ -379,6 +382,7 @@ static int mg8698s_ts_reset_i2c(struct mg8698s_ts_data *ts)
 static int mg8698s_ts_get_fw_version(struct mg8698s_ts_data *ts)
 {
     if (mg8698s_ts_reset_i2c(ts) < 0) {
+		dev_err(&ts->client->dev, "get_fw_version: failed\n");
         return -1;
     }
     ts->cmd = MG_DEVICE_VERSION;
@@ -388,6 +392,7 @@ static int mg8698s_ts_get_fw_version(struct mg8698s_ts_data *ts)
         return -1;
     }
     if (!wait_for_completion_timeout(&ts->cmd_complete, HZ)) {
+        ts->cmd = MG_NONE;
 		dev_err(&ts->client->dev, 
                 "get_fw_version: wait data timeout\n");
         return -1;
@@ -414,6 +419,7 @@ static int mg8698s_ts_get_device_id(struct mg8698s_ts_data *ts)
     }
 
     if (!wait_for_completion_timeout(&ts->cmd_complete, HZ)) {
+        ts->cmd = MG_NONE;
 		dev_err(&ts->client->dev, 
                 "%s: wait data timeout\n", __func__);
         return -1;
@@ -534,14 +540,19 @@ static int mg8698s_ts_probe(struct i2c_client *client,
 	
     init_completion(&mg8698s_ts->cmd_complete);
     mg8698s_ts->cmd = MG_NONE;
-
-    if (mg8698s_ts_get_fw_version(mg8698s_ts) < 0)
-        goto exit_register_earlay_suspend;
-
-    if (mg8698s_ts_get_device_id(mg8698s_ts) < 0)
-        goto exit_register_earlay_suspend;
-
 	enable_irq(client->irq);
+
+#if 0
+    if (mg8698s_ts_get_fw_version(mg8698s_ts) < 0) {
+        goto exit_register_earlay_suspend;
+
+    }
+
+    if (mg8698s_ts_get_device_id(mg8698s_ts) < 0) {
+        goto exit_register_earlay_suspend;
+    }
+#endif
+
 	return 0;
 
 exit_register_earlay_suspend:

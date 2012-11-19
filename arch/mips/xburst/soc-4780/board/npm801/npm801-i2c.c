@@ -69,8 +69,8 @@ static struct jztsc_pin npm801_tsc_gpio[] = {
 
 static struct jztsc_platform_data npm801_tsc_pdata = {
 	.gpio		= npm801_tsc_gpio,
-	.x_max		= 1024,
-	.y_max		= 768,
+	.x_max		= 1344,
+	.y_max		= 960,
 };
 #endif
 
