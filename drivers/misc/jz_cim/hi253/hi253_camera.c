@@ -10,7 +10,7 @@
 #include "hi253_set.h"
 #include "../cim_reg.h"
 
-//#define hi253_KERNEL_PRINT
+//#define HI253_KERNEL_PRINT
 
 static struct frm_size hi253_capture_table[]= {
 	{1600,1200},
@@ -138,7 +138,7 @@ int hi253_power_up(struct cim_sensor *sensor_info)
 {
 	struct hi253_sensor *s;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
-#ifdef hi253_KERNEL_PRINT
+#ifdef HI253_KERNEL_PRINT
 	dev_info(&s->client->dev,"hi253 power up\n");
 #endif
 	gpio_set_value(s->gpio_en,0);
@@ -150,7 +150,7 @@ int hi253_power_down(struct cim_sensor *sensor_info)
 {
 	struct hi253_sensor *s;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
-#ifdef hi253_KERNEL_PRINT
+#ifdef HI253_KERNEL_PRINT
 	dev_info(&s->client->dev,"hi253 power down\n");
 #endif
 	gpio_set_value(s->gpio_en, 1);
@@ -162,7 +162,7 @@ int hi253_reset(struct cim_sensor *sensor_info)
 {
 	struct hi253_sensor *s;
 	s = container_of(sensor_info, struct hi253_sensor, cs);
-#ifdef hi253_KERNEL_PRINT
+#ifdef HI253_KERNEL_PRINT
 	dev_info(&s->client->dev,"hi253 reset %x\n",s->gpio_rst);
 #endif
 	gpio_set_value(s->gpio_rst, 0);

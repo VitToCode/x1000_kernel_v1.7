@@ -5,7 +5,7 @@
 
 #include "gc0308_camera.h"
 
-#define gc0308_SET_KERNEL_PRINT
+//#define GC0308_SET_KERNEL_PRINT
 
 
 int gc0308_init(struct cim_sensor *sensor_info)
@@ -17,7 +17,7 @@ int gc0308_init(struct cim_sensor *sensor_info)
 	/***************** init reg set **************************/
 	/*** VGA preview (640X480) 30fps 24MCLK input ***********/
 
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"gc0308 init\n");
 #endif
 
@@ -387,7 +387,7 @@ int gc0308_size_switch(struct cim_sensor *sensor_info,int width,int height)
 	struct i2c_client * client ;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	client = s->client;
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"gc0308 size switch %d * %d\n",width,height);
 #endif
 
@@ -474,7 +474,7 @@ int gc0308_capture_set(struct cim_sensor *sensor_info)
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	client = s->client;
 	/***************** capture reg set **************************/
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"capture\n");
 #endif
 	return 0;
@@ -527,7 +527,7 @@ int gc0308_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
 	unsigned char *str_antibanding;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	client = s->client;
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"gc0308_set_antibanding");
 #endif
 	switch(arg)
@@ -552,7 +552,7 @@ int gc0308_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
 			str_antibanding = "ANTIBANDING_AUTO";
 			break;
 	}
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev, "set antibanding to %s\n", str_antibanding);
 #endif
 	return 0;
@@ -645,7 +645,7 @@ int gc0308_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	client = s->client;
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"gc0308_set_effect");
 #endif
 	switch(arg)
@@ -696,7 +696,7 @@ int gc0308_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 			str_effect = "EFFECT_NONE";
 			break;
 	}
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"set effect to %s\n", str_effect);
 #endif
 	return 0;
@@ -758,7 +758,7 @@ int gc0308_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 	unsigned char *str_balance;
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	client = s->client;
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"gc0308_set_balance");
 #endif
 	switch(arg)
@@ -797,7 +797,7 @@ int gc0308_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 			str_balance = "WHITE_BALANCE_AUTO";
 			break;
 	}
-#ifdef gc0308_SET_KERNEL_PRINT
+#ifdef GC0308_SET_KERNEL_PRINT
 	dev_info(&client->dev,"set balance to %s\n", str_balance);
 #endif
 	return 0;
