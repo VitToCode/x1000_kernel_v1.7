@@ -49,6 +49,8 @@ struct jz_vpu {
 
 static int vpu_on(struct jz_vpu *vpu)
 {
+	int cnt = 0xffff;
+
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
 		return -EBUSY;
 
@@ -56,6 +58,11 @@ static int vpu_on(struct jz_vpu *vpu)
 	clk_enable(vpu->clk);
 	clk_enable(vpu->clk_gate);
 	cpm_clear_bit(30, CPM_LCR);	//vpu power on
+	while ((cpm_inl(CPM_LCR) & CPM_LCR_VPUS) && --cnt);
+	if (!cnt) {
+		pr_err("power on vpu timeout!!!\n");
+		WARN_ON(1);
+	}
 
 	__asm__ __volatile__ (
 			"mfc0  $2, $16,  7   \n\t"
