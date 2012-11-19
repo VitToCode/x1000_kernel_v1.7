@@ -266,8 +266,10 @@ static int read_zone_info_page(ZoneManager *zonep,unsigned short zoneid,PageList
 		if(vNand_IsBadBlock(zonep->vnand, startblockno) == 0)
 			break;
 	}
-	if(i == blocknum)
+	if(i == blocknum) {
+		ndprint(ZONEMANAGER_ERROR,"Too many bad blocks in zone id = %d\n",zoneid);
 		return -1;
+	}
 	pl->startPageID = startblockno * zonep->vnand->PagePerBlock + page;
 
 	return vNand_MultiPageRead(zonep->vnand,pl);
@@ -435,9 +437,22 @@ static int find_maxserialnumber(ZoneManager *zonep,
 	unsigned int max = 0;
 	NandZoneInfo *nandzoneinfo = (NandZoneInfo *)(zonep->mem0);
 	SigZoneInfo *oldsigp = NULL;
-
+	int i;
 	//update localzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->localZone.ZoneID;
+	if(zoneid != zid) {
+		unsigned int *d = (unsigned int *)zonep->mem0;
+		ndprint(ZONEMANAGER_INFO,"============== data =========================\n");
+		for(i = 0; i < sizeof(NandZoneInfo) / 4;i++) {
+			if(i % 8 == 0) {
+				ndprint(ZONEMANAGER_INFO,"\n%04d:",i);
+			}
+			ndprint(ZONEMANAGER_INFO,"%08x\t",d[i]);
+		}
+		ndprint(ZONEMANAGER_INFO,"\n");
+		ndprint(ZONEMANAGER_ERROR,"read sigzoneinfo error zoneid = %d readzoneid = %d\n",zid,zoneid);
+		while(1);
+	}
 	if (zoneid != 0xffff && zoneid >= 0 && zoneid < zonep->pt_zonenum && zoneid == zid) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
 		oldsigp->pre_zoneid = nandzoneinfo->preZone.ZoneID;
@@ -632,19 +647,27 @@ static int scan_page_info(ZoneManager *zonep)
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		ret = read_zone_page1(zonep,i,plt);
+		ndprint(ZONEMANAGER_INFO, "maxserialnum %d maxserial zoneid %d ret = %d i = %d\n",max_serial,max_zoneid,ret,i);
                 if (ISERROR(ret)) {
                         ret = plt->retVal;
                         plt->retVal = 0;
                         if (ISNOWRITE(ret))
                                 continue;
-                        else
+                        else {
+				ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 1 error!\n",i);
                                 insert_zoneidlist(zonep,PAGE1,i);
+			}
                 } else {
                         plt->retVal = 0;
                         find_maxserialnumber(zonep,&max_serial,&max_zoneid,i);
                 }
 	}
+	if(max_zoneid >= zonenum) {
+		ndprint(ZONEMANAGER_ERROR, "maxserialnum %d maxserial zoneid %d \n",max_serial,max_zoneid);
+		while(1);
+	}
 
+	ndprint(ZONEMANAGER_INFO, "maxserialnum %d maxserial zoneid %d \n",max_serial,max_zoneid);
 	ret = scan_sigzoneinfo_fill_node(zonep,plt);
 	if (ret < 0) {
 		ndprint(ZONEMANAGER_ERROR,"ERROR: scan_sigzoneinfo_fill_node func %s line %d\n",
