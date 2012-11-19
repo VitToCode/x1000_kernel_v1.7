@@ -381,7 +381,7 @@ static unsigned short get_normal_zoneID(int context)
 	lifetime = minlifetime + difflifetime / 3;
 	if(difflifetime > BALANCECOUNT / 2)
 		zoneid = ZoneManager_RecyclezoneID(context,lifetime);
-	if(difflifetime > BALANCECOUNT && zoneid == -1)
+	if(difflifetime > BALANCECOUNT && zoneid == 0xffff)
 		zoneid = ZoneManager_RecyclezoneID(context,0);
 	return zoneid;
 }
