@@ -54,7 +54,6 @@ static int vpu_on(struct jz_vpu *vpu)
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
 		return -EBUSY;
 
-	cpm_set_bit(31, CPM_OPCR);
 	clk_enable(vpu->clk);
 	clk_enable(vpu->clk_gate);
 	cpm_clear_bit(30, CPM_LCR);	//vpu power on
