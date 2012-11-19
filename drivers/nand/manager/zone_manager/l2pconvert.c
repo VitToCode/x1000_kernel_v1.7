@@ -142,6 +142,7 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 		return -1;
 	}
 
+	l2p->force_recycle = 0;
 	l2p->sectorid = (int *)Nand_ContinueAlloc(L4INFOLEN);
 	if (!(l2p->sectorid)) {
 		ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d \n", __FUNCTION__, __LINE__);
@@ -566,7 +567,6 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 				break;
 			}
 		}
-
 	}
 
 #ifdef STATISTICS_DEBUG
@@ -597,26 +597,42 @@ first_read:
 /*recycle zone when freezone < sumzone*4% */
 static void recycle_zone_prepare(int context)
 {
-	unsigned int ptzonenum;
 	Context *conptr = (Context *)context;
-	Message force_recycle_msg;
-	int msghandle;
+	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 	ForceRecycleInfo frinfo;
+	Message force_recycle_msg;
+	unsigned int freecount;
+	unsigned int recyclezonenum;
+	int msghandle;
 
-	ptzonenum = ZoneManager_Getptzonenum(context) * 4 / 100;
-	if(ptzonenum == 0)
-		ptzonenum = 1;
-	if (ZoneManager_Getfreecount(context) < ptzonenum ){
-		frinfo.context = context;
-		frinfo.pagecount = -1;
-		frinfo.suggest_zoneid = -1;
-		force_recycle_msg.msgid = FORCE_RECYCLE_ID;
-		force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
-		force_recycle_msg.data = (int)&frinfo;
+	freecount = ZoneManager_Getfreecount(context);
+	recyclezonenum = conptr->zonep->pt_zonenum * 4 / 100;
+	if (recyclezonenum < 4)
+		recyclezonenum = 4;
 
-		msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
-		Message_Recieve(conptr->thandle, msghandle);
+	if (freecount < recyclezonenum){
+		l2p->force_recycle = 1;
 	}
+	if(l2p->force_recycle != 1)
+		return;
+
+	frinfo.context = context;
+	frinfo.pagecount = -1;
+	frinfo.suggest_zoneid = -1;
+	force_recycle_msg.msgid = FORCE_RECYCLE_ID;
+	force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
+	force_recycle_msg.data = (int)&frinfo;
+
+	msghandle = Message_Post(conptr->thandle, &force_recycle_msg, WAIT);
+	Message_Recieve(conptr->thandle, msghandle);
+	freecount = ZoneManager_Getfreecount(context);
+
+	recyclezonenum = conptr->zonep->pt_zonenum * 10 / 100;
+
+	if(recyclezonenum < 4)
+		recyclezonenum = 4;
+	if(freecount > recyclezonenum)
+		l2p->force_recycle = 0;
 }
 
 /**
@@ -630,27 +646,28 @@ static int write_data_prepare ( int context )
 	unsigned int count = 0;
 	Zone *zone = NULL;
 	Context *conptr = (Context *)context;
-	L2pConvert *l2p = (L2pConvert *)(conptr->l2pid);
 	unsigned int freecount = 0;
+	int recyclezonenum;
 #ifndef NO_ERROR
 	int ret = 0;
 	Message force_recycle_msg;
 	int msghandle;
 	ForceRecycleInfo frinfo;
-	VNandInfo *vnand = &conptr->vnand;
 #endif
 
 	count = ZoneManager_GetAheadCount(context);
 	for (i = 0; i < 4 - count; i++){
 		zone = ZoneManager_AllocZone(context);
 		freecount = ZoneManager_Getfreecount(context);
-		if ((!zone || freecount < 9 || l2p->force_recycle == 1) && count > 0) {
+		recyclezonenum = conptr->zonep->pt_zonenum * 2 / 100;
+		if (recyclezonenum < 2)
+			recyclezonenum = 2;
+		if ((!zone || freecount < recyclezonenum) && count > 0) {
 			ndprint(L2PCONVERT_INFO,"WARNING: There is not enough zone and start force recycle,i:%d count:%d freecount:%d\n",i,count,freecount);
 #ifndef NO_ERROR
-			l2p->force_recycle = 1;
 			/* force recycle */
 			frinfo.context = context;
-			frinfo.pagecount = vnand->PagePerBlock + 1;
+			frinfo.pagecount = 128;
 			frinfo.suggest_zoneid = -1;
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
@@ -673,9 +690,6 @@ static int write_data_prepare ( int context )
 		}
 		ZoneManager_SetAheadZone(context,zone);
 	}
-	freecount = ZoneManager_Getfreecount(context);
-	if(freecount > 25)
-		l2p->force_recycle = 0;
 	count = ZoneManager_GetAheadCount(context);
 	if (count > 0 && count < 4) {
 		ndprint(L2PCONVERT_INFO,"WARNING: can't alloc four zone beforehand, free zone count is %d \n", count);
@@ -1109,11 +1123,8 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,1);
 #endif
-
 	INIT_L2P(l2p);
-
 	recycle_zone_prepare(context);
-
 	zone = get_write_zone(context);
 	if(zone == NULL) {
 		ndprint(L2PCONVERT_ERROR,"ERROR:get_write_zone error func %s line %d \n",

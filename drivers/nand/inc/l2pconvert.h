@@ -3,7 +3,7 @@
 
 #define MAXDIFFTIME 20
 
-#define L2P_PAGEINFO_DEBUG 1
+//#define L2P_PAGEINFO_DEBUG 1
 
 #include "context.h"
 #include "partitioninterface.h"
@@ -53,7 +53,6 @@ enum cmd {
 		(x)->zone_is_new = 0;					\
 		(x)->pagecount = 0;						\
 		(x)->alloced_new_zone = 0;				\
-		(x)->force_recycle = 0;					\
 		memset((x)->sectorid, 0xff, L4INFOLEN);	\
 	}while(0)
 

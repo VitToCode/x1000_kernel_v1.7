@@ -366,7 +366,8 @@ static unsigned short get_normal_zoneID(int context)
 	unsigned int minlifetime = 0;
 	unsigned int maxlifetime = 0;
 	unsigned int lifetime = 0;
-	unsigned short zoneid;
+	unsigned int difflifetime;
+	unsigned short zoneid = -1;
 	count = ZoneManager_Getusedcount(context);
 	if(count == 0) {
 		ndprint(RECYCLE_ERROR,"PANIC ERROR func %s line %d \n",
@@ -376,9 +377,11 @@ static unsigned short get_normal_zoneID(int context)
 
 	minlifetime = ZoneManager_Getminlifetime(context);
 	maxlifetime = ZoneManager_Getmaxlifetime(context);
-	lifetime = minlifetime + ( maxlifetime - minlifetime ) / 3;
-	zoneid = ZoneManager_RecyclezoneID(context,lifetime);
-	if(lifetime < minlifetime + BALANCECOUNT && zoneid == -1)
+	difflifetime = maxlifetime - minlifetime;
+	lifetime = minlifetime + difflifetime / 3;
+	if(difflifetime > BALANCECOUNT / 2)
+		zoneid = ZoneManager_RecyclezoneID(context,lifetime);
+	if(difflifetime > BALANCECOUNT && zoneid == -1)
 		zoneid = ZoneManager_RecyclezoneID(context,0);
 	return zoneid;
 }
