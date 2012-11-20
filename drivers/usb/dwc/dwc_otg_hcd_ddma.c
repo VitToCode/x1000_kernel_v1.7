@@ -78,7 +78,7 @@ static int desc_list_alloc(dwc_otg_qh_t * qh)
 	int retval = 0;
 
 	qh->desc_list = (dwc_otg_host_dma_desc_t *)
-	    DWC_DMA_ALLOC(sizeof(dwc_otg_host_dma_desc_t) * max_desc_num(qh),
+	    DWC_DMA_ALLOC_ATOMIC(sizeof(dwc_otg_host_dma_desc_t) * max_desc_num(qh),
 			  &qh->desc_list_dma);
 
 	if (!qh->desc_list) {
@@ -91,7 +91,7 @@ static int desc_list_alloc(dwc_otg_qh_t * qh)
 		   sizeof(dwc_otg_host_dma_desc_t) * max_desc_num(qh));
 
 	qh->n_bytes =
-	    (uint32_t *) DWC_ALLOC(sizeof(uint32_t) * max_desc_num(qh));
+	    (uint32_t *) DWC_ALLOC_ATOMIC(sizeof(uint32_t) * max_desc_num(qh));
 
 	if (!qh->n_bytes) {
 		retval = -DWC_E_NO_MEMORY;
