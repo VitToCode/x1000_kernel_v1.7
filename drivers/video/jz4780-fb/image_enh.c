@@ -16,24 +16,6 @@
 #include "regs.h"
 #include "image_enh.h"
 
-static void jzfb_get_gamma(struct fb_info *info, struct enh_gamma *gamma)
-{
-	struct jzfb *jzfb = info->par;
-	unsigned int tmp;
-	int i = 1000;
-
-	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	gamma->gamma_en = tmp & LCDC_ENH_CFG_GAMMA_EN;
-
-	for (i = 0; i < LCDC_ENH_GAMMA_LEN >> 2; i++) {
-		tmp = reg_read(jzfb, LCDC_ENH_GAMMA + i * 4);
-		gamma->gamma_data0[i] = (tmp & LCDC_ENH_GAMMA_GAMMA_DATA0_MASK) >>
-			LCDC_ENH_GAMMA_GAMMA_DATA0_BIT;
-		gamma->gamma_data1[i] = (tmp & LCDC_ENH_GAMMA_GAMMA_DATA1_MASK) >>
-			LCDC_ENH_GAMMA_GAMMA_DATA1_BIT;
-	}
-}
-
 static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 {
 	struct jzfb *jzfb = info->par;
@@ -276,24 +258,6 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	}
 }
 
-static void jzfb_get_vee(struct fb_info *info, struct enh_vee *vee)
-{
-	struct jzfb *jzfb = info->par;
-	unsigned int tmp;
-	int i = 1000;
-
-	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	vee->vee_en = tmp & LCDC_ENH_CFG_VEE_EN;
-
-	for (i = 0; i < LCDC_ENH_VEE_LEN >> 2; i++) {
-		tmp = reg_read(jzfb, LCDC_ENH_VEE + i * 4);
-		vee->vee_data0[i] = (tmp & LCDC_ENH_VEE_VEE_DATA0_MASK) >>
-			LCDC_ENH_VEE_VEE_DATA0_BIT;
-		vee->vee_data1[i] = (tmp & LCDC_ENH_VEE_VEE_DATA1_MASK) >>
-			LCDC_ENH_VEE_VEE_DATA1_BIT;
-	}
-}
-
 static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 {
 	struct jzfb *jzfb = info->par;
@@ -383,14 +347,11 @@ static void jzfb_enable_enh(struct fb_info *info,unsigned int value)
 {
 	unsigned int tmp;
 	struct jzfb *jzfb = info->par;
-
 	if(value == 0){
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
-		tmp &= ~LCDC_ENH_CFG_ENH_EN;
+		tmp = 0;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	} else {
-		tmp = reg_read(jzfb, LCDC_ENH_CFG);
-		tmp |= LCDC_ENH_CFG_ENH_EN;
+		tmp = LCDC_ENH_CFG_ENH_EN | LCDC_ENH_CFG_RGB2YCC_EN | LCDC_ENH_CFG_YCC2RGB_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	}
 }
@@ -412,11 +373,9 @@ int jzfb_config_image_enh(struct fb_info *info)
 		kzfree(dither);
 	}
 
-	/* enable the global image enhancement bit */
-	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	tmp |= LCDC_ENH_CFG_ENH_EN;
+	/* disable the global image enhancement bit */
+	tmp = 0;
 	reg_write(jzfb, LCDC_ENH_CFG, tmp);
-
 	return 0;
 }
 
@@ -438,9 +397,6 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 
 	switch (cmd) {
 	case JZFB_GET_GAMMA:
-		jzfb_get_gamma(info, &enh.gamma);
-		if (copy_to_user(argp, &enh.gamma, sizeof(struct enh_gamma)))
-			return -EFAULT;
 		break;
 	case JZFB_SET_GAMMA:
 		if (copy_from_user(&enh.gamma, argp, sizeof(struct enh_gamma))) {
@@ -503,9 +459,6 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		break;
 	case JZFB_GET_VEE:
-		jzfb_get_vee(info, &enh.vee);
-		if (copy_to_user(argp, &enh.vee, sizeof(struct enh_vee)))
-			return -EFAULT;
 		break;
 	case JZFB_SET_VEE:
 		if (copy_from_user(&enh.vee, argp, sizeof(struct enh_vee))) {

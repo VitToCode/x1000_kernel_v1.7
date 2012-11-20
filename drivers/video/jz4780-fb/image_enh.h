@@ -62,6 +62,6 @@ struct enh_dither {
 /* Reserved for future extend */
 #define JZFB_GET_DITHER			_IOR('F', 0x158, struct enh_dither)
 #define JZFB_SET_DITHER			_IOW('F', 0x159, struct enh_dither)
-#define JZFB_ENABLE_ENH			_IOW('F', 0x158, struct enh_dither)
+#define JZFB_ENABLE_ENH			_IOW('F', 0x160, struct enh_dither)
 
 #endif /* _IMAGE_ENH_H_ */
