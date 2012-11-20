@@ -160,7 +160,8 @@ static inline void end_time(int mode)
 #ifdef DEBUG_TIME_READ
 			times = div_s64_32(rd_sum_time, 1000 * 1000);
 			bytes = rd_sum_bytes / 1024;
-			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n",
+				   times, bytes, (bytes * 1000) / times);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 				   rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
 				   rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
@@ -178,7 +179,8 @@ static inline void end_time(int mode)
 #ifdef DEBUG_TIME_WRITE
 			times = div_s64_32(wr_sum_time, 1000 * 1000);
 			bytes = wr_sum_bytes / 1024;
-			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n", times, bytes, (bytes * 1000) / times);
+			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n",
+				   times, bytes, (bytes * 1000) / times);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 				   wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
 				   wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
@@ -243,6 +245,21 @@ static struct __nand_disk * get_ndisk_form_queue(const struct request_queue *q)
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
 		if (ndisk->queue == q)
+			return ndisk;
+	}
+	return NULL;
+}
+
+static struct __nand_disk * get_ndisk_by_name(const char *name)
+{
+	struct singlelist *plist = NULL;
+	struct __nand_disk *ndisk = NULL;
+
+	DBG_FUNC();
+
+	singlelist_for_each(plist, nand_block.disk_list.next) {
+		ndisk = singlelist_entry(plist, struct __nand_disk, list);
+		if (ndisk->pinfo->pt->name == name)
 			return ndisk;
 	}
 	return NULL;
@@ -738,9 +755,10 @@ struct device_driver nand_block_driver = {
 /*#################################################################*\
  *# start
 \*#################################################################*/
-static void nand_disk_install(int data)
+int nand_disk_install(char *name)
 {
 	int ret = -EFAULT;
+	int installAll = 1;
 	int context = 0;
 	LPartition *phead = NULL;
 	LPartition *pt = NULL;
@@ -750,9 +768,14 @@ static void nand_disk_install(int data)
 
 	DBG_FUNC();
 
+	if (name)
+		installAll = 0;
+
+	printk("nand_block: install partition [%s]\n", name);
+
 	if (NandManger_getPartition(nand_block.pm_handler, &phead) || (!phead)) {
 		printk("get NandManger partition error! phead = %p\n", phead);
-		return;
+		return -1;
 	}
 
 	singlelist_for_each(plist, &phead->head) {
@@ -760,12 +783,22 @@ static void nand_disk_install(int data)
 
 		/* partiton with this mode do not need to open */
 		if (pt->mode == ONCE_MANAGER)
-			return;
+			return 0;
+
+		if (!installAll && strcmp(pt->name, name))
+			continue;
+
+		if (get_ndisk_by_name(pt->name)) {
+			printk("WARNING(nand block): disk [%s] has been installed!\n", pt->name);
+			continue;
+		}
+
+		printk("nand block, install partition [%s]!\n", pt->name);
 
 		if ((context = NandManger_open(nand_block.pm_handler, pt->name, pt->mode)) == 0) {
 			printk("can not open NandManger %s, mode = %d\n",
 				   pt->name, pt->mode);
-			return;
+			return -1;
 		}
 
 		/* init dev */
@@ -798,7 +831,7 @@ static void nand_disk_install(int data)
 		}
 	}
 
-	return;
+	return 0;
 
 start_err2:
 	vfree(pinfo);
@@ -806,7 +839,7 @@ start_err1:
 	vfree(dev);
 start_err0:
 	NandManger_close(context);
-	return;
+	return -1;
 }
 
 /*#################################################################*\
@@ -862,7 +895,7 @@ static int __init nand_block_init(void)
 		goto out_init;
 	}
 
-	NandManger_startNotify(nand_block.pm_handler, nand_disk_install, 0);
+	//NandManger_startNotify(nand_block.pm_handler, nand_disk_install, 0);
 
 	return 0;
 

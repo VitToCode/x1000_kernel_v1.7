@@ -18,6 +18,7 @@
 #include "../inc/nand_api.h"
 #include "../inc/vnandinfo.h"   //change later
 #include "../inc/nand_char.h"   //change later
+#include "../inc/nand_debug.h"   //change later
 
 //#define DEBUG_ERASE
 //#define NAND_DRIVE_CACL_TIME
@@ -778,11 +779,17 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		goto nand_probe_error3;
 		}
 
-	ret = Register_CharNandDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
-	if(ret){
-		dev_err(&g_pdev->dev,"init char_nand_driver failed\n");
-		}
+	Register_NandDriver(&jz_nand_interface);
 
+	ret = Register_NandCharDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
+	if(ret){
+		dev_err(&g_pdev->dev,"init nand char driver failed\n");
+	}
+
+	ret = Register_NandDebugDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
+	if(ret){
+		dev_err(&g_pdev->dev,"init nand debug driver failed\n");
+	}
 
 	printk("INFO: Nand probe success!\n");
 	return 0;
