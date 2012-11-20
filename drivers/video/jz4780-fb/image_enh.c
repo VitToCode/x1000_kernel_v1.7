@@ -55,8 +55,8 @@ static void jzfb_get_csc(struct fb_info *info, struct enh_csc *csc)
 	unsigned int tmp;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	csc->rgb2ycc_en = tmp & LCDC_ENH_CFG_RGB2YCC_EN;
-	csc->ycc2rgb_en = tmp & LCDC_ENH_CFG_YCC2RGB_EN;
+	csc->rgb2ycc_en = (tmp & LCDC_ENH_CFG_RGB2YCC_EN) > 0 ? 1 : 0;
+	csc->ycc2rgb_en = (tmp & LCDC_ENH_CFG_YCC2RGB_EN) > 0 ? 1 : 0;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CSCCFG);
 	csc->rgb2ycc_mode = (tmp & LCDC_ENH_CSCCFG_RGB2YCCMD_MASK) >>
@@ -117,8 +117,8 @@ static void jzfb_get_luma(struct fb_info *info, struct enh_luma *luma)
 	unsigned int tmp;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	luma->brightness_en = tmp & LCDC_ENH_CFG_BRIGHTNESS_EN;
-	luma->contrast_en = tmp & LCDC_ENH_CFG_CONTRAST_EN;
+	luma->brightness_en = (tmp & LCDC_ENH_CFG_BRIGHTNESS_EN) > 0 ? 1 : 0;
+	luma->contrast_en = (tmp & LCDC_ENH_CFG_CONTRAST_EN) > 0 ? 1 : 0 ;
 
 	tmp = reg_read(jzfb, LCDC_ENH_LUMACFG);
 	luma->brightness = (tmp & LCDC_ENH_LUMACFG_BRIGHTNESS_MASK) >>
@@ -178,7 +178,7 @@ static void jzfb_get_hue(struct fb_info *info, struct enh_hue *hue)
 	unsigned int tmp;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	hue->hue_en = tmp & LCDC_ENH_CFG_HUE_EN;
+	hue->hue_en = (tmp & LCDC_ENH_CFG_HUE_EN) > 0 ? 1 : 0;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CHROCFG0);
 	hue->hue_sin = (tmp & LCDC_ENH_CHROCFG0_HUE_SIN_MASK) >>
@@ -222,7 +222,7 @@ static void jzfb_get_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	unsigned int tmp;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	chroma->saturation_en = tmp & LCDC_ENH_CFG_SATURATION_EN;
+	chroma->saturation_en = (tmp & LCDC_ENH_CFG_SATURATION_EN) > 0 ? 1 : 0;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CHROCFG1);
 	chroma->saturation = (tmp & LCDC_ENH_CHROCFG1_SATURATION_MASK) >>
@@ -298,7 +298,7 @@ static void jzfb_get_dither(struct fb_info *info, struct enh_dither *dither)
 	unsigned int tmp;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
-	dither->dither_en = tmp & LCDC_ENH_CFG_DITHER_EN;
+	dither->dither_en = (tmp & LCDC_ENH_CFG_DITHER_EN) > 0 ? 1 : 0;
 
 	tmp = reg_read(jzfb, LCDC_ENH_DITHERCFG);
 	dither->dither_red = (tmp & LCDC_ENH_DITHERCFG_DITHERMD_RED_MASK) >>
@@ -348,10 +348,12 @@ static void jzfb_enable_enh(struct fb_info *info,unsigned int value)
 	unsigned int tmp;
 	struct jzfb *jzfb = info->par;
 	if(value == 0){
-		tmp = 0;
+		tmp = reg_read(jzfb, LCDC_ENH_CFG);
+		tmp &= ~LCDC_ENH_CFG_ENH_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	} else {
-		tmp = LCDC_ENH_CFG_ENH_EN | LCDC_ENH_CFG_RGB2YCC_EN | LCDC_ENH_CFG_YCC2RGB_EN;
+		tmp = reg_read(jzfb, LCDC_ENH_CFG);
+		tmp |= LCDC_ENH_CFG_ENH_EN | LCDC_ENH_CFG_RGB2YCC_EN | LCDC_ENH_CFG_YCC2RGB_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	}
 }
