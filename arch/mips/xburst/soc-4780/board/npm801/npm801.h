@@ -111,9 +111,9 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_MOTOR_PIN			GPIO_PB(24) /* PB24 */
 
 /**
- * usb detect gpio
- */
-#define GPIO_USB_DETC			GPIO_PF(13) /* PF13 */
+ * USB detect pin
+ **/
+#define GPIO_USB_DETE			GPIO_PF(13)
 
 // #define GPIO_HOME
 // #define ACTIVE_LOW_HOME			1

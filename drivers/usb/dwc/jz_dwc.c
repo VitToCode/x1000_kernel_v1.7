@@ -48,6 +48,12 @@ struct jzdwc_pin __attribute__((weak)) dete_pin = {
 	.enable_level			= -1,
 };
 
+static void jz_pri_start(struct dwc_jz_pri *jz_pri)
+{
+	if (jz_pri->irq > 0)
+		schedule_delayed_work(&jz_pri->work, 0);
+}
+
 static int get_pin_status(struct jzdwc_pin *pin)
 {
 	int val;
@@ -157,7 +163,7 @@ static void usb_detect_work(struct work_struct *work)
 	jz_pri = container_of(work, struct dwc_jz_pri, work.work);
 	insert = get_pin_status(jz_pri->dete);
 
-	pr_info("USB %s", insert ? "connect" : "disconnect");
+	pr_info("USB %s\n", insert ? "connect" : "disconnect");
 #ifdef CONFIG_DISABLE_PHY
 	jz_dwc_phy_switch(jz_pri, insert);
 #endif
@@ -240,6 +246,7 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	spin_lock_init(&jz_pri->lock);
 	mutex_init(&jz_pri->mutex);
 	jz_pri->dete = &dete_pin;
+	jz_pri->start = jz_pri_start;
 
 	if (gpio_request_one(jz_pri->dete->num,
 			     GPIOF_DIR_IN, "usb-charger-detect")) {
@@ -298,31 +305,22 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	cpm_outl(7 << 14, CPM_USBPCR);
 
         /* enalbe OTG PHY */
-#ifndef CONFIG_DISABLE_PHY
+
 	jz_dwc_phy_switch(jz_pri, 1);
-#else
-	if (jz_pri->irq <= 0)
-		jz_dwc_phy_switch(jz_pri, 1);
-#endif
+
 #ifdef USB_DWC_DEV_ONLY
 	jz_dwc_set_device_only_mode();
 #else
 	jz_dwc_set_dual_mode();
 #endif
 	jz_dwc_phy_reset(jz_pri);
-#ifndef CONFIG_DISABLE_PHY
+
 	jz_dwc_phy_switch(jz_pri, 1);
-#else
-	if (jz_pri->irq <= 0)
-		jz_dwc_phy_switch(jz_pri, 1);
-#endif
 
 	/*
 	 * Close VBUS detect in DWC-OTG PHY.
 	 */
 	*(unsigned int*)0xb3500000 |= 0xc;
-	if (jz_pri->irq > 0)
-		schedule_delayed_work(&jz_pri->work, 0);
 
 	return jz_pri;
 }

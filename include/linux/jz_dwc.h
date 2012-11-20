@@ -27,6 +27,8 @@ struct dwc_jz_pri {
 	struct mutex		mutex;
 	void			*core_if;
 	int			pullup_on;
+
+	void			(*start)(struct dwc_jz_pri *jz_pri);
 };
 
 #endif

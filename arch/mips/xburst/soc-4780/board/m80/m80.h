@@ -119,6 +119,11 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_MOTOR_PIN			GPIO_PB(25) /* PB25 */
 
 /**
+ * USB detect pin
+ **/
+#define GPIO_USB_DETE			GPIO_PF(13)
+
+/**
  * pmem information
  **/
 #define JZ_PMEM_CAMERA_BASE	0x5f000000

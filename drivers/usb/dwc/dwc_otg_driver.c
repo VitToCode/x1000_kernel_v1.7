@@ -877,6 +877,8 @@ static int dwc_otg_driver_probe(
 	else
 		dwc_otg_adp_start(dwc_otg_device->core_if, 
 							dwc_otg_is_host_mode(dwc_otg_device->core_if));
+	if (jz_pri)
+		jz_pri->start(jz_pri);
 
 	return 0;
 
