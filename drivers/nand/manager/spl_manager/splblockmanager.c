@@ -484,7 +484,7 @@ static int splblock_rw(SplContext *conptr, SectorList *sl, int rwflag)
 			return -1;
 		}
 		ret = signal_block_rw(conptr, ppl_tmp, rwflag);
-		if (ret != SUCCESS) {
+		if (ret < 0) {
 			ndprint(SIGBLOCK_ERROR, "%s, line:%d, warning: %s faild, ret = %d\n",
 					__func__, __LINE__, (rwflag == SPL_WRITE) ? "write" : "read", ret);
 			if ((conptr->pblockid >= X_BOOT_BLOCK) && (rwflag == SPL_WRITE)) {
@@ -499,7 +499,10 @@ static int splblock_rw(SplContext *conptr, SectorList *sl, int rwflag)
 					return -1;
 				}
 			}
+		} else if (ret == 1) {
+			ndprint(SIGBLOCK_INFO, "%s, line:%d, warning, bad bit be close to BCH bits!\n", __func__, __LINE__);
 		}
+
 		free_pl((int)conptr->blm, &ppl_tmp);
 	} while (lpl);
 
