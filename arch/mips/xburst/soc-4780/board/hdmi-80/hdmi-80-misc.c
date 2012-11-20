@@ -302,6 +302,10 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
+/* AOSD */
+#ifdef CONFIG_JZ4780_AOSD
+	platform_device_register(&jz_aosd_device);
+#endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &hdmi_80_battery_pdata);

@@ -301,6 +301,10 @@ static int __init warrior_board_init(void)
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
+/* AOSD */
+#ifdef CONFIG_JZ4780_AOSD
+	platform_device_register(&jz_aosd_device);
+#endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &warrior_battery_pdata);

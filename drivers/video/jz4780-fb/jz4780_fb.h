@@ -1,6 +1,9 @@
 #include <linux/fb.h>
 #include <linux/earlysuspend.h>
+
+#ifdef CONFIG_JZ4780_AOSD
 #include "aosd.h"
+#endif
 
 #ifdef CONFIG_TWO_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
@@ -86,6 +89,7 @@ struct jzfb {
 	int desc_num;
 	char clk_name[16];
 	char pclk_name[16];
+	char irq_name[16];
 
 	struct fb_info *fb;
 	struct device *dev;
@@ -115,7 +119,6 @@ struct jzfb {
 
 	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
 	struct jzfb_osd_t osd; /* osd's config information */
-	struct jzfb_aosd_info aosd; /* compress data info */
 
 	struct clk *ldclk;
 	struct clk *lpclk;
@@ -178,6 +181,12 @@ struct jzfb_mode_res {
 	__u32 h;
 };
 
+struct jzfb_aosd {
+	__u32 aosd_enable;
+	__u32 buf_addr;
+	__u32 with_alpha;
+};
+
 /* ioctl commands */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
 #define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
@@ -197,7 +206,7 @@ struct jzfb_mode_res {
 #define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
 #define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)
 #define JZFB_SET_COLORKEY		_IOW('F', 0x125, struct jzfb_color_key)
-#define JZFB_COMPRESS_EN		_IOW('F', 0x126, int)
+#define JZFB_AOSD_EN			_IOW('F', 0x126, struct jzfb_aosd)
 #define JZFB_16X16_BLOCK_EN		_IOW('F', 0x127, int)
 #define JZFB_IPU0_TO_BUF		_IOW('F', 0x128, int)
 #define JZFB_ENABLE_IPU_CLK		_IOW('F', 0x129, int)
@@ -206,7 +215,7 @@ struct jzfb_mode_res {
 #define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)
 #define JZFB_ENABLE_FG1			_IOW('F', 0x140, int)
 
-
+/* define in image_enh.c */
 extern int jzfb_config_image_enh(struct fb_info *info);
 extern int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 				unsigned long arg);

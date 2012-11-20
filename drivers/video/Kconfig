@@ -2421,6 +2421,15 @@ config DISABLE_LVDS_FUNCTION
        depends on FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
        default n
 
+config JZ4780_AOSD
+	bool "jz4780 aosd function"
+	depends on FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
+	default y
+	help
+	  If you plan to use the graphics internal AOSD module to
+	  deal with video UI for frame buffer when video directly
+	  output to LCD controller foregrount 1, say Y here.
+
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"
 	depends on FB && UNICORE32 && ARCH_PUV3

@@ -95,6 +95,13 @@ static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
 	var->vmode = mode->vmode & FB_VMODE_MASK;
 }
 
+#ifdef CONFIG_JZ4780_AOSD
+static unsigned int jzfb_get_current_frame_id(struct jzfb *jzfb)
+{
+	return (unsigned int)reg_read(jzfb, LCDC_FID0);
+}
+#endif
+
 static int jzfb_get_controller_bpp(struct jzfb *jzfb)
 {
 	switch (jzfb->pdata->bpp) {
@@ -214,9 +221,15 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 		framedesc->offsize = (size->panel_line_size
 				      - size->fg0_line_size);
 	} else if (jzfb->osd.decompress) {
-		framedesc->cmd |= LCDC_CMD_COMPEN;
-		framedesc->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
-		framedesc->offsize = (jzfb->aosd.dst_stride) >> 2;
+#ifdef CONFIG_JZ4780_AOSD
+		if (aosd_info.with_alpha != 0 || aosd_info.bpp == 16) {
+			framedesc->cmd |= LCDC_CMD_COMPEN;
+			framedesc->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
+			framedesc->offsize = aosd_info.dst_stride;
+		} else {
+			framedesc->offsize = 0;
+		}
+#endif
 	} else {
 		framedesc->cmd |= LCDC_CMD_16X16BLOCK;
 		framedesc->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
@@ -224,10 +237,12 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 		/* framedesc->offsize = size->fg0_frm_size; */
 	}
 
-	if (framedesc->offsize == 0 || jzfb->osd.decompress) {
+	if (framedesc->offsize == 0) {
 		framedesc->page_width = 0;
-	} else {
+	} else if (!jzfb->osd.decompress) {
 		framedesc->page_width = size->fg0_line_size;
+	} else {
+		/* do nothing */
 	}
 
 	switch (jzfb->osd.fg0.bpp) {
@@ -242,7 +257,13 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 		if (!jzfb->osd.decompress) {
 			framedesc->cpos = LCDC_CPOS_BPP_18_24;
 		} else {
-			framedesc->cpos = LCDC_CPOS_BPP_CMPS_24;
+#ifdef CONFIG_JZ4780_AOSD
+			if (aosd_info.with_alpha == 0 && aosd_info.bpp != 16) {
+				framedesc->cpos = LCDC_CPOS_BPP_CMPS_24;
+			} else {
+				framedesc->cpos = LCDC_CPOS_BPP_18_24;
+			}
+#endif
 		}
 		break;
 	}
@@ -713,7 +734,7 @@ static void jzfb_disable(struct fb_info *info)
 		udelay(10);
 		state = reg_read(jzfb, LCDC_STATE);
 	}
-	if (!count) {
+	if (count < 0) {
 		dev_err(jzfb->dev, "LCDC normal disable state wrong");
 	}
 
@@ -904,6 +925,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
 
+	clk_enable(jzfb->lpclk);
 	clk_enable(jzfb->ldclk);
 
 	switch (blank_mode) {
@@ -929,6 +951,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 	}
 
 	clk_disable(jzfb->ldclk);
+	clk_disable(jzfb->lpclk);
 
 	return 0;
 }
@@ -951,7 +974,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	}
 
 #ifdef CONFIG_FORCE_RESOLUTION
-	if (!CONFIG_FORCE_RESOLUTION) {
+	if (!CONFIG_FORCE_RESOLUTION  || jzfb->id == 1) {
 		mode = jzfb->pdata->modes;
 	} else {
 		int i;
@@ -1016,8 +1039,55 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
-		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
-			+ jzfb->frm_size * next_frm;
+		if (!jzfb->osd.decompress && !jzfb->osd.block) {
+			jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
+				+ jzfb->frm_size * next_frm;
+		} else if (jzfb->osd.decompress) {
+#ifdef CONFIG_JZ4780_AOSD
+			spin_lock(&jzfb->suspend_lock);
+			if (jzfb->is_suspend) {
+				spin_unlock(&jzfb->suspend_lock);
+				return 0;
+			}
+			spin_unlock(&jzfb->suspend_lock);
+
+			if (aosd_info.is_desc_init) {
+				unsigned int count = 25;
+				while (jzfb_get_current_frame_id(jzfb) !=
+				       aosd_info.next_frame_id && count--) {
+					mdelay(2);
+					/*dev_info(jzfb->dev, "wait frame %x, current frame %x\n",
+						 aosd_info.next_frame_id,
+						 jzfb_get_current_frame_id(jzfb));*/
+				}
+			}
+			aosd_info.raddr = jzfb->vidmem_phys + jzfb->frm_size
+				* next_frm;
+			if (jzfb_get_current_frame_id(jzfb) != 0xda00) {
+				aosd_info.waddr = aosd_info.buf_addr[0];
+				aosd_info.next_frame_id = 0xda00;
+			} else {
+				aosd_info.waddr = aosd_info.buf_addr[1];
+				aosd_info.next_frame_id = 0xda01;
+			}
+			/* start aosd compress */
+			aosd_start();
+			if (aosd_info.is_desc_init == 0) {
+				jzfb_prepare_dma_desc(info);
+				aosd_info.is_desc_init = 1;
+			}
+
+			if (aosd_info.with_alpha == 0 && aosd_info.bpp != 16) {
+				jzfb->framedesc[0]->cmd &= ~(LCDC_CMD_LEN_MASK);
+				jzfb->framedesc[0]->cmd |= (aosd_read_fwdcnt()
+							    & LCDC_CMD_LEN_MASK);
+			}
+			jzfb->framedesc[0]->databuf = aosd_info.waddr;
+			jzfb->framedesc[0]->id = aosd_info.next_frame_id;
+#endif
+		} else {
+			/* 16x16 block mode */
+		}
 	} else {
 		//smart tft spec code here.
 	}
@@ -1176,6 +1246,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		struct jzfb_bg background;
 		struct jzfb_color_key color_key;
 		struct jzfb_mode_res res;
+		struct jzfb_aosd aosd;
 	} osd;
 
 	switch (cmd) {
@@ -1361,18 +1432,41 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		}
 		jzfb_set_colorkey(info, &osd.color_key);
 		break;
-	case JZFB_COMPRESS_EN:
-		if (copy_from_user(&value, argp, sizeof(int)))
+	case JZFB_AOSD_EN:
+#ifdef CONFIG_JZ4780_AOSD
+		if (copy_from_user(&osd.aosd, argp, sizeof(struct jzfb_aosd))) {
+			dev_info(info->dev, "copy aosd info failed\n");
 			return -EFAULT;
-		if (value) {
-			dev_info(info->dev, "LCDC DMA enable decompress mode");
+		}
+		if (osd.aosd.aosd_enable) {
+			if (osd.aosd.buf_addr) {
+				aosd_info.buf_addr[0] = (unsigned long)
+					virt_to_phys((void *)osd.aosd.buf_addr);
+			} else {
+				dev_info(jzfb->dev, "No buffer for AOSD\n");
+				return -EFAULT;
+			}
+			aosd_info.with_alpha = osd.aosd.with_alpha;
+			aosd_info.bpp = info->var.bits_per_pixel;
+			aosd_info.width = info->var.xres;
+			aosd_info.height = info->var.yres;
+			aosd_info.is_desc_init = 0;
+			aosd_init(&aosd_info);
+			aosd_info.buf_addr[1] = aosd_info.buf_addr[0] +
+				(aosd_info.dst_stride << 2) * aosd_info.height;
+
 			jzfb->osd.decompress = 1;
-			jzfb_prepare_dma_desc(info);
+			dev_info(info->dev, "LCDC enable decompress mode\n");
 		} else {
-			dev_info(info->dev, "LCDC DMA disable decompress mode");
 			jzfb->osd.decompress = 0;
 			jzfb_prepare_dma_desc(info);
+			aosd_clock_enable(0);
+			dev_info(info->dev, "LCDC disable decompress mode\n");
 		}
+#else
+		dev_err(jzfb->dev, "CONFIG_JZ4780_AOSD is not set\n");
+		return -EFAULT;
+#endif
 		break;
 	case JZFB_16X16_BLOCK_EN:
 		if (copy_from_user(&value, argp, sizeof(int)))
@@ -1619,13 +1713,26 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	spin_unlock(&jzfb->suspend_lock);
 
 	clk_disable(jzfb->ldclk);
+	clk_disable(jzfb->lpclk);
+#ifdef CONFIG_JZ4780_AOSD
+	/* The clock of aosd just need to close once */
+	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
+		aosd_clock_enable(0);
+	}
+#endif
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
+	clk_enable(jzfb->lpclk);
 	clk_enable(jzfb->ldclk);
+#ifdef CONFIG_JZ4780_AOSD
+	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
+		aosd_clock_enable(1);
+	}
+#endif
 
 	if (jzfb->pdata->alloc_vidmem) {
 		fb_set_suspend(jzfb->fb, 0);
@@ -1920,6 +2027,10 @@ static ssize_t dump_v_color_bar(struct device *dev, struct device_attribute *att
 
 static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char *buf)
 {
+#ifdef CONFIG_JZ4780_AOSD
+	print_aosd_registers();
+#endif
+
 	return 0;
 }
 
@@ -2060,7 +2171,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
 #ifdef CONFIG_FORCE_RESOLUTION
-	if (!CONFIG_FORCE_RESOLUTION) {
+	if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
 		jzfb_videomode_to_var(&fb->var, pdata->modes);
 	} else {
 		for (i = 0; i < pdata->num_modes; i++) {
@@ -2102,8 +2213,9 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->screen_base = jzfb->vidmem;
 
 	jzfb->irq = platform_get_irq(pdev, 0);
+	sprintf(jzfb->irq_name, "lcdc%d",pdev->id);
 	if (request_irq(jzfb->irq, jzfb_irq_handler, IRQF_DISABLED,
-			pdev->name, jzfb)) {
+			jzfb->irq_name, jzfb)) {
 		dev_err(&pdev->dev,"request irq failed\n");
 		ret = -EINVAL;
 		goto err_free_devmem;
@@ -2191,6 +2303,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	if (!jzfb->pdata->alloc_vidmem && (jzfb->id != 1)) {
 		/* If enable LCDC0, can not disable the clock of LCDC1 */
 		clk_disable(jzfb->ldclk);
+		clk_disable(jzfb->lpclk);
 	}
 
 	return 0;

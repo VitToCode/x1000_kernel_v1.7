@@ -429,7 +429,7 @@ static u64 jz_fb_dmamask = ~(u64)0;
 	static struct resource jz_fb##NO##_resources[] = {			\
 		[0] = {								\
 			.start          = LCDC##NO##_IOBASE,			\
-			.end            = LCDC##NO##_IOBASE+ 0x1000 - 1,	\
+			.end            = LCDC##NO##_IOBASE+ 0x1800 - 1,	\
 			.flags          = IORESOURCE_MEM,			\
 		},								\
 		[1] = {								\
@@ -931,4 +931,24 @@ struct platform_device jz_adc_device = {
 	.id	= -1,
 	.num_resources	= ARRAY_SIZE(jz_adc_resources),
 	.resource	= jz_adc_resources,
+};
+
+static struct resource jz_aosd_resources[] = {
+	[0] = {
+		.start	= COMPRESS_IOBASE,
+		.end	= COMPRESS_IOBASE + 0x120 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_COMPRESS,
+		.end   = IRQ_COMPRESS,
+	},
+};
+
+struct platform_device jz_aosd_device = {
+	.name	= "jz-aosd",
+	.id	= -1,
+	.num_resources	= ARRAY_SIZE(jz_aosd_resources),
+	.resource	= jz_aosd_resources,
 };
