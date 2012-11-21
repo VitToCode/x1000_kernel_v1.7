@@ -102,7 +102,6 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 	return ret != 0 ? -EFAULT : 0 ;
 }
 
-extern int nand_disk_install(char *name);
 static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size_t size, loff_t * offset)
 {
 	int copysize, ret;
@@ -139,13 +138,13 @@ static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size
 		printk("pt = [%s]\n", pt);
 		if (!strncmp(pt, "ALL", 3)) {
 			/* install all partitions */
-			if ((ret = nand_disk_install(NULL))) {
+			if ((ret = nand_ops->iface->iPtInstall(NULL))) {
 				printk("%s, line:%d, install all partitions error!\n", __func__, __LINE__);
 				return ret;
 			}
 		} else {
 			/* install the partition indicated */
-			if ((ret = nand_disk_install(pt))) {
+			if ((ret = nand_ops->iface->iPtInstall(pt))) {
 				printk("%s, line:%d, install partitions [%s] error!\n", __func__, __LINE__, pt);
 				return ret;
 			}

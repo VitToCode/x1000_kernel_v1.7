@@ -16,6 +16,8 @@ struct _NandInterface {
 	int (*iMarkBadBlock)(void *ppartition,int blockid);
 	int (*iInitNand)(void * vNand);
 	int (*iDeInitNand)(void * vNand);
+	int (*iRegPtInstallFn)(int (*install)(char *));
+	int (*iPtInstall)(char *ptname);
 };
 
 void Register_NandDriver(NandInterface *ni);

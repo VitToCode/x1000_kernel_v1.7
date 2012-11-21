@@ -40,6 +40,7 @@ static inline void b_time(void){}
 static inline void e_time(void){}
 #endif
 
+static int (*nand_partition_install)(char *) = NULL;
 
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
 {
@@ -641,6 +642,21 @@ static inline int deinit_nand(void *vNand)
 	return 0;
 }
 
+int register_ptinstall(int (*install)(char *))
+{
+	nand_partition_install = install;
+
+	return 0;
+}
+
+int partition_install(char *ptname)
+{
+	if (nand_partition_install)
+		return nand_partition_install(ptname);
+
+	printk("error: nand partition_install has not been installed!\n");
+	return -1;
+}
 /*********************************************/
 /******         nand driver register    ******/
 /*********************************************/
@@ -655,6 +671,8 @@ NandInterface jz_nand_interface = {
 	.iIsBadBlock = is_badblock,
 	.iMarkBadBlock = mark_badblock,
 	.iDeInitNand = deinit_nand,
+	.iRegPtInstallFn = register_ptinstall,
+	.iPtInstall = partition_install,
 };
 /*
  * Probe for the NAND device.

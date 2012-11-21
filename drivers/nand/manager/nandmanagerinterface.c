@@ -326,3 +326,7 @@ void NandManger_startNotify(int handle,void (*start)(int),int prdata){
 	}
 }
 
+void NandManger_RegPtInstallFn(int data)
+{
+	vNand_RegPtInstallFn((void *)data);
+}

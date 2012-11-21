@@ -755,7 +755,7 @@ struct device_driver nand_block_driver = {
 /*#################################################################*\
  *# start
 \*#################################################################*/
-int nand_disk_install(char *name)
+static int nand_disk_install(char *name)
 {
 	int ret = -EFAULT;
 	int installAll = 1;
@@ -895,7 +895,7 @@ static int __init nand_block_init(void)
 		goto out_init;
 	}
 
-	//NandManger_startNotify(nand_block.pm_handler, nand_disk_install, 0);
+	NandManger_startNotify(nand_block.pm_handler, NandManger_RegPtInstallFn, (int)&nand_disk_install);
 
 	return 0;
 

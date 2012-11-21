@@ -408,6 +408,15 @@ void Register_NandDriver(NandInterface *ni){
 	v_nand_ops.start_nand(v_nand_ops.context);
 }
 
+int vNand_RegPtInstallFn(void *fn)
+{
+	int ret;
+	NandMutex_Lock(&v_nand_ops.mutex);
+	ret = VN_OPERATOR(RegPtInstallFn, fn);
+	NandMutex_Unlock(&v_nand_ops.mutex);
+	return ret;
+}
+
 #ifdef DEBUG
 void test_operator_vnand(VNandInfo *vnandptr)
 {

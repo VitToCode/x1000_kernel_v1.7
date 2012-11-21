@@ -18,4 +18,5 @@ int NandManger_Init ( void );
 void NandManger_Deinit (int handle);
 int NandManger_Register_Manager ( int handle, int mode, PartitionInterface* pi );
 void NandManger_startNotify(int handle,void (*start)(int),int prdata);
+void NandManger_RegPtInstallFn(int data);
 #endif
