@@ -19,7 +19,7 @@
 #include "pageinfodebug.h"
 //#include "badblockinfo.h"
 
-#define L4UNITSIZE(context) 128 * 1024
+#define L4UNITSIZE(context) (128 * L4INFOLEN)
 #define RECYCLECACHESIZE		VNANDCACHESIZE
 #define BALANCECOUNT        50
 

@@ -12,8 +12,6 @@
 #include "pagelist.h"
 #include "zoneidlist.h"
 
-#define L4INFOLEN 1024
-
 typedef struct _Wpages Wpages;
 struct _Wpages {
 	unsigned int startpage;

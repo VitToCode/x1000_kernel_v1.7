@@ -23,7 +23,6 @@
 #define ZONEPAGE1INFO(vnand)      ((vnand)->v2pp->_2kPerPage)
 #define ZONEPAGE2INFO(vnand)      ((vnand)->v2pp->_2kPerPage + 1)
 #define ZONEMEMSIZE(vnand)      ((vnand)->BytePerPage * 4)
-#define L4INFOLEN 1024
 
 void  ZoneManager_SetCurrentWriteZone(int context,Zone *zone);
 

@@ -14,12 +14,13 @@
 #include "vNand.h"
 #include "l2vNand.h"
 #include "clib.h"
+#include "zone.h"
 
 #define N_UNITSIZE     8
 #define N_UNITDIM(x)  (((x) + N_UNITSIZE - 1 ) / N_UNITSIZE)
-#define BLOCK_PER_ZONE 8
 #define ZONEINFO_PAGES 3
 #define SECTOR_SIZE    512
+#define PAGEINFO_SIZE  (2*1024)
 
 /* Translate the physical partition structto logicla partition struct */
 static int  p2lPartition( PPartition *ppa, LPartition *lpa){
@@ -28,6 +29,7 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	int  zonenum;
 	int  zonevalidpage;
 	int  extrapage;
+	int  _2kperpage	= ppa->byteperpage / PAGEINFO_SIZE;
 
 	if (ppa == NULL || lpa == NULL){
 		ndprint(PARTITION_ERROR,"ERROR:FUNCTION: %s  LINE: %d  Nand alloc continue memory error!\n",__FUNCTION__,__LINE__);
@@ -35,23 +37,23 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	}
 
 	if (ppa->mode == ZONE_MANAGER) {
-		pageperzone = ppa->pageperblock * BLOCK_PER_ZONE;
-		maxdatapage = 1024 / sizeof(unsigned int) / (ppa->byteperpage / SECTOR_SIZE);
+		pageperzone = ppa->pageperblock * _2kperpage * BLOCK_PER_ZONE;
+		maxdatapage = L4INFOLEN / sizeof(unsigned int) / (ppa->byteperpage / _2kperpage / SECTOR_SIZE);
 		zonenum = (ppa->totalblocks - ppa->badblockcount) / BLOCK_PER_ZONE;
 		zonevalidpage = (pageperzone - ZONEINFO_PAGES) / (maxdatapage + 1) * maxdatapage;
 		extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1)-1;
 
 		if (extrapage > 1)
-			lpa->sectorCount = (zonevalidpage + extrapage) * ppa->byteperpage / SECTOR_SIZE * zonenum;
+			lpa->sectorCount = (zonevalidpage + extrapage) * (ppa->byteperpage / _2kperpage) / SECTOR_SIZE * zonenum;
 		else
-			lpa->sectorCount = zonevalidpage * ppa->byteperpage / SECTOR_SIZE * zonenum;
+			lpa->sectorCount = zonevalidpage * (ppa->byteperpage / _2kperpage) / SECTOR_SIZE * zonenum;
 	} else
 		lpa->sectorCount = ((ppa->totalblocks - ppa->badblockcount) * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
 
 	lpa->startSector = 0;
 	lpa->name = ppa->name;
 	lpa->hwsector = ppa->hwsector;
-	lpa->segmentsize = 1024/4*(ppa->hwsector);
+	lpa->segmentsize = L4INFOLEN / 4 * (ppa->hwsector);
 
 	lpa->mode = ppa->mode;
 	lpa->pc = NULL;

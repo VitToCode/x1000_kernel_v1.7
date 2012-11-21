@@ -2,6 +2,7 @@
 #include "cachemanager.h"
 #include "context.h"
 #include "nanddebug.h"
+#include "vNand.h"
 struct PageInfoDebug *Init_L2p_Debug(int context) {
 	CacheManager *cachemanager = ((Context *)context)->cachemanager;
 	struct PageInfoDebug *pdebug;
@@ -24,9 +25,9 @@ struct PageInfoDebug *Init_L2p_Debug(int context) {
 	InitCacheData(3);
 	InitCacheData(4);
 	ndprint(1,"cachemanager->L4InfoLen  = %d\n",cachemanager->L4InfoLen); 
-	pdebug->diffdata = (unsigned int *)Nand_VirtualAlloc(2048 * 4);
+	pdebug->diffdata = (unsigned int *)Nand_VirtualAlloc(L4INFOLEN * 2 * 4);
 	pdebug->pageid = -1;
-	pdebug->sectorid = (unsigned int *)Nand_VirtualAlloc(1024 + 4);
+	pdebug->sectorid = (unsigned int *)Nand_VirtualAlloc(L4INFOLEN + 4);
 #undef InitCacheData
 	return pdebug;
 }
