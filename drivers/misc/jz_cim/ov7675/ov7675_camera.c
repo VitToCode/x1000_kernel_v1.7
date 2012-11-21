@@ -92,7 +92,6 @@ unsigned char ov7675_read_reg(struct i2c_client *client,unsigned char reg)
 	if (ret != 1)
 		return -EIO;
 
-    mdelay(1);
 	ret = sensor_i2c_master_recv(client, &retval, 1);
 	if (ret < 0)
 		return ret;
@@ -163,7 +162,8 @@ static int ov7675_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s = kzalloc(sizeof(struct ov7675_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "ov7675");
-	s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
+	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
+	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_UY0VY1 | CIM_CFG_ORDER_UYVY;//CIM_CFG_PCP ||CIM_CFG_VSP
 	s->cs.modes.balance =  WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT 
 							| WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
 	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
@@ -208,7 +208,7 @@ static int ov7675_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->client = client;
 	pdata = client->dev.platform_data;
 	if( client->dev.platform_data == NULL){
-		printk("err!!! no camera i2c pdata!!! \n\n");
+		dev_err(&client->dev,"err!!! no camera i2c pdata!!! \n\n");
 		return -1;
 	}
 	if(!gpio_request(pdata->gpio_en, "ov7675_en"))
