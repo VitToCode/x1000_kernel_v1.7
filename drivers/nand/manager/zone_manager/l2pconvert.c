@@ -619,6 +619,7 @@ static void recycle_zone_prepare(int context)
 	frinfo.context = context;
 	frinfo.pagecount = -1;
 	frinfo.suggest_zoneid = -1;
+	frinfo.endpageid = 0;
 	force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 	force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
 	force_recycle_msg.data = (int)&frinfo;
@@ -669,6 +670,7 @@ static int write_data_prepare ( int context )
 			frinfo.context = context;
 			frinfo.pagecount = 128;
 			frinfo.suggest_zoneid = -1;
+			frinfo.endpageid = 0;
 			force_recycle_msg.msgid = FORCE_RECYCLE_ID;
 			force_recycle_msg.prio = FORCE_RECYCLE_PRIO;
 			force_recycle_msg.data = (int)&frinfo;
@@ -1082,7 +1084,7 @@ static void unlock_cache(int cm, PageInfo *pi)
 	CacheManager_unlockCache(cm,pi);
 }
 
-static int start_reread_ecc_error_handle(int context, unsigned int zoneid)
+static int start_reread_ecc_error_handle(int context, unsigned int zoneid, int pageid)
 {
 	Message reread_ecc_error_msg;
 	int msghandle;
@@ -1092,6 +1094,7 @@ static int start_reread_ecc_error_handle(int context, unsigned int zoneid)
 	forceinfo.context = context;
 	forceinfo.pagecount = -1;
 	forceinfo.suggest_zoneid = zoneid;
+	forceinfo.endpageid = pageid;
 	reread_ecc_error_msg.msgid = WRITE_READ_ECC_ERROR_ID;
 	reread_ecc_error_msg.prio = READ_ECC_ERROR_PRIO;
 	reread_ecc_error_msg.data = (int)&forceinfo;
@@ -1156,11 +1159,11 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		L2p_Debug_CheckData(l2p->debug,pi,l2p->pagecount + 1);
 #endif
 		if(ISECCERROR(ret)) {
-			ndprint(L2PCONVERT_INFO,"Start reread pageinfo ecc error handle,func %s line %d \n",
-					__FUNCTION__,__LINE__);
+			ndprint(L2PCONVERT_INFO,"Start reread pageinfo ecc error handle,func %s line %d endpageid:%d\n",
+					__FUNCTION__,__LINE__,pi->PageID);
 			CacheManager_DropCache ((int)cm,l2p->sectorid);
 			unlock_cache((int)cm, pi);
-			start_reread_ecc_error_handle(context, zone->ZoneID);
+			start_reread_ecc_error_handle(context, zone->ZoneID,pi->PageID);
 			zone = ZoneManager_GetCurrentWriteZone(context);
 			INIT_L2P(l2p);
 			l2p->follow_node = l2p->prev_node;
@@ -1203,7 +1206,7 @@ exit:
 	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	if(pageinfo_eccislarge && is_not_ecc_error){
 		ndprint(L2PCONVERT_INFO,"Pageinfo ecc is too large,Start reread pageinfo ecc error handle\n");
-		start_reread_ecc_error_handle(context, zone->ZoneID);
+		start_reread_ecc_error_handle(context, zone->ZoneID,0);
 	}
 	Recycle_Unlock(context);
 	return ret;

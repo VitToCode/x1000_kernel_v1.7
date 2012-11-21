@@ -404,6 +404,7 @@ static int zone_data_move_and_erase(int errinfo)
 	frinfo.context = context;
 	frinfo.pagecount = -1;
 	frinfo.suggest_zoneid = zoneid;
+	frinfo.endpageid = 0;
 	return Recycle_OnForceRecycle((int)&frinfo);
 }
 
@@ -433,6 +434,7 @@ int read_ecc_err_handler(int errinfo)
 	frinfo.context = context;
 	frinfo.pagecount = -1;
 	frinfo.suggest_zoneid = einfo->err_zoneid;
+	frinfo.endpageid = 0;
 	return Recycle_OnForceRecycle((int)&frinfo);
 }
 

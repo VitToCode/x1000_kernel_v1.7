@@ -34,7 +34,7 @@ struct _Recycle {
 	PageInfo pi[2];
 	unsigned short junk_zoneid;
 	NandMutex mutex;
-	unsigned int force; 
+	unsigned int force;
 	int context;
 
 	/**** force recycle ****/
@@ -54,8 +54,9 @@ struct _Recycle {
 	unsigned int force_end_findnextpageinfo;
 	PageInfo force_pi[2];
 	unsigned short force_junk_zoneid;
-	
+
 	int write_pagecount;
+	int endpageid; // fore reread pageinfo error handle
 #ifdef RECYCLE_DEBUG_PAGEINFO
 	struct PageInfoDebug *debug;
 #endif
@@ -66,6 +67,7 @@ struct _ForceRecycleInfo {
 	int context;
 	int pagecount;
 	unsigned short suggest_zoneid;
+	int endpageid;
 };
 
 enum TaskStep{
@@ -84,7 +86,7 @@ int Recycle_Init(int context);
 void Recycle_DeInit(int context);
 int Recycle_OnFragmentHandle ( int context );
 int Recycle_OnFollowRecycle ( int context );
-int Recycle_OnBootRecycle ( int context );
+int Recycle_OnBootRecycle ( int bootinfo );
 int Recycle_OnForceRecycle ( int frinfo );
 int Recycle_OnNormalRecycle ( int context );
 int Recycle_Suspend ( int context );

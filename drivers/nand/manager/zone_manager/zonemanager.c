@@ -999,17 +999,22 @@ static void start_follow_recycle(ZoneManager *zonep)
  *
  *	@zonep: operate object
  */
-static void start_boot_recycle(ZoneManager *zonep)
+static void start_boot_recycle(ZoneManager *zonep, int endpageid)
 {
 #ifndef NO_ERROR
 	Message boot_recycle_msg;
 	int msghandle;
 	Context *conptr = (Context *)(zonep->context);
+	ForceRecycleInfo bootinfo;
 	ndprint(ZONEMANAGER_INFO,"WARNNING: bootprepare find a error,Deal with it!\n");
 
+	bootinfo.context = zonep->context;
+	bootinfo.pagecount = -1;
+	bootinfo.suggest_zoneid = -1;
+	bootinfo.endpageid = endpageid;
 	boot_recycle_msg.msgid = BOOT_RECYCLE_ID;
 	boot_recycle_msg.prio = BOOT_RECYCLE_PRIO;
-	boot_recycle_msg.data = zonep->context;
+	boot_recycle_msg.data = (int)&bootinfo;
 
 	msghandle = Message_Post(conptr->thandle, &boot_recycle_msg, WAIT);
 	Message_Recieve(conptr->thandle, msghandle);
@@ -1073,7 +1078,7 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 			}
 			else {
 				CacheManager_Init(zonep->context);
-				start_boot_recycle(zonep);
+				start_boot_recycle(zonep,(*pi)->PageID);
 				flag = 1;
 				goto exit;
 			}

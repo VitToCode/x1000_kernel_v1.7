@@ -19,6 +19,7 @@
 #include "pageinfodebug.h"
 //#include "badblockinfo.h"
 
+#define FIRST_PAGEINFO(vnand) ((vnand)->v2pp->_2kPerPage * 2)
 #define L4UNITSIZE(context) (128 * L4INFOLEN)
 #define RECYCLECACHESIZE		VNANDCACHESIZE
 #define BALANCECOUNT        50
@@ -1877,7 +1878,7 @@ int Recycle_OnForceRecycle ( int frinfo )
 
 	ndprint(RECYCLE_INFO, "\n%s: start force recycle--------->\n"
                         ,((PPartition *)(conptr->vnand.prData))->name);
-
+	rep->endpageid = FRInfo->endpageid;
 	while (1) {
 		ret = OnForce_Init(rep);
 		if (ret == -1)
@@ -2048,7 +2049,19 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 	int ret = 0;
 	PageInfo *prev_pi = rep->force_pi;
 	PageInfo *pi = rep->force_pi + 1;
+#ifdef REREAD_PAGEINFO
+	VNandInfo *vnand = rep->force_rZone->vnand;
+	int nextpageinfo;
+	int endpageid = rep->endpageid % (vnand->PagePerBlock * BLOCKPERZONE(vnand));
 
+	if(endpageid == FIRST_PAGEINFO(vnand)){
+		ndprint(RECYCLE_INFO,"Error handle for reread pageinfo ecc error: %s %d endpageid: %d\n",
+				__func__,__LINE__,endpageid);
+		rep->force_curpageinfo = NULL;
+		rep->force_end_findnextpageinfo = 1;
+		return 0;
+	}
+#endif
 	ret = Zone_FindFirstPageInfo(rep->force_rZone,prev_pi);
 	if (ISERROR(ret)) {
 		ndprint(RECYCLE_ERROR,"Find First Pageinfo error func %s line %d \n",
@@ -2067,7 +2080,15 @@ static int OnForce_FindFirstValidPageInfo ( Recycle *rep)
 						__FUNCTION__,__LINE__);
 			return -1;
 		}
-
+#ifdef REREAD_PAGEINFO
+		nextpageinfo = rep->force_rZone->NextPageInfo;
+		if(nextpageinfo == endpageid && rep->endpageid != 0){
+			ndprint(RECYCLE_INFO,"Error handle for reread pageinfo ecc error: %s %d endpageid: %d nextpageinfo:%d\n",
+					__func__,__LINE__,endpageid,nextpageinfo);
+			rep->force_end_findnextpageinfo = 1;
+			return 0;
+		}
+#endif
 		ret = Zone_FindNextPageInfo(rep->force_rZone,pi);
 		if (ISNOWRITE(ret)) {
 			rep->force_end_findnextpageinfo = 1;
@@ -2103,7 +2124,11 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 {
 	int ret = 0;
 	PageInfo *pi = rep->force_curpageinfo;
-
+#ifdef REREAD_PAGEINFO
+	VNandInfo *vnand = &((Context *)(rep->context))->vnand;
+	int nextpageinfo;
+	int endpageid = rep->endpageid % (vnand->PagePerBlock * BLOCKPERZONE(vnand));
+#endif
 	rep->force_curpageinfo = rep->force_nextpageinfo;
 	do{
 		if(rep->force_rZone->NextPageInfo == 0) {
@@ -2115,7 +2140,15 @@ static int OnForce_FindNextValidPageInfo ( Recycle *rep)
 						__FUNCTION__,__LINE__);
 			return -1;
 		}
-
+#ifdef REREAD_PAGEINFO
+		nextpageinfo = rep->force_rZone->NextPageInfo;
+		if(nextpageinfo == endpageid && rep->endpageid != 0){
+			ndprint(RECYCLE_INFO,"Error handle for reread pageinfo ecc error: %s %d endpageid: %d nextpageinfo:%d\n",
+					__func__,__LINE__,endpageid,nextpageinfo);
+			rep->force_end_findnextpageinfo = 1;
+			return 0;
+		}
+#endif
 		ret = Zone_FindNextPageInfo(rep->force_rZone,pi);
 		if (ISNOWRITE(ret)) {
 			rep->force_end_findnextpageinfo = 1;
@@ -2165,6 +2198,8 @@ static int OnForce_FindValidSector ( Recycle *rep)
 	l3unitlen = cachemanager->L3UnitLen;
 
 	pi = rep->force_curpageinfo;
+	if(pi == NULL)
+		return 0;
 	l1index = pi->L1Index;
 	l2index = pi->L2Index;
 	l3index = pi->L3Index;
@@ -2224,6 +2259,8 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	unsigned int spp = 0;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 
+	if(rep->force_curpageinfo == NULL)
+		return 0;
 	l4count = rep->force_curpageinfo->L4InfoLen >> 2;
 	spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
 	l4info = (unsigned int *)(rep->force_curpageinfo->L4Info);
@@ -2281,7 +2318,10 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	unsigned int write_sectorcount = 0;
 	int spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int recyclesector = recyclepage * spp;
-        int wpagecount;
+    int wpagecount;
+
+	if(rep->force_curpageinfo == NULL)
+		return 0;
 	wzone = get_current_write_zone(rep->context);
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -2386,9 +2426,11 @@ static int OnForce_FreeZone ( Recycle *rep)
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
 	VNandInfo *vnand = &(((Context *)(rep->context))->vnand);
 	int start_blockid = rep->force_rZone->startblockID;
+	int endpageid = rep->endpageid % (vnand->PagePerBlock * BLOCKPERZONE(vnand));
 	int next_start_blockid = 0;
 	int blockcount = 0;
 	int first_ok_blockid = -1;
+	int i = 0;
 
 	if (rep->force_rZone->ZoneID == zonep->pt_zonenum - 1)
 		blockcount = zonep->vnand->TotalBlocks - rep->force_rZone->startblockID;
@@ -2408,21 +2450,29 @@ static int OnForce_FreeZone ( Recycle *rep)
 				if(bl_node->retVal == -1){
 					nm_set_bit(bl_node->startBlock - start_blockid, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock));
 					vNand_MarkBadBlock (vnand, bl_node->startBlock);
-				}else if (-1 == first_ok_blockid)
-					first_ok_blockid = bl_node->startBlock;
-			}
-			if (-1 == first_ok_blockid) {
-				ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
-				BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
-				rep->force_rZone->sigzoneinfo->pre_zoneid = -1;
-				rep->force_rZone->sigzoneinfo->next_zoneid = -1;
-				ZoneManager_DropZone(rep->context,rep->force_rZone);
-				rep->force_rZone = NULL;
-				return -1;
+				}
 			}
 		}
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
-
+		if(rep->endpageid != 0){
+			ndprint(RECYCLE_INFO,"reread pageinfo ecc error and mark bad block. pageid:%d block:%d\n",endpageid,rep->endpageid / vnand->PagePerBlock);
+			nm_set_bit(endpageid / vnand->PagePerBlock, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock));
+		}
+		for(i=0; i<blockcount; i++){
+			if(!nm_test_bit(i, (unsigned int *)&(rep->force_rZone->sigzoneinfo->badblock))){
+				first_ok_blockid = start_blockid + i;
+				break;
+			}
+		}
+		if (-1 == first_ok_blockid) {
+			ndprint(RECYCLE_ERROR, "ERROR: first_ok_blockid has not found!, %s, line:%d\n", __func__, __LINE__);
+			BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
+			rep->force_rZone->sigzoneinfo->pre_zoneid = -1;
+			rep->force_rZone->sigzoneinfo->next_zoneid = -1;
+			ZoneManager_DropZone(rep->context,rep->force_rZone);
+			rep->force_rZone = NULL;
+			return -1;
+		}
 		pl->pData = (void *)nandsigzoneinfo;
 		pl->Bytes = rep->force_rZone->vnand->BytePerPage;
 		pl->retVal = 0;
@@ -2652,14 +2702,16 @@ retry:
  *
  *	@context: global variable
  */
-int Recycle_OnBootRecycle ( int context )
+int Recycle_OnBootRecycle ( int bootinfo )
 {
 	int i;
 	int ret = 0;
-	Recycle *rep = ((Context *)context)->rep;
-
+	ForceRecycleInfo *BootInfo = (ForceRecycleInfo *)bootinfo;
+	Context *conptr = (Context *)(BootInfo->context);
+	Recycle *rep = conptr->rep;
 	ndprint(RECYCLE_INFO, "start boot recycle--------->\n");
 
+	rep->endpageid = BootInfo->endpageid;
 	ret = OnForce_Init(rep);
 	if (ret == -1)
 		return -1;
