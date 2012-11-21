@@ -11,15 +11,23 @@
 #include "../cim_reg.h"
 
 static struct frm_size ov2650_capture_table[]= {
-	//{640,480},
 	{1600,1200},
+	{1280,1024},
+	{1280,960},
+	{1024,768},
+	{800,600},
+	{640,480},
+	{352,288},
+	{320,240},
+	{176,144},
 };
 
 static struct frm_size ov2650_preview_table[]= {
+	{800,600},
 	{640,480},
-	//{352,288},
-	//{320,240},
-	//{176,144},
+	{352,288},
+	{320,240},
+	{176,144},
 };
 
 static inline int sensor_i2c_master_send(struct i2c_client *client,const char *buf ,int count)
@@ -171,9 +179,10 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s = kzalloc(sizeof(struct ov2650_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "ov2650");
-	s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
+	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
+	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_UY0VY1 | CIM_CFG_ORDER_UYVY;//CIM_CFG_PCP ||CIM_CFG_VSP
 	s->cs.modes.balance =  WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT 
-							| WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
+							| WHITE_BALANCE_INCANDESCENT;
 	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
 	s->cs.modes.antibanding =  ANTIBANDING_50HZ | ANTIBANDING_60HZ ;
 	s->cs.modes.flash_mode = FLASH_MODE_OFF;
