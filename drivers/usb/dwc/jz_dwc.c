@@ -137,7 +137,7 @@ static void set_charger_current_work(struct work_struct *work)
 	jz_pri = container_of(work, struct dwc_jz_pri, charger_delay_work.work);
 
 	if (jz_pri->core_if == NULL) {
-		schedule_delayed_work(&jz_pri->charger_delay_work, msecs_to_jiffies(500));
+		schedule_delayed_work(&jz_pri->charger_delay_work, msecs_to_jiffies(600));
 	} else {
 		core_if = (dwc_otg_core_if_t *)jz_pri->core_if;
 
@@ -155,6 +155,14 @@ static void set_charger_current_work(struct work_struct *work)
 	}
 }
 
+static void set_charger_current(struct dwc_jz_pri *jz_pri)
+{
+	if ( jz_pri->irq > 0 ) {
+		schedule_delayed_work(&jz_pri->charger_delay_work,
+			msecs_to_jiffies(600));
+	}
+}
+
 static void usb_detect_work(struct work_struct *work)
 {
 	struct dwc_jz_pri *jz_pri;
@@ -168,10 +176,10 @@ static void usb_detect_work(struct work_struct *work)
 	jz_dwc_phy_switch(jz_pri, insert);
 #endif
 
-	if (jz_pri->ucharger != NULL) {
+	if (!IS_ERR(jz_pri->ucharger)) {
 		if (insert) {
 			schedule_delayed_work(&jz_pri->charger_delay_work,
-					msecs_to_jiffies(500));
+					msecs_to_jiffies(600));
 		} else {
 			regulator_set_current_limit(jz_pri->ucharger, 0, 400000);
 			printk("Now recovery 400mA\n");
@@ -238,6 +246,8 @@ struct dwc_jz_pri *jz_dwc_init(void)
 
 	if (IS_ERR(jz_pri->ucharger)) {
 		dwc_error("regulator %s get error\n", UCHARGER_REG_NAME);
+	} else {
+		INIT_DELAYED_WORK(&jz_pri->charger_delay_work, set_charger_current_work);
 	}
 #else
 #error DWC OTG driver can NOT work without regulator!
@@ -248,6 +258,7 @@ struct dwc_jz_pri *jz_dwc_init(void)
 	jz_pri->dete = &dete_pin;
 	jz_pri->start = jz_pri_start;
 
+	jz_pri->callback = set_charger_current;
 	if (gpio_request_one(jz_pri->dete->num,
 			     GPIOF_DIR_IN, "usb-charger-detect")) {
 		dwc_error("no detect pin available\n");
@@ -270,7 +281,6 @@ struct dwc_jz_pri *jz_dwc_init(void)
 			jz_pri->irq = gpio_to_irq(jz_pri->dete->num);
 			disable_irq_nosync(jz_pri->irq);
 			INIT_DELAYED_WORK(&jz_pri->work, usb_detect_work);
-			INIT_DELAYED_WORK(&jz_pri->charger_delay_work, set_charger_current_work);
 		}
 	}
 

@@ -29,6 +29,7 @@ struct dwc_jz_pri {
 	int			pullup_on;
 
 	void			(*start)(struct dwc_jz_pri *jz_pri);
+	void			(*callback)(struct dwc_jz_pri *jz_pri);
 };
 
 #endif

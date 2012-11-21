@@ -52,6 +52,7 @@
  * <code>usb_gadget_ops</code>.
  *
  */
+#include <linux/err.h>
 #include <linux/jz_dwc.h>
 #include "dwc_otg_os_dep.h"
 #include "dwc_otg_pcd_if.h"
@@ -690,14 +691,13 @@ static int gadget_pullup(struct usb_gadget *gadget, int is_on)
 	dctl.b.sftdiscon = 1;
 	if (is_on) {
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32,0);
-		if (core_if->jz_pri->ucharger != NULL) {
+		if (!IS_ERR(core_if->jz_pri->ucharger)) {
 			core_if->jz_pri->pullup_on = 1;
-			schedule_delayed_work(&core_if->jz_pri->charger_delay_work,
-				msecs_to_jiffies(500));
+			core_if->jz_pri->callback(core_if->jz_pri);
 		}
 	} else {
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
-		if (core_if->jz_pri->ucharger != NULL)
+		if (!IS_ERR(core_if->jz_pri->ucharger))
 			core_if->jz_pri->pullup_on = 0;
 		dwc_udelay(50);
 	}
