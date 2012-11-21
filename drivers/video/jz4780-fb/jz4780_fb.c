@@ -2028,7 +2028,9 @@ static ssize_t dump_v_color_bar(struct device *dev, struct device_attribute *att
 static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char *buf)
 {
 #ifdef CONFIG_JZ4780_AOSD
+	aosd_clock_enable(1);
 	print_aosd_registers();
+	aosd_clock_enable(0);
 #endif
 
 	return 0;
@@ -2154,7 +2156,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get lcd pixel clock: %d\n", ret);
 		goto err_put_ldclk;
 	}
-	clk_set_rate(jzfb->lpclk, 27000000);
+	if (!jzfb->pdata->alloc_vidmem) {
+		/* set default pixel clock to 27 MHz */
+		clk_set_rate(jzfb->lpclk, 27000000);
+	}
 
 	jzfb->base = ioremap(mem->start, resource_size(mem));
 	if (!jzfb->base) {
