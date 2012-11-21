@@ -771,8 +771,6 @@ static int nand_disk_install(char *name)
 	if (name)
 		installAll = 0;
 
-	printk("nand_block: install partition [%s]\n", name);
-
 	if (NandManger_getPartition(nand_block.pm_handler, &phead) || (!phead)) {
 		printk("get NandManger partition error! phead = %p\n", phead);
 		return -1;
