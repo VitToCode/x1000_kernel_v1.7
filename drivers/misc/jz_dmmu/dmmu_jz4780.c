@@ -207,9 +207,9 @@ again:
 		paddr = get_phy_addr((unsigned int)addr);
 		if (!paddr) {
 			//dev_err(jz_dmmu.dev, "%s %d get_phy_addr failed, paddr is 0!", __func__, __LINE__);
-			void *tmp_base = kmalloc(PAGE_SIZE, GFP_KERNEL);
-			memcpy(addr, tmp_base, PAGE_SIZE);
-			kfree(tmp_base);
+			volatile unsigned char *tmp_base = (unsigned char *)addr;
+			volatile unsigned char p = *(volatile unsigned char *)tmp_base;
+			p += 1;
 			goto again;
 			//return -EFAULT;
 		}
