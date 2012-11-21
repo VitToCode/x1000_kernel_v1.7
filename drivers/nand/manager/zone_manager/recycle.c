@@ -704,7 +704,69 @@ static int data_in_3_zone (Recycle *rep, unsigned int pageid)
 		|| data_in_prev_zone(rep, pageid)
 		|| data_in_next_zone(rep, pageid);
 }
+static int align_sectors(Recycle *rep,int sectorcount) {
+	Context *conptr = (Context *)(rep->context);
+	VNandInfo *vnand = &conptr->vnand;
 
+	int alignsectorcount = 0;
+	//first - 2k pageinfo sector
+	alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage - vnand->BytePerPage) / SECTOR_SIZE;
+	if(sectorcount > alignsectorcount) {
+		sectorcount = sectorcount - alignsectorcount;
+		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
+	}
+	sectorcount = sectorcount % alignsectorcount;
+	return sectorcount;
+}
+static void FilluptoAlign ( Recycle *rep,PageList *tpl,int *record_writeaddr,int sectorcount) {
+
+	unsigned int *latest_l4info;
+	unsigned int tmp0 ,tmp1;
+	unsigned int spp;
+	unsigned int l4count;
+	int i,k;
+	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	l4count = rep->curpageinfo->L4InfoLen >> 2;
+	spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
+
+	latest_l4info = (unsigned int *)(rep->writepageinfo->L4Info);
+	sectorcount = align_sectors(rep,sectorcount);
+	i = 0;
+	while(sectorcount && i < l4count) {
+		if ((int)latest_l4info[i] == -1) {
+			i++;
+			continue;
+		}
+		if(record_writeaddr[i] == 0){
+			i++;
+			continue;
+		}
+		k = 0;
+		tmp0 = latest_l4info[i];
+		tmp1 = tmp0;
+		while(i < l4count) {
+			if(record_writeaddr[i] == 0)
+				break;
+			if(tmp0++ == latest_l4info[i++])
+				k++;
+			else
+				break;
+			if(tmp0 % spp == 0) break;
+		}
+		if(k > sectorcount) {
+			k = sectorcount;
+		}
+		if(k > 0) {
+			tpl = (PageList *)BuffListManager_getNextNode((int)blm, (void *)tpl, sizeof(PageList));
+			tpl->startPageID = tmp1 / spp;
+			tpl->OffsetBytes = (tmp1 % spp) * SECTOR_SIZE;
+			tpl->Bytes = k * SECTOR_SIZE;
+			tpl->retVal = 0;
+			tpl->pData = NULL;
+			sectorcount -= k;
+		}
+	}
+}
 /**
  *	MergerSectorID - Merger sectorID of recycle zone
  *
@@ -726,6 +788,9 @@ static int MergerSectorID ( Recycle *rep)
 	unsigned int *latest_l4info = NULL;
 	unsigned int spp = 0;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	int sectorcount = 0;
+	unsigned int *record_writeaddr;
+	Context *conptr = (Context *)rep->context;
 
 	l4count = rep->curpageinfo->L4InfoLen >> 2;
 	spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
@@ -733,6 +798,10 @@ static int MergerSectorID ( Recycle *rep)
 	latest_l4info = (unsigned int *)(rep->writepageinfo->L4Info);
 	pl = NULL;
 	tpl = NULL;
+
+	record_writeaddr = rep->record_writeadd;
+
+	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
 
 	for(i = 0; i < l4count; i += k) {
 		k = 1;
@@ -743,6 +812,7 @@ static int MergerSectorID ( Recycle *rep)
 		tmp1 = latest_l4info[i] / spp;
 
 		if ((tmp0 == tmp1 || latest_l4info[i] == -1) && data_in_3_zone(rep, tmp0)) {
+			record_writeaddr[i] = 0;
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
@@ -750,8 +820,10 @@ static int MergerSectorID ( Recycle *rep)
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
 
-				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1))
+				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1)){
 					k++;
+					record_writeaddr[j] = 0;
+				}
 				else
 					break;
 			}
@@ -765,7 +837,11 @@ static int MergerSectorID ( Recycle *rep)
 			tpl->Bytes = k * SECTOR_SIZE;
 			tpl->retVal = 0;
 			tpl->pData = NULL;
+			sectorcount += k;
 		}
+	}
+	if(sectorcount > 0 && tpl) {
+		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
 	}
 
 	rep->pagelist = pl;
@@ -811,7 +887,7 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	unsigned int l4count = 0;
 	unsigned int startsectorid;
 	unsigned int *record_writeaddr;
- 	unsigned int write_cursor = 0;
+	unsigned int write_cursor = 0;
 	Zone *rzone;
 	unsigned int total_sectorcount = 0;
 	unsigned int s_count = 0;
@@ -2258,6 +2334,9 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	unsigned int *latest_l4info = NULL;
 	unsigned int spp = 0;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
+	int sectorcount = 0;
+	unsigned int *record_writeaddr;
+	Context *conptr = (Context *)rep->context;
 
 	if(rep->force_curpageinfo == NULL)
 		return 0;
@@ -2265,6 +2344,9 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
 	l4info = (unsigned int *)(rep->force_curpageinfo->L4Info);
 	latest_l4info = (unsigned int *)(rep->force_writepageinfo->L4Info);
+
+	record_writeaddr = rep->record_writeadd;
+	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
 
 	pl = NULL;
 	tpl = NULL;
@@ -2277,14 +2359,17 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 		tmp1 = latest_l4info[i] / spp;
 
 		if ((tmp0 == tmp1 || latest_l4info[i] == -1) && data_in_rzone(rep, tmp0)) {
+			record_writeaddr[i] = 0;
 			for(j = i + 1; j < spp + i && j < l4count; j++) {
 				if ((int)l4info[j] == -1)
 					break;
 
 				tmp2 = l4info[j] / spp;
 				tmp3 = latest_l4info[j] / spp;
-				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1))
+				if(tmp2 == tmp0 && (tmp2 == tmp3 || latest_l4info[j] == -1)) {
+					record_writeaddr[j] = 0;
 					k++;
+				}
 				else
 					break;
 			}
@@ -2297,10 +2382,13 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 			tpl->Bytes = k * SECTOR_SIZE;
 			tpl->retVal = 0;
 			tpl->pData = NULL;
+			sectorcount += k;
 		}
 	}
 	rep->force_pagelist = pl;
-
+	if(sectorcount > 0 && tpl) {
+		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
+	}
 	return 0;
 }
 

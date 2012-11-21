@@ -148,11 +148,15 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	struct platform_nand_partition *pt = (struct platform_nand_partition *)(pnand_api->nand_dma->ppt->prData);
 	unsigned int tmp =page / pnand_api->nand_chip->ppblock;
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
+	if(vpage > pnand_api->nand_dma->ppt->PageCount) {
+		printk("====error:page %d PageCount:%d\n",vpage,pnand_api->nand_dma->ppt->PageCount);
+		while(1);
+	}
 	if(pt->use_planes)
 		page = ((page-toppage) / pnand_api->nand_chip->planenum) +
 			        (pnand_api->nand_chip->ppblock * ((page-toppage) %
                                 pnand_api->nand_chip->planenum)) + toppage;
-
+	
 	return page;
 }
 
@@ -290,6 +294,7 @@ static int read_page_singlenode(const NAND_API *pnand_api
 #endif
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
+		printk("bytes = %d offset = %d byteperpage = %d\n",bytes,offset,byteperpage);
 		goto read_page_singlenode_error1;
 	}
 	phy_pageid = get_physical_addr(pnand_api,pageid);
@@ -475,6 +480,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
+			num = temp;
 		  	goto read_page_node_error1;
 		}
 		nand_dma->cache_phypageid = phy_pageid;
@@ -484,6 +490,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes) > byteperpage) {
 			ret = -1;
 			templist->retVal = ret;
+			printk("aaa bytes = %d offset = %d byteperpage = %d\n",templist->Bytes,templist->OffsetBytes,byteperpage);
 			break;
 		}
 		ret1 = databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
@@ -506,6 +513,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		ret1 = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 		if(ret1)
 			ret =ret1;
+read_page_node_error1:
 		templist = pagelist;
 		while (num--) {
 			switch (ret) {
@@ -531,7 +539,6 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 			templist = singlelist_entry(listhead,PageList,head);
 		}
 	}
-read_page_node_error1:
 	do_deselect_chip(pnand_api);
 	return ret;
 }
@@ -541,7 +548,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	Aligned_List *alignelist = list;
 	PageList *templist;
 	unsigned int opsmodel;
-	int ret = 0,flag =0;
+	int ret = 0,flag = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
         if(mcuresflag) {
@@ -573,16 +580,16 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		}else{
 			ret = read_page_multinode(pnand_api,templist,opsmodel);
 		}
-		if(ret < 0){
-			flag = 0;
-			break;
+		if(ret && (flag >=0)){
+			flag = ret;
+//			break;
 		}
-		if(ret == 1)
-			flag = 1;
+//		if(ret == 1)
+//			flag = 1;
 		alignelist = alignelist->next;
 	}
 	if(flag)
-		ret=1;
+		ret=flag;
 dma_read_pages_error1:
 	enable_rb_irq(pnand_api);
 	return ret;
