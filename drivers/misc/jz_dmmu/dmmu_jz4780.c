@@ -89,6 +89,8 @@ struct dmmu_global_data {
 	unsigned int page_table_pool_init_capacity;  /* init capacity */
 	struct mutex page_table_pool_lock;
 
+	struct mutex map_lock;
+
 	unsigned int table_pool_bitmap;  /* table pool bitmap */
 };
 
@@ -112,7 +114,7 @@ struct file_operations dmmu_fops = {
 };
 
 /* transform the user's virturl addr to phys */
-static unsigned int get_phy_addr(unsigned int vaddr)  
+static unsigned int get_phy_addr(unsigned int vaddr)
 {  
 	unsigned int addr = vaddr & (PAGE_SIZE-1);
 	pgd_t *pgdir;
@@ -122,13 +124,13 @@ static unsigned int get_phy_addr(unsigned int vaddr)
 	pmd_t *pmdir; 
 	pte_t *pte;  
  
-	pgdir = pgd_offset(current->mm, vaddr);  
-	if(pgd_none(*pgdir) || pgd_bad(*pgdir))  
+	pgdir = pgd_offset(current->mm, vaddr);
+	if(pgd_none(*pgdir) || pgd_bad(*pgdir))
 		return 0;  
 
 #ifdef CONFIG_PGTABLE_4
 	pudir = pud_offset(pgdir, vaddr);
-	if (pud_none(*pudir) || pud_bad(*pudir))  
+	if (pud_none(*pudir) || pud_bad(*pudir))
 		return 0;  
 	pmdir = pmd_offset(pudir, vaddr);  
 	if (pmd_none(*pmdir) || pmd_bad(*pmdir))  
@@ -179,7 +181,7 @@ static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
 
 /* transform a buffer */
 static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem, 
-							struct proc_page_tab_data *proc)  
+							struct proc_page_tab_data *proc)
 {
 	int page_num, i, paddr, tlb_pos;
 	int ret, s_pos;
@@ -201,10 +203,15 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
  
 	for (i=0; i < page_num; i++) {
 		int *p_tlb;
+again:
 		paddr = get_phy_addr((unsigned int)addr);
 		if (!paddr) {
-			dev_err(jz_dmmu.dev, "%s %d get_phy_addr failed, paddr is 0!", __func__, __LINE__);
-			return -EFAULT;
+			//dev_err(jz_dmmu.dev, "%s %d get_phy_addr failed, paddr is 0!", __func__, __LINE__);
+			void *tmp_base = kmalloc(PAGE_SIZE, GFP_KERNEL);
+			memcpy(addr, tmp_base, PAGE_SIZE);
+			kfree(tmp_base);
+			goto again;
+			//return -EFAULT;
 		}
 		if (i == 0) {
 			mem->paddr = paddr;
@@ -545,6 +552,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	tmp_page_base = page_base;
 
 	/* set mem pages to page table */
+	mutex_lock(&jz_dmmu.map_lock);
 	fill_tlb_address(page_base, mem, table);
 
 	/* create buffer_heap_info, added to buffer_heap_list */
@@ -562,6 +570,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	buffer->end_offset = mem->end_offset;
 
 	list_add_tail(&(buffer->list), head);
+	mutex_unlock(&jz_dmmu.map_lock);
 
 	return 0;
 }
@@ -578,6 +587,7 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 #endif
 
 	/* free tlb phys address */
+	mutex_lock(&jz_dmmu.map_lock);
 	free_tlb_address(mem, table);
 
 	/* delete possible duplictate pages */
@@ -589,6 +599,7 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 			break;
 		}
 	}
+	mutex_unlock(&jz_dmmu.map_lock);
 
 	return 0;
 }
@@ -805,6 +816,7 @@ static int dmmu_probe(struct platform_device *pdev)
 
 	/* init mutex */
 	mutex_init(&jz_dmmu.page_table_pool_lock);
+	mutex_init(&jz_dmmu.map_lock);
 
 	/* init bitmap */
 	num = jz_dmmu.page_table_pool_init_capacity;
