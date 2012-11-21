@@ -8,32 +8,13 @@
  * Copyright (c) Ingenic Semiconductor Co., Ltd.
  */
 
-#ifndef __NAND_DUG_H__
-#define __NAND_DUG_H__
+#ifndef __NAND_CHAR_H__
+#define __NAND_CHAR_H__
 
-struct nand_dug_msg{
-        unsigned char name[20];
-        unsigned int  byteperpage;
-        unsigned int  pageperblock;
-        unsigned int  totalblocks;
-};
-
-enum nand_dug_cmd {
-        CMD_GET_NAND_PTC,  // the count of nand's partition
-        CMD_GET_NAND_MSG,
-        CMD_NAND_DUG_READ,
-        CMD_NAND_DUG_WRITE,
-        CMD_NAND_DUG_ERASE,
+enum nand_char_cmd {
 		CMD_PARTITION_ERASE = 98,
 		CMD_ERASE_ALL = 99,
 };
 
-struct NandInfo{
-        int id;
-        int bytes;
-        int partnum;
-        unsigned char *data;
-};
-
-int Register_CharNandDriver(unsigned int interface,unsigned int partarray);
-#endif /* __NAND_DUG_H__ */
+int Register_NandCharDriver(unsigned int interface,unsigned int partarray);
+#endif /* __NAND_CHAR_H__ */

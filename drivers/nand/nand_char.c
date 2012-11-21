@@ -3,6 +3,7 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/string.h>
 
 #include "nand_api.h"
 #include "nandinterface.h"
@@ -14,14 +15,7 @@
 struct nand_char_ops{
 	PPartArray ppa;
 	NandInterface  *iface;
-	struct NandInfo nand_info;
-	unsigned short mode;
 	unsigned short status;
-};
-
-enum nand_char_ops_mode{
-	NAND_RECOVERY,
-	NAND_DEBUG,
 };
 
 enum nand_char_ops_status{
@@ -38,171 +32,85 @@ extern void vNand_unLock(void);
 
 static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0,i=0;
-	int partnum = 0;
-	int ptcount = 0;
-	struct nand_dug_msg *dug_msg = NULL;
-	struct NandInfo *nand_info = &(nand_ops->nand_info);
-	static unsigned char *databuf = NULL;
+	int ret = 0, i = 0;
 	BlockList bl;
 
 	DBG_FUNC();
-	if((nand_ops->mode == NAND_DEBUG)){
-		vNand_Lock();
-		ptcount = nand_ops->ppa.ptcount -1; //sub nand_badblock_partition
-		switch(cmd){
-		case CMD_GET_NAND_PTC:
-			put_user(ptcount,(int *)arg);
-			break;
-		case CMD_GET_NAND_MSG:
-			if(ptcount > 0){
-				dug_msg = kmalloc(ptcount * sizeof(struct nand_dug_msg),GFP_KERNEL);
-				if(dug_msg){
-					for(i = 0; i < ptcount; i++){
-						strcpy(dug_msg[i].name,nand_ops->ppa.ppt[i].name);
-						dug_msg[i].byteperpage = nand_ops->ppa.ppt[i].byteperpage;
-						dug_msg[i].pageperblock = nand_ops->ppa.ppt[i].pageperblock;
-						dug_msg[i].totalblocks = nand_ops->ppa.ppt[i].totalblocks;
-					}
-					ret = copy_to_user((unsigned char *)arg ,(unsigned char *)dug_msg,
-									   ptcount * sizeof(struct nand_dug_msg));
-					kfree(dug_msg);
-				}
-			}
-			break;
-		case CMD_NAND_DUG_READ:
-			ret = copy_from_user(nand_info, (unsigned char *)arg, sizeof(struct NandInfo));
-			if(!ret){
-				databuf =(unsigned char *)kmalloc(nand_info->bytes, GFP_KERNEL);
-				if(!databuf) {
-					ret = -1;
+	switch(cmd){
+	case CMD_PARTITION_ERASE: {
+		char ptname[128];
+		int ptIndex = -1;
+		ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
+		if (!ret) {
+			for (i=0; i < nand_ops->ppa.ptcount; i++) {
+				printk("match partition: ppt[%d] = [%s], ptname = [%s]\n", i, nand_ops->ppa.ppt[i].name, ptname);
+				if (!strcmp(nand_ops->ppa.ppt[i].name, ptname)) {
+					ptIndex = i;
 					break;
 				}
-				partnum = nand_info->partnum;
-				ret = nand_ops->iface->iPageRead(&(nand_ops->ppa.ppt[partnum]), nand_info->id,
-												 0, nand_info->bytes, databuf);
-				if(ret == nand_info->bytes){
-					copy_to_user(nand_info->data, databuf, nand_info->bytes);
-					ret = 0;
-				}
-				else
-					ret = -1;
+			}
 
-				kfree(databuf);
+			if (i == nand_ops->ppa.ptcount) {
+				printk("ERROR: can't find partition %s\n", ptname);
+				ret = -1;
+				break;
 			}
-			break;
-		case CMD_NAND_DUG_WRITE:
-			ret = copy_from_user(nand_info, (unsigned char *)arg, sizeof(struct NandInfo));
-			if(!ret){
-				databuf =(unsigned char *)kmalloc(nand_info->bytes, GFP_KERNEL);
-				if(!databuf) {
-					ret = -1;
-					break;
-				}
-				copy_from_user(databuf, nand_info->data, nand_info->bytes);
-				partnum = nand_info->partnum;
-				ret = nand_ops->iface->iPageWrite(&(nand_ops->ppa.ppt[partnum]), nand_info->id,
-												  0, nand_info->bytes, databuf);
-				if(ret == nand_info->bytes)
-					ret = 0;
-				else
-					ret = -1;
-				kfree(databuf);
-			}
-			break;
-		case CMD_NAND_DUG_ERASE:
-			ret = copy_from_user(nand_info, (unsigned char *)arg, sizeof(struct NandInfo));
-			if(!ret){
-				bl.startBlock = nand_info->id;
+
+			printk("erase nand partition %s\n", nand_ops->ppa.ppt[ptIndex].name);
+			for (i=0; i < nand_ops->ppa.ppt[ptIndex].totalblocks; i++){
+				bl.startBlock = i;
 				bl.BlockCount = 1;
 				bl.head.next = NULL;
-				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[partnum]), &bl);
-			}
-			break;
-		default:
-			printk("nand_dug_driver: the parameter is wrong!\n");
-			ret = -1;
-			break;
-		}
-		vNand_unLock();
-	}else{
-		switch(cmd){
-		case CMD_PARTITION_ERASE: {
-			char ptname[128];
-			int ptIndex = -1;
-			ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
-			if (!ret) {
-				for (i=0; i < nand_ops->ppa.ptcount; i++) {
-					printk("match partition: ppt[%d] = [%s], ptname = [%s]\n", i, nand_ops->ppa.ppt[i].name, ptname);
-					if (!strcmp(nand_ops->ppa.ppt[i].name, ptname)) {
-						ptIndex = i;
-						break;
-					}
-				}
-
-				if (i == nand_ops->ppa.ptcount) {
-					printk("ERROR: can't find partition %s\n", ptname);
-					ret = -1;
-					break;
-				}
-
-				printk("erase nand partition %s\n", nand_ops->ppa.ppt[ptIndex].name);
-				for (i=0; i < nand_ops->ppa.ppt[ptIndex].totalblocks; i++){
-					bl.startBlock = i;
-					bl.BlockCount = 1;
-					bl.head.next = NULL;
-					ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[ptIndex]),&bl);
+				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[ptIndex]),&bl);
+				if (ret != 0) {
+					ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[ptIndex]), bl.startBlock);
 					if (ret != 0) {
-						ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[ptIndex]), bl.startBlock);
-						if (ret != 0) {
-							printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
-								   __func__, __LINE__, bl.startBlock);
-						}
+						printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
+							   __func__, __LINE__, bl.startBlock);
 					}
 				}
 			}
-			break;
 		}
-		case CMD_ERASE_ALL: {
-			int j = 0;
-			for (i = 0; i < nand_ops->ppa.ptcount - 1; i ++) {
-				printk("erase nand partition %s\n", nand_ops->ppa.ppt[i].name);
-				for (j = 0; j < nand_ops->ppa.ppt[i].totalblocks; j++) {
-					bl.startBlock = j;
-					bl.BlockCount = 1;
-					bl.head.next = NULL;
-					ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[i]), &bl);
-					if (ret != 0) {
-						ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[i]), bl.startBlock);
-						if (ret != 0) {
-							printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
-								   __func__, __LINE__, bl.startBlock);
-						}
-					}
-				}
-			}
-			break;
-		}
-		default:
-			printk("nand_dug_driver: the parameter is wrong!\n");
-			ret = -1;
-			break;
-		}
+		break;
 	}
+	case CMD_ERASE_ALL: {
+		int j = 0;
+		for (i = 0; i < nand_ops->ppa.ptcount - 1; i ++) {
+			printk("erase nand partition %s\n", nand_ops->ppa.ppt[i].name);
+			for (j = 0; j < nand_ops->ppa.ppt[i].totalblocks; j++) {
+				bl.startBlock = j;
+				bl.BlockCount = 1;
+				bl.head.next = NULL;
+				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[i]), &bl);
+				if (ret != 0) {
+					ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[i]), bl.startBlock);
+					if (ret != 0) {
+						printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
+							   __func__, __LINE__, bl.startBlock);
+					}
+				}
+			}
+		}
+		break;
+	}
+	default:
+		printk("nand_dug_driver: the parameter is wrong!\n");
+		ret = -1;
+		break;
+	}
+
 	return ret != 0 ? -EFAULT : 0 ;
 }
 
-static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size_t size, loff_t * pt)
+extern int nand_disk_install(char *name);
+static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size_t size, loff_t * offset)
 {
-	int copysize;
+	int copysize, ret;
 	char argbuf[128];
 	char *cmd_install = "CMD_INSTALL_PARTITION";
+	char *cmdline, *pt;
 
 	DBG_FUNC();
-	if((nand_ops->mode == NAND_DEBUG)){
-		printk("%s, line:%d, mode error, mode = %d\n", __func__, __LINE__, nand_ops->mode);
-		return -EFAULT;
-	}
 
 	if (size > 128)
 		copysize = 128;
@@ -213,18 +121,40 @@ static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size
 		printk("%s, line:%d, copy from user error, copysize = %d\n", __func__, __LINE__, copysize);
 		return -EFAULT;
 	}
+	argbuf[copysize] = '\0';
 
-	if (strncmp(argbuf, cmd_install, sizeof(cmd_install))) {
-		printk("%s, cmd error, cmd [%s] len[%d], need [%s] len[%d]\n",
-			   __func__, argbuf, strlen(argbuf), cmd_install, strlen(cmd_install));
+	cmdline = strstrip(argbuf);
+	printk("nand_char: cmdline = [%s]\n", cmdline);
+
+	if (!strncmp(cmdline, cmd_install, strlen(cmd_install))) {
+		/*cmdline: [CMD_INSTALL_PARTITION:ALL/pt_name]*/
+		pt = cmdline + strlen(cmd_install) + 1;
+		pt = strstrip(pt);
+
+		if (!pt) {
+			printk("%s, line:%d, has no partition to install!\n", __func__, __LINE__);
+			return -EFAULT;
+		}
+
+		printk("pt = [%s]\n", pt);
+		if (!strncmp(pt, "ALL", 3)) {
+			/* install all partitions */
+			if ((ret = nand_disk_install(NULL))) {
+				printk("%s, line:%d, install all partitions error!\n", __func__, __LINE__);
+				return ret;
+			}
+		} else {
+			/* install the partition indicated */
+			if ((ret = nand_disk_install(pt))) {
+				printk("%s, line:%d, install partitions [%s] error!\n", __func__, __LINE__, pt);
+				return ret;
+			}
+		}
+	} else {
+		printk("%s, cmd error, cmd [%s], need [%s:ALL/pt_name]\n", __func__, cmdline, cmd_install);
 		return -EFAULT;
 	}
 
-	Register_NandDriver(nand_ops->iface);
-
-	nand_ops->mode = NAND_DEBUG;
-
-	printk("nand_manager install successful !!!\n");
 	return size;
 }
 
@@ -253,7 +183,7 @@ static const struct file_operations nand_char_ops = {
 	.unlocked_ioctl	= nand_char_unlocked_ioctl,
 };
 
-int Register_CharNandDriver(unsigned int interface,unsigned int partarray)
+int Register_NandCharDriver(unsigned int interface,unsigned int partarray)
 {
 	int ret;
 	PPartArray *ppa = (PPartArray *)partarray;
@@ -302,7 +232,6 @@ static int __init nand_char_init(void)
 		ret =-1;
 		goto nand_char_kmalloc_failed;
 	}
-	nand_ops->mode = NAND_RECOVERY;
 	nand_ops->status = NAND_DRIVER_FREE;
 
 	nand_char_class = class_create(THIS_MODULE,"nand_char_class");
