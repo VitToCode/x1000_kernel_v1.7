@@ -6,7 +6,7 @@
 #include        <linux/input.h>
 #include        <linux/uaccess.h>
 #include        <linux/workqueue.h>
-#include	    <linux/earlysuspend.h>
+#include	<linux/earlysuspend.h>
 #include        <linux/irq.h>
 #include        <linux/gpio.h>
 #include        <linux/interrupt.h>
@@ -18,9 +18,9 @@
 #include        "gsensor_dmard06.h"
 //#define DEBUG
 #ifdef DEBUG
-	#define dprintk(x...)	do{printk("~~~~~%s~~~~~\n",__FUNCTION__);printk(x);}while(0)
+#define dprintk(x...)	do{printk("~~~~~%s~~~~~\n",__FUNCTION__);printk(x);}while(0)
 #else
-	#define dprintk(x...)
+#define dprintk(x...)
 #endif
 #define SENSOR_DATA_SIZE 3
 
@@ -40,14 +40,14 @@ struct {
 	unsigned int cutoff_ms;
 	unsigned int mask;
 } dmard06_acc_odr_table[] = {
-	{ 1,	ODR1250 },
-	{ 3,	ODR400  },
-	{ 10,	ODR200  },
-	{ 20,	ODR100  },
-	{ 100,	ODR50   },
-	{ 300,	ODR25   },
-	{ 500,	ODR10   },
-	{ 1000, ODR1    },
+{ 1,	ODR1250 },
+{ 3,	ODR400  },
+{ 10,	ODR200  },
+{ 20,	ODR100  },
+{ 100,	ODR50   },
+{ 300,	ODR25   },
+{ 500,	ODR10   },
+{ 1000, ODR1    },
 };
 
 struct dmard06_acc_data {
@@ -82,23 +82,23 @@ struct dmard06_acc_data {
 };
 
 static int dmard06_i2c_read(struct dmard06_acc_data *acc,
-		u8 * buf, int len)
+                            u8 * buf, int len)
 {
 	int err;
 	struct i2c_msg  msgs[] = {
-		{
-			.addr = acc->client->addr,
-			.flags = 0 ,//acc->client->flags & I2C_M_TEN,
-			.len = 1,
-			.buf = buf,
-		},
-		{
-			.addr = acc->client->addr,
-			.flags = 1,//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
-			.len = len,
-			.buf = buf,
-		},
-	};
+        {
+                .addr = acc->client->addr,
+                                .flags = 0 ,//acc->client->flags & I2C_M_TEN,
+                                .len = 1,
+                                .buf = buf,
+        },
+        {
+                .addr = acc->client->addr,
+                                .flags = 1,//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
+                                .len = len,
+                                .buf = buf,
+        },
+};
 
 	err = i2c_transfer(acc->client->adapter, msgs, 2);
 	if (err < 0) {
@@ -111,13 +111,13 @@ static int dmard06_i2c_write(struct dmard06_acc_data *acc, u8 * buf, int len)
 {
 	int err;
 	struct i2c_msg msgs[] = {
-		{
-			.addr = acc->client->addr,
-			.flags = acc->client->flags & I2C_M_TEN,
-			.len = len + 1,
-			.buf = buf,
-		},
-	};
+        {
+                .addr = acc->client->addr,
+                                .flags = acc->client->flags & I2C_M_TEN,
+                                .len = len + 1,
+                                .buf = buf,
+        },
+};
 
 	err = i2c_transfer(acc->client->adapter, msgs, 1);
 	if (err < 0)
@@ -161,10 +161,10 @@ int dmard06_acc_update_odr(struct dmard06_acc_data *acc, int poll_interval_ms)
 #if 1
 	switch (config[1])
 	{
-		case ODR10:	config1[1] = 0x45;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
-		case ODR25:	config1[1] = 0x20;break;//set to 0x0e irq rate:23Hz
-		case ODR50:	config1[1] = 0x10;break;//set to 0x06 irq rate:42Hz
-		default:	config1[1] = 0x45;break;//default situation set to 0x1D:irq rate:11Hz
+        case ODR10:	config1[1] = 0x45;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
+        case ODR25:	config1[1] = 0x20;break;//set to 0x0e irq rate:23Hz
+        case ODR50:	config1[1] = 0x10;break;//set to 0x06 irq rate:42Hz
+        default:	config1[1] = 0x45;break;//default situation set to 0x1D:irq rate:11Hz
 	}
 #endif
 
@@ -191,7 +191,7 @@ int dmard06_acc_update_odr(struct dmard06_acc_data *acc, int poll_interval_ms)
 	return err;
 error:
 	dev_err(&acc->client->dev, "update odr failed 0x%x,0x%x: %d\n",
-			config[0], config[1], err);
+                config[0], config[1], err);
 
 	return err;
 }
@@ -202,19 +202,18 @@ static int dmard06_acc_hw_init(struct dmard06_acc_data *acc)
 	int err = -1;
 	u8 buf[7];
 
-//	dprintk(KERN_INFO "%s: hw init start\n", DMARD06_ACC_DEV_NAME);
-	buf[0] = WHO_AM_I;
+        buf[0] = WHO_AM_I;
 	err = dmard06_acc_i2c_read(acc, buf, 1);
 	if (err < 0) {
 		dev_warn(&acc->client->dev, "Error reading WHO_AM_I: is device "
-				"available/working?\n");
+                         "available/working?\n");
 		goto err_firstread;
 	} else
 		acc->hw_working = 1;
 	if (buf[0] != WHOAMI_DMARD06_ACC) {
 		dev_err(&acc->client->dev,
-				"device unknown. Expected: 0x%x,"
-				" Replies: 0x%x\n", WHOAMI_DMARD06_ACC, buf[0]);
+                        "device unknown. Expected: 0x%x,"
+                        " Replies: 0x%x\n", WHOAMI_DMARD06_ACC, buf[0]);
 		err = -1; /* choose the right coded error */
 		goto err_unknown_device;
 	}
@@ -278,7 +277,6 @@ static int dmard06_acc_hw_init(struct dmard06_acc_data *acc)
 		goto err_resume_state;
 	udelay(100);
 	acc->hw_initialized = 1;
-//	dprintk(KERN_INFO "%s: hw init done\n", DMARD06_ACC_DEV_NAME);
 
 	return 0;
 err_firstread:
@@ -287,70 +285,70 @@ err_unknown_device:
 err_resume_state:
 	acc->hw_initialized = 0;
 	dev_err(&acc->client->dev, "hw init error 0x%x,0x%x: %d\n", buf[0],
-			buf[1], err);
+                buf[1], err);
 	return err;
 }
 
 static int dmard06_acc_device_power_off(struct dmard06_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
-	regulator_disable(acc->power);
-    }
+                regulator_disable(acc->power);
+        }
 	/*int err;
 
-	if (acc->pdata->power_off) {
-		acc->pdata->power_off();
-		acc->hw_initialized = 0;
-	}else{
-		u8 buf[2] = { CTRL_REG1, DMARD06_ACC_PM_OFF };
-		err = dmard06_acc_i2c_write(acc, buf, 1);
-		if (err < 0){
-			dev_err(&acc->client->dev,
-					"soft power off failed: %d\n", err);
-			return err;
-		}
+ if (acc->pdata->power_off) {
+  acc->pdata->power_off();
+  acc->hw_initialized = 0;
+ }else{
+  u8 buf[2] = { CTRL_REG1, DMARD06_ACC_PM_OFF };
+  err = dmard06_acc_i2c_write(acc, buf, 1);
+  if (err < 0){
+   dev_err(&acc->client->dev,
+     "soft power off failed: %d\n", err);
+   return err;
+  }
 
-	}
+ }
     */
 	return 0;
 }
 
- int dmard_acc_regulator_enbale(struct dmard06_acc_data *acc)
+int dmard_acc_regulator_enbale(struct dmard06_acc_data *acc)
 {
-    atomic_set(&acc->regulator_enabled,1);
+        atomic_set(&acc->regulator_enabled,1);
 	return 	regulator_enable(acc->power);
 }
 static int dmard06_acc_device_power_on(struct dmard06_acc_data *acc)
 {
-  dmard_acc_regulator_enbale(acc);
+        dmard_acc_regulator_enbale(acc);
 	/*int err = -1;
-	u8 buf[2];
-	if (acc->pdata->power_on) {
-		err = acc->pdata->power_on();
-		if (err < 0) {
-			dev_err(&acc->client->dev,
-					"power_on failed: %d\n", err);
-			return err;
-		}
-	}else{
-		buf[0] = CTRL_REG1;
-		buf[1] = 0x67;
-		err = dmard06_acc_i2c_write(acc, buf, 1);
-		if (err < 0){
-			dev_err(&acc->client->dev,
-					"power_on failed: %d\n", err);
-			return err;
-		}
-		buf[0] = CTRL_REG4;
-		buf[1] = 0x08;
-		err = dmard06_acc_i2c_write(acc, buf, 1);
-		if (err < 0){
-			dev_err(&acc->client->dev,
-					"power_on failed: %d\n", err);
-			return err;
-		}
+ u8 buf[2];
+ if (acc->pdata->power_on) {
+  err = acc->pdata->power_on();
+  if (err < 0) {
+   dev_err(&acc->client->dev,
+     "power_on failed: %d\n", err);
+   return err;
+  }
+ }else{
+  buf[0] = CTRL_REG1;
+  buf[1] = 0x67;
+  err = dmard06_acc_i2c_write(acc, buf, 1);
+  if (err < 0){
+   dev_err(&acc->client->dev,
+     "power_on failed: %d\n", err);
+   return err;
+  }
+  buf[0] = CTRL_REG4;
+  buf[1] = 0x08;
+  err = dmard06_acc_i2c_write(acc, buf, 1);
+  if (err < 0){
+   dev_err(&acc->client->dev,
+     "power_on failed: %d\n", err);
+   return err;
+  }
 
-	}
+ }
     */
 	return 0;
 }
@@ -361,14 +359,14 @@ static int dmard06_acc_disable(struct dmard06_acc_data *acc);
 static void dmard06_acc_regulator_enbale(struct dmard06_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0) {
-  dmard_acc_regulator_enbale(acc);
+                dmard_acc_regulator_enbale(acc);
 		udelay(100);
 		//dmard06_acc_hw_init(acc);
 	}
 }
 
 static int dmard06_acc_get_acceleration_data(struct dmard06_acc_data *acc,
-		int *xyz)
+                                             int *xyz)
 {
 	int err = -1;//,i;
 	u8 acc_data[6];
@@ -390,11 +388,11 @@ static int dmard06_acc_get_acceleration_data(struct dmard06_acc_data *acc,
 
 
 	xyz[0] = ((acc->pdata->negate_x) ? (-hw_d[acc->pdata->axis_map_x])
-			: (hw_d[acc->pdata->axis_map_x]));
+                                         : (hw_d[acc->pdata->axis_map_x]));
 	xyz[1] = ((acc->pdata->negate_y) ? (-hw_d[acc->pdata->axis_map_y])
-			: (hw_d[acc->pdata->axis_map_y]));
+                                         : (hw_d[acc->pdata->axis_map_y]));
 	xyz[2] = ((acc->pdata->negate_z) ? (-hw_d[acc->pdata->axis_map_z])
-			: (hw_d[acc->pdata->axis_map_z]));
+                                         : (hw_d[acc->pdata->axis_map_z]));
 
 	/*this is must be done in this mode*/
 
@@ -404,24 +402,23 @@ static int dmard06_acc_get_acceleration_data(struct dmard06_acc_data *acc,
 #ifdef CONFIG_SENSORS_ORI
 extern void orientation_report_values(int x,int y,int z);
 #endif
-static void dmard06_acc_report_values(struct dmard06_acc_data *acc,
-		int *xyz)
+static void mard06_acc_report_values(struct dmard06_acc_data *acc,
+                                     int *xyz)
 {
-	//dprintk(KERN_INFO "%s read x=%d, y=%d, z=%d\n",DMARD06_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
-
 	input_report_abs(acc->input_dev, ABS_X, -xyz[0]*2);
-	input_report_abs(acc->input_dev, ABS_Y, -xyz[1]*2);
-	input_report_abs(acc->input_dev, ABS_Z, -xyz[2]*2);
+	input_report_abs(acc->input_dev, ABS_Y, xyz[1]*2);
+	input_report_abs(acc->input_dev, ABS_Z, xyz[2]*2);
 	input_sync(acc->input_dev);
-#ifdef CONFIG_SENSORSpass the event_ORI
+#ifdef CONFIG_SENSORS_ORI
 	if(acc->pdata->ori_pr_swap == 1){
 		sensor_swap_pr((u16*)(xyz+0),(u16*)(xyz+1));
 	}
 	xyz[0] = ((acc->pdata->ori_roll_negate) ? (-xyz[0])
-			: (xyz[0]));
+                                                : (xyz[0]));
 	xyz[1] = ((acc->pdata->ori_pith_negate) ? (-xyz[1])
-			: (xyz[1]));
+                                                : (xyz[1]));
 	orientation_report_values(xyz[0],xyz[1],xyz[2]);
+        printk("~~~~~~~~~reportin g  ori  %d " ,xyz[0]);
 #endif
 }
 
@@ -436,10 +433,10 @@ static int dmard06_acc_enable(struct dmard06_acc_data *acc)
 			atomic_set(&acc->enabled, 0);
 			return err;
 		}
-//		enable_irq(acc->client->irq);
+                //		enable_irq(acc->client->irq);
 
-//		buf[0] = INT_SRC1;
-	//	err = dmard06_acc_i2c_read(acc, buf, 1);
+                //		buf[0] = INT_SRC1;
+                //	err = dmard06_acc_i2c_read(acc, buf, 1);
 	}
 	return 0;
 }
@@ -447,7 +444,7 @@ static int dmard06_acc_enable(struct dmard06_acc_data *acc)
 static int dmard06_acc_disable(struct dmard06_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
-//		flush_workqueue(acc->irq_work_queue);
+                //		flush_workqueue(acc->irq_work_queue);
 		dmard06_acc_device_power_off(acc);
 	}
 
@@ -463,22 +460,22 @@ struct linux_sensor_t hardware_data_dmard06 = {
 static int dmard06_acc_validate_pdata(struct dmard06_acc_data *acc)
 {
 	acc->pdata->poll_interval = max(acc->pdata->poll_interval,
-			acc->pdata->min_interval);
+                                        acc->pdata->min_interval);
 
 	if (acc->pdata->axis_map_x > 2 ||
 			acc->pdata->axis_map_y > 2 ||
 			acc->pdata->axis_map_z > 2) {
 		dev_err(&acc->client->dev, "invalid axis_map value "
-				"x:%u y:%u z%u\n", acc->pdata->axis_map_x,
-				acc->pdata->axis_map_y, acc->pdata->axis_map_z);
+                        "x:%u y:%u z%u\n", acc->pdata->axis_map_x,
+                        acc->pdata->axis_map_y, acc->pdata->axis_map_z);
 		return -EINVAL;
 	}
 	/* Only allow 0 and 1 for negation boolean flag */
 	if (acc->pdata->negate_x > 1 || acc->pdata->negate_y > 1
 			|| acc->pdata->negate_z > 1) {
 		dev_err(&acc->client->dev, "invalid negate value "
-				"x:%u y:%u z:%u\n", acc->pdata->negate_x,
-				acc->pdata->negate_y, acc->pdata->negate_z);
+                        "x:%u y:%u z:%u\n", acc->pdata->negate_x,
+                        acc->pdata->negate_y, acc->pdata->negate_z);
 		return -EINVAL;
 	}
 	/* Enforce minimum polling interval */
@@ -503,31 +500,31 @@ int dmard06_acc_update_g_range(struct dmard06_acc_data *acc, u8 new_g_range)
 	u8 mask = DMARD06_ACC_FS_MASK | HIGH_RESOLUTION;
 
 	switch (new_g_range) {
-		case GSENSOR_2G:
-			new_g_range = DMARD06_ACC_G_2G;
-			sensitivity = SENSITIVITY_2G;
-			break;
-		case GSENSOR_4G:
-			new_g_range = DMARD06_ACC_G_4G;
-			sensitivity = SENSITIVITY_4G;
-			break;
-		case GSENSOR_8G:
-			new_g_range = DMARD06_ACC_G_8G;
-			sensitivity = SENSITIVITY_8G;
-			break;
-		case GSENSOR_16G:
-			new_g_range = DMARD06_ACC_G_16G;
-			sensitivity = SENSITIVITY_16G;
-			break;
-		default:
-			dev_err(&acc->client->dev, "invalid g range requested: %u\n",
-					new_g_range);
-			return -EINVAL;
+        case GSENSOR_2G:
+                new_g_range = DMARD06_ACC_G_2G;
+                sensitivity = SENSITIVITY_2G;
+                break;
+        case GSENSOR_4G:
+                new_g_range = DMARD06_ACC_G_4G;
+                sensitivity = SENSITIVITY_4G;
+                break;
+        case GSENSOR_8G:
+                new_g_range = DMARD06_ACC_G_8G;
+                sensitivity = SENSITIVITY_8G;
+                break;
+        case GSENSOR_16G:
+                new_g_range = DMARD06_ACC_G_16G;
+                sensitivity = SENSITIVITY_16G;
+                break;
+        default:
+                dev_err(&acc->client->dev, "invalid g range requested: %u\n",
+                        new_g_range);
+                return -EINVAL;
 	}
 
 	if (atomic_read(&acc->enabled)) {
 		/* Updates configuration register 4,
-		 *                 * which contains g range setting */
+   *                 * which contains g range setting */
 		buf[0] = CTRL_REG4;
 		err = dmard06_acc_i2c_read(acc, buf, 1);
 		if (err < 0)
@@ -550,40 +547,40 @@ int dmard06_acc_update_g_range(struct dmard06_acc_data *acc, u8 new_g_range)
 
 error:
 	dev_err(&acc->client->dev, "update g range failed 0x%x,0x%x: %d\n",
-			buf[0], buf[1], err);
+                buf[0], buf[1], err);
 
 	return err;
 }
 
 
 int acc_input_close(struct input_dev *input)
-{        struct  dmard06_acc_data *acc = input_get_drvdata(input);
-
-		cancel_delayed_work_sync(&acc->input_work);
-return 0;
+{
+        struct  dmard06_acc_data *acc = input_get_drvdata(input);
+        cancel_delayed_work_sync(&acc->input_work);
+        return 0;
 }
 
- static int temp_enable(struct dmard06_acc_data * acc)
+static int temp_enable(struct dmard06_acc_data * acc)
 {
 
-    static   int t;
-    if (atomic_read(&acc->enabled)) 
-    {
-    printk("Dmard Sensor has already enable!\n");
-    }
-    else
-    {
-    atomic_set(&acc->enabled, 1);
-    queue_delayed_work(acc->work_queue,&acc->dmard06_acc_delayed_work,msecs_to_jiffies(100));
-    }
-    return 0;
+        static   int t;
+        if (atomic_read(&acc->enabled))
+        {
+                printk("Dmard Sensor has already enable!\n");
+        }
+        else
+        {
+                atomic_set(&acc->enabled, 1);
+                queue_delayed_work(acc->work_queue,&acc->dmard06_acc_delayed_work,msecs_to_jiffies(100));
+        }
+        return 0;
 }
 int acc_input_open(struct input_dev *input)
 {
         struct dmard06_acc_data  *acc = input_get_drvdata(input);
         return temp_enable(acc);
 }
-        static int dmard06_acc_input_init(struct dmard06_acc_data *acc)
+static int dmard06_acc_input_init(struct dmard06_acc_data *acc)
 {
 	int err;
 	acc->input_dev = input_allocate_device();
@@ -594,9 +591,6 @@ int acc_input_open(struct input_dev *input)
 	}
         acc->input_dev->open = acc_input_open;
         acc->input_dev->close = acc_input_close;
-
-
-
 	acc->input_dev->name = "g_sensor";
 	acc->input_dev->id.bustype = BUS_I2C;
 	acc->input_dev->dev.parent = &acc->client->dev;
@@ -610,8 +604,8 @@ int acc_input_open(struct input_dev *input)
 	err = input_register_device(acc->input_dev);
 	if (err) {
 		dev_err(&acc->client->dev,
-				"unable to register input device %s\n",
-				acc->input_dev->name);
+                        "unable to register input device %s\n",
+                        acc->input_dev->name);
 		goto err1;
 	}
 
@@ -648,76 +642,75 @@ long dmard06_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct dmard06_acc_data *dmard06 = container_of(dev, struct dmard06_acc_data,dmard06_misc_device);
 
 	switch (cmd) {
-		case SENSOR_IOCTL_GET_DELAY:
-			interval = dmard06->pdata->poll_interval;
-			if (copy_to_user(argp, &interval, sizeof(interval)))
-				return -EFAULT;
-			break;
-		case SENSOR_IOCTL_SET_DELAY:
-			 dprintk("----dmard06 1----\n");
-			if (atomic_read(&dmard06->enabled)) {
-				mutex_lock(&dmard06->lock);
-				if (copy_from_user(&interval, argp, sizeof(interval)))
-					return -EFAULT;
-				interval *= 10;  //for Sensor_new
-				if (interval < dmard06->pdata->min_interval )
-					interval = dmard06->pdata->min_interval;
-				else if (interval > dmard06->pdata->max_interval)
-					interval = dmard06->pdata->max_interval;
-				dmard06->pdata->poll_interval = interval;
-			//	dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
-			 dprintk("----ryder:set delay  not effect----\n");
-				mutex_unlock(&dmard06->lock);
+        case SENSOR_IOCTL_GET_DELAY:
+                interval = dmard06->pdata->poll_interval;
+                if (copy_to_user(argp, &interval, sizeof(interval)))
+                        return -EFAULT;
+                break;
+        case SENSOR_IOCTL_SET_DELAY:
+                dprintk("----dmard06 1----\n");
+                if (atomic_read(&dmard06->enabled)) {
+                        mutex_lock(&dmard06->lock);
+                        if (copy_from_user(&interval, argp, sizeof(interval)))
+                                return -EFAULT;
+                        interval *= 10;  //for Sensor_new
+                        if (interval < dmard06->pdata->min_interval )
+                                interval = dmard06->pdata->min_interval;
+                        else if (interval > dmard06->pdata->max_interval)
+                                interval = dmard06->pdata->max_interval;
+                        dmard06->pdata->poll_interval = interval;
+			//dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
+                        mutex_unlock(&dmard06->lock);
 			//	dprintk("----dmard06 call SET_DELAY ----\n");
-			}
-			break;
-		case SENSOR_IOCTL_SET_ACTIVE:
-			 dprintk("----ryder:set active----\n");
-			mutex_lock(&dmard06->lock);
-			if (copy_from_user(&interval, argp, sizeof(interval)))
-				return -EFAULT;
-			if (interval > 1)
-				return -EINVAL;
-			if (interval){
-			 /*dprintk("----dmard06 2.1----\n");
-				dmard06->power_tag = interval;
-				dmard06_acc_regulator_enbale(dmard06);
-				dmard06_acc_enable(dmard06);
-				dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
+                }
+                break;
+        case SENSOR_IOCTL_SET_ACTIVE:
+                dprintk("----ryder:set active----\n");
+                mutex_lock(&dmard06->lock);
+                if (copy_from_user(&interval, argp, sizeof(interval)))
+                        return -EFAULT;
+                if (interval > 1)
+                        return -EINVAL;
+                if (interval){
+                        /*dprintk("----dmard06 2.1----\n");
+    dmard06->power_tag = interval;
+    dmard06_acc_regulator_enbale(dmard06);
+    dmard06_acc_enable(dmard06);
+    dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
                 */
 			//	dprintk("----dmard06 call SET_ACTIVE ----\n");
-			}else{
-			 /*dprintk("----dmard06 2.2----\n");
-				dmard06->power_tag = interval;
-				dmard06_acc_disable(dmard06);
-				mdelay(2);
-				if (atomic_cmpxchg(&dmard06->regulator_enabled, 1, 0))
-					regulator_disable(dmard06->power);
-			//	dprintk("----dmard06 call SET_NOt_ACTIVE ----\n");
+                }else{
+                        /*dprintk("----dmard06 2.2----\n");
+    dmard06->power_tag = interval;
+    dmard06_acc_disable(dmard06);
+    mdelay(2);
+    if (atomic_cmpxchg(&dmard06->regulator_enabled, 1, 0))
+     regulator_disable(dmard06->power);
+   //	dprintk("----dmard06 call SET_NOt_ACTIVE ----\n");
             //	*/
-			}
-			mutex_unlock(&dmard06->lock);
-			break;
-		case SENSOR_IOCTL_GET_ACTIVE:
-			interval = atomic_read(&dmard06->enabled);
-			if (copy_to_user(argp, &interval, sizeof(interval)))
-				return -EINVAL;
-			break;
-		case SENSOR_IOCTL_GET_DATA:
-			if (copy_to_user(argp, &hardware_data_dmard06, sizeof(hardware_data_dmard06)))
-				return -EINVAL;
-			break;
+                }
+                mutex_unlock(&dmard06->lock);
+                break;
+        case SENSOR_IOCTL_GET_ACTIVE:
+                interval = atomic_read(&dmard06->enabled);
+                if (copy_to_user(argp, &interval, sizeof(interval)))
+                        return -EINVAL;
+                break;
+        case SENSOR_IOCTL_GET_DATA:
+                if (copy_to_user(argp, &hardware_data_dmard06, sizeof(hardware_data_dmard06)))
+                        return -EINVAL;
+                break;
 
-		case SENSOR_IOCTL_GET_DATA_MAXRANGE:
-			if (copy_to_user(argp, &dmard06->pdata->g_range, sizeof(dmard06->pdata->g_range)))
-				return -EFAULT;
-			break;
+        case SENSOR_IOCTL_GET_DATA_MAXRANGE:
+                if (copy_to_user(argp, &dmard06->pdata->g_range, sizeof(dmard06->pdata->g_range)))
+                        return -EFAULT;
+                break;
 
-		case SENSOR_IOCTL_WAKE:
-			input_event(dmard06->input_dev, EV_SYN,SYN_CONFIG, 0);
-			break;
-		default:
-			return -EINVAL;
+        case SENSOR_IOCTL_WAKE:
+                input_event(dmard06->input_dev, EV_SYN,SYN_CONFIG, 0);
+                break;
+        default:
+                return -EINVAL;
 	}
 
 	return 0;
@@ -733,8 +726,8 @@ static const struct file_operations dmard06_misc_fops = {
 static int dmard06_acc_dev_init(struct dmard06_acc_data *acc)
 {
 	acc->dmard06_misc_device.minor = MISC_DYNAMIC_MINOR,
-	acc->dmard06_misc_device.name =  "g_sensor",
-	acc->dmard06_misc_device.fops = &dmard06_misc_fops;
+                        acc->dmard06_misc_device.name =  "g_sensor",
+                        acc->dmard06_misc_device.fops = &dmard06_misc_fops;
 	return misc_register(&acc->dmard06_misc_device);
 }
 
@@ -744,28 +737,28 @@ static int dmard06_acc_dev_init(struct dmard06_acc_data *acc)
 
 s16 filter_call(s8* data, int size)
 {
-    int index;
-    s8 max, min;
-    int count = 0;
-    s8 value = 0;
-    max = min = data[0];
-    for (index=0; index < size; index++) {
-    if (data[index] > max) {
-    max = data[index];
-    }
-    if (data[index] < min) {
-    min = data[index];
-    }
-    count += data[index];
-    }
+        int index;
+        s8 max, min;
+        int count = 0;
+        s8 value = 0;
+        max = min = data[0];
+        for (index=0; index < size; index++) {
+                if (data[index] > max) {
+                        max = data[index];
+                }
+                if (data[index] < min) {
+                        min = data[index];
+                }
+                count += data[index];
+        }
 
-    if (size <= 3) {
-    value = count / size;
-    } else {
-        value = (count - max - min) / (size - 2);
-    }
+        if (size <= 3) {
+                value = count / size;
+        } else {
+                value = (count - max - min) / (size - 2);
+        }
 
-    return value;
+        return value;
 }
 static s8 *sensorlayout=NULL;
 static s8 sensorlayout1[3][3]={ { 1, 0, 0},	{ 0, 1,	0}, { 0, 0, 1}};
@@ -778,47 +771,47 @@ static s8 sensorlayout7[3][3]={{ 1, 0, 0},	{ 0,-1,	0}, { 0, 0,-1}};
 static s8 sensorlayout8[3][3]={{ 0, 1, 0},	{ 1, 0,	0}, { 0, 0,-1}};
 void remap_layout()
 {
-    switch(1)
-    {
-    case 1:
-        sensorlayout=sensorlayout1;
-        break;
-    case 2:
-        sensorlayout=sensorlayout2;
-        break;
-    case 3:
-        sensorlayout=sensorlayout3;
-        break;
-    case 4:
-        sensorlayout=sensorlayout4;
-        break;
-    case 5:
-        sensorlayout=sensorlayout5;
-        break;
-    case 6:
-        sensorlayout=sensorlayout6;
-        break;
-    case 7:
-        sensorlayout=sensorlayout7;
-        break;
-    case 8:
-        sensorlayout=sensorlayout8;
-        break;
-    default:
-        break;
-    }
+        switch(1)
+        {
+        case 1:
+                sensorlayout=sensorlayout1;
+                break;
+        case 2:
+                sensorlayout=sensorlayout2;
+                break;
+        case 3:
+                sensorlayout=sensorlayout3;
+                break;
+        case 4:
+                sensorlayout=sensorlayout4;
+                break;
+        case 5:
+                sensorlayout=sensorlayout5;
+                break;
+        case 6:
+                sensorlayout=sensorlayout6;
+                break;
+        case 7:
+                sensorlayout=sensorlayout7;
+                break;
+        case 8:
+                sensorlayout=sensorlayout8;
+                break;
+        default:
+                break;
+        }
         
 }
 static int device_i2c_xyz_read_reg(struct i2c_client *client,u8 *buffer, int length)
 {
-    //static  unsigned int flag 
+        //static  unsigned int flag
 	u8 cAddress = 0;
 	cAddress = 0x41;
 	int i = 0;
 	//printk("DMARD06%s\n",__FUNCTION__);
 	for(i=0;i<SENSOR_DATA_SIZE;i++)
 	{
-      //  dprintk("*%s*  *%x*",client,cAddress+i);
+                //  dprintk("*%s*  *%x*",client,cAddress+i);
 		buffer[i] = i2c_smbus_read_byte_data(client,cAddress+i);
 	}
 }
@@ -849,7 +842,7 @@ void device_i2c_read_xyz(struct i2c_client *client, s8 *xyz_p)
 	IN_FUNC_MSG;   
 	for (j=0;j<SAMPLE_COUNT;j++){
 		device_i2c_xyz_read_reg(client, buffer, 3); 
-        
+
 		for(i = 0; i < SENSOR_DATA_SIZE; i++){
 			xyzTmp[i*SAMPLE_COUNT+j] = get_flag_bit((buffer[i] >> 1));
 		}
@@ -873,16 +866,27 @@ void device_i2c_read_xyz(struct i2c_client *client, s8 *xyz_p)
 static void dmard06_acc_delayed_work_fun()
 {
         
- //     s8 xyz[SENSOR_DATA_SIZE];
+        //     s8 xyz[SENSOR_DATA_SIZE];
         s8 xyz[3];
         device_i2c_read_xyz( dmard06_acc->client, (s8 *)&xyz);
-        input_report_abs(dmard06_acc->input_dev, ABS_X, -xyz[0]*2);
-        input_report_abs(dmard06_acc->input_dev, ABS_Y, xyz[1]*2);
-        input_report_abs(dmard06_acc->input_dev, ABS_Z, -xyz[2]*2);
-        input_sync(dmard06_acc->input_dev);        
- //       queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(dmard06_acc->pdata->poll_interval));
+        {
+                input_report_abs(dmard06_acc->input_dev, ABS_X, -xyz[0]*2);
+                input_report_abs(dmard06_acc->input_dev, ABS_Y, xyz[1]*2);
+                input_report_abs(dmard06_acc->input_dev, ABS_Z, xyz[2]*2);
+                input_sync(dmard06_acc->input_dev);
+#ifdef CONFIG_SENSORS_ORI
+                if(dmard06_acc->pdata->ori_pr_swap == 1){
+                        sensor_swap_pr((u16*)(xyz+0),(u16*)(xyz+1));
+                }
+                xyz[0] = ((dmard06_acc->pdata->ori_roll_negate) ? (xyz[0]*2)
+                                                                : (xyz[0]));
+                xyz[1] = ((dmard06_acc->pdata->ori_pith_negate) ? (-xyz[1]*2)
+                                                                : (xyz[1]));
+                orientation_report_values(xyz[0],xyz[1],xyz[2]);
+#endif
+        }
+        //       queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(dmard06_acc->pdata->poll_interval));
         queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,msecs_to_jiffies(100));
-     // printk("~~~~~~~~~~~~~~DMard X=%d,Y=%d,Z=%d\n ", xyz[0],xyz[1],xyz[2]);        
         return ;
 }
 
@@ -892,11 +896,11 @@ static irqreturn_t dmard06_acc_interrupt(int irq, void *dev_id)
 	struct dmard06_acc_data *acc = dev_id;
 
 	/*
-	if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
-		dprintk("---interrupt -suspend or disable\n");
-		return IRQ_HANDLED;
-	}
-	*/
+ if(acc->is_suspend == 1 || atomic_read(&acc->enabled) == 0){
+  dprintk("---interrupt -suspend or disable\n");
+  return IRQ_HANDLED;
+ }
+ */
 	disable_irq_nosync(acc->client->irq);
 	if(!work_pending(&acc->irq_work))
 		queue_work(acc->irq_work_queue, &acc->irq_work);
@@ -913,32 +917,32 @@ static void dmard06_acc_early_suspend(struct early_suspend *handler);
 
 int gsensor_reset(struct dmard06_acc_data *acc)
 {
-acc->power= regulator_get(&acc->client->dev, "vgsensor");//get regular 
+        acc->power= regulator_get(&acc->client->dev, "vgsensor");//get regular
 	char cAddress = 0 , cData = 0;
 	int result;
 	s8 xyz[SENSOR_DATA_SIZE];
 	int buffer[3];
-    //if(!dmard_acc_regulator_enbale(acc));
-    dmard_acc_regulator_enbale(acc);
+        //if(!dmard_acc_regulator_enbale(acc));
+        dmard_acc_regulator_enbale(acc);
 	cAddress = SW_RESET;
-    result = i2c_smbus_read_byte_data(acc->client,cAddress);
-    dprintk(KERN_INFO "i2c Read SW_RESET = %x \n", result);
-    cAddress = WHO_AM_I;
-    result = i2c_smbus_read_byte_data(acc->client,cAddress);
-    dprintk( "i2c Read WHO_AM_I = %d \n", result);
-    cData=result;
-    if(( cData&0x00FF) == WHO_AM_I_VALUE) //read 0Fh should be 06, else some err there
-    {
-        dprintk( "@@@ %s gsensor registered I2C driver!\n",__FUNCTION__);
-       // dev.client = client;
-    }
-    else
-    {
-        dprintk( "@@@ %s gsensor I2C err = %d!\n",__FUNCTION__,cData);
-       // dev.client = NULL;
-        return -1;
-    }
-    remap_layout();
+        result = i2c_smbus_read_byte_data(acc->client,cAddress);
+        dprintk(KERN_INFO "i2c Read SW_RESET = %x \n", result);
+        cAddress = WHO_AM_I;
+        result = i2c_smbus_read_byte_data(acc->client,cAddress);
+        dprintk( "i2c Read WHO_AM_I = %d \n", result);
+        cData=result;
+        if(( cData&0x00FF) == WHO_AM_I_VALUE) //read 0Fh should be 06, else some err there
+        {
+                dprintk( "@@@ %s gsensor registered I2C driver!\n",__FUNCTION__);
+                // dev.client = client;
+        }
+        else
+        {
+                dprintk( "@@@ %s gsensor I2C err = %d!\n",__FUNCTION__,cData);
+                // dev.client = NULL;
+                return -1;
+        }
+        remap_layout();
 	return 0;
 }
 static int dmard06_acc_probe(struct i2c_client *client,		const struct i2c_device_id *id)
@@ -953,10 +957,10 @@ static int dmard06_acc_probe(struct i2c_client *client,		const struct i2c_device
 		goto exit_check_functionality_failed;
 	}
 
-//	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+        //	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 	result = i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE|I2C_FUNC_SMBUS_BYTE_DATA);
-    if(!result)	{
-        dev_err(&client->dev, "client not i2c capable\n");
+        if(!result)	{
+                dev_err(&client->dev, "client not i2c capable\n");
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
 	}
@@ -971,21 +975,21 @@ static int dmard06_acc_probe(struct i2c_client *client,		const struct i2c_device
 	mutex_init(&acc->lock_rw);
 	mutex_init(&acc->lock);
 	acc->client = client;
-//	i2c_set_clientdata(client, acc);
+        //	i2c_set_clientdata(client, acc);
 
 	acc->pdata = kmalloc(sizeof(*acc->pdata), GFP_KERNEL);
 	if (acc->pdata == NULL) {
 		err = -ENOMEM;
 		dev_err(&client->dev,
-				"failed to allocate memory for pdata: %d\n",
-				err);
+                        "failed to allocate memory for pdata: %d\n",
+                        err);
 		goto err_free;
 	}
 	memcpy(acc->pdata, client->dev.platform_data, sizeof(*acc->pdata));
 	if (acc->pdata->init) {
 		err = acc->pdata->init();
 		if (err < 0) {
-            dev_err(&client->dev, "init failed: %d\n", err);
+                        dev_err(&client->dev, "init failed: %d\n", err);
 			goto err_pdata_init;
 		}
 	}
@@ -994,11 +998,11 @@ static int dmard06_acc_probe(struct i2c_client *client,		const struct i2c_device
 		dev_err(&client->dev, "input init failed\n");
 		goto err_power_off;
 	}
-    gsensor_reset(acc);
+        gsensor_reset(acc);
 	err = dmard06_acc_dev_init(acc);
-    if(err) dprintk("ryder : failed to regist msic dev");
-    acc->work_queue=create_workqueue("my_devpoll");
-    INIT_DELAYED_WORK(&acc->dmard06_acc_delayed_work,dmard06_acc_delayed_work_fun);
+        if(err) dprintk("ryder : failed to regist msic dev");
+        acc->work_queue=create_workqueue("my_devpoll");
+        INIT_DELAYED_WORK(&acc->dmard06_acc_delayed_work,dmard06_acc_delayed_work_fun);
 	if(!(acc->work_queue)){
 		err = -ESRCH;
 		dprintk("creating workqueue failed\n");
@@ -1016,7 +1020,7 @@ err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
 err_read_who_am_i:
-dmard_acc_regulator_enbale(acc);
+        dmard_acc_regulator_enbale(acc);
 exit_kfree_pdata:
 	kfree(acc->pdata);
 err_free:
@@ -1041,10 +1045,10 @@ static int __devexit dmard06_acc_remove(struct i2c_client *client)
 		acc->pdata->exit();
         kfree(acc->pdata);
 	if (acc->power && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)){
-err=dmard_acc_regulator_enbale(acc);
+                err=dmard_acc_regulator_enbale(acc);
 		if (err < 0){
 			dev_err(&acc->client->dev,
-					"power_off regulator failed: %d\n", err);
+                                "power_off regulator failed: %d\n", err);
 			return err;
 		}
 		regulator_put(acc->power);
@@ -1074,7 +1078,7 @@ static void dmard06_acc_early_suspend(struct early_suspend *handler)
 	acc = container_of(handler, struct dmard06_acc_data, early_suspend);
 	acc->is_suspend = 1;
 
-//	disable_irq_nosync(acc->client->irq);
+        //	disable_irq_nosync(acc->client->irq);
 	if (atomic_read(&acc->enabled)) {
 		dmard06_acc_disable(acc);
 	}
