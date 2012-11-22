@@ -1077,6 +1077,13 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
 		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 	} else {
+#ifdef CONFIG_SOC_4780
+		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_NO_EXEC)); /* convert to entrylo0 */
+		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
+		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
+		UASM_i_SRL(p, ptep, ptep, ilog2(_PAGE_NO_EXEC)); /* convert to entrylo1 */
+		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
+#else
 		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_GLOBAL)); /* convert to entrylo0 */
 		if (r4k_250MHZhwbug())
 			UASM_i_MTC0(p, 0, C0_ENTRYLO0);
@@ -1084,6 +1091,7 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 		UASM_i_SRL(p, ptep, ptep, ilog2(_PAGE_GLOBAL)); /* convert to entrylo1 */
 		if (r45k_bvahwbug())
 			uasm_i_mfc0(p, tmp, C0_INDEX);
+#endif
 	}
 	if (r4k_250MHZhwbug())
 		UASM_i_MTC0(p, 0, C0_ENTRYLO1);
