@@ -4,8 +4,8 @@
 
 struct enh_gamma {
 	__u32 gamma_en:1;
-	__u32 gamma_data0[512];
-	__u32 gamma_data1[512];
+	__u16 gamma_data0[512];
+	__u16 gamma_data1[512];
 };
 
 struct enh_csc {
@@ -35,8 +35,8 @@ struct enh_chroma {
 
 struct enh_vee {
 	__u32 vee_en:1;
-	__u32 vee_data0[512];
-	__u32 vee_data1[512];
+	__u16 vee_data0[512];
+	__u16 vee_data1[512];
 };
 
 struct enh_dither {

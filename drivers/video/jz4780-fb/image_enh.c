@@ -16,18 +16,36 @@
 #include "regs.h"
 #include "image_enh.h"
 
+#define LVDSCON 0x3CC
+
 static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 {
 	struct jzfb *jzfb = info->par;
-	unsigned int tmp;
+	unsigned int tmp,offset;
 	int i = 1000;
-	
+
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
+	tmp &= ~LCDC_ENH_CFG_GAMMA_EN;
+	reg_write(jzfb, LCDC_ENH_CFG, tmp);
+	do {
+		mdelay(1);
+		tmp = reg_read(jzfb, LCDC_ENH_STATUS);
+	}
+	while (!(tmp & LCDC_ENH_STATUS_GAMMA_DIS) && i--);
+	if (i < 0)
+		dev_info(info->dev, "Disable gamma time out");
+
 	for (i = 0; i < LCDC_ENH_GAMMA_LEN >> 2; i++) {
 		tmp = gamma->gamma_data0[i] << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT
 			& LCDC_ENH_GAMMA_GAMMA_DATA0_MASK;
 		tmp |= (gamma->gamma_data1[i] << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT
 			& LCDC_ENH_GAMMA_GAMMA_DATA1_MASK);
-		reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
+
+		offset = LCDC_ENH_GAMMA + i * 4;
+		if((offset & 0x3FF) != LVDSCON){/*this addr is bug*/
+			reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
+		}
+
 	}
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -35,6 +53,7 @@ static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 		tmp |= LCDC_ENH_CFG_GAMMA_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	} else {
+		i = 1000;
 		tmp &= ~LCDC_ENH_CFG_GAMMA_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
@@ -243,8 +262,6 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	if (chroma->saturation_en) {
 		tmp |= LCDC_ENH_CFG_SATURATION_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
-
-
 	} else {
 		tmp &= ~LCDC_ENH_CFG_SATURATION_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
@@ -261,15 +278,30 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 {
 	struct jzfb *jzfb = info->par;
-	unsigned int tmp;
+	unsigned int tmp,offset;
 	int i = 1000;
+
+	tmp = reg_read(jzfb, LCDC_ENH_CFG);
+	tmp &= ~LCDC_ENH_CFG_VEE_EN;
+	reg_write(jzfb, LCDC_ENH_CFG, tmp);
+	do {
+		mdelay(1);
+		tmp = reg_read(jzfb, LCDC_ENH_STATUS);
+	}
+	while (!(tmp & LCDC_ENH_STATUS_VEE_DIS) && i--);
+	if (i < 0)
+		dev_info(info->dev, "Disable vee time out");
 
 	for (i = 0; i < LCDC_ENH_VEE_LEN >> 2; i++) {
 		tmp = vee->vee_data0[i] << LCDC_ENH_VEE_VEE_DATA0_BIT
 			& LCDC_ENH_VEE_VEE_DATA0_MASK;
 		tmp |= (vee->vee_data1[i] << LCDC_ENH_VEE_VEE_DATA1_BIT
 			& LCDC_ENH_VEE_VEE_DATA1_MASK);
-		reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
+
+		offset = LCDC_ENH_VEE + i * 4;
+		if((offset & 0x3FF) != LVDSCON){/*this addr is bug*/
+			reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
+		}
 	}
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -277,6 +309,7 @@ static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 		tmp |= LCDC_ENH_CFG_VEE_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	} else {
+		i = 1000;
 		tmp &= ~LCDC_ENH_CFG_VEE_EN;
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 		do {
