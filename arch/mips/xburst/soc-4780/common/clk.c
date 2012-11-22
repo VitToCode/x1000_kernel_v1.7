@@ -335,10 +335,12 @@ static void __init init_ext_pll(void)
 		if(! (clk_srcs[i].flags & CLK_FLG_PLL))
 			continue;
 
-		clk_srcs[i].flags |= CLK_FLG_ENABLE;
 		clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT1];
-
 		cppcr = cpm_inl(CLK_PLL_NO(clk_srcs[i].flags));
+
+		if (cppcr & (1 << 4))
+			clk_srcs[i].flags |= CLK_FLG_ENABLE;
+
 		if(cppcr & (0x1<<1)) {
 			clk_srcs[i].rate = JZ_EXTAL;
 		} else {
@@ -397,27 +399,47 @@ struct cpccr_table {
 };
 
 #define CPNR 7
+#define MAX_M_DIV 6
+#define MAX_A_DIV 2
 static struct cpccr_table cpccr_table[CPNR];
 
 static int cclk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int i;
 	unsigned int cpccr;
-	if(rate <= clk_srcs[CLK_ID_MPLL].rate) {
-		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-		for(i=0;i<CPNR;i++) 
-			if(rate >= cpccr_table[i].rate) break;
-	
-		cpm_outl(cpccr | (0x1<<22) | cpccr_table[i].cpccr,CPM_CPCCR);
-		clk->parent = &clk_srcs[CLK_ID_MPLL];
-		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_MPLL];
-	} else {
-		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-		cpm_outl(cpccr | (0x1<<22) | (0x1<<28) | (1<<4),CPM_CPCCR);
-		clk->parent = &clk_srcs[CLK_ID_SCLKA];
-		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_SCLKA];
-	}
+	struct clk *clk_t;
 
+#define MPLL_DIV(i) ((2<<30) | (1<<22) | (2<<28) | ((i*2-1)<<4) | (i-1))
+#define APLL_DIV(i) ((1<<30) | (1<<22) | (1<<28) | ((i*2-1)<<4) | (i-1))
+
+	clk_t = &clk_srcs[CLK_ID_MPLL];
+	cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<30 | 0x3<<28 | 0xff);
+	for (i = 1; i <= MAX_M_DIV; i++) {
+		if(rate == clk_t->rate / i) {
+			cpm_outl(cpccr | MPLL_DIV(i),CPM_CPCCR);
+			clk->parent = clk_t;
+			clk_srcs[CLK_ID_L2CLK].parent = clk_t;
+			clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
+			clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_EXT1].rate;
+			goto out;
+		}
+	}
+	clk_t = &clk_srcs[CLK_ID_APLL];
+	for (i = 1; i <= MAX_A_DIV; i++) {
+		if(rate == clk_t->rate / i) {
+			cpm_outl(cpccr | APLL_DIV(i),CPM_CPCCR);
+			clk->parent = &clk_srcs[CLK_ID_SCLKA];
+			clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_SCLKA];
+			clk_srcs[CLK_ID_SCLKA].parent = clk_t;
+			clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_APLL].rate;
+			goto out;
+		}
+	}
+#undef MPLL_DIV
+#undef APLL_DIV
+	pr_err("set cpu clk %lu failed\n", rate);
+	return -1;
+out:
 	clk_srcs[CLK_ID_L2CLK].rate = cpccr_get_rate(&clk_srcs[CLK_ID_L2CLK]);
 	clk->rate = cpccr_get_rate(clk);
 	return 0;
@@ -758,6 +780,12 @@ int clk_enable(struct clk *clk)
 	return 0;
 }
 EXPORT_SYMBOL(clk_enable);
+
+int clk_is_enabled(struct clk *clk)
+{
+	return clk->flags & CLK_FLG_ENABLE;
+}
+EXPORT_SYMBOL(clk_is_enabled);
 
 void clk_disable(struct clk *clk)
 {

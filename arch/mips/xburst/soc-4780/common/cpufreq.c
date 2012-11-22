@@ -46,9 +46,12 @@ static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
 #define MIN_FREQ 200000
 #define MIN_VOLT 1200000
+#define NR_APLL_FREQ 2
 static unsigned long regulator_table[12][2] = {
 	{ 1750000,1400000 }, // 1.7 GHz - 1.4V
-	{ 1400000,1400000 }, // 1.4 GHz - 1.4V
+	{ 1584000,1400000 }, // 1.4 GHz - 1.4V
+	{ 1488000,1350000 }, // 1.4 GHz - 1.4V
+	{ 1392000,1300000 }, // 1.4 GHz - 1.4V
 	{ 1200000,1200000 },
 	{MIN_FREQ,MIN_VOLT},
 };
@@ -68,11 +71,9 @@ unsigned long regulator_find_voltage(int freqs)
 
 static int freq_table_prepare(void)
 {
-	struct clk *sclka;
-	struct clk *mpll;
-	struct clk *cparent;
-	unsigned int j,i = 0,max;
-	unsigned int sclka_rate,mpll_rate;
+	struct clk *sclka, *mpll, *apll, *cparent;
+	unsigned int j,i = 0;
+	unsigned int sclka_rate, mpll_rate, apll_rate;
 
 	sclka = clk_get(NULL,"sclka");
 	if (IS_ERR(sclka)) {
@@ -81,47 +82,57 @@ static int freq_table_prepare(void)
 
 	mpll = clk_get(NULL,"mpll");
 	if (IS_ERR(mpll)) {
-		clk_put(sclka);
-		return -EINVAL;
+		goto mpll_err;
+	}
+
+	apll = clk_get(NULL,"apll");
+	if (IS_ERR(apll)) {
+		goto apll_err;
 	}
 
 	sclka_rate = clk_get_rate(sclka) / 1000;
+	apll_rate = clk_get_rate(apll) / 1000;
 	mpll_rate = clk_get_rate(mpll) / 1000;
 	cparent = clk_get_parent(cpu_clk);
 	memset(freq_table,0,sizeof(freq_table));
-	
-	if(sclka_rate > mpll_rate) {
-		max = sclka_rate;
-		for(;i<CPUFREQ_NR && max >= (mpll_rate + 192000);i++) {
-			freq_table[i].index = i;
-			freq_table[i].frequency = max;
-#if 0
-			max -= 192000;
-#else
-			max = mpll_rate;
-#endif
+
+#define _FREQ_TAB(in, fr)				\
+	freq_table[in].index = in;			\
+	freq_table[in].frequency = fr			\
+
+	if (clk_is_enabled(apll)) {
+		if (apll_rate > mpll_rate) {
+			for (i = 0; i < NR_APLL_FREQ && apll_rate/(i+1) >= MIN_FREQ; i++) {
+				_FREQ_TAB(i, apll_rate / (i+1));
+			}
+		} else if (apll_rate >= MIN_FREQ) {
+			_FREQ_TAB(i, apll_rate);
+			i++;
 		}
-	}
-	
-	max = mpll_rate;
-	for(j=1;i<CPUFREQ_NR && max/j >= MIN_FREQ;i++) {
-		freq_table[i].index = i;
-		freq_table[i].frequency = max / j++;
+
 	}
 
-	freq_table[i].index = i;
-	freq_table[i].frequency = CPUFREQ_TABLE_END;
-	freq_table[CPUFREQ_NR-1].index = CPUFREQ_NR-1;
-	freq_table[CPUFREQ_NR-1].frequency = CPUFREQ_TABLE_END;
+	for (j=1;i<CPUFREQ_NR && mpll_rate/j >= MIN_FREQ;i++) {
+		_FREQ_TAB(i, mpll_rate / j++);
+	}
+	_FREQ_TAB(i, CPUFREQ_TABLE_END);
+#undef _FREQ_TAB
 
+	clk_put(apll);
 	clk_put(sclka);
 	clk_put(mpll);
-#if 0
-	for(i=0;i<CPUFREQ_NR;i++) {
+#if 1
+	pr_info("Freq table:\n");
+	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
 		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
 	}
 #endif
 	return 0;
+mpll_err:
+	clk_put(sclka);
+apll_err:
+	clk_put(mpll);
+	return -EINVAL;
 }
 
 static int jz4780_verify_speed(struct cpufreq_policy *policy)
