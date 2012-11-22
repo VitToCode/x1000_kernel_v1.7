@@ -602,7 +602,11 @@ static void __cpuinit build_tlb_write_entry(u32 **p, struct uasm_label **l,
 static __cpuinit __maybe_unused void build_convert_pte_to_entrylo(u32 **p,
 								  unsigned int reg)
 {
+#ifdef CONFIG_SOC_4780
+	if (1) {
+#else
 	if (kernel_uses_smartmips_rixi) {
+#endif
 		UASM_i_SRL(p, reg, reg, ilog2(_PAGE_NO_EXEC));
 		UASM_i_ROTR(p, reg, reg, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 	} else {
@@ -1242,7 +1246,11 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 		UASM_i_LW(p, even, 0, ptr); /* get even pte */
 		UASM_i_LW(p, odd, sizeof(pte_t), ptr); /* get odd pte */
 	}
+#ifdef CONFIG_SOC_4780
+	if(1) {
+#else
 	if (kernel_uses_smartmips_rixi) {
+#endif
 		uasm_i_dsrl_safe(p, even, even, ilog2(_PAGE_NO_EXEC));
 		uasm_i_dsrl_safe(p, odd, odd, ilog2(_PAGE_NO_EXEC));
 		uasm_i_drotr(p, even, even,
