@@ -233,12 +233,24 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	if(ret < 0) {
 				printk("Error: mcu dma tran faild,mcu_steps(%d);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
 #ifdef MCU_TEST_INTER_NAND
+				unsigned long long test[6] ={0};
+				int i;
+				for(i=0;i<6;i++)
+					test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
+				printk("cpu send msg       [%llu]\n",test[0]);
+				printk("mcu receive msg    [%llu]\n",test[1]);
+				printk("mcu send mailbox   [%llu]\n",test[2]);
+				printk("dma receive inte   [%llu]\n",test[3]);
+				printk("dma mcu_irq handle [%llu]\n",test[4]);
+				printk("pdma_task_handle   [%llu]\n",test[5]);
+/*
 				printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
 				printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
 				printk("mcu send mailbox   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+2));
 				printk("dma receive inte   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+3));
 				printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
 				printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
+*/
 #endif
                 dump_stack();
                 while(1);
