@@ -19,7 +19,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndxboot",
 	offset:0 * 0x100000LL,
-	size:4 * 0x100000LL,
+	size:8 * 0x100000LL,
 	mode:SPL_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -27,8 +27,8 @@ static struct platform_nand_partition partition_info[] = {
 	},
 	{
 	name:"ndboot",
-	offset:4 * 0x100000LL,
-	size:8 * 0x100000LL,
+	offset:8 * 0x100000LL,
+	size:16 * 0x100000LL,
 	mode:DIRECT_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -36,18 +36,9 @@ static struct platform_nand_partition partition_info[] = {
 	},
     {
     name:"ndrecovery",
-    offset:12 * 0x100000LL,
+    offset:24 * 0x100000LL,
     size:16 * 0x100000LL,
     mode:DIRECT_MANAGER,
-    eccbit:ECCBIT,
-    use_planes:ONE_PLANE,
-    part_attrib:PART_KERNEL
-    },
-	{
-    name:"ndcache",
-    offset:28 * 0x100000LL,
-    size:36 * 0x100000LL,
-    mode:ZONE_MANAGER,
     eccbit:ECCBIT,
     use_planes:ONE_PLANE,
     part_attrib:PART_KERNEL
@@ -64,16 +55,25 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"nddata",
 	offset:576 * 0x100000LL,
-	size:512 * 0x100000LL,
+	size:1024 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
 	part_attrib:PART_DATA
     },
 	{
+    name:"ndcache",
+    offset:1600 * 0x100000LL,
+    size:128 * 0x100000LL,
+    mode:ZONE_MANAGER,
+    eccbit:ECCBIT,
+    use_planes:ONE_PLANE,
+    part_attrib:PART_KERNEL
+    },
+	{
 	name:"ndmisc",
-	offset:1088 * 0x100000LL,
-	size:2944 * 0x100000LL,
+	offset:1728 * 0x100000LL,
+	size:2368 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -91,14 +91,14 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-	2,			/* reserved blocks of mtd0 */
-	4,			/* reserved blocks of mtd1 */
-	4,			/* reserved blocks of mtd2 */
-	8,			/* reserved blocks of mtd3 */
-	20,			/* reserved blocks of mtd4 */
-	20,			/* reserved blocks of mtd5 */
-	20,         /* reserved blocks of mtd6 */
-	1,          /* reserved blocks of mtd6 */
+	4,			/* reserved blocks of ndxboot */
+	8,			/* reserved blocks of ndboot */
+	8,			/* reserved blocks of ndrecovery */
+	32,			/* reserved blocks of ndsystem */
+	64,			/* reserved blocks of nddata */
+	16,			/* reserved blocks of ndcache */
+	128,		/* reserved blocks of ndmisc */
+	1,			/* reserved blocks of nderror */
 };
 
 struct platform_nand_data jz_nand_chip_data = {
@@ -107,4 +107,5 @@ struct platform_nand_data jz_nand_chip_data = {
 	/* there is no room for bad block info in struct platform_nand_data */
 	/* so we have to use chip.priv */
 	.priv = &partition_reserved_badblocks,
+        .gpio_wp = GPIO_PF(22),
 };
