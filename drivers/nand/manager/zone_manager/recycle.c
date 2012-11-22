@@ -718,15 +718,13 @@ static int align_sectors(Recycle *rep,int sectorcount) {
 	sectorcount = sectorcount % alignsectorcount;
 	return sectorcount;
 }
-static void FilluptoAlign ( Recycle *rep,PageList *tpl,int *record_writeaddr,int sectorcount) {
+static void FilluptoAlign ( Recycle *rep,PageList *tpl,int *record_writeaddr,int sectorcount,unsigned int l4count) {
 
 	unsigned int *latest_l4info;
 	unsigned int tmp0 ,tmp1;
 	unsigned int spp;
-	unsigned int l4count;
 	int i,k;
 	BuffListManager *blm = ((Context *)(rep->context))->blm;
-	l4count = rep->curpageinfo->L4InfoLen >> 2;
 	spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
 
 	latest_l4info = (unsigned int *)(rep->writepageinfo->L4Info);
@@ -841,7 +839,7 @@ static int MergerSectorID ( Recycle *rep)
 		}
 	}
 	if(sectorcount > 0 && tpl) {
-		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
+		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount,l4count);
 	}
 
 	rep->pagelist = pl;
@@ -2387,7 +2385,7 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 	}
 	rep->force_pagelist = pl;
 	if(sectorcount > 0 && tpl) {
-		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
+		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount,l4count);
 	}
 	return 0;
 }
