@@ -6,7 +6,7 @@ struct snd_codec_data codec_data = {
 	/* volume */
 	.replay_volume_base = 0,
 	.record_volume_base = 0,
-	.record_digital_volume_base = 0,
+	.record_digital_volume_base = 23,
 	.replay_digital_volume_base = 0,
 	.replay_hp_output_gain_base = 0,
 	/* default route */
