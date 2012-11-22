@@ -404,16 +404,16 @@ static void codec_prepare_ready(int mode)
 	if(__codec_get_sb() == POWER_OFF)
 	{
 		__codec_switch_sb(POWER_ON);
-		mdelay(250);
+		codec_sleep(250);
 	}
 	/*wait a typical time 200ms for adc (400ms for dac) to get into normal mode*/
 	if(__codec_get_sb_sleep() == POWER_OFF)
 	{
 		__codec_switch_sb_sleep(POWER_ON);
 		if(mode == CODEC_RMODE)
-			mdelay(200);
+			codec_sleep(200);
 		else
-			mdelay(400);
+			codec_sleep(400);
 	}
 	if (mode & CODEC_WMODE) {
 		__codec_select_dac_digital_interface(CODEC_I2S_INTERFACE);
@@ -434,63 +434,42 @@ static void codec_set_mic1(int mode)
 	DUMP_ROUTE_PART_REGS("enter");
 	switch(mode){
 	case MIC1_DIFF_WITH_MICBIAS:
-		if(__codec_get_sb_mic1() == POWER_OFF)
-		{
-			__codec_switch_sb_mic1(POWER_ON);
-			mdelay(2);
-		}
-		if(__codec_get_sb_micbias1() == POWER_OFF)
+		/*if(__codec_get_sb_micbias1() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias1(POWER_ON);
-			mdelay(2);
-		}
+		}*/
 		__codec_enable_mic1_diff();
 		break;
 
 	case MIC1_DIFF_WITHOUT_MICBIAS:
-		if(__codec_get_sb_mic1() == POWER_OFF)
-		{
-			__codec_switch_sb_mic1(POWER_ON);
-			mdelay(2);
-		}
-		if(__codec_get_sb_micbias1() == POWER_ON)
+		/*if(__codec_get_sb_micbias1() == POWER_ON)
 		{
         		__codec_switch_sb_micbias1(POWER_OFF);
-			mdelay(2);
-		}
+		}*/
 		__codec_enable_mic1_diff();
 		break;
 
 	case MIC1_SING_WITH_MICBIAS:
-		if(__codec_get_sb_mic1() == POWER_OFF)
-		{
-			__codec_switch_sb_mic1(POWER_ON);
-			mdelay(2);
-		}
-		if(__codec_get_sb_micbias1() == POWER_OFF)
+		/*if(__codec_get_sb_micbias1() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias1(POWER_ON);
-			mdelay(2);
-		}
+		}*/
 		__codec_disable_mic1_diff();
 		break;
 
 	case MIC1_SING_WITHOUT_MICBIAS:
-
-		if(__codec_get_sb_micbias1() == POWER_ON)
+		/*if(__codec_get_sb_micbias1() == POWER_ON)
 		{
 			__codec_switch_sb_micbias1(POWER_OFF);
-			mdelay(2);
-		}
+		}*/
 		__codec_disable_mic1_diff();
 		break;
 
 	case MIC1_DISABLE:
-		if(__codec_get_sb_micbias1() == POWER_ON)
+		/*if(__codec_get_sb_micbias1() == POWER_ON)
 		{
 			__codec_switch_sb_micbias1(POWER_OFF);
-			mdelay(2);
-		}
+		}*/
 		break;
 
 	default:
@@ -505,45 +484,26 @@ static void codec_set_mic2(int mode)
 	DUMP_ROUTE_PART_REGS("enter");
 	switch(mode){
 	case MIC2_SING_WITH_MICBIAS:
-		if(__codec_get_sb_mic2() == POWER_OFF)
-		{
-			__codec_switch_sb_mic1(POWER_ON);
-			mdelay(2);
-		}
-		if(__codec_get_sb_micbias2() == POWER_OFF)
+		/*if(__codec_get_sb_micbias2() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias2(POWER_ON);
-			mdelay(2);
-		}
+		}*/
 		__codec_disable_mic2_diff();
 		break;
 
 	case MIC2_SING_WITHOUT_MICBIAS:
-		if(__codec_get_sb_mic2() == POWER_OFF)
-		{
-			__codec_switch_sb_mic2(POWER_ON);
-			mdelay(2);
-		}
-		if(__codec_get_sb_micbias2() == POWER_ON)
+		/*if(__codec_get_sb_micbias2() == POWER_ON)
 		{
 			__codec_switch_sb_micbias2(POWER_OFF);
-			mdelay(2);
-		}
+		}*/
 		__codec_disable_mic2_diff();
 		break;
 
 	case MIC2_DISABLE:
-		if(__codec_get_sb_mic2() == POWER_ON)
-		{
-			__codec_switch_sb_mic2(POWER_OFF);
-			mdelay(2);
-		}
-
-	    if(__codec_get_sb_micbias2() == POWER_ON)
+		/*if(__codec_get_sb_micbias2() == POWER_ON)
 		{
 			__codec_switch_sb_micbias2(POWER_OFF);
-			mdelay(2);
-		}
+		}*/
 		break;
 
 	default:
@@ -591,14 +551,12 @@ static void codec_set_inputl(int mode)
 		if(__codec_get_sb_mic1() == POWER_OFF)
 		{
 			__codec_switch_sb_mic1(POWER_ON);
-			mdelay(2);
 		}
 		break;
 	case INPUTL_TO_ADC_DISABLE:
 		if(__codec_get_sb_mic1() == POWER_ON)
 		{
 			__codec_switch_sb_mic1(POWER_OFF);
-			mdelay(2);
 		}
 		break;
 	default :
@@ -614,14 +572,12 @@ static void codec_set_inputr(int mode)
 		if(__codec_get_sb_mic2() == POWER_OFF)
 		{
 			__codec_switch_sb_mic2(POWER_ON);
-			mdelay(2);
 		}
 		break;
 	case INPUTR_TO_ADC_DISABLE:
 		if(__codec_get_sb_mic2() == POWER_ON)
 		{
 			__codec_switch_sb_mic2(POWER_OFF);
-			mdelay(2);
 		}
 		break;
 	default :
@@ -686,7 +642,6 @@ static void codec_set_inputl_to_bypass(int mode)
 		if(__codec_get_sb_linein1_bypass() == POWER_OFF)
 		{
 			__codec_switch_sb_linein1_bypass(POWER_ON);
-			mdelay(2);
 		}
 		break;
 
@@ -694,7 +649,6 @@ static void codec_set_inputl_to_bypass(int mode)
 		if(__codec_get_sb_linein1_bypass() == POWER_ON)
 		{
 			__codec_switch_sb_linein1_bypass(POWER_OFF);
-			mdelay(2);
 		}
 		break;
 
@@ -716,7 +670,6 @@ static void codec_set_inputr_to_bypass(int mode)
 		if(__codec_get_sb_linein2_bypass() == POWER_OFF)
 		{
 			__codec_switch_sb_linein2_bypass(POWER_ON);
-			mdelay(2);
 		}
 		break;
 
@@ -724,7 +677,6 @@ static void codec_set_inputr_to_bypass(int mode)
 		if(__codec_get_sb_linein2_bypass() == POWER_ON)
 		{
 			__codec_switch_sb_linein2_bypass(POWER_OFF);
-			mdelay(2);
 		}
 		break;
 
@@ -797,7 +749,6 @@ static void codec_set_adc(int mode)
 		if(__codec_get_sb_adc() == POWER_OFF)
 		{
 			__codec_switch_sb_adc(POWER_ON);
-			mdelay(2);
 		}
 		__codec_set_adc_mode(CODEC_ADC_STEREO);
 
@@ -807,7 +758,6 @@ static void codec_set_adc(int mode)
 		if(__codec_get_sb_adc() == POWER_OFF)
 		{
 			__codec_switch_sb_adc(POWER_ON);
-			mdelay(2);
 		}
 		__codec_set_adc_mode(CODEC_ADC_LEFT_ONLY);
 		break;
@@ -816,7 +766,6 @@ static void codec_set_adc(int mode)
 		if(__codec_get_sb_adc() == POWER_ON)
 		{
 			__codec_switch_sb_adc(POWER_OFF);
-			mdelay(2);
 		}
 		break;
 
@@ -1138,7 +1087,6 @@ static void codec_set_lineout(int mode)
 	case LINEOUT_ENABLE:
 		if (__codec_get_sb_line_out() == POWER_OFF) {
 			__codec_switch_sb_line_out(POWER_ON);
-			mdelay(2);
 		}
 		__codec_disable_lineout_mute();
 		break;
@@ -1146,7 +1094,6 @@ static void codec_set_lineout(int mode)
 	case LINEOUT_DISABLE:
 		if(__codec_get_sb_line_out() == POWER_ON) {
 			__codec_switch_sb_line_out(POWER_OFF);
-			mdelay(2);
 		}
 		__codec_enable_lineout_mute();
 		break;
@@ -1622,20 +1569,10 @@ static void codec_set_route_base(const void *arg)
 	/* record path */
 	if (conf->route_adc_mode)
 		codec_set_adc(conf->route_adc_mode);
-	if (conf->route_mic1_mode)
-		codec_set_mic1(conf->route_mic1_mode);
-	if (conf->route_mic2_mode)
-		codec_set_mic2(conf->route_mic2_mode);
-
 	if (conf->route_line1_mode)
 		codec_set_line1(conf->route_line1_mode);
 	if (conf->route_line2_mode)
 		codec_set_line2(conf->route_line2_mode);
-	if (conf->route_inputl_mode)
-		codec_set_inputl(conf->route_inputl_mode);
-	if (conf->route_inputr_mode)
-		codec_set_inputr(conf->route_inputr_mode);
-
 	if (conf->route_inputl_mux_mode)
 		codec_set_inputl_mux(conf->route_inputl_mux_mode);
 	if (conf->route_inputr_mux_mode)
@@ -1648,6 +1585,16 @@ static void codec_set_route_base(const void *arg)
 		codec_set_record_mux(conf->route_record_mux_mode);
 	if (conf->route_record_mixer_mode)
 		codec_set_record_mixer(conf->route_record_mixer_mode);
+	if (conf->route_inputl_mode)
+		codec_set_inputl(conf->route_inputl_mode);
+	if (conf->route_inputr_mode)
+		codec_set_inputr(conf->route_inputr_mode);
+	if (conf->route_mic1_mode)
+		codec_set_mic1(conf->route_mic1_mode);
+	if (conf->route_mic2_mode)
+		codec_set_mic2(conf->route_mic2_mode);
+
+
 		/* replay path */
 	if (conf->route_replay_mixer_mode)
 		codec_set_replay_mixer(conf->route_replay_mixer_mode);
@@ -1738,6 +1685,8 @@ static void codec_set_route_base(const void *arg)
 		else
 			codec_set_gain_hp_right(conf->attibute_hp_r_gain);
 	}
+
+	schedule_timeout(2);
 }
 
 /***************************************************************************************\
@@ -1923,20 +1872,23 @@ static int codec_init(void)
 	codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
 	/* set record digtal volume base */
-	if(codec_platform_data && codec_platform_data->record_digital_volume_base){
+	if(codec_platform_data && codec_platform_data->record_digital_volume_base != -1){
 		codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
 		codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
 	}
 	/* set replay digital volume base */
-	if(codec_platform_data && codec_platform_data->replay_digital_volume_base){
+	if(codec_platform_data && codec_platform_data->replay_digital_volume_base != -1){
 		codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
 		codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
 	}
 	/* set replay hp output gain base */
-	if(codec_platform_data && codec_platform_data->replay_hp_output_gain_base){
+	if(codec_platform_data && codec_platform_data->replay_hp_output_gain_base != -1){
 		codec_set_gain_hp_right(codec_platform_data->replay_hp_output_gain_base);
 		codec_set_gain_hp_left(codec_platform_data->replay_hp_output_gain_base);
 	}
+
+	__codec_switch_sb_micbias1(POWER_ON);
+	__codec_switch_sb_micbias2(POWER_ON);
 	return 0;
 }
 
@@ -2088,7 +2040,7 @@ static int codec_resume(void)
 	int ret,tmp_route = 0;
 
 	__codec_switch_sb(POWER_ON);
-	mdelay(250);
+	codec_sleep(250);
 
 	if (keep_old_route) {
 		tmp_route = keep_old_route->route;

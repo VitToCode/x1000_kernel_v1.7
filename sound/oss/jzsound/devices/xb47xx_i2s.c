@@ -159,8 +159,13 @@ static void i2s_set_filter(int mode , uint32_t channels)
 		case AFMT_S16_BE:
 		case AFMT_S16_LE:
 			if (channels == 1) {
+#if 0
 				dp->filter = convert_16bits_stereomix2mono;
 				printk("dp->filter convert_16bits_stereomix2mono\n");
+#else
+				dp->filter = convert_16bits_stereo2mono;
+				printk("dp->filter convert_16bits_stereo2mono\n");
+#endif
 			}
 			else {
 				dp->filter = NULL;
@@ -572,11 +577,12 @@ static int i2s_dma_enable(int mode)		//CHECK
 		__i2s_enable_transmit_dma();
 	}
 	if (mode & CODEC_RMODE) {
+		cur_codec->codec_ctl(CODEC_ADC_MUTE,1);
 		__i2s_flush_rfifo();
 		__i2s_enable_record();
-		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		/* read the first sample and ignore it */
 		val = __i2s_read_rfifo();
+		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		__i2s_enable_receive_dma();
 	}
 

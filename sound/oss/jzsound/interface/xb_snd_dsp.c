@@ -253,13 +253,6 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp ,enum dma_data_direction 
 {
 	dp->is_trans = true;
 	dma_async_issue_pending(dp->dma_chan);
-
-	if (first_start_record_dma == true && direction == DMA_FROM_DEVICE) {
-		first_start_record_dma = false;
-	}
-	if (first_start_replay_dma == true && direction == DMA_TO_DEVICE) {
-		first_start_replay_dma = false;
-	}
 }
 
 static void snd_dma_callback(void *arg)
@@ -857,23 +850,23 @@ static int mmap_pipe(struct dsp_pipe *dp, struct vm_area_struct *vma)
 \*###########################################################*/
 /********************************************************\
  * llseek
-\********************************************************/
+ \********************************************************/
 loff_t xb_snd_dsp_llseek(struct file *file,
-						 loff_t offset,
-						 int origin,
-						 struct snd_dev_data *ddata)
+		loff_t offset,
+		int origin,
+		struct snd_dev_data *ddata)
 {
 	return 0;
 }
 
 /********************************************************\
  * read
-\********************************************************/
+ \********************************************************/
 ssize_t xb_snd_dsp_read(struct file *file,
-						char __user *buffer,
-						size_t count,
-						loff_t *ppos,
-						struct snd_dev_data *ddata)
+		char __user *buffer,
+		size_t count,
+		loff_t *ppos,
+		struct snd_dev_data *ddata)
 {
 	int	mcount = count;
 	int ret = -EINVAL;
@@ -907,10 +900,11 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			if (dp->is_trans == false) {
 				ret = snd_prepare_dma_desc(dp);
 				if (!ret) {
+					snd_start_dma_transfer(dp , dp->dma_config.direction);
 					if (ddata && ddata->dev_ioctl && first_start_record_dma == true) {
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+						first_start_record_dma = false;
 					}
-					snd_start_dma_transfer(dp , dp->dma_config.direction);
 				} else if (!node) {
 					return -EFAULT;
 				}
@@ -955,14 +949,14 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 /********************************************************\
  * write
-\********************************************************/
+ \********************************************************/
 ssize_t xb_snd_dsp_write(struct file *file,
-						 const char __user *buffer,
-						 size_t count,
-						 loff_t *ppos,
-						 struct snd_dev_data *ddata)
+		const char __user *buffer,
+		size_t count,
+		loff_t *ppos,
+		struct snd_dev_data *ddata)
 {
-	int	mcount = count;
+	int mcount = count;
 	int copy_size = 0;
 	int ret = -EINVAL;
 	struct dsp_node *node = NULL;
@@ -1032,10 +1026,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
+				snd_start_dma_transfer(dp , dp->dma_config.direction);
 				if (ddata && ddata->dev_ioctl && first_start_replay_dma == true) {
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
+					first_start_replay_dma = false;
 				}
-				snd_start_dma_transfer(dp , dp->dma_config.direction);
 			}
 		}
 	}
@@ -1045,10 +1040,10 @@ ssize_t xb_snd_dsp_write(struct file *file,
 
 /********************************************************\
  * ioctl
-\********************************************************/
+ \********************************************************/
 unsigned int xb_snd_dsp_poll(struct file *file,
-							 poll_table *wait,
-							 struct snd_dev_data *ddata)
+		poll_table *wait,
+		struct snd_dev_data *ddata)
 {
 	return -EINVAL;
 }
@@ -1061,9 +1056,9 @@ unsigned int xb_snd_dsp_poll(struct file *file,
  * works, if a dsp device opend as O_RDWR, it will return -1
  **/
 long xb_snd_dsp_ioctl(struct file *file,
-					  unsigned int cmd,
-					  unsigned long arg,
-					  struct snd_dev_data *ddata)
+		unsigned int cmd,
+		unsigned long arg,
+		struct snd_dev_data *ddata)
 {
 	long ret = -EINVAL;
 	struct dsp_pipe *dp = NULL;
@@ -1672,10 +1667,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 /********************************************************\
  * mmap
-\********************************************************/
+ \********************************************************/
 int xb_snd_dsp_mmap(struct file *file,
-					struct vm_area_struct *vma,
-					struct snd_dev_data *ddata)
+		struct vm_area_struct *vma,
+		struct snd_dev_data *ddata)
 {
 	int ret = -ENODEV;
 	struct dsp_pipe *dp = NULL;
@@ -1761,6 +1756,8 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
+
+		printk("#########dp->avialable_couter  = %d####.\n",dpi->avialable_couter);
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
@@ -1807,10 +1804,10 @@ int xb_snd_dsp_open(struct inode *inode,
 
 /********************************************************\
  * release
-\********************************************************/
+ \********************************************************/
 int xb_snd_dsp_release(struct inode *inode,
-					   struct file *file,
-					   struct snd_dev_data *ddata)
+		struct file *file,
+		struct snd_dev_data *ddata)
 {
 	int ret = 0;
 	struct dsp_pipe *dpi = NULL;

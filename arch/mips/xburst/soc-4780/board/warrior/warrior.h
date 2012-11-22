@@ -45,7 +45,7 @@ extern struct snd_codec_data codec_data;
 #define GPIO_SPEAKER_EN_LEVEL	1
 
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL	1
+#define GPIO_HP_INSERT_LEVEL	0
 
 #define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
 #define GPIO_MIC_INSERT_LEVEL	-1
