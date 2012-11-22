@@ -84,6 +84,10 @@
 #define GET_MSG_TYPE(msg) 	(msg & 0x07000000)
 #define GET_MSG_MASK(msg)	(msg >> 27)
 
+#define MCU_TEST_INTER_DMA
+#ifdef MCU_TEST_INTER_DMA
+#define MCU_TEST_DATA_DMA 0xB3424FC0 //PDMA_BANK6 - 0x40
+#endif
 __initdata static int firmware[] = {
 #include "firmware.hex"
 };
@@ -298,6 +302,14 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 		dev_dbg(dma->dev,"%08x:%08x:%08x:%08x\n",
 				firmware[i],firmware[i+1],firmware[i+2],firmware[i+3]);
 	memcpy(dma->iomem + TCSM,firmware,sizeof(firmware));
+#ifdef MCU_TEST_INTER_DMA
+				(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+1)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+2)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+3)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+4)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+5)) = 0;
+#endif
 	return 0;
 }
 
@@ -561,6 +573,9 @@ static void jzdma_chan_tasklet(unsigned long data)
 static void pdmam_chan_tasklet(unsigned long data)
 {
 	struct jzdma_channel *dmac = (struct jzdma_channel *)data;
+#ifdef MCU_TEST_INTER_DMA
+	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+5))++;
+#endif
         spin_lock(&dmac->lock);
         dmac->status = STAT_STOPED;
         dmac->last_good = dmac->tx_desc.cookie;
@@ -717,6 +732,9 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 	unsigned long pending, mailbox = 0;
         struct jzdma_channel *dmac = master->channel + 3;
 	int tmp;
+#ifdef MCU_TEST_INTER_DMA
+	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+4))++;
+#endif
         spin_lock(&dmac->lock);
 
 	pending = readl(master->iomem + DMINT);
@@ -774,6 +792,9 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 		mailbox = readl(master->iomem + DMNMB);
 
 	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_NORMAL) {
+#ifdef MCU_TEST_INTER_DMA
+	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
+#endif
 		generic_handle_irq(IRQ_MCU);
 	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
 		generic_handle_irq(IRQ_GPIO0);

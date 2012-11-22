@@ -13,6 +13,11 @@
 #define TCSM_BANK6	0xF4003000
 #define TCSM_BANK7	0xF4003800
 
+#define MCU_TEST_INTER
+#ifdef MCU_TEST_INTER
+#define MCU_TEST_DATA 0xF4002FC0  //TCSM_BANK6 - 0x40
+#endif
+
 #define NULL		0
 #define UNCOR_ECC	(0x01<<0)
 #define ALL_FF          (0x01<<1)
