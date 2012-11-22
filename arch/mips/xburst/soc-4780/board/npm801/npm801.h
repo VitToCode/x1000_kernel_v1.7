@@ -100,10 +100,21 @@ extern struct platform_nand_data jz_nand_chip_data;
 #endif
 
 #define GPIO_OV7675_EN			GPIO_PB(19)
-#define GPIO_OV7675_RST			GPIO_PB(26)
+#define GPIO_OV7675_RST         GPIO_PB(26)
 
 #define GPIO_OV2650_EN			GPIO_PB(18)
 #define GPIO_OV2650_RST			GPIO_PB(26)
+
+/**
+ * USB detect pin
+ **/
+#define GPIO_USB_DETE			GPIO_PF(13)
+
+/**
+ * pmem information
+ **/
+#define JZ_PMEM_CAMERA_BASE	0x5f000000
+#define JZ_PMEM_CAMERA_SIZE	0x01000000
 
 /**
  * motor gpio
@@ -113,7 +124,6 @@ extern struct platform_nand_data jz_nand_chip_data;
 /**
  * USB detect pin
  **/
-#define GPIO_USB_DETE			GPIO_PF(13)
 
 // #define GPIO_HOME
 // #define ACTIVE_LOW_HOME			1

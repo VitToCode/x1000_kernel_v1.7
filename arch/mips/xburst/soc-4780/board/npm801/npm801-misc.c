@@ -17,6 +17,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
+#include <linux/android_pmem.h>
 
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
@@ -238,6 +239,23 @@ struct jzdwc_pin dete_pin = {
 };
 #endif
 
+#ifdef CONFIG_ANDROID_PMEM
+static struct android_pmem_platform_data pmem_camera_pdata = {
+	.name = "pmem_camera",
+	.no_allocator = 0,
+	.cached = 1,
+	.start = JZ_PMEM_CAMERA_BASE,
+	.size = JZ_PMEM_CAMERA_SIZE,
+};
+
+
+static struct platform_device pmem_camera_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = { .platform_data = &pmem_camera_pdata },
+};
+#endif
+
 static int __init npm801_board_init(void)
 {
 /* dma */
@@ -268,6 +286,7 @@ static int __init npm801_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
+#ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &npm801_inand_pdata);
 #endif
@@ -276,6 +295,14 @@ static int __init npm801_board_init(void)
 #endif
 #ifdef CONFIG_MMC2_JZ4780
 	jz_device_register(&jz_msc2_device, &npm801_tf_pdata);
+#endif
+#else
+#ifdef CONFIG_MMC0_JZ4780
+	jz_device_register(&jz_msc0_device, &npm801_tf_pdata);
+#endif
+#ifdef CONFIG_MMC1_JZ4780
+	jz_device_register(&jz_msc1_device, &npm801_sdio_pdata);
+#endif
 #endif
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
@@ -401,7 +428,9 @@ static int __init npm801_board_init(void)
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
 
-
+#ifdef CONFIG_ANDROID_PMEM
+	platform_device_register(&pmem_camera_device);
+#endif
 	return 0;
 }
 
