@@ -24,7 +24,8 @@ struct snd_codec_data codec_data = {
 	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 1},
-	.replay_handset_route = {.route = SND_ROUTE_NONE,
+	//.replay_handset_route = {.route = SND_ROUTE_NONE,
+	.replay_handset_route = {.route =  SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 1},
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
@@ -49,5 +50,6 @@ struct snd_codec_data codec_data = {
 	.gpio_mic_detect = {.gpio = GPIO_MIC_DETECT,.active_level = GPIO_MIC_INSERT_LEVEL},
 	.gpio_mic_select = {.gpio = GPIO_MIC_SELECT,.active_level = GPIO_HP_MIC_LEVEL},
 
-	.hpsense_active_level = 0,
+//	.hpsense_active_level = 0,
+	.hpsense_active_level = 1,
 };
