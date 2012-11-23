@@ -20,6 +20,7 @@
 #include <linux/proc_fs.h>
 #include <linux/soundcard.h>
 #include <linux/dma-mapping.h>
+#include <linux/earlysuspend.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
 #include <linux/gpio.h>
@@ -48,6 +49,9 @@ static struct snd_board_route *cur_route = NULL;
 static struct snd_board_route *keep_old_route = NULL;
 static struct snd_codec_data *codec_platform_data = NULL;
 enum snd_device_t g_current_out_dev;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static struct early_suspend early_suspend;
+#endif
 
 extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
 
@@ -394,6 +398,23 @@ static void dump_codec_gain_regs(void)
 	} while (0)
 #endif //CODEC_DUMP_GAIN_PART_REGS
 
+/***************************************************************************************\
+ *route part and attibute                                                              *
+\***************************************************************************************/
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void codec_early_suspend(struct early_suspend *handler)
+{
+        __codec_switch_sb_micbias1(POWER_OFF);
+        __codec_switch_sb_micbias2(POWER_OFF);
+}
+
+static void codec_late_resume(struct early_suspend *handler)
+{
+        __codec_switch_sb_micbias1(POWER_ON);
+        __codec_switch_sb_micbias2(POWER_ON);
+}
+#endif
 /***************************************************************************************\
  *route part and attibute                                                              *
 \***************************************************************************************/
@@ -1685,8 +1706,6 @@ static void codec_set_route_base(const void *arg)
 		else
 			codec_set_gain_hp_right(conf->attibute_hp_r_gain);
 	}
-
-	schedule_timeout(2);
 }
 
 /***************************************************************************************\
@@ -1871,18 +1890,23 @@ static int codec_init(void)
 	__codec_enable_dac_mute();
 	codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
+	if (codec_platform_data && codec_platform_data->record_volume_base) {
+		codec_set_gain_input_left(codec_platform_data->record_volume_base);
+		codec_set_gain_input_right(codec_platform_data->record_volume_base);
+	}
+
 	/* set record digtal volume base */
-	if(codec_platform_data && codec_platform_data->record_digital_volume_base != -1){
+	if(codec_platform_data && codec_platform_data->record_digital_volume_base != -1) {
 		codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
 		codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
 	}
 	/* set replay digital volume base */
-	if(codec_platform_data && codec_platform_data->replay_digital_volume_base != -1){
+	if(codec_platform_data && codec_platform_data->replay_digital_volume_base != -1) {
 		codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
 		codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
 	}
 	/* set replay hp output gain base */
-	if(codec_platform_data && codec_platform_data->replay_hp_output_gain_base != -1){
+	if(codec_platform_data && codec_platform_data->replay_hp_output_gain_base != -1) {
 		codec_set_gain_hp_right(codec_platform_data->replay_hp_output_gain_base);
 		codec_set_gain_hp_left(codec_platform_data->replay_hp_output_gain_base);
 	}
@@ -2759,6 +2783,13 @@ static int __init init_codec(void)
 		printk("JZ CODEC: Could net register jz_codec_driver\n");
 		return retval;
 	}
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	early_suspend.suspend = codec_early_suspend;
+	early_suspend.resume = codec_late_resume;
+	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&early_suspend);
+#endif
+
 
 	return 0;
 }
@@ -2768,7 +2799,10 @@ static int __init init_codec(void)
  */
 static void __exit cleanup_codec(void)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&early_suspend);
 	platform_driver_unregister(&jz_codec_driver);
+#endif
 }
 arch_initcall(init_codec);
 module_exit(cleanup_codec);
