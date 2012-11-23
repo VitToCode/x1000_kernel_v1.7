@@ -161,9 +161,9 @@ int gc2015_reset(struct cim_sensor *sensor_info)
 	s = container_of(sensor_info, struct gc2015_sensor, cs);
 
 	gpio_set_value(s->gpio_rst,0);
-	msleep(250);
+	msleep(50);
 	gpio_set_value(s->gpio_rst,1);
-	msleep(250);
+	msleep(50);
 	return 0;
 }
 
