@@ -325,10 +325,12 @@ int gc2015_size_switch(struct cim_sensor *sensor_info,int width,int height)
 		gc2015_write_reg(client,0x57,0x04);
 		gc2015_write_reg(client,0x58,0x00);
 	}
+/*
 	else if (width == 800 && height == 600)
 	{
 		dprintk("--------------------------------------- preview 800x600!");
 	}
+*/
 	else if (width == 640 && height == 480)
 	{
 		dprintk("--------------------------------------- preview 640x480!");

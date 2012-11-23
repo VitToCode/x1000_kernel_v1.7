@@ -120,64 +120,50 @@ static struct i2c_board_info ji8070a_i2c1_devs[] __initdata = {
 
 
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
-struct sp0838_platform_data {
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_JZ_CIM))
+struct cam_sensor_plat_data {
 	int facing;
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;    /* filter n frames when capture image */
 };
-static struct sp0838_platform_data sp0838_pdata = {
+
+#ifdef CONFIG_SP0838
+static struct cam_sensor_plat_data sp0838_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
 	.gpio_rst = GPIO_SP0838_RST,
+	.cap_wait_frame = 6,
 };
 #endif
 
 #if (defined(CONFIG_GC0308))
-
-struct gc0308_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-};
-
-static struct gc0308_platform_data gc0308_pdata = {
+static struct cam_sensor_plat_data gc0308_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC0308_EN,
 	.gpio_rst = GPIO_GC0308_RST,
+	.cap_wait_frame = 3,
 };
-
 #endif
 
 #if (defined(CONFIG_GC2015))
-
-struct gc2015_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-};
-
-static struct gc2015_platform_data gc2015_pdata = {
+static struct cam_sensor_plat_data gc2015_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC2015_EN,
 	.gpio_rst = GPIO_GC2015_RST,
+	.cap_wait_frame = 2,
 };
-
 #endif
-
+#endif
 
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))

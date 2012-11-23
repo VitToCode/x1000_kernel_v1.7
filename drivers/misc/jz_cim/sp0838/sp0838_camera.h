@@ -1,13 +1,14 @@
 #ifndef __sp0838_CAMERA_H__
 #define __sp0838_CAMERA_H__
 
-struct sp0838_platform_data {
+struct cam_sensor_plat_data {
 	int facing;
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this 
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */ 
+	int cap_wait_frame;   /* filter n frames when capture image */
 };
 
 struct sp0838_sensor {
