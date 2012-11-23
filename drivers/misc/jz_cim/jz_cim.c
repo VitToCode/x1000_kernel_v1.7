@@ -113,6 +113,7 @@ struct jz_cim {
 	unsigned long capture_output_format;
 	CameraYUVMeta p_yuv_meta_data[PDESC_NR];
 	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
+	int is_clock_enabled;
 };
 
 static unsigned long inline reg_read(struct jz_cim *cim,int offset)
@@ -284,12 +285,15 @@ void cim_dump_reg(struct jz_cim *cim)
 
 void cim_power_on(struct jz_cim *cim)
 {
-	if(cim->clk)
-		clk_enable(cim->clk);
+	if(!cim->is_clock_enabled) {
+		if(cim->clk)
+			clk_enable(cim->clk);
 		
-	if(cim->mclk) {
-		clk_set_rate(cim->mclk, 24000000);
-		clk_enable(cim->mclk);
+		if(cim->mclk) {
+			clk_set_rate(cim->mclk, 24000000);
+			clk_enable(cim->mclk);
+		}
+		cim->is_clock_enabled = 1;
 	}
 		
 	if(cim->power) {
@@ -304,11 +308,14 @@ void cim_power_on(struct jz_cim *cim)
 
 void cim_power_off(struct jz_cim *cim)
 {
-	if(cim->clk)
-		clk_disable(cim->clk);
+	if(cim->is_clock_enabled) {
+		if(cim->clk)
+			clk_disable(cim->clk);
 		
-	if(cim->mclk)
-		clk_disable(cim->mclk);
+		if(cim->mclk)
+			clk_disable(cim->mclk);
+		cim->is_clock_enabled = 0;
+	}
 	
 	if(cim->power) {
 		if (regulator_is_enabled(cim->power)) {
