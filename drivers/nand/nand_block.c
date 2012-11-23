@@ -84,6 +84,7 @@ struct __data_distrib {
 	unsigned int _33_64sectors;
 	unsigned int _65_128sectors;
 	unsigned int _129_256sectors;
+	unsigned int _257_512sectors;
 };
 
 static unsigned long long rd_btime = 0;
@@ -136,6 +137,8 @@ static inline void calc_distrib(int mode, int sectors)
 		distrib->_65_128sectors ++;
 	} else if (sectors <= 256) {
 		distrib->_129_256sectors ++;
+	} else if (sectors <= 512) {
+		distrib->_257_512sectors ++;
 	} else {
 		printk("%s, line:%d, SectorCount error!, count = %d\n", __func__, __LINE__, sectors);
 	}
@@ -165,9 +168,9 @@ static inline void end_time(int mode)
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 				   rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
 				   rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
-			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n",
+			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n[257 - 512]:(%d)\n",
 				   rd_dbg_distrib._33_64sectors, rd_dbg_distrib._65_128sectors,
-				   rd_dbg_distrib._129_256sectors);
+				   rd_dbg_distrib._129_256sectors, rd_dbg_distrib._257_512sectors);
 #endif
 
 			rd_sum_bytes = rd_sum_time = 0;
@@ -184,9 +187,9 @@ static inline void end_time(int mode)
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 				   wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
 				   wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
-			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n",
+			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n[257 - 512]:(%d)\n",
 				   wr_dbg_distrib._33_64sectors, wr_dbg_distrib._65_128sectors,
-				   wr_dbg_distrib._129_256sectors);
+				   wr_dbg_distrib._129_256sectors, wr_dbg_distrib._257_512sectors);
 #endif
 			wr_sum_bytes = wr_sum_time = 0;
 			memset(&wr_dbg_distrib, 0, sizeof(struct __data_distrib));
