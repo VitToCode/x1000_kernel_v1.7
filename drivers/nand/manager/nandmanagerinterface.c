@@ -29,7 +29,10 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	int  zonenum;
 	int  zonevalidpage;
 	int  extrapage;
-	int  _2kperpage	= ppa->byteperpage / PAGEINFO_SIZE;
+	int  zoneinfo_pages;
+	int  bestsecnum;
+	int  worsesecnum;
+	int  reservesecnum;
 
 	if (ppa == NULL || lpa == NULL){
 		ndprint(PARTITION_ERROR,"ERROR:FUNCTION: %s  LINE: %d  Nand alloc continue memory error!\n",__FUNCTION__,__LINE__);
@@ -37,19 +40,25 @@ static int  p2lPartition( PPartition *ppa, LPartition *lpa){
 	}
 
 	if (ppa->mode == ZONE_MANAGER) {
-		pageperzone = ppa->pageperblock * _2kperpage * BLOCK_PER_ZONE;
-		maxdatapage = L4INFOLEN / sizeof(unsigned int) / (ppa->byteperpage / _2kperpage / SECTOR_SIZE);
-		zonenum = (ppa->totalblocks - ppa->badblockcount) / BLOCK_PER_ZONE;
-		zonevalidpage = (pageperzone - ZONEINFO_PAGES) / (maxdatapage + 1) * maxdatapage;
-		extrapage = (pageperzone - ZONEINFO_PAGES) % (maxdatapage + 1)-1;
-
-		if (extrapage > 1)
-			lpa->sectorCount = (zonevalidpage + extrapage) * (ppa->byteperpage / _2kperpage) / SECTOR_SIZE * zonenum;
+		pageperzone = ppa->pageperblock * ppa->v2pp->_2kPerPage * BLOCK_PER_ZONE;
+		maxdatapage = L4INFOLEN / sizeof(unsigned int) / (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE);
+		zonenum = (ppa->totalblocks * 90 / 100) / BLOCK_PER_ZONE; // totalsize*80%
+		if(ppa->v2pp->_2kPerPage > 1)
+			zoneinfo_pages = ppa->v2pp->_2kPerPage * 2;
 		else
-			lpa->sectorCount = zonevalidpage * (ppa->byteperpage / _2kperpage) / SECTOR_SIZE * zonenum;
-	} else
+			zoneinfo_pages = 3;
+		zonevalidpage = (pageperzone - zoneinfo_pages) / (maxdatapage + ppa->v2pp->_2kPerPage) * maxdatapage;
+		extrapage = (pageperzone - zoneinfo_pages) % (maxdatapage + ppa->v2pp->_2kPerPage);
+		if (extrapage > ppa->v2pp->_2kPerPage)
+			bestsecnum = (zonevalidpage + extrapage) * (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
+		else
+			bestsecnum = zonevalidpage * (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
+		worsesecnum = (ppa->totalblocks * 10 / 100) * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE * 2 / ppa->v2pp->_2kPerPage; //totalsize*20% ; pageinfo:2k data:2k
+		reservesecnum = ppa->badblockcount * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE;
+		lpa->sectorCount = bestsecnum + worsesecnum - reservesecnum;
+	} else{
 		lpa->sectorCount = ((ppa->totalblocks - ppa->badblockcount) * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
-
+	}
 	lpa->startSector = 0;
 	lpa->name = ppa->name;
 	lpa->hwsector = ppa->hwsector;

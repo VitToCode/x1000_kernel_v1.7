@@ -20,6 +20,7 @@ struct _PageInfo {
 	unsigned char* L1Info;
 	int L1InfoLen;
 	unsigned short zoneID;
+	int fs_totalsector;
 };
 
 #endif

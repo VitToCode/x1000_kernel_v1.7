@@ -633,6 +633,7 @@ static int scan_page_info(ZoneManager *zonep)
 	unsigned int i = 0;
 	int ret = -1;
 	unsigned int zonenum = zonep->pt_zonenum;
+	Context *conptr = (Context *)(zonep->context);
 
 	plt->OffsetBytes = 0;
 	plt->Bytes = zonep->vnand->BytePerPage;
@@ -664,6 +665,7 @@ static int scan_page_info(ZoneManager *zonep)
 	if(max_zoneid == 65535) {
 		max_serial = 0;
 		max_zoneid = 0;
+		conptr->fs_totalsector = 0;
 	}
 	if(max_zoneid > zonenum) {
 		ndprint(ZONEMANAGER_ERROR, "maxserialnum %d maxserial zoneid %d \n",max_serial,max_zoneid);
@@ -1092,6 +1094,7 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 exit:
 	free_pageinfo(prev_pi, zonep);
 	zonep->last_pi = *pi;
+	conptr->fs_totalsector = zonep->last_pi->fs_totalsector;
 	if (flag)
 		return 2;
 	return 0;
@@ -1582,7 +1585,6 @@ int ZoneManager_Init (int context )
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
-
 	return 0;
 }
 

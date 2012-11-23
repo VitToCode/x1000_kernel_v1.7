@@ -628,7 +628,7 @@ static void recycle_zone_prepare(int context)
 	Message_Recieve(conptr->thandle, msghandle);
 	freecount = ZoneManager_Getfreecount(context);
 
-	recyclezonenum = conptr->zonep->pt_zonenum * 10 / 100;
+	recyclezonenum = conptr->zonep->pt_zonenum * 5 / 100;
 
 	if(recyclezonenum < 4)
 		recyclezonenum = 4;
@@ -776,7 +776,7 @@ static void new_pagelist(L2pConvert *l2p, SectorList *sl, PageList **pagelist, Z
 		l2p->page_left_sector_count = (spp - (sl->sectorCount - l2p->page_left_sector_count) % spp) % spp;
 }
 
-static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Zone *zone)
+static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Zone *zone, int context)
 {
 	unsigned int l1index = 0;
 	unsigned int l2index = 0;
@@ -799,6 +799,7 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 	unsigned int spp = zone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int sectorid = l2p->sectorid[j];
 	CacheManager *cachemanager = ((Context *)(zone->context))->cachemanager;
+	Context *conptr = (Context *)context;
 
 	int jzone = ((Context *)(zone->context))->junkzone;
 	int oldzoneid;
@@ -892,6 +893,9 @@ static int update_l1l2l3l4 (L2pConvert *l2p, PageInfo *pi, PageList *pagelist, Z
 					sectorcount = 0;
 				}
 			}
+
+			if(l4buf[i] == -1)
+				conptr->fs_totalsector += 1;
 
 			l4buf[i] = pl_node->startPageID * spp + sector_count;
 			sector_count++;
@@ -1146,8 +1150,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 		L2p_Debug_SaveCacheData(l2p->debug,pi);
 #endif
 		pl = create_pagelist(l2p,pi,&zone);
-
-		ret = update_l1l2l3l4(l2p,pi,pl,zone);
+		ret = update_l1l2l3l4(l2p,pi,pl,zone,context);
 		if(ret != 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR:update_l1l2l3l4 error func %s line %d \n",
 				__FUNCTION__,__LINE__);

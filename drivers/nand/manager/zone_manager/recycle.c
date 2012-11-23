@@ -704,6 +704,7 @@ static int data_in_3_zone (Recycle *rep, unsigned int pageid)
 		|| data_in_prev_zone(rep, pageid)
 		|| data_in_next_zone(rep, pageid);
 }
+#if 0
 static int align_sectors(Recycle *rep,int sectorcount) {
 	Context *conptr = (Context *)(rep->context);
 	VNandInfo *vnand = &conptr->vnand;
@@ -718,6 +719,7 @@ static int align_sectors(Recycle *rep,int sectorcount) {
 	sectorcount = sectorcount % alignsectorcount;
 	return sectorcount;
 }
+
 static void FilluptoAlign ( Recycle *rep,PageList *tpl,int *record_writeaddr,int sectorcount) {
 
 	unsigned int *latest_l4info;
@@ -773,6 +775,7 @@ static void FilluptoAlign ( Recycle *rep,PageList *tpl,int *record_writeaddr,int
 		}
 	}
 }
+#endif
 /**
  *	MergerSectorID - Merger sectorID of recycle zone
  *
@@ -846,10 +849,11 @@ static int MergerSectorID ( Recycle *rep)
 			sectorcount += k;
 		}
 	}
+/*
 	if(sectorcount > 0 && tpl) {
 		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
 	}
-
+*/
 	rep->pagelist = pl;
 	rep->taskStep = RECYCLE;
 
@@ -2392,9 +2396,10 @@ static int  OnForce_MergerSectorID ( Recycle *rep)
 		}
 	}
 	rep->force_pagelist = pl;
+/*
 	if(sectorcount > 0 && tpl) {
 		FilluptoAlign(rep,tpl,record_writeaddr,sectorcount);
-	}
+		}*/
 	return 0;
 }
 

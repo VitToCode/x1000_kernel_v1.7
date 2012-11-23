@@ -289,7 +289,7 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 	VNandInfo *vnand = pc->vnand;
 	unsigned char **dtmp;
 	int ret = 0;
-	const unsigned int lxoff[] ={NAND_LXOFFSET(2),NAND_LXOFFSET(3),NAND_LXOFFSET(4)};
+	const unsigned int lxoff[] ={((unsigned int)&(((NandPageInfo*)0)->L2Info_Sector.sectors)),NAND_LXOFFSET(3),NAND_LXOFFSET(4)};
 	if(lxoffset < 1){
 		ndprint(CACHEMANAGER_ERROR,"ERROR: lxoffset(%d) not less 1\n",lxoffset);
 		while(1);

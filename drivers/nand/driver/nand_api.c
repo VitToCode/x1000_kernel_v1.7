@@ -489,12 +489,12 @@ static int init_nand_driver(void)
 	g_partarray.ppt = g_partition;
 	g_partarray.ptcount = ipartition_num+1;
 
-	g_aligned_list =nand_malloc_buf((256 + 4)*sizeof(Aligned_List));
+	g_aligned_list =nand_malloc_buf((VNANDCACHESIZE + 2048) / 512 *sizeof(Aligned_List));
 	if (!g_aligned_list){
 		eprintf("ERROR: g_aligned_list malloc Failed\n");
 		goto init_nand_driver_error2;
 	}
-	memset(g_aligned_list,0,(256 + 4)*sizeof(Aligned_List));
+	memset(g_aligned_list,0,(VNANDCACHESIZE + 2048) / 512 * sizeof(Aligned_List));
 
 	nand_ops_parameter_init();
 

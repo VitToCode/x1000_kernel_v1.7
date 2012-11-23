@@ -5,6 +5,9 @@
 #include "ppartition.h"
 #include "timerdebug.h"
 
+#define L4INFOLEN 1136
+#define VNANDCACHESIZE (L4INFOLEN / 4 * 512)
+
 typedef struct _VNandInfo VNandInfo;
 typedef struct _VNandManager VNandManager;
 struct _VNandInfo {

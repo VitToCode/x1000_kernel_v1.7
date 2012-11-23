@@ -33,6 +33,7 @@ struct _Context {
 	unsigned int L3InfoLen;
 	unsigned int L4InfoLen;
 	int l2pid;
+	int fs_totalsector;
 #ifdef STATISTICS_DEBUG
 	TimeByte *timebyte;
 #endif

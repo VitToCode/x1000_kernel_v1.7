@@ -10,7 +10,7 @@
 
 #define L4INFOLEN 1136
 
-#define VNANDCACHESIZE (128 * L4INFOLEN)
+#define VNANDCACHESIZE (L4INFOLEN / 4 * 512)
 #define BADBLOCKINFOSIZE 1
 
 struct vnand_operater{

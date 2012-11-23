@@ -137,7 +137,7 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 	}
 
 	zone->NextPageInfo = nandpageinfo->NextPageInfo;
-
+	pi->fs_totalsector = nandpageinfo->L2Info_Sector.sectors;
 	pi->L1InfoLen = zone->L1InfoLen;
 	pi->L2InfoLen = zone->L2InfoLen;
 	pi->L3InfoLen = zone->L3InfoLen;
@@ -162,8 +162,8 @@ static int read_info_l2l3l4info(Zone *zone ,unsigned int pageid , PageInfo *pi)
 		else
 		{
 			pi->L2Index = nandpageinfo->L2Index;
-			nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
-			memcpy(pi->L2Info,nandpageinfo->L2Info,pi->L2InfoLen);
+			nandpageinfo->L2Info_Sector.L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
+			memcpy(pi->L2Info,nandpageinfo->L2Info_Sector.L2Info,pi->L2InfoLen);
 
 			pi->L3Index = nandpageinfo->L3Index;
 			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
@@ -238,8 +238,8 @@ static int seek_pageinfo(Zone *zone,unsigned int pageid , PageInfo *pi){
 			else
 			{
 				pi->L2Index = nandpageinfo->L2Index;
-				nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
-				memcpy(pi->L2Info,nandpageinfo->L2Info,pi->L2InfoLen);
+				nandpageinfo->L2Info_Sector.L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
+				memcpy(pi->L2Info,nandpageinfo->L2Info_Sector.L2Info,pi->L2InfoLen);
 
 				pi->L3Index = nandpageinfo->L3Index;
 				nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
@@ -287,8 +287,8 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 		else
 		{
 			nandpageinfo->L2Index = pi->L2Index;
-			nandpageinfo->L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
-			memcpy(nandpageinfo->L2Info,pi->L2Info,pi->L2InfoLen);
+			nandpageinfo->L2Info_Sector.L2Info = buf + sizeof(NandPageInfo) + pi->L4InfoLen;
+			memcpy(nandpageinfo->L2Info_Sector.L2Info,pi->L2Info,pi->L2InfoLen);
 
 			nandpageinfo->L3Index = pi->L3Index;
 			nandpageinfo->L3Info = buf + sizeof(NandPageInfo) + pi->L2InfoLen + pi->L4InfoLen;
@@ -297,6 +297,7 @@ static unsigned short package_pageinfo(Zone *zone,unsigned char *buf,PageInfo *p
 			len += pi->L2InfoLen + pi->L3InfoLen;
 		}
 	}
+	nandpageinfo->L2Info_Sector.sectors = ((Context *)(zone->context))->fs_totalsector;
 	nandpageinfo->MagicID = 0xaaaa;
 	PACKAGE_PAGEINFO_CRC(nandpageinfo);
 	return len;
@@ -482,9 +483,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 	buf = zone->mem0;
 	nandpageinfo = (NandPageInfo *)buf;
 	memset(buf,0xff,zone->vnand->BytePerPage);
-        nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
-                / zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
-        if((nandpageinfo->NextPageInfo % zone->vnand->PagePerBlock) == 0) {
+	nandpageinfo->NextPageInfo = (zone->allocPageCursor + zone->vnand->v2pp->_2kPerPage)
+		/ zone->vnand->v2pp->_2kPerPage * zone->vnand->v2pp->_2kPerPage;
+	if((nandpageinfo->NextPageInfo % zone->vnand->PagePerBlock) == 0) {
 		zoneblockid = zone->allocPageCursor / zone->vnand->PagePerBlock + 1;
 		while(zoneblockid < BLOCKPERZONE(zone->vnand)) {
 			if(nm_test_bit(zoneblockid,&(zone->badblock)))
@@ -498,8 +499,9 @@ int Zone_MultiWritePage ( Zone *zone, unsigned int pagecount, PageList* pl, Page
 		if(zoneblockid >= BLOCKPERZONE(zone->vnand)) {
 			nandpageinfo->NextPageInfo = 0;
 		}
-        }
-        nandpageinfo->ZoneID = pi->zoneID;
+	}
+	nandpageinfo->ZoneID = pi->zoneID;
+	nandpageinfo->L2Info_Sector.sectors = ((Context *)(zone->context))->fs_totalsector;
 	len = package_pageinfo(zone,buf,pi);
 	if( (len+sizeof(NandPageInfo)) > zone->vnand->BytePerPage )
 	{
