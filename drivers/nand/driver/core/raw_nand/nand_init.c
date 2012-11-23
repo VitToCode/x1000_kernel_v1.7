@@ -18,7 +18,7 @@ extern int nand_reset(void);
 extern void nand_get_id(char *nand_id);
 //#define DEBUG_L   dbg_line()
 
-static inline void dump_id(unsigned char *nand_id)
+static inline void dump_id(volatile unsigned char *nand_id)
 {
 	unsigned char maf_id = 0;
 	unsigned char dev_id = 0;
@@ -37,7 +37,7 @@ static inline void dump_id(unsigned char *nand_id)
 static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnand_api)
 {
 	int ret=0;
-	unsigned char nand_id[6] = {0};
+	volatile unsigned char nand_id[6] = {0};
 	NAND_FLASH_DEV *pnand_type;
 	NAND_CTRL *pnand_ctrl = pnand_api->nand_ctrl;
 	JZ_IO *pnand_io = pnand_api->nand_io;
