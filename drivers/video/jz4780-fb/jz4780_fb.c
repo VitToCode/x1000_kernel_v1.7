@@ -1503,14 +1503,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "Enable IPU clock data error\n");
 			return -EFAULT;
 		}
-                
-                spin_lock(&jzfb->suspend_lock);
-                if(jzfb->is_suspend) {
-                    spin_unlock(&jzfb->suspend_lock);
-                    break;
-                }
-                spin_unlock(&jzfb->suspend_lock);
-                
+
 		if (value) {
 			/* the clock of ipu is depends on lcdc's clock */
 			clk_enable(jzfb->lpclk);
@@ -1520,11 +1513,20 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			tmp |= LCDC_OSDCTRL_IPU_CLKEN;
 			reg_write(jzfb, LCDC_OSDCTRL, tmp);
 		} else {
+                        spin_lock(&jzfb->suspend_lock);
+                        if(jzfb->is_suspend) {
+                            clk_disable(jzfb->ldclk);
+                            clk_disable(jzfb->lpclk);
+                            spin_unlock(&jzfb->suspend_lock);
+                            break;
+                        }
+                        spin_unlock(&jzfb->suspend_lock);
+                        
                         tmp = reg_read(jzfb, LCDC_OSDCTRL);
-			tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
-			reg_write(jzfb, LCDC_OSDCTRL, tmp);
-			clk_disable(jzfb->ldclk);
-			clk_disable(jzfb->lpclk);
+                        tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
+                        reg_write(jzfb, LCDC_OSDCTRL, tmp);
+                        clk_disable(jzfb->ldclk);
+                        clk_disable(jzfb->lpclk);
 		}
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
