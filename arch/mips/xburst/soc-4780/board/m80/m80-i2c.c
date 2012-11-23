@@ -83,11 +83,11 @@ static struct i2c_board_info m80_i2c1_devs[] __initdata = {
 	},
 #endif
 
-#ifdef CONFIG_SENSORS_LIS3DH
+#ifdef CONFIG_TOUCHSCREEN_CT36X
 	{
-		I2C_BOARD_INFO("gsensor_lis3dh", 0x19),
-		.platform_data = &lis3dh_platform_data,
-	},
+		I2C_BOARD_INFO("ct36x_ts", 0x01),
+		.platform_data = &m80_tsc_pdata,
+	},						        
 #endif
 };
 #endif	/*I2C1*/
@@ -218,11 +218,11 @@ static struct i2c_board_info m80_i2c3_devs[] __initdata = {
 		.platform_data	= &m80_tsc_pdata,
 	},
 #endif
-#ifdef CONFIG_TOUCHSCREEN_CT36X
+#ifdef CONFIG_SENSORS_LIS3DH
 	{
-		I2C_BOARD_INFO("ct36x_ts", 0x01),
-		.platform_data = &m80_tsc_pdata,
-	},						        
+		I2C_BOARD_INFO("gsensor_lis3dh", 0x19),
+		.platform_data = &lis3dh_platform_data,
+	},
 #endif
 };
 #endif /*I2C3*/

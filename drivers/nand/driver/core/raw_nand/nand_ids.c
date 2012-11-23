@@ -194,7 +194,7 @@ int get_flash_count(void)
  * @nand_id:
  * return index:	NAND Flash index in nand_flash_chips table
  */
-NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
+NAND_FLASH_DEV *nand_scan_table(volatile unsigned char *nand_id)
 {
 	unsigned short dev_id;
 	unsigned int ext_id;
