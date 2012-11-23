@@ -124,7 +124,7 @@ static int frame_list_alloc(dwc_otg_hcd_t * hcd)
 	if (hcd->frame_list)
 		return 0;
 
-	hcd->frame_list = DWC_DMA_ALLOC(4 * MAX_FRLIST_EN_NUM,
+	hcd->frame_list = DWC_DMA_ALLOC_ATOMIC(4 * MAX_FRLIST_EN_NUM,
 					&hcd->frame_list_dma);
 	if (!hcd->frame_list) {
 		retval = -DWC_E_NO_MEMORY;
