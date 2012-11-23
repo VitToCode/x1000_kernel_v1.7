@@ -148,7 +148,7 @@ int lis3dh_acc_update_odr(struct lis3dh_acc_data *acc, int poll_interval_ms)
 #if 1
 	switch (config[1])
 	{
-		case ODR10:	config1[1] = 0x45;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
+		case ODR10:	config1[1] = 0x35;break;//INT_DUR1 register set to 0x2d irq rate is:11Hz
 		case ODR25:	config1[1] = 0x20;break;//set to 0x0e irq rate:23Hz
 		case ODR50:	config1[1] = 0x10;break;//set to 0x06 irq rate:42Hz
 
