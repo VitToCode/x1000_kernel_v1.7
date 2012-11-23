@@ -174,6 +174,7 @@ struct cim_sensor {
 	struct frm_size	*capture_size;
 	int prev_resolution_nr;
 	int cap_resolution_nr;
+	int cap_wait_frame;
 
 	int (*probe)(struct cim_sensor *data);
 	int (*init)(struct cim_sensor *data);

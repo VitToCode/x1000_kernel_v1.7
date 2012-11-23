@@ -204,7 +204,7 @@ int hi253_none2(struct cim_sensor * desc,unsigned short arg)
 static int hi253_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct hi253_sensor * s;
-	struct hi253_platform_data *pdata;
+	struct cam_sensor_plat_data *pdata;
 	s = kzalloc(sizeof(struct hi253_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "hi253");
@@ -273,6 +273,7 @@ static int hi253_probe(struct i2c_client *client, const struct i2c_device_id *id
 	gpio_direction_output(s->gpio_en, 1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
+	s->cs.cap_wait_frame = pdata->cap_wait_frame;
 	//sensor_set_i2c_speed(client,400000);//set hi253 i2c speed : 400khz
 	camera_sensor_register(&s->cs);
 

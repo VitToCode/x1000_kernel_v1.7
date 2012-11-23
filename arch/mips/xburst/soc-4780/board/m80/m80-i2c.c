@@ -92,29 +92,19 @@ static struct i2c_board_info m80_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)))
-
-#if (defined(CONFIG_SP0838))
-struct sp0838_platform_data {
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) \
+		|| defined(CONFIG_JZ_CIM))
+struct cam_sensor_plat_data {
 	int facing;
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;    /* filter n frames when capture image */
 };
 
-static struct sp0838_platform_data sp0838_pdata = {
-	.facing = 0,
-	.orientation = 0,
-	.mirror = 0,
-	.gpio_en = GPIO_SP0838_EN,
-	.gpio_rst = GPIO_SP0838_RST,
-};
-#endif
-
-#if (defined(CONFIG_OV2659_MODULE))
-struct ov2659_platform_data {
+struct cam_sensor_module_plat_data {
 	int facing_f;
 	int orientation_f;
 	int mirror_f;
@@ -129,7 +119,19 @@ struct ov2659_platform_data {
 	uint16_t gpio_en_b;
 };
 
-static struct ov2659_platform_data ov2659_module_pdata = {
+#if (defined(CONFIG_SP0838))
+static struct cam_sensor_plat_data sp0838_pdata = {
+	.facing = 0,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_SP0838_EN,
+	.gpio_rst = GPIO_SP0838_RST,
+	.cap_wait_frame = 6,
+};
+#endif
+
+#if (defined(CONFIG_OV2659_MODULE))
+static struct cam_sensor_module_plat_data ov2659_module_pdata = {
 	.facing_f = 0,
 	.orientation_f = 0,
 	.mirror_f = 0,
@@ -146,43 +148,25 @@ static struct ov2659_platform_data ov2659_module_pdata = {
 #endif
 
 #if (defined(CONFIG_GC0308))
-
-struct gc0308_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-};
-
-static struct gc0308_platform_data gc0308_pdata = {
+static struct cam_sensor_plat_data gc0308_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC0308_EN,
 	.gpio_rst = GPIO_GC0308_RST,
+	.cap_wait_frame = 3,
 };
-
 #endif
 
 #if (defined(CONFIG_HI253))
-
-struct hi253_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-};
-
-static struct hi253_platform_data hi253_pdata = {
+static struct cam_sensor_plat_data hi253_pdata = {
 	.facing = 1,
 	.orientation = 0,
 	.mirror = 1,
 	.gpio_en = GPIO_HI253_EN,
 	.gpio_rst = GPIO_HI253_RST,
+	.cap_wait_frame = 2,
 };
-
 #endif
 
 #endif

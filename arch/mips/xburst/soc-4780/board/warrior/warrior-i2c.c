@@ -91,22 +91,28 @@ static struct i2c_board_info warrior_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
-struct sp0838_platform_data {
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_JZ_CIM))
+struct cam_sensor_plat_data {
 	int facing;
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;    /* filter n frames when capture image */
 };
-static struct sp0838_platform_data sp0838_pdata = {
+
+#ifdef CONFIG_SP0838
+static struct cam_sensor_plat_data sp0838_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
 	.gpio_rst = GPIO_SP0838_RST,
+	.cap_wait_frame = 6,
 };
+#endif
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))

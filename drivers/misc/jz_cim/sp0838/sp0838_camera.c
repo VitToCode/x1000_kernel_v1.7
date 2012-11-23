@@ -200,7 +200,7 @@ int sp0838_none2(struct cim_sensor * desc,unsigned short arg)
 static int sp0838_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct sp0838_sensor * s;
-	struct sp0838_platform_data *pdata;
+	struct cam_sensor_plat_data *pdata;
 	s = kzalloc(sizeof(struct sp0838_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "sp0838");
@@ -269,6 +269,7 @@ static int sp0838_probe(struct i2c_client *client, const struct i2c_device_id *i
 	gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
+	s->cs.cap_wait_frame = pdata->cap_wait_frame;
 	//sensor_set_i2c_speed(client,400000);//set sp0838 i2c speed : 400khz
 	camera_sensor_register(&s->cs);
 

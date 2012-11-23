@@ -20,7 +20,7 @@ static struct frm_size gc2015_preview_table[]= {
 		{1600,1200 },
 		{1280,960  },
 		{1024,768  },
-		{800,600   },
+//		{800,600   },
 		{640,480   },
 		{352,288   },
 		{176,144   },
@@ -204,7 +204,7 @@ static int gc2015_probe(struct i2c_client *client, const struct i2c_device_id *i
 {
 	printk("gc2015 probe----------\n");
 	struct gc2015_sensor * s;
-	struct gc2015_platform_data *pdata;
+	struct cam_sensor_plat_data *pdata;
 	s = kzalloc(sizeof(struct gc2015_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "gc2015");
@@ -281,6 +281,7 @@ static int gc2015_probe(struct i2c_client *client, const struct i2c_device_id *i
 	gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
+	s->cs.cap_wait_frame = pdata->cap_wait_frame;
 	//sensor_set_i2c_speed(client,400000);//set gc2015 i2c speed : 400khz
 	camera_sensor_register(&s->cs);
 

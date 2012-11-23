@@ -547,7 +547,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 #ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
 #endif
-			if( wait_count == 6)
+			if(wait_count == cim->desc->cap_wait_frame)
 			{
 				wait_count = 0;
 				cim_disable(cim);
