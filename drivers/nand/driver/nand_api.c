@@ -583,6 +583,7 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 		listhead = (pagelist->head).next;
 #if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
 		calc_bytes(rwflag, pagelist->Bytes);
+		calc_distrib(rwflag, pagelist->Bytes);
 #endif
 	}
 	return;
