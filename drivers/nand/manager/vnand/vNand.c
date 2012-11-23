@@ -10,6 +10,20 @@
 #include "vNand.h"
 #include "timeinterface.h"
 
+static void dump_pagelist(PageList *pl)
+{
+	struct singlelist *pos;
+	PageList *pl_node;
+	ndprint(VNAND_INFO,"^^^^^^^ dump pl start ^^^^^^^\n");
+	singlelist_for_each(pos,&pl->head){
+		pl_node= singlelist_entry(pos,PageList,head);
+		ndprint(VNAND_INFO,"pageid:%d pData:%p offset:%d bytes:%d ret:%d\n",pl_node->startPageID,pl_node->pData,pl_node->OffsetBytes,pl_node->Bytes,pl_node->retVal);
+		if(pl_node->retVal == -6){
+			ndprint(VNAND_INFO,"pData:%08x \n",((unsigned int *)(pl_node->pData))[0]);
+		}
+	}
+	ndprint(VNAND_INFO,"^^^^^^^ dump pl end ^^^^^^^\n");
+}
 
 /*
   The following functions mutually exclusive call nand driver
@@ -80,7 +94,7 @@ static PageList* vNandPageList_To_NandPageList(VNandInfo *vnand, PageList *pl)
 		if ((pl_node->retVal == 0 || npl->Bytes >= vnand->BytePerPage*vnand->v2pp->_2kPerPage ||
 			bytecnt >= vnand->BytePerPage*vnand->v2pp->_2kPerPage ||
 			 (pl_next && pl_next->startPageID-pl_node->startPageID != 1) ||
-			 (pl_next && pl_node->startPageID%2==1 && pl_next->startPageID != pl_node->startPageID)) &&
+			 (pl_next && pl_next->startPageID % vnand->v2pp->_2kPerPage == 0)) &&
 			(pos->next != NULL)){
 			npl = (PageList *)BuffListManager_getNextNode(vnand->v2pp->blm, (void *)npl, sizeof(PageList));
 			npl->Bytes = 0;
