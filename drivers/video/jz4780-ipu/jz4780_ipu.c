@@ -1285,12 +1285,20 @@ static int ipu_stop(struct jz_ipu *ipu)
 	}
 	dev_info(ipu->dev, "ipu_stop %s %d", __func__, current->pid);
 
-	if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-		stop_ipu_to_lcd(ipu);
-	} else {
-		tmp = IPU_STOP;
-		reg_write(ipu, IPU_TRIG, tmp);
-	}
+        spin_lock(&ipu->suspend_lock);
+        if(ipu->suspend_entered) {
+            spin_unlock(&ipu->suspend_lock);
+            mutex_unlock(&ipu->run_lock);
+            return 0;
+        }
+        spin_unlock(&ipu->suspend_lock);
+        
+        if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+            stop_ipu_to_lcd(ipu);
+        } else {
+            tmp = IPU_STOP;
+            reg_write(ipu, IPU_TRIG, tmp);
+        }
 	mutex_unlock(&ipu->run_lock);
 
 	return 0;
@@ -1472,10 +1480,10 @@ static int ipu_release(struct inode *inode, struct file *filp)
 #endif
 
 	if (ipu->open_cnt == 0)
-		ret = destroy_allproc_info(ipu);
-	if (ipu->proc_num == 0)
-		clk_disable(ipu->clk);
-
+            ret = destroy_allproc_info(ipu);
+	if (ipu->proc_num == 0) {
+            clk_disable(ipu->clk);
+        }
 	ipu->inited = 0;
 	mutex_unlock(&ipu->lock);
 
@@ -1523,12 +1531,23 @@ static void ipu_early_suspend(struct early_suspend *h)
 	} else {
 		reg_write(ipu, IPU_TRIG, IPU_STOP);
 	}
+        
+        spin_lock(&ipu->suspend_lock);
+        ipu->suspend_entered = 1;
+        spin_unlock(&ipu->suspend_lock);
+
 	return;
 }
 
 static void ipu_late_resume(struct early_suspend *h)
 {
+    	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
+
 	printk("ipu_late_resume+++");
+        spin_lock(&ipu->suspend_lock);
+        ipu->suspend_entered = 0;
+        spin_unlock(&ipu->suspend_lock);
+
 	return;
 }
 #endif
@@ -1554,10 +1573,13 @@ static int ipu_probe(struct platform_device *pdev)
 	ipu->misc_dev.name      = ipu->name;
 	ipu->misc_dev.fops      = &ipu_ops;
 	ipu->dev = &pdev->dev;
-
+        ipu->suspend_entered = 0;
+        
 	mutex_init(&ipu_lock);
 	mutex_init(&ipu->lock);
 	mutex_init(&ipu->run_lock);
+        spin_lock_init(&ipu->suspend_lock);
+
 	spin_lock_init(&ipu->update_lock);
 	init_waitqueue_head(&ipu->frame_wq);
 	INIT_LIST_HEAD(&ipu->process_list);
