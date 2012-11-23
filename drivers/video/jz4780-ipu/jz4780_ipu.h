@@ -185,12 +185,15 @@ struct jz_ipu {
 	struct mutex run_lock;
 	spinlock_t update_lock;
 
- 	unsigned int frame_done;
+        unsigned int frame_done;
 	unsigned int frame_requested;	
 	wait_queue_head_t frame_wq;
 
 	struct proc_dir_entry *pde;
 	struct list_head process_list;
+
+        int suspend_entered;
+    	spinlock_t suspend_lock;
 };
 
 
