@@ -153,10 +153,6 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	struct platform_nand_partition *pt = (struct platform_nand_partition *)(pnand_api->nand_dma->ppt->prData);
 	unsigned int tmp =page / pnand_api->nand_chip->ppblock;
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
-	if(vpage > pnand_api->nand_dma->ppt->PageCount) {
-		printk("====error:page %d PageCount:%d\n",vpage,pnand_api->nand_dma->ppt->PageCount);
-		while(1);
-	}
 	if(pt->use_planes)
 		page = ((page-toppage) / pnand_api->nand_chip->planenum) +
 			        (pnand_api->nand_chip->ppblock * ((page-toppage) %
@@ -320,6 +316,11 @@ static int read_page_singlenode(const NAND_API *pnand_api
 #ifdef NAND_DMA_CALC_TIME
 	b_time();
 #endif
+	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
+		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+		ret = -1;
+		goto read_page_singlenode_error1;
+	}
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
 		printk("bytes = %d offset = %d byteperpage = %d\n",bytes,offset,byteperpage);
@@ -330,7 +331,7 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	dma_sync_single_for_device(nand_dev,GET_PHYADDR(databuf),bytes,DMA_TO_DEVICE);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
 	if(bytes < byteperpage){
@@ -363,14 +364,14 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	}
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
 read_page_singlenode_error1:
 
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 #endif
 	do_deselect_chip(pnand_api);
 	return ret;
@@ -407,6 +408,11 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	nand_dma->cache_phypageid = -1;
+	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
+		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+		ret = -1;
+		goto write_page_singlenode_error1;
+	}
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
 		goto write_page_singlenode_error1;
@@ -434,7 +440,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	}
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
 	ret = send_msg_to_mcu(pnand_api);
@@ -442,7 +448,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 #endif
 	do_deselect_chip(pnand_api);
 write_page_singlenode_error1:
@@ -484,6 +490,12 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 
 	int pageid =templist->startPageID;
+	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
+		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+		ret = -1;
+		num = temp;
+		goto read_page_node_error1;
+	}
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
 #ifdef NAND_DMA_CALC_TIME
@@ -501,7 +513,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		ret = send_msg_to_mcu(pnand_api);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 	b_time();
 #endif
 		if(ret && (ret != -6))
@@ -533,7 +545,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	}
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
-	printk("  %s  %d\n",__func__,__LINE__);
+	dprintf("  %s  %d\n",__func__,__LINE__);
 #endif
 	if(ret)
 		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
@@ -634,6 +646,12 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	int pageid = templist->startPageID;
+	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
+		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+		ret = -1;
+		num = temp;
+		goto write_multinode_error1;
+	}
 	nand_dma->cache_phypageid = -1;
 	phy_pageid =get_physical_addr(pnand_api,pageid);
 	cs =do_select_chip(pnand_api,phy_pageid);
@@ -797,7 +815,7 @@ int nand_dma_init(NAND_API *pnand_api)
 	nand_dma->cache_phypageid = -1;
 
 	pnand_api->nand_dma =(void *)nand_dma;
-	printk("INFO: Nand DMA ops init success!\n");
+	dprintf("INFO: Nand DMA ops init success!\n");
 	return ret;
 nand_dma_init_error5:
 	nand_free_buf(nand_dma->msg);

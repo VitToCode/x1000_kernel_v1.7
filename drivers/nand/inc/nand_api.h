@@ -19,21 +19,21 @@
 /*
  * jz debug
  */
-#define JZ_DEBUG        1
-#if JZ_DEBUG
+//#define JZNAND_DRIVE_DEBUG        1
+#ifdef JZNAND_DRIVE_DEBUG
 /* In Linux Kernel */
 #ifdef __KERNEL__
 #define	dprintf(n,x...) printk(n,##x)
-#define	eprintf(n,x...) printk(n,##x)
 #else
 /* In userspace or other platform */
 #define dprintf(n, x...) printf(n, ##x)
-#define	eprintf(n, x...) printf(1, ##x)
+//#define	eprintf(n, x...) printf(1, ##x)
 #endif
 #else
 #define	dprintf(n,x...)
-#define	eprintf(n,x...)
 #endif
+
+#define	eprintf(n,x...) printk(n,##x)
 
 #define dbg_ptr(ptr)	\
 	dprintf("==>%s L%d: addr of " #ptr " = 0x%08x\n",	\

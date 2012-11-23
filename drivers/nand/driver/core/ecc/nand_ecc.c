@@ -82,7 +82,7 @@ static inline void bch_correct(unsigned char *dat, unsigned int idx)
 	i = idx & BCH_ERR_INDEX_MASK;                           
 	bits = (idx & BCH_ERR_MASK_MASK)>>BCH_ERR_MASK_BIT;
 
-	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
+//	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
 
 	if (i < (eccsize>>1)){
 		ptmp[i] ^= bits;
@@ -102,7 +102,7 @@ static inline void new_bch_correct(void *dat, unsigned int idx)
 	index_s = i / 256;  // 512'bytes sector num
 	index_b = i % 256;  // unsigned short num  in a 512'bytes  sector
 
-	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
+//	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
 
 	if (i < (eccsize>>1)){
 		ptmp = (unsigned short *)(sector[index_s].buf);
@@ -145,13 +145,13 @@ static inline int bch_decode_correct(NAND_BASE *host,unsigned char *databuf)
 	unsigned int errcnt =0;
 	/* Check decoding */
 	stat = bch_readl(host->bch_iomem,BCH_INTS);
-	dprintf("NAND: BHINTS = 0x%x\n",stat);
+//	dprintf("NAND: BHINTS = 0x%x\n",stat);
 	if(stat & BCH_INTS_ALLf){
 		g_ret =ALL_FF;
 		return g_ret;
 	}		
 	if (stat & BCH_INTS_UNCOR) {
-		dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
+//		dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
 		g_ret =ECC_ERROR;
 		return g_ret;
 	} else {
@@ -172,7 +172,7 @@ static inline int bch_decode_correct(NAND_BASE *host,unsigned char *databuf)
 //	printk(" ecc error bits is %d !!!!!!!!!!!!!!!!\n",errcnt);
 	return errbits;
 }
-static inline int new_bch_decode_correct(NAND_BASE *host,void *buf)
+static int new_bch_decode_correct(NAND_BASE *host,void *buf)
 {
 	int i;
 	unsigned int stat;
@@ -181,7 +181,7 @@ static inline int new_bch_decode_correct(NAND_BASE *host,void *buf)
 	unsigned int errcnt =0;
 	/* Check decoding */
 	stat = bch_readl(host->bch_iomem,BCH_INTS);
-	dprintf("NAND: BHINTS = 0x%x\n",stat);
+//	dprintf("NAND: BHINTS = 0x%x\n",stat);
 	if(stat & BCH_INTS_ALLf){
 		g_ret =ALL_FF;
 		return g_ret;
@@ -239,7 +239,7 @@ static inline int ecc_do_decode(NAND_BASE *host,unsigned char *databuf, unsigned
 	int ret = 0;
 
 	for (i = 0; i < steps; i++) {
-//		printk(" ecc decode  i =%d \n  **************\n",i);
+//		dprintf(" ecc decode  i =%d \n  **************\n",i);
 //		dump_buf(databuf,eccsize);
 //		dump_buf(eccbuf,eccbytes);
 		ret = ecc_decode_onestep(host,databuf, eccbuf,eccbit);
@@ -269,7 +269,7 @@ static inline void ecc_encode_onestep(NAND_BASE *host,unsigned char *databuf,uns
 
 	bch_encode_sync(host);
 	bch_disable(host);
-	//	printk("ecc encode  bch_inits =0x%x ~~~~~~~~~~~\n",bch_readl(host->bch_iomem,BCH_INTS));
+	//	dprintf("ecc encode  bch_inits =0x%x ~~~~~~~~~~~\n",bch_readl(host->bch_iomem,BCH_INTS));
 
 	bch_encints_clear(host);
 	for (i = 0; i < eccbytes; i++) {

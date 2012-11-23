@@ -23,6 +23,9 @@
 //#define DEBUG_ERASE
 //#define NAPI_DEBUG_TIME_WRITE
 //#define NAPI_DEBUG_TIME_READ
+#ifdef JZNAND_DRIVE_DEBUG
+#define NAND_API_DUMP
+#endif
 
 #if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
 #define NAPI_DBG_READ	0
@@ -170,7 +173,27 @@ static inline int div_s64_32(long long dividend , int divisor)  // for example: 
 	return result;
 }
 
-#define NAND_API_DUMP
+void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
+{
+	NAND_API *this = pnand_api;
+
+	this->writesize = pnand_chip->writesize;
+	this->erasesize = pnand_chip->erasesize;
+	this->ppblock = pnand_chip->ppblock;
+	this->totalblock = pnand_chip->bpchip * pnand_chip->numchips;
+
+	/*
+	 * Set the number of read / write steps for one page depending on ECC
+	 * mode
+	 */
+
+	this->nand_ecc->eccsteps = this->writesize / this->nand_ecc->eccsize;
+	if (this->nand_ecc->eccsteps * this->nand_ecc->eccsize != this->writesize) {
+		printk(KERN_WARNING "Invalid ecc parameters\n");
+		BUG();
+	}
+}
+
 #ifdef NAND_API_DUMP
 /**
  * ffs_ll - find first bit set in a 64bit word.
@@ -201,26 +224,6 @@ static inline int ffs_ll(unsigned long long word)
 		return (i + 1);
 }
 
-void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
-{
-	NAND_API *this = pnand_api;
-
-	this->writesize = pnand_chip->writesize;
-	this->erasesize = pnand_chip->erasesize;
-	this->ppblock = pnand_chip->ppblock;
-	this->totalblock = pnand_chip->bpchip * pnand_chip->numchips;
-
-	/*
-	 * Set the number of read / write steps for one page depending on ECC
-	 * mode
-	 */
-
-	this->nand_ecc->eccsteps = this->writesize / this->nand_ecc->eccsize;
-	if (this->nand_ecc->eccsteps * this->nand_ecc->eccsize != this->writesize) {
-		printk(KERN_WARNING "Invalid ecc parameters\n");
-		BUG();
-	}
-}
 
 void dump_nand_chip(JZ_NAND_CHIP *pnand_chip)
 {
@@ -320,7 +323,7 @@ static int nand_board_init(NAND_API * pnand_api)
 
 	ret = nand_chip_init(g_pnand_api.vnand_base,pnand_api);
 	if (ret == -1) {
-		eprintf("ERROR: NAND Chip Init Failed\n");
+		printk("ERROR: NAND Chip Init Failed\n");
 		return -1;
 	}
 #ifdef CONFIG_NAND_DMA
@@ -379,7 +382,7 @@ static inline int init_nand_vm(void * vNand)
 	if(!g_partition)
 		return -1;
 	tmp_manager->pt = &g_partarray;
-	printk("*** init_nand_vm is ok ***\n");
+	dprintf("*** init_nand_vm is ok ***\n");
 	return 0;
 }
 static int init_nand_driver(void)
@@ -796,7 +799,7 @@ int partition_install(char *ptname)
 	if (nand_partition_install)
 		return nand_partition_install(ptname);
 
-	printk("error: nand partition_install has not been installed!\n");
+	dprintf("error: nand partition_install has not been installed!\n");
 	return -1;
 }
 /*********************************************/
@@ -825,7 +828,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 	int             irq;
 	int ret=0;
 
-	printk("INFO: Nand driver start...\n");
+	dprintf("INFO: Nand driver start...\n");
 	g_pdev = pdev;
 	g_pnand_api.pdev = (void *)pdev;
 	g_pnand_data = (struct platform_nand_data *)(pdev->dev.platform_data);
@@ -951,7 +954,7 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		dev_err(&g_pdev->dev,"init nand debug driver failed\n");
 	}
 
-	printk("INFO: Nand probe success!\n");
+	dprintf("INFO: Nand probe success!\n");
 	return 0;
 nand_probe_error3:
 	nand_free_buf(g_pnand_api.pnand_base);

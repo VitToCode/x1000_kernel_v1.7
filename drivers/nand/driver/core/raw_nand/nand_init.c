@@ -56,7 +56,7 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	/*get nand info from nand type info table in nand_ids.c*/
 	pnand_type = nand_scan_table(&nand_id[0]);
 #ifdef CONFIG_HW_BCH
-        printk("nand hardware bch\n");
+        dprintf("nand hardware bch\n");
 #endif	
 	pnand_ctrl->chip_select(host,pnand_io,-1);
 	return pnand_type;

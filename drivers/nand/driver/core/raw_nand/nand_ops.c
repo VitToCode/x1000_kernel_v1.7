@@ -20,7 +20,17 @@ static JZ_NAND_CHIP *g_pnand_chip;
 static NAND_CTRL *g_pnand_ctrl;
 static JZ_IO *g_pnand_io;
 static JZ_ECC *g_pnand_ecc;
-extern void dump_buf(unsigned char *databuf,int len);
+/*
+static void dump_buf1(unsigned char *databuf,int len)
+{
+	int i = 0;
+	for(i=0;i<len;i++){
+		if(i%16 == 0)
+			printk("\n");
+		printk("%02x ",databuf[i]);
+	}
+}
+*/
 void do_nand_register(NAND_API *pnand_api)
 {
 	g_pnand_chip = pnand_api->nand_chip;
@@ -414,6 +424,7 @@ int nand_erase_2p_block(NAND_BASE *host,unsigned int block)
 static inline int nand_read_1p_oob(unsigned int p_pageid)
 {
 	int ret;
+//	printk(" %s  phy_pageid = %d \n",__func__,p_pageid);
 	send_read_page(g_pagesize, p_pageid);                             // read oobsize
 	ret =g_pnand_io->read_data_withrb(g_poobbuf,g_oobsize);  // read oobsize
 	if(ret < 0)
@@ -424,7 +435,8 @@ static inline int nand_read_1p_oob(unsigned int p_pageid)
 		g_pnand_io->read_data_norb(g_poobbuf+g_oobsize,g_freesize);  //read freesize
 		//	while((ret =g_pnand_io->dma_nand_finish()) == DMA_RUNNING);
 	}
-	//	dump_buf(g_poobbuf,g_oobsize);
+//	if(p_pageid == 42497)
+//		dump_buf1(g_poobbuf,g_oobsize);
 	return SUCCESS;
 }
 /******************************************************
@@ -435,6 +447,7 @@ static inline int nand_read_1p_oob(unsigned int p_pageid)
 static inline int nand_read_2p_page_oob(unsigned int p_pageid,unsigned char model)
 {
 	int ret =0;
+//	printk(" %s  phy_pageid = %d \n",__func__,p_pageid);
 	if(model){
 		ret =send_read_2p_random_output_withrb(g_pagesize, p_pageid);         // read oobsize
 		if(ret < 0)
@@ -480,10 +493,7 @@ static inline int nand_read_sector_data(NAND_BASE *host,int id,const int num)
 	for(i=0;i<num;i++){
 		g_pnand_io->read_data_norb(g_eccsector[sectorid+i].buf,512);
 	}
-	/*
-	  g_eccsector[sectorid].buf[1] = 0xff;
-	  g_eccsector[sectorid].buf[2] = 0xff;
-	*/
+
 	bch_enable(host,BCH_DECODE,g_eccsize,g_eccbit);
 	for(i=0;i<num;i++)
 		for(j=0;j<512;j++)
@@ -492,10 +502,11 @@ static inline int nand_read_sector_data(NAND_BASE *host,int id,const int num)
 		bch_writeb(host->bch_iomem,BCH_DR,eccbuf[j]);
 	/* Wait for completion */
 	bch_decode_sync(host);
-	bch_disable(host);
 	// dump_buf(g_eccsector[sectorid].buf,512);
 	//dump_buf(eccbuf,14*4);
 	ret =g_pnand_ecc->bch_decode_correct(host,&g_eccsector[sectorid]);
+	bch_decints_clear(host);
+	bch_disable(host);
 	if(ret < 0 || ret >= g_eccbit-1)
 	{
 		for(i=0;i<num;i++)
@@ -521,11 +532,10 @@ static inline int nand_write_sector_data(NAND_BASE *host,int id, const int num)
 			bch_writeb(host->bch_iomem,BCH_DR,*(g_eccsector[sectorid+i].buf + j));
 	}
 	bch_encode_sync(host);
-	bch_disable(host);
-	bch_encints_clear(host);
 	for (i=0; i < g_eccbytes; i++)
 		eccbuf[i] = *paraddr++;
-
+	bch_encints_clear(host);
+	bch_disable(host);
 	send_prog_random(id*g_eccsize);
 	for(i=0; i<num; i++){// how much 512'bytes per ecc steps
 		g_pnand_io->write_data_norb(g_eccsector[sectorid+i].buf, 512);
@@ -680,7 +690,6 @@ static inline int nand_read_2p_page_real(NAND_BASE *host,Aligned_List *aligned_l
 	if(ret){
 		dprintf("\n\n**********nand_read_2p_page, read oob of first page wrong: ret =%d************\n",ret);
 		templist->retVal =ret;
-		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 		goto nand_read_2p_page_error;
 	}
 	ret =data_process(host,templist,temp,READ);
@@ -698,12 +707,11 @@ static inline int nand_read_2p_page_real(NAND_BASE *host,Aligned_List *aligned_l
 	if(ret){
 		dprintf("\n\n**********nand_read_2p_page, read oob of second page wrong: ret =%d************\n",ret);
 		templist->retVal =ret;
-		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 		goto nand_read_2p_page_error;
 	}
 	ret =data_process(host,templist,temp,READ);
-	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 nand_read_2p_page_error:
+	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 	do_deselect_chip(host);
 	if(ret<0)
 		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
@@ -760,7 +768,7 @@ static inline void nand_write_page_data(NAND_BASE *host,unsigned int offset,unsi
 static inline void nand_write_page_oob(void)
 {
 	//	dump_buf(g_poobbuf,g_oobsize);
-	printk("eccbit =%d  ; freesize =%d \n",g_eccbit,g_freesize);
+//	printk("eccbit =%d  ; freesize =%d \n",g_eccbit,g_freesize);
 	send_prog_random(g_writesize);
 	if (g_freesize){
 		g_pnand_io->write_data_norb(g_poobbuf+g_oobsize,g_freesize);
@@ -776,7 +784,7 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 	int ret=0;
 	unsigned int p_pageid;
 	PageList * templist;
-	dprintf("\nDEBUG nand : nand_write_1p_page\n");
+//	dprintf("\nDEBUG nand : nand_write_1p_page\n");
 	temp = aligned_list->opsmodel & 0x00ffffff; // 23 ~ 0 :the number of pagelist
 	templist =aligned_list->pagelist;
 
@@ -784,6 +792,7 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 	if((templist->startPageID < 0) || (templist->startPageID > g_pagecount))  //judge startPageID
 	{
 		templist->retVal =-1;
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		return ENAND;
 	}
 	p_pageid =get_physical_addr(templist->startPageID+g_startpage);
@@ -792,14 +801,12 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 	send_prog_page(templist->OffsetBytes,p_pageid);
 	ret =data_process(host,templist,temp,WRITE);
 	if(ret){
-		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		do_deselect_chip(host);
-		return ret;
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+		goto nand_write_1p_page_error;
 	}
 	nand_write_page_oob();
 	send_prog_confirm();
 	ret =send_read_status(&state);
-	do_deselect_chip(host);
 
 	if(ret == 0)
 		ret =(state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS);
@@ -807,6 +814,9 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		aligned_list->pagelist->retVal =ret;
 	}
+nand_write_1p_page_error:
+	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
+	do_deselect_chip(host);
 	return ret;
 }
 
@@ -838,9 +848,8 @@ static inline int nand_write_2p_page_real(NAND_BASE *host,Aligned_List *aligned_
 	send_prog_2p_page1(templist->OffsetBytes,p_pageid);   // first page
 	ret =data_process(host,templist,temp,WRITE);
 	if(ret < 0){
-		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		do_deselect_chip(host);
-		return ret;
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+		goto nand_write_2p_page_error;
 	}
 	nand_write_page_oob();
 	send_prog_2p_confirm1();
@@ -850,16 +859,16 @@ static inline int nand_write_2p_page_real(NAND_BASE *host,Aligned_List *aligned_
 	if((templist->startPageID < 0) || (templist->startPageID > g_pagecount))  //judge startPageID
 	{
 		templist->retVal =-1;
-		return ENAND;
+		ret =  ENAND;
+		goto nand_write_2p_page_error;
 	}
 	temp = aligned_list->next->opsmodel & 0x00ffffff;     //second page
 
 	send_prog_2p_page2(templist->OffsetBytes,p_pageid+g_pnand_chip->ppblock);
 	ret =data_process(host,templist,temp,WRITE);
 	if(ret < 0){
-		g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
-		do_deselect_chip(host);
-		return ret;
+		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+		goto nand_write_2p_page_error;
 	}
 	nand_write_page_oob();
 	send_prog_2p_confirm2();
@@ -872,6 +881,9 @@ static inline int nand_write_2p_page_real(NAND_BASE *host,Aligned_List *aligned_
 		printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		aligned_list->pagelist->retVal =ret;
 	}
+nand_write_2p_page_error:
+	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
+	do_deselect_chip(host);
 	return ret;
 }
 
@@ -914,9 +926,13 @@ int nand_read_page(NAND_BASE *host,unsigned int pageid,unsigned int offset,unsig
 	p_pageid =get_physical_addr(pageid+g_startpage);
 	do_select_chip(host,p_pageid);
 	ret =nand_read_1p_oob(p_pageid);   //read-1p-page oob
-	if(ret < 0)
+	if(ret < 0){
+		printk("%s  ret = %d\n",__func__,ret);
 		return ret;        //return  timeout error
+	}
 	ret =nand_read_page_data(host,offset,bytes,(unsigned char *)databuf);
+	if(ret < 0)
+		printk("%s  ret = %d\n",__func__,ret);
 	g_pnand_ecc->free_bch_buffer(g_oobsize+g_freesize);   //reset poobbuf
 	do_deselect_chip(host);
 	return (ret < 0) ? ret : bytes;           //return Uncorrectable error or success
@@ -934,7 +950,6 @@ int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list)
 	while(templist)
 	{
 		temp = templist->opsmodel & (0xff<<24);  // 31~24 : operation mode
-		printk(" nand read pages :  opsmodel = 0x%x ;temp =0x%x \n",templist->opsmodel,temp);
 		if(temp){
 			ret =nand_read_2p_page(host,templist);
 			templist = templist->next->next;
@@ -945,12 +960,13 @@ int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list)
 			templist =templist->next;
 			j++;
 		}
-		if(ret < 0)
+		if(ret < 0){
+			printk("%s  ret = %d\n",__func__,ret);
 			return ret;
+		}
 		if(ret > 0)
 			flag = 1;
 	}
-	dprintf("nand_read_pages : two_plane  %d pages;one_plane %d pages\n",i,j);
 	return flag?1:SUCCESS;
 }
 
@@ -976,6 +992,8 @@ int nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,uns
 	send_prog_confirm();
 	send_read_status(&state);
 	do_deselect_chip(host);
+	if(state & NAND_STATUS_FAIL)
+		printk("%s  state = %d\n",__func__,state);
 	return state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS;
 }
 /******************************************************
@@ -989,7 +1007,7 @@ int nand_write_pages(NAND_BASE *host,Aligned_List *aligned_list)
 	while(templist)
 	{
 		temp = templist->opsmodel & (0xff<<24);  // 31~24 :operation mode
-		printk(" nand write pages :  opsmodel = 0x%x ;temp =0x%x \n",templist->opsmodel,temp);
+//		printk(" nand write pages :  opsmodel = 0x%x ;temp =0x%x \n",templist->opsmodel,temp);
 		if(temp){
 			ret =nand_write_2p_page(host,templist);
 			templist = templist->next->next;
@@ -998,8 +1016,10 @@ int nand_write_pages(NAND_BASE *host,Aligned_List *aligned_list)
 			ret =nand_write_1p_page(host,templist);
 			templist =templist->next;
 		}
-		if(ret)
+		if(ret){
+			printk("%s ret = %d\n",__func__,ret);
 			return ret;
+		}
 	}
 	return SUCCESS;
 }
