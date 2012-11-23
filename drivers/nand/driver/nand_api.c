@@ -21,23 +21,142 @@
 #include "../inc/nand_debug.h"   //change later
 
 //#define DEBUG_ERASE
-//#define NAND_DRIVE_CACL_TIME
-#ifdef NAND_DRIVE_CACL_TIME
-static long long time =0;
-static int cacl_bytes =0;
-static int total_pages =0;
-static inline  void b_time(void)
+//#define NAPI_DEBUG_TIME_WRITE
+//#define NAPI_DEBUG_TIME_READ
+
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+#define NAPI_DBG_READ	0
+#define NAPI_DBG_WRITE	1
+#define BYTE_PER_PAGE	8192
+#define DEBUG_TIME_BYTES (10 * 1024 *1024)
+struct __data_distrib {
+	unsigned int _0KBytes;		// x == 0
+	unsigned int _0_2KBytes;	// 0 < x < 2
+	unsigned int _2KBytes;		// x == 2
+	unsigned int _2_4KBytes;	// 2 < x < 4
+	unsigned int _4KBytes;		// x == 4
+	unsigned int _4_6KBytes;	// 4 < x < 6
+	unsigned int _6KBytes;		// x == 6
+	unsigned int _6_8KBytes;	// 6 < x < 8
+	unsigned int _8KBytes;		// x == 8
+};
+
+static unsigned long long rd_btime = 0;
+static unsigned long long wr_btime = 0;
+static unsigned long long rd_sum_time = 0;
+static unsigned long long wr_sum_time = 0;
+static unsigned int rd_sum_bytes = 0;
+static unsigned int wr_sum_bytes = 0;
+static unsigned int rd_sum_pages = 0;
+static unsigned int wr_sum_pages = 0;
+static struct __data_distrib rd_dbg_distrib = {0};
+static struct __data_distrib wr_dbg_distrib = {0};
+
+/*for example: div_s64_32(3,2) = 2*/
+static inline int div_s64_32(long long dividend , int divisor);
+static inline void calc_bytes(int mode, int bytes)
 {
-	time = sched_clock();
+	if (mode == NAPI_DBG_READ)
+		rd_sum_bytes += bytes;
+	else
+		wr_sum_bytes += bytes;
 }
-static inline void e_time(void)
+
+static inline void calc_pages(int mode, int pages)
 {
-	long long etime = sched_clock();
-	printk("*****time = %llu ,bytes = %d ,pages = %d  ********\n",etime-time,cacl_bytes,total_pages);
+	if (mode == NAPI_DBG_READ)
+		rd_sum_pages += pages;
+	else
+		wr_sum_pages += pages;
 }
-#else
-static inline void b_time(void){}
-static inline void e_time(void){}
+
+static inline void calc_distrib(int mode, int bytes)
+{
+	struct __data_distrib *distrib;
+
+	if (mode == NAPI_DBG_READ)
+		distrib = &rd_dbg_distrib;
+	else
+		distrib = &wr_dbg_distrib;
+
+	if (bytes == 0) {
+		distrib->_0KBytes ++;
+	} else if ((bytes > 0 * 1024) && (bytes < 2 * 1024)) {
+		distrib->_0_2KBytes ++;
+	} else if (bytes == 2 * 1024) {
+		distrib->_2KBytes ++;
+	} else if ((bytes > 2 * 1024) && (bytes < 4 * 1024)) {
+		distrib->_2_4KBytes ++;
+	} else if (bytes == 4 * 1024) {
+		distrib->_4KBytes ++;
+	} else if ((bytes > 4 * 1024) && (bytes < 6 * 1024)) {
+		distrib->_4_6KBytes ++;
+	} else if (bytes == 6 * 1024) {
+		distrib->_6KBytes ++;
+	} else if ((bytes > 6 * 1024) && (bytes < 8 * 1024)) {
+		distrib->_6_8KBytes ++;
+	} else if (bytes == 8 * 1024) {
+		distrib->_8KBytes ++;
+	} else {
+		printk("%s, line:%d, Bytes error!, bytes = %d\n", __func__, __LINE__, bytes);
+	}
+}
+
+static inline void begin_time(int mode)
+{
+	if (mode == NAPI_DBG_READ)
+		rd_btime = sched_clock();
+	else
+		wr_btime = sched_clock();
+}
+
+static inline void end_time(int mode)
+{
+	int times, bytes, theory_bytes;
+	unsigned long long etime = sched_clock();
+
+	if (mode == NAPI_DBG_READ) {
+		rd_sum_time += (etime - rd_btime);
+		if (rd_sum_bytes >= DEBUG_TIME_BYTES) {
+#ifdef NAPI_DEBUG_TIME_READ
+			times = div_s64_32(rd_sum_time, 1000 * 1000);
+			bytes = rd_sum_bytes / 1024;
+			theory_bytes = rd_sum_pages * BYTE_PER_PAGE / 1024;
+			printk("READ: nand_api speed debug, %dms, %dKb, %d, %dKb/s, %dKb/s\n",
+				   times, bytes, rd_sum_pages, (bytes * 1000) / times, (theory_bytes * 1000) / times);
+			printk("[    0KBytes]:(%d)\n[0 - 2KBytes]:(%d)\n[    2KBytes]:(%d)\n[2 - 4KBytes]:(%d)\n",
+				   rd_dbg_distrib._0KBytes, rd_dbg_distrib._0_2KBytes,
+				   rd_dbg_distrib._2KBytes, rd_dbg_distrib._2_4KBytes);
+			printk("[    4KBytes]:(%d)\n[4 - 6KBytes]:(%d)\n[    6KBytes]:(%d)\n[6 - 8KBytes]:(%d)\n",
+				   rd_dbg_distrib._4KBytes, rd_dbg_distrib._4_6KBytes,
+				   rd_dbg_distrib._6KBytes, rd_dbg_distrib._6_8KBytes);
+			printk("[    8KBytes]:(%d)\n\n", rd_dbg_distrib._8KBytes);
+#endif
+			rd_sum_bytes = rd_sum_time = rd_sum_pages = 0;
+			memset(&rd_dbg_distrib, 0, sizeof(struct __data_distrib));
+		}
+	} else {
+		wr_sum_time += (etime - wr_btime);
+		if (wr_sum_bytes >= DEBUG_TIME_BYTES) {
+#ifdef NAPI_DEBUG_TIME_WRITE
+			times = div_s64_32(wr_sum_time, 1000 * 1000);
+			bytes = wr_sum_bytes / 1024;
+			theory_bytes = wr_sum_pages * BYTE_PER_PAGE / 1024;
+			printk("WRITE: nand_api speed debug, %dms, %dKb, %d, %dKb/s, %dKb/s\n",
+				   times, bytes, wr_sum_pages, (bytes * 1000) / times, (theory_bytes * 1000) / times);
+			printk("[    0KBytes]:(%d)\n[0 - 2KBytes]:(%d)\n[    2KBytes]:(%d)\n[2 - 4KBytes]:(%d)\n",
+				   wr_dbg_distrib._0KBytes, wr_dbg_distrib._0_2KBytes,
+				   wr_dbg_distrib._2KBytes, wr_dbg_distrib._2_4KBytes);
+			printk("[    4KBytes]:(%d)\n[4 - 6KBytes]:(%d)\n[    6KBytes]:(%d)\n[6 - 8KBytes]:(%d)\n",
+				   wr_dbg_distrib._4KBytes, wr_dbg_distrib._4_6KBytes,
+				   wr_dbg_distrib._6KBytes, wr_dbg_distrib._6_8KBytes);
+			printk("[    8KBytes]:(%d)\n\n", wr_dbg_distrib._8KBytes);
+#endif
+			wr_sum_bytes = wr_sum_time = wr_sum_pages = 0;
+			memset(&wr_dbg_distrib, 0, sizeof(struct __data_distrib));
+		}
+	}
+}
 #endif
 
 static int (*nand_partition_install)(char *) = NULL;
@@ -416,7 +535,11 @@ init_nand_driver_error1:
  * page_aligned -- pagelist will be transformed into aligned_list,
  *
  */
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list, int rwflag)
+#else
 static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list)
+#endif
 {
 	struct singlelist *listhead;
 	PageList *pnextpagelist=0;
@@ -427,10 +550,10 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 	aligned_list->next =0;
 	i++;
 	listhead = (pagelist->head).next;
-#ifdef NAND_DRIVE_CACL_TIME
-	cacl_bytes = 0;
-	total_pages = 1;
-	cacl_bytes += pagelist->Bytes;
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	calc_bytes(rwflag, pagelist->Bytes);
+	calc_distrib(rwflag, pagelist->Bytes);
+	calc_pages(rwflag, 1);
 #endif
 	while(listhead)
 	{
@@ -451,15 +574,15 @@ static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list
 				aligned_list->pagelist =pagelist;
 				aligned_list->opsmodel =1;
 				aligned_list->next =0;
-#ifdef NAND_DRIVE_CACL_TIME
-				total_pages++;
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+				calc_pages(rwflag, 1);
 #endif
 				break;
 		}
 		i++;
 		listhead = (pagelist->head).next;
-#ifdef NAND_DRIVE_CACL_TIME
-	cacl_bytes += pagelist->Bytes;
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+		calc_bytes(rwflag, pagelist->Bytes);
 #endif
 	}
 	return;
@@ -497,13 +620,19 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
-	b_time();
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	begin_time(NAPI_DBG_READ);
+#endif
 	if(!read_pagelist){
 		dev_err(&g_pdev->dev," nand read_pagelist is null\n");
 		return -1;
 	}
 
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	page_aligned(read_pagelist,g_aligned_list, NAPI_DBG_READ);
+#else
 	page_aligned(read_pagelist,g_aligned_list);
+#endif
 
 	if(tmp_part_attrib == PART_XBOOT){
 		nand_ops_parameter_reset(tmp_ppt);
@@ -517,7 +646,9 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 		ret =nand_read_pages(g_pnand_api.vnand_base,g_aligned_list);
 #endif
 	}
-	e_time();
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	end_time(NAPI_DBG_READ);
+#endif
 	return ret;
 }
 
@@ -552,12 +683,19 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	begin_time(NAPI_DBG_WRITE);
+#endif
 	if(!write_pagelist){
 		dev_err(&g_pdev->dev," nand write_pagelist is null\n");
 		return -1;
 	}
 
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	page_aligned(write_pagelist,g_aligned_list, NAPI_DBG_WRITE);
+#else
 	page_aligned(write_pagelist,g_aligned_list);
+#endif
 
 	if(tmp_part_attrib == PART_XBOOT){
 		nand_ops_parameter_reset(tmp_ppt);
@@ -574,6 +712,9 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 		ret =nand_write_pages(g_pnand_api.vnand_base,g_aligned_list);
 #endif
 	}
+#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
+	end_time(NAPI_DBG_WRITE);
+#endif
 	return ret;
 }
 
