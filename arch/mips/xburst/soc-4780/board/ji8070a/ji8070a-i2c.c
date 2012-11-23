@@ -142,7 +142,45 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 };
 #endif
 
-#if (defined(CONFIG_GC0308))
+/*--------------------for qt80-------------*/
+
+#if (defined(CONFIG_GC0308)&&defined(CONFIG_QT80))
+struct gc0308_platform_data {
+	int facing_f;
+	int orientation_f;
+	int mirror_f;
+
+	int facing_b;
+	int orientation_b;
+	int mirror_b;
+
+	uint16_t gpio_rst;
+
+	uint16_t gpio_en_f;
+	uint16_t gpio_en_b;
+};
+
+static struct gc0308_platform_data gc0308_pdata = {
+	.facing_f = 0,
+	.orientation_f = 0,
+	.mirror_f = 0,
+
+	.facing_b = 1,
+	.orientation_b = 0,
+	.mirror_b = 1,
+
+	.gpio_en_f = GPIO_GC0308_EN_F,
+	.gpio_en_b = GPIO_GC0308_EN_B,
+
+	.gpio_rst = GPIO_GC0308_RST,
+};
+#endif
+
+/*---------------end---------------*/
+
+
+
+#if (defined(CONFIG_GC0308) && !defined(CONFIG_QT80))
 static struct cam_sensor_plat_data gc0308_pdata = {
 	.facing = 1,
 	.orientation = 0,

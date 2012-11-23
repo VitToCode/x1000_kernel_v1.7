@@ -97,11 +97,18 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
 
+/*if select kernel config QT80*/
+#if ((defined(CONFIG_GC0308) && defined(CONFIG_QT80)))
+#define GPIO_GC0308_EN_F		GPIO_PB(18)
+#define GPIO_GC0308_EN_B		GPIO_PB(19)
+#define GPIO_GC0308_RST			GPIO_PB(26)
+#endif
 
-#ifdef	CONFIG_GC0308
+#if (defined(CONFIG_GC0308) && !defined(CONFIG_QT80))
 #define GPIO_GC0308_EN			GPIO_PB(18)
 #define GPIO_GC0308_RST			GPIO_PB(26)
 #endif
+
 
 #ifdef	CONFIG_GC2015
 #define GPIO_GC2015_EN			GPIO_PB(19)

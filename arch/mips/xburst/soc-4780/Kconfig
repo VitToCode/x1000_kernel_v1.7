@@ -33,6 +33,14 @@ config BOARD_NPM801
 
 endchoice
 
+
+  
+config  QT80
+	 bool "Ingenic JZ4780 for the diffrence bettwen  JI8070A and QT80"
+	 depends on  BOARD_JI8070A 
+
+
+
 config BOARD_NAME
 	string
 	default "pisces" if BOARD_PISCES

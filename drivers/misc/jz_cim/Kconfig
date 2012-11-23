@@ -34,6 +34,13 @@ config GC0308
 	depends on JZ_CIM
 	default n
 
+config GC0308_QT80
+	bool "gc0308_qt80 camera sensor"
+	depends on JZ_CIM
+	default n
+
+
+
 config GC2015
 	bool "gc2015 camera sensor"
 	depends on JZ_CIM
