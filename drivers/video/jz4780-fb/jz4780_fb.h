@@ -120,9 +120,11 @@ struct jzfb {
 	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
 	struct jzfb_osd_t osd; /* osd's config information */
 
-	struct clk *ldclk;
-	struct clk *lpclk;
+	struct clk *clk;
+	struct clk *pclk;
 	struct clk *ipu_clk;
+	struct clk *hdmi_clk;
+	struct clk *hdmi_pclk;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;

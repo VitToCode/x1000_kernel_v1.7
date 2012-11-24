@@ -61,7 +61,7 @@ static int jzfb_open(struct fb_info *info, int user)
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
 
 	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
-		clk_enable(jzfb->ldclk);
+		clk_enable(jzfb->clk);
 
 		jzfb_set_par(info);
 		jzfb_enable(info);
@@ -832,10 +832,10 @@ static int jzfb_set_par(struct fb_info *info)
 	}
 
 	is_enabled = jzfb->is_enabled;
-	if(is_enabled) 
+	if(is_enabled)
 		jzfb_disable(info);
-	else 
-		clk_enable(jzfb->ldclk);
+	else
+		clk_enable(jzfb->clk);
 
 	mutex_lock(&jzfb->lock);
 
@@ -884,14 +884,14 @@ static int jzfb_set_par(struct fb_info *info)
 	jzfb_prepare_dma_desc(info);
 
 	mutex_unlock(&jzfb->lock);
-	
-	clk_disable(jzfb->lpclk);
-	clk_set_rate(jzfb->lpclk, rate);
-	clk_enable(jzfb->lpclk);
+
+	clk_disable(jzfb->pclk);
+	clk_set_rate(jzfb->pclk, rate);
+	clk_enable(jzfb->pclk);
 
 	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
 	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
-		 clk_get_rate(jzfb->lpclk));
+		 clk_get_rate(jzfb->pclk));
 
 	jzfb_config_image_enh(info);
 	/* panel'type is TFT LVDS, need to configure LVDS controller */
@@ -901,8 +901,10 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(is_enabled)
 		jzfb_enable(info);
-	else
-		clk_disable(jzfb->ldclk);
+	else {
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
+	}
 
 	return 0;
 }
@@ -923,7 +925,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		ctrl |= LCDC_CTRL_ENA;
 		ctrl &= ~LCDC_CTRL_DIS;
 		reg_write(jzfb, LCDC_CTRL, ctrl);
-	
+
 		spin_lock(&jzfb->suspend_lock);
 		if (jzfb->is_suspend) {
 			jzfb->is_suspend = 0;
@@ -941,7 +943,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		ctrl = reg_read(jzfb, LCDC_CTRL);
 		ctrl |= LCDC_CTRL_DIS;
 		reg_write(jzfb, LCDC_CTRL,ctrl);
-	
+
 		while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD) && count--)
 			udelay(10);
 
@@ -1526,11 +1528,11 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		}
 
 		if (value) {
-			clk_enable(jzfb->lpclk);
-			clk_enable(jzfb->ldclk);
+			clk_enable(jzfb->hdmi_pclk);
+			clk_enable(jzfb->hdmi_clk);
 		} else {
-			clk_disable(jzfb->ldclk);
-			clk_disable(jzfb->lpclk);
+			clk_disable(jzfb->hdmi_clk);
+			clk_disable(jzfb->hdmi_pclk);
 		}
 		break;
 	case JZFB_ENABLE_FG0:
@@ -1708,8 +1710,8 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	spin_unlock(&jzfb->suspend_lock);
 
 	if(jzfb->is_enabled) {
-		clk_disable(jzfb->ldclk);
-		clk_disable(jzfb->lpclk);
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
 	}
 #ifdef CONFIG_JZ4780_AOSD
 	/* The clock of aosd just need to close once */
@@ -1724,8 +1726,8 @@ static void jzfb_late_resume(struct early_suspend *h)
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
 	if(jzfb->is_enabled) {
-		clk_enable(jzfb->lpclk);
-		clk_enable(jzfb->ldclk);
+		clk_enable(jzfb->pclk);
+		clk_enable(jzfb->clk);
 	}
 #ifdef CONFIG_JZ4780_AOSD
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
@@ -2145,36 +2147,30 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	sprintf(jzfb->clk_name, "lcd%d",pdev->id);
 	sprintf(jzfb->pclk_name, "lcd_pclk%d",pdev->id);
 
-	jzfb->ldclk = clk_get(&pdev->dev, jzfb->clk_name);
-	if (IS_ERR(jzfb->ldclk)) {
-		ret = PTR_ERR(jzfb->ldclk);
-		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
-		goto err_framebuffer_release;
-	}
-
+	jzfb->clk = clk_get(&pdev->dev, jzfb->clk_name);
+	jzfb->pclk = clk_get(&pdev->dev, jzfb->pclk_name);
 	jzfb->ipu_clk = clk_get(&pdev->dev, jzfb->clk_name);
-	if (IS_ERR(jzfb->ipu_clk)) {
-		ret = PTR_ERR(jzfb->ipu_clk);
+	jzfb->hdmi_clk = clk_get(&pdev->dev, jzfb->clk_name);
+	jzfb->hdmi_pclk = clk_get(&pdev->dev, jzfb->pclk_name);
+
+	if (IS_ERR(jzfb->clk) || IS_ERR(jzfb->pclk)
+			|| IS_ERR(jzfb->ipu_clk)
+			|| IS_ERR(jzfb->hdmi_clk)|| IS_ERR(jzfb->hdmi_pclk)) {
+		ret = PTR_ERR(jzfb->clk);
 		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
 
-	jzfb->lpclk = clk_get(&pdev->dev, jzfb->pclk_name);
-	if (IS_ERR(jzfb->lpclk)) {
-		ret = PTR_ERR(jzfb->lpclk);
-		dev_err(&pdev->dev, "Failed to get lcd pixel clock: %d\n", ret);
-		goto err_put_ldclk;
-	}
 	if (!jzfb->pdata->alloc_vidmem) {
 		/* set default pixel clock to 27 MHz */
-		clk_set_rate(jzfb->lpclk, 27000000);
+		clk_set_rate(jzfb->pclk, 27000000);
 	}
 
 	jzfb->base = ioremap(mem->start, resource_size(mem));
 	if (!jzfb->base) {
 		dev_err(&pdev->dev, "Failed to ioremap register memory region\n");
 		ret = -EBUSY;
-		goto err_put_lpclk;
+		goto err_put_clk;
 	}
 
 	platform_set_drvdata(pdev, jzfb);
@@ -2271,7 +2267,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	}
 
 	/* Don't read or write lcdc registers until here. */
-	clk_enable(jzfb->ldclk);
+	clk_enable(jzfb->clk);
 
 	if (jzfb->id == 1) {
 		dual_ctrl = reg_read(jzfb, LCDC_DUAL_CTRL);
@@ -2306,8 +2302,8 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	}
 #endif
 	if(!jzfb->is_enabled) {
-		clk_disable(jzfb->ldclk);
-		clk_disable(jzfb->lpclk);
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
 	}
 
 	return 0;
@@ -2327,10 +2323,12 @@ err_free_devmem:
 	jzfb_free_devmem(jzfb);
 err_iounmap:
 	iounmap(jzfb->base);
-err_put_lpclk:
-	clk_put(jzfb->lpclk);
-err_put_ldclk:
-	clk_put(jzfb->ldclk);
+err_put_clk:
+	if(jzfb->clk) clk_put(jzfb->clk);
+	if(jzfb->pclk) clk_put(jzfb->pclk);
+	if(jzfb->ipu_clk) clk_put(jzfb->ipu_clk);
+	if(jzfb->hdmi_clk) clk_put(jzfb->hdmi_clk);
+	if(jzfb->hdmi_pclk) clk_put(jzfb->hdmi_pclk);
 err_framebuffer_release:
 	framebuffer_release(fb);
 err_release_mem_region:
@@ -2347,8 +2345,11 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
 
-	clk_put(jzfb->lpclk);
-	clk_put(jzfb->ldclk);
+	clk_put(jzfb->pclk);
+	clk_put(jzfb->clk);
+	clk_put(jzfb->ipu_clk);
+	clk_put(jzfb->hdmi_clk);
+	clk_put(jzfb->hdmi_pclk);
 
 	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
 		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
