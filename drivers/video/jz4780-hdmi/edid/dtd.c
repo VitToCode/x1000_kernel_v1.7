@@ -97,7 +97,7 @@ int dtd_Fill(dtd_t *dtd, u8 code, u32 refreshRate)
 			dtd->mVSyncOffset = 9;
 			dtd->mHSyncPulseWidth = 62;
 			dtd->mVSyncPulseWidth = 6;
-			dtd->mHSyncPolarity = dtd->mVSyncPolarity = 1;
+			dtd->mHSyncPolarity = dtd->mVSyncPolarity = 0;
 			dtd->mInterlaced = 0;
 			//dtd->mPixelClock = (refreshRate == 59940) ? 2700 : 2702;
 			dtd->mPixelClock = (refreshRate == 59940) ? 2700 : 2700;
