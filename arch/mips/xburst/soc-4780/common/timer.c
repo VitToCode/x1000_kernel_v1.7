@@ -62,8 +62,10 @@ static cycle_t jz_get_cycles(struct clocksource *cs)
 		unsigned int cycle32[2];
 	} cycle;
 	
-	cycle.cycle32[0] = ost_readl(OST_CNTL);
-	cycle.cycle32[1] = ost_readl(OST_CNTH_BUF);
+	do{
+		cycle.cycle32[1] = ost_readl(OST_CNTH);
+		cycle.cycle32[0] = ost_readl(OST_CNTL);
+	}while(cycle.cycle32[1] != ost_readl(OST_CNTH));
 
 	return cycle.cycle64;
 }
