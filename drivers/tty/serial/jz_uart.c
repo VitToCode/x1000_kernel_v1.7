@@ -103,7 +103,6 @@ static void serial_jz47xx_enable_ms(struct uart_port *port)
 static void serial_jz47xx_stop_tx(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
-	unsigned int tmp;
 
 	if (up->ier & UART_IER_THRI) {
 		up->ier &= ~UART_IER_THRI;
@@ -657,10 +656,11 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 	/*
 	 * Disable interrupts from this port
 	 */
+
+	spin_lock_irqsave(&up->port.lock, flags);
 	up->ier = 0;
 	serial_out(up, UART_IER, 0);
 
-	spin_lock_irqsave(&up->port.lock, flags);
 	up->port.mctrl &= ~TIOCM_OUT2;
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
 	spin_unlock_irqrestore(&up->port.lock, flags);
@@ -871,17 +871,15 @@ static void serial_jz47xx_console_write(struct console *co, const char *s, unsig
 {
 	struct uart_jz47xx_port *up = serial_jz47xx_ports[co->index];
 	unsigned int ier;
-	unsigned long flags;
 
 	/*
 	 *	First save the IER then disable the interrupts
 	 */
-	spin_lock_irqsave(&up->port.lock,flags);
+	spin_lock(&up->port.lock);
 	ier = up->ier;
 	up->ier &= ~UART_IER_THRI;
 	serial_out(up, UART_IER, up->ier);
 
-	spin_unlock_irqrestore(&up->port.lock,flags);
 	uart_console_write(&up->port, s, count, serial_jz47xx_console_putchar);
 
 	/*
@@ -889,10 +887,9 @@ static void serial_jz47xx_console_write(struct console *co, const char *s, unsig
 	 *	and restore the IER
 	 */
 	wait_for_xmitr(up);
-	spin_lock_irqsave(&up->port.lock,flags);
 	up->ier = ier;
 	serial_out(up, UART_IER, ier);
-	spin_unlock_irqrestore(&up->port.lock,flags);
+	spin_unlock(&up->port.lock);
 }
 
 static int __init serial_jz47xx_console_setup(struct console *co, char *options)
