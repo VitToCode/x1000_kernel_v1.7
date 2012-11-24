@@ -873,8 +873,6 @@ static void serial_jz47xx_console_write(struct console *co, const char *s, unsig
 	unsigned int ier;
 	unsigned long flags;
 
-	clk_enable(up->clk);
-
 	/*
 	 *	First save the IER then disable the interrupts
 	 */
@@ -895,8 +893,6 @@ static void serial_jz47xx_console_write(struct console *co, const char *s, unsig
 	up->ier = ier;
 	serial_out(up, UART_IER, ier);
 	spin_unlock_irqrestore(&up->port.lock,flags);
-
-	clk_disable(up->clk);
 }
 
 static int __init serial_jz47xx_console_setup(struct console *co, char *options)
@@ -1012,6 +1008,8 @@ static int serial_jz47xx_probe(struct platform_device *dev)
 		ret = PTR_ERR(up->clk);
 		goto err_free;
 	}
+
+	clk_enable(up->clk);
 
 	up->port.type = PORT_JZ47XX;
 	up->port.iotype = UPIO_MEM;

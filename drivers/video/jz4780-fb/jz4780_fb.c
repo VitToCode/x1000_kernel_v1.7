@@ -62,9 +62,9 @@ static int jzfb_open(struct fb_info *info, int user)
 
 	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
 		clk_enable(jzfb->ldclk);
+
 		jzfb_set_par(info);
 		jzfb_enable(info);
-		clk_disable(jzfb->ldclk);
 	}
 
 	return 0;
@@ -725,6 +725,7 @@ static void jzfb_disable(struct fb_info *info)
 		mutex_unlock(&jzfb->lock);
 		return;
 	}
+
 	ctrl = reg_read(jzfb, LCDC_CTRL);
 	ctrl |= LCDC_CTRL_DIS;
 	reg_write(jzfb, LCDC_CTRL,ctrl);
@@ -831,8 +832,10 @@ static int jzfb_set_par(struct fb_info *info)
 	}
 
 	is_enabled = jzfb->is_enabled;
-	if(is_enabled)
+	if(is_enabled) 
 		jzfb_disable(info);
+	else 
+		clk_enable(jzfb->ldclk);
 
 	mutex_lock(&jzfb->lock);
 
@@ -881,57 +884,46 @@ static int jzfb_set_par(struct fb_info *info)
 	jzfb_prepare_dma_desc(info);
 
 	mutex_unlock(&jzfb->lock);
-	if(is_enabled)
-		jzfb_enable(info);
-
+	
 	clk_disable(jzfb->lpclk);
 	clk_set_rate(jzfb->lpclk, rate);
 	clk_enable(jzfb->lpclk);
-	//clk_set_rate(jzfb->ldclk, rate * 3);
 
 	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
 	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
 		 clk_get_rate(jzfb->lpclk));
 
-#if 0
-#define APLL_REG (*(unsigned int *)(0xB0000010))
-#define MPLL_REG (*(unsigned int *)(0xB0000014))
-#define EPLL_REG (*(unsigned int *)(0xB0000018))
-#define VPLL_REG (*(unsigned int *)(0xB000001c))
-
-#define CPCCR_REG (*(unsigned int *)(0xB0000000))
-#define LCD_PIXEL_REG (*(unsigned int *)(0xB0000064))
-
-	printk("\tAPLL_REG = 0x%08x\n", APLL_REG);
-	printk("\tMPLL_REG = 0x%08x\n", MPLL_REG);
-	printk("\tEPLL_REG = 0x%08x\n", EPLL_REG);
-	printk("\tVPLL_REG = 0x%08x\n", VPLL_REG);
-	printk("\tLCD_PIXEL_REG = 0x%08x\n", LCD_PIXEL_REG);
-	printk("\tCPCCR_REG = 0x%08x\n", CPCCR_REG);
-#endif
-
-	/* if dither_en is 1, then set it */
 	jzfb_config_image_enh(info);
-
 	/* panel'type is TFT LVDS, need to configure LVDS controller */
 	if (pdata->lvds && jzfb->id) {
 		jzfb_config_lvds_controller(info);
 	}
+
+	if(is_enabled)
+		jzfb_enable(info);
+	else
+		clk_disable(jzfb->ldclk);
 
 	return 0;
 }
 
 static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
+	int count = 10000;
+	unsigned long ctrl;
 	struct jzfb *jzfb = info->par;
 
-	clk_enable(jzfb->lpclk);
-	clk_enable(jzfb->ldclk);
+	if(!jzfb->is_enabled)
+		return 0;
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
-		jzfb_enable(info);
-
+		reg_write(jzfb, LCDC_STATE, 0);
+		ctrl = reg_read(jzfb, LCDC_CTRL);
+		ctrl |= LCDC_CTRL_ENA;
+		ctrl &= ~LCDC_CTRL_DIS;
+		reg_write(jzfb, LCDC_CTRL, ctrl);
+	
 		spin_lock(&jzfb->suspend_lock);
 		if (jzfb->is_suspend) {
 			jzfb->is_suspend = 0;
@@ -946,12 +938,17 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		}
 		break;
 	default:
-		jzfb_disable(info);
-		break;
-	}
+		ctrl = reg_read(jzfb, LCDC_CTRL);
+		ctrl |= LCDC_CTRL_DIS;
+		reg_write(jzfb, LCDC_CTRL,ctrl);
+	
+		while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD) && count--)
+			udelay(10);
 
-	clk_disable(jzfb->ldclk);
-	clk_disable(jzfb->lpclk);
+		if (count < 0) {
+			dev_err(jzfb->dev, "LCDC normal disable state wrong");
+		}
+	}
 
 	return 0;
 }
@@ -1506,27 +1503,16 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 
 		if (value) {
 			/* the clock of ipu is depends on lcdc's clock */
-			clk_enable(jzfb->lpclk);
-			clk_enable(jzfb->ldclk);
+			clk_enable(jzfb->ipu_clk);
 			tmp = reg_read(jzfb, LCDC_OSDCTRL);
 			/* enable ipu0 clock */
 			tmp |= LCDC_OSDCTRL_IPU_CLKEN;
 			reg_write(jzfb, LCDC_OSDCTRL, tmp);
 		} else {
-                        spin_lock(&jzfb->suspend_lock);
-                        if(jzfb->is_suspend) {
-                            clk_disable(jzfb->ldclk);
-                            clk_disable(jzfb->lpclk);
-                            spin_unlock(&jzfb->suspend_lock);
-                            break;
-                        }
-                        spin_unlock(&jzfb->suspend_lock);
-                        
                         tmp = reg_read(jzfb, LCDC_OSDCTRL);
                         tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
                         reg_write(jzfb, LCDC_OSDCTRL, tmp);
-                        clk_disable(jzfb->ldclk);
-                        clk_disable(jzfb->lpclk);
+                        clk_disable(jzfb->ipu_clk);
 		}
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
@@ -1721,8 +1707,10 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	jzfb->is_suspend = 1;
 	spin_unlock(&jzfb->suspend_lock);
 
-	clk_disable(jzfb->ldclk);
-	clk_disable(jzfb->lpclk);
+	if(jzfb->is_enabled) {
+		clk_disable(jzfb->ldclk);
+		clk_disable(jzfb->lpclk);
+	}
 #ifdef CONFIG_JZ4780_AOSD
 	/* The clock of aosd just need to close once */
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
@@ -1735,8 +1723,10 @@ static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
-	clk_enable(jzfb->lpclk);
-	clk_enable(jzfb->ldclk);
+	if(jzfb->is_enabled) {
+		clk_enable(jzfb->lpclk);
+		clk_enable(jzfb->ldclk);
+	}
 #ifdef CONFIG_JZ4780_AOSD
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
 		aosd_clock_enable(1);
@@ -1756,7 +1746,7 @@ static void jzfb_late_resume(struct early_suspend *h)
 }
 #endif
 
-static int jzfb_copy_xboot_logo(struct fb_info *info)
+static int jzfb_copy_logo(struct fb_info *info)
 {
 	unsigned long src_addr = 0; /* x-boot logo buffer address */
 	unsigned long dst_addr = 0; /* kernel frame buffer address */
@@ -1767,8 +1757,11 @@ static int jzfb_copy_xboot_logo(struct fb_info *info)
 	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
 	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {
 		/* x-boot is not display logo */
-		return -1;
+		return -ENOMEM;
 	}
+
+	jzfb->is_enabled = 1;
+
 	if (src_addr) {
 		src_addr = (unsigned long)phys_to_virt(src_addr);
 		dst_addr = (unsigned long)info->screen_base;
@@ -2159,6 +2152,13 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_framebuffer_release;
 	}
 
+	jzfb->ipu_clk = clk_get(&pdev->dev, jzfb->clk_name);
+	if (IS_ERR(jzfb->ipu_clk)) {
+		ret = PTR_ERR(jzfb->ipu_clk);
+		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
+		goto err_framebuffer_release;
+	}
+
 	jzfb->lpclk = clk_get(&pdev->dev, jzfb->pclk_name);
 	if (IS_ERR(jzfb->lpclk)) {
 		ret = PTR_ERR(jzfb->lpclk);
@@ -2283,7 +2283,13 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		reg_write(jzfb, LCDC_DUAL_CTRL, dual_ctrl);
 	}
 
-#ifdef CONFIG_FPGA_TEST
+#ifndef CONFIG_FPGA_TEST
+	if (jzfb->vidmem_phys) {
+		if (!jzfb_copy_logo(jzfb->fb)) {
+			jzfb_set_par(jzfb->fb);
+		}
+	}
+#else
 	if (jzfb->vidmem_phys) {
 		jzfb_set_par(jzfb->fb);
 		jzfb_enable(jzfb->fb);
@@ -2298,24 +2304,8 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		/* set pixel clock for hdmi 480p test */
 		reg_write(jzfb, LCDC_REV, 0 << 16);
 	}
-	//dump_lcdc_registers(jzfb);
 #endif
-
-#if 1
-	if (jzfb->vidmem_phys) {
-		if (jzfb_copy_xboot_logo(jzfb->fb) >= 0) {
-			jzfb_enable(jzfb->fb);
-			jzfb_set_par(jzfb->fb);
-		} else {
-			jzfb_set_par(jzfb->fb);
-			jzfb_enable(jzfb->fb);
-		}
-		//jzfb_display_v_color_bar(jzfb->fb);
-	}
-	//dump_lcdc_registers(jzfb);
-#endif
-	if (!jzfb->pdata->alloc_vidmem && (jzfb->id != 1)) {
-		/* If enable LCDC0, can not disable the clock of LCDC1 */
+	if(!jzfb->is_enabled) {
 		clk_disable(jzfb->ldclk);
 		clk_disable(jzfb->lpclk);
 	}

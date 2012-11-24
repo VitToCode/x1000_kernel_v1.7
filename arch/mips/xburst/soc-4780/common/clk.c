@@ -49,6 +49,7 @@ struct clk {
 #define CLK_FLG_PARENT	BIT(6)
 	struct clk_ops *ops;
 	int count;
+	struct clk *source;
 };
 
 enum {
@@ -525,6 +526,9 @@ static int cgu_enable(struct clk *clk,int on)
 			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
 				printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 		} else {
+			printk("######################################\n");
+			printk("cgu clk should set rate before enable!\n");
+			printk("######################################\n");
 			BUG();
 		}
 	} else {
@@ -744,12 +748,16 @@ static int clk_gate_ctrl(struct clk *clk, int enable)
 struct clk *clk_get(struct device *dev, const char *id)
 {
 	int i;
+	struct clk *retval = NULL;
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
-		if(clk_srcs[i].flags & CLK_FLG_USED)
-			continue;
-		if(strcmp(id,clk_srcs[i].name) == 0) {
-			clk_srcs[i].flags |= CLK_FLG_USED;
-			return &clk_srcs[i];
+		if(!strcmp(id,clk_srcs[i].name)) {
+			retval = kzalloc(sizeof(struct clk),GFP_KERNEL);
+			if(!retval)
+				return ERR_PTR(-ENODEV);
+			memcpy(retval,&clk_srcs[i],sizeof(struct clk));
+			retval->source = &clk_srcs[i];
+			retval->count = 0;
+			return retval;
 		}
 	}
 	return ERR_PTR(-EINVAL);
@@ -760,6 +768,15 @@ int clk_enable(struct clk *clk)
 {
 	if(!clk)
 		return -EINVAL;
+
+	if(clk->source) {
+		if(clk->count) {
+			return 0;
+		}
+
+		clk->count = 1;
+		clk = clk->source;
+	}
 
 	if(clk->flags & CLK_FLG_ENABLE) {
 		clk->count++;
@@ -783,6 +800,8 @@ EXPORT_SYMBOL(clk_enable);
 
 int clk_is_enabled(struct clk *clk)
 {
+	if(clk->source)
+		clk = clk->source;
 	return clk->flags & CLK_FLG_ENABLE;
 }
 EXPORT_SYMBOL(clk_is_enabled);
@@ -791,6 +810,15 @@ void clk_disable(struct clk *clk)
 {
 	if(!clk)
 		return;
+
+	if(clk->source) {
+		if(!clk->count) {
+			return;
+		}
+
+		clk->count = 0;
+		clk = clk->source;
+	}
 
 	if(clk->count > 1) {
 		clk->count--;
@@ -812,6 +840,8 @@ EXPORT_SYMBOL(clk_disable);
 
 unsigned long clk_get_rate(struct clk *clk)
 {
+	if(clk->source)
+		clk = clk->source;
 	return clk? clk->rate: 0;
 }
 EXPORT_SYMBOL(clk_get_rate);
@@ -819,7 +849,7 @@ EXPORT_SYMBOL(clk_get_rate);
 void clk_put(struct clk *clk)
 {
 	if(clk)
-		clk->flags &= ~CLK_FLG_USED;
+		kfree(clk);
 	return;
 }
 EXPORT_SYMBOL(clk_put);
@@ -832,7 +862,11 @@ long clk_round_rate(struct clk *clk, unsigned long rate);
 
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
-	if (!clk || !clk->ops || !clk->ops->set_rate)
+	if (!clk)
+		return -EINVAL;
+	if(clk->source)
+		clk = clk->source;
+	if (!clk->ops || !clk->ops->set_rate)
 		return -EINVAL;
 
 	clk->ops->set_rate(clk, rate);
@@ -845,7 +879,11 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int err;
 
-	if (!clk || !clk->ops || !clk->ops->set_parent)
+	if (!clk)
+		return -EINVAL;
+	if(clk->source)
+		clk = clk->source;
+	if (!clk->ops || !clk->ops->set_rate)
 		return -EINVAL;
 
 	err = clk->ops->set_parent(clk, parent);
@@ -856,7 +894,9 @@ EXPORT_SYMBOL(clk_set_parent);
 
 struct clk *clk_get_parent(struct clk *clk)
 {
-	return clk? clk->parent: NULL;
+	if (!clk)
+		return NULL;
+	return clk->source->parent;
 }
 EXPORT_SYMBOL(clk_get_parent);
 

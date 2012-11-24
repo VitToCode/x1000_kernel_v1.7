@@ -122,6 +122,7 @@ struct jzfb {
 
 	struct clk *ldclk;
 	struct clk *lpclk;
+	struct clk *ipu_clk;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
