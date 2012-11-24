@@ -35,7 +35,7 @@ struct clk {
 	unsigned long rate;
 	struct clk *parent;
 	unsigned long flags;
-#define CLK_FLG_USED	BIT(0)
+#define CLK_FLG_NOALLOC	BIT(0)
 #define CLK_FLG_ENABLE	BIT(1)
 #define CLK_GATE_BIT(flg)	((flg) >> 24)
 #define CLK_FLG_GATE	BIT(2)
@@ -231,8 +231,8 @@ enum {
 #define DEF_CLK(N,FLAG)						\
 		[CLK_ID_##N] = { .name = CLK_NAME_##N, .flags = FLAG, }
 
-		DEF_CLK(EXT0,  		0),
-		DEF_CLK(EXT1,  		0),
+		DEF_CLK(EXT0,  		CLK_FLG_NOALLOC),
+		DEF_CLK(EXT1,  		CLK_FLG_NOALLOC),
 
 		DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
 		DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
@@ -751,6 +751,8 @@ struct clk *clk_get(struct device *dev, const char *id)
 	struct clk *retval = NULL;
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(!strcmp(id,clk_srcs[i].name)) {
+			if(clk_srcs[i].flags & CLK_FLG_NOALLOC)
+				return &clk_srcs[i];
 			retval = kzalloc(sizeof(struct clk),GFP_KERNEL);
 			if(!retval)
 				return ERR_PTR(-ENODEV);
@@ -848,7 +850,7 @@ EXPORT_SYMBOL(clk_get_rate);
 
 void clk_put(struct clk *clk)
 {
-	if(clk)
+	if(clk && !(clk->flags & CLK_FLG_NOALLOC))
 		kfree(clk);
 	return;
 }
