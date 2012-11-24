@@ -261,7 +261,7 @@
 #define CODEC_REG_GCR_MIC1      0x2e
 /*------------------*/
  #define GCR_MIC1_GIM1          0
-  #define GCR_MIC1_GIM1_MASK    (0x3 << GCR_MIC1_GIM1)
+  #define GCR_MIC1_GIM1_MASK    (0x7 << GCR_MIC1_GIM1)
 
 
 #define CODEC_REG_GCR_MIC2      0x2f
