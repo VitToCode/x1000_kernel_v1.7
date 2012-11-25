@@ -585,4 +585,17 @@ config JZ_PWM_GPIO_D11
 	depends on JZ_PWM
 	default n
 
+config JZ_MODEM
+        tristate "Support modem power control function"
+        depends on JZRISC
+        help
+          Support the modem(s) connected to JZ SOC.
+
+config GSM_RDA8851CL
+        bool "Use GSM modem RDA8851CL"
+        depends on JZ_MODEM
+        help
+          Support GSM modem RDA8851CL.
+
+
 endif # MISC_DEVICES

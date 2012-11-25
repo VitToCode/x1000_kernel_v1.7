@@ -30,6 +30,10 @@ extern struct platform_device ek070tn93_device;
 #endif
 extern struct platform_device npm801_backlight_device;
 
+#ifdef CONFIG_JZ_MODEM
+extern struct platform_device jz_modem_device;
+#endif
+
 /**
  * sound platform data
  **/
@@ -115,6 +119,22 @@ extern struct platform_nand_data jz_nand_chip_data;
  **/
 #define JZ_PMEM_CAMERA_BASE	0x5f000000
 #define JZ_PMEM_CAMERA_SIZE	0x01000000
+
+/*
+ * modem gpio
+ */
+#define GPIO_BP_PWR			GPIO_PE(8)
+#define GPIO_BP_PWR_LEVEL		1
+#define GPIO_BP_ONOFF			GPIO_PD(12)
+#define GPIO_BP_ONOFF_LEVEL		1
+#define GPIO_BP_WAKE_AP			GPIO_PB(21)
+#define GPIO_BP_WAKE_AP_LEVEL		0
+#define GPIO_BP_STATUS			GPIO_PB(31)
+#define GPIO_BP_STATUS_LEVEL		0
+#define GPIO_AP_WAKE_BP			GPIO_PB(28)
+#define GPIO_AP_WAKE_BP_LEVEL		0
+#define GPIO_AP_STATUS			GPIO_PB(30)
+#define GPIO_AP_STATUS_LEVEL		0
 
 /**
  * motor gpio

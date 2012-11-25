@@ -56,3 +56,4 @@ obj-$(CONFIG_JZ_X2D)    	+= jz_x2d/
 obj-$(CONFIG_JZ_VPU)		+= jz_vpu.o
 obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
 obj-$(CONFIG_JZ_PWM)            += jz_pwm.o
+obj-$(CONFIG_JZ_MODEM)		+= jz_modem/

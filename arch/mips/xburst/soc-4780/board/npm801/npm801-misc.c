@@ -431,6 +431,11 @@ static int __init npm801_board_init(void)
 #ifdef CONFIG_ANDROID_PMEM
 	platform_device_register(&pmem_camera_device);
 #endif
+
+#ifdef CONFIG_JZ_MODEM
+	platform_device_register(&jz_modem_device);
+#endif
+
 	return 0;
 }
 
