@@ -8,7 +8,8 @@
 
 static void rda8851cl_init(struct modem_data *bp)
 {
-	gpio_request(bp->bp_status.gpio, "bp status");
+	if (bp->bp_status.gpio)
+		gpio_request(bp->bp_status.gpio, "bp status");
 	modem_gpio_request(&bp->bp_pwr, "rda8851 power");
 	modem_gpio_request(&bp->ap_status, "ap status");
 	modem_gpio_request(&bp->bp_onoff, "bp on");
