@@ -337,7 +337,13 @@ static int jz4780_pm_enter(suspend_state_t state)
 	
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	printk("enter suspend.\n");
 	jz4780_suspend();
+	printk("resume.\n");
+#else
+	jz4780_suspend();
+#endif
 
 	memcpy((void *)RESUME_ADDR,tcsm_back,512);
 	cpm_outl(lcr,CPM_LCR);

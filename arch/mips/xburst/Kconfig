@@ -67,4 +67,8 @@ config CPUFREQ_CHANGE_VCORE
 	bool "change vcore voltage when cpu frequency has changed"
 	default n
 
+config SUSPEND_SUPREME_DEBUG
+	depends on PM
+	bool "superme debug for suspend"
+	default n
 
