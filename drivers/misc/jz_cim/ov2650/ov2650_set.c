@@ -3,12 +3,14 @@
 #include <linux/delay.h>
 #include <mach/jz_cim.h>
 #include "ov2650_camera.h"
+#include "ov2650_init.h"
 
 #define CAMERA_MODE_PREVIEW 0
 #define CAMERA_MODE_CAPTURE 1
 static int mode = CAMERA_MODE_CAPTURE;
 static int g_width = 800;
 static int g_height = 600;
+struct i2c_client * g_client ;
 
 int ov2650_init(struct cim_sensor *sensor_info)
 {
@@ -16,244 +18,21 @@ int ov2650_init(struct cim_sensor *sensor_info)
 	struct i2c_client * client ;
 	s = container_of(sensor_info, struct ov2650_sensor, cs);
 	client = s->client;
+    g_client = client;
     mode = CAMERA_MODE_PREVIEW;
+    int i = 0;
 	/***************** init reg set **************************/
 	/*** SVGA preview (800X600) 30fps 24MCLK input ***********/
 
 	dev_info(&client->dev, "ov2650 -----------------------------------init\n");
 
-    ov2650_write_reg(client, 0x3012, 0x80);
-    mdelay(100);
-
-    ov2650_write_reg(client, 0x308c, 0x80);
-    ov2650_write_reg(client, 0x308d, 0x0e);
-    ov2650_write_reg(client, 0x360b, 0x00);
-    ov2650_write_reg(client, 0x30b0, 0xff);
-    ov2650_write_reg(client, 0x30b1, 0xff);
-    ov2650_write_reg(client, 0x30b2, 0x24);
-    ov2650_write_reg(client, 0x300e, 0x34);
-    ov2650_write_reg(client, 0x300f, 0xa6);
-    ov2650_write_reg(client, 0x3010, 0x81);
-    ov2650_write_reg(client, 0x3082, 0x01);
-    ov2650_write_reg(client, 0x30f4, 0x01);
-    ov2650_write_reg(client, 0x3090, 0x33);
-    ov2650_write_reg(client, 0x3091, 0xc0);
-    ov2650_write_reg(client, 0x30ac, 0x42);
-
-    ov2650_write_reg(client, 0x30d1, 0x08);
-    ov2650_write_reg(client, 0x30a8, 0x56);
-    ov2650_write_reg(client, 0x3015, 0x03);
-    ov2650_write_reg(client, 0x3093, 0x00);
-    ov2650_write_reg(client, 0x307e, 0xe5);
-    ov2650_write_reg(client, 0x3079, 0x00);
-    ov2650_write_reg(client, 0x30aa, 0x42);
-    ov2650_write_reg(client, 0x3017, 0x40);
-    ov2650_write_reg(client, 0x30f3, 0x82);
-    ov2650_write_reg(client, 0x306a, 0x0c);
-    ov2650_write_reg(client, 0x306d, 0x00);
-    ov2650_write_reg(client, 0x336a, 0x3c);
-    ov2650_write_reg(client, 0x3076, 0x6a);
-    ov2650_write_reg(client, 0x30d9, 0x95);
-    ov2650_write_reg(client, 0x3016, 0x82);
-    ov2650_write_reg(client, 0x3601, 0x30);
-    ov2650_write_reg(client, 0x304e, 0x88);
-    ov2650_write_reg(client, 0x30f1, 0x82);
-    ov2650_write_reg(client, 0x306f, 0x14);
-    ov2650_write_reg(client, 0x302a, 0x02);
-    ov2650_write_reg(client, 0x302b, 0x6a);
-                                         
-    ov2650_write_reg(client, 0x3012, 0x10);
-    ov2650_write_reg(client, 0x3011, 0x01);
-
-    // AEC/AGC
-    ov2650_write_reg(client, 0x3013, 0xf7);
-    ov2650_write_reg(client, 0x301c, 0x13);
-    ov2650_write_reg(client, 0x301d, 0x17);
-    ov2650_write_reg(client, 0x3070, 0x5d);
-    ov2650_write_reg(client, 0x3072, 0x4d);
-
-    //D5060
-    ov2650_write_reg(client, 0x30af, 0x00);
-    ov2650_write_reg(client, 0x3048, 0x1f);
-    ov2650_write_reg(client, 0x3049, 0x4e);
-    ov2650_write_reg(client, 0x304a, 0x20);
-    ov2650_write_reg(client, 0x304f, 0x20);
-    ov2650_write_reg(client, 0x304b, 0x02);
-    ov2650_write_reg(client, 0x304c, 0x00);
-    ov2650_write_reg(client, 0x304d, 0x02);
-    ov2650_write_reg(client, 0x304f, 0x20);
-    ov2650_write_reg(client, 0x30a3, 0x10);
-    ov2650_write_reg(client, 0x3013, 0xf7);
-    ov2650_write_reg(client, 0x3014, 0x44);
-    ov2650_write_reg(client, 0x3071, 0x00);
-    ov2650_write_reg(client, 0x3070, 0x5d);
-    ov2650_write_reg(client, 0x3073, 0x00);
-    ov2650_write_reg(client, 0x3072, 0x4d);
-    ov2650_write_reg(client, 0x301c, 0x05);
-    ov2650_write_reg(client, 0x301d, 0x06);
-    ov2650_write_reg(client, 0x304d, 0x42);
-    ov2650_write_reg(client, 0x304a, 0x40);
-    ov2650_write_reg(client, 0x304f, 0x40);
-    ov2650_write_reg(client, 0x3095, 0x07);
-    ov2650_write_reg(client, 0x3096, 0x16);
-    ov2650_write_reg(client, 0x3097, 0x1d);
-
-    //Window Setup
-    ov2650_write_reg(client, 0x300e, 0x38);
-    ov2650_write_reg(client, 0x3020, 0x01);
-    ov2650_write_reg(client, 0x3021, 0x18);
-    ov2650_write_reg(client, 0x3022, 0x00);
-    ov2650_write_reg(client, 0x3023, 0x06);
-    ov2650_write_reg(client, 0x3024, 0x06);
-    ov2650_write_reg(client, 0x3025, 0x58);
-    ov2650_write_reg(client, 0x3026, 0x02);
-    ov2650_write_reg(client, 0x3027, 0x61);
-    ov2650_write_reg(client, 0x3088, 0x03);
-    ov2650_write_reg(client, 0x3089, 0x20);
-    ov2650_write_reg(client, 0x308a, 0x02);
-    ov2650_write_reg(client, 0x308b, 0x58);
-    ov2650_write_reg(client, 0x3316, 0x64);
-    ov2650_write_reg(client, 0x3317, 0x25);
-    ov2650_write_reg(client, 0x3318, 0x80);
-    ov2650_write_reg(client, 0x3319, 0x08);
-    ov2650_write_reg(client, 0x331a, 0x64);
-    ov2650_write_reg(client, 0x331b, 0x4b);
-    ov2650_write_reg(client, 0x331c, 0x00);
-    ov2650_write_reg(client, 0x331d, 0x38);
-    ov2650_write_reg(client, 0x3100, 0x00);
-
-    //AWB
-    ov2650_write_reg(client, 0x3320, 0xfa);
-    ov2650_write_reg(client, 0x3321, 0x11);
-    ov2650_write_reg(client, 0x3322, 0x92);
-    ov2650_write_reg(client, 0x3323, 0x01);
-    ov2650_write_reg(client, 0x3324, 0x97);
-    ov2650_write_reg(client, 0x3325, 0x02);
-    ov2650_write_reg(client, 0x3326, 0xff);
-    ov2650_write_reg(client, 0x3327, 0x0c);
-    ov2650_write_reg(client, 0x3328, 0x10);
-    ov2650_write_reg(client, 0x3329, 0x10);
-    ov2650_write_reg(client, 0x332a, 0x58);
-    ov2650_write_reg(client, 0x332b, 0x50);
-    ov2650_write_reg(client, 0x332c, 0xbe);
-    ov2650_write_reg(client, 0x332d, 0xe1);
-    ov2650_write_reg(client, 0x332e, 0x43);
-    ov2650_write_reg(client, 0x332f, 0x36);
-    ov2650_write_reg(client, 0x3330, 0x4d);
-    ov2650_write_reg(client, 0x3331, 0x44);
-    ov2650_write_reg(client, 0x3332, 0xf8);
-    ov2650_write_reg(client, 0x3333, 0x0a);
-    ov2650_write_reg(client, 0x3334, 0xf0);
-    ov2650_write_reg(client, 0x3335, 0xf0);
-    ov2650_write_reg(client, 0x3336, 0xf0);
-    ov2650_write_reg(client, 0x3337, 0x40);
-    ov2650_write_reg(client, 0x3338, 0x40);
-    ov2650_write_reg(client, 0x3339, 0x40);
-    ov2650_write_reg(client, 0x333a, 0x00);
-    ov2650_write_reg(client, 0x333b, 0x00);
-
-    //Color Matrix
-    ov2650_write_reg(client, 0x3380, 0x28);
-    ov2650_write_reg(client, 0x3381, 0x48);
-    ov2650_write_reg(client, 0x3382, 0x10);
-    ov2650_write_reg(client, 0x3383, 0x23);
-    ov2650_write_reg(client, 0x3384, 0xc0);
-    ov2650_write_reg(client, 0x3385, 0xe5);
-    ov2650_write_reg(client, 0x3386, 0xc2);
-    ov2650_write_reg(client, 0x3387, 0xb3);
-    ov2650_write_reg(client, 0x3388, 0x0e);
-    ov2650_write_reg(client, 0x3389, 0x98);
-    ov2650_write_reg(client, 0x338a, 0x01);
-
-    //Gamma
-    ov2650_write_reg(client, 0x3340, 0x0e);
-    ov2650_write_reg(client, 0x3341, 0x1a);
-    ov2650_write_reg(client, 0x3342, 0x31);
-    ov2650_write_reg(client, 0x3343, 0x45);
-    ov2650_write_reg(client, 0x3344, 0x5a);
-    ov2650_write_reg(client, 0x3345, 0x69);
-    ov2650_write_reg(client, 0x3346, 0x75);
-    ov2650_write_reg(client, 0x3347, 0x7e);
-    ov2650_write_reg(client, 0x3348, 0x88);
-    ov2650_write_reg(client, 0x3349, 0x96);
-    ov2650_write_reg(client, 0x334a, 0xa3);
-    ov2650_write_reg(client, 0x334b, 0xaf);
-    ov2650_write_reg(client, 0x334c, 0xc4);
-    ov2650_write_reg(client, 0x334d, 0xd7);
-    ov2650_write_reg(client, 0x334e, 0xe8);
-    ov2650_write_reg(client, 0x334f, 0x20);
-
-    //Lens correction
-    ov2650_write_reg(client, 0x3350, 0x32);
-    ov2650_write_reg(client, 0x3351, 0x25);
-    ov2650_write_reg(client, 0x3352, 0x80);
-    ov2650_write_reg(client, 0x3353, 0x1e);
-    ov2650_write_reg(client, 0x3354, 0x00);
-    ov2650_write_reg(client, 0x3355, 0x85);
-    ov2650_write_reg(client, 0x3356, 0x32);
-    ov2650_write_reg(client, 0x3357, 0x25);
-    ov2650_write_reg(client, 0x3358, 0x80);
-    ov2650_write_reg(client, 0x3359, 0x1b);
-    ov2650_write_reg(client, 0x335a, 0x00);
-    ov2650_write_reg(client, 0x335b, 0x85);
-    ov2650_write_reg(client, 0x335c, 0x32);
-    ov2650_write_reg(client, 0x335d, 0x25);
-    ov2650_write_reg(client, 0x335e, 0x80);
-    ov2650_write_reg(client, 0x335f, 0x1b);
-    ov2650_write_reg(client, 0x3360, 0x00);
-    ov2650_write_reg(client, 0x3361, 0x85);
-    ov2650_write_reg(client, 0x3363, 0x70);
-    ov2650_write_reg(client, 0x3364, 0x7f);
-    ov2650_write_reg(client, 0x3365, 0x00);
-    ov2650_write_reg(client, 0x3366, 0x00);
-
-    //UVadjust
-    ov2650_write_reg(client, 0x3301, 0xff);
-    ov2650_write_reg(client, 0x338b, 0x11);
-    ov2650_write_reg(client, 0x338c, 0x10);
-    ov2650_write_reg(client, 0x338d, 0x40);
-
-    //Sharpness/De-noise
-    ov2650_write_reg(client, 0x3370, 0xd0); 
-    ov2650_write_reg(client, 0x3371, 0x00);
-    ov2650_write_reg(client, 0x3372, 0x00);
-    ov2650_write_reg(client, 0x3373, 0x40);
-    ov2650_write_reg(client, 0x3374, 0x10);
-    ov2650_write_reg(client, 0x3375, 0x10);
-    ov2650_write_reg(client, 0x3376, 0x04);
-    ov2650_write_reg(client, 0x3377, 0x00);
-    ov2650_write_reg(client, 0x3378, 0x04);
-    ov2650_write_reg(client, 0x3379, 0x80);
-
-    //BLC
-    ov2650_write_reg(client, 0x3069, 0x84);
-    ov2650_write_reg(client, 0x307c, 0x10);
-    ov2650_write_reg(client, 0x3087, 0x02);
-
-    //black sun
-    //Avdd 2.55~3.0V
-    ov2650_write_reg(client, 0x3090, 0x03);
-    ov2650_write_reg(client, 0x30a8, 0x54);
-    ov2650_write_reg(client, 0x30aa, 0x82);
-    ov2650_write_reg(client, 0x30a3, 0x91);
-    ov2650_write_reg(client, 0x30a1, 0x41);
-
-    //Other functions
-    ov2650_write_reg(client, 0x3300, 0xfc);
-    ov2650_write_reg(client, 0x3302, 0x11);
-    ov2650_write_reg(client, 0x3400, 0x03);
-    ov2650_write_reg(client, 0x3606, 0x20);
-    ov2650_write_reg(client, 0x3601, 0x30);
-    ov2650_write_reg(client, 0x300e, 0x34);
-    ov2650_write_reg(client, 0x3011, 0x00);
-    ov2650_write_reg(client, 0x30f3, 0x83);
-    ov2650_write_reg(client, 0x304e, 0x88);
-
-    ov2650_write_reg(client, 0x363b, 0x01);
-    ov2650_write_reg(client, 0x363c, 0xf2);
-    ov2650_write_reg(client, 0x3085, 0x20);
-    ov2650_write_reg(client, 0x3086, 0x0f);
-    ov2650_write_reg(client, 0x3086, 0x00);
+    for (i = 0; i < ARRAY_SIZE(ov2650_init_table); i++) {
+        if (SENSOR_WRITE_DELAY == ov2650_init_table[i][0]) {
+            mdelay(ov2650_init_table[i][1]);
+        } else {
+            ov2650_write_reg(client, ov2650_init_table[i][0],ov2650_init_table[i][1]);
+        }
+    }
 
     dev_info(&client->dev, "sensor init ok\n");
 
@@ -324,7 +103,7 @@ static uint32_t read_gain(struct i2c_client *client)
 static uint32_t read_dummy_pixels(struct i2c_client *client)
 {
 #define Default_Reg0x3028 0x07
-#define Default_Reg0x3029 0x94
+#define Default_Reg0x3029 0x93
 	uint8_t Reg0x3028,Reg0x3029;
 	Reg0x3028 = ov2650_read_reg(client,0x3028);
 	Reg0x3029 = ov2650_read_reg(client,0x3029);
@@ -457,8 +236,10 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		 Capture_Banding_Filter,
 
 		 Default_SVGA_Line_Width = 1940,
+		 //Default_SVGA_Line_Width = 970,
 		 Default_UXGA_Line_Width = 1940,
 		 Default_Capture_Max_Gain16 = 31 * 16,
+		 Default_SVGA_maximum_shutter = 618,
 		 Default_UXGA_maximum_shutter = 1236,
 		 Default_Reg0x302b = 0xd4,
 		 Default_Reg0x302a = 0x04,
@@ -475,17 +256,18 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		 Gain_Exposure;
 
     stop_ae(client);
-    change_rate(client);
+    //change_rate(client);
 	Shutter = read_shutter(client);
 	Extra_lines = read_exter_line(client); 
 	Preview_Gain16 = read_gain(client);
 
 	Preview_dummy_pixel = read_dummy_pixels(client); 
-	//printk("read_exter_line : %u\n",Extra_lines);
-	//printk("read_dummy_pixels : %u\n\n",Preview_dummy_pixel); 
 
-	//printk("read_gain : %u\n",Preview_Gain16);
-	//printk("read_shutter : %u\n",Shutter);
+	printk("read_shutter : %u\n",Shutter);
+	printk("Extra_lines : %u\n",Extra_lines);
+
+	printk("Preview_Gain16 : %u\n",Preview_Gain16);
+	printk("read_dummy_pixels : %u\n\n",Preview_dummy_pixel); 
 
 	Preview_Exposure = Shutter + Extra_lines;
 
@@ -502,15 +284,15 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		Preview_Exposure * Capture_PCLK_Frequency/Preview_PCLK_Frequency *
 		Preview_Line_width/Capture_Line_Width;
 
-	//Capture_Banding_Filter = Capture_PCLK_Frequency * 5000/ (Capture_Line_Width);
-	Capture_Banding_Filter = Capture_PCLK_Frequency/100/( 2 * Capture_Line_Width);
+	Capture_Banding_Filter = Capture_PCLK_Frequency * 5000/ (Capture_Line_Width);
+	//Capture_Banding_Filter = Capture_PCLK_Frequency/100/( 2 * Capture_Line_Width);
 	//Capture_Banding_Filter = Capture_PCLK_Frequency * 1000000 / 120 /(2*Capture_Line_Width);
 
 	Gain_Exposure = Preview_Gain16 * Capture_Exposure;
 
-	//printk("Capture_Exposure : %u\n",Capture_Exposure);
-	//printk("Gain_Exposure : %u\n",Gain_Exposure);
-	//printk("Capture_Banding_Filter : %u | %u\n",Capture_Banding_Filter,Capture_Banding_Filter * 16);
+	printk("Capture_Exposure : %u\n",Capture_Exposure);
+	printk("Gain_Exposure : %u\n",Gain_Exposure);
+	printk("Capture_Banding_Filter : %u | %u\n",Capture_Banding_Filter,Capture_Banding_Filter * 16);
 	if (Gain_Exposure < Capture_Banding_Filter * 16)
 	{
 		// Exposure < 1/100
@@ -557,19 +339,19 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 	Reg0x3028 = (Reg0x3028 & 0x0f) | ((Capture_dummy_pixel & 0x0f00)>>4);
 	ov2650_write_reg(client,0x3028, Reg0x3028);
 	ov2650_write_reg(client,0x302b, Reg0x3029);
-	//printk("dummy pixels\n");
-	//printk("Reg0x3028 : %x\n",Reg0x3028);
+	printk("dummy pixels\n");
+	printk("Reg0x3028 : %x\n",Reg0x3028);
 	printk("Reg0x3029 : %x\n",Reg0x3029);
-	//printk("\n");
+	printk("\n");
 	////Write Dummy Lines
 	Reg0x302b = (Capture_dummy_line & 0x00ff) + Default_Reg0x302b;
 	Reg0x302a = (Capture_dummy_line >>8) + Default_Reg0x302a;
 	ov2650_write_reg(client,0x302a, Reg0x302a);
 	ov2650_write_reg(client,0x302b, Reg0x302b);
-	//printk("dummy lines\n");
-	//printk("Reg0x302a : %x\n",Reg0x302a);
-	//printk("Reg0x302b : %x\n",Reg0x302b);
-	//printk("\n");
+	printk("dummy lines\n");
+	printk("Reg0x302a : %x\n",Reg0x302a);
+	printk("Reg0x302b : %x\n",Reg0x302b);
+	printk("\n");
     
 	////Write Exposure
 	if (Capture_Exposure > Capture_Maximum_Shutter)
@@ -583,23 +365,24 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		Extra_lines = 0;
 	}
 
+    printk("shutter = 0x%x, Capture_Exposure = %x\n", Shutter, Capture_Exposure);
 	Reg0x3003 = Shutter & 0x00ff;
 	Reg0x3002 = (Shutter >>8) & 0x00ff;
 	ov2650_write_reg(client,0x3003, Reg0x3003);
 	ov2650_write_reg(client,0x3002, Reg0x3002);
-	//printk("Exposure\n");
-	//printk("Reg0x3003 : %x\n",Reg0x3003);
-	//printk("Reg0x3002 : %x\n",Reg0x3002);
-	//printk("\n");
+	printk("Exposure\n");
+	printk("Reg0x3003 : %x\n",Reg0x3003);
+	printk("Reg0x3002 : %x\n",Reg0x3002);
+	printk("\n");
 	//// Write extra line
 	Reg0x302e = Extra_lines & 0x00ff;
 	Reg0x302d = Extra_lines >> 8;
 	ov2650_write_reg(client,0x302d, Reg0x302d);
 	ov2650_write_reg(client,0x302e, Reg0x302e);
-	//printk("extra line\n");
-	//printk("Reg0x302d : %x\n",Reg0x302d);
-	//printk("Reg0x302e : %x\n",Reg0x302e);
-	//printk("\n");
+	printk("extra line\n");
+	printk("Reg0x302d : %x\n",Reg0x302d);
+	printk("Reg0x302e : %x\n",Reg0x302e);
+	printk("\n");
 
 	// Write Gain
 	uint8_t Gain = Capture_Gain & 0x0f;
@@ -633,7 +416,6 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 	ov2650_write_reg(client,0x3000, Gain);
 	dev_info(&client->dev, "Reg0x3000 : %x\n",Gain);
 }
-
 
 int ov2650_size_switch(struct cim_sensor *sensor_info,int width,int height)
 {	
@@ -881,3 +663,46 @@ int ov2650_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 
 	return 0;
 }
+
+#def OV2650_DEBUG_FS
+#ifdef OV2650_DEBUG_FS
+#include <linux/proc_fs.h>
+static int camera_write_proc(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	int ret;
+    unsigned int flags;
+    unsigned int reg;
+    unsigned int val;
+	char buf[32];
+
+	if (count > 32)
+		count = 32;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+
+	ret = sscanf(buf,"%x: %x %x",&flags, &reg,&val);
+    printk("flags=0x%x, reg = 0x%x, val =0x%x\n", flags, reg, val);
+    if (flags == 0xff) {
+        ov2650_write_reg(g_client,(unsigned short)reg, (unsigned char)val);
+    }
+    val = ov2650_read_reg(g_client, (unsigned short)reg);
+    printk("================read val = 0x%x===================\n",val);
+
+	return count;
+}
+
+static int __init init_camera_proc(void)
+{
+	struct proc_dir_entry *res;
+
+	res = create_proc_entry("camera", 0666, NULL);
+	if (res) {
+		res->read_proc = NULL;
+		res->write_proc = camera_write_proc;
+		res->data = NULL;
+	}
+	return 0;
+}
+module_init(init_camera_proc);
+#endif
