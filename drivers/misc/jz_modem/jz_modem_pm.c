@@ -211,6 +211,11 @@ static int init_modems(struct modem_platform_data *pdata)
 	int ret = 0;
 	int irq, level;
 
+	for (i=0; i<MAX_CARDS; i++) {
+		registered_modems[i].bp_ops = NULL;
+		registered_modems[i].bp_data = NULL;
+	}
+
 	for (i=0; i<pdata->bp_nums; i++) {
 		id = pdata->bp[i].id;
 		if (id > MAX_CARDS)
@@ -225,7 +230,8 @@ static int init_modems(struct modem_platform_data *pdata)
 		}
 		registered_modems[id].bp_ops = registered_ops_list[j];
 		registered_modems[id].bp_data = &pdata->bp[i];
-		registered_modems[id].bp_ops->init(&pdata->bp[i]);
+		if (registered_modems[id].bp_ops->init)
+			registered_modems[id].bp_ops->init(&pdata->bp[i]);
 
 		if (pdata->bp[i].bp_wake_ap.gpio <= 0) {
 			printk("%s, bad bp wakeup pin!", __func__);
@@ -255,20 +261,26 @@ error:
 #ifdef CONFIG_PM
 static int modem_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	int i;
+	int i, irq;
 	for (i=0; i<MAX_CARDS; i++) {
-		if (registered_modems[i].bp_ops && registered_modems[i].bp_data)
+		if (registered_modems[i].bp_ops && registered_modems[i].bp_data) {
 			registered_modems[i].bp_ops->suspend(registered_modems[i].bp_data);
+			irq = gpio_to_irq(registered_modems[i].bp_data->bp_wake_ap.gpio);
+			enable_irq (irq);
+		}
 	}
         return 0;
 }
 
 static int modem_resume(struct platform_device *pdev)
 {
-	int i;
+	int i, irq;
 	for (i=0; i<MAX_CARDS; i++) {
-		if (registered_modems[i].bp_ops && registered_modems[i].bp_data)
+		if (registered_modems[i].bp_ops && registered_modems[i].bp_data) {
 			registered_modems[i].bp_ops->resume(registered_modems[i].bp_data);
+			irq = gpio_to_irq(registered_modems[i].bp_data->bp_wake_ap.gpio);
+			disable_irq (irq);
+		}
 	}
 	return 0;
 }
