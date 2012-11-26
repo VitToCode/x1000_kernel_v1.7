@@ -61,9 +61,9 @@ static int jzfb_open(struct fb_info *info, int user)
 	dev_info(info->dev,"open count : %d\n",++jzfb->open_cnt);
 
 	if(!jzfb->is_enabled && jzfb->vidmem_phys) {
-		clk_enable(jzfb->clk);
-
 		jzfb_set_par(info);
+		clk_enable(jzfb->pclk);
+		clk_enable(jzfb->clk);
 		jzfb_enable(info);
 	}
 
@@ -2283,6 +2283,15 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	if (jzfb->vidmem_phys) {
 		if (!jzfb_copy_logo(jzfb->fb)) {
 			jzfb_set_par(jzfb->fb);
+		} else {
+#ifdef CONFIG_FORCE_RESOLUTION
+			if (CONFIG_FORCE_RESOLUTION > 0 && jzfb->id == 0) {
+				jzfb_set_par(jzfb->fb);
+				clk_enable(jzfb->pclk);
+				clk_enable(jzfb->clk);
+				jzfb_enable(jzfb->fb);
+			}
+#endif
 		}
 	}
 #else
