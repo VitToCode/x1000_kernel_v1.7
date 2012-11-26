@@ -20,9 +20,9 @@ extern void nand_get_id(char *nand_id);
 
 static inline void dump_id(volatile unsigned char *nand_id)
 {
-	unsigned char maf_id = 0;
-	unsigned char dev_id = 0;
-	unsigned int  ext_id;
+	volatile unsigned char maf_id = 0;
+	volatile unsigned char dev_id = 0;
+	volatile unsigned int  ext_id;
 
 	/* Read manufacturer and device IDs */	
 	maf_id = nand_id[0];
