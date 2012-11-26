@@ -16,11 +16,12 @@ int ov2650_init(struct cim_sensor *sensor_info)
 {
 	struct ov2650_sensor *s;
 	struct i2c_client * client ;
+    int i = 0;
+
 	s = container_of(sensor_info, struct ov2650_sensor, cs);
 	client = s->client;
     g_client = client;
     mode = CAMERA_MODE_PREVIEW;
-    int i = 0;
 	/***************** init reg set **************************/
 	/*** SVGA preview (800X600) 30fps 24MCLK input ***********/
 
@@ -239,7 +240,7 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		 //Default_SVGA_Line_Width = 970,
 		 Default_UXGA_Line_Width = 1940,
 		 Default_Capture_Max_Gain16 = 31 * 16,
-		 Default_SVGA_maximum_shutter = 618,
+		 //Default_SVGA_maximum_shutter = 618,
 		 Default_UXGA_maximum_shutter = 1236,
 		 Default_Reg0x302b = 0xd4,
 		 Default_Reg0x302a = 0x04,
@@ -256,7 +257,7 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		 Gain_Exposure;
 
     stop_ae(client);
-    //change_rate(client);
+    change_rate(client);
 	Shutter = read_shutter(client);
 	Extra_lines = read_exter_line(client); 
 	Preview_Gain16 = read_gain(client);
@@ -664,7 +665,7 @@ int ov2650_set_balance(struct cim_sensor *sensor_info,unsigned short arg)
 	return 0;
 }
 
-#def OV2650_DEBUG_FS
+#define OV2650_DEBUG_FS
 #ifdef OV2650_DEBUG_FS
 #include <linux/proc_fs.h>
 static int camera_write_proc(struct file *file, const char __user *buffer,
