@@ -29,6 +29,7 @@
 #include <linux/mfd/core.h>
 
 #include <linux/jz4780-adc.h>
+#include <irq.h>
 
 #define JZ_REG_ADC_ENABLE       0x00
 #define JZ_REG_ADC_CFG          0x04
@@ -51,6 +52,12 @@ enum {
 	JZ_ADC_IRQ_PENDOWN,
 	JZ_ADC_IRQ_SLPENDM,
 };
+
+#define JZ_ADC_IRQ_NUM	6
+
+#if ( JZ_ADC_IRQ_NUM > SADC_NR_IRQS )
+#error "SADC module get error irq number!"
+#endif
 
 struct jz_adc {
 	struct resource *mem;
@@ -121,7 +128,7 @@ static void jz_adc_irq_demux(unsigned int irq, struct irq_desc *desc)
 
 	status = readb(adc->base + JZ_REG_ADC_STATUS);
 
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < SADC_NR_IRQS; i++) {
 		if (status & BIT(i)) {
 			generic_handle_irq(adc->irq_base + i);
 		}
@@ -333,7 +340,7 @@ static int __devinit jz_adc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, adc);
 
-	for (irq = adc->irq_base; irq < adc->irq_base + 6; ++irq) {
+	for (irq = adc->irq_base; irq < adc->irq_base + SADC_NR_IRQS; ++irq) {
 		irq_set_chip_data(irq, adc);
 		irq_set_chip_and_handler(irq, &jz_adc_irq_chip,
 				handle_level_irq);
