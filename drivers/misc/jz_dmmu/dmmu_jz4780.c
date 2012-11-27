@@ -207,7 +207,7 @@ again:
 		paddr = get_phy_addr((unsigned int)addr);
 		if (!paddr) {
 			void *tmp_vaddr = phys_to_virt(jz_dmmu.dummy_base);
-			memcpy(tmp_vaddr, addr, PAGE_SIZE/4);
+			memcpy(tmp_vaddr, addr, PAGE_SIZE>>4);
 			goto again;
 		}
 		if (i == 0) {
@@ -538,6 +538,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 		return -EFAULT;
 	}
 
+	mutex_lock(&jz_dmmu.map_lock);
 	page_count = mem->page_count;
 	page_base = kzalloc(page_count * sizeof(int), GFP_KERNEL);
 	dev_dbg(jz_dmmu.dev, "<-----page_base: %p\n", page_base);
@@ -549,7 +550,6 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	tmp_page_base = page_base;
 
 	/* set mem pages to page table */
-	mutex_lock(&jz_dmmu.map_lock);
 	fill_tlb_address(page_base, mem, table);
 
 	/* create buffer_heap_info, added to buffer_heap_list */
