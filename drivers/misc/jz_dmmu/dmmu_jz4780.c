@@ -206,12 +206,9 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 again:
 		paddr = get_phy_addr((unsigned int)addr);
 		if (!paddr) {
-			//dev_err(jz_dmmu.dev, "%s %d get_phy_addr failed, paddr is 0!", __func__, __LINE__);
-			volatile unsigned char *tmp_base = (unsigned char *)addr;
-			volatile unsigned char p = *(volatile unsigned char *)tmp_base;
-			p += 1;
+			void *tmp_vaddr = phys_to_virt(jz_dmmu.dummy_base);
+			memcpy(tmp_vaddr, addr, PAGE_SIZE/4);
 			goto again;
-			//return -EFAULT;
 		}
 		if (i == 0) {
 			mem->paddr = paddr;
