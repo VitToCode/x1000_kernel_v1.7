@@ -996,14 +996,9 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_SELECT_SENSOR:
 			return cim_select_sensor(cim,arg);
 		case CIMIO_SET_PREVIEW_SIZE:
-			if (copy_from_user(&cim->psize, (void __user *)arg, sizeof(struct frm_size)))
-				return -EFAULT;
-			ret = cim_set_preview_size(cim);
-			break;
+			return copy_from_user(&cim->psize, (void __user *)arg, sizeof(struct frm_size));
 		case CIMIO_SET_CAPTURE_SIZE:
-			if (copy_from_user(&cim->csize, (void __user *)arg, sizeof(struct frm_size)))
-				return -EFAULT;
-			ret = cim_set_capture_size(cim);
+			return copy_from_user(&cim->csize, (void __user *)arg, sizeof(struct frm_size));
 		case CIMIO_DO_FOCUS:
 			break;
 		case CIMIO_AF_INIT:
