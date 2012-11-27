@@ -1495,12 +1495,15 @@ static int ipu_release(struct inode *inode, struct file *filp)
             struct ipu_proc_info *ipu_proc = NULL;
 
             ipu_proc = get_ipu_procinfo(ipu, current->pid);
-            img = &ipu_proc->img;
-            if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
-                if ( ipu->g_reg_harb_prior != 0 ) {
-                    REG_HARB_PRIOR = ipu->g_reg_harb_prior;
-                    dev_info(ipu->dev, "jz4780_ipu.c 222 restore REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
-                    ipu->g_reg_harb_prior = 0;
+            printk("%d %s, ipu_proc=%p\n", __LINE__, __FUNCTION__, ipu_proc);
+            if ( ipu_proc != NULL ) {
+                img = &ipu_proc->img;
+                if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
+                    if ( ipu->g_reg_harb_prior != 0 ) {
+                        REG_HARB_PRIOR = ipu->g_reg_harb_prior;
+                        dev_info(ipu->dev, "jz4780_ipu.c 222 restore REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
+                        ipu->g_reg_harb_prior = 0;
+                    }
                 }
             }
         }
