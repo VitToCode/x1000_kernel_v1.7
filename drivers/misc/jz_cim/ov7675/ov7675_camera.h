@@ -8,6 +8,7 @@ struct ov7675_platform_data {
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this 
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */ 
+	int cap_wait_frame;   /* filter n frames when capture image */
 };
 
 struct ov7675_sensor {

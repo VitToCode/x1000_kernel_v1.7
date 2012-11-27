@@ -243,6 +243,7 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 	gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
+	s->cs.cap_wait_frame = pdata->cap_wait_frame;
 	//sensor_set_i2c_speed(client,400000);//set ov2650 i2c speed : 400khz
 	camera_sensor_register(&s->cs);
 

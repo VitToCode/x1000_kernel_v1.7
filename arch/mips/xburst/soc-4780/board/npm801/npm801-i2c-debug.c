@@ -100,6 +100,7 @@ struct ov7675_platform_data {
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;   /* filter n frames when capture image */
 };
 static struct ov7675_platform_data ov7675_pdata = {
 	.facing = 0,
@@ -107,6 +108,7 @@ static struct ov7675_platform_data ov7675_pdata = {
 	.mirror = 0,
 	.gpio_en = GPIO_OV7675_EN,
 	.gpio_rst = GPIO_OV7675_RST,
+	.cap_wait_frame = 3,
 };
 #endif
 #ifdef CONFIG_OV2650
@@ -117,6 +119,7 @@ struct ov2650_platform_data {
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;   /* filter n frames when capture image */
 };
 
 static struct ov2650_platform_data ov2650_pdata = {
@@ -125,6 +128,7 @@ static struct ov2650_platform_data ov2650_pdata = {
 	.mirror = 0,
 	.gpio_en = GPIO_OV2650_EN,
 	.gpio_rst = GPIO_OV2650_RST,
+	.cap_wait_frame = 3,
 };
 #endif
 #endif
