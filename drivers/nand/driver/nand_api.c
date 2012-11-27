@@ -356,11 +356,13 @@ static irqreturn_t jznand_waitrb_interrupt(int irq, void *dev_id)
 int nand_wait_rb(void)
 {
 	unsigned int ret;
+	do{
 #if 1
 	ret = wait_for_completion_timeout(&nand_rb,(msecs_to_jiffies(100)));
 #else
 	ret =wait_for_completion(&nand_rb);
 #endif
+	}while(ret == -ERESTARTSYS);
 	if(!ret)
 		return TIMEOUT;
 	return 0;

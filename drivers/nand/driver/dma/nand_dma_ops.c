@@ -164,7 +164,7 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor *desc,
 		void *callback, void *callback_param)
 {
-	unsigned int timeout = 0;
+	unsigned int timeout = 0, count = 0;
 	dma_cookie_t cookie;
 	desc->callback = callback;
 	desc->callback_param = callback_param;
@@ -176,7 +176,35 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 	}
 
 	dma_async_issue_pending(chan);
+do{
 	timeout = wait_for_completion_timeout(&comp,HZ);
+	if(timeout == -ERESTARTSYS)
+		continue;
+	if(!timeout){
+#ifdef MCU_TEST_INTER_NAND
+				unsigned long long test[6] ={0};
+				int i;
+				for(i=0;i<6;i++)
+					test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
+				printk("cpu send msg       [%llu]\n",test[0]);
+				printk("mcu receive msg    [%llu]\n",test[1]);
+				printk("mcu send mailbox   [%llu]\n",test[2]);
+				printk("dma receive inte   [%llu]\n",test[3]);
+				printk("dma mcu_irq handle [%llu]\n",test[4]);
+				printk("pdma_task_handle   [%llu]\n",test[5]);
+/*
+				printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
+				printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
+				printk("mcu send mailbox   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+2));
+				printk("dma receive inte   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+3));
+				printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
+				printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
+*/
+#endif
+	}
+	count++;
+}while(!timeout && count <= 20);
+
 	if(!timeout){
 #ifdef NAND_DMA_TEST_TIMEOUT
 	printk("Error: mcu dma tran; whether mailbox has been returned (%d)\n",test_timeout);
@@ -223,38 +251,16 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 #ifdef MCU_TEST_INTER_NAND
  	(*(unsigned long long *)MCU_TEST_DATA_NAND)++;
 #endif
-
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
 				printk("Error: mcu dma tran faild,mcu_steps(%d);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
-#ifdef MCU_TEST_INTER_NAND
-				unsigned long long test[6] ={0};
-				int i;
-				for(i=0;i<6;i++)
-					test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
-				printk("cpu send msg       [%llu]\n",test[0]);
-				printk("mcu receive msg    [%llu]\n",test[1]);
-				printk("mcu send mailbox   [%llu]\n",test[2]);
-				printk("dma receive inte   [%llu]\n",test[3]);
-				printk("dma mcu_irq handle [%llu]\n",test[4]);
-				printk("pdma_task_handle   [%llu]\n",test[5]);
-/*
-				printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
-				printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
-				printk("mcu send mailbox   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+2));
-				printk("dma receive inte   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+3));
-				printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
-				printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
-*/
-#endif
                 dump_stack();
                 while(1);
 	} else {
 		ret = mailbox_ret;
 		mailbox_ret = 0;
 	}
-
 err_desc:
 	return ret;
 }
@@ -342,7 +348,7 @@ static int read_page_singlenode(const NAND_API *pnand_api
 				printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
-				goto read_page_singlenode_error1;
+			//	goto read_page_singlenode_error1;
 			}
 			nand_dma->cache_phypageid = phy_pageid;
 		}
@@ -520,16 +526,17 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
-			num = temp;
-		  	goto read_page_node_error1;
+		//	num = temp;
+		 // 	goto read_page_node_error1;
 		}
 		nand_dma->cache_phypageid = phy_pageid;
 	}
 	templist = pagelist;
 	for (num = 0; num < temp; num++) {
 		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes) > byteperpage) {
-			ret = -1;
-			templist->retVal = ret;
+			if(!ret)
+				ret = -1;
+			templist->retVal = -1;
 			printk("aaa bytes = %d offset = %d byteperpage = %d\n",templist->Bytes,templist->OffsetBytes,byteperpage);
 			break;
 		}
@@ -556,6 +563,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 read_page_node_error1:
 		templist = pagelist;
 		while (num--) {
+			if(templist->retVal >= 0){
 			switch (ret) {
 				case 0:
 					templist->retVal = templist->Bytes;
@@ -574,6 +582,7 @@ read_page_node_error1:
 				default:
 					templist->retVal = ret;
 					break;
+			}
 			}
 			listhead = (templist->head).next;
 			templist = singlelist_entry(listhead,PageList,head);
