@@ -62,19 +62,19 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#if 0 /* FIXME! when board fixed, recovery it */
+#if 1 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	ji8070a_vcc5,
-	"Vcc-5V",	5000000,
-	GPIO_PA(17),	HIGH_ENABLE,	0,
+	"Vcc-5V",	5000000,	GPIO_PA(17),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 #endif
 
 #if 0 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	ji8070a_vbus,
-	"OTG-Vbus",	5000000,
-	GPIO_PE(10),	HIGH_ENABLE,	0,
+	"OTG-Vbus",	5000000,	GPIO_PE(10),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
 
