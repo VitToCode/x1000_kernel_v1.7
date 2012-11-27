@@ -116,7 +116,7 @@ extern struct platform_nand_data jz_nand_chip_data;
 /**
  * motor gpio
  */
-#define GPIO_MOTOR_PIN			GPIO_PB(25) /* PB25 */
+#define GPIO_MOTOR_PIN			GPIO_PB(24) /* PB24 */
 
 /**
  * USB detect pin
