@@ -194,6 +194,8 @@ struct jz_ipu {
 
         int suspend_entered;
     	spinlock_t suspend_lock;
+    unsigned int g_reg_harb_prior;
+
 };
 
 
