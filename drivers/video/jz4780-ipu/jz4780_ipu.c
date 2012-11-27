@@ -37,6 +37,10 @@
 #include "regs_ipu.h"
 #include "jz4780_ipu.h"
 
+#define HARB0_PRIOR (0xB3000000)
+#define REG_HARB_PRIOR *(volatile unsigned int *)(HARB0_PRIOR)
+
+
 #ifdef PHYS
 #undef PHYS
 #endif
@@ -515,7 +519,7 @@ static int destroy_allproc_info(struct jz_ipu *ipu)
 	struct ipu_proc_info *ipu_proc = NULL;
 	struct list_head *head = NULL;
 
-	dev_info(ipu->dev, "destroy_allproc_info pid: %d, tgid: %d", current->pid, current->tgid);
+	//dev_info(ipu->dev, "destroy_allproc_info pid: %d, tgid: %d", current->pid, current->tgid);
 	record_proc_num = ipu->proc_num;
 	for (i = 0; i < record_proc_num; i++) {
 		head = &ipu->process_list;
@@ -528,7 +532,7 @@ static int destroy_allproc_info(struct jz_ipu *ipu)
 			}
 		}
 	}
-	dev_info(ipu->dev, "ipu->proc_num: %d++++++", ipu->proc_num);
+	//dev_info(ipu->dev, "ipu->proc_num: %d++++++", ipu->proc_num);
 
 	return 0;
 }
@@ -1018,6 +1022,22 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	enable_ctrl_regs(ipu, ipu_proc);
 
+        /* check AHB0 priority
+         * if CPU_PRIORITY > 2, IPU_TO_LCDC maybe underrun when playback 1080P video.
+         * so make sure all priority is 0.
+         */
+	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+            unsigned int prio;
+            prio = REG_HARB_PRIOR;
+            if ( prio != 0 ) {
+                ipu->g_reg_harb_prior = prio;
+                REG_HARB_PRIOR = 0;
+                dev_info(ipu->dev,"jz4780_ipu.c 111 save REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
+            }
+            else {
+                //ipu->g_reg_harb_prior = 0;
+            }
+        }
 	return ret;
 }
 
@@ -1276,14 +1296,14 @@ static int ipu_stop(struct jz_ipu *ipu)
 	unsigned int tmp;
 
 	mutex_lock(&ipu->run_lock);
-	dev_dbg(ipu->dev, "enter ipu_stop\n");
+	//dev_dbg(ipu->dev, "enter ipu_stop\n");
 
 	if (!ipu) {
 		dev_err(ipu->dev, "ipu is NULL!\n");
 		mutex_unlock(&ipu->run_lock);
 		return -1;
 	}
-	dev_info(ipu->dev, "ipu_stop %s %d", __func__, current->pid);
+	//dev_info(ipu->dev, "ipu_stop %s %d\n", __func__, current->pid);
 
         spin_lock(&ipu->suspend_lock);
         if(ipu->suspend_entered) {
@@ -1444,11 +1464,11 @@ static int ipu_open(struct inode *inode, struct file *filp)
 	struct jz_ipu *ipu = container_of(dev, struct jz_ipu, misc_dev);
 
 	ipu->open_cnt++;
-	dev_info(ipu->dev,"+++++Enter ipu_open open_cnt: %d pid: %d, tgid: %d\n", ipu->open_cnt, current->pid, current->tgid);
+	//dev_info(ipu->dev,"+++++Enter ipu_open open_cnt: %d pid: %d, tgid: %d\n", ipu->open_cnt, current->pid, current->tgid);
 
 	mutex_lock(&ipu->lock);
 	/* create process struct */
-	dev_info(ipu->dev, "%s %d", __func__, __LINE__);
+	//dev_info(ipu->dev, "%s %d", __func__, __LINE__);
 	ret = create_proc_info(ipu);
 	if (ret < 0) {
 		dev_err(ipu->dev, "create_proc_info failed!");
@@ -1469,8 +1489,24 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
 
-	dev_info(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
-	dev_info(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
+        {
+            /* check AHB0 priority */
+            struct ipu_img_param *img = NULL;
+            struct ipu_proc_info *ipu_proc = NULL;
+
+            ipu_proc = get_ipu_procinfo(ipu, current->pid);
+            img = &ipu_proc->img;
+            if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
+                if ( ipu->g_reg_harb_prior != 0 ) {
+                    REG_HARB_PRIOR = ipu->g_reg_harb_prior;
+                    dev_info(ipu->dev, "jz4780_ipu.c 222 restore REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
+                    ipu->g_reg_harb_prior = 0;
+                }
+            }
+        }
+
+	//dev_info(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
+	//dev_info(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
 #if 0      //wait for further debug
 	ret = destroy_proc_info(ipu);
 	if (ret < 0) {
@@ -1485,6 +1521,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
             clk_disable(ipu->clk);
         }
 	ipu->inited = 0;
+
 	mutex_unlock(&ipu->lock);
 
 	return 0;
@@ -1619,7 +1656,7 @@ static int ipu_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(&pdev->dev, ipu);
-	dev_info(&pdev->dev, "----------%p\n", ipu);
+	//dev_info(&pdev->dev, "----------%p\n", ipu);
 
 	ret = misc_register(&ipu->misc_dev);
 	if (ret < 0) {
