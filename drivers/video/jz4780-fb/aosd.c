@@ -24,6 +24,7 @@
 #include <linux/irq.h>
 #include <linux/sched.h>
 #include <linux/dma-mapping.h>
+#include <linux/mutex.h>
 #include <linux/delay.h>
 
 #include "aosd.h"
@@ -55,6 +56,8 @@ void print_aosd_registers(void)	/* debug */
 {
 	struct device *dev = jzaosd->dev;
 
+	clk_enable(jzaosd->debug_clk);
+
 	dev_info(dev, "AOSD_CTRL:0x%08lx\n", aosd_readl(jzaosd, AOSD_CTRL));
 	dev_info(dev, "AOSD_CFG:0x%08lx\n", aosd_readl(jzaosd, AOSD_CFG));
 	dev_info(dev, "AOSD_STATE:0x%08lx\n", aosd_readl(jzaosd, AOSD_STATE));
@@ -67,6 +70,8 @@ void print_aosd_registers(void)	/* debug */
 	dev_info(dev, "AOSD_ROFFS:0x%08lx\n", aosd_readl(jzaosd, AOSD_ROFFS));
 
 	calc_comp_ratio(aosd_info.width, aosd_info.height);
+
+	clk_disable(jzaosd->debug_clk);
 }
 
 void aosd_clock_enable(int enable)
@@ -77,10 +82,53 @@ void aosd_clock_enable(int enable)
 		clk_enable(jzaosd->clk);
 	} else {
 		/* Cann't disable clock immediately when AOSD is busy */
-		while (jzaosd->is_enabled && count--)
-			mdelay(1);
-		clk_disable(jzaosd->clk);
+		while (count--) {
+			mutex_lock(&jzaosd->state_lock);
+			if (!jzaosd->is_enabled) {
+				mutex_unlock(&jzaosd->state_lock);
+				clk_disable(jzaosd->clk);
+				return;
+			} else {
+				mutex_unlock(&jzaosd->state_lock);
+				msleep(1);
+			}
+		}
+		if (count < 0) {
+			clk_disable(jzaosd->clk);
+			dev_err(jzaosd->dev, "Wait AOSD stop timeout\n");
+		}
 	}
+}
+
+static void aosd_enable(void)
+{
+	unsigned long tmp;
+
+	mutex_lock(&jzaosd->state_lock);
+	if (jzaosd->is_enabled) {
+		mutex_unlock(&jzaosd->state_lock);
+		return;
+	}
+
+	tmp = aosd_readl(jzaosd, AOSD_CTRL); /* Start compress */
+	tmp |= CTRL_ENABLE;
+	aosd_writel(jzaosd, AOSD_CTRL, tmp);
+	jzaosd->is_enabled = 1;
+	mutex_unlock(&jzaosd->state_lock);
+}
+
+static void aosd_disable(void)
+{
+	mutex_lock(&jzaosd->state_lock);
+	if (!jzaosd->is_enabled) {
+		mutex_unlock(&jzaosd->state_lock);
+		return;
+	}
+
+	/* After finished compress, hardware will clear
+	   CTRL_ENABLE bit and auto stop */
+	jzaosd->is_enabled = 0;
+	mutex_unlock(&jzaosd->state_lock);
 }
 
 static void aosd_change_address(void)
@@ -160,6 +208,7 @@ void aosd_init(struct jzfb_aosd_info *info)
 	dev_info(jzaosd->dev, "src_stride = %d, dst_stride = %d\n",
 		 src_stride, dst_stride);
 */
+
 	if (bpp != 16) {
 		wcmd = WCMD_BPP_24;
 		if (info->with_alpha) {
@@ -196,25 +245,30 @@ void aosd_init(struct jzfb_aosd_info *info)
 	height = height - 1;
 	aosd_writel(jzaosd, AOSD_RSIZE, height << RSIZE_RHEIGHT_BIT
 		    | width << RSIZE_RWIDTH_BIT);
+
+	aosd_clock_enable(0);
 }
 
 void aosd_start(void)
 {
-	unsigned int tmp;
+	unsigned long tmp;
 	unsigned int word_per_line;
 	int timeout;
 
-	jzaosd->compress_done = 0;
+	aosd_clock_enable(1);
 
 	/* set buffer address, the value of RADDR will auto increase */
 	aosd_change_address();
 
+	tmp = aosd_readl(jzaosd, AOSD_CFG);
+	tmp |= CFG_ADM; /* enable auto disable interrupt */
+	tmp &= ~CFG_QDM; /* disable quick disable interrupt */
+	aosd_writel(jzaosd, AOSD_CFG, tmp);
+
 	//print_aosd_registers();
 
-	tmp = aosd_readl(jzaosd, AOSD_CTRL); /* Start compress */
-	tmp |= CTRL_ENABLE;
-	aosd_writel(jzaosd, AOSD_CTRL, tmp);
-	jzaosd->is_enabled = 1;
+	jzaosd->compress_done = 0;
+	aosd_enable();
 
 	/* wait irq  */
 	timeout = wait_event_interruptible_timeout(jzaosd->aosd_wq,
@@ -224,10 +278,13 @@ void aosd_start(void)
 		dev_err(jzaosd->dev, "AOSD wait compress down timeout\n");
 	}
 
-	jzaosd->is_enabled = 0;
-	/* After finished compress, hardware will clear
-	   CTRL_ENABLE bit and auto stop compress */
+	tmp = aosd_readl(jzaosd, AOSD_CFG);
+	tmp &= ~CFG_ADM; /* disable auto disable interrupt */
+	aosd_writel(jzaosd, AOSD_CFG, tmp);
 
+	aosd_disable();
+
+	//calc_comp_ratio(aosd_info.width, aosd_info.height);
 	//print_aosd_registers();
 
 //	word_per_line = (aosd_info.width * aosd_info.bpp) >> 5;
@@ -246,7 +303,8 @@ void aosd_start(void)
 
 		src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
 			+ (word_per_line * (aosd_info.height - 1));
-		dst = (unsigned int *)phys_to_virt((unsigned long)aosd_info.waddr)
+//		dst = (unsigned int *)phys_to_virt((unsigned long)aosd_info.waddr)
+		dst = (unsigned int *)aosd_info.virt_waddr
 			+ (aosd_info.dst_stride * (aosd_info.height - 1));
 
 		if (word_per_line < STRIDE_ALIGN) {
@@ -286,11 +344,14 @@ void aosd_start(void)
 			*(dst+i++) = cmd;
 			memcpy((dst + i), src+(j * STRIDE_ALIGN), cpsize);
 		}
-		dst = (unsigned int *)virt_to_phys((void *)dst);
+/*		dst = (unsigned int *)virt_to_phys((void *)dst);
 		dma_sync_single_for_device(jzaosd->dev, (dma_addr_t)dst,
 					   (word_per_line + cmd_num) << 2,
 					   DMA_TO_DEVICE);
+*/
 	}
+
+	aosd_clock_enable(0); /* disable AOSD clock */
 }
 
 static int __devinit jzaosd_probe(struct platform_device *pdev)
@@ -325,7 +386,8 @@ static int __devinit jzaosd_probe(struct platform_device *pdev)
 	}
 
 	aosd_dev->clk = clk_get(&pdev->dev, "compress");
-	if (IS_ERR(aosd_dev->clk)) {
+	aosd_dev->debug_clk = clk_get(&pdev->dev, "compress");
+	if (IS_ERR(aosd_dev->clk) || IS_ERR(aosd_dev->debug_clk)) {
 		ret = PTR_ERR(aosd_dev->clk);
 		dev_err(&pdev->dev, "Failed to get aosd clock: %d\n", ret);
 		goto err_aosd_release;
@@ -343,6 +405,7 @@ static int __devinit jzaosd_probe(struct platform_device *pdev)
 	jzaosd = aosd_dev;
 
 	init_waitqueue_head(&aosd_dev->aosd_wq);
+	mutex_init(&aosd_dev->state_lock);
 	platform_set_drvdata(pdev, aosd_dev);
 
 	dev_info(&pdev->dev, "Frame buffer support AOSD\n");
@@ -350,7 +413,10 @@ static int __devinit jzaosd_probe(struct platform_device *pdev)
 	return 0;
 
 err_put_clk:
-	clk_put(aosd_dev->clk);
+	if (aosd_dev->clk)
+		clk_put(aosd_dev->clk);
+	if (aosd_dev->debug_clk)
+		clk_put(aosd_dev->debug_clk);
 err_aosd_release:
 	kzfree(aosd_dev);
 err_iounmap:
@@ -368,6 +434,7 @@ static int __devexit jzaosd_remove(struct platform_device *pdev)
 	iounmap(aosd_dev->base);
 	release_mem_region(aosd_dev->mem->start, resource_size(aosd_dev->mem));
 	clk_put(aosd_dev->clk);
+	clk_put(aosd_dev->debug_clk);
 
 	platform_set_drvdata(pdev, NULL);
 	kzfree(aosd_dev);

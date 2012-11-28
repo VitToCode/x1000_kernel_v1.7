@@ -245,30 +245,35 @@ static void jzfb_config_tft_lcd_dma(struct fb_info *info,
 		/* do nothing */
 	}
 
+	if (jzfb->framedesc[0]->cpos & LCDC_CPOS_ALPHAMD1)
+		/* per pixel alpha mode */
+		framedesc->cpos = LCDC_CPOS_ALPHAMD1;
+	else
+		framedesc->cpos = 0;
+
 	switch (jzfb->osd.fg0.bpp) {
 	case 16:
-		framedesc->cpos = LCDC_CPOS_RGB_RGB565
+		framedesc->cpos |= LCDC_CPOS_RGB_RGB565
 			| LCDC_CPOS_BPP_16;
 		break;
 	case 30:
-		framedesc->cpos = LCDC_CPOS_BPP_30;
+		framedesc->cpos |= LCDC_CPOS_BPP_30;
 		break;
 	default:
 		if (!jzfb->osd.decompress) {
-			framedesc->cpos = LCDC_CPOS_BPP_18_24;
+			framedesc->cpos |= LCDC_CPOS_BPP_18_24;
 		} else {
 #ifdef CONFIG_JZ4780_AOSD
 			if (aosd_info.with_alpha == 0 && aosd_info.bpp != 16) {
-				framedesc->cpos = LCDC_CPOS_BPP_CMPS_24;
+				framedesc->cpos |= LCDC_CPOS_BPP_CMPS_24;
 			} else {
-				framedesc->cpos = LCDC_CPOS_BPP_18_24;
+				framedesc->cpos |= LCDC_CPOS_BPP_18_24;
 			}
 #endif
 		}
 		break;
 	}
-	/* global alpha mode */
-	framedesc->cpos |= 0;
+
 	/* data has not been premultied */
 	framedesc->cpos |= LCDC_CPOS_PREMULTI;
 	/* coef_sle 0 use 1 */
@@ -1036,6 +1041,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	next_frm = var->yoffset / var->yres;
 	jzfb->current_buffer = next_frm;
 
+	mutex_lock(&jzfb->framedesc_lock);
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		if (!jzfb->osd.decompress && !jzfb->osd.block) {
@@ -1046,6 +1052,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 			spin_lock(&jzfb->suspend_lock);
 			if (jzfb->is_suspend) {
 				spin_unlock(&jzfb->suspend_lock);
+				mutex_unlock(&jzfb->framedesc_lock);
 				return 0;
 			}
 			spin_unlock(&jzfb->suspend_lock);
@@ -1054,19 +1061,20 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 				unsigned int count = 25;
 				while (jzfb_get_current_frame_id(jzfb) !=
 				       aosd_info.next_frame_id && count--) {
-					mdelay(2);
-					/*dev_info(jzfb->dev, "wait frame %x, current frame %x\n",
-						 aosd_info.next_frame_id,
-						 jzfb_get_current_frame_id(jzfb));*/
+					msleep(2);
 				}
 			}
+
 			aosd_info.raddr = jzfb->vidmem_phys + jzfb->frm_size
 				* next_frm;
 			if (jzfb_get_current_frame_id(jzfb) != 0xda00) {
-				aosd_info.waddr = aosd_info.buf_addr[0];
+				aosd_info.waddr = aosd_info.buf_phys_addr[0];
+				aosd_info.virt_waddr = aosd_info.buf_virt_addr;
 				aosd_info.next_frame_id = 0xda00;
 			} else {
-				aosd_info.waddr = aosd_info.buf_addr[1];
+				aosd_info.waddr = aosd_info.buf_phys_addr[1];
+				aosd_info.virt_waddr = aosd_info.buf_virt_addr
+					+ aosd_info.buf_offset;
 				aosd_info.next_frame_id = 0xda01;
 			}
 			/* start aosd compress */
@@ -1090,6 +1098,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	} else {
 		//smart tft spec code here.
 	}
+	mutex_unlock(&jzfb->framedesc_lock);
 
 	return 0;
 }
@@ -1437,12 +1446,17 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "copy aosd info failed\n");
 			return -EFAULT;
 		}
+		mutex_lock(&jzfb->framedesc_lock);
 		if (osd.aosd.aosd_enable) {
-			if (osd.aosd.buf_addr) {
-				aosd_info.buf_addr[0] = (unsigned long)
-					virt_to_phys((void *)osd.aosd.buf_addr);
+			if (osd.aosd.buf_phys_addr) {
+				/* Make sure "buf_phys_addr" is a physical address */
+				aosd_info.buf_phys_addr[0] = (unsigned long)
+					osd.aosd.buf_phys_addr;
+				aosd_info.buf_virt_addr = (unsigned long)ioremap(
+					aosd_info.buf_phys_addr[0], osd.aosd.buf_size);
 			} else {
 				dev_info(jzfb->dev, "No buffer for AOSD\n");
+				mutex_unlock(&jzfb->framedesc_lock);
 				return -EFAULT;
 			}
 			aosd_info.with_alpha = osd.aosd.with_alpha;
@@ -1451,8 +1465,10 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			aosd_info.height = info->var.yres;
 			aosd_info.is_desc_init = 0;
 			aosd_init(&aosd_info);
-			aosd_info.buf_addr[1] = aosd_info.buf_addr[0] +
-				(aosd_info.dst_stride << 2) * aosd_info.height;
+			aosd_info.buf_offset = (aosd_info.dst_stride << 2)
+				* aosd_info.height;
+			aosd_info.buf_phys_addr[1] = aosd_info.buf_phys_addr[0]
+				+ aosd_info.buf_offset;
 
 			jzfb->osd.decompress = 1;
 			dev_info(info->dev, "LCDC enable decompress mode\n");
@@ -1462,6 +1478,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			aosd_clock_enable(0);
 			dev_info(info->dev, "LCDC disable decompress mode\n");
 		}
+		mutex_unlock(&jzfb->framedesc_lock);
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_AOSD is not set\n");
 		return -EFAULT;
@@ -1470,6 +1487,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	case JZFB_16X16_BLOCK_EN:
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
+
+		mutex_lock(&jzfb->framedesc_lock);
 		if (value) {
 			dev_info(info->dev, "LCDC DMA enable block mode");
 			jzfb->osd.block = 1;
@@ -1479,6 +1498,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb->osd.block = 0;
 			jzfb_prepare_dma_desc(info);
 		}
+		mutex_unlock(&jzfb->framedesc_lock);
 		break;
 	case JZFB_IPU0_TO_BUF:
 		if (copy_from_user(&value, argp, sizeof(int)))
@@ -2032,9 +2052,7 @@ static ssize_t dump_v_color_bar(struct device *dev, struct device_attribute *att
 static ssize_t dump_aosd(struct device *dev, struct device_attribute *attr, char *buf)
 {
 #ifdef CONFIG_JZ4780_AOSD
-	aosd_clock_enable(1);
 	print_aosd_registers();
-	aosd_clock_enable(0);
 #endif
 
 	return 0;
@@ -2176,6 +2194,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, jzfb);
 
 	mutex_init(&jzfb->lock);
+	mutex_init(&jzfb->framedesc_lock);
 	spin_lock_init(&jzfb->suspend_lock);
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,

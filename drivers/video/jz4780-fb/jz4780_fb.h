@@ -107,6 +107,7 @@ struct jzfb {
 	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
+	struct mutex framedesc_lock;
 
 	wait_queue_head_t vsync_wq;
 	struct task_struct *vsync_thread;
@@ -186,8 +187,10 @@ struct jzfb_mode_res {
 
 struct jzfb_aosd {
 	__u32 aosd_enable;
-	__u32 buf_addr;
 	__u32 with_alpha;
+	__u32 buf_phys_addr;
+	__u32 buf_virt_addr;
+	__u32 buf_size;
 };
 
 /* ioctl commands */

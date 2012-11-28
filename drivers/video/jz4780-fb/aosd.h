@@ -62,10 +62,13 @@ struct jzfb_aosd_info {
 
 	unsigned long raddr;
 	unsigned long waddr;
-	unsigned long buf_addr[2];
+	unsigned long virt_waddr;
+	unsigned long buf_phys_addr[2];
+	unsigned long buf_virt_addr;
+	unsigned long buf_offset;
+
 	unsigned int next_frame_id;
 	unsigned int is_desc_init;
-
 	unsigned int burst_128_words;
 	unsigned int with_alpha;
 
@@ -83,9 +86,11 @@ struct jzaosd {
 
 	int compress_done;
 	int is_enabled; /* 0:disable, 1:enable */
+	struct mutex state_lock;
 	wait_queue_head_t aosd_wq;
 
 	struct clk *clk;
+	struct clk *debug_clk;
 	int irq;
 };
 
