@@ -48,10 +48,18 @@ static struct gsensor_platform_data lis3dh_platform_data = {
        	.min_interval = 40,
 	.max_interval = 400,
 	.g_range = GSENSOR_2G,
+#ifdef CONFIG_Q8
 	.axis_map_x = 0,
 	.axis_map_y = 1,
 	.axis_map_z = 2,							        
 	.negate_x = 1,
+#else
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,							        
+	.negate_x = 0,
+#endif
+
 	.negate_y = 1,
 	.negate_z = 1,
 	
@@ -250,7 +258,7 @@ static struct i2c_board_info ji8070a_i2c3_devs[] __initdata = {
 #endif
 #ifdef CONFIG_SENSORS_DMARD06
 	{
-		I2C_BOARD_INFO("gsensor_dmard06", 0x38),//0x1c
+		I2C_BOARD_INFO("gsensor_dmard06", 0x1c),//0x1c
 		.platform_data = &dmard06_platform_data,
 	},
 #endif	/*I2C3*/
