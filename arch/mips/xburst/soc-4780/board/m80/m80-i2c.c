@@ -149,7 +149,7 @@ static struct cam_sensor_module_plat_data ov2659_module_pdata = {
 
 #if (defined(CONFIG_GC0308))
 static struct cam_sensor_plat_data gc0308_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC0308_EN,
@@ -160,9 +160,9 @@ static struct cam_sensor_plat_data gc0308_pdata = {
 
 #if (defined(CONFIG_HI253))
 static struct cam_sensor_plat_data hi253_pdata = {
-	.facing = 1,
+	.facing = 0,
 	.orientation = 0,
-	.mirror = 1,
+	.mirror = 0,
 	.gpio_en = GPIO_HI253_EN,
 	.gpio_rst = GPIO_HI253_RST,
 	.cap_wait_frame = 2,
