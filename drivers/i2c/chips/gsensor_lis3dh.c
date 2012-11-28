@@ -833,7 +833,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 				"ERROR: Can't load lis3dh g_sensor driver,may use mma8452 g_sensor driver: %d\n",
 				err);
-		goto err_read_who_am_i; 
+		goto err_read_who_am_i;
 
 	}
 	printk("Gsensor is lis3dh\n");
@@ -1083,7 +1083,8 @@ static void __exit lis3dh_acc_exit(void)
 	return;
 }
 
-module_init(lis3dh_acc_init);
+//module_init(lis3dh_acc_init);
+late_initcall(lis3dh_acc_init);
 module_exit(lis3dh_acc_exit);
 
 MODULE_DESCRIPTION("lis3dh digital accelerometer sysfs driver");
