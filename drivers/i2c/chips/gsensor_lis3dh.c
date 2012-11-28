@@ -17,7 +17,7 @@
 #include        <linux/hwmon-sysfs.h>
 #include        "gsensor_lis3dh.h"
 
-#define DEBUG   1
+#define DEBUG   0
 
 
 struct {
@@ -341,7 +341,10 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc);
 static void lis3dh_acc_regulator_enbale(struct lis3dh_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->regulator_enabled, 0, 1) == 0) {
+		#ifdef   CONFIG_Q8
+		#else
 		regulator_enable(acc->power);
+		#endif
 		udelay(100);
 		lis3dh_acc_hw_init(acc);
 //		printk("&&&&&&&&&=gsensor regulator_enable &&&\n");
@@ -800,20 +803,24 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto exit_kfree_pdata;
 	}
 	client->dev.init_name=client->name;
+#ifdef   CONFIG_Q8
+#else
 	acc->power = regulator_get(&client->dev, "vgsensor");
 	if (IS_ERR(acc->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
 	}
 	if (acc->power){
-	
+
 		printk("----------g_sensor enable ------\n");
 		err = regulator_enable(acc->power);
 		if (err < 0){
-			dev_err(&acc->client->dev,
-					"power_on regulator failed: %d\n", err);
-			goto err_read_who_am_i;
+			 dev_err(&acc->client->dev,
+                                        "power_on regulator failed: %d\n", err);
+
+		goto err_read_who_am_i;
 		}
 	}
+#endif
 	udelay(100);
 	atomic_set(&acc->regulator_enabled, 0);
 
@@ -957,7 +964,10 @@ err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
 err_read_who_am_i:
+#ifdef CONFIG_Q8
+#else
 	regulator_disable(acc->power);
+#endif
 exit_kfree_pdata:
 	kfree(acc->pdata);
 err_free:
@@ -986,15 +996,18 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client)
 		acc->pdata->exit();
 	kfree(acc->pdata);
 
+#ifdef CONFIG_Q8
+#else
 	if (acc->power && atomic_cmpxchg(&acc->regulator_enabled, 1, 0)){
 		err = regulator_disable(acc->power);
-		if (err < 0){
-			dev_err(&acc->client->dev,
-					"power_off regulator failed: %d\n", err);
-			return err;
-		}
+	if (err < 0){
+		dev_err(&acc->client->dev,
+			"power_off regulator failed: %d\n", err);
+		return err;
+	}
 		regulator_put(acc->power);
 	}
+#endif
 	kfree(acc);
 	return 0;
 }
@@ -1027,9 +1040,12 @@ static void lis3dh_acc_early_suspend(struct early_suspend *handler)
 	if (atomic_read(&acc->enabled)) {
 		lis3dh_acc_disable(acc);
 	}
+#ifdef CONFIG_Q8
+#else
 	if (atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
 		regulator_disable(acc->power);
 	}
+#endif
 
 }
 #endif

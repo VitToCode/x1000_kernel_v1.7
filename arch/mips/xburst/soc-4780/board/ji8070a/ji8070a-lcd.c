@@ -181,11 +181,20 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.xres = 800,
 		.yres = 480,
 		.pixclock = KHZ2PICOS(33300),
+#ifdef CONFIG_Q8
+		.left_margin = 0,
+		.right_margin = 128,
+		.upper_margin = 20,
+		.lower_margin = 0,
+		.hsync_len = 40,
+#else
+
 		.left_margin = 40,
 		.right_margin = 40,
 		.upper_margin = 29,
 		.lower_margin = 13,
 		.hsync_len = 48,
+#endif
 		.vsync_len = 3,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,

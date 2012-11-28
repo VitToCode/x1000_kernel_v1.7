@@ -45,8 +45,8 @@ static struct ct36x_ts_info	ct36x_ts;
 
 static char const Binary_Data[]=
 {
-//#include "40x25_97TP_V16120424.dat"
-#include "Ji8070A_CT360_V01_06D0_121107.dat" //v3
+//#include "Ji8070A_CT360_V01_06D0_121107.dat" //v1
+#include "CT360_V02_06A9_121108.dat"//v2
 };
 
 static void ct36x_ts_reg_read(struct i2c_client *client, unsigned short addr, char *buf, int len, int rate)

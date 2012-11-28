@@ -53,10 +53,27 @@ EXCLUSIVE_REGULATOR_DEF(
 	"Touch Screen",
 	"vtsc",		NULL,		3300000);
 
+/*for qt80*/
+/*
+FIXED_REGULATOR_DEF(
+	ji8070a_vgsensorqt80,
+	"G-sensor",		3300000,GPIO_PE(9),	
+	HIGH_ENABLE,EN_AT_BOOT,	0,
+	NULL,		"vgsensorqt80",		NULL);
+*/
+/*
+EXCLUSIVE_REGULATOR_DEF(
+	ji8070a_vgsensorqt80,
+	"G-sensor",
+	"vgsensorqt80",	NULL,		3300000);
+
+*/
+/*end*/
 EXCLUSIVE_REGULATOR_DEF(
 	ji8070a_vgsensor,
 	"G-sensor",
 	"vgsensor",	NULL,		3300000);
+//#endif
 
 /**
  * Fixed voltage Regulators.
@@ -65,16 +82,16 @@ EXCLUSIVE_REGULATOR_DEF(
 #if 1 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	ji8070a_vcc5,
-	"Vcc-5V",	5000000,	GPIO_PA(17),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	"Vcc-5V",	5000000,
+	GPIO_PA(17),	HIGH_ENABLE,	UN_AT_BOOT,0,
 	NULL,		"vhdmi",	"jz-hdmi");
 #endif
 
 #if 0 /* FIXME! when board fixed, recovery it */
 FIXED_REGULATOR_DEF(
 	ji8070a_vbus,
-	"OTG-Vbus",	5000000,	GPIO_PE(10),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	"OTG-Vbus",	5000000,
+	GPIO_PE(10),	HIGH_ENABLE,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
 
@@ -90,6 +107,12 @@ FIXED_REGULATOR_DEF(
 	"Camera",	2800000,GPIO_PB(27),	
 	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
+
+/*for Q8_LCD*/
+EXCLUSIVE_REGULATOR_DEF(
+	ji8070a_vq8lcd,
+	"Vq8lcd",
+	"vq8lcd",NULL,	3300000);
 
 FIXED_REGULATOR_DEF(
 	ji8070a_vlcd,
@@ -118,7 +141,11 @@ static struct regulator_info ji8070a_pmu_regulators[] = {
 	{"OUT3", &ji8070a_vccio_init_data},
 	{"OUT6", &ji8070a_vwifi_init_data},
 	{"OUT7", &ji8070a_vtsc_init_data},
+#ifdef  CONFIG_Q8
+	{"OUT8", &ji8070a_vq8lcd_init_data},
+#else
 	{"OUT8", &ji8070a_vgsensor_init_data},
+#endif
 	{"VBUS", &ji8070a_vbus_init_data},
 };
 

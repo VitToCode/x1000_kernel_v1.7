@@ -103,15 +103,24 @@ static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, dev);
 
-	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
 	
-#ifdef  CONFIG_QT80
-	dev->lcd_vcc_reg = regulator_get(NULL, "vgsensor");
+#ifdef  CONFIG_Q8
+	dev->lcd_vcc_reg = regulator_get(NULL, "vq8lcd");
+#else
+	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
 #endif
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
 	}
+/*
+	if(gpio_request(dev->pdata->gpio_backlight_en, "bk_en")){
+		 dev_err(&pdev->dev,"request gc0308 gpio rst and en fail\n");
+                return -1;
+        }
+
+	gpio_set_value(dev->pdata->gpio_backlight_en, 1);
+*/
 
 	if (dev->pdata->gpio_rest)
 		gpio_request(dev->pdata->gpio_rest, "reset");

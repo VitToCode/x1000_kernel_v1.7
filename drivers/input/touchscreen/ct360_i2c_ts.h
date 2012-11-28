@@ -24,13 +24,13 @@
 
 #define CT36X_TS_POINT_NUM 10    // max touch points supported
 
-#define CT36X_TS_X_REVERSE	0
-
-#ifdef CONFIG_QT80
-#define CT36X_TS_Y_REVERSE	1
+#if CONFIG_Q8
+#define CT36X_TS_X_REVERSE	1
 #else
-#define CT36X_TS_Y_REVERSE	0
+#define CT36X_TS_X_REVERSE	0
 #endif
+
+#define CT36X_TS_Y_REVERSE	0
 
 #define CT36X_TS_XY_SWAP	0 //fix
 #define CT36X_TS_PTS_VER	1// fix	// Touch Point protocol
