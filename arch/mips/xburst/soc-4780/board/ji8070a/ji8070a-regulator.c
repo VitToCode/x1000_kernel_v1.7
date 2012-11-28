@@ -98,7 +98,7 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-#if 0 /* FIXME! when board fixed, recovery it */
+#if 1 /* FIXME! when board fixed, recovery it */
 	&ji8070a_vcc5_regulator_device,
 #endif
 	&ji8070a_vbus_regulator_device,
