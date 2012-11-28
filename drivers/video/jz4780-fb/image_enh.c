@@ -18,10 +18,10 @@
 
 #define LVDSCON 0x3CC
 
-static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
+static void jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 {
 	struct jzfb *jzfb = info->par;
-	unsigned int tmp,offset;
+	unsigned int tmp,offset,tmp_lvds;
 	int i = 1000;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -36,16 +36,20 @@ static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 		dev_info(info->dev, "Disable gamma time out");
 
 	for (i = 0; i < LCDC_ENH_GAMMA_LEN >> 2; i++) {
-		tmp = gamma->gamma_data0[i] << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT
+		tmp = gamma->gamma_data[2*i] << LCDC_ENH_GAMMA_GAMMA_DATA0_BIT
 			& LCDC_ENH_GAMMA_GAMMA_DATA0_MASK;
-		tmp |= (gamma->gamma_data1[i] << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT
+		tmp |= (gamma->gamma_data[2*i+1] << LCDC_ENH_GAMMA_GAMMA_DATA1_BIT
 			& LCDC_ENH_GAMMA_GAMMA_DATA1_MASK);
 
 		offset = LCDC_ENH_GAMMA + i * 4;
+
 		if((offset & 0x3FF) != LVDSCON){/*this addr is bug*/
 			reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
+		}else{
+			tmp_lvds = reg_read(jzfb,LVDSCON);
+			reg_write(jzfb, LCDC_ENH_GAMMA + i * 4, tmp);
+			reg_write(jzfb, LVDSCON, tmp_lvds);
 		}
-
 	}
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -61,11 +65,10 @@ static int jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 			tmp = reg_read(jzfb, LCDC_ENH_STATUS);
 		}
 		while (!(tmp & LCDC_ENH_STATUS_GAMMA_DIS) && i--);
-		if (i < 0)
+		if (i < 0){
 			dev_info(info->dev, "Disable gamma time out");
-		return 0;
+		}
 	}
-	return 0;
 }
 
 static void jzfb_get_csc(struct fb_info *info, struct enh_csc *csc)
@@ -275,10 +278,10 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	}
 }
 
-static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
+static void jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 {
 	struct jzfb *jzfb = info->par;
-	unsigned int tmp,offset;
+	unsigned int tmp,offset,tmp_lvds;
 	int i = 1000;
 
 	tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -293,14 +296,18 @@ static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 		dev_info(info->dev, "Disable vee time out");
 
 	for (i = 0; i < LCDC_ENH_VEE_LEN >> 2; i++) {
-		tmp = vee->vee_data0[i] << LCDC_ENH_VEE_VEE_DATA0_BIT
+		tmp = vee->vee_data[2*i] << LCDC_ENH_VEE_VEE_DATA0_BIT
 			& LCDC_ENH_VEE_VEE_DATA0_MASK;
-		tmp |= (vee->vee_data1[i] << LCDC_ENH_VEE_VEE_DATA1_BIT
+		tmp |= (vee->vee_data[2*i + 1] << LCDC_ENH_VEE_VEE_DATA1_BIT
 			& LCDC_ENH_VEE_VEE_DATA1_MASK);
 
 		offset = LCDC_ENH_VEE + i * 4;
 		if((offset & 0x3FF) != LVDSCON){/*this addr is bug*/
 			reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
+		}else{
+			tmp_lvds = reg_read(jzfb,LVDSCON);
+			reg_write(jzfb, LCDC_ENH_VEE + i * 4, tmp);
+			reg_write(jzfb, LVDSCON, tmp_lvds);
 		}
 	}
 
@@ -319,10 +326,7 @@ static int jzfb_set_vee(struct fb_info *info, struct enh_vee *vee)
 		while (!(tmp & LCDC_ENH_STATUS_VEE_DIS) && i--);
 		if (i < 0)
 			dev_info(info->dev, "Disable vee time out");
-		return 0;
 	}
-
-	return 0;
 }
 
 static void jzfb_get_dither(struct fb_info *info, struct enh_dither *dither)
@@ -431,8 +435,6 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 	} enh;
 
 	switch (cmd) {
-	case JZFB_GET_GAMMA:
-		break;
 	case JZFB_SET_GAMMA:
 		if (copy_from_user(&enh.gamma, argp, sizeof(struct enh_gamma))) {
 			dev_err(info->dev, "copy gamma from user error");
@@ -493,8 +495,6 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 			jzfb_set_saturation(info, &enh.chroma);
 		}
 		break;
-	case JZFB_GET_VEE:
-		break;
 	case JZFB_SET_VEE:
 		if (copy_from_user(&enh.vee, argp, sizeof(struct enh_vee))) {
 			dev_err(info->dev, "copy vee from user error");
@@ -526,7 +526,7 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	default:
 		dev_info(info->dev, "Unknown ioctl 0x%x\n", cmd);
-		break;
+		return -1;
 	}
 
 	return 0;

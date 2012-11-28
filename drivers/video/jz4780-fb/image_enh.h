@@ -4,8 +4,7 @@
 
 struct enh_gamma {
 	__u32 gamma_en:1;
-	__u16 gamma_data0[512];
-	__u16 gamma_data1[512];
+	__u16 gamma_data[1024];
 };
 
 struct enh_csc {
@@ -35,8 +34,7 @@ struct enh_chroma {
 
 struct enh_vee {
 	__u32 vee_en:1;
-	__u16 vee_data0[512];
-	__u16 vee_data1[512];
+	__u16 vee_data[1024];
 };
 
 struct enh_dither {
@@ -47,7 +45,6 @@ struct enh_dither {
 };
 
 /* image enhancement ioctl commands */
-#define JZFB_GET_GAMMA			_IOR('F', 0x141, struct enh_gamma)
 #define JZFB_SET_GAMMA			_IOW('F', 0x142, struct enh_gamma)
 #define JZFB_GET_CSC			_IOR('F', 0x143, struct enh_csc)
 #define JZFB_SET_CSC			_IOW('F', 0x144, struct enh_csc)
@@ -57,7 +54,6 @@ struct enh_dither {
 #define JZFB_SET_HUE			_IOW('F', 0x148, struct enh_hue)
 #define JZFB_GET_CHROMA			_IOR('F', 0x149, struct enh_chroma)
 #define JZFB_SET_CHROMA			_IOW('F', 0x150, struct enh_chroma)
-#define JZFB_GET_VEE			_IOR('F', 0x151, struct enh_vee)
 #define JZFB_SET_VEE			_IOW('F', 0x152, struct enh_vee)
 /* Reserved for future extend */
 #define JZFB_GET_DITHER			_IOR('F', 0x158, struct enh_dither)

@@ -4,8 +4,7 @@
 
 struct enh_gamma {
 	__u32 gamma_en:1;
-	__u32 gamma_data0[512];
-	__u32 gamma_data1[512];
+	__u16 gamma_data[1024];
 };
 
 struct enh_csc {
@@ -35,8 +34,7 @@ struct enh_chroma {
 
 struct enh_vee {
 	__u32 vee_en:1;
-	__u32 vee_data0[512];
-	__u32 vee_data1[512];
+	__u16 vee_data[1024];
 };
 
 struct enh_dither {
@@ -62,7 +60,7 @@ struct enh_dither {
 /* Reserved for future extend */
 #define JZFB_GET_DITHER			_IOR('F', 0x158, struct enh_dither)
 #define JZFB_SET_DITHER			_IOW('F', 0x159, struct enh_dither)
-#define JZFB_ENABLE_ENH			_IOW('F', 0x158, struct enh_dither)
+#define JZFB_ENABLE_ENH			_IOW('F', 0x160, struct enh_dither)
 
 
 //#define SOURCE_BUFFER_SIZE 0x400000 /* 4M */
