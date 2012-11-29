@@ -1476,6 +1476,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb->osd.decompress = 0;
 			jzfb_prepare_dma_desc(info);
 			aosd_clock_enable(0);
+			if (aosd_info.buf_virt_addr)
+				iounmap((void *)aosd_info.buf_virt_addr);
 			dev_info(info->dev, "LCDC disable decompress mode\n");
 		}
 		mutex_unlock(&jzfb->framedesc_lock);
