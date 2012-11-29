@@ -1086,35 +1086,43 @@ int nand_erase_blocks(NAND_BASE *host,BlockList *headlist)
  */
 int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
 {
-	unsigned char state[8][NAND_ECC_POS];  // there are four page per badblock,which stores badblock message
+	unsigned char state[4][NAND_ECC_POS];  // there are four page per badblock,which stores badblock message
 	int ret =0;
-	int i=0,j=0;
+	int i=0,j=0,k=0;
 	unsigned int pageid=0;
 	unsigned char times =g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
-	memset(state[0],0xff,8*NAND_ECC_POS);
+	int bit0_num = 0;
+	memset(state[0],0xff,4*NAND_ECC_POS);
 	pageid =g_startpage + blockid * g_pageperblock;
 	while(times--){
 		do_select_chip(host,pageid);
 		while(i<4){
 			send_read_page(g_pagesize+g_pnand_chip->badblockpos,(pageid +i));
-			ret =g_pnand_io->read_data_withrb(state[j], NAND_ECC_POS);
+			ret =g_pnand_io->read_data_withrb(state[i], NAND_ECC_POS);
 			if(ret){
 				printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 				return ret;  // nand io_error
 			}
+		/* cale the number of the bit is 0 per 128bits in state */
+			for(j=0; j <NAND_ECC_POS; j++)
+			{
+				if(state[i][j] != 0xff)
+					for(k=0;k<8;k++)
+						if(!(0x01 & (state[i][j]>>k)))
+							bit0_num++;
+			}
 			i++;
-			j++;
 		}
 		do_deselect_chip(host);
+		/* the block is badblock if the number of the bit ,which is 0,is more than 64 */
+		if(bit0_num > 4*4*NAND_ECC_POS) 
+			return ENAND;
+		bit0_num = 0;
 		if(times){
 			pageid +=g_pnand_chip->ppblock;
 			i=0;
 		}
 	}
-	for(i=0;i<8;i++)  // nand two planes ops
-		for(j=0;j< NAND_ECC_POS;j++)
-			if(state[i][j] != 0xff)
-				return ENAND;
 	return SUCCESS;
 }
 /******************************************************

@@ -796,9 +796,11 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
 #endif
 		generic_handle_irq(IRQ_MCU);
-	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
+	} 
+	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
 		generic_handle_irq(IRQ_GPIO0);
-	} else if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
+	} 
+	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
 		mask = GET_MSG_MASK(mailbox);
 		*((volatile int *)(0xb0010058)) &= ~(1<<mask);
 		generic_handle_irq(IRQ_GPIO0);
