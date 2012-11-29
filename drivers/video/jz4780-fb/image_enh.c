@@ -133,6 +133,7 @@ static void jzfb_set_csc(struct fb_info *info, struct enh_csc *csc)
 	}
 }
 
+static void jzfb_get_saturation(struct fb_info *info, struct enh_chroma *chroma);
 static void jzfb_get_luma(struct fb_info *info, struct enh_luma *luma)
 {
 	struct jzfb *jzfb = info->par;
@@ -154,6 +155,23 @@ static void jzfb_set_luma(struct fb_info *info, struct enh_luma *luma)
 	struct jzfb *jzfb = info->par;
 	unsigned int tmp;
 	int i = 1000;
+	struct enh_chroma chroma;
+	
+	if((luma->brightness >= 0x4CC && luma->brightness <= 0x7FF )
+			|| (luma->brightness >= 0x2CC && luma->brightness <= 0x3FF)
+			|| luma->contrast <= 0x266 || luma->contrast >=0x598){
+		jzfb_get_saturation(info,&chroma);
+		if(chroma.saturation<=0x199){
+				if(luma->brightness >= 0x4CC && luma->brightness <= 0x7FF )
+					luma->brightness = 0x4CC;
+				if(luma->brightness >= 0x2CC && luma->brightness <= 0x3FF)
+					luma->brightness = 0x2CC;
+				if(luma->contrast <= 0x266)
+					luma->contrast = 0x266;
+				if(luma->contrast >= 0x598 && (luma->brightness >= 0x2CC && luma->brightness <= 0x3FF))
+					luma->contrast = 0x598;
+			}
+	}
 
 	tmp = luma->contrast << LCDC_ENH_LUMACFG_CONTRAST_BIT &
 		LCDC_ENH_LUMACFG_CONTRAST_MASK;
@@ -256,6 +274,31 @@ static void jzfb_set_saturation(struct fb_info *info, struct enh_chroma *chroma)
 	struct jzfb *jzfb = info->par;
 	unsigned int tmp;
 	int i = 1000;
+	struct enh_luma luma;
+
+	if(chroma->saturation<=0x199){
+		jzfb_get_luma(info, &luma);
+		if((luma.brightness >= 0x4CC && luma.brightness <= 0x7FF )
+			|| (luma.brightness >= 0x2CC && luma.brightness >= 0x3FF)
+			|| luma.contrast <= 0x266 ){
+			chroma->saturation = 0x199;
+		
+			if(luma.brightness >= 0x4CC && luma.brightness <= 0x7FF )
+					luma.brightness = 0x4CC;
+			if(luma.brightness >= 0x2CC && luma.brightness <= 0x3FF)
+					luma.brightness = 0x2CC;
+			if(luma.contrast <= 0x266)
+					luma.contrast = 0x266;
+			if(luma.contrast >= 0x598 && (luma.brightness >= 0x2CC && luma.brightness <= 0x3FF))
+					luma.contrast = 0x598;
+
+			tmp = luma.contrast << LCDC_ENH_LUMACFG_CONTRAST_BIT &
+					LCDC_ENH_LUMACFG_CONTRAST_MASK;
+			tmp |= luma.brightness << LCDC_ENH_LUMACFG_BRIGHTNESS_BIT &
+					LCDC_ENH_LUMACFG_BRIGHTNESS_MASK;
+			reg_write(jzfb, LCDC_ENH_LUMACFG, tmp);
+		}
+	}
 
 	tmp = chroma->saturation << LCDC_ENH_CHROCFG1_SATURATION_BIT
 		& LCDC_ENH_CHROCFG1_SATURATION_MASK; 
