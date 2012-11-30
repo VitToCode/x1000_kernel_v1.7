@@ -39,7 +39,7 @@
 
 #define HARB0_PRIOR (0xB3000000)
 #define REG_HARB_PRIOR *(volatile unsigned int *)(HARB0_PRIOR)
-
+//#define IPU_DEBUG
 
 #ifdef PHYS
 #undef PHYS
@@ -47,8 +47,8 @@
 
 #define PHYS(x) (x)
 
-static int bypass;
-static int ipu_id;
+static int ipu0_nodirect;
+static int ipu1_nodirect;
 static int ipu0_direct;
 static int ipu1_direct;
 static struct mutex ipu_lock;
@@ -119,7 +119,7 @@ static void bit_set(struct jz_ipu *ipu, int offset, unsigned int bit)
 
 	tmp = reg_read(ipu, offset);
 	tmp |= bit;
-	reg_write(ipu, offset, tmp);	
+	reg_write(ipu, offset, tmp);
 }
 
 static void bit_clr(struct jz_ipu *ipu, int offset, unsigned int bit)
@@ -146,7 +146,7 @@ static void set_hrsz_lut_weigth_cube(struct jz_ipu *ipu, struct ipu_proc_info *i
 			((table->cube_hcoef[i][1] & W_COEF_31_MSK)<<W_COEF_31_SFT);
 		reg_write(ipu, HRSZ_LUT_BASE, tmp); 
 		tmp = ((table->cube_hcoef[i][2] & W_COEF_20_MSK)<<W_COEF_20_SFT) |
-			(((table->cube_hcoef[i][3]) & W_COEF_31_MSK)<<W_COEF_31_SFT) | 
+			(((table->cube_hcoef[i][3]) & W_COEF_31_MSK)<<W_COEF_31_SFT) |
 			((oft_table[i] & HRSZ_OFT_MSK) << HRSZ_OFT_SFT);
 		reg_write(ipu, HRSZ_LUT_BASE, tmp);
 	}
@@ -226,10 +226,9 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 		return;
 	}
 
-	//	printk("ipu->img.in_width = %d,  Wdiff = %d\n", ipu->img.in_width, Wdiff);
-	//	printk("outW = %d, outH = %d\n",  outW, outH);
+	dev_dbg(ipu->dev, "ipu->img.in_width = %d,  Wdiff = %d\n", ipu->img.in_width, Wdiff);
+	dev_dbg(ipu->dev, "outW = %d, outH = %d\n",  outW, outH);
 	tmp1 =ipu_proc->img.in_width - Wdiff;
-	//	tmp1 >>= 4;	
 	tmp = IN_FM_W(tmp1) | IN_FM_H((ipu_proc->img.in_height - Hdiff) & ~0x1);
 	reg_write(ipu, IPU_IN_FM_GS, tmp);
 	tmp = OUT_FM_W(outW) | OUT_FM_H(outH);
@@ -519,7 +518,7 @@ static int destroy_allproc_info(struct jz_ipu *ipu)
 	struct ipu_proc_info *ipu_proc = NULL;
 	struct list_head *head = NULL;
 
-	//dev_info(ipu->dev, "destroy_allproc_info pid: %d, tgid: %d", current->pid, current->tgid);
+	dev_dbg(ipu->dev, "destroy_allproc_info pid: %d, tgid: %d", current->pid, current->tgid);
 	record_proc_num = ipu->proc_num;
 	for (i = 0; i < record_proc_num; i++) {
 		head = &ipu->process_list;
@@ -532,7 +531,7 @@ static int destroy_allproc_info(struct jz_ipu *ipu)
 			}
 		}
 	}
-	//dev_info(ipu->dev, "ipu->proc_num: %d++++++", ipu->proc_num);
+	dev_dbg(ipu->dev, "ipu->proc_num: %d++++++", ipu->proc_num);
 
 	return 0;
 }
@@ -946,7 +945,6 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 {
 	int ret, in_fmt, out_fmt;
 	int outW, outH, Wdiff, Hdiff;
-	//unsigned int tmp;
 	struct ipu_proc_info *ipu_proc = NULL;
 
 	dev_dbg(ipu->dev, "enter jz47_ipu_init\n");
@@ -964,6 +962,7 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	if (imgp->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		ipu->cur_output_mode = IPU_OUTPUT_BLOCK_MODE;
+		__disable_lcdc_mode();
 	}
 
 	dev_dbg(ipu->dev, "<-----outW: %d, outH: %d\n", imgp->out_width, imgp->out_height);
@@ -1022,22 +1021,22 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	enable_ctrl_regs(ipu, ipu_proc);
 
-        /* check AHB0 priority
-         * if CPU_PRIORITY > 2, IPU_TO_LCDC maybe underrun when playback 1080P video.
-         * so make sure all priority is 0.
-         */
+	/* check AHB0 priority
+	 * if CPU_PRIORITY > 2, IPU_TO_LCDC maybe underrun when playback 1080P video.
+	 * so make sure all priority is 0.
+	 */
 	if (imgp->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-            unsigned int prio;
-            prio = REG_HARB_PRIOR;
-            if ( prio != 0 ) {
-                ipu->g_reg_harb_prior = prio;
-                REG_HARB_PRIOR = 0;
-                dev_info(ipu->dev,"jz4780_ipu.c 111 save REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
-            }
-            else {
-                //ipu->g_reg_harb_prior = 0;
-            }
-        }
+		unsigned int prio;
+		prio = REG_HARB_PRIOR;
+		if (prio != 0) {
+			ipu->g_reg_harb_prior = prio;
+			REG_HARB_PRIOR = 0;
+			dev_info(ipu->dev,"jz4780_ipu.c 111 save REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
+		}
+		else {
+			//ipu->g_reg_harb_prior = 0;
+		}
+	}
 	return ret;
 }
 
@@ -1072,7 +1071,7 @@ static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
    		clk_enable(ipu->clk);
 	}
 
-	//reset_ipu(ipu);
+	//__reset_ipu();
 	ret = jz47_ipu_init(ipu, img);
 	if (ret < 0) {
 		dev_err(ipu->dev, "jz47_ipu_init failed\n");
@@ -1110,11 +1109,12 @@ static int ipu_start(struct jz_ipu *ipu)
 	}
 
 	img = &ipu_proc->img;
-	//ipu_dump_regs(ipu);
+#ifdef IPU_DEBUG
+	ipu_dump_regs(ipu);
+#endif
 
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
-	   	dev_dbg(ipu->dev, "IPU_OUTPUT_BLOCK_MODE\n");
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
 		ipu->frame_requested++;
 		spin_unlock_irqrestore(&ipu->update_lock, irq_flags);
@@ -1128,14 +1128,15 @@ static int ipu_start(struct jz_ipu *ipu)
 	/* start ipu */
 	__start_ipu();
 #if 0
+	/* This is just used in ipu direct test! */
 	unsigned int tmp;
 	int i;
 	for (i = 0; i < 10; i++) {
 	  tmp = reg_read(ipu, IPU_STATUS);
 	  if (tmp & 0x1) {
-	    //	    printk("out end ~~~~~~~~~~~~~~~>\n");
+		  printk("out end ~~~~~~~~~~~~~~~>\n");
 	  } else {
-	    //	    printk("not end ~~~~~~\n");
+		  printk("not end ~~~~~~\n");
 	  } 
 	}
 #endif
@@ -1146,6 +1147,7 @@ static int ipu_start(struct jz_ipu *ipu)
 			wait_event_interruptible_timeout(
 					ipu->frame_wq, ipu->frame_done == ipu->frame_requested, HZ/10 + 1); /* HZ = 100 */
 	}
+
 	dev_dbg(ipu->dev, "exit ipu_start %d\n", current->pid);	
 	mutex_unlock(&ipu->run_lock);
 
@@ -1233,8 +1235,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	set_yuv_stride(ipu, ipu_proc);
 
-	//	printk("dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
-	//	printk("img->out_buf_v = %x, img->out_buf_p = %x\n", img->out_buf_v, img->out_buf_p);
+	dev_dbg(ipu->dev, "dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
+	dev_dbg(ipu->dev, "img->out_buf_v = %x, img->out_buf_p = %x\n", img->out_buf_v, img->out_buf_p);
 	/* set out put */
 	if ((dpage_map != 0) && (lcdc_sel == 0)) {
 		if (PHYS((unsigned int) img->out_buf_v) == 0) {
@@ -1295,30 +1297,29 @@ static int ipu_stop(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
 
+	dev_dbg(ipu->dev, "enter ipu_stop\n");
 	mutex_lock(&ipu->run_lock);
-	//dev_dbg(ipu->dev, "enter ipu_stop\n");
-
 	if (!ipu) {
 		dev_err(ipu->dev, "ipu is NULL!\n");
 		mutex_unlock(&ipu->run_lock);
 		return -1;
 	}
-	//dev_info(ipu->dev, "ipu_stop %s %d\n", __func__, current->pid);
+	dev_dbg(ipu->dev, "ipu_stop %s %d", __func__, current->pid);
 
-        spin_lock(&ipu->suspend_lock);
-        if(ipu->suspend_entered) {
-            spin_unlock(&ipu->suspend_lock);
-            mutex_unlock(&ipu->run_lock);
-            return 0;
-        }
-        spin_unlock(&ipu->suspend_lock);
-        
-        if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-            stop_ipu_to_lcd(ipu);
-        } else {
-            tmp = IPU_STOP;
-            reg_write(ipu, IPU_TRIG, tmp);
-        }
+	spin_lock(&ipu->suspend_lock);
+	if(ipu->suspend_entered) {
+		spin_unlock(&ipu->suspend_lock);
+		mutex_unlock(&ipu->run_lock);
+		return 0;
+	}
+	spin_unlock(&ipu->suspend_lock);
+	
+	if (IPU_OUTPUT_TO_LCD_FG1 == ipu->cur_output_mode) {
+		stop_ipu_to_lcd(ipu);
+	} else {
+		tmp = IPU_STOP;
+		reg_write(ipu, IPU_TRIG, tmp);
+	}
 	mutex_unlock(&ipu->run_lock);
 
 	return 0;
@@ -1347,45 +1348,104 @@ static int ipu_shut(struct jz_ipu *ipu)
 
 static int ipu_set_bypass(struct jz_ipu *ipu)
 {
+	int ret = 0;
+
 	mutex_lock(&ipu_lock);
-	if (!strcmp(ipu->name, "ipu0") && !ipu0_direct) {
-		ipu_id = 0;
-	} else if (!strcmp(ipu->name, "ipu1") && !ipu1_direct) {
-		ipu_id = 1;
-	} else {
-		dev_err(ipu->dev, "%s nodirect unavailable!\n", ipu->name);
-		return -EFAULT;
+	if (!strcmp(ipu->name, "ipu0"))
+		ret = !ipu0_direct ? 0 : -EFAULT;
+	else if (!strcmp(ipu->name, "ipu1"))
+		ret = !ipu1_direct ? 0 : -EFAULT;
+    else {
+		dev_err(ipu->dev, "%s is unknown ipu device!\n", ipu->name);
+		dev_err(ipu->dev, "ipu0_direct: %d, ipu1_direct: %d", ipu0_direct, ipu1_direct);
+		ret = -EFAULT;
 	}
-	bypass += 1;
+	dev_dbg(ipu->dev, "ipu0_direct: %d, ipu1_direct: %d", ipu0_direct, ipu1_direct);
+	dev_dbg(ipu->dev, "ipu0_nodirect: %d, ipu1_nodirect: %d", ipu0_nodirect, ipu1_nodirect);
+
 	mutex_unlock(&ipu_lock);
 
-	return 0;
+	return ret;
 }
 
 static int ipu_get_bypass_state(struct jz_ipu *ipu)
 {
-	if (!strcmp(ipu->name, "ipu0") && (ipu_id == 0)) {
+	if (!strcmp(ipu->name, "ipu0")) {
 		return 0;
 	}
-	if (!strcmp(ipu->name, "ipu1") && (ipu_id == 1)) {
+	if (!strcmp(ipu->name, "ipu1")) {
 		return 0;
 	}
 
-	return bypass ? -1 : 0;
+	return 0;
 }
 
 static int ipu_clr_bypass(struct jz_ipu *ipu)
 {
 	mutex_lock(&ipu_lock);
-	if (!strcmp(ipu->name, "ipu0") || !strcmp(ipu->name, "ipu1")) {
-		bypass -= 1;
+	if (IPU_OUTPUT_TO_LCD_FG1 == ipu->cur_output_mode) {
+		if (!strcmp(ipu->name, "ipu1"))
+			ipu1_direct = 0;
+		else if (!strcmp(ipu->name, "ipu0"))
+			ipu0_direct = 0;
+		else {
+			dev_err(ipu->dev, "direct unknown ipu device!!!");
+			mutex_unlock(&ipu_lock);
+			return -EFAULT;
+		}
+	} else {
+		if (!strcmp(ipu->name, "ipu0") && ipu0_nodirect)
+			ipu0_nodirect--;
+		else if (!strcmp(ipu->name, "ipu1") && ipu1_nodirect)
+			ipu1_nodirect--;
+		else {
+			dev_err(ipu->dev, "nodirect unknown ipu device!!!");
+			mutex_unlock(&ipu_lock);
+			return -EFAULT;
+		}
 	}
-	if (!bypass) {
-		ipu_id = 0;
-	}
+
+	dev_dbg(ipu->dev, "ipu1_direct: %d, ipu0_direct: %d", ipu1_direct, ipu0_direct);
+	dev_dbg(ipu->dev, "++++ipu0_nodirect: %d, ipu1_nodirect: %d", ipu0_nodirect, ipu1_nodirect);
+
 	mutex_unlock(&ipu_lock);
 
 	return 0;
+}
+
+static int is_ipu_available(struct jz_ipu *ipu, struct ipu_img_param *img)
+{
+	int ret = 0;
+	
+	mutex_lock(&ipu_lock);
+	if (img->output_mode & IPU_OUTPUT_TO_LCD_FG1) {
+		ipu->cur_output_mode = IPU_OUTPUT_TO_LCD_FG1;
+		if (!strcmp(ipu->name, "ipu1"))
+			ret = (!ipu1_direct && !ipu1_nodirect) ? (ipu1_direct = 1) : -EFAULT;
+	    else if (!strcmp(ipu->name, "ipu0"))
+			ret = (!ipu0_direct && !ipu0_nodirect) ? (ipu0_direct = 1) : -EFAULT;
+	    else {
+			dev_err(ipu->dev, "direct unknown ipu device!");
+			ret = -EFAULT;
+		}
+	}
+
+	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
+		ipu->cur_output_mode = IPU_OUTPUT_BLOCK_MODE;
+		if (!strcmp(ipu->name, "ipu1"))
+			ret = !ipu0_nodirect ? (ipu1_nodirect++) : -EFAULT;
+	    else if (!strcmp(ipu->name, "ipu0"))
+			ret = !ipu1_nodirect ? (ipu0_nodirect++) : -EFAULT;
+	    else {
+			dev_err(ipu->dev, "nodirect unknown ipu device!");
+			ret = -EFAULT;
+		}
+	}
+	dev_info(ipu->dev, "ipu0_nodirect: %d, ipu1_nodirect: %d, ipu1_direct: %d, ipu0_direct: %d",
+			 ipu0_nodirect, ipu1_nodirect, ipu1_direct, ipu0_direct);
+	mutex_unlock(&ipu_lock);
+
+	return ret;
 }
 
 static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -1406,25 +1466,24 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret = ipu_shut(ipu);
 		break;
 	case IOCTL_IPU_INIT:
-		if (copy_from_user(&img, argp, sizeof(struct ipu_img_param))) {	
+		if (copy_from_user(&img, argp, sizeof(struct ipu_img_param))) {
 			dev_err(ipu->dev, "copy_from_user error!!!\n");
 			return -EFAULT;
-		}		
-	//	if (img.version != ipu->img.version) {
-	//		dev_err(ipu->dev, "<---Warning, ipu_img_param.version wrong--->\n");
-	//		return -EFAULT;
-	//	}
-		if (img.output_mode & IPU_OUTPUT_TO_LCD_FG1)
-			ipu->cur_output_mode = IPU_OUTPUT_TO_LCD_FG1;
-
+		}
+		if (ipu->cur_proc != current->pid) {
+			if ((ret = is_ipu_available(ipu, &img)) < 0) {
+				dev_err(ipu->dev, "%s is busy now! please obey the using rules!", ipu->name);
+				return -EFAULT;
+			}
+		}
 		copy_ipu_tabel_from_user(ipu, &img);
 		ret = ipu_init(ipu, &img);
 		break;
 	case IOCTL_IPU_SET_BUFF:
-		if (copy_from_user(&img, argp, sizeof(struct ipu_img_param))) {	
+		if (copy_from_user(&img, argp, sizeof(struct ipu_img_param))) {
 			dev_err(ipu->dev, "copy_from_user error!!!\n");
 			return -EFAULT;
-		}		
+		}
 		ret = ipu_setbuffer(ipu, &img);
 		break;
 	case IOCTL_IPU_START:
@@ -1441,7 +1500,7 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_IPU_GET_BYPASS_STATE:
 		ret = ipu_get_bypass_state(ipu);
-		if (copy_to_user(argp, &ret, sizeof(int))) {	
+		if (copy_to_user(argp, &ret, sizeof(int))) {
 			dev_err(ipu->dev, "copy_to_user error!!!\n");
 			return -EFAULT;
 		}
@@ -1464,11 +1523,12 @@ static int ipu_open(struct inode *inode, struct file *filp)
 	struct jz_ipu *ipu = container_of(dev, struct jz_ipu, misc_dev);
 
 	ipu->open_cnt++;
-	//dev_info(ipu->dev,"+++++Enter ipu_open open_cnt: %d pid: %d, tgid: %d\n", ipu->open_cnt, current->pid, current->tgid);
+	dev_dbg(ipu->dev,"+++++Enter ipu_open open_cnt: %d pid: %d, tgid: %d\n", 
+			ipu->open_cnt, current->pid, current->tgid);
 
 	mutex_lock(&ipu->lock);
 	/* create process struct */
-	//dev_info(ipu->dev, "%s %d", __func__, __LINE__);
+	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
 	ret = create_proc_info(ipu);
 	if (ret < 0) {
 		dev_err(ipu->dev, "create_proc_info failed!");
@@ -1489,27 +1549,24 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
 
-        {
-            /* check AHB0 priority */
-            struct ipu_img_param *img = NULL;
-            struct ipu_proc_info *ipu_proc = NULL;
+	/* check AHB0 priority */
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
 
-            ipu_proc = get_ipu_procinfo(ipu, current->pid);
-            printk("%d %s, ipu_proc=%p\n", __LINE__, __FUNCTION__, ipu_proc);
-            if ( ipu_proc != NULL ) {
-                img = &ipu_proc->img;
-                if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
-                    if ( ipu->g_reg_harb_prior != 0 ) {
-                        REG_HARB_PRIOR = ipu->g_reg_harb_prior;
-                        dev_info(ipu->dev, "jz4780_ipu.c 222 restore REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
-                        ipu->g_reg_harb_prior = 0;
-                    }
-                }
-            }
-        }
+	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if ( ipu_proc != NULL ) {
+		img = &ipu_proc->img;
+		if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
+			if ( ipu->g_reg_harb_prior != 0 ) {
+				REG_HARB_PRIOR = ipu->g_reg_harb_prior;
+				dev_info(ipu->dev, "jz4780_ipu.c 222 restore REG_HARB_PRIOR=%#X\n", ipu->g_reg_harb_prior);
+				ipu->g_reg_harb_prior = 0;
+			}
+		}
+	}
 
-	//dev_info(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
-	//dev_info(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
+	dev_dbg(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
+	dev_dbg(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
 #if 0      //wait for further debug
 	ret = destroy_proc_info(ipu);
 	if (ret < 0) {
@@ -1571,22 +1628,22 @@ static void ipu_early_suspend(struct early_suspend *h)
 	} else {
 		reg_write(ipu, IPU_TRIG, IPU_STOP);
 	}
-        
-        spin_lock(&ipu->suspend_lock);
-        ipu->suspend_entered = 1;
-        spin_unlock(&ipu->suspend_lock);
+
+	spin_lock(&ipu->suspend_lock);
+	ipu->suspend_entered = 1;
+	spin_unlock(&ipu->suspend_lock);
 
 	return;
 }
 
 static void ipu_late_resume(struct early_suspend *h)
 {
-    	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
+	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
 
 	printk("ipu_late_resume+++");
-        spin_lock(&ipu->suspend_lock);
-        ipu->suspend_entered = 0;
-        spin_unlock(&ipu->suspend_lock);
+	spin_lock(&ipu->suspend_lock);
+	ipu->suspend_entered = 0;
+	spin_unlock(&ipu->suspend_lock);
 
 	return;
 }
@@ -1613,8 +1670,8 @@ static int ipu_probe(struct platform_device *pdev)
 	ipu->misc_dev.name      = ipu->name;
 	ipu->misc_dev.fops      = &ipu_ops;
 	ipu->dev = &pdev->dev;
-        ipu->suspend_entered = 0;
-        
+	ipu->suspend_entered = 0;
+		
 	mutex_init(&ipu_lock);
 	mutex_init(&ipu->lock);
 	mutex_init(&ipu->run_lock);
