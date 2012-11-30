@@ -250,7 +250,7 @@
 #define IN_FMT_YUV422				( 1 << IN_FMT_BIT )
 #define IN_FMT_YUV444				( 2 << IN_FMT_BIT )
 #define IN_FMT_RGB_555				( 0 << IN_FMT_BIT )
-#define IN_FMT_RGB_888			        ( 2 << IN_FMT_BIT )
+#define IN_FMT_RGB_888			    ( 2 << IN_FMT_BIT )
 #define IN_FMT_RGB_565				( 3 << IN_FMT_BIT )
 #define IN_FMT_YUV411				( 3 << IN_FMT_BIT )
 
