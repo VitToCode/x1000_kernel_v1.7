@@ -1,5 +1,4 @@
-/*
- *  mma8452.c - Linux kernel modules for 3-Axis Orientation/Motion
+/* *  mma8452.c - Linux kernel modules for 3-Axis Orientation/Motion
  *  Detection Sensor 
  *
  *  Copyright (C) 2009-2010 Freescale Semiconductor Hong Kong Ltd.
@@ -96,6 +95,7 @@ struct mma8452_data {
 	struct mutex lock;
 	struct mutex lock_rw;
 	atomic_t enabled;
+	atomic_t regulator_enabled;
 	int enabled_save;
 	int is_suspend;
 	int delay_save;
@@ -279,7 +279,7 @@ static void report_abs(struct mma8452_data *data)
 	input_sync(data->input_dev);
 #ifdef CONFIG_SENSORS_ORI
 	if(data->pdata->ori_pr_swap == 1){
-		sensor_swap_pr((u16*)x,(u16*)y);
+		sensor_swap_pr((u16*)(&x),(u16*)(&y));
 	}
 	x = (data->pdata->ori_roll_negate) ? (-x)
 			: x;
@@ -310,7 +310,7 @@ static int mma8452_device_power_off(struct mma8452_data *mma)
 		printk("POWER OFF ERROR\n");
 		return result;
 	}
-	if (mma->power){
+	if (mma->power && atomic_cmpxchg(&mma->regulator_enabled, 1, 0)){
 		result = regulator_disable(mma->power);
 		if (result < 0){
 			dev_err(&mma->client->dev,
@@ -325,15 +325,15 @@ static int mma8452_device_power_on(struct mma8452_data *mma)
 {
 	int result;
 	u8 buf[3] = {0,0,0};
-	if (mma->power){
-		result = regulator_disable(mma->power);
+	if (mma->power && (atomic_cmpxchg(&mma->regulator_enabled, 0, 1) == 0)){
+		result = regulator_enable(mma->power);
 		if (result < 0){
 			dev_err(&mma->client->dev,
 					"power_off regulator failed: %d\n", result);
 			return result;
 		}
 	}
-	udelay(10);
+	udelay(100);
 	
 	mma8452_i2c_read_data(mma,MMA8452_CTRL_REG1,buf,1);
 	mma_status.ctl_reg1 = buf[0];
@@ -350,11 +350,12 @@ static int mma8452_device_power_on(struct mma8452_data *mma)
 	}
 	return 0;
 }
+
 static int mma8452_enable(struct mma8452_data *mma)
 {
 	int result;
 	if(mma->is_suspend == 0 && !atomic_cmpxchg(&mma->enabled,0,1)){
-		result=mma8452_device_power_on(mma);
+		result = mma8452_device_power_on(mma);
 		if(result < 0){
 			printk("ENABLE ERROR\n");
 			atomic_set(&mma->enabled,0);
@@ -489,7 +490,7 @@ static irqreturn_t mma8452_interrupt(int irq, void *dev_id)
 	struct mma8452_data *mma = dev_id;
 	if( mma->is_suspend == 1 ||atomic_read(&mma->enabled) == 0)
 		return IRQ_HANDLED;
-	disable_irq_nosync(mma->clien->irq);
+	disable_irq_nosync(mma->client->irq);
 	if (!work_pending(&mma->pen_event_work)) {
 		queue_work(mma->mma_wqueue, &mma->pen_event_work);
 	}
@@ -554,6 +555,7 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 					"power_on regulator failed: %d\n", result);
 			goto err1;
 		}
+		atomic_set(&mma->regulator_enabled, 1);
 	}
 	udelay(10);
 
@@ -641,9 +643,13 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 #endif
 
 	mma8452_device_power_off(mma);
+	udelay(100);
 	atomic_set(&mma->enabled,0);
 	mma->is_suspend = 0;
 	disable_irq_nosync(mma->client->irq);
+	mma8452_enable(mma);
+
+	printk("----gsensor_mma8452 probed----\n");
 	return 0;
 err5:
 	input_unregister_device(mma->input_dev);
@@ -676,7 +682,7 @@ static int __devexit mma8452_remove(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mma8452_suspend(struct early_suspend *h)
 {
-	int result;
+//	int result;
 	struct mma8452_data *mma;
 	mma = container_of(h, struct mma8452_data, early_suspend); 
 	mma->is_suspend = 1;
@@ -687,30 +693,32 @@ static void mma8452_suspend(struct early_suspend *h)
 	}else{
 		mma->enabled_save = 1;
 	}
-    */
-	mma8452_disable(mma);
 	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
 	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 & 0xFE);
 	assert(result==0);
+    */
+	mma8452_disable(mma);
 }
 
 static void mma8452_resume(struct early_suspend *h)
 {
-	int result;
+//	int result;
 	struct mma8452_data *mma;
 	mma = container_of(h, struct mma8452_data, early_suspend); 
+    /*
 	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
 	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 | 0x01);
 	assert(result==0);
+
+	 if(mma->enabled_save == 1){
+		mma8452_enable(mma);
+	 }
+    */
 	mutex_lock(&mma->lock);
 	mma->is_suspend = 0;
-    /*
-     if(mma->enabled_save == 1){
-		mma8452_enable(mma);
-    }
-    */
 	mma8452_enable(mma);
 	mutex_unlock(&mma->lock);
+
   	enable_irq(mma->client->irq);
 }
 #endif
