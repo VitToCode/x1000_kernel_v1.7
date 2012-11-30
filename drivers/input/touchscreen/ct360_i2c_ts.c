@@ -45,8 +45,11 @@ static struct ct36x_ts_info	ct36x_ts;
 
 static char const Binary_Data[]=
 {
-//#include "Ji8070A_CT360_V01_06D0_121107.dat" //v1
+//#ifdef CONFIG_Q8
 #include "CT360_V02_06A9_121108.dat"//v2
+//#else
+//#include "Ji8070A_CT360_V02_018D_121126.dat"
+//#endif
 };
 
 static void ct36x_ts_reg_read(struct i2c_client *client, unsigned short addr, char *buf, int len, int rate)
@@ -257,10 +260,12 @@ int ct36x_ts_bootloader(struct i2c_client *client)
 	if ((ts->data.buf[5] != 'V') || (ts->data.buf[9] != 'T'))
 		ver_chk_cnt++;
 
+/*
 	if ( ver_chk_cnt >= 2 ) {
 		printk("%s() Invalid FW Version \n", __FUNCTION__);
 		return -1;
 	}
+*/
 
 FLASH_ERASE:
 	//-----------------------------------------------------

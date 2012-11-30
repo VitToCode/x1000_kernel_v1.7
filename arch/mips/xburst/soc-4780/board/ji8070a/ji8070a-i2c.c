@@ -146,13 +146,14 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
 	.gpio_rst = GPIO_SP0838_RST,
-	.cap_wait_frame = 6,
+	.cap_wait_frame = 3,
 };
 #endif
 
 /*--------------------for q8-------------*/
 
-#if 0// (defined(CONFIG_GC0308)&&defined(CONFIG_Q8))
+//#if (defined(CONFIG_GC0308)&&defined(CONFIG_Q8))
+#ifdef CONFIG_GC0308_Q8
 struct gc0308_platform_data {
 	int facing_f;
 	int orientation_f;
@@ -166,6 +167,7 @@ struct gc0308_platform_data {
 
 	uint16_t gpio_en_f;
 	uint16_t gpio_en_b;
+	int cap_wait_frame;    /* filter n frames when capture image */
 };
 
 static struct gc0308_platform_data gc0308_pdata = {
@@ -181,6 +183,7 @@ static struct gc0308_platform_data gc0308_pdata = {
 	.gpio_en_b = GPIO_GC0308_EN_B,
 
 	.gpio_rst = GPIO_GC0308_RST,
+	.cap_wait_frame = 3,
 };
 #endif
 
@@ -191,7 +194,7 @@ static struct gc0308_platform_data gc0308_pdata = {
 //#if (defined(CONFIG_GC0308) && !defined(CONFIG_Q8))
 #if defined(CONFIG_GC0308)
 static struct cam_sensor_plat_data gc0308_pdata = {
-#ifdef   CONFIG_Q8
+#if   defined(CONFIG_Q8)
 	.facing = 0,
 #else
 	.facing = 1,
@@ -225,7 +228,7 @@ static struct i2c_board_info ji8070a_i2c2_devs[] __initdata = {
 		.platform_data	= &sp0838_pdata,
 	},
 #endif
-#ifdef CONFIG_GC0308
+#if (defined(CONFIG_GC0308) || defined(CONFIG_GC0308_Q8))
 	{
 		I2C_BOARD_INFO("gc0308", 0x21),
 		.platform_data	= &gc0308_pdata,

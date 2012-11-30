@@ -1,4 +1,5 @@
 
+
 config JZ_CIM
 	bool "ingenic camera interface module"
 	depends on MACH_XBURST
@@ -34,8 +35,8 @@ config GC0308
 	depends on JZ_CIM
 	default n
 
-config GC0308_QT80
-	bool "gc0308_qt80 camera sensor"
+config GC0308_Q8
+	bool "double_gc0308_q8 camera sensor"
 	depends on JZ_CIM
 	default n
 
