@@ -191,14 +191,9 @@ static struct gc0308_platform_data gc0308_pdata = {
 
 
 
-//#if (defined(CONFIG_GC0308) && !defined(CONFIG_Q8))
 #if defined(CONFIG_GC0308)
 static struct cam_sensor_plat_data gc0308_pdata = {
-#if   defined(CONFIG_Q8)
-	.facing = 0,
-#else
 	.facing = 1,
-#endif
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC0308_EN,
