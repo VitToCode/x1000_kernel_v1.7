@@ -63,7 +63,7 @@ route_conf_base const record_mic2_single_an3_to_adclr  = {
 	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,			//fix
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
-	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,		//..
+	.route_record_mux_mode = RECORD_MUX_INPUTR_TO_LR,		//..
 	.route_adc_mode = ADC_STEREO_WITH_LEFT_ONLY,			//fix
 	/*If you just have one mic ,you should select this for stereo output*/
 	.route_record_mixer_mode = RECORD_MIXER_MIX_MONO_INPUT_ONLY,	//fix

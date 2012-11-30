@@ -46,10 +46,13 @@ extern struct snd_codec_data codec_data;
 
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL	0
-
+#ifdef  CONFIG_WARRIOR_V_1_1
+#define GPIO_MIC_DETECT		GPIO_PD(15)		/*mic detect gpio*/
+#define GPIO_MIC_INSERT_LEVEL	0
+#else
 #define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
 #define GPIO_MIC_INSERT_LEVEL	-1
-
+#endif
 #define GPIO_MIC_SELECT		-1		/*mic select gpio*/
 #define GPIO_HP_MIC_LEVEL	-1		/*headset mic select level*/
 

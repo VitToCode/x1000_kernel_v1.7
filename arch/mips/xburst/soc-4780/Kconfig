@@ -16,6 +16,10 @@ config BOARD_GIANT
 config BOARD_WARRIOR
         bool "Warrior"
 
+config WARRIOR_V_1_1
+        bool "Ingenic WARRIOR v1.1 board"
+	depends on BOARD_WARRIOR
+
 config BOARD_M80
         bool "M80"
 

@@ -36,9 +36,13 @@ IO_REGULATOR_DEF(
  * USB VBUS Regulators.
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
+#ifdef CONFIG_WARRIOR_V_1_1
+VBUS_REGULATOR_DEF(
+	warrior,	"Vcc-5V");
+#else
 VBUS_REGULATOR_DEF(
 	warrior,	"OTG-Vbus");
-
+#endif
 /**
  * Exclusive Regulators.
  * They are only used by one device each other.
@@ -58,10 +62,17 @@ EXCLUSIVE_REGULATOR_DEF(
 	"G-sensor",
 	"vgsensor",	NULL,		3300000);
 
+#ifdef CONFIG_WARRIOR_V_1_1
+EXCLUSIVE_REGULATOR_DEF(
+	warrior_vcc5,
+	"Vcc-5V",
+	"vhdmi",	"jz-hdmi",	3300000);
+#endif
 /**
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
+#ifndef CONFIG_WARRIOR_V_1_1
 FIXED_REGULATOR_DEF(
 	warrior_vcc5,
 	"Vcc-5V",	5000000,	GPIO_PA(17),
@@ -73,7 +84,7 @@ FIXED_REGULATOR_DEF(
 	"OTG-Vbus",	5000000,	GPIO_PE(10),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
-
+#endif
 FIXED_REGULATOR_DEF(
 	warrior_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
@@ -87,8 +98,10 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
+#ifndef CONFIG_WARRIOR_V_1_1
 	&warrior_vcc5_regulator_device,
 	&warrior_vbus_regulator_device,
+#endif
 	&warrior_vcim_regulator_device,
 	&warrior_vlcd_regulator_device,
 };
@@ -103,6 +116,9 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info warrior_pmu_regulators[] = {
 	{"OUT1", &warrior_vcore_init_data},
 	{"OUT3", &warrior_vccio_init_data},
+#ifdef CONFIG_WARRIOR_V_1_1
+	{"OUT4", &warrior_vcc5_init_data},
+#endif
 	{"OUT6", &warrior_vwifi_init_data},
 	{"OUT7", &warrior_vtsc_init_data},
 	{"OUT8", &warrior_vgsensor_init_data},
