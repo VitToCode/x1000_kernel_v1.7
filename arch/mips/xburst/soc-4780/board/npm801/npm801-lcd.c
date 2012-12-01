@@ -19,6 +19,7 @@
 
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_LCD_KR080LA4S_250
 #include <linux/kr080la4s_250.h>
@@ -189,7 +190,19 @@ struct jzfb_platform_data jzfb1_pdata = {
 #ifdef CONFIG_BACKLIGHT_PWM
 static int npm801_backlight_init(struct device *dev)
 {
-	return 0;
+       struct regulator *vlcd;
+       vlcd = regulator_get(dev, "vlcd");
+       if(IS_ERR(vlcd)){
+               printk("get vlcd power failed!\r");
+               return -EINVAL;
+       }
+
+       regulator_enable(vlcd);
+
+       gpio_request(GPIO_PB(23), "lcd_pwr_en");
+       gpio_direction_output(GPIO_PB(23), 1);
+
+       return 0;
 }
 
 static void npm801_backlight_exit(struct device *dev)

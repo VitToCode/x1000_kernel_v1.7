@@ -52,16 +52,23 @@ EXCLUSIVE_REGULATOR_DEF(
 	npm801_vtsc,
 	"Touch Screen",
 	"vtsc",		NULL,		3000000);
-
+/*
 EXCLUSIVE_REGULATOR_DEF(
 	npm801_vgsensor,
 	"G-sensor",
 	"vgsensor",	NULL,		3000000);
+*/
 
 EXCLUSIVE_REGULATOR_DEF(
 	npm801_vcc5v,
 	"VCC5V",
 	"vcc5v",	NULL,		5000000);
+
+EXCLUSIVE_REGULATOR_DEF(
+	npm801_vlcd,
+	"Vlcd",
+	"vlcd",	NULL,		3000000);
+
 
 /**
  * Fixed voltage Regulators.
@@ -82,22 +89,29 @@ FIXED_REGULATOR_DEF(
 #endif
 
 FIXED_REGULATOR_DEF(
+	npm801_vgsensor,
+	"G-sensor",	3000000,	GPIO_PE(9),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vgsensor",	"gsensor_lis3dh");
+
+FIXED_REGULATOR_DEF(
 	npm801_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
-
+#if 0
 FIXED_REGULATOR_DEF(
 	npm801_vlcd,
 	"LCD",		3000000,	GPIO_PB(23),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
-
+#endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&npm801_vhdmi_regulator_device,
+	&npm801_vgsensor_regulator_device,
 	//&npm801_vbus_regulator_device,
 	&npm801_vcim_regulator_device,
-	&npm801_vlcd_regulator_device,
+	//&npm801_vlcd_regulator_device,
 };
 
 /*
@@ -113,7 +127,8 @@ static struct regulator_info npm801_pmu_regulators[] = {
 	{"OUT4", &npm801_vcc5v_init_data},
 	{"OUT6", &npm801_vwifi_init_data},
 	{"OUT7", &npm801_vtsc_init_data},
-	{"OUT8", &npm801_vgsensor_init_data},
+//	{"OUT8", &npm801_vgsensor_init_data},
+	{"OUT8", &npm801_vlcd_init_data},
 	{"VBUS", &npm801_vbus_init_data},
 };
 
