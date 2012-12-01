@@ -555,6 +555,9 @@ static void serial_jz47xx_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 	mcr |= up->mcr;
 
+	if (mctrl & UART_MCR_MDCE)
+		mcr = mctrl;
+
 	serial_out(up, UART_MCR, mcr);
 }
 
@@ -756,8 +759,10 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	 * CTS flow control flag and modem status interrupts
 	 */
 	up->ier &= ~UART_IER_MSI;
-	if (UART_ENABLE_MS(&up->port, termios->c_cflag))
+	if (UART_ENABLE_MS(&up->port, termios->c_cflag)) {
 		up->ier |= UART_IER_MSI;
+		up->port.mctrl = UART_MCR_MDCE | UART_MCR_FCM;
+	}
 
 	serial_out(up, UART_IER, up->ier);
 
@@ -775,6 +780,7 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
+
 	if(up->use_dma)
 		serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_UME | UART_FCR_DMA_SELECT | UART_FCR_CLEAR_XMIT |UART_FCR_CLEAR_RCVR | UART_FCR_R_TRIG_10);
 	else
