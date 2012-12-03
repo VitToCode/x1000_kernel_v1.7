@@ -465,7 +465,9 @@ static int nand_disk_direct_access(struct block_device *bdev, sector_t sector, v
 
 static int nand_disk_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 {
-	DBG_FUNC();
+	geo->cylinders = get_capacity(bdev->bd_disk) / (4 * 16);
+	geo->heads = 4;
+	geo->sectors = 16;
 
 	return 0;
 }
