@@ -226,7 +226,6 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 		return;
 	}
 
-	dev_dbg(ipu->dev, "ipu->img.in_width = %d,  Wdiff = %d\n", ipu->img.in_width, Wdiff);
 	dev_dbg(ipu->dev, "outW = %d, outH = %d\n",  outW, outH);
 	tmp1 =ipu_proc->img.in_width - Wdiff;
 	tmp = IN_FM_W(tmp1) | IN_FM_H((ipu_proc->img.in_height - Hdiff) & ~0x1);
@@ -1236,7 +1235,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	set_yuv_stride(ipu, ipu_proc);
 
 	dev_dbg(ipu->dev, "dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
-	dev_dbg(ipu->dev, "img->out_buf_v = %x, img->out_buf_p = %x\n", img->out_buf_v, img->out_buf_p);
+	dev_dbg(ipu->dev, "img->out_buf_v = %x, img->out_buf_p = %x\n", 
+			(unsigned int)img->out_buf_v, (unsigned int)img->out_buf_p);
 	/* set out put */
 	if ((dpage_map != 0) && (lcdc_sel == 0)) {
 		if (PHYS((unsigned int) img->out_buf_v) == 0) {
@@ -1543,15 +1543,15 @@ static int ipu_open(struct inode *inode, struct file *filp)
 static int ipu_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
+	/* check AHB0 priority */
+	struct ipu_img_param *img = NULL;
+	struct ipu_proc_info *ipu_proc = NULL;
+
 	struct miscdevice *dev = filp->private_data;
 	struct jz_ipu *ipu = container_of(dev,struct jz_ipu,misc_dev);
 
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
-
-	/* check AHB0 priority */
-	struct ipu_img_param *img = NULL;
-	struct ipu_proc_info *ipu_proc = NULL;
 
 	ipu_proc = get_ipu_procinfo(ipu, current->pid);
 	if ( ipu_proc != NULL ) {
