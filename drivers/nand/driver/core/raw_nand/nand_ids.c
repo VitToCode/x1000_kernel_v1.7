@@ -196,8 +196,8 @@ int get_flash_count(void)
  */
 NAND_FLASH_DEV *nand_scan_table(volatile unsigned char *nand_id)
 {
-	unsigned short dev_id;
-	unsigned int ext_id;
+	volatile unsigned short dev_id;
+	volatile unsigned int ext_id;
 	int i, flash_num;
 	int index = -1;
 

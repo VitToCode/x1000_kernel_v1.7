@@ -440,10 +440,10 @@ int ct36x_ts_bootloader(struct i2c_client *client)
 	if ((ts->data.buf[5] != 'V') || (ts->data.buf[9] != 'T'))
 		ver_chk_cnt++;
 
-	if ( ver_chk_cnt >= 2 ) {
-		printk("%s() Invalid Vendor ID \n", __FUNCTION__);
-		return -1;
-	}
+//	if ( ver_chk_cnt >= 2 ) {
+//		printk("%s() Invalid Vendor ID \n", __FUNCTION__);
+//		return -1;
+//	}
 
 	//-----------------------------------------------------
 	// Step 2 : Erase 32K flash memory via Mass Erase (33H)  
