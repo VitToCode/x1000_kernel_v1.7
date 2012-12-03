@@ -1399,6 +1399,12 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 		break;
+	case JZFB_GET_LCDC_ID:
+		if (copy_to_user(argp, &jzfb->id, sizeof(int))) {
+			dev_info(info->dev, "User get LCDC ID failed\n");
+			return -EFAULT;
+		}
+		break;
 	case JZFB_SET_ALPHA:
 		if (copy_from_user(&osd.fg_alpha, argp, sizeof(
 					   struct jzfb_fg_alpha))) {
@@ -2311,6 +2317,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 				clk_enable(jzfb->pclk);
 				clk_enable(jzfb->clk);
 				jzfb_enable(jzfb->fb);
+				//jzfb_display_v_color_bar(jzfb->fb);
 			}
 #endif
 		}
@@ -2333,6 +2340,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 #endif
 	if(!jzfb->is_enabled) {
 		clk_disable(jzfb->clk);
+		clk_enable(jzfb->pclk);
 		clk_disable(jzfb->pclk);
 	}
 
