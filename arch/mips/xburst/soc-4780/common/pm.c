@@ -40,15 +40,31 @@
 
 void (*__reset_dll)(void);
 
+#define U3_IOBASE 0xb0033000
 
+#define OFF_TDR         (0x00)
+#define OFF_LCR         (0x0C)
+#define OFF_LSR         (0x14)
 
+#define LSR_TDRQ        (1 << 5)
+#define LSR_TEMT        (1 << 6)
 void inline reset_dll(void)
 {
-#define DELAY 0x1ff
+#define DELAY 0x1fff
 	register int i = DELAY;
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'a';
+#endif
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 	__jz_flush_cache_all();
 
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'b';
+#endif
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
 			"sync\n\t"
@@ -56,21 +72,16 @@ void inline reset_dll(void)
 			"nop\n\t"
 			"nop\n\t"
 			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
-			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32" : : "r"(0xa0000000));	
+
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'c';
+#endif
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
         i = DELAY/10;
@@ -78,6 +89,11 @@ void inline reset_dll(void)
 		__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
 			".set mips32");
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'd';
+#endif
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
 	i=DELAY;
@@ -86,8 +102,12 @@ void inline reset_dll(void)
 			"nop\n\t"
 			".set mips32");
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'e';
+#endif
 	__jz_cache_init();
-
 }
 
 #define ENABLE_LCR_MODULES(m) 					\
@@ -110,7 +130,7 @@ void inline reset_dll(void)
 		}							\
 	}while(0)
 
-#define SAVE_SIZE   512
+#define SAVE_SIZE   1024
 static unsigned int save_tcsm[SAVE_SIZE / 4];
 static int jz4780_pm_enter(suspend_state_t state)
 {
