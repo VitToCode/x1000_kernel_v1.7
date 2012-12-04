@@ -2190,6 +2190,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	if (!jzfb->pdata->alloc_vidmem) {
 		/* set default pixel clock to 27 MHz */
 		clk_set_rate(jzfb->pclk, 27000000);
+		clk_enable(jzfb->pclk);
 	}
 
 	jzfb->base = ioremap(mem->start, resource_size(mem));
@@ -2340,7 +2341,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 #endif
 	if(!jzfb->is_enabled) {
 		clk_disable(jzfb->clk);
-		clk_enable(jzfb->pclk);
 		clk_disable(jzfb->pclk);
 	}
 
