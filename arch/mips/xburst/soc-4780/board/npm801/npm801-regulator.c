@@ -92,7 +92,7 @@ FIXED_REGULATOR_DEF(
 	npm801_vgsensor,
 	"G-sensor",	3000000,	GPIO_PE(9),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	NULL,		"vgsensor",	"gsensor_lis3dh");
+	NULL,		"vgsensor",	"gsensor_mma8452");
 
 FIXED_REGULATOR_DEF(
 	npm801_vcim,
