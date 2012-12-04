@@ -6,6 +6,7 @@
 #define PRESS_MAX       255
 
 #define GWTC9XXXB_NAME	"gwtc9xxxb_ts"
+//#define GWTC9XXXB_NAME	"touchscreen"
 
 enum gwtc9xxxb_ts_regs {
 	GWTC9XXXB_REG_SLEEP	= 0x0a,	/* Sleep reg	*/	
