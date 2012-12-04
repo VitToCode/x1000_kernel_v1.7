@@ -224,7 +224,7 @@ start:
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
-	jzrtc_switch_clk32k(1);
+	jzrtc_enable_clk32k();
 	msleep(200);
 
 	switch(flag) {
@@ -294,7 +294,7 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_switch_clk32k(0);
+	jzrtc_disable_clk32k();
 
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
