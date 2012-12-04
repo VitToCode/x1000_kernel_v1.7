@@ -149,7 +149,7 @@ int IW8101_wlan_power_on(int flag)
 	return -ENODEV;
 start:
 	pr_debug("wlan power on:%d\n", flag);
-	jzrtc_switch_clk32k(1);
+	jzrtc_enable_clk32k();
 	msleep(200);
 
 	switch(flag) {
@@ -219,7 +219,7 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_switch_clk32k(0);
+	jzrtc_disable_clk32k();
 
 	return 0;
 }

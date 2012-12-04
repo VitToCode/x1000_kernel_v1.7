@@ -73,7 +73,29 @@ struct jzmmc_platform_data {
 	int				(*private_init)(void);
 };
 
-#define jzrtc_switch_clk32k(ON)
+#define ENABLE_CLK32K     0x00000006
+#define DISABLE_CLK32K    0x00000010 
+#define RTC_IOBASE        0x10003000
+#define RTC_RTCCR        (0x00)  
+#define RTC_WENR         (0x3c)  
+#define RTC_CKPCR        (0x40) 
+#define RTCCR_WRDY        BIT(7)
+#define WENR_WEN          BIT(31)
+#define ENABLE_CLK32K     0x00000006
+#define DISABLE_CLK32K    0x00000010 
+static void inline rtc_write_reg(int reg,int value)
+{
+        while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+        outl(0xa55a,(RTC_IOBASE + RTC_WENR));
+        while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+        while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));
+        while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+        outl(value,(RTC_IOBASE + reg));
+        while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+}
+#define jzrtc_enable_clk32k()  rtc_write_reg(RTC_CKPCR,ENABLE_CLK32K)
+#define jzrtc_disable_clk32k() rtc_write_reg(RTC_CKPCR,DISABLE_CLK32K)
+
 extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 
