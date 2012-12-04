@@ -253,12 +253,15 @@ static unsigned int regs[256];
 #define REG_ADDR 	(TCSM_BASE+4)
 #define RESUME_ADDR 	(TCSM_BASE+8)
 
-#define DELAY 0x1ff
+#define DELAY 0x7fff
 
+#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
 #define SAVE_SIZE 512
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-#undef SAVE_SIZE
+#else
 #define SAVE_SIZE 1024
+#endif
+
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
 
 #define OFF_TDR         (0x00)
@@ -267,51 +270,82 @@ static unsigned int regs[256];
 
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
+#define TCSM_PCHAR(x)													\
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))	\
+		;													\
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = x
+#else
+#define TCSM_PCHAR(x)
 #endif
 
+#define TCSM_DELAY(x) \
+	i=x;	\
+	while(i--)	\
+	__asm__ volatile(".set mips32\n\t"\
+			"nop\n\t"\
+			".set mips32")
+
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+static char test = 'a';
+#endif
 static noinline void reset_dll(void)
 {
 	void (*return_func)(void);
 #ifndef TEST
-	register int i = DELAY;
+	register int i;
 	
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+	TCSM_PCHAR('0');
+	while(!((*(volatile unsigned *)0xb0000014) & (0x1<<4)))//wait pll stable
 		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'a';
-#endif
+	TCSM_DELAY(DELAY);
+
+	TCSM_PCHAR('1');
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
-        i = DELAY;
-	while(i--)
-	__asm__ volatile(".set mips32\n\t"
-			"nop\n\t"
-			".set mips32");
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'b';
-#endif
+	TCSM_DELAY(DELAY);
+	TCSM_PCHAR('2');
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
-	i=DELAY;
-	while(i--)
-	__asm__ volatile(".set mips32\n\t"
-			"nop\n\t"
-			".set mips32");
+
+	TCSM_DELAY(DELAY);
+//////////////////////////////////////////////////////////////////////
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	*(volatile unsigned *) 0xb00000d0 = 0x3;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY);
+	TCSM_PCHAR('3');
+	*(volatile unsigned *) 0xb00000d0 = 0x1;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY);
+#endif
+//////////////////////////////////////////////////////////////////////
+	TCSM_PCHAR('4');
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'c';
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	TCSM_PCHAR('5');
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
 #endif
+	TCSM_PCHAR('6');
 	__jz_cache_init();
-#endif
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'd';
-#endif
+	TCSM_PCHAR('7');
+
+	TCSM_PCHAR(test);
+	TCSM_PCHAR(test);
+	TCSM_PCHAR(test);
+	TCSM_PCHAR(test);
+
+	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
 	return_func();
 }
@@ -324,6 +358,8 @@ static noinline void jz4780_suspend(void)
 #else
 	__jz_flush_cache_all();
 	cache_prefetch(sleep,sleep_2);
+
+	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
 sleep:
 	__asm__ volatile(".set mips32\n\t"
 		"sync\n\t"
@@ -374,6 +410,14 @@ static int jz4780_pm_enter(suspend_state_t state)
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 	printk("enter suspend.\n");
 	jz4780_suspend();
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'o';
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'x';
+#endif
 	printk("resume.\n");
 #else
 	jz4780_suspend();
