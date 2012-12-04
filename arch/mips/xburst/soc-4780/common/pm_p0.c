@@ -253,7 +253,7 @@ static unsigned int regs[256];
 #define REG_ADDR 	(TCSM_BASE+4)
 #define RESUME_ADDR 	(TCSM_BASE+8)
 
-#define DELAY 0x7fff
+#define DELAY 0x1ff
 
 #ifndef CONFIG_SUSPEND_SUPREME_DEBUG
 #define SAVE_SIZE 512
@@ -304,47 +304,29 @@ static noinline void reset_dll(void)
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY);
 	TCSM_PCHAR('2');
-	*(volatile unsigned *) 0xb00000d0 = 0x1;
-	i = *(volatile unsigned *) 0xb00000d0;
-
-	TCSM_DELAY(DELAY);
-//////////////////////////////////////////////////////////////////////
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	*(volatile unsigned *) 0xb00000d0 = 0x3;
-	i = *(volatile unsigned *) 0xb00000d0;
-	TCSM_DELAY(DELAY);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	TCSM_PCHAR('3');
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+	i=*(volatile unsigned *)0xB3010008;
+
+	TCSM_PCHAR('4');
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY);
-#endif
-//////////////////////////////////////////////////////////////////////
-	TCSM_PCHAR('4');
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	TCSM_PCHAR('5');
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-#endif
-	TCSM_PCHAR('6');
 	__jz_cache_init();
-	TCSM_PCHAR('7');
+	TCSM_PCHAR('6');
 
 	TCSM_PCHAR(test);
 	TCSM_PCHAR(test);
 	TCSM_PCHAR(test);
 	TCSM_PCHAR(test);
-
+#endif
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
 	return_func();

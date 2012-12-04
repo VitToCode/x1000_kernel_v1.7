@@ -40,6 +40,7 @@
 
 void (*__reset_dll)(void);
 
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
 
 #define OFF_TDR         (0x00)
@@ -48,23 +49,31 @@ void (*__reset_dll)(void);
 
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
-void inline reset_dll(void)
-{
-#define DELAY 0x1fff
-	register int i = DELAY;
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'a';
+#define TCSM_PCHAR(x)													\
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))	\
+		;													\
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = x
+#else
+#define TCSM_PCHAR(x)
 #endif
+
+#define TCSM_DELAY(x) \
+	i=x;	\
+	while(i--)	\
+	__asm__ volatile(".set mips32\n\t"\
+			"nop\n\t"\
+			".set mips32")
+
+void noinline reset_dll(void)
+{
+#define DELAY 0x1ff
+	register int i;
+	TCSM_PCHAR('0');
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 	__jz_flush_cache_all();
 
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'b';
-#endif
+	TCSM_PCHAR('1');
+	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
 	__asm__ volatile(".set mips32\n\t"
 			"sync\n\t"
 			"sync\n\t"
@@ -76,37 +85,18 @@ void inline reset_dll(void)
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32" : : "r"(0xa0000000));	
-
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'c';
-#endif
+	TCSM_PCHAR('2');
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
-        i = DELAY/10;
-	while(i--)
-		__asm__ volatile(".set mips32\n\t"
-			"nop\n\t"
-			".set mips32");
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'd';
-#endif
+	TCSM_DELAY(DELAY);
+	TCSM_PCHAR('3');
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
-	i=DELAY;
-	while(i--)
-	__asm__ volatile(".set mips32\n\t"
-			"nop\n\t"
-			".set mips32");
+	TCSM_DELAY(DELAY);
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'e';
-#endif
+	TCSM_DELAY(DELAY);
+	TCSM_PCHAR('4');
+	*((volatile unsigned int*)(0xb30100b8)) |= (0x1);
 	__jz_cache_init();
 }
 
