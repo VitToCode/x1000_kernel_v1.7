@@ -254,12 +254,32 @@ static unsigned int regs[256];
 #define RESUME_ADDR 	(TCSM_BASE+8)
 
 #define DELAY 0x1ff
+
+#define SAVE_SIZE 512
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+#undef SAVE_SIZE
+#define SAVE_SIZE 1024
+#define U3_IOBASE 0xb0033000
+
+#define OFF_TDR         (0x00)
+#define OFF_LCR         (0x0C)
+#define OFF_LSR         (0x14)
+
+#define LSR_TDRQ        (1 << 5)
+#define LSR_TEMT        (1 << 6)
+#endif
+
 static noinline void reset_dll(void)
 {
 	void (*return_func)(void);
 #ifndef TEST
 	register int i = DELAY;
 	
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'a';
+#endif
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
         i = DELAY;
@@ -267,6 +287,11 @@ static noinline void reset_dll(void)
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
 			".set mips32");
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'b';
+#endif
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
 	i=DELAY;
@@ -275,8 +300,17 @@ static noinline void reset_dll(void)
 			"nop\n\t"
 			".set mips32");
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'c';
+#endif
 	__jz_cache_init();
+#endif
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+		;
+	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'd';
 #endif
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
 	return_func();
@@ -311,7 +345,7 @@ static noinline void jz4780_resume(void)
 
 static int jz4780_pm_enter(suspend_state_t state)
 {
-	char tcsm_back[512];
+	char tcsm_back[SAVE_SIZE];
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
 #ifdef	CONFIG_TRAPS_USE_TCSM
@@ -325,8 +359,8 @@ static int jz4780_pm_enter(suspend_state_t state)
 	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4780_resume;
 	*(volatile unsigned int *)REG_ADDR = (unsigned int)regs;
 	cpm_outl(RESUME_ADDR,CPM_SLPC);
-	memcpy(tcsm_back,(void *)RESUME_ADDR,512);
-	memcpy((void *)RESUME_ADDR,reset_dll,512);
+	memcpy(tcsm_back,(void *)RESUME_ADDR,SAVE_SIZE);
+	memcpy((void *)RESUME_ADDR,reset_dll,SAVE_SIZE);
 	mdelay(1);
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
@@ -345,7 +379,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	jz4780_suspend();
 #endif
 
-	memcpy((void *)RESUME_ADDR,tcsm_back,512);
+	memcpy((void *)RESUME_ADDR,tcsm_back,SAVE_SIZE);
 	cpm_outl(lcr,CPM_LCR);
 	cpm_outl(opcr,CPM_OPCR);
 
