@@ -122,11 +122,15 @@ static int __init orientation_init(void)
 	}
 
 	set_bit(EV_ABS, input_dev->evbit);
-
+/*
 	input_set_abs_params(input_dev, ABS_RX, -8192, 8191, INPUT_FUZZ, INPUT_FLAT);
 	input_set_abs_params(input_dev, ABS_RY, -8192, 8191, INPUT_FUZZ, INPUT_FLAT);
 	input_set_abs_params(input_dev, ABS_RZ, -8192, 8191, INPUT_FUZZ, INPUT_FLAT);
 
+    */
+	input_set_abs_params(input_dev, ABS_RX, -8192, 8191, 0, 0);
+	input_set_abs_params(input_dev, ABS_RY, -8192, 8191, 0, 0);
+	input_set_abs_params(input_dev, ABS_RZ, -8192, 8191, 0, 0);
 	input_dev->name = ORIENTATION_SENSOR_NAME;
 
 	err = input_register_device(input_dev); //??regist a input event device

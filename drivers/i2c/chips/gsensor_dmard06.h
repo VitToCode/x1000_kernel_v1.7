@@ -53,14 +53,10 @@
 #define PMODE_MASK			0x08
 #define ODR_MASK			0XF0
 
-#define ODR1		0x10  /* 1Hz output data rate */
-#define ODR10		0x20  /* 10Hz output data rate */
-#define ODR25		0x30  /* 25Hz output data rate */
-#define ODR50		0x40  /* 50Hz output data rate */
-#define ODR100		0x50  /* 100Hz output data rate */
-#define ODR200		0x60  /* 200Hz output data rate */
-#define ODR400		0x70  /* 400Hz output data rate */
-#define ODR1250		0x90  /* 1250Hz output data rate */
+#define ODR21		0x10  /* 1Hz output data rate */
+#define ODR42		0x20  /* 10Hz output data rate */
+#define ODR85		0x30  /* 25Hz output data rate */
+#define ODR342		0x40  /* 50Hz output data rate */
 
 
 
