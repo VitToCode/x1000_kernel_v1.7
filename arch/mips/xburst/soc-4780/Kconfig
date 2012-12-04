@@ -20,6 +20,9 @@ config WARRIOR_V_1_1
         bool "Ingenic WARRIOR v1.1 board"
 	depends on BOARD_WARRIOR
 
+config BOARD_CAPTAIN
+        bool "Captain"
+
 config BOARD_M80
         bool "M80"
 
@@ -54,6 +57,7 @@ config BOARD_NAME
 	default "test" if BOARD_TEST
 	default "Giant" if BOARD_GIANT
 	default "Warrior" if BOARD_WARRIOR
+	default "Captain" if BOARD_CAPTAIN
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
 	default "JI8070A" if BOARD_JI8070A

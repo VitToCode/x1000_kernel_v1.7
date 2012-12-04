@@ -55,8 +55,10 @@ struct gwtc9xxxb_ts_data {
 	struct input_dev	*input_dev;
 	struct ts_event		event;
 	struct work_struct 	pen_event_work;
+	struct gwtc9xxxb_gpio	gpio;
 	struct workqueue_struct *ts_workqueue;
 	struct early_suspend	early_suspend;
+	struct regulator	*power;
 	struct mutex lock;
 #ifdef PENUP_TIMEOUT_TIMER
 	struct timer_list penup_timeout_timer;
@@ -64,8 +66,11 @@ struct gwtc9xxxb_ts_data {
 #ifdef CONFIG_GWTC9XXXB_DEBUG
 	long int count;
 #endif
-	struct gwtc9xxxb_gpio gpio;
 };
+
+static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts);
+static int gwtc9xxxb_ts_power_on(struct gwtc9xxxb_ts_data *ts);
+static void gwtc9xxxb_ts_reset(struct gwtc9xxxb_ts_data *ts);
 
 static int gwtc9xxxb_i2c_rxdata(struct gwtc9xxxb_ts_data *ts, char *rxdata, int length)
 {
@@ -158,6 +163,7 @@ static void gwtc9xxxb_ts_release(struct gwtc9xxxb_ts_data *gwtc9xxxb_ts)
 
 }
 
+/*
 static void gwtc9xxxb_chip_reset(struct gwtc9xxxb_ts_data *ts)
 {
 	set_pin_status(ts->gpio.reset, 1);
@@ -166,6 +172,7 @@ static void gwtc9xxxb_chip_reset(struct gwtc9xxxb_ts_data *ts)
 	msleep(500);
 	set_pin_status(ts->gpio.reset, 1);
 }
+*/
 
 static int gwtc9xxxb_read_data(struct gwtc9xxxb_ts_data *ts)
 {
@@ -180,7 +187,7 @@ static int gwtc9xxxb_read_data(struct gwtc9xxxb_ts_data *ts)
      	ret = gwtc9xxxb_i2c_rxdata(ts, buf, P1_PACKET_LEN);
 #endif
     if (ret < 0) {
-		gwtc9xxxb_chip_reset(ts);
+		gwtc9xxxb_ts_reset(ts);
 		printk("%s read_data i2c_rxdata failed: %d\n", __func__, ret);
 		return ret;
 	}
@@ -188,12 +195,13 @@ static int gwtc9xxxb_read_data(struct gwtc9xxxb_ts_data *ts)
 #if 1
 	if((buf[1]==0xff) && (buf[2]==0xff) && (buf[3]==0xff) && (buf[4]==0xff)) {
 		gwtc9xxxb_ts_release(ts);
+		printk("----read buf error----\n");
 		return 1;
 	}
 	
 #endif
-	// printk(KERN_INFO "buf[0] = %d buf[1] = %d buf[2] = %d buf[3] = %d buf[4] = %d buf[5] = %d buf[6] = %d buf[7] = %d buf[8] = %d\n", 
-	//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8]);	
+//	 printk(KERN_INFO "buf[0] = %d buf[1] = %d buf[2] = %d buf[3] = %d buf[4] = %d buf[5] = %d buf[6] = %d buf[7] = %d buf[8] = %d\n", 
+//	buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8]);	
 	memset(event, 0, sizeof(struct ts_event));
 	event->touch_point = buf[0] & 0x0f;
 	event->gesture_code = buf[9];
@@ -201,7 +209,8 @@ static int gwtc9xxxb_read_data(struct gwtc9xxxb_ts_data *ts)
 
 	if ((event->touch_point == 0)) {
 		gwtc9xxxb_ts_release(ts);
-		return 1; 
+//		printk("----touch_point error buf[0] = 0x%x ----\n", buf[0]);
+		return 1;
 	}
 
 #ifdef CONFIG_GWTC9XXXB_MULTITOUCH
@@ -293,6 +302,9 @@ static irqreturn_t gwtc9xxxb_ts_interrupt(int irq, void *dev_id)
 	if (!work_pending(&gwtc9xxxb_ts->pen_event_work)) {
 		queue_work(gwtc9xxxb_ts->ts_workqueue, &gwtc9xxxb_ts->pen_event_work);
 	}
+	else {
+		enable_irq(gwtc9xxxb_ts->client->irq);	
+	}
 	
 	return IRQ_HANDLED;
 }
@@ -311,7 +323,7 @@ static void gwtc9xxxb_ts_suspend(struct early_suspend *handler)
 		enable_irq(ts->client->irq);
 	flush_workqueue(ts->ts_workqueue);
 	gwtc9xxxb_set_reg(ts, GWTC9XXXB_REG_SLEEP, SLEEP_MODE);
-
+	gwtc9xxxb_ts_power_off(ts);
 }
 
 static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
@@ -319,24 +331,38 @@ static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
 	struct gwtc9xxxb_ts_data *ts;
 	ts =  container_of(handler, struct gwtc9xxxb_ts_data, early_suspend);
 
+	gwtc9xxxb_ts_power_on(ts);
 #ifdef CONFIG_GWTC9XXXB_DEBUG
 	printk("==gwtc9xxxb_ts_resume=\n");
 #endif
-	msleep(10);
+	gwtc9xxxb_ts_reset(ts);
 
 	enable_irq(ts->client->irq);
-
 }
 #endif  //CONFIG_HAS_EARLYSUSPEND
+
+static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts)
+{
+	if (ts->power)
+		return regulator_disable(ts->power);
+	return 0;
+}
+
+static int gwtc9xxxb_ts_power_on(struct gwtc9xxxb_ts_data *ts)
+{
+	if (ts->power)
+		return regulator_enable(ts->power);
+	return 0;
+}
 
 static void gwtc9xxxb_ts_reset(struct gwtc9xxxb_ts_data *ts)
 {
 	set_pin_status(ts->gpio.reset, 1);
-	msleep(500);
+	msleep(50);
 	set_pin_status(ts->gpio.reset, 0);
-	msleep(500);
+	msleep(50);
 	set_pin_status(ts->gpio.reset, 1);
-	msleep(500);
+	msleep(50);
 }
 
 static void gwtc9xxxb_gpio_init(struct gwtc9xxxb_ts_data *ts)
@@ -367,6 +393,8 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 	struct gwtc9xxxb_ts_data *gwtc9xxxb_ts;
 	struct input_dev *input_dev;
 	int err = 0;
+
+	printk("-----gwtc9xxxb_ts probe start-----\n");
 	
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
@@ -386,6 +414,13 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 
 	gwtc9xxxb_gpio_init(gwtc9xxxb_ts);
 
+#if 1
+	gwtc9xxxb_ts->power = regulator_get(&client->dev, "vtsc");
+	if (IS_ERR(gwtc9xxxb_ts->power)) {
+		dev_warn(&client->dev, "get regulator power failed\n");
+	}
+	gwtc9xxxb_ts_power_on(gwtc9xxxb_ts);
+#endif
 	INIT_WORK(&gwtc9xxxb_ts->pen_event_work, gwtc9xxxb_ts_pen_irq_work);
 	gwtc9xxxb_ts->ts_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
 	if (!gwtc9xxxb_ts->ts_workqueue) {
@@ -396,7 +431,8 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 	client->irq = gpio_to_irq(gwtc9xxxb_ts->gpio.irq->num);
 	err = request_irq(client->irq, gwtc9xxxb_ts_interrupt,
 			  IRQF_TRIGGER_FALLING | IRQF_DISABLED,
-			  "gwtc9xxxb_ts", gwtc9xxxb_ts);
+			 "gwtc9xxxb_ts", gwtc9xxxb_ts);
+			 // "touchscreen", gwtc9xxxb_ts);
 	if (err < 0) {
 		dev_err(&client->dev, "request irq failed\n");
 		goto exit_irq_request_failed;
@@ -466,8 +502,9 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 #endif
 	
 	gwtc9xxxb_ts_reset(gwtc9xxxb_ts);
-	mdelay(500);
+	mdelay(10);
 	enable_irq(gwtc9xxxb_ts->client->irq);
+	printk("-----gwtc9xxxb_ts probed -----\n");
 
     return 0;
 
