@@ -160,6 +160,7 @@ struct ipu_proc_info {
 	struct list_head list;
 
 	pid_t pid;
+	struct file *ipu_filp;
 
 	struct ipu_img_param img;
 	struct ipu_table table;
@@ -171,7 +172,8 @@ struct jz_ipu {
 	char name[16];
 	int open_cnt;
 	int proc_num;
-	int cur_proc;
+	struct file *cur_proc;
+	struct file *sys_filp;
 	unsigned int cur_output_mode;
 
 	struct clk *clk;

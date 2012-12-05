@@ -53,7 +53,8 @@ static int ipu0_direct;
 static int ipu1_direct;
 static struct mutex ipu_lock;
 
-static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid);
+//static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid);
+static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, struct file *filp);
 
 struct ipu_reg_struct jz47_ipu_regs_name[] = {
 	{"IPU_FM_CTRL",	        IPU_FM_CTRL},
@@ -220,7 +221,7 @@ static void set_gs_regs(struct jz_ipu *ipu,int Wdiff,int Hdiff,int outW,int outH
 	struct ipu_proc_info *ipu_proc = NULL;
 
 	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
  	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
 		return;
@@ -309,7 +310,7 @@ static void dump_img(struct jz_ipu *ipu)
 		return;
 	}
 
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
  	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
 		return;
@@ -376,7 +377,7 @@ static int jz47_dump_ipu_regs(struct jz_ipu *ipu, int num)
 		return -1;
 	}
 	dev_dbg(ipu->dev, "enter jz47_dump_ipu_regs\n");
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
  	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d", __LINE__);
 		return -1;
@@ -454,17 +455,16 @@ static int ipu_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
-static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid)
+static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, struct file *filp)
 {
 	struct ipu_proc_info *ipu_proc = NULL;
 
-	dev_dbg(ipu->dev, "input pid: %d", pid);
 	list_for_each_entry(ipu_proc, &ipu->process_list, list) {
 		if (ipu->cur_output_mode == IPU_OUTPUT_TO_LCD_FG1) {
 			if (ipu_proc)
 				return ipu_proc;
 		} else {
-			if (ipu_proc->pid == pid)
+			if (ipu_proc->ipu_filp == filp)
 				return ipu_proc;
 		}
 	}
@@ -473,17 +473,20 @@ static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid)
 	return NULL;
 }
 
-static int create_proc_info(struct jz_ipu *ipu)
+static int create_proc_info(struct jz_ipu *ipu, struct file *filp)
 {
 	struct ipu_proc_info *ipu_proc = NULL;
 
-	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);	
+	dev_dbg(ipu->dev, "%s %d %p", __func__, __LINE__, filp);
+	dev_dbg(ipu->dev, "filp: %p", filp);
 	ipu_proc = kzalloc(sizeof(struct ipu_proc_info), GFP_KERNEL);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "kzalloc struct ipu_proc_info failed!");
 		return -1;
 	}
 	ipu_proc->pid = current->pid;
+	ipu_proc->ipu_filp = filp;
+	ipu->sys_filp = filp;
 	list_add_tail(&ipu_proc->list, &ipu->process_list);
 	ipu->proc_num++;
 	dev_dbg(ipu->dev, "+++++++++++++++++++++++proc_num: %d", ipu->proc_num);
@@ -491,13 +494,12 @@ static int create_proc_info(struct jz_ipu *ipu)
 	return 0;
 }
 
-#if 0   //wait for further debug
 static int destroy_proc_info(struct jz_ipu *ipu)
 {
 	struct ipu_proc_info *ipu_proc = NULL;
 
 	dev_dbg(ipu->dev, "destroy_proc_info pid: %d, tgid: %d", current->pid, current->tgid);
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
@@ -509,7 +511,6 @@ static int destroy_proc_info(struct jz_ipu *ipu)
 
 	return 0;
 }
-#endif
 
 static int destroy_allproc_info(struct jz_ipu *ipu)
 {
@@ -650,7 +651,7 @@ static void copy_ipu_tabel_from_user(struct jz_ipu *ipu, struct ipu_img_param *i
 	struct ipu_table *table = NULL;
 
 	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->sys_filp);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return;
@@ -786,7 +787,7 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 	}
 	dev_dbg(ipu->dev, "enter jz47_set_ipu_csc_cfg\n");
 
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
@@ -948,7 +949,7 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	dev_dbg(ipu->dev, "enter jz47_ipu_init\n");
 
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
@@ -1052,13 +1053,13 @@ static int ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	dev_dbg(ipu->dev, "enter ipu_init, %d\n", current->pid);
 
 	mutex_lock(&ipu->lock);
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu->cur_proc = ipu->sys_filp;
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		mutex_unlock(&ipu->lock);
 		return -1;
 	}
-	ipu->cur_proc = current->pid;
 	
 	img = &ipu_proc->img;
 	dev_dbg(ipu->dev, "--->outW: %d, outH: %d\n", imgp->out_width, imgp->out_height);
@@ -1101,7 +1102,7 @@ static int ipu_start(struct jz_ipu *ipu)
 	cur_pid = current->pid;
 	dev_dbg(ipu->dev, "enter ipu_start %d\n", current->pid);
 
-	ipu_proc = get_ipu_procinfo(ipu, cur_pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed, %d!", current->pid);
 		return -1;
@@ -1163,6 +1164,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	unsigned int in_fmt;
 	unsigned int tmp;
 
+	struct file *tmp_filp = NULL;
 	struct ipu_img_param *img = NULL;
 	struct ipu_proc_info *ipu_proc = NULL;
 
@@ -1173,15 +1175,19 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	dev_dbg(ipu->dev, "enter ipu_setbuffer %d\n", current->pid);
 
 	mutex_lock(&ipu->run_lock);
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	if (ipu->cur_proc == ipu->sys_filp)
+		tmp_filp = ipu->cur_proc;
+	else
+		tmp_filp = ipu->sys_filp;
+
+	ipu_proc = get_ipu_procinfo(ipu, tmp_filp);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
 	}
 	if (ipu->cur_output_mode != IPU_OUTPUT_TO_LCD_FG1)
-		if ((ipu->cur_proc != current->pid) || !ipu->inited) {
+		if ((ipu->cur_proc != ipu->sys_filp) || !ipu->inited)
 			ipu_init(ipu, &ipu_proc->img);
-		}
 
 	img = &ipu_proc->img;
 	if (imgp) {
@@ -1335,7 +1341,7 @@ static int ipu_shut(struct jz_ipu *ipu)
 		return -1;
 	}
 
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		ipu->inited = 0;
@@ -1463,6 +1469,8 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 	}
 
+	ipu->sys_filp = file;
+
 	switch (cmd) {
 	case IOCTL_IPU_SHUT:
 		ret = ipu_shut(ipu);
@@ -1472,7 +1480,7 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			dev_err(ipu->dev, "copy_from_user error!!!\n");
 			return -EFAULT;
 		}
-		if (ipu->cur_proc != current->pid) {
+		if (ipu->cur_proc != ipu->sys_filp) {
 			if ((ret = is_ipu_available(ipu, &img)) < 0) {
 				dev_err(ipu->dev, "%s is busy now! please obey the using rules!", ipu->name);
 				return -EFAULT;
@@ -1531,7 +1539,7 @@ static int ipu_open(struct inode *inode, struct file *filp)
 	mutex_lock(&ipu->lock);
 	/* create process struct */
 	dev_dbg(ipu->dev, "%s %d", __func__, __LINE__);
-	ret = create_proc_info(ipu);
+	ret = create_proc_info(ipu, filp);
 	if (ret < 0) {
 		dev_err(ipu->dev, "create_proc_info failed!");
 		mutex_unlock(&ipu->lock);
@@ -1555,8 +1563,8 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
 
-	ipu_proc = get_ipu_procinfo(ipu, current->pid);
-	if ( ipu_proc != NULL ) {
+	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
+	if (ipu_proc != NULL) {
 		img = &ipu_proc->img;
 		if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
 			if ( ipu->g_reg_harb_prior != 0 ) {
@@ -1569,13 +1577,12 @@ static int ipu_release(struct inode *inode, struct file *filp)
 
 	dev_dbg(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
 	dev_dbg(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
-#if 0      //wait for further debug
+
 	ret = destroy_proc_info(ipu);
 	if (ret < 0) {
 		dev_err(ipu->dev, "%s failed!, %d", __func__, __LINE__);
 		return -1;
 	}
-#endif
 
 	if (ipu->open_cnt == 0)
             ret = destroy_allproc_info(ipu);
