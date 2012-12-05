@@ -3845,6 +3845,9 @@ wl_validate_wpa2ie(struct net_device *dev, bcm_tlv_t *wpa2ie, s32 bssidx)
 	s32 err = BCME_OK;
 	u16 auth = 0; /* d11 open authentication */
 	u32 wsec;
+	#ifdef BCMWAPI_WPI	
+	s32 val = 0;	
+	#endif
 	u32 pval = 0;
 	u32 gval = 0;
 	u32 wpa_auth = 0;
@@ -3926,6 +3929,12 @@ wl_validate_wpa2ie(struct net_device *dev, bcm_tlv_t *wpa2ie, s32 bssidx)
 		case RSN_AKM_PSK:
 			wpa_auth = WPA2_AUTH_PSK;
 			break;
+#ifdef BCMWAPI_WPI
+		case WLAN_CIPHER_SUITE_SMS4:
+			val = SMS4_ENABLED;
+			pval = SMS4_ENABLED;
+			break;
+#endif
 		default:
 			WL_ERR(("No Key Mgmt Info\n"));
 	}
@@ -4735,6 +4744,10 @@ wl_notify_connect_status_ap(struct wl_priv *wl, struct net_device *ndev,
 	u32 event = ntoh32(e->event_type);
 	u32 reason = ntoh32(e->reason);
 	u32 len = ntoh32(e->datalen);
+	#ifdef BCMWAPI_WPI	
+	s32 val = 0;
+	#endif	
+	u32 gval = 0;
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 2, 0)) && !CFG80211_STA_EVENT_AVAILABLE
 	bool isfree = false;
@@ -4786,6 +4799,12 @@ wl_notify_connect_status_ap(struct wl_priv *wl, struct net_device *ndev,
 		case WLC_E_DEAUTH:
 			fc = FC_DISASSOC;
 			break;
+#ifdef BCMWAPI_WPI
+		case WLAN_CIPHER_SUITE_SMS4:
+			val = SMS4_ENABLED;
+			gval = SMS4_ENABLED;
+			break;
+#endif
 		default:
 			fc = 0;
 			goto exit;
@@ -6414,6 +6433,8 @@ wl_cfg80211_event(struct net_device *ndev, const wl_event_msg_t * e, void *data)
 	u32 event_type = ntoh32(e->event_type);
 	u32 status = ntoh32(e->status);
 	u32 len = ntoh32(e->datalen);
+	struct wl_wsec_key key;	
+	s32 val = 0;
 	struct wl_priv *wl = wlcfg_drv_priv;
 
 #if (WL_DBG_LEVEL > 0)
@@ -6421,7 +6442,7 @@ wl_cfg80211_event(struct net_device *ndev, const wl_event_msg_t * e, void *data)
 	    wl_dbg_estr[event_type] : (s8 *) "Unknown";
 	WL_DBG(("event_type (%d):" "WLC_E_" "%s\n", event_type, estr));
 #endif /* (WL_DBG_LEVEL > 0) */
-
+	memset(&key, 0, sizeof(key));
 	switch (event_type) {
 	case WLC_E_PFN_NET_FOUND:
 		WL_ERR((" PNO Event\n"));
@@ -6435,6 +6456,14 @@ wl_cfg80211_event(struct net_device *ndev, const wl_event_msg_t * e, void *data)
 			ap_resp_ie_len = len;
 		}
 		break;
+#ifdef BCMWAPI_WPI
+	case WLAN_CIPHER_SUITE_SMS4:
+		key.algo = CRYPTO_ALGO_SMS4;
+		val = SMS4_ENABLED;
+		WL_DBG((" * wl_cfg80211_add_key, set key "
+			" to WLAN_CIPHER_SUITE_SMS4\n"));
+		break;
+#endif /* BCMWAPI_WPI */
 	default:
 		break;
 	}

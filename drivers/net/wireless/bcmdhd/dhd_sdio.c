@@ -5705,13 +5705,13 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 void
 dhd_bus_select_firmware_name_by_chip(struct dhd_bus *bus, char *dst, char *src)
 {
-        int fw_type=(strstr(src, "_apsta")?FW_TYPE_APSTA:(strstr(src, "_p2p")?FW_TYPE_P2P:FW_TYPE_STA));
-	int i; 
+  //      int fw_type=(strstr(src, "_apsta")?FW_TYPE_APSTA:(strstr(src, "_p2p")?FW_TYPE_P2P:FW_TYPE_STA));
+//	int i; 
      
 	strcpy(dst, src);
 
 	/* find out the last '/' */
-	i = strlen(dst);
+/*	i = strlen(dst);
 	while (i>0){
 		if (dst[i] == '/') break;
 		i--;
