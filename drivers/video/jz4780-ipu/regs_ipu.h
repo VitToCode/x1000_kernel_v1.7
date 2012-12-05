@@ -98,6 +98,7 @@
 #define D_RY            (1<<3)
 #define PTS_RY          (1<<4)
 #define PTD_RY          (1<<5)
+#define CTRL_RY          (1<<6)
 
 
 /* REG_TLB_MONITOR */
