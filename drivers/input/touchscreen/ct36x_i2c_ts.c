@@ -912,7 +912,8 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 	cancel_work_sync(&ts->event_work);
-	
+	regulator_disable(ts->power);
+    return 0;
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 	// step 01 W FF 0F 2B
 	ts->data.buf[0] = 0xFF;
@@ -950,6 +951,11 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
+    
+    regulator_enable(ts->power);
+    mdelay(200);
+
+    
 	ct36x_ts_hw_reset(ts);
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	ts->timer.expires = jiffies + HZ * CT36X_TS_ESD_TIMER_INTERVAL;
@@ -964,12 +970,13 @@ static int ct36x_ts_resume(struct i2c_client *client)
 #if	(CT36X_TS_HAS_EARLYSUSPEND)
 static void ct36x_early_suspend(struct early_suspend *handler)
 {
-	ct36x_ts_suspend(ct36x_ts->client, PMSG_SUSPEND);
+ 
+	ct36x_ts_suspend(ct36x_ts.client, PMSG_SUSPEND);
 }
 
 static void ct36x_early_resume(struct early_suspend *handler)
 {
-	ct36x_ts_resume(ct36x_ts->client);
+	ct36x_ts_resume(ct36x_ts.client);
 }
 #endif
 #endif
@@ -1000,8 +1007,8 @@ static struct i2c_driver ct36x_ts_driver  = {
 	},
 	.id_table	= ct36x_ts_id,
 	.probe      = ct36x_ts_probe,
-    .suspend	= ct36x_ts_suspend,
-	.resume	    = ct36x_ts_resume,
+//      .suspend	= ct36x_ts_suspend,
+//    	.resume	    = ct36x_ts_resume,
 	.remove 	= __devexit_p(ct36x_ts_remove),
 };
 
