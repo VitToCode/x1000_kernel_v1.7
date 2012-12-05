@@ -43,12 +43,12 @@ VBUS_REGULATOR_DEF(
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
-EXCLUSIVE_REGULATOR_DEF(
+EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	npm801_vwifi,
 	"Wi-Fi",
 	"vwifi",	NULL,		3000000);
 
-EXCLUSIVE_REGULATOR_DEF(
+EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	npm801_vtsc,
 	"Touch Screen",
 	"vtsc",		NULL,		3000000);
@@ -64,7 +64,7 @@ EXCLUSIVE_REGULATOR_DEF(
 	"VCC5V",
 	"vcc5v",	NULL,		5000000);
 
-EXCLUSIVE_REGULATOR_DEF(
+EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	npm801_vlcd,
 	"Vlcd",
 	"vlcd",	NULL,		3000000);

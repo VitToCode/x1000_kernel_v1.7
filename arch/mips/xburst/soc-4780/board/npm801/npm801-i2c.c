@@ -103,7 +103,7 @@ struct ov7675_platform_data {
 	int cap_wait_frame;   /* filter n frames when capture image */
 };
 static struct ov7675_platform_data ov7675_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV7675_EN,
@@ -123,7 +123,7 @@ struct ov2650_platform_data {
 };
 
 static struct ov2650_platform_data ov2650_pdata = {
-	.facing = 1,
+	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV2650_EN,
