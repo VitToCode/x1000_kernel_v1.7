@@ -303,18 +303,11 @@ static noinline void reset_dll(void)
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY);
-	TCSM_PCHAR('2');
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	TCSM_PCHAR('3');
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-	i=*(volatile unsigned *)0xB3010008;
-
 	TCSM_PCHAR('4');
+
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY);
@@ -392,14 +385,8 @@ static int jz4780_pm_enter(suspend_state_t state)
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 	printk("enter suspend.\n");
 	jz4780_suspend();
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'o';
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-		;
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = 'x';
-#endif
+	TCSM_PCHAR('x');
+	TCSM_PCHAR('x');
 	printk("resume.\n");
 #else
 	jz4780_suspend();
