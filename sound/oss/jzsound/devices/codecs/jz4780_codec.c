@@ -200,13 +200,14 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_ALL_CLEAR,
 		SND_ROUTE_REPLAY_CLEAR,
 		SND_ROUTE_RECORD_CLEAR,
-		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
+		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
 		SND_ROUTE_REPLAY_DACRL_TO_LO,
 		SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 		SND_ROUTE_REPLAY_DACRL_TO_ALL,
 		SND_ROUTE_RECORD_MIC1_AN1,
 		SND_ROUTE_RECORD_MIC1_SIN_AN2,
+		SND_ROUTE_RECORD_MIC2_SIN_AN3,
 		SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 	};
 
@@ -215,16 +216,15 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_ALL_CLEAR",
 		"SND_ROUTE_REPLAY_CLEAR",
 		"SND_ROUTE_RECORD_CLEAR",
-		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL",
+		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT",
 		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL",
 		"SND_ROUTE_REPLAY_DACRL_TO_LO",
 		"SND_ROUTE_REPLAY_DACRL_TO_HPRL",
 		"SND_ROUTE_REPLAY_DACRL_TO_ALL",
 		"SND_ROUTE_RECORD_MIC1_AN1",
 		"SND_ROUTE_RECORD_MIC1_SIN_AN2",
-		"SND_ROUTE_RECORD_LINEIN1_DIFF_AN1"
-		"SND_ROUTE_RECORD_HEADSET"
-		"SND_ROUTE_RECORD_LINEIN",
+		"SND_ROUTE_RECORD_MIC2_SIN_AN3",
+		"SND_ROUTE_RECORD_LINEIN1_DIFF_AN1",
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -235,7 +235,7 @@ static void codec_print_route_name(int route)
 	}
 
 	if (i == sizeof(route_arr) / sizeof(unsigned int)) {
-		printk("\nCODEC SET ROUTE: Route %d is not configed yet! \n",i);
+		printk("\nCODEC SET ROUTE: Route %d is not configed yet! \n",route);
 	}
 }
 #endif //CODEC_DUMP_ROUTE_NAME
@@ -2097,7 +2097,6 @@ static int codec_set_device(enum snd_device_t device)
 	switch (device) {
 	case SND_DEVICE_HEADSET:
 	case SND_DEVICE_NO_MIC_HEADSET:
-		printk("codec_platform_data->replay_headset_route %d",codec_platform_data->replay_headset_route.gpio_hp_mute_stat);
 		if (codec_platform_data && codec_platform_data->replay_headset_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->replay_headset_route));
 			if(ret != codec_platform_data->replay_headset_route.route) {
@@ -2116,7 +2115,6 @@ static int codec_set_device(enum snd_device_t device)
 		break;
 
 	case SND_DEVICE_SPEAKER:
-		printk("codec_platform_data->replay_speaker_route %d",codec_platform_data->replay_speaker_route.gpio_hp_mute_stat);
 		if (codec_platform_data && codec_platform_data->replay_speaker_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->replay_speaker_route));
 			if(ret != codec_platform_data->replay_speaker_route.route) {
