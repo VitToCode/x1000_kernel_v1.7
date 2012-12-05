@@ -11,14 +11,14 @@ config BCMDHD
 config BCMDHD_FW_PATH
         depends on BCMDHD	
 	string "Firmware path"
-	default "/system/lib/wifi/firmware/iw8101/fw_bcmdhd.bin"
+	default "/system/lib/wifi/firmware/iw8101/fw_bcm4330b2.bin"
 	---help---
 	  Path to the firmware file.
 
 config BCMDHD_NVRAM_PATH
 	depends on BCMDHD
 	string "NVRAM path"
-	default "/system/lib/wifi/firmware/iw8101/nvram_iw8101.txt"
+	default "/system/lib/wifi/firmware/iw8101/nv_4330b2.txt"
 	---help---
 	  Path to the calibration file.
 

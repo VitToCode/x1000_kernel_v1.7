@@ -9,6 +9,7 @@
 #include "npm801.h"
 
 #define GPIO_WIFI_RST_N			GPIO_PF(7)
+#define GPIO_WLAN_PW_EN			GPIO_PD(8)
 
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
@@ -163,7 +164,9 @@ int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power;
-	int reset;
+	int reset,power_en;
+
+	printk("cljiang-----enter iw8101_wlan_init\n");
 
 	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
@@ -192,7 +195,21 @@ int iw8101_wlan_init(void)
 	}
 	 iw8101_data.wifi_reset = reset;
 
+
+	power_en = GPIO_WLAN_PW_EN;
+	if (gpio_request(GPIO_WLAN_PW_EN, "wlan_pw_en")) {
+		printk("cljiang---no wlan_pw_en pin available\n");
+		pr_err("no wlan_pw_en pin available\n");
+		regulator_put(power);
+		return -EINVAL;
+	} else {
+		gpio_direction_output(power_en, 1);
+		gpio_set_value(power_en,1);
+	}
+
+
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
+	printk("cljiang-----exit iw8101_wlan_init\n");
 
 	return 0;
 }
@@ -202,6 +219,7 @@ int IW8101_wlan_power_on(int flag)
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
+	int ret;
 
 	if (wifi_wake_lock == NULL)
 		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
@@ -224,7 +242,7 @@ start:
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
-	jzrtc_enable_clk32k();
+	jzrtc_enable_clk32k();/*clk32k*/
 	msleep(200);
 
 	switch(flag) {
@@ -294,7 +312,8 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_disable_clk32k();
+	jzrtc_disable_clk32k();/*clk32k off*/
+	
 
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
