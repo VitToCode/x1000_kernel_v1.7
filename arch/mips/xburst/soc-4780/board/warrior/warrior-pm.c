@@ -96,10 +96,10 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 3 +  1,	GSS_IGNORE	}, /* PCM_CLK */
 	{32 * 3 +  2,	GSS_IGNORE	}, /* PCM_SYN */
 	{32 * 3 +  3,	GSS_OUTPUT_LOW	}, /* PCM_DI */
-	{32 * 3 +  4,	GSS_INPUT_NOPULL}, /* UART2_RTS_N */
-	{32 * 3 +  5,	GSS_INPUT_NOPULL}, /* UART2_CTS_N */
-	{32 * 3 +  6,	GSS_INPUT_NOPULL}, /* UART2_RXD */
-	{32 * 3 +  7,	GSS_INPUT_NOPULL}, /* UART2_TXD */
+	{32 * 3 +  4,	GSS_IGNORE	}, /* UART2_RTS_N */
+	{32 * 3 +  5,	GSS_IGNORE	}, /* UART2_CTS_N */
+	{32 * 3 +  6,	GSS_IGNORE	}, /* UART2_RXD */
+	{32 * 3 +  7,	GSS_IGNORE	}, /* UART2_TXD */
 	{32 * 3 +  8,	GSS_INPUT_NOPULL}, /* WLAN_PW_EN */
 	{32 * 3 +  9,	GSS_OUTPUT_LOW	}, /* WL_WAKE */
 	{32 * 3 + 10,	GSS_INPUT_NOPULL}, /* I2C3_SDA */
