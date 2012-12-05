@@ -92,7 +92,8 @@ route_conf_base const replay_hp_stereo = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC,	//fix
 	/*--------route-----------*/
 	//replay
-	.route_replay_mixer_mode = REPLAY_MIXER_NOUSE,	//fix
+	//.route_replay_mixer_mode = REPLAY_MIXER_NOUSE,	//fix
+	.route_replay_mixer_mode = REPLAY_MIXER_PLAYBACK_DAC_ONLY,      //fix
 	.route_dac_mode = DAC_STEREO,			//fix
 	.route_hp_mux_mode = HP_MUX_DACL_TO_L_DACR_TO_R,//fix
 	.route_hp_mode = HP_ENABLE,			//fix
