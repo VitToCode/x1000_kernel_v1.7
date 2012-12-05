@@ -294,6 +294,12 @@ static void config_osd_regs(struct jz_ipu *ipu)
 static void stop_ipu_to_lcd(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
+
+	__disable_lcdc_mode();
+	tmp = reg_read(ipu, IPU_ADDR_CTRL);
+	tmp |= CTRL_RY;
+	reg_write(ipu, IPU_ADDR_CTRL, tmp);
+	printk("tmp: %#x", tmp);
 	
 	tmp = reg_read(ipu, IPU_TRIG);
 	tmp |= IPU_STOP_LCD;
