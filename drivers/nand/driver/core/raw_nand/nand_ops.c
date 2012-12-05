@@ -302,6 +302,7 @@ static inline void send_get_nand_id(char *nand_id)
 	g_pnand_io->send_cmd_norb(CMD_READID);
 	g_pnand_io->send_addr(-1, 0x00, 1);
 
+	nand_wait_rb();
 	/* Read manufacturer and device IDs */
 	g_pnand_io->read_data_norb(&nand_id[0], 5);
 }
