@@ -7,13 +7,6 @@ config SUSPEND
 	  powered and thus its contents are preserved, such as the
 	  suspend-to-RAM state (e.g. the ACPI S3 state).
 
-config QUICK_POWEROFF
-    bool "Quick power off support"
-    depends on SUSPEND
-    default n
-    help
-      This allows you to turn off rf module, but cpu to sleep.
-
 config SUSPEND_FREEZER
 	bool "Enable freezer for suspend to RAM/standby" \
 		if ARCH_WANTS_FREEZER_CONTROL || BROKEN

@@ -168,8 +168,6 @@ static int suspend_enter(suspend_state_t state)
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
-#ifdef CONFIG_QUICK_POWEROFF
-#endif
 	error = syscore_suspend();
 	if (!error) {
 		if (!(suspend_test(TEST_CORE) || pm_wakeup_pending())) {
@@ -178,11 +176,6 @@ static int suspend_enter(suspend_state_t state)
 		}
 		syscore_resume();
 	}
-#ifdef CONFIG_QUICK_POWEROFF
-    if (suspend_type_is_quick_poweroff()) {
-
-    }
-#endif
 
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());

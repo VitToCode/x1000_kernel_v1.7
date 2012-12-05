@@ -6,5 +6,4 @@ obj-$(CONFIG_MFD_ACT8600)	+= npm801-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= npm801-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += npm801-sound.o
 obj-$(CONFIG_NAND_JZ4780)	+= npm801-nand.o
-obj-$(CONFIG_QUICK_POWEROFF)	+= npm801-quickpoweroff.o
 obj-$(CONFIG_JZ_MODEM)		+= npm801-modem.o
