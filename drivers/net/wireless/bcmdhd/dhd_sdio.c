@@ -5731,6 +5731,7 @@ dhd_bus_select_firmware_name_by_chip(struct dhd_bus *bus, char *dst, char *src)
                         strcpy(&dst[i+1], bcm43362a2_fw_name[fw_type]);
                 break;
         }
+        */
 }
 
 bool

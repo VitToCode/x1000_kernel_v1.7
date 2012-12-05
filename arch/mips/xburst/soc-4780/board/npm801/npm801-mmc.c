@@ -219,7 +219,6 @@ int IW8101_wlan_power_on(int flag)
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
-	int ret;
 
 	if (wifi_wake_lock == NULL)
 		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
