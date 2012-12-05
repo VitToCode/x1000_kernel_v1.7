@@ -36,11 +36,27 @@ struct hsd101pww1_data {
 	struct lcd_device *lcd;
 	struct platform_hsd101pww1_data *pdata;
 	struct regulator *lcd_vcc_reg;
+	struct regulator *lcd_bklight_reg;
 };
+
+void enable_lcd_and_bklight(struct hsd101pww1_data *dev)
+{
+	regulator_enable(dev->lcd_vcc_reg);
+	mdelay(100);
+	regulator_enable(dev->lcd_bklight_reg);
+}
+
+void disable_lcd_and_bklight(struct hsd101pww1_data *dev)
+{
+	regulator_disable(dev->lcd_bklight_reg);
+	mdelay(50);
+	regulator_disable(dev->lcd_vcc_reg);
+}
 
 static void hsd101pww1_on(struct hsd101pww1_data *dev)
 {
-    regulator_enable(dev->lcd_vcc_reg);
+	//regulator_enable(dev->lcd_vcc_reg);
+	enable_lcd_and_bklight(dev);
 
 	if (dev->pdata->gpio_rest) {
 		gpio_direction_output(dev->pdata->gpio_rest, 0);
@@ -52,7 +68,8 @@ static void hsd101pww1_on(struct hsd101pww1_data *dev)
 static void hsd101pww1_off(struct hsd101pww1_data *dev)
 {
         dev->lcd_power = 0;
-        regulator_disable(dev->lcd_vcc_reg);
+        //regulator_disable(dev->lcd_vcc_reg);
+	disable_lcd_and_bklight(dev);
 }
 
 static int hsd101pww1_set_power(struct lcd_device *lcd, int power)
@@ -107,6 +124,12 @@ static int __devinit hsd101pww1_probe(struct platform_device *pdev)
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
+	}
+
+	dev->lcd_bklight_reg = regulator_get(NULL, "vbklight");
+	if (IS_ERR(dev->lcd_bklight_reg)) {
+		dev_err(&pdev->dev, "failed to get regulator vbklight\n");
+		return PTR_ERR(dev->lcd_bklight_reg);
 	}
 
 	if (dev->pdata->gpio_rest)

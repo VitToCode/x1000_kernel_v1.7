@@ -54,9 +54,9 @@ EXCLUSIVE_REGULATOR_DEF(
 	"vtsc",		NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
-	m80_vgsensor,
-	"G-sensor",
-	"vgsensor",	NULL,		3300000);
+	m80_vlcd,
+	"V-vlcd",
+	"vlcd",	NULL,		3300000);
 
 /**
  * Fixed voltage Regulators.
@@ -92,10 +92,10 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vcim",		"jz-cim");
 
 FIXED_REGULATOR_DEF(
-	m80_vlcd,
-	"LCD",		3300000,	GPIO_PB(23),
+	m80_vbklight,
+	"vbklight",		3300000,	GPIO_PB(23),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
-	NULL,		"vlcd",		NULL);
+	NULL,		"vbklight",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 #if 0 /* FIXME! when board fixed, recovery it */
@@ -103,7 +103,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 #endif
 	&m80_vbus_regulator_device,
 	&m80_vcim_regulator_device,
-	&m80_vlcd_regulator_device,
+	&m80_vbklight_regulator_device,
 };
 
 /*
@@ -118,7 +118,7 @@ static struct regulator_info m80_pmu_regulators[] = {
 	{"OUT3", &m80_vccio_init_data},
 	{"OUT6", &m80_vwifi_init_data},
 	{"OUT7", &m80_vtsc_init_data},
-	{"OUT8", &m80_vgsensor_init_data},
+	{"OUT8", &m80_vlcd_init_data},
 	{"VBUS", &m80_vbus_init_data},
 };
 
