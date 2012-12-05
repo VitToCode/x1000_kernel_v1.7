@@ -294,6 +294,7 @@ static int gc0308_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s_back->cs.facing = pdata->facing_b;
 	s_back->cs.orientation = pdata->orientation_b;
 	s->cs.cap_wait_frame = pdata->cap_wait_frame;
+    s_back->cs.cap_wait_frame = pdata->cap_wait_frame;
 	//sensor_set_i2c_speed(client,400000);//set gc0308 i2c speed : 400khz
 	camera_sensor_register(&s->cs);
 	camera_sensor_register(&s_back->cs);
