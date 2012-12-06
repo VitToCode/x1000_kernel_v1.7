@@ -434,6 +434,7 @@ void cim_scan_sensor(struct jz_cim *cim)
 
 static int cim_select_sensor(struct jz_cim *cim,int id)
 {
+	cim->first_used = true;
 	struct cim_sensor *desc;
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
@@ -939,6 +940,9 @@ static int cim_set_output_format(struct jz_cim *cim, unsigned int cmd, unsigned 
 
 static int cim_open(struct inode *inode, struct file *file)
 {
+	struct miscdevice *dev = file->private_data;
+	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
+	cim->first_used = true;
 	return 0;
 }
 
