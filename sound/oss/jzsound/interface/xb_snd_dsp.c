@@ -1756,8 +1756,6 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
-
-		printk("#########dp->avialable_couter  = %d####.\n",dpi->avialable_couter);
 	}
 
 	if (file->f_mode & FMODE_WRITE) {

@@ -899,6 +899,14 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		*(int*)arg = jz_get_hp_switch_state();
 		ret = 0;
 		break;
+	case SND_DSP_SET_RECORD_VOL:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_SET_RECORD_VOLUME, arg);
+		break;
+	case SND_DSP_SET_MIC_VOL:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_SET_MIC_VOLUME, arg);
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);

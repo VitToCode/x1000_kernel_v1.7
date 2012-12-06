@@ -33,7 +33,6 @@
 
 
 /*###############################################*/
-
 #define CODEC_DUMP_IOC_CMD			0
 #define CODEC_DUMP_ROUTE_REGS		0
 #define CODEC_DUMP_ROUTE_PART_REGS	0
@@ -55,28 +54,6 @@ static struct early_suspend early_suspend;
 
 extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
 
-/*=================== lock ============================*/
-static spinlock_t codec_lock;
-#define CODEC_DEBUG_SEM(x,y...) //printk(x,##y);
-
-#define CODEC_LOCK()									\
-	do{													\
-		CODEC_DEBUG_SEM("codecsemlock lock irq\n");		\
-		spin_lock_irq(&codec_lock);						\
-	}while(0)
-
-#define CODEC_UNLOCK()									\
-	do{													\
-		CODEC_DEBUG_SEM("codecsemlock unlock irq\n");	\
-		spin_unlock_irq(&codec_lock);					\
-	}while(0)
-#define CODEC_LOCKINIT()								\
-	do{													\
-		CODEC_DEBUG_SEM("codecsemlock init\n");			\
-		spin_lock_init(&codec_lock);					\
-	}while(0)
-
-
 /*==============================================================*/
 /**
  * codec_sleep
@@ -86,7 +63,7 @@ static spinlock_t codec_lock;
 static int g_codec_sleep_mode = 1;
 void codec_sleep(int ms)
 {
-	if(g_codec_sleep_mode)
+	if(!g_codec_sleep_mode)
 		mdelay(ms);
 	else
 		msleep(ms);
@@ -1160,7 +1137,7 @@ static int codec_get_gain_input_left(void)
 	return gain;
 }
 
-static void codec_set_gain_input_left(int gain)
+static int codec_set_gain_input_left(int gain)
 {
 	int val;
 
@@ -1175,10 +1152,12 @@ static void codec_set_gain_input_left(int gain)
 
 	__codec_set_gm1(val);
 
-	if (codec_get_gain_input_left() != gain)
+	if ((val = codec_get_gain_input_left()) != gain)
 		printk("JZ_CODEC: codec_set_gain_input_left error!\n");
 
 	DUMP_GAIN_PART_REGS("leave");
+
+	return val;
 }
 
 //--------------------- input right (linein2 or mic2)
@@ -1194,7 +1173,7 @@ static int codec_get_gain_input_right(void)
 	return gain;
 }
 
-static void codec_set_gain_input_right(int gain)
+static int codec_set_gain_input_right(int gain)
 {
 	int val;
 
@@ -1209,10 +1188,12 @@ static void codec_set_gain_input_right(int gain)
 
 	__codec_set_gm2(val);
 
-	if (codec_get_gain_input_right() != gain)
+	if ((val = codec_get_gain_input_right()) != gain)
 		printk("JZ_CODEC: codec_set_gain_input_right error!\n");
 
 	DUMP_GAIN_PART_REGS("leave");
+
+	return val;
 }
 
 
@@ -1302,7 +1283,7 @@ static int codec_get_gain_adc_left(void)
 	return gain;
 }
 
-static void codec_set_gain_adc_left(int gain)
+static int codec_set_gain_adc_left(int gain)
 {
 	int val;
 
@@ -1317,10 +1298,11 @@ static void codec_set_gain_adc_left(int gain)
 
 	__codec_set_gidl(val);
 
-	if (codec_get_gain_adc_left() != gain)
+	if ((val = codec_get_gain_adc_left()) != gain)
 		printk("JZ_CODEC: codec_set_gain_adc_left error!\n");
 
 	DUMP_GAIN_PART_REGS("leave");
+	return val;
 }
 
 //--------------------- adc right
@@ -1338,7 +1320,7 @@ static int codec_get_gain_adc_right(void)
 	return gain;
 }
 
-static void codec_set_gain_adc_right(int gain)
+static int codec_set_gain_adc_right(int gain)
 {
 	int val;
 
@@ -1353,10 +1335,11 @@ static void codec_set_gain_adc_right(int gain)
 
 	__codec_set_gidr(val);
 
-	if (codec_get_gain_adc_right() != gain)
+	if ((val = codec_get_gain_adc_right()) != gain)
 		printk("JZ_CODEC: codec_set_gain_adc_right error!\n");
 
 	DUMP_GAIN_PART_REGS("leave");
+	return val;
 }
 
 //--------------------- record mixer
@@ -2138,6 +2121,14 @@ static int codec_set_device(enum snd_device_t device)
 			if (ret != codec_platform_data->record_buildin_mic_route.route) {
 				return -1;
 			}
+			if (codec_platform_data->gpio_mic_select.gpio != -1) {
+				if (codec_platform_data->gpio_mic_select.active_level == 1)
+					gpio_direction_output(codec_platform_data->gpio_mic_select.gpio,0);
+				else if (codec_platform_data->gpio_mic_select.active_level == 0)
+					gpio_direction_output(codec_platform_data->gpio_mic_select.gpio,1);
+				else
+					printk("error config on gpio_mic_select.active_level");
+			}
 		}
 		break;
 
@@ -2146,6 +2137,14 @@ static int codec_set_device(enum snd_device_t device)
 			ret = codec_set_board_route(&(codec_platform_data->record_headset_mic_route));
 			if (ret != codec_platform_data->record_headset_mic_route.route) {
 				return -1;
+			}
+			if (codec_platform_data->gpio_mic_select.gpio != -1) {
+				if (codec_platform_data->gpio_mic_select.active_level == 1)
+					gpio_direction_output(codec_platform_data->gpio_mic_select.gpio,1);
+				else if (codec_platform_data->gpio_mic_select.active_level == 0)
+					gpio_direction_output(codec_platform_data->gpio_mic_select.gpio,0);
+				else
+					printk("error config on gpio_mic_select.active_level");
 			}
 		}
 		break;
@@ -2250,8 +2249,18 @@ static int codec_set_record_data_width(int width)
 	return -EIO;
 }
 
-static int codec_set_record_volume(int val)
+static int codec_set_record_volume(int *val)
 {
+	int val_tmp = *val;
+	*val = codec_set_gain_adc_left(val_tmp);
+	val_tmp = *val;
+	*val = codec_set_gain_adc_right(val_tmp);
+	return 0;
+}
+
+static int codec_set_mic_volume(int* val)
+{
+#ifndef CONFIG_SOUND_XBURST_DEBUG
 	/*just set analog gm1 and gm2*/
 	int fixed_vol;
 	int volume_base;
@@ -2261,15 +2270,20 @@ static int codec_set_record_volume(int val)
 		volume_base = codec_platform_data->record_volume_base;
 
 		fixed_vol = (volume_base >> 2) +
-			((5 - (volume_base >> 2)) * val / 100);
+			((5 - (volume_base >> 2)) * (*val) / 100);
 	}
 	else
-		fixed_vol = (5 * val / 100);
+		fixed_vol = (5 * (*val) / 100);
 
 	__codec_set_gm1(fixed_vol);
 	__codec_set_gm2(fixed_vol);
-
-	return val;
+#else
+	int val_tmp = *val;
+	*val = codec_set_gain_input_left(val_tmp);
+	val_tmp = *val;
+	*val = codec_set_gain_input_right(val_tmp);
+#endif
+	return 0;
 }
 
 static int codec_set_record_channel(int *channel)
@@ -2333,7 +2347,7 @@ static int codec_set_replay_data_width(int width)
 	return -EIO;
 }
 
-static int codec_set_replay_volume(int val)
+static int codec_set_replay_volume(int *val)
 {
 	/*just set analog gol and gor*/
 	unsigned long fixed_vol;
@@ -2343,15 +2357,15 @@ static int codec_set_replay_volume(int val)
 	{
 		volume_base = codec_platform_data->replay_volume_base;
 
-		fixed_vol = (31 - volume_base) - ((31 - volume_base) * val / 100);
+		fixed_vol = (31 - volume_base) - ((31 - volume_base) * (*val)/ 100);
 	}
 	else
-		fixed_vol = (31 - (31 * val / 100));
+		fixed_vol = (31 - (31 * (*val) / 100));
 
 	__codec_set_gol(fixed_vol);
 	__codec_set_gor(fixed_vol);
 
-	return val;
+	return *val;
 }
 
 static int codec_set_replay_channel(int* channel)
@@ -2584,7 +2598,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 	int ret = 0;
 
 	DUMP_IOC_CMD("enter");
-	//CODEC_LOCK();
 	{
 		switch (cmd) {
 
@@ -2637,7 +2650,11 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_MIC_VOLUME:
-			ret = codec_set_record_volume((int)arg);
+			ret = codec_set_mic_volume((int *)arg);
+			break;
+
+		case CODEC_SET_RECORD_VOLUME:
+			ret = codec_set_record_volume((int *)arg);
 			break;
 
 		case CODEC_SET_RECORD_CHANNEL:
@@ -2653,7 +2670,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_REPLAY_VOLUME:
-			ret = codec_set_replay_volume((int)arg);
+			ret = codec_set_replay_volume((int*)arg);
 			break;
 
 		case CODEC_SET_REPLAY_CHANNEL:
@@ -2695,8 +2712,6 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 		}
 	}
 
-	//CODEC_UNLOCK();
-
 	DUMP_IOC_CMD("leave");
 	return ret;
 }
@@ -2736,7 +2751,6 @@ static int jz_codec_probe(struct platform_device *pdev)
 			gpio_request(codec_platform_data->gpio_spk_en.gpio,"gpio_spk_en");
 		}
 
-	CODEC_LOCKINIT();
 	return 0;
 }
 

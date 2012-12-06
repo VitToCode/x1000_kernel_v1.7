@@ -61,12 +61,14 @@ static void print_format(unsigned long fmt)
 }
 
 ssize_t xb_snd_mixer_write(struct file *file,
-						   const char __user *buffer,
-						   size_t count,
-						   loff_t *ppos,
-						   struct snd_dev_data *ddata)
+		const char __user *buffer,
+		size_t count,
+		loff_t *ppos,
+		struct snd_dev_data *ddata)
 {
 	char buf_byte;
+	char buf_vol[3];
+	int volume = 0;
 	unsigned long fmt_in = 0;
 	unsigned long fmt_out = 0;
 	unsigned int channels_in = 0;
@@ -121,6 +123,25 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			devices = SND_DEVICE_SPEAKER;
 			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
+		case 'm':
+			printk(" \"m\" set mic volume 0 ~ 20db\n");
+			if(copy_from_user((void *)buf_vol, buffer, 3)) {
+				return -EFAULT;
+			}
+			volume = (buf_vol[1] - '0') * 10 + (buf_vol[2] - '0');
+			printk("mic volume is %d.\n",volume);
+			ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&volume);
+			printk("mic volume is %d.\n",volume);
+			break;
+		case 'v':
+			printk(" \"v\" set record adc  volume 0 ~ 23db\n");
+			if(copy_from_user((void *)buf_vol, buffer, 3)) {
+				return -EFAULT;
+			}
+			volume = (buf_vol[1] - '0') * 10 + (buf_vol[2] - '0');
+			ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL,(unsigned long)&volume);
+			printk("record volume is %d.\n",volume);
+			break;
 		default:
 			printk("undefine debug interface \"%c\".\n", buf_byte);
 			printk(" \"1\" command :print codec and aic register.\n");
@@ -129,6 +150,8 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk(" \"4\" command:print headphone detect state.\n");
 			printk(" \"5\" set headphone route.\n");
 			printk(" \"6\" set speaker route.\n");
+			printk(" \"mdb\" set mic volume (db = 0 ~ 20)\n");
+			printk(" \"vdb\" set record adc volume (db = 0 ~ 23)\n");
 	}
 	return count;
 }
@@ -181,8 +204,8 @@ long xb_snd_mixer_ioctl(struct file *file,
  * mmap
 \********************************************************/
 int xb_snd_mixer_mmap(struct file *file,
-					  struct vm_area_struct *vma,
-					  struct snd_dev_data *ddata)
+		struct vm_area_struct *vma,
+		struct snd_dev_data *ddata)
 {
 	return -1;
 }
@@ -191,8 +214,8 @@ int xb_snd_mixer_mmap(struct file *file,
  * open
 \********************************************************/
 int xb_snd_mixer_open(struct inode *inode,
-					  struct file *file,
-					  struct snd_dev_data *ddata)
+		struct file *file,
+		struct snd_dev_data *ddata)
 {
 	return 0;
 }
@@ -201,8 +224,8 @@ int xb_snd_mixer_open(struct inode *inode,
  * release
 \********************************************************/
 int xb_snd_mixer_release(struct inode *inode,
-						 struct file *file,
-						 struct snd_dev_data *ddata)
+		struct file *file,
+		struct snd_dev_data *ddata)
 {
 	return 0;
 }
