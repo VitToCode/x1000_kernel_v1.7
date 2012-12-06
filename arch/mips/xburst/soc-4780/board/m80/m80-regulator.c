@@ -62,21 +62,6 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#if 0 /* FIXME! when board fixed, recovery it */
-FIXED_REGULATOR_DEF(
-	m80_vcc5,
-	"Vcc-5V",	5000000,	GPIO_PA(17),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	NULL,		"vhdmi",	"jz-hdmi");
-#endif
-
-#if 0 /* FIXME! when board fixed, recovery it */
-FIXED_REGULATOR_DEF(
-	m80_vbus,
-	"OTG-Vbus",	5000000,	GPIO_PE(10),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	"Vcc-5V",	"vdrvvbus",	NULL);
-#endif
 
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
@@ -98,9 +83,6 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vbklight",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-#if 0 /* FIXME! when board fixed, recovery it */
-	&m80_vcc5_regulator_device,
-#endif
 	&m80_vbus_regulator_device,
 	&m80_vcim_regulator_device,
 	&m80_vbklight_regulator_device,
