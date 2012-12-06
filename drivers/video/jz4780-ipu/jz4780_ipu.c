@@ -470,8 +470,10 @@ static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, struct file *f
 			if (ipu_proc)
 				return ipu_proc;
 		} else {
-			if (ipu_proc->ipu_filp == filp)
-				return ipu_proc;
+			if (ipu_proc) {
+				if (ipu_proc->ipu_filp == filp)
+					return ipu_proc;
+			}
 		}
 	}
 	dev_err(ipu->dev, "not find related pid ipu process info!!! pid: %d, tgid: %d", current->pid, current->tgid);
@@ -500,12 +502,12 @@ static int create_proc_info(struct jz_ipu *ipu, struct file *filp)
 	return 0;
 }
 
-static int destroy_proc_info(struct jz_ipu *ipu)
+static int destroy_proc_info(struct jz_ipu *ipu, struct file *filp)
 {
 	struct ipu_proc_info *ipu_proc = NULL;
 
 	dev_dbg(ipu->dev, "destroy_proc_info pid: %d, tgid: %d", current->pid, current->tgid);
-	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
+	ipu_proc = get_ipu_procinfo(ipu, filp);
 	if (!ipu_proc) {
 		dev_err(ipu->dev, "get_ipu_procinfo failed! %d, %d", current->pid, current->tgid);
 		return -1;
@@ -518,6 +520,7 @@ static int destroy_proc_info(struct jz_ipu *ipu)
 	return 0;
 }
 
+#if 0
 static int destroy_allproc_info(struct jz_ipu *ipu)
 {
 	int i, record_proc_num;
@@ -541,6 +544,7 @@ static int destroy_allproc_info(struct jz_ipu *ipu)
 
 	return 0;
 }
+#endif
 
 static unsigned int hal_infmt_is_packaged(int hal_fmt)
 {
@@ -1569,7 +1573,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
 
-	ipu_proc = get_ipu_procinfo(ipu, ipu->cur_proc);
+	ipu_proc = get_ipu_procinfo(ipu, filp);
 	if (ipu_proc != NULL) {
 		img = &ipu_proc->img;
 		if (img && (img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
@@ -1584,17 +1588,14 @@ static int ipu_release(struct inode *inode, struct file *filp)
 	dev_dbg(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
 	dev_dbg(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
 
-	ret = destroy_proc_info(ipu);
+	ret = destroy_proc_info(ipu, filp);
 	if (ret < 0) {
 		dev_err(ipu->dev, "%s failed!, %d", __func__, __LINE__);
 		return -1;
 	}
 
-	if (ipu->open_cnt == 0)
-            ret = destroy_allproc_info(ipu);
-	if (ipu->proc_num == 0) {
+	if (ipu->proc_num == 0)
             clk_disable(ipu->clk);
-        }
 	ipu->inited = 0;
 
 	mutex_unlock(&ipu->lock);
