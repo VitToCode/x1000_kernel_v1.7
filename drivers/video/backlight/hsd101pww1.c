@@ -44,6 +44,7 @@ void enable_lcd_and_bklight(struct hsd101pww1_data *dev)
 	regulator_enable(dev->lcd_vcc_reg);
 	msleep(500);
 	regulator_enable(dev->lcd_bklight_reg);
+	msleep(200);
 }
 
 void disable_lcd_and_bklight(struct hsd101pww1_data *dev)
@@ -51,6 +52,7 @@ void disable_lcd_and_bklight(struct hsd101pww1_data *dev)
 	regulator_disable(dev->lcd_bklight_reg);
 	msleep(500);
 	regulator_disable(dev->lcd_vcc_reg);
+	msleep(200);
 }
 
 static void hsd101pww1_on(struct hsd101pww1_data *dev)
