@@ -30,7 +30,7 @@
 #define kprint(f, arg...)		pr_info(DRIVER_NAME ": " f , ## arg)
 #define dprint(f, arg...)		pr_debug(DRIVER_NAME ": " f , ## arg)
 
-
+static int first_boot = 1;
 struct hsd101pww1_data {
 	int lcd_power;
 	struct lcd_device *lcd;
@@ -42,14 +42,14 @@ struct hsd101pww1_data {
 void enable_lcd_and_bklight(struct hsd101pww1_data *dev)
 {
 	regulator_enable(dev->lcd_vcc_reg);
-	mdelay(100);
+	msleep(500);
 	regulator_enable(dev->lcd_bklight_reg);
 }
 
 void disable_lcd_and_bklight(struct hsd101pww1_data *dev)
 {
 	regulator_disable(dev->lcd_bklight_reg);
-	mdelay(50);
+	msleep(500);
 	regulator_disable(dev->lcd_vcc_reg);
 }
 
@@ -57,11 +57,13 @@ static void hsd101pww1_on(struct hsd101pww1_data *dev)
 {
 	//regulator_enable(dev->lcd_vcc_reg);
 	enable_lcd_and_bklight(dev);
-
-	if (dev->pdata->gpio_rest) {
-		gpio_direction_output(dev->pdata->gpio_rest, 0);
-		mdelay(100);
-		gpio_direction_output(dev->pdata->gpio_rest, 1);
+	if(!first_boot) {
+		if (dev->pdata->gpio_rest) {
+			gpio_direction_output(dev->pdata->gpio_rest, 0);
+			msleep(100);
+			gpio_direction_output(dev->pdata->gpio_rest, 1);
+		    	first_boot = 0;
+		}
 	}
 }
 
