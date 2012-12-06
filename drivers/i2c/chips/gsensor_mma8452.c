@@ -218,7 +218,7 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 	u8	tmp_data[7];
 	u8 buf[3]={0,0,0};
 	int hw_d[3] ={0};
-
+#if 0
 	if (mma8452_i2c_read_data(mma,MMA8452_OUT_X_MSB,tmp_data,7) < 0) {
 		printk("i2c block read failed\n");
 			return -3;
@@ -227,7 +227,28 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 	hw_d[0] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
 	hw_d[1] = ((tmp_data[2] << 8) & 0xff00) | tmp_data[3];
 	hw_d[2] = ((tmp_data[4] << 8) & 0xff00) | tmp_data[5];
+#else
+	if (mma8452_i2c_read_data(mma,MMA8452_OUT_X_MSB,tmp_data,2) < 0) {
+		printk("i2c block read failed\n");
+			return -3;
+	}
 
+	hw_d[0] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
+
+	if (mma8452_i2c_read_data(mma,MMA8452_OUT_Y_MSB,tmp_data,2) < 0) {
+		printk("i2c block read failed\n");
+			return -3;
+	}
+
+	hw_d[1] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
+
+	if (mma8452_i2c_read_data(mma,MMA8452_OUT_Z_MSB,tmp_data,2) < 0) {
+		printk("i2c block read failed\n");
+			return -3;
+	}
+
+	hw_d[2] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
+#endif
 	hw_d[0] = (short)(hw_d[0]) >> 4;
 	hw_d[1] = (short)(hw_d[1]) >> 4;
 	hw_d[2] = (short)(hw_d[2]) >> 4;
@@ -242,6 +263,7 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 		hw_d[1] = (short)(hw_d[1])<<2;
 		hw_d[2] = (short)(hw_d[2])<<2;
 	}
+
 	*x = ((mma->pdata->negate_x) ? (-hw_d[mma->pdata->axis_map_x])
 			: (hw_d[mma->pdata->axis_map_x]));
 	*y = ((mma->pdata->negate_y) ? (-hw_d[mma->pdata->axis_map_y])
