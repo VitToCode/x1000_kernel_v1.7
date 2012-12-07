@@ -16,8 +16,8 @@ config BOARD_GIANT
 config BOARD_WARRIOR
         bool "Warrior"
 
-config WARRIOR_V_1_1
-        bool "WARRIOR v1.1"
+config BOARD_WARRIOR_V_1_1
+        bool "Warrior v1.1"
 
 config BOARD_CAPTAIN
         bool "Captain"
@@ -56,6 +56,7 @@ config BOARD_NAME
 	default "test" if BOARD_TEST
 	default "Giant" if BOARD_GIANT
 	default "Warrior" if BOARD_WARRIOR
+	default "Warrior" if BOARD_WARRIOR_V_1_1
 	default "Captain" if BOARD_CAPTAIN
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80

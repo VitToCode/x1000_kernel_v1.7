@@ -12,7 +12,7 @@ struct snd_codec_data codec_data = {
 	.replay_digital_volume_base = 0,
 	.replay_hp_output_gain_base = 0,
 	/* default route */
-#ifdef CONFIG_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_WARRIOR_V_1_1
 	.replay_def_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1},
@@ -25,7 +25,7 @@ struct snd_codec_data codec_data = {
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1},
 	/* device <-> route map */
-#ifdef CONFIG_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_WARRIOR_V_1_1
 	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC2_SIN_AN3,
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1},
@@ -43,7 +43,7 @@ struct snd_codec_data codec_data = {
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 0},
-#ifdef CONFIG_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_WARRIOR_V_1_1
 	.replay_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1},
