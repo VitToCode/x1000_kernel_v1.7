@@ -180,8 +180,8 @@ do{
 	timeout = wait_for_completion_timeout(&comp,HZ);
 	if(timeout == -ERESTARTSYS)
 		continue;
-	if(!timeout){
 #ifdef MCU_TEST_INTER_NAND
+	if(!timeout){
 				unsigned long long test[6] ={0};
 				int i;
 				for(i=0;i<6;i++)
@@ -192,6 +192,10 @@ do{
 				printk("dma receive inte   [%llu]\n",test[3]);
 				printk("dma mcu_irq handle [%llu]\n",test[4]);
 				printk("pdma_task_handle   [%llu]\n",test[5]);
+			printk("channel 0 state 0x%x\n",*(volatile unsigned int *)(0xb3420010));
+			printk("channel 1 state 0x%x\n",*(volatile unsigned int *)(0xb3420030));
+			printk("channel 2 state 0x%x\n",*(volatile unsigned int *)(0xb3420050));
+			printk("pdma mask register 0x%x\n",*(volatile unsigned int *)(0xb342102c));
 /*
 				printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
 				printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
@@ -200,8 +204,8 @@ do{
 				printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
 				printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
 */
-#endif
 	}
+#endif
 	count++;
 }while(!timeout && count <= 20);
 
@@ -254,9 +258,9 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
-				printk("Error: mcu dma tran faild,mcu_steps(%d);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
+				printk("Error: mcu dma tran faild,mcu_steps(0x%x);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
                 dump_stack();
-                while(1);
+          //      while(1);
 	} else {
 		ret = mailbox_ret;
 		mailbox_ret = 0;
@@ -344,6 +348,14 @@ static int read_page_singlenode(const NAND_API *pnand_api
 		if(phy_pageid != nand_dma->cache_phypageid){
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 			ret =send_msg_to_mcu(pnand_api);
+			if(ret == -4){
+#ifdef MCU_TEST_INTER_NAND
+				ret = mcu_reset(pnand_api);
+				if(ret == -4)
+					printk("***************ERROR:firmware is dead *****************\n");
+#endif
+				while(1);
+			}
 			if(ret && (ret != -6))
 				printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 			if(ret<0){
@@ -361,6 +373,14 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	}else{
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
 		ret = send_msg_to_mcu(pnand_api);
+		if(ret == -4){
+#ifdef MCU_TEST_INTER_NAND
+			ret = mcu_reset(pnand_api);
+			if(ret == -4)
+				printk("***************ERROR:firmware is dead *****************\n");
+#endif
+			while(1);
+		}
 		if(ret && (ret != -6))
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if(ret != 0){
@@ -450,6 +470,14 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	b_time();
 #endif
 	ret = send_msg_to_mcu(pnand_api);
+	if(ret == -4){
+#ifdef MCU_TEST_INTER_NAND
+		ret = mcu_reset(pnand_api);
+		if(ret == -4)
+			printk("***************ERROR:firmware is dead *****************\n");
+#endif
+		while(1);
+	}
 	if(ret && (ret != -6))
 		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 #ifdef NAND_DMA_CALC_TIME
@@ -517,6 +545,14 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	if(phy_pageid != nand_dma->cache_phypageid){
 		set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
+		if(ret == -4){
+#ifdef MCU_TEST_INTER_NAND
+			ret = mcu_reset(pnand_api);
+			if(ret == -4)
+				printk("***************ERROR:firmware is dead *****************\n");
+#endif
+			while(1);
+		}
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
 	dprintf("  %s  %d\n",__func__,__LINE__);
@@ -693,6 +729,14 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 			goto write_multinode_error1;
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
+		if(ret == -4){
+#ifdef MCU_TEST_INTER_NAND
+			ret = mcu_reset(pnand_api);
+			if(ret == -4)
+				printk("***************ERROR:firmware is dead *****************\n");
+#endif
+			while(1);
+		}
 		if(ret && (ret != -6))
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 write_multinode_error1:
