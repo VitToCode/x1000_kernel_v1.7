@@ -1,5 +1,5 @@
 /* *  mma8452.c - Linux kernel modules for 3-Axis Orientation/Motion
- *  Detection Sensor 
+ *  Detection Sensor
  *
  *  Copyright (C) 2009-2010 Freescale Semiconductor Hong Kong Ltd.
  *
@@ -81,9 +81,9 @@ static struct {
 } odr_table[] = {
 	{
 	3,	MMA8452_ODR400  },{
-	10,	MMA8452_ODR200  },{ 
-	20,	MMA8452_ODR100  },{ 
-	100,	MMA8452_ODR50   },{ 
+	10,	MMA8452_ODR200  },{
+	20,	MMA8452_ODR100  },{
+	100,	MMA8452_ODR50   },{
 	300,	MMA8452_ODR12   },{
 	500,	MMA8452_ODR6   },{
 	1000,	MMA8452_ODR1    },
@@ -104,9 +104,7 @@ struct mma8452_data {
 	struct work_struct pen_event_work;
 	struct workqueue_struct *mma_wqueue;
 	struct early_suspend early_suspend;
-		
 	struct miscdevice mma8452_misc_device;
-	
 	struct regulator *power;
 };
 //-------------------------------------
@@ -116,7 +114,7 @@ static int mma8452_i2c_read(struct mma8452_data *mma,u8* reg,u8 *buf, int len)
 	struct i2c_msg msgs[] = {
 		{
 		 .addr = mma->client->addr,
-		 .flags =  0 | I2C_M_NOSTART,
+		 .flags =  0,
 		 .len = 1,
 		 .buf = reg,
 		 },
@@ -210,7 +208,7 @@ static int mma8452_init_client(struct mma8452_data *mma)
 *
 * read sensor data from mma8452
 *
-***************************************************************/ 				
+***************************************************************/
 static int mma8452_set_delay(struct mma8452_data *mma,int delay);
 
 
@@ -218,7 +216,7 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 	u8	tmp_data[7];
 	u8 buf[3]={0,0,0};
 	int hw_d[3] ={0};
-#if 0
+
 	if (mma8452_i2c_read_data(mma,MMA8452_OUT_X_MSB,tmp_data,7) < 0) {
 		printk("i2c block read failed\n");
 			return -3;
@@ -227,32 +225,11 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 	hw_d[0] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
 	hw_d[1] = ((tmp_data[2] << 8) & 0xff00) | tmp_data[3];
 	hw_d[2] = ((tmp_data[4] << 8) & 0xff00) | tmp_data[5];
-#else
-	if (mma8452_i2c_read_data(mma,MMA8452_OUT_X_MSB,tmp_data,2) < 0) {
-		printk("i2c block read failed\n");
-			return -3;
-	}
 
-	hw_d[0] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
-
-	if (mma8452_i2c_read_data(mma,MMA8452_OUT_Y_MSB,tmp_data,2) < 0) {
-		printk("i2c block read failed\n");
-			return -3;
-	}
-
-	hw_d[1] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
-
-	if (mma8452_i2c_read_data(mma,MMA8452_OUT_Z_MSB,tmp_data,2) < 0) {
-		printk("i2c block read failed\n");
-			return -3;
-	}
-
-	hw_d[2] = ((tmp_data[0] << 8) & 0xff00) | tmp_data[1];
-#endif
 	hw_d[0] = (short)(hw_d[0]) >> 4;
 	hw_d[1] = (short)(hw_d[1]) >> 4;
 	hw_d[2] = (short)(hw_d[2]) >> 4;
-	
+
 	if (mma_status.mode==GSENSOR_4G){
 		hw_d[0] = (short)(hw_d[0]) <<1;
 		hw_d[1] = (short)(hw_d[1]) <<1;
@@ -263,7 +240,6 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 		hw_d[1] = (short)(hw_d[1])<<2;
 		hw_d[2] = (short)(hw_d[2])<<2;
 	}
-
 	*x = ((mma->pdata->negate_x) ? (-hw_d[mma->pdata->axis_map_x])
 			: (hw_d[mma->pdata->axis_map_x]));
 	*y = ((mma->pdata->negate_y) ? (-hw_d[mma->pdata->axis_map_y])
@@ -271,10 +247,10 @@ static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short 
 	*z = ((mma->pdata->negate_z) ? (-hw_d[mma->pdata->axis_map_z])
 			: (hw_d[mma->pdata->axis_map_z]));
 
-	mma8452_i2c_read_data(mma,MMA8452_INT_SOURCE,buf,1);
-	if(buf[0] == 1){
-		mma8452_set_delay(mma,mma->delay_save);
-	}
+//	mma8452_i2c_read_data(mma,MMA8452_INT_SOURCE,buf,1);
+//	if(buf[0] == 1){
+//		mma8452_set_delay(mma,mma->delay_save);
+//	}
 	return 0;
 }
 #ifdef CONFIG_SENSORS_ORI
@@ -284,16 +260,16 @@ static void report_abs(struct mma8452_data *data)
 {
 	short 	x,y,z;
 	u8 buf[3]={0,0,0};
-	
+
 	mma8452_i2c_read_data(data,MMA8452_STATUS,buf,1);
 	if(!(buf[0] & 0x01)){
-		return;	
+		return;
 	}
 
 	if (mma8452_read_data(data,&x,&y,&z) != 0) {
 		return;
 	}
-	
+
 	input_report_abs(data->input_dev, ABS_X, x);
 	input_report_abs(data->input_dev, ABS_Y, y);
 	input_report_abs(data->input_dev, ABS_Z, z);
@@ -310,16 +286,16 @@ static void report_abs(struct mma8452_data *data)
 	orientation_report_values(x,y,z);
 #endif
 }
-struct linux_sensor_t hardware_data = {                                       
+struct linux_sensor_t hardware_data = {
 	"mma8452 3-axis Accelerometer",
 	"ST sensor",
-	SENSOR_TYPE_ACCELEROMETER,0,1024,1, 1, { } 
-};      
+	SENSOR_TYPE_ACCELEROMETER,0,1024,1, 1, { }
+};
 
 static int mma8452_device_power_off(struct mma8452_data *mma)
 {
 	int result;
-	u8 buf[3]={0,0,0}; 
+	u8 buf[3]={0,0,0};
 	mma8452_i2c_read_data(mma,MMA8452_CTRL_REG1,buf,1);
 	mma_status.ctl_reg1 = buf[0];
 	mma_status.ctl_reg1 &=0xFE;
@@ -356,7 +332,7 @@ static int mma8452_device_power_on(struct mma8452_data *mma)
 		}
 	}
 	udelay(100);
-	
+
 	mma8452_i2c_read_data(mma,MMA8452_CTRL_REG1,buf,1);
 	mma_status.ctl_reg1 = buf[0];
 	mma_status.ctl_reg1|=0x01;
@@ -411,24 +387,31 @@ static int mma8452_set_delay(struct mma8452_data *mma,int delay)
 	u8 buf[3] = {0,0,0};
 	mma->delay_save = delay;
 
+//	printk("----sensor set delay = %d ----\n", delay);
+	mma_status.ctl_reg1 &=0x0;
+
 	for(i = 0;i < ARRAY_SIZE(odr_table);i++){
 		mma8452_i2c_read_data(mma,MMA8452_CTRL_REG1,buf,1);
 		mma_status.ctl_reg1 = buf[0];
 		mma_status.ctl_reg1 &=0xc7;
+		mma_status.ctl_reg1 |= 0x1;
 		mma_status.ctl_reg1 |= odr_table[i].mask;
+//		printk("---- odr_table[i].cutoff = %d; delay = %d----\n", odr_table[i].cutoff, delay);
 		if(delay < odr_table[i].cutoff){
-			break;	
+			break;
 		}
 	}
+
 	buf[0] = 0x0;
 	mma8452_i2c_write_data(mma,MMA8452_CTRL_REG1,buf,1);
 	buf[0] = mma_status.ctl_reg1;
+//	printk("------buf[0] = %x ------\n", buf[0]);
 	result = mma8452_i2c_write_data(mma,MMA8452_CTRL_REG1,buf,1);
 	assert(result==0);
 	return result;
 }
 static int mma8452_misc_open(struct inode *inode, struct file *file)
-{       
+{
 	int err;
 	err = nonseekable_open(inode, file);
 	if (err < 0)
@@ -480,7 +463,7 @@ long mma8452_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_to_user(argp, &interval, sizeof(interval)))
 			return -EINVAL;
 
-		break;	
+		break;
 	case SENSOR_IOCTL_GET_DATA:
 		if (copy_to_user(argp, &hardware_data, sizeof(hardware_data)))
 			return -EINVAL;
@@ -523,7 +506,7 @@ static const struct file_operations mma8452_misc_fops = {
 	.owner = THIS_MODULE,
 	.open = mma8452_misc_open,
 	.unlocked_ioctl = mma8452_misc_ioctl,
-};              
+};
 
 /*
  * I2C init/probing/exit functions
@@ -540,9 +523,9 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 	u8 buf[3] = {0,0,0};
 	int result = -1;
 
-	if(!i2c_check_functionality(client->adapter, 
+	if(!i2c_check_functionality(client->adapter,
 				I2C_FUNC_SMBUS_BYTE|I2C_FUNC_SMBUS_BYTE_DATA)){
-		dev_err(&client->dev, "client not i2c capable\n"); 
+		dev_err(&client->dev, "client not i2c capable\n");
 		result = -ENODEV;
 	       	goto err0;
 	}
@@ -554,14 +537,14 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 		goto err0;
 	}
 
-	mutex_init(&mma->lock_rw);	
-	mutex_init(&mma->lock);	
+	mutex_init(&mma->lock_rw);
+	mutex_init(&mma->lock);
 
 	mma->pdata = kmalloc(sizeof(*mma->pdata),GFP_KERNEL);
 	if(mma->pdata == NULL)
 		goto err1;
 	memcpy(mma->pdata,client->dev.platform_data,sizeof(*mma->pdata));
-	
+
 	mma->client = client;
 
 
@@ -584,7 +567,7 @@ static int __devinit mma8452_probe(struct i2c_client *client,
         /*--read id must add to load mma8452 or lis3dh--*/
         printk(KERN_INFO "check mma8452 chip ID\n");
 	mma8452_i2c_read_data(mma,MMA8452_WHO_AM_I,buf,1);
-	if (MMA8452_ID != buf[0]) {	//compare the address value 
+	if (MMA8452_ID != buf[0]) {	//compare the address value
 		printk("read mma8452 chip ID failed ,may use lis3dh driver\n");
 		return -EINVAL;
 	}
@@ -612,17 +595,6 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 	if(!mma->mma_wqueue){
 		result = -ESRCH;
 		goto err2;
-	}
-
-
-	client->irq = gpio_to_irq(mma->pdata->gpio_int);
-	result = request_irq(client->irq, mma8452_interrupt,
-			IRQF_TRIGGER_FALLING | IRQF_DISABLED,
-			"mma8452", mma);
-	if (result < 0) {
-		printk(" request irq is error\n");
-		dev_err(&client->dev, "%s rquest irq failed\n", __func__);
-		return result;
 	}
 
 	/*input poll device register */
@@ -663,7 +635,16 @@ static int __devinit mma8452_probe(struct i2c_client *client,
         mma->early_suspend.resume = mma8452_resume;
         register_early_suspend(&mma->early_suspend);
 #endif
-
+	client->irq = gpio_to_irq(mma->pdata->gpio_int);
+	result = request_irq(client->irq, mma8452_interrupt,
+			IRQF_TRIGGER_LOW | IRQF_DISABLED,
+		//	IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			"mma8452", mma);
+	if (result < 0) {
+		printk(" request irq is error\n");
+		dev_err(&client->dev, "%s rquest irq failed\n", __func__);
+		return result;
+	}
 	mma8452_device_power_off(mma);
 	udelay(100);
 	atomic_set(&mma->enabled,0);
@@ -683,7 +664,7 @@ err2:
 	mutex_unlock(&mma->lock);
 	kfree(mma->pdata);
 err1:
-	kfree(mma);	
+	kfree(mma);
 err0:
 	return result;
 }
@@ -706,7 +687,7 @@ static void mma8452_suspend(struct early_suspend *h)
 {
 //	int result;
 	struct mma8452_data *mma;
-	mma = container_of(h, struct mma8452_data, early_suspend); 
+	mma = container_of(h, struct mma8452_data, early_suspend);
 	mma->is_suspend = 1;
 	disable_irq_nosync(mma->client->irq);
     /*
@@ -726,7 +707,7 @@ static void mma8452_resume(struct early_suspend *h)
 {
 //	int result;
 	struct mma8452_data *mma;
-	mma = container_of(h, struct mma8452_data, early_suspend); 
+	mma = container_of(h, struct mma8452_data, early_suspend);
     /*
 	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
 	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 | 0x01);
@@ -785,7 +766,7 @@ static void __exit mma8452_exit(void)
 	i2c_del_driver(&mma8452_driver);
 }
 
-module_init(mma8452_init);
+late_initcall(mma8452_init);
 module_exit(mma8452_exit);
 
 MODULE_AUTHOR("bcjia <bcjia@ingenic.cn>");

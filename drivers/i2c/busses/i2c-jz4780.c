@@ -349,6 +349,10 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 			}else{
 				i2c_send_rcmd(i2c,i2c->rdcmd_len);
 				i2c->rdcmd_len = 0;
+
+				tmp = i2c_readl(i2c,I2C_CTRL);
+				tmp &= ~I2C_CTRL_STPHLD;
+				i2c_writel(i2c,I2C_CTRL,tmp);
 			}
 		}else{
 			while((i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)){
@@ -504,6 +508,11 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	}
 
 	for (i=0;i<count;i++,msg++) {
+		if((msg->flags&I2C_M_NOSTART) == 0){
+			tmp = i2c_readl(i2c,I2C_CTRL);
+			tmp |= I2C_CTRL_STPHLD | I2C_CTRL_REST;
+			i2c_writel(i2c,I2C_CTRL,tmp);
+		}
 		if (msg->flags & I2C_M_RD){
 			ret = xfer_read(i2c,msg->buf,msg->len,count,i);
 		}else{
@@ -613,6 +622,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 		ret = -ENOMEM;
 		goto io_failed;
 	}
+	
 
 	i2c->irq = platform_get_irq(dev, 0);
 	ret = request_irq(i2c->irq, jz_i2c_irq, IRQF_DISABLED,dev_name(&dev->dev), i2c);
@@ -625,7 +635,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 
 	clk_enable(i2c->clk);
 	i2c_set_speed(i2c,100000);
-
+	
 	tmp = i2c_readl(i2c,I2C_CTRL);
 	tmp &= ~I2C_CTRL_STPHLD;
 	i2c_writel(i2c,I2C_CTRL,tmp);
