@@ -434,9 +434,9 @@ void cim_scan_sensor(struct jz_cim *cim)
 
 static int cim_select_sensor(struct jz_cim *cim,int id)
 {
-	if ( cim->desc != NULL && cim->desc->id != id ) {
+	struct cim_sensor *desc;
+	if ( cim->desc != NULL ) {
 		cim->first_used = true;
-		struct cim_sensor *desc;
 		if(cim->state != CS_IDLE)
 			return -EBUSY;
 		list_for_each_entry(desc, &sensor_list, list) {
