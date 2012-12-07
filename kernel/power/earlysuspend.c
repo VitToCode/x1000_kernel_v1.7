@@ -57,8 +57,12 @@ void register_early_suspend(struct early_suspend *handler)
 			break;
 	}
 	list_add_tail(&handler->link, pos);
-	if ((state & SUSPENDED) && handler->suspend)
+	if ((state & SUSPENDED) && handler->suspend) {
 		handler->suspend(handler);
+		handler->state |= SUSPENDED;
+	} else {
+		handler->state &= ~SUSPENDED;
+	}
 	mutex_unlock(&early_suspend_lock);
 }
 EXPORT_SYMBOL(register_early_suspend);
@@ -85,20 +89,21 @@ static void early_suspend(struct work_struct *work)
 		abort = 1;
 	spin_unlock_irqrestore(&state_lock, irqflags);
 
-	if (abort) {
-		if (debug_mask & DEBUG_SUSPEND)
-			pr_info("early_suspend: abort, state %d\n", state);
-		mutex_unlock(&early_suspend_lock);
+	if (abort)
 		goto abort;
-	}
 
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: call handlers\n");
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
-		if (pos->suspend != NULL) {
+		if (!(state & SUSPEND_REQUESTED)) {
+			abort = 1;
+			goto abort;
+		}
+		if ((pos->suspend != NULL) && !(pos->state & SUSPENDED)) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
 			pos->suspend(pos);
+			pos->state |= SUSPENDED;
 		}
 	}
 	mutex_unlock(&early_suspend_lock);
@@ -108,6 +113,9 @@ static void early_suspend(struct work_struct *work)
 
 	sys_sync();
 abort:
+	if ((debug_mask & DEBUG_SUSPEND) && abort)
+		pr_info("early_suspend: abort, state %d\n", state);
+	mutex_unlock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
 		wake_unlock(&main_wake_lock);
@@ -128,24 +136,28 @@ static void late_resume(struct work_struct *work)
 		abort = 1;
 	spin_unlock_irqrestore(&state_lock, irqflags);
 
-	if (abort) {
-		if (debug_mask & DEBUG_SUSPEND)
-			pr_info("late_resume: abort, state %d\n", state);
+	if (abort)
 		goto abort;
-	}
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: call handlers\n");
 	list_for_each_entry_reverse(pos, &early_suspend_handlers, link) {
-		if (pos->resume != NULL) {
+		if (state & SUSPEND_REQUESTED) {
+			abort = 1;
+			goto abort;
+		}
+		if ((pos->resume != NULL) && (pos->state & SUSPENDED)) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("late_resume: calling %pf\n", pos->resume);
 
 			pos->resume(pos);
+			pos->state &= ~SUSPENDED;
 		}
 	}
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: done\n");
 abort:
+	if ((debug_mask & DEBUG_SUSPEND) && abort)
+		pr_info("late_resume: abort, state %d\n", state);
 	mutex_unlock(&early_suspend_lock);
 }
 
