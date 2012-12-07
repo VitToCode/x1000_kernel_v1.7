@@ -36,6 +36,7 @@
 #include <linux/tsc.h>
 
 #include <linux/interrupt.h>
+
 struct ts_event {
 	u16 au16_x[CFG_MAX_TOUCH_POINTS];	/*x coordinate */
 	u16 au16_y[CFG_MAX_TOUCH_POINTS];	/*y coordinate */
@@ -337,6 +338,7 @@ static int ft5x06_ts_power_off(struct ft5x06_ts_data *ts)
 static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 {
 	set_pin_status(ts->gpio.wake, 1);
+	msleep(10);
 	set_pin_status(ts->gpio.wake, 0);
 	msleep(10);
 	set_pin_status(ts->gpio.wake, 1);
@@ -528,10 +530,9 @@ static void ft5x06_ts_resume(struct early_suspend *handler)
 {
 	struct ft5x06_ts_data *ts = container_of(handler, struct ft5x06_ts_data,
 						early_suspend);
-
+	ft5x06_ts_power_on(ts);
 	ft5x06_ts_reset(ts);
 	ts->is_suspend = 0;
-	ft5x06_ts_power_on(ts);
 
 	enable_irq(ts->client->irq);
 }
