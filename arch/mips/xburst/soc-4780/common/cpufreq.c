@@ -11,6 +11,7 @@
  * published by the Free Software Foundation.
  */
 
+/* #define DEBUG */
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -27,6 +28,13 @@
 
 #include <asm/cpu.h>
 
+#define CPUFREQ_NR			12
+#define MIN_FREQ			200000
+#define MIN_VOLT			1200000
+#define NR_APLL_FREQ			1	/* Number APLL freq */
+#define tVOL_L				20	/* ms of voltage latency */
+#define tVOL_H				200	/* ms of voltage hold time */
+
 #ifdef CONFIG_SMP
 struct lpj_info {
 	unsigned long	ref;
@@ -40,30 +48,27 @@ static struct lpj_info global_lpj_ref;
 static struct clk *cpu_clk;
 static struct regulator *cpu_regulator;
 static spinlock_t freq_lock;
-
-#define CPUFREQ_NR 16
+static struct delayed_work vol_work;
+static int vol_v;
+static unsigned int freq_gate;
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 
-#define MIN_FREQ 200000
-#define MIN_VOLT 1200000
-#define NR_APLL_FREQ 2
-static unsigned long regulator_table[12][2] = {
-	{ 1750000,1400000 }, // 1.7 GHz - 1.4V
-	{ 1584000,1400000 }, // 1.4 GHz - 1.4V
-	{ 1488000,1350000 }, // 1.4 GHz - 1.4V
-	{ 1392000,1300000 }, // 1.4 GHz - 1.4V
-	{ 1200000,1200000 },
+unsigned long __attribute__((weak)) core_reg_table[12][2] = {
+	{ 1584000,1400000 }, // >= 1.548 GHz - 1.40V
+	{ 1488000,1350000 }, // >= 1.488 GHz - 1.35V
+	{ 1392000,1300000 }, // >= 1.392 GHz - 1.30V
+	{ 1296000,1250000 }, // >= 1.296 GHz - 1.25V
+	{ 1200000,1200000 }, // >= 1.200 GHz - 1.20V
 	{MIN_FREQ,MIN_VOLT},
 };
 
 unsigned long regulator_find_voltage(int freqs)
 {
-	int i = 1;
-	if(freqs >= regulator_table[0][0])
-		return regulator_table[0][1];
-	while(regulator_table[i][0] && regulator_table[i][1]) {
-		if(freqs >= regulator_table[i][0])
-			return regulator_table[i-1][1];
+	int i = 0;
+
+	while(core_reg_table[i][0] && core_reg_table[i][1]) {
+		if(freqs >= core_reg_table[i][0])
+			return core_reg_table[i][1];
 		i++;
 	}
 	return 0;
@@ -111,7 +116,7 @@ static int freq_table_prepare(void)
 		}
 
 	}
-
+	freq_gate = mpll_rate;
 	for (j=1;i<CPUFREQ_NR && mpll_rate/j >= MIN_FREQ;i++) {
 		_FREQ_TAB(i, mpll_rate / j++);
 	}
@@ -121,7 +126,7 @@ static int freq_table_prepare(void)
 	clk_put(apll);
 	clk_put(sclka);
 	clk_put(mpll);
-#if 1
+#if 0
 	pr_info("Freq table:\n");
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
 		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
@@ -155,7 +160,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	unsigned int i;
 	int r,ret = 0;
 	struct cpufreq_freqs freqs;
-	unsigned long freq, flags, volt = 0, volt_old = 0;
+	unsigned long freq, flags, volt = 0;
 
 	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
 			relation, &i);
@@ -178,22 +183,31 @@ static int jz4780_target(struct cpufreq_policy *policy,
 		return ret;
 
 	freq = freqs.new * 1000;
-	
-	if (cpu_regulator) {
-		volt = regulator_find_voltage(freqs.new);
-		volt_old = regulator_get_voltage(cpu_regulator);
-	}
-
-	pr_debug("cpufreq-jz4780: %u MHz, %ld mV --> %u MHz, %ld mV\n", 
-			freqs.old / 1000, volt_old ? volt_old / 1000 : -1,
-			freqs.new / 1000, volt ? volt / 1000 : -1);
+	if ((freqs.old < freq_gate) && (freqs.new > freq_gate))
+		freqs.new = freq_gate;
 
 	if (cpu_regulator && (freqs.new > freqs.old)) {
-		r = regulator_set_voltage(cpu_regulator, volt, volt);
-		if (r < 0) {
-			pr_warning("%s: unable to scale voltage up.\n",__func__);
-			freqs.new = freqs.old;
-			goto done;
+		int vol_t;
+
+		volt = regulator_find_voltage(freqs.new);
+		vol_t = vol_v;
+
+		if (volt > vol_v) {
+			cancel_delayed_work_sync(&vol_work);
+			vol_t = regulator_get_voltage(cpu_regulator);
+		}
+		vol_v = volt;
+		while (vol_t < vol_v) {
+			vol_t += 50000;
+			r = regulator_set_voltage(cpu_regulator, vol_t, vol_t);
+			if (r < 0) {
+				pr_err("unable to scale voltage up. volt:%d\n", vol_t);
+				freqs.new = freqs.old;
+				goto done;
+			}
+			msleep(tVOL_L);
+			if (vol_t >= vol_v)
+				break;
 		}
 	}
 	/* notifiers */
@@ -204,7 +218,6 @@ static int jz4780_target(struct cpufreq_policy *policy,
 
 	spin_lock_irqsave(&freq_lock, flags);
 	ret = clk_set_rate(cpu_clk, freqs.new * 1000);
-
 
 	freqs.new = jz4780_getspeed(policy->cpu);
 #ifdef CONFIG_SMP
@@ -233,13 +246,11 @@ static int jz4780_target(struct cpufreq_policy *policy,
 #endif
 	spin_unlock_irqrestore(&freq_lock, flags);
 	if (cpu_regulator && (freqs.new < freqs.old)) {
-		r = regulator_set_voltage(cpu_regulator, volt, volt);
-		if (r < 0) {
-			pr_warning("%s: unable to scale voltage down. old:%d new:%d volt:%lu\n",__func__,
-					freqs.old,freqs.new,volt);
-			ret = clk_set_rate(cpu_clk, freqs.old * 1000);
-			freqs.new = freqs.old;
-			goto done;
+		volt = regulator_find_voltage(freqs.new);
+		if (volt < vol_v) {
+			vol_v = volt;
+			schedule_delayed_work(&vol_work,
+					      msecs_to_jiffies(tVOL_H));
 		}
 	}
 done:
@@ -248,8 +259,28 @@ done:
 		freqs.cpu = i;
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 	}
+	pr_debug("-%d\n", freqs.new);
 
 	return ret;
+}
+
+static void vol_down_work(struct work_struct *work)
+{
+	int r;
+	int vol_t;
+
+	vol_t = regulator_get_voltage(cpu_regulator);
+	if (vol_t > vol_v) {
+		vol_t -= 50000;
+		r = regulator_set_voltage(cpu_regulator, vol_t, vol_t);
+		if (r < 0) {
+			pr_err("unable to scale voltage down. volt:%d\n", vol_v);
+			return;
+		}
+		msleep(tVOL_L);
+		if (vol_t > vol_v)
+			schedule_delayed_work(&vol_work, msecs_to_jiffies(tVOL_L));
+	}
 }
 
 static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
@@ -280,6 +311,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
+	INIT_DELAYED_WORK(&vol_work, vol_down_work);
 
 	return 0;
 }
@@ -352,7 +384,8 @@ static int __init jz4780_cpufreq_init(void)
 		 * Ensure physical regulator is present.
 		 * (e.g. could be dummy regulator.)
 		 */
-		if (regulator_get_voltage(cpu_regulator) < 0) {
+		vol_v = regulator_get_voltage(cpu_regulator);
+		if (vol_v < 0) {
 			pr_warn("%s: physical regulator not present for CPU\n",
 					__func__);
 			regulator_put(cpu_regulator);
