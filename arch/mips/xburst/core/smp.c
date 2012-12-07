@@ -30,7 +30,7 @@
 #include <asm/mmu_context.h>
 #include <asm/io.h>
 #include <asm/uasm.h>
-#include <asm/r4kcache.h>
+#include <asm/rjzcache.h>
 
 #include <smp_cp0.h>
 
@@ -320,10 +320,6 @@ int jzsoc_cpu_disable(void)
 	}
 	smp_spinunlock();
 
-	blast_dcache32();
-	blast_icache32();
-	local_flush_tlb_all();
-
 	return 0;
 }
 
@@ -356,7 +352,8 @@ void jzsoc_cpu_die(unsigned int cpu)
 void play_dead(void)
 {
 	while(1) {
-		blast_dcache32();
+		blast_dcache_jz();
+		blast_icache_jz();
 		cache_prefetch(IDLE_PROGRAM,IDLE_PROGRAM_END);
 IDLE_PROGRAM:
 		__asm__ __volatile__ ("	.set	push		\n"
