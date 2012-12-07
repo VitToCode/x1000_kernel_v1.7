@@ -17,8 +17,7 @@ config BOARD_WARRIOR
         bool "Warrior"
 
 config WARRIOR_V_1_1
-        bool "Ingenic WARRIOR v1.1 board"
-	depends on BOARD_WARRIOR
+        bool "WARRIOR v1.1"
 
 config BOARD_CAPTAIN
         bool "Captain"
