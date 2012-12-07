@@ -33,6 +33,7 @@
 #include <linux/miscdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/earlysuspend.h>
+#include <linux/delay.h>
 
 #include "regs_ipu.h"
 #include "jz4780_ipu.h"
@@ -53,7 +54,6 @@ static int ipu0_direct;
 static int ipu1_direct;
 static struct mutex ipu_lock;
 
-//static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, pid_t pid);
 static struct ipu_proc_info *get_ipu_procinfo(struct jz_ipu *ipu, struct file *filp);
 
 struct ipu_reg_struct jz47_ipu_regs_name[] = {
@@ -295,15 +295,19 @@ static void stop_ipu_to_lcd(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
 
-	__disable_lcdc_mode();
-	tmp = reg_read(ipu, IPU_ADDR_CTRL);
-	tmp |= CTRL_RY;
-	reg_write(ipu, IPU_ADDR_CTRL, tmp);
-	printk("tmp: %#x", tmp);
-	
 	tmp = reg_read(ipu, IPU_TRIG);
 	tmp |= IPU_STOP_LCD;
 	reg_write(ipu, IPU_TRIG, tmp);
+
+	msleep(60);
+	tmp = reg_read(ipu, IPU_ADDR_CTRL);
+	if (tmp)
+		__start_ipu();
+
+	tmp = reg_read(ipu, IPU_TRIG);
+	tmp |= IPU_STOP_LCD;
+	reg_write(ipu, IPU_TRIG, tmp);
+
 	jz47_ipu_wait_frame_end_flag(ipu);
 }
 
