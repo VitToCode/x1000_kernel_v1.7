@@ -99,7 +99,7 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 			 },
 			{
 			 .addr = client->addr,
-			 .flags = I2C_M_RD,
+			 .flags = I2C_M_RD | I2C_M_NOSTART,
 			 .len = readlen,
 			 .buf = readbuf,
 			 },
@@ -137,7 +137,7 @@ int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 	struct i2c_msg msg[] = {
 		{
 		 .addr = client->addr,
-		 .flags = 0,
+		 .flags = 0 | I2C_M_NOSTART,
 		 .len = writelen,
 		 .buf = writebuf,
 		 },

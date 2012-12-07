@@ -22,9 +22,16 @@
 struct {
 	unsigned int cutoff_ms;
 	unsigned int mask;
-} lis3dh_acc_odr_table[] = { { 1, ODR1250 }, { 3, ODR400 }, { 10, ODR200 }, {
-		20, ODR100 }, { 100, ODR50 }, { 300, ODR25 }, { 500, ODR10 }, { 1000,
-		ODR1 }, };
+} lis3dh_acc_odr_table[] = {
+	{ 1,	ODR1250},
+	{ 3,	ODR400},
+	{ 10,	ODR200},
+	{ 20,	ODR100},
+	{ 100,	ODR50},
+	{ 300,	ODR25},
+	{ 500,	ODR10},
+	{ 1000,	ODR1},
+};
 
 struct lis3dh_acc_data {
 	struct i2c_client *client;
@@ -59,9 +66,20 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc, u8 * buf, int len) {
 	int err;
 //	int tries = 0;
 
-	struct i2c_msg msgs[] = { { .addr = acc->client->addr, .flags = 0, //acc->client->flags & I2C_M_TEN,
-			.len = 1, .buf = buf, }, { .addr = acc->client->addr, .flags = 1, //(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
-			.len = len, .buf = buf, }, };
+	struct i2c_msg msgs[] = {
+		{
+			.addr = acc->client->addr,
+			.flags = 0,	//acc->client->flags & I2C_M_TEN,
+			.len = 1,
+			.buf = buf,
+		},
+		{
+			.addr = acc->client->addr,
+			.flags = 1 | I2C_M_NOSTART,	//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
+			.len = len,
+			.buf = buf,
+		},
+	};
 
 	err = i2c_transfer(acc->client->adapter, msgs, 2);
 	if (err < 0) {
@@ -75,8 +93,15 @@ static int lis3dh_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len) {
 	int err;
 //	int tries = 0;
 
-	struct i2c_msg msgs[] = { { .addr = acc->client->addr, .flags =
-			acc->client->flags & I2C_M_TEN, .len = len + 1, .buf = buf, }, };
+	struct i2c_msg msgs[] = {
+		{
+			.addr = acc->client->addr,
+		//	.flags = acc->client->flags & I2C_M_TEN,
+			.flags = 0 | I2C_M_NOSTART,
+			.len = len + 1,
+			.buf = buf,
+		},
+	};
 
 	err = i2c_transfer(acc->client->adapter, msgs, 1);
 	if (err < 0)
