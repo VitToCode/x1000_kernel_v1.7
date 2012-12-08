@@ -513,6 +513,14 @@ config WL127X_RFKILL
 	 Creates an rfkill entry in sysfs for power control of Bluetooth
 	 TI wl127x chips.
 
+config BCM4330_RFKILL
+	tristate "Bluetooth power control driver for bcm4330"
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm4330 chips.
+
 config APANIC
 	bool "Android kernel panic diagnostics driver"
 	default n
