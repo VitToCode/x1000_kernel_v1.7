@@ -122,20 +122,18 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define JZ_PMEM_CAMERA_SIZE	0x01000000
 
 /*
- * modem gpio
+ * lte modem gpio
  */
-#define GPIO_BP_PWR			GPIO_PE(8)
-#define GPIO_BP_PWR_LEVEL		1
-#define GPIO_BP_ONOFF			GPIO_PD(12)
-#define GPIO_BP_ONOFF_LEVEL		1
-#define GPIO_BP_WAKE_AP			GPIO_PB(21)
-#define GPIO_BP_WAKE_AP_LEVEL		0
-#define GPIO_BP_STATUS			GPIO_PB(31)
-#define GPIO_BP_STATUS_LEVEL		0
-#define GPIO_AP_WAKE_BP			GPIO_PB(28)
-#define GPIO_AP_WAKE_BP_LEVEL		0
-#define GPIO_AP_STATUS			GPIO_PB(30)
-#define GPIO_AP_STATUS_LEVEL		0
+#define GPIO_LTE_PWR			GPIO_PD(12)
+#define GPIO_LTE_PWR_LEVEL		1
+#define GPIO_LTE_ONOFF			GPIO_PE(3)
+#define GPIO_LTE_ONOFF_LEVEL		1
+#define GPIO_LTE_WAKE_AP		GPIO_PD(27)
+#define GPIO_LTE_WAKE_AP_LEVEL		0
+#define GPIO_AP_WAKE_LTE		GPIO_PD(29)
+#define GPIO_AP_WAKE_LTE_LEVEL		0
+#define GPIO_LTE_RESET			GPIO_PE(5)
+#define GPIO_LTE_RESET_LEVEL		0
 
 /**
  * motor gpio

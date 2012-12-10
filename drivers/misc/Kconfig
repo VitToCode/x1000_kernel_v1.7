@@ -605,5 +605,11 @@ config GSM_RDA8851CL
         help
           Support GSM modem RDA8851CL.
 
+config LTE_LI170
+        bool "Use LTE modem LI170"
+        depends on JZ_MODEM
+        help
+          Support LTE modem LI170.
+
 
 endif # MISC_DEVICES

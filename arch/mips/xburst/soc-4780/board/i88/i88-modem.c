@@ -21,16 +21,13 @@
 
 static struct modem_data modems[] = {
 	{
-		.id 		= CARDID_GSM_1,
-		.name		= "RDA8851CL",
-		.bp_pwr		= {GPIO_BP_PWR, GPIO_BP_PWR_LEVEL},
-		.bp_onoff 	= {GPIO_BP_ONOFF, GPIO_BP_ONOFF_LEVEL},
-		.bp_wake_ap 	= {GPIO_BP_WAKE_AP, GPIO_BP_WAKE_AP_LEVEL},
-		.bp_status 	= {GPIO_BP_STATUS, GPIO_BP_STATUS_LEVEL},
-		.ap_wake_bp	= {GPIO_AP_WAKE_BP, GPIO_AP_WAKE_BP_LEVEL},
-		.ap_status	= {GPIO_AP_STATUS, GPIO_AP_STATUS_LEVEL},
-		.sim_sw1		= {0, 0},
-		.sim_sw2		= {0, 0}
+		.id 		= CARDID_LTE_FDD,
+		.name		= "LI170",
+		.bp_pwr		= {GPIO_LTE_PWR, GPIO_LTE_PWR_LEVEL},
+		.bp_onoff 	= {GPIO_LTE_ONOFF, GPIO_LTE_ONOFF_LEVEL},
+		.bp_reset 	= {GPIO_LTE_RESET, GPIO_LTE_RESET_LEVEL},
+		.bp_wake_ap 	= {GPIO_LTE_WAKE_AP, GPIO_LTE_WAKE_AP_LEVEL},
+		.ap_wake_bp	= {GPIO_AP_WAKE_LTE, GPIO_AP_WAKE_LTE_LEVEL},
 	}
 };
 
@@ -45,5 +42,3 @@ struct platform_device jz_modem_device = {
 		.platform_data	= &modem_data,
 	},
 };
-
-
