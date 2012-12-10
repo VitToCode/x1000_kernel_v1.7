@@ -140,7 +140,7 @@ static void jzfb_config_fg0(struct fb_info *info)
 	struct fb_videomode *mode = info->mode;
 
 	osd->fg0.fg = 0;
-	osd->fg0.bpp = 32;
+	osd->fg0.bpp = jzfb_get_controller_bpp(jzfb) == 32 ? 32 : 16;
 	osd->fg0.x = osd->fg0.y = 0;
 	osd->fg0.w = mode->xres;
 	osd->fg0.h = mode->yres;

@@ -151,9 +151,9 @@ static irqreturn_t aosd_interrupt_handler(int irq, void *dev_id)
 		aosd_writel(jzaosd, AOSD_STATE, state);
 
 		wake_up_interruptible(&jzaosd->aosd_wq);
-	} else {
+	}/* else {
 		dev_info(jzaosd->dev, "AOSD auto disable flag not set\n");
-	}
+		}*/
 
 	return IRQ_HANDLED;
 }
@@ -172,9 +172,9 @@ void aosd_init(struct jzfb_aosd_info *info)
 	info->burst_128_words = 1;
 	height = info->height;
 
-//	word_per_line = (info->width * info->bpp) >> 5;
-	word_per_line = ALIGN(info->width * (info->bpp >> 3) >> 2,
-			      STRIDE_ALIGN);
+	word_per_line = (info->width * info->bpp) >> 5;
+	//word_per_line = ALIGN(info->width * (info->bpp >> 3) >> 2,
+	//		      STRIDE_ALIGN);
 
 	if (info->bpp != 16) {
 		if (info->with_alpha) {
@@ -197,8 +197,8 @@ void aosd_init(struct jzfb_aosd_info *info)
 	 * In words. If out data is not a sequential access,
 	 * word_per_line = (panel.w * bpp) >> 5
 	 */
-//	dst_stride = (word_per_line + (word_per_line + STRIDE_ALIGN - 1) / STRIDE_ALIGN);
-	dst_stride = word_per_line + STRIDE_ALIGN;
+	dst_stride = (word_per_line + (word_per_line + STRIDE_ALIGN - 1) / STRIDE_ALIGN);
+	//dst_stride = word_per_line + STRIDE_ALIGN;
 
 	aosd_info.src_stride = src_stride;
 	aosd_info.dst_stride = dst_stride;
@@ -223,13 +223,7 @@ void aosd_init(struct jzfb_aosd_info *info)
 	cfg = CFG_ADM; /* enable auto disable interrupt */
 	cfg &= ~CFG_QDM; /* disable quick disable interrupt */
 	/* Trans mode, 0:128 words; 1:64 words */
-	if (info->burst_128_words) {
-//		cfg |= CFG_TMODE; //1: 128word ??
-		cfg |= 0;
-	} else {
-//		cfg |= 0;
-		cfg |= CFG_TMODE; //1: 128word ??
-	}
+	cfg |= info->burst_128_words ? 0 : CFG_TMODE;
 
 	aosd_writel(jzaosd, AOSD_CFG, cfg);
 	aosd_writel(jzaosd, AOSD_STATE, 0); /* clear state register */
@@ -287,9 +281,9 @@ void aosd_start(void)
 	//calc_comp_ratio(aosd_info.width, aosd_info.height);
 	//print_aosd_registers();
 
-//	word_per_line = (aosd_info.width * aosd_info.bpp) >> 5;
-	word_per_line = ALIGN(aosd_info.width * (aosd_info.bpp >> 3) >> 2,
-			      STRIDE_ALIGN);
+	word_per_line = (aosd_info.width * aosd_info.bpp) >> 5;
+	//word_per_line = ALIGN(aosd_info.width * (aosd_info.bpp >> 3) >> 2,
+	//		      STRIDE_ALIGN);
 
 	/* hardware fault: the last line need to deal with software */
 	if (aosd_info.with_alpha != 0 || aosd_info.bpp == 16) {
