@@ -348,7 +348,11 @@ static struct platform_pwm_backlight_data ji8070a_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
+#ifdef CONGIG_Q8
+	.pwm_period_ns	= 1000000,/* 10 KHz */
+#else
 	.pwm_period_ns	= 100000,/* 10 KHz */
+#endif
 	.init		= ji8070a_backlight_init,
 	.exit		= ji8070a_backlight_exit,
     .notify = bk_notify
