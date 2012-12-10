@@ -611,9 +611,11 @@ long lis3dh_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 			lis3dh->power_tag = interval;
 			lis3dh_acc_disable(lis3dh);
 			mdelay(2);
-			if (atomic_cmpxchg(&lis3dh->regulator_enabled, 1, 0))
-				regulator_disable(lis3dh->power);
+			if (atomic_cmpxchg(&lis3dh->regulator_enabled, 1, 0)) {
+				if (lis3dh->power)
+					regulator_disable(lis3dh->power);
 			//	printk("----lis3dh call SET_NOt_ACTIVE ----\n");
+			}
 		}
 		mutex_unlock(&lis3dh->lock);
 		break;
