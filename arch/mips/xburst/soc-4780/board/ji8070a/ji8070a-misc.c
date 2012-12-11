@@ -414,10 +414,14 @@ arch_initcall(ji8070a_board_init);
 
 
 
+static struct wake_lock       keep_alive_lock;
 static int __init ji8070a_board_lateinit(void)
 {
 /* FIXME! remove this ugly, our board was shit */
 
+    /*only for demo by hhu*/
+    wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
+    wake_lock(&keep_alive_lock);
 
 	gpio_request(GPIO_PA(17), "5v_en");
 	gpio_direction_output(GPIO_PA(17), 1);

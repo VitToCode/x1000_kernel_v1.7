@@ -73,9 +73,14 @@ struct platform_device ek070tn93_device = {
 
 #ifdef CONFIG_LCD_HSD070IDW1
 #include <linux/hsd070idw1.h>
+static int bk_is_on = 0;
+void bk_on(int on)
+{
+    bk_is_on = on;
+}
 static struct platform_hsd070idw1_data hsd070idw1_pdata= {
 	//.gpio_rest = GPIO_PB(22),
-
+    .notify_on = bk_on
 };
 
 /* LCD Panel Device */
@@ -340,7 +345,10 @@ static void ji8070a_backlight_exit(struct device *dev)
 
 static int bk_notify(struct device *dev, int brightness)
 {
-        mdelay(10);
+ 
+        if (!bk_is_on) {
+            return 0;
+        }
     return brightness;
 }
 
@@ -349,7 +357,7 @@ static struct platform_pwm_backlight_data ji8070a_backlight_data = {
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
 #ifdef CONFIG_Q8
-	.pwm_period_ns	= 1000000,/* 10 KHz */
+	.pwm_period_ns	= 1000000,/* 1 KHz */
 #else
 	.pwm_period_ns	= 100000,/* 10 KHz */
 #endif

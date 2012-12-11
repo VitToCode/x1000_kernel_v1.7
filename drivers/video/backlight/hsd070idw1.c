@@ -18,6 +18,7 @@
 #include <linux/lcd.h>
 #include <linux/fb.h>
 #include <linux/regulator/consumer.h>
+#include <linux/earlysuspend.h>
 
 #include <linux/hsd070idw1.h>
 
@@ -36,11 +37,23 @@ struct hsd070idw1_data {
 	struct lcd_device *lcd;
 	struct platform_hsd070idw1_data *pdata;
 	struct regulator *lcd_vcc_reg;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+        struct early_suspend bk_early_suspend;
+#endif
 };
+
+static int is_bootup = 1;
 
 static void hsd070idw1_on(struct hsd070idw1_data *dev)
 {
+    if (is_bootup) {
+        regulator_enable(dev->lcd_vcc_reg);
+        is_bootup = 0;
+        if (dev->pdata->notify_on)
+            dev->pdata->notify_on(1);
+    }
 	dev->lcd_power = 1;
+#if 0
     regulator_enable(dev->lcd_vcc_reg);
     mdelay(20);
 
@@ -49,13 +62,16 @@ static void hsd070idw1_on(struct hsd070idw1_data *dev)
 		mdelay(100);
 		gpio_direction_output(dev->pdata->gpio_rest, 1);
 	}
+#endif
 }
 
 static void hsd070idw1_off(struct hsd070idw1_data *dev)
 {
         dev->lcd_power = 0;
+#if 0
         regulator_disable(dev->lcd_vcc_reg);
         mdelay(20);
+#endif
 }
 
 static int hsd070idw1_set_power(struct lcd_device *lcd, int power)
@@ -90,6 +106,43 @@ static struct lcd_ops hsd070idw1_ops = {
 	.get_power = hsd070idw1_get_power,
 	.set_mode = hsd070idw1_set_mode,
 };
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void bk_e_suspend(struct early_suspend *h)
+{
+        struct hsd070idw1_data *dev = container_of(h, struct hsd070idw1_data, bk_early_suspend);
+        if (dev->pdata->notify_on)
+            dev->pdata->notify_on(0);
+
+        msleep(500);
+
+        dev->lcd_power = 0;
+
+        regulator_disable(dev->lcd_vcc_reg);
+        mdelay(20);
+
+        //if (dev->pdata->notify_on)
+        //    dev->pdata->notify_on(0);
+}
+
+static void bk_l_resume(struct early_suspend *h)
+{
+        struct hsd070idw1_data *dev = container_of(h, struct hsd070idw1_data, bk_early_suspend);
+        
+        dev->lcd_power = 1;
+        regulator_enable(dev->lcd_vcc_reg);
+        mdelay(100);
+
+        if (dev->pdata->gpio_rest) {
+                gpio_direction_output(dev->pdata->gpio_rest, 0);
+                mdelay(100);
+                gpio_direction_output(dev->pdata->gpio_rest, 1);
+        }
+
+        if (dev->pdata->notify_on)
+           dev->pdata->notify_on(1);
+}
+#endif
 
 static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 {
@@ -141,6 +194,15 @@ static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 	} else {
 		dev_info(&pdev->dev, "lcd device register success\n");
 	}
+
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;//EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+    dev->bk_early_suspend.suspend = bk_e_suspend;
+    dev->bk_early_suspend.resume = bk_l_resume;
+#endif
+
+    register_early_suspend(&dev->bk_early_suspend);
 
 	return 0;
 }
