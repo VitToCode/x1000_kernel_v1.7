@@ -14,7 +14,7 @@
  */
 struct platform_hsd070idw1_data {
 	unsigned int gpio_rest;
-
+    void (*notify_on)(int on);
 };
 
 #endif /* _HSD070IDW1_H */
