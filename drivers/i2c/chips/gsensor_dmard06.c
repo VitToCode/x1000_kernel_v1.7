@@ -397,7 +397,7 @@ static int dmard06_acc_disable(struct dmard06_acc_data *acc)
 struct linux_sensor_t hardware_data_dmard06 = {
 	"dmard06 3-axis Accelerometer",
 	"ST sensor",
-	SENSOR_TYPE_ACCELEROMETER,0,64,1, 1, { }
+	SENSOR_TYPE_ACCELEROMETER,1,64,1, 1, { }//modify version from 0 to 1 for cts
 };
 /*
 static int dmard06_acc_validate_pdata(struct dmard06_acc_data *acc)
