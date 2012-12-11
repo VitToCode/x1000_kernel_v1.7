@@ -831,8 +831,8 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 #endif		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80; //aligned to 32-word boundary
-				desc[i].cr_frame = yuv_meta_data[i].vPhy & 0xffffff80;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy;
+				desc[i].cr_frame = yuv_meta_data[i].vPhy;
 			
 			} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
 				desc[i].cb_frame = yuv_meta_data[i].uPhy;
@@ -873,11 +873,11 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 #endif		
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->capture_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80;
-				desc[i].cr_frame = yuv_meta_data[i].vPhy & 0xffffff80;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy;
+				desc[i].cr_frame = yuv_meta_data[i].vPhy;
 			
 			} else if(cim->capture_output_format == CIM_CSC_YUV420B) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy & 0xffffff80;
+				desc[i].cb_frame = yuv_meta_data[i].uPhy;
 				desc[i].cr_frame = desc[i].cb_frame + 64;	
 			} 
 			
