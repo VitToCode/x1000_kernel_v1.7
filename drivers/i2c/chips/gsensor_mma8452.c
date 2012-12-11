@@ -289,7 +289,7 @@ static void report_abs(struct mma8452_data *data)
 struct linux_sensor_t hardware_data = {
 	"mma8452 3-axis Accelerometer",
 	"ST sensor",
-	SENSOR_TYPE_ACCELEROMETER,0,1024,1, 1, { }
+	SENSOR_TYPE_ACCELEROMETER,1,1024,1, 1, { }//modify version from 0 to 1 for cts
 };
 
 static int mma8452_device_power_off(struct mma8452_data *mma)

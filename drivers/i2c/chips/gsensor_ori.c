@@ -50,7 +50,7 @@ struct input_dev *input_dev;
 static struct linux_sensor_t ori_hardware_data = {                                                                           
 	                  "fake orientation base g-sensor",
 	                   "fake jz sensor",
-	       SENSOR_TYPE_ORIENTATION,0,64,1, 1, { }
+	       SENSOR_TYPE_ORIENTATION,1,64,1, 1, { } //modify version from 0 to 1 for cts
 };
 
 void orientation_report_values(int x,int y,int z)

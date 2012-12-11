@@ -428,7 +428,7 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc) {
 }
 
 struct linux_sensor_t hardware_data_lis3dh = { "lis3dh 3-axis Accelerometer",
-		"ST sensor", SENSOR_TYPE_ACCELEROMETER, 0, 1024, 1, 1, { } };
+		"ST sensor", SENSOR_TYPE_ACCELEROMETER, 1, 1024, 1, 1, { } };//modify version from 0 to 1 for cts
 
 static int lis3dh_acc_validate_pdata(struct lis3dh_acc_data *acc) {
 	acc->pdata->poll_interval = max(acc->pdata->poll_interval,
