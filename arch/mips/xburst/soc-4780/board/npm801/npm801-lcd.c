@@ -190,6 +190,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 #ifdef CONFIG_BACKLIGHT_PWM
 static int npm801_backlight_init(struct device *dev)
 {
+#if 0
        struct regulator *vlcd;
        vlcd = regulator_get(dev, "vlcd");
        if(IS_ERR(vlcd)){
@@ -198,7 +199,7 @@ static int npm801_backlight_init(struct device *dev)
        }
 
        regulator_enable(vlcd);
-
+#endif
        gpio_request(GPIO_PB(23), "lcd_pwr_en");
        gpio_direction_output(GPIO_PB(23), 1);
 
