@@ -147,17 +147,16 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		videoParams_SetHdmi(pVideo, TRUE);
 		/* TODO:
 		if (hdmivsdb_GetDeepColor48(&vsdb)) {
-		videoParams_SetColorResolution(pVideo, 16);
-		} else {
-		}
-			*/
-		if (hdmivsdb_GetDeepColor36(&vsdb)) {
+			videoParams_SetColorResolution(pVideo, 16);
+		} else if (hdmivsdb_GetDeepColor36(&vsdb)) {
 			videoParams_SetColorResolution(pVideo, 12);
-		} /*else if (hdmivsdb_GetDeepColor30(&vsdb)) {
-		videoParams_SetColorResolution(pVideo, 10);
-		} */else {
+		} else if (hdmivsdb_GetDeepColor30(&vsdb)) {
+			videoParams_SetColorResolution(pVideo, 10);
+		} else {
 			videoParams_SetColorResolution(pVideo, 0);
 		}
+		*/
+		videoParams_SetColorResolution(pVideo, 0);
 
 		if (currentMode >= svdNo) {
 			currentMode = 0;
