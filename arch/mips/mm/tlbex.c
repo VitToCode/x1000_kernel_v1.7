@@ -602,7 +602,7 @@ static void __cpuinit build_tlb_write_entry(u32 **p, struct uasm_label **l,
 static __cpuinit __maybe_unused void build_convert_pte_to_entrylo(u32 **p,
 								  unsigned int reg)
 {
-#ifdef CONFIG_SOC_4780
+#ifdef CONFIG_JZRISC_PEP
 	if (1) {
 #else
 	if (kernel_uses_smartmips_rixi) {
@@ -1081,7 +1081,7 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
 		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 	} else {
-#ifdef CONFIG_SOC_4780
+#ifdef CONFIG_JZRISC_PEP
 		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_NO_EXEC)); /* convert to entrylo0 */
 		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
@@ -1246,7 +1246,7 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 		UASM_i_LW(p, even, 0, ptr); /* get even pte */
 		UASM_i_LW(p, odd, sizeof(pte_t), ptr); /* get odd pte */
 	}
-#ifdef CONFIG_SOC_4780
+#ifdef CONFIG_JZRISC_PEP
 	if(1) {
 #else
 	if (kernel_uses_smartmips_rixi) {

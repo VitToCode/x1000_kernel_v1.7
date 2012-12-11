@@ -199,7 +199,7 @@ static inline void setup_protection_map(void)
 		protection_map[15] = __pgprot(_page_cachable_default | _PAGE_PRESENT | _PAGE_WRITE);
 
 	} else {
-#ifdef CONFIG_SOC_4780
+#ifdef CONFIG_JZRISC_PEP
 		protection_map[0] = __pgprot(_PAGE_PRESENT | _PAGE_NO_EXEC | _CACHE_CACHABLE_NONCOHERENT);
 		protection_map[1] = __pgprot(_PAGE_PRESENT | _PAGE_READ | _PAGE_NO_EXEC | _page_cachable_default);
 		protection_map[2] = __pgprot(_PAGE_PRESENT | _PAGE_READ | _PAGE_NO_EXEC | _page_cachable_default);

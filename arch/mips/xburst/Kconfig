@@ -72,3 +72,7 @@ config SUSPEND_SUPREME_DEBUG
 	bool "superme debug for suspend"
 	default n
 
+config JZRISC_PEP
+	bool "enable page execution protection"
+	default y
+
