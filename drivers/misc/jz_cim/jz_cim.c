@@ -435,17 +435,17 @@ void cim_scan_sensor(struct jz_cim *cim)
 static int cim_select_sensor(struct jz_cim *cim,int id)
 {
 	struct cim_sensor *desc;
-	if ( cim->desc != NULL ) {
-		cim->first_used = true;
-		if(cim->state != CS_IDLE)
-			return -EBUSY;
-		list_for_each_entry(desc, &sensor_list, list) {
-			if(desc->id == id) {
-				cim->desc = desc;
-				break;
-			}
+
+	cim->first_used = true;
+	if(cim->state != CS_IDLE)
+		return -EBUSY;
+	list_for_each_entry(desc, &sensor_list, list) {
+		if(desc->id == id) {
+			cim->desc = desc;
+			break;
 		}
 	}
+
 	return cim->desc ? 0 : -EFAULT;
 }
 
@@ -599,13 +599,13 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_disable(cim);
 	cim_power_on(cim);
 	cim_set_default(cim);
-	if ( cim->first_used ) {
+//	if ( cim->first_used ) {
 		cim->desc->power_on(cim->desc);
 		cim->desc->reset(cim->desc);
 		cim->desc->init(cim->desc);
-	}
+//	}
 	cim_set_preview_size(cim);
-	if ( cim->first_used ) {
+//	if ( cim->first_used ) {
 		cim->desc->set_antibanding(cim->desc,cim->desc->para.antibanding);
 		cim->desc->set_balance(cim->desc,cim->desc->para.balance);
 		cim->desc->set_effect(cim->desc,cim->desc->para.effect);
@@ -614,7 +614,7 @@ static long cim_start_preview(struct jz_cim *cim)
 		cim->desc->set_fps(cim->desc,cim->desc->para.fps);
 		cim->desc->set_scene_mode(cim->desc,cim->desc->para.scene_mode);
 		cim->first_used = false;
-	}
+//	}
 	cim->desc->set_preivew_mode(cim->desc);
 
 	if(cim->tlb_flag) {
