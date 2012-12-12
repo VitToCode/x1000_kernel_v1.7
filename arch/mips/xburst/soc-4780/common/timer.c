@@ -283,3 +283,13 @@ void __cpuinit jzcpu_timer_setup(void)
 	jz_clockevent_init(evt,cpu);
 }
 
+
+#ifdef CONFIG_HOTPLUG_CPU
+void percpu_timer_stop(void)
+{
+	unsigned int cpu = smp_processor_id();
+	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
+	evt->clkevt.set_mode(CLOCK_EVT_MODE_UNUSED, &evt->clkevt);
+}
+#endif
+

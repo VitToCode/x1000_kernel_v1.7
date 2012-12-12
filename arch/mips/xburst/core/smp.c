@@ -68,6 +68,8 @@ static void __cpuinit jzsoc_smp_init(void)
  * Code to run on secondary just after probing the CPU
  */
 extern void __cpuinit jzcpu_timer_setup(void);
+extern void percpu_timer_stop(void);
+
 void percpu_timer_setup(void);
 static void __cpuinit jzsoc_init_secondary(void)
 {
@@ -327,6 +329,8 @@ int jzsoc_cpu_disable(void)
 		set_smp_reim(status);
 	}
 	smp_spinunlock();
+
+	percpu_timer_stop();
 
 	return 0;
 }
