@@ -166,17 +166,24 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	unsigned long flags,ctrl;
 
 	/* blast all cache before booting secondary cpu */
-	__flush_cache_all();
+	blast_dcache32();
+	blast_icache32();
 
 	local_irq_save(flags);
+
+	/* set reset bit! */
+	ctrl = get_smp_ctrl();
+	ctrl |= (1 << cpu);
+	set_smp_ctrl(ctrl);
+
+	cpm_clear_bit(15,CPM_CLKGR1);
+	cpm_clear_bit(31,CPM_LCR);
+	udelay(1);
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
 	ctrl &= ~(1 << cpu);
 	set_smp_ctrl(ctrl);
-
-	cpm_clear_bit(15,CPM_CLKGR1);
-	cpm_clear_bit(31,CPM_LCR);
 wait:
 	if (!cpumask_test_cpu(cpu, cpu_ready))
 		goto wait;
@@ -204,6 +211,8 @@ static inline int smp_cpu_stop(int cpu)
 		status = get_smp_status();
 	}while(!(status & (1<<(cpu+16))));
 
+	blast_dcache32();
+	blast_icache32();
 	cpm_set_bit(31,CPM_LCR);
 	cpm_set_bit(15,CPM_CLKGR1);
 
@@ -257,8 +266,8 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 	set_smp_ctrl(0xe0e);
 	set_smp_status(0);
 
-	reim = 0x01ff;
-	reim |= smp_bounce.base & 0xffff0000;
+	reim = KSEG1ADDR(smp_bounce.base);
+	reim = (reim & 0xffff0000) | 0x01ff;
 	set_smp_reim(reim);
 }
 
@@ -305,10 +314,9 @@ int jzsoc_cpu_disable(void)
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
 
-	if(!irqs_disabled())
-		local_irq_disable();
+	local_irq_disable();
 
-	set_cpu_online(cpu, false);
+	cpu_clear(cpu, cpu_online_map);
 	cpu_clear(cpu, cpu_callin_map);
 
 	smp_spinlock();
@@ -325,16 +333,11 @@ int jzsoc_cpu_disable(void)
 
 void jzsoc_cpu_die(unsigned int cpu)
 {
-	int enable_irq = 0;
+	unsigned long flags;
 	if (cpu == 0)		/* FIXME */
 		return;
 
-	if(!irqs_disabled()) {
-		enable_irq = 1;
-		local_irq_disable();
-	}
-
-	spin_lock(&smp_lock);
+	local_irq_save(flags);
 
 	cpumask_clear_cpu(cpu, &cpu_running);
 	cpumask_clear_cpu(cpu, &cpu_start);
@@ -343,29 +346,43 @@ void jzsoc_cpu_die(unsigned int cpu)
 	smp_cpu_stop(cpu);
 
 	spin_unlock(&smp_lock);
-
-	if(enable_irq)
-		local_irq_enable();
+	local_irq_restore(flags);
 }
 #endif
 
-void play_dead(void)
+void __play_dead(void)
 {
-	while(1) {
-		blast_dcache_jz();
-		blast_icache_jz();
-		cache_prefetch(IDLE_PROGRAM,IDLE_PROGRAM_END);
-IDLE_PROGRAM:
-		__asm__ __volatile__ ("	.set	push		\n"
-				"	.set	mips3		\n"
-				"	sync			\n"
-				"	lw	$0,	0(%0)	\n"
-				"	wait			\n"
-				"	.set	pop		\n"
+	__asm__ __volatile__ (  ".set	push		\n"
+				".set	mips3		\n"
+				"sync			\n"
+				"lw	$0,	0(%0)	\n"
+				"wait			\n"
+				".set	pop		\n"
 				:: "r" (0xa0000000)
 				);
-IDLE_PROGRAM_END:
-		__asm__ __volatile__ ("nop\n\t");
+}
+
+void play_dead(void)
+{
+	unsigned int cpu = smp_processor_id();
+
+	void (*do_play_dead)(void) = (void (*)(void))KSEG1ADDR(__play_dead); 
+
+	local_irq_disable();
+
+	if(cpu == 0) set_smp_mbox0(0);
+	else if(cpu == 1) set_smp_mbox1(0);
+	else if(cpu == 2) set_smp_mbox2(0);
+	else if(cpu == 3) set_smp_mbox3(0);
+
+	smp_clr_pending(1<<cpu);
+
+	while(1) {
+		blast_icache32();
+		blast_dcache32();
+
+		do_play_dead();
+	
 	}
 }
 
