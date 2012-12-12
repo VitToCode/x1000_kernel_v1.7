@@ -57,20 +57,17 @@ struct platform_device ek070tn93_device = {
 #endif
 
 #ifdef CONFIG_FB_JZ4780_LCDC0
-/* LCD Controller 0 output to HDMI */
-static struct fb_videomode jzfb0_videomode[] = {
-	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_4X3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_16X9),
-	ADD_HDMI_VIDEO_MODE(HDMI_1280X720_P_60HZ_16X9),
-	ADD_HDMI_VIDEO_MODE(HDMI_1920X1080_I_60HZ_16X9),
-	ADD_HDMI_VIDEO_MODE(HDMI_1920X1080_P_60HZ_16X9),
-	/* add other mode later */
+/* LCDC0 output to HDMI and the default hdmi video mode list
+ * define in soc-4780/include/mach/fb_hdmi_modes.h
+ * or initialization a different platform data at here
+ */
+static struct fb_videomode jzfb0_hdmi_videomode[] = {
+	DEFAULT_HDMI_VIDEO_MODE_LIST,
 };
 
-struct jzfb_platform_data jzfb0_pdata = {
-	.num_modes = ARRAY_SIZE(jzfb0_videomode),
-	.modes = jzfb0_videomode,
+struct jzfb_platform_data jzfb0_hdmi_pdata = {
+	.num_modes = ARRAY_SIZE(jzfb0_hdmi_videomode),
+	.modes = jzfb0_hdmi_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
