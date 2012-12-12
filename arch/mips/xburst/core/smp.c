@@ -345,7 +345,6 @@ void jzsoc_cpu_die(unsigned int cpu)
 
 	smp_cpu_stop(cpu);
 
-	spin_unlock(&smp_lock);
 	local_irq_restore(flags);
 }
 #endif
