@@ -15,6 +15,8 @@
 #include <linux/gpio.h>
 #include <linux/bcm4330-rfkill.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
+#include <mach/jzmmc.h>
 
 #define DEV_NAME		"bcm4330_bt_power"
 
@@ -30,8 +32,12 @@ static int bt_rst_n ;
 static int bt_reg_on;
 static int bt_wake;
 static int bt_int;
+static struct regulator *power;
 
 static DEFINE_SPINLOCK(bt_power_lock);
+
+extern void iw8103_clk_on (void);
+extern void iw8103_clk_off (void);
 
 #ifdef CONFIG_BT_HOST_WAKEUP
 static irqreturn_t bt_host_wake_handler(int irq, void* dev_id)
@@ -74,14 +80,21 @@ static int bt_power_control(int enable)
 
 	switch (enable)	{
 	case RFKILL_STATE_SOFT_BLOCKED:
+printk("cljiang------bt-----power off\n");
+		iw8103_clk_off();
+		regulator_disable(power); 
 		bt_disable_power();
 		break;
 	case RFKILL_STATE_UNBLOCKED:
+printk("cljiang------bt-----power on start\n");
+		iw8103_clk_on();
+		regulator_enable(power);  /*vddio must be set*/
 		gpio_direction_output(bt_rst_n,0);
 		bt_enable_power();
 		mdelay(15);
 		gpio_set_value(bt_rst_n,1);
 		mdelay(15);
+printk("cljiang------bt-----power on end\n");
 		break;
 	default:
 		break;
@@ -220,6 +233,13 @@ static int __init_or_module bt_power_probe(struct platform_device *pdev)
 		gpio_free(bt_int);
 		return ret;
 	}
+
+	power = regulator_get(NULL, "vwifi");  /*vddio must be set*/
+	if (IS_ERR(power)) {
+		printk("bt regulator missing\n");
+		return -EINVAL;
+	}
+
 
 	/* Register wake up source as interrupt */
 #ifdef CONFIG_BT_HOST_WAKEUP

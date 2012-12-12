@@ -18,7 +18,7 @@
 #define NORMAL				1
 
 static struct wifi_data			iw8101_data;
-
+static int wifi_bt_clk = 0;
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
@@ -160,6 +160,29 @@ struct jzmmc_platform_data npm801_sdio_pdata = {
 
 static unsigned int gpio_bakup[4];
 
+void iw8103_clk_on(void)
+{
+	jzrtc_enable_clk32k();
+	wifi_bt_clk++;
+	if (wifi_bt_clk > 2){
+		wifi_bt_clk = 2;
+	}
+	printk("cljiang---iw8103_clk_on:num = %d\n",wifi_bt_clk);
+}
+
+void iw8103_clk_off(void)
+{
+	wifi_bt_clk--;
+	if(wifi_bt_clk < 0){
+		wifi_bt_clk = 0;
+	}
+	if(wifi_bt_clk == 0){
+		jzrtc_disable_clk32k();
+	}
+	printk("cljiang---iw8103_clk_off:num = %d\n",wifi_bt_clk);
+}
+
+
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
@@ -241,7 +264,9 @@ start:
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
-	jzrtc_enable_clk32k();/*clk32k*/
+//	jzrtc_enable_clk32k();/*clk32k*/
+	iw8103_clk_on();
+	printk("cljiang------32k-----enable\n");
 	msleep(200);
 
 	switch(flag) {
@@ -259,7 +284,7 @@ start:
 
 		case NORMAL:
 			regulator_enable(power);
-
+printk("cljiang-----NORMAL:regulator_enable\n");
 			gpio_set_value(reset, 0);
 			msleep(200);
 
@@ -281,6 +306,7 @@ int IW8101_wlan_power_off(int flag)
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
 
+printk("cljiang---IW8101_wlan_power_off\n");
 	if (wifi_wake_lock == NULL)
 		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
 	else if (power == NULL)
@@ -311,7 +337,8 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_disable_clk32k();/*clk32k off*/
+	iw8103_clk_off();
+//	jzrtc_disable_clk32k();/*clk32k off*/
 	
 
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
@@ -326,5 +353,7 @@ start:
 	return 0;
 }
 
+EXPORT_SYMBOL(iw8103_clk_on);
+EXPORT_SYMBOL(iw8103_clk_off);
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);
