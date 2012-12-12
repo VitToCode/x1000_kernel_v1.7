@@ -72,7 +72,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "lists.h"
 
 // The proc entry for our /proc/pvr directory
-static struct proc_dir_entry * dir;
+struct proc_dir_entry * dir;
 
 static const IMG_CHAR PVRProcDirRoot[] = "pvr";
 

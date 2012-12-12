@@ -148,6 +148,9 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_UINT32 ui32SGXFreqListIndex;
 
 #endif
+        IMG_BOOL	bTurboState;
+	IMG_UINT32	ui32CurrentSpeed;
+
 } SYS_SPECIFIC_DATA;
 
 extern SYS_SPECIFIC_DATA *gpsSysSpecificData;
