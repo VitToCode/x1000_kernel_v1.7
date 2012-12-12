@@ -1732,6 +1732,13 @@ int xb_snd_dsp_open(struct inode *inode,
 	dpi = endpoints->in_endpoint;
 	dpo = endpoints->out_endpoint;
 
+	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE) {
+		if (dpo->is_used)
+			return 0;
+		else
+			return -ENODEV;
+	}
+
 	if (file->f_mode & FMODE_READ) {
 		if (dpi == NULL)
 			return -ENODEV;
@@ -1815,6 +1822,9 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (ddata == NULL)
 		return -1;
+
+	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
+		return 0;
 
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL)
