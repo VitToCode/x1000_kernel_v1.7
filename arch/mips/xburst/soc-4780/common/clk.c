@@ -349,7 +349,7 @@ static void __init init_ext_pll(void)
 			o = (((cppcr) >> 9) & 0xf) + 1;
 			n = (((cppcr) >> 13) & 0x3f) + 1;
 			m = (((cppcr) >> 19) & 0x7fff) + 1;
-			clk_srcs[i].rate = JZ_EXTAL * m / n / o;
+			clk_srcs[i].rate = ((JZ_EXTAL/1000) * m / n / o)*1000; /* fix 32bit overflow: (clock/1000)*1000 */
 		}
 	}
 
