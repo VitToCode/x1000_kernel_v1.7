@@ -120,7 +120,7 @@ static int mma8452_i2c_read(struct mma8452_data *mma,u8* reg,u8 *buf, int len)
 		 },
 		{
 		 .addr = mma->client->addr,
-		 .flags = I2C_M_RD | I2C_M_NOSTART,
+		 .flags = I2C_M_RD,
 		 .len = len,
 		 .buf = buf,
 		 },
@@ -139,7 +139,7 @@ static int mma8452_i2c_write(struct mma8452_data *mma,u8 *buf, int len)
 	struct i2c_msg msgs[] = {
 		{
 		 .addr = mma->client->addr,
-		 .flags = 0 | I2C_M_NOSTART,
+		 .flags = 0,
 		 .len = len,
 		 .buf = buf,
 		 },
@@ -214,7 +214,7 @@ static int mma8452_set_delay(struct mma8452_data *mma,int delay);
 
 static int mma8452_read_data(struct mma8452_data *mma,short *x, short *y, short *z) {
 	u8	tmp_data[7];
-	u8 buf[3]={0,0,0};
+	//u8 buf[3]={0,0,0};
 	int hw_d[3] ={0};
 
 	if (mma8452_i2c_read_data(mma,MMA8452_OUT_X_MSB,tmp_data,7) < 0) {

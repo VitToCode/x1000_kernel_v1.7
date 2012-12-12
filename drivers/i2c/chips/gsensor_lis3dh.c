@@ -75,7 +75,7 @@ static int lis3dh_i2c_read(struct lis3dh_acc_data *acc, u8 * buf, int len) {
 		},
 		{
 			.addr = acc->client->addr,
-			.flags = 1 | I2C_M_NOSTART,	//(acc->client->flags & I2C_M_TEN) | I2C_M_RD,
+			.flags = (acc->client->flags & I2C_M_TEN) | I2C_M_RD,
 			.len = len,
 			.buf = buf,
 		},
@@ -96,8 +96,7 @@ static int lis3dh_i2c_write(struct lis3dh_acc_data *acc, u8 * buf, int len) {
 	struct i2c_msg msgs[] = {
 		{
 			.addr = acc->client->addr,
-		//	.flags = acc->client->flags & I2C_M_TEN,
-			.flags = 0 | I2C_M_NOSTART,
+			.flags = acc->client->flags & I2C_M_TEN,
 			.len = len + 1,
 			.buf = buf,
 		},
@@ -710,7 +709,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	int err = -1;
 	u8 buf[7] = { 0 };
 
-	printk("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
+//	printk("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
 
 	if (client->dev.platform_data == NULL ) {
 		dev_err(&client->dev, "platform data is NULL. exiting.\n");
