@@ -2116,7 +2116,7 @@ static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL),
 	__ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL),
 	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
-	__ATTR(vsync_skip, S_IRUGO|S_IWUGO, vsync_skip_r, vsync_skip_w),
+	__ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w),
 };
 
 static int __devinit jzfb_probe(struct platform_device *pdev)
