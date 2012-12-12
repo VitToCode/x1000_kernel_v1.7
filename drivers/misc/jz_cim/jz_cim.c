@@ -36,7 +36,7 @@
 
 //#define KERNEL_INFO_PRINT
 
-static LIST_HEAD(sensor_list);
+LIST_HEAD(sensor_list);
 
 enum cim_state {
 	CS_IDLE,
