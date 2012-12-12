@@ -48,20 +48,27 @@ EXCLUSIVE_REGULATOR_DEF(
 	"Wi-Fi",
 	"vwifi",	NULL,		3000000);
 
-EXCLUSIVE_REGULATOR_DEF(
+EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	i88_vtsc,
 	"Touch Screen",
 	"vtsc",		NULL,		3000000);
-
+/*
 EXCLUSIVE_REGULATOR_DEF(
 	i88_vgsensor,
 	"G-sensor",
 	"vgsensor",	NULL,		3000000);
+*/
 
 EXCLUSIVE_REGULATOR_DEF(
 	i88_vcc5v,
 	"VCC5V",
 	"vcc5v",	NULL,		5000000);
+
+EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
+	i88_vlcd,
+	"Vlcd",
+	"vlcd",	NULL,		3000000);
+
 
 /**
  * Fixed voltage Regulators.
@@ -82,22 +89,29 @@ FIXED_REGULATOR_DEF(
 #endif
 
 FIXED_REGULATOR_DEF(
+	i88_vgsensor,
+	"G-sensor",	3000000,	GPIO_PE(9),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vgsensor",	"gsensor_mma8452");
+
+FIXED_REGULATOR_DEF(
 	i88_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
-
+#if 0
 FIXED_REGULATOR_DEF(
 	i88_vlcd,
 	"LCD",		3000000,	GPIO_PB(23),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
-
+#endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&i88_vhdmi_regulator_device,
+	&i88_vgsensor_regulator_device,
 	//&i88_vbus_regulator_device,
 	&i88_vcim_regulator_device,
-	&i88_vlcd_regulator_device,
+	//&i88_vlcd_regulator_device,
 };
 
 /*
@@ -113,7 +127,8 @@ static struct regulator_info i88_pmu_regulators[] = {
 	{"OUT4", &i88_vcc5v_init_data},
 	{"OUT6", &i88_vwifi_init_data},
 	{"OUT7", &i88_vtsc_init_data},
-	{"OUT8", &i88_vgsensor_init_data},
+//	{"OUT8", &i88_vgsensor_init_data},
+	{"OUT8", &i88_vlcd_init_data},
 	{"VBUS", &i88_vbus_init_data},
 };
 

@@ -34,6 +34,10 @@ static void li170_init(struct modem_data *bp)
 		modem_gpio_request(&bp->ap_wake_bp, "ap wake");
 		inited = true;
 	}
+	/* bcz li170 module boot up time is too long about 23s
+	 * so power on it when init for tmp use 
+	 */
+	li170_poweron(bp);
 }
 
 static void li170_reset(struct modem_data *bp)

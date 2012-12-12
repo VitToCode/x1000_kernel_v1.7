@@ -3,6 +3,13 @@
 
 #include <gpio.h>
 
+/*
+bcm4330 bluetooth
+*/
+#ifdef CONFIG_BCM4330_RFKILL
+extern struct platform_device bcm4330_bt_power_device;
+#endif
+
 /**
  * mmc platform data
  **/
@@ -104,10 +111,10 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define ACTIVE_LOW_VOLUMEDOWN		1
 #endif
 
-#define GPIO_OV7675_EN			GPIO_PB(19)
+#define GPIO_OV7675_EN			GPIO_PB(18)
 #define GPIO_OV7675_RST         GPIO_PB(26)
 
-#define GPIO_OV2650_EN			GPIO_PB(18)
+#define GPIO_OV2650_EN			GPIO_PB(19)
 #define GPIO_OV2650_RST			GPIO_PB(26)
 
 /**

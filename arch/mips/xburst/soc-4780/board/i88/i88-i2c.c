@@ -21,37 +21,17 @@
 
 #include "i88.h"
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_MMA8452))
+#if defined(CONFIG_SENSORS_MMA8452)
 static struct gsensor_platform_data mma8452_platform_pdata = {
 	.gpio_int = GPIO_MMA8452_INT1,
 	.poll_interval = 100,
 	.min_interval = 40,
 	.max_interval = 200,
 	.g_range = GSENSOR_2G,
-	.axis_map_x = 1,
-	.axis_map_y = 0,
+	.axis_map_x = 0,
+	.axis_map_y = 1,
 	.axis_map_z = 2,
 	.negate_x = 1,
-	.negate_y = 0,
-	.negate_z = 1,
-
-	.ori_pr_swap = 0,
-	.ori_pith_negate = 0,
-	.ori_roll_negate = 1,
-};
-#endif
-
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
-static struct gsensor_platform_data lis3dh_platform_data = {
-	.gpio_int = GPIO_LIS3DH_INT1,
-	.poll_interval = 100,
-       	.min_interval = 40,
-	.max_interval = 400,
-	.g_range = GSENSOR_2G,
-	.axis_map_x = 1,
-	.axis_map_y = 0,
-	.axis_map_z = 2,
-	.negate_x = 0,
 	.negate_y = 1,
 	.negate_z = 1,
 
@@ -61,7 +41,27 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 };
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
+#if defined(CONFIG_SENSORS_LIS3DH)
+static struct gsensor_platform_data lis3dh_platform_data = {
+	.gpio_int = GPIO_LIS3DH_INT1,
+	.poll_interval = 100,
+       	.min_interval = 40,
+	.max_interval = 400,
+	.g_range = GSENSOR_2G,
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+	.negate_x = 1,
+	.negate_y = 1,
+	.negate_z = 1,
+
+	.ori_pr_swap = 0,
+	.ori_pith_negate = 0,
+	.ori_roll_negate = 1,
+};
+#endif
+
+#if defined(CONFIG_JZ4780_SUPPORT_TSC)
 static struct jztsc_pin i88_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
@@ -103,7 +103,7 @@ struct ov7675_platform_data {
 	int cap_wait_frame;   /* filter n frames when capture image */
 };
 static struct ov7675_platform_data ov7675_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV7675_EN,
@@ -123,7 +123,7 @@ struct ov2650_platform_data {
 };
 
 static struct ov2650_platform_data ov2650_pdata = {
-	.facing = 1,
+	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV2650_EN,
