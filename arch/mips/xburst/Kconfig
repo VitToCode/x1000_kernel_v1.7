@@ -72,6 +72,11 @@ config SUSPEND_SUPREME_DEBUG
 	bool "superme debug for suspend"
 	default n
 
+config SUSPEND_KEEP_CPUS_ONLINE
+	depends on PM && !EARLYSUSPEND_CPU
+	bool "don't turn off non-boot cpu when enter suspend"
+	default n
+
 config JZRISC_PEP
 	bool "enable page execution protection"
 	default y

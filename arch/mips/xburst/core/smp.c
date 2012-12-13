@@ -461,12 +461,63 @@ void jzsoc_mbox_interrupt(void)
 
 }
 
+#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
+void set_cpu_irq(int cpu, int on)
+{
+	int status;
+
+	if (on) {
+		smp_spinlock();
+		status = get_smp_reim();
+		status |= 1 << (8 + cpu);
+		set_smp_reim(status);
+		smp_spinunlock();
+	} else {
+		do {
+			smp_spinlock();
+			status = get_smp_reim();
+			status &= ~(1 << (8 + cpu));
+			set_smp_reim(status);
+			smp_spinunlock();
+		} while (!(get_smp_status() & (1 << (16 + cpu))));
+	}
+}
+
+void cpu_enter_idle(void)
+{
+	printk("enter idle... smp_status=%08x\n", get_smp_status());
+	__asm__ __volatile__ ("	.set mips32		\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      " nop			\n"
+			      "	wait			\n"
+			      " nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      "	nop			\n"
+			      ".set mips32		\n"
+			      ::);
+	printk("exit idle... smp_status=%08x\n", get_smp_status());
+}
+
+int not_switch_irq = 0;
+#endif
+
 long switch_cpu_irq(int cpu) {
 	int status,pending;
 	int nextcpu = (cpu + 1) % 2;
 	long ret = 0;
 	smp_spinlock();
-	if(cpu_online(nextcpu)){
+	if(cpu_online(nextcpu)
+#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
+	   && !not_switch_irq
+#endif
+		) {
 		status = get_smp_reim();
 		status &= ~(3 << 8);
 		status |=  1 << (nextcpu + 8);

@@ -405,15 +405,8 @@ const char *get_board_type(void)
 
 arch_initcall(m80_board_init);
 
-
-
-static struct wake_lock       keep_alive_lock;
 static int __init m80_board_lateinit(void)
 {
-/* FIXME! remove this ugly, our board was shit */
-        wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
-        wake_lock(&keep_alive_lock);
-
 	gpio_request(GPIO_PA(17), "5v_en");
 	gpio_direction_output(GPIO_PA(17), 1);
 

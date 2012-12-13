@@ -441,8 +441,8 @@ int gpio_suspend(void)
         jz->save[2] = readl(jz->reg + PXPAT1);
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
-	
-#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
+
+#if !(defined(CONFIG_EARLYSUSPEND_CPU) || defined(CONFIG_SUSPEND_KEEP_CPUS_ONLINE))
 		gpio_set_func(jz,GPIO_OUTPUT0,jz->sleep_state.output_low);
 		gpio_set_func(jz,GPIO_OUTPUT1,jz->sleep_state.output_high);
 		gpio_set_func(jz,GPIO_INPUT,jz->sleep_state.input_nopull);
