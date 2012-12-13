@@ -508,11 +508,12 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	}
 
 	for (i=0;i<count;i++,msg++) {
-		if((msg->flags&I2C_M_NOSTART) == 0){
+		if((i+1) != count){
 			tmp = i2c_readl(i2c,I2C_CTRL);
 			tmp |= I2C_CTRL_STPHLD | I2C_CTRL_REST;
 			i2c_writel(i2c,I2C_CTRL,tmp);
 		}
+
 		if (msg->flags & I2C_M_RD){
 			ret = xfer_read(i2c,msg->buf,msg->len,count,i);
 		}else{
