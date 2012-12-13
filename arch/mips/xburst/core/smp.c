@@ -49,6 +49,7 @@ static DEFINE_SPINLOCK(smp_lock);
 #define smp_spinunlock() 	spin_unlock(&smp_lock)
 
 static int smp_flag;
+
 #define SMP_FLAG (*(volatile int*)KSEG1ADDR(&smp_flag))
 
 static struct cpumask cpu_ready_e, cpu_running, cpu_start;
@@ -199,28 +200,6 @@ wait:
 	local_irq_restore(flags);
 }
 
-/*
- * Common setup before any secondaries are started
- */
-static inline int smp_cpu_stop(int cpu)
-{
-	unsigned int status;
-
-	if(cpu >= 4)
-		return -1;
-
-	do{
-		status = get_smp_status();
-	}while(!(status & (1<<(cpu+16))));
-
-	blast_dcache32();
-	blast_icache32();
-	cpm_set_bit(31,CPM_LCR);
-	cpm_set_bit(15,CPM_CLKGR1);
-
-	return 0;
-}
-
 static void __init jzsoc_smp_setup(void)
 {
 	int i, num;
@@ -338,16 +317,30 @@ int jzsoc_cpu_disable(void)
 void jzsoc_cpu_die(unsigned int cpu)
 {
 	unsigned long flags;
+	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return;
 
 	local_irq_save(flags);
 
-	cpumask_clear_cpu(cpu, &cpu_running);
-	cpumask_clear_cpu(cpu, &cpu_start);
-	cpumask_clear_cpu(cpu, cpu_ready);
+	blast_icache_jz();
+	blast_dcache_jz();
 
-	smp_cpu_stop(cpu);
+	blast_dcache32();
+	blast_icache32();
+
+	cpumask_clear_cpu(cpu, cpu_ready);
+	cpumask_clear_cpu(cpu, &cpu_start);
+	cpumask_clear_cpu(cpu, &cpu_running);
+
+	wmb();
+
+	do{
+		status = get_smp_status();
+	}while(!(status & (1<<(cpu+16))));
+
+	cpm_set_bit(31,CPM_LCR);
+	cpm_set_bit(15,CPM_CLKGR1);
 
 	local_irq_restore(flags);
 }
@@ -381,11 +374,16 @@ void play_dead(void)
 	smp_clr_pending(1<<cpu);
 
 	while(1) {
+		while(cpumask_test_cpu(cpu, &cpu_running))
+			;
+
+		blast_icache_jz();
+		blast_dcache_jz();
+
 		blast_icache32();
 		blast_dcache32();
 
 		do_play_dead();
-	
 	}
 }
 

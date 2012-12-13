@@ -567,16 +567,15 @@ static inline void blast_icache_jz(void)
 	unsigned long end = start + current_cpu_data.icache.waysize * current_cpu_data.icache.ways;
 	unsigned long addr = start;
 	do {
-		i_cache(JZ_FETCH_LOCK, addr, 0);
+		i_cache(JZ_FETCH_LOCK, addr, 0);i_cache(Hit_Invalidate_I,addr,0);
 		addr += 32;
-		i_cache(JZ_FETCH_LOCK, addr, 0);
+		i_cache(JZ_FETCH_LOCK, addr, 0);i_cache(Hit_Invalidate_I,addr,0);
 		addr += 32;
-		i_cache(JZ_FETCH_LOCK, addr, 0);
+		i_cache(JZ_FETCH_LOCK, addr, 0);i_cache(Hit_Invalidate_I,addr,0);
 		addr += 32;
-		i_cache(JZ_FETCH_LOCK, addr, 0);
+		i_cache(JZ_FETCH_LOCK, addr, 0);i_cache(Hit_Invalidate_I,addr,0);
 		addr += 32;
 	} while (addr < end);
-
 }
 
 static inline void blast_dcache32(void)
