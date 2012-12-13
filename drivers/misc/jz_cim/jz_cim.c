@@ -696,15 +696,20 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 
 void cim_get_sensor_info(struct jz_cim *cim, struct sensor_info *info)
 {
-	memset(info,0,sizeof(struct sensor_info));	
-	info->sensor_id = cim->desc->id;
-	strcpy(info->name,cim->desc->name);	
-	info->facing = cim->desc->facing;
-	info->orientation = cim->desc->orientation;
-	info->cap_resolution_nr = cim->desc->cap_resolution_nr;
-	info->prev_resolution_nr = cim->desc->prev_resolution_nr;
-	memcpy(&info->modes,&cim->desc->modes,sizeof(struct mode_bit_map));
+	struct cim_sensor *desc;
+	list_for_each_entry(desc, &sensor_list, list) {
+		if(desc->id == info->sensor_id)
+			break;
+	}
+
+	strcpy(info->name, desc->name);
+	info->facing = desc->facing;
+	info->orientation = desc->orientation;
+	info->cap_resolution_nr = desc->cap_resolution_nr;
+	info->prev_resolution_nr = desc->prev_resolution_nr;
+	memcpy(&info->modes, &desc->modes, sizeof(struct mode_bit_map));
 }
+
 #if 0
 static long cim_get_support_psize(struct jz_cim *cim,void __user *arg)//get preview resolutions
 {
@@ -988,7 +993,8 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_GET_SENSORINFO:
 			{
 				struct sensor_info info;
-				cim_get_sensor_info(cim,&info);
+				copy_from_user(&info, (void __user *)arg, sizeof(struct sensor_info));
+				cim_get_sensor_info(cim, &info);
 				return copy_to_user(argp,&info,sizeof(struct sensor_info));
 			}
 		case CIMIO_GET_VAR:
