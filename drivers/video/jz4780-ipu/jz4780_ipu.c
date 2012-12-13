@@ -1174,7 +1174,6 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	unsigned int py_buf_v, pu_buf_v, pv_buf_v;
 	unsigned int out_buf;
 	unsigned int spage_map, dpage_map;
-	unsigned int lcdc_sel;
 	unsigned int in_fmt;
 	unsigned int tmp;
 
@@ -1212,8 +1211,6 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	spage_map = img->src_page_mapping;
 	dpage_map = img->dst_page_mapping;
-	lcdc_sel = reg_read(ipu, IPU_FM_CTRL);
-	lcdc_sel &= LCDC_SEL;
 
 	py_buf = ((unsigned int) img->y_buf_p);
 	pu_buf = ((unsigned int) img->u_buf_p);
@@ -1227,8 +1224,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	dev_dbg(ipu->dev, "py_buf=0x%08x, pu_buf=0x%08x, pv_buf=0x%08x, py_t_buf=0x%08x, pu_t_buf=0x%08x, pv_t_buf=0x%08x", 
 			py_buf, pu_buf, pv_buf, py_buf_v, pu_buf_v, pv_buf_v);
-	dev_dbg(ipu->dev, "reg_read(IPU_V_BASE + IPU_FM_CTRL)=%08x, spage_map=%x, dpage_map=%x, lcdc_sel=%x",
-			reg_read(ipu, IPU_FM_CTRL), spage_map, dpage_map, lcdc_sel);
+	dev_dbg(ipu->dev, "reg_read(IPU_V_BASE + IPU_FM_CTRL)=%08x, spage_map=%x, dpage_map=%x",
+			reg_read(ipu, IPU_FM_CTRL), spage_map, dpage_map);
 
 	if (spage_map != 0) {
 		dev_dbg(ipu->dev, "spage_map != 0\n");
@@ -1254,11 +1251,11 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 
 	set_yuv_stride(ipu, ipu_proc);
 
-	dev_dbg(ipu->dev, "dpage_map = %d) && (lcdc_sel = %d\n", dpage_map, lcdc_sel);
+	dev_dbg(ipu->dev, "dpage_map = %d\n", dpage_map);
 	dev_dbg(ipu->dev, "img->out_buf_v = %x, img->out_buf_p = %x\n", 
 			(unsigned int)img->out_buf_v, (unsigned int)img->out_buf_p);
 	/* set out put */
-	if ((dpage_map != 0) && (lcdc_sel == 0)) {
+	if ((dpage_map != 0) && !(img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
 		if (PHYS((unsigned int) img->out_buf_v) == 0) {
 			dev_err(ipu->dev, " Can not found destination map table, use no map now!\r\n");
 			dpage_map = 0;
@@ -1281,7 +1278,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	} else {
 		dpage_map = 0;
 		__disable_dpage_map();
-		if (lcdc_sel == 0) {
+
+		if (!(img->output_mode & IPU_OUTPUT_TO_LCD_FG1)) {
 			if (PHYS((unsigned int)img->out_buf_p) == 0) {
 				dev_err(ipu->dev, "Can not found the destination buf[%#x]\r\n",
 						(unsigned int)img->out_buf_p);
