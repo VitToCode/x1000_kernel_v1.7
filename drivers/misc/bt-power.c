@@ -36,8 +36,8 @@ static struct regulator *power;
 
 static DEFINE_SPINLOCK(bt_power_lock);
 
-extern void iw8103_clk_on (void);
-extern void iw8103_clk_off (void);
+extern void clk_32k_on (void);
+extern void clk_32k_off (void);
 
 #ifdef CONFIG_BT_HOST_WAKEUP
 static irqreturn_t bt_host_wake_handler(int irq, void* dev_id)
@@ -78,23 +78,21 @@ static int bt_power_control(int enable)
 	if (enable == bt_power_state)
 		return 0;
 
+printk("cljiang------bt_power_control,enable = %d\n",enable);
 	switch (enable)	{
 	case RFKILL_STATE_SOFT_BLOCKED:
-printk("cljiang------bt-----power off\n");
-		iw8103_clk_off();
+		clk_32k_off();
 		regulator_disable(power); 
 		bt_disable_power();
 		break;
 	case RFKILL_STATE_UNBLOCKED:
-printk("cljiang------bt-----power on start\n");
-		iw8103_clk_on();
+		clk_32k_on();
 		regulator_enable(power);  /*vddio must be set*/
 		gpio_direction_output(bt_rst_n,0);
 		bt_enable_power();
 		mdelay(15);
 		gpio_set_value(bt_rst_n,1);
 		mdelay(15);
-printk("cljiang------bt-----power on end\n");
 		break;
 	default:
 		break;

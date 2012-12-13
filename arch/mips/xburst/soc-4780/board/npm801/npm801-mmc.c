@@ -18,7 +18,7 @@
 #define NORMAL				1
 
 static struct wifi_data			iw8101_data;
-static int wifi_bt_clk = 0;
+static int clk_32k = 0;
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
@@ -160,26 +160,26 @@ struct jzmmc_platform_data npm801_sdio_pdata = {
 
 static unsigned int gpio_bakup[4];
 
-void iw8103_clk_on(void)
+void clk_32k_on(void)
 {
 	jzrtc_enable_clk32k();
-	wifi_bt_clk++;
-	if (wifi_bt_clk > 2){
-		wifi_bt_clk = 2;
+	clk_32k++;
+	if (clk_32k > 2){
+		clk_32k = 2;
 	}
-	printk("cljiang---iw8103_clk_on:num = %d\n",wifi_bt_clk);
+	printk("cljiang---clk_32k_on:num = %d\n",clk_32k);
 }
 
-void iw8103_clk_off(void)
+void clk_32k_off(void)
 {
-	wifi_bt_clk--;
-	if(wifi_bt_clk < 0){
-		wifi_bt_clk = 0;
+	clk_32k--;
+	if(clk_32k < 0){
+		clk_32k = 0;
 	}
-	if(wifi_bt_clk == 0){
+	if(clk_32k == 0){
 		jzrtc_disable_clk32k();
 	}
-	printk("cljiang---iw8103_clk_off:num = %d\n",wifi_bt_clk);
+	printk("cljiang---clk_32k_off:num = %d\n",clk_32k);
 }
 
 
@@ -265,7 +265,7 @@ start:
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
 //	jzrtc_enable_clk32k();/*clk32k*/
-	iw8103_clk_on();
+	clk_32k_on();
 	printk("cljiang------32k-----enable\n");
 	msleep(200);
 
@@ -337,7 +337,7 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	iw8103_clk_off();
+	clk_32k_off();
 //	jzrtc_disable_clk32k();/*clk32k off*/
 	
 
@@ -353,7 +353,7 @@ start:
 	return 0;
 }
 
-EXPORT_SYMBOL(iw8103_clk_on);
-EXPORT_SYMBOL(iw8103_clk_off);
+EXPORT_SYMBOL(clk_32k_on);
+EXPORT_SYMBOL(clk_32k_off);
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);
