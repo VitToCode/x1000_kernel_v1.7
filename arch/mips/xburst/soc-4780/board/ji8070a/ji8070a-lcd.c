@@ -345,10 +345,11 @@ static void ji8070a_backlight_exit(struct device *dev)
 
 static int bk_notify(struct device *dev, int brightness)
 {
- 
+#ifndef CONFIG_Q8 
         if (!bk_is_on) {
             return 0;
         }
+#endif
     return brightness;
 }
 

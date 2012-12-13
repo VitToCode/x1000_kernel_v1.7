@@ -37,7 +37,7 @@ static struct gpio_keys_button board_buttons[] = {
 		.code   	= KEY_POWER,
 		.desc		= "end call key",
 		.active_low	= ACTIVE_LOW_ENDCALL,
-               .lock_interval = 1000,
+               .lock_interval = 2000,
 		.wakeup		= 1,
 	},
 #endif
