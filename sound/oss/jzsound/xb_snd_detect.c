@@ -68,15 +68,29 @@ static void snd_switch_work(struct work_struct *work)
 	if (switch_data->type == SND_SWITCH_TYPE_CODEC) {
 		state = switch_data->codec_get_sate();
 	}
-
 	if (state == 1 && switch_data->mic_gpio != -1) {
+		if (switch_data->mic_select_gpio != -1){
+			gpio_direction_output(switch_data->mic_select_gpio, switch_data->mic_select_level);
+			mdelay(1000);
+		}
 		gpio_direction_input(switch_data->mic_gpio);
-		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
+		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level) {
 			state <<= 1;
-		else
+			if (switch_data->mic_select_gpio != -1)
+				gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+		} else {
 			state <<= 0;
-	} else
+		}
+	} else {
+
+		if (switch_data->mic_select_gpio != -1)
+			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
 		state <<= 1;
+	}
+
+	if (switch_data->mic_select_gpio)
+		printk("gpio->%d,level-> %d\n", switch_data->mic_select_gpio, switch_data->mic_select_level);
+	printk("%s, %d, %d\n", __func__, __LINE__, state);
 
 	snd_switch_set_state(switch_data, state);
 }

@@ -47,6 +47,9 @@ struct snd_switch_data {
 	int mic_gpio;
 	int	mic_vaild_level;
 
+	int mic_select_gpio;
+	int mic_select_level;
+
 	int (*codec_get_sate)(void);
 };
 

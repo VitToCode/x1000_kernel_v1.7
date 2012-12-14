@@ -25,6 +25,12 @@ enum snd_codec_route_t {
 	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT = SND_ROUTE_REPLAY_ROUTE_START,
 	/*internal codec: linein2 bypass to hprl */
 	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
+	/*internal codec: mic bypass to hprl*/
+	SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
+	/*internal codec: call record mic bypass to hprl*/
+	SND_ROUTE_CALL_RECORD,
+	/*internal codec: record mic1 an1 to adclr replay hp stereo*/  
+        SND_ROUTE_RECORD_MIC1_AN1_REPLAY_DACRL_TO_HPRL,
 	/*internal codec: dacrl to lineout*/
 	SND_ROUTE_REPLAY_DACRL_TO_LO,
 	/*internal codec: dacrl to hprl*/
@@ -78,6 +84,7 @@ struct snd_codec_data {
 	/* default route */
 	struct snd_board_route replay_def_route;
 	struct snd_board_route record_def_route;
+	//struct snd_board_route call_record_def_route;
 
 	/* device <-> route map record*/
 	struct snd_board_route record_headset_mic_route;
@@ -89,6 +96,7 @@ struct snd_codec_data {
 	struct snd_board_route replay_headset_and_speaker_route;
 	struct snd_board_route fm_speaker_route;
 	struct snd_board_route fm_headset_route;
+	struct snd_board_route call_route;
 	/* gpio */
 	struct snd_board_gpio gpio_hp_mute;
 	struct snd_board_gpio gpio_spk_en;

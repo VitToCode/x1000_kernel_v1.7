@@ -27,6 +27,11 @@ static bool first_start_record_dma = true;
 
 static bool first_start_replay_dma = true;
 
+struct snd_device_config {
+	uint32_t device;
+	uint32_t ear_mute;
+	uint32_t mic_mute;
+};
 
 /*###########################################################*\
  * sub functions
@@ -1460,18 +1465,26 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	case SNDCTL_EXT_SET_DEVICE: {
 		/* extention: used for set audio route */
-		int device = -1;
-
-		if (get_user(device, (int *)arg)) {
+		struct snd_device_config config;
+		int device;
+		device = config.device;
+#if 0
+		if (copy_from_user(&config, (int *)arg, sizeof(config))) {
+			printk("=====copy from user========\n");
 			return -EFAULT;
 		}
+#endif
+		ret = copy_from_user(&config, (int *)arg, sizeof(config)) ? -EFAULT : 0;
+		printk("============{1478}device = %d=========\n",config.device);
 
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&device);
+			printk("{1477} config = 0x%x\n\n", &config);
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&config);
 			if (!ret)
 				break;
 		}
 
+		device = config.device;
 		ret = put_user(device, (int *)arg);
 		break;
 	}

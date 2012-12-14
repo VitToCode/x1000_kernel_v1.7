@@ -767,9 +767,9 @@ do {	\
 #define CODEC_DACL_TO_LO		0
 #define CODEC_DACR_TO_LO		1
 #define CODEC_DACLR_TO_LO		2
-#define CODEC_INPUTL_TO_LO		3
-#define CODEC_INPUTR_TO_LO		4
-#define	CODEC_INPUTLR_TO_LO		5
+#define CODEC_INPUTL_TO_LO		4
+#define CODEC_INPUTR_TO_LO		5
+#define	CODEC_INPUTLR_TO_LO		6
 #define __codec_set_lineout_mux(opt)	\
 do {	\
 	write_inter_codec_reg_mask(CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
