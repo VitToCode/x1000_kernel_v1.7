@@ -13,8 +13,9 @@
 1:	
 	ll	v0, 0($26)
 	addu	v0, \val
-	sw	v0, 0($26)
+	sc	v0, 0($26)
 	beqz	v0, 1b
+	nop
 	.endm
 
 	.section	".text.jzsoc"
