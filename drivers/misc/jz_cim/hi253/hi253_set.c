@@ -7,7 +7,6 @@
 
 //#define HI253_SET_KERNEL_PRINT
 
-
 int hi253_init(struct cim_sensor *sensor_info)
 {
 	struct hi253_sensor *s;
@@ -271,8 +270,11 @@ int hi253_init(struct cim_sensor *sensor_info)
 	hi253_write_reg(client,0x03, 0x10);
 	hi253_write_reg(client,0x10, 0x03); // CrYCbY // For Demoset 0x03
 	hi253_write_reg(client,0x12, 0x30);
-	hi253_write_reg(client,0x20, 0x00);
 
+	/* disable contrast */
+	hi253_write_reg(client,0x13, 0x00);
+
+	hi253_write_reg(client,0x20, 0x00);
 	hi253_write_reg(client,0x30, 0x00);
 	hi253_write_reg(client,0x31, 0x00);
 	hi253_write_reg(client,0x32, 0x00);
@@ -285,7 +287,8 @@ int hi253_init(struct cim_sensor *sensor_info)
 	hi253_write_reg(client,0x3e, 0x58);
 	hi253_write_reg(client,0x3f, 0x00);
 
-	hi253_write_reg(client,0x40, 0x80); // YOFS
+	/* adjust brightness */
+	hi253_write_reg(client,0x40, 0xc0); // YOFS
 	hi253_write_reg(client,0x41, 0x00); // DYOFS
 
 	hi253_write_reg(client,0x60, 0x67);
