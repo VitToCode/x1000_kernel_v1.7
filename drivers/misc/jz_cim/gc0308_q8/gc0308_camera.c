@@ -163,9 +163,9 @@ int gc0308_reset(struct cim_sensor *sensor_info)
 	dev_info(&s->client->dev,"gc0308 reset %x\n",s->gpio_rst);
 #endif
 	gpio_set_value(s->gpio_rst, 0);
-	msleep(250);
+	msleep(50);
 	gpio_set_value(s->gpio_rst, 1);
-	msleep(250);
+	msleep(50);
 	return 0;
 }
 
