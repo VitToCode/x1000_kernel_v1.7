@@ -522,6 +522,25 @@ __BUILD_BLAST_CACHE(inv_s, scache, Index_Writeback_Inv_SD, Hit_Invalidate_SD, 12
 #define JZ_ALLOC_PREF 30
 #define JZ_FETCH_LOCK 0x1c
 extern unsigned long reserved_for_alloccache[];
+static inline void flush_gdir(void)
+{
+	register unsigned long start = (unsigned long)reserved_for_alloccache;
+	register unsigned long end = start + current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
+	register unsigned long start2 = INDEX_BASE;
+	register unsigned long end2 = start2 + current_cpu_data.icache.waysize * current_cpu_data.icache.ways;
+	do {
+		i_cache(Index_Load_Tag_D,start,0);
+		i_cache(Index_Writeback_Inv_D,start,0);
+		start += 32;
+	}while(start < end);
+
+	do {
+		i_cache(Index_Load_Tag_I,start2,0);
+		i_cache(Index_Invalidate_I,start2,0);
+		start2 += 32;
+	}while(start2 < end2);
+}
+
 static inline void blast_dcache_jz(void)
 {
 	unsigned long start = (unsigned long)reserved_for_alloccache;

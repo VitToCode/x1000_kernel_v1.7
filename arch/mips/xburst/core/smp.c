@@ -323,9 +323,6 @@ void jzsoc_cpu_die(unsigned int cpu)
 
 	local_irq_save(flags);
 
-	blast_icache_jz();
-	blast_dcache_jz();
-
 	blast_dcache32();
 	blast_icache32();
 
@@ -343,6 +340,8 @@ void jzsoc_cpu_die(unsigned int cpu)
 	cpm_set_bit(15,CPM_CLKGR1);
 
 	local_irq_restore(flags);
+
+	flush_gdir();
 }
 #endif
 
@@ -351,10 +350,8 @@ void __play_dead(void)
 	__asm__ __volatile__ (  ".set	push		\n"
 				".set	mips3		\n"
 				"sync			\n"
-				"lw	$0,	0(%0)	\n"
 				"wait			\n"
 				".set	pop		\n"
-				:: "r" (0xa0000000)
 				);
 }
 
@@ -377,11 +374,10 @@ void play_dead(void)
 		while(cpumask_test_cpu(cpu, &cpu_running))
 			;
 
-		blast_icache_jz();
-		blast_dcache_jz();
-
 		blast_icache32();
 		blast_dcache32();
+
+		flush_gdir();
 
 		do_play_dead();
 	}
