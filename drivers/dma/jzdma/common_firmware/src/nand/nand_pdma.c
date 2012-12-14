@@ -41,6 +41,7 @@ void pdma_nand_write_data(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 		ddr_channel_cfg(ddr_addr, (pipe_buf + pipe_sel)->pipe_data,
 				nand->eccsize, DDR_TO_TCSM);
 		__pdmac_channel_launch(PDMA_DDR_CHANNEL);
+//			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (0x14<<16);
 	}
 
 	pipe_sel ^= 1;
@@ -49,6 +50,7 @@ void pdma_nand_write_data(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf
 		nemc_channel_cfg((pipe_buf + pipe_sel)->pipe_data, nand->nand_io,
 				nand->eccsize, TCSM_TO_NEMC);
 		__pdmac_special_channel_launch(PDMA_NEMC_CHANNEL);
+//		*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (8 << 16);
 	}
 }
 

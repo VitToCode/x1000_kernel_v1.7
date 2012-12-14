@@ -39,8 +39,9 @@ void pdma_bch_correct(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf, un
 	int i;
 
 	bch_decode_enable(nand->ecclevel, nand->eccsize, nand->eccbytes);
+#ifdef MCU_TEST_INTER
 	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (5 << 16);
-
+#endif
 	/* Move Parity Part to follow Current Data */
 	for (i = 0; i < nand->eccbytes; i++)
 		pipe_buf->pipe_par[i] = par_buf[i];
@@ -83,9 +84,13 @@ void irq_bch_calculate_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe
 {
 	__mbch_encode_sync();
 
+#ifdef MCU_TEST_INTER
 			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (6 << 16);
+#endif
 	bch_calculate_handle(nand, pipe_buf, par_buf);
+#ifdef MCU_TEST_INTER
 			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (7 << 16);
+#endif
 	__bch_encints_clear();
 	__bch_disable();
 }
@@ -136,15 +141,18 @@ static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
 #endif
 			__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
 			__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
+#ifdef MCU_TEST_INTER
 			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (8 << 16);
-
+#endif
 			for (i = 0; i < err_cnt; i++)
 				bch_error_correct(nand, (unsigned short *)data_buf, err_buf, i);
 		}
 	} else {
 		*report = 0;
 	}
+#ifdef MCU_TEST_INTER
 	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (9 << 16);
+#endif
 }
 
 void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf)
@@ -153,8 +161,9 @@ void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_b
 	int report = 0;
 
 	__mbch_decode_sync();
+#ifdef MCU_TEST_INTER
 	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (7 << 16);
-
+#endif
 	bch_correct_handle(nand, pipe_buf->pipe_data, err_buf, &report);
 	__bch_decints_clear();
 	__bch_disable();

@@ -9,7 +9,7 @@
 
 #include <asm/jzsoc.h>
 
-unsigned int channel_irq;
+volatile unsigned int channel_irq;
 
 static inline void mcu_init(void)
 {

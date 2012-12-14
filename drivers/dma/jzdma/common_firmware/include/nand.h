@@ -10,7 +10,7 @@
 #define PNAND_DDR		(1 << 1)
 #define PNAND_BCH_ENC		(1 << 2)
 #define PNAND_BCH_DEC		(1 << 3)
-#define PNAND_HALT		(1 << 16)
+#define PNAND_HALT		(1 << 4)
 
 #define CTRL_READ_DATA		(1 << 0)
 #define CTRL_READ_OOB		(1 << 1)
