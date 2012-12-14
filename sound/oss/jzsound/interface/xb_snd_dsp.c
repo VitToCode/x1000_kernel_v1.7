@@ -1871,6 +1871,11 @@ int xb_snd_dsp_release(struct inode *inode,
 	}
 
 	if (dpo && dpo->wait_stop_dma == true) {
+		ret = 0x7fffff;
+		while(ret-- && (dpo->avialable_couter == 0));
+		if(ret == 0){
+			printk(KERN_INFO "sound dma transfer data error");
+		}
 		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
 		if (dpo->dma_chan) {
 			dma_release_channel(dpo->dma_chan);

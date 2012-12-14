@@ -2415,6 +2415,20 @@ static int codec_set_replay_channel(int* channel)
  */
 static int codec_mute(int val,int mode)
 {
+
+	unsigned int hp,sp;
+
+	hp = codec_platform_data->replay_headset_route.gpio_hp_mute_stat;
+	sp = codec_platform_data->replay_speaker_route.gpio_spk_en_stat;
+
+	if (hp == 1) {
+		gpio_disable_hp_mute();
+	}
+
+	if (sp == 1){
+		gpio_disable_spk_en();
+	}
+
 	if (mode & CODEC_WMODE) {
 		if(val){
 			if(!__codec_get_dac_mute()){
@@ -2448,6 +2462,14 @@ static int codec_mute(int val,int mode)
 				codec_wait_event_complete(IFR_ADC_MUTE_EVENT,CODEC_NOT_MUTE);
 			}
 		}
+	}
+
+	if (hp == 1) {
+		gpio_enable_hp_mute();
+	}
+
+	if (sp == 1){
+		gpio_enable_spk_en();
 	}
 
 	return 0;

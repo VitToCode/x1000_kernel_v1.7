@@ -578,8 +578,8 @@ static int i2s_dma_enable(int mode)		//CHECK
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
 		__i2s_enable_replay();
 		while(!__i2s_test_tur());
-		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma();
+		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 	}
 	if (mode & CODEC_RMODE) {
 		cur_codec->codec_ctl(CODEC_ADC_MUTE,1);

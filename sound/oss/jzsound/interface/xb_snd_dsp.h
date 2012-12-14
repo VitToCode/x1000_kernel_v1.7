@@ -211,7 +211,7 @@ struct dsp_pipe {
 	struct list_head    use_node_list;
 	struct dsp_node     *save_node;
 	wait_queue_head_t   wq;
-	int                 avialable_couter;
+	volatile int        avialable_couter;
 	/* state */
 	volatile bool       is_trans;
 	volatile bool       wait_stop_dma;
