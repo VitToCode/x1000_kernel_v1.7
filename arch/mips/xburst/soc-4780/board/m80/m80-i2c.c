@@ -234,6 +234,7 @@ static struct i2c_board_info m80_i2c3_devs[] __initdata = {
 static struct i2c_gpio_platform_data i2c##NO##_gpio_data = {	\
 	.sda_pin	= GPIO_I2C_SDA,				\
 	.scl_pin	= GPIO_I2C_SCK,				\
+	.udelay = 1,							\
 };								\
 static struct platform_device i2c##NO##_gpio_device = {     	\
 	.name	= "i2c-gpio",					\
