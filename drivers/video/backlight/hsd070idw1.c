@@ -37,15 +37,21 @@ struct hsd070idw1_data {
 	struct lcd_device *lcd;
 	struct platform_hsd070idw1_data *pdata;
 	struct regulator *lcd_vcc_reg;
+#ifdef  CONFIG_Q8
+#else
 #ifdef CONFIG_HAS_EARLYSUSPEND
         struct early_suspend bk_early_suspend;
 #endif
+#endif
 };
-
+#ifdef  CONFIG_Q8
+#else
 static int is_bootup = 1;
-
+#endif
 static void hsd070idw1_on(struct hsd070idw1_data *dev)
 {
+#ifdef  CONFIG_Q8
+#else
     if (is_bootup) {
         regulator_enable(dev->lcd_vcc_reg);
         is_bootup = 0;
@@ -53,7 +59,8 @@ static void hsd070idw1_on(struct hsd070idw1_data *dev)
             dev->pdata->notify_on(1);
     }
 	dev->lcd_power = 1;
-#if 0
+#endif
+#ifdef  CONFIG_Q8
     regulator_enable(dev->lcd_vcc_reg);
     mdelay(20);
 
@@ -68,9 +75,10 @@ static void hsd070idw1_on(struct hsd070idw1_data *dev)
 static void hsd070idw1_off(struct hsd070idw1_data *dev)
 {
         dev->lcd_power = 0;
-#if 0
+#ifdef  CONFIG_Q8
+
         regulator_disable(dev->lcd_vcc_reg);
-        mdelay(20);
+       // mdelay(20);
 #endif
 }
 
@@ -106,7 +114,8 @@ static struct lcd_ops hsd070idw1_ops = {
 	.get_power = hsd070idw1_get_power,
 	.set_mode = hsd070idw1_set_mode,
 };
-
+#ifdef  CONFIG_Q8
+#else
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void bk_e_suspend(struct early_suspend *h)
 {
@@ -143,7 +152,7 @@ static void bk_l_resume(struct early_suspend *h)
            dev->pdata->notify_on(1);
 }
 #endif
-
+#endif
 static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -194,7 +203,8 @@ static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 	} else {
 		dev_info(&pdev->dev, "lcd device register success\n");
 	}
-
+#ifdef  CONFIG_Q8
+#else
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
     dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;//EARLY_SUSPEND_LEVEL_STOP_DRAWING;
@@ -203,7 +213,7 @@ static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 #endif
 
     register_early_suspend(&dev->bk_early_suspend);
-
+#endif
 	return 0;
 }
 
