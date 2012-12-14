@@ -30,8 +30,8 @@
 #include "../xb47xx_i2s.h"
 #include "jz4780_codec.h"
 #include "jz4780_route_conf.h"
-
-
+#include "../../../../arch/mips/xburst/soc-4780/board/npm801/npm801.h"
+#include "../../../../include/linux/gpio.h"
 /*###############################################*/
 #define CODEC_DUMP_IOC_CMD			0
 #define CODEC_DUMP_ROUTE_REGS		0
@@ -43,7 +43,12 @@
 
 /***************************************************************************************\                                                                                *
  *global variable and structure interface                                              *
-\***************************************************************************************/
+ \***************************************************************************************/
+struct snd_device_config {
+	uint32_t device;
+	uint32_t ear_mute;
+	uint32_t mic_mute;
+};
 static struct snd_board_route *cur_route = NULL;
 static struct snd_board_route *keep_old_route = NULL;
 static struct snd_codec_data *codec_platform_data = NULL;
@@ -179,6 +184,7 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_RECORD_CLEAR,
 		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
+		SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 		SND_ROUTE_REPLAY_DACRL_TO_LO,
 		SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 		SND_ROUTE_REPLAY_DACRL_TO_ALL,
@@ -195,6 +201,7 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_RECORD_CLEAR",
 		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT",
 		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL",
+		"SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL",
 		"SND_ROUTE_REPLAY_DACRL_TO_LO",
 		"SND_ROUTE_REPLAY_DACRL_TO_HPRL",
 		"SND_ROUTE_REPLAY_DACRL_TO_ALL",
@@ -432,34 +439,34 @@ static void codec_set_mic1(int mode)
 	DUMP_ROUTE_PART_REGS("enter");
 	switch(mode){
 	case MIC1_DIFF_WITH_MICBIAS:
-		/*if(__codec_get_sb_micbias1() == POWER_OFF)
+		if(__codec_get_sb_micbias1() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias1(POWER_ON);
-		}*/
+		}
 		__codec_enable_mic1_diff();
 		break;
 
 	case MIC1_DIFF_WITHOUT_MICBIAS:
-		/*if(__codec_get_sb_micbias1() == POWER_ON)
+		if(__codec_get_sb_micbias1() == POWER_ON)
 		{
         		__codec_switch_sb_micbias1(POWER_OFF);
-		}*/
+		}
 		__codec_enable_mic1_diff();
 		break;
 
 	case MIC1_SING_WITH_MICBIAS:
-		/*if(__codec_get_sb_micbias1() == POWER_OFF)
+		if(__codec_get_sb_micbias1() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias1(POWER_ON);
-		}*/
+		}
 		__codec_disable_mic1_diff();
 		break;
 
 	case MIC1_SING_WITHOUT_MICBIAS:
-		/*if(__codec_get_sb_micbias1() == POWER_ON)
+		if(__codec_get_sb_micbias1() == POWER_ON)
 		{
 			__codec_switch_sb_micbias1(POWER_OFF);
-		}*/
+		}
 		__codec_disable_mic1_diff();
 		break;
 
@@ -482,26 +489,26 @@ static void codec_set_mic2(int mode)
 	DUMP_ROUTE_PART_REGS("enter");
 	switch(mode){
 	case MIC2_SING_WITH_MICBIAS:
-		/*if(__codec_get_sb_micbias2() == POWER_OFF)
+		if(__codec_get_sb_micbias2() == POWER_OFF)
 		{
 			__codec_switch_sb_micbias2(POWER_ON);
-		}*/
+		}
 		__codec_disable_mic2_diff();
 		break;
 
 	case MIC2_SING_WITHOUT_MICBIAS:
-		/*if(__codec_get_sb_micbias2() == POWER_ON)
+		if(__codec_get_sb_micbias2() == POWER_ON)
 		{
 			__codec_switch_sb_micbias2(POWER_OFF);
-		}*/
+		}
 		__codec_disable_mic2_diff();
 		break;
 
 	case MIC2_DISABLE:
-		/*if(__codec_get_sb_micbias2() == POWER_ON)
+		if(__codec_get_sb_micbias2() == POWER_ON)
 		{
 			__codec_switch_sb_micbias2(POWER_OFF);
-		}*/
+		}
 		break;
 
 	default:
@@ -664,14 +671,14 @@ static void codec_set_inputr_to_bypass(int mode)
 
 	switch(mode){
 
-	case INPUTL_TO_BYPASS_ENABLE:
+	case INPUTR_TO_BYPASS_ENABLE:
 		if(__codec_get_sb_linein2_bypass() == POWER_OFF)
 		{
 			__codec_switch_sb_linein2_bypass(POWER_ON);
 		}
 		break;
 
-	case INPUTL_TO_BYPASS_DISABLE:
+	case INPUTR_TO_BYPASS_DISABLE:
 		if(__codec_get_sb_linein2_bypass() == POWER_ON)
 		{
 			__codec_switch_sb_linein2_bypass(POWER_OFF);
@@ -2072,12 +2079,14 @@ static int codec_resume(void)
  * if it is not realized depend on difficent boards
  *
  */
-static int codec_set_device(enum snd_device_t device)
+//static int codec_set_device(enum snd_device_t device)
+static int codec_set_device(struct snd_device_config *snd_dev_cfg)
 {
 	int ret = 0;
 	int iserror = 0;
-
-	switch (device) {
+	printk("[2104]device = %d\n",snd_dev_cfg->device);
+	//switch (device) {
+	switch (snd_dev_cfg->device) {
 	case SND_DEVICE_HEADSET:
 	case SND_DEVICE_NO_MIC_HEADSET:
 		if (codec_platform_data && codec_platform_data->replay_headset_route.route) {
@@ -2085,6 +2094,15 @@ static int codec_set_device(enum snd_device_t device)
 			if(ret != codec_platform_data->replay_headset_route.route) {
 				return -1;
 			}
+		}
+		if(snd_dev_cfg->ear_mute == 0) {
+			printk("=================come into hp call==================\n");
+			if (codec_platform_data && codec_platform_data->call_route.route) {
+				ret = codec_set_board_route(&(codec_platform_data->call_route));
+				printk("=================set hp call route==================\n");
+				__codec_set_gol(0);
+				__codec_set_gor(0);
+			} 
 		}
 		break;
 
@@ -2098,11 +2116,24 @@ static int codec_set_device(enum snd_device_t device)
 		break;
 
 	case SND_DEVICE_SPEAKER:
+		printk("===============SND_DEVICE_SPEAKER==================\n");
 		if (codec_platform_data && codec_platform_data->replay_speaker_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->replay_speaker_route));
 			if(ret != codec_platform_data->replay_speaker_route.route) {
 				return -1;
 			}
+		}
+		if(snd_dev_cfg->ear_mute == 0) {
+			printk("=================come into call==================\n");
+			if (codec_platform_data && codec_platform_data->call_route.route) {
+				ret = codec_set_board_route(&(codec_platform_data->call_route));
+				printk("=================set call route==================\n");
+				//__codec_set_godl(0);
+				//__codec_set_godr(0);
+				__codec_set_gm1(0x05);
+               			__codec_set_gidl(0x10);
+				__codec_set_gidr(0x10);
+			} 
 		}
 		break;
 
@@ -2155,7 +2186,8 @@ static int codec_set_device(enum snd_device_t device)
 	};
 
 	if (!iserror)
-		g_current_out_dev = device;
+		//g_current_out_dev = device;
+	        g_current_out_dev = snd_dev_cfg->device;
 
 	return ret;
 }
@@ -2634,7 +2666,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_SET_DEVICE:
-			ret = codec_set_device(*(enum snd_device_t *)arg);
+			//ret = codec_set_device(*(enum snd_device_t *)arg);
+			ret = codec_set_device((struct snd_device_config *)arg);
 			break;
 
 		case CODEC_SET_STANDBY:
@@ -2724,11 +2757,13 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
-	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,&codec_platform_data->gpio_mic_detect);
+	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,&codec_platform_data->gpio_mic_detect, 
+						&codec_platform_data->gpio_mic_select);
 #elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
 						 &codec_platform_data->gpio_hp_detect,
-						 &codec_platform_data->gpio_mic_detect);
+						 &codec_platform_data->gpio_mic_detect,
+						 &codec_platform_data->gpio_mic_select);
 #endif
 	if (codec_platform_data->gpio_mic_detect.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect") < 0) {
@@ -2740,6 +2775,7 @@ static int jz_codec_probe(struct platform_device *pdev)
 			gpio_free(codec_platform_data->gpio_mic_select.gpio);
 			gpio_request(codec_platform_data->gpio_mic_select.gpio,"gpio_mic_switch");
 		}
+		gpio_direction_output(codec_platform_data->gpio_mic_select.gpio, !codec_platform_data->gpio_mic_select.active_level);
 	if (codec_platform_data->gpio_hp_mute.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_hp_mute.gpio,"gpio_hp_mute") < 0) {
 			gpio_free(codec_platform_data->gpio_hp_mute.gpio);

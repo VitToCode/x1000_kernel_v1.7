@@ -64,6 +64,11 @@ static struct codec_info {
 	struct dsp_endpoints *dsp_endpoints;
 } *cur_codec;
 
+struct snd_device_config { 
+	  uint32_t device;
+	  uint32_t ear_mute;
+	  uint32_t mic_mute;
+};
 /*##################################################################*\
  | dump
 \*##################################################################*/
@@ -658,11 +663,14 @@ static void i2s_dma_need_reconfig(int mode)
 	return;
 }
 
-static int i2s_set_device(unsigned long device)
+static int i2s_set_device(unsigned long pconfig)
 {
 	unsigned long tmp_rate = 0;
-	int ret = 0;
-
+  	int ret = 0;
+	struct snd_device_config *config  = (struct snd_device_config *)pconfig; 
+	int device = config->device;
+        printk("{672} config = 0x%x\n\n", &config);   
+	printk("{673} device = %d\n",config->device);
 	if (!cur_codec)
 		return -1;
 
@@ -714,8 +722,9 @@ static int i2s_set_device(unsigned long device)
 			__i2s_start_bitclk();
 		}
 	}
-
-	ret = cur_codec->codec_ctl(CODEC_SET_DEVICE,(unsigned long)&device);
+        
+	ret = cur_codec->codec_ctl(CODEC_SET_DEVICE, pconfig);
+	//ret = cur_codec->codec_ctl(CODEC_SET_DEVICE,(unsigned long)&config);
 
 	return ret;
 }
@@ -893,7 +902,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 
 	case SND_DSP_SET_DEVICE:
-		ret = i2s_set_device(*(unsigned long*)arg);
+		ret = i2s_set_device(arg);  //ttma
 		break;
 	case SND_DSP_GET_HP_DETECT:
 		*(int*)arg = jz_get_hp_switch_state();
@@ -1198,7 +1207,7 @@ static int jz_get_hp_switch_state(void)
 }
 
 void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
-		struct snd_board_gpio *mic_det)
+		struct snd_board_gpio *mic_det, struct snd_board_gpio *mic_select)
 {
 	switch_data.type = type;
 	if (type == SND_SWITCH_TYPE_GPIO && hp_det != NULL) {
@@ -1212,6 +1221,13 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		switch_data.mic_vaild_level = mic_det->active_level;
 	} else {
 		switch_data.mic_gpio = -1;
+	}
+
+	if (mic_select != NULL) {
+		switch_data.mic_select_gpio = mic_select->gpio;
+		switch_data.mic_select_level = mic_select->active_level;
+	} else {
+		switch_data.mic_select_gpio = -1;
 	}
 
 	return (&switch_data.work);

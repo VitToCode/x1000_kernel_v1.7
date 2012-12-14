@@ -547,7 +547,7 @@ enum codec_ioctl_cmd_t {
 /**
  *	i2s switch state
  **/
-void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,struct snd_board_gpio *mic_det);
+void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,struct snd_board_gpio *mic_det,struct snd_board_gpio *mic_select);
 
 /**
  *	codec mode
