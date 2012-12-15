@@ -76,3 +76,4 @@ obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_CT36X)   	+= ct36x_i2c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CT360)         += ct360_i2c_ts.o
+obj-$(CONFIG_TOUCHSCREEN_MG_KS0700H_S) += mg-i2c-ks0700h.o
