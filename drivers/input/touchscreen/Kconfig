@@ -58,6 +58,12 @@ config TOUCHSCREEN_FT5X06
       help
       ft5306 a CTP controller,support panel 7"~8.9"
 
+config TOUCHSCREEN_MG_KS0700H_S
+      tristate "Touchscreen MG-KS0700H-S"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      	none
+
 config TOUCHSCREEN_MG8698S
       tristate "Touchscreen mg8698s"
       depends on I2C && JZ4780_SUPPORT_TSC
