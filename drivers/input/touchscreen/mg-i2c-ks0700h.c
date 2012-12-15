@@ -20,6 +20,11 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	#include <linux/earlysuspend.h>
+#endif
+
 #include <linux/gpio.h>
 #include <linux/device.h>
 #include <linux/slab.h>
@@ -73,13 +78,6 @@ enum mg_dig_state {
 	MG_RIGHT_BTN = 0x13,
 };
 
-static int prev_s = -1;
-static int current_s = -1;
-static int prev_p = -1;
-static int current_p = -1;
-static int flag_menu = -1;
-static int flag_home = -1;
-static int flag_back = -1;
 
 struct mg_data {
 	uint32_t x, y, w, p, id;
@@ -91,10 +89,51 @@ struct mg_data {
 	struct work_struct work;
 	struct regulator *power;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend mg_early_suspend;
+#endif
+
 	struct jztsc_platform_data *pdata;
 };
 
+static int prev_s = -1;
+static int current_s = -1;
+static int prev_p = -1;
+static int current_p = -1;
+static int flag_menu = -1;
+static int flag_home = -1;
+static int flag_back = -1;
+
 static struct i2c_driver mg_driver;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+
+static void mg_suspend(struct early_suspend *h)
+{
+	struct mg_data *mg = container_of(h, struct mg_data, mg_early_suspend);
+
+	disable_irq_nosync(mg->irq);
+
+	if (work_pending(&mg->work))
+		cancel_work_sync(&mg->work);
+
+	if (mg->power)
+		regulator_disable(mg->power);
+}
+
+static void mg_resume(struct early_suspend *h)
+{
+	struct mg_data *mg = container_of(h, struct mg_data, mg_early_suspend);
+
+	if (mg->power) {
+		regulator_enable(mg->power);
+		mdelay(100);
+	}
+
+	enable_irq(mg->irq);
+}
+
+#endif
 
 static irqreturn_t mg_irq(int irq, void *_mg) {
 	struct mg_data *mg = _mg;
@@ -266,11 +305,13 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 
 	mg->power = regulator_get(&client->dev, "vtsc");
 	if (IS_ERR(mg->power)) {
-		err = -EIO;
-		dev_err(&mg->client->dev, "Failed to request regulator\n");
-		goto err_kfree;
+		mg->power = NULL;
+		dev_err(&mg->client->dev, "Failed to request regulator\n"
+				" assume a fixed power supply.\n");
+	} else {
+		regulator_enable(mg->power);
+		mdelay(100);
 	}
-	regulator_enable(mg->power);
 
 	mg->ss = pdata->gpio[0].num;
 	err = gpio_request(mg->ss, "mg_ts_int");
@@ -319,24 +360,34 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 		goto err_input_unregister;
 	}
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	mg->mg_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	mg->mg_early_suspend.suspend = mg_suspend;
+	mg->mg_early_suspend.resume = mg_resume;
+	register_early_suspend(&mg->mg_early_suspend);
+#endif
+
 	mg->irq = gpio_to_irq(mg->ss);
 	err = request_irq(mg->irq, mg_irq, IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			MG_DRIVER_NAME, mg);
 	if (err) {
 		dev_err(&mg->client->dev, "Failed to request irq.\n");
-		goto err_input_unregister;
+		goto err_destroy_workqueue;
 	}
 
 	return 0;
 
+err_destroy_workqueue:
+	destroy_workqueue(mg->i2c_workqueue);
+
 err_input_unregister:
 	input_unregister_device(mg->dig_dev);
 
-err_gpio_free:
-	gpio_free(mg->ss);
-
 err_regulator_put:
 	regulator_put(mg->power);
+
+err_gpio_free:
+	gpio_free(mg->ss);
 
 err_kfree:
 	kfree(mg);
