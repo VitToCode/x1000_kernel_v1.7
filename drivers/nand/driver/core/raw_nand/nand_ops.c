@@ -302,7 +302,6 @@ static inline void send_get_nand_id(char *nand_id)
 	g_pnand_io->send_cmd_norb(CMD_READID);
 	g_pnand_io->send_addr(-1, 0x00, 1);
 
-	nand_wait_rb();
 	/* Read manufacturer and device IDs */
 	g_pnand_io->read_data_norb(&nand_id[0], 5);
 }
@@ -995,7 +994,7 @@ int nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,uns
 	do_deselect_chip(host);
 	if(state & NAND_STATUS_FAIL)
 		printk("%s  state = %d\n",__func__,state);
-	return state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS;
+	return state & NAND_STATUS_FAIL ? IO_ERROR : bytes;
 }
 /******************************************************
  *   nand_write_pages ;

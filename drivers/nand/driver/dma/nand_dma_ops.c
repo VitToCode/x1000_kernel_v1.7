@@ -155,9 +155,9 @@ static unsigned int get_physical_addr(const NAND_API *pnand_api, unsigned int vp
 	unsigned int toppage = (tmp - (tmp % pnand_api->nand_chip->planenum)) * pnand_api->nand_chip->ppblock;
 	if(pt->use_planes)
 		page = ((page-toppage) / pnand_api->nand_chip->planenum) +
-			        (pnand_api->nand_chip->ppblock * ((page-toppage) %
-                                pnand_api->nand_chip->planenum)) + toppage;
-	
+			(pnand_api->nand_chip->ppblock * ((page-toppage) %
+											  pnand_api->nand_chip->planenum)) + toppage;
+
 	return page;
 }
 
@@ -176,43 +176,57 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 	}
 
 	dma_async_issue_pending(chan);
-do{
-	timeout = wait_for_completion_timeout(&comp,HZ);
-	if(timeout == -ERESTARTSYS)
-		continue;
+	do{
+		timeout = wait_for_completion_timeout(&comp,HZ);
+		if(timeout == -ERESTARTSYS)
+			continue;
 #ifdef MCU_TEST_INTER_NAND
-	if(!timeout){
-				unsigned long long test[6] ={0};
-				int i;
-				for(i=0;i<6;i++)
-					test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
-				printk("cpu send msg       [%llu]\n",test[0]);
-				printk("mcu receive msg    [%llu]\n",test[1]);
-				printk("mcu send mailbox   [%llu]\n",test[2]);
-				printk("dma receive inte   [%llu]\n",test[3]);
-				printk("dma mcu_irq handle [%llu]\n",test[4]);
-				printk("pdma_task_handle   [%llu]\n",test[5]);
+		if(!timeout){
+			unsigned long long test[6] ={0};
+			int i;
+			for(i=0;i<6;i++)
+				test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
+			printk("cpu send msg       [%llu]\n",test[0]);
+			printk("mcu receive msg    [%llu]\n",test[1]);
+			printk("mcu send mailbox   [%llu]\n",test[2]);
+			printk("dma receive inte   [%llu]\n",test[3]);
+			printk("dma mcu_irq handle [%llu]\n",test[4]);
+			printk("pdma_task_handle   [%llu]\n",test[5]);
 			printk("channel 0 state 0x%x\n",*(volatile unsigned int *)(0xb3420010));
+			printk("channel 0 count 0x%x\n",*(volatile unsigned int *)(0xb3420008));
+			printk("channel 0 source 0x%x\n",*(volatile unsigned int *)(0xb3420000));
+			printk("channel 0 target 0x%x\n",*(volatile unsigned int *)(0xb3420004));
+			printk("channel 0 command 0x%x\n",*(volatile unsigned int *)(0xb3420014));
 			printk("channel 1 state 0x%x\n",*(volatile unsigned int *)(0xb3420030));
+			printk("channel 1 count 0x%x\n",*(volatile unsigned int *)(0xb3420028));
+			printk("channel 1 source 0x%x\n",*(volatile unsigned int *)(0xb3420020));
+			printk("channel 1 target 0x%x\n",*(volatile unsigned int *)(0xb3420024));
+			printk("channel 1 command 0x%x\n",*(volatile unsigned int *)(0xb3420034));
 			printk("channel 2 state 0x%x\n",*(volatile unsigned int *)(0xb3420050));
+			printk("channel 2 count 0x%x\n",*(volatile unsigned int *)(0xb3420048));
+			printk("channel 2 source 0x%x\n",*(volatile unsigned int *)(0xb3420040));
+			printk("channel 2 target 0x%x\n",*(volatile unsigned int *)(0xb3420044));
+			printk("channel 2 command 0x%x\n",*(volatile unsigned int *)(0xb3420054));
 			printk("pdma mask register 0x%x\n",*(volatile unsigned int *)(0xb342102c));
-/*
-				printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
-				printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
-				printk("mcu send mailbox   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+2));
-				printk("dma receive inte   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+3));
-				printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
-				printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
-*/
-	}
+			printk("pdma program register 0x%x\n",*(volatile unsigned int *)(0xb342101c));
+			printk("mcu status  0x%x\n",*(volatile unsigned int *)(0xb3421030));
+			/*
+			   printk("cpu send msg       [%llu]\n",*((unsigned long long *)MCU_TEST_DATA_NAND));
+			   printk("mcu receive msg    [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+1));
+			   printk("mcu send mailbox   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+2));
+			   printk("dma receive inte   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+3));
+			   printk("dma mcu_irq handle [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+4));
+			   printk("pdma_task_handle   [%llu]\n",*(((unsigned long long *)MCU_TEST_DATA_NAND)+5));
+			 */
+		}
 #endif
-	count++;
-}while(!timeout && count <= 20);
+		count++;
+	}while(!timeout && count <= 20);
 
 	if(!timeout){
 #ifdef NAND_DMA_TEST_TIMEOUT
-	printk("Error: mcu dma tran; whether mailbox has been returned (%d)\n",test_timeout);
-	test_timeout = 0;
+		printk("Error: mcu dma tran; whether mailbox has been returned (%d)\n",test_timeout);
+		test_timeout = 0;
 #endif
 		return -4;  // this operation is timeout
 	}
@@ -245,22 +259,23 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	dma_sync_single_for_device(nand_dev,nand_dma->msg_phyaddr,sizeof(struct pdma_msg),
 			DMA_TO_DEVICE);
 	nand_dma->desc = nand_dma->mcu_chan->device->device_prep_dma_memcpy(
-                                nand_dma->mcu_chan,CPHYSADDR(PDMA_MSG_TCSMVA),
-                                nand_dma->msg_phyaddr,sizeof(struct pdma_msg),flags);
+			nand_dma->mcu_chan,CPHYSADDR(PDMA_MSG_TCSMVA),
+			nand_dma->msg_phyaddr,sizeof(struct pdma_msg),flags);
 	if(nand_dma->desc == NULL) {
 		printk("Failed: nand mcu dma desc is NULL\n");
 		ret = -1;
 		goto err_desc;
 	}
 #ifdef MCU_TEST_INTER_NAND
- 	(*(unsigned long long *)MCU_TEST_DATA_NAND)++;
+	(*(unsigned long long *)MCU_TEST_DATA_NAND)++;
 #endif
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
-				printk("Error: mcu dma tran faild,mcu_steps(0x%x);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
-                dump_stack();
-          //      while(1);
+		printk("Error: nemc channel current state (0x%llx) \n",((unsigned long long *)MCU_TEST_DATA_NAND)[6]);
+		printk("Error: mcu dma tran faild,mcu_steps(0x%x);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
+		dump_stack();
+		while(1);
 	} else {
 		ret = mailbox_ret;
 		mailbox_ret = 0;
@@ -284,14 +299,14 @@ static int mcu_reset(const NAND_API *pnand_api)
 	nand_dma->msg->info[MSG_ECCBYTES] = __bch_cale_eccbytes(pt->eccbit);
 	nand_dma->msg->info[MSG_ECCSTEPS] = ppt->byteperpage / pnand_api->nand_ecc->eccsize ;
 	nand_dma->msg->info[MSG_ECCTOTAL] = __bch_cale_eccbytes(pt->eccbit)
-                                                * nand_dma->msg->info[MSG_ECCSTEPS];
+		* nand_dma->msg->info[MSG_ECCSTEPS];
 	nand_dma->msg->info[MSG_ECCPOS] = pnand_api->nand_ecc->eccpos;
 
 	return send_msg_to_mcu(pnand_api);
 }
 
 static int databuf_between_dmabuf(struct jznand_dma *nand_dma
-                        , int offset, int bytes, void *databuf,enum buf_direction direction)
+		, int offset, int bytes, void *databuf,enum buf_direction direction)
 {
 	int ret = 0;
 	unsigned long flag = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
@@ -308,14 +323,14 @@ static int databuf_between_dmabuf(struct jznand_dma *nand_dma
 	}
 
 	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(
-                                data_chan,dma_dest,dma_src,bytes,flag);
+			data_chan,dma_dest,dma_src,bytes,flag);
 	if(!(nand_dma->desc))
 		ret = -2;  // error memory
 	return ret;
 }
 
 static int read_page_singlenode(const NAND_API *pnand_api
-                        , int pageid, int offset, int bytes, void *databuf)
+		, int pageid, int offset, int bytes, void *databuf)
 {
 	int ret = 0,ret1 = 0,cs = 0;
 	int rw = NAND_DMA_READ;
@@ -348,19 +363,11 @@ static int read_page_singlenode(const NAND_API *pnand_api
 		if(phy_pageid != nand_dma->cache_phypageid){
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 			ret =send_msg_to_mcu(pnand_api);
-			if(ret == -4){
-#ifdef MCU_TEST_INTER_NAND
-				ret = mcu_reset(pnand_api);
-				if(ret == -4)
-					printk("***************ERROR:firmware is dead *****************\n");
-#endif
-				while(1);
-			}
 			if(ret && (ret != -6))
 				printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
-			//	goto read_page_singlenode_error1;
+				//	goto read_page_singlenode_error1;
 			}
 			nand_dma->cache_phypageid = phy_pageid;
 		}
@@ -373,14 +380,6 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	}else{
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
 		ret = send_msg_to_mcu(pnand_api);
-		if(ret == -4){
-#ifdef MCU_TEST_INTER_NAND
-			ret = mcu_reset(pnand_api);
-			if(ret == -4)
-				printk("***************ERROR:firmware is dead *****************\n");
-#endif
-			while(1);
-		}
 		if(ret && (ret != -6))
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if(ret != 0){
@@ -408,14 +407,14 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 	int ret = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
-        if(mcuresflag) {
+	if(mcuresflag) {
 #endif
-                ret = mcu_reset(pnand_api);
-                if(ret < 0)
-                goto nand_dma_read_page_error;
+		ret = mcu_reset(pnand_api);
+		if(ret < 0)
+			goto nand_dma_read_page_error;
 #ifdef MCU_ONCE_RESERT
-                mcuresflag = 0;
-        }
+		mcuresflag = 0;
+	}
 #endif
 	ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
@@ -441,6 +440,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	}
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
+		printk("bytes = %d offset = %d byteperpage = %d\n",bytes,offset,byteperpage);
 		goto write_page_singlenode_error1;
 	}
 	phy_pageid = get_physical_addr(pnand_api,pageid);
@@ -470,14 +470,6 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	b_time();
 #endif
 	ret = send_msg_to_mcu(pnand_api);
-	if(ret == -4){
-#ifdef MCU_TEST_INTER_NAND
-		ret = mcu_reset(pnand_api);
-		if(ret == -4)
-			printk("***************ERROR:firmware is dead *****************\n");
-#endif
-		while(1);
-	}
 	if(ret && (ret != -6))
 		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 #ifdef NAND_DMA_CALC_TIME
@@ -494,14 +486,14 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 	int ret = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
-        if(mcuresflag) {
+	if(mcuresflag) {
 #endif
-                ret = mcu_reset(pnand_api);
-                if(ret < 0)
-                        goto nand_dma_write_page_error;
+		ret = mcu_reset(pnand_api);
+		if(ret < 0)
+			goto nand_dma_write_page_error;
 #ifdef MCU_ONCE_RESERT
-                mcuresflag = 0;
-        }
+		mcuresflag = 0;
+	}
 #endif
 	ret = write_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 
@@ -537,33 +529,25 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 #endif
 	for(num = 0; num < temp; num++){
 		dma_sync_single_for_device(nand_dev
-                                , GET_PHYADDR(templist->pData)
-                                , templist->Bytes,DMA_TO_DEVICE);
+				, GET_PHYADDR(templist->pData)
+				, templist->Bytes,DMA_TO_DEVICE);
 		listhead = (templist->head).next;
 		templist = singlelist_entry(listhead,PageList,head);
 	}
 	if(phy_pageid != nand_dma->cache_phypageid){
 		set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
-		if(ret == -4){
-#ifdef MCU_TEST_INTER_NAND
-			ret = mcu_reset(pnand_api);
-			if(ret == -4)
-				printk("***************ERROR:firmware is dead *****************\n");
-#endif
-			while(1);
-		}
 #ifdef NAND_DMA_CALC_TIME
-	e_time();
-	dprintf("  %s  %d\n",__func__,__LINE__);
-	b_time();
+		e_time();
+		dprintf("  %s  %d\n",__func__,__LINE__);
+		b_time();
 #endif
 		if(ret && (ret != -6))
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
-		//	num = temp;
-		 // 	goto read_page_node_error1;
+			//	num = temp;
+			// 	goto read_page_node_error1;
 		}
 		nand_dma->cache_phypageid = phy_pageid;
 	}
@@ -600,25 +584,25 @@ read_page_node_error1:
 		templist = pagelist;
 		while (num--) {
 			if(templist->retVal >= 0){
-			switch (ret) {
-				case 0:
-					templist->retVal = templist->Bytes;
+				switch (ret) {
+					case 0:
+						templist->retVal = templist->Bytes;
 #ifndef NO_MEMSET
-					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
-							templist->Bytes, DMA_FROM_DEVICE);
+						dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+								templist->Bytes, DMA_FROM_DEVICE);
 #endif
-					break;
-				case 1:
-					templist->retVal = templist->Bytes | (1<<16);
+						break;
+					case 1:
+						templist->retVal = templist->Bytes | (1<<16);
 #ifndef NO_MEMSET
-					dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
-							templist->Bytes, DMA_FROM_DEVICE);
+						dma_sync_single_for_device(nand_dev, GET_PHYADDR(templist->pData),
+								templist->Bytes, DMA_FROM_DEVICE);
 #endif
-					break;
-				default:
-					templist->retVal = ret;
-					break;
-			}
+						break;
+					default:
+						templist->retVal = ret;
+						break;
+				}
 			}
 			listhead = (templist->head).next;
 			templist = singlelist_entry(listhead,PageList,head);
@@ -636,14 +620,14 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	int ret = 0,flag = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
-        if(mcuresflag) {
+	if(mcuresflag) {
 #endif
-                ret = mcu_reset(pnand_api);
-                if(ret < 0)
-                        goto dma_read_pages_error1;
+		ret = mcu_reset(pnand_api);
+		if(ret < 0)
+			goto dma_read_pages_error1;
 #ifdef MCU_ONCE_RESERT
-                mcuresflag = 0;
-        }
+		mcuresflag = 0;
+	}
 #endif
 	while(alignelist != NULL) {
 		opsmodel = alignelist->opsmodel & 0x00ffffff;
@@ -667,10 +651,10 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		}
 		if(ret && (flag >=0)){
 			flag = ret;
-//			break;
+			//			break;
 		}
-//		if(ret == 1)
-//			flag = 1;
+		//		if(ret == 1)
+		//			flag = 1;
 		alignelist = alignelist->next;
 	}
 	if(flag)
@@ -708,11 +692,12 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage) {
 			ret =-1;
 			templist->retVal = ret;
+			printk("aaa bytes = %d offset = %d byteperpage = %d\n",templist->Bytes,templist->OffsetBytes,byteperpage);
 			break;
 		}
 		dma_sync_single_for_device(nand_dev
-                                        , GET_PHYADDR(templist->pData)
-                                        , templist->Bytes, DMA_TO_DEVICE);
+				, GET_PHYADDR(templist->pData)
+				, templist->Bytes, DMA_TO_DEVICE);
 		ret=databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
 				templist->pData, DMA_TO_MBUF);
 		if (ret) {
@@ -729,14 +714,6 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 			goto write_multinode_error1;
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
-		if(ret == -4){
-#ifdef MCU_TEST_INTER_NAND
-			ret = mcu_reset(pnand_api);
-			if(ret == -4)
-				printk("***************ERROR:firmware is dead *****************\n");
-#endif
-			while(1);
-		}
 		if(ret && (ret != -6))
 			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 write_multinode_error1:
@@ -778,14 +755,14 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	int ret = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
-        if(mcuresflag) {
+	if(mcuresflag) {
 #endif
-                ret = mcu_reset(pnand_api);
-                if(ret < 0)
-                        goto dma_write_pages_error1;
+		ret = mcu_reset(pnand_api);
+		if(ret < 0)
+			goto dma_write_pages_error1;
 #ifdef MCU_ONCE_RESERT
-                mcuresflag = 0;
-        }
+		mcuresflag = 0;
+	}
 #endif
 	while(alignelist != NULL) {
 		opsmodel = alignelist->opsmodel & 0x00ffffff;
