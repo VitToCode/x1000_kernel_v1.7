@@ -37,7 +37,7 @@ static inline void dump_id(volatile unsigned char *nand_id)
 static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnand_api)
 {
 	int ret=0;
-	volatile unsigned char nand_id[6] = {0};
+	unsigned char nand_id[6] = {0};
 	NAND_FLASH_DEV *pnand_type;
 	NAND_CTRL *pnand_ctrl = pnand_api->nand_ctrl;
 	JZ_IO *pnand_io = pnand_api->nand_io;
@@ -50,11 +50,11 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 		return 0;
 
 	/* read nand id */
-	nand_get_id(&nand_id[0]);
+	nand_get_id(nand_id);
 	dump_id(&nand_id[0]);
 
 	/*get nand info from nand type info table in nand_ids.c*/
-	pnand_type = nand_scan_table(&nand_id[0]);
+	pnand_type = nand_scan_table(nand_id);
 #ifdef CONFIG_HW_BCH
         dprintf("nand hardware bch\n");
 #endif	

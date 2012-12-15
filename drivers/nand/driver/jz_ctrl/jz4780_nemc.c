@@ -69,8 +69,10 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 {
 	JZ_IO *p_io = (JZ_IO *)pnand_io;
 	unsigned int ret =0, i=NEMC_CS_COUNT;
+#ifdef JZNAND_DRIVE_DEBUG
 	int clk =clk_get_rate(host->nemc_gate);
 	int bchclk =clk_get_rate(host->bch_clk);
+#endif
 	if(p_io == 0)
                 dprintf("error addr!p_io is 0x%x\n",(unsigned int)p_io);
 /*      gpio init          */
