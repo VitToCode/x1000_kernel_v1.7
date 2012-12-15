@@ -598,11 +598,11 @@ static void mg8698s_ts_resume(struct early_suspend *handler)
 	struct mg8698s_ts_data *ts = container_of(handler, struct mg8698s_ts_data,
 						early_suspend);
 
-	mg8698s_ts_reset(ts);
-	ts->is_suspend = 0;
 	mg8698s_ts_power_on(ts);
+	mg8698s_ts_reset(ts);
 
 	enable_irq(ts->client->irq);
+	ts->is_suspend = 0;
 }
 #endif
 
