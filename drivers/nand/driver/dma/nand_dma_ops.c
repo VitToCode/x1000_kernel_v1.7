@@ -324,8 +324,10 @@ static int databuf_between_dmabuf(struct jznand_dma *nand_dma
 
 	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(
 			data_chan,dma_dest,dma_src,bytes,flag);
-	if(!(nand_dma->desc))
+	if(!(nand_dma->desc)){
+		printk("ERROR: %s nand_dma desc is NULL\n",__func__);
 		ret = -2;  // error memory
+	}
 	return ret;
 }
 
@@ -410,8 +412,10 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 	if(mcuresflag) {
 #endif
 		ret = mcu_reset(pnand_api);
-		if(ret < 0)
+		if(ret < 0){
+			printk("%s mcu_reset is error \n",__func__);
 			goto nand_dma_read_page_error;
+		}
 #ifdef MCU_ONCE_RESERT
 		mcuresflag = 0;
 	}
@@ -455,11 +459,15 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 		dma_sync_single_for_device(nand_dev,CPHYSADDR(nand_dma->data_buf),byteperpage, DMA_TO_DEVICE);
 #endif
 		ret = databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_TO_MBUF);
-		if(ret<0)
+		if(ret<0){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto write_page_singlenode_error1;
+		}
 		ret = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
-		if(ret<0)
+		if(ret<0){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto write_page_singlenode_error1;
+		}
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,nand_dma->data_buf);
 	}else{
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,databuf);
@@ -489,8 +497,10 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 	if(mcuresflag) {
 #endif
 		ret = mcu_reset(pnand_api);
-		if(ret < 0)
+		if(ret < 0){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto nand_dma_write_page_error;
+		}
 #ifdef MCU_ONCE_RESERT
 		mcuresflag = 0;
 	}
@@ -623,8 +633,10 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 	if(mcuresflag) {
 #endif
 		ret = mcu_reset(pnand_api);
-		if(ret < 0)
+		if(ret < 0){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto dma_read_pages_error1;
+		}
 #ifdef MCU_ONCE_RESERT
 		mcuresflag = 0;
 	}
@@ -710,8 +722,10 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	}
 	if (num > 0) {
 		ret = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
-		if(ret)
+		if(ret){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto write_multinode_error1;
+		}
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
 		if(ret && (ret != -6))
@@ -758,8 +772,10 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 	if(mcuresflag) {
 #endif
 		ret = mcu_reset(pnand_api);
-		if(ret < 0)
+		if(ret < 0){
+			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
 			goto dma_write_pages_error1;
+		}
 #ifdef MCU_ONCE_RESERT
 		mcuresflag = 0;
 	}
