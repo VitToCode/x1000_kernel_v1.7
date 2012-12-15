@@ -260,7 +260,10 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	if (!mg)
 		return -ENOMEM;
 
+	mg->client = client;
+	i2c_set_clientdata(client, mg);
 	mg->pdata = pdata;
+
 	mg->power = regulator_get(&client->dev, "vtsc");
 	if (IS_ERR(mg->power)) {
 		err = -EIO;
