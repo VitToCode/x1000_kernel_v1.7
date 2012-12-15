@@ -36,7 +36,7 @@ struct pwm_device *pwm_request(int id, const char *label)
 	pwm_chs[id].label = label;
 	tcu_pwm->pwm_flag = 1;
 	tcu_pwm->irq_type = NULL_IRQ_MODE;
-	tcu_pwm->init_level = 1;
+	tcu_pwm->init_level = 0;
 	printk("request pwm channel %d successfully\n", id);
 	return &pwm_chs[id];
 }
@@ -79,7 +79,7 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	if (duty >= period)
 		duty = period - 1;
 	tcu_pwm->full_num = period;
-	tcu_pwm->half_num = duty;
+	tcu_pwm->half_num = (period - duty);
 	tcu_pwm->divi_ratio = prescaler;
 	tcu_pwm->clock = EXT_EN;
 	tcu_pwm->count_value = 0;
