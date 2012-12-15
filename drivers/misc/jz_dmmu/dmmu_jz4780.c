@@ -83,7 +83,7 @@ struct dmmu_global_data {
 	
 	unsigned int base;  /* physical start address of the remaped dmmu space */	
 	unsigned char __iomem *vbase;  /* vitual start address of the remaped dmmu space */	
-	unsigned int size;  /* total size of the dmmu space */	
+	unsigned int size;  /* total size of the dmmu space */
 	unsigned int dummy_base;  /* dummy_base point to a 4k area used to fix a bug of X2D */
 
 	unsigned int page_table_pool_init_capacity;  /* init capacity */
@@ -99,7 +99,7 @@ static struct dmmu_global_data jz_dmmu;
 static int dmmu_alloc_page_table(struct proc_page_tab_data *table);
 static int dmmu_free_page_table(struct proc_page_tab_data *table);
 //static int table_free_buffer_heap_list(struct proc_page_tab_data *table);
-static int check_pid(struct proc_page_tab_data *table);
+//static int check_pid(struct proc_page_tab_data *table);
 
 static int dmmu_release(struct inode *, struct file *);
 static int dmmu_open(struct inode *, struct file *);
@@ -263,7 +263,7 @@ static void free_dup_pages(struct list_head *head, int *p_tlb)
 			if (!dup_page->count) {
 				dev_dbg(jz_dmmu.dev, "%s %d\n",__func__,__LINE__);
 				*p_tlb = jz_dmmu.dummy_base;
-				list_del(pos);
+				list_del_init(pos);
 			}
 			break;
 		}
@@ -293,13 +293,10 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
 		p_tlb = (int *)(proc->vbase + tlb_pos);
 
         /* find && release possible dup pages */
-		if (i == 0 || i == page_num-1) {
+		if (i == 0 || i == page_num-1)
 			free_dup_pages(head, p_tlb);
-		}
-	
-		if ((i != 0) || (i != (page_num-1))) {
-			*p_tlb = jz_dmmu.dummy_base;
-		}
+		else
+  			*p_tlb = jz_dmmu.dummy_base;
 		tlb_pos += 4;
 	}
 	
@@ -310,14 +307,6 @@ static int dmmu_release(struct inode *inode, struct file *file)
 {
 	struct proc_page_tab_data *table = (struct proc_page_tab_data *)file->private_data;
 	int ret = 0;
-
-	/* check pid */
-	if (table->table_flag != VIDEO_TABLE_FLAGE) {
-		if (check_pid(table) != 0) {
-			dev_err(jz_dmmu.dev, "check_pid failed!\n");
-			return -EFAULT;
-		}
-	}
 
 	/* release page table space */
 	dmmu_free_page_table(table);
@@ -373,6 +362,7 @@ static int dmmu_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
+#if 0
 static int check_pid(struct proc_page_tab_data *table)
 {
 	if (table == NULL) {
@@ -380,7 +370,7 @@ static int check_pid(struct proc_page_tab_data *table)
 		return -EFAULT;
 	}
 
-	dev_dbg(jz_dmmu.dev, "table->pid=%d, current->pid=%d, current->tgid=%d\n", 
+	dev_dbg(jz_dmmu.dev, "table->pid=%d, current->pid=%d, current->tgid=%d\n",
 		 table->pid, current->pid, current->tgid);
 
 	if (table->pid == current->tgid) {
@@ -392,6 +382,7 @@ static int check_pid(struct proc_page_tab_data *table)
 
 	return -EFAULT;
 }
+#endif
 
 static int dmmu_alloc_page_table(struct proc_page_tab_data *table)
 {
@@ -526,12 +517,32 @@ static int dmmu_get_page_table_base_phys(struct proc_page_tab_data *table, unsig
 	return 0;
 }
 
+static int is_addr_mapped(struct dmmu_mem_info *mem, struct list_head *head)
+{
+	int mapped = 0;
+	struct list_head *pos = NULL;
+	struct buffer_heap_info *buffer_map = NULL;
+
+	list_for_each(pos, head) {
+		buffer_map = list_entry(pos, struct buffer_heap_info, list);
+		if (buffer_map) {
+			if ((buffer_map->vaddr == mem->vaddr) && (buffer_map->page_count >= mem->page_count)) {
+				mapped = 1;
+				break;
+			}
+		}
+	}
+
+	return mapped;
+}
+
 static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_info *mem)
 {
-	int page_count;
+	int ret = 0;
+	int page_count = 0;
 	void *page_base, *tmp_page_base;
-	struct list_head *head;
-	struct buffer_heap_info *buffer;
+	struct list_head *head = NULL;
+	struct buffer_heap_info *buffer = NULL;
 
 	if (table == NULL || mem == NULL) {
 		dev_err(jz_dmmu.dev, "table is NULL or mem is NULL!\n");
@@ -539,34 +550,45 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	}
 
 	mutex_lock(&jz_dmmu.map_lock);
+	head = &table->buffer_heap_list;
+
 	page_count = mem->page_count;
 	page_base = kzalloc(page_count * sizeof(int), GFP_KERNEL);
 	dev_dbg(jz_dmmu.dev, "<-----page_base: %p\n", page_base);
 	if (page_base == NULL) {
 		dev_err(jz_dmmu.dev, "kzalloc page_base failed");
+		mutex_unlock(&jz_dmmu.map_lock);
 		return -EFAULT;
 	}
-	head = &table->buffer_heap_list;
 	tmp_page_base = page_base;
 
 	/* set mem pages to page table */
-	fill_tlb_address(page_base, mem, table);
-
-	/* create buffer_heap_info, added to buffer_heap_list */
-	buffer = (struct buffer_heap_info *)kzalloc(sizeof(struct buffer_heap_info), GFP_KERNEL);
-	if (buffer == NULL) {
-		dev_err(jz_dmmu.dev, "kzalloc buffer_heap_info failed!\n");
+	if ((ret = fill_tlb_address(page_base, mem, table)) < 0) {
+		dev_err(jz_dmmu.dev, "fill_tlb_address failed!!!");
+		mutex_unlock(&jz_dmmu.map_lock);
 		return -EFAULT;
 	}
 
-	buffer->vaddr = mem->vaddr;
-	buffer->size = mem->size;
-	buffer->page_count = mem->page_count;
-	buffer->pages_phys_table = tmp_page_base;
-	buffer->start_offset = mem->start_offset;
-	buffer->end_offset = mem->end_offset;
+	if (!(ret = is_addr_mapped(mem, head))) {
+		/* create buffer_heap_info, added to buffer_heap_list */
+		buffer = (struct buffer_heap_info *)kzalloc(sizeof(struct buffer_heap_info), GFP_KERNEL);
+		if (buffer == NULL) {
+			dev_err(jz_dmmu.dev, "kzalloc buffer_heap_info failed!\n");
+			mutex_unlock(&jz_dmmu.map_lock);
+			return -EFAULT;
+		}
 
-	list_add_tail(&(buffer->list), head);
+		buffer->vaddr = mem->vaddr;
+		buffer->size = mem->size;
+		buffer->page_count = mem->page_count;
+		buffer->pages_phys_table = tmp_page_base;
+		buffer->start_offset = mem->start_offset;
+		buffer->end_offset = mem->end_offset;
+
+		list_add_tail(&(buffer->list), head);
+	} else {
+		kfree(page_base);
+	}
 	mutex_unlock(&jz_dmmu.map_lock);
 
 	return 0;
@@ -587,15 +609,19 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 	mutex_lock(&jz_dmmu.map_lock);
 	free_tlb_address(mem, table);
 
-	/* delete possible duplictate pages */
+	/* delete buffer_heap_list */
 	list_for_each(pos, head) {
 		buffer = list_entry(pos, struct buffer_heap_info, list);
-		if (buffer->vaddr == mem->vaddr) {
-			kfree(buffer->pages_phys_table);
-			list_del(pos);
-			break;
+		if (buffer) {
+			if (buffer->vaddr == mem->vaddr) {
+				kfree(buffer->pages_phys_table);
+				list_del_init(pos);
+				kfree(buffer);
+				break;
+			}
 		}
 	}
+
 	mutex_unlock(&jz_dmmu.map_lock);
 
 	return 0;
@@ -606,11 +632,10 @@ static int get_user_mem_pages_phys_addr_table(struct proc_page_tab_data *table, 
 	void *vaddr;
 	unsigned int page_num, tlb_pos;
 	unsigned int *p_tlb;
-	printk("*********** get_user_mem_pages_phys_addr_table (**************\n");
+	dev_dbg(jz_dmmu.dev, "*********** get_user_mem_pages_phys_addr_table (**************\n");
 	if ( mem->pages_phys_addr_table == NULL )
 		return -EINVAL;
 
-	printk("table->vbase=%p, mem->vaddr=%p, mem->size=%d\n", table->vbase, mem->vaddr, mem->size);
 	/* aligned vaddr */
 	vaddr = (void *)(((unsigned int)mem->vaddr >> PAGE_SHIFT) << PAGE_SHIFT);
 	page_num = ((mem->vaddr - vaddr) + mem->size + PAGE_SIZE - 1) >> PAGE_SHIFT;
@@ -618,11 +643,8 @@ static int get_user_mem_pages_phys_addr_table(struct proc_page_tab_data *table, 
 
 	p_tlb = (unsigned int *)(table->vbase + tlb_pos);
 
-	printk("p_tlb=%p, tlb_pos=%d, vaddr=%p, page_num=%d\n", p_tlb, tlb_pos, vaddr, page_num);
-	if ( page_num > mem->page_count ) {
-		printk("**** page_num=%d > mem->page_count=%d\n", page_num,  mem->page_count);
+	if (page_num > mem->page_count)
 		page_num = mem->page_count;
-	}
 
 	if (copy_to_user(mem->pages_phys_addr_table, p_tlb, 
 					 page_num*sizeof(int))) {
@@ -632,9 +654,9 @@ static int get_user_mem_pages_phys_addr_table(struct proc_page_tab_data *table, 
 
 	/* dump phys table */
 	{
-		printk("dump phys table, p_tlb=%p, page_num=%d\n", p_tlb, page_num);
+		dev_info(jz_dmmu.dev, "dump phys table, p_tlb=%p, page_num=%d\n", p_tlb, page_num);
 		while (page_num--) {
-			printk("%08X\n", *p_tlb++);
+			dev_info(jz_dmmu.dev, "%08X\n", *p_tlb++);
 		}
 	}
 
@@ -655,12 +677,6 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	struct dmmu_mem_info mem;
 	struct proc_page_tab_data *table = (struct proc_page_tab_data *)file->private_data;
-
-	/* check pid */
-	if (check_pid(table)) {
-		dev_err(jz_dmmu.dev, "check_pid error!\n");
-		return -EFAULT;
-	}
 
 	if (_IOC_TYPE(cmd) != DMMU_IOCTL_MAGIC) {
 		dev_err(jz_dmmu.dev, "invalid cmd!\n");
@@ -712,9 +728,6 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 		}
 
-		printk("%s %d\n",__func__,__LINE__);
-		printk("%s %d   mem.pages_phys_addr_table=%p, buffer->pages_phys_table=%p, buffer->page_count=%d\n",__func__,__LINE__, mem.pages_phys_addr_table, buffer->pages_phys_table, buffer->page_count);
-
 		get_user_mem_pages_phys_addr_table(table, &mem);
 		return 0;
 
@@ -746,7 +759,7 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&flag, argp, sizeof(int))) {
 				dev_err(jz_dmmu.dev, "copy_from_user failed!\n");
 				return -EFAULT;
-			}
+		}
 		table->table_flag = flag;
 		break;
 	default:
