@@ -309,6 +309,7 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+3)) = 0;
 				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+4)) = 0;
 				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+5)) = 0;
+				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+6)) = 0;
 #endif
 	return 0;
 }
