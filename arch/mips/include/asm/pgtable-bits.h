@@ -32,7 +32,7 @@
  * unpredictable things.  The code (when it is written) to deal with
  * this problem will be in the update_mmu_cache() code for the r4k.
  */
-#if defined(CONFIG_SOC_4780) && defined(CONFIG_CPU_MIPS32)
+#if defined(CONFIG_JZRISC_PEP) && defined(CONFIG_CPU_MIPS32)
 #define _PAGE_PRESENT		(1 << 0)
 #define _PAGE_READ 		(1 << 1)
 #define _PAGE_WRITE		(1 << 2)
@@ -188,7 +188,7 @@ static inline uint64_t pte_to_entrylo(unsigned long pte_val)
 			((pte_val & (_PAGE_NO_EXEC | _PAGE_NO_READ)) << sa);
 	}
 
-#if defined(CONFIG_SOC_4780) && defined(CONFIG_CPU_MIPS32)
+#if defined(CONFIG_JZRISC_PEP) && defined(CONFIG_CPU_MIPS32)
 	if(pte_val & _PAGE_NO_EXEC)
 		return (pte_val >> _PAGE_GLOBAL_SHIFT) | (0x1 << 31);
 #endif
