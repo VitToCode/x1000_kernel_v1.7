@@ -565,6 +565,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	/* set mem pages to page table */
 	if ((ret = fill_tlb_address(page_base, mem, table)) < 0) {
 		dev_err(jz_dmmu.dev, "fill_tlb_address failed!!!");
+		kfree(page_base);
 		mutex_unlock(&jz_dmmu.map_lock);
 		return -EFAULT;
 	}
