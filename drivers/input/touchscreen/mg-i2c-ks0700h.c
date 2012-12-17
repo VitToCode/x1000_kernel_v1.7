@@ -122,9 +122,6 @@ static void mg_suspend(struct early_suspend *h)
 	if (!mg->pdata->wakeup)
 		disable_irq_nosync(mg->irq);
 
-	if (mg->pdata->wakeup)
-		enable_irq_wake(mg->irq);
-
 	if (work_pending(&mg->work))
 		cancel_work_sync(&mg->work);
 
@@ -142,9 +139,6 @@ static void mg_resume(struct early_suspend *h)
 		regulator_enable(mg->power);
 		mdelay(100);
 	}
-
-	if (mg->pdata->wakeup)
-		disable_irq_wake(mg->irq);
 
 	if (!mg->pdata->wakeup)
 		enable_irq(mg->irq);
@@ -432,15 +426,14 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 #endif
 
 	mg->irq = gpio_to_irq(mg->ss);
-	err = request_irq(mg->irq, mg_irq, IRQF_TRIGGER_FALLING | IRQF_DISABLED,
-			MG_DRIVER_NAME, mg);
+	err = request_irq(mg->irq, mg_irq, IRQF_TRIGGER_FALLING, MG_DRIVER_NAME, mg);
 	if (err) {
 		dev_err(&mg->client->dev, "Failed to request irq.\n");
 		goto err_destroy_workqueue;
 	}
 
 	if (pdata->wakeup)
-		device_init_wakeup(&mg->dig_dev->dev, true);
+		enable_irq_wake(mg->irq);
 
 	return 0;
 
