@@ -287,7 +287,8 @@ int L2PConvert_ZMOpen(VNandInfo *vnand, PPartition *pt)
 	}
 */
 #ifndef NO_ERROR
-	Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
+	if(strcmp(pt->name,"ndsystem"))
+		Task_RegistMessageHandle(conptr->thandle, Idle_Handler, IDLE_MSG_ID);
 #endif
 #ifdef L2P_PAGEINFO_DEBUG
 	l2p->debug = Init_L2p_Debug((int)conptr);

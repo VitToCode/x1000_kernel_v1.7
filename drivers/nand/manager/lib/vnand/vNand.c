@@ -193,6 +193,10 @@ int __vNand_MultiPageWrite (VNandInfo* vNand,PageList* pl ){
 	Get_StartTime(vNand->timebyte,1);
 #endif
 	ret = VN_OPERATOR(MultiPageWrite,vNand->prData,alig_pl);
+#if 1
+	if(ISERROR(ret))
+		dump_pagelist(alig_pl);
+#endif
 #ifdef STATISTICS_DEBUG
 	Calc_Speed(vNand->timebyte, (void*)pl, 1, 0);
 #endif

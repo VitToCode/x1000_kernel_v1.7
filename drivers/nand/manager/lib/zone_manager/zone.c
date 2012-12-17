@@ -315,7 +315,7 @@ static int check_pagelist_error(PageList *pl)
 	struct singlelist *sg = NULL;
 	do{
 		if(pl->retVal < 0){
-			ndprint(ZONE_ERROR,"ERROR: FUNCTION: %s   LINE: %d pl->retVal= %d\n",__func__,__LINE__,pl->retVal);
+			ndprint(ZONE_ERROR,"ERROR: FUNCTION: %s   LINE: %d pl->retVal= %d pageid= %d OffsetBytes=%d Bytes=%d\n",__func__,__LINE__,pl->retVal,pl->startPageID,pl->OffsetBytes,pl->Bytes);
 			return pl->retVal;
 		}
 
