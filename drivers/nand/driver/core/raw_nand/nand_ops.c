@@ -12,6 +12,7 @@
 #include "ppartition.h"
 #include <mach/jznand.h>
 #include "jz4780_nand_def.h"
+#include <linux/delay.h>
 #define OLD 0
 
 #define WRITE 0
@@ -297,13 +298,19 @@ int send_read_status(unsigned char *status)
  * send_get_nand_id
  * @nand_id: a buffer to save nand id, at least 5 bytes size
  */
+#define NAND_READID_NORB
 static inline void send_get_nand_id(char *nand_id)
 {
 	g_pnand_io->send_cmd_norb(CMD_READID);
 	g_pnand_io->send_addr(-1, 0x00, 1);
 
 	/* Read manufacturer and device IDs */
+#ifdef NAND_READID_NORB
+	g_pnand_io->read_data_norb(&nand_id[0], 5);
+	msleep(10);
+#else
 	g_pnand_io->read_data_withrb(&nand_id[0], 5);
+#endif
 }
 
 void nand_get_id(char *nand_id)
