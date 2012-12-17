@@ -316,7 +316,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static unsigned int rate,volt;
+static unsigned int rate;
 int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 {
 	if(cpu_clk) {
@@ -324,14 +324,6 @@ int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 		clk_set_rate(cpu_clk,MIN_FREQ * 1000);
 	}
 	
-	if (cpu_regulator) {
-		volt = regulator_get_voltage(cpu_regulator);
-		if(regulator_set_voltage(cpu_regulator,MIN_VOLT,MIN_VOLT)) {
-			printk("cpufreq suspend failed.\n");
-			return -1;
-		}
-	}
-
 	return 0;
 }
 
@@ -339,13 +331,6 @@ int jz4780_cpu_resume(struct cpufreq_policy *policy)
 {
 	if(cpu_clk) {
 		clk_set_rate(cpu_clk,rate);
-	}
-
-	if (cpu_regulator) {
-		if(regulator_set_voltage(cpu_regulator,volt,volt)) {
-			printk("cpufreq resume failed.\n");
-			return -1;
-		}
 	}
 
 	return 0;
