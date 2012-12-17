@@ -84,7 +84,7 @@ static uint32_t start_ae(struct i2c_client *client)
 {
 	uint32_t Reg0x3013;
 	Reg0x3013 = ov2650_read_reg(client,0x3013);
-	Reg0x3013 = Reg0x3013 & 0x05;
+	Reg0x3013 = Reg0x3013 | 0x05;
 	ov2650_write_reg(client,0x3013,Reg0x3013);
 	return 0;
 }
@@ -287,7 +287,7 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 	Capture_dummy_pixel = 0;
 	Capture_dummy_line = 0;
 	Preview_PCLK_Frequency = 18;
-	Capture_PCLK_Frequency = 36;
+	Capture_PCLK_Frequency = 18;
     
 	Preview_Line_width = Default_SVGA_Line_Width + Preview_dummy_pixel ;
 	Capture_Line_Width = Default_UXGA_Line_Width + Capture_dummy_pixel;
@@ -403,22 +403,22 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 	dev_info(&client->dev, "gain : %x\n",Gain);
 
     Gain = 0x0;
-	if (Capture_Gain > 16) 
+	if (Capture_Gain > 31) 
 	{ 
 		Capture_Gain = Capture_Gain /2; 
 		Gain = 0x10; 
 	} 
-	if (Capture_Gain > 16) 
+	if (Capture_Gain > 31) 
 	{ 
 		Capture_Gain = Capture_Gain /2; 
 		Gain = Gain| 0x20; 
 	} 
-	if (Capture_Gain > 16) 
+	if (Capture_Gain > 31) 
 	{ 
 		Capture_Gain = Capture_Gain /2; 
 		Gain = Gain | 0x40; 
 	} 
-	if (Capture_Gain > 16) 
+	if (Capture_Gain > 31) 
 	{ 
 		Capture_Gain = Capture_Gain /2; 
 		Gain = Gain | 0x80; 
