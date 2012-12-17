@@ -346,6 +346,12 @@ static int __init i88_board_init(void)
 	jz_device_register(&jz_adc_device, &i88_battery_pdata);
 #endif
 
+/*bcm4330 bt*/
+#ifdef CONFIG_BCM4330_RFKILL
+	platform_device_register(&bcm4330_bt_power_device);
+#endif
+
+
 /* ac charger */
 	platform_device_register(&i88_ac_charger_device);
 /* li-ion charger */
