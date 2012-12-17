@@ -7,3 +7,4 @@ obj-$(CONFIG_MMC_JZ4780)	+= i88-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += i88-sound.o
 obj-$(CONFIG_NAND_JZ4780)	+= i88-nand.o
 obj-$(CONFIG_JZ_MODEM)		+= i88-modem.o
+obj-$(CONFIG_BCM4330_RFKILL)    += i88-bt.o
