@@ -187,8 +187,9 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.yres = 480,
 		.pixclock = KHZ2PICOS(33300),
 #ifdef CONFIG_Q8
+
 		.left_margin = 0,
-		.right_margin = 128,
+		.right_margin = 118, //128
 		.upper_margin = 20,
 		.lower_margin = 0,
 		.hsync_len = 40,
@@ -346,16 +347,16 @@ static void ji8070a_backlight_exit(struct device *dev)
 static int bk_notify(struct device *dev, int brightness)
 {
 #ifndef CONFIG_Q8 
-        if (!bk_is_on) {
-            return 0;
-        }
+        if (!bk_is_on)
+		return 0;
 #endif
-    return brightness;
+	brightness = 35 + (brightness * 7)/10;
+	return brightness ;
 }
 
 static struct platform_pwm_backlight_data ji8070a_backlight_data = {
 	.pwm_id		= 0,
-	.max_brightness	= 255,
+	.max_brightness	= 255,//255
 	.dft_brightness	= 80,
 #ifdef CONFIG_Q8
 	.pwm_period_ns	= 1000000,/* 1 KHz */
