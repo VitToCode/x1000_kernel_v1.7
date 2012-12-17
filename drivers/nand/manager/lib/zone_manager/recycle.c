@@ -924,7 +924,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		tmp1 = tmp0;
 		k = 1;
 		n++;
-		for(i = (tmp0 % spp) + 1;i < spp;i++) {
+		for(i = 1;i < spp;i++) {
 			if(record_writeaddr[n] == -1) break;
 			if(++tmp0 != record_writeaddr[n]) break;
 			if(tmp0 % spp == 0) break;
