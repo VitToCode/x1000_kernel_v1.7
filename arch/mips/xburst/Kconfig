@@ -81,3 +81,6 @@ config JZRISC_PEP
 	bool "enable page execution protection"
 	default y
 
+config ARM_ELF_SUPPORT
+	bool "disable arm elf check for mips platform - magic code support depend on this"
+	default y
