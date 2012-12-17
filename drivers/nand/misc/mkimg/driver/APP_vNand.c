@@ -114,6 +114,7 @@ static int em_vNand_MultiPageRead (void *pt,PageList* pl ){
 	struct vNand2K *p = (struct vNand2K *)PPARTITION(pt)->prData;
 	int startblock = PPARTITION(pt)->startblockID;
 	struct singlelist *sg;
+        int ret = 0;
    	do{
 		if(pl->startPageID == -1)
 			return -1;
@@ -123,7 +124,7 @@ static int em_vNand_MultiPageRead (void *pt,PageList* pl ){
 		{
 			perror("error::");
 			pl->retVal = -6;
-			return -6;
+			ret = -6;
 		}	
 		sg = (pl->head).next;
 		if(sg == NULL)
@@ -131,7 +132,7 @@ static int em_vNand_MultiPageRead (void *pt,PageList* pl ){
 
 		pl = singlelist_entry(sg,PageList,head);
 	}while(pl);
-	return 0;
+	return ret;
 }
 
 static int em_vNand_MultiPageWrite (void *pt,PageList* pl ){

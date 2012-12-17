@@ -17,9 +17,10 @@
 #include <linux/genhd.h>
 #include <linux/hdreg.h>
 #include <linux/suspend.h>
+#include <linux/vmalloc.h>
 
-#include "nandmanagerinterface.h"
-
+#include "nm_interface.h"
+#include "nand_block.h"
 /* debug switchs */
 //#define DEBUG_TIME_WRITE
 //#define DEBUG_TIME_READ
@@ -34,7 +35,7 @@
 
 struct __partition_info {
 	int context;
-	LPartition *pt;
+	NM_lpt *lpt;
 };
 
 struct __nand_disk {
@@ -58,7 +59,7 @@ struct __nand_disk {
 struct __nand_block {
 	char *name;
 	int major;
-	int pm_handler;
+	int nm_handler;
 	struct notifier_block pm_notify;
 	struct singlelist disk_list;
 };
@@ -253,6 +254,10 @@ static struct __nand_disk * get_ndisk_form_queue(const struct request_queue *q)
 	return NULL;
 }
 
+/**
+ * @name: must point to the string
+ *  which ndisk->pinfo->pt->name pointed,
+ **/
 static struct __nand_disk * get_ndisk_by_name(const char *name)
 {
 	struct singlelist *plist = NULL;
@@ -262,7 +267,9 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
 
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
-		if (ndisk->pinfo->pt->name == name)
+		/* here, wo don't use strcmp, so here the to pointer must
+		 point to the same string in memory */
+		if (ndisk->pinfo->lpt->pt->name == name)
 			return ndisk;
 	}
 	return NULL;
@@ -384,16 +391,16 @@ static int handle_req_thread(void *data)
 			/* nandmanager read || write */
 			if (rq_data_dir(req) == READ) {
 				begin_time(READ);
-				ret = NandManger_read(ndisk->pinfo->context, ndisk->sl);
+				ret = NM_ptRead(ndisk->pinfo->context, ndisk->sl);
 				end_time(READ);
 			} else {
 				begin_time(WRITE);
-				ret = NandManger_write(ndisk->pinfo->context, ndisk->sl);
+				ret = NM_ptWrite(ndisk->pinfo->context, ndisk->sl);
 				end_time(WRITE);
 			}
 
 			if (ret < 0) {
-				printk("NandManger_read/write error!\n");
+				printk("NM_read/write error!\n");
 				break;
 			}
 
@@ -563,10 +570,11 @@ static int nand_block_probe(struct device *dev)
 	static unsigned int cur_minor = 0;
 	struct __nand_disk *ndisk = NULL;
 	struct __partition_info *pinfo = (struct __partition_info *)dev->platform_data;
+	NM_lpt *lpt = pinfo ? pinfo->lpt : NULL;
 
 	DBG_FUNC();
 
-	if (!pinfo || !pinfo->pt) {
+	if (!pinfo || !lpt) {
 		printk("ERROR(nand block): can not get partition info!\n");
 		return -EFAULT;
 	}
@@ -600,15 +608,15 @@ static int nand_block_probe(struct device *dev)
 	ndisk->sl_len = 0;
 	ndisk->dev = dev;
 	ndisk->pinfo = pinfo;
-	ndisk->sectorsize = pinfo->pt->hwsector;
-	ndisk->segmentsize = pinfo->pt->segmentsize;
-	ndisk->capacity = pinfo->pt->sectorCount * pinfo->pt->hwsector;
+	ndisk->sectorsize = lpt->pt->hwsector;
+	ndisk->segmentsize = lpt->pt->segmentsize;
+	ndisk->capacity = lpt->pt->sectorCount * lpt->pt->hwsector;
 
     ndisk->disk->major = nand_block.major;
     ndisk->disk->first_minor = cur_minor;
 	ndisk->disk->minors = DISK_MINORS;
     ndisk->disk->fops = &nand_disk_fops;
-    sprintf(ndisk->disk->disk_name, "%s", pinfo->pt->name);
+    sprintf(ndisk->disk->disk_name, "%s", lpt->pt->name);
     ndisk->disk->queue = ndisk->queue;
 
 	cur_minor += DISK_MINORS;
@@ -633,7 +641,7 @@ static int nand_block_probe(struct device *dev)
 	ndisk->q_thread = kthread_run(handle_req_thread,
 								  (void *)ndisk->queue,
 								  "%s_q_handler",
-								  pinfo->pt->name);
+								  lpt->pt->name);
 	if (!ndisk->q_thread) {
 		printk("ERROR(nand block): kthread_run error!\n");
 		goto probe_err4;
@@ -765,8 +773,7 @@ static int nand_disk_install(char *name)
 	int ret = -EFAULT;
 	int installAll = 1;
 	int context = 0;
-	LPartition *phead = NULL;
-	LPartition *pt = NULL;
+	NM_lpt *lptl, *lpt;
 	struct device *dev = NULL;
 	struct singlelist *plist = NULL;
 	struct __partition_info *pinfo = NULL;
@@ -776,31 +783,30 @@ static int nand_disk_install(char *name)
 	if (name)
 		installAll = 0;
 
-	if (NandManger_getPartition(nand_block.pm_handler, &phead) || (!phead)) {
-		printk("get NandManger partition error! phead = %p\n", phead);
+	if (!(lptl = NM_getPartition(nand_block.nm_handler))) {
+		printk("ERROR: %s(%d), can not get partition list!\n", __func__, __LINE__);
 		return -1;
 	}
 
-	singlelist_for_each(plist, &phead->head) {
-		pt = singlelist_entry(plist, LPartition, head);
+	singlelist_for_each(plist, &lptl->list) {
+		lpt = singlelist_entry(plist, NM_lpt, list);
 
 		/* partiton with this mode do not need to open */
-		if (pt->mode == ONCE_MANAGER)
+		if (lpt->pt->mode == ONCE_MANAGER)
 			return 0;
 
-		if (!installAll && strcmp(pt->name, name))
+		if (!installAll && strcmp(lpt->pt->name, name))
 			continue;
 
-		if (get_ndisk_by_name(pt->name)) {
-			printk("WARNING(nand block): disk [%s] has been installed!\n", pt->name);
+		if (get_ndisk_by_name(lpt->pt->name)) {
+			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
 			continue;
 		}
 
-		printk("nand block, install partition [%s]!\n", pt->name);
+		printk("nand block, install partition [%s]!\n", lpt->pt->name);
 
-		if ((context = NandManger_open(nand_block.pm_handler, pt->name, pt->mode)) == 0) {
-			printk("can not open NandManger %s, mode = %d\n",
-				   pt->name, pt->mode);
+		if ((context = NM_ptOpen(nand_block.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
+			printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
 			return -1;
 		}
 
@@ -818,12 +824,12 @@ static int nand_disk_install(char *name)
 		}
 
 		pinfo->context = context;
-		pinfo->pt = pt;
+		pinfo->lpt = lpt;
 
 		device_initialize(dev);
 		dev->bus = &nand_block_bus;
 		dev->platform_data = pinfo;
-		dev_set_name(dev, "%s", pt->name);
+		dev_set_name(dev, "%s", lpt->pt->name);
 
 		/* register dev */
 		ret = device_add(dev);
@@ -841,8 +847,13 @@ start_err2:
 start_err1:
 	vfree(dev);
 start_err0:
-	NandManger_close(context);
+	NM_close(context);
 	return -1;
+}
+
+static void nand_block_start(int data)
+{
+	NM_regPtInstallFn(nand_block.nm_handler, (int)nand_disk_install);
 }
 
 /*#################################################################*\
@@ -893,16 +904,16 @@ static int __init nand_block_init(void)
 	}
 #endif
 
-	if (((nand_block.pm_handler = NandManger_Init())) == 0) {
-		printk("ERROR(nand block): NandManger_Init error!\n");
-		goto out_init;
+	if (((nand_block.nm_handler = NM_open())) == 0) {
+		printk("ERROR(nand block): NM_open error!\n");
+		goto out_open;
 	}
 
-	NandManger_startNotify(nand_block.pm_handler, NandManger_RegPtInstallFn, (int)&nand_disk_install);
+	NM_startNotify(nand_block.nm_handler, nand_block_start, 0);
 
 	return 0;
 
-out_init:
+out_open:
 #ifdef CONFIG_PM
 	if (unregister_pm_notifier(&nand_block.pm_notify))
 		printk("ERROR(nand block): unregister_pm_notifier error!\n");
@@ -921,7 +932,7 @@ static void __exit nand_block_exit(void)
 {
 	DBG_FUNC();
 
-	NandManger_Deinit(nand_block.pm_handler);
+	NM_close(nand_block.nm_handler);
 	driver_unregister(&nand_block_driver);
 	bus_unregister(&nand_block_bus);
 	unregister_blkdev(nand_block.major, nand_block.name);

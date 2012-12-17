@@ -32,6 +32,4 @@ struct NandInfo{
         int partnum;
         unsigned char *data;
 };
-
-int Register_NandDebugDriver(unsigned int interface,unsigned int partarray);
 #endif /* __NAND_DUG_H__ */

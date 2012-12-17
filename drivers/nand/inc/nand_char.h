@@ -12,9 +12,9 @@
 #define __NAND_CHAR_H__
 
 enum nand_char_cmd {
-		CMD_PARTITION_ERASE = 98,
-		CMD_ERASE_ALL = 99,
+		CMD_SOFT_PARTITION_ERASE = 96,
+		CMD_SOFT_ERASE_ALL = 97,
+		CMD_HARD_PARTITION_ERASE = 98,
+		CMD_HARD_ERASE_ALL = 99,
 };
-
-int Register_NandCharDriver(unsigned int interface,unsigned int partarray);
 #endif /* __NAND_CHAR_H__ */

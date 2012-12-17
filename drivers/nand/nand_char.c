@@ -1,4 +1,3 @@
-
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/module.h>
@@ -6,91 +5,153 @@
 #include <linux/string.h>
 
 #include "nand_api.h"
-#include "nandinterface.h"
+#include "nm_interface.h"
 #include "nand_char.h"
-#include "nanddebug.h"
 
 #define DBG_FUNC() //printk("##### nand char debug #####: func = %s \n", __func__)
 
-struct nand_char_ops{
-	PPartArray ppa;
-	NandInterface  *iface;
-	unsigned short status;
-};
-
-enum nand_char_ops_status{
+enum nand_char_ops_status {
 	NAND_DRIVER_FREE,
 	NAND_DRIVER_BUSY,
 };
 
-static dev_t ndev;
-static struct cdev nand_char_dev;
-static struct class *nand_char_class;
-static struct nand_char_ops *nand_ops;
-extern void vNand_Lock(void);
-extern void vNand_unLock(void);
+static struct __nand_char {
+	dev_t ndev;
+	struct cdev nd_cdev;
+	struct class *nd_cclass;
+	unsigned short status;
+	/* data */
+	int nm_handler;
+	NM_lpt *lptl;
+	NM_ppt *pptl;
+} nand_char;
+
+static int update_error_pt(NM_ppt *ppt)
+{
+	return NM_UpdateErrorPartition(ppt);
+}
+
+static int erase_ppt(NM_ppt *ppt)
+{
+	int ret, blockid, markcnt = 0;
+
+	for (blockid = 0; blockid < ppt->pt->totalblocks; blockid++) {
+		ret = NM_DirectErase(ppt, blockid);
+		if (ret) {
+			ret = NM_DirectMarkBadBlock(ppt, blockid);
+			if (ret)
+				printk("%s: line:%d, nand mark badblock error, blockID = %d, ret = %d\n",
+					   __func__, __LINE__, blockid, ret);
+			markcnt++;
+		}
+	}
+	return markcnt;
+}
 
 static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0, i = 0;
-	BlockList bl;
+	int ret = 0;
+	struct singlelist *plist = NULL;
 
 	DBG_FUNC();
 	switch(cmd){
-	case CMD_PARTITION_ERASE: {
+	case CMD_SOFT_PARTITION_ERASE: {
 		char ptname[128];
-		int ptIndex = -1;
+		int context;
+		NM_lpt *lpt = NULL;
+
 		ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
 		if (!ret) {
-			for (i=0; i < nand_ops->ppa.ptcount; i++) {
-				printk("match partition: ppt[%d] = [%s], ptname = [%s]\n", i, nand_ops->ppa.ppt[i].name, ptname);
-				if (!strcmp(nand_ops->ppa.ppt[i].name, ptname)) {
-					ptIndex = i;
+			singlelist_for_each(plist, &nand_char.lptl->list) {
+				lpt = singlelist_entry(plist, NM_lpt, list);
+				printk("match partition: ppt = [%s], ptname = [%s]\n", lpt->pt->name, ptname);
+				if (!strcmp(lpt->pt->name, ptname))
 					break;
-				}
 			}
 
-			if (i == nand_ops->ppa.ptcount) {
-				printk("ERROR: can't find partition %s\n", ptname);
+			if (!lpt || strcmp(lpt->pt->name, ptname)) {
+				printk("ERROR: can't find partition [%s]\n", ptname);
 				ret = -1;
 				break;
 			}
 
-			printk("erase nand partition %s\n", nand_ops->ppa.ppt[ptIndex].name);
-			for (i=0; i < nand_ops->ppa.ppt[ptIndex].totalblocks; i++){
-				bl.startBlock = i;
-				bl.BlockCount = 1;
-				bl.head.next = NULL;
-				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[ptIndex]),&bl);
-				if (ret != 0) {
-					ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[ptIndex]), bl.startBlock);
-					if (ret != 0) {
-						printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
-							   __func__, __LINE__, bl.startBlock);
-					}
-				}
+			printk("soft erase nand partition [%s]\n", lpt->pt->name);
+			if ((context = NM_ptOpen(nand_char.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
+				printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
+				return -1;
 			}
+
+			ret = NM_ptErase(context);
+
+			NM_ptClose(context);
 		}
 		break;
 	}
-	case CMD_ERASE_ALL: {
-		int j = 0;
-		for (i = 0; i < nand_ops->ppa.ptcount - 1; i ++) {
-			printk("erase nand partition %s\n", nand_ops->ppa.ppt[i].name);
-			for (j = 0; j < nand_ops->ppa.ppt[i].totalblocks; j++) {
-				bl.startBlock = j;
-				bl.BlockCount = 1;
-				bl.head.next = NULL;
-				ret = nand_ops->iface->iMultiBlockErase(&(nand_ops->ppa.ppt[i]), &bl);
-				if (ret != 0) {
-					ret = nand_ops->iface->iMarkBadBlock(&(nand_ops->ppa.ppt[i]), bl.startBlock);
-					if (ret != 0) {
-						printk("%s: line:%d, nand mark badblock error, blockID = %d\n",
-							   __func__, __LINE__, bl.startBlock);
-					}
-				}
+	case CMD_SOFT_ERASE_ALL: {
+		int context;
+		NM_lpt *lpt = NULL;
+
+		singlelist_for_each(plist, &nand_char.lptl->list) {
+			lpt = singlelist_entry(plist, NM_lpt, list);
+
+			if ((context = NM_ptOpen(nand_char.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
+				printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
+				return -1;
 			}
+
+			printk("soft erase nand partition [%s]\n", lpt->pt->name);
+			ret = NM_ptErase(context);
+
+			NM_ptClose(context);
 		}
+		break;
+	}
+	case CMD_HARD_PARTITION_ERASE: {
+		char ptname[128];
+		int markcnt;
+		NM_ppt *ppt = NULL;
+
+		ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
+		if (!ret) {
+			singlelist_for_each(plist, &nand_char.pptl->list) {
+				ppt = singlelist_entry(plist, NM_ppt, list);
+				printk("match partition: ppt = [%s], ptname = [%s]\n", ppt->pt->name, ptname);
+				if (!strcmp(ppt->pt->name, ptname))
+					break;
+			}
+
+			if (!ppt || strcmp(ppt->pt->name, ptname)) {
+				printk("ERROR: can't find partition [%s]\n", ptname);
+				ret = -1;
+				break;
+			}
+
+			printk("hard erase nand partition [%s]\n", ppt->pt->name);
+			markcnt = erase_ppt(ppt);
+			printk("mark [%d] badblocks in partition [%s]\n", markcnt, ppt->pt->name);
+
+			ret = update_error_pt(ppt);
+			if (ret)
+				printk("%s: line:%d, update error partition error, ret = %d\n",
+					   __func__, __LINE__, ret);
+		}
+		break;
+	}
+	case CMD_HARD_ERASE_ALL: {
+		int markcnt;
+		NM_ppt *ppt;
+
+		singlelist_for_each(plist, &nand_char.pptl->list) {
+			ppt = singlelist_entry(plist, NM_ppt, list);
+			printk("hard erase nand partition [%s]\n", ppt->pt->name);
+
+			markcnt = erase_ppt(ppt);
+			printk("mark [%d] badblocks in partition [%s]\n", markcnt, ppt->pt->name);
+		}
+		ret = update_error_pt(NULL);
+		if (ret)
+			printk("%s: line:%d, update error partition error, ret = %d\n",
+				   __func__, __LINE__, ret);
 		break;
 	}
 	default:
@@ -99,7 +160,7 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		break;
 	}
 
-	return ret != 0 ? -EFAULT : 0 ;
+	return ret ? -EFAULT : 0 ;
 }
 
 static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size_t size, loff_t * offset)
@@ -138,13 +199,13 @@ static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size
 		printk("pt = [%s]\n", pt);
 		if (!strncmp(pt, "ALL", 3)) {
 			/* install all partitions */
-			if ((ret = nand_ops->iface->iPtInstall(NULL))) {
+			if ((ret = NM_ptInstall(nand_char.nm_handler, NULL))) {
 				printk("%s, line:%d, install all partitions error!\n", __func__, __LINE__);
 				return ret;
 			}
 		} else {
 			/* install the partition indicated */
-			if ((ret = nand_ops->iface->iPtInstall(pt))) {
+			if ((ret = NM_ptInstall(nand_char.nm_handler, pt))) {
 				printk("%s, line:%d, install partitions [%s] error!\n", __func__, __LINE__, pt);
 				return ret;
 			}
@@ -160,8 +221,8 @@ static ssize_t nand_char_write(struct file * fd, const char __user * pdata, size
 static int nand_char_open(struct inode *pnode,struct file *fd)
 {
 	DBG_FUNC();
-	if(nand_ops->status == NAND_DRIVER_FREE){
-		nand_ops->status = NAND_DRIVER_BUSY;
+	if(nand_char.status == NAND_DRIVER_FREE){
+		nand_char.status = NAND_DRIVER_BUSY;
 		return 0;
 	}
 	return -EBUSY;
@@ -170,7 +231,7 @@ static int nand_char_open(struct inode *pnode,struct file *fd)
 static int nand_char_close(struct inode *pnode,struct file *fd)
 {
 	DBG_FUNC();
-	nand_ops->status = NAND_DRIVER_FREE;
+	nand_char.status = NAND_DRIVER_FREE;
 	return 0;
 }
 
@@ -182,80 +243,73 @@ static const struct file_operations nand_char_ops = {
 	.unlocked_ioctl	= nand_char_unlocked_ioctl,
 };
 
-int Register_NandCharDriver(unsigned int interface,unsigned int partarray)
+void nand_char_start(int data)
 {
 	int ret;
-	PPartArray *ppa = (PPartArray *)partarray;
 
 	DBG_FUNC();
-	nand_ops->iface = (NandInterface *)interface;
-	nand_ops->ppa.ptcount = ppa->ptcount;
-	nand_ops->ppa.ppt = ppa->ppt;
 
-	ret = alloc_chrdev_region(&ndev,0,1,"nand_char");
-	if(ret < 0){
-		ret = -1;
-		printk("DEBUG : nand_char_driver  alloc_chrdev_region\n");
-		goto alloc_chrdev_failed;
-	}
-	cdev_init(&nand_char_dev, &nand_char_ops);
-	ret = cdev_add(&nand_char_dev,ndev,1);
-	if(ret < 0){
-		ret = -1;
-		printk("DEBUG : nand_char_driver cdev_add error\n");
-		goto cdev_add_failed;
+	nand_char.lptl = NM_getPartition(nand_char.nm_handler);
+	if (!nand_char.lptl) {
+		printk("ERROR: %s(%d), can't get lpartiton list!\n", __func__, __LINE__);
+		return;
 	}
 
-	device_create(nand_char_class,NULL,ndev,NULL,"nand_char");
+	nand_char.pptl = NM_getPPartition(nand_char.nm_handler);
+	if (!nand_char.pptl) {
+		printk("ERROR: %s(%d), can't get ppartiton list!\n", __func__, __LINE__);
+		return;
+	}
+
+	ret = alloc_chrdev_region(&nand_char.ndev, 0, 1, "nand_char");
+	if(ret < 0) {
+		printk("ERROR: %s(%d), alloc_chrdev_region faild\n", __func__, __LINE__);
+		return;
+	}
+
+	cdev_init(&nand_char.nd_cdev, &nand_char_ops);
+	ret = cdev_add(&nand_char.nd_cdev, nand_char.ndev, 1);
+	if (ret < 0) {
+		printk("ERROR: %s(%d): cdev_add faild\n", __func__, __LINE__);
+		unregister_chrdev_region(nand_char.ndev, 1);
+		return;
+	}
+
+	device_create(nand_char.nd_cclass, NULL, nand_char.ndev, NULL, "nand_char");
 
 	printk("nand char register ok!!!\n");
-	return 0;
-
-cdev_add_failed:
-	unregister_chrdev_region(ndev,1);
-alloc_chrdev_failed:
-	kfree(nand_ops);
-	nand_ops = NULL;
-
-	return ret;
 }
 
 static int __init nand_char_init(void)
 {
-	int ret=0;
-
 	DBG_FUNC();
-	nand_ops = (struct nand_char_ops *)kmalloc(sizeof(struct nand_char_ops),GFP_KERNEL);
-	if(!nand_ops){
-		printk("DEBUG : nand_char_kmalloc_failed\n");
-		ret =-1;
-		goto nand_char_kmalloc_failed;
-	}
-	nand_ops->status = NAND_DRIVER_FREE;
 
-	nand_char_class = class_create(THIS_MODULE,"nand_char_class");
-	if(!nand_char_class){
-		printk("%s  %d\n",__func__,__LINE__);
+	nand_char.nd_cclass = class_create(THIS_MODULE, "nd_cclass");
+	if (!nand_char.nd_cclass) {
+		printk("ERROR: %s(%d), can't create nand char class!\n", __func__, __LINE__);
 		return -1;
 	}
 
-	return 0;
+	if (((nand_char.nm_handler = NM_open())) == 0) {
+		printk("ERROR: %s(%d), NM_open error!\n", __func__, __LINE__);
+		return -1;
+	}
 
-nand_char_kmalloc_failed:
-	return ret;
+	nand_char.status = NAND_DRIVER_FREE;
+	nand_char.pptl = NULL;
+
+	NM_startNotify(nand_char.nm_handler, nand_char_start, 0);
+
+	return 0;
 }
 
 static void __exit nand_char_exit(void)
 {
 	DBG_FUNC();
-	kfree(nand_ops);
-	cdev_del(&nand_char_dev);
-	unregister_chrdev_region(ndev,1);
+	cdev_del(&nand_char.nd_cdev);
+	unregister_chrdev_region(nand_char.ndev, 1);
 }
 
 module_init(nand_char_init);
 module_exit(nand_char_exit);
-MODULE_DESCRIPTION("JZ4780 char Nand driver");
-MODULE_AUTHOR(" ingenic ");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("20120623");

@@ -3,8 +3,8 @@ CXX = g++
 LIBDIR=
 LIB     = -ldl  -g -lpthread -lrt
 MLIB   = ../build/lib/libnm.a
- 
-INCLUDE = -I./inc -I../../inc -I../../manager/inc -I../testmodule/inc
+
+INCLUDE = -I./inc -I../../manager/inc -I../../manager/lib/inc -I../testmodule/inc
 
 CFLAGS  = -Wall -pipe -DDEBUG  -g -D_GNU_SOURCE  -m32
 OBJS    = main.o argument.o driver/APP_vNand.c

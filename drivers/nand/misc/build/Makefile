@@ -32,30 +32,28 @@ LIBSRC = l2vNand.c \
 	 nandmanagerinterface.c  \
 	 simpleblockmanager.c    \
 	 splblockmanager.c    \
+	 NandAlloc.c \
 	 NandSemaphore.c  \
 	 NandThread.c \
-	 nandalloc.c \
+	 clib.c \
 	 junkzone.c \
 	 errhandle.c \
          pageinfodebug.c \
 	 ncrc16.c
-
 #	 badblockinfo.c
 
 
-MVPATH= $(TOPDIR)/manager/     \
-	$(TOPDIR)/manager/vnand \
-	$(TOPDIR)/manager/zone_manager \
-	$(TOPDIR)/manager/simple_manager \
-	$(TOPDIR)/manager/spl_manager \
-	$(TOPDIR)/manager/utils \
-	$(TOPDIR)/manager/l2p \
-	$(TOPDIR)/manager/simple/  \
-	$(TOPDIR)/misc/testmodule/app
+MVPATH= $(TOPDIR)/manager/lib     \
+	$(TOPDIR)/manager/lib/vnand \
+	$(TOPDIR)/manager/lib/zone_manager \
+	$(TOPDIR)/manager/lib/simple_manager \
+	$(TOPDIR)/manager/lib/spl_manager \
+	$(TOPDIR)/manager/lib/utils \
+	$(TOPDIR)/manager/lib/os/app
 
 VPATH = %.c:$(MVPATH)
 
-INC=$(TOPDIR)/inc $(TOPDIR)/manager/inc $(TOPDIR)/misc/testmodule/inc $(MVPATH)
+INC= $(TOPDIR)/manager/inc $(TOPDIR)/manager/lib/inc $(TOPDIR)/misc/testmodule/inc $(MVPATH)
 
 INC_H := $(foreach subdir,$(INC),$(wildcard $(subdir)/*.h))
 

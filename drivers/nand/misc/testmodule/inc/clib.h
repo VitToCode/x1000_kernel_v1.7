@@ -24,5 +24,11 @@ static inline long long nd_getcurrentsec_ns(void)
 	ns = (long long)ts.tv_sec * 1000000000L	+ (long long)ts.tv_nsec;
 	return ns;   
 }
-
+static inline unsigned int nd_get_timestamp(void) {
+	long long ns = -1LL;
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ns = (long long)ts.tv_sec * 1000000000L	+ (long long)ts.tv_nsec;
+	return ns / 1000000L;
+}
 #endif

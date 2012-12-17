@@ -15,10 +15,10 @@
 #include <linux/math64.h>
 #include <linux/completion.h>
 #include <mach/jznand.h>
-#include "../inc/nand_api.h"
-#include "../inc/vnandinfo.h"   //change later
-#include "../inc/nand_char.h"   //change later
-#include "../inc/nand_debug.h"   //change later
+#include "nand_api.h"
+#include "vnandinfo.h"   //change later
+#include "nand_char.h"   //change later
+#include "nand_debug.h"   //change later
 
 //#define DEBUG_ERASE
 //#define NAPI_DEBUG_TIME_WRITE
@@ -161,8 +161,6 @@ static inline void end_time(int mode)
 	}
 }
 #endif
-
-static int (*nand_partition_install)(char *) = NULL;
 
 static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
 {
@@ -451,7 +449,6 @@ static int init_nand_driver(void)
 		(g_partition+ret)->name = (ptemp+ret)->name;
 		(g_partition+ret)->hwsector =512;
 		(g_partition+ret)->byteperpage = byteperpage-tmp_freesize;
-		(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
 		(g_partition+ret)->actualbadblockcount = 0;
 		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * pageperblock));
 		/*  two-plane operation : startblockID must be even  */
@@ -461,6 +458,9 @@ static int init_nand_driver(void)
 		(g_partition+ret)->PageCount = div_s64_32(((ptemp+ret)->size),((g_partition+ret)->byteperpage));
 		(g_partition+ret)->totalblocks = (g_partition+ret)->PageCount / (g_partition+ret)->pageperblock;
 		(g_partition+ret)->PageCount = (g_partition+ret)->totalblocks * (g_partition+ret)->pageperblock;
+		(g_partition+ret)->badblockcount = ((g_partition+ret)->totalblocks
+                                * g_pnand_api.nand_chip->maxbadblockcount
+                                + g_pnand_api.nand_chip->bpchip - 1) / g_pnand_api.nand_chip->bpchip;
 		(g_partition+ret)->mode = (ptemp+ret)->mode;
 		(g_partition+ret)->prData = (void *)(ptemp+ret);
 		if(byteperpage-tmp_freesize == 0){
@@ -481,7 +481,7 @@ static int init_nand_driver(void)
 	t_partition = g_partition+ipartition_num-1;  //last partiton from board
 	(g_partition+ret)->name = "nderror";
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
-	(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
+	(g_partition+ret)->badblockcount = 1;//tmp_badblock_info[ret];
 	(g_partition+ret)->actualbadblockcount = 0;
 	(g_partition+ret)->startblockID = blockid;
 	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
@@ -604,8 +604,10 @@ static inline int page_read(void *ppartition,int pageid, int offset,int bytes,vo
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	if((pageid < 0) || (pageid > tmp_ppt->PageCount))
+	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
+		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
 		return ENAND;   //return pageid error
+	}
 #ifdef CONFIG_NAND_DMA
 	g_pnand_api.nand_dma->ppt = tmp_ppt;
 	ret =nand_dma_read_page(&g_pnand_api,pageid,offset,bytes,databuf);
@@ -668,8 +670,10 @@ static inline int page_write(void *ppartition,int pageid,int offset,int bytes,vo
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	if((pageid < 0) || (pageid > tmp_ppt->PageCount))
+	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
+		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
 		return ENAND;   //return pageid error
+	}
 #ifdef CONFIG_NAND_DMA
         g_pnand_api.nand_dma->ppt = tmp_ppt;
         ret =nand_dma_write_page(&g_pnand_api,pageid,offset,bytes,databuf);
@@ -734,8 +738,10 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
-	if(!erase_blocklist)
+	if(!erase_blocklist){
+		eprintf("ERROR: %s[%d] blocklist is NULL\n",__func__,__LINE__);
 		return -1;
+	}
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_erase_blocks(g_pnand_api.vnand_base,erase_blocklist);
 	return ret;
@@ -748,8 +754,10 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 static inline int is_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid >tmp_ppt->totalblocks)
+	if(blockid >tmp_ppt->totalblocks){
+		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
 		return -1;
+	}
 	nand_ops_parameter_reset(tmp_ppt);
 	return isbadblock(g_pnand_api.vnand_base,blockid);
 }
@@ -761,8 +769,10 @@ static inline int is_badblock(void *ppartition,int blockid)
 static inline int mark_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid <0 || blockid >g_pnand_api.totalblock)
+	if(blockid <0 || blockid >g_pnand_api.totalblock){
+		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
 		return -1;
+	}
 	nand_ops_parameter_reset(tmp_ppt);
 	return markbadblock(g_pnand_api.vnand_base,blockid);
 }
@@ -789,21 +799,6 @@ static inline int deinit_nand(void *vNand)
 	return 0;
 }
 
-int register_ptinstall(int (*install)(char *))
-{
-	nand_partition_install = install;
-
-	return 0;
-}
-
-int partition_install(char *ptname)
-{
-	if (nand_partition_install)
-		return nand_partition_install(ptname);
-
-	dprintf("error: nand partition_install has not been installed!\n");
-	return -1;
-}
 /*********************************************/
 /******         nand driver register    ******/
 /*********************************************/
@@ -818,8 +813,6 @@ NandInterface jz_nand_interface = {
 	.iIsBadBlock = is_badblock,
 	.iMarkBadBlock = mark_badblock,
 	.iDeInitNand = deinit_nand,
-	.iRegPtInstallFn = register_ptinstall,
-	.iPtInstall = partition_install,
 };
 /*
  * Probe for the NAND device.
@@ -945,16 +938,6 @@ static int __devinit plat_nand_probe(struct platform_device *pdev)
 		}
 
 	Register_NandDriver(&jz_nand_interface);
-
-	ret = Register_NandCharDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
-	if(ret){
-		dev_err(&g_pdev->dev,"init nand char driver failed\n");
-	}
-
-	ret = Register_NandDebugDriver((unsigned int)&jz_nand_interface,(unsigned int)&g_partarray);
-	if(ret){
-		dev_err(&g_pdev->dev,"init nand debug driver failed\n");
-	}
 
 	dprintf("INFO: Nand probe success!\n");
 	return 0;

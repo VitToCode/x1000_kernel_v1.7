@@ -1,6 +1,8 @@
-#include "clib.h"
+#include "os/clib.h"
 #include "FileDesc.h"
 #include "nandmanagerinterface.h"
+#include "bufflistmanager.h"
+#include "os/NandAlloc.h"
 #include "vNand.h"
 #include <unistd.h>
 #include <sys/types.h>
@@ -28,7 +30,7 @@ static void start(int handle){
 	NandManger_getPartition(handle,&lp);
 	singlelist_for_each(it,&lp->head){
 		lpentry = singlelist_entry(it,LPartition,head);
-		pHandle = NandManger_open(handle,lpentry->name,lpentry->mode);
+		pHandle = NandManger_ptOpen(handle,lpentry->name,lpentry->mode);
 		if(pHandle)
 			break;
 		else {
@@ -69,7 +71,7 @@ static void start(int handle){
 			if(rlen < 256*512){
 				memset(buf+ rlen, 0xff, 512*256 - rlen);
 			}
-			if(NandManger_write(pHandle,sl) < 0){
+			if(NandManger_ptWrite(pHandle,sl) < 0){
 				printf("NandManger write failed!\n");
 				exit(1);
 			}
@@ -112,7 +114,7 @@ static void start(int handle){
 			sl->sectorCount = 256;
 			sl->pData = buf;
 			sectorid += 256;
-			if(NandManger_read(pHandle, sl) < 0){
+			if(NandManger_ptRead(pHandle, sl) < 0){
 				printf("NandManger read failed!\n");
 				exit(1);
 			}
@@ -123,7 +125,7 @@ static void start(int handle){
 					sl->startSector = sectorid;
 
 					sl->sectorCount = last_sectorcount;
-					if(NandManger_read(pHandle, sl) < 0){
+					if(NandManger_ptRead(pHandle, sl) < 0){
 						printf("NandManger read failed!\n");
 						exit(1);
 					}
@@ -136,7 +138,7 @@ static void start(int handle){
 		fclose(w_fp);
 	}
 
-	NandManger_close(pHandle);
+	NandManger_ptClose(pHandle);
 	free(buf);
 	BuffListManager_BuffList_DeInit(bl);
 	printf("end read\n");
@@ -188,6 +190,6 @@ int main(int argc, char *argv[])
 	NandManger_startNotify(pHandle,start,pHandle);
 
 	ND_probe(&arg_option.file_desc);
-	NandManger_Deinit(pHandle);
+	NandManger_DeInit(pHandle);
     return 0;
 }
