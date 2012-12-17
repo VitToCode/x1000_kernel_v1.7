@@ -886,7 +886,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		n++;
 	}
 	if(wsectors > 0) {
-		if(freezonecount > 9) {
+		if(0 && freezonecount > 9) {
 			wsectors = wsectors - sectorcount;
 			if(wsectors > 0) {
 				wsectors = wsectors / alignsectorcount * alignsectorcount + wsectors;
