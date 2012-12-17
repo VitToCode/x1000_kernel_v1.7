@@ -42,7 +42,19 @@ int ov2650_init(struct cim_sensor *sensor_info)
 
 int ov2650_preview_set(struct cim_sensor *sensor_info)                   
 {                               
-    mode = CAMERA_MODE_PREVIEW;
+	struct ov2650_sensor *s;
+	struct i2c_client * client ;
+	unsigned char Reg;
+
+	s = container_of(sensor_info, struct ov2650_sensor, cs);
+	client = s->client;
+
+    	mode = CAMERA_MODE_PREVIEW;
+
+	Reg = ov2650_read_reg(client, 0x3013);
+	Reg |= 0x05;
+	ov2650_write_reg(client, 0x3013, Reg);
+    
 	return 0;
 } 
 

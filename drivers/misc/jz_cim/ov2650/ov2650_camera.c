@@ -30,6 +30,10 @@ static struct frm_size ov2650_preview_table[]= {
 	{176,144},
 };
 
+int cam_t_j = 0, cam_t_i = 0;
+unsigned long long cam_t0_buf[10];
+unsigned long long cam_t1_buf[10];
+
 static inline int sensor_i2c_master_send(struct i2c_client *client,const char *buf ,int count)
 {
 	int ret;
@@ -40,7 +44,32 @@ static inline int sensor_i2c_master_send(struct i2c_client *client,const char *b
 	msg.flags = client->flags & I2C_M_TEN;
 	msg.len = count;
 	msg.buf = (char *)buf;
+#if 1
+	{
+		if (cam_t_i < 10)
+			cam_t0_buf[cam_t_i] = cpu_clock(smp_processor_id());
+	}
+#endif
+
 	ret = i2c_transfer(adap, &msg, 1);
+
+#if 1
+	{
+		unsigned long long mytime;
+
+		if (cam_t_i < 10) { 
+			cam_t1_buf[cam_t_i] = cpu_clock(smp_processor_id());
+			cam_t_i++;
+		}
+		if (cam_t_i == 10) {
+			cam_t_j = cam_t_i;
+			cam_t_i = 11;
+			while(--cam_t_j)
+				printk("cam%d : i2c2_time 0  = %lld, i2c2_time 1  = %lld, time = %lld\n",cam_t_j, cam_t0_buf[cam_t_j], cam_t1_buf[cam_t_j], cam_t1_buf[cam_t_j] - cam_t0_buf[cam_t_j]);
+		}
+	}
+#endif
+
 
 	/* If everything went ok (i.e. 1 msg transmitted), return #bytes
 	   transmitted, else error code. */

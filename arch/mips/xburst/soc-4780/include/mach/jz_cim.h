@@ -170,6 +170,8 @@ struct cim_sensor {
 	struct mode_bit_map modes;	//indicate sensor can support modes
 	struct mode_bit_map para;	//indicate currnet parameter value
 
+	bool first_used;
+
 	struct frm_size	*preview_size;
 	struct frm_size	*capture_size;
 	int prev_resolution_nr;
