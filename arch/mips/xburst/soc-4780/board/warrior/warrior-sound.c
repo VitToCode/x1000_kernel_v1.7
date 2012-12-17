@@ -28,11 +28,11 @@ struct snd_codec_data codec_data = {
 #ifdef CONFIG_BOARD_WARRIOR_V_1_1
 	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC2_SIN_AN3,
 					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1},
+					.gpio_spk_en_stat = 0},
 #else
 	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
 					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1},
+					.gpio_spk_en_stat = 0},
 #endif
 	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
 					.gpio_hp_mute_stat = 0,
