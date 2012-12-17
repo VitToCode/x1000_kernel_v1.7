@@ -1,0 +1,19 @@
+
+KDIR = /home/jbbi/work/android-jb/kernel
+
+INCLUDE += -I$(KDIR)/include/ \
+	-I$(KDIR)/arch/mips/include/ \
+	-I$(KDIR)/arch/mips/include/generated/ \
+	-I$(KDIR)/arch/mips/include/asm/mach-generic/ \
+	-I$(KDIR)/arch/mips/xburst/core/include/
+
+CONFIG = -include $(KDIR)/include/generated/autoconf.h
+
+LDFLAG = -r -EL
+
+CFLAGS += -D__KERNEL__ -nostdinc
+
+LIB = libnm.o
+
+$(LIB):$(lib_obj)
+	$(LD) $(LDFLAG) -o $@ $^

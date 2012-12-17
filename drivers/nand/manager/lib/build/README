@@ -1,0 +1,5 @@
+NOTE:
+	if build a kernel static lib, set BUILD_KLIB as 'kernel' in Makefile,
+	also you should edit the KDIR as yours in Makefile.kenel.
+
+	if build a normal staic lib, set BUILD_KLIB as 'app' in Makefile.
