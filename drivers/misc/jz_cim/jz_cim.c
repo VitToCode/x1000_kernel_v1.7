@@ -89,7 +89,6 @@ struct jz_cim {
 	struct list_head list;
 
 	volatile int frm_id;
-	bool first_used;
 	enum cim_state state;
 
 	int sensor_count;
@@ -411,6 +410,7 @@ void cim_scan_sensor(struct jz_cim *cim)
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
+			desc->first_used = true;
 			if(desc->facing == CAMERA_FACING_BACK) {
 				desc->id = cim->sensor_count;
 				cim->sensor_count++;
@@ -436,7 +436,6 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 {
 	struct cim_sensor *desc;
 
-	cim->first_used = true;
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
 	list_for_each_entry(desc, &sensor_list, list) {
@@ -445,6 +444,7 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 			break;
 		}
 	}
+	cim->desc->first_used = true;
 
 	return cim->desc ? 0 : -EFAULT;
 }
@@ -599,13 +599,12 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_disable(cim);
 	cim_power_on(cim);
 	cim_set_default(cim);
-//	if ( cim->first_used ) {
+
+	if ( cim->desc->first_used ) {
 		cim->desc->power_on(cim->desc);
 		cim->desc->reset(cim->desc);
 		cim->desc->init(cim->desc);
-//	}
-	cim_set_preview_size(cim);
-//	if ( cim->first_used ) {
+
 		cim->desc->set_antibanding(cim->desc,cim->desc->para.antibanding);
 		cim->desc->set_balance(cim->desc,cim->desc->para.balance);
 		cim->desc->set_effect(cim->desc,cim->desc->para.effect);
@@ -613,9 +612,12 @@ static long cim_start_preview(struct jz_cim *cim)
 		cim->desc->set_focus_mode(cim->desc,cim->desc->para.focus_mode);
 		cim->desc->set_fps(cim->desc,cim->desc->para.fps);
 		cim->desc->set_scene_mode(cim->desc,cim->desc->para.scene_mode);
-		cim->first_used = false;
-//	}
+		cim->desc->first_used = false;
+	}
+
 	cim->desc->set_preivew_mode(cim->desc);
+
+	cim_set_preview_size(cim);
 
 	if(cim->tlb_flag) {
 		cim_reset_tlb(cim);
@@ -949,7 +951,6 @@ static int cim_open(struct inode *inode, struct file *file)
 {
 	struct miscdevice *dev = file->private_data;
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
-	cim->first_used = true;
 	return 0;
 }
 
@@ -960,7 +961,6 @@ static int cim_close(struct inode *inode, struct file *file)
 
 	cim_shutdown(cim);
 	cim_power_off(cim);
-	cim->first_used = true;
 	if(cim->desc->shutdown)
 		cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
@@ -1059,7 +1059,6 @@ static int cim_probe(struct platform_device *pdev)
 		goto no_mem;
 	}
 	cim->dev = &pdev->dev;
-	cim->first_used = true;
 
 	pdata = pdev->dev.platform_data;
 
