@@ -188,7 +188,7 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.pixclock = KHZ2PICOS(33300),
 #ifdef CONFIG_Q8
 
-		.left_margin = 0,
+		.left_margin = 5,
 		.right_margin = 118, //128
 		.upper_margin = 20,
 		.lower_margin = 0,
