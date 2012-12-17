@@ -14,6 +14,10 @@ __attribute__((weak)) struct jztsc_platform_data {
 	struct jztsc_pin	*gpio;
 	unsigned int		x_max;
 	unsigned int		y_max;
+
+	char *power_name;
+	int wakeup;
+
 	void		*private;
 };
 

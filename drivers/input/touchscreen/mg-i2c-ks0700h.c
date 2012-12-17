@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
+#include <linux/input-group.h>
 #include <linux/i2c.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
@@ -31,7 +32,7 @@
 #include <linux/delay.h>
 #include <linux/tsc.h>
 
-#define MG_DRIVER_NAME  "mg-i2c-ts"
+#define MG_DRIVER_NAME  "mg-i2c-ks0700h-ts"
 
 #define COORD_INTERPRET(MSB_BYTE, LSB_BYTE) \
         (MSB_BYTE << 8 | LSB_BYTE)
@@ -93,6 +94,10 @@ struct mg_data {
 	struct early_suspend mg_early_suspend;
 #endif
 
+	int suspend;
+
+	struct input_group group;
+
 	struct jztsc_platform_data *pdata;
 };
 
@@ -112,12 +117,18 @@ static void mg_suspend(struct early_suspend *h)
 {
 	struct mg_data *mg = container_of(h, struct mg_data, mg_early_suspend);
 
-	disable_irq_nosync(mg->irq);
+	mg->suspend = 1;
+
+	if (!mg->pdata->wakeup)
+		disable_irq_nosync(mg->irq);
+
+	if (mg->pdata->wakeup)
+		enable_irq_wake(mg->irq);
 
 	if (work_pending(&mg->work))
 		cancel_work_sync(&mg->work);
 
-	if (mg->power)
+	if (mg->power && !mg->pdata->wakeup)
 		regulator_disable(mg->power);
 }
 
@@ -125,12 +136,18 @@ static void mg_resume(struct early_suspend *h)
 {
 	struct mg_data *mg = container_of(h, struct mg_data, mg_early_suspend);
 
-	if (mg->power) {
+	mg->suspend = 0;
+
+	if (mg->power && !mg->pdata->wakeup) {
 		regulator_enable(mg->power);
 		mdelay(100);
 	}
 
-	enable_irq(mg->irq);
+	if (mg->pdata->wakeup)
+		disable_irq_wake(mg->irq);
+
+	if (!mg->pdata->wakeup)
+		enable_irq(mg->irq);
 }
 
 #endif
@@ -158,15 +175,35 @@ static void report_value(struct mg_data *mg) {
 }
 
 static void report_menu(struct mg_data *mg) {
-	//TODO: Fill me in
+	input_report_key(mg->dig_dev, KEY_MENU, 1);
+	input_sync(mg->dig_dev);
+
+	input_report_key(mg->dig_dev, KEY_MENU, 0);
+	input_sync(mg->dig_dev);
 }
 
 static void report_home(struct mg_data *mg) {
-	//TODO: Fill me in
+	input_report_key(mg->dig_dev, KEY_HOME, 1);
+	input_sync(mg->dig_dev);
+
+	input_report_key(mg->dig_dev, KEY_HOME, 0);
+	input_sync(mg->dig_dev);
 }
 
 static void report_back(struct mg_data *mg) {
-	//TODO: Fill me in
+	input_report_key(mg->dig_dev, KEY_BACK, 1);
+	input_sync(mg->dig_dev);
+
+	input_report_key(mg->dig_dev, KEY_BACK, 0);
+	input_sync(mg->dig_dev);
+}
+
+static void report_wakeup(struct mg_data *mg) {
+	input_report_key(mg->dig_dev, KEY_POWER, 1);
+	input_sync(mg->dig_dev);
+
+	input_report_key(mg->dig_dev, KEY_POWER, 0);
+	input_sync(mg->dig_dev);
 }
 
 static void report_release(struct mg_data *mg) {
@@ -181,7 +218,7 @@ static inline void remap_to_view_size(struct mg_data *mg) {
 	mg->y = mg->y * mg->pdata->y_max / CAP_Y_CORD;
 }
 
-static inline void mg_process_data(struct mg_data *mg) {
+static inline void mg_report(struct mg_data *mg) {
 	static int changed;
 	static int saved_x;
 	static int saved_y;
@@ -208,6 +245,9 @@ static inline void mg_process_data(struct mg_data *mg) {
 			if (changed) {
 				report_release(mg);
 				changed = 0;
+
+				if (mg->pdata->wakeup && mg->suspend)
+					report_wakeup(mg);
 			}
 		}
 
@@ -223,6 +263,9 @@ static inline void mg_process_data(struct mg_data *mg) {
 			if (changed) {
 				report_release(mg);
 				changed = 0;
+
+				if (mg->pdata->wakeup && mg->suspend)
+					report_wakeup(mg);
 			}
 		}
 		break;
@@ -282,7 +325,9 @@ static void mg_i2c_work(struct work_struct *work) {
 		mg->p =
 				(COORD_INTERPRET(read_buf[MG_DIG_Z_HI], read_buf[MG_DIG_Z_LOW]));
 
-		mg_process_data(mg);
+		input_group_lock(&mg->group);
+		mg_report(mg);
+		input_group_unlock(&mg->group);
 	}
 
 err_enable_irq:
@@ -303,14 +348,20 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	i2c_set_clientdata(client, mg);
 	mg->pdata = pdata;
 
-	mg->power = regulator_get(&client->dev, "vtsc");
-	if (IS_ERR(mg->power)) {
-		mg->power = NULL;
-		dev_err(&mg->client->dev, "Failed to request regulator\n"
-				" assume a fixed power supply.\n");
+	if (pdata->power_name) {
+		mg->power = regulator_get(&client->dev, pdata->power_name);
+		if (IS_ERR(mg->power)) {
+			mg->power = NULL;
+			dev_err(&mg->client->dev, "Failed to request regulator\n"
+					" assume a fixed power supply.\n");
+		} else {
+			regulator_enable(mg->power);
+			mdelay(100);
+		}
 	} else {
-		regulator_enable(mg->power);
-		mdelay(100);
+		mg->power = NULL;
+		dev_err(&mg->client->dev, "Haven't given a power name.\n"
+				" assume a fixed power supply.\n");
 	}
 
 	mg->ss = pdata->gpio[0].num;
@@ -342,6 +393,12 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	input_set_abs_params(input_dig, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input_dig, ABS_MT_PRESSURE, 0, DIG_MAX_P, 0, 0);
 
+	set_bit(EV_KEY, input_dig->evbit);
+	set_bit(KEY_MENU, input_dig->keybit);
+	set_bit(KEY_BACK, input_dig->keybit);
+	set_bit(KEY_HOME, input_dig->keybit);
+	set_bit(KEY_POWER, input_dig->keybit);
+
 	input_dig->name = MG_DRIVER_NAME;
 	input_dig->id.bustype = BUS_I2C;
 
@@ -353,11 +410,18 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 
 	mg->dig_dev = input_dig;
 
+	mg->group.master = input_dig;
+	err = input_register_group(&mg->group);
+	if (err) {
+		dev_err(&mg->client->dev, "Failed to register a input group.\n");
+		goto err_input_unregister;
+	}
+
 	INIT_WORK(&mg->work, mg_i2c_work);
 	mg->i2c_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
 	if (!mg->i2c_workqueue) {
 		err = -ESRCH;
-		goto err_input_unregister;
+		goto err_input_unregister_group;
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -375,10 +439,20 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 		goto err_destroy_workqueue;
 	}
 
+	if (pdata->wakeup)
+		device_init_wakeup(&mg->dig_dev->dev, true);
+
 	return 0;
 
 err_destroy_workqueue:
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&mg->mg_early_suspend);
+#endif
+
 	destroy_workqueue(mg->i2c_workqueue);
+
+err_input_unregister_group:
+	input_unregister_group(&mg->group);
 
 err_input_unregister:
 	input_unregister_device(mg->dig_dev);
@@ -393,13 +467,22 @@ err_kfree:
 	kfree(mg);
 
 	return err;
-
 }
 
 static int __devexit mg_remove(struct i2c_client *client) {
 	struct mg_data *mg = i2c_get_clientdata(client);
 
+	disable_irq_nosync(mg->irq);
+	if (work_pending(&mg->work))
+		cancel_work_sync(&mg->work);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&mg->mg_early_suspend);
+#endif
+
+	destroy_workqueue(mg->i2c_workqueue);
 	free_irq(mg->irq, mg);
+	input_unregister_group(&mg->group);
 	input_unregister_device(mg->dig_dev);
 	gpio_free(mg->ss);
 	regulator_put(mg->power);
@@ -428,11 +511,14 @@ static int __init mg_init(void) {
 	return i2c_add_driver(&mg_driver);
 }
 
-static void mg_exit(void) {
+static void __exit mg_exit(void) {
 	i2c_del_driver(&mg_driver);
 }
 
 module_init(mg_init);
 module_exit(mg_exit);
 
-MODULE_AUTHOR("Fighter Sun<wanmyqawdr@126.com>");
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
+MODULE_DESCRIPTION("Driver for KS0700h a magnetic touch screen");
+MODULE_ALIAS("i2c:mg-i2c-ks0700h-ts");
