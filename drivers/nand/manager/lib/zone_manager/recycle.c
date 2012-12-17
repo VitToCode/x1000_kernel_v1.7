@@ -288,8 +288,6 @@ int Recycle_OnNormalRecycle ( int context )
 
 
 	NandMutex_Lock(&rep->mutex);
-	if(rep->rZone)
-		ndprint(RECYCLE_INFO,"rep->rZone->ZoneID = %d ret = %d rep->taskStep = %d\n",rep->rZone->ZoneID,ret,rep->taskStep);
 	if(ret != 0) {
 		if(rep->rZone)
 			Drop_JunkZone(((Context *)rep->context)->junkzone,rep->rZone->ZoneID);
