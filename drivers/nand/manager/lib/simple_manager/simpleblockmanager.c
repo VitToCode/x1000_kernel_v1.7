@@ -457,7 +457,7 @@ static int simpblock_rw(SmbContext *conptr, SectorList *sl, int rwflag)
 		}
 		ret = signal_block_rw(conptr, ppl_tmp, rwflag);
 		if (ret < 0) {
-			ndprint(SIGBLOCK_ERROR, "%s, line:%d, warning: %s faild, ret = %d\n",
+			ndprint(SIGBLOCK_INFO, "%s, line:%d, warning: %s faild, ret = %d\n",
 					__func__, __LINE__, (rwflag == SIMP_WRITE) ? "write" : "read", ret);
 			if (rwflag == SIMP_WRITE) {
 				int endpage = (ppl_tmp->OffsetBytes == 0) ? (ppl_tmp->startPageID - 1) : ppl_tmp->startPageID;
