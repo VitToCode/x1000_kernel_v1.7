@@ -128,12 +128,6 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
 	local_irq_enable();
 }
 
-#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
-void set_cpu_irq(int cpu, int on);
-void cpu_enter_idle(void);
-extern int not_switch_irq;
-#endif
-
 /**
  *	suspend_enter - enter the desired system sleep state.
  *	@state:		state to enter
@@ -166,14 +160,9 @@ static int suspend_enter(suspend_state_t state)
 		goto Platform_wake;
 
 #ifndef CONFIG_EARLYSUSPEND_CPU
-#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
-	not_switch_irq = 1;
-	set_cpu_irq(!smp_processor_id(), 0);
-#else
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS))
 		goto Enable_cpus;
-#endif
 #endif
 
 	arch_suspend_disable_irqs();
@@ -182,24 +171,16 @@ static int suspend_enter(suspend_state_t state)
 	error = syscore_suspend();
 	if (!error) {
 		if (!(suspend_test(TEST_CORE) || pm_wakeup_pending())) {
-#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
-			set_cpu_irq(smp_processor_id(), 1);
-			cpu_enter_idle();
-#else
 			error = suspend_ops->enter(state);
-#endif
 			events_check_enabled = false;
 		}
 		syscore_resume();
 	}
 
-#ifdef CONFIG_SUSPEND_KEEP_CPUS_ONLINE
-	not_switch_irq = 0;
-#endif
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
-#if !(defined(CONFIG_EARLYSUSPEND_CPU) || defined(CONFIG_SUSPEND_KEEP_CPUS_ONLINE))
+#ifndef CONFIG_EARLYSUSPEND_CPU
  Enable_cpus:
 	enable_nonboot_cpus();
 #endif
