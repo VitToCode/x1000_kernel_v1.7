@@ -169,8 +169,8 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	unsigned long flags,ctrl;
 
 	/* blast all cache before booting secondary cpu */
-	blast_dcache32();
-	blast_icache32();
+	blast_dcache_jz();
+	blast_icache_jz();
 
 	local_irq_save(flags);
 
@@ -323,9 +323,6 @@ void jzsoc_cpu_die(unsigned int cpu)
 
 	local_irq_save(flags);
 
-	blast_dcache32();
-	blast_icache32();
-
 	cpumask_clear_cpu(cpu, cpu_ready);
 	cpumask_clear_cpu(cpu, &cpu_start);
 	cpumask_clear_cpu(cpu, &cpu_running);
@@ -340,8 +337,6 @@ void jzsoc_cpu_die(unsigned int cpu)
 	cpm_set_bit(15,CPM_CLKGR1);
 
 	local_irq_restore(flags);
-
-	flush_gdir();
 }
 #endif
 
@@ -374,10 +369,8 @@ void play_dead(void)
 		while(cpumask_test_cpu(cpu, &cpu_running))
 			;
 
-		blast_icache32();
-		blast_dcache32();
-
-		flush_gdir();
+		blast_icache_jz();
+		blast_dcache_jz();
 
 		do_play_dead();
 	}
