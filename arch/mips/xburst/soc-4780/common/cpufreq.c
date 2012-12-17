@@ -32,6 +32,7 @@
 #define MIN_FREQ			200000
 #define MIN_VOLT			1200000
 #define NR_APLL_FREQ			1	/* Number APLL freq */
+#define MAX_PLL_DIV			6	/* Max CPU PLL div */
 #define tVOL_L				20	/* ms of voltage latency */
 #define tVOL_H				200	/* ms of voltage hold time */
 
@@ -117,7 +118,7 @@ static int freq_table_prepare(void)
 
 	}
 	freq_gate = mpll_rate;
-	for (j=1;i<CPUFREQ_NR && mpll_rate/j >= MIN_FREQ;i++) {
+	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ) && (j <= MAX_PLL_DIV);i++) {
 		_FREQ_TAB(i, mpll_rate / j++);
 	}
 	_FREQ_TAB(i, CPUFREQ_TABLE_END);
