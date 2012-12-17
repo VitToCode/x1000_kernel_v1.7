@@ -18,12 +18,12 @@ static void rda8851cl_init(struct modem_data *bp)
 
 static void rda8851cl_suspend(struct modem_data *bp)
 {
-	modem_gpio_out(&bp->ap_status, BP_ACTIVE);
+	modem_gpio_out(&bp->ap_status, BP_DEACTIVE);
 }
 
 static void rda8851cl_resume(struct modem_data *bp)
 {
-	modem_gpio_out(&bp->ap_status, BP_DEACTIVE);
+	modem_gpio_out(&bp->ap_status, BP_ACTIVE);
 }
 
 static void rda8851cl_poweron(struct modem_data *bp)

@@ -237,6 +237,7 @@ static int init_modems(struct modem_platform_data *pdata)
 			printk("%s, bad bp wakeup pin!", __func__);
 			goto error;
 		}
+		gpio_request(pdata->bp[i].bp_wake_ap.gpio, "bp_wake");
 		irq = gpio_to_irq(pdata->bp[i].bp_wake_ap.gpio);
 		level = pdata->bp[i].bp_wake_ap.active_level ? IRQF_TRIGGER_RISING : IRQF_TRIGGER_FALLING;
 		ret = request_irq(irq, ringin_irq, IRQF_DISABLED | IRQF_SHARED |  level, 
@@ -246,6 +247,7 @@ static int init_modems(struct modem_platform_data *pdata)
 			goto error;
 		}
 		disable_irq(irq);
+		irq_set_irq_wake(irq, 1);
 	}
 
 	return 0;
