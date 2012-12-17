@@ -1324,10 +1324,10 @@ int L2PConvert_Erase(int handle)
 	Recycle *rep = context->rep;
 	rep->recyclemode |= RECYCLE_ERASE_MODE;
         while (rep->recyclemode & RECYCLE_ERASE_MODE) {
-                printk("wait erase ..........\n");
+                ndprint(L2PCONVERT_INFO,"wait erase ..........\n");
                 nm_sleep(1);
         }
-        printk("L2PConvert_Erase finish ..........\n");
+        ndprint(L2PCONVERT_INFO,"L2PConvert_Erase finish ..........\n");
         return 0;
 }
 
