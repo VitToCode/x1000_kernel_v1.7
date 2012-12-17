@@ -39,6 +39,7 @@
 #define	MSC_DMACMD			0x054
 #define	MSC_CTRL2			0x058
 #define	MSC_RTCNT			0x05C
+#define	MSC_DEBUG			0x0FC
 
 /* MSC Clock and Control Register (MSC_CTRL) */
 #define CTRL_SEND_CCSD			(1 << 15) /*send command completion signal disable to ceata */

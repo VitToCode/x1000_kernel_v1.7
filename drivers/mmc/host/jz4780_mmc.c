@@ -29,6 +29,7 @@
 
 #define MAX_SEGS		128	/* max count of sg */
 #define TIMEOUT_PERIOD		1000	/* msc operation timeout detect period */
+#define CLK_CTRL
 
 enum {
 	EVENT_CMD_COMPLETE = 0,
@@ -205,7 +206,8 @@ static void jzmmc_dump_reg(struct jzmmc_host *host)
 		 "\tDMADA\t= 0x%08X\n"
 		 "\tDMALEN\t= 0x%08X\n"
 		 "\tDMACMD\t= 0x%08X\n"
-		 "\tRTCNT\t= 0x%08X\n",
+		 "\tRTCNT\t= 0x%08X\n"
+		 "\tDEBUG\t= 0x%08X\n",
 
 		 msc_readl(host, CTRL2),
 		 msc_readl(host, STAT),
@@ -227,7 +229,8 @@ static void jzmmc_dump_reg(struct jzmmc_host *host)
 		 msc_readl(host, DMADA),
 		 msc_readl(host, DMALEN),
 		 msc_readl(host, DMACMD),
-		 msc_readl(host, RTCNT));
+		 msc_readl(host, RTCNT),
+		 msc_readl(host, DEBUG));
 }
 #endif
 
@@ -627,6 +630,10 @@ static inline unsigned int get_incr(unsigned int dma_len)
 	unsigned int incr = 0;
 
 	BUG_ON(!dma_len);
+#if 0
+	/*
+	 * BUG here!
+	 */
 	switch (dma_len) {
 #define _CASE(S,D) case S: incr = D; break
 		_CASE(1 ... 31, 0);
@@ -636,7 +643,9 @@ static inline unsigned int get_incr(unsigned int dma_len)
 		break;
 #undef _CASE
 	}
-
+#else
+	incr = 2;
+#endif
 	return incr;
 }
 
@@ -943,31 +952,51 @@ static void jzmmc_request_timeout(unsigned long data)
 	struct jzmmc_host *host = (struct jzmmc_host *)data;
 	unsigned int status = msc_readl(host, STAT);
 
-	if (host->timeout_cnt++ < (2000 / TIMEOUT_PERIOD)) {
-		dev_warn(host->dev, "timeout %dms op:%d sz:%d state:%d "
-			 "STAT:0x%08X DMALEN:0x%08X blks:%d/%d\n",
+	if (host->timeout_cnt++ < (3000 / TIMEOUT_PERIOD)) {
+		dev_warn(host->dev, "timeout %dms op:%d %s sz:%d state:%d "
+			 "STAT:0x%08X DMALEN:0x%08X blks:%d/%d clk:%s clk_gate:%s\n",
 			 host->timeout_cnt * TIMEOUT_PERIOD,
 			 host->cmd->opcode,
+			 host->data
+			 ? (host->data->flags & MMC_DATA_WRITE ? "w" : "r")
+			 : "",
 			 host->data ? host->data->blocks << 9 : 0,
 			 host->state,
 			 status,
 			 msc_readl(host, DMALEN),
 			 msc_readl(host, SNOB),
-			 msc_readl(host, NOB));
+			 msc_readl(host, NOB),
+			 clk_is_enabled(host->clk) ? "enable" : "disable",
+			 clk_is_enabled(host->clk_gate) ? "enable" : "disable");
 		mod_timer(&host->request_timer, jiffies +
 			  msecs_to_jiffies(TIMEOUT_PERIOD));
 		return;
 
 	} else if (host->timeout_cnt++ < (60000 / TIMEOUT_PERIOD)) {
+		mod_timer(&host->request_timer, jiffies +
+			  msecs_to_jiffies(TIMEOUT_PERIOD));
 		return;
 	}
 
 	dev_err(host->dev, "request time out, op=%d arg=0x%08X, "
-		"sz:%dB state=%d, status=0x%08X, pending=0x%08X\n",
+		"sz:%dB state=%d, status=0x%08X, pending=0x%08X, nr_desc=%d\n",
 		host->cmd->opcode, host->cmd->arg,
 		host->data ? host->data->blocks << 9 : -1,
-		host->state, status, (u32)host->pending_events);
+		host->state, status, (u32)host->pending_events,
+		host->data ? host->data->sg_len : 0);
 	jzmmc_dump_reg(host);
+
+	if (host->data) {
+		int i;
+		dev_err(host->dev, "Descriptor dump:\n");
+		for (i = 0; i < MAX_SEGS; i++) {
+			unsigned int *desc = (unsigned int *)host->decshds[i].dma_desc;
+			dev_err(host->dev, "\t%03d\t nda=%08X da=%08X len=%08X dcmd=%08X\n",
+				i, *desc, *(desc+1), *(desc+2), *(desc+3));
+		}
+		dev_err(host->dev, "\n");
+	}
+
 	if (host->mrq) {
 		if (request_need_stop(host->mrq))
 			send_stop_command(host);
@@ -1046,14 +1075,18 @@ static void jzmmc_detect_change(unsigned long data)
 			}
 		} else {
 			set_bit(JZMMC_CARD_PRESENT, &host->flags);
+#ifdef CLK_CTRL
 			clk_enable(host->clk);
 			clk_enable(host->clk_gate);
+#endif
 		}
 		mmc_detect_change(host->mmc, 100);
+#ifdef CLK_CTRL
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_disable(host->clk_gate);
 			clk_disable(host->clk);
 		}
+#endif
 	}
 
 	enable_irq(gpio_to_irq(host->pdata->gpio->cd.num));
@@ -1088,16 +1121,20 @@ int jzmmc_manual_detect(int index, int on)
 	if (on) {
 		dev_vdbg(host->dev, "card insert manually\n");
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
+#ifdef CLK_CTRL
 		clk_enable(host->clk);
 		clk_enable(host->clk_gate);
+#endif
 		mmc_detect_change(host->mmc, 0);
 
 	} else {
 		dev_vdbg(host->dev, "card remove manually\n");
 		clear_bit(JZMMC_CARD_PRESENT, &host->flags);
 		mmc_detect_change(host->mmc, 0);
+#ifdef CLK_CTRL
 		clk_disable(host->clk_gate);
 		clk_disable(host->clk);
+#endif
 	}
 
 	return 0;
@@ -1114,6 +1151,7 @@ int jzmmc_clk_ctrl(int index, int on)
 	struct jzmmc_host *host;
 	struct list_head *pos;
 
+#ifdef CLK_CTRL
 	list_for_each(pos, &manual_list) {
 		host = list_entry(pos, struct jzmmc_host, list);
 		if (host->index == index)
@@ -1136,7 +1174,7 @@ int jzmmc_clk_ctrl(int index, int on)
 		clk_disable(host->clk_gate);
 		clk_disable(host->clk);
 	}
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(jzmmc_clk_ctrl);
@@ -1225,6 +1263,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->clock) {
 		unsigned int clk_set = 0, clkrt = 0;
 		unsigned int clk_want = ios->clock;
+		unsigned int lpm;
 
 		if (clk_want > 1000000) {
 			clk_set_rate(host->clk, ios->clock);
@@ -1261,13 +1300,14 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				 ios->clock, clk_get_rate(host->clk));
 		msc_writel(host, CLKRT, clkrt);
 
+		if (clk_set > 25000000)
+			lpm = (0x2 << LPM_DRV_SEL_SHF) | LPM_SMP_SEL;
+
 		if(host->pdata->sdio_clk) {
+			msc_writel(host, LPM, lpm);
 			msc_writel(host, CTRL, CTRL_CLOCK_START);
 		} else {
-			unsigned int lpm = LPM_LPM;
-			if (clk_want)
-				lpm |= 0x2 << LPM_DRV_SEL_SHF;
-
+			lpm |= LPM_LPM;
 			msc_writel(host, LPM, lpm);
 		}
 	}
@@ -1489,8 +1529,10 @@ static int __init jzmmc_msc_init(struct jzmmc_host *host)
 	clk_enable(host->clk);
 	clk_enable(host->clk_gate);
 	jzmmc_reset(host);
+#ifdef CLK_CTRL
 	clk_disable(host->clk_gate);
 	clk_disable(host->clk);
+#endif
 	host->cmdat_def = CMDAT_RTRG_EQUALT_16 |		\
 		CMDAT_TTRG_LESS_16 |			\
 		CMDAT_BUS_WIDTH_1BIT;
