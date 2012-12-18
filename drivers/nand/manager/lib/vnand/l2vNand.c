@@ -685,7 +685,7 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 		ndprint(VNAND_INFO,"\n");
 
 		if(badblockcount > 0)
-			pt->actualbadblockcount = badblockcount;
+			pt_t->actualbadblockcount = badblockcount;
 
 		badblockcount = 0;
 	}
