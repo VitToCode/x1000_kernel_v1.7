@@ -6,6 +6,11 @@
 #include "lpartition.h"
 #include "ppartition.h"
 
+enum cmd {
+	SUSPEND,
+	RESUME,
+};
+
 typedef struct __nm_lpt NM_lpt;
 typedef struct __nm_ppt NM_ppt;
 

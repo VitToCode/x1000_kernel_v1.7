@@ -512,6 +512,10 @@ static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mod
 				blk_stop_queue(q);
 				spin_unlock_irqrestore(q->queue_lock, flags);
 				down(&ndisk->thread_sem);
+				if (NM_ptIoctrl(ndisk->pinfo->context, SUSPEND, 0)) {
+					printk("ERROR: %s, suspend NandManager error!\n", __func__);
+					return -1;
+				}
 			}
 		}
 		break;
@@ -522,6 +526,10 @@ static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mod
 			ndisk = singlelist_entry(plist, struct __nand_disk, list);
 			q = ndisk->queue;
 			if (q) {
+				if (NM_ptIoctrl(ndisk->pinfo->context, RESUME, 0)) {
+					printk("ERROR: %s, resume NandManager error!\n", __func__);
+					return -1;
+				}
 				up(&ndisk->thread_sem);
 				spin_lock_irqsave(q->queue_lock, flags);
 				blk_start_queue(q);

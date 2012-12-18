@@ -36,11 +36,6 @@ struct _L2pConvert {
 #endif
 };
 
-enum cmd {
-	SUSPEND,
-	RESUME,
-};
-
 #define INIT_L2P(x) do{							\
 		(x)->follow_node = NULL;				\
 		(x)->prev_node = NULL;					\

@@ -4,8 +4,12 @@
 #include "vnandinfo.h"
 #include "sectorlist.h"
 
-#define PARTITIONINTERFACE(OBJ) ((PartitionInterface*)OBJ)
+enum cmd {
+	SUSPEND,
+	RESUME,
+};
 
+#define PARTITIONINTERFACE(OBJ) ((PartitionInterface*)OBJ)
 
 typedef struct _PartitionInterface PartitionInterface;
 
