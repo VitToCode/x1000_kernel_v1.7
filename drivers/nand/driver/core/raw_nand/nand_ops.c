@@ -306,8 +306,8 @@ static inline void send_get_nand_id(char *nand_id)
 
 	/* Read manufacturer and device IDs */
 #ifdef NAND_READID_NORB
-	g_pnand_io->read_data_norb(&nand_id[0], 5);
 	msleep(10);
+	g_pnand_io->read_data_norb(&nand_id[0], 5);
 #else
 	g_pnand_io->read_data_withrb(&nand_id[0], 5);
 #endif
