@@ -2205,9 +2205,13 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
 		NLA_PUT_U16(msg, NL80211_STA_BSS_PARAM_BEACON_INTERVAL,
 			    sinfo->bss_param.beacon_interval);
 
-		nla_nest_end(msg, bss_param);
+	        nla_nest_end(msg, bss_param);
 	}
 	nla_nest_end(msg, sinfoattr);
+
+	if (sinfo->filled & STATION_INFO_ASSOC_REQ_IES)
+		NLA_PUT(msg, NL80211_ATTR_IE, sinfo->assoc_req_ies_len,
+			sinfo->assoc_req_ies);
 
 	return genlmsg_end(msg, hdr);
 
