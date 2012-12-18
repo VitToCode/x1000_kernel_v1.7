@@ -648,7 +648,7 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 	PPartition *ept = vm ? &vm->pt->ppt[vm->pt->ptcount - 1] : NULL;
 
 	/* error partition must be the last partition */
-	if(!ept || !ept->badblock || ept->mode != ONCE_MANAGER){
+	if(!ept || ept->mode != ONCE_MANAGER){
 		ndprint(VNAND_ERROR, "ERROR: %s, error partition has not been initlized\n", __func__);
 		return -1;
 	}
