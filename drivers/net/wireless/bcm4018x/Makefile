@@ -9,7 +9,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER                     \
 	-DKEEP_ALIVE -DCSCAN -DGET_CUSTOM_MAC_ENABLE -DPKT_FILTER_SUPPORT     \
 	-DEMBEDDED_PLATFORM -DENABLE_INSMOD_NO_FW_LOAD -DPNO_SUPPORT          \
 	-DOEM_ANDROID -DLINUX -DWL_CFG80211_STA_EVENT	  \
-	-Idrivers/net/wireless/bcmdhd -Idrivers/net/wireless/bcmdhd/include
+	-Idrivers/net/wireless/bcm4018x -Idrivers/net/wireless/bcm4018x/include
 
 DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 	dhd_linux_sched.o bcmwifi.o dhd_sdio.o bcmevent.o dhd_bta.o hndpmu.o  \
