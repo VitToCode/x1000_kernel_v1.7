@@ -620,7 +620,7 @@ static int binfo_pl_create(int blm, PPartition *pt, PageList **top, int bytes, i
 	PageList *pl_node = NULL;
 
 	for (i = 0; i < BADBLOCKINFOSIZE; i++) {
-		if (top == NULL) {
+		if (*top == NULL) {
 			*top = (PageList *)BuffListManager_getTopNode(blm, sizeof(PageList));
 			pl_node = *top;
 		} else
