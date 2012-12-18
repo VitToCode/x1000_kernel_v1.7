@@ -428,43 +428,31 @@ int gpio_suspend(void)
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
 
-        for(j=0;j<32;j++) {
-            if (test_bit(j, jz->wake_map)) {
-                irq = jz->irq_base + j;
-                desc = irq_to_desc(irq);
-                __enable_irq(desc, irq, true);
-            }
-        }
+		for(j=0;j<32;j++) {
+			if (test_bit(j, jz->wake_map)) {
+				irq = jz->irq_base + j;
+				desc = irq_to_desc(irq);
+				__enable_irq(desc, irq, true);
+			}
+        	}
 
-        jz->save[0] = readl(jz->reg + PXINT);
-        jz->save[1] = readl(jz->reg + PXMSK);
-        jz->save[2] = readl(jz->reg + PXPAT1);
+		jz->save[0] = readl(jz->reg + PXINT);
+		jz->save[1] = readl(jz->reg + PXMSK);
+		jz->save[2] = readl(jz->reg + PXPAT1);
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
 	
 #ifndef CONFIG_SUSPEND_SUPREME_DEBUG
-		gpio_set_func(jz,GPIO_OUTPUT0,jz->sleep_state.output_low);
-		gpio_set_func(jz,GPIO_OUTPUT1,jz->sleep_state.output_high);
-		gpio_set_func(jz,GPIO_INPUT,jz->sleep_state.input_nopull);
-		gpio_set_func(jz,GPIO_INPUT_PULL,jz->sleep_state.input_pull);
+		gpio_set_func(jz,GPIO_OUTPUT0,
+				jz->sleep_state.output_low & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_OUTPUT1,
+				jz->sleep_state.output_high & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT,
+				jz->sleep_state.input_nopull & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT_PULL,
+				jz->sleep_state.input_pull & ~jz->wake_map);
 #endif
 	}
-#if 0
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	for (i = 0; i < platform_devio_array_size ; i++) {
-		struct jz_gpio_func_def *g = &platform_devio_array[i];
-		struct jzgpio_chip *jz = &jz_gpio_chips[g->port];
-
-		if (g->port >= GPIO_NR_PORTS)
-			continue;
-		else if (g->port < 0)
-			break;
-
-		if (!strncmp("uart",g->name,4))
-			gpio_set_func(jz, g->func, g->pins);
-	}
-#endif
-#endif
 	return 0;
 }
 
