@@ -69,9 +69,9 @@ struct jzgpio_chip {
 	DECLARE_BITMAP(gpio_map, 32);
 	DECLARE_BITMAP(irq_map, 32);
 	DECLARE_BITMAP(out_map, 32);
-	DECLARE_BITMAP(wake_map, 32);
 	struct gpio_chip gpio_chip;
 	struct irq_chip  irq_chip;
+	unsigned int wake_map;
 	struct jzgpio_state sleep_state;
 	unsigned int save[5];
 };
@@ -300,9 +300,9 @@ static int gpio_set_wake(struct irq_data *data, unsigned int on)
 		return -EINVAL;
 
 	if(on)
-		set_bit(pin, jz->wake_map);
+		jz->wake_map |= 0x1 << pin;
 	else
-		clear_bit(pin, jz->wake_map);
+		jz->wake_map &= ~(0x1 << pin);
 	return 0;
 }
 
@@ -429,7 +429,7 @@ int gpio_suspend(void)
 		jz = &jz_gpio_chips[i];
 
 		for(j=0;j<32;j++) {
-			if (test_bit(j, jz->wake_map)) {
+			if (jz->wake_map & (0x1<<j)) {
 				irq = jz->irq_base + j;
 				desc = irq_to_desc(irq);
 				__enable_irq(desc, irq, true);
