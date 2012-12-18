@@ -134,7 +134,7 @@ int ov7675_init(struct cim_sensor *sensor_info)
 		ov7675_write_reg(client,0x52,0x11);
 		ov7675_write_reg(client,0x53,0x8c);
 		ov7675_write_reg(client,0x54,0x9d);
-		ov7675_write_reg(client,0x55,0x00);
+		ov7675_write_reg(client,0x55,0x98);
 		ov7675_write_reg(client,0x56,0x40);
 		ov7675_write_reg(client,0x57,0x80);
 		ov7675_write_reg(client,0x58,0x9a);
@@ -207,8 +207,6 @@ int ov7675_init(struct cim_sensor *sensor_info)
 		ov7675_write_reg(client,0x09,0x00);
 
 		//		printk("-------------------------------ov7675 init 3");
-
-
 
 	return 0;
 }
@@ -324,18 +322,18 @@ int ov7675_capture_set(struct cim_sensor *sensor_info)
 
 void ov7675_set_ab_50hz(struct i2c_client *client)
 {
-	int temp = ov7675_read_reg(client,0x3b);
-	ov7675_write_reg(client,0x3b,temp|0x08);	    /* 50 Hz */	
-	ov7675_write_reg(client,0x9d,0x4c);  
-	ov7675_write_reg(client,0xa5,0x06);  
+	ov7675_write_reg(client,0x13, 0xe7);  
+	ov7675_write_reg(client,0x9d, 0x4c);  
+	ov7675_write_reg(client,0xa5, 0x05);  
+	ov7675_write_reg(client,0x3b, 0x02);	    /* 50 Hz */	
 }
 
 void ov7675_set_ab_60hz(struct i2c_client *client)
 {
-	int temp = ov7675_read_reg(client,0x3b);
-	ov7675_write_reg(client,0x3b,temp&0xf7);	    /* 60 Hz */
-	ov7675_write_reg(client,0x9e,0x3f);  
-	ov7675_write_reg(client,0xab,0x07);  
+	ov7675_write_reg(client,0x13, 0xe7);  
+	ov7675_write_reg(client,0x9e, 0x3f);  
+	ov7675_write_reg(client,0xab, 0x07);  
+	ov7675_write_reg(client,0x3b, 0x02);	    /* 50 Hz */	
 }
 
 int ov7675_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)

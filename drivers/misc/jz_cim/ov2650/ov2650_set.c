@@ -468,22 +468,12 @@ int ov2650_capture_set(struct cim_sensor *sensor_info)
 
 void ov2650_set_ab_50hz(struct i2c_client *client)
 {
-#if 0
-	int temp = ov2650_read_reg(client,0x3b);
-	ov2650_write_reg(client,0x3b,temp|0x08);	    /* 50 Hz */	
-	ov2650_write_reg(client,0x9d,0x4c);  
-	ov2650_write_reg(client,0xa5,0x06);  
-#endif
+	ov2650_write_reg(client, 0x3014, 0x84);	    /* 50 Hz */	
 }
 
 void ov2650_set_ab_60hz(struct i2c_client *client)
 {
-#if 0
-	int temp = ov2650_read_reg(client,0x3b);
-	ov2650_write_reg(client,0x3b,temp&0xf7);	    /* 60 Hz */
-	ov2650_write_reg(client,0x9e,0x3f);  
-	ov2650_write_reg(client,0xab,0x07);  
-#endif
+	ov2650_write_reg(client, 0x3014, 0x04);	    /* 60 Hz */	
 }
 
 int ov2650_set_antibanding(struct cim_sensor *sensor_info,unsigned short arg)
