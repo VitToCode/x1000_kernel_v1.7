@@ -597,6 +597,7 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 
 static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_info *mem)
 {
+	int found = 0;
 	struct list_head *pos;
 	struct list_head *head;
 	struct buffer_heap_info *buffer;
@@ -615,6 +616,7 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 		buffer = list_entry(pos, struct buffer_heap_info, list);
 		if (buffer) {
 			if (buffer->vaddr == mem->vaddr) {
+				found = 1;
 				kfree(buffer->pages_phys_table);
 				list_del_init(pos);
 				kfree(buffer);
@@ -622,6 +624,9 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 			}
 		}
 	}
+
+	if (!found)
+		dev_err(jz_dmmu.dev, "%s buffer->vaddr: %p", __func__, buffer->vaddr);
 
 	mutex_unlock(&jz_dmmu.map_lock);
 

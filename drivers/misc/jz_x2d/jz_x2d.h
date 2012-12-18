@@ -6,13 +6,12 @@
  */
 #define X2D_IOCTL_MAGIC 'X'
 
-#define IOCTL_X2D_SET_CONFIG			0xf01
-#define IOCTL_X2D_START_COMPOSE		0xf02
-#define IOCTL_X2D_GET_MY_CONFIG		0xf03
-#define IOCTL_X2D_GET_SYSINFO			0xf04
-#define IOCTL_X2D_STOP					0xf05
-#define IOCTL_X2D_MAP_GRAPHIC_BUF		0xf06
-#define IOCTL_X2D_FREE_GRAPHIC_BUF		0xf07
+#define IOCTL_X2D_SET_CONFIG			_IOW(X2D_IOCTL_MAGIC, 0x01, struct jz_x2d_config)
+#define IOCTL_X2D_START_COMPOSE		    _IO(X2D_IOCTL_MAGIC, 0x02)
+#define IOCTL_X2D_GET_SYSINFO		    _IOR(X2D_IOCTL_MAGIC, 0x03, struct jz_x2d_config)
+#define IOCTL_X2D_STOP					_IO(X2D_IOCTL_MAGIC, 0x04)
+#define IOCTL_X2D_MAP_GRAPHIC_BUF		_IO(X2D_IOCTL_MAGIC, 0x05)
+#define IOCTL_X2D_FREE_GRAPHIC_BUF		_IO(X2D_IOCTL_MAGIC, 0x06)
 
 
 #define X2D_RGBORDER_RGB 			 0  
@@ -58,26 +57,26 @@
 #define X2D_OSD_MOD_DST_ATOP		0xa 
 #define X2D_OSD_MOD_XOR				0xb
 
-enum jz_x2d_state{
-	x2d_state_idle,			 //空闲
-	x2d_state_calc,			 //运算
-	x2d_state_complete,		 //完成
-	x2d_state_error,				 //错误
-	x2d_state_suspend,		//being suspend
+enum jz_x2d_state {
+	x2d_state_idle,
+	x2d_state_calc,
+	x2d_state_complete,
+	x2d_state_error,
+	x2d_state_suspend,
 };
 
-enum jz_x2d_errcode{
-	error_none,				//无错误
-	error_calc,				//运算错误
-	error_wthdog,				//看门狗超时
-	error_TLB,				//TLB异常
+enum jz_x2d_errcode {
+	error_none,
+	error_calc,
+	error_wthdog,
+	error_TLB,
 };
 
-typedef struct x2d_lay_info
-{ // Order Cannot be Changed!
+/* Order Cannot be Changed! */
+typedef struct x2d_lay_info {
 	uint8_t lay_ctrl;
 	uint8_t lay_galpha;
-	uint8_t rom_ctrl; //rotate and mirror control
+	uint8_t rom_ctrl;     //rotate and mirror control
 	uint8_t RGBM;
 
 	uint32_t y_addr;
@@ -100,8 +99,8 @@ typedef struct x2d_lay_info
 	uint32_t bk_argb;
 }x2d_lay_info, *x2d_lay_info_p;
 
-typedef struct x2d_chain_info
-{ // Order Cannot be Changed!
+/* Order Cannot be Changed! */
+typedef struct x2d_chain_info {
 	uint16_t   overlay_num;
 	uint16_t   dst_tile_en;
 	uint32_t   dst_addr;
@@ -115,7 +114,7 @@ typedef struct x2d_chain_info
 
 struct src_layer {
 	int format;
-	int transform;// such as rotate or mirror
+	int transform;  //such as rotate or mirror
 	int global_alpha_val;
 	int argb_order;
 	int osd_mode;
@@ -123,7 +122,8 @@ struct src_layer {
 	int glb_alpha_en;
 	int mask_en;
 	int color_cov_en;
-	//input  output size
+
+	/* input && output size */
 	int in_width;			//LAY0_SGS
 	int in_height;
 	int out_width;			//LAY0_OGS
@@ -135,7 +135,7 @@ struct src_layer {
 	int h_scale_ratio;
 	int msk_val;
 
-	//yuv address
+	/* yuv address */
 	int addr;
 	int u_addr;
 	int v_addr;
@@ -144,11 +144,11 @@ struct src_layer {
 };
 
 struct jz_x2d_config{
-	//global
+	/* global val */
 	int watchdog_cnt; 
 	unsigned int tlb_base;
 
-	//dst 
+	/* dst val */ 
 	int dst_address;		//DST_BASE	
 	int dst_alpha_val;		//DST__CTRL_STR - alpha
 	int dst_stride;			//DST__CTRL_STR -DST_STR
@@ -163,18 +163,20 @@ struct jz_x2d_config{
 	int dst_mask_en;	    //DST_CTRL_STR -Msk_en
 	//int dst_backpic_alpha_en;
 
-	//src layers
+	/* src layers */
 	int layer_num;
 	struct src_layer lay[4];
 };
 
-struct x2d_process_info{
-	pid_t pid;						//进程号
-	unsigned int tlb_base;					//该进程tlb表
-	int * record_addr_list;
+struct x2d_proc_info {
+	pid_t pid;
+	unsigned int tlb_base;
+	int *record_addr_list;
 	int record_addr_num;
-	struct jz_x2d_config configs;			//该进程存储所需运算的配置
-	struct list_head list;//链表下一结点
+
+	struct file *x2d_filp;
+	struct jz_x2d_config configs;
+	struct list_head list;
 };
 
 

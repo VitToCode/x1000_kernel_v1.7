@@ -8,7 +8,7 @@
  * published by the Free Software Foundation.
  *
  */
-//////////////////////////////////include files/////////////////////////////////////////////////////
+
 #include <linux/errno.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -24,7 +24,6 @@
 #include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/module.h>
-//#include <linux/time.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/major.h>
@@ -70,19 +69,26 @@
 
 struct x2d_device {
 	int irq;
+	int proc_num;
+	pid_t hold_proc;
+
+	struct file *cur_filp;
+	struct file *sys_filp;
+
 	void __iomem *base;
 	struct device *dev;
 	struct resource * mem;
 	struct miscdevice misc_dev;
 	struct clk *x2d_clk;
+
 	enum jz_x2d_state state;
 	enum jz_x2d_errcode errcode;
-	struct list_head proc_list;
-	int proc_num;
-	pid_t hold_proc;
+
 	x2d_chain_info * chain_p;
 	wait_queue_head_t set_wait_queue;
-	struct  early_suspend early_suspend;	
+
+	struct list_head proc_list;
+	struct early_suspend early_suspend;	
 	struct mutex x2d_lock;
 	struct mutex compose_lock;
 };
@@ -95,38 +101,37 @@ static ssize_t x2d_write(struct file *filp, const char *buf, size_t size, loff_t
 static long x2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
 /***********************************internal interface*****************************************/
-static unsigned long reg_read(struct x2d_device *jz_x2d,int offset)
+static unsigned long reg_read(struct x2d_device *jz_x2d, int offset)
 {
-	return readl(jz_x2d->base + offset); 
+	return readl(jz_x2d->base + offset);
 }
 
-static void reg_write(struct x2d_device *jz_x2d,int offset, unsigned long val)
+static void reg_write(struct x2d_device *jz_x2d, int offset, unsigned long val)
 {
-	writel(val, jz_x2d->base + offset); 
+	writel(val, jz_x2d->base + offset);
 }
 
-static void bit_set(struct x2d_device *jz_x2d,int offset,int bit)
+static void bit_set(struct x2d_device *jz_x2d, int offset, int bit)
 {
 	int val = 0;
-	val = reg_read(jz_x2d,offset);
+
+	val = reg_read(jz_x2d, offset);
 	val |= (1<<bit);
-	reg_write(jz_x2d,offset,val);
+	reg_write(jz_x2d, offset, val);
 }
 
-#if 0
-static void bit_clr(struct x2d_device *jz_x2d,int offset,int bit)
+#if 0 //not use
+static void bit_clr(struct x2d_device *jz_x2d, int offset, int bit)
 {
 	int val = 0;
-	val = reg_read(jz_x2d,offset);
+	val = reg_read(jz_x2d, offset);
 	val &= ~(1<<bit);
-	reg_write(jz_x2d,offset,val);
+	reg_write(jz_x2d, offset, val);
 }
-#endif
 
 static int get_srcfmt_bpp(int format)
 {
-	switch(format)
-	{
+	switch (format) {
 		case X2D_INFORMAT_ARGB888:
 			return 32;
 		case X2D_INFORMAT_RGB555:
@@ -145,8 +150,7 @@ static int get_srcfmt_bpp(int format)
 
 static int get_dstfmt_bpp(int format)
 {
-	switch(format)
-	{
+	switch (format) {
 		case X2D_OUTFORMAT_ARGB888:
 		case X2D_OUTFORMAT_XARGB888:
 			return 32;
@@ -159,7 +163,6 @@ static int get_dstfmt_bpp(int format)
 	}
 }
 
-#if 0
 int x2d_get_state(void)
 {
 	return jz_x2d->state;
@@ -171,9 +174,9 @@ int x2d_get_errcode(void)
 }
 #endif
 
-static unsigned int get_phy_addr(unsigned int vaddr)  
+static unsigned int get_phy_addr(unsigned int vaddr)
 {  
-	unsigned int addr=vaddr & (PAGE_SIZE-1);
+	unsigned int addr = vaddr & (PAGE_SIZE-1);
 	pgd_t   *pgdir;
 #ifdef CONFIG_PGTABLE_4
 	pud_t	*pudir;
@@ -181,45 +184,41 @@ static unsigned int get_phy_addr(unsigned int vaddr)
 	pmd_t   *pmdir; 
 	pte_t   *pte;  
 
-	//dev_dbg(jz_x2d->dev, "current task(%d)'s pgd is 0x%p\n",current->pid,current->mm->pgd);
-
-	pgdir=pgd_offset(current->mm,vaddr);  
-	if(pgd_none(*pgdir)||pgd_bad(*pgdir))  
-		return   -EINVAL;  
+	pgdir = pgd_offset(current->mm, vaddr);
+	if (pgd_none(*pgdir) || pgd_bad(*pgdir))
+		return -EINVAL;  
 
 #ifdef CONFIG_PGTABLE_4
-	pudir=pud_offset(pgdir,vaddr);
-	if(pud_none(*pudir)||pud_bad(*pudir))  
-		return   -EINVAL;  
+	pudir = pud_offset(pgdir, vaddr);
+	if (pud_none(*pudir) || pud_bad(*pudir))  
+		return -EINVAL;  
 
-	pmdir=pmd_offset(pudir,vaddr);  
-	if(pmd_none(*pmdir)||pmd_bad(*pmdir))  
-		return   -EINVAL;  
+	pmdir = pmd_offset(pudir, vaddr);
+	if (pmd_none(*pmdir) || pmd_bad(*pmdir))
+		return -EINVAL;  
 #else
-	pmdir=pmd_offset((pud_t *)pgdir,vaddr);  
-	if(pmd_none(*pmdir)||pmd_bad(*pmdir))  
-		return   -EINVAL;  
+	pmdir = pmd_offset((pud_t *)pgdir, vaddr);
+	if (pmd_none(*pmdir) || pmd_bad(*pmdir))  
+		return -EINVAL;  
 #endif
 
-	pte=pte_offset(pmdir,vaddr);  
+	pte = pte_offset(pmdir, vaddr);  
 
-	if(pte_present(*pte))  
-	{  
-		return   addr | (pte_pfn(*pte)<<PAGE_SHIFT);  
+	if (pte_present(*pte)) {  
+		return addr | (pte_pfn(*pte)<<PAGE_SHIFT);
 		//pte_page(*pte);
 	} 
-	return   -EINVAL;  
+	return -EINVAL;
 }
 
 /**************************************tlb interface************************************/
-int if_recorded_in_list(int vaddr,struct x2d_process_info* proc)
+static int if_recorded_in_list(int vaddr, struct x2d_proc_info* proc)
 {
-	int i =0;
+	int i;
 	int find_flag = 0;
-	for(i=0;i< proc->record_addr_num;i++)
-	{
-		if(vaddr == proc->record_addr_list[i]&& 1/*valid page*/)
-		{
+
+	for(i = 0; i < proc->record_addr_num; i++) {
+		if(vaddr == proc->record_addr_list[i] && 1) {   /*valid page*/
 			find_flag = 1;
 			break;
 		}
@@ -227,7 +226,7 @@ int if_recorded_in_list(int vaddr,struct x2d_process_info* proc)
 	return find_flag;
 }
 
-void fill_tlb_address(int vaddr,int lenth,struct x2d_process_info* proc)
+void fill_tlb_address(int vaddr, int lenth, struct x2d_proc_info* proc)
 {
 
 	int page_num,i,addr,paddr,tlb_pos,s_pos;
@@ -243,10 +242,8 @@ void fill_tlb_address(int vaddr,int lenth,struct x2d_process_info* proc)
 
 	s_pos = tlb_pos;
 
-	for(i=0;i<page_num;i++)
-	{
+	for (i = 0; i < page_num; i++) {
 		int *p_tlb;
-		//paddr = page_to_phys(vmalloc_to_page(addr));
 		paddr = get_phy_addr(addr);
 		p_tlb = (int *)(proc->tlb_base + tlb_pos);
 		*p_tlb = paddr + X2D_PAGE_VALID_BIT;
@@ -257,62 +254,61 @@ void fill_tlb_address(int vaddr,int lenth,struct x2d_process_info* proc)
 	dma_cache_wback(vaddr,lenth);
 }
 
-void transfer_config_address(struct x2d_process_info* proc)
+#ifndef USE_DMMU_TLB
+void transfer_config_address(struct x2d_proc_info* proc)
 {
 	int i = 0;
 	int lenth = 0;
 
 	/***********************dst address transfer*********************/	
-	printk("function: %s line: %d------------->\n", __func__, __LINE__);
-	lenth = proc->configs.dst_width * proc->configs.dst_height 
-		* get_dstfmt_bpp(proc->configs.dst_format)/8;
-	printk("dst_addr: %08x, lengh: %d---~~~~~~~~~>\n", proc->configs.dst_address, lenth);
+	lenth = proc->configs.dst_width * proc->configs.dst_height *
+		get_dstfmt_bpp(proc->configs.dst_format)/8;
 	fill_tlb_address(proc->configs.dst_address, lenth,  proc);
-	printk("function: %s line: %d------------->\n", __func__, __LINE__);
 
 	/**********************src address transfer**********************/
 	for(i = 0; i < proc->configs.layer_num; i++) {	
-		lenth = proc->configs.lay[i].in_width * proc->configs.lay[i].in_height 
-			* get_srcfmt_bpp(proc->configs.lay[i].format)/8;
-		printk("addr: %08x, lengh: %d---~~~~~~~~~>\n", proc->configs.lay[i].addr, lenth);
+		lenth = proc->configs.lay[i].in_width * proc->configs.lay[i].in_height *
+			get_srcfmt_bpp(proc->configs.lay[i].format)/8;
 		fill_tlb_address(proc->configs.lay[i].addr, lenth, proc);
-	} 
+	}
 }
+#endif
 
 /*******************************process functions*********************************/
-static struct x2d_process_info* x2d_index_procinfo(struct x2d_device *jz_x2d, pid_t pid)
+static struct x2d_proc_info* x2d_index_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 {
-	struct x2d_process_info* p ;
-	list_for_each_entry(p, &jz_x2d->proc_list, list)
-	{
-		if(p->pid == pid) {
-			dev_dbg(jz_x2d->dev, "<----------------current pid: %d\n", p->pid);
-			return p;
+	struct x2d_proc_info *x2d_proc = NULL;
+
+	list_for_each_entry(x2d_proc, &jz_x2d->proc_list, list) {
+		if(filp == x2d_proc->x2d_filp) {
+			dev_dbg(jz_x2d->dev, "%s %p", __func__, filp);
+			return x2d_proc;
 		}
 	}
-	dev_err(jz_x2d->dev,"cannot find the proc %d from chain-------------->\n",pid);
+
+	dev_err(jz_x2d->dev,"cannot find the proc %p from chain", filp);
+
 	return NULL;
 }
 
 #ifndef USE_DMMU_TLB
-static int create_tlb_table(struct x2d_process_info* proc)
+static int create_tlb_table(struct x2d_proc_info* proc)
 {
+	int i = 0;
 	int *tlb_p = NULL;
 	int *addr_list = NULL;
-	int i = 0;
-	tlb_p = kzalloc(X2D_TLB_TABLE_SIZE,GFP_KERNEL);//alloc 2M tlb mem;
 
-	if(!tlb_p)
-	{
+	tlb_p = kzalloc(X2D_TLB_TABLE_SIZE,GFP_KERNEL);  //alloc 2M tlb mem
+	if (!tlb_p) {
 		pr_err("malloc tlb table fail\n");
 		return -1;
 	}
-	for(i=0;i<(X2D_TLB_TABLE_SIZE>>2);i++)//avoid x2d  hardware bug,must do it!
+
+	for (i = 0; i < (X2D_TLB_TABLE_SIZE>>2); i++)   //avoid x2d  hardware bug,must do it!
 		*(tlb_p + i) = DUMMY_TLB_ADDR;
 
-	addr_list = kzalloc(GFP_KERNEL,X2D_MAX_ADDR_RECORD_NUM*sizeof(int));
-	if(!addr_list)
-	{
+	addr_list = kzalloc(GFP_KERNEL, X2D_MAX_ADDR_RECORD_NUM*sizeof(int));
+	if (!addr_list) {
 		pr_err("malloc addr list fail\n");
 		return -1;
 	}
@@ -324,7 +320,7 @@ static int create_tlb_table(struct x2d_process_info* proc)
 	return 0;
 }
 
-static int free_tlb_table(struct x2d_process_info* proc)
+static int free_tlb_table(struct x2d_proc_info* proc)
 {
 	kzfree((int *)proc->tlb_base);
 	kzfree(proc->record_addr_list);
@@ -335,156 +331,147 @@ static int free_tlb_table(struct x2d_process_info* proc)
 }
 #endif
 
-static int x2d_create_procinfo(struct x2d_device *jz_x2d)
+static int x2d_create_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 {
-	struct x2d_process_info* p = NULL;
-	p = kmalloc(sizeof(struct x2d_process_info),GFP_KERNEL);
-	if(p == NULL)
-	{
+	struct x2d_proc_info *x2d_proc = NULL;
+
+	x2d_proc = kzalloc(sizeof(struct x2d_proc_info), GFP_KERNEL);
+	if (!x2d_proc) {
 		dev_err(jz_x2d->dev,"malloc for struct proc_info fail\n");
-		return -1;
+		return -EFAULT;
 	}
-//	p->pid = current->tgid;
-	p->pid = current->pid;
-	list_add_tail(&p->list,&jz_x2d->proc_list);
-	dev_dbg(jz_x2d->dev, "%d, %s, pid: %d, p: %p~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__, p->pid, p);
-#ifdef USE_DMMU_TLB
-#else
-	ret = create_tlb_table(p);
-	if(ret != 0)
-	{
+	x2d_proc->pid = current->pid;
+	x2d_proc->x2d_filp = filp;
+	jz_x2d->sys_filp = filp;
+	list_add_tail(&x2d_proc->list,&jz_x2d->proc_list);
+
+#ifndef USE_DMMU_TLB
+	ret = create_tlb_table(x2d_proc);
+	if(ret != 0) {
 		dev_err(jz_x2d->dev,"creat tlb for proc %d  fail\n",p->pid);
 		return -1;
 	}
 #endif
 	jz_x2d->proc_num++;
-	dev_info(jz_x2d->dev,"X2d has opened by %d processes\n",jz_x2d->proc_num);
+
+	dev_dbg(jz_x2d->dev,"X2d has opened by %d processes\n",jz_x2d->proc_num);
 	return 0;
 }
 
-static int x2d_free_procinfo(struct x2d_device *jz_x2d,pid_t pid)
+static int x2d_free_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 {
-	struct x2d_process_info* p = NULL;
+	struct x2d_proc_info *x2d_proc = NULL;
 
-	p = x2d_index_procinfo(jz_x2d, current->pid);
-	if (!p) {
-		dev_err(jz_x2d->dev,"free_tlb_table  cannot find proc %d\n",pid);
-		return -1;
+	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
+	if (!x2d_proc) {
+		dev_err(jz_x2d->dev,"free_tlb_table  cannot find proc %p\n", filp);
+		return -EFAULT;
 	}
-#ifdef USE_DMMU_TLB
-#else
-	free_tlb_table(p);
+
+#ifndef USE_DMMU_TLB
+	free_tlb_table(x2d_proc);
 #endif
-	list_del(&p->list);
-	kfree(p);
-	p = NULL;
+
+	list_del_init(&x2d_proc->list);
+	kfree(x2d_proc);
+	x2d_proc = NULL;
 	jz_x2d->proc_num--;
+
 	dev_dbg(jz_x2d->dev,"A process is freed,now x2d has %d process\n",jz_x2d->proc_num);
 
 	return 0;
 }
 
-static int x2d_check_allproc_free (struct x2d_device *jz_x2d)
-{
-	int ret;
-
-	ret = (jz_x2d->proc_num==0)? 1: 0;
-	if(ret == 1)dev_dbg(jz_x2d->dev,"X2d ---no proc used!\n");
-
-	return ret;
-}
-
 #ifdef X2D_DEBUG
-static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_process_info *p)
+static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_proc_info *p)
 {
 	int i;
 
-	dev_info(jz_x2d->dev, "x2d_process_info  pid: %d \n tlb_base: %08x record_addr_num: %d\n",
+	dev_info(jz_x2d->dev, "x2d_process_info  pid: %d \n tlb_base: %08x\n record_addr_num: %d\n",
 			 p->pid, p->tlb_base, p->record_addr_num);
-	dev_info(jz_x2d->dev, "watchdog_cnt: %d\ntlb_base:%08x\tdst_address:%08x\n", 
+	dev_info(jz_x2d->dev, "watchdog_cnt: %d\ntlb_base:%08x\ndst_address:%08x\n", 
 			 p->configs.watchdog_cnt, p->configs.tlb_base, p->configs.dst_address);
 	dev_info(jz_x2d->dev, "dst_alpha_val: %d\n dst_stride:%d\n dst_mask_val:%08x\n", 
 			 p->configs.dst_alpha_val, p->configs.dst_stride, p->configs.dst_mask_val);
-	dev_info(jz_x2d->dev, "dst_width: %d\t dst_height:%d\n dst_bcground:%08x\n", 
+	dev_info(jz_x2d->dev, "dst_width: %d\n dst_height:%d\n dst_bcground:%08x\n", 
 			 p->configs.dst_width, p->configs.dst_height, p->configs.dst_bcground);
-	dev_info(jz_x2d->dev, "dst_format: %d\t dst_back_en:%08x\t dst_preRGB_en:%08x\n", 
+	dev_info(jz_x2d->dev, "dst_format: %d\n dst_back_en:%08x\n dst_preRGB_en:%08x\n", 
 			 p->configs.dst_format, p->configs.dst_back_en, p->configs.dst_preRGB_en);
-	dev_info(jz_x2d->dev, "dst_glb_alpha_en: %d\tdst_backpure_en:%08x\t configs.layer_num: %d\n", 
+	dev_info(jz_x2d->dev, "dst_glb_alpha_en: %d\n dst_backpure_en:%08x\n configs.layer_num: %d\n", 
 			 p->configs.dst_glb_alpha_en, p->configs.dst_mask_en, p->configs.layer_num);
 
 	for (i = 0; i < 4; i++) {
 		dev_info(jz_x2d->dev,"layer[%d]: ======================================\n", i);
-		dev_info(jz_x2d->dev, "format: %d, transform: %d, global_alpha_val: %d, argb_order: %d\n",
+		dev_info(jz_x2d->dev, "format: %d\n, transform: %d\n, global_alpha_val: %d\n, argb_order: %d\n",
 				 p->configs.lay[i].format, p->configs.lay[i].transform, 
 				 p->configs.lay[i].global_alpha_val, p->configs.lay[i].argb_order);
-		dev_info(jz_x2d->dev, "osd_mode: %d\t preRGB_en: %d\t glb_alpha_en: %d\t mask_en: %d\n", 
+		dev_info(jz_x2d->dev, "osd_mode: %d\n preRGB_en: %d\n glb_alpha_en: %d\n mask_en: %d\n", 
 				 p->configs.lay[i].osd_mode, p->configs.lay[i].preRGB_en,
 				 p->configs.lay[i].glb_alpha_en, p->configs.lay[i].mask_en);
-		dev_info(jz_x2d->dev, "color_cov_en: %d\n in_width: %d\t in_height: %d\n out_width: %d\t", 
+		dev_info(jz_x2d->dev, "color_cov_en: %d\n in_width: %d\n in_height: %d\n out_width: %d\n", 
 				 p->configs.lay[i].color_cov_en, p->configs.lay[i].in_width,
 				 p->configs.lay[i].in_height, p->configs.lay[i].out_width);
-		dev_info(jz_x2d->dev, "out_height: %d\n out_w_offset: %d\t out_h_offset: %d\n v_scale_ratio: %d\t", 
+		dev_info(jz_x2d->dev, "out_height: %d\n out_w_offset: %d\n out_h_offset: %d\n v_scale_ratio: %d\n", 
 				 p->configs.lay[i].out_height, p->configs.lay[i].out_w_offset,
 				 p->configs.lay[i].out_h_offset, p->configs.lay[i].v_scale_ratio);
-		dev_info(jz_x2d->dev, "h_scale_ratio: %d\n yuv address addr: %08x\t u_addr: %08x\t v_addr: %08x\n", 
+		dev_info(jz_x2d->dev, "h_scale_ratio: %d\n yuv address addr: %08x\n u_addr: %08x\n v_addr: %08x\n", 
 				 p->configs.lay[i].h_scale_ratio, p->configs.lay[i].addr,
 				 p->configs.lay[i].u_addr, p->configs.lay[i].v_addr);
-		dev_info(jz_x2d->dev, "y_stride: %d\t v_stride: %d\n", 
+		dev_info(jz_x2d->dev, "y_stride: %d\n v_stride: %d\n", 
 				 p->configs.lay[i].y_stride, p->configs.lay[i].v_stride);
 	}
 }
 #endif
 
-static void x2d_dump_reg(struct x2d_device *jz_x2d,struct x2d_process_info* p)
+static void x2d_dump_reg(struct x2d_device *jz_x2d, struct x2d_proc_info* p)
 {
 	int j =0;
 
-	dev_info(jz_x2d->dev,"pid is %d   current is %d\n",p->pid,current->pid);
-	dev_info(jz_x2d->dev,"REG_X2D_GLB_CTRL %lx\n",reg_read(jz_x2d,REG_X2D_GLB_CTRL));
-	dev_info(jz_x2d->dev,"REG_X2D_GLB_STATUS %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
-	dev_info(jz_x2d->dev,"REG_X2D_GLB_TRIG %lx\n",reg_read(jz_x2d,REG_X2D_GLB_TRIG));
-	dev_info(jz_x2d->dev,"REG_X2D_DHA %lx\n",reg_read(jz_x2d,REG_X2D_DHA));
-	dev_info(jz_x2d->dev,"REG_X2D_TLB_BASE %lx\n",reg_read(jz_x2d,REG_X2D_TLB_BASE));
-	dev_info(jz_x2d->dev,"REG_X2D_WDOG_CNT %lx\n",reg_read(jz_x2d,REG_X2D_WDOG_CNT));
-	dev_info(jz_x2d->dev,"REG_X2D_LAY_GCTRL %lx\n",reg_read(jz_x2d,REG_X2D_LAY_GCTRL));
-	dev_info(jz_x2d->dev,"REG_X2D_DST_BASE %lx\n",reg_read(jz_x2d,REG_X2D_DST_BASE));
-	dev_info(jz_x2d->dev,"REG_X2D_DST_CTRL_STR %lx\n",reg_read(jz_x2d,REG_X2D_DST_CTRL_STR));
-	dev_info(jz_x2d->dev,"REG_X2D_DST_GS %lx\n",reg_read(jz_x2d,REG_X2D_DST_GS));
-	dev_info(jz_x2d->dev,"REG_X2D_DST_MSK_ARGB %lx\n",reg_read(jz_x2d,REG_X2D_DST_MSK_ARGB));
-	dev_info(jz_x2d->dev,"REG_X2D_DST_FMT %lx\n",reg_read(jz_x2d,REG_X2D_DST_FMT));
+	dev_info(jz_x2d->dev,"pid is %d   current is %d\n", p->pid,current->pid);
+	dev_info(jz_x2d->dev,"REG_X2D_GLB_CTRL %lx\n", reg_read(jz_x2d,REG_X2D_GLB_CTRL));
+	dev_info(jz_x2d->dev,"REG_X2D_GLB_STATUS %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
+	dev_info(jz_x2d->dev,"REG_X2D_GLB_TRIG %lx\n", reg_read(jz_x2d,REG_X2D_GLB_TRIG));
+	dev_info(jz_x2d->dev,"REG_X2D_DHA %lx\n", reg_read(jz_x2d,REG_X2D_DHA));
+	dev_info(jz_x2d->dev,"REG_X2D_TLB_BASE %lx\n", reg_read(jz_x2d,REG_X2D_TLB_BASE));
+	dev_info(jz_x2d->dev,"REG_X2D_WDOG_CNT %lx\n", reg_read(jz_x2d,REG_X2D_WDOG_CNT));
+	dev_info(jz_x2d->dev,"REG_X2D_LAY_GCTRL %lx\n", reg_read(jz_x2d,REG_X2D_LAY_GCTRL));
+	dev_info(jz_x2d->dev,"REG_X2D_DST_BASE %lx\n", reg_read(jz_x2d,REG_X2D_DST_BASE));
+	dev_info(jz_x2d->dev,"REG_X2D_DST_CTRL_STR %lx\n", reg_read(jz_x2d,REG_X2D_DST_CTRL_STR));
+	dev_info(jz_x2d->dev,"REG_X2D_DST_GS %lx\n", reg_read(jz_x2d,REG_X2D_DST_GS));
+	dev_info(jz_x2d->dev,"REG_X2D_DST_MSK_ARGB %lx\n", reg_read(jz_x2d,REG_X2D_DST_MSK_ARGB));
+	dev_info(jz_x2d->dev,"REG_X2D_DST_FMT %lx\n", reg_read(jz_x2d,REG_X2D_DST_FMT));
 	for (j = 0; j < 4; j++) {
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_CTRL  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_CTRL + j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_Y_ADDR  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_Y_ADDR+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_U_ADDR  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_U_ADDR+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_V_ADDR  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_V_ADDR+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_IN_FM_GS %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_IN_FM_GS+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_STRIDE  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_STRIDE+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_OUT_GS  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_OUT_GS+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_OOSFT  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_OOSFT+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_RSZ_COEF  %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_RSZ_COEF+ j*0x1000));
-		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_BK_ARGB %lx\n",j,reg_read(jz_x2d,REG_X2D_LAY0_BK_ARGB+ j*0x1000));	
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_CTRL  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_CTRL + j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_Y_ADDR  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_Y_ADDR+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_U_ADDR  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_U_ADDR+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_V_ADDR  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_V_ADDR+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_IN_FM_GS %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_IN_FM_GS+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_STRIDE  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_STRIDE+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_OUT_GS  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_OUT_GS+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_OOSFT  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_OOSFT+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_RSZ_COEF  %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_RSZ_COEF+ j*0x1000));
+		dev_info(jz_x2d->dev,"REG_X2D_LAY%d_BK_ARGB %lx\n", j, reg_read(jz_x2d,REG_X2D_LAY0_BK_ARGB+ j*0x1000));	
 	}
 }
 
 /**************************************main function******************************************/
-int jz_x2d_start_compose(struct x2d_device *jz_x2d)
+static int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 {
 	int i = 0;
-	struct x2d_process_info * p;
+	struct x2d_proc_info * x2d_proc;
 
 	mutex_lock(&jz_x2d->compose_lock);
 
 	jz_x2d->state = x2d_state_calc;
-	dev_dbg(jz_x2d->dev, "current->pid: %d\n", current->pid);
-	p = x2d_index_procinfo(jz_x2d,current->pid);
-	if (p == NULL) {
-		dev_dbg(jz_x2d->dev, "p ===NULL, %d, %s~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__);
+	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	if (!x2d_proc) {
+		dev_err(jz_x2d->dev, "%s x2d_proc is NULL!", __func__);
+		return -EFAULT;
 	}
-	dev_dbg(jz_x2d->dev, "%d, %s, pid: %d, p: %p~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__, p->pid, p);
-	jz_x2d->hold_proc = current->pid;
+	jz_x2d->cur_filp = jz_x2d->sys_filp;
 
 #ifdef X2D_DEBUG
-	x2d_dump_config(jz_x2d, p);
+	x2d_dump_config(jz_x2d, x2d_proc);
 #endif
 
 	clk_enable(jz_x2d->x2d_clk);
@@ -494,127 +481,107 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	__x2d_enable_dma();
 
 #ifdef USE_DMMU_TLB
-	if (p->configs.tlb_base) {
-		reg_write(jz_x2d,REG_X2D_TLB_BASE,p->configs.tlb_base);
+	if (x2d_proc->configs.tlb_base) {
+		reg_write(jz_x2d, REG_X2D_TLB_BASE, x2d_proc->configs.tlb_base);
 	} else {
-		dev_dbg(jz_x2d->dev, "p->configs.tlb_base: %08x\n", p->configs.tlb_base);
+		dev_err(jz_x2d->dev, "x2d_proc->configs.tlb_base is zero");
+		return -EFAULT;
 	}
 #else 
-	reg_write(jz_x2d,REG_X2D_TLB_BASE,(unsigned long)virt_to_phys((void *)p->tlb_base));
+	reg_write(jz_x2d, REG_X2D_TLB_BASE, 
+			  (unsigned long)virt_to_phys((void *)x2d_proc->tlb_base));
 #endif
 
-	reg_write(jz_x2d,REG_X2D_WDOG_CNT,JZ4780_X2D_WTHDOG_1S);
-	reg_write(jz_x2d,REG_X2D_LAY_GCTRL,p->configs.layer_num);
-	reg_write(jz_x2d,REG_X2D_DHA,virt_to_phys(jz_x2d->chain_p));
+	reg_write(jz_x2d, REG_X2D_WDOG_CNT, JZ4780_X2D_WTHDOG_1S);
+	reg_write(jz_x2d, REG_X2D_LAY_GCTRL, x2d_proc->configs.layer_num);
+	reg_write(jz_x2d, REG_X2D_DHA, virt_to_phys(jz_x2d->chain_p));
 
 	memset(jz_x2d->chain_p, 0, sizeof(x2d_chain_info));
 
 #if 0
-	p->configs.dst_back_en = 0;
-	p->configs.dst_glb_alpha_en = 1;
-	p->configs.dst_preRGB_en  = 0;
-	p->configs.dst_mask_en = 1;
-	p->configs.dst_alpha_val = 0x80;
+	x2d_proc->configs.dst_back_en = 0;
+	x2d_proc->configs.dst_glb_alpha_en = 1;
+	x2d_proc->configs.dst_preRGB_en  = 0;
+	x2d_proc->configs.dst_mask_en = 1;
+	x2d_proc->configs.dst_alx2d_procha_val = 0x80;
 #endif
 
-	jz_x2d->chain_p->dst_addr = p->configs.dst_address;
-	jz_x2d->chain_p->dst_ctrl_str = ((p->configs.dst_stride) << BIT_X2D_DST_STRIDE) \
-					|(p->configs.dst_back_en << BIT_X2D_DST_BG_EN) \
-					|(p->configs.dst_glb_alpha_en << BIT_X2D_DST_GLB_ALPHA_EN)\
-					|(p->configs.dst_preRGB_en << BIT_X2D_DST_PREM_EN)\
-					|(p->configs.dst_mask_en << BIT_X2D_DST_MSK_EN)\
-					|(p->configs.dst_alpha_val << BIT_X2D_DST_GLB_ALPHA_VAL);		
-	jz_x2d->chain_p->dst_height = (uint16_t)p->configs.dst_height;
-	jz_x2d->chain_p->dst_width = (uint16_t)p->configs.dst_width;	
-	jz_x2d->chain_p->overlay_num = p->configs.layer_num;
+	jz_x2d->chain_p->dst_addr = x2d_proc->configs.dst_address;
+	jz_x2d->chain_p->dst_ctrl_str = ((x2d_proc->configs.dst_stride) << BIT_X2D_DST_STRIDE) \
+					|(x2d_proc->configs.dst_back_en << BIT_X2D_DST_BG_EN) \
+					|(x2d_proc->configs.dst_glb_alpha_en << BIT_X2D_DST_GLB_ALPHA_EN)\
+					|(x2d_proc->configs.dst_preRGB_en << BIT_X2D_DST_PREM_EN)\
+					|(x2d_proc->configs.dst_mask_en << BIT_X2D_DST_MSK_EN)\
+					|(x2d_proc->configs.dst_alpha_val << BIT_X2D_DST_GLB_ALPHA_VAL);
+	jz_x2d->chain_p->dst_height = (uint16_t)x2d_proc->configs.dst_height;
+	jz_x2d->chain_p->dst_width = (uint16_t)x2d_proc->configs.dst_width;	
+	jz_x2d->chain_p->overlay_num = x2d_proc->configs.layer_num;
 	jz_x2d->chain_p->dst_tile_en  = 0;
 	jz_x2d->chain_p->dst_fmt = (X2D_ALPHA_POSHIGH << BIT_X2D_DST_ALPHA_POS)\
-				   |(p->configs.dst_format << BIT_X2D_DST_RGB_FORMAT)\
-				   |(X2D_RGBORDER_RGB << BIT_X2D_DST_RGB_ORDER);	 
-	jz_x2d->chain_p->dst_argb =  p->configs.dst_bcground;
+				   |(x2d_proc->configs.dst_format << BIT_X2D_DST_RGB_FORMAT)\
+				   |(X2D_RGBORDER_RGB << BIT_X2D_DST_RGB_ORDER);
+	jz_x2d->chain_p->dst_argb = x2d_proc->configs.dst_bcground;
 
-	for(i=0;i<p->configs.layer_num;i++)
-	{
+	for (i = 0; i < x2d_proc->configs.layer_num; i++) {
 #ifdef CLEAR_DST
 		static int bg_count;
-		p->configs.lay[i].mask_en = 1;
+		x2d_proc->configs.lay[i].mask_en = 1;
 		if (bg_count % 2) {
-			p->configs.lay[i].msk_val =  = 0xffff0000;;
+			x2d_proc->configs.lay[i].msk_val = 0xffff0000;
 		} else {
-			p->configs.lay[i].msk_val =  = 0xff0000ff;;
+			x2d_proc->configs.lay[i].msk_val = 0xff0000ff;
 		}
 		bg_count++;
 #endif
 
 
 #if 0 //def SRC_ALPHA_TEST
-//		p->configs.lay[i].msk_val = 0;//0xff0000ff;
-//		if (i == 1) {
-			p->configs.lay[i].glb_alpha_en = 1;
-			p->configs.lay[i].global_alpha_val = 0x80;
-//		}
-//		p->configs.lay[i].preRGB_en = 0;
-
+		p->configs.lay[i].msk_val = 0;//0xff0000ff;
+		if (i == 1) {
+			x2d_proc->configs.lay[i].glb_alpha_en = 1;
+			x2d_proc->configs.lay[i].global_alpha_val = 0x80;
+		}
+		x2d_proc->configs.lay[i].preRGB_en = 0;
 #endif
 
-		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(p->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
-			|(p->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
-			|((p->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) \
-			|(p->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
-			|(p->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
+		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(x2d_proc->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
+			|(x2d_proc->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
+			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) \
+			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
+			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
-		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)p->configs.lay[i].global_alpha_val;
-		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)p->configs.lay[i].transform;
-		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)p->configs.lay[i].argb_order;
-		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)p->configs.lay[i].addr;
-		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)p->configs.lay[i].v_addr;
-		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)p->configs.lay[i].u_addr;
-		jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)p->configs.lay[i].in_width;
-		jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)p->configs.lay[i].in_height;
-		jz_x2d->chain_p->x2d_lays[i].ystr = (uint16_t)p->configs.lay[i].y_stride;
-		jz_x2d->chain_p->x2d_lays[i].uvstr = (uint16_t)p->configs.lay[i].v_stride;
-		jz_x2d->chain_p->x2d_lays[i].owidth = (uint16_t)p->configs.lay[i].out_width;
-		jz_x2d->chain_p->x2d_lays[i].oheight= (uint16_t)p->configs.lay[i].out_height;
-		jz_x2d->chain_p->x2d_lays[i].oxoffset= (uint16_t)p->configs.lay[i].out_w_offset;
-		jz_x2d->chain_p->x2d_lays[i].oyoffset= (uint16_t)p->configs.lay[i].out_h_offset;
-		jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)p->configs.lay[i].h_scale_ratio;
-		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)p->configs.lay[i].v_scale_ratio;
-		jz_x2d->chain_p->x2d_lays[i].bk_argb = p->configs.lay[i].msk_val;
-
-//		if (p->configs.lay[i].format == X2D_INFORMAT_TILE420) {
-//			printk("+++++++++++++++++++++++++\n");
-//			jz_x2d->chain_p->overlay_num = 1;
-//			reg_write(jz_x2d,REG_X2D_LAY_GCTRL,1);
-//			x2d_dump_config(jz_x2d, p);
-//			x2d_dump_reg(jz_x2d,p);
-//			break;
-//		}
-
-	}	
+		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)x2d_proc->configs.lay[i].global_alpha_val;
+		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)x2d_proc->configs.lay[i].transform;
+		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)x2d_proc->configs.lay[i].argb_order;
+		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
+		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
+		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
+		jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width;
+		jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height;
+		jz_x2d->chain_p->x2d_lays[i].ystr = (uint16_t)x2d_proc->configs.lay[i].y_stride;
+		jz_x2d->chain_p->x2d_lays[i].uvstr = (uint16_t)x2d_proc->configs.lay[i].v_stride;
+		jz_x2d->chain_p->x2d_lays[i].owidth = (uint16_t)x2d_proc->configs.lay[i].out_width;
+		jz_x2d->chain_p->x2d_lays[i].oheight= (uint16_t)x2d_proc->configs.lay[i].out_height;
+		jz_x2d->chain_p->x2d_lays[i].oxoffset= (uint16_t)x2d_proc->configs.lay[i].out_w_offset;
+		jz_x2d->chain_p->x2d_lays[i].oyoffset= (uint16_t)x2d_proc->configs.lay[i].out_h_offset;
+		jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)x2d_proc->configs.lay[i].h_scale_ratio;
+		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)x2d_proc->configs.lay[i].v_scale_ratio;
+		jz_x2d->chain_p->x2d_lays[i].bk_argb = x2d_proc->configs.lay[i].msk_val;
+	}
 	dma_cache_wback((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
 
-	//__x2d_enable_wthdog();
-//	x2d_dump_reg(jz_x2d,p);
+#ifdef X2D_DEBUG
+	__x2d_enable_wthdog();
+	x2d_dump_reg(jz_x2d,x2d_proc);
+#endif
 	__x2d_enable_irq();
 	__x2d_start_trig();
 
-//	x2d_dump_reg(jz_x2d,p);
-//	dev_dbg(jz_x2d->dev, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~>\n");
-
-//	int i;
-//	unsigned int tmp;
-//	for(i = 0; i < 20; i++) {
-//		tmp = reg_read(jz_x2d,REG_X2D_GLB_STATUS);
-//		dev_dbg(jz_x2d->dev, "GLB_STATUS: %08x~~~~~~~~~~~~~~~~>\n", tmp);
-//	}
-
-//	mdelay(1000);
-
-	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue,10*HZ))
-	{
-		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));		
+	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue, 10*HZ)) {
+		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		__x2d_stop_trig();
-		x2d_dump_reg(jz_x2d,p);
+		x2d_dump_reg(jz_x2d,x2d_proc);
+		clk_disable(jz_x2d->x2d_clk);
 		mutex_unlock(&jz_x2d->compose_lock);
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		return -1;   
@@ -622,8 +589,8 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 
 #ifdef X2D_DEBUG
 	uint32_t consum_time = reg_read(jz_x2d, X2D_SLV_GLB_TIME);
-    int cycle_per_pixel = (consum_time)/(p->configs.dst_height*p->configs.dst_width+1);
-	int taget_cycle_per_pixel = (400*1000000)/(1920*1280*30);  
+    int cycle_per_pixel = (consum_time)/(x2d_proc->configs.dst_height*x2d_proc->configs.dst_width+1);
+	int taget_cycle_per_pixel = (400*1000000)/(1920*1280*30);
 
 	uint32_t wdata_trans_num = reg_read(jz_x2d, X2D_SLV_BWR_DATA);
 	uint32_t wdata_trans_cycle = reg_read(jz_x2d, X2D_SLV_BWR_CYC);
@@ -631,46 +598,51 @@ int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	uint32_t rdata_trans_num = reg_read(jz_x2d, X2D_SLV_BRD_DATA);
 	uint32_t rdata_trans_cycle = reg_read(jz_x2d, X2D_SLV_BRD_CYC);
 	        
-	printk(" > GKER_W --cycle: %d time:%dns/per_pix   target: %dns   %d%% \n", consum_time, 
-		   cycle_per_pixel, 
-		   taget_cycle_per_pixel, cycle_per_pixel/taget_cycle_per_pixel
-		); 
-	printk(" > write data num: %d, cycle: %d, effect: %d%%\n", wdata_trans_num, wdata_trans_cycle, 
-		   wdata_trans_num/(wdata_trans_cycle+1)
-		);
-	printk(" > read data num: %d, cycle: %d, effect: %d%%\n", rdata_trans_num, rdata_trans_cycle,
-		   rdata_trans_num/(rdata_trans_cycle+1)
-		);
+	dev_info(jz_x2d->dev, " > GKER_W --cycle: %d time:%dns/per_pix target: %dns %d%% \n", 
+			 consum_time, cycle_per_pixel, 
+		   taget_cycle_per_pixel, cycle_per_pixel/taget_cycle_per_pixel); 
+	dev_info(jz_x2d->dev, " > write data num: %d, cycle: %d, effect: %d%%\n", 
+			 wdata_trans_num, wdata_trans_cycle, wdata_trans_num/(wdata_trans_cycle+1));
+	dev_info(jz_x2d->dev, " > read data num: %d, cycle: %d, effect: %d%%\n", 
+			 rdata_trans_num, rdata_trans_cycle, rdata_trans_num/(rdata_trans_cycle+1));
 #endif
 
 #ifdef X2D_DEBUG
-	x2d_dump_reg(jz_x2d,p);
-	dev_dbg(jz_x2d->dev, "+++++++++<================================>\n");
+	x2d_dump_reg(jz_x2d,x2d_proc);
+	dev_info(jz_x2d->dev, "+++++++++<================================>\n");
 #endif
+
 	clk_disable(jz_x2d->x2d_clk);
 	mutex_unlock(&jz_x2d->compose_lock);
 
 	return 0;
 }
-int jz_x2d_set_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
+
+static int jz_x2d_set_config(struct x2d_device *jz_x2d, struct jz_x2d_config *config)
 {
-	struct x2d_process_info * p;
+	struct x2d_proc_info *x2d_proc = NULL;
 
 	mutex_lock(&jz_x2d->x2d_lock);
-	p = x2d_index_procinfo(jz_x2d,current->pid);
-	if (copy_from_user(&p->configs, (void *)config, sizeof(struct jz_x2d_config))) {
+	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	if (!x2d_proc) {
+		dev_err(jz_x2d->dev, "%s x2d_index_procinfo Failed!", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_from_user(&x2d_proc->configs, (void *)config, sizeof(struct jz_x2d_config))) {
 		dev_err(jz_x2d->dev, "copy_from_user Failed!!!");
 		return -EFAULT;
 	}
+
 #ifdef X2D_DEBUG
-	x2d_dump_config(jz_x2d, p);
+	x2d_dump_config(jz_x2d, x2d_proc);
 #endif
-	//dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
-#ifdef USE_DMMU_TLB
-#else
-	transfer_config_address(p);
+
+#ifndef USE_DMMU_TLB
+	transfer_config_address(x2d_proc);
 #endif
-	//dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
+	
+	dev_dbg(jz_x2d->dev, "function: %s line: %d---->\n", __func__, __LINE__);
 	mutex_unlock(&jz_x2d->x2d_lock);
 
 	return 0;
@@ -678,37 +650,31 @@ int jz_x2d_set_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
 
 int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
 {	
-	struct x2d_process_info * p;
+	struct x2d_proc_info *x2d_proc = NULL;
 
-	p = x2d_index_procinfo( jz_x2d,current->pid);
-	if (copy_to_user((void *)config, &p->configs, sizeof(struct jz_x2d_config)))
+	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	if (!x2d_proc) {
+		dev_err(jz_x2d->dev, "%s x2d_index_procinfo failed!", __func__);
 		return -EFAULT;
+	}
+
+	if (copy_to_user((void *)config, &x2d_proc->configs, sizeof(struct jz_x2d_config))) {
+		dev_err(jz_x2d->dev, "%s copy_to_user failed!", __func__);
+		return -EFAULT;
+	}
 
 	return 0;
 }
 
-int jz_x2d_get_sysinfo(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
-{
-	struct x2d_process_info * p;
-
-	p = x2d_index_procinfo(jz_x2d,jz_x2d->hold_proc);
-	//dev_dbg(jz_x2d->dev, "%d, %s, pid: %d, p: %p~~~~~~~~~~~~~~~~~~>\n", __LINE__, __func__, current->pid, p);
-	if (copy_to_user((void *)config, &p->configs, sizeof(struct jz_x2d_config)))
-		return -EFAULT;
-
-	return 0;
-}
 int jz_x2d_stop_calc(struct x2d_device *jz_x2d)
 {
-	if(jz_x2d->hold_proc == current->pid)
-	{	
+	if(jz_x2d->sys_filp == jz_x2d->cur_filp) {
 		__x2d_stop_trig();
-		dev_dbg(jz_x2d->dev,"proc %d stop x2d calculating\n",jz_x2d->hold_proc);
-	}
-	else
-	{
-		dev_err(jz_x2d->dev,"proc %d want to stop x2d ,hold proc is %d\n",current->pid,jz_x2d->hold_proc);
-		return  -1;
+		dev_dbg(jz_x2d->dev,"proc %p stop x2d calculating\n",jz_x2d->cur_filp);
+	} else {
+		dev_err(jz_x2d->dev,"proc %p want to stop x2d ,hold proc is %p\n",
+				jz_x2d->sys_filp, jz_x2d->cur_filp);
+		return -EFAULT;
 	}
 
 	return 0;
@@ -722,34 +688,29 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 
 	status_reg = reg_read(jz_x2d,REG_X2D_GLB_STATUS);
 	
-	dev_dbg(jz_x2d->dev, "status_reg: %08x function: %s line: %d------------->\n", status_reg, __func__, __LINE__);
-	if(status_reg & X2D_WTDOG_ERR){
-		dev_err(jz_x2d->dev,"Error:x2d watch dog time out!!!!");
+	if (status_reg & X2D_WTDOG_ERR) {
+		dev_err(jz_x2d->dev, "Error:x2d watch dog time out!!!!");
 		jz_x2d->errcode = error_wthdog;
 	} else if (!(status_reg & X2D_BUSY)) {
-//		dev_dbg(jz_x2d->dev,"Error:x2d not generate irq!!!!");
 		jz_x2d->errcode = error_none;
 	}
-//	dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
-	if(jz_x2d->state == x2d_state_suspend)
-	{
-		dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
+
+	if (jz_x2d->state == x2d_state_suspend) {
+		dev_info(jz_x2d->dev, "%s x2d already suspend!", __func__);
 		__x2d_stop_trig();
 		__x2d_clear_irq();
 		clk_disable(jz_x2d->x2d_clk);
 		wake_up_interruptible(&jz_x2d->set_wait_queue);
 	}
+
 	jz_x2d->state = x2d_state_complete;
-//	dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 	__x2d_clear_irq();
-//	dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
-	wake_up_interruptible(&jz_x2d->set_wait_queue); 
-	dev_dbg(jz_x2d->dev, "function: %s line %d------------->\n", __func__, __LINE__);
+	wake_up_interruptible(&jz_x2d->set_wait_queue);
 
 	return IRQ_HANDLED;
 }
 
-/**************************************suspend  resume***********************************/
+/*****************************suspend  resume********************************/
 static void x2d_early_suspend(struct early_suspend *handler)
 {
 	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
@@ -763,7 +724,7 @@ static void x2d_early_resume(struct early_suspend *handler)
 	clk_enable(jz_x2d->x2d_clk);
 }
 
-/***************************************sys call functions********************************/
+/****************************sys call functions******************************/
 static inline struct x2d_device *file_to_x2d(struct file *file) 
 {
 	struct miscdevice *dev = file->private_data;
@@ -777,29 +738,36 @@ static int x2d_open(struct inode *inode, struct file *filp)
 	struct x2d_device *jz_x2d = NULL;
 
 	jz_x2d = file_to_x2d(filp);
-	dev_info(jz_x2d->dev, "x2d_open(struct inode *inode, struct file *filp)\n");
+	dev_info(jz_x2d->dev, "x2d open struct file: %p", filp);
+
 	mutex_lock(&jz_x2d->x2d_lock);
-	//if(x2d_check_allproc_free())//first open dev
-	//clk_enable(jz_x2d->x2d_clk);	
-	ret = x2d_create_procinfo(jz_x2d);
-	dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
+	ret = x2d_create_procinfo(jz_x2d, filp);
+	if (ret < 0) {
+		dev_err(jz_x2d->dev, "x2d_create_procinfo failed!");
+		return -EFAULT;
+	}
 	mutex_unlock(&jz_x2d->x2d_lock);
 
 	return ret;
 }
+
 static int x2d_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
 	struct x2d_device *jz_x2d = NULL;
 
 	jz_x2d = file_to_x2d(filp);
-	dev_info(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
+	dev_info(jz_x2d->dev, "x2d release struct file: %p", filp);
+
 	mutex_lock(&jz_x2d->x2d_lock);
-	dev_dbg(jz_x2d->dev, "function: %s line: %d pid: %d, tgid: %d------------->\n", 
-			 __func__, __LINE__, current->pid, current->tgid);
-	ret = x2d_free_procinfo(jz_x2d,current->pid);
-	if(x2d_check_allproc_free(jz_x2d))
-		clk_disable(jz_x2d->x2d_clk );///////stop x2d hardware
+	ret = x2d_free_procinfo(jz_x2d, filp);
+	if (ret < 0) {
+		dev_err(jz_x2d->dev, "x2d_free_procinfo failed!");
+		return -EFAULT;
+	}
+
+	if (0 == jz_x2d->proc_num)
+		clk_disable(jz_x2d->x2d_clk);  //stop x2d hardware
 	mutex_unlock(&jz_x2d->x2d_lock);
 
 	return 0;
@@ -812,29 +780,26 @@ static long x2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
 	struct x2d_device *jz_x2d = NULL;
+
 	jz_x2d = file_to_x2d(filp);
-	//void __user *argp = (void __user *)arg;
-	dev_dbg(jz_x2d->dev, "cmd : %08x function: %s line: %d------------->\n",cmd, __func__, __LINE__);
-	switch (cmd)
-	{
+	jz_x2d->sys_filp = filp;
+
+	if (_IOC_TYPE(cmd) != X2D_IOCTL_MAGIC) {
+		dev_err(jz_x2d->dev, "invalid cmd!\n");
+		return -EFAULT;
+	}
+
+	switch (cmd) {
 		case IOCTL_X2D_SET_CONFIG:
-			dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
-			retval = jz_x2d_set_config(jz_x2d,(struct jz_x2d_config*)arg);
+			retval = jz_x2d_set_config(jz_x2d, (struct jz_x2d_config*)arg);
 			break;
 		case IOCTL_X2D_START_COMPOSE:
-			dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 			retval = jz_x2d_start_compose(jz_x2d);
 			break;
-		case IOCTL_X2D_GET_MY_CONFIG:
-			dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
+		case IOCTL_X2D_GET_SYSINFO:
 			retval = jz_x2d_get_proc_config(jz_x2d,(void *)arg);
 			break;
-		case IOCTL_X2D_GET_SYSINFO:
-			dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
-			retval = jz_x2d_get_sysinfo(jz_x2d,(void *)arg);
-			break;
 		case IOCTL_X2D_STOP:
-			dev_dbg(jz_x2d->dev, "function: %s line: %d------------->\n", __func__, __LINE__);
 			retval = jz_x2d_stop_calc(jz_x2d);
 			break;
 		case IOCTL_X2D_MAP_GRAPHIC_BUF:
@@ -844,7 +809,7 @@ static long x2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			//retval = jz_x2d_free_graphic_buf();
 			break;
 		default:
-			dev_dbg(jz_x2d->dev, "Not supported command: 0x%x\n", cmd);
+			dev_info(jz_x2d->dev, "Not supported command: 0x%x\n", cmd);
 			return -EINVAL;
 	}
 	
@@ -879,8 +844,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	struct x2d_device *jz_x2d = NULL;
 
 	jz_x2d = kzalloc(sizeof(struct x2d_device),GFP_KERNEL);
-	if(jz_x2d == NULL)
-	{
+	if (jz_x2d == NULL) {
 		dev_err(&pdev->dev, "Error alloc jz_x2d no memory!\n");
 		return -ENOMEM;
 	}
@@ -913,7 +877,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	}
 
 	jz_x2d->x2d_clk = clk_get(&pdev->dev, "x2d");
-	if (IS_ERR(jz_x2d->x2d_clk )) {
+	if (IS_ERR(jz_x2d->x2d_clk)) {
 		ret = PTR_ERR(jz_x2d->x2d_clk );
 		dev_err(&pdev->dev, "Failed to get x2d clock: %d\n", ret);
 		goto err_exit;
@@ -923,8 +887,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	clk_enable(jz_x2d->x2d_clk);
 
 	x2d_id = __x2d_read_devid();
-	if(x2d_id != X2D_ID)
-	{
+	if (x2d_id != X2D_ID) {
 		dev_err(&pdev->dev, "invalid x2d ID 0x%x\n",x2d_id);
 		ret = -EINVAL;
 		goto err_exit;
@@ -938,8 +901,10 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(&pdev->dev, jz_x2d);
+
 	ret = misc_register(&jz_x2d->misc_dev);
 	if (ret < 0) {
+		dev_err(&pdev->dev, "misc_register failed!");
 		goto err_exit;;
 	}
 
@@ -964,18 +929,25 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	return 0;
 
 err_exit:
-	if (!IS_ERR(jz_x2d->x2d_clk )) clk_put(jz_x2d->x2d_clk);
-	if(mem) release_mem_region(mem->start, resource_size(mem));
-	if(jz_x2d->irq) free_irq(jz_x2d->irq, jz_x2d);
-	if(jz_x2d->base) iounmap(jz_x2d->base);
-	if(jz_x2d->chain_p) kzfree(jz_x2d->chain_p);
-	if(jz_x2d) kzfree(jz_x2d);
+	if (!IS_ERR(jz_x2d->x2d_clk)) 
+		clk_put(jz_x2d->x2d_clk);
+	if (mem) 
+		release_mem_region(mem->start, resource_size(mem));
+	if (jz_x2d->irq) 
+		free_irq(jz_x2d->irq, jz_x2d);
+	if (jz_x2d->base) 
+		iounmap(jz_x2d->base);
+	if (jz_x2d->chain_p) 
+		kzfree(jz_x2d->chain_p);
+	if (jz_x2d) 
+		kzfree(jz_x2d);
 	return ret;
 }
 
 static int __devexit x2d_remove(struct platform_device *pdev)
 {
 	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
+
 	iounmap(jz_x2d->base);
 	free_irq(jz_x2d->irq,jz_x2d);
 	release_mem_region(jz_x2d->mem->start, resource_size(jz_x2d->mem));
@@ -983,6 +955,7 @@ static int __devexit x2d_remove(struct platform_device *pdev)
 	kzfree(jz_x2d->chain_p);
 	kzfree(jz_x2d);
 	misc_deregister(&jz_x2d->misc_dev);
+
 	return 0;
 }
 
