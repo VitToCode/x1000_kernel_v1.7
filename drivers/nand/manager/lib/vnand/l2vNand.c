@@ -617,10 +617,10 @@ void vNand_Deinit ( VNandManager** vm)
 static int binfo_pl_create(int blm, PPartition *pt, PageList **top, int bytes, int ptindex)
 {
 	int i;
-	PageList *pl_node = NULL;
+	PageList *pl_node = *top;
 
 	for (i = 0; i < BADBLOCKINFOSIZE; i++) {
-		if (*top == NULL) {
+		if (pl_node == NULL) {
 			*top = (PageList *)BuffListManager_getTopNode(blm, sizeof(PageList));
 			pl_node = *top;
 		} else
@@ -644,7 +644,7 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 	PPartition *pt_t;
 	BlockList *bl_top;
 	VNandInfo error_vn;
-	PageList *pl_head = NULL, *pl = NULL;
+	PageList *pl = NULL;
 	PPartition *ept = vm ? &vm->pt->ppt[vm->pt->ptcount - 1] : NULL;
 
 	/* error partition must be the last partition */
@@ -668,8 +668,6 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 			ndprint(VNAND_ERROR, "%s, can't create binfo pagelist\n", __func__);
 			return ret;
 		}
-
-		if (!pl_head) pl_head = pl;
 
 		if (pt == pt_t || pt == NULL) {
 			memset(pt_t->badblock->pt_badblock_info, 0xff, ept->byteperpage * BADBLOCKINFOSIZE);
