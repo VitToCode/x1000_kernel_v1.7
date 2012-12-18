@@ -913,7 +913,10 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * It means that this request may flush cache in interrupt context.
 	 * It never happens in design, but we add BUG_ON here to prevent it.
 	 */
-	BUG_ON((host->state != STATE_IDLE) && (mrq->data != NULL));
+	if ((host->state != STATE_IDLE) && (mrq->data != NULL)) {
+		dev_warn(host->dev, "operate in non-idle state\n");
+		WARN_ON(1);
+	}
 
 	host->mrq = mrq;
 	host->data = mrq->data;
@@ -1001,6 +1004,7 @@ static void jzmmc_request_timeout(unsigned long data)
 		if (request_need_stop(host->mrq))
 			send_stop_command(host);
 		host->cmd->error = -ENOMEDIUM;
+		host->state = STATE_IDLE;
 		mmc_request_done(host->mmc, host->mrq);
 	}
 }
