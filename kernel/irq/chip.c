@@ -350,6 +350,38 @@ out_unlock:
 	raw_spin_unlock(&desc->lock);
 }
 EXPORT_SYMBOL_GPL(handle_level_irq);
+void
+my_handle_level_irq(unsigned int irq, struct irq_desc *desc)
+{
+	raw_spin_lock(&desc->lock);
+	mask_ack_irq(desc);
+
+	if (unlikely(irqd_irq_inprogress(&desc->irq_data)))
+		if (!irq_check_poll(desc)){
+			printk("ERROR:%s[%d]\n",__func__,__LINE__);
+			goto out_unlock;
+		}
+
+	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
+	kstat_incr_irqs_this_cpu(irq, desc);
+
+	/*
+	 * If its disabled or no action available
+	 * keep it masked and get out of here
+	 */
+	if (unlikely(!desc->action || irqd_irq_disabled(&desc->irq_data))){
+		printk("ERROR:%s[%d]\n",__func__,__LINE__);
+		goto out_unlock;
+	}
+
+	handle_irq_event(desc);
+
+	if (!irqd_irq_disabled(&desc->irq_data) && !(desc->istate & IRQS_ONESHOT))
+		unmask_irq(desc);
+out_unlock:
+	raw_spin_unlock(&desc->lock);
+}
+EXPORT_SYMBOL_GPL(my_handle_level_irq);
 
 #ifdef CONFIG_IRQ_PREFLOW_FASTEOI
 static inline void preflow_handler(struct irq_desc *desc)
