@@ -80,7 +80,7 @@ int ov7675_init(struct cim_sensor *sensor_info)
 		ov7675_write_reg(client,0x0e,0x61);
 		ov7675_write_reg(client,0x0f,0x4b);
 		ov7675_write_reg(client,0x16,0x02);
-		ov7675_write_reg(client,0x1e,0x27);
+		ov7675_write_reg(client,0x1e,0x07);
 		ov7675_write_reg(client,0x21,0x02);
 		ov7675_write_reg(client,0x22,0x91);
 		ov7675_write_reg(client,0x29,0x07);

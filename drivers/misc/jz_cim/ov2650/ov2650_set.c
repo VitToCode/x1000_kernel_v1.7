@@ -44,16 +44,12 @@ int ov2650_preview_set(struct cim_sensor *sensor_info)
 {                               
 	struct ov2650_sensor *s;
 	struct i2c_client * client ;
-	unsigned char Reg;
 
 	s = container_of(sensor_info, struct ov2650_sensor, cs);
 	client = s->client;
 
     	mode = CAMERA_MODE_PREVIEW;
 
-	Reg = ov2650_read_reg(client, 0x3013);
-	Reg |= 0x05;
-	ov2650_write_reg(client, 0x3013, Reg);
     
 	return 0;
 } 
@@ -65,7 +61,7 @@ static void change_rate(struct i2c_client *client)
     ov2650_write_reg(client, 0x302c, 0x00);
     ov2650_write_reg(client, 0x3071, 0x00);
     ov2650_write_reg(client, 0x3070, 0x5d);
-    ov2650_write_reg(client, 0x301c, 0x0d);
+    ov2650_write_reg(client, 0x301c, 0x05);
     ov2650_write_reg(client, 0x3073, 0x00);
     ov2650_write_reg(client, 0x3072, 0x4e);
     ov2650_write_reg(client, 0x301d, 0x0f);
