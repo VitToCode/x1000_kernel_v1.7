@@ -136,6 +136,9 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 
 	if (cpu_has_dsp)
 		save_dsp(p);
+	
+	if (cpu_has_mxu)
+		save_mxu(p);
 
 	preempt_enable();
 
@@ -181,6 +184,8 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 
 	if (clone_flags & CLONE_SETTLS)
 		ti->tp_value = regs->regs[7];
+
+	smp_wmb();
 
 	return 0;
 }
