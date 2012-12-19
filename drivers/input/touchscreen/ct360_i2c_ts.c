@@ -257,12 +257,10 @@ int ct36x_ts_bootloader(struct i2c_client *client)
 	if ((ts->data.buf[5] != 'V') || (ts->data.buf[9] != 'T'))
 		ver_chk_cnt++;
 
-/*
 	if ( ver_chk_cnt >= 2 ) {
 		printk("%s() Invalid FW Version \n", __FUNCTION__);
 		return -1;
 	}
-*/
 
 FLASH_ERASE:
 	//-----------------------------------------------------
@@ -752,7 +750,6 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 
 	if ( CT36X_TS_DEBUG )
 	printk(">>>>> %s() called <<<<< \n", __FUNCTION__);
-	printk(">>>>> %s() called <<<<< \n", __FUNCTION__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
@@ -917,6 +914,8 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 	cancel_work_sync(&ts->event_work);
+	regulator_disable(ts->power);
+    return 0;
 	
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 	// step 01 W FF 0F 2B
@@ -955,6 +954,9 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
+	regulator_enable(ts->power);
+	mdelay(200);
+
 	ct36x_ts_hw_reset(ts);
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	ts->timer.expires = jiffies + HZ * CT36X_TS_ESD_TIMER_INTERVAL;
@@ -962,6 +964,10 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	ts->timer_on = 1;
 #endif
 	enable_irq(ts->irq);
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		printk("after resume ,check I2C erro");
+		return -1;
+	}
 	return 0;
 }
 
@@ -969,12 +975,12 @@ static int ct36x_ts_resume(struct i2c_client *client)
 #if	(CT36X_TS_HAS_EARLYSUSPEND)
 static void ct36x_early_suspend(struct early_suspend *handler)
 {
-	ct36x_ts_suspend(ct36x_ts->client, PMSG_SUSPEND);
+	ct36x_ts_suspend(ct36x_ts.client, PMSG_SUSPEND);
 }
 
 static void ct36x_early_resume(struct early_suspend *handler)
 {
-	ct36x_ts_resume(ct36x_ts->client);
+	ct36x_ts_resume(ct36x_ts.client);
 }
 #endif
 #endif
