@@ -869,7 +869,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
 	}
 	sectorcount = sectorcount % alignsectorcount;
-	alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
+	sectorcount = alignsectorcount - sectorcount;
 	n = 0;
 	while(n < l4count && sectorcount) {
 		if(latest_l4info[n] == -1) {
@@ -943,8 +943,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		tpl->pData = NULL;
 		if(!data_in_rzone(rep, tpl->startPageID)) {
 			oldzoneid = ZoneManager_convertPageToZone(rep->context,tpl->startPageID);
-			for(i = 0;i < k;i++)
-				Insert_JunkZone(conptr->junkzone,k + i,oldzoneid);
+			Insert_JunkZone(conptr->junkzone,k,oldzoneid);
 		}
 	}
 	if(!rep->force) {
