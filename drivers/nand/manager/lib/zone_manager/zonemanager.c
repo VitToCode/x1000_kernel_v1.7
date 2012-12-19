@@ -432,7 +432,9 @@ static int unpackage_page0_info(ZoneManager *zonep,unsigned short zoneid)
 
 	if( prezoneid != 0xffff && (zonep->sigzoneinfo_initflag[prezoneid] & ALL_INIT) == LOCAL_INIT){
 		presigzoneinfo = zonep->sigzoneinfo + nandsigzoneinfo->prezoneinfo.ZoneID;
-		presigzoneinfo->validpage = nandsigzoneinfo->prezoneinfo.validpage;
+		if(nandsigzoneinfo->prezoneinfo.validpage != 0xffff && presigzoneinfo->validpage == 0xffff){
+			presigzoneinfo->validpage = nandsigzoneinfo->prezoneinfo.validpage;
+		}
 	}
 
 	return 0;
@@ -453,6 +455,8 @@ static int find_maxserialnumber(ZoneManager *zonep,
 	NandZoneInfo *nandzoneinfo = (NandZoneInfo *)(zonep->mem0);
 	SigZoneInfo *oldsigp = NULL;
 	int i;
+	unsigned int current;
+
 	//update localzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->localZone.ZoneID;
 	if(zoneid != zid) {
@@ -474,21 +478,33 @@ static int find_maxserialnumber(ZoneManager *zonep,
 		oldsigp->next_zoneid = nandzoneinfo->nextZone.ZoneID;
 		if((zonep->sigzoneinfo_initflag[zoneid] & PRE_INIT) == 0) {
 			CONV_ZI_SZ(&nandzoneinfo->localZone,oldsigp);
+			oldsigp->validpage = 0xffff;
 			ndprint(ZONEMANAGER_INFO," LOCAL convert zoneid = %d validpage = %d\n",zoneid,oldsigp->validpage);
 		}
 		zonep->sigzoneinfo_initflag[zoneid] |= LOCAL_INIT;
 	}
 
 	//update prevzone info in zonep->sigzoneinfo
-	zoneid = nandzoneinfo->preZone.ZoneID;
+	zoneid = nandzoneinfo->preZone.ZoneID; 
 	if (zoneid != 0xffff && zoneid >= 0 && zoneid < zonep->pt_zonenum) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
 		CONV_ZI_SZ(&nandzoneinfo->preZone,oldsigp);
 		ndprint(ZONEMANAGER_INFO,"PRE convert zoneid = %d validpage = %d\n",zoneid,oldsigp->validpage);
 		zonep->sigzoneinfo_initflag[zoneid] |= PRE_INIT;
 	}
-
-
+	//update nextzone info in zonep->sigzoneinfo
+	zoneid = nandzoneinfo->nextZone.ZoneID;
+	if (zoneid != 0xffff && zoneid >= 0 && zoneid < zonep->pt_zonenum) {
+		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
+		if((zonep->sigzoneinfo_initflag[zoneid] & ALL_INIT) == 0){
+			CONV_ZI_SZ(&nandzoneinfo->nextZone,oldsigp);
+			ndprint(ZONEMANAGER_INFO,"NEXT convert zoneid = %d validpage = %d\n",zoneid,oldsigp->validpage);
+			oldsigp->validpage = 0xffff;
+		}
+		zonep->sigzoneinfo_initflag[zoneid] |= NEXT_INIT;
+		current = (zonep->sigzoneinfo_initflag[zid] >> 16) & zoneid;
+		zonep->sigzoneinfo_initflag[zid] &= ((current << 16) | 0xffff);
+	}
 	max = nandzoneinfo->serialnumber;
 	if(max > *maxserial)
 	{
@@ -545,7 +561,42 @@ static int get_pt_badblock_count(VNandInfo *vnand)
 	return count;
 }
 */
+static void fill_localzone_validpage(ZoneManager *zonep,PageList *pl)
+{
+	unsigned int i = 0;
+	SigZoneInfo *sigp = NULL;
+	unsigned int zonenum = zonep->pt_zonenum;
+	int ret = -1;
+	unsigned short nextzid;
+	NandSigZoneInfo *nandsigzoneinfo = NULL;
 
+	for(i = 0 ; i < zonenum ; i++)
+	{
+		sigp = (SigZoneInfo *)(zonep->sigzoneinfo + i);
+
+		if ((zonep->sigzoneinfo_initflag[i] & PRE_INIT) == 0 && (zonep->sigzoneinfo_initflag[i] & ALL_INIT) != 0) {
+			nextzid = zonep->sigzoneinfo_initflag[i] >> 16;
+			if(nextzid != 0xffff && nextzid >= 0 && nextzid < zonenum){
+				ret = read_zone_page0(zonep,nextzid,pl);
+				if (ISERROR(ret)) {
+					ret = pl->retVal;
+					pl->retVal = 0;
+					if (!ISNOWRITE(ret)){
+						ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 0 error!\n",i);
+						insert_zoneidlist(zonep,PAGE0,i);
+					}
+				}else {
+					nandsigzoneinfo = (NandSigZoneInfo *)(zonep->mem0);
+					if(nandsigzoneinfo->prezoneinfo.ZoneID == i && sigp->validpage == 0xffff 
+						&& nandsigzoneinfo->prezoneinfo.validpage != 0xffff){
+						sigp->validpage = nandsigzoneinfo->prezoneinfo.validpage;
+					}
+				}
+				pl->retVal = 0;
+			}
+		}
+	}
+}
 /**
  *	scan_sigzoneinfo_fill_node - scan sigzoneinfo and fill it to hashtable
  *
@@ -565,19 +616,19 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		sigp = (SigZoneInfo *)(zonep->sigzoneinfo + i);
-
-		if ((zonep->sigzoneinfo_initflag[i] & ALL_INIT) == PRE_INIT) {
+		if((zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0) {
+			ret = insert_free_node(zonep,i);
+			if(ret != 0) {
+				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
+							__FUNCTION__,__LINE__);
+				return ret;
+			}
+		}else if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0) {
 			ret = read_zone_page0(zonep,i,pl);
                         if (ISERROR(ret)) {
-			        ret = pl->retVal;
+							ret = pl->retVal;
                                 pl->retVal = 0;
-                                if (ISNOWRITE(ret)) {
-                                        sigp->badblock = 0;
-                                        sigp->lifetime = -1;
-										sigp->validpage = -1;
-										sigp->pre_zoneid = -1;
-										sigp->next_zoneid = -1;
-                                } else {
+                                if (!ISNOWRITE(ret)){
 									ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 0 error!\n",i);
                                         insert_zoneidlist(zonep,PAGE0,i);
                                 }
@@ -585,13 +636,6 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 							unpackage_page0_info(zonep,i);
 						}
                         pl->retVal = 0;
-			ret = insert_free_node(zonep,i);
-			if(ret != 0) {
-				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
-							__FUNCTION__,__LINE__);
-				return ret;
-			}
-		} else if(zonep->sigzoneinfo_initflag[i] == 0) {
 			ret = insert_free_node(zonep,i);
 			if(ret != 0) {
 				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
@@ -608,6 +652,7 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 		}
 	}
 
+	fill_localzone_validpage(zonep,pl);
 	/*last_zone_badblocknum = (BLOCKPERZONE(vnand) - (vnand->TotalBlocks - get_pt_badblock_count(vnand)) %
 	  BLOCKPERZONE(vnand)) % BLOCKPERZONE(vnand);*/
 
@@ -655,6 +700,7 @@ static int scan_page_info(ZoneManager *zonep)
 	int ret = -1;
 	unsigned int zonenum = zonep->pt_zonenum;
 	Context *conptr = (Context *)(zonep->context);
+	unsigned int badblockcount = 0;
 	int sumpage;
 
 	plt->OffsetBytes = 0;
@@ -663,11 +709,12 @@ static int scan_page_info(ZoneManager *zonep)
 	plt->pData = zonep->mem0;
 	(plt->head).next = NULL;
 	if(zonep->sigzoneinfo_initflag == NULL) {
-		zonep->sigzoneinfo_initflag = Nand_VirtualAlloc(zonenum);
-		memset(zonep->sigzoneinfo_initflag,0,zonenum);
+		zonep->sigzoneinfo_initflag = (unsigned int*)Nand_VirtualAlloc(sizeof(unsigned int) * zonenum);
+		memset(zonep->sigzoneinfo_initflag,0,sizeof(unsigned int) * zonenum);
 	}
 	for(i = 0 ; i < zonenum ; i++)
 	{
+		zonep->sigzoneinfo_initflag[i] |= (0xffff << 16);
 		ret = read_zone_page1(zonep,i,plt);
 		ndprint(ZONEMANAGER_INFO, "maxserialnum %d maxserial zoneid %d ret = %d i = %d\n",max_serial,max_zoneid,ret,i);
                 if (ISERROR(ret)) {
@@ -709,7 +756,8 @@ static int scan_page_info(ZoneManager *zonep)
 	zonep->last_zone_id = max_zoneid;
 	if (max_zoneid != 0xffff) {
         /*current zone validpage init*/
-		sumpage = zonep->vnand->PagePerBlock * BLOCKPERZONE(zonep->context);
+		while(nm_test_bit(badblockcount,(unsigned int *)&zonep->sigzoneinfo->badblock) && (++badblockcount));
+		sumpage = (BLOCKPERZONE(zonep->vnand) - badblockcount) * zonep->vnand->PagePerBlock;
 		if (zonep->vnand->v2pp->_2kPerPage == 1)
 			zonep->sigzoneinfo[zonep->last_zone_id].validpage = sumpage -3;
 		else

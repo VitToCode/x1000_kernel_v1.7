@@ -158,7 +158,8 @@ static int write_page0(int errinfo)
 	nandsigzoneinfo->lifetime = sigzoneinfo->lifetime + 1;
 	nandsigzoneinfo->badblock = sigzoneinfo->badblock;
 	nandsigzoneinfo->prezoneinfo.ZoneID = sigzoneinfo->pre_zoneid;
-	nandsigzoneinfo->prezoneinfo.validpage = zonep->sigzoneinfo[sigzoneinfo->pre_zoneid].validpage;
+	if(sigzoneinfo->pre_zoneid != 0xffff)
+		nandsigzoneinfo->prezoneinfo.validpage = zonep->sigzoneinfo[sigzoneinfo->pre_zoneid].validpage;
 	while(nm_test_bit(badblockno,(unsigned int *)&((zonep->sigzoneinfo+zoneid)->badblock)) && (++badblockno));
 	if(badblockno >= blockno){
 		ndprint(1," %s %d badblockno:%d blocknum:%d",__func__,__LINE__,badblockno,blockno);

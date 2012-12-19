@@ -28,14 +28,15 @@ struct _ZoneValidInfo {
 #define NULL_INIT  0
 #define LOCAL_INIT 1
 #define PRE_INIT   2
-#define ALL_INIT (LOCAL_INIT | PRE_INIT)
+#define NEXT_INIT  4
+#define ALL_INIT (LOCAL_INIT | PRE_INIT | NEXT_INIT)
 typedef struct _ZoneManager ZoneManager;
 struct _ZoneManager {
 	HashNode* freeZone;
 	Hash* useZone;
 	L1Info *L1;
 	SigZoneInfo* sigzoneinfo;
-	unsigned char *sigzoneinfo_initflag;
+	unsigned int *sigzoneinfo_initflag;
 
 	NandMutex HashMutex;
 	VNandInfo *vnand;
