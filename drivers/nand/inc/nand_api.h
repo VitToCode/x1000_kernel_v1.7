@@ -103,6 +103,7 @@ int nand_read_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsi
 int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list);
 
 int nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf);
+int panic_nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf);
 int nand_write_pages(NAND_BASE *host,Aligned_List *aligned_list);
 
 int nand_erase_blocks(NAND_BASE *host,BlockList *headlist);

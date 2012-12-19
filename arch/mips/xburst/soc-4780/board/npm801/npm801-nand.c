@@ -71,9 +71,18 @@ static struct platform_nand_partition partition_info[] = {
     part_attrib:PART_KERNEL
     },
 	{
-	name:"ndmisc",
+	name:"ndapanic",
 	offset:1728 * 0x100000LL,
-	size:2368 * 0x100000LL,
+	size:2 * 0x100000LL,
+	mode:DIRECT_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_MISC
+    },
+	{
+	name:"ndmisc",
+	offset:1730 * 0x100000LL,
+	size:2366 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,

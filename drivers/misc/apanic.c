@@ -37,6 +37,7 @@
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 #include <linux/preempt.h>
+#include "nand2mtd.h"
 
 extern void ram_console_enable_console(int);
 
@@ -188,13 +189,15 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		mutex_unlock(&drv_mutex);
 		return -EINVAL;
 	}
+
 	rc = ctx->mtd->read(ctx->mtd,
 		phy_offset(ctx->mtd, (page_no * ctx->mtd->writesize)),
 		ctx->mtd->writesize,
 		&len, ctx->bounce);
 
 	if (page_offset)
-		count -= page_offset;
+		count = count < (ctx->mtd->writesize - page_offset) ? 
+			count : (ctx->mtd->writesize - page_offset);
 	memcpy(buffer, ctx->bounce + page_offset, count);
 
 	*start = count;
@@ -203,6 +206,7 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		*peof = 1;
 
 	mutex_unlock(&drv_mutex);
+
 	return count;
 }
 
@@ -511,7 +515,7 @@ static int apanic(struct notifier_block *this, unsigned long event,
 		printk(KERN_EMERG "Crash partition in use!\n");
 		goto out;
 	}
-	console_offset = ctx->mtd->writesize;
+	console_offset = ctx->mtd->erasesize;
 
 	/*
 	 * Write out the console
@@ -535,6 +539,7 @@ static int apanic(struct notifier_block *this, unsigned long event,
 
 	log_buf_clear();
 	show_state_filter(0);
+
 	threads_len = apanic_write_console(ctx->mtd, threads_offset);
 	if (threads_len < 0) {
 		printk(KERN_EMERG "Error writing threads to panic log! (%d)\n",
@@ -592,15 +597,15 @@ DEFINE_SIMPLE_ATTRIBUTE(panic_dbg_fops, panic_dbg_get, panic_dbg_set, "%llu\n");
 
 int __init apanic_init(void)
 {
+	memset(&drv_ctx, 0, sizeof(drv_ctx));
+	drv_ctx.bounce = (void *) __get_free_page(GFP_KERNEL);
 	register_mtd_user(&mtd_panic_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	debugfs_create_file("apanic", 0644, NULL, NULL, &panic_dbg_fops);
-	memset(&drv_ctx, 0, sizeof(drv_ctx));
-	drv_ctx.bounce = (void *) __get_free_page(GFP_KERNEL);
 	INIT_WORK(&proc_removal_work, apanic_remove_proc_work);
 	printk(KERN_INFO "Android kernel panic handler initialized (bind=%s)\n",
 	       CONFIG_APANIC_PLABEL);
 	return 0;
 }
 
-module_init(apanic_init);
+late_initcall(apanic_init);

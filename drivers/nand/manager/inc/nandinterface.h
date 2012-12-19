@@ -9,6 +9,7 @@ typedef struct _NandInterface NandInterface;
 struct _NandInterface {
 	int (*iPageRead)(void *ppartition,int pageid, int offsetbyte, int bytecount, void * data );
 	int (*iPageWrite)(void *ppartition,int pageid, int offsetbyte, int bytecount, void* data );
+	int (*iPanicPageWrite)(void *ppartition,int pageid, int offsetbyte, int bytecount, void* data );
 	int (*iMultiPageRead)(void *ppartition,PageList* pl );
 	int (*iMultiPageWrite)(void *ppartition,PageList* pl );
 	int (*iMultiBlockErase)(void *ppartition,BlockList* pl );

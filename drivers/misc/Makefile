@@ -2,6 +2,11 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
+EXTRA_CFLAGS    += -Idrivers/nand/manager/inc/ \
+		   -Idrivers/nand/manager/inc/linux/ \
+		   -Idrivers/nand/manager/lib/inc/  \
+		   -Idrivers/nand/inc/ 
+
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o
 obj-$(CONFIG_AD525X_DPOT_I2C)	+= ad525x_dpot-i2c.o
@@ -50,7 +55,7 @@ obj-y				+= lis3lv02d/
 obj-y				+= carma/
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_BCM4330_RFKILL) += bt-power.o
-obj-$(CONFIG_APANIC)		+= apanic.o
+obj-$(CONFIG_APANIC)		+= apanic.o nand2mtd.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-y				+= jz_cim/
 obj-$(CONFIG_JZ_X2D)    	+= jz_x2d/

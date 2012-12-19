@@ -661,6 +661,27 @@ static inline int multipage_read(void *ppartition,PageList * read_pagelist)
 }
 
 /*
+ * panic_page_write - write one page data no schedule
+ * @page: the page which will be read
+ * @databuf: the data buffer will return the page data
+ * add by yqwang
+ */
+static inline int panic_page_write(void *ppartition,int pageid,int offset,int bytes,void * databuf)
+{
+	int ret; 
+	PPartition * tmp_ppt = (PPartition *)ppartition;
+	//      struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
+	if((pageid < 0) || (pageid > tmp_ppt->PageCount)) {
+		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
+		return ENAND;   //return pageid error
+	}
+
+	nand_ops_parameter_reset(tmp_ppt);
+	ret =panic_nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
+	return ret; 
+}
+
+/*
  * page_write - write one page data
  * @page: the page which will be read
  * @databuf: the data buffer will return the page data
@@ -813,6 +834,7 @@ NandInterface jz_nand_interface = {
 	.iIsBadBlock = is_badblock,
 	.iMarkBadBlock = mark_badblock,
 	.iDeInitNand = deinit_nand,
+	.iPanicPageWrite = panic_page_write,
 };
 /*
  * Probe for the NAND device.

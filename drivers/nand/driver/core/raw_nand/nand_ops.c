@@ -13,6 +13,7 @@
 #include <mach/jznand.h>
 #include "jz4780_nand_def.h"
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #define OLD 0
 
 #define WRITE 0
@@ -975,6 +976,43 @@ int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list)
 			flag = 1;
 	}
 	return flag?1:SUCCESS;
+}
+
+/******************************************************
+ *   panic_nand_write_page ;
+ *   add by yqwang
+ */
+int panic_nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf)
+{
+	unsigned int p_pageid;
+	unsigned char state;
+	volatile unsigned int timeout = 1000;
+
+	//      int ret;
+	if(bytes ==0 || (bytes + offset) > g_writesize)  //judge offset and bytes
+		return ENAND;
+
+	p_pageid =get_physical_addr(pageid+g_startpage);
+	do_select_chip(host,p_pageid);
+
+	send_prog_page(offset,p_pageid);
+	nand_write_page_data(host,offset,bytes,(unsigned char *)databuf);
+
+	nand_write_page_oob();
+	send_prog_confirm();
+
+	while ( __gpio_get_value(host->irq) && timeout--);     
+	timeout = 1000;
+	while(!__gpio_get_value(host->irq) && timeout--){
+		udelay(10);
+	}    
+
+	do_deselect_chip(host);
+
+	if (timeout <= 0)
+		return IO_ERROR;
+
+	return bytes;
 }
 
 /******************************************************
