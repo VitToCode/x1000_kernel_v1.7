@@ -25,6 +25,10 @@
 
 #include "jz4780_hdmi.h"
 
+/*In normal mode this define should not open*/
+//#define DVIMODE 1
+
+
 static struct jzhdmi *global_hdmi;
 static void edid_callback(void *param)
 {
@@ -47,6 +51,7 @@ static void hpd_callback(void *param)
 	}
 }
 
+#ifdef DVIMODE 
 static u8 cliEdid_GetDtdCode(const dtd_t *dtd)
 {
 	u8 cea_mode = dtd_GetCode(dtd);
@@ -68,6 +73,7 @@ static u8 cliEdid_GetDtdCode(const dtd_t *dtd)
 	}
 	return cea_mode;
 }
+#endif
 
 int compliance_Standby(struct jzhdmi *jzhdmi)
 {
@@ -114,7 +120,7 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 #else
 	timeout = wait_event_timeout(jzhdmi->wait,
 			jzhdmi->edid_done == HDMI_HOTPLUG_EDID_DONE
-			&& jzhdmi->hdmi_info.hdmi_status == HDMI_HOTPLUG_CONNECTED, 10*HZ);
+			&& jzhdmi->hdmi_info.hdmi_status == HDMI_HOTPLUG_CONNECTED, 5*HZ);
 	if(!timeout){
 		dev_err(jzhdmi->dev, "---hdmi read edid timeout\n");
 		return FALSE;
@@ -146,16 +152,16 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		dev_info(dev, "==========>HDMI mode\n");
 		videoParams_SetHdmi(pVideo, TRUE);
 		/* TODO:
-		if (hdmivsdb_GetDeepColor48(&vsdb)) {
-			videoParams_SetColorResolution(pVideo, 16);
-		} else if (hdmivsdb_GetDeepColor36(&vsdb)) {
-			videoParams_SetColorResolution(pVideo, 12);
-		} else if (hdmivsdb_GetDeepColor30(&vsdb)) {
-			videoParams_SetColorResolution(pVideo, 10);
-		} else {
-			videoParams_SetColorResolution(pVideo, 0);
-		}
-		*/
+		   if (hdmivsdb_GetDeepColor48(&vsdb)) {
+		   videoParams_SetColorResolution(pVideo, 16);
+		   } else if (hdmivsdb_GetDeepColor36(&vsdb)) {
+		   videoParams_SetColorResolution(pVideo, 12);
+		   } else if (hdmivsdb_GetDeepColor30(&vsdb)) {
+		   videoParams_SetColorResolution(pVideo, 10);
+		   } else {
+		   videoParams_SetColorResolution(pVideo, 0);
+		   }
+		   */
 		videoParams_SetColorResolution(pVideo, 0);
 
 		if (currentMode >= svdNo) {
@@ -202,16 +208,39 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		if(0){
 			/* ====>tmds reset  */
 			access_CoreWrite(1, 0x4002, 1, 1);
-
 			/* ====>video_Configure again */
 			if (video_Configure(0, pVideo, 1, FALSE) != TRUE) {
 				return FALSE;
 			}
-
 			access_CoreWriteByte(0x0, 0x10DA);
 		}
+
+	} else {
+		dev_info(dev, "Force into hdmi mode!\n");
+#ifndef DVIMODE 
+		videoParams_SetHdmi(pVideo, TRUE);
+		videoParams_SetColorResolution(pVideo, 0);
+
+		if (currentMode >= svdNo) {
+			currentMode = 0;
+		}
+#ifdef HDMI_JZ4780_DEBUG
+		dev_info(jzhdmi->dev, "=====>out_type=%d\n",jzhdmi->hdmi_info.out_type);
+#endif
+		ceaCode = jzhdmi->hdmi_info.out_type;
+		if (board_SupportedRefreshRate(ceaCode) != -1) {
+			dtd_Fill(&tmp_dtd, ceaCode, board_SupportedRefreshRate(ceaCode));
+			videoParams_SetDtd(pVideo, &tmp_dtd);
 		} else {
-		dev_info(dev, "DVI mode!\n");
+			dev_err(dev, "CEA mode not supported\n");
+		}
+
+		if (api_Configure(pVideo, pAudio, pProduct, pHdcp)) {
+			dev_info(dev, "api_Configure ok\n");
+		}
+	}
+#else
+		dev_info(dev, "====DVI mode!\n");
 		videoParams_SetHdmi(pVideo, FALSE);
 		videoParams_SetColorResolution(pVideo, 0);
 		if (currentMode >= api_EdidDtdCount()) {
@@ -244,7 +273,7 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 			api_Configure(pVideo, pAudio, pProduct, pHdcp);
 		}
 	}
-
+#endif
 	return TRUE;
 }
 
@@ -343,7 +372,7 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int index,i;
+	int index,i,ret = 0;
 	shortVideoDesc_t tmpsvd;
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
@@ -352,16 +381,26 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		dev_info(jzhdmi->dev, "Hdmi power on\n");
 		api_phy_enable(PHY_ENABLE);
 		hdmi_init(jzhdmi);
-		hdmi_read_edid(jzhdmi);
-		jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
-		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
-		dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
-		for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
-			api_EdidSvd(i,&tmpsvd);
-			printk("%d ",tmpsvd.mCode);
-			jzhdmi->hdmi_info.support_mode[i] = tmpsvd.mCode;
+		ret = hdmi_read_edid(jzhdmi);
+		if(ret > 0){
+			jzhdmi->edid_faild = 0;
+			jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
+			jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
+			dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
+			for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
+				api_EdidSvd(i,&tmpsvd);
+				printk("%d ",tmpsvd.mCode);
+				jzhdmi->hdmi_info.support_mode[i] = tmpsvd.mCode;
+			}
+			printk("\n");
+		}else{
+			dev_info(jzhdmi->dev, "Read edid is failed,set mode to 720p60Hz or 1920x1080p06Hz\n");
+			jzhdmi->edid_faild = 1;
+			jzhdmi->hdmi_info.support_modenum = 2;
+			jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
+			jzhdmi->hdmi_info.support_mode[0] = 4; /* 1280x720p @ 59.94/60Hz 16:9 */
+			jzhdmi->hdmi_info.support_mode[1] = 16;/* 1920x1080p @ 59.94/60Hz 16:9 */
 		}
-		printk("\n");
 		break;
 
 	case HDMI_GET_TVMODENUM:
@@ -385,7 +424,8 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	case HDMI_VIDEOMODE_CHANGE:
-		hdmi_read_edid(jzhdmi);
+//		if(jzhdmi->edid_faild == 0)
+//			hdmi_read_edid(jzhdmi);
 		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
 		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
@@ -489,10 +529,11 @@ static int jzhdmi_open(struct inode * inode, struct file * filp)
 
 static int jzhdmi_close(struct inode * inode, struct file * filp)
 {
+	struct jzhdmi *jzhdmi = filp->private_data;
 	filp->private_data = NULL;
+	jzhdmi->edid_faild = 0;
 	return 0;
 #if 0
-	struct jzhdmi *jzhdmi = filp->private_data;
 	if (!(atomic_inc_and_test(&jzhdmi->opened)) &&
 	    jzhdmi->opened.counter == 1) {
 		dev_info(jzhdmi->dev, "Ingenic Onchip HDMI close\n");
@@ -542,6 +583,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->dev = &pdev->dev;
 	jzhdmi->mem = mem;
 	jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED,
+	jzhdmi->edid_faild = 0;
 
 	jzhdmi->hdmi_params.pProduct = (productParams_t*)kzalloc(
 		sizeof(productParams_t),GFP_KERNEL);

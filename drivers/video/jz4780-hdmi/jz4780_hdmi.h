@@ -94,6 +94,7 @@ struct jzhdmi{
 	unsigned int hpd_connected;
 	unsigned int edid_done;
 	unsigned int is_suspended;
+	unsigned int edid_faild;
 };
 
 /* ioctl commands */
