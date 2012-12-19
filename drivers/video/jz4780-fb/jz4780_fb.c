@@ -2249,7 +2249,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->fix.smem_start = jzfb->vidmem_phys;
 	fb->fix.smem_len =  jzfb->vidmem_size;
 	fb->screen_base = jzfb->vidmem;
-
+        fb->pseudo_palette = (void*)(fb+1);
 	jzfb->irq = platform_get_irq(pdev, 0);
 	sprintf(jzfb->irq_name, "lcdc%d",pdev->id);
 	if (request_irq(jzfb->irq, jzfb_irq_handler, IRQF_DISABLED,
@@ -2287,7 +2287,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to run vsync thread");
 		goto err_free_file;
 	}
-
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
