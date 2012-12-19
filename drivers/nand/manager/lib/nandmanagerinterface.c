@@ -16,23 +16,24 @@
 
 #define N_UNITSIZE     8
 #define N_UNITDIM(x)  (((x) + N_UNITSIZE - 1 ) / N_UNITSIZE)
-#define ZONEINFO_PAGES 3
+#define PAGEINFO_PAGE 1
 #define SECTOR_SIZE    512
-#define PAGEINFO_SIZE  (2*1024)
 
 /* Translate the physical partition structto logicla partition struct */
 static int p2lPartition( PPartition *ppa, LPartition *lpa)
 {
-	int  pageperzone;
-	int  maxdatapage;
-	int  zonenum;
-	int  zonevalidpage;
-	int  extrapage;
-	int  zoneinfo_pages;
-	int  bestsecnum;
-	int  worsesecnum;
-	int  reservesecnum;
-	int  totalblocks;
+	int pageperzone;
+	int maxdatapage;
+	int zonenum;
+	int zonevalidpage;
+	int extrapage;
+	int zoneinfo_pages;
+	int bestsecnum;
+	int worsesecnum;
+	int reservesecnum;
+        int reservezonenum;
+	int totalblocks;
+        int initsectors;
 
 	if (ppa == NULL || lpa == NULL){
 		ndprint(PARTITION_ERROR,"ERROR:FUNCTION: %s(%d), Nand alloc continue memory error!\n",
@@ -43,24 +44,60 @@ static int p2lPartition( PPartition *ppa, LPartition *lpa)
 
 	if (ppa->mode == ZONE_MANAGER) {
 		pageperzone = ppa->pageperblock * ppa->v2pp->_2kPerPage * BLOCK_PER_ZONE;
-		maxdatapage = L4INFOLEN / sizeof(unsigned int) / (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE);
-		zonenum = (totalblocks * 90 / 100) / BLOCK_PER_ZONE; // totalsize*80%
-		if(ppa->v2pp->_2kPerPage > 1)
+		maxdatapage = L4INFOLEN / sizeof(unsigned int) / (ppa->byteperpage
+                                                / ppa->v2pp->_2kPerPage / SECTOR_SIZE);
+                /* the best is 90% , 2k:pageinfo L4INFOLEN:data */
+                zonenum = (totalblocks * 90 / 100) / BLOCK_PER_ZONE;
+                if(ppa->v2pp->_2kPerPage > 1) {
 			zoneinfo_pages = ppa->v2pp->_2kPerPage * 2;
-		else
+                        /* the worse is 10% ,2k:pageinfo 2k:data */
+		        worsesecnum = (totalblocks - zonenum * BLOCK_PER_ZONE) *
+                                                ppa->pageperblock * ppa->byteperpage /
+                                                        SECTOR_SIZE / ppa->v2pp->_2kPerPage;
+                } else {
 			zoneinfo_pages = 3;
-		zonevalidpage = (pageperzone - zoneinfo_pages) / (maxdatapage + ppa->v2pp->_2kPerPage) * maxdatapage;
-		extrapage = (pageperzone - zoneinfo_pages) % (maxdatapage + ppa->v2pp->_2kPerPage);
+                        /* the worse is 10% ,2k:pageinfo 2k:data */
+		        worsesecnum = (totalblocks - zonenum * BLOCK_PER_ZONE) *
+                                                ppa->pageperblock * ppa->byteperpage /
+                                                        SECTOR_SIZE / 2;
+                }
+		zonevalidpage = (pageperzone - zoneinfo_pages) /
+                                        (maxdatapage + PAGEINFO_PAGE) * maxdatapage;
+		extrapage = (pageperzone - zoneinfo_pages) % (maxdatapage + PAGEINFO_PAGE);
+
 		if (extrapage > ppa->v2pp->_2kPerPage)
-			bestsecnum = (zonevalidpage + extrapage) * (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
-		else
-			bestsecnum = zonevalidpage * (ppa->byteperpage / ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
-		worsesecnum = (totalblocks * 10 / 100) * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE * 2 / ppa->v2pp->_2kPerPage; //totalsize*20% ; pageinfo:2k data:2k
-		reservesecnum = (totalblocks * 13 / 100) * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE;
-		lpa->sectorCount = bestsecnum + worsesecnum - reservesecnum;
+                        bestsecnum = (zonevalidpage + extrapage) * (ppa->byteperpage /
+                                        ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
+                else
+			bestsecnum = zonevalidpage * (ppa->byteperpage /
+                                        ppa->v2pp->_2kPerPage / SECTOR_SIZE) * zonenum;
+                /* the 4% is reserve zone for recycle */
+                reservezonenum = (totalblocks * 4 / 100) / BLOCK_PER_ZONE;
+                if (reservezonenum > 9)
+                        reservezonenum = 9;
+                if (reservezonenum < 4)
+                        reservezonenum = 4;
+
+		reservesecnum = reservezonenum * BLOCK_PER_ZONE *
+                                        ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE;
+
+		lpa->sectorCount = bestsecnum + worsesecnum;
+                /*
+                 * when the calc secoters by 90% best > the totalsecotrs's 80%
+                 * we will set the 'lpa->sectorCount = the totalsecotrs's 80%'
+                 * otherwise we will set the 'lpa->sectorCount = bestsecnum + worsesecnum'
+                 *
+                 */
+                initsectors = totalblocks * 85 / 100 * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE;
+                if (lpa->sectorCount > initsectors)
+		        lpa->sectorCount = initsectors;
+                lpa->sectorCount = lpa->sectorCount - reservesecnum;
 	} else{
-		lpa->sectorCount = ((totalblocks * 87 / 100) * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
-	}
+		lpa->sectorCount = (totalblocks * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
+        }
+        ndprint(1,"%s: reservezone=%d badblocks=%d 90%+10%=%d lpa->sectorCount=%d\n"
+                        , ppa->name, reservezonenum, ppa->badblockcount
+                        , bestsecnum + worsesecnum, lpa->sectorCount);
 	lpa->startSector = 0;
 	lpa->name = ppa->name;
 	lpa->hwsector = ppa->hwsector;
