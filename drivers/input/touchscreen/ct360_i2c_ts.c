@@ -914,8 +914,6 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 	cancel_work_sync(&ts->event_work);
-	regulator_disable(ts->power);
-    return 0;
 	
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 	// step 01 W FF 0F 2B
@@ -954,8 +952,6 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
-	regulator_enable(ts->power);
-	mdelay(200);
 
 	ct36x_ts_hw_reset(ts);
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
