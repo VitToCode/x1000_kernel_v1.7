@@ -148,7 +148,7 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 
 	svdNo = api_EdidSvdCount();
 
-	if (api_EdidHdmivsdb(&vsdb) == TRUE) {
+	if ((api_EdidHdmivsdb(&vsdb) == TRUE) && (jzhdmi->edid_faild == 0)) {
 		dev_info(dev, "==========>HDMI mode\n");
 		videoParams_SetHdmi(pVideo, TRUE);
 		/* TODO:
