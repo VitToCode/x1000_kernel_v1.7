@@ -95,7 +95,7 @@ static int p2lPartition( PPartition *ppa, LPartition *lpa)
 	} else{
 		lpa->sectorCount = (totalblocks * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
         }
-        ndprint(1,"%s: reservezone=%d badblocks=%d 90%+10%=%d lpa->sectorCount=%d\n"
+        ndprint(1,"%s: reservezone=%d badblocks=%d 90\%+10\%=%d lpa->sectorCount=%d\n"
                         , ppa->name, reservezonenum, ppa->badblockcount
                         , bestsecnum + worsesecnum, lpa->sectorCount);
 	lpa->startSector = 0;

@@ -1165,6 +1165,10 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 		for (i = pl_node->OffsetBytes / SECTOR_SIZE; i < (pl_node->Bytes + pl_node->OffsetBytes) / SECTOR_SIZE; i++) {
 			if (s_count % spp == 0) {
 				pageid = Zone_AllocNextPage(wzone);
+				if (pageid == -1) {
+					ndprint(RECYCLE_ERROR, "ERROR: pl_node->OffsetBytes = %d, pl_node->Bytes = %d,\n total_sectorcount = %d, sector_count = %d\n, ", pl_node->OffsetBytes, pl_node->Bytes, total_sectorcount, sector_count);
+					while (1);
+				}
 				/*	if (s_count == 0) {
 					while (pageid % wzone->vnand->v2pp->_2kPerPage)
 						pageid = Zone_AllocNextPage(wzone);
