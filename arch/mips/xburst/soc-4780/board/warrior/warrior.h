@@ -44,6 +44,9 @@ extern struct snd_codec_data codec_data;
 #define GPIO_SPEAKER_EN		GPIO_PE(6)	/*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL	1
 
+#define GPIO_HANDSET_EN		  -1		/*handset enable gpio*/
+#define GPIO_HANDSET_EN_LEVEL -1
+
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL	1
 #ifdef  CONFIG_BOARD_WARRIOR_V_1_1

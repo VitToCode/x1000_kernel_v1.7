@@ -30,7 +30,7 @@ enum snd_codec_route_t {
 	/*internal codec: call record mic bypass to hprl*/
 	SND_ROUTE_CALL_RECORD,
 	/*internal codec: record mic1 an1 to adclr replay hp stereo*/  
-        SND_ROUTE_RECORD_MIC1_AN1_REPLAY_DACRL_TO_HPRL,
+    SND_ROUTE_RECORD_MIC1_AN1_REPLAY_DACRL_TO_HPRL,
 	/*internal codec: dacrl to lineout*/
 	SND_ROUTE_REPLAY_DACRL_TO_LO,
 	/*internal codec: dacrl to hprl*/
@@ -62,8 +62,10 @@ enum snd_codec_route_t {
 
 struct snd_board_route {
 	enum snd_codec_route_t route;
-	int gpio_hp_mute_stat;	/* -1: not avaiable, 0: disable, 1: enable */
-	int gpio_spk_en_stat;	/* -1: not avaiable, 0: disable, 1: enable */
+	int gpio_hp_mute_stat;	/* -1: keep , 0: disable, 1: enable */
+	int gpio_spk_en_stat;	/* -1: keep , 0: disable, 1: enable */
+	int gpio_handset_en_stat;  /* -1: keep , 0: disable, 1: enable */
+	int gpio_buildin_mic_select; /* -1: keep , 0:disable, 1: enable */
 };
 
 struct snd_board_gpio {
@@ -89,17 +91,25 @@ struct snd_codec_data {
 	/* device <-> route map record*/
 	struct snd_board_route record_headset_mic_route;
 	struct snd_board_route record_buildin_mic_route;
+
 	/* device <-> route map replay*/
-	struct snd_board_route replay_handset_route;
 	struct snd_board_route replay_headset_route;
 	struct snd_board_route replay_speaker_route;
+	struct snd_board_route replay_handset_route;
 	struct snd_board_route replay_headset_and_speaker_route;
 	struct snd_board_route fm_speaker_route;
 	struct snd_board_route fm_headset_route;
-	struct snd_board_route call_route;
+	struct snd_board_route downlink_handset_route;
+	struct snd_board_route downlink_headset_route;
+	struct snd_board_route downlink_speaker_route;
+	struct snd_board_route uplink_buildin_mic_route;
+	struct snd_board_route uplink_headset_mic_route;
+	struct snd_board_route record_incall_route;
+
 	/* gpio */
 	struct snd_board_gpio gpio_hp_mute;
 	struct snd_board_gpio gpio_spk_en;
+	struct snd_board_gpio gpio_handset_en;
 	struct snd_board_gpio gpio_hp_detect;
 	struct snd_board_gpio gpio_mic_detect;
 	struct snd_board_gpio gpio_mic_select;
