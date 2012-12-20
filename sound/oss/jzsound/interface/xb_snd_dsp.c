@@ -1465,26 +1465,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	case SNDCTL_EXT_SET_DEVICE: {
 		/* extention: used for set audio route */
-		struct snd_device_config config;
 		int device;
-		device = config.device;
-#if 0
-		if (copy_from_user(&config, (int *)arg, sizeof(config))) {
-			printk("=====copy from user========\n");
+		if (get_user(device, (int*)arg)) {
 			return -EFAULT;
 		}
-#endif
-		ret = copy_from_user(&config, (int *)arg, sizeof(config)) ? -EFAULT : 0;
-		printk("============{1478}device = %d=========\n",config.device);
 
 		if (ddata->dev_ioctl) {
-			printk("{1477} config = 0x%x\n\n", &config);
-			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&config);
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&device);
 			if (!ret)
 				break;
 		}
 
-		device = config.device;
 		ret = put_user(device, (int *)arg);
 		break;
 	}

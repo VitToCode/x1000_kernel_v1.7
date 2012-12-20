@@ -20,15 +20,21 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		if (switch_data->hp_valid_level == HIGH_VALID) {
-			if (state)
+			if (state) {
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-			else
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
+			} else {
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
+			}
 		} else if (switch_data->hp_valid_level == LOW_VALID) {
-			if (state)
+			if (state) {
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-			else
+			} else {
 				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
+			}
 		}
 	}
 }
@@ -68,29 +74,15 @@ static void snd_switch_work(struct work_struct *work)
 	if (switch_data->type == SND_SWITCH_TYPE_CODEC) {
 		state = switch_data->codec_get_sate();
 	}
+
 	if (state == 1 && switch_data->mic_gpio != -1) {
-		if (switch_data->mic_select_gpio != -1){
-			gpio_direction_output(switch_data->mic_select_gpio, switch_data->mic_select_level);
-			mdelay(1000);
-		}
 		gpio_direction_input(switch_data->mic_gpio);
-		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level) {
+		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
 			state <<= 1;
-			if (switch_data->mic_select_gpio != -1)
-				gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
-		} else {
+		else
 			state <<= 0;
-		}
-	} else {
-
-		if (switch_data->mic_select_gpio != -1)
-			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+	} else
 		state <<= 1;
-	}
-
-	if (switch_data->mic_select_gpio)
-		printk("gpio->%d,level-> %d\n", switch_data->mic_select_gpio, switch_data->mic_select_level);
-	printk("%s, %d, %d\n", __func__, __LINE__, state);
 
 	snd_switch_set_state(switch_data, state);
 }
