@@ -50,8 +50,10 @@ extern struct snd_codec_data codec_data;
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL	1
 #ifdef  CONFIG_BOARD_WARRIOR_V_1_1
-#define GPIO_MIC_DETECT		GPIO_PD(15)		/*mic detect gpio*/
-#define GPIO_MIC_INSERT_LEVEL	0
+//#define GPIO_MIC_DETECT		GPIO_PD(15)		/*mic detect gpio*/
+//#define GPIO_MIC_INSERT_LEVEL	0
+#define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
+#define GPIO_MIC_INSERT_LEVEL	-1
 #else
 #define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
 #define GPIO_MIC_INSERT_LEVEL	-1

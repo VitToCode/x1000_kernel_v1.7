@@ -65,12 +65,12 @@ struct snd_board_route {
 	int gpio_hp_mute_stat;	/* -1: keep , 0: disable, 1: enable */
 	int gpio_spk_en_stat;	/* -1: keep , 0: disable, 1: enable */
 	int gpio_handset_en_stat;  /* -1: keep , 0: disable, 1: enable */
-	int gpio_buildin_mic_select; /* -1: keep , 0:disable, 1: enable */
+	int gpio_buildin_mic_en_stat; /* -1: keep , 0:disable, 1: enable */
 };
 
 struct snd_board_gpio {
-	int gpio;
-	int active_level;
+	int gpio;			/* -1: gpio is unavailable*/
+	int active_level;	/* 0: is low available other: is high available*/
 };
 
 struct snd_codec_data {
@@ -112,7 +112,7 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_handset_en;
 	struct snd_board_gpio gpio_hp_detect;
 	struct snd_board_gpio gpio_mic_detect;
-	struct snd_board_gpio gpio_mic_select;
+	struct snd_board_gpio gpio_buildin_mic_select;
 	/* other */
 	int hpsense_active_level;
 };
