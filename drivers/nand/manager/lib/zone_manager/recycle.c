@@ -273,8 +273,8 @@ int Recycle_OnNormalRecycle ( int context )
 	Recycle *rep = conptr->rep;
 
 	NandMutex_Lock(&rep->mutex);
-	ndprint(RECYCLE_INFO, "\n%s: start normal recycle--------->\n"
-			,((PPartition *)(conptr->vnand.prData))->name);
+	ndprint(RECYCLE_INFO, "\n%s: start normal recycle---------mode:%d>\n"
+			,((PPartition *)(conptr->vnand.prData))->name,rep->recyclemode);
 	if (rep->taskStep == RECYIDLE)
 		rep->taskStep = RECYSTART;
 	NandMutex_Unlock(&rep->mutex);
@@ -285,12 +285,12 @@ int Recycle_OnNormalRecycle ( int context )
 
 		ret = Recycle_OnFragmentHandle(context);
 	}
-
-
 	NandMutex_Lock(&rep->mutex);
-	if(ret != 0) {
-		if(rep->rZone)
+	if(ret != 0){
+		if(rep->rZone){
 			Drop_JunkZone(((Context *)rep->context)->junkzone,rep->rZone->ZoneID);
+			ZoneManager_DropZone(rep->context,rep->rZone);
+		}
 	}
 	rep->rZone = NULL;
 	rep->taskStep = RECYIDLE;
@@ -815,7 +815,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 	unsigned int tmp1;
 	PageList *pl = NULL;
 	PageList *tpl = NULL;
-	int sectorcount = 0;
+	unsigned int sectorcount = 0;
 	int alignsectorcount = 0;
 	int blm = conptr->blm;
 	int oldzoneid;
@@ -861,15 +861,17 @@ static int MergerSectorID_Align(Recycle *rep) {
 		n++;
 
 	}
-
+	if(sectorcount > 0){
 	//first - 2k pageinfo sector
-	alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage - vnand->BytePerPage) / SECTOR_SIZE;
-	if(sectorcount > alignsectorcount) {
-		sectorcount = sectorcount - alignsectorcount;
-		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
+		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage - vnand->BytePerPage) / SECTOR_SIZE;
+		if(sectorcount > alignsectorcount) {
+			sectorcount = sectorcount - alignsectorcount;
+			alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
+		}
+		if(sectorcount != alignsectorcount)
+			sectorcount = sectorcount % alignsectorcount;
+		sectorcount = alignsectorcount - sectorcount;
 	}
-	sectorcount = sectorcount % alignsectorcount;
-	sectorcount = alignsectorcount - sectorcount;
 	n = 0;
 	while(n < l4count && sectorcount) {
 		if(latest_l4info[n] == -1) {
@@ -1828,11 +1830,11 @@ static int FreeZone ( Recycle *rep)
 		ndprint(RECYCLE_ERROR, "ERROR: markeraseblock error %s, line:%d\n", __func__, __LINE__);
 		rep->rZone->sigzoneinfo->pre_zoneid = -1;
 		rep->rZone->sigzoneinfo->next_zoneid = -1;
-		ZoneManager_DropZone(rep->context,rep->rZone);
 	}else{
 		if (rep->rZone)
 			Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->rZone->ZoneID);
 		ZoneManager_FreeRecyclezone(rep->context,rep->rZone);
+		rep->rZone = NULL;
 	}
 	rep->taskStep = RECYIDLE;
 	return ret;
@@ -2016,6 +2018,11 @@ int Recycle_OnForceRecycle ( int frinfo )
 		if (ret < 0) {
 			ndprint(RECYCLE_ERROR, "ForceRecycle_For_Once ERROR func %s line %d \n",
 						__FUNCTION__,__LINE__);
+			if(rep->force_rZone){
+				Drop_JunkZone(((Context *)rep->context)->junkzone,rep->force_rZone->ZoneID);
+				ZoneManager_DropZone(rep->context,rep->force_rZone);
+				rep->force_rZone = NULL;
+			}
 			OnForce_Deinit(rep);
 			return -1;
 		}
@@ -2025,12 +2032,9 @@ int Recycle_OnForceRecycle ( int frinfo )
 		rep->force_rZone = NULL;
 		if (need_pagecount == -1 || recycle_pagecount >= need_pagecount)
 			break;
-
 		zoneid = 0xffff;
 	}
-
 	OnForce_Deinit(rep);
-
 	ndprint(RECYCLE_INFO, "%s: force recycle finished RecPagecount = %d---->\n\n"
 			,((PPartition *)(conptr->vnand.prData))->name,recycle_pagecount);
 
@@ -2048,15 +2052,8 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 	int ret = 0;
 
 	ret = OnForce_GetRecycleZone(rep, zoneid);
-	if (ret == -1) {
-		/*
-		if (rep->force_junk_zoneid != -1)
-			Release_MaxJunkZone(((Context *)(rep->context))->junkzone, rep->force_junk_zoneid);
-		*/
-		if (rep->force_rZone)
-			Delete_JunkZone(((Context *)(rep->context))->junkzone, rep->force_rZone->ZoneID);
-		return -1;
-	}
+	if (ret == -1) 
+		goto exit;
 
 	for (i = 0; ; i++) {
 		if (rep->force_end_findnextpageinfo)
@@ -2566,8 +2563,8 @@ static int OnForce_FreeZone ( Recycle *rep)
 	if(Zone_MarkEraseBlock(rep->force_rZone,pageid,0)) {
 		rep->force_rZone->sigzoneinfo->pre_zoneid = -1;
 		rep->force_rZone->sigzoneinfo->next_zoneid = -1;
-		ZoneManager_DropZone(rep->context,rep->force_rZone);
 		Drop_JunkZone(((Context *)(rep->context))->junkzone, rep->force_rZone->ZoneID);
+		ZoneManager_DropZone(rep->context,rep->force_rZone);
 		rep->force_rZone = NULL;
 		return -1;
 	}else{
@@ -2710,8 +2707,13 @@ int Recycle_OnFollowRecycle ( int context )
 	if (ret == -1)
 		goto exit;
 	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
-
+	rep->force_rZone = NULL;
 exit:
+	if(ret != 0 && rep->force_rZone){
+		Drop_JunkZone(((Context *)(rep->context))->junkzone, rep->force_rZone->ZoneID);
+		ZoneManager_DropZone(rep->context,rep->force_rZone);
+		rep->force_rZone = NULL;
+	}
 	OnForce_Deinit(rep);
 	ndprint(RECYCLE_INFO, "follow recycle finished--------->\n\n");
 
@@ -2824,8 +2826,14 @@ int Recycle_OnBootRecycle ( int bootinfo )
 	if (ret == -1)
 		goto exit;
 	ZoneManager_FreeRecyclezone(rep->context,rep->force_rZone);
+	rep->force_rZone = NULL;
 
 exit:
+	if(ret != 0 && rep->force_rZone){
+		Drop_JunkZone(((Context *)(rep->context))->junkzone, rep->force_rZone->ZoneID);
+		ZoneManager_DropZone(rep->context,rep->force_rZone);
+		rep->force_rZone = NULL;
+	}
 	OnForce_Deinit(rep);
 	ndprint(RECYCLE_INFO, "boot recycle finished--------->\n\n");
 
