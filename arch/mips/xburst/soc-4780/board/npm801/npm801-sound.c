@@ -17,11 +17,6 @@ struct snd_codec_data codec_data = {
 	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 1},
-#if 0
-	.call_record_def_route = {.route = SND_ROUTE_CALL_RECORD,
-		.gpio_hp_mute_stat = 0,
-		.gpio_spk_en_stat = 1},
-#endif
 	/* device <-> route map */
 	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
 		.gpio_hp_mute_stat = 0,
@@ -47,16 +42,14 @@ struct snd_codec_data codec_data = {
 	.fm_headset_route = {.route = SND_ROUTE_NONE,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 0},
-	.call_route = {.route = SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
-		.gpio_hp_mute_stat = 0,
-		.gpio_spk_en_stat = 1},
 	
 	/* gpio */
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
 	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
 	.gpio_mic_detect = {.gpio = GPIO_MIC_DETECT,.active_level = GPIO_MIC_INSERT_LEVEL},
-	.gpio_mic_select = {.gpio = GPIO_MIC_SELECT,.active_level = GPIO_HP_MIC_LEVEL},
+	.gpio_buildin_mic_select = {.gpio = GPIO_MIC_SELECT,.active_level = GPIO_HP_MIC_LEVEL},
+	.gpio_handset_en = {.gpio = GPIO_HANDSET_EN, .active_level = GPIO_HANDSET_EN_LEVEL},
 
 	.hpsense_active_level = 1,
 };

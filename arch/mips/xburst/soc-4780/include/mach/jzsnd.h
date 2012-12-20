@@ -95,7 +95,6 @@ struct snd_codec_data {
 	/* device <-> route map replay*/
 	struct snd_board_route replay_headset_route;
 	struct snd_board_route replay_speaker_route;
-	struct snd_board_route replay_handset_route;
 	struct snd_board_route replay_headset_and_speaker_route;
 	struct snd_board_route fm_speaker_route;
 	struct snd_board_route fm_headset_route;
