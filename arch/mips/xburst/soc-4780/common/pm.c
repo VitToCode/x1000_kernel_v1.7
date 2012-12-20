@@ -90,12 +90,12 @@ void noinline reset_dll(void)
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY);
 	TCSM_PCHAR('3');
-	*(volatile unsigned *) 0xb00000d0 = 0x1;
-	i = *(volatile unsigned *) 0xb00000d0;
-	TCSM_DELAY(DELAY);
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	TCSM_DELAY(DELAY);
 	TCSM_PCHAR('4');
+	*(volatile unsigned *) 0xb00000d0 = 0x1;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY);
 	*((volatile unsigned int*)(0xb30100b8)) |= (0x1);
 	__jz_cache_init();
 }
