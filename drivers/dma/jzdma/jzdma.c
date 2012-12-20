@@ -730,53 +730,15 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 {
 	struct jzdma_master *master = (struct jzdma_master *)dev;
-	unsigned long pending, mailbox = 0;
-        struct jzdma_channel *dmac = master->channel + 3;
-	int tmp;
+	unsigned long mailbox = 0;
+	struct jzdma_channel *dmac = master->channel + 3;
 #ifdef MCU_TEST_INTER_DMA
 	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+4))++;
 #endif
-        spin_lock(&dmac->lock);
 
-	pending = readl(master->iomem + DMINT);
-
-	if (pending & DMINT_N_IP) 
-		mailbox = readl(master->iomem + DMNMB);
-#if 1
-	else{
-		spin_unlock(&dmac->lock);
-		return IRQ_HANDLED;
-	}
-#else
-        else if(pending & DMINT_S_IP)
-		mailbox = readl(master->iomem + DMSMB);
-#endif	
-        spin_unlock(&dmac->lock);
-        *(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
-        tasklet_schedule(&dmac->tasklet);
-#if 1
-        tmp = readl(master->iomem + DMINT);
-        tmp &= ~DMINT_N_IP;
-        writel(tmp, master->iomem + DMINT);
-#else
-        if(pending & DMINT_N_IP) {
-                tmp = readl(master->iomem + DMINT);
-                tmp &= ~DMINT_N_IP;
-                writel(tmp, master->iomem + DMINT);
-	} else if(pending & DMINT_S_IP) {
-                tmp = readl(master->iomem + DMINT);
-                tmp &= ~DMINT_S_IP;
-                writel(tmp, master->iomem + DMINT);
-	}
-#endif
-		/*
-		  dev_dbg(master->dev, "go into mcu irq function. DMNMB = 0x%08x \n",
-		  readl(master->iomem+DMNMB));
-		  for (tmp = 0; tmp<11; tmp++){
-		  dev_dbg(master->dev, "\n%04d:",tmp);
-		  dev_dbg(master->dev, "%08x ",*(unsigned int *)(0xB34247c0+tmp*4));
-		  }
-		*/
+	mailbox = readl(master->iomem + DMNMB);
+	*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
+	tasklet_schedule(&dmac->tasklet);
 	return IRQ_HANDLED;
 }
 
@@ -790,24 +752,24 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 
 	pending = readl(master->iomem + DMINT);
 
-	if(pending & DMINT_N_IP)
+	if(pending & DMINT_N_IP){
 		mailbox = readl(master->iomem + DMNMB);
 
-	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_NORMAL) {
+		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_NORMAL) {
 #ifdef MCU_TEST_INTER_DMA
-	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
+		(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
 #endif
-		my_generic_handle_irq(IRQ_MCU);
-	} 
-	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
-		generic_handle_irq(IRQ_GPIO0);
-	} 
-	if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
-		mask = GET_MSG_MASK(mailbox);
-		*((volatile int *)(0xb0010058)) &= ~(1<<mask);
-		generic_handle_irq(IRQ_GPIO0);
-	}
-
+			my_generic_handle_irq(IRQ_MCU);
+		} 
+		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
+			generic_handle_irq(IRQ_GPIO0);
+		} 
+		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
+			mask = GET_MSG_MASK(mailbox);
+			*((volatile int *)(0xb0010058)) &= ~(1<<mask);
+			generic_handle_irq(IRQ_GPIO0);
+		}
+}
 	writel(0, master->iomem + DMINT);
 
 	return IRQ_HANDLED;
