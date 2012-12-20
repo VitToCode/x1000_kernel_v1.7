@@ -212,7 +212,7 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_UY0VY1 | CIM_CFG_ORDER_UYVY;//CIM_CFG_PCP ||CIM_CFG_VSP
 	s->cs.modes.balance =  WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT 
 							| WHITE_BALANCE_INCANDESCENT;
-	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
+	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA|EFFECT_BLACKBOARD|EFFECT_PASTEL;
 	s->cs.modes.antibanding =  ANTIBANDING_50HZ | ANTIBANDING_60HZ ;
 	s->cs.modes.flash_mode = FLASH_MODE_OFF;
 	s->cs.modes.scene_mode = SCENE_MODE_AUTO;

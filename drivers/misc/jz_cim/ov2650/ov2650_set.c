@@ -504,30 +504,49 @@ void ov2650_set_effect_normal(struct i2c_client *client)
    ov2650_write_reg(client, 0x3391, 0x00);  
 }
 
-void ov2650_set_effect_grayscale(struct i2c_client *client)
+void ov2650_set_effect_yellowish(struct i2c_client *client)
 {
+   ov2650_write_reg(client, 0x3391, 0x18);  
+   ov2650_write_reg(client, 0x3396, 0x30);  
+   ov2650_write_reg(client, 0x3397, 0x90);  
+}
+
+void ov2650_set_effect_reddish(struct i2c_client *client)
+{
+   ov2650_write_reg(client, 0x3391, 0x18);  
+   ov2650_write_reg(client, 0x3396, 0x80);  
+   ov2650_write_reg(client, 0x3397, 0xc0);  
 }
 
 void ov2650_set_effect_sepia(struct i2c_client *client)
 {
-   ov2650_write_reg(client, 0x3391, 0x00);  
+   ov2650_write_reg(client, 0x3391, 0x18);  
    ov2650_write_reg(client, 0x3396, 0x40);  
    ov2650_write_reg(client, 0x3397, 0xA6);  
 }
 
 void ov2650_set_effect_colorinv(struct i2c_client *client)
 {
+   ov2650_write_reg(client, 0x3391, 0x40);  
+}
+
+void ov2650_set_effect_black_and_white (struct i2c_client *client)
+{
+   ov2650_write_reg(client, 0x3391, 0x20);  
 }
 
 void ov2650_set_effect_sepiagreen(struct i2c_client *client)
 {
-   ov2650_write_reg(client, 0x3391, 0x00);  
+   ov2650_write_reg(client, 0x3391, 0x18);  
    ov2650_write_reg(client, 0x3396, 0x60);  
    ov2650_write_reg(client, 0x3397, 0x60);  
 }
 
 void ov2650_set_effect_sepiablue(struct i2c_client *client)
 {
+   ov2650_write_reg(client, 0x3391, 0x18);  
+   ov2650_write_reg(client, 0x3396, 0xa0);  
+   ov2650_write_reg(client, 0x3397, 0x40);  
 }
 
 
@@ -545,7 +564,7 @@ int ov2650_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 				dev_info(&client->dev,"EFFECT_NONE");
 				break;
 			case EFFECT_MONO :
-				ov2650_set_effect_grayscale(client);  
+				ov2650_set_effect_yellowish(client);  
 				dev_info(&client->dev,"EFFECT_MONO ");
 				break;
 			case EFFECT_NEGATIVE :
@@ -567,12 +586,14 @@ int ov2650_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 				break;
 			case EFFECT_BLACKBOARD :
 				dev_info(&client->dev,"EFFECT_BLACKBOARD ");
+				ov2650_set_effect_black_and_white(client);
 				break;
 			case EFFECT_AQUA  ://qian lv se
 				ov2650_set_effect_sepiagreen(client);
 				dev_info(&client->dev,"EFFECT_AQUA  ");
 				break;
 			case EFFECT_PASTEL:
+				ov2650_set_effect_reddish(client);  
 				dev_info(&client->dev,"EFFECT_PASTEL");
 				break;
 			case EFFECT_MOSAIC:
