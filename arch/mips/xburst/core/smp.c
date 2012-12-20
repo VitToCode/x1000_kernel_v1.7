@@ -168,9 +168,13 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	int err;
 	unsigned long flags,ctrl;
 
+	preempt_disable();
+
 	/* blast all cache before booting secondary cpu */
 	blast_dcache_jz();
 	blast_icache_jz();
+
+	preempt_enable_no_resched();
 
 	local_irq_save(flags);
 
