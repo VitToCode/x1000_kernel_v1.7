@@ -868,9 +868,11 @@ static int MergerSectorID_Align(Recycle *rep) {
 			sectorcount = sectorcount - alignsectorcount;
 			alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage) / SECTOR_SIZE;
 		}
-		if(sectorcount != alignsectorcount)
+		if(sectorcount % alignsectorcount != 0){
 			sectorcount = sectorcount % alignsectorcount;
-		sectorcount = alignsectorcount - sectorcount;
+			sectorcount = alignsectorcount - sectorcount;
+		}else
+			sectorcount = 0;
 	}
 	n = 0;
 	while(n < l4count && sectorcount) {
