@@ -17,9 +17,11 @@
  */
 
 #include <linux/types.h>
-#include <linux/semaphore.h>
+//#include <linux/semaphore.h>
+#include <linux/mutex.h>
 
-typedef struct semaphore mutex_t;
+//typedef struct semaphore mutex_t;
+typedef struct mutex mutex_t;
 
 typedef void (*handler_t)(void *);
 typedef void* (*thread_t)(void *);
