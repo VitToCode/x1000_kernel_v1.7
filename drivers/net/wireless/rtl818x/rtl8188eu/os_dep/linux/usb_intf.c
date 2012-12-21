@@ -1493,10 +1493,6 @@ extern int console_suspend_enabled;
 
 static int __init rtw_drv_entry(void)
 {
-       	if(regulator_enable(regulator_get(NULL, "vwifi"))){
-		printk("ERR: please check wifi power enable...!\n");
-	}
-
 #ifdef CONFIG_PLATFORM_RTK_DMP
 	u32 tmp;
 	tmp=readl((volatile unsigned int*)0xb801a608);
@@ -1567,8 +1563,6 @@ static void __exit rtw_drv_halt(void)
 	sw_usb_disable_hcd(usb_wifi_host);
 #endif //ifndef CONFIG_RTL8723A	
 #endif	//CONFIG_PLATFORM_ARM_SUNxI
-	
-       	regulator_disable(regulator_get(NULL, "vwifi"));
 }
 
 

@@ -58,7 +58,8 @@ CONFIG_PLATFORM_ARM_TCC8920 = n
 CONFIG_PLATFORM_ARM_RK2818 = n
 CONFIG_PLATFORM_ARM_URBETTER = n
 CONFIG_PLATFORM_ARM_TI_PANDA = n
-CONFIG_PLATFORM_MIPS_JZ4760 = y
+CONFIG_PLATFORM_MIPS_JZ4760 = n
+CONFIG_PLATFORM_MIPS_JZ4780 = y
 CONFIG_PLATFORM_DMP_PHILIPS = n
 CONFIG_PLATFORM_TI_DM365 = n
 CONFIG_PLATFORM_MSTAR_TITANIA12 = n
@@ -499,11 +500,11 @@ KSRC := /media/DATA-1/android-4.0/panda_kernel/omap
 MODULE_NAME := wlan
 endif
 
-ifeq ($(CONFIG_PLATFORM_MIPS_JZ4760), y)
+ifeq ($(CONFIG_PLATFORM_MIPS_JZ4780), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH ?= mips
-CROSS_COMPILE ?= /home/spark/work/compile/80-git/prebuilts/gcc/linux-x86/mips/mips-4.4.3/bin/mips-linux-gnu- 
-KSRC ?= /home/spark/work/compile/80-git/kernel/
+CROSS_COMPILE ?= /opt/mips-4.3/bin/mips-linux-gnu-
+KSRC ?= ../../../../../../kernel
 endif
 
 ifeq ($(CONFIG_PLATFORM_SZEBOOK), y)
