@@ -148,6 +148,7 @@ static unsigned int get_phy_addr(unsigned int vaddr)
 	return 0;  
 }
 
+#if 0
 static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
 {
 	int found;
@@ -178,23 +179,22 @@ static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
 
 	return 0;
 }
+#endif
 
 /* transform a buffer */
 static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem, 
 							struct proc_page_tab_data *proc)
 {
 	int page_num, i, paddr, tlb_pos;
-	int ret, s_pos;
+	int s_pos;
 	void *end, *addr;
 
-	struct list_head *head = &proc->dup_page_list;
+//	struct list_head *head = &proc->dup_page_list;
 
 	addr = (void *)(((unsigned int)mem->vaddr >> PAGE_SHIFT) << PAGE_SHIFT);
 	page_num = (unsigned int)((mem->vaddr-addr) + mem->size+PAGE_SIZE-1) >> PAGE_SHIFT;
 	end = (void *)(((unsigned int)mem->vaddr + (mem->size-1)) & (~(PAGE_SIZE-1)));
 	tlb_pos = ((unsigned int)mem->vaddr >> PAGE_SHIFT) << 2;
-//	printk("vaddr: %p, addr: %p, page_num: %d, end: %p, tlb_pos: %ud\n", 
-//		   mem->vaddr, addr, page_num, end, tlb_pos);
 
 	mem->start_offset = (unsigned int)mem->vaddr - (unsigned int)addr;
 	mem->end_offset = ((unsigned int)mem->vaddr + mem->size) - (unsigned int)end;
@@ -210,6 +210,9 @@ again:
 			memcpy(tmp_vaddr, addr, PAGE_SIZE>>4);
 			goto again;
 		}
+		if (i == 0)
+			mem->paddr = paddr;
+#if 0
 		if (i == 0) {
 			mem->paddr = paddr;
 			dev_dbg(jz_dmmu.dev, "%s %d i: %d paddr: 0x%08x\n", __func__, __LINE__, i, paddr);
@@ -231,14 +234,16 @@ again:
 				}
 			}
 		}
+#endif
 		p_tlb = (int *)(proc->vbase + tlb_pos);
 		*p_tlb = paddr + PAGE_VALID_BIT;
+#ifdef DMMU_DEBUG
 		*((int *)page_base) = paddr;
-
-//		printk("%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
+		page_base += 4;
+#endif
+		dev_dbg(jz_dmmu.dev, "%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
 		tlb_pos += 4;
 		addr += PAGE_SIZE;
-		page_base += 4;
 		dev_dbg(jz_dmmu.dev, "%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
 	}
 
@@ -247,6 +252,7 @@ again:
 	return 0;
 }
 
+#if 0
 static void free_dup_pages(struct list_head *head, int *p_tlb)
 {
 	int found;
@@ -274,6 +280,7 @@ static void free_dup_pages(struct list_head *head, int *p_tlb)
 
 	return;
 }
+#endif
 
 static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data *proc)
 {
@@ -281,7 +288,7 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
 	int page_num, tlb_pos;
 	int s_pos, i;
 
-	struct list_head *head = &proc->dup_page_list;
+//	struct list_head *head = &proc->dup_page_list;
 
 	vaddr = (void *)(((unsigned int)mem->vaddr >> PAGE_SHIFT) << PAGE_SHIFT);
 	page_num = ((mem->vaddr - vaddr) + mem->size + PAGE_SIZE - 1) >> PAGE_SHIFT;
@@ -293,10 +300,12 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
 		p_tlb = (int *)(proc->vbase + tlb_pos);
 
         /* find && release possible dup pages */
+#if 0
 		if (i == 0 || i == page_num-1)
 			free_dup_pages(head, p_tlb);
 		else
-  			*p_tlb = jz_dmmu.dummy_base;
+#endif
+  		*p_tlb = jz_dmmu.dummy_base;
 		tlb_pos += 4;
 	}
 	
@@ -517,6 +526,7 @@ static int dmmu_get_page_table_base_phys(struct proc_page_tab_data *table, unsig
 	return 0;
 }
 
+#ifdef DMMU_DEBUG
 static int is_addr_mapped(struct dmmu_mem_info *mem, struct list_head *head)
 {
 	int mapped = 0;
@@ -535,14 +545,12 @@ static int is_addr_mapped(struct dmmu_mem_info *mem, struct list_head *head)
 
 	return mapped;
 }
+#endif
 
 static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_info *mem)
 {
 	int ret = 0;
-	int page_count = 0;
-	void *page_base, *tmp_page_base;
-	struct list_head *head = NULL;
-	struct buffer_heap_info *buffer = NULL;
+	void *page_base = NULL;
 
 	if (table == NULL || mem == NULL) {
 		dev_err(jz_dmmu.dev, "table is NULL or mem is NULL!\n");
@@ -550,8 +558,14 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	}
 
 	mutex_lock(&jz_dmmu.map_lock);
-	head = &table->buffer_heap_list;
 
+#ifdef DMMU_DEBUG
+	int page_count = 0;
+	void *tmp_page_base = NULL;
+	struct list_head *head = NULL;
+	struct buffer_heap_info *buffer = NULL;
+
+	head = &table->buffer_heap_list;
 	page_count = mem->page_count;
 	page_base = kzalloc(page_count * sizeof(int), GFP_KERNEL);
 	dev_dbg(jz_dmmu.dev, "<-----page_base: %p\n", page_base);
@@ -561,15 +575,19 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 		return -EFAULT;
 	}
 	tmp_page_base = page_base;
+#endif
 
 	/* set mem pages to page table */
 	if ((ret = fill_tlb_address(page_base, mem, table)) < 0) {
 		dev_err(jz_dmmu.dev, "fill_tlb_address failed!!!");
+#ifdef DMMU_DEBUG
 		kfree(page_base);
+#endif
 		mutex_unlock(&jz_dmmu.map_lock);
 		return -EFAULT;
 	}
 
+#ifdef DMMU_DEBUG
 	if (!(ret = is_addr_mapped(mem, head))) {
 		/* create buffer_heap_info, added to buffer_heap_list */
 		buffer = (struct buffer_heap_info *)kzalloc(sizeof(struct buffer_heap_info), GFP_KERNEL);
@@ -590,6 +608,8 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 	} else {
 		kfree(page_base);
 	}
+#endif
+
 	mutex_unlock(&jz_dmmu.map_lock);
 
 	return 0;
@@ -597,13 +617,13 @@ static int dmmu_map_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_i
 
 static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem_info *mem)
 {
+#ifdef DMMU_DEBUG
 	int found = 0;
-	struct list_head *pos;
-	struct list_head *head;
-	struct buffer_heap_info *buffer;
+	struct list_head *pos = NULL;
+	struct list_head *head = NULL;
+	struct buffer_heap_info *buffer = NULL;
 
 	head = &table->buffer_heap_list;
-#ifdef DMMU_DEBUG
 	dump_mem_info(mem, NULL);
 #endif
 
@@ -612,6 +632,7 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 	free_tlb_address(mem, table);
 
 	/* delete buffer_heap_list */
+#ifdef DMMU_DEBUG
 	list_for_each(pos, head) {
 		buffer = list_entry(pos, struct buffer_heap_info, list);
 		if (buffer) {
@@ -624,9 +645,9 @@ static int dmmu_unmap_user_mem(struct proc_page_tab_data *table, struct dmmu_mem
 			}
 		}
 	}
-
 	if (!found)
 		dev_err(jz_dmmu.dev, "%s buffer->vaddr: %p", __func__, buffer->vaddr);
+#endif
 
 	mutex_unlock(&jz_dmmu.map_lock);
 
@@ -736,12 +757,13 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		get_user_mem_pages_phys_addr_table(table, &mem);
 		return 0;
-
-		if (copy_to_user(mem.pages_phys_addr_table, buffer->pages_phys_table, 
+#ifdef DMMU_DEBUG
+		if (copy_to_user(mem.pages_phys_addr_table, buffer->pages_phys_table,
 						 buffer->page_count*sizeof(int))) {
 			dev_err(jz_dmmu.dev, "copy_to_user failed!\n");
 			return -EFAULT;
 		}
+#endif
 		break;
 	case DMMU_FLUSH_CACHE:
 		/* flush cache all. this is for testing */
