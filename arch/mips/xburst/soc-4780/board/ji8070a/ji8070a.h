@@ -37,6 +37,10 @@ extern struct platform_device ji8070a_backlight_device;
 extern struct platform_device hsd070idw1_device;
 #endif
 
+#ifdef CONFIG_LCD_HHX070ML208CP21
+extern struct platform_device hhx070ml208cp21_device;
+#endif
+
 /**
  * sound platform data
  **/

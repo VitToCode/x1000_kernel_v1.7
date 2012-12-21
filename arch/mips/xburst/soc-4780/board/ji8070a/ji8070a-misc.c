@@ -292,6 +292,10 @@ static int __init ji8070a_board_init(void)
 	platform_device_register(&hsd070idw1_device);
 #endif
 
+#ifdef CONFIG_LCD_HHX070ML208CP21
+	platform_device_register(&hhx070ml208cp21_device);
+#endif
+
 
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);

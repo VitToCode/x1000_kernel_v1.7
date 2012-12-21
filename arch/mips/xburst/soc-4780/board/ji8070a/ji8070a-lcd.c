@@ -93,6 +93,28 @@ struct platform_device hsd070idw1_device = {
 
 #endif
 
+#ifdef CONFIG_LCD_HHX070ML208CP21
+#include <linux/hhx070ml208cp21.h>
+static int bk_is_on = 0;
+void bk_on(int on)
+{
+    bk_is_on = on;
+}
+static struct platform_hhx070ml208cp21_data hhx070ml208cp21_pdata= {
+	//.gpio_rest = GPIO_PB(22),
+    .notify_on = bk_on
+};
+
+/* LCD Panel Device */
+struct platform_device hhx070ml208cp21_device = {
+	.name		= "hhx070ml208cp21-lcd",
+	.dev		= {
+		.platform_data	= &hhx070ml208cp21_pdata,
+	},
+};
+
+#endif
+
 #ifdef CONFIG_FB_JZ4780_LCDC0
 /* LCDC0 output to HDMI and the default hdmi video mode list
  * define in soc-4780/include/mach/fb_hdmi_modes.h
@@ -201,6 +223,25 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.lower_margin = 13,
 		.hsync_len = 48,
 #endif
+		.vsync_len = 3,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_LCD_HHX070ML208CP21
+	{
+		.name = "1024x600",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 600,
+		.pixclock = KHZ2PICOS(51200),
+		.left_margin = 140,
+		.right_margin = 160,
+		.upper_margin = 20,
+		.lower_margin = 12,
+		.hsync_len = 20,
 		.vsync_len = 3,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
@@ -329,6 +370,20 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.dither_enable = 0,
 #endif
 
+
+#ifdef CONFIG_LCD_HHX070ML208CP21
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
 
 };
 #endif /* CONFIG_FB_JZ4780_LCDC1 */

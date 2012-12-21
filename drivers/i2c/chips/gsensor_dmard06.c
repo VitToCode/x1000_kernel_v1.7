@@ -803,8 +803,13 @@ static void dmard06_acc_delayed_work_fun(struct work_struct *work)
         //     s8 xyz[SENSOR_DATA_SIZE];
         s8 xyz[3];
         device_i2c_read_xyz( dmard06_acc->client, (s8 *)&xyz);
+#ifdef CONFIG_Q8
         input_report_abs(dmard06_acc->input_dev, ABS_X, -xyz[0]*2);
         input_report_abs(dmard06_acc->input_dev, ABS_Y, xyz[1]*2);
+#else
+        input_report_abs(dmard06_acc->input_dev, ABS_X, xyz[0]*2);
+        input_report_abs(dmard06_acc->input_dev, ABS_Y, -xyz[1]*2);
+#endif
         input_report_abs(dmard06_acc->input_dev, ABS_Z, xyz[2]*2);
         input_sync(dmard06_acc->input_dev);
 #ifdef CONFIG_SENSORS_ORI
