@@ -331,7 +331,7 @@ static noinline void jz4780_suspend(void)
 #ifdef TEST
 	reset_dll();
 #else
-	__jz_flush_cache_all();
+	blast_dcache32();
 	cache_prefetch(sleep,sleep_2);
 
 	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
