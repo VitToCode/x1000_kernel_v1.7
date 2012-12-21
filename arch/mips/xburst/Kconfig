@@ -79,3 +79,7 @@ config JZRISC_PEP
 config ARM_ELF_SUPPORT
 	bool "disable arm elf check for mips platform - magic code support depend on this"
 	default y
+
+config SUSPEND_TEST
+	bool "auto suspend test"
+	default n
