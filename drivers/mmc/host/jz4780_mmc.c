@@ -27,8 +27,12 @@
 #include <mach/jzmmc.h>
 #include "jz4780_mmc.h"
 
+/**
+ * MMC driver parameters
+ */
 #define MAX_SEGS		128	/* max count of sg */
 #define TIMEOUT_PERIOD		1000	/* msc operation timeout detect period */
+#define PIO_THRESHOLD		64	/* use pio mode if data length < PIO_THRESHOLD */
 #define CLK_CTRL
 
 enum {
@@ -148,6 +152,10 @@ struct jzmmc_host {
 	set_bit(event, &host->pending_events)
 #define is_pio_mode(host)			\
 	(host->flags & (1 << JZMMC_USE_PIO))
+#define enable_pio_mode(host)			\
+	(host->flags |= (1 << JZMMC_USE_PIO))
+#define disable_pio_mode(host)			\
+	(host->flags &= ~(1 << JZMMC_USE_PIO))
 /*-------------------End structure and macro define------------------------*/
 
 /*
@@ -644,7 +652,7 @@ static inline unsigned int get_incr(unsigned int dma_len)
 #undef _CASE
 	}
 #else
-	incr = 2;
+	incr = 1;
 #endif
 	return incr;
 }
@@ -847,6 +855,8 @@ static void jzmmc_data_start(struct jzmmc_host *host, struct mmc_data *data)
 		pio_trans_start(host, data);
 		pio_trans_done(host, data);
 		del_timer_sync(&host->request_timer);
+		if (!(host->pdata->pio_mode))
+			disable_pio_mode(host);
 		mmc_request_done(host->mmc, host->mrq);
 	} else {
 		jzmmc_dma_start(host, data);
@@ -931,9 +941,12 @@ static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->cmdat = host->cmdat_def;
 
-	if(host->data)
+	if(host->data) {
+		if ((host->data->sg_len == 1)
+		    && (sg_dma_len(host->data->sg)) < PIO_THRESHOLD)
+			enable_pio_mode(host);
 		jzmmc_data_pre(host, host->data);
-
+	}
 	/*
 	 * We would get mmc_request_done at last, unless some terrible error
 	 * occurs such as intensity rebounding of VDD, that maybe result in
