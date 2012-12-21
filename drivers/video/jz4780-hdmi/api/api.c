@@ -69,9 +69,9 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	/* VGA must be supported by all sinks
 	 * so use it as default configuration
 	 */
-	dtd_Fill(&dtd, 3, 60000); /* VGA */
+	dtd_Fill(&dtd, 3, 60000); 
 	videoParams_Reset(&params);
-	videoParams_SetHdmi(&params, FALSE); /* DVI */  /* params->mHdmi = FALSE; */
+	videoParams_SetHdmi(&params, TRUE);
 	videoParams_SetDtd(&params, &dtd); /* params->mDtd = dtd; */
 	pixelClock = videoParams_GetPixelClock(&params); /* dtd_GetPixelClock(&(params->mDtd)); ---> 27MHz */
 
@@ -608,6 +608,13 @@ for (state = 0; state < 10; state++)
 	if (!handled)
 	{
 		printk("interrupt not handled");
+#if 0
+		for (state = 0; state < 10; state++)
+		{
+			LOG_NOTICE3("core read", 0x100 + state, access_CoreReadByte(api_mBaseAddress + 0x100 + state));
+		}
+#endif
+		control_InterruptEdidClear(api_mBaseAddress, 0x3);
 	}
 	system_InterruptAcknowledge(TX_INT);
 	//printk("======>leave api_EventHandler\n");

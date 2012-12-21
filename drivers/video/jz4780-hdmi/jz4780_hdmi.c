@@ -112,6 +112,7 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 	jzhdmi->edid_done = 0;
 	if (!api_EdidRead(edid_callback)){
 		dev_info(jzhdmi->dev, "---edid failed\n");
+		return FALSE;
 	}
 #if 0
 	while(jzhdmi->hdmi_info.hdmi_status != HDMI_HOTPLUG_CONNECTED  || jzhdmi->edid_done != HDMI_HOTPLUG_EDID_DONE){
@@ -120,7 +121,7 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi)
 #else
 	timeout = wait_event_timeout(jzhdmi->wait,
 			jzhdmi->edid_done == HDMI_HOTPLUG_EDID_DONE
-			&& jzhdmi->hdmi_info.hdmi_status == HDMI_HOTPLUG_CONNECTED, 5*HZ);
+			&& jzhdmi->hdmi_info.hdmi_status == HDMI_HOTPLUG_CONNECTED, 2*HZ);
 	if(!timeout){
 		dev_err(jzhdmi->dev, "---hdmi read edid timeout\n");
 		return FALSE;
