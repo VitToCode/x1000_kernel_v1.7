@@ -27,18 +27,13 @@ static bool first_start_record_dma = true;
 
 static bool first_start_replay_dma = true;
 
-struct snd_device_config {
-	uint32_t device;
-	uint32_t ear_mute;
-	uint32_t mic_mute;
-};
-
 /*###########################################################*\
  * sub functions
 \*###########################################################*/
 /********************************************************\
  * buffer
 \********************************************************/
+
 static struct dsp_node* get_free_dsp_node(struct dsp_pipe *dp)
 {
 	unsigned long lock_flags;
@@ -183,15 +178,74 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 
 static void snd_release_dma(struct dsp_pipe *dp)
 {
+#ifndef CONFIG_ANDROID
+	int ret = 0;
+#endif
 	if (dp) {
-		dp->is_trans = false;
 		if (dp->dma_chan) {
-			dmaengine_terminate_all(dp->dma_chan);
+			if (dp->is_trans != false) {
+				dp->wait_stop_dma = true;
+#ifndef CONFIG_ANDROID		//kkshen added
+				{
+					ret = 0x7fffff;
+
+					if (dp->dma_config.direction == DMA_TO_DEVICE)
+						while(ret-- && (dpo->avialable_couter == 0));
+//					else if (dp->dma_config.direction == DMA_FROM_DEVICE)
+//						while(ret-- && (dpo->avialable_couter == 4));
+					if(ret == 0){
+						printk(KERN_INFO "sound dma transfer data error");
+					}
+				}
+#endif
+				wait_event_interruptible(dp->wq, dp->is_trans == false);
+				dmaengine_terminate_all(dp->dma_chan);
+				dp->is_trans = false;
+				dp->wait_stop_dma = false;
+			}
 			dma_release_channel(dp->dma_chan);
 			dp->dma_chan = NULL;
 		}
+		if (dp->sg) {
+			vfree(dp->sg);
+			dp->sg = NULL;
+		}
 	}
 }
+
+static void snd_release_node(struct dsp_pipe *dp)
+{
+	struct dsp_node *node = NULL;
+	int free_count = 0;
+
+	if (dp == NULL) {
+		printk("%s dp is null.\n",__func__);
+		return;
+	}
+
+	while(1) {
+		node = NULL;
+		node = get_use_dsp_node(dp);
+		if (!node)
+			break;
+		put_free_dsp_node(dp, node);
+	};
+	if (dp->save_node != NULL)
+		put_free_dsp_node(dp, dp->save_node);
+	free_count = get_free_dsp_node_count(dp);
+	if (free_count < dp->fragcnt)
+		printk("%s error buffer is lost when snd_release_node.\n",__func__);
+	else if (free_count > dp->fragcnt) {
+		printk("%s BUG: error buffer release fail.\n",__func__);
+		free_count = dp->fragcnt;
+	}
+	if (dp->dma_config.direction == DMA_FROM_DEVICE)
+		dp->avialable_couter = 0;
+	else
+		dp->avialable_couter = free_count;
+
+}
+
 
 static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 {
@@ -323,6 +377,7 @@ static struct snd_dsp_bypss_pipe {
 	int sfragcnt;
 	int sfragsize;
 	dma_addr_t spaddr;
+	unsigned long svaddr;
 } spipe[SND_SHARED_PIPE_CNT];
 
 static int request_shared_pipe_buf(struct dsp_pipe *dp, int spipe_id)
@@ -418,56 +473,34 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 	if (!spipe[spipe_id].src_start || !spipe[spipe_id].dst_start)
 		return spipe_id;
 
-	/* wait dma trans stop */
-	if (spipe[spipe_id].src_dp->is_trans == true)
-		spipe[spipe_id].src_dp->wait_stop_dma = true;
+	snd_release_dma(spipe[spipe_id].src_dp);
+	snd_release_node(spipe[spipe_id].src_dp);
+	snd_release_dma(spipe[spipe_id].dst_dp);
+	snd_release_node(spipe[spipe_id].dst_dp);
 
-	if (spipe[spipe_id].dst_dp->is_trans == true)
-		spipe[spipe_id].dst_dp->wait_stop_dma = true;
-
-	if (spipe[spipe_id].src_dp->wait_stop_dma == true) {
-		wait_event_interruptible(spipe[spipe_id].src_dp->wq,
-				spipe[spipe_id].src_dp->is_trans == false);
-		if (spipe[spipe_id].src_dp->dma_chan) {
-			dma_release_channel(dp->dma_chan);
-			dp->dma_chan = NULL;
-		}
-		if (spipe[spipe_id].src_dp->sg) {
-			vfree(spipe[spipe_id].src_dp->sg);
-			spipe[spipe_id].src_dp->sg = NULL;
-		}
-	}
-	if (spipe[spipe_id].dst_dp->wait_stop_dma == true) {
-		wait_event_interruptible(spipe[spipe_id].dst_dp->wq,
-								 spipe[spipe_id].dst_dp->is_trans == false);
-		if (spipe[spipe_id].dst_dp->dma_chan) {
-			dma_release_channel(dp->dma_chan);
-			dp->dma_chan = NULL;
-		}
-		if (spipe[spipe_id].dst_dp->sg) {
-			vfree(spipe[spipe_id].dst_dp->sg);
-			spipe[spipe_id].dst_dp->sg = NULL;
-		}
-	}
 	/* enable record dma */
-	desc_in = dp->dma_chan->device->device_prep_dma_cyclic(dp->dma_chan,
-														   spipe[spipe_id].spaddr,
-														   spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
-														   spipe[spipe_id].sfragsize,
-														   DMA_FROM_DEVICE);
+	desc_in = spipe[spipe_id].src_dp->dma_chan->device->device_prep_dma_cyclic(
+			spipe[spipe_id].src_dp->dma_chan,
+			spipe[spipe_id].spaddr,
+			spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
+			spipe[spipe_id].sfragsize,
+			DMA_FROM_DEVICE);
 	dmaengine_submit(desc_in);
-	snd_start_dma_transfer(dp , dp->dma_config.direction);
+	snd_start_dma_transfer(spipe[spipe_id].src_dp ,
+			spipe[spipe_id].src_dp->dma_config.direction);
+
 	/* sleep for one fragment full */
 	msleep((spipe[spipe_id].sfragsize / spipe[spipe_id].samplesize / spipe[spipe_id].rate) * 1000);
 
 	/* enable replay dma */
-	desc_out = dp->dma_chan->device->device_prep_dma_cyclic(dp->dma_chan,
-															spipe[spipe_id].spaddr,
-															spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
-															spipe[spipe_id].sfragsize,
-															DMA_TO_DEVICE);
+	desc_out = spipe[spipe_id].dst_dp->dma_chan->device->device_prep_dma_cyclic(
+			spipe[spipe_id].dst_dp->dma_chan,
+			spipe[spipe_id].spaddr,
+			spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
+			spipe[spipe_id].sfragsize,
+			DMA_TO_DEVICE);
 	dmaengine_submit(desc_out);
-	snd_start_dma_transfer(dp , dp->dma_config.direction);
+	snd_start_dma_transfer(spipe[spipe_id].dst_dp , spipe[spipe_id].dst_dp->dma_config.direction);
 
 	return 0;
 }
@@ -478,11 +511,10 @@ static int stop_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 		return -1;
 
 	/* set no link to stop the dma */
-	if (dp->dma_chan) {
-		dmaengine_terminate_all(dp->dma_chan);
-	}
+	snd_release_dma(dp);
 
 	spipe_id = release_shared_pipe_buf(dp, spipe_id);
+
 
 	/* set status */
 	if (spipe[spipe_id].src_dp == dp)
@@ -502,7 +534,7 @@ static int spipe_init(struct device *dev)
 {
 	int i = 0;
 
-	dmam_alloc_noncoherent(dev,
+	spipe[0].svaddr = (unsigned long)dmam_alloc_noncoherent(dev,
 						   SPIPE_DEF_FRAGSIZE * SPIPE_DEF_FRAGCNT * SND_SHARED_PIPE_CNT,
 						   &spipe[0].spaddr,
 						   GFP_KERNEL | GFP_DMA);
@@ -523,6 +555,7 @@ static int spipe_init(struct device *dev)
 		spipe[i].sfragcnt = SPIPE_DEF_FRAGCNT;
 		spipe[i].sfragsize = SPIPE_DEF_FRAGSIZE;
 		spipe[i].spaddr = spipe[0].spaddr + (SPIPE_DEF_FRAGCNT * SPIPE_DEF_FRAGSIZE * i);
+		spipe[i].svaddr = spipe[0].svaddr + (SPIPE_DEF_FRAGCNT * SPIPE_DEF_FRAGSIZE * i);
 	}
 
 	return 0;
@@ -780,6 +813,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 		dp->avialable_couter = dp->fragcnt;
 	else if (direction == DMA_FROM_DEVICE)
 		dp->avialable_couter = 0;
+	dp->dma_config.direction = direction;
 	dp->dma_chan = NULL;
 	dp->save_node = NULL;
 	init_waitqueue_head(&dp->wq);
@@ -1821,7 +1855,6 @@ int xb_snd_dsp_release(struct inode *inode,
 	int ret = 0;
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
-	struct dsp_node *node = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
 	if (ddata == NULL)
@@ -1836,65 +1869,18 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (file->f_mode & FMODE_READ) {
 		dpi = endpoints->in_endpoint;
-		if (dpi && dpi->is_trans == true)
-			dpi->wait_stop_dma = true;
+		snd_release_dma(dpi);
+		snd_release_node(dpi);
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
 		dpo = endpoints->out_endpoint;
-		if (dpo && dpo->is_trans == true)
-			dpo->wait_stop_dma = true;
-	}
-
-
-	if (dpi && dpi->wait_stop_dma == true) {
-		wait_event_interruptible(dpi->wq, dpi->is_trans == false);
-		if (dpi->dma_chan) {
-			dma_release_channel(dpi->dma_chan);
-			dpi->dma_chan = NULL;
-		}
-	}
-
-	if (dpi && dpi->sg) {
-		snd_release_dma(dpi);
-		vfree(dpi->sg);
-		dpi->sg = NULL;
-	}
-
-	if (dpo && dpo->wait_stop_dma == true) {
-		ret = 0x7fffff;
-		while(ret-- && (dpo->avialable_couter == 0));
-		if(ret == 0){
-			printk(KERN_INFO "sound dma transfer data error");
-		}
-		wait_event_interruptible(dpo->wq, dpo->is_trans == false);
-		if (dpo->dma_chan) {
-			dma_release_channel(dpo->dma_chan);
-			dpo->dma_chan = NULL;
-		}
-	}
-
-	if (dpo && dpo->sg) {
 		snd_release_dma(dpo);
-		vfree(dpo->sg);
-		dpo->sg = NULL;
+		snd_release_node(dpo);
 	}
 
 	if (dpi) {
 		/* put all used node to free node list */
-		while(1) {
-			node = NULL;
-			node = get_use_dsp_node(dpi);
-			if (!node)
-				break;
-			put_free_dsp_node(dpi, node);
-			dpi->avialable_couter--;
-		};
-		if (dpi->save_node != NULL) {
-			put_free_dsp_node(dpi, dpi->save_node);
-			dpi->avialable_couter--;
-		}
-
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX, 0);
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_RECORD, 0);
@@ -1906,20 +1892,6 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (dpo) {
 		/* put all used node to free node list */
-		while(1) {
-			node = NULL;
-			node = get_use_dsp_node(dpo);
-			if (!node)
-				break;
-			put_free_dsp_node(dpo, node);
-			dpo->avialable_couter++;
-		};
-
-		if (dpo->save_node != NULL) {
-			put_free_dsp_node(dpo, dpo->save_node);
-			dpo->avialable_couter++;
-		}
-
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
@@ -1964,9 +1936,13 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 			goto error2;
 	}
 
-	if (!spipe_is_init)
-		spipe_init(ddata->dev);
-	spipe_is_init = 1;
+	if (!spipe_is_init)  {
+		ret = spipe_init(ddata->dev);
+		if (!ret)
+			spipe_is_init = 1;
+		else
+			printk("spipe init failed no mem\n");
+	}
 
 	return 0;
 

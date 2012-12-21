@@ -51,10 +51,14 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 /**
  * Module init
  */
-#define WM8594_OVER_SMAPLE_RATE	11289600
+#define HDMI_SMAPLE_RATE	11289600
 static int __init init_codec(void)
 {
-	i2s_register_codec("hdmi", (void *)jzcodec_ctl,WM8594_OVER_SMAPLE_RATE,CODEC_SLAVE);
+	int ret = 0;
+	ret = i2s_register_codec("hdmi", (void *)jzcodec_ctl,HDMI_SMAPLE_RATE,CODEC_SLAVE);
+	if (ret < 0)
+		printk("hdmi audio is not support\n");
+	printk("hdmi audio codec register success\n");
 	return 0;
 }
 

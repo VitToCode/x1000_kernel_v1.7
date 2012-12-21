@@ -548,7 +548,7 @@ static int i2s_enable(int mode)
 	return 0;
 }
 
-static int i2s_disable_channel(int mode)			//CHECK codec is suspend?
+static int i2s_disable_channel(int mode)
 {
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_TURN_OFF,mode);
@@ -677,10 +677,8 @@ static int i2s_set_device(unsigned long device)
 			__i2s_start_bitclk();
 			i2s_set_rate(&tmp_rate,CODEC_WMODE);
 		}
-
 	} else {
 		/*restore old device*/
-
 		if (!strcmp(cur_codec->name,"hdmi")) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC)
 			i2s_match_codec("internal_codec");
