@@ -71,8 +71,10 @@ int Recycle_OnFragmentHandle ( int context )
 				break;
 			}
 			ret = FindValidSector(rep);
-			if (ret == -1)
+			if (ret == -1){
+				NandMutex_Unlock(&rep->mutex);
 				goto ERROR;
+			}
 			break;
 		case MERGER:
 			MergerSectorID_Align(rep);
@@ -1067,7 +1069,7 @@ static Zone *get_current_write_zone(int context)
  *	@pi: pageinfo
  *	@count: sector count
 */
-static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigned int sector_count)
+static int alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, PageList **nextpl, unsigned int sector_count)
 {
 	unsigned int l1index = 0;
 	unsigned int l2index = 0;
@@ -1118,7 +1120,6 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 		record_writeaddr = rep->force_record_writeadd;
 		rzone = rep->force_rZone;
 		rep->force_alloc_num = (sector_count + spp - 1) / spp;
-		pl = rep->force_pagelist;
 		current_pageinfo = rep->force_curpageinfo;
 	}
 	else {
@@ -1126,7 +1127,6 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 		record_writeaddr = rep->record_writeadd;
 		rzone = rep->rZone;
 		rep->alloc_num = (sector_count + spp - 1) / spp;;
-		pl = rep->pagelist;
 		current_pageinfo = rep->curpageinfo;
 	}
 
@@ -1143,19 +1143,19 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 	l1buf[l1index] = pi->PageID;
 	pi->L1Index = l1index;
 	memset(record_writeaddr, 0xff, conptr->zonep->l4infolen);
-
+	pl = *nextpl;
 	singlelist_for_each(pos,&pl->head) {
-		if (total_sectorcount == sector_count)
-			break;
-
 		pl_node = singlelist_entry(pos,PageList,head);
-
+		if (total_sectorcount + pl_node->Bytes / SECTOR_SIZE > sector_count){
+			*nextpl = pl_node;
+			break;
+		}
 		for (j = l4index; j < l4count; j++) {
 			if (pl_node->startPageID * spp + pl_node->OffsetBytes / SECTOR_SIZE == l4buf[j])
 				break;
 		}
-		if(j > l4count){
-			ndprint(RECYCLE_ERROR,"pl_node->startPageID = %d\n",pl_node->startPageID);
+		if(j >= l4count){
+			ndprint(RECYCLE_INFO," j=%d pl_node->startPageID = %d\n",j,pl_node->startPageID);
 			for (j = 0; j < l4count; j++) {
 				ndprint(RECYCLE_ERROR,"infol4[%d] = %d\n",j,l4buf[j]);
 			}
@@ -1173,10 +1173,6 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 					ndprint(RECYCLE_ERROR, "ERROR: pl_node->OffsetBytes = %d, pl_node->Bytes = %d,\n total_sectorcount = %d, sector_count = %d\n, ", pl_node->OffsetBytes, pl_node->Bytes, total_sectorcount, sector_count);
 					while (1);
 				}
-				/*	if (s_count == 0) {
-					while (pageid % wzone->vnand->v2pp->_2kPerPage)
-						pageid = Zone_AllocNextPage(wzone);
-						}*/
 				s_count = 0;
 			}
 			record_writeaddr[l4index] = pageid * spp + s_count;
@@ -1206,6 +1202,7 @@ static void alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, unsigne
 			pi->L3Index = l3index;
 		}
 	}
+	return total_sectorcount;
 }
 
 /**
@@ -1671,7 +1668,12 @@ static int RecycleReadWrite(Recycle *rep)
 	unsigned int write_sectorcount = 0;
 	int spp = rep->rZone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int recyclesector = recyclepage * spp;
+	PageList *nextpl = rep->pagelist;
 	int wpagecount;
+	int actual_sector;
+	unsigned int uppage;
+
+entry:
 	wzone = get_current_write_zone(rep->context);
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -1686,44 +1688,58 @@ static int RecycleReadWrite(Recycle *rep)
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
-	write_sectorcount = get_sectorcount(rep,rep->pagelist);
+	write_sectorcount = get_sectorcount(rep,nextpl);
 	if (write_sectorcount == 0)
 		goto exit;
 	else if (write_sectorcount < recyclesector) {
 		recyclesector = write_sectorcount;
 	}
 	recyclepage = (recyclesector + spp - 1) / spp;
-	rep->write_pagecount += recyclepage;
+	if(nextpl == rep->pagelist)
+		rep->write_pagecount += recyclepage;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->writepageinfo);
 #endif
 	if((zonepage / wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage)
 			>= (recyclepage + PAGEINFO_PAGES)) {
-		alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
+		actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,&nextpl,recyclesector);
+		recyclepage = (actual_sector + spp -1) / spp;
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
+		if(actual_sector < recyclesector)
+				goto entry;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->writepageinfo,recyclepage + 1);
 #endif
-
 	}
 	else {
 
 		if(zonepage >  wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
-			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, (wpagecount - PAGEINFO_PAGES)*spp);
-			ret = copy_data(rep, wzone, wpagecount - PAGEINFO_PAGES);
+			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo, &nextpl, (wpagecount - PAGEINFO_PAGES)*spp);
+			if(actual_sector == (wpagecount - PAGEINFO_PAGES)*spp){
+				uppage = wpagecount - PAGEINFO_PAGES;
+			}else{
+				if(actual_sector < (wpagecount - PAGEINFO_PAGES)*spp)
+					uppage = (actual_sector + spp -1) / spp;
+				else{
+					ndprint(RECYCLE_ERROR,"%s %d actual = %d willwritesector=%d zonepage=%d\n",
+							__func__,__LINE__,actual_sector,(wpagecount - PAGEINFO_PAGES)*spp,zonepage);
+					while(1);
+				}
+			}
+			ret = copy_data(rep, wzone, uppage);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 				goto err;
 			}
-			recyclesector = recyclesector - (wpagecount - PAGEINFO_PAGES)* spp;
+			recyclesector = recyclesector - actual_sector;
 			recyclepage = (recyclesector + spp - 1) / spp;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 			L2p_Debug_CheckData(rep->debug,rep->writepageinfo,wpagecount);
@@ -1735,14 +1751,17 @@ static int RecycleReadWrite(Recycle *rep)
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		if(recyclesector) {
-			alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,recyclesector);
-			ret = copy_data(rep, wzone, recyclepage);
+		if(recyclesector && nextpl) {
+			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,&nextpl,recyclesector);
+			recyclepage = (actual_sector + spp -1) / spp;
+  			ret = copy_data(rep, wzone, recyclepage);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 					__FUNCTION__,__LINE__);
 				goto err;
 			}
+			if(actual_sector < recyclesector)
+				goto entry;
 		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->writepageinfo,recyclepage + 1);
@@ -2054,7 +2073,7 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 	int ret = 0;
 
 	ret = OnForce_GetRecycleZone(rep, zoneid);
-	if (ret == -1) 
+	if (ret == -1)
 		goto exit;
 
 	for (i = 0; ; i++) {
@@ -2459,10 +2478,14 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	unsigned int write_sectorcount = 0;
 	int spp = rep->force_rZone->vnand->BytePerPage / SECTOR_SIZE;
 	unsigned int recyclesector = recyclepage * spp;
+	PageList *nextpl = rep->force_pagelist;
     int wpagecount;
+	int actual_sector;
+	unsigned int uppage;
 
 	if(rep->force_curpageinfo == NULL)
 		return 0;
+entry:
 	wzone = get_current_write_zone(rep->context);
 	if (!wzone)
 		wzone = alloc_new_zone_write(rep->context, wzone);
@@ -2477,27 +2500,31 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 		zonepage = Zone_GetFreePageCount(wzone);
 	}
 
-	write_sectorcount = get_sectorcount(rep,rep->force_pagelist);
+	write_sectorcount = get_sectorcount(rep,nextpl);
 	if (write_sectorcount == 0)
 		goto exit;
 	else if (write_sectorcount < recyclesector) {
 		recyclesector = write_sectorcount;
 	}
 	recyclepage = (recyclesector + spp - 1) / spp;
-	rep->force_write_pagecount += recyclepage;
+	if(nextpl == rep->force_pagelist)
+		rep->force_write_pagecount += recyclepage;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->force_writepageinfo);
 #endif
 	if((zonepage / wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage)
 			>= (recyclepage + PAGEINFO_PAGES)) {
-		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
+		actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,&nextpl,recyclesector);
+		recyclepage = (actual_sector + spp -1) / spp;
 		ret = copy_data(rep, wzone, recyclepage);
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
+		if(actual_sector < recyclesector)
+			goto entry;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,recyclepage + 1);
 #endif
@@ -2505,16 +2532,26 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 	else {
 		if(zonepage > wzone->vnand->v2pp->_2kPerPage) {
 			wpagecount = zonepage /  wzone->vnand->v2pp->_2kPerPage * wzone->vnand->v2pp->_2kPerPage;
-
-			alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,(wpagecount - PAGEINFO_PAGES) * spp);
-			ret = copy_data(rep, wzone, wpagecount - PAGEINFO_PAGES);
+			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,&nextpl, (wpagecount - PAGEINFO_PAGES) * spp);
+			if(actual_sector == (wpagecount - PAGEINFO_PAGES)*spp){
+				uppage = wpagecount - PAGEINFO_PAGES;
+			}else{
+				if(actual_sector < (wpagecount - PAGEINFO_PAGES)*spp)
+					uppage = (actual_sector + spp -1) / spp;
+				else{
+					ndprint(RECYCLE_ERROR,"%s %d actual = %d willwritesector=%d zonepage=%d\n",
+							__func__,__LINE__,actual_sector,(wpagecount - PAGEINFO_PAGES)*spp,zonepage);
+					while(1);
+				}
+			}
+			ret = copy_data(rep, wzone, uppage);
 			if(ret != 0) {
 				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 							__FUNCTION__,__LINE__);
 				goto err;
 			}
 
-			recyclesector = recyclesector - (wpagecount - PAGEINFO_PAGES) * spp;
+			recyclesector = recyclesector - actual_sector;
 			recyclepage = (recyclesector + spp - 1) / spp;
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,wpagecount);
@@ -2526,14 +2563,17 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-
-		alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,recyclesector);
-
-		ret = copy_data(rep, wzone, recyclepage);
-		if(ret != 0) {
-			ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
+		if(recyclesector && nextpl){
+			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,&nextpl,recyclesector);
+			recyclepage = (actual_sector + spp -1) / spp;
+			ret = copy_data(rep, wzone, recyclepage);
+			if(ret != 0) {
+				ndprint(RECYCLE_ERROR,"all recycle buflen error func %s line %d \n",
 						__FUNCTION__,__LINE__);
-			goto err;
+				goto err;
+			}
+			if(actual_sector < recyclesector)
+				goto entry;
 		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,recyclepage + 1);
