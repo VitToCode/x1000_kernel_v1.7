@@ -154,6 +154,14 @@ config LCD_KR080LA4S_250
 	  If you have a KR080LA4S_250 Panel, say Y to enable its
 	  control driver. The panel's model is 20810800300029.
 
+config LCD_CRD080TI01_40NM01
+	tristate " LCD_CRD080TI01_40NM01 LVDS TFT panel(1024x768)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a LCD_CRD080TI01_40NM01 Panel, say Y to enable its
+	  control driver.
+
 config LCD_HSD101PWW1
 	tristate "HSD101PWW1 LVDS TFT panel(1280x800)"
 	depends on BACKLIGHT_CLASS_DEVICE

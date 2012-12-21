@@ -324,6 +324,9 @@ static int __init i88_board_init(void)
 #ifdef CONFIG_LCD_KR080LA4S_250
 	platform_device_register(&kr080la4s_250_device);
 #endif
+#ifdef CONFIG_LCD_CRD080TI01_40NM01
+	platform_device_register(&crd080ti01_40nm01_device);
+#endif
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
 #endif
