@@ -119,8 +119,9 @@ static void i2s_match_codec(char *name)
 
 	list_for_each_safe(list,tmp,&codecs_head) {
 		codec_info = container_of(list,struct codec_info,list);
-		if (!strcmp(codec_info->name,name))
+		if (!strcmp(codec_info->name,name)) {
 			cur_codec = codec_info;
+		}
 	}
 }
 /*##################################################################*\
@@ -517,7 +518,6 @@ static int i2s_enable(int mode)
 			return -ENODEV;
 
 	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
-
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
 		i2s_set_fmt(&replay_format,mode);
@@ -532,9 +532,9 @@ static int i2s_enable(int mode)
 	}
 	i2s_set_trigger(mode);
 	i2s_set_filter(mode,record_channel);
-
+#ifndef CONFIG_ANDROID
 	cur_codec->codec_ctl(CODEC_SET_DEFROUTE,mode);
-
+#endif
 	if (!dp_other->is_used) {
 		/*avoid pop FIXME*/
 		if (mode & CODEC_WMODE)
@@ -667,8 +667,7 @@ static int i2s_set_device(unsigned long device)
 
 	if ((tmp_rate = cur_codec->replay_rate) == 0);
 		tmp_rate = 44100;
-
-	if (device == SND_DEVICE_HDMI) {
+	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
 		if (strcmp(cur_codec->name,"hdmi")) {
 			i2s_match_codec("hdmi");
 			__i2s_stop_bitclk();
@@ -890,7 +889,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 
 	case SND_DSP_SET_DEVICE:
-		ret = i2s_set_device(arg);  //ttma
+		ret = i2s_set_device(arg);
 		break;
 	case SND_DSP_GET_HP_DETECT:
 		*(int*)arg = jz_get_hp_switch_state();

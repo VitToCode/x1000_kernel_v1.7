@@ -1822,25 +1822,6 @@ static int codec_set_board_route(struct snd_board_route *broute)
 			if (broute->route == codec_route_info[i].route_name) {
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
-				if (broute->route != SND_ROUTE_RECORD_CLEAR) {
-					/* keep_old_route is used in resume part and record release */
-					if (cur_route == NULL || cur_route->route == SND_ROUTE_ALL_CLEAR)
-						keep_old_route = broute;
-					else if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
-								cur_route->route <= SND_ROUTE_RECORD_ROUTE_END && keep_old_route != NULL) {
-						/*DO NOTHING IN THIS CASE*/
-					} else
-						keep_old_route = cur_route;
-					/* change cur_route */
-					cur_route = broute;
-				} else {
-					if (cur_route != NULL) {
-						if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
-								cur_route->route <= SND_ROUTE_RECORD_ROUTE_END) {
-							cur_route = keep_old_route;
-						}
-					}
-				}
 				break;
 			}
 		if (codec_route_info[i].route_name == SND_ROUTE_NONE) {
@@ -1849,6 +1830,26 @@ static int codec_set_board_route(struct snd_board_route *broute)
 		}
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
+
+	if (broute->route != SND_ROUTE_RECORD_CLEAR) {
+		/* keep_old_route is used in resume part and record release */
+		if (cur_route == NULL || cur_route->route == SND_ROUTE_ALL_CLEAR)
+			keep_old_route = broute;
+		else if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
+				cur_route->route <= SND_ROUTE_RECORD_ROUTE_END && keep_old_route != NULL) {
+			/*DO NOTHING IN THIS CASE*/
+		} else
+			keep_old_route = cur_route;
+		/* change cur_route */
+		cur_route = broute;
+	} else {
+		if (cur_route != NULL) {
+			if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
+					cur_route->route <= SND_ROUTE_RECORD_ROUTE_END) {
+				cur_route = keep_old_route;
+			}
+		}
+	}
 
 	/* set gpio after set route */
 	if (broute->gpio_hp_mute_stat == 0)
