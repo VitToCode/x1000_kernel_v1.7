@@ -153,7 +153,6 @@ static void jzrtc_irq_tasklet(unsigned long data)
 	return;
 }
 
-
 static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
 {
 	struct jz_rtc *rtc = (struct jz_rtc *) (dev_id);
@@ -435,6 +434,13 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 		goto err_unregister_rtc;		
 	}
 
+	ret = request_irq(rtc->irq, jz4780_rtc_interrupt, IRQF_TRIGGER_LOW | IRQF_DISABLED,
+			"rtc 1Hz and alarm", rtc);
+	if (ret) {
+		dev_err(pdev, "IRQ %d already in use.\n", rtc->irq);
+		goto err_unregister_rtc;
+	}
+
 	tasklet_init(&rtc->tasklet, jzrtc_irq_tasklet,
 			(unsigned long)rtc);
 
@@ -477,17 +483,28 @@ static int jz4780_rtc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int jz4780_rtc_suspend(struct platform_device *pdev, pm_message_t state)
+static int jz4780_rtc_suspend(struct platform_device *pdev)
 {
-	//now we need not do anyting in suspend.
+	struct jz_rtc *rtc = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(&pdev->dev)) {
+		enable_irq_wake(rtc->irq);
+	}
+
 	return 0;
 }
 
 static int jz4780_rtc_resume(struct platform_device *pdev)
 {
-	//now we need not do anyting in resume.
+	struct jz_rtc *rtc = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(&pdev->dev)) {
+		disable_irq_wake(rtc->irq);
+	}
+
 	return 0;
 }
+
 #else
 #define jz4780_rtc_suspend	NULL
 #define jz4780_rtc_resume	NULL
