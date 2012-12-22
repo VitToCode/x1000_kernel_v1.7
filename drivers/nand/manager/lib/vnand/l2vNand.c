@@ -57,19 +57,21 @@ static void dump_uppl (PageList *pl) {
 						this->startPageID, this->pData,
 						this->retVal, this->OffsetBytes, this->Bytes);
 			}
-/*
-  if (((this->pData - prev->pData) == prev->Bytes) && (prev->retVal == 1)
-  && ((this->startPageID - prev->startPageID != 0)
-  && (this->startPageID - prev->startPageID != 1))
-  ) {
-  ndprint(VNAND_ERROR, "ERROR: pageid can not mergeable:\n"
-  "prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
-  prev->startPageID, prev->pData,
-  prev->retVal, prev->OffsetBytes ,prev->Bytes,
-  this->startPageID, this->pData,
-  this->retVal, this->OffsetBytes, this->Bytes);
-  }
-*/		}
+
+			/*
+			if (((this->pData - prev->pData) == prev->Bytes) && (prev->retVal == 1)
+				&& ((this->startPageID - prev->startPageID != 0)
+					&& (this->startPageID - prev->startPageID != 1))
+				) {
+				ndprint(VNAND_ERROR, "ERROR: pageid can not mergeable:\n"
+						"prev(%d)(%p)<%d>[%d][%d]:this(%d)(%p)<%d>[%d][%d]\n",
+						prev->startPageID, prev->pData,
+						prev->retVal, prev->OffsetBytes ,prev->Bytes,
+						this->startPageID, this->pData,
+						this->retVal, this->OffsetBytes, this->Bytes);
+			}
+			*/
+		}
 
 		prev = this;
 	}
@@ -643,7 +645,7 @@ static int binfo_pl_create(int blm, PPartition *pt, PageList **top, int bytes, i
 int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 {
 	int ret;
-	int i, ptindex, badblockcount = 0;
+	int i, ptindex;
 	int blm;
 	PPartition *pt_t;
 	BlockList *bl_top;
@@ -677,22 +679,18 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 			memset(pt_t->badblock->pt_badblock_info, 0xff, ept->byteperpage * BADBLOCKINFOSIZE);
 			pt_t->actualbadblockcount = 0;
 			scan_pt_badblock_info_to_pl(pt_t, pl);
+
+			ndprint(VNAND_INFO, "%s badblock info table\n",pt->name);
+			for(i = 0; i < pt_t->totalblocks; i++) {
+				if(pt_t->badblock->pt_badblock_info[i] == -1)
+					break;
+				pt_t->actualbadblockcount++;
+				ndprint(VNAND_INFO,"%d ",pt->badblock->pt_badblock_info[i]);
+			}
+			ndprint(VNAND_INFO,"\n");
+
 			__PtAvailableBlockID_Init(pt_t);
 		}
-
-		ndprint(VNAND_INFO, "%s badblock info table\n",pt->name);
-		for(i = 0; i < pt_t->totalblocks; i++) {
-			if(pt_t->badblock->pt_badblock_info[i] == -1)
-				break;
-			badblockcount++;
-			ndprint(VNAND_INFO,"%d ",pt->badblock->pt_badblock_info[i]);
-		}
-		ndprint(VNAND_INFO,"\n");
-
-		if(badblockcount > 0)
-			pt_t->actualbadblockcount = badblockcount;
-
-		badblockcount = 0;
 	}
 
 	/* covert */
