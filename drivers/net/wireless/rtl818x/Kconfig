@@ -92,7 +92,6 @@ config RTL8188EU
         select WIRELESS_EXT 
         select WEXT_PRIV
         select CRYPTO
-	select EEPROM_93CX6
         ---help---
           This is a driver for RTL8188EU based cards.
 
