@@ -447,7 +447,6 @@ static int unpackage_page0_info(ZoneManager *zonep,unsigned short zoneid)
  *	@recordzone: record zone
  */
 static int find_maxserialnumber(ZoneManager *zonep,
-
 				unsigned int *maxserial,unsigned short *recordzone,int zid)
 {
 	unsigned short zoneid;

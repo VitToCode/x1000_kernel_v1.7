@@ -206,10 +206,34 @@ static void free_badblock_info(PPartition *pt)
 	Nand_ContinueFree(pt->badblock);
 }
 
+static void __PtAvailableBlockID_Init(PPartition *pt) {
+	int pos, blockid = 0, j = 0, k = 0;
+
+	/*
+	badblock_number = 0;
+	for(j=0; j < (pt->byteperpage * BADBLOCKINFOSIZE) / sizeof(unsigned int); j++){
+		if(pt->badblock->pt_badblock_info[j]==0xffffffff)
+			break;
+		else
+			badblock_number++;
+	}
+	*/
+
+	for(pos=0; pos < pt->totalblocks - pt->actualbadblockcount; pos++){
+		for(j=k; j<pt->actualbadblockcount; j++){
+			if(pt->badblock->pt_badblock_info[j] == blockid){
+				blockid++;
+				k++;
+			}
+		}
+		pt->badblock->pt_availableblockid[pos] = blockid;
+		blockid++;
+	}
+}
+
 static void PtAvailableBlockID_Init(VNandManager *vm)
 {
-	int blockid = 0;
-	int pos,i=0,j=0,k=0;
+	int i = 0;
 	PPartition *pt = NULL;
 
 	for(i=0; i<vm->pt->ptcount; i++){
@@ -225,27 +249,7 @@ static void PtAvailableBlockID_Init(VNandManager *vm)
 		if (pt->mode == DIRECT_MANAGER || pt->mode == SPL_MANAGER)
 			continue;
 
-		blockid = 0;
-                k = 0;
-                /*
-		badblock_number = 0;
-		for(j=0; j < (pt->byteperpage * BADBLOCKINFOSIZE) / sizeof(unsigned int); j++){
-			if(pt->badblock->pt_badblock_info[j]==0xffffffff)
-				break;
-			else
-				badblock_number++;
-		}
-                */
-		for(pos=0; pos < pt->totalblocks - pt->actualbadblockcount; pos++){
-			for(j=k; j<pt->actualbadblockcount; j++){
-				if(pt->badblock->pt_badblock_info[j] == blockid){
-					blockid++;
-                                        k++;
-				}
-			}
-			pt->badblock->pt_availableblockid[pos] = blockid;
-			blockid++;
-		}
+		__PtAvailableBlockID_Init(pt);
 	}
 	//dump_availablebadblock(vm);
 }
@@ -673,6 +677,7 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 			memset(pt_t->badblock->pt_badblock_info, 0xff, ept->byteperpage * BADBLOCKINFOSIZE);
 			pt_t->actualbadblockcount = 0;
 			scan_pt_badblock_info_to_pl(pt_t, pl);
+			__PtAvailableBlockID_Init(pt_t);
 		}
 
 		ndprint(VNAND_INFO, "%s badblock info table\n",pt->name);
