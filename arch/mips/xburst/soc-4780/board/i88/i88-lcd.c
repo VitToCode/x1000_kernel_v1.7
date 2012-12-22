@@ -236,7 +236,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.txectrl.emphasis_level = 0,
 	.txectrl.emphasis_enable = 0,
-	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_1V,
+	.txectrl.ldo_output_voltage = LDO_OUTPUT_1V,
 	.txectrl.phase_interpolator_bypass = 1,
 	.txectrl.fine_tuning_7x_clk = 0,
 	.txectrl.coarse_tuning_7x_clk = 0,
