@@ -1945,9 +1945,9 @@ static int codec_init(void)
 	__codec_set_crystal(codec_platform_data->codec_sys_clk);
 
 
-	__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-	__codec_enable_dac_mute();
-	codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+	//__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
+	//__codec_enable_dac_mute();
+	//codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
 	if (codec_platform_data && codec_platform_data->record_volume_base) {
 		codec_set_gain_input_left(codec_platform_data->record_volume_base);
@@ -2492,34 +2492,52 @@ static int codec_mute(int val,int mode)
 	unsigned int hp,sp,handset;
 #endif
 	if (mode & CODEC_WMODE) {
-#if 0
-		printk("codec_mute gpio mute in\n");
-		hp = gpio_enable_hp_mute();
-		sp = gpio_disable_spk_en();
-		handset = gpio_disable_handset_en();
-#endif
 		if(val){
-			if(!__codec_get_dac_mute()){
+			if(!__codec_get_dac_mute()) {
+#if 0
+				printk("codec_mute gpio mute in\n");
+				hp = gpio_enable_hp_mute();
+				sp = gpio_disable_spk_en();
+				handset = gpio_disable_handset_en();
+#endif
+
 				/* enable dac mute */
 				__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
 				__codec_enable_dac_mute();
 				codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+
+#if 0
+				printk("codec_mute gpio mute restore out\n");
+				if (hp == 0) gpio_disable_hp_mute();
+				if (sp == 1) gpio_enable_spk_en();
+				if (handset == 1) gpio_enable_handset_en();
+				printk("hp = %d,sp= %d,handset = %d\n",hp,sp,handset);
+#endif
 			}
 		} else {
+
+#if 0
+				printk("codec_mute gpio mute in\n");
+				hp = gpio_enable_hp_mute();
+				sp = gpio_disable_spk_en();
+				handset = gpio_disable_handset_en();
+#endif
+
 			if(__codec_get_dac_mute()){
 				/* disable dac mute */
 				__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
 				__codec_disable_dac_mute();
 				codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
 			}
-		}
+
 #if 0
-		printk("codec_mute gpio mute restore out\n");
-		if (hp == 0) gpio_disable_hp_mute();
-		if (sp == 1) gpio_enable_spk_en();
-		if (handset == 1) gpio_enable_handset_en();
-		printk("hp = %d,sp= %d,handset = %d\n",hp,sp,handset);
+				printk("codec_mute gpio mute restore out\n");
+				if (hp == 0) gpio_disable_hp_mute();
+				if (sp == 1) gpio_enable_spk_en();
+				if (handset == 1) gpio_enable_handset_en();
+				printk("hp = %d,sp= %d,handset = %d\n",hp,sp,handset);
 #endif
+		}
 	}
 	if (mode & CODEC_RMODE) {
 		if(val){

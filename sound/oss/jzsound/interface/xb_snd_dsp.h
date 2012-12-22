@@ -236,6 +236,7 @@ struct dsp_pipe {
 	int (*filter)(void *buff, int cnt);        /* define by device */
 	/* lock */
 	spinlock_t          pipe_lock;
+	struct snd_dev_data *	pddata;
 };
 
 struct dsp_endpoints {
