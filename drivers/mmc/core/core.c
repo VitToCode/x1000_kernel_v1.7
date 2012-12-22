@@ -1672,7 +1672,11 @@ void mmc_rescan(struct work_struct *work)
 
 	mmc_claim_host(host);
 	for (i = 0; i < ARRAY_SIZE(freqs); i++) {
-		if (!mmc_rescan_try_freq(host, max(freqs[i], host->f_min))) {
+		/*
+		 * try the f_min all the way to satisfy the rubbish card
+		 */
+		/* if (!mmc_rescan_try_freq(host, max(freqs[i], host->f_min))) { */
+		if (!mmc_rescan_try_freq(host, host->f_min)) {
 			extend_wakelock = true;
 			break;
 		}
