@@ -41,9 +41,9 @@ struct snd_codec_data codec_data = {
 					.gpio_buildin_mic_en_stat = 0},
 
 	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1,
-					.gpio_handset_en_stat = 0,
+					.gpio_hp_mute_stat = -1,
+					.gpio_spk_en_stat = -1,
+					.gpio_handset_en_stat = -1,
 					.gpio_buildin_mic_en_stat = 1},
 
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,

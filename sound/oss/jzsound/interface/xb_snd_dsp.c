@@ -1065,11 +1065,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
-				snd_start_dma_transfer(dp , dp->dma_config.direction);
 				if (ddata && ddata->dev_ioctl && first_start_replay_dma == true) {
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
 					first_start_replay_dma = false;
 				}
+				snd_start_dma_transfer(dp , dp->dma_config.direction);
 			}
 		}
 	}

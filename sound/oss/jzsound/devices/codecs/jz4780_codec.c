@@ -1727,7 +1727,6 @@ static void gpio_disable_hp_mute(void)
 
 static void gpio_enable_spk_en(void)
 {
-	printk("gpio_enable_spk_en\n");
 	if(codec_platform_data && (codec_platform_data->gpio_spk_en.gpio != -1)) {
 		if (codec_platform_data->gpio_spk_en.active_level) {
 			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
@@ -1740,7 +1739,6 @@ static void gpio_enable_spk_en(void)
 static int gpio_disable_spk_en(void)
 {
 	int val = -1;
-	printk("gpio_disable_spk_en\n");
 	if(codec_platform_data && (codec_platform_data->gpio_spk_en.gpio != -1)) {
 		val = gpio_get_value(codec_platform_data->gpio_spk_en.gpio);
 		if (codec_platform_data->gpio_spk_en.active_level) {
@@ -1974,6 +1972,7 @@ static int codec_init(void)
 
 	__codec_switch_sb_micbias1(POWER_ON);
 	__codec_switch_sb_micbias2(POWER_ON);
+
 	return 0;
 }
 
@@ -2489,11 +2488,11 @@ static int codec_set_replay_channel(int* channel)
  */
 static int codec_mute(int val,int mode)
 {
-#if 1	//CHECK AND TEST
+#if 0
 	unsigned int hp,sp,handset;
 #endif
 	if (mode & CODEC_WMODE) {
-#if 1
+#if 0
 		printk("codec_mute gpio mute in\n");
 		hp = gpio_enable_hp_mute();
 		sp = gpio_disable_spk_en();
@@ -2514,7 +2513,7 @@ static int codec_mute(int val,int mode)
 				codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
 			}
 		}
-#if 1
+#if 0
 		printk("codec_mute gpio mute restore out\n");
 		if (hp == 0) gpio_disable_hp_mute();
 		if (sp == 1) gpio_enable_spk_en();
