@@ -532,9 +532,11 @@ static int i2s_enable(int mode)
 	}
 	i2s_set_trigger(mode);
 	i2s_set_filter(mode,record_channel);
+
 #ifndef CONFIG_ANDROID
 	cur_codec->codec_ctl(CODEC_SET_DEFROUTE,mode);
 #endif
+
 	if (!dp_other->is_used) {
 		/*avoid pop FIXME*/
 		if (mode & CODEC_WMODE)
@@ -569,12 +571,17 @@ static int i2s_dma_enable(int mode)		//CHECK
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-		__i2s_disable_transmit_dma();
+#if 0
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
 		__i2s_enable_replay();
 		while(!__i2s_test_tur());
 		__i2s_enable_transmit_dma();
+#else
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
+		__i2s_flush_tfifo();
+		__i2s_enable_transmit_dma();
+		__i2s_enable_replay();
+#endif
 	}
 	if (mode & CODEC_RMODE) {
 		cur_codec->codec_ctl(CODEC_ADC_MUTE,1);
@@ -595,11 +602,11 @@ static int i2s_dma_disable(int mode)		//CHECK seq dma and func
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
 		__i2s_disable_transmit_dma();
-		//cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
+		__i2s_disable_replay();
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_receive_dma();
-		//cur_codec->codec_ctl(CODEC_ADC_MUTE,1);
+		__i2s_disable_record();
 	}
 	return 0;
 }

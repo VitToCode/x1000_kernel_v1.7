@@ -327,6 +327,7 @@ static void snd_dma_callback(void *arg)
 		dma_cache_sync(NULL, (void *)dp->save_node->pBuf, dp->save_node->size, dp->dma_config.direction);
 		put_use_dsp_node(dp, dp->save_node);
 	} else {
+		printk("error: audio driver dma transfer.\n");
 		return;
 	}
 	dp->save_node =	NULL;
@@ -354,8 +355,17 @@ static void snd_dma_callback(void *arg)
 	/* start a new transfer */
 	if (!snd_prepare_dma_desc(dp))
 		snd_start_dma_transfer(dp , dp->dma_config.direction);
-	else
+	else {
 		dp->is_trans = false;
+		if (dp->pddata && dp->pddata->dev_ioctl) {
+			if (dp->dma_config.direction == DMA_FROM_DEVICE) {
+				dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX,0);
+			}
+			else if (dp->dma_config.direction == DMA_TO_DEVICE) {
+				dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX,0);
+			}
+		}
+	}
 }
 
 /********************************************************\
@@ -940,9 +950,9 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				ret = snd_prepare_dma_desc(dp);
 				if (!ret) {
 					snd_start_dma_transfer(dp , dp->dma_config.direction);
-					if (ddata && ddata->dev_ioctl && first_start_record_dma == true) {
+					if (ddata && ddata->dev_ioctl /*&& first_start_record_dma == true*/) {
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
-						first_start_record_dma = false;
+						/*first_start_record_dma = false;*/
 					}
 				} else if (!node) {
 					return -EFAULT;
@@ -1065,11 +1075,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
-				if (ddata && ddata->dev_ioctl && first_start_replay_dma == true) {
-					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
-					first_start_replay_dma = false;
-				}
 				snd_start_dma_transfer(dp , dp->dma_config.direction);
+				if (ddata && ddata->dev_ioctl /*&& first_start_replay_dma == true*/) {
+					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
+					/*first_start_replay_dma = false;*/
+				}
 			}
 		}
 	}
@@ -1768,7 +1778,9 @@ int xb_snd_dsp_open(struct inode *inode,
 		return -ENODEV;
 	}
 	dpi = endpoints->in_endpoint;
+	dpi->pddata = ddata;	//used for callback
 	dpo = endpoints->out_endpoint;
+	dpo->pddata = ddata;
 
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE) {
 		if (dpo->is_used)
