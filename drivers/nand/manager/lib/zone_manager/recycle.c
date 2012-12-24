@@ -75,6 +75,10 @@ int Recycle_OnFragmentHandle ( int context )
 				NandMutex_Unlock(&rep->mutex);
 				goto ERROR;
 			}
+			if(ret == -2){
+				NandMutex_Unlock(&rep->mutex);
+				rep->taskStep = READNEXTINFO;
+			}
 			break;
 		case MERGER:
 			MergerSectorID_Align(rep);
@@ -534,13 +538,18 @@ static int FindValidSector ( Recycle *rep)
 	unsigned int l1unitlen = 0;
 	unsigned int l2unitlen = 0;
 	unsigned int l3unitlen = 0;
+	unsigned int l4infolen = 0;
 	unsigned int start_sectorID = 0;
 	Context *conptr = (Context *)(rep->context);
 	CacheManager *cachemanager = conptr->cachemanager;
 	PageInfo *pi = NULL;
+	unsigned int *l4info;
+	unsigned int i;
+	int ret = 0;
 	l1unitlen = cachemanager->L1UnitLen;
 	l2unitlen = cachemanager->L2UnitLen;
 	l3unitlen = cachemanager->L3UnitLen;
+	l4infolen = cachemanager->L4InfoLen;
 
 	pi = rep->curpageinfo;
 	l1index = pi->L1Index;
@@ -549,6 +558,7 @@ static int FindValidSector ( Recycle *rep)
 
 	if (l1index == 0xffff) {
 		ndprint(RECYCLE_ERROR,"PANIC ERROR l1index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+		ret = -1;
 		goto FindValidSector_err;
 	}
 	if(pi->L3InfoLen == 0)
@@ -556,6 +566,7 @@ static int FindValidSector ( Recycle *rep)
 	else {
 		if (l3index == 0xffff) {
 			ndprint(RECYCLE_ERROR,"PANIC ERROR l3index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+			ret = -1;
 			goto FindValidSector_err;
 		}
 
@@ -564,6 +575,7 @@ static int FindValidSector ( Recycle *rep)
 		else {
 			if (l2index == 0xffff) {
 				ndprint(RECYCLE_ERROR,"PANIC ERROR l2index = -1, func %s line %d \n",__FUNCTION__,__LINE__);
+				ret = -1;
 				goto FindValidSector_err;
 			}
 			start_sectorID = l3index * l3unitlen +
@@ -574,9 +586,20 @@ static int FindValidSector ( Recycle *rep)
 	rep->startsectorID = start_sectorID;
 	rep->writepageinfo = get_pageinfo_from_cache(rep,rep->startsectorID);
 	rep->taskStep = MERGER;
-	return 0;
+	//check l4info valid
+	l4info = (unsigned int *)rep->writepageinfo->L4Info;
+	for(i = 0;i < l4infolen / 4;i++) {
+		if(l4info[i] != -1){
+			break;
+		}
+	}
+	if(i == l4infolen / 4) {
+		ret = -2;
+		give_pageinfo_to_cache(rep,rep->writepageinfo);
+		ndprint(RECYCLE_ERROR,"ERROR:lock cachemange error,drop pageinfo sectorid = %d!!!\n",rep->startsectorID);
+	}
 FindValidSector_err:
-	return -1;
+	return ret;
 }
 
 /**
@@ -613,7 +636,7 @@ static int data_in_rzone (Recycle *rep, unsigned int pageid)
 	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
 		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
-
+#if 0
 static int data_in_wzone (Recycle *rep, unsigned int pageid)
 {
 	Zone *zone = ZoneManager_GetCurrentWriteZone(rep->context);
@@ -638,7 +661,7 @@ static int data_in_wzone (Recycle *rep, unsigned int pageid)
 	return pageid >= (zoneid * BLOCKPERZONE(zonep->vnand)) * ppb
 		&& pageid < ((zoneid + 1) * BLOCKPERZONE(zonep->vnand)) * ppb;
 }
-
+#endif
 /**
  *	data_in_prev_zone - whether L4 data in previous of recycle zone or not
  *
@@ -809,16 +832,20 @@ static int MergerSectorID_Align(Recycle *rep) {
 	unsigned int *record_writeaddr;
 	int n,k,i;
 	Context *conptr = (Context *)rep->context;
+#if 0
 	int freezonecount = ZoneManager_Getfreecount(rep->context);
 	VNandInfo *vnand =  &conptr->vnand;
 	int wsectors = 0;
+#endif
 	unsigned int *l4info;
 	unsigned int tmp0;
 	unsigned int tmp1;
 	PageList *pl = NULL;
 	PageList *tpl = NULL;
 	unsigned int sectorcount = 0;
+#if 0
 	int alignsectorcount = 0;
+#endif
 	int blm = conptr->blm;
 	int oldzoneid;
 
