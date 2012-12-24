@@ -39,6 +39,7 @@ static int Idle_Handler(int data)
 	int freecount;
 	int usecount;
 	int percent;
+        int recyclemode;
 #ifdef 	TEST_ZONE_MANAGER
 	nm_sleep(2);
 #endif
@@ -53,7 +54,10 @@ static int Idle_Handler(int data)
 				printk("normal mode!\n");
 			}
 */
+                        Recycle_Lock(context);
+			rep->recyclemode &= ~RECYCLE_FAST_MODE;
 			rep->recyclemode |= RECYCLE_NORMAL_MODE;
+                        Recycle_Unlock(context);
 		}
 		if(difftime < 1000*1000*1000LL){
 			//run fast recycle
@@ -62,12 +66,18 @@ static int Idle_Handler(int data)
 				printk("fast mode!\n");
 			}
 */
+                        Recycle_Lock(context);
+			rep->recyclemode &= ~RECYCLE_NORMAL_MODE;
 			rep->recyclemode |= RECYCLE_FAST_MODE;
-		}
+                        Recycle_Unlock(context);
+                }
 		freecount = ZoneManager_Getfreecount(context);
 		usecount = ZoneManager_Getusedcount(context);
-                if (rep->recyclemode) {
-                        if (rep->recyclemode & RECYCLE_FAST_MODE) {
+                Recycle_Lock(context);
+		recyclemode = rep->recyclemode;
+                Recycle_Unlock(context);
+                if (recyclemode) {
+                        if (recyclemode & RECYCLE_FAST_MODE) {
 
 				if (freecount > 15)
 				        percent = (freecount - 15) * 10000 / (usecount + freecount);
@@ -84,7 +94,7 @@ static int Idle_Handler(int data)
 				        nm_sleep(1);
                         }
 
-                        if (rep->recyclemode & RECYCLE_NORMAL_MODE) {
+                        if (recyclemode & RECYCLE_NORMAL_MODE) {
 
 				maxlifetime = ZoneManager_Getmaxlifetime(context);
 				minlifetime = ZoneManager_Getminlifetime(context);
@@ -99,20 +109,22 @@ static int Idle_Handler(int data)
 					percent = 300;
 				}
 				if(nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)){
-					if (maxlifetime - minlifetime > 50 )
+					if (maxlifetime - minlifetime > 50) {
+                                                Recycle_OnNormalRecycle(context);
+                                        } else if (Get_JunkZoneRecycleTrig(conptr->junkzone,percent)) {
 						Recycle_OnNormalRecycle(context);
-					else if (Get_JunkZoneRecycleTrig(conptr->junkzone,percent))
-						Recycle_OnNormalRecycle(context);
-					else
+                                        } else
 						nm_sleep(1);
 				} else
 					nm_sleep(1);
 			}
 
-			if (rep->recyclemode & RECYCLE_ERASE_MODE) {
+			if (recyclemode & RECYCLE_ERASE_MODE) {
 				ndprint(L2PCONVERT_INFO," sofe Erase start.......\n");
 				Recycle_OnEraseRecycle(context);
+                                Recycle_Lock(context);
 				rep->recyclemode &= ~RECYCLE_ERASE_MODE;
+                                Recycle_Unlock(context);
 				ndprint(L2PCONVERT_INFO," sofe Erase finish.......\n");
 		        }
 
@@ -1321,11 +1333,15 @@ int L2PConvert_Ioctrl(int handle, int cmd, int argv)
 */
 int L2PConvert_Erase(int handle)
 {
-	Context *context = (Context *)handle;
-	Recycle *rep = context->rep;
+	Context *conptr = (Context *)handle;
+        int context = handle;
+	Recycle *rep = conptr->rep;
+        Recycle_Lock(context);
 	rep->recyclemode |= RECYCLE_ERASE_MODE;
+        Recycle_Unlock(context);
         while (rep->recyclemode & RECYCLE_ERASE_MODE) {
                 ndprint(L2PCONVERT_INFO,"wait erase ..........\n");
+
                 nm_sleep(1);
         }
         ndprint(L2PCONVERT_INFO,"L2PConvert_Erase finish ..........\n");
