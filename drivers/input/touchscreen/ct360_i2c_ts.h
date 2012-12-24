@@ -29,7 +29,7 @@
 #ifdef CONFIG_Q8
 #define CT36X_TS_Y_REVERSE	0
 #else
-#define CT360_TS_Y_REVERSE  1
+#define CT36X_TS_Y_REVERSE  1
 #endif
 
 #define CT36X_TS_XY_SWAP	0 //fix
