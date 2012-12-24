@@ -93,6 +93,7 @@ static inline void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
 
 #define IS_RTC_IRQ(x,y)  (((x) & (y)) == (y))
 
+#ifdef RTC_DEBUG_DUMP
 static void jz4780_rtc_dump(struct jz_rtc *dev)
 {
 
@@ -117,6 +118,7 @@ static void jz4780_rtc_dump(struct jz_rtc *dev)
 
 	return;
 }
+#endif
 
 static void jzrtc_irq_tasklet(unsigned long data) 
 {
@@ -166,20 +168,10 @@ static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
 
 static int jz4780_rtc_open(struct device *dev)
 {
-	int ret;
-	struct jz_rtc *rtc = dev_get_drvdata(dev);
-	ret = request_irq(rtc->irq, jz4780_rtc_interrupt, IRQF_DISABLED,
-			"rtc 1Hz and alarm", rtc);
-	if (ret) {
-		dev_err(dev, "IRQ %d already in use.\n", rtc->irq);
-		goto fail_ui;
-	}
+//	int ret;
+//	struct jz_rtc *rtc = dev_get_drvdata(dev);
 
 	return 0;
-
-fail_ui:
-	free_irq(rtc->irq, rtc);
-	return ret;
 }
 
 static void jz4780_rtc_release(struct device *dev)
@@ -437,7 +429,7 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 	ret = request_irq(rtc->irq, jz4780_rtc_interrupt, IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			"rtc 1Hz and alarm", rtc);
 	if (ret) {
-		dev_err(pdev, "IRQ %d already in use.\n", rtc->irq);
+		pr_debug("IRQ %d already in use.\n", rtc->irq);
 		goto err_unregister_rtc;
 	}
 
@@ -483,7 +475,7 @@ static int jz4780_rtc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int jz4780_rtc_suspend(struct platform_device *pdev)
+static int jz4780_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
 
