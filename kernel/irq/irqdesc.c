@@ -303,18 +303,6 @@ int generic_handle_irq(unsigned int irq)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(generic_handle_irq);
-int my_generic_handle_irq(unsigned int irq)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-
-	if (!desc){
-		printk("ERROR: %s[%d] desc is NULL\n",__func__,__LINE__);
-		return -EINVAL;
-	}
-	generic_handle_irq_desc(irq, desc);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(my_generic_handle_irq);
 
 /* Dynamic interrupt handling */
 

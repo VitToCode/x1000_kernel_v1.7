@@ -743,7 +743,6 @@ irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
 }
 
 
-extern int my_generic_handle_irq(unsigned int irq);
 irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 {
 	unsigned long pending, mailbox = 0;
@@ -759,7 +758,7 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 #ifdef MCU_TEST_INTER_DMA
 		(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
 #endif
-			my_generic_handle_irq(IRQ_MCU);
+			generic_handle_irq(IRQ_MCU);
 		} 
 		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
 			generic_handle_irq(IRQ_GPIO0);
@@ -828,7 +827,6 @@ int pdmam_set_wake(struct irq_data *data, unsigned int on)
 	return 0;
 }
 
-extern void my_handle_level_irq(unsigned int irq, struct irq_desc *desc);
 static int __init jzdma_probe(struct platform_device *pdev)
 {
 	struct jzdma_master *dma;
@@ -858,7 +856,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma->irq_chip.irq_set_wake	= pdmam_set_wake;
 
 	for(i=pdata->irq_base;i<=pdata->irq_end;i++)
-		irq_set_chip_and_handler(i,&dma->irq_chip,my_handle_level_irq);
+		irq_set_chip_and_handler(i,&dma->irq_chip,handle_level_irq);
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
