@@ -1042,6 +1042,17 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	jzfb->current_buffer = next_frm;
 
 	mutex_lock(&jzfb->framedesc_lock);
+	if (jzfb->pan_sync) {
+		char *pan_event[2];
+		char buf[32];
+
+		snprintf(buf, sizeof(buf), "JZFB-PAN-SYNC=%d", next_frm);
+		pan_event[0] = buf;
+		pan_event[1] = NULL;
+		if (kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, pan_event))
+			dev_err(jzfb->dev, "Send pan sync uevent failed");
+	}
+
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		if (!jzfb->osd.decompress && !jzfb->osd.block) {
@@ -1582,6 +1593,21 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		} else {
 			jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
 		}
+		break;
+	case JZFB_SET_PAN_SYNC:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_err(info->dev, "Copy pan sync data error\n");
+			return -EFAULT;
+		}
+		mutex_lock(&jzfb->framedesc_lock);
+		if (value) {
+			jzfb->pan_sync = 1;
+			printk("set jzfb->pan_sync 1\n");
+		} else {
+			jzfb->pan_sync = 0;
+			printk("set jzfb->pan_sync 000000001\n");
+		}
+		mutex_unlock(&jzfb->framedesc_lock);
 		break;
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);

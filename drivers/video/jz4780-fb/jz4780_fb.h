@@ -114,6 +114,7 @@ struct jzfb {
 	ktime_t	vsync_timestamp;
 	unsigned int vsync_skip_map; /* 10 bits width */
 	int vsync_skip_ratio;
+	int pan_sync; /* frame update sync */
 
 	struct mutex lock;
 	spinlock_t suspend_lock;
@@ -193,15 +194,15 @@ struct jzfb_aosd {
 	__u32 buf_size;
 };
 
-/* ioctl commands */
+/* ioctl commands base fb.h FBIO_XXX */
+/* image_enh.h: 0x142 -- 0x160 */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
 #define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
 #define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
 #define JZFB_SET_MODE			_IOW('F', 0x103, int)
 #define JZFB_ENABLE			_IOW('F', 0x104, int)
 #define JZFB_GET_RESOLUTION		_IOWR('F', 0x105, struct jzfb_mode_res)
-/* Reserved for future extend */
-#define JZFB_SET_VSYNCINT		_IOW('F', 0x110, int)
+
 /* Reserved for future extend */
 #define JZFB_SET_FG_SIZE		_IOW('F', 0x116, struct jzfb_fg_size)
 #define JZFB_GET_FG_SIZE		_IOWR('F', 0x117, struct jzfb_fg_size)
@@ -221,6 +222,12 @@ struct jzfb_aosd {
 /* Reserved for future extend */
 #define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)
 #define JZFB_ENABLE_FG1			_IOW('F', 0x140, int)
+
+/* Reserved for future extend */
+#define JZFB_SET_VSYNCINT		_IOW('F', 0x210, int)
+
+#define JZFB_SET_PAN_SYNC		_IOW('F', 0x220, int)
+
 
 /* define in image_enh.c */
 extern int jzfb_config_image_enh(struct fb_info *info);
