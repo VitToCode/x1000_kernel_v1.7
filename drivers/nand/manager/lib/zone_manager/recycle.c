@@ -863,6 +863,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		n++;
 
 	}
+#if 0
 	if(sectorcount > 0){
 	//first - 2k pageinfo sector
 		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage - vnand->BytePerPage) / SECTOR_SIZE;
@@ -918,6 +919,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 			n++;
 		}
 	}
+#endif
 	n = 0;
 	while(n < l4count) {
 		if(record_writeaddr[n] == -1) {
@@ -1095,6 +1097,7 @@ static int alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, PageList
 	struct singlelist *pos;
 	PageList *pl;
 	PageList *pl_node = NULL;
+	PageList *pre_node = NULL;
 	PageInfo *current_pageinfo;
 	Context *conptr = (Context *)(rep->context);
 	CacheManager *cachemanager = conptr->cachemanager;
@@ -1148,6 +1151,7 @@ static int alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, PageList
 		pl_node = singlelist_entry(pos,PageList,head);
 		if (total_sectorcount + pl_node->Bytes / SECTOR_SIZE > sector_count){
 			*nextpl = pl_node;
+			pre_node->head.next = NULL;
 			break;
 		}
 		for (j = l4index; j < l4count; j++) {
@@ -1180,6 +1184,7 @@ static int alloc_update_l1l2l3l4(Recycle *rep,Zone *wzone,PageInfo *pi, PageList
 			l4index++;
 			s_count++;
 		}
+		pre_node = pl_node;
 	}
 
 	if (rep->force)
@@ -1232,7 +1237,6 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 	}
 
 	datalen = pagenum * rzone->vnand->BytePerPage;
-
 	singlelist_for_each(sg,&pl->head) {
 		px = singlelist_entry(sg,PageList,head);
 		datalen -= px->Bytes;
@@ -1258,7 +1262,6 @@ static int Create_read_pagelist(Recycle *rep, int pagenum)
 		flag = 1;
 		ndprint(RECYCLE_ERROR,"<warning> %s %d px->bytes=%d offset=%d pageid=%d\n",__func__,__LINE__,px->Bytes,pagelist->OffsetBytes,pagelist->startPageID);
 	}
-
 	if((px->head).next != NULL) {
 		if (rep->force)
 			rep->force_pagelist = singlelist_entry((px->head).next,PageList,head);
@@ -1672,6 +1675,7 @@ static int RecycleReadWrite(Recycle *rep)
 	int wpagecount;
 	int actual_sector;
 	unsigned int uppage;
+	int flag = 1;
 
 entry:
 	wzone = get_current_write_zone(rep->context);
@@ -1695,8 +1699,10 @@ entry:
 		recyclesector = write_sectorcount;
 	}
 	recyclepage = (recyclesector + spp - 1) / spp;
-	if(nextpl == rep->pagelist)
+	if(flag){
 		rep->write_pagecount += recyclepage;
+		flag = 0;
+	}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->writepageinfo);
@@ -1711,8 +1717,10 @@ entry:
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		if(actual_sector < recyclesector)
-				goto entry;
+		if(actual_sector < recyclesector){
+			rep->pagelist = nextpl;
+			goto entry;
+		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->writepageinfo,recyclepage + 1);
 #endif
@@ -1751,7 +1759,8 @@ entry:
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		if(recyclesector && nextpl) {
+		if(recyclesector) {
+			rep->pagelist = nextpl;
 			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->writepageinfo,&nextpl,recyclesector);
 			recyclepage = (actual_sector + spp -1) / spp;
   			ret = copy_data(rep, wzone, recyclepage);
@@ -1760,8 +1769,10 @@ entry:
 					__FUNCTION__,__LINE__);
 				goto err;
 			}
-			if(actual_sector < recyclesector)
+			if(actual_sector < recyclesector){
+				rep->pagelist = nextpl;
 				goto entry;
+			}
 		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->writepageinfo,recyclepage + 1);
@@ -2482,6 +2493,7 @@ static int OnForce_RecycleReadWrite(Recycle *rep)
     int wpagecount;
 	int actual_sector;
 	unsigned int uppage;
+	int flag = 1;
 
 	if(rep->force_curpageinfo == NULL)
 		return 0;
@@ -2507,8 +2519,10 @@ entry:
 		recyclesector = write_sectorcount;
 	}
 	recyclepage = (recyclesector + spp - 1) / spp;
-	if(nextpl == rep->force_pagelist)
+	if(flag){
 		rep->force_write_pagecount += recyclepage;
+		flag = 0;
+	}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 	if(rep->debug == NULL)rep->debug = Init_L2p_Debug(rep->context);
 	L2p_Debug_SaveCacheData(rep->debug,rep->force_writepageinfo);
@@ -2523,8 +2537,10 @@ entry:
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		if(actual_sector < recyclesector)
+		if(actual_sector < recyclesector){
+			rep->force_pagelist = nextpl;
 			goto entry;
+		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,recyclepage + 1);
 #endif
@@ -2563,7 +2579,8 @@ entry:
 						__FUNCTION__,__LINE__);
 			goto err;
 		}
-		if(recyclesector && nextpl){
+		if(recyclesector){
+			rep->force_pagelist = nextpl;
 			actual_sector = alloc_update_l1l2l3l4(rep,wzone,rep->force_writepageinfo,&nextpl,recyclesector);
 			recyclepage = (actual_sector + spp -1) / spp;
 			ret = copy_data(rep, wzone, recyclepage);
@@ -2572,8 +2589,10 @@ entry:
 						__FUNCTION__,__LINE__);
 				goto err;
 			}
-			if(actual_sector < recyclesector)
+			if(actual_sector < recyclesector){
+				rep->force_pagelist = nextpl;
 				goto entry;
+			}
 		}
 #ifdef RECYCLE_DEBUG_PAGEINFO
 		L2p_Debug_CheckData(rep->debug,rep->force_writepageinfo,recyclepage + 1);
