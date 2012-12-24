@@ -344,6 +344,7 @@ sleep:
 		"nop\n\t"
 		"nop\n\t"
 		".set mips32");
+	goto sleep;
 sleep_2:
 #endif
 	return;
