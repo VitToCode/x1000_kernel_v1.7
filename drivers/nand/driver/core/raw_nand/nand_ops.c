@@ -985,8 +985,7 @@ int nand_read_pages(NAND_BASE *host,Aligned_List *aligned_list)
 int panic_nand_write_page(NAND_BASE *host,unsigned int pageid, unsigned int offset,unsigned int bytes,void * databuf)
 {
 	unsigned int p_pageid;
-	unsigned char state;
-	volatile unsigned int timeout = 1000;
+	unsigned int timeout = 1000;
 
 	//      int ret;
 	if(bytes ==0 || (bytes + offset) > g_writesize)  //judge offset and bytes
