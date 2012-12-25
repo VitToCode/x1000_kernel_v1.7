@@ -230,6 +230,7 @@ static inline void remap_to_view_size(struct mg_data *mg) {
 }
 
 static inline void mg_report(struct mg_data *mg) {
+	static int lock_members;
 	static int changed;
 	static int saved_x;
 	static int saved_y;
@@ -259,6 +260,11 @@ static inline void mg_report(struct mg_data *mg) {
 
 				if (mg->pdata->wakeup && mg->suspend)
 					report_wakeup(mg);
+
+				if (lock_members) {
+					input_group_unlock(&mg->group);
+					lock_members = 0;
+				}
 			}
 		}
 
@@ -277,6 +283,11 @@ static inline void mg_report(struct mg_data *mg) {
 
 				if (mg->pdata->wakeup && mg->suspend)
 					report_wakeup(mg);
+
+				if (lock_members) {
+					input_group_unlock(&mg->group);
+					lock_members = 0;
+				}
 			}
 		}
 		break;
@@ -286,6 +297,11 @@ static inline void mg_report(struct mg_data *mg) {
 			saved_x = mg->x;
 			saved_y = mg->y;
 			changed = 1;
+
+			if (!lock_members) {
+				input_group_lock(&mg->group);
+				lock_members = 1;
+			}
 		}
 		break;
 	case MG_BA_SWITCH: //0x12
@@ -336,9 +352,7 @@ static void mg_i2c_work(struct work_struct *work) {
 		mg->p =
 				(COORD_INTERPRET(read_buf[MG_DIG_Z_HI], read_buf[MG_DIG_Z_LOW]));
 
-		input_group_lock(&mg->group);
 		mg_report(mg);
-		input_group_unlock(&mg->group);
 	}
 
 err_enable_irq:
