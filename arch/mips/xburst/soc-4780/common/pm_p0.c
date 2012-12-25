@@ -325,6 +325,11 @@ static noinline void reset_dll(void)
 	return_func();
 }
 
+static noinline void jz4780_resume(void)
+{
+	load_regs(*(volatile unsigned int *)REG_ADDR);
+}
+
 static noinline void jz4780_suspend(void)
 {
 	save_regs(*(volatile unsigned int *)REG_ADDR);
@@ -344,15 +349,11 @@ sleep:
 		"nop\n\t"
 		"nop\n\t"
 		".set mips32");
-	goto sleep;
+	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
+	jz4780_resume();
 sleep_2:
 #endif
 	return;
-}
-
-static noinline void jz4780_resume(void)
-{
-	load_regs(*(volatile unsigned int *)REG_ADDR);
 }
 
 static int jz4780_pm_enter(suspend_state_t state)
