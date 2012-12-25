@@ -293,15 +293,15 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 	case MG_TIP_SWITCH: //0x11
 		if (saved_x != mg->x && saved_y != mg->y) {
-			report_value(mg);
-			saved_x = mg->x;
-			saved_y = mg->y;
-			changed = 1;
-
 			if (!lock_members) {
 				input_group_lock(&mg->group);
 				lock_members = 1;
 			}
+
+			report_value(mg);
+			saved_x = mg->x;
+			saved_y = mg->y;
+			changed = 1;
 		}
 		break;
 	case MG_BA_SWITCH: //0x12

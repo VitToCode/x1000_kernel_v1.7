@@ -1079,7 +1079,7 @@ static void __exit ct36x_ts_exit(void)
 	i2c_del_driver(&ct36x_ts_driver);
 }
 
-module_init(ct36x_ts_init);
+late_initcall(ct36x_ts_init);
 module_exit(ct36x_ts_exit);
 
 MODULE_AUTHOR("<george.chen@vtl.com>");
