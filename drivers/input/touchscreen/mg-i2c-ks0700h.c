@@ -85,7 +85,8 @@ struct mg_data {
 	struct i2c_client *client;
 	struct input_dev *dig_dev;
 	int irq;
-	int ss;
+	int gpio_irq;
+	int gpio_rst;
 	struct workqueue_struct *i2c_workqueue;
 	struct work_struct work;
 	struct regulator *power;
@@ -110,6 +111,20 @@ static int flag_home = -1;
 static int flag_back = -1;
 
 static struct i2c_driver mg_driver;
+
+static void mg_hw_reset(struct mg_data *mg)
+{
+	int rst;
+
+	if (mg->gpio_rst == -1)
+		return;
+
+	rst = !(1 ^ !!mg->pdata->gpio[1].enable_level);
+
+	gpio_set_value(mg->gpio_rst, rst);
+	mdelay(100);
+	gpio_set_value(mg->gpio_rst, !rst);
+}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 
@@ -139,6 +154,8 @@ static void mg_resume(struct early_suspend *h)
 		regulator_enable(mg->power);
 		mdelay(100);
 	}
+
+	mg_hw_reset(mg);
 
 	if (!mg->pdata->wakeup)
 		enable_irq(mg->irq);
@@ -358,14 +375,29 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 				" assume a fixed power supply.\n");
 	}
 
-	mg->ss = pdata->gpio[0].num;
-	err = gpio_request(mg->ss, "mg_ts_int");
+	if (pdata->gpio[1].num != -1) {
+		mg->gpio_rst = pdata->gpio[1].num;
+		err = gpio_request(mg->gpio_rst, "mg_ts_rst");
+		if (err) {
+			err = -EIO;
+			dev_err(&mg->client->dev, "Failed to request GPIO: %d\n", mg->gpio_rst);
+			goto err_kfree;
+		}
+		gpio_direction_output(mg->gpio_rst, pdata->gpio[1].enable_level);
+	} else {
+		mg->gpio_rst = -1;
+		dev_err(&mg->client->dev, "Haven't given a reset GPIO.\n"
+				" assume powerup HW reset.\n");
+	}
+
+	mg->gpio_irq = pdata->gpio[0].num;
+	err = gpio_request(mg->gpio_irq, "mg_ts_int");
 	if (err) {
 		err = -EIO;
-		dev_err(&mg->client->dev, "Failed to request GPIO: %d\n", mg->ss);
-		goto err_kfree;
+		dev_err(&mg->client->dev, "Failed to request GPIO: %d\n", mg->gpio_irq);
+		goto err_gpio_free_rst;
 	}
-	gpio_direction_input(mg->ss);
+	gpio_direction_input(mg->gpio_irq);
 
 	mg->client = client;
 	i2c_set_clientdata(client, mg);
@@ -374,7 +406,7 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	if (!input_dig) {
 		err = -ENOMEM;
 		dev_err(&mg->client->dev, "Failed to allocate input device.\n");
-		goto err_gpio_free;
+		goto err_gpio_free_irq;
 	}
 
 	set_bit(EV_ABS, input_dig->evbit);
@@ -425,7 +457,9 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	register_early_suspend(&mg->mg_early_suspend);
 #endif
 
-	mg->irq = gpio_to_irq(mg->ss);
+	mg_hw_reset(mg);
+
+	mg->irq = gpio_to_irq(mg->gpio_irq);
 	err = request_irq(mg->irq, mg_irq, IRQF_TRIGGER_FALLING, MG_DRIVER_NAME, mg);
 	if (err) {
 		dev_err(&mg->client->dev, "Failed to request irq.\n");
@@ -453,8 +487,11 @@ err_input_unregister:
 err_regulator_put:
 	regulator_put(mg->power);
 
-err_gpio_free:
-	gpio_free(mg->ss);
+err_gpio_free_rst:
+	gpio_free(mg->gpio_rst);
+
+err_gpio_free_irq:
+	gpio_free(mg->gpio_irq);
 
 err_kfree:
 	kfree(mg);
@@ -477,7 +514,8 @@ static int __devexit mg_remove(struct i2c_client *client) {
 	free_irq(mg->irq, mg);
 	input_unregister_group(&mg->group);
 	input_unregister_device(mg->dig_dev);
-	gpio_free(mg->ss);
+	gpio_free(mg->gpio_irq);
+	gpio_free(mg->gpio_rst);
 	regulator_put(mg->power);
 	kfree(mg);
 
