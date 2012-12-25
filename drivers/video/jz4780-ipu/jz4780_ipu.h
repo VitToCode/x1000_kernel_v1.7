@@ -173,7 +173,6 @@ struct jz_ipu {
 	int open_cnt;
 	int proc_num;
 	struct file *cur_proc;
-	struct file *sys_filp;
 	unsigned int cur_output_mode;
 
 	struct clk *clk;
