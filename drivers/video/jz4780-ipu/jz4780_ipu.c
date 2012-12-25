@@ -1412,10 +1412,10 @@ static int ipu_clr_bypass(struct jz_ipu *ipu)
 			return -EFAULT;
 		}
 	} else {
-		if (!strcmp(ipu->name, "ipu0") && ipu0_nodirect) {
+		if (!strcmp(ipu->name, "ipu0")) {
 			if (ipu0_nodirect)
 				ipu0_nodirect--;
-		} else if (!strcmp(ipu->name, "ipu1") && ipu1_nodirect) {
+		} else if (!strcmp(ipu->name, "ipu1")) {
 			if (ipu1_nodirect)
 				ipu1_nodirect--;
 		} else {
