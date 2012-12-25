@@ -46,7 +46,7 @@ void input_unregister_group(struct input_group *group) {
 	mutex_lock(&group->lock);
 	list_for_each_entry(member, &group->members, node) {
 		if (member->remove)
-			member->remove(group);
+			member->remove(member);
 	}
 	mutex_unlock(&group->lock);
 
@@ -94,7 +94,7 @@ int input_group_lock(struct input_group *group) {
 
 	list_for_each_entry(member, &group->members, node) {
 		if (member->lock) {
-			err = member->lock(group);
+			err = member->lock(member);
 			if (err)
 				break;
 		}
@@ -110,7 +110,7 @@ int input_group_unlock(struct input_group *group) {
 
 	list_for_each_entry(member, &group->members, node) {
 		if (member->unlock) {
-			err = member->unlock(group);
+			err = member->unlock(member);
 			if (err)
 				break;
 		}

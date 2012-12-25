@@ -33,10 +33,10 @@ struct input_member {
 
 	struct list_head node;
 
-	int (*lock)(void *data);
-	int (*unlock)(void *data);
+	int (*lock)(struct input_member *member);
+	int (*unlock)(struct input_member *member);
 
-	int (*remove)(void *data);
+	int (*remove)(struct input_member *member);
 };
 
 int input_register_group(struct input_group *group);
