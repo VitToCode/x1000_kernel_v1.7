@@ -128,6 +128,8 @@ struct ct36x_ts_info {
 	struct regulator *power;
 	int x_max;
 	int y_max;
+
+	struct input_member member;
 };
 
 #endif

@@ -30,6 +30,7 @@
 #include <linux/input.h>
 #include <linux/timer.h>
 #include <linux/tsc.h>
+#include <linux/input-group.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
 #include <linux/input/mt.h>
 #endif
@@ -741,10 +742,56 @@ static void ct36x_ts_workfunc(struct work_struct *work)
 	enable_irq(ts->irq);
 }
 
+static int ct36x_lock(struct input_member *data)
+{
+	struct ct36x_ts_info *ts = container_of(data, struct ct36x_ts_info, member);
+	int iter;
+
+	disable_irq_nosync(ts->irq);
+#if (CT36X_TS_ESD_TIMER_INTERVAL)
+	if ( ts->timer_on ) {
+		// Disable ESD timer
+		del_timer(&ts->timer);
+		ts->timer_on = 0;
+	}
+#endif
+	cancel_work_sync(&ts->event_work);
+
+	for (iter = 0; iter < CT36X_TS_POINT_NUM; iter++) {
+		input_mt_slot(ts->input, iter);
+		input_mt_report_slot_state(ts->input, MT_TOOL_FINGER, false);
+
+		input_sync(ts->input);
+	}
+
+	return 0;
+}
+
+int ct36x_unlock(struct input_member *data)
+{
+	struct ct36x_ts_info *ts = container_of(data, struct ct36x_ts_info, member);
+
+#if (CT36X_TS_ESD_TIMER_INTERVAL)
+	ts->timer.expires = jiffies + HZ * CT36X_TS_ESD_TIMER_INTERVAL;
+	add_timer(&ts->timer);
+	ts->timer_on = 1;
+#endif
+
+	enable_irq(ts->irq);
+
+	return 0;
+}
+
+int ct36x_remove(struct input_member *data)
+{
+	return 0;
+}
+
 static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ct36x_ts_info *ts = 0;
 	struct device *dev;
+	struct input_group *group;
 	int err = -1;
 	char fw_ver_upd;
 
@@ -856,11 +903,21 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	ts->input->name = DRIVER_NAME;
 	ts->input->id.bustype =	BUS_I2C;
 	// register input device
+
 	err = input_register_device(ts->input);
 	if ( err ) {
 		dev_err(dev, "Unable to register input device for device %s.\n", DRIVER_NAME);
 		goto ERR_INPUT_REGIS;
 	}
+
+	group = input_find_group("mg-i2c-ks0700h-ts");
+	if (!group) {
+		ct36x_ts.member.lock = ct36x_lock;
+		ct36x_ts.member.unlock = ct36x_unlock;
+		ct36x_ts.member.remove = ct36x_remove;
+		input_register_member(group, &ct36x_ts.member);
+	}
+
 	// work
 	INIT_WORK(&ts->event_work, ct36x_ts_workfunc);
 

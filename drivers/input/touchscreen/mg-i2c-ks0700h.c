@@ -37,8 +37,8 @@
 #define COORD_INTERPRET(MSB_BYTE, LSB_BYTE) \
         (MSB_BYTE << 8 | LSB_BYTE)
 
-#define CAP_X_CORD              14000
-#define CAP_Y_CORD              8200
+#define CAP_X_CORD              0x3fff
+#define CAP_Y_CORD              0x1fff
 #define DIG_MAX_P               0xff
 
 #define BUF_SIZE                8
