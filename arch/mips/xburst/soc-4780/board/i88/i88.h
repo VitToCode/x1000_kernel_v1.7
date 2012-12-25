@@ -45,6 +45,9 @@ extern struct platform_device i88_backlight_device;
 extern struct platform_device jz_modem_device;
 #endif
 
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+extern struct platform_device bcmdhd_wlan_device;
+#endif /* CONFIG_WIFI_CONTROL_FUNC */
 /**
  * sound platform data
  **/

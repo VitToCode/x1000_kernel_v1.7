@@ -445,6 +445,10 @@ static int __init i88_board_init(void)
 	platform_device_register(&jz_modem_device);
 #endif
 
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+	platform_device_register(&bcmdhd_wlan_device);
+#endif /* CONFIG_WIFI_CONTROL_FUNC */
+
 	return 0;
 }
 
