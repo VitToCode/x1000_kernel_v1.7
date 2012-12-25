@@ -73,7 +73,6 @@ struct x2d_device {
 	pid_t hold_proc;
 
 	struct file *cur_filp;
-	struct file *sys_filp;
 
 	void __iomem *base;
 	struct device *dev;
@@ -342,7 +341,6 @@ static int x2d_create_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 	}
 	x2d_proc->pid = current->pid;
 	x2d_proc->x2d_filp = filp;
-	jz_x2d->sys_filp = filp;
 	list_add_tail(&x2d_proc->list,&jz_x2d->proc_list);
 
 #ifndef USE_DMMU_TLB
@@ -455,7 +453,7 @@ static void x2d_dump_reg(struct x2d_device *jz_x2d, struct x2d_proc_info* p)
 }
 
 /**************************************main function******************************************/
-static int jz_x2d_start_compose(struct x2d_device *jz_x2d)
+static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 {
 	int i = 0;
 	struct x2d_proc_info * x2d_proc;
@@ -463,12 +461,12 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	mutex_lock(&jz_x2d->compose_lock);
 
 	jz_x2d->state = x2d_state_calc;
-	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
 	if (!x2d_proc) {
 		dev_err(jz_x2d->dev, "%s x2d_proc is NULL!", __func__);
 		return -EFAULT;
 	}
-	jz_x2d->cur_filp = jz_x2d->sys_filp;
+	jz_x2d->cur_filp = filp;
 
 #ifdef X2D_DEBUG
 	x2d_dump_config(jz_x2d, x2d_proc);
@@ -618,12 +616,13 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d)
 	return 0;
 }
 
-static int jz_x2d_set_config(struct x2d_device *jz_x2d, struct jz_x2d_config *config)
+static int jz_x2d_set_config(struct x2d_device *jz_x2d, 
+							 struct jz_x2d_config *config, struct file *filp)
 {
 	struct x2d_proc_info *x2d_proc = NULL;
 
 	mutex_lock(&jz_x2d->x2d_lock);
-	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
 	if (!x2d_proc) {
 		dev_err(jz_x2d->dev, "%s x2d_index_procinfo Failed!", __func__);
 		return -EFAULT;
@@ -648,11 +647,12 @@ static int jz_x2d_set_config(struct x2d_device *jz_x2d, struct jz_x2d_config *co
 	return 0;
 }
 
-int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,struct jz_x2d_config* config)
+int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,
+						   struct jz_x2d_config* config, struct file *filp)
 {	
 	struct x2d_proc_info *x2d_proc = NULL;
 
-	x2d_proc = x2d_index_procinfo(jz_x2d, jz_x2d->sys_filp);
+	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
 	if (!x2d_proc) {
 		dev_err(jz_x2d->dev, "%s x2d_index_procinfo failed!", __func__);
 		return -EFAULT;
@@ -666,14 +666,14 @@ int jz_x2d_get_proc_config(struct x2d_device *jz_x2d,struct jz_x2d_config* confi
 	return 0;
 }
 
-int jz_x2d_stop_calc(struct x2d_device *jz_x2d)
+int jz_x2d_stop_calc(struct x2d_device *jz_x2d, struct file *filp)
 {
-	if(jz_x2d->sys_filp == jz_x2d->cur_filp) {
+	if(filp == jz_x2d->cur_filp) {
 		__x2d_stop_trig();
 		dev_dbg(jz_x2d->dev,"proc %p stop x2d calculating\n",jz_x2d->cur_filp);
 	} else {
 		dev_err(jz_x2d->dev,"proc %p want to stop x2d ,hold proc is %p\n",
-				jz_x2d->sys_filp, jz_x2d->cur_filp);
+				filp, jz_x2d->cur_filp);
 		return -EFAULT;
 	}
 
@@ -782,7 +782,6 @@ static long x2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct x2d_device *jz_x2d = NULL;
 
 	jz_x2d = file_to_x2d(filp);
-	jz_x2d->sys_filp = filp;
 
 	if (_IOC_TYPE(cmd) != X2D_IOCTL_MAGIC) {
 		dev_err(jz_x2d->dev, "invalid cmd!\n");
@@ -791,16 +790,16 @@ static long x2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 		case IOCTL_X2D_SET_CONFIG:
-			retval = jz_x2d_set_config(jz_x2d, (struct jz_x2d_config*)arg);
+			retval = jz_x2d_set_config(jz_x2d, (struct jz_x2d_config*)arg, filp);
 			break;
 		case IOCTL_X2D_START_COMPOSE:
-			retval = jz_x2d_start_compose(jz_x2d);
+			retval = jz_x2d_start_compose(jz_x2d, filp);
 			break;
 		case IOCTL_X2D_GET_SYSINFO:
-			retval = jz_x2d_get_proc_config(jz_x2d,(void *)arg);
+			retval = jz_x2d_get_proc_config(jz_x2d,(void *)arg, filp);
 			break;
 		case IOCTL_X2D_STOP:
-			retval = jz_x2d_stop_calc(jz_x2d);
+			retval = jz_x2d_stop_calc(jz_x2d, filp);
 			break;
 		case IOCTL_X2D_MAP_GRAPHIC_BUF:
 			//retval = jz_x2d_map_graphic_buf();
