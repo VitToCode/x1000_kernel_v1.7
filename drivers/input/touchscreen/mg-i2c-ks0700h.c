@@ -246,7 +246,7 @@ static inline void mg_report(struct mg_data *mg) {
 	}
 
 	if (atomic_read(&mg->members_locked))
-		mod_timer(&mg->timer, jiffies_64 + HZ);
+		mod_timer(&mg->timer, jiffies_64 + HZ / 5);
 
 	prev_s = current_s;
 	current_s = mg->w;
