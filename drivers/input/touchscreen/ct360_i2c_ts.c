@@ -911,7 +911,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	}
 
 	group = input_find_group("mg-i2c-ks0700h-ts");
-	if (!group) {
+	if (group) {
 		ct36x_ts.member.lock = ct36x_lock;
 		ct36x_ts.member.unlock = ct36x_unlock;
 		ct36x_ts.member.remove = ct36x_remove;
