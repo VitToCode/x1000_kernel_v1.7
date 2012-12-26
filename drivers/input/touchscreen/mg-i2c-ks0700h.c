@@ -21,6 +21,8 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+#include <linux/spinlock.h>
+#include <linux/timer.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	#include <linux/earlysuspend.h>
@@ -97,7 +99,10 @@ struct mg_data {
 
 	int suspend;
 
+	int members_locked;
 	struct input_group group;
+	struct timer_list timer;
+	spinlock_t lock;
 
 	struct jztsc_platform_data *pdata;
 };
@@ -230,10 +235,17 @@ static inline void remap_to_view_size(struct mg_data *mg) {
 }
 
 static inline void mg_report(struct mg_data *mg) {
-	static int lock_members;
+	unsigned long flags;
 	static int changed;
 	static int saved_x;
 	static int saved_y;
+
+	spin_lock_irqsave(&mg->lock, flags);
+	if (mg->members_locked) {
+		spin_unlock_irqrestore(&mg->lock, flags);
+		mod_timer(&mg->timer, jiffies_64 + HZ);
+	}
+	spin_unlock_irqrestore(&mg->lock, flags);
 
 	prev_s = current_s;
 	current_s = mg->w;
@@ -260,11 +272,6 @@ static inline void mg_report(struct mg_data *mg) {
 
 				if (mg->pdata->wakeup && mg->suspend)
 					report_wakeup(mg);
-
-				if (lock_members) {
-					input_group_unlock(&mg->group);
-					lock_members = 0;
-				}
 			}
 		}
 
@@ -283,20 +290,18 @@ static inline void mg_report(struct mg_data *mg) {
 
 				if (mg->pdata->wakeup && mg->suspend)
 					report_wakeup(mg);
-
-				if (lock_members) {
-					input_group_unlock(&mg->group);
-					lock_members = 0;
-				}
 			}
 		}
 		break;
 	case MG_TIP_SWITCH: //0x11
 		if (saved_x != mg->x && saved_y != mg->y) {
-			if (!lock_members) {
+			spin_lock_irqsave(&mg->lock, flags);
+			if (!mg->members_locked) {
+				mg->members_locked = 1;
+				spin_unlock_irqrestore(&mg->lock, flags);
 				input_group_lock(&mg->group);
-				lock_members = 1;
 			}
+			spin_unlock_irqrestore(&mg->lock, flags);
 
 			report_value(mg);
 			saved_x = mg->x;
@@ -357,6 +362,20 @@ static void mg_i2c_work(struct work_struct *work) {
 
 err_enable_irq:
 	enable_irq(mg->irq);
+}
+
+void mg_timer_func(unsigned long data)
+{
+	struct mg_data *mg = (struct mg_data *) data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mg->lock, flags);
+	if (mg->members_locked) {
+		mg->members_locked = 0;
+		spin_unlock_irqrestore(&mg->lock, flags);
+		input_group_unlock(&mg->group);
+	}
+	spin_unlock_irqrestore(&mg->lock, flags);
 }
 
 static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) {
@@ -472,6 +491,9 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 #endif
 
 	mg_hw_reset(mg);
+
+	setup_timer(&mg->timer, mg_timer_func, (unsigned long) mg);
+	spin_lock_init(&mg->lock);
 
 	mg->irq = gpio_to_irq(mg->gpio_irq);
 	err = request_irq(mg->irq, mg_irq, IRQF_TRIGGER_FALLING, MG_DRIVER_NAME, mg);
