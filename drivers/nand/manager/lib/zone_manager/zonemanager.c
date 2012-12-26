@@ -1883,9 +1883,9 @@ Zone *ZoneManager_AllocRecyclezone(int context ,unsigned short ZoneID)
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
 	if(ZoneID == zonep->pt_zonenum - 1)
-		zoneptr->endblockID = zoneptr->vnand->TotalBlocks;
+		zoneptr->endblockID = zonep->vnand->TotalBlocks;
 	else
-		zoneptr->endblockID = zoneptr->startblockID + BLOCKPERZONE(zoneptr->context);
+		zoneptr->endblockID = zoneptr->startblockID + BLOCKPERZONE(zonep->context);
 
 	for(i = 4 ; i < 8 ; i++)
 	{
