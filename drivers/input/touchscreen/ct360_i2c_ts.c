@@ -748,10 +748,10 @@ static int ct36x_lock(struct input_member *data)
 	struct ct36x_ts_info *ts = container_of(data, struct ct36x_ts_info, member);
 	int iter;
 
-	if (work_pending(&ts->event_work)) {
+	if (work_pending(&ts->event_work))
 		cancel_work_sync(&ts->event_work);
-		disable_irq(ts->irq);
-	}
+
+	disable_irq(ts->irq);
 
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	if ( ts->timer_on ) {
