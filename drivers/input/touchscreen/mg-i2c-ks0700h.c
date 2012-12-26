@@ -240,6 +240,11 @@ static inline void mg_report(struct mg_data *mg) {
 	static int saved_x;
 	static int saved_y;
 
+	if (!atomic_read(&mg->members_locked)) {
+		input_group_lock(&mg->group);
+		atomic_set(&mg->members_locked, 1);
+	}
+
 	if (atomic_read(&mg->members_locked))
 		mod_timer(&mg->timer, jiffies_64 + HZ);
 
@@ -291,11 +296,6 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 	case MG_TIP_SWITCH: //0x11
 		if (saved_x != mg->x && saved_y != mg->y) {
-			if (!atomic_read(&mg->members_locked)) {
-				input_group_lock(&mg->group);
-				atomic_set(&mg->members_locked, 1);
-			}
-
 			report_value(mg);
 			saved_x = mg->x;
 			saved_y = mg->y;
