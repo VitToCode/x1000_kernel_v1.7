@@ -429,7 +429,12 @@ static void jzfb_enable_enh(struct fb_info *info,unsigned int value)
 	struct jzfb *jzfb = info->par;
 	if(value == 0){
 		tmp = reg_read(jzfb, LCDC_ENH_CFG);
-		tmp &= ~LCDC_ENH_CFG_ENH_EN;
+		if (tmp & LCDC_ENH_CFG_DITHER_EN) {
+			/* keep dither enable */
+			tmp = LCDC_ENH_CFG_DITHER_EN | LCDC_ENH_CFG_ENH_EN;
+		} else {
+			tmp &= ~LCDC_ENH_CFG_ENH_EN;
+		}
 		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	} else {
 		tmp = reg_read(jzfb, LCDC_ENH_CFG);
@@ -445,6 +450,7 @@ int jzfb_config_image_enh(struct fb_info *info)
 	unsigned int tmp;
 	struct enh_dither *dither;
 
+	/* the bpp of panel <= 18 need to enable dither */
 	if (pdata->dither_enable) {
 		dither = kzalloc(sizeof(struct enh_dither), GFP_KERNEL);
 		dither->dither_en = pdata->dither_enable;
@@ -453,11 +459,16 @@ int jzfb_config_image_enh(struct fb_info *info)
 		dither->dither_blue = pdata->dither.dither_blue;
 		jzfb_set_dither(info, dither);
 		kzfree(dither);
+
+		tmp = reg_read(jzfb, LCDC_ENH_CFG);
+		tmp |= LCDC_ENH_CFG_ENH_EN;
+		reg_write(jzfb, LCDC_ENH_CFG, tmp);
+	} else {
+		/* disable the global image enhancement bit */
+		tmp = 0;
+		reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	}
 
-	/* disable the global image enhancement bit */
-	tmp = 0;
-	reg_write(jzfb, LCDC_ENH_CFG, tmp);
 	return 0;
 }
 
