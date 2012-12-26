@@ -140,11 +140,11 @@ static void mg_suspend(struct early_suspend *h)
 
 	mg->suspend = 1;
 
-	if (work_pending(&mg->work)) {
+	if (work_pending(&mg->work))
 		cancel_work_sync(&mg->work);
-		if (!mg->pdata->wakeup)
-			disable_irq(mg->irq);
-	}
+
+	if (!mg->pdata->wakeup)
+		disable_irq(mg->irq);
 
 	if (mg->power && !mg->pdata->wakeup)
 		regulator_disable(mg->power);

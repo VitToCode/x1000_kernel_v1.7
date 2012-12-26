@@ -911,10 +911,10 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	printk("ct36x_ts_suspend\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
 
-	if (work_pending(&ts->event_work)) {
+	if (work_pending(&ts->event_work))
 		cancel_work_sync(&ts->event_work);
-		disable_irq(ts->irq);
-	}
+
+	disable_irq(ts->irq);
 
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	if ( ts->timer_on ) {
