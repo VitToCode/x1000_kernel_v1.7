@@ -932,7 +932,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 
 	// Init irq
 	ts->irq = gpio_to_irq(ts->ss);
-	err = request_irq(ts->irq, ct36x_ts_irq, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, DRIVER_NAME, ts);
+	err = request_irq(ts->irq, ct36x_ts_irq, IRQF_TRIGGER_FALLING, DRIVER_NAME, ts);
 	if ( err ) {
 		dev_err(dev, "Unable to request irq.\n");
 		goto ERR_IRQ_REQEST;
@@ -986,7 +986,7 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 
-	regulator_disable(ts->power);
+	//regulator_disable(ts->power);
 	gpio_set_value(ts->rst, 0);
 	return 0;
 
@@ -1027,8 +1027,7 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
-	regulator_enable(ts->power);
-	mdelay(100);
+	//regulator_enable(ts->power);
 	gpio_set_value(ts->rst, 1);
 	mdelay(100);
 
