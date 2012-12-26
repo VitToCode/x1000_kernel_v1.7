@@ -611,7 +611,7 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): blk_init_queue error!\n");
 		goto probe_err2;
 	}
-
+    elevator_change(ndisk->queue, "noop");
 	/* init ndisk */
 	ndisk->sl_len = 0;
 	ndisk->dev = dev;
