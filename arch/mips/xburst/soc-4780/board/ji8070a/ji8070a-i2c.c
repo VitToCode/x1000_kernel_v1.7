@@ -101,6 +101,20 @@ static struct jztsc_platform_data ji8070a_tsc_pdata = {
 };
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_MG_KS0700H_S
+static struct jztsc_pin ji8070a_tsc_bat_gpio[] = {
+	[0] = {GPIO_CTP_BAT_IRQ, 	HIGH_ENABLE},
+	[1] = {GPIO_CTP_BAT_WAKE_UP,	LOW_ENABLE},
+};
+
+static struct jztsc_platform_data ji8070a_tsc_bat_pdata = {
+	.gpio		= ji8070a_tsc_bat_gpio,
+	.x_max		= 1024,
+	.y_max		= 600,
+        .wakeup     = 1,
+};
+#endif
+
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info ji8070a_i2c1_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_LDWZIC
@@ -121,6 +135,13 @@ static struct i2c_board_info ji8070a_i2c1_devs[] __initdata = {
 		I2C_BOARD_INFO("ct36x_ts", 0x01),
 		.platform_data = &ji8070a_tsc_pdata,
 	},						        
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_MG_KS0700H_S
+	{
+		I2C_BOARD_INFO("mg-i2c-ks0700h-ts", 0x44),
+		.platform_data = &ji8070a_tsc_bat_pdata,
+	},
 #endif
 };
 #endif /*I2C1*/

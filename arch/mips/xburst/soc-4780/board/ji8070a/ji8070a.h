@@ -82,6 +82,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_CTP_IRQ			GPIO_PF(19)
 #define GPIO_CTP_WAKE_UP		GPIO_PF(18)
 
+#define GPIO_CTP_BAT_IRQ        GPIO_PB(31)
+#define GPIO_CTP_BAT_WAKE_UP    GPIO_PB(30)
 /**
  * g sensor gpio interface
  **/
