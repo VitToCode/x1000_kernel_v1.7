@@ -969,7 +969,7 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_type = JZDMA_REQ_I2S0;
 
 	(*dp)->fragsize = FRAGSIZE_M;
-	(*dp)->fragcnt = FRAGCNT_M;
+	(*dp)->fragcnt = FRAGCNT_L;
 	(*dp)->is_non_block = true;
 	(*dp)->is_used = false;
 	(*dp)->can_mmap =true;
