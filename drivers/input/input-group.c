@@ -58,13 +58,9 @@ EXPORT_SYMBOL(input_unregister_group);
 
 struct input_group *input_find_group(const char *name) {
 	struct input_group *group;
-	list_for_each_entry(group, &group_list, node) {
+	list_for_each_entry(group, &group_list, node)
 		if (!strcmp(group->name, name))
-		break;
-	}
-
-	if (&group->node != &group_list)
-		return group;
+			return group;
 
 	return NULL ;
 }
