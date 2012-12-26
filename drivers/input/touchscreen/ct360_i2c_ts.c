@@ -986,10 +986,6 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 
-	//regulator_disable(ts->power);
-	gpio_set_value(ts->rst, 0);
-	return 0;
-
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 	// step 01 W FF 0F 2B
 	ts->data.buf[0] = 0xFF;
