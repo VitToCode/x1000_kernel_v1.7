@@ -364,12 +364,13 @@ static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 		5523978, 8458438, 8458438, 11277917,16916875,
 		16916875,33833750,33833750,67667500,135335000,
 	};
-	for (i = 0 ; i< 8 ;i++) {
-		if (*rate <= mrate[i])
+	for (i=0; i<9; i++) {
+		if (*rate <= mrate[i]) {
 			*rate = mrate[i];
 			break;
+		}
 	}
-	if (i == 10) {
+	if (i >= 9) {
 		*rate = 44100; /*unsupport rate use default*/
 		return mcguclk[6];
 	}
