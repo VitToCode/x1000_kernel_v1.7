@@ -30,6 +30,7 @@
 #include <linux/input.h>
 #include <linux/timer.h>
 #include <linux/tsc.h>
+#include <linux/workqueue.h>
 #include <linux/input-group.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
 #include <linux/input/mt.h>
@@ -580,7 +581,7 @@ static irqreturn_t ct36x_ts_irq(int irq, void *dev)
 	printk(">>>>> %s() called <<<<< \n", __FUNCTION__);
 
 	// touch device is ready??
-	if ( ts->ready ) {
+	if (!work_pending(&ts->event_work)) {
 		// Disable ts interrupt
 		disable_irq_nosync(ts->irq);
 
@@ -591,7 +592,7 @@ static irqreturn_t ct36x_ts_irq(int irq, void *dev)
 			ts->timer_on = 0;
 		}
 	#endif
-		schedule_work(&ts->event_work);
+		queue_work(ts->i2c_workqueue, &ts->event_work);
 	}
 	
 	return IRQ_HANDLED;
@@ -747,7 +748,11 @@ static int ct36x_lock(struct input_member *data)
 	struct ct36x_ts_info *ts = container_of(data, struct ct36x_ts_info, member);
 	int iter;
 
-	disable_irq_nosync(ts->irq);
+	if (work_pending(&ts->event_work)) {
+		cancel_work_sync(&ts->event_work);
+		disable_irq(ts->irq);
+	}
+
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	if ( ts->timer_on ) {
 		// Disable ESD timer
@@ -755,7 +760,6 @@ static int ct36x_lock(struct input_member *data)
 		ts->timer_on = 0;
 	}
 #endif
-	cancel_work_sync(&ts->event_work);
 
 	for (iter = 0; iter < CT36X_TS_POINT_NUM; iter++) {
 		input_mt_slot(ts->input, iter);
@@ -918,8 +922,13 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 		input_register_member(group, &ct36x_ts.member);
 	}
 
-	// work
+	// work & queue
 	INIT_WORK(&ts->event_work, ct36x_ts_workfunc);
+	ts->i2c_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
+	if (!ts->i2c_workqueue) {
+		err = -ESRCH;
+		goto ERR_INPUT_REGIS;
+	}
 
 	// Init irq
 	ts->irq = gpio_to_irq(ts->ss);
@@ -941,6 +950,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	return 0;
 
 ERR_IRQ_REQEST:
+	destroy_workqueue(ts->i2c_workqueue);
 ERR_INPUT_REGIS:
 	input_free_device(ts->input);
 ERR_INPUT_ALLOC:
@@ -962,7 +972,12 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_suspend\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
-	disable_irq_nosync(ts->irq);
+
+	if (work_pending(&ts->event_work)) {
+		cancel_work_sync(&ts->event_work);
+		disable_irq(ts->irq);
+	}
+
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	if ( ts->timer_on ) {
 		// Disable ESD timer
@@ -970,8 +985,11 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 		ts->timer_on = 0;
 	}
 #endif
-	cancel_work_sync(&ts->event_work);
-	
+
+	regulator_disable(ts->power);
+	gpio_set_value(ts->rst, 0);
+	return 0;
+
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
 	// step 01 W FF 0F 2B
 	ts->data.buf[0] = 0xFF;
@@ -1009,14 +1027,19 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
+	regulator_enable(ts->power);
+	mdelay(100);
+	gpio_set_value(ts->rst, 1);
+	mdelay(100);
 
-	ct36x_ts_hw_reset(ts);
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	ts->timer.expires = jiffies + HZ * CT36X_TS_ESD_TIMER_INTERVAL;
 	add_timer(&ts->timer);
 	ts->timer_on = 1;
 #endif
 	enable_irq(ts->irq);
+	return 0;
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		printk("after resume ,check I2C erro");
 		return -1;

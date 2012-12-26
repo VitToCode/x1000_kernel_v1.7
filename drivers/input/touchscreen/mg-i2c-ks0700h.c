@@ -140,11 +140,11 @@ static void mg_suspend(struct early_suspend *h)
 
 	mg->suspend = 1;
 
-	if (!mg->pdata->wakeup)
-		disable_irq_nosync(mg->irq);
-
-	if (work_pending(&mg->work))
+	if (work_pending(&mg->work)) {
 		cancel_work_sync(&mg->work);
+		if (!mg->pdata->wakeup)
+			disable_irq(mg->irq);
+	}
 
 	if (mg->power && !mg->pdata->wakeup)
 		regulator_disable(mg->power);
@@ -535,6 +535,7 @@ static int __devexit mg_remove(struct i2c_client *client) {
 	unregister_early_suspend(&mg->mg_early_suspend);
 #endif
 
+	del_timer_sync(&mg->timer);
 	destroy_workqueue(mg->i2c_workqueue);
 	free_irq(mg->irq, mg);
 	input_unregister_group(&mg->group);

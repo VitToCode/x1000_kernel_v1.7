@@ -578,7 +578,7 @@ static irqreturn_t ct36x_ts_irq(int irq, void *dev)
 	printk(">>>>> %s() called <<<<< \n", __FUNCTION__);
 
 	// touch device is ready??
-	if ( ts->ready ) {
+	if (!work_pending(&ts->event_work)) {
 		// Disable ts interrupt
 		disable_irq_nosync(ts->irq);
 
@@ -589,7 +589,7 @@ static irqreturn_t ct36x_ts_irq(int irq, void *dev)
 			ts->timer_on = 0;
 		}
 	#endif
-		schedule_work(&ts->event_work);
+		queue_work(ts->i2c_workqueue, &ts->event_work);
 	}
 	
 	return IRQ_HANDLED;
@@ -860,8 +860,14 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 		dev_err(dev, "Unable to register input device for device %s.\n", DRIVER_NAME);
 		goto ERR_INPUT_REGIS;
 	}
-	// work
+
+	// work & queue
 	INIT_WORK(&ts->event_work, ct36x_ts_workfunc);
+	ts->i2c_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
+	if (!ts->i2c_workqueue) {
+		err = -ESRCH;
+		goto ERR_INPUT_REGIS;
+	}
 
 	// Init irq
 	ts->irq = gpio_to_irq(ts->ss);
@@ -882,6 +888,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	return 0;
 
 ERR_IRQ_REQEST:
+	destroy_workqueue(ts->i2c_workqueue);
 ERR_INPUT_REGIS:
 	input_free_device(ts->input);
 ERR_INPUT_ALLOC:
@@ -903,7 +910,12 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	if (CT36X_TS_DEBUG)
 	printk("ct36x_ts_suspend\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
-	disable_irq_nosync(ts->irq);
+
+	if (work_pending(&ts->event_work)) {
+		cancel_work_sync(&ts->event_work);
+		disable_irq(ts->irq);
+	}
+
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	if ( ts->timer_on ) {
 		// Disable ESD timer
@@ -911,10 +923,10 @@ static int ct36x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 		ts->timer_on = 0;
 	}
 #endif
-	cancel_work_sync(&ts->event_work);
 
 	regulator_disable(ts->power);
 	gpio_set_value(ts->rst, 0);
+
 	return 0;
 
 #if (CT36X_TS_CHIP_SEL == CT360_CHIP_VER)
