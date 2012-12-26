@@ -9,7 +9,7 @@
  * published by the Free Software Foundation.
  */
 
-#define DEBUG
+//#define DEBUG
 
 #include <linux/errno.h>
 #include <linux/interrupt.h>
