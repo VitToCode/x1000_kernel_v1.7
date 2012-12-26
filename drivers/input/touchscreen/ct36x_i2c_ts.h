@@ -122,6 +122,8 @@ struct ct36x_ts_info {
 	struct regulator *power;
 	int x_max;
 	int y_max;
+
+	struct workqueue_struct *i2c_workqueue;
 };
 
 #endif
