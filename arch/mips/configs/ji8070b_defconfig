@@ -740,7 +740,7 @@ CONFIG_JZ_CIM=y
 # CONFIG_SP0838 is not set
 CONFIG_GC0308=y
 # CONFIG_GC0308_Q8 is not set
-CONFIG_GC2015=y
+# CONFIG_GC2015 is not set
 # CONFIG_HI253 is not set
 # CONFIG_FAKE is not set
 CONFIG_JZ_PWM=y
