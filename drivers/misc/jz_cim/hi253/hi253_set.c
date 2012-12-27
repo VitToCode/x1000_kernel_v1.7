@@ -288,7 +288,7 @@ int hi253_init(struct cim_sensor *sensor_info)
 	hi253_write_reg(client,0x3f, 0x00);
 
 	/* adjust brightness */
-	hi253_write_reg(client,0x40, 0xc0); // YOFS
+	hi253_write_reg(client,0x40, 0xa0); // YOFS
 	hi253_write_reg(client,0x41, 0x00); // DYOFS
 
 	hi253_write_reg(client,0x60, 0x67);
