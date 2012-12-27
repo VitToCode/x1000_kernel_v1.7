@@ -80,6 +80,8 @@ enum mg_dig_state {
 	MG_TIP_SWITCH = 0x11,
 	MG_BA_SWITCH = 0x12,
 	MG_RIGHT_BTN = 0x13,
+	MG_ON_B_BTN = 0x14,
+	MG_ON_T_BTN = 0x15,
 };
 
 
@@ -222,6 +224,26 @@ static void report_wakeup(struct mg_data *mg) {
 	input_sync(mg->dig_dev);
 }
 
+static void report_b_btn_down(struct mg_data *mg) {
+	input_report_key(mg->dig_dev, KEY_LEFTSHIFT, 1);
+	input_sync(mg->dig_dev);
+}
+
+static void report_b_btn_up(struct mg_data *mg) {
+	input_report_key(mg->dig_dev, KEY_LEFTSHIFT, 0);
+	input_sync(mg->dig_dev);
+}
+
+static void report_t_btn_down(struct mg_data *mg) {
+	input_report_key(mg->dig_dev, KEY_LEFTALT, 1);
+	input_sync(mg->dig_dev);
+}
+
+static void report_t_btn_up(struct mg_data *mg) {
+	input_report_key(mg->dig_dev, KEY_LEFTALT, 0);
+	input_sync(mg->dig_dev);
+}
+
 static void report_release(struct mg_data *mg) {
 	input_mt_slot(mg->dig_dev, 0);
 	input_mt_report_slot_state(mg->dig_dev, MT_TOOL_FINGER, false);
@@ -238,6 +260,9 @@ static inline void mg_report(struct mg_data *mg) {
 	static int changed;
 	static int saved_x;
 	static int saved_y;
+
+	static int on_pad_b_btn_down;
+	static int on_pad_t_btn_down;
 
 	if (!atomic_read(&mg->members_locked)) {
 		input_group_lock(&mg->group);
@@ -276,6 +301,7 @@ static inline void mg_report(struct mg_data *mg) {
 		}
 
 		break;
+
 	case MG_IN_RANG: //0x10
 		if (flag_menu == 1) {
 			flag_menu = 0;
@@ -292,20 +318,35 @@ static inline void mg_report(struct mg_data *mg) {
 					report_wakeup(mg);
 			}
 		}
+
 		break;
+
 	case MG_TIP_SWITCH: //0x11
-		if (saved_x != mg->x && saved_y != mg->y) {
+		if (on_pad_b_btn_down) {
+			on_pad_b_btn_down = 0;
+			report_b_btn_up(mg);
+
+		} else if (on_pad_t_btn_down) {
+			on_pad_t_btn_down = 0;
+			report_t_btn_up(mg);
+
+		} else if (saved_x != mg->x
+				&& saved_y != mg->y) {
 			report_value(mg);
 			saved_x = mg->x;
 			saved_y = mg->y;
 			changed = 1;
 		}
+
 		break;
+
 	case MG_BA_SWITCH: //0x12
 		if (prev_s == MG_IN_RANG) {
 			flag_menu = 1;
 		}
+
 		break;
+
 	case MG_RIGHT_BTN: //0x13
 		if (flag_home == 1) {
 			flag_home = 0;
@@ -320,7 +361,39 @@ static inline void mg_report(struct mg_data *mg) {
 				}
 			}
 		}
+
 		break;
+
+	case MG_ON_B_BTN: //0x14
+		if (!on_pad_b_btn_down) {
+			on_pad_b_btn_down = 1;
+			report_b_btn_down(mg);
+
+		} else if (saved_x != mg->x
+				&& saved_y != mg->y) {
+			report_value(mg);
+			saved_x = mg->x;
+			saved_y = mg->y;
+			changed = 1;
+		}
+
+		break;
+
+	case MG_ON_T_BTN: //0x15
+		if (!on_pad_t_btn_down) {
+			on_pad_t_btn_down = 1;
+			report_t_btn_down(mg);
+
+		} else if (saved_x != mg->x
+				&& saved_y != mg->y) {
+			report_value(mg);
+			saved_x = mg->x;
+			saved_y = mg->y;
+			changed = 1;
+		}
+
+		break;
+
 	default:
 		break;
 	}
@@ -445,6 +518,8 @@ static int mg_probe(struct i2c_client *client, const struct i2c_device_id *ids) 
 	set_bit(KEY_BACK, input_dig->keybit);
 	set_bit(KEY_HOME, input_dig->keybit);
 	set_bit(KEY_POWER, input_dig->keybit);
+	set_bit(KEY_LEFTSHIFT, input_dig->keybit);
+	set_bit(KEY_LEFTALT, input_dig->keybit);
 
 	input_dig->name = MG_DRIVER_NAME;
 	input_dig->id.bustype = BUS_I2C;
