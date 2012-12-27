@@ -126,9 +126,9 @@ static int ct36x_ts_hw_init(struct ct36x_ts_info *ct36x_ts)
 static void ct36x_ts_hw_reset(struct ct36x_ts_info *ct36x_ts)
 {
 	gpio_set_value(ct36x_ts->rst, 0);
-	mdelay(50);
+	mdelay(100);
 	gpio_set_value(ct36x_ts->rst, 1);
-	mdelay(200);
+	mdelay(100);
 }
 
 static void ct36x_ts_hw_exit(struct ct36x_ts_info *ct36x_ts)
@@ -962,8 +962,9 @@ static int ct36x_ts_resume(struct i2c_client *client)
 	printk("ct36x_ts_resume\n");
 	ts = (struct ct36x_ts_info *)i2c_get_clientdata(client);
 	//regulator_enable(ts->power);
-	gpio_set_value(ts->rst, 1);
-	mdelay(100);
+
+	ct36x_ts_hw_reset(ts);
+
 #if (CT36X_TS_ESD_TIMER_INTERVAL)
 	ts->timer.expires = jiffies + HZ * CT36X_TS_ESD_TIMER_INTERVAL;
 	add_timer(&ts->timer);
