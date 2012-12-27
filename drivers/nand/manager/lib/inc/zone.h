@@ -8,7 +8,8 @@
 
 #define BLOCK_PER_ZONE             	4
 #define BLOCKPERZONE(context)           BLOCK_PER_ZONE
-#define REREAD_PAGEINFO
+//#define REREAD_PAGEINFO
+
 typedef struct _Zone Zone;
 
 struct _Zone {
