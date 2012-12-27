@@ -601,9 +601,8 @@ err_kfree:
 static int __devexit mg_remove(struct i2c_client *client) {
 	struct mg_data *mg = i2c_get_clientdata(client);
 
-	disable_irq_nosync(mg->irq);
-	if (work_pending(&mg->work))
-		cancel_work_sync(&mg->work);
+	disable_irq(mg->irq);
+	flush_work_sync(&mg->work);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&mg->mg_early_suspend);
