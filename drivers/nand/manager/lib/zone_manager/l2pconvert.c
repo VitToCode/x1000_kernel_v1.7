@@ -389,6 +389,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 			//ndprint(L2PCONVERT_INFO,"CacheManager_getPageID when sectorid = %d fun %s line %d\n",
 			//	i, __FUNCTION__, __LINE__);
 			handle_unCached_sector(sectornode, i - sectorid);
+			pData += SECTOR_SIZE;
 			l++;
 			continue;
 		}
@@ -410,8 +411,8 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 			if (pageid_by_sector_next == -1) {
 				//ndprint(L2PCONVERT_INFO,"CacheManager_getPageID when sectorid = %d fun %s line %d\n",
 				//		i, __FUNCTION__, __LINE__);
-				handle_unCached_sector(sectornode, j - sectorid);
-				l++;
+				//handle_unCached_sector(sectornode, j - sectorid);
+				//l++;
 				break;
 			}
 
