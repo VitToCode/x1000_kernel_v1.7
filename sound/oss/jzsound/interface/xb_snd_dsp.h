@@ -95,6 +95,7 @@ struct spipe_info {
     enum spipe_mode_t spipe_mode;
 };
 
+#define SNDCTL_EXT_SET_BUFFSIZE				_SIOR ('P', 100, int)
 #define SNDCTL_EXT_SET_DEVICE               _SIOR ('P', 99, int)
 #define SNDCTL_EXT_SET_STANDBY              _SIOR ('P', 98, int)
 #define SNDCTL_EXT_START_BYPASS_TRANS       _SIOW ('P', 97, struct spipe_info)
@@ -192,7 +193,7 @@ enum snd_dsp_command {
 
 #define FRAGCNT_S   2
 #define FRAGCNT_M   4
-#define FRAGCNT_L   6
+#define FRAGCNT_L   8
 
 
 
@@ -201,8 +202,8 @@ struct dsp_node {
 	unsigned long       pBuf;
 	unsigned int        start;
 	unsigned int        end;
-	dma_addr_t      phyaddr;
-	size_t          size;
+	dma_addr_t			phyaddr;
+	size_t				size;
 };
 
 struct dsp_pipe {
@@ -217,11 +218,12 @@ struct dsp_pipe {
 	dma_addr_t          paddr;
 	size_t              fragsize;              /* define by device */
 	size_t              fragcnt;               /* define by device */
+	size_t				buffersize;
 	struct list_head    free_node_list;
 	struct list_head    use_node_list;
 	struct dsp_node     *save_node;
 	wait_queue_head_t   wq;
-	volatile int        avialable_couter;
+	atomic_t			avialable_couter;
 	/* state */
 	volatile bool       is_trans;
 	volatile bool       wait_stop_dma;
@@ -229,11 +231,18 @@ struct dsp_pipe {
 	volatile bool       is_used;
 	volatile bool       is_shared;
 	volatile bool       is_mmapd;
-	bool            is_non_block;          /* define by device */
-	bool            can_mmap;              /* define by device */
+	bool				is_non_block;          /* define by device */
+	bool				can_mmap;              /* define by device */
 	/* callback funs */
 	void (*handle)(struct dsp_pipe *endpoint); /* define by device */
-	int (*filter)(void *buff, int cnt);        /* define by device */
+	/* @filter()
+	 * buff :		data buffer
+	 * cnt :		avialable data size
+	 * needed_size:	we need data size
+	 *
+	 * return covert data size
+	 */
+	int (*filter)(void *buff, int *cnt, int needed_size);        /* define by device */
 	/* lock */
 	spinlock_t          pipe_lock;
 	struct snd_dev_data *	pddata;
@@ -250,11 +259,11 @@ struct dsp_endpoints {
 /**
  * filter
  **/
-int convert_8bits_signed2unsigned(void *buffer, int counter);
-int convert_8bits_stereo2mono(void *buff, int data_len);
-int convert_8bits_stereo2mono_signed2unsigned(void *buff, int data_len);
-int convert_16bits_stereo2mono(void *buff, int data_len);
-int convert_16bits_stereomix2mono(void *buff, int data_len);
+int convert_8bits_signed2unsigned(void *buffer, int *counter,int needed_size);
+int convert_8bits_stereo2mono(void *buff, int *data_len,int needed_size);
+int convert_8bits_stereo2mono_signed2unsigned(void *buff, int *data_len,int needed_size);
+int convert_16bits_stereo2mono(void *buff, int *data_len,int needed_size);
+int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size);
 
 /**
  * functions interface

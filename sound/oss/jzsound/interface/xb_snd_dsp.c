@@ -47,6 +47,7 @@ static struct dsp_node* get_free_dsp_node(struct dsp_pipe *dp)
 			return NULL;
 		}
 		node = list_entry(phead->next, struct dsp_node, list);
+		node->size = dp->buffersize;
 		list_del(phead->next);
 	}
 	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
@@ -54,13 +55,15 @@ static struct dsp_node* get_free_dsp_node(struct dsp_pipe *dp)
 	return node;
 }
 
-static void put_use_dsp_node(struct dsp_pipe *dp, struct dsp_node *node)
+static void put_use_dsp_node(struct dsp_pipe *dp, struct dsp_node *node,int useful_size)
 {
 	unsigned long lock_flags;
 	struct list_head *phead = &dp->use_node_list;
 
 	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
 	{
+		node->start = 0;
+		node->end += useful_size;
 		list_add_tail(&node->list, phead);
 	}
 	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
@@ -93,9 +96,25 @@ static void put_free_dsp_node(struct dsp_pipe *dp, struct dsp_node *node)
 
 	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
 	{
+		node->start = 0;
+		node->end = 0;
 		list_add_tail(&node->list, phead);
 	}
 	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+}
+
+static void put_use_dsp_node_head(struct dsp_pipe *dp,struct dsp_node *node,int used_size)
+{
+	unsigned long lock_flags;
+	struct list_head *phead = &dp->use_node_list;
+
+	spin_lock_irqsave(&dp->pipe_lock,lock_flags);
+	{
+		node->start += used_size;
+		list_add(&node->list,phead);
+	}
+	spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
+
 }
 
 static int get_free_dsp_node_count(struct dsp_pipe *dp)
@@ -190,9 +209,7 @@ static void snd_release_dma(struct dsp_pipe *dp)
 					ret = 0x7fffff;
 
 					if (dp->dma_config.direction == DMA_TO_DEVICE)
-						while(ret-- && (dpo->avialable_couter == 0));
-//					else if (dp->dma_config.direction == DMA_FROM_DEVICE)
-//						while(ret-- && (dpo->avialable_couter == 4));
+						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
 					if(ret == 0){
 						printk(KERN_INFO "sound dma transfer data error");
 					}
@@ -240,9 +257,9 @@ static void snd_release_node(struct dsp_pipe *dp)
 		free_count = dp->fragcnt;
 	}
 	if (dp->dma_config.direction == DMA_FROM_DEVICE)
-		dp->avialable_couter = 0;
+		atomic_set(&dp->avialable_couter,0);
 	else
-		dp->avialable_couter = free_count;
+		atomic_set(&dp->avialable_couter,free_count);
 
 }
 
@@ -271,7 +288,8 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 														  dp->dma_config.direction,
 														  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
-			put_use_dsp_node(dp, node);
+			dp->save_node = NULL;
+			put_use_dsp_node_head(dp, node, 0);
 			return -EFAULT;
 		}
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
@@ -284,6 +302,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		/* config sg */
 		sg_dma_address(dp->sg) = node->phyaddr;
 		sg_dma_len(dp->sg) = node->size;
+		//printk("size = %d.\n",node->size);
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
 														  dp->sg,
@@ -292,6 +311,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 														  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
 			put_free_dsp_node(dp, node);
+			dp->save_node = NULL;
 			return -EFAULT;
 		}
 	} else {
@@ -322,16 +342,14 @@ static void snd_dma_callback(void *arg)
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
 		put_free_dsp_node(dp, dp->save_node);
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
-		dp->save_node->end = dp->fragsize;
-		dp->save_node->start = 0;
 		dma_cache_sync(NULL, (void *)dp->save_node->pBuf, dp->save_node->size, dp->dma_config.direction);
-		put_use_dsp_node(dp, dp->save_node);
+		put_use_dsp_node(dp, dp->save_node,dp->save_node->size);
 	} else {
 		printk("error: audio driver dma transfer.\n");
 		return;
 	}
 	dp->save_node =	NULL;
-	dp->avialable_couter ++;
+	atomic_inc(&dp->avialable_couter);
 
 	if (dp->is_non_block == false)
 		wake_up_interruptible(&dp->wq);
@@ -588,12 +606,17 @@ static int spipe_init(struct device *dev)
  *	......		......
  *	0xff (-1)	0x7f (127)
  */
-int convert_8bits_signed2unsigned(void *buffer, int counter)
+int convert_8bits_signed2unsigned(void *buffer, int *counter,int needed_size)
 {
 	int i;
-	int counter_8align	= counter & ~0x7;
+	int counter_8align = 0;
 	unsigned char *ucsrc	= buffer;
 	unsigned char *ucdst	= buffer;
+
+	if (needed_size < (*counter)) {
+		*counter = needed_size;
+	}
+	counter_8align = (*counter) & ~0x7;
 
 	for (i = 0; i < counter_8align; i+=8) {
 		*(ucdst + i + 0) = *(ucsrc + i + 0) + 0x80;
@@ -608,11 +631,11 @@ int convert_8bits_signed2unsigned(void *buffer, int counter)
 
 	BUG_ON(i != counter_8align);
 
-	for (i = counter_8align; i < counter; i++) {
+	for (i = counter_8align; i < *counter; i++) {
 		*(ucdst + i) = *(ucsrc + i) + 0x80;
 	}
 
-	return counter;
+	return *counter;
 }
 
 /*
@@ -622,12 +645,19 @@ int convert_8bits_signed2unsigned(void *buffer, int counter)
  * data_len:	data length in kernel space, the length of stereo data
  *		calculated by "node->end - node->start"
  */
-int convert_8bits_stereo2mono(void *buff, int data_len)
+int convert_8bits_stereo2mono(void *buff, int *data_len,int needed_size)
 {
 	/* stride = 16 bytes = 2 channels * 1 byte * 8 pipelines */
-	int data_len_16aligned = data_len & ~0xf;
+	int data_len_16aligned = 0;
 	int mono_cur, stereo_cur;
 	unsigned char *uc_buff = buff;
+
+	if ((*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	*data_len = (*data_len) & (~0x1);
+
+	data_len_16aligned = (*data_len)& ~0xf;
 
 	/* copy 8 times each loop */
 	for (stereo_cur = mono_cur = 0;
@@ -647,11 +677,11 @@ int convert_8bits_stereo2mono(void *buff, int data_len)
 	BUG_ON(stereo_cur != data_len_16aligned);
 
 	/* remaining data */
-	for (; stereo_cur < data_len; stereo_cur += 2, mono_cur++) {
+	for (; stereo_cur < (*data_len); stereo_cur += 2, mono_cur++) {
 		uc_buff[mono_cur] = uc_buff[stereo_cur];
 	}
 
-	return (data_len >> 1);
+	return ((*data_len) >> 1);
 }
 
 /*
@@ -663,12 +693,19 @@ int convert_8bits_stereo2mono(void *buff, int data_len)
  * data_len:	data length in kernel space, the length of stereo data
  *		calculated by "node->end - node->start"
  */
-int convert_8bits_stereo2mono_signed2unsigned(void *buff, int data_len)
+int convert_8bits_stereo2mono_signed2unsigned(void *buff, int *data_len,int needed_size)
 {
 	/* stride = 16 bytes = 2 channels * 1 byte * 8 pipelines */
-	int data_len_16aligned = data_len & ~0xf;
+	int data_len_16aligned = 0;
 	int mono_cur, stereo_cur;
 	unsigned char *uc_buff = buff;
+
+	if ((*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	*data_len = (*data_len) & (~0x1);
+
+	data_len_16aligned = (*data_len) & ~0xf;
 
 	/* copy 8 times each loop */
 	for (stereo_cur = mono_cur = 0;
@@ -688,11 +725,11 @@ int convert_8bits_stereo2mono_signed2unsigned(void *buff, int data_len)
 	BUG_ON(stereo_cur != data_len_16aligned);
 
 	/* remaining data */
-	for (; stereo_cur < data_len; stereo_cur += 2, mono_cur++) {
+	for (; stereo_cur < (*data_len); stereo_cur += 2, mono_cur++) {
 		uc_buff[mono_cur] = uc_buff[stereo_cur] + 0x80;
 	}
 
-	return (data_len >> 1);
+	return ((*data_len) >> 1);
 }
 
 /*
@@ -702,13 +739,23 @@ int convert_8bits_stereo2mono_signed2unsigned(void *buff, int data_len)
  * data_len:	data length in kernel space, the length of stereo data
  *		calculated by "node->end - node->start"
  */
-int convert_16bits_stereo2mono(void *buff, int data_len)
+int convert_16bits_stereo2mono(void *buff, int *data_len, int needed_size)
 {
 	/* stride = 32 bytes = 2 channels * 2 byte * 8 pipelines */
-	int data_len_32aligned = data_len & ~0x1f;
-	int data_cnt_ushort = data_len_32aligned >> 1;
+	int data_len_32aligned = 0;
+	int data_cnt_ushort = 0;
 	int mono_cur, stereo_cur;
 	unsigned short *ushort_buff = (unsigned short *)buff;
+
+	if ((*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	/*when 16bit format one sample has four bytes
+	 *so we can not operat the singular byte*/
+	*data_len = (*data_len) & (~0x3);
+
+	data_len_32aligned = (*data_len) & ~0x1f;
+	data_cnt_ushort = data_len_32aligned >> 1;
 
 	/* copy 8 times each loop */
 	for (stereo_cur = mono_cur = 0;
@@ -728,11 +775,11 @@ int convert_16bits_stereo2mono(void *buff, int data_len)
 	BUG_ON(stereo_cur != data_cnt_ushort);
 
 	/* remaining data */
-	for (; stereo_cur < data_cnt_ushort; stereo_cur += 2, mono_cur++) {
+	for (; stereo_cur < ((*data_len) >> 1); stereo_cur += 2, mono_cur++) {
 		ushort_buff[mono_cur] = ushort_buff[stereo_cur];
 	}
 
-	return (data_len >> 1);
+	return ((*data_len) >> 1);
 }
 
 /*
@@ -742,19 +789,31 @@ int convert_16bits_stereo2mono(void *buff, int data_len)
  * data_len:	data length in kernel space, the length of stereo data
  *
  */
-int convert_16bits_stereomix2mono(void *buff, int data_len)
+int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size)
 {
 	/* stride = 32 bytes = 2 channels * 2 byte * 8 pipelines */
-	int data_len_32aligned = data_len & ~0x1f;
-	int data_cnt_ushort = data_len_32aligned >> 1;
+	int data_len_32aligned = 0;
+	int data_cnt_ushort = 0;
 	int left_cur, right_cur, mono_cur;
 	short *ushort_buff = (short *)buff;
 	/*init*/
 	left_cur = 0;
 	right_cur = left_cur + 1;
 	mono_cur = 0;
+
+
+	if ( (*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	/*when 16bit format one sample has four bytes
+	 *so we can not operat the singular byte*/
+	*data_len = (*data_len) & (~0x3);
+
+	data_len_32aligned = (*data_len) & (~0x1f);
+	data_cnt_ushort = data_len_32aligned >> 1;
+
 	/*because the buff's size is always 4096 bytes,so it will not lost data*/
-	while (right_cur < data_cnt_ushort)
+	while (left_cur < data_cnt_ushort)
 	{
 		ushort_buff[mono_cur + 0] = ((ushort_buff[left_cur + 0]) + (ushort_buff[right_cur + 0]));
 		ushort_buff[mono_cur + 1] = ((ushort_buff[left_cur + 2]) + (ushort_buff[right_cur + 2]));
@@ -766,11 +825,17 @@ int convert_16bits_stereomix2mono(void *buff, int data_len)
 		ushort_buff[mono_cur + 7] = ((ushort_buff[left_cur + 14]) + (ushort_buff[right_cur + 14]));
 
 		left_cur += 16;
-		right_cur = left_cur + 1;
+		right_cur += 16;
 		mono_cur += 8;
 	}
 
-	return (data_len >> 1);
+	BUG_ON(left_cur != data_cnt_ushort);
+
+	/* remaining data */
+	for (;right_cur < ((*data_len) >> 1); left_cur += 2, right_cur += 2)
+		ushort_buff[mono_cur++] = ushort_buff[left_cur] + ushort_buff[right_cur];
+
+	return ((*data_len) >> 1);
 }
 
 /********************************************************\
@@ -820,9 +885,9 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 
 	/* init others */
 	if (direction == DMA_TO_DEVICE)
-		dp->avialable_couter = dp->fragcnt;
+		atomic_set(&dp->avialable_couter,dp->fragcnt);
 	else if (direction == DMA_FROM_DEVICE)
-		dp->avialable_couter = 0;
+		atomic_set(&dp->avialable_couter,0);
 	dp->dma_config.direction = direction;
 	dp->dma_chan = NULL;
 	dp->save_node = NULL;
@@ -835,6 +900,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	dp->sg = NULL;
 	dp->sg_len = 0;
 	dp->filter = NULL;
+	dp->buffersize = dp->fragsize;
 
 	spin_lock_init(&dp->pipe_lock);
 
@@ -961,32 +1027,36 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			if (!node && dp->is_non_block)
 				return count - mcount;
 			if (!node) {
-				wait_event_interruptible(dp->wq, dp->avialable_couter >= 1);
+				wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
 			} else {
-				dp->avialable_couter --;
+				atomic_dec(&dp->avialable_couter);
 				break;
 			}
 		}
 
 		if ((node_buff_cnt = node->end - node->start) > 0) {
-			if (dp->filter)
-				fixed_buff_cnt = dp->filter((void *)(node->pBuf + node->start), node_buff_cnt);
-			else
-				fixed_buff_cnt = node_buff_cnt;
-
-			if (mcount >= fixed_buff_cnt) {
-				ret = copy_to_user((void *)buffer, (void *)(node->pBuf + node->start), fixed_buff_cnt);
-				if (!ret) {
-					buffer += fixed_buff_cnt;
-					mcount -= fixed_buff_cnt;
-				}
+			//printk("node->start = %d,node->end %d,mcount = %d\n",node->start,node->end,mcount);
+			if (dp->filter) {
+				fixed_buff_cnt = dp->filter((void *)(node->pBuf + node->start), &node_buff_cnt ,mcount);
 			} else {
-				ret = copy_to_user((void *)buffer,(void *)(node->pBuf + node->start), mcount);
-				mcount = 0;
+				if (mcount < node_buff_cnt) {
+					node_buff_cnt = mcount;
+				}
+				fixed_buff_cnt = node_buff_cnt;
 			}
+			ret = copy_to_user((void *)buffer, (void *)(node->pBuf + node->start), fixed_buff_cnt);
+			if (!ret) {
+				buffer += fixed_buff_cnt;
+				mcount -= fixed_buff_cnt;
+			} else
+				printk(KERN_ERR"i2s:read transfer error.\n");
 
-			put_free_dsp_node(dp, node);
-
+			//printk("fixed_buff_cnt %d, node_buff_cnt %d\n",fixed_buff_cnt,node_buff_cnt);
+			if (node_buff_cnt < node->end - node->start) {
+				put_use_dsp_node_head(dp,node,node_buff_cnt);
+				atomic_inc(&dp->avialable_couter);
+			} else
+				put_free_dsp_node(dp,node);
 			if (ret)
 				return -EFAULT;
 		}
@@ -1038,9 +1108,9 @@ ssize_t xb_snd_dsp_write(struct file *file,
 					return -1;
 				if (dp->is_non_block == true)
 					return count - mcount;
-				wait_event_interruptible(dp->wq, dp->avialable_couter >= 1);
+				wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
 			} else {
-				dp->avialable_couter --;
+				atomic_dec(&dp->avialable_couter);
 				break;
 			}
 		}
@@ -1050,11 +1120,12 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		else
 			copy_size = mcount;
 
-		if (copy_size == copy_from_user((void *)node->pBuf, buffer, copy_size)) {
-			dp->avialable_couter ++;
+		if (copy_from_user((void *)node->pBuf + node->start, buffer, copy_size) != 0) {
 			put_free_dsp_node(dp,node);
+			atomic_inc(&dp->avialable_couter);
 			return -EFAULT;
 		}
+
 #ifdef DEBUG_REPLAY
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
@@ -1067,10 +1138,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 #endif
 		buffer += copy_size;
 		mcount -= copy_size;
-
-		node->start = 0;
-		node->end = copy_size;
-		put_use_dsp_node(dp, node);
+		put_use_dsp_node(dp, node, copy_size);
 
 		if (dp->is_trans == false) {
 			ret = snd_prepare_dma_desc(dp);
@@ -1524,6 +1592,29 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
+	case SNDCTL_EXT_SET_BUFFSIZE: {
+		int buffersize;
+		if (get_user(buffersize,(int*)arg)) {
+			return -EFAULT;
+		}
+
+		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->out_endpoint;
+			printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
+		} else if (file->f_mode & FMODE_READ)
+			dp = endpoints->in_endpoint;
+		if (buffersize >= dp->fragsize)
+			dp->buffersize = dp->fragsize;
+		else if (buffersize < dp->fragsize && buffersize >= 1024)
+			dp->buffersize = buffersize;
+		else
+			printk("buffersize %d is not support,the range of buffersize frome %d to %d",
+					buffersize,1024,dp->fragsize);
+		printk("audio buffersize change to %d",dp->buffersize);
+		ret = put_user(dp->buffersize, (int *)arg);
+		break;
+	}
+
 	case SNDCTL_EXT_SET_STANDBY: {
 		/* extention: used for set standby and resume from standby */
 		int mode = -1;
@@ -1595,28 +1686,29 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->in_endpoint;
 			while(1) {
 				node = get_use_dsp_node(dp);
+				if (dp->is_trans == false) {
+					ret = snd_prepare_dma_desc(dp);
+					if (!ret) {
+						snd_start_dma_transfer(dp , dp->dma_config.direction);
+					} else if (!node) {
+						return -EFAULT;
+					}
+				}
+
+				if (dp->is_non_block) {
+					info.bytes = 0;
+					info.offset = -1;
+					return copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
+				}
+
 				if (!node) {
-					if (dp->is_trans == false) {
-						ret = snd_prepare_dma_desc(dp);
-						if (!ret) {
-							snd_start_dma_transfer(dp , dp->dma_config.direction);
-						} else {
-							return -EFAULT;
-						}
-					}
-					if (dp->is_non_block) {
-						info.bytes = 0;
-						info.offset = -1;
-						ret = copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
-					} else {
-						wait_event_interruptible(dp->wq, dp->avialable_couter >= 1);
-					}
+					wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
 				} else {
 					dp->save_node = node;
 					info.bytes = node->size;
 					info.offset = node->pBuf - dp->vaddr;
 					ret = copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
-					dp->avialable_couter --;
+					atomic_dec(&dp->avialable_couter);
 				}
 			}
 		} else
@@ -1628,8 +1720,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* extention: used to put free input node, used for mmapd mode */
 		if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
-			dp->save_node->start = 0;
-			dp->save_node->end = 0;
 			put_free_dsp_node(dp, dp->save_node);
 		} else
 			return -EPERM;
@@ -1645,6 +1735,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->out_endpoint;
 			node = get_free_dsp_node(dp);
 			if (node) {
+				atomic_dec(&dp->avialable_couter);
 				dp->save_node = node;
 				info.bytes = node->size;
 				info.offset = node->pBuf - dp->vaddr;
@@ -1667,14 +1758,16 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = copy_from_user((void *)&info, (void *)arg, sizeof(info)) ? -EFAULT : 0;
 			if (!ret) {
 				/* put node to use list */
-				dp->save_node->start = 0;
-				dp->save_node->end = info.bytes;
-				put_use_dsp_node(dp, dp->save_node);
+				put_use_dsp_node(dp, dp->save_node, info.bytes);
 				/* start dma transfer if dma is stopped */
 				if (dp->is_trans == false) {
 					ret = snd_prepare_dma_desc(dp);
 					if (!ret) {
 						snd_start_dma_transfer(dp , dp->dma_config.direction);
+					} else {
+						put_free_dsp_node(dp,dp->save_node);
+						atomic_inc(&dp->avialable_couter);
+						printk(KERN_ERR"audio driver :dma start failed ,drop the audio data.\n");
 					}
 				}
 			}
