@@ -24,9 +24,15 @@
 
 #define CT36X_TS_POINT_NUM 10    // max touch points supported
 
-#define CT36X_TS_X_REVERSE	1
+//#define CT36X_TS_X_REVERSE	1
 
-#ifdef CONFIG_Q8
+#if (defined(CONFIG_Q8)||defined(CONFIG_BOARD_JI8070A))
+#define CT36X_TS_X_REVERSE	0
+#else
+#define CT36X_TS_X_REVERSE  1
+#endif
+
+#if (defined(CONFIG_Q8)||defined(CONFIG_BOARD_JI8070A))
 #define CT36X_TS_Y_REVERSE	0
 #else
 #define CT36X_TS_Y_REVERSE  1
