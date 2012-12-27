@@ -451,15 +451,14 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	unsigned short  tmp;
 
 	i2c->w_flag = 1;
+	i2c->wbuf = buf;
+	i2c->wt_len = len;
 
 	i2c_writel(i2c,I2C_TXTL,TX_LEVEL);
 	tmp = i2c_readl(i2c,I2C_INTM);
 	tmp |= I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
 	
-	i2c->wbuf = buf;
-	i2c->wt_len = len;
-
 	timeout = wait_for_completion_timeout(&i2c->w_complete,HZ);
 	if(!timeout){
 		dev_err(&(i2c->adap.dev),"--I2C pio write wait timeout\n");
