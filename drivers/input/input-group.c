@@ -88,6 +88,7 @@ int input_group_lock(struct input_group *group) {
 	struct input_member *member;
 	int err = 0;
 
+	mutex_lock(&group->lock);
 	list_for_each_entry(member, &group->members, node) {
 		if (member->lock) {
 			err = member->lock(member);
@@ -95,6 +96,7 @@ int input_group_lock(struct input_group *group) {
 				break;
 		}
 	}
+	mutex_unlock(&group->lock);
 
 	return err;
 }
@@ -104,6 +106,7 @@ int input_group_unlock(struct input_group *group) {
 	struct input_member *member;
 	int err = 0;
 
+	mutex_lock(&group->lock);
 	list_for_each_entry(member, &group->members, node) {
 		if (member->unlock) {
 			err = member->unlock(member);
@@ -111,6 +114,7 @@ int input_group_unlock(struct input_group *group) {
 				break;
 		}
 	}
+	mutex_lock(&group->lock);
 
 	return err;
 }
