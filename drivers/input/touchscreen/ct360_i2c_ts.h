@@ -26,13 +26,13 @@
 
 //#define CT36X_TS_X_REVERSE	1
 
-#if (defined(CONFIG_Q8)||defined(CONFIG_BOARD_JI8070A))
+#if (defined(CONFIG_Q8)||defined(CONFIG_JI8070A))
 #define CT36X_TS_X_REVERSE	0
 #else
 #define CT36X_TS_X_REVERSE  1
 #endif
 
-#if (defined(CONFIG_Q8)||defined(CONFIG_BOARD_JI8070A))
+#if (defined(CONFIG_Q8)||defined(CONFIG_JI8070A))
 #define CT36X_TS_Y_REVERSE	0
 #else
 #define CT36X_TS_Y_REVERSE  1
