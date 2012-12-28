@@ -310,8 +310,6 @@ static inline void mg_report(struct mg_data *mg) {
 					jiffies_btn_down) < HZ / 8) {
 				report_menu(mg);
 				floating_t_down = 0;
-			} else {
-				report_t_btn_down(mg);
 			}
 		}
 
@@ -363,11 +361,9 @@ static inline void mg_report(struct mg_data *mg) {
 				floating_b_down = 1;
 				jiffies_btn_down = get_jiffies_64();
 
-			} else if (floating_b_down &&
-					prev_s == MG_FLOATING) {
+			} else if (floating_b_down) {
 				floating_b_down = 0;
 				report_b_btn_up(mg);
-
 			}
 		}
 
