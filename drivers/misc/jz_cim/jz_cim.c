@@ -552,8 +552,10 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 						printk("desc[%d].next = 0x%8x, desc[%d].id = %d \n", i, desc[i].next, i, desc[i].id);   
 					}
 					redo_num++;
-					if(redo_num > 2)
+					if(redo_num > 2){
+						cim->frm_id = 0;
 						break;
+					}
 				}else{
 					break;
 				}
