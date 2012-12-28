@@ -20,12 +20,15 @@
 #include <linux/pwm.h>
 #include <linux/pwm_backlight.h>
 #include <linux/slab.h>
+#include <linux/notifier.h>
+#include <linux/reboot.h>
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
 	unsigned int		period;
 	unsigned int		lth_brightness;
+    struct notifier_block nb;
 	int			(*notify)(struct device *,
 					  int brightness);
 	int			(*check_fb)(struct device *, struct fb_info *);
@@ -68,6 +71,18 @@ static const struct backlight_ops pwm_backlight_ops = {
 	.update_status	= pwm_backlight_update_status,
 	.get_brightness	= pwm_backlight_get_brightness,
 };
+
+static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
+			   unsigned long unused2, void *unused3)
+{
+	struct pwm_bl_data *pb = container_of(rnb,
+            struct pwm_bl_data, nb); 
+
+    pwm_config(pb->pwm, 0, pb->period);
+    pwm_disable(pb->pwm);
+
+	return NOTIFY_DONE;
+}
 
 static int pwm_backlight_probe(struct platform_device *pdev)
 {
@@ -125,6 +140,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	backlight_update_status(bl);
 
 	platform_set_drvdata(pdev, bl);
+
+    pb->nb.notifier_call = pwm_bl_shutdown_notify;
+	register_reboot_notifier(&pb->nb);
+
 	return 0;
 
 err_bl:
@@ -150,6 +169,9 @@ static int pwm_backlight_remove(struct platform_device *pdev)
 	kfree(pb);
 	if (data->exit)
 		data->exit(&pdev->dev);
+
+	unregister_reboot_notifier(&pb->nb);
+
 	return 0;
 }
 
