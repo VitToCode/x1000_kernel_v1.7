@@ -29,9 +29,9 @@ typedef struct __route_conf_base {
 	int route_inputr_to_bypass_mode;
 	int route_record_mux_mode;
 	int route_adc_mode;
-	int route_record_mixer_mode;
+	unsigned long route_record_mixer_mode;
 	//replay
-	int route_replay_mixer_mode;
+	unsigned long route_replay_mixer_mode;
 	int route_dac_mode;
 	int route_hp_mux_mode;
 	int route_hp_mode;
@@ -135,10 +135,48 @@ struct __codec_route_info {
 #define ADC_DISABLE							DISABLE
 
 /*record mixer*/
-#define RECORD_MIXER_MIX_MONO_INPUT_ONLY		1
-#define RECORD_MIXER_MIX_MONO_INPUT_AND_DAC		2
-#define RECORD_MIXER_MIX_STEREO_INPUT_AND_DAC	3
-#define RECORD_MIXER_NOUSE						4
+#define RECORD_MIXER_NO_USE					0x0
+#define	RECORD_MIXER_INPUT_ONLY				0x1
+#define RECORD_MIXER_INPUT_AND_DAC			0x2
+#define RECORD_MIXER_MASK					0x3
+
+#define AIADC_MIXER_INPUTL_TO_L				0x4
+#define AIADC_MIXER_INPUTR_TO_L				0x8
+#define AIADC_MIXER_INPUTLR_TO_L			0x10
+#define AIADC_MIXER_NOINPUT_TO_L			0x20
+#define AIADC_MIXER_L_MASK					0x3c
+
+#define AIADC_MIXER_INPUTL_TO_R				0x40
+#define AIADC_MIXER_INPUTR_TO_R				0x80
+#define AIADC_MIXER_INPUTLR_TO_R			0x100
+#define AIADC_MIXER_NOINPUT_TO_R			0x200
+#define AIADC_MIXER_R_MASK					0x3c0
+
+/*mixer adc dac*/
+
+#define	MIXADC_MIXER_INPUTL_TO_L			0x400
+#define MIXADC_MIXER_INPUTR_TO_L			0x800
+#define MIXADC_MIXER_INPUTLR_TO_L			0x1000
+#define MIXADC_MIXER_NOINPUT_TO_L			0x2000
+#define MIXADC_MIXER_L_MASK					0x3c00
+
+#define MIXADC_MIXER_INPUTL_TO_R			0x4000
+#define MIXADC_MIXER_INPUTR_TO_R			0x8000
+#define MIXADC_MIXER_INPUTLR_TO_R			0x10000
+#define MIXADC_MIXER_NOINPUT_TO_R			0x20000
+#define MIXADC_MIXER_R_MASK					0x3c000
+
+#define MIXDAC_MIXER_L_TO_DACL				0X40000
+#define MIXDAC_MIXER_R_TO_DACL				0x80000
+#define MIXDAC_MIXER_LR_TO_DACL				0x100000
+#define MIXDAC_MIXER_NO_TO_DACL				0x400000
+#define MIXDAC_MIXER_L_MASK					0x3c0000
+
+#define MIXDAC_MIXER_L_TO_DACR				0X400000
+#define MIXDAC_MIXER_R_TO_DACR				0x800000
+#define MIXDAC_MIXER_LR_TO_DACR				0x1000000
+#define MIXDAC_MIXER_NO_TO_DACR				0x4000000
+#define MIXDAC_MIXER_R_MASK					0x3c00000
 
 /*lineout mode*/
 #define LINEOUT_ENABLE						1
@@ -171,10 +209,22 @@ struct __codec_route_info {
 
 
 /*replay mixer*/
-#define REPLAY_MIXER_PLAYBACK_DAC_ONLY				1
-#define REPLAY_MIXER_PLAYBACK_DAC_AND_MONO_ADC		2
-#define REPLAY_MIXER_PLAYBACK_DAC_AND_STEREO_ADC	3
-#define REPLAY_MIXER_NOUSE							4
+#define REPLAY_MIXER_NO_USE				0x0
+#define REPLAY_MIXER_DAC_ONLY			0x1
+#define REPLAY_MIXER_DAC_AND_ADC		0x2
+#define REPLAY_MIXER_MASK				0X3
+
+#define AIDAC_MIXER_DACL_TO_L			0x4
+#define AIDAC_MIXER_DACR_TO_L			0x8
+#define AIDAC_MIXER_DACLR_TO_L			0x10
+#define AIDAC_MIXER_NODAC_TO_L			0x20
+#define AIDAC_MIXER_L_MASK				0x3c
+
+#define AIDAC_MIXER_DACL_TO_R			0x40
+#define AIDAC_MIXER_DACR_TO_R			0x80
+#define AIDAC_MIXER_DACLR_TO_R			0x100
+#define AIDAC_MIXER_NODAC_TO_R			0x200
+#define AIDAC_MIXER_R_MASK				0x3c0
 
 /*other control*/
 #define RECORD_WND_FILTER					0X01

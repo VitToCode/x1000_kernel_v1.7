@@ -21,18 +21,8 @@ enum snd_codec_route_t {
 	 * replay route
 	 */
 	SND_ROUTE_REPLAY_ROUTE_START,
-	/*internal codec: linein2 bypass to lineout */
-	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT = SND_ROUTE_REPLAY_ROUTE_START,
-	/*internal codec: linein2 bypass to hprl */
-	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
-	/*internal codec: mic bypass to hprl*/
-	SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
-	/*internal codec: call record mic bypass to hprl*/
-	SND_ROUTE_CALL_RECORD,
-	/*internal codec: record mic1 an1 to adclr replay hp stereo*/  
-    SND_ROUTE_RECORD_MIC1_AN1_REPLAY_DACRL_TO_HPRL,
 	/*internal codec: dacrl to lineout*/
-	SND_ROUTE_REPLAY_DACRL_TO_LO,
+	SND_ROUTE_REPLAY_DACRL_TO_LO = SND_ROUTE_REPLAY_ROUTE_START,
 	/*internal codec: dacrl to hprl*/
 	SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 	/*internal codec: ..*/
@@ -51,9 +41,25 @@ enum snd_codec_route_t {
 	SND_ROUTE_RECORD_MIC2_SIN_AN3,
 	/*internal codec: linein 1 to adcrl*/
 	SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	/*internal codec: call record mic bypass to hprl*/
+	SND_ROUTE_CALL_RECORD,
 	/*internal codec record route end*/
 	SND_ROUTE_RECORD_ROUTE_END = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 
+	/*
+	 * loop route and bypass rount
+	 */
+	SND_ROUTE_LOOP_ROUTE_START,
+	/*internal codec: linein2 bypass to lineout */
+	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT = SND_ROUTE_LOOP_ROUTE_START,
+	/*internal codec: linein2 bypass to hprl */
+	SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
+	/*internal codec: mic bypass to hprl*/
+	SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
+	/*internal codec: record mic1 an1 to adclr replay hp stereo*/
+    SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+
+	SND_ROUTE_LOOP_ROUTE_END = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
 	/*
 	 *route count
 	 */
@@ -104,6 +110,7 @@ struct snd_codec_data {
 	struct snd_board_route uplink_buildin_mic_route;
 	struct snd_board_route uplink_headset_mic_route;
 	struct snd_board_route record_incall_route;
+	struct snd_board_route replay_loop_route;
 
 	/* gpio */
 	struct snd_board_gpio gpio_hp_mute;

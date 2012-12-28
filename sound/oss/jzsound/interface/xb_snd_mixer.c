@@ -77,6 +77,7 @@ ssize_t xb_snd_mixer_write(struct file *file,
 	unsigned long rate_out = 0;
 	unsigned hp_state = 0;
 	unsigned long devices = 0;
+	int mode = 3;
 	if (copy_from_user((void *)&buf_byte, buffer, 1)) {
 		printk("JZ MIX: copy_from_user failed !\n");
 		return -EFAULT;
@@ -123,6 +124,22 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			devices = SND_DEVICE_SPEAKER;
 			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
+		case '7':
+			printk(" \"7\" set loop test route for phone.\n");
+			devices = SND_DEVICE_LOOP_TEST;
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			break;
+		case 'c':
+			/*printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
+			if(copy_from_user((void *)buf_vol, buffer, 2)) {
+				return -EFAULT;
+			}
+			mode = (buf_vol[1] - '0');
+			printk("audio clear %s route.\n",mode == CODEC_RMODE ? "read" :
+					mode == CODEC_WMODE ? "write" : "all");
+			mode = 3;
+			ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)mode);*/
+			break;
 		case 'm':
 			printk(" \"m\" set mic volume 0 ~ 20db\n");
 			if(copy_from_user((void *)buf_vol, buffer, 3)) {
@@ -150,6 +167,8 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk(" \"4\" command:print headphone detect state.\n");
 			printk(" \"5\" set headphone route.\n");
 			printk(" \"6\" set speaker route.\n");
+			printk(" \"7\" set loop test route for phone.\n");
+			printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
 			printk(" \"mdb\" set mic volume (db = 0 ~ 20)\n");
 			printk(" \"vdb\" set record adc volume (db = 0 ~ 23)\n");
 	}

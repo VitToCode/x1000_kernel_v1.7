@@ -543,6 +543,7 @@ enum codec_ioctl_cmd_t {
 	CODEC_GET_HP_STATE,
 	CODEC_DUMP_REG,
 	CODEC_DUMP_GPIO,
+	CODEC_CLR_ROUTE,	//just use for phone pretest
 };
 /**
  *	i2s switch state

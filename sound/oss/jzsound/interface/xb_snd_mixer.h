@@ -12,6 +12,7 @@
 
 #include <linux/poll.h>
 #include <mach/jzsnd.h>
+#include "../devices/xb47xx_i2s.h"
 
 /**
  * functions interface

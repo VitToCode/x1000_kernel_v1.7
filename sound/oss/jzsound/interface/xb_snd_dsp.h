@@ -75,6 +75,8 @@ enum snd_device_t {
 
 	SND_DEVICE_RECORD_INCALL,
 
+	SND_DEVICE_LOOP_TEST = 23,
+
 	SND_DEVICE_COUNT
 };
 /**
@@ -182,6 +184,10 @@ enum snd_dsp_command {
 	SND_DSP_SET_RECORD_VOL,
 	SND_DSP_SET_MIC_VOL,
 	SND_DSP_SET_REPLAY_VOL,
+	/**
+	 * @SND_DSP_CLR_ROUTE  for pretest
+	 **/
+	SND_DSP_CLR_ROUTE,
 };
 
 /**

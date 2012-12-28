@@ -911,6 +911,10 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_SET_MIC_VOLUME, arg);
 		break;
+	case SND_DSP_CLR_ROUTE:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_CLR_ROUTE,arg);
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);

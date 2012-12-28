@@ -60,7 +60,14 @@ extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_cl
  *
  *if use in suspend and resume, should use delay
  */
+
+#define MIXER_RECORD  0x1
+#define	MIXER_REPLAY  0x2
+
+static int g_short_circut_state = 0;
 static int g_codec_sleep_mode = 1;
+static int g_mixer_is_used = 0;
+
 void codec_sleep(int ms)
 {
 	if(!g_codec_sleep_mode)
@@ -187,6 +194,7 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_RECORD_MIC1_SIN_AN2,
 		SND_ROUTE_RECORD_MIC2_SIN_AN3,
 		SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+		SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
 	};
 
 	char *route_str[] = {
@@ -204,6 +212,7 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_RECORD_MIC1_SIN_AN2",
 		"SND_ROUTE_RECORD_MIC2_SIN_AN3",
 		"SND_ROUTE_RECORD_LINEIN1_DIFF_AN1",
+		"SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -269,6 +278,8 @@ static void dump_codec_regs(void)
 		data = __codec_mix_read_reg(i);
 		printk("mix%d val = 0x%02x\n",i,data);
 	}
+	if (!g_mixer_is_used)
+		__codec_mix_disable();
 }
 
 #if CODEC_DUMP_ROUTE_PART_REGS
@@ -401,7 +412,8 @@ static void codec_late_resume(struct early_suspend *handler)
 static void codec_prepare_ready(int mode)
 {
 	DUMP_ROUTE_PART_REGS("enter");
-	if(__codec_get_sb() == POWER_OFF)
+	if(__codec_get_sb() == POWER_OFF &&
+			g_short_circut_state == 0)
 	{
 		__codec_switch_sb(POWER_ON);
 		codec_sleep(250);
@@ -775,71 +787,220 @@ static void codec_set_adc(int mode)
 
 	DUMP_ROUTE_PART_REGS("leave");
 }
-/*record mixer*/
-static void codec_set_record_mixer(int mode)
+
+static void codec_set_mixer(unsigned long mode)
 {
-	DUMP_ROUTE_PART_REGS("enter");
+	uint32_t mixer_inputr = CODEC_MIX_FUNC_NOINPUT;
+	uint32_t mixer_inputl = CODEC_MIX_FUNC_NOINPUT;
+	uint32_t mixer_dacr = CODEC_MIX_FUNC_NOINPUT;
+	uint32_t mixer_dacl = CODEC_MIX_FUNC_NOINPUT;
 
-	switch(mode){
-
-	case RECORD_MIXER_MIX_MONO_INPUT_ONLY:
-		__codec_mix_enable();
-		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
-		__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_CROSS);
+	switch (mode & MIXADC_MIXER_L_MASK) {
+	case MIXADC_MIXER_INPUTL_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_NORMAL;
 		break;
-	case RECORD_MIXER_MIX_MONO_INPUT_AND_DAC:
-		__codec_mix_enable();
-		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_AND_DAC);
-		__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_CROSS);
-		__codec_set_mix(CR_MIX1,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+	case MIXADC_MIXER_INPUTR_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_CROSS;
 		break;
-	case RECORD_MIXER_MIX_STEREO_INPUT_AND_DAC:
-		__codec_mix_enable();
-		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_AND_DAC);
-		__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-		__codec_set_mix(CR_MIX1,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+	case MIXADC_MIXER_INPUTLR_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_MIXED;
 		break;
-	case RECORD_MIXER_NOUSE:
-		break;
-	default:
-		printk("JZ_CODEC: line: %d, record mixer mode error!\n", __LINE__);
+	case MIXADC_MIXER_NOINPUT_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_NOINPUT;
 		break;
 	}
+
+	switch (mode & MIXADC_MIXER_R_MASK) {
+	case MIXADC_MIXER_INPUTL_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_CROSS;
+		break;
+	case MIXADC_MIXER_INPUTR_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case MIXADC_MIXER_INPUTLR_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_MIXED;
+		break;
+	case MIXADC_MIXER_NOINPUT_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+	__codec_set_mix(CR_MIX3,mixer_inputl,mixer_inputr);
+
+	switch (mode & MIXDAC_MIXER_L_MASK) {
+	case MIXDAC_MIXER_L_TO_DACL:
+		mixer_dacl = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case MIXDAC_MIXER_R_TO_DACL:
+		mixer_dacl = CODEC_MIX_FUNC_CROSS;
+		break;
+	case MIXDAC_MIXER_LR_TO_DACL:
+		mixer_dacl = CODEC_MIX_FUNC_MIXED;
+		break;
+	case MIXDAC_MIXER_NO_TO_DACL:
+		mixer_dacl = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+
+	switch (mode & MIXDAC_MIXER_R_MASK) {
+	case MIXDAC_MIXER_L_TO_DACR:
+		mixer_dacr = CODEC_MIX_FUNC_CROSS;
+		break;
+	case MIXDAC_MIXER_R_TO_DACR:
+		mixer_dacr = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case MIXDAC_MIXER_LR_TO_DACR:
+		mixer_dacr = CODEC_MIX_FUNC_MIXED;
+		break;
+	case MIXDAC_MIXER_NO_TO_DACR:
+		mixer_dacr = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+
+	__codec_set_mix(CR_MIX1,mixer_dacl,mixer_dacr);
+}
+
+/*record mixer*/
+static void codec_set_record_mixer(unsigned long mode)
+{
+	int mixer_inputr = CODEC_MIX_FUNC_NOINPUT;
+	int mixer_inputl = CODEC_MIX_FUNC_NOINPUT;
+
+	DUMP_ROUTE_PART_REGS("enter");
+	switch(mode & RECORD_MIXER_MASK) {
+	case RECORD_MIXER_INPUT_ONLY:
+		g_mixer_is_used |= MIXER_RECORD;
+		__codec_mix_enable();
+		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
+		break;
+	case RECORD_MIXER_INPUT_AND_DAC:
+		g_mixer_is_used |= MIXER_RECORD;
+		__codec_mix_enable();
+		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_AND_DAC);
+		break;
+	default :
+		g_mixer_is_used &= ~MIXER_RECORD;
+		if (!g_mixer_is_used) {
+			__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
+			__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+			__codec_mix_disable();
+		}
+		return;
+	}
+
+	switch (mode & AIADC_MIXER_L_MASK) {
+	case AIADC_MIXER_INPUTL_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case AIADC_MIXER_INPUTR_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_CROSS;
+		break;
+	case AIADC_MIXER_INPUTLR_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_MIXED;
+		break;
+	case AIADC_MIXER_NOINPUT_TO_L:
+		mixer_inputl = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+
+	switch (mode & AIADC_MIXER_R_MASK) {
+	case AIADC_MIXER_INPUTL_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_CROSS;
+		break;
+	case AIADC_MIXER_INPUTR_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case AIADC_MIXER_INPUTLR_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_MIXED;
+		break;
+	case AIADC_MIXER_NOINPUT_TO_R:
+		mixer_inputr = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+
+	__codec_set_mix(CR_MIX2,mixer_inputl,mixer_inputr);
+
+	if (!(g_mixer_is_used & MIXER_REPLAY)) {
+		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
+		__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+	}
+
+	if (mode & RECORD_MIXER_INPUT_ONLY)
+		return;
+	else
+		codec_set_mixer(mode);
 
 	DUMP_ROUTE_PART_REGS("leave");
 }
 
 /*replay mixer*/
-static void codec_set_replay_mixer(int mode)
+static void codec_set_replay_mixer(unsigned long mode)
 {
+	uint32_t mixer_l = CODEC_MIX_FUNC_NOINPUT;
+	uint32_t mixer_r = CODEC_MIX_FUNC_NOINPUT;
+
 	DUMP_ROUTE_PART_REGS("enter");
-
-	switch(mode){
-
-	case REPLAY_MIXER_PLAYBACK_DAC_ONLY:
+	switch (mode & REPLAY_MIXER_MASK) {
+	case REPLAY_MIXER_DAC_ONLY:
 		__codec_mix_enable();
 		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
-		__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+		g_mixer_is_used |= MIXER_REPLAY;
 		break;
-
-	case REPLAY_MIXER_PLAYBACK_DAC_AND_MONO_ADC:
+	case REPLAY_MIXER_DAC_AND_ADC:
+		g_mixer_is_used |= MIXER_REPLAY;
 		__codec_mix_enable();
 		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_AND_ADC);
-		__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-		__codec_set_mix(CR_MIX3,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_CROSS);
-		break;
-	case REPLAY_MIXER_PLAYBACK_DAC_AND_STEREO_ADC:
-		__codec_mix_enable();
-		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_AND_ADC);
-		__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-		__codec_set_mix(CR_MIX3,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-		break;
-	case REPLAY_MIXER_NOUSE:
 		break;
 	default:
-		printk("JZ_CODEC: line: %d, replay mixer mode error!\n", __LINE__);
+		g_mixer_is_used &= ~MIXER_REPLAY;
+		if (!g_mixer_is_used) {
+			__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
+			__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+			__codec_mix_disable();
+		}
+		return;
+	}
+
+	switch (mode & AIDAC_MIXER_L_MASK) {
+	case AIDAC_MIXER_DACL_TO_L:
+		mixer_l = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case AIDAC_MIXER_DACR_TO_L:
+		mixer_l = CODEC_MIX_FUNC_CROSS;
+		break;
+	case AIDAC_MIXER_DACLR_TO_L:
+		mixer_l = CODEC_MIX_FUNC_MIXED;
+		break;
+	case AIDAC_MIXER_NODAC_TO_L:
+		mixer_l = CODEC_MIX_FUNC_NOINPUT;
 		break;
 	}
+
+	switch (mode & AIDAC_MIXER_R_MASK) {
+	case AIDAC_MIXER_DACL_TO_R:
+		mixer_r = CODEC_MIX_FUNC_CROSS;
+		break;
+	case AIDAC_MIXER_DACR_TO_R:
+		mixer_r = CODEC_MIX_FUNC_NORMAL;
+		break;
+	case AIDAC_MIXER_DACLR_TO_R:
+		mixer_r = CODEC_MIX_FUNC_MIXED;
+		break;
+	case AIDAC_MIXER_NODAC_TO_R:
+		mixer_r = CODEC_MIX_FUNC_NOINPUT;
+		break;
+	}
+
+	__codec_set_mix(CR_MIX0,mixer_l,mixer_r);
+
+	if (!(g_mixer_is_used & MIXER_RECORD)) {
+		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
+		__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
+	}
+
+	if (mode & REPLAY_MIXER_DAC_ONLY)
+		return;
+	else
+		codec_set_mixer(mode);
 
 	DUMP_ROUTE_PART_REGS("leave");
 }
@@ -1570,7 +1731,6 @@ static void codec_set_route_base(const void *arg)
 	if (conf->route_ready_mode)
 		codec_prepare_ready(conf->route_ready_mode);
 
-	__codec_mix_disable();
 	/*--------------route---------------*/
 	/* record path */
 	if (conf->route_adc_mode)
@@ -1589,8 +1749,9 @@ static void codec_set_route_base(const void *arg)
 		codec_set_inputr_to_bypass(conf->route_inputr_to_bypass_mode);
 	if (conf->route_record_mux_mode)
 		codec_set_record_mux(conf->route_record_mux_mode);
-	if (conf->route_record_mixer_mode)
-		codec_set_record_mixer(conf->route_record_mixer_mode);
+
+	codec_set_record_mixer(conf->route_record_mixer_mode);
+
 	if (conf->route_inputl_mode)
 		codec_set_inputl(conf->route_inputl_mode);
 	if (conf->route_inputr_mode)
@@ -1602,8 +1763,8 @@ static void codec_set_route_base(const void *arg)
 
 
 		/* replay path */
-	if (conf->route_replay_mixer_mode)
-		codec_set_replay_mixer(conf->route_replay_mixer_mode);
+	codec_set_replay_mixer(conf->route_replay_mixer_mode);
+
 	if (conf->route_dac_mode)
 		codec_set_dac(conf->route_dac_mode);
 	if (conf->route_hp_mux_mode)
@@ -1917,6 +2078,7 @@ static int codec_set_route(enum snd_codec_route_t route)
 	tmp_broute.gpio_handset_en_stat = -1;
 	tmp_broute.gpio_spk_en_stat = -1;
 	tmp_broute.gpio_hp_mute_stat = -1;
+	tmp_broute.gpio_buildin_mic_en_stat = -1;
 	return codec_set_board_route(&tmp_broute);
 }
 
@@ -2102,12 +2264,14 @@ static int codec_suspend(void)
 	int ret;
 
 	g_codec_sleep_mode = 0;
+#if 1
 	ret = codec_set_route(SND_ROUTE_ALL_CLEAR);
 	if(ret != SND_ROUTE_ALL_CLEAR)
 	{
 		printk("JZ CODEC: codec_suspend_part error!\n");
 		return 0;
 	}
+#endif
 
 	__codec_disable_dac_interface();
 	__codec_disable_adc_interface();
@@ -2126,6 +2290,7 @@ static int codec_resume(void)
 	__codec_switch_sb(POWER_ON);
 	codec_sleep(250);
 
+#if 1
 	if (keep_old_route) {
 		tmp_route = keep_old_route->route;
 		ret = codec_set_board_route(keep_old_route);
@@ -2134,6 +2299,7 @@ static int codec_resume(void)
 			return 0;
 		}
 	}
+#endif
 
 	g_codec_sleep_mode = 1;
 
@@ -2256,7 +2422,14 @@ static int codec_set_device(enum snd_device_t device)
 			}
 		}
 		break;
-
+	case SND_DEVICE_LOOP_TEST:
+		if (codec_platform_data && codec_platform_data->replay_loop_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->replay_loop_route));
+			if(ret != codec_platform_data->replay_loop_route.route) {
+				return -1;
+			}
+		}
+		break;
 	default:
 		iserror = 1;
 		printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
@@ -2594,30 +2767,27 @@ static inline void codec_short_circut_handler(void)
 	printk("Short circut volume delay %d ms curr_hp_left_vol=%x curr_hp_right_vol=%x \n",
 			delay, curr_hp_left_vol, curr_hp_right_vol);
 	codec_sleep(delay);
-#ifndef CONFIG_JZ_HP_DETECT_CODEC
 
-	/* turn off sb_hp */
-	__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
-	__codec_switch_sb_hp(POWER_OFF);
-	codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
-
-#endif //nodef CONFIG_JZ_HP_DETECT_CODEC
-
+	/*  turn off sb_hp */
+	g_short_circut_state = 1;
 	while (1) {
 		codec_ifr = __codec_get_irq_flag();
-		if ((codec_ifr & (1 << IFR_SCLR_EVENT)) == 0)
+		if ((codec_ifr & (1 << IFR_SCLR_EVENT)) == 0) {
+			printk("Out short circut .\n");
+			g_short_circut_state = 0;
 			break;
+		}
+		codec_sleep(10);
+		__codec_switch_sb(POWER_OFF);
+		codec_sleep(10);
+
+		printk("Short circut shutdown codec.\n");
 		__codec_set_irq_flag(1 << IFR_SCLR_EVENT);
 		codec_sleep(10);
+		__codec_switch_sb(POWER_ON);
+		codec_sleep(250);
 	}
 
-#ifndef CONFIG_JZ_HP_DETECT_CODEC
-	/* turn on sb_hp */
-	__codec_set_irq_flag(1 << IFR_DAC_MODE_EVENT);
-	__codec_switch_sb_hp(POWER_ON);
-	 codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
-
-#endif //nodef CONFIG_JZ_HP_DETECT_CODEC
 
 	/* restore hp gain */
 	codec_set_gain_hp_left(curr_hp_left_vol);
@@ -2646,7 +2816,6 @@ static int codec_irq_handle(struct work_struct *detect_work)
 	/* Mask all irq temporarily */
 	if ((codec_ifr & (~ICR_COMMON_MASK & ICR_ALL_MASK))){
 		do {
-
 			if (codec_ifr & (1 << IFR_SCLR_EVENT)) {
 				printk("JZ CODEC: Short circut detected! codec_ifr = 0x%02x\n",codec_ifr);
 				codec_short_circut_handler();
@@ -2844,6 +3013,16 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			dump_gpio_state();
 			ret = 0;
 			break;
+		case CODEC_CLR_ROUTE:
+			if ((int)arg == CODEC_RMODE)
+				codec_set_route(SND_ROUTE_RECORD_CLEAR);
+			else if ((int)arg == CODEC_WMODE)
+				codec_set_route(SND_ROUTE_REPLAY_CLEAR);
+			else {
+				codec_set_route(SND_ROUTE_ALL_CLEAR);
+			}
+			ret = 0;
+			break;
 		default:
 			printk("JZ CODEC:%s:%d: Unkown IOC commond\n", __FUNCTION__, __LINE__);
 			ret = -1;
@@ -2878,6 +3057,7 @@ static int jz_codec_probe(struct platform_device *pdev)
 			gpio_free(codec_platform_data->gpio_buildin_mic_select.gpio);
 			gpio_request(codec_platform_data->gpio_buildin_mic_select.gpio,"gpio_buildin_mic_switch");
 		}
+	if (codec_platform_data->gpio_hp_mute.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_hp_mute.gpio,"gpio_hp_mute") < 0) {
 			gpio_free(codec_platform_data->gpio_hp_mute.gpio);
 			gpio_request(codec_platform_data->gpio_hp_mute.gpio,"gpio_hp_mute");
