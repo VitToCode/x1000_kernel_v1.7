@@ -57,7 +57,7 @@ static struct platform_nand_partition partition_info[] = {
 	ex_partition:{{0},{0},{0},{0}}
 	},
 	{
-	name:"ndmisc",
+	name:"ndextern",
 	offset:576 * 0x100000LL,
 	size:3520 * 0x100000LL,
 	mode:ZONE_MANAGER,
@@ -77,7 +77,7 @@ static struct platform_nand_partition partition_info[] = {
 		size:128 * 0x100000LL,
 		},
 		{
-		name:"ndflash",
+		name:"ndmisc",
 		offset:1728 * 0x100000LL,
 		size:2368 * 0x100000LL,
 		}
