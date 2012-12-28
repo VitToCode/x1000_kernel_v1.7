@@ -287,7 +287,7 @@ static inline void mg_report(struct mg_data *mg) {
 	case MG_FLOATING: //0x10
 		if (prev_s == MG_FLOATING_B_DOWN) {
 			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < 100) {
+					jiffies_btn_down) < 300) {
 				report_back(mg);
 				floating_b_down = 0;
 			} else {
@@ -297,7 +297,7 @@ static inline void mg_report(struct mg_data *mg) {
 
 		if (prev_s == MG_FLOATING_T_DOWN) {
 			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < 100) {
+					jiffies_btn_down) < 300) {
 				report_menu(mg);
 				floating_t_down = 0;
 			} else {
@@ -348,9 +348,15 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 
 	case MG_FLOATING_B_DOWN: //0x12
-		if (!floating_b_down) {
+		if (!floating_b_down &&
+				prev_s != MG_FLOATING_T_DOWN) {
 			floating_b_down = 1;
 			jiffies_btn_down = get_jiffies_64();
+		}
+
+		if (floating_b_down) {
+			floating_b_down = 0;
+			report_b_btn_up(mg);
 		}
 
 		break;
@@ -359,6 +365,11 @@ static inline void mg_report(struct mg_data *mg) {
 		if (!floating_t_down) {
 			floating_t_down = 1;
 			jiffies_btn_down = get_jiffies_64();
+		}
+
+		if (floating_t_down) {
+			floating_t_down = 0;
+			report_t_btn_up(mg);
 		}
 
 		break;
