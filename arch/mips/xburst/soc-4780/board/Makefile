@@ -13,3 +13,4 @@ obj-$(CONFIG_BOARD_M80701)		+= m80701/
 obj-$(CONFIG_BOARD_NPM801)		+= npm801/
 obj-$(CONFIG_BOARD_JI8070A)		+= ji8070a/
 obj-$(CONFIG_BOARD_I88)			+= i88/
+obj-$(CONFIG_BOARD_GRUS)		+= grus/

@@ -43,6 +43,9 @@ config BOARD_NPM801
 config BOARD_I88
 		bool "I88"
 
+config BOARD_GRUS
+		bool "Grus"
+
 endchoice
 
 
@@ -71,4 +74,5 @@ config BOARD_NAME
 	default "M80701" if BOARD_M80701
 	default "NPM801" if BOARD_NPM801
 	default "I88" if BOARD_I88
+	default "Grus" if BOARD_GRUS
 

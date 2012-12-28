@@ -158,6 +158,13 @@ config TOUCHSCREEN_GWTC9XXXB
 	help
 	  gwtc9xxxb a CTP controller
 
+config GWTC9XXXB_DEBUG
+	bool "Enable GWTC9xxxB TouchScreen driver Debug output"
+	depends on TOUCHSCREEN_GWTC9XXXB 
+	default n
+	help
+		say Y here if you are trying to debug gwtc9xxxb
+
 config TOUCHSCREEN_CT36X
 	tristate "Touchscreen CT36X"
 	depends on I2C && JZ4780_SUPPORT_TSC
