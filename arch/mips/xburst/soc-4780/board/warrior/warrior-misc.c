@@ -398,7 +398,11 @@ static int __init warrior_board_init(void)
  */
 const char *get_board_type(void)
 {
-	return "warrior";
+#ifdef CONFIG_BOARD_TROOPER
+        return "trooper";
+#else
+        return "warrior";
+#endif
 }
 
 arch_initcall(warrior_board_init);

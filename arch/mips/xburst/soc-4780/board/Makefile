@@ -5,6 +5,7 @@ obj-$(CONFIG_BOARD_TEST)		+= test/
 obj-$(CONFIG_BOARD_GIANT)		+= giant/
 obj-$(CONFIG_BOARD_WARRIOR)		+= warrior/
 obj-$(CONFIG_BOARD_WARRIOR_V_1_1)	+= warrior/
+obj-$(CONFIG_BOARD_TROOPER)	        += warrior/
 obj-$(CONFIG_BOARD_CAPTAIN)		+= captain/
 obj-$(CONFIG_BOARD_HDMI_80)		+= hdmi-80/
 obj-$(CONFIG_BOARD_M80)			+= m80/
