@@ -282,6 +282,16 @@ static inline void mg_report(struct mg_data *mg) {
 				report_wakeup(mg);
 		}
 
+		if (floating_b_down) {
+			floating_b_down = 0;
+			report_b_btn_up(mg);
+		}
+
+		if (floating_t_down) {
+			floating_t_down = 0;
+			report_t_btn_up(mg);
+		}
+
 		break;
 
 	case MG_FLOATING: //0x10
@@ -357,6 +367,10 @@ static inline void mg_report(struct mg_data *mg) {
 					prev_s == MG_FLOATING) {
 				floating_b_down = 0;
 				report_b_btn_up(mg);
+
+			} else if (floating_t_down) {
+				floating_t_down = 0;
+				report_t_btn_up(mg);
 			}
 		}
 
