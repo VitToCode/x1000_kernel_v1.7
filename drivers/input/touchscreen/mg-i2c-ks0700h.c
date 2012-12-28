@@ -368,9 +368,25 @@ static inline void mg_report(struct mg_data *mg) {
 				floating_b_down = 0;
 				report_b_btn_up(mg);
 
-			} else if (floating_t_down) {
+			}
+		}
+
+		if (floating_t_down) {
+			if (prev_s == MG_FLOATING) {
 				floating_t_down = 0;
 				report_t_btn_up(mg);
+
+			} else if (prev_s == MG_FLOATING_T_DOWN) {
+				report_t_btn_down(mg);
+
+			} else {
+				if (saved_x != mg->x &&
+						saved_y != mg->y) {
+					report_value(mg);
+					saved_x = mg->x;
+					saved_y = mg->y;
+					changed = 1;
+				}
 			}
 		}
 
