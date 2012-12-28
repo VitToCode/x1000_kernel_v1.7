@@ -352,9 +352,9 @@ static inline void mg_report(struct mg_data *mg) {
 				prev_s != MG_FLOATING_T_DOWN) {
 			floating_b_down = 1;
 			jiffies_btn_down = get_jiffies_64();
-		}
 
-		if (floating_b_down) {
+		} else if (floating_b_down &&
+				prev_s == MG_FLOATING) {
 			floating_b_down = 0;
 			report_b_btn_up(mg);
 		}
@@ -362,12 +362,13 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 
 	case MG_FLOATING_T_DOWN: //0x13
+
 		if (!floating_t_down) {
 			floating_t_down = 1;
 			jiffies_btn_down = get_jiffies_64();
-		}
 
-		if (floating_t_down) {
+		} else if (floating_t_down &&
+				prev_s == MG_FLOATING) {
 			floating_t_down = 0;
 			report_t_btn_up(mg);
 		}
