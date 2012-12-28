@@ -2035,10 +2035,10 @@ static int codec_set_board_route(struct snd_board_route *broute)
 			broute->gpio_spk_en_stat == -1)
 		gpio_enable_spk_en();
 
-	if (broute->gpio_buildin_mic_en_stat == 0)
+	/*if (broute->gpio_buildin_mic_en_stat == 0)
 		gpio_select_headset_mic();
 	else if (broute->gpio_buildin_mic_en_stat == 1)
-		gpio_select_buildin_mic();
+		gpio_select_buildin_mic();*/
 
 	DUMP_ROUTE_REGS("leave");
 
@@ -2086,6 +2086,7 @@ static int codec_set_route(enum snd_codec_route_t route)
 /****** codec_init ********/
 static int codec_init(void)
 {
+
 	/* disable speaker and enable hp mute */
 	gpio_enable_hp_mute();
 	gpio_disable_spk_en();
@@ -2359,6 +2360,7 @@ static int codec_set_device(enum snd_device_t device)
 				return -1;
 			}
 		}
+		break;
 
 	case SND_DEVICE_HANDSET_DOWNLINK:
 		if (codec_platform_data && codec_platform_data->downlink_handset_route.route) {
@@ -2422,6 +2424,7 @@ static int codec_set_device(enum snd_device_t device)
 			}
 		}
 		break;
+
 	case SND_DEVICE_LOOP_TEST:
 		if (codec_platform_data && codec_platform_data->replay_loop_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->replay_loop_route));
@@ -3041,11 +3044,13 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
-	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,&codec_platform_data->gpio_mic_detect);
+	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,&codec_platform_data->gpio_mic_detect,
+			                        &codec_platform_data->gpio_buildin_mic_select);
 #elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
 						 &codec_platform_data->gpio_hp_detect,
-						 &codec_platform_data->gpio_mic_detect);
+						 &codec_platform_data->gpio_mic_detect,
+						 &codec_platform_data->gpio_buildin_mic_select);
 #endif
 	if (codec_platform_data->gpio_mic_detect.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect") < 0) {

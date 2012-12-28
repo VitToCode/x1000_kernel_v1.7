@@ -75,6 +75,11 @@ static void snd_switch_work(struct work_struct *work)
 		state = switch_data->codec_get_sate();
 	}
 
+	if (state == 1 && switch_data->mic_select_gpio != -1){
+		gpio_direction_output(switch_data->mic_select_gpio, switch_data->mic_select_level);
+		mdelay(1000);
+	}
+
 	if (state == 1 && switch_data->mic_gpio != -1) {
 		gpio_direction_input(switch_data->mic_gpio);
 		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
@@ -83,6 +88,9 @@ static void snd_switch_work(struct work_struct *work)
 			state <<= 0;
 	} else
 		state <<= 1;
+
+	if(state != 1 && switch_data->mic_select_gpio != -1)
+		gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
 
 	snd_switch_set_state(switch_data, state);
 }

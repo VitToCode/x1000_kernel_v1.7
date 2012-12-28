@@ -519,6 +519,7 @@ static int i2s_enable(int mode)
 			return -ENODEV;
 
 	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
+
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
 		i2s_set_fmt(&replay_format,mode);
@@ -1206,7 +1207,7 @@ static int jz_get_hp_switch_state(void)
 }
 
 void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
-		struct snd_board_gpio *mic_det)
+		struct snd_board_gpio *mic_det, struct snd_board_gpio *mic_select)
 {
 	switch_data.type = type;
 	if (type == SND_SWITCH_TYPE_GPIO && hp_det != NULL) {
@@ -1220,6 +1221,13 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		switch_data.mic_vaild_level = mic_det->active_level;
 	} else {
 		switch_data.mic_gpio = -1;
+	}
+
+	if (mic_select != NULL) {
+		switch_data.mic_select_gpio = mic_select->gpio;
+		switch_data.mic_select_level = mic_select->active_level;
+	} else {
+		switch_data.mic_select_gpio = -1;
 	}
 
 	return (&switch_data.work);
