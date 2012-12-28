@@ -217,7 +217,7 @@ static struct cam_sensor_plat_data gc0308_pdata = {
 #ifdef CONFIG_JI8070A
 	.facing = 1,
 #else
-    .facing = 0;
+    .facing = 0,
 #endif
 	.orientation = 0,
 	.mirror = 0,
