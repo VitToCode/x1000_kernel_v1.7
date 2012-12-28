@@ -31,8 +31,11 @@
 
 #define BLOCK_NAME 		"nand_block"
 #define MAX_MINORS		255
+#ifdef CONFIG_MUL_PARTS
+#define DISK_MINORS		MUL_PARTS
+#else
 #define DISK_MINORS		16
-
+#endif
 struct __partition_info {
 	int context;
 	NM_lpt *lpt;
@@ -572,6 +575,109 @@ static struct __nand_disk * get_ndisk_by_dev(const struct device *dev)
 	return NULL;
 }
 
+
+struct hd_struct *add_partition_for_disk(struct gendisk *disk, int partno, sector_t start, sector_t len, int flags, struct partition_meta_info *info, char *name)
+{
+	struct hd_struct *p;
+	dev_t devt = MKDEV(0, 0);
+	struct device *ddev = disk_to_dev(disk);
+	struct device *pdev;
+	struct disk_part_tbl *ptbl;
+	const char *dname;
+	int err;
+
+	err = disk_expand_part_tbl(disk, partno);
+	if (err)
+		return ERR_PTR(err);
+	ptbl = disk->part_tbl;
+
+	if (ptbl->part[partno])
+		return ERR_PTR(-EBUSY);
+
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
+	if (!p)
+		return ERR_PTR(-EBUSY);
+
+	if (!init_part_stats(p)) {
+		err = -ENOMEM;
+		goto out_free;
+	}
+	pdev = part_to_dev(p);
+
+	p->start_sect = start;
+	p->alignment_offset =
+		queue_limit_alignment_offset(&disk->queue->limits, start);
+	p->discard_alignment =
+		queue_limit_discard_alignment(&disk->queue->limits, start);
+	p->nr_sects = len;
+	p->partno = partno;
+	p->policy = get_disk_ro(disk);
+
+
+	if (info) {
+		struct partition_meta_info *pinfo = alloc_part_info(disk);
+		if (!pinfo)
+			goto out_free_stats;
+		memcpy(pinfo, info, sizeof(*info));
+		p->info = pinfo;
+	}
+
+	dname = dev_name(ddev);
+	if(name)
+		dev_set_name(pdev, "%s", name);
+	else
+		dev_set_name(pdev, "%s%d", dname, partno);
+
+	device_initialize(pdev);
+	pdev->class = &block_class;
+	pdev->type = &part_type;
+	pdev->parent = ddev;
+
+	err = blk_alloc_devt(p, &devt);
+	if (err)
+		goto out_free_info;
+	pdev->devt = devt;
+
+	/* delay uevent until 'holders' subdir is created */
+	dev_set_uevent_suppress(pdev, 1);
+	err = device_add(pdev);
+	if (err)
+		goto out_put;
+
+	err = -ENOMEM;
+	p->holder_dir = kobject_create_and_add("holders", &pdev->kobj);
+	if (!p->holder_dir)
+		goto out_del;
+
+	dev_set_uevent_suppress(pdev, 0);
+
+	/* everything is up and running, commence */
+	rcu_assign_pointer(ptbl->part[partno], p);
+
+	/* suppress uevent if the disk suppresses it */
+	if (!dev_get_uevent_suppress(ddev))
+		kobject_uevent(&pdev->kobj, KOBJ_ADD);
+
+	hd_ref_init(p);
+	return p;
+
+out_free_info:
+	free_part_info(p);
+out_free_stats:
+	free_part_stats(p);
+out_free:
+	kfree(p);
+	return ERR_PTR(err);
+out_del:
+	kobject_put(p->holder_dir);
+	device_del(pdev);
+out_put:
+	put_device(pdev);
+	blk_free_devt(devt);
+	return ERR_PTR(err);
+}
+
+
 static int nand_block_probe(struct device *dev)
 {
     int ret = -ENOMEM;
@@ -579,7 +685,11 @@ static int nand_block_probe(struct device *dev)
 	struct __nand_disk *ndisk = NULL;
 	struct __partition_info *pinfo = (struct __partition_info *)dev->platform_data;
 	NM_lpt *lpt = pinfo ? pinfo->lpt : NULL;
-
+#ifdef CONFIG_MUL_PARTS
+	int ptmp = 0, pedege = 0;
+	unsigned long sum_count = 0;
+	struct hd_struct *hd;
+#endif
 	DBG_FUNC();
 
 	if (!pinfo || !lpt) {
@@ -597,8 +707,12 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): alloc memory for ndisk error!\n");
 		goto probe_err0;
 	}
-
-    ndisk->disk = alloc_disk(1);
+#ifdef CONFIG_MUL_PARTS
+	if(lpt->pt->parts_num > 0)
+		ndisk->disk = alloc_disk(DISK_MINORS);
+	else
+#endif
+		ndisk->disk = alloc_disk(1);
     if (!ndisk->disk) {
 		printk("ERROR(nand block): alloc_disk error!\n");
 		goto probe_err1;
@@ -640,6 +754,21 @@ static int nand_block_probe(struct device *dev)
 	/* add gendisk */
     add_disk(ndisk->disk);
 
+#ifdef CONFIG_MUL_PARTS
+    if(lpt->pt->parts_num >  0 && lpt->pt->mode == ZONE_MANAGER){
+	pedege = lpt->pt->startSector;
+	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++)
+	    sum_count = sum_count + (lpt->pt->lparts+ptmp)->sectorCount;
+	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++){
+	    (lpt->pt->lparts+ptmp)->sectorCount = lpt->pt->sectorCount * 100 / sum_count * (lpt->pt->lparts+ptmp)->sectorCount / 100;
+	    hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
+	    if(!hd){
+		printk("ERROR:add_partition fail!\n");
+	    }
+	    pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
+	}
+    }
+#endif
 	/* add ndisk to disk_list */
 	singlelist_add(&nand_block.disk_list, &ndisk->list);
 

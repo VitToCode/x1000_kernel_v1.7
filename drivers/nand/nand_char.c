@@ -60,6 +60,10 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		int context;
 		NM_lpt *lpt = NULL;
 
+#ifdef CONFIG_MUL_PARTS
+		ret = 0;
+		break;
+#endif
 		ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
 		if (!ret) {
 			singlelist_for_each(plist, &nand_char.lptl->list) {
@@ -91,6 +95,10 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		int context;
 		NM_lpt *lpt = NULL;
 
+#ifdef CONFIG_MUL_PARTS
+		ret = 0;
+		break;
+#endif
 		singlelist_for_each(plist, &nand_char.lptl->list) {
 			lpt = singlelist_entry(plist, NM_lpt, list);
 

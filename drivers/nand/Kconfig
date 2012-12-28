@@ -203,4 +203,8 @@ config 	TOGGLE_NAND
 	  This enables that Toggle NAND flash is used, if not selected,
           Connection nand flash is used.
 
+config MUL_PARTS
+	depends on NAND_JZ4780
+	bool  "Mul Parts"
+	default y
 endif # NAND
