@@ -1162,7 +1162,8 @@ static int ipu_start(struct jz_ipu *ipu)
 	}
 
 	dev_dbg(ipu->dev, "exit ipu_start %d\n", current->pid);	
-	mutex_unlock(&ipu->run_lock);
+	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE)
+		mutex_unlock(&ipu->run_lock);
 
 	return 0;
 }
