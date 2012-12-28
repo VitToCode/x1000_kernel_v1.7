@@ -34,6 +34,9 @@ static int p2lPartition( PPartition *ppa, LPartition *lpa)
         int reservezonenum;
 	int totalblocks;
         int initsectors;
+#ifdef CONFIG_MUL_PARTS
+	int  i;
+#endif
 
 	if (ppa == NULL || lpa == NULL){
 		ndprint(PARTITION_ERROR,"ERROR:FUNCTION: %s(%d), Nand alloc continue memory error!\n",
@@ -88,12 +91,12 @@ static int p2lPartition( PPartition *ppa, LPartition *lpa)
                  * otherwise we will set the 'lpa->sectorCount = bestsecnum + worsesecnum'
                  *
                  */
-                initsectors = totalblocks * 85 / 100 * ppa->pageperblock * ppa->byteperpage / SECTOR_SIZE;
+                initsectors = totalblocks * 85 / 100 * ppa->pageperblock * (ppa->byteperpage / SECTOR_SIZE);
                 if (lpa->sectorCount > initsectors)
 		        lpa->sectorCount = initsectors;
                 lpa->sectorCount = lpa->sectorCount - reservesecnum;
 	} else{
-		lpa->sectorCount = (totalblocks * ppa->pageperblock * ppa->byteperpage) / SECTOR_SIZE;
+		lpa->sectorCount = totalblocks * ppa->pageperblock * (ppa->byteperpage / SECTOR_SIZE);
         }
         ndprint(1,"%s: reservezone=%d badblocks=%d 90%%+10%%=%d lpa->sectorCount=%d\n"
                         , ppa->name, reservezonenum, ppa->badblockcount
@@ -106,6 +109,17 @@ static int p2lPartition( PPartition *ppa, LPartition *lpa)
 	lpa->mode = ppa->mode;
 	lpa->pc = 0;
 
+#ifdef CONFIG_MUL_PARTS
+	lpa->parts_num = 0;
+	if(ppa->mode == ZONE_MANAGER && ppa->parts_num > 0){
+	    lpa->parts_num = ppa->parts_num;
+	    for(i=0; i<ppa->parts_num; i++){
+		(lpa->lparts+i)->startSector = (ppa->parts+i)->startblockID * ppa->pageperblock * (ppa->byteperpage / SECTOR_SIZE);
+		(lpa->lparts+i)->sectorCount = (ppa->parts+i)->totalblocks * ppa->pageperblock * (ppa->byteperpage / SECTOR_SIZE);
+		(lpa->lparts+i)->name = (ppa->parts+i)->name;
+	    }
+	}
+#endif
 	return 0;
 }
 

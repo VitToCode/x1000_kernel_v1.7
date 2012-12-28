@@ -36,6 +36,9 @@
 #define PART_PROTECT   2
 #define PART_NANDSPL   3
 #define PART_DEVICE_ID 4
+#ifdef CONFIG_MUL_PARTS
+#define MUL_PARTS 4
+#endif
 enum part_attribute{
 	PART_XBOOT,
 	PART_KERNEL,
@@ -48,6 +51,19 @@ enum operation_mode{
 	ONE_PLANE,
 	TWO_PLANES
 };
+
+#ifdef CONFIG_MUL_PARTS
+/**
+ * struct platform_nand_ex_partition
+ * an element in platform_nand_partition
+ * the member is as same as its
+ */
+struct platform_nand_ex_partition{
+	long long offset;
+	long long size;
+	char *name;
+};
+#endif
 /**
  * struct platform_nand_chip - chip level device structure
  * @name:		the name of this partition
@@ -66,7 +82,10 @@ struct  platform_nand_partition{
 	int mode;
 	short eccbit;
 	unsigned char use_planes;
-	enum part_attribute part_attrib;       
+	enum part_attribute part_attrib;
+#ifdef CONFIG_MUL_PARTS
+	struct platform_nand_ex_partition ex_partition[MUL_PARTS];
+#endif
 };
 
 /**
