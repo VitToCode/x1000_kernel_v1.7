@@ -351,6 +351,9 @@ int gc0308_init(struct cim_sensor *sensor_info)
 	gc0308_write_reg(client,0xAD, 0xF8);
 	gc0308_write_reg(client,0xAE, 0xFD);
 	gc0308_write_reg(client,0xAF, 0xFF);
+#ifdef CONFIG_BOARD_JI8070A
+#define CONFIG_GC0308_MIRROR
+#endif
 
 #ifndef CONFIG_GC0308_MIRROR
 	#ifndef CONFIG_GC0308_VMIRROR
