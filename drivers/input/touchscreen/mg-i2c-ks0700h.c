@@ -297,7 +297,7 @@ static inline void mg_report(struct mg_data *mg) {
 	case MG_FLOATING: //0x10
 		if (prev_s == MG_FLOATING_B_DOWN) {
 			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < 300) {
+					jiffies_btn_down) < HZ / 8) {
 				report_back(mg);
 				floating_b_down = 0;
 			} else {
@@ -307,7 +307,7 @@ static inline void mg_report(struct mg_data *mg) {
 
 		if (prev_s == MG_FLOATING_T_DOWN) {
 			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < 300) {
+					jiffies_btn_down) < HZ / 8) {
 				report_menu(mg);
 				floating_t_down = 0;
 			} else {
