@@ -490,8 +490,11 @@ start:
 	} else if (pending & ERROR_IFLG) {
 		unsigned int mask = ERROR_IFLG;
 
+        if (!host->cmd) {
+            dev_err(host->dev, "\n\n***************** host->cmd NULL*****************\n\n");
+        }
 		dev_err(host->dev, "err%d cmd%d iflg%08X status%08X\n",
-			host->state, host->cmd->opcode, iflg, status);
+			host->state, host->cmd ? host->cmd->opcode : -1, iflg, status);
 
 		if (host->state == STATE_WAITING_RESP)
 			mask |= IMASK_END_CMD_RES;
@@ -1594,6 +1597,8 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 
 	case REMOVABLE:
 		if (gpio_is_valid(card_gpio->cd.num)) {
+			setup_timer(&host->detect_timer, jzmmc_detect_change,
+				    (unsigned long)host);
 			ret = request_irq(gpio_to_irq(host->pdata->gpio->cd.num),
 					  jzmmc_detect_interrupt,
 					  IRQF_TRIGGER_RISING
@@ -1607,8 +1612,6 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 			}
 			disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 
-			setup_timer(&host->detect_timer, jzmmc_detect_change,
-				    (unsigned long)host);
 			mod_timer(&host->detect_timer, jiffies);
 		} else {
 			dev_err(host->dev, "card-detect pin must be valid "
