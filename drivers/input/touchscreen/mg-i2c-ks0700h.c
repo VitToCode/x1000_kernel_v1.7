@@ -182,22 +182,6 @@ static void report_value(struct mg_data *mg) {
 	input_sync(mg->dig_dev);
 }
 
-static void report_menu(struct mg_data *mg) {
-	input_report_key(mg->dig_dev, KEY_MENU, 1);
-	input_sync(mg->dig_dev);
-
-	input_report_key(mg->dig_dev, KEY_MENU, 0);
-	input_sync(mg->dig_dev);
-}
-
-static void report_back(struct mg_data *mg) {
-	input_report_key(mg->dig_dev, KEY_BACK, 1);
-	input_sync(mg->dig_dev);
-
-	input_report_key(mg->dig_dev, KEY_BACK, 0);
-	input_sync(mg->dig_dev);
-}
-
 static void report_wakeup(struct mg_data *mg) {
 	input_report_key(mg->dig_dev, KEY_POWER, 1);
 	input_sync(mg->dig_dev);
@@ -238,15 +222,10 @@ static inline void remap_to_view_size(struct mg_data *mg) {
 	mg->y = mg->y * mg->pdata->y_max / CAP_Y_CORD;
 }
 
-static inline u64 jiffies_diff_to_ms(u64 now, u64 before) {
-	return (now - before) * 1000 / HZ;
-}
 
 static inline void mg_report(struct mg_data *mg) {
 	static int prev_s = -1;
 	static int current_s = -1;
-	static int prev_p = -1;
-	static int current_p = -1;
 
 	static int changed;
 	static int saved_x;
@@ -254,8 +233,6 @@ static inline void mg_report(struct mg_data *mg) {
 
 	static int floating_b_down;
 	static int floating_t_down;
-
-	static u64 jiffies_btn_down;
 
 	if (!atomic_read(&mg->members_locked)) {
 		input_group_lock(&mg->group);
@@ -267,8 +244,6 @@ static inline void mg_report(struct mg_data *mg) {
 
 	prev_s = current_s;
 	current_s = mg->w;
-	prev_p = current_p;
-	current_p = mg->p;
 
 	remap_to_view_size(mg);
 
@@ -295,23 +270,9 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 
 	case MG_FLOATING: //0x10
-		if (prev_s == MG_FLOATING_B_DOWN) {
-			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < HZ / 8) {
-				report_back(mg);
-				floating_b_down = 0;
-			} else {
-				report_b_btn_down(mg);
-			}
-		}
-
-		if (prev_s == MG_FLOATING_T_DOWN) {
-			if (jiffies_diff_to_ms(get_jiffies_64(),
-					jiffies_btn_down) < HZ / 8) {
-				report_menu(mg);
-				floating_t_down = 0;
-			}
-		}
+		if (prev_s == MG_FLOATING_B_DOWN &&
+				floating_b_down)
+			report_b_btn_down(mg);
 
 		if (floating_b_down ||
 				floating_t_down) {
@@ -322,14 +283,13 @@ static inline void mg_report(struct mg_data *mg) {
 				saved_y = mg->y;
 				changed = 1;
 			}
-		} else {
-			if (changed) {
-				report_release(mg);
-				changed = 0;
 
-				if (mg->pdata->wakeup && mg->suspend)
-					report_wakeup(mg);
-			}
+		} else if (changed) {
+			report_release(mg);
+			changed = 0;
+
+			if (mg->pdata->wakeup && mg->suspend)
+				report_wakeup(mg);
 		}
 
 		break;
@@ -359,7 +319,6 @@ static inline void mg_report(struct mg_data *mg) {
 		if (prev_s == MG_FLOATING) {
 			if (!floating_b_down) {
 				floating_b_down = 1;
-				jiffies_btn_down = get_jiffies_64();
 
 			} else if (floating_b_down) {
 				floating_b_down = 0;
@@ -375,14 +334,12 @@ static inline void mg_report(struct mg_data *mg) {
 			} else if (prev_s == MG_FLOATING_T_DOWN) {
 				report_t_btn_down(mg);
 
-			} else {
-				if (saved_x != mg->x &&
-						saved_y != mg->y) {
-					report_value(mg);
-					saved_x = mg->x;
-					saved_y = mg->y;
-					changed = 1;
-				}
+			} else if (saved_x != mg->x &&
+					saved_y != mg->y) {
+				report_value(mg);
+				saved_x = mg->x;
+				saved_y = mg->y;
+				changed = 1;
 			}
 		}
 
@@ -392,7 +349,6 @@ static inline void mg_report(struct mg_data *mg) {
 		if (prev_s == MG_FLOATING) {
 			if (!floating_t_down) {
 				floating_t_down = 1;
-				jiffies_btn_down = get_jiffies_64();
 
 			} else if (floating_t_down) {
 				floating_t_down = 0;
