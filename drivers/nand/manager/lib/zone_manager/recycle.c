@@ -2895,7 +2895,7 @@ int Recycle_OnBootRecycle ( int bootinfo )
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
 		if (ret == -1)
-			goto exit;
+			break;
 
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
