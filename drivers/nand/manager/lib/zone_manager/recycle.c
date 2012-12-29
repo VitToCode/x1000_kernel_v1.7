@@ -77,7 +77,6 @@ int Recycle_OnFragmentHandle ( int context )
 			}
 			if(ret == -2){
 				NandMutex_Unlock(&rep->mutex);
-				rep->taskStep = READNEXTINFO;
 			}
 			break;
 		case MERGER:
@@ -600,7 +599,15 @@ static int FindValidSector ( Recycle *rep)
 	}
 	if(i == l4infolen / 4) {
 		ret = -2;
+		rep->prevpageinfo = rep->curpageinfo;
 		give_pageinfo_to_cache(rep,rep->writepageinfo);
+
+		if (rep->end_findnextpageinfo) {
+			rep->taskStep = FINISH;
+			rep->end_findnextpageinfo = 0;
+		}
+		else
+			rep->taskStep = READNEXTINFO;
 		ndprint(RECYCLE_ERROR,"ERROR:lock cachemange error,drop pageinfo sectorid = %d!!!\n",rep->startsectorID);
 	}
 FindValidSector_err:
