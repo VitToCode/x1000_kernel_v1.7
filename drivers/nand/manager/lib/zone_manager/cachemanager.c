@@ -380,7 +380,7 @@ unsigned int CacheManager_getPageID ( int context, unsigned int sectorid )
 	CacheList *lx;
 	int lxoffset;
 
-	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2) {
+	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * (cachemanager->L1InfoLen >> 2)) {
 		ndprint(CACHEMANAGER_ERROR,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
 		return -1;
 	}
@@ -459,7 +459,7 @@ void CacheManager_lockCache ( int context, unsigned int sectorid, PageInfo **ppi
 	CacheData **updatelx;
 
 	pi = &cachemanager->pageinfo;
-	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2) {
+	if (sectorid < 0 || sectorid > cachemanager->L1UnitLen * (cachemanager->L1InfoLen >> 2)) {
 		ndprint(CACHEMANAGER_ERROR,"ERROR: sectorid = %d func %s line %d\n", sectorid, __FUNCTION__, __LINE__);
 		return;
 	}

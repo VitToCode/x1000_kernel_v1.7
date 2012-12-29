@@ -484,7 +484,7 @@ static int find_maxserialnumber(ZoneManager *zonep,
 	}
 
 	//update prevzone info in zonep->sigzoneinfo
-	zoneid = nandzoneinfo->preZone.ZoneID; 
+	zoneid = nandzoneinfo->preZone.ZoneID;
 	if (zoneid != 0xffff && zoneid >= 0 && zoneid < zonep->pt_zonenum) {
 		oldsigp = (SigZoneInfo *)(zonep->sigzoneinfo + zoneid);
 		CONV_ZI_SZ(&nandzoneinfo->preZone,oldsigp);
@@ -586,7 +586,7 @@ static void fill_localzone_validpage(ZoneManager *zonep,PageList *pl)
 					}
 				}else {
 					nandsigzoneinfo = (NandSigZoneInfo *)(zonep->mem0);
-					if(nandsigzoneinfo->prezoneinfo.ZoneID == i && sigp->validpage == 0xffff 
+					if(nandsigzoneinfo->prezoneinfo.ZoneID == i && sigp->validpage == 0xffff
 						&& nandsigzoneinfo->prezoneinfo.validpage != 0xffff){
 						sigp->validpage = nandsigzoneinfo->prezoneinfo.validpage;
 					}
@@ -755,7 +755,7 @@ static int scan_page_info(ZoneManager *zonep)
 	zonep->last_zone_id = max_zoneid;
 	if (max_zoneid != 0xffff) {
         /*current zone validpage init*/
-		while(nm_test_bit(badblockcount,(unsigned int *)&zonep->sigzoneinfo->badblock) && (++badblockcount));
+		badblockcount = nm_test_bitcount(0,BLOCKPERZONE(zonep->vnand),(unsigned int *)&zonep->sigzoneinfo->badblock);
 		sumpage = (BLOCKPERZONE(zonep->vnand) - badblockcount) * zonep->vnand->PagePerBlock;
 		if (zonep->vnand->v2pp->_2kPerPage == 1)
 			zonep->sigzoneinfo[zonep->last_zone_id].validpage = sumpage -3;
@@ -950,7 +950,7 @@ static Zone *get_usedzone(ZoneManager *zonep, unsigned short zoneid)
 	Zone *zoneptr = NULL;
 	unsigned int i = 0;
 	int ret = 0;
-	unsigned int badblockcount = 0;
+	//unsigned int badblockcount = 0;
 
 	zoneptr = alloc_zone(zonep);
 	if(zoneptr == NULL) {
@@ -994,8 +994,7 @@ static Zone *get_usedzone(ZoneManager *zonep, unsigned short zoneid)
 		goto err;
 	}
 
-	while(nm_test_bit(badblockcount,(unsigned int *)&(zoneptr->sigzoneinfo->badblock)) && (++badblockcount));
-
+	//badblockcount = nm_test_bitcount(0,BLOCKPERZONE(zonep->vnand),(unsigned int *)&zoneptr->sigzoneinfo->badblock);
 	zoneptr->memflag = i;
 	zoneptr->ZoneID = zoneid;
 	zoneptr->mem0 = zonep->mem0 + i * zonep->vnand->BytePerPage;
@@ -1031,8 +1030,7 @@ static int get_maxserial_zone(ZoneManager *zonep)
 		return -1;
 	}
 
-	while(nm_test_bit(badblockcount,(unsigned int *)&zoneptr->sigzoneinfo->badblock) && (++badblockcount));
-
+	badblockcount = nm_test_bitcount(0,BLOCKPERZONE(zonep->vnand),(unsigned int *)&zoneptr->sigzoneinfo->badblock);
 	zoneptr->sumpage = (BLOCKPERZONE(zonep->vnand) - badblockcount) * zonep->vnand->PagePerBlock;
 
 	if (zoneptr->vnand->v2pp->_2kPerPage == 1) {
@@ -1322,40 +1320,6 @@ static PageList *Create_read_pagelist(ZoneManager *zonep, PageInfo *pi)
 
 	return mpl;
 }
-
-/**
- *	get_badblock_count_between_pageid - get badblock count between pageid
- *
- *	@zonep: operate object
- *	@pagecount: page count of last data
- */
-static int get_badblock_count_between_pageid(ZoneManager *zonep, int pagecount)
-{
-	unsigned int badblockcount = 0;
-	int blockcount = pagecount / zonep->vnand->PagePerBlock;
-
-	while(nm_test_bit(badblockcount,(unsigned int *)&zonep->last_zone->sigzoneinfo->badblock) && badblockcount < blockcount)
-		badblockcount++;
-
-	return badblockcount;
-}
-
-/**
- *	calc_alloced_page - calc alloced page of maximum serial zone
- *
- *	@zonep: operate object
- *	@last_right_pageid: the last pageid which data is right written
- */
-static int calc_alloced_page(ZoneManager *zonep, unsigned int last_right_pageid)
-{
-	unsigned int badblockcount = 0;
-	unsigned int start_pageid = zonep->last_zone->startblockID * zonep->vnand->PagePerBlock;
-
-	badblockcount = get_badblock_count_between_pageid(zonep, last_right_pageid - start_pageid);
-
-	return last_right_pageid - badblockcount * zonep->vnand->PagePerBlock - start_pageid;
-}
-
 /**
  *	get_current_write_zone_info - get maximun serial number zone info
  *
@@ -1364,7 +1328,6 @@ static int calc_alloced_page(ZoneManager *zonep, unsigned int last_right_pageid)
 static void get_current_write_zone_info(ZoneManager *zonep)
 {
 	int ret = 0;
-	unsigned int last_right_pageid = 0;
 	Zone *zone = zonep->last_zone;
 	int blm = ((Context *)(zonep->context))->blm;
 
@@ -1378,13 +1341,14 @@ static void get_current_write_zone_info(ZoneManager *zonep)
 		if (ret != 0)
 			zonep->last_data_read_error = 1;
 
-		last_right_pageid = zonep->last_zone->NextPageInfo + zone->startblockID * zonep->vnand->PagePerBlock;
 		BuffListManager_freeAllList(blm,(void **)(&zonep->pl),sizeof(PageList));
 	}
 
 	zone->pageCursor = zonep->last_zone->NextPageInfo - 1;
 	zone->allocPageCursor = zonep->last_zone->NextPageInfo - 1;
-	zone->allocedpage = calc_alloced_page(zonep, last_right_pageid);
+	zone->allocedpage = zonep->last_zone->NextPageInfo -
+		nm_test_bitcount(0,zone->allocPageCursor/zonep->vnand->PagePerBlock,(unsigned int *)&zone->sigzoneinfo->badblock) * zonep->vnand->PagePerBlock;
+	ndprint(ZONEMANAGER_INFO,"zoneid=%d sumpage=%d zone->allocPageCursor=%d zone->allocedpage=%d zone->pageCursor=%d badblock:0x%08x\n",zone->ZoneID,zone->sumpage,zone->allocPageCursor,zone->allocedpage,zone->pageCursor,zone->sigzoneinfo->badblock);
 }
 
 /**
@@ -1456,7 +1420,6 @@ static int deal_maxserial_zone(ZoneManager *zonep)
 		ret = 0;
 		goto exit;
 	}
-
 	get_current_write_zone_info(zonep);
 	ret = deal_last_pageinfo_data(zonep, pi);
 	if (zonep->last_zone->NextPageInfo == 0) {

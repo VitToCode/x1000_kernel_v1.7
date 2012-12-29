@@ -586,8 +586,8 @@ int Zone_AllocNextPage ( Zone *zone )
 	ZoneManager *zonep = ((Context *)(zone->context))->zonep;
 
 	if(zone->allocedpage >= zone->sumpage){
-		ndprint(ZONE_ERROR,"Function: %s LINE: %d zoneid = %d have alloced all the page in zone, allocdpage = %d\n",
-			__func__,__LINE__, zone->ZoneID, zone->allocedpage);
+		ndprint(ZONE_ERROR,"Function: %s LINE: %d zoneid = %d have alloced all the page in zone, allocdpage = %d sumpage=%d badblock=0x%08x\n",
+				__func__,__LINE__, zone->ZoneID, zone->allocedpage,zone->sumpage,zone->sigzoneinfo->badblock);
 		return -1;
 	}
 	zone->allocPageCursor++;
@@ -608,8 +608,8 @@ int Zone_AllocNextPage ( Zone *zone )
 
 	zone->allocPageCursor = zone->allocPageCursor +  badblocknum * pageperblock;
 	zone->allocedpage++;
-	if(zone->allocPageCursor >= pageperblock * BLOCKPERZONE(zonep->vnand)){
-		ndprint(ZONE_ERROR,"ERROR:%s %d : allocedpage=%d allocpagecursor=%d badblocknum=%d zoneid=%d\n",__func__,__LINE__,zone->allocedpage,zone->allocPageCursor,badblocknum,zone->ZoneID);
+	if(zone->allocPageCursor > pageperblock * BLOCKPERZONE(zonep->vnand)){
+		ndprint(ZONE_ERROR,"ERROR:%s %d : allocedpage=%d allocpagecursor=%d badblocknum=%d zoneid=%d sumpage=%d badblock=0x%08x\n",__func__,__LINE__,zone->allocedpage,zone->allocPageCursor,badblocknum,zone->ZoneID,zone->sumpage,zone->sigzoneinfo->badblock);
 		return -1;
 	}
 

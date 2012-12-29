@@ -468,7 +468,6 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
 		pagenode->OffsetBytes = (sectorperpage - left_sectorcount) * SECTOR_SIZE;
 		pagenode->pData = sectornode->pData;
 		pagenode->retVal = 1;
-
 		if (sectornode->sectorCount <= left_sectorcount) {
 			if (brokenflag)
 				pagenode->retVal = 0;
@@ -480,7 +479,6 @@ static int Write_sectornode_to_pagelist(Zone *zone, int sectorperpage, SectorLis
 	}
 
 	pagecount = get_pagecount(sectorperpage, sectornode);
-
 	for (i = 0; i < pagecount; i++) {
 		if (*pagelist == NULL) {
 			pagenode = (PageList *)BuffListManager_getTopNode(conptr->blm, sizeof(PageList));
@@ -604,7 +602,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 
 	singlelist_for_each(pos, &(sl->head)) {
 		sl_node = singlelist_entry(pos, SectorList, head);
-		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * cachemanager->L1InfoLen >> 2
+		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * (cachemanager->L1InfoLen >> 2)
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
 			conptr->t_startrecycle = nd_getcurrentsec_ns();
@@ -1064,6 +1062,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	unsigned int l4count = l2p->l4count;
 	int spp = conptr->vnand.BytePerPage / SECTOR_SIZE;
 	int brokenflag = 1;
+
         free_pagecount = Zone_GetFreePageCount(zone);
 	if (free_pagecount < zone->vnand->v2pp->_2kPerPage) {
 		zone = alloc_new_zone_write(zone->context,zone);
@@ -1085,7 +1084,7 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 	singlelist_for_each(pos,&l2p->follow_node->head) {
 		sl_node = singlelist_entry(pos, SectorList, head);
 		brokenflag = 1;
-		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * cm->L1InfoLen >> 2
+		if (sl_node->startSector + sl_node->sectorCount > cm->L1UnitLen * (cm->L1InfoLen >> 2)
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: startsectorid = %d, sectorcount = %d func %s line %d\n",
 					sl_node->startSector, sl_node->sectorCount, __FUNCTION__, __LINE__);
@@ -1156,8 +1155,9 @@ static PageList *create_pagelist (L2pConvert *l2p,PageInfo *pi, Zone **czone)
 
 		fill_l2p_sectorid(l2p, sl_node);
 
-		if (IS_BREAK(l2p->break_type))
+		if (IS_BREAK(l2p->break_type)){
 			break;
+		}
 		else if (sl_node->head.next == NULL)
 			l2p->follow_node = NULL;
 	}
