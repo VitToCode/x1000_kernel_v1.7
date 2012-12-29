@@ -296,8 +296,13 @@ int Recycle_OnNormalRecycle ( int context )
 		if(rep->rZone){
 			Drop_JunkZone(((Context *)rep->context)->junkzone,rep->rZone->ZoneID);
 			ZoneManager_DropZone(rep->context,rep->rZone);
+			rep->junk_zoneid = 0xffff;
+		}
+		if(rep->junk_zoneid != 0xffff) {
+			Drop_JunkZone(((Context *)rep->context)->junkzone,rep->junk_zoneid);
 		}
 	}
+	rep->junk_zoneid = 0xffff;
 	rep->rZone = NULL;
 	rep->taskStep = RECYIDLE;
 	ndprint(RECYCLE_INFO, "%s: normal recycle finished recycle pagecount = %d--------->\n\n"
