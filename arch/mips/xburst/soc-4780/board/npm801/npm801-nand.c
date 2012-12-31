@@ -67,9 +67,19 @@ static struct platform_nand_partition partition_info[] = {
 	ex_partition:{{0},{0},{0},{0}}
 	},
 	{
-	name:"ndextern",
+	name:"ndcache",
 	offset:576 * 0x100000LL,
-	size:3520 * 0x100000LL,
+	size:128 * 0x100000LL,
+	mode:ZONE_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_MISC,
+	ex_partition:{{0},{0},{0},{0}}
+	},
+	{
+	name:"ndextern",
+	offset:704 * 0x100000LL,
+	size:3392 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -78,13 +88,8 @@ static struct platform_nand_partition partition_info[] = {
 	{
 		{
 		name:"nddata",
-		offset:576 * 0x100000LL,
+		offset:704 * 0x100000LL,
 		size:1024 * 0x100000LL,
-		},
-		{
-		name:"ndcache",
-		offset:1600 * 0x100000LL,
-		size:128 * 0x100000LL,
 		},
 		{
 		name:"ndmisc",
@@ -110,6 +115,7 @@ static int partition_reserved_badblocks[] = {
 	8,			/* reserved blocks of ndrecovery */
 	2,			/* reserved blocks of ndapanic */
 	32,			/* reserved blocks of ndsystem */
+	16,			/* reserved blocks of ndcache */
 	256,			/* reserved blocks of ndextern */
 	1,			/* reserved blocks of nderror */
 };
