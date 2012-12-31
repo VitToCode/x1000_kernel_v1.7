@@ -322,10 +322,10 @@ static inline void mg_report(struct mg_data *mg) {
 			} else if (prev_s == MG_FLOATING_T_DOWN) {
 				report_t_btn_down(mg);
 
+			} else {
+				report_value(mg);
+				changed = 1;
 			}
-
-			report_value(mg);
-			changed = 1;
 		}
 
 		break;
