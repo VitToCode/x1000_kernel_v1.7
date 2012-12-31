@@ -63,7 +63,7 @@ static struct platform_nand_partition partition_info[] = {
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
-	part_attrib:PART_SYSTEM,
+	part_attrib:PART_MISC,
 	ex_partition:{{0},{0},{0},{0}}
 	},
 	{
