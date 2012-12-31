@@ -2884,6 +2884,7 @@ int Recycle_OnBootRecycle ( int bootinfo )
 {
 	int i;
 	int ret = 0;
+        int findnextret = 0;
 	ForceRecycleInfo *BootInfo = (ForceRecycleInfo *)bootinfo;
 	Context *conptr = (Context *)(BootInfo->context);
 	Recycle *rep = conptr->rep;
@@ -2901,13 +2902,11 @@ int Recycle_OnBootRecycle ( int bootinfo )
 	for (i = 0; ; i++) {
 		if (rep->force_end_findnextpageinfo)
 			break;
-
+                if (findnextret == -1) break;
 		if (i == 0)
 			ret = OnForce_FindFirstValidPageInfo(rep);
 		else
-			ret = OnForce_FindNextValidPageInfo(rep);
-		if (ret == -1)
-			break;
+			findnextret = OnForce_FindNextValidPageInfo(rep);
 
 		ret = OnForce_FindValidSector(rep);
 		if (ret == -1)
