@@ -26,6 +26,46 @@
 
 #include <mach/jznand.h>
 #include "test.h"
+#ifdef CONFIG_MUL_PARTS
+static struct platform_nand_partition partition_info[] = {
+	{
+	name:"ndisk",
+	offset:612 * 0x100000LL,
+	size:128 * 0x100000LL,
+	mode:1,
+	eccbit:8,
+	use_planes:TWO_PLANES_PLANE,
+	part_attrib:PART_DATA,
+	ex_partition:{{0},{0},{0},{0}}
+	},
+	{
+	name:"mdisk",
+	offset:1124 * 0x100000LL,
+	size:128 * 0x100000LL,
+	mode:1,
+	eccbit:8,
+	use_planes:TWO_PLANES,
+	part_attrib:PART_DATA,
+	ex_partition:{{0},{0},{0},{0}}
+	},
+};
+
+/* Define max reserved bad blocks for each partition.
+ * This is used by the mtdblock-jz.c NAND FTL driver only.
+ *
+ * The NAND FTL driver reserves some good blocks which can't be
+ * seen by the upper layer. When the bad block number of a partition
+ * exceeds the max reserved blocks, then there is no more reserved
+ * good blocks to be used by the NAND FTL driver when another bad
+ * block generated.
+ */
+static int partition_reserved_badblocks[] = {
+	20,			/* reserved blocks of mtd3 */
+	20,			/* reserved blocks of mtd4 */
+	4			/* reserved blocks of mtd5 */
+};
+
+#else
 
 /*-----------------------------------------------------------------------------*/
 /*                     NAND partitions definitions                             */
@@ -189,7 +229,7 @@ static int partition_reserved_badblocks[] = {
 };
 
 #endif				/* CONFIG_NAND_JZ4780_PISCES */
-
+#endif
 struct platform_nand_data jz_nand_chip_data = {
 	.nr_partitions = ARRAY_SIZE(partition_info),
 	.partitions = partition_info,

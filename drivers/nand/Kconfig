@@ -206,5 +206,5 @@ config 	TOGGLE_NAND
 config MUL_PARTS
 	depends on NAND_JZ4780
 	bool  "Mul Parts"
-	default n
+	default y
 endif # NAND
