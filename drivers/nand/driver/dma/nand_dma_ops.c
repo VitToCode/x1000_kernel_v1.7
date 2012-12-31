@@ -343,8 +343,8 @@ static int read_page_singlenode(const NAND_API *pnand_api
 #ifdef NAND_DMA_CALC_TIME
 	b_time();
 #endif
-	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
-		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
+		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		goto read_page_singlenode_error1;
 	}
@@ -437,8 +437,8 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	nand_dma->cache_phypageid = -1;
-	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
-		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
+		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		goto write_page_singlenode_error1;
 	}
@@ -526,8 +526,8 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 
 	int pageid =templist->startPageID;
-	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
-		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
+		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		num = temp;
 		goto read_page_node_error1;
@@ -687,8 +687,8 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	struct device *nand_dev =nand_dma->data_chan->device->dev;
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	int pageid = templist->startPageID;
-	if(pageid < 0 && pageid > nand_dma->ppt->PageCount) {
-		printk("Error:pageid is wrong,page %d PageCount:%d\n",pageid,nand_dma->ppt->PageCount);
+	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
+		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		num = temp;
 		goto write_multinode_error1;
