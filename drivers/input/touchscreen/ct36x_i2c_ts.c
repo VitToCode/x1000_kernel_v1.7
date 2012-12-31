@@ -129,7 +129,7 @@ static void ct36x_ts_hw_reset(struct ct36x_ts_info *ct36x_ts)
 	msleep(300);
 	gpio_set_value(ct36x_ts->rst, 1);
 	msleep(300);
-
+}
 
 static void ct36x_ts_hw_exit(struct ct36x_ts_info *ct36x_ts)
 {

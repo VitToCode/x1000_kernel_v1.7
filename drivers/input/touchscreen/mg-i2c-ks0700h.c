@@ -228,8 +228,6 @@ static inline void mg_report(struct mg_data *mg) {
 	static int current_s = -1;
 
 	static int changed;
-	static int saved_x;
-	static int saved_y;
 
 	static int floating_b_down;
 	static int floating_t_down;
@@ -276,13 +274,8 @@ static inline void mg_report(struct mg_data *mg) {
 
 		if (floating_b_down ||
 				floating_t_down) {
-			if (saved_x != mg->x &&
-					saved_y != mg->y) {
-				report_value(mg);
-				saved_x = mg->x;
-				saved_y = mg->y;
-				changed = 1;
-			}
+			report_value(mg);
+			changed = 1;
 
 		} else if (changed) {
 			report_release(mg);
@@ -295,13 +288,8 @@ static inline void mg_report(struct mg_data *mg) {
 		break;
 
 	case MG_ON_PAD: //0x11
-		if (saved_x != mg->x &&
-				saved_y != mg->y) {
-			report_value(mg);
-			saved_x = mg->x;
-			saved_y = mg->y;
-			changed = 1;
-		}
+		report_value(mg);
+		changed = 1;
 
 		if (floating_b_down) {
 			floating_b_down = 0;
@@ -334,13 +322,10 @@ static inline void mg_report(struct mg_data *mg) {
 			} else if (prev_s == MG_FLOATING_T_DOWN) {
 				report_t_btn_down(mg);
 
-			} else if (saved_x != mg->x &&
-					saved_y != mg->y) {
-				report_value(mg);
-				saved_x = mg->x;
-				saved_y = mg->y;
-				changed = 1;
 			}
+
+			report_value(mg);
+			changed = 1;
 		}
 
 		break;
