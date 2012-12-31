@@ -2140,6 +2140,8 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 		}
 
 		ret = OnForce_FindValidSector(rep);
+		if(ret == -2)
+			continue;
 		if (ret == -1)
 			goto exit;
 		MergerSectorID_Align(rep);
@@ -2385,14 +2387,18 @@ static int OnForce_FindValidSector ( Recycle *rep)
 	unsigned int l1unitlen = 0;
 	unsigned int l2unitlen = 0;
 	unsigned int l3unitlen = 0;
+	unsigned int l4infolen = 0;
 	unsigned int start_sectorID = 0;
 	Context *conptr = (Context *)(rep->context);
 	CacheManager *cachemanager = conptr->cachemanager;
 	PageInfo *pi = NULL;
+	unsigned int *l4info;
+	unsigned int i;
 
 	l1unitlen = cachemanager->L1UnitLen;
 	l2unitlen = cachemanager->L2UnitLen;
 	l3unitlen = cachemanager->L3UnitLen;
+	l4infolen = cachemanager->L4InfoLen;
 
 	pi = rep->force_curpageinfo;
 	if(pi == NULL)
@@ -2429,6 +2435,18 @@ static int OnForce_FindValidSector ( Recycle *rep)
 
 	rep->force_startsectorID = start_sectorID;
 	rep->force_writepageinfo = get_pageinfo_from_cache(rep,rep->force_startsectorID);
+    //check l4info valid
+	l4info = (unsigned int *)rep->force_writepageinfo->L4Info;
+	for(i = 0;i < l4infolen / sizeof(int);i++) {
+		if(l4info[i] != -1){
+			break;
+		}
+	}
+	if(i == l4infolen / 4) {
+		give_pageinfo_to_cache(rep,rep->force_writepageinfo);
+		ndprint(RECYCLE_ERROR,"ERROR:lock cachemange error,drop pageinfo sectorid = %d!!!\n",rep->force_startsectorID);
+		return -2;
+	}
 	return 0;
 err:
 	return -1;
@@ -2780,16 +2798,17 @@ int Recycle_OnFollowRecycle ( int context )
 	for (i = 0; ; i++) {
 		if (rep->force_end_findnextpageinfo)
 			break;
-
 		if (i == 0)
 			ret = OnFollow_FindFirstValidPageInfo(rep);
 		else
 			ret = OnForce_FindNextValidPageInfo(rep);
 		if (ret == -1) {
 			ndprint(RECYCLE_ERROR,"find infopage error\n");
-			break;
+			goto exit;
 		}
 		ret = OnForce_FindValidSector(rep);
+		if(ret == -2)
+			continue;
 		if (ret == -1)
 			goto exit;
 
@@ -2907,8 +2926,12 @@ int Recycle_OnBootRecycle ( int bootinfo )
 			ret = OnForce_FindFirstValidPageInfo(rep);
 		else
 			findnextret = OnForce_FindNextValidPageInfo(rep);
+		if(ret == -1)
+			goto exit;
 
 		ret = OnForce_FindValidSector(rep);
+		if(ret == -2)
+			continue;
 		if (ret == -1)
 			goto exit;
 
