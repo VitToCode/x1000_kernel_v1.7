@@ -930,16 +930,17 @@ static int nand_disk_install(char *name)
 		lpt = singlelist_entry(plist, NM_lpt, list);
 
 		/* partiton with this mode do not need to open */
-		if (lpt->pt->mode == ONCE_MANAGER)
-			return 0;
-
-		if (!installAll && strcmp(lpt->pt->name, name)) {
-			ret = -1; continue;
+		if (lpt->pt->mode == ONCE_MANAGER) {
+			printk("ERROR(nand block): can not install disk [%s]!\n", name);	
+			return -1;
 		}
+
+		if (!installAll && strcmp(lpt->pt->name, name))
+			continue;
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
-			ret = 0; continue;
+			continue;
 		}
 
 		printk("nand block, install partition [%s]!\n", lpt->pt->name);
@@ -979,7 +980,7 @@ static int nand_disk_install(char *name)
 		}
 	}
 
-	return ret;
+	return 0;
 
 start_err2:
 	vfree(pinfo);
