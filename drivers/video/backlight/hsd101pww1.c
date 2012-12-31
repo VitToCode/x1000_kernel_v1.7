@@ -71,8 +71,8 @@ static void hsd101pww1_on(struct hsd101pww1_data *dev)
 
 static void hsd101pww1_off(struct hsd101pww1_data *dev)
 {
-        dev->lcd_power = 0;
-        //regulator_disable(dev->lcd_vcc_reg);
+	dev->lcd_power = 0;
+
 	disable_lcd_and_bklight(dev);
 }
 
@@ -164,6 +164,7 @@ static int __devinit hsd101pww1_remove(struct platform_device *pdev)
 	hsd101pww1_off(dev);
 
 	regulator_put(dev->lcd_vcc_reg);
+	regulator_put(dev->lcd_bklight_reg);
 
 	if (dev->pdata->gpio_rest)
 		gpio_free(dev->pdata->gpio_rest);
