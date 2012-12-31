@@ -995,8 +995,11 @@ static void dmard06_acc_late_resume(struct early_suspend *handler)
 	if (!atomic_read(&acc->enabled)) {
 		mutex_lock(&acc->lock);
 		dmard06_acc_enable(acc);
+		acc_input_open(acc->input_dev);
 		mutex_unlock(&acc->lock);
 	}
+
+
 }
 
 static void dmard06_acc_early_suspend(struct early_suspend *handler)
@@ -1008,6 +1011,7 @@ static void dmard06_acc_early_suspend(struct early_suspend *handler)
 
         //	disable_irq_nosync(acc->client->irq);
 	if (atomic_read(&acc->enabled)) {
+		acc_input_close(acc->input_dev);
 		dmard06_acc_disable(acc);
 	}
 	if (atomic_cmpxchg(&acc->regulator_enabled, 1, 0)) {
