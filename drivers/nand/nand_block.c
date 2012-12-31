@@ -933,12 +933,13 @@ static int nand_disk_install(char *name)
 		if (lpt->pt->mode == ONCE_MANAGER)
 			return 0;
 
-		if (!installAll && strcmp(lpt->pt->name, name))
-			continue;
+		if (!installAll && strcmp(lpt->pt->name, name)) {
+			ret = -1; continue;
+		}
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
-			continue;
+			ret = 0; continue;
 		}
 
 		printk("nand block, install partition [%s]!\n", lpt->pt->name);
@@ -978,7 +979,7 @@ static int nand_disk_install(char *name)
 		}
 	}
 
-	return 0;
+	return ret;
 
 start_err2:
 	vfree(pinfo);
