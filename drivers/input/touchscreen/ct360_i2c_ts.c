@@ -48,7 +48,11 @@ static struct ct36x_ts_info	ct36x_ts;
 static char const Binary_Data[]=
 {
 //#include "CT360_V02_06A9_121108.dat"//v2
+#ifdef CONFIG_LCD_HHX070ML208CP21
+#include "CT360_V0B_BBC0_1024X600_121231.dat"
+#else
 #include "CT360_V03_8634_121204.dat"
+#endif
 };
 
 static void ct36x_ts_reg_read(struct i2c_client *client, unsigned short addr, char *buf, int len, int rate)
