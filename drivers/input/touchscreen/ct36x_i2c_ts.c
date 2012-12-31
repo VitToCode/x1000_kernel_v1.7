@@ -126,10 +126,10 @@ static int ct36x_ts_hw_init(struct ct36x_ts_info *ct36x_ts)
 static void ct36x_ts_hw_reset(struct ct36x_ts_info *ct36x_ts)
 {
 	gpio_set_value(ct36x_ts->rst, 0);
-	mdelay(100);
+	msleep(300);
 	gpio_set_value(ct36x_ts->rst, 1);
-	mdelay(100);
-}
+	msleep(300);
+
 
 static void ct36x_ts_hw_exit(struct ct36x_ts_info *ct36x_ts)
 {
