@@ -25,16 +25,55 @@
 #include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
+#include <linux/syscalls.h>
+#include <linux/kthread.h>
 
 #include <asm/cpu.h>
 
-#define CPUFREQ_NR			12
-#define MIN_FREQ			200000
-#define MIN_VOLT			1200000
-#define NR_APLL_FREQ			1	/* Number APLL freq */
-#define MAX_PLL_DIV			6	/* Max CPU PLL div */
-#define tVOL_L				20	/* ms of voltage latency */
-#define tVOL_H				200	/* ms of voltage hold time */
+#define CPUFREQ_NR	16
+#define MIN_FREQ	200000
+#define MIN_VOLT	1200000
+#define MAX_MPLL_DIV	6			/* Max CPU MPLL div */
+#ifndef CONFIG_TVOL_L
+#define tVOL_L		30			/* ms of voltage latency */
+#else
+#define tVOL_L		CONFIG_TVOL_L
+#endif
+#ifndef CONFIG_TVOL_H
+#define tVOL_H		500			/* ms of voltage hold time */
+#else
+#define tVOL_H		CONFIG_TVOL_H
+#endif
+#ifndef CONFIG_DETE_PERIOD
+#define DETE_PERIOD	30000			/* freq detect period */
+#else
+#define DETE_PERIOD	CONFIG_DETE_PERIOD
+#endif
+#ifndef CONFIG_HIGH_THRESHOLD
+#define HIGH_THRESHOLD	30			/* percent of high load threshold */
+#else
+#define HIGH_THRESHOLD	CONFIG_HIGH_THRESHOLD
+#endif
+#ifndef CONFIG_HIFREQ_MINUTE
+#define HIFREQ_MINUTE	30			/* high freq last time */
+#else
+#define HIFREQ_MINUTE	CONFIG_HIFREQ_MINUTE
+#endif
+#ifndef CONFIG_MAX_APLL_FREQ
+#define MAX_APLL_FREQ	1824000			/* max cpufreq from APLL */
+#else
+#define MAX_APLL_FREQ	CONFIG_MAX_APLL_FREQ
+#endif
+#ifndef CONFIG_LOW_APLL_FREQ
+#define LOW_APLL_FREQ	1300000			/* low cpufreq from APLL */
+#else
+#define LOW_APLL_FREQ	CONFIG_LOW_APLL_FREQ
+#endif
+#ifndef CONFIG_APLL_FREQ_STEP
+#define APLL_FREQ_STEP	96000			/* step of APLL freq */
+#else
+#define APLL_FREQ_STEP	CONFIG_APLL_FREQ_STEP
+#endif
 
 #ifdef CONFIG_SMP
 struct lpj_info {
@@ -52,13 +91,17 @@ static spinlock_t freq_lock;
 static struct delayed_work vol_work;
 static int vol_v;
 static unsigned int freq_gate;
+static unsigned int freq_high;
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
+static struct task_struct *freq_thread;
+static unsigned long long timer_start = 0;
+static unsigned long long timer_end = 0;
+static unsigned long long radical_time = 0;
+static int radical_cnt = 0;
 
 unsigned long __attribute__((weak)) core_reg_table[12][2] = {
 	{ 1584000,1400000 }, // >= 1.548 GHz - 1.40V
-	{ 1488000,1350000 }, // >= 1.488 GHz - 1.35V
-	{ 1392000,1300000 }, // >= 1.392 GHz - 1.30V
-	{ 1296000,1250000 }, // >= 1.296 GHz - 1.25V
+	{ 1300000,1350000 }, // >= 1.300 GHz - 1.35V
 	{ 1200000,1200000 }, // >= 1.200 GHz - 1.20V
 	{MIN_FREQ,MIN_VOLT},
 };
@@ -80,7 +123,7 @@ static int freq_table_prepare(void)
 	struct clk *sclka, *mpll, *apll, *cparent;
 	unsigned int j,i = 0;
 	unsigned int sclka_rate, mpll_rate, apll_rate;
-
+	unsigned int max_rate = MAX_APLL_FREQ;
 	sclka = clk_get(NULL,"sclka");
 	if (IS_ERR(sclka)) {
 		return -EINVAL;
@@ -107,18 +150,23 @@ static int freq_table_prepare(void)
 	freq_table[in].frequency = fr			\
 
 	if (clk_is_enabled(apll)) {
-		if (apll_rate > mpll_rate) {
-			for (i = 0; i < NR_APLL_FREQ && apll_rate/(i+1) >= MIN_FREQ; i++) {
-				_FREQ_TAB(i, apll_rate / (i+1));
-			}
-		} else if (apll_rate >= MIN_FREQ) {
-			_FREQ_TAB(i, apll_rate);
-			i++;
-		}
+		freq_high = apll_rate;
 
+		while (max_rate > LOW_APLL_FREQ) {
+			_FREQ_TAB(i, max_rate);
+			i++;
+			max_rate -= APLL_FREQ_STEP;
+		}
+#if 0
+		_FREQ_TAB(i, 1008000);
+		i++;
+#endif
+	} else {
+		freq_high = mpll_rate;
 	}
+
 	freq_gate = mpll_rate;
-	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ) && (j <= MAX_PLL_DIV);i++) {
+	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ) && (j <= MAX_MPLL_DIV);i++) {
 		_FREQ_TAB(i, mpll_rate / j++);
 	}
 	_FREQ_TAB(i, CPUFREQ_TABLE_END);
@@ -162,6 +210,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	int r,ret = 0;
 	struct cpufreq_freqs freqs;
 	unsigned long freq, flags, volt = 0;
+	int this_cpu = smp_processor_id();
 
 	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
 			relation, &i);
@@ -221,6 +270,12 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	ret = clk_set_rate(cpu_clk, freqs.new * 1000);
 
 	freqs.new = jz4780_getspeed(policy->cpu);
+	if ((freqs.new > freq_gate) && (freqs.old <= freq_gate)) {
+		timer_start = cpu_clock(this_cpu);
+	} else if ((freqs.new <= freq_gate) && (freqs.old > freq_gate)){
+		timer_end = cpu_clock(this_cpu);
+		radical_time += timer_end - timer_start;
+	}
 #ifdef CONFIG_SMP
 	/*
 	 * Note that loops_per_jiffy is not updated on SMP systems in
@@ -265,6 +320,62 @@ done:
 	return ret;
 }
 
+static int freq_write(char *filename, char *data)
+{
+	int fd = sys_open(filename, O_RDWR, 0);
+	unsigned count = strlen(data);
+
+	if (fd < 0) {
+		printk(KERN_WARNING "%s: Can not open %s\n",
+			__func__, filename);
+		return -ENOENT;
+	}
+	if ((unsigned)sys_write(fd, (char *)data, count) != count) {
+		printk(KERN_WARNING "%s: Can not write %s\n",
+			__func__, filename);
+		return -EIO;
+	}
+	return 0;
+}
+
+static int freq_monitor(void *d)
+{
+	while (1) {
+		int this_cpu;
+		unsigned int radical_t;
+
+		spin_lock(&freq_lock);
+		this_cpu = smp_processor_id();
+
+		if (timer_end < timer_start) {
+			timer_end = cpu_clock(this_cpu);
+			radical_time += timer_end - timer_start;
+			timer_start = cpu_clock(this_cpu);
+		}
+		do_div(radical_time, 1000000);
+		radical_t = (unsigned int)radical_time;
+		if (radical_t > (DETE_PERIOD * HIGH_THRESHOLD / 100)) {
+			radical_cnt++;
+		} else {
+			if (radical_cnt > 0)
+				radical_cnt--;
+		}
+		pr_debug("radical_t=%ums radical_cnt=%d\n", radical_t, radical_cnt);
+		radical_time = 0;
+		spin_unlock(&freq_lock);
+
+		if (radical_cnt > HIFREQ_MINUTE * 60000 / DETE_PERIOD) {
+			char max_freq[10];
+			sprintf(max_freq, "%u", freq_gate);
+			pr_info("set maxfreq to normal mode\n");
+			freq_write("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", max_freq);
+			radical_cnt = 0;
+		}
+		msleep(DETE_PERIOD);
+	}
+	return 0;
+}
+
 static void vol_down_work(struct work_struct *work)
 {
 	int r;
@@ -296,7 +407,11 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
 	policy->min = policy->cpuinfo.min_freq;
+/*
 	policy->max = policy->cpuinfo.max_freq;
+	policy->max = freq_gate;
+*/
+	policy->max = freq_high;
 	policy->cur = jz4780_getspeed(policy->cpu);
 
 	/*
@@ -313,6 +428,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
 	INIT_DELAYED_WORK(&vol_work, vol_down_work);
+	freq_thread = kthread_run(freq_monitor, NULL, "freq_monitor");
 
 	return 0;
 }
