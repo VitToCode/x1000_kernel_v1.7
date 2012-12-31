@@ -37,21 +37,18 @@ struct hhx070ml208cp21_data {
 	struct lcd_device *lcd;
 	struct platform_hhx070ml208cp21_data *pdata;
 	struct regulator *lcd_vcc_reg;
-#ifdef  CONFIG_Q8
-#else
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
         struct early_suspend bk_early_suspend;
 #endif
-#endif
+
 };
-#ifdef  CONFIG_Q8
-#else
+
 static int is_bootup = 1;
-#endif
+
 static void hhx070ml208cp21_on(struct hhx070ml208cp21_data *dev)
 {
-#ifdef  CONFIG_Q8
-#else
+
     if (is_bootup) {
         regulator_enable(dev->lcd_vcc_reg);
         is_bootup = 0;
@@ -59,27 +56,11 @@ static void hhx070ml208cp21_on(struct hhx070ml208cp21_data *dev)
             dev->pdata->notify_on(1);
     }
 	dev->lcd_power = 1;
-#endif
-#ifdef  CONFIG_Q8
-    regulator_enable(dev->lcd_vcc_reg);
-    mdelay(20);
-
-	if (dev->pdata->gpio_rest) {
-		gpio_direction_output(dev->pdata->gpio_rest, 0);
-		mdelay(100);
-		gpio_direction_output(dev->pdata->gpio_rest, 1);
-	}
-#endif
 }
 
 static void hhx070ml208cp21_off(struct hhx070ml208cp21_data *dev)
 {
         dev->lcd_power = 0;
-#ifdef  CONFIG_Q8
-
-        regulator_disable(dev->lcd_vcc_reg);
-       // mdelay(20);
-#endif
 }
 
 static int hhx070ml208cp21_set_power(struct lcd_device *lcd, int power)
@@ -114,8 +95,7 @@ static struct lcd_ops hhx070ml208cp21_ops = {
 	.get_power = hhx070ml208cp21_get_power,
 	.set_mode = hhx070ml208cp21_set_mode,
 };
-#ifdef  CONFIG_Q8
-#else
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void bk_e_suspend(struct early_suspend *h)
 {
@@ -152,7 +132,7 @@ static void bk_l_resume(struct early_suspend *h)
            dev->pdata->notify_on(1);
 }
 #endif
-#endif
+
 static int __devinit hhx070ml208cp21_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -168,12 +148,8 @@ static int __devinit hhx070ml208cp21_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, dev);
 
-	
-#ifdef  CONFIG_Q8
-	dev->lcd_vcc_reg = regulator_get(NULL, "vq8lcd");
-#else
 	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
-#endif
+
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
@@ -203,8 +179,7 @@ static int __devinit hhx070ml208cp21_probe(struct platform_device *pdev)
 	} else {
 		dev_info(&pdev->dev, "lcd device register success\n");
 	}
-#ifdef  CONFIG_Q8
-#else
+
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
     dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;//EARLY_SUSPEND_LEVEL_STOP_DRAWING;
@@ -213,7 +188,7 @@ static int __devinit hhx070ml208cp21_probe(struct platform_device *pdev)
 #endif
 
     register_early_suspend(&dev->bk_early_suspend);
-#endif
+
 	return 0;
 }
 
