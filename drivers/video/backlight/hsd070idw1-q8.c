@@ -31,33 +31,41 @@
 #define kprint(f, arg...)		pr_info(DRIVER_NAME ": " f , ## arg)
 #define dprint(f, arg...)		pr_debug(DRIVER_NAME ": " f , ## arg)
 
+static int first_boot = 1;
 
 struct hsd070idw1_data {
 	int lcd_power;
 	struct lcd_device *lcd;
 	struct platform_hsd070idw1_data *pdata;
 	struct regulator *lcd_vcc_reg;
-
+	struct regulator *lcd_bklight_reg;
 };
 
 
 static void hsd070idw1_on(struct hsd070idw1_data *dev)
 {
-    regulator_enable(dev->lcd_vcc_reg);
-    mdelay(20);
+	regulator_enable(dev->lcd_vcc_reg);
+	msleep(500);
+	regulator_enable(dev->lcd_bklight_reg);
+	msleep(200);
 
-	if (dev->pdata->gpio_rest) {
-		gpio_direction_output(dev->pdata->gpio_rest, 0);
-		mdelay(100);
-		gpio_direction_output(dev->pdata->gpio_rest, 1);
+	if (!first_boot) {
+		if (dev->pdata->gpio_rest) {
+			gpio_direction_output(dev->pdata->gpio_rest, 0);
+			mdelay(100);
+			gpio_direction_output(dev->pdata->gpio_rest, 1);
+		}
+		first_boot = 0;
 	}
 }
 
 static void hsd070idw1_off(struct hsd070idw1_data *dev)
 {
-        dev->lcd_power = 0;
-        regulator_disable(dev->lcd_vcc_reg);
-       // mdelay(20);
+	dev->lcd_power = 0;
+    regulator_disable(dev->lcd_bklight_reg);
+    msleep(500);
+    regulator_disable(dev->lcd_vcc_reg);
+    msleep(200);
 }
 
 static int hsd070idw1_set_power(struct lcd_device *lcd, int power)
@@ -108,11 +116,16 @@ static int __devinit hsd070idw1_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, dev);
 
-	dev->lcd_vcc_reg = regulator_get(NULL, "vq8lcd");
-
+	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
+	}
+
+	dev->lcd_bklight_reg = regulator_get(NULL, "vbklight");
+	if (IS_ERR(dev->lcd_bklight_reg)) {
+		dev_err(&pdev->dev, "failed to get regulator vbklight\n");
+		return PTR_ERR(dev->lcd_bklight_reg);
 	}
 
 	if (dev->pdata->gpio_rest)
@@ -143,6 +156,7 @@ static int __devinit hsd070idw1_remove(struct platform_device *pdev)
 	hsd070idw1_off(dev);
 
 	regulator_put(dev->lcd_vcc_reg);
+	regulator_put(dev->lcd_bklight_reg);
 
 	if (dev->pdata->gpio_rest)
 		gpio_free(dev->pdata->gpio_rest);
