@@ -67,6 +67,63 @@ config CPUFREQ_CHANGE_VCORE
 	bool "change vcore voltage when cpu frequency has changed"
 	default n
 
+config CPUFREQ_PARAMETER
+	depends on CPU_FREQ
+	bool "CPU freq parameters"
+	default n
+	help
+	  Board level cpufreq parameter definitions. If you are NOT sure about then,
+	  DON'T say Y here and you will get default define.
+
+config TVOL_L
+	depends on CPUFREQ_PARAMETER
+	int "tVOL_L"
+	default 30
+	help
+	  ms of voltage latency.
+config TVOL_H
+	depends on CPUFREQ_PARAMETER
+	int "tVOL_H"
+	default 500
+	help
+	  ms of voltage hold time.
+config DETE_PERIOD
+	depends on CPUFREQ_PARAMETER
+	int "DETE_PERIOD"
+	default 30000
+	help
+	  freq detect period.
+config HIGH_THRESHOLD
+	depends on CPUFREQ_PARAMETER
+	int "HIGH_THRESHOLD"
+	default 30
+	help
+	  percent of high load threshold.
+config HIFREQ_MINUTE
+	depends on CPUFREQ_PARAMETER
+	int "HIFREQ_MINUTE"
+	default 30
+	help
+	  high freq last time.
+config MAX_APLL_FREQ
+	depends on CPUFREQ_PARAMETER
+	int "MAX_APLL_FREQ"
+	default 1824000
+	help
+	  max cpufreq from APLL.
+config LOW_APLL_FREQ
+	depends on CPUFREQ_PARAMETER
+	int "LOW_APLL_FREQ"
+	default 1300000
+	help
+	  low cpufreq from APLL.
+config APLL_FREQ_STEP
+	depends on CPUFREQ_PARAMETER
+	int "APLL_FREQ_STEP"
+	default 96000
+	help
+	  step of APLL freq.
+
 config SUSPEND_SUPREME_DEBUG
 	depends on PM
 	bool "superme debug for suspend"
