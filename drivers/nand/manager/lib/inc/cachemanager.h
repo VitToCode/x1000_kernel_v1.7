@@ -46,6 +46,7 @@ struct _CacheManager {
 
 	LockCacheDataTable lct;
 	PageInfo pageinfo;
+	int context;
 };
 
 enum Update_Type {

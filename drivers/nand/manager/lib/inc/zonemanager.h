@@ -11,7 +11,7 @@
 #include "pageinfo.h"
 #include "pagelist.h"
 #include "zoneidlist.h"
-
+#include "utils/ndfifo.h"
 typedef struct _Wpages Wpages;
 struct _Wpages {
 	unsigned int startpage;
@@ -37,7 +37,6 @@ struct _ZoneManager {
 	L1Info *L1;
 	SigZoneInfo* sigzoneinfo;
 	unsigned int *sigzoneinfo_initflag;
-
 	NandMutex HashMutex;
 	VNandInfo *vnand;
 	unsigned short* zoneID;
@@ -70,6 +69,8 @@ struct _ZoneManager {
 	ZoneIDList *page0error_zoneidlist;
 	ZoneIDList *page1error_zoneidlist;
 	int page2_error_dealt;
+	int runblockfifo;
+	int dropzonefifo;
 };
 
 enum ErrType {
@@ -108,4 +109,6 @@ SigZoneInfo *ZoneManager_GetNextZone(int context);
 int ZoneManager_convertPageToZone(int context,unsigned int pageid);
 int ZoneManager_Move_UseZone_to_FreeZone(ZoneManager *zonep,unsigned short zoneID);
 int ZoneManager_GetValidPage(int context,int zoneid);
+void ZoneManager_SetRunBadBlock(int context,unsigned int pageid);
+int ZoneManager_GetRunBadBlock(int context);
 #endif

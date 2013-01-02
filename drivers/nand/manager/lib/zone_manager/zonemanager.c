@@ -166,6 +166,7 @@ static int alloc_zonemanager_memory(ZoneManager *zonep,VNandInfo *vnand)
 	}
 
 	zonep->sigzoneinfo = (SigZoneInfo *)Nand_VirtualAlloc(zonenum * sizeof(SigZoneInfo));
+	memset(zonep->sigzoneinfo,0,zonenum * sizeof(SigZoneInfo));
 	ndprint(ZONEMANAGER_INFO, "zonep->sigzoneinfo = %p\n",zonep->sigzoneinfo);
 	if(zonep->sigzoneinfo == NULL)
 	{
@@ -1600,6 +1601,7 @@ int ZoneManager_Init (int context )
 	conptr->zonep = zonep;
 	zonep->context = context;
 	zonep->vnand = &conptr->vnand;
+	zonep->runblockfifo = createfifo();
 	/*
 	  #ifdef TEST
 	  memset(zonep->vnand->pt_badblock_info, 0xff, zonep->vnand->BytePerPage * BADBLOCKINFOSIZE);
@@ -1682,10 +1684,11 @@ int ZoneManager_Init (int context )
  *
  *	@context: global variable
  */
-void ZoneManager_DeInit (int context )
-{
+void ZoneManager_DeInit (int context ){
 	Context *conptr = (Context *)context;
 	ZoneManager *zonep = conptr->zonep;
+	if(zonep->runblockfifo)
+		releasefifo(zonep->runblockfifo);
 	//BadBlockInfo_Deinit(zonep->badblockinfo);
 	Nand_ContinueFree(zonep->zonevalidinfo.wpages);
 	deinit_free_node(zonep);
@@ -2113,8 +2116,9 @@ SigZoneInfo *ZoneManager_GetNextZone(int context)
 }
 int ZoneManager_convertPageToZone(int context,unsigned int pageid){
 	Context *conptr = (Context *)context;
+	ZoneManager *zonep = conptr->zonep;
 	//ZoneManager *zonep = conptr->zonep;
-	int blockid = pageid / conptr->vnand.PagePerBlock;
+	int blockid = pageid / zonep->vnand->PagePerBlock;
 	if (blockid < 0 || blockid >= conptr->vnand.TotalBlocks) {
 		ndprint(ZONEMANAGER_ERROR, "ERROR: blockid = %d vnand.TotalBlocks = %d func: %s line: %d \n",
 			blockid, conptr->vnand.TotalBlocks, __FUNCTION__, __LINE__);
@@ -2123,6 +2127,29 @@ int ZoneManager_convertPageToZone(int context,unsigned int pageid){
 
 	//return BadBlockInfo_ConvertBlockToZoneID(zonep->badblockinfo,blockid);
 	return blockid / BLOCKPERZONE(zonep->vnand);
+}
+void ZoneManager_SetRunBadBlock(int context,unsigned int pageid){
+	Context *conptr = (Context *)context;
+	int zoneid = ZoneManager_convertPageToZone(context,pageid);
+	ZoneManager *zonep = conptr->zonep;
+	int zoneblockid;
+	if(zoneid != -1) {
+		zoneblockid = pageid / zonep->vnand->PagePerBlock -  zoneid * BLOCKPERZONE(zonep->context);
+		nm_set_bit(zoneblockid,(unsigned int *)&zonep->sigzoneinfo[zoneid].runbadblock);
+		pushfifo(zonep->runblockfifo,(unsigned int)zoneid);
+	}else{
+		ndprint(ZONEMANAGER_ERROR, "ERROR: zoneid = %d  func: %s line: %d\n",
+			zoneid,  __FUNCTION__, __LINE__);
+	}
+}
+int ZoneManager_GetRunBadBlock(int context) {
+	Context *conptr = (Context *)context;
+	ZoneManager *zonep = conptr->zonep;
+	int zoneid = -1;
+	if(fifocount(zonep->runblockfifo) > 0) {
+		zoneid = popfifo(zonep->runblockfifo);
+	}
+	return zoneid;
 }
 void debug_zonemanagerinfo(int context)
 {
