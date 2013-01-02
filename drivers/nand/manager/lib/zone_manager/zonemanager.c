@@ -25,7 +25,7 @@
 #define ZONEMEMSIZE(vnand)      ((vnand)->BytePerPage * 4)
 
 void  ZoneManager_SetCurrentWriteZone(int context,Zone *zone);
-
+static Zone* init_sigzoneinfo(int context, unsigned int ZoneID);
 /**
  *	init_free_node - Initialize hashnode of freezone
  *
@@ -611,11 +611,13 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 	int last_zone_badblocknum = 0;
 	Context *conptr = (Context *)(zonep->context);
 	VNandInfo *vnand = &conptr->vnand;
+	Zone *zone = NULL;
 	unsigned int zonenum = zonep->pt_zonenum;
 
 	for(i = 0 ; i < zonenum ; i++)
 	{
 		sigp = (SigZoneInfo *)(zonep->sigzoneinfo + i);
+#ifdef NO_ERROR
 		if((zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0) {
 			ret = insert_free_node(zonep,i);
 			if(ret != 0) {
@@ -623,17 +625,35 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 							__FUNCTION__,__LINE__);
 				return ret;
 			}
-		}else if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0) {
+		}else
+#endif
+		if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0 
+#ifndef NO_ERROR
+			|| (zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0
+#endif
+			) {
 			ret = read_zone_page0(zonep,i,pl);
                         if (ISERROR(ret)) {
 							ret = pl->retVal;
                                 pl->retVal = 0;
-                                if (!ISNOWRITE(ret)){
+                                if (ISNOWRITE(ret)){
+#ifndef NO_ERROR
+									zone = init_sigzoneinfo(zonep->context,i);
+									ret = Zone_MarkEraseBlock(zone,-1,0);
+									ndprint(ZONEMANAGER_INFO,"zoneid[%d]write page0 \n",i);
+									ZoneManager_DropZone (zonep->context,zone);
+									if(ret == -1){
+										continue;
+										}
+#endif
+                               }else{
 									ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 0 error!\n",i);
-                                        insert_zoneidlist(zonep,PAGE0,i);
-                                }
+									insert_zoneidlist(zonep,PAGE0,i);
+
+								}
                         }else {
-							unpackage_page0_info(zonep,i);
+							if((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0)
+								unpackage_page0_info(zonep,i);
 						}
                         pl->retVal = 0;
 			ret = insert_free_node(zonep,i);
@@ -1544,7 +1564,7 @@ void ZoneManager_DropZone (int context,Zone* zone )
 
 	zonep->memflag[zone->memflag] = 0;
 	free_zone(zonep,zone);
-	ndprint(ZONEMANAGER_ERROR, "zoneID: %d, free count %d used count %d func %s \n",
+	ndprint(ZONEMANAGER_INFO, "zoneID: %d, free count %d used count %d func %s \n",
 		zone->ZoneID, zonep->freeZone->count,zonep->useZone->usezone_count, __FUNCTION__);
 }
 
@@ -2163,3 +2183,53 @@ void debug_zonemanagerinfo(int context)
 	ndprint(ZONEMANAGER_DEBUG, "zonep->useZone %p \n",zonep->useZone);
 }
 
+static Zone* init_sigzoneinfo(int context, unsigned int ZoneID)
+{
+	Context *conptr = (Context *)context;
+	ZoneManager *zonep = conptr->zonep;
+	Zone *zone = NULL;
+	unsigned int i = 0;
+
+	zone= alloc_zone(zonep);
+	if(zone == NULL)
+	{
+		ndprint(ZONEMANAGER_ERROR,"alloc Zone error func %s line %d\n",
+					__FUNCTION__,__LINE__);
+		return NULL;
+	}
+	if (ZoneID < 0 || ZoneID >= zonep->pt_zonenum)
+		ndprint(ZONEMANAGER_ERROR,"%s %d zoneid: %d ERROR! total zonenum is %d\n",__func__,__LINE__,ZoneID,zonep->pt_zonenum);
+	zone->sigzoneinfo = zonep->sigzoneinfo + ZoneID;
+	zone->prevzone = NULL;
+	zone->nextzone = NULL;
+	zone->startblockID = ZoneID * BLOCKPERZONE(zonep->vnand);
+
+	if(ZoneID == zonep->pt_zonenum - 1)
+		zone->endblockID = zonep->vnand->TotalBlocks;
+	else
+		zone->endblockID = zone->startblockID + BLOCKPERZONE(zonep->context);
+
+	for(i = 0 ; i < 4 ; i++)
+	{
+		if(zonep->memflag[i] == 0)
+			break;
+	}
+
+	if(i == 8)
+	{
+		ndprint(ZONEMANAGER_ERROR,"PANIC ERROR func %s line %d \n",
+					__FUNCTION__,__LINE__);
+		goto err;
+	}
+
+	zone->memflag = i;
+	zone->ZoneID = ZoneID;
+	zone->mem0 = zonep->mem0 + i * zonep->vnand->BytePerPage;
+	zone->vnand = zonep->vnand;
+	zone->context = context;
+
+	return zone;
+err:
+	free_zone(zonep,zone);
+	return NULL;
+}
