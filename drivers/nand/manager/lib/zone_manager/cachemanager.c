@@ -214,7 +214,7 @@ int CacheManager_Init ( int context )
 		return -1;
 	}
 	memset(cm,0,sizeof(CacheManager));
-
+	cm->context = context;
 	conptr->cachemanager = cm;
 
 	cm->pagecache.pageinfobuf = Nand_ContinueAlloc(sizeof(unsigned char) * conptr->vnand.BytePerPage);
@@ -317,7 +317,9 @@ static unsigned char* readpageinfo(CacheManager *cm,unsigned int pageid,int lxof
 	}else{
 		CONVERT_DATA_NANDPAGEINFO(pc->pageinfobuf,pc->nandpageinfo,
 					  cm->L4InfoLen,cm->L3InfoLen,cm->L2InfoLen);
-
+		if(ISDATAMOVE(pagelist->retVal)) {
+			ZoneManager_SetRunBadBlock(cm->context,pageid);
+		}
 		if(((NandPageInfo *)pc->pageinfobuf)->MagicID != 0xaaaa)
 			ndprint(ZONE_ERROR,"readpageinfo read nandpageinfo error pageid = %d MageicID = 0x%04X\n",pageid,
 																			((NandPageInfo *)pc->pageinfobuf)->MagicID);

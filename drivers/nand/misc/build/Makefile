@@ -39,7 +39,8 @@ LIBSRC = l2vNand.c \
 	 junkzone.c \
 	 errhandle.c \
          pageinfodebug.c \
-	 ncrc16.c
+	 ncrc16.c	\
+	ndfifo.c
 #	 badblockinfo.c
 
 
