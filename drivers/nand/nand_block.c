@@ -931,8 +931,12 @@ static int nand_disk_install(char *name)
 
 		/* partiton with this mode do not need to open */
 		if (lpt->pt->mode == ONCE_MANAGER) {
+		    if(installAll)
+			return 0;
+		    else{
 			printk("ERROR(nand block): can not install disk [%s]!\n", name);	
 			return -1;
+		    }
 		}
 
 		if (!installAll && strcmp(lpt->pt->name, name))
@@ -940,7 +944,10 @@ static int nand_disk_install(char *name)
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
-			continue;
+			if(!installAll)
+			    break;
+			else
+			    continue;
 		}
 
 		printk("nand block, install partition [%s]!\n", lpt->pt->name);
@@ -978,6 +985,8 @@ static int nand_disk_install(char *name)
 			ret = -EFAULT;
 			goto start_err2;
 		}
+		if(!installAll)
+		    break;
 	}
 
 	return 0;
