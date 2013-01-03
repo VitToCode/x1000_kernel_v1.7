@@ -51,3 +51,20 @@ int fifocount(int handle) {
 	TmpTableList *tmp = (TmpTableList *)handle;
 	return tmp->fifocount;
 }
+
+int fifodelete(int handle,unsigned int data) {
+	TmpTableList *tmp = (TmpTableList *)handle;
+	struct bilist_head *pos;
+	TmpTableNode *node;
+	int zm = tmp->zm;
+	int ret = -1;
+	bilist_for_each(pos,&(tmp->top)) {
+		node = bilist_entry(pos,TmpTableNode,head);
+		if(node->data == data) {
+			bilist_del(pos);
+			ZoneMemory_DeleteUnits(zm,node,1);
+			ret = 0;
+		}
+	}
+	return ret;
+}

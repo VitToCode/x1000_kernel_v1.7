@@ -2171,6 +2171,17 @@ int ZoneManager_GetRunBadBlock(int context) {
 	}
 	return zoneid;
 }
+void ZoneManager_DelRunBadBlock(int context,int zoneid){
+	Context *conptr = (Context *)context;
+	ZoneManager *zonep = conptr->zonep;
+	if(zoneid != -1) {
+		fifodelete(zonep->runblockfifo,zoneid);
+	}else{
+		ndprint(ZONEMANAGER_ERROR, "ERROR: zoneid = %d  func: %s line: %d\n",
+			zoneid,  __FUNCTION__, __LINE__);
+	}
+}
+
 void debug_zonemanagerinfo(int context)
 {
 	Context *conptr = (Context *)context;

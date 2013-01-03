@@ -22,6 +22,6 @@ void releasefifo(int handle);
 int pushfifo(int handle,unsigned int data);
 unsigned int popfifo(int handle);
 int fifocount(int handle);
-
+int fifodelete(int handle,unsigned int data);
 #endif /* _NDFIFO_H_ */
 
