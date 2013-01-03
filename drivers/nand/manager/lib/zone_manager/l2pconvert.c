@@ -108,7 +108,7 @@ static int Idle_Handler(int data)
 				} else if (percent < 300) {
 					percent = 300;
 				}
-				if(nd_getcurrentsec_ns() < (conptr->t_startrecycle + INTERNAL_TIME)){
+				if(nd_getcurrentsec_ns() > (conptr->t_startrecycle + INTERNAL_TIME)){
 					if (maxlifetime - minlifetime > 50) {
                                                 Recycle_OnNormalRecycle(context);
                                         } else if (Get_JunkZoneRecycleTrig(conptr->junkzone,percent)) {
@@ -589,6 +589,7 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,0);
 #endif
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	/* head node will not be use */
 	pl =(PageList *) BuffListManager_getTopNode(conptr->blm, sizeof(PageList));
 	if (!(pl)) {
@@ -650,7 +651,6 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 exit:
 	BuffListManager_freeAllList(conptr->blm, (void **)&pl, sizeof(PageList));
 null_pl:
-	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	Recycle_Unlock(context);
 	return 0;
 /*
@@ -1221,6 +1221,7 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 #ifdef STATISTICS_DEBUG
 	Get_StartTime(conptr->timebyte,1);
 #endif
+	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	INIT_L2P(l2p);
 	recycle_zone_prepare(context);
 	zone = get_write_zone(context);
@@ -1297,7 +1298,6 @@ int L2PConvert_WriteSector ( int handle, SectorList *sl )
 	Calc_Speed(conptr->timebyte, (void*)sl, 1, 1);
 #endif
 exit:
-	conptr->t_startrecycle = nd_getcurrentsec_ns();
 	if(pageinfo_eccislarge && is_not_ecc_error){
 		ndprint(L2PCONVERT_INFO,"Pageinfo ecc is too large,Start reread pageinfo ecc error handle\n");
 		start_reread_ecc_error_handle(context, zone->ZoneID,0);
