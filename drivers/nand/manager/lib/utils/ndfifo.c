@@ -17,7 +17,7 @@ void releasefifo(int handle) {
 	zm = tmp->zm;
 	bilist_for_each(pos,&(tmp->top)) {
 		node = bilist_entry(pos,TmpTableNode,head);
-		bilist_del(pos);
+		__bilist_del(pos->prev,pos->next);
 		ZoneMemory_DeleteUnits(zm,node,1);
 	}
 	ZoneMemory_DeInit(zm);
@@ -64,6 +64,8 @@ int fifodelete(int handle,unsigned int data) {
 			bilist_del(pos);
 			ZoneMemory_DeleteUnits(zm,node,1);
 			ret = 0;
+			tmp->fifocount--;
+			break;
 		}
 	}
 	return ret;
