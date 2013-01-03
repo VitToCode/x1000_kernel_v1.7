@@ -32,6 +32,7 @@ static int FindNextPageInfo ( Recycle *rep);
 static int FreeZone ( Recycle *rep );
 int Recycle_OnForceRecycle ( int frinfo );
 static int MergerSectorID_Align(Recycle *rep);
+static Zone *alloc_new_zone_write (int context,Zone *zone);
 /**
  *	Recycle_OnFragmentHandle - Process of normal recycle
  *
@@ -398,18 +399,22 @@ static unsigned short get_normal_zoneID(int context)
  */
 static int getRecycleZone ( Recycle *rep)
 {
-	unsigned short ZoneID = 0;
+	unsigned short ZoneID = 0xffff;
 	int ret = 0;
 	int context = rep->context;
 	Zone *zone;
 	Zone *current_zone;
-	//min sector count 128 sectors
-	ZoneID = Get_JunkZoneRecycleZone(((Context *)context)->junkzone);//Get_MaxJunkZone(((Context *)context)->junkzone,128);
-	rep->junk_zoneid = ZoneID;
-	if(ZoneID == 0xffff){
-		ZoneID = get_normal_zoneID(context);
-	}
 
+	if(rep->recyclemode == RECYCLE_NORMAL_MODE)
+		ZoneID = ZoneManager_GetRunBadBlock(rep->context);
+	if(ZoneID == 0xffff){
+	//min sector count 128 sectors
+		ZoneID = Get_JunkZoneRecycleZone(((Context *)context)->junkzone);//Get_MaxJunkZone(((Context *)context)->junkzone,128);
+		rep->junk_zoneid = ZoneID;
+		if(ZoneID == 0xffff){
+			ZoneID = get_normal_zoneID(context);
+		}
+	}
 	if(ZoneID == 0xffff) {
 		ret = -1;
 		ndprint(RECYCLE_INFO,"ZoneID == 0xffff ! func %s line %d\n",
@@ -421,15 +426,12 @@ static int getRecycleZone ( Recycle *rep)
 	if(current_zone && (ZoneID == current_zone->ZoneID)){
 		ndprint(RECYCLE_INFO,"Start handle recyclezone=currentzone!!! func %s line %d ZoneID = %d\n",
 				__FUNCTION__,__LINE__,ZoneID);
-		zone = ZoneManager_Get_Used_Zone(((Context*)(rep->context))->zonep, ZoneID);
+		zone = alloc_new_zone_write(rep->context,current_zone);
 		if(zone == NULL) {
-			ndprint(RECYCLE_ERROR,"alloc recycle zone error func %s line %d ZoneID = %d\n",
-					__FUNCTION__,__LINE__,ZoneID);
-			ret = -1;
-			goto err;
+			ndprint(RECYCLE_ERROR,"alloc new zone func %s line %d \n",
+						__FUNCTION__,__LINE__);
+			return -1;
 		}
-		ZoneManager_SetPrevZone(rep->context,zone);
-		ZoneManager_FreeZone (rep->context,zone);
 	}
 
 	rep->rZone = ZoneManager_AllocRecyclezone(context,ZoneID);
@@ -1445,6 +1447,8 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 	PageList *write_pagelist = NULL;
 	int pagelist;
 	int blm = ((Context *)(rep->context))->blm;
+	struct singlelist *pos;
+	PageList *pl_node;
 
 	if (rep->force) {
 		writepageinfo = rep->force_writepageinfo;
@@ -1486,6 +1490,11 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 			write_pagelist =(PageList*)pagelist;
 		}
 		ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
+		singlelist_for_each(pos, &(read_pagelist->head)) {
+			pl_node = singlelist_entry(pos, PageList, head);
+			if(ISDATAMOVE(pl_node->retVal))
+				ZoneManager_SetRunBadBlock(rep->context,pl_node->startPageID);
+		}
 		if(ret != 0) {
 			ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d ret=%d startblockid=%d badblock=%08x\n",
 					__FUNCTION__,__LINE__,ret,wzone->startblockID,wzone->sigzoneinfo->badblock);
@@ -1509,6 +1518,8 @@ static int all_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int count)
 static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,unsigned int flag)
 {
 	int ret = 0;
+	struct singlelist *pos;
+	PageList *pl_node;
 	PageInfo *writepageinfo = NULL;
 	PageList *read_pagelist = NULL;
 	PageList *write_pagelist = NULL;
@@ -1553,6 +1564,11 @@ static int part_recycle_buflen(Recycle *rep,Zone *wzone,unsigned int numpage,uns
 		}
 
 	ret = vNand_CopyData(wzone->vnand, read_pagelist, write_pagelist);
+	singlelist_for_each(pos, &(read_pagelist->head)) {
+		pl_node = singlelist_entry(pos, PageList, head);
+		if(ISDATAMOVE(pl_node->retVal))
+			ZoneManager_SetRunBadBlock(rep->context,pl_node->startPageID);
+	}
 	if(ret != 0) {
 		ndprint(RECYCLE_ERROR,"vNand_CopyData error func %s line %d ret=%d\n",
 				__FUNCTION__,__LINE__,ret);
@@ -2191,6 +2207,7 @@ static int OnForce_GetRecycleZone ( Recycle *rep, unsigned short suggest_zoneid)
 {
 	unsigned short ZoneID = suggest_zoneid;
 	Zone *zone = ZoneManager_GetCurrentWriteZone(rep->context);
+
 	if (zone && ZoneID == zone->ZoneID) {
 		zone = alloc_new_zone_write(rep->context,zone);
 		if(zone == NULL) {

@@ -17,7 +17,7 @@ struct _SigZoneInfo {
 		(x)->validpage = -1;					\
 		(x)->pre_zoneid = -1;					\
 		(x)->next_zoneid = -1;					\
-		(x)->badblock = 0;					\
+		(x)->runbadblock = 0;					\
 	}while(0)
 
 SigZoneInfo* SigZoneInfo_get ( SigZoneInfo *this, unsigned short zoneID );

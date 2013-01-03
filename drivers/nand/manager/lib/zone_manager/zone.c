@@ -689,6 +689,17 @@ retry_mark:
 				}
 			}
 		}
+		if(zone->sigzoneinfo->runbadblock != 0){
+			ndprint(ZONE_INFO,"INFO:zoneid=%d runbadblock=%d badblock=%d\n",zone->ZoneID,zone->sigzoneinfo->runbadblock,zone->sigzoneinfo->badblock);
+			for(i = 0; i < zone->endblockID - zone->startblockID; i++) {
+				if(nm_test_bit(i, (unsigned int *)&(zone->sigzoneinfo->runbadblock))){
+					nm_set_bit(i, (unsigned int *)&(zone->sigzoneinfo->badblock));
+					vNand_MarkBadBlock (vnand, zone->startblockID+i);
+				}
+			}
+			zone->sigzoneinfo->runbadblock = 0;
+		}
+		ZoneManager_DelRunBadBlock(zone->context,zone->ZoneID);
 		BuffListManager_freeAllList((int)blm,(void **)&bl,sizeof(BlockList));
 		if(PageID != -1) {
 			ndprint(ZONE_INFO,"reread pageinfo ecc error and mark bad block.pipageid:%d\n",PageID);

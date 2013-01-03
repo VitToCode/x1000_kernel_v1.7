@@ -104,7 +104,6 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl, PageList *pl)
 {
 	struct singlelist *pos;
 	struct singlelist *alig_pos;
-	int cnt = 0;
 	PageList *pl_node = NULL;
 
 	if (vnand->v2pp->_2kPerPage == 1 || vnand->mode != ZONE_MANAGER)
@@ -114,26 +113,19 @@ static void Fill_Pl_Retval(VNandInfo *vnand, PageList *alig_pl, PageList *pl)
 		ndprint(VNAND_INFO,"WARNING: Pagelist is null !!\n");
 		return;
 	}
-
 	singlelist_for_each(pos,&pl->head){
 		pl_node = singlelist_entry(pos,PageList,head);
-		if (pl_node->retVal == 1)
-			cnt ++;
-		if ((pl_node->retVal == 0) ||
-		   (pl_node->retVal == 1 && cnt >= vnand->v2pp->_2kPerPage)) {
-			pl_node->retVal = alig_pl->retVal;
+		pl_node->retVal = alig_pl->retVal;
+		alig_pl->Bytes -= pl_node->Bytes;
+		if(alig_pl->Bytes == 0){
 			alig_pos = alig_pl->head.next;
 			if(alig_pos == NULL){
-				if(pos->next == NULL)
-					break;
-				else
+				if(pos->next != NULL)
 					ndprint(VNAND_ERROR,"ERROR:%s LINE:%d\n",__func__,__LINE__);
+				break;
 			}
 			alig_pl = singlelist_entry(alig_pos,PageList,head);
-			cnt = 0;
-			continue;
 		}
-		pl_node->retVal = alig_pl->retVal;
 	}
 }
 
@@ -274,7 +266,7 @@ int __vNand_CopyData (VNandInfo* vNand,PageList* rpl, PageList* wpl){
 		ret = v_nand_ops.operator->iMultiPageRead(vNand->prData, alig_rpl);
 		Fill_Pl_Retval(vNand,alig_rpl,read_pagelist);
 		if (ret != 0){
-			ndprint(VNAND_ERROR,"MultiPagerRead failed! func: %s line: %d ret=%d\n",
+			ndprint(VNAND_INFO,"MultiPagerRead failed! func: %s line: %d ret=%d\n",
 					__FUNCTION__, __LINE__,ret);
 			//goto exit;
 		}

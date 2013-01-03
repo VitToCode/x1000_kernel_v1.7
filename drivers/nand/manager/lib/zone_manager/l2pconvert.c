@@ -39,7 +39,8 @@ static int Idle_Handler(int data)
 	int freecount;
 	int usecount;
 	int percent;
-        int recyclemode;
+    int recyclemode;
+	int ret = 0;
 #ifdef 	TEST_ZONE_MANAGER
 	nm_sleep(2);
 #endif
@@ -109,11 +110,15 @@ static int Idle_Handler(int data)
 					percent = 300;
 				}
 				if(nd_getcurrentsec_ns() > (conptr->t_startrecycle + INTERNAL_TIME)){
-					if (maxlifetime - minlifetime > 50) {
-                                                Recycle_OnNormalRecycle(context);
-                                        } else if (Get_JunkZoneRecycleTrig(conptr->junkzone,percent)) {
-						Recycle_OnNormalRecycle(context);
-                                        } else
+					if(ZoneManager_GetRunBadBlock(context) != 0xffffffff){
+						ret = Recycle_OnNormalRecycle(context);
+					}else if (maxlifetime - minlifetime > 50) {
+						ret = Recycle_OnNormalRecycle(context);
+					} else if (Get_JunkZoneRecycleTrig(conptr->junkzone,percent)) {
+						ret = Recycle_OnNormalRecycle(context);
+					} else
+						nm_sleep(1);
+					if(ret != 0)
 						nm_sleep(1);
 				} else
 					nm_sleep(1);
@@ -606,7 +611,6 @@ int L2PConvert_ReadSector ( int handle, SectorList *sl )
 		if (sl_node->startSector + sl_node->sectorCount > cachemanager->L1UnitLen * (cachemanager->L1InfoLen >> 2)
 			|| sl_node->sectorCount <= 0 ||sl_node->startSector < 0) {
 			ndprint(L2PCONVERT_ERROR,"ERROR: func %s line %d\n", __FUNCTION__, __LINE__);
-			conptr->t_startrecycle = nd_getcurrentsec_ns();
 			Recycle_Unlock(context);
 			return -1;
 		}

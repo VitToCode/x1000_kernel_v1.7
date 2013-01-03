@@ -111,4 +111,5 @@ int ZoneManager_Move_UseZone_to_FreeZone(ZoneManager *zonep,unsigned short zoneI
 int ZoneManager_GetValidPage(int context,int zoneid);
 void ZoneManager_SetRunBadBlock(int context,unsigned int pageid);
 int ZoneManager_GetRunBadBlock(int context);
+void ZoneManager_DelRunBadBlock(int context,int zoneid);
 #endif

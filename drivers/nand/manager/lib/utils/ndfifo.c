@@ -1,4 +1,5 @@
 #include "utils/ndfifo.h"
+#include "nanddebug.h"
 int createfifo(void) {
 	int zm;
 	TmpTableList *tmp;
@@ -26,6 +27,14 @@ void releasefifo(int handle) {
 int pushfifo(int handle,unsigned int data) {
 	TmpTableList *tmp = (TmpTableList *)handle;
 	TmpTableNode *node;
+	struct bilist_head *pos;
+
+	bilist_for_each(pos,&(tmp->top)) {
+		node = bilist_entry(pos,TmpTableNode,head);
+		if(node->data == data) {
+			return 0;
+		}
+	}
 	node = ZoneMemory_NewUnits(tmp->zm,1);
 	if(node == NULL) return -1;
 	node->data = data;
