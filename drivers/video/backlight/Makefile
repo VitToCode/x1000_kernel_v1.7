@@ -28,8 +28,6 @@ else
 obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1-ji8070.o
 endif
 
-obj-$(CONFIG_LCD_HHX070ML208CP21)	+= hhx070ml208cp21.o
-
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o
