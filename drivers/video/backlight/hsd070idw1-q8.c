@@ -45,9 +45,9 @@ struct hsd070idw1_data {
 static void hsd070idw1_on(struct hsd070idw1_data *dev)
 {
 	regulator_enable(dev->lcd_vcc_reg);
-	msleep(500);
+	msleep(300);
 	regulator_enable(dev->lcd_bklight_reg);
-	msleep(200);
+	msleep(100);
 
 	if (!first_boot) {
 		if (dev->pdata->gpio_rest) {
@@ -63,9 +63,9 @@ static void hsd070idw1_off(struct hsd070idw1_data *dev)
 {
 	dev->lcd_power = 0;
     regulator_disable(dev->lcd_bklight_reg);
-    msleep(500);
+    msleep(300);
     regulator_disable(dev->lcd_vcc_reg);
-    msleep(200);
+    msleep(100);
 }
 
 static int hsd070idw1_set_power(struct lcd_device *lcd, int power)
