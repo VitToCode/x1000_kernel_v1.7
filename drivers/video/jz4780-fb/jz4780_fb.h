@@ -14,7 +14,7 @@
 #endif
 
 #define PIXEL_ALIGN 16
-#define MODE_NAME_LEN 32
+#define MAX_DESC_NUM 3
 
 /**
  * @next: physical address of next frame descriptor
@@ -104,7 +104,7 @@ struct jzfb {
 	int frm_size;
 	int current_buffer;
 	/* dma 0 descriptor base address */
-	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
+	struct jzfb_framedesc *framedesc[MAX_DESC_NUM];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
 	struct mutex framedesc_lock;

@@ -308,10 +308,10 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 	if (jzfb->fg1_framedesc)
 		return;
 
-	jzfb->fg1_framedesc = jzfb->framedesc[0] + sizeof(struct jzfb_framedesc)
-		* (jzfb->desc_num - 1);
+	jzfb->fg1_framedesc = jzfb->framedesc[0] + (jzfb->desc_num - 1);
+	jzfb->fg1_framedesc->next = jzfb->framedesc_phys + sizeof(
+		struct jzfb_framedesc) * (jzfb->desc_num - 1);
 
-	jzfb->fg1_framedesc->next = (uint32_t)virt_to_phys(jzfb->fg1_framedesc);
 	jzfb->fg1_framedesc->databuf = 0;
 	jzfb->fg1_framedesc->id = 0xda1;
 	jzfb->fg1_framedesc->cmd = (LCDC_CMD_EOFINT & ~LCDC_CMD_FRM_EN)
@@ -335,10 +335,10 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 	int i;
 	struct jzfb *jzfb = info->par;
 	struct jzfb_display_size *display_size;
-	struct jzfb_framedesc (*framedesc)[sizeof(struct jzfb_framedesc)];
+	struct jzfb_framedesc *framedesc[MAX_DESC_NUM - 1];
 
 	display_size = kzalloc(sizeof(struct jzfb_display_size), GFP_KERNEL);
-	framedesc = kzalloc(sizeof(struct jzfb_framedesc) *
+	framedesc[0] = kzalloc(sizeof(struct jzfb_framedesc) *
 			    (jzfb->desc_num - 1), GFP_KERNEL);
 
 	jzfb_calculate_size(info, display_size);
@@ -362,7 +362,7 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 	reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
 
 	jzfb_config_fg1_dma(info, display_size);
-	kzfree(framedesc);
+	kzfree(framedesc[0]);
 	kzfree(display_size);
 
 	return 0;
@@ -682,17 +682,15 @@ static void jzfb_config_lvds_controller(struct fb_info *info)
 	jzfb_lvds_txectrl_config(info);
 
 #if 0
-	struct jzfb *jzfb = info->par;
-
 //	reg_write(jzfb, LVDS_TXCTRL,  0xe00580a1);
 //	reg_write(jzfb, LVDS_TXPLL0,  0x40002108);
 //	reg_write(jzfb, LVDS_TXPLL1,  0x8d000000);
 //	reg_write(jzfb, LVDS_TXECTRL, 0x00000030);
 
-	printk("txctrl =  0x%08x\n", reg_read(jzfb, LVDS_TXCTRL));
-	printk("tx_pll0 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL0));
-	printk("tx_pll1 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL1));
-	printk("txectrl =  0x%08x\n", reg_read(jzfb, LVDS_TXECTRL));
+	dev_info(jzfb->dev, "txctrl =  0x%08x\n", reg_read(jzfb, LVDS_TXCTRL));
+	dev_info(jzfb->dev, "tx_pll0 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL0));
+	dev_info(jzfb->dev, "tx_pll1 =  0x%08x\n", reg_read(jzfb, LVDS_TXPLL1));
+	dev_info(jzfb->dev, "txectrl =  0x%08x\n", reg_read(jzfb, LVDS_TXECTRL));
 #endif
 
 	jzfb_lvds_check_pll_lock(info);
@@ -894,8 +892,8 @@ static int jzfb_set_par(struct fb_info *info)
 	clk_set_rate(jzfb->pclk, rate);
 	clk_enable(jzfb->pclk);
 
-	dev_info(info->dev,"LCDC: PixClock:%lu\n", rate);
-	dev_info(info->dev,"LCDC: PixClock:%lu(real)\n",
+	dev_info(jzfb->dev, "LCDC: PixClock:%lu\n", rate);
+	dev_info(jzfb->dev, "LCDC: PixClock:%lu(real)\n",
 		 clk_get_rate(jzfb->pclk));
 
 	jzfb_config_image_enh(info);
@@ -966,11 +964,11 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	struct fb_videomode *mode;
 	void *page;
 
-	jzfb->framedesc = dma_alloc_coherent(jzfb->dev, sizeof(*jzfb->framedesc)
-					     * jzfb->desc_num,
-					     &jzfb->framedesc_phys, GFP_KERNEL);
+	jzfb->framedesc[0] = dma_alloc_coherent(
+		jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
+		&jzfb->framedesc_phys, GFP_KERNEL);
 	if (!jzfb->framedesc)
-	return -ENOMEM;
+		return -ENOMEM;
 
 	if (!jzfb->pdata->alloc_vidmem) {
 		dev_info(jzfb->dev, "Not allocate frame buffer\n");
@@ -1021,7 +1019,7 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 {
 	dma_free_coherent(jzfb->dev, jzfb->vidmem_size,
 			  jzfb->vidmem, jzfb->vidmem_phys);
-	dma_free_coherent(jzfb->dev, sizeof(*jzfb->framedesc) * jzfb->desc_num,
+	dma_free_coherent(jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 			  jzfb->framedesc, jzfb->framedesc_phys);
 }
 
@@ -1602,10 +1600,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		mutex_lock(&jzfb->framedesc_lock);
 		if (value) {
 			jzfb->pan_sync = 1;
-			printk("set jzfb->pan_sync 1\n");
 		} else {
 			jzfb->pan_sync = 0;
-			printk("set jzfb->pan_sync 000000001\n");
 		}
 		mutex_unlock(&jzfb->framedesc_lock);
 		break;
@@ -1967,7 +1963,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 {
 	int i;
 	long unsigned int tmp;
-	struct device *dev = jzfb->fb->dev;
+	struct device *dev = jzfb->dev;
 
 	/* LCD Controller Resgisters */
 	dev_info(dev, "LCDC_CFG: \t0x%08lx\n", reg_read(jzfb, LCDC_CFG));
@@ -2036,8 +2032,16 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 		 reg_read(jzfb, LCDC_DESSIZE1));
 	dev_info(dev, "==================================\n");
 	dev_info(dev, "LCDC_PCFG:\t0x%08lx\n", reg_read(jzfb, LCDC_PCFG));
-	dev_info(dev, "Next is DMA 0 descriptor value in memory\n");
-	for (i = 0; i < jzfb->desc_num -1; i++) {
+	for (i = 0; i < jzfb->desc_num; i++) {
+		dev_info(dev, "==================================\n");
+		if (i != jzfb->desc_num - 1) {
+			dev_info(dev, "jzfb->framedesc: %p\n", jzfb->framedesc);
+			dev_info(dev, "DMA 0 descriptor value in memory\n");
+		} else {
+			jzfb->framedesc[i] = jzfb->fg1_framedesc;
+			dev_info(dev, "jzfb->fg1_framedesc: %p\n", jzfb->fg1_framedesc);
+			dev_info(dev, "DMA 1 descriptor value in memory\n");
+		}
 		dev_info(dev, "framedesc[%d]->next: \t0x%08x\n", i,
 			 jzfb->framedesc[i]->next);
 		dev_info(dev, "framedesc[%d]->databuf:  \t0x%08x\n", i,
@@ -2191,9 +2195,9 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    pdata->lcd_type != LCD_TYPE_LCM) {
-		jzfb->desc_num = 2;
+		jzfb->desc_num = MAX_DESC_NUM - 1;
 	} else {
-		jzfb->desc_num = 3;
+		jzfb->desc_num = MAX_DESC_NUM;
 	}
 
 	sprintf(jzfb->clk_name, "lcd%d",pdev->id);
