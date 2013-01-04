@@ -581,10 +581,10 @@ static void fill_localzone_validpage(ZoneManager *zonep,PageList *pl)
 				if (ISERROR(ret)) {
 					ret = pl->retVal;
 					pl->retVal = 0;
-					if (!ISNOWRITE(ret)){
-						ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 0 error!\n",i);
+					/*if (!ISNOWRITE(ret)){
+						ndprint(ZONEMANAGER_ERROR,"LINE:find zoneid[%d] page 0 error!\n",__LINE__,i);
 						insert_zoneidlist(zonep,PAGE0,i);
-					}
+						}*/
 				}else {
 					nandsigzoneinfo = (NandSigZoneInfo *)(zonep->mem0);
 					if(nandsigzoneinfo->prezoneinfo.ZoneID == i && sigp->validpage == 0xffff
@@ -627,7 +627,7 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 			}
 		}else
 #endif
-		if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0 
+		if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0
 #ifndef NO_ERROR
 			|| (zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0
 #endif
@@ -647,7 +647,7 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 										}
 #endif
                                }else{
-									ndprint(ZONEMANAGER_ERROR,"find zoneid[%d] page 0 error!\n",i);
+									ndprint(ZONEMANAGER_ERROR,"LINE:%d find zoneid[%d] page 0 error!\n",__LINE__,i);
 									insert_zoneidlist(zonep,PAGE0,i);
 
 								}
@@ -743,8 +743,9 @@ static int scan_page_info(ZoneManager *zonep)
 					if (ISNOWRITE(ret))
 						continue;
 					else {
-						ndprint(ZONEMANAGER_INFO,"find zoneid[%d] page 1 error!\n",i);
+						ndprint(ZONEMANAGER_INFO,"LINE:%d find zoneid[%d] page 1 error!\n",__LINE__,i);
 						insert_zoneidlist(zonep,PAGE1,i);
+						zonep->sigzoneinfo_initflag[i] |= LOCAL_INIT;
 					}
                 } else {
 					plt->retVal = 0;
