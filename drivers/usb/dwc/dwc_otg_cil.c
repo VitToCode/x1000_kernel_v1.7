@@ -51,7 +51,7 @@
  *
  * The Core Interface Layer has the following requirements:
  * - Provides basic controller operations.
- * - Minimal use of OS services. 
+ * - Minimal use of OS services.
  * - The OS services used will be abstracted by using inline functions
  *	 or macros.
  *
@@ -60,6 +60,8 @@
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
+#include <linux/kernel.h>
+#include <linux/delay.h>
 
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
 extern void jz_dwc_set_vbus(dwc_otg_core_if_t *core_if, int is_on);
@@ -195,13 +197,13 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 		gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 1;
 		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-		dwc_mdelay(100); 
+		dwc_mdelay(100);
 		core_if->hptxfsiz.d32 =
 		DWC_READ_REG32(&core_if->core_global_regs->hptxfsiz);
 		gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 0;
 		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-		dwc_mdelay(100); 
+		dwc_mdelay(100);
 	}
 
 	DWC_DEBUGPL(DBG_CILV, "hwcfg1=%08x\n", core_if->hwcfg1.d32);
@@ -278,7 +280,7 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 
 	/** ADP initialization */
 	dwc_otg_adp_init(core_if);
-	
+
 	return core_if;
 }
 
@@ -473,7 +475,7 @@ int dwc_otg_device_hibernation_restore(dwc_otg_core_if_t * core_if,
 
 	if (core_if->hibernation_suspend == 0) {
 		/*
-		 * Wait For Restore_done Interrupt. This mechanism of polling the 
+		 * Wait For Restore_done Interrupt. This mechanism of polling the
 		 * interrupt is introduced to avoid any possible race conditions
 		 */
 		do {
@@ -639,7 +641,7 @@ int dwc_otg_host_hibernation_restore(dwc_otg_core_if_t * core_if,
 				gintsts.d32 = 0;
 				gintsts.b.restoredone = 1;
          		DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
-				DWC_DEBUGPL(DBG_HCD,"Restore Done Interrupt seen\n");	
+				DWC_DEBUGPL(DBG_HCD,"Restore Done Interrupt seen\n");
 				break;
 			}
 			dwc_udelay(10);
@@ -912,7 +914,7 @@ int dwc_otg_restore_global_regs(dwc_otg_core_if_t *core_if)
 	if (!gr) {
 		return -DWC_E_INVALID;
 	}
-   
+
 	DWC_WRITE_REG32(&core_if->core_global_regs->gotgctl, gr->gotgctl_local);
 	DWC_WRITE_REG32(&core_if->core_global_regs->gintmsk, gr->gintmsk_local);
 	DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gr->gusbcfg_local);
@@ -951,7 +953,7 @@ int dwc_otg_restore_dev_regs(dwc_otg_core_if_t * core_if, int rem_wakeup)
 	{
 		DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl, dr->dctl);
 	}
-	
+
 	DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->daintmsk, dr->daintmsk);
 	DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->diepmsk, dr->diepmsk);
 	DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->doepmsk, dr->doepmsk);
@@ -961,7 +963,7 @@ int dwc_otg_restore_dev_regs(dwc_otg_core_if_t * core_if, int rem_wakeup)
 		DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[i]->dieptsiz, dr->dieptsiz[i]);
 		DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[i]->diepdma, dr->diepdma[i]);
 	}
-	
+
 	return 0;
 }
 
@@ -1386,7 +1388,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 
 	case DWC_INT_DMA_ARCH:
 		DWC_DEBUGPL(DBG_CIL, "Internal DMA Mode\n");
-		/* Old value was DWC_GAHBCFG_INT_DMA_BURST_INCR - done for 
+		/* Old value was DWC_GAHBCFG_INT_DMA_BURST_INCR - done for
 		  Host mode ISOC in issue fix - vahrama */
 		ahbcfg.b.hburstlen = DWC_GAHBCFG_INT_DMA_BURST_INCR4;
 		core_if->dma_enable = (core_if->core_params->dma_enable != 0);
@@ -1410,7 +1412,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	if (core_if->core_params->ahb_single) {
 		ahbcfg.b.ahbsingle = 1;
 	}
-	
+
 	ahbcfg.b.dmaenable = core_if->dma_enable;
 	DWC_WRITE_REG32(&global_regs->gahbcfg, ahbcfg.d32);
 
@@ -1506,7 +1508,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		DWC_PRINTF("OTG VER PARAM: %d, OTG VER FLAG: %d\n",
 			   core_if->core_params->otg_ver, core_if->otg_ver);
 	}
-	
+
 
 	/* Do device or host intialization based on mode during PCD
 	 * and HCD initialization  */
@@ -1567,7 +1569,7 @@ void dwc_otg_enable_device_interrupts(dwc_otg_core_if_t * core_if)
 
 	//intr_mask.b.incomplisoout = 1;
 	intr_mask.b.incomplisoin = 1;
-	
+
 /* Enable the ignore frame number for ISOC xfers - MAS */
 /* Disable to support high bandwith ISOC transfers - manukz */
 #if 0
@@ -1654,7 +1656,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 	dcfg.b.perfrint = DWC_DCFG_FRAME_INTERVAL_80;
 	/* Enable Device OUT NAK in case of DDMA mode*/
 	if (core_if->core_params->dev_out_nak) {
-		dcfg.b.endevoutnak = 1;		
+		dcfg.b.endevoutnak = 1;
 	}
 
 	if (core_if->core_params->cont_on_bna) {
@@ -1662,7 +1664,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 		dctl.b.encontonbna = 1;
 		DWC_MODIFY_REG32(&dev_if->dev_global_regs->dctl, 0, dctl.d32);
 	}
-	
+
 
 	DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
 
@@ -1818,25 +1820,25 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 		for (i = 0; i<= core_if->dev_if->num_in_eps; ++i) {
 			core_if->nextep_seq[i] = 0xff;	// 0xff - EP not active
 		}
-		core_if->nextep_seq[0] = 0;	
+		core_if->nextep_seq[0] = 0;
 		core_if->first_in_nextep_seq = 0;
 		diepctl.d32 = DWC_READ_REG32(&dev_if->in_ep_regs[0]->diepctl);
 		diepctl.b.nextep = 0;
 		DWC_WRITE_REG32(&dev_if->in_ep_regs[0]->diepctl, diepctl.d32);
-		
+
 		/* Update IN Endpoint Mismatch Count by active IN NP EP count + 1 */
 		dcfg.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dcfg);
 		dcfg.b.epmscnt = 2;
 		DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
 
-		DWC_DEBUGPL(DBG_CILV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n", 
+		DWC_DEBUGPL(DBG_CILV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n",
 			__func__, core_if->first_in_nextep_seq);
 		for (i=0; i <= core_if->dev_if->num_in_eps; i++) {
 			DWC_DEBUGPL(DBG_CILV, "%2d ", core_if->nextep_seq[i]);
 		}
 		DWC_DEBUGPL(DBG_CILV,"\n");
 	}
-	
+
 	/* Clear all pending Device Interrupts */
 	/** @todo - if the condition needed to be checked
 	 *  or in any case all pending interrutps should be cleared?
@@ -2058,7 +2060,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 	}
 
 	/* This bit allows dynamic reloading of the HFIR register
-	 * during runtime. This bit needs to be programmed during 
+	 * during runtime. This bit needs to be programmed during
 	 * initial configuration and its value must not be changed
 	 * during runtime.*/
 	if (core_if->core_params->reload_ctl == 1) {
@@ -2129,7 +2131,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 		DWC_WRITE_REG32(&global_regs->hptxfsiz, ptxfifosize.d32);
 		DWC_DEBUGPL(DBG_CIL, "new hptxfsiz=%08x\n",
 			    DWC_READ_REG32(&global_regs->hptxfsiz));
-		
+
 		if (core_if->en_multiple_tx_fifo) {
 			/* Global DFIFOCFG calculation for Host mode - include RxFIFO, NPTXFIFO and HPTXFIFO */
 			gdfifocfg.d32 = DWC_READ_REG32(&global_regs->gdfifocfg);
@@ -2478,7 +2480,7 @@ void dwc_otg_hc_halt(dwc_otg_core_if_t * core_if,
 	hcchar.d32 = DWC_READ_REG32(&hc_regs->hcchar);
 
 	/* No need to set the bit in DDMA for disabling the channel */
-	//TODO check it everywhere channel is disabled          
+	//TODO check it everywhere channel is disabled
 	if (!core_if->core_params->dma_desc_enable)
 		hcchar.b.chen = 1;
 	hcchar.b.chdis = 1;
@@ -3102,9 +3104,9 @@ uint32_t dwc_otg_get_frame_number(dwc_otg_core_if_t * core_if)
 }
 
 /**
- * Calculates and gets the frame Interval value of HFIR register according PHY 
+ * Calculates and gets the frame Interval value of HFIR register according PHY
  * type and speed.The application can modify a value of HFIR register only after
- * the Port Enable bit of the Host Port Control and Status register 
+ * the Port Enable bit of the Host Port Control and Status register
  * (HPRT.PrtEnaPort) has been set.
 */
 
@@ -3267,14 +3269,14 @@ void dwc_otg_ep_activate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				if (core_if->nextep_seq[i] == core_if->first_in_nextep_seq)
 				break;
 			}
-			core_if->nextep_seq[i] = ep->num;	
+			core_if->nextep_seq[i] = ep->num;
 			core_if->nextep_seq[ep->num] = core_if->first_in_nextep_seq;
 			depctl.b.nextep = core_if->nextep_seq[ep->num];
 			dcfg.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dcfg);
 			dcfg.b.epmscnt++;
 			DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
 
-			DWC_DEBUGPL(DBG_PCDV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n", 
+			DWC_DEBUGPL(DBG_PCDV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n",
 				__func__, core_if->first_in_nextep_seq);
 			for (i=0; i <= core_if->dev_if->num_in_eps; i++) {
 				DWC_DEBUGPL(DBG_PCDV, "%2d\n", core_if->nextep_seq[i]);
@@ -3297,20 +3299,20 @@ void dwc_otg_ep_activate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			diepmsk.b.ahberr = 1;
 			diepmsk.b.intknepmis = 1;
 			if (!core_if->en_multiple_tx_fifo && core_if->dma_enable)
-				diepmsk.b.intknepmis = 0; 
+				diepmsk.b.intknepmis = 0;
 			diepmsk.b.txfifoundrn = 1;	//?????
 			if (ep->type == DWC_OTG_EP_TYPE_ISOC) {
 				diepmsk.b.nak = 1;
 			}
 
-			
-			
+
+
 /*
 			if (core_if->dma_desc_enable) {
 				diepmsk.b.bna = 1;
 			}
 */
-/*			
+/*
 			if (core_if->dma_enable) {
 				doepmsk.b.nak = 1;
 			}
@@ -3326,13 +3328,13 @@ void dwc_otg_ep_activate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			if (ep->type == DWC_OTG_EP_TYPE_ISOC)
 				doepmsk.b.outtknepdis = 1;
 
-/*			
+/*
 
 			if (core_if->dma_desc_enable) {
 				doepmsk.b.bna = 1;
 			}
 */
-/*			
+/*
 			doepmsk.b.babble = 1;
 			doepmsk.b.nyet = 1;
 			doepmsk.b.nak = 1;
@@ -3401,14 +3403,14 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	depctl.d32 = DWC_READ_REG32(addr);
 
 	depctl.b.usbactep = 0;
-	
+
 	/* Update nextep_seq array and EPMSCNT in DCFG*/
 	if (!(depctl.b.eptype & 1) && ep->is_in == 1) {	// NP EP IN
 		for (i = 0; i <= core_if->dev_if->num_in_eps; i++) {
 			if (core_if->nextep_seq[i] == ep->num)
 			break;
 		}
-		core_if->nextep_seq[i] = core_if->nextep_seq[ep->num];	
+		core_if->nextep_seq[i] = core_if->nextep_seq[ep->num];
 		if (core_if->first_in_nextep_seq == ep->num)
 			core_if->first_in_nextep_seq = i;
 		core_if->nextep_seq[ep->num] = 0xff;
@@ -3417,13 +3419,13 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		dcfg.b.epmscnt--;
 		DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dcfg, dcfg.d32);
 
-			DWC_DEBUGPL(DBG_PCDV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n", 
+			DWC_DEBUGPL(DBG_PCDV,"%s first_in_nextep_seq= %2d; nextep_seq[]:\n",
 				__func__, core_if->first_in_nextep_seq);
 			for (i=0; i <= core_if->dev_if->num_in_eps; i++) {
 				DWC_DEBUGPL(DBG_PCDV, "%2d\n", core_if->nextep_seq[i]);
 			}
 	}
-		
+
 	if (ep->is_in == 1)
 		depctl.b.txfnum = 0;
 
@@ -3432,33 +3434,45 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 	DWC_WRITE_REG32(addr, depctl.d32);
 	depctl.d32 = DWC_READ_REG32(addr);
-	if (core_if->dma_enable && ep->type == DWC_OTG_EP_TYPE_ISOC && depctl.b.epena)
+	if (core_if->dma_enable && depctl.b.epena)
 	{
 		depctl_data_t depctl = {.d32 = 0};
+		int timeout = 10000;
 		if (ep->is_in)
 		{
 			diepint_data_t diepint = {.d32 = 0};
-			
+
 			depctl.b.snak = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[ep->num]->diepctl, depctl.d32);
-			do 
+			do
 			{
 				dwc_udelay(10);
-				diepint.d32 = DWC_READ_REG32(&core_if->dev_if->
-											in_ep_regs[ep->num]->diepint);
-			} while (!diepint.b.inepnakeff); 
+				diepint.d32 = DWC_READ_REG32(&core_if->dev_if->in_ep_regs[ep->num]->diepint);
+				timeout --;
+				if (timeout < 10) {
+					printk("%s:%d: diepint[%d] = 0x%08x\n",
+						__func__, __LINE__, ep->num, diepint.d32);
+				}
+			} while ( (!diepint.b.inepnakeff) && (timeout > 0));
 			diepint.b.inepnakeff = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->
 							in_ep_regs[ep->num]->diepint, diepint.d32);
 			depctl.d32 = 0;
 			depctl.b.epdis = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[ep->num]->diepctl, depctl.d32);
-			do 
+
+			timeout = 10000;
+			do
 			{
 				dwc_udelay(10);
-				diepint.d32 = DWC_READ_REG32(&core_if->dev_if->
-											in_ep_regs[ep->num]->diepint);
-			} while (!diepint.b.epdisabled); 
+				diepint.d32 = DWC_READ_REG32(&core_if->dev_if->in_ep_regs[ep->num]->diepint);
+				timeout --;
+
+				if (timeout < 10) {
+					printk("%s:%d: diepint[%d] = 0x%08x\n",
+						__func__, __LINE__, ep->num, diepint.d32);
+				}
+			} while ( (!diepint.b.epdisabled) && (timeout > 0));
 			diepint.b.epdisabled = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[ep->num]->diepint, diepint.d32);
 		} else {
@@ -3467,11 +3481,17 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			doepint_data_t doepint = {.d32 = 0};
 			dctl.b.sgoutnak = 1;
 			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
-			do 
+			do
 			{
 				dwc_udelay(10);
 				gintsts.d32 = DWC_READ_REG32(&core_if->core_global_regs->gintsts);
-			} while (!gintsts.b.goutnakeff); 
+				timeout --;
+
+				if (timeout < 10) {
+					printk("%s:%d: gintsts = 0x%08x\n",
+						__func__, __LINE__, gintsts.d32);
+				}
+			} while ( (!gintsts.b.goutnakeff) && (timeout > 0));
 			gintsts.d32 = 0;
 			gintsts.b.goutnakeff = 1;
 			DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
@@ -3480,12 +3500,18 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			depctl.b.epdis = 1;
 			depctl.b.snak = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[ep->num]->doepctl, depctl.d32);
-			do 
+			timeout = 10000;
+			do
 			{
 				dwc_udelay(10);
-				doepint.d32 = DWC_READ_REG32(&core_if->dev_if->
-											out_ep_regs[ep->num]->doepint);
-			} while (!doepint.b.epdisabled); 
+				doepint.d32 = DWC_READ_REG32(&core_if->dev_if->out_ep_regs[ep->num]->doepint);
+				timeout --;
+
+				if (timeout < 10) {
+					printk("%s:%d: doepint[%d] = 0x%08x\n",
+						__func__, __LINE__, ep->num, doepint.d32);
+				}
+			} while ( (!doepint.b.epdisabled) && (timeout > 0));
 
 			doepint.b.epdisabled = 1;
 			DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[ep->num]->doepint, doepint.d32);
@@ -3493,7 +3519,7 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			dctl.d32 = 0;
 			dctl.b.cgoutnak = 1;
 			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
-		}		
+		}
 	}
 
 	/* Disable the Interrupt for this EP */
@@ -3512,7 +3538,6 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->daintmsk,
 				 daintmsk.d32, 0);
 	}
-
 }
 
 /**
@@ -3528,8 +3553,8 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	uint32_t xfer_est;
 	int i;
 	unsigned maxxfer_local, total_len;
-	
-	if (!ep->is_in && ep->type == DWC_OTG_EP_TYPE_INTR && 
+
+	if (!ep->is_in && ep->type == DWC_OTG_EP_TYPE_INTR &&
 					(ep->maxpacket%4)) {
 		maxxfer_local = ep->maxpacket;
 		total_len = ep->xfer_len;
@@ -3586,7 +3611,7 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			} else {
 				if (maxxfer_local == ep->maxpacket)
 					dma_desc->status.b.bytes = xfer_est;
-				else	
+				else
 					dma_desc->status.b.bytes =
 				    		xfer_est + ((4 - (xfer_est & 0x3)) & 0x3);
 			}
@@ -3599,7 +3624,7 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	}
 }
 /**
- * This function is called when to write ISOC data into appropriate dedicated 
+ * This function is called when to write ISOC data into appropriate dedicated
  * periodic FIFO.
  */
 static int32_t write_isoc_tx_fifo(dwc_otg_core_if_t * core_if, dwc_ep_t * dwc_ep)
@@ -3698,7 +3723,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		if (ep->maxpacket > ep->maxxfer / MAX_PKT_CNT)
 			ep->xfer_len += (ep->maxxfer < (ep->total_len - ep->xfer_len)) ?
 		    		ep->maxxfer : (ep->total_len - ep->xfer_len);
-		else 
+		else
 			ep->xfer_len += (MAX_PKT_CNT * ep->maxpacket < (ep->total_len - ep->xfer_len)) ?
 				 MAX_PKT_CNT * ep->maxpacket : (ep->total_len - ep->xfer_len);
 
@@ -3711,7 +3736,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			/* Program the transfer size and packet count
 			 *      as follows: xfersize = N * maxpacket +
 			 *      short_packet pktcnt = N + (short_packet
-			 *      exist ? 1 : 0) 
+			 *      exist ? 1 : 0)
 			 */
 			deptsiz.b.xfersize = ep->xfer_len - ep->xfer_count;
 			deptsiz.b.pktcnt =
@@ -3720,8 +3745,8 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			if (deptsiz.b.pktcnt > MAX_PKT_CNT) {
 				deptsiz.b.pktcnt = MAX_PKT_CNT;
 				deptsiz.b.xfersize = deptsiz.b.pktcnt * ep->maxpacket;
-			} 
-			if (ep->type == DWC_OTG_EP_TYPE_ISOC) 
+			}
+			if (ep->type == DWC_OTG_EP_TYPE_ISOC)
 				deptsiz.b.mc = deptsiz.b.pktcnt;
 		}
 
@@ -3780,7 +3805,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		}
 		if (!core_if->core_params->en_multiple_tx_fifo && core_if->dma_enable)
 			depctl.b.nextep = core_if->nextep_seq[ep->num];
-		
+
 		if (ep->type == DWC_OTG_EP_TYPE_ISOC)
 		{
 			dsts_data_t dsts = {.d32 = 0};
@@ -3792,7 +3817,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				{
 					ep->frm_overrun = 1;
 					ep->frame_num &= 0x3FFF;
-				} else 
+				} else
 					ep->frm_overrun = 0;
 				if (ep->frame_num & 0x1) {
 					depctl.b.setd1pid = 1;
@@ -3814,18 +3839,18 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		depctl.d32 = DWC_READ_REG32(&(out_regs->doepctl));
 		deptsiz.d32 = DWC_READ_REG32(&(out_regs->doeptsiz));
 
-		if (!core_if->dma_desc_enable) {	
+		if (!core_if->dma_desc_enable) {
 			if (ep->maxpacket > ep->maxxfer / MAX_PKT_CNT)
 				ep->xfer_len += (ep->maxxfer < (ep->total_len - ep->xfer_len)) ?
                         	ep->maxxfer : (ep->total_len - ep->xfer_len);
                 else
-					ep->xfer_len += (MAX_PKT_CNT * ep->maxpacket < (ep->total_len 
+					ep->xfer_len += (MAX_PKT_CNT * ep->maxpacket < (ep->total_len
 					- ep->xfer_len)) ? MAX_PKT_CNT * ep->maxpacket : (ep->total_len - ep->xfer_len);
 		}
 
 		/* Program the transfer size and packet count as follows:
 		 *
-		 *      pktcnt = N                                                                                
+		 *      pktcnt = N
 		 *      xfersize = N * maxpacket
 		 */
 		if ((ep->xfer_len - ep->xfer_count) == 0) {
@@ -3877,7 +3902,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 							/* Remember initial value of doeptsiz */
 							core_if->start_doeptsiz_val[ep->num] = deptsiz.d32;
 							DWC_WRITE_REG32(&out_regs->doeptsiz,
-								deptsiz.d32);													
+								deptsiz.d32);
 						}
 					}
 				/** DOEPDMAn Register write */
@@ -3902,7 +3927,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				{
 					ep->frm_overrun = 1;
 					ep->frame_num &= 0x3FFF;
-				} else 
+				} else
 					ep->frm_overrun = 0;
 
 				if (ep->frame_num & 0x1) {
@@ -3929,9 +3954,9 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 					   core_global_regs->gintmsk));
 
 
-		/* Timer is scheduling only for out bulk transfers for 
-		 * "Device DDMA OUT NAK Enhancement" feature to inform user 
-		 * about received data payload in case of timeout 
+		/* Timer is scheduling only for out bulk transfers for
+		 * "Device DDMA OUT NAK Enhancement" feature to inform user
+		 * about received data payload in case of timeout
 		 */
 		if (core_if->core_params->dev_out_nak) {
 			if (ep->type == DWC_OTG_EP_TYPE_BULK) {
@@ -4108,7 +4133,7 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			/* Program the transfer size and packet count
 			 *      as follows: xfersize = N * maxpacket +
 			 *      short_packet pktcnt = N + (short_packet
-			 *      exist ? 1 : 0) 
+			 *      exist ? 1 : 0)
 			 */
 			if (ep->xfer_len > ep->maxpacket) {
 				ep->xfer_len = ep->maxpacket;
@@ -4157,7 +4182,20 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 		if (!core_if->core_params->en_multiple_tx_fifo && core_if->dma_enable)
 			depctl.b.nextep = core_if->nextep_seq[ep->num];
+
+		depctl.d32 = DWC_READ_REG32(&in_regs->diepctl);
+		if (depctl.b.epena) {
+			depctl.d32 = 0;
+			depctl.b.epdis = 1;
+			depctl.b.snak = 1;
+
+			DWC_WRITE_REG32(&in_regs->diepctl, depctl.d32);
+			DWC_DEBUGPL(DBG_PCDV, "ep0in is already enable in %s:%d\n", __func__, __LINE__);
+			mdelay(1);
+		}
+
 		/* EP enable, IN data in FIFO */
+		depctl.d32 = 0;
 		depctl.b.cnak = 1;
 		depctl.b.epena = 1;
 		DWC_WRITE_REG32(&in_regs->diepctl, depctl.d32);
@@ -4268,7 +4306,7 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		/* Program the transfer size and packet count
 		 *      as follows: xfersize = N * maxpacket +
 		 *      short_packet pktcnt = N + (short_packet
-		 *      exist ? 1 : 0) 
+		 *      exist ? 1 : 0)
 		 */
 
 		if (core_if->dma_desc_enable == 0) {
@@ -4321,6 +4359,17 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		if (!core_if->core_params->en_multiple_tx_fifo && core_if->dma_enable)
 			depctl.b.nextep = core_if->nextep_seq[ep->num];
 		/* EP enable, IN data in FIFO */
+		depctl.d32 = DWC_READ_REG32(&in_regs->diepctl);
+		if (depctl.b.epena) {
+			depctl.d32 = 0;
+			depctl.b.epdis = 1;
+			depctl.b.snak = 1;
+
+			DWC_WRITE_REG32(&in_regs->diepctl, depctl.d32);
+			DWC_DEBUGPL(DBG_PCDV, "ep0in is already enable in %s:%d\n", __func__, __LINE__);
+			mdelay(1);
+		}
+
 		depctl.b.cnak = 1;
 		depctl.b.epena = 1;
 		DWC_WRITE_REG32(&in_regs->diepctl, depctl.d32);
@@ -4358,7 +4407,7 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		/* Program the transfer size and packet count
 		 *      as follows: xfersize = N * maxpacket +
 		 *      short_packet pktcnt = N + (short_packet
-		 *      exist ? 1 : 0) 
+		 *      exist ? 1 : 0)
 		 */
 		deptsiz.b.xfersize = ep->maxpacket;
 		deptsiz.b.pktcnt = 1;
@@ -5190,7 +5239,7 @@ void dwc_otg_iso_ep_start_frm_transfer(dwc_otg_core_if_t * core_if,
 		/* Program the transfer size and packet count
 		 *      as follows: xfersize = N * maxpacket +
 		 *      short_packet pktcnt = N + (short_packet
-		 *      exist ? 1 : 0) 
+		 *      exist ? 1 : 0)
 		 */
 		deptsiz.b.xfersize = ep->xfer_len;
 		deptsiz.b.pktcnt =

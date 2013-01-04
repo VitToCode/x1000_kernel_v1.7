@@ -323,8 +323,8 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	int retval = 0, is_isoc_ep = 0;
 	dma_addr_t dma_addr = DWC_DMA_ADDR_INVALID;
 
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p,%d)\n",
-		    __func__, usb_ep, usb_req, gfp_flags);
+	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p,%d, buf = 0x%p)\n",
+		__func__, usb_ep, usb_req, gfp_flags, usb_req->buf);
 
 	if (!usb_req || !usb_req->complete || !usb_req->buf) {
 		DWC_WARN("bad params\n");
@@ -347,6 +347,18 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 
 	DWC_DEBUGPL(DBG_PCD, "%s queue req %p, len %d buf %p\n",
 		    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
+	if (g_dbg_lvl && usb_req->length == 36) {
+		int haha = 0;
+		unsigned char *uc = (unsigned char *)usb_req->buf;
+
+		dump_stack();
+
+		printk("===>data");
+		for (haha = 0; haha < 36; haha++) {
+			printk("0x%02x ", uc[haha]);
+		}
+		printk("\n");
+	}
 
 	usb_req->status = -EINPROGRESS;
 	usb_req->actual = 0;
