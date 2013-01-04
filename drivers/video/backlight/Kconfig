@@ -155,7 +155,7 @@ config LCD_KR080LA4S_250
 	  control driver. The panel's model is 20810800300029.
 
 config LCD_CRD080TI01_40NM01
-	tristate " LCD_CRD080TI01_40NM01 LVDS TFT panel(1024x768)"
+	tristate "LCD_CRD080TI01_40NM01 LVDS TFT panel(1024x768)"
 	depends on BACKLIGHT_CLASS_DEVICE
 	default n
 	help
