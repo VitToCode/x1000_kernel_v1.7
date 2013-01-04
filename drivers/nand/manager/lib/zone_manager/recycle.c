@@ -2167,8 +2167,6 @@ static int ForceRecycle_For_Once ( Recycle *rep, unsigned short zoneid )
 		if (ret == -1)
 			goto exit;
 	}
-	if(ret == -2)
-		goto exit;
 	ret = OnForce_FreeZone(rep);
 exit:
 	return ret;
