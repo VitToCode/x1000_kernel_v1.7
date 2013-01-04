@@ -59,7 +59,7 @@
 
 #define POLL_INTERVAL		100
 #define INPUT_FUZZ	32
-#define INPUT_FLAT	32
+#define INPUT_FLAT	0	//32
 
 #define MODE_CHANGE_DELAY_MS 100
 
@@ -690,16 +690,7 @@ static void mma8452_suspend(struct early_suspend *h)
 	mma = container_of(h, struct mma8452_data, early_suspend);
 	mma->is_suspend = 1;
 	disable_irq_nosync(mma->client->irq);
-    /*
-	if(atomic_read(&mma->enabled) == 0){
-		mma->enabled_save = 0;
-	}else{
-		mma->enabled_save = 1;
-	}
-	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
-	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 & 0xFE);
-	assert(result==0);
-    */
+
 	mma8452_disable(mma);
 }
 
@@ -708,15 +699,7 @@ static void mma8452_resume(struct early_suspend *h)
 //	int result;
 	struct mma8452_data *mma;
 	mma = container_of(h, struct mma8452_data, early_suspend);
-    /*
-	mma_status.ctl_reg1 = i2c_smbus_read_byte_data(mma->client, MMA8452_CTRL_REG1);
-	result = i2c_smbus_write_byte_data(mma->client, MMA8452_CTRL_REG1,mma_status.ctl_reg1 | 0x01);
-	assert(result==0);
 
-	 if(mma->enabled_save == 1){
-		mma8452_enable(mma);
-	 }
-    */
 	mutex_lock(&mma->lock);
 	mma->is_suspend = 0;
 	mma8452_enable(mma);

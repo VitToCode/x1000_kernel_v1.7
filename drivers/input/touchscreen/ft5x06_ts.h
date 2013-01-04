@@ -31,4 +31,6 @@
 #define FT5X06_REG_THGROUP	0x80
 #define FT5X06_REG_PMODE	0xA5	/* Power Consume Mode */
 #define PMODE_HIBERNATE		0x03
+#define PMODE_ACTIVE		0x00
+
 #endif

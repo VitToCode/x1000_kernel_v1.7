@@ -60,6 +60,7 @@ struct ft5x06_ts_data {
 	u16 y_max;
 	int is_suspend;
 	struct i2c_client *client;
+	struct mutex lock;
 	struct input_dev *input_dev;
 	struct ts_event event;
 	struct jztsc_platform_data *pdata;
@@ -283,12 +284,16 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	struct ft5x06_ts_data *ft5x06_ts = dev_id;
 	disable_irq_nosync(ft5x06_ts->irq);
 
-	if(ft5x06_ts->is_suspend == 1)
-		return IRQ_HANDLED;
+	if (gpio_get_value(ft5x06_ts->gpio.irq->num)) {
+		if(ft5x06_ts->is_suspend == 1)
+			return IRQ_HANDLED;
 
-	if (!work_pending(&ft5x06_ts->work)) {
-		queue_work(ft5x06_ts->workqueue, &ft5x06_ts->work);
-	}else{
+		if (!work_pending(&ft5x06_ts->work)) {
+			queue_work(ft5x06_ts->workqueue, &ft5x06_ts->work);
+		} else{
+			enable_irq(ft5x06_ts->client->irq);
+		}
+	} else {
 		enable_irq(ft5x06_ts->client->irq);
 	}
 
@@ -338,10 +343,41 @@ static int ft5x06_ts_power_off(struct ft5x06_ts_data *ts)
 static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 {
 	set_pin_status(ts->gpio.wake, 1);
-	msleep(10);
+	msleep(5);
 	set_pin_status(ts->gpio.wake, 0);
-	msleep(10);
+	msleep(5);
 	set_pin_status(ts->gpio.wake, 1);
+	msleep(5);
+}
+
+static int ft5x06_ts_disable(struct ft5x06_ts_data *ts)
+{
+	int ret = 0;
+
+	flush_workqueue(ts->workqueue);
+	ret = cancel_work_sync(&ts->work);
+	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
+	ret = ft5x06_ts_power_off(ts);
+	if (ret < 0) {
+		printk("^^^^^^^^^^TSC DISBALE ERROR!\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int ft5x06_ts_enable(struct ft5x06_ts_data *ts)
+{
+	int ret = 0;
+
+	ft5x06_ts_power_on(ts);
+	mdelay(1);
+	ft5x06_ts_reset(ts);
+	ret = ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_ACTIVE);
+	if (ret < 0) {
+		printk("^^^^^^^^^^^TSC ENABLE ERROR! \n");
+		return ret;
+	}
+	return 0;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -372,6 +408,8 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto exit_alloc_data_failed;
 	}
 
+	mutex_init(&ft5x06_ts->lock);
+
 	i2c_set_clientdata(client, ft5x06_ts);
 
 	ft5x06_gpio_init(ft5x06_ts, client);
@@ -388,7 +426,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	client->irq = gpio_to_irq(ft5x06_ts->gpio.irq->num);
 	err = request_irq(client->irq, ft5x06_ts_interrupt,
-			    IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			    IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_DISABLED,
 			  "ft5x06_ts", ft5x06_ts);
 	if (err < 0) {
 		dev_err(&client->dev, "ft5x06_probe: request irq failed\n");
@@ -514,25 +552,28 @@ static void ft5x06_ts_suspend(struct early_suspend *handler)
 	struct ft5x06_ts_data *ts;
 	ts = container_of(handler, struct ft5x06_ts_data,
 						early_suspend);
+	mutex_lock(&ts->lock);
 	ts->is_suspend = 1;
-	disable_irq(ts->client->irq);
-	flush_workqueue(ts->workqueue);
-	ret = cancel_work_sync(&ts->work);	
-	if (ret) {
-		enable_irq(ts->client->irq);
-	}
-	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
-	ft5x06_ts_power_off(ts);
+	disable_irq_nosync(ts->client->irq);
+	ret = ft5x06_ts_disable(ts);
+	mutex_unlock(&ts->lock);
+	if (ret < 0)
+		dev_dbg(&ts->client->dev, "[FTS]ft5x06 suspend failed! \n");
+
 	dev_dbg(&ts->client->dev, "[FTS]ft5x06 suspend\n");
 }
 
 static void ft5x06_ts_resume(struct early_suspend *handler)
 {
+	int ret = 0;
 	struct ft5x06_ts_data *ts = container_of(handler, struct ft5x06_ts_data,
 						early_suspend);
-	ft5x06_ts_power_on(ts);
-	ft5x06_ts_reset(ts);
+	mutex_lock(&ts->lock);
+	ret = ft5x06_ts_enable(ts);
+	if (ret < 0)
+		printk("-------tsc resume failed!------\n");
 	ts->is_suspend = 0;
+	mutex_unlock(&ts->lock);
 
 	enable_irq(ts->client->irq);
 }
