@@ -866,7 +866,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	dev_info(dev, "FW Version write: 0x%x \n", fw_ver_upd);
 		
 	if ( fw_ver_upd != ts->data.buf[0] ) {
-		BUG();
+		//BUG();
 		dev_info(dev, "Running bootloader ... \n");
 		err = ct36x_ts_bootloader(client);
 		dev_info(dev, "Bootloader done, %s \n", err ? "Failed" : "OK");
