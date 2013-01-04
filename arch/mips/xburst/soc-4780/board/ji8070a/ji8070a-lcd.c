@@ -93,27 +93,6 @@ struct platform_device hsd070idw1_device = {
 
 #endif
 
-#ifdef CONFIG_LCD_HHX070ML208CP21
-#include <linux/hhx070ml208cp21.h>
-static int bk_is_on = 0;
-void bk_on(int on)
-{
-    bk_is_on = on;
-}
-static struct platform_hhx070ml208cp21_data hhx070ml208cp21_pdata= {
-	//.gpio_rest = GPIO_PB(22),
-    .notify_on = bk_on
-};
-
-/* LCD Panel Device */
-struct platform_device hhx070ml208cp21_device = {
-	.name		= "hhx070ml208cp21-lcd",
-	.dev		= {
-		.platform_data	= &hhx070ml208cp21_pdata,
-	},
-};
-
-#endif
 
 #ifdef CONFIG_FB_JZ4780_LCDC0
 /* LCDC0 output to HDMI and the default hdmi video mode list
