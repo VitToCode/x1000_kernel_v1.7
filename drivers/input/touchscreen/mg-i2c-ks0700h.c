@@ -190,22 +190,22 @@ static void report_wakeup(struct mg_data *mg) {
 	input_sync(mg->dig_dev);
 }
 
-static void report_b_btn_down(struct mg_data *mg) {
+static void report_t_btn_down(struct mg_data *mg) {
 	input_report_key(mg->dig_dev, KEY_LEFTSHIFT, 1);
 	input_sync(mg->dig_dev);
 }
 
-static void report_b_btn_up(struct mg_data *mg) {
+static void report_t_btn_up(struct mg_data *mg) {
 	input_report_key(mg->dig_dev, KEY_LEFTSHIFT, 0);
 	input_sync(mg->dig_dev);
 }
 
-static void report_t_btn_down(struct mg_data *mg) {
+static void report_b_btn_down(struct mg_data *mg) {
 	input_report_key(mg->dig_dev, KEY_LEFTALT, 1);
 	input_sync(mg->dig_dev);
 }
 
-static void report_t_btn_up(struct mg_data *mg) {
+static void report_b_btn_up(struct mg_data *mg) {
 	input_report_key(mg->dig_dev, KEY_LEFTALT, 0);
 	input_sync(mg->dig_dev);
 }
@@ -271,6 +271,10 @@ static inline void mg_report(struct mg_data *mg) {
 		if (prev_s == MG_FLOATING_B_DOWN &&
 				floating_b_down)
 			report_b_btn_down(mg);
+
+		if (prev_s == MG_FLOATING_T_DOWN &&
+				floating_t_down)
+			report_t_btn_down(mg);
 
 		if (floating_b_down ||
 				floating_t_down) {
