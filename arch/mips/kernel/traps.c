@@ -1096,7 +1096,7 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	unsigned long old31 = regs->regs[31];
 	unsigned int opcode = 0;
 	int status = -1;
-	unsigned short mmop[2];
+	unsigned short mmop[2] = {0};
 
 	if (notify_die(DIE_RI, "RI Fault", regs, 0, regs_to_trapnr(regs), SIGILL)
 	    == NOTIFY_STOP)
@@ -1210,7 +1210,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	unsigned int cpid;
 	int status;
 	unsigned long __maybe_unused flags;
-	unsigned short mmop[2];
+	unsigned short mmop[2] = {0};
 
 	die_if_kernel("do_cpu invoked from kernel context!", regs);
 

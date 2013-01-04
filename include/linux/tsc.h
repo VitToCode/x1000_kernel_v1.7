@@ -25,7 +25,7 @@ static inline int get_pin_status(struct jztsc_pin *pin)
 {
 	int val;
 
-	if (pin->num < 0)
+	if ((short)pin->num < 0)
 		return -1;
 	val = gpio_get_value(pin->num);
 
@@ -36,7 +36,7 @@ static inline int get_pin_status(struct jztsc_pin *pin)
 
 static inline void set_pin_status(struct jztsc_pin *pin, int enable)
 {
-	if (pin->num < 0)
+	if ((short)pin->num < 0)
 		return;
 
 	if (pin->enable_level == LOW_ENABLE)
