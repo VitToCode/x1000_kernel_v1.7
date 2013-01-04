@@ -14,7 +14,7 @@
 #include "i88.h"
 
 #define ECCBIT 24
-ifdef CONFIG_MUL_PARTS
+#ifdef CONFIG_MUL_PARTS
 static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndxboot",
