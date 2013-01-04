@@ -385,7 +385,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 	int sectorcount = sectornode->sectorCount;
 	void *pData = sectornode->pData;
 	unsigned int left_sector_count = 0;
-
+	int cutlist;
 	sectorid = sectornode->startSector;
 	for (i = sectorid; i < sectorid + sectorcount; i += (k + l)) {
 		l = k = 0;
@@ -399,7 +399,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 			continue;
 		}
 		k++;
-
+		cutlist = 0;
 		pageid_prev = pageid_by_sector_prev / sectorperpage;
 
 		if (l4count - i % l4count < 4 && i % l4count != 0)
@@ -418,6 +418,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 				//		i, __FUNCTION__, __LINE__);
 				//handle_unCached_sector(sectornode, j - sectorid);
 				//l++;
+				cutlist = 1;
 				break;
 			}
 
@@ -433,7 +434,7 @@ static int Read_sectornode_to_pagelist(int context, int sectorperpage, SectorLis
 		pagenode->OffsetBytes = pageid_by_sector_prev % sectorperpage * SECTOR_SIZE;
 		pagenode->Bytes = k * SECTOR_SIZE;
 		pagenode->pData = pData;
-		pagenode->retVal = 1;
+		pagenode->retVal = cutlist ? 0 : 1;
 		pData += pagenode->Bytes;
 	}
 	if (pagenode)
