@@ -603,33 +603,41 @@ long dmard06_misc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                         mutex_unlock(&dmard06->lock);
                 }
                 break;
-        case SENSOR_IOCTL_SET_ACTIVE:
-                dprintk("----ryder:set active----\n");
-                mutex_lock(&dmard06->lock);
-                if (copy_from_user(&interval, argp, sizeof(interval)))
-                        return -EFAULT;
-                if (interval > 1)
-                        return -EINVAL;
-                if (interval){
-                        /*dprintk("----dmard06 2.1----\n");
-                        dmard06->power_tag = interval;
-                        dmard06_acc_regulator_enbale(dmard06);
-                        dmard06_acc_enable(dmard06);
-                        dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
-                        */
-                        //	dprintk("----dmard06 call SET_ACTIVE ----\n");
-                }else{
-                        /*dprintk("----dmard06 2.2----\n");
-                        dmard06->power_tag = interval;
-                        dmard06_acc_disable(dmard06);
-                        mdelay(2);
-                        if (atomic_cmpxchg(&dmard06->regulator_enabled, 1, 0))
-                        regulator_disable(dmard06->power);
-                       //	dprintk("----dmard06 call SET_NOt_ACTIVE ----\n");
-                       //	*/
-                }
-                mutex_unlock(&dmard06->lock);
-                break;
+		case SENSOR_IOCTL_SET_ACTIVE:
+			dprintk("----ryder:set active----\n");
+
+			mutex_lock(&dmard06->lock);
+			if (copy_from_user(&interval, argp, sizeof(interval)))
+				return -EFAULT;
+
+			if (interval > 1)
+				return -EINVAL;
+
+			if (interval) {
+				dmard06->power_tag = interval;
+
+				dmard06_acc_regulator_enbale(dmard06);
+
+				dmard06_acc_enable(dmard06);
+				acc_input_open(dmard06->input_dev);
+
+				dmard06_acc_update_odr(dmard06, dmard06->pdata->poll_interval);
+				//	dprintk("----dmard06 call SET_ACTIVE ----\n");
+			} else {
+
+				dmard06->power_tag = interval;
+
+				acc_input_close(dmard06->input_dev);
+				dmard06_acc_disable(dmard06);
+
+				mdelay(2);
+
+				if (atomic_cmpxchg(&dmard06->regulator_enabled, 1, 0))
+					regulator_disable(dmard06->power);
+			}
+			mutex_unlock(&dmard06->lock);
+
+			break;
         case SENSOR_IOCTL_GET_ACTIVE:
                 interval = atomic_read(&dmard06->enabled);
                 if (copy_to_user(argp, &interval, sizeof(interval)))
