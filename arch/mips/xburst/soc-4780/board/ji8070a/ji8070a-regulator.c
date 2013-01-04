@@ -63,11 +63,18 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
+#ifdef CONFIG_Q8
+EXCLUSIVE_REGULATOR_DEF(
+	ji8070a_vcc5,
+	"Vcc-5V",
+	"vhdmi",	"jz-hdmi",	5000000);
+#else
 FIXED_REGULATOR_DEF(
 	ji8070a_vcc5,
 	"Vcc-5V",	5000000,
 	GPIO_PA(17),	HIGH_ENABLE,	UN_AT_BOOT,0,
 	NULL,		"vhdmi",	"jz-hdmi");
+#endif
 
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
@@ -106,7 +113,9 @@ FIXED_REGULATOR_DEF(
 #endif
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
+#ifndef CONFIG_Q8
 	&ji8070a_vcc5_regulator_device,
+#endif
 	&ji8070a_vbus_regulator_device,
 	&ji8070a_vcim_regulator_device,
 	&ji8070a_vlcd_regulator_device,
@@ -122,6 +131,9 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info ji8070a_pmu_regulators[] = {
 	{"OUT1", &ji8070a_vcore_init_data},
 	{"OUT3", &ji8070a_vccio_init_data},
+#ifdef CONFIG_Q8
+	{"OUT4", &ji8070a_vcc5_init_data},
+#endif
 	{"OUT6", &ji8070a_vwifi_init_data},
 	{"OUT7", &ji8070a_vtsc_init_data},
 #ifdef  CONFIG_Q8
