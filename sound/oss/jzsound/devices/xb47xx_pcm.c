@@ -6,7 +6,6 @@
  * 24 APR 2012
  *
  */
-
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
@@ -38,6 +37,8 @@ static spinlock_t pcm_irq_lock;
 static struct dsp_endpoints pcm_endpoints;
 
 #define JZ4780_CPM_PCM_SYSCLK 12000000
+#define PCM_FIFO_DEPTH 16
+
 static struct pcm_board_info
 {
 	unsigned long rate;
@@ -47,6 +48,22 @@ static struct pcm_board_info
 	unsigned int irq;
 	struct dsp_endpoints *endpoint;
 }*pcm_priv;
+
+/*
+ *	dump
+ *
+ */
+static void dump_pcm_reg(void)
+{
+	int i = 0;
+	unsigned long pcm_regs[] = {
+		PCMCTL0, PCMCFG0, PCMDP0, PCMINTC0, PCMINTS0, PCMDIV0 };
+
+	for (i=0; i<ARRAY_SIZE(pcm_regs); i++) {
+		printk("pcm reg %4x, = %4x \n",
+				(unsigned int)pcm_regs[i], pcm_read_reg(pcm_regs[i]));
+	}
+}
 
 /*##################################################################*\
  |* suspand func
@@ -162,8 +179,6 @@ static int pcm_set_pcmclk(unsigned long pcmclk)
 	return 0;
 }
 
-#define PCM_FIFO_DEPTH		16
-
 static int get_burst_length(unsigned long val)
 {
 	/* burst bytes for 1,2,4,8,16,32,64 bytes */
@@ -200,11 +215,7 @@ static void pcm_set_trigger(int mode)
 		dp = pcm_priv->endpoint->out_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		if (PCM_FIFO_DEPTH - burst_length/data_width >= 12)
-			__pcm_set_transmit_trigger(6);
-		else
-			__pcm_set_transmit_trigger((PCM_FIFO_DEPTH - burst_length/data_width) >> 1);
-
+		__pcm_set_transmit_trigger(PCM_FIFO_DEPTH - burst_length/data_width);
 	}
 	if (mode &CODEC_RMODE) {
 		switch(pcm_priv->record_format) {
@@ -218,7 +229,7 @@ static void pcm_set_trigger(int mode)
 		dp = pcm_priv->endpoint->in_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		__pcm_set_receive_trigger(((PCM_FIFO_DEPTH - burst_length/data_width) >> 1) - 1);
+		__pcm_set_receive_trigger((PCM_FIFO_DEPTH - burst_length/data_width) - 1);
 	}
 
 	return;
@@ -226,11 +237,11 @@ static void pcm_set_trigger(int mode)
 
 static int pcm_enable(int mode)
 {
-	unsigned long rate = 44100;
+	unsigned long rate = 8000;
 	unsigned long replay_format = 16;
 	unsigned long record_format = 16;
-	int replay_channel = 2;
-	int record_channel = 2;
+	int replay_channel = 1;
+	int record_channel = 1;
 	struct dsp_pipe *dp_other = NULL;
 	if (!pcm_priv)
 			return -ENODEV;
@@ -317,7 +328,6 @@ static int pcm_get_fmt_cap(unsigned long *fmt_cap)
 	return 0;
 }
 
-
 static int pcm_get_fmt(unsigned long *fmt, int mode)
 {
 	if (!pcm_priv)
@@ -345,6 +355,7 @@ static void pcm_dma_need_reconfig(int mode)
 		dp = pcm_priv->endpoint->in_endpoint;
 		dp->need_reconfig_dma = true;
 	}
+
 	return;
 }
 
@@ -459,7 +470,9 @@ static long pcm_ioctl(unsigned int cmd, unsigned long arg)
 			;
 		ret = 0;
 		break;
-
+        case SND_MIXER_DUMP_REG:
+                dump_pcm_reg();
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
@@ -499,7 +512,7 @@ static int pcm_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_PCM0;
 
-	(*dp)->fragsize = FRAGSIZE_M;
+	(*dp)->fragsize = FRAGSIZE_S;
 	(*dp)->fragcnt = FRAGCNT_M;
 	(*dp)->is_non_block = true;
 	(*dp)->is_used = false;
@@ -522,7 +535,6 @@ static int pcm_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 
 	return 0;
 }
-
 
 static int pcm_global_init(struct platform_device *pdev)
 {
@@ -554,6 +566,7 @@ static int pcm_global_init(struct platform_device *pdev)
 	ret = pcm_init_pipe(&pcm_pipe_out,DMA_TO_DEVICE,pcm_resource->start);
 	if (ret < 0)
 		goto __err_init_pipeout;
+
 	ret = pcm_init_pipe(&pcm_pipe_in,DMA_FROM_DEVICE,pcm_resource->start);
 	if (ret < 0)
 		goto __err_init_pipein;
@@ -562,9 +575,12 @@ static int pcm_global_init(struct platform_device *pdev)
 	pcm_endpoints.in_endpoint = pcm_pipe_in;
 
 	/* request aic clk FIXME*/
-	pcm_sysclk = clk_get(&pdev->dev, "pcm0");
-	if (!IS_ERR(pcm_sysclk))
-		clk_enable(pcm_sysclk);
+	pcm_sysclk = clk_get(&pdev->dev, "pcm");
+	if (IS_ERR(pcm_sysclk)) {
+                dev_dbg(&pdev->dev, "pcm clk_get failed\n");
+                goto __err_init_pipein;
+	}
+	clk_enable(pcm_sysclk);
 
 	spin_lock_init(&pcm_irq_lock);
 	/* request irq */
@@ -573,25 +589,28 @@ static int pcm_global_init(struct platform_device *pdev)
 		ret = -1;
 		goto __err_irq;
 	}
+
 	/*FIXME share irq*/
 	pcm_priv->irq = pcm_resource->start;
 	ret = request_irq(pcm_resource->start, pcm_irq_handler,
-					  IRQF_DISABLE, "pcm_irq", NULL);
+					  IRQF_DISABLED, "pcm_irq", NULL);
 	if (ret < 0)
 		goto __err_irq;
 
-
 	/*FIXME set sysclk output for codec*/
-	pcmclk = clk_get(&pdev->dev,"cgu_pcm");
-	if (!IS_ERR(pcmclk)) {
-		clk_set_rate(pcmclk,JZ4780_CPM_PCM_SYSCLK);
-		if (clk_get_rate(pcmclk) > JZ4780_CPM_PCM_SYSCLK) {
-			printk("codec interface set rate fail.\n");
-			goto __err_pcmclk;
-		}
-		clk_enable(pcmclk);
+	pcmclk = clk_get(&pdev->dev, "cgu_pcm");
+	if (IS_ERR(pcmclk)) {
+                dev_dbg(&pdev->dev, "CGU pcm clk_get failed\n");
+                goto __err_pcmclk;
 	}
-
+#if 0
+	clk_set_rate(pcmclk, JZ4780_CPM_PCM_SYSCLK);
+	if (clk_get_rate(pcmclk) > JZ4780_CPM_PCM_SYSCLK) {
+		printk("codec interface set rate fail. clk %lu\n", clk_get_rate(pcmclk));
+		goto __err_pcmclk;
+	}
+	clk_enable(pcmclk);
+#endif
 	__pcm_as_slaver();
 
 	pcm_set_pcmclk(12000000);
@@ -602,12 +621,14 @@ static int pcm_global_init(struct platform_device *pdev)
 	__pcm_flush_fifo();
 	__pcm_clear_ror();
 	__pcm_clear_tur();
-	__pcm_set_receive_trigger(3);
-	__pcm_set_transmit_trigger(4);
+	__pcm_set_receive_trigger(7);
+	__pcm_set_transmit_trigger(8);
 	__pcm_disable_overrun_intr();
 	__pcm_disable_underrun_intr();
 	__pcm_disable_transmit_intr();
 	__pcm_disable_receive_intr();
+	__pcm_set_msb_one_shift_in();
+	__pcm_set_msb_one_shift_out();
 	/* play zero or last sample when underflow */
 	__pcm_play_lastsample();
 	//__pcm_enable();
@@ -659,7 +680,6 @@ static int pcm_resume(struct platform_device *pdev)
 	return 0;
 }
 
-
 struct snd_dev_data pcm_data = {
 	.dev_ioctl	   	= pcm_ioctl,
 	.ext_data		= &pcm_endpoints,
@@ -668,6 +688,11 @@ struct snd_dev_data pcm_data = {
 	.shutdown		= pcm_shutdown,
 	.suspend		= pcm_suspend,
 	.resume			= pcm_resume,
+};
+
+struct snd_dev_data snd_mixer1_data = {
+        .dev_ioctl              = pcm_ioctl,
+        .minor                  = SND_DEV_MIXER1,
 };
 
 static int __init init_pcm(void)
@@ -679,6 +704,7 @@ static int __init init_pcm(void)
 	pcm_priv->replay_format = 0;
 	pcm_priv->record_format = 0;
 	pcm_priv->endpoint= &pcm_endpoints;
+
 	return 0;
 }
 device_initcall(init_pcm);

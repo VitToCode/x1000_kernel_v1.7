@@ -1286,7 +1286,7 @@ static int __init init_i2s(void)
 
 	if (!i2s_work_queue) {
 		// this can not happen, if happen, we die!
-        BUG();
+		BUG();
 	}
 #endif
 	return platform_device_register(&xb47xx_i2s_switch);

@@ -57,7 +57,7 @@ enum snd_codec_route_t {
 	/*internal codec: mic bypass to hprl*/
 	SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 	/*internal codec: record mic1 an1 to adclr replay hp stereo*/
-    SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+	SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
 
 	SND_ROUTE_LOOP_ROUTE_END = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
 	/*
@@ -104,6 +104,7 @@ struct snd_codec_data {
 	struct snd_board_route replay_headset_and_speaker_route;
 	struct snd_board_route fm_speaker_route;
 	struct snd_board_route fm_headset_route;
+	struct snd_board_route bt_route;
 	struct snd_board_route downlink_handset_route;
 	struct snd_board_route downlink_headset_route;
 	struct snd_board_route downlink_speaker_route;
@@ -177,6 +178,6 @@ struct snd_dev_data {
 extern struct snd_dev_data i2s_data;
 extern struct snd_dev_data pcm_data;
 extern struct snd_dev_data snd_mixer0_data;
-//extern struct snd_dev_data snd_mixer1_data;
+extern struct snd_dev_data snd_mixer1_data;
 
 #endif //__MACH_JZSND_H__
