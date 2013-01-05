@@ -37,7 +37,7 @@ enum {
 };
 
 struct private {
-	int timecount;
+	unsigned long timecount;
 	unsigned int voltage;
 };
 
