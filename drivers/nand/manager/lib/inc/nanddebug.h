@@ -8,6 +8,7 @@
 		x##_INFO = 1,							\
 		x##_DEBUG,								\
 		x##_ERROR,								\
+		x##_SYSINFO,							\
 	}
 
 FUNC_DEBUG(VNAND);
@@ -31,12 +32,13 @@ FUNC_DEBUG(JUNKZONE);
 #ifndef  __KERNEL__
 #define ndprint(level,...) printf(__VA_ARGS__);
 #else
-#define ndprint(level,...)						        \
-	do {									\
-		if (level == 3)	{						\
-		        printk(__VA_ARGS__);					\
-			dump_stack();						\
-                }                                                               \
+#define ndprint(level,...)												\
+	do {																\
+		if (level == 3)	{												\
+			printk(__VA_ARGS__);										\
+			dump_stack();												\
+		}																\
+		if (level == 4) printk(__VA_ARGS__);							\
 	} while (0)
 #endif
 

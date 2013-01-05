@@ -163,7 +163,7 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		break;
 	}
 	default:
-		printk("nand_dug_driver: the parameter is wrong!\n");
+		printk("nand_char_driver: the parameter is wrong!\n");
 		ret = -1;
 		break;
 	}

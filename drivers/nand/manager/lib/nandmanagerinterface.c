@@ -13,6 +13,7 @@
 #include "l2vNand.h"
 #include "os/clib.h"
 #include "zone.h"
+#include "version.h"
 
 #define N_UNITSIZE     8
 #define N_UNITDIM(x)  (((x) + N_UNITSIZE - 1 ) / N_UNITSIZE)
@@ -344,6 +345,9 @@ int NandManger_Register_Manager(int handle, int mode, PartitionInterface* pi)
  **/
 int NandManger_Init(void){
 	PManager *pm;
+
+	ndprint(PARTITION_SYSINFO, "NandManager version %d.%d.%d\n",
+			NM_VERSION_MAJOR, NM_VERSION_MINOR, NM_VERSION_REVISION);
 
 	pm = Nand_VirtualAlloc(sizeof(PManager));
 	if (pm == NULL){
