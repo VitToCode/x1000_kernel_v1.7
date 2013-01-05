@@ -2424,6 +2424,14 @@ static int codec_set_device(enum snd_device_t device)
 			}
 		}
 		break;
+	case SND_DEVICE_BT:
+		if (codec_platform_data && codec_platform_data->bt_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->bt_route));
+			if(ret != codec_platform_data->bt_route.route) {
+				return -1;
+			}
+		}
+		break;
 
 	case SND_DEVICE_LOOP_TEST:
 		if (codec_platform_data && codec_platform_data->replay_loop_route.route) {
@@ -2875,7 +2883,7 @@ static int codec_get_hp_state(int *state)
 #ifdef CONFIG_JZ_HP_DETECT_CODEC
 	*state = ((__codec_get_sr() & CODEC_JACK_MASK) >> SR_JACK) ^
 		(!codec_platform_data->hpsense_active_level);
-	if (state < 0)
+	if (*state < 0)
 		return -EIO;
 #elif CONFIG_JZ_HP_DETECT_GPIO
 	if(codec_platform_data &&

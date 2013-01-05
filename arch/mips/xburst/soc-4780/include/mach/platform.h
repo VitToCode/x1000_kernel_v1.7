@@ -6,8 +6,8 @@
  * on the chip.
  */
 
-#ifndef __SOC_4770_H__
-#define __SOC_4770_H__
+#ifndef __SOC_4780_H__
+#define __SOC_4780_H__
 
 /* devio define list */
 
@@ -16,7 +16,7 @@
 	{ .name = "i2s-data",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x3<<6, },	\
 	{ .name = "i2s-bitclk",		.port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x1<<12,},	\
 	{ .name = "i2s-sync",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x1<<13,},	\
-	{ .name = "i2s-iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }		\
+	{ .name = "i2s-iclk",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x3<<8, }
 #define PCM_PORTD							\
 	{ .name = "pcm",			.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x0f}
 /*******************************************************************************************************************/

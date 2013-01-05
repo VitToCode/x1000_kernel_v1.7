@@ -378,6 +378,11 @@ static struct resource jz_pcm_resources[] = {
 		.end            = PCM0_IOBASE,
 		.flags          = IORESOURCE_MEM,
 	},
+	[1] = {
+		.start			= IRQ_PCM0,
+		.end			= IRQ_PCM0,
+		.flags			= IORESOURCE_IRQ,
+	},
 };
 struct platform_device jz_pcm_device = {
 	.name		= DEV_DSP_NAME,
