@@ -22,7 +22,7 @@ obj-$(CONFIG_LCD_KD50G2_40NM_A2)	+= kd50g2_40nm_a2.o
 obj-$(CONFIG_LCD_EK070TN93)		+= ek070tn93.o
 obj-$(CONFIG_LCD_HSD101PWW1)	+= hsd101pww1.o
 
-ifeq ($(CONFIG_Q8),y)
+ifeq ($(CONFIG_BOARD_Q8),y)
 obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1-q8.o
 else
 obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1-ji8070.o
