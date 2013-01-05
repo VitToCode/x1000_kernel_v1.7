@@ -680,12 +680,12 @@ int vNand_UpdateErrorPartition(VNandManager* vm, PPartition *pt)
 			pt_t->actualbadblockcount = 0;
 			scan_pt_badblock_info_to_pl(pt_t, pl);
 
-			ndprint(VNAND_INFO, "%s badblock info table\n",pt->name);
+			ndprint(VNAND_INFO, "%s badblock info table\n",pt_t->name);
 			for(i = 0; i < pt_t->totalblocks; i++) {
 				if(pt_t->badblock->pt_badblock_info[i] == -1)
 					break;
 				pt_t->actualbadblockcount++;
-				ndprint(VNAND_INFO,"%d ",pt->badblock->pt_badblock_info[i]);
+				ndprint(VNAND_INFO,"%d ",pt_t->badblock->pt_badblock_info[i]);
 			}
 			ndprint(VNAND_INFO,"\n");
 
