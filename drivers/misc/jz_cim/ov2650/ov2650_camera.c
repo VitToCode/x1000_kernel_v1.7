@@ -27,7 +27,7 @@ static struct frm_size ov2650_preview_table[]= {
 	{640,480},
 	{352,288},
 	{320,240},
-	// {176,144},
+	{176,144},
 };
 
 int cam_t_j = 0, cam_t_i = 0;
