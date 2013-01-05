@@ -54,17 +54,6 @@ config BOARD_GRUS
 
 endchoice
 
-
-  
-config  Q8
-	 bool "Ingenic JZ4780 for the diffrence bettwen  JI8070A and Q8"
-	 depends on  BOARD_JI8070A 
-
-config  JI8070A
-	 bool "Ingenic JZ4780 for the diffrence bettwen  JI8070A and JI8070B"
-	 depends on  BOARD_JI8070A
-
-
 config BOARD_NAME
 	string
 	default "pisces" if BOARD_PISCES
