@@ -140,8 +140,10 @@ int Get_JunkZoneRecycleZone(int handle) {
 	int zoneid = -1;
 	NandMutex_Lock(&jzone->mutex);
 	if(jzone->min_node) {
-		zoneid = jzone->min_node - &jzone->node[0];
-		ndprint(JUNKZONE_INFO,"recycle junk zoneid = %d,sectors = %d validpage = %d\n",zoneid,jzone->min_node->sectors,ZoneManager_GetValidPage(jzone->context,zoneid));
+		if(jzone->min_node->sectors) {
+			zoneid = jzone->min_node - &jzone->node[0];
+			ndprint(JUNKZONE_INFO,"recycle junk zoneid = %d,sectors = %d validpage = %d\n",zoneid,jzone->min_node->sectors,ZoneManager_GetValidPage(jzone->context,zoneid));
+		}
 		jzone->min_node = NULL;
 	}
 
