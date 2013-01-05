@@ -236,8 +236,8 @@ int ov7675_size_switch(struct cim_sensor *sensor_info,int width,int height)
 		ov7675_write_reg(client,0x92,0x00);              
 		ov7675_write_reg(client,0x93,0x00);
 		ov7675_write_reg(client,0xb9,0x00);
-		ov7675_write_reg(client,0x19,0x02);
-		ov7675_write_reg(client,0x1a,0x7a);
+		ov7675_write_reg(client,0x19,0x03);
+		ov7675_write_reg(client,0x1a,0x7b);
 		ov7675_write_reg(client,0x17,0x13);
 		ov7675_write_reg(client,0x18,0x01);              
 		ov7675_write_reg(client,0x03,0x0a);
