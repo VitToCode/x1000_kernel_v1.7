@@ -64,7 +64,10 @@ extern struct snd_codec_data codec_data;
 #define GPIO_MIC_INSERT_LEVEL	-1
 #endif
 #define GPIO_MIC_SELECT		-1		/*mic select gpio*/
-#define GPIO_HP_MIC_LEVEL	-1		/*headset mic select level*/
+#define GPIO_BUILDIN_MIC_LEVEL	-1		/*buildin mic select level*/
+
+#define GPIO_MIC_DETECT_EN		-1  /*mic detect enable gpio*/
+#define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
 
 /**
  * nand platform data

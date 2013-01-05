@@ -1207,7 +1207,9 @@ static int jz_get_hp_switch_state(void)
 }
 
 void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
-		struct snd_board_gpio *mic_det, struct snd_board_gpio *mic_select)
+		struct snd_board_gpio *mic_det,
+		struct snd_board_gpio *mic_detect_en,
+		struct snd_board_gpio *mic_select)
 {
 	switch_data.type = type;
 	if (type == SND_SWITCH_TYPE_GPIO && hp_det != NULL) {
@@ -1223,7 +1225,14 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		switch_data.mic_gpio = -1;
 	}
 
-	if (mic_select != NULL) {
+	if (mic_detect_en != NULL) {
+		switch_data.mic_detect_en_gpio = mic_detect_en->gpio;
+		switch_data.mic_detect_en_level = mic_detect_en->active_level;
+	} else {
+		switch_data.mic_detect_en_gpio = -1;
+	}
+
+	if (mic_detect_en != NULL) {
 		switch_data.mic_select_gpio = mic_select->gpio;
 		switch_data.mic_select_level = mic_select->active_level;
 	} else {

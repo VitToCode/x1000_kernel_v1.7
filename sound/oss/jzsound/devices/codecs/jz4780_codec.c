@@ -2035,10 +2035,10 @@ static int codec_set_board_route(struct snd_board_route *broute)
 			broute->gpio_spk_en_stat == -1)
 		gpio_enable_spk_en();
 
-	/*if (broute->gpio_buildin_mic_en_stat == 0)
+	if (broute->gpio_buildin_mic_en_stat == 0)
 		gpio_select_headset_mic();
 	else if (broute->gpio_buildin_mic_en_stat == 1)
-		gpio_select_buildin_mic();*/
+		gpio_select_buildin_mic();
 
 	DUMP_ROUTE_REGS("leave");
 
@@ -3044,18 +3044,26 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
-	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,&codec_platform_data->gpio_mic_detect,
-			                        &codec_platform_data->gpio_buildin_mic_select);
+	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
+			&codec_platform_data->gpio_mic_detect,
+			&codec_platform_data->gpio_mic_detect_en,
+			&codec_platform_data->gpio_buildin_mic_select);
 #elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
 						 &codec_platform_data->gpio_hp_detect,
 						 &codec_platform_data->gpio_mic_detect,
+						 &codec_platform_data->gpio_mic_detect_en,
 						 &codec_platform_data->gpio_buildin_mic_select);
 #endif
 	if (codec_platform_data->gpio_mic_detect.gpio != -1 )
-		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect") < 0) {
+		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect_en") < 0) {
 			gpio_free(codec_platform_data->gpio_mic_detect.gpio);
-			gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect");
+			gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect_en");
+		}
+	if (codec_platform_data->gpio_mic_detect_en.gpio != -1 )
+		if (gpio_request(codec_platform_data->gpio_mic_detect_en.gpio,"gpio_mic_detect") < 0) {
+			gpio_free(codec_platform_data->gpio_mic_detect_en.gpio);
+			gpio_request(codec_platform_data->gpio_mic_detect_en.gpio,"gpio_mic_detect");
 		}
 	if (codec_platform_data->gpio_buildin_mic_select.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_buildin_mic_select.gpio,"gpio_buildin_mic_switch") < 0) {

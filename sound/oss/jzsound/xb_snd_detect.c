@@ -21,19 +21,19 @@ static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		if (switch_data->hp_valid_level == HIGH_VALID) {
 			if (state) {
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
 			} else {
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
 			}
 		} else if (switch_data->hp_valid_level == LOW_VALID) {
 			if (state) {
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_HIGH);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
 			} else {
-				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
+				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
+				irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_LOW);
 			}
 		}
 	}
@@ -50,7 +50,7 @@ static void snd_switch_work(struct work_struct *work)
 	/* if gipo switch */
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
 		//__gpio_disable_pull(switch_data->hp_gpio);
-		gpio_direction_input(switch_data->hp_gpio);
+		//gpio_direction_input(switch_data->hp_gpio);
 		state = gpio_get_value(switch_data->hp_gpio);
 		for (i = 0; i < 5; i++) {
 			msleep(20);
@@ -75,12 +75,12 @@ static void snd_switch_work(struct work_struct *work)
 		state = switch_data->codec_get_sate();
 	}
 
-	if (state == 1 && switch_data->mic_select_gpio != -1){
-		gpio_direction_output(switch_data->mic_select_gpio, switch_data->mic_select_level);
-		mdelay(1000);
+	if (state == 1 && switch_data->mic_detect_en_gpio != -1){
+		gpio_direction_output(switch_data->mic_detect_en_gpio, switch_data->mic_detect_en_level);
 	}
 
 	if (state == 1 && switch_data->mic_gpio != -1) {
+		mdelay(1000);
 		gpio_direction_input(switch_data->mic_gpio);
 		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
 			state <<= 1;
@@ -89,8 +89,12 @@ static void snd_switch_work(struct work_struct *work)
 	} else
 		state <<= 1;
 
-	if(state != 1 && switch_data->mic_select_gpio != -1)
-		gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+	if (switch_data->mic_select_gpio != -1) {
+		if (state == 1)
+			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+		else
+			gpio_direction_output(switch_data->mic_select_gpio, switch_data->mic_select_level);
+	}
 
 	snd_switch_set_state(switch_data, state);
 }
@@ -100,6 +104,8 @@ static irqreturn_t snd_irq_handler(int irq, void *dev_id)
 	struct snd_switch_data *switch_data =
 	    (struct snd_switch_data *)dev_id;
 
+	//__gpio_disable_pull(switch_data->hp_gpio);
+	gpio_direction_input(switch_data->hp_gpio);
 	schedule_work(&switch_data->work);
 	return IRQ_HANDLED;
 }
@@ -188,8 +194,10 @@ static int snd_switch_probe(struct platform_device *pdev)
 			goto err_detect_irq_num_failed;
 		}
 
+		//ret = request_irq(switch_data->irq, snd_irq_handler,
+		//				  IRQF_TRIGGER_FALLING, pdev->name, switch_data);
 		ret = request_irq(switch_data->irq, snd_irq_handler,
-						  IRQF_TRIGGER_FALLING, pdev->name, switch_data);
+						  IRQF_TRIGGER_LOW, pdev->name, switch_data);
 		if (ret < 0) {
 			printk("requst irq fail.\n");
 			goto err_request_irq;
