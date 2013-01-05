@@ -1143,6 +1143,7 @@ int phy_I2cWrite(u16 baseAddr, u16 data, u8 addr)
 	halI2cMasterPhy_WriteData(baseAddr + PHY_I2CM_BASE_ADDR, data);
 	halI2cMasterPhy_WriteRequest(baseAddr + PHY_I2CM_BASE_ADDR);
 
+	msleep(100);
 	return TRUE;
 }
 
