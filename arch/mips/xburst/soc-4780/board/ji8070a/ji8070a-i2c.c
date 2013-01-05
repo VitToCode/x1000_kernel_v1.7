@@ -96,7 +96,7 @@ static struct jztsc_pin ji8070a_tsc_gpio[] = {
 
 static struct jztsc_platform_data ji8070a_tsc_pdata = {
 	.gpio		= ji8070a_tsc_gpio,
-#ifdef	CONFIG_LCD_HHX070ML208CP21 
+#ifdef CONFIG_BOARD_JI8070B
 	.x_max		= 1024,
 	.y_max		= 600,
 #else
