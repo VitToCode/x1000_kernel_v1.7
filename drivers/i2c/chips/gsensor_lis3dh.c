@@ -758,8 +758,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto exit_kfree_pdata;
 	}
 	client->dev.init_name = client->name;
-#ifdef   CONFIG_Q8
-#else
 	acc->power = regulator_get(&client->dev, "vgsensor");
 	if (IS_ERR(acc->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
@@ -774,7 +772,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			goto err_read_who_am_i;
 		}
 	}
-#endif
 	udelay(100);
 	atomic_set(&acc->regulator_enabled, 0);
 

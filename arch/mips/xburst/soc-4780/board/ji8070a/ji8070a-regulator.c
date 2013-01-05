@@ -63,7 +63,7 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#ifdef CONFIG_Q8
+#ifdef CONFIG_BOARD_Q8
 EXCLUSIVE_REGULATOR_DEF(
 	ji8070a_vcc5,
 	"Vcc-5V",
@@ -89,7 +89,7 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
 
-#ifdef CONFIG_Q8
+#ifdef CONFIG_BOARD_Q8
 
 	EXCLUSIVE_REGULATOR_DEF(
 		ji8070a_vq8lcd,
@@ -113,7 +113,7 @@ FIXED_REGULATOR_DEF(
 #endif
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-#ifndef CONFIG_Q8
+#ifndef CONFIG_BOARD_Q8
 	&ji8070a_vcc5_regulator_device,
 #endif
 	&ji8070a_vbus_regulator_device,
@@ -131,12 +131,12 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info ji8070a_pmu_regulators[] = {
 	{"OUT1", &ji8070a_vcore_init_data},
 	{"OUT3", &ji8070a_vccio_init_data},
-#ifdef CONFIG_Q8
+#ifdef CONFIG_BOARD_Q8
 	{"OUT4", &ji8070a_vcc5_init_data},
 #endif
 	{"OUT6", &ji8070a_vwifi_init_data},
 	{"OUT7", &ji8070a_vtsc_init_data},
-#ifdef  CONFIG_Q8
+#ifdef CONFIG_BOARD_Q8
 	{"OUT8", &ji8070a_vq8lcd_init_data},
 #else
 	{"OUT8", &ji8070a_vgsensor_init_data},

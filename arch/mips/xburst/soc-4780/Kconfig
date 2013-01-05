@@ -34,6 +34,9 @@ config BOARD_JI8070A
 config BOARD_JI8070B
 	bool "JI8070B"
 
+config BOARD_Q8
+	bool "Q8"
+
 config BOARD_M80701
 		bool "M80701"
 		
@@ -74,7 +77,8 @@ config BOARD_NAME
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
 	default "JI8070A" if BOARD_JI8070A
-	default "ji8070B" if BOARD_JI8070B
+	default "JI8070B" if BOARD_JI8070B
+	default "Q8" if BOARD_Q8
 	default "M80701" if BOARD_M80701
 	default "NPM801" if BOARD_NPM801
 	default "I88" if BOARD_I88

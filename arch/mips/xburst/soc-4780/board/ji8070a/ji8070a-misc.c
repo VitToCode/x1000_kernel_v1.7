@@ -407,11 +407,7 @@ static int __init ji8070a_board_init(void)
  */
 const char *get_board_type(void)
 {
-#if (defined(CONFIG_Q8)||defined(CONFIG_JI8070A))
-	return "ji8070a";
-#else
-	return "ji8070b";
-#endif
+	return CONFIG_BOARD_NAME;
 }
 
 arch_initcall(ji8070a_board_init);

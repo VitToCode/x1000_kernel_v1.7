@@ -48,7 +48,7 @@ static struct gsensor_platform_data lis3dh_platform_data = {
        	.min_interval = 40,
 	.max_interval = 400,
 	.g_range = GSENSOR_2G,
-#ifdef CONFIG_Q8
+#ifdef CONFIG_BOARD_Q8
 	.axis_map_x = 0,
 	.axis_map_y = 1,
 	.axis_map_z = 2,							        
@@ -176,9 +176,7 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 };
 #endif
 
-/*--------------------for q8-------------*/
 
-//#if (defined(CONFIG_GC0308)&&defined(CONFIG_Q8))
 #ifdef CONFIG_GC0308_Q8
 struct gc0308_platform_data {
 	int facing_f;
@@ -219,7 +217,7 @@ static struct gc0308_platform_data gc0308_pdata = {
 
 #if defined(CONFIG_GC0308)
 static struct cam_sensor_plat_data gc0308_pdata = {
-#ifdef CONFIG_JI8070A
+#ifdef CONFIG_BOARD_JI8070A
 	.facing = 1,
 #else
     .facing = 0,
