@@ -498,7 +498,7 @@ error:
 void  acc_input_close(struct input_dev *input)
 {
         struct  dmard06_acc_data *acc = input_get_drvdata(input);
-        cancel_delayed_work_sync(&acc->input_work);
+        cancel_delayed_work_sync(&acc->dmard06_acc_delayed_work);
 }
 
 static int temp_enable(struct dmard06_acc_data * acc)
