@@ -118,6 +118,7 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_handset_en;
 	struct snd_board_gpio gpio_hp_detect;
 	struct snd_board_gpio gpio_mic_detect;
+	struct snd_board_gpio gpio_mic_detect_en;
 	struct snd_board_gpio gpio_buildin_mic_select;
 	/* other */
 	int hpsense_active_level;
