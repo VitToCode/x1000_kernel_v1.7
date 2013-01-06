@@ -455,7 +455,12 @@ static void __exit jzaosd_cleanup(void)
 	platform_driver_unregister(&jzaosd_driver);
 }
 
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(jzaosd_init);
+#else
 module_init(jzaosd_init);
+#endif
+
 module_exit(jzaosd_cleanup);
 
 MODULE_DESCRIPTION("Graphics Internal AOSD controller driver");

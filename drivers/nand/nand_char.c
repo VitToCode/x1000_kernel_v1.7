@@ -317,7 +317,10 @@ static void __exit nand_char_exit(void)
 	cdev_del(&nand_char.nd_cdev);
 	unregister_chrdev_region(nand_char.ndev, 1);
 }
-
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(nand_char_init);
+#else
 module_init(nand_char_init);
+#endif
 module_exit(nand_char_exit);
 MODULE_LICENSE("GPL v2");

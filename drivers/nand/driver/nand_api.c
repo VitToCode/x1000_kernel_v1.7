@@ -1026,7 +1026,11 @@ static void __exit plat_nand_exit(void)
 	platform_driver_unregister(&plat_nand_driver);
 }
 
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(plat_nand_init);
+#else
 module_init(plat_nand_init);
+#endif
 module_exit(plat_nand_exit);
 MODULE_DESCRIPTION("JZ4780 Nand driver");
 MODULE_AUTHOR(" ingenic ");

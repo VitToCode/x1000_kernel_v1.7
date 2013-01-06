@@ -243,7 +243,11 @@ static void __exit nand_debug_exit(void)
 	unregister_chrdev_region(nand_dbg.ndev, 1);
 }
 
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(nand_debug_init);
+#else
 module_init(nand_debug_init);
+#endif
 module_exit(nand_debug_exit);
 MODULE_DESCRIPTION("JZ4780 debug Nand driver");
 MODULE_LICENSE("GPL v2");

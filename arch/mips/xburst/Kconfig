@@ -140,3 +140,7 @@ config ARM_ELF_SUPPORT
 config SUSPEND_TEST
 	bool "auto suspend test"
 	default n
+	
+config EARLY_INIT_RUN
+	bool "early run init process"
+	default n

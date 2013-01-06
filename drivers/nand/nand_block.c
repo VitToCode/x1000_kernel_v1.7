@@ -1086,7 +1086,10 @@ static void __exit nand_block_exit(void)
 	bus_unregister(&nand_block_bus);
 	unregister_blkdev(nand_block.major, nand_block.name);
 }
-
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(nand_block_init);
+#else
 module_init(nand_block_init);
+#endif
 module_exit(nand_block_exit);
 MODULE_LICENSE("GPL");

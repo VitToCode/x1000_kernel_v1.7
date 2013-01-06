@@ -1103,7 +1103,15 @@ void __exit serial_jz47xx_exit(void)
 	uart_unregister_driver(&serial_jz47xx_reg);
 }
 
+
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(serial_jz47xx_init);
+
+#else
 module_init(serial_jz47xx_init);
+
+#endif
+
 module_exit(serial_jz47xx_exit);
 
 MODULE_LICENSE("GPL");

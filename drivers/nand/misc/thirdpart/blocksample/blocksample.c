@@ -189,6 +189,9 @@ static void __exit sbd_exit(void)
     blk_cleanup_queue(Queue);
     vfree(Device.data);
 }
-	
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(sbd_init);
+#else
 module_init(sbd_init);
+#endif
 module_exit(sbd_exit);

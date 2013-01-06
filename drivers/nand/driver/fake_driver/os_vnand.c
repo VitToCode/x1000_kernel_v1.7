@@ -475,7 +475,11 @@ int __init ND_Init(void) {
 void __exit ND_Exit(void) {
 	bus_remove_file(&vnand_bus, &bus_attr);
 }
-
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(ND_Init);
+#else
 module_init(ND_Init);
+#endif
+
 module_exit(ND_Exit);
 MODULE_LICENSE("GPL");

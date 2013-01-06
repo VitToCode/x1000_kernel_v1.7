@@ -1232,6 +1232,13 @@ static void __exit PVRCore_Cleanup(void)
  * run to start/stop the driver.
 */
 #if !defined(SUPPORT_DRI_DRM)
+
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(PVRCore_Init);
+#else
 module_init(PVRCore_Init);
+#endif
+
 module_exit(PVRCore_Cleanup);
+
 #endif

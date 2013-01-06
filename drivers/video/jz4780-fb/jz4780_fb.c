@@ -2459,8 +2459,12 @@ static void __exit jzfb_cleanup(void)
 {
 	platform_driver_unregister(&jzfb_driver);
 }
-
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(jzfb_init);
+#else
 module_init(jzfb_init);
+#endif
+
 module_exit(jzfb_cleanup);
 
 MODULE_DESCRIPTION("Jz4780 LCD Controller driver");
