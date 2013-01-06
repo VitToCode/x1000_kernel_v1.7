@@ -1610,9 +1610,12 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 					gpio_to_irq(host->pdata->gpio->cd.num));
 				break;
 			}
-			disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 
-			mod_timer(&host->detect_timer, jiffies);
+			if(!timer_pending(&host->detect_timer)){
+				disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
+				mod_timer(&host->detect_timer, jiffies);
+			}
+
 		} else {
 			dev_err(host->dev, "card-detect pin must be valid "
 				"when host->pdata->removal = 1, errno=%d\n",
