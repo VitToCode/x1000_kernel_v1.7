@@ -49,9 +49,7 @@ static char const Binary_Data[]=
 {
 #ifdef CONFIG_BOARD_JI8070B
 	#include "CT360_V0B_BBC0_1024X600_121231.dat"
-#endif
-
-#ifdef CONFIG_BOARD_Q8
+#elif CONFIG_BOARD_Q8
 	#include "CT360_V03_8634_121204.dat"
 #else
 	#include "CT360_V04_81D4_130105.dat"
