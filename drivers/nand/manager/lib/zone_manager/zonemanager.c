@@ -1510,7 +1510,7 @@ Zone* ZoneManager_AllocZone (int context)
 	zoneptr->L3InfoLen = zonep->l3infolen;
 	zoneptr->L4InfoLen = zonep->l4infolen;
 	if(zoneptr->ZoneID == zonep->pt_zonenum - 1)
-		zoneptr->endblockID = zoneptr->vnand->TotalBlocks;
+		zoneptr->endblockID = zonep->vnand->TotalBlocks;
 	else
 		zoneptr->endblockID = zoneptr->startblockID + BLOCKPERZONE(zoneptr->context);
 	for(i = 0 ; i < 4; i++)
