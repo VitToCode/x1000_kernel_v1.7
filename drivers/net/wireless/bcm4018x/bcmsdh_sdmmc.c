@@ -1226,11 +1226,20 @@ sdioh_sdmmc_card_regread(sdioh_info_t *sd, int func, uint32 regaddr, int regsize
 	return SUCCESS;
 }
 
+bool sdio_irq_handler = false;
+extern bool wifi_is_stop;
 #if !defined(OOB_INTR_ONLY)
 /* bcmsdh_sdmmc interrupt handler */
 static void IRQHandler(struct sdio_func *func)
 {
 	sdioh_info_t *sd;
+
+	if (wifi_is_stop) {
+		printk("%s --- wifi is stop ---\n", __FUNCTION__);
+		return;
+	}
+
+	sdio_irq_handler = true; 
 
 	sd_trace(("bcmsdh_sdmmc: ***IRQHandler\n"));
 	sd = gInstance->sd;
@@ -1251,6 +1260,8 @@ static void IRQHandler(struct sdio_func *func)
 	}
 
 	sdio_claim_host(gInstance->func[0]);
+
+	sdio_irq_handler = false;
 }
 
 /* bcmsdh_sdmmc interrupt handler for F2 (dummy handler) */

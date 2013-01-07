@@ -56,8 +56,8 @@ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 #endif /* CUSTOMER_HW2 */
-extern  void IW8101_wlan_power_off(int flag);
-extern  void IW8101_wlan_power_on(int flag);
+extern int IW8101_wlan_power_off(int flag);
+extern int IW8101_wlan_power_on(int flag);
 
 #if defined(OOB_INTR_ONLY)
 
