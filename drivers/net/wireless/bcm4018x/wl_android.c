@@ -145,7 +145,7 @@ extern char iface_name[IFNAMSIZ];
  * time (only) in dhd_open, subsequential wifi on will be handled by
  * wl_android_wifi_on
  */
-static int g_wifi_on = TRUE;
+static int g_wifi_on = 1;
 
 /**
  * Local (static) function definitions
@@ -398,6 +398,8 @@ int wl_android_wifi_on(struct net_device *dev)
 	return ret;
 }
 
+bool wifi_is_stop = false;
+extern bool sdio_irq_handler;
 int wl_android_wifi_off(struct net_device *dev)
 {
 	int ret = 0;
@@ -408,6 +410,13 @@ int wl_android_wifi_off(struct net_device *dev)
 		return -EINVAL;
 	}
 
+	while (sdio_irq_handler) {
+		printk("--- delay 20 ms for sdio irq handler ---\n");
+		mdelay(20);
+	} 
+
+	wifi_is_stop = true; 
+
 	dhd_net_if_lock(dev);
 	if (g_wifi_on) {
 		ret = dhd_dev_reset(dev, TRUE);
@@ -417,6 +426,9 @@ int wl_android_wifi_off(struct net_device *dev)
 	}
 	dhd_net_if_unlock(dev);
 	bcm_mdelay(500);
+	
+	wifi_is_stop = false; 
+
 	return ret;
 }
 
