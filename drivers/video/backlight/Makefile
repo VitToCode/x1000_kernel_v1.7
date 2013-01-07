@@ -1,6 +1,6 @@
 # Backlight & LCD drivers
 
-obj-$(CONFIG_BACKLIGHT_PWM)	+= pwm_bl.o
+obj-$(CONFIG_BACKLIGHT_PWM)	+= pwm_bl.o android_bl.o
 obj-$(CONFIG_LCD_CLASS_DEVICE)     += lcd.o
 obj-$(CONFIG_LCD_CORGI)		   += corgi_lcd.o
 obj-$(CONFIG_LCD_HP700)		   += jornada720_lcd.o
@@ -22,13 +22,6 @@ obj-$(CONFIG_LCD_CRD080TI01_40NM01)	+= crd080ti01_40nm01.o
 obj-$(CONFIG_LCD_KD50G2_40NM_A2)	+= kd50g2_40nm_a2.o
 obj-$(CONFIG_LCD_EK070TN93)		+= ek070tn93.o
 obj-$(CONFIG_LCD_HSD101PWW1)	+= hsd101pww1.o
-
-ifeq ($(CONFIG_BOARD_Q8),y)
-obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1-q8.o
-else
-obj-$(CONFIG_LCD_HSD070IDW1)	+= hsd070idw1-ji8070.o
-endif
-
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o

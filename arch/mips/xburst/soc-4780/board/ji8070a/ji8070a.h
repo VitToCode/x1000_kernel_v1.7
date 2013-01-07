@@ -34,7 +34,7 @@ extern struct platform_device ek070tn93_device;
 extern struct platform_device ji8070a_backlight_device;
 
 #ifdef CONFIG_LCD_HSD070IDW1
-extern struct platform_device hsd070idw1_device;
+extern struct platform_device android_bl_device;
 #endif
 
 #ifdef CONFIG_LCD_HHX070ML208CP21

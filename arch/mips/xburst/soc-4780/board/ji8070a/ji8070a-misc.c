@@ -289,7 +289,7 @@ static int __init ji8070a_board_init(void)
 #endif
 
 #ifdef CONFIG_LCD_HSD070IDW1
-	platform_device_register(&hsd070idw1_device);
+	platform_device_register(&android_bl_device);
 #endif
 
 #ifdef CONFIG_LCD_EK070TN93

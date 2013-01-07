@@ -125,28 +125,23 @@
 
 
 #ifdef CONFIG_LCD_HSD070IDW1
-	#include <linux/hsd070idw1.h>
+	#include <linux/android_bl.h>
 
-	#ifdef CONFIG_BOARD_Q8
-		static int bk_is_on = 1;
-	#else
-		static int bk_is_on = 0;
-	#endif
+	static int bk_is_on = 0;
 
 	void bk_on(int on)
 	{
 		bk_is_on = on;
 	}
-	static struct platform_hsd070idw1_data hsd070idw1_pdata= {
-		//.gpio_rest = GPIO_PB(22),
+	static struct android_bl_platform_data bl_pdata= {
 		.notify_on = bk_on
 	};
 
 	/* LCD Panel Device */
-	struct platform_device hsd070idw1_device = {
-		.name		= "hsd070idw1-lcd",
+	struct platform_device android_bl_device = {
+		.name		= "android-bl",
 		.dev		= {
-			.platform_data	= &hsd070idw1_pdata,
+			.platform_data	= &bl_pdata,
 		},
 	};
 #endif

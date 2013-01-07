@@ -6,15 +6,15 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef _HSD070IDW1_H
-#define _HSD070IDW1_H
+#ifndef _ANDROIDBL_H
+#define _ANDROIDBL_H
 
 /**
  * @gpio_rest: global reset pin, active low to enter reset state
  */
-struct platform_hsd070idw1_data {
+struct android_bl_platform_data{
 	unsigned int gpio_rest;
-    void (*notify_on)(int on);
+	void (*notify_on)(int on);
 };
 
-#endif /* _HSD070IDW1_H */
+#endif 
