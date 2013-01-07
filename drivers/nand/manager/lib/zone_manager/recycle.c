@@ -888,6 +888,11 @@ static int MergerSectorID_Align(Recycle *rep) {
 			n++;
 			continue;
 		}
+		}
+		if(latest_l4info[n] == -1) {
+			n++;
+			continue;
+		}
 		tmp0 = l4info[n] / spp;
 		tmp1 = latest_l4info[n] / spp;
 		if(!rep->force && rep->recyclemode == RECYCLE_NORMAL_MODE) {
@@ -972,13 +977,15 @@ static int MergerSectorID_Align(Recycle *rep) {
 		k = 1;
 		n++;
 		for(i = 1;i < spp;i++) {
+			if(n >= l4count) break;
 			if(record_writeaddr[n] == -1) break;
 			if(++tmp0 != record_writeaddr[n]) break;
 			if(tmp0 % spp == 0) break;
 			k++;
 			n++;
 		}
-
+		if(tpl && (tpl->startPageID * spp + (tpl->OffsetBytes + tpl->Bytes) / SECTOR_SIZE == tmp1))
+			tpl->retVal = 1;
 		if(tpl == NULL){
 			tpl = (PageList *)BuffListManager_getTopNode(blm, sizeof(PageList));
 			pl = tpl;
