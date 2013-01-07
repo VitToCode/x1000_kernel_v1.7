@@ -1,3 +1,4 @@
+
 /*
  * [board]-misc.c - This file defines most of devices on the board.
  *
@@ -321,6 +322,9 @@ static int __init i88_board_init(void)
 	platform_device_register(&jz_gpu);
 #endif
 /* panel and bl */
+#ifdef CONFIG_BACKLIGHT_PWM
+	platform_device_register(&i88_backlight_device);
+#endif
 #ifdef CONFIG_LCD_KR080LA4S_250
 	platform_device_register(&kr080la4s_250_device);
 #endif
@@ -329,9 +333,6 @@ static int __init i88_board_init(void)
 #endif
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
-#endif
-#ifdef CONFIG_BACKLIGHT_PWM
-	platform_device_register(&i88_backlight_device);
 #endif
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ4780_LCDC1

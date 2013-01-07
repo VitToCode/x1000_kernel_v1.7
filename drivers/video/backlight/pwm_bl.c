@@ -22,16 +22,25 @@
 #include <linux/slab.h>
 #include <linux/notifier.h>
 #include <linux/reboot.h>
+#include <linux/delay.h>
+#include <linux/earlysuspend.h>
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
 	unsigned int		period;
 	unsigned int		lth_brightness;
+	unsigned int		cur_brightness;
+    unsigned int        max_brightness;
+	unsigned int		suspend;
+    struct mutex        pwm_lock;
     struct notifier_block nb;
 	int			(*notify)(struct device *,
 					  int brightness);
 	int			(*check_fb)(struct device *, struct fb_info *);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    struct early_suspend bk_early_suspend;
+#endif
 };
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
@@ -40,6 +49,7 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	int brightness = bl->props.brightness;
 	int max = bl->props.max_brightness;
 
+    mutex_lock(&pb->pwm_lock);
 	if (bl->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
 
@@ -49,9 +59,18 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	if (pb->notify)
 		brightness = pb->notify(pb->dev, brightness);
 
+    if (pb->suspend && (brightness > pb->cur_brightness)) {
+        pb->cur_brightness = brightness;
+        //printk("pb->suspend, brightness =%d\n", brightness);
+        mutex_unlock(&pb->pwm_lock);
+        return 0;
+    }
+
+    pb->cur_brightness = brightness;
 	if (brightness == 0) {
 		pwm_config(pb->pwm, 0, pb->period);
 		pwm_disable(pb->pwm);
+        mdelay(50);
 	} else {
 		pwm_disable(pb->pwm);
 		brightness = pb->lth_brightness +
@@ -59,6 +78,7 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 		pwm_config(pb->pwm, brightness, pb->period);
 		pwm_enable(pb->pwm);
 	}
+    mutex_unlock(&pb->pwm_lock);
 	return 0;
 }
 
@@ -83,6 +103,34 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 
 	return NOTIFY_DONE;
 }
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void bk_e_suspend(struct early_suspend *h)
+{
+	struct pwm_bl_data *pb = container_of(h,
+            struct pwm_bl_data, bk_early_suspend); 
+    pb->suspend = 1;
+    //pwm_config(pb->pwm, 0, pb->period);
+    //pwm_disable(pb->pwm);
+}
+
+static void bk_l_resume(struct early_suspend *h)
+{
+    int brightness;
+	struct pwm_bl_data *pb = container_of(h,
+            struct pwm_bl_data, bk_early_suspend); 
+
+    pb->suspend = 0;
+    mutex_lock(&pb->pwm_lock);
+    pwm_disable(pb->pwm);
+    brightness = pb->cur_brightness;
+    brightness = pb->lth_brightness +
+        (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
+    pwm_config(pb->pwm, brightness, pb->period);
+    pwm_enable(pb->pwm);
+    mutex_unlock(&pb->pwm_lock);
+}
+#endif
 
 static int pwm_backlight_probe(struct platform_device *pdev)
 {
@@ -128,6 +176,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = data->max_brightness;
+    pb->max_brightness = data->max_brightness;
 	bl = backlight_device_register(dev_name(&pdev->dev), &pdev->dev, pb,
 				       &pwm_backlight_ops, &props);
 	if (IS_ERR(bl)) {
@@ -136,6 +185,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 		goto err_bl;
 	}
 
+    mutex_init(&pb->pwm_lock);
 	bl->props.brightness = data->dft_brightness;
 	backlight_update_status(bl);
 
@@ -143,6 +193,13 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
     pb->nb.notifier_call = pwm_bl_shutdown_notify;
 	register_reboot_notifier(&pb->nb);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    pb->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;//EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+    pb->bk_early_suspend.suspend = bk_e_suspend;
+    pb->bk_early_suspend.resume = bk_l_resume;
+    register_early_suspend(&pb->bk_early_suspend);
+#endif
 
 	return 0;
 
@@ -171,6 +228,7 @@ static int pwm_backlight_remove(struct platform_device *pdev)
 		data->exit(&pdev->dev);
 
 	unregister_reboot_notifier(&pb->nb);
+    unregister_early_suspend(&pb->bk_early_suspend);
 
 	return 0;
 }

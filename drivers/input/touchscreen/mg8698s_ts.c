@@ -346,6 +346,7 @@ static int mg8698s_ts_power_off(struct mg8698s_ts_data *ts)
 static void mg8698s_ts_reset(struct mg8698s_ts_data *ts)
 {
 	set_pin_status(ts->gpio.wake, 1);
+    msleep(10);
 	set_pin_status(ts->gpio.wake, 0);
 	msleep(50);
 	set_pin_status(ts->gpio.wake, 1);
@@ -590,6 +591,7 @@ static void mg8698s_ts_suspend(struct early_suspend *handler)
 		enable_irq(ts->client->irq);
 	}
 	mg8698s_ts_power_off(ts);
+	set_pin_status(ts->gpio.wake, 0);
 	dev_dbg(&ts->client->dev, "[FTS]mg8698s suspend\n");
 }
 
@@ -598,8 +600,11 @@ static void mg8698s_ts_resume(struct early_suspend *handler)
 	struct mg8698s_ts_data *ts = container_of(handler, struct mg8698s_ts_data,
 						early_suspend);
 
+	set_pin_status(ts->gpio.wake, 1);
+    msleep(10);
 	mg8698s_ts_power_on(ts);
 	mg8698s_ts_reset(ts);
+    msleep(10);
 
 	enable_irq(ts->client->irq);
 	ts->is_suspend = 0;
