@@ -12,13 +12,13 @@
 #include "test_nand.h"
 
 extern NandInterface *vnand_interface;
-void nand_test_erase(PPartition *ppt,BlockList *blocklist)
+int nand_test_erase(PPartition *ppt,BlockList *blocklist)
 {
 	int state;
 	state =vnand_interface->iMultiBlockErase(ppt,blocklist);
-	if (state < 0)
-	{
-		eprintf(">>>Erase block %d Failed\n",blocklist->startBlock+blocklist->retVal);
-	}
+        if (state < 0) {
+		eprintf(">>>Erase block %d Failed\n",blocklist->startBlock);
+        }
+        return state;
 }
 

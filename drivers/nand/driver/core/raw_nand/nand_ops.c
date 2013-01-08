@@ -33,6 +33,20 @@ static void dump_buf1(unsigned char *databuf,int len)
 	}
 }
 */
+
+static void myndelay(unsigned int loops)
+{
+        /*
+	__asm__ __volatile__ (
+	"	.set	noreorder				\n"
+	"	.align	3					\n"
+	"1:	bnez	%0, 1b					\n"
+	"	subu	%0, 1					\n"
+	"	.set	reorder					\n"
+	: "=r" (loops)
+	: "0" (loops));
+        */
+}
 void do_nand_register(NAND_API *pnand_api)
 {
 	g_pnand_chip = pnand_api->nand_chip;
@@ -127,9 +141,11 @@ static inline void send_read_page(int column, unsigned int row)
  */
 static inline void send_read_random(int column)
 {
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 	g_pnand_io->send_cmd_norb(CMD_RANDOM_READ);
 	g_pnand_io->send_addr(column, -1, 0);
 	g_pnand_io->send_cmd_norb(CMD_RANDOM_READ_CONFIRM);
+//	myndelay(nand_type->twhr2);
 }
 static inline void send_read_2p_pageaddr(unsigned int first_row,unsigned int second_row)
 {
@@ -145,6 +161,7 @@ static inline int send_read_2p_random_output_withrb(int column,unsigned int row)
 {
 	int cycles = g_pnand_chip->row_cycles;
 	int ret=0;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 	ret =g_pnand_io->send_cmd_withrb(CMD_2P_READ_START2);
 	if(ret <0)
 		return ret;
@@ -152,18 +169,21 @@ static inline int send_read_2p_random_output_withrb(int column,unsigned int row)
 	g_pnand_io->send_cmd_norb(CMD_2P_READ_RANDOM_OUTPUT);
 	g_pnand_io->send_addr(column, -1, 0);
 	g_pnand_io->send_cmd_norb(CMD_2P_READ_RANDOM_CONFIRM);
+	myndelay(nand_type->twhr2);
 	return 0;
 }
 
 static inline void send_read_2p_random_output_norb(int column,unsigned int row)
 {
 	int cycles = g_pnand_chip->row_cycles;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 
 	g_pnand_io->send_cmd_norb(CMD_2P_READ_START2);
 	g_pnand_io->send_addr(0, 0x80, cycles);
 	g_pnand_io->send_cmd_norb(CMD_2P_READ_RANDOM_OUTPUT);
 	g_pnand_io->send_addr(column, -1, 0);
 	g_pnand_io->send_cmd_norb(CMD_2P_READ_RANDOM_CONFIRM);
+	myndelay(nand_type->twhr2);
 }
 
 /**
@@ -174,9 +194,11 @@ static inline void send_read_2p_random_output_norb(int column,unsigned int row)
 static inline void send_prog_page(int column, unsigned int row)
 {
 	int cycles = g_pnand_chip->row_cycles;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 
 	g_pnand_io->send_cmd_norb(CMD_WRITE);
 	g_pnand_io->send_addr(column, (int)row, cycles);
+	myndelay(nand_type->tadl);
 }
 
 /**
@@ -189,8 +211,10 @@ static inline void send_prog_confirm(void)
 
 static inline void send_prog_random(int column)
 {
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 	g_pnand_io->send_cmd_norb(CMD_RANDOM_WRITE);
 	g_pnand_io->send_addr(column, -1, 0);
+	myndelay(nand_type->tadl);
 }
 
 static inline void send_prog_random_confirm(void)
@@ -206,10 +230,12 @@ static inline void send_prog_random_confirm(void)
 static inline void send_prog_2p_page1(int column, unsigned int row)
 {
 	int cycles = g_pnand_chip->row_cycles;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 
 	g_pnand_io->send_cmd_norb(CMD_2P_PROGRAM_START1);
 	g_pnand_io->send_addr(0, 0, cycles);
 	//	g_pnand_io->send_addr(column, (int)row, cycles);
+	myndelay(nand_type->tadl);
 }
 
 /**
@@ -229,10 +255,12 @@ static inline void send_prog_2p_confirm1(void)
 static inline void send_prog_2p_page2(int column, unsigned int row)
 {
 	int cycles = g_pnand_chip->row_cycles;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 
 	g_pnand_io->send_cmd_norb(CMD_2P_PROGRAM_START2);
 	g_pnand_io->send_addr(column, (int)(row | 0x80) , cycles);
 	//	g_pnand_io->send_addr(column, (int)row, cycles);
+	myndelay(nand_type->tadl);
 }
 
 /**
@@ -288,9 +316,13 @@ static inline void send_erase_2p_block2(unsigned int row)
 int send_read_status(unsigned char *status)
 {
 	int ret =0;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+        mdelay(1);
 	ret =g_pnand_io->send_cmd_withrb(CMD_READSTATUS);
 	if(ret)
 		return ret;  // nand io_error
+	myndelay(nand_type->twhr);
+        mdelay(1);
 	g_pnand_io->read_data_norb(status, 1);
 	return 0;
 }
@@ -307,7 +339,7 @@ static inline void send_get_nand_id(char *nand_id)
 
 	/* Read manufacturer and device IDs */
 #ifdef NAND_READID_NORB
-	msleep(10);
+	msleep(1);
 	g_pnand_io->read_data_norb(&nand_id[0], 5);
 #else
 	g_pnand_io->read_data_withrb(&nand_id[0], 5);

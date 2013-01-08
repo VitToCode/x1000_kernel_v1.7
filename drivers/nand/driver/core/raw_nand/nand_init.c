@@ -141,6 +141,7 @@ static inline void get_nand_chip(NAND_API *pnand_api, NAND_FLASH_DEV *pnand_type
 		this->planenum = 2;
 	else
 		this->planenum = this->realplanenum;
+	this->priv = (unsigned int)pnand_type;
 }
 
 /**

@@ -29,7 +29,7 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 	
 	int cycle = 1000 / h2clk + 1;	// unit: ns */
 	int clk =clk_get_rate(host->nemc_gate);
-	int cycle = 1000000000 / clk +1;  //unit: ns
+	int cycle = 1000000000 / (clk / 1000);  //unit: ps
 	int smcr_val = 0;
 	int data;
 /*
@@ -40,20 +40,19 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 			h2clk, cycle);
 */
 	/* NEMC.TAS */
-	data = flash->tals / cycle + 1;
+	data = (flash->tals * 1000 + cycle - 1) / cycle;
 	smcr_val |= (data & NEMC_SMCR_TAS_MASK) << NEMC_SMCR_TAS_BIT;
 	/* NEMC.TAH */
-	data = flash->talh / cycle + 1;
+	data = (flash->talh * 1000 + cycle -1) / cycle;
 	smcr_val |= (data & NEMC_SMCR_TAH_MASK) << NEMC_SMCR_TAH_BIT;
 	/* NEMC.TBP */
-	data = flash->twp / cycle + 1;
+	data = (flash->twp * 1000 + cycle - 1) / cycle;
 	smcr_val |= (data & NEMC_SMCR_TBP_MASK) << NEMC_SMCR_TBP_BIT;
 	/* NEMC.TAW */
-	data = flash->trp / cycle + 1;
+	data = (flash->trp * 1000 + cycle -1) / cycle;
 	smcr_val |= (data & NEMC_SMCR_TAW_MASK) << NEMC_SMCR_TAW_BIT;
 	/* NEMC.STRV */
-	data = flash->trhw > flash->twhr ? flash->trhw : flash->twhr;
-	data = data / cycle + 1;
+	data = (flash->trhw * 1000 + cycle - 1) / cycle;
 	smcr_val |= (data & NEMC_SMCR_STRV_MASK) << NEMC_SMCR_STRV_BIT;
 
 	dprintf("INFO: tals=%d talh=%d twp=%d trp=%d smcr=0x%08x\n"

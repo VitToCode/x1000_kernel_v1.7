@@ -283,9 +283,11 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 err_desc:
 	return ret;
 }
-
 static int mcu_reset(const NAND_API *pnand_api)
 {
+	int fclk = 0, fcycle = 0;
+	NAND_BASE *host = pnand_api->vnand_base;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(pnand_api->nand_chip->priv);
 	struct jznand_dma *nand_dma =pnand_api->nand_dma;
 	PPartition *ppt =nand_dma->ppt;
 	struct platform_nand_partition *pt = (struct platform_nand_partition *)ppt->prData;
@@ -301,7 +303,22 @@ static int mcu_reset(const NAND_API *pnand_api)
 	nand_dma->msg->info[MSG_ECCTOTAL] = __bch_cale_eccbytes(pt->eccbit)
 		* nand_dma->msg->info[MSG_ECCSTEPS];
 	nand_dma->msg->info[MSG_ECCPOS] = pnand_api->nand_ecc->eccpos;
-
+	/* calc firmware cycle in ps
+	*  firware has the same's clock as nemc's clock,which is AHB2.
+	*/
+	fclk = clk_get_rate(host->nemc_gate);
+	fcycle = 1000000000 / (fclk / 1000); // unit: ps
+	nand_dma->msg->info[MSG_TWHR] = (((nand_type->twhr * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	nand_dma->msg->info[MSG_TWHR2] = (((nand_type->twhr2 * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	nand_dma->msg->info[MSG_TRR] = (((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	nand_dma->msg->info[MSG_TWB] = (((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	nand_dma->msg->info[MSG_TADL] = (((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+        printk("MCU:twhr=%d twhr2=%d trr=%d twb=%d tadl=%d\n"
+                        ,nand_dma->msg->info[MSG_TWHR]
+                        ,nand_dma->msg->info[MSG_TWHR2]
+                        ,nand_dma->msg->info[MSG_TRR]
+                        ,nand_dma->msg->info[MSG_TWB]
+                        ,nand_dma->msg->info[MSG_TADL]);
 	return send_msg_to_mcu(pnand_api);
 }
 

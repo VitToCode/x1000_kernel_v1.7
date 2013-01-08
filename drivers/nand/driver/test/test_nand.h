@@ -20,7 +20,7 @@ int nand_test_read_page(PPartition *ppt,unsigned int pageaddr, unsigned int offs
 int nand_test_read_pages(PPartition *ppt,PageList* pagelist);
 int nand_test_write_page(PPartition *ppt,unsigned int pageaddr, unsigned int offset, unsigned int bytes, void *databuf);
 int nand_test_write_pages(PPartition *ppt,PageList* pagelist);
-void nand_test_erase(PPartition *ppt,BlockList *blocklist);
+int nand_test_erase(PPartition *ppt,BlockList *blocklist);
 
 #endif //__TEST_NAND_H__
 

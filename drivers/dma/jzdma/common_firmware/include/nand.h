@@ -71,6 +71,12 @@ struct nand_chip {
 	int ecctotal;
 	int eccpos;
 
+        int twhr;
+        int twhr2;
+        int trr;
+        int twb;
+        int tadl;
+
 	int pipe_cnt;
 
 	int ctrl;
