@@ -455,7 +455,6 @@ static int find_maxserialnumber(ZoneManager *zonep,
 	NandZoneInfo *nandzoneinfo = (NandZoneInfo *)(zonep->mem0);
 	SigZoneInfo *oldsigp = NULL;
 	int i;
-	unsigned int current;
 
 	//update localzone info in zonep->sigzoneinfo
 	zoneid = nandzoneinfo->localZone.ZoneID;

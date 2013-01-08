@@ -247,8 +247,6 @@ static struct __nand_disk * get_ndisk_form_queue(const struct request_queue *q)
 	struct singlelist *plist = NULL;
 	struct __nand_disk *ndisk = NULL;
 
-	DBG_FUNC();
-
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
 		if (ndisk->queue == q)
@@ -265,8 +263,6 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
 {
 	struct singlelist *plist = NULL;
 	struct __nand_disk *ndisk = NULL;
-
-	DBG_FUNC();
 
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
@@ -295,7 +291,6 @@ static int nand_rq_map_sl(struct request_queue *q,
 	unsigned int startSector;
 	unsigned int index = -1;
 
-	DBG_FUNC();
 	startSector = blk_rq_pos(req);
 	cluster = blk_queue_cluster(q);
 	rq_for_each_segment(bvec, req, iter) {
@@ -422,7 +417,6 @@ static int handle_req_thread(void *data)
 static void do_nand_request(struct request_queue *q)
 {
 	struct __nand_disk *ndisk = NULL;
-	DBG_FUNC();
 
 	ndisk = get_ndisk_form_queue(q);
 	if (!ndisk || !ndisk->pinfo) {
@@ -552,8 +546,46 @@ static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mod
 /*#################################################################*\
  *# bus
 \*#################################################################*/
+
+static void nbb_shutdown(struct device *dev)
+{
+	struct device_driver *driver = dev->driver;
+
+	DBG_FUNC();
+
+	if (driver->shutdown)
+		driver->shutdown(dev);
+}
+
+static int nbb_suspend(struct device *dev, pm_message_t state)
+{
+	struct device_driver *driver = dev->driver;
+
+	DBG_FUNC();
+
+	if (driver->suspend)
+		return driver->suspend(dev, state);
+
+	return 0;
+}
+
+static int nbb_resume(struct device *dev)
+{
+	struct device_driver *driver = dev->driver;
+
+	DBG_FUNC();
+
+	if (driver->resume)
+		return driver->resume(dev);
+
+	return 0;
+}
+
 static struct bus_type nand_block_bus = {
 	.name		= "nbb",
+	.shutdown	= nbb_shutdown,
+	.suspend	= nbb_suspend,
+	.resume		= nbb_resume,
 };
 
 /*#################################################################*\
@@ -842,12 +874,14 @@ static void nand_block_shutdown(struct device *dev)
 
 	DBG_FUNC();
 
-	if (q) {
+	if (ndisk && q) {
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
-
 		down(&ndisk->thread_sem);
+		if (NM_ptIoctrl(ndisk->pinfo->context, SUSPEND, 0)) {
+			printk("ERROR: %s, suspend NandManager error!\n", __func__);
+		}
 	}
 }
 
@@ -860,12 +894,15 @@ static int nand_block_suspend(struct device *dev, pm_message_t state)
 
 	DBG_FUNC();
 
-	if (q) {
+	if (ndisk && q) {
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
-
 		down(&ndisk->thread_sem);
+		if (NM_ptIoctrl(ndisk->pinfo->context, SUSPEND, 0)) {
+			printk("ERROR: %s, suspend NandManager error!\n", __func__);
+			return -1;
+		}
 	}
 
 	return 0;
@@ -879,9 +916,12 @@ static int nand_block_resume(struct device *dev)
 
 	DBG_FUNC();
 
-	if (q) {
+	if (ndisk && q) {
+		if (NM_ptIoctrl(ndisk->pinfo->context, RESUME, 0)) {
+			printk("ERROR: %s, resume NandManager error!\n", __func__);
+			return -1;
+		}
 		up(&ndisk->thread_sem);
-
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_start_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
