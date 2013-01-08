@@ -464,6 +464,10 @@ static int init_nand_driver(void)
 		(g_partition+ret)->badblockcount = ((g_partition+ret)->totalblocks
                                 * g_pnand_api.nand_chip->maxbadblockcount
                                 + g_pnand_api.nand_chip->bpchip - 1) / g_pnand_api.nand_chip->bpchip;
+
+		if ((g_partition+ret)->badblockcount < tmp_badblock_info[ret])
+			(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
+
 		(g_partition+ret)->mode = (ptemp+ret)->mode;
 		(g_partition+ret)->prData = (void *)(ptemp+ret);
 

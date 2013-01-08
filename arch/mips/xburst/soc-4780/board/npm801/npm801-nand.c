@@ -115,7 +115,7 @@ static int partition_reserved_badblocks[] = {
 	8,			/* reserved blocks of ndrecovery */
 	2,			/* reserved blocks of ndapanic */
 	32,			/* reserved blocks of ndsystem */
-	16,			/* reserved blocks of ndcache */
+	36,			/* reserved blocks of ndcache */
 	256,			/* reserved blocks of ndextern */
 	1,			/* reserved blocks of nderror */
 };
