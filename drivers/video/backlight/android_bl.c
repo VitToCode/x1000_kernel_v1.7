@@ -43,7 +43,6 @@ static void android_bl_on(struct android_bl_data *dev) {
 			regulator_enable(dev->lcd_bklight_reg);
 			regulator_disable(dev->lcd_bklight_reg);
 		}
-		msleep(200);
 
 		regulator_enable(dev->lcd_vcc_reg);
 
@@ -53,9 +52,11 @@ static void android_bl_on(struct android_bl_data *dev) {
 			gpio_direction_output(dev->pdata->gpio_rest, 1);
 		}
 
-		msleep(200);
-		if (dev->lcd_bklight_reg)
+
+		if (dev->lcd_bklight_reg) {
+			msleep(dev->pdata->delay_before_bkon);
 			regulator_enable(dev->lcd_bklight_reg);
+		}
 
 		if (dev->pdata->notify_on)
 			dev->pdata->notify_on(1);
@@ -127,9 +128,10 @@ static void bk_l_resume(struct early_suspend *h)
 		gpio_direction_output(dev->pdata->gpio_rest, 1);
 	}
 
-	msleep(200);
-	if (dev->lcd_bklight_reg)
+	if (dev->lcd_bklight_reg) {
+		msleep(dev->pdata->delay_before_bkon);
 		regulator_enable(dev->lcd_bklight_reg);
+	}
 
 	if (dev->pdata->notify_on)
 		dev->pdata->notify_on(1);
