@@ -141,7 +141,7 @@ static inline void send_read_page(int column, unsigned int row)
  */
 static inline void send_read_random(int column)
 {
-	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+//	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
 	g_pnand_io->send_cmd_norb(CMD_RANDOM_READ);
 	g_pnand_io->send_addr(column, -1, 0);
 	g_pnand_io->send_cmd_norb(CMD_RANDOM_READ_CONFIRM);

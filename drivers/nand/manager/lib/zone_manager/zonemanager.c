@@ -1728,8 +1728,6 @@ void ZoneManager_DeInit (int context ){
  */
 unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 {
-	int flag = 0;
-	int count = 0;
 	unsigned int index ;
 	SigZoneInfo *sigp = NULL;
 	SigZoneInfo *sigpt = NULL;
@@ -1746,7 +1744,10 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 		return -1;
 	}
 
-	do {
+	vaildpage = sigp->validpage;
+	sigpt = sigp;
+
+	while(index != -1){
 		if(vaildpage > (unsigned short)sigp->validpage)
 		{
 			vaildpage = sigp->validpage;
@@ -1754,17 +1755,8 @@ unsigned short ZoneManager_RecyclezoneID(int context,unsigned int lifetime)
 			if (!vaildpage)
 				break;
 		}
-		else if(vaildpage == sigp->validpage)
-			flag++;
-
-		count++;
-
 		index = Hash_FindNextLessLifeTime(zonep->useZone,index,&sigp);
 	}
-	while(index != -1);
-
-	if (flag >= count - 1 )
-		return -1;
 	if (sigpt >= zonep->sigzoneinfo + zonep->pt_zonenum || sigpt < zonep->sigzoneinfo){
 		ndprint(ZONEMANAGER_ERROR,"%s %d sigpt:%p sigzoneinfo:%p zonenum:%d \n",__func__,__LINE__,sigpt,zonep->sigzoneinfo,zonep->pt_zonenum);
                 return -1;
