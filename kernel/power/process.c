@@ -158,9 +158,6 @@ int freeze_processes(void)
 		goto Exit;
 	printk("done.\n");
 
-	printk("PM: Syncing filesystems ... freeze_processes\n");
-	sys_sync();
-
 	printk("Freezing remaining freezable tasks ... ");
 	error = try_to_freeze_tasks(false);
 	if (error)
