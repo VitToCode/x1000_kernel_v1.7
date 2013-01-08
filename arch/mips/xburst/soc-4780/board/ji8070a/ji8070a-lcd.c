@@ -134,6 +134,11 @@
 		bk_is_on = on;
 	}
 	static struct android_bl_platform_data bl_pdata= {
+#ifdef CONFIG_BOARD_Q8
+		.delay_before_bkon = 50,
+#else
+		.delay_before_bkon = 50,
+#endif
 		.notify_on = bk_on
 	};
 
@@ -159,11 +164,8 @@ static void ji8070a_backlight_exit(struct device *dev)
 
 static int bk_notify(struct device *dev, int brightness)
 {
-
-#ifndef CONFIG_BOARD_Q8
-        if (!bk_is_on)
-			return 0;
-#endif
+	if (!bk_is_on)
+		return 0;
 
 	brightness = 35 + (brightness * 7)/10;
 	return brightness;

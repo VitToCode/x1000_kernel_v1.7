@@ -1,5 +1,5 @@
 /*
- * LCD driver data for HSD070IDW1
+ * android bl no flash
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,6 +14,7 @@
  */
 struct android_bl_platform_data{
 	unsigned int gpio_rest;
+	int delay_before_bkon;
 	void (*notify_on)(int on);
 };
 
