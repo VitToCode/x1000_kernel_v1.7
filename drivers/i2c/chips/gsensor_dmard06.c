@@ -828,7 +828,11 @@ static void dmard06_acc_delayed_work_fun(struct work_struct *work)
                                                         : (-xyz[0]*2));
         xyz[1] = ((dmard06_acc->pdata->ori_pith_negate) ? (xyz[1]*2)
                                                         : (-xyz[1]*2));
+#ifdef CONFIG_BOARD_JI8070A
         orientation_report_values(xyz[0],xyz[1],xyz[2]);
+#else
+        orientation_report_values(-xyz[0],xyz[1],xyz[2]);
+#endif
 
 #endif
         queue_delayed_work(dmard06_acc->work_queue,&dmard06_acc->dmard06_acc_delayed_work,1);
