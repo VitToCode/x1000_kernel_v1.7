@@ -502,8 +502,7 @@ static int find_maxserialnumber(ZoneManager *zonep,
 			oldsigp->validpage = 0xffff;
 		}
 		zonep->sigzoneinfo_initflag[zoneid] |= NEXT_INIT;
-		current = (zonep->sigzoneinfo_initflag[zid] >> 16) & zoneid;
-		zonep->sigzoneinfo_initflag[zid] &= ((current << 16) | 0xffff);
+		zonep->sigzoneinfo_initflag[zid] |= ((unsigned int) zoneid << 16);
 	}
 	max = nandzoneinfo->serialnumber;
 	if(max > *maxserial)
@@ -622,54 +621,54 @@ static int scan_sigzoneinfo_fill_node(ZoneManager *zonep,PageList *pl)
 			ret = insert_free_node(zonep,i);
 			if(ret != 0) {
 				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
-							__FUNCTION__,__LINE__);
+					__FUNCTION__,__LINE__);
 				return ret;
 			}
 		}else
 #endif
-		if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0
+			if ((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0
 #ifndef NO_ERROR
-			|| (zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0
+			    || (zonep->sigzoneinfo_initflag[i] & ALL_INIT) == 0
 #endif
-			) {
-			ret = read_zone_page0(zonep,i,pl);
-                        if (ISERROR(ret)) {
-							ret = pl->retVal;
-                                pl->retVal = 0;
-                                if (ISNOWRITE(ret)){
+				) {
+				ret = read_zone_page0(zonep,i,pl);
+				if (ISERROR(ret)) {
+					ret = pl->retVal;
+					pl->retVal = 0;
+					if (ISNOWRITE(ret)){
 #ifndef NO_ERROR
-									zone = init_sigzoneinfo(zonep->context,i);
-									ret = Zone_MarkEraseBlock(zone,-1,0);
-									ndprint(ZONEMANAGER_INFO,"zoneid[%d]write page0 \n",i);
-									ZoneManager_DropZone (zonep->context,zone);
-									if(ret == -1){
-										continue;
-										}
-#endif
-                               }else{
-									ndprint(ZONEMANAGER_ERROR,"LINE:%d find zoneid[%d] page 0 error!\n",__LINE__,i);
-									insert_zoneidlist(zonep,PAGE0,i);
-
-								}
-                        }else {
-							if((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0)
-								unpackage_page0_info(zonep,i);
+						zone = init_sigzoneinfo(zonep->context,i);
+						ret = Zone_MarkEraseBlock(zone,-1,0);
+						ndprint(ZONEMANAGER_INFO,"zoneid[%d]write page0 \n",i);
+						ZoneManager_DropZone (zonep->context,zone);
+						if(ret == -1){
+							continue;
 						}
-                        pl->retVal = 0;
-			ret = insert_free_node(zonep,i);
-			if(ret != 0) {
-				ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
-							__FUNCTION__,__LINE__);
-				return ret;
+#endif
+					}else{
+						ndprint(ZONEMANAGER_ERROR,"LINE:%d find zoneid[%d] page 0 error!\n",__LINE__,i);
+						insert_zoneidlist(zonep,PAGE0,i);
+
+					}
+				}else {
+					if((zonep->sigzoneinfo_initflag[i] & LOCAL_INIT) == 0)
+						unpackage_page0_info(zonep,i);
+				}
+				pl->retVal = 0;
+				ret = insert_free_node(zonep,i);
+				if(ret != 0) {
+					ndprint(ZONEMANAGER_ERROR,"insert free node error func %s line %d \n",
+						__FUNCTION__,__LINE__);
+					return ret;
+				}
+			} else {
+				ret = insert_used_node(zonep,sigp);
+				if(ret != 0) {
+					ndprint(ZONEMANAGER_ERROR,"insert used node error func %s line %d \n",
+						__FUNCTION__,__LINE__);
+					return ret;
+				}
 			}
-		} else {
-			ret = insert_used_node(zonep,sigp);
-			if(ret != 0) {
-				ndprint(ZONEMANAGER_ERROR,"insert used node error func %s line %d \n",
-							__FUNCTION__,__LINE__);
-				return ret;
-			}
-		}
 	}
 
 	fill_localzone_validpage(zonep,pl);
@@ -743,7 +742,7 @@ static int scan_page_info(ZoneManager *zonep)
 					if (ISNOWRITE(ret))
 						continue;
 					else {
-						ndprint(ZONEMANAGER_INFO,"LINE:%d find zoneid[%d] page 1 error!\n",__LINE__,i);
+						ndprint(ZONEMANAGER_ERROR,"LINE:%d find zoneid[%d] page 1 error!\n",__LINE__,i);
 						insert_zoneidlist(zonep,PAGE1,i);
 						zonep->sigzoneinfo_initflag[i] |= LOCAL_INIT;
 					}
@@ -1165,7 +1164,7 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 
 	ret = alloc_pageinfo(prev_pi, zonep);
 	if (ret != 0) {
-		ndprint(ZONEMANAGER_ERROR,"alloc_pageinfo error func %s line %d \n",
+		ndprint(ZONEMANAGER_ERROR,"alloc_pageinfo error, func %s line %d \n",
 					__FUNCTION__,__LINE__);
 		return -1;
 	}
@@ -1175,10 +1174,13 @@ static int get_last_pageinfo(ZoneManager *zonep, PageInfo **pi)
 		if (ISNOWRITE(ret))
 			return 1;
 		else {
+			ndprint(ZONEMANAGER_ERROR,"ERROR HANDLE: func %s line %d ret=%d zoneid=%d\n",
+				__FUNCTION__,__LINE__,ret,zone->ZoneID);
+
 			ret = start_read_first_pageinfo_error_handle(zonep,zonep->last_zone_id);
 			if (ret != 0) {
-				ndprint(ZONEMANAGER_ERROR,"first_pageinfo_error_handle error func %s line %d \n",
-							__FUNCTION__,__LINE__);
+				ndprint(ZONEMANAGER_ERROR,"first_pageinfo_error_handle error, func %s line %d \n",
+					__FUNCTION__,__LINE__);
 				return -1;
 			}
 			return 1;
@@ -1360,9 +1362,10 @@ static void get_current_write_zone_info(ZoneManager *zonep)
 	}
 	if (zonep->pl) {
 		ret = Zone_RawMultiReadPage(zonep->last_zone, zonep->pl);
-		if (ret != 0)
+		if (ret <  0)
 			zonep->last_data_read_error = 1;
-
+		else if(ECCTOOLARGE(ret))
+			ZoneManager_SetRunBadBlock(zonep->context,zonep->pl->startPageID);
 		BuffListManager_freeAllList(blm,(void **)(&zonep->pl),sizeof(PageList));
 	}
 

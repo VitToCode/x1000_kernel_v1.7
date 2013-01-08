@@ -7,6 +7,8 @@
 #undef DEBUG
 #define DEBUG 
 
+#define FREE_BUFFERCOUNT_HELD 4
+
 #define DEBUG_OUT(x,y...) do{ndprint(1,x,##y);while(1);}while(0)
 
 static int get_bitmapsize(int tsize,int usize){
@@ -180,6 +182,7 @@ void* ZoneMemory_NewUnits(int zid,int count){
 	int index;
 	int freed = 0;
 	void *buf = NULL;
+	int held_freecount = 0;
 	NandMutex_Lock(&z->mutex);
 	prev = &(zb->head);
 	singlelist_for_each(pz,&(zb->head)){
@@ -189,9 +192,11 @@ void* ZoneMemory_NewUnits(int zid,int count){
 			
 			index = get_spacezero(ztmp->bitmap,ztmp->bitsize);
 			if((index == 0) && (z->top != ztmp)){
-				//will delete
-				ztmp->mBuffer = NULL;
-				freed = 1;
+				if(held_freecount++ > FREE_BUFFERCOUNT_HELD) {
+					//will delete
+					ztmp->mBuffer = NULL;
+					freed = 1;
+				}
 			}
 		} else {
 			index = get_spaceindexs(ztmp->bitmap,ztmp->bitsize,count);
