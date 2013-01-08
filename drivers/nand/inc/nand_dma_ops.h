@@ -43,7 +43,7 @@
 #define MSG_NAND_BANK           0
 #define MSG_DDR_ADDR            1
 #define MSG_PAGEOFF             2
-#define MSG_MCU_TEST			3
+#define MSG_MCU_TEST		3
 
 /* PDMA MailBox msg */
 #define MB_NAND_INIT_DONE       0x01
@@ -69,9 +69,23 @@
 #define MSG_ECCTOTAL            8
 #define MSG_ECCPOS              9
 
+/* Message info bit for NAND delay */
+#define MSG_TWHR		10
+#define MSG_TWHR2		11
+#define MSG_TRR 		12
+#define MSG_TWB 		13
+#define MSG_TADL		14
+
+/* The time info bit for NEMC delay */
+#define DEALY_TWHR              1
+#define DEALY_TWHR2             2
+#define DEALY_TRR               3
+#define DEALY_TADL              4
+#define DEALY_TWB               5
+
 struct pdma_msg {
 	unsigned int cmd;
-	unsigned int info[10];
+	unsigned int info[15];
 };
 //#define NEW_NAND_DMA
 

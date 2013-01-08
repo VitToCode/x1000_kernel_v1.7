@@ -11,13 +11,14 @@
 
 
 #include "test_nand.h"
+#include <linux/delay.h>
 
 //extern int nand_test_init(NAND_API *pnand_api);
 extern int nand_test_read_page(PPartition *ppt,unsigned int pageaddr, unsigned int offset, unsigned int bytes, void *databuf);
 extern int nand_test_read_pages(PPartition *ppt,PageList* pagelist);
 extern int nand_test_write_page(PPartition *ppt,unsigned int pageaddr, unsigned int offset, unsigned int bytes, void *databuf);
 extern int nand_test_write_pages(PPartition *ppt,PageList* pagelist);
-extern void nand_test_erase(PPartition *ppt,BlockList *blocklist);
+extern int nand_test_erase(PPartition *ppt,BlockList *blocklist);
 //extern void nand_test_2p_erase(unsigned int block);
 //extern int nand_test_write_pages(unsigned int pageaddr, unsigned int count, unsigned int *buf);
 //extern int nand_test_write_2p_pages(unsigned int pageaddr, unsigned int count,  unsigned int *buf);
@@ -292,13 +293,15 @@ int spl_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned int
         return ret;
 }
 
-int page_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned int ppb)
+int page_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned int ppb, unsigned char data)
 {
         int ret = 0;
         unsigned char *writebuf = (unsigned char *)buf;
         unsigned int writesize = ppt->byteperpage;
         unsigned char *readbuf = (unsigned char *)(buf + writesize * 3);
         BlockList blocklist;
+        int i;
+        int j = 0;
 
         ret =vnand_interface->iIsBadBlock(ppt,block);
         if(ret)
@@ -306,32 +309,46 @@ int page_test(PPartition *ppt,unsigned int block, unsigned int *buf, unsigned in
         else
                 dprintf("block %d is goodblock\n",block);
 
-        blocklist.startBlock =block;
+        blocklist.startBlock = block;
         blocklist.BlockCount =1;
         blocklist.head.next =0;
-
+/*
 //      g_vnand.operator->MultiBlockErase(&blocklist);
-        nand_test_erase(ppt,&blocklist);
-        buf_init(writebuf, writesize);
-
-        ret = nand_test_write_page(ppt,ppb*block,0,writesize,(unsigned int *)writebuf);
-        if(ret < 0)
-                dprintf("\n******  page_test  nand_test_write_page wrong ; ret =%d  *****\n",ret);
-        /*clear buf for read*/
-        memset(readbuf,0xFF, writesize*2);
-
-        ret = nand_test_read_page(ppt,ppb*block,0,writesize,(unsigned int *)readbuf);
-        if(ret)
+        ret = nand_test_erase(ppt,&blocklist);
+        if(ret != 0){
+                printk("erase %d block err!\n",block);
+                return ret;
+        }
+*/
+        memset(writebuf, data, writesize);
+        buf_init(writebuf, 1024);
+//while (j--) {
+//for (j=0;j<ppt->pageperblock;j++) {
+//        printk("test pageid = %d\n",j);
+//        ret = nand_test_write_page(ppt, j + block * ppt->pageperblock,0,writesize,(unsigned int *)writebuf);
+//        if(ret < 0)
+//                dprintf("\n******  page_test  nand_test_write_page wrong ; ret =%d  *****\n",ret);
+        //clear buf for read
+        memset(readbuf, 0xff, writesize*2);
+        ret = nand_test_read_page(ppt, 11 + block * ppt->pageperblock,0,writesize,(unsigned int *)readbuf);
+        if(ret) {
                 dprintf("\n******   page_test  nand_test_read_page wrong ; ret =%d  *****\n",ret);
-
-        buf_check(writebuf, readbuf, writesize);
+                        for(i = 0; i < ppt->byteperpage; i++) {
+                                if(i % 8 == 0)
+                                        printk("\n");
+                                printk("%02x ",readbuf[i]);
+                        }
+                        printk("\n");
+                        while(1);
+        }
+//        buf_check(writebuf, readbuf, writesize);
         dprintf("\n******   readbuf_phy_addr = 0x%08x writebuf_phy_addr = 0x%08x*****\n",
                         CPHYSADDR(readbuf),CPHYSADDR(writebuf));
 //        dump_buf(writebuf,2048);	
 //        dump_buf(readbuf,2048);	
         dprintf("\n******   page_test  ok   ok   ok  *****\n");
         /* If you want know the data,please open these.*/
-
+//}
         return ret;
 }
 
@@ -360,6 +377,8 @@ int block_test_pages(PPartition *ppt,unsigned int block, unsigned int *buf, unsi
         blocklist.BlockCount =2;
         blocklist.head.next =0;
         nand_test_erase(ppt,&blocklist);
+
+        printk("test blockid = %d\n",block);
         if(pnand_pt->use_planes)
                 v_ppb =ppb*2;
         /*init databuf with 1 2 3 ... */
@@ -449,20 +468,43 @@ void Register_NandDriver(NandInterface *ni)
 #endif
 #define test_1_page
 #ifdef test_1_page
-        ret = page_test(&tmp_ppart[2],1, databuf, tmp_ppart[2].pageperblock);
-        if(ret != 0)
-        {
-                eprintf("test_1_page error.\n");
+{
+        unsigned char data;
+        int i,j;
+        /*
+        while(1) {
+                for(j=0;j<tmp_ppart[4].totalblocks;j++) {
+                        for (i = 0; i < 4; i++) {
+                                if (i % 2 == 0)
+                                        data = 0x00;
+                                else
+                                        data = 0xff;
+                                ret = page_test(&tmp_ppart[4],j, databuf, tmp_ppart[4].pageperblock, data);
+                                if(ret != 0)
+                                {
+                                        eprintf("test_1_page ok ret=%d.\n",ret);
+                                }
+                        }
+                }
         }
+        */
+        printk("pt name = %s\n",tmp_ppart[4].name);
+        ret = page_test(&tmp_ppart[4],101, databuf, tmp_ppart[4].pageperblock, data);
+        if(ret != 0) {
+                eprintf("test_1_page ok ret=%d.\n",ret);
+        }
+}
 #endif
 
 //#define test_1p_block
 #ifdef test_1p_block
-        ret = block_test_pages(&tmp_ppart[3],1, databuf, ppb);//tmp_ppart[3].pageperblock);
-        if(ret != 0)
-        {
-                eprintf("test_1p_block error.\n");
-        }
+                for(j=256;j<512;j++){
+                        ret = block_test_pages(&tmp_ppart[4],j, databuf, tmp_ppart[4].pageperblock);//tmp_ppart[3].pageperblock);
+                        if(ret != 0)
+                        {
+                                eprintf("test_1p_block error.\n");
+                        }
+                }
 
 #endif
 //	dprintf("\n****** g_vnand.operator->DeInitNand  = 0x%x  *****\n",(unsigned int)g_vnand.operator->DeInitNand);

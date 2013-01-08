@@ -22,6 +22,13 @@
 #define MSG_ECCTOTAL		8
 #define MSG_ECCPOS		9
 
+/* Message info bit for NAND delay */
+#define MSG_TWHR		10
+#define MSG_TWHR2		11
+#define MSG_TRR  		12
+#define MSG_TWB 		13
+#define MSG_TADL		14
+
 /* Message info bit for NAND ops */
 #define MSG_NAND_BANK		0
 #define MSG_DDR_ADDR		1
@@ -29,7 +36,7 @@
 
 struct pdma_msg {
 	unsigned int cmd;
-	unsigned int info[10];
+	unsigned int info[15];
 };
 
 /* INTC MailBox msg */

@@ -54,6 +54,7 @@ struct jz_nand_chip {
         unsigned int writesize;
         unsigned int erasesize;
         unsigned long long chipsize;
+	unsigned int priv;
 };
 
 typedef struct jz_nand_chip JZ_NAND_CHIP;
@@ -82,6 +83,10 @@ struct nand_flash_dev {
         int twp;
         int trhw;
         int twhr;
+	int twhr2;
+	int trr;
+	int twb;
+	int tadl;
         unsigned long pagesize;
         unsigned long erasesize;
         unsigned int oobsize;
