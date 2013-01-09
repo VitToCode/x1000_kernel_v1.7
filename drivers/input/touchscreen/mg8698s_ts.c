@@ -600,9 +600,9 @@ static void mg8698s_ts_resume(struct early_suspend *handler)
 	struct mg8698s_ts_data *ts = container_of(handler, struct mg8698s_ts_data,
 						early_suspend);
 
-	set_pin_status(ts->gpio.wake, 1);
-    msleep(10);
+	//set_pin_status(ts->gpio.wake, 1);
 	mg8698s_ts_power_on(ts);
+    msleep(5);
 	mg8698s_ts_reset(ts);
     msleep(10);
 
