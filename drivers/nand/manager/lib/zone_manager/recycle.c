@@ -846,22 +846,17 @@ static int MergerSectorID_Align(Recycle *rep) {
 	unsigned int *record_writeaddr;
 	int n,k,i;
 	Context *conptr = (Context *)rep->context;
-#if 0
-	int freezonecount = ZoneManager_Getfreecount(rep->context);
 	VNandInfo *vnand =  &conptr->vnand;
-	int wsectors = 0;
-#endif
 	unsigned int *l4info;
 	unsigned int tmp0;
 	unsigned int tmp1;
 	PageList *pl = NULL;
 	PageList *tpl = NULL;
 	unsigned int sectorcount = 0;
-#if 0
 	int alignsectorcount = 0;
-#endif
 	int blm = conptr->blm;
 	int oldzoneid;
+	unsigned int first_index = -1;
 
 	if(!rep->force) {
 		if(!rep->curpageinfo) return 0;
@@ -892,6 +887,8 @@ static int MergerSectorID_Align(Recycle *rep) {
 			n++;
 			continue;
 		}
+		if(first_index == -1)
+			first_index = n;
 		tmp0 = l4info[n] / spp;
 		tmp1 = latest_l4info[n] / spp;
 		if(!rep->force && rep->recyclemode == RECYCLE_NORMAL_MODE) {
@@ -908,7 +905,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 		n++;
 
 	}
-#if 0
+	// calc align 
 	if(sectorcount > 0){
 	//first - 2k pageinfo sector
 		alignsectorcount = (vnand->BytePerPage * vnand->v2pp->_2kPerPage - vnand->BytePerPage) / SECTOR_SIZE;
@@ -922,49 +919,32 @@ static int MergerSectorID_Align(Recycle *rep) {
 		}else
 			sectorcount = 0;
 	}
-	n = 0;
+	// Fill from first_index to l4count
+	n = first_index;
 	while(n < l4count && sectorcount) {
 		if(latest_l4info[n] == -1) {
 			n++;
 			continue;
 		}
-		if(record_writeaddr[n] != -1) {
-			n++;
-			continue;
-		}
-		if(!data_in_wzone(rep,latest_l4info[n] / spp)){
-			wsectors++;
+		if(record_writeaddr[n] == -1) {
+			record_writeaddr[n] = latest_l4info[n];
+			sectorcount--;
 		}
 		n++;
 	}
-	if(wsectors > 0) {
-		if(0 && freezonecount > 9) {
-			wsectors = wsectors - sectorcount;
-			if(wsectors > 0) {
-				wsectors = wsectors / alignsectorcount * alignsectorcount + wsectors;
-			}else
-				wsectors = sectorcount;
-		}else{
-			wsectors = sectorcount;
-		}
-		n = 0;
-		while(n < l4count && wsectors) {
+	// Not Fill enough will from first_index to 0
+	if(sectorcount > 0) {
+		n = first_index - 1;
+		while(n-- && sectorcount){
 			if(latest_l4info[n] == -1) {
-				n++;
 				continue;
 			}
-			if(record_writeaddr[n] != -1) {
-				n++;
-				continue;
-			}
-			if(!data_in_wzone(rep,latest_l4info[n] / spp)){
+			if(record_writeaddr[n] == -1) {
 				record_writeaddr[n] = latest_l4info[n];
-				wsectors--;
+				sectorcount--;
 			}
-			n++;
 		}
 	}
-#endif
 	n = 0;
 	while(n < l4count) {
 		if(record_writeaddr[n] == -1) {
