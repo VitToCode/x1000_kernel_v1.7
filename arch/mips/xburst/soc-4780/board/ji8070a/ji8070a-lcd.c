@@ -127,7 +127,7 @@
 #ifdef CONFIG_LCD_HSD070IDW1
 	#include <linux/android_bl.h>
 
-	static int bk_is_on = 0;
+	static int bk_is_on = 1;
 
 	void bk_on(int on)
 	{
@@ -139,7 +139,8 @@
 #else
 		.delay_before_bkon = 50,
 #endif
-		.notify_on = bk_on
+		.notify_on = bk_on,
+		.bootloader_unblank = 1
 	};
 
 	/* LCD Panel Device */

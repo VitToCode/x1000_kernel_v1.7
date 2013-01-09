@@ -36,9 +36,10 @@ struct android_bl_data {
 	#endif
 };
 
-static int is_bootup = 1;
 static void android_bl_on(struct android_bl_data *dev) {
-	if (is_bootup) {
+	static int is_bootup = 1;
+
+	if (is_bootup && !dev->pdata->bootloader_unblank) {
 		if (dev->lcd_bklight_reg) {
 			regulator_enable(dev->lcd_bklight_reg);
 			regulator_disable(dev->lcd_bklight_reg);
@@ -46,17 +47,25 @@ static void android_bl_on(struct android_bl_data *dev) {
 
 		regulator_enable(dev->lcd_vcc_reg);
 
-		if (dev->pdata->gpio_rest) {
-			gpio_direction_output(dev->pdata->gpio_rest, 0);
-			msleep(100);
-			gpio_direction_output(dev->pdata->gpio_rest, 1);
+		if (dev->pdata->gpio_reset) {
+			gpio_direction_output(dev->pdata->gpio_reset, 0);
+			mdelay(dev->pdata->delay_reset);
+			gpio_direction_output(dev->pdata->gpio_reset, 1);
 		}
 
-
-		if (dev->lcd_bklight_reg) {
-			msleep(dev->pdata->delay_before_bkon);
+		mdelay(dev->pdata->delay_before_bkon);
+		if (dev->lcd_bklight_reg)
 			regulator_enable(dev->lcd_bklight_reg);
-		}
+
+	}
+
+	if (is_bootup) {
+		if (dev->lcd_bklight_reg &&
+				!regulator_is_enabled(dev->lcd_bklight_reg))
+			regulator_enable(dev->lcd_bklight_reg);
+
+		if (!regulator_is_enabled(dev->lcd_vcc_reg))
+			regulator_enable(dev->lcd_vcc_reg);
 
 		if (dev->pdata->notify_on)
 			dev->pdata->notify_on(1);
@@ -108,10 +117,8 @@ static void bk_e_suspend(struct early_suspend *h)
 	if (dev->pdata->notify_on)
 		dev->pdata->notify_on(0);
 
-	if (dev->lcd_bklight_reg) {
+	if (dev->lcd_bklight_reg)
 		regulator_disable(dev->lcd_bklight_reg);
-		msleep(100);
-	}
 
 	regulator_disable(dev->lcd_vcc_reg);
 }
@@ -122,16 +129,15 @@ static void bk_l_resume(struct early_suspend *h)
 
 	regulator_enable(dev->lcd_vcc_reg);
 
-	if (dev->pdata->gpio_rest) {
-		gpio_direction_output(dev->pdata->gpio_rest, 0);
-		msleep(100);
-		gpio_direction_output(dev->pdata->gpio_rest, 1);
+	if (dev->pdata->gpio_reset) {
+		gpio_direction_output(dev->pdata->gpio_reset, 0);
+		mdelay(dev->pdata->delay_reset);
+		gpio_direction_output(dev->pdata->gpio_reset, 1);
 	}
 
-	if (dev->lcd_bklight_reg) {
-		msleep(dev->pdata->delay_before_bkon);
+	mdelay(dev->pdata->delay_before_bkon);
+	if (dev->lcd_bklight_reg)
 		regulator_enable(dev->lcd_bklight_reg);
-	}
 
 	if (dev->pdata->notify_on)
 		dev->pdata->notify_on(1);
@@ -165,8 +171,8 @@ static int __devinit android_bl_probe(struct platform_device *pdev)
 		dev->lcd_bklight_reg = NULL;
 	}
 
-	if (dev->pdata->gpio_rest)
-		gpio_request(dev->pdata->gpio_rest, "reset");
+	if (dev->pdata->gpio_reset)
+		gpio_request(dev->pdata->gpio_reset, "reset");
 
 	dev->lcd = lcd_device_register("android_bl-lcd", &pdev->dev,
 				       dev, &android_bl_ops);
@@ -183,7 +189,7 @@ static int __devinit android_bl_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN; //EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+	dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
 	dev->bk_early_suspend.suspend = bk_e_suspend;
 	dev->bk_early_suspend.resume = bk_l_resume;
 	register_early_suspend(&dev->bk_early_suspend);
@@ -203,8 +209,8 @@ static int __devinit android_bl_remove(struct platform_device *pdev)
 	if (dev->lcd_bklight_reg)
 		regulator_put(dev->lcd_bklight_reg);
 
-	if (dev->pdata->gpio_rest)
-		gpio_free(dev->pdata->gpio_rest);
+	if (dev->pdata->gpio_reset)
+		gpio_free(dev->pdata->gpio_reset);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&dev->bk_early_suspend);
