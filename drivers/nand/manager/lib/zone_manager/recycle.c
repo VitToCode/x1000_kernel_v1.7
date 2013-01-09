@@ -852,7 +852,7 @@ static int MergerSectorID_Align(Recycle *rep) {
 	unsigned int tmp1;
 	PageList *pl = NULL;
 	PageList *tpl = NULL;
-	unsigned int sectorcount = 0;
+	int sectorcount = 0;
 	int alignsectorcount = 0;
 	int blm = conptr->blm;
 	int oldzoneid;
@@ -933,16 +933,18 @@ static int MergerSectorID_Align(Recycle *rep) {
 		n++;
 	}
 	// Not Fill enough will from first_index to 0
-	if(sectorcount > 0) {
+	if(sectorcount > 0 && first_index) {
 		n = first_index - 1;
-		while(n-- && sectorcount){
+		while(n && sectorcount){
 			if(latest_l4info[n] == -1) {
+				n--;
 				continue;
 			}
 			if(record_writeaddr[n] == -1) {
 				record_writeaddr[n] = latest_l4info[n];
 				sectorcount--;
 			}
+			n--;
 		}
 	}
 	n = 0;
