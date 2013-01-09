@@ -9,12 +9,11 @@
 #ifndef _ANDROIDBL_H
 #define _ANDROIDBL_H
 
-/**
- * @gpio_rest: global reset pin, active low to enter reset state
- */
 struct android_bl_platform_data{
-	unsigned int gpio_rest;
+	unsigned int gpio_reset;
+	int delay_reset;
 	int delay_before_bkon;
+	int bootloader_unblank;
 	void (*notify_on)(int on);
 };
 
