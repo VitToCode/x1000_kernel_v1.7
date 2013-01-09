@@ -17,10 +17,16 @@
 static bool spipe_is_init = 0;
 //#define DEBUG_REPLAY  0
 //#define AIC_DEBUG
+//#define DEBUG_RECORD
 #ifdef DEBUG_REPLAY
 struct file *f_test = NULL;
 static loff_t f_test_offset = 0;
 static mm_segment_t old_fs;
+#endif
+#ifdef DEBUG_RECORD
+struct file *file_record = NULL;
+static loff_t file_record_offset = 0;
+static mm_segment_t old_fs_record;
 #endif
 
 static bool first_start_record_dma = true;
@@ -1045,6 +1051,17 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				fixed_buff_cnt = node_buff_cnt;
 			}
 			ret = copy_to_user((void *)buffer, (void *)(node->pBuf + node->start), fixed_buff_cnt);
+#ifdef DEBUG_RECORD
+		old_fs_record = get_fs();
+		set_fs(KERNEL_DS);
+
+		if (!IS_ERR(file_record)) {
+			vfs_write(file_record, (void *)(node->pBuf + node->start),fixed_buff_cnt, &file_record_offset);
+			file_record_offset = file_record->f_pos;
+		}
+		set_fs(old_fs_record);
+#endif
+
 			if (!ret) {
 				buffer += fixed_buff_cnt;
 				mcount -= fixed_buff_cnt;
@@ -1946,6 +1963,14 @@ int xb_snd_dsp_open(struct inode *inode,
 		f_test_offset = f_test->f_pos;
 	}
 #endif
+#ifdef DEBUG_RECORD
+	printk("DEBUG:----open /data/audiorecord.pcm -%s\tline:%d\n", __func__,__LINE__);
+	file_record = filp_open("/data/audiorecord.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | O_CREAT);
+	if (!IS_ERR(file_record)) {
+		printk("open debug audiorecord sucssess %p. \n", file_record);
+		file_record_offset = file_record->f_pos;
+	}
+#endif
 	LEAVE_FUNC()
 	return ret;
 }
@@ -2009,6 +2034,10 @@ int xb_snd_dsp_release(struct inode *inode,
 #ifdef DEBUG_REPLAY
 	if (!IS_ERR(f_test))
 		filp_close(f_test, NULL);
+#endif
+#ifdef DEBUG_RECORD
+	if (!IS_ERR(file_record))
+		filp_close(file_record, NULL);
 #endif
 	return ret;
 }
