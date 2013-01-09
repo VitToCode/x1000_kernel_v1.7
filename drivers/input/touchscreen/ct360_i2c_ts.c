@@ -48,11 +48,11 @@ static struct ct36x_ts_info	ct36x_ts;
 static char const Binary_Data[]=
 {
 #ifdef CONFIG_BOARD_JI8070B
-	#include "CT360_V0B_BBC0_1024X600_121231.dat"
+	#include "ji8070b_CT360_V0B_C043_130107.dat"
 #elif CONFIG_BOARD_Q8
-	#include "CT360_V03_8634_121204.dat"
+	#include "q8_CT360_V03_8634_121204.dat"
 #else
-	#include "CT360_V04_81D4_130105.dat"
+	#include "ji8070a_CT360_V04_81D4_130105.dat"
 #endif
 };
 
