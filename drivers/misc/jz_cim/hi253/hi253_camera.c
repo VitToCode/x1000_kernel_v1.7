@@ -14,6 +14,12 @@
 
 static struct frm_size hi253_capture_table[]= {
 	{1600,1200},
+	{1280,1024},
+	{1024,768},
+	{800,600},
+	{640,480},
+	{352,288},
+	{176,144},
 };
 
 static struct frm_size hi253_preview_table[]= {

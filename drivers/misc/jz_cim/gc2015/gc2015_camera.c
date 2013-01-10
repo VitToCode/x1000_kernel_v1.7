@@ -13,14 +13,15 @@
 //#define SP0838_KERNEL_PRINT
 
 static struct frm_size gc2015_capture_table[]= {
-	{1600,1200},
-};
-
-static struct frm_size gc2015_preview_table[]= {
 		{1600,1200 },
 		{1280,960  },
 		{1024,768  },
-//		{800,600   },
+		{640,480   },
+		{352,288   },
+		{176,144   },
+};
+
+static struct frm_size gc2015_preview_table[]= {
 		{640,480   },
 		{352,288   },
 		{176,144   },

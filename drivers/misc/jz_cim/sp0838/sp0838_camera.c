@@ -14,6 +14,9 @@
 
 static struct frm_size sp0838_capture_table[]= {
 	{640,480},
+	{352,288},
+	{320,240},
+	{176,144},
 };
 
 static struct frm_size sp0838_preview_table[]= {

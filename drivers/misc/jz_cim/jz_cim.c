@@ -208,6 +208,11 @@ static inline void cim_enable_tlb_error_intr(struct jz_cim *cim)
 	bit_clr(cim,CIM_IMR,CIM_IMR_TLBEM);
 }
 
+static inline void cim_disable_tlb_error_intr(struct jz_cim *cim)
+{
+	bit_set(cim,CIM_IMR,CIM_IMR_TLBEM);
+}
+
 static inline void cim_set_da(struct jz_cim *cim,void * addr)
 {
 	printk("__%s__\n", __func__);
@@ -239,6 +244,11 @@ static inline void cim_reset_tlb(struct jz_cim *cim)
 static inline void cim_enable_tlb(struct jz_cim *cim)
 {
 	bit_set(cim,CIM_TC,CIM_TC_ENA);
+}
+
+static inline void cim_disable_tlb(struct jz_cim *cim)
+{
+	bit_clr(cim,CIM_TC,CIM_TC_ENA);
 }
 
 int cim_set_tlbbase(struct jz_cim *cim)
@@ -650,12 +660,15 @@ static long cim_start_preview(struct jz_cim *cim)
 
 	cim_set_preview_size(cim);
 
-	if(cim->tlb_flag) {
+	if(cim->tlb_flag == 1) {
 		cim_reset_tlb(cim);
 		cim_enable_tlb_error_intr(cim);
 		cim_set_tlbbase(cim);
 		cim_enable_tlb(cim);
-	}
+	} else {
+        cim_disable_tlb_error_intr(cim);
+		cim_disable_tlb(cim);
+    }
 	cim_set_da(cim,cim->preview);
 	cim_clear_state(cim);	// clear state register
 	cim_enable_dma(cim);
@@ -682,12 +695,15 @@ static long cim_start_capture(struct jz_cim *cim)
 
 	cim->desc->set_capture_mode(cim->desc);
 	cim_set_capture_size(cim);
-	if(cim->tlb_flag) {
+	if(cim->tlb_flag == 1) {
 		cim_reset_tlb(cim);
 		cim_enable_tlb_error_intr(cim);
 		cim_set_tlbbase(cim);
 		cim_enable_tlb(cim);
-	}
+	} else {
+        cim_disable_tlb_error_intr(cim);
+		cim_disable_tlb(cim);
+    }
 	cim_enable_dma(cim);
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_enable(cim);
@@ -865,7 +881,11 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 	for(i=0;i<PDESC_NR;i++) {
 		desc[i].next = (dma_addr_t)(&cim->preview[i+1]);
 		desc[i].id 	= i;
-		desc[i].buf = yuv_meta_data[i].yPhy;
+        if (cim->tlb_flag == 1) {
+            desc[i].buf = yuv_meta_data[i].yAddr;
+        } else {
+            desc[i].buf = yuv_meta_data[i].yPhy;
+        }
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 		else
@@ -876,12 +896,20 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 #endif		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy;
-				desc[i].cr_frame = yuv_meta_data[i].vPhy;
-			
+                if (cim->tlb_flag == 1) {
+                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                    desc[i].cr_frame = yuv_meta_data[i].vAddr;
+                } else {
+                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                    desc[i].cr_frame = yuv_meta_data[i].vPhy;
+                }
 			} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy;
-				desc[i].cr_frame = desc[i].cb_frame + 64;	
+                if (cim->tlb_flag == 1) {
+                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                } else {
+                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                }
+                desc[i].cr_frame = desc[i].cb_frame + 64;
 			} 
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
@@ -907,7 +935,11 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 	for(i = 0; i < CDESC_NR; i++) {
 		desc[i].next = (dma_addr_t)(&cim->capture[i+1]);
 		desc[i].id 	= i;
-		desc[i].buf = yuv_meta_data[i].yPhy;
+        if (cim->tlb_flag == 1) {
+            desc[i].buf = yuv_meta_data[i].yAddr;
+        } else {
+            desc[i].buf = yuv_meta_data[i].yPhy;
+        }
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (capture_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 		else
@@ -918,13 +950,21 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 #endif		
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->capture_output_format == CIM_CSC_YUV420P) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy;
-				desc[i].cr_frame = yuv_meta_data[i].vPhy;
-			
+                if (cim->tlb_flag == 1) {
+                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                    desc[i].cr_frame = yuv_meta_data[i].vAddr;
+                } else {
+                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                    desc[i].cr_frame = yuv_meta_data[i].vPhy;
+                }
 			} else if(cim->capture_output_format == CIM_CSC_YUV420B) {
-				desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                if (cim->tlb_flag == 1) {
+                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                } else {
+                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                }
 				desc[i].cr_frame = desc[i].cb_frame + 64;	
-			} 
+			}
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
@@ -1063,9 +1103,14 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_SET_VIDEO_MODE:
 			ret = cim->desc->set_video_mode(cim->desc);
 			break;
-		case CIMIO_SET_TLB_BASE:
-			cim->tlb_flag = 1;
-			cim->tlb_base = arg;
+    case CIMIO_SET_TLB_BASE: {
+            if (arg != 0) {
+			    cim->tlb_flag = 1;
+			    cim->tlb_base = arg;
+            } else {
+                cim->tlb_flag = 0;
+            }
+            }
 			break;
 		case CIMIO_GET_SENSOR_COUNT:
 			return cim->sensor_count;

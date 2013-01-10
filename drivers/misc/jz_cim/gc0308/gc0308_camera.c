@@ -14,6 +14,9 @@
 
 static struct frm_size gc0308_capture_table[]= {
 	{640,480},
+	{352,288},
+	{320,240},
+	{176,144},
 };
 
 static struct frm_size gc0308_preview_table[]= {

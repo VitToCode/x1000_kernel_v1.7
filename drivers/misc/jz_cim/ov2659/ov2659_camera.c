@@ -11,8 +11,10 @@
 #include "../cim_reg.h"
 
 static struct frm_size ov2659_capture_table[]= {
-	//{640,480},
 	{1600,1200},
+    //{1280, 720},
+	{800, 600},
+	{640,480},
 };
 
 static struct frm_size ov2659_preview_table[]= {
