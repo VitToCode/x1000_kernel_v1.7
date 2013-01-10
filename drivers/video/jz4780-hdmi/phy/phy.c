@@ -155,14 +155,14 @@ int phy_Configure (u16 baseAddr, u16 pClk, u8 cRes, u8 pRep)
 	printk("hdmi   %s: pClk = %u cRes = %d\n", __func__, pClk, cRes);
 #endif
 	cRes = 8;
-#if 0
+#ifdef CONFIG_HDMI_JZ4780_DEBUG
 	u16 slcaoValue;
 #define READ_BACK_PRINT(addr)				\
 	phy_I2cRead(baseAddr, &slcaoValue, (addr));	\
 	printk("===>PHY[%02x] = 0x%04x\n", (addr), slcaoValue);
-#endif
-
+#else
 #define READ_BACK_PRINT(addr) do { } while(0)
+#endif
 
 	phy_I2cWrite(baseAddr, 0x0000, 0x13); /* PLLPHBYCTRL */
 	READ_BACK_PRINT(0x13);

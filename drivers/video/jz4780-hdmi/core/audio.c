@@ -169,7 +169,7 @@ int audio_Configure(u16 baseAddr, audioParams_t *params, u16 pixelClk, unsigned 
 	}
 	else
 	{
-#if 1
+#if 0
 		halAudioClock_Cts(baseAddr + AUD_BASE_ADDR + AUDIO_CLOCK, audio_ComputeCts(baseAddr, audioParams_GetSamplingFrequency(params), pixelClk, ratioClk));
 
 #else
