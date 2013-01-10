@@ -76,6 +76,7 @@ struct nand_chip {
         int trr;
         int twb;
         int tadl;
+        int tcwaw;
 
 	int pipe_cnt;
 

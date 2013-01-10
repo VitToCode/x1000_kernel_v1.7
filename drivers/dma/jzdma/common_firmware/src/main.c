@@ -33,7 +33,7 @@ int main(void)
 
 	pipe_buf[0].pipe_data = (unsigned char *)TCSM_BANK5;
 	pipe_buf[1].pipe_data = (unsigned char *)TCSM_BANK6;
-	msg = (struct pdma_msg *)(TCSM_BANK5 - 0x40); // TCSM last bank start
+	msg = (struct pdma_msg *)(TCSM_BANK5 - 0x50); // TCSM last bank start
 
 	mcu_init();
 

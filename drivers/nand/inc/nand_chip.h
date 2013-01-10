@@ -87,6 +87,7 @@ struct nand_flash_dev {
 	int trr;
 	int twb;
 	int tadl;
+	int tcwaw;
         unsigned long pagesize;
         unsigned long erasesize;
         unsigned int oobsize;

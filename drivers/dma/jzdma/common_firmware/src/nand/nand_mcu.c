@@ -63,6 +63,7 @@ void pdma_nand_read_ctrl(struct nand_chip *nand, int page, const int ctrl)
 
 	if (ctrl == CTRL_READ_OOB) {
 		__nand_cmd(NAND_CMD_READ0, nandport);
+                nemcdelay(nand->tcwaw);
 		nand_send_addr(nand, nand->pagesize, page);
 
 		if (nand->pagesize != 512)
@@ -100,6 +101,7 @@ int pdma_nand_write_ctrl(struct nand_chip *nand, int page, const int ctrl)
 	} else if (ctrl == CTRL_WRITE_OOB) {
 		__pn_disable();
 		__nand_cmd(NAND_CMD_RNDIN, nandport);
+                nemcdelay(nand->tcwaw);
 		nand_send_addr(nand, nand->pagesize, -1);
                 nemcdelay(nand->tadl);
 	} else { /* CTRL_WRITE_CONFIRM */
@@ -154,6 +156,7 @@ void pdma_nand_init(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
         nand->trr = info[MSG_TRR];
         nand->twb = info[MSG_TWB];
         nand->tadl = info[MSG_TADL];
+        nand->tcwaw = info[MSG_TCWAW];
 
 	pipe_buf[0].pipe_par = pipe_buf[0].pipe_data + nand->eccsize;
 	pipe_buf[1].pipe_par = pipe_buf[1].pipe_data + nand->eccsize;

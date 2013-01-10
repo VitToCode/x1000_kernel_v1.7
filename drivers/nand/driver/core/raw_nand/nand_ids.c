@@ -29,19 +29,19 @@ NAND_FLASH_DEV nand_flash_chips[] =
 {
 	/*
         {name              		id        	extid           planes  dienum
-        tals	talh	trp	twp     trhw	twhr	twhr2	trr	twb     tadl    pagesize
+        tals	talh	trp	twp     trhw	twhr	twhr2	trr	twb     tadl    tcwaw   pagesize
         blocksize oobsize cycle maxbadblocks maxvalidblocks eccblock  eccbit  buswidth  badblockpos options}
 	*/
 	{"SAMSUNG_K9GBG08U0A",          0xECD7,		0x43547A94, 	2,	1,
-        12,     5,  	25,	25,	100,    120,    300,    20,     100,    300,    8192,
+        12,     5,  	25,	25,	100,    120,    300,    20,     100,    300,    300,    8192,
         1024*1024,      640,    3,	116,	4152,	1024,   24,	8,	0,     	LP_OPTIONS},
 
 	{"MICRON_MT29F32G08CBACA",      0x2C68,         0x00A94A04,     2,	1,
-        10,     5,   	12,	12,  	100,    60,     200,     20,    100,    70,     4096,
+        10,     5,   	12,	12,  	100,    60,     200,     20,    100,    70,     0,      4096,
         1024*1024,      224,	3,	100,	4096,	1024,	24,	8,	0,	LP_OPTIONS},
 
 	{"SAMSUNG_K9GAG08U0D", 		0xECD5,		0x41342994,	2,	1,
-        15,	5,	15,	15,	100,	60,	60,     20,     0,     100,     4096,
+        15,	5,	15,	15,	100,	60,	60,     20,     0,     100,     0,      4096,
         512*1024,       218, 	3,	100,	4096,	512,	8,	8,	0,	LP_OPTIONS},
 
 #if 0
