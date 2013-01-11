@@ -60,7 +60,9 @@ struct mg8698s_ts_data {
     struct completion cmd_complete;
 	u16 x_max;
 	u16 y_max;
-	int is_suspend;
+	atomic_t is_suspend;
+	atomic_t working;
+    wait_queue_head_t ts_state_wq;
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct ts_event event;
@@ -281,7 +283,14 @@ static void tsc_work_handler(struct work_struct *work)
 
         break;
     }
-	enable_irq(mg8698s_ts->client->irq);
+
+    atomic_set(&mg8698s_ts->working, 0);
+
+    if (atomic_read(&mg8698s_ts->is_suspend) == 0) {
+        enable_irq(mg8698s_ts->client->irq);
+    } else {
+        wake_up_all(&mg8698s_ts->ts_state_wq);
+    }
 }
 /*The mg8698s device will signal the host about TRIGGER_FALLING.
 *Processed when the interrupt is asserted.
@@ -291,13 +300,17 @@ static irqreturn_t mg8698s_ts_interrupt(int irq, void *dev_id)
 	struct mg8698s_ts_data *mg8698s_ts = dev_id;
 	disable_irq_nosync(mg8698s_ts->irq);
 
-	if(mg8698s_ts->is_suspend == 1)
+	if(atomic_read(&mg8698s_ts->is_suspend) == 1) {
+        wake_up_all(&mg8698s_ts->ts_state_wq);
 		return IRQ_HANDLED;
+    }
 
 	if (!work_pending(&mg8698s_ts->work)) {
+        atomic_set(&mg8698s_ts->working, 1);
 		queue_work(mg8698s_ts->workqueue, &mg8698s_ts->work);
 	}else{
-		enable_irq(mg8698s_ts->client->irq);
+        if(atomic_read(&mg8698s_ts->is_suspend) == 0)
+            enable_irq(mg8698s_ts->client->irq);
 	}
 
 	return IRQ_HANDLED;
@@ -357,6 +370,7 @@ static void mg8698s_ts_resume(struct early_suspend *handler);
 static void mg8698s_ts_suspend(struct early_suspend *handler);
 #endif
 
+#if 0
 static int inline mg8698s_send_cmd(struct mg8698s_ts_data *ts, int cmd)
 {
     return i2c_master_send(ts->client,
@@ -432,7 +446,7 @@ static int mg8698s_ts_get_device_id(struct mg8698s_ts_data *ts)
 
     return 0;
 }
-
+#endif
 static int mg8698s_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
@@ -482,7 +496,9 @@ static int mg8698s_ts_probe(struct i2c_client *client,
 	mg8698s_ts->pdata = pdata;
 	mg8698s_ts->x_max = pdata->x_max - 1;
 	mg8698s_ts->y_max = pdata->y_max - 1;
-	mg8698s_ts->is_suspend = 0;
+	atomic_set(&mg8698s_ts->is_suspend, 0);
+	atomic_set(&mg8698s_ts->working, 0);
+	init_waitqueue_head(&mg8698s_ts->ts_state_wq);
 
 	disable_irq(client->irq);
 
@@ -556,8 +572,10 @@ static int mg8698s_ts_probe(struct i2c_client *client,
 
 	return 0;
 
+#if 0
 exit_register_earlay_suspend:
 	unregister_early_suspend(&mg8698s_ts->early_suspend);
+#endif
 
 exit_input_register_device_failed:
 	input_free_device(input_dev);
@@ -579,17 +597,21 @@ exit_check_functionality_failed:
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mg8698s_ts_suspend(struct early_suspend *handler)
 {
-	int ret = 0;
+	int ret;
 	struct mg8698s_ts_data *ts;
+
 	ts = container_of(handler, struct mg8698s_ts_data,
 						early_suspend);
-	ts->is_suspend = 1;
-	disable_irq(ts->client->irq);
-	flush_workqueue(ts->workqueue);
-	ret = cancel_work_sync(&ts->work);	
-	if (ret) {
-		enable_irq(ts->client->irq);
-	}
+	atomic_set(&ts->is_suspend, 1);
+	ret = wait_event_interruptible_timeout(ts->ts_state_wq,
+				 atomic_read(&ts->working) == 0,
+				 2 * HZ);
+    if (atomic_read(&ts->working) != 0) {
+        dev_err(&ts->client->dev, 
+                "wait ts work stop timeout, ret = %d\n", ret);
+    }
+    dev_info(&ts->client->dev, "----wait ts work stop, ret = %d\n", ret);
+
 	mg8698s_ts_power_off(ts);
 	set_pin_status(ts->gpio.wake, 0);
 	dev_dbg(&ts->client->dev, "[FTS]mg8698s suspend\n");
@@ -606,8 +628,9 @@ static void mg8698s_ts_resume(struct early_suspend *handler)
 	mg8698s_ts_reset(ts);
     msleep(10);
 
-	enable_irq(ts->client->irq);
-	ts->is_suspend = 0;
+	atomic_set(&ts->is_suspend, 0);
+    if (atomic_read(&ts->working) == 0)
+        enable_irq(ts->client->irq);
 }
 #endif
 
