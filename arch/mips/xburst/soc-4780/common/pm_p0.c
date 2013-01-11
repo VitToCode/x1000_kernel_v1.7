@@ -42,6 +42,8 @@
 
 //#define TEST 1
 
+#define CONFIG_SUSPEND_SUPREME_DEBUG
+
 static unsigned int regs[256];
 
 #define save_regs(base)		\
@@ -261,7 +263,6 @@ static unsigned int regs[256];
 #define SAVE_SIZE 1024
 #endif
 
-#define CONFIG_SUSPEND_SUPREME_DEBUG
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
 
