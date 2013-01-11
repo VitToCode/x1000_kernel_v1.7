@@ -189,7 +189,7 @@ static int __devinit android_bl_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	dev->bk_early_suspend.level = c;
+	dev->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB - 1;
 	dev->bk_early_suspend.suspend = bk_e_suspend;
 	dev->bk_early_suspend.resume = bk_l_resume;
 	register_early_suspend(&dev->bk_early_suspend);
