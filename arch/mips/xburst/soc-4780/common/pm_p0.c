@@ -255,7 +255,9 @@ static unsigned int regs[256];
 #define REG_ADDR 	(TCSM_BASE+4)
 #define RESUME_ADDR 	(TCSM_BASE+8)
 
-#define DELAY 0x1ff
+#define DELAY_0 0x1ff
+#define DELAY_1 0x1ff
+#define DELAY_2 0x1ff
 
 #ifndef CONFIG_SUSPEND_SUPREME_DEBUG
 #define SAVE_SIZE 512
@@ -289,7 +291,14 @@ static unsigned int regs[256];
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 static char test = 'a';
+
+/* store something we can use it for memory testing */
+static __section(.mem.test) char test_mem0 = 't';
+static __section(.mem.test) char test_mem1 = 'e';
+static __section(.mem.test) char test_mem2 = 's';
+static __section(.mem.test) char test_mem3 = 't';
 #endif
+
 static noinline void reset_dll(void)
 {
 	void (*return_func)(void);
@@ -299,12 +308,12 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR('0');
 	while(!((*(volatile unsigned *)0xb0000014) & (0x1<<4)))//wait pll stable
 		;
-	TCSM_DELAY(DELAY);
+	TCSM_DELAY(DELAY_0);
 
 	TCSM_PCHAR('1');
 	*(volatile unsigned *) 0xb00000d0 = 0x3;
 	i = *(volatile unsigned *) 0xb00000d0;
-	TCSM_DELAY(DELAY);
+	TCSM_DELAY(DELAY_1);
 	TCSM_PCHAR('3');
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	i=*(volatile unsigned *)0xB3010008;
@@ -312,7 +321,7 @@ static noinline void reset_dll(void)
 
 	*(volatile unsigned *) 0xb00000d0 = 0x1;
 	i = *(volatile unsigned *) 0xb00000d0;
-	TCSM_DELAY(DELAY);
+	TCSM_DELAY(DELAY_2);
 	TCSM_PCHAR('5');
 	__jz_cache_init();
 	TCSM_PCHAR('6');
@@ -322,7 +331,14 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR(test);
 	TCSM_PCHAR(test);
 #endif
+
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
+
+	TCSM_PCHAR(test_mem0);
+	TCSM_PCHAR(test_mem1);
+	TCSM_PCHAR(test_mem2);
+	TCSM_PCHAR(test_mem3);
+
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
 	return_func();
 }
