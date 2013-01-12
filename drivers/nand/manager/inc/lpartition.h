@@ -9,7 +9,6 @@
 
 #include "singlelist.h"
 typedef struct _LPartition LPartition;
-#ifdef CONFIG_MUL_PARTS
 #define MUL_PARTS 4
 typedef struct _lmul_parts lmul_parts;
 struct _lmul_parts{
@@ -17,7 +16,6 @@ struct _lmul_parts{
     int sectorCount;
     char *name;
 };
-#endif
 struct _LPartition {
 	struct singlelist head;
     int startSector;
@@ -28,10 +26,8 @@ struct _LPartition {
 
     int hwsector;
     unsigned int segmentsize;
-#ifdef CONFIG_MUL_PARTS
     lmul_parts lparts[MUL_PARTS];
     int parts_num;
-#endif
 };
 
 #endif
