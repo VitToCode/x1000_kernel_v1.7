@@ -31,11 +31,7 @@
 
 #define BLOCK_NAME 		"nand_block"
 #define MAX_MINORS		255
-#ifdef CONFIG_MUL_PARTS
 #define DISK_MINORS		MUL_PARTS
-#else
-#define DISK_MINORS		16
-#endif
 struct __partition_info {
 	int context;
 	NM_lpt *lpt;
@@ -717,11 +713,9 @@ static int nand_block_probe(struct device *dev)
 	struct __nand_disk *ndisk = NULL;
 	struct __partition_info *pinfo = (struct __partition_info *)dev->platform_data;
 	NM_lpt *lpt = pinfo ? pinfo->lpt : NULL;
-#ifdef CONFIG_MUL_PARTS
 	int ptmp = 0, pedege = 0;
 	unsigned long sum_count = 0;
 	struct hd_struct *hd;
-#endif
 	DBG_FUNC();
 
 	if (!pinfo || !lpt) {
@@ -786,7 +780,6 @@ static int nand_block_probe(struct device *dev)
 	/* add gendisk */
     add_disk(ndisk->disk);
 
-#ifdef CONFIG_MUL_PARTS
     if(lpt->pt->parts_num >  0 && lpt->pt->mode == ZONE_MANAGER){
 	pedege = lpt->pt->startSector;
 	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++)
@@ -800,7 +793,6 @@ static int nand_block_probe(struct device *dev)
 	    pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
 	}
     }
-#endif
 	/* add ndisk to disk_list */
 	singlelist_add(&nand_block.disk_list, &ndisk->list);
 

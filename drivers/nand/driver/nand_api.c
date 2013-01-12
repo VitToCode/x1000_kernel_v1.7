@@ -390,9 +390,7 @@ static int init_nand_driver(void)
 	static PPartition *t_partition;  // temporary partition
 
 	int ret;
-#ifdef CONFIG_MUL_PARTS
 	int j;//record count for ex_partition
-#endif
 	int ipartition_num=0;
 	struct  platform_nand_partition *ptemp=0;
 	unsigned int *tmp_badblock_info=0;
@@ -438,6 +436,8 @@ static int init_nand_driver(void)
 		eprintf("ERROR: g_partition malloc Failed\n");
 		goto init_nand_driver_error1;
 	}
+	memset(g_partition, 0x0, (ipartition_num+1)*(sizeof(PPartition)));
+
 	for(ret=0; ret<ipartition_num; ret++)
 	{
 		tmp_eccbit =(ptemp+ret)->eccbit;
@@ -471,16 +471,17 @@ static int init_nand_driver(void)
 		(g_partition+ret)->mode = (ptemp+ret)->mode;
 		(g_partition+ret)->prData = (void *)(ptemp+ret);
 
-#ifdef CONFIG_MUL_PARTS
 		j = 0;
 		while(((ptemp+ret)->ex_partition+j)->size != 0){
-		    ((g_partition+ret)->parts+j)->startblockID = div_s64_32(((ptemp+ret)->ex_partition+j)->offset, ((g_partition+ret)->byteperpage * pageperblock));
-		    ((g_partition+ret)->parts+j)->totalblocks = div_s64_32(((ptemp+ret)->ex_partition+j)->size, ((g_partition+ret)->byteperpage * pageperblock));
+		    ((g_partition+ret)->parts+j)->startblockID =
+			    div_s64_32(((ptemp+ret)->ex_partition+j)->offset, ((g_partition+ret)->byteperpage * pageperblock));
+		    ((g_partition+ret)->parts+j)->totalblocks =
+			    div_s64_32(((ptemp+ret)->ex_partition+j)->size, ((g_partition+ret)->byteperpage * pageperblock));
 		    ((g_partition+ret)->parts+j)->name = ((ptemp+ret)->ex_partition+j)->name;
 		    j++;
 		}
 		(g_partition+ret)->parts_num= j;
-#endif
+
 		if(byteperpage-tmp_freesize == 0){
 			eprintf("ERROR: pagesize equal 0\n");
 			goto init_nand_driver_error2;
