@@ -45,7 +45,7 @@ static struct ct36x_ts_info	ct36x_ts;
 
 static char const Binary_Data[]=
 {
-#include "40x25_97TP_V16120424.dat"
+#include "M80_CT365_V03_105B_130111.dat"
 };
 
 static void ct36x_ts_reg_read(struct i2c_client *client, unsigned short addr, char *buf, int len, int rate)
@@ -811,7 +811,7 @@ static int ct36x_ts_probe(struct i2c_client *client, const struct i2c_device_id 
 	dev_info(dev, "FW Version write: 0x%x \n", fw_ver_upd);
 		
 	if ( fw_ver_upd != ts->data.buf[0] ) {
-		BUG();
+//		BUG();
 		dev_info(dev, "Running bootloader ... \n");
 		err = ct36x_ts_bootloader(client);
 		dev_info(dev, "Bootloader done, %s \n", err ? "Failed" : "OK");
