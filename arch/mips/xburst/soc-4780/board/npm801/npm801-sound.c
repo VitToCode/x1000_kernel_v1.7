@@ -87,7 +87,13 @@ struct snd_codec_data codec_data = {
 		.gpio_spk_en_stat = 1,
 		.gpio_handset_en_stat = -1,
 		.gpio_buildin_mic_en_stat = 1},
-
+	.bt_route = {
+		.route = SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
+		.gpio_hp_mute_stat = 1,
+		.gpio_spk_en_stat = 0,
+		.gpio_handset_en_stat = -1,
+		.gpio_buildin_mic_en_stat = -1
+	},
 
 	/* gpio */
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},

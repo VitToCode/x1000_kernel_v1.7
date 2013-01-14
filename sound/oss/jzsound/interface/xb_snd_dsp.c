@@ -337,6 +337,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 static void snd_start_dma_transfer(struct dsp_pipe *dp ,enum dma_data_direction direction)
 {
 	dp->is_trans = true;
+	dp->force_stop_dma = false;
 	dma_async_issue_pending(dp->dma_chan);
 }
 
@@ -902,6 +903,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	dp->is_used = false;
 	dp->is_mmapd = false;
 	dp->wait_stop_dma = false;
+	dp->force_stop_dma = false;
 	dp->need_reconfig_dma = false;
 	dp->sg = NULL;
 	dp->sg_len = 0;
@@ -1033,7 +1035,13 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			if (!node && dp->is_non_block)
 				return count - mcount;
 			if (!node) {
-				wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
+                                if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
+						|| dp->force_stop_dma) < 0)
+					return count - mcount;
+				if (dp->force_stop_dma) {
+					dp->force_stop_dma = false;
+					return count - mcount;
+				}
 			} else {
 				atomic_dec(&dp->avialable_couter);
 				break;
@@ -1125,7 +1133,13 @@ ssize_t xb_snd_dsp_write(struct file *file,
 					return -1;
 				if (dp->is_non_block == true)
 					return count - mcount;
-				wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
+				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
+						|| dp->force_stop_dma) < 0)
+					return count - mcount;
+				if (dp->force_stop_dma) {
+					dp->force_stop_dma = false;
+					return count - mcount;
+				}
 			} else {
 				atomic_dec(&dp->avialable_couter);
 				break;
@@ -1792,6 +1806,20 @@ long xb_snd_dsp_ioctl(struct file *file,
 			return -EPERM;
 		break;
 	}
+        case SNDCTL_EXT_STOP_DMA: {
+                if (file->f_mode & FMODE_READ)
+                        dp = endpoints->in_endpoint;
+                if (file->f_mode & FMODE_WRITE)
+                        dp = endpoints->out_endpoint;
+		if (dp != NULL) {
+			dp->force_stop_dma = true;
+			dmaengine_terminate_all(dp->dma_chan);
+			dp->is_trans = false;
+			dp->wait_stop_dma = false;
+			wake_up_interruptible(&dp->wq);
+		}
+			return 0;
+	}
 
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
@@ -1957,7 +1985,6 @@ int xb_snd_dsp_open(struct inode *inode,
 #ifdef DEBUG_REPLAY
 	printk("DEBUG:----open /data/audio.pcm.pcm-%s\tline:%d\n",__func__,__LINE__);
 	f_test = filp_open("/data/audio.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR |O_CREAT);
-	printk ("f_test is error %d.\n",f_test);
 	if (!IS_ERR(f_test)) {
 		printk("open debug audio sussess %p.\n",f_test);
 		f_test_offset = f_test->f_pos;

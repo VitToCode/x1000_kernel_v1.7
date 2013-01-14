@@ -288,9 +288,9 @@ static int i2s_set_channel(int* channel,int mode)
 		return -ENODEV;
 	debug_print("channel = %d",*channel);
 	if (mode & CODEC_WMODE) {
-		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
+		ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_CHANNEL,(unsigned long)channel);
 		if (ret < 0) {
-			cur_codec->record_codec_channel = *channel;
+			cur_codec->replay_codec_channel = *channel;
 			return ret;
 		}
 		if (*channel ==2 || *channel == 4||

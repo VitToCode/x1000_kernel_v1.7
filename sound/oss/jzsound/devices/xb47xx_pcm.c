@@ -255,11 +255,9 @@ static int pcm_enable(int mode)
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = pcm_priv->endpoint->out_endpoint;
-		if (!dp_other->is_used) {
-			pcm_set_fmt(&record_format,mode);
-			pcm_set_channel(&record_channel,mode);
-			pcm_set_trigger(mode);
-		}
+		pcm_set_fmt(&record_format,mode);
+		pcm_set_channel(&record_channel,mode);
+		pcm_set_trigger(mode);
 	}
 
 	if (!dp_other->is_used) {

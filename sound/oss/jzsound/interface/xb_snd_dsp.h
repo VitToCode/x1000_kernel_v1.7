@@ -106,6 +106,7 @@ struct spipe_info {
 #define SNDCTL_EXT_DIRECT_PUTINODE          _SIOW ('P', 94, struct direct_info)
 #define SNDCTL_EXT_DIRECT_GETONODE          _SIOR ('P', 93, struct direct_info)
 #define SNDCTL_EXT_DIRECT_PUTONODE          _SIOW ('P', 92, struct direct_info)
+#define SNDCTL_EXT_STOP_DMA		    _SIOW ('P', 91, int)
 
 /**
  * dsp device control command
@@ -233,6 +234,7 @@ struct dsp_pipe {
 	/* state */
 	volatile bool       is_trans;
 	volatile bool       wait_stop_dma;
+	volatile bool	    force_stop_dma;
 	volatile bool       need_reconfig_dma;
 	volatile bool       is_used;
 	volatile bool       is_shared;

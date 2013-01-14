@@ -238,6 +238,33 @@ route_conf_base const call_record_mic_bypass_to_hp_lr = {
 	.attibute_adc_r_gain = 16,
 };
 
+route_conf_base const route_linein2_to_adclr_and_daclr_to_lo = { 
+	.route_ready_mode = ROUTE_READY_FOR_ADC,
+        //record
+        .route_mic1_mode = MIC1_DISABLE,
+        .route_mic2_mode = MIC2_DISABLE,
+	.route_line1_mode = LINE1_SING,
+	.route_line2_mode = LINE2_SING,
+
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,
+        .route_inputr_mode = INPUTR_TO_ADC_ENABLE,
+        .route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,
+        .route_inputr_mux_mode = INPUTR_MUX_MIC2_TO_AN3,
+        .route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,
+        .route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
+        .route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,
+        .route_adc_mode = ADC_STEREO,
+	.route_record_mixer_mode = RECORD_MIXER_INPUT_ONLY|AIADC_MIXER_INPUTL_TO_L|AIADC_MIXER_INPUTR_TO_R,	//fix
+        //replay
+
+	.route_dac_mode = DAC_STEREO,
+        .route_hp_mode = HP_DISABLE,
+        .route_lineout_mux_mode = LO_MUX_DACLR_TO_LO,  //new
+        .route_lineout_mode = LINEOUT_ENABLE,
+	.attibute_dac_l_gain = -30,
+	.attibute_dac_r_gain = -30,
+};
+
 route_conf_base const replay_linein2_bypass_to_lo_lr = {
 	.route_ready_mode = ROUTE_READY_FOR_ADC,
 	//record
@@ -337,12 +364,11 @@ struct __codec_route_info codec_route_info[] = {
 		.route_name = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 		.route_conf = &repaly_hp_stereo_and_lineout_lr,
 	},
-	/*********************** loop route *******************************/
+	/*********************** bypass route *****************************/
 	{
 		.route_name = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
 		.route_conf = &loop_mic1_an1_to_hp_stereo,
 	},
-	/*********************** bypass route *****************************/
 	{
 		.route_name = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		.route_conf = &replay_linein2_bypass_to_lo_lr,
@@ -361,10 +387,16 @@ struct __codec_route_info codec_route_info[] = {
 		.route_name = SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 		.route_conf = &call_mic_bypass_to_hp_lr,
 	},
+	/*********************** misc route *******************************/
 	{
 		.route_name = SND_ROUTE_CALL_RECORD,
 		.route_conf = &call_record_mic_bypass_to_hp_lr,
 	},
+	{
+		.route_name = SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
+		.route_conf = &route_linein2_to_adclr_and_daclr_to_lo,
+	},
+
 	/***************************end of array***************************/
 	{
 		.route_name = SND_ROUTE_NONE,

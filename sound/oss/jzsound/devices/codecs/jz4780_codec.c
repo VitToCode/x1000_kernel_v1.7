@@ -2321,7 +2321,6 @@ static int codec_set_device(enum snd_device_t device)
 	int ret = 0;
 	int iserror = 0;
 
-
 	printk("codec_set_device %d \n",device);
 	switch (device) {
 	case SND_DEVICE_HEADSET:

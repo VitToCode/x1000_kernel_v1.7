@@ -250,12 +250,12 @@
 /*------------------*/
  #define GCR_DACL_RLGOD         7
  #define GCR_DACL_GODL          0
-  #define GCR_DACL_GODL_MASK    (0xf <<  GCR_DACL_GODL)
+  #define GCR_DACL_GODL_MASK    (0x1f <<  GCR_DACL_GODL)
 
 #define CODEC_REG_GCR_DACR      0x2d
 /*------------------*/
  #define GCR_DACR_GODR          0
-  #define GCR_DACR_GODR_MASK    (0xf <<  GCR_DACR_GODR)
+  #define GCR_DACR_GODR_MASK    (0x1f <<  GCR_DACR_GODR)
 
 
 #define CODEC_REG_GCR_MIC1      0x2e
