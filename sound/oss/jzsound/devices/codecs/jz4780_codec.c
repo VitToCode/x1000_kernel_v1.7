@@ -395,14 +395,14 @@ static void dump_codec_gain_regs(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void codec_early_suspend(struct early_suspend *handler)
 {
-        __codec_switch_sb_micbias1(POWER_OFF);
-        __codec_switch_sb_micbias2(POWER_OFF);
+      //  __codec_switch_sb_micbias1(POWER_OFF);
+      //  __codec_switch_sb_micbias2(POWER_OFF);
 }
 
 static void codec_late_resume(struct early_suspend *handler)
 {
-        __codec_switch_sb_micbias1(POWER_ON);
-        __codec_switch_sb_micbias2(POWER_ON);
+        //__codec_switch_sb_micbias1(POWER_ON);
+       // __codec_switch_sb_micbias2(POWER_ON);
 }
 #endif
 /***************************************************************************************\
@@ -3054,13 +3054,15 @@ static int jz_codec_probe(struct platform_device *pdev)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
 			&codec_platform_data->gpio_mic_detect,
 			&codec_platform_data->gpio_mic_detect_en,
-			&codec_platform_data->gpio_buildin_mic_select);
+			&codec_platform_data->gpio_buildin_mic_select,
+			codec_platform_data->hook_active_level);
 #elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
 						 &codec_platform_data->gpio_hp_detect,
 						 &codec_platform_data->gpio_mic_detect,
 						 &codec_platform_data->gpio_mic_detect_en,
-						 &codec_platform_data->gpio_buildin_mic_select);
+						 &codec_platform_data->gpio_buildin_mic_select,
+						 codec_platform_data->hook_active_level);
 #endif
 	if (codec_platform_data->gpio_mic_detect.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect_en") < 0) {

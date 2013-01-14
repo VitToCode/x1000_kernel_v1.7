@@ -52,4 +52,5 @@ struct snd_codec_data codec_data = {
 
 //	.hpsense_active_level = 0,
 	.hpsense_active_level = 1,
+	.hook_active_level = -1,
 };

@@ -66,7 +66,7 @@ struct snd_codec_data codec_data = {
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 0,
 		.gpio_handset_en_stat = 0,
-		.gpio_buildin_mic_en_stat = 1},
+		.gpio_buildin_mic_en_stat = -1},
 	.downlink_speaker_route = {.route = SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 1,
@@ -105,4 +105,5 @@ struct snd_codec_data codec_data = {
 	.gpio_mic_detect_en = {.gpio = GPIO_MIC_DETECT_EN,.active_level = GPIO_MIC_DETECT_EN_LEVEL},
 
 	.hpsense_active_level = 1,
+	.hook_active_level = 1, 
 };

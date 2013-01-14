@@ -40,4 +40,6 @@ struct snd_codec_data codec_data = {
 	.gpio_hp_mute = {.gpio = 0, .active_level = 0},
 	.gpio_spk_en = {.gpio = 0, .active_level = 0},
 	.gpio_head_det = {.gpio = 0, .active_level = 0},
+
+    .hook_active_level = -1,
 };

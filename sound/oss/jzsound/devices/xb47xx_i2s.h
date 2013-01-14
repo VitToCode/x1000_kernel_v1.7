@@ -551,7 +551,8 @@ enum codec_ioctl_cmd_t {
 void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		struct snd_board_gpio *mic_det,
 		struct snd_board_gpio *mic_detect_en,
-		struct snd_board_gpio *mic_select);
+		struct snd_board_gpio *mic_select,
+		int  hook_active_level);
 
 /**
  *	codec mode

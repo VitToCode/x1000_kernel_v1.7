@@ -49,4 +49,5 @@ struct snd_codec_data codec_data = {
 	.gpio_mic_detect_en = {.gpio = GPIO_MIC_DETECT_EN,.active_level = GPIO_MIC_DETECT_EN_LEVEL},
 
 	.hpsense_active_level = 1,
+	.hook_active_level = -1,
 };

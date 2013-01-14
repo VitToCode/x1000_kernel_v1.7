@@ -38,14 +38,21 @@ struct snd_switch_data {
 	const char *state_headset_on;
 	const char *state_headphone_on;
 	const char *state_off;
-	int irq;
-	struct work_struct work;
+	int hp_irq;
+	int hook_irq;
+	struct work_struct hp_work;
+	struct work_struct hook_work;
+	struct workqueue_struct *check_state_workqueue;
+	struct input_dev *inpdev;
 	int hp_gpio;
 	int hp_valid_level;
 
 	/*mic detect and select*/
 	int mic_gpio;
 	int	mic_vaild_level;
+
+	int hook_gpio;
+	int hook_valid_level;
 
 	int mic_detect_en_gpio;
 	int mic_detect_en_level;
@@ -54,6 +61,9 @@ struct snd_switch_data {
 	int mic_select_level;
 
 	int (*codec_get_sate)(void);
+	atomic_t flag;
+	int hook_pressed;
+	int hp_state;
 };
 
 #endif /*__XB_SND_DETECT_H__*/

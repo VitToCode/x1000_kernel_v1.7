@@ -124,6 +124,11 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_buildin_mic_select;
 	/* other */
 	int hpsense_active_level;
+    int hook_active_level;   /* -1: no hook detect,
+								 0: hook low level available,
+                                 1: hook high level available,
+                                 2: hook adc enable
+								 */
 };
 
 

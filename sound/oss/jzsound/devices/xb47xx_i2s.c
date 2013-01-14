@@ -932,8 +932,8 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 static void i2s_codec_work_handler(struct work_struct *work)
 {
-	wait_event_interruptible(switch_data.wq,switch_data.work.entry.next != NULL);
-	cur_codec->codec_ctl(CODEC_IRQ_HANDLE,(unsigned long)(&(switch_data.work)));
+	wait_event_interruptible(switch_data.wq,switch_data.hp_work.entry.next != NULL);
+	cur_codec->codec_ctl(CODEC_IRQ_HANDLE,(unsigned long)(&(switch_data.hp_work)));
 }
 #endif
 
@@ -1209,9 +1209,11 @@ static int jz_get_hp_switch_state(void)
 void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		struct snd_board_gpio *mic_det,
 		struct snd_board_gpio *mic_detect_en,
-		struct snd_board_gpio *mic_select)
+		struct snd_board_gpio *mic_select,
+		int hook_active_level)
 {
 	switch_data.type = type;
+	switch_data.hook_valid_level = hook_active_level;
 	if (type == SND_SWITCH_TYPE_GPIO && hp_det != NULL) {
 		switch_data.hp_gpio = hp_det->gpio;
 		switch_data.hp_valid_level = hp_det->active_level;
@@ -1239,7 +1241,7 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		switch_data.mic_select_gpio = -1;
 	}
 
-	return (&switch_data.work);
+	return (&switch_data.hp_work);
 }
 
 struct snd_switch_data switch_data = {
