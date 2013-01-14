@@ -80,9 +80,11 @@ static inline void codec_sleep_wait_bitset(int reg, unsigned bit, int stime, int
 {
 	int count = 0;
 	while(!(read_inter_codec_reg(reg) & (1 << bit))) {
-		codec_sleep(stime);
-		count++;
-		if(count > 10){
+		if (count < 10)
+			codec_sleep(stime * (++count));
+		else
+			codec_sleep(stime *10);
+		if(count > 15){
 			printk("%s %d timeout\n",__FILE__,__LINE__);
 			break;
 		}
@@ -93,26 +95,26 @@ static inline void codec_wait_event_complete(int event , int mode)
 {
 	if (event == IFR_ADC_MUTE_EVENT) {
 		if (__codec_test_jadc_mute_state() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_jadc_mute_state() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__);
 			}
 		}
 	} else if (event == IFR_DAC_MUTE_EVENT) {
 		if (__codec_test_dac_mute_state() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_mute_state() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__);
 			}
 		}
 	} else if (event == IFR_DAC_MODE_EVENT) {
 		if (__codec_test_dac_udp() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,100,__LINE__);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_udp() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 100,__LINE__);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__);
 			}
 		}
 	}
@@ -512,10 +514,10 @@ static void codec_set_mic2(int mode)
 		break;
 
 	case MIC2_DISABLE:
-		if(__codec_get_sb_micbias2() == POWER_ON)
+		/*if(__codec_get_sb_micbias2() == POWER_ON)
 		{
 			__codec_switch_sb_micbias2(POWER_OFF);
-		}
+		}*/
 		break;
 
 	default:
@@ -1016,20 +1018,21 @@ static void codec_set_dac(int mode)
 			__codec_switch_sb_dac(POWER_ON);
 			udelay(500);
 		}
-		if(!__codec_get_dac_mute()){
-			/* clear IFR_DAC_MUTE_EVENT */
+		if (__codec_get_dac_mode() != CODEC_DAC_STEREO) {
+			if (!__codec_get_dac_mute()) {
+				/* clear IFR_DAC_MUTE_EVENT */
+				__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
+				/* turn on dac */
+				__codec_enable_dac_mute();
+				/* wait IFR_DAC_MUTE_EVENT set */
+				codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+			}
+			__codec_set_dac_mode(CODEC_DAC_STEREO);
+
 			__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-			/* turn on dac */
-			__codec_enable_dac_mute();
-			/* wait IFR_DAC_MUTE_EVENT set */
-			codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+			__codec_disable_dac_mute();
+			codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
 		}
-		__codec_set_dac_mode(CODEC_DAC_STEREO);
-
-		__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-		__codec_disable_dac_mute();
-		codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
-
 
 		break;
 
@@ -1038,16 +1041,18 @@ static void codec_set_dac(int mode)
 			__codec_switch_sb_dac(POWER_ON);
 			udelay(500);
 		}
-		if(!__codec_get_dac_mute()){
+		if (__codec_get_dac_mode() != CODEC_DAC_LEFT_ONLY) {
+			if(!__codec_get_dac_mute()){
+				__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
+				__codec_disable_dac_mute();
+				codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+			}
+			__codec_set_dac_mode(CODEC_DAC_LEFT_ONLY);
+
 			__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
 			__codec_disable_dac_mute();
-			codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
+			codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
 		}
-		__codec_set_dac_mode(CODEC_DAC_LEFT_ONLY);
-
-		__codec_set_irq_flag(1 << IFR_DAC_MUTE_EVENT);
-		__codec_disable_dac_mute();
-		codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_NOT_MUTE);
 		break;
 
 	case DAC_DISABLE:
@@ -1828,22 +1833,30 @@ static void codec_set_route_base(const void *arg)
 		else
 			codec_set_gain_replay_mixer(conf->attibute_replay_mixer_gain);
 	}
-	if (conf->attibute_dac_l_gain == 32)
-		codec_set_gain_dac_left(0);
-	else
-		codec_set_gain_dac_left(conf->attibute_dac_l_gain);
-	if (conf->attibute_dac_r_gain == 32)
-		codec_set_gain_dac_right(0);
-	else
-		codec_set_gain_dac_right(conf->attibute_dac_r_gain);
-	if (conf->attibute_hp_l_gain == 32)
-		codec_set_gain_hp_left(0);
-	else
-		codec_set_gain_hp_left(conf->attibute_hp_l_gain);
-	if (conf->attibute_hp_r_gain == 32)
-		codec_set_gain_hp_right(0);
-	else
-		codec_set_gain_hp_right(conf->attibute_hp_r_gain);
+	if (conf->attibute_dac_l_gain) {
+		if (conf->attibute_dac_l_gain == 32)
+			codec_set_gain_dac_left(0);
+		else
+			codec_set_gain_dac_left(conf->attibute_dac_l_gain);
+	}
+	if (conf->attibute_dac_r_gain) {
+		if (conf->attibute_dac_r_gain == 32)
+			codec_set_gain_dac_right(0);
+		else
+			codec_set_gain_dac_right(conf->attibute_dac_r_gain);
+	}
+	if (conf->attibute_hp_l_gain) {
+		if (conf->attibute_hp_l_gain == 32)
+			codec_set_gain_hp_left(0);
+		else
+			codec_set_gain_hp_left(conf->attibute_hp_l_gain);
+	}
+	if (conf->attibute_hp_r_gain) {
+		if (conf->attibute_hp_r_gain == 32)
+			codec_set_gain_hp_right(0);
+		else
+			codec_set_gain_hp_right(conf->attibute_hp_r_gain);
+	}
 }
 
 /***************************************************************************************\
@@ -2497,6 +2510,7 @@ static int codec_set_record_rate(unsigned long *rate)
 	if (*rate > mrate[MAX_RATE_COUNT - 1]) {
 		speed = MAX_RATE_COUNT - 1;
 	}
+	//__codec_set_wind_filter_mode(CODEC_WIND_FILTER_MODE3);
 	__codec_enable_adc_high_pass();
 	__codec_select_adc_samp_rate(speed);
 	if ((val = __codec_get_adc_samp_rate()) == speed) {
@@ -2522,6 +2536,9 @@ static int codec_set_record_data_width(int width)
 	}
 	if (fix_width == 4)
 		return -EINVAL;
+
+	//if (__codec_get_adc_word_length() >= fix_width)
+	//	return 0;
 
 	__codec_select_adc_word_length(fix_width);
 	if (__codec_get_adc_word_length() == fix_width)
