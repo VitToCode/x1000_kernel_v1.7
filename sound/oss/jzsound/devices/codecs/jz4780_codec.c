@@ -1828,30 +1828,22 @@ static void codec_set_route_base(const void *arg)
 		else
 			codec_set_gain_replay_mixer(conf->attibute_replay_mixer_gain);
 	}
-	if (conf->attibute_dac_l_gain) {
-		if (conf->attibute_dac_l_gain == 32)
-			codec_set_gain_dac_left(0);
-		else
-			codec_set_gain_dac_left(conf->attibute_dac_l_gain);
-	}
-	if (conf->attibute_dac_r_gain) {
-		if (conf->attibute_dac_r_gain == 32)
-			codec_set_gain_dac_right(0);
-		else
-			codec_set_gain_dac_right(conf->attibute_dac_r_gain);
-	}
-	if (conf->attibute_hp_l_gain) {
-		if (conf->attibute_hp_l_gain == 32)
-			codec_set_gain_hp_left(0);
-		else
-			codec_set_gain_hp_left(conf->attibute_hp_l_gain);
-	}
-	if (conf->attibute_hp_r_gain) {
-		if (conf->attibute_hp_r_gain == 32)
-			codec_set_gain_hp_right(0);
-		else
-			codec_set_gain_hp_right(conf->attibute_hp_r_gain);
-	}
+	if (conf->attibute_dac_l_gain == 32)
+		codec_set_gain_dac_left(0);
+	else
+		codec_set_gain_dac_left(conf->attibute_dac_l_gain);
+	if (conf->attibute_dac_r_gain == 32)
+		codec_set_gain_dac_right(0);
+	else
+		codec_set_gain_dac_right(conf->attibute_dac_r_gain);
+	if (conf->attibute_hp_l_gain == 32)
+		codec_set_gain_hp_left(0);
+	else
+		codec_set_gain_hp_left(conf->attibute_hp_l_gain);
+	if (conf->attibute_hp_r_gain == 32)
+		codec_set_gain_hp_right(0);
+	else
+		codec_set_gain_hp_right(conf->attibute_hp_r_gain);
 }
 
 /***************************************************************************************\
