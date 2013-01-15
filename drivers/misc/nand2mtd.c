@@ -15,10 +15,8 @@
 #include "nand_api.h"
 #include "nandinterface.h"
 #include "vnandinfo.h"
-#include "vNand.h"
 #include "nand2mtd.h"
 
-extern struct vnand_operater v_nand_ops;
 extern NandInterface jz_nand_interface;
 static struct mtd_info Mtd;
 PPartition *ppt;
@@ -79,9 +77,7 @@ static int block_erase(struct mtd_info *mtd, struct erase_info *instr)
 		return -1;
 	}
 
-	mutex_lock(&v_nand_ops.mutex);
 	ret = jz_nand_interface.iMultiBlockErase(ppt, &blocklist);
-	mutex_unlock(&v_nand_ops.mutex);	
 	if (ret != 0) {
 		printk("ndisk erase err \n");
 		dump_stack();
@@ -107,9 +103,7 @@ static int page_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retl
 		printk("max len is pagesize");
 	}
 
-	mutex_lock(&v_nand_ops.mutex);
 	ret = jz_nand_interface.iPageRead(ppt, page_id, offset, len, buf);
-	mutex_unlock(&v_nand_ops.mutex);
 	if (ret < 0) {
 		if (-6 == ret) {
 			*retlen = mtd->writesize;
@@ -147,10 +141,8 @@ static int block_isbad(struct mtd_info *mtd, loff_t ofs)
 {
 	int ret;
 
-	mutex_lock(&v_nand_ops.mutex);
 	ret = jz_nand_interface.iIsBadBlock(ppt, (int)ofs/mtd->erasesize);
-	mutex_unlock(&v_nand_ops.mutex);
-
+	
 	return ret;
 
 }
@@ -159,9 +151,7 @@ static int block_markbad(struct mtd_info *mtd, loff_t ofs)
 {
 	int ret;
 
-	mutex_lock(&v_nand_ops.mutex);
 	ret = jz_nand_interface.iMarkBadBlock(ppt, (int)ofs/mtd->erasesize);
-	mutex_unlock(&v_nand_ops.mutex);
 
 	return ret;
 }
