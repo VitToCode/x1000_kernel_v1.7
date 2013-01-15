@@ -41,6 +41,8 @@ struct snd_switch_data switch_data;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints i2s_endpoints;
 static struct clk *codec_sysclk = NULL;
+static volatile bool i2s_is_incall_state = false;
+bool i2s_is_incall(void);
 
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 static struct workqueue_struct *i2s_work_queue;
@@ -124,6 +126,12 @@ static void i2s_match_codec(char *name)
 		}
 	}
 }
+
+bool i2s_is_incall(void)
+{
+	return i2s_is_incall_state;
+}
+
 /*##################################################################*\
 |* filter opt
 \*##################################################################*/
@@ -549,6 +557,8 @@ static int i2s_enable(int mode)
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 	}
 
+	i2s_is_incall_state = false;
+
 	return 0;
 }
 
@@ -671,9 +681,17 @@ static int i2s_set_device(unsigned long device)
 {
 	unsigned long tmp_rate = 0;
   	int ret = 0;
+
 	if (!cur_codec)
 		return -1;
 
+	/*call state operation*/
+	if (device >= SND_DEVICE_CALL_START && device <= SND_DEVICE_CALL_END)
+		i2s_is_incall_state = true;
+	else
+		i2s_is_incall_state = false;
+
+	/*hdmi operation*/
 	if ((tmp_rate = cur_codec->replay_rate) == 0);
 		tmp_rate = 44100;
 	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
@@ -720,6 +738,7 @@ static int i2s_set_device(unsigned long device)
 		}
 	}
 
+	/*route operatiom*/
 	ret = cur_codec->codec_ctl(CODEC_SET_DEVICE, device);
 
 	return ret;
@@ -1177,7 +1196,7 @@ static void i2s_shutdown(struct platform_device *pdev)
 
 static int i2s_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	if (cur_codec)
+	if (cur_codec && !i2s_is_incall())
 		cur_codec->codec_ctl(CODEC_SUSPEND,0);
 	__i2s_disable();
 	return 0;
@@ -1186,7 +1205,7 @@ static int i2s_suspend(struct platform_device *pdev, pm_message_t state)
 static int i2s_resume(struct platform_device *pdev)
 {
 	__i2s_enable();
-	if (cur_codec)
+	if (cur_codec && !i2s_is_incall())
 		cur_codec->codec_ctl(CODEC_RESUME,0);
 	return 0;
 }
