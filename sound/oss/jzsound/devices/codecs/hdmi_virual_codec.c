@@ -51,7 +51,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 /**
  * Module init
  */
-#define HDMI_SMAPLE_RATE	11289600
+#define HDMI_SMAPLE_RATE	11333335//11289600
 static int __init init_codec(void)
 {
 	int ret = 0;

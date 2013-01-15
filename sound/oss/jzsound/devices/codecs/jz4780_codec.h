@@ -404,6 +404,11 @@ do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC, POWER_OFF, AICR_DAC_SB);	\
 } while (0)
 
+#define CODEC_ADC_16BIT_SAMPLE  0
+#define CODEC_ADC_18BIT_SAMPLE  1
+#define CODEC_ADC_20BIT_SAMPLE  2
+#define CODEC_ADC_24BIT_SAMPLE  3
+
 #define __codec_select_adc_word_length(width)	\
 do {	\
 	write_inter_codec_reg_mask(CODEC_REG_AICR_ADC,width,	\
@@ -779,6 +784,9 @@ do {	\
 /*dac mode option*/
 #define CODEC_DAC_STEREO		0
 #define CODEC_DAC_LEFT_ONLY		1
+
+#define __codec_get_dac_mode()	\
+	((read_inter_codec_reg(CODEC_REG_CR_DAC) & (1<<CR_DAC_LEFT_ONLY))>> CR_DAC_LEFT_ONLY)
 
 #define __codec_set_dac_mode(opt)	\
 do {	\
