@@ -263,6 +263,7 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 		 Reg0x302d,
 
 		 Gain_Exposure;
+	uint8_t Gain;
 
     stop_ae(client);
     change_rate(client);
@@ -394,7 +395,7 @@ void init_capture_and_set_size(struct i2c_client *client, int width, int height)
 	printk("\n");
 
 	// Write Gain
-	uint8_t Gain = Capture_Gain & 0x0f;
+	Gain = Capture_Gain & 0x0f;
 	dev_info(&client->dev, "Capture_Gain : %x\n",Capture_Gain);
 	dev_info(&client->dev, "gain : %x\n",Gain);
 

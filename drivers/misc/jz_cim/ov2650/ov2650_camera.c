@@ -55,8 +55,6 @@ static inline int sensor_i2c_master_send(struct i2c_client *client,const char *b
 
 #if 1
 	{
-		unsigned long long mytime;
-
 		if (cam_t_i < 10) { 
 			cam_t1_buf[cam_t_i] = cpu_clock(smp_processor_id());
 			cam_t_i++;

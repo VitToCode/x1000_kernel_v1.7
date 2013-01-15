@@ -125,6 +125,7 @@ int ov7675_power_down(struct cim_sensor *sensor_info)
 
 int ov7675_reset(struct cim_sensor *sensor_info)
 {
+	return 0;
 }
 
 int ov7675_sensor_probe(struct cim_sensor *sensor_info)

@@ -116,6 +116,9 @@ struct jz_cim {
 	int is_clock_enabled;
 };
 
+static unsigned int right_num = 0;
+static unsigned int err_num = 0;
+
 static unsigned long inline reg_read(struct jz_cim *cim,int offset)
 {
 	return readl(cim->iomem+ offset); 
@@ -553,7 +556,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 			while(1){
 				cim->frm_id =  cim_get_iid(cim) - 1;
 				if(cim->frm_id < -1 || cim->frm_id >= PDESC_NR - 1){
-					printk(" -------------  frm id %d, REG_CIM_IID \t= \t0x%08lx\ \n",cim->frm_id, reg_read(cim,CIM_IID));
+					dev_info(cim->dev, "-------------  frm id = %d, REG_CIM_IID \t= \t0x%08lx \n",cim->frm_id, reg_read(cim,CIM_IID));
 					dev_info(cim->dev,"REG_CIM_DA \t= \t0x%08lx\n", reg_read(cim,CIM_DA));
 					dev_info(cim->dev,"REG_CIM_CMD \t= \t0x%08lx\n", reg_read(cim,CIM_CMD));
 					dev_info(cim->dev,"REG_CIM_FA \t= \t0x%08lx\n", reg_read(cim,CIM_FA));
@@ -561,12 +564,14 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 					for(i=0;i<PDESC_NR;i++) {
 						printk("desc[%d].next = 0x%8x, desc[%d].id = %d \n", i, desc[i].next, i, desc[i].id);   
 					}
-					redo_num++;
+				redo_num++;
+					err_num++;
 					if(redo_num > 2){
 						cim->frm_id = 0;
 						break;
 					}
 				}else{
+					right_num++;
 					break;
 				}
 			}
@@ -680,10 +685,11 @@ static long cim_start_preview(struct jz_cim *cim)
 
 static long cim_start_capture(struct jz_cim *cim)
 {
-	printk("__%s__\n", __func__);
-
 	struct jz_cim_dma_desc * dmadesc = (struct jz_cim_dma_desc *)cim->cdesc_vaddr;
 	static int wait_count = 0;
+
+	printk("__%s__\n", __func__);
+
 	cim->state = CS_CAPTURE;
 	wait_count = 0;
 	cim_disable(cim);
@@ -1027,8 +1033,8 @@ static int cim_set_output_format(struct jz_cim *cim, unsigned int cmd, unsigned 
 
 static int cim_open(struct inode *inode, struct file *file)
 {
-	struct miscdevice *dev = file->private_data;
-	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
+//	struct miscdevice *dev = file->private_data;
+//	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 	return 0;
 }
 
@@ -1048,6 +1054,9 @@ static int cim_close(struct inode *inode, struct file *file)
 	cim->psize.w = 0;
 	cim->csize.w = 0;
 	cim->csize.h = 0;
+
+	printk("right_num = %d, err_num = %d\n", right_num, err_num);
+
 	return 0;
 }
 
