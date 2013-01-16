@@ -477,33 +477,39 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	return ret;
 }
 
+static int disable_i2c_clk(struct jz_i2c *i2c)
+{
+    int timeout = 10;
+    int tmp = 0;
+
+    do {
+        udelay(90);
+        tmp = i2c_readl(i2c,I2C_STA);
+    } while ((tmp & I2C_STA_MSTACT) && (--timeout > 0));
+
+    if (timeout > 0) {
+        clk_disable(i2c->clk);
+        i2c->enabled = 0;
+        return 0;
+    } else {
+        dev_err(&(i2c->adap.dev),"--I2C transport wait timeout, I2C_STA = 0x%x\n", tmp);
+        return -EAGAIN;
+    }
+}
+
 static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 {
-	int i,ret,retry;
-	int timeout = TIMEOUT;
+	int i,ret;
 	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
-	cancel_delayed_work_sync(&i2c->clk_work);
+
 	if(!i2c->enabled) {
 		clk_enable(i2c->clk);
 		i2c->enabled = 1;
 	}
+
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
-	}
-
-	for(retry=0;retry<3;retry++) {
-		timeout = TIMEOUT;
-		while((!(i2c_readl(i2c,I2C_STA) & I2C_STA_TFE) || (tmp = i2c_readl(i2c,I2C_STA) & I2C_STA_MSTACT))
-					&& (--timeout > 0)){
-			msleep(1);
-		}
-		if(timeout > 0)
-			break;
-		else{
-			dev_err(&(i2c->adap.dev),"--I2C transport wait timeout\n");
-			jz_i2c_reset(i2c);
-		}
 	}
 
 	for (i=0;i<count;i++,msg++) {
@@ -519,12 +525,13 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
 		}
 		if (ret) {
-			schedule_delayed_work(&i2c->clk_work, 15 * HZ);
-			return ret;
+			return -EAGAIN;
 		}
 	}
 
-	schedule_delayed_work(&i2c->clk_work, 15 * HZ);
+    if (disable_i2c_clk(i2c))
+        return -EAGAIN;
+
 	return i;
 }
 
@@ -604,7 +611,8 @@ static int i2c_jz_probe(struct platform_device *dev)
 
 	i2c->adap.owner   	= THIS_MODULE;
 	i2c->adap.algo    	= &i2c_jz_algorithm;
-	i2c->adap.retries 	= 6;
+	i2c->adap.retries 	= 5;
+	i2c->adap.timeout 	= 5;
 	i2c->adap.algo_data 	= i2c;
 	i2c->adap.dev.parent 	= &dev->dev;
 	i2c->adap.nr 		= dev->id;
@@ -689,10 +697,12 @@ static int i2c_jz_remove(struct platform_device *dev)
 
 static int i2c_jz_suspend(struct platform_device *dev, pm_message_t state)
 {
+#if 0
 	struct jz_i2c *i2c = platform_get_drvdata(dev);
 	cancel_delayed_work(&i2c->clk_work);
 	clk_disable(i2c->clk);
 	i2c->enabled = 0;
+#endif
 	return 0;
 }
 
