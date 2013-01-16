@@ -244,6 +244,7 @@ static struct cam_sensor_plat_data gc2015_pdata = {
 
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+#ifdef CONFIG_JZ_CIM
 static struct i2c_board_info ji8070a_i2c2_devs[] __initdata = {
 #ifdef CONFIG_SP0838
 	{
@@ -264,6 +265,38 @@ static struct i2c_board_info ji8070a_i2c2_devs[] __initdata = {
 	},
 #endif
 };
+#else
+struct i2c_board_info ji8070a_i2c2_devs_v4l2[2] __initdata = {
+
+	[FRONT_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV2659_FRONT
+		I2C_BOARD_INFO("ov2659-front", 0x30),
+#endif
+
+#ifdef CONFIG_SOC_CAMERA_GC0308_FRONT
+		I2C_BOARD_INFO("gc0308-front", 0x21),
+#endif
+
+#ifdef CONFIG_SOC_CAMERA_HI253_FRONT
+		I2C_BOARD_INFO("hi253-front", 0x20),
+#endif
+	},
+
+	[BACK_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV2659_BACK
+		I2C_BOARD_INFO("ov2659-back", 0x30 + 1),
+#endif
+
+#ifdef CONFIG_SOC_CAMERA_GC0308_BACK
+		I2C_BOARD_INFO("gc0308-back", 0x21 + 1),
+#endif
+
+#ifdef CONFIG_SOC_CAMERA_HI253_BACK
+		I2C_BOARD_INFO("hi253-back", 0x20 + 1),
+#endif
+	},
+};
+#endif
 #endif	/*I2C2*/
 
 
@@ -354,8 +387,10 @@ static int __init ji8070a_i2c_dev_init(void)
 	i2c_register_board_info(1, ji8070a_i2c1_devs, ARRAY_SIZE(ji8070a_i2c1_devs));
 #endif
 
+#ifndef CONFIG_VIDEO_JZ4780_SUBSYSTEM
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 	i2c_register_board_info(2, ji8070a_i2c2_devs, ARRAY_SIZE(ji8070a_i2c2_devs));
+#endif
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
