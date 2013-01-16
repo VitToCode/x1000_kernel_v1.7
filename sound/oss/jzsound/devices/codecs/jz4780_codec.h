@@ -228,12 +228,12 @@
 /*------------------*/
  #define GCR_HPL_LRGO           7
  #define GCR_HPL_GOL            0
-  #define GCR_HPL_GOL_MASK      (0xf << GCR_HPL_GOL)
+  #define GCR_HPL_GOL_MASK      (0x1f << GCR_HPL_GOL)
 
 #define CODEC_REG_GCR_HPR       0x29
 /*------------------*/
  #define GCR_HPR_GOR            0
-  #define GCR_HPR_GOR_MASK      (0xf << GCR_HPR_GOR)
+  #define GCR_HPR_GOR_MASK      (0x1f << GCR_HPR_GOR)
 
 #define CODEC_REG_GCR_LIBYL     0x2A
 /*------------------*/
