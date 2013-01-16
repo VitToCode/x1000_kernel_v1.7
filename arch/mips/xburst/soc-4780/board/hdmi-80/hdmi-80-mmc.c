@@ -224,6 +224,10 @@ start:
 	return 0;
 }
 
+EXPORT_SYMBOL(IW8101_wlan_power_on);
+EXPORT_SYMBOL(IW8101_wlan_power_off);
+#endif
+
 void RTL8188_wlan_power_on(void)
 {
 	regulator_enable(regulator_get(NULL, "vwifi"));
@@ -235,10 +239,7 @@ void RTL8188_wlan_power_off(void)
 	regulator_disable(regulator_get(NULL, "vwifi"));
 	printk("====== disable PMU out6 3.3v for wifi power off ======\n");
 }
-EXPORT_SYMBOL(IW8101_wlan_power_on);
-EXPORT_SYMBOL(IW8101_wlan_power_off);
 
 EXPORT_SYMBOL(RTL8188_wlan_power_on);
 EXPORT_SYMBOL(RTL8188_wlan_power_off);
 
-#endif
