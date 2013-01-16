@@ -44,8 +44,6 @@
 
 #define CONFIG_SUSPEND_SUPREME_DEBUG
 
-static unsigned int regs[256];
-
 #define save_regs(base)		\
 	__asm__ __volatile__ (	\
 			".set    noat		\n\t"\
@@ -259,11 +257,7 @@ static unsigned int regs[256];
 #define DELAY_1 0x1ff
 #define DELAY_2 0x1ff
 
-#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
-#define SAVE_SIZE 512
-#else
-#define SAVE_SIZE 1024
-#endif
+#define SAVE_SIZE (2048 - 8)
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
@@ -298,6 +292,35 @@ static __section(.mem.test) char test_mem1 = 'e';
 static __section(.mem.test) char test_mem2 = 's';
 static __section(.mem.test) char test_mem3 = 't';
 #endif
+
+static unsigned int regs[256] __attribute__ ((aligned (32)));
+static char tcsm_back[SAVE_SIZE] __attribute__ ((aligned (32)));
+
+#define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
+static inline void local_flush_tlb_all(void)
+{
+	unsigned long old_ctx;
+	int entry;
+
+	/* Save old context and create impossible VPN2 value */
+	old_ctx = read_c0_entryhi();
+	write_c0_entrylo0(0);
+	write_c0_entrylo1(0);
+
+	entry = read_c0_wired();
+
+	/* Blast 'em all away. */
+	while (entry < current_cpu_data.tlbsize) {
+		/* Make sure all entries differ. */
+		write_c0_entryhi(UNIQUE_ENTRYHI(entry));
+		write_c0_index(entry);
+		mtc0_tlbw_hazard();
+		tlb_write_indexed();
+		entry++;
+	}
+	tlbw_use_hazard();
+	write_c0_entryhi(old_ctx);
+}
 
 static noinline void reset_dll(void)
 {
@@ -346,6 +369,7 @@ static noinline void reset_dll(void)
 static noinline void jz4780_resume(void)
 {
 	load_regs(*(volatile unsigned int *)REG_ADDR);
+	local_flush_tlb_all();
 }
 
 static noinline void jz4780_suspend(void)
@@ -376,7 +400,6 @@ sleep_2:
 
 static int jz4780_pm_enter(suspend_state_t state)
 {
-	char tcsm_back[SAVE_SIZE];
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
 #ifdef	CONFIG_TRAPS_USE_TCSM
