@@ -284,8 +284,6 @@
 			".set mips32")
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-static char test = 'a';
-
 /* store something we can use it for memory testing */
 static __section(.mem.test) char test_mem0 = 't';
 static __section(.mem.test) char test_mem1 = 'e';
@@ -348,11 +346,6 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR('5');
 	__jz_cache_init();
 	TCSM_PCHAR('6');
-
-	TCSM_PCHAR(test);
-	TCSM_PCHAR(test);
-	TCSM_PCHAR(test);
-	TCSM_PCHAR(test);
 #endif
 
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
