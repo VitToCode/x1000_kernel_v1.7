@@ -128,7 +128,7 @@ static int mma8452_i2c_read(struct mma8452_data *mma,u8* reg,u8 *buf, int len)
 
 	err = i2c_transfer(mma->client->adapter, msgs, 2);
 	if(err < 0){
-		printk("read msg error\n");
+		printk("Read msg error\n");
 	}
 	return  0;
 }
@@ -147,7 +147,7 @@ static int mma8452_i2c_write(struct mma8452_data *mma,u8 *buf, int len)
 
 	err = i2c_transfer(mma->client->adapter, msgs, 1);
 	if(err < 0){
-		printk("read msg error\n");
+		printk("Write msg error\n");
 	}
 	return  0;
 }
@@ -685,6 +685,7 @@ static int __devexit mma8452_remove(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mma8452_suspend(struct early_suspend *h)
 {
+#if 0
 //	int result;
 	struct mma8452_data *mma;
 	mma = container_of(h, struct mma8452_data, early_suspend);
@@ -692,10 +693,12 @@ static void mma8452_suspend(struct early_suspend *h)
 	disable_irq_nosync(mma->client->irq);
 
 	mma8452_disable(mma);
+#endif
 }
 
 static void mma8452_resume(struct early_suspend *h)
 {
+#if 0
 //	int result;
 	struct mma8452_data *mma;
 	mma = container_of(h, struct mma8452_data, early_suspend);
@@ -706,6 +709,7 @@ static void mma8452_resume(struct early_suspend *h)
 	mutex_unlock(&mma->lock);
 
   	enable_irq(mma->client->irq);
+#endif
 }
 #endif
 static const struct i2c_device_id mma8452_id[] = {
