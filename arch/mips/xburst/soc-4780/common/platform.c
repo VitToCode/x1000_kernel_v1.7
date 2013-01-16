@@ -156,7 +156,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
 	OTG_DRVVUS,
 #endif
-#ifdef CONFIG_JZ_CIM
+#if defined(CONFIG_JZ_CIM) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 	CIM_PORTB,
 #endif
 
@@ -694,12 +694,21 @@ static struct resource jz_cim_resources[] = {
 	}
 };
 
+#ifdef CONFIG_JZ_CIM
 struct platform_device jz_cim_device = {
 	.name = "jz-cim",
 	.id = -1,
 	.resource = jz_cim_resources,
 	.num_resources = ARRAY_SIZE(jz_cim_resources),
 };
+#else
+struct platform_device jz_cim_device = {
+	.name = "jz4780-cim",
+	.id = 0,
+	.resource = jz_cim_resources,
+	.num_resources = ARRAY_SIZE(jz_cim_resources),
+};
+#endif
 
 /* X2D (Extreme 2D module interface controller) */
 static struct resource jz_x2d_res[] = {

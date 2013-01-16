@@ -16,6 +16,7 @@
  * published by the Free Software Foundation.
  */
 
+//#define DEBUG    1
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -28,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
+#include <linux/delay.h>
 
 #include <media/soc_camera.h>
 #include <media/v4l2-common.h>
@@ -55,10 +57,10 @@ static int soc_camera_power_set(struct soc_camera_device *icd,
 				int power_on)
 {
 	int ret;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 
 	if (power_on) {
-		ret = regulator_bulk_enable(icl->num_regulators,
-					    icl->regulators);
+		ret = regulator_enable(ici->regul);
 		if (ret < 0) {
 			dev_err(&icd->dev, "Cannot enable regulators\n");
 			return ret;
@@ -70,22 +72,20 @@ static int soc_camera_power_set(struct soc_camera_device *icd,
 			dev_err(&icd->dev,
 				"Platform failed to power-on the camera.\n");
 
-			regulator_bulk_disable(icl->num_regulators,
-					       icl->regulators);
+			regulator_enable(ici->regul);
 			return ret;
 		}
 	} else {
 		ret = 0;
 		if (icl->power)
-			ret = icl->power(icd->pdev, 0);
+			ret = icl->power(icd->pdev, power_on);
 		if (ret < 0) {
 			dev_err(&icd->dev,
 				"Platform failed to power-off the camera.\n");
 			return ret;
 		}
 
-		ret = regulator_bulk_disable(icl->num_regulators,
-					     icl->regulators);
+		ret = regulator_disable(ici->regul);
 		if (ret < 0) {
 			dev_err(&icd->dev, "Cannot disable regulators\n");
 			return ret;
@@ -239,6 +239,16 @@ static int soc_camera_s_std(struct file *file, void *priv, v4l2_std_id *a)
 
 	return v4l2_subdev_call(sd, core, s_std, *a);
 }
+
+static int soc_camera_enum_frameintervals(struct file *file, void *fh,
+					 struct v4l2_frmivalenum *interval)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
+
+	return ici->ops->enum_frameintervals(icd, interval);
+}
+
 
 static int soc_camera_enum_fsizes(struct file *file, void *fh,
 					 struct v4l2_frmsizeenum *fsize)
@@ -454,7 +464,10 @@ static int soc_camera_open(struct file *file)
 						     struct soc_camera_device,
 						     dev);
 	struct soc_camera_link *icl = to_soc_camera_link(icd);
+	struct v4l2_subdev *sd;
+
 	struct soc_camera_host *ici;
+	struct v4l2_mbus_framefmt mf;
 	int ret;
 
 	if (!icd->ops)
@@ -485,6 +498,12 @@ static int soc_camera_open(struct file *file)
 			},
 		};
 
+		ret = ici->ops->add(icd);
+		if (ret < 0) {
+			dev_err(&icd->dev, "Couldn't activate the camera: %d\n", ret);
+			goto eiciadd;
+		}
+
 		ret = soc_camera_power_set(icd, icl, 1);
 		if (ret < 0)
 			goto epower;
@@ -493,10 +512,14 @@ static int soc_camera_open(struct file *file)
 		if (icl->reset)
 			icl->reset(icd->pdev);
 
-		ret = ici->ops->add(icd);
-		if (ret < 0) {
-			dev_err(&icd->dev, "Couldn't activate the camera: %d\n", ret);
-			goto eiciadd;
+		sd = soc_camera_to_subdev(icd);
+		sd->grp_id = (long)icd;
+
+		if (!v4l2_subdev_call(sd, video, g_mbus_fmt, &mf)) {
+			icd->user_width		= mf.width;
+			icd->user_height	= mf.height;
+			icd->colorspace		= mf.colorspace;
+			icd->field		= mf.field;
 		}
 
 		pm_runtime_enable(&icd->vdev->dev);
@@ -511,8 +534,10 @@ static int soc_camera_open(struct file *file)
 		 * .video_lock is protecting us against it.
 		 */
 		ret = soc_camera_set_fmt(icd, &f);
-		if (ret < 0)
+		if (ret < 0) {
+			dev_err(&icd->dev, "soc_camera_set_fmt failed\n");
 			goto esfmt;
+		}
 
 		if (ici->ops->init_videobuf) {
 			ici->ops->init_videobuf(&icd->vb_vidq, icd);
@@ -524,7 +549,7 @@ static int soc_camera_open(struct file *file)
 	}
 
 	file->private_data = icd;
-	dev_dbg(&icd->dev, "camera device open\n");
+	dev_info(&icd->dev, "camera device open\n");
 
 	return 0;
 
@@ -536,10 +561,10 @@ einitvb:
 esfmt:
 	pm_runtime_disable(&icd->vdev->dev);
 eresume:
-	ici->ops->remove(icd);
-eiciadd:
 	soc_camera_power_set(icd, icl, 0);
 epower:
+	ici->ops->remove(icd);
+eiciadd:
 	icd->use_count--;
 	module_put(ici->ops->owner);
 
@@ -570,7 +595,7 @@ static int soc_camera_close(struct file *file)
 
 	module_put(ici->ops->owner);
 
-	dev_dbg(&icd->dev, "camera device close\n");
+	dev_info(&icd->dev, "camera device close\n");
 
 	return 0;
 }
@@ -622,7 +647,6 @@ static unsigned int soc_camera_poll(struct file *file, poll_table *pt)
 		dev_err(&icd->dev, "Trying to poll with no queued buffers!\n");
 		return POLLERR;
 	}
-
 	return ici->ops->poll(file, pt);
 }
 
@@ -695,6 +719,7 @@ static int soc_camera_enum_fmt_vid_cap(struct file *file, void  *priv,
 	if (format->name)
 		strlcpy(f->description, format->name, sizeof(f->description));
 	f->pixelformat = format->fourcc;
+
 	return 0;
 }
 
@@ -1059,16 +1084,11 @@ static int soc_camera_probe(struct device *dev)
 	struct soc_camera_host *ici = to_soc_camera_host(dev->parent);
 	struct soc_camera_link *icl = to_soc_camera_link(icd);
 	struct device *control = NULL;
-	struct v4l2_subdev *sd;
-	struct v4l2_mbus_framefmt mf;
 	int ret;
 
-	dev_info(dev, "Probing %s\n", dev_name(dev));
-
-	ret = regulator_bulk_get(icd->pdev, icl->num_regulators,
-				 icl->regulators);
+	ret = ici->ops->add(icd);
 	if (ret < 0)
-		goto ereg;
+		goto eadd;
 
 	ret = soc_camera_power_set(icd, icl, 1);
 	if (ret < 0)
@@ -1077,10 +1097,6 @@ static int soc_camera_probe(struct device *dev)
 	/* The camera could have been already on, try to reset */
 	if (icl->reset)
 		icl->reset(icd->pdev);
-
-	ret = ici->ops->add(icd);
-	if (ret < 0)
-		goto eadd;
 
 	/* Must have icd->vdev before registering the device */
 	ret = video_dev_create(icd);
@@ -1115,9 +1131,6 @@ static int soc_camera_probe(struct device *dev)
 		}
 	}
 
-	sd = soc_camera_to_subdev(icd);
-	sd->grp_id = (long)icd;
-
 	/* At this point client .probe() should have run already */
 	ret = soc_camera_init_user_formats(icd);
 	if (ret < 0)
@@ -1137,14 +1150,6 @@ static int soc_camera_probe(struct device *dev)
 	ret = soc_camera_video_start(icd);
 	if (ret < 0)
 		goto evidstart;
-
-	/* Try to improve our guess of a reasonable window format */
-	if (!v4l2_subdev_call(sd, video, g_mbus_fmt, &mf)) {
-		icd->user_width		= mf.width;
-		icd->user_height	= mf.height;
-		icd->colorspace		= mf.colorspace;
-		icd->field		= mf.field;
-	}
 
 	/* Do we have to sysfs_remove_link() before device_unregister()? */
 	if (sysfs_create_link(&icd->dev.kobj, &to_soc_camera_control(icd)->kobj,
@@ -1173,12 +1178,10 @@ enodrv:
 eadddev:
 	video_device_release(icd->vdev);
 evdc:
-	ici->ops->remove(icd);
-eadd:
 	soc_camera_power_set(icd, icl, 0);
 epower:
-	regulator_bulk_free(icl->num_regulators, icl->regulators);
-ereg:
+	ici->ops->remove(icd);
+eadd:
 	return ret;
 }
 
@@ -1211,7 +1214,7 @@ static int soc_camera_remove(struct device *dev)
 	}
 	soc_camera_free_user_formats(icd);
 
-	regulator_bulk_free(icl->num_regulators, icl->regulators);
+	//regulator_bulk_free(icl->num_regulators, icl->regulators);
 
 	return 0;
 }
@@ -1307,7 +1310,7 @@ static int default_enum_fsizes(struct soc_camera_device *icd,
 	/* map xlate-code to pixel_format, sensor only handle xlate-code*/
 	fsize_mbus.pixel_format = xlate->code;
 
-	ret = v4l2_subdev_call(sd, video, enum_mbus_fsizes, &fsize_mbus);
+	ret = v4l2_subdev_call(sd, video, enum_framesizes, &fsize_mbus);
 	if (ret < 0)
 		return ret;
 
@@ -1316,6 +1319,21 @@ static int default_enum_fsizes(struct soc_camera_device *icd,
 
 	return 0;
 }
+
+
+static int default_enum_frameintervals(struct soc_camera_device *icd,
+			  struct v4l2_frmivalenum *interval)
+{
+	int ret;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+
+	ret = v4l2_subdev_call(sd, video, enum_frameintervals, interval);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 
 static void soc_camera_device_init(struct device *dev, void *pdata)
 {
@@ -1355,6 +1373,8 @@ int soc_camera_host_register(struct soc_camera_host *ici)
 		ici->ops->get_parm = default_g_parm;
 	if (!ici->ops->enum_fsizes)
 		ici->ops->enum_fsizes = default_enum_fsizes;
+	if (!ici->ops->enum_frameintervals)
+		ici->ops->enum_frameintervals = default_enum_frameintervals;
 
 	mutex_lock(&list_lock);
 	list_for_each_entry(ix, &hosts, list) {
@@ -1463,6 +1483,7 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_s_input		 = soc_camera_s_input,
 	.vidioc_s_std		 = soc_camera_s_std,
 	.vidioc_enum_framesizes  = soc_camera_enum_fsizes,
+	.vidioc_enum_frameintervals = soc_camera_enum_frameintervals,
 	.vidioc_reqbufs		 = soc_camera_reqbufs,
 	.vidioc_try_fmt_vid_cap  = soc_camera_try_fmt_vid_cap,
 	.vidioc_querybuf	 = soc_camera_querybuf,
@@ -1535,7 +1556,7 @@ static int soc_camera_video_start(struct soc_camera_device *icd)
 	return 0;
 }
 
-static int __devinit soc_camera_pdrv_probe(struct platform_device *pdev)
+static int /*__devinit*/ soc_camera_pdrv_probe(struct platform_device *pdev)
 {
 	struct soc_camera_link *icl = pdev->dev.platform_data;
 	struct soc_camera_device *icd;
@@ -1561,6 +1582,7 @@ static int __devinit soc_camera_pdrv_probe(struct platform_device *pdev)
 	icd->user_width		= DEFAULT_WIDTH;
 	icd->user_height	= DEFAULT_HEIGHT;
 
+	dev_info(&pdev->dev, "register ok!\n");
 	return 0;
 
 escdevreg:
