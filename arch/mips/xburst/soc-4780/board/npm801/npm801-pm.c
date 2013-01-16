@@ -7,6 +7,9 @@
  */
 
 #include <gpio.h>
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+#include <mach/jzsnd.h>
+#endif
 //#define RDA8851_DEBUG
 
 #define PM_GPIO_NAND_SD0               GPIO_PA(0) 
@@ -284,12 +287,9 @@ __initdata int gpio_ss_table[][2] = {
     {PM_GPIO_CHARGER_DET          ,     GSS_IGNORE  }, 
     {PM_GPIO_KEY_1                ,    GSS_INPUT_NOPULL}, 
     {PM_GPIO_MOTOR_EN             ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_MIC_SEL              ,    GSS_OUTPUT_HIGH },
 
     {PM_GPIO_I2C3_SDA            ,      GSS_INPUT_NOPULL},
     {PM_GPIO_I2C3_SCK            ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_HP_MUTE             ,      GSS_OUTPUT_HIGH	},
-    {PM_GPIO_EAR_MIC_DETE        ,      GSS_INPUT_NOPULL},
     {PM_GPIO_BOOT_SEL0           ,      GSS_INPUT_NOPULL},
     {PM_GPIO_BOOT_SEL1           ,      GSS_INPUT_NOPULL},
     {PM_GPIO_BOOT_SEL2           ,      GSS_INPUT_NOPULL},
@@ -298,7 +298,6 @@ __initdata int gpio_ss_table[][2] = {
 
 	{PM_GPIO_ID                 ,       GSS_INPUT_NOPULL},
 	{PM_GPIO_AVDEFUSE_EN_N      ,       GSS_INPUT_NOPULL},
-	{PM_GPIO_AMPEN              ,       GSS_OUTPUT_LOW	},
 	{PM_GPIO_JD                 ,       GSS_INPUT_NOPULL},
 	{PM_GPIO_SENSOR_POWER_EN    ,       GSS_INPUT_PULL	},
 
@@ -325,6 +324,31 @@ __initdata int gpio_ss_table[][2] = {
 	{PM_GPIO_HDMI_SCL             ,   GSS_INPUT_NOPULL  },
 	{PM_GPIO_HDMI_SDA             ,   GSS_INPUT_NOPULL  },
 
+    {PM_GPIO_MIC_SEL              ,    GSS_OUTPUT_HIGH },
+    {PM_GPIO_HP_MUTE             ,      GSS_OUTPUT_HIGH	},
+    {PM_GPIO_EAR_MIC_DETE        ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_AMPEN              ,       GSS_OUTPUT_LOW	},
+
 	/* GPIO Group Set End */
 	{GSS_TABLET_END,GSS_TABLET_END	}
 };
+
+
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+bool need_update_gpio_ss(void)
+{
+    printk("i2s_is_incall = %d\n", i2s_is_incall());
+    return i2s_is_incall();
+
+}
+
+__initdata int gpio_ss_table2[][2] = {
+    {PM_GPIO_MIC_SEL              ,     GSS_IGNORE },
+    {PM_GPIO_HP_MUTE             ,      GSS_IGNORE },
+    {PM_GPIO_EAR_MIC_DETE        ,      GSS_IGNORE },
+	{PM_GPIO_AMPEN              ,       GSS_IGNORE },
+
+	/* GPIO Group Set End */
+	{GSS_TABLET_END,GSS_TABLET_END	}
+};
+#endif

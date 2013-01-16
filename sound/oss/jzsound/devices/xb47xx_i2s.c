@@ -686,7 +686,8 @@ static int i2s_set_device(unsigned long device)
 		return -1;
 
 	/*call state operation*/
-	if (device >= SND_DEVICE_CALL_START && device <= SND_DEVICE_CALL_END)
+	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START && 
+            *(enum snd_device_t *)device <= SND_DEVICE_CALL_END)
 		i2s_is_incall_state = true;
 	else
 		i2s_is_incall_state = false;

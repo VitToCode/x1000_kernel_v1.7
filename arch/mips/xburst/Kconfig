@@ -129,6 +129,11 @@ config SUSPEND_SUPREME_DEBUG
 	bool "superme debug for suspend"
 	default n
 
+config RECONFIG_SLEEP_GPIO
+    depends on PM
+    bool "reconfig gpio sleep state."
+    default n
+
 config JZRISC_PEP
 	bool "enable page execution protection"
 	default y

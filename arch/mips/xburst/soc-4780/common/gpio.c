@@ -52,6 +52,11 @@
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 
 extern int gpio_ss_table[][2];
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+extern int gpio_ss_table2[][2];
+extern bool need_update_gpio_ss(void);
+int __init gpio_ss_recheck(void);
+#endif
 
 extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
 
@@ -73,6 +78,7 @@ struct jzgpio_chip {
 	struct irq_chip  irq_chip;
 	unsigned int wake_map;
 	struct jzgpio_state sleep_state;
+	struct jzgpio_state sleep_state2;
 	unsigned int save[5];
 };
 
@@ -418,6 +424,34 @@ static int __init setup_gpio_irq(void)
 	return 0;
 }
 
+void gpio_suspend_set(struct jzgpio_chip *jz)
+{
+#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+    if (need_update_gpio_ss()) {
+		gpio_set_func(jz,GPIO_OUTPUT0,
+				jz->sleep_state2.output_low & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_OUTPUT1,
+				jz->sleep_state2.output_high & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT,
+				jz->sleep_state2.input_nopull & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT_PULL,
+				jz->sleep_state2.input_pull & ~jz->wake_map);
+    } else {
+#endif
+		gpio_set_func(jz,GPIO_OUTPUT0,
+				jz->sleep_state.output_low & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_OUTPUT1,
+				jz->sleep_state.output_high & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT,
+				jz->sleep_state.input_nopull & ~jz->wake_map);
+		gpio_set_func(jz,GPIO_INPUT_PULL,
+				jz->sleep_state.input_pull & ~jz->wake_map);
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+    }
+#endif
+#endif
+}
 
 int gpio_suspend(void)
 {
@@ -442,16 +476,7 @@ int gpio_suspend(void)
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
 	
-#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
-		gpio_set_func(jz,GPIO_OUTPUT0,
-				jz->sleep_state.output_low & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_OUTPUT1,
-				jz->sleep_state.output_high & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT,
-				jz->sleep_state.input_nopull & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT_PULL,
-				jz->sleep_state.input_pull & ~jz->wake_map);
-#endif
+        gpio_suspend_set(jz);
 	}
 	return 0;
 }
@@ -540,6 +565,52 @@ int __init gpio_ss_check(void)
 	return 0;
 }
 
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+int __init gpio_ss_recheck(void)
+{
+	unsigned int i,state,group,index;
+
+    for (i = 0; i < GPIO_NR_PORTS; i++) {
+        jz_gpio_chips[i].sleep_state2.output_high = jz_gpio_chips[i].sleep_state.output_high;
+        jz_gpio_chips[i].sleep_state2.output_low  = jz_gpio_chips[i].sleep_state.output_low;
+        jz_gpio_chips[i].sleep_state2.input_pull  = jz_gpio_chips[i].sleep_state.input_pull;
+        jz_gpio_chips[i].sleep_state2.input_nopull = jz_gpio_chips[i].sleep_state.input_nopull;
+    }
+
+	for(i = 0; gpio_ss_table2[i][1] != GSS_TABLET_END;i++) {
+		group = gpio_ss_table2[i][0] / 32;
+		index = gpio_ss_table2[i][0] % 32;
+		state = gpio_ss_table2[i][1];
+
+        printk("%s: group=%d, index=%d, state=%d\n",__func__, group, index, state);
+        jz_gpio_chips[group].sleep_state2.output_high &= ~(1 << index);
+        jz_gpio_chips[group].sleep_state2.output_low  &= ~(1 << index);
+		jz_gpio_chips[group].sleep_state2.input_pull  &= ~(1 << index);
+        jz_gpio_chips[group].sleep_state2.input_nopull &= ~(1 << index);
+
+		switch(state) {
+			case GSS_OUTPUT_HIGH:
+				jz_gpio_chips[group].sleep_state2.output_high |= 1 << index;
+				break;
+			case GSS_OUTPUT_LOW:
+				jz_gpio_chips[group].sleep_state2.output_low |= 1 << index;
+				break;
+			case GSS_INPUT_PULL:
+				jz_gpio_chips[group].sleep_state2.input_pull |= 1 << index;
+				break;
+			case GSS_INPUT_NOPULL:
+				jz_gpio_chips[group].sleep_state2.input_nopull |= 1 << index;
+				break;
+            default:
+
+                break;
+		}
+	}
+
+	return 0;
+}
+#endif
+
 int __init setup_gpio_pins(void)
 {
 	int i;
@@ -580,6 +651,9 @@ int __init setup_gpio_pins(void)
 	register_syscore_ops(&gpio_pm_ops);
 
 	gpio_ss_check();
+#ifdef CONFIG_RECONFIG_SLEEP_GPIO
+    gpio_ss_recheck();
+#endif
 
 	return 0;
 }
