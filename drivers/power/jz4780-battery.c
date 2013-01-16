@@ -26,19 +26,62 @@
 #include <linux/power/jz4780-battery.h>
 #include <linux/mfd/act8600-private.h>
 
-#define JZ_BATTERY_DEBUG 1
+#define RD_ADJ		15
+#define RD_STROBE	7
+#define	ADDRESS		0x10
+#define LENGTH		0x3
+#define	RD_EN		0x01
+#define RD_DOWN		0x1
 
-#define EFUDATA		0
+#define REG_EFUCTRL	0xb34100d0
+#define REG_EFUCFG	0xb34100d4
+#define REG_EFUSTATE	0xb34100d8
+#define REG_EFUDATA0	0xb34100dc
 
-#define EFUSE_DATA1	0xb34100e0
-#define EFUSE_DATA2	0xb34100e4
-#define EFUSE_DATA3	0xb34100e8
-
-#define REG_EFUSE_DATA1	readl(EFUSE_DATA1)
-#define REG_EFUSE_DATA2 readl(EFUSE_DATA2)
-#define REG_EFUSE_DATA3 readl(EFUSE_DATA3)
+#define	REG_READ(addr)		((unsigned int)(*(volatile unsigned int *)(addr)))
+#define REG_WRITE(value, addr)	(*(volatile unsigned int *)(addr) = (value))
 
 #define VOL_DIV 8
+
+static long	slop;
+static long	cut;
+
+static void get_slop_cut(void)
+{
+	spinlock_t	lock;
+	unsigned long	flags;
+	unsigned int	tmp;
+	char		slop_r;
+	char		cut_r;
+
+	spin_lock_init(&lock);
+
+	spin_lock_irqsave(&lock, flags);
+	tmp = REG_READ(REG_EFUCFG);
+	tmp &= ~(0xf << 20 | 0xf << 16);
+	tmp |= (RD_ADJ << 20) | (RD_STROBE << 16);
+	REG_WRITE(tmp, REG_EFUCFG);
+	spin_unlock_irqrestore(&lock, flags);
+
+	spin_lock_irqsave(&lock, flags);
+	tmp = REG_READ(REG_EFUCTRL);
+	tmp &= ~(0x1ff << 21 | 0x1f << 16 | 0x1 << 0);
+	tmp |= ((ADDRESS << 21) | (LENGTH << 16) | (RD_EN << 0));
+	REG_WRITE(tmp, REG_EFUCTRL);
+	spin_unlock_irqrestore(&lock, flags);
+
+	do {
+		tmp = REG_READ(REG_EFUSTATE);
+	} while (!(tmp & RD_DOWN));
+
+	tmp = REG_READ(REG_EFUDATA0);
+
+	slop_r = (tmp >> 24) & 0xff;
+	cut_r = (tmp  >> 16) & 0xff;
+
+	slop = 2 * slop_r + 2895;
+	cut = 1000 * cut_r  + 90000;
+}
 
 static inline struct jz_battery *psy_to_jz_battery(struct power_supply *psy)
 {
@@ -81,22 +124,6 @@ static unsigned int jz_battery_read_value(struct jz_battery *jz_battery)
 	return value;
 }
 
-static int efuse_data_read(char *slope, char *cut)
-{
-#if EFUDATA
-	if (!(REG_EFUSE_DATA1 || REG_EFUSE_DATA2 || REG_EFUSE_DATA3)) {
-		return -1
-	}
-
-	(*slope) = (REG_EFUSE_DATA2 >> 24) & 0xff;
-	(*cut) = (REG_EFUSE_DATA2 >> 16) & 0xff;
-
-	return 0;
-#else
-	return -1;
-#endif
-}
-
 static int jz_battery_adjust_voltage(struct jz_battery *battery)
 {
 	unsigned int current_value[12], final_value = 0;
@@ -104,7 +131,6 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 	unsigned int max_value, min_value;
 	unsigned int i,j = 0, temp;
 	unsigned int real_voltage = 0;
-	char slope, cut;
 
 	current_value[0] = jz_battery_read_value(battery);
 
@@ -136,19 +162,16 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 		final_value = value_sum / (10 - j);
 	}
 
-
-	if (efuse_data_read(&slope, &cut)) {
+	if ((slop == 0) && (cut == 0)) {
 		real_voltage = final_value * 1200 / 4096;
 		real_voltage *= 4;
-		return real_voltage;
+		pr_debug("Battery driver:The voltage is %d\n",real_voltage);
+	} else {
+		real_voltage = (final_value * slop + cut) / 10000;
+		real_voltage *= 4;
+		pr_debug("Battery driver:The adjust voltage is %d\n",real_voltage);
 	}
 
-	real_voltage = (((slope * final_value * 6) + (cut * 485) +
-				(15 * 4850 * 3)) / (4850 * 6) +
-			(2916 * final_value) / 10000) * 4;
-#if JZ_BATTERY_DEBUG
-	printk("voltage :%d mv\n", real_voltage);
-#endif
 	return real_voltage;
 }
 
@@ -320,17 +343,17 @@ static void jz_battery_capacity_rising(struct jz_battery *jz_battery)
 	} else if (jz_battery->usb == 1) {
 		if (jz_battery->voltage >=
 				jz_battery->pdata->info.usb_max_vol - VOL_DIV) {
-			jz_battery->next_scan_time = jz_battery->ac_charge_time << 1;
+			jz_battery->next_scan_time = jz_battery->usb_charge_time << 1;
 		} else {
 			jz_battery->next_scan_time = jz_battery->usb_charge_time;
 		}
 	}
 
-	if (jz_battery->capacity_calculate - jz_battery->capacity > 20) {
+	if (jz_battery->capacity_calculate - jz_battery->capacity > 15) {
 		jz_battery->next_scan_time /= 4;
-	} else if (jz_battery->capacity_calculate - jz_battery->capacity > 15) {
-		jz_battery->next_scan_time /= 3;
 	} else if (jz_battery->capacity_calculate - jz_battery->capacity > 10) {
+		jz_battery->next_scan_time /= 3;
+	} else if (jz_battery->capacity_calculate - jz_battery->capacity > 5) {
 		jz_battery->next_scan_time /= 2;
 	}
 
@@ -499,10 +522,10 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 
 	if (has_changed) {
 		unsigned int tmp = jz_battery->capacity;
-		printk("voltage is %d\n", jz_battery->voltage);
+		pr_debug("Battery driver: voltage is %d\n", jz_battery->voltage);
 		jz_battery_get_capacity(jz_battery);
 		if (tmp != jz_battery->capacity)
-			printk("After changed: Capacity is %d\n", jz_battery->capacity);
+			pr_debug("Battery driver: Capacity is %d\n", jz_battery->capacity);
 
 		power_supply_changed(&jz_battery->battery);
 	}
@@ -557,7 +580,7 @@ static void jz_battery_resume_capacity_for_ac(struct jz_battery *jz_battery)
 		if (jz_battery->private.timecount > 3 * 60) {
 			jz_battery->capacity = jz_battery->capacity_calculate;
 		} else {
-			printk("### the time < 3m,so the capcacity is old###\n");
+			pr_info("Battery driver: the sleep time < 3m, the capcacity don't change\n");
 		}
 	} else {
 		time_tmp = jz_battery->private.timecount -		\
@@ -568,7 +591,7 @@ static void jz_battery_resume_capacity_for_ac(struct jz_battery *jz_battery)
 				(time_tmp / (jz_battery->ac_charge_time << 1));
 		} else {
 			jz_battery->capacity = VOLTAGE_BOUNDARY;
-			printk("===Now the battery drivers is error in resume===\n");
+			pr_info("Battery driver: error in resume\n");
 		}
 	}
 
@@ -595,7 +618,7 @@ static void jz_battery_resume_capacity_for_usb(struct jz_battery *jz_battery)
 				(time_tmp / (jz_battery->usb_charge_time << 1));
 		} else {
 			jz_battery->capacity = VOLTAGE_BOUNDARY;
-			printk("===Now the battery drivers is error in resume===\n");
+			pr_info("Battery driver: error in resume\n");
 		}
 	}
 }
@@ -607,8 +630,8 @@ static void jz_battery_resume_capacity_for_charge(struct jz_battery *jz_battery)
 	else if (jz_battery->usb)
 		jz_battery_resume_capacity_for_usb(jz_battery);
 	else {
-		printk("===Now the battery drivers is error in resume===\n");
-		printk("===cannot get the online status===\n");
+		pr_info("Battery driver: error in resume\n");
+		pr_info("Battery driver: cannot get the online status\n");
 	}
 
 	if (jz_battery->capacity > 100) {
@@ -636,8 +659,8 @@ static void jz_battery_resume_charge_capacity(struct jz_battery *jz_battery)
 		return;
 	default:
 		jz_battery->capacity = jz_battery->capacity_calculate;
-		printk("===Now the battery drivers is error in resume===\n");
-		printk("=== Now the status is unknown ===\n");
+		pr_info("Battery driver: error in resume\n");
+		pr_info("Battery driver: the status is unknown\n");
 	}
 
 }
@@ -665,10 +688,10 @@ static void jz_battery_resume_work(struct work_struct *work)
 
 	do_gettimeofday(&battery_time);
 	jz_battery->resume_time = battery_time.tv_sec;
-	printk("Battery driver: resume_time is %ld\n", battery_time.tv_sec);
+	pr_info("Battery driver: resume_time is %ld\n", battery_time.tv_sec);
 	jz_battery->private.timecount = jz_battery->resume_time - \
 		jz_battery->suspend_time;
-	printk("Battery driver: sleep time is %ld\n", jz_battery->private.timecount);
+	pr_info("Battery driver: sleep time is %ld\n", jz_battery->private.timecount);
 
 	if ((status == POWER_SUPPLY_STATUS_DISCHARGING) ||
 			(status == POWER_SUPPLY_STATUS_NOT_CHARGING)) {
@@ -700,7 +723,7 @@ static int jz_battery_suspend(struct platform_device *pdev, pm_message_t state)
 
 	do_gettimeofday(&battery_time);
 	jz_battery->suspend_time = battery_time.tv_sec;
-	printk("Battery driver: suspend_time is %ld\n", battery_time.tv_sec);
+	pr_info("Battery driver: suspend_time is %ld\n", battery_time.tv_sec);
 
 	return 0;
 }
@@ -739,8 +762,8 @@ static int proc_read_voltage(char *page, char **start, off_t off,
 	real_voltage = value * 1200 / 4096;
 	real_voltage *= 4;
 
-	printk("Value	= %d\n", value);
-	printk("Real_Voltage = %d\n", real_voltage);
+	pr_info("Value	= %d\n", value);
+	pr_info("Real_Voltage = %d\n", real_voltage);
 	return 0;
 }
 
@@ -752,7 +775,7 @@ static int proc_read_adjust_voltage(char *page, char **start, off_t off,
 
 	adjust_voltage = jz_battery_adjust_voltage(jz_battery);
 
-	printk("Adjust_Voltage = %d\n", adjust_voltage);
+	pr_info("Adjust_Voltage = %d\n", adjust_voltage);
 	return 0;
 }
 
@@ -815,9 +838,9 @@ static int proc_read_capacity(char *page, char **start, off_t off,
 		}
 	}
 
-	printk("Voltage	= %d\n", voltage);
-	printk("USB = %d, AC = %d\n",jz_battery->usb, jz_battery->ac);
-	printk("Capacity = %d\n", capacity);
+	pr_info("Voltage	= %d\n", voltage);
+	pr_info("USB = %d, AC = %d\n",jz_battery->usb, jz_battery->ac);
+	pr_info("Capacity = %d\n", capacity);
 	return 0;
 }
 
@@ -836,8 +859,8 @@ static int proc_read_status(char *page, char **start, off_t off,
 	usb = jz_battery->get_pmu_status(
 			jz_battery->pmu_interface, USB);
 
-	printk("Status = %d\n", status_charge);
-	printk("AC = %d, USB = %d\n", ac, usb);
+	pr_info("Status = %d\n", status_charge);
+	pr_info("AC = %d, USB = %d\n", ac, usb);
 	return 0;
 }
 
@@ -892,6 +915,8 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
 		goto err_release_mem_region;
 	}
+
+	get_slop_cut();
 
 	battery = &jz_battery->battery;
 	battery->name = "battery";
@@ -967,7 +992,7 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 		res->data = jz_battery;
 	}
 
-	printk("=====jz4780-battery driver registers over!=====\n");
+	pr_info("Battery driver registers over!\n");
 
 	return 0;
 
