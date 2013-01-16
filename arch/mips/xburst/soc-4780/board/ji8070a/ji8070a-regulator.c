@@ -83,11 +83,20 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,	"vdrvvbus",	NULL);
 
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
 FIXED_REGULATOR_DEF(
 	ji8070a_vcim,
 	"Camera",	2800000,GPIO_PB(27),	
 	HIGH_ENABLE,UN_AT_BOOT,	0,
+	NULL,		"vcim",		"jz4780-cim.0");
+
+#else
+FIXED_REGULATOR_DEF(
+	ji8070a_vcim,
+	"Camera",	2800000,GPIO_PB(27),
+	HIGH_ENABLE,UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
+#endif
 
 #ifdef CONFIG_BOARD_Q8
 

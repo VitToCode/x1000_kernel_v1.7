@@ -124,6 +124,28 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_GC2015_EN			GPIO_PB(19)
 #define GPIO_GC2015_RST			GPIO_PB(26)
 #endif
+
+/**
+ * camera sensor interface
+ **/
+
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
+
+#define	CAMERA_SENSOR_RESET		GPIO_PB(26)
+
+#ifndef CONFIG_EXCHANGE_SENSOR_EN_PIN
+#define CAMERA_FRONT_SENSOR_EN	GPIO_PB(19)
+#define CAMERA_BACK_SENSOR_EN	GPIO_PB(18)
+#else
+#define CAMERA_FRONT_SENSOR_EN	GPIO_PB(18)
+#define CAMERA_BACK_SENSOR_EN	GPIO_PB(19)
+#endif
+
+#endif
+
+#define FRONT_CAMERA_INDEX	0
+#define BACK_CAMERA_INDEX	1
+
 /**
  * motor gpio
  */
