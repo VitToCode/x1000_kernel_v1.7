@@ -9,9 +9,9 @@
 //#define DEBUG
 
 #ifdef DEBUG
-#define wifi_printk printk
+#define wifi_printk(fmt, args...) printk(fmt, ## args)
 #else
-#define wifi_printk NULL
+#define wifi_printk(fmt, args...)
 #endif
 
 #define WIFI_POWER_DEV_NAME "wifi_power"
