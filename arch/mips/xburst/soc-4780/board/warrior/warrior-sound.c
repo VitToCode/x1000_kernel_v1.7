@@ -10,7 +10,6 @@ struct snd_codec_data codec_data = {
 	.record_volume_base = 20,
 	.record_digital_volume_base = 15,
 	.replay_digital_volume_base = 0,
-	.replay_hp_output_gain_base = 0,
 
 	/* default route */
 	.replay_def_route = {
@@ -22,7 +21,8 @@ struct snd_codec_data codec_data = {
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1,
 					.gpio_handset_en_stat = -1,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_buildin_mic_en_stat = -1,
+					.replay_volume_base = 6},
 	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
 					.gpio_hp_mute_stat = -1,
 					.gpio_spk_en_stat = -1,
@@ -50,7 +50,8 @@ struct snd_codec_data codec_data = {
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 0,
 					.gpio_handset_en_stat = 0,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_buildin_mic_en_stat = -1,
+					.replay_volume_base = 0},
 
 	.replay_speaker_route = {
 #ifdef CONFIG_BOARD_WARRIOR_V_1_1
@@ -61,13 +62,15 @@ struct snd_codec_data codec_data = {
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 1,
 					.gpio_handset_en_stat = 0,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_buildin_mic_en_stat = -1,
+					.replay_volume_base = 6},
 
 	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 						.gpio_hp_mute_stat = 0,
 						.gpio_spk_en_stat = 1,
 						.gpio_handset_en_stat = 0,
-						.gpio_buildin_mic_en_stat = -1},
+						.gpio_buildin_mic_en_stat = -1,
+						.replay_volume_base = 6},
 
 	.fm_speaker_route = {.route = SND_ROUTE_NONE,
 						 .gpio_hp_mute_stat = 0,
@@ -81,7 +84,7 @@ struct snd_codec_data codec_data = {
 						 .gpio_handset_en_stat = 0,
 						 .gpio_buildin_mic_en_stat = -1},
 
-	.downlink_handset_route = {.route = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
+	.downlink_handset_route = {.route = SND_ROUTE_NONE,
 					.gpio_hp_mute_stat = 0,
 					.gpio_spk_en_stat = 0,
 					.gpio_handset_en_stat = 1,
@@ -116,7 +119,7 @@ struct snd_codec_data codec_data = {
 						 .gpio_spk_en_stat = -1,
 						 .gpio_handset_en_stat = -1,
 						 .gpio_buildin_mic_en_stat = -1},
-	.replay_loop_route =  {.route = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+	.replay_loop_route =  {.route = SND_ROUTE_NONE,
 						 .gpio_hp_mute_stat = 0,
 						 .gpio_spk_en_stat = 1,
 						 .gpio_handset_en_stat = 1,

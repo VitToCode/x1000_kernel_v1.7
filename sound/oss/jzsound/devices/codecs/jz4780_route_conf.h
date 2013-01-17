@@ -42,6 +42,7 @@ typedef struct __route_conf_base {
 
 	/* gain note: use 32 instead of 0 */
 	/*gain of mic or linein to adc ??*/
+	//NOTE excet mixer gain,other gain better set in board config
 	int attibute_input_l_gain;			//val: 32(0), +4, +8, +16, +20 (dB);
 	int attibute_input_r_gain;			//val: 32(0), +4, +8, +16, +20 (dB);
 	int attibute_input_bypass_l_gain;	//val: +6 ~ +1, 32(0), -1 ~ -25 (dB);
