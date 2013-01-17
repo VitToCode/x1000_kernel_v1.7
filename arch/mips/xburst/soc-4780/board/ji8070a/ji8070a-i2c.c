@@ -71,18 +71,26 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_SENSORS_DMARD06))
 static struct gsensor_platform_data dmard06_platform_data = {
-//	.gpio_int = GPIO_LIS3DH_INT1, 
 	.poll_interval = 100,
     .min_interval = 40,
 	.max_interval = 400,
 	.g_range = GSENSOR_2G,
-	.axis_map_x = 1,
-	.axis_map_y = 0,
+#if defined(CONFIG_BOARD_JI8070A)
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,							        
+	.negate_x = 1,
+	.negate_y = 0,
+	.negate_z = 0,
+#else
+	.axis_map_x = 0,
+	.axis_map_y = 1,
 	.axis_map_z = 2,							        
 	.negate_x = 0,
 	.negate_y = 1,
-	.negate_z = 1,
-	
+	.negate_z = 0,
+#endif
+
 	.ori_pr_swap = 0,
 	.ori_pith_negate = 0,
 	.ori_roll_negate = 1,
