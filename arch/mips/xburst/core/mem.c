@@ -25,13 +25,6 @@ int hw_coherentio;		/* init to 0, no HW DMA cache coherency */
 
 void __init plat_mem_setup(void)
 {
-	/* jz mips cpu special */
-	__asm__ (
-		"li    $2, 0xa9000000 \n\t"
-		"mtc0  $2, $5, 4      \n\t"
-		"nop                  \n\t"
-		::"r"(2));
-
 	/* use IO_BASE, so that we can use phy addr on hard manual
 	 * directly with in(bwlq)/out(bwlq) in io.h.
 	 */
