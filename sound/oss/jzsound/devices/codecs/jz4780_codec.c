@@ -47,6 +47,15 @@
 static struct snd_board_route *cur_route = NULL;
 static struct snd_board_route *keep_old_route = NULL;
 static struct snd_codec_data *codec_platform_data = NULL;
+static int default_replay_volume_base = 0;
+static int default_record_volume_base = 0;
+static int default_record_digital_volume_base = 0;
+static int default_replay_digital_volume_base = 0;
+static int default_bypass_l_volume_base = 0;					/*call uplink or other use*/
+static int default_bypass_r_volume_base = 0;					/*call downlink or other use*/
+static int user_replay_volume = 100;
+static int user_record_volume = 100;
+
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
@@ -1459,8 +1468,8 @@ static int codec_set_gain_adc_left(int gain)
 
 	if (gain < 0)
 		gain = 0;
-	else if ( gain > 43)
-		gain = 43;
+	else if (gain > 23)
+		gain = 23;
 
 	val = gain;
 
@@ -1496,8 +1505,8 @@ static int codec_set_gain_adc_right(int gain)
 
 	if (gain < 0)
 		gain = 0;
-	else if ( gain > 43)
-		gain = 43;
+	else if (gain > 23)
+		gain = 23;
 
 	val = gain;
 
@@ -1784,7 +1793,21 @@ static void codec_set_route_base(const void *arg)
 	/* auto gain */
 	if (conf->attibute_agc_mode)
 		codec_set_agc(conf->attibute_agc_mode);
+
 	/* gain , use 32 instead of 0 */
+	if (conf->attibute_record_mixer_gain) {
+		if (conf->attibute_record_mixer_gain == 32)
+			codec_set_gain_record_mixer(0);
+		else
+			codec_set_gain_record_mixer(conf->attibute_record_mixer_gain);
+	}
+	if (conf->attibute_replay_mixer_gain) {
+		if (conf->attibute_replay_mixer_gain == 32)
+			codec_set_gain_replay_mixer(0);
+		else
+			codec_set_gain_replay_mixer(conf->attibute_replay_mixer_gain);
+	}
+	/*Note it should not be set in andriod ,below */
 	if (conf->attibute_input_l_gain) {
 		if (conf->attibute_input_l_gain == 32)
 			codec_set_gain_input_left(0);
@@ -1821,18 +1844,6 @@ static void codec_set_route_base(const void *arg)
 		else
 			codec_set_gain_adc_right(conf->attibute_adc_r_gain);
 	}
-	if (conf->attibute_record_mixer_gain) {
-		if (conf->attibute_record_mixer_gain == 32)
-			codec_set_gain_record_mixer(0);
-		else
-			codec_set_gain_record_mixer(conf->attibute_record_mixer_gain);
-	}
-	if (conf->attibute_replay_mixer_gain) {
-		if (conf->attibute_replay_mixer_gain == 32)
-			codec_set_gain_replay_mixer(0);
-		else
-			codec_set_gain_replay_mixer(conf->attibute_replay_mixer_gain);
-	}
 	if (conf->attibute_dac_l_gain) {
 		if (conf->attibute_dac_l_gain == 32)
 			codec_set_gain_dac_left(0);
@@ -1856,6 +1867,109 @@ static void codec_set_route_base(const void *arg)
 			codec_set_gain_hp_right(0);
 		else
 			codec_set_gain_hp_right(conf->attibute_hp_r_gain);
+	}
+}
+
+static int codec_set_mic_volume(int* val);
+static int codec_set_replay_volume(int *val);
+
+static void codec_set_gain_base(struct snd_board_route *route)
+{
+
+	int old_volume_base = 0;
+	int tmp_volume = 0;
+
+	if (codec_platform_data) {
+		tmp_volume = user_record_volume;
+		old_volume_base = codec_platform_data->record_volume_base;
+		if (route->record_volume_base) {
+			if (route->record_volume_base == 32)
+				codec_platform_data->record_volume_base = 0;
+			else
+				codec_platform_data->record_volume_base = route->record_volume_base;
+		} else
+			codec_platform_data->record_volume_base = default_record_volume_base;
+
+		if (old_volume_base != codec_platform_data->record_volume_base)
+			codec_set_mic_volume(&tmp_volume);
+	}
+
+	/* set replay hp output gain base */
+	if (codec_platform_data) {
+		tmp_volume = user_replay_volume;
+		old_volume_base = codec_platform_data->replay_volume_base;
+		if (route->replay_volume_base) {
+			if (route->replay_volume_base == 32)
+				codec_platform_data->replay_volume_base = 0;
+			else
+				codec_platform_data->replay_volume_base = route->replay_volume_base;
+		} else
+			codec_platform_data->replay_volume_base = default_replay_volume_base;
+
+		if (old_volume_base !=  codec_platform_data->replay_volume_base)
+			codec_set_replay_volume(&tmp_volume);
+	}
+
+	/* set record digtal volume base */
+	if (codec_platform_data) {
+		if (route->record_digital_volume_base) {
+			if (route->record_digital_volume_base == 32)
+				codec_platform_data->record_digital_volume_base = 0;
+			else
+				codec_platform_data->record_digital_volume_base = route->record_digital_volume_base;
+			codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
+			codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
+		} else if (codec_platform_data->record_digital_volume_base !=
+				default_record_digital_volume_base) {
+			codec_platform_data->record_digital_volume_base = default_record_digital_volume_base;
+			codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
+			codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
+		}
+	}
+
+	/* set replay digital volume base */
+	if (codec_platform_data) {
+		if (route->replay_digital_volume_base) {
+			if (route->replay_digital_volume_base == 32)
+				codec_platform_data->replay_digital_volume_base = 0;
+			else
+				codec_platform_data->replay_digital_volume_base = route->replay_digital_volume_base;
+			codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
+			codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
+		} else if (codec_platform_data->replay_digital_volume_base !=
+				default_replay_digital_volume_base) {
+			codec_platform_data->replay_digital_volume_base = default_replay_digital_volume_base;
+			codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
+			codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
+		}
+	}
+
+	/*set bypass left volume base*/
+	if (codec_platform_data) {
+		if (route->bypass_l_volume_base) {
+			if (route->bypass_l_volume_base == 32)
+				codec_platform_data->bypass_l_volume_base = 0;
+			else
+				codec_platform_data->bypass_l_volume_base = route->bypass_l_volume_base;
+			codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
+		} else if (codec_platform_data->bypass_l_volume_base != default_bypass_l_volume_base) {
+			codec_platform_data->bypass_l_volume_base = default_bypass_l_volume_base;
+			codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
+		}
+	}
+
+	/*set bypass right volume base*/
+	if (codec_platform_data) {
+		if (route->bypass_r_volume_base) {
+			if (route->bypass_r_volume_base == 32)
+				codec_platform_data->bypass_r_volume_base = 0;
+			else
+				codec_platform_data->bypass_r_volume_base = route->bypass_r_volume_base;
+			codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
+		} else if (codec_platform_data->bypass_r_volume_base != default_bypass_r_volume_base) {
+			codec_platform_data->bypass_r_volume_base = default_bypass_r_volume_base;
+			codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
+		}
 	}
 }
 
@@ -2015,6 +2129,9 @@ static int codec_set_board_route(struct snd_board_route *broute)
 		}
 	}
 
+	/*set board gain*/
+	codec_set_gain_base(broute);
+
 	/* set gpio after set route */
 	if (broute->gpio_hp_mute_stat == 0)
 		gpio_disable_hp_mute();
@@ -2117,25 +2234,38 @@ static int codec_init(void)
 	//__codec_enable_dac_mute();
 	//codec_wait_event_complete(IFR_DAC_MUTE_EVENT,CODEC_IN_MUTE);
 
-	if (codec_platform_data && codec_platform_data->record_volume_base) {
+	if (codec_platform_data) {
 		codec_set_gain_input_left(codec_platform_data->record_volume_base);
 		codec_set_gain_input_right(codec_platform_data->record_volume_base);
-	}
-
-	/* set record digtal volume base */
-	if(codec_platform_data && codec_platform_data->record_digital_volume_base != -1) {
-		codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
-		codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
-	}
-	/* set replay digital volume base */
-	if(codec_platform_data && codec_platform_data->replay_digital_volume_base != -1) {
-		codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
-		codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
+		default_record_volume_base = codec_platform_data->record_volume_base;
 	}
 	/* set replay hp output gain base */
-	if(codec_platform_data && codec_platform_data->replay_hp_output_gain_base != -1) {
-		codec_set_gain_hp_right(codec_platform_data->replay_hp_output_gain_base);
-		codec_set_gain_hp_left(codec_platform_data->replay_hp_output_gain_base);
+	if (codec_platform_data) {
+		codec_set_gain_hp_right(codec_platform_data->replay_volume_base);
+		codec_set_gain_hp_left(codec_platform_data->replay_volume_base);
+		default_replay_volume_base = codec_platform_data->replay_volume_base;
+	}
+	/* set record digtal volume base */
+	if (codec_platform_data) {
+		codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
+		codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
+		default_record_digital_volume_base = codec_platform_data->record_digital_volume_base;
+	}
+	/* set replay digital volume base */
+	if (codec_platform_data) {
+		codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
+		codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
+		default_replay_digital_volume_base = codec_platform_data->replay_digital_volume_base;
+	}
+
+	if (codec_platform_data) {
+		codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
+		default_bypass_l_volume_base = codec_platform_data->bypass_l_volume_base;
+	}
+
+	if (codec_platform_data) {
+		codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
+		default_bypass_r_volume_base = codec_platform_data->bypass_r_volume_base;
 	}
 
 	__codec_switch_sb_micbias1(POWER_ON);
@@ -2562,7 +2692,9 @@ static int codec_set_mic_volume(int* val)
 	int fixed_vol;
 	int volume_base;
 
-	if(codec_platform_data->record_volume_base)
+	if (codec_platform_data &&
+			codec_platform_data->record_volume_base >= 0 &&
+			codec_platform_data->record_volume_base <=20)
 	{
 		volume_base = codec_platform_data->record_volume_base;
 
@@ -2574,13 +2706,14 @@ static int codec_set_mic_volume(int* val)
 
 	__codec_set_gm1(fixed_vol);
 	__codec_set_gm2(fixed_vol);
+	user_record_volume = *val;
 #else
 	int val_tmp = *val;
 	*val = codec_set_gain_input_left(val_tmp);
 	val_tmp = *val;
 	*val = codec_set_gain_input_right(val_tmp);
 #endif
-	return 0;
+	return *val;
 }
 
 static int codec_set_record_channel(int *channel)
@@ -2650,14 +2783,17 @@ static int codec_set_replay_volume(int *val)
 	unsigned long fixed_vol;
 	int volume_base = 0;
 
-	if(codec_platform_data->replay_volume_base)
-			volume_base = codec_platform_data->replay_volume_base;
+	if (codec_platform_data &&
+			codec_platform_data->replay_volume_base >= -25 &&
+			codec_platform_data->replay_volume_base <= 6)
+		volume_base = codec_platform_data->replay_volume_base;
 
-	    fixed_vol = (6 - volume_base) +
-			 ((25 + volume_base) * (100 - (*val)) / 100);
+	fixed_vol = (6 - volume_base) + ((25 + volume_base) * (100 -(*val))/ 100);
 
 	__codec_set_gol(fixed_vol);
 	__codec_set_gor(fixed_vol);
+
+	user_replay_volume = *val;
 
 	return *val;
 }

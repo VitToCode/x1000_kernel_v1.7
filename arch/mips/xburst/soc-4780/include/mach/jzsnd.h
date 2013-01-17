@@ -69,6 +69,13 @@ enum snd_codec_route_t {
 
 struct snd_board_route {
 	enum snd_codec_route_t route;
+	//val : 0 is mean not set use default volume base
+	int replay_volume_base;				//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
+	int record_volume_base;				//val: 32(0dB), +4, +8, +16, +20 (dB);
+	int record_digital_volume_base;		//val: 32(0dB), -1 ~ -31 (dB);
+	int replay_digital_volume_base;		//val: 32(0dB), +1 ~ +23 (dB);
+	int bypass_l_volume_base;			//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
+	int bypass_r_volume_base;			//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
 	int gpio_hp_mute_stat;	/* -1: keep , 0: disable, 1: enable */
 	int gpio_spk_en_stat;	/* -1: keep , 0: disable, 1: enable */
 	int gpio_handset_en_stat;  /* -1: keep , 0: disable, 1: enable */
@@ -84,12 +91,15 @@ struct snd_codec_data {
 	/* clk */
 	int codec_sys_clk;
 	int codec_dmic_clk;
+
 	/* volume */
-	int replay_volume_base;
+	int replay_volume_base;						/*hp*/
 	int record_volume_base;
 	int record_digital_volume_base;
 	int replay_digital_volume_base;
-	int replay_hp_output_gain_base;
+	int bypass_l_volume_base;					/*call uplink or other use*/
+	int bypass_r_volume_base;					/*call downlink or other use*/
+
 	/* default route */
 	struct snd_board_route replay_def_route;
 	struct snd_board_route record_def_route;

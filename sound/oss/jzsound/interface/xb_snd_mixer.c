@@ -77,7 +77,7 @@ ssize_t xb_snd_mixer_write(struct file *file,
 	unsigned long rate_out = 0;
 	unsigned hp_state = 0;
 	unsigned long devices = 0;
-	int mode = 3;
+	//int mode = 3;
 	if (copy_from_user((void *)&buf_byte, buffer, 1)) {
 		printk("JZ MIX: copy_from_user failed !\n");
 		return -EFAULT;
