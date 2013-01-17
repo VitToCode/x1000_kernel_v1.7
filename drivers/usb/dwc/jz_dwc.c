@@ -48,30 +48,8 @@ struct jzdwc_pin __attribute__((weak)) dete_pin = {
 	.enable_level			= -1,
 };
 
-static inline void jz_dwc_set_device_only_mode(void)
-{
-	cpm_clear_bit(USBPCR_USB_MODE, CPM_USBPCR);
-	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
-}
-
-static inline void jz_dwc_set_dual_mode(void)
-{
-	unsigned int tmp;
-
-	cpm_outl((1 << USBPCR_USB_MODE)
-		 | (1 << USBPCR_VBUSVLDEXT)
-		 | (1 << USBPCR_VBUSVLDEXTSEL),
-		    CPM_USBPCR);
-	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
-	tmp = cpm_inl(CPM_USBPCR);
-	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
-}
-
 static void jz_pri_start(struct dwc_jz_pri *jz_pri)
 {
-#ifndef CONFIG_USB_DWC_DEV_ONLY
-	jz_dwc_set_dual_mode();
-#endif
 	if (jz_pri->irq > 0)
 		schedule_delayed_work(&jz_pri->work, 0);
 }
@@ -128,6 +106,25 @@ static inline void jz_dwc_phy_reset(struct dwc_jz_pri *jz_pri)
 	spin_unlock(&jz_pri->lock);
 
 	msleep(1);
+}
+
+static inline void jz_dwc_set_device_only_mode(void)
+{
+	cpm_clear_bit(USBPCR_USB_MODE, CPM_USBPCR);
+	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
+}
+
+static inline void jz_dwc_set_dual_mode(void)
+{
+	unsigned int tmp;
+
+	cpm_outl((1 << USBPCR_USB_MODE)
+		 | (1 << USBPCR_VBUSVLDEXT)
+		 | (1 << USBPCR_VBUSVLDEXTSEL),
+		    CPM_USBPCR);
+	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
+	tmp = cpm_inl(CPM_USBPCR);
+	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
 static void set_charger_current_work(struct work_struct *work)
@@ -320,8 +317,14 @@ struct dwc_jz_pri *jz_dwc_init(void)
         /* enalbe OTG PHY */
 
 	jz_dwc_phy_switch(jz_pri, 1);
+
+#ifdef USB_DWC_DEV_ONLY
 	jz_dwc_set_device_only_mode();
+#else
+	jz_dwc_set_dual_mode();
+#endif
 	jz_dwc_phy_reset(jz_pri);
+
 	jz_dwc_phy_switch(jz_pri, 1);
 
 	/*

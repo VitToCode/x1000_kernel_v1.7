@@ -261,7 +261,7 @@ static int __init hdmi_80_board_init(void)
 #endif
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &hdmi_80_inand_pdata);
+	jz_device_register(&jz_msc0_device, &hdmi_80_tf_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &hdmi_80_sdio_pdata);
@@ -295,13 +295,15 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&hdmi_80_backlight_device);
 #endif
+
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ4780_LCDC1
-	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
-#endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
+#ifdef CONFIG_FB_JZ4780_LCDC1
+	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
+
 /* AOSD */
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);

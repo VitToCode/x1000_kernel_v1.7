@@ -319,7 +319,10 @@ static struct attribute_group gpio_keys_attr_group = {
 static int select_status = 0; //device
 static int key_num = 0;
 #define GPIO_ID (32*4 + 2)
-#define GPIO_SEL (32*5 + 12)
+#define GPIO_USB_DETE (32*3 + 20)
+
+//#define GPIO_SEL (32*5 + 12)
+
 
 static void gpio_keys_report_event(struct gpio_button_data *bdata)
 {
@@ -346,12 +349,12 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 		if(1 == select_status){ /*change to device*/
 			pr_err("---------->>>>>>  1\n");
 			gpio_set_value(GPIO_ID, 1);
-			gpio_set_value(GPIO_SEL, 1);
+//			gpio_set_value(GPIO_SEL, 1);
 			select_status = 0;
 		}else{
 			pr_err("---------->>>>>>  0\n");
 			gpio_set_value(GPIO_ID, 0);
-			gpio_set_value(GPIO_SEL, 0);
+//			gpio_set_value(GPIO_SEL, 0);
 			select_status = 1;
 		}
 
@@ -532,11 +535,14 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	}
 
 	/*init is host */
+	
+	//gpio_request(GPIO_USB_DETE, NULL);
 	gpio_request(GPIO_ID, NULL);
-	gpio_request(GPIO_SEL, NULL);
-	select_status = 0; // device mode
-	gpio_direction_output(GPIO_ID, 1);
-	gpio_direction_output(GPIO_SEL, 1);
+//	gpio_request(GPIO_SEL, NULL);
+	select_status = 1; // device mode
+	//gpio_direction_output(GPIO_USB_DETE, 1);
+	gpio_direction_output(GPIO_ID, 0);
+//	gpio_direction_output(GPIO_SEL, 1);
 
 
 	error = sysfs_create_group(&pdev->dev.kobj, &gpio_keys_attr_group);
