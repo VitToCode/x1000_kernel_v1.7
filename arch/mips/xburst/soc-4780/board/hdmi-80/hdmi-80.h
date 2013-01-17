@@ -78,6 +78,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_MMA8452_INT1		GPIO_PF(9)
 #define GPIO_LIS3DH_INT1		GPIO_PF(9)
 
+#define GPIO_USB_DETE	GPIO_PD(20)
+
 /**
  * keyboard gpio interface
  **/

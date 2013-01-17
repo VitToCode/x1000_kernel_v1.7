@@ -20,6 +20,10 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
+//#define CONFIG_VGA_1440_900
+//#define CONFIG_VGA_1280_1024
+//#define CONFIG_VGA_1280_1024
+
 #ifdef CONFIG_LCD_KR070LA0S_270
 #include <linux/kr070la0s_270.h>
 static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
@@ -101,6 +105,45 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+
+#ifdef CONFIG_VGA_1440_900
+	{
+		.name = "1440x900",
+		.refresh = 65,
+		.xres = 1440,
+		.yres = 900,
+		.pixclock = KHZ2PICOS(106500),
+		.left_margin = 78,
+		.right_margin = 230,
+		.upper_margin = 22,
+		.lower_margin = 2,
+		.hsync_len = 152,
+		.vsync_len = 6,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_VGA_1280_1024
+	{
+		.name = "1280x1024",
+		.refresh = 65,
+		.xres = 1280,
+		.yres = 1024,
+		.pixclock = KHZ2PICOS(108000),
+		.left_margin = 246,
+		.right_margin = 46,
+		.upper_margin = 34,
+		.lower_margin = 1,
+		.hsync_len = 112,
+		.vsync_len = 3,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
 #ifdef CONFIG_LCD_EK070TN93
 	{
 		.name = "800x480",
@@ -167,6 +210,35 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.dither_enable = 0,
 #endif
+
+#ifdef CONFIG_VGA_1440_900
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
+#ifdef CONFIG_VGA_1280_1024
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
 #ifdef CONFIG_LCD_EK070TN93
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
