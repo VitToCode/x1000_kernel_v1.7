@@ -6,7 +6,7 @@ struct snd_codec_data codec_data = {
 	.codec_dmic_clk = 0,
 	/* volume */
 	.replay_volume_base = 0,
-	.record_volume_base = 0,
+	.record_volume_base = 20,
 	.record_digital_volume_base = 23,
 	.replay_digital_volume_base = 0,
 
@@ -22,7 +22,7 @@ struct snd_codec_data codec_data = {
 		.gpio_handset_en_stat = -1,
 		.gpio_buildin_mic_en_stat = 1},
 	/* device <-> route map */
-	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
+	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
 		.gpio_hp_mute_stat = -1,
 		.gpio_spk_en_stat = -1,
 		.gpio_handset_en_stat = -1,
@@ -31,7 +31,7 @@ struct snd_codec_data codec_data = {
 		.gpio_hp_mute_stat = -1,
 		.gpio_spk_en_stat = -1,
 		.gpio_handset_en_stat = -1,
-		.gpio_buildin_mic_en_stat = 0},
+		.gpio_buildin_mic_en_stat = 1},
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 		.gpio_hp_mute_stat = 0,
 		.gpio_spk_en_stat = 0,
