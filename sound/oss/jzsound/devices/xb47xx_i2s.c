@@ -928,6 +928,10 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_SET_RECORD_VOLUME, arg);
 		break;
+	case SND_DSP_SET_REPLAY_VOL:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_VOLUME, arg);
+		break;
 	case SND_DSP_SET_MIC_VOL:
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_SET_MIC_VOLUME, arg);

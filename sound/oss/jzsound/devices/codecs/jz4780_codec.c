@@ -2648,16 +2648,13 @@ static int codec_set_replay_volume(int *val)
 {
 	/*just set analog gol and gor*/
 	unsigned long fixed_vol;
-	int volume_base;
+	int volume_base = 0;
 
 	if(codec_platform_data->replay_volume_base)
-	{
-		volume_base = codec_platform_data->replay_volume_base;
+			volume_base = codec_platform_data->replay_volume_base;
 
-		fixed_vol = (31 - volume_base) - ((31 - volume_base) * (*val)/ 100);
-	}
-	else
-		fixed_vol = (31 - (31 * (*val) / 100));
+	    fixed_vol = (6 - volume_base) +
+			 ((25 + volume_base) * (100 - (*val)) / 100);
 
 	__codec_set_gol(fixed_vol);
 	__codec_set_gor(fixed_vol);

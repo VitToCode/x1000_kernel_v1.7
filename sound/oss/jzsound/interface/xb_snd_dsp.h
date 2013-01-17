@@ -108,8 +108,8 @@ struct spipe_info {
 #define SNDCTL_EXT_DIRECT_PUTINODE          _SIOW ('P', 94, struct direct_info)
 #define SNDCTL_EXT_DIRECT_GETONODE          _SIOR ('P', 93, struct direct_info)
 #define SNDCTL_EXT_DIRECT_PUTONODE          _SIOW ('P', 92, struct direct_info)
-#define SNDCTL_EXT_STOP_DMA		    _SIOW ('P', 91, int)
-
+#define SNDCTL_EXT_STOP_DMA		            _SIOW ('P', 91, int)
+#define SNDCTL_EXT_SET_REPLAY_VOLUME        _SIOR ('P', 90, int)
 /**
  * dsp device control command
  **/

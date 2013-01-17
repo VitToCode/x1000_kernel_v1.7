@@ -1820,6 +1820,20 @@ long xb_snd_dsp_ioctl(struct file *file,
 		}
 			return 0;
 	}
+		case SNDCTL_EXT_SET_REPLAY_VOLUME: {
+			int vol;											
+			if (get_user(vol, (int*)arg)){
+				return -EFAULT;
+			}
+
+			if (ddata->dev_ioctl) {
+				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+				if (!ret)
+				   break;
+			}
+			ret = put_user(vol, (int *)arg);
+			break;
+	}
 
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",

@@ -211,6 +211,8 @@ route_conf_base const call_mic_bypass_to_hp_lr = {
 	.route_hp_mode = HP_ENABLE,
 	.route_lineout_mux_mode = LO_MUX_INPUTL_TO_LO,	//new
 	.route_lineout_mode = LINEOUT_ENABLE,
+	.attibute_input_bypass_l_gain = 6,
+	.attibute_input_bypass_r_gain = 6,
 	.attibute_hp_l_gain = 6,
 	.attibute_hp_r_gain = 6,
 };
