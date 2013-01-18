@@ -58,9 +58,11 @@ struct ft5x06_ts_data {
 	unsigned int irq;
 	u16 x_max;
 	u16 y_max;
+	atomic_t regulator_enabled;
 	int is_suspend;
 	struct i2c_client *client;
 	struct mutex lock;
+	struct mutex rwlock;
 	struct input_dev *input_dev;
 	struct ts_event event;
 	struct jztsc_platform_data *pdata;
@@ -71,6 +73,10 @@ struct ft5x06_ts_data {
 	struct workqueue_struct *workqueue;
 };
 
+#ifdef FT5X06_DEBUG
+static unsigned char ft5x06_save[15];
+static unsigned char ft5x06_save2[15];
+#endif
 /*
 *ft5x06_i2c_Read-read data and write data by i2c
 *@client: handle of i2c
@@ -85,6 +91,7 @@ struct ft5x06_ts_data {
 */
 static void ft5x06_ts_release(struct ft5x06_ts_data *data);
 static void ft5x06_ts_reset(struct ft5x06_ts_data *ts);
+
 int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 		    int writelen, char *readbuf, int readlen)
 {
@@ -134,7 +141,7 @@ int ft5x06_i2c_Read(struct i2c_client *client, char *writebuf,
 int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret;
-	
+
 	struct ft5x06_ts_data *ft5x06_ts = i2c_get_clientdata(client);
 	struct i2c_msg msg[] = {
 		{
@@ -144,7 +151,6 @@ int ft5x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 		 .buf = writebuf,
 		 },
 	};
-
 	ret = i2c_transfer(client->adapter, msg, 1);
 	if (ret < 0){
 		dev_err(&client->dev, "%s i2c write error.\n", __func__);
@@ -161,9 +167,11 @@ static int ft5x06_set_reg(struct ft5x06_ts_data *ts, u8 addr, u8 para)
 	u8 buf[3];
 	int ret = -1;
 
+	mutex_lock(&ts->rwlock);
 	buf[0] = addr;
 	buf[1] = para;
 	ret = ft5x06_i2c_Write(ts->client, buf, 2);
+	mutex_unlock(&ts->rwlock);
 	if (ret < 0) {
 		pr_err("write reg failed! %#x ret: %d", buf[0], ret);
 		return -1;
@@ -231,9 +239,9 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 	struct ts_event *event = &data->event;
 	int i = 0;
 	for (i = 0; i < event->touch_point; i++) {
-	//	if (data->x_max != CFG_MAX_X) 
+	//	if (data->x_max != CFG_MAX_X)
 	//		event->au16_x[i] = event->au16_x[i] * data->x_max / CFG_MAX_X;
-	//	if (data->y_max != CFG_MAX_Y) 
+	//	if (data->y_max != CFG_MAX_Y)
 	//		event->au16_y[i] = event->au16_y[i] * data->y_max / CFG_MAX_Y;
 
 		if(event->au16_x[i] > data->x_max || event->au16_y[i] > data->y_max)
@@ -267,7 +275,7 @@ static int ft5x06_report_value(struct ft5x06_ts_data *data)
 	return 0;
 
 }
-static void tsc_work_handler(struct work_struct *work)
+static void ft5x06_work_handler(struct work_struct *work)
 {
 	struct ft5x06_ts_data *ft5x06_ts = container_of(work, struct ft5x06_ts_data,work);
 	int ret = 0;
@@ -326,37 +334,54 @@ static void ft5x06_gpio_init(struct ft5x06_ts_data *ts, struct i2c_client *clien
 
 static int ft5x06_ts_power_on(struct ft5x06_ts_data *ts)
 {
-	if (ts->power)
-		return regulator_enable(ts->power);
+	if (ts->power) {
+		if(atomic_cmpxchg(&ts->regulator_enabled, 0, 1) == 0)
+			return regulator_enable(ts->power);
+	}
 
 	return 0;
 }
 
 static int ft5x06_ts_power_off(struct ft5x06_ts_data *ts)
 {
-	if (ts->power)
-		return regulator_disable(ts->power);
+	if (ts->power) {
+		if (atomic_cmpxchg(&ts->regulator_enabled, 1, 0))
+			return regulator_disable(ts->power);
+	}
 
 	return 0;
 }
 
 static void ft5x06_ts_reset(struct ft5x06_ts_data *ts)
 {
+
 	set_pin_status(ts->gpio.wake, 1);
 	msleep(5);
 	set_pin_status(ts->gpio.wake, 0);
 	msleep(5);
 	set_pin_status(ts->gpio.wake, 1);
-	msleep(5);
+	msleep(15);
 }
 
 static int ft5x06_ts_disable(struct ft5x06_ts_data *ts)
 {
 	int ret = 0;
+	int err = 1;
+	unsigned char uc_reg_value;
+	unsigned char uc_reg_addr;
+	int timeout = 0x05;
 
 	flush_workqueue(ts->workqueue);
 	ret = cancel_work_sync(&ts->work);
-	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
+	err = ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
+	uc_reg_addr = FT5X06_REG_PMODE;
+	ret = ft5x06_i2c_Read(ts->client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	if (err == 0) {
+		while ((0x03 != uc_reg_value) && (timeout-- > 0) && (ret == 0)) {
+			msleep(5);
+			ret = ft5x06_i2c_Read(ts->client, &uc_reg_addr, 1, &uc_reg_value, 1);
+		}
+	}
 	ret = ft5x06_ts_power_off(ts);
 	if (ret < 0) {
 		printk("^^^^^^^^^^TSC DISBALE ERROR!\n");
@@ -369,20 +394,88 @@ static int ft5x06_ts_enable(struct ft5x06_ts_data *ts)
 {
 	int ret = 0;
 
-	ft5x06_ts_power_on(ts);
-	mdelay(1);
-	ft5x06_ts_reset(ts);
-	ret = ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_ACTIVE);
+	ret = ft5x06_ts_power_on(ts);
 	if (ret < 0) {
-		printk("^^^^^^^^^^^TSC ENABLE ERROR! \n");
+		printk("^^^^^^^^^^TSC ENABLE ERROR!\n");
 		return ret;
 	}
+	mdelay(5);
+
 	return 0;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x06_ts_resume(struct early_suspend *handler);
 static void ft5x06_ts_suspend(struct early_suspend *handler);
+#endif
+
+#ifdef	FT5X06_DEBUG
+static ssize_t ft5x06_partitions_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *tsc_client_show;
+	struct ft5x06_ts_data *ts;
+	unsigned char uc_reg_addr;
+	unsigned char uc_reg_value;
+	int sucssess_flag = 1;
+	int err = -1;
+
+	tsc_client_show = container_of(dev, struct i2c_client, dev);
+	ts = i2c_get_clientdata(tsc_client_show);
+	for (uc_reg_addr = 0x80; uc_reg_addr < 0x8a; uc_reg_addr++) {
+		err = ft5x06_i2c_Read(tsc_client_show, &uc_reg_addr, 1, &uc_reg_value, 1);
+		if (err < 0) {
+			printk("show reg failed !\n");
+			break;
+		}
+		printk("-------addr = 0x%x, reg = 0x%x----\n",uc_reg_addr,uc_reg_value);
+		printk("save----addr = 0x%x, reg = 0x%x----\n",uc_reg_addr,ft5x06_save[uc_reg_addr-0x80]);
+	}
+	for (uc_reg_addr = 0xa0; uc_reg_addr < 0xab; uc_reg_addr++) {
+		err = ft5x06_i2c_Read(tsc_client_show, &uc_reg_addr, 1, &uc_reg_value, 1);
+		if (err < 0) {
+			printk("show reg failed !\n");
+			break;
+		}
+		printk("-------addr = 0x%x, reg = 0x%x----\n",uc_reg_addr,uc_reg_value);
+		printk("save----addr = 0x%x, reg = 0x%x----\n",uc_reg_addr,ft5x06_save2[uc_reg_addr-0xa0]);
+	}
+	ft5x06_set_reg(ts, FT5X06_REG_PMODE, PMODE_HIBERNATE);
+	err = sprintf(buf, "%d\n", sucssess_flag);
+
+	return 1;
+}
+
+static ssize_t ft5x06_resets_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *tsc_client_show;
+	struct ft5x06_ts_data *ts;
+	int i = 0;
+
+	tsc_client_show = container_of(dev, struct i2c_client, dev);
+	ts = i2c_get_clientdata(tsc_client_show);
+	for (i = 0; i < 1; i++) {
+		disable_irq_nosync(ts->client->irq);
+		ft5x06_ts_disable(ts);
+		msleep(50);
+		ft5x06_ts_enable(ts);
+		enable_irq(ts->client->irq);
+		msleep(50);
+	}
+	return 1;
+}
+
+static DEVICE_ATTR(partitions, S_IRUSR | S_IRGRP | S_IROTH, ft5x06_partitions_show, NULL);
+static DEVICE_ATTR(resets, S_IRUSR | S_IRGRP | S_IROTH, ft5x06_resets_show, NULL);
+
+static struct attribute *jztsc_attributes[] = {
+	&dev_attr_partitions.attr,
+	&dev_attr_resets.attr,
+	NULL
+};
+
+static const struct attribute_group jztsc_attr_group = {
+	.attrs = jztsc_attributes,
+};
 #endif
 
 static int ft5x06_ts_probe(struct i2c_client *client,
@@ -409,6 +502,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	mutex_init(&ft5x06_ts->lock);
+	mutex_init(&ft5x06_ts->rwlock);
 
 	i2c_set_clientdata(client, ft5x06_ts);
 
@@ -419,9 +513,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	if (IS_ERR(ft5x06_ts->power)) {
 		dev_warn(&client->dev, "get regulator failed\n");
 	}
+	atomic_set(&ft5x06_ts->regulator_enabled, 0);
 	ft5x06_ts_power_on(ft5x06_ts);
 
-	INIT_WORK(&ft5x06_ts->work, tsc_work_handler);
+	INIT_WORK(&ft5x06_ts->work, ft5x06_work_handler);
 	ft5x06_ts->workqueue = create_singlethread_workqueue("ft5x06_tsc");
 
 	client->irq = gpio_to_irq(ft5x06_ts->gpio.irq->num);
@@ -450,7 +545,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	ft5x06_ts->input_dev = input_dev;
-	
+
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
@@ -478,7 +573,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
-	
+
 	/*make sure CTP already finish startup process */
 	ft5x06_ts_reset(ft5x06_ts);
 	msleep(100);
@@ -489,7 +584,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	ft5x06_ts->early_suspend.resume	= ft5x06_ts_resume;
 	register_early_suspend(&ft5x06_ts->early_suspend);
 #endif
-	
+
 	/*get some register information */
 	uc_reg_addr = FT5X06_REG_FW_VER;
 	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
@@ -498,7 +593,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto exit_register_earlay_suspend;
 	}
 	dev_dbg(&client->dev, "[FTS] Firmware version = 0x%x\n", uc_reg_value);
-	
+
 	uc_reg_addr = FT5X06_REG_POINT_RATE;
 	err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	if(err < 0){
@@ -517,11 +612,32 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
 	if(err < 0){
-		printk("ft5x06_ts  probe failed\n");
+		printk("ft5x06_ts probe failed\n");
 		goto exit_register_earlay_suspend;
 	}
 	//ft5x06_set_reg(ft5x06_ts, FT5X06_REG_THCAL, 4);
 
+#ifdef	FT5X06_DEBUG
+	err = sysfs_create_group(&(client->dev).kobj, &jztsc_attr_group);
+
+	for (uc_reg_addr = 0x80; uc_reg_addr < 0x8a; uc_reg_addr++) {
+		err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+		if (err < 0) {
+			printk("save reg failed !\n");
+			break;
+		}
+		ft5x06_save[uc_reg_addr-0x80] = uc_reg_value;
+	}
+	for (uc_reg_addr = 0xa0; uc_reg_addr < 0xab; uc_reg_addr++) {
+		err = ft5x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+		if (err < 0) {
+			printk("save reg failed !\n");
+			break;
+		}
+		ft5x06_save2[uc_reg_addr-0xa0] = uc_reg_value;
+	}
+
+#endif
 	enable_irq(client->irq);
 	return 0;
 
