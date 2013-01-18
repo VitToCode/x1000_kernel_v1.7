@@ -31,6 +31,7 @@
 #include <linux/delay.h>
 #include <asm/cacheops.h>
 #include <asm/rjzcache.h>
+#include <asm/fpu.h>
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
 
@@ -395,6 +396,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 {
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
+	disable_fpu();
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_save_tscm();
 #endif
