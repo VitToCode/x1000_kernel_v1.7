@@ -493,6 +493,7 @@ static int disable_i2c_clk(struct jz_i2c *i2c)
         return 0;
     } else {
         dev_err(&(i2c->adap.dev),"--I2C transport wait timeout, I2C_STA = 0x%x\n", tmp);
+		jz_i2c_reset(i2c);
         return -EAGAIN;
     }
 }
