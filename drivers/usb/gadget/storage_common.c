@@ -248,6 +248,9 @@ struct fsg_lun {
 	u32		unit_attention_data;
 
 	struct device	dev;
+
+	struct wake_lock wake_lock;
+	char name[32];
 };
 
 #define fsg_lun_is_open(curlun)	((curlun)->filp != NULL)
@@ -608,6 +611,7 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	curlun->num_sectors = num_sectors;
 	LDBG(curlun, "open backing file: %s\n", filename);
 	rc = 0;
+	wake_lock(&curlun->wake_lock);
 
 out:
 	filp_close(filp, current->files);
@@ -621,6 +625,7 @@ static void fsg_lun_close(struct fsg_lun *curlun)
 		LDBG(curlun, "close backing file\n");
 		fput(curlun->filp);
 		curlun->filp = NULL;
+		wake_unlock(&curlun->wake_lock);
 	}
 }
 
