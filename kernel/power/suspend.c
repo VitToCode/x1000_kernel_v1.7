@@ -154,6 +154,10 @@ static int suspend_enter(suspend_state_t state)
 while (1) {
 #endif
 
+	static u64 i = 0;
+
+	printk("T%llu\n", ++i);
+
 	if (suspend_ops->prepare_late) {
 		error = suspend_ops->prepare_late();
 		if (error)
