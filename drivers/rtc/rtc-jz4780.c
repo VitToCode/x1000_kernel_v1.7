@@ -479,6 +479,17 @@ static int jz4780_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_TEST_RESET_DLL
+	jzrtc_writel(rtc, RTC_RTCGR,
+			jzrtc_readl(rtc, RTC_RTCGR) &~ (1 << 31));
+
+	jzrtc_writel(rtc, RTC_RTCGR,
+			jzrtc_readl(rtc, RTC_RTCGR) &~ (0xff << 8));
+
+	jzrtc_writel(rtc, RTC_RTCCR,
+			jzrtc_readl(rtc, RTC_RTCCR) | RTCCR_1HZIE);
+#endif
+
 	if (device_may_wakeup(&pdev->dev)) {
 		enable_irq_wake(rtc->irq);
 	}
