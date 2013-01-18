@@ -137,6 +137,7 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
 static int suspend_enter(suspend_state_t state)
 {
 	int error;
+	static int first = 1;
 
 	if (suspend_ops->prepare) {
 		error = suspend_ops->prepare();
@@ -149,6 +150,10 @@ static int suspend_enter(suspend_state_t state)
 		printk(KERN_ERR "PM: Some devices failed to power down\n");
 		goto Platform_finish;
 	}
+
+#ifdef CONFIG_TEST_RESET_DLL
+while (1) {
+#endif
 
 	if (suspend_ops->prepare_late) {
 		error = suspend_ops->prepare_late();
@@ -183,6 +188,10 @@ static int suspend_enter(suspend_state_t state)
 #ifndef CONFIG_EARLYSUSPEND_CPU
  Enable_cpus:
 	enable_nonboot_cpus();
+#endif
+
+#ifdef CONFIG_TEST_RESET_DLL
+{
 #endif
 
  Platform_wake:
