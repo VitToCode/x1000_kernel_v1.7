@@ -484,7 +484,7 @@ static int jz4780_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 			jzrtc_readl(rtc, RTC_RTCGR) &~ (1 << 31));
 
 	jzrtc_writel(rtc, RTC_RTCGR,
-			jzrtc_readl(rtc, RTC_RTCGR) &~ (0xff << 8));
+			jzrtc_readl(rtc, RTC_RTCGR) &~ (0x1f << 11));
 
 	jzrtc_writel(rtc, RTC_RTCCR,
 			jzrtc_readl(rtc, RTC_RTCCR) | RTCCR_1HZIE);
