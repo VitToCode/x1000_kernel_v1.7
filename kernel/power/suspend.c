@@ -137,7 +137,6 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
 static int suspend_enter(suspend_state_t state)
 {
 	int error;
-	static int first = 1;
 
 	if (suspend_ops->prepare) {
 		error = suspend_ops->prepare();
@@ -191,7 +190,7 @@ while (1) {
 #endif
 
 #ifdef CONFIG_TEST_RESET_DLL
-{
+}
 #endif
 
  Platform_wake:

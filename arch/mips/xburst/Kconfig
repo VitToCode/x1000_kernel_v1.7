@@ -149,3 +149,7 @@ config SUSPEND_TEST
 config EARLY_INIT_RUN
 	bool "early run init process"
 	default n
+
+config TEST_RESET_DLL
+	bool "fast test reset_dll"
+	default n
