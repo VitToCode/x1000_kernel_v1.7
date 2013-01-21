@@ -1,6 +1,7 @@
 menu "CPU Frequency scaling"
 
 config CPU_FREQ
+	depends on !TEST_RESET_DLL
 	bool "CPU Frequency scaling"
 	help
 	  CPU Frequency scaling allows you to change the clock speed of 
