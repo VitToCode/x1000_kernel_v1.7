@@ -1,37 +1,46 @@
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
-#include <linux/thread_info.h>
 #include <asm/uaccess.h>
+#include <asm/processor.h>
 
 #define BUF_LEN         64
 
 static int magic_read_proc(char *page, char **start, off_t off,
                           int count, int *eof, void *data)
 {
-	if(test_thread_flag(TIF_MAGIC_CPUINFO))
-		sprintf(page,"arm \n");
+	struct thread_struct *mc_thread = &current->thread;
+
+	/* sprintf auto add '\0' */
+	if(mc_thread->mcflags == CPU_ARM)
+		sprintf(page,"arm     \n");
+	else if(mc_thread->mcflags == CPU_ARM_NEON)
+		sprintf(page,"arm_neon\n");
 	else 
-		sprintf(page,"mips\n");
+		sprintf(page,"mips    \n");
 		
-	return 5;
+	return 10;
 }
 
 static int magic_write_proc(struct file *file, const char __user *buffer,
                            unsigned long count, void *data)
 {
         char buf[BUF_LEN];
+	struct thread_struct *mc_thread = &current->thread;
 
         if (count > BUF_LEN)
                 count = BUF_LEN;
         if (copy_from_user(buf, buffer, count))
                 return -EFAULT;
 
-        if (strncmp(buf, "arm", 3) == 0) {
-	    set_thread_flag(TIF_MAGIC_CPUINFO);
+	if (strncmp(buf, "arm_neon",8) == 0) {		
+		mc_thread->mcflags = CPU_ARM_NEON;
         }
-        else if (strncmp(buf, "mips", 4) == 0) {
-	    clear_thread_flag(TIF_MAGIC_CPUINFO);
+        else if (strncmp(buf, "arm",3) == 0) {
+		mc_thread->mcflags = CPU_ARM;
         }
+	else if(strncmp(buf, "mips",4) == 0) {
+		mc_thread->mcflags = CPU_MIPS;
+	}
         return count;
 }
 

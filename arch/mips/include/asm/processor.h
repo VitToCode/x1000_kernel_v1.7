@@ -227,6 +227,12 @@ struct thread_struct {
 	/* Saved registers of the MXU, if available. */
 	struct xburst_mxu_struct mxu;
 
+        /* for magicode cpuinfo */
+#define CPU_MIPS             0
+#define CPU_ARM              1
+#define CPU_ARM_NEON         2
+	unsigned int  mcflags;
+
 	/* Saved watch register state, if available. */
 	union mips_watch_reg_state watch;
 
