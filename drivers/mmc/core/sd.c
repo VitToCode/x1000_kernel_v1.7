@@ -352,6 +352,9 @@ static int mmc_read_switch(struct mmc_card *card)
 		if (status[13] & 0x02)
 			card->sw_caps.hs_max_dtr = 50000000;
 	}
+#else
+	if (status[13] & 0x02)
+		card->sw_caps.hs_max_dtr = 50000000;
 #endif
 out:
 	kfree(status);

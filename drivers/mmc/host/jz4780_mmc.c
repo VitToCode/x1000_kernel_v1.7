@@ -848,6 +848,7 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 	if (!is_pio_mode(host)) {
 		jzmmc_submit_dma(host, data);
+		clear_msc_irq(host, IFLG_PRG_DONE);
 		enable_msc_irq(host, imsk);
 	}
 }
