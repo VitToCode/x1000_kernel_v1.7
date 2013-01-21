@@ -679,7 +679,7 @@ static void i2s_dma_need_reconfig(int mode)
 
 static int i2s_set_device(unsigned long device)
 {
-	unsigned long tmp_rate = 0;
+	unsigned long tmp_rate = 44100;
   	int ret = 0;
 
 	if (!cur_codec)
@@ -691,6 +691,12 @@ static int i2s_set_device(unsigned long device)
 		i2s_is_incall_state = true;
 	else
 		i2s_is_incall_state = false;
+
+	if (*(enum snd_device_t *)device == SND_DEVICE_LOOP_TEST) {
+		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
+		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
+		i2s_set_rate(&tmp_rate,CODEC_RWMODE);
+	}
 
 	/*hdmi operation*/
 	if ((tmp_rate = cur_codec->replay_rate) == 0);
