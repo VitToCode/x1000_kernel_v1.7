@@ -91,8 +91,10 @@ static inline void codec_sleep_wait_bitset(int reg, unsigned bit, int stime, int
 	while(!(read_inter_codec_reg(reg) & (1 << bit))) {
 		if (count < 10)
 			codec_sleep(stime * (++count));
-		else
+		else {
+			count++;
 			codec_sleep(stime *10);
+		}
 		if(count > 15){
 			printk("%s %d timeout\n",__FILE__,__LINE__);
 			break;
