@@ -489,11 +489,11 @@ static int disable_i2c_clk(struct jz_i2c *i2c)
 
     if (timeout > 0) {
         clk_disable(i2c->clk);
-        i2c->enabled = 0;
         return 0;
     } else {
         dev_err(&(i2c->adap.dev),"--I2C transport wait timeout, I2C_STA = 0x%x\n", tmp);
 		jz_i2c_reset(i2c);
+        clk_disable(i2c->clk);
         return -EAGAIN;
     }
 }
@@ -504,10 +504,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
 
-	if(!i2c->enabled) {
-		clk_enable(i2c->clk);
-		i2c->enabled = 1;
-	}
+    clk_enable(i2c->clk);
 
 	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
 		i2c_writel(i2c,I2C_TAR,msg->addr);
@@ -526,6 +523,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
 		}
 		if (ret) {
+            clk_disable(i2c->clk);
 			return -EAGAIN;
 		}
 	}
