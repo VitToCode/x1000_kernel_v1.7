@@ -40,10 +40,8 @@ static void android_bl_on(struct android_bl_data *dev) {
 	static int is_bootup = 1;
 
 	if (is_bootup && !dev->pdata->bootloader_unblank) {
-		if (dev->lcd_bklight_reg) {
-			regulator_enable(dev->lcd_bklight_reg);
+		if (dev->lcd_bklight_reg)
 			regulator_disable(dev->lcd_bklight_reg);
-		}
 
 		regulator_enable(dev->lcd_vcc_reg);
 

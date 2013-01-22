@@ -640,6 +640,11 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 					"regulator init failed\n");
 				rdev[i] = NULL;
 			}
+
+			if (rdev[i] && desc->ops->is_enabled
+					&& desc->ops->is_enabled(rdev[i])) {
+				rdev[i]->use_count++;
+			}
 		}
 	}
 
@@ -654,6 +659,13 @@ static __devinit int act8600_regulator_probe(struct platform_device *pdev)
 		rdev[i] = NULL;
 		goto err;
 	}
+
+	if (rdev[i]
+	         && act8600_regulators[ACT8600_UCHARGER].ops->is_enabled
+	         && act8600_regulators[ACT8600_UCHARGER].ops->is_enabled(rdev[i])) {
+		rdev[i]->use_count++;
+	}
+
 //#endif
 	return 0;
 err:
