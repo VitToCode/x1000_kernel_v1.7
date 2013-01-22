@@ -110,7 +110,7 @@ struct sp0838_platform_data {
 	uint16_t	gpio_en;	/* camera enable gpio */
 };
 static struct sp0838_platform_data sp0838_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,

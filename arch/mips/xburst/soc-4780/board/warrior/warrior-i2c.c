@@ -104,7 +104,7 @@ struct cam_sensor_plat_data {
 
 #ifdef CONFIG_SP0838
 static struct cam_sensor_plat_data sp0838_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
