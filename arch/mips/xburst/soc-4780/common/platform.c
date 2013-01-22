@@ -966,3 +966,23 @@ struct platform_device jz_aosd_device = {
 	.num_resources	= ARRAY_SIZE(jz_aosd_resources),
 	.resource	= jz_aosd_resources,
 };
+
+static struct resource jz_dwc_otg_resources[] = {
+	[0] = {
+		.start	= OTG_IOBASE,
+		.end	= OTG_IOBASE + 0x40000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_OTG,
+		.end   = IRQ_OTG,
+	},
+};
+
+struct platform_device  jz_dwc_otg_device = {
+	.name = "jz4780-dwc2",
+	.id = -1,
+	.num_resources	= ARRAY_SIZE(jz_dwc_otg_resources),
+	.resource	= jz_dwc_otg_resources,
+};

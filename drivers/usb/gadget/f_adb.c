@@ -55,9 +55,6 @@ struct adb_dev {
 	wait_queue_head_t write_wq;
 	struct usb_request *rx_req;
 	int rx_done;
-
-	void *rx_buf;
-	void *tx_buf[TX_REQ_MAX];
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -124,19 +121,14 @@ static inline struct adb_dev *func_to_adb(struct usb_function *f)
 }
 
 
-static struct usb_request *adb_request_new(struct adb_dev *dev, struct usb_ep *ep,
-					   int buffer_size, int idx)
+static struct usb_request *adb_request_new(struct usb_ep *ep, int buffer_size)
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!req)
 		return NULL;
 
 	/* now allocate buffers for the requests */
-	//req->buf = kmalloc(buffer_size, GFP_KERNEL);
-	if (dev->ep_out == ep)
-		req->buf = dev->rx_buf;
-	else
-		req->buf = dev->tx_buf[idx];
+	req->buf = kmalloc(buffer_size, GFP_KERNEL);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return NULL;
@@ -148,7 +140,7 @@ static struct usb_request *adb_request_new(struct adb_dev *dev, struct usb_ep *e
 static void adb_request_free(struct usb_request *req, struct usb_ep *ep)
 {
 	if (req) {
-		// kfree(req->buf);
+		kfree(req->buf);
 		usb_ep_free_request(ep, req);
 	}
 }
@@ -249,14 +241,14 @@ static int adb_create_bulk_endpoints(struct adb_dev *dev,
 	dev->ep_out = ep;
 
 	/* now allocate requests for our endpoints */
-	req = adb_request_new(dev, dev->ep_out, ADB_BULK_BUFFER_SIZE, 0);
+	req = adb_request_new(dev->ep_out, ADB_BULK_BUFFER_SIZE);
 	if (!req)
 		goto fail;
 	req->complete = adb_complete_out;
 	dev->rx_req = req;
 
 	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = adb_request_new(dev, dev->ep_in, ADB_BULK_BUFFER_SIZE, i);
+		req = adb_request_new(dev->ep_in, ADB_BULK_BUFFER_SIZE);
 		if (!req)
 			goto fail;
 		req->complete = adb_complete_in;
@@ -576,7 +568,6 @@ static int adb_setup(void)
 {
 	struct adb_dev *dev;
 	int ret;
-	int i;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -593,16 +584,6 @@ static int adb_setup(void)
 
 	INIT_LIST_HEAD(&dev->tx_idle);
 
-	dev->rx_buf = kmalloc(ADB_BULK_BUFFER_SIZE, GFP_KERNEL);
-	if (!dev->rx_buf)
-		goto err;
-
-	for (i = 0; i < TX_REQ_MAX; i++) {
-		dev->tx_buf[i] = kmalloc(ADB_BULK_BUFFER_SIZE, GFP_KERNEL);
-		if (!dev->tx_buf[i])
-			goto free_buf;
-	}
-
 	_adb_dev = dev;
 
 	ret = misc_register(&adb_device);
@@ -610,15 +591,6 @@ static int adb_setup(void)
 		goto err;
 
 	return 0;
-
- free_buf:
-	if (dev->rx_buf)
-		kfree(dev->rx_buf);
-
-	for (i = 0; i < TX_REQ_MAX; i++) {
-		if (dev->tx_buf[i])
-			kfree(dev->tx_buf[i]);
-	}
 
 err:
 	kfree(dev);
@@ -628,17 +600,7 @@ err:
 
 static void adb_cleanup(void)
 {
-	int i = 0;
-
 	misc_deregister(&adb_device);
-
-	if (_adb_dev->rx_buf)
-		kfree(_adb_dev->rx_buf);
-
-	for (i = 0; i < TX_REQ_MAX; i++) {
-		if (_adb_dev->tx_buf[i])
-			kfree(_adb_dev->tx_buf[i]);
-	}
 
 	kfree(_adb_dev);
 	_adb_dev = NULL;
