@@ -356,7 +356,7 @@ int nand_wait_rb(void)
 	unsigned int ret;
 	do{
 #if 1
-	ret = wait_for_completion_timeout(&nand_rb,(msecs_to_jiffies(100)));
+	ret = wait_for_completion_timeout(&nand_rb,(msecs_to_jiffies(500)));
 #else
 	ret =wait_for_completion(&nand_rb);
 #endif
@@ -441,6 +441,9 @@ static int init_nand_driver(void)
 	for(ret=0; ret<ipartition_num; ret++)
 	{
 		tmp_eccbit =(ptemp+ret)->eccbit;
+		if (tmp_eccbit < g_pnand_api.nand_ecc->eccbit)
+			tmp_eccbit = g_pnand_api.nand_ecc->eccbit;
+		(ptemp+ret)->eccbit = tmp_eccbit;
 		/**  cale freesize  **/
 		tmp_eccbytes =__bch_cale_eccbytes(tmp_eccbit);  //eccbytes per eccstep
 		if(((byteperpage/hwsector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize)

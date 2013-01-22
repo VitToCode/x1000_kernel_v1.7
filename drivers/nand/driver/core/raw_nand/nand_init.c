@@ -45,9 +45,11 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	pnand_ctrl->chip_select(host,pnand_io,0);
 
 	/* reset nand */
-	ret =nand_reset();
-	if(ret < 0)
+	ret = nand_reset();
+	if(ret < 0) {
+		printk("NAND reset error!! - ret=%d -\n",ret);
 		return 0;
+	}
 
 	/* read nand id */
 	nand_get_id(nand_id);

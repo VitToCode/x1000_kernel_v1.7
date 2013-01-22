@@ -100,12 +100,12 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-	4,			/* reserved blocks of ndxboot */
-	8,			/* reserved blocks of ndboot */
-	8,			/* reserved blocks of ndrecovery */
-	32,			/* reserved blocks of ndsystem */
-	36,			/* reserved blocks of ndcache */
-	256,			/* reserved blocks of ndextern */
+	2,			/* reserved blocks of ndxboot */
+	4,			/* reserved blocks of ndboot */
+	4,			/* reserved blocks of ndrecovery */
+	16,			/* reserved blocks of ndsystem */
+	18,			/* reserved blocks of ndcache */
+	128,			/* reserved blocks of ndextern */
 	1,			/* reserved blocks of nderror */
 };
 

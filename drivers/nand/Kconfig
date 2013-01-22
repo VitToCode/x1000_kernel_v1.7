@@ -136,7 +136,10 @@ endchoice
 choice
         prompt "4 bit or 8 bit ... 64 bit BCH ecc"
         depends on NAND_JZ4780 && NAND_HW_BCH
-        default NAND_HW_BCH_8BIT
+        default NAND_HW_BCH_AUTO
+
+config  NAND_HW_BCH_AUTO
+        bool 'auto'
 
 config  NAND_HW_BCH_4BIT
         bool '4 bit'
