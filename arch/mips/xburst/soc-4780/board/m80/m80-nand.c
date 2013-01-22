@@ -57,7 +57,7 @@ static struct platform_nand_partition partition_info[] = {
 	ex_partition:{{0},{0},{0},{0}}
 	},
 	{
-	name:"ndcahce",
+	name:"ndcache",
 	offset:576 * 0x100000LL,
 	size:128 * 0x100000LL,
 	mode:ZONE_MANAGER,
