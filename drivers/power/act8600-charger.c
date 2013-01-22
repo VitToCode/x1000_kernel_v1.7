@@ -58,13 +58,8 @@ static int act8600_get_charge_state(struct act8600_charger *charger,
 		jz_battery->status = POWER_SUPPLY_STATUS_CHARGING;
 		return POWER_SUPPLY_STATUS_CHARGING;
 	case CSTATE_SUSPEND:
-		if (get_charger_online(jz_battery, USB)) {
-			jz_battery->status = POWER_SUPPLY_STATUS_CHARGING;
-			return POWER_SUPPLY_STATUS_CHARGING;
-		} else {
-			jz_battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			return POWER_SUPPLY_STATUS_NOT_CHARGING;
-		}
+		jz_battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		return POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
 	return 0;
 }
@@ -119,9 +114,11 @@ static int act8600_get_usb_state(struct act8600_charger *charger,
 
 static int get_pmu_status(void *pmu_interface, int status)
 {
-	struct jz_battery *jz_battery = container_of(pmu_interface,	\
-			struct jz_battery, pmu_interface);
+	struct power_supply *psy = power_supply_get_by_name("battery");
+	struct jz_battery *jz_battery;
 	struct act8600_charger *charger = (struct act8600_charger *)pmu_interface;
+
+	jz_battery = container_of(psy, struct jz_battery, battery);
 
 	switch (status) {
 	case STATUS:
@@ -184,11 +181,7 @@ static unsigned int act8600_update_status(struct act8600_charger *charger)
 		jz_battery->status = POWER_SUPPLY_STATUS_CHARGING;
 		break;
 	case CSTATE_SUSPEND:
-		if (get_charger_online(jz_battery, USB)) {
-			jz_battery->status = POWER_SUPPLY_STATUS_CHARGING;
-		} else {
-			jz_battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-		}
+		jz_battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		break;
 	}
 
@@ -244,10 +237,11 @@ static int act8600_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
+		if ((psy->type == POWER_SUPPLY_TYPE_MAINS) &&
+			(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
 			val->intval = get_charger_online(jz_battery, AC);
-		} else if(psy->type == POWER_SUPPLY_TYPE_USB /*&&
-			jz_battery->status_charge == POWER_SUPPLY_STATUS_CHARGING*/) {
+		} else if((psy->type == POWER_SUPPLY_TYPE_USB) &&
+			(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
 			val->intval = get_charger_online(jz_battery, USB);
 		} else
 			val->intval = 0;
@@ -364,7 +358,7 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(charger->irq, act8600_charger_irq,
-			  IRQF_TRIGGER_LOW | IRQF_DISABLED ,
+			  IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			  "charger-detect",
 			  charger);
 

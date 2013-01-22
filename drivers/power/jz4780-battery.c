@@ -165,11 +165,14 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 	if ((slop == 0) && (cut == 0)) {
 		real_voltage = final_value * 1200 / 4096;
 		real_voltage *= 4;
-		pr_debug("Battery driver:The voltage is %d\n",real_voltage);
+		pr_info("Battery driver:The voltage is %dmV\n",real_voltage);
 	} else {
+		real_voltage = final_value * 1200 / 4096;
+		real_voltage *= 4;
+		pr_info("Battery driver:The voltage is %dmV\n",real_voltage);
 		real_voltage = (final_value * slop + cut) / 10000;
 		real_voltage *= 4;
-		pr_debug("Battery driver:The adjust voltage is %d\n",real_voltage);
+		pr_info("Battery driver:The adjust voltage is %dmV\n",real_voltage);
 	}
 
 	return real_voltage;
@@ -437,10 +440,16 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 {
 	bool has_changed = false;
 	unsigned int voltage;
-	unsigned int usb,ac;
+	unsigned int usb;
+	unsigned int ac;
 
-	usb = get_charger_online(jz_battery, USB);
-	ac = get_charger_online(jz_battery, AC);
+	if (jz_battery->get_pmu_status == NULL) {
+		ac = get_charger_online(jz_battery, AC);
+		usb = get_charger_online(jz_battery, USB);
+	} else {
+		usb = jz_battery->get_pmu_status(jz_battery->pmu_interface, USB);
+		ac = jz_battery->get_pmu_status(jz_battery->pmu_interface, AC);
+	}
 
 	if ((jz_battery->capacity == 99) &&
 		(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
@@ -455,10 +464,16 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 
 	voltage = jz_battery_adjust_voltage(jz_battery);
 
-	if ((jz_battery->capacity >= 93) &&
-			(jz_battery->status_tmp == POWER_SUPPLY_STATUS_CHARGING)) {
-		jz_battery->status_tmp =
-			jz_battery->get_pmu_status(jz_battery->pmu_interface, STATUS);
+	if ((jz_battery->usb == 1) && (usb == 1)) {
+		if (jz_battery->get_pmu_status != NULL)
+			jz_battery->status_tmp =
+				jz_battery->get_pmu_status(jz_battery->pmu_interface, STATUS);
+	}
+
+	if ((jz_battery->ac == 1) && (ac == 1)) {
+		if (jz_battery->get_pmu_status != NULL)
+			jz_battery->status_tmp =
+				jz_battery->get_pmu_status(jz_battery->pmu_interface, STATUS);
 	}
 
 	if (jz_battery->status_tmp == POWER_SUPPLY_STATUS_FULL) {
@@ -520,12 +535,17 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 	jz_battery->ac = ac;
 	jz_battery->usb = usb;
 
+	pr_info("Battery driver: Now battery status is %d, status_tmp is %d\n", jz_battery->status,
+			jz_battery->status_tmp);
+	pr_info("Battery driver: Now display status is %d\n", jz_battery->status_charge);
+	pr_info("Battery driver: Now battery capacity calculate is %d\n", jz_battery->capacity_calculate);
+
 	if (has_changed) {
 		unsigned int tmp = jz_battery->capacity;
-		pr_debug("Battery driver: voltage is %d\n", jz_battery->voltage);
+		pr_info("Battery driver: Now battery voltage is %dmV\n", jz_battery->voltage);
 		jz_battery_get_capacity(jz_battery);
 		if (tmp != jz_battery->capacity)
-			pr_debug("Battery driver: Capacity is %d\n", jz_battery->capacity);
+			pr_info("Battery driver: Capacity is %d\n", jz_battery->capacity);
 
 		power_supply_changed(&jz_battery->battery);
 	}
@@ -538,6 +558,7 @@ static void jz_battery_work(struct work_struct *work)
 
 	jz_battery_update_work(jz_battery);
 
+	pr_info("Battery driver: Next check time is %ds\n", jz_battery->next_scan_time);
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
 }
 
@@ -554,9 +575,6 @@ static void jz_battery_init_work(struct work_struct *work)
 			jz_battery->pmu_interface, AC);
 	jz_battery->status_charge = jz_battery->get_pmu_status(
 			jz_battery->pmu_interface, STATUS);
-	if (jz_battery->usb &&
-		(jz_battery->status_charge == POWER_SUPPLY_STATUS_NOT_CHARGING))
-		jz_battery->status_charge = POWER_SUPPLY_STATUS_CHARGING;
 	jz_battery->voltage = jz_battery_adjust_voltage(jz_battery);
 	jz_battery->capacity = jz_battery_calculate_capacity(jz_battery);
 
@@ -685,6 +703,7 @@ static void jz_battery_resume_work(struct work_struct *work)
 			jz_battery->pmu_interface, USB);
 	jz_battery->capacity_calculate =
 		jz_battery_calculate_capacity(jz_battery);
+	pr_info("Battery driver: resume capacity calculate is %d\n", jz_battery->capacity_calculate);
 
 	do_gettimeofday(&battery_time);
 	jz_battery->resume_time = battery_time.tv_sec;
@@ -708,6 +727,10 @@ static void jz_battery_resume_work(struct work_struct *work)
 
 	power_supply_changed(&jz_battery->battery);
 
+	pr_info("Battery driver: resume charger status is %d\n", jz_battery->status_charge);
+	pr_info("Battery driver: resume ac status is %d\n", jz_battery->ac);
+	pr_info("Battery driver: resume USB status is %d\n", jz_battery->usb);
+	pr_info("Battery driver: resume capacity is %d\n", jz_battery->capacity);
 	jz_battery->next_scan_time = 15;
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
 }
@@ -717,6 +740,25 @@ static int jz_battery_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_battery *jz_battery = platform_get_drvdata(pdev);
 	struct timeval battery_time;
+
+	if (jz_battery->get_pmu_status != NULL) {
+		jz_battery->status_charge = jz_battery->get_pmu_status(
+				jz_battery->pmu_interface, STATUS);
+		jz_battery->ac = jz_battery->get_pmu_status(
+				jz_battery->pmu_interface, AC);
+		jz_battery->usb = jz_battery->get_pmu_status(
+				jz_battery->pmu_interface, USB);
+	} else {
+		jz_battery->status_charge = jz_battery->status;
+		jz_battery->ac = get_charger_online(jz_battery, AC);
+		jz_battery->usb = get_charger_online(jz_battery, USB);
+	}
+
+	pr_info("Battery driver: Before sleep charger status is %d\n", jz_battery->status_charge);
+	pr_info("Battery driver: Before sleep ac status is %d\n", jz_battery->ac);
+	pr_info("Battery driver: Before sleep USB status is %d\n", jz_battery->usb);
+	pr_info("Battery driver: Before sleep capacity is %d\n", jz_battery->capacity);
+	pr_info("Battery driver: Before sleep voltage is %d\n", jz_battery->voltage);
 
 	cancel_delayed_work_sync(&jz_battery->resume_work);
 	cancel_delayed_work_sync(&jz_battery->work);
