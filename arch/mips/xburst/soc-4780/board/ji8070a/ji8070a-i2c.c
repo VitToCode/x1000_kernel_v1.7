@@ -175,7 +175,7 @@ struct cam_sensor_plat_data {
 
 #ifdef CONFIG_SP0838
 static struct cam_sensor_plat_data sp0838_pdata = {
-	.facing = 0,
+	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
@@ -203,11 +203,11 @@ struct gc0308_platform_data {
 };
 
 static struct gc0308_platform_data gc0308_pdata = {
-	.facing_f = 0,
+	.facing_f = 1,
 	.orientation_f = 0,
 	.mirror_f = 0,
 
-	.facing_b = 1,
+	.facing_b = 0,
 	.orientation_b = 0,
 	.mirror_b = 1,
 
@@ -225,11 +225,7 @@ static struct gc0308_platform_data gc0308_pdata = {
 
 #if defined(CONFIG_GC0308)
 static struct cam_sensor_plat_data gc0308_pdata = {
-#ifdef CONFIG_BOARD_JI8070A
-	.facing = 1,
-#else
-    .facing = 0,
-#endif
+    .facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_GC0308_EN,
