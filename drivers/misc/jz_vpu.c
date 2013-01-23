@@ -164,10 +164,10 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct jz_vpu *vpu = container_of(dev, struct jz_vpu, mdev);
 	struct flush_cache_info info;
 	int ret = 0;
+    unsigned int status = 0;
 
 	switch (cmd) {
 	case WAIT_COMPLETE:
-		unsigned int status = 0;
 		ret = wait_for_completion_interruptible_timeout(
 			&vpu->done, msecs_to_jiffies(200));
 		if (ret > 0)
