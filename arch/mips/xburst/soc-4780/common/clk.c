@@ -21,6 +21,9 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
+static DEFINE_MUTEX(clkgr0_lock);
+static DEFINE_MUTEX(clkgr1_lock);
+
 struct clk;
 struct clk_ops {
 	int (*enable)(struct clk *,int);
@@ -763,10 +766,45 @@ void __init init_all_clk(void)
 			clk_srcs[CLK_ID_PCLK].rate/1000/1000);
 }
 
+static int cpm_clear_bit_lock(int bit, unsigned int reg)
+{
+    if (CPM_CLKGR0 == reg) {
+        //printk("%s, %d\n", __func__, __LINE__);
+        mutex_lock(&clkgr0_lock);
+        cpm_clear_bit(bit, reg);
+        mutex_unlock(&clkgr0_lock);
+        return 0;
+    }
+    if (CPM_CLKGR1 == reg) {
+        mutex_lock(&clkgr1_lock);
+        cpm_clear_bit(bit, reg);
+        mutex_unlock(&clkgr1_lock);
+        return 0;
+    }
+    return 0;
+}
+
+static int cpm_set_bit_lock(int bit, unsigned int reg)
+{
+    if (CPM_CLKGR0 == reg) {
+        mutex_lock(&clkgr0_lock);
+        cpm_set_bit(bit, reg);
+        mutex_unlock(&clkgr0_lock);
+        return 0;
+    }
+    if (CPM_CLKGR1 == reg) {
+        mutex_lock(&clkgr1_lock);
+        cpm_set_bit(bit, reg);
+        mutex_unlock(&clkgr1_lock);
+        return 0;
+    }
+    return 0;
+}
+
 static int clk_gate_ctrl(struct clk *clk, int enable)
 {
 	int bit = CLK_GATE_BIT(clk->flags);
-	int off;
+	unsigned int off;
 
 	if(bit/32 == 0)
 		off = CPM_CLKGR0;
@@ -775,9 +813,10 @@ static int clk_gate_ctrl(struct clk *clk, int enable)
 
 	/* change clkgr atomic */
 	if(enable)
-		cpm_clear_bit(bit%32,off);
+		cpm_clear_bit_lock(bit%32,off);
 	else
-		cpm_set_bit(bit%32,off);
+		cpm_set_bit_lock(bit%32,off);
+
 	return 0;
 }
 
@@ -943,7 +982,7 @@ int clk_start_ehci(void)
 #ifdef CONFIG_SOC_4780
 
 	/* enable clock gate */
-	cpm_clear_bit(24, CPM_CLKGR0);
+	cpm_clear_bit_lock(24, CPM_CLKGR0);
 
 	/* UHC clock source is OTG_PHY */
 	cpm_set_bit(30, CPM_UHCCDR);
