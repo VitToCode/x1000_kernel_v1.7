@@ -21,8 +21,8 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
-static DEFINE_MUTEX(clkgr0_lock);
-static DEFINE_MUTEX(clkgr1_lock);
+static DEFINE_SPINLOCK(clkgr0_lock);
+static DEFINE_SPINLOCK(clkgr1_lock);
 
 struct clk;
 struct clk_ops {
@@ -770,15 +770,15 @@ static int cpm_clear_bit_lock(int bit, unsigned int reg)
 {
     if (CPM_CLKGR0 == reg) {
         //printk("%s, %d\n", __func__, __LINE__);
-        mutex_lock(&clkgr0_lock);
+        spin_lock(&clkgr0_lock);
         cpm_clear_bit(bit, reg);
-        mutex_unlock(&clkgr0_lock);
+        spin_unlock(&clkgr0_lock);
         return 0;
     }
     if (CPM_CLKGR1 == reg) {
-        mutex_lock(&clkgr1_lock);
+        spin_lock(&clkgr1_lock);
         cpm_clear_bit(bit, reg);
-        mutex_unlock(&clkgr1_lock);
+        spin_unlock(&clkgr1_lock);
         return 0;
     }
     return 0;
@@ -787,15 +787,15 @@ static int cpm_clear_bit_lock(int bit, unsigned int reg)
 static int cpm_set_bit_lock(int bit, unsigned int reg)
 {
     if (CPM_CLKGR0 == reg) {
-        mutex_lock(&clkgr0_lock);
+        spin_lock(&clkgr0_lock);
         cpm_set_bit(bit, reg);
-        mutex_unlock(&clkgr0_lock);
+        spin_unlock(&clkgr0_lock);
         return 0;
     }
     if (CPM_CLKGR1 == reg) {
-        mutex_lock(&clkgr1_lock);
+        spin_lock(&clkgr1_lock);
         cpm_set_bit(bit, reg);
-        mutex_unlock(&clkgr1_lock);
+        spin_unlock(&clkgr1_lock);
         return 0;
     }
     return 0;
