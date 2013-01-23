@@ -594,6 +594,16 @@ config USB_CI13XXX_MSM
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
+config USB_GADGET_DWC2
+	boolean "DesignWare USB 2.0 Hi-Speed OTG Controller"
+	default USB_GADGET
+	select USB_OTG
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SELECTED
+	help
+	    Select Synopsys DesignWare USB 2.0 Hi-Speed OTG Controller
+	
+
 config USB_GADGET_SNPS_DWC_OTG
 	boolean "Synopsys Driver for DWC_otg Controller"
 	depends on USB && EXPERIMENTAL
