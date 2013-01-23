@@ -18,3 +18,14 @@ unsigned int nd_get_timestamp(void)
 {
 	return jiffies_to_msecs(jiffies);
 }
+
+int nm_print_message(enum nm_msg_type type, int arg)
+{
+	switch (type) {
+	case NM_MSG_ERASE_PERSENT:
+		printk("------------------> persent = %d\n", arg);
+		break;
+	}
+
+	return 0;
+}
