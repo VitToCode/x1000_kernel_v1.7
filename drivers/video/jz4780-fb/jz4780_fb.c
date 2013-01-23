@@ -960,6 +960,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 static int jzfb_alloc_devmem(struct jzfb *jzfb)
 {
+	int i;
 	unsigned int videosize = 0;
 	struct fb_videomode *mode;
 	void *page;
@@ -967,8 +968,10 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	jzfb->framedesc[0] = dma_alloc_coherent(
 		jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 		&jzfb->framedesc_phys, GFP_KERNEL);
-	if (!jzfb->framedesc)
+	if (!jzfb->framedesc[0])
 		return -ENOMEM;
+	for (i = 1; i < jzfb->desc_num; i++)
+		jzfb->framedesc[i] = jzfb->framedesc[0] + i;
 
 	if (!jzfb->pdata->alloc_vidmem) {
 		dev_info(jzfb->dev, "Not allocate frame buffer\n");
@@ -1839,6 +1842,12 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
+	if (!jzfb->vidmem_phys) {
+		dev_err(jzfb->dev, "Not allocate frame buffer yet\n");
+		return;
+	}
+	if (!jzfb->vidmem)
+		jzfb->vidmem = (void *)phys_to_virt(jzfb->vidmem_phys);
 	p16 = (unsigned short *)jzfb->vidmem;
 	p32 = (unsigned int *)jzfb->vidmem;
 	w = jzfb->osd.fg0.w;
@@ -1904,6 +1913,12 @@ static void jzfb_display_h_color_bar(struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
+	if (!jzfb->vidmem_phys) {
+		dev_err(jzfb->dev, "Not allocate frame buffer yet\n");
+		return;
+	}
+	if (!jzfb->vidmem)
+		jzfb->vidmem = (void *)phys_to_virt(jzfb->vidmem_phys);
 	p16 = (unsigned short *)jzfb->vidmem;
 	p32 = (unsigned int *)jzfb->vidmem;
 	w = jzfb->osd.fg0.w;
@@ -1965,6 +1980,8 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	long unsigned int tmp;
 	struct device *dev = jzfb->dev;
 
+	if (!jzfb->is_enabled)
+		clk_enable(jzfb->clk);
 	/* LCD Controller Resgisters */
 	dev_info(dev, "LCDC_CFG: \t0x%08lx\n", reg_read(jzfb, LCDC_CFG));
 	dev_info(dev, "LCDC_CTRL:\t0x%08lx\n", reg_read(jzfb, LCDC_CTRL));
@@ -2032,14 +2049,25 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 		 reg_read(jzfb, LCDC_DESSIZE1));
 	dev_info(dev, "==================================\n");
 	dev_info(dev, "LCDC_PCFG:\t0x%08lx\n", reg_read(jzfb, LCDC_PCFG));
+	dev_info(dev, "==================================\n");
+	dev_info(dev, "SLCDC_CFG: \t0x%08lx\n", reg_read(jzfb, SLCDC_CFG));
+	dev_info(dev, "SLCDC_CTRL: \t0x%08lx\n", reg_read(jzfb, SLCDC_CTRL));
+	dev_info(dev, "SLCDC_STATE: \t0x%08lx\n", reg_read(jzfb, SLCDC_STATE));
+	dev_info(dev, "SLCDC_DATA: \t0x%08lx\n", reg_read(jzfb, SLCDC_DATA));
+	dev_info(dev, "==================================\n");
+	dev_info(dev, "LVDS_TXCTRL: \t0x%08lx\n", reg_read(jzfb, LVDS_TXCTRL));
+	dev_info(dev, "LVDS_TXPLL0: \t0x%08lx\n", reg_read(jzfb, LVDS_TXPLL0));
+	dev_info(dev, "LVDS_TXPLL1: \t0x%08lx\n", reg_read(jzfb, LVDS_TXPLL1));
+	dev_info(dev, "LVDS_TXECTRL: \t0x%08lx\n", reg_read(jzfb, LVDS_TXECTRL));
 	for (i = 0; i < jzfb->desc_num; i++) {
+		if (!jzfb->framedesc[i])
+			break;
 		dev_info(dev, "==================================\n");
 		if (i != jzfb->desc_num - 1) {
-			dev_info(dev, "jzfb->framedesc: %p\n", jzfb->framedesc);
+			dev_info(dev, "jzfb->framedesc[%d]: %p\n", i, jzfb->framedesc[i]);
 			dev_info(dev, "DMA 0 descriptor value in memory\n");
 		} else {
-			jzfb->framedesc[i] = jzfb->fg1_framedesc;
-			dev_info(dev, "jzfb->fg1_framedesc: %p\n", jzfb->fg1_framedesc);
+			dev_info(dev, "jzfb->fg1_framedesc: %p\n", jzfb->framedesc[i]);
 			dev_info(dev, "DMA 1 descriptor value in memory\n");
 		}
 		dev_info(dev, "framedesc[%d]->next: \t0x%08x\n", i,
@@ -2059,6 +2087,8 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 		dev_info(dev, "framedesc[%d]->desc_size:\t0x%08x\n", i,
 			 jzfb->framedesc[i]->desc_size);
 	}
+	if (!jzfb->is_enabled)
+		clk_disable(jzfb->clk);
 
 	return;
 }

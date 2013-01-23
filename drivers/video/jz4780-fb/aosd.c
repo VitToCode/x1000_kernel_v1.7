@@ -69,7 +69,8 @@ void print_aosd_registers(void)	/* debug */
 	dev_info(dev, "AOSD_RSIZE:0x%08lx\n", aosd_readl(jzaosd, AOSD_RSIZE));
 	dev_info(dev, "AOSD_ROFFS:0x%08lx\n", aosd_readl(jzaosd, AOSD_ROFFS));
 
-	calc_comp_ratio(aosd_info.width, aosd_info.height);
+	if (aosd_info.width > 0 && aosd_info.height > 0)
+		calc_comp_ratio(aosd_info.width, aosd_info.height);
 
 	clk_disable(jzaosd->debug_clk);
 }
