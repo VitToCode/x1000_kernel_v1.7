@@ -451,6 +451,12 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 		ac = jz_battery->get_pmu_status(jz_battery->pmu_interface, AC);
 	}
 
+	if ((jz_battery->capacity >= 100) &&
+		(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
+		jz_battery->status = POWER_SUPPLY_STATUS_FULL;
+		jz_battery->capacity = 100;
+	}
+
 	if ((jz_battery->capacity == 99) &&
 		(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
 		if (jz_battery->time < 10) {
