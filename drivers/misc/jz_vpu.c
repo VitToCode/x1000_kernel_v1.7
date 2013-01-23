@@ -167,11 +167,12 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case WAIT_COMPLETE:
-		vpu->status = 0;
+		unsigned int status = 0;
 		ret = wait_for_completion_interruptible_timeout(
 			&vpu->done, msecs_to_jiffies(200));
-		
-		if (copy_to_user((void *)arg, &vpu->status, sizeof(vpu->status)))
+		if (ret > 0)
+		        status = vpu->status;
+		if (copy_to_user((void *)arg, &status, sizeof(status)))
 			ret = -EFAULT;
 		break;
 		
@@ -234,6 +235,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 {
 	struct jz_vpu *vpu = dev;
 	unsigned int vpu_stat;
+	vpu->status = 0;
 
 	vpu_stat = vpu_readl(vpu,REG_VPU_STAT);
 #define CLEAR_VPU_BIT(vpu,offset,bm)				\
