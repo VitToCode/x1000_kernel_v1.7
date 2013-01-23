@@ -109,6 +109,7 @@ int nand_write_pages(NAND_BASE *host,Aligned_List *aligned_list);
 int nand_erase_blocks(NAND_BASE *host,BlockList *headlist);
 
 int isbadblock(NAND_BASE *host, int blockid);
+int isinherentbadblock(NAND_BASE *host, int blockid);
 int markbadblock(NAND_BASE *host, int blockid);
 int read_spl(NAND_BASE *host, Aligned_List *list);
 int write_spl(NAND_BASE *host, Aligned_List *list);

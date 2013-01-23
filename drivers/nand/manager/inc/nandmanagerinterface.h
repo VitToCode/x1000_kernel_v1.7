@@ -6,6 +6,12 @@
 #include "ppartition.h"
 #include "blocklist.h"
 
+enum nandmanager_cmd {
+	NANDMANAGER_PREPARE_NEW_FLASH,
+	NANDMANAGER_CHECK_USED_FLASH,
+	NANDMANAGER_ERASE_FLASH,
+};
+
 /*public*/
 int NandManger_Init(void);
 void NandManger_DeInit(int handle);
@@ -21,6 +27,7 @@ int NandManger_ptClose(int context);
 void NandManger_startNotify(int handle,void (*start)(int),int prdata);
 void NandManger_regPtInstallFn(int handle, int data);
 int NandManger_ptInstall(int handle, char *ptname);
+int NandManger_Ioctrl(int handle, enum nandmanager_cmd cmd, int args);
 
 /*---------- direct interface ---------------*/
 /**
@@ -58,4 +65,5 @@ int NandManger_DirectMarkBadBlock(int handle, PPartition *pt, int blockid);
  * @pt: if NULL, scan && store all partitions
  **/
 int NandManger_UpdateErrorPartition(int handle, PPartition *pt);
+
 #endif

@@ -1217,6 +1217,35 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
 	}
 	return SUCCESS;
 }
+
+int isinherentbadblock(NAND_BASE *host, int blockid)
+{
+	int ret = 0, i = 0;
+	unsigned char buf = 0xff;
+	unsigned int pageid;
+	unsigned int times = g_pnand_pt->use_planes+1;  // one-plane ,times =1 ;two-plane ,times =2
+	pageid = g_startpage + blockid * g_pageperblock;
+	do_select_chip(host,pageid);
+	while (times--) {
+		while (i < 2) {
+			pageid += (i++) * g_pageperblock;
+			send_read_page(g_pagesize, pageid);
+			ret = g_pnand_io->read_data_withrb(&buf, 1);
+			if (ret) {
+				printk("DEBUG: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+				goto err;
+			}
+			if (buf != 0xff) {
+				ret = ENAND;
+				goto err;
+			}
+		}
+	}
+err:
+	do_deselect_chip(host);
+	return ret;
+}
+
 /******************************************************
  *   markbadblock ;
  *

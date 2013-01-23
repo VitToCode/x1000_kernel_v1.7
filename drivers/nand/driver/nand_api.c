@@ -372,6 +372,24 @@ static inline int init_nand_vm(void * vNand)
 {
 	VNandManager *tmp_manager =(VNandManager *)vNand;
 	VNandInfo *tmp_info = &(tmp_manager->info);
+	struct platform_nand_partition *plat_data;
+	PPartition *pt;
+
+	/* platform_nand_partition */
+	plat_data = (struct platform_nand_partition *)nand_malloc_buf(sizeof(struct platform_nand_partition));
+	plat_data->use_planes = ONE_PLANE;
+	/* PPartition */
+	pt = (PPartition *)nand_malloc_buf(sizeof(PPartition));
+	pt->startblockID = 0;
+	pt->pageperblock = g_pnand_api.nand_chip->ppblock;
+	pt->byteperpage = g_pnand_api.nand_chip->pagesize;
+	pt->totalblocks = g_pnand_api.totalblock;
+	pt->badblockcount = 0;
+	pt->actualbadblockcount = 0;
+	pt->hwsector = 512;
+	pt->startPage = pt->startblockID * pt->pageperblock;
+	pt->PageCount = pt->totalblocks * pt->pageperblock;
+	pt->prData = plat_data;
 
 	tmp_info->startBlockID = 0;
 	tmp_info->PagePerBlock = g_pnand_api.nand_chip->ppblock;
@@ -379,6 +397,7 @@ static inline int init_nand_vm(void * vNand)
 	tmp_info->TotalBlocks =  g_pnand_api.totalblock;
 	tmp_info->MaxBadBlockCount = g_pnand_api.nand_chip->maxbadblockcount;
 	tmp_info->hwSector = g_pnand_api.nand_ecc->eccsize;
+	tmp_info->prData = (void *)pt;
 	if(!g_partition)
 		return -1;
 	tmp_manager->pt = &g_partarray;
@@ -806,6 +825,21 @@ static inline int is_badblock(void *ppartition,int blockid)
 }
 
 /*
+ * is_inherent_badblock - judge inherent badblock
+ *
+ */
+static int is_inherent_badblock(void *ppartition,int blockid)
+{
+	PPartition * tmp_ppt = (PPartition *)ppartition;
+	if(blockid >tmp_ppt->totalblocks){
+		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
+		return -1;
+	}
+	nand_ops_parameter_reset(tmp_ppt);
+	return isinherentbadblock(g_pnand_api.vnand_base,blockid);
+}
+
+/*
  * mark_badblock - mark badblock
  *
  */
@@ -819,6 +853,7 @@ static inline int mark_badblock(void *ppartition,int blockid)
 	nand_ops_parameter_reset(tmp_ppt);
 	return markbadblock(g_pnand_api.vnand_base,blockid);
 }
+
 /*
  * deinit_nand
  *
@@ -854,6 +889,7 @@ NandInterface jz_nand_interface = {
 	.iMultiPageWrite = multipage_write,
 	.iMultiBlockErase = multiblock_erase,
 	.iIsBadBlock = is_badblock,
+	.iIsInherentBadBlock = is_inherent_badblock,
 	.iMarkBadBlock = mark_badblock,
 	.iDeInitNand = deinit_nand,
 	.iPanicPageWrite = panic_page_write,

@@ -123,7 +123,7 @@ static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
 		*report = UNCOR_ECC; /* Uncorrectable ECC Error*/
 	} else if (stat & BCH_INTS_ERR) {
 		err_cnt = (stat & BCH_INTS_TERRC_MASK) >> BCH_INTS_TERRC_BIT;
-		if(err_cnt >= nand->ecclevel - (nand->ecclevel>8?nand->ecclevel/8:1))
+		if(err_cnt >= nand->ecclevel - (nand->ecclevel>2?nand->ecclevel/2:1))
         		*report = MOVE_BLOCK; /* Move Block*/
 		err_cnt = (stat & BCH_INTS_ERRC_MASK) >> BCH_INTS_ERRC_BIT;
 

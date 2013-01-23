@@ -316,6 +316,36 @@ int NM_UpdateErrorPartition(NM_ppt *ppt)
 	return NandManger_UpdateErrorPartition(nm_intf->handler, (ppt ? ppt->pt : NULL));
 }
 
+int NM_PrepareNewFlash(int handler)
+{
+	if ((NM_intf*)handler != nm_intf) {
+		printk("ERROR: %s, Unknown NM handler!\n", __func__);
+		return -1;
+	}
+
+	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_PREPARE_NEW_FLASH, 0);
+}
+
+int NM_CheckUsedFlash(int handler)
+{
+	if ((NM_intf*)handler != nm_intf) {
+		printk("ERROR: %s, Unknown NM handler!\n", __func__);
+		return -1;
+	}
+
+	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_CHECK_USED_FLASH, 0);
+}
+
+int NM_EraseFlash(int handler)
+{
+	if ((NM_intf*)handler != nm_intf) {
+		printk("ERROR: %s, Unknown NM handler!\n", __func__);
+		return -1;
+	}
+
+	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_ERASE_FLASH, 0);
+}
+
 int NM_open(void)
 {
 	if (!nm_intf) {

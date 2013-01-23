@@ -10,6 +10,9 @@
 
 #define DBG_FUNC() //printk("##### nand char debug #####: func = %s \n", __func__)
 
+#define NEED_MARK	0x1
+#define NO_MARK		0x2
+
 enum nand_char_ops_status {
 	NAND_DRIVER_FREE,
 	NAND_DRIVER_BUSY,
@@ -31,20 +34,40 @@ static int update_error_pt(NM_ppt *ppt)
 	return NM_UpdateErrorPartition(ppt);
 }
 
+static inline int erase_block(NM_ppt *ppt, int blockid, int markflag)
+{
+	int ret;
+
+	ret = NM_DirectErase(ppt, blockid);
+	if (ret || (markflag == NEED_MARK)) {
+		ret = NM_DirectMarkBadBlock(ppt, blockid);
+		if (ret) {
+			printk("%s: line:%d, nand mark badblock error, pt = %s, blockID = %d, ret = %d\n",
+				   __func__, __LINE__, ppt->pt->name, blockid, ret);
+			dump_stack();
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
 static int erase_ppt(NM_ppt *ppt)
 {
 	int ret, blockid, markcnt = 0;
 
 	for (blockid = 0; blockid < ppt->pt->totalblocks; blockid++) {
-		ret = NM_DirectErase(ppt, blockid);
+		if (NM_DirectIsBadBlock(ppt, blockid))
+			ret = erase_block(ppt, blockid, NEED_MARK);
+		else
+			ret = erase_block(ppt, blockid, NO_MARK);
+
 		if (ret) {
-			ret = NM_DirectMarkBadBlock(ppt, blockid);
-			if (ret)
-				printk("%s: line:%d, nand mark badblock error, blockID = %d, ret = %d\n",
-					   __func__, __LINE__, blockid, ret);
+			printk("mark bad block (%s, %d)\n", ppt->pt->name, blockid);
 			markcnt++;
 		}
 	}
+
 	return markcnt;
 }
 
@@ -55,15 +78,41 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 
 	DBG_FUNC();
 	switch(cmd){
+	case CMD_PREPARE_NEW_NAND: {
+		ret = NM_PrepareNewFlash(nand_char.nm_handler);
+		if (ret) {
+			printk("ERROR: prepare new nand error!\n");
+		}
+
+		ret = update_error_pt(NULL);
+		if (ret) {
+			printk("%s: line:%d, update error partition error, ret = %d\n",
+				   __func__, __LINE__, ret);
+		}
+		break;
+	}
+	case CMD_CHECK_USED_NAND: {
+		ret = NM_CheckUsedFlash(nand_char.nm_handler);
+		if (ret) {
+			printk("ERROR: check used nand error!\n");
+		}
+
+		ret = update_error_pt(NULL);
+		if (ret) {
+			printk("%s: line:%d, update error partition error, ret = %d\n",
+				   __func__, __LINE__, ret);
+		}
+		break;
+	}
 	case CMD_SOFT_PARTITION_ERASE: {
 		char ptname[128];
 		int context;
 		NM_lpt *lpt = NULL;
 
-#ifdef CONFIG_MUL_PARTS
+		/* yet not support soft erase */
 		ret = 0;
 		break;
-#endif
+
 		ret = copy_from_user(&ptname, (unsigned char *)arg, 128);
 		if (!ret) {
 			singlelist_for_each(plist, &nand_char.lptl->list) {
@@ -95,10 +144,10 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		int context;
 		NM_lpt *lpt = NULL;
 
-#ifdef CONFIG_MUL_PARTS
+		/* yet not support soft erase */
 		ret = 0;
 		break;
-#endif
+
 		singlelist_for_each(plist, &nand_char.lptl->list) {
 			lpt = singlelist_entry(plist, NM_lpt, list);
 
@@ -146,16 +195,11 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		break;
 	}
 	case CMD_HARD_ERASE_ALL: {
-		int markcnt;
-		NM_ppt *ppt;
+		ret = NM_EraseFlash(nand_char.nm_handler);
+		if (ret)
+			printk("%s: line:%d, erase all nand flash error, ret = %d\n",
+				   __func__, __LINE__, ret);
 
-		singlelist_for_each(plist, &nand_char.pptl->list) {
-			ppt = singlelist_entry(plist, NM_ppt, list);
-			printk("hard erase nand partition [%s]\n", ppt->pt->name);
-
-			markcnt = erase_ppt(ppt);
-			printk("mark [%d] badblocks in partition [%s]\n", markcnt, ppt->pt->name);
-		}
 		ret = update_error_pt(NULL);
 		if (ret)
 			printk("%s: line:%d, update error partition error, ret = %d\n",

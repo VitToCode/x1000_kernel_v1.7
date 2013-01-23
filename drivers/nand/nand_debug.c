@@ -29,7 +29,7 @@ static struct __nand_char {
 static NM_ppt* get_ppt_by_partnum(int partnum)
 {
 	int index = 0;
-	NM_ppt *ppt;
+	NM_ppt *ppt = NULL;
 	struct singlelist *plist = NULL;
 
 	singlelist_for_each(plist, &nand_dbg.pptl->list) {

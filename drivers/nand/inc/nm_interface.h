@@ -41,12 +41,13 @@ int NM_DirectIsBadBlock(NM_ppt *ppt, int blockid);
 int NM_DirectMarkBadBlock(NM_ppt *ppt, int blockid);
 int NM_UpdateErrorPartition(NM_ppt *ppt);
 
-int NM_open(void);
-void NM_close(int handler);
-
 NM_lpt* NM_getPartition(int handler);
 NM_ppt* NM_getPPartition(int handler);
 void NM_startNotify(int handler, void (*start)(int), int prdata);
-
+int NM_PrepareNewFlash(int handler);
+int NM_CheckUsedFlash(int handler);
+int NM_EraseFlash(int handler);
 void NM_regPtInstallFn(int handler, int data);
 int NM_ptInstall(int handler, char *ptname);
+int NM_open(void);
+void NM_close(int handler);

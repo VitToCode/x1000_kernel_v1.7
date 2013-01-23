@@ -394,7 +394,7 @@ static int handle_req_thread(void *data)
 			}
 
 			if (ret < 0) {
-				printk("NM_read/write error!\n");
+				printk("nand_block: NM %s error!\n", (rq_data_dir(req) == READ)? "read" : "write");
 				break;
 			}
 
@@ -733,12 +733,12 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): alloc memory for ndisk error!\n");
 		goto probe_err0;
 	}
-#ifdef CONFIG_MUL_PARTS
+
 	if(lpt->pt->parts_num > 0)
 		ndisk->disk = alloc_disk(DISK_MINORS);
 	else
-#endif
 		ndisk->disk = alloc_disk(1);
+
     if (!ndisk->disk) {
 		printk("ERROR(nand block): alloc_disk error!\n");
 		goto probe_err1;
@@ -964,10 +964,10 @@ static int nand_disk_install(char *name)
 		/* partiton with this mode do not need to open */
 		if (lpt->pt->mode == ONCE_MANAGER) {
 		    if(installAll)
-			return 0;
+				return 0;
 		    else{
-			printk("ERROR(nand block): can not install disk [%s]!\n", name);	
-			return -1;
+				printk("ERROR(nand block): can not install disk [%s]!\n", name);
+				return -1;
 		    }
 		}
 
