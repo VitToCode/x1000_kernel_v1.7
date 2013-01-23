@@ -200,6 +200,7 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL,
 		SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
+        SND_ROUTE_CALL_RECORD,
 		SND_ROUTE_REPLAY_DACRL_TO_LO,
 		SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 		SND_ROUTE_REPLAY_DACRL_TO_ALL,
@@ -218,6 +219,7 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT",
 		"SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_HPRL",
 		"SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL",
+		"SND_ROUTE_CALL_RECORD",
 		"SND_ROUTE_REPLAY_DACRL_TO_LO",
 		"SND_ROUTE_REPLAY_DACRL_TO_HPRL",
 		"SND_ROUTE_REPLAY_DACRL_TO_ALL",
@@ -2555,11 +2557,22 @@ static int codec_set_device(enum snd_device_t device)
 	case SND_DEVICE_RECORD_INCALL:
 		if (codec_platform_data && codec_platform_data->record_incall_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->record_incall_route));
+			printk("==========incall record route=%d=============\n", codec_platform_data->record_incall_route.route);
 			if(ret != codec_platform_data->record_incall_route.route) {
 				return -1;
 			}
 		}
 		break;
+	case SND_DEVICE_HEADSET_RECORD_INCALL:
+		if (codec_platform_data && codec_platform_data->headset_record_incall_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->headset_record_incall_route));
+			printk("==========headset incall record route=%d=============\n", codec_platform_data->headset_record_incall_route.route);
+			if(ret != codec_platform_data->headset_record_incall_route.route) {
+				return -1;
+			}
+		}
+		break;
+
 	case SND_DEVICE_BT:
 		if (codec_platform_data && codec_platform_data->bt_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->bt_route));

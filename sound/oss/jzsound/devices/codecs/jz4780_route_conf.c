@@ -213,20 +213,26 @@ route_conf_base const call_mic_bypass_to_hp_lr = {
 	.route_lineout_mode = LINEOUT_ENABLE,
 };
 route_conf_base const call_record_mic_bypass_to_hp_lr = {
-	.route_ready_mode = ROUTE_READY_FOR_ADC,
+	.route_ready_mode = ROUTE_READY_FOR_ADC_DAC,
 	//record
-	.route_mic1_mode = MIC1_DIFF_WITH_MICBIAS,
-	.route_mic2_mode = MIC2_SING_WITH_MICBIAS,
+	.route_mic1_mode = MIC1_DISABLE,
+	.route_mic2_mode = MIC2_DISABLE,
+	.route_line1_mode = LINE1_DIFF,
+	.route_line2_mode = LINE2_SING,
+
 	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,
 	.route_inputr_mode = INPUTR_TO_ADC_ENABLE,
-	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,
-	.route_inputr_mux_mode = INPUTR_MUX_MIC2_TO_AN3,
+	//.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,
+	//.route_inputr_mux_mode = INPUTR_MUX_MIC2_TO_AN3,
+	.route_inputl_mux_mode = INPUTL_MUX_LINEIN1_TO_AN1,
+	.route_inputr_mux_mode = INPUTR_MUX_LINEIN2_TO_AN3,
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_ENABLE,
-	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
-	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,
+	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_ENABLE,
+	//.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,
+    .route_record_mux_mode = RECORD_MUX_INPUTR_TO_L_INPUTL_TO_R,
+	.route_record_mixer_mode = RECORD_MIXER_INPUT_ONLY|AIADC_MIXER_INPUTL_TO_L|AIADC_MIXER_INPUTL_TO_R,
 	.route_adc_mode = ADC_STEREO,
 	//replay
-	.route_dac_mode = DAC_STEREO,
 	.route_hp_mux_mode = HP_MUX_INPUTR_TO_LR,
 	.route_hp_mode = HP_ENABLE,
 	.route_lineout_mux_mode = LO_MUX_INPUTL_TO_LO,	//new

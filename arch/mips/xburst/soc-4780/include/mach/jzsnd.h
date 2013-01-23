@@ -44,8 +44,9 @@ enum snd_codec_route_t {
 	/*internal codec: call record mic bypass to hprl*/
 	SND_ROUTE_CALL_RECORD,
 	/*internal codec record route end*/
-	SND_ROUTE_RECORD_ROUTE_END = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	//SND_ROUTE_RECORD_ROUTE_END = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 
+	SND_ROUTE_RECORD_ROUTE_END = SND_ROUTE_CALL_RECORD,
 	/*
 	 * loop route and bypass rount
 	 */
@@ -72,8 +73,8 @@ struct snd_board_route {
 	//val : 0 is mean not set use default volume base
 	int replay_volume_base;				//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
 	int record_volume_base;				//val: 32(0dB), +4, +8, +16, +20 (dB);
-	int record_digital_volume_base;		//val: 32(0dB), -1 ~ -31 (dB);
-	int replay_digital_volume_base;		//val: 32(0dB), +1 ~ +23 (dB);
+	int record_digital_volume_base;		//val: 32(0dB), +1 ~ +23 (dB);
+	int replay_digital_volume_base;		//val: 32(0dB), -1 ~ -31 (dB);
 	int bypass_l_volume_base;			//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
 	int bypass_r_volume_base;			//val: +6 ~ +1, 32(0dB), -1 ~ -25 (dB);
 	int gpio_hp_mute_stat;	/* -1: keep , 0: disable, 1: enable */
@@ -122,6 +123,7 @@ struct snd_codec_data {
 	struct snd_board_route uplink_buildin_mic_route;
 	struct snd_board_route uplink_headset_mic_route;
 	struct snd_board_route record_incall_route;
+	struct snd_board_route headset_record_incall_route;
 	struct snd_board_route replay_loop_route;
 
 	/* gpio */
