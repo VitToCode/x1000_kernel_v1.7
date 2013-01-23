@@ -15,6 +15,7 @@
 	.set noreorder
 	LEAF(startup)
 startup:
+	
 	move	s0, a0		/* Save the boot loader transfered args */
 	move	s1, a1
 	move	s2, a2
@@ -41,11 +42,15 @@ startup:
 	move	a1, s1
 	move	a2, s2
 	move	a3, s3
+	
 	li	k0, KERNEL_ENTRY
+	
 	jr	k0
 	nop
+	
 2:
-	b 32
+	b 2b
+	
 	END(startup)
 
 
