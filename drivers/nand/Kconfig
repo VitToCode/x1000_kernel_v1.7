@@ -191,6 +191,22 @@ config	NAND_HW_BCH_64BIT
 
 endchoice
 
+choice
+        prompt "The Nand output driver"
+        depends on NAND_JZ4780
+        default NAND_NORMAL_DRIVER
+
+config	NAND_LOW_DRIVER
+	bool 'low driver'
+
+config	NAND_NORMAL_DRIVER
+	bool 'normal driver'
+
+config	NAND_HIGH_DRIVER
+	bool 'high driver'
+
+endchoice
+
 config 	NAND_DMA
 	depends on NAND_JZ4780 && !FAKE_NAND_DRIVER
 	bool 'Use DMA mode'

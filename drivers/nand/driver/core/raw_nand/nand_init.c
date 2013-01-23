@@ -16,6 +16,8 @@ extern NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id);
 extern void do_nand_register(NAND_API *pnand_api);
 extern int nand_reset(void);
 extern void nand_get_id(char *nand_id);
+extern void nand_set_features(unsigned char addr, unsigned char *data);
+extern void nand_get_features(unsigned char addr, unsigned char *data);
 //#define DEBUG_L   dbg_line()
 
 static inline void dump_id(unsigned char *nand_id)
@@ -53,7 +55,7 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 
 	/* read nand id */
 	nand_get_id(nand_id);
-	dump_id(&nand_id[0]);
+//	dump_id(&nand_id[0]);
 
 	/*get nand info from nand type info table in nand_ids.c*/
 	pnand_type = nand_scan_table(nand_id);
@@ -172,6 +174,37 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	if (pnand_type == 0) {
 		dprintf(" No NAND device found!!!\n");
 		return -1;
+	}
+	pnand_ctrl->chip_select(host,pnand_io,0);
+	ret = nand_reset();
+	if(ret < 0) {
+		printk("Error: NAND second reset error!! - ret=%d -\n",ret);
+		return ret;
+	}
+	if (pnand_type->timemode) {
+		unsigned char wdata[4] = {0x00};
+		unsigned char rdata[4] = {0x00};
+		wdata[0] = pnand_type->timemode;
+		nand_set_features(0x01, wdata);
+		nand_get_features(0x01, rdata);
+		if (wdata[0] != rdata[0])
+			printk("Warning: Nand flash timing mode set faild!!\n");
+	}
+
+	if (pnand_type->lowdriver != 0 || pnand_type->normaldriver != 0 || pnand_type->highdriver != 0) {
+		unsigned char wdata[4] = {0x00};
+		unsigned char rdata[4] = {0x00};
+#if defined(CONFIG_NAND_LOW_DRIVER)
+		wdata[0] = pnand_type->lowdriver;
+#elif defined(CONFIG_NAND_NORMAL_DRIVER)
+		wdata[0] = pnand_type->normaldriver;
+#elif defined(CONFIG_NAND_HIGH_DRIVER)
+		wdata[0] = pnand_type->highdriver;
+#endif
+		nand_set_features(0x10, wdata);
+		nand_get_features(0x10, rdata);
+		if (wdata[0] != rdata[0])
+			printk("Warning: Nand flash output driver set faild!!\n");
 	}
 	
 	/* Check for a chip array */

@@ -351,6 +351,22 @@ void nand_get_id(char *nand_id)
 	send_get_nand_id(nand_id);
 }
 
+void nand_set_features(unsigned char addr, unsigned char *data)
+{
+	g_pnand_io->send_cmd_norb(CMD_SET_FEATURES);
+	g_pnand_io->send_addr(-1, addr, 1);
+	udelay(1);
+	g_pnand_io->write_data_norb(data, 4);
+	nand_wait_rb();
+}
+
+void nand_get_features(unsigned char addr, unsigned char *data)
+{
+	g_pnand_io->send_cmd_norb(CMD_SET_FEATURES);
+	g_pnand_io->send_addr(-1, addr, 1);
+	g_pnand_io->read_data_withrb(data, 4);
+}
+
 /**
  * nand-reset - reset NAND
  * @chip:	this operation will been done on which nand chip

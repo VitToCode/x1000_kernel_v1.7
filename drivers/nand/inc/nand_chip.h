@@ -99,6 +99,10 @@ struct nand_flash_dev {
         int buswidth;
         int badblockpos;    
         unsigned long options;
+	unsigned char lowdriver;
+	unsigned char normaldriver;
+	unsigned char highdriver;
+	unsigned char timemode;
 };
 typedef struct nand_flash_dev NAND_FLASH_DEV;
 

@@ -41,6 +41,9 @@
 #define	CMD_RANDOM_WRITE			0x85
 #define	CMD_RANDOM_WRITE_CONFIRM	0x10
 
+#define	CMD_SET_FEATURES		0xEF
+#define	CMD_GET_FEATURES		0xEE
+
 #define CMD_2P_READ_START1          0x60   //Two-plane Read phase before addr 1 and addr 2
 #define CMD_2P_READ_CONFIRM1        0x30
 #define CMD_2P_READ_START2          0x00
