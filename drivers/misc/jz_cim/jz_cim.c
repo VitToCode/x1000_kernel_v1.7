@@ -121,12 +121,16 @@ static unsigned int err_num = 0;
 
 static unsigned long inline reg_read(struct jz_cim *cim,int offset)
 {
-	return readl(cim->iomem+ offset); 
+  	volatile unsigned long dummy_read;
+	dummy_read = readl(cim->iomem + offset); //read twice
+	udelay(1); //this is necessary
+	return readl(cim->iomem+ offset);
 }
 
 static void inline reg_write(struct jz_cim *cim,int offset, unsigned long val)
 {
-	writel(val, cim->iomem + offset); 
+	writel(val, cim->iomem + offset); //write twice
+	writel(val, cim->iomem + offset);
 }
 
 static void inline bit_set(struct jz_cim *cim ,int offset,int bit)
@@ -173,6 +177,7 @@ static inline void cim_disable_dma(struct jz_cim *cim)
 static inline void cim_clear_rfifo(struct jz_cim *cim)
 {
 	bit_set(cim,CIM_CTRL,CIM_CTRL_RXF_RST);
+	udelay(100);   //clear rxfifo is necessary
 	bit_clr(cim,CIM_CTRL,CIM_CTRL_RXF_RST);
 }
 
@@ -516,9 +521,8 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	unsigned long state_reg = 0;
 	unsigned long flags;
 	static int wait_count = 0;
-	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->pdesc_vaddr;
-	int i;
-	int redo_num = 0;
+	int fid;
+
 	state_reg = cim_read_state(cim);
 	
 	dev_dbg(cim->dev," -------------   cim irq  state reg %lx %ld\n",state_reg,reg_read(cim,CIM_IID));
@@ -553,6 +557,15 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 			bit_clr(cim,CIM_STATE,CIM_STATE_DMA_EOF);
 
 			spin_lock_irqsave(&cim->lock,flags);
+			fid = reg_read(cim,CIM_IID);  //we'd better read IID as fast as we can after we go into irq
+			if(fid < 0 || fid >= PDESC_NR) {
+				dev_info(cim->dev, " ----------state_reg:%08lx frm id %08x, REG_CIM_IID \t= \t0x%08lx \n",
+						 state_reg, fid, reg_read(cim,CIM_IID));
+			  fid = 0;
+
+#if 0   //it is not necessary when we readl twice
+			int i;
+			int redo_num = 0;
 			while(1){
 				cim->frm_id =  cim_get_iid(cim) - 1;
 				if(cim->frm_id < -1 || cim->frm_id >= PDESC_NR - 1){
@@ -575,9 +588,13 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 					break;
 				}
 			}
+#endif
+			}
 
-			if(cim->frm_id == -1)
-				cim->frm_id  = PDESC_NR -1;
+			fid--;   //make sure it is not the buffer been used
+			if(fid == -1)
+				fid = PDESC_NR -1;
+			cim->frm_id  = fid;
 			spin_unlock_irqrestore(&cim->lock,flags);
 			
 			if(waitqueue_active(&cim->wait))
@@ -893,7 +910,7 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
             desc[i].buf = yuv_meta_data[i].yPhy;
         }
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I)
-			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT; //YUV420Tile don't need auto recover
 		else
 			desc[i].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
@@ -947,7 +964,7 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
             desc[i].buf = yuv_meta_data[i].yPhy;
         }
 		if(cim->capture_output_format != CIM_BYPASS_YUV422I)
-			desc[i].cmd = (capture_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+			desc[i].cmd = (capture_imgsize >> 2) | CIM_CMD_EOFINT;//YUV420Tile don't need auto recover
 		else
 			desc[i].cmd = ((capture_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 	
@@ -982,7 +999,7 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 	
 	desc[CDESC_NR-1].next = (dma_addr_t)cim->capture;
 	if(cim->capture_output_format != CIM_BYPASS_YUV422I)
-		desc[CDESC_NR-1].cmd = (capture_imgsize >> 2) | CIM_CMD_OFRCV | CIM_CMD_EOFINT;
+		desc[CDESC_NR-1].cmd = (capture_imgsize >> 2) | CIM_CMD_EOFINT;//YUV420Tile don't need auto recover
 	else
 		desc[CDESC_NR-1].cmd = ((capture_imgsize << 1) >> 2) | CIM_CMD_OFRCV | CIM_CMD_EOFINT;
 		
