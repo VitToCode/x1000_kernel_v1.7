@@ -232,7 +232,7 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
-#if defined(CONFIG_USB_DWC_OTG) && defined(GPIO_USB_DETE)
+#if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
 struct jzdwc_pin dete_pin = {
 	.num				= GPIO_USB_DETE,
 	.enable_level			= HIGH_ENABLE,
@@ -439,6 +439,10 @@ static int __init npm801_board_init(void)
 
 #ifdef CONFIG_ANDROID_PMEM
 	platform_device_register(&pmem_camera_device);
+#endif
+
+#ifdef CONFIG_USB_DWC2
+	platform_device_register(&jz_dwc_otg_device);
 #endif
 
 #ifdef CONFIG_JZ_MODEM
