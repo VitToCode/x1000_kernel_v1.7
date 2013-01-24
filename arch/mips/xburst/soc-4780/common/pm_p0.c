@@ -303,20 +303,18 @@ void inline tcsm_put_hex(u32 d)
 
 static inline void dump_regs(void) {
 /*
- *	16'hb301_000c
+ *	16'hb301_100c
  *	16'hb301_1034
  *	16'hb301_1038
  *	16'hb301_103c
  *	and from 16'hb301_0060 to 16'hb301_0074
  */
-	volatile u32 *p = (volatile u32 *)0xb3010000;
+	volatile u32 *p = (volatile u32 *)0xb3011000;
 	volatile u32 i = 1;
 
 	TCSM_PCHAR('\n');
 	TCSM_PCHAR('\r');
-
 	tcsm_put_hex(p[0xc / 4]);
-
 	i = 1;
 	while (i--);
 
