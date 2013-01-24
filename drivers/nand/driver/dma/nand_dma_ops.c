@@ -133,8 +133,7 @@ static inline int do_select_chip(const NAND_API *pnand_api, unsigned int page)
 {
 	int chipnr = -1;
 	unsigned int page_per_chip = pnand_api->nand_chip->ppchip;
-	if (page > 0)
-		chipnr = page / page_per_chip + 1;
+	chipnr = page / page_per_chip + 1;
 	return chipnr;
 }
 
