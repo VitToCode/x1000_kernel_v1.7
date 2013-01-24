@@ -259,7 +259,7 @@ __initdata int gpio_ss_table[][2] = {
     {PM_GPIO_LCD_R7               ,     GSS_OUTPUT_LOW  },
 	{PM_GPIO_LCD_PWM              ,     GSS_OUTPUT_LOW	},
 
-    {PM_GPIO_WLAN_PW_EN           ,      GSS_INPUT_NOPULL},
+    {PM_GPIO_WLAN_PW_EN           ,      GSS_IGNORE}, /*cljiang*/
     {PM_GPIO_WL_WAKE              ,      GSS_OUTPUT_LOW	},
     {PM_GPIO_WL_MSC1_D0           ,      GSS_INPUT_NOPULL},
     {PM_GPIO_WL_MSC1_D1           ,      GSS_INPUT_NOPULL},
@@ -268,10 +268,10 @@ __initdata int gpio_ss_table[][2] = {
     {PM_GPIO_WL_MSC1_CLK          ,      GSS_INPUT_NOPULL},
     {PM_GPIO_WL_MSC1_CMD          ,      GSS_INPUT_NOPULL},
 	{PM_GPIO_WL_REG_ON            ,     GSS_OUTPUT_LOW    },
-	{PM_GPIO_BT_REG_ON            ,     GSS_INPUT_PULL	},
-	{PM_GPIO_BT_WAKE              ,     GSS_INPUT_PULL	},
-	{PM_GPIO_BT_INT               ,   GSS_INPUT_PULL	},
-	{PM_GPIO_BT_RST_N             ,   GSS_INPUT_PULL    },
+	{PM_GPIO_BT_REG_ON            ,     GSS_IGNORE	}, /*cljiang*/
+	{PM_GPIO_BT_WAKE              ,     GSS_INPUT_PULL	}, 
+	{PM_GPIO_BT_INT               ,   GSS_INPUT_PULL	}, 
+	{PM_GPIO_BT_RST_N             ,   GSS_IGNORE    }, /*cljiang*/
     {PM_GPIO_BT_PCM_DO              ,      GSS_OUTPUT_LOW  },
     {PM_GPIO_BT_PCM_CLK             ,      GSS_IGNORE	    },    
     {PM_GPIO_BT_PCM_SYN             ,      GSS_IGNORE	    },    
