@@ -44,6 +44,7 @@ void __init cpm_reset(void)
 	unsigned long clkgr0 = cpm_inl(CPM_CLKGR0);
 	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
 	unsigned long lcr = cpm_inl(CPM_LCR);
+	unsigned long cppcr = cpm_inl(CPM_CPPCR) & ~(0xff);
 #if 1
 	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
 	mdelay(1);
@@ -61,6 +62,7 @@ void __init cpm_reset(void)
 	cpm_outl(16,CPM_PSWC1ST);
 	cpm_outl(24,CPM_PSWC2ST);
 	cpm_outl(8,CPM_PSWC3ST);
+	cpm_outl(cppcr | 2,CPM_CPPCR);
 #endif
 }
 
