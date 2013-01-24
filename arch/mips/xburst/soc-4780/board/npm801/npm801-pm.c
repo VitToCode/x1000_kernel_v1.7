@@ -269,7 +269,7 @@ __initdata int gpio_ss_table[][2] = {
     {PM_GPIO_WL_MSC1_CMD          ,      GSS_INPUT_NOPULL},
 	{PM_GPIO_WL_REG_ON            ,     GSS_OUTPUT_LOW    },
 	{PM_GPIO_BT_REG_ON            ,     GSS_IGNORE	}, /*cljiang*/
-	{PM_GPIO_BT_WAKE              ,     GSS_INPUT_PULL	}, 
+	{PM_GPIO_BT_WAKE              ,     GSS_IGNORE}, 
 	{PM_GPIO_BT_INT               ,   GSS_INPUT_PULL	}, 
 	{PM_GPIO_BT_RST_N             ,   GSS_IGNORE    }, /*cljiang*/
     {PM_GPIO_BT_PCM_DO              ,      GSS_OUTPUT_LOW  },
