@@ -1343,10 +1343,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		return -EBUSY;
 	}
 
-	/* hook up the driver */
-	gadget_wrapper->driver = driver;
-	gadget_wrapper->gadget.dev.driver = &driver->driver;
-
 	DWC_DEBUGPL(DBG_PCD, "bind to driver %s\n", driver->driver.name);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
 	retval = driver->bind(&gadget_wrapper->gadget);
@@ -1360,6 +1356,11 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		gadget_wrapper->gadget.dev.driver = 0;
 		return retval;
 	}
+
+	/* hook up the driver */
+	gadget_wrapper->driver = driver;
+	gadget_wrapper->gadget.dev.driver = &driver->driver;
+
 	DWC_DEBUGPL(DBG_ANY, "registered gadget driver '%s'\n",
 		    driver->driver.name);
 	return 0;
