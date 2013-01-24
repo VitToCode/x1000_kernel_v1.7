@@ -42,6 +42,7 @@
 #include <tcsm.h>
 
 //#define TEST 1
+#define DUMP_DDR_REGS
 
 #define CONFIG_SUSPEND_SUPREME_DEBUG
 
@@ -273,9 +274,72 @@
 	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))	\
 		;													\
 	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = x
+
 #else
 #define TCSM_PCHAR(x)
 #endif
+
+
+#ifdef DUMP_DDR_REGS
+
+void inline tcsm_put_hex(u32 d)
+{
+	register u32 i;
+	register u32 c;
+
+	TCSM_PCHAR('*');
+	for(i = 0; i < 8;i++) {
+		c = (d >> ((7 - i) * 4)) & 0xf;
+		if(c < 10)
+			c += 0x30;
+		else
+			c += (0x41 - 10);
+
+		TCSM_PCHAR(c);
+	}
+	TCSM_PCHAR('\n');
+	TCSM_PCHAR('\r');
+}
+
+static inline void dump_regs(void) {
+/*
+ *	16'hb301_000c
+ *	16'hb301_1034
+ *	16'hb301_1038
+ *	16'hb301_103c
+ *	and from 16'hb301_0060 to 16'hb301_0074
+ */
+	volatile u32 *p = (volatile u32 *)0xb3010000;
+	volatile u32 i = 1;
+
+	TCSM_PCHAR('\n');
+	TCSM_PCHAR('\r');
+
+	tcsm_put_hex(p[0xc / 4]);
+
+	i = 1;
+	while (i--);
+
+	tcsm_put_hex(p[0x34 / 4]);
+
+	i = 1;
+	while (i--);
+
+	tcsm_put_hex(p[0x38 / 4]);
+
+	i = 1;
+	while (i--);
+
+	tcsm_put_hex(p[0x3c / 4]);
+
+	i = 1;
+	while (i--);
+
+	for (p = (volatile u32 *)0xb3010060; p < (volatile u32 *)0xb3010078; p++)
+		tcsm_put_hex(*p);
+}
+#endif
+
 
 #define TCSM_DELAY(x) \
 	i=x;	\
@@ -350,6 +414,10 @@ static noinline void reset_dll(void)
 #endif
 
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
+
+#ifdef DUMP_DDR_REGS
+	dump_regs();
+#endif
 
 	TCSM_PCHAR(test_mem0);
 	TCSM_PCHAR(test_mem1);
