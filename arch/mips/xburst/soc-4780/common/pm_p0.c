@@ -42,7 +42,7 @@
 #include <tcsm.h>
 
 //#define TEST 1
-#define DUMP_DDR_REGS
+//#define DUMP_DDR_REGS
 
 #define CONFIG_SUSPEND_SUPREME_DEBUG
 
@@ -259,7 +259,7 @@
 #define DELAY_1 0x1ff
 #define DELAY_2 0x1ff
 
-#define SAVE_SIZE (2048 - 8)
+#define SAVE_SIZE 2048
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
@@ -471,11 +471,11 @@ static int jz4780_pm_enter(suspend_state_t state)
 	mdelay(1);
 	/* Set resume return address */
 	cpm_outl(1,CPM_SLBC);
+	memcpy(tcsm_back, (void *)TCSM_BASE, SAVE_SIZE);
 	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4780_resume;
 	*(volatile unsigned int *)REG_ADDR = (unsigned int)regs;
 	cpm_outl(RESUME_ADDR,CPM_SLPC);
-	memcpy(tcsm_back,(void *)RESUME_ADDR,SAVE_SIZE);
-	memcpy((void *)RESUME_ADDR,reset_dll,SAVE_SIZE);
+	memcpy((void *)RESUME_ADDR, reset_dll, SAVE_SIZE - 8);
 	mdelay(1);
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
@@ -496,7 +496,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	jz4780_suspend();
 #endif
 
-	memcpy((void *)RESUME_ADDR,tcsm_back,SAVE_SIZE);
+	memcpy((void *)TCSM_BASE, tcsm_back, SAVE_SIZE);
 	cpm_outl(lcr,CPM_LCR);
 	cpm_outl(opcr,CPM_OPCR);
 
