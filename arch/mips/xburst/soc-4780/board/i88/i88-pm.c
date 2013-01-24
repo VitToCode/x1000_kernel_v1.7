@@ -107,7 +107,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 3 +  5,	GSS_INPUT_NOPULL}, /* UART2_CTS_N */
 	{32 * 3 +  6,	GSS_INPUT_NOPULL}, /* UART2_RXD */
 	{32 * 3 +  7,	GSS_INPUT_NOPULL}, /* UART2_TXD */
-	{32 * 3 +  8,	GSS_INPUT_NOPULL}, /* WLAN_PW_EN */
+	{32 * 3 +  8,	GSS_IGNORE}, /* WLAN_PW_EN */
 	{32 * 3 +  9,	GSS_OUTPUT_LOW	}, /* WL_WAKE */
 	{32 * 3 + 10,	GSS_INPUT_NOPULL}, /* I2C3_SDA */
 	{32 * 3 + 11,	GSS_INPUT_NOPULL}, /* I2C3_SCK */
@@ -162,11 +162,11 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 5 +  1,	GSS_INPUT_PULL	}, /* NC */
 	{32 * 5 +  2,	GSS_INPUT_PULL	}, /* NC */
 	{32 * 5 +  3,	GSS_INPUT_PULL	}, /* NC */
-	{32 * 5 +  4,	GSS_INPUT_PULL	}, /* BT_REG_ON */
-	{32 * 5 +  5,	GSS_INPUT_PULL	}, /* BT_WAKE */
+	{32 * 5 +  4,	GSS_IGNORE	}, /* BT_REG_ON */
+	{32 * 5 +  5,	GSS_IGNORE	}, /* BT_WAKE */
 	{32 * 5 +  6,	GSS_INPUT_PULL	}, /* BT_INT */
 	{32 * 5 +  7,	GSS_OUTPUT_LOW  }, /* WL_REG_ON */
-	{32 * 5 +  8,	GSS_INPUT_PULL	}, /* BT_RST_N */
+	{32 * 5 +  8,	GSS_IGNORE	}, /* BT_RST_N */
 	{32 * 5 +  9,	GSS_OUTPUT_LOW	}, /* SENSOR_INT1 */
 	{32 * 5 + 10,	GSS_OUTPUT_LOW	}, /* SENSOR_INT2 */
 	{32 * 5 + 11,	GSS_INPUT_PULL	}, /* NC */
