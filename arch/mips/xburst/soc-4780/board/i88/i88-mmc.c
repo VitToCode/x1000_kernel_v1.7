@@ -24,6 +24,8 @@
 
 static struct wifi_data			iw8101_data;
 static int clk_32k = 0;
+static int wl_pw_en = 0;
+static int power_en;
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
@@ -186,12 +188,33 @@ void clk_32k_off(void)
 	printk("cljiang---clk_32k_off:num = %d\n",clk_32k);
 }
 
+void wlan_pw_en_enable(void)
+{
+	gpio_set_value(power_en,1);
+	wl_pw_en++;
+	if(wl_pw_en > 2){
+		wl_pw_en = 2;
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
+
+void wlan_pw_en_disable(void)
+{
+	wl_pw_en--;
+	if(wl_pw_en < 0){
+		wl_pw_en = 0;
+	}
+	if(wl_pw_en == 0){
+		gpio_set_value(power_en,0);
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
 
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power;
-	int reset,power_en;
+	int reset;
 
 	printk("cljiang-----enter iw8101_wlan_init\n");
 
@@ -274,6 +297,7 @@ start:
 
 	switch(flag) {
 		case RESET:
+			wlan_pw_en_enable();
 			regulator_enable(power);
 			jzmmc_clk_ctrl(1, 1);
 
@@ -286,6 +310,7 @@ start:
 			break;
 
 		case NORMAL:
+			wlan_pw_en_enable();
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
@@ -325,6 +350,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			wlan_pw_en_disable();
 			jzmmc_clk_ctrl(1, 0);
 			break;
 
@@ -332,6 +358,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			wlan_pw_en_disable();
 
  			jzmmc_manual_detect(1, 0);
 			break;
@@ -354,54 +381,8 @@ start:
 	return 0;
 }
 
-#if defined(CONFIG_WIFI_CONTROL_FUNC)
-static int get_random_mac_addr(unsigned char *buf)
-{
-	static uint32_t rand_mac = 0;
-	static bool mac_generated = false;
-
-	unsigned char iovbuf[6] = { 0 };
-
-	if (!buf) {
-		printk("ERROR : %s --> null pointer!\n",__func__);
-		return -EINVAL;
-	}
-
-	if (!mac_generated) {
-		srandom32((uint32_t)jiffies);
-		rand_mac = random32();
-		printk("generated random mac address 0x%08x\n",rand_mac);
-		mac_generated = true;
-	}
-
-	/*
-	 * D0-31-10-XX-XX-XX is dedicated for Ingenic Semiconductor Co.,Ltd
-	 * allocated by IEEE Registration Authority
-	 */
-	iovbuf[0] = 0xD0;
-	iovbuf[1] = 0x31;
-	iovbuf[2] = 0x10;
-
-	iovbuf[3] = (unsigned char)(rand_mac & 0x0F) | 0xF0;
-	iovbuf[4] = (unsigned char)(rand_mac >> 8);
-	iovbuf[5] = (unsigned char)(rand_mac >> 16);
-
-	memcpy(buf, iovbuf, sizeof(iovbuf));
-	return 0;
-}
-
-static struct wifi_platform_data bcmdhd_wlan_pdata = {
-	.get_mac_addr = get_random_mac_addr,
-};
-
-struct platform_device bcmdhd_wlan_device = {
-	.name		= "bcmdhd_wlan",
-	.dev		= {
-		.platform_data	= &bcmdhd_wlan_pdata,
-	},
-};
-#endif /* CONFIG_WIFI_CONTROL_FUNC */
-
+EXPORT_SYMBOL(wlan_pw_en_enable);
+EXPORT_SYMBOL(wlan_pw_en_disable);
 EXPORT_SYMBOL(clk_32k_on);
 EXPORT_SYMBOL(clk_32k_off);
 EXPORT_SYMBOL(IW8101_wlan_power_on);

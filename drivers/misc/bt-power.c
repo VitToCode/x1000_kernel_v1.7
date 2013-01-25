@@ -36,6 +36,8 @@ static struct regulator *power;
 
 static DEFINE_SPINLOCK(bt_power_lock);
 
+extern void wlan_pw_en_enable(void);
+extern void wlan_pw_en_disable(void);
 extern void clk_32k_on (void);
 extern void clk_32k_off (void);
 
@@ -62,12 +64,14 @@ static irqreturn_t bt_host_wake_handler(int irq, void* dev_id)
 
 static void bt_enable_power()
 {
+	wlan_pw_en_enable();
 	gpio_direction_output(bt_reg_on,1);
 }
 
 
 static void bt_disable_power()
 {
+	wlan_pw_en_disable();
 	gpio_direction_output(bt_reg_on,0);
 }
 
@@ -169,6 +173,7 @@ int bt_power_suspend(struct platform_device *pdev, pm_message_t state)
 #ifdef CONFIG_BT_HOST_WAKEUP
 	gpio_direction_input(bt_int,0);
 #endif
+	printk("cljiang---bt_power_suspend\n");
 	gpio_set_value(bt_int,0);
 	gpio_set_value(bt_wake,0);
 
@@ -178,6 +183,7 @@ int bt_power_suspend(struct platform_device *pdev, pm_message_t state)
 int bt_power_resume(struct platform_device *pdev)
 {	
 
+	printk("cljiang---bt_power_resume\n");
 	if (bt_power_state == 1) {
 
  	}
