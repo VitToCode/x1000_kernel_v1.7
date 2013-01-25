@@ -95,7 +95,7 @@ struct jzmmc_platform_data captain_tf_pdata = {
 static struct card_gpio captain_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
 	.wp				= {-1,			-1},
-	.pwr				= {-1,			-1},
+	.pwr				= {GPIO_PF(19),		LOW_ENABLE },
 };
 
 struct jzmmc_platform_data captain_tf_pdata = {
