@@ -174,7 +174,7 @@ static int ov7675_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.modes.antibanding =  ANTIBANDING_50HZ | ANTIBANDING_60HZ ;
 	s->cs.modes.flash_mode = FLASH_MODE_OFF;
 	s->cs.modes.scene_mode = SCENE_MODE_AUTO;
-	s->cs.modes.focus_mode = FOCUS_MODE_FIXED | FOCUS_MODE_AUTO;
+	s->cs.modes.focus_mode = FOCUS_MODE_FIXED;
 	s->cs.modes.fps = FPS_MODE_25;//FPS_MODE_15 | FPS_MODE_20 |
 	s->cs.preview_size = ov7675_preview_table,
 	s->cs.capture_size = ov7675_capture_table,
