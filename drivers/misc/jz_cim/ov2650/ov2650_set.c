@@ -565,7 +565,7 @@ int ov2650_set_effect(struct cim_sensor *sensor_info,unsigned short arg)
 				dev_info(&client->dev,"EFFECT_NONE");
 				break;
 			case EFFECT_MONO :
-				ov2650_set_effect_yellowish(client);  
+				ov2650_set_effect_black_and_white(client);
 				dev_info(&client->dev,"EFFECT_MONO ");
 				break;
 			case EFFECT_NEGATIVE :
