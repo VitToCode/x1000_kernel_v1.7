@@ -381,6 +381,54 @@ start:
 	return 0;
 }
 
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+static int get_random_mac_addr(unsigned char *buf)
+{
+	static uint32_t rand_mac = 0;
+	static bool mac_generated = false;
+
+	unsigned char iovbuf[6] = { 0 };
+
+	if (!buf) {
+		printk("ERROR : %s --> null pointer!\n",__func__);
+		return -EINVAL;
+	}
+
+	if (!mac_generated) {
+		srandom32((uint32_t)jiffies);
+		rand_mac = random32();
+		printk("generated random mac address 0x%08x\n",rand_mac);
+		mac_generated = true;
+	}
+
+	/*
+	 * D0-31-10-XX-XX-XX is dedicated for Ingenic Semiconductor Co.,Ltd
+	 * allocated by IEEE Registration Authority
+	 */
+	iovbuf[0] = 0xD0;
+	iovbuf[1] = 0x31;
+	iovbuf[2] = 0x10;
+
+	iovbuf[3] = (unsigned char)(rand_mac & 0x0F) | 0xF0;
+	iovbuf[4] = (unsigned char)(rand_mac >> 8);
+	iovbuf[5] = (unsigned char)(rand_mac >> 16);
+
+	memcpy(buf, iovbuf, sizeof(iovbuf));
+	return 0;
+}
+
+static struct wifi_platform_data bcmdhd_wlan_pdata = {
+	.get_mac_addr = get_random_mac_addr,
+};
+
+struct platform_device bcmdhd_wlan_device = {
+	.name		= "bcmdhd_wlan",
+	.dev		= {
+		.platform_data	= &bcmdhd_wlan_pdata,
+	},
+};
+#endif /* CONFIG_WIFI_CONTROL_FUNC */
+
 EXPORT_SYMBOL(wlan_pw_en_enable);
 EXPORT_SYMBOL(wlan_pw_en_disable);
 EXPORT_SYMBOL(clk_32k_on);
