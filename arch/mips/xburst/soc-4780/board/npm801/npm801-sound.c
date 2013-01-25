@@ -88,12 +88,6 @@ struct snd_codec_data codec_data = {
 		.gpio_spk_en_stat = -1,
 		.gpio_handset_en_stat = -1,
 		.gpio_buildin_mic_en_stat = 0},
-	.replay_loop_route =  {.route = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
-		.gpio_hp_mute_stat = 0,
-		.gpio_spk_en_stat = 1,
-		.gpio_handset_en_stat = -1,
-		.gpio_buildin_mic_en_stat = 1,
-		.record_digital_volume_base = 5},
 	.bt_route = {
 		.route = SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
 		.gpio_hp_mute_stat = 1,
@@ -116,7 +110,14 @@ struct snd_codec_data codec_data = {
 		.gpio_buildin_mic_en_stat = 0,
 		.replay_volume_base = 0,
 		.bypass_r_volume_base = 6},
-
+//	.replay_loop_route =  {.route = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+	.replay_loop_route =  {.route = SND_ROUTE_LINE1IN_BYPASS_TO_HP,
+						 .gpio_hp_mute_stat = 0,
+						 .gpio_spk_en_stat = 1,
+						 .gpio_handset_en_stat = -1,
+						 .gpio_buildin_mic_en_stat = 1,
+						 .bypass_l_volume_base = 6,
+						 .replay_volume_base = 6},
 
 	/* gpio */
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
