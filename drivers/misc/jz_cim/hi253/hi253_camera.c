@@ -221,7 +221,7 @@ static int hi253_probe(struct i2c_client *client, const struct i2c_device_id *id
 	s->cs.modes.antibanding =  ANTIBANDING_50HZ | ANTIBANDING_60HZ ;
 	s->cs.modes.flash_mode = FLASH_MODE_OFF;
 	s->cs.modes.scene_mode = SCENE_MODE_AUTO;
-	s->cs.modes.focus_mode = FOCUS_MODE_FIXED | FOCUS_MODE_AUTO;
+	s->cs.modes.focus_mode = FOCUS_MODE_FIXED;
 	s->cs.modes.fps = FPS_MODE_25;//FPS_MODE_15 | FPS_MODE_20 |
 	s->cs.preview_size = hi253_preview_table,
 		s->cs.capture_size = hi253_capture_table,
