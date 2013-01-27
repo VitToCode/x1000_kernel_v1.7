@@ -100,6 +100,7 @@ static struct jz_battery_platform_data m80_battery_pdata = {
 		.battery_max_cpt = 3000,
 		.ac_chg_current = 960*2,
 		.usb_chg_current = -1,
+		.sleep_current = 30,
 	},
 };
 #endif

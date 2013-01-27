@@ -101,6 +101,7 @@ static struct jz_battery_platform_data ji8070a_battery_pdata = {
 		.battery_max_cpt = 6000,
 		.ac_chg_current = 1000,
 		.usb_chg_current = 400,
+		.sleep_current = 30,
 	},
 };
 #endif

@@ -132,6 +132,7 @@ static struct jz_battery_platform_data npm801_battery_pdata = {
 		.battery_max_cpt = 3500,
 		.ac_chg_current = 1000,
 		.usb_chg_current = 400,
+		.sleep_current = 30,
 	},
 };
 #endif

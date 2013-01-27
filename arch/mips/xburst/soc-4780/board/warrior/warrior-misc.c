@@ -130,6 +130,7 @@ static struct jz_battery_platform_data warrior_battery_pdata = {
 		.battery_max_cpt = 3500,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
+		.sleep_current = 20,
 	},
 };
 #endif

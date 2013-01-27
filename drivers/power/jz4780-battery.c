@@ -25,6 +25,8 @@
 
 #include <linux/power/jz4780-battery.h>
 #include <linux/mfd/act8600-private.h>
+#include <linux/android_alarm.h>
+#include <linux/earlysuspend.h>
 
 #define RD_ADJ		15
 #define RD_STROBE	7
@@ -43,6 +45,7 @@
 
 #define VOL_DIV 8
 
+static struct alarm alarm;
 static long	slop;
 static long	cut;
 
@@ -568,6 +571,11 @@ static void jz_battery_work(struct work_struct *work)
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
 }
 
+static void wake_up_fun(struct alarm *alarm)
+{
+	;
+}
+
 static void jz_battery_init_work(struct work_struct *work)
 {
 	struct delayed_work *delayed_work = container_of(work, \
@@ -588,6 +596,8 @@ static void jz_battery_init_work(struct work_struct *work)
 
 	cancel_delayed_work_sync(&jz_battery->work);
 	schedule_delayed_work(&jz_battery->work, 20 * HZ);
+
+	alarm_init(&alarm, ANDROID_ALARM_RTC_WAKEUP, wake_up_fun);
 
 	jz_battery->pmu_work_enable(jz_battery->pmu_interface);
 }
@@ -787,6 +797,62 @@ static int jz_battery_resume(struct platform_device *pdev)
 }
 #endif
 
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+
+unsigned long get_wakeup_time(struct jz_battery *jz_battery)
+{
+	unsigned long tmp = 60 * 60;
+
+	if (jz_battery->pdata->info.sleep_current == 0){
+		tmp = 60 * 60;
+		return tmp;
+	}
+
+	if (jz_battery->capacity > 10) {
+		tmp = (((jz_battery->capacity - 10) *
+			jz_battery->pdata->info.battery_max_cpt) / 100)
+			/ (jz_battery->pdata->info.sleep_current) * 3600;
+	} else if (jz_battery->capacity > 3){
+		tmp = (jz_battery->capacity - 3) *
+			jz_battery->pdata->info.battery_max_cpt / 100
+			/ (jz_battery->pdata->info.sleep_current) * 3600;
+	} else if (jz_battery->capacity > 1){
+		tmp = (jz_battery->capacity - 1) *
+			jz_battery->pdata->info.battery_max_cpt / 100
+			/ (jz_battery->pdata->info.sleep_current) * 3600;
+	} else if (jz_battery->capacity == 1){
+		tmp = jz_battery->pdata->info.battery_max_cpt /	100
+			/ jz_battery->pdata->info.sleep_current * 3600;
+	}
+	return tmp;
+}
+
+#define WAKEUP_TIME	10
+
+static void jz_battery_early_suspend(struct early_suspend *early_suspend)
+{
+	struct jz_battery *jz_battery;
+	struct timespec alarm_time;
+	unsigned long	 interval;
+
+	jz_battery = container_of(early_suspend, struct jz_battery, early_suspend);
+
+	getnstimeofday(&alarm_time);
+
+	interval = get_wakeup_time(jz_battery);
+
+	alarm_time.tv_sec += interval;
+	alarm_start_range(&alarm, timespec_to_ktime(alarm_time),
+			timespec_to_ktime(alarm_time));
+}
+
+static void jz_battery_late_resume(struct early_suspend *early_suspend)
+{
+	;
+}
+#endif
+
 static enum power_supply_property jz_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
@@ -978,6 +1044,12 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 	jz_battery->pdata = pdata;
 	jz_battery->pdev = pdev;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	jz_battery->early_suspend.suspend = jz_battery_early_suspend;
+	jz_battery->early_suspend.resume = jz_battery_late_resume;
+	jz_battery->early_suspend.level	= EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&jz_battery->early_suspend);
+#endif
 	init_completion(&jz_battery->read_completion);
 	mutex_init(&jz_battery->lock);
 
@@ -1005,10 +1077,15 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 
 	jz_battery->gate_voltage = (jz_battery->pdata->info.max_vol - \
 			jz_battery->pdata->info.min_vol) / 10;
-	jz_battery->usb_charge_time = pdata->info.battery_max_cpt /	\
+	if (pdata->info.usb_chg_current) {
+		jz_battery->usb_charge_time = pdata->info.battery_max_cpt /	\
 				      pdata->info.usb_chg_current * 36;
-	jz_battery->ac_charge_time = pdata->info.battery_max_cpt  /	\
+	}
+	if (pdata->info.ac_chg_current) {
+		jz_battery->ac_charge_time = pdata->info.battery_max_cpt  /	\
 				     pdata->info.ac_chg_current * 36;
+	}
+
 	jz_battery->voltage = jz_battery_adjust_voltage(jz_battery);
 
 	jz_battery->next_scan_time = 15;

@@ -97,6 +97,7 @@ static struct jz_battery_platform_data m80701_battery_pdata = {
 		.battery_max_cpt = 3000,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
+		.sleep_current = 30,
 	},
 };
 #endif

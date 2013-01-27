@@ -12,6 +12,7 @@
 #define __JZ4780_BATTERY_H
 
 #include <linux/power_supply.h>
+#include <linux/earlysuspend.h>
 
 struct jz_battery_info {
 	int max_vol;
@@ -24,6 +25,8 @@ struct jz_battery_info {
 	int battery_max_cpt;
 	int ac_chg_current;
 	int usb_chg_current;
+
+	unsigned int	sleep_current;
 };
 
 struct jz_battery_platform_data {
@@ -78,6 +81,7 @@ struct jz_battery {
 	/* Online charger modified by PMU driver */
 	unsigned int charger;
 
+	struct early_suspend early_suspend;
 
 	unsigned int ac_charge_time;
 	unsigned int usb_charge_time;
