@@ -13,6 +13,12 @@ config SOC_4780
 	select SYS_SUPPORTS_SMP
 	select GENERIC_CLOCKEVENTS_BROADCAST
 
+config SOC_4775
+	bool "4775"
+	select JZRISC
+	select TRACEPOINTS
+	select SYS_SUPPORTS_HIGHMEM
+	select GENERIC_CLOCKEVENTS_BROADCAST
 endchoice
 
 config JZRISC
@@ -26,8 +32,12 @@ config JZRISC
 
 config SOC_VER
 	int
+	default "75" if SOC_4775
 	default "80" if SOC_4780
 
+if SOC_4775
+source "arch/mips/xburst/soc-4775/Kconfig"
+endif
 if SOC_4780
 source "arch/mips/xburst/soc-4780/Kconfig"
 endif

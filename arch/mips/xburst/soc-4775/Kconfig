@@ -1,0 +1,15 @@
+
+choice
+	prompt "Board type"
+	depends on SOC_4775
+	default BOARD_4775_TEST
+
+config BOARD_4775_TEST
+        bool "TEST"
+
+endchoice
+
+config BOARD_NAME
+	string
+	default "test" if BOARD_4775_TEST
+
