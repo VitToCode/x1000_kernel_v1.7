@@ -359,17 +359,6 @@ int gc0308_init(struct cim_sensor *sensor_info)
 	gc0308_write_reg(client,0xAE, 0xFD);
 	gc0308_write_reg(client,0xAF, 0xFF);
 
-	/* q8 board have a option to install one or two camera sensor,
-	 * change mirror effect according to sensor count. */
-	if(sensor_count == 2) {
-		gc0308_write_reg(client,0x14 , 0x10); /* not mirror */
-	} else if(sensor_count == 1) {
-		gc0308_write_reg(client,0x14 , 0x11); /* mirror */
-	}
-
-#if 0
-#define CONFIG_GC0308_MIRROR
-
 #ifndef CONFIG_GC0308_MIRROR
 	#ifndef CONFIG_GC0308_VMIRROR
 	gc0308_write_reg(client,0x14 , 0x10);
@@ -382,7 +371,6 @@ int gc0308_init(struct cim_sensor *sensor_info)
 	#else
 	gc0308_write_reg(client,0x14 , 0x13);
 	#endif
-#endif
 #endif
 
 	return 0;

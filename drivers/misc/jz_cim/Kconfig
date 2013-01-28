@@ -37,7 +37,7 @@ config GC0308
 
 config GC0308_MIRROR
 	bool "gc0308 camera sensor mirror"
-	depends on JZ_CIM && GC0308
+	depends on JZ_CIM && (GC0308 || GC0308_Q8)
 	default n
 
 config GC0308_Q8
