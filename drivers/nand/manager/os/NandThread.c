@@ -5,7 +5,7 @@
 
 PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name)
 {
-	PNandThread thread = NULL;
+	struct task_struct* thread = NULL;
 	struct sched_param param = { .sched_priority = 1 };
 	char threadName[80];
 	static int index = 1;
@@ -25,12 +25,12 @@ PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name)
 		wake_up_process(thread);
 
 	index ++;
-	return thread;
+	return (int)thread;
 }
 
 int ExitThread(PNandThread *thread)
 {
-	return kthread_stop(*thread);
+	return kthread_stop((struct task_struct*)*thread);
 }
 
 void SetThreadPrio(PNandThread *thread,int prio)

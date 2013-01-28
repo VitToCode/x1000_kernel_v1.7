@@ -1,5 +1,8 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/math64.h>
+#include <linux/kernel.h>
+#include <linux/string.h>
 
 #include "os/clib.h"
 

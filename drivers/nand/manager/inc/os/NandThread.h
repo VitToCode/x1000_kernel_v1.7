@@ -5,14 +5,13 @@
 #define NAND_MAX_PRIO 1  //NORMAL
 
 #ifdef  __KERNEL__
-typedef struct task_struct* PNandThread;
 typedef int RESULT;
-typedef RESULT (*PThreadFunction)(void *data);
 #else
-typedef pthread_t PNandThread;
 typedef void* RESULT;
-typedef RESULT (*PThreadFunction)(void *data);
 #endif
+
+typedef int PNandThread;
+typedef RESULT (*PThreadFunction)(void *data);
 
 PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name);
 int ExitThread(PNandThread *thread);
