@@ -362,7 +362,7 @@ void nand_set_features(unsigned char addr, unsigned char *data)
 
 void nand_get_features(unsigned char addr, unsigned char *data)
 {
-	g_pnand_io->send_cmd_norb(CMD_SET_FEATURES);
+	g_pnand_io->send_cmd_norb(CMD_GET_FEATURES);
 	g_pnand_io->send_addr(-1, addr, 1);
 	g_pnand_io->read_data_withrb(data, 4);
 }
