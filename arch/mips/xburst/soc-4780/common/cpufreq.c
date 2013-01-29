@@ -30,7 +30,7 @@
 
 #include <asm/cpu.h>
 
-#define CPUFREQ_NR	16
+#define CPUFREQ_NR	20
 #define MIN_FREQ	200000
 #define MIN_VOLT	1200000
 #define MAX_MPLL_DIV	6			/* Max CPU MPLL div */
@@ -60,12 +60,12 @@
 #define HIFREQ_MINUTE	CONFIG_HIFREQ_MINUTE
 #endif
 #ifndef CONFIG_MAX_APLL_FREQ
-#define MAX_APLL_FREQ	1824000			/* max cpufreq from APLL */
+#define MAX_APLL_FREQ	1728000			/* max cpufreq from APLL */
 #else
 #define MAX_APLL_FREQ	CONFIG_MAX_APLL_FREQ
 #endif
 #ifndef CONFIG_LOW_APLL_FREQ
-#define LOW_APLL_FREQ	1300000			/* low cpufreq from APLL */
+#define LOW_APLL_FREQ	700000			/* low cpufreq from APLL */
 #else
 #define LOW_APLL_FREQ	CONFIG_LOW_APLL_FREQ
 #endif
@@ -92,12 +92,12 @@ static struct delayed_work vol_work;
 static int vol_v;
 static unsigned int freq_gate;
 static unsigned int freq_high;
-static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 static struct task_struct *freq_thread;
 static unsigned long long timer_start = 0;
 static unsigned long long timer_end = 0;
 static unsigned long long radical_time = 0;
 static int radical_cnt = 0;
+struct cpufreq_frequency_table __attribute__((weak)) freq_table[CPUFREQ_NR] = {{0,0}};
 
 unsigned long __attribute__((weak)) core_reg_table[12][2] = {
 	{ 1584000,1400000 }, // >= 1.548 GHz - 1.40V
@@ -121,9 +121,15 @@ unsigned long regulator_find_voltage(int freqs)
 static int freq_table_prepare(void)
 {
 	struct clk *sclka, *mpll, *apll, *cparent;
-	unsigned int j,i = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
 	unsigned int sclka_rate, mpll_rate, apll_rate;
 	unsigned int max_rate = MAX_APLL_FREQ;
+	unsigned int talbe_tmp[CPUFREQ_NR];
+
+	if (freq_table[0].frequency != 0)
+		return 0;
+
 	sclka = clk_get(NULL,"sclka");
 	if (IS_ERR(sclka)) {
 		return -EINVAL;
@@ -147,39 +153,62 @@ static int freq_table_prepare(void)
 
 #define _FREQ_TAB(in, fr)				\
 	freq_table[in].index = in;			\
-	freq_table[in].frequency = fr			\
+	freq_table[in].frequency = fr
 
-	if (clk_is_enabled(apll)) {
+	if (clk_is_enabled(apll))
 		freq_high = apll_rate;
-
-		while (max_rate > LOW_APLL_FREQ) {
-			_FREQ_TAB(i, max_rate);
-			i++;
-			max_rate -= APLL_FREQ_STEP;
-		}
-#if 0
-		_FREQ_TAB(i, 1008000);
-		i++;
-#endif
-	} else {
+	else
 		freq_high = mpll_rate;
+	freq_gate = mpll_rate;
+
+	while (max_rate >= (freq_gate + APLL_FREQ_STEP)) {
+		talbe_tmp[i++] = max_rate;
+		max_rate -= APLL_FREQ_STEP;
 	}
 
-	freq_gate = mpll_rate;
-	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ) && (j <= MAX_MPLL_DIV);i++) {
-		_FREQ_TAB(i, mpll_rate / j++);
+	max_rate = freq_gate;
+	do {
+		max_rate -= APLL_FREQ_STEP;
+	} while (max_rate >= 1200000);
+
+	while ((max_rate > freq_gate / 2 + APLL_FREQ_STEP)
+	       && (max_rate > LOW_APLL_FREQ)) {
+		talbe_tmp[i++] = max_rate;
+		max_rate -= APLL_FREQ_STEP;
 	}
-	_FREQ_TAB(i, CPUFREQ_TABLE_END);
+
+	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ)
+		     && (j <= MAX_MPLL_DIV);i++) {
+		talbe_tmp[i] = mpll_rate / j++;
+	}
+
+	talbe_tmp[i] = ~1;
+
+	for (j = 0; j <= i; j++) {
+		int k, in;
+		unsigned int ft = ~1;
+		for (k = 0; k <= i; k++) {
+			if (talbe_tmp[k] < ft) {
+				ft = talbe_tmp[k];
+				in = k;
+			}
+		}
+		talbe_tmp[in] = ~1;
+		if (ft != ~1)
+			_FREQ_TAB(j, ft);
+	}
+	_FREQ_TAB(j, CPUFREQ_TABLE_END);
 #undef _FREQ_TAB
 
 	clk_put(apll);
 	clk_put(sclka);
 	clk_put(mpll);
 #if 0
-	pr_info("Freq table:\n");
+	printk("cpufreq table: ");
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-		printk("%u %u\n",freq_table[i].index,freq_table[i].frequency);
+		printk("%u ", freq_table[i].frequency);
 	}
+	printk("\n");
 #endif
 	return 0;
 mpll_err:
@@ -267,6 +296,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	}
 
 	spin_lock_irqsave(&freq_lock, flags);
+
 	ret = clk_set_rate(cpu_clk, freqs.new * 1000);
 
 	freqs.new = jz4780_getspeed(policy->cpu);
@@ -409,9 +439,10 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	policy->min = policy->cpuinfo.min_freq;
 /*
 	policy->max = policy->cpuinfo.max_freq;
-	policy->max = freq_gate;
-*/
 	policy->max = freq_high;
+*/
+	policy->max = freq_gate;
+
 	policy->cur = jz4780_getspeed(policy->cpu);
 
 	/*

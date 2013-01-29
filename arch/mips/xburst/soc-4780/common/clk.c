@@ -405,20 +405,16 @@ struct cpccr_table {
 #define CPNR 7
 #define MAX_M_DIV 6
 #define MAX_CCLK (2016 * 1000 * 1000)
-#define MPLL_DIV(i) ((1<<22) | (2<<28) | ((i*2-1)<<4) | (i-1))
-#define APLL_DIV(i) ((1<<22) | (1<<28) | ((i*2-1)<<4) | (i-1))
+#define MAX_H0CLK (432 * 1000 * 1000)
+#define MPLL_DIV(i, h) ((1<<22) | (2<<28) | (2<<26) | ((h-1)<<8) | ((i*2-1)<<4) | (i-1))
+#define APLL_DIV(i, h) ((1<<22) | (1<<28) | (1<<26) | ((h-1)<<8) | ((i*2-1)<<4) | (i-1))
 #define M_N_OD(m,n,od) (((m-1) << 19) | ((n-1) << 13) | ((od-1) << 9))
+#define SET_PARENT(SON, FATHER)								\
+	clk_srcs[CLK_ID_##SON].parent = &clk_srcs[CLK_ID_##FATHER]
 #define SET_PLL(P, M, N, OD, TO)							\
 	cpm_outl(M_N_OD(M, N, OD) | (1 << 0),CPM_CP##P##PCR);				\
 	clk_srcs[CLK_ID_##P##PLL].rate = CONFIG_EXTAL_CLOCK * 1000000 / N / OD * M;	\
 	while (!(cpm_inl(CPM_CP##P##PCR) & (1 << 4)) && --TO)
-#define SET_SCLKA(C)									\
-	do {										\
-		unsigned int cpccr;							\
-		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<30);				\
-		cpccr |= C<<30;								\
-		cpm_outl(cpccr,CPM_CPCCR);						\
-	} while (0)
 
 static struct cpccr_table cpccr_table[CPNR];
 
@@ -426,54 +422,61 @@ static int cclk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int i;
 	unsigned int cpccr = 0;
-	struct clk *clk_t;
 
 	if (clk->rate == rate)
 		return 0;
+	cpccr = cpm_inl(CPM_CPCCR);
 
-	clk_t = &clk_srcs[CLK_ID_MPLL];
 	for (i = 1; i <= MAX_M_DIV; i++) {
-		if(rate == clk_t->rate / i) {
-			cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-			cpccr |= MPLL_DIV(i);
-			cpm_outl(cpccr,CPM_CPCCR);
-			clk->parent = clk_t;
-			clk_srcs[CLK_ID_L2CLK].parent = clk_t;
-			clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
+		if(rate == clk_srcs[CLK_ID_MPLL].rate / i) {
+			cpccr = cpccr & ~(0xf<<26 | 0xfff);
+			cpccr |= MPLL_DIV(i, 3);
+			cpm_outl(cpccr, CPM_CPCCR);
+			SET_PARENT(CCLK, MPLL);
+			SET_PARENT(L2CLK, MPLL);
+			SET_PARENT(H0CLK, MPLL);
+			SET_PARENT(SCLKA, EXT1);
 			clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_EXT1].rate;
-			cpm_outl((cpccr& ~(0x3<<30)) | (2<<30),CPM_CPCCR);
+			cpm_outl((cpccr & ~(0x3<<30)) | (2<<30),CPM_CPCCR);
 			goto out;
 		}
 	}
 	if (rate <= MAX_CCLK) {
-		cpccr = cpm_inl(CPM_CPCCR);
+		unsigned int h0_div = 1;
+
 		if (rate != clk_srcs[CLK_ID_APLL].rate) {
 			int m = rate / 1000000 / CONFIG_EXTAL_CLOCK;
 			int timeout = 0xffffff;
 
 			if (clk->parent == &clk_srcs[CLK_ID_SCLKA]){
-				cpccr &= ~(0x3<<28 | 0xff);
-				cpccr |= MPLL_DIV(1);
-				cpm_outl(cpccr,CPM_CPCCR);
+				cpccr &= ~(0xf<<26 | 0xfff);
+				cpccr |= MPLL_DIV(2, 3);
+				cpm_outl(cpccr, CPM_CPCCR);
 			}
 			cpccr &= ~(0x3<<30);
 			cpccr |= (0x2<<30);
 			cpm_outl(cpccr,CPM_CPCCR);
-			clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
+			SET_PARENT(SCLKA, EXT1);
 			SET_PLL(A, m, 1, 1, timeout);
 			if (!timeout) {
 				pr_err("set APLL %lu timeout\n", rate);
 				return -1;
 			}
 		}
-		if (clk_srcs[CLK_ID_SCLKA].parent != &clk_srcs[CLK_ID_APLL])
-			SET_SCLKA(1);
-		clk->parent = &clk_srcs[CLK_ID_SCLKA];
-		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_SCLKA];
-		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_APLL];
+		if (clk_srcs[CLK_ID_SCLKA].parent != &clk_srcs[CLK_ID_APLL]) {
+			cpccr = cpccr & ~(0x3<<30);
+			cpccr |= 1<<30;
+			cpm_outl(cpccr,CPM_CPCCR);
+		}
+		while (clk_srcs[CLK_ID_APLL].rate / h0_div > MAX_H0CLK)
+			h0_div++;
+		SET_PARENT(CCLK, SCLKA);
+		SET_PARENT(L2CLK, SCLKA);
+		SET_PARENT(H0CLK, SCLKA);
+		SET_PARENT(SCLKA, APLL);
 		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_APLL].rate;
-		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-		cpm_outl(cpccr | APLL_DIV(1),CPM_CPCCR);
+		cpccr = cpccr & ~(0xf<<26 | 0xfff);
+		cpm_outl(cpccr | APLL_DIV(1, h0_div),CPM_CPCCR);
 		goto out;
 	}
 
@@ -481,6 +484,7 @@ static int cclk_set_rate(struct clk *clk, unsigned long rate)
 	return -1;
 out:
 	clk_srcs[CLK_ID_L2CLK].rate = cpccr_get_rate(&clk_srcs[CLK_ID_L2CLK]);
+	clk_srcs[CLK_ID_H0CLK].rate = cpccr_get_rate(&clk_srcs[CLK_ID_H0CLK]);
 	clk->rate = cpccr_get_rate(clk);
 	return 0;
 }
