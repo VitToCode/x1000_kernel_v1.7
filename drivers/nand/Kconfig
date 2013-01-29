@@ -194,7 +194,7 @@ endchoice
 choice
         prompt "The Nand output driver"
         depends on NAND_JZ4780
-        default NAND_NORMAL_DRIVER
+        default NAND_LOW_DRIVER
 
 config	NAND_LOW_DRIVER
 	bool 'low driver'
