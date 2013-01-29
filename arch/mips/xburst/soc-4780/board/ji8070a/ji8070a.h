@@ -109,8 +109,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_SP0838_RST			GPIO_PB(26)
 
 #ifdef CONFIG_GC0308_Q8
-#define GPIO_GC0308_EN_F		GPIO_PB(18)
-#define GPIO_GC0308_EN_B		GPIO_PB(19)
+#define GPIO_GC0308_EN_F		GPIO_PB(19)
+#define GPIO_GC0308_EN_B		GPIO_PB(18)
 #define GPIO_GC0308_RST			GPIO_PB(26)
 #endif
 
