@@ -35,6 +35,8 @@
 struct __partition_info {
 	int context;
 	NM_lpt *lpt;
+	char *name;//while add one part of mul_parts, record the name
+	int mul_flag;
 };
 
 struct __nand_disk {
@@ -259,6 +261,7 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
 {
 	struct singlelist *plist = NULL;
 	struct __nand_disk *ndisk = NULL;
+	int i = 0;
 
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
@@ -266,6 +269,12 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
 		 point to the same string in memory */
 		if (ndisk->pinfo->lpt->pt->name == name)
 			return ndisk;
+		if(ndisk->pinfo->lpt->pt->parts_num > 0){
+			while(strcmp((ndisk->pinfo->lpt->pt->lparts+i)->name, name))
+				i++;
+			if(i < ndisk->pinfo->lpt->pt->parts_num)
+				return ndisk;
+		}
 	}
 	return NULL;
 }
@@ -786,11 +795,20 @@ static int nand_block_probe(struct device *dev)
 	    sum_count = sum_count + (lpt->pt->lparts+ptmp)->sectorCount;
 	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++){
 	    (lpt->pt->lparts+ptmp)->sectorCount = lpt->pt->sectorCount * 100 / sum_count * (lpt->pt->lparts+ptmp)->sectorCount / 100;
-	    hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
-	    if(!hd){
-		printk("ERROR:add_partition fail!\n");
+	    if(pinfo->name && !strcmp(pinfo->name, (lpt->pt->lparts+ptmp)->name)){
+		    hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
+		    if(!hd){
+			    printk("ERROR:add_partition fail!\n");
+		    }
+	    break;
 	    }
+	    else if(!pinfo->mul_flag){
+		    hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
+		    if(!hd){
+			    printk("ERROR:add_partition fail!\n");
+		    }
 	    pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
+	    }
 	}
     }
 	/* add ndisk to disk_list */
@@ -947,7 +965,8 @@ static int nand_disk_install(char *name)
 	struct device *dev = NULL;
 	struct singlelist *plist = NULL;
 	struct __partition_info *pinfo = NULL;
-
+	int i = 0;
+	char *part_name = NULL;
 	DBG_FUNC();
 
 	if (name)
@@ -971,8 +990,18 @@ static int nand_disk_install(char *name)
 		    }
 		}
 
-		if (!installAll && strcmp(lpt->pt->name, name))
-			continue;
+		if (!installAll && strcmp(lpt->pt->name, name)){
+			if(lpt->pt->mode == ZONE_MANAGER && lpt->pt->parts_num > 0 ){
+				while(strcmp(lpt->pt->name, (lpt->pt->lparts+i)->name)){
+					part_name = (lpt->pt->lparts+i)->name;
+					i++;
+					if(i >= lpt->pt->parts_num)
+						printk("can not find the name (%s)\n", name);
+				}
+			}
+			else
+				continue;
+		}
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
@@ -1004,6 +1033,12 @@ static int nand_disk_install(char *name)
 
 		pinfo->context = context;
 		pinfo->lpt = lpt;
+		pinfo->name = NULL;
+		pinfo->mul_flag = 0;
+		if(part_name){
+			pinfo->name = part_name;
+			pinfo->mul_flag = 1;
+		}
 
 		device_initialize(dev);
 		dev->bus = &nand_block_bus;
