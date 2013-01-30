@@ -391,11 +391,13 @@ static int __init ji8070a_i2c_dev_init(void)
 	i2c_register_board_info(1, ji8070a_i2c1_devs, ARRAY_SIZE(ji8070a_i2c1_devs));
 #endif
 
-#ifndef CONFIG_VIDEO_JZ4780_SUBSYSTEM
+
+#ifdef CONFIG_JZ_CIM
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 	i2c_register_board_info(2, ji8070a_i2c2_devs, ARRAY_SIZE(ji8070a_i2c2_devs));
 #endif
 #endif
+
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(3, ji8070a_i2c3_devs, ARRAY_SIZE(ji8070a_i2c3_devs));
