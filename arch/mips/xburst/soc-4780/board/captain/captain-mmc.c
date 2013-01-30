@@ -45,7 +45,7 @@ struct jzmmc_platform_data captain_inand_pdata = {
 	.removal  			= DONTCARE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
 	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 	.recovery_info			= &captain_inand_recovery_info,
 	.gpio				= NULL,
@@ -95,7 +95,7 @@ struct jzmmc_platform_data captain_tf_pdata = {
 static struct card_gpio captain_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
 	.wp				= {-1,			-1},
-	.pwr				= {GPIO_PF(19),		LOW_ENABLE },
+	.pwr				= {-1,			-1},
 };
 
 struct jzmmc_platform_data captain_tf_pdata = {
@@ -116,7 +116,7 @@ struct jzmmc_platform_data captain_tf_pdata = {
 #endif
 #endif
 
-#ifdef CONFIG_MMC0_JZ4780
+#ifdef CONFIG_MMC1_JZ4780
 struct jzmmc_platform_data captain_sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
@@ -125,7 +125,7 @@ struct jzmmc_platform_data captain_sdio_pdata = {
 	.max_freq			= CONFIG_MMC1_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= NULL,
-#ifdef CONFIG_MMC0_PIO_MODE
+#ifdef CONFIG_MMC1_PIO_MODE
 	.pio_mode			= 1,
 #else
 	.pio_mode			= 0,

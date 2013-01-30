@@ -86,11 +86,18 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 
+FIXED_REGULATOR_DEF(
+	captain_vmmc,
+	"TF",		3300000,	GPIO_PF(19),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vmmc.2",	NULL);
+
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&captain_vcc5_regulator_device,
 	&captain_vbus_regulator_device,
 	&captain_vcim_regulator_device,
 	&captain_vlcd_regulator_device,
+	&captain_vmmc_regulator_device,
 };
 
 /*
