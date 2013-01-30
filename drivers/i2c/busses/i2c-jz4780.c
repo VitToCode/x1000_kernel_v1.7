@@ -422,8 +422,11 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 	tmp = i2c_readl(i2c,I2C_INTM);
 	tmp |= I2C_INTM_MRXFL | I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
-
-	timeout = wait_for_completion_timeout(&i2c->r_complete,HZ);
+    if (CONFIG_I2C_JZ4780_SPEED > 300) {
+        timeout = wait_for_completion_timeout(&i2c->r_complete, HZ / 10);
+    } else {
+        timeout = wait_for_completion_timeout(&i2c->r_complete, HZ);
+    }
 	if(!timeout){
 		dev_err(&(i2c->adap.dev),"--I2C irq read timeout\n");
 #ifdef CONFIG_I2C_DEBUG
@@ -459,7 +462,11 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	tmp |= I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
 	
-	timeout = wait_for_completion_timeout(&i2c->w_complete,HZ);
+    if (CONFIG_I2C_JZ4780_SPEED > 300) {
+        timeout = wait_for_completion_timeout(&i2c->w_complete, HZ / 10);
+    } else {
+        timeout = wait_for_completion_timeout(&i2c->w_complete, HZ);
+    }
 	if(!timeout){
 		dev_err(&(i2c->adap.dev),"--I2C pio write wait timeout\n");
 #ifdef CONFIG_I2C_DEBUG
@@ -579,13 +586,19 @@ static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 	if (hold_time > 255)
 		hold_time = 255;
 
-	i2c_writel(i2c,I2C_SHCNT,I2CSHCNT_ADJUST(cnt_high));
-	i2c_writel(i2c,I2C_SLCNT,I2CSLCNT_ADJUST(cnt_low));
+    if (rate <= 100000) {
+        i2c_writel(i2c,I2C_SHCNT,I2CSHCNT_ADJUST(cnt_high));
+        i2c_writel(i2c,I2C_SLCNT,I2CSLCNT_ADJUST(cnt_low));
+    } else {
+        i2c_writel(i2c,I2C_FHCNT,I2CFHCNT_ADJUST(cnt_high));
+        i2c_writel(i2c,I2C_FLCNT,I2CFLCNT_ADJUST(cnt_low));
+    }
 
-	i2c_writel(i2c,I2C_SDASU,setup_time & 0xff);
+    i2c_writel(i2c,I2C_SDASU,setup_time & 0xff);
 
-	hold_time |= I2C_SDAHD_HDENB;		/*i2c hold time enable */
-	i2c_writel(i2c,I2C_SDAHD,hold_time);
+    hold_time |= I2C_SDAHD_HDENB;		/*i2c hold time enable */
+    i2c_writel(i2c,I2C_SDAHD,hold_time);
+
 	return 0;
 }
 
@@ -641,7 +654,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	INIT_DELAYED_WORK(&i2c->clk_work, i2c_clk_work);
 
 	clk_enable(i2c->clk);
-	i2c_set_speed(i2c,100000);
+	i2c_set_speed(i2c, CONFIG_I2C_JZ4780_SPEED * 1000);
 	
 	tmp = i2c_readl(i2c,I2C_CTRL);
 	tmp &= ~I2C_CTRL_STPHLD;

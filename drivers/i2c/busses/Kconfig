@@ -709,6 +709,19 @@ config I2C3_JZ4780
 config I2C4_JZ4780
 	tristate "jz4780 i2c controler 4 Interface support"
 	depends on SOC_4780
+
+config I2C_JZ4780_SPEED
+	int "Jz4780 i2c speed in KHZ"
+	range 100 400
+	default 100
+    depends on I2C0_JZ4780 || I2C1_JZ4780 || I2C2_JZ4780 || I2C3_JZ4780 || I2C4_JZ4780
+	help
+	  Select Jz4780 i2c speed.
+	  Examples:
+	             100 => 100 KHZ
+	             200 => 200 KHZ
+		     300 =>  300 KHZ
+
 config I2C_DEBUG
 	tristate "jz4780 i2c debug"
 	depends on SOC_4780 
