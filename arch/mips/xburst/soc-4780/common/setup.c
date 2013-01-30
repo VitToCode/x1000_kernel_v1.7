@@ -52,7 +52,7 @@ void __init cpm_reset(void)
 	mdelay(1);
 	cpm_outl(0x27f87ffe,CPM_CLKGR0);
 	mdelay(1);
-	cpm_outl(0xffffffff,CPM_CLKGR1);
+	cpm_outl(0xfffffdff,CPM_CLKGR1);
 	mdelay(1);
 #endif
 	cpm_outl(lcr | CPM_LCR_PD_MASK | 0x8f<<8,CPM_LCR);

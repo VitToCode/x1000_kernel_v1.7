@@ -368,6 +368,11 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 	for (haha = 0x1063; haha <= 0x106f; haha++) {
 		dev_info(jzhdmi->dev, "===>REG[%04x] = 0x%02x\n", haha, api_CoreRead(haha));
 	}
+
+	for (haha = 0x3000; haha <= 0x3007; haha++) {
+		printk("===>REG[%04x] = 0x%02x\n",
+		       haha, access_CoreReadByte(haha));
+	}
 }
 #endif
 
@@ -557,6 +562,7 @@ static struct file_operations jzhdmi_fops = {
 static int __devinit jzhdmi_probe(struct platform_device *pdev)
 {
 	int ret,i;
+	int hdmi_is_running = 0;
 	struct jzhdmi *jzhdmi;
 	struct resource *mem;
 
@@ -673,10 +679,21 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	}
 
 	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
-	if (!api_Initialize(0, 1, 2500,0)) {
-		dev_err(jzhdmi->dev, "api_Initialize fail\n");
-		ret = -EINVAL;
-		goto err_destroy_workqueue;
+
+	if ((access_Read(0x3000) & 0x40)) /* check ENTMDS */
+		hdmi_is_running = 1;
+	if (!hdmi_is_running) {
+		if (!api_Initialize(0, 1, 2500,0)) {
+			dev_err(jzhdmi->dev, "api_Initialize fail\n");
+			ret = -EINVAL;
+			goto err_destroy_workqueue;
+		}
+	} else {
+		if (!api_Reinitialize(0, 1, 2500,0)) {
+			dev_err(jzhdmi->dev, "api_Reinitialize fail\n");
+			ret = -EINVAL;
+			goto err_destroy_workqueue;
+		}
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -701,6 +718,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
 
+	if (hdmi_is_running)
+		return 0;
 #ifdef CONFIG_FORCE_RESOLUTION
 	for (i = 0; i < 5; i++) {
 		if (!CONFIG_FORCE_RESOLUTION)

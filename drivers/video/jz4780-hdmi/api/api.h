@@ -103,6 +103,17 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force);
  * @note this function needs to have the HW initialised before the first call
  */
 
+int api_Reinitialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force);
+/**
+ * Setting the necessary API state and applying TX interrupt.
+ * @param video parameters pointer
+ * @param audio parameters pointer
+ * @param product parameters pointer
+ * @param hdcp parameters pointer
+ * @return TRUE when successful
+ * @note during this function, all controller's interrupts are disabled
+ * @note this function needs to have the HW initialised before the first call
+ */
 int api_phy_enable(phy_state is_enable);
 
 int api_Configure(videoParams_t * video, audioParams_t * audio,

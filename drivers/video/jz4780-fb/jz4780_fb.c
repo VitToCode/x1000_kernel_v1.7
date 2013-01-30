@@ -132,6 +132,38 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 	return NULL;
 }
 
+static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct jzfb_platform_data *pdata = jzfb->pdata;
+
+#ifdef CONFIG_FORCE_RESOLUTION
+	if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
+		return pdata->modes;
+	} else {
+		int i, flag;
+
+		flag = CONFIG_FORCE_RESOLUTION;
+		if (flag <= 0 || flag > 64) {
+			dev_err(jzfb->dev, "Invalid mode flag: %d\n", flag);
+			return NULL;
+		}
+		for (i = 0; i < pdata->num_modes; i++) {
+			if (pdata->modes[i].flag != flag)
+				continue;
+			return &pdata->modes[i];
+		}
+		if (i > pdata->num_modes) {
+			dev_err(jzfb->dev, "Find video mode fail\n");
+			return NULL;
+		}
+	}
+#else
+	return pdata->modes;
+#endif
+	return NULL;
+}
+
 static void jzfb_config_fg0(struct fb_info *info)
 {
 	unsigned int rgb_ctrl, cfg ,ctrl = 0;
@@ -139,6 +171,10 @@ static void jzfb_config_fg0(struct fb_info *info)
 	struct jzfb_osd_t *osd = &jzfb->osd;
 	struct fb_videomode *mode = info->mode;
 
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return;
+	}
 	osd->fg0.fg = 0;
 	osd->fg0.bpp = jzfb_get_controller_bpp(jzfb) == 32 ? 32 : 16;
 	osd->fg0.x = osd->fg0.y = 0;
@@ -171,6 +207,10 @@ static int jzfb_calculate_size(struct fb_info *info,
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = info->mode;
 
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return -EINVAL;
+	}
 	/*
 	 * The rules of f0, f1's position:
 	 * f0.x + f0.w <= panel.w;
@@ -978,22 +1018,11 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 		return 0;
 	}
 
-#ifdef CONFIG_FORCE_RESOLUTION
-	if (!CONFIG_FORCE_RESOLUTION  || jzfb->id == 1) {
-		mode = jzfb->pdata->modes;
-	} else {
-		int i;
-		for (i = 0; i < jzfb->pdata->num_modes; i++) {
-			if (jzfb->pdata->modes[i].flag !=
-			    CONFIG_FORCE_RESOLUTION)
-				continue;
-			mode = &jzfb->pdata->modes[i];
-			break;
-		}
+	mode = jzfb_checkout_videomode(jzfb->fb);
+	if (!mode) {
+		dev_err(jzfb->dev, "Checkout video mode fail\n");
+		return -EINVAL;
 	}
-#else
-	mode = jzfb->pdata->modes;
-#endif
 
 	videosize = mode->xres * mode->yres;
 	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
@@ -1216,6 +1245,10 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 	struct jzfb_framedesc *framedesc;
 	struct fb_videomode *mode = info->mode;
 
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return -EINVAL;
+	}
 	/*
 	 * The rules of f0, f1's position:
 	 * f0.x + f0.w <= panel.w;
@@ -1341,6 +1374,10 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "copy FG size from user failed\n");
 			return -EFAULT;
 		} else {
+			if (!mode) {
+				dev_err(jzfb->dev, "Video mode is NULL\n");
+				return -EINVAL;
+			}
 			if ((jzfb->osd.fg0.x + osd.fg_size.w > mode->xres) |
 			    (jzfb->osd.fg0.y + osd.fg_size.h > mode->yres)) {
 				dev_info(info->dev, "Invalid foreground size");
@@ -1801,6 +1838,33 @@ static void jzfb_late_resume(struct early_suspend *h)
 }
 #endif
 
+#ifdef CONFIG_FORCE_RESOLUTION
+static void jzfb_change_dma_desc(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct fb_videomode *mode;
+
+	mode = jzfb_checkout_videomode(info);
+	if (!mode)
+		return;
+	jzfb->osd.fg0.fg = 0;
+	jzfb->osd.fg0.bpp = jzfb_get_controller_bpp(jzfb) == 32 ? 32 : 16;
+	jzfb->osd.fg0.x = jzfb->osd.fg0.y = 0;
+	jzfb->osd.fg0.w = mode->xres;
+	jzfb->osd.fg0.h = mode->yres;
+
+	info->mode = mode;
+	jzfb_prepare_dma_desc(info);
+	info->mode = NULL;
+
+	if (mode->pixclock) {
+		clk_set_rate(jzfb->pclk, PICOS2KHZ(mode->pixclock) * 1000);
+	} else {
+		dev_err(jzfb->dev, "Video mode pixclock invalid\n");
+	}
+}
+#endif
+
 static int jzfb_copy_logo(struct fb_info *info)
 {
 	unsigned long src_addr = 0; /* x-boot logo buffer address */
@@ -1842,6 +1906,10 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return;
+	}
 	if (!jzfb->vidmem_phys) {
 		dev_err(jzfb->dev, "Not allocate frame buffer yet\n");
 		return;
@@ -1913,6 +1981,10 @@ static void jzfb_display_h_color_bar(struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return;
+	}
 	if (!jzfb->vidmem_phys) {
 		dev_err(jzfb->dev, "Not allocate frame buffer yet\n");
 		return;
@@ -2181,12 +2253,13 @@ static struct device_attribute lcd_sysfs_attrs[] = {
 
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
 	int i;
 	unsigned int dual_ctrl; /* Dual LCDC Channel Control */
 	struct jzfb *jzfb;
 	struct fb_info *fb;
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
+	struct fb_videomode *video_mode;
 	struct resource *mem;
 
 	if (!pdata) {
@@ -2268,25 +2341,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
-#ifdef CONFIG_FORCE_RESOLUTION
-	if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
-		jzfb_videomode_to_var(&fb->var, pdata->modes);
-	} else {
-		for (i = 0; i < pdata->num_modes; i++) {
-			if (pdata->modes[i].flag != CONFIG_FORCE_RESOLUTION)
-				continue;
-			jzfb_videomode_to_var(&fb->var, &pdata->modes[i]);
-			break;
-		}
-		if (i >= pdata->num_modes) {
-			dev_err(&pdev->dev, "Find video mode fail\n");
-			ret = -EINVAL;
-			goto err_iounmap;
-		}
-	}
-#else
-	jzfb_videomode_to_var(&fb->var, pdata->modes);
-#endif
+	video_mode = jzfb_checkout_videomode(jzfb->fb);
+	if (!video_mode)
+		goto err_iounmap;
+	jzfb_videomode_to_var(&fb->var, video_mode);
 	fb->var.width = pdata->width;
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
@@ -2331,7 +2389,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		if (ret)
 			break;
 	}
-
 	if (ret) {
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
@@ -2368,10 +2425,14 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 #ifndef CONFIG_FPGA_TEST
 	if (jzfb->vidmem_phys) {
-		if (!jzfb_copy_logo(jzfb->fb)) {
-			jzfb_set_par(jzfb->fb);
-		} else {
 #ifdef CONFIG_FORCE_RESOLUTION
+		if (!jzfb_copy_logo(jzfb->fb)) {
+			if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
+				jzfb_set_par(jzfb->fb);
+			} else {
+				jzfb_change_dma_desc(jzfb->fb);
+			}
+		} else {
 			if (CONFIG_FORCE_RESOLUTION > 0 && jzfb->id == 0) {
 				jzfb_set_par(jzfb->fb);
 				clk_enable(jzfb->pclk);
@@ -2379,8 +2440,12 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 				jzfb_enable(jzfb->fb);
 				//jzfb_display_v_color_bar(jzfb->fb);
 			}
-#endif
 		}
+#else
+		if (!jzfb_copy_logo(jzfb->fb)) {
+			jzfb_set_par(jzfb->fb);
+		}
+#endif
 	}
 #else
 	if (jzfb->vidmem_phys) {

@@ -191,6 +191,45 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	return FALSE;
 }
 
+int api_Reinitialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) //cmd:auto argument: 0, 1, 2500, 0
+{
+	dataEnablePolarity = 1;
+
+	api_mDataEnablePolarity = dataEnablePolarity;
+	api_mHpd = FALSE;
+	api_mSendGamutOk = FALSE; //?????????????????
+	api_mSfrClock = sfrClock; // sfrClock,that are required for setting the low time of the SCL clock in each speed mode
+
+	LOG_NOTICE("dwc_hdmi_tx_software_api_2.12");
+	LOG_NOTICE(__DATE__);
+	LOG_TRACE1(dataEnablePolarity);
+	/* reset error */
+	error_Set(NO_ERROR);
+
+	api_mBaseAddress = address;
+	if (!api_mutex_inited)
+	{
+		mutex_Initialize(&api_mMutex);
+		api_mutex_inited = 1;
+	}
+
+	if ((api_mCurrentState < API_HPD) || (api_mCurrentState > API_EDID_READ))
+	{
+		/* if EDID read do not re-read, if HPDetected, keep in same state
+		 * otherwise, set to INIT */
+		api_mCurrentState = API_INIT;
+	}
+
+	if (system_InterruptHandlerRegister(TX_INT, api_EventHandler, NULL) == TRUE)
+	{
+		printk("==>enable TX_INT in %s:%d\n", __func__, __LINE__);
+		//return system_InterruptEnable(TX_INT);
+		printk("enter %s, %d\n", __func__, __LINE__);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 int api_phy_enable(phy_state is_enable) //1 is enable 
 {
 	int force = 0;
