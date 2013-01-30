@@ -28,7 +28,21 @@ int sp0838_init(struct cim_sensor *sensor_info)
 	sp0838_write_reg(client,0x32,0x00);
 	sp0838_write_reg(client,0x22,0xc0);
 	sp0838_write_reg(client,0x26,0x10);	
-	sp0838_write_reg(client,0x31,0x10 | 0x20);	//set mirror bit
+
+#ifndef CONFIG_HORIZONTAL_MIRROR
+	#ifndef CONFIG_VERTICAL_MIRROR
+	sp0838_write_reg(client, 0x31, 0x10);	//set mirror bit
+	#else
+	sp0838_write_reg(client, 0x31, 0x10 | 0x40);
+	#endif
+#else
+	#ifndef CONFIG_VERTICAL_MIRROR
+	sp0838_write_reg(client, 0x31, 0x10 | 0x20);
+	#else
+	sp0838_write_reg(client, 0x31, 0x10 | 0x60);
+	#endif
+#endif
+
 	sp0838_write_reg(client,0x5f,0x11);
 	
 	sp0838_write_reg(client,0xfd,0x01);
@@ -199,41 +213,41 @@ int sp0838_init(struct cim_sensor *sensor_info)
 	
 	sp0838_write_reg(client,0xfd,0x00);
 //fix 22fps	
-sp0838_write_reg(client,0x05,0x00);
-sp0838_write_reg(client,0x06,0x00);
-sp0838_write_reg(client,0x09,0x01);
-sp0838_write_reg(client,0x0a,0x05);
-sp0838_write_reg(client,0xf0,0x6c);
-sp0838_write_reg(client,0xf1,0x00);
-sp0838_write_reg(client,0xf2,0x62);
-sp0838_write_reg(client,0xf5,0x7b);
-sp0838_write_reg(client,0xfd,0x01);
-sp0838_write_reg(client,0x00,0xa0);
-sp0838_write_reg(client,0x0f,0x63);
-sp0838_write_reg(client,0x16,0x63);
-sp0838_write_reg(client,0x17,0x90);
-sp0838_write_reg(client,0x18,0x98);
-sp0838_write_reg(client,0x1b,0x63);
-sp0838_write_reg(client,0x1c,0x98);
-sp0838_write_reg(client,0xb4,0x20);
-sp0838_write_reg(client,0xb5,0x3c);
-sp0838_write_reg(client,0xb6,0x68);
-sp0838_write_reg(client,0xb9,0x40);
-sp0838_write_reg(client,0xba,0x4f);
-sp0838_write_reg(client,0xbb,0x47);
-sp0838_write_reg(client,0xbc,0x45);
-sp0838_write_reg(client,0xbd,0x70);
-sp0838_write_reg(client,0xbe,0x42);
-sp0838_write_reg(client,0xbf,0x42);
-sp0838_write_reg(client,0xc0,0x42);
-sp0838_write_reg(client,0xc1,0x41);
-sp0838_write_reg(client,0xc2,0x41);
-sp0838_write_reg(client,0xc3,0x41);
-sp0838_write_reg(client,0xc4,0x41);
-sp0838_write_reg(client,0xc5,0x41);
-sp0838_write_reg(client,0xc6,0x41);
-sp0838_write_reg(client,0xca,0x70);
-sp0838_write_reg(client,0xcb,0x04);
+	sp0838_write_reg(client,0x05,0x00);
+	sp0838_write_reg(client,0x06,0x00);
+	sp0838_write_reg(client,0x09,0x01);
+	sp0838_write_reg(client,0x0a,0x05);
+	sp0838_write_reg(client,0xf0,0x6c);
+	sp0838_write_reg(client,0xf1,0x00);
+	sp0838_write_reg(client,0xf2,0x62);
+	sp0838_write_reg(client,0xf5,0x7b);
+	sp0838_write_reg(client,0xfd,0x01);
+	sp0838_write_reg(client,0x00,0xa0);
+	sp0838_write_reg(client,0x0f,0x63);
+	sp0838_write_reg(client,0x16,0x63);
+	sp0838_write_reg(client,0x17,0x90);
+	sp0838_write_reg(client,0x18,0x98);
+	sp0838_write_reg(client,0x1b,0x63);
+	sp0838_write_reg(client,0x1c,0x98);
+	sp0838_write_reg(client,0xb4,0x20);
+	sp0838_write_reg(client,0xb5,0x3c);
+	sp0838_write_reg(client,0xb6,0x68);
+	sp0838_write_reg(client,0xb9,0x40);
+	sp0838_write_reg(client,0xba,0x4f);
+	sp0838_write_reg(client,0xbb,0x47);
+	sp0838_write_reg(client,0xbc,0x45);
+	sp0838_write_reg(client,0xbd,0x70);
+	sp0838_write_reg(client,0xbe,0x42);
+	sp0838_write_reg(client,0xbf,0x42);
+	sp0838_write_reg(client,0xc0,0x42);
+	sp0838_write_reg(client,0xc1,0x41);
+	sp0838_write_reg(client,0xc2,0x41);
+	sp0838_write_reg(client,0xc3,0x41);
+	sp0838_write_reg(client,0xc4,0x41);
+	sp0838_write_reg(client,0xc5,0x41);
+	sp0838_write_reg(client,0xc6,0x41);
+	sp0838_write_reg(client,0xca,0x70);
+	sp0838_write_reg(client,0xcb,0x04);
 	                  
 	
 	sp0838_write_reg(client,0x14,0x20);
