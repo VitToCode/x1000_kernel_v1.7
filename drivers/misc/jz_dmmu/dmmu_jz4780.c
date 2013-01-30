@@ -32,6 +32,16 @@
 #include "dmmu_jz4780.h"
 
 //#define DMMU_DEBUG
+
+#if 1
+#ifdef dev_info
+#undef dev_info
+#endif
+#define dev_info(sss, aaa...)                   \
+    do {                                        \
+    } while(0)
+#endif
+
 #define PAGE_VALID_BIT 0x1  
 #define TABLE_ID_BITMAP_NONE (0)
 #define TABLE_ID_BITMAP_USER_SET (~0)

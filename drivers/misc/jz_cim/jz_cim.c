@@ -36,6 +36,8 @@
 
 //#define KERNEL_INFO_PRINT
 
+//#define DUMP_CIM_REGESITER_BEFORE_START
+
 LIST_HEAD(sensor_list);
 
 enum cim_state {
@@ -119,17 +121,19 @@ struct jz_cim {
 static unsigned int right_num = 0;
 static unsigned int err_num = 0;
 
+static void cim_dump_reg(struct jz_cim *cim);
 static unsigned long inline reg_read(struct jz_cim *cim,int offset)
 {
   	volatile unsigned long dummy_read;
 	dummy_read = readl(cim->iomem + offset); //read twice
-	udelay(1); //this is necessary
+	udelay(10); //this is necessary
 	return readl(cim->iomem+ offset);
 }
 
 static void inline reg_write(struct jz_cim *cim,int offset, unsigned long val)
 {
 	writel(val, cim->iomem + offset); //write twice
+	udelay(10);
 	writel(val, cim->iomem + offset);
 }
 
@@ -151,6 +155,9 @@ static void inline bit_clr(struct jz_cim *cim ,int offset,int bit)
 
 static inline void cim_enable(struct jz_cim *cim)
 {
+#ifdef DUMP_CIM_REGESITER_BEFORE_START
+    cim_dump_reg(cim);
+#endif
 	bit_set(cim,CIM_CTRL,CIM_CTRL_ENA);
 }
 
@@ -276,8 +283,40 @@ int cim_set_tlbbase(struct jz_cim *cim)
 	return 0;
 }
 
-void cim_dump_reg(struct jz_cim *cim)
+static void cim_dump_dma_desc(struct jz_cim *cim)
 {
+    struct jz_cim_dma_desc * desc;
+    int ddd, iii;
+    const int dma_desc_size = sizeof(struct jz_cim_dma_desc)/sizeof(unsigned int);
+
+    desc  = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
+    if (!desc) return;
+
+    printk("-----------------------------------------------------\n");
+    printk("\tcim->pdesc_vaddr= %p, PDESC_NR=%d\n", desc, PDESC_NR);
+    for (ddd=0; ddd<PDESC_NR; ddd++, desc++) {
+        unsigned int *ppp = (unsigned int *)desc;
+        printk("\tdesc%d= %p\n", ddd, desc);
+        for (iii=0;iii<dma_desc_size; iii++)
+            printk("\t\t: %08x\n", *ppp++);
+    }
+
+    desc  = (struct jz_cim_dma_desc *)cim->cdesc_vaddr;
+    if (!desc) return;
+    printk("-----------------------------------------------------\n");
+    printk("\tcim->cdesc_vaddr= %p CDESC_NR=%d\n", desc, CDESC_NR);
+    for (ddd=0; ddd<CDESC_NR; ddd++, desc++) {
+        unsigned int *ppp = (unsigned int *)desc;
+        printk("\tdesc%d= %p\n", ddd, desc);
+        for (iii=0;iii<dma_desc_size; iii++)
+            printk("\t\t: %08x\n", *ppp++);
+    }
+
+}
+
+static void cim_dump_reg(struct jz_cim *cim)
+{
+    printk("-----------------------------------------------------\n");
 	dev_info(cim->dev,"REG_CIM_CFG \t= \t0x%08lx\n", reg_read(cim,CIM_CFG));
 	dev_info(cim->dev,"REG_CIM_CTRL \t= \t0x%08lx\n", reg_read(cim,CIM_CTRL));
 	dev_info(cim->dev,"REG_CIM_CTRL2 \t= \t0x%08lx\n", reg_read(cim,CIM_CTRL2));
@@ -301,6 +340,9 @@ void cim_dump_reg(struct jz_cim *cim)
 	dev_info(cim->dev,"REG_CIM_TINX \t= \t0x%08lx\n", reg_read(cim,CIM_TINX));
 	dev_info(cim->dev,"REG_CIM_TCNT \t= \t0x%08lx\n", reg_read(cim,CIM_TCNT));
 
+        cim_dump_dma_desc(cim);
+
+    printk("-----------------------------------------------------\n");
 }
 
 void cim_power_on(struct jz_cim *cim)
@@ -310,8 +352,12 @@ void cim_power_on(struct jz_cim *cim)
 			clk_enable(cim->clk);
 		
 		if(cim->mclk) {
-			clk_set_rate(cim->mclk, 24000000);
-			clk_enable(cim->mclk);
+                    //clk_set_rate(cim->mclk, 24000000);
+#define CIM_CLOCK_TEST (24000000)
+//#define CIM_CLOCK_TEST (36000000)
+                    clk_set_rate(cim->mclk, CIM_CLOCK_TEST);
+                    printk("========================== cim->mclk=%p CIM_CLOCK_TEST=%d ===============\n", cim->mclk, CIM_CLOCK_TEST);
+                    clk_enable(cim->mclk);
 		}
 		cim->is_clock_enabled = 1;
 	}
@@ -381,19 +427,41 @@ void cim_set_default(struct jz_cim *cim)
 			cfg |= CIM_CFG_SEP;	
 		}
 	}
-	
-	ctrl |= CIM_CTRL_DMA_SYNC | CIM_CTRL_FRC_1;
-	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE |
-			(1 << CIM_CTRL2_OPG_BIT) | CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
 
-	cfg |= cim->desc->cim_cfg | CIM_CFG_DMA_BURST_INCR32 | CIM_CFG_DF_YUV422;
+        /* NOTICE AND WARNNING
+         * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
+         * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
+         */
+        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+            ctrl |= CIM_CTRL_DMA_SYNC;
+	ctrl |= CIM_CTRL_FRC_1;
+
+	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (1 << CIM_CTRL2_OPG_BIT);
+
+        // If delete "CIM_CTRL2_FSC | CIM_CTRL2_ARIF", maybe cause overflow on warrior(npm706) board.
+        //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+            ctrl2 |= CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
+
+	cfg |= cim->desc->cim_cfg | CIM_CFG_DF_YUV422;
+
+        /* NOTICE AND WARNNING
+         * Preview size: 640x480, dma burst length:
+         *     CIM_BYPASS_YUV422I: DMA_BURST_INCR32 stable
+         *     YUV420_Tile:  DMA_BURST_INCR32 not stable, DMA_BURST_INCR16 stable.
+         */
+	cfg &= ~(CIM_CFG_DMA_BURST_TYPE_MASK);
+        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+            cfg |= CIM_CFG_DMA_BURST_INCR32;
+        else 
+            cfg |= CIM_CFG_DMA_BURST_INCR16;
+
 	fs = (w -1)<< CIM_FS_FHS_BIT | (h -1)<< CIM_FS_FVS_BIT | 1<< CIM_FS_BPP_BIT;
 
 	reg_write(cim,CIM_CFG,cfg);
 	reg_write(cim,CIM_CTRL,ctrl);
 	reg_write(cim,CIM_CTRL2,ctrl2);
 	reg_write(cim,CIM_FS,fs);
-	//cim_enable_fsc_intr(cim);
+	cim_enable_fsc_intr(cim);
 	cim_enable_eof_intr(cim);
 	cim_enable_rxfifo_overflow_intr(cim);
 }
@@ -522,10 +590,17 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	unsigned long flags;
 	static int wait_count = 0;
 	int fid;
+	static int irq_count = 0;
+        irq_count++;
 
 	state_reg = cim_read_state(cim);
-	
-	dev_dbg(cim->dev," -------------   cim irq  state reg %lx %ld\n",state_reg,reg_read(cim,CIM_IID));
+	fid = reg_read(cim,CIM_IID);
+
+        if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > 3 ) {
+            dev_info(cim->dev,"cim irq %d -------------   cim irq  state_reg= %#x fid=%#x CIM_IID=%#x\n",
+                     irq_count, (unsigned int)state_reg,fid, (unsigned int)reg_read(cim,CIM_IID));
+        }
+
 	if (state_reg & CIM_STATE_RXF_OF){
 		dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
 
@@ -556,12 +631,11 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 			dev_dbg(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 			bit_clr(cim,CIM_STATE,CIM_STATE_DMA_EOF);
 
-			spin_lock_irqsave(&cim->lock,flags);
 			fid = reg_read(cim,CIM_IID);  //we'd better read IID as fast as we can after we go into irq
 			if(fid < 0 || fid >= PDESC_NR) {
-				dev_info(cim->dev, " ----------state_reg:%08lx frm id %08x, REG_CIM_IID \t= \t0x%08lx \n",
+				dev_info(cim->dev, " ----------state_reg:%08lx frm id %08x, REG_CIM_IID = 0x%08lx \n",
 						 state_reg, fid, reg_read(cim,CIM_IID));
-			  fid = 0;
+                                fid = 0;
 
 #if 0   //it is not necessary when we readl twice
 			int i;
@@ -591,9 +665,10 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 #endif
 			}
 
-			fid--;   //make sure it is not the buffer been used
+			fid--;   //make sure it is not the buffer being used
 			if(fid == -1)
 				fid = PDESC_NR -1;
+			spin_lock_irqsave(&cim->lock,flags);
 			cim->frm_id  = fid;
 			spin_unlock_irqrestore(&cim->lock,flags);
 			
@@ -731,7 +806,7 @@ static long cim_start_capture(struct jz_cim *cim)
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_enable(cim);
 
-	if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(15000))) {
+	if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(3000))) {
 			cim_dump_reg(cim);
 			dev_err(cim->dev,"cim ---------------capture wait timeout\n");
 			cim_disable(cim);
@@ -742,31 +817,54 @@ static long cim_start_capture(struct jz_cim *cim)
 	cim->state = CS_IDLE;
 	return dmadesc[CDESC_NR-1].buf;
 }
+
 static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 {
-	unsigned long addr ;
-	unsigned long flags;
+    unsigned long addr ;
+    unsigned long flags;
+    int fid, loop;
+    struct jz_cim_dma_desc * desc;
 
-	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
-	while(cim->frm_id == -1) {
-			if(cim->state  != CS_PREVIEW){
-				dev_err(cim->dev,"cim state is not CS_PREVIEW,so return\n");
-				return 0;
-			}
-			if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(5000))){
-				dev_err(cim->dev,"wait preview queue timeout!\n");
-				cim_dump_reg(cim);
-				return 0;
-			}
-	}
-	spin_lock_irqsave(&cim->lock,flags);
-	addr =  desc[cim->frm_id].buf;
-	if(addr == 0 || cim->frm_id < 0 || cim->frm_id >= PDESC_NR)
-		printk(" -------------  frm id %d %08lx\n",cim->frm_id,addr);
-	cim->frm_id = -1;
-	spin_unlock_irqrestore(&cim->lock,flags);
+    if(cim->state  != CS_PREVIEW){
+        dev_err(cim->dev,"cim state is not CS_PREVIEW,so return\n");
+        //return 0;
+    }
 
-	return addr;
+    loop = 2;
+    do {
+        int got_id = 0;
+        spin_lock_irqsave(&cim->lock,flags);
+        fid = cim->frm_id;
+        if( fid > -1 && fid < PDESC_NR) {
+            got_id = 1;
+        }
+        if (got_id) {
+            cim->frm_id = -1;
+        }
+        spin_unlock_irqrestore(&cim->lock,flags);
+
+        if (got_id) {
+            break;
+        }
+        else {
+            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(500))){
+                dev_err(cim->dev,"wait preview queue 500ms timeout! loop:%d\n", loop);
+                cim_dump_reg(cim);
+            }
+        }
+    } while (loop--);
+
+    if( fid < 0 || fid >= PDESC_NR) {
+        dev_err(cim->dev, " ---------- cim_get_preview_buf warnning fid=%d\n", fid);
+        fid = 0;
+    }
+
+    desc  = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
+    addr =  desc[fid].buf;
+    if(addr == 0 || fid < 0 || fid >= PDESC_NR)
+        dev_info(cim->dev, " -------------  frm id %d  buf addr=%08lx, desc=%p\n", fid, addr, desc);
+
+    return addr;
 }
 
 void cim_get_sensor_info(struct jz_cim *cim, struct sensor_info *info)
@@ -1156,6 +1254,18 @@ static struct file_operations cim_fops = {
 
 void cim_dummy_power(void) {}
 
+
+static ssize_t dump_cim_reg(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    struct jz_cim *cim  = dev_get_drvdata(dev);
+    cim_dump_reg(cim);
+    return 0;
+}
+
+static struct device_attribute cim_sysfs_attrs[] = {
+    __ATTR(dump_cim_reg, S_IRUGO|S_IWUSR, dump_cim_reg, NULL),
+};
+
 static int cim_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1252,6 +1362,14 @@ static int cim_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev,"ingenic camera interface module registered.\n");
 
+        {
+            int i;
+            for (i = 0; i < ARRAY_SIZE(cim_sysfs_attrs); i++) {
+		ret = device_create_file(&pdev->dev, &cim_sysfs_attrs[i]);
+		if (ret)
+                    break;
+            }
+        }
 	return 0;
 
 misc_failed:	
