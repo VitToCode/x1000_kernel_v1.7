@@ -17,6 +17,7 @@ static struct __nm_lock_tab {
 typedef struct __nm_intf {
 	int handler;	   		/* nand manager handler */
 	int refcnt;				/* nm_intf open count */
+	int is_scaned;
 	NM_lpt *lptl;			/* lpartition list head */
 	NM_ppt *pptl;			/* ppartition list head */
 	int (*ndPtInstall)(char *);
@@ -423,6 +424,15 @@ int NM_ptInstall(int handler, char *ptname)
 	if ((NM_intf*)handler != nm_intf) {
 		printk("ERROR: %s, Unknown NM handler!\n", __func__);
 		return -1;
+	}
+
+	if (!nm_intf->is_scaned) {
+		if (NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_SCAN_BADBLOCKS, 0))
+		{
+			printk("ERROR: %s, scan badblocks error!\n", __func__);
+			return -1;
+		}
+		nm_intf->is_scaned = 1;
 	}
 
 	if (nm_intf->ndPtInstall)
