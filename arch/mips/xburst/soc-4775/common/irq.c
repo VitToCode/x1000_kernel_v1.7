@@ -19,7 +19,6 @@
 
 #include <soc/base.h>
 #include <soc/irq.h>
-#include <soc/ost.h>
 
 #include <smp_cp0.h>
 
@@ -31,9 +30,6 @@
 #define IMSR_OFF	(0x08)
 #define IMCR_OFF	(0x0c)
 #define IPR_OFF		(0x10)
-
-#define regr(off) 	inl(OST_IOBASE + (off))
-#define regw(val,off)	outl(val, OST_IOBASE + (off))
 
 static void __iomem *intc_base;
 static unsigned long intc_saved[2];
@@ -142,29 +138,6 @@ static int setup_ipi(void)
 
 #endif
 
-static void ost_irq_unmask(struct irq_data *data)
-{
-	regw(0xffffffff,  OST_TMCR);
-}
-
-static void ost_irq_mask(struct irq_data *data)
-{
-	regw(0xffffffff,  OST_TMSR);
-}
-
-static void ost_irq_mask_ack(struct irq_data *data)
-{
-	regw(0xffffffff,  OST_TMSR);
-	regw(0xffffffff,  OST_TFCR);  /* clear ost flag */
-}
-
-static struct irq_chip ost_irq_type = {
-	.name 		= "ost",
-	.irq_mask	= ost_irq_mask,
-	.irq_mask_ack 	= ost_irq_mask_ack,
-	.irq_unmask 	= ost_irq_unmask,
-};
-
 void __init arch_init_irq(void)
 {
 	int i;
@@ -185,10 +158,6 @@ void __init arch_init_irq(void)
 		irq_set_chip_and_handler(i, &jzintc_chip, handle_level_irq);
 	}
 
-	for (i = IRQ_OST_BASE; i < IRQ_OST_BASE + OST_NR_IRQS; i++) {
-		irq_set_chip_data(i, (void *)(i - IRQ_OST_BASE));
-		irq_set_chip_and_handler(i, &ost_irq_type, handle_level_irq);
-	}
 #ifdef CONFIG_SMP
 	init_intc_affinity();
 	set_intc_cpu(26,0);
@@ -261,9 +230,6 @@ asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int cause = read_c0_cause();
 	unsigned int pending = cause & read_c0_status() & ST0_IM;
-	if (cause & CAUSEF_IP4) {
-		do_IRQ(IRQ_OST);
-	}
 #ifdef CONFIG_SMP
 	if(pending & CAUSEF_IP3) {
 		jzsoc_mbox_interrupt();
