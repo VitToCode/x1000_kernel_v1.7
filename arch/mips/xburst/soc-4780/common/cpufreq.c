@@ -124,7 +124,7 @@ static int freq_table_prepare(void)
 	unsigned int i = 0;
 	unsigned int j = 0;
 	unsigned int sclka_rate, mpll_rate, apll_rate;
-	unsigned int max_rate = MAX_APLL_FREQ;
+	unsigned int max_rate = 0;
 	unsigned int talbe_tmp[CPUFREQ_NR];
 
 	if (freq_table[0].frequency != 0)
@@ -154,27 +154,29 @@ static int freq_table_prepare(void)
 #define _FREQ_TAB(in, fr)				\
 	freq_table[in].index = in;			\
 	freq_table[in].frequency = fr
-
-	if (clk_is_enabled(apll))
-		freq_high = apll_rate;
-	else
-		freq_high = mpll_rate;
 	freq_gate = mpll_rate;
 
-	while (max_rate >= (freq_gate + APLL_FREQ_STEP)) {
-		talbe_tmp[i++] = max_rate;
-		max_rate -= APLL_FREQ_STEP;
-	}
+	if (clk_is_enabled(apll)) {
+		freq_high = apll_rate;
+		max_rate = MAX_APLL_FREQ;
+		while (max_rate >= (freq_gate + APLL_FREQ_STEP)) {
+			talbe_tmp[i++] = max_rate;
+			max_rate -= APLL_FREQ_STEP;
+		}
 
-	max_rate = freq_gate;
-	do {
-		max_rate -= APLL_FREQ_STEP;
-	} while (max_rate >= 1200000);
+		max_rate = freq_gate;
+		do {
+			max_rate -= APLL_FREQ_STEP;
+		} while (max_rate >= 1200000);
 
-	while ((max_rate > freq_gate / 2 + APLL_FREQ_STEP)
-	       && (max_rate > LOW_APLL_FREQ)) {
-		talbe_tmp[i++] = max_rate;
-		max_rate -= APLL_FREQ_STEP;
+		while ((max_rate > freq_gate / 2 + APLL_FREQ_STEP)
+		       && (max_rate > LOW_APLL_FREQ)) {
+			talbe_tmp[i++] = max_rate;
+			max_rate -= APLL_FREQ_STEP;
+		}
+	} else {
+		freq_high = mpll_rate;
+		max_rate = mpll_rate;
 	}
 
 	for (j=1;(i<CPUFREQ_NR) && (mpll_rate/j >= MIN_FREQ)
@@ -471,7 +473,7 @@ int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 		rate = clk_get_rate(cpu_clk);
 		clk_set_rate(cpu_clk,MIN_FREQ * 1000);
 	}
-	
+
 	return 0;
 }
 
@@ -513,7 +515,7 @@ static int __init jz4780_cpufreq_init(void)
 		pr_warning("%s: unable to get CPU regulator\n", __func__);
 		cpu_regulator = NULL;
 	} else {
-		/* 
+		/*
 		 * Ensure physical regulator is present.
 		 * (e.g. could be dummy regulator.)
 		 */
@@ -538,7 +540,7 @@ static int __init jz4780_cpufreq_init(void)
 
 static void __exit jz4780_cpufreq_exit(void)
 {
-	if(cpu_clk) 
+	if(cpu_clk)
 		clk_put(cpu_clk);
 	if(cpu_regulator)
 		regulator_put(cpu_regulator);
