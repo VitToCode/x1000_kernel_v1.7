@@ -6,6 +6,12 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 
+/* Add read-retry when nand read ecc uncorrect */
+extern void get_read_retrial_mode(unsigned char *data);
+extern void set_read_retrial_mode(unsigned char *data);
+unsigned char retrialbuf[4] = {0xff};
+#define READ_RETRY_COUNT        7
+
 #define MCU_TEST_INTER_NAND
 #ifdef MCU_TEST_INTER_NAND
 #define MCU_TEST_DATA_NAND 0xB3424FC0 //PDMA_BANK6 - 0x40
@@ -93,13 +99,13 @@ static void mcu_complete_func(void *arg)
 			mailbox_ret = 0;
 			break;
 		case MB_NAND_UNCOR_ECC:
-			mailbox_ret = -5;
+			mailbox_ret = ECC_ERROR;
 			break;
 		case MB_NAND_WRITE_DONE:
 			mailbox_ret = 0;
 			break;
 		case MB_NAND_WRITE_FAIL:
-			mailbox_ret = -1;
+			mailbox_ret = ENAND;
 			break;
 		case MB_NAND_WRITE_PROTECT:
 			mailbox_ret = 111;
@@ -108,13 +114,13 @@ static void mcu_complete_func(void *arg)
 			mailbox_ret = 0;
 			break;
 		case MB_NAND_ERASE_FAIL:
-			mailbox_ret = -1;
+			mailbox_ret = ENAND;
 			break;
 		case MB_NAND_ALL_FF:
-			mailbox_ret = -6;
+			mailbox_ret = ALL_FF;
 			break;
 		case MB_MOVE_BLOCK:
-			mailbox_ret = 1;
+			mailbox_ret = BLOCK_MOVE;
 			break;
 	}
 #ifdef NAND_DMA_TEST_TIMEOUT
@@ -423,6 +429,7 @@ read_page_singlenode_error1:
 int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
 	int ret = 0;
+        int count = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
 	if(mcuresflag) {
@@ -436,7 +443,20 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 		mcuresflag = 0;
 	}
 #endif
-	ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
+        while(1) {
+                if (count == READ_RETRY_COUNT)
+                        break;
+                if (count > 0 && ret >= 0) {
+                        ret = 1;
+                        break;
+                }
+                ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
+                if (ret == ECC_ERROR) {
+                        set_read_retrial_mode(retrialbuf);
+                        count++;
+                } else
+                        break;
+        }
 
 	if (ret == 0)
 		ret = bytes;
@@ -640,6 +660,7 @@ read_page_node_error1:
 
 int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 {
+        int count = 0;
 	Aligned_List *alignelist = list;
 	PageList *templist;
 	unsigned int opsmodel;
@@ -661,8 +682,22 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		opsmodel = alignelist->opsmodel & 0x00ffffff;
 		templist =alignelist->pagelist;
 		if(opsmodel == 1){
-			ret = read_page_singlenode(pnand_api,templist->startPageID,
+                        while(1) {
+                                if (count == READ_RETRY_COUNT)
+                                        break;
+                                if (count > 0 && ret >= 0) {
+                                        ret = 1;
+                                        break;
+                                }
+			        ret = read_page_singlenode(pnand_api,templist->startPageID,
 					templist->OffsetBytes,templist->Bytes,templist->pData);
+                                if (ret == ECC_ERROR) {
+                                        set_read_retrial_mode(retrialbuf);
+                                        count++;
+                                        templist->retVal = 0;
+                                } else
+                                        break;
+                        }
 			switch(ret){
 				case 0:
 					templist->retVal = templist->Bytes;
@@ -675,7 +710,21 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 					break;
 			}
 		}else{
-			ret = read_page_multinode(pnand_api,templist,opsmodel);
+                        while(1) {
+                                if (count == READ_RETRY_COUNT)
+                                        break;
+                                if (count > 0 && ret >= 0) {
+                                        ret = 1;
+                                        break;
+                                }
+			        ret = read_page_multinode(pnand_api,templist,opsmodel);
+                                if (ret == ECC_ERROR) {
+                                        set_read_retrial_mode(retrialbuf);
+                                        count++;
+                                        templist->retVal = 0;
+                                } else
+                                        break;
+                        }
 		}
 		if(ret && (flag >=0)){
 			flag = ret;
@@ -823,6 +872,8 @@ int nand_dma_init(NAND_API *pnand_api)
 	struct platform_device *pdev = (struct platform_device *)pnand_api->pdev;
 
 	struct jznand_dma *nand_dma =(struct jznand_dma *)nand_malloc_buf(sizeof(struct jznand_dma));
+
+        get_read_retrial_mode(retrialbuf);
 	if(!nand_dma){
 		printk("Failed: nand_dma mallocs failed !\n");
 		goto nand_dma_init_error1;
