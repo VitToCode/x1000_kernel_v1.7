@@ -314,6 +314,16 @@ int NM_UpdateErrorPartition(NM_ppt *ppt)
 		printk("ERROR: %s, error context!\n", __func__);
 		return -1;
 	}
+
+	if (!nm_intf->is_scaned) {
+		if (NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_SCAN_BADBLOCKS, 0))
+		{
+			printk("ERROR: %s, scan badblocks error!\n", __func__);
+			return -1;
+		}
+		nm_intf->is_scaned = 1;
+	}
+
 	return NandManger_UpdateErrorPartition(nm_intf->handler, (ppt ? ppt->pt : NULL));
 }
 
