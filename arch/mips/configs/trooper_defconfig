@@ -858,7 +858,7 @@ CONFIG_WLAN=y
 # CONFIG_B43 is not set
 # CONFIG_B43LEGACY is not set
 # CONFIG_BCM4329 is not set
-CONFIG_BCMDHD=y
+# CONFIG_BCMDHD=y
 CONFIG_BCMDHD_FW_PATH="/system/lib/wifi/firmware/iw8101/fw_bcmdhd.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/lib/wifi/firmware/iw8101/nvram_iw8101.txt"
 # CONFIG_BCMDHD_WEXT is not set
