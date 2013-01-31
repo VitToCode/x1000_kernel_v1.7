@@ -36,14 +36,14 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 };
 
 #ifdef CONFIG_TEST_RESET_DLL
-
+#include <asm/rjzcache.h>
 /*
  * although the kernel already has something stuff
  * to test PM operations, but it's not very it for us,
  * so i fill these ugly here. it with final sealed then to be dust.
  */
 
-static const size_t buf_size = 1024 * 1024;
+static const size_t buf_size = 2 * 1024 * 1024;
 static const u32 pattern = 0xaaaaaaaa;
 static u32 *buf;
 
@@ -70,8 +70,33 @@ static void verify_buf(void)
 		remainder = pos & 0x1f;
 		if (buf[pos] !=
 				((pattern << remainder) | (pattern >> (32 - remainder)))) {
-			printk("a memory access error was detected at [0x%x]=0x%x\n",
+
+			/* 1st access */
+			printk("1st: a memory access error was detected at [0x%x]=0x%x\n",
 					(u32)&buf[pos], buf[pos]);
+
+			/* 2nd */
+			blast_dcache32();
+			if (buf[pos] !=
+					((pattern << remainder) | (pattern >> (32 - remainder)))) {
+
+				printk("2nd: a memory access error was detected at [0x%x]=0x%x\n",
+						(u32)&buf[pos], buf[pos]);
+
+				/* 3rd */
+				blast_dcache32();
+				if (buf[pos] !=
+						((pattern << remainder) | (pattern >> (32 - remainder)))) {
+
+					printk("3rd: a memory access error was detected at [0x%x]=0x%x\n",
+							(u32)&buf[pos], buf[pos]);
+
+					printk("!!! a corrupt memory word was detected at [0x%x]=0x%x\n",
+							(u32)&buf[pos], buf[pos]);
+
+				}
+			}
+
 			while (1)
 				continue;
 		}
