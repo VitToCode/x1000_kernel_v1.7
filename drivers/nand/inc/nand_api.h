@@ -62,13 +62,19 @@
 #include <linux/slab.h>
 #endif
 
-#define SUCCESS 0
-#define ENAND -1        // common error      
-#define DMA_AR -2
-#define IO_ERROR -3     // nand status error
-#define TIMEOUT -4
-#define ECC_ERROR  -5   //uncorrectable ecc errror
-#define ALL_FF -6       // bch data and parity  are 0xff
+#define SUCCESS         0
+#define ENAND           -1        // common error
+#define DMA_AR          -2
+#define IO_ERROR        -3     // nand status error
+#define TIMEOUT         -4
+#define ECC_ERROR       -5   //uncorrectable ecc errror
+#define ALL_FF          -6       // bch data and parity  are 0xff
+#define BLOCK_MOVE      1       // block move
+
+/* for read-retry */
+#define SAMSUNG_NAND            0x01
+#define HYNIX_NAND              0x02
+#define MICRON_NAND             0x03
 
 #define nand_malloc_buf(len)  kmalloc((len)*sizeof(unsigned char),GFP_KERNEL)  
 #define nand_free_buf(p)      kfree(p)

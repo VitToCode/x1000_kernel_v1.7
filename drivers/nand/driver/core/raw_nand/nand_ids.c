@@ -31,43 +31,43 @@ NAND_FLASH_DEV nand_flash_chips[] =
         {name              		id        	extid           planes  dienum
         tals	talh	trp	twp     trhw	twhr	twhr2	trr	twb     tadl    tcwaw   pagesize
         blocksize oobsize cycle maxbadblocks maxvalidblocks eccblock  eccbit  buswidth  badblockpos options}
-	lowdriver	normaldriver	highdriver	timemode
+	lowdriver	normaldriver	highdriver      high2driver	timemode
 	*/
 	{"SAMSUNG_K9GBG08U0A",          0xECD7,		0x43547A94, 	2,	1,
         12,     5,  	25,	25,	100,    120,    300,    20,     100,    300,    300,    8192,
-        1024*1024,      640,    3,	116,	4152,		1024,   24,	8,	0,     	LP_OPTIONS,
-	0x02,		0x04,		0x06,		0},
+        1024*1024,      640,    3,	116,	4152,		1024,   24,	8,	0,     	SAMSUNG_NAND,
+	0x02,		0x04,		0x06,		0,              0},
 
 	{"MICRON_MT29F32G08CBACAWP",    0x2C68,         0x00A94A04,     2,	1,
         10,     5,   	12,	12,  	100,    60,     200,     20,    100,    70,     0,      4096,
-        1024*1024,      224,	3,	100,	4096,		1024,	24,	8,	0,	LP_OPTIONS,
-	0x03,		0x02,		0x01,		0x04},
+        1024*1024,      224,	3,	100,	4096,		1024,	24,	8,	0,	MICRON_NAND,
+	0x03,		0x02,		0x01,		0x00,           0x04},
 
 	{"SAMSUNG_K9GAG08U0D", 		0xECD5,		0x41342994,	2,	1,
         15,	5,	15,	15,	100,	60,	60,     20,     0,     100,     0,      4096,
-        512*1024,       218, 	3,	100,	4096,		1024,	24,	8,	0,	LP_OPTIONS,
-	0,		0,		0,		0},
+        512*1024,       218, 	3,	100,	4096,		1024,	24,	8,	0,	SAMSUNG_NAND,
+	0,		0,		0,		0,              0},
 
 	{"MICRON_MT29F32G08CBABAWP",	0x2C68,		0x00894604,	2,	1,
 	10,	5,	12,	12,	100,	60,	200,	20,	100,	70,	0,	4096,
-	1024*1024,	224,	3,	100,	4096,		1024,	24,	8,	0,	LP_OPTIONS,
-	0x03,		0x02,		0x01,		0x04},
+	1024*1024,	224,	3,	100,	4096,		1024,	24,	8,	0,	MICRON_NAND,
+	0x03,		0x02,		0x01,		0x00,           0x04},
 
 	{"HYNIX_HY27UBG8T2BTR",		0xADD7,		0xC374DA94,	2,	1,
 	10,	5,	12,	12,	100,	80,	200,	20,	100,	200,	0,	8192,
-	2048*1024,	640,	3,	48,	2048,		1024,	40,	8,	0,	LP_OPTIONS,
-	0,		0,		0,		0},
+	2048*1024,	640,	3,	48,	2048,		1024,	40,	8,	0,	SAMSUNG_NAND,
+	0,		0,		0,		0,              0},
 
 	{"MICRON_MT29F64G08CBAAAWP",	0x2C88,		0x00A94B04,	2,	1,
 	10,	5,	12,	12,	100,	60,	200,	20,	100,	70,	0,	8192,
-	2048*1024,	448,	3,	100,	4096,		1024,	24,	8,	0,	LP_OPTIONS,
-	0x03,		0x02,		0x01,		0x04},
+	2048*1024,	448,	3,	100,	4096,		1024,	24,	8,	0,	MICRON_NAND,
+	0x03,		0x02,		0x01,		0x00,           0x04},
 
 	/* -------------------------------------test faild---------------------------------- */
 	{"HYNIX_H27UCG8T2ATR",		0xADDE,		0xC474DA94,	2,	1,
 	10,	5,	12,	12,	100,	80,	200,	20,	100,	200,	0,	8192,
-	2048*1024,	640,	3,	120,	4180,		1024,	40,	8,	0,	LP_OPTIONS,
-	0,		0,		0,		0},
+	2048*1024,	640,	3,	120,	4180,		1024,	40,	8,	0,	HYNIX_NAND,
+	0,		0,		0,		0,              0},
 #if 0
         /* -------------------------------------no test---------------------------------- */
         {"TOSHIBA_TC58NVG2S3ETA00",     0x98DC,         0x00761590,     2,      1,

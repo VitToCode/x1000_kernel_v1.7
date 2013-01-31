@@ -36,7 +36,6 @@ static void dump_buf1(unsigned char *databuf,int len)
 
 static void myndelay(unsigned int loops)
 {
-        /*
 	__asm__ __volatile__ (
 	"	.set	noreorder				\n"
 	"	.align	3					\n"
@@ -45,7 +44,6 @@ static void myndelay(unsigned int loops)
 	"	.set	reorder					\n"
 	: "=r" (loops)
 	: "0" (loops));
-        */
 }
 void do_nand_register(NAND_API *pnand_api)
 {
@@ -365,6 +363,106 @@ void nand_get_features(unsigned char addr, unsigned char *data)
 	g_pnand_io->send_cmd_norb(CMD_GET_FEATURES);
 	g_pnand_io->send_addr(-1, addr, 1);
 	g_pnand_io->read_data_withrb(data, 4);
+}
+
+void get_read_retrial_mode(unsigned char *data)
+{
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+        if (nand_type->options == HYNIX_NAND) {
+	        g_pnand_io->send_cmd_norb(0x37);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0xA7, 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->read_data_norb(&data[0], 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->send_addr(-1, 0xAD, 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->read_data_norb(&data[1], 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->send_addr(-1, 0xAE, 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->read_data_norb(&data[2], 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->send_addr(-1, 0xAF, 1);
+	        myndelay(nand_type->twhr);
+	        g_pnand_io->read_data_norb(&data[3], 1);
+                printk("Nand get retrial mode data is 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                                                     data[0],data[1],data[2],data[3]);
+        } else if (nand_type->options == MICRON_NAND || nand_type->options == SAMSUNG_NAND) {
+
+        }
+}
+
+void set_read_retrial_mode(unsigned char *data)
+{
+        static int count = 0;
+        int i = 0;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+        if (nand_type->options == HYNIX_NAND) {
+                unsigned char off[6][4] = {{0x00,0x06,0x0A,0x06},
+                                           {0x00,0x03,0x07,0x08},
+                                           {0x00,0x06,0x0D,0x0F},
+                                           {0x00,0x09,0x14,0x17},
+                                           {0x00,0x00,0x1A,0x1E},
+                                           {0x00,0x00,0x20,0x25}};
+                unsigned char setdata[4] = {0x00};
+                if(count == 7)
+                        count = 0;
+                if (count == 0) {
+                        for (i = 0; i < 4 ; i++)
+                                setdata[i] = off[0][i] == 0x00 ? 0x00 : (data[i] + off[0][i]);
+                } else {
+                        for (i = 0; i < 4 ; i++)
+                                setdata[i] = off[0][i] == 0x00 ? 0x00 : (data[i] - off[count][i]);
+                }
+                g_pnand_io->send_cmd_norb(0x36);
+                g_pnand_io->send_addr(-1, 0xA7, 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->write_data_norb(&setdata[0], 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->send_addr(-1, 0xAD, 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->write_data_norb(&setdata[1], 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->send_addr(-1, 0xAE, 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->write_data_norb(&setdata[2], 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->send_addr(-1, 0xAF, 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->write_data_norb(&setdata[3], 1);
+                myndelay(nand_type->tadl);
+                g_pnand_io->send_cmd_norb(0x16);
+                myndelay(nand_type->tadl);
+                printk("nand set retrial %d times 0x%02x 0x%02x 0x%02x 0x%02x\n"
+                                ,count,setdata[0],setdata[1],setdata[2],setdata[3]);
+        } else if (nand_type->options == MICRON_NAND || nand_type->options == SAMSUNG_NAND) {
+		unsigned char wdata[4] = {0x00};
+		unsigned char rdata[4] = {0x00};
+                int setnum = -1;
+                if (nand_type->options == MICRON_NAND)
+                        setnum = 4;
+                if (nand_type->options == SAMSUNG_NAND)
+                        setnum = 3;
+                if (count == 7)
+                        count = 0;
+                if (count % setnum == 0)
+                        wdata[0] = nand_type->lowdriver;
+                if (count % setnum == 1)
+                        wdata[0] = nand_type->normaldriver;
+                if (count % setnum == 2)
+                        wdata[0] = nand_type->highdriver;
+                if (count % setnum == 3)
+                        wdata[0] = nand_type->high2driver;
+
+		nand_set_features(0x10, wdata);
+		nand_get_features(0x10, rdata);
+		if (wdata[0] != rdata[0])
+			printk("Warning: Nand flash output driver set faild!!\n");
+        }
+
+        count++;
+
 }
 
 /**

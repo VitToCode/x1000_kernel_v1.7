@@ -102,6 +102,7 @@ struct nand_flash_dev {
 	unsigned char lowdriver;
 	unsigned char normaldriver;
 	unsigned char highdriver;
+	unsigned char high2driver;
 	unsigned char timemode;
 };
 typedef struct nand_flash_dev NAND_FLASH_DEV;
