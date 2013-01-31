@@ -71,6 +71,8 @@ static struct platform_nand_partition *g_pnand_pt;    // nand partition info
 
 static unsigned char g_writebuf[512];          // reserve buf,it is 0xff all;
 static unsigned char *g_readbuf;
+static unsigned char *spl_bchbuf;
+static int spl_bchsize;
 /*
   struct EccSector{
   unsigned char *buf;
@@ -79,8 +81,6 @@ static unsigned char *g_readbuf;
 */
 struct EccSector *g_eccsector;
 static unsigned int g_eccsector_len;
-static unsigned char **g_pointarray;
-static unsigned int g_pointarray_len;
 /************************************************
  *   nand_ops_parameter_init
  *   initialize global parameter
@@ -96,6 +96,8 @@ void nand_ops_parameter_init(void)
 	g_readbuf =(unsigned char *)nand_malloc_buf(g_eccsize);
 	g_eccsector_len = g_pagesize / 512;
 	g_eccsector =(struct EccSector *)nand_malloc_buf(sizeof(struct EccSector)*g_eccsector_len);
+	spl_bchsize = g_pagesize / SPL_BCH_BLOCK * SPL_BCH_SIZE;
+	spl_bchbuf = (unsigned char *)nand_malloc_buf(spl_bchsize);
 }
 
 void nand_ops_parameter_reset(const PPartition *ppt)
@@ -111,10 +113,6 @@ void nand_ops_parameter_reset(const PPartition *ppt)
 	g_pagecount = ppt->PageCount;
 	g_poobbuf = (unsigned char *)g_pnand_ecc->get_ecc_code_buffer(g_oobsize+g_freesize); /*cacl by byte*/
 	memset(g_eccsector,0,sizeof(struct EccSector)*g_eccsector_len);
-	g_pointarray_len = g_writesize / 512;
-	if(g_pointarray)
-		nand_free_buf(g_pointarray);
-	g_pointarray =(unsigned char **)nand_malloc_buf(sizeof(unsigned char *)*g_pointarray_len);
 }
 
 /*
@@ -1563,25 +1561,17 @@ spl_read_err1:
 int write_spl(NAND_BASE *host, Aligned_List *list)
 {
 	Aligned_List *alignelist = NULL;
-	int i, bchsize;
-	unsigned char *bchbuf = NULL;
+	int i;
 	int ret = 0;
-	bchsize = g_pagesize / SPL_BCH_BLOCK * SPL_BCH_SIZE;
-	bchbuf = (unsigned char *)kzalloc(bchsize, GFP_KERNEL);
-	if (!bchbuf) {
-		dprintf("bchbuf for spl write nomem");
-		kfree(bchbuf);
-		return -1;
-	}
-	memset(bchbuf, 0xff, bchsize);
 
+	memset(spl_bchbuf, 0xff, spl_bchsize);
 	alignelist = list;
 	while(alignelist != NULL) {
 		if(alignelist->pagelist->startPageID < g_pnand_chip->ppblock) {
 			/* block 0 write spl, block 1 bakup block 0, X_BOOT_BLOCK is block 2,
 			 which block start write x-boot*/
 			for(i=0; i < X_BOOT_BLOCK; i++) {
-				ret = spl_write_nand(host, alignelist, bchbuf, bchsize, i);
+				ret = spl_write_nand(host, alignelist, spl_bchbuf, spl_bchsize, i);
 
 				if(ret < 0) {
 					dprintf("spl write error\n");
@@ -1591,7 +1581,6 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 			ret = nand_write_1p_page(host, alignelist);
 			if(ret < 0) {
 				dprintf("boot write error\n");
-				kfree(bchbuf);
 				return ret;
 			}
 		}
@@ -1601,24 +1590,15 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 		dprintf("spl write success\n");
 	}
 
-	kfree(bchbuf);
 	return ret;
 }
 
 int read_spl(NAND_BASE *host, Aligned_List *list)
 {
 	Aligned_List *alignelist = NULL;
-	int ret = 0, badblockflag = 0, bchsize, times;
-	unsigned char *bchbuf = NULL;
+	int ret = 0, badblockflag = 0, times;
 
-	bchsize = g_pagesize / SPL_BCH_BLOCK * SPL_BCH_SIZE;
-	bchbuf = (unsigned char *)kzalloc(bchsize, GFP_KERNEL);
-	if (!bchbuf) {
-		dprintf("bchbuf for spl read nomem");
-		kfree(bchbuf);
-		return -1;
-	}
-	memset(bchbuf, 0xff, bchsize);
+	memset(spl_bchbuf, 0xff, spl_bchsize);
 
 	alignelist = list;
 	while(alignelist != NULL) {
@@ -1627,7 +1607,7 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 			switch(badblockflag) {
 			case 0:
 				times = g_pnand_chip->ppblock * 0;
-				ret = spl_read_nand(host, alignelist, times, bchbuf, bchsize);
+				ret = spl_read_nand(host, alignelist, times, spl_bchbuf, spl_bchsize);
 				if(ret < 0) {
 					alignelist = list;
 					badblockflag = 1;
@@ -1636,7 +1616,7 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 				}
 			case 1:
 				times = g_pnand_chip->ppblock * 1;
-				ret = spl_read_nand(host, alignelist, times, bchbuf, bchsize);
+				ret = spl_read_nand(host, alignelist, times, spl_bchbuf, spl_bchsize);
 				if(ret < 0) {
 					alignelist = list;
 					badblockflag = 2;
@@ -1645,7 +1625,7 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 				}
 			case 2:
 				times = g_pnand_chip->ppblock * 2;
-				ret = spl_read_nand(host, alignelist, times, bchbuf, bchsize);
+				ret = spl_read_nand(host, alignelist, times, spl_bchbuf, spl_bchsize);
 				if(ret < 0) {
 					alignelist = list;
 					badblockflag = 3;
@@ -1654,14 +1634,12 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 				}
 			case 3:
 				dprintf("^^^^^^^^^ boot read error ^^^^^^^^^^^\n");
-				kfree(bchbuf);
 				return ret;
 			}
 		} else {
 			ret = nand_read_1p_page(host, alignelist);
 			if(ret < 0) {
 				dprintf("boot read error");
-				kfree(bchbuf);
 				return ret;
 			}
 		}
@@ -1671,6 +1649,5 @@ int read_spl(NAND_BASE *host, Aligned_List *list)
 		dprintf("spl read success");
 	}
 
-	kfree(bchbuf);
 	return ret;
 }
