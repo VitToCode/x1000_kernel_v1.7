@@ -58,7 +58,7 @@ static inline  void singlelist_add_head(struct singlelist *top,struct singlelist
 		head->next = top;
 	}
 }
-#define singlelist_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define singlelist_offsetof(TYPE, MEMBER) ((unsigned int) &((TYPE *)0)->MEMBER)
 
 #define singlelist_for_each(pos, head) \
 	for (pos = (head); pos != NULL; pos = pos->next)

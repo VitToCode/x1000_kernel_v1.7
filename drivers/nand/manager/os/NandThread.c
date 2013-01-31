@@ -30,10 +30,32 @@ PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name)
 
 int ExitThread(PNandThread *thread)
 {
-	return kthread_stop((struct task_struct*)*thread);
+	return kthread_stop((struct task_struct*)(*thread));
 }
 
 void SetThreadPrio(PNandThread *thread,int prio)
 {
 	return;
+}
+
+void SetThreadState(PNandThread *thread, enum nd_thread_state state)
+{
+	int task_state;
+
+	switch (state) {
+	case ND_THREAD_RUNNING:
+		task_state = TASK_RUNNING;
+		break;
+	case ND_THREAD_INTERRUPTIBLE:
+		task_state = TASK_INTERRUPTIBLE;
+		break;
+	case ND_THREAD_UNINTERRUPTIBLE:
+		task_state = TASK_UNINTERRUPTIBLE;
+		break;
+	default:
+		printk("ERROR: %s, Unsupported thread state %d!\n", __func__, state);
+		return;
+	}
+
+	set_task_state((struct task_struct*)(*thread), task_state);
 }
