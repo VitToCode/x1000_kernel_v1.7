@@ -2,15 +2,9 @@
 #define _CLIB_H_
 
 #ifdef  __KERNEL__
-#include <linux/math64.h>
-#include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/math64.h>
 #else
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <string.h>
 #endif
 
