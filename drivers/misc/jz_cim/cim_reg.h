@@ -63,6 +63,9 @@
   #define CIM_CFG_DSM_CIM	  (1 << CIM_CFG_DSM_BIT) /* CCIR656 Interlace Mode */
   #define CIM_CFG_DSM_GCM	  (2 << CIM_CFG_DSM_BIT) /* Gated Clock Mode */
 
+#define	CIM_STATE_CR_RXF_OF	(1 << 21) /* Y RXFIFO over flow irq */
+#define	CIM_STATE_CB_RXF_OF	(1 << 19) /* Y RXFIFO over flow irq */
+#define	CIM_STATE_Y_RXF_OF	(1 << 17) /* Y RXFIFO over flow irq */
 /* CIM State Register  (CIM_STATE) */
 #define	CIM_STATE_DMA_EEOF	(1 << 11) /* DMA Line EEOf irq */
 #define	CIM_STATE_DMA_STOP	(1 << 10) /* DMA stop irq */
