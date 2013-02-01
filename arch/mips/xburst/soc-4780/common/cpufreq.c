@@ -167,7 +167,7 @@ static int freq_table_prepare(void)
 		max_rate = freq_gate;
 		do {
 			max_rate -= APLL_FREQ_STEP;
-		} while (max_rate >= 1200000);
+		} while (max_rate >= 1000000);
 
 		while ((max_rate > freq_gate / 2 + APLL_FREQ_STEP)
 		       && (max_rate > LOW_APLL_FREQ)) {
@@ -187,7 +187,7 @@ static int freq_table_prepare(void)
 	talbe_tmp[i] = ~1;
 
 	for (j = 0; j <= i; j++) {
-		int k, in;
+		int k, in = 0;
 		unsigned int ft = ~1;
 		for (k = 0; k <= i; k++) {
 			if (talbe_tmp[k] < ft) {
