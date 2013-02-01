@@ -4,7 +4,12 @@
 
 #include <linux/kernel.h>
 
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+
 int nm_dbg_level = 3;
+
+module_param(nm_dbg_level,int,0644);
 
 int __ndprint(const char *fmt, ...)
 {
@@ -29,3 +34,5 @@ static int __init nddebug_setup(char *str)
 }
 
 __setup("nddebug=", nddebug_setup);
+
+
