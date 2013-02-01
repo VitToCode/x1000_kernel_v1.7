@@ -156,7 +156,7 @@ static void inline bit_clr(struct jz_cim *cim ,int offset,int bit)
 static inline void cim_enable(struct jz_cim *cim)
 {
 #ifdef DUMP_CIM_REGESITER_BEFORE_START
-    cim_dump_reg(cim);
+    //cim_dump_reg(cim);
 #endif
 	bit_set(cim,CIM_CTRL,CIM_CTRL_ENA);
 }
@@ -239,6 +239,41 @@ static inline unsigned long cim_get_iid(struct jz_cim *cim)
 {
 	return reg_read(cim,CIM_IID);
 }
+
+
+static inline unsigned long check_iid(struct jz_cim *cim, unsigned long fid)
+{
+    if ( fid >= 0 && fid < PDESC_NR)
+        return 1;
+    else 
+        return 0;
+}
+
+static inline unsigned long cim_get_and_check_iid(struct jz_cim *cim)
+{
+    unsigned long fid;
+    int loop = 4;
+
+    do {
+        unsigned long fid2;
+        fid = reg_read(cim,CIM_IID);;  //we'd better read IID as fast as we can after we go into irq
+        fid2 = reg_read(cim,CIM_IID);;  //we'd better read IID as fast as we can after we go into irq
+
+        if(fid == fid2 && fid >= 0 && fid < PDESC_NR) {
+            break;
+        }
+
+    } while (--loop);
+
+    if(fid < 0 || fid >= PDESC_NR) {
+        dev_info(cim->dev, " ----------cim_get_and_check_iid iid %08lx, REG_CIM_IID = 0x%08lx \n",
+                 fid, reg_read(cim,CIM_IID));
+        fid = 0;
+    }
+
+    return fid;
+}
+
 
 static inline unsigned long cim_get_fid(struct jz_cim *cim)
 {
@@ -445,15 +480,18 @@ void cim_set_default(struct jz_cim *cim)
 	cfg |= cim->desc->cim_cfg | CIM_CFG_DF_YUV422;
 
         /* NOTICE AND WARNNING
-         * Preview size: 640x480, dma burst length:
+         * 2013-01-31, Preview size: 640x480 30fps, dma burst length:
          *     CIM_BYPASS_YUV422I: DMA_BURST_INCR32 stable
          *     YUV420_Tile:  DMA_BURST_INCR32 not stable, DMA_BURST_INCR16 stable.
+         * 2013-02-01, Preview size: 1280x720 16fps, dma burst length:
+         *     CIM_BYPASS_YUV422I: DMA_BURST_INCR32 stable
+         *     YUV420_Tile:  DMA_BURST_INCR32 much stable, DMA_BURST_INCR16 not stable.
          */
 	cfg &= ~(CIM_CFG_DMA_BURST_TYPE_MASK);
         if(cim->preview_output_format == CIM_BYPASS_YUV422I)
             cfg |= CIM_CFG_DMA_BURST_INCR32;
         else 
-            cfg |= CIM_CFG_DMA_BURST_INCR16;
+            cfg |= CIM_CFG_DMA_BURST_INCR32; /* 16? 32? */
 
 	fs = (w -1)<< CIM_FS_FHS_BIT | (h -1)<< CIM_FS_FVS_BIT | 1<< CIM_FS_BPP_BIT;
 
@@ -464,6 +502,7 @@ void cim_set_default(struct jz_cim *cim)
 	cim_enable_fsc_intr(cim);
 	cim_enable_eof_intr(cim);
 	cim_enable_rxfifo_overflow_intr(cim);
+	cim_enable_tlb_error_intr(cim);
 }
 
 
@@ -597,19 +636,46 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	fid = reg_read(cim,CIM_IID);
 
         if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > 3 ) {
-            dev_info(cim->dev,"cim irq %d -------------   cim irq  state_reg= %#x fid=%#x CIM_IID=%#x\n",
+            dev_info(cim->dev,"cim irq %d -------------   cim irq  \tstate_reg= %#x fid=%#x CIM_IID=%#x\n",
                      irq_count, (unsigned int)state_reg,fid, (unsigned int)reg_read(cim,CIM_IID));
         }
 
-	if (state_reg & CIM_STATE_RXF_OF){
-		dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
+	if ((state_reg & CIM_STATE_RXF_OF)
+	    || (state_reg & CIM_STATE_Y_RXF_OF)
+	    || (state_reg & CIM_STATE_CB_RXF_OF)
+	    || (state_reg & CIM_STATE_CR_RXF_OF)
+	    ){
+            /* if (0) { */
+            dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
+            //printk("bit_clr CIM_STATE_RXF_OF\n");
+            //bit_clr(cim,CIM_STATE,CIM_STATE_RXF_OF|CIM_STATE_Y_RXF_OF|CIM_STATE_CB_RXF_OF|CIM_STATE_CR_RXF_OF);
+            cim_disable(cim);
 
-			bit_clr(cim,CIM_STATE,CIM_STATE_RXF_OF);
-			cim_disable(cim);
-			cim_clear_rfifo(cim);
-			cim_clear_state(cim);	// clear state register
-			cim_enable(cim);
-			return IRQ_HANDLED;
+            /* printk("cim_disable  \n"); */
+            printk(" CIM_YFA =%08lx CIM_YCMD =%08lx \n", reg_read(cim, CIM_YFA), reg_read(cim, CIM_YCMD));
+            printk(" CIM_CBFA=%08lx CIM_CBCMD=%08lx \n", reg_read(cim, CIM_CBFA), reg_read(cim, CIM_CBCMD));
+            printk(" CIM_CRFA=%08lx CIM_CRCMD=%08lx \n", reg_read(cim, CIM_CRFA), reg_read(cim, CIM_CRCMD));
+            cim_dump_dma_desc(cim);
+            //printk("cim_clear_rfifo\n");
+            cim_clear_rfifo(cim);
+            //printk("cim_clear_state\n");
+            cim_clear_state(cim);	// clear state register
+            /* reset da */
+            {
+                if(cim->state == CS_PREVIEW){
+                    printk("cim_set_da cim->preview=%p\n", cim->preview);
+                    cim_set_da(cim,cim->preview);
+                }
+                else if(cim->state == CS_CAPTURE){
+                    printk("cim_set_da cim->capture=%p\n", cim->capture);
+                    cim_set_da(cim,cim->capture);
+
+                }
+            }
+            //printk("cim_enable\n");
+            cim_enable(cim);
+            //printk("return IRQ_HANDLED\n");
+            return IRQ_HANDLED;
 	}
 	
 	if(state_reg & CIM_STATE_TLB_ERR){
@@ -626,44 +692,11 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	}
 
 	if(state_reg & CIM_STATE_DMA_EOF){
-		
 		if(cim->state == CS_PREVIEW){
-			dev_dbg(cim->dev,"irq eof preview fid %ld iid %ld\n",reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 			bit_clr(cim,CIM_STATE,CIM_STATE_DMA_EOF);
 
-			fid = reg_read(cim,CIM_IID);  //we'd better read IID as fast as we can after we go into irq
-			if(fid < 0 || fid >= PDESC_NR) {
-				dev_info(cim->dev, " ----------state_reg:%08lx frm id %08x, REG_CIM_IID = 0x%08lx \n",
-						 state_reg, fid, reg_read(cim,CIM_IID));
-                                fid = 0;
-
-#if 0   //it is not necessary when we readl twice
-			int i;
-			int redo_num = 0;
-			while(1){
-				cim->frm_id =  cim_get_iid(cim) - 1;
-				if(cim->frm_id < -1 || cim->frm_id >= PDESC_NR - 1){
-					dev_info(cim->dev, "-------------  frm id = %d, REG_CIM_IID \t= \t0x%08lx \n",cim->frm_id, reg_read(cim,CIM_IID));
-					dev_info(cim->dev,"REG_CIM_DA \t= \t0x%08lx\n", reg_read(cim,CIM_DA));
-					dev_info(cim->dev,"REG_CIM_CMD \t= \t0x%08lx\n", reg_read(cim,CIM_CMD));
-					dev_info(cim->dev,"REG_CIM_FA \t= \t0x%08lx\n", reg_read(cim,CIM_FA));
-					dev_info(cim->dev,"REG_CIM_FID \t= \t0x%08lx\n", reg_read(cim,CIM_FID));
-					for(i=0;i<PDESC_NR;i++) {
-						printk("desc[%d].next = 0x%8x, desc[%d].id = %d \n", i, desc[i].next, i, desc[i].id);   
-					}
-				redo_num++;
-					err_num++;
-					if(redo_num > 2){
-						cim->frm_id = 0;
-						break;
-					}
-				}else{
-					right_num++;
-					break;
-				}
-			}
-#endif
-			}
+			fid = cim_get_and_check_iid(cim);  //we'd better read IID as fast as we can after we go into irq
+			dev_dbg(cim->dev,"irq eof preview, iid=%d fid %ld iid %ld\n", fid, reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 
 			fid--;   //make sure it is not the buffer being used
 			if(fid == -1)
@@ -713,7 +746,7 @@ static long cim_shutdown(struct jz_cim *cim)
 	if(cim->state == CS_IDLE)
 		return 0;
 	cim->state = CS_IDLE;
-	dev_info(cim->dev," -----cim shut down\n");
+	dev_dbg(cim->dev," -----cim shut down\n");
 	cim_disable(cim);
 	cim_disable_dma(cim);
 	
@@ -729,7 +762,7 @@ static long cim_shutdown(struct jz_cim *cim)
 
 static long cim_start_preview(struct jz_cim *cim)
 {
-	printk("__%s__\n", __func__);
+    dev_dbg(cim->dev, "__%s__\n", __func__);
 
 	cim->state = CS_PREVIEW;
 	cim->frm_id = -1;
@@ -770,8 +803,11 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_clear_state(cim);	// clear state register
 	cim_enable_dma(cim);
 	cim_clear_rfifo(cim);	// resetting rxfifo
+#ifdef DUMP_CIM_REGESITER_BEFORE_START
+        cim_dump_reg(cim);
+#endif
 	cim_enable(cim);
-	//cim_dump_reg(cim);
+
 	return 0;
 }
 
@@ -780,7 +816,7 @@ static long cim_start_capture(struct jz_cim *cim)
 	struct jz_cim_dma_desc * dmadesc = (struct jz_cim_dma_desc *)cim->cdesc_vaddr;
 	static int wait_count = 0;
 
-	printk("__%s__\n", __func__);
+	dev_dbg(cim->dev,"__%s__\n", __func__);
 
 	cim->state = CS_CAPTURE;
 	wait_count = 0;
@@ -830,7 +866,7 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
         //return 0;
     }
 
-    loop = 2;
+    loop = 1;
     do {
         int got_id = 0;
         spin_lock_irqsave(&cim->lock,flags);
@@ -847,8 +883,8 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
             break;
         }
         else {
-            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(500))){
-                dev_err(cim->dev,"wait preview queue 500ms timeout! loop:%d\n", loop);
+            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(200))){
+                dev_err(cim->dev,"wait preview queue 200ms timeout! loop:%d\n", loop);
                 cim_dump_reg(cim);
             }
         }
