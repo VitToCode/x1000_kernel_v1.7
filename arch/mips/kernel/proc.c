@@ -26,13 +26,15 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	char fmt [64];
 	int i;
 
+	struct thread_struct *mc_thread = &current->thread;
+
 #ifdef CONFIG_SMP
 	if (!cpu_isset(n, cpu_online_map))
 		return 0;
 #endif
 
 /* For Magiccode */
-	if (test_thread_flag(TIF_MAGIC_CPUINFO)){
+	if (mc_thread->mcflags == CPU_ARM) {
 		/* for test armv7*/
 		seq_printf(m, "Processor	: ARMv7 Processor rev 2 (v7l)\n");
 		seq_printf(m, "BogoMIPS	        : 1001.88\n");
@@ -48,7 +50,25 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		seq_printf(m, "Serial		: 0000000000000000\n");
 		seq_printf(m, "\n");
 		
-	}else{
+	} 
+	else if (mc_thread->mcflags == CPU_ARM_NEON){
+		/* for test armv7 neon*/
+		seq_printf(m, "Processor	: ARMv7 Processor rev 2 (v7l)\n");
+		seq_printf(m, "BogoMIPS	        : 1001.88\n");
+		seq_printf(m, "Features	        : swp half thumb fastmult vfp edsp neon vfpv3\n");
+		seq_printf(m, "CPU implementer	: 0x41\n");
+		seq_printf(m, "CPU architecture : 7\n");
+		seq_printf(m, "CPU variant	: 0x3\n");
+		seq_printf(m, "CPU part	        : 0xc08\n");
+		seq_printf(m, "CPU variant	: 0x3\n");
+		seq_printf(m, "CPU revision	: 2\n");
+		seq_printf(m, "Hardware	        : sun4i\n");
+		seq_printf(m, "Revision	        : 0000\n");
+		seq_printf(m, "Serial		: 0000000000000000\n");
+		seq_printf(m, "\n");
+		
+	} 
+	else {
 		
 		/*
 		 * For the first processor also print the system type
