@@ -446,16 +446,17 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
         while(1) {
                 if (count == READ_RETRY_COUNT)
                         break;
-                if (count > 0 && ret >= 0) {
-                        ret = 1;
-                        break;
-                }
                 ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
                 if (ret == ECC_ERROR) {
                         set_read_retrial_mode(retrialbuf);
                         count++;
-                } else
+                } else {
+                        if (count > 0 && ret >= 0) {
+                                ret = 1;
+                                break;
+                        }
                         break;
+                }
         }
 
 	if (ret == 0)
@@ -685,18 +686,19 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
                         while(1) {
                                 if (count == READ_RETRY_COUNT)
                                         break;
-                                if (count > 0 && ret >= 0) {
-                                        ret = 1;
-                                        break;
-                                }
 			        ret = read_page_singlenode(pnand_api,templist->startPageID,
 					templist->OffsetBytes,templist->Bytes,templist->pData);
                                 if (ret == ECC_ERROR) {
                                         set_read_retrial_mode(retrialbuf);
                                         count++;
                                         templist->retVal = 0;
-                                } else
+                                } else {
+                                        if (count > 0 && ret >= 0) {
+                                                ret = 1;
+                                                break;
+                                        }
                                         break;
+                                }
                         }
 			switch(ret){
 				case 0:
@@ -713,17 +715,18 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
                         while(1) {
                                 if (count == READ_RETRY_COUNT)
                                         break;
-                                if (count > 0 && ret >= 0) {
-                                        ret = 1;
-                                        break;
-                                }
 			        ret = read_page_multinode(pnand_api,templist,opsmodel);
                                 if (ret == ECC_ERROR) {
                                         set_read_retrial_mode(retrialbuf);
                                         count++;
                                         templist->retVal = 0;
-                                } else
+                                } else {
+                                        if (count > 0 && ret >= 0) {
+                                                ret = 1;
+                                                break;
+                                        }
                                         break;
+                                }
                         }
 		}
 		if(ret && (flag >=0)){

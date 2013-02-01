@@ -435,6 +435,7 @@ void set_read_retrial_mode(unsigned char *data)
                 printk("nand set retrial %d times 0x%02x 0x%02x 0x%02x 0x%02x\n"
                                 ,count,setdata[0],setdata[1],setdata[2],setdata[3]);
         } else if (nand_type->options == MICRON_NAND || nand_type->options == SAMSUNG_NAND) {
+                /*
 		unsigned char wdata[4] = {0x00};
 		unsigned char rdata[4] = {0x00};
                 int setnum = -1;
@@ -457,6 +458,7 @@ void set_read_retrial_mode(unsigned char *data)
 		nand_get_features(0x10, rdata);
 		if (wdata[0] != rdata[0])
 			printk("Warning: Nand flash output driver set faild!!\n");
+                */
         }
 
         count++;
