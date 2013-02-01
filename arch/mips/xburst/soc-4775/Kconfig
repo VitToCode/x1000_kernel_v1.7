@@ -4,12 +4,12 @@ choice
 	depends on SOC_4775
 	default BOARD_4775_TEST
 
-config BOARD_4775_TEST
-        bool "TEST"
+config BOARD_4775_ORION
+        bool "ORION"
 
 endchoice
 
 config BOARD_NAME
 	string
-	default "test" if BOARD_4775_TEST
+	default "orion" if BOARD_4775_ORION
 
