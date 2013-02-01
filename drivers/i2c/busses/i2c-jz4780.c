@@ -422,11 +422,8 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 	tmp = i2c_readl(i2c,I2C_INTM);
 	tmp |= I2C_INTM_MRXFL | I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
-    if (CONFIG_I2C_JZ4780_SPEED > 300) {
-        timeout = wait_for_completion_timeout(&i2c->r_complete, HZ / 10);
-    } else {
-        timeout = wait_for_completion_timeout(&i2c->r_complete, HZ);
-    }
+    timeout = wait_for_completion_timeout(&i2c->r_complete, 
+            msecs_to_jiffies(CONFIG_I2C_JZ4780_WAIT_MS));
 	if(!timeout){
 		dev_err(&(i2c->adap.dev),"--I2C irq read timeout\n");
 #ifdef CONFIG_I2C_DEBUG
@@ -462,11 +459,9 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	tmp |= I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
 	
-    if (CONFIG_I2C_JZ4780_SPEED > 300) {
-        timeout = wait_for_completion_timeout(&i2c->w_complete, HZ / 10);
-    } else {
-        timeout = wait_for_completion_timeout(&i2c->w_complete, HZ);
-    }
+    timeout = wait_for_completion_timeout(&i2c->w_complete, 
+            msecs_to_jiffies(CONFIG_I2C_JZ4780_WAIT_MS));
+
 	if(!timeout){
 		dev_err(&(i2c->adap.dev),"--I2C pio write wait timeout\n");
 #ifdef CONFIG_I2C_DEBUG

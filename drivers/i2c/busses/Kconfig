@@ -720,7 +720,19 @@ config I2C_JZ4780_SPEED
 	  Examples:
 	             100 => 100 KHZ
 	             200 => 200 KHZ
-		     300 =>  300 KHZ
+                 300 =>  300 KHZ
+
+config I2C_JZ4780_WAIT_MS
+	int "Jz4780 i2c bus wait time in ms"
+	range 10 1000
+	default 1000
+    depends on I2C0_JZ4780 || I2C1_JZ4780 || I2C2_JZ4780 || I2C3_JZ4780 || I2C4_JZ4780
+	help
+	  Select Jz4780 bus wait time in ms.
+	  Examples:
+	             100 => 100 ms
+	             200 => 200 ms
+                 300 =>  300 ms
 
 config I2C_DEBUG
 	tristate "jz4780 i2c debug"
