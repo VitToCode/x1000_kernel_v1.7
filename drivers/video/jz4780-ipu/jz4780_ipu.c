@@ -1187,6 +1187,12 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp, struct 
 	}
 	dev_dbg(ipu->dev, "enter ipu_setbuffer %d\n", current->pid);
 
+	spin_lock(&ipu->suspend_lock);
+	if (ipu->suspend_entered == 1) {
+		spin_unlock(&ipu->suspend_lock);
+		return -1;
+	}
+	spin_unlock(&ipu->suspend_lock);
 	mutex_lock(&ipu->run_lock);
 	if (ipu->cur_proc == filp)
 		tmp_filp = ipu->cur_proc;
@@ -1232,7 +1238,7 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp, struct 
 		dev_dbg(ipu->dev, "spage_map != 0\n");
 
 		if (py_buf_v == 0) {
-			printk("Can not found source map table, use no map now!\r\n");
+			//printk("Can not found source map table, use no map now!\r\n");
 			spage_map = 0;
 			__disable_spage_map();
 		} else {
@@ -1640,16 +1646,15 @@ static void ipu_early_suspend(struct early_suspend *h)
 {
 	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
 
+	spin_lock(&ipu->suspend_lock);
+	ipu->suspend_entered = 1;
+	spin_unlock(&ipu->suspend_lock);
+
 	if (ipu->cur_output_mode & IPU_OUTPUT_TO_LCD_FG1) {
-		printk("early_suspend stop_ipu_to_lcd+++++++++++");
 		stop_ipu_to_lcd(ipu);
 	} else {
 		reg_write(ipu, IPU_TRIG, IPU_STOP);
 	}
-
-	spin_lock(&ipu->suspend_lock);
-	ipu->suspend_entered = 1;
-	spin_unlock(&ipu->suspend_lock);
 
 	return;
 }
@@ -1658,7 +1663,6 @@ static void ipu_late_resume(struct early_suspend *h)
 {
 	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
 
-	printk("ipu_late_resume+++");
 	spin_lock(&ipu->suspend_lock);
 	ipu->suspend_entered = 0;
 	spin_unlock(&ipu->suspend_lock);

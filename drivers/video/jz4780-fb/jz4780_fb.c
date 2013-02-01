@@ -1281,6 +1281,67 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 	return 0;
 }
 
+#ifdef CONFIG_JZ4780_AOSD
+static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd)
+{
+	struct jzfb *jzfb = info->par;
+
+	mutex_lock(&jzfb->framedesc_lock);
+	if (jzfb->osd.decompress == 1) {
+		dev_info(jzfb->dev, "Aosd already enabled\n");
+		mutex_unlock(&jzfb->framedesc_lock);
+		return 0;
+	}
+	if (aosd->buf_phys_addr) {
+		/* Make sure "buf_phys_addr" is a physical address */
+		aosd_info.buf_phys_addr[0] = (unsigned long)
+			aosd->buf_phys_addr;
+		aosd_info.buf_virt_addr = (unsigned long)ioremap(
+			aosd_info.buf_phys_addr[0], aosd->buf_size);
+	} else {
+		dev_info(jzfb->dev, "No buffer for AOSD\n");
+		mutex_unlock(&jzfb->framedesc_lock);
+		return -EFAULT;
+	}
+	aosd_info.with_alpha = aosd->with_alpha;
+	aosd_info.bpp = info->var.bits_per_pixel;
+	aosd_info.width = info->var.xres;
+	aosd_info.height = info->var.yres;
+	aosd_info.is_desc_init = 0;
+	aosd_init(&aosd_info);
+	aosd_info.buf_offset = (aosd_info.dst_stride << 2)
+		* aosd_info.height;
+	aosd_info.buf_phys_addr[1] = aosd_info.buf_phys_addr[0]
+		+ aosd_info.buf_offset;
+
+	jzfb->osd.decompress = 1;
+	dev_info(info->dev, "LCDC enable decompress mode\n");
+	mutex_unlock(&jzfb->framedesc_lock);
+
+	return 0;
+}
+
+static int jzfb_aosd_disable(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+
+	mutex_lock(&jzfb->framedesc_lock);
+	if (jzfb->osd.decompress == 0) {
+		mutex_unlock(&jzfb->framedesc_lock);
+		return 0;
+	}
+	jzfb->osd.decompress = 0;
+	jzfb_prepare_dma_desc(info);
+	aosd_clock_enable(0);
+	if (aosd_info.buf_virt_addr)
+		iounmap((void *)aosd_info.buf_virt_addr);
+	dev_info(info->dev, "LCDC disable decompress mode\n");
+	mutex_unlock(&jzfb->framedesc_lock);
+
+	return 0;
+}
+#endif
+
 static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 {
 	int i;
@@ -1501,41 +1562,11 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "copy aosd info failed\n");
 			return -EFAULT;
 		}
-		mutex_lock(&jzfb->framedesc_lock);
 		if (osd.aosd.aosd_enable) {
-			if (osd.aosd.buf_phys_addr) {
-				/* Make sure "buf_phys_addr" is a physical address */
-				aosd_info.buf_phys_addr[0] = (unsigned long)
-					osd.aosd.buf_phys_addr;
-				aosd_info.buf_virt_addr = (unsigned long)ioremap(
-					aosd_info.buf_phys_addr[0], osd.aosd.buf_size);
-			} else {
-				dev_info(jzfb->dev, "No buffer for AOSD\n");
-				mutex_unlock(&jzfb->framedesc_lock);
-				return -EFAULT;
-			}
-			aosd_info.with_alpha = osd.aosd.with_alpha;
-			aosd_info.bpp = info->var.bits_per_pixel;
-			aosd_info.width = info->var.xres;
-			aosd_info.height = info->var.yres;
-			aosd_info.is_desc_init = 0;
-			aosd_init(&aosd_info);
-			aosd_info.buf_offset = (aosd_info.dst_stride << 2)
-				* aosd_info.height;
-			aosd_info.buf_phys_addr[1] = aosd_info.buf_phys_addr[0]
-				+ aosd_info.buf_offset;
-
-			jzfb->osd.decompress = 1;
-			dev_info(info->dev, "LCDC enable decompress mode\n");
+			jzfb_aosd_enable(info, &osd.aosd);
 		} else {
-			jzfb->osd.decompress = 0;
-			jzfb_prepare_dma_desc(info);
-			aosd_clock_enable(0);
-			if (aosd_info.buf_virt_addr)
-				iounmap((void *)aosd_info.buf_virt_addr);
-			dev_info(info->dev, "LCDC disable decompress mode\n");
+			jzfb_aosd_disable(info);
 		}
-		mutex_unlock(&jzfb->framedesc_lock);
 #else
 		dev_err(jzfb->dev, "CONFIG_JZ4780_AOSD is not set\n");
 		return -EFAULT;
@@ -1799,16 +1830,16 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	jzfb->is_suspend = 1;
 	spin_unlock(&jzfb->suspend_lock);
 
-	if(jzfb->is_enabled) {
-		clk_disable(jzfb->clk);
-		clk_disable(jzfb->pclk);
-	}
 #ifdef CONFIG_JZ4780_AOSD
 	/* The clock of aosd just need to close once */
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
-		aosd_clock_enable(0);
+		jzfb_aosd_disable(jzfb->fb);
 	}
 #endif
+	if (jzfb->is_enabled) {
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
+	}
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
