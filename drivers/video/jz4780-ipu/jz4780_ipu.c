@@ -1018,7 +1018,7 @@ static int jz47_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	}
 
 	if (out_fmt == OUT_FMT_YUV422) {
-		__enable_csc_mode();
+		__disable_csc_mode();
 	}
 	if (imgp->stlb_base) {
 		reg_write(ipu, IPU_SRC_TLB_ADDR, imgp->stlb_base);
