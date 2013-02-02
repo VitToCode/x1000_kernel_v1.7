@@ -521,15 +521,15 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 		jz_battery->next_scan_time = 60;
 	}
 
-	if (((jz_battery->ac == 1) && (jz_battery->usb == 1)) &&
-		(((ac == 0) && (usb == 1)) || ((ac == 1) && (usb == 0)))) {
+	if (((jz_battery->ac == 1) && (ac == 0)) ||
+			((jz_battery->ac == 0) && (ac == 1))) {
 		has_changed = true;
 		jz_battery->capacity_calculate = jz_battery->capacity;
 		jz_battery->next_scan_time = 60;
 	}
-	if ((((jz_battery->ac == 0) && (jz_battery->usb == 1)) ||
-		((jz_battery->ac == 1) && (jz_battery->usb == 0))) &&
-		((ac == 1) && (usb == 1))) {
+
+	if (((jz_battery->usb == 1) && (usb == 0)) ||
+			((jz_battery->usb == 0) && (usb == 1))) {
 		has_changed = true;
 		jz_battery->capacity_calculate = jz_battery->capacity;
 		jz_battery->next_scan_time = 60;
@@ -1116,6 +1116,17 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 		res->read_proc = proc_read_status;
 		res->data = jz_battery;
 	}
+
+	pr_info("Battery driver:max_vol is %d\n", pdata->info.max_vol);
+	pr_info("Battery driver:min_vol is %d\n", pdata->info.min_vol);
+	pr_info("Battery driver:usb_max_vol is %d\n", pdata->info.usb_max_vol);
+	pr_info("Battery driver:usb_min_vol is %d\n", pdata->info.usb_min_vol);
+	pr_info("Battery driver:ac_max_vol is %d\n", pdata->info.ac_max_vol);
+	pr_info("Battery driver:ac_min_vol is %d\n", pdata->info.ac_min_vol);
+	pr_info("Battery driver:battery_max_cpt is %d\n", pdata->info.battery_max_cpt);
+	pr_info("Battery driver:ac_chg_current is %d\n", pdata->info.ac_chg_current);
+	pr_info("Battery driver:usb_chg_current is %d\n", pdata->info.usb_chg_current);
+	pr_info("Battery driver:sleep_current is %d\n", pdata->info.sleep_current);
 
 	pr_info("Battery driver registers over!\n");
 
