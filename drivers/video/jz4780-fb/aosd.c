@@ -370,14 +370,14 @@ static int __devinit jzaosd_probe(struct platform_device *pdev)
 	if (!aosd_dev) {
 		dev_err(&pdev->dev, "Failed to allocate AOSD device\n");
 		ret = -ENOMEM;
-		goto err_iounmap;
+		goto err_release_mem_region;
 	}
 
 	aosd_dev->base = ioremap(mem->start, resource_size(mem));
 	if (!aosd_dev->base) {
 		dev_err(&pdev->dev, "AOSD ioremap memory region fail\n");
 		ret = -EBUSY;
-		goto err_release_mem_region;
+		goto err_aosd_release;
 	}
 
 	aosd_dev->clk = clk_get(&pdev->dev, "compress");
@@ -385,7 +385,7 @@ static int __devinit jzaosd_probe(struct platform_device *pdev)
 	if (IS_ERR(aosd_dev->clk) || IS_ERR(aosd_dev->debug_clk)) {
 		ret = PTR_ERR(aosd_dev->clk);
 		dev_err(&pdev->dev, "Failed to get aosd clock: %d\n", ret);
-		goto err_aosd_release;
+		goto err_iounmap;
 	}
 
 	aosd_dev->irq = platform_get_irq(pdev, 0);

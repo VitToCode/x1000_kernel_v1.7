@@ -379,7 +379,9 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 
 	display_size = kzalloc(sizeof(struct jzfb_display_size), GFP_KERNEL);
 	framedesc[0] = kzalloc(sizeof(struct jzfb_framedesc) *
-			    (jzfb->desc_num - 1), GFP_KERNEL);
+			       (jzfb->desc_num - 1), GFP_KERNEL);
+	for (i = 1; i < jzfb->desc_num - 1; i++)
+		framedesc[i] = framedesc[0] + i;
 
 	jzfb_calculate_size(info, display_size);
 
@@ -1869,12 +1871,15 @@ static void jzfb_late_resume(struct early_suspend *h)
 }
 #endif
 
-#ifdef CONFIG_FORCE_RESOLUTION
 static void jzfb_change_dma_desc(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode;
 
+	if (!jzfb->is_enabled) {
+		dev_err(jzfb->dev, "LCDC isn't enabled\n");
+		return;
+	}
 	mode = jzfb_checkout_videomode(info);
 	if (!mode)
 		return;
@@ -1886,15 +1891,20 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 
 	info->mode = mode;
 	jzfb_prepare_dma_desc(info);
-	info->mode = NULL;
 
 	if (mode->pixclock) {
-		clk_set_rate(jzfb->pclk, PICOS2KHZ(mode->pixclock) * 1000);
+		unsigned long rate = PICOS2KHZ(mode->pixclock) * 1000;
+		clk_set_rate(jzfb->pclk, rate);
+		clk_enable(jzfb->pclk);
+		dev_info(jzfb->dev, "LCDC: PixClock = %lu\n", rate);
+		dev_info(jzfb->dev, "LCDC: PixClock = %lu(real)\n",
+			 clk_get_rate(jzfb->pclk));
 	} else {
 		dev_err(jzfb->dev, "Video mode pixclock invalid\n");
 	}
+
+	jzfb_config_image_enh(info);
 }
-#endif
 
 static int jzfb_copy_logo(struct fb_info *info)
 {
@@ -2458,11 +2468,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	if (jzfb->vidmem_phys) {
 #ifdef CONFIG_FORCE_RESOLUTION
 		if (!jzfb_copy_logo(jzfb->fb)) {
-			if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
-				jzfb_set_par(jzfb->fb);
-			} else {
-				jzfb_change_dma_desc(jzfb->fb);
-			}
+			jzfb_change_dma_desc(jzfb->fb);
 		} else {
 			if (CONFIG_FORCE_RESOLUTION > 0 && jzfb->id == 0) {
 				jzfb_set_par(jzfb->fb);
@@ -2474,7 +2480,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		}
 #else
 		if (!jzfb_copy_logo(jzfb->fb)) {
-			jzfb_set_par(jzfb->fb);
+			jzfb_change_dma_desc(jzfb->fb);
 		}
 #endif
 	}
