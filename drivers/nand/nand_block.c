@@ -1021,13 +1021,13 @@ static int nand_disk_install(char *name)
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
-			if(!installAll)
+			if(!installAll && !part_name)
 				break;
 			else
 				continue;
 		}
 
-		printk("nand block, install partition [%s]!\n", lpt->pt->name);
+		printk("nand block, install partition [%s][%d]!\n", lpt->pt->name, name);
 
 		if ((context = NM_ptOpen(nand_block.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
 			printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
