@@ -40,7 +40,7 @@ void SetThreadPrio(PNandThread *thread,int prio)
 
 void SetThreadState(PNandThread *thread, enum nd_thread_state state)
 {
-	int task_state;
+	int task_state, schedule_flag = 0;
 
 	switch (state) {
 	case ND_THREAD_RUNNING:
@@ -48,6 +48,7 @@ void SetThreadState(PNandThread *thread, enum nd_thread_state state)
 		break;
 	case ND_THREAD_INTERRUPTIBLE:
 		task_state = TASK_INTERRUPTIBLE;
+		schedule_flag = 1;
 		break;
 	case ND_THREAD_UNINTERRUPTIBLE:
 		task_state = TASK_UNINTERRUPTIBLE;
@@ -58,4 +59,8 @@ void SetThreadState(PNandThread *thread, enum nd_thread_state state)
 	}
 
 	set_task_state((struct task_struct*)(*thread), task_state);
+
+	if (schedule_flag) {
+		schedule();
+	}
 }
