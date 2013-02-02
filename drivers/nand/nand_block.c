@@ -35,6 +35,8 @@
 struct __partition_info {
 	int context;
 	NM_lpt *lpt;
+	char *name;//while add one part of mul_parts, record the name
+	int mul_flag;
 };
 
 struct __nand_disk {
@@ -67,7 +69,7 @@ static struct __nand_block nand_block;
 
 /*#################################################################*\
  *# dump
-\*#################################################################*/
+ \*#################################################################*/
 #ifdef DEBUG_FUNC
 #define DBG_FUNC() printk("##### nand block debug #####: func = %s \n", __func__)
 #else
@@ -164,13 +166,13 @@ static inline void end_time(int mode)
 			times = div_s64_32(rd_sum_time, 1000 * 1000);
 			bytes = rd_sum_bytes / 1024;
 			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n",
-				   times, bytes, (bytes * 1000) / times);
+			       times, bytes, (bytes * 1000) / times);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
-				   rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
-				   rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
+			       rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
+			       rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
 			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n[257 - 512]:(%d)\n",
-				   rd_dbg_distrib._33_64sectors, rd_dbg_distrib._65_128sectors,
-				   rd_dbg_distrib._129_256sectors, rd_dbg_distrib._257_512sectors);
+			       rd_dbg_distrib._33_64sectors, rd_dbg_distrib._65_128sectors,
+			       rd_dbg_distrib._129_256sectors, rd_dbg_distrib._257_512sectors);
 #endif
 
 			rd_sum_bytes = rd_sum_time = 0;
@@ -183,13 +185,13 @@ static inline void end_time(int mode)
 			times = div_s64_32(wr_sum_time, 1000 * 1000);
 			bytes = wr_sum_bytes / 1024;
 			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n",
-				   times, bytes, (bytes * 1000) / times);
+			       times, bytes, (bytes * 1000) / times);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
-				   wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
-				   wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
+			       wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
+			       wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
 			printk("[ 33 -  64]:(%d)\n[ 65 - 128]:(%d)\n[129 - 256]:(%d)\n[257 - 512]:(%d)\n",
-				   wr_dbg_distrib._33_64sectors, wr_dbg_distrib._65_128sectors,
-				   wr_dbg_distrib._129_256sectors, wr_dbg_distrib._257_512sectors);
+			       wr_dbg_distrib._33_64sectors, wr_dbg_distrib._65_128sectors,
+			       wr_dbg_distrib._129_256sectors, wr_dbg_distrib._257_512sectors);
 #endif
 			wr_sum_bytes = wr_sum_time = 0;
 			memset(&wr_dbg_distrib, 0, sizeof(struct __data_distrib));
@@ -228,7 +230,7 @@ static inline void dump_sectorlist(SectorList *top)
 		singlelist_for_each(plist, &top->head) {
 			sl = singlelist_entry(plist, SectorList, head);
 			printk("\ndump SectorList: startSector = %d, sectorCount = %d, pData = %p\n\n",
-				   sl->startSector, sl->sectorCount, sl->pData);
+			       sl->startSector, sl->sectorCount, sl->pData);
 		}
 	}
 }
@@ -236,7 +238,7 @@ static inline void dump_sectorlist(SectorList *top)
 
 /*#################################################################*\
  *# request
-\*#################################################################*/
+ \*#################################################################*/
 
 static struct __nand_disk * get_ndisk_form_queue(const struct request_queue *q)
 {
@@ -259,13 +261,26 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
 {
 	struct singlelist *plist = NULL;
 	struct __nand_disk *ndisk = NULL;
+	int i = 0;
 
 	singlelist_for_each(plist, nand_block.disk_list.next) {
 		ndisk = singlelist_entry(plist, struct __nand_disk, list);
-		/* here, wo don't use strcmp, so here the to pointer must
-		 point to the same string in memory */
+		/* here, is it looks like a bug ? but it runs ok! */
 		if (ndisk->pinfo->lpt->pt->name == name)
 			return ndisk;
+#if 1
+		for (i = 0; i < ndisk->pinfo->lpt->pt->parts_num; i++) {
+			if (!strcmp((ndisk->pinfo->lpt->pt->lparts+i)->name, name))
+				return ndisk;
+		}
+#else
+		if(ndisk->pinfo->lpt->pt->parts_num > 0){
+			while(strcmp((ndisk->pinfo->lpt->pt->lparts+i)->name, name))
+				i++;
+			if(i < ndisk->pinfo->lpt->pt->parts_num)
+				return ndisk;
+		}
+#endif
 	}
 	return NULL;
 }
@@ -277,9 +292,9 @@ static struct __nand_disk * get_ndisk_by_name(const char *name)
  * in blk-merge.c
  **/
 static int nand_rq_map_sl(struct request_queue *q,
-						  struct request *req,
-						  SectorList *sl_array,
-						  int sectorsize)
+			  struct request *req,
+			  SectorList *sl_array,
+			  int sectorsize)
 {
 	struct bio_vec *bvec, *bvprv = NULL;
 	struct req_iterator iter;
@@ -356,11 +371,11 @@ static int handle_req_thread(void *data)
 
 		set_current_state(TASK_RUNNING);
 
-	    while(req) {
+		while(req) {
 #ifdef DEBUG_REQ
 			printk("%s: req = %p, start sector = %d, total = %d, buffer = %p\n",
-				   (rq_data_dir(req) == READ)? "READ":"WRITE",
-				   req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
+			       (rq_data_dir(req) == READ)? "READ":"WRITE",
+			       req, (int)blk_rq_pos(req), (int)blk_rq_sectors(req), req->buffer);
 #endif
 			if (rq_data_dir(req) == READ) {
 				calc_bytes(READ, (int)blk_rq_sectors(req) * ndisk->sectorsize);
@@ -427,7 +442,7 @@ static void do_nand_request(struct request_queue *q)
 
 /*#################################################################*\
  *# block_device_operations
-\*#################################################################*/
+ \*#################################################################*/
 static int nand_disk_open(struct block_device *bdev, fmode_t mode)
 {
 	DBG_FUNC();
@@ -485,7 +500,7 @@ static const struct block_device_operations nand_disk_fops =
 
 /*#################################################################*\
  *# pm_notify
-\*#################################################################*/
+ \*#################################################################*/
 #ifdef CONFIG_PM
 static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mode, void *data)
 {
@@ -541,7 +556,7 @@ static int nand_pm_notify(struct notifier_block *notify_block, unsigned long mod
 
 /*#################################################################*\
  *# bus
-\*#################################################################*/
+ \*#################################################################*/
 
 static void nbb_shutdown(struct device *dev)
 {
@@ -586,7 +601,7 @@ static struct bus_type nand_block_bus = {
 
 /*#################################################################*\
  *# device_driver
-\*#################################################################*/
+ \*#################################################################*/
 static struct __nand_disk * get_ndisk_by_dev(const struct device *dev)
 {
 	struct singlelist *plist = NULL;
@@ -708,7 +723,7 @@ out_put:
 
 static int nand_block_probe(struct device *dev)
 {
-    int ret = -ENOMEM;
+	int ret = -ENOMEM;
 	static unsigned int cur_minor = 0;
 	struct __nand_disk *ndisk = NULL;
 	struct __partition_info *pinfo = (struct __partition_info *)dev->platform_data;
@@ -739,7 +754,7 @@ static int nand_block_probe(struct device *dev)
 	else
 		ndisk->disk = alloc_disk(1);
 
-    if (!ndisk->disk) {
+	if (!ndisk->disk) {
 		printk("ERROR(nand block): alloc_disk error!\n");
 		goto probe_err1;
 	}
@@ -747,11 +762,11 @@ static int nand_block_probe(struct device *dev)
 	/* init queue */
 	spin_lock_init(&ndisk->queue_lock);
 	ndisk->queue = blk_init_queue(do_nand_request, &ndisk->queue_lock);
-    if (!ndisk->queue) {
+	if (!ndisk->queue) {
 		printk("ERROR(nand block): blk_init_queue error!\n");
 		goto probe_err2;
 	}
-    //elevator_change(ndisk->queue, "noop");
+	//elevator_change(ndisk->queue, "noop");
 
 	/* init ndisk */
 	ndisk->sl_len = 0;
@@ -761,12 +776,12 @@ static int nand_block_probe(struct device *dev)
 	ndisk->segmentsize = lpt->pt->segmentsize;
 	ndisk->capacity = lpt->pt->sectorCount * lpt->pt->hwsector;
 
-    ndisk->disk->major = nand_block.major;
-    ndisk->disk->first_minor = cur_minor;
+	ndisk->disk->major = nand_block.major;
+	ndisk->disk->first_minor = cur_minor;
 	ndisk->disk->minors = DISK_MINORS;
-    ndisk->disk->fops = &nand_disk_fops;
-    sprintf(ndisk->disk->disk_name, "%s", lpt->pt->name);
-    ndisk->disk->queue = ndisk->queue;
+	ndisk->disk->fops = &nand_disk_fops;
+	sprintf(ndisk->disk->disk_name, "%s", lpt->pt->name);
+	ndisk->disk->queue = ndisk->queue;
 
 	cur_minor += DISK_MINORS;
 
@@ -778,21 +793,30 @@ static int nand_block_probe(struct device *dev)
 	}
 
 	/* add gendisk */
-    add_disk(ndisk->disk);
+	add_disk(ndisk->disk);
 
-    if(lpt->pt->parts_num >  0 && lpt->pt->mode == ZONE_MANAGER){
-	pedege = lpt->pt->startSector;
-	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++)
-	    sum_count = sum_count + (lpt->pt->lparts+ptmp)->sectorCount;
-	for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++){
-	    (lpt->pt->lparts+ptmp)->sectorCount = lpt->pt->sectorCount * 100 / sum_count * (lpt->pt->lparts+ptmp)->sectorCount / 100;
-	    hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
-	    if(!hd){
-		printk("ERROR:add_partition fail!\n");
-	    }
-	    pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
+	if(lpt->pt->parts_num > 0 && lpt->pt->mode == ZONE_MANAGER){
+		pedege = lpt->pt->startSector;
+		for(ptmp=0; ptmp < lpt->pt->parts_num; ptmp++)
+			sum_count = sum_count + (lpt->pt->lparts+ptmp)->sectorCount;
+		for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++){
+			(lpt->pt->lparts+ptmp)->sectorCount = lpt->pt->sectorCount * 100 / sum_count * (lpt->pt->lparts+ptmp)->sectorCount / 100;
+			if(pinfo->name && !strcmp(pinfo->name, (lpt->pt->lparts+ptmp)->name)){
+				hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
+				if(!hd){
+					printk("ERROR:add_partition fail!\n");
+				}
+				break;
+			}
+			else if(!pinfo->mul_flag){
+				hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
+				if(!hd){
+					printk("ERROR:add_partition fail!\n");
+				}
+				pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
+			}
+		}
 	}
-    }
 	/* add ndisk to disk_list */
 	singlelist_add(&nand_block.disk_list, &ndisk->list);
 
@@ -801,9 +825,9 @@ static int nand_block_probe(struct device *dev)
 
 	/* create and start a thread to handle request */
 	ndisk->q_thread = kthread_run(handle_req_thread,
-								  (void *)ndisk->queue,
-								  "%s_q_handler",
-								  lpt->pt->name);
+				      (void *)ndisk->queue,
+				      "%s_q_handler",
+				      lpt->pt->name);
 	if (!ndisk->q_thread) {
 		printk("ERROR(nand block): kthread_run error!\n");
 		goto probe_err4;
@@ -825,7 +849,7 @@ static int nand_block_probe(struct device *dev)
 	if (ret)
 		printk("WARNING(nand block): device_create_file error!\n");
 
-    return 0;
+	return 0;
 
 probe_err4:
 	del_gendisk(ndisk->disk);
@@ -937,7 +961,7 @@ struct device_driver nand_block_driver = {
 
 /*#################################################################*\
  *# start
-\*#################################################################*/
+ \*#################################################################*/
 static int nand_disk_install(char *name)
 {
 	int ret = -EFAULT;
@@ -947,7 +971,8 @@ static int nand_disk_install(char *name)
 	struct device *dev = NULL;
 	struct singlelist *plist = NULL;
 	struct __partition_info *pinfo = NULL;
-
+	int i = 0;
+	char *part_name = NULL;
 	DBG_FUNC();
 
 	if (name)
@@ -963,23 +988,43 @@ static int nand_disk_install(char *name)
 
 		/* partiton with this mode do not need to open */
 		if (lpt->pt->mode == ONCE_MANAGER) {
-		    if(installAll)
+			if(installAll)
 				return 0;
-		    else{
+			else{
 				printk("ERROR(nand block): can not install disk [%s]!\n", name);
 				return -1;
-		    }
+			}
 		}
 
-		if (!installAll && strcmp(lpt->pt->name, name))
-			continue;
+		if (!installAll && strcmp(lpt->pt->name, name)){
+#if 1
+			for (i = 0; i < lpt->pt->parts_num; i++) {
+				part_name = (lpt->pt->lparts+i)->name;
+				if (strcmp(lpt->pt->name, part_name))
+					break;
+			}
+			if (i >= lpt->pt->parts_num)
+				continue;
+#else
+			if(lpt->pt->mode == ZONE_MANAGER && lpt->pt->parts_num > 0 ){
+				while(strcmp(lpt->pt->name, (lpt->pt->lparts+i)->name)){
+					part_name = (lpt->pt->lparts+i)->name;
+					i++;
+					if(i >= lpt->pt->parts_num)
+						printk("can not find the name (%s)\n", name);
+				}
+			}
+			else
+				continue;
+#endif
+		}
 
 		if (get_ndisk_by_name(lpt->pt->name)) {
 			printk("WARNING(nand block): disk [%s] has been installed!\n", lpt->pt->name);
 			if(!installAll)
-			    break;
+				break;
 			else
-			    continue;
+				continue;
 		}
 
 		printk("nand block, install partition [%s]!\n", lpt->pt->name);
@@ -1004,6 +1049,12 @@ static int nand_disk_install(char *name)
 
 		pinfo->context = context;
 		pinfo->lpt = lpt;
+		pinfo->name = NULL;
+		pinfo->mul_flag = 0;
+		if(part_name){
+			pinfo->name = part_name;
+			pinfo->mul_flag = 1;
+		}
 
 		device_initialize(dev);
 		dev->bus = &nand_block_bus;
@@ -1018,7 +1069,7 @@ static int nand_disk_install(char *name)
 			goto start_err2;
 		}
 		if(!installAll)
-		    break;
+			break;
 	}
 
 	return 0;
@@ -1039,7 +1090,7 @@ static void nand_block_start(int data)
 
 /*#################################################################*\
  *# init and deinit
-\*#################################################################*/
+ \*#################################################################*/
 static int __init nand_block_init(void)
 {
 	int ret = -EBUSY;
@@ -1104,7 +1155,7 @@ out_pm:
 out_driver:
 	bus_unregister(&nand_block_bus);
 out_bus:
-    unregister_blkdev(nand_block.major, nand_block.name);
+	unregister_blkdev(nand_block.major, nand_block.name);
 out_block:
 	return ret;
 }
