@@ -1027,7 +1027,7 @@ static int nand_disk_install(char *name)
 				continue;
 		}
 
-		printk("nand block, install partition [%s][%d]!\n", lpt->pt->name, name);
+		printk("nand block, install partition [%s][%s]!\n", lpt->pt->name, name);
 
 		if ((context = NM_ptOpen(nand_block.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
 			printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
