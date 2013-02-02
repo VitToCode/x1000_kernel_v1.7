@@ -82,6 +82,7 @@ struct dwc2_ep {
 
 	unsigned		 tx_fifo_num;
 
+	struct list_head	 garbage_list;
 	const struct usb_endpoint_descriptor	*desc;
 };
 
