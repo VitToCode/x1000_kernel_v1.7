@@ -387,8 +387,6 @@ static int read_page_singlenode(const NAND_API *pnand_api
 		if(phy_pageid != nand_dma->cache_phypageid){
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 			ret =send_msg_to_mcu(pnand_api);
-			if(ret && (ret != -6))
-				printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
 				//	goto read_page_singlenode_error1;
@@ -404,8 +402,6 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	}else{
 		set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
 		ret = send_msg_to_mcu(pnand_api);
-		if(ret && (ret != -6))
-			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if(ret != 0){
 			nand_dma->cache_phypageid = -1;
 			goto read_page_singlenode_error1;
@@ -444,8 +440,15 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 	}
 #endif
         while(1) {
-                if (count == READ_RETRY_COUNT)
+                if (count == READ_RETRY_COUNT) {
+			printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
+                                        ,__func__
+                                        ,__LINE__
+                                        ,pageid
+                                        ,get_physical_addr(pnand_api, pageid)
+                                        ,ret);
                         break;
+                }
                 ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
                 if (ret == ECC_ERROR) {
                         set_read_retrial_mode(retrialbuf);
@@ -589,8 +592,6 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		dprintf("  %s  %d\n",__func__,__LINE__);
 		b_time();
 #endif
-		if(ret && (ret != -6))
-			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
 			//	num = temp;
@@ -621,8 +622,6 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 	e_time();
 	dprintf("  %s  %d\n",__func__,__LINE__);
 #endif
-	if(ret)
-		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 	if (num > 0) {
 		ret1 = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 		if(ret1)
@@ -684,8 +683,15 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		templist =alignelist->pagelist;
 		if(opsmodel == 1){
                         while(1) {
-                                if (count == READ_RETRY_COUNT)
+                                if (count == READ_RETRY_COUNT) {
+				        printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
+                                                        ,__func__
+                                                        ,__LINE__
+                                                        ,templist->startPageID
+                                                        ,get_physical_addr(pnand_api, templist->startPageID)
+                                                        ,ret);
                                         break;
+                                }
 			        ret = read_page_singlenode(pnand_api,templist->startPageID,
 					templist->OffsetBytes,templist->Bytes,templist->pData);
                                 if (ret == ECC_ERROR) {
@@ -713,8 +719,15 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 			}
 		}else{
                         while(1) {
-                                if (count == READ_RETRY_COUNT)
+                                if (count == READ_RETRY_COUNT) {
+				        printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
+                                                        ,__func__
+                                                        ,__LINE__
+                                                        ,templist->startPageID
+                                                        ,get_physical_addr(pnand_api, templist->startPageID)
+                                                        ,ret);
                                         break;
+                                }
 			        ret = read_page_multinode(pnand_api,templist,opsmodel);
                                 if (ret == ECC_ERROR) {
                                         set_read_retrial_mode(retrialbuf);

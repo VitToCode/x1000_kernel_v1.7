@@ -75,6 +75,7 @@
 #define SAMSUNG_NAND            0x01
 #define HYNIX_NAND              0x02
 #define MICRON_NAND             0x03
+#define TOSHIBA_NAND            0x04
 
 #define nand_malloc_buf(len)  kmalloc((len)*sizeof(unsigned char),GFP_KERNEL)  
 #define nand_free_buf(p)      kfree(p)
