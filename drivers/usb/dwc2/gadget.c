@@ -584,7 +584,7 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	}
 }
 
-static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep);
+static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove);
 
 /*
  * Caller must take care of lock
@@ -599,7 +599,7 @@ void dwc2_gadget_handle_session_end(struct dwc2 *dwc) {
 		for (i = 0; i < num_eps; i++) {
 			dep = dwc->eps[i];
 			if (dep->flags & DWC2_EP_ENABLED) {
-				__dwc2_gadget_ep_disable(dep);
+				__dwc2_gadget_ep_disable(dep, (dep->number == 0));
 			}
 		}
 
@@ -681,7 +681,7 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	dwc2_ep0_out_start(dwc);
 
 	/* only disable in ep here */
-	__dwc2_gadget_ep_disable(dwc->eps[dwc->dev_if.num_out_eps]);
+	__dwc2_gadget_ep_disable(dwc->eps[dwc->dev_if.num_out_eps], 1);
 
 	/* Clear the Remote Wakeup Signalling */
 	dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
@@ -1367,7 +1367,7 @@ static int dwc2_gadget_ep_enable(struct usb_ep *ep,
 	return ret;
 }
 
-static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep);
+static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep, int remove);
 
 /**
  * __dwc2_gadget_ep_disable - Disables a HW endpoint
@@ -1377,8 +1377,10 @@ static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep);
  * hardware and those which are not yet scheduled.
  *
  * Caller should take care of locking.
+ *
+ * @param remove: to make adbd happy
  */
-static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep)
+static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 {
 	struct dwc2	*dwc   = dep->dwc;
 
@@ -1394,9 +1396,9 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep)
 
 	if (dep->number == 0) {
 		/* EP0 requests are queued on OUT EP0 */
-		dwc2_remove_requests(dwc, dwc2_ep0_get_ep0(dwc));
+		dwc2_remove_requests(dwc, dwc2_ep0_get_ep0(dwc), remove);
 	} else
-		dwc2_remove_requests(dwc, dep);
+		dwc2_remove_requests(dwc, dep, remove);
 
 	snprintf(dep->name, sizeof(dep->name), "ep%d%s",
 		dep->number, dep->is_in ? "in" : "out");
@@ -1411,10 +1413,11 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep)
 
 static int dwc2_gadget_ep_disable(struct usb_ep *ep)
 {
-	struct dwc2_ep	*dep;
-	struct dwc2	*dwc;
-	unsigned long	 flags;
-	int		 ret;
+	struct dwc2_ep		*dep;
+	struct dwc2		*dwc;
+	unsigned long		 flags;
+	int			 ret;
+	struct dwc2_request	*req;
 
 	DWC2_GADGET_DEBUG_MSG("%s: disable %s\n", __func__, ep->name);
 
@@ -1426,13 +1429,21 @@ static int dwc2_gadget_ep_disable(struct usb_ep *ep)
 	dep = to_dwc2_ep(ep);
 	dwc = dep->dwc;
 
+	dwc2_spin_lock_irqsave(dwc, flags);
+
+	while (!list_empty(&dep->garbage_list)) {
+		req = next_request(&dep->garbage_list);
+
+		dwc2_gadget_giveback(dep, req, -ESHUTDOWN);
+	}
+
 	if (!(dep->flags & DWC2_EP_ENABLED)) {
 		DWC2_GADGET_DEBUG_MSG("%s is already disabled\n", dep->name);
+		dwc2_spin_unlock_irqrestore(dwc, flags);
 		return 0;
 	}
 
-	dwc2_spin_lock_irqsave(dwc, flags);
-	ret = __dwc2_gadget_ep_disable(dep);
+	ret = __dwc2_gadget_ep_disable(dep, 1);
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	return ret;
@@ -1502,13 +1513,18 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 	dwc2_spin_lock(dwc);
 }
 
-static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep) {
+static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep, int remove) {
 	struct dwc2_request		*req;
 
 	while (!list_empty(&dep->request_list)) {
 		req = next_request(&dep->request_list);
 
-		dwc2_gadget_giveback(dep, req, -ESHUTDOWN);
+		if (remove) {
+			dwc2_gadget_giveback(dep, req, -ESHUTDOWN);
+		} else {
+			list_del(&req->list);
+			list_add_tail(&req->list, &dep->garbage_list);
+		}
 	}
 }
 
@@ -1779,10 +1795,16 @@ static int dwc2_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 	if (r != req) {
-		ret = -EINVAL;
-		goto out;
+		list_for_each_entry(r, &dep->garbage_list, list) {
+			if (r == req)
+				break;
+		}
+
+		if (r != req) {
+			ret = -EINVAL;
+			goto out;
+		}
 	} else if (r->transfering) {
-		dwc2_dump_ep_regs(dwc, dep->number, __func__, __LINE__);
 		dwc2_gadget_stop_active_transfer(dep);
 		if (dep->is_in) {
 			dwc2_gadget_giveback(dep, req, -ECONNRESET);
@@ -1791,7 +1813,6 @@ static int dwc2_gadget_ep_dequeue(struct usb_ep *ep,
 			dwc2_gadget_recover_out_transfer(dwc, NULL);
 			/* note that recover_out_transfer() will give back this active request*/
 		}
-		dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
 		dev_warn(dwc->dev, "WARNING: stopped an active request 0x%p on %s\n", r, dep->name);
 		goto out;
 	}
@@ -2051,6 +2072,7 @@ static int __dwc2_gadget_init_endpoints(struct dwc2 *dwc, int is_in) {
 		}
 
 		INIT_LIST_HEAD(&dep->request_list);
+		INIT_LIST_HEAD(&dep->garbage_list);
 	}
 
 	return 0;

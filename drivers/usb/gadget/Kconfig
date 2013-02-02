@@ -596,7 +596,7 @@ config USB_CI13XXX_MSM
 
 config USB_GADGET_DWC2
 	boolean "DesignWare USB 2.0 Hi-Speed OTG Controller"
-	default USB_GADGET
+	depends on USB_DWC2
 	select USB_OTG
 	select USB_GADGET_DUALSPEED
 	select USB_GADGET_SELECTED

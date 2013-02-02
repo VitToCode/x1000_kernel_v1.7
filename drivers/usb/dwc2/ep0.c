@@ -840,7 +840,7 @@ static void dwc2_ep0_inspect_setup(struct dwc2 *dwc)
 		dev_warn(dwc->dev, "DELAYED_STATUS!!!\n");
 	}
 
-	if (ret == USB_GADGET_DELAYED_STATUS) {
+	if ((ret == DELAYED_STATUS) && (ret == USB_GADGET_DELAYED_STATUS)) {
 		dwc->ep0state = EP0_STATUS_PHASE;
 		dwc->delayed_status = true;
 		dwc->delayed_status_sent = false;
@@ -1120,8 +1120,12 @@ static void dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsi
 
 	if (!back2back) {
 		if (unlikely(rem_supcnt > 2)) {
-			dwc2_ep0_dump_regs(dwc);
-			panic("=========>rem_supcnt > 2 when back2back is 0\n");
+			int setup_idx = (setup_addr - dwc->ctrl_req_addr) / 8;
+			if ( (setup_idx < 0) || (setup_idx > 2) ) {
+				dwc2_ep0_dump_regs(dwc);
+				panic("=========>rem_supcnt > 2 when back2back is 0\n");
+			} else
+				rem_supcnt = 2 - setup_idx;
 		}
 
 		ctrl_req = dwc->ctrl_req_virt + (2 - rem_supcnt);
