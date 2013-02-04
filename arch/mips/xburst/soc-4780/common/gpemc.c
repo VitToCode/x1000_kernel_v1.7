@@ -13,4 +13,175 @@
  *
  */
 
+#include <linux/kernel.h>
+#include <linux/ioport.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 
+#include <soc/base.h>
+#include <soc/gpemc.h>
+
+static struct {
+	volatile u32 pad0[0x14 / sizeof(u32)];
+
+	volatile u32 SMCR1;
+	volatile u32 SMCR2;
+	volatile u32 SMCR3;
+	volatile u32 SMCR4;
+	volatile u32 SMCR5;
+	volatile u32 SMCR6;
+
+	volatile u32 pad1;
+
+	volatile u32 SACR1;
+	volatile u32 SACR2;
+	volatile u32 SACR3;
+	volatile u32 SACR4;
+	volatile u32 SACR5;
+	volatile u32 SACR6;
+}__iomem * const gpemc_regs_file = (typeof(gpemc_regs_file)) CKSEG1ADDR(
+		NEMC_IOBASE);
+
+static struct resource gpemc_regs_mem = {
+	.start = NEMC_IOBASE,
+	.end = NEMC_IOBASE + sizeof(*gpemc_regs_file) - 1,
+};
+
+#define NEMC_CS1_IOBASE 0X1b000000
+#define NEMC_CS2_IOBASE 0X1a000000
+#define NEMC_CS3_IOBASE 0X19000000
+#define NEMC_CS4_IOBASE 0X18000000
+#define NEMC_CS5_IOBASE 0X17000000
+#define NEMC_CS6_IOBASE 0X16000000
+
+#define GPEMC_BANK_SIZE (NEMC_CS1_IOBASE - NEMC_CS2_IOBASE)
+static struct resource gpemc_banks_mem[7] = {
+	{},
+
+	{
+		.start = NEMC_CS1_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	},
+
+	{
+		.start = NEMC_CS2_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	},
+
+	{
+		.start = NEMC_CS3_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	},
+
+	{
+		.start = NEMC_CS4_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	},
+
+	{
+		.start = NEMC_CS5_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	},
+
+	{
+		.start = NEMC_CS6_IOBASE,
+		.end = GPEMC_BANK_SIZE - 1,
+	}
+};
+
+static char *gpemc_bank_name[7] = {
+	"",
+	"gpemc-bank1-mem",
+	"gpemc-bank2-mem",
+	"gpemc-bank3-mem",
+	"gpemc-bank4-mem",
+	"gpemc-bank5-mem",
+	"gpemc-bank6-mem",
+};
+
+DECLARE_BITMAP(bank_use_map, 64);
+
+int __init gpemc_init(void) {
+	int i;
+
+	struct resource *res;
+	res = request_mem_region(gpemc_regs_mem.start,
+			resource_size(&gpemc_regs_mem), "gpemc-regs-mem");
+	if (!res) {
+		pr_err("gpemc: grab regs file failed, err: %d\n", -EBUSY);
+		goto err_return;
+	}
+
+	for (i = 0; i < 64; i++)
+		clear_bit(i, bank_use_map);
+
+	return 0;
+
+err_return:
+	return -EBUSY;
+}
+
+postcore_initcall(gpemc_init);
+
+
+struct gpemc_bank *gpemc_request_cs(int cs)
+{
+	struct gpemc_bank *gpbank;
+	struct resource *res;
+	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc_banks_mem));
+
+	if (test_bit(cs, bank_use_map)) {
+		pr_err("gpemc: grub cs %d failed, it's busy.\n", cs);
+		goto err_busy_bank;
+	}
+
+	res = request_mem_region(gpemc_banks_mem[cs].start,
+			resource_size(&gpemc_banks_mem[cs]), gpemc_bank_name[cs]);
+	if (!res) {
+		pr_err("gpemc: grab bank %d memory failedit's busy.\n", cs);
+		goto err_busy_bank;
+	}
+
+	gpbank = kzalloc(sizeof(*gpbank), GFP_KERNEL);
+	if (!gpbank) {
+		pr_err("gpemc: alloc memory failed.\n");
+		goto err_release_mem;
+	}
+
+	set_bit(cs, bank_use_map);
+
+	gpbank->cs = cs;
+	gpbank->io_base = (void __iomem *)CKSEG1ADDR(gpemc_banks_mem[cs].start);
+	gpbank->io_nand_dat = gpbank->io_base + GPEMC_NAND_BANK_DATA_OFFSET;
+	gpbank->io_nand_addr = gpbank->io_base + GPEMC_NAND_BANK_ADDR_OFFSET;
+	gpbank->io_nand_cmd = gpbank->io_base + GPEMC_NAND_BANK_CMD_OFFSET;
+
+	return gpbank;
+
+err_release_mem:
+	release_mem_region(gpemc_banks_mem[cs].start,
+			resource_size(&gpemc_banks_mem[cs]));
+
+err_busy_bank:
+	return NULL;
+}
+EXPORT_SYMBOL(gpemc_request_cs);
+
+void gpemc_release_cs(struct gpemc_bank* bank)
+{
+	BUG_ON(bank->cs < 1 || bank->cs >= ARRAY_SIZE(gpemc_banks_mem));
+	if (!test_bit(bank->cs, bank_use_map))
+		return;
+
+	release_mem_region(gpemc_banks_mem[bank->cs].start,
+			resource_size(&gpemc_banks_mem[bank->cs]));
+
+	clear_bit(bank->cs, bank_use_map);
+}
+EXPORT_SYMBOL(gpemc_release_cs);
+
+int gpemc_config_bank_timing(struct gpemc_bank_timing *timing)
+{
+	return 0;
+}
+EXPORT_SYMBOL(gpemc_config_bank_timing);
