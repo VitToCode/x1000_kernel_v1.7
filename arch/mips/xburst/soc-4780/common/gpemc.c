@@ -138,7 +138,7 @@ struct gpemc_bank *gpemc_request_cs(int cs)
 	res = request_mem_region(gpemc_banks_mem[cs].start,
 			resource_size(&gpemc_banks_mem[cs]), gpemc_bank_name[cs]);
 	if (!res) {
-		pr_err("gpemc: grab bank %d memory failedit's busy.\n", cs);
+		pr_err("gpemc: grab bank %d memory failed, it's busy.\n", cs);
 		goto err_busy_bank;
 	}
 
