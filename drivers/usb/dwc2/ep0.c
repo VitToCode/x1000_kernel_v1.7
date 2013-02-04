@@ -840,7 +840,7 @@ static void dwc2_ep0_inspect_setup(struct dwc2 *dwc)
 		dev_warn(dwc->dev, "DELAYED_STATUS!!!\n");
 	}
 
-	if ((ret == DELAYED_STATUS) && (ret == USB_GADGET_DELAYED_STATUS)) {
+	if ((ret == DELAYED_STATUS) || (ret == USB_GADGET_DELAYED_STATUS)) {
 		dwc->ep0state = EP0_STATUS_PHASE;
 		dwc->delayed_status = true;
 		dwc->delayed_status_sent = false;
