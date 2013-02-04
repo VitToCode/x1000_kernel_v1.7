@@ -7,6 +7,12 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
+ *
+ * NOTICE AND WARNNING: 
+ * JZ4780-CIM YUV422 SUPPORT AUTO RECOVER.
+ * NOTICE AND WARNNING: JZ4780-CIM YUV420 !NOT SUPPORT AUTO RECOVER.
+ * IN YUV420 FORMAT, WHEN OVERFLOW OCCUR, CIM BEHAVIOUR IS UNEXPECTED. MAY CAUSE SYSTEM CRASH.
+ *
  */
 #include <linux/errno.h>
 #include <linux/interrupt.h>
@@ -433,7 +439,14 @@ void cim_set_default(struct jz_cim *cim)
 	unsigned long ctrl2 = 0;
 	unsigned long fs = 0;
 	int w = 0,h = 0;
-	
+
+        /* WARNNING */
+        if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
+            dev_err(cim->dev,"NOTICE AND WARNNING: JZ4780-CIM YUV422 SUPPORT AUTO RECOVER.\n");
+            dev_err(cim->dev,"NOTICE AND WARNNING: JZ4780-CIM YUV420 !NOT SUPPORT AUTO RECOVER.\n");
+            dev_err(cim->dev,"\tIN YUV420 FORMAT, WHEN OVERFLOW OCCUR, CIM BEHAVIOUR IS UNEXPECTED, MAY CAUSE SYSTEM CRASH.\n");
+        }
+
 	if(cim->state == CS_PREVIEW) {
 		w = cim->psize.w;
 		h = cim->psize.h;
@@ -471,7 +484,7 @@ void cim_set_default(struct jz_cim *cim)
             ctrl |= CIM_CTRL_DMA_SYNC;
 	ctrl |= CIM_CTRL_FRC_1;
 
-	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (1 << CIM_CTRL2_OPG_BIT);
+	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (0 << CIM_CTRL2_OPG_BIT);
 
         // If delete "CIM_CTRL2_FSC | CIM_CTRL2_ARIF", maybe cause overflow on warrior(npm706) board.
         //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
@@ -499,7 +512,7 @@ void cim_set_default(struct jz_cim *cim)
 	reg_write(cim,CIM_CTRL,ctrl);
 	reg_write(cim,CIM_CTRL2,ctrl2);
 	reg_write(cim,CIM_FS,fs);
-	cim_enable_fsc_intr(cim);
+	//cim_enable_fsc_intr(cim);
 	cim_enable_eof_intr(cim);
 	cim_enable_rxfifo_overflow_intr(cim);
 	cim_enable_tlb_error_intr(cim);
@@ -645,8 +658,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	    || (state_reg & CIM_STATE_CB_RXF_OF)
 	    || (state_reg & CIM_STATE_CR_RXF_OF)
 	    ){
-            /* if (0) { */
-            dev_err(cim->dev," ------- Rx FIFO OverFlow interrupt!\n");
+            dev_err(cim->dev," -------irq_count=%d Rx FIFO OverFlow interrupt! \tstate_reg= %#x\n", irq_count, state_reg);
             //printk("bit_clr CIM_STATE_RXF_OF\n");
             //bit_clr(cim,CIM_STATE,CIM_STATE_RXF_OF|CIM_STATE_Y_RXF_OF|CIM_STATE_CB_RXF_OF|CIM_STATE_CR_RXF_OF);
             cim_disable(cim);
@@ -669,7 +681,6 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
                 else if(cim->state == CS_CAPTURE){
                     printk("cim_set_da cim->capture=%p\n", cim->capture);
                     cim_set_da(cim,cim->capture);
-
                 }
             }
             //printk("cim_enable\n");
@@ -710,7 +721,6 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 
 			return IRQ_HANDLED;
 		}
-		
 		else if(cim->state == CS_CAPTURE){
 			wait_count ++;
 			//dev_info(cim->dev,"capture frame wait : %d\n",wait_count);
@@ -736,7 +746,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 		}
 	}
 	
-	reg_write(cim,CIM_STATE, 0);
+	reg_write(cim,CIM_STATE, 0); // !!! DO NOT CLEAN OVER FLOW IF NOT HANDLE IT.
 
 	return IRQ_HANDLED;
 }

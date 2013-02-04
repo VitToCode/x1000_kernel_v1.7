@@ -71,7 +71,8 @@ int __init setup_init(void)
 	cpm_reset();
         // CPU on AHB0 & AHB2
         /* If CPU0_PRIO=3, may cause CIM overflow and IPU underrun. so set CPU0_PRIO=0, 2013-02-01 */
-        //setup_priority(HARB0_IOBASE, 6, 3);
+        /* If CPU0_PRIO=0, may cause touch panel "i2c i2c-1: --I2C irq read timeout", so rollback CPU0_PRIO=3. 2013-02-04 */
+        setup_priority(HARB0_IOBASE, 6, 3);
         setup_priority(HARB2_IOBASE, 10, 3);
 
 	return 0;
