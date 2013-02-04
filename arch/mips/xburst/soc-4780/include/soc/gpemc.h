@@ -36,7 +36,6 @@ struct gpemc_bank {
 
 extern struct gpemc_bank *gpemc_request_cs(int cs);
 extern void gpemc_release_cs(struct gpemc_bank* bank);
-extern int gpemc_free_bank(int bank);
 extern int gpemc_config_bank_timing(struct gpemc_bank_timing *timing);
 
 #endif
