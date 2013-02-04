@@ -47,13 +47,6 @@ static struct resource gpemc_regs_mem = {
 	.end = NEMC_IOBASE + sizeof(*gpemc_regs_file) - 1,
 };
 
-#define NEMC_CS1_IOBASE 0X1b000000
-#define NEMC_CS2_IOBASE 0X1a000000
-#define NEMC_CS3_IOBASE 0X19000000
-#define NEMC_CS4_IOBASE 0X18000000
-#define NEMC_CS5_IOBASE 0X17000000
-#define NEMC_CS6_IOBASE 0X16000000
-
 #define GPEMC_BANK_SIZE (NEMC_CS1_IOBASE - NEMC_CS2_IOBASE)
 static struct resource gpemc_banks_mem[7] = {
 	{},
@@ -99,7 +92,7 @@ static char *gpemc_bank_name[7] = {
 	"gpemc-bank6-mem",
 };
 
-DECLARE_BITMAP(bank_use_map, 64);
+static DECLARE_BITMAP(bank_use_map, 64);
 
 int __init gpemc_init(void) {
 	int i;
