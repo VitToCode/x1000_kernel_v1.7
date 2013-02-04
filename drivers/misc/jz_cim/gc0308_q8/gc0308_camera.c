@@ -142,7 +142,7 @@ int gc0308_power_up(struct cim_sensor *sensor_info)
 	dev_info(&s->client->dev,"gc0308 power up\n");
 #endif
 	gpio_set_value(s->gpio_en, 0);
-	msleep(50);
+	msleep(100);
 	return 0;
 }
 
@@ -154,7 +154,7 @@ int gc0308_power_down(struct cim_sensor *sensor_info)
 	dev_info(&s->client->dev,"gc0308 power down\n");
 #endif
 	gpio_set_value(s->gpio_en, 1);
-	msleep(50);
+	msleep(100);
 	return 0;
 }
 
@@ -166,17 +166,17 @@ int gc0308_reset(struct cim_sensor *sensor_info)
 	dev_info(&s->client->dev,"gc0308 reset %x\n",s->gpio_rst);
 #endif
 	gpio_set_value(s->gpio_rst, 0);
-	msleep(50);
+	msleep(100);
 	gpio_set_value(s->gpio_rst, 1);
-	msleep(50);
+	msleep(100);
 	return 0;
 }
 
 int gc0308_sensor_probe(struct cim_sensor *sensor_info)
 {
-	printk("gc0308_sensor_probe_2 ------\n");
 	int retval = 0;
 	struct gc0308_sensor *s;
+	printk("gc0308_sensor_probe_2 ------\n");
 	s = container_of(sensor_info, struct gc0308_sensor, cs);
 	gc0308_power_up(sensor_info);
 	gc0308_reset(sensor_info);
