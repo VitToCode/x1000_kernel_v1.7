@@ -290,14 +290,22 @@ int sp0838_size_switch(struct cim_sensor *sensor_info,int width,int height)
 	if(width == 640 && height == 480)
 	{
 		sp0838_write_reg(client,0xfd,0x00);
-		sp0838_write_reg(client,0x47,0x00);
-		sp0838_write_reg(client,0x48,0x00);
-		sp0838_write_reg(client,0x49,0x01);
-		sp0838_write_reg(client,0x4a,0xe0);
-		sp0838_write_reg(client,0x4b,0x00);
-		sp0838_write_reg(client,0x4c,0x00);
-		sp0838_write_reg(client,0x4d,0x02);
-		sp0838_write_reg(client,0x4e,0x80);
+	    sp0838_write_reg(client,0x37,0x00);
+	  	sp0838_write_reg(client,0x38,0x00);
+	 	sp0838_write_reg(client,0x39,0x01);
+	  	sp0838_write_reg(client,0x3a,0xe4);
+	  	sp0838_write_reg(client,0x3b,0x00);
+	  	sp0838_write_reg(client,0x3c,0x00);
+	  	sp0838_write_reg(client,0x3d,0x02);
+	  	sp0838_write_reg(client,0x3e,0x84);
+	  	sp0838_write_reg(client,0x47,0x00);
+	  	sp0838_write_reg(client,0x48,0x00);
+	  	sp0838_write_reg(client,0x49,0x01);
+	  	sp0838_write_reg(client,0x4a,0xe0);
+	  	sp0838_write_reg(client,0x4b,0x00);
+	  	sp0838_write_reg(client,0x4c,0x00);
+	  	sp0838_write_reg(client,0x4d,0x02);
+	  	sp0838_write_reg(client,0x4e,0x80);
 
 	}
 	else if(width == 352 && height == 288)
@@ -359,7 +367,6 @@ int sp0838_size_switch(struct cim_sensor *sensor_info,int width,int height)
 		sp0838_write_reg(client,0x4c,0x00);
 		sp0838_write_reg(client,0x4d,0x01);
 		sp0838_write_reg(client,0x4e,0x40);
-
 	}
 	else
 		return 0;
