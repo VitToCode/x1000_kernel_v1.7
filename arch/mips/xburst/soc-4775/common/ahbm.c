@@ -103,7 +103,8 @@ static int ahbm_read_proc(char *page, char **start, off_t off,
 		return len;
 	}
 
-	cpm_clear_bit(11,CPM_CLKGR1);
+	//cpm_clear_bit(11,CPM_CLKGR);
+	cpm_clear_bit(4,CPM_CLKGR);
 	while(i<period) {
 		outl(0x0,DDR_MC);
 		outl(0x0,DDR_RESULT_1);
@@ -135,7 +136,7 @@ static int ahbm_read_proc(char *page, char **start, off_t off,
 		msleep(ignore_time);
 		i++;
 	}
-	cpm_set_bit(11,CPM_CLKGR1);
+	cpm_set_bit(4,CPM_CLKGR);
 
 	PRINT("//period=%d sum=%dms rate = %dms\n",period,sum,rate);
 

@@ -41,17 +41,13 @@ void __init setup_priority(unsigned int base, unsigned int target, unsigned int 
 void __init cpm_reset(void)
 {
 #ifndef CONFIG_FPGA_TEST
-	unsigned long clkgr0 = cpm_inl(CPM_CLKGR0);
-	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
+	unsigned long clkgr = cpm_inl(CPM_CLKGR);
 	unsigned long lcr = cpm_inl(CPM_LCR);
 #if 1
-	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
+	cpm_outl(clkgr & ~(1<<19|1<<23|1<<24|1<<25),CPM_CLKGR);
 	mdelay(1);
-	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
-	mdelay(1);
-	cpm_outl(0x27f87ffe,CPM_CLKGR0);
-	mdelay(1);
-	cpm_outl(0xffffffff,CPM_CLKGR1);
+	//cpm_outl(0x27f87ffe,CPM_CLKGR);
+	cpm_outl(0x7df87ffe,CPM_CLKGR);
 	mdelay(1);
 #endif
 	cpm_outl(lcr | CPM_LCR_PD_MASK | 0x8f<<8,CPM_LCR);

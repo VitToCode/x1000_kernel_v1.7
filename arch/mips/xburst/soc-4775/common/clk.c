@@ -21,8 +21,7 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
-static DEFINE_SPINLOCK(clkgr0_lock);
-static DEFINE_SPINLOCK(clkgr1_lock);
+static DEFINE_SPINLOCK(clkgr_lock);
 
 struct clk;
 struct clk_ops {
@@ -64,10 +63,6 @@ enum {
 #define CLK_NAME_APLL		"apll"
 	CLK_ID_MPLL,
 #define CLK_NAME_MPLL		"mpll"
-	CLK_ID_EPLL,
-#define CLK_NAME_EPLL		"epll"
-	CLK_ID_VPLL,
-#define CLK_NAME_VPLL		"vpll"
 	CLK_ID_SCLKA,
 #define CLK_NAME_SCLKA		"sclka"
 	/**********************************************************************************/
@@ -86,8 +81,8 @@ enum {
 #define CLK_NAME_NEMC		"nemc"
 	CLK_ID_BCH,
 #define CLK_NAME_BCH		"bch"
-	CLK_ID_OTG0,
-#define CLK_NAME_OTG0		"otg0"
+	CLK_ID_OTG,
+#define CLK_NAME_OTG		"otg0"
 	CLK_ID_MSC0,
 #define CLK_NAME_MSC0		"msc0"
 	CLK_ID_SSI0,
@@ -96,20 +91,20 @@ enum {
 #define CLK_NAME_I2C0		"i2c0"
 	CLK_ID_I2C1,
 #define CLK_NAME_I2C1		"i2c1"
-	CLK_ID_SCC,
-#define CLK_NAME_SCC		"scc"
-	CLK_ID_AIC0,
-#define CLK_NAME_AIC0		"aic0"
-	CLK_ID_TSSI0,
-#define CLK_NAME_TSSI0		"tssi0"
-	CLK_ID_OWI,
-#define CLK_NAME_OWI		"owi"
+	CLK_ID_I2C2,
+#define CLK_NAME_I2C2		"i2c2"
+	CLK_ID_AIC,
+#define CLK_NAME_AIC		"aic"
+	CLK_ID_X2D,
+#define CLK_NAME_X2D		"x2d"
+	CLK_ID_AHB_MON,
+#define CLK_NAME_AHB_MON 	"ahb_mon"
 	CLK_ID_MSC1,
 #define CLK_NAME_MSC1		"msc1"
 	CLK_ID_MSC2,
 #define CLK_NAME_MSC2		"msc2"
-	CLK_ID_KBC,
-#define CLK_NAME_KBC		"kbc"
+	CLK_ID_PCM,
+#define CLK_NAME_PCM		"pcm"
 	CLK_ID_SADC,
 #define CLK_NAME_SADC		"sadc"
 	CLK_ID_UART0,
@@ -120,82 +115,40 @@ enum {
 #define CLK_NAME_UART2		"uart2"
 	CLK_ID_UART3,
 #define CLK_NAME_UART3		"uart3"
-	CLK_ID_SSI1,
-#define CLK_NAME_SSI1		"ssi1"
-	CLK_ID_SSI2,
-#define CLK_NAME_SSI2		"ssi2"
+	CLK_ID_VPU,
+#define CLK_NAME_VPU		"vpu"
 	CLK_ID_PDMA,
 #define CLK_NAME_PDMA		"pdma"
-	CLK_ID_GPS,
-#define CLK_NAME_GPS		"gps"
-	CLK_ID_MAC,
-#define CLK_NAME_MAC		"mac"
+	CLK_ID_GMAC,
+#define CLK_NAME_GMAC		"gmac"
 	CLK_ID_UHC,
 #define CLK_NAME_UHC		"uhc"
 	CLK_ID_OHCI,
 #define CLK_NAME_OHCI		"ohci"
 	CLK_ID_EHCI,
 #define CLK_NAME_EHCI		"ehci"
-	CLK_ID_I2C2,
-#define CLK_NAME_I2C2		"i2c2"
-	CLK_ID_CIM,
-#define CLK_NAME_CIM		"cim"
-	CLK_ID_LCD1,
-#define CLK_NAME_LCD1		"lcd1"
-	CLK_ID_LCD0,
-#define CLK_NAME_LCD0		"lcd0"
-	CLK_ID_IPU0,
-#define CLK_NAME_IPU0		"ipu0"
-	CLK_ID_IPU1,
-#define CLK_NAME_IPU1		"ipu1"
-	CLK_ID_DDR0,
-#define CLK_NAME_DDR0		"ddr0"
-	CLK_ID_DDR1,
-#define CLK_NAME_DDR1		"ddr1"
-	/**********************************************************************************/
-	CLK_ID_I2C3,
-#define CLK_NAME_I2C3		"i2c3"
-	CLK_ID_TSSI1,
-#define CLK_NAME_TSSI1		"tssi1"
-	CLK_ID_VPU,
-#define CLK_NAME_VPU		"vpu"
-	CLK_ID_PCM,
-#define CLK_NAME_PCM		"pcm"
-	CLK_ID_GPU,
-#define CLK_NAME_GPU		"gpu"
-	CLK_ID_COMPRESS,
-#define CLK_NAME_COMPRESS 	"compress"
-	CLK_ID_AIC1,
-#define CLK_NAME_AIC1 		"aic1"
-	CLK_ID_GPVLC,
-#define CLK_NAME_GPVLC		"gpvlc"
-	CLK_ID_OTG1,
-#define CLK_NAME_OTG1		"otg1"
-	CLK_ID_HDMI,
-#define CLK_NAME_HDMI		"hdmi"
-	CLK_ID_UART4,
-#define CLK_NAME_UART4		"uart4"
-	CLK_ID_AHB_MON,
-#define CLK_NAME_AHB_MON 	"ahb_mon"
-	CLK_ID_I2C4,
-#define CLK_NAME_I2C4		"i2c4"
-	CLK_ID_DES,
-#define CLK_NAME_DES		"des"
-	CLK_ID_X2D,
-#define CLK_NAME_X2D		"x2d"
-	CLK_ID_P1,
-#define CLK_NAME_P1		"p1"
-	/**********************************************************************************/
+	CLK_ID_CIM0,
+#define CLK_NAME_CIM0		"cim"
+	CLK_ID_CIM1,
+#define CLK_NAME_CIM1		"cim1"
+	CLK_ID_LCD,
+#define CLK_NAME_LCD		"lcd0"
+	CLK_ID_EPDC,
+#define CLK_NAME_EPDC		"epdc"
+	CLK_ID_EPDE,
+#define CLK_NAME_EPDE		"epde"
+	CLK_ID_DDR,
+#define CLK_NAME_DDR		"ddr0"
+
+/**********************************************************************************/
 	CLK_ID_CGU_DDR,
 #define CLK_NAME_CGU_DDR	"cgu_ddr"
 	CLK_ID_CGU_VPU,
 #define CLK_NAME_CGU_VPU	"cgu_vpu"
 	CLK_ID_CGU_AIC,
 #define CLK_NAME_CGU_AIC	"cgu_aic"
-	CLK_ID_CGU_LCD0,
-#define CLK_NAME_CGU_LCD0	"lcd_pclk0"
-	CLK_ID_CGU_LCD1,
-#define CLK_NAME_CGU_LCD1	"lcd_pclk1"
+	CLK_ID_CGU_LCD,
+#define CLK_NAME_CGU_LCD	"lcd_pclk0"
 	CLK_ID_MSC_MUX,
 #define CLK_NAME_MSC_MUX	"msc_mux"
 	CLK_ID_CGU_MSC0,
@@ -204,25 +157,28 @@ enum {
 #define CLK_NAME_CGU_MSC1	"cgu_msc1"
 	CLK_ID_CGU_MSC2,
 #define CLK_NAME_CGU_MSC2	"cgu_msc2"
+	CLK_ID_CGU_USB,
+#define CLK_NAME_CGU_USB	"cgu_usb"
 	CLK_ID_CGU_UHC,
 #define CLK_NAME_CGU_UHC	"cgu_uhc"
 	CLK_ID_CGU_SSI,
 #define CLK_NAME_CGU_SSI	"cgu_ssi"
-	CLK_ID_CGU_CIMMCLK,
-#define CLK_NAME_CGU_CIMMCLK	"cgu_cimmclk"
+	CLK_ID_CIM_MUX,
+#define CLK_NAME_CIM_MUX	"cim mux"
+	CLK_ID_CGU_CIMMCLK0,
+#define CLK_NAME_CGU_CIMMCLK0	"cgu_cimmclk"
+	CLK_ID_CGU_CIMMCLK1,
+#define CLK_NAME_CGU_CIMMCLK1	"cgu_cimmclk1"
 	CLK_ID_CGU_PCM,
 #define CLK_NAME_CGU_PCM	"cgu_pcm"
-	CLK_ID_CGU_GPU,
-#define CLK_NAME_CGU_GPU	"cgu_gpu"
-	CLK_ID_CGU_HDMI,
-#define CLK_NAME_CGU_HDMI	"cgu_hdmi"
 	CLK_ID_CGU_BCH,
 #define CLK_NAME_CGU_BCH	"cgu_bch"
 };
 
+
 enum {
-	CGU_DDR,CGU_VPU,CGU_AIC,CGU_LCD0,CGU_LCD1,CGU_MSC0,CGU_MSC1,CGU_MSC2,
-	CGU_UHC,CGU_SSI,CGU_CIMMCLK,CGU_PCM,CGU_GPU,CGU_HDMI,CGU_BCH,CGU_MSC_MUX,
+	CGU_DDR,CGU_VPU,CGU_AIC,CGU_LCD,CGU_MSC0,CGU_MSC1,CGU_MSC2,CGU_USB,
+	CGU_UHC,CGU_SSI,CGU_CIMMCLK0,CGU_CIMMCLK1,CGU_PCM,CGU_BCH,CGU_MSC_MUX,CGU_CIM_MUX,
 };
 
 	static struct clk clk_srcs[] = {
@@ -239,8 +195,6 @@ enum {
 
 		DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
 		DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
-		DEF_CLK(EPLL,  		PLL(CPM_CPEPCR)),
-		DEF_CLK(VPLL,  		PLL(CPM_CPVPCR)),
 
 		DEF_CLK(SCLKA,		0),
 
@@ -252,71 +206,51 @@ enum {
 
 		DEF_CLK(NEMC,  		GATE(0) | PARENT(H2CLK)),
 		DEF_CLK(BCH,   		GATE(1)),
-		DEF_CLK(OTG0,  		GATE(2)),
+		DEF_CLK(OTG,  		GATE(2)),
 		DEF_CLK(MSC0,  		GATE(3)),
 		DEF_CLK(SSI0,  		GATE(4)),
 		DEF_CLK(I2C0,  		GATE(5) | PARENT(PCLK)),
 		DEF_CLK(I2C1,  		GATE(6) | PARENT(PCLK)),
-		DEF_CLK(SCC,   		GATE(7)),
-		DEF_CLK(AIC0,   	GATE(8)),
-		DEF_CLK(TSSI0, 		GATE(9)),
-		DEF_CLK(OWI,   		GATE(10)),
+		DEF_CLK(I2C2,  		GATE(7) | PARENT(PCLK)),
+		DEF_CLK(AIC,		GATE(8)),
+		DEF_CLK(X2D, 		GATE(9)),
+		DEF_CLK(AHB_MON,   	GATE(10)),
 		DEF_CLK(MSC1,  		GATE(11)),
 		DEF_CLK(MSC2,  		GATE(12)),
-		DEF_CLK(KBC,   		GATE(13)),
+		DEF_CLK(PCM,   		GATE(13)),
 		DEF_CLK(SADC,  		GATE(14)),
 		DEF_CLK(UART0, 		GATE(15) | PARENT(EXT1)),
 		DEF_CLK(UART1, 		GATE(16) | PARENT(EXT1)),
 		DEF_CLK(UART2, 		GATE(17) | PARENT(EXT1)),
 		DEF_CLK(UART3, 		GATE(18) | PARENT(EXT1)),
-		DEF_CLK(SSI1,  		GATE(19)),
-		DEF_CLK(SSI2,  		GATE(20)),
-		DEF_CLK(PDMA,  		GATE(21)),
-		DEF_CLK(GPS,   		GATE(22)),
-		DEF_CLK(MAC,   		GATE(23)),
-		DEF_CLK(UHC,   		GATE(24)),
+		DEF_CLK(VPU,  		GATE(19)),
+		DEF_CLK(PDMA,  		GATE(20)),
+		DEF_CLK(GMAC,  		GATE(21)),
+		DEF_CLK(UHC,   		GATE(22)),
 		DEF_CLK(OHCI,   	PARENT(UHC)),
 		DEF_CLK(EHCI,   	PARENT(UHC)),
-		DEF_CLK(I2C2,  		GATE(25)| PARENT(PCLK)),
-		DEF_CLK(CIM,   		GATE(26)),
-		DEF_CLK(LCD0,   	GATE(27)| PARENT(LCD1)),
-		DEF_CLK(LCD1,   	GATE(28)),
-		DEF_CLK(IPU1,   	GATE(29)),
-		DEF_CLK(IPU0,   	GATE(29)),
-		DEF_CLK(DDR0,  		GATE(30)),
-		DEF_CLK(DDR1,  		GATE(31)),
-		DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),
-		DEF_CLK(TSSI1, 		GATE(32+1)),
-		DEF_CLK(VPU,		GATE(32+2)),
-		DEF_CLK(PCM,		GATE(32+3)),
-		DEF_CLK(GPU,		GATE(32+4)),
-		DEF_CLK(COMPRESS,	GATE(32+5)),
-		DEF_CLK(AIC1,		GATE(32+6)),
-		DEF_CLK(GPVLC,		GATE(32+7)),
-		DEF_CLK(OTG1,		GATE(32+8)),
-		DEF_CLK(HDMI,		GATE(32+9)),
-		DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
-		DEF_CLK(AHB_MON,	GATE(32+11)),
-		DEF_CLK(I2C4,		GATE(32+12)| PARENT(PCLK)),
-		DEF_CLK(DES,		GATE(32+13)),
-		DEF_CLK(X2D,		GATE(32+14)),
-		DEF_CLK(P1,		GATE(32+15)),
+		DEF_CLK(CIM0,   	GATE(23)),
+		DEF_CLK(CIM1,   	GATE(24)),
+		DEF_CLK(LCD,  		GATE(25)),
+		DEF_CLK(EPDC,   	GATE(26)),
+		DEF_CLK(EPDE,   	GATE(27)),
+		DEF_CLK(DDR,		GATE(31)),
 
 		DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
 		DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
 		DEF_CLK(CGU_AIC,	CGU(CGU_AIC)),
-		DEF_CLK(CGU_LCD0,	CGU(CGU_LCD0)),
-		DEF_CLK(CGU_LCD1,	CGU(CGU_LCD1)),
+		DEF_CLK(CGU_LCD,	CGU(CGU_LCD)),
 		DEF_CLK(MSC_MUX,	CGU(CGU_MSC_MUX)),
 		DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0)),
 		DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1)),
 		DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2)),
+		DEF_CLK(CGU_USB,	CGU(CGU_USB)),
 		DEF_CLK(CGU_UHC,	CGU(CGU_UHC)),
 		DEF_CLK(CGU_SSI,	CGU(CGU_SSI)),
-		DEF_CLK(CGU_CIMMCLK,	CGU(CGU_CIMMCLK)),
+		DEF_CLK(CIM_MUX,	CGU(CGU_CIM_MUX)),
+		DEF_CLK(CGU_CIMMCLK0,CGU(CGU_CIMMCLK0)),
+		DEF_CLK(CGU_CIMMCLK1,CGU(CGU_CIMMCLK1)),
 		DEF_CLK(CGU_PCM,	CGU(CGU_PCM)),
-		DEF_CLK(CGU_GPU,	CGU(CGU_GPU)),
-		DEF_CLK(CGU_HDMI,	CGU(CGU_HDMI)),
 		DEF_CLK(CGU_BCH,	CGU(CGU_BCH)),
 #undef GATE
 #undef CPCCR
@@ -342,20 +276,21 @@ static void __init init_ext_pll(void)
 		clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT1];
 		cppcr = cpm_inl(CLK_PLL_NO(clk_srcs[i].flags));
 
-		if (cppcr & (1 << 4))
+		if (cppcr & (1 << 10))	//pll on and stable
 			clk_srcs[i].flags |= CLK_FLG_ENABLE;
 
-		if(cppcr & (0x1<<1)) {
+		if(cppcr & (0x1<< 9)) {
 			clk_srcs[i].rate = JZ_EXTAL;
 		} else {
 			unsigned long m,n,o;
-			o = (((cppcr) >> 9) & 0xf) + 1;
-			n = (((cppcr) >> 13) & 0x3f) + 1;
-			m = (((cppcr) >> 19) & 0x7fff) + 1;
+			o = (1 << (((cppcr) >> 16) & 0x3));
+			n = (((cppcr) >> 18) & 0x1f) + 1;
+			m = (((cppcr) >> 24) & 0x3f) + 1;
 			clk_srcs[i].rate = ((JZ_EXTAL/1000) * m / n / o)*1000; /* fix 32bit overflow: (clock/1000)*1000 */
 		}
 	}
 
+	/*sclk_a mux select src*/
 	cpccr_sel_src = cpm_inl(CPM_CPCCR) >> 30;
 	if(cpccr_sel_src == 1) {
 		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_APLL];
@@ -397,31 +332,52 @@ static unsigned long cpccr_get_rate(struct clk *clk)
 	return clk->parent->rate / (v + 1);
 }
 
-struct cpccr_table {
-	unsigned long rate;
-	unsigned int cpccr;
-};
-
-#define CPNR 7
 #define MAX_M_DIV 6
-#define MAX_CCLK (2016 * 1000 * 1000)
-#define MPLL_DIV(i) ((1<<22) | (2<<28) | ((i*2-1)<<4) | (i-1))
-#define APLL_DIV(i) ((1<<22) | (1<<28) | ((i*2-1)<<4) | (i-1))
-#define M_N_OD(m,n,od) (((m-1) << 19) | ((n-1) << 13) | ((od-1) << 9))
-#define SET_PLL(P, M, N, OD, TO)							\
-	cpm_outl(M_N_OD(M, N, OD) | (1 << 0),CPM_CP##P##PCR);				\
-	clk_srcs[CLK_ID_##P##PLL].rate = CONFIG_EXTAL_CLOCK * 1000000 / N / OD * M;	\
-	while (!(cpm_inl(CPM_CP##P##PCR) & (1 << 4)) && --TO)
-#define SET_SCLKA(C)									\
-	do {										\
-		unsigned int cpccr;							\
-		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<30);				\
-		cpccr |= C<<30;								\
-		cpm_outl(cpccr,CPM_CPCCR);						\
+#define MAX_CCLK (1000 * 1000 * 1000)
+#define CCLK_MPLL_DIV(i) ((1<<22) | (2<<28) | ((i*2-1)<<4) | (i-1))
+#define CCLK_APLL_DIV(i) ((1<<22) | (1<<28) | ((i*2-1)<<4) | (i-1))
+#define SET_PARENT(SON, FATHER) \
+	clk_srcs[CLK_ID_##SON].parent = &clk_srcs[CLK_ID_##FATHER]
+
+/*
+ * nf = OM + 1
+ * nr = ON + 1
+ * no = 2^OD
+ */
+
+#define M_N_OD(nf,nr,no) (((nf-1) << 24) | ((nr-1) << 18) | ((no/2 == 4 ? 3 : no/2) << 16))	// no == 1,2,4,8
+
+
+#define SET_APLL(BS,NF, NR, NO, TO)							\
+	cpm_outl((BS << 31) | M_N_OD(NF, NR, NO) | (1 << 8),CPM_CPAPCR);				\
+	clk_srcs[CLK_ID_APLL].rate = CONFIG_EXTAL_CLOCK * 1000000 / NR / NO * NF;	\
+	while (!(cpm_inl(CPM_CPAPCR) & (1 << 10)) && --TO)
+
+// we can not support kernel channge mpll clk
+#define SET_MPLL(BS,NF, NR, NO, TO)							\
+	cpm_outl((BS << 31) | M_N_OD(NF, NR, NO) | (1 << 7),CPM_CPMPCR);				\
+	clk_srcs[CLK_ID_MPLL].rate = CONFIG_EXTAL_CLOCK * 1000000 / NR / ND * NF;	\
+	while (!(cpm_inl(CPM_CPMPCR) & (1 << 0)) && --TO)
+
+#define SCLKA_SRC_STOP		0x00
+#define SCLKA_SRC_APLL		0x01
+#define SCLKA_SRC_EXT		0X02
+#define SCLKA_SRC_RTC		0X03
+
+#define SET_SCLKA(C,CLK_ID)									\
+	do {													\
+		unsigned int cpccr;									\
+		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<30);			\
+		cpccr |= C<<30;										\
+		cpm_outl(cpccr,CPM_CPCCR);							\
+		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID];	\
+		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID].rate;\
 	} while (0)
 
-static struct cpccr_table cpccr_table[CPNR];
 
+#define PLL_OUT_MAX (1000 * 1000000)
+
+#ifdef CPU_FREQ_CONVER
 static int cclk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int i;
@@ -433,47 +389,78 @@ static int cclk_set_rate(struct clk *clk, unsigned long rate)
 
 	clk_t = &clk_srcs[CLK_ID_MPLL];
 	for (i = 1; i <= MAX_M_DIV; i++) {
-		if(rate == clk_t->rate / i) {
+		if (rate == clk_t->rate / i) {
 			cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-			cpccr |= MPLL_DIV(i);
+			cpccr |= CCLK_MPLL_DIV(i);
+			SET_PARENT(CCLK, MPLL);
+			SET_PARENT(L2CLK, MPLL);
+			SET_PARENT(H0CLK, MPLL);
 			cpm_outl(cpccr,CPM_CPCCR);
 			clk->parent = clk_t;
 			clk_srcs[CLK_ID_L2CLK].parent = clk_t;
-			clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
-			clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_EXT1].rate;
-			cpm_outl((cpccr& ~(0x3<<30)) | (2<<30),CPM_CPCCR);
+			SET_SCLKA(SCLKA_SRC_EXT,CLK_ID_EXT1);
 			goto out;
 		}
 	}
+
 	if (rate <= MAX_CCLK) {
 		cpccr = cpm_inl(CPM_CPCCR);
 		if (rate != clk_srcs[CLK_ID_APLL].rate) {
-			int m = rate / 1000000 / CONFIG_EXTAL_CLOCK;
+			int nf,nr,no,bs;
 			int timeout = 0xffffff;
+
+			if (rate > PLL_OUT_MAX) {
+				printk("PLL output can NOT more than 1000MHZ,we used 1000MHZ\n");
+				rate = PLL_OUT_MAX;
+			}
+			if (rate > (600*1000000)) {
+				bs = 1;
+				no = 1;			//no = 1,2,4,8
+			} else if (rate > (300*1000000)) {
+				bs = 0;
+				no = 1;
+			} else if (rate > (155*1000000)) {
+				bs = 0;
+				no = 2;
+			} else if (rate > (76*1000000)) {
+				bs = 0;
+				no = 4;
+			} else if (rate > (47*1000000)) {
+				bs = 0;
+				no = 8;
+			} else {
+				printk("PLL ouptput can NOT less than 48MHZ,we used 48MHZ\n");
+				bs = 0;
+				no = 8;
+				rate = (48*1000000);
+			}
+
+			/*
+			 * Fout = Fin * nf /nr/no
+			 * nf = Fout * nr * no/ Fin
+			 */
+			nr = 1;
+			nf= (rate / 1000000) * nr * no / CONFIG_EXTAL_CLOCK;
 
 			if (clk->parent == &clk_srcs[CLK_ID_SCLKA]){
 				cpccr &= ~(0x3<<28 | 0xff);
-				cpccr |= MPLL_DIV(1);
+				cpccr |= CCLK_MPLL_DIV(1);
 				cpm_outl(cpccr,CPM_CPCCR);
 			}
-			cpccr &= ~(0x3<<30);
-			cpccr |= (0x2<<30);
-			cpm_outl(cpccr,CPM_CPCCR);
-			clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_EXT1];
-			SET_PLL(A, m, 1, 1, timeout);
+			SET_SCLKA(SCLKA_SRC_EXT,CLK_ID_EXT1);
+			SET_APLL(bs, nf, nr, no, timeout);
 			if (!timeout) {
 				pr_err("set APLL %lu timeout\n", rate);
 				return -1;
 			}
 		}
 		if (clk_srcs[CLK_ID_SCLKA].parent != &clk_srcs[CLK_ID_APLL])
-			SET_SCLKA(1);
-		clk->parent = &clk_srcs[CLK_ID_SCLKA];
-		clk_srcs[CLK_ID_L2CLK].parent = &clk_srcs[CLK_ID_SCLKA];
-		clk_srcs[CLK_ID_SCLKA].parent = &clk_srcs[CLK_ID_APLL];
-		clk_srcs[CLK_ID_SCLKA].rate = clk_srcs[CLK_ID_APLL].rate;
+			SET_SCLKA(SCLKA_SRC_APLL,CLK_ID_APLL);
+		SET_PARENT(CCLK, SCLKA);
+		SET_PARENT(L2CLK,SCLKA);
+		SET_PARENT(H0CLK,SCLKA);
 		cpccr = cpm_inl(CPM_CPCCR) & ~(0x3<<28 | 0xff);
-		cpm_outl(cpccr | APLL_DIV(1),CPM_CPCCR);
+		cpm_outl(cpccr | CCLK_APLL_DIV(1),CPM_CPCCR);
 		goto out;
 	}
 
@@ -484,19 +471,23 @@ out:
 	clk->rate = cpccr_get_rate(clk);
 	return 0;
 }
+#endif
 
 static struct clk_ops clk_cpccr_ops = {
 	.get_rate = cpccr_get_rate,
 };
 
+
 static struct clk_ops clk_cclk_ops = {
 	.get_rate = cpccr_get_rate,
+#ifdef CPU_FREQ_CONVER
 	.set_rate = cclk_set_rate,
+#endif
 };
 
 static void __init init_cpccr_clk(void)
 {
-	int i,sel,select[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL};
+	int i,sel,select[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,0};	//check
 	unsigned long cpccr = cpm_inl(CPM_CPCCR);
 
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
@@ -511,21 +502,6 @@ static void __init init_cpccr_clk(void)
 	}
 
 	clk_srcs[CLK_ID_CCLK].ops = &clk_cclk_ops;
-
-	cpccr_table[0].rate = clk_srcs[CLK_ID_MPLL].rate / 1;
-	cpccr_table[0].cpccr = (0x2<<28) | (0x1<<4) | (0x0);
-	cpccr_table[1].rate = clk_srcs[CLK_ID_MPLL].rate / 2;
-	cpccr_table[1].cpccr = (0x2<<28) | (0x3<<4) | (0x1);
-	cpccr_table[2].rate = clk_srcs[CLK_ID_MPLL].rate / 3;
-	cpccr_table[2].cpccr = (0x2<<28) | (0x5<<4) | (0x2);
-	cpccr_table[3].rate = clk_srcs[CLK_ID_MPLL].rate / 4;
-	cpccr_table[3].cpccr = (0x2<<28) | (0x7<<4) | (0x3);
-	cpccr_table[4].rate = clk_srcs[CLK_ID_MPLL].rate / 5;
-	cpccr_table[4].cpccr = (0x2<<28) | (0x9<<4) | (0x4);
-	cpccr_table[5].rate = clk_srcs[CLK_ID_MPLL].rate / 6;
-	cpccr_table[5].cpccr = (0x2<<28) | (0xb<<4) | (0x5);
-	cpccr_table[6].rate = clk_srcs[CLK_ID_MPLL].rate / 7;
-	cpccr_table[6].cpccr = (0x2<<28) | (0xd<<4) | (0x6);
 }
 
 struct cgu_clk {
@@ -536,22 +512,21 @@ struct cgu_clk {
 
 static struct cgu_clk cgu_clks[] = {
 	[CGU_DDR] = 	{ CPM_DDRCDR, 29, 27, 1, 4, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
-	[CGU_VPU] = 	{ CPM_VPUCDR, 29, 27, 1, 4, 30, 28, {CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
-	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_EXT1,CLK_ID_EPLL}},
-	[CGU_LCD0] = 	{ CPM_LPCDR0, 28, 26, 1, 8, 30, 27, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
-	[CGU_LCD1] = 	{ CPM_LPCDR1, 28, 26, 1, 8, 30, 27, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
+	[CGU_VPU] = 	{ CPM_VPUCDR, 29, 27, 1, 4, 31, 28, {CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_AIC] = 	{ CPM_I2SCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_LCD] = 	{ CPM_LPCDR,  28, 26, 1, 8, 31, 27,	{CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_MSC_MUX]=	{ CPM_MSC0CDR, 29, 27, 2, 0, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 	[CGU_MSC0] = 	{ CPM_MSC0CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
 	[CGU_MSC1] = 	{ CPM_MSC1CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
 	[CGU_MSC2] = 	{ CPM_MSC2CDR, 29, 27, 2, 8, 30, 28, {CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX,CLK_ID_MSC_MUX}},
-	[CGU_UHC] = 	{ CPM_UHCCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_EPLL,0}},
+	[CGU_USB] = 	{ CPM_USBCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_UHC] = 	{ CPM_UHCCDR, 29, 27, 1, 8, 30, 28, {CLK_ID_SCLKA,CLK_ID_MPLL,0}},
 	[CGU_SSI] = 	{ CPM_SSICDR, 29, 27, 1, 8, 30, 28, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_MPLL}},
-	[CGU_CIMMCLK] = { CPM_CIMCDR, 30, 28, 1, 8, 31, 29, {CLK_ID_SCLKA,CLK_ID_MPLL}},
-	[CGU_PCM] = 	{ CPM_PCMCDR, 28, 26, 1, 8, 29, 27, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_EXT1,
-		CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL,CLK_ID_VPLL}},
-	[CGU_GPU] = 	{ CPM_GPUCDR, 29, 27, 1, 4, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
-	[CGU_HDMI] = 	{ CPM_HDMICDR, 29, 26, 1, 8, 30, 28, {CLK_ID_APLL,CLK_ID_MPLL,CLK_ID_VPLL}},
-	[CGU_BCH] = 	{ CPM_BCHCDR, 29, 27, 1, 4, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL,CLK_ID_EPLL}},
+	[CGU_CIM_MUX] = { CPM_CIM0CDR, 30, 28, 1, 0, 31, 29, {CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_CIMMCLK0] = { CPM_CIM0CDR, 30, 28, 1, 8, 31, 29, {CLK_ID_CIM_MUX,CLK_ID_CIM_MUX}},
+	[CGU_CIMMCLK1] = { CPM_CIM1CDR, 30, 28, 1, 8, 31, 29, {CLK_ID_CIM_MUX,CLK_ID_CIM_MUX}},
+	[CGU_PCM] = 	{ CPM_PCMCDR, 28, 26, 1, 8, 30, 27, {CLK_ID_EXT1,CLK_ID_EXT1,CLK_ID_SCLKA,CLK_ID_MPLL}},
+	[CGU_BCH] = 	{ CPM_BCHCDR, 29, 27, 1, 4, 30, 28, {-1,CLK_ID_SCLKA,CLK_ID_MPLL}},
 };
 
 static int cgu_enable(struct clk *clk,int on)
@@ -562,7 +537,7 @@ static int cgu_enable(struct clk *clk,int on)
 		if(cgu_clks[no].cache) {
 			cpm_outl(cgu_clks[no].cache,cgu_clks[no].off);
 
-			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off))
 				printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 		} else {
 			printk("######################################\n");
@@ -571,6 +546,7 @@ static int cgu_enable(struct clk *clk,int on)
 			BUG();
 		}
 	} else {
+		cpm_set_bit(cgu_clks[no].ce,cgu_clks[no].off);
 		cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
 	}
 
@@ -598,11 +574,11 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 
 	cgu_clks[no].cache = (x & ~(0x1<<cgu_clks[no].stop)) | (0x1<<cgu_clks[no].ce);
 
-	if(cpm_test_bit(cgu_clks[no].ce,cgu_clks[no].off) 
+	if(cpm_test_bit(cgu_clks[no].ce,cgu_clks[no].off)
 			&& !cpm_test_bit(cgu_clks[no].stop,cgu_clks[no].off)) {
 		cpm_outl(cgu_clks[no].cache, cgu_clks[no].off);
 
-		while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+		while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off))
 			printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	}
 
@@ -639,6 +615,9 @@ static struct clk * cgu_get_parent(struct clk *clk)
 	idx = cgu >> cgu_clks[no].ext;
 	pidx = cgu_clks[no].sel[idx];
 
+	if (pidx == -1 && pidx == 0)
+		return NULL;
+
 	return &clk_srcs[pidx];
 }
 
@@ -647,6 +626,7 @@ static int cgu_set_parent(struct clk *clk, struct clk *parent)
 	int i,cgu;
 	int no = CLK_CGU_NO(clk->flags);
 	int clksrc_off = parent - clk_srcs;
+
 	for(i=0;i<8;i++) {
 		if(cgu_clks[no].sel[i] == clksrc_off)
 			break;
@@ -679,6 +659,7 @@ static void __init init_cgu_clk(void)
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(! (clk_srcs[i].flags & CLK_FLG_CGU))
 			continue;
+
 		clk_srcs[i].ops = &clk_cgu_ops;
 		clk_srcs[i].parent = cgu_get_parent(&clk_srcs[i]);
 		clk_srcs[i].rate = cgu_get_rate(&clk_srcs[i]);
@@ -688,14 +669,12 @@ static void __init init_cgu_clk(void)
 	}
 
 	clk_srcs[CLK_ID_MSC_MUX].ops = NULL;
+	clk_srcs[CLK_ID_CIM_MUX].ops = NULL;
 }
 
 static void __init init_gate_clk(void)
 {
-	unsigned long clkgr[2];
 	int i;
-	clkgr[0] = cpm_inl(CPM_CLKGR0);
-	clkgr[1] = cpm_inl(CPM_CLKGR1);
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(! (clk_srcs[i].flags & CLK_FLG_GATE))
 			continue;
@@ -704,25 +683,20 @@ static void __init init_gate_clk(void)
 	}
 }
 
-static unsigned long clkgr0;
-static unsigned long clkgr1;
+static unsigned long clkgr;
+
 int clk_suspend(void)
 {
-	clkgr0 = cpm_inl(CPM_CLKGR0);
-	clkgr1 = cpm_inl(CPM_CLKGR1);
+	clkgr = cpm_inl(CPM_CLKGR);
 
-	cpm_outl(clkgr0 | 0x3fd0ffe0,CPM_CLKGR0);
-	udelay(20);
-	cpm_outl(0x5fff,CPM_CLKGR1);
+	cpm_outl(clkgr | 0x7fe8ffe0,CPM_CLKGR);
 	udelay(20);
 	return 0;
 }
 
 void clk_resume(void)
 {
-	cpm_outl(clkgr0,CPM_CLKGR0);
-	mdelay(5);
-	cpm_outl(clkgr1,CPM_CLKGR1);
+	cpm_outl(clkgr,CPM_CLKGR);
 	mdelay(5);
 }
 
@@ -741,16 +715,17 @@ void __init init_all_clk(void)
 	init_gate_clk();
 
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
-		if(clk_srcs[i].rate)
-			continue;
-		if((clk_srcs[i].flags & CLK_FLG_ENABLE) 
+		if ((clk_srcs[i].flags & CLK_FLG_ENABLE)
 				&& !(clk_srcs[i].flags & CLK_FLG_GATE))
 			clk_srcs[i].count = 1;
-		if(clk_srcs[i].flags & CLK_FLG_PARENT) {
+
+		if (clk_srcs[i].rate)
+			continue;
+		if (clk_srcs[i].flags & CLK_FLG_PARENT) {
 			int id = CLK_PARENT(clk_srcs[i].flags);
 			clk_srcs[i].parent = &clk_srcs[id];
 		}
-		if(!clk_srcs[i].parent) {
+		if (!clk_srcs[i].parent) {
 			clk_srcs[i].parent = &clk_srcs[CLK_ID_EXT0];
 		}
 		clk_srcs[i].rate = clk_srcs[i].parent->rate;
@@ -766,56 +741,33 @@ void __init init_all_clk(void)
 			clk_srcs[CLK_ID_PCLK].rate/1000/1000);
 }
 
-static int cpm_clear_bit_lock(int bit, unsigned int reg)
+
+static int cpm_clear_bit_lock(int bit)
 {
-    if (CPM_CLKGR0 == reg) {
-        //printk("%s, %d\n", __func__, __LINE__);
-        spin_lock(&clkgr0_lock);
-        cpm_clear_bit(bit, reg);
-        spin_unlock(&clkgr0_lock);
-        return 0;
-    }
-    if (CPM_CLKGR1 == reg) {
-        spin_lock(&clkgr1_lock);
-        cpm_clear_bit(bit, reg);
-        spin_unlock(&clkgr1_lock);
-        return 0;
-    }
-    return 0;
+	spin_lock(&clkgr_lock);
+	cpm_clear_bit(bit, CPM_CLKGR);
+	spin_unlock(&clkgr_lock);
+	return 0;
 }
 
-static int cpm_set_bit_lock(int bit, unsigned int reg)
+static int cpm_set_bit_lock(int bit)
 {
-    if (CPM_CLKGR0 == reg) {
-        spin_lock(&clkgr0_lock);
-        cpm_set_bit(bit, reg);
-        spin_unlock(&clkgr0_lock);
-        return 0;
-    }
-    if (CPM_CLKGR1 == reg) {
-        spin_lock(&clkgr1_lock);
-        cpm_set_bit(bit, reg);
-        spin_unlock(&clkgr1_lock);
-        return 0;
-    }
-    return 0;
+	spin_lock(&clkgr_lock);
+	cpm_set_bit(bit, CPM_CLKGR);
+	spin_unlock(&clkgr_lock);
+	return 0;
 }
+
 
 static int clk_gate_ctrl(struct clk *clk, int enable)
 {
 	int bit = CLK_GATE_BIT(clk->flags);
-	unsigned int off;
-
-	if(bit/32 == 0)
-		off = CPM_CLKGR0;
-	else
-		off = CPM_CLKGR1;
 
 	/* change clkgr atomic */
 	if(enable)
-		cpm_clear_bit_lock(bit%32,off);
+		cpm_clear_bit_lock(bit%32);
 	else
-		cpm_set_bit_lock(bit%32,off);
+		cpm_set_bit_lock(bit%32);
 
 	return 0;
 }
@@ -931,11 +883,34 @@ void clk_put(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_put);
 
+long clk_round_rate(struct clk *clk, unsigned long rate)
+{
+	unsigned long tmp = 0;
+	int i = 1 ,no , x;
 
-/*
- * The remaining APIs are optional for machine class support.
- */
-long clk_round_rate(struct clk *clk, unsigned long rate);
+	if (clk->source) {
+		clk = clk->source;
+		if (clk->flags | CLK_FLG_CGU) {
+			if(clk->parent == &clk_srcs[CLK_ID_EXT1])
+				return clk->parent->rate;
+			no = CLK_CGU_NO(clk->flags);
+			x = (1 << cgu_clks[no].div) - 1;
+			tmp = clk->parent->rate / cgu_clks[no].coe;
+			if (!strcmp(clk->name,CLK_NAME_CGU_AIC)) {
+				for (i = 1; i <= x+1; i++) {
+					if ((tmp / i) <= (rate / 1000 * 1005))
+						break;
+				}
+			} else {
+				for (i = 1; i <= x+1; i++) {
+					if ((tmp / i) <= rate)
+						break;
+				}
+			}
+		}
+	}
+	return tmp / i;
+}
 
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
@@ -977,18 +952,19 @@ struct clk *clk_get_parent(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_parent);
 
+
 int clk_start_ehci(void)
 {
 #ifdef CONFIG_SOC_4780
 
 	/* enable clock gate */
-	cpm_clear_bit_lock(24, CPM_CLKGR0);
+	cpm_clear_bit_lock(22, CPM_CLKGR);
 
 	/* UHC clock source is OTG_PHY */
-	cpm_set_bit(30, CPM_UHCCDR);
-	cpm_set_bit(31, CPM_UHCCDR);
+	cpm_clear_bit(30, CPM_UHCCDR);		
+	cpm_set_bit(31, CPM_UHCCDR);		
 
-	cpm_clear_bit(20, CPM_USBPCR);
+	cpm_clear_bit(20, CPM_USBPCR);		
 
 	/* The PLL uses CLKCORE as reference */
 	cpm_set_bit(26, CPM_USBPCR1);
@@ -999,7 +975,7 @@ int clk_start_ehci(void)
 	cpm_clear_bit(24, CPM_USBPCR1);
 
 	/* port1(uhc) hasn't forced to entered SUSPEND mode */
-	cpm_set_bit(6, CPM_OPCR);
+	//cpm_set_bit(6, CPM_OPCR);
 
 	/* The pull-down resistance on D-/D+ of port1 */
 	cpm_set_bit(22, CPM_USBPCR1);
@@ -1044,8 +1020,8 @@ static int clk_read_proc(char *page, char **start, off_t off,
 				, clk_srcs[i].count
 				, clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
 	}
-	PRINT("CLKGR0\t: %08x\nCLKGR1\t: %08x\n",
-			cpm_inl(CPM_CLKGR0),cpm_inl(CPM_CLKGR1));
+	PRINT("CLKGR\t: %08x\n",
+			cpm_inl(CPM_CLKGR));
 	return len;
 }
 
@@ -1054,17 +1030,16 @@ static int clk_write_proc(struct file *file, const char __user *buffer,
 {
 	int ret;
 	char buf[32];
-	unsigned int cgr0,cgr1;
+	unsigned int cgr;
 
 	if (count > 32)
 		count = 32;
 	if (copy_from_user(buf, buffer, count))
 		return -EFAULT;
 
-	ret = sscanf(buf,"0x%x@0x%x",&cgr0,&cgr1);
+	ret = sscanf(buf,"0x%x",&cgr);
 
-	if(ret >= 1) cpm_outl(cgr0,CPM_CLKGR0);
-	if(ret == 2) cpm_outl(cgr1,CPM_CLKGR1);
+	if(ret == 1) cpm_outl(cgr,CPM_CLKGR);
 
 	return count;
 }
