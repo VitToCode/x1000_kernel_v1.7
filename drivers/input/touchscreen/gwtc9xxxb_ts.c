@@ -27,12 +27,6 @@
 
 #include "gwtc9xxxb_ts.h"
 
-#ifdef CONFIG_ANDROID
-#define CONFIG_GWTC9XXXB_MULTITOUCH 1
-#else
-#define CONFIG_GWTC9XXXB_MULTITOUCH 0
-#endif
-
 #define PENUP_TIMEOUT_TIMER 1
 #define P2_PACKET_LEN 11
 #define P1_PACKET_LEN 5

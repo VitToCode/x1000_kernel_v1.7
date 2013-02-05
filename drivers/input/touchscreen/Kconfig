@@ -158,6 +158,12 @@ config TOUCHSCREEN_GWTC9XXXB
 	help
 	  gwtc9xxxb a CTP controller
 
+config GWTC9XXXB_MULTITOUCH
+	bool "Enable GWTC9xxxB TouchScreen Multitouch "
+	depends on TOUCHSCREEN_GWTC9XXXB 
+	default y
+	help
+
 config GWTC9XXXB_DEBUG
 	bool "Enable GWTC9xxxB TouchScreen driver Debug output"
 	depends on TOUCHSCREEN_GWTC9XXXB 
