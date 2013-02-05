@@ -1098,7 +1098,13 @@ static int cim_prepare_cdma(struct jz_cim *cim, unsigned long addr)
 	unsigned int capture_imgsize = cim->csize.w * cim->csize.h;
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->cdesc_vaddr;
 	CameraYUVMeta *yuv_meta_data = (CameraYUVMeta *) addr;
-	
+
+	if(!strcmp(cim->desc->name, "ov2650") && capture_imgsize > 1600 * 1200){ 
+		cim->csize.w = 1600;
+		cim->csize.h = 1200;
+		capture_imgsize = cim->csize.w * cim->csize.h;
+	}
+
 	for(i = 0; i < CDESC_NR; i++) {
 		desc[i].next = (dma_addr_t)(&cim->capture[i+1]);
 		desc[i].id 	= i;

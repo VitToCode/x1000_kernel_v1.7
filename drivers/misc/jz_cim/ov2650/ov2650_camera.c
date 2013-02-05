@@ -11,6 +11,8 @@
 #include "../cim_reg.h"
 
 static struct frm_size ov2650_capture_table[]= {
+	{2592, 1944},
+	{2048, 1536},
 	{1600,1200},
 	{1280,1024},
 	{1280,960},
@@ -23,6 +25,7 @@ static struct frm_size ov2650_capture_table[]= {
 };
 
 static struct frm_size ov2650_preview_table[]= {
+	{1280,720},
 	{800,600},
 	{640,480},
 	{352,288},

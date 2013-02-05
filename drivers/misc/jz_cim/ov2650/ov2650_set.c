@@ -7,10 +7,13 @@
 
 #define CAMERA_MODE_PREVIEW 0
 #define CAMERA_MODE_CAPTURE 1
+#define FPS_15 0
+#define FPS_7 1
 static int mode = CAMERA_MODE_CAPTURE;
 static int g_width = 800;
 static int g_height = 600;
 struct i2c_client * g_client ;
+static int fps = FPS_7;
 
 int ov2650_init(struct cim_sensor *sensor_info)
 {
@@ -123,7 +126,7 @@ static void capture_set_size_1600_1200(struct i2c_client *client)
 {
         ov2650_write_reg(client, 0x301d, 0x0f);
         ov2650_write_reg(client, 0x300e, 0x34);
-        ov2650_write_reg(client, 0x3011, 0x01);
+        ov2650_write_reg(client, 0x3011, fps);
         ov2650_write_reg(client, 0x3012, 0x00);
         ov2650_write_reg(client, 0x302A, 0x04);
         ov2650_write_reg(client, 0x302B, 0xd4);
@@ -210,6 +213,7 @@ void ov2650_capture_size_switch(struct i2c_client *client, int width, int height
     capture_set_size_1600_1200(client);
     if ((width == 1280 && height == 1024) ||
             (width == 1280 && height == 960) ||
+            (width == 1280 && height == 720) ||
             (width == 1024 && height == 768) ||
             (width == 800 && height == 600) ||
             (width == 640 && height == 480) ||
@@ -446,10 +450,18 @@ int ov2650_size_switch(struct cim_sensor *sensor_info,int width,int height)
                 (width == 176 && height == 144)) {
             ov2650_dcw_size_switch(client, width, height);
         } else if (!(width == 800 && height == 600)){
-            dev_err(&client->dev,"do not support size(%d, %d)\n", width, height); 
+		fps = FPS_15;
+		ov2650_capture_size_switch(client, width, height);
+//            dev_err(&client->dev,"do not support size(%d, %d)\n", width, height); 
         }
         start_ae(client);
     } else {
+	fps = FPS_7;
+	if ((width == 2592 && height == 1944) ||
+			(width == 2048 && height == 1536)) {
+		width = 1600;
+		height = 1200;
+	}
        init_capture_and_set_size(client, width, height); 
     }
 
