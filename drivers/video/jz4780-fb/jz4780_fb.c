@@ -1070,7 +1070,27 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	next_frm = var->yoffset / var->yres;
+
+        if ( var->yres == 720 || var->yres == 1080) { /* work around for HDMI device */
+            switch ( var->yoffset ) {
+                case 1440:
+                case (1080*2):
+                    next_frm = 2;
+                    break;
+                case 720:
+                case (1080*1):
+                    next_frm = 1;
+                    break;
+                default:
+                    next_frm = 0;
+                    break;
+            }
+        }
+        else
+            next_frm = var->yoffset / var->yres;
+
+        //printk(", next_frm=%d, var->yoffset=%d, var->yres=%d\n", next_frm, var->yoffset, var->yres);
+
 	jzfb->current_buffer = next_frm;
 
 	mutex_lock(&jzfb->framedesc_lock);
