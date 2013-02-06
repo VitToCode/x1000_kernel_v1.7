@@ -411,7 +411,7 @@ void set_read_retrial_mode(unsigned char *data)
                                 setdata[i] = off[0][i] == 0x00 ? 0x00 : (data[i] + off[0][i]);
                 } else {
                         for (i = 0; i < 4 ; i++)
-                                setdata[i] = off[0][i] == 0x00 ? 0x00 : (data[i] - off[count][i]);
+                                setdata[i] = off[count][i] == 0x00 ? 0x00 : (data[i] - off[count][i]);
                 }
                 g_pnand_io->send_cmd_norb(0x36);
                 g_pnand_io->send_addr(-1, 0xA7, 1);
