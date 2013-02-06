@@ -697,6 +697,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 							,templist->startPageID
 							,get_physical_addr(pnand_api, templist->startPageID)
 							,ret);
+                                        count = 0;
 					break;
 				}
 				ret = read_page_singlenode(pnand_api,templist->startPageID,
@@ -733,6 +734,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 							,templist->startPageID
 							,get_physical_addr(pnand_api, templist->startPageID)
 							,ret);
+                                        count = 0;
 					break;
 				}
 				ret = read_page_multinode(pnand_api,templist,opsmodel);
