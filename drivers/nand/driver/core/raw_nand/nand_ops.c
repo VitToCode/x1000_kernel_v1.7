@@ -406,12 +406,15 @@ void set_read_retrial_mode(unsigned char *data)
                 unsigned char setdata[4] = {0x00};
                 if(count == 7)
                         count = 0;
-                if (count == 0) {
-                        for (i = 0; i < 4 ; i++)
-                                setdata[i] = off[0][i] == 0x00 ? 0x00 : (data[i] + off[0][i]);
-                } else {
-                        for (i = 0; i < 4 ; i++)
-                                setdata[i] = off[count][i] == 0x00 ? 0x00 : (data[i] - off[count][i]);
+                else {
+                        for (i = 0; i < 4 ; i++) {
+                                if (count == 6)
+                                        setdata[i] = data[i];
+                                else if (count == 0)
+                                        setdata[i] = (off[0][i]==0x00) ? 0x00 : (data[i]+off[0][i]);
+                                else
+                                        setdata[i] = (off[count][i]==0x00) ? 0x00 : (data[i]-off[count][i]);
+                        }
                 }
                 g_pnand_io->send_cmd_norb(0x36);
                 g_pnand_io->send_addr(-1, 0xA7, 1);
