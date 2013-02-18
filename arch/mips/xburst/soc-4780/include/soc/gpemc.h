@@ -16,8 +16,58 @@
 #ifndef __SOC_GPEMC_H__
 #define __SOC_GPEMC_H__
 
+typedef enum {
+	byte = 8
+} bus_width_t;
+
+typedef enum  {
+	b4 = 4,
+	b8 = 8,
+	b16 = 16,
+	b32 = 32
+} brust_length_t;
+
+typedef enum {
+	normal,
+	brust
+} sram_type_t;
+
 struct gpemc_bank_timing {
 
+	/*
+	 * CS/ADDR/DATA(write)
+	 * ______<-------    Tah+Tas+2 cycles    ------> ________
+	 *       |______________________________________|
+	 *
+	 * WE/RD
+	 *       <---                    <---
+	 *           Tas                      Tah
+	 *              --->                        --->
+	 * ________________<---  Tw   --> _______________________
+	 *                 |_____________|
+	 * DATA(read)
+	 * ________________________         _____________________
+	 *                          |_______|
+	 *
+	 */
+
+	/* every timing parameter count in picoseconds */
+	u32 Tstrv;
+	u32 Taw;
+	u32 Tbp;
+	u32 Tah;
+	u32 Tas;
+
+	/* access attributes */
+	bus_width_t BW;
+	brust_length_t BL;
+	sram_type_t sram_type;
+};
+
+struct gpemc_toggle_bank_timing {
+	/*
+	 * TODO
+	 */
 };
 
 struct gpemc_bank {
