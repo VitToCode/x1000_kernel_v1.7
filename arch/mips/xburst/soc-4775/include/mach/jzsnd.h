@@ -59,13 +59,15 @@ enum snd_codec_route_t {
 	SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 	/*internal codec: record mic1 an1 to adclr replay hp stereo*/
 	SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
-	SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
-
+	SND_ROUTE_LINE1IN_BYPASS_TO_HP,
 	SND_ROUTE_LOOP_ROUTE_END = SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+
+	SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
 	/*
 	 *route count
 	 */
-	SND_ROUTE_COUNT = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	SND_ROUTE_COUNT,
+
 };
 
 struct snd_board_route {
