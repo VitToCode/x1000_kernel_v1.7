@@ -235,7 +235,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 {
 	struct jz_vpu *vpu = dev;
 	unsigned int vpu_stat;
-	vpu->status = 0;
+	//	vpu->status = 0;
 
 	vpu_stat = vpu_readl(vpu,REG_VPU_STAT);
 #define CLEAR_VPU_BIT(vpu,offset,bm)				\
