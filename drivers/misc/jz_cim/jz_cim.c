@@ -37,7 +37,10 @@
 #include <mach/jz_cim.h>
 #include "cim_reg.h"
 
-#define PDESC_NR	4
+//#define PDESC_NR	4
+#define GET_BUF 2
+#define SWAP_BUF 3
+#define SWAP_NR (GET_BUF+SWAP_BUF)
 #define CDESC_NR	1
 
 //#define KERNEL_INFO_PRINT
@@ -119,13 +122,16 @@ struct jz_cim {
 	unsigned long tlb_base;
 	unsigned long preview_output_format;
 	unsigned long capture_output_format;
-	CameraYUVMeta p_yuv_meta_data[PDESC_NR];
+    CameraYUVMeta p_yuv_meta_data[SWAP_NR];
+	//CameraYUVMeta p_yuv_meta_data[PDESC_NR];
 	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
 	int is_clock_enabled;
 };
 
 static unsigned int right_num = 0;
 static unsigned int err_num = 0;
+static int fresh_buf __read_mostly;
+
 
 static void cim_dump_reg(struct jz_cim *cim);
 static unsigned long inline reg_read(struct jz_cim *cim,int offset)
@@ -249,7 +255,8 @@ static inline unsigned long cim_get_iid(struct jz_cim *cim)
 
 static inline unsigned long check_iid(struct jz_cim *cim, unsigned long fid)
 {
-    if ( fid >= 0 && fid < PDESC_NR)
+    //if ( fid >= 0 && fid < PDESC_NR)
+    if ( fid >= 0 && fid < SWAP_BUF)
         return 1;
     else 
         return 0;
@@ -265,13 +272,15 @@ static inline unsigned long cim_get_and_check_iid(struct jz_cim *cim)
         fid = reg_read(cim,CIM_IID);;  //we'd better read IID as fast as we can after we go into irq
         fid2 = reg_read(cim,CIM_IID);;  //we'd better read IID as fast as we can after we go into irq
 
-        if(fid == fid2 && fid >= 0 && fid < PDESC_NR) {
+        //if(fid == fid2 && fid >= 0 && fid < PDESC_NR) {
+        if(fid == fid2 && fid >= 0 && fid < SWAP_BUF) {
             break;
         }
 
     } while (--loop);
 
-    if(fid < 0 || fid >= PDESC_NR) {
+    //if(fid < 0 || fid >= PDESC_NR) {
+    if(fid < 0 || fid >= SWAP_BUF) {
         dev_info(cim->dev, " ----------cim_get_and_check_iid iid %08lx, REG_CIM_IID = 0x%08lx \n",
                  fid, reg_read(cim,CIM_IID));
         fid = 0;
@@ -334,8 +343,10 @@ static void cim_dump_dma_desc(struct jz_cim *cim)
     if (!desc) return;
 
     printk("-----------------------------------------------------\n");
-    printk("\tcim->pdesc_vaddr= %p, PDESC_NR=%d\n", desc, PDESC_NR);
-    for (ddd=0; ddd<PDESC_NR; ddd++, desc++) {
+    //printk("\tcim->pdesc_vaddr= %p, PDESC_NR=%d\n", desc, PDESC_NR);
+    printk("\tcim->pdesc_vaddr= %p, SWAP_BUF=%d\n", desc, SWAP_BUF);
+   // for (ddd=0; ddd<PDESC_NR; ddd++, desc++) {
+     for (ddd=0; ddd<SWAP_BUF; ddd++, desc++) { // 3
         unsigned int *ppp = (unsigned int *)desc;
         printk("\tdesc%d= %p\n", ddd, desc);
         for (iii=0;iii<dma_desc_size; iii++)
@@ -648,7 +659,8 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 	state_reg = cim_read_state(cim);
 	fid = reg_read(cim,CIM_IID);
 
-        if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > 3 ) {
+        //if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > 3 ) {
+        if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > (SWAP_BUF-1) ) {
             dev_info(cim->dev,"cim irq %d -------------   cim irq  \tstate_reg= %#x fid=%#x CIM_IID=%#x\n",
                      irq_count, (unsigned int)state_reg,fid, (unsigned int)reg_read(cim,CIM_IID));
         }
@@ -706,13 +718,16 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 		if(cim->state == CS_PREVIEW){
 			bit_clr(cim,CIM_STATE,CIM_STATE_DMA_EOF);
 
+           spin_lock_irqsave(&cim->lock,flags);
 			fid = cim_get_and_check_iid(cim);  //we'd better read IID as fast as we can after we go into irq
 			dev_dbg(cim->dev,"irq eof preview, iid=%d fid %ld iid %ld\n", fid, reg_read(cim,CIM_FID),reg_read(cim,CIM_IID));
 
 			fid--;   //make sure it is not the buffer being used
-			if(fid == -1)
-				fid = PDESC_NR -1;
-			spin_lock_irqsave(&cim->lock,flags);
+			if(fid == -1) {
+               //fid = PDESC_NR -1; // 4 - 1
+				fid = SWAP_BUF -1; // 3 - 1
+            }
+			//spin_lock_irqsave(&cim->lock,flags);
 			cim->frm_id  = fid;
 			spin_unlock_irqrestore(&cim->lock,flags);
 			
@@ -776,6 +791,7 @@ static long cim_start_preview(struct jz_cim *cim)
 
 	cim->state = CS_PREVIEW;
 	cim->frm_id = -1;
+	fresh_buf = 0;
 
 	cim_disable(cim);
 	cim_power_on(cim);
@@ -867,6 +883,11 @@ static long cim_start_capture(struct jz_cim *cim)
 static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 {
     unsigned long addr ;
+	unsigned int cb_frame;
+	unsigned int cb_len;
+	unsigned int cr_frame;
+	unsigned int cr_len;
+
     unsigned long flags;
     int fid, loop;
     struct jz_cim_dma_desc * desc;
@@ -881,7 +902,8 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
         int got_id = 0;
         spin_lock_irqsave(&cim->lock,flags);
         fid = cim->frm_id;
-        if( fid > -1 && fid < PDESC_NR) {
+        //if( fid > -1 && fid < PDESC_NR) { //4
+        if( fid > -1 && fid < SWAP_BUF) { //3
             got_id = 1;
         }
         if (got_id) {
@@ -893,22 +915,61 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
             break;
         }
         else {
-            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(200))){
+            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(400))){
                 dev_err(cim->dev,"wait preview queue 200ms timeout! loop:%d\n", loop);
                 cim_dump_reg(cim);
             }
         }
     } while (loop--);
 
-    if( fid < 0 || fid >= PDESC_NR) {
+    //if( fid < 0 || fid >= PDESC_NR) { // 4
+    if( fid < 0 || fid >= SWAP_BUF) { // 3
         dev_err(cim->dev, " ---------- cim_get_preview_buf warnning fid=%d\n", fid);
         fid = 0;
     }
-
+    spin_lock_irqsave(&cim->lock,flags);
     desc  = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
+
+    // copy desc[fid] data
     addr =  desc[fid].buf;
-    if(addr == 0 || fid < 0 || fid >= PDESC_NR)
+
+    //swap desc[fid] and desc[SWAP_BUF + fresh_buf] data
+    desc[fid].buf = desc[SWAP_BUF + fresh_buf].buf; // 3 + ?
+
+    //copy desc[fid] data
+    desc[SWAP_BUF + fresh_buf].buf = addr;
+
+    if (cim->preview_output_format != CIM_BYPASS_YUV422I) {
+        cb_frame = desc[fid].cb_frame;
+        cr_frame = desc[fid].cr_frame;
+        cb_len = desc[fid].cb_len;
+        cr_len = desc[fid].cr_len;
+
+        //swap desc[fid] and desc[SWAP_BUF + fresh_buf] data
+        desc[fid].cb_frame = desc[SWAP_BUF + fresh_buf].cb_frame;
+        desc[fid].cr_frame = desc[SWAP_BUF + fresh_buf].cr_frame;
+        desc[fid].cb_len = desc[SWAP_BUF + fresh_buf].cb_len;
+        desc[fid].cr_len = desc[SWAP_BUF + fresh_buf].cr_len;
+
+         //copy desc[fid] data
+        desc[SWAP_BUF + fresh_buf].cb_frame = cb_frame;
+        desc[SWAP_BUF + fresh_buf].cr_frame = cr_frame;
+        desc[SWAP_BUF + fresh_buf].cb_len = cb_len;
+        desc[SWAP_BUF + fresh_buf].cr_len = cr_len;
+    }
+
+   // dma_cache_wback((unsigned long)(&desc[fid]), sizeof(struct jz_cim_dma_desc));
+
+    fresh_buf++; // 1
+    if (fresh_buf == GET_BUF) { //2
+        fresh_buf = 0;
+    }
+    spin_unlock_irqrestore(&cim->lock,flags);
+
+    //if(addr == 0 || fid < 0 || fid >= PDESC_NR)
+    if(addr == 0) {
         dev_info(cim->dev, " -------------  frm id %d  buf addr=%08lx, desc=%p\n", fid, addr, desc);
+    }
 
     return addr;
 }
@@ -1006,9 +1067,12 @@ static void cim_free_mem(struct jz_cim *cim)
 {
 	printk("__%s__\n", __func__);
 
-	if(cim->pdesc_vaddr)
-		dma_free_coherent(cim->dev, sizeof(*cim->preview) * PDESC_NR,
+	if(cim->pdesc_vaddr) {
+		//dma_free_coherent(cim->dev, sizeof(*cim->preview) * PDESC_NR,
+		//		cim->pdesc_vaddr, (dma_addr_t)cim->preview);
+        dma_free_coherent(cim->dev, sizeof(*cim->preview) * SWAP_NR,
 				cim->pdesc_vaddr, (dma_addr_t)cim->preview);
+    }
 	if(cim->cdesc_vaddr)
 		dma_free_coherent(cim->dev, sizeof(*cim->capture) * CDESC_NR,
 				cim->cdesc_vaddr, (dma_addr_t)cim->capture);
@@ -1018,8 +1082,11 @@ static int cim_alloc_mem(struct jz_cim *cim)
 {
 	printk("__%s__\n", __func__);
 
-	cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
-			sizeof(*cim->preview) * PDESC_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
+	//cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
+	//		sizeof(*cim->preview) * PDESC_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
+
+    cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
+			sizeof(*cim->preview) * SWAP_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
 
 	///cim->preview = kzalloc(sizeof(struct jz_cim_dma_desc) * PDESC_NR,GFP_KERNEL);
 	if (!cim->preview)
@@ -1045,7 +1112,8 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
 	
-	for(i=0;i<PDESC_NR;i++) {
+	//for(i=0;i<PDESC_NR;i++) {
+    for(i=0;i<SWAP_NR;i++) {
 		desc[i].next = (dma_addr_t)(&cim->preview[i+1]);
 		desc[i].id 	= i;
         if (cim->tlb_flag == 1) {
@@ -1087,7 +1155,13 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 		}
 	}
 
-	desc[PDESC_NR-1].next = (dma_addr_t)cim->preview;
+	//desc[PDESC_NR-1].next = (dma_addr_t)cim->preview; // 4 - 1
+    desc[SWAP_BUF-1].next = (dma_addr_t)(&cim->preview[0]); // 3 - 1
+
+    for (i = 0; i < GET_BUF; i++) { // 2
+        desc[SWAP_BUF + i].next = virt_to_phys(NULL);
+    }
+
 	//dma_cache_wback((unsigned long)(&cim->preview[0]), sizeof(struct jz_cim_dma_desc) *PDESC_NR);
 	return 0;
 }
