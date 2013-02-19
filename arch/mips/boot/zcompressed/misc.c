@@ -10,6 +10,9 @@
  *
  */
 
+#include <soc/base.h>
+#include <asm/addrspace.h>
+
 #define size_t	int
 #define NULL 0
 
@@ -99,16 +102,32 @@ static void gzip_release(void **);
  * Have a pleasant debug day.
  */
 
-#define CFG_UART_BASE	(0xB0031000)	/*default UART1,might be other address depend on different processor*/
+static volatile int uart_base;
+
 #define OFF_LSR		(0x14)
+#define OFF_LCR		(0x0C)
 #define OFF_TDR		(0x00)
+#define UART_OFF	0x1000
 #define UART_LSR_TDRQ	(1 << 5)        /* 1: transmit FIFO half "empty" */
 #define UART_LSR_TEMT	(1 << 6)	/* 1: transmit FIFO and shift registers empty */
 
+void check_uart(void)
+{
+	volatile char *base = (volatile char*)CKSEG1ADDR(UART0_IOBASE);
+	int i;
+	for(i=0; i<4; i++) {
+		if(base[OFF_LCR])
+			break;
+		base += UART_OFF;
+	}
+
+	uart_base = (int)base;
+}
+
 static void serial_putc (const char c)
 {
-	volatile char *uart_lsr = (volatile char *)(CFG_UART_BASE + OFF_LSR);
-	volatile char *uart_tdr = (volatile char *)(CFG_UART_BASE + OFF_TDR);
+	volatile char *uart_lsr = (volatile char *)(uart_base + OFF_LSR);
+	volatile char *uart_tdr = (volatile char *)(uart_base + OFF_TDR);
 
 	if (c == '\n') serial_putc ('\r');
 
@@ -270,6 +289,7 @@ void decompress_kernel(unsigned int imageaddr, unsigned int imagesize, unsigned 
 	free_mem_ptr = (unsigned long)_end;
 	free_mem_end_ptr = free_mem_ptr + HEAP_SIZE;
 
+	check_uart();
 	makecrc();
 	puts("Uncompressing Linux...\n");
 	gunzip();
