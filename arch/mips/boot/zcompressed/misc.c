@@ -12,6 +12,7 @@
 
 #include <soc/base.h>
 #include <asm/addrspace.h>
+#include <stdarg.h>
 
 #define size_t	int
 #define NULL 0
@@ -142,6 +143,80 @@ static void puts(const char *s)
 		serial_putc (*s++);
 	}
 }
+
+static int hex2asc(int n)
+{
+    n &= 15;
+    if(n > 9){
+        return ('a' - 10) + n;
+    } else {
+        return '0' + n;
+    }
+}
+
+int printf(char *fmt,...)
+{
+   va_list ap;
+   char scratch[16];
+   va_start(ap,fmt);
+
+    for(;;){
+        switch(*fmt){
+        case 0:
+            va_end(ap);
+            return 0;
+        case '%':
+            switch(fmt[1]) {
+            case 'p':
+            case 'X':
+            case 'x': {
+                unsigned n = va_arg(ap, unsigned);
+                char *p = scratch + 15;
+                *p = 0;
+                do {
+                    *--p = hex2asc(n);
+                    n = n >> 4; 
+                } while(n != 0);
+                while(p > (scratch + 7)) *--p = '0';
+ 		while (*p) serial_putc(*p++);
+                fmt += 2;
+                continue;
+            }
+            case 'd': {
+                int n = va_arg(ap, int);
+                char *p = scratch + 15;
+                *p = 0;
+                if(n < 0) {
+                    serial_putc('-');
+                    n = -n;
+                }
+                do {
+                    *--p = (n % 10) + '0';
+                    n /= 10;
+                } while(n != 0);
+ 		while (*p) serial_putc(*p++);
+                fmt += 2;
+                continue;
+            }
+            case 's': {
+                char *s = va_arg(ap, char*);
+                if(s == 0) s = "(null)";
+ 		while (*s) serial_putc(*s++);
+                fmt += 2;
+                continue;
+            }
+            }
+            serial_putc(*fmt++);
+            break;
+        case '\n':
+            serial_putc('\r');
+        default:
+            serial_putc(*fmt++);
+        }
+    }
+}
+
+
 #else
 static void puts(const char *str)
 {
@@ -295,4 +370,17 @@ void decompress_kernel(unsigned int imageaddr, unsigned int imagesize, unsigned 
 	gunzip();
 	flushcaches();
 	puts("Ok, booting the kernel.\n");
+#if 0
+	{
+		int i;
+		int *p = loadaddr;
+		for(i=0;i<512;i++)
+		{
+			if(i%4 == 0)
+				printf("\n");
+			printf("%x ",p[i]);
+		}
+		printf("\n");
+	}
+#endif
 }
