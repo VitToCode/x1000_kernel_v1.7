@@ -74,7 +74,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	UART1_PORTD,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART2
-	UART2_PORTD,
+	UART2_PORTC,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 #endif
