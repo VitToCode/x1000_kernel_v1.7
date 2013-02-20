@@ -127,9 +127,6 @@ static int freq_table_prepare(void)
 	unsigned int max_rate = 0;
 	unsigned int talbe_tmp[CPUFREQ_NR];
 
-	if (freq_table[0].frequency != 0)
-		return 0;
-
 	sclka = clk_get(NULL,"sclka");
 	if (IS_ERR(sclka)) {
 		return -EINVAL;
@@ -149,12 +146,12 @@ static int freq_table_prepare(void)
 	apll_rate = clk_get_rate(apll) / 1000;
 	mpll_rate = clk_get_rate(mpll) / 1000;
 	cparent = clk_get_parent(cpu_clk);
-	memset(freq_table,0,sizeof(freq_table));
 
-#define _FREQ_TAB(in, fr)				\
-	freq_table[in].index = in;			\
-	freq_table[in].frequency = fr
 	freq_gate = mpll_rate;
+	freq_high = mpll_rate;
+
+	if (freq_table[0].frequency != 0)
+		goto done;
 
 	if (clk_is_enabled(apll)) {
 		freq_high = apll_rate;
@@ -175,7 +172,6 @@ static int freq_table_prepare(void)
 			max_rate -= APLL_FREQ_STEP;
 		}
 	} else {
-		freq_high = mpll_rate;
 		max_rate = mpll_rate;
 	}
 
@@ -186,6 +182,10 @@ static int freq_table_prepare(void)
 
 	talbe_tmp[i] = ~1;
 
+	memset(freq_table,0,sizeof(freq_table));
+#define _FREQ_TAB(in, fr)				\
+	freq_table[in].index = in;			\
+	freq_table[in].frequency = fr
 	for (j = 0; j <= i; j++) {
 		int k, in = 0;
 		unsigned int ft = ~1;
@@ -201,7 +201,7 @@ static int freq_table_prepare(void)
 	}
 	_FREQ_TAB(j, CPUFREQ_TABLE_END);
 #undef _FREQ_TAB
-
+done:
 	clk_put(apll);
 	clk_put(sclka);
 	clk_put(mpll);
