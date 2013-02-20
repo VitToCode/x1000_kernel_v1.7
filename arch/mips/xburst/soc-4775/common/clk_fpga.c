@@ -145,8 +145,6 @@ enum {
 	CLK_ID_DDR1,
 #define CLK_NAME_DDR1		"ddr1"
 	/**********************************************************************************/
-	CLK_ID_I2C3,
-#define CLK_NAME_I2C3		"i2c3"
 	CLK_ID_TSSI1,
 #define CLK_NAME_TSSI1		"tssi1"
 	CLK_ID_VPU,
@@ -169,8 +167,6 @@ enum {
 #define CLK_NAME_UART4		"uart4"
 	CLK_ID_AHB_MON,
 #define CLK_NAME_AHB_MON 	"ahb_mon"
-	CLK_ID_I2C4,
-#define CLK_NAME_I2C4		"i2c4"
 	CLK_ID_DES,
 #define CLK_NAME_DES		"des"
 	CLK_ID_X2D,
@@ -277,7 +273,6 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(IPU0,   	GATE(29)),
 	DEF_CLK(DDR0,  		GATE(30)),
 	DEF_CLK(DDR1,  		GATE(31)),
-	DEF_CLK(I2C3,  		GATE(32+0)| PARENT(PCLK)),
 	DEF_CLK(TSSI1, 		GATE(32+1)),
 	DEF_CLK(VPU,		GATE(32+2)),
 	DEF_CLK(PCM,		GATE(32+3)),
@@ -289,7 +284,6 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(HDMI,		GATE(32+9)),
 	DEF_CLK(UART4,		GATE(32+10) | PARENT(EXT1)),
 	DEF_CLK(AHB_MON,	GATE(32+12)),
-	DEF_CLK(I2C4,		GATE(32+13)| PARENT(PCLK)),
 	DEF_CLK(DES,		GATE(32+14)),
 	DEF_CLK(X2D,		GATE(32+15)),
 	DEF_CLK(P1,		GATE(32+16)),

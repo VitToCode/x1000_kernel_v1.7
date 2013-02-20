@@ -40,8 +40,6 @@ enum jzdma_req_type {
 	_RTP(I2C0),
 	_RTP(I2C1),
 	_RTP(I2C2),
-	_RTP(I2C3),
-	_RTP(I2C4),
 	_RTP(DES),
 #undef _RTP
 };
@@ -68,8 +66,6 @@ enum jzdma_type {
 	_RTP(I2C0),
 	_RTP(I2C1),
 	_RTP(I2C2),
-	_RTP(I2C3),
-	_RTP(I2C4),
 	_RTP(DES),
 	JZDMA_REQ_NAND0 = JZDMA_REQ_AUTO_TXRX | (1 << 16),
 	JZDMA_REQ_NAND1 = JZDMA_REQ_AUTO_TXRX | (2 << 16),

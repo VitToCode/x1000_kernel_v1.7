@@ -95,20 +95,14 @@ static int __init board_init(void)
 	platform_device_register(&jz_pdma_device);
 #endif
 /* i2c */
-#ifdef CONFIG_I2C0_JZ4780
+#ifdef CONFIG_I2C0_JZ4775
 	platform_device_register(&jz_i2c0_device);
 #endif
-#ifdef CONFIG_I2C1_JZ4780
+#ifdef CONFIG_I2C1_JZ4775
 	platform_device_register(&jz_i2c1_device);
 #endif
-#ifdef CONFIG_I2C2_JZ4780
+#ifdef CONFIG_I2C2_JZ4775
 	platform_device_register(&jz_i2c2_device);
-#endif
-#ifdef CONFIG_I2C3_JZ4780
-	platform_device_register(&jz_i2c3_device);
-#endif
-#ifdef CONFIG_I2C4_JZ4780
-	platform_device_register(&jz_i2c4_device);
 #endif
 
 /* ipu */

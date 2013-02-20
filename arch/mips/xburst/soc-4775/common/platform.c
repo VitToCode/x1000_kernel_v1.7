@@ -50,22 +50,14 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_MMC2_JZ4775_PE_4BIT
 	MSC2_PORTE,
 #endif
-#ifdef CONFIG_I2C0_JZ4780
+#ifdef CONFIG_I2C0_JZ4775
 	I2C0_PORTD,
 #endif
-#ifdef CONFIG_I2C1_JZ4780
+#ifdef CONFIG_I2C1_JZ4775
 	I2C1_PORTE,
 #endif
-#ifdef CONFIG_I2C2_JZ4780
-	I2C2_PORTF,
-#endif
-#ifdef CONFIG_I2C3_JZ4780
-#endif
-#ifdef CONFIG_I2C4_JZ4780_PE3
-#endif
-#ifdef CONFIG_I2C4_JZ4780_PE12
-#endif
-#ifdef CONFIG_I2C4_JZ4780_PF
+#ifdef CONFIG_I2C2_JZ4775
+	I2C2_PORTE,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	UART0_PORTF,
@@ -238,10 +230,6 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_I2C1,
 		JZDMA_REQ_I2C2,
 		JZDMA_REQ_I2C2,
-		JZDMA_REQ_I2C3,
-		JZDMA_REQ_I2C3,
-		JZDMA_REQ_I2C4,
-		JZDMA_REQ_I2C4,
 		JZDMA_REQ_DES,
 	},
 };
@@ -317,8 +305,6 @@ struct platform_device jz_i2c##NO##_device = {					\
 DEF_I2C(0);
 DEF_I2C(1);
 DEF_I2C(2);
-DEF_I2C(3);
-DEF_I2C(4);
 
 /**
  * sound devices, include i2s,pcm, mixer0 - 1(mixer is used for debug) and an internal codec
