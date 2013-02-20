@@ -34,6 +34,10 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_MMC0_JZ4775_PE_4BIT
 	MSC0_PORTE,
 #endif
+#ifdef CONFIG_MMC0_JZ4780_PA_4BIT_RESET
+#endif
+#ifdef CONFIG_MMC0_JZ4780_PA_8BIT_RESET
+#endif
 #ifdef CONFIG_MMC1_JZ4775_PD_4BIT
 	MSC1_PORTD,
 #endif
@@ -56,16 +60,12 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	I2C2_PORTF,
 #endif
 #ifdef CONFIG_I2C3_JZ4780
-	I2C3_PORTD,
 #endif
 #ifdef CONFIG_I2C4_JZ4780_PE3
-	I2C4_PORTE_OFF3,
 #endif
 #ifdef CONFIG_I2C4_JZ4780_PE12
-	I2C4_PORTE_OFF12,
 #endif
 #ifdef CONFIG_I2C4_JZ4780_PF
-	I2C4_PORTF,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	UART0_PORTF,
@@ -77,10 +77,8 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	UART2_PORTD,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
-	UART3_JTAG,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
-	UART4_PORTC,
 #endif
 #ifdef CONFIG_NAND_COMMON
 	NAND_PORTAB_COMMON,
@@ -95,18 +93,14 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	NAND_PORTA_CS3,
 #endif
 #ifdef CONFIG_NAND_CS4
-	NAND_PORTA_CS4,
 #endif
 #ifdef CONFIG_NAND_CS5
-	NAND_PORTA_CS5,
 #endif
 #ifdef CONFIG_NAND_CS6
-	NAND_PORTA_CS6,
 #endif
 
 #ifdef	CONFIG_SOUND_I2S_JZ4780
 #ifndef CONFIG_JZ_INTERNAL_CODEC
-	I2S_PORTDE,
 #endif
 #endif
 #ifdef CONFIG_SOUND_PCM_JZ47XX
@@ -117,7 +111,6 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #else
 	LCD_PORTC,
 #endif
-	HDMI_PORTF,
 
 #ifdef CONFIG_JZ_PWM_GPIO_E0
 	PWM_PORTE_BIT0,
@@ -132,20 +125,15 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	PWM_PORTE_BIT3,
 #endif
 #ifdef CONFIG_JZ_PWM_GPIO_E4
-	PWM_PORTE_BIT4,
 #endif
 #ifdef CONFIG_JZ_PWM_GPIO_E5
-	PWM_PORTE_BIT5,
 #endif
 #ifdef CONFIG_JZ_PWM_GPIO_D10
-	PWM_PORTD_BIT10,
 #endif
 #ifdef CONFIG_JZ_PWM_GPIO_D11
-	PWM_PORTD_BIT11,
 #endif
 
 #ifdef CONFIG_JZ_MAC
-	MII_PORTBDF,
 #endif
 #if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
 	OTG_DRVVUS,
@@ -155,23 +143,18 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 
 #ifdef CONFIG_SPI0_JZ4780_PB
-       SSI0_PORTB,
 #endif
 #ifdef CONFIG_SPI0_JZ4780_PD
        SSI0_PORTD,
 #endif
 #ifdef CONFIG_SPI0_JZ4780_PE
-       SSI0_PORTE,
 #endif
 
 #ifdef CONFIG_SPI1_JZ4780_PB
-       SSI1_PORTB,
 #endif
 #ifdef CONFIG_SPI1_JZ4780_PD
-       SSI1_PORTD,
 #endif
 #ifdef CONFIG_SPI1_JZ4780_PE
-       SSI1_PORTE,
 #endif
 
 };
