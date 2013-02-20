@@ -17,75 +17,140 @@
 #define __SOC_GPEMC_H__
 
 typedef enum {
-	byte = 8
+	bank_type_sram = 0,
+	bank_type_nand,
+	bank_type_toggle
+} bank_type_t;
+
+typedef enum {
+	bus_width_8 = 0
 } bus_width_t;
 
 typedef enum  {
-	b4 = 4,
-	b8 = 8,
-	b16 = 16,
-	b32 = 32
-} brust_length_t;
+	burst_length_4 = 0,
+	burst_length_8,
+	burst_length_16,
+	burst_length_32
+} burst_length_t;
 
 typedef enum {
-	normal,
-	brust
+	sram_type_normal = 0,
+	sram_type_burst
 } sram_type_t;
 
-struct gpemc_bank_timing {
+typedef struct {
+	struct {
 
-	/*
-	 * CS/ADDR/DATA(write)
-	 * ______<-------    Tah+Tas+2 cycles    ------> ________
-	 *       |______________________________________|
-	 *
-	 * WE/RD
-	 *       <---                    <---
-	 *           Tas                      Tah
-	 *              --->                        --->
-	 * ________________<---  Tw   --> _______________________
-	 *                 |_____________|
-	 * DATA(read)
-	 * ________________________         _____________________
-	 *                          |_______|
-	 *
-	 */
+		/*
+		 * CS/ADDR/DATA(write)
+		 * ______<-------    Tah+Tas+Taw<+2>    ------> ________
+		 *       |_____________________________________|
+		 *       +                                     +
+		 *       |         +             +             |
+		 *       |<--Tas-->|             |             |
+		 *       +         |             |<--- Tah --->|
+		 * WE/RD           |<--- Taw --->|             +
+		 * ________________+             +_______________________
+		 *                 |_____________|
+		 * DATA(read)
+		 * _________________________         ____________________
+		 *                          |_______|
+		 *
+		 */
 
-	/* every timing parameter count in picoseconds */
-	u32 Tstrv;
-	u32 Taw;
-	u32 Tbp;
-	u32 Tah;
-	u32 Tas;
+		/* every timing parameter count in nanoseconds */
+		u32 Tstrv;
+		u32 Taw;
+		u32 Tbp;
+		u32 Tah;
+		u32 Tas;
 
-	/* access attributes */
-	bus_width_t BW;
-	brust_length_t BL;
-	sram_type_t sram_type;
-};
+		/* access attributes */
+		bus_width_t BW;
+		burst_length_t BL;
+		sram_type_t sram_type;
+	} sram_timing;
 
-struct gpemc_toggle_bank_timing {
 	/*
 	 * TODO
 	 */
-};
+	struct {
+		u32 Trv;
+		u32 Trw;
+		u32 Tww;
+		u32 Tah;
+		u32 Tas;
+		u32 Tdpht;
+		u32 Tdqsre;
+		u32 Tfda;
+		u32 Tclr;
+		u32 Tdphtd;
+		u32 Tcdqss;
+		u32 Tcwaw;
+	} toggle_timing;
+} gpemc_bank_timing_t;
 
-struct gpemc_bank {
+typedef struct {
+	u32 Tcls;
+	u32 Tclh;
+
+	u32 Tals;
+	u32 Talh;
+
+	u32 Tcs;
+	u32 Tch;
+
+	u32 Tds;
+	u32 Tdh;
+
+	u32 Twp;
+	u32 Twc;
+
+	bus_width_t BW;
+
+	/* this parameter was preformed by busy wait */
+	u32 Tadl;
+} common_nand_timing_t;
+
+typedef struct {
+	/*
+	 * TODO
+	 */
+} toggle_nand_timing_t;
+
+typedef struct {
+	/*
+	 * TODO
+	 */
+} sram_timing_t;
+
+typedef struct {
 	int cs;
+	bank_type_t bank_type;
+	gpemc_bank_timing_t bank_timing;
+
 	void __iomem *io_base;
-	struct gpemc_bank_timing bank_timing;
 
 	void __iomem *io_nand_dat;
 	void __iomem *io_nand_addr;
 	void __iomem *io_nand_cmd;
-};
+} gpemc_bank_t;
 
-#define GPEMC_NAND_BANK_DATA_OFFSET	0
-#define GPEMC_NAND_BANK_ADDR_OFFSET	0x800000
-#define GPEMC_NAND_BANK_CMD_OFFSET	0x400000
+extern int gpemc_request_cs(gpemc_bank_t *bank, int cs);
+extern void gpemc_release_cs(gpemc_bank_t *bank);
 
-extern struct gpemc_bank *gpemc_request_cs(int cs);
-extern void gpemc_release_cs(struct gpemc_bank* bank);
-extern int gpemc_config_bank_timing(struct gpemc_bank_timing *timing);
+extern int gpemc_config_bank_timing(gpemc_bank_t *bank);
+extern int gpemc_config_toggle_bank_timing(gpemc_bank_t *bank);
+
+extern void gpemc_set_bank_as_common_nand(gpemc_bank_t *bank);
+extern void gpemc_set_bank_as_toggle_nand(gpemc_bank_t *bank);
+extern void gpemc_set_bank_as_sram(gpemc_bank_t *bank);
+extern bank_type_t gpemc_get_bank_type(gpemc_bank_t *bank);
+
+extern void gpemc_enable_nand_flash(gpemc_bank_t *bank, bool enable);
+
+extern void gpemc_fill_timing_from_nand(gpemc_bank_t *bank, common_nand_timing_t *timing);
+extern void gpemc_fill_timing_from_toggle(gpemc_bank_t *bank, toggle_nand_timing_t *timing);
+extern void gpemc_fill_timing_from_sram(gpemc_bank_t *bank, sram_timing_t *timing);
 
 #endif
