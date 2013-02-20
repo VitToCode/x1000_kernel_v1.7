@@ -68,6 +68,7 @@ struct mg8698s_ts_data {
 	struct regulator *power;
 	struct early_suspend early_suspend;
 	struct work_struct  work;
+	struct delayed_work release_work;
 	struct workqueue_struct *workqueue;
 };
 
@@ -88,7 +89,7 @@ static int mg8698s_i2c_Read(struct i2c_client *client,
 {
 	int ret;
 
-    struct mg8698s_ts_data *mg8698s_ts = i2c_get_clientdata(client);
+    //struct mg8698s_ts_data *mg8698s_ts = i2c_get_clientdata(client);
     struct i2c_msg msgs[] = {
         {
             .addr = client->addr,
@@ -98,10 +99,10 @@ static int mg8698s_i2c_Read(struct i2c_client *client,
         },
     };
     ret = i2c_transfer(client->adapter, msgs, 1);
-    if (ret < 0){
-        dev_err(&client->dev, "%s:i2c read error.\n", __func__);
-        mg8698s_ts_reset(mg8698s_ts);
-    }
+    //if (ret < 0){
+    //    dev_err(&client->dev, "%s:i2c read error.\n", __func__);
+    //    mg8698s_ts_reset(mg8698s_ts);
+    //}
 	return ret;
 }
 
@@ -113,6 +114,14 @@ static void mg8698s_ts_release(struct mg8698s_ts_data *data)
 	input_sync(data->input_dev);
 }
 
+
+static void tsc_release(struct work_struct *work)
+{
+    struct mg8698s_ts_data *ts = 
+        container_of(work, struct mg8698s_ts_data, release_work.work);
+    mg8698s_ts_release(ts);
+}
+
 /*Read touch point information when the interrupt  is asserted.*/
 static int mg8698s_read_touchdata(struct mg8698s_ts_data *data)
 {
@@ -120,10 +129,15 @@ static int mg8698s_read_touchdata(struct mg8698s_ts_data *data)
 	u8 buf[POINT_READ_BUF] = { 0 };
 	int ret = -1;
 
+    if (delayed_work_pending(&data->release_work)) {
+        cancel_delayed_work_sync(&data->release_work);
+    }
+
 	memset(event, 0, sizeof(struct ts_event));
 	event->touch_point = 0;
 	ret = mg8698s_i2c_Read(data->client, buf, POINT_READ_BUF);
 	if (ret < 0) {
+        schedule_delayed_work(&data->release_work, HZ / 2);
 		return ret;
 	}
 
@@ -216,7 +230,9 @@ static int mg8698s_report_value(struct mg8698s_ts_data *data)
 				event->weight[i]);
 		input_mt_sync(data->input_dev);
 	}
-	input_sync(data->input_dev);
+
+    input_sync(data->input_dev);
+
 	return 0;
 }
 
@@ -459,6 +475,7 @@ static int mg8698s_ts_probe(struct i2c_client *client,
 	mg8698s_ts_power_on(mg8698s_ts);
 
 	INIT_WORK(&mg8698s_ts->work, tsc_work_handler);
+	INIT_DELAYED_WORK(&mg8698s_ts->release_work, tsc_release);
 	mg8698s_ts->workqueue = create_singlethread_workqueue("mg8698s_tsc");
 
 	client->irq = gpio_to_irq(mg8698s_ts->gpio.irq->num);
@@ -581,6 +598,7 @@ static void mg8698s_ts_suspend(struct early_suspend *handler)
 
 	flush_workqueue(ts->workqueue);
 	cancel_work_sync(&ts->work);
+	cancel_delayed_work_sync(&ts->release_work);
 
 	mg8698s_ts_power_off(ts);
 	set_pin_status(ts->gpio.wake, 0);

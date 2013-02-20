@@ -13,6 +13,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/pmu-common.h>
 #include <linux/i2c.h>
+#include <linux/cpufreq.h>
 #include <gpio.h>
 
 /**
@@ -180,3 +181,17 @@ static int __init npm801_pmu_dev_init(void)
 }
 
 subsys_initcall_sync(npm801_pmu_dev_init);
+
+struct cpufreq_frequency_table  freq_table[] = {
+    {1,   400  * 1000},
+    {2,   600  * 1000},
+    {3,   720  * 1000},
+    {4,   816  * 1000},
+    {5,   912  * 1000},
+    {6,   1008 * 1000},
+    {7,   1200 * 1000},
+    {8,   1344 * 1000},
+    {9,   1440 * 1000},
+    {10,   1536 * 1000},
+    {11,  CPUFREQ_TABLE_END},
+};
