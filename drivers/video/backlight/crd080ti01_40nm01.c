@@ -71,7 +71,10 @@ static void crd080ti01_40nm01_on(struct crd080ti01_40nm01_data *dev)
 static void crd080ti01_40nm01_off(struct crd080ti01_40nm01_data *dev)
 {
         dev->lcd_power = 0;
-        regulator_disable(dev->lcd_vcc_reg);
+        while(regulator_is_enabled(dev->lcd_vcc_reg)) {
+            regulator_disable(dev->lcd_vcc_reg);
+            printk("%s----%d\n",__func__,__LINE__);
+        }
 
 	mdelay(30);
 }
