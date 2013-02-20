@@ -16,7 +16,7 @@ if NAND
 
 config NAND_JZ4780
 	bool "Support NAND Flash device on JZ4780"
-        depends on SOC_4780 && NAND
+        depends on (SOC_4780 || SOC_4775) && NAND
         default y
 
 choice

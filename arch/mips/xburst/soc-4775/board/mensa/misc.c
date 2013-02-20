@@ -37,91 +37,6 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
-#ifdef CONFIG_JZ4775_SURPORT_TSC
-static struct jztsc_pin tsc_gpio[] = {
-	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
-	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
-};
-
-static struct jztsc_platform_data tsc_pdata = {
-	.gpio		= tsc_gpio,
-	.x_max		= 800,
-	.y_max		= 480,
-};
-
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-	i2c_board_info i2c0_devs[] __initdata = {
-	{
-		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-		.platform_data = &tsc_pdata,
-	},
-};
-#endif
-#endif
-
-#ifdef CONFIG_SPI_JZ4780
-#ifdef CONFIG_SPI0_JZ4780
-static struct spi_board_info jz_spi0_board_info[] = {
-       [0] = {
-	       .modalias       = "spidev",
-	       .bus_num	       = 0,
-	       .chip_select    = 0,
-	       .max_speed_hz   = 1200000,
-       },
-};
-
-struct jz47xx_spi_info spi0_info_cfg = {
-       .chnl = 0,
-       .bus_num = 0,
-       .max_clk = 54000000,
-       .num_chipselect = 2,
-};
-#endif
-
-#ifdef CONFIG_SPI1_JZ4780
-static struct spi_board_info jz_spi1_board_info[] = {
-    [0] = {
-	       .modalias       = "spidev",
-	       .bus_num	       = 1,
-	       .chip_select    = 1,
-	       .max_speed_hz   = 120000,
-    },
-};
-
-struct jz47xx_spi_info spi1_info_cfg = {
-       .chnl = 1,
-       .bus_num = 1,
-       .max_clk = 54000000,
-       .num_chipselect = 2,
-};
-#endif
-#endif
-
-#if defined(CONFIG_SPI_GPIO)
-static struct spi_gpio_platform_data jz4780_spi_gpio_data = {
-	.sck	= (4*32 + 15),
-	.mosi	= (4*32 + 17),
-	.miso	= (4*32 + 14),
-	.num_chipselect	= 2,
-};
-
-static struct platform_device jz4780_spi_gpio_device = {
-	.name	= "spi_gpio",
-	.dev	= {
-		.platform_data = &jz4780_spi_gpio_data,
-	},
-};
-
-static struct spi_board_info jz_spi0_board_info[] = {
-       [0] = {
-	       .modalias       = "spidev",
-	       .bus_num	       = 0,
-	       .chip_select    = 0,
-	       .max_speed_hz   = 120000,
-       },
-};
-#endif
-
 
 static int __init board_init(void)
 {
@@ -156,12 +71,9 @@ static int __init board_init(void)
 
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &inand_pdata);
-#endif
-#ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &tf_pdata);
 #endif
-#ifdef CONFIG_MMC2_JZ4780
+#ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc2_device, &sdio_pdata);
 #endif
 

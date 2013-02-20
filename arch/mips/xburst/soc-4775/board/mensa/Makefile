@@ -1,2 +1,2 @@
 
-obj-y += misc.o lcd.o pm.o
+obj-y += misc.o lcd.o pm.o nand.o
