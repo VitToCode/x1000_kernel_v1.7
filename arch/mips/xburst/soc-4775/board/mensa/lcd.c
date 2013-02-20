@@ -21,52 +21,8 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-#ifdef CONFIG_LCD_AT070TN93
-//#define GPIO_LCD_PWM GPIO_PE(0)
-#define GPIO_LCD_PWM GPIO_PE(1)
+#include "board.h"
 
-static struct platform_at070tn93_data at070tn93_pdata= {
-	.gpio_power = GPIO_PC(9),
-	.gpio_vsync = GPIO_PC(19),
-	.gpio_hsync = GPIO_PC(18),
-	.gpio_reset = GPIO_PE(11),
-};
-
-struct platform_device at070tn93_device = {
-	.name		= "at070tn93-lcd",
-	.dev		= {
-		.platform_data	= &at070tn93_pdata,
-	},
-};
-
-#endif
-
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-struct platform_device auo_a043fl01v2_device = {
-	.name		= "auo_a043fl01v2-lcd",
-	.dev		= {
-		.platform_data	= NULL,
-	},
-};
-#endif
-
-#ifdef CONFIG_LCD_KD50G2_40NM_A2
-#include <linux/kd50g2_40nm_a2.h>
-static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
-	.gpio_lcd_disp = GPIO_PD(11),
-	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
-	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
-	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
-};
-
-/* LCD device */
-struct platform_device kd50g2_40nm_a2_device = {
-	.name		= "kd50g2_40nm_a2-lcd",
-	.dev		= {
-		.platform_data = &kd50g2_40nm_a2_pdata,
-	},
-};
-#endif
 
 /**************************************************************************************************/
 struct fb_videomode jzfb0_videomode[] = {
@@ -78,6 +34,23 @@ struct fb_videomode jzfb0_videomode[] = {
 };
 
 struct fb_videomode jzfb1_videomode = {
+#ifdef CONFIG_LCD_BYD_BM8766U
+	.name = "800x480",
+	.refresh = 55,
+	.xres = 800,
+	.yres = 480,
+	.pixclock = KHZ2PICOS(33260),
+	.left_margin = 88,
+	.right_margin = 2,
+	.upper_margin = 8,
+	.lower_margin = 2,
+	.hsync_len = 2,
+	.vsync_len = 2,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
+#endif
+
 #ifdef CONFIG_LCD_AT070TN93
 	.name = "800x480",
 	.refresh = 55,
@@ -148,6 +121,22 @@ struct jzfb_platform_data jzfb0_pdata = {
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
+#ifdef CONFIG_LCD_BYD_BM8766U
+	.num_modes = 1,
+	.modes = &jzfb1_videomode,
+
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 1,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+#endif
+
+
 #ifdef CONFIG_LCD_AT070TN93
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,
@@ -198,7 +187,6 @@ struct jzfb_platform_data jzfb1_pdata = {
 #ifdef CONFIG_BACKLIGHT_PWM
 static int backlight_init(struct device *dev)
 {
-#if 0
 	int ret;
 	ret = gpio_request(GPIO_LCD_PWM, "Backlight");
 	if (ret) {
@@ -208,15 +196,13 @@ static int backlight_init(struct device *dev)
 
 	/* Configure GPIO pin with S5P6450_GPF15_PWM_TOUT1 */
 	gpio_direction_output(GPIO_LCD_PWM, 0);
-#endif
+
 	return 0;
 }
 
 static void backlight_exit(struct device *dev)
 {
-#if 0
 	gpio_free(GPIO_LCD_PWM);
-#endif
 }
 
 static struct platform_pwm_backlight_data backlight_data = {

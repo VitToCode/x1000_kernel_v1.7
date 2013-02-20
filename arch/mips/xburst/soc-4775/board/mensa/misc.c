@@ -14,12 +14,40 @@
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
+#ifdef GPIO_HOME
 	{
-		.gpio		= GPIO_PF(29),
+		.gpio		= GPIO_HOME,
 		.code   	= KEY_HOME,
 		.desc		= "home key",
-		.active_low	= 1,
+		.active_low	= ACTIVE_LOW_HOME,
 	},
+#endif
+#ifdef GPIO_BACK
+	{
+		.gpio		= GPIO_BACK,
+		.code   	= KEY_BACK,
+		.desc		= "back key",
+		.active_low	= ACTIVE_LOW_BACK,
+	},
+#endif
+#ifdef GPIO_VOLUMEDOWN
+	{
+		.gpio		= GPIO_VOLUMEDOWN,
+		.code   	= KEY_VOLUMEDOWN,
+		.desc		= "volum down key",
+		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
+	},
+#endif
+#ifdef GPIO_VOLUMEUP
+	{
+		.gpio		= GPIO_VOLUMEUP,
+		.code   	= KEY_VOLUMEUP,
+		.desc		= "volum up key",
+		.active_low	= ACTIVE_LOW_VOLUMEUP,
+	},
+#endif
+
+
 };
 
 static struct gpio_keys_platform_data board_button_data = {
@@ -96,10 +124,7 @@ static int __init board_init(void)
 
 /* panel and bl */
 #ifdef CONFIG_LCD_AUO_A043FL01V2
-	platform_device_register(&auo_a043fl01v2_device);
-#endif
-#ifdef CONFIG_LCD_AT070TN93
-	platform_device_register(&at070tn93_device);
+	platform_device_register(&byd_bm8766u_device);
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);

@@ -27,7 +27,7 @@ enum gpio_port {
 	GPIO_PORT_A, GPIO_PORT_B,
 	GPIO_PORT_C, GPIO_PORT_D,
 	GPIO_PORT_E, GPIO_PORT_F,
-
+	GPIO_PORT_G,
 	/* this must be last */
 	GPIO_NR_PORTS,
 };
@@ -38,6 +38,10 @@ struct jz_gpio_func_def {
 	int func;
 	unsigned long pins;
 };
+
+#ifndef GPIO_PG
+#define GPIO_PG(n)      (5*32 + 23 + n)
+#endif
 
 /* 
  * must define this array in board special file.

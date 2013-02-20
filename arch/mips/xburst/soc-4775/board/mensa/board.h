@@ -1,12 +1,12 @@
 #ifndef __BOARD_H__
 #define __BOARD_H__
 #include <gpio.h>
+#include <soc/gpio.h>
 
 /* MSC GPIO Definition */
 #define GPIO_SD0_VCC_EN_N	GPIO_PB(3)
 #define GPIO_SD0_CD_N		GPIO_PB(2)
 
-extern struct jzmmc_platform_data inand_pdata;
 extern struct jzmmc_platform_data tf_pdata;
 extern struct jzmmc_platform_data sdio_pdata;
 
@@ -18,12 +18,35 @@ extern struct jzfb_platform_data jzfb1_pdata;
 #endif
 
 /**
+ * lcd gpio
+ **/
+#define GPIO_LCD_PWM		GPIO_PE(1)
+#define GPIO_LCD_DISP		GPIO_PB(31)
+
+/**
+ * TP gpio
+ **/
+#define GPIO_TP_WAKE		GPIO_PB(28)
+#define GPIO_TP_INT		GPIO_PB(29)
+
+/**
+ * KEY gpio
+ **/
+#define GPIO_HOME		GPIO_PG(15)
+#define GPIO_BACK		GPIO_PD(19)
+#define GPIO_VOLUMEDOWN		GPIO_PD(17)
+#define GPIO_VOLUMEUP		GPIO_PD(18)
+
+#define ACTIVE_LOW_HOME		1
+#define ACTIVE_LOW_BACK		1
+#define ACTIVE_LOW_VOLUMEDOWN	1
+#define ACTIVE_LOW_VOLUMEUP	0
+
+
+/**
  *audio gpio
  **/
-#define GPIO_I2S_MUTE		GPIO_PB(30)
-
-#define GPIO_SPEAKER_SHUTDOWN	GPIO_PB(3)
-
+#define GPIO_SPEAKER_SHUTDOWN	GPIO_PG(14)
 #define GPIO_HP_DETECT		GPIO_PA(17)
 
 /**
@@ -33,11 +56,8 @@ extern struct snd_codec_data codec_data;
 
 extern struct platform_device backlight_device;
 
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-extern struct platform_device auo_a043fl01v2_device;
-#endif
-#ifdef CONFIG_LCD_AT070TN93
-extern struct platform_device at070tn93_device;
+#ifdef CONFIG_LCD_BYD_BM8766U
+extern struct platform_device byd_bm8766u_device;
 #endif
 
 /**
