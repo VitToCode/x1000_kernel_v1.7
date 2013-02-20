@@ -43,10 +43,6 @@
 	{ .name = "msc0-pa-8bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x00fc00f0, }
 #define MSC0_PORTE							\
 	{ .name = "msc0-pe",		.port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 0x30f00000, }
-#define MSC0_PORTA_4BIT_RESET						\
-	{ .name = "msc0-pa-4bit-reset",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x01fc0000, }
-#define MSC0_PORTA_8BIT_RESET						\
-	{ .name = "msc0-pa-8bit-reset",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x01fc00f0, }
 #define MSC1_PORTD							\
 	{ .name = "msc1-pd",		.port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x03f00000, }
 #define MSC1_PORTE							\

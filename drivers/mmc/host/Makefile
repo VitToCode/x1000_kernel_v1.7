@@ -5,6 +5,9 @@
 obj-$(CONFIG_MMC0_JZ4780)	+= jz4780_mmc.o
 obj-$(CONFIG_MMC1_JZ4780)	+= jz4780_mmc.o
 obj-$(CONFIG_MMC2_JZ4780)	+= jz4780_mmc.o
+obj-$(CONFIG_MMC0_JZ4775)	+= jz4775_mmc.o
+obj-$(CONFIG_MMC1_JZ4775)	+= jz4775_mmc.o
+obj-$(CONFIG_MMC2_JZ4775)	+= jz4775_mmc.o
 obj-$(CONFIG_MMC_ARMMMCI)	+= mmci.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o
 obj-$(CONFIG_MMC_IMX)		+= imxmmc.o

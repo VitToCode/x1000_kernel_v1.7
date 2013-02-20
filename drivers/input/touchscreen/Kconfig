@@ -14,7 +14,16 @@ if INPUT_TOUCHSCREEN
 
 config JZ4780_SUPPORT_TSC
 	bool "Touchscreen Supported on JZ4780"
-	depends on SOC_4780 || INPUT_TOUCHSCREEN
+	depends on SOC_4780 && INPUT_TOUCHSCREEN
+	help
+	  This selects the touchscreen that Ingenic XBurst JZ4780 support,
+	  say Y or N here.
+
+	  If unsure, say N.
+
+config JZ4775_SUPPORT_TSC
+	bool "Touchscreen Supported on JZ4775"
+	depends on SOC_4775 && INPUT_TOUCHSCREEN
 	help
 	  This selects the touchscreen that Ingenic XBurst JZ4780 support,
 	  say Y or N here.
@@ -154,7 +163,7 @@ config FT5X0X_DEBUG
 
 config TOUCHSCREEN_GWTC9XXXB
 	tristate "Touchscreen GWTC9XXXB"
-	depends on I2C && JZ4780_SUPPORT_TSC
+	depends on I2C && (JZ4780_SUPPORT_TSC || JZ4775_SUPPORT_TSC)
 	help
 	  gwtc9xxxb a CTP controller
 

@@ -2,6 +2,7 @@
 #include <linux/i2c.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
+#include <linux/tsc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <mach/platform.h>
@@ -65,6 +66,27 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ4775_SUPPORT_TSC
+static struct jztsc_pin mensa_tsc_gpio[] = { 
+	        [0] = {GPIO_TP_INT,         LOW_ENABLE},
+		[1] = {GPIO_TP_WAKE,        LOW_ENABLE},
+};
+
+static struct jztsc_platform_data mensa_tsc_pdata = { 
+	        .gpio           = mensa_tsc_gpio,
+		.x_max          = 800,
+		.y_max          = 480,
+};
+
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
+static struct i2c_board_info mensa_i2c0_devs[] __initdata = { 
+		        {   
+				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
+				.platform_data = &mensa_tsc_pdata,
+			},  
+	};
+#endif
+#endif
 
 static int __init board_init(void)
 {
@@ -183,8 +205,8 @@ static int __init board_init(void)
 	platform_device_register(&jz_hdmi);
 #endif
 
-#ifdef CONFIG_JZ4780_SUPPORT_TSC
-	i2c_register_board_info(0, i2c0_devs, ARRAY_SIZE(i2c0_devs));
+#ifdef CONFIG_JZ4775_SUPPORT_TSC
+	i2c_register_board_info(0, mensa_i2c0_devs, ARRAY_SIZE(mensa_i2c0_devs));
 #endif
 #ifdef CONFIG_RTC_DRV_JZ4780
 	platform_device_register(&jz_rtc_device);
