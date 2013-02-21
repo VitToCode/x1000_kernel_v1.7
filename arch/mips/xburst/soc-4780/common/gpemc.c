@@ -108,8 +108,8 @@ static struct {
 	const struct resource regs_file_mem;
 	const struct resource nand_regs_file_mem;
 
-	const struct resource banks_mem[BANK_COUNT];
-	const char *banks_name[BANK_COUNT];
+	const struct resource bank_mem[BANK_COUNT];
+	const char *bank_name[BANK_COUNT];
 } instance = {
 	.regs_file = (struct gpemc_regs_file *)
 					CKSEG1ADDR(GPEMC_REGS_FILE_BASE),
@@ -128,7 +128,7 @@ static struct {
 	},
 
 #define GPEMC_BANK_SIZE (GPNEMC_CS1_IOBASE - GPNEMC_CS2_IOBASE)
-	.banks_mem = {
+	.bank_mem = {
 		{},
 
 		{
@@ -162,7 +162,7 @@ static struct {
 		}
 	},
 
-	.banks_name = {
+	.bank_name = {
 		"",
 		"gpemc-bank1-mem",
 		"gpemc-bank2-mem",
@@ -218,15 +218,15 @@ postcore_initcall(gpemc_init);
 int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 {
 	struct resource *res;
-	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc->banks_mem));
+	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc->bank_mem));
 
 	if (test_bit(cs, gpemc->bank_use_map)) {
 		pr_err("gpemc: grab cs %d failed, it's busy.\n", cs);
 		goto err_busy_bank;
 	}
 
-	res = request_mem_region(gpemc->banks_mem[cs].start,
-			resource_size(&gpemc->banks_mem[cs]), gpemc->banks_name[cs]);
+	res = request_mem_region(gpemc->bank_mem[cs].start,
+			resource_size(&gpemc->bank_mem[cs]), gpemc->bank_name[cs]);
 	if (!res) {
 		pr_err("gpemc: grab bank %d memory failed, it's busy.\n", cs);
 		goto err_busy_bank;
@@ -235,7 +235,7 @@ int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 	set_bit(cs, gpemc->bank_use_map);
 
 	bank->cs = cs;
-	bank->io_base = (void __iomem *)CKSEG1ADDR(gpemc->banks_mem[cs].start);
+	bank->io_base = (void __iomem *)CKSEG1ADDR(gpemc->bank_mem[cs].start);
 
 	bank->io_nand_dat = bank->io_base + GPEMC_NAND_BANK_DATA_OFFSET;
 	bank->io_nand_addr = bank->io_base + GPEMC_NAND_BANK_ADDR_OFFSET;
@@ -250,14 +250,14 @@ EXPORT_SYMBOL(gpemc_request_cs);
 
 void gpemc_release_cs(gpemc_bank_t* bank)
 {
-	BUG_ON(bank->cs < 1 || bank->cs >= ARRAY_SIZE(gpemc->banks_mem));
+	BUG_ON(bank->cs < 1 || bank->cs >= ARRAY_SIZE(gpemc->bank_mem));
 	if (!test_bit(bank->cs, gpemc->bank_use_map)) {
 		WARN(1, "try to release a free cs.\n");
 		return;
 	}
 
-	release_mem_region(gpemc->banks_mem[bank->cs].start,
-			resource_size(&gpemc->banks_mem[bank->cs]));
+	release_mem_region(gpemc->bank_mem[bank->cs].start,
+			resource_size(&gpemc->bank_mem[bank->cs]));
 
 	clear_bit(bank->cs, gpemc->bank_use_map);
 }
@@ -269,19 +269,20 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	u32 temp;
 
 	/* bank Taw */
-	bank->bank_timing.sram_timing.Taw = timing->Twp;
+	bank->bank_timing.sram_timing.Taw = timing->dc_timing.Twp;
 
 	/* bank Tas */
-	temp = max(timing->Tals, timing->Tcls);
-	temp = max(temp, timing->Tcs);
+	temp = max(timing->dc_timing.Tals, timing->dc_timing.Tcls);
+	temp = max(temp, timing->dc_timing.Tcs);
 	temp -= bank->bank_timing.sram_timing.Taw;
 	bank->bank_timing.sram_timing.Tas = temp;
 
 	/* bank Tah */
-	temp = max(timing->Talh, timing->Tclh);
-	temp = max(temp, timing->Tch);
-	temp = max(temp, timing->Tdh);
-	temp = max(temp, (timing->Twc - timing->Twp));
+	temp = max(timing->dc_timing.Talh, timing->dc_timing.Tclh);
+	temp = max(temp, timing->dc_timing.Tch);
+	temp = max(temp, timing->dc_timing.Tdh);
+	temp = max(temp, timing->dc_timing.Twh);
+	temp = max(temp, (timing->dc_timing.Twc - timing->dc_timing.Twp));
 	bank->bank_timing.sram_timing.Tah = temp;
 
 	/* bank BW */
@@ -370,6 +371,9 @@ EXPORT_SYMBOL(gpemc_config_bank_timing);
 
 int gpemc_config_toggle_bank_timing(gpemc_bank_t *bank)
 {
+	/*
+	 * TODO
+	 */
 	return 0;
 }
 EXPORT_SYMBOL(gpemc_config_toggle_bank_timing);

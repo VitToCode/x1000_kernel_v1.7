@@ -91,25 +91,82 @@ typedef struct {
 } gpemc_bank_timing_t;
 
 typedef struct {
-	u32 Tcls;
-	u32 Tclh;
+	struct {
+		u32 Tcls;
+		u32 Tclh;
 
-	u32 Tals;
-	u32 Talh;
+		u32 Tals;
+		u32 Talh;
 
-	u32 Tcs;
-	u32 Tch;
+		u32 Tcs;
+		u32 Tch;
 
-	u32 Tds;
-	u32 Tdh;
+		u32 Tds;
+		u32 Tdh;
 
-	u32 Twp;
-	u32 Twc;
+		u32 Twp;
+		u32 Twh;
+		u32 Twc;
+
+		struct {
+			/*
+			 * address to data loading delay
+			 */
+			u32 Tadl;
+		} busy_wait_timing;
+	} dc_timing;
+
+	struct {
+		struct {
+			/*
+			 * Command Write cycle to Address Write
+			 * cycle Time for Random data input
+			 */
+			u32 Tcwaw;
+
+			/*
+			 * #WE high to Busy
+			 */
+			u32 Twb;
+
+			/*
+			 * #WP High/Low to #WE Low
+			 */
+			u32 Tww;
+
+			/*
+			 * #RE High to #WE Low
+			 */
+			u32 Trhw;
+
+			/*
+			 * #WE High to #RE Low
+			 */
+			u32 Twhr;
+
+			/*
+			 * #WE High to #RE Low for Random data out
+			 */
+			u32 Twhr2;
+
+			/*
+			 * Device Resetting Time(Read/Program/Erase)
+			 */
+			u32 Trst;
+
+			/*
+			 * Cache Busy in Read Cache (following 31h and 3Fh)
+			 */
+			u32 Tdcbsyr;
+
+			/*
+			 * Dummy Busy Time for Intelligent Copy-Back Read
+			 */
+			u32 Tdcbsyr2;
+		} busy_wait_timing;
+	} ac_timing;
 
 	bus_width_t BW;
-
-	/* this parameter was preformed by busy wait */
-	u32 Tadl;
 } common_nand_timing_t;
 
 typedef struct {
