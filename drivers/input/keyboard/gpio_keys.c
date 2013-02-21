@@ -32,7 +32,6 @@ struct gpio_button_data {
 	struct timer_list timer;
 	struct work_struct work;
 	int timer_debounce;	/* in msecs */
-	int is_from_suspend;
 	u64 lock_jiffies_64;
 	bool is_locked;
 	bool disabled;
@@ -328,35 +327,23 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
 
 	if (type == EV_ABS) {
-		if (state) {
+		if (state)
 			input_event(input, type, button->code, button->value);
-			input_sync(input);
-		}
 	} else {
 		if ((button->lock_interval) &&
 		    (get_jiffies_64() - bdata->lock_jiffies_64
 		     > msecs_to_jiffies(button->lock_interval)) && state)
 			    bdata->is_locked = 0;
 
-		if (!bdata->is_locked) {
-			if (bdata->is_from_suspend &&
-					button->wakeup) {
-				input_event(input, type, button->code, 0);
-				input_sync(input);
-				input_event(input, type, button->code, 1);
-				input_sync(input);
-				bdata->is_from_suspend = 0;
-			} else {
-				input_event(input, type, button->code, !!state);
-				input_sync(input);
-			}
-		}
+		if (!bdata->is_locked)
+			input_event(input, type, button->code, !!state);
 
-		if (button->lock_interval && !bdata->is_locked && !state) {
+	        if (button->lock_interval && !bdata->is_locked && !state) {
 			bdata->is_locked = 1;
 			bdata->lock_jiffies_64 = get_jiffies_64();
 		}
 	}
+	input_sync(input);
 }
 
 static void gpio_keys_work_func(struct work_struct *work)
@@ -425,7 +412,8 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 			bdata->timer_debounce = button->debounce_interval;
 	}
 
-	bdata->lock_jiffies_64 = get_jiffies_64();
+        bdata->is_locked = 0;
+        bdata->lock_jiffies_64 = get_jiffies_64();
 
 	irq = gpio_to_irq(button->gpio);
 	if (irq < 0) {
@@ -641,10 +629,9 @@ static int gpio_keys_resume(struct device *dev)
 			disable_irq_wake(irq);
 		}
 
-		if (ddata->data[i].button->wakeup)
-			ddata->data[i].is_from_suspend = 1;
 		gpio_keys_report_event(&ddata->data[i]);
 	}
+	input_sync(ddata->input);
 
 	return 0;
 }
