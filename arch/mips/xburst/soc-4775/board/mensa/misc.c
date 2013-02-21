@@ -236,11 +236,7 @@ static int __init board_init(void)
  */
 const char *get_board_type(void)
 {
-#ifdef CONFIG_BOARD_NAME
 	return CONFIG_BOARD_NAME;
-#else
-	return "mensa";
-#endif
 }
 
 arch_initcall(board_init);

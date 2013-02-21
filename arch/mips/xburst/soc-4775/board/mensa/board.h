@@ -3,6 +3,11 @@
 #include <gpio.h>
 #include <soc/gpio.h>
 
+
+#ifndef CONFIG_BOARD_NAME
+#define CONFIG_BOARD_NAME "mensa"
+#endif
+
 /* MSC GPIO Definition */
 #define GPIO_SD0_VCC_EN_N	GPIO_PB(3)
 #define GPIO_SD0_CD_N		GPIO_PB(2)

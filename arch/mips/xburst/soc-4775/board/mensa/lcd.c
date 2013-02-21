@@ -25,15 +25,8 @@
 
 
 /**************************************************************************************************/
-struct fb_videomode jzfb0_videomode[] = {
-	ADD_HDMI_VIDEO_MODE(HDMI_640X480_P_60HZ_4X3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_4X3),
-	ADD_HDMI_VIDEO_MODE(HDMI_720X480_P_60HZ_16X9),
-	ADD_HDMI_VIDEO_MODE(HDMI_1280X720_P_60HZ_16X9),
-	ADD_HDMI_VIDEO_MODE(HDMI_1920X1080_I_60HZ_16X9),
-};
 
-struct fb_videomode jzfb1_videomode = {
+struct fb_videomode jzfb0_videomode = {
 #ifdef CONFIG_LCD_BYD_BM8766U
 	.name = "800x480",
 	.refresh = 55,
@@ -105,25 +98,11 @@ struct fb_videomode jzfb1_videomode = {
 #endif
 };
 
+
 struct jzfb_platform_data jzfb0_pdata = {
-	.num_modes = ARRAY_SIZE(jzfb0_videomode),
-	.modes = jzfb0_videomode,
-
-	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.bpp = 24,
-	.width = 0,
-	.height = 0,
-
-	.pixclk_falling_edge = 1,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 0,
-};
-
-struct jzfb_platform_data jzfb1_pdata = {
 #ifdef CONFIG_LCD_BYD_BM8766U
 	.num_modes = 1,
-	.modes = &jzfb1_videomode,
+	.modes = &jzfb0_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,

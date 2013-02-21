@@ -2378,7 +2378,7 @@ config FB_MXS
 
 config FB_JZ4780_LCDC0
 	tristate "JZ4780 LCDC0 framebuffer support"
-	depends on FB && SOC_4780
+	depends on FB && (SOC_4780 || SOC_4775)
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
@@ -2387,7 +2387,7 @@ config FB_JZ4780_LCDC0
 
 config FB_JZ4780_LCDC1
 	tristate "JZ4780 LCDC1 framebuffer support"
-	depends on FB && SOC_4780
+	depends on FB && (SOC_4780 || SOC_4775)
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
@@ -2396,7 +2396,7 @@ config FB_JZ4780_LCDC1
 	  Framebuffer support for the JZ4780 SoC.
 
 choice
-	depends on FB && SOC_4780
+	depends on FB && (SOC_4780 || SOC_4775)
 	prompt "allocation frame buffer"
 	default THREE_FRAME_BUFFERS
 

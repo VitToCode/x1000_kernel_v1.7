@@ -339,9 +339,9 @@ static void gpio_shutdown_irq(struct irq_data *data)
 }
 
 static struct jzgpio_chip jz_gpio_chips[] = {
-#define ADD_JZ_CHIP(NAME,NUM)						\
-	[NUM] = {							\
-		.irq_base = IRQ_GPIO_BASE + NUM*32,			\
+#define ADD_JZ_CHIP(NAME,GRP,OFFSET,NUM)						\
+	[GRP] = {							\
+		.irq_base = IRQ_GPIO_BASE + OFFSET,			\
 		.irq_chip = {						\
 			.name 	= NAME,					\
 			.irq_startup 	= gpio_startup_irq,		\
@@ -355,9 +355,9 @@ static struct jzgpio_chip jz_gpio_chips[] = {
 			.irq_set_wake	= gpio_set_wake,		\
 		},							\
 		.gpio_chip = {						\
-			.base			= (NUM)*32,		\
+			.base			= OFFSET,		\
 			.label			= NAME,			\
-			.ngpio			= 32,			\
+			.ngpio			= NUM,			\
 			.direction_input	= jz_gpio_input,	\
 			.direction_output	= jz_gpio_output,	\
 			.set			= jz_gpio_set,		\
@@ -367,12 +367,13 @@ static struct jzgpio_chip jz_gpio_chips[] = {
 			.free			= jz_gpio_free,		\
 		}							\
 	}
-	ADD_JZ_CHIP("GPIO A",0),
-	ADD_JZ_CHIP("GPIO B",1),
-	ADD_JZ_CHIP("GPIO C",2),
-	ADD_JZ_CHIP("GPIO D",3),
-	ADD_JZ_CHIP("GPIO E",4),
-	ADD_JZ_CHIP("GPIO F",5),
+	ADD_JZ_CHIP("GPIO A",0, 0*32, 32),
+	ADD_JZ_CHIP("GPIO B",1, 1*32, 32),
+	ADD_JZ_CHIP("GPIO C",2, 2*32, 32),
+	ADD_JZ_CHIP("GPIO D",3, 3*32, 32),
+	ADD_JZ_CHIP("GPIO E",4, 4*32, 32),
+	ADD_JZ_CHIP("GPIO F",5, 5*32, 23),
+	ADD_JZ_CHIP("GPIO G",6, 5*32+23, 23),
 #undef ADD_JZ_CHIP
 };
 
