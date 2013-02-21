@@ -34,4 +34,8 @@ obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
 obj-y += ahbm.o 
 
+ifneq ($(CONFIG_NAND), y)
 obj-y += gpemc.o
+
+obj-y += bch.o
+endif
