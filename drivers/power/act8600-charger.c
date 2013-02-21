@@ -238,10 +238,12 @@ static int act8600_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if ((psy->type == POWER_SUPPLY_TYPE_MAINS) &&
-			(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
+			((jz_battery->status == POWER_SUPPLY_STATUS_CHARGING) ||
+			 (jz_battery->status == POWER_SUPPLY_STATUS_FULL))) {
 			val->intval = get_charger_online(jz_battery, AC);
 		} else if((psy->type == POWER_SUPPLY_TYPE_USB) &&
-			(jz_battery->status == POWER_SUPPLY_STATUS_CHARGING)) {
+			((jz_battery->status == POWER_SUPPLY_STATUS_CHARGING) ||
+			 (jz_battery->status == POWER_SUPPLY_STATUS_FULL))) {
 			val->intval = get_charger_online(jz_battery, USB);
 		} else
 			val->intval = 0;
