@@ -269,7 +269,7 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	u32 temp;
 
 	/* bank Taw */
-	bank->bank_timing.sram_timing.Taw = timing->dc_timing.Twp;
+	bank->bank_timing.sram_timing.Taw = timing->ac_timing.Trp;
 
 	/* bank Tas */
 	temp = max(timing->dc_timing.Tals, timing->dc_timing.Tcls);
@@ -284,6 +284,17 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	temp = max(temp, timing->dc_timing.Twh);
 	temp = max(temp, (timing->dc_timing.Twc - timing->dc_timing.Twp));
 	bank->bank_timing.sram_timing.Tah = temp;
+
+	/*
+	 * bank Tstrv
+	 *
+	 * TODO: Twhr2 should be considered.
+	 *
+	 */
+	bank->bank_timing.sram_timing.Tstrv = timing->ac_timing.Twhr;
+
+	/* bank Tbp */
+	bank->bank_timing.sram_timing.Tbp = timing->dc_timing.Twp;
 
 	/* bank BW */
 	bank->bank_timing.sram_timing.BW = timing->BW;
@@ -347,7 +358,18 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 		smcr &= ~(0xf << 8);
 		smcr |= temp << 8;
 
-		/* BW & BL*/
+		/* Tstrv */
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tstrv, clk_T);
+		smcr &= ~(0x3f << 24);
+		smcr |= temp << 24;
+
+		/* Tbp */
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tbp, clk_T);
+		temp = nT_to_adjs[temp];
+		smcr &= ~(0xf << 16);
+		smcr |= temp << 16;
+
+		/* BW & BL */
 		smcr &= ~(0x3 << 6) | ~(0x3 << 1);
 		smcr |= bank->bank_timing.sram_timing.BW << 6;
 

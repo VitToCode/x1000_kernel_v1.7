@@ -92,20 +92,59 @@ typedef struct {
 
 typedef struct {
 	struct {
+		/*
+		 * CLE Setup Time
+		 */
 		u32 Tcls;
+
+		/*
+		 * CLE Hold Time
+		 */
 		u32 Tclh;
 
+		/*
+		 * ALE Setup Time
+		 */
 		u32 Tals;
+
+		/*
+		 * ALE Hold Time
+		 */
 		u32 Talh;
 
+		/*
+		 * #CE Setup Time
+		 */
 		u32 Tcs;
+
+		/*
+		 * #CE Hold Time
+		 */
 		u32 Tch;
 
+		/*
+		 * Data Setup Time
+		 */
 		u32 Tds;
+
+		/*
+		 * Data Hold Time
+		 */
 		u32 Tdh;
 
+		/*
+		 * #WE Pulse Width
+		 */
 		u32 Twp;
+
+		/*
+		 * #WE High Hold Time
+		 */
 		u32 Twh;
+
+		/*
+		 * Write Cycle Time
+		 */
 		u32 Twc;
 
 		struct {
@@ -117,7 +156,27 @@ typedef struct {
 	} dc_timing;
 
 	struct {
+		/*
+		 * #WE High to #RE Low
+		 */
+		u32 Twhr;
+
+		/*
+		 * #WE High to #RE Low for Random data out
+		 */
+		u32 Twhr2;
+
+		/*
+		 * #RE Pulse Width
+		 */
+		u32 Trp;
+
 		struct {
+			/*
+			 * Ready to #RE low
+			 */
+			u32 Trr;
+
 			/*
 			 * Command Write cycle to Address Write
 			 * cycle Time for Random data input
@@ -138,16 +197,6 @@ typedef struct {
 			 * #RE High to #WE Low
 			 */
 			u32 Trhw;
-
-			/*
-			 * #WE High to #RE Low
-			 */
-			u32 Twhr;
-
-			/*
-			 * #WE High to #RE Low for Random data out
-			 */
-			u32 Twhr2;
 
 			/*
 			 * Device Resetting Time(Read/Program/Erase)
