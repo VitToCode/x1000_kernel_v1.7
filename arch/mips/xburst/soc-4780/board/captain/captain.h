@@ -119,8 +119,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_MOTOR_PIN			-1	//GPIO_PB(25) /* PB25 */
 
 
-// #define GPIO_HOME
-// #define ACTIVE_LOW_HOME			1
+#define GPIO_HOME			GPIO_PD(19)
+#define ACTIVE_LOW_HOME			1
 // #define GPIO_CALL
 // #define ACTIVE_LOW_CALL			1
 #endif /* __CAPTAIN_H__ */
