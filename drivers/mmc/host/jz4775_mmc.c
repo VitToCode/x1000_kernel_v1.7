@@ -498,7 +498,7 @@ start:
 		if (host->state == STATE_WAITING_RESP)
 			mask |= IMASK_END_CMD_RES;
 		else if (host->state == STATE_WAITING_DATA)
-			mask |= IMASK_DATA_TRAN_DONE;
+			mask |= IMASK_WR_ALL_DONE | IMASK_DMA_DATA_DONE;
 
 		clear_msc_irq(host, mask);
 		disable_msc_irq(host, mask);
@@ -845,12 +845,11 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 	if (data->flags & MMC_DATA_WRITE) {
 		cmdat |= CMDAT_WRITE_READ;
-		imsk = IMASK_PRG_DONE | IMASK_CRC_WRITE_ERR;
+		imsk = IMASK_WR_ALL_DONE | IMASK_CRC_WRITE_ERR;
 	} else if (data->flags & MMC_DATA_READ) {
 		cmdat &= ~CMDAT_WRITE_READ;
-		imsk = IMASK_DMAEND
+		imsk = IMASK_DMA_DATA_DONE
 			| IMASK_TIME_OUT_READ
-			| IMASK_DATA_TRAN_DONE
 			| IMASK_CRC_READ_ERR;
 	} else {
 		dev_err(host->dev, "data direction confused\n");
@@ -860,7 +859,7 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 	if (!is_pio_mode(host)) {
 		jzmmc_submit_dma(host, data);
-		clear_msc_irq(host, IFLG_PRG_DONE);
+		clear_msc_irq(host, IFLG_WR_ALL_DONE);
 		enable_msc_irq(host, imsk);
 	}
 }
@@ -901,8 +900,7 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 	}
 	host->cmdat |= cmdat;
 	if (!is_pio_mode(host)) {
-		imsk = IMASK_TIME_OUT_RES | IMASK_END_CMD_RES | 
-		       IMASK_PRG_DONE | IMASK_DATA_TRAN_DONE | IMASK_DMAEND;
+		imsk = IMASK_TIME_OUT_RES | IMASK_END_CMD_RES;
 		enable_msc_irq(host, imsk);
 		host->state = STATE_WAITING_RESP;
 	}
@@ -1601,10 +1599,9 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		} else {
 			gpio_direction_output(card_gpio->pwr.num,
 					      card_gpio->pwr.enable_level
-					      ? 0 : 1);
+					? 0 : 1);
 		}
 	}
-
 	switch (host->pdata->removal) {
 	case NONREMOVABLE:
 		break;
@@ -1748,7 +1745,6 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	ret = jzmmc_gpio_init(host);
 	if (ret < 0)
 		goto err_gpio_init;
-
 	jzmmc_host_init(host, mmc);
 	ret = sysfs_create_group(&pdev->dev.kobj, &jzmmc_attr_group);
 	if (ret < 0)

@@ -114,11 +114,11 @@ static int __init board_init(void)
 #endif
 
 /* mmc */
-#ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc1_device, &tf_pdata);
+#ifdef CONFIG_MMC0_JZ4775
+	jz_device_register(&jz_msc0_device, &tf_pdata);
 #endif
-#ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc2_device, &sdio_pdata);
+#ifdef CONFIG_MMC1_JZ4775
+	jz_device_register(&jz_msc1_device, &sdio_pdata);
 #endif
 
 /* sound */

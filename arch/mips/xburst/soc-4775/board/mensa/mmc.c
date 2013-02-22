@@ -6,6 +6,7 @@
 
 static struct card_gpio tf_gpio = {
 	.cd				= {GPIO_SD0_CD_N,	LOW_ENABLE},
+	.wp                             = {-1,                  -1},
 	.pwr				= {GPIO_SD0_VCC_EN_N,	HIGH_ENABLE},
 };
 
@@ -16,6 +17,12 @@ struct jzmmc_platform_data tf_pdata = {
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA,
 	.recovery_info			= NULL,
 	.gpio				= &tf_gpio,
+#ifdef CONFIG_MMC0_PIO_MODE
+	.pio_mode                       = 1,
+#else
+	.pio_mode                       = 0,
+#endif
+
 };
 
 struct jzmmc_platform_data sdio_pdata = {
