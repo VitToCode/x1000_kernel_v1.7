@@ -69,11 +69,11 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 	/* VGA must be supported by all sinks
 	 * so use it as default configuration
 	 */
-	dtd_Fill(&dtd, 3, 60000); 
+	dtd_Fill(&dtd, 4, 60000); 
 	videoParams_Reset(&params);
 	videoParams_SetHdmi(&params, TRUE);
 	videoParams_SetDtd(&params, &dtd); /* params->mDtd = dtd; */
-	pixelClock = videoParams_GetPixelClock(&params); /* dtd_GetPixelClock(&(params->mDtd)); ---> 27MHz */
+	pixelClock = videoParams_GetPixelClock(&params); /* dtd_GetPixelClock(&(params->mDtd)); */
 
         /* reset HAPS51 DEMO BOARD, by default mask all interrupts */
 	if (board_Initialize(api_mBaseAddress, pixelClock, 8) != TRUE) 
@@ -233,9 +233,18 @@ int api_Reinitialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force)
 int api_phy_enable(phy_state is_enable) //1 is enable 
 {
 	int force = 0;
+	videoParams_t params;
+	dtd_t dtd;
 	switch(is_enable){
 	case PHY_ENABLE:
 		printk("hdmi-phy-enable\n");
+
+		dtd_Fill(&dtd, 4, 60000); 
+		videoParams_Reset(&params);
+		videoParams_SetHdmi(&params, TRUE);
+		videoParams_SetDtd(&params, &dtd); /* params->mDtd = dtd; */
+		pixelClock = videoParams_GetPixelClock(&params); /* dtd_GetPixelClock(&(params->mDtd)); ---> 27MHz */
+
 		if (phy_Initialize(api_mBaseAddress, api_mDataEnablePolarity) != TRUE){
 			return FALSE;
 		}
