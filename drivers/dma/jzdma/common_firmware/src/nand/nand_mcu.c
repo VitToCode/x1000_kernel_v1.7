@@ -21,7 +21,8 @@ static inline void nemcdelay(unsigned int loops)
 
 static inline void nand_wait_rb(struct nand_chip *nand)
 {
-	volatile unsigned int timeout = 1000;
+	volatile unsigned int timeout = 10000;
+        nemcdelay(nand->twb);
 	while ((REG_GPIO_PXPIN(0) & 0x00100000) && timeout--);
 	while (!(REG_GPIO_PXPIN(0) & 0x00100000));
         nemcdelay(nand->trr);
