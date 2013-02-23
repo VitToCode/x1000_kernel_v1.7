@@ -159,6 +159,16 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL,(unsigned long)&volume);
 			printk("record volume is %d.\n",volume);
 			break;
+		case 'd':
+			printk("\"d\" misc debug\n");
+			if(copy_from_user((void *)buf_vol, buffer, 2)) {
+				printk("audio misc debug default opreation\n");
+				ddata->dev_ioctl(SND_DSP_DEBUG,0);
+			} else {
+				printk("audio misc debug interface NO %c\n",buf_vol[1]);
+				ddata->dev_ioctl(SND_DSP_DEBUG,(unsigned long)buf_vol[1]);
+			}
+			break;
 		default:
 			printk("undefine debug interface \"%c\".\n", buf_byte);
 			printk(" \"1\" command :print codec and aic register.\n");
@@ -169,8 +179,9 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk(" \"6\" set speaker route.\n");
 			printk(" \"7\" set loop test route for phone.\n");
 			printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
-			printk(" \"mdb\" set mic volume (db = 0 ~ 20)\n");
-			printk(" \"vdb\" set record adc volume (db = 0 ~ 23)\n");
+			printk(" \"m[db]\" set mic volume (db = 0 ~ 20)\n");
+			printk(" \"v[db]\" set record adc volume (db = 0 ~ 23)\n");
+			printk(" \"d[debug interface No]\" misc debug\n");
 	}
 	return count;
 }
