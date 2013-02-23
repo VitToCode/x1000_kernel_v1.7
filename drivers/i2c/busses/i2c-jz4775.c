@@ -181,7 +181,7 @@ struct jz_i2c {
 
 //#define CONFIG_I2C_DEBUG
 static inline unsigned short i2c_readl(struct jz_i2c *i2c,unsigned short offset);
-#ifdef CONFIG_I2C_DEBUG 
+#ifdef CONFIG_I2C_DEBUG
 
 #define PRINT_REG_WITH_ID(reg_name, id) \
 	dev_info(&(i2c->adap.dev),"--"#reg_name "    	0x%08x\n",i2c_readl(id,reg_name))
@@ -305,7 +305,6 @@ void i2c_send_rcmd(struct jz_i2c *i2c,int cmd_count)
 	}
 }
 
-
 static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 {
 	unsigned short tmp,intst,intmsk;
@@ -313,8 +312,9 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 
 	intst = i2c_readl(i2c,I2C_INTST);
 	intmsk = i2c_readl(i2c,I2C_INTM);
+
 #ifdef CONFIG_I2C_DEBUG
-	//	dev_info(&(i2c->adap.dev),"--I2C irq reg INTST:%x\n",intst);
+	//dev_info(&(i2c->adap.dev),"--I2C irq reg INTST:%x\n",intst);
 #endif
 	if((intst & I2C_INTST_RXFL) && (intmsk & I2C_INTM_MRXFL)) {
 		while ((i2c_readl(i2c,I2C_STA) & I2C_STA_RFNE)){
@@ -331,13 +331,12 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 		}
 	}
 
-	if((intst & I2C_INTST_TXEMP) && (intmsk & I2C_INTM_MTXEMP)){
-
+	if ((intst & I2C_INTST_TXEMP) && (intmsk & I2C_INTM_MTXEMP)) {
 		tmp = i2c_readl(i2c,I2C_INTM);
 		tmp &= ~I2C_INTM_MTXEMP;
 		i2c_writel(i2c,I2C_INTM,tmp);
 
-		if(i2c->w_flag == 0){
+		if (i2c->w_flag == 0) {
 			if(i2c->rdcmd_len >= (I2C_FIFO_LEN - TX_LEVEL)){
 				i2c_send_rcmd(i2c,I2C_FIFO_LEN - TX_LEVEL);
 				i2c->rdcmd_len -= (I2C_FIFO_LEN - TX_LEVEL);
@@ -345,21 +344,23 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 				tmp = i2c_readl(i2c,I2C_INTM);
 				tmp |= I2C_INTM_MTXEMP;
 				i2c_writel(i2c,I2C_INTM,tmp);
-			}else{
+			} else {
 				i2c_send_rcmd(i2c,i2c->rdcmd_len);
 				i2c->rdcmd_len = 0;
 
 				tmp = i2c_readl(i2c,I2C_DC);
-				tmp &= ~I2C_DC_STP;
+				tmp |= I2C_DC_STP;
 				i2c_writel(i2c,I2C_DC,tmp);
 			}
-		}else{
-			while((i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)){
-				tmp = *(i2c->wbuf++) & (~I2C_DC_READ);
+		} else {
+			while ((i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)) {
+				tmp = *(i2c->wbuf++);
+				if (i2c->wt_len == 1)
+					tmp |= I2C_DC_STP;
 				i2c_writel(i2c,I2C_DC,tmp);
 				i2c->wt_len -= 1;
 			}
-			if(i2c->wt_len == 0)
+			if (i2c->wt_len == 0)
 				complete(&i2c->w_complete);
 		}
 	}
@@ -461,7 +462,7 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	timeout = wait_for_completion_timeout(&i2c->w_complete, 
 			msecs_to_jiffies(CONFIG_I2C_JZ4775_WAIT_MS));
 
-	if(!timeout){
+	if (!timeout) {
 		dev_err(&(i2c->adap.dev),"--I2C pio write wait timeout\n");
 #ifdef CONFIG_I2C_DEBUG
 		jz_dump_i2c_regs(i2c);
@@ -502,7 +503,6 @@ static int disable_i2c_clk(struct jz_i2c *i2c)
 static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 {
 	int i,ret;
-	unsigned short tmp;
 	struct jz_i2c *i2c = adap->algo_data;
 
 	clk_enable(i2c->clk);
@@ -512,15 +512,9 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 	}
 
 	for (i=0;i<count;i++,msg++) {
-		if((i+1) != count){
-			tmp = i2c_readl(i2c,I2C_DC);
-			tmp |= I2C_DC_STP | I2C_DC_REST;
-			i2c_writel(i2c,I2C_DC,tmp);
-		}
-
-		if (msg->flags & I2C_M_RD){
+		if (msg->flags & I2C_M_RD) {
 			ret = xfer_read(i2c,msg->buf,msg->len,count,i);
-		}else{
+		} else {
 			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
 		}
 		if (ret) {

@@ -1,4 +1,4 @@
 
-obj-y += misc.o lcd.o pm.o nand.o 
+obj-y += misc.o lcd.o pm.o nand.o regulator.o
 
  obj-$(CONFIG_MMC_JZ4775)        += mmc.o
