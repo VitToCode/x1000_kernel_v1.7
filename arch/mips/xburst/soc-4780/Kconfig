@@ -42,9 +42,12 @@ config BOARD_Q8
 
 config BOARD_M80701
 		bool "M80701"
-		
+
 config BOARD_HDMI_80
 		bool "HDMI_80"
+
+config BOARD_VGA_DONGLE
+		bool "VGA_Dongle"
 
 config BOARD_NPM801
 		bool "NPM801"
@@ -90,4 +93,5 @@ config BOARD_NAME
 	default "I88" if BOARD_I88
 	default "Grus" if BOARD_GRUS
 	default "ZPAD80" if BOARD_ZPAD80
+	default "VGA_Dongle" if BOARD_VGA_DONGLE
 
