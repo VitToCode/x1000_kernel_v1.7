@@ -70,7 +70,7 @@ static struct platform_device jz_button_device = {
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
 static struct jztsc_pin mensa_tsc_gpio[] = { 
 	        [0] = {GPIO_TP_INT,         LOW_ENABLE},
-		[1] = {GPIO_TP_WAKE,        LOW_ENABLE},
+		[1] = {GPIO_TP_WAKE,        HIGH_ENABLE},
 };
 
 static struct jztsc_platform_data mensa_tsc_pdata = { 

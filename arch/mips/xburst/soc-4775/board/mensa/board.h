@@ -44,8 +44,8 @@ extern struct jzfb_platform_data jzfb1_pdata;
 
 #define ACTIVE_LOW_HOME		1
 #define ACTIVE_LOW_BACK		1
-#define ACTIVE_LOW_VOLUMEDOWN	1
-#define ACTIVE_LOW_VOLUMEUP	0
+#define ACTIVE_LOW_VOLUMEDOWN	0
+#define ACTIVE_LOW_VOLUMEUP	1
 
 /**
  * USB detect pin
