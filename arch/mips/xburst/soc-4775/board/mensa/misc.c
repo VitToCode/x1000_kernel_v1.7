@@ -10,6 +10,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
+#include <linux/jz_dwc.h>
 
 #include "board.h"
 
@@ -86,6 +87,13 @@ static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
 			},  
 	};
 #endif
+#endif
+
+#if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
+struct jzdwc_pin dete_pin = {
+        .num                            = GPIO_USB_DETE,
+        .enable_level                   = HIGH_ENABLE,
+};
 #endif
 
 static int __init board_init(void)
@@ -228,7 +236,9 @@ static int __init board_init(void)
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
 
-
+#ifdef CONFIG_USB_DWC2
+        platform_device_register(&jz_dwc_otg_device);
+#endif
 	return 0;
 }
 

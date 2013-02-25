@@ -47,6 +47,10 @@ extern struct jzfb_platform_data jzfb1_pdata;
 #define ACTIVE_LOW_VOLUMEDOWN	1
 #define ACTIVE_LOW_VOLUMEUP	0
 
+/**
+ * USB detect pin
+ **/
+#define GPIO_USB_DETE                   GPIO_PA(16)
 
 /**
  *audio gpio

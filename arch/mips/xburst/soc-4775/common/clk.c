@@ -82,7 +82,7 @@ enum {
 	CLK_ID_BCH,
 #define CLK_NAME_BCH		"bch"
 	CLK_ID_OTG,
-#define CLK_NAME_OTG		"otg0"
+#define CLK_NAME_OTG		"otg1"
 	CLK_ID_MSC0,
 #define CLK_NAME_MSC0		"msc0"
 	CLK_ID_SSI0,
