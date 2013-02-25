@@ -413,7 +413,6 @@ struct platform_device jz_fb##NO##_device = {					\
 	.resource       = jz_fb##NO##_resources,				\
 };
 DEF_LCD(0);
-DEF_LCD(1);
 
 static u64 jz_ipu_dmamask = ~(u64)0;
 

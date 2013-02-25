@@ -26,7 +26,7 @@ extern struct jzfb_platform_data jzfb1_pdata;
  * lcd gpio
  **/
 #define GPIO_LCD_PWM		GPIO_PE(1)
-#define GPIO_LCD_DISP		GPIO_PB(31)
+#define GPIO_LCD_DISP		GPIO_PB(30)
 
 /**
  * TP gpio

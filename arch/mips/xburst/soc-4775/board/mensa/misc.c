@@ -139,17 +139,14 @@ static int __init board_init(void)
 #endif
 
 /* panel and bl */
-#ifdef CONFIG_LCD_AUO_A043FL01V2
-	platform_device_register(&byd_bm8766u_device);
-#endif
+//#ifdef CONFIG_LCD_BYD_BM8766U
+//	platform_device_register(&byd_bm8766u_device);
+//#endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);
 #endif
 
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ4780_LCDC1
-	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
-#endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_pdata);
 #endif
@@ -173,6 +170,11 @@ static int __init board_init(void)
 
 #ifdef CONFIG_JZ_CIM
 	platform_device_register(&jz_cim_device);
+#endif
+
+/* x2d */
+#ifdef CONFIG_JZ_X2D
+        platform_device_register(&jz_x2d_device);
 #endif
 
 #ifdef CONFIG_USB_OHCI_HCD

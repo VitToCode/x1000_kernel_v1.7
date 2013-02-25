@@ -106,8 +106,8 @@ struct jzfb_platform_data jzfb0_pdata = {
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
-	.width = 154,
-	.height = 86,
+	.width = 108,
+	.height = 65,
 
 	.pixclk_falling_edge = 1,
 	.date_enable_active_low = 0,
@@ -174,7 +174,7 @@ static int backlight_init(struct device *dev)
 	}
 
 	/* Configure GPIO pin with S5P6450_GPF15_PWM_TOUT1 */
-	gpio_direction_output(GPIO_LCD_PWM, 0);
+	//gpio_direction_output(GPIO_LCD_PWM, 1);
 
 	return 0;
 }
