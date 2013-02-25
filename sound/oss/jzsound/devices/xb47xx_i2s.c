@@ -913,6 +913,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		dump_i2s_reg();
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DUMP_REG,0);
+		break;
 	case SND_MIXER_DUMP_GPIO:
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DUMP_GPIO,0);
@@ -945,6 +946,10 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 	case SND_DSP_CLR_ROUTE:
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_CLR_ROUTE,arg);
+		break;
+	case SND_DSP_DEBUG:
+		if (cur_codec)
+			ret = cur_codec->codec_ctl(CODEC_DEBUG,arg);
 		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",

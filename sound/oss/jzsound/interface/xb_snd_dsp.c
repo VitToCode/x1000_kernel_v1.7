@@ -216,7 +216,7 @@ static void snd_release_dma(struct dsp_pipe *dp)
 
 					if (dp->dma_config.direction == DMA_TO_DEVICE)
 						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
-					if(ret == 0){
+					if (ret == 0) {
 						printk(KERN_INFO "sound dma transfer data error");
 					}
 				}

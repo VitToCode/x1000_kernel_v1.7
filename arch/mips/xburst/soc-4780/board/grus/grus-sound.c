@@ -18,15 +18,10 @@ struct snd_codec_data codec_data = {
 #else
 					.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
 #endif
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1,
-					.gpio_handset_en_stat = -1,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_ENABLE},
 	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
-					.gpio_hp_mute_stat = -1,
-					.gpio_spk_en_stat = -1,
-					.gpio_handset_en_stat = -1,
-					.gpio_buildin_mic_en_stat = 0},
+					.gpio_buildin_mic_en_stat = STATE_DISABLE},
 	/* device <-> route map */
 	.record_headset_mic_route = {
 #ifdef CONFIG_BOARD_GRUS
@@ -34,22 +29,18 @@ struct snd_codec_data codec_data = {
 #else
 					.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
 #endif
-					.gpio_hp_mute_stat = -1,
-					.gpio_spk_en_stat = -1,
-					.gpio_handset_en_stat = -1,
-					.gpio_buildin_mic_en_stat = 0},
+					.gpio_buildin_mic_en_stat = STATE_DISABLE},
 
 	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1,
-					.gpio_handset_en_stat = 0,
-					.gpio_buildin_mic_en_stat = 1},
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_ENABLE,
+					.gpio_handset_en_stat = STATE_DISABLE,
+					.gpio_buildin_mic_en_stat = STATE_ENABLE},
 
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 0,
-					.gpio_handset_en_stat = 0,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_DISABLE,
+					.gpio_handset_en_stat = STATE_DISABLE},
 
 	.replay_speaker_route = {
 #ifdef CONFIG_BOARD_GRUS
@@ -57,64 +48,19 @@ struct snd_codec_data codec_data = {
 #else
 					.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
 #endif
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 1,
-					.gpio_handset_en_stat = 0,
-					.gpio_buildin_mic_en_stat = -1},
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_ENABLE,
+					.gpio_handset_en_stat = STATE_DISABLE},
 
 	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
-						.gpio_hp_mute_stat = 0,
-						.gpio_spk_en_stat = 1,
-						.gpio_handset_en_stat = 0,
-						.gpio_buildin_mic_en_stat = -1},
+						.gpio_hp_mute_stat = STATE_DISABLE,
+						.gpio_spk_en_stat = STATE_ENABLE,
+						.gpio_handset_en_stat = STATE_DISABLE},
 
-	.fm_speaker_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = 0,
-						 .gpio_spk_en_stat = 1,
-						 .gpio_handset_en_stat = 0,
-						 .gpio_buildin_mic_en_stat = -1},
-
-	.fm_headset_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = 0,
-						 .gpio_spk_en_stat = 0,
-						 .gpio_handset_en_stat = 0,
-						 .gpio_buildin_mic_en_stat = -1},
-
-	.downlink_handset_route = {.route = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
-					.gpio_hp_mute_stat = 0,
-					.gpio_spk_en_stat = 0,
-					.gpio_handset_en_stat = 1,
-					.gpio_buildin_mic_en_stat = -1},
-
-	.downlink_headset_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = 0,
-						 .gpio_spk_en_stat = 0,
-						 .gpio_handset_en_stat = 0,
-						 .gpio_buildin_mic_en_stat = -1},
-
-	.downlink_speaker_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = 0,
-						 .gpio_spk_en_stat = 1,
-						 .gpio_handset_en_stat = 0,
-						 .gpio_buildin_mic_en_stat = -1},
-
-	.uplink_buildin_mic_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = -1,
-						 .gpio_spk_en_stat = -1,
-						 .gpio_handset_en_stat = -1,
-						 .gpio_buildin_mic_en_stat = 1},
-
-	.uplink_headset_mic_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = -1,
-						 .gpio_spk_en_stat = -1,
-						 .gpio_handset_en_stat = -1,
-						 .gpio_buildin_mic_en_stat = 0},
-
-	.record_incall_route = {.route = SND_ROUTE_NONE,
-						 .gpio_hp_mute_stat = -1,
-						 .gpio_spk_en_stat = -1,
-						 .gpio_handset_en_stat = -1,
-						 .gpio_buildin_mic_en_stat = -1},
+	.call_handset_route = {.route = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_DISABLE,
+					.gpio_handset_en_stat = STATE_ENABLE},
 	/* gpio */
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
