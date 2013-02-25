@@ -188,14 +188,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_NAND2,
 		JZDMA_REQ_NAND3,
 		JZDMA_REQ_NAND4,
-		JZDMA_REQ_I2S1,
-		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S0,
 		JZDMA_REQ_I2S0,
-#ifdef CONFIG_SERIAL_JZ47XX_UART4_DMA
-		JZDMA_REQ_UART4,
-		JZDMA_REQ_UART4,
-#endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART3_DMA
 		JZDMA_REQ_UART3,
 		JZDMA_REQ_UART3,
@@ -366,27 +360,6 @@ struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };
 
-/* GPU */
-static struct resource jz_gpu_resources[] = {
-	[0] = {
-		.start          = GPU_IOBASE,
-		.end            = GPU_IOBASE + 0x1000 - 1,
-		.flags          = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start          = IRQ_GPU,
-		.end            = IRQ_GPU,
-		.flags          = IORESOURCE_IRQ,
-	},
-};
-
-struct platform_device jz_gpu = {
-	.name = "pvrsrvkm",
-	.id = 0,
-	.num_resources  = ARRAY_SIZE(jz_gpu_resources),
-	.resource       = jz_gpu_resources,
-};
-
 static u64 jz_fb_dmamask = ~(u64)0;
 
 #define DEF_LCD(NO)								\
@@ -413,34 +386,6 @@ struct platform_device jz_fb##NO##_device = {					\
 	.resource       = jz_fb##NO##_resources,				\
 };
 DEF_LCD(0);
-
-static u64 jz_ipu_dmamask = ~(u64)0;
-
-#define DEF_IPU(NO)								\
-	static struct resource jz_ipu##NO##_resources[] = {			\
-		[0] = {								\
-			.start          = IPU##NO##_IOBASE,			\
-			.end            = IPU##NO##_IOBASE+ 0x8000 - 1,		\
-			.flags          = IORESOURCE_MEM,			\
-		},								\
-		[1] = {								\
-			.start          = IRQ_IPU##NO,				\
-			.end            = IRQ_IPU##NO,				\
-			.flags          = IORESOURCE_IRQ,			\
-		},								\
-	};									\
-struct platform_device jz_ipu##NO##_device = {					\
-	.name = "jz-ipu",							\
-	.id = NO,								\
-	.dev = {								\
-		.dma_mask               = &jz_ipu_dmamask,			\
-		.coherent_dma_mask      = 0xffffffff,				\
-	},									\
-	.num_resources  = ARRAY_SIZE(jz_ipu##NO##_resources),			\
-	.resource       = jz_ipu##NO##_resources,				\
-};
-DEF_IPU(0);
-DEF_IPU(1);
 
 /* UART ( uart controller) */
 static struct resource jz_uart0_resources[] = {
@@ -550,33 +495,6 @@ struct platform_device jz_uart3_device = {
 	.resource       = jz_uart3_resources,
 };
 
-
-static struct resource jz_uart4_resources[] = {
-	[0] = {
-		.start          = UART4_IOBASE,
-		.end            = UART4_IOBASE + 0x1000 - 1,
-		.flags          = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start          = IRQ_UART4,
-		.end            = IRQ_UART4,
-		.flags          = IORESOURCE_IRQ,
-	},
-#ifdef CONFIG_SERIAL_JZ47XX_UART4_DMA
-	[2] = {
-		.start          = JZDMA_REQ_UART4,
-		.flags          = IORESOURCE_DMA,
-	},
-#endif
-};
-
-struct platform_device jz_uart4_device = {
-	.name = "jz-uart",
-	.id = 4,
-	.num_resources  = ARRAY_SIZE(jz_uart4_resources),
-	.resource       = jz_uart4_resources,
-};
-
 static u64 jz_ssi_dmamask =  ~(u32)0;
 
 #define DEF_SSI(NO)							       \
@@ -631,12 +549,6 @@ struct platform_device jz_ssi##NO##_device = {				       \
 DEF_PIO_SSI(0);
 #else
 DEF_SSI(0);
-#endif
-
-#ifdef CONFIG_SPI1_PIO_ONLY
-DEF_PIO_SSI(1);
-#else
-DEF_SSI(1);
 #endif
 
 /* CIM (camera module interface controller) */
@@ -715,42 +627,16 @@ struct platform_device jz_ohci_device = {
 	.resource	= jz_ohci_resources,
 };
 
-/* EHCI (USB high speed host controller) */
-static struct resource jz_ehci_resources[] = {
-	[0] = {
-		.start		= EHCI_IOBASE,
-		.end		= EHCI_IOBASE + 0x10000 - 1,
-		.flags		= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start		= IRQ_EHCI,
-		.end		= IRQ_EHCI,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-/* The dmamask must be set for OHCI to work */
-static u64 ehci_dmamask = ~(u32)0;
-
-struct platform_device jz_ehci_device = {
-	.name		= "jz-ehci",
-	.id		= 0,
-	.dev = {
-		.dma_mask		= &ehci_dmamask,
-		.coherent_dma_mask	= 0xffffffff,
-	},
-	.num_resources	= ARRAY_SIZE(jz_ehci_resources),
-	.resource	= jz_ehci_resources,
-};
-
 static struct resource	jz_mac_res[] = {
 	{ .flags = IORESOURCE_MEM,
 		.start = ETHC_IOBASE,
 		.end = ETHC_IOBASE + 0xfff,
 	},
+#if 0
 	{ .flags = IORESOURCE_IRQ,
 		.start = IRQ_ETHC,
 	},
+#endif
 };
 
 struct platform_device jz_mac = {
@@ -825,10 +711,12 @@ static struct resource jz_hdmi_resources[] = {
 		.start = HDMI_IOBASE,
 		.end = HDMI_IOBASE + 0x8000 - 1,
 	},
+#if 0
 	[1] = {
 		.flags = IORESOURCE_IRQ,
 		.start = IRQ_HDMI,
 	},
+#endif
 };
 
 struct platform_device jz_hdmi = {
@@ -836,6 +724,38 @@ struct platform_device jz_hdmi = {
 	.id = -1,
 	.num_resources = ARRAY_SIZE(jz_hdmi_resources),
 	.resource = jz_hdmi_resources,
+};
+
+
+
+/* EHCI (USB high speed host controller) */
+static struct resource jz_ehci_resources[] = {
+	[0] = {
+		.start          = EHCI_IOBASE,
+		.end            = EHCI_IOBASE + 0x10000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+#if 0
+	[1] = {
+		.start          = IRQ_EHCI,
+		.end            = IRQ_EHCI,
+		.flags          = IORESOURCE_IRQ,
+	},
+#endif
+};
+
+/* The dmamask must be set for OHCI to work */
+static u64 ehci_dmamask = ~(u32)0;
+
+struct platform_device jz_ehci_device = {
+	.name           = "jz-ehci",
+	.id             = 0,
+	.dev = {
+		.dma_mask               = &ehci_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.num_resources  = ARRAY_SIZE(jz_ehci_resources),
+	.resource       = jz_ehci_resources,
 };
 
 static struct resource jz_rtc_resource[] = {
@@ -903,26 +823,6 @@ struct platform_device jz_adc_device = {
 	.id	= -1,
 	.num_resources	= ARRAY_SIZE(jz_adc_resources),
 	.resource	= jz_adc_resources,
-};
-
-static struct resource jz_aosd_resources[] = {
-	[0] = {
-		.start	= COMPRESS_IOBASE,
-		.end	= COMPRESS_IOBASE + 0x120 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.flags = IORESOURCE_IRQ,
-		.start = IRQ_COMPRESS,
-		.end   = IRQ_COMPRESS,
-	},
-};
-
-struct platform_device jz_aosd_device = {
-	.name	= "jz-aosd",
-	.id	= -1,
-	.num_resources	= ARRAY_SIZE(jz_aosd_resources),
-	.resource	= jz_aosd_resources,
 };
 
 static struct resource jz_dwc_otg_resources[] = {

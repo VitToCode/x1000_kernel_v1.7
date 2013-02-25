@@ -94,8 +94,6 @@ extern struct platform_device jz_msc2_device;
 extern struct platform_device jz_i2c0_device;
 extern struct platform_device jz_i2c1_device;
 extern struct platform_device jz_i2c2_device;
-extern struct platform_device jz_i2c3_device;
-extern struct platform_device jz_i2c4_device;
 
 extern struct platform_device jz_i2s_device;
 extern struct platform_device jz_pcm_device;
@@ -109,16 +107,10 @@ extern struct platform_device jz_gpu;
 extern struct platform_device jz_fb0_device;
 extern struct platform_device jz_fb1_device;
 
-extern struct platform_device jz_aosd_device;
-
-extern struct platform_device jz_ipu0_device;
-extern struct platform_device jz_ipu1_device;
-
 extern struct platform_device jz_uart0_device;
 extern struct platform_device jz_uart1_device;
 extern struct platform_device jz_uart2_device;
 extern struct platform_device jz_uart3_device;
-extern struct platform_device jz_uart4_device;
 
 extern struct platform_device jz_ssi0_device;
 extern struct platform_device jz_ssi1_device;

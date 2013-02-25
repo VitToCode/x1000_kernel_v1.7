@@ -113,14 +113,6 @@ static int __init board_init(void)
 	platform_device_register(&jz_i2c2_device);
 #endif
 
-/* ipu */
-#ifdef CONFIG_JZ4780_IPU
-	platform_device_register(&jz_ipu0_device);
-#endif
-#ifdef CONFIG_JZ4780_IPU
-	platform_device_register(&jz_ipu1_device);
-#endif
-
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4775
 	jz_device_register(&jz_msc0_device, &tf_pdata);
@@ -131,16 +123,10 @@ static int __init board_init(void)
 
 /* sound */
 #ifdef CONFIG_SOUND_I2S0_JZ47XX
-	jz_device_register(&jz_i2s0_device,&i2s0_data);
-#endif
-#ifdef CONFIG_SOUND_I2S1_JZ47XX
-	jz_device_register(&jz_i2s1_device,&i2s1_data);
+	jz_device_register(&jz_i2s_device,&i2s_data);
 #endif
 #ifdef CONFIG_SOUND_PCM0_JZ47XX
-	jz_device_register(&jz_pcm0_device,&pcm0_data);
-#endif
-#ifdef CONFIG_SOUND_PCM1_JZ47XX
-	jz_device_register(&jz_pcm1_device,&pcm1_data);
+	jz_device_register(&jz_pcm_device,&pcm_data);
 #endif
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
@@ -171,9 +157,6 @@ static int __init board_init(void)
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	platform_device_register(&jz_uart3_device);
-#endif
-#ifdef CONFIG_SERIAL_JZ47XX_UART4
-	platform_device_register(&jz_uart4_device);
 #endif
 
 #ifdef CONFIG_JZ_CIM

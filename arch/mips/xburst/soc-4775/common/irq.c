@@ -187,12 +187,12 @@ static void intc_irq_dispatch(void)
 #else
 	ipr[0] = ipr_intc;
 #endif
-	gpr[0] = ipr[0] & 0x3f000;
-	ipr[0] &= ~0x3f000;
+	gpr[0] = ipr[0] & 0x3f800;
+	ipr[0] &= ~0x3f800;
 
 	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
-	gpr[1] = ipr[1] & 0x9f0f0004;
-	ipr[1] &= ~0x9f0f0004;
+	gpr[1] = ipr[1] & 0x1c0f0000;
+	ipr[1] &= ~0x1c0f0000;
 
 	if (ipr[0]) {
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
