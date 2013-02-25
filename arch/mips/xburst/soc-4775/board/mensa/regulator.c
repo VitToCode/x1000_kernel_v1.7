@@ -62,15 +62,16 @@ EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	"Vlcd",
 	"vlcd",	NULL,		3000000);
 
-/*
+//
 FIXED_REGULATOR_DEF(
 		vmmc,
 		"TF",           3000000,        GPIO_PB(3),
 		HIGH_ENABLE,    UN_AT_BOOT,     0,  
 		NULL,           "vmmc.0",       NULL);
-*/
+
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
+	&vmmc_regulator_device,
 };
 
 /*
@@ -131,9 +132,8 @@ static int __init pmu_dev_init(void)
 	for (i = 0; i < ARRAY_SIZE(fixed_regulator_devices); i++)
 		fixed_regulator_devices[i]->id = i;
 
-	return 0;
-//	return platform_add_devices(fixed_regulator_devices,
-//				    ARRAY_SIZE(fixed_regulator_devices));
+	return platform_add_devices(fixed_regulator_devices,
+				    ARRAY_SIZE(fixed_regulator_devices));
 }
 
 subsys_initcall_sync(pmu_dev_init);
