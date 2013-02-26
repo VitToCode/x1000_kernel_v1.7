@@ -34,10 +34,10 @@ struct fb_videomode jzfb0_videomode = {
 	.yres = 480,
 	.pixclock = KHZ2PICOS(33260),
 	.left_margin = 88,
-	.right_margin = 2,
+	.right_margin = 40,
 	.upper_margin = 8,
-	.lower_margin = 2,
-	.hsync_len = 2,
+	.lower_margin = 35,
+	.hsync_len = 128,
 	.vsync_len = 2,
 	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
@@ -109,7 +109,7 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.width = 108,
 	.height = 65,
 
-	.pixclk_falling_edge = 1,
+	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 1,
