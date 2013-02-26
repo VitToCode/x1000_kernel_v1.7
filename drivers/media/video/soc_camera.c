@@ -16,7 +16,6 @@
  * published by the Free Software Foundation.
  */
 
-//#define DEBUG    1
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -72,7 +71,7 @@ static int soc_camera_power_set(struct soc_camera_device *icd,
 			dev_err(&icd->dev,
 				"Platform failed to power-on the camera.\n");
 
-			regulator_enable(ici->regul);
+			regulator_disable(ici->regul);
 			return ret;
 		}
 	} else {
@@ -758,6 +757,17 @@ static int soc_camera_querycap(struct file *file, void  *priv,
 	return ici->ops->querycap(ici, cap);
 }
 
+static int soc_camera_s_tlb_base(struct file *file, void  *priv,
+			       unsigned int *tlb_base)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
+
+	WARN_ON(priv != file->private_data);
+
+	return ici->ops->set_tlb_base(ici, tlb_base);
+}
+
 static int soc_camera_streamon(struct file *file, void *priv,
 			       enum v4l2_buf_type i)
 {
@@ -1157,9 +1167,7 @@ static int soc_camera_probe(struct device *dev)
 		dev_warn(&icd->dev, "Failed creating the control symlink\n");
 
 	ici->ops->remove(icd);
-
 	soc_camera_power_set(icd, icl, 0);
-
 	mutex_unlock(&icd->video_lock);
 
 	return 0;
@@ -1500,6 +1508,7 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_g_parm		 = soc_camera_g_parm,
 	.vidioc_s_parm		 = soc_camera_s_parm,
 	.vidioc_g_chip_ident     = soc_camera_g_chip_ident,
+	.vidioc_s_tlb_base 	 = soc_camera_s_tlb_base,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.vidioc_g_register	 = soc_camera_g_register,
 	.vidioc_s_register	 = soc_camera_s_register,
@@ -1556,7 +1565,7 @@ static int soc_camera_video_start(struct soc_camera_device *icd)
 	return 0;
 }
 
-static int /*__devinit*/ soc_camera_pdrv_probe(struct platform_device *pdev)
+static int __devinit soc_camera_pdrv_probe(struct platform_device *pdev)
 {
 	struct soc_camera_link *icl = pdev->dev.platform_data;
 	struct soc_camera_device *icd;

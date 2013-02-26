@@ -1947,5 +1947,6 @@ struct v4l2_dbg_chip_ident {
    drivers/media/video/v4l2-compat-ioctl32.c as well! */
 
 #define BASE_VIDIOC_PRIVATE	192		/* 192-255 are private */
-
+/* For ingenic xburst jz4780 */
+#define VIDIOC_SET_TLB_BASE		 _IOW('V', BASE_VIDIOC_PRIVATE, unsigned int)
 #endif /* __LINUX_VIDEODEV2_H */
