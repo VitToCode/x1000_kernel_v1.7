@@ -62,7 +62,7 @@ static inline u32 div_ceiling(u32 x, u32 y)
 	return (x + y - 1) / y;
 }
 
-struct gpemc_nand_regs_file {
+typedef struct {
 	volatile u32 nfcsr;
 
 	volatile u32 pad0[(0x13410100 - CPEMC_NAND_REGS_FILE_BASE)
@@ -85,9 +85,9 @@ struct gpemc_nand_regs_file {
 	volatile u32 tgdr;
 	volatile u32 tghl;
 	volatile u32 tghh;
-};
+} nand_regs_file_t;
 
-struct gpemc_regs_file {
+typedef struct {
 	volatile u32 pad0[0x14 / sizeof(u32)];
 
 	volatile u32 smcr[6];
@@ -95,15 +95,15 @@ struct gpemc_regs_file {
 	volatile u32 pad1;
 
 	volatile u32 sacr[6];
-};
+} regs_file_t;
 
 /* instance a singleton gpemc */
 static struct {
 	struct clk *clk;
 	DECLARE_BITMAP(bank_use_map, 64);
 
-	struct gpemc_regs_file __iomem * const regs_file;
-	struct gpemc_nand_regs_file __iomem * const nand_regs_file;
+	regs_file_t __iomem * const regs_file;
+	nand_regs_file_t __iomem * const nand_regs_file;
 
 	const struct resource regs_file_mem;
 	const struct resource nand_regs_file_mem;
@@ -111,20 +111,20 @@ static struct {
 	const struct resource bank_mem[BANK_COUNT];
 	const char *bank_name[BANK_COUNT];
 } instance = {
-	.regs_file = (struct gpemc_regs_file *)
+	.regs_file = (regs_file_t *)
 					CKSEG1ADDR(GPEMC_REGS_FILE_BASE),
-	.nand_regs_file = (struct gpemc_nand_regs_file *)
+	.nand_regs_file = (nand_regs_file_t *)
 						CKSEG1ADDR(CPEMC_NAND_REGS_FILE_BASE),
 
 	.regs_file_mem = {
 		.start = GPEMC_REGS_FILE_BASE,
-		.end = GPEMC_REGS_FILE_BASE + sizeof(struct gpemc_regs_file) - 1,
+		.end = GPEMC_REGS_FILE_BASE + sizeof(regs_file_t) - 1,
 	},
 
 	.nand_regs_file_mem = {
 		.start = CPEMC_NAND_REGS_FILE_BASE,
 		.end = CPEMC_NAND_REGS_FILE_BASE +
-				sizeof(struct gpemc_nand_regs_file) - 1,
+				sizeof(nand_regs_file_t) - 1,
 	},
 
 #define GPEMC_BANK_SIZE (GPNEMC_CS1_IOBASE - GPNEMC_CS2_IOBASE)
@@ -281,8 +281,6 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	temp = max(timing->dc_timing.Talh, timing->dc_timing.Tclh);
 	temp = max(temp, timing->dc_timing.Tch);
 	temp = max(temp, timing->dc_timing.Tdh);
-	temp = max(temp, timing->dc_timing.Twh);
-	temp = max(temp, (timing->dc_timing.Twc - timing->dc_timing.Twp));
 	bank->bank_timing.sram_timing.Tah = temp;
 
 	/*
@@ -294,7 +292,9 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	bank->bank_timing.sram_timing.Tstrv = timing->ac_timing.Twhr;
 
 	/* bank Tbp */
-	bank->bank_timing.sram_timing.Tbp = timing->dc_timing.Twp;
+	temp = timing->dc_timing.Twp;
+	temp = max(temp, (timing->dc_timing.Twc - timing->dc_timing.Twp));
+	bank->bank_timing.sram_timing.Tbp = temp;
 
 	/* bank BW */
 	bank->bank_timing.sram_timing.BW = timing->BW;
