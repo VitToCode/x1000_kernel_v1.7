@@ -249,6 +249,7 @@ struct jz4780_camera_dev {
 	struct jz4780_camera_dma_desc *dma_desc;
 	void *desc_vaddr;
 	int is_first_start;
+	unsigned int is_tlb_enabled;
 };
 
 
@@ -334,6 +335,8 @@ static int jz4780_videobuf_prepare(struct videobuf_queue *vq,
 		struct videobuf_buffer *vb, enum v4l2_field field)
 {
 	struct soc_camera_device *icd = vq->priv_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
+	struct jz4780_camera_dev *pcdev = ici->priv;
 	struct jz4780_buffer *buf = container_of(vb, struct jz4780_buffer, vb);
 	int ret;
 	int bytes_per_line = soc_mbus_bytes_per_line(icd->user_width,
@@ -374,10 +377,12 @@ static int jz4780_videobuf_prepare(struct videobuf_queue *vq,
 	}
 
 	if (vb->state == VIDEOBUF_NEEDS_INIT) {
-		ret = videobuf_iolock(vq, vb, NULL);
-		if (ret) {
-			dprintk(3, "%s error!\n", __FUNCTION__);
-			goto fail;
+		if(pcdev->is_tlb_enabled == 0) {
+			ret = videobuf_iolock(vq, vb, NULL);
+			if (ret) {
+				dprintk(3, "%s error!\n", __FUNCTION__);
+				goto fail;
+			}
 		}
 		vb->state = VIDEOBUF_PREPARED;
 	}
@@ -408,8 +413,32 @@ static int jz4780_camera_setup_dma(struct jz4780_camera_dev *pcdev,
 		return -EFAULT;
 	}
 
+	if(pcdev->is_tlb_enabled == 0) {
+		dma_address = videobuf_to_dma_contig(vbuf);
 
-	dma_address = videobuf_to_dma_contig(vbuf);
+		/* disable tlb error interrupt */
+		regval = readl(pcdev->base + CIM_IMR);
+		regval |= CIM_IMR_TLBEM;
+		writel(regval, pcdev->base + CIM_IMR);
+
+		/* disable tlb */
+		regval = readl(pcdev->base + CIM_TC);
+		regval &= ~CIM_TC_ENA;
+		writel(regval, pcdev->base + CIM_TC);
+	} else {
+		dma_address = icd->vb_vidq.bufs[0]->baddr;
+
+		/* enable tlb error interrupt */
+		regval = readl(pcdev->base + CIM_IMR);
+		regval &= ~CIM_IMR_TLBEM;
+		writel(regval, pcdev->base + CIM_IMR);
+
+		/* enable tlb */
+		regval = readl(pcdev->base + CIM_TC);
+		regval |= CIM_TC_ENA;
+		writel(regval, pcdev->base + CIM_TC);
+	}
+
 	if(!dma_address) {
 		dprintk(3, "Failed to setup DMA address\n");
 		return -ENOMEM;
@@ -614,6 +643,10 @@ static int jz4780_camera_add_device(struct soc_camera_device *icd)
 
 	pcdev->icd[icd_index] = icd;
 	pcdev->is_first_start = 1;
+
+	/* disable tlb when open camera every time */
+	pcdev->is_tlb_enabled = 0;
+
 	jz4780_camera_activate(pcdev);
 
 	return 0;
@@ -879,6 +912,7 @@ static unsigned int jz4780_camera_poll(struct file *file, poll_table *pt)
 	if(pcdev->is_first_start) {
 		writel(0, pcdev->base + CIM_STATE);
 
+		/* enable dma */
 		temp = readl(pcdev->base + CIM_CTRL);
 		temp |= CIM_CTRL_DMA_EN;
 		writel(temp, pcdev->base + CIM_CTRL);
@@ -917,6 +951,35 @@ static int jz4780_camera_querycap(struct soc_camera_host *ici,
 	strlcpy(cap->card, "JZ4780-Camera", sizeof(cap->card));
 	cap->version = VERSION_CODE;
 	cap->capabilities = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
+
+	return 0;
+}
+
+static int jz4780_camera_set_tlb_base(struct soc_camera_host *ici,
+			       unsigned int *tlb_base)
+{
+	unsigned int regval;
+	struct jz4780_camera_dev *pcdev = ici->priv;
+	pcdev->is_tlb_enabled = 1;
+
+	if(*tlb_base & 0x3) {//bit[0:1] must be 0.double word aligned
+		dprintk(3, "cim tlb base is not valid address\n");
+		return -1;
+	}
+
+	/* reset tlb */
+	regval = readl(pcdev->base + CIM_TC);
+	regval |= CIM_TC_RST;
+	writel(regval, pcdev->base + CIM_TC);
+
+	regval = readl(pcdev->base + CIM_TC);
+	regval &= ~CIM_TC_RST;
+	writel(regval, pcdev->base + CIM_TC);
+
+	/* set tlb base */
+	regval = readl(pcdev->base + CIM_TC);
+	regval |= *tlb_base;
+	writel(regval, pcdev->base + CIM_TC);
 
 	return 0;
 }
@@ -1044,6 +1107,7 @@ static struct soc_camera_host_ops jz4780_soc_camera_host_ops = {
 	.reqbufs = jz4780_camera_reqbufs,
 	.poll = jz4780_camera_poll,
 	.querycap = jz4780_camera_querycap,
+	.set_tlb_base = jz4780_camera_set_tlb_base,
 };
 
 
