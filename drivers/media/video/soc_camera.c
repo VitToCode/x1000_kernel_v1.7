@@ -856,6 +856,22 @@ static int soc_camera_queryctrl(struct file *file, void *priv,
 	return -EINVAL;
 }
 
+static int soc_camera_querymenu(struct file *file, void *priv,
+				struct v4l2_querymenu *qm)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+
+	WARN_ON(priv != file->private_data);
+
+	if (!qm->id)
+		return -EINVAL;
+
+	v4l2_subdev_call(sd, core, querymenu, qm);
+
+	return 0;
+}
+
 static int soc_camera_g_ctrl(struct file *file, void *priv,
 			     struct v4l2_control *ctrl)
 {
@@ -1500,6 +1516,7 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_streamon	 = soc_camera_streamon,
 	.vidioc_streamoff	 = soc_camera_streamoff,
 	.vidioc_queryctrl	 = soc_camera_queryctrl,
+	.vidioc_querymenu	 = soc_camera_querymenu,
 	.vidioc_g_ctrl		 = soc_camera_g_ctrl,
 	.vidioc_s_ctrl		 = soc_camera_s_ctrl,
 	.vidioc_cropcap		 = soc_camera_cropcap,
