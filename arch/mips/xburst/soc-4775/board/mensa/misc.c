@@ -195,7 +195,7 @@ static int __init board_init(void)
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
 	i2c_register_board_info(0, mensa_i2c0_devs, ARRAY_SIZE(mensa_i2c0_devs));
 #endif
-#ifdef CONFIG_RTC_DRV_JZ4780
+#ifdef CONFIG_RTC_DRV_JZ4775
 	platform_device_register(&jz_rtc_device);
 #endif
 
