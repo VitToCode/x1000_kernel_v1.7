@@ -29,6 +29,14 @@
 #define REG_CHIP_ID		0x00
 #define PID_GC0308		0x9b
 
+/* Private v4l2 controls */
+#define V4L2_CID_PRIVATE_BALANCE  (V4L2_CID_PRIVATE_BASE + 0)
+#define V4L2_CID_PRIVATE_EFFECT  (V4L2_CID_PRIVATE_BASE + 1)
+
+#define REG14				0x14
+#define REG14_HFLIP_IMG		0x01 /* Horizontal mirror image ON/OFF */
+#define REG14_VFLIP_IMG     0x02 /* Vertical flip image ON/OFF */
+
 /*
  * Struct
  */
@@ -37,16 +45,17 @@ struct regval_list {
 	u8 value;
 };
 
+struct mode_list {
+	u8 index;
+	const struct regval_list *mode_regs;
+};
+
 /* Supported resolutions */
 enum gc0308_width {
 	W_QCIF	= 176,
 	W_QVGA	= 320,
 	W_CIF	= 352,
 	W_VGA	= 640,
-	W_SVGA	= 800,
-	W_XGA	= 1024,
-	W_SXGA	= 1280,
-	W_UXGA	= 1600,
 };
 
 enum gc0308_height {
@@ -54,10 +63,6 @@ enum gc0308_height {
 	H_QVGA	= 240,
 	H_CIF	= 288,
 	H_VGA	= 480,
-	H_SVGA	= 600,
-	H_XGA	= 768,
-	H_SXGA	= 1024,
-	H_UXGA	= 1200,
 };
 
 struct gc0308_win_size {
@@ -74,6 +79,8 @@ struct gc0308_priv {
 	enum v4l2_mbus_pixelcode cfmt_code;
 	const struct gc0308_win_size *win;
 	int	model;
+	u8 balance_value;
+	u8 effect_value;
 	u16	flag_vflip:1;
 	u16	flag_hflip:1;
 };
@@ -504,6 +511,93 @@ static const struct regval_list gc0308_vga_regs[] = {
 	ENDMARKER,
 };
 
+static const struct regval_list gc0308_wb_auto_regs[] = {
+	{0x5a,0x56}, {0x5b,0x40},
+	{0x5c,0x4a}, {0x22,0x57},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_wb_incandescence_regs[] = {
+	{0x22,0x55}, {0x5a,0x48},
+	{0x5b,0x40}, {0x5c,0x5c},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_wb_daylight_regs[] = {
+	{0x22,0x55}, {0x5a,0x74},
+	{0x5b,0x52}, {0x5c,0x40},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_wb_fluorescent_regs[] = {
+	{0x22,0x55}, {0x5a,0x40},
+	{0x5b,0x42}, {0x5c,0x50},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_wb_cloud_regs[] = {
+	{0x22,0x55}, {0x5a,0x8c},
+	{0x5b,0x50}, {0x5c,0x40},
+	ENDMARKER,
+};
+
+static const struct mode_list gc0308_balance[] = {
+	{0, gc0308_wb_auto_regs}, {1, gc0308_wb_incandescence_regs},
+	{2, gc0308_wb_daylight_regs}, {3, gc0308_wb_fluorescent_regs},
+	{4, gc0308_wb_cloud_regs},
+};
+
+
+static const struct regval_list gc0308_effect_normal_regs[] = {
+	{0x23,0x00}, {0x2d,0x0a},
+	{0x20,0x7f}, {0xd2,0x90},
+	{0x73,0x00}, {0x77,0x38},
+	{0xb3,0x40}, {0xb4,0x80},
+	{0xba,0x00}, {0xbb,0x00},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_effect_grayscale_regs[] = {
+	{0x23,0x02}, {0x2d,0x0a},
+	{0x20,0xff}, {0xd2,0x90},
+	{0x73,0x00}, {0xb3,0x40},
+	{0xb4,0x80}, {0xba,0x00},
+	{0xbb,0x00},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_effect_sepia_regs[] = {
+	{0x23,0x02}, {0x2d,0x0a},
+	{0x20,0xff}, {0xd2,0x90},
+	{0x73,0x00}, {0xb3,0x40},
+	{0xb4,0x80}, {0xba,0xd0},
+	{0xbb,0x28},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_effect_colorinv_regs[] = {
+	{0x23,0x01}, {0x2d,0x0a},
+	{0x20,0xff}, {0xd2,0x90},
+	{0x73,0x00}, {0xb3,0x40},
+	{0xb4,0x80}, {0xba,0x00},
+	{0xbb,0x00},
+	ENDMARKER,
+};
+
+static const struct regval_list gc0308_effect_sepiabluel_regs[] = {
+	{0x23,0x02}, {0x2d,0x0a},
+	{0x20,0x7f}, {0xd2,0x90},
+	{0x73,0x00}, {0xb3,0x40},
+	{0xb4,0x80}, {0xba,0x50},
+	{0xbb,0xe0},
+	ENDMARKER,
+};
+
+static const struct mode_list gc0308_effect[] = {
+	{0, gc0308_effect_normal_regs}, {1, gc0308_effect_grayscale_regs},
+	{2, gc0308_effect_sepia_regs}, {3, gc0308_effect_colorinv_regs},
+	{4, gc0308_effect_sepiabluel_regs},
+};
 
 #define GC0308_SIZE(n, w, h, r) \
 	{.name = n, .width = w , .height = h, .regs = r }
@@ -536,6 +630,23 @@ static enum v4l2_mbus_pixelcode gc0308_codes[] = {
  */
 static const struct v4l2_queryctrl gc0308_controls[] = {
 	{
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.type		= V4L2_CTRL_TYPE_MENU,
+		.name		= "whitebalance",
+		.minimum	= 0,
+		.maximum	= 4,
+		.step		= 1,
+		.default_value	= 0,
+	}, {
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.type		= V4L2_CTRL_TYPE_MENU,
+		.name		= "effect",
+		.minimum	= 0,
+		.maximum	= 4,
+		.step		= 1,
+		.default_value	= 0,
+	},
+	{
 		.id		= V4L2_CID_VFLIP,
 		.type		= V4L2_CTRL_TYPE_BOOLEAN,
 		.name		= "Flip Vertically",
@@ -553,6 +664,62 @@ static const struct v4l2_queryctrl gc0308_controls[] = {
 		.default_value	= 0,
 	},
 };
+
+/*
+ * Supported balance menus
+ */
+static const struct v4l2_querymenu gc0308_balance_menus[] = {
+	{
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.index		= 0,
+		.name		= "auto",
+	}, {
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.index		= 1,
+		.name		= "incandescent",
+	}, {
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.index		= 2,
+		.name		= "fluorescent",
+	},  {
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.index		= 3,
+		.name		= "daylight",
+	},  {
+		.id		= V4L2_CID_PRIVATE_BALANCE,
+		.index		= 4,
+		.name		= "cloudy-daylight",
+	},
+
+};
+
+/*
+ * Supported effect menus
+ */
+static const struct v4l2_querymenu gc0308_effect_menus[] = {
+	{
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.index		= 0,
+		.name		= "none",
+	}, {
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.index		= 1,
+		.name		= "mono",
+	}, {
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.index		= 2,
+		.name		= "sepia",
+	},  {
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.index		= 3,
+		.name		= "negative",
+	}, {
+		.id		= V4L2_CID_PRIVATE_EFFECT,
+		.index		= 4,
+		.name		= "aqua",
+	},
+};
+
 
 /*
  * General functions
@@ -667,6 +834,14 @@ static int gc0308_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	case V4L2_CID_HFLIP:
 		ctrl->value = priv->flag_hflip;
 		break;
+	case V4L2_CID_PRIVATE_BALANCE:
+		ctrl->value = priv->balance_value;
+		break;
+	case V4L2_CID_PRIVATE_EFFECT:
+		ctrl->value = priv->effect_value;
+		break;
+	default:
+		break;
 	}
 	return 0;
 }
@@ -676,22 +851,58 @@ static int gc0308_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct gc0308_priv *priv = to_gc0308(client);
 	int ret = 0;
-	u8 val;
-/*
-	switch (ctrl->id) {
-	case V4L2_CID_VFLIP:
+	int i = 0;
+	u8 value;
 
-		val = ctrl->value ? REG04_VFLIP_IMG : 0x00;
+	int balance_count = sizeof(gc0308_balance) / sizeof(struct mode_list);
+	int effect_count = sizeof(gc0308_effect) / sizeof(struct mode_list);
+
+	switch (ctrl->id) {
+	case V4L2_CID_PRIVATE_BALANCE:
+		if(ctrl->value > balance_count)
+			return -EINVAL;
+
+		for(i = 0; i < balance_count; i++) {
+			if(ctrl->value == gc0308_balance[i].index) {
+				ret = gc0308_write_array(client,
+						gc0308_balance[ctrl->value].mode_regs);
+				priv->balance_value = ctrl->value;
+				break;
+			}
+		}
+		break;
+
+	case V4L2_CID_PRIVATE_EFFECT:
+		if(ctrl->value > effect_count)
+			return -EINVAL;
+
+		for(i = 0; i < effect_count; i++) {
+			if(ctrl->value == gc0308_effect[i].index) {
+				ret = gc0308_write_array(client,
+						gc0308_effect[ctrl->value].mode_regs);
+				priv->effect_value = ctrl->value;
+				break;
+			}
+		}
+		break;
+
+	case V4L2_CID_VFLIP:
+		value = ctrl->value ? REG14_VFLIP_IMG : 0x00;
 		priv->flag_vflip = ctrl->value ? 1 : 0;
-		ret = gc0308_mask_set(client, REG04, REG04_VFLIP_IMG, val);
+		ret = gc0308_mask_set(client, REG14, REG14_VFLIP_IMG, value);
 		break;
+
 	case V4L2_CID_HFLIP:
-		val = ctrl->value ? REG04_HFLIP_IMG : 0x00;
+		value = ctrl->value ? REG14_HFLIP_IMG : 0x00;
 		priv->flag_hflip = ctrl->value ? 1 : 0;
-		ret = gc0308_mask_set(client, REG04, REG04_HFLIP_IMG, val);
+		ret = gc0308_mask_set(client, REG14, REG14_HFLIP_IMG, value);
 		break;
+
+	default:
+		dev_err(&client->dev, "no V4L2 CID: 0x%x ", ctrl->id);
+		return -EINVAL;
 	}
-*/
+
 	return ret;
 }
 
@@ -703,6 +914,24 @@ static int gc0308_g_chip_ident(struct v4l2_subdev *sd,
 
 	id->ident    = priv->model;
 	id->revision = 0;
+
+	return 0;
+}
+
+static int gc0308_querymenu(struct v4l2_subdev *sd,
+					struct v4l2_querymenu *qm)
+{
+	switch (qm->id) {
+	case V4L2_CID_PRIVATE_BALANCE:
+		memcpy(qm->name, gc0308_balance_menus[qm->index].name,
+				sizeof(qm->name));
+		break;
+
+	case V4L2_CID_PRIVATE_EFFECT:
+		memcpy(qm->name, gc0308_effect_menus[qm->index].name,
+				sizeof(qm->name));
+		break;
+	}
 
 	return 0;
 }
@@ -875,26 +1104,11 @@ static int gc0308_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 
 static int gc0308_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 {
-	a->c.left	= 0;
-	a->c.top	= 0;
-	a->c.width	= W_UXGA;
-	a->c.height	= H_UXGA;
-	a->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
-
 	return 0;
 }
 
 static int gc0308_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 {
-	a->bounds.left			= 0;
-	a->bounds.top			= 0;
-	a->bounds.width			= W_UXGA;
-	a->bounds.height		= H_UXGA;
-	a->defrect			= a->bounds;
-	a->type				= V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	a->pixelaspect.numerator	= 1;
-	a->pixelaspect.denominator	= 1;
-
 	return 0;
 }
 
@@ -930,7 +1144,7 @@ static int gc0308_enum_framesizes(struct v4l2_subdev *sd,
 	__u32 index = fsize->index;
 
 	for (i = 0; i < N_WIN_SIZES; i++) {
-		struct gc0308_win_size *win = &gc0308_supported_win_sizes[index];
+		const struct gc0308_win_size *win = &gc0308_supported_win_sizes[index];
 		if (index == ++num_valid) {
 			fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 			fsize->discrete.width = win->width;
@@ -982,6 +1196,7 @@ static struct v4l2_subdev_core_ops gc0308_subdev_core_ops = {
 	.g_ctrl		= gc0308_g_ctrl,
 	.s_ctrl		= gc0308_s_ctrl,
 	.g_chip_ident	= gc0308_g_chip_ident,
+	.querymenu	= gc0308_querymenu,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register	= gc0308_g_register,
 	.s_register	= gc0308_s_register,

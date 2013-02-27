@@ -1108,6 +1108,7 @@ static struct soc_camera_host_ops jz4780_soc_camera_host_ops = {
 	.poll = jz4780_camera_poll,
 	.querycap = jz4780_camera_querycap,
 	.set_tlb_base = jz4780_camera_set_tlb_base,
+	.num_controls = 0,
 };
 
 
@@ -1268,7 +1269,6 @@ static int __init jz4780_camera_probe(struct platform_device *pdev)
 		goto exit_free_irq;
 
 	dprintk(6, "JZ4780 Camera driver loaded\n");
-
 	return 0;
 
 exit_free_irq:

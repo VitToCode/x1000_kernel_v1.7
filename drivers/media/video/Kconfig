@@ -925,14 +925,6 @@ menuconfig FRONT_CAMERA
 	  config front camera driver
 
 if FRONT_CAMERA
-config SOC_CAMERA_OV2659_FRONT
-	bool "ov2659 camera support(front)"
-	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
-	default n
-	select SOC_CAMERA_OV2659
-	help
-	  This is a ov2659 camera driver
-
 config SOC_CAMERA_GC0308_FRONT
 	bool "gc0308 camera support(front)"
 	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
@@ -948,6 +940,39 @@ config SOC_CAMERA_HI253_FRONT
 	select SOC_CAMERA_HI253
 	help
 	  This is a hi253 camera driver
+
+config SOC_CAMERA_GC2015_FRONT
+	bool "gc2015 camera support(front)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_GC2015
+	help
+	  This is a gc2015 camera driver
+
+config SOC_CAMERA_SP0838_FRONT
+	bool "sp0838 camera support(front)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_SP0838
+	help
+	  This is a sp0838 camera driver
+	
+config SOC_CAMERA_OV7675_FRONT
+	bool "ov7675 camera support(front)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV7675
+	help
+	  This is a ov7675 camera driver
+	  
+config SOC_CAMERA_OV2650_FRONT
+	bool "ov2650 camera support(front)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV2650
+	help
+	  This is a ov2650 camera driver
+
 endif #FRONT_CAMERA
 
 menuconfig BACK_CAMERA
@@ -958,14 +983,6 @@ menuconfig BACK_CAMERA
 	  config back camera driver
 
 if BACK_CAMERA
-config SOC_CAMERA_OV2659_BACK
-	bool "ov2659 camera support(back)"
-	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && BACK_CAMERA
-	default n
-	select SOC_CAMERA_OV2659
-	help
-	  This is a ov2659 camera driver
-
 config SOC_CAMERA_HI253_BACK
 	bool "hi253 camera support(back)"
 	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && BACK_CAMERA
@@ -981,6 +998,38 @@ config SOC_CAMERA_GC0308_BACK
 	select SOC_CAMERA_GC0308
 	help
 	  This is a gc0308 camera driver
+	  
+config SOC_CAMERA_GC2015_BACK
+	bool "gc2015 camera support(back)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_GC2015
+	help
+	  This is a gc2015 camera driver
+
+config SOC_CAMERA_SP0838_BACK
+	bool "sp0838 camera support(back)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_SP0838
+	help
+	  This is a sp0838 camera driver
+	
+config SOC_CAMERA_OV7675_BACK
+	bool "ov7675 camera support(back)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV7675
+	help
+	  This is a ov7675 camera driver
+	  
+config SOC_CAMERA_OV2650_BACK
+	bool "ov2650 camera support(back)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV2650
+	help
+	  This is a ov2650 camera driver
 endif #BACK_CAMERA
 
 config EXCHANGE_SENSOR_EN_PIN
@@ -988,12 +1037,6 @@ config EXCHANGE_SENSOR_EN_PIN
 	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST
 	help
 	  This is a choose to exchange front camera sensor and back camera sensor enable pin
-
-config SOC_CAMERA_OV2659
-	bool "camera sensor ov2659 driver"
-	depends on SOC_CAMERA_OV2659_FRONT || SOC_CAMERA_OV2659_BACK
-	default n
-
 
 config SOC_CAMERA_GC0308
 	bool "camera sensor gc0308 driver"
@@ -1004,6 +1047,27 @@ config SOC_CAMERA_HI253
 	bool "camera sensor hi253 driver"
 	depends on SOC_CAMERA_HI253_FRONT || SOC_CAMERA_HI253_BACK
 	default n
+
+config SOC_CAMERA_GC2015
+	bool "camera sensor gc2015 driver"
+	depends on SOC_CAMERA_GC2015_FRONT || SOC_CAMERA_GC2015_BACK
+	default n
+
+config SOC_CAMERA_SP0838
+	bool "camera sensor sp0838 driver"
+	depends on SOC_CAMERA_SP0838_FRONT || SOC_CAMERA_SP0838_BACK
+	default n
+
+config SOC_CAMERA_OV7675
+	bool "camera sensor ov7675 driver"
+	depends on SOC_CAMERA_OV7675_FRONT || SOC_CAMERA_OV7675_BACK
+	default n
+
+config SOC_CAMERA_OV2650
+	bool "camera sensor ov2650 driver"
+	depends on SOC_CAMERA_OV2650_FRONT || SOC_CAMERA_OV2650_BACK
+	default n
+
 
 endif # VIDEO_JZ4780_SUBSYSTEM
 
