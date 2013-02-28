@@ -467,16 +467,16 @@ static const struct mode_list ov2650_effect[] = {
 	{4, ov2650_effect_sepiabluel_regs},
 };
 
-#define GC0308_SIZE(n, w, h, r) \
+#define OV2650_SIZE(n, w, h, r) \
 	{.name = n, .width = w , .height = h, .regs = r }
 
 static struct ov2650_win_size ov2650_supported_win_sizes[] = {
-	GC0308_SIZE("QCIF", W_QCIF, H_QCIF, ov2650_qcif_regs),
-	GC0308_SIZE("CIF", W_CIF, H_CIF, ov2650_cif_regs),
-	GC0308_SIZE("VGA", W_VGA, H_VGA, ov2650_vga_regs),
+	OV2650_SIZE("QCIF", W_QCIF, H_QCIF, ov2650_qcif_regs),
+	OV2650_SIZE("CIF", W_CIF, H_CIF, ov2650_cif_regs),
+	OV2650_SIZE("VGA", W_VGA, H_VGA, ov2650_vga_regs),
 
-	GC0308_SIZE("XGA", W_XGA, H_XGA, ov2650_xga_regs),
-	GC0308_SIZE("UXGA", W_UXGA, H_UXGA, ov2650_uxga_regs),
+	OV2650_SIZE("XGA", W_XGA, H_XGA, ov2650_xga_regs),
+	OV2650_SIZE("UXGA", W_UXGA, H_UXGA, ov2650_uxga_regs),
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(ov2650_supported_win_sizes))
@@ -771,8 +771,8 @@ static int ov2650_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(ov2650_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(ov2650_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(ov2650_balance);
+	int effect_count = ARRAY_SIZE(ov2650_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -928,6 +928,7 @@ static int ov2650_init(struct v4l2_subdev *sd, u32 val)
 	return 0;
 }
 
+#if 0
 static int ov2650_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -975,19 +976,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int ov2650_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct ov2650_priv *priv = to_ov2650(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = ov2650_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -1003,6 +998,17 @@ static int ov2650_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct ov2650_priv *priv = to_ov2650(client);
+	int ret;
+
+	priv->win = ov2650_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = ov2650_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 

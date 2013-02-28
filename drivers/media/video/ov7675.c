@@ -442,6 +442,23 @@ static const struct v4l2_queryctrl ov7675_controls[] = {
 		.step		= 1,
 		.default_value	= 0,
 	},
+	{
+		.id		= V4L2_CID_VFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Vertically",
+		.minimum	= 0,
+		.maximum	= 1,
+		.step		= 1,
+		.default_value	= 0,
+	}, {
+		.id		= V4L2_CID_HFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Horizontally",
+		.minimum	= 0,
+		.maximum	= 1,
+		.step		= 1,
+		.default_value	= 0,
+	},
 };
 
 
@@ -543,6 +560,8 @@ static int ov7675_mask_set(struct i2c_client *client,
 	return i2c_smbus_write_byte_data(client, reg, val);
 }
 
+/* current use hardware reset */
+#if 0
 static int ov7675_reset(struct i2c_client *client)
 {
 	int ret;
@@ -555,6 +574,7 @@ err:
 	dev_dbg(&client->dev, "%s: (ret %d)", __func__, ret);
 	return ret;
 }
+#endif
 
 /*
  * soc_camera_ops functions
@@ -635,8 +655,8 @@ static int ov7675_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(ov7675_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(ov7675_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(ov7675_balance);
+	int effect_count = ARRAY_SIZE(ov7675_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -774,11 +794,15 @@ static int ov7675_init(struct v4l2_subdev *sd, u32 val)
 {
 	int ret;
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct ov7675_priv *priv = to_ov7675(client);
+
+	int bala_index = priv->balance_value;
+	int effe_index = priv->effect_value;
 
 	/* initialize the sensor with default data */
 	ret = ov7675_write_array(client, ov7675_init_regs);
-	ret = ov7675_write_array(client, ov7675_balance[0].mode_regs);
-	ret = ov7675_write_array(client, ov7675_effect[0].mode_regs);
+	ret = ov7675_write_array(client, ov7675_balance[bala_index].mode_regs);
+	ret = ov7675_write_array(client, ov7675_effect[effe_index].mode_regs);
 	if (ret < 0)
 		goto err;
 
@@ -790,6 +814,7 @@ err:
 	return ret;
 }
 
+#if 0
 static int ov7675_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -838,19 +863,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int ov7675_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct ov7675_priv *priv = to_ov7675(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = ov7675_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -866,6 +885,17 @@ static int ov7675_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct ov7675_priv *priv = to_ov7675(client);
+	int ret;
+
+	priv->win = ov7675_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = ov7675_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 

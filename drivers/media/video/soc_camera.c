@@ -466,7 +466,7 @@ static int soc_camera_open(struct file *file)
 	struct v4l2_subdev *sd;
 
 	struct soc_camera_host *ici;
-	struct v4l2_mbus_framefmt mf;
+	//struct v4l2_mbus_framefmt mf;
 	int ret;
 
 	if (!icd->ops)
@@ -485,6 +485,10 @@ static int soc_camera_open(struct file *file)
 	/* Now we really have to activate the camera */
 	if (icd->use_count == 1) {
 		/* Restore parameters before the last close() per V4L2 API */
+
+		/* Remove this function, because upper layer will set format
+		 * after open every time */
+		/*
 		struct v4l2_format f = {
 			.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
 			.fmt.pix = {
@@ -496,6 +500,7 @@ static int soc_camera_open(struct file *file)
 					icd->current_fmt->host_fmt->fourcc,
 			},
 		};
+		*/
 
 		ret = ici->ops->add(icd);
 		if (ret < 0) {
@@ -514,11 +519,18 @@ static int soc_camera_open(struct file *file)
 		sd = soc_camera_to_subdev(icd);
 		sd->grp_id = (long)icd;
 
+		/* merger from kernel version 3.7.0 */
+		/*
 		if (!v4l2_subdev_call(sd, video, g_mbus_fmt, &mf)) {
-			icd->user_width		= mf.width;
-			icd->user_height	= mf.height;
-			icd->colorspace		= mf.colorspace;
-			icd->field		= mf.field;
+					icd->user_width		= mf.width;
+					icd->user_height	= mf.height;
+					icd->colorspace		= mf.colorspace;
+					icd->field		= mf.field;
+		}
+		*/
+		/* call sensor initial function, power off sensor if failed */
+		if (v4l2_subdev_call(sd, core, init, 0)) {
+			goto eresume;
 		}
 
 		pm_runtime_enable(&icd->vdev->dev);
@@ -532,12 +544,13 @@ static int soc_camera_open(struct file *file)
 		 * apart from someone else calling open() simultaneously, but
 		 * .video_lock is protecting us against it.
 		 */
+		/*
 		ret = soc_camera_set_fmt(icd, &f);
 		if (ret < 0) {
 			dev_err(&icd->dev, "soc_camera_set_fmt failed\n");
 			goto esfmt;
 		}
-
+		*/
 		if (ici->ops->init_videobuf) {
 			ici->ops->init_videobuf(&icd->vb_vidq, icd);
 		} else {
@@ -557,7 +570,7 @@ static int soc_camera_open(struct file *file)
 	 * and use_count == 1
 	 */
 einitvb:
-esfmt:
+//esfmt:
 	pm_runtime_disable(&icd->vdev->dev);
 eresume:
 	soc_camera_power_set(icd, icl, 0);

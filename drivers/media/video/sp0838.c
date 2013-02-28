@@ -418,12 +418,12 @@ static const struct mode_list sp0838_effect[] = {
 	{2, sp0838_effect_sepia_regs}, {3, sp0838_effect_colorinv_regs},
 };
 
-#define GC0308_SIZE(n, w, h, r) \
+#define SP0838_SIZE(n, w, h, r) \
 	{.name = n, .width = w , .height = h, .regs = r }
 
 static struct sp0838_win_size sp0838_supported_win_sizes[] = {
-	GC0308_SIZE("QVGA", W_QVGA, H_QVGA, sp0838_qvga_regs),
-	GC0308_SIZE("VGA", W_VGA, H_VGA, sp0838_vga_regs),
+	SP0838_SIZE("QVGA", W_QVGA, H_QVGA, sp0838_qvga_regs),
+	SP0838_SIZE("VGA", W_VGA, H_VGA, sp0838_vga_regs),
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(sp0838_supported_win_sizes))
@@ -460,6 +460,23 @@ static const struct v4l2_queryctrl sp0838_controls[] = {
 		.name		= "effect",
 		.minimum	= 0,
 		.maximum	= 4,
+		.step		= 1,
+		.default_value	= 0,
+	},
+	{
+		.id		= V4L2_CID_VFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Vertically",
+		.minimum	= 0,
+		.maximum	= 1,
+		.step		= 1,
+		.default_value	= 0,
+	}, {
+		.id		= V4L2_CID_HFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Horizontally",
+		.minimum	= 0,
+		.maximum	= 1,
 		.step		= 1,
 		.default_value	= 0,
 	},
@@ -559,6 +576,8 @@ static int sp0838_mask_set(struct i2c_client *client,
 	return i2c_smbus_write_byte_data(client, reg, val);
 }
 
+/* current use hardware reset */
+#if 0
 static int sp0838_reset(struct i2c_client *client)
 {
 	int ret;
@@ -571,6 +590,7 @@ err:
 	dev_dbg(&client->dev, "%s: (ret %d)", __func__, ret);
 	return ret;
 }
+#endif
 
 /*
  * soc_camera_ops functions
@@ -651,8 +671,8 @@ static int sp0838_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(sp0838_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(sp0838_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(sp0838_balance);
+	int effect_count = ARRAY_SIZE(sp0838_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -790,11 +810,15 @@ static int sp0838_init(struct v4l2_subdev *sd, u32 val)
 {
 	int ret;
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct sp0838_priv *priv = to_sp0838(client);
+
+	int bala_index = priv->balance_value;
+	int effe_index = priv->effect_value;
 
 	/* initialize the sensor with default data */
 	ret = sp0838_write_array(client, sp0838_init_regs);
-	ret = sp0838_write_array(client, sp0838_balance[0].mode_regs);
-	ret = sp0838_write_array(client, sp0838_effect[0].mode_regs);
+	ret = sp0838_write_array(client, sp0838_balance[bala_index].mode_regs);
+	ret = sp0838_write_array(client, sp0838_effect[effe_index].mode_regs);
 	if (ret < 0)
 		goto err;
 
@@ -806,6 +830,7 @@ err:
 	return ret;
 }
 
+#if 0
 static int sp0838_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -854,19 +879,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int sp0838_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct sp0838_priv *priv = to_sp0838(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = sp0838_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -882,6 +901,17 @@ static int sp0838_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct sp0838_priv *priv = to_sp0838(client);
+	int ret;
+
+	priv->win = sp0838_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = sp0838_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 
