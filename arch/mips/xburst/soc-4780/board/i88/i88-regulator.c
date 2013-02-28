@@ -13,6 +13,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/pmu-common.h>
 #include <linux/i2c.h>
+#include <linux/cpufreq.h>
 #include <gpio.h>
 
 /**
