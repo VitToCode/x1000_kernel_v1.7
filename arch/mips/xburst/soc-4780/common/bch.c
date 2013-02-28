@@ -341,7 +341,7 @@ static int bch_request_dequeue(void)
 #else
 			bch_decode_correct_by_dma(req);
 #endif
-		break;
+			break;
 
 		default:
 			dev_err(bchc->dev, "unsupported operation.\n");
