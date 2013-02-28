@@ -551,25 +551,26 @@ start:
 			jzmmc_state_machine(host, status);
 		}
 
+#endif
 	} else if (pending & IFLG_PRG_DONE) {
 		jzmmc_set_pending(host, EVENT_DATA_COMPLETE);
-		clear_msc_irq(host, IFLG_PRG_DONE);
+		clear_msc_irq(host, IFLG_PRG_DONE | IFLG_DATA_TRAN_DONE);
 		disable_msc_irq(host, IMASK_PRG_DONE);
 		jzmmc_state_machine(host, status);
-#endif
 	} else if (pending & IFLG_DMA_DATA_DONE) {
 		jzmmc_set_pending(host, EVENT_DATA_COMPLETE);
 		clear_msc_irq(host, IFLG_DATA_TRAN_DONE | IFLG_DMAEND | 
 				IFLG_DMA_DATA_DONE);
 		disable_msc_irq(host, IMASK_DMA_DATA_DONE | IMASK_CRC_READ_ERR);
 		jzmmc_state_machine(host, status);
-
+#if 0
 	} else if (pending & IFLG_WR_ALL_DONE) {
 		jzmmc_set_pending(host, EVENT_DATA_COMPLETE);
 		clear_msc_irq(host, IFLG_DATA_TRAN_DONE | IFLG_DMAEND | 
 				IFLG_PRG_DONE | IFLG_WR_ALL_DONE);
 		disable_msc_irq(host, IMASK_WR_ALL_DONE);
 		jzmmc_state_machine(host, status);
+#endif
 	} else if (pending & IFLG_AUTO_CMD12_DONE) {
 		jzmmc_set_pending(host, EVENT_STOP_COMPLETE);
 		clear_msc_irq(host, IFLG_AUTO_CMD12_DONE);
@@ -845,7 +846,7 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 	if (data->flags & MMC_DATA_WRITE) {
 		cmdat |= CMDAT_WRITE_READ;
-		imsk = IMASK_WR_ALL_DONE | IMASK_CRC_WRITE_ERR;
+		imsk = IMASK_PRG_DONE | IMASK_CRC_WRITE_ERR;
 	} else if (data->flags & MMC_DATA_READ) {
 		cmdat &= ~CMDAT_WRITE_READ;
 		imsk = IMASK_DMA_DATA_DONE
@@ -859,7 +860,7 @@ static void jzmmc_data_pre(struct jzmmc_host *host, struct mmc_data *data)
 
 	if (!is_pio_mode(host)) {
 		jzmmc_submit_dma(host, data);
-		clear_msc_irq(host, IFLG_WR_ALL_DONE);
+		clear_msc_irq(host, IMASK_PRG_DONE);
 		enable_msc_irq(host, imsk);
 	}
 }

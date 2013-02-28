@@ -47,7 +47,7 @@ config MMC_PARANOID_SD_INIT
 
 config MMC_RADICAL_CLKRATE
 	bool "Radical clock rate"
-	depends on SOC_4780
+	depends on (SOC_4780 || SOC_4775)
 	default n
 	help
 	  If you say Y here, Card clk will be set to the max clock rate
