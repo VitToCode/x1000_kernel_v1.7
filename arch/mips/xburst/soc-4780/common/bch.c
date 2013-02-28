@@ -113,7 +113,7 @@ static void bch_select_calc_size(bch_request_t *req)
 
 static void bch_select_decode(bch_request_t *req)
 {
-	bchc->regs_file->bhccr = ~(1 << 2);
+	bchc->regs_file->bhccr = 1 << 2;
 }
 
 static void bch_wait_for_encode_done(bch_request_t *req)
