@@ -1278,18 +1278,18 @@ static const struct mode_list hi253_effect[] = {
 	{4, hi253_effect_sepiabluel_regs},
 };
 
-#define GC0308_SIZE(n, w, h, r) \
+#define HI253_SIZE(n, w, h, r) \
 	{.name = n, .width = w , .height = h, .regs = r }
 
 static struct hi253_win_size hi253_supported_win_sizes[] = {
-	GC0308_SIZE("QCIF", W_QCIF, H_QCIF, hi253_qcif_regs),
-	GC0308_SIZE("CIF", W_CIF, H_CIF, hi253_cif_regs),
-	GC0308_SIZE("VGA", W_VGA, H_VGA, hi253_vga_regs),
+	HI253_SIZE("QCIF", W_QCIF, H_QCIF, hi253_qcif_regs),
+	HI253_SIZE("CIF", W_CIF, H_CIF, hi253_cif_regs),
+	HI253_SIZE("VGA", W_VGA, H_VGA, hi253_vga_regs),
 
-	GC0308_SIZE("SVGA", W_SVGA, H_SVGA, hi253_svga_regs),
-	GC0308_SIZE("XGA", W_XGA, H_XGA, hi253_xga_regs),
-	GC0308_SIZE("SXGA", W_SXGA, H_SXGA, hi253_sxga_regs),
-	GC0308_SIZE("UXGA", W_UXGA, H_UXGA, hi253_uxga_regs),
+	HI253_SIZE("SVGA", W_SVGA, H_SVGA, hi253_svga_regs),
+	HI253_SIZE("XGA", W_XGA, H_XGA, hi253_xga_regs),
+	HI253_SIZE("SXGA", W_SXGA, H_SXGA, hi253_sxga_regs),
+	HI253_SIZE("UXGA", W_UXGA, H_UXGA, hi253_uxga_regs),
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(hi253_supported_win_sizes))
@@ -1536,8 +1536,8 @@ static int hi253_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(hi253_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(hi253_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(hi253_balance);
+	int effect_count = ARRAY_SIZE(hi253_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -1676,11 +1676,15 @@ static int hi253_init(struct v4l2_subdev *sd, u32 val)
 {
 	int ret;
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct hi253_priv *priv = to_hi253(client);
+
+	int bala_index = priv->balance_value;
+	int effe_index = priv->effect_value;
 
 	/* initialize the sensor with default data */
 	ret = hi253_write_array(client, hi253_init_regs);
-	ret = hi253_write_array(client, hi253_balance[0].mode_regs);
-	ret = hi253_write_array(client, hi253_effect[0].mode_regs);
+	ret = hi253_write_array(client, hi253_balance[bala_index].mode_regs);
+	ret = hi253_write_array(client, hi253_effect[effe_index].mode_regs);
 	if (ret < 0)
 		goto err;
 
@@ -1692,6 +1696,7 @@ err:
 	return ret;
 }
 
+#if 0
 static int hi253_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -1739,19 +1744,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int hi253_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct hi253_priv *priv = to_hi253(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = hi253_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -1767,6 +1766,17 @@ static int hi253_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct hi253_priv *priv = to_hi253(client);
+	int ret;
+
+	priv->win = hi253_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = hi253_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 

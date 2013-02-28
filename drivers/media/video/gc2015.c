@@ -391,16 +391,16 @@ static const struct mode_list gc2015_effect[] = {
 	{4, gc2015_effect_sepiabluel_regs},
 };
 
-#define GC0308_SIZE(n, w, h, r) \
+#define GC2015_SIZE(n, w, h, r) \
 	{.name = n, .width = w , .height = h, .regs = r }
 
 static struct gc2015_win_size gc2015_supported_win_sizes[] = {
-	GC0308_SIZE("QCIF", W_QCIF, H_QCIF, gc2015_qcif_regs),
-	GC0308_SIZE("CIF", W_CIF, H_CIF, gc2015_cif_regs),
-	GC0308_SIZE("VGA", W_VGA, H_VGA, gc2015_vga_regs),
+	GC2015_SIZE("QCIF", W_QCIF, H_QCIF, gc2015_qcif_regs),
+	GC2015_SIZE("CIF", W_CIF, H_CIF, gc2015_cif_regs),
+	GC2015_SIZE("VGA", W_VGA, H_VGA, gc2015_vga_regs),
 
-	GC0308_SIZE("XGA", W_XGA, H_XGA, gc2015_xga_regs),
-	GC0308_SIZE("UXGA", W_UXGA, H_UXGA, gc2015_uxga_regs),
+	GC2015_SIZE("XGA", W_XGA, H_XGA, gc2015_xga_regs),
+	GC2015_SIZE("UXGA", W_UXGA, H_UXGA, gc2015_uxga_regs),
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(gc2015_supported_win_sizes))
@@ -437,6 +437,23 @@ static const struct v4l2_queryctrl gc2015_controls[] = {
 		.name		= "effect",
 		.minimum	= 0,
 		.maximum	= 4,
+		.step		= 1,
+		.default_value	= 0,
+	},
+	{
+		.id		= V4L2_CID_VFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Vertically",
+		.minimum	= 0,
+		.maximum	= 1,
+		.step		= 1,
+		.default_value	= 0,
+	}, {
+		.id		= V4L2_CID_HFLIP,
+		.type		= V4L2_CTRL_TYPE_BOOLEAN,
+		.name		= "Flip Horizontally",
+		.minimum	= 0,
+		.maximum	= 1,
 		.step		= 1,
 		.default_value	= 0,
 	},
@@ -618,8 +635,8 @@ static int gc2015_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(gc2015_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(gc2015_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(gc2015_balance);
+	int effect_count = ARRAY_SIZE(gc2015_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -757,11 +774,15 @@ static int gc2015_init(struct v4l2_subdev *sd, u32 val)
 {
 	int ret;
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct gc2015_priv *priv = to_gc2015(client);
+
+	int bala_index = priv->balance_value;
+	int effe_index = priv->effect_value;
 
 	/* initialize the sensor with default data */
 	ret = gc2015_write_array(client, gc2015_init_regs);
-	ret = gc2015_write_array(client, gc2015_balance[0].mode_regs);
-	ret = gc2015_write_array(client, gc2015_effect[0].mode_regs);
+	ret = gc2015_write_array(client, gc2015_balance[bala_index].mode_regs);
+	ret = gc2015_write_array(client, gc2015_effect[effe_index].mode_regs);
 	if (ret < 0)
 		goto err;
 
@@ -773,6 +794,7 @@ err:
 	return ret;
 }
 
+#if 0
 static int gc2015_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -820,19 +842,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int gc2015_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct gc2015_priv *priv = to_gc2015(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = gc2015_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -848,6 +864,17 @@ static int gc2015_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct gc2015_priv *priv = to_gc2015(client);
+	int ret;
+
+	priv->win = gc2015_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = gc2015_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
 	return 0;
 }
 

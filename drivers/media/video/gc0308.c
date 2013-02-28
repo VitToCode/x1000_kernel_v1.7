@@ -435,32 +435,10 @@ static const struct regval_list gc0308_init_regs[] = {
 	{0xe6,0x02},
 	{0xe7,0x58},
 
-
 	{0xe8,0x02},
 	{0xe9,0x58},
 	{0xea,0x0b},
 	{0xeb,0xb8},
-
-	/* set_balance */
-
-	{0x5a,0x56},
-	{0x5b,0x40},
-	{0x5c,0x4a},
-	{0x22,0x57},
-
-	/* set_effect */
-
-	{0x23,0x00},
-	{0x2d,0x0a},
-	{0x20,0x7f},
-	{0xd2,0x90},
-	{0x73,0x00},
-	{0x77,0x38},
-	{0xb3,0x40},
-	{0xb4,0x80},
-	{0xba,0x00},
-	{0xbb,0x00},
-
 
 	ENDMARKER,
 };
@@ -763,6 +741,8 @@ static int gc0308_mask_set(struct i2c_client *client,
 	return i2c_smbus_write_byte_data(client, reg, val);
 }
 
+ /* current use hardware reset */
+#if 0
 static int gc0308_reset(struct i2c_client *client)
 {
 	int ret;
@@ -775,6 +755,7 @@ err:
 	dev_dbg(&client->dev, "%s: (ret %d)", __func__, ret);
 	return ret;
 }
+#endif
 
 /*
  * soc_camera_ops functions
@@ -854,8 +835,8 @@ static int gc0308_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i = 0;
 	u8 value;
 
-	int balance_count = sizeof(gc0308_balance) / sizeof(struct mode_list);
-	int effect_count = sizeof(gc0308_effect) / sizeof(struct mode_list);
+	int balance_count = ARRAY_SIZE(gc0308_balance);
+	int effect_count = ARRAY_SIZE(gc0308_effect);
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_BALANCE:
@@ -988,6 +969,31 @@ static const struct gc0308_win_size *gc0308_select_win(u32 *width, u32 *height)
 	return &gc0308_supported_win_sizes[default_size];
 }
 
+static int gc0308_init(struct v4l2_subdev *sd, u32 val)
+{
+	int ret;
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct gc0308_priv *priv = to_gc0308(client);
+
+	int bala_index = priv->balance_value;
+	int effe_index = priv->effect_value;
+
+	/* initialize the sensor with default data */
+	ret = gc0308_write_array(client, gc0308_init_regs);
+	ret = gc0308_write_array(client, gc0308_balance[bala_index].mode_regs);
+	ret = gc0308_write_array(client, gc0308_effect[effe_index].mode_regs);
+	if (ret < 0)
+		goto err;
+
+	dev_info(&client->dev, "%s: Init default", __func__);
+	return 0;
+
+err:
+	dev_err(&client->dev, "%s: Error %d", __func__, ret);
+	return ret;
+}
+
+#if 0
 static int gc0308_set_params(struct i2c_client *client, u32 *width, u32 *height,
 			     enum v4l2_mbus_pixelcode code)
 {
@@ -1035,19 +1041,13 @@ err:
 
 	return ret;
 }
+#endif
 
 static int gc0308_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client  *client = v4l2_get_subdevdata(sd);
 	struct gc0308_priv *priv = to_gc0308(client);
-
-	u32 width = W_VGA, height = H_VGA;
-
-	int ret = gc0308_set_params(client, &width, &height,
-					V4L2_MBUS_FMT_YUYV8_2X8);
-	if (ret < 0)
-		return ret;
 
 	mf->width = priv->win->width;
 	mf->height = priv->win->height;
@@ -1063,6 +1063,18 @@ static int gc0308_s_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
 	/* current do not support set format, use unify format yuv422i */
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+	struct gc0308_priv *priv = to_gc0308(client);
+	int ret;
+
+	priv->win = gc0308_select_win(&mf->width, &mf->height);
+	/* set size win */
+	ret = gc0308_write_array(client, priv->win->regs);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: Error\n", __func__);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -1070,27 +1082,33 @@ static int gc0308_try_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_mbus_framefmt *mf)
 {
 	const struct gc0308_win_size *win;
-
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	/*
 	 * select suitable win
 	 */
 	win = gc0308_select_win(&mf->width, &mf->height);
 
-	mf->field	= V4L2_FIELD_NONE;
+	if(mf->field == V4L2_FIELD_ANY) {
+		mf->field = V4L2_FIELD_NONE;
+	} else if (mf->field != V4L2_FIELD_NONE) {
+		dev_err(&client->dev, "Field type invalid.\n");
+		return -ENODEV;
+	}
 
 	switch (mf->code) {
 	case V4L2_MBUS_FMT_YUYV8_2X8:
 	case V4L2_MBUS_FMT_YUYV8_1_5X8:
 	case V4L2_MBUS_FMT_JZYUYV8_1_5X8:
 		mf->colorspace = V4L2_COLORSPACE_JPEG;
+		break;
 
 	default:
 		mf->code = V4L2_MBUS_FMT_YUYV8_2X8;
+		break;
 	}
 
 	return 0;
 }
-
 
 static int gc0308_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			   enum v4l2_mbus_pixelcode *code)
@@ -1193,6 +1211,7 @@ static struct soc_camera_ops gc0308_ops = {
 };
 
 static struct v4l2_subdev_core_ops gc0308_subdev_core_ops = {
+	.init		= gc0308_init,
 	.g_ctrl		= gc0308_g_ctrl,
 	.s_ctrl		= gc0308_s_ctrl,
 	.g_chip_ident	= gc0308_g_chip_ident,
