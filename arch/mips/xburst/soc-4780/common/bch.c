@@ -420,7 +420,7 @@ static void bch_irq_config(void)
 
 static irqreturn_t bch_isr(int irq, void *__unused)
 {
-	/* process only enabled interrupts */
+	/* care only en/decode finish interrupts */
 	if (bchc->regs_file->bhint &
 			(BCH_INT_DECODE_FINISH | BCH_INT_ENCODE_FINISH))
 		complete(&bchc->req_done);
