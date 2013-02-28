@@ -142,7 +142,7 @@ static int __devinit hsd101pww1_probe(struct platform_device *pdev)
 	dev->lcd = lcd_device_register("hsd101pww1-lcd", &pdev->dev,
 				       dev, &hsd101pww1_ops);
 
-	dev->lcd_power = FB_BLANK_POWERDOWN;
+	dev->lcd_power =FB_BLANK_UNBLANK;
 	hsd101pww1_set_power(dev->lcd, FB_BLANK_UNBLANK);
 
 	if (IS_ERR(dev->lcd)) {

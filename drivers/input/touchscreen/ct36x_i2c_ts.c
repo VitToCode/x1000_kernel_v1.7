@@ -45,7 +45,11 @@ static struct ct36x_ts_info	ct36x_ts;
 
 static char const Binary_Data[]=
 {
-#include "M80_CT365_V03_105B_130111.dat"
+#ifdef CONFIG_BOARD_M80B
+    #include "M80_CT363_V02_FB58_130122.dat"
+#else
+    #include "M80_CT365_V03_105B_130111.dat"
+#endif
 };
 
 static void ct36x_ts_reg_read(struct i2c_client *client, unsigned short addr, char *buf, int len, int rate)
