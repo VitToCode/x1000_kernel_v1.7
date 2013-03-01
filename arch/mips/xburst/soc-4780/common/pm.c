@@ -131,7 +131,13 @@ static int jz4780_pm_enter(suspend_state_t state)
 	DISABLE_LCR_MODULES(1);
 	DISABLE_LCR_MODULES(2);
 	DISABLE_LCR_MODULES(3);
+#ifndef CONFIG_CPU_SUSPEND_TO_IDLE
 	cpm_outl(cpm_inl(CPM_LCR) | LCR_LPM_SLEEP,CPM_LCR);
+#else
+        /* cpu enter idle mode when sleep */
+        cpm_outl(cpm_inl(CPM_LCR), CPM_LCR);
+#endif
+
 	__reset_dll = (void (*)(void))0xb3425800;
 	memcpy(save_tcsm,__reset_dll,SAVE_SIZE);
 	memcpy(__reset_dll, reset_dll,SAVE_SIZE);
@@ -141,9 +147,11 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* select 32K crystal as RTC clock in sleep mode */
 	opcr |= 0xff << 8 | (2 << 26);
 	opcr |= 1 << 2;
+#ifndef CONFIG_CPU_SUSPEND_TO_IDLE
 	opcr &= ~(1 << 4);
+#endif
+        /* disable P0 power down */
 	opcr &= ~(1 << 3);
-
 	cpm_outl(opcr,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
