@@ -138,6 +138,7 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid, int offset, int byt
 int nand_dma_write_page(const NAND_API *pnand_api,int pageid, int offset, int bytes, void *databuf);
 int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list);
 int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list);
+int nand_dma_resume(const NAND_API *pnand_api);
 #endif
 
 #endif /* __NAND_API_H__ */

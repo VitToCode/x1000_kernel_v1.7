@@ -970,6 +970,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	jzdma_load_firmware(dma);
 	jzdma_mcu_init(dma);
 
+	platform_set_drvdata(pdev,dma);
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;
 
@@ -997,11 +998,25 @@ static int __exit jzdma_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int jzdma_suspend(struct platform_device * pdev, pm_message_t state)
+{
+	struct jzdma_master *dma = platform_get_drvdata(pdev);
+	jzdma_mcu_reset(dma);
+	return 0;		
+}
+static int jzdma_resume(struct platform_device * pdev)
+{
+	struct jzdma_master *dma = platform_get_drvdata(pdev);
+	jzdma_mcu_init(dma);
+	return 0;	
+}
 static struct platform_driver jzdma_driver = {
 	.driver		= {
 		.name	= "jz-dma",
 	},
 	.remove		= __exit_p(jzdma_remove),
+	.suspend        = jzdma_suspend,
+	.resume         = jzdma_resume,
 };
 
 static int __init jzdma_module_init(void)

@@ -1050,9 +1050,23 @@ static int __devexit plat_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int plat_nand_suspend(struct platform_device *dev, pm_message_t state)
+{
+	return 0;
+}
+static int plat_nand_resume(struct platform_device *dev)
+{
+	int ret = 0;
+#ifdef CONFIG_NAND_DMA
+	ret = nand_dma_resume(&g_pnand_api);
+#endif
+	return ret;
+}
 static struct platform_driver plat_nand_driver = {
 	.probe		= plat_nand_probe,
 	.remove		= __exit_p(plat_nand_remove),
+	.suspend        = plat_nand_suspend,
+	.resume         = plat_nand_resume,
 	.driver		= {
 		.name	= "jz_nand",
 		.owner	= THIS_MODULE,

@@ -5,6 +5,7 @@
 #include <linux/mm.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/delay.h>
 
 /* Add read-retry when nand read ecc uncorrect */
 extern void get_read_retrial_mode(unsigned char *data);
@@ -318,12 +319,14 @@ static int mcu_reset(const NAND_API *pnand_api)
 	nand_dma->msg->info[MSG_TRR] = (((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1) / 2;
 	nand_dma->msg->info[MSG_TWB] = (((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1) / 2;
 	nand_dma->msg->info[MSG_TADL] = (((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	printk("MCU:twhr=%d twhr2=%d trr=%d twb=%d tadl=%d\n"
+	nand_dma->msg->info[MSG_TCWAW] = (((nand_type->tcwaw * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	printk("MCU:twhr=%d twhr2=%d trr=%d twb=%d tadl=%d tcwaw=%d\n"
 			,nand_dma->msg->info[MSG_TWHR]
 			,nand_dma->msg->info[MSG_TWHR2]
 			,nand_dma->msg->info[MSG_TRR]
 			,nand_dma->msg->info[MSG_TWB]
-			,nand_dma->msg->info[MSG_TADL]);
+			,nand_dma->msg->info[MSG_TADL]
+			,nand_dma->msg->info[MSG_TCWAW]);
 	return send_msg_to_mcu(pnand_api);
 }
 
@@ -982,4 +985,14 @@ void nand_dma_deinit(struct jznand_dma *nand_dma)
 	dma_free_coherent(nand_dma->mcu_chan->device->dev, sizeof(struct pdma_msg),
 			nand_dma->msg, nand_dma->msg_phyaddr);
 	nand_free_buf(nand_dma);
+}
+int nand_dma_resume(const NAND_API *pnand_api)
+{
+	int ret = 0;
+	udelay(2);
+	ret = mcu_reset(pnand_api);
+	if(ret < 0){
+		printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+	}
+	return ret;
 }

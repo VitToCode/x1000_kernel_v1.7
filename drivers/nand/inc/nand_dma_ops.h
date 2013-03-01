@@ -38,6 +38,8 @@
 #define MSG_NAND_READ           0x02
 #define MSG_NAND_WRITE          0x03
 #define MSG_NAND_ERASE          0x04
+#define MSG_NAND_FORCEREAD      0x05
+#define MSG_NAND_FORCEWRITE     0x06
 
 /* Message info bit for NAND ops */
 #define MSG_NAND_BANK           0
