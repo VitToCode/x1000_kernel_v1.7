@@ -548,6 +548,9 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
+		// preRGB test bhliu
+		jz_x2d->chain_p->x2d_lays[i].lay_ctrl |= x2d_proc->configs.lay[i].osd_mode << BIT_X2D_LAY_OSD_MOD;
+
 		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)x2d_proc->configs.lay[i].global_alpha_val;
 		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)x2d_proc->configs.lay[i].transform;
 		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)x2d_proc->configs.lay[i].argb_order;
