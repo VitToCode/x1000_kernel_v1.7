@@ -803,7 +803,7 @@ struct platform_device jz_vpu_device = {
 static struct resource jz_adc_resources[] = {
 	{
 		.start	= SADC_IOBASE,
-		.end	= SADC_IOBASE + 0x32,
+		.end	= SADC_IOBASE + 0x34,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -819,7 +819,7 @@ static struct resource jz_adc_resources[] = {
 };
 
 struct platform_device jz_adc_device = {
-	.name	= "jz4780-adc",
+	.name	= "jz4775-adc",
 	.id	= -1,
 	.num_resources	= ARRAY_SIZE(jz_adc_resources),
 	.resource	= jz_adc_resources,

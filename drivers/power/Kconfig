@@ -29,6 +29,13 @@ config APM_POWER
 	  Say Y here to enable support APM status emulation using
 	  battery class devices.
 
+config BATTERY_JZ4775
+	tristate "Ingenic JZ4775 battery"
+	depends on MFD_JZ4775_SADC
+	help
+	  Say Y to enable support for the battery on Ingenic JZ4775 based
+	  boards.
+
 config BATTERY_JZ4780
 	tristate "Ingenic JZ4780 battery"
 	depends on MFD_JZ4780_SADC

@@ -11,6 +11,7 @@
 #include <mach/jzssi.h>
 #include <gpio.h>
 #include <linux/jz_dwc.h>
+#include <linux/power/jz4780-battery.h>
 
 #include "board.h"
 
@@ -93,6 +94,24 @@ static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
 struct jzdwc_pin dete_pin = {
         .num                            = GPIO_USB_DETE,
         .enable_level                   = HIGH_ENABLE,
+};
+#endif
+
+/* Battery Info */
+#ifdef CONFIG_BATTERY_JZ4775
+static struct jz_battery_platform_data mensa_battery_pdata = {
+        .info = {
+                .max_vol        = 4070,
+                .min_vol        = 3650,
+                .usb_max_vol    = 4140,
+                .usb_min_vol    = 3700,
+                .ac_max_vol     = 4170,
+                .ac_min_vol     = 3780,
+                .battery_max_cpt = 2300,
+                .ac_chg_current = 800,
+                .usb_chg_current = 400,
+                .sleep_current = 30,
+        },
 };
 #endif
 
@@ -222,6 +241,12 @@ static int __init board_init(void)
 #ifdef CONFIG_USB_DWC2
         platform_device_register(&jz_dwc_otg_device);
 #endif
+
+/* ADC*/
+#ifdef CONFIG_BATTERY_JZ4775
+	jz_device_register(&jz_adc_device, &mensa_battery_pdata);
+#endif
+
 	return 0;
 }
 

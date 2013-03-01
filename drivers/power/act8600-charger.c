@@ -334,7 +334,7 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&charger->work, act8600_charger_work);
 
-	if (gpio_request_one(pdata->charger_board_info->gpio,
+	if (pdata->charger_board_info->gpio != -1 && gpio_request_one(pdata->charger_board_info->gpio,
 				GPIOF_DIR_OUT, "charger-current-set")) {
 		dev_err(&pdev->dev, "no detect pin available\n");
 		pdata->charger_board_info->gpio = -EBUSY;
