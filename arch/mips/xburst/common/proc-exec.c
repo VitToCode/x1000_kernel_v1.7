@@ -47,7 +47,7 @@ static int exec_write_proc(struct file *file, const char __user *buffer, unsigne
 	}
 
 	call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
-	return 0;
+	return count;
 }
 
 static int __init init_proc_exec(void)
