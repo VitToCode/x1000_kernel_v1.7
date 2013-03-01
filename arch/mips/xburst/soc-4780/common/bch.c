@@ -194,9 +194,13 @@ static void bch_decode_by_cpu(bch_request_t *req)
 		req->ret_val = BCH_RET_OK;
 
 	} else if (bchc->regs_file->bhint & BCH_INT_UNCORRECT){
+		req->errrept_word_cnt = 0;
+		req->cnt_ecc_errors = 0;
 		req->ret_val = BCH_RET_UNCORRECTABLE;
 
 	} else {
+		req->errrept_word_cnt = 0;
+		req->cnt_ecc_errors = 0;
 		req->ret_val = BCH_RET_UNEXPECTED;
 	}
 }

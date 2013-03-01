@@ -47,8 +47,8 @@ struct bch_request {
 
 	u32 *ecc_data;           /* (in) must word aligned */
 
-	u32 *errrept_data;       /* (out) must word aligned */
-	u32 errrept_word_cnt;    /* (out) errrept_data counter */
+	u32 *errrept_data;       /* (in/out) must word aligned */
+	u32 errrept_word_cnt;    /* (in/out) errrept_data counter */
 
 	u32 cnt_ecc_errors;      /* (out) ecc data errors bits counter */
 	bch_req_ret_t ret_val;   /* (out) request return value */
