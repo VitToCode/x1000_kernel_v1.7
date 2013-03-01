@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/completion.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -25,41 +26,64 @@
 
 #include <linux/gpio.h>
 
+#include <soc/gpemc.h>
+#include <soc/bch.h>
 #include <mach/jz4780_nand.h>
 
+#define DRVNAME "jz4780-nand"
 
-static int __devinit jz_nand_probe(struct platform_device *pdev)
+struct jz4780_nand {
+	struct mtd_info mtd;
+	struct mtd_partition *parts;
+	struct nand_chip chip;
+
+	gpemc_bank_t bank;
+	gpemc_bank_timing_t bank_timing;
+	common_nand_timing_t common_timing;
+	toggle_nand_timing_t toggle_nand_timing;
+
+	bch_request_t bch_req;
+
+	struct completion *op_done;
+
+	int busy_irq;
+
+	struct jz4780_nand_platform_data *pdata;
+	struct platform_device *pdev;
+};
+
+static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 {
 	return 0;
 }
 
-static int __devexit jz_nand_remove(struct platform_device *pdev)
+static int __devexit jz4780_nand_remove(struct platform_device *pdev)
 {
 	return 0;
 }
 
-static struct platform_driver jz_nand_driver = {
-	.probe = jz_nand_probe,
-	.remove = __devexit_p(jz_nand_remove),
+static struct platform_driver jz4780_nand_driver = {
+	.probe = jz4780_nand_probe,
+	.remove = __devexit_p(jz4780_nand_remove),
 	.driver = {
-		.name = "jz4780-nand",
+		.name = DRVNAME,
 		.owner = THIS_MODULE,
 	},
 };
 
-static int __init jz_nand_init(void)
+static int __init jz4780_nand_init(void)
 {
-	return platform_driver_register(&jz_nand_driver);
+	return platform_driver_register(&jz4780_nand_driver);
 }
-module_init(jz_nand_init);
+rootfs_initcall(jz4780_nand_init);
 
-static void __exit jz_nand_exit(void)
+static void __exit jz4780_nand_exit(void)
 {
-	platform_driver_unregister(&jz_nand_driver);
+	platform_driver_unregister(&jz4780_nand_driver);
 }
-module_exit(jz_nand_exit);
+module_exit(jz4780_nand_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
 MODULE_DESCRIPTION("NAND controller driver for JZ4780 SoC");
-MODULE_ALIAS("platform:jz4780-nand");
+MODULE_ALIAS("platform:"DRVNAME);

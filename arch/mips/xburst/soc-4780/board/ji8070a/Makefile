@@ -7,3 +7,4 @@ obj-$(CONFIG_MMC_JZ4780)	+= ji8070a-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += ji8070a-sound.o
 obj-$(CONFIG_NAND_JZ4780)	+= ji8070a-nand.o
 obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)	+= ji8070a-cim.o
+obj-$(CONFIG_MTD_NAND_JZ4780) += ji8070a-nand-mtd.o
