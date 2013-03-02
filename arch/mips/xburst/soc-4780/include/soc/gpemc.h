@@ -17,25 +17,25 @@
 #define __SOC_GPEMC_H__
 
 typedef enum {
-	bank_type_sram = 0,
-	bank_type_nand,
-	bank_type_toggle
+	BANK_TYPE_SRAM = 0,
+	BANK_TYPE_NAND,
+	BANK_TYPE_TOGGLE
 } bank_type_t;
 
 typedef enum {
-	bus_width_8 = 0
+	BUS_WIDTH_8 = 0
 } bus_width_t;
 
 typedef enum  {
-	burst_length_4 = 0,
-	burst_length_8,
-	burst_length_16,
-	burst_length_32
+	BURST_LENGTH_4 = 0,
+	BURST_LENGTH_8,
+	BURST_LENGTH_16,
+	BURST_LENGTH_32
 } burst_length_t;
 
 typedef enum {
-	sram_type_normal = 0,
-	sram_type_burst
+	SRAM_TYPE_NORMAL = 0,
+	SRAM_TYPE_BURST
 } sram_type_t;
 
 typedef struct {
@@ -91,129 +91,129 @@ typedef struct {
 } gpemc_bank_timing_t;
 
 typedef struct {
+	/*
+	 * CLE Setup Time
+	 */
+	u32 Tcls;
+
+	/*
+	 * CLE Hold Time
+	 */
+	u32 Tclh;
+
+	/*
+	 * ALE Setup Time
+	 */
+	u32 Tals;
+
+	/*
+	 * ALE Hold Time
+	 */
+	u32 Talh;
+
+	/*
+	 * #CE Setup Time
+	 */
+	u32 Tcs;
+
+	/*
+	 * #CE Hold Time
+	 */
+	u32 Tch;
+
+	/*
+	 * Data Setup Time
+	 */
+	u32 Tds;
+
+	/*
+	 * Data Hold Time
+	 */
+	u32 Tdh;
+
+	/*
+	 * #WE Pulse Width
+	 */
+	u32 Twp;
+
+	/*
+	 * #WE High Hold Time
+	 */
+	u32 Twh;
+
+	/*
+	 * Write Cycle Time
+	 */
+	u32 Twc;
+
+
+	/*
+	 * #WE High to #RE Low
+	 */
+	u32 Twhr;
+
+	/*
+	 * #WE High to #RE Low for Random data out
+	 */
+	u32 Twhr2;
+
+	/*
+	 * #RE Pulse Width
+	 */
+	u32 Trp;
+
 	struct {
 		/*
-		 * CLE Setup Time
+		 * address to data loading delay
 		 */
-		u32 Tcls;
+		u32 Tadl;
 
 		/*
-		 * CLE Hold Time
+		 * Ready to #RE low
 		 */
-		u32 Tclh;
+		u32 Trr;
 
 		/*
-		 * ALE Setup Time
+		 * Command Write cycle to Address Write
+		 * cycle Time for Random data input
 		 */
-		u32 Tals;
+		u32 Tcwaw;
 
 		/*
-		 * ALE Hold Time
+		 * #WE high to Busy
 		 */
-		u32 Talh;
+		u32 Twb;
 
 		/*
-		 * #CE Setup Time
+		 * #WP High/Low to #WE Low
 		 */
-		u32 Tcs;
+		u32 Tww;
 
 		/*
-		 * #CE Hold Time
+		 * #RE High to #WE Low
 		 */
-		u32 Tch;
+		u32 Trhw;
 
 		/*
-		 * Data Setup Time
+		 * Device Resetting Time(Read/Program/Erase)
 		 */
-		u32 Tds;
+		u32 Trst;
 
 		/*
-		 * Data Hold Time
+		 * Busy time for Set Feature and Get Feature
 		 */
-		u32 Tdh;
+		u32 Tfeat;
 
 		/*
-		 * #WE Pulse Width
+		 * Cache Busy in Read Cache (following 31h and 3Fh)
 		 */
-		u32 Twp;
+		u32 Tdcbsyr;
 
 		/*
-		 * #WE High Hold Time
+		 * Dummy Busy Time for Intelligent Copy-Back Read
 		 */
-		u32 Twh;
-
-		/*
-		 * Write Cycle Time
-		 */
-		u32 Twc;
-
-		struct {
-			/*
-			 * address to data loading delay
-			 */
-			u32 Tadl;
-		} busy_wait_timing;
-	} dc_timing;
-
-	struct {
-		/*
-		 * #WE High to #RE Low
-		 */
-		u32 Twhr;
-
-		/*
-		 * #WE High to #RE Low for Random data out
-		 */
-		u32 Twhr2;
-
-		/*
-		 * #RE Pulse Width
-		 */
-		u32 Trp;
-
-		struct {
-			/*
-			 * Ready to #RE low
-			 */
-			u32 Trr;
-
-			/*
-			 * Command Write cycle to Address Write
-			 * cycle Time for Random data input
-			 */
-			u32 Tcwaw;
-
-			/*
-			 * #WE high to Busy
-			 */
-			u32 Twb;
-
-			/*
-			 * #WP High/Low to #WE Low
-			 */
-			u32 Tww;
-
-			/*
-			 * #RE High to #WE Low
-			 */
-			u32 Trhw;
-
-			/*
-			 * Device Resetting Time(Read/Program/Erase)
-			 */
-			u32 Trst;
-
-			/*
-			 * Cache Busy in Read Cache (following 31h and 3Fh)
-			 */
-			u32 Tdcbsyr;
-
-			/*
-			 * Dummy Busy Time for Intelligent Copy-Back Read
-			 */
-			u32 Tdcbsyr2;
-		} busy_wait_timing;
-	} ac_timing;
+		u32 Tdcbsyr2;
+	} busy_wait_timing;
 
 	bus_width_t BW;
 } common_nand_timing_t;

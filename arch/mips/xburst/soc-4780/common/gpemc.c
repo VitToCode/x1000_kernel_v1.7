@@ -269,18 +269,18 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	u32 temp;
 
 	/* bank Taw */
-	bank->bank_timing.sram_timing.Taw = timing->ac_timing.Trp;
+	bank->bank_timing.sram_timing.Taw = timing->Trp;
 
 	/* bank Tas */
-	temp = max(timing->dc_timing.Tals, timing->dc_timing.Tcls);
-	temp = max(temp, timing->dc_timing.Tcs);
+	temp = max(timing->Tals, timing->Tcls);
+	temp = max(temp, timing->Tcs);
 	temp -= bank->bank_timing.sram_timing.Taw;
 	bank->bank_timing.sram_timing.Tas = temp;
 
 	/* bank Tah */
-	temp = max(timing->dc_timing.Talh, timing->dc_timing.Tclh);
-	temp = max(temp, timing->dc_timing.Tch);
-	temp = max(temp, timing->dc_timing.Tdh);
+	temp = max(timing->Talh, timing->Tclh);
+	temp = max(temp, timing->Tch);
+	temp = max(temp, timing->Tdh);
 	bank->bank_timing.sram_timing.Tah = temp;
 
 	/*
@@ -289,11 +289,11 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	 * TODO: Twhr2 should be considered.
 	 *
 	 */
-	bank->bank_timing.sram_timing.Tstrv = timing->ac_timing.Twhr;
+	bank->bank_timing.sram_timing.Tstrv = timing->Twhr;
 
 	/* bank Tbp */
-	temp = timing->dc_timing.Twp;
-	temp = max(temp, (timing->dc_timing.Twc - timing->dc_timing.Twp));
+	temp = timing->Twp;
+	temp = max(temp, (timing->Twc - timing->Twp));
 	bank->bank_timing.sram_timing.Tbp = temp;
 
 	/* bank BW */
@@ -331,13 +331,13 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 	smcr = gpemc->regs_file->smcr[bank->cs];
 
 	switch (bank->bank_type) {
-	case bank_type_sram:
+	case BANK_TYPE_SRAM:
 		/*
 		 * TODO
 		 */
 		break;
 
-	case bank_type_nand:
+	case BANK_TYPE_NAND:
 		/* Tah */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Tah, clk_T);
 		temp = min(temp, (u32)15);
@@ -377,7 +377,7 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 
 		break;
 
-	case bank_type_toggle:
+	case BANK_TYPE_TOGGLE:
 		/*
 		 * TODO
 		 */
@@ -412,7 +412,7 @@ void gpemc_set_bank_as_common_nand(gpemc_bank_t *bank)
 	index = (bank->cs - 1) << 1;
 	gpemc->nand_regs_file->nfcsr |= BIT(index);
 
-	bank->bank_type = bank_type_nand;
+	bank->bank_type = BANK_TYPE_NAND;
 }
 EXPORT_SYMBOL(gpemc_set_bank_as_common_nand);
 
@@ -428,7 +428,7 @@ void gpemc_set_bank_as_toggle_nand(gpemc_bank_t *bank)
 	index = (bank->cs - 1) << 1;
 	gpemc->nand_regs_file->nfcsr |= BIT(index);
 
-	bank->bank_type = bank_type_toggle;
+	bank->bank_type = BANK_TYPE_TOGGLE;
 }
 EXPORT_SYMBOL(gpemc_set_bank_as_toggle_nand);
 
@@ -440,7 +440,7 @@ void gpemc_set_bank_as_sram(gpemc_bank_t *bank)
 	index = (bank->cs - 1) << 1;
 	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
 
-	bank->bank_type = bank_type_sram;
+	bank->bank_type = BANK_TYPE_SRAM;
 }
 EXPORT_SYMBOL(gpemc_set_bank_as_sram);
 
