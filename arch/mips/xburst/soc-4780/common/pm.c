@@ -100,6 +100,30 @@ void noinline reset_dll(void)
 	__jz_cache_init();
 }
 
+void suspend_to_idle(void) {
+        /* cpu enter idle mode when sleep */
+        cpm_outl(cpm_inl(CPM_LCR), CPM_LCR);
+
+    	TCSM_PCHAR('i');
+        TCSM_PCHAR('d');
+        TCSM_PCHAR('l');
+	TCSM_PCHAR('e');
+
+	__asm__ volatile(".set mips32\n\t"
+			"sync\n\t"
+			"sync\n\t"
+			"lw $zero,0(%0)\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"wait\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			".set mips32" : : "r"(0xa0000000));
+        TCSM_PCHAR('x');
+        TCSM_PCHAR('x');
+}
+
 #define ENABLE_LCR_MODULES(m) 					\
 	do{							\
 		unsigned long tmp = cpm_inl(CPM_LCR);		\
@@ -120,44 +144,46 @@ void noinline reset_dll(void)
 		}							\
 	}while(0)
 
+#ifndef CONFIG_CPU_SUSPEND_TO_IDLE
 #define SAVE_SIZE   1024
 static unsigned int save_tcsm[SAVE_SIZE / 4];
+#endif
+
 static int jz4780_pm_enter(suspend_state_t state)
 {
-#ifndef CONFIG_FPGA_TEST 
-	unsigned long opcr = cpm_inl(CPM_OPCR);
-
+#ifndef CONFIG_FPGA_TEST
+#ifndef CONFIG_CPU_SUSPEND_TO_IDLE
+        unsigned long opcr = cpm_inl(CPM_OPCR);
+#endif
 	DISABLE_LCR_MODULES(0);
 	DISABLE_LCR_MODULES(1);
 	DISABLE_LCR_MODULES(2);
 	DISABLE_LCR_MODULES(3);
 #ifndef CONFIG_CPU_SUSPEND_TO_IDLE
 	cpm_outl(cpm_inl(CPM_LCR) | LCR_LPM_SLEEP,CPM_LCR);
-#else
-        /* cpu enter idle mode when sleep */
-        cpm_outl(cpm_inl(CPM_LCR), CPM_LCR);
-#endif
 
 	__reset_dll = (void (*)(void))0xb3425800;
 	memcpy(save_tcsm,__reset_dll,SAVE_SIZE);
 	memcpy(__reset_dll, reset_dll,SAVE_SIZE);
-
-	/* disable externel clock Oscillator in sleep mode */
-	/* select 32K crystal as RTC clock in sleep mode */
-	/* select 32K crystal as RTC clock in sleep mode */
+        /* set external clock oscilltor stabilize time */
+        /* l2cache enter power down mode when cpu in sleep mode */
 	opcr |= 0xff << 8 | (2 << 26);
+	/* select 32K crystal as RTC clock in sleep mode */
 	opcr |= 1 << 2;
-#ifndef CONFIG_CPU_SUSPEND_TO_IDLE
+        /* disable enternal clock Oscillator in sleep mode */
 	opcr &= ~(1 << 4);
-#endif
         /* disable P0 power down */
 	opcr &= ~(1 << 3);
 	cpm_outl(opcr,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
         __reset_dll();
-	cpm_outl(cpm_inl(CPM_LCR) & ~(LCR_LPM_MASK),CPM_LCR);
+        cpm_outl(cpm_inl(CPM_LCR) & ~(LCR_LPM_MASK),CPM_LCR);
 	memcpy(__reset_dll,save_tcsm,SAVE_SIZE);
+#else
+        suspend_to_idle();
+#endif
+
 #endif
 	return 0;
 }
