@@ -27,8 +27,15 @@ if JZ_INTERNAL_CODEC
 
 	config JZ4780_INTERNAL_CODEC
 	bool "jz4780 internal codec"
+	depends on SOC_4780
 	help
 		Say "Y" to enable jz4780 internal codec.
+
+	config JZ4775_INTERNAL_CODEC
+	bool "jz4775 internal codec"
+	depends on SOC_4775
+	help
+		Say "Y" to enable jz4775 internal codec.
 endif #JZ_INTERNAL_CODEC
 
 menuconfig JZ_EXTERNAL_CODEC
