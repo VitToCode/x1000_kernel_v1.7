@@ -24,8 +24,8 @@
 
 #define DRVNAME "jz4780-nand"
 
-#define GPIO_BUSY0    GPIO_PA(20)
-#define GPIO_WP      GPIO_PF(22)
+#define GPIO_BUSY0       GPIO_PA(20)
+#define GPIO_WP          GPIO_PF(22)
 
 #define SIZE_MB          (1024 * 1024LL)
 #define SIZE_ALL         (8192 * SIZE_MB)
@@ -60,45 +60,31 @@ static struct mtd_partition parts[] = {
 		.name = "xboot",
 		.offset = OFFSET_XBOOT,
 		.size = SIZE_XBOOT,
-	},
-
-	{
+	}, {
 		.name = "boot",
 		.offset = OFFSET_BOOT,
 		.size = SIZE_BOOT,
-	},
-
-	{
+	}, {
 		.name = "system",
 		.offset = OFFSET_SYSTEM,
 		.size = SIZE_SYSTEM,
-	},
-
-	{
+	}, {
 		.name = "data",
 		.offset = OFFSET_DATA,
 		.size = SIZE_DATA,
-	},
-
-	{
+	}, {
 		.name = "cache",
 		.offset = OFFSET_CACHE,
 		.size = SIZE_CACHE,
-	},
-
-	{
+	}, {
 		.name = "recovery",
 		.offset = OFFSET_RECOVERY,
 		.size = SIZE_RECOVERY,
-	},
-
-	{
+	}, {
 		.name = "misc",
 		.offset = OFFSET_MISC,
 		.size = SIZE_MISC,
-	},
-
-	{
+	}, {
 		.name = "udisk",
 		.offset = OFFSET_UDISK,
 		.size = SIZE_UDISK,
@@ -108,7 +94,7 @@ static struct mtd_partition parts[] = {
 static nand_interface_t nand_interfaces[] = {
 	{
 		.bank = 1,
-		.type = bank_type_nand,
+		.type = BANK_TYPE_NAND,
 
 		.busy_gpio = GPIO_BUSY0,
 		.busy_gpio_low_assert = 1,
@@ -136,7 +122,6 @@ static struct platform_device nand_dev = {
 static __init int nand_mtd_device_register(void)
 {
 	platform_device_add_data(&nand_dev, &nand_pdata, sizeof(nand_pdata));
-	platform_device_register(&nand_dev);
-	return 0;
+	return platform_device_register(&nand_dev);
 }
 arch_initcall(nand_mtd_device_register);

@@ -41,12 +41,23 @@ typedef struct {
 } nand_interface_t;
 
 typedef struct {
+	common_nand_timing_t common_nand_timing;
+	toggle_nand_timing_t toggle_nand_timing;
+} nand_timing_t;
+
+typedef struct {
 	const char *name;
 	int nand_dev_id;
 
-	common_nand_timing_t *common_nand_timing;
-	toggle_nand_timing_t *toggle_nand_timing;
-} nand_chip_info_t;
+	bank_type_t type;
+
+	struct {
+		u32 data_size;
+		u32 ecc_size;
+	} ecc_step;
+
+	nand_timing_t nand_timing;
+} nand_flash_info_t;
 
 struct jz4780_nand_platform_data {
 	struct mtd_partition *part_table; /* MTD partitions array */
@@ -55,10 +66,72 @@ struct jz4780_nand_platform_data {
 	nand_interface_t *nand_interface_table;
 	int num_nand_interface;
 
-    /* not NULL if override default timings */
-	nand_chip_info_t *nand_chip_info_table;
+	/* not NULL to override default built-in settings in driver */
+
+	struct nand_flash_dev *nand_flash_table;
+	int num_nand_flash;
+
+	nand_flash_info_t *nand_flash_info_table;
+	int num_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;  /* transfer type */
 };
+
+#define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
+		_DATA_SIZE_PRE_ECC_STEP,	\
+		_ECC_BITS_PRE_ECC_STEP,	\
+		_Tcls, _Tclh, _Tals, _Talh,	\
+		_Tcs, _Tch, _Tds, _Tdh, _Twp,	\
+		_Twh, _Twc, _Tadl, _Twhr, _Twhr2,	\
+		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
+		_Trhw, _Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _BW)	\
+		.name = _NAME,	\
+		.nand_dev_id = (_DEV_ID),	\
+		.type = BANK_TYPE_NAND,	\
+		.ecc_step = {	\
+			.data_size = (_DATA_SIZE_PRE_ECC_STEP),	\
+			.ecc_size =	\
+			((_ECC_BITS_PRE_ECC_STEP) * 14 / 8),	\
+		},	\
+		.nand_timing = {	\
+			.common_nand_timing = {	\
+				.Tcls = (_Tcls),	\
+				.Tclh = (_Tclh),	\
+				.Tals = (_Tals),	\
+				.Talh = (_Talh),	\
+				.Tcs = (_Tcs),	\
+				.Tch = (_Tch),	\
+				.Tds = (_Tds),	\
+				.Tdh = (_Tdh),	\
+				.Twp = (_Twp),	\
+				.Twh = (_Twh),	\
+				.Twc = (_Twc),	\
+				.Twhr = (_Twhr),	\
+				.Twhr2 = (_Twhr2),	\
+				.Trp = (_Trp),	\
+					\
+				.busy_wait_timing = {	\
+					.Tadl = (_Tadl),	\
+					.Trr = (_Trr),	\
+					.Tcwaw = (_Tcwaw),	\
+					.Twb = (_Twb),	\
+					.Tww = (_Tww),	\
+					.Trhw = (_Trhw),	\
+					.Trst = (_Trst),	\
+					.Tfeat = (_Tfeat),	\
+					.Tdcbsyr = (_Tdcbsyr),	\
+					.Tdcbsyr2 = (_Tdcbsyr2),	\
+				},	\
+					\
+				.BW = (_BW),	\
+			},	\
+		},
+
+/* TODO: implement it */
+#define TOGGLE_NAND_CHIP_INFO(TODO)
+
+#define LP_OPTIONS (NAND_SAMSUNG_LP_OPTIONS |	\
+			NAND_NO_READRDY | NAND_NO_AUTOINCR)
+#define LP_OPTIONS16 (LP_OPTIONS | NAND_BUSWIDTH_16)
 
 #endif
