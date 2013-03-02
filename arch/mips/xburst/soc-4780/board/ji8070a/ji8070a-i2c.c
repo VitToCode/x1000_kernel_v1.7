@@ -357,8 +357,10 @@ DEF_GPIO_I2C(2,GPIO_PF(16),GPIO_PF(17));
 #ifndef CONFIG_I2C3_JZ4780
 DEF_GPIO_I2C(3,GPIO_PD(10),GPIO_PD(11));
 #endif
+#ifndef CONFIG_BOARD_JI8070A
 #ifndef CONFIG_I2C4_JZ4780
 DEF_GPIO_I2C(4,GPIO_PE(3),GPIO_PE(4));
+#endif
 #endif
 
 #endif /*CONFIG_I2C_GPIO*/
@@ -380,8 +382,10 @@ static int __init ji8070a_i2c_dev_init(void)
 #ifndef CONFIG_I2C3_JZ4780
 	platform_device_register(&i2c3_gpio_device);
 #endif
+#ifndef CONFIG_BOARD_JI8070A
 #ifndef CONFIG_I2C4_JZ4780
 	platform_device_register(&i2c4_gpio_device);
+#endif
 #endif
 
 #endif

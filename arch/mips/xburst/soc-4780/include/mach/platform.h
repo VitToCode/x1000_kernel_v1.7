@@ -202,6 +202,7 @@ extern struct platform_device jz_rtc_device;
 extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
+extern struct platform_device jz_efuse_device;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 

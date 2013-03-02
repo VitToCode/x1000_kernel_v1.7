@@ -24,6 +24,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
 
 #include "ji8070a.h"
@@ -139,6 +140,17 @@ static struct platform_device ji8070a_li_ion_charger_device = {
 		.platform_data = &ji8070a_li_ion_charger_pdata,
 	},
 };
+
+/* efuse */
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+#ifdef CONFIG_BOARD_JI8070A
+	.gpio_vddq_en_n = GPIO_PE(4),
+#else
+	.gpio_vddq_en_n = -ENODEV,
+#endif
+};
+
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
@@ -317,6 +329,8 @@ static int __init ji8070a_board_init(void)
 	platform_device_register(&ji8070a_ac_charger_device);
 /* li-ion charger */
 	platform_device_register(&ji8070a_li_ion_charger_device);
+/* efuse */
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);

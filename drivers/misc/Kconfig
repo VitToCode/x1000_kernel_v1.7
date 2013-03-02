@@ -611,5 +611,8 @@ config LTE_LI170
         help
           Support LTE modem LI170.
 
+config JZ4780_EFUSE
+	bool "JZ4780 EFUSE Driver"
+	default n
 
 endif # MISC_DEVICES

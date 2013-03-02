@@ -138,6 +138,13 @@ static struct platform_device m80_li_ion_charger_device = {
 		.platform_data = &m80_li_ion_charger_pdata,
 	},
 };
+
+/* efuse */
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = -ENODEV,
+};
+
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
@@ -311,6 +318,8 @@ static int __init m80_board_init(void)
 	platform_device_register(&m80_ac_charger_device);
 /* li-ion charger */
 	platform_device_register(&m80_li_ion_charger_device);
+/* efuse */
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);
