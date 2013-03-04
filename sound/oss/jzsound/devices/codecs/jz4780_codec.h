@@ -10,8 +10,6 @@
 #include <mach/jzsnd.h>
 #include "../xb47xx_i2s.h"
 #include <linux/bitops.h>
-/* Enable headphone detection */
-//#define HP_SENSE_DETECT
 
 /* Standby */
 #define STANDBY 		1
@@ -377,17 +375,29 @@ do {	\
 				AICR_ADC_AUDIOIF_MASK,AICR_ADC_AUDIOIF);	\
 } while (0)
 
+#define __codec_get_adc_digital_interface()	\
+	((read_inter_codec_reg(CODEC_REG_AICR_ADC) & AICR_ADC_AUDIOIF_MASK) >> AICR_ADC_AUDIOIF)
+
 #define __codec_select_dac_digital_interface(mode)				\
 do {	\
 	write_inter_codec_reg_mask(CODEC_REG_AICR_DAC, mode,	\
 	            AICR_DAC_AUDIOIF_MASK,AICR_DAC_AUDIOIF);	\
 } while (0)
 
+#define __codec_get_dac_digital_interface()	\
+	((read_inter_codec_reg(CODEC_REG_AICR_DAC) & AICR_DAC_AUDIOIF_MASK) >> AICR_DAC_AUDIOIF)
+
 
 #define __codec_enable_adc_interface()	\
 do {	\
 	write_inter_codec_reg_bit(CODEC_REG_AICR_ADC, POWER_ON, AICR_ADC_SB);	\
 } while (0)
+
+#define __codec_get_adc_interface_state()	\
+	((read_inter_codec_reg(CODEC_REG_AICR_ADC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
+
+#define __codec_get_dac_interface_state()	\
+	((read_inter_codec_reg(CODEC_REG_AICR_DAC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
 
 #define __codec_disable_adc_interface()	\
 do {	\

@@ -48,7 +48,7 @@ struct snd_codec_data codec_data = {
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},
 
-	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
+	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},

@@ -141,13 +141,14 @@ static int __init board_init(void)
 #endif
 
 /* sound */
-#ifdef CONFIG_SOUND_I2S0_JZ47XX
+#ifdef CONFIG_SOUND_I2S_JZ47XX
 	jz_device_register(&jz_i2s_device,&i2s_data);
+	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
 #endif
-#ifdef CONFIG_SOUND_PCM0_JZ47XX
+#ifdef CONFIG_SOUND_PCM_JZ47XX
 	jz_device_register(&jz_pcm_device,&pcm_data);
 #endif
-#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 
