@@ -320,6 +320,19 @@ void gpemc_fill_timing_from_sram(gpemc_bank_t *bank,
 }
 EXPORT_SYMBOL(gpemc_fill_timing_from_sram);
 
+void gpemc_relax_bank_timing(gpemc_bank_t *bank)
+{
+	/* all sram timing relax */
+	gpemc->regs_file->smcr[bank->cs] = ~(u32)1;
+
+	/* BW=0, BL=4, Normal sram */
+	gpemc->regs_file->smcr[bank->cs] &=
+			~(0x3 << 6) | ~(0x3 << 1) | ~(0x1 << 0);
+
+	/* TODO: all toggle nand timing relax  */
+}
+EXPORT_SYMBOL(gpemc_relax_bank_timing);
+
 int gpemc_config_bank_timing(gpemc_bank_t *bank)
 {
 	u32 smcr, temp;

@@ -245,6 +245,7 @@ typedef struct {
 extern int gpemc_request_cs(gpemc_bank_t *bank, int cs);
 extern void gpemc_release_cs(gpemc_bank_t *bank);
 
+extern void gpemc_relax_bank_timing(gpemc_bank_t *bank);
 extern int gpemc_config_bank_timing(gpemc_bank_t *bank);
 extern int gpemc_config_toggle_bank_timing(gpemc_bank_t *bank);
 

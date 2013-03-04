@@ -91,25 +91,16 @@ static struct mtd_partition parts[] = {
 	}
 };
 
-static nand_interface_t nand_interfaces[] = {
-	{
-		.bank = 1,
-		.type = BANK_TYPE_NAND,
-
-		.busy_gpio = GPIO_BUSY0,
-		.busy_gpio_low_assert = 1,
-
-		.wp_gpio = GPIO_WP,
-		.wp_gpio_low_assert = 1,
-	}
+static nand_flash_if_t nand_interfaces[] = {
+	{ COMMON_NAND_INTERFACE(1, GPIO_BUSY0, 1, GPIO_WP, 1) },
 };
 
 static struct jz4780_nand_platform_data nand_pdata = {
 	.part_table = parts,
 	.num_part = ARRAY_SIZE(parts),
 
-	.nand_interface_table = nand_interfaces,
-	.num_nand_interface = ARRAY_SIZE(nand_interfaces),
+	.nand_flash_if_table = nand_interfaces,
+	.num_nand_flash_if = ARRAY_SIZE(nand_interfaces),
 
 	.xfer_type = NAND_XFER_CPU_IRQ,
 };
