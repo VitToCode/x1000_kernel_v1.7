@@ -44,7 +44,7 @@
 //#define TEST 1
 //#define DUMP_DDR_REGS
 
-#define CONFIG_SUSPEND_SUPREME_DEBUG
+//#define CONFIG_SUSPEND_SUPREME_DEBUG
 
 #define save_regs(base)		\
 	__asm__ __volatile__ (	\
@@ -399,12 +399,13 @@ static noinline void reset_dll(void)
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY_1);
 	TCSM_PCHAR('3');
+	*(volatile unsigned *) 0xb00000d0 = 0x1;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY_2);
+
 	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
 	i=*(volatile unsigned *)0xB3010008;
 	TCSM_PCHAR('4');
-
-	*(volatile unsigned *) 0xb00000d0 = 0x1;
-	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY_2);
 	TCSM_PCHAR('5');
 	__jz_cache_init();
@@ -517,6 +518,11 @@ struct platform_suspend_ops pm_ops = {
 
 int __init jz4780_pm_init(void)
 {
+	/*
+	 * DON'T power down DLL
+	 */
+	*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
+
 	suspend_set_ops(&pm_ops);
 	return 0;
 }

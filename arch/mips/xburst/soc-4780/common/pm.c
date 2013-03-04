@@ -199,6 +199,11 @@ struct platform_suspend_ops pm_ops = {
 
 int __init jz4780_pm_init(void)
 {
+	/*
+	 * DON'T power down DLL
+	 */
+	*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
+
 	suspend_set_ops(&pm_ops);
 	return 0;
 }
