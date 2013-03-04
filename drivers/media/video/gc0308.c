@@ -1,12 +1,7 @@
 /*
  * gc0308 Camera Driver
  *
- * Copyright (C) 2010 Alberto Panizzo <maramaopercheseimorto@gmail.com>
- *
- * Based on ov772x, ov9640 drivers and previous non merged implementations.
- *
- * Copyright 2005-2009 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright (C) 2006, OmniVision
+ * Copyright (C) 2012, Ingenic Semiconductor Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,6 +31,9 @@
 #define REG14				0x14
 #define REG14_HFLIP_IMG		0x01 /* Horizontal mirror image ON/OFF */
 #define REG14_VFLIP_IMG     0x02 /* Vertical flip image ON/OFF */
+
+ /* whether sensor support high resolution (> vga) preview or not */
+#define SUPPORT_HIGH_RESOLUTION_PRE		1
 
 /*
  * Struct
@@ -890,10 +888,7 @@ static int gc0308_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int gc0308_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct gc0308_priv *priv = to_gc0308(client);
-
-	id->ident    = priv->model;
+	id->ident    = SUPPORT_HIGH_RESOLUTION_PRE;
 	id->revision = 0;
 
 	return 0;

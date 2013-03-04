@@ -33,6 +33,9 @@
 #define V4L2_CID_PRIVATE_BALANCE  (V4L2_CID_PRIVATE_BASE + 0)
 #define V4L2_CID_PRIVATE_EFFECT  (V4L2_CID_PRIVATE_BASE + 1)
 
+ /* whether sensor support high resolution (> vga) preview or not */
+#define SUPPORT_HIGH_RESOLUTION_PRE		0
+
 /*
  * Struct
  */
@@ -1592,10 +1595,7 @@ static int hi253_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int hi253_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct hi253_priv *priv = to_hi253(client);
-
-	id->ident    = priv->model;
+	id->ident    = SUPPORT_HIGH_RESOLUTION_PRE;
 	id->revision = 0;
 
 	return 0;

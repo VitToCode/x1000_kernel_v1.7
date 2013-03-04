@@ -273,8 +273,8 @@ static struct i2c_board_info ji8070a_i2c2_devs[] __initdata = {
 struct i2c_board_info ji8070a_i2c2_devs_v4l2[2] __initdata = {
 
 	[FRONT_CAMERA_INDEX] = {
-#ifdef CONFIG_SOC_CAMERA_OV2659_FRONT
-		I2C_BOARD_INFO("ov2659-front", 0x30),
+#ifdef CONFIG_SOC_CAMERA_GC2015_FRONT
+		I2C_BOARD_INFO("gc2015-front", 0x30),
 #endif
 
 #ifdef CONFIG_SOC_CAMERA_GC0308_FRONT
@@ -287,8 +287,8 @@ struct i2c_board_info ji8070a_i2c2_devs_v4l2[2] __initdata = {
 	},
 
 	[BACK_CAMERA_INDEX] = {
-#ifdef CONFIG_SOC_CAMERA_OV2659_BACK
-		I2C_BOARD_INFO("ov2659-back", 0x30 + 1),
+#ifdef CONFIG_SOC_CAMERA_GC2015_BACK
+		I2C_BOARD_INFO("gc2015-back", 0x30 + 1),
 #endif
 
 #ifdef CONFIG_SOC_CAMERA_GC0308_BACK

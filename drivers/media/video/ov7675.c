@@ -30,6 +30,10 @@
 #define REG14				0x14
 #define REG14_HFLIP_IMG		0x01 /* Horizontal mirror image ON/OFF */
 #define REG14_VFLIP_IMG     0x02 /* Vertical flip image ON/OFF */
+
+ /* whether sensor support high resolution (> vga) preview or not */
+#define SUPPORT_HIGH_RESOLUTION_PRE		0
+
 /*
  * Struct
  */
@@ -710,10 +714,7 @@ static int ov7675_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int ov7675_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov7675_priv *priv = to_ov7675(client);
-
-	id->ident    = priv->model;
+	id->ident    = SUPPORT_HIGH_RESOLUTION_PRE;
 	id->revision = 0;
 
 	return 0;

@@ -48,7 +48,7 @@ static int camera_sensor_reset(struct device *dev) {
 	return 0;
 }
 
-#if (defined(CONFIG_SOC_CAMERA_GC0308_FRONT) || defined(CONFIG_SOC_CAMERA_OV2659_FRONT) \
+#if (defined(CONFIG_SOC_CAMERA_GC0308_FRONT) || defined(CONFIG_SOC_CAMERA_GC2015_FRONT) \
 	|| defined(CONFIG_SOC_CAMERA_HI253_FRONT))
 
 
@@ -77,7 +77,7 @@ struct platform_device ji8070a_front_camera_sensor = {
 };
 #endif
 
-#if (defined(CONFIG_SOC_CAMERA_GC0308_BACK) || defined(CONFIG_SOC_CAMERA_OV2659_BACK) \
+#if (defined(CONFIG_SOC_CAMERA_GC0308_BACK) || defined(CONFIG_SOC_CAMERA_GC2015_BACK) \
 	|| defined(CONFIG_SOC_CAMERA_HI253_BACK))
 
 
