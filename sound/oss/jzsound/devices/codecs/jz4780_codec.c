@@ -56,6 +56,8 @@ static int default_bypass_r_volume_base = 0;					/*call downlink or other use*/
 static int user_replay_volume = 100;
 static int user_record_volume = 100;
 
+unsigned int cur_out_device = -1;
+
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend early_suspend;
@@ -1161,9 +1163,9 @@ static void codec_set_hp(int mode)
 	switch(mode){
 
 	case HP_ENABLE:
-		__codec_enable_hp_mute();
-		mdelay(1);
-		if (__codec_get_sb_hp() == POWER_OFF) {
+			if (__codec_get_sb_hp() == POWER_OFF) {
+			__codec_enable_hp_mute();
+			mdelay(1);
 			if (__codec_get_sb_linein1_bypass() == POWER_ON) {
 				__codec_switch_sb_linein1_bypass(POWER_OFF);
 				linein1_to_bypass_power_on = 1;
@@ -2595,6 +2597,9 @@ static int codec_set_device(enum snd_device_t device)
 		printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
 	};
 
+	 if (!iserror)
+		  cur_out_device = device;
+
 	return ret;
 }
 
@@ -2611,24 +2616,27 @@ static int codec_set_device(enum snd_device_t device)
 static int codec_set_standby(unsigned int sw)
 {
 	printk("JZ_CODEC: waring, %s() is a default function\n", __func__);
-#if 0
-	if (sw == STANDBY) {
-		/* set the relevant route */
-		gpio_disable_spk_en();
-		gpio_enable_hp_mute();
-#if 0
-		__codec_switch_sb(POWER_OFF);
-#endif
-	} else {
-		/* clean the relevant route */
-#if 0
-		__codec_switch_sb(POWER_ON);
-		mdelay(250);
-#endif
-		gpio_enable_spk_en();
-		gpio_disable_hp_mute();
+	switch(cur_out_device) {
+		case SND_DEVICE_SPEAKER:
+		case SND_DEVICE_HEADSET_AND_SPEAKER:
+			if (sw == STANDBY) {
+				/* set the relevant route */
+				gpio_enable_hp_mute();
+				gpio_disable_spk_en();
+				//__codec_switch_sb(POWER_OFF);
+			} else {
+				/* clean the relevant route */
+				//__codec_switch_sb(POWER_ON);
+				mdelay(250);
+				gpio_enable_spk_en();
+				gpio_disable_hp_mute();
+			}
+			break;
+		default:
+			printk("JZ_CODEC: Unkown ioctl argument in SND_SET_STANDBY\n");
+			break;
 	}
-#endif
+
 	return 0;
 }
 
