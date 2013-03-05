@@ -20,8 +20,8 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
-
 #include "hdmi-80.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
@@ -161,6 +161,12 @@ static struct jz_battery_platform_data hdmi_80_battery_pdata = {
 	},
 };
 #endif
+
+/* efuse */
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = -ENODEV,
+};
 
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
@@ -313,6 +319,8 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &hdmi_80_battery_pdata);
 #endif
+/* efuse */
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);
