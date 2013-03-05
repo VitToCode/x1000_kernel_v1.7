@@ -73,7 +73,7 @@ typedef struct {
 
 struct jz4780_nand_platform_data {
 	struct mtd_partition *part_table; /* MTD partitions array */
-	int num_part;                     /* number of partitions  */
+	int num_part;                     /* number of partitions */
 
 	nand_flash_if_t *nand_flash_if_table;
 	int num_nand_flash_if;
@@ -105,7 +105,7 @@ struct jz4780_nand_platform_data {
 		.ecc_step = {	\
 			.data_size = (_DATA_SIZE_PRE_ECC_STEP),	\
 			.ecc_size =	\
-			((_ECC_BITS_PRE_ECC_STEP) * 14 / 8),	\
+			(((_ECC_BITS_PRE_ECC_STEP) * 14 + 7) / 8),	\
 		},	\
 		.nand_timing = {	\
 			.common_nand_timing = {	\
