@@ -32,6 +32,9 @@
 
 #define SENSOR_WRITE_DELAY 0xffff
 
+ /* whether sensor support high resolution (> vga) preview or not */
+#define SUPPORT_HIGH_RESOLUTION_PRE		0
+
 /*
  * Struct
  */
@@ -826,10 +829,7 @@ static int ov2650_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int ov2650_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov2650_priv *priv = to_ov2650(client);
-
-	id->ident    = priv->model;
+	id->ident    = SUPPORT_HIGH_RESOLUTION_PRE;
 	id->revision = 0;
 
 	return 0;

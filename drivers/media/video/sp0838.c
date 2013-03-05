@@ -31,6 +31,8 @@
 #define REG31_HFLIP_IMG		0x20 /* Horizontal mirror image ON/OFF */
 #define REG31_VFLIP_IMG     0x40 /* Vertical flip image ON/OFF */
 
+ /* whether sensor support high resolution (> vga) preview or not */
+#define SUPPORT_HIGH_RESOLUTION_PRE		0
 /*
  * Struct
  */
@@ -726,10 +728,7 @@ static int sp0838_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int sp0838_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct sp0838_priv *priv = to_sp0838(client);
-
-	id->ident    = priv->model;
+	id->ident    = SUPPORT_HIGH_RESOLUTION_PRE;
 	id->revision = 0;
 
 	return 0;
