@@ -16,6 +16,8 @@
 #ifndef __MACH_JZ4780_NAND_H__
 #define __MACH_JZ4780_NAND_H__
 
+#include <linux/completion.h>
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -29,6 +31,11 @@ typedef enum {
 	NAND_XFER_DMA_POLL
 } nand_xfer_type_t;
 
+typedef enum {
+	NAND_ECC_TYPE_HW = 0,
+	NAND_ECC_TYPE_SW
+} nand_ecc_type_t;
+
 typedef struct {
 	int bank;
 	bank_type_t type;
@@ -38,7 +45,12 @@ typedef struct {
 
 	int wp_gpio;                      /* -1 if does not exist */
 	int wp_gpio_low_assert;
-} nand_interface_t;
+
+	gpemc_bank_t cs;
+	int busy_irq;
+
+	struct completion ready;
+} nand_flash_if_t;
 
 typedef struct {
 	common_nand_timing_t common_nand_timing;
@@ -63,8 +75,8 @@ struct jz4780_nand_platform_data {
 	struct mtd_partition *part_table; /* MTD partitions array */
 	int num_part;                     /* number of partitions  */
 
-	nand_interface_t *nand_interface_table;
-	int num_nand_interface;
+	nand_flash_if_t *nand_flash_if_table;
+	int num_nand_flash_if;
 
 	/* not NULL to override default built-in settings in driver */
 
@@ -75,6 +87,8 @@ struct jz4780_nand_platform_data {
 	int num_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;  /* transfer type */
+
+	nand_ecc_type_t ecc_type;
 };
 
 #define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
@@ -129,6 +143,19 @@ struct jz4780_nand_platform_data {
 
 /* TODO: implement it */
 #define TOGGLE_NAND_CHIP_INFO(TODO)
+
+#define COMMON_NAND_INTERFACE(BANK,	\
+		BUSY_GPIO, BUSY_GPIO_LOW_ASSERT,	\
+		WP_GPIO, WP_GPIO_LOW_ASSERT)	\
+		.bank = (BANK),	\
+		.type = BANK_TYPE_NAND,	\
+		.busy_gpio = (BUSY_GPIO),	\
+		.busy_gpio_low_assert = (BUSY_GPIO_LOW_ASSERT),	\
+		.wp_gpio = (WP_GPIO),	\
+		.wp_gpio_low_assert = (WP_GPIO_LOW_ASSERT),
+
+/* TODO: implement it */
+#define TOGGLE_NAND_INTERFACE(TODO)
 
 #define LP_OPTIONS (NAND_SAMSUNG_LP_OPTIONS |	\
 			NAND_NO_READRDY | NAND_NO_AUTOINCR)
