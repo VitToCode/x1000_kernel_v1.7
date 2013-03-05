@@ -57,18 +57,12 @@ static int user_replay_volume = 100;
 static int user_record_volume = 100;
 
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend early_suspend;
-#endif
-
 extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
 
 #define MIXER_RECORD  0x1
 #define	MIXER_REPLAY  0x2
 
-static int g_short_circut_state = 0;
 static int g_codec_sleep_mode = 1;
-static int g_mixer_is_used = 0;
 
 /*==============================================================*/
 /**
@@ -266,7 +260,7 @@ static void dump_codec_regs(void)
 	unsigned int i;
 	unsigned char data;
 	printk("codec register list:\n");
-	for (i = 0; i <= 0x3B; i++) {
+	for (i = 0; i <= 0x23; i++) {
 		data = read_inter_codec_reg(i);
 		printk("address = 0x%02x, data = 0x%02x\n", i, data);
 	}
@@ -277,7 +271,7 @@ static void dump_codec_route_regs(void)
 {
 	unsigned int i;
 	unsigned char data;
-	for (i = 0xb; i < 0x1d; i++) {
+	for (i = 0x1; i < 0xA; i++) {
 		data = read_inter_codec_reg(i);
 		printk("address = 0x%02x, data = 0x%02x\n", i, data);
 	}
@@ -289,7 +283,7 @@ static void dump_codec_gain_regs(void)
 {
 	unsigned int i;
 	unsigned char data;
-	for (i = 0x28; i < 0x37; i++) {
+	for (i = 0x12; i < 0x1E; i++) {
 		data = read_inter_codec_reg(i);
 		printk("address = 0x%02x, data = 0x%02x\n", i, data);
 	}
@@ -1381,7 +1375,10 @@ static int codec_get_gain_dac_left(void)
 
 	val = __codec_get_godl();
 
-	gain = -val;
+	if (val > 31)
+		gain = 64 - val;
+	else
+		gain = 0 - val;
 
 	DUMP_GAIN_PART_REGS("leave");
 
@@ -1393,12 +1390,16 @@ void codec_set_gain_dac_left(int gain)
 	int val;
 
 	DUMP_GAIN_PART_REGS("enter");
-	if (gain > 0)
-		gain = 0;
+
+	if (gain > 32)
+		gain = 32;
 	else if (gain < -31)
 		gain = -31;
 
-       	val = -gain;
+	if (gain > 0)
+		val = 64 - gain;
+	else
+		val = 0 - gain;
 
 	__codec_set_godl(val);
 
@@ -1415,7 +1416,10 @@ int codec_get_gain_dac_right(void)
 
 	val = __codec_get_godr();
 
-	gain = -val;
+	if (val > 31)
+		gain = 64 - val;
+	else
+		gain = 0 - val;
 
 	DUMP_GAIN_PART_REGS("leave");
 
@@ -1428,12 +1432,15 @@ void codec_set_gain_dac_right(int gain)
 
 	DUMP_GAIN_PART_REGS("enter");
 
-	if (gain > 0)
-		gain = 0;
+	if (gain > 32)
+		gain = 32;
 	else if (gain < -31)
 		gain = -31;
 
-	val = -gain;
+	if (gain > 0)
+		val = 64 - gain;
+	else
+		val =  0 - gain;
 
 	__codec_set_godr(val);
 
@@ -1662,7 +1669,6 @@ static int codec_set_replay_volume(int *val);
 
 static void codec_set_gain_base(struct snd_board_route *route)
 {
-
 	int old_volume_base = 0;
 	int tmp_volume = 0;
 
@@ -1875,23 +1881,20 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	if (broute == NULL)
 		return 0;
 
-	/* set hp mute and disable speaker by gpio */
-	resave_hp_mute = gpio_enable_hp_mute();
-	resave_spk_en = gpio_disable_spk_en();
-	resave_handset_en = gpio_disable_handset_en();
-
 	/* set route */
 	DUMP_ROUTE_NAME(broute->route);
-	printk("%s:%d\n",__func__,__LINE__);
 	if (broute && ((cur_route == NULL) || (cur_route->route != broute->route))) {
 		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++)
 			if (broute->route == codec_route_info[i].route_name) {
+				/* set hp mute and disable speaker by gpio */
+				if (broute->gpio_hp_mute_stat != KEEP_OR_IGNORE)
+					resave_hp_mute = gpio_enable_hp_mute();
+				if (broute->gpio_spk_en_stat != KEEP_OR_IGNORE)
+					resave_spk_en = gpio_disable_spk_en();
+				if (broute->gpio_handset_en_stat != KEEP_OR_IGNORE)
+					resave_handset_en = gpio_disable_handset_en();
 				/* set route */
 				codec_set_route_base(codec_route_info[i].route_conf);
-				/* keep_old_route is used in resume part */
-				keep_old_route = cur_route;
-				/* change cur_route */
-				cur_route = broute;
 				break;
 			}
 		if (codec_route_info[i].route_name == SND_ROUTE_NONE) {
@@ -1901,27 +1904,12 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
 
-#if 0
-	if (broute->route != SND_ROUTE_RECORD_CLEAR) {
-		/* keep_old_route is used in resume part and record release */
-		if (cur_route == NULL || cur_route->route == SND_ROUTE_ALL_CLEAR)
-			keep_old_route = broute;
-		else if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
-				cur_route->route <= SND_ROUTE_RECORD_ROUTE_END && keep_old_route != NULL) {
-			/*DO NOTHING IN THIS CASE*/
-		} else
-			keep_old_route = cur_route;
-		/* change cur_route */
+	{
+		keep_old_route = cur_route;
 		cur_route = broute;
-	} else {
-		if (cur_route != NULL) {
-			if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
-					cur_route->route <= SND_ROUTE_RECORD_ROUTE_END) {
-				cur_route = keep_old_route;
-			}
-		}
 	}
-#endif
+
+
 	/*set board gain*/
 	codec_set_gain_base(broute);
 
@@ -1929,14 +1917,23 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	if (broute->gpio_hp_mute_stat == STATE_DISABLE ||
 			(resave_hp_mute == 0 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
 		gpio_disable_hp_mute();
+	else if (broute->gpio_hp_mute_stat == STATE_ENABLE ||
+			(resave_hp_mute == 1 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
+		gpio_enable_hp_mute();
 
 	if (broute->gpio_handset_en_stat == STATE_ENABLE ||
 			(resave_handset_en == 1 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
 		gpio_enable_handset_en();
+	else if (broute->gpio_handset_en_stat == STATE_DISABLE ||
+			(resave_handset_en == 0 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
+		gpio_disable_handset_en();
 
 	if (broute->gpio_spk_en_stat == STATE_ENABLE ||
 			(resave_spk_en == 1 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
 		gpio_enable_spk_en();
+	else if (broute->gpio_spk_en_stat == STATE_DISABLE ||
+			(resave_spk_en == 0 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
+		gpio_disable_spk_en();
 
 	if (broute->gpio_buildin_mic_en_stat == STATE_DISABLE)
 		gpio_select_headset_mic();
@@ -1947,12 +1944,6 @@ static int codec_set_board_route(struct snd_board_route *broute)
 
 	return broute ? broute->route : (cur_route ? cur_route->route : SND_ROUTE_NONE);
 err_unclear_route:
-	if (resave_spk_en == 1)
-		gpio_enable_spk_en();
-	if (resave_handset_en == 1)
-		gpio_enable_handset_en();
-	if (resave_hp_mute == 0)
-		gpio_disable_hp_mute();
 	return SND_ROUTE_NONE;
 }
 
@@ -2164,18 +2155,16 @@ static int codec_suspend(void)
 
 	g_codec_sleep_mode = 0;
 
-#if 1
 	ret = codec_set_route(ROUTE_ALL_CLEAR);
 	if(ret != ROUTE_ALL_CLEAR)
 	{
 		printk("JZ CODEC: codec_suspend_part error!\n");
 		return 0;
 	}
-#endif
 
+	__codec_switch_sb_sleep(POWER_OFF);
 	codec_sleep(10);
 	__codec_switch_sb(POWER_OFF);
-	codec_sleep(10);
 
 	return 0;
 }
@@ -2184,10 +2173,6 @@ static int codec_resume(void)
 {
 	int ret,tmp_route = 0;
 
-	__codec_switch_sb(POWER_ON);
-	codec_sleep(250);
-
-#if 1
 	if (keep_old_route) {
 		tmp_route = keep_old_route->route;
 		ret = codec_set_board_route(keep_old_route);
@@ -2195,8 +2180,15 @@ static int codec_resume(void)
 			printk("JZ CODEC: codec_resume_part error!\n");
 			return 0;
 		}
+	} else {
+		__codec_switch_sb(POWER_ON);
+		codec_sleep(250);
+		__codec_switch_sb_sleep(POWER_ON);
+		/*
+		 * codec_sleep(400);
+		 * this time we ignored becase other device resume waste time
+		 */
 	}
-#endif
 
 	g_codec_sleep_mode = 1;
 
@@ -2530,11 +2522,9 @@ static int codec_set_replay_channel(int* channel)
  */
 static int codec_mute(int val,int mode)
 {
-
-
 	if (mode & CODEC_WMODE) {
 		if(val){
-			if(__codec_get_dac_mute() == 0){
+			if(!__codec_get_dac_mute()){
 				/* enable dac mute */
 				__codec_set_irq_flag(1 << IFR_GDO);
 				__codec_enable_dac_mute();
@@ -2550,8 +2540,9 @@ static int codec_mute(int val,int mode)
 		}
 	}
 	if (mode & CODEC_RMODE) {
-		/**/
+		/*JZ4775 not support adc mute*/
 	}
+
 	return 0;
 }
 
@@ -2644,6 +2635,7 @@ static int codec_irq_handle(struct work_struct *detect_work)
 	int new_status = 0;
 	int i;
 #endif /*CONFIG_JZ_HP_DETECT_CODEC*/
+
 	codec_ifr = __codec_get_irq_flag();
 
 	/* Mask all irq temporarily */
@@ -2701,14 +2693,15 @@ _ensure_stable:
 
 	return 0;
 }
+
 static int codec_get_hp_state(int *state)
 {
-#ifdef CONFIG_JZ_HP_DETECT_CODEC
+#if defined(CONFIG_JZ_HP_DETECT_CODEC)
 	*state = ((__codec_get_sr() & CODEC_JACK_MASK) >> SR_JACK) ^
 		(!codec_platform_data->hpsense_active_level);
 	if (*state < 0)
 		return -EIO;
-#elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
+#elif defined(CONFIG_JZ_HP_DETECT_GPIO)
 	if(codec_platform_data &&
 			(codec_platform_data->gpio_hp_detect.gpio != -1)) {
 		*state  = __gpio_get_value(codec_platform_data->gpio_hp_detect.gpio);
@@ -2722,6 +2715,7 @@ static int codec_get_hp_state(int *state)
 static void codec_get_format_cap(unsigned long *format)
 {
 	*format = AFMT_S16_LE|AFMT_S8;
+
 }
 
 static void codec_debug_default(void)

@@ -793,8 +793,9 @@ static void codec_set_adc(int mode)
 {
 	DUMP_ROUTE_PART_REGS("enter");
 
-	switch(mode){
+	__codec_set_dmic_mux(CODEC_DMIC_SEL_ADC);
 
+	switch(mode){
 	case ADC_STEREO:
 		if(__codec_get_sb_adc() == POWER_OFF)
 		{
@@ -811,6 +812,9 @@ static void codec_set_adc(int mode)
 		__codec_set_adc_mode(CODEC_ADC_LEFT_ONLY);
 		break;
 
+	case ADC_DMIC_ENABLE:
+		__codec_set_dmic_mux(CODEC_DMIC_SEL_DIGITAL_MIC);
+		mdelay(1);
 	case ADC_DISABLE:
 		if(__codec_get_sb_adc() == POWER_ON)
 		{
@@ -1163,7 +1167,7 @@ static void codec_set_hp(int mode)
 	switch(mode){
 
 	case HP_ENABLE:
-			if (__codec_get_sb_hp() == POWER_OFF) {
+		if (__codec_get_sb_hp() == POWER_OFF) {
 			__codec_enable_hp_mute();
 			mdelay(1);
 			if (__codec_get_sb_linein1_bypass() == POWER_ON) {
@@ -2072,12 +2076,20 @@ static void gpio_disable_hp_mute(void)
 
 static void gpio_enable_spk_en(void)
 {
+	int hp_unmute_state = 0;
 	if(codec_platform_data && (codec_platform_data->gpio_spk_en.gpio != -1)) {
+		if (!__codec_get_hp_mute()) {
+			__codec_enable_hp_mute();
+			hp_unmute_state = 1;
+			mdelay(50);		/*FIXME :Avoid hardware pop maybe the speaker amp have stable time*/
+		}
 		if (codec_platform_data->gpio_spk_en.active_level) {
 			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
 		} else {
 			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
 		}
+		if (hp_unmute_state)
+			__codec_disable_hp_mute();
 	}
 }
 
@@ -2407,12 +2419,12 @@ static int codec_shutdown(void)
 /****** codec_reset **********/
 static int codec_reset(void)
 {
-	/* reset codec ready for set route */
-	codec_prepare_ready(CODEC_WMODE);
-
 	/* select serial interface and work mode of adc and dac */
 	__codec_select_adc_digital_interface(CODEC_I2S_INTERFACE);
 	__codec_select_dac_digital_interface(CODEC_I2S_INTERFACE);
+
+	/* reset codec ready for set route */
+	codec_prepare_ready(CODEC_WMODE);
 	return 0;
 }
 
@@ -3237,8 +3249,15 @@ static int jz_codec_probe(struct platform_device *pdev)
 {
 	codec_platform_data = pdev->dev.platform_data;
 
-	codec_platform_data->codec_sys_clk = CODEC_SYS_CLK_12M;
-	codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
+	if (!codec_platform_data->codec_sys_clk)
+		codec_platform_data->codec_sys_clk = CODEC_SYS_CLK_12M;
+	else
+		codec_platform_data->codec_sys_clk = CODEC_SYS_CLK_13M;
+
+	if (!codec_platform_data->codec_dmic_clk)
+		codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_OFF;
+	else
+		codec_platform_data->codec_dmic_clk = CODEC_DMIC_CLK_ON;
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
