@@ -21,6 +21,7 @@
 #include <linux/completion.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -34,12 +35,21 @@
 
 #define DRVNAME "jz4780-nand"
 
-#define MAX_NUM_NAND_IF	7
+#define MAX_NUM_NAND_IF   7
+#define MAX_RB_DELAY      50
 
 /*
  * ******************************************************
  * 	NAND flash device name & ID
  * ******************************************************
+ */
+
+/*
+ * !!!Caution
+ * "K9GBG08U0A" may be with one of two ID sequences:
+ * "EC D7 94 76" --- this one can not be detected properly
+ *
+ * "EC D7 94 7A" --- this one can be detected properly
  */
 #define NAND_FLASH_K9GBG08U0A_NANE	"K9GBG08U0A"
 #define NAND_FLASH_K9GBG08U0A_ID	0xd7
@@ -71,7 +81,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 	{
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 40,
+			1024, 24,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 300, 120, 300, 12,20, 300, 100,
 			100, 100, 100 * 1000, 1 * 1000, 90 * 1000,
@@ -103,6 +113,7 @@ struct jz4780_nand {
 	struct mtd_info mtd;
 	struct mtd_partition *parts;
 	struct nand_chip chip;
+	struct nand_ecclayout ecclayout;
 
 	nand_flash_info_t *nand_flash_info;
 
@@ -127,7 +138,12 @@ struct jz4780_nand {
 	struct platform_device *pdev;
 };
 
-static int jz4780_nand_busy(nand_flash_if_t *nand_if)
+static struct jz4780_nand *mtd_to_jz4780_nand(struct mtd_info *mtd)
+{
+	return container_of(mtd, struct jz4780_nand, mtd);
+}
+
+static int jz4780_nand_ready(nand_flash_if_t *nand_if)
 {
 	int low_assert;
 	int gpio;
@@ -135,7 +151,7 @@ static int jz4780_nand_busy(nand_flash_if_t *nand_if)
 	low_assert = nand_if->busy_gpio_low_assert;
 	gpio = nand_if->busy_gpio;
 
-	return gpio_get_value_cansleep(gpio) ^ low_assert;
+	return !(gpio_get_value_cansleep(gpio) ^ low_assert);
 }
 
 static void jz4780_nand_enable_wp(nand_flash_if_t *nand_if, int enable)
@@ -152,21 +168,119 @@ static void jz4780_nand_enable_wp(nand_flash_if_t *nand_if, int enable)
 		gpio_set_value_cansleep(gpio, !(low_assert ^ 1));
 }
 
-static void jz4780_nand_hwctl(struct mtd_info *mtd, int mode)
+static int jz4780_nand_dev_ready(struct mtd_info *mtd)
 {
+	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
+
+	int ret = 0;
+
+	nand = mtd_to_jz4780_nand(mtd);
+	nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
+
+	if (nand->xfer_type == NAND_XFER_CPU_IRQ ||
+		nand->xfer_type == NAND_XFER_DMA_IRQ) {
+
+		wait_for_completion(&nand_if->ready);
+	} else {
+
+		if (nand_if->wp_gpio > 0) {
+			ret = jz4780_nand_ready(nand_if);
+		} else {
+			udelay(MAX_RB_DELAY);
+			ret = 1;
+		}
+	}
+
+	return ret;
+}
+
+static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
+{
+	struct nand_chip *this;
+	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
+
+	this = mtd->priv;
+	nand = mtd_to_jz4780_nand(mtd);
+
+	/* deselect previous NAND flash chip */
+	nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
+	gpemc_enable_nand_flash(&nand_if->cs, 0);
+
+	if (chip != -1) {
+		/* select new NAND flash chip */
+		nand->curr_nand_if = chip;
+		nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
+		gpemc_enable_nand_flash(&nand_if->cs, 1);
+
+		this->IO_ADDR_R = nand_if->cs.io_nand_dat;
+		this->IO_ADDR_W = nand_if->cs.io_nand_dat;
+	}
+}
+
+static void
+jz4780_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
+{
+	struct nand_chip *chip;
+	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
+
+	if (cmd != NAND_CMD_NONE) {
+		chip = mtd->priv;
+		nand = mtd_to_jz4780_nand(mtd);
+		nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
+
+		if (ctrl & NAND_CLE) {
+			chip->IO_ADDR_R = nand_if->cs.io_nand_cmd;
+			chip->IO_ADDR_W = nand_if->cs.io_nand_cmd;
+
+		} else if (ctrl & NAND_ALE) {
+			chip->IO_ADDR_R = nand_if->cs.io_nand_addr;
+			chip->IO_ADDR_W = nand_if->cs.io_nand_addr;
+
+		} else {
+			chip->IO_ADDR_R = nand_if->cs.io_nand_dat;
+			chip->IO_ADDR_W = nand_if->cs.io_nand_dat;
+		}
+	}
+}
+
+static void jz4780_nand_ecc_hwctl(struct mtd_info *mtd, int mode)
+{
+	/*
+	 * TODO: ecc control
+	 */
 
 }
 
-static int jz4780_nand_calculate_ecc_bch(struct mtd_info *mtd,
+static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 		const uint8_t *dat, uint8_t *ecc_code)
 {
+	/*
+	 * TODO: ecc calc
+	 */
+
 	return 0;
 }
 
-static int jz4780_nand_correct_ecc_bch(struct mtd_info *mtd, uint8_t *dat,
+static int jz4780_nand_ecc_correct_bch(struct mtd_info *mtd, uint8_t *dat,
 		uint8_t *read_ecc, uint8_t *calc_ecc)
 {
+	/*
+	 * TODO: ecc correct
+	 */
+
 	return 0;
+}
+
+void jz4780_nand_bch_req_complete(struct bch_request *req)
+{
+	struct jz4780_nand *nand;
+
+	nand = container_of(req, struct jz4780_nand, bch_req);
+
+	complete(&nand->bch_req_done);
 }
 
 static irqreturn_t jz4780_nand_busy_isr(int irq, void *devid)
@@ -245,7 +359,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	nand = kzalloc(sizeof(struct jz4780_nand), GFP_KERNEL);
 	if (!nand) {
 		dev_err(&pdev->dev,
-				"Failed to allocate jz4780_nand.\n");
+			"Failed to allocate jz4780_nand.\n");
 		return -ENOMEM;
 	}
 
@@ -263,7 +377,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		ret = gpemc_request_cs(&nand_if->cs, bank);
 		if (!ret) {
 			dev_err(&pdev->dev,
-					"Failed to request GPEMC bank%d.\n", bank);
+				"Failed to request GPEMC bank%d.\n", bank);
 			j = i;
 			goto err_release_cs;
 		}
@@ -280,7 +394,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 			ret = request_busy_irq(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
-						"Failed to request bank%d\n", bank);
+					"Failed to request bank%d\n", bank);
 				k = i;
 				goto err_free_irq;
 			}
@@ -308,8 +422,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 		if (gpio_is_valid(nand_if->wp_gpio)) {
 			dev_err(&pdev->dev,
-					"Invalid wp GPIO:%d\n",
-					nand_if->wp_gpio);
+				"Invalid wp GPIO:%d\n", nand_if->wp_gpio);
 			goto err_free_wp_gpio;
 		}
 
@@ -317,14 +430,14 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		ret = gpio_request(nand_if->wp_gpio, label_wp_gpio[bank]);
 		if (ret) {
 			dev_err(&pdev->dev,
-					"Failed to request wp GPIO:%d\n",
-					nand_if->wp_gpio);
+				"Failed to request wp GPIO:%d\n", nand_if->wp_gpio);
 			goto err_free_wp_gpio;
 		}
 
-		/* Write protect enabled by default */
-		gpio_direction_output(nand_if->wp_gpio,
-				nand_if->wp_gpio_low_assert ^ 1);
+		gpio_direction_output(nand_if->wp_gpio, 0);
+
+		/* Write protect disabled by default */
+		jz4780_nand_enable_wp(nand_if, 0);
 	}
 
 	/*
@@ -345,31 +458,21 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	/*
 	 * attach to MTD subsystem
 	 */
-	chip             = &nand->chip;
-	chip->chip_delay = 0;
+	chip              = &nand->chip;
+	chip->chip_delay  = 0;
+	chip->dev_ready   = jz4780_nand_dev_ready;
+	chip->select_chip = jz4780_nand_select_chip;
+	chip->cmd_ctrl    = jz4780_nand_cmd_ctrl;
+
+	/*
+	 * TODO: skip BBT scan when i completed FS-xburst-tools
+	 * chip->option |= NAND_SKIP_BBTSCAN;
+	 */
+
 	mtd              = &nand->mtd;
 	mtd->priv        = chip;
 	mtd->name        = DRVNAME;
 	mtd->owner       = THIS_MODULE;
-
-	switch (nand->ecc_type) {
-	case NAND_ECC_TYPE_HW:
-		chip->ecc.mode         = NAND_ECC_HW;
-		chip->ecc.calculate    = jz4780_nand_calculate_ecc_bch;
-		chip->ecc.correct      = jz4780_nand_correct_ecc_bch;
-		chip->ecc.hwctl        = jz4780_nand_hwctl;
-
-		break;
-
-	case NAND_ECC_TYPE_SW:
-		chip->ecc.mode         = NAND_ECC_SOFT;
-
-		break;
-
-	default :
-		BUG();
-		break;
-	}
 
 	/*
 	 * Detect NAND flash chips
@@ -422,7 +525,8 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 	if (bank == nand->num_nand_flash_info) {
 		dev_err(&pdev->dev,
-				"Failed to find NAND info for devid:%d\n", nand_dev_id);
+			"Failed to find NAND info for devid:%d\n",
+				nand_dev_id);
 		goto err_free_wp_gpio;
 	}
 
@@ -435,7 +539,9 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 			gpemc_fill_timing_from_nand(&nand_if->cs,
 					&nand_info->nand_timing.common_nand_timing);
+			gpemc_config_bank_timing(&nand_if->cs);
 		}
+
 		break;
 
 	case BANK_TYPE_TOGGLE:
@@ -444,24 +550,93 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 			gpemc_fill_timing_from_toggle(&nand_if->cs,
 					&nand_info->nand_timing.toggle_nand_timing);
+			gpemc_config_bank_timing(&nand_if->cs);
 		}
+
 		break;
 
 	default:
 		BUG();
+
 		break;
 	}
 
 	/*
-	 * post initialize ECC control
+	 * initialize ECC control
 	 */
 
 	/* step1. configure ECC step */
-	chip->ecc.size  = nand_info->ecc_step.data_size;
-	chip->ecc.bytes = nand_info->ecc_step.ecc_size;
+	switch (nand->ecc_type) {
+	case NAND_ECC_SOFT_BCH:
+		chip->ecc.mode         = NAND_ECC_SOFT;
+		chip->ecc.size         = nand_info->ecc_step.data_size;
+		chip->ecc.bytes        =
+			(13 * (nand_info->ecc_step.ecc_size * 8 / 14) + 7) / 8;
 
-	/* step2. generate  ECC layout */
+		break;
 
+	case NAND_ECC_TYPE_HW:
+		chip->ecc.mode         = NAND_ECC_HW;
+		chip->ecc.calculate    = jz4780_nand_ecc_calculate_bch;
+		chip->ecc.correct      = jz4780_nand_ecc_correct_bch;
+		chip->ecc.hwctl        = jz4780_nand_ecc_hwctl;
+		chip->ecc.size         = nand_info->ecc_step.data_size;
+		chip->ecc.bytes        = nand_info->ecc_step.ecc_size;
+
+		/*
+		 * TODO assign ecc.strength when completed MTD update
+		 *
+		 * chip->ecc.strength  = ecc_level / 2;
+		 *
+		 */
+
+		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
+		nand->bch_req.ecc_level =
+			nand_info->ecc_step.ecc_size * 8 / 14;
+		nand->bch_req.ecc_data  = kzalloc(MAX_ECC_DATA_SIZE,
+				GFP_KERNEL);
+		if (!nand->bch_req.ecc_data) {
+			dev_err(&pdev->dev,
+				"Failed to allocate ECC ecc_data buffer\n");
+			ret = -ENOMEM;
+
+			goto err_free_wp_gpio;
+		}
+
+		nand->bch_req.errrept_data = kzalloc(MAX_ERRREPT_DATA_SIZE,
+				GFP_KERNEL);
+		if (!nand->bch_req.errrept_data) {
+			dev_err(&pdev->dev,
+				"Failed to allocate ECC errrept_data buffer\n");
+			ret = -ENOMEM;
+
+			kfree(nand->bch_req.ecc_data);
+			goto err_free_wp_gpio;
+		}
+
+		init_completion(&nand->bch_req_done);
+
+		break;
+
+	default :
+		BUG();
+
+		break;
+	}
+
+	/* step2. generate ECC layout */
+	nand->ecclayout.eccbytes =
+		mtd->writesize / chip->ecc.size * chip->ecc.bytes;
+
+	for (bank = 0; bank < nand->ecclayout.eccbytes; bank++)
+		nand->ecclayout.eccpos[bank] = chip->badblockpos + bank + 1;
+
+	nand->ecclayout.oobfree->offset =
+			nand->ecclayout.eccbytes + chip->badblockpos + 1;
+	nand->ecclayout.oobfree->length =
+		mtd->oobsize - (nand->ecclayout.eccbytes + chip->badblockpos + 1);
+
+	chip->ecc.layout = &nand->ecclayout;
 
 	/*
 	 * second phase NAND scan
@@ -478,9 +653,10 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	/* step1. command line probe */
 #ifdef CONFIG_MTD_CMDLINE_PARTS
 	num_partitions = parse_mtd_partitions(mtd, part_probes,
-						&partition_info, 0);
+			&partition, 0);
 #endif
 
+	/* step2. board specific parts info override */
 	if (num_partitions <= 0 && pdata->part_table) {
 		num_partitions = pdata->num_part;
 		partition = pdata->part_table;
