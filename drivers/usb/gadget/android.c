@@ -31,8 +31,9 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 
+#ifdef CONFIG_JZ4780_EFUSE
 #include <mach/jz4780_efuse.h>
-
+#endif
 #include "gadget_chips.h"
 
 /*

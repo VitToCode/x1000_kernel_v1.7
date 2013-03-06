@@ -1,6 +1,6 @@
 config USB_DWC_OTG
 	tristate 'Synopsys otg 2.0 support'
-	depends on SOC_4780
+	depends on SOC_4780 || SOC_4775
 	select DWC_LM_INTERFACE
 	help
 	  Say Y here to select Synopsys otg.
