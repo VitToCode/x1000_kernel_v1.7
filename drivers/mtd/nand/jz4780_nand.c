@@ -248,18 +248,30 @@ jz4780_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 
 static void jz4780_nand_ecc_hwctl(struct mtd_info *mtd, int mode)
 {
-	/*
-	 * TODO: ecc control
-	 */
 
 }
 
 static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 		const uint8_t *dat, uint8_t *ecc_code)
 {
-	/*
-	 * TODO: ecc calc
-	 */
+	struct nand_chip *chip;
+	struct jz4780_nand *nand;
+	bch_request_t *req;
+
+	chip = mtd->priv;
+	nand = mtd_to_jz4780_nand(mtd);
+	req  = &nand->bch_req;
+
+	req->blksz    = chip->ecc.size;
+	req->raw_data = dat;
+	req->dev      = &nand->pdev->dev;
+	req->type     = BCH_REQ_ENCODE;
+	req->ecc_data = ecc_code;
+
+	bch_request_submit(req);
+
+	wait_for_completion(&nand->bch_req_done);
+
 
 	return 0;
 }
@@ -267,11 +279,29 @@ static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 static int jz4780_nand_ecc_correct_bch(struct mtd_info *mtd, uint8_t *dat,
 		uint8_t *read_ecc, uint8_t *calc_ecc)
 {
-	/*
-	 * TODO: ecc correct
-	 */
+	struct nand_chip *chip;
+	struct jz4780_nand *nand;
+	bch_request_t *req;
 
-	return 0;
+	chip = mtd->priv;
+	nand = mtd_to_jz4780_nand(mtd);
+	req  = &nand->bch_req;
+
+	req->blksz    = chip->ecc.size;
+	req->raw_data = dat;
+	req->dev      = &nand->pdev->dev;
+	req->type     = BCH_REQ_DECODE_CORRECT;
+	req->ecc_data = read_ecc;
+
+	bch_request_submit(req);
+
+	wait_for_completion(&nand->bch_req_done);
+
+	if (req->ret_val == BCH_RET_OK) {
+		return req->cnt_ecc_errors;
+	}
+
+	return -1;
 }
 
 void jz4780_nand_bch_req_complete(struct bch_request *req)
@@ -534,7 +564,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	nand_info = &nand->nand_flash_info_table[bank];
 	switch (nand_info->type) {
 	case BANK_TYPE_NAND:
-		for (bank = 0; bank < nand->num_nand_flash_info; bank ++) {
+		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_nand(&nand_if->cs,
@@ -545,7 +575,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		break;
 
 	case BANK_TYPE_TOGGLE:
-		for (bank = 0; bank < nand->num_nand_flash_info; bank ++) {
+		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_toggle(&nand_if->cs,
@@ -593,6 +623,8 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
 		nand->bch_req.ecc_level =
 			nand_info->ecc_step.ecc_size * 8 / 14;
+
+#ifdef BCH_REQ_ALLOC_ECC_DATA_BUFFER
 		nand->bch_req.ecc_data  = kzalloc(MAX_ECC_DATA_SIZE,
 				GFP_KERNEL);
 		if (!nand->bch_req.ecc_data) {
@@ -602,6 +634,10 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 			goto err_free_wp_gpio;
 		}
+#endif
+
+		nand->bch_req.ecc_data_width = sizeof(uint32_t);
+		nand->bch_req.raw_data_width = sizeof(uint32_t);
 
 		nand->bch_req.errrept_data = kzalloc(MAX_ERRREPT_DATA_SIZE,
 				GFP_KERNEL);

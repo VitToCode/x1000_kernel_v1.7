@@ -33,6 +33,12 @@ typedef enum {
 	BCH_REQ_DECODE_CORRECT
 } request_type_t;
 
+typedef enum {
+	BCH_DATA_WIDTH_8 = 0,
+	BCH_DATA_WIDTH_16,
+	BCH_DATA_WIDTH_32
+} bch_data_width_t;
+
 struct bch_request;
 typedef void (*bch_complete_t)(struct bch_request *);
 
@@ -42,10 +48,12 @@ struct bch_request {
 	request_type_t type;     /* (in) decode or encode */
 	int ecc_level;           /* (in) must 4 * n (n = 1, 2, 3 ... 16) */
 
-	u32 *raw_data;           /* (in) must word aligned */
-	u32 blksz;               /* (in) must 4 * n (n = 1, 2, 3 ... 475) */
+	const void *raw_data;    /* (in) must word aligned */
+	u32 blksz;               /* (in) according to raw_data_width MAX=1900 */
+	bch_data_width_t raw_data_width; /* (in)  */
 
-	u32 *ecc_data;           /* (in) must word aligned */
+	void *ecc_data;          /* (in) must word aligned */
+	bch_data_width_t ecc_data_width; /* (in) */
 
 	u32 *errrept_data;       /* (in/out) must word aligned */
 	u32 errrept_word_cnt;    /* (in/out) errrept_data counter */
