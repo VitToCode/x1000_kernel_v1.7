@@ -133,6 +133,7 @@ struct __codec_route_info {
 /*adc mode*/
 #define ADC_STEREO							1
 #define ADC_STEREO_WITH_LEFT_ONLY			2
+#define ADC_DMIC_ENABLE						3
 #define ADC_DISABLE							DISABLE
 
 /*record mixer*/
