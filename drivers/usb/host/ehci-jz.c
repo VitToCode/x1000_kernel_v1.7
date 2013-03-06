@@ -142,8 +142,6 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 
 	ehci_pri->dev = &pdev->dev;
 
-	jz_start_ehc(ehci_pri);
-
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
 	ehci->regs = hcd->regs + HC_LENGTH(ehci, readl(&ehci->caps->hc_capbase));
@@ -160,6 +158,8 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 
 	if (ret == 0) {
 		platform_set_drvdata(pdev, hcd);
+        jz_start_ehc(ehci_pri);
+
 		return ret;
 	}
 
