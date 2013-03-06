@@ -47,14 +47,17 @@
 
 #define BCH_REGS_FILE_BASE	0x134d0000
 
+#define CNT_PARITY 28
+#define CN_ERRROPT 64
+
 typedef struct {
 	volatile u32 bhcr;
 	volatile u32 bhcsr;
 	volatile u32 bhccr;
 	volatile u32 bhcnt;
 	volatile u32 bhdr;
-	volatile u32 bhpar[28];
-	volatile u32 bherr[64];
+	volatile u32 bhpar[CNT_PARITY];
+	volatile u32 bherr[CN_ERRROPT];
 	volatile u32 bhint;
 	volatile u32 bhintes;
 	volatile u32 bhintec;
@@ -134,27 +137,149 @@ static void bch_start_new_operation(void)
 
 static void bch_encode_by_cpu(bch_request_t *req)
 {
-	u32 *data = req->raw_data;
-
-	int j = req->blksz >> 2;
+	int j;
 	int i;
 
+	/*
+	 * step1. basic config
+	 */
 	bch_select_encode(req);
 	bch_select_ecc_level(req);
 	bch_select_calc_size(req);
 
+	/*
+	 * step2.
+	 */
 	bch_start_new_operation();
 
-	for (i = 0; i < j; i++)
-		bchc->regs_file->bhdr = data[i];
+	/*
+	 * step3. transfer raw data which to be encoded
+	 */
+	switch (req->raw_data_width) {
+	case BCH_DATA_WIDTH_8:
+	{
+		const u8 *data = req->raw_data;
+		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
 
+		j = req->blksz;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	case BCH_DATA_WIDTH_16:
+	{
+		const u16 *data = req->raw_data;
+		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
+
+		j = req->blksz >> 1;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	case BCH_DATA_WIDTH_32:
+	{
+		const u32 *data = req->raw_data;
+		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
+
+		j = req->blksz >> 2;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	default:
+		BUG();
+		break;
+	}
+
+	/*
+	 * step4.
+	 */
 	bch_wait_for_encode_done(req);
 
+	/*
+	 * step5. read out parity data
+	 */
 	if (bchc->regs_file->bhint & BCH_INT_ENCODE_FINISH) {
-		j = div_ceiling(req->ecc_level * 14 >> 3, sizeof(u32));
-		data = req->ecc_data;
-		for (i = 0; i < j; i++)
-			data[i] = bchc->regs_file->bhpar[i];
+		switch (req->ecc_data_width) {
+		case BCH_DATA_WIDTH_8:
+		{
+			u32 tmp;
+			u8 *p = req->ecc_data;
+			j = (req->ecc_level * 14 >> 3) >> 2;
+
+
+			for (i = 0; i < j; i++) {
+				tmp = bchc->regs_file->bhpar[i];
+				*p++ = tmp & 0xff;
+				*p++ = (tmp >> 8) & 0xff;
+				*p++ = (tmp >> 16) & 0xff;
+				*p++ = (tmp >> 24) & 0xff;
+			}
+
+			j = (req->ecc_level * 14 >> 3) & 0x3;
+			tmp = bchc->regs_file->bhpar[i];
+			switch (j) {
+			case 1:
+				*p = tmp & 0xff;
+				break;
+
+			case 2:
+				*p++ = tmp & 0xff;
+				*p   = (tmp >> 8) & 0xff;
+				break;
+
+			case 3:
+				*p++ = tmp & 0xff;
+				*p++ = (tmp >> 8) & 0xff;
+				*p   = (tmp >> 16) & 0xff;
+				break;
+			}
+
+			break;
+		}
+
+		case BCH_DATA_WIDTH_16:
+		{
+			u32 tmp;
+			u16 *p = req->ecc_data;
+			j = (req->ecc_level * 14 >> 3) >> 1;
+
+
+			for (i = 0; i < j; i++) {
+				tmp = bchc->regs_file->bhpar[i];
+				*p++ = tmp & 0xffff;
+				*p++ = (tmp >> 16) & 0xffff;
+			}
+
+			j = (req->ecc_level * 14 >> 3) & 0x1;
+			if (j) {
+				tmp = bchc->regs_file->bhpar[i];
+				*p = tmp & 0xffff;
+			}
+
+			break;
+		}
+
+		case BCH_DATA_WIDTH_32:
+		{
+			u32 *p = req->ecc_data;
+			j = div_ceiling(req->ecc_level * 14 >> 3, sizeof(u32));
+			for (i = 0; i < j; i++)
+				*p++ = bchc->regs_file->bhpar[i];
+
+			break;
+		}
+
+		default:
+			BUG();
+			break;
+		}
 
 		req->ret_val = BCH_RET_OK;
 	} else {
@@ -164,27 +289,119 @@ static void bch_encode_by_cpu(bch_request_t *req)
 
 static void bch_decode_by_cpu(bch_request_t *req)
 {
-	u32 *data= req->raw_data;
-
-	int j = req->blksz >> 2;
+	int j;
 	int i;
 
+	/*
+	 * step1. basic config
+	 */
 	bch_select_ecc_level(req);
 	bch_select_decode(req);
 	bch_select_calc_size(req);
 
+	/*
+	 * step2.
+	 */
 	bch_start_new_operation();
 
-	for (i = 0; i < j; i++)
-		bchc->regs_file->bhdr = data[i];
+	/*
+	 * step3. transfer raw data which to be decoded
+	 */
+	switch (req->raw_data_width) {
+	case BCH_DATA_WIDTH_8:
+	{
+		const u8 *data = req->raw_data;
+		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
 
-	data = req->ecc_data;
-	j = div_ceiling(req->ecc_level * 14 >> 3, sizeof(u32));
-	for (i = 0; i < j; i++)
-		bchc->regs_file->bhdr = data[i];
+		j = req->blksz;
+		for (i = 0; i < j; i++)
+			*p = data[i];
 
+		break;
+	}
+
+	case BCH_DATA_WIDTH_16:
+	{
+		const u16 *data = req->raw_data;
+		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
+
+		j = req->blksz >> 1;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	case BCH_DATA_WIDTH_32:
+	{
+		const u32 *data = req->raw_data;
+		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
+
+		j = req->blksz >> 2;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	default:
+		BUG();
+		break;
+	}
+
+	/*
+	 * step4. following transfer ECC code
+	 */
+	switch (req->raw_data_width) {
+	case BCH_DATA_WIDTH_8:
+	{
+		u8 *data = req->ecc_data;
+		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
+
+		j = req->ecc_level * 14 >> 3;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	case BCH_DATA_WIDTH_16:
+	{
+		u16 *data = req->ecc_data;
+		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
+
+		j = (req->ecc_level * 14 >> 3) >> 1;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	case BCH_DATA_WIDTH_32:
+	{
+		const u32 *data = req->raw_data;
+		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
+
+		j = (req->ecc_level * 14 >> 3) >> 2;
+		for (i = 0; i < j; i++)
+			*p = data[i];
+
+		break;
+	}
+
+	default:
+		BUG();
+		break;
+	}
+
+	/*
+	 * step5.
+	 */
 	bch_wait_for_decode_done(req);
 
+	/*
+	 * step6. read out error report data
+	 */
 	if (bchc->regs_file->bhint & BCH_INT_DECODE_FINISH) {
 		req->errrept_word_cnt = bchc->regs_file->bhint & (0x7f << 24);
 		req->cnt_ecc_errors = bchc->regs_file->bhint & (0x7f << 16);
