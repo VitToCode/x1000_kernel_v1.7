@@ -281,7 +281,6 @@ void aosd_start(void)
 
 	//calc_comp_ratio(aosd_info.width, aosd_info.height);
 	//print_aosd_registers();
-
 	word_per_line = (aosd_info.width * aosd_info.bpp) >> 5;
 	//word_per_line = ALIGN(aosd_info.width * (aosd_info.bpp >> 3) >> 2,
 	//		      STRIDE_ALIGN);
@@ -295,9 +294,15 @@ void aosd_start(void)
 
 		volatile int i = 0, j = 0;
 		int cpsize = STRIDE_ALIGN * 4;
-
-		src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
-			+ (word_per_line * (aosd_info.height - 1));
+		if((unsigned long)aosd_info.raddr < 0x10000000){
+			src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
+				+ (word_per_line * (aosd_info.height - 1));
+		}else{
+			/*Dealing with  the last line in third buf */
+			src = (unsigned int *)aosd_info.buf_virt_addr
+				+ (aosd_info.dst_stride *aosd_info.height*2)
+				+ (aosd_info.dst_stride * (aosd_info.height - 1));
+		}
 //		dst = (unsigned int *)phys_to_virt((unsigned long)aosd_info.waddr)
 		dst = (unsigned int *)aosd_info.virt_waddr
 			+ (aosd_info.dst_stride * (aosd_info.height - 1));
