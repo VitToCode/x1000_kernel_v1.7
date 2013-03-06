@@ -169,7 +169,7 @@ config TOUCHSCREEN_GWTC9XXXB
 
 config GWTC9XXXB_MULTITOUCH
 	bool "Enable GWTC9xxxB TouchScreen Multitouch "
-	depends on TOUCHSCREEN_GWTC9XXXB 
+	depends on TOUCHSCREEN_GWTC9XXXB && ANDROID
 	default y
 	help
 
