@@ -98,6 +98,16 @@ static unsigned long long timer_end = 0;
 static unsigned long long radical_time = 0;
 static int radical_cnt = 0;
 struct cpufreq_frequency_table __attribute__((weak)) freq_table[CPUFREQ_NR] = {{0,0}};
+static int apll_on = 0;
+
+static int __init cpufreq_config_setup(char *str)
+{
+	if (!strcmp(str, "apll_on"))
+		apll_on = 1;
+
+	return 1;
+}
+__setup("cpufreq_config=", cpufreq_config_setup);
 
 unsigned long __attribute__((weak)) core_reg_table[12][2] = {
 	{ 1584000,1400000 }, // >= 1.548 GHz - 1.40V
@@ -153,7 +163,7 @@ static int freq_table_prepare(void)
 	if (freq_table[0].frequency != 0)
 		goto done;
 
-	if (clk_is_enabled(apll)) {
+	if (clk_is_enabled(apll) && apll_on) {
 		freq_high = apll_rate;
 		max_rate = MAX_APLL_FREQ;
 		while (max_rate >= (freq_gate + APLL_FREQ_STEP)) {

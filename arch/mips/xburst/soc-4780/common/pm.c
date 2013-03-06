@@ -183,7 +183,6 @@ static int jz4780_pm_enter(suspend_state_t state)
 #else
         suspend_to_idle();
 #endif
-
 #endif
 	return 0;
 }
