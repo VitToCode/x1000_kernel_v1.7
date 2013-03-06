@@ -259,6 +259,10 @@ static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 	bch_request_t *req;
 
 	chip = mtd->priv;
+
+	if (chip->state == FL_READING)
+		return 0;
+
 	nand = mtd_to_jz4780_nand(mtd);
 	req  = &nand->bch_req;
 
