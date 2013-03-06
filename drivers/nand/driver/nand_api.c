@@ -372,11 +372,15 @@ static inline int init_nand_vm(void * vNand)
 {
 	VNandManager *tmp_manager =(VNandManager *)vNand;
 	VNandInfo *tmp_info = &(tmp_manager->info);
-	struct platform_nand_partition *plat_data;
+	struct platform_nand_partition *plat_data,*tmpplat;
 	PPartition *pt;
 
 	/* platform_nand_partition */
 	plat_data = (struct platform_nand_partition *)nand_malloc_buf(sizeof(struct platform_nand_partition));
+	if(!g_pnand_data)
+		return -1;
+	tmpplat = g_pnand_data->partitions;
+	plat_data->eccbit = tmpplat->eccbit;  // these eccbit should be equal in every partitions
 	plat_data->use_planes = ONE_PLANE;
 	/* PPartition */
 	pt = (PPartition *)nand_malloc_buf(sizeof(PPartition));
