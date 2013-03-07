@@ -215,6 +215,7 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 		SND_ROUTE_LINE1IN_BYPASS_TO_HP,
 		SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP,
+		SND_ROUTE_RECORD_LINEIN1_AN2_SIN_TO_ADCL_AND_LINEIN2_AN3_SIN_TO_ADCR,
 	};
 
 	char *route_str[] = {
@@ -234,7 +235,8 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_RECORD_MIC2_SIN_AN3",
 		"SND_ROUTE_RECORD_LINEIN1_DIFF_AN1",
 		"SND_ROUTE_LINE1IN_BYPASS_TO_HP",
-		"SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP"
+		"SND_ROUTE_LOOP_MIC1_AN1_LOOP_TO_HP",
+		"SND_ROUTE_RECORD_LINEIN1_AN2_SIN_TO_ADCL_AND_LINEIN2_AN3_SIN_TO_ADCR"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -1202,9 +1204,9 @@ static void codec_set_hp(int mode)
 			codec_wait_event_complete(IFR_DAC_MODE_EVENT,CODEC_PROGRAME_MODE);
 
 			if (curr_hp_left_vol != 6)
-				codec_set_gain_hp_left(6);
+				codec_set_gain_hp_left(curr_hp_left_vol);
 			if (curr_hp_right_vol != 6)
-				codec_set_gain_hp_right(6);
+				codec_set_gain_hp_right(curr_hp_right_vol);
 
 			if (linein1_to_bypass_power_on == 1)
 				__codec_switch_sb_linein1_bypass(POWER_ON);
@@ -1271,9 +1273,9 @@ static void codec_set_hp(int mode)
 			}
 
 			if (curr_hp_left_vol != 6)
-				codec_set_gain_hp_left(6);
+				codec_set_gain_hp_left(curr_hp_left_vol);
 			if (curr_hp_right_vol != 6)
-				codec_set_gain_hp_right(6);
+				codec_set_gain_hp_right(curr_hp_right_vol);
 		}
 		break;
 

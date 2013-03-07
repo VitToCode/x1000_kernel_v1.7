@@ -69,13 +69,29 @@ route_conf_base const record_mic2_single_an3_to_adclr  = {
 	/*If you just have one mic ,you should select this for stereo output*/
 	.route_record_mixer_mode = RECORD_MIXER_INPUT_ONLY|AIADC_MIXER_INPUTL_TO_L|AIADC_MIXER_INPUTL_TO_R,	//fix
 };
+
+route_conf_base const record_line1_to_adrl_and_line2_to_adcr = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,			//fix
+	/*--------route-----------*/
+	//record
+	.route_mic1_mode = MIC1_SING_WITHOUT_MICBIAS,		//..
+	.route_mic2_mode = MIC2_SING_WITHOUT_MICBIAS,		//fix
+	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,			//fix
+	.route_inputr_mode = INPUTR_TO_ADC_ENABLE,			//fix
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,		//..
+	.route_inputr_mux_mode = INPUTR_MUX_MIC2_TO_AN3,		//fix
+	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
+	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
+	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_L_INPUTR_TO_R,		//fix
+	.route_adc_mode = ADC_STEREO,			//fix
+};
+
 route_conf_base const record_linein1_diff_to_adclr = {
 	.route_ready_mode = ROUTE_READY_FOR_ADC,			//fix
 	/*--------route-----------*/
 	//record
-	.route_mic1_mode = MIC1_DISABLE,				//..
+	.route_mic1_mode = MIC1_DIFF_WITHOUT_MICBIAS,				//..
 	.route_mic2_mode = MIC2_DISABLE,				//fix
-	.route_line1_mode = LINE1_DIFF,					//fix
 	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,			//fix
 	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,			//fix
 	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,		//..
@@ -400,7 +416,10 @@ struct __codec_route_info codec_route_info[] = {
 		.route_name = SND_ROUTE_REPLAY_LINEIN2_BYPASS_TO_LINEOUT,
 		.route_conf = &replay_linein2_bypass_to_lo_lr,
 	},
-
+	{
+		.route_name = SND_ROUTE_RECORD_LINEIN1_AN2_SIN_TO_ADCL_AND_LINEIN2_AN3_SIN_TO_ADCR,
+		.route_conf = &record_line1_to_adrl_and_line2_to_adcr,
+	},
 	{
 		.route_name = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
 		.route_conf = &record_linein1_diff_to_adclr,
