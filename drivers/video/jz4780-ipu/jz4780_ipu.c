@@ -240,7 +240,8 @@ static void set_csc_param(struct jz_ipu *ipu, unsigned int in_fmt, unsigned int 
 	if ((in_fmt != IN_FMT_YUV444) && (out_fmt != OUT_FMT_YUV422)) {
 		__enable_csc_mode();
 		reg_write(ipu, IPU_CSC_C0_COEF, YUV_CSC_C0);
-		if (in_fmt == IN_FMT_YUV420_B) {
+		//if (in_fmt == IN_FMT_YUV420_B) {
+		if (0) { // JZ4780 V-Dcoder have fixed U V buffer issues, so no need this work around. Wolfgang, 2013-03-07
 			// interchange C1 with C4, C2 with C3 for IPU Block format
 			reg_write(ipu, IPU_CSC_C1_COEF, YUV_CSC_C4);
 			reg_write(ipu, IPU_CSC_C2_COEF, YUV_CSC_C3);
