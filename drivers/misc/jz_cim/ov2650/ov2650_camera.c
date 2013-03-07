@@ -25,7 +25,7 @@ static struct frm_size ov2650_capture_table[]= {
 };
 
 static struct frm_size ov2650_preview_table[]= {
-	{1280,720},
+	{1024,768},
 	{800,600},
 	{640,480},
 	{352,288},
