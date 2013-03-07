@@ -55,6 +55,10 @@ config BOARD_I88
 config BOARD_GRUS
 		bool "Grus"
 
+
+config BOARD_ZPAD80
+        bool "ZPAD80"
+
 endchoice
 
 config BOARD_NAME
@@ -76,4 +80,5 @@ config BOARD_NAME
 	default "NPM801" if BOARD_NPM801
 	default "I88" if BOARD_I88
 	default "Grus" if BOARD_GRUS
+	default "ZPAD80" if BOARD_ZPAD80
 
