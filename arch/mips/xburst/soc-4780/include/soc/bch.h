@@ -74,7 +74,7 @@ typedef struct bch_request bch_request_t;
 
 extern int bch_request_submit(bch_request_t *req);
 
-#define MAX_ERRREPT_DATA_SIZE	(64 * sizeof(u32))
-#define MAX_ECC_DATA_SIZE	(64 * 14 / 8)
+#define MAX_ERRREPT_DATA_SIZE   (64 * sizeof(u32))
+#define MAX_ECC_DATA_SIZE       (64 * 14 / 8)
 
 #endif

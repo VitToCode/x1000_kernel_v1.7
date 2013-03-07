@@ -51,8 +51,8 @@
  *
  * "EC D7 94 7A" --- this one can be detected properly
  */
-#define NAND_FLASH_K9GBG08U0A_NANE	"K9GBG08U0A"
-#define NAND_FLASH_K9GBG08U0A_ID	0xd7
+#define NAND_FLASH_K9GBG08U0A_NANE  "K9GBG08U0A"
+#define NAND_FLASH_K9GBG08U0A_ID    0xd7
 
 /*
  * ******************************************************
@@ -72,10 +72,10 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 };
 
 /*
- * *****************************************************
+ * ******************************************************
  * 	supported NAND flash timings parameters table
  * 	it extent the upper table
- * *****************************************************
+ * ******************************************************
  */
 static nand_flash_info_t builtin_nand_info_table[] = {
 	{
@@ -232,23 +232,24 @@ jz4780_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 		nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
 
 		if (ctrl & NAND_CLE) {
-			chip->IO_ADDR_R = nand_if->cs.io_nand_cmd;
 			chip->IO_ADDR_W = nand_if->cs.io_nand_cmd;
 
 		} else if (ctrl & NAND_ALE) {
-			chip->IO_ADDR_R = nand_if->cs.io_nand_addr;
 			chip->IO_ADDR_W = nand_if->cs.io_nand_addr;
 
 		} else {
-			chip->IO_ADDR_R = nand_if->cs.io_nand_dat;
 			chip->IO_ADDR_W = nand_if->cs.io_nand_dat;
 		}
+
+		*(uint8_t *)chip->IO_ADDR_W = cmd;
 	}
 }
 
 static void jz4780_nand_ecc_hwctl(struct mtd_info *mtd, int mode)
 {
-
+	/*
+	 * TODO: need consider NAND r/w state ?
+	 */
 }
 
 static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
@@ -276,7 +277,6 @@ static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 
 	wait_for_completion(&nand->bch_req_done);
 
-
 	return 0;
 }
 
@@ -301,9 +301,8 @@ static int jz4780_nand_ecc_correct_bch(struct mtd_info *mtd, uint8_t *dat,
 
 	wait_for_completion(&nand->bch_req_done);
 
-	if (req->ret_val == BCH_RET_OK) {
+	if (req->ret_val == BCH_RET_OK)
 		return req->cnt_ecc_errors;
-	}
 
 	return -1;
 }
@@ -747,6 +746,45 @@ err_release_cs:
 
 static int __devexit jz4780_nand_remove(struct platform_device *pdev)
 {
+	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
+	int i = 0;
+
+	nand = platform_get_drvdata(pdev);
+
+	/* free NAND flash interface resource */
+	for (i = 0; i < nand->num_nand_flash_if; i++) {
+		nand_if = nand->nand_flash_if_table[i];
+
+		if (nand_if->busy_gpio != -1) {
+			if (nand->xfer_type == NAND_XFER_CPU_IRQ ||
+				nand->xfer_type == NAND_XFER_DMA_IRQ)
+				free_irq(nand_if->busy_irq, nand_if);
+
+			gpio_free(nand_if->busy_gpio);
+		}
+
+		if (nand_if->wp_gpio != -1) {
+			jz4780_nand_enable_wp(nand_if, 1);
+			gpio_free(nand_if->wp_gpio);
+		}
+
+		gpemc_release_cs(&nand_if->cs);
+	}
+
+
+	/* free ECC BCH resource */
+#ifdef	BCH_REQ_ALLOC_ECC_DATA_BUFFER
+	if (nand->bch_req.ecc_data)
+		kfree(nand->bch_req.ecc_data);
+#endif
+
+	if (nand->bch_req.errrept_data)
+		kfree(nand->bch_req.errrept_data);
+
+	/* free device object */
+	kfree(nand);
+
 	return 0;
 }
 

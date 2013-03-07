@@ -47,8 +47,8 @@
 
 #define BCH_REGS_FILE_BASE	0x134d0000
 
-#define CNT_PARITY 28
-#define CN_ERRROPT 64
+#define CNT_PARITY  28
+#define CNT_ERRROPT 64
 
 typedef struct {
 	volatile u32 bhcr;
@@ -57,7 +57,7 @@ typedef struct {
 	volatile u32 bhcnt;
 	volatile u32 bhdr;
 	volatile u32 bhpar[CNT_PARITY];
-	volatile u32 bherr[CN_ERRROPT];
+	volatile u32 bherr[CNT_ERRROPT];
 	volatile u32 bhint;
 	volatile u32 bhintes;
 	volatile u32 bhintec;

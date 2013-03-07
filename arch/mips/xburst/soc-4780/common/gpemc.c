@@ -26,12 +26,12 @@
 #define CPEMC_NAND_REGS_FILE_BASE	0x13410050
 
 #define BANK_COUNT 7
-#define GPNEMC_CS1_IOBASE 0x1b000000
-#define GPNEMC_CS2_IOBASE 0x1a000000
-#define GPNEMC_CS3_IOBASE 0x19000000
-#define GPNEMC_CS4_IOBASE 0x18000000
-#define GPNEMC_CS5_IOBASE 0x17000000
-#define GPNEMC_CS6_IOBASE 0x16000000
+#define GPEMC_CS1_IOBASE 0x1b000000
+#define GPEMC_CS2_IOBASE 0x1a000000
+#define GPEMC_CS3_IOBASE 0x19000000
+#define GPEMC_CS4_IOBASE 0x18000000
+#define GPEMC_CS5_IOBASE 0x17000000
+#define GPEMC_CS6_IOBASE 0x16000000
 
 #define GPEMC_NAND_BANK_DATA_OFFSET	0
 #define GPEMC_NAND_BANK_ADDR_OFFSET	0x800000
@@ -127,37 +127,37 @@ static struct {
 				sizeof(nand_regs_file_t) - 1,
 	},
 
-#define GPEMC_BANK_SIZE (GPNEMC_CS1_IOBASE - GPNEMC_CS2_IOBASE)
+#define GPEMC_BANK_SIZE (GPEMC_CS1_IOBASE - GPEMC_CS2_IOBASE)
 	.bank_mem = {
 		{},
 
 		{
-			.start = GPNEMC_CS1_IOBASE,
+			.start = GPEMC_CS1_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		},
 
 		{
-			.start = GPNEMC_CS2_IOBASE,
+			.start = GPEMC_CS2_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		},
 
 		{
-			.start = GPNEMC_CS3_IOBASE,
+			.start = GPEMC_CS3_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		},
 
 		{
-			.start = GPNEMC_CS4_IOBASE,
+			.start = GPEMC_CS4_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		},
 
 		{
-			.start = GPNEMC_CS5_IOBASE,
+			.start = GPEMC_CS5_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		},
 
 		{
-			.start = GPNEMC_CS6_IOBASE,
+			.start = GPEMC_CS6_IOBASE,
 			.end = GPEMC_BANK_SIZE - 1,
 		}
 	},
