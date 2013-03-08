@@ -39,3 +39,7 @@ obj-y += gpemc.o
 
 obj-y += bch.o
 endif
+
+ifeq ($(CONFIG_HIBERNATION), y)
+obj-y += hibernate.o
+endif
