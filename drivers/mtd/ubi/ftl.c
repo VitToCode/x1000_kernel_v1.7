@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2013 Fighter Sun <wanmyqawdr@126.com>
- *  Flash Translation layer upon UBI subsystem
+ *  Flash translation layer upon UBI subsystem
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General  Public License as published by the

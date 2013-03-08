@@ -36,7 +36,7 @@
 #define DRVNAME "jz4780-nand"
 
 #define MAX_NUM_NAND_IF   7
-#define MAX_RB_DELAY      50
+#define MAX_RB_DELAY_US   50
 
 /*
  * ******************************************************
@@ -184,10 +184,10 @@ static int jz4780_nand_dev_ready(struct mtd_info *mtd)
 		wait_for_completion(&nand_if->ready);
 	} else {
 
-		if (nand_if->wp_gpio > 0) {
+		if (nand_if->busy_gpio > 0) {
 			ret = jz4780_nand_ready(nand_if);
 		} else {
-			udelay(MAX_RB_DELAY);
+			udelay(MAX_RB_DELAY_US);
 			ret = 1;
 		}
 	}
@@ -748,7 +748,7 @@ static int __devexit jz4780_nand_remove(struct platform_device *pdev)
 {
 	struct jz4780_nand *nand;
 	nand_flash_if_t *nand_if;
-	int i = 0;
+	int i;
 
 	nand = platform_get_drvdata(pdev);
 
