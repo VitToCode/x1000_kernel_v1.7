@@ -470,8 +470,6 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
-	INIT_DELAYED_WORK(&vol_work, vol_down_work);
-	freq_thread = kthread_run(freq_monitor, NULL, "freq_monitor");
 
 	return 0;
 }
@@ -544,6 +542,9 @@ static int __init jz4780_cpufreq_init(void)
 
 	if(freq_table_prepare())
 		return -EINVAL;
+
+	INIT_DELAYED_WORK(&vol_work, vol_down_work);
+	freq_thread = kthread_run(freq_monitor, NULL, "freq_monitor");
 
 	return cpufreq_register_driver(&jz4780_driver);
 }
