@@ -41,11 +41,11 @@ static void rda8851cl_poweroff(struct modem_data *bp)
 
 static void rda8851cl_wakeup(struct modem_data *bp)
 {
-	if (__gpio_get_value(bp->bp_status.gpio) != !!bp->bp_status.active_level) {
+//	if (__gpio_get_value(bp->bp_status.gpio) != !!bp->bp_status.active_level) {
 		modem_gpio_out(&bp->ap_wake_bp, BP_ACTIVE);
 		msleep(10);
 		modem_gpio_out(&bp->ap_wake_bp, BP_DEACTIVE);
-	}
+//	}
 }
 
 static struct modem_ops bp_ops = {
