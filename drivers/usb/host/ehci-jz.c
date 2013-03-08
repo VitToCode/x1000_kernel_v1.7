@@ -98,7 +98,9 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 	struct ehci_hcd *ehci;
 	struct resource	*regs;
 	struct jz_ehci_pri *ehci_pri;
-
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	device_init_wakeup(&pdev->dev, 1);
+#endif
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "No irq resource\n");
@@ -147,7 +149,7 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 	ehci->regs = hcd->regs + HC_LENGTH(ehci, readl(&ehci->caps->hc_capbase));
 	/* cache this readonly data; minimize chip reads */
 	ehci->hcs_params = readl(&ehci->caps->hcs_params);
-
+	jz_start_ehc(ehci_pri);
 	ret = usb_add_hcd(hcd, pdev->resource[1].start,
 			  IRQF_DISABLED | IRQF_SHARED);
 /*
@@ -158,7 +160,7 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 
 	if (ret == 0) {
 		platform_set_drvdata(pdev, hcd);
-        jz_start_ehc(ehci_pri);
+//        jz_start_ehc(ehci_pri);
 
 		return ret;
 	}
@@ -177,7 +179,9 @@ static int ehci_hcd_jz_drv_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct jz_ehci_pri *ehci_pri;
-
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	device_init_wakeup(&pdev->dev, 0);
+#endif
 	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
@@ -202,6 +206,10 @@ static int ehci_hcd_jz_drv_suspend(struct platform_device *pdev,
 	struct jz_ehci_pri *ehci_pri;
 
 	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	if (device_may_wakeup(&pdev->dev))
+		enable_irq_wake(hcd->irq);
+#endif
 
 	return 0;
 	rc = 0;
@@ -252,6 +260,12 @@ static int ehci_hcd_jz_drv_resume(struct platform_device *pdev)
 	struct jz_ehci_pri *ehci_pri;
 
 	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	if (device_may_wakeup(&pdev->dev))
+		disable_irq_wake(hcd->irq);
+#endif
+
+	return 0;
 
 	jz_start_ehc(ehci_pri);
 

@@ -715,7 +715,7 @@ int clk_suspend(void)
 	clkgr0 = cpm_inl(CPM_CLKGR0);
 	clkgr1 = cpm_inl(CPM_CLKGR1);
 
-	cpm_outl(clkgr0 | 0x3fd0ffe0,CPM_CLKGR0);
+	cpm_outl((clkgr0 | 0x3fd0ffe0), CPM_CLKGR0);
 	udelay(20);
 	cpm_outl(0x5fff,CPM_CLKGR1);
 	udelay(20);

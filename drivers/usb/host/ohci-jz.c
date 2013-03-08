@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 //#include "../dwc/jzsoc.h"
+#include <soc/cpm.h>
 
 extern int usb_disabled(void);
 
@@ -39,6 +40,7 @@ static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
 	dev_dbg(ohci_pri->dev, "Starting JZ OHCI USB Controller\n");
 	//REG_CPM_OPCR |= (3 << 6);
 	/* Set UHC clock and start */
+	clk_start_ehci();
 }
 
 static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
@@ -252,7 +254,9 @@ static int ohci_hcd_jz_drv_probe(struct platform_device *pdev)
 
 	if (usb_disabled())
 		return -ENODEV;
-
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	device_init_wakeup(&pdev->dev, 1);
+#endif
 	ret = usb_ohci_jz_probe(&ohci_jz_hc_driver, pdev);
 	return ret;
 }
@@ -260,32 +264,44 @@ static int ohci_hcd_jz_drv_probe(struct platform_device *pdev)
 static int ohci_hcd_jz_drv_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
-
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	device_init_wakeup(&pdev->dev, 0);
+#endif
 	usb_ohci_jz_remove(hcd, pdev);
 	return 0;
 }
 
 /*TBD*/
-/*static int ohci_hcd_jz_drv_suspend(struct platform_device *dev)
+static int ohci_hcd_jz_drv_suspend(struct platform_device *pdev)
 {
-	struct usb_hcd *hcd = platform_get_drvdata(dev);
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	if (device_may_wakeup(&pdev->dev)) {
+		enable_irq_wake(hcd->irq);
+        }
+#endif
 
 	return 0;
 }
-static int ohci_hcd_jz_drv_resume(struct platform_device *dev)
-{
-	struct usb_hcd *hcd = platform_get_drvdata(dev);
 
+static int ohci_hcd_jz_drv_resume(struct platform_device *pdev)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+#ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	if (device_may_wakeup(&pdev->dev)) {
+		disable_irq_wake(hcd->irq);
+        }
+#endif
 	return 0;
 }
-*/
+
 
 static struct platform_driver ohci_hcd_jz_driver = {
 	.probe		= ohci_hcd_jz_drv_probe,
 	.remove		= ohci_hcd_jz_drv_remove,
 	.shutdown	= usb_hcd_platform_shutdown,
-	/*.suspend	= ohci_hcd_jz_drv_suspend, */
-	/*.resume	= ohci_hcd_jz_drv_resume, */
+	.suspend	= ohci_hcd_jz_drv_suspend, 
+	.resume	= ohci_hcd_jz_drv_resume, 
 	.driver		= {
 		.name	= "jz-ohci",
 		.owner	= THIS_MODULE,
