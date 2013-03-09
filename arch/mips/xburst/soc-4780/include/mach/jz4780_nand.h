@@ -157,8 +157,7 @@ struct jz4780_nand_platform_data {
 /* TODO: implement it */
 #define TOGGLE_NAND_INTERFACE(TODO)
 
-#define LP_OPTIONS (NAND_SAMSUNG_LP_OPTIONS |	\
-			NAND_NO_READRDY | NAND_NO_AUTOINCR)
+#define LP_OPTIONS NAND_SAMSUNG_LP_OPTIONS
 #define LP_OPTIONS16 (LP_OPTIONS | NAND_BUSWIDTH_16)
 
 #endif

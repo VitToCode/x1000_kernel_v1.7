@@ -58,6 +58,18 @@
 #define ubi_is_module() 0
 #endif
 
+/*
+ * Multiplies an integer by a fraction, while avoiding unnecessary
+ * overflow or loss of precision.
+ */
+#define mult_frac(x, numer, denom)(                     \
+{                                                       \
+	typeof(x) quot = (x) / (denom);                 \
+	typeof(x) rem  = (x) % (denom);                 \
+	(quot * (numer)) + ((rem * (numer)) / (denom)); \
+}                                                       \
+)
+
 /**
  * struct mtd_dev_param - MTD device parameter description data structure.
  * @name: MTD character device node path, MTD device name, or MTD device number
