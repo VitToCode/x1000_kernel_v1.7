@@ -358,21 +358,15 @@ static int request_busy_irq(nand_flash_if_t *nand_if)
 	return 0;
 }
 
-#ifdef CONFIG_MTD_CMDLINE_PARTS
-static const char *part_probes[] = {"cmdline", NULL};
-#endif
-
 static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int bank = 0;
 	int i = 0, j = 0, k = 0;
 	int nand_dev_id = 0;
-	int num_partitions = 0;
 
 	struct nand_chip *chip;
 	struct mtd_info *mtd;
-	struct mtd_partition *partition;
 
 	struct jz4780_nand *nand;
 	struct jz4780_nand_platform_data *pdata;
@@ -609,23 +603,17 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		break;
 
 	case NAND_ECC_TYPE_HW:
+		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
+		nand->bch_req.ecc_level =
+			nand_info->ecc_step.ecc_size * 8 / 14;
+
 		chip->ecc.mode         = NAND_ECC_HW;
 		chip->ecc.calculate    = jz4780_nand_ecc_calculate_bch;
 		chip->ecc.correct      = jz4780_nand_ecc_correct_bch;
 		chip->ecc.hwctl        = jz4780_nand_ecc_hwctl;
 		chip->ecc.size         = nand_info->ecc_step.data_size;
 		chip->ecc.bytes        = nand_info->ecc_step.ecc_size;
-
-		/*
-		 * TODO assign ecc.strength when completed MTD update
-		 *
-		 * chip->ecc.strength  = ecc_level / 2;
-		 *
-		 */
-
-		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
-		nand->bch_req.ecc_level =
-			nand_info->ecc_step.ecc_size * 8 / 14;
+		chip->ecc.strength     = nand->bch_req.ecc_level / 2;
 
 #ifdef BCH_REQ_ALLOC_ECC_DATA_BUFFER
 		nand->bch_req.ecc_data  = kzalloc(MAX_ECC_DATA_SIZE,
@@ -688,23 +676,8 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	/*
 	 * MTD register
 	 */
-
-	/* step1. command line probe */
-#ifdef CONFIG_MTD_CMDLINE_PARTS
-//	num_partitions = parse_mtd_partitions(mtd, part_probes,
-//			&partition, 0);
-#endif
-
-	/* step2. board specific parts info override */
-	if (num_partitions <= 0 && pdata->part_table) {
-		num_partitions = pdata->num_part;
-		partition = pdata->part_table;
-	} else {
-		num_partitions = 0;
-		partition = NULL;
-	}
-
-	ret = mtd_device_register(mtd, partition, num_partitions);
+	ret = mtd_device_parse_register(mtd, NULL, NULL,
+			pdata->part_table, pdata->num_part);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add mtd device\n");
 		goto err_free_wp_gpio;
