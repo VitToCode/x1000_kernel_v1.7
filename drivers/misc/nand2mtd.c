@@ -172,12 +172,12 @@ static struct mtd_info *nand_mtd(void)
 	Mtd.erasesize_shift = ffs(Mtd.erasesize) - 1;
 	Mtd.writesize_shift = ffs(Mtd.writesize) - 1;
 	Mtd.name = ppt->name;
-	Mtd.erase = block_erase;
-	Mtd.read = page_read;
-	Mtd.write = panic_page_write;
-	Mtd.panic_write = panic_page_write;
-	Mtd.block_isbad = block_isbad;
-	Mtd.block_markbad = block_markbad;
+	Mtd._erase = block_erase;
+	Mtd._read = page_read;
+	Mtd._write = panic_page_write;
+	Mtd._panic_write = panic_page_write;
+	Mtd._block_isbad = block_isbad;
+	Mtd._block_markbad = block_markbad;
 
 	return &Mtd;
 }

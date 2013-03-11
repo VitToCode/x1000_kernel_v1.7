@@ -113,7 +113,7 @@ static void scan_bbt(struct mtd_info *mtd, unsigned int *bbt)
 	int i;
 
 	for (i = 0; i < apanic_erase_blocks; i++) {
-		if (mtd->block_isbad(mtd, i*mtd->erasesize))
+		if (mtd->_block_isbad(mtd, i*mtd->erasesize))
 			set_bb(i, apanic_bbt);
 	}
 }
@@ -510,10 +510,10 @@ static int apanic_writeflashpage(struct mtd_info *mtd, loff_t to,
 	size_t wlen;
 	int panic = in_interrupt() | in_atomic();
 
-	if (panic && !mtd->panic_write) {
+	if (panic && !mtd->_panic_write) {
 		printk(KERN_EMERG "%s: No panic_write available\n", __func__);
 		return 0;
-	} else if (!panic && !mtd->write) {
+	} else if (!panic && !mtd->_write) {
 		printk(KERN_EMERG "%s: No write available\n", __func__);
 		return 0;
 	}
@@ -525,9 +525,9 @@ static int apanic_writeflashpage(struct mtd_info *mtd, loff_t to,
 	}
 
 	if (panic)
-		rc = mtd->panic_write(mtd, to, mtd->writesize, &wlen, buf);
+		rc = mtd->_panic_write(mtd, to, mtd->writesize, &wlen, buf);
 	else
-		rc = mtd->write(mtd, to, mtd->writesize, &wlen, buf);
+		rc = mtd->_write(mtd, to, mtd->writesize, &wlen, buf);
 
 	if (rc) {
 		printk(KERN_EMERG
