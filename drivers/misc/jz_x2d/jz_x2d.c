@@ -541,10 +541,10 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		}
 		x2d_proc->configs.lay[i].preRGB_en = 0;
 #endif
-
+		//the CSCM_EN mau affects the color of video for x2d
 		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(x2d_proc->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
 			|(x2d_proc->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
-			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) \
+			/*			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) */ \
 			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;

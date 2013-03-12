@@ -139,7 +139,7 @@
 //#define __x2d_if_irq_happpen() ((1<< BIT_X2D_IRQ_FLAG) & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
 //#define __x2d_if_free()		   !( 0xf << BIT_X2D_GLB_STATE & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
 #define __x2d_setup_default()	do{unsigned int reg = 0;\
-		reg	|= 0<<BIT_X2D_SHARP_LEVEL;\
+		reg |= 2<<BIT_X2D_SHARP_LEVEL;\
 		reg |= 3<<BIT_X2D_BANK_SELC;\
 		reg |= 1<<BIT_X2D_LAY0_TLB_EN;\
 		reg |= 1<<BIT_X2D_LAY1_TLB_EN;\
