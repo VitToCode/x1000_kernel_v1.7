@@ -89,9 +89,9 @@ static struct i2c_board_info zpad80_i2c1_devs[] __initdata = {
 		.platform_data = &zpad80_tsc_pdata,
 	},						        
 #endif
-#ifdef CONFIG_TOUCHSCREEN_FT5X06
+#ifdef CONFIG_TOUCHSCREEN_FT5X0X
 	{
-		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
+		I2C_BOARD_INFO("ft5x0x_ts", 0x38),
 		.platform_data	= &zpad80_tsc_pdata,
 	},
 #endif

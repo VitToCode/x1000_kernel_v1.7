@@ -78,14 +78,29 @@ FIXED_REGULATOR_DEF(
 
 FIXED_REGULATOR_DEF(
 	zpad80_vbklight,
-	"vbklight",		3300000,	GPIO_PB(23),
+	"vbklight",		3300000,	GPIO_PF(10),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vbklight",		NULL);
+
+FIXED_REGULATOR_DEF(
+	zpad80_vlcd_en,
+	"vlcd_en",		3300000,	GPIO_PB(23),
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
+	NULL,		"vlcd_en",		NULL);
+
+FIXED_REGULATOR_DEF(
+	zpad80_vlcd_vcom,
+	"vlcd_vcom",		3300000,	GPIO_PF(9),
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
+	NULL,		"vlcd_vcom",		NULL);
+
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&zpad80_vbus_regulator_device,
 	&zpad80_vcim_regulator_device,
 	&zpad80_vbklight_regulator_device,
+	&zpad80_vlcd_en_regulator_device,
+	&zpad80_vlcd_vcom_regulator_device,
 };
 
 /*
