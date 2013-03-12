@@ -84,6 +84,11 @@ struct jzfb {
 	int id;           /* 0, lcdc0  1, lcdc1 */
 	int is_enabled;   /* 0, disable  1, enable */
 	int irq;          /* lcdc interrupt num */
+	/* need_syspan
+	 * 0: not need system pan display only hdmi (use in only hdmi)
+	 * 1: need system pan display (used in lcd or(lcd and hdmi))
+	 * */
+	int need_syspan;
 	int open_cnt;
 	int irq_cnt;
 	int desc_num;
@@ -228,6 +233,8 @@ struct jzfb_aosd {
 
 #define JZFB_SET_PAN_SYNC		_IOW('F', 0x220, int)
 
+#define JZFB_SET_NEED_SYSPAN	_IOR('F', 0x310, int)
+#define NOGPU_PAN				_IOR('F', 0x311, int)
 
 /* define in image_enh.c */
 extern int jzfb_config_image_enh(struct fb_info *info);

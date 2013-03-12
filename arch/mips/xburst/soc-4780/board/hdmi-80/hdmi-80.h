@@ -67,6 +67,12 @@ extern struct platform_nand_data jz_nand_chip_data;
 #endif
 
 /**
+ * pmem information
+ **/
+#define JZ_PMEM_CAMERA_BASE	0x5e000000
+#define JZ_PMEM_CAMERA_SIZE	0x02000000
+
+/**
  * tsc gpio interface
  **/
 #define GPIO_CTP_IRQ			GPIO_PF(19)
