@@ -126,6 +126,8 @@ struct src_layer {
 	/* input && output size */
 	int in_width;			//LAY0_SGS
 	int in_height;
+	int in_w_offset;
+	int in_h_offset;
 	int out_width;			//LAY0_OGS
 	int out_height;
 	int out_w_offset;		//LAY0_OOSF
