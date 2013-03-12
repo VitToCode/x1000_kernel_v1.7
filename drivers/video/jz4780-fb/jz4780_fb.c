@@ -922,6 +922,7 @@ static int jzfb_set_par(struct fb_info *info)
 	}
 
 	reg_write(jzfb, LCDC_CFG, cfg);
+	ctrl |= reg_read(jzfb, LCDC_CTRL);
 	reg_write(jzfb, LCDC_CTRL, ctrl);
 	reg_write(jzfb, LCDC_PCFG, pcfg);
 
@@ -1070,7 +1071,6 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-
         if ( var->yres == 720 || var->yres == 1080) { /* work around for HDMI device */
             switch ( var->yoffset ) {
                 case 1440:
@@ -1089,20 +1089,31 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
         else
             next_frm = var->yoffset / var->yres;
 
-        //printk(", next_frm=%d, var->yoffset=%d, var->yres=%d\n", next_frm, var->yoffset, var->yres);
-
 	jzfb->current_buffer = next_frm;
+		//dev_info(info->dev,"next_frm=%d, var->yoffset=%d, var->yres=%d\n",next_frm, var->yoffset, var->yres);
 
 	mutex_lock(&jzfb->framedesc_lock);
-	if (jzfb->pan_sync) {
-		char *pan_event[2];
-		char buf[32];
+	if(var->reserved[1] != NOGPU_PAN){
+		if (jzfb->pan_sync) {
+			char *pan_event[2];
+			char buf[32];
 
-		snprintf(buf, sizeof(buf), "JZFB-PAN-SYNC=%d", next_frm);
-		pan_event[0] = buf;
-		pan_event[1] = NULL;
-		if (kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, pan_event))
-			dev_err(jzfb->dev, "Send pan sync uevent failed");
+			snprintf(buf, sizeof(buf), "JZFB-PAN-SYNC=%d", next_frm);
+			pan_event[0] = buf;
+			pan_event[1] = NULL;
+			if (kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, pan_event))
+				dev_err(jzfb->dev, "Send pan sync uevent failed");
+		}
+	}
+
+	//printk("----syspan=%d need=%d\n",var->reserved[1]!=NOGPU_PAN,jzfb->need_syspan == 0);
+	/*add to avoid hdmi repeat pan display,when have hdmi only*/
+	/*NOTICE: kernel/include/linux/fb.h  diff with bionic/libc/kernel/common/linux/fb.h(width kernel 3.4)
+	 * so use reserved[1] ,surface use reserved[0]*/
+	//if (var->reserved[1] != NOGPU_PAN && jzfb->need_syspan == 0) {
+	if (var->reserved[1] != NOGPU_PAN && jzfb->need_syspan == 0) {
+		mutex_unlock(&jzfb->framedesc_lock);
+		return 0;
 	}
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
@@ -1696,6 +1707,15 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		} else {
 			jzfb->pan_sync = 0;
 		}
+		mutex_unlock(&jzfb->framedesc_lock);
+		break;
+	case JZFB_SET_NEED_SYSPAN:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_err(info->dev, "Set need pan sync failed\n");
+			return -EFAULT;
+		}
+		mutex_lock(&jzfb->framedesc_lock);
+		jzfb->need_syspan = value;
 		mutex_unlock(&jzfb->framedesc_lock);
 		break;
 	default:
@@ -2356,6 +2376,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->pdata = pdata;
 	jzfb->id = pdev->id;
 	jzfb->mem = mem;
+	jzfb->need_syspan = 1;
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV ||
 	    pdata->lcd_type != LCD_TYPE_LCM) {
