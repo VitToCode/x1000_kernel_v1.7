@@ -124,8 +124,8 @@ asmlinkage __cpuinit void start_secondary(void)
 
 	notify_cpu_starting(cpu);
 
-	mp_ops->smp_finish();
 	set_cpu_sibling_map(cpu);
+	mp_ops->smp_finish();
 
 	cpu_set(cpu, cpu_callin_map);
 
