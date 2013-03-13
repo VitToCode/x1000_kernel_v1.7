@@ -57,6 +57,11 @@ config PM_POWERDOWN_P0
 	bool "power down xburst cpu core when sleep"
 	default y
 
+config SUSPEND_WDT
+	depends on PM_POWERDOWN_P0
+	bool "watch dog for power down p0 sleep"
+	default n
+
 config CPU_SUSPEND_TO_IDLE
         depends on !PM_POWERDOWN_P0
         bool "cpu enter idle mode when sleep"

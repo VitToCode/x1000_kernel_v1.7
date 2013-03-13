@@ -37,6 +37,7 @@
 
 #include <soc/cache.h>
 #include <soc/base.h>
+#include <soc/tcu.h>
 #include <soc/cpm.h>
 
 #include <tcsm.h>
@@ -424,6 +425,21 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR(test_mem3);
 
 	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
+#ifdef CONFIG_SUSPEND_WDT
+#define WDT_TCSR		(0x0c)  /* rw, 32, 0x???????? */
+#define WDT_TCER		(0x04)  /* rw, 32, 0x???????? */
+#define WDT_TDR			(0x00)  /* rw, 32, 0x???????? */
+#define WDT_TCNT		(0x08)  /* rw, 32, 0x???????? */
+
+#define RTCCR_WRDY		BIT(7)
+#define WENR_WEN                BIT(31)
+
+	*(volatile unsigned *)KSEG1ADDR(TCU_IOBASE + TCU_TSCR) = 1<<16;
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TCSR) = (3<<3 | 1<<1);
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TCNT) = 0;		//counter
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TDR) = JZ_EXTAL_RTC / 64 * 3; 	//data
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TCER) = 1;
+#endif
 	return_func();
 }
 
@@ -482,7 +498,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
-	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
+	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS | 1<<2,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
 	
@@ -497,13 +513,18 @@ static int jz4780_pm_enter(suspend_state_t state)
 #else
 	jz4780_suspend();
 #endif
-
 	memcpy((void *)TCSM_BASE, tcsm_back, SAVE_SIZE);
 	cpm_outl(lcr,CPM_LCR);
 	cpm_outl(opcr,CPM_OPCR);
 
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_restore_tscm();
+#endif
+#ifdef CONFIG_SUSPEND_WDT
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TCNT) = 0;		//counter
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TDR) = 0xffff; 	//data
+	*(volatile unsigned *)KSEG1ADDR(WDT_IOBASE + WDT_TCER) = 0;
+	*(volatile unsigned *)KSEG1ADDR(TCU_IOBASE + TCU_TSSR) = 1<<16;
 #endif
 	return 0;
 }
@@ -523,6 +544,7 @@ int __init jz4780_pm_init(void)
 	 * DON'T power down DLL
 	 */
 	*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
+	cpm_set_bit(2,CPM_OPCR);
 
 	suspend_set_ops(&pm_ops);
 	return 0;

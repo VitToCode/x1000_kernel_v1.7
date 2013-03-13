@@ -211,28 +211,32 @@ struct wdt_reset {
 	unsigned stop;
 	unsigned msecs;
 	struct task_struct *task;
-	struct mutex lock;
 };
 
 static int reset_task(void *data) {
 	struct wdt_reset *wdt = data;
-	int time = 1500 * (wdt->msecs) / 1000;
+	int time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
 	set_user_nice(current, -5);
 
 	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
 	outl(0,WDT_IOBASE + WDT_TCER);
-	//FIX ME:
-	//use rtc 32768 clock and divider 64, 32768/64=512
-	//but one second i get the counter 1500
 	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
 	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
 	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
 	outl(1,WDT_IOBASE + WDT_TCER);
+#if 0
+	while(1){
+		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
+		msleep(100);
+		printk("---- %d\n",inl(WDT_IOBASE + WDT_TCNT));
+		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
+		msleep(1000);
+		printk("---- %d\n",inl(WDT_IOBASE + WDT_TCNT));
+	}
+#endif
 	while (!kthread_should_stop()) {
 		outl(0,WDT_IOBASE + WDT_TCNT);
-		mutex_lock(&wdt->lock);
-		msleep(wdt->msecs);
-		mutex_unlock(&wdt->lock);
+		msleep(wdt->msecs - 100);
 	}
 
 	outl(0,WDT_IOBASE + WDT_TCER);
@@ -251,12 +255,13 @@ static int wdt_control_write_proc(struct file *file, const char __user *buffer,
 			    unsigned long count, void *data) {
 	static int i = 1;
 	struct wdt_reset *wdt = data;
-	if(!strcmp(buffer,"on\n") && (wdt->stop == 1)) {
+	if(!strncmp(buffer,"on",2) && (wdt->stop == 1)) {
 		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",i++);
 		wdt->stop = 0;
-	} else if(!strcmp(buffer,"off\n") && (wdt->stop == 0)) {
+	} else if(!strncmp(buffer,"off",3) && (wdt->stop == 0)) {
 		outl(0,WDT_IOBASE + WDT_TCNT);
 		outl(0,WDT_IOBASE + WDT_TCER);
+		outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 		kthread_stop(wdt->task);
 		wdt->stop = 1;
 	}
@@ -277,16 +282,17 @@ static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 	unsigned msecs= 0;
 	struct wdt_reset *wdt = data;
 
+	if(!wdt->stop)
+		return -EBUSY;
+
 	sscanf(buffer,"%d\n",&msecs);
 	if(msecs < 1000) msecs = 1000;
 	if(msecs > 30000) msecs = 30000;
 
-	mutex_lock(&wdt->lock);
 	wdt->msecs = msecs;
-	time = 1500 * (wdt->msecs) / 1000;
+	time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
 	outl(0,WDT_IOBASE + WDT_TCNT);			//counter
 	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
-	mutex_unlock(&wdt->lock);
 	return count;
 }
 	
@@ -301,7 +307,6 @@ static int __init init_reset_proc(void)
 	}
 
 	wdt->msecs = 3000;
-	mutex_init(&wdt->lock);
 	wdt->stop = 1;
 
 	p = proc_mkdir("reset", 0);
