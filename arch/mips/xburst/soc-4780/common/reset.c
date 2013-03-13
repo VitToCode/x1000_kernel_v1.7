@@ -10,6 +10,7 @@
 #include <linux/tty.h>
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
+#include <linux/kthread.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -204,21 +205,139 @@ static int reset_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static int __init init_reset_proc(void)
-{
-	struct proc_dir_entry *res;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+struct wdt_reset {
+	unsigned stop;
+	unsigned msecs;
+	struct task_struct *task;
+	struct mutex lock;
+};
 
-	res = create_proc_entry("jzreset", 0444, NULL);
+static int reset_task(void *data) {
+	struct wdt_reset *wdt = data;
+	int time = 1500 * (wdt->msecs) / 1000;
+	set_user_nice(current, -5);
 
-	if (res) {
-		res->read_proc = reset_read_proc;
-		res->write_proc = reset_write_proc;
-		res->data = NULL;
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+	outl(0,WDT_IOBASE + WDT_TCER);
+	//FIX ME:
+	//use rtc 32768 clock and divider 64, 32768/64=512
+	//but one second i get the counter 1500
+	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
+	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
+	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
+	outl(1,WDT_IOBASE + WDT_TCER);
+	while (!kthread_should_stop()) {
+		outl(0,WDT_IOBASE + WDT_TCNT);
+		mutex_lock(&wdt->lock);
+		msleep(wdt->msecs);
+		mutex_unlock(&wdt->lock);
 	}
+
+	outl(0,WDT_IOBASE + WDT_TCER);
 	return 0;
 }
 
-module_init(init_reset_proc);
+static int wdt_control_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data){
+	int len = 0;
+	struct wdt_reset *wdt = data;
+	len += sprintf(page+len,wdt->stop?">off<on\n":"off>on<\n");
+	return len;
+}
+
+static int wdt_control_write_proc(struct file *file, const char __user *buffer,
+			    unsigned long count, void *data) {
+	static int i = 1;
+	struct wdt_reset *wdt = data;
+	if(!strcmp(buffer,"on\n") && (wdt->stop == 1)) {
+		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",i++);
+		wdt->stop = 0;
+	} else if(!strcmp(buffer,"off\n") && (wdt->stop == 0)) {
+		outl(0,WDT_IOBASE + WDT_TCNT);
+		outl(0,WDT_IOBASE + WDT_TCER);
+		kthread_stop(wdt->task);
+		wdt->stop = 1;
+	}
+	return count;
+}
+	
+static int wdt_time_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data){
+	int len = 0;
+	struct wdt_reset *wdt = data;
+	len += sprintf(page+len,"%d msecs\n",wdt->msecs);
+	return len;
+}
+
+static int wdt_time_write_proc(struct file *file, const char __user *buffer,
+			    unsigned long count, void *data) {
+	int time;
+	unsigned msecs= 0;
+	struct wdt_reset *wdt = data;
+
+	sscanf(buffer,"%d\n",&msecs);
+	if(msecs < 1000) msecs = 1000;
+	if(msecs > 30000) msecs = 30000;
+
+	mutex_lock(&wdt->lock);
+	wdt->msecs = msecs;
+	time = 1500 * (wdt->msecs) / 1000;
+	outl(0,WDT_IOBASE + WDT_TCNT);			//counter
+	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
+	mutex_unlock(&wdt->lock);
+	return count;
+}
+	
+static int __init init_reset_proc(void)
+{
+	struct wdt_reset *wdt;
+	struct proc_dir_entry *p,*res;
+
+	wdt = kmalloc(sizeof(struct wdt_reset),GFP_KERNEL);
+	if(!wdt) {
+		return -ENOMEM;
+	}
+
+	wdt->msecs = 3000;
+	mutex_init(&wdt->lock);
+	wdt->stop = 1;
+
+	p = proc_mkdir("reset", 0);
+	if (!p) {
+		pr_warning("create_proc_entry for common reset failed.\n");
+		return -ENODEV;
+	}
+
+	res = create_proc_entry("reset", 0444, p);
+	if (res) {
+		res->read_proc = reset_read_proc;
+		res->write_proc = reset_write_proc;
+		res->data = wdt;
+	}
+
+	res = create_proc_entry("wdt_control", 0444, p);
+	if (res) {
+		res->read_proc = wdt_control_read_proc;
+		res->write_proc = wdt_control_write_proc;
+		res->data = wdt;
+	}
+	
+	res = create_proc_entry("wdt_time", 0444, p);
+	if (res) {
+		res->read_proc = wdt_time_read_proc;
+		res->write_proc = wdt_time_write_proc;
+		res->data = wdt;
+	}
+
+	return 0;
+}
+
+static int __init init_reset(void)
+{
+	return init_reset_proc();
+}
+module_init(init_reset);
 
 
 
