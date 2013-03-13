@@ -114,6 +114,7 @@ route_conf_base const replay_hp_stereo = {
 	.route_hp_mux_mode = HP_MUX_DACL_TO_L_DACR_TO_R,//fix
 	.route_hp_mode = HP_ENABLE,			//fix
 	.route_lineout_mode = LINEOUT_DISABLE,		//fix
+	.route_replay_mixer_mode = REPLAY_MIXER_DAC_ONLY|AIDAC_MIXER_DACL_TO_L|AIDAC_MIXER_DACR_TO_R,
 };
 
 route_conf_base const replay_lineout_lr = {
@@ -124,6 +125,7 @@ route_conf_base const replay_lineout_lr = {
 	.route_lineout_mux_mode = LO_MUX_DACLR_TO_LO,	//fix
 	.route_hp_mode = HP_DISABLE,			//fix
 	.route_lineout_mode = LINEOUT_ENABLE,		//fix
+	.route_replay_mixer_mode = REPLAY_MIXER_DAC_ONLY|AIDAC_MIXER_DACL_TO_L|AIDAC_MIXER_DACR_TO_R,
 };
 
 route_conf_base const repaly_hp_stereo_and_lineout_lr = {
@@ -135,6 +137,7 @@ route_conf_base const repaly_hp_stereo_and_lineout_lr = {
 	.route_hp_mode = HP_ENABLE,			//fix
 	.route_lineout_mux_mode = LO_MUX_DACLR_TO_LO,	//fix
 	.route_lineout_mode = LINEOUT_ENABLE,		//FIX
+	.route_replay_mixer_mode = REPLAY_MIXER_DAC_ONLY|AIDAC_MIXER_DACL_TO_L|AIDAC_MIXER_DACR_TO_R,
 
 };
 /*########################################################################################################*/
@@ -255,7 +258,7 @@ route_conf_base const call_record_mic_bypass_to_hp_lr = {
 	.route_lineout_mode = LINEOUT_ENABLE,
 };
 
-route_conf_base const route_linein2_to_adclr_and_daclr_to_lo = { 
+route_conf_base const route_linein2_to_adclr_and_daclr_to_lo = {
 	.route_ready_mode = ROUTE_READY_FOR_ADC,
 	//record
 	.route_mic1_mode = MIC1_DISABLE,
@@ -331,10 +334,12 @@ route_conf_base const route_all_clear_conf = {
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
 	.route_adc_mode = ADC_DISABLE,
+	.route_record_mixer_mode = RECORD_MIXER_NO_USE,
 	//replay
 	.route_dac_mode = DAC_DISABLE,
 	.route_hp_mode = HP_DISABLE,
 	.route_lineout_mode = LINEOUT_DISABLE,
+	.route_replay_mixer_mode = REPLAY_MIXER_NO_USE,
 };
 
 route_conf_base const route_replay_clear_conf = {
@@ -343,6 +348,7 @@ route_conf_base const route_replay_clear_conf = {
 	.route_dac_mode = DAC_DISABLE,
 	.route_hp_mode = HP_DISABLE,
 	.route_lineout_mode = LINEOUT_DISABLE,
+	.route_replay_mixer_mode = REPLAY_MIXER_NO_USE,
 };
 
 route_conf_base const route_record_clear_conf = {
@@ -355,6 +361,7 @@ route_conf_base const route_record_clear_conf = {
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
 	.route_adc_mode = ADC_DISABLE,
+	.route_record_mixer_mode = RECORD_MIXER_NO_USE,
 };
 
 /*######################################################################################################*/

@@ -869,12 +869,16 @@ static void codec_set_mixer(unsigned long mode)
 	}
 	__codec_set_mix(CR_MIX3,mixer_inputl,mixer_inputr);
 
+	/* Note :there is a ic buge so we must exchange the left and right channel,
+	 * do not modify it, the buge is follow:
+	 * dir and dil is cross when out the digital audio interface
+	 * */
 	switch (mode & MIXDAC_MIXER_L_MASK) {
 	case MIXDAC_MIXER_L_TO_DACL:
-		mixer_dacl = CODEC_MIX_FUNC_NORMAL;
+		mixer_dacl = CODEC_MIX_FUNC_CROSS;
 		break;
 	case MIXDAC_MIXER_R_TO_DACL:
-		mixer_dacl = CODEC_MIX_FUNC_CROSS;
+		mixer_dacl = CODEC_MIX_FUNC_NORMAL;
 		break;
 	case MIXDAC_MIXER_LR_TO_DACL:
 		mixer_dacl = CODEC_MIX_FUNC_MIXED;
@@ -886,10 +890,10 @@ static void codec_set_mixer(unsigned long mode)
 
 	switch (mode & MIXDAC_MIXER_R_MASK) {
 	case MIXDAC_MIXER_L_TO_DACR:
-		mixer_dacr = CODEC_MIX_FUNC_CROSS;
+		mixer_dacr = CODEC_MIX_FUNC_NORMAL;
 		break;
 	case MIXDAC_MIXER_R_TO_DACR:
-		mixer_dacr = CODEC_MIX_FUNC_NORMAL;
+		mixer_dacr = CODEC_MIX_FUNC_CROSS;
 		break;
 	case MIXDAC_MIXER_LR_TO_DACR:
 		mixer_dacr = CODEC_MIX_FUNC_MIXED;
@@ -905,14 +909,14 @@ static void codec_set_mixer(unsigned long mode)
 /*record mixer*/
 static void codec_set_record_mixer(unsigned long mode)
 {
-	int mixer_inputr = CODEC_MIX_FUNC_NOINPUT;
-	int mixer_inputl = CODEC_MIX_FUNC_NOINPUT;
+	int mixer_inputr = CODEC_MIX_FUNC_NORMAL;
+	int mixer_inputl = CODEC_MIX_FUNC_NORMAL;
 
 	DUMP_ROUTE_PART_REGS("enter");
 	switch(mode & RECORD_MIXER_MASK) {
+	case RECORD_MIXER_NO_USE:
 	case RECORD_MIXER_INPUT_ONLY:
-		g_mixer_is_used |= MIXER_RECORD;
-		__codec_mix_enable();
+		g_mixer_is_used &= ~MIXER_RECORD;
 		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
 		break;
 	case RECORD_MIXER_INPUT_AND_DAC:
@@ -920,14 +924,6 @@ static void codec_set_record_mixer(unsigned long mode)
 		__codec_mix_enable();
 		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_AND_DAC);
 		break;
-	default :
-		g_mixer_is_used &= ~MIXER_RECORD;
-		if (!g_mixer_is_used) {
-			__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
-			__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-			__codec_mix_disable();
-		}
-		return;
 	}
 
 	switch (mode & AIADC_MIXER_L_MASK) {
@@ -962,14 +958,11 @@ static void codec_set_record_mixer(unsigned long mode)
 
 	__codec_set_mix(CR_MIX2,mixer_inputl,mixer_inputr);
 
-	if (!(g_mixer_is_used & MIXER_REPLAY)) {
-		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
-		__codec_set_mix(CR_MIX0,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-	}
-
-	if (mode & RECORD_MIXER_INPUT_ONLY)
+	if (mode & RECORD_MIXER_INPUT_ONLY || mode & RECORD_MIXER_NO_USE) {
+		if (!g_mixer_is_used)
+			__codec_mix_disable();
 		return;
-	else
+	} else
 		codec_set_mixer(mode);
 
 	DUMP_ROUTE_PART_REGS("leave");
@@ -978,37 +971,39 @@ static void codec_set_record_mixer(unsigned long mode)
 /*replay mixer*/
 static void codec_set_replay_mixer(unsigned long mode)
 {
-	uint32_t mixer_l = CODEC_MIX_FUNC_NOINPUT;
-	uint32_t mixer_r = CODEC_MIX_FUNC_NOINPUT;
+	/* Note :there is a ic buge so we must exchange the left and right channel,
+	 * do not modify it, the buge is follow:
+	 * dir and dil is cross when out the digital audio interface
+	 */
+	uint32_t mixer_l = CODEC_MIX_FUNC_NORMAL;
+	uint32_t mixer_r = CODEC_MIX_FUNC_NORMAL;
 
 	DUMP_ROUTE_PART_REGS("enter");
 	switch (mode & REPLAY_MIXER_MASK) {
+	case REPLAY_MIXER_NO_USE:
 	case REPLAY_MIXER_DAC_ONLY:
-		__codec_mix_enable();
+		g_mixer_is_used &= ~MIXER_REPLAY;
 		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_ONLY);
-		g_mixer_is_used |= MIXER_REPLAY;
-		break;
+			break;
 	case REPLAY_MIXER_DAC_AND_ADC:
 		g_mixer_is_used |= MIXER_REPLAY;
 		__codec_mix_enable();
 		__codec_set_rep_mix_mode(CODEC_PLAYBACK_MIX_DAC_AND_ADC);
 		break;
-	default:
-		g_mixer_is_used &= ~MIXER_REPLAY;
-		if (!g_mixer_is_used) {
-			__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
-			__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-			__codec_mix_disable();
-		}
-		return;
 	}
 
 	switch (mode & AIDAC_MIXER_L_MASK) {
 	case AIDAC_MIXER_DACL_TO_L:
-		mixer_l = CODEC_MIX_FUNC_NORMAL;
+		if (!(g_mixer_is_used & MIXER_REPLAY))
+			mixer_l = CODEC_MIX_FUNC_CROSS;
+		else
+			mixer_l = CODEC_MIX_FUNC_NORMAL;
 		break;
 	case AIDAC_MIXER_DACR_TO_L:
-		mixer_l = CODEC_MIX_FUNC_CROSS;
+		if (!(g_mixer_is_used & MIXER_REPLAY))
+			mixer_l = CODEC_MIX_FUNC_NORMAL;
+		else
+			mixer_l = CODEC_MIX_FUNC_CROSS;
 		break;
 	case AIDAC_MIXER_DACLR_TO_L:
 		mixer_l = CODEC_MIX_FUNC_MIXED;
@@ -1020,10 +1015,16 @@ static void codec_set_replay_mixer(unsigned long mode)
 
 	switch (mode & AIDAC_MIXER_R_MASK) {
 	case AIDAC_MIXER_DACL_TO_R:
-		mixer_r = CODEC_MIX_FUNC_CROSS;
+		if (!(g_mixer_is_used & MIXER_REPLAY))
+			mixer_r = CODEC_MIX_FUNC_NORMAL;
+		else
+			mixer_r = CODEC_MIX_FUNC_CROSS;
 		break;
 	case AIDAC_MIXER_DACR_TO_R:
-		mixer_r = CODEC_MIX_FUNC_NORMAL;
+		if (!(g_mixer_is_used & MIXER_REPLAY))
+			mixer_r = CODEC_MIX_FUNC_CROSS;
+		else
+			mixer_r = CODEC_MIX_FUNC_NORMAL;
 		break;
 	case AIDAC_MIXER_DACLR_TO_R:
 		mixer_r = CODEC_MIX_FUNC_MIXED;
@@ -1035,14 +1036,11 @@ static void codec_set_replay_mixer(unsigned long mode)
 
 	__codec_set_mix(CR_MIX0,mixer_l,mixer_r);
 
-	if (!(g_mixer_is_used & MIXER_RECORD)) {
-		__codec_set_rec_mix_mode(CODEC_RECORD_MIX_INPUT_ONLY);
-		__codec_set_mix(CR_MIX2,CODEC_MIX_FUNC_NORMAL,CODEC_MIX_FUNC_NORMAL);
-	}
-
-	if (mode & REPLAY_MIXER_DAC_ONLY)
+	if (mode & REPLAY_MIXER_DAC_ONLY || mode & REPLAY_MIXER_NO_USE) {
+		if (!g_mixer_is_used)
+			__codec_mix_disable();
 		return;
-	else
+	} else
 		codec_set_mixer(mode);
 
 	DUMP_ROUTE_PART_REGS("leave");
@@ -1833,8 +1831,8 @@ static void codec_set_route_base(const void *arg)
 		codec_set_inputr_to_bypass(conf->route_inputr_to_bypass_mode);
 	if (conf->route_record_mux_mode)
 		codec_set_record_mux(conf->route_record_mux_mode);
-
-	codec_set_record_mixer(conf->route_record_mixer_mode);
+	if (conf->route_record_mixer_mode)
+		codec_set_record_mixer(conf->route_record_mixer_mode);
 
 	if (conf->route_inputl_mode)
 		codec_set_inputl(conf->route_inputl_mode);
@@ -1847,7 +1845,8 @@ static void codec_set_route_base(const void *arg)
 
 
 		/* replay path */
-	codec_set_replay_mixer(conf->route_replay_mixer_mode);
+	if (conf->route_replay_mixer_mode)
+		codec_set_replay_mixer(conf->route_replay_mixer_mode);
 
 	if (conf->route_hp_mux_mode)
 		codec_set_hp_mux(conf->route_hp_mux_mode);
@@ -2629,6 +2628,7 @@ static int codec_set_device(enum snd_device_t device)
 
 static int codec_set_standby(unsigned int sw)
 {
+#ifdef CONFIG_CODEC_STANDBY
 	printk("JZ_CODEC: waring, %s() is a default function\n", __func__);
 	switch(cur_out_device) {
 		case SND_DEVICE_SPEAKER:
@@ -2646,10 +2646,8 @@ static int codec_set_standby(unsigned int sw)
 				gpio_disable_hp_mute();
 			}
 			break;
-		default:
-			printk("JZ_CODEC: Unkown ioctl argument in SND_SET_STANDBY\n");
-			break;
 	}
+#endif
 
 	return 0;
 }
