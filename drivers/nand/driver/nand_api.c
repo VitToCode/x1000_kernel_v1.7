@@ -9,6 +9,7 @@
 #include <linux/interrupt.h>
 //#include <include/linuxver.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/gpio.h>
 #include <linux/device.h>
@@ -360,6 +361,7 @@ int nand_wait_rb(void)
 #else
 	ret =wait_for_completion(&nand_rb);
 #endif
+        udelay(10);
 	}while(ret == -ERESTARTSYS);
 	if(!ret)
 		return TIMEOUT;

@@ -347,6 +347,44 @@ void nand_get_id(char *nand_id)
 	send_get_nand_id(nand_id);
 }
 
+/**
+ * nand-reset - reset NAND
+ * @chip:	this operation will been done on which nand chip
+ */
+int nand_reset(void)
+{
+	g_pnand_io->send_cmd_norb(CMD_RESET);
+	//	g_pnand_io->send_cmd_norb(0);
+
+	return nand_wait_rb();
+}
+
+/*
+ * Standard NAND Operation
+ */
+
+/**
+ * do_select_chip -
+ */
+static inline void do_select_chip(NAND_BASE *host,unsigned int page)
+{
+	int chipnr = -1;
+	unsigned int page_per_chip = g_pnand_chip->ppchip;
+
+	if (page >= 0)
+		chipnr = page / page_per_chip;
+
+	g_pnand_ctrl->chip_select(host,g_pnand_io,chipnr);
+}
+
+/**
+ * do_deselect_chip -
+ */
+static inline void do_deselect_chip(NAND_BASE *host)
+{
+	g_pnand_ctrl->chip_select(host,g_pnand_io,-1);
+}
+
 void nand_set_features(unsigned char addr, unsigned char *data)
 {
 	g_pnand_io->send_cmd_norb(CMD_SET_FEATURES);
@@ -363,9 +401,120 @@ void nand_get_features(unsigned char addr, unsigned char *data)
 	g_pnand_io->read_data_withrb(data, 4);
 }
 
-void get_read_retrial_mode(unsigned char *data)
+static void set_addr_write_data(unsigned char addr, unsigned char *data)
+{
+        g_pnand_io->send_addr(-1, addr, 1);
+        udelay(1);
+        g_pnand_io->write_data_norb(data, 1);
+        udelay(1);
+}
+
+static void set_addr_read_data(unsigned char addr, unsigned char *data)
+{
+        g_pnand_io->send_addr(-1, addr, 1);
+        udelay(1);
+        g_pnand_io->read_data_norb(data, 1);
+        udelay(1);
+}
+
+extern unsigned char slcdata[4];
+void get_enhanced_slc(unsigned char *data)
 {
 	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+
+        if (nand_type->options == HYNIX_NAND || nand_type->options == NEW_HYNIX_NAND) {
+                unsigned int i;
+                unsigned char addr[4] = {0xB0, 0xB1, 0xA0, 0xA1};
+	        g_pnand_io->send_cmd_norb(0x37);
+                udelay(1);
+                for(i = 0; i < 4; i++)
+                        set_addr_read_data(addr[i], &data[i]);
+
+                dprintf("get enhanced slc data 0x%02x 0x%02x 0x%02x 0x%02x\n"
+                                ,data[0],data[1],data[2],data[3]);
+        }
+
+}
+
+void set_enhanced_slc(NAND_BASE *host, unsigned int pageid, unsigned char *setdata)
+{
+        static int flag = 0;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+
+	do_select_chip(host,pageid);
+        if (nand_type->options == HYNIX_NAND || nand_type->options == NEW_HYNIX_NAND) {
+                unsigned int i;
+                unsigned char addr[4] = {0xB0, 0xB1, 0xA0, 0xA1};
+                unsigned char off = 0x0A;
+
+	        g_pnand_io->send_cmd_norb(0x36);
+                udelay(1);
+                for (i = 0; i < 4; i++) {
+                        if (flag == 0)
+                               setdata[i] += off;
+                        else
+                               setdata[i] -= off;
+
+                        set_addr_write_data(addr[i], &setdata[i]);
+                }
+
+	        g_pnand_io->send_addr(-1, 0x16, 1);
+                if (flag) {
+                        g_pnand_io->send_cmd_norb(0x00);
+                        for(i = 0; i < 5; i++)
+                                g_pnand_io->send_addr(-1, 0x00, 1);
+                        g_pnand_io->send_cmd_norb(0x30);
+                }
+
+                flag = ~flag;
+                dprintf("set enhanced slc data 0x%02x 0x%02x 0x%02x 0x%02x\n"
+                                ,setdata[0],setdata[1],setdata[2],setdata[3]);
+        }
+	do_deselect_chip(host);
+}
+
+static int check_retrial_data(unsigned char *data)
+{
+        int i, j, k = 0, flag = 0;
+
+        while (k < 7) {
+                for (i=0; i<8; i++) {
+                        for (j=0; j<8; j++) {
+                                if (data[k*128+i*8+j] + data[k*128+i*8+j+64] != 0xff){
+                                        dprintf("retry opt %d err\n", k);
+                                        flag = -1;
+                                        break;
+                                }
+                                dprintf("%x + %x = %x\n",data[k*128+i*8+j],data[k*128+i*8+j+64]
+                                                ,data[k*128+i*8+j] + data[k*128+i*8+j+64]);
+                        }
+                        if (flag == -1) {
+                                break;
+                        }
+                }
+                if (flag == 0) {
+                        if (k != 0) {
+                                for (i=0; i<8; i++)
+                                        for (j=0; j<8; j++)
+                                                data[i*8+j] = data[k*128+i*8+j];
+                        }
+                        goto exit;
+                } else if (flag == -1) {
+                        if (k == 6)
+                                goto exit;
+                        k++;
+                        flag = 0;
+                }
+        }
+exit:
+        return flag;
+}
+
+void get_read_retrial_mode(unsigned char *data)
+{
+        unsigned int ret = 0;
+	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
+
         if (nand_type->options == HYNIX_NAND) {
 	        g_pnand_io->send_cmd_norb(0x37);
                 udelay(1);
@@ -384,19 +533,102 @@ void get_read_retrial_mode(unsigned char *data)
 	        g_pnand_io->send_addr(-1, 0xAF, 1);
 	        myndelay(nand_type->twhr);
 	        g_pnand_io->read_data_norb(&data[3], 1);
-                printk("Nand get retrial mode data is 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                dprintf("Nand get retrial mode data is 0x%02x 0x%02x 0x%02x 0x%02x\n",
                                                      data[0],data[1],data[2],data[3]);
         } else if (nand_type->options == MICRON_NAND || nand_type->options == SAMSUNG_NAND) {
 
+        } else if(nand_type->options == NEW_HYNIX_NAND) {
+                int i = 0;
+                unsigned char data1=0x40;
+                unsigned char data2=0x4D;
+                nand_reset();
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x36);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0xFF, 1);
+                udelay(1);
+	        g_pnand_io->write_data_norb(&data1, 1);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0xCC, 1);
+                udelay(1);
+	        g_pnand_io->write_data_norb(&data2, 1);
+                udelay(1);
+
+	        g_pnand_io->send_cmd_norb(0x16);
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x17);
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x04);
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x19);
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x00);
+                udelay(1);
+
+	        g_pnand_io->send_addr(-1, 0x00, 1);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0x00, 1);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0x00, 1);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0x02, 1);
+                udelay(1);
+	        g_pnand_io->send_addr(-1, 0x00, 1);
+                udelay(1);
+
+	        g_pnand_io->send_cmd_norb(0x30);
+                udelay(1);
+	        g_pnand_io->read_data_withrb(&data[0], 1026);
+                udelay(1);
+
+                nand_reset();
+                udelay(1);
+	        g_pnand_io->send_cmd_norb(0x38);
+                udelay(1);
+	        nand_wait_rb();
+                dprintf("Nand get retrial mode data is 0x%02x 0x%02x\n",
+                                                     data[0],data[1]);
+                ret = check_retrial_data(&data[2]);
+                if (ret < 0) {
+                        printk("ERR:the retry otp data is err\n");
+                }
+                for (i = 2; i < 66; i++) {
+                        if((i-2)%8 == 0)
+                                dprintf("\n");
+                        dprintf("0x%02x ",data[i]);
+                }
         }
 }
 
-void set_read_retrial_mode(unsigned char *data)
+void set_read_retrial_mode(NAND_BASE *host, unsigned int pageid, unsigned char *data)
 {
-        static int count = 0;
+        static int count = 1;
         int i = 0;
 	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
-        if (nand_type->options == HYNIX_NAND) {
+
+	do_select_chip(host, pageid);
+
+        if (nand_type->options == NEW_HYNIX_NAND) {
+                unsigned char setdata[8] = {0x00};
+                unsigned char addr[8] = {0xcc, 0xbf, 0xaa, 0xab, 0xcd, 0xad, 0xae, 0xaf};
+
+                if (count == 8)
+                        count = 0;
+                g_pnand_io->send_cmd_norb(0x36);
+                udelay(1);
+                for (i = 0; i < 8; i++) {
+                        setdata[i] = data[count * 8 + i + 2];
+                        set_addr_write_data(addr[i], &setdata[i]);
+                }
+                udelay(1);
+                g_pnand_io->send_cmd_norb(0x16);
+
+                dprintf("nand set retrial %d times 0x%02x 0x%02x 0x%02x 0x%02x"
+                                " 0x%02x 0x%02x 0x%02x 0x%02x\n", count
+                                ,setdata[0] ,setdata[1] ,setdata[2] ,setdata[3]
+                                ,setdata[4] ,setdata[5] ,setdata[6] ,setdata[7] );
+
+        } else if (nand_type->options == HYNIX_NAND) {
                 unsigned char off[6][4] = {{0x00,0x06,0x0A,0x06},
                                            {0x00,0x03,0x07,0x08},
                                            {0x00,0x06,0x0D,0x0F},
@@ -435,76 +667,17 @@ void set_read_retrial_mode(unsigned char *data)
                 myndelay(nand_type->tadl);
                 g_pnand_io->send_cmd_norb(0x16);
                 myndelay(nand_type->tadl);
-                printk("nand set retrial %d times 0x%02x 0x%02x 0x%02x 0x%02x\n"
+                dprintf("nand set retrial %d times 0x%02x 0x%02x 0x%02x 0x%02x\n"
                                 ,count,setdata[0],setdata[1],setdata[2],setdata[3]);
         } else if (nand_type->options == MICRON_NAND || nand_type->options == SAMSUNG_NAND) {
-                /*
-		unsigned char wdata[4] = {0x00};
-		unsigned char rdata[4] = {0x00};
-                int setnum = -1;
-                if (nand_type->options == MICRON_NAND)
-                        setnum = 4;
-                if (nand_type->options == SAMSUNG_NAND)
-                        setnum = 3;
-                if (count == 7)
-                        count = 0;
-                if (count % setnum == 0)
-                        wdata[0] = nand_type->lowdriver;
-                if (count % setnum == 1)
-                        wdata[0] = nand_type->normaldriver;
-                if (count % setnum == 2)
-                        wdata[0] = nand_type->highdriver;
-                if (count % setnum == 3)
-                        wdata[0] = nand_type->high2driver;
 
-		nand_set_features(0x10, wdata);
-		nand_get_features(0x10, rdata);
-		if (wdata[0] != rdata[0])
-			printk("Warning: Nand flash output driver set faild!!\n");
-                */
         }
 
         count++;
+	do_deselect_chip(host);
 
 }
 
-/**
- * nand-reset - reset NAND
- * @chip:	this operation will been done on which nand chip
- */
-int nand_reset(void)
-{
-	g_pnand_io->send_cmd_norb(CMD_RESET);
-	//	g_pnand_io->send_cmd_norb(0);
-
-	return nand_wait_rb();
-}
-
-/*
- * Standard NAND Operation
- */
-
-/**
- * do_select_chip -
- */
-static inline void do_select_chip(NAND_BASE *host,unsigned int page)
-{
-	int chipnr = -1;
-	unsigned int page_per_chip = g_pnand_chip->ppchip;
-
-	if (page >= 0)
-		chipnr = page / page_per_chip;
-
-	g_pnand_ctrl->chip_select(host,g_pnand_io,chipnr);
-}
-
-/**
- * do_deselect_chip -
- */
-static inline void do_deselect_chip(NAND_BASE *host)
-{
-	g_pnand_ctrl->chip_select(host,g_pnand_io,-1);
-}
 /**
  * Calculate physical page address
  * toppage :the startpageid of virtual nand block;
@@ -1308,8 +1481,10 @@ int isbadblock(NAND_BASE *host, int blockid)          //按cpu方式读写
 		}
 		do_deselect_chip(host);
 		/* the block is badblock if the number of the bit ,which is 0,is more than 64 */
-		if(bit0_num > 4*4*NAND_ECC_POS) 
+		if(bit0_num > 4*4*NAND_ECC_POS) {
+                        printk("--------bit0_num = %d\n", bit0_num);
 			return ENAND;
+                }
 		bit0_num = 0;
 		if(times){
 			pageid +=g_pnand_chip->ppblock;
@@ -1337,6 +1512,7 @@ int isinherentbadblock(NAND_BASE *host, int blockid)
 				goto err;
 			}
 			if (buf != 0xff) {
+                                printk("----inherentbadblock----buf = 0x%02x\n", buf);
 				ret = ENAND;
 				goto err;
 			}
@@ -1446,7 +1622,6 @@ static int spl_write_nand(NAND_BASE *host, Aligned_List *list, unsigned char *bc
 		dprintf("\n\n**********spl_write_nand, write data IO_ERROR: ret =%d************\n",ret);
 		goto spl_write_err2;
 	}
-
 	send_prog_page(0, pageid + 1);
 	pn_enable(host);
 	g_pnand_io->write_data_norb(bchbuf, bchsize);
@@ -1459,8 +1634,8 @@ static int spl_write_nand(NAND_BASE *host, Aligned_List *list, unsigned char *bc
 		pagelist->retVal = ret;
 		dprintf("\n\n**********spl_write_nand, write ecc IO_ERROR: ret =%d************\n",ret);
 	}
-spl_write_err2:
 	do_deselect_chip(host);
+spl_write_err2:
 spl_write_err1:
 	g_pnand_ecc->eccsize = tmpeccsize;
 	return ret;
@@ -1568,7 +1743,8 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 	Aligned_List *alignelist = NULL;
 	int i;
 	int ret = 0;
-
+        if(list->pagelist->startPageID < g_pnand_chip->ppblock)
+                set_enhanced_slc(host, 0,slcdata);
 	memset(spl_bchbuf, 0xff, spl_bchsize);
 	alignelist = list;
 	while(alignelist != NULL) {
@@ -1576,6 +1752,7 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 			/* block 0 write spl, block 1 bakup block 0, X_BOOT_BLOCK is block 2,
 			 which block start write x-boot*/
 			for(i=0; i < X_BOOT_BLOCK; i++) {
+
 				ret = spl_write_nand(host, alignelist, spl_bchbuf, spl_bchsize, i);
 
 				if(ret < 0) {
@@ -1594,6 +1771,8 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 	if(ret == 0) {
 		dprintf("spl write success\n");
 	}
+        if(list->pagelist->startPageID < g_pnand_chip->ppblock)
+                set_enhanced_slc(host, 0,slcdata);
 
 	return ret;
 }

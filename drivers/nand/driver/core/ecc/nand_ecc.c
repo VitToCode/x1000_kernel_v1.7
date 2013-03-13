@@ -268,10 +268,10 @@ static inline void ecc_encode_onestep(NAND_BASE *host,unsigned char *databuf,uns
 	}
 
 	bch_encode_sync(host);
-	bch_disable(host);
 	//	dprintf("ecc encode  bch_inits =0x%x ~~~~~~~~~~~\n",bch_readl(host->bch_iomem,BCH_INTS));
 
 	bch_encints_clear(host);
+	bch_disable(host);
 	for (i = 0; i < eccbytes; i++) {
 		eccbuf[i] = *paraddr++;
 	}

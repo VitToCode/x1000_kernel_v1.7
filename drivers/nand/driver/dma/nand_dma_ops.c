@@ -8,10 +8,9 @@
 #include <linux/delay.h>
 
 /* Add read-retry when nand read ecc uncorrect */
-extern void get_read_retrial_mode(unsigned char *data);
-extern void set_read_retrial_mode(unsigned char *data);
-unsigned char retrialbuf[4] = {0xff};
-#define READ_RETRY_COUNT        7
+extern void set_read_retrial_mode(NAND_BASE *host, unsigned int pageid, unsigned char *data);
+extern unsigned char *retrialbuf;
+#define READ_RETRY_COUNT        8
 
 #define MCU_TEST_INTER_NAND
 #ifdef MCU_TEST_INTER_NAND
@@ -461,7 +460,9 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 		}
 		ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 		if (ret == ECC_ERROR) {
-			set_read_retrial_mode(retrialbuf);
+	                unsigned int phy_pageid;
+                        phy_pageid = get_physical_addr(pnand_api, pageid);
+			set_read_retrial_mode(pnand_api->vnand_base, phy_pageid, retrialbuf);
 			count++;
 		} else {
 			if (count > 0 && ret >= 0) {
@@ -706,7 +707,9 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 				ret = read_page_singlenode(pnand_api,templist->startPageID,
 						templist->OffsetBytes,templist->Bytes,templist->pData);
 				if (ret == ECC_ERROR) {
-					set_read_retrial_mode(retrialbuf);
+	                                unsigned int phy_pageid;
+                                        phy_pageid = get_physical_addr(pnand_api, templist->startPageID);
+					set_read_retrial_mode(pnand_api->vnand_base, phy_pageid, retrialbuf);
 					count++;
 					templist->retVal = 0;
 				} else {
@@ -742,7 +745,9 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 				}
 				ret = read_page_multinode(pnand_api,templist,opsmodel);
 				if (ret == ECC_ERROR) {
-					set_read_retrial_mode(retrialbuf);
+	                                unsigned int phy_pageid;
+                                        phy_pageid = get_physical_addr(pnand_api, templist->startPageID);
+					set_read_retrial_mode(pnand_api->vnand_base, phy_pageid, retrialbuf);
 					count++;
 					templist->retVal = 0;
 				} else {
@@ -901,7 +906,6 @@ int nand_dma_init(NAND_API *pnand_api)
 
 	struct jznand_dma *nand_dma =(struct jznand_dma *)nand_malloc_buf(sizeof(struct jznand_dma));
 
-	get_read_retrial_mode(retrialbuf);
 	if(!nand_dma){
 		printk("Failed: nand_dma mallocs failed !\n");
 		goto nand_dma_init_error1;

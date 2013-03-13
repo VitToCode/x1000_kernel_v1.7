@@ -18,6 +18,11 @@ extern int nand_reset(void);
 extern void nand_get_id(char *nand_id);
 extern void nand_set_features(unsigned char addr, unsigned char *data);
 extern void nand_get_features(unsigned char addr, unsigned char *data);
+extern void get_read_retrial_mode(unsigned char *buf);
+extern void get_enhanced_slc(unsigned char *data);
+unsigned char *retrialbuf;
+unsigned char slcdata[4] = {0xff};
+#define RETRY_SIZE 1026
 //#define DEBUG_L   dbg_line()
 
 static inline void dump_id(unsigned char *nand_id)
@@ -206,7 +211,7 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 		if (wdata[0] != rdata[0])
 			printk("Warning: Nand flash output driver set faild!!\n");
 	}
-	
+
 	/* Check for a chip array */
 	for (i = 1; i < g_maxchips; i++) {
 		/* select this device */
@@ -241,5 +246,11 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	pnand_ecc->ecc_init(pnand_ecc,pnand_type);
 	get_nand_chip(pnand_api,pnand_type);
 	pnand_io->io_init(pnand_io);	
+
+        retrialbuf = (unsigned char *)kmalloc(RETRY_SIZE ,GFP_KERNEL);
+        memset(retrialbuf, 0xff, RETRY_SIZE);
+	get_read_retrial_mode(retrialbuf);
+        get_enhanced_slc(slcdata);
+
 	return 0;
 }
