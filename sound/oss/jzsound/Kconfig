@@ -16,6 +16,12 @@ config SOUND_I2S_JZ47XX
 
 if SOUND_I2S_JZ47XX
 
+config CODEC_STANDBY
+depends on JZ_EXTERNAL_CODEC || JZ_INTERNAL_CODEC
+bool "codec standby"
+help
+	Say "Y" to enable codec standby function
+
 menuconfig JZ_INTERNAL_CODEC
 
 	bool "xburst internal coedc"
