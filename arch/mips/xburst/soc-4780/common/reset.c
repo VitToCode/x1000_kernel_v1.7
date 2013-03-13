@@ -43,6 +43,7 @@
 #define WENR_WEN                BIT(31)
 
 #define RECOVERY_SIGNATURE	(0x001a1a)
+#define REBOOT_SIGNATURE	(0x003535)
 #define UNMSAK_SIGNATURE	(0x7c0000)//do not use these bits
 
 static void inline rtc_write_reg(int reg,int value)
@@ -94,7 +95,7 @@ void jz_wdt_restart(char *command)
 		}
 	} else {
 		cpm_outl(0x5a5a,CPM_CPSPPR);
-		cpm_outl(0x0,CPM_CPPSR);
+		cpm_outl(REBOOT_SIGNATURE,CPM_CPPSR);
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
 
