@@ -20,8 +20,8 @@ do{									\
 while(0)
 
 #define K0BASE			KSEG0
-#define CFG_DCACHE_SIZE		32768
-#define CFG_ICACHE_SIZE		32768
+#define CFG_DCACHE_SIZE		16384
+#define CFG_ICACHE_SIZE		16384
 #define CFG_CACHELINE_SIZE	32
 
 static inline void __jz_flush_cache_all(void)

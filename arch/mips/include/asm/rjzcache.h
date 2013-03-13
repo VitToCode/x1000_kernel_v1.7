@@ -242,6 +242,11 @@ static inline void flush_dcache_line_indexed(unsigned long addr)
 	__dflush_prologue
 	cache_op(Index_Writeback_Inv_D, addr);
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 	__dflush_epilogue
 }
 
@@ -263,6 +268,10 @@ static inline void flush_dcache_line(unsigned long addr)
 	__dflush_prologue
 	cache_op(Hit_Writeback_Inv_D, addr);
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
 	__dflush_epilogue
 }
 
@@ -271,6 +280,11 @@ static inline void invalidate_dcache_line(unsigned long addr)
 	__dflush_prologue
 	cache_op(Hit_Invalidate_D, addr);
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 	__dflush_epilogue
 }
 
@@ -316,6 +330,11 @@ static inline void protected_writeback_dcache_line(unsigned long addr)
 {
 	protected_cache_op(Hit_Writeback_Inv_D, addr);
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static inline void protected_writeback_scache_line(unsigned long addr)
@@ -605,6 +624,11 @@ static inline void blast_dcache32(void)
 			cache32_unroll32(addr|ws,Index_Writeback_Inv_D);
 
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static inline void blast_dcache32_page(unsigned long page)
@@ -618,6 +642,11 @@ static inline void blast_dcache32_page(unsigned long page)
 	} while (start < end);
 
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static inline void blast_dcache32_page_indexed(unsigned long page)
@@ -635,6 +664,11 @@ static inline void blast_dcache32_page_indexed(unsigned long page)
 			cache32_unroll32(addr|ws,Index_Writeback_Inv_D);
 
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static inline void blast_icache32(void)
@@ -750,6 +784,11 @@ static inline void protected_blast_dcache_range(unsigned long start,
 		addr += lsize;
 	}
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static inline void protected_blast_icache_range(unsigned long start,
@@ -787,6 +826,11 @@ static inline void blast_dcache_range(unsigned long start,
 		addr += lsize;
 	}
 	SYNC_WB();
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 #endif /* CONFIG_JZRISC */

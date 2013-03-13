@@ -790,6 +790,11 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 	}
 	if (MIPS_CACHE_SYNC_WAR)
 		__asm__ __volatile__ ("sync");
+#ifdef MIPS_BRIDGE_SYNC_WAR
+       if (MIPS_BRIDGE_SYNC_WAR)
+               __fast_iob();
+#endif
+
 }
 
 static void r4k_flush_cache_sigtramp(unsigned long addr)
