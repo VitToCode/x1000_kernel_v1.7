@@ -788,16 +788,6 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
-static void serial_jz47xx_pm(struct uart_port *port, unsigned int state,unsigned int oldstate)
-{
-	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
-
-	if (!state)
-		clk_enable(up->clk);
-	else
-		clk_disable(up->clk);
-}
-
 static void serial_jz47xx_release_port(struct uart_port *port)
 {
 }
@@ -945,7 +935,6 @@ struct uart_ops serial_jz47xx_pops = {
 	.startup	= serial_jz47xx_startup,
 	.shutdown	= serial_jz47xx_shutdown,
 	.set_termios	= serial_jz47xx_set_termios,
-	.pm		= serial_jz47xx_pm,
 	.type		= serial_jz47xx_type,
 	.release_port	= serial_jz47xx_release_port,
 	.request_port	= serial_jz47xx_request_port,
