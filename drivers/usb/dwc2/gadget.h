@@ -47,6 +47,9 @@ static inline int need_send_zlp(struct dwc2_request *req) {
 		((req->request.length % dep->maxp) == 0));
 }
 
+void dwc2_device_mode_init(struct dwc2 *dwc);
+void dwc2_gadget_do_pullup(struct dwc2 *dwc);
+
 void dwc2_gadget_giveback(struct dwc2_ep *dep, struct dwc2_request *req,
 			int status);
 

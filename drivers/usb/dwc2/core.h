@@ -12,12 +12,6 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
-#define DWC_PR(r)							\
-	printk("DWC2: REG["#r"]=0x%08x\n", *((volatile unsigned int *)((r) | 0xb3500000)))
-
-#define DWC_RR(_r) 	r##_r = (*((volatile unsigned int *)((_r) | 0xb3500000)))
-#define DWC_P(v)	printk("DWC2: REG["#v"] = 0x%08x\n", r##v)
-
 /** Macros defined for DWC OTG HW Release version */
 
 #define OTG_CORE_REV_2_60a	0x4F54260A
@@ -44,8 +38,37 @@
 
 #include "dwc_otg_regs.h"
 
+#define DWC2_REG_BASE	0xb3500000
+
+#define DWC_PR(r)							\
+	printk("DWC2: REG[0x%03x]=0x%08x\n",				\
+		(r), *((volatile unsigned int *)((r) | DWC2_REG_BASE)))
+
+#define DWC_RR(_r) 	r##_r = *((volatile unsigned int *)((_r) | DWC2_REG_BASE))
+#define DWC_P(v)	printk("DWC2: REG["#v"] = 0x%08x\n", r##v)
+
+#define DWC_RR_CH_REG(name, base, ch) \
+	name = *((volatile unsigned int *)((base + (ch) * 0x20) | DWC2_REG_BASE))
+
+#define DWC_RR_HCCHAR(name, ch)   DWC_RR_CH_REG(name, 0x500, (ch))
+#define DWC_RR_HCSPLT(name, ch)   DWC_RR_CH_REG(name, 0x504, (ch))
+#define DWC_RR_HCINT(name, ch)    DWC_RR_CH_REG(name, 0x508, (ch))
+#define DWC_RR_HCINTMSK(name, ch) DWC_RR_CH_REG(name, 0x50c, (ch))
+#define DWC_RR_HCTSIZ(name, ch)   DWC_RR_CH_REG(name, 0x510, (ch))
+#define DWC_RR_HCDMA(name, ch)    DWC_RR_CH_REG(name, 0x514, (ch))
+
+#define DWC_P_HCCHAR(name, ch)   printk("  hcchar(%d)=0x%08x\n", (ch), name)
+#define DWC_P_HCSPLT(name, ch)   printk("  hcsplt(%d)=0x%08x\n", (ch), name)
+#define DWC_P_HCINT(name, ch)    printk("   hcint(%d)=0x%08x\n", (ch), name)
+#define DWC_P_HCINTMSK(name, ch) printk("hcintmsk(%d)=0x%08x\n", (ch), name)
+#define DWC_P_HCTSIZ(name, ch)   printk("  hctsiz(%d)=0x%08x\n", (ch), name)
+#define DWC_P_HCDMA(name, ch)     printk("   hcdma(%d)=0x%08x\n", (ch), name)
+
+
+/*-------------------Device----------------- */
+
 /**
- * struct dwc2_ep - device side endpoint representation
+ * struct dwc2_ep - device side endpoint/Host side channel representation
  * @usb_ep: usb endpoint
  * @request_list: list of requests for this endpoint
  * @dwc: pointer to DWC controller
@@ -60,7 +83,6 @@
  *	enabled and remains valid until the endpoint is disabled.
  */
 struct dwc2_ep {
-	struct usb_ep		 usb_ep;
 	struct list_head	 request_list;
 	struct dwc2		*dwc;
 
@@ -68,21 +90,18 @@ struct dwc2_ep {
 #define DWC2_EP_ENABLED		(1 << 0)
 #define DWC2_EP_STALL		(1 << 1)
 #define DWC2_EP_WEDGE		(1 << 2)
-#define DWC2_EP_BUSY		(1 << 4)
-#define DWC2_EP_PENDING_REQUEST	(1 << 5)
-	/* This last one is specific to EP0 */
-#define DWC3_EP0_DIR_IN		(1 << 31)
+#define DWC2_EP_BUSY		(1 << 3)
 
 	u8			 number;
 	u8			 type;
 	u16			 maxp;
 	u32			 interval;
-	char			 name[20];
 	unsigned		 is_in:1;
 
-	unsigned		 tx_fifo_num;
+	struct usb_ep		usb_ep;
+	char			name[20];
+	struct list_head	garbage_list;
 
-	struct list_head	 garbage_list;
 	const struct usb_endpoint_descriptor	*desc;
 };
 
@@ -156,6 +175,135 @@ struct dwc2_dev_if {
 	uint16_t			 tx_fifo_size[MAX_TX_FIFOS];
 };
 
+/*-------------Host--------------- */
+
+struct dwc2_qh;
+
+struct dwc2_isoc_qh_ptr {
+	struct list_head frm_list; /* in dwc2 and dwc2_frame */
+	struct list_head qh_list;  /* in dwc2_qh */
+	struct dwc2_qh *qh;
+};
+
+struct dwc2_frame {
+	struct list_head	isoc_qh_list; /* of dwc2_isoc_qh_ptr */
+	struct dwc2_qh		*int_qh_head;
+};
+
+struct dwc2_qh {
+	struct dwc2_qh		*next;
+	struct list_head	 list;	   /* in all_qh_list */
+	struct list_head	 urb_list; /* of urb_priv */
+	struct list_head	 isoc_qh_ptr_list;
+	int			 pause_schedule;
+
+	/*
+	 * +1: each time a TD is associate with a Channel
+	 * -1: each time a TD is de-associate with a channel
+	 */
+	int			 trans_td_count;
+
+	u8			type;
+	u8			endpt;
+	u8			hb_mult;
+	u8			dev_addr;
+	u8			hub_addr;
+	u8			port_number;
+	u16			mps;
+	u8			speed;
+	u8			xxx;
+	unsigned		is_in:1;
+	unsigned		lspddev:1;
+	unsigned		disabling:1; /* endpoint is disabling */
+	unsigned		bandwidth_reserved:1;
+
+	hcchar_data_t		hcchar;
+	hcsplt_data_t		hcsplt;
+	hctsiz_data_t		hctsiz;
+
+	/*
+	 * initial data PID
+	 * to be used on the first OUT transaction or
+	 * to be expected from the first IN transaction
+	 */
+	int			 data_toggle;
+
+	/* periodic schedule info */
+	u16			usecs;	     /* intr bandwidth */
+	u16			period;	     /* polling interval, in frame */
+	u8			smask;	     /* microframe in frame */
+	u16			start_frame; /* where polling starts */
+#define NO_FRAME	((unsigned short)~0)
+	u16			last_frame;
+
+	struct dwc2_channel	*channel; /* [ISOC] channel reserved for isoc transfer */
+
+	struct dwc2			*dwc;
+	struct usb_host_endpoint	*host_ep; /* of this QH, its hcpriv points to this QH */
+	struct usb_device		*dev;
+};
+
+struct dwc2_td {
+	struct list_head	 list;	/* in urb_priv->td_list */
+	dma_addr_t		 buffer;
+	u32			 len;
+	int			 dma_desc_idx;
+	int			 ctrl_stage;
+
+	/* for isoc */
+	int			 isoc_idx;
+	u16			 frame;
+
+	struct urb		*urb;
+	struct dwc2_qh		*owner_qh;
+};
+
+struct dwc2_urb_priv {
+	struct list_head	 list;	/* of urb_priv */
+	struct list_head	 td_list;	/* of td */
+	struct list_head	 done_td_list;	/* of done td */
+	struct urb		*urb;
+	struct dwc2_qh		*owner_qh;
+	struct dwc2_channel	*channel;
+	enum dwc2_ep0_state	 control_stage;
+	int			 error_count;
+	int			 state;
+#define DWC2_URB_IDLE		0
+#define DWC2_URB_TRANSFERING	1
+#define DWC2_URB_RETRY		2
+#define DWC2_URB_CANCELING	3
+#define DWC2_URB_DONE		4	/* this state is not actually existed */
+	u16			isoc_slots;
+};
+
+/* support for URB_NO_INTERRUPT */
+struct dwc2_urb_context {
+	struct list_head	 list;	/* of dwc2_urb_context */
+	void			*context;
+
+	struct list_head	 urb_list; /* of urb_priv */
+};
+
+struct dwc2_channel {
+	struct list_head	 list;
+	int			 number;
+	struct dwc2_urb_priv	*urb_priv;
+
+	dwc_otg_host_dma_desc_t *sw_desc_list;
+	dma_addr_t		 hw_desc_list;
+	DECLARE_BITMAP(frame_inuse, MAX_FRLIST_EN_NUM);
+
+	/* for isoc schedule */
+	u16			remain_slots;
+	struct dwc2_qh 		*qh;
+	int			is_isoc;
+
+	/* for halt(disable) a channel */
+	wait_queue_head_t	 disable_wq;
+	int 			 waiting;
+	int			 disable_stage;	/* 0: not in disable state, 1: disable stage 1, 2: disable stage2 */
+};
+
 #define DWC_OTG_HOST_GLOBAL_REG_OFFSET 0x400
 #define DWC_OTG_HOST_PORT_REGS_OFFSET 0x440
 #define DWC_OTG_HOST_CHAN_REGS_OFFSET 0x500
@@ -164,19 +312,13 @@ struct dwc2_dev_if {
 /**
  * struct dwc2_host_if - Host-specific information
  * @host_global_regs: Host Global Registers starting at offset 400h
- * @hprt0: Host Port 0 Control and Status Register
+ * @hprt0: Host Port Control and Status Register, 0 because our root hub only support one port
  * @hc_regs: Host Channel Specific Registers at offsets 500h-5FCh
- * @num_host_channels: Number of Host Channels (range: 1-16)
- * @perio_ep_supported: Periodic EPs supported (0: no, 1: yes)
- * @perio_tx_fifo_size: Periodic Tx FIFO Size (Only 1 host periodic Tx FIFO)
  */
 struct dwc2_host_if {
 	dwc_otg_host_global_regs_t	*host_global_regs;
 	volatile uint32_t		*hprt0;
 	dwc_otg_hc_regs_t		*hc_regs[MAX_EPS_CHANNELS];
-	uint8_t				 num_host_channels;
-	uint8_t				 perio_eps_supported;
-	uint16_t			 perio_tx_fifo_size;
 };
 
 #define DWC_OTG_PCGCCTL_OFFSET	0xE00
@@ -202,8 +344,10 @@ struct dwc2_hwcfgs {
 	dcfg_data_t	dcfg;
 };
 
-#define DWC2_MAX_NUMBER_OF_SETUP_PKT		5
-#define DWC_EP0_MAXPACKET	64
+#define DWC2_MAX_NUMBER_OF_SETUP_PKT	5
+#define DWC_EP0_MAXPACKET		64
+#define DWC2_MAX_FRAME			2048
+#define DWC2_MAX_MICROFRAME		(2048 * 8)
 
 /**
  * struct dwc2 - representation of our controller
@@ -240,10 +384,15 @@ struct dwc2_hwcfgs {
  * @ep0state: state of endpoint zero
  */
 struct dwc2 {
+	spinlock_t			 lock;
+	atomic_t			 in_irq;
+	int				 owner_cpu;
+
 	struct usb_ctrlrequest		 ctrl_req;
 	struct usb_ctrlrequest		*ctrl_req_virt;
 	dma_addr_t			 ctrl_req_addr;
 #define DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE	 PAGE_SIZE
+	int				 setup_prepared;
 
 	u16				 status_buf;
 	dma_addr_t			 status_buf_addr;
@@ -255,10 +404,6 @@ struct dwc2 {
 	u8				 ep0out_shadow_buf[DWC_EP0_MAXPACKET];
 	void 				*ep0out_shadow_uncached;
 	u32				 ep0out_shadow_dma;
-
-	spinlock_t			 lock;
-	atomic_t			 in_irq;
-	int				 owner_cpu;
 
 	struct device			*dev;
 	struct platform_device 		*pdev;
@@ -311,30 +456,99 @@ struct dwc2 {
 	unsigned			 a_hnp_support:1;
 	unsigned			 a_alt_hnp_support:1;
 
+	int pullup_on;
 	enum dwc2_ep0_state		 ep0state;
 	enum dwc2_device_state		 dev_state;
 
 	struct timer_list delayed_status_watchdog;
 
-	int setup_prepared;
+	/* Host */
+	struct usb_hcd		*hcd;
+	int			device_connected;
+	u32			 port1_status;
+	unsigned long		 rh_timer;
 
+	struct dwc2_channel	 channel_pool[MAX_EPS_CHANNELS];
+	struct list_head	 chan_free_list;
+	struct list_head	 chan_trans_list;
+	/*
+	 * once a channel becames an isoc channel,
+	 * it will always be isoc channel, because isoc channel can't disabled!
+	 */
+	struct list_head	idle_isoc_chan_list;
+	struct list_head	busy_isoc_chan_list;
+
+	struct kmem_cache	*qh_cachep;
+	struct kmem_cache	*td_cachep;
+	struct kmem_cache	*context_cachep;
+	struct dwc2_isoc_qh_ptr *isoc_qh_ptr_pool;
+	struct list_head	isoc_qh_ptr_list;
+
+	struct list_head	idle_qh_list;
+	struct list_head	busy_qh_list;
+
+
+	struct list_head	context_list;
+
+	unsigned int		random_frame;
+	struct dwc2_frame	frame_list[MAX_FRLIST_EN_NUM];
+
+	unsigned int		urb_queued_number;
+
+	struct work_struct	otg_id_work;
+
+	u32			 hcd_started:1;
+	u32			 mode:2;
+#define DWC2_HC_MODE_UNKNOWN	0
+#define	DWC2_HC_UHCI_MODE	1
+#define DWC2_HC_EHCI_MODE	2
+
+	u32			*sw_frame_list;
+	dma_addr_t		hw_frame_list;
+
+	dwc_otg_host_dma_desc_t *sw_chan_desc_list;
+	dma_addr_t		hw_chan_desc_list;
+
+	/* Debug support */
 	struct dentry		*root;
 	u8			test_mode;
 	u8			test_mode_nr;
 };
 
+#define USECS_INFINITE		((unsigned int)~0)
+
+#if 0
+#define dwc_writel(v, p)					\
+	({							\
+		printk("===>%s:%d writel %p to 0x%08x\n",	\
+			__func__, __LINE__, (p), (v));		\
+		writel((v), (p));				\
+	})
+
+#define dwc_readl(p)						\
+	({							\
+		u32 val = readl((p));				\
+		printk("===>%s:%d readl %p, got 0x%08x\n",	\
+			__func__, __LINE__, (p), val);		\
+		val;						\
+	})
+#else
+#define dwc_writel(v, p) writel((v), (p))
+#define dwc_readl(p) readl((p))
+#endif
+
 #define dwc2_spin_lock_irqsave(__dwc, flg)				\
 	do {								\
 		struct dwc2 *_dwc = (__dwc);				\
-	__dwc2_lock_barrior:						\
 		spin_lock_irqsave(&_dwc->lock, (flg));			\
 		if (atomic_read(&_dwc->in_irq)) {			\
 			if (dwc->owner_cpu != smp_processor_id()) {	\
 				spin_unlock_irqrestore(&_dwc->lock, (flg)); \
-				goto __dwc2_lock_barrior;		\
-			}						\
-		}							\
-	} while (0)
+			} else						\
+				break;					\
+		} else							\
+			break;						\
+	} while (1)
 
 #define dwc2_spin_unlock_irqrestore(__dwc, flg)			\
 	do {							\
@@ -374,5 +588,11 @@ uint8_t dwc2_is_host_mode(struct dwc2 *dwc);
 
 void dwc2_wait_3_phy_clocks(void);
 void dwc2_core_reset(struct dwc2 *dwc);
+
+void calculate_fifo_size(struct dwc2 *dwc);
+void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num);
+void dwc2_flush_rx_fifo(struct dwc2 *dwc);
+
+void dwc2_enable_global_interrupts(struct dwc2 *dwc);
 
 #endif /* __DRIVERS_USB_DWC2_CORE_H */

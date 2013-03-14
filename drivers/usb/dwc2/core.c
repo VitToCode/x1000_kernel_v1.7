@@ -12,13 +12,18 @@
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 
+#include <linux/usb.h>
+#include <linux/usb/hcd.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
 #include "core.h"
 #include "gadget.h"
+#include "host.h"
 #include "debug.h"
+
+#include "dwc2-jz4780.h"
 
 #ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
 int dwc2_core_debug_en = 0;
@@ -36,6 +41,380 @@ module_param(dwc2_core_debug_en, int, 0644);
 #define DWC2_CORE_DEBUG_MSG(msg...)  do {  } while(0)
 #endif
 
+void calculate_fifo_size(struct dwc2 *dwc) {
+	/*
+	 * NOTE: we are use "Dedicated FIFO Mode with No Thresholding"
+	 *  if need thresholding, the calculation algorithm may need change
+	 */
+
+	/**
+	 * 3.2.1.1 FIFO SPRAM(Single-Port RAM) mapping:
+	 *
+	 * 1. One common RxFIFO, used in Host and Device modes
+	 * 2. One common Periodic TxFIFO, used in Host mode
+	 * 3. Separate IN endpoint transmit FIFO for each Device mode IN endpoints in Dedicated Transmit FIFO
+	 *    operation (OTG_EN_DED_TX_FIFO = 1)
+	 * 4. The FIFO SPRAM is also used for storing some register values to save gates. In Scatter/Gather DMA
+	 *    mode, four SPRAM locations (four 35-bit words) are reserved for this. In DMA and Slave modes
+	 *    (non-Scatter/Gather mode), one SPRAM location (one 35-bit word) is used for storing the DMA address.
+	 *
+	 * Device Mode Mapping
+	 * --------------------
+	 *
+	 * NOTE: when the device is operating in Scatter/Gather mode, then the last
+	 *       locations of the SPRAM store the Base Descriptor address, Current
+	 *       Descriptor address, Current Buffer address and status quadlet
+	 *       information for each endpoint direction (4 locations per Endpoint).
+	 *       If an endpoint is bidirectional, then 4 locations will be used for IN,
+	 *       and another 4 for OUT
+	 * 3.2.4.4 Endpoint Information Controller
+	 *       The last locations in the SPRAM are used to hold register values.
+	 *    Device Buffer DMA Mode:
+	 *       one location per endpoint direction is used in SPRAM to store the
+	 *       DIEPDMA and DOEPDMA value. The application writes data and then reads
+	 *       it from the same location
+	 *       For example, if there are ten bidirectional endpoints, then the last
+	 *       20 SPRAM locations are reserved for storing the DMA address for IN
+	 *       and OUT endpoints
+	 *   Scatter/Gather DMA Mode:
+	 *       Four locations per endpoint direction are used in SPRAM to store the
+	 *       Base Descriptor address, Current Descriptor address, Current Buffer
+	 *       Pointer and the Status Quadlet.
+	 *       The application writes data to the base descriptor address.
+	 *       When the application reads the location where it wrote the base
+	 *       descriptor address, it receives the current descriptor address.
+	 *       For example, if there are ten bidirectional endpoints, then the last 80
+	 *      locations are reserved for storing these values.
+	 *
+	 * Figure 3-13
+	 *  ________________________
+	 *  |                       |
+	 *  | DI/OEPDMAn Register   | Depends on the value of OTG_NUM_EPS
+	 *  | and Descriptor Status | and OTG_EP_DIRn, see not above
+	 *  |      values           |
+	 *  -------------------------
+	 *  |   TxFIFO #n Packets   |  DIEPTXFn
+	 *  -------------------------
+	 *  |                       |
+	 *  |   ................    |
+	 *  |                       |
+	 *  -------------------------
+	 *  |  TxFIFO #1 Packets    | DIEPTXF1
+	 *  -------------------------
+	 *  |  TxFIFO #0 Packets    |
+	 *  |( up to3 SETUP Packets)| GNPTXFSIZ
+	 *  ------------------------
+	 *  |                       |
+	 *  |     Rx Packets        |  GRXFSIZ
+	 *  |                       |
+	 *  -------------------------  Address = 0, Rx starting address fixed to 0
+	 *
+	 *
+	 *  Host Mode Mapping
+	 *  -----------------
+	 *  The host uses one transmit FIFO for all non-periodic OUT transactions and one transmit FIFO for all
+	 *  periodic OUT transactions
+	 *
+	 *  The host uses one receive FIFO for all periodic and non-periodic transactions.
+	 *
+	 *  ------------------------
+	 *  |                      | Depends on the value of OTG_NUM_HOST_CHANNEL
+	 *  |  HCDMAn Register     | 1 location per channel for Buffer DMA
+	 *  |     Values           | 4 locations per channel for Scatter/Gather DMA
+	 *  ------------------------
+	 *  | Periodic Tx Packets  |  HPTXFSIZ  (One Common Periodic TxFIFO)
+	 *  ------------------------
+	 *  | non-Periodic Tx Pkts |  GNPTXFSIZ
+	 *  ------------------------
+	 *  |      Rx Packets      |  GRXFSIZ  (One common RxFIFO)
+	 *  ------------------------  Address = 0, Rx starting address fixed to 0
+	 *
+	 * Recommended:
+	 * RxFIFO size: 2 * (MPS / 4 + 2) + 16
+	 * Non-periodic TxFIFO size: 2 * (MPS / 4)
+	 * Periodic TxFIFO size: min(MPS * MC / 4, 6000 / 4)
+	 */
+
+	/**
+	 * Rx FIFO Allocation (rx_fifo_size)
+	 * ---------------------------------
+	 * RAM for SETUP Packets: 4 * n + 6 locations must be Reserved in the receive FIFO to receive up to
+	 * n SETUP packets on control endpoints, where n is the number of control endpoints the device
+	 * core supports.
+	 *
+	 * One location for Global OUT NAK
+	 *
+	 * Status information is written to the FIFO along with each received packet. Therefore, a minimum
+	 * space of (Largest Packet Size / 4) + 1 must be allotted to receive packets. If a high-bandwidth
+	 * endpoint is enabled, or multiple isochronous endpoints are enabled, then at least two (Largest
+	 * Packet Size / 4) + 1 spaces must be allotted to receive back-to-back packets. Typically, two
+	 * (Largest Packet Size / 4) + 1 spaces are recommended so that when the previous packet is being
+	 * transferred to AHB, the USB can receive the subsequent packet. If AHB latency is high, you must
+	 * allocate enough space to receive multiple packets. This is critical to prevent dropping of any
+	 * isochronous packets.
+	 *
+	 * Typically, one location for each OUT endpoint is recommended.
+	 *
+	 * one location for eatch endpoint for EPDisable is required
+	 *
+	 * Tx FIFO Allocation (tx_fifo_size[n])
+	 * ------------------------------------
+	 * The minimum RAM space required for each IN Endpoint Transmit FIFO is the maximum packet size
+	 * for that particular IN endpoint.
+	 *
+	 * More space allocated in the transmit IN Endpoint FIFO results in a better performance on the USB
+	 *and can hide latencies on the AHB.
+	 */
+
+	/**
+	 * see Databook Chapter 3 - Architecture for more information:
+	 * Host: 3.1.4, 3.2.4
+	 * Device: 3.1.5, 3.2.4
+	 */
+
+	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
+	/*
+	 * x = 0: Method 1, no high-bandwidth support
+	 * x = 1: Method 2, recommended minimum FIFO depth with support for high-bandwidth
+	 * x = 2: Method 3
+	 */
+	const int x = 1;      /* I have test 2, not function!  1 is ok, 0 is also ok */
+
+	u32 dev_rx_fifo_size;
+	u32 host_rx_fifo_size;
+	u32 rx_fifo_size;
+
+	u32 host_non_periodic_tx_fifo_size;
+	u32 dev_in_ep_tx_fifo_size0;
+
+	fifosize_data_t nptxfifosize;
+	fifosize_data_t txfifosize;
+	fifosize_data_t ptxfifosize;
+	gdfifocfg_data_t gdfifocfg;
+	int num_in_eps;
+	int i = 0;
+
+	/* NOTE: each fifo max depth is 3648 (NOTE: see register reset value) */
+	dev_rx_fifo_size = (4 * 1 + 6) + (x + 1) * (1024 / 4 + 1) +
+		(2 * dwc->hwcfgs.hwcfg2.b.num_dev_ep) + 1;
+	host_rx_fifo_size = (1024 / 4) + 1 + 1 + 1 * MAX_EPS_CHANNELS;
+
+	rx_fifo_size = max(dev_rx_fifo_size, host_rx_fifo_size);
+
+	/* Rx starting address fixed to 0, its depth is now configured to rx_fifo_size */
+	dwc_writel(rx_fifo_size, &global_regs->grxfsiz);
+
+	/* GNPTXFSIZ if used by EP0, its start address is rx_fifo_size */
+	dev_in_ep_tx_fifo_size0 = (x + 1) * (64 / 4);
+	host_non_periodic_tx_fifo_size = (x + 1) * (512 / 4);
+
+	nptxfifosize.d32 = 0;
+	nptxfifosize.b.depth = max(dev_in_ep_tx_fifo_size0, host_non_periodic_tx_fifo_size);
+	//nptxfifosize.b.depth = 2 * 512 / 4;
+	nptxfifosize.b.startaddr = rx_fifo_size;
+	dwc_writel(nptxfifosize.d32, &global_regs->gnptxfsiz);
+
+	/* configure EP1~n FIFO start address and depth */
+	txfifosize.b.startaddr = nptxfifosize.b.startaddr + nptxfifosize.b.depth;
+
+	/* number of high bandwidth ep */
+#define DWC_NUMBER_OF_HB_EP	1
+
+	num_in_eps = dwc->hwcfgs.hwcfg4.b.num_in_eps;
+	for (i = 0; i < num_in_eps; i++) {
+		if (i < (num_in_eps - DWC_NUMBER_OF_HB_EP)) {
+			txfifosize.b.depth = ((x + 1) * (512 / 4));
+		} else {
+			txfifosize.b.depth = (x + 1) * (1024 / 4);
+		}
+		dwc_writel(txfifosize.d32, &global_regs->dtxfsiz[i]);
+
+		/* the last FIFO block is also used for Host Mode periodic packets */
+		if (i == (num_in_eps - 1)) {
+			ptxfifosize.b.startaddr = txfifosize.b.startaddr;
+			ptxfifosize.b.depth = txfifosize.b.depth;
+			dwc_writel(ptxfifosize.d32, &global_regs->hptxfsiz);
+		}
+
+		txfifosize.b.startaddr += txfifosize.b.depth;
+	}
+
+	/*
+	 * configure FIFO start address and depth for Endpoint Information Controller
+	 */
+	gdfifocfg.d32 = 0;
+	gdfifocfg.b.epinfobase = txfifosize.b.startaddr;
+	gdfifocfg.b.gdfifocfg = dwc_readl(&global_regs->ghwcfg3) >> 16;
+	dwc_writel(gdfifocfg.d32, &global_regs->gdfifocfg);
+
+	dwc2_flush_tx_fifo(dwc, 0x10);
+	dwc2_flush_rx_fifo(dwc);
+}
+
+/**
+ * Flush a Tx FIFO.
+ *
+ * See Programming Guide 2.2.3
+ */
+void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
+{
+	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
+	volatile grstctl_t greset = {.d32 = 0 };
+	gintsts_data_t gintsts;
+	dctl_data_t dctl;
+	int count = 0;
+
+	/*
+	 * Check that GINTSTS.GINNakEff=0
+	 */
+	gintsts.d32 = dwc_readl(&global_regs->gintsts);
+	if ( (gintsts.b.ginnakeff == 0) && dwc2_is_device_mode(dwc)) {
+		/* If this bit is cleared then set DCTL.SGNPInNak=1 */
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.sgnpinnak = 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+		/* Wait for GINTSTS.GINNakEff=1 */
+		do {
+			gintsts.d32 = dwc_readl(&global_regs->gintsts);
+			if (++count > 10000) {
+				dev_warn(dwc->dev, "%s():%d HANG! GINTSTS=0x%08x\n",
+					__func__, __LINE__, gintsts.d32);
+				break;
+			}
+
+			udelay(1);
+		} while(gintsts.b.ginnakeff == 0);
+	}
+
+	/* Wait for AHB master IDLE state. */
+	/* TODO: if OUT is running, will the AHB idle??? */
+	count = 0;
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 100000) {
+			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
+				__func__, __LINE__,
+				greset.d32, dwc_readl(&global_regs->gnptxsts));
+			break;
+		}
+
+		udelay(1);
+	} while (greset.b.ahbidle == 0);
+
+	/* Check that GRSTCTL.TxFFlsh =0 */
+	count = 0;
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 10000) {
+			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
+				__func__, __LINE__,
+				greset.d32, dwc_readl(&global_regs->gnptxsts));
+			break;
+		}
+
+		udelay(1);
+	} while (greset.b.txfflsh == 1);
+
+	greset.d32 = 0;
+	greset.b.txfflsh = 1;
+	greset.b.txfnum = num;
+	dwc_writel(greset.d32, &global_regs->grstctl);
+
+	count = 0;
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 10000) {
+			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
+				__func__, __LINE__,
+				greset.d32, dwc_readl(&global_regs->gnptxsts));
+			break;
+		}
+
+		udelay(11);
+	} while (greset.b.txfflsh == 1);
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.sgnpinnak = 1;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	dwc2_wait_3_phy_clocks();
+}
+
+void dwc2_flush_rx_fifo(struct dwc2 *dwc)
+{
+	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
+	volatile grstctl_t greset = {.d32 = 0 };
+	gintsts_data_t gintsts;
+	dctl_data_t dctl;
+	int count = 0;
+
+	gintsts.d32 = dwc_readl(&global_regs->gintsts);
+	if ((gintsts.b.goutnakeff == 0) && dwc2_is_device_mode(dwc)) {
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.sgoutnak = 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+		do {
+			gintsts.d32 = dwc_readl(&global_regs->gintsts);
+			if (++count > 10000) {
+				dev_warn(dwc->dev, "%s() HANG! GINTSTS=0x%08x\n",
+					__func__, gintsts.d32);
+				break;
+			}
+
+			udelay(1);
+		} while(gintsts.b.goutnakeff == 0);
+	}
+
+	/* Wait for AHB master IDLE state. */
+	/* TODO: if OUT is running, will the AHB idle??? */
+	count = 0;
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 100000) {
+			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
+				__func__, __LINE__,
+				greset.d32, dwc_readl(&global_regs->gnptxsts));
+			break;
+		}
+
+		udelay(1);
+	} while (greset.b.ahbidle == 0);
+
+	count = 0;
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 10000) {
+			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
+				__func__, greset.d32);
+			break;
+		}
+
+		udelay(1);
+	} while (greset.b.rxfflsh == 1);
+
+	greset.d32 = 0;
+	greset.b.rxfflsh = 1;
+	dwc_writel(greset.d32, &global_regs->grstctl);
+
+	do {
+		greset.d32 = dwc_readl(&global_regs->grstctl);
+		if (++count > 10000) {
+			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
+				__func__, greset.d32);
+			break;
+		}
+
+		udelay(1);
+	} while (greset.b.rxfflsh == 1);
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.cgoutnak = 1;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	dwc2_wait_3_phy_clocks();
+}
 
 void dwc2_wait_3_phy_clocks(void) {
 	/* PHY Cock: 30MHZ or 60MHZ */
@@ -51,30 +430,30 @@ void dwc2_enable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
 
-	ahbcfg.d32 = readl(&dwc->core_global_regs->gahbcfg);
+	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 1;
-	writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
+	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
 }
 
 void dwc2_disable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
 
-	ahbcfg.d32 = readl(&dwc->core_global_regs->gahbcfg);
+	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 0;
-	writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
+	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
 }
 
 uint8_t dwc2_is_device_mode(struct dwc2 *dwc)
 {
-	uint32_t curmod = readl(&dwc->core_global_regs->gintsts);
+	uint32_t curmod = dwc_readl(&dwc->core_global_regs->gintsts);
 
 	return (curmod & 0x1) == 0;
 }
 
 uint8_t dwc2_is_host_mode(struct dwc2 *dwc)
 {
-	uint32_t curmod = readl(&dwc->core_global_regs->gintsts);
+	uint32_t curmod = dwc_readl(&dwc->core_global_regs->gintsts);
 
 	return (curmod & 0x1) == 1;
 }
@@ -92,9 +471,9 @@ void dwc2_core_reset(struct dwc2 *dwc)
 	/* Core Soft Reset */
 	count = 0;
 	greset.b.csftrst = 1;
-	writel(greset.d32, &global_regs->grstctl);
+	dwc_writel(greset.d32, &global_regs->grstctl);
 	do {
-		greset.d32 = readl(&global_regs->grstctl);
+		greset.d32 = dwc_readl(&global_regs->grstctl);
 		if (++count > 10000) {
 			dev_warn(dwc->dev, "%s() HANG! Soft Reset GRSTCTL=0x%08x\n",
 				__func__, greset.d32);
@@ -106,7 +485,7 @@ void dwc2_core_reset(struct dwc2 *dwc)
 	/* Wait for AHB master IDLE state. */
 	do {
 		udelay(10);
-		greset.d32 = readl(&global_regs->grstctl);
+		greset.d32 = dwc_readl(&global_regs->grstctl);
 		if (++count > 100000) {
 			dev_warn(dwc->dev, "%s() HANG! AHB Idle GRSTCTL=0x%08x\n",
 				__func__, greset.d32);
@@ -123,10 +502,10 @@ void dwc2_enable_common_interrupts(struct dwc2 *dwc)
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 
 	/* Clear any pending OTG Interrupts */
-	writel(0xFFFFFFFF, &global_regs->gotgint);
+	dwc_writel(0xFFFFFFFF, &global_regs->gotgint);
 
 	/* Clear any pending interrupts */
-	writel(0xFFFFFFFF, &global_regs->gintsts);
+	dwc_writel(0xFFFFFFFF, &global_regs->gintsts);
 
 	/*
 	 * Enable the interrupts in the GINTMSK.
@@ -149,7 +528,7 @@ void dwc2_enable_common_interrupts(struct dwc2 *dwc)
 		intr_mask.b.lpmtranrcvd = 1;
 	}
 #endif
-	writel(intr_mask.d32, &global_regs->gintmsk);
+	dwc_writel(intr_mask.d32, &global_regs->gintmsk);
 }
 
 static void dwc2_init_csr(struct dwc2 *dwc) {
@@ -187,40 +566,37 @@ static void dwc2_init_csr(struct dwc2 *dwc) {
 				(i * DWC_OTG_CHAN_REGS_OFFSET));
 	}
 
-	dwc->host_if.num_host_channels = MAX_EPS_CHANNELS;
-
 	/* Power Management */
 	dwc->pcgcctl = (uint32_t *) (reg_base + DWC_OTG_PCGCCTL_OFFSET);
-
 
 	/*
 	 * Store the contents of the hardware configuration registers here for
 	 * easy access later.
 	 */
-	dwc->hwcfgs.hwcfg1.d32 = readl(&dwc->core_global_regs->ghwcfg1);
-	dwc->hwcfgs.hwcfg2.d32 = readl(&dwc->core_global_regs->ghwcfg2);
-	dwc->hwcfgs.hwcfg3.d32 = readl(&dwc->core_global_regs->ghwcfg3);
-	dwc->hwcfgs.hwcfg4.d32 = readl(&dwc->core_global_regs->ghwcfg4);
+	dwc->hwcfgs.hwcfg1.d32 = dwc_readl(&dwc->core_global_regs->ghwcfg1);
+	dwc->hwcfgs.hwcfg2.d32 = dwc_readl(&dwc->core_global_regs->ghwcfg2);
+	dwc->hwcfgs.hwcfg3.d32 = dwc_readl(&dwc->core_global_regs->ghwcfg3);
+	dwc->hwcfgs.hwcfg4.d32 = dwc_readl(&dwc->core_global_regs->ghwcfg4);
 
 	/* Force host mode to get HPTXFSIZ exact power on value */
 	{
 		gusbcfg_data_t gusbcfg = {.d32 = 0 };
 
-		gusbcfg.d32 =  readl(&dwc->core_global_regs->gusbcfg);
+		gusbcfg.d32 =  dwc_readl(&dwc->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 1;
-		writel(gusbcfg.d32, &dwc->core_global_regs->gusbcfg);
+		dwc_writel(gusbcfg.d32, &dwc->core_global_regs->gusbcfg);
 		mdelay(100);
 
-		dwc->hwcfgs.hptxfsiz.d32 = readl(&dwc->core_global_regs->hptxfsiz);
+		dwc->hwcfgs.hptxfsiz.d32 = dwc_readl(&dwc->core_global_regs->hptxfsiz);
 
-		gusbcfg.d32 =  readl(&dwc->core_global_regs->gusbcfg);
+		gusbcfg.d32 =  dwc_readl(&dwc->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 0;
-		writel(gusbcfg.d32, &dwc->core_global_regs->gusbcfg);
+		dwc_writel(gusbcfg.d32, &dwc->core_global_regs->gusbcfg);
 		mdelay(100);
 	}
 
-	dwc->hwcfgs.hcfg.d32 = readl(&dwc->host_if.host_global_regs->hcfg);
-	dwc->hwcfgs.dcfg.d32 = readl(&dwc->dev_if.dev_global_regs->dcfg);
+	dwc->hwcfgs.hcfg.d32 = dwc_readl(&dwc->host_if.host_global_regs->hcfg);
+	dwc->hwcfgs.dcfg.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dcfg);
 
 	/*
 	 * Set the SRP sucess bit for FS-I2c
@@ -228,7 +604,7 @@ static void dwc2_init_csr(struct dwc2 *dwc) {
 	//dwc->srp_success = 0;
 	//dwc->srp_timer_started = 0;
 
-	dwc->snpsid = readl(&dwc->core_global_regs->gsnpsid);
+	dwc->snpsid = dwc_readl(&dwc->core_global_regs->gsnpsid);
 
 	dev_info(dwc->dev, "Core Release: %x.%x%x%x\n",
 		(dwc->snpsid >> 12 & 0xF),
@@ -316,10 +692,10 @@ int dwc2_core_init(struct dwc2 *dwc)
 	gotgctl_data_t gotgctl = {.d32 = 0 };
 
 	/* Common Initialization */
-	usbcfg.d32 = readl(&global_regs->gusbcfg);
+	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
 	usbcfg.b.ulpi_ext_vbus_drv = 0;
 	usbcfg.b.term_sel_dl_pulse = 0;
-	writel(usbcfg.d32, &global_regs->gusbcfg);
+	dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
 
 	/* Reset the Controller */
 	dwc2_core_reset(dwc);
@@ -340,17 +716,17 @@ int dwc2_core_init(struct dwc2 *dwc)
 
 	for (i = 0; i < dwc->hwcfgs.hwcfg4.b.num_dev_perio_in_ep; i++) {
 		dev_if->perio_tx_fifo_size[i] =
-			readl(&global_regs->dtxfsiz[i]) >> 16;
+			dwc_readl(&global_regs->dtxfsiz[i]) >> 16;
 	}
 
 	for (i = 0; i < dwc->hwcfgs.hwcfg4.b.num_in_eps; i++) {
 		dev_if->tx_fifo_size[i] =
-			readl(&global_regs->dtxfsiz[i]) >> 16;
+			dwc_readl(&global_regs->dtxfsiz[i]) >> 16;
 	}
 
 	dwc->total_fifo_size = dwc->hwcfgs.hwcfg3.b.dfifo_depth;
-	dwc->rx_fifo_size = readl(&global_regs->grxfsiz);
-	dwc->nperio_tx_fifo_size = readl(&global_regs->gnptxfsiz) >> 16;
+	dwc->rx_fifo_size = dwc_readl(&global_regs->grxfsiz);
+	dwc->nperio_tx_fifo_size = dwc_readl(&global_regs->gnptxfsiz) >> 16;
 
 	dev_info(dwc->dev, "Total FIFO SZ=%d\n", dwc->total_fifo_size);
 	dev_info(dwc->dev, "Rx FIFO SZ=%d\n", dwc->rx_fifo_size);
@@ -364,50 +740,33 @@ int dwc2_core_init(struct dwc2 *dwc)
 		usbcfg.b.ulpi_utmi_sel = 0;
 		/* 16-bit */
 		usbcfg.b.phyif = 1;
-		writel(usbcfg.d32, &global_regs->gusbcfg);
+		dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
 
 		/* Reset after setting the PHY parameters */
 		dwc2_core_reset(dwc);
 	}
 
 	/* we use UTMI+ PHY, so set ULPI fields to 0 */
-	usbcfg.d32 = readl(&global_regs->gusbcfg);
+	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
 	usbcfg.b.ulpi_fsls = 0;
 	usbcfg.b.ulpi_clk_sus_m = 0;
-	writel(usbcfg.d32, &global_regs->gusbcfg);
+	dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
 
 	/* External DMA Mode burst Settings */
 	dev_info(dwc->dev, "Architecture: External DMA\n");
 	ahbcfg.d32 = 0;
 	ahbcfg.b.hburstlen = DWC_GAHBCFG_EXT_DMA_BURST_16word;
 	ahbcfg.b.dmaenable = dwc->dma_enable;
-	writel(ahbcfg.d32, &global_regs->gahbcfg);
+	dwc_writel(ahbcfg.d32, &global_regs->gahbcfg);
 
-	usbcfg.d32 = readl(&global_regs->gusbcfg);
-	/* TODO: allow user to enable HNP and SRP dynamically */
+	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
 	usbcfg.b.hnpcap = 1;
 	usbcfg.b.srpcap = 1;
-	writel(usbcfg.d32, &global_regs->gusbcfg);
+	dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
 
-	/* TODO: LPM settings here if enable LPM */
-
-	gotgctl.d32 = readl(&dwc->core_global_regs->gotgctl);
+	gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
 	gotgctl.b.otgver = dwc->otg_ver;
-	writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
-
-	/* Do device or host intialization based on mode during PCD
-	 * and HCD initialization  */
-	if (dwc2_is_host_mode(dwc)) {
-		dev_info(dwc->dev, "Host Mode!\n");
-		dwc->op_state = DWC2_A_HOST;
-		/* TODO: vbus */
-		//jz_dwc_set_vbus(dwc, 1);
-	} else {
-		dev_info(dwc->dev, "Device Mode!\n");
-		dwc->op_state = DWC2_B_PERIPHERAL;
-		/* TODO: vbus */
-		//jz_dwc_set_vbus(dwc, 0);
-	}
+	dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
 
 	/* Enable common interrupts */
 	dwc2_enable_common_interrupts(dwc);
@@ -459,7 +818,7 @@ static void dwc2_handle_mode_mismatch_intr(struct dwc2 *dwc)
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.modemismatch = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
@@ -470,19 +829,22 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	//gintmsk_data_t gintmsk;
 	//gpwrdn_data_t gpwrdn;
 
-	gotgint.d32 = readl(&global_regs->gotgint);
+	gotgint.d32 = dwc_readl(&global_regs->gotgint);
 	DWC2_CORE_DEBUG_MSG("%s: otgint = 0x%08x\n",
 			__func__, gotgint.d32);
 
 	if (gotgint.b.sesenddet) {
 		dev_dbg(dwc->dev, "session end detected!\n");
 
-		gotgctl.d32 = readl(&global_regs->gotgctl);
+		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		DWC2_CORE_DEBUG_MSG("%s:%d gotgctl = 0x%08x op_state = %d\n",
 				__func__, __LINE__, gotgctl.d32, dwc->op_state);
 
 		if (dwc->op_state == DWC2_B_HOST) {
-			 /* TODO: Initialized the Core for Device mode. */
+			 /*
+			  * TODO: We currently did not add HNP support
+			  * if HNP enable, Initialized the Core for Device mode here
+			  */
 			dwc->op_state = DWC2_B_PERIPHERAL;
 		} else {
 			/* If not B_HOST and Device HNP still set. HNP
@@ -502,21 +864,21 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			/* TODO: if adp enable, handle ADP Sense here */
 		}
 
-		gotgctl.d32 = readl(&global_regs->gotgctl);
+		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		gotgctl.b.devhnpen = 0;
-		writel(gotgctl.d32, &global_regs->gotgctl);
+		dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 	}
 
 	if (gotgint.b.sesreqsucstschng) {
 		dev_info(dwc->dev, " ++OTG Interrupt: Session Reqeust Success Status Change++\n");
-		gotgctl.d32 = readl(&global_regs->gotgctl);
+		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		if (gotgctl.b.sesreqscs) {
 			/* TODO: did gadget suspended??? */
 			dwc2_gadget_resume(dwc);
 
 			/* Clear Session Request */
 			gotgctl.b.sesreq = 0;
-			writel(gotgctl.d32, &global_regs->gotgctl);
+			dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 		}
 	}
 
@@ -526,7 +888,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		 * Print statements during the HNP interrupt handling
 		 * can cause it to fail.
 		 */
-		gotgctl.d32 = readl(&global_regs->gotgctl);
+		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		if (gotgctl.b.hstnegscs) {
 			if (dwc2_is_host_mode(dwc)) {
 				/* TODO: handle Host Negotiation Success here! */
@@ -535,12 +897,12 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		} else {
 			gotgctl.b.hnpreq = 0;
 			gotgctl.b.devhnpen = 0;
-			writel(gotgctl.d32, &global_regs->gotgctl);
+			dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 			dev_err(dwc->dev, "Device Not Connected/Responding\n");
 		}
 	}
 
-	if (gotgint.b.hstnegdet) {
+	if (gotgint.b.hstnegdet) { /* TODO: we currently did not add HNP support */
 		/* The disconnect interrupt is set at the same time as
 		 * Host Negotiation Detected.  During the mode
 		 * switch all interrupts are cleared so the disconnect
@@ -572,12 +934,79 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	}
 
 	/* Clear GOTGINT */
-	writel(gotgint.d32, &dwc->core_global_regs->gotgint);
+	dwc_writel(gotgint.d32, &dwc->core_global_regs->gotgint);
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.otgintr = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+}
+
+static void dwc2_conn_id_status_change_work(struct work_struct *work)
+{
+	struct dwc2 *dwc = container_of(work, struct dwc2, otg_id_work);
+	uint32_t count = 0;
+	gotgctl_data_t gotgctl;
+	unsigned long flags;
+
+	gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+
+	DWC2_CORE_DEBUG_MSG("id status change, gotgctl = 0x%08x\n", gotgctl.d32);
+
+	if (gotgctl.b.conidsts) { /* B-Device connector (Device Mode) */
+		DWC2_CORE_DEBUG_MSG("init DWC core as B_PERIPHERAL\n");
+		jz4780_set_vbus(dwc, 0);
+
+		dwc2_spin_lock_irqsave(dwc, flags);
+		dwc2_core_init(dwc);
+		dwc2_spin_unlock_irqrestore(dwc, flags);
+
+		/* Wait for switch to device mode. */
+		while (!dwc2_is_device_mode(dwc)) {
+			msleep(100);
+			if (++count > 10000)
+				break;
+		}
+
+		if (count > 10000)
+			dev_warn(dwc->dev, "%s:%d Connection id status change timed out",
+				__func__, __LINE__);
+
+
+		dwc2_spin_lock_irqsave(dwc, flags);
+		dwc->op_state = DWC2_B_PERIPHERAL;
+		dwc2_device_mode_init(dwc);
+		dwc2_spin_unlock_irqrestore(dwc, flags);
+
+		dwc2_gadget_do_pullup(dwc);
+	} else {	      /* A-Device connector (Host Mode) */
+
+
+		DWC2_CORE_DEBUG_MSG("init DWC as A_HOST\n");
+
+		dwc2_spin_lock_irqsave(dwc, flags);
+		dwc2_core_init(dwc);
+		dwc2_spin_unlock_irqrestore(dwc, flags);
+
+		while (!dwc2_is_host_mode(dwc)) {
+			msleep(100);
+			if (++count > 10000)
+				break;
+		}
+
+		if (count > 10000)
+			dev_warn(dwc->dev, "%s:%d Connection id status change timed out",
+				__func__, __LINE__);
+
+		dwc2_spin_lock_irqsave(dwc, flags);
+		dwc->op_state = DWC2_A_HOST;
+		dwc->hcd->self.is_b_host = 0;
+		dwc2_host_mode_init(dwc);
+		dwc2_spin_unlock_irqrestore(dwc, flags);
+
+		jz4780_set_vbus(dwc, 1);
+		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
+	}
 }
 
 static void dwc2_handle_conn_id_status_change_intr(struct dwc2 *dwc) {
@@ -586,43 +1015,36 @@ static void dwc2_handle_conn_id_status_change_intr(struct dwc2 *dwc) {
 	/* Just Log a warnning message */
 	dev_info(dwc->dev, "ID PIN CHANGED!\n");
 
+	schedule_work(&dwc->otg_id_work);
+
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.conidstschng = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
+/*
+ * TODO: currently we did not add SRP,HNP,ADP support.
+ * so we only handle two cases: 1) A-Host, 2) B-Peripheral */
 static void dwc2_handle_disconnect_intr(struct dwc2 *dwc) {
 	gintsts_data_t gintsts;
 
-	if (dwc2_is_device_mode(dwc)) {
-		gotgctl_data_t gotgctl;
-
-		gotgctl.d32 = readl(&dwc->core_global_regs->gotgctl);
-		if (gotgctl.b.hstsethnpen == 1) {
-			/* Do nothing, if HNP in process the OTG
-			 * interrupt "Host Negotiation Detected"
-			 * interrupt will do the mode switch.
-			 */
-		} else if (gotgctl.b.devhnpen == 0) {
-			dev_info(dwc->dev, "====>enter %s:%d\n", __func__, __LINE__);
-#if 0
-			/* If in device mode Disconnect and stop the HCD, then
-			 * start the PCD. */
-			DWC_SPINUNLOCK(dwc->lock);
-			cil_hcd_disconnect(dwc);
-			cil_pcd_start(dwc);
-			DWC_SPINLOCK(dwc->lock);
-			dwc->op_state = B_PERIPHERAL;
-#endif
-		} else {
-			dev_warn(dwc->dev, "!a_peripheral && !devhnpen\n");
+	if (dwc2_is_device_mode(dwc)) { /* A-Peripheral(TODO) or B-Peripheral */
+		/*
+		 * when we are in device mode and is disconnect,
+		 * there's nothing to do, session end will do all the stuff things
+		 */
+		dev_info(dwc->dev, "B-Peripheral disconnect event\n");
+	} else {	      /* A-Device */
+		if (dwc->op_state == DWC2_A_HOST) {
+			/* A-Cable still connected but device disconnect */
+			dwc2_hcd_handle_device_disconnect_intr(dwc);
 		}
 	}
 
 	gintsts.d32 = 0;
 	gintsts.b.disconnect = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 /**
@@ -641,15 +1063,22 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 	dev_dbg(dwc->dev, "++Session Request Interrupt++\n");
 
 	if (dwc2_is_device_mode(dwc)) {
-		dev_info(dwc->dev, "SRP: Device mode\n");
+		dev_info(dwc->dev, "SRP: Device Mode\n");
 	} else {
-		/* TODO: Handle Host Mode here! */
+		hprt0_data_t hprt0;
+
+		dev_info(dwc->dev, "SRP: Host Mode\n");
+
+		/* Turn on the port power bit. */
+		hprt0.d32 = dwc2_hc_read_hprt(dwc);
+		hprt0.b.prtpwr = 1;
+		dwc_writel(hprt0.d32, dwc->host_if.hprt0);
 	}
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.sessreqintr = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 /**
@@ -667,16 +1096,16 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 		if (dwc->lx_state == DWC_OTG_L2) {
 			/* Clear the Remote Wakeup Signaling */
 
-			dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
+			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.rmtwkupsig = 1;
-			writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 			dwc2_gadget_resume(dwc);
 		} else {
 			glpmcfg_data_t lpmcfg;
-			lpmcfg.d32 = readl(&dwc->core_global_regs->glpmcfg);
+			lpmcfg.d32 = dwc_readl(&dwc->core_global_regs->glpmcfg);
 			lpmcfg.b.hird_thres &= (~(1 << 4));
-			writel(lpmcfg.d32, &dwc->core_global_regs->glpmcfg);
+			dwc_writel(lpmcfg.d32, &dwc->core_global_regs->glpmcfg);
 		}
 		/** Change to L0 state*/
 		dwc->lx_state = DWC_OTG_L0;
@@ -685,7 +1114,7 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.wkupintr = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 /**
@@ -706,7 +1135,7 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 	if (dwc2_is_device_mode(dwc)) {
 		/* Check the Device status register to determine if the Suspend
 		 * state is active. */
-		dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+		dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 		dev_dbg(dwc->dev, "DSTS = 0x%08x\n", dsts.d32);
 
 		dwc2_gadget_suspend(dwc);
@@ -720,7 +1149,7 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.usbsuspend = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_handle_restore_done_intr(struct dwc2 *dwc) {
@@ -728,7 +1157,7 @@ static void dwc2_handle_restore_done_intr(struct dwc2 *dwc) {
 
 	gintsts.d32 = 0;
 	gintsts.b.restoredone = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_handle_port_intr(struct dwc2 *dwc) {
@@ -736,7 +1165,7 @@ static void dwc2_handle_port_intr(struct dwc2 *dwc) {
 
 	gintsts.d32 = 0;
 	gintsts.b.portintr = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gintr_status) {
@@ -751,6 +1180,9 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 		gintr_status->b.otgintr = 0;
 	}
 	if (gintr_status->b.conidstschng) {
+		if (unlikely(gintr_status->b.disconnect || gintr_status->b.portintr)) {
+			dev_err(dwc->dev, "disconnect or portintr when conidstschng? BUG!!!!!!\n");
+		}
 		dwc2_handle_conn_id_status_change_intr(dwc);
 		gintr_status->b.conidstschng = 0;
 	}
@@ -791,7 +1223,7 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 	/* TODO: Handle ADP interrupt here */
 
 	/* TODO: handle gpwrdn interrupts here */
-	// gpwrdn.d32 = readl(&dwc->core_global_regs->gpwrdn);
+	// gpwrdn.d32 = dwc_readl(&dwc->core_global_regs->gpwrdn);
 }
 
 static inline int dwc_lock(struct dwc2 *dwc)
@@ -834,19 +1266,20 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 		return IRQ_HANDLED;
 	}
 
-	gintsts.d32 = readl(&global_regs->gintsts);
-	gintmsk.d32 = readl(&global_regs->gintmsk);
+	gintsts.d32 = dwc_readl(&global_regs->gintsts);
+	gintmsk.d32 = dwc_readl(&global_regs->gintmsk);
 	gintr_status.d32 = gintsts.d32 & gintmsk.d32;
 
 	DWC2_CORE_DEBUG_MSG("%s:%d gintsts=0x%08x & gintmsk=0x%08x = 0x%08x\n",
 		__func__, __LINE__, gintsts.d32, gintmsk.d32, gintr_status.d32);
+	//dwc2_trace_gintsts(gintsts.d32, gintmsk.d32);
 
 	dwc2_handle_common_interrupts(dwc, &gintr_status);
 
 	if (dwc2_is_device_mode(dwc)) {
 		dwc2_handle_device_mode_interrupt(dwc, &gintr_status);
 	} else {
-		dev_err(dwc->dev, "HOST MODE NOT IMPLEMENTED!\n");
+		dwc2_handle_host_mode_interrupt(dwc, &gintr_status);
 	}
 
 	if (gintr_status.d32) {
@@ -901,6 +1334,7 @@ static int dwc2_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dwc->lock);
 	atomic_set(&dwc->in_irq, 0);
+	INIT_WORK(&dwc->otg_id_work, dwc2_conn_id_status_change_work);
 	platform_set_drvdata(pdev, dwc);
 
 	dwc->regs = regs;
@@ -926,7 +1360,7 @@ static int dwc2_probe(struct platform_device *pdev)
 	 * 0: OTG 1.3
 	 * 1: OTG 2.0
 	 */
-	dwc->otg_ver = 0;
+	dwc->otg_ver = 1;
 
 	ret = request_irq(irq, dwc2_interrupt, 0, "dwc2", dwc);
 	if (ret) {
@@ -945,14 +1379,11 @@ static int dwc2_probe(struct platform_device *pdev)
 	}
 
 
-	//dwc2_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
-#if 0
 	ret = dwc2_host_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize host\n");
 		goto err2;
 	}
-#endif
 
 	ret = dwc2_gadget_init(dwc);
 	if (ret) {
@@ -975,7 +1406,7 @@ err4:
 	dwc2_gadget_exit(dwc);
 
 err3:
-	//dwc2_host_exit(dwc);
+	dwc2_host_exit(dwc);
 
 err2:
 	dwc2_core_exit(dwc);
@@ -992,7 +1423,7 @@ static int dwc2_remove(struct platform_device *pdev)
 	struct dwc2	*dwc = platform_get_drvdata(pdev);
 	int		 irq;
 
-//	dwc2_host_exit(dwc);
+	dwc2_host_exit(dwc);
 	dwc2_gadget_exit(dwc);
 	dwc2_core_exit(dwc);
 

@@ -2385,7 +2385,8 @@ typedef union host_dma_desc_sts {
 	} b_isoc;
 } host_dma_desc_sts_t;
 
-#define	MAX_DMA_DESC_SIZE		131071
+#define	MAX_DMA_DESC_OUT_SIZE		131071
+#define	MAX_DMA_DESC_IN_SIZE		(512 * 255)
 #define MAX_DMA_DESC_NUM_GENERIC	64
 #define MAX_DMA_DESC_NUM_HS_ISOC	256
 #define MAX_FRLIST_EN_NUM		64

@@ -127,9 +127,9 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	doepint_data_t		 doepint;
 	u32			 doepdma;
 
-	doepctl.d32 = readl(&dev_if->out_ep_regs[0]->doepctl);
-	doeptsize0.d32 = readl(&dev_if->out_ep_regs[0]->doeptsiz);
-	doepdma = readl(&dev_if->out_ep_regs[0]->doepdma);
+	doepctl.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepctl);
+	doeptsize0.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
+	doepdma = dwc_readl(&dev_if->out_ep_regs[0]->doepdma);
 
 	if (dwc->setup_prepared) {
 		if (!doepctl.b.epena) {
@@ -150,8 +150,8 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 		return;
 	}
 
-	doepmsk.d32 = readl(&dev_if->dev_global_regs->doepmsk);
-	doepint.d32 = readl(&dev_if->out_ep_regs[0]->doepint) & doepmsk.d32;
+	doepmsk.d32 = dwc_readl(&dev_if->dev_global_regs->doepmsk);
+	doepint.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepint) & doepmsk.d32;
 	if (unlikely(doepint.b.setup)) {
 		dev_err(dwc->dev, "%s: a setup packet is already pending\n", __func__);
 		return;
@@ -171,20 +171,20 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 			 * But how do we know that the core is just transfering a SETUP packet?
 			 */
 
-			writel(doeptsize0.d32, &dev_if->out_ep_regs[0]->doeptsiz);
-			writel(dwc->ctrl_req_addr, &dev_if->out_ep_regs[0]->doepdma);
+			dwc_writel(doeptsize0.d32, &dev_if->out_ep_regs[0]->doeptsiz);
+			dwc_writel(dwc->ctrl_req_addr, &dev_if->out_ep_regs[0]->doepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA here */
 		}
 	} else {
-		writel(doeptsize0.d32, &dev_if->out_ep_regs[0]->doeptsiz);
+		dwc_writel(doeptsize0.d32, &dev_if->out_ep_regs[0]->doeptsiz);
 	}
 
 	DWC2_EP0_DEBUG_MSG("dwc2_ep0_out_start(0x%08x)\n", dwc->ctrl_req_addr);
 
 	doepctl.b.cnak = 1;
 	doepctl.b.epena = 1;
-	writel(doepctl.d32, &dev_if->out_ep_regs[0]->doepctl);
+	dwc_writel(doepctl.d32, &dev_if->out_ep_regs[0]->doepctl);
 }
 
 static void dwc2_ep0_status_cmpl(struct usb_ep *ep, struct usb_request *req)
@@ -244,9 +244,9 @@ static int dwc2_ep0_set_address(struct dwc2 *dwc, struct usb_ctrlrequest *ctrl)
 		return -EINVAL;
 	}
 
-	dcfg.d32 = readl(&dwc->dev_if.dev_global_regs->dcfg);
+	dcfg.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dcfg);
 	dcfg.b.devaddr = addr;
-	writel(dcfg.d32, &dwc->dev_if.dev_global_regs->dcfg);
+	dwc_writel(dcfg.d32, &dwc->dev_if.dev_global_regs->dcfg);
 
 	if (addr)
 		dwc->dev_state = DWC2_ADDRESS_STATE;
@@ -306,7 +306,7 @@ static void dwc2_ep0_start_in_transfer(struct dwc2 *dwc,
 	depctl_data_t			 depctl;
 	deptsiz0_data_t			 deptsiz;
 
-	deptsiz.d32 = readl(&in_regs->dieptsiz);
+	deptsiz.d32 = dwc_readl(&in_regs->dieptsiz);
 
 	if (req->trans_count_left == 0) {
 		/* Zero Packet */
@@ -333,21 +333,21 @@ static void dwc2_ep0_start_in_transfer(struct dwc2 *dwc,
 	/* Write the DMA register */
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
-			writel(req->next_dma_addr, &in_regs->diepdma);
-			writel(deptsiz.d32, &in_regs->dieptsiz);
+			dwc_writel(req->next_dma_addr, &in_regs->diepdma);
+			dwc_writel(deptsiz.d32, &in_regs->dieptsiz);
 		} else {
 			/* TODO: Scatter/Gather DMA mode here */
 		}
 	} else {
-		writel(deptsiz.d32, &in_regs->dieptsiz);
+		dwc_writel(deptsiz.d32, &in_regs->dieptsiz);
 	}
 
 	/* EP enable, IN data in FIFO */
 	dep->flags |= DWC2_EP_BUSY;
-	depctl.d32 = readl(&in_regs->diepctl);
+	depctl.d32 = dwc_readl(&in_regs->diepctl);
 	depctl.b.epena = 1;
 	depctl.b.cnak = 1;
-	writel(depctl.d32, &in_regs->diepctl);
+	dwc_writel(depctl.d32, &in_regs->diepctl);
 }
 
 static void dwc2_ep0_start_out_transfer(struct dwc2 *dwc,
@@ -357,7 +357,7 @@ static void dwc2_ep0_start_out_transfer(struct dwc2 *dwc,
 	struct dwc2_ep			*dep	  = req->dwc2_ep;
 	deptsiz0_data_t			 deptsiz;
 
-	deptsiz.d32 = readl(&out_regs->doeptsiz);
+	deptsiz.d32 = dwc_readl(&out_regs->doeptsiz);
 	deptsiz.b.xfersize = dep->maxp;
 	deptsiz.b.supcnt = 0;
 	deptsiz.b.pktcnt = 1;
@@ -369,21 +369,21 @@ static void dwc2_ep0_start_out_transfer(struct dwc2 *dwc,
 
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
-			writel(deptsiz.d32, &out_regs->doeptsiz);
-			writel(req->next_dma_addr, &out_regs->doepdma);
+			dwc_writel(deptsiz.d32, &out_regs->doeptsiz);
+			dwc_writel(req->next_dma_addr, &out_regs->doepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA Mode here */
 		}
 	} else {
-		writel(deptsiz.d32, &out_regs->doeptsiz);
+		dwc_writel(deptsiz.d32, &out_regs->doeptsiz);
 	}
 
 	/* EP enable */
 	dep->flags |= DWC2_EP_BUSY;
-	depctl.d32 = readl(&out_regs->doepctl);
+	depctl.d32 = dwc_readl(&out_regs->doepctl);
 	depctl.b.epena = 1;
 	depctl.b.cnak = 1;
-	writel(depctl.d32, &out_regs->doepctl);
+	dwc_writel(depctl.d32, &out_regs->doepctl);
 }
 
 static void dwc2_ep0_start_transfer(struct dwc2 *dwc,
@@ -709,7 +709,7 @@ static int dwc2_ep0_handle_feature(struct dwc2 *dwc,
 				 */
 				gotgctl.b.devhnpen = 1;
 				gotgctl.b.hnpreq = 1;
-				writel(gotgctl.d32, &global_regs->gotgctl);
+				dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 			} else
 				return -EINVAL;
 
@@ -873,7 +873,7 @@ static void dwc2_ep0_in_complete_data(struct dwc2 *dwc) {
 		if (dwc->dma_desc_enable) {
 			/* TODO: Scatter/Gather DMA Mode here! */
 		} else {
-			deptsiz.d32 = readl(&dev_if->in_ep_regs[0]->dieptsiz);
+			deptsiz.d32 = dwc_readl(&dev_if->in_ep_regs[0]->dieptsiz);
 
 			/* The Programming Guide said xfercompl raised when xfersize and pktcnt gets zero */
 			WARN(deptsiz.b.xfersize, "%s: xfersize not zero when transfer complete\n", __func__);
@@ -916,7 +916,7 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 		if (dwc->dma_desc_enable) {
 			/* TODO: Scatter/Gather DMA Mode here! */
 		} else {
-			deptsiz.d32 = readl(&dev_if->out_ep_regs[0]->doeptsiz);
+			deptsiz.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
 
 			/* The Programming Guide said xfercompl raised when xfersize and pktcnt gets zero */
 			WARN(deptsiz.b.xfersize, "%s: xfersize not zero when transfer complete\n", __func__);
@@ -983,9 +983,9 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 	depctl_data_t	 depctl = {.d32 = 0 };
 
 	if (is_in) {
-		depctl.d32 = readl(&dwc->dev_if.in_ep_regs[0]->diepctl);
+		depctl.d32 = dwc_readl(&dwc->dev_if.in_ep_regs[0]->diepctl);
 	} else {
-		depctl.d32 = readl(&dwc->dev_if.out_ep_regs[0]->doepctl);
+		depctl.d32 = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl);
 	}
 
 	if (depctl.b.epena) {
@@ -998,7 +998,7 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 
 			do {
 				udelay(1);
-				doepint.d32 = readl(&dwc->dev_if.out_ep_regs[0]->doepint);
+				doepint.d32 = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepint);
 
 				timeout --;
 				if (timeout == 0) {
@@ -1045,7 +1045,7 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 	do {								\
 		diepint_data_t __diepint = {.d32=0};			\
 		__diepint.b.__intr = 1;					\
-		writel(__diepint.d32, &dev_if->in_ep_regs[0]->diepint); \
+		dwc_writel(__diepint.d32, &dev_if->in_ep_regs[0]->diepint); \
 	} while (0)
 
 static void dwc2_ep0_handle_in_interrupt(struct dwc2_ep *dep) {
@@ -1054,8 +1054,8 @@ static void dwc2_ep0_handle_in_interrupt(struct dwc2_ep *dep) {
 	diepmsk_data_t		 diepmsk;
 	diepint_data_t		 diepint;
 
-	diepmsk.d32 = readl(&dev_if->dev_global_regs->diepmsk);
-	diepint.d32 = readl(&dev_if->in_ep_regs[0]->diepint) & diepmsk.d32;
+	diepmsk.d32 = dwc_readl(&dev_if->dev_global_regs->diepmsk);
+	diepint.d32 = dwc_readl(&dev_if->in_ep_regs[0]->diepint) & diepmsk.d32;
 
 	/* Transfer complete */
 	if (diepint.b.xfercompl) {
@@ -1152,7 +1152,7 @@ static void dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsi
 	do {								\
 		doepint_data_t __doepint = {.d32=0};			\
 		__doepint.b.__intr = 1;					\
-		writel(__doepint.d32, &dev_if->out_ep_regs[0]->doepint); \
+		dwc_writel(__doepint.d32, &dev_if->out_ep_regs[0]->doepint); \
 	} while (0)
 
 static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
@@ -1161,9 +1161,9 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 	doepmsk_data_t		 doepmsk;
 	doepint_data_t		 doepint;
 
-	doepmsk.d32 = readl(&dev_if->dev_global_regs->doepmsk);
+	doepmsk.d32 = dwc_readl(&dev_if->dev_global_regs->doepmsk);
 	doepmsk.b.back2backsetup = 1;
-	doepint.d32 = readl(&dev_if->out_ep_regs[0]->doepint) & doepmsk.d32;
+	doepint.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepint) & doepmsk.d32;
 
 	DWC2_EP0_DEBUG_MSG("doepint = 0x%08x\n", doepint.d32);
 
@@ -1190,8 +1190,8 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 		int			 back2back;
 		u32			 setup_addr;
 
-		doeptsiz.d32 = readl(&dev_if->out_ep_regs[0]->doeptsiz);
-		setup_addr = readl(&dev_if->out_ep_regs[0]->doepdma) - 8;
+		doeptsiz.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
+		setup_addr = dwc_readl(&dev_if->out_ep_regs[0]->doepdma) - 8;
 		rem_supcnt = doeptsiz.b.supcnt;
 		back2back = doepint.b.back2backsetup;
 

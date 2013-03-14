@@ -29,10 +29,10 @@ config USB_DWC2_VERBOSE_VERBOSE
           are switchable write 1 to file under /sys/module/dwc2/parameters/,
           the default value is 0, so you can always say Y here and won't get boring.
 
-config USB_DWC2_REQ_TRACER
-	bool "Enable tracing of usb_requests"
+config USB_DWC2_HOST_TRACER
+	bool "Enable tracing host operation flow"
 	help
-	  Say Y here to enable tracing of enqueue/dequeue/complete
-	  of struct usb_request for all EPs
+	  Say Y here to enable tracing host operation flow,
+	  you must reserve 192M~256M memory
 
 endif

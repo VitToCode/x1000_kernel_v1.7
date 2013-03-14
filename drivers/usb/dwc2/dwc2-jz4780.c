@@ -72,26 +72,23 @@ static int get_pin_status(struct jzdwc_pin *pin)
 	return val;
 }
 
-/* TODO: used by host, we current only re-work the device mode */
-void jz4780_set_vbus(int is_on)
+void jz4780_set_vbus(struct dwc2 *dwc, int is_on)
 {
-#if 0
-	int ret = 0;
+	struct dwc2_jz4780	*jz4780;
 
-	if (jz4780 == NULL || jz4780->vbus == NULL) {
+	jz4780 = container_of(dwc->pdev, struct dwc2_jz4780, dwc2);
+	if ( (jz4780->vbus == NULL) || IS_ERR(jz4780->vbus) )
 		return;
-	}
 
-	mutex_lock(&jz4780->mutex);
+	printk("===>set vbus %s\n", is_on ? "on" : "off");
+
 	if (is_on) {
 		if (!regulator_is_enabled(jz4780->vbus))
-			ret = regulator_enable(jz4780->vbus);
+			regulator_enable(jz4780->vbus);
 	} else {
 		if (regulator_is_enabled(jz4780->vbus))
-			ret = regulator_disable(jz4780->vbus);
+			regulator_disable(jz4780->vbus);
 	}
-	mutex_unlock(&jz4780->mutex);
-#endif
 }
 
 static inline void jz4780_usb_phy_init(struct dwc2_jz4780 *jz4780)
@@ -154,15 +151,17 @@ static inline void jz4780_usb_set_dual_mode(void)
 	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
-void jz4780_set_charger_current(struct dwc2 *dwc, int pullup_on) {
+void jz4780_set_charger_current(struct dwc2 *dwc) {
 	struct dwc2_jz4780	*jz4780;
 	int			 insert;
 	int			 curr_limit;
 	dsts_data_t		 dsts;
 	int			 frame_num;
 
+	if (!dwc2_is_device_mode(dwc))
+		return;
+
 	jz4780 = container_of(dwc->pdev, struct dwc2_jz4780, dwc2);
-	jz4780->pullup_on = pullup_on;
 
 	curr_limit = regulator_get_current_limit(jz4780->ucharger);
 	printk("Before changed: the current is %d\n", curr_limit);
@@ -170,10 +169,10 @@ void jz4780_set_charger_current(struct dwc2 *dwc, int pullup_on) {
 	insert = get_pin_status(jz4780->dete);
 
 	/* read current frame/microframe number from DSTS register */
-	dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 	frame_num = dsts.b.soffn;
 
-	if ((insert == 1) && pullup_on &&
+	if ((insert == 1) && dwc->pullup_on &&
 		(frame_num == 0) &&
 		(dwc->op_state == DWC2_B_PERIPHERAL)) {
 		printk("upstream is not PC, it's a USB charger\n");
@@ -191,7 +190,7 @@ static void set_charger_current_work(struct work_struct *work) {
 	dwc = platform_get_drvdata(&jz4780->dwc2);
 
 	if (dwc)
-		jz4780_set_charger_current(dwc, jz4780->pullup_on);
+		jz4780_set_charger_current(dwc);
 	else		      /* re-schedule */
 		schedule_delayed_work(&jz4780->charger_delay_work, msecs_to_jiffies(600));
 }
@@ -400,8 +399,6 @@ err3:
 	clk_put(jz4780->clk);
 
 err2:
-	platform_device_put(dwc2);
-err1:
 	kfree(jz4780);
 err0:
 	return ret;

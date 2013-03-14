@@ -15,6 +15,7 @@
 
 #include "core.h"
 #include "gadget.h"
+#include "debug.h"
 
 #include "dwc2-jz4780.h"
 
@@ -177,320 +178,6 @@ static struct usb_endpoint_descriptor dwc2_gadget_ep0_desc = {
 };
 
 /*-------------Device Mode Global Routines---------------- */
-/**
- * Flush a Tx FIFO.
- *
- * See Programming Guide 2.2.3
- */
-static void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
-{
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	volatile grstctl_t greset = {.d32 = 0 };
-	gintsts_data_t gintsts;
-	dctl_data_t dctl;
-	int count = 0;
-
-	/*
-	 * Check that GINTSTS.GINNakEff=0
-	 */
-	gintsts.d32 = readl(&global_regs->gintsts);
-	if (gintsts.b.ginnakeff == 0) {
-		/* If this bit is cleared then set DCTL.SGNPInNak=1 */
-		dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
-		dctl.b.sgnpinnak = 1;
-		writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-		/* Wait for GINTSTS.GINNakEff=1 */
-		do {
-			gintsts.d32 = readl(&global_regs->gintsts);
-			if (++count > 10000) {
-				dev_warn(dwc->dev, "%s() HANG! GINTSTS=0x%08x\n",
-					__func__, gintsts.d32);
-				break;
-			}
-
-			udelay(1);
-		} while(gintsts.b.ginnakeff == 0);
-	}
-
-	/* Wait for AHB master IDLE state. */
-	/* TODO: if OUT is running, will the AHB idle??? */
-	count = 0;
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 100000) {
-			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
-				__func__, __LINE__,
-				greset.d32, readl(&global_regs->gnptxsts));
-			break;
-		}
-
-		udelay(1);
-	} while (greset.b.ahbidle == 0);
-
-	/* Check that GRSTCTL.TxFFlsh =0 */
-	count = 0;
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
-				__func__, __LINE__,
-				greset.d32, readl(&global_regs->gnptxsts));
-			break;
-		}
-
-		udelay(1);
-	} while (greset.b.txfflsh == 1);
-
-	greset.d32 = 0;
-	greset.b.txfflsh = 1;
-	greset.b.txfnum = num;
-	writel(greset.d32, &global_regs->grstctl);
-
-	count = 0;
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
-				__func__, __LINE__,
-				greset.d32, readl(&global_regs->gnptxsts));
-			break;
-		}
-
-		udelay(11);
-	} while (greset.b.txfflsh == 1);
-
-	dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.sgnpinnak = 1;
-	writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-	dwc2_wait_3_phy_clocks();
-}
-
-static void dwc2_flush_rx_fifo(struct dwc2 *dwc)
-{
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	volatile grstctl_t greset = {.d32 = 0 };
-	gintsts_data_t gintsts;
-	dctl_data_t dctl;
-	int count = 0;
-
-	gintsts.d32 = readl(&global_regs->gintsts);
-	if (gintsts.b.goutnakeff == 0) {
-		dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
-		dctl.b.sgoutnak = 1;
-		writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-		do {
-			gintsts.d32 = readl(&global_regs->gintsts);
-			if (++count > 10000) {
-				dev_warn(dwc->dev, "%s() HANG! GINTSTS=0x%08x\n",
-					__func__, gintsts.d32);
-				break;
-			}
-
-			udelay(1);
-		} while(gintsts.b.goutnakeff == 0);
-	}
-
-	/* Wait for AHB master IDLE state. */
-	/* TODO: if OUT is running, will the AHB idle??? */
-	count = 0;
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 100000) {
-			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
-				__func__, __LINE__,
-				greset.d32, readl(&global_regs->gnptxsts));
-			break;
-		}
-
-		udelay(1);
-	} while (greset.b.ahbidle == 0);
-
-	count = 0;
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
-				__func__, greset.d32);
-			break;
-		}
-
-		udelay(1);
-	} while (greset.b.rxfflsh == 1);
-
-	greset.d32 = 0;
-	greset.b.rxfflsh = 1;
-	writel(greset.d32, &global_regs->grstctl);
-
-	do {
-		greset.d32 = readl(&global_regs->grstctl);
-		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
-				__func__, greset.d32);
-			break;
-		}
-
-		udelay(1);
-	} while (greset.b.rxfflsh == 1);
-
-	dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.cgoutnak = 1;
-	writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-	dwc2_wait_3_phy_clocks();
-}
-
-static void calculate_device_mode_fifo_size(struct dwc2 *dwc) {
-
-	/*
-	 * TODO: we are use "Dedicated FIFO Mode with No Thresholding"
-	 *  if need thresholding, the calculation algorithm may need change
-	 */
-
-	/**
-	 * 3.2.1.1 FIFO SPRAM(Single-Port RAM) mapping:
-	 *
-	 * 1. One common RxFIFO, used in Host and Device modes
-	 * 2. One common Periodic TxFIFO, used in Host mode
-	 * 3. Separate IN endpoint transmit FIFO for each Device mode IN endpoints in Dedicated Transmit FIFO
-	 *    operation (OTG_EN_DED_TX_FIFO = 1)
-	 * 4. The FIFO SPRAM is also used for storing some register values to save gates. In Scatter/Gather DMA
-	 *    mode, four SPRAM locations (four 35-bit words) are reserved for this. In DMA and Slave modes
-	 *    (non-Scatter/Gather mode), one SPRAM location (one 35-bit word) is used for storing the DMA address.
-	 *
-	 * NOTE: when the device is operating in Scatter/Gather mode, then the last
-	 *       locations of the SPRAM store the Base Descriptor address, Current
-	 *       Descriptor address, Current Buffer address and status quadlet
-	 *       information for each endpoint direction (4 locations per Endpoint).
-	 *       If an endpoint is bidirectional, then 4 locations will be used for IN,
-	 *       and another 4 for OUT
-	 * 3.2.4.4 Endpoint Information Controller
-	 *       The last locations in the SPRAM are used to hold register values.
-	 *    Device Buffer DMA Mode:
-	 *       one location per endpoint direction is used in SPRAM to store the
-	 *       DIEPDMA and DOEPDMA value. The application writes data and then reads
-	 *       it from the same location
-	 *       For example, if there are ten bidirectional endpoints, then the last
-	 *       20 SPRAM locations are reserved for storing the DMA address for IN
-	 *       and OUT endpoints
-	 *   Scatter/Gather DMA Mode:
-	 *       Four locations per endpoint direction are used in SPRAM to store the
-	 *       Base Descriptor address, Current Descriptor address, Current Buffer
-	 *       Pointer and the Status Quadlet.
-	 *       The application writes data to the base descriptor address.
-	 *       When the application reads the location where it wrote the base
-	 *       descriptor address, it receives the current descriptor address.
-	 *       For example, if there are ten bidirectional endpoints, then the last 80
-	 *      locations are reserved for storing these values.
-	 *
-	 * Figure 3-13
-	 *  ________________________
-	 *  |                       |
-	 *  | DI/OEPDMAn Register   | Depends on the value of OTG_NUM_EPS
-	 *  | and Descriptor Status | and OTG_EP_DIRn, see not above
-	 *  |      values           |
-	 *  -------------------------
-	 *  |   TxFIFO #n Packets   |  DIEPTXFn
-	 *  -------------------------
-	 *  |                       |
-	 *  |   ................    |
-	 *  |                       |
-	 *  -------------------------
-	 *  |  TxFIFO #1 Packets    | DIEPTXF1
-	 *  -------------------------
-	 *  |  TxFIFO #0 Packets    |
-	 *  |( up to3 SETUP Packets)| GNPTXFSIZ
-	 *  ------------------------
-	 *  |                       |
-	 *  |     Rx Packets        |  GRXFSIZ
-	 *  |                       |
-	 *  -------------------------  Address = 0, Rx starting address fixed to 0
-	 *
-	 */
-
-	/**
-	 * Rx FIFO Allocation (rx_fifo_size)
-	 *
-	 * RAM for SETUP Packets: 4 * n + 6 locations must be Reserved in the receive FIFO to receive up to
-	 * n SETUP packets on control endpoints, where n is the number of control endpoints the device
-	 * core supports.
-	 *
-	 * One location for Global OUT NAK
-	 *
-	 * Status information is written to the FIFO along with each received packet. Therefore, a minimum
-	 * space of (Largest Packet Size / 4) + 1 must be allotted to receive packets. If a high-bandwidth
-	 * endpoint is enabled, or multiple isochronous endpoints are enabled, then at least two (Largest
-	 * Packet Size / 4) + 1 spaces must be allotted to receive back-to-back packets. Typically, two
-	 * (Largest Packet Size / 4) + 1 spaces are recommended so that when the previous packet is being
-	 * transferred to AHB, the USB can receive the subsequent packet. If AHB latency is high, you must
-	 * allocate enough space to receive multiple packets. This is critical to prevent dropping of any
-	 * isochronous packets.
-	 *
-	 * Typically, one location for each OUT endpoint is recommended.
-	 *
-	 * one location for eatch endpoint for EPDisable is required
-	 */
-
-	/**
-	 * Tx FIFO Allocation (tx_fifo_size[n])
-	 *
-	 * The minimum RAM space required for each IN Endpoint Transmit FIFO is the maximum packet size
-	 * for that particular IN endpoint.
-	 *
-	 * More space allocated in the transmit IN Endpoint FIFO results in a better performance on the USB
-	 *and can hide latencies on the AHB.
-	 */
-
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	u32 rx_fifo_size;
-	const int x = 1;      /* I have test 2, not function!  1 is ok, 0 is also ok */
-
-	fifosize_data_t nptxfifosize;
-	fifosize_data_t txfifosize;
-	gdfifocfg_data_t gdfifocfg;
-	int i = 0;
-
-	/* NOTE: each fifo max depth is 3648 (NOTE: see register reset value) */
-	rx_fifo_size = (4 * 1 + 6) + (x + 1) * (1024 / 4 + 1) +
-		(2 * dwc->hwcfgs.hwcfg2.b.num_dev_ep) + 1;
-
-	//rx_fifo_size = 1064;
-
-	/* Rx starting address fixed to 0, its depth is now configured to rx_fifo_size */
-	writel(rx_fifo_size, &global_regs->grxfsiz);
-
-	/* GNPTXFSIZ if used by EP0, its start address is rx_fifo_size */
-	nptxfifosize.d32 = 0;
-	nptxfifosize.b.depth = (x + 1) * (64 / 4);
-	//nptxfifosize.b.depth = 2 * 512 / 4;
-	nptxfifosize.b.startaddr = rx_fifo_size;
-	writel(nptxfifosize.d32, &global_regs->gnptxfsiz);
-
-#define DWC_TX_FIFO_SIZE	((x + 1) * (512 / 4))
-
-	/* configure EP1~n FIFO start address and depth */
-	txfifosize.b.startaddr = nptxfifosize.b.startaddr + nptxfifosize.b.depth;
-
-	for (i = 0; i < dwc->hwcfgs.hwcfg4.b.num_in_eps; i++) {
-		txfifosize.b.depth = DWC_TX_FIFO_SIZE;
-		writel(txfifosize.d32, &global_regs->dtxfsiz[i]);
-
-		txfifosize.b.startaddr += txfifosize.b.depth;
-	}
-
-	/*
-	 * configure FIFO start address and depth for Endpoint Information Controller
-	 */
-	gdfifocfg.d32 = 0;
-	gdfifocfg.b.epinfobase = txfifosize.b.startaddr;
-	gdfifocfg.b.gdfifocfg = readl(&global_regs->ghwcfg3) >> 16;
-	writel(gdfifocfg.d32, &global_regs->gdfifocfg);
-
-	dwc2_flush_tx_fifo(dwc, 0x10);
-	dwc2_flush_rx_fifo(dwc);
-}
 
 void dwc2_enable_device_interrupts(struct dwc2 *dwc)
 {
@@ -498,16 +185,16 @@ void dwc2_enable_device_interrupts(struct dwc2 *dwc)
 	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
 
 	/* Disable all interrupts. */
-	writel(0, &global_regs->gintmsk);
+	dwc_writel(0, &global_regs->gintmsk);
 
 	/* Clear any pending interrupts */
-	writel(0xFFFFFFFF, &global_regs->gintsts);
+	dwc_writel(0xFFFFFFFF, &global_regs->gintsts);
 
 	/* Enable the common interrupts */
 	dwc2_enable_common_interrupts(dwc);
 
 	/* Enable interrupts */
-	intr_mask.d32 = readl(&global_regs->gintmsk);
+	intr_mask.d32 = dwc_readl(&global_regs->gintmsk);
 	intr_mask.b.usbreset	    = 1;
 	intr_mask.b.enumdone	    = 1;
 	intr_mask.b.disconnect	    = 0;
@@ -517,7 +204,7 @@ void dwc2_enable_device_interrupts(struct dwc2 *dwc)
 	//intr_mask.b.incomplisoout = 1;
 	intr_mask.b.incomplisoin    = 1;
 
-	writel(intr_mask.d32, &global_regs->gintmsk);
+	dwc_writel(intr_mask.d32, &global_regs->gintmsk);
 }
 
 /**
@@ -532,13 +219,15 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	pcgcctl_data_t		 power;
 
 	/* Restart the Phy Clock */
-	power.d32 = readl(dwc->pcgcctl);
+	power.d32 = dwc_readl(dwc->pcgcctl);
 	if (power.b.stoppclk) {
 		power.b.stoppclk = 0;
 		power.b.pwrclmp = 0;
 		power.b.rstpdwnmodule = 0;
-		writel(power.d32, dwc->pcgcctl);
+		dwc_writel(power.d32, dwc->pcgcctl);
 	}
+
+	dwc->setup_prepared = 0;
 
 	/*
 	 * DCFG settings
@@ -550,37 +239,38 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	 * 2'b10: low speed (USB 1.1 FS transceiver clock is 48 MHz)
 	 * 2'b11: Full speed (USB 1.1 FS transceiver clock is 48 MHz)
 	 */
-	dcfg.d32 = readl(&dev_if->dev_global_regs->dcfg);
+	dcfg.d32 = dwc_readl(&dev_if->dev_global_regs->dcfg);
 	dcfg.b.devspd = 0;
 	dcfg.b.descdma = (dwc->dma_desc_enable) ? 1 : 0;
 	dcfg.b.perfrint = DWC_DCFG_FRAME_INTERVAL_80;
 
 	/* Enable Device OUT NAK in case of DDMA mode*/
 	//dcfg.b.endevoutnak = 1;
-	writel(dcfg.d32, &dev_if->dev_global_regs->dcfg);
+	dwc_writel(dcfg.d32, &dev_if->dev_global_regs->dcfg);
 
 	/* Configure data FIFO sizes */
-	calculate_device_mode_fifo_size(dwc);
+	calculate_fifo_size(dwc);
 
 	/* Flush the Learning Queue. */
-	resetctl.d32 = readl(&dwc->core_global_regs->grstctl);
+	resetctl.d32 = dwc_readl(&dwc->core_global_regs->grstctl);
 	resetctl.b.intknqflsh = 1;
-	writel(resetctl.d32, &dwc->core_global_regs->grstctl);
+	dwc_writel(resetctl.d32, &dwc->core_global_regs->grstctl);
 
 	/* Clear all pending Device Interrupts */
 	/* TODO: if the condition need to be checked or in any case all pending interrupts should be cleared */
-	writel(0, &dev_if->dev_global_regs->diepmsk);
-	writel(0, &dev_if->dev_global_regs->doepmsk);
-	writel(0xFFFFFFFF, &dev_if->dev_global_regs->daint);
-	writel(0, &dev_if->dev_global_regs->daintmsk);
+	dwc_writel(0, &dev_if->dev_global_regs->diepmsk);
+	dwc_writel(0, &dev_if->dev_global_regs->doepmsk);
+	dwc_writel(0xFFFFFFFF, &dev_if->dev_global_regs->daint);
+	dwc_writel(0, &dev_if->dev_global_regs->daintmsk);
 
 	dwc2_enable_device_interrupts(dwc);
+	dwc2_enable_global_interrupts(dwc);
 
 	if (dwc->snpsid >= OTG_CORE_REV_2_94a) {
 		dctl_data_t dctl;
-		dctl.d32 = readl(&dev_if->dev_global_regs->dctl);
+		dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
 		dctl.b.sftdiscon = 0;
-		writel(dctl.d32, &dev_if->dev_global_regs->dctl);
+		dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
 	}
 }
 
@@ -612,6 +302,12 @@ void dwc2_gadget_handle_session_end(struct dwc2 *dwc) {
 		dwc->gadget.b_hnp_enable = 0;
 		dwc->gadget.a_hnp_support = 0;
 		dwc->gadget.a_alt_hnp_support = 0;
+
+		/* prepared but not receive setup pkt last session */
+		if (dwc->setup_prepared) {
+			dwc->setup_prepared = 0;
+			dwc2_ep0_out_start(dwc);
+		}
 	}
 }
 
@@ -629,7 +325,7 @@ static void dwc2_wait_1st_ctrl_request(struct dwc2 *dwc) {
 			    */
 	do {
 		mdelay(1);
-		doepctl.d32 = readl(&dev_if->out_ep_regs[0]->doepctl);
+		doepctl.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepctl);
 		//printk("===>doepctl = 0x%08x\n", doepctl.d32);
 		timeout --;
 	} while ((doepctl.b.epena) && (timeout > 0));
@@ -639,9 +335,9 @@ static void dwc2_wait_1st_ctrl_request(struct dwc2 *dwc) {
 	}
 #if 0
 	else {
-		doepint.d32 = readl(&dev_if->out_ep_regs[0]->doepint);
-		doeptsiz.d32 = readl(&dev_if->out_ep_regs[0]->doeptsiz);
-		setup_addr = readl(&dev_if->out_ep_regs[0]->doepdma) - 8;
+		doepint.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepint);
+		doeptsiz.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
+		setup_addr = dwc_readl(&dev_if->out_ep_regs[0]->doepdma) - 8;
 		//rem_supcnt = doeptsiz.b.supcnt;
 		//back2back = doepint.b.back2backsetup;
 
@@ -684,21 +380,21 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	__dwc2_gadget_ep_disable(dwc->eps[dwc->dev_if.num_out_eps], 1);
 
 	/* Clear the Remote Wakeup Signalling */
-	dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dctl.b.rmtwkupsig = 0;
-	writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	/* Set NAK for all OUT EPs */
         for (i = 0; i <= dev_if->num_out_eps; i++) {
-		doepctl.d32 = readl(&dev_if->out_ep_regs[i]->doepctl);
+		doepctl.d32 = dwc_readl(&dev_if->out_ep_regs[i]->doepctl);
 		doepctl.b.snak = 1;
-		writel(doepctl.d32, &dev_if->out_ep_regs[i]->doepctl);
+		dwc_writel(doepctl.d32, &dev_if->out_ep_regs[i]->doepctl);
         }
 
 	daintmsk.d32 = 0;
 	daintmsk.b.inep0 = 1;
 	daintmsk.b.outep0 = 1;
-	writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
+	dwc_writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
 
 	doepmsk.d32 = 0;
 	doepmsk.b.setup = 1;
@@ -710,24 +406,24 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 		doepmsk.b.stsphsercvd = 1;
 		doepmsk.b.bna = 1;
 	}
-	writel(doepmsk.d32, &dev_if->dev_global_regs->doepmsk);
+	dwc_writel(doepmsk.d32, &dev_if->dev_global_regs->doepmsk);
 
 	diepmsk.d32 = 0;
 	diepmsk.b.xfercompl = 1;
 	diepmsk.b.timeout = 1;
 	//diepmsk.b.epdisabled = 1;
 	diepmsk.b.ahberr = 1;
-	writel(diepmsk.d32, &dev_if->dev_global_regs->diepmsk);
+	dwc_writel(diepmsk.d32, &dev_if->dev_global_regs->diepmsk);
 
 	/* Reset Device Address */
-	dcfg.d32 = readl(&dev_if->dev_global_regs->dcfg);
+	dcfg.d32 = dwc_readl(&dev_if->dev_global_regs->dcfg);
 	dcfg.b.devaddr = 0;
-	writel(dcfg.d32, &dev_if->dev_global_regs->dcfg);
+	dwc_writel(dcfg.d32, &dev_if->dev_global_regs->dcfg);
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.usbreset = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_gadget_clear_global_in_nak(struct dwc2 *dwc);
@@ -740,7 +436,7 @@ static void dwc2_gadget_ep_activate(struct dwc2_ep *dep) {
 	depctl_data_t		 depctl;
 	daint_data_t		 daintmsk;
 
-	daintmsk.d32 = readl(&dev_if->dev_global_regs->daintmsk);
+	daintmsk.d32 = dwc_readl(&dev_if->dev_global_regs->daintmsk);
 	if (dep->is_in) {
 		depctl_addr = &dev_if->in_ep_regs[epnum]->diepctl;
 		daintmsk.ep.in |= (1 << epnum);
@@ -749,7 +445,7 @@ static void dwc2_gadget_ep_activate(struct dwc2_ep *dep) {
 		daintmsk.ep.out |= (1 << epnum);
 	}
 
-	depctl.d32 = readl(depctl_addr);
+	depctl.d32 = dwc_readl(depctl_addr);
 
 	if ( (!depctl.b.usbactep) || (depctl.b.mps != dep->maxp) ) {
 		depctl.b.mps = dep->maxp;
@@ -758,7 +454,7 @@ static void dwc2_gadget_ep_activate(struct dwc2_ep *dep) {
 			depctl.b.txfnum = epnum;
 		depctl.b.setd0pid = 1;
 		depctl.b.usbactep = 1;
-		writel(depctl.d32, depctl_addr);
+		dwc_writel(depctl.d32, depctl_addr);
 	} else {
 		/* TODO: do we need deactivate then activate? */
 		if (epnum != 0)
@@ -766,7 +462,7 @@ static void dwc2_gadget_ep_activate(struct dwc2_ep *dep) {
 	}
 
 	/* unmask EP interrupts */
-	writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
+	dwc_writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
 
 	if ( (epnum == 0) && dep->is_in) {
 		dwc2_gadget_clear_global_in_nak(dwc);
@@ -800,7 +496,7 @@ static void dwc2_gadget_ep_deactivate(struct dwc2_ep *dep) {
 	if (epnum == 0)
 		return;
 
-	daintmsk.d32 = readl(&dev_if->dev_global_regs->daintmsk);
+	daintmsk.d32 = dwc_readl(&dev_if->dev_global_regs->daintmsk);
 	if (dep->is_in) {
 		depctl_addr = &dev_if->in_ep_regs[epnum]->diepctl;
 		daintmsk.ep.in &= ~(1 << epnum);
@@ -809,7 +505,7 @@ static void dwc2_gadget_ep_deactivate(struct dwc2_ep *dep) {
 		daintmsk.ep.out &= ~(1 << epnum);
 	}
 
-	depctl.d32 = readl(depctl_addr);
+	depctl.d32 = dwc_readl(depctl_addr);
 	if (!depctl.b.usbactep) {
 		dev_dbg(dwc->dev, "%s already deactivated\n", dep->name);
 		return;
@@ -820,10 +516,10 @@ static void dwc2_gadget_ep_deactivate(struct dwc2_ep *dep) {
 		dwc2_gadget_recover_out_transfer(dwc, dep);
 
 	depctl.b.usbactep = 0;
-	writel(depctl.d32, depctl_addr);
+	dwc_writel(depctl.d32, depctl_addr);
 
 	/* mask EP interrupts */
-	writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
+	dwc_writel(daintmsk.d32, &dev_if->dev_global_regs->daintmsk);
 
 	dev_dbg(dwc->dev, "%s deactivated\n", dep->name);
 }
@@ -842,7 +538,7 @@ static int dwc2_gadget_handle_enum_done_intr(struct dwc2 *dwc)
 	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
 
 	/* read the DSTS register to determine the enumeration speed */
-	dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 
 	switch (dsts.b.enumspd) {
 	case DWC_DSTS_ENUMSPD_HS_PHY_30MHZ_OR_60MHZ:
@@ -865,14 +561,14 @@ static int dwc2_gadget_handle_enum_done_intr(struct dwc2 *dwc)
 	}
 
 	/* Set USB turnaround time based on device speed and PHY interface. */
-	gusbcfg.d32 = readl(&global_regs->gusbcfg);
+	gusbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
 	if (dwc->gadget.speed == USB_SPEED_HIGH) {
 		/* 16bit UTMI+ interface */
 		gusbcfg.b.usbtrdtim = 5;
 	} else {	      /* Full or low speed */
 		gusbcfg.b.usbtrdtim = 9;
 	}
-	writel(gusbcfg.d32, &global_regs->gusbcfg);
+	dwc_writel(gusbcfg.d32, &global_regs->gusbcfg);
 
 	/* NOTE: MPS is set in dwc2_gadget_ep0_activate() */
 
@@ -897,7 +593,7 @@ static int dwc2_gadget_handle_enum_done_intr(struct dwc2 *dwc)
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.enumdone = 1;
-	writel(gintsts.d32, &global_regs->gintsts);
+	dwc_writel(gintsts.d32, &global_regs->gintsts);
 
 	return 0;
 }
@@ -923,7 +619,7 @@ static void dwc2_gadget_clear_stall(struct dwc2_ep *dep) {
 		depctl_addr = &dev_if->out_ep_regs[epnum]->doepctl;
 	}
 
-	depctl.d32 = readl(&depctl_addr);
+	depctl.d32 = dwc_readl(&depctl_addr);
 
 	depctl.b.stall = 0;
 	/*
@@ -937,7 +633,7 @@ static void dwc2_gadget_clear_stall(struct dwc2_ep *dep) {
 		depctl.b.setd0pid = 1;	/* DATA0 */
 	}
 
-	writel(depctl.d32, depctl_addr);
+	dwc_writel(depctl.d32, depctl_addr);
 }
 
 /*--------------------- OUT Endpoint Routines ----------------------*/
@@ -953,13 +649,13 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 	int			 timeout = 10000;
 
 	/* unmask OUTNakEff interrupt */
-	gintmsk.d32 = readl(&dwc->core_global_regs->gintmsk);
+	gintmsk.d32 = dwc_readl(&dwc->core_global_regs->gintmsk);
 	gintmsk.b.goutnakeff = 0;
-	writel(gintmsk.d32, &dwc->core_global_regs->gintmsk);
+	dwc_writel(gintmsk.d32, &dwc->core_global_regs->gintmsk);
 
-	dctl.d32 = readl(&dev_if->dev_global_regs->dctl);
+	dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
 	dctl.b.sgoutnak = 1;
-	writel(dctl.d32, &dev_if->dev_global_regs->dctl);
+	dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
 
 	/*
 	 * the Global out NAK effective interrupt
@@ -968,7 +664,7 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 	do
 	{
 		udelay(10);
-		gintsts.d32 = readl(&dwc->core_global_regs->gintsts);
+		gintsts.d32 = dwc_readl(&dwc->core_global_regs->gintsts);
 		timeout --;
 
 		if (timeout < 10) {
@@ -981,16 +677,16 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 	/* Clear Interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.goutnakeff = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_gadget_clear_global_out_nak(struct dwc2 *dwc) {
 	struct dwc2_dev_if	*dev_if = &dwc->dev_if;
 	dctl_data_t		 dctl;
 
-	dctl.d32 = readl(&dev_if->dev_global_regs->dctl);
+	dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
 	dctl.b.cgoutnak = 1;
-	writel(dctl.d32, &dev_if->dev_global_regs->dctl);
+	dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
 
 	/* TODO: I am not sure if we need enable outnak interrupt here */
 
@@ -1012,7 +708,7 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 	 *       So, if no one use EP0 to transfer data, situation maybe not that BAD.
 	 */
 	if (epnum == 0) {
-		u32 curr_dma = readl(&dev_if->out_ep_regs[0]->doepdma);
+		u32 curr_dma = dwc_readl(&dev_if->out_ep_regs[0]->doepdma);
 		u32 low_limit = dwc->ctrl_req_addr;
 		u32 up_limit = dwc->ctrl_req_addr + PAGE_SIZE;
 		if ( (low_limit <= curr_dma) && (curr_dma < up_limit) ) {
@@ -1024,18 +720,18 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 		return;
 	}
 
-	depctl.d32 = readl(&dev_if->out_ep_regs[epnum]->doepctl);
+	depctl.d32 = dwc_readl(&dev_if->out_ep_regs[epnum]->doepctl);
 	depctl.b.epdis = 1;
 	if (stall)
 		depctl.b.stall = 1;
 	else
 		depctl.b.snak = 1;
-	writel(depctl.d32, &dev_if->out_ep_regs[epnum]->doepctl);
+	dwc_writel(depctl.d32, &dev_if->out_ep_regs[epnum]->doepctl);
 
 	do
 	{
 		udelay(10);
-		doepint.d32 = readl(&dev_if->out_ep_regs[epnum]->doepint);
+		doepint.d32 = dwc_readl(&dev_if->out_ep_regs[epnum]->doepint);
 		timeout --;
 
 		if (timeout < 1) {
@@ -1045,7 +741,7 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 	} while ( (!doepint.b.epdisabled) && (timeout > 0));
 
 	doepint.b.epdisabled = 1;
-	writel(doepint.d32, &dev_if->out_ep_regs[epnum]->doepint);
+	dwc_writel(doepint.d32, &dev_if->out_ep_regs[epnum]->doepint);
 }
 
 /*
@@ -1083,10 +779,10 @@ static void dwc2_gadget_stop_out_transfer(struct dwc2_ep *dep) {
 
 	/* Enable all OUT endpoints by setting DOEPCTL.EPEna = 1'b1 */
 	for (i = 0; i < dwc->hwcfgs.hwcfg2.b.num_dev_ep; i++) {
-		depctl.d32 = readl(&dev_if->out_ep_regs[i]->doepctl);
+		depctl.d32 = dwc_readl(&dev_if->out_ep_regs[i]->doepctl);
 		if (!depctl.b.epena) {
 			depctl.b.epena = 1;
-			writel(depctl.d32, &dev_if->out_ep_regs[i]->doepctl);
+			dwc_writel(depctl.d32, &dev_if->out_ep_regs[i]->doepctl);
 		}
 
 	}
@@ -1138,18 +834,18 @@ static __attribute__((unused)) void dwc2_gadget_set_global_np_in_nak(struct dwc2
 	int			 timeout = 10000;
 
 	/* unmask GInNakEff interrupt */
-	gintmsk.d32 = readl(&dwc->core_global_regs->gintmsk);
+	gintmsk.d32 = dwc_readl(&dwc->core_global_regs->gintmsk);
 	gintmsk.b.ginnakeff = 0;
-	writel(gintmsk.d32, &dwc->core_global_regs->gintmsk);
+	dwc_writel(gintmsk.d32, &dwc->core_global_regs->gintmsk);
 
-	dctl.d32 = readl(&dev_if->dev_global_regs->dctl);
+	dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
 	dctl.b.sgnpinnak = 1;
-	writel(dctl.d32, &dev_if->dev_global_regs->dctl);
+	dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
 
 	do
 	{
 		udelay(10);
-		gintsts.d32 = readl(&dwc->core_global_regs->gintsts);
+		gintsts.d32 = dwc_readl(&dwc->core_global_regs->gintsts);
 		timeout --;
 
 		if (timeout < 10) {
@@ -1160,16 +856,16 @@ static __attribute__((unused)) void dwc2_gadget_set_global_np_in_nak(struct dwc2
 
 	gintsts.d32 = 0;
 	gintsts.b.ginnakeff = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_gadget_clear_global_in_nak(struct dwc2 *dwc) {
 	struct dwc2_dev_if	*dev_if	= &dwc->dev_if;
 	dctl_data_t		 dctl;
 
-	dctl.d32 = readl(&dev_if->dev_global_regs->dctl);
+	dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
 	dctl.b.cgnpinnak = 1;
-	writel(dctl.d32, &dev_if->dev_global_regs->dctl);
+	dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
 }
 
 /*
@@ -1181,16 +877,16 @@ static void dwc2_gadget_set_in_nak(struct dwc2 *dwc, int epnum) {
 	diepint_data_t		 diepint;
 	int			 timeout = 10000;
 
-	depctl.d32 = readl(&dev_if->in_ep_regs[epnum]->diepctl);
+	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	if (!depctl.b.epena)
 		return;
 	depctl.b.snak = 1;
-	writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
+	dwc_writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
 
 	do
 	{
 		udelay(10);
-		diepint.d32 = readl(&dev_if->in_ep_regs[epnum]->diepint);
+		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
 		if (timeout < 10) {
 			dev_warn(dwc->dev, "%s:%d: diepint[%d] = 0x%08x\n",
@@ -1199,7 +895,7 @@ static void dwc2_gadget_set_in_nak(struct dwc2 *dwc, int epnum) {
 	} while ( (!diepint.b.inepnakeff) && (timeout > 0));
 
 	diepint.b.inepnakeff = 1;
-	writel(diepint.d32, &dev_if->in_ep_regs[epnum]->diepint);
+	dwc_writel(diepint.d32, &dev_if->in_ep_regs[epnum]->diepint);
 }
 
 /**
@@ -1209,9 +905,9 @@ static __attribute__((unused)) void dwc2_gadget_clear_in_nak(struct dwc2 *dwc, i
 	struct dwc2_dev_if	*dev_if = &dwc->dev_if;
 	depctl_data_t		 depctl;
 
-	depctl.d32 = readl(&dev_if->in_ep_regs[epnum]->diepctl);
+	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	depctl.b.cnak = 1;
-	writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
+	dwc_writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
 
 	udelay(100);
 }
@@ -1220,9 +916,9 @@ static void dwc2_gadget_set_in_stall(struct dwc2 *dwc, int epnum) {
 	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
 	depctl_data_t		 depctl;
 
-	depctl.d32 = readl(&dev_if->in_ep_regs[epnum]->diepctl);
+	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	depctl.b.stall = 1;
-	writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
+	dwc_writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
 }
 
 static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
@@ -1231,17 +927,17 @@ static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
 	diepint_data_t		 diepint;
 	int			 timeout = 10000;
 
-	depctl.d32 = readl(&dev_if->in_ep_regs[epnum]->diepctl);
+	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	if (!depctl.b.epena)
 		return;
 
 	depctl.b.epdis = 1;
-	writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
+	dwc_writel(depctl.d32, &dev_if->in_ep_regs[epnum]->diepctl);
 
 	do
 	{
 		udelay(10);
-		diepint.d32 = readl(&dev_if->in_ep_regs[epnum]->diepint);
+		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
 
 		if (timeout < 10) {
@@ -1251,7 +947,7 @@ static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
 	} while ( (!diepint.b.epdisabled) && (timeout > 0));
 
 	diepint.b.epdisabled = 1;
-	writel(diepint.d32, &dev_if->in_ep_regs[epnum]->diepint);
+	dwc_writel(diepint.d32, &dev_if->in_ep_regs[epnum]->diepint);
 
 	dwc2_flush_tx_fifo(dwc, epnum);
 }
@@ -1547,7 +1243,7 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 		return;
 	}
 
-	deptsiz.d32 = readl(&in_regs->dieptsiz);
+	deptsiz.d32 = dwc_readl(&in_regs->dieptsiz);
 
 	if (req->trans_count_left == 0) {
 		DWC2_GADGET_DEBUG_MSG("%s: sent ZLP\n", dep->name);
@@ -1604,8 +1300,8 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 			if (dep->type != USB_ENDPOINT_XFER_ISOC)
 				deptsiz.b.mc = 1;
 
-			writel(deptsiz.d32, &in_regs->dieptsiz);
-			writel(req->next_dma_addr, &in_regs->diepdma);
+			dwc_writel(deptsiz.d32, &in_regs->dieptsiz);
+			dwc_writel(req->next_dma_addr, &in_regs->diepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA Mode here */
 		}
@@ -1618,10 +1314,10 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 	}
 
 	dep->flags |= DWC2_EP_BUSY;
-	depctl.d32 = readl(&in_regs->diepctl);
+	depctl.d32 = dwc_readl(&in_regs->diepctl);
 	depctl.b.cnak = 1;
 	depctl.b.epena = 1;
-	writel(depctl.d32, &in_regs->diepctl);
+	dwc_writel(depctl.d32, &in_regs->diepctl);
 }
 
 static void dwc2_gadget_start_out_transfer(struct dwc2_ep *dep) {
@@ -1640,7 +1336,7 @@ static void dwc2_gadget_start_out_transfer(struct dwc2_ep *dep) {
 		return;
 	}
 
-	deptsiz.d32 = readl(&out_regs->doeptsiz);
+	deptsiz.d32 = dwc_readl(&out_regs->doeptsiz);
 
 	if (req->trans_count_left == 0) {
 		DWC2_GADGET_DEBUG_MSG("%s send ZLP\n", dep->name);
@@ -1673,13 +1369,13 @@ static void dwc2_gadget_start_out_transfer(struct dwc2_ep *dep) {
 
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
-			writel(deptsiz.d32, &out_regs->doeptsiz);
-			writel(req->next_dma_addr, &out_regs->doepdma);
+			dwc_writel(deptsiz.d32, &out_regs->doeptsiz);
+			dwc_writel(req->next_dma_addr, &out_regs->doepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA Mode here */
 		}
 	} else {
-		writel(deptsiz.d32, &out_regs->doeptsiz);
+		dwc_writel(deptsiz.d32, &out_regs->doeptsiz);
 	}
 
 	if (dep->type == USB_ENDPOINT_XFER_ISOC)
@@ -1689,10 +1385,10 @@ static void dwc2_gadget_start_out_transfer(struct dwc2_ep *dep) {
 
 	/* EP enable */
 	dep->flags |= DWC2_EP_BUSY;
-	depctl.d32 = readl(&out_regs->doepctl);
+	depctl.d32 = dwc_readl(&out_regs->doepctl);
 	depctl.b.cnak = 1;
 	depctl.b.epena = 1;
-	writel(depctl.d32, &out_regs->doepctl);
+	dwc_writel(depctl.d32, &out_regs->doepctl);
 }
 
 static void dwc2_gadget_ep_start_transfer(struct dwc2_ep *dep) {
@@ -1909,7 +1605,7 @@ static int dwc2_gadget_get_frame(struct usb_gadget *g)
 	dsts_data_t dsts;
 
 	/* read current frame/microframe number from DSTS register */
-	dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 	return dsts.b.soffn;
 }
 
@@ -1925,7 +1621,7 @@ static void dwc2_rem_wkup_from_suspend(struct dwc2 *dwc)
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 
-	dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 	if (!dsts.b.suspsts) {
 		dev_warn(dwc->dev, "Remote wakeup while is not in suspend state\n");
 	}
@@ -1933,14 +1629,14 @@ static void dwc2_rem_wkup_from_suspend(struct dwc2 *dwc)
 	if (dwc->remote_wakeup_enable) {
 		/* TODO: if ADP enable, initiate SRP here */
 
-		dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.rmtwkupsig = 1;
-		writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 		mdelay(2);
 
 		dctl.b.rmtwkupsig = 0;
-		writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 	} else {
 		dev_info(dwc->dev, "Remote Wakeup is disabled\n");
 	}
@@ -1963,10 +1659,10 @@ static int dwc2_gadget_wakeup(struct usb_gadget *g)
 	 */
 
 	/* Check if valid session */
-	gotgctl.d32 = readl(&dwc->core_global_regs->gotgctl);
+	gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
 	if (gotgctl.b.bsesvld) {
 		/* Check if suspend state */
-		dsts.d32 = readl(&(dwc->dev_if.dev_global_regs->dsts));
+		dsts.d32 = dwc_readl(&(dwc->dev_if.dev_global_regs->dsts));
 		if (dsts.b.suspsts) {
 #ifdef CONFIG_USB_DWC_OTG_LPM
 			if (dwc->lx_state == DWC_OTG_L1) {
@@ -1998,32 +1694,44 @@ static int dwc2_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
-/* soft disconnect/connect */
-static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
-{
-	struct dwc2	*dwc = gadget_to_dwc(g);
+void dwc2_gadget_do_pullup(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
 
 	dwc2_spin_lock_irqsave(dwc, flags);
-	dctl.d32 = readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.sftdiscon = is_on ? 0 : 1;
-	writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	if (dwc2_is_device_mode(dwc)) {
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
-	/*
-	 * Note: if we are diconnected, maybe we must stop Rx/Tx transfers
-	 *       or the upper layer must take care it? I am not sure about this,
-	 *       so I decide to terminate the current session here!
-	 */
-	if (!is_on) {
-		udelay(300);
-		dwc2_gadget_handle_session_end(dwc);
+		/*
+		 * Note: if we are diconnected, maybe we must stop Rx/Tx transfers
+		 *       or the upper layer must take care it? I am not sure about this,
+		 *       so I decide to terminate the current session here!
+		 */
+		if (!dwc->pullup_on) {
+			udelay(300);
+			dwc2_gadget_handle_session_end(dwc);
+		}
+	} else {
+		printk("gadget pullup in host mode, ignored\n");
 	}
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
-	jz4780_set_charger_current(dwc, is_on);
+	jz4780_set_charger_current(dwc);
+}
 
-	/* TODO: config charger, may be we can use a notifier chain! */
+/* soft disconnect/connect */
+static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
+{
+	struct dwc2	*dwc = gadget_to_dwc(g);
+	unsigned long flags;
+
+	dwc2_spin_lock_irqsave(dwc, flags);
+	dwc->pullup_on = is_on;
+	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	dwc2_gadget_do_pullup(dwc);
 
 	return 0;
 }
@@ -2130,7 +1838,7 @@ static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 	 *	If the early suspend is asserted due to an erratic error,
 	 *	the application can only perform a soft reset recover.
 	 */
-	dsts.d32 = readl(&dwc->dev_if.dev_global_regs->dsts);
+	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 
 	dev_dbg(dwc->dev, "Early Suspend Detected, DSTS = 0x%08x\n", dsts.d32);
 
@@ -2143,7 +1851,7 @@ static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 	/* Clear interrupt */
 	gintsts.d32 = 0;
 	gintsts.b.erlysuspend = 1;
-	writel(gintsts.d32, &dwc->core_global_regs->gintsts);
+	dwc_writel(gintsts.d32, &dwc->core_global_regs->gintsts);
 }
 
 static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
@@ -2168,7 +1876,7 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 		if (dwc->dma_desc_enable) {
 			/* TODO: Scatter/Gather DMA Mode here */
 		} else  {
-			u32 curr_dma = readl(&in_ep_regs->diepdma);
+			u32 curr_dma = dwc_readl(&in_ep_regs->diepdma);
 			u32 low_limit = req->request.dma;
 			u32 up_limit = req->request.dma + ((req->request.length + 0x3) & ~0x3);
 
@@ -2179,7 +1887,7 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 				return;
 			}
 
-			deptsiz.d32 = readl(&in_ep_regs->dieptsiz);
+			deptsiz.d32 = dwc_readl(&in_ep_regs->dieptsiz);
 			WARN(deptsiz.b.xfersize, "xfersize if not zero when xfer complete\n");
 
 			trans_count = req->xfersize - deptsiz.b.xfersize;
@@ -2205,7 +1913,7 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 	do {								\
 		diepint_data_t __diepint = {.d32=0};			\
 		__diepint.b.__intr = 1;					\
-		writel(__diepint.d32, &dev_if->in_ep_regs[__epnum]->diepint); \
+		dwc_writel(__diepint.d32, &dev_if->in_ep_regs[__epnum]->diepint); \
 	} while (0)
 
 static void dwc2_in_ep_interrupt(struct dwc2_ep *dep) {
@@ -2215,8 +1923,8 @@ static void dwc2_in_ep_interrupt(struct dwc2_ep *dep) {
 	diepint_data_t		 diepint = {.d32 = 0 };
 	uint32_t		 msk;
 
-	msk = readl(&dev_if->dev_global_regs->diepmsk);
-	diepint.d32 = readl(&dev_if->in_ep_regs[epnum]->diepint) & msk;
+	msk = dwc_readl(&dev_if->dev_global_regs->diepmsk);
+	diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint) & msk;
 
 	/* Transfer complete */
 	if (diepint.b.xfercompl) {
@@ -2254,8 +1962,8 @@ static void dwc2_gadget_handle_in_ep_intr(struct dwc2 *dwc) {
 	struct dwc2_ep		*dep;
 
 	/* Read in the device interrupt bits */
-	ep_intr = readl(&dev_if->dev_global_regs->daint) &
-		readl(&dev_if->dev_global_regs->daintmsk);
+	ep_intr = dwc_readl(&dev_if->dev_global_regs->daint) &
+		dwc_readl(&dev_if->dev_global_regs->daintmsk);
 
 	ep_intr &= 0xffff;
 
@@ -2299,7 +2007,7 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 		if (dwc->dma_desc_enable) {
 			/* TODO: Scatter/Gather DMA Mode here */
 		} else {
-			u32 curr_dma = readl(&out_ep_regs->doepdma);
+			u32 curr_dma = dwc_readl(&out_ep_regs->doepdma);
 			u32 low_limit = req->request.dma;
 			u32 up_limit = req->request.dma + ((req->request.length + 0x3) & ~0x3);
 
@@ -2310,7 +2018,7 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 				return;
 			}
 
-			deptsiz.d32 = readl(&out_ep_regs->doeptsiz);
+			deptsiz.d32 = dwc_readl(&out_ep_regs->doeptsiz);
 			trans_count = req->xfersize - deptsiz.b.xfersize;
 
 			req->trans_count_left -= trans_count;
@@ -2342,7 +2050,7 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 	do {								\
 		doepint_data_t __doepint = {.d32=0};			\
 		__doepint.b.__intr = 1;					\
-		writel(__doepint.d32, &dev_if->out_ep_regs[__epnum]->doepint); \
+		dwc_writel(__doepint.d32, &dev_if->out_ep_regs[__epnum]->doepint); \
 	} while (0)
 
 static void dwc2_out_ep_interrupt(struct dwc2_ep *dep) {
@@ -2352,8 +2060,8 @@ static void dwc2_out_ep_interrupt(struct dwc2_ep *dep) {
 	doepint_data_t		 doepint = {.d32 = 0 };
 	u32			 msk;
 
-	msk = readl(&dev_if->dev_global_regs->doepmsk);
-	doepint.d32 = readl(&dev_if->out_ep_regs[epnum]->doepint) & msk;
+	msk = dwc_readl(&dev_if->dev_global_regs->doepmsk);
+	doepint.d32 = dwc_readl(&dev_if->out_ep_regs[epnum]->doepint) & msk;
 
 	/* Transfer complete */
 	if (doepint.b.xfercompl) {
@@ -2384,8 +2092,8 @@ static void dwc2_gadget_handle_out_ep_intr(struct dwc2 *dwc)
 	struct dwc2_ep		*dep;
 
 	/* Read in the device interrupt bits */
-	ep_intr = readl(&dev_if->dev_global_regs->daint) &
-		readl(&dev_if->dev_global_regs->daintmsk);
+	ep_intr = dwc_readl(&dev_if->dev_global_regs->daint) &
+		dwc_readl(&dev_if->dev_global_regs->daintmsk);
 	ep_intr &= 0xffff0000;
 	ep_intr = ep_intr >> 16;
 
@@ -2596,23 +2304,25 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	dev_info(dwc->dev, "registered gadget driver '%s'\n",
 		driver->driver.name);
 
-	/* default to 64 */
-	dwc2_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
+	if (likely(dwc2_is_device_mode(dwc))) {
+		/* default to 64 */
+		dwc2_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 
-	/* IN */
-	dep = dwc->eps[dwc->dev_if.num_out_eps];
-	ret = __dwc2_gadget_ep_enable(dep, &dwc2_gadget_ep0_desc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
-	}
+		/* IN */
+		dep = dwc->eps[dwc->dev_if.num_out_eps];
+		ret = __dwc2_gadget_ep_enable(dep, &dwc2_gadget_ep0_desc);
+		if (ret) {
+			dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		}
 
-	/* OUT */
-	dep = dwc->eps[0];
-	ret = __dwc2_gadget_ep_enable(dep, &dwc2_gadget_ep0_desc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		/* OUT */
+		dep = dwc->eps[0];
+		ret = __dwc2_gadget_ep_enable(dep, &dwc2_gadget_ep0_desc);
+		if (ret) {
+			dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		}
+		dwc2_ep0_out_start(dwc);
 	}
-	dwc2_ep0_out_start(dwc);
 
 	dwc->gadget_driver = driver;
 
@@ -2658,3 +2368,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 }
 
 EXPORT_SYMBOL(usb_gadget_unregister_driver);
+
+void dwc2_host_trace_print(void) {
+	__dwc2_host_trace_print(m_dwc, 0);
+}
+EXPORT_SYMBOL(dwc2_host_trace_print);
