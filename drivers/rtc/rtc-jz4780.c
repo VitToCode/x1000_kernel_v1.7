@@ -21,7 +21,7 @@
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/string.h>
-#include <linux/clk.h> 
+#include <linux/clk.h>
 #include <linux/bitops.h>
 #include <linux/pm.h>
 
@@ -49,36 +49,46 @@ static inline int rtc_periodic_alarm(struct rtc_time *tm)
 
 static unsigned int jzrtc_readl(struct jz_rtc *dev,int offset)
 {
-	unsigned int data, timeout = 0x100000;				
-	do {								
-		data = readl(dev->iomem + offset);			
-	} while (readl(dev->iomem + offset) != data && timeout--);		
-	if (timeout <= 0)						
-		pr_info("RTC rtc_read_reg timeout!\n");			
+	unsigned int data, timeout = 0x100000;
+	do {
+		data = readl(dev->iomem + offset);
+	} while (readl(dev->iomem + offset) != data && timeout--);
+	if (timeout <= 0)
+		pr_info("RTC rtc_read_reg timeout!\n");
 	return data;
 }
 
 static inline void wait_write_ready(struct jz_rtc *dev)
 {
-	int timeout = 0x100000;						
-	while (!(jzrtc_readl(dev,RTC_RTCCR) & RTCCR_WRDY) && timeout--);	
-	if (timeout <= 0)						
-		pr_info("RTC __wait_write_ready timeout!\n");		
+	int timeout = 0x100000;
+	while (!(jzrtc_readl(dev,RTC_RTCCR) & RTCCR_WRDY) && timeout--);
+	if (timeout <= 0)
+		pr_info("RTC __wait_write_ready timeout!\n");
 }
 
 static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 {
+	int timeout = 0x100000;
 
-	int timeout = 0x100000;						
-	wait_write_ready(dev);						
-	writel(WENR_WENPAT_WRITABLE, dev->iomem + RTC_WENR);		
-	wait_write_ready(dev);						
-	while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);	
-	if (timeout <= 0)						
-		pr_info("RTC __wait_writable timeout!\n");		
+	wait_write_ready(dev);
+	writel(WENR_WENPAT_WRITABLE, dev->iomem + RTC_WENR);
+	wait_write_ready(dev);
+	while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);
+	if (timeout <= 0) {
+		while(1) {
+			timeout = 0x100000;
+			writel(WENR_WENPAT_WRITABLE, dev->iomem + RTC_WENR);
+			wait_write_ready(dev);
+			while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);
+			if (timeout > 0)
+				break;
+			else
+				pr_info("RTC __wait_writable 0x%x timeout!\n", (jzrtc_readl(dev,RTC_WENR)));
+		}
+	}
 
 	writel(value,dev->iomem + offset);
-	wait_write_ready(dev); 
+	wait_write_ready(dev);
 }
 
 static inline void jzrtc_clrl(struct jz_rtc *dev,int offset, unsigned int value)
@@ -120,7 +130,7 @@ static void jz4780_rtc_dump(struct jz_rtc *dev)
 }
 #endif
 
-static void jzrtc_irq_tasklet(unsigned long data) 
+static void jzrtc_irq_tasklet(unsigned long data)
 {
 
 	unsigned int rtsr,save_rtsr;
@@ -237,7 +247,7 @@ static int jz4780_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		return ret;
 
 	ret = rtc_tm_to_time(tm, &time);
-	if (ret == 0) 
+	if (ret == 0)
 		jzrtc_writel(rtc, RTC_RTCSR, time);
 	return ret;
 }
@@ -280,7 +290,7 @@ static int jz4780_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	int ret = 0;
 	unsigned long time;
 	unsigned int tmp;
-	struct jz_rtc *rtc = dev_get_drvdata(dev);	
+	struct jz_rtc *rtc = dev_get_drvdata(dev);
 	unsigned long flags;
 
 	spin_lock_irqsave(&rtc->lock,flags);
@@ -302,7 +312,7 @@ static int jz4780_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 static int jz4780_rtc_proc(struct device *dev, struct seq_file *seq)
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
-	seq_printf(seq, "RTC regulator\t: 0x%08x\n", 
+	seq_printf(seq, "RTC regulator\t: 0x%08x\n",
 			jzrtc_readl(rtc, RTC_RTCGR));
 	seq_printf(seq, "update_IRQ\t: %s\n",
 			(jzrtc_readl(rtc, RTC_RTCCR) & RTCCR_1HZIE) ? "yes" : "no");
@@ -327,7 +337,7 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 
 	unsigned int cfc,hspr,rgr_1hz;
 	unsigned long time = 0;
-	
+
 	/*
 	 * When we are powered on for the first time, init the rtc and reset time.
 	 *
@@ -354,7 +364,7 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 
 
 		/* Reset to the default time */
-		rtc_tm_to_time(&default_tm, &time); 
+		rtc_tm_to_time(&default_tm, &time);
 		jzrtc_writel(rtc, RTC_RTCSR, time);
 
 		/* start rtc */
@@ -423,7 +433,7 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(rtc->rtc)){
 		ret = PTR_ERR(rtc->rtc);
 		dev_err(&pdev->dev, "Failed to register rtc device: %d\n", ret);
-		goto err_unregister_rtc;		
+		goto err_unregister_rtc;
 	}
 
 	ret = request_irq(rtc->irq, jz4780_rtc_interrupt, IRQF_TRIGGER_LOW | IRQF_DISABLED,
@@ -437,7 +447,7 @@ static int jz4780_rtc_probe(struct platform_device *pdev)
 			(unsigned long)rtc);
 
 	jz4780_rtc_enable(rtc);
-	
+
 	return 0;
 
 
