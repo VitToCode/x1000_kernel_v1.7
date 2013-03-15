@@ -1,7 +1,7 @@
 /*
- * linux/arch/mips/jz4780/pm.c
+ * linux/arch/mips/jz4775/pm.c
  *
- *  JZ4780 Power Management Routines
+ *  JZ4775 Power Management Routines
  *  Copyright (C) 2006 - 2012 Ingenic Semiconductor Inc.
  *
  *  This program is free software; you can distribute it and/or modify it
@@ -44,7 +44,6 @@
 //#define TEST 1
 //#define DUMP_DDR_REGS
 
-#define CONFIG_SUSPEND_SUPREME_DEBUG
 
 #define save_regs(base)		\
 	__asm__ __volatile__ (	\
@@ -259,7 +258,7 @@
 #define DELAY_1 0x1ff
 #define DELAY_2 0x1ff
 
-#define SAVE_SIZE 2048
+#define SAVE_SIZE 4096
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 #define U3_IOBASE 0xb0033000
@@ -390,20 +389,20 @@ static noinline void reset_dll(void)
 	register int i;
 	
 	TCSM_PCHAR('0');
-	while(!((*(volatile unsigned *)0xb0000014) & (0x1<<4)))//wait pll stable
+	while(!((*(volatile unsigned *)0xb0000010) & (0x1<<10)))//wait pll stable
 		;
 	TCSM_DELAY(DELAY_0);
 
 	TCSM_PCHAR('1');
-	*(volatile unsigned *) 0xb00000d0 = 0x3;
+	*(volatile unsigned *) 0xb00000d0 = 0x3; //reset the DLL in DDR PHY
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY_1);
 	TCSM_PCHAR('3');
-	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17);
+	*(volatile unsigned *)  0xB3010008 &= ~(0x1<<17); //KEEPSR keep to 0
 	i=*(volatile unsigned *)0xB3010008;
 	TCSM_PCHAR('4');
 
-	*(volatile unsigned *) 0xb00000d0 = 0x1;
+	*(volatile unsigned *) 0xb00000d0 = 0x1; //disable the reset
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY_2);
 	TCSM_PCHAR('5');
@@ -411,7 +410,7 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR('6');
 #endif
 
-	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
+	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;//DDR DFI low power interface enable
 
 #ifdef DUMP_DDR_REGS
 	dump_regs();
@@ -426,13 +425,13 @@ static noinline void reset_dll(void)
 	return_func();
 }
 
-static noinline void jz4780_resume(void)
+static noinline void jz4775_resume(void)
 {
 	load_regs(*(volatile unsigned int *)REG_ADDR);
 	local_flush_tlb_all();
 }
 
-static noinline void jz4780_suspend(void)
+static noinline void jz4775_suspend(void)
 {
 	save_regs(*(volatile unsigned int *)REG_ADDR);
 #ifdef TEST
@@ -452,13 +451,13 @@ sleep:
 		"nop\n\t"
 		".set mips32");
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
-	jz4780_resume();
+	jz4775_resume();
 sleep_2:
 #endif
 	return;
 }
 
-static int jz4780_pm_enter(suspend_state_t state)
+static int jz4775_pm_enter(suspend_state_t state)
 {
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
@@ -469,10 +468,13 @@ static int jz4780_pm_enter(suspend_state_t state)
 	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
 	mdelay(1);
+	
+	cpm_outl(cpm_inl(CPM_USBPCR) | (1<<25),CPM_USBPCR);
+
 	/* Set resume return address */
 	cpm_outl(1,CPM_SLBC);
 	memcpy(tcsm_back, (void *)TCSM_BASE, SAVE_SIZE);
-	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4780_resume;
+	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4775_resume;
 	*(volatile unsigned int *)REG_ADDR = (unsigned int)regs;
 	cpm_outl(RESUME_ADDR,CPM_SLPC);
 	memcpy((void *)RESUME_ADDR, reset_dll, SAVE_SIZE - 8);
@@ -480,7 +482,7 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
-	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
+	cpm_outl((1<<25 | 0xff<<8 | OPCR_PD | OPCR_ERCS) & (~(1<<7)) ,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
 	
@@ -488,12 +490,12 @@ static int jz4780_pm_enter(suspend_state_t state)
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 	printk("enter suspend.\n");
-	jz4780_suspend();
+	jz4775_suspend();
 	TCSM_PCHAR('x');
 	TCSM_PCHAR('x');
 	printk("resume.\n");
 #else
-	jz4780_suspend();
+	jz4775_suspend();
 #endif
 
 	memcpy((void *)TCSM_BASE, tcsm_back, SAVE_SIZE);
@@ -512,14 +514,14 @@ static int jz4780_pm_enter(suspend_state_t state)
 
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
-	.enter = jz4780_pm_enter,
+	.enter = jz4775_pm_enter,
 };
 
-int __init jz4780_pm_init(void)
+int __init jz4775_pm_init(void)
 {
 	suspend_set_ops(&pm_ops);
 	return 0;
 }
 
-arch_initcall(jz4780_pm_init);
+arch_initcall(jz4775_pm_init);
 

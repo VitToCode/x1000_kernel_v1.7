@@ -50,7 +50,15 @@ static struct gpio_keys_button board_buttons[] = {
 	},
 #endif
 
-
+#ifdef GPIO_ENDCALL
+	{   
+		.gpio           = GPIO_ENDCALL,
+		.code           = KEY_POWER,
+		.desc           = "end call key",
+		.active_low     = ACTIVE_LOW_ENDCALL,
+		.wakeup         = 1,
+	},  
+#endif
 };
 
 static struct gpio_keys_platform_data board_button_data = {

@@ -135,16 +135,21 @@ static int jz4780_pm_enter(suspend_state_t state)
 	__reset_dll = (void (*)(void))0xb3425800;
 	memcpy(save_tcsm,__reset_dll,SAVE_SIZE);
 	memcpy(__reset_dll, reset_dll,SAVE_SIZE);
-
+	
+	cpm_outl(cpm_inl(CPM_USBPCR) | (1<<25),CPM_USBPCR);
+	//cpm_outl(cpm_inl(CPM_USBPCR) | (1 << 25), CPM_USBPCR);
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
-	opcr |= 0xff << 8 | (2 << 26);
+	opcr |= 0xff << 8 | (1 << 25);
 	opcr |= 1 << 2;
 	opcr &= ~(1 << 4);
 	opcr &= ~(1 << 3);
+	opcr &= ~(1 << 7);
 
 	cpm_outl(opcr,CPM_OPCR);
+
+
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
         __reset_dll();
