@@ -375,9 +375,9 @@ static void jz4780_rtc_enable(struct jz_rtc *rtc)
 	/* clear all rtc flags */
 	jzrtc_writel(rtc, RTC_HWRSR, 0);
 
-	/* enabled Power detect*/
+	/* enabled Power detect && set wakeup pin valid level to low */
 	jzrtc_writel(rtc, RTC_HWCR,((~(EPDET_DEFAULT << 3)) |
-				(jzrtc_readl(rtc, RTC_HWCR))));
+				(jzrtc_readl(rtc, RTC_HWCR))) & ~(HWCR_WKUPVL));
 
 	return ;
 
