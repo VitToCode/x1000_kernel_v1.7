@@ -60,9 +60,11 @@ extern struct jzfb_platform_data jzfb1_pdata;
 #define GPIO_BACK		GPIO_PD(19)
 #define GPIO_VOLUMEDOWN		GPIO_PD(17)
 #define GPIO_VOLUMEUP		GPIO_PD(18)
+#define GPIO_ENDCALL            GPIO_PA(30)
 
 #define ACTIVE_LOW_HOME		1
 #define ACTIVE_LOW_BACK		1
+#define ACTIVE_LOW_ENDCALL      1
 #define ACTIVE_LOW_VOLUMEDOWN	0
 #define ACTIVE_LOW_VOLUMEUP	1
 
