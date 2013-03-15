@@ -292,7 +292,7 @@ static int __init zpad80_board_init(void)
 #ifdef CONFIG_LCD_HSD070IDW1
 	platform_device_register(&android_bl_device);
 #endif
-#ifdef CONFIG_BACKLIGHT_PWM
+#ifdef CONFIG_BACKLIGHT_PWM_ZPAD80
 	platform_device_register(&zpad80_backlight_device);
 #endif
 /* lcdc framebuffer*/

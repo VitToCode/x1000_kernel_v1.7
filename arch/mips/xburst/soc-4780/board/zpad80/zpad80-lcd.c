@@ -364,7 +364,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 		},
 	};
 #endif
-#ifdef CONFIG_BACKLIGHT_PWM
+#ifdef CONFIG_BACKLIGHT_PWM_ZPAD80
 static int zpad80_backlight_init(struct device *dev)
 {
 	return 0;
