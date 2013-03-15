@@ -118,11 +118,11 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define ACTIVE_LOW_VOLUMEDOWN		1
 #endif
 
-#define GPIO_OV7675_EN			GPIO_PB(18)
-#define GPIO_OV7675_RST         GPIO_PB(26)
+#define GPIO_GC0308_EN			GPIO_PB(18)
+#define GPIO_GC0308_RST         GPIO_PB(26)
 
-#define GPIO_OV2650_EN			GPIO_PB(19)
-#define GPIO_OV2650_RST			GPIO_PB(26)
+#define GPIO_GC2015_EN			GPIO_PB(19)
+#define GPIO_GC2015_RST			GPIO_PB(26)
 
 /**
  * USB detect pin
