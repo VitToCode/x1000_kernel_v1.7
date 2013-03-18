@@ -200,7 +200,7 @@ struct jzfb_aosd {
 };
 
 /* ioctl commands base fb.h FBIO_XXX */
-/* image_enh.h: 0x142 -- 0x160 */
+/* image_enh.h: 0x142 -- 0x162 */
 #define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
 #define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
 #define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
