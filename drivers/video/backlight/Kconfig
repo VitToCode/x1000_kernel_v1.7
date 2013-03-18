@@ -190,7 +190,15 @@ config LCD_HSD070IDW1
 	help
 	  If you have an HSD070IDW1 Panel, say Y to enable its
 	  control driver.
-	  
+
+config LCD_KFM701A21_1A
+	tristate "KFM701A21_1A TFT Smart LCD panel(400x240)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an KFM701A21_1A Panel, say Y to enable its
+	  control driver. The driver IC of this module is SPFD5420A.
+
 endif # LCD_CLASS_DEVICE
 
 #

@@ -14,7 +14,7 @@
 #endif
 
 #define PIXEL_ALIGN 16
-#define MAX_DESC_NUM 3
+#define MAX_DESC_NUM 4
 
 /**
  * @next: physical address of next frame descriptor
@@ -105,6 +105,7 @@ struct jzfb {
 	size_t vidmem_size;
 	void *vidmem;
 	dma_addr_t vidmem_phys;
+	dma_addr_t desc_cmd_phys;
 
 	int frm_size;
 	int current_buffer;

@@ -164,6 +164,9 @@ static int __init board_init(void)
 //#ifdef CONFIG_LCD_BYD_BM8766U
 //	platform_device_register(&byd_bm8766u_device);
 //#endif
+#ifdef CONFIG_LCD_KFM701A21_1A
+	platform_device_register(&kfm701a21_1a_device);
+#endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);
 #endif

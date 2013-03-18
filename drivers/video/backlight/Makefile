@@ -22,6 +22,8 @@ obj-$(CONFIG_LCD_CRD080TI01_40NM01)	+= crd080ti01_40nm01.o
 obj-$(CONFIG_LCD_KD50G2_40NM_A2)	+= kd50g2_40nm_a2.o
 obj-$(CONFIG_LCD_EK070TN93)		+= ek070tn93.o
 obj-$(CONFIG_LCD_HSD101PWW1)	+= hsd101pww1.o
+obj-$(CONFIG_LCD_KFM701A21_1A)	+= kfm701a21_1a.o
+
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o

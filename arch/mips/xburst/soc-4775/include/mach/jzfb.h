@@ -146,7 +146,7 @@ struct lvds_txctrl {
 	enum output_amplitude output_amplitude;
 };
 
-/* 
+/*
  * struct lvds_txpll0 - used to configure LVDS TXPLL0 register
  * Note:
  F_in == F_pixclk;
@@ -199,22 +199,34 @@ enum smart_lcd_type {
 
 /* smart lcd command width */
 enum smart_lcd_cwidth {
-	SMART_LCD_CWIDTH_16_BIT_ONCE,
+	SMART_LCD_CWIDTH_16_BIT_ONCE = (0 << 8),
 	SMART_LCD_CWIDTH_9_BIT_ONCE = SMART_LCD_CWIDTH_16_BIT_ONCE,
-	SMART_LCD_CWIDTH_8_BIT_ONCE,
-	SMART_LCD_CWIDTH_18_BIT_ONCE,
-	SMART_LCD_CWIDTH_24_BIT_ONCE,
+	SMART_LCD_CWIDTH_8_BIT_ONCE = (0x1 << 8),
+	SMART_LCD_CWIDTH_18_BIT_ONCE = (0x2 << 8),
+	SMART_LCD_CWIDTH_24_BIT_ONCE = (0x3 << 8),
 };
 
 /* smart lcd data width */
 enum smart_lcd_dwidth {
-	SMART_LCD_DWIDTH_18_BIT_ONCE_PARALLEL_SERIAL,
-	SMART_LCD_DWIDTH_16_BIT_ONCE_PARALLEL_SERIAL,
-	SMART_LCD_DWIDTH_8_BIT_THIRD_TIME_PARALLEL,
-	SMART_LCD_DWIDTH_8_BIT_TWICE_TIME_PARALLEL,
-	SMART_LCD_DWIDTH_8_BIT_ONCE_PARALLEL_SERIAL,
-	SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL,
-	SMART_LCD_DWIDTH_9_BIT_TWICE_TIME_PARALLEL = 7,
+	SMART_LCD_DWIDTH_18_BIT_ONCE_PARALLEL_SERIAL = (0 << 10),
+	SMART_LCD_DWIDTH_16_BIT_ONCE_PARALLEL_SERIAL = (0x1 << 10),
+	SMART_LCD_DWIDTH_8_BIT_THIRD_TIME_PARALLEL = (0x2 << 10),
+	SMART_LCD_DWIDTH_8_BIT_TWICE_TIME_PARALLEL = (0x3 << 10),
+	SMART_LCD_DWIDTH_8_BIT_ONCE_PARALLEL_SERIAL = (0x4 << 10),
+	SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL = (0x5 << 10),
+	SMART_LCD_DWIDTH_9_BIT_TWICE_TIME_PARALLEL = (0x7 << 10),
+};
+/**
+ * @reg: the register address
+ * @value: the value to be written
+ * @type: operation type, 0: write register, 1: write command, 2: write data
+ * @udelay: delay time in us
+ */
+struct smart_lcd_data_table {
+	uint32_t reg;
+	uint32_t value;
+	uint32_t type;
+	uint32_t udelay;
 };
 
 /**
@@ -244,6 +256,10 @@ enum smart_lcd_dwidth {
  * 1: Command_RS=1, Data_RS=0
  * @csply_active_high: smart lcd CS Polarity. 0: Active level is low,
  * 1: Active level is high
+ * @write_gram_cmd: write graphic ram command
+ * @bus_width: bus width in bit
+ * @length_data_table: array size of data_table
+ * @data_table: init data table
  * @dither_enable: enable dither function: 1, disable dither function: 0
  * when LCD'bpp is lower than 24, suggest to enable it
  * @dither_red: 0:8bit dither, 1:6bit dither, 2: 5bit dither, 3: 4bit dither
@@ -284,6 +300,11 @@ struct jzfb_platform_data {
 		unsigned clkply_active_rising:1;
 		unsigned rsply_cmd_high:1;
 		unsigned csply_active_high:1;
+
+		unsigned long write_gram_cmd;
+		unsigned bus_width;
+		size_t length_data_table;
+		struct smart_lcd_data_table *data_table;
 	} smart_config;
 
 	unsigned dither_enable:1;

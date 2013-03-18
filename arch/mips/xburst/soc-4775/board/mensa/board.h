@@ -21,6 +21,10 @@ extern struct jzfb_platform_data jzfb0_pdata;
 #ifdef CONFIG_FB_JZ4780_LCDC1
 extern struct jzfb_platform_data jzfb1_pdata;
 #endif
+/* panel and bl platform device */
+#ifdef CONFIG_LCD_KFM701A21_1A
+extern struct platform_device kfm701a21_1a_device;
+#endif
 
 /**
  * lcd gpio
