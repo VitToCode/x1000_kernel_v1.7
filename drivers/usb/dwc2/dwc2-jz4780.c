@@ -332,7 +332,6 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	if (gpio_request_one(jz4780->dete->num,
 				GPIOF_DIR_IN, "usb-charger-detect")) {
 		dev_err(&pdev->dev, "OTG detect pin is busy!\n");
-		goto err5;
 	} else {
 		int ret;
 
@@ -387,8 +386,6 @@ err7:
 
 err6:
 	gpio_free(jz4780->dete->num);
-
-err5:
 	regulator_put(jz4780->ucharger);
 
 err4:

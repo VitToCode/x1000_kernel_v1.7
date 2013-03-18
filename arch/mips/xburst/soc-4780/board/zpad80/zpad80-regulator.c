@@ -66,7 +66,7 @@ EXCLUSIVE_REGULATOR_DEF(
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
 	zpad80_vbus,
-	"OTG-Vbus",	5000000,	GPIO_PE(10),
+	"OTG-Vbus",	5000000,       -1,
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,	"vdrvvbus",	NULL);
 
