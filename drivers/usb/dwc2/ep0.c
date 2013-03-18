@@ -153,7 +153,7 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	doepmsk.d32 = dwc_readl(&dev_if->dev_global_regs->doepmsk);
 	doepint.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doepint) & doepmsk.d32;
 	if (unlikely(doepint.b.setup)) {
-		dev_err(dwc->dev, "%s: a setup packet is already pending\n", __func__);
+		DWC2_EP0_DEBUG_MSG("%s: a setup packet is already pending\n", __func__);
 		return;
 	}
 
@@ -1099,7 +1099,7 @@ static void dwc2_ep0_handle_in_interrupt(struct dwc2_ep *dep) {
 }
 #undef CLEAR_IN_EP0_INTR
 
-static void dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsiz, int rem_supcnt,
+static int dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsiz, int rem_supcnt,
 				int back2back, u32 setup_addr) {
 	struct usb_ctrlrequest	*ctrl_req;
 
@@ -1122,8 +1122,11 @@ static void dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsi
 		if (unlikely(rem_supcnt > 2)) {
 			int setup_idx = (setup_addr - dwc->ctrl_req_addr) / 8;
 			if ( (setup_idx < 0) || (setup_idx > 2) ) {
+#if 0
 				dwc2_ep0_dump_regs(dwc);
 				panic("=========>rem_supcnt > 2 when back2back is 0\n");
+#endif
+				return -EINVAL;
 			} else
 				rem_supcnt = 2 - setup_idx;
 		}
@@ -1146,6 +1149,8 @@ static void dwc2_ep0_get_ctrl_reqeust(struct dwc2 *dwc, deptsiz0_data_t *doeptsi
 			le16_to_cpu(dwc->ctrl_req.wValue),
 			le16_to_cpu(dwc->ctrl_req.wIndex),
 			le16_to_cpu(dwc->ctrl_req.wLength));
+
+	return 0;
 }
 
 #define CLEAR_OUT_EP0_INTR(__intr)					\
@@ -1185,10 +1190,11 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 
 	/* Setup Phase Done*/
 	if (doepint.b.setup || doepint.b.back2backsetup) {
-		deptsiz0_data_t		 doeptsiz;
-		int			 rem_supcnt;
-		int			 back2back;
-		u32			 setup_addr;
+		deptsiz0_data_t	doeptsiz;
+		int		rem_supcnt;
+		int		back2back;
+		u32		setup_addr;
+		int		retval = 0;
 
 		doeptsiz.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
 		setup_addr = dwc_readl(&dev_if->out_ep_regs[0]->doepdma) - 8;
@@ -1200,10 +1206,16 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 			CLEAR_OUT_EP0_INTR(back2backsetup);
 
 		doepint.b.setup = 0;
+		doepint.b.back2backsetup = 0;
 		dwc->setup_prepared = 0;
 
-		dwc2_ep0_get_ctrl_reqeust(dwc, &doeptsiz, rem_supcnt, back2back, setup_addr);
-		dwc2_ep0_xfer_complete(dwc, dep->is_in, 1);
+		retval = dwc2_ep0_get_ctrl_reqeust(dwc, &doeptsiz, rem_supcnt, back2back, setup_addr);
+		if (retval == 0) {
+			// Warning: do not call dwc2_ep0_out_start(dwc) here!
+			dwc2_ep0_xfer_complete(dwc, dep->is_in, 1);
+		} else {
+			dwc->do_reset_core = 1;
+		}
 	}
 
 	if (doepint.d32) {

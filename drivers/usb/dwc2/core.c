@@ -358,8 +358,9 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 		do {
 			gintsts.d32 = dwc_readl(&global_regs->gintsts);
 			if (++count > 10000) {
-				dev_warn(dwc->dev, "%s() HANG! GINTSTS=0x%08x\n",
-					__func__, gintsts.d32);
+				dev_warn(dwc->dev, "%s:%d HANG! GINTSTS=0x%08x\n",
+					__func__, __LINE__, gintsts.d32);
+				dwc->do_reset_core = 1;
 				break;
 			}
 
@@ -373,7 +374,7 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 	do {
 		greset.d32 = dwc_readl(&global_regs->grstctl);
 		if (++count > 100000) {
-			dev_warn(dwc->dev, "%s():%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
+			dev_warn(dwc->dev, "%s:%d HANG! GRSTCTL=0x%08x GNPTXSTS=0x%08x\n",
 				__func__, __LINE__,
 				greset.d32, dwc_readl(&global_regs->gnptxsts));
 			break;
@@ -386,8 +387,8 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 	do {
 		greset.d32 = dwc_readl(&global_regs->grstctl);
 		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
-				__func__, greset.d32);
+			dev_warn(dwc->dev, "%s:%d HANG! GRSTCTL=%0x\n",
+				__func__, __LINE__, greset.d32);
 			break;
 		}
 
@@ -401,8 +402,8 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 	do {
 		greset.d32 = dwc_readl(&global_regs->grstctl);
 		if (++count > 10000) {
-			dev_warn(dwc->dev, "%s() HANG! GRSTCTL=%0x\n",
-				__func__, greset.d32);
+			dev_warn(dwc->dev, "%s:%d HANG! GRSTCTL=%0x\n",
+				__func__, __LINE__, greset.d32);
 			break;
 		}
 
@@ -834,7 +835,11 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			__func__, gotgint.d32);
 
 	if (gotgint.b.sesenddet) {
-		dev_dbg(dwc->dev, "session end detected!\n");
+		depctl_data_t	doepctl = {.d32 = 0 };
+		u32		doepdma;
+		dctl_data_t	dctl;
+
+		dev_info(dwc->dev, "session end detected!\n");
 
 		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		DWC2_CORE_DEBUG_MSG("%s:%d gotgctl = 0x%08x op_state = %d\n",
@@ -867,6 +872,16 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		gotgctl.b.devhnpen = 0;
 		dwc_writel(gotgctl.d32, &global_regs->gotgctl);
+
+		doepctl.d32 = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl);
+		doepdma = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepdma);
+
+		if (doepctl.b.epena && (doepdma != dwc->ctrl_req_addr)) {
+			dwc->do_reset_core = 1;
+			//printk("====>doep0dma = 0x%08x\n", dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepdma));
+			//printk("====>doep0ctl = 0x%08x\n", dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl));
+			//printk("====>setup_prepared = %d\n", dwc->setup_prepared);
+		}
 	}
 
 	if (gotgint.b.sesreqsucstschng) {
@@ -1226,6 +1241,34 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 	// gpwrdn.d32 = dwc_readl(&dwc->core_global_regs->gpwrdn);
 }
 
+static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
+	dctl_data_t	dctl;
+
+	if (likely(!dwc->do_reset_core || !dwc2_is_device_mode(dwc)))
+		return 0;
+
+	dwc->do_reset_core = 0;
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.sftdiscon = 1;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	mdelay(1);
+
+	dwc2_core_init(dwc);
+	mdelay(1);
+	dwc->op_state = DWC2_B_PERIPHERAL;
+	dwc2_device_mode_init(dwc);
+
+	mdelay(1);
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	return 1;
+}
+
 static inline int dwc_lock(struct dwc2 *dwc)
 {
 	if (atomic_inc_return(&dwc->in_irq) == 1) {
@@ -1266,6 +1309,9 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 		return IRQ_HANDLED;
 	}
 
+	if (unlikely(dwc2_do_reset_device_core(dwc)))
+		goto out;
+
 	gintsts.d32 = dwc_readl(&global_regs->gintsts);
 	gintmsk.d32 = dwc_readl(&global_regs->gintmsk);
 	gintr_status.d32 = gintsts.d32 & gintmsk.d32;
@@ -1278,15 +1324,17 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 
 	if (dwc2_is_device_mode(dwc)) {
 		dwc2_handle_device_mode_interrupt(dwc, &gintr_status);
+		if (unlikely(dwc2_do_reset_device_core(dwc)))
+			goto out;
 	} else {
 		dwc2_handle_host_mode_interrupt(dwc, &gintr_status);
 	}
 
-	if (gintr_status.d32) {
+	if (unlikely(gintr_status.d32)) {
 		printk("===>unhandled interrupt! gintr_status = 0x%08x\n",
 			gintr_status.d32);
 	}
-
+out:
 	dwc_unlock(dwc);
 	spin_unlock(&dwc->lock);
 

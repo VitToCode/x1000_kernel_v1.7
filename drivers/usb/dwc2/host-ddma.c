@@ -109,7 +109,7 @@ static __attribute__((unused)) void dwc2_dump_urb(struct urb *urb, int dump_dir,
 static __attribute__((unused)) void dwc2_dump_host_regs(
 	int chan_start, int chan_end, const char *func, int line) {
 
-	u32 r0x014, r0x018;
+	u32 r0x004, r0x014, r0x018;
 	u32 r0x400, r0x404, r0x408, r0x40c;
 	u32 r0x410, r0x414, r0x418, r0x41c;
 	u32 r0x440;
@@ -122,6 +122,7 @@ static __attribute__((unused)) void dwc2_dump_host_regs(
 	int chan_num = 0;
 
 	/* read */
+	DWC_RR(0x004);
 	DWC_RR(0x014);
 	DWC_RR(0x018);
 	DWC_RR(0x400);
@@ -145,6 +146,7 @@ static __attribute__((unused)) void dwc2_dump_host_regs(
 
 	/* then print */
 	printk("======%s:%d channel%d=======\n", func, line, chan_num);
+	DWC_P(0x004);
 	DWC_P(0x014);
 	DWC_P(0x018);
 	DWC_P(0x400);

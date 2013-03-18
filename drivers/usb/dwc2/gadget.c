@@ -36,12 +36,20 @@ module_param(dwc2_gadget_debug_en, int, 0644);
 
 static __attribute__((unused)) void dwc2_dump_ep_regs(
 	struct dwc2 *dwc, int epnum, const char *func, int line) {
+
+	u32 r0x004, r0x014, r0x018;
 	u32 r0x800, r0x804, r0x808, r0x80c, r0x810, r0x814, r0x818, r0x81c;
 	u32 r0x900 = 0, r0x908 = 0, r0x910 = 0, r0x914 = 0, r0xb00 = 0, r0xb08 = 0, r0xb10 = 0, r0xb14 = 0;
 	u32 r0x920 = 0, r0x928 = 0, r0x930 = 0, r0x934 = 0, r0xb20 = 0, r0xb28 = 0, r0xb30 = 0, r0xb34 = 0;
 	u32 r0x940 = 0, r0x948 = 0, r0x950 = 0, r0x954 = 0, r0xb40 = 0, r0xb48 = 0, r0xb50 = 0, r0xb54 = 0;
 	u32 r0x960 = 0, r0x968 = 0, r0x970 = 0, r0x974 = 0, r0xb60 = 0, r0xb68 = 0, r0xb70 = 0, r0xb74 = 0;
 
+	if (likely(dwc2_gadget_debug_en == 0))
+		return;
+
+	DWC_RR(0x004);
+	DWC_RR(0x014);
+	DWC_RR(0x018);
 	DWC_RR(0x800);
 	DWC_RR(0x804);
 	DWC_RR(0x808);
@@ -98,14 +106,15 @@ static __attribute__((unused)) void dwc2_dump_ep_regs(
 		DWC_RR(0xb68);
 		DWC_RR(0xb70);
 		DWC_RR(0xb74);
-
-		if (epnum != -1)
-			break;
+		break;
 	default:
 		return;
 	}
 
 	printk("=====%s:%d ep%d regs=====\n", func, line, epnum);
+	DWC_P(0x004);
+	DWC_P(0x014);
+	DWC_P(0x018);
 	DWC_P(0x800);
 	DWC_P(0x804);
 	DWC_P(0x808);
@@ -162,13 +171,9 @@ static __attribute__((unused)) void dwc2_dump_ep_regs(
 		DWC_P(0xb68);
 		DWC_P(0xb70);
 		DWC_P(0xb74);
-
-		if (epnum != -1)
-			return;
 	default:
 		return;
 	}
-
 }
 
 static struct usb_endpoint_descriptor dwc2_gadget_ep0_desc = {
@@ -302,12 +307,6 @@ void dwc2_gadget_handle_session_end(struct dwc2 *dwc) {
 		dwc->gadget.b_hnp_enable = 0;
 		dwc->gadget.a_hnp_support = 0;
 		dwc->gadget.a_alt_hnp_support = 0;
-
-		/* prepared but not receive setup pkt last session */
-		if (dwc->setup_prepared) {
-			dwc->setup_prepared = 0;
-			dwc2_ep0_out_start(dwc);
-		}
 	}
 }
 
@@ -359,6 +358,10 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	int			 i	     = 0;
 	static int		 first_reset = 1;
 
+	if (dwc->setup_prepared == 0) {
+		dwc2_ep0_out_start(dwc);
+	}
+
 	dwc2_wait_1st_ctrl_request(dwc);
 
 	if (likely(!first_reset)) {
@@ -368,13 +371,9 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 
 	// dwc2_dump_ep_regs(dwc, 0, __func__, __LINE__);
 
-	// dwc2_core_init(dwc);
-	// dwc2_device_mode_init(dwc);
-
 	/* NOTE that at this point, ep0 is still not activated, see ENUM DONE */
 	dwc->ep0state = EP0_SETUP_PHASE;
 	dwc->dev_state = DWC2_DEFAULT_STATE;
-	dwc2_ep0_out_start(dwc);
 
 	/* only disable in ep here */
 	__dwc2_gadget_ep_disable(dwc->eps[dwc->dev_if.num_out_eps], 1);
@@ -667,10 +666,11 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 		gintsts.d32 = dwc_readl(&dwc->core_global_regs->gintsts);
 		timeout --;
 
-		if (timeout < 10) {
+		if (timeout == 0) {
 			dev_warn(dwc->dev, "%s:%d: gintsts = 0x%08x\n",
 				__func__, __LINE__, gintsts.d32);
-			// dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
+			dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
+			dwc->do_reset_core = 1;
 		}
 	} while ( (!gintsts.b.goutnakeff) && (timeout > 0));
 
@@ -734,9 +734,10 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 		doepint.d32 = dwc_readl(&dev_if->out_ep_regs[epnum]->doepint);
 		timeout --;
 
-		if (timeout < 1) {
+		if (timeout == 0) {
 			dev_warn(dwc->dev, "%s:%d: doepint[%d] = 0x%08x stall = %d\n",
 				__func__, __LINE__, epnum, doepint.d32, stall);
+			dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
 		}
 	} while ( (!doepint.b.epdisabled) && (timeout > 0));
 
@@ -848,9 +849,10 @@ static __attribute__((unused)) void dwc2_gadget_set_global_np_in_nak(struct dwc2
 		gintsts.d32 = dwc_readl(&dwc->core_global_regs->gintsts);
 		timeout --;
 
-		if (timeout < 10) {
+		if (timeout == 0) {
 			dev_warn(dwc->dev, "%s:%d: gintsts = 0x%08x\n",
 				__func__, __LINE__, gintsts.d32);
+			dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
 		}
 	} while ( (!gintsts.b.ginnakeff) && (timeout > 0));
 
@@ -888,9 +890,10 @@ static void dwc2_gadget_set_in_nak(struct dwc2 *dwc, int epnum) {
 		udelay(10);
 		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
-		if (timeout < 10) {
+		if (timeout == 0) {
 			dev_warn(dwc->dev, "%s:%d: diepint[%d] = 0x%08x\n",
 				__func__, __LINE__, epnum, diepint.d32);
+			dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
 		}
 	} while ( (!diepint.b.inepnakeff) && (timeout > 0));
 
@@ -940,9 +943,10 @@ static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
 		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
 
-		if (timeout < 10) {
+		if (timeout == 0) {
 			dev_warn(dwc->dev, "%s:%d: diepint[%d] = 0x%08x\n",
 				__func__, __LINE__, epnum, diepint.d32);
+			dwc2_dump_ep_regs(dwc, -1, __func__, __LINE__);
 		}
 	} while ( (!diepint.b.epdisabled) && (timeout > 0));
 
@@ -1846,6 +1850,7 @@ static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 		dev_err(dwc->dev, "errticerr! Perform a soft reset recover\n");
 		dwc2_core_init(dwc);
 		dwc2_device_mode_init(dwc);
+		dwc2_gadget_do_pullup(dwc);
 	}
 
 	/* Clear interrupt */
@@ -2087,8 +2092,8 @@ static void dwc2_out_ep_interrupt(struct dwc2_ep *dep) {
 static void dwc2_gadget_handle_out_ep_intr(struct dwc2 *dwc)
 {
 	uint32_t		 ep_intr;
-	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
-	int			 epnum	 = 0;
+	struct dwc2_dev_if	*dev_if	= &dwc->dev_if;
+	int			 epnum	= 0;
 	struct dwc2_ep		*dep;
 
 	/* Read in the device interrupt bits */

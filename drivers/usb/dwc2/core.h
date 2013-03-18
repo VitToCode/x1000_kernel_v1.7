@@ -387,6 +387,7 @@ struct dwc2 {
 	spinlock_t			 lock;
 	atomic_t			 in_irq;
 	int				 owner_cpu;
+	int				 do_reset_core;
 
 	struct usb_ctrlrequest		 ctrl_req;
 	struct usb_ctrlrequest		*ctrl_req_virt;
