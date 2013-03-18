@@ -185,7 +185,7 @@ static int ov2659_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s_front->cs.modes.effect = EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
 	s_front->cs.modes.antibanding = ANTIBANDING_50HZ | ANTIBANDING_60HZ ;
 
-	s_front->cs.modes.flash_mode = FLASH_MODE_OFF;
+	//s_front->cs.modes.flash_mode = FLASH_MODE_OFF;
 	s_front->cs.modes.scene_mode = SCENE_MODE_AUTO;
 	s_front->cs.modes.focus_mode = FOCUS_MODE_FIXED;
 	s_front->cs.modes.fps = FPS_MODE_25;//FPS_MODE_15 | FPS_MODE_20 |
