@@ -22,6 +22,7 @@ extern struct jzfb_platform_data jzfb1_pdata;
 /**
  * lcd platform device
  **/
+
 #ifdef CONFIG_LCD_KR070LA0S_270
 extern struct platform_device kr070la0s_270_device;
 #endif
@@ -29,7 +30,9 @@ extern struct platform_device kr070la0s_270_device;
 extern struct platform_device ek070tn93_device;
 #endif
 extern struct platform_device printer_backlight_device;
-
+#ifdef CONFIG_LCD_HSD070IDW1
+extern struct platform_device android_bl_device;
+#endif
 /**
  * sound platform data
  **/
