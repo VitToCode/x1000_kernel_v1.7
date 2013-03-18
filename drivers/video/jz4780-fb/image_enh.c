@@ -17,7 +17,8 @@
 #include "image_enh.h"
 
 #define LVDSCON 0x3CC
-
+static unsigned int lcdc_enh_status;
+static unsigned int lcdc_enh_csccfg_status;
 static void jzfb_set_gamma(struct fb_info *info, struct enh_gamma *gamma)
 {
 	struct jzfb *jzfb = info->par;
@@ -443,6 +444,30 @@ static void jzfb_enable_enh(struct fb_info *info,unsigned int value)
 	}
 }
 
+
+static int jzfb_reset_enh(struct fb_info *info)
+{
+	unsigned int tmp;
+	struct jzfb *jzfb = info->par;
+	lcdc_enh_status = reg_read(jzfb, LCDC_ENH_CFG);
+	lcdc_enh_csccfg_status = reg_read(jzfb,LCDC_ENH_CSCCFG);
+	tmp = 0;
+	tmp |= LCDC_ENH_CFG_ENH_EN | LCDC_ENH_CFG_RGB2YCC_EN | LCDC_ENH_CFG_YCC2RGB_EN;
+	reg_write(jzfb, LCDC_ENH_CFG, tmp);
+	tmp = 0;
+	tmp |= LCDC_ENH_CSCCFG_YCC2RGBMD_3 | LCDC_ENH_CSCCFG_RGB2YCCMD_2;
+	reg_write(jzfb, LCDC_ENH_CSCCFG, tmp);
+	return 0;
+}
+
+static int jzfb_recover_enh(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	reg_write(jzfb, LCDC_ENH_CFG, lcdc_enh_status);
+	reg_write(jzfb, LCDC_ENH_CSCCFG, lcdc_enh_csccfg_status);
+	return 0;
+}
+
 int jzfb_config_image_enh(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
@@ -577,6 +602,12 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 		} else {
 			jzfb_enable_enh(info,value);
 		}
+		break;
+	case JZFB_RESET_ENH:
+		jzfb_reset_enh(info);
+		break;
+	case JZFB_RECOVER_ENH:
+		jzfb_recover_enh(info);
 		break;
 	default:
 		dev_info(info->dev, "Unknown ioctl 0x%x\n", cmd);
