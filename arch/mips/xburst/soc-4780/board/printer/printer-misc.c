@@ -417,5 +417,40 @@ const char *get_board_type(void)
         return "printer";
 #endif
 }
-
 arch_initcall(printer_board_init);
+
+static struct delayed_work modem_work;
+static void init_modem(struct work_struct *work) {
+	gpio_direction_output(GPIO_PD(12), 0);
+	cancel_delayed_work(&modem_work);
+}
+
+static int __init printer_board_lateinit(void) {
+	printk(">>>>>>start init sew-290 modem\n");
+	if (!gpio_is_valid(GPIO_PB(29)))
+		printk("GPIO_PB(29) invaild.\n");
+	if (gpio_request(GPIO_PB(29), "modem_rst"))
+		printk("GPIO_PB(29) request failed.\n");
+	else
+		gpio_direction_output(GPIO_PB(29), 0);
+
+	if (!gpio_is_valid(GPIO_PE(8)))
+		printk("GPIO_PE(8) invaild.\n");
+	if(gpio_request(GPIO_PE(8), "modem_vcc"))
+		printk("GPIO_PE(8) request failed.\n");
+	else
+		gpio_direction_output(GPIO_PE(8), 1);
+
+	if (!gpio_is_valid(GPIO_PD(12)))
+		printk("GPIO_PD(12), is invaild.\n");
+	if(gpio_request(GPIO_PD(12), "modem_init"))
+		printk("GPIO_PD(12) request faild.\n");
+	else
+		gpio_direction_output(GPIO_PD(12), 1);
+
+	INIT_DELAYED_WORK(&modem_work, init_modem);
+	schedule_delayed_work(&modem_work, msecs_to_jiffies(5000));
+
+	return 0;
+}
+late_initcall(printer_board_lateinit);
