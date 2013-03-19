@@ -509,7 +509,7 @@ void smp_resume(struct early_suspend *h)
 
 static int __init init_smp_early_suspend(void)
 {
-	smp_early_suspend.level	  = EARLY_SUSPEND_LEVEL_DISABLE_CPU;
+	smp_early_suspend.level	  = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
 	smp_early_suspend.suspend = smp_suspend;
 	smp_early_suspend.resume  = smp_resume;
 	register_early_suspend(&smp_early_suspend);
