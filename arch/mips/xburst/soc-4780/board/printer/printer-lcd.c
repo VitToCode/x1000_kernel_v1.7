@@ -20,39 +20,25 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-#ifdef CONFIG_LCD_KR070LA0S_270
-#include <linux/kr070la0s_270.h>
-static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
-/* gpio had been hardware control */
-};
-
-/* LCD Panel Device */
-struct platform_device kr070la0s_270_device = {
-	.name		= "kr070la0s_270-lcd",
-	.dev		= {
-		.platform_data	= &kr070la0s_270_pdata,
-	},
-};
-#endif
-
-#ifdef CONFIG_LCD_EK070TN93
-#include <linux/ek070tn93.h>
-static struct platform_ek070tn93_data ek070tn93_pdata= {
-	.gpio_de = GPIO_PC(9),
-	.gpio_vs = GPIO_PC(19),
-	.gpio_hs = GPIO_PC(18),
-//	.gpio_reset = GPIO_PB(22),
-
-	.de_mode = 0,
-};
-
-/* LCD Panel Device */
-struct platform_device ek070tn93_device = {
-	.name		= "ek070tn93-lcd",
-	.dev		= {
-		.platform_data	= &ek070tn93_pdata,
-	},
-};
+#ifdef CONFIG_LCD_HSD070IDW1
+	#include <linux/android_bl.h>
+	static int bk_is_on = 1;
+	void bk_on(int on)
+	{
+		bk_is_on = on;
+	}
+	static struct android_bl_platform_data bl_pdata= {
+		.delay_before_bkon = 0,
+		.notify_on = bk_on,
+		.bootloader_unblank = 1
+	};
+	/* LCD Panel Device */
+	struct platform_device android_bl_device = {
+		.name		= "android-bl",
+		.dev		= {
+			.platform_data	= &bl_pdata,
+		},
+	};
 #endif
 
 #ifdef CONFIG_FB_JZ4780_LCDC0
@@ -83,6 +69,7 @@ struct jzfb_platform_data jzfb0_hdmi_pdata = {
 #ifdef CONFIG_FB_JZ4780_LCDC1
 /* LCD Controller 1 output to LVDS TFT panel */
 static struct fb_videomode jzfb1_videomode[] = {
+
 #ifdef CONFIG_LCD_HSD070IDW1
     {
         .name = "800x480",
@@ -90,14 +77,10 @@ static struct fb_videomode jzfb1_videomode[] = {
         .xres = 800,
         .yres = 480,
         .pixclock = KHZ2PICOS(33300),
-        //.left_margin = 40,
-        //.right_margin = 40,
-        //.upper_margin = 29,
-        //.lower_margin = 13,
-        .left_margin = 0,
-        .right_margin = 0,
-        .upper_margin = 0,
-        .lower_margin = 0,
+        .left_margin = 40,
+        .right_margin = 40,
+        .upper_margin = 29,
+        .lower_margin = 13,
         .hsync_len = 48,
         .vsync_len = 3,
         .sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
@@ -105,140 +88,13 @@ static struct fb_videomode jzfb1_videomode[] = {
         .flag = 0
     },
 #endif
-#ifdef CONFIG_LCD_KR070LA0S_270_65HZ // 65Hz@vpll=480MHz, 63Hz@vpll=888MHz
-	{
-		.name = "1024x600",
-		.refresh = 65,
-		.xres = 1024,
-		.yres = 600,
-		.pixclock = KHZ2PICOS(48000),
-		.left_margin = 171,
-		.right_margin = 0,
-		.upper_margin = 18,
-		.lower_margin = 0,
-		.hsync_len = 0,
-		.vsync_len = 0,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
-#endif
-
-#ifdef CONFIG_LCD_KR070LA0S_270 // 60Hz@vpll=888MHz
-	{
-		.name = "1024x600",
-		.refresh = 60,
-		.xres = 1024,
-		.yres = 600,
-		.pixclock = KHZ2PICOS(52240),
-		.left_margin = 336,
-		.right_margin = 0,
-		.upper_margin = 40,
-		.lower_margin = 0,
-		.hsync_len = 0,
-		.vsync_len = 0,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
-#endif
-
-#ifdef CONFIG_LCD_KR070LA0S_270_55HZ // 55Hz@vpll=888MHz
-	{
-		.name = "1024x600",
-		.refresh = 55,
-		.xres = 1024,
-		.yres = 600,
-		.pixclock = KHZ2PICOS(46800),
-		.left_margin = 320,
-		.right_margin = 0,
-		.upper_margin = 32,
-		.lower_margin = 0,
-		.hsync_len = 0,
-		.vsync_len = 0,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
-#endif
-
-#ifdef CONFIG_LCD_EK070TN93
-	{
-		.name = "800x480",
-		.refresh = 60,
-		.xres = 800,
-		.yres = 480,
-		.pixclock = KHZ2PICOS(33300),
-		.left_margin = 28,
-		.right_margin = 210,
-		.upper_margin = 15,
-		.lower_margin = 22,
-		.hsync_len = 18,
-		.vsync_len = 8,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
-#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
 	.num_modes = ARRAY_SIZE(jzfb1_videomode),
 	.modes = jzfb1_videomode,
+
 #ifdef CONFIG_LCD_HSD070IDW1
-    .lcd_type = LCD_TYPE_GENERIC_24_BIT,
-    .bpp = 24,
-    .width = 154,
-    .height = 86,
-    .pixclk_falling_edge = 0,
-    .date_enable_active_low = 0,
-    .alloc_vidmem = 1,
-    .lvds = 0,
-    .dither_enable = 0,
-#endif
-#ifdef CONFIG_LCD_KR070LA0S_270
-	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
-	.bpp = 24,
-	.width = 154,
-	.height = 90,
-
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
-
-	.lvds = 1,
-	.txctrl.data_format = VESA,
-	.txctrl.clk_edge_falling_7x = 0,
-	.txctrl.clk_edge_falling_1x = 1,
-	.txctrl.data_start_edge = START_EDGE_4,
-	.txctrl.operate_mode = LVDS_1X_CLKOUT,
-	.txctrl.edge_delay = DELAY_0_1NS,
-	.txctrl.output_amplitude = VOD_350MV,
-
-	.txpll0.ssc_enable = 0,
-	.txpll0.ssc_mode_center_spread = 0,
-	.txpll0.post_divider = POST_DIV_1,
-	.txpll0.feedback_divider = 70,
-	.txpll0.input_divider_bypass = 0,
-	.txpll0.input_divider = 10,
-
-	.txpll1.charge_pump = CHARGE_PUMP_10UA,
-	.txpll1.vco_gain = VCO_GAIN_150M_400M,
-	.txpll1.vco_biasing_current = VCO_BIASING_2_5UA,
-	.txpll1.sscn = 0,
-	.txpll1.ssc_counter = 0,
-
-	.txectrl.emphasis_level = 0,
-	.txectrl.emphasis_enable = 0,
-	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_1V,
-	.txectrl.phase_interpolator_bypass = 1,
-	.txectrl.fine_tuning_7x_clk = 0,
-	.txectrl.coarse_tuning_7x_clk = 0,
-
-	.dither_enable = 0,
-#endif
-#ifdef CONFIG_LCD_EK070TN93
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 154,
@@ -264,13 +120,19 @@ static void printer_backlight_exit(struct device *dev)
 {
 }
 
+static int printer_notify(struct device *dev, int brightness)
+{
+	return brightness * 60 / 100;
+}
+
 static struct platform_pwm_backlight_data printer_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
 	.pwm_period_ns	= 10000, /* 100 kHZ */
-	.init		= printer_backlight_init,
-	.exit		= printer_backlight_exit,
+	.init			= printer_backlight_init,
+	.exit			= printer_backlight_exit,
+	.notify			= printer_notify,
 };
 
 /* Backlight Device */
