@@ -1068,7 +1068,7 @@ static int i2s_global_init(struct platform_device *pdev)
 	i2s_endpoints.in_endpoint = i2s_pipe_in;
 
 	/* request aic clk */
-	i2s_clk = clk_get(&pdev->dev, "aic0");
+	i2s_clk = clk_get(&pdev->dev, "aic");
 	if (IS_ERR(i2s_clk)) {
 		dev_dbg(&pdev->dev, "aic clk_get failed\n");
 		goto __err_aic_clk;

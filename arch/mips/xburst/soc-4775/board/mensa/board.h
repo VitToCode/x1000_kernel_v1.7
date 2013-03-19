@@ -47,8 +47,8 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_HANDSET_EN		  -1		/*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL -1
 
-#define	GPIO_HP_DETECT		-1	/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL	-1
+#define	GPIO_HP_DETECT		GPIO_PA(17)	/*hp detect gpio*/
+#define GPIO_HP_INSERT_LEVEL    1	
 #define GPIO_MIC_SELECT		-1		/*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL	-1		/*builin mic select level*/
 #define GPIO_MIC_DETECT		-1
