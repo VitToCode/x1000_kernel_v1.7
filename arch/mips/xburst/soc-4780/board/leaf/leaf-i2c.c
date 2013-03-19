@@ -69,8 +69,8 @@ static struct jztsc_pin leaf_tsc_gpio[] = {
 
 static struct jztsc_platform_data leaf_tsc_pdata = {
 	.gpio		= leaf_tsc_gpio,
-	.x_max		= 1344,
-	.y_max		= 960,
+	.x_max		= 800,
+	.y_max		= 480,
 };
 #endif
 
@@ -84,7 +84,7 @@ static struct i2c_board_info leaf_i2c1_devs[] __initdata = {
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5X06
 	{
-		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
+		I2C_BOARD_INFO("ft5x06_tsc", 0x01),
 		.platform_data	= &leaf_tsc_pdata,
 	},
 #endif
