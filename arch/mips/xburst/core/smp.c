@@ -475,7 +475,27 @@ long switch_cpu_irq(int cpu) {
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND_CPU)
 static struct early_suspend smp_early_suspend;
+#ifdef CONFIG_DELAY_CPU_UP
+#define CPU_UP_DELAY 1500
+static struct delayed_work cpuup_work;
 
+static void cpuup_work_func(struct work_struct *work)
+{
+	enable_nonboot_cpus();
+}
+
+void smp_suspend(struct early_suspend *h)
+{
+	cancel_delayed_work_sync(&cpuup_work);
+	if (num_online_cpus() > 1)
+		disable_nonboot_cpus();
+}
+
+void smp_resume(struct early_suspend *h)
+{
+	schedule_delayed_work(&cpuup_work, msecs_to_jiffies(CPU_UP_DELAY));
+}
+#else
 void smp_suspend(struct early_suspend *h)
 {
 	disable_nonboot_cpus();
@@ -485,6 +505,7 @@ void smp_resume(struct early_suspend *h)
 {
 	enable_nonboot_cpus();
 }
+#endif
 
 static int __init init_smp_early_suspend(void)
 {
@@ -492,6 +513,10 @@ static int __init init_smp_early_suspend(void)
 	smp_early_suspend.suspend = smp_suspend;
 	smp_early_suspend.resume  = smp_resume;
 	register_early_suspend(&smp_early_suspend);
+
+#ifdef CONFIG_DELAY_CPU_UP
+	INIT_DELAYED_WORK(&cpuup_work, cpuup_work_func);
+#endif
 	return 0;
 }
 

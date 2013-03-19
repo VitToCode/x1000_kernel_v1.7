@@ -393,6 +393,14 @@ static noinline void reset_dll(void)
 	TCSM_PCHAR('0');
 	while(!((*(volatile unsigned *)0xb0000014) & (0x1<<4)))//wait pll stable
 		;
+
+	*(volatile unsigned *) 0xb00000d0 = 0x3;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY_0);
+	*(volatile unsigned *) 0xb00000d0 = 0x1;
+	i = *(volatile unsigned *) 0xb00000d0;
+	TCSM_DELAY(DELAY_0);
+	*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
 	TCSM_DELAY(DELAY_0);
 
 	TCSM_PCHAR('1');
@@ -408,6 +416,9 @@ static noinline void reset_dll(void)
 	i=*(volatile unsigned *)0xB3010008;
 	TCSM_PCHAR('4');
 	TCSM_DELAY(DELAY_2);
+
+	*(volatile unsigned int *)0xb301102c |= (1 << 4);
+
 	TCSM_PCHAR('5');
 	__jz_cache_init();
 	TCSM_PCHAR('6');
@@ -540,10 +551,6 @@ struct platform_suspend_ops pm_ops = {
 
 int __init jz4780_pm_init(void)
 {
-	/*
-	 * DON'T power down DLL
-	 */
-	*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
 	cpm_set_bit(2,CPM_OPCR);
 
 	suspend_set_ops(&pm_ops);
