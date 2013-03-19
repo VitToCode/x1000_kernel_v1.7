@@ -496,13 +496,19 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	system_InterruptDisable(TX_INT);
 	api_phy_enable(PHY_DISABLE_ALL);
 //	regulator_disable(jzhdmi->hdmi_power);
+
+	clk_disable(jzhdmi->hdmi_cgu_clk);
+	clk_disable(jzhdmi->hdmi_clk);
 }
 static void hdmi_late_resume(struct early_suspend *h)
 {
 	int api_mHpd = FALSE;
 	struct jzhdmi *jzhdmi;
-
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
+
+	clk_enable(jzhdmi->hdmi_clk);
+	clk_enable(jzhdmi->hdmi_cgu_clk);
+
 //	regulator_enable(jzhdmi->hdmi_power);
 	api_phy_enable(PHY_ENABLE_HPD);
 	jzhdmi->is_suspended = 0;
