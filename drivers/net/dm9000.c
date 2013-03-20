@@ -34,7 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
-
+#include <linux/gpio.h>
 #include <asm/delay.h>
 #include <asm/irq.h>
 #include <asm/io.h>
@@ -82,6 +82,10 @@ enum dm9000_type {
 	TYPE_DM9000A,
 	TYPE_DM9000B
 };
+struct dm9000_gpio{
+	int reset;
+	int irq;
+};
 
 /* Structure/enum declaration ------------------------------- */
 typedef struct board_info {
@@ -110,6 +114,7 @@ typedef struct board_info {
 	void (*outblk)(void __iomem *port, void *data, int length);
 	void (*dumpblk)(void __iomem *port, int length);
 
+	struct dm9000_gpio gpio;
 	struct device	*dev;	     /* parent device */
 
 	struct resource	*addr_res;   /* resources found */
@@ -1364,8 +1369,24 @@ dm9000_probe(struct platform_device *pdev)
 	/* setup board info structure */
 	db = netdev_priv(ndev);
 
+	db->gpio.reset = pdata->gpio[0];
+	db->gpio.irq = pdata->gpio[1];
+
 	db->dev = &pdev->dev;
 	db->ndev = ndev;
+        ret = gpio_request(db->gpio.reset,"dm9000_reset");
+	if(ret < 0){
+		printk("gpio requrest fail %d\n",db->gpio.reset);
+        }
+	gpio_direction_output(db->gpio.reset, 0);
+	msleep(10);
+	gpio_direction_output(db->gpio.reset, 1);
+	msleep(10);
+
+	ret = gpio_request(db->gpio.irq,"dm9000_irq");
+	if(ret < 0){
+		printk("gpio requrest fail %d\n",db->gpio.irq);
+        }
 
 	spin_lock_init(&db->lock);
 	mutex_init(&db->addr_lock);
@@ -1444,7 +1465,7 @@ dm9000_probe(struct platform_device *pdev)
 
 	/* fill in parameters for net-dev structure */
 	ndev->base_addr = (unsigned long)db->io_addr;
-	ndev->irq	= db->irq_res->start;
+	ndev->irq	= gpio_to_irq(db->gpio.irq);
 
 	/* ensure at least we have a default set of IO routines */
 	dm9000_set_io(db, iosize);

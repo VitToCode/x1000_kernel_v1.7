@@ -106,9 +106,8 @@
         { .name = "nand-cs4", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<24, }
 #define NAND_PORTA_CS5                                                      \
         { .name = "nand-cs5", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<25, }
-#define NAND_PORTA_CS6                                                      \
-        { .name = "nand-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<26, }
-
+#define NEMC_PORTA_CS6                                                      \
+        { .name = "nemc-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<26 | 0x1<<17 | 0x1<<16, }
 
 /*******************************************************************************************************************/
 #define DISABLE_LCD_PORTC							\
