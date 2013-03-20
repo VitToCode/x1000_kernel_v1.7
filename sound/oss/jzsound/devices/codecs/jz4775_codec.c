@@ -64,6 +64,11 @@ extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_cl
 
 static int g_codec_sleep_mode = 1;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+     static struct early_suspend early_suspend;                                                                                      
+#endif
+
+
 /*==============================================================*/
 /**
  * codec_sleep
@@ -376,6 +381,21 @@ static void dump_codec_gain_regs(void)
  *route part and attibute                                                              *
 \***************************************************************************************/
 /*=========================power on==========================*/
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void codec_early_suspend(struct early_suspend *handler)                                                                                               
+{
+     __codec_switch_sb_micbias(POWER_OFF);
+}
+static void codec_late_resume(struct early_suspend *handler)
+{
+     __codec_switch_sb_micbias(POWER_ON);
+}
+#endif
+
+
+
+
 static void codec_set_route_ready(int mode)
 {
 	DUMP_ROUTE_PART_REGS("enter");
@@ -3004,6 +3024,14 @@ static int __init init_codec(void)
 		return retval;
 	}
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	    early_suspend.suspend = codec_early_suspend;
+	    early_suspend.resume = codec_late_resume;
+	    early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	    register_early_suspend(&early_suspend);
+#endif
+
+
 	return 0;
 }
 
@@ -3013,6 +3041,9 @@ static int __init init_codec(void)
 static void __exit cleanup_codec(void)
 {
 	platform_driver_unregister(&jz_codec_driver);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    unregister_early_suspend(&early_suspend);                                                                                   
+#endif
 }
 arch_initcall(init_codec);
 module_exit(cleanup_codec);
