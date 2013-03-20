@@ -10,3 +10,4 @@ obj-$(CONFIG_GC0308_Q8)		+= gc0308_q8/
 obj-$(CONFIG_GC2015)		+= gc2015/
 obj-$(CONFIG_HI253)		+= hi253/
 obj-$(CONFIG_FAKE)		+= fake/
+obj-$(CONFIG_GT2005)              += gt2005/

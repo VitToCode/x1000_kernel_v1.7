@@ -71,3 +71,7 @@ config FAKE_NR
 	depends on FAKE
 	default 2
 
+config GT2005
+        bool "gt2005 camera sensor"
+        depends on JZ_CIM
+        default n
