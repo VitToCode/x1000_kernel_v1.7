@@ -37,7 +37,7 @@ IO_REGULATOR_DEF(
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
 VBUS_REGULATOR_DEF(
-	grus,	"OTG-Vbus");
+	grus,	"Vcc-5v");
 
 /**
  * Exclusive Regulators.
@@ -58,22 +58,15 @@ EXCLUSIVE_REGULATOR_DEF(
 	"G-sensor",
 	"vgsensor",	NULL,		3300000);
 
+EXCLUSIVE_REGULATOR_DEF(
+	grus_vcc5,
+	"Vcc-5v",
+	"vhdmi",	"jzhdmi",		3300000);
+
 /**
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-FIXED_REGULATOR_DEF(
-	grus_vcc5,
-	"Vcc-5V",	5000000,	GPIO_PA(17),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	NULL,		"vhdmi",	"jz-hdmi");
-
-FIXED_REGULATOR_DEF(
-	grus_vbus,
-	"OTG-Vbus",	5000000,	GPIO_PE(10),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	"Vcc-5V",	"vdrvvbus",	NULL);
-
 FIXED_REGULATOR_DEF(
 	grus_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
@@ -99,8 +92,6 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vmmc.0",	NULL);
 #endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-	&grus_vcc5_regulator_device,
-	&grus_vbus_regulator_device,
 	&grus_vcim_regulator_device,
 	&grus_vlcd_regulator_device,
 	&grus_vmmc_regulator_device,
@@ -116,6 +107,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info grus_pmu_regulators[] = {
 	{"OUT1", &grus_vcore_init_data},
 	{"OUT3", &grus_vccio_init_data},
+	{"OUT4", &grus_vcc5_init_data},
 	{"OUT6", &grus_vwifi_init_data},
 	{"OUT7", &grus_vtsc_init_data},
 	{"OUT8", &grus_vgsensor_init_data},

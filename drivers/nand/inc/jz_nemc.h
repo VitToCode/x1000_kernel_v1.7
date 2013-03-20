@@ -46,7 +46,6 @@ typedef struct nand_ctrl NAND_CTRL;
 #define GPIO_CS3_N (32*0+23)
 #define GPIO_CS4_N (32*0+24)
 #define GPIO_CS5_N (32*0+25)
-#define GPIO_CS6_N (32*0+26)
 
 #endif // GPIO_CS*_N
 

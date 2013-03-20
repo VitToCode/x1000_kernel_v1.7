@@ -16,13 +16,14 @@
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/android_pmem.h>
-
+#include <linux/interrupt.h>
+#include <linux/dm9000.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
-
+#include <linux/gpio.h>
 #include "grus.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
@@ -117,6 +118,57 @@ static struct platform_device jz_timed_gpio_device = {
 	},
 };
 
+#ifdef CONFIG_DM9000
+
+#define DM9000_ETH_RET GPIO_PF(18)
+#define DM9000_ETH_INT GPIO_PE(19)
+static struct resource dm9000_resource[] = {
+
+	[0] = {
+		.start = 0x16000000,//DM9000_BASE,
+		.end = 0x16000001,//DM9000_BASE+,
+		.flags = IORESOURCE_MEM,
+	},
+
+	[1] = {
+		.start = 0x16000002,//DM9000_BASE,
+		.end = 0x16000005,//DM9000_BASE +,
+		.flags = IORESOURCE_MEM,
+	},
+
+	[2] = {
+		.start = IRQ_GPIO_BASE + GPIO_PE(19),// gpio_to_irq(DM9000_ETH_INT),
+		.end   = IRQ_GPIO_BASE + GPIO_PE(19),//gpio_to_irq(DM9000_ETH_INT),
+		.flags = IORESOURCE_IRQ | IRQF_TRIGGER_RISING,
+	},
+
+
+};
+static int dm9000_eth_gpio[] = {
+	[0] =  DM9000_ETH_RET,
+	[1] =  DM9000_ETH_INT,
+};
+
+static struct dm9000_plat_data dm9000_platform_data = {
+
+	.gpio = dm9000_eth_gpio,
+
+	.flags = DM9000_PLATF_8BITONLY | DM9000_PLATF_NO_EEPROM,
+
+
+};
+
+static struct platform_device dm9000  = {
+	.name	= "dm9000",
+	.id	= 0,
+	.resource = dm9000_resource,
+	.num_resources = ARRAY_SIZE(dm9000_resource),
+	.dev	= {
+		.platform_data	= &dm9000_platform_data,
+	},
+};
+
+#endif
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data grus_battery_pdata = {
@@ -343,6 +395,11 @@ static int __init grus_board_init(void)
 #ifdef CONFIG_JZ_MAC
 	platform_device_register(&jz_mac);
 #endif
+
+#ifdef CONFIG_DM9000
+	platform_device_register(&dm9000);
+#endif
+
 /* nand */
 #ifdef CONFIG_NAND_JZ4780
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
