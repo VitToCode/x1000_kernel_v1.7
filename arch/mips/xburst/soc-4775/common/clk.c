@@ -94,7 +94,7 @@ enum {
 	CLK_ID_I2C2,
 #define CLK_NAME_I2C2		"i2c2"
 	CLK_ID_AIC,
-#define CLK_NAME_AIC		"aic"
+#define CLK_NAME_AIC		"aic0"
 	CLK_ID_X2D,
 #define CLK_NAME_X2D		"x2d"
 	CLK_ID_AHB_MON,
