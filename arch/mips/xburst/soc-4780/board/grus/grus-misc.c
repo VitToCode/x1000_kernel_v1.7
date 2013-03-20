@@ -121,13 +121,13 @@ static struct platform_device jz_timed_gpio_device = {
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data grus_battery_pdata = {
 	.info = {
-		.max_vol        = 4150,
+		.max_vol        = 4050,
 		.min_vol        = 3600,
-		.usb_max_vol    = 4190,
-		.usb_min_vol    = 3650,
-		.ac_max_vol     = 4240,
+		.usb_max_vol    = 4100,
+		.usb_min_vol    = 3760,
+		.ac_max_vol     = 4100,
 		.ac_min_vol     = 3760,
-		.battery_max_cpt = 3500,
+		.battery_max_cpt = 3000,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
 	},
@@ -196,7 +196,7 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
-#if defined(CONFIG_USB_DWC_OTG) && defined(GPIO_USB_DETE)
+#ifdef CONFIG_USB_DWC_OTG
 struct jzdwc_pin dete_pin = {
 	.num				= GPIO_USB_DETE,
 	.enable_level			= HIGH_ENABLE,
@@ -260,7 +260,7 @@ static int __init grus_board_init(void)
 #ifdef CONFIG_MMC2_JZ4780
 	jz_device_register(&jz_msc2_device, &grus_tf_pdata);
 #endif
-#else /* CONFIG_NAND_JZ4780 */
+#else
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &grus_tf_pdata);
 #endif
@@ -285,14 +285,14 @@ static int __init grus_board_init(void)
 	platform_device_register(&jz_gpu);
 #endif
 /* panel and bl */
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+	platform_device_register(&kd50g2_40nm_a2_device);
+#endif
 #ifdef CONFIG_LCD_KR070LA0S_270
 	platform_device_register(&kr070la0s_270_device);
 #endif
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
-#endif
-#ifdef CONFIG_LCD_PLATFORM
-	platform_device_register(&grus_lcd_device);
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&grus_backlight_device);
@@ -303,10 +303,6 @@ static int __init grus_board_init(void)
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
-#endif
-/* AOSD */
-#ifdef CONFIG_JZ4780_AOSD
-	platform_device_register(&jz_aosd_device);
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780

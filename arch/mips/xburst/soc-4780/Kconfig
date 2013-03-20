@@ -25,9 +25,6 @@ config BOARD_WARRIOR_V_1_1
 config BOARD_TROOPER
         bool "Trooper"
 
-config BOARD_CAPTAIN
-        bool "Captain"
-
 config BOARD_M80
         bool "M80"
 

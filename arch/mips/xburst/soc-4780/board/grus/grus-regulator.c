@@ -36,13 +36,9 @@ IO_REGULATOR_DEF(
  * USB VBUS Regulators.
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
-#ifdef CONFIG_BOARD_GRUS
-VBUS_REGULATOR_DEF(
-	grus,	"Vcc-5V");
-#else
 VBUS_REGULATOR_DEF(
 	grus,	"OTG-Vbus");
-#endif
+
 /**
  * Exclusive Regulators.
  * They are only used by one device each other.
@@ -62,21 +58,14 @@ EXCLUSIVE_REGULATOR_DEF(
 	"G-sensor",
 	"vgsensor",	NULL,		3300000);
 
-#ifdef CONFIG_BOARD_GRUS
-EXCLUSIVE_REGULATOR_DEF(
-	grus_vcc5,
-	"Vcc-5V",
-	"vhdmi",	"jz-hdmi",	3300000);
-#endif
 /**
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#ifndef CONFIG_BOARD_GRUS
 FIXED_REGULATOR_DEF(
 	grus_vcc5,
 	"Vcc-5V",	5000000,	GPIO_PA(17),
-	HIGH_ENABLE,	EN_AT_BOOT,	0,
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
 FIXED_REGULATOR_DEF(
@@ -84,7 +73,7 @@ FIXED_REGULATOR_DEF(
 	"OTG-Vbus",	5000000,	GPIO_PE(10),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
-#endif
+
 FIXED_REGULATOR_DEF(
 	grus_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
@@ -93,17 +82,28 @@ FIXED_REGULATOR_DEF(
 
 FIXED_REGULATOR_DEF(
 	grus_vlcd,
-	"LCD",		3300000,	GPIO_PB(23),
+	"LCD",		3300000,	GPIO_PE(9),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
-
+#ifndef CONFIG_NAND_JZ4780
+FIXED_REGULATOR_DEF(
+	grus_vmmc,
+	"TF",		3300000,	GPIO_PF(19),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vmmc.2",	NULL);
+#else
+FIXED_REGULATOR_DEF(
+	grus_vmmc,
+	"TF",		3300000,	GPIO_PF(19),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vmmc.0",	NULL);
+#endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-#ifndef CONFIG_BOARD_GRUS
 	&grus_vcc5_regulator_device,
 	&grus_vbus_regulator_device,
-#endif
 	&grus_vcim_regulator_device,
 	&grus_vlcd_regulator_device,
+	&grus_vmmc_regulator_device,
 };
 
 /*
@@ -116,25 +116,26 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info grus_pmu_regulators[] = {
 	{"OUT1", &grus_vcore_init_data},
 	{"OUT3", &grus_vccio_init_data},
-#ifdef CONFIG_BOARD_GRUS
-	{"OUT4", &grus_vcc5_init_data},
-#endif
 	{"OUT6", &grus_vwifi_init_data},
 	{"OUT7", &grus_vtsc_init_data},
 	{"OUT8", &grus_vgsensor_init_data},
 	{"VBUS", &grus_vbus_init_data},
 };
 
+//#if defined(CHARG_DETECT_EN)
 static struct charger_board_info charger_board_info = {
-	.gpio	= GPIO_PB(2),
+	.gpio	= -1,		//GPIO_PB(2),
 	.enable_level	= LOW_ENABLE,
 };
+//#endif
 
 static struct pmu_platform_data grus_pmu_pdata = {
 	.gpio = GPIO_PA(28),
 	.num_regulators = ARRAY_SIZE(grus_pmu_regulators),
 	.regulators = grus_pmu_regulators,
+//#if defined(CHARG_DETECT_EN)
 	.charger_board_info = &charger_board_info,
+//#endif
 };
 
 #define PMU_I2C_BUSNUM 1
