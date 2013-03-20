@@ -1,5 +1,5 @@
 
-obj-y += grus-misc.o grus-pm.o lcd.o #grus-lcd.o  
+obj-y += grus-misc.o grus-pm.o grus-lcd.o  
 
 obj-$(CONFIG_I2C)		+= grus-i2c.o
 obj-$(CONFIG_MFD_ACT8600)	+= grus-regulator.o

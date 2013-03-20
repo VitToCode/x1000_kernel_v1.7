@@ -8,10 +8,7 @@
 #include <mach/jzmmc.h>
 #include "grus.h"
 
-#define GPIO_WIFI_RST_N			GPIO_PD(9)	// rd4780_grus_board_v1.0 WL_WAKE -> rd4780_grus_debug_v1.0 WL_WAKE -> U9 IW8101 WL_GPIO_HOST_WAKE
-#define GPIO_WIFI_PW_EN			GPIO_PD(8)	// rd4780_grus_board_v1.0 WL_PW_EN -> rd4780_grus_debug_v1.0 WLAN_PW_EN 
-
-static int wlan_pw_en;
+#define GPIO_WIFI_RST_N			GPIO_PF(7)
 
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
@@ -22,7 +19,6 @@ static int wlan_pw_en;
 static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
-
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info grus_inand_partition_info[] = {
@@ -49,7 +45,7 @@ struct jzmmc_platform_data grus_inand_pdata = {
 	.removal  			= DONTCARE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
 	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 	.recovery_info			= &grus_inand_recovery_info,
 	.gpio				= NULL,
@@ -62,6 +58,11 @@ struct jzmmc_platform_data grus_inand_pdata = {
 };
 #endif
 #ifdef CONFIG_MMC2_JZ4780
+/*
+ * WARING:
+ * If a GPIO is not used or undefined, it must be set -1,
+ * or PA0 will be request.
+ */
 static struct card_gpio grus_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
 	.wp				= {-1,			-1},
@@ -76,7 +77,7 @@ struct jzmmc_platform_data grus_tf_pdata = {
 	.max_freq			= CONFIG_MMC2_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= &grus_tf_gpio,
-#ifdef CONFIG_MMC2_PIO_MODE
+#ifdef CONFIG_MMC0_PIO_MODE
 	.pio_mode			= 1,
 #else
 	.pio_mode			= 0,
@@ -84,7 +85,7 @@ struct jzmmc_platform_data grus_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#else	/* CONFIG_NAND_JZ4780 */
+#else
 #ifdef CONFIG_MMC0_JZ4780
 /*
  * WARING:
@@ -113,23 +114,9 @@ struct jzmmc_platform_data grus_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#endif /* CONFIG_NAND_JZ4780 */
-
-#ifdef CONFIG_MMC1_JZ4780
-#ifdef CONFIG_MMC1_JZ4780_PE_4BIT
-static struct card_gpio grus_sdio_gpio = {
-	.cd				= {GPIO_PF(20),		LOW_ENABLE},
-	.wp				= {-1,			-1},
-	.pwr				= {GPIO_PF(19),		LOW_ENABLE},
-};
-#else
-static struct card_gpio grus_sdio_gpio = {
-	.cd				= {-1,		-1},
-	.wp				= {-1,		-1},
-	.pwr				= {-1,		-1},
-};
 #endif
 
+#ifdef CONFIG_MMC1_JZ4780
 struct jzmmc_platform_data grus_sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
@@ -137,7 +124,7 @@ struct jzmmc_platform_data grus_sdio_pdata = {
 	.capacity  			= MMC_CAP_4_BIT_DATA,
 	.max_freq			= CONFIG_MMC1_MAX_FREQ,
 	.recovery_info			= NULL,
-	.gpio				= &grus_sdio_gpio,
+	.gpio				= NULL,
 #ifdef CONFIG_MMC1_PIO_MODE
 	.pio_mode			= 1,
 #else
@@ -147,6 +134,7 @@ struct jzmmc_platform_data grus_sdio_pdata = {
 };
 #endif
 
+#if 0
 #define PXPIN		0x00   /* PIN Level Register */
 #define PXINT		0x10   /* Port Interrupt Register */
 #define PXINTS		0x14   /* Port Interrupt Set Register */
@@ -171,6 +159,7 @@ struct jzmmc_platform_data grus_sdio_pdata = {
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 
 static unsigned int gpio_bakup[4];
+#endif
 
 int iw8101_wlan_init(void)
 {
@@ -178,6 +167,7 @@ int iw8101_wlan_init(void)
 	struct regulator *power;
 	int reset;
 
+#if 0
 	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -186,6 +176,7 @@ int iw8101_wlan_init(void)
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
+#endif
 
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
@@ -205,16 +196,6 @@ int iw8101_wlan_init(void)
 	}
 	 iw8101_data.wifi_reset = reset;
 
-	wlan_pw_en = GPIO_WIFI_PW_EN;
-	if (gpio_request(GPIO_WIFI_PW_EN, "wlan_pw_en")) {
-		pr_err("no wlan_pw_en pin available\n");
-		regulator_put(power);
-
-		return -EINVAL;
-	} else {
-		gpio_direction_output(wlan_pw_en , 1);
-	}
-
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
 
 	return 0;
@@ -232,14 +213,13 @@ int IW8101_wlan_power_on(int flag)
 		pr_warn("%s: invalid power\n", __func__);
 	else if (!gpio_is_valid(reset))
 		pr_warn("%s: invalid reset\n", __func__);
-	else if (!gpio_is_valid(wlan_pw_en))
-		pr_warn("%s: invalid pw_en\n", __func__);
 	else
 		goto start;
 	return -ENODEV;
 start:
-	pr_debug("wlan power on:%d\n", flag);
+	pr_info("wlan power on:%d\n", flag);
 
+#if 0
 	writel(gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTS));
 	writel(~gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKS));
@@ -248,6 +228,7 @@ start:
 	writel(~gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1C));
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
+#endif
 
 	jzrtc_enable_clk32k();
 	msleep(200);
@@ -255,8 +236,6 @@ start:
 	switch(flag) {
 		case RESET:
 			regulator_enable(power);
-			gpio_set_value(wlan_pw_en, 1);
-
 			jzmmc_clk_ctrl(1, 1);
 
 			gpio_set_value(reset, 0);
@@ -269,15 +248,14 @@ start:
 
 		case NORMAL:
 			regulator_enable(power);
-			gpio_set_value(wlan_pw_en, 1);
-
+//	while(1);
+	
 			gpio_set_value(reset, 0);
 			msleep(200);
 
 			gpio_set_value(reset, 1);
 
 			msleep(200);
-
 			jzmmc_manual_detect(1, 1);
 
 			break;
@@ -299,8 +277,6 @@ int IW8101_wlan_power_off(int flag)
 		pr_warn("%s: invalid power\n", __func__);
 	else if (!gpio_is_valid(reset))
 		pr_warn("%s: invalid reset\n", __func__);
-	else if (!gpio_is_valid(wlan_pw_en))
-		pr_warn("%s: invalid pw_en\n", __func__);
 	else
 		goto start;
 	return -ENODEV;
@@ -310,7 +286,6 @@ start:
 		case RESET:
 			gpio_set_value(reset, 0);
 
-			gpio_set_value(wlan_pw_en, 0);
 			regulator_disable(power);
 			jzmmc_clk_ctrl(1, 0);
 			break;
@@ -318,7 +293,6 @@ start:
 		case NORMAL:
 			gpio_set_value(reset, 0);
 
-			gpio_set_value(wlan_pw_en, 0);
 			regulator_disable(power);
 
  			jzmmc_manual_detect(1, 0);
@@ -329,6 +303,7 @@ start:
 
 	jzrtc_disable_clk32k();
 
+#if 0
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = (unsigned int)readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -337,6 +312,7 @@ start:
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
+#endif
 
 	return 0;
 }

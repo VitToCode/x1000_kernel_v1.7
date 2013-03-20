@@ -63,33 +63,25 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
 static struct jztsc_pin grus_tsc_gpio[] = {
-	[0] = {GPIO_CTP_IRQ,		LOW_ENABLE},
+	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
 };
 
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct jztsc_platform_data grus_tsc_pdata = {
 	.gpio		= grus_tsc_gpio,
 	.x_max		= 800,
-	.y_max		= 480,
+	.y_max		= 480,	
 };
-#endif
 
-#if ((defined(CONFIG_I2C0_JZ4780) || defined(CONFIG_I2C_GPIO)) && (defined(CONFIG_TOUCHSCREEN_GWTC9XXXB) || defined(CONFIG_TOUCHSCREEN_FT5X06)))
-static struct i2c_board_info grus_i2c0_devs[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-	{
-		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-		.platform_data	= &grus_tsc_pdata,
-	},
-#endif
-#ifdef CONFIG_TOUCHSCREEN_FT5X06
-	{
-		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
-		.platform_data	= &grus_tsc_pdata,
-	},
-#endif
+#else
+static struct jztsc_platform_data grus_tsc_pdata = {
+	.gpio		= grus_tsc_gpio,
+	.x_max		= 1024,
+	.y_max		= 600,
 };
-#endif	/*I2C0*/
+#endif
+#endif
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info grus_i2c1_devs[] __initdata = {
@@ -108,28 +100,22 @@ static struct i2c_board_info grus_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_JZ_CIM))
-struct cam_sensor_plat_data {
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+struct sp0838_platform_data {
 	int facing;
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
-	int cap_wait_frame;    /* filter n frames when capture image */
 };
-
-#ifdef CONFIG_SP0838
-static struct cam_sensor_plat_data sp0838_pdata = {
+static struct sp0838_platform_data sp0838_pdata = {
 	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_SP0838_EN,
 	.gpio_rst = GPIO_SP0838_RST,
-	.cap_wait_frame = 6,
 };
-#endif
-
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
@@ -143,6 +129,7 @@ static struct i2c_board_info grus_i2c2_devs[] __initdata = {
 };
 #endif	/*I2C2*/
 
+/*
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info grus_i2c3_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_LDWZIC
@@ -157,8 +144,39 @@ static struct i2c_board_info grus_i2c3_devs[] __initdata = {
 		.platform_data	= &grus_tsc_pdata,
 	},
 #endif
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
+	{
+		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
+		.platform_data = &grus_tsc_pdata,
+	},
+#endif
 };
-#endif /*I2C3*/
+#endif *//*I2C3*/
+
+
+#if (defined(CONFIG_I2C0_JZ4780) || defined(CONFIG_I2C_GPIO))
+static struct i2c_board_info grus_i2c0_devs[] __initdata = {
+#ifdef CONFIG_TOUCHSCREEN_LDWZIC
+	{
+		I2C_BOARD_INFO("ldwzic_ts", 0x01),
+		.platform_data	= &grus_tsc_pdata,
+	},
+#endif
+#ifdef CONFIG_TOUCHSCREEN_FT5X06
+	{
+		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
+		.platform_data	= &grus_tsc_pdata,
+	},
+#endif
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
+	{
+		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
+//		I2C_BOARD_INFO("touchscreen", 0x05),
+		.platform_data = &grus_tsc_pdata,
+	},
+#endif
+};
+#endif /*I2C0*/
 
 /*define gpio i2c,if you use gpio i2c,please enable gpio i2c and disable i2c controller*/
 #ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
@@ -185,10 +203,12 @@ DEF_GPIO_I2C(1,GPIO_PE(30),GPIO_PE(31));
 DEF_GPIO_I2C(2,GPIO_PF(16),GPIO_PF(17));
 #endif
 #ifndef CONFIG_I2C3_JZ4780
-DEF_GPIO_I2C(3,GPIO_PD(10),GPIO_PD(11));
+//DEF_GPIO_I2C(3,GPIO_PD(10),GPIO_PD(11));
+DEF_GPIO_I2C(3, -1, -1);
 #endif
 #ifndef CONFIG_I2C4_JZ4780
-DEF_GPIO_I2C(4,GPIO_PE(3),GPIO_PE(4));
+//DEF_GPIO_I2C(4,GPIO_PE(3),GPIO_PE(4));
+DEF_GPIO_I2C(4, -1, -1);
 #endif
 
 #endif /*CONFIG_I2C_GPIO*/
@@ -227,10 +247,11 @@ static int __init grus_i2c_dev_init(void)
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 	i2c_register_board_info(2, grus_i2c2_devs, ARRAY_SIZE(grus_i2c2_devs));
 #endif
-
+/*
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(3, grus_i2c3_devs, ARRAY_SIZE(grus_i2c3_devs));
 #endif
+*/
 	return 0;
 }
 

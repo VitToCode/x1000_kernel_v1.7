@@ -145,7 +145,7 @@ char *abrt_src[] = {
 #define I2C_FIFO_LEN 16
 #define TX_LEVEL 8
 #define RX_LEVEL 7
-#define TIMEOUT	0xff
+#define TIMEOUT	0x64
 
 #define BUFSIZE 200
 

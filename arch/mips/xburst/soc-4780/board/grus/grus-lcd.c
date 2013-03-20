@@ -20,27 +20,6 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-static void grus_lcd_power_on(struct plat_lcd_data *pd, unsigned int power)
-{
-	int gpio = 32 * 3 + 11;
-	
-	gpio_request(gpio, "grus_lcd");
-	gpio_direction_output(gpio, power);
-	gpio_free(gpio);
-}
-
-static struct plat_lcd_data grus_lcd_platform_data = {
-	.set_power	= grus_lcd_power_on,
-};
-
-static struct platform_device grus_lcd_device = {
-	.name			= "platform-lcd",
-	.id			= -1,
-	.dev			= {
-		.platform_data	= &grus_lcd_platform_data,
-	},
-};
-
 #ifdef CONFIG_LCD_KR070LA0S_270
 #include <linux/kr070la0s_270.h>
 static struct platform_kr070la0s_270_data kr070la0s_270_pdata= {
@@ -72,6 +51,24 @@ struct platform_device ek070tn93_device = {
 	.name		= "ek070tn93-lcd",
 	.dev		= {
 		.platform_data	= &ek070tn93_pdata,
+	},
+};
+#endif
+
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+#include <linux/kd50g2_40nm_a2.h>
+static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
+	.gpio_lcd_disp = GPIO_PD(11),
+	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
+	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
+};
+
+/* LCD device */
+struct platform_device kd50g2_40nm_a2_device = {
+	.name		= "kd50g2_40nm_a2-lcd",
+	.dev		= {
+		.platform_data = &kd50g2_40nm_a2_pdata,	
 	},
 };
 #endif
@@ -118,6 +115,25 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.lower_margin = 0,
 		.hsync_len = 0,
 		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_LCD_KD50G2_40NM_A2 // 60Hz@vpll=888MHz
+	{
+		.name = "800x480",
+		.refresh = 60,
+		.xres = 800,
+		.yres = 480,
+		.pixclock = KHZ2PICOS(33260),
+		.left_margin = 88,
+		.right_margin = 40,
+		.upper_margin = 33,
+		.lower_margin = 10,
+		.hsync_len = 128,
+		.vsync_len = 2,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
 		.flag = 0
@@ -233,6 +249,19 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.bpp = 24,
 	.width = 154,
 	.height = 86,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 108,
+	.height = 65,
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,
