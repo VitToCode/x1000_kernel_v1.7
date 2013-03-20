@@ -1,18 +1,11 @@
 #include "nandmanagerinterface.h"
 #include "nm_interface.h"
 #include "blocklist.h"
-
+#include "os/NandAlloc.h"
 #include <linux/vmalloc.h>
+#include <linux/slab.h>
 #include <linux/err.h>
 
-/*
-static struct __nm_lock_tab {
-	struct mutex rdlock;	// data read lock
-	struct mutex wrlock;	// data write lock
-	struct mutex eslock;	// block erase lock
-	struct mutex mklock;	// block mark lock
-};
-*/
 
 typedef struct __nm_intf {
 	int handler;	   		/* nand manager handler */
@@ -20,6 +13,7 @@ typedef struct __nm_intf {
 	int is_scaned;
 	NM_lpt *lptl;			/* lpartition list head */
 	NM_ppt *pptl;			/* ppartition list head */
+	void *heap;
 	int (*ndPtInstall)(char *);
 	//struct __nm_lock_tab lock;
 } NM_intf;
@@ -365,19 +359,13 @@ int NM_open(void)
 			printk("ERROR: %s, Can't alloc memory for nm_interface!\n", __func__);
 			return 0;
 		}
-
+		nm_intf->heap = (void*)kmalloc(3 * 1024 * 1024 / 2,GFP_KERNEL);
+		Nand_MemoryInit(nm_intf->heap,3 * 1024 * 1024 / 2,0);
 		nm_intf->handler = NandManger_Init();
 		if (!nm_intf->handler) {
 			printk("ERROR: %s, Init NandManger faild!\n", __func__);
 			return 0;
 		}
-
-		/*
-		mutex_init(&nm_intf->lock.rdlock);
-		mutex_init(&nm_intf->lock.wrlock);
-		mutex_init(&nm_intf->lock.eslock);
-		mutex_init(&nm_intf->lock.mklock);
-		*/
 	}
 
 	nm_intf->refcnt++;
@@ -409,6 +397,8 @@ void NM_close(int handler)
 		if (nm_intf->pptl)
 			vfree(nm_intf->pptl);
 		NandManger_DeInit(nm_intf->handler);
+		Nand_MemoryDeinit();
+		kfree(nm_intf->heap);
 		vfree(nm_intf);
 		nm_intf = NULL;
 	}
