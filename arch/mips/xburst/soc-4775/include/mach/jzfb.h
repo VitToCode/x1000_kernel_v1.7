@@ -295,7 +295,7 @@ struct jzfb_platform_data {
 	struct {
 		enum smart_lcd_type smart_type;
 		enum smart_lcd_cwidth cmd_width;
-		enum smart_lcd_cwidth data_width;
+		enum smart_lcd_dwidth data_width;
 
 		unsigned clkply_active_rising:1;
 		unsigned rsply_cmd_high:1;

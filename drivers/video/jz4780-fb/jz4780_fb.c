@@ -1281,15 +1281,14 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	}
 
 	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
-		void *vidmem;
 		int i;
 		unsigned long cmd[2], *ptr;
 
-		vidmem = dma_alloc_coherent(jzfb->dev, PAGE_SIZE,
+		jzfb->desc_cmd_vidmem = dma_alloc_coherent(jzfb->dev, PAGE_SIZE,
 					    &jzfb->desc_cmd_phys, GFP_KERNEL);
-		SetPageReserved(virt_to_page(vidmem));
+		SetPageReserved(virt_to_page(jzfb->desc_cmd_vidmem));
 
-		ptr = (unsigned long *)vidmem;
+		ptr = (unsigned long *)jzfb->desc_cmd_vidmem;
 		cmd[0] = jzfb->pdata->smart_config.write_gram_cmd;
 		switch (jzfb->pdata->smart_config.bus_width) {
 		case 18:
@@ -1328,6 +1327,10 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 			  jzfb->vidmem, jzfb->vidmem_phys);
 	dma_free_coherent(jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 			  jzfb->framedesc, jzfb->framedesc_phys);
+	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+		dma_free_coherent(jzfb->dev, PAGE_SIZE,
+				  jzfb->desc_cmd_vidmem, jzfb->desc_cmd_phys);
+	}
 }
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
@@ -2231,7 +2234,7 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 		/* update display */
 		unsigned long tmp;
 		tmp = reg_read(jzfb, SLCDC_CTRL);
-		tmp |= SLCDC_CTRL_DMA_START;
+		tmp |= SLCDC_CTRL_DMA_MODE | SLCDC_CTRL_DMA_START;
 		reg_write(jzfb, SLCDC_CTRL, tmp);
 	}
 }

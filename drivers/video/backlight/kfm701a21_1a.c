@@ -25,6 +25,7 @@
 
 struct kfm701a21_1a_data {
 	int lcd_power;
+	int reset_enable;
 	struct lcd_device *lcd;
 	struct platform_kfm701a21_1a_data *pdata;
 	struct regulator *lcd_vcc_reg;
@@ -33,27 +34,29 @@ struct kfm701a21_1a_data {
 static void kfm701a21_1a_on(struct kfm701a21_1a_data *dev)
 {
         dev->lcd_power = 1;
-	//regulator_enable(dev->lcd_vcc_reg);
+	regulator_enable(dev->lcd_vcc_reg);
+
 
 	if (dev->pdata->gpio_lcd_cs) {
 		gpio_direction_output(dev->pdata->gpio_lcd_cs, 0);
-		mdelay(100);
+		mdelay(20);
 	}
-	if (dev->pdata->gpio_lcd_reset) {
-		gpio_direction_output(dev->pdata->gpio_lcd_reset, 1);
-		mdelay(10);
-		gpio_direction_output(dev->pdata->gpio_lcd_reset, 0);
-		mdelay(10);
-		gpio_direction_output(dev->pdata->gpio_lcd_reset, 1);
+	if (dev->reset_enable) {
+		if (dev->pdata->gpio_lcd_reset) {
+			gpio_direction_output(dev->pdata->gpio_lcd_reset, 1);
+			mdelay(10);
+			gpio_direction_output(dev->pdata->gpio_lcd_reset, 0);
+			mdelay(10);
+			gpio_direction_output(dev->pdata->gpio_lcd_reset, 1);
+		}
+		mdelay(120);
 	}
-
-	mdelay(100);
 }
 
 static void kfm701a21_1a_off(struct kfm701a21_1a_data *dev)
 {
         dev->lcd_power = 0;
-	//regulator_disable(dev->lcd_vcc_reg);
+	regulator_disable(dev->lcd_vcc_reg);
 
 	mdelay(30);
 }
@@ -111,6 +114,12 @@ static int __devinit kfm701a21_1a_probe(struct platform_device *pdev)
 		gpio_request(dev->pdata->gpio_lcd_cs, "display_on_off");
 	if (dev->pdata->gpio_lcd_reset)
 		gpio_request(dev->pdata->gpio_lcd_reset, "lcd_reset");
+
+#ifdef CONFIG_LCD_PANEL_RESET_ENABLE
+	dev->reset_enable = 1;
+#else
+	dev->reset_enable = 0;
+#endif
 
 	kfm701a21_1a_on(dev);
 

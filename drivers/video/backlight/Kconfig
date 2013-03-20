@@ -86,6 +86,13 @@ config LCD_PLATFORM
 	  This driver provides a platform-device registered LCD power
 	  control interface.
 
+config LCD_PANEL_RESET_ENABLE
+	bool "LCD panel reset enable"
+	default n
+	help
+	  This option provides a software reset control interface for the panel.
+	  Don't choose it, if you need to continue display logo when boot.
+
 config LCD_TOSA
 	tristate "Sharp SL-6000 LCD Driver"
 	depends on SPI && MACH_TOSA

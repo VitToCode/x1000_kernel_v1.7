@@ -105,6 +105,7 @@ struct jzfb {
 	size_t vidmem_size;
 	void *vidmem;
 	dma_addr_t vidmem_phys;
+	void *desc_cmd_vidmem;
 	dma_addr_t desc_cmd_phys;
 
 	int frm_size;
