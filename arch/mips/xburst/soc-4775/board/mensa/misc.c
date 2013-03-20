@@ -142,10 +142,13 @@ static int __init board_init(void)
 
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4775
-	jz_device_register(&jz_msc0_device, &tf_pdata);
+	jz_device_register(&jz_msc0_device, &inand_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4775
 	jz_device_register(&jz_msc1_device, &sdio_pdata);
+#endif
+#ifdef CONFIG_MMC2_JZ4775
+	jz_device_register(&jz_msc2_device, &tf_pdata);
 #endif
 
 /* sound */
@@ -268,7 +271,11 @@ static int __init board_init(void)
  */
 const char *get_board_type(void)
 {
-	return CONFIG_BOARD_NAME;
+#if defined(CONFIG_NAND)
+	return "mensa";
+#else
+	return "mensa_msc";
+#endif
 }
 
 arch_initcall(board_init);

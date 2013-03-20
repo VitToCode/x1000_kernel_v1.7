@@ -12,6 +12,7 @@
 #define GPIO_SD0_VCC_EN_N	GPIO_PB(3)
 #define GPIO_SD0_CD_N		GPIO_PB(2)
 
+extern struct jzmmc_platform_data inand_pdata;
 extern struct jzmmc_platform_data tf_pdata;
 extern struct jzmmc_platform_data sdio_pdata;
 
