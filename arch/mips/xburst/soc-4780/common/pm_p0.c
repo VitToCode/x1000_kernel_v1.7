@@ -36,6 +36,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <soc/cache.h>
+#include <soc/extal.h>
 #include <soc/base.h>
 #include <soc/tcu.h>
 #include <soc/cpm.h>
