@@ -1234,10 +1234,12 @@ static int jz_get_hp_switch_state(void)
 {
 	int value = 0;
 	int ret = 0;
-	ret = cur_codec->codec_ctl(CODEC_GET_HP_STATE, (unsigned long)&value);
-	if (ret < 0) {
-		return 0;
-	}
+    if (cur_codec && cur_codec->codec_ctl) {
+        ret = cur_codec->codec_ctl(CODEC_GET_HP_STATE, (unsigned long)&value);
+        if (ret < 0) {
+            return 0;
+        }
+    }
 	return value;
 }
 
