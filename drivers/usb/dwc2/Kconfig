@@ -10,6 +10,28 @@ config USB_DWC2
 
 if USB_DWC2
 
+choice
+	prompt "Driver Mode"
+	help
+	  Select Driver Mode
+
+config USB_DWC2_DUAL_ROLE
+	bool "Both Host and Device"
+	help
+	  Say Y here to enable both Host and Device function
+
+config USB_DWC2_HOST_ONLY
+	bool "Host Mode Only"
+	help
+	  Say Y here to enable Host function only
+
+config USB_DWC2_DEVICE_ONLY
+	bool "Device Mode Only"
+	help
+	  Say Y Here to enable Device function only
+
+endchoice
+
 config USB_DWC2_DEBUG
 	bool "Enable Debugging(dev_dbg) Messages"
 	help

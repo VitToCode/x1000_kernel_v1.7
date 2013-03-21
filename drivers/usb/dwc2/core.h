@@ -12,6 +12,19 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#define DWC2_HOST_MODE_ENABLE	1
+#define DWC2_DEVICE_MODE_ENABLE	1
+
+#ifdef CONFIG_USB_DWC2_HOST_ONLY
+#undef DWC2_DEVICE_MODE_ENABLE
+#define DWC2_DEVICE_MODE_ENABLE	0
+#endif
+
+#ifdef CONFIG_USB_DWC2_DEVICE_ONLY
+#undef DWC2_HOST_MODE_ENABLE
+#define DWC2_HOST_MODE_ENABLE	0
+#endif
+
 /** Macros defined for DWC OTG HW Release version */
 
 #define OTG_CORE_REV_2_60a	0x4F54260A
@@ -344,6 +357,10 @@ struct dwc2_hwcfgs {
 	dcfg_data_t	dcfg;
 };
 
+struct dwc2_platform_data {
+	int keep_phy_on;
+};
+
 #define DWC2_MAX_NUMBER_OF_SETUP_PKT	5
 #define DWC_EP0_MAXPACKET		64
 #define DWC2_MAX_FRAME			2048
@@ -456,6 +473,11 @@ struct dwc2 {
 	unsigned			 b_hnp_enable:1;
 	unsigned			 a_hnp_support:1;
 	unsigned			 a_alt_hnp_support:1;
+	unsigned			 plugin:1;
+	unsigned			 keep_phy_on:1;
+	/* for suspend/resume */
+	unsigned			 phy_status:1; /* 0: suspend, 1: on */
+	unsigned			 sftdiscon:1;
 
 	int pullup_on;
 	enum dwc2_ep0_state		 ep0state;

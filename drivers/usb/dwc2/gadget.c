@@ -13,6 +13,9 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#include <soc/base.h>
+#include <soc/cpm.h>
+
 #include "core.h"
 #include "gadget.h"
 #include "debug.h"
@@ -270,13 +273,6 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 
 	dwc2_enable_device_interrupts(dwc);
 	dwc2_enable_global_interrupts(dwc);
-
-	if (dwc->snpsid >= OTG_CORE_REV_2_94a) {
-		dctl_data_t dctl;
-		dctl.d32 = dwc_readl(&dev_if->dev_global_regs->dctl);
-		dctl.b.sftdiscon = 0;
-		dwc_writel(dctl.d32, &dev_if->dev_global_regs->dctl);
-	}
 }
 
 static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove);
@@ -1698,12 +1694,18 @@ static int dwc2_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
-void dwc2_gadget_do_pullup(struct dwc2 *dwc) {
+/* soft disconnect/connect */
+static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
+{
+	struct dwc2	*dwc = gadget_to_dwc(g);
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
 
+
 	dwc2_spin_lock_irqsave(dwc, flags);
-	if (dwc2_is_device_mode(dwc)) {
+	dwc->pullup_on = is_on;
+
+	if (dwc2_is_device_mode(dwc) && dwc->plugin) {
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1718,24 +1720,12 @@ void dwc2_gadget_do_pullup(struct dwc2 *dwc) {
 			dwc2_gadget_handle_session_end(dwc);
 		}
 	} else {
-		printk("gadget pullup in host mode, ignored\n");
+		printk("gadget pullup defered, current mode: %s, plugin: %d\n",
+			dwc2_is_device_mode(dwc) ? "device" : "host", dwc->plugin);
 	}
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	jz4780_set_charger_current(dwc);
-}
-
-/* soft disconnect/connect */
-static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
-{
-	struct dwc2	*dwc = gadget_to_dwc(g);
-	unsigned long flags;
-
-	dwc2_spin_lock_irqsave(dwc, flags);
-	dwc->pullup_on = is_on;
-	dwc2_spin_unlock_irqrestore(dwc, flags);
-
-	dwc2_gadget_do_pullup(dwc);
 
 	return 0;
 }
@@ -1847,10 +1837,15 @@ static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 	dev_dbg(dwc->dev, "Early Suspend Detected, DSTS = 0x%08x\n", dsts.d32);
 
 	if (dsts.b.errticerr) {
+		dctl_data_t	 dctl;
+
 		dev_err(dwc->dev, "errticerr! Perform a soft reset recover\n");
 		dwc2_core_init(dwc);
 		dwc2_device_mode_init(dwc);
-		dwc2_gadget_do_pullup(dwc);
+
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 	}
 
 	/* Clear interrupt */
@@ -2211,6 +2206,8 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 	dwc->delayed_status_watchdog.function = dwc2_delayed_status_watchdog;
 	dwc->delayed_status_watchdog.data = (unsigned long)dwc;
 
+	dwc->ep0state = EP0_DISCONNECTED;
+
 	ret = dwc2_gadget_init_endpoints(dwc);
 	if (ret)
 		goto err1;
@@ -2252,6 +2249,56 @@ void dwc2_gadget_exit(struct dwc2 *dwc)
 	dma_unmap_single(dwc->dev, dwc->ep0out_shadow_dma, DWC_EP0_MAXPACKET, DMA_FROM_DEVICE);
 
 	device_unregister(&dwc->gadget.dev);
+}
+
+void dwc2_gadget_plug_change(int plugin) {
+	dctl_data_t	 dctl;
+	unsigned long	 flags;
+	struct dwc2	*dwc = m_dwc;
+	unsigned int	 value;
+
+	if (!dwc)
+		return;
+
+	dwc2_spin_lock_irqsave(dwc, flags);
+
+	if (!dwc2_is_device_mode(dwc)) {
+		dwc2_spin_unlock_irqrestore(dwc, flags);
+		return;
+	}
+
+	dwc->plugin = !!plugin;
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+
+	if (plugin) {
+		value = cpm_inl(CPM_OPCR);
+		if ( (value & (1 << 7)) == 0)
+			cpm_outl(value | (1 << 7), CPM_OPCR);
+
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	} else {
+		dctl.b.sftdiscon = 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+		/*
+		 * Note: the following commented code is used for testing what will
+		 *       happen if we unplug then quickly re-plug
+		 */
+#if 0
+		DWC_PR(0x004);
+		DWC_PR(0x014);
+		mdelay(1000);
+		DWC_PR(0x004);
+		DWC_PR(0x014);
+
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+#endif
+	}
+
+	dwc2_spin_unlock_irqrestore(dwc, flags);
 }
 
 /**
