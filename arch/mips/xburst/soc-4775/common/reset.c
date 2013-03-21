@@ -10,6 +10,9 @@
 #include <linux/tty.h>
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
+#include <linux/kthread.h>
+#include <linux/syscore_ops.h>
+#include <linux/platform_device.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -42,6 +45,7 @@
 #define WENR_WEN                BIT(31)
 
 #define RECOVERY_SIGNATURE	(0x001a1a)
+#define REBOOT_SIGNATURE	(0x003535)
 #define UNMSAK_SIGNATURE	(0x7c0000)//do not use these bits
 
 static void inline rtc_write_reg(int reg,int value)
@@ -93,7 +97,7 @@ void jz_wdt_restart(char *command)
 		}
 	} else {
 		cpm_outl(0x5a5a,CPM_CPSPPR);
-		cpm_outl(0x0,CPM_CPPSR);
+		cpm_outl(REBOOT_SIGNATURE,CPM_CPPSR);
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
 
@@ -204,21 +208,183 @@ static int reset_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static int __init init_reset_proc(void)
-{
-	struct proc_dir_entry *res;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+struct wdt_reset {
+	unsigned stop;
+	unsigned msecs;
+	struct task_struct *task;
+	unsigned count;
+};
 
-	res = create_proc_entry("jzreset", 0444, NULL);
+static int reset_task(void *data) {
+	struct wdt_reset *wdt = data;
+	int time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
+	set_user_nice(current, -5);
 
-	if (res) {
-		res->read_proc = reset_read_proc;
-		res->write_proc = reset_write_proc;
-		res->data = NULL;
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+	outl(0,WDT_IOBASE + WDT_TCER);
+	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
+	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
+	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
+	outl(1,WDT_IOBASE + WDT_TCER);
+	
+	while (!kthread_should_stop()) {
+		outl(0,WDT_IOBASE + WDT_TCNT);
+		msleep(wdt->msecs - 100);
 	}
+
+	outl(0,WDT_IOBASE + WDT_TCER);
 	return 0;
 }
 
-module_init(init_reset_proc);
+static int wdt_control_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data){
+	int len = 0;
+	struct wdt_reset *wdt = data;
+	len += sprintf(page+len,wdt->stop?">off<on\n":"off>on<\n");
+	return len;
+}
 
+static int wdt_control_write_proc(struct file *file, const char __user *buffer,
+			    unsigned long count, void *data) {
+	struct wdt_reset *wdt = data;
+	if(!strncmp(buffer,"on",2) && (wdt->stop == 1)) {
+		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+		wdt->stop = 0;
+	} else if(!strncmp(buffer,"off",3) && (wdt->stop == 0)) {
+		outl(0,WDT_IOBASE + WDT_TCNT);
+		outl(0,WDT_IOBASE + WDT_TCER);
+		outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+		kthread_stop(wdt->task);
+		wdt->stop = 1;
+	}
+	return count;
+}
+	
+static int wdt_time_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data){
+	int len = 0;
+	struct wdt_reset *wdt = data;
+	len += sprintf(page+len,"%d msecs\n",wdt->msecs);
+	return len;
+}
 
+static int wdt_time_write_proc(struct file *file, const char __user *buffer,
+			    unsigned long count, void *data) {
+	int time;
+	unsigned msecs= 0;
+	struct wdt_reset *wdt = data;
+
+	if(!wdt->stop)
+		return -EBUSY;
+
+	sscanf(buffer,"%d\n",&msecs);
+	if(msecs < 1000) msecs = 1000;
+	if(msecs > 30000) msecs = 30000;
+
+	wdt->msecs = msecs;
+	time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
+	outl(0,WDT_IOBASE + WDT_TCNT);			//counter
+	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
+	return count;
+}
+
+static int wdt_probe(struct platform_device *pdev)
+{
+	struct wdt_reset *wdt;
+	struct proc_dir_entry *p,*res;
+
+	wdt = kmalloc(sizeof(struct wdt_reset),GFP_KERNEL);
+	if(!wdt) {
+		return -ENOMEM;
+	}
+
+	wdt->count = 0;
+	wdt->msecs = 3000;
+
+	dev_set_drvdata(&pdev->dev,wdt);
+#ifdef CONFIG_SUSPEND_WDT
+	wdt->stop = 0;
+	wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+#else
+	wdt->stop = 1;
+#endif
+	p = proc_mkdir("reset", 0);
+	if (!p) {
+		pr_warning("create_proc_entry for common reset failed.\n");
+		return -ENODEV;
+	}
+
+	res = create_proc_entry("reset", 0444, p);
+	if (res) {
+		res->read_proc = reset_read_proc;
+		res->write_proc = reset_write_proc;
+		res->data = wdt;
+	}
+
+	res = create_proc_entry("wdt_control", 0444, p);
+	if (res) {
+		res->read_proc = wdt_control_read_proc;
+		res->write_proc = wdt_control_write_proc;
+		res->data = wdt;
+	}
+	
+	res = create_proc_entry("wdt_time", 0444, p);
+	if (res) {
+		res->read_proc = wdt_time_read_proc;
+		res->write_proc = wdt_time_write_proc;
+		res->data = wdt;
+	}
+
+	return 0;
+}
+
+int wdt_suspend(struct platform_device *pdev, pm_message_t state)
+{	
+	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
+	if(wdt->stop) 
+		return 0;
+	outl(0,WDT_IOBASE + WDT_TCNT);
+	outl(0,WDT_IOBASE + WDT_TCER);
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+	kthread_stop(wdt->task);
+	return 0;
+}
+
+void wdt_shutdown(struct platform_device *pdev)
+{	
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+}
+	
+int wdt_resume(struct platform_device *pdev)
+{
+	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
+	if(wdt->stop)
+		return 0;
+	wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+	return 0;
+}
+
+static struct platform_device wdt_pdev = {
+	.name		= "wdt_reset",
+};
+
+static struct platform_driver wdt_pdrv = {
+	.probe		= wdt_probe,
+	.shutdown	= wdt_shutdown,
+	.suspend	= wdt_suspend,
+	.resume		= wdt_resume,
+	.driver		= {
+		.name	= "wdt_reset",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int __init init_reset(void)
+{
+	platform_driver_register(&wdt_pdrv);
+	platform_device_register(&wdt_pdev);
+	return 0;
+}
+module_init(init_reset);
 

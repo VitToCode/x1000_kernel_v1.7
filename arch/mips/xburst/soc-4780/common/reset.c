@@ -11,6 +11,8 @@
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
 #include <linux/kthread.h>
+#include <linux/syscore_ops.h>
+#include <linux/platform_device.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -211,6 +213,7 @@ struct wdt_reset {
 	unsigned stop;
 	unsigned msecs;
 	struct task_struct *task;
+	unsigned count;
 };
 
 static int reset_task(void *data) {
@@ -224,16 +227,7 @@ static int reset_task(void *data) {
 	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
 	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
 	outl(1,WDT_IOBASE + WDT_TCER);
-#if 0
-	while(1){
-		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
-		msleep(100);
-		printk("---- %d\n",inl(WDT_IOBASE + WDT_TCNT));
-		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
-		msleep(1000);
-		printk("---- %d\n",inl(WDT_IOBASE + WDT_TCNT));
-	}
-#endif
+	
 	while (!kthread_should_stop()) {
 		outl(0,WDT_IOBASE + WDT_TCNT);
 		msleep(wdt->msecs - 100);
@@ -253,10 +247,9 @@ static int wdt_control_read_proc(char *page, char **start, off_t off,
 
 static int wdt_control_write_proc(struct file *file, const char __user *buffer,
 			    unsigned long count, void *data) {
-	static int i = 1;
 	struct wdt_reset *wdt = data;
 	if(!strncmp(buffer,"on",2) && (wdt->stop == 1)) {
-		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",i++);
+		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
 		wdt->stop = 0;
 	} else if(!strncmp(buffer,"off",3) && (wdt->stop == 0)) {
 		outl(0,WDT_IOBASE + WDT_TCNT);
@@ -295,8 +288,8 @@ static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
 	return count;
 }
-	
-static int __init init_reset_proc(void)
+
+static int wdt_probe(struct platform_device *pdev)
 {
 	struct wdt_reset *wdt;
 	struct proc_dir_entry *p,*res;
@@ -306,9 +299,16 @@ static int __init init_reset_proc(void)
 		return -ENOMEM;
 	}
 
+	wdt->count = 0;
 	wdt->msecs = 3000;
-	wdt->stop = 1;
 
+	dev_set_drvdata(&pdev->dev,wdt);
+#ifdef CONFIG_SUSPEND_WDT
+	wdt->stop = 0;
+	wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+#else
+	wdt->stop = 1;
+#endif
 	p = proc_mkdir("reset", 0);
 	if (!p) {
 		pr_warning("create_proc_entry for common reset failed.\n");
@@ -339,11 +339,52 @@ static int __init init_reset_proc(void)
 	return 0;
 }
 
+int wdt_suspend(struct platform_device *pdev, pm_message_t state)
+{	
+	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
+	if(wdt->stop) 
+		return 0;
+	outl(0,WDT_IOBASE + WDT_TCNT);
+	outl(0,WDT_IOBASE + WDT_TCER);
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+	kthread_stop(wdt->task);
+	return 0;
+}
+
+void wdt_shutdown(struct platform_device *pdev)
+{	
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+}
+	
+int wdt_resume(struct platform_device *pdev)
+{
+	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
+	if(wdt->stop)
+		return 0;
+	wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+	return 0;
+}
+
+static struct platform_device wdt_pdev = {
+	.name		= "wdt_reset",
+};
+
+static struct platform_driver wdt_pdrv = {
+	.probe		= wdt_probe,
+	.shutdown	= wdt_shutdown,
+	.suspend	= wdt_suspend,
+	.resume		= wdt_resume,
+	.driver		= {
+		.name	= "wdt_reset",
+		.owner	= THIS_MODULE,
+	},
+};
+
 static int __init init_reset(void)
 {
-	return init_reset_proc();
+	platform_driver_register(&wdt_pdrv);
+	platform_device_register(&wdt_pdev);
+	return 0;
 }
 module_init(init_reset);
-
-
 
