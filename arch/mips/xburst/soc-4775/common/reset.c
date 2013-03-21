@@ -218,16 +218,17 @@ struct wdt_reset {
 
 static int reset_task(void *data) {
 	struct wdt_reset *wdt = data;
-	int time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
+	int time = JZ_EXTAL_RTC / 64 * (wdt->msecs + 1000) / 1000;
 	set_user_nice(current, -5);
 
-	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 	outl(0,WDT_IOBASE + WDT_TCER);
 	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
 	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
 	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
 	outl(1,WDT_IOBASE + WDT_TCER);
 	
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
 	while (!kthread_should_stop()) {
 		outl(0,WDT_IOBASE + WDT_TCNT);
 		msleep(wdt->msecs - 100);
