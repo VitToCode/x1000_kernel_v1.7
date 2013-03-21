@@ -62,3 +62,5 @@ struct enh_dither {
 #define JZFB_RESET_ENH			_IOW('F', 0x161, struct enh_dither)
 #define JZFB_RECOVER_ENH		_IOW('F', 0x162, struct enh_dither)
 #endif /* _IMAGE_ENH_H_ */
+int jzfb_image_enh_ioctl_internal(struct fb_info *info, unsigned int cmd,
+				  unsigned long arg);
