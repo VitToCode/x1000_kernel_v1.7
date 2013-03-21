@@ -48,6 +48,29 @@
 #define REBOOT_SIGNATURE	(0x003535)
 #define UNMSAK_SIGNATURE	(0x7c0000)//do not use these bits
 
+static void wdt_start_count(int msecs)
+{
+	int time = JZ_EXTAL_RTC / 64 * (msecs + 1000) / 1000;
+	if(time > 65535)
+		time = 65535;
+
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+
+	outl(0,WDT_IOBASE + WDT_TCNT);		//counter
+	outl(time,WDT_IOBASE + WDT_TDR); 	//data
+	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
+	outl(0,WDT_IOBASE + WDT_TCER);
+	outl(1,WDT_IOBASE + WDT_TCER);
+}
+
+static void wdt_stop_count(void)
+{
+	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+	outl(0,WDT_IOBASE + WDT_TCNT);		//counter
+	outl(65535,WDT_IOBASE + WDT_TDR); 	//data
+	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+}
+
 static void inline rtc_write_reg(int reg,int value)
 {
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
@@ -86,7 +109,6 @@ void jz_hibernate(void)
 
 void jz_wdt_restart(char *command)
 {
-	int time = JZ_EXTAL_RTC / 64 * (50) / 1000;
 	printk("Restarting after 4 ms\n");
 	if ((command != NULL) && !strcmp(command, "recovery")) {
 		while(cpm_inl(CPM_CPPSR) != RECOVERY_SIGNATURE) {
@@ -101,17 +123,11 @@ void jz_wdt_restart(char *command)
 		cpm_outl(REBOOT_SIGNATURE,CPM_CPPSR);
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
-
-	while (1) {
-		outl(1 << 16,TCU_IOBASE + TCU_TSSR);
-		outl(0,WDT_IOBASE + WDT_TCER);
-		outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
-		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
-		outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
-		outl(1,WDT_IOBASE + WDT_TCER);
-		outl(1 << 16,TCU_IOBASE + TCU_TSCR);
-		mdelay(200);
-	}
+	
+	wdt_start_count(4);
+	mdelay(200);
+	while(1)
+		printk("check wdt.\n");
 }
 
 static void hibernate_restart(void) {
@@ -218,23 +234,18 @@ struct wdt_reset {
 
 static int reset_task(void *data) {
 	struct wdt_reset *wdt = data;
-	int time = JZ_EXTAL_RTC / 64 * (wdt->msecs + 1000) / 1000;
 	set_user_nice(current, -5);
 
-	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
-	outl(0,WDT_IOBASE + WDT_TCER);
-	outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
-	outl(0,WDT_IOBASE + WDT_TCNT);				//counter
-	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
-	outl(1,WDT_IOBASE + WDT_TCER);
-	
-	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
-	while (!kthread_should_stop()) {
+	wdt_start_count(wdt->msecs);
+	while (1) {
+		if(kthread_should_stop()) {
+			wdt_stop_count();
+			break;
+		}
 		outl(0,WDT_IOBASE + WDT_TCNT);
 		msleep(wdt->msecs - 100);
 	}
 
-	outl(0,WDT_IOBASE + WDT_TCER);
 	return 0;
 }
 
@@ -253,9 +264,6 @@ static int wdt_control_write_proc(struct file *file, const char __user *buffer,
 		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
 		wdt->stop = 0;
 	} else if(!strncmp(buffer,"off",3) && (wdt->stop == 0)) {
-		outl(0,WDT_IOBASE + WDT_TCNT);
-		outl(0,WDT_IOBASE + WDT_TCER);
-		outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 		kthread_stop(wdt->task);
 		wdt->stop = 1;
 	}
@@ -272,7 +280,6 @@ static int wdt_time_read_proc(char *page, char **start, off_t off,
 
 static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 			    unsigned long count, void *data) {
-	int time;
 	unsigned msecs= 0;
 	struct wdt_reset *wdt = data;
 
@@ -284,9 +291,6 @@ static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 	if(msecs > 30000) msecs = 30000;
 
 	wdt->msecs = msecs;
-	time = JZ_EXTAL_RTC / 64 * (wdt->msecs) / 1000;
-	outl(0,WDT_IOBASE + WDT_TCNT);			//counter
-	outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
 	return count;
 }
 
@@ -345,16 +349,13 @@ int wdt_suspend(struct platform_device *pdev, pm_message_t state)
 	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
 	if(wdt->stop) 
 		return 0;
-	outl(0,WDT_IOBASE + WDT_TCNT);
-	outl(0,WDT_IOBASE + WDT_TCER);
-	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 	kthread_stop(wdt->task);
 	return 0;
 }
 
 void wdt_shutdown(struct platform_device *pdev)
 {	
-	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+	wdt_stop_count();
 }
 	
 int wdt_resume(struct platform_device *pdev)
