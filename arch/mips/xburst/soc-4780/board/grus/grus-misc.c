@@ -73,13 +73,13 @@ static struct gpio_keys_button board_buttons[] = {
 #ifdef GPIO_VOLUMEDOWN
 	{
 		.gpio		= GPIO_VOLUMEDOWN,
-		.code   	= KEY_VOLUMEUP,
+		.code   	= KEY_VOLUMEDOWN,
 		.desc		= "volum down key",
 		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
 	},
 	{
 		.gpio		= GPIO_VOLUMEUP,
-		.code   	= KEY_VOLUMEDOWN,
+		.code   	= KEY_VOLUMEUP,
 		.desc		= "volum up key",
 		.active_low	= ACTIVE_LOW_VOLUMEUP,
 	},
