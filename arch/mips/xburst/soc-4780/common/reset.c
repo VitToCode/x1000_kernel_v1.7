@@ -86,6 +86,7 @@ void jz_hibernate(void)
 
 void jz_wdt_restart(char *command)
 {
+	int time = JZ_EXTAL_RTC / 64 * (50) / 1000;
 	printk("Restarting after 4 ms\n");
 	if ((command != NULL) && !strcmp(command, "recovery")) {
 		while(cpm_inl(CPM_CPPSR) != RECOVERY_SIGNATURE) {
@@ -101,19 +102,18 @@ void jz_wdt_restart(char *command)
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
 
-
-	outl((1<<3 | 1<<2),WDT_IOBASE + WDT_TCSR);
-	outl(JZ_EXTAL/1000,WDT_IOBASE + WDT_TDR);
-
-	outl(1 << 16,TCU_IOBASE + TCU_TSCR);
-	outl(0,WDT_IOBASE + WDT_TCNT);
-	outl(1,WDT_IOBASE + WDT_TCER);
-
-	mdelay(200);
-
-	while (1)
-		printk("We should NOT come here, please check the WDT\n");
+	while (1) {
+		outl(1 << 16,TCU_IOBASE + TCU_TSSR);
+		outl(0,WDT_IOBASE + WDT_TCER);
+		outl((3<<3 | 1<<1),WDT_IOBASE + WDT_TCSR);
+		outl(0,WDT_IOBASE + WDT_TCNT);				//counter
+		outl(time>65535?65535:time,WDT_IOBASE + WDT_TDR); 	//data
+		outl(1,WDT_IOBASE + WDT_TCER);
+		outl(1 << 16,TCU_IOBASE + TCU_TSCR);
+		mdelay(200);
+	}
 }
+
 static void hibernate_restart(void) {
 	uint32_t rtc_rtcsr,rtc_rtccr;
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
