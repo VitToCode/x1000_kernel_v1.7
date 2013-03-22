@@ -102,6 +102,7 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	.nand_flash_if_table = nand_interfaces,
 	.num_nand_flash_if = ARRAY_SIZE(nand_interfaces),
 
+	.ecc_type = NAND_ECC_TYPE_HW,
 	.xfer_type = NAND_XFER_CPU_IRQ,
 };
 
