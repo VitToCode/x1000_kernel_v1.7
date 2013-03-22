@@ -50,7 +50,7 @@
 
 static void wdt_start_count(int msecs)
 {
-	int time = JZ_EXTAL_RTC / 64 * (msecs + 1000) / 1000;
+	int time = JZ_EXTAL_RTC / 64 * msecs / 1000;
 	if(time > 65535)
 		time = 65535;
 
@@ -236,14 +236,14 @@ static int reset_task(void *data) {
 	struct wdt_reset *wdt = data;
 	set_user_nice(current, -5);
 
-	wdt_start_count(wdt->msecs);
+	wdt_start_count(wdt->msecs + 1000);
 	while (1) {
 		if(kthread_should_stop()) {
 			wdt_stop_count();
 			break;
 		}
 		outl(0,WDT_IOBASE + WDT_TCNT);
-		msleep(wdt->msecs - 100);
+		msleep(wdt->msecs);
 	}
 
 	return 0;
