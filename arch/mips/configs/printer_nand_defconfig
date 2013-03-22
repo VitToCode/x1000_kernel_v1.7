@@ -728,20 +728,7 @@ CONFIG_JZ_VPU=y
 # Texas Instruments shared transport line discipline
 #
 # CONFIG_TI_ST is not set
-CONFIG_JZ_CIM=y
-# CONFIG_OV3640 is not set
-# CONFIG_OV7675 is not set
-# CONFIG_OV2650 is not set
-# CONFIG_OV2659_MODULE is not set
-CONFIG_SP0838=y
-# CONFIG_GC0308 is not set
-# CONFIG_HORIZONTAL_MIRROR is not set
-# CONFIG_VERTICAL_MIRROR is not set
-# CONFIG_GC0308_Q8 is not set
-# CONFIG_GC2015 is not set
-# CONFIG_HI253 is not set
-# CONFIG_FAKE is not set
-# CONFIG_GT2005 is not set
+# CONFIG_JZ_CIM is not set
 CONFIG_JZ_PWM=y
 
 #
@@ -826,6 +813,7 @@ CONFIG_NET_ETHERNET=y
 # CONFIG_AX88796 is not set
 # CONFIG_SMC91X is not set
 # CONFIG_DM9000 is not set
+# CONFIG_NEMC_CS6 is not set
 # CONFIG_ETHOC is not set
 # CONFIG_SMSC911X is not set
 # CONFIG_DNET is not set
@@ -1170,6 +1158,7 @@ CONFIG_JZ4780_AOSD=y
 CONFIG_BACKLIGHT_LCD_SUPPORT=y
 CONFIG_LCD_CLASS_DEVICE=y
 # CONFIG_LCD_PLATFORM is not set
+# CONFIG_LCD_PANEL_RESET_ENABLE is not set
 # CONFIG_LCD_AT070TN93 is not set
 # CONFIG_LCD_AUO_A043FL01V2 is not set
 # CONFIG_LCD_KD50G2_40NM_A2 is not set
