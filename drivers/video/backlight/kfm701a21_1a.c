@@ -50,6 +50,9 @@ static void kfm701a21_1a_on(struct kfm701a21_1a_data *dev)
 			gpio_direction_output(dev->pdata->gpio_lcd_reset, 1);
 		}
 		mdelay(120);
+	} else {
+		/* Need to reinitialization panel when late resume */
+		dev->reset_enable = 1;
 	}
 }
 

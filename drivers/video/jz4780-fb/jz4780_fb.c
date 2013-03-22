@@ -1207,6 +1207,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 				jzfb_lvds_check_pll_lock(jzfb->fb);
 				jzfb_lvds_txctrl_is_tx_en(jzfb->fb, 1);
 			}
+			if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+				jzfb_slcd_mcu_init(jzfb->fb);
+			}
 		} else {
 			spin_unlock(&jzfb->suspend_lock);
 		}
