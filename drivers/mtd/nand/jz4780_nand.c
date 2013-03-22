@@ -111,7 +111,7 @@ const char *label_busy_gpio[] = {
 
 struct jz4780_nand {
 	struct mtd_info mtd;
-	struct mtd_partition *parts;
+
 	struct nand_chip chip;
 	struct nand_ecclayout ecclayout;
 
@@ -613,6 +613,10 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		chip->ecc.hwctl        = jz4780_nand_ecc_hwctl;
 		chip->ecc.size         = nand_info->ecc_step.data_size;
 		chip->ecc.bytes        = nand_info->ecc_step.ecc_size;
+
+		/*
+		 * TODO: this parameter should be carefully consider
+		 */
 		chip->ecc.strength     = nand->bch_req.ecc_level / 2;
 
 #ifdef BCH_REQ_ALLOC_ECC_DATA_BUFFER
@@ -679,7 +683,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	ret = mtd_device_parse_register(mtd, NULL, NULL,
 			pdata->part_table, pdata->num_part);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to add mtd device\n");
+		dev_err(&pdev->dev, "Failed to add MTD device\n");
 		goto err_free_wp_gpio;
 	}
 
