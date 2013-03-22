@@ -445,6 +445,10 @@ static int __init grus_board_init(void)
 #ifdef CONFIG_ANDROID_PMEM
 	platform_device_register(&pmem_camera_device);
 #endif
+
+#ifdef CONFIG_USB_DWC2
+	platform_device_register(&jz_dwc_otg_device);
+#endif
 	return 0;
 }
 
