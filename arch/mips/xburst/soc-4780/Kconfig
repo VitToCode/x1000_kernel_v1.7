@@ -49,6 +49,9 @@ config BOARD_HDMI_80
 config BOARD_NPM801
 		bool "NPM801"
 
+config BOARD_T700D
+		bool "T700D"
+
 config BOARD_LEAF
 		bool "LEAF"
 
@@ -82,6 +85,7 @@ config BOARD_NAME
 	default "Q8" if BOARD_Q8
 	default "M80701" if BOARD_M80701
 	default "NPM801" if BOARD_NPM801
+	default "T700D" if BOARD_T700D
 	default "LEAF" if BOARD_LEAF
 	default "I88" if BOARD_I88
 	default "Grus" if BOARD_GRUS
