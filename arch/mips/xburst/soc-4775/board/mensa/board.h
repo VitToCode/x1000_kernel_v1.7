@@ -70,8 +70,14 @@ extern struct platform_device kfm701a21_1a_device;
 #define ACTIVE_LOW_HOME		1
 #define ACTIVE_LOW_BACK		1
 #define ACTIVE_LOW_ENDCALL      1
+
+#if defined(CONFIG_NAND)
 #define ACTIVE_LOW_VOLUMEDOWN	0
 #define ACTIVE_LOW_VOLUMEUP	1
+#else
+#define ACTIVE_LOW_VOLUMEDOWN	1
+#define ACTIVE_LOW_VOLUMEUP	0
+#endif
 
 /**
  * USB detect pin
