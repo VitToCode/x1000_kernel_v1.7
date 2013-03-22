@@ -500,6 +500,18 @@ int jzfb_config_image_enh(struct fb_info *info)
 int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
+	int ret = -1;
+	struct jzfb *jzfb = info->par;
+	spin_lock(&jzfb->suspend_lock);
+	if(jzfb->is_suspend == 0)
+		ret = jzfb_image_enh_ioctl_internal(info, cmd, arg);
+	spin_unlock(&jzfb->suspend_lock);
+	return ret;
+}
+
+int jzfb_image_enh_ioctl_internal(struct fb_info *info, unsigned int cmd,
+			 unsigned long arg)
+{
 	void __user *argp = (void __user *)arg;
 	unsigned int value;
 
