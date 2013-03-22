@@ -93,8 +93,12 @@ void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
 		dwc->port1_status &= ~(USB_PORT_STAT_LOW_SPEED
 				|USB_PORT_STAT_HIGH_SPEED
 				|USB_PORT_STAT_ENABLE);
-		dwc->port1_status |= USB_PORT_STAT_CONNECTION
-			|(USB_PORT_STAT_C_CONNECTION << 16);
+		if (hprt0.b.prtconnsts)
+			dwc->port1_status |= USB_PORT_STAT_CONNECTION;
+		else
+			dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
+
+		dwc->port1_status |= (USB_PORT_STAT_C_CONNECTION << 16);
 
 		dwc->device_connected = 1;
 		status_change = 1;
@@ -130,8 +134,8 @@ void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
 				| (USB_PORT_STAT_C_RESET << 16)
 				| (USB_PORT_STAT_C_ENABLE << 16);
 		} else {
-			dwc->port1_status |= USB_PORT_STAT_ENABLE
-				| (USB_PORT_STAT_C_ENABLE << 16);
+			dwc->port1_status &= ~USB_PORT_STAT_ENABLE;
+			dwc->port1_status |= (USB_PORT_STAT_C_ENABLE << 16);
 		}
 		status_change = 1;
 	}

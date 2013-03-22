@@ -18,6 +18,9 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#include <soc/base.h>
+#include <soc/cpm.h>
+
 #include "core.h"
 #include "gadget.h"
 #include "host.h"
@@ -258,11 +261,19 @@ void calculate_fifo_size(struct dwc2 *dwc) {
  */
 void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
 {
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	volatile grstctl_t greset = {.d32 = 0 };
-	gintsts_data_t gintsts;
-	dctl_data_t dctl;
-	int count = 0;
+	dwc_otg_core_global_regs_t	*global_regs = dwc->core_global_regs;
+	volatile grstctl_t		 greset	     = {.d32 = 0 };
+	gintsts_data_t			 gintsts;
+	dctl_data_t			 dctl;
+	int				 count	     = 0;
+	unsigned			 cpm_opcr;
+	unsigned			 phy_status;
+
+	cpm_opcr = cpm_inl(CPM_OPCR);
+	phy_status = !!(cpm_opcr & (1 << 7));
+
+	/* enable PHY */
+	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
 
 	/*
 	 * Check that GINTSTS.GINNakEff=0
@@ -339,15 +350,25 @@ void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	dwc2_wait_3_phy_clocks();
+
+	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
 }
 
 void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 {
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	volatile grstctl_t greset = {.d32 = 0 };
-	gintsts_data_t gintsts;
-	dctl_data_t dctl;
-	int count = 0;
+	dwc_otg_core_global_regs_t	*global_regs = dwc->core_global_regs;
+	volatile grstctl_t		 greset	     = {.d32 = 0 };
+	gintsts_data_t			 gintsts;
+	dctl_data_t			 dctl;
+	int				 count	     = 0;
+	unsigned			 cpm_opcr;
+	unsigned			 phy_status;
+
+	cpm_opcr = cpm_inl(CPM_OPCR);
+	phy_status = !!(cpm_opcr & (1 << 7));
+
+	/* enable PHY */
+	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
 
 	gintsts.d32 = dwc_readl(&global_regs->gintsts);
 	if ((gintsts.b.goutnakeff == 0) && dwc2_is_device_mode(dwc)) {
@@ -415,6 +436,8 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	dwc2_wait_3_phy_clocks();
+
+	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
 }
 
 void dwc2_wait_3_phy_clocks(void) {
@@ -685,12 +708,20 @@ static uint32_t calc_num_out_eps(struct dwc2 *dwc)
  */
 int dwc2_core_init(struct dwc2 *dwc)
 {
-	int i = 0;
-	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	struct dwc2_dev_if *dev_if = &dwc->dev_if;
-	gahbcfg_data_t ahbcfg = {.d32 = 0 };
-	gusbcfg_data_t usbcfg = {.d32 = 0 };
-	gotgctl_data_t gotgctl = {.d32 = 0 };
+	dwc_otg_core_global_regs_t	*global_regs = dwc->core_global_regs;
+	struct dwc2_dev_if		*dev_if	     = &dwc->dev_if;
+	gahbcfg_data_t			 ahbcfg	     = {.d32 = 0 };
+	gusbcfg_data_t			 usbcfg	     = {.d32 = 0 };
+	gotgctl_data_t			 gotgctl     = {.d32 = 0 };
+	unsigned			 cpm_opcr;
+	unsigned			 phy_status;
+	int				 i	     = 0;
+
+	cpm_opcr = cpm_inl(CPM_OPCR);
+	phy_status = !!(cpm_opcr & (1 << 7));
+
+	/* enable PHY */
+	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
 
 	/* Common Initialization */
 	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
@@ -772,6 +803,8 @@ int dwc2_core_init(struct dwc2 *dwc)
 	/* Enable common interrupts */
 	dwc2_enable_common_interrupts(dwc);
 
+	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
+
 	return 0;
 }
 
@@ -837,7 +870,6 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	if (gotgint.b.sesenddet) {
 		depctl_data_t	doepctl = {.d32 = 0 };
 		u32		doepdma;
-		dctl_data_t	dctl;
 
 		dev_info(dwc->dev, "session end detected!\n");
 
@@ -882,6 +914,10 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			//printk("====>doep0ctl = 0x%08x\n", dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl));
 			//printk("====>setup_prepared = %d\n", dwc->setup_prepared);
 		}
+
+		/* close PHY */
+		if (likely(!dwc->keep_phy_on))
+			cpm_clear_bit(7, CPM_OPCR);
 	}
 
 	if (gotgint.b.sesreqsucstschng) {
@@ -959,10 +995,11 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 
 static void dwc2_conn_id_status_change_work(struct work_struct *work)
 {
-	struct dwc2 *dwc = container_of(work, struct dwc2, otg_id_work);
-	uint32_t count = 0;
-	gotgctl_data_t gotgctl;
-	unsigned long flags;
+	struct dwc2	*dwc   = container_of(work, struct dwc2, otg_id_work);
+	uint32_t	 count = 0;
+	dctl_data_t	 dctl;
+	gotgctl_data_t	 gotgctl;
+	unsigned long	 flags;
 
 	gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
 
@@ -991,9 +1028,25 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc2_spin_lock_irqsave(dwc, flags);
 		dwc->op_state = DWC2_B_PERIPHERAL;
 		dwc2_device_mode_init(dwc);
-		dwc2_spin_unlock_irqrestore(dwc, flags);
 
-		dwc2_gadget_do_pullup(dwc);
+		if (likely(!dwc->plugin)) {
+			/* close PHY */
+			if (likely(!dwc->keep_phy_on))
+				cpm_clear_bit(7, CPM_OPCR);
+
+			/* soft disconnect */
+			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+			dctl.b.sftdiscon = 1;
+			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		} else {
+			cpm_set_bit(7, CPM_OPCR);
+
+			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+			dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		}
+
+		dwc2_spin_unlock_irqrestore(dwc, flags);
 	} else {	      /* A-Device connector (Host Mode) */
 
 
@@ -1262,9 +1315,11 @@ static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
 
 	mdelay(1);
 
-	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
-	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	if (dwc->ep0state != EP0_DISCONNECTED) {
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	}
 
 	return 1;
 }
@@ -1343,12 +1398,13 @@ out:
 
 static int dwc2_probe(struct platform_device *pdev)
 {
-	struct resource		*res;
-	struct dwc2		*dwc;
-	struct device		*dev = &pdev->dev;
-	int			irq;
-	int			ret = -ENOMEM;
-	void __iomem		*regs;
+	struct resource			*res;
+	struct dwc2			*dwc;
+	struct device			*dev   = &pdev->dev;
+	int				 irq;
+	int				 ret   = -ENOMEM;
+	struct dwc2_platform_data	*pdata = pdev->dev.platform_data;
+	void __iomem			*regs;
 
 	dwc = devm_kzalloc(dev, sizeof(*dwc), GFP_KERNEL);
 	if (!dwc) {
@@ -1389,6 +1445,13 @@ static int dwc2_probe(struct platform_device *pdev)
 	dwc->pdev = pdev;
 	dwc->dev  = dev;
 
+	dwc->keep_phy_on = !!pdata->keep_phy_on;
+
+	if (dwc->keep_phy_on)
+		dev_info(dwc->dev, "Keep PHY ON\n");
+	else
+		dev_info(dwc->dev, "Dynamic Power Control\n");
+
 	dwc->dma_enable	     = 1;
 	dwc->dma_desc_enable = 0;
 
@@ -1414,7 +1477,7 @@ static int dwc2_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 			irq, ret);
-		goto err0;
+		goto fail_req_irq;
 	}
 
 	dwc2_init_csr(dwc);
@@ -1423,21 +1486,24 @@ static int dwc2_probe(struct platform_device *pdev)
 	ret = dwc2_core_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize core\n");
-		goto err1;
+		goto fail_init_core;
 	}
 
-
+#if DWC2_HOST_MODE_ENABLE
 	ret = dwc2_host_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize host\n");
-		goto err2;
+		goto fail_init_host;
 	}
+#endif
 
+#if DWC2_DEVICE_MODE_ENABLE
 	ret = dwc2_gadget_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize gadget\n");
-		goto err3;
+		goto fail_init_gadget;
 	}
+#endif
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
 	dwc2_enable_global_interrupts(dwc);
@@ -1445,24 +1511,24 @@ static int dwc2_probe(struct platform_device *pdev)
 	ret = dwc2_debugfs_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize debugfs\n");
-		goto err4;
+		goto fail_init_debugfs;
 	}
 
 	return 0;
 
-err4:
+fail_init_debugfs:
 	dwc2_gadget_exit(dwc);
 
-err3:
+fail_init_gadget:
 	dwc2_host_exit(dwc);
 
-err2:
+fail_init_host:
 	dwc2_core_exit(dwc);
 
-err1:
+fail_init_core:
 	free_irq(irq, dwc);
 
-err0:
+fail_req_irq:
 	return ret;
 }
 
@@ -1481,9 +1547,96 @@ static int dwc2_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static void dwc2_device_suspend(struct dwc2 *dwc) {
+	dctl_data_t	 dctl;
+	unsigned int	 value;
+
+	value = cpm_inl(CPM_OPCR);
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dwc->sftdiscon = dctl.b.sftdiscon;
+	dctl.b.sftdiscon = 1;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	/* suspend PHY0 */
+	dwc->phy_status = !!(value & (1 << 7));
+	cpm_outl(value & ~(1 << 7), CPM_OPCR);
+}
+
+static void dwc2_host_suspend(struct dwc2 *dwc) {
+	unsigned int	 value;
+
+	value = cpm_inl(CPM_OPCR);
+	/* suspend PHY0 */
+	dwc->phy_status = !!(value & (1 << 7));
+	cpm_outl(value & ~(1 << 7), CPM_OPCR);
+}
+
+static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
+	struct dwc2	*dwc = platform_get_drvdata(pdev);
+	unsigned long	 flags;
+
+	dev_dbg(dwc->dev, "suspend");
+	dwc2_spin_lock_irqsave(dwc, flags);
+	if (dwc2_is_device_mode(dwc)) {
+		dwc2_device_suspend(dwc);
+	} else {
+		dwc2_host_suspend(dwc);
+	}
+	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	return 0;
+}
+
+static void dwc2_device_resume(struct dwc2 *dwc) {
+	dctl_data_t	 dctl;
+	unsigned int	 value;
+
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.sftdiscon = dwc->sftdiscon;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	value = cpm_inl(CPM_OPCR);
+	cpm_outl(value | (dwc->phy_status << 7), CPM_OPCR);
+}
+
+static void dwc2_host_resume(struct dwc2 *dwc) {
+	unsigned int	 value;
+
+	value = cpm_inl(CPM_OPCR);
+	cpm_outl(value | (dwc->phy_status << 7), CPM_OPCR);
+}
+
+static int dwc2_resume(struct platform_device *pdev) {
+	struct dwc2	*dwc = platform_get_drvdata(pdev);
+	unsigned long	 flags;
+
+	dev_dbg(dwc->dev, "dwc2_resume, device_mode=%d\n",
+		dwc2_is_device_mode(dwc));
+
+	dwc2_spin_lock_irqsave(dwc, flags);
+	if (dwc2_is_device_mode(dwc))
+		dwc2_device_resume(dwc);
+	else
+		dwc2_host_resume(dwc);
+	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	return 0;
+}
+
+#else  /* CONFIG_PM */
+#define dwc2_suspend	NULL
+#define dwc2_resume	NULL
+#endif
+
+
+
 static struct platform_driver dwc2_driver = {
 	.probe		= dwc2_probe,
 	.remove		= dwc2_remove,
+	.suspend	= dwc2_suspend,
+	.resume		= dwc2_resume,
 	.driver		= {
 		.name	= "dwc2",
 	},

@@ -25,6 +25,7 @@
 #define USBPCR_TXPREEMPHTUNE		6
 #define USBPCR_POR			22
 #define USBPCR_USB_MODE			31
+#define USBPCR_COMMONONN		25
 #define USBPCR_VBUSVLDEXT		24
 #define USBPCR_VBUSVLDEXTSEL		23
 #define USBPCR_OTG_DISABLE		20
@@ -35,16 +36,17 @@
 #define USBPCR1_WORD_IF1		18
 
 struct dwc2_jz4780 {
-	/* device lock */
-	spinlock_t		lock;
-
 	struct platform_device  dwc2;
 	struct device		*dev;
 
 	struct clk		*clk;
-	int 			irq;
+	int 			dete_irq;
 	struct jzdwc_pin 	*dete;
+
+	int			id_irq;
+	struct jzdwc_pin 	*id_pin;
 	struct delayed_work	work;
+	struct delayed_work	host_id_work;
 	struct delayed_work	charger_delay_work;
 
 	struct regulator 	*vbus;
@@ -55,8 +57,13 @@ struct dwc2_jz4780 {
 };
 
 struct jzdwc_pin __attribute__((weak)) dete_pin = {
-	.num				= -1,
-	.enable_level			= -1,
+	.num	      = -1,
+	.enable_level = -1,
+};
+
+struct jzdwc_pin __attribute__((weak)) dwc2_id_pin = {
+	.num	      = -1,
+	.enable_level = -1
 };
 
 static int get_pin_status(struct jzdwc_pin *pin)
@@ -80,7 +87,7 @@ void jz4780_set_vbus(struct dwc2 *dwc, int is_on)
 	if ( (jz4780->vbus == NULL) || IS_ERR(jz4780->vbus) )
 		return;
 
-	printk("===>set vbus %s\n", is_on ? "on" : "off");
+	printk("set vbus %s\n", is_on ? "on" : "off");
 
 	if (is_on) {
 		if (!regulator_is_enabled(jz4780->vbus))
@@ -95,41 +102,10 @@ static inline void jz4780_usb_phy_init(struct dwc2_jz4780 *jz4780)
 {
 	pr_debug("init PHY\n");
 
-	spin_lock(&jz4780->lock);
 	cpm_set_bit(USBPCR_POR, CPM_USBPCR);
-	spin_unlock(&jz4780->lock);
-
 	msleep(1);
-
-	spin_lock(&jz4780->lock);
 	cpm_clear_bit(USBPCR_POR, CPM_USBPCR);
-	spin_unlock(&jz4780->lock);
-
 	msleep(1);
-}
-
-static inline void jz4780_usb_phy_switch(struct dwc2_jz4780 *jz4780, int is_on)
-{
-	unsigned int value;
-
-	if (is_on) {
-		spin_lock(&jz4780->lock);
-		value = cpm_inl(CPM_OPCR);
-		cpm_outl(value | (1 << OPCR_SPENDN0), CPM_OPCR);
-		spin_unlock(&jz4780->lock);
-
-		/* Wait PHY Clock Stable. */
-		msleep(1);
-		pr_info("enable PHY\n");
-
-	} else {
-		spin_lock(&jz4780->lock);
-		value = cpm_inl(CPM_OPCR);
-		cpm_outl(value & ~OPCR_SPENDN0, CPM_OPCR);
-		spin_unlock(&jz4780->lock);
-
-		pr_info("disable PHY\n");
-	}
 }
 
 static inline void jz4780_usb_set_device_only_mode(void)
@@ -142,12 +118,14 @@ static inline void jz4780_usb_set_dual_mode(void)
 {
 	unsigned int tmp;
 
-	cpm_outl((1 << USBPCR_USB_MODE)
-		| (1 << USBPCR_VBUSVLDEXT)
-		| (1 << USBPCR_VBUSVLDEXTSEL),
-		CPM_USBPCR);
-	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
 	tmp = cpm_inl(CPM_USBPCR);
+	tmp |= 1 << USBPCR_USB_MODE;
+	tmp |= 1 << USBPCR_VBUSVLDEXT;
+	tmp |= 1 << USBPCR_VBUSVLDEXTSEL;
+	tmp |= 1 << USBPCR_COMMONONN;
+
+	tmp &= ~(1 << USBPCR_OTG_DISABLE);
+
 	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
@@ -195,16 +173,18 @@ static void set_charger_current_work(struct work_struct *work) {
 		schedule_delayed_work(&jz4780->charger_delay_work, msecs_to_jiffies(600));
 }
 
+extern void dwc2_gadget_plug_change(int plugin);
+
 static void usb_detect_work(struct work_struct *work)
 {
-	struct dwc2_jz4780 *jz4780;
-	int insert;
+	struct dwc2_jz4780	*jz4780;
+	int			 insert;
 
 	jz4780 = container_of(work, struct dwc2_jz4780, work.work);
 	insert = get_pin_status(jz4780->dete);
 
 	pr_info("USB %s\n", insert ? "connect" : "disconnect");
-	jz4780_usb_phy_switch(jz4780, insert);
+	dwc2_gadget_plug_change(insert);
 
 	if (!IS_ERR(jz4780->ucharger)) {
 		if (insert) {
@@ -215,7 +195,7 @@ static void usb_detect_work(struct work_struct *work)
 			printk("Now recovery 400mA\n");
 		}
 	}
-	enable_irq(jz4780->irq);
+	enable_irq(jz4780->dete_irq);
 }
 
 static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
@@ -224,6 +204,30 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 
 	disable_irq_nosync(irq);
 	schedule_delayed_work(&jz4780->work, msecs_to_jiffies(100));
+
+	return IRQ_HANDLED;
+}
+
+static void usb_host_id_work(struct work_struct *work) {
+	struct dwc2_jz4780	*jz4780;
+
+	jz4780 = container_of(work, struct dwc2_jz4780, host_id_work.work);
+
+	// printk("==============>enter %s, id pin level=%d\n",
+	//	__func__, gpio_get_value(jz4780->id_pin->num));
+
+	if (gpio_get_value(jz4780->id_pin->num) == 0) { /* host */
+		cpm_set_bit(7, CPM_OPCR);
+	}
+
+	enable_irq(jz4780->id_irq);
+}
+
+static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
+	struct dwc2_jz4780 *jz4780 = (struct dwc2_jz4780 *)dev_id;
+
+	disable_irq_nosync(irq);
+	schedule_delayed_work(&jz4780->host_id_work, msecs_to_jiffies(100));
 
 	return IRQ_HANDLED;
 }
@@ -253,27 +257,30 @@ static void usb_cpm_init(void) {
 	cpm_set_bit(USBRDT_VBFIL_LD_EN, CPM_USBRDT);
 
 	/* TXRISETUNE & TXVREFTUNE. */
-	cpm_outl(0x3f, CPM_USBPCR);
-	cpm_outl(0x35, CPM_USBPCR);
+	//cpm_outl(0x3f, CPM_USBPCR);
+	//cpm_outl(0x35, CPM_USBPCR);
 
 	/* enable tx pre-emphasis */
-	cpm_set_bit(USBPCR_TXPREEMPHTUNE, CPM_USBPCR);
+	//cpm_set_bit(USBPCR_TXPREEMPHTUNE, CPM_USBPCR);
 
 	/* OTGTUNE adjust */
-	cpm_outl(7 << 14, CPM_USBPCR);
+	//cpm_outl(7 << 14, CPM_USBPCR);
+
+	cpm_outl(0x8180385F, CPM_USBPCR);
 }
 
 static u64 dwc2_jz4780_dma_mask = DMA_BIT_MASK(32);
 
 static int dwc2_jz4780_probe(struct platform_device *pdev) {
-	struct platform_device	*dwc2;
-	struct dwc2_jz4780	*jz4780;
-	int			ret = -ENOMEM;
+	struct platform_device		*dwc2;
+	struct dwc2_jz4780		*jz4780;
+	struct dwc2_platform_data	*dwc2_plat_data;
+	int				 ret	      = -ENOMEM;
 
 	jz4780 = kzalloc(sizeof(*jz4780), GFP_KERNEL);
 	if (!jz4780) {
 		dev_err(&pdev->dev, "not enough memory\n");
-		goto err0;
+		goto out;
 	}
 
 	/*
@@ -295,15 +302,21 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	dwc2->dev.dma_mask = pdev->dev.dma_mask;
 	dwc2->dev.dma_parms = pdev->dev.dma_parms;
 
-	spin_lock_init(&jz4780->lock);
+	dwc2->dev.platform_data = kzalloc(sizeof(struct dwc2_platform_data), GFP_KERNEL);
+	if (!dwc2->dev.platform_data) {
+		goto fail_alloc_dwc2_plat_data;
+	}
+	dwc2_plat_data = dwc2->dev.platform_data;
+
 	mutex_init(&jz4780->mutex);
 	jz4780->dev	= &pdev->dev;
 	jz4780->dete = &dete_pin;
+	jz4780->id_pin = &dwc2_id_pin;
 
 	jz4780->clk = clk_get(NULL, OTG_CLK_NAME);
 	if (IS_ERR(jz4780->clk)) {
 		dev_err(&pdev->dev, "clk gate get error\n");
-		goto err2;
+		goto fail_get_clk;
 	}
 	clk_enable(jz4780->clk);
 
@@ -312,7 +325,7 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 
 	if (IS_ERR(jz4780->vbus)) {
 		dev_err(&pdev->dev, "regulator %s get error\n", VBUS_REG_NAME);
-		goto err3;
+		goto fail_get_vbus_reg;
 	}
 	if (regulator_is_enabled(jz4780->vbus))
 		regulator_disable(jz4780->vbus);
@@ -321,7 +334,7 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 
 	if (IS_ERR(jz4780->ucharger)) {
 		dev_err(&pdev->dev, "regulator %s get error\n", UCHARGER_REG_NAME);
-		goto err4;
+		goto fail_get_chg_reg;
 	} else {
 		INIT_DELAYED_WORK(&jz4780->charger_delay_work, set_charger_current_work);
 	}
@@ -329,13 +342,12 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 #error DWC OTG driver can NOT work without regulator!
 #endif
 
-	if (gpio_request_one(jz4780->dete->num,
-				GPIOF_DIR_IN, "usb-charger-detect")) {
-		dev_err(&pdev->dev, "OTG detect pin is busy!\n");
-	} else {
-		int ret;
-
-		dev_info(&pdev->dev, "request GPIO_USB_DETE: %d\n", jz4780->dete->num);
+	jz4780->dete_irq = -1;
+	ret = gpio_request_one(jz4780->dete->num,
+			GPIOF_DIR_IN, "usb-charger-detect");
+	if (ret == 0) {
+		jz4780->dete_irq = gpio_to_irq(jz4780->dete->num);
+		INIT_DELAYED_WORK(&jz4780->work, usb_detect_work);
 
 		ret = request_irq(gpio_to_irq(jz4780->dete->num),
 				usb_detect_interrupt,
@@ -343,12 +355,34 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 				"usb-detect", jz4780);
 		if (ret) {
 			dev_err(&pdev->dev, "request usb-detect fail\n");
-			goto err6;
+			goto fail_req_dete_irq;
 		} else {
-			jz4780->irq = gpio_to_irq(jz4780->dete->num);
-			disable_irq_nosync(jz4780->irq);
-			INIT_DELAYED_WORK(&jz4780->work, usb_detect_work);
+			disable_irq(jz4780->dete_irq);
 		}
+	}
+
+	jz4780->id_irq = -1;
+	ret = gpio_request_one(jz4780->id_pin->num,
+			GPIOF_DIR_IN, "usb-host-id-detect");
+	if (ret == 0) {
+		jz4780->id_irq = gpio_to_irq(jz4780->id_pin->num);
+		INIT_DELAYED_WORK(&jz4780->host_id_work, usb_host_id_work);
+
+		ret = request_irq(gpio_to_irq(jz4780->id_pin->num),
+				usb_host_id_interrupt,
+				IRQF_TRIGGER_FALLING,
+				"usb-host-id", jz4780);
+		if (ret) {
+			jz4780->id_irq = -1;
+			dev_err(&pdev->dev, "request host id interrupt fail!\n");
+			goto fail_req_id_irq;
+		} else {
+			disable_irq(jz4780->id_irq);
+		}
+	} else {
+#if DWC2_HOST_MODE_ENABLE
+		dwc2_plat_data->keep_phy_on = 1;
+#endif
 	}
 
 	usb_cpm_init();
@@ -357,7 +391,11 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	jz4780_usb_set_dual_mode();
 
 	jz4780_usb_phy_init(jz4780);
-	jz4780_usb_phy_switch(jz4780, 1);
+
+	if (dwc2_plat_data->keep_phy_on)
+		cpm_set_bit(7, CPM_OPCR);
+	else
+		cpm_clear_bit(7, CPM_OPCR);
 
 	/*
 	 * Close VBUS detect in DWC-OTG PHY.
@@ -368,47 +406,72 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 					pdev->num_resources);
 	if (ret) {
 		dev_err(&pdev->dev, "couldn't add resources to dwc2 device\n");
-		goto err7;
+		goto fail_add_dwc2_res;
 	}
 
 	ret = platform_device_add(dwc2);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dwc2 device\n");
-		goto err7;
+		goto fail_add_dwc2_dev;
 	}
 
-	enable_irq(jz4780->irq);
+	if (jz4780->id_irq >= 0) {
+		schedule_delayed_work(&jz4780->host_id_work, msecs_to_jiffies(10));
+	}
+
+	if (jz4780->dete_irq >= 0) {
+		schedule_delayed_work(&jz4780->work, msecs_to_jiffies(10));
+	}
 
 	return 0;
 
-err7:
+fail_add_dwc2_dev:
+fail_add_dwc2_res:
+fail_req_id_irq:
 	free_irq(gpio_to_irq(jz4780->dete->num), jz4780);
 
-err6:
-	gpio_free(jz4780->dete->num);
+fail_req_dete_irq:
+	if (gpio_is_valid(jz4780->dete->num))
+		gpio_free(jz4780->dete->num);
+
+#ifdef CONFIG_REGULATOR
 	regulator_put(jz4780->ucharger);
 
-err4:
+fail_get_chg_reg:
 	regulator_put(jz4780->vbus);
 
-err3:
+fail_get_vbus_reg:
+#endif	/* CONFIG_REGULATOR */
 	clk_disable(jz4780->clk);
 	clk_put(jz4780->clk);
 
-err2:
+fail_get_clk:
+	kfree(dwc2->dev.platform_data);
+
+fail_alloc_dwc2_plat_data:
 	kfree(jz4780);
-err0:
+out:
 	return ret;
 }
 
 static int dwc2_jz4780_remove(struct platform_device *pdev) {
 	struct dwc2_jz4780	*jz4780 = platform_get_drvdata(pdev);
 
-	free_irq(jz4780->irq, jz4780);
-	gpio_free(jz4780->dete->num);
+	if (jz4780->dete_irq >= 0) {
+		free_irq(jz4780->dete_irq, jz4780);
+		gpio_free(jz4780->dete->num);
+	}
 
-	regulator_put(jz4780->ucharger);
-	regulator_put(jz4780->vbus);
+	if (jz4780->id_irq >= 0) {
+		free_irq(jz4780->id_irq, jz4780);
+		gpio_free(jz4780->id_pin->num);
+	}
+
+	if (!IS_ERR(jz4780->ucharger))
+		regulator_put(jz4780->ucharger);
+
+	if (!IS_ERR(jz4780->vbus))
+		regulator_put(jz4780->vbus);
 
 	clk_disable(jz4780->clk);
 	clk_put(jz4780->clk);
