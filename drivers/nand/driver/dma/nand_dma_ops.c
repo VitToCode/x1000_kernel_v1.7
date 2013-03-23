@@ -313,12 +313,12 @@ static int mcu_reset(const NAND_API *pnand_api)
 	 */
 	fclk = clk_get_rate(host->nemc_gate);
 	fcycle = 1000000000 / (fclk / 1000); // unit: ps
-	nand_dma->msg->info[MSG_TWHR] = (((nand_type->twhr * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	nand_dma->msg->info[MSG_TWHR2] = (((nand_type->twhr2 * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	nand_dma->msg->info[MSG_TRR] = (((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	nand_dma->msg->info[MSG_TWB] = (((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	nand_dma->msg->info[MSG_TADL] = (((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1) / 2;
-	nand_dma->msg->info[MSG_TCWAW] = (((nand_type->tcwaw * 1000 + fcycle - 1) / fcycle) + 1) / 2;
+	nand_dma->msg->info[MSG_TWHR] = (((nand_type->twhr * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TWHR2] = (((nand_type->twhr2 * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TRR] = (((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TWB] = (((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TADL] = (((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TCWAW] = (((nand_type->tcwaw * 1000 + fcycle - 1) / fcycle) + 1);
 	printk("MCU:twhr=%d twhr2=%d trr=%d twb=%d tadl=%d tcwaw=%d\n"
 			,nand_dma->msg->info[MSG_TWHR]
 			,nand_dma->msg->info[MSG_TWHR2]
@@ -386,10 +386,10 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	b_time();
 #endif
 	if(phy_pageid != nand_dma->cache_phypageid){
-		nand_dma->cache_phypageid = phy_pageid;
 		if(bytes < byteperpage){
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,nand_dma->data_buf);
 			ret =send_msg_to_mcu(pnand_api);
+		        nand_dma->cache_phypageid = phy_pageid;
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
 				//	goto read_page_singlenode_error1;
@@ -400,6 +400,7 @@ static int read_page_singlenode(const NAND_API *pnand_api
 				ret =ret1;
 				goto read_page_singlenode_error1;
 			}
+
 		}else{
 			set_rw_msg(nand_dma,cs,rw,phy_pageid,databuf);
 			ret = send_msg_to_mcu(pnand_api);
@@ -596,9 +597,9 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 		templist = singlelist_entry(listhead,PageList,head);
 	}
 	if(phy_pageid != nand_dma->cache_phypageid){
-		nand_dma->cache_phypageid = phy_pageid;
 		set_rw_msg(nand_dma,cs,NAND_DMA_READ,phy_pageid,nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
+		nand_dma->cache_phypageid = phy_pageid;
 #ifdef NAND_DMA_CALC_TIME
 		e_time();
 		dprintf("  %s  %d\n",__func__,__LINE__);

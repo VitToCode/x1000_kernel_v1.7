@@ -812,6 +812,7 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 	}
 	nand_ops_parameter_reset(tmp_ppt);
 	ret =nand_erase_blocks(g_pnand_api.vnand_base,erase_blocklist);
+	g_pnand_api.nand_dma->cache_phypageid = -1;
 	return ret;
 }
 
