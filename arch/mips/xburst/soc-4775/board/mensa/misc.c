@@ -262,6 +262,11 @@ static int __init board_init(void)
 	jz_device_register(&jz_adc_device, &mensa_battery_pdata);
 #endif
 
+/*IW8103_bcm4330*/
+#ifdef CONFIG_BCM4330_RFKILL
+		platform_device_register(&bcm4330_bt_power_device);
+#endif
+
 	return 0;
 }
 
