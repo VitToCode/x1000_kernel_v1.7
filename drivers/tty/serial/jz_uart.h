@@ -95,6 +95,8 @@
 #define UART_MSR_CTS		0x10 /* Clear to Send */
 #define UART_MSR_DCTS		0x01 /* Delta CTS */
 #define UART_MSR_ANY_DELTA	0x0F /* Any of the delta bits! */
+#define UART_RCR   16
+#define UART_TCR   17
 
 #define UART_SCR	7	/* I/O: Scratch Register */
 
