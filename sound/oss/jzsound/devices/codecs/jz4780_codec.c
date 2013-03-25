@@ -2818,6 +2818,11 @@ static int codec_set_replay_volume(int *val)
 	unsigned long fixed_vol;
 	int volume_base = 0;
 
+	if (*val >100 || *val < 0) {
+		*val = user_replay_volume;
+		return -EINVAL;
+	}
+
 	if (codec_platform_data &&
 			codec_platform_data->replay_volume_base >= -25 &&
 			codec_platform_data->replay_volume_base <= 6)
@@ -2830,7 +2835,7 @@ static int codec_set_replay_volume(int *val)
 
 	user_replay_volume = *val;
 
-	return *val;
+	return 0;
 }
 
 static int codec_set_replay_channel(int* channel)
