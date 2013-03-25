@@ -67,6 +67,9 @@ extern struct snd_codec_data codec_data;
 #define GPIO_MIC_DETECT_EN		-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
 
+#define GPIO_ENDCALL			GPIO_PA(30)
+#define ACTIVE_LOW_ENDCALL		1
+
 /**
  * nand platform data
  **/
