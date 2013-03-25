@@ -528,7 +528,7 @@ static int init_nand_driver(void)
 	t_partition = g_partition+ipartition_num-1;  //last partiton from board
 	(g_partition+ret)->name = "nderror";
 	(g_partition+ret)->byteperpage = t_partition->byteperpage;
-	(g_partition+ret)->badblockcount = 1;//tmp_badblock_info[ret];
+	(g_partition+ret)->badblockcount = (g_partition + ret - 1)->badblockcount;//tmp_badblock_info[ret];
 	(g_partition+ret)->actualbadblockcount = 0;
 	(g_partition+ret)->startblockID = blockid;
 	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
