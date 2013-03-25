@@ -50,6 +50,7 @@
 #define PORT_NR 5
 #define DMA_BUFFER 1024
 #define COUNT_DMA_BUFFER 2048
+static unsigned short quot1[3] = {0}; /* quot[0]:baud_div, quot[1]:umr, quot[2]:uacr */
 struct uart_jz47xx_port {
 	struct uart_port        port;
 	unsigned char           ier;
@@ -79,6 +80,8 @@ struct uart_jz47xx_port {
 	struct  tasklet_struct   tasklet_pio_rx;
 };
 static inline void check_modem_status(struct uart_jz47xx_port *up);
+static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned int baud);
+static inline void serial_dl_write(struct uart_port *up, int value);
 
 static inline unsigned int serial_in(struct uart_jz47xx_port *up, int offset)
 {
@@ -215,13 +218,12 @@ static void jz47xx_dma_rx(unsigned long data)
 #endif
 }
 
-static inline void receive_chars(unsigned long data)
+static inline void receive_chars(unsigned long data, unsigned int status)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)data;
 	struct tty_struct *tty = up->port.state->port.tty;
 	unsigned int ch, flag,count;
 	int max_count = 256;
-	int status = serial_in(up, UART_LSR);
 	int lsr = status & UART_LSR_DR;
 	/*
 	 * UART FIFO isn't empty and DMA buffer have data
@@ -428,7 +430,6 @@ static void transmit_chars(struct uart_jz47xx_port *up)
 {
 	struct circ_buf *xmit = &up->port.state->xmit;
 	int count;
-
 	if (up->port.x_char) {
 		serial_out(up, UART_TX, up->port.x_char);
 		up->port.icount.tx++;
@@ -508,7 +509,7 @@ static inline irqreturn_t serial_jz47xx_irq(int irq, void *dev_id)
 	}
 	else {
 		if (lsr & UART_LSR_DR)
-			receive_chars((unsigned long)up);
+			receive_chars((unsigned long)up, lsr);
 		check_modem_status(up);
 		if (lsr & UART_LSR_THRE)
 			transmit_chars(up);
@@ -685,6 +686,7 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	unsigned long flags;
 	unsigned int baud, quot;
 	unsigned int dll;
+	unsigned short *quot1;
 
 	switch (termios->c_cflag & CSIZE) {
 		case CS5:
@@ -713,9 +715,16 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	 * Ask the core to calculate the divisor for us.
 	 */
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk);
-	quot = uart_get_divisor(port, baud);
 
-
+/*cljiang add from old driver*/
+    quot1 = serial47xx_get_divisor(port, baud);
+	quot = quot1[0]; 
+	serial_dl_write(port, quot1[0]);
+	serial_out(up,UART_UMR, quot1[1]);
+	serial_out(up,UART_UACR, quot1[2]);
+/*cljiang end*/
+	
+//	quot = uart_get_divisor(port, baud);
 	/*
 	 * Ok, we're now changing the port state.  Do it with
 	 * interrupts disabled.
@@ -786,7 +795,102 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	else
 		serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_11 | UART_FCR_UME);
 	spin_unlock_irqrestore(&up->port.lock, flags);
+
 }
+
+static inline void serial_dl_write(struct uart_port *up, int value)
+{
+	struct uart_jz47xx_port *port = (struct uart_jz47xx_port*)up;
+	int lcr = serial_in(port,UART_LCR);
+	serial_out(port,UART_LCR, UART_LCR_DLAB);
+	serial_out(port,UART_DLL, value & 0xff);
+	serial_out(port,UART_DLM, value >> 8 & 0xff);
+	serial_out(port,UART_LCR, lcr);
+}
+
+
+static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned int baud)
+{
+	int err, sum, i, j;
+	int a[12], b[12];
+	unsigned short div, umr, uacr;
+	unsigned short umr_best, div_best, uacr_best;
+	long long t0, t1, t2, t3;
+
+	sum = 0;
+	umr_best = div_best = uacr_best = 0;
+	div = 1;
+
+	if ((port->uartclk % (16 * baud)) == 0) {
+		quot1[0] = port->uartclk / (16 * baud);
+		quot1[1] = 16;
+		quot1[2] = 0;
+		return quot1;
+	}
+
+	while (1) {
+		umr = port->uartclk / (baud * div);
+		if (umr > 32) {
+			div++;
+			continue;
+		}
+		if (umr < 4) {
+			break;
+		}
+		for (i = 0; i < 12; i++) {
+			a[i] = umr;
+			b[i] = 0;
+			sum = 0;
+			for (j = 0; j <= i; j++) {
+				sum += a[j];
+			}
+
+			/* the precision could be 1/2^(36) due to the value of t0 */
+			t0 = 0x1000000000LL;
+			t1 = (i + 1) * t0;
+			t2 = (sum * div) * t0;
+			t3 = div * t0;
+			do_div(t1, baud);
+			do_div(t2, port->uartclk);
+			do_div(t3, (2 * port->uartclk));
+			err = t1 - t2 - t3;
+
+			if (err > 0) {
+				a[i] += 1;
+				b[i] = 1;
+			}
+		}
+
+		uacr = 0;
+		for (i = 0; i < 12; i++) {
+			if (b[i] == 1) {
+				uacr |= 1 << i;
+			}
+		}
+		if (div_best ==0){
+			div_best = div;
+			umr_best = umr;
+			uacr_best = uacr;
+		}
+
+		/* the best value of umr should be near 16, and the value of uacr should better be smaller */
+		if (abs(umr - 16) < abs(umr_best - 16) || (abs(umr - 16) == abs(umr_best - 16) && uacr_best > uacr)) {
+			div_best = div;
+			umr_best = umr;
+			uacr_best = uacr;
+		}
+		div++;
+	}
+
+	quot1[0] = div_best;
+	quot1[1] = umr_best;
+	quot1[2] = uacr_best;
+
+	return quot1;
+}
+
+
+
 
 static void serial_jz47xx_release_port(struct uart_port *port)
 {
