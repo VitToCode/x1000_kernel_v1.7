@@ -66,7 +66,7 @@ EXCLUSIVE_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vcc5,
 	"Vcc-5V",
-	"vhdmi",	"jz-hdmi",	3300000);
+	"vhdmi",	"jz-hdmi",	5000000);
 #endif
 /**
  * Fixed voltage Regulators.

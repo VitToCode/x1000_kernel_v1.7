@@ -61,7 +61,7 @@ EXCLUSIVE_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_DEF(
 	grus_vcc5,
 	"Vcc-5v",
-	"vhdmi",	"jzhdmi",		3300000);
+	"vhdmi",	"jz-hdmi",		5000000);
 
 /**
  * Fixed voltage Regulators.
@@ -118,8 +118,7 @@ static struct regulator_info grus_pmu_regulators[] = {
 static struct charger_board_info charger_board_info = {
 	.gpio	= -1,		//GPIO_PB(2),
 	.enable_level	= LOW_ENABLE,
-};
-//#endif
+}; //#endif
 
 static struct pmu_platform_data grus_pmu_pdata = {
 	.gpio = GPIO_PA(28),
