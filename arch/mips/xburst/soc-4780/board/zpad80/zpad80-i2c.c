@@ -175,6 +175,19 @@ static struct cam_sensor_plat_data hi253_pdata = {
 };
 #endif
 
+//xzhang add gt2005
+#if (defined(CONFIG_GT2005))
+static struct cam_sensor_plat_data gt2005_pdata = {
+        .facing = 1,
+        .orientation = 0,
+        .mirror = 0,
+        .gpio_en = GPIO_GT2005_EN,
+        .gpio_rst = GPIO_GT2005_RST,
+        .cap_wait_frame = 3,
+};
+#endif
+
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
@@ -205,6 +218,13 @@ static struct i2c_board_info zpad80_i2c2_devs[] __initdata = {
 		I2C_BOARD_INFO("hi253", 0x20),
 		.platform_data	= &hi253_pdata,
 	},
+#endif
+
+#ifdef CONFIG_GT2005
+        {
+		I2C_BOARD_INFO("gt2005", 0x3c),
+                .platform_data  = &gt2005_pdata,
+        },
 #endif
 
 };

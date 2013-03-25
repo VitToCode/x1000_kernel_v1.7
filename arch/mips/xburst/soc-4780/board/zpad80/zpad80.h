@@ -122,6 +122,11 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_HI253_RST			GPIO_PB(26)
 #endif
 
+#ifdef  CONFIG_GT2005
+#define GPIO_GT2005_EN                  GPIO_PB(18)
+#define GPIO_GT2005_RST                 GPIO_PB(26)
+#endif
+
 /**
  * motor gpio
  */
