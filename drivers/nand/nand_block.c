@@ -759,7 +759,7 @@ static int nand_block_probe(struct device *dev)
 	ndisk->pinfo = pinfo;
 	ndisk->sectorsize = lpt->pt->hwsector;
 	ndisk->segmentsize = lpt->pt->segmentsize;
-	ndisk->capacity = lpt->pt->sectorCount * lpt->pt->hwsector;
+	ndisk->capacity = lpt->pt->sectorCount;
 
     ndisk->disk->major = nand_block.major;
     ndisk->disk->first_minor = cur_minor;
@@ -811,11 +811,11 @@ static int nand_block_probe(struct device *dev)
 
 	/* set queue limit & capacity */
 	if (ndisk->segmentsize > 0) {
-		blk_queue_max_segments(ndisk->queue, ndisk->capacity / ndisk->segmentsize);
+		blk_queue_max_segments(ndisk->queue, ndisk->capacity / (ndisk->segmentsize / ndisk->sectorsize));
 		blk_queue_max_segment_size(ndisk->queue, ndisk->segmentsize);
 		blk_queue_max_hw_sectors(ndisk->queue, ndisk->segmentsize / ndisk->sectorsize);
 	}
-	set_capacity(ndisk->disk, ndisk->capacity / ndisk->sectorsize);
+	set_capacity(ndisk->disk, ndisk->capacity);
 
 	/* create file */
 	sysfs_attr_init(&ndisk->dattr.attr);
