@@ -716,12 +716,8 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	 */
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk);
 
-/*cljiang add from old driver*/
+/*cljiang add from 4770 driver*/
     quot1 = serial47xx_get_divisor(port, baud);
-	quot = quot1[0]; 
-	serial_dl_write(port, quot1[0]);
-	serial_out(up,UART_UMR, quot1[1]);
-	serial_out(up,UART_UACR, quot1[2]);
 /*cljiang end*/
 	
 //	quot = uart_get_divisor(port, baud);
@@ -774,7 +770,7 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	}
 
 	serial_out(up, UART_IER, up->ier);
-
+#if 0
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
 	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
 
@@ -787,6 +783,12 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 
 	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
+#endif
+/*cljiang add from 4770 driver*/
+	serial_dl_write(port, quot1[0]);
+	serial_out(up,UART_UMR, quot1[1]);
+	serial_out(up,UART_UACR, quot1[2]);
+/*cljiang end*/
 	up->lcr = cval;					/* Save LCR */
 	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
 
