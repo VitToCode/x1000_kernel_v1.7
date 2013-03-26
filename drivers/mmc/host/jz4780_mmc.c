@@ -428,7 +428,7 @@ start:
 				jzmmc_data_done(host);
 			} else {
 				enable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
-				if (msc_readl(host, RES) & STAT_AUTO_CMD12_DONE) {
+				if (msc_readl(host, STAT) & STAT_AUTO_CMD12_DONE) {
 					disable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
 					clear_msc_irq(host, IFLG_AUTO_CMD12_DONE);
 					host->state = STATE_IDLE;
