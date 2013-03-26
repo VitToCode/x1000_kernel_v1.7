@@ -93,16 +93,8 @@ static void inline rtc_write_reg(int reg,int value)
         outl(value,(RTC_IOBASE + reg));
         while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 }
-#if 0
 #define jzrtc_enable_clk32k()  rtc_write_reg(RTC_CKPCR,ENABLE_CLK32K)
 #define jzrtc_disable_clk32k() rtc_write_reg(RTC_CKPCR,DISABLE_CLK32K)
-#else
-/*
- * I'm NOT complete here, Fix me later!
- */
-#define jzrtc_enable_clk32k()
-#define jzrtc_disable_clk32k()
-#endif
 extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 
