@@ -510,10 +510,10 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* set Oscillator Stabilize Time*/
 	/* disable externel clock Oscillator in sleep mode */
 	/* select 32K crystal as RTC clock in sleep mode */
-	cpm_outl(1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS | 1<<2,CPM_OPCR);
+	cpm_outl((opcr & 0x22) | 1<<30 | 2<<26 | 0xff<<8 | OPCR_PD | OPCR_ERCS,CPM_OPCR);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
-	
+
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
