@@ -141,6 +141,7 @@ static int __init board_init(void)
 #endif
 
 /* mmc */
+#ifndef CONFIG_NAND
 #ifdef CONFIG_MMC0_JZ4775
 	jz_device_register(&jz_msc0_device, &inand_pdata);
 #endif
@@ -150,6 +151,15 @@ static int __init board_init(void)
 #ifdef CONFIG_MMC2_JZ4775
 	jz_device_register(&jz_msc2_device, &tf_pdata);
 #endif
+#else
+#ifdef CONFIG_MMC0_JZ4775
+	jz_device_register(&jz_msc0_device, &tf_pdata);
+#endif
+#ifdef CONFIG_MMC1_JZ4775
+	jz_device_register(&jz_msc1_device, &sdio_pdata);
+#endif
+#endif
+
 
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
