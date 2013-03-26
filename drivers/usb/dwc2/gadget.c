@@ -1701,11 +1701,13 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
 
-
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dwc->pullup_on = is_on;
 
-	if (dwc2_is_device_mode(dwc) && dwc->plugin) {
+	if (is_on && !dwc->plugin)
+		goto out;
+
+	if (dwc2_is_device_mode(dwc)) {
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1723,6 +1725,7 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 		printk("gadget pullup defered, current mode: %s, plugin: %d\n",
 			dwc2_is_device_mode(dwc) ? "device" : "host", dwc->plugin);
 	}
+out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	jz4780_set_charger_current(dwc);
@@ -2263,11 +2266,13 @@ void dwc2_gadget_plug_change(int plugin) {
 	dwc2_spin_lock_irqsave(dwc, flags);
 
 	if (!dwc2_is_device_mode(dwc)) {
-		dwc2_spin_unlock_irqrestore(dwc, flags);
-		return;
+		goto out;
 	}
 
 	dwc->plugin = !!plugin;
+
+	if (dwc->suspended)
+		goto out;
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 
@@ -2298,6 +2303,7 @@ void dwc2_gadget_plug_change(int plugin) {
 #endif
 	}
 
+out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 }
 

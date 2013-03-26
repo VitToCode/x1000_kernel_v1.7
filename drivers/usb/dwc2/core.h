@@ -476,8 +476,12 @@ struct dwc2 {
 	unsigned			 plugin:1;
 	unsigned			 keep_phy_on:1;
 	/* for suspend/resume */
+	unsigned			 suspended:1;  /* 0: running, 1: suspended */
 	unsigned			 phy_status:1; /* 0: suspend, 1: on */
 	unsigned			 sftdiscon:1;
+	unsigned			 plug_status:1;
+
+	unsigned int			 gintmsk;
 
 	int pullup_on;
 	enum dwc2_ep0_state		 ep0state;

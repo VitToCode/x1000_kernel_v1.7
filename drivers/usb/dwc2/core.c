@@ -1562,6 +1562,8 @@ static void dwc2_device_suspend(struct dwc2 *dwc) {
 	/* suspend PHY0 */
 	dwc->phy_status = !!(value & (1 << 7));
 	cpm_outl(value & ~(1 << 7), CPM_OPCR);
+
+	dwc->plug_status = dwc->plugin;
 }
 
 static void dwc2_host_suspend(struct dwc2 *dwc) {
@@ -1577,14 +1579,19 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	struct dwc2	*dwc = platform_get_drvdata(pdev);
 	unsigned long	 flags;
 
-	dev_dbg(dwc->dev, "suspend");
 	dwc2_spin_lock_irqsave(dwc, flags);
+
+	dwc->suspended = 1;
+
 	if (dwc2_is_device_mode(dwc)) {
 		dwc2_device_suspend(dwc);
 	} else {
 		dwc2_host_suspend(dwc);
 	}
+	dwc2_core_debug_en = 1;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	dev_dbg(dwc->dev, "dwc2_suspend-ed\n");
 
 	return 0;
 }
@@ -1592,6 +1599,20 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 static void dwc2_device_resume(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
 	unsigned int	 value;
+
+	if (!dwc->plug_status && dwc->plugin) {
+		dev_dbg(dwc->dev, "plugin when we are suspend, pullup_on = %d\n", dwc->pullup_on);
+		dwc->sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc->phy_status = 1;
+	}
+
+	if (dwc->plug_status && !dwc->plugin) {
+		dev_dbg(dwc->dev, "unplug when we are suspend\n");
+		dwc->sftdiscon = 1; /* disconnect */
+		dwc->phy_status = 1; /* but keep phy on, let session-end-detect intr to close it */
+	}
+
+	/* if plugin status didnot changed when we are suspend, just restore the previous value */
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dctl.b.sftdiscon = dwc->sftdiscon;
@@ -1616,10 +1637,13 @@ static int dwc2_resume(struct platform_device *pdev) {
 		dwc2_is_device_mode(dwc));
 
 	dwc2_spin_lock_irqsave(dwc, flags);
+	dwc->suspended = 0;
+
 	if (dwc2_is_device_mode(dwc))
 		dwc2_device_resume(dwc);
 	else
 		dwc2_host_resume(dwc);
+	dwc2_core_debug_en = 0;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	return 0;

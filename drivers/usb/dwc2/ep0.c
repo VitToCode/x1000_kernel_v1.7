@@ -412,7 +412,7 @@ static void dwc2_ep0_start_transfer(struct dwc2 *dwc,
 			req->next_dma_addr = r->dma;
 			req->zlp_transfered = 0;
 			req->mapped = 1;
-		} else {
+		} else if (r->length == 0) {
 			req->trans_count_left = 0;
 			req->next_dma_addr = 0;
 			req->zlp_transfered = 0;
@@ -420,6 +420,7 @@ static void dwc2_ep0_start_transfer(struct dwc2 *dwc,
 
 		dwc2_ep0_start_in_transfer(dwc, req);
 	} else {
+		/* NOTE: we do not support >64 bytes OUT */
 		req->trans_count_left = r->length;
 		req->next_dma_addr = dwc->ep0out_shadow_dma;
 		req->zlp_transfered = 0;
