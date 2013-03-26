@@ -4,7 +4,6 @@
 #include <linux/fs.h>
 #include <linux/string.h>
 
-#include "nand_api.h"
 #include "nm_interface.h"
 #include "nand_char.h"
 
