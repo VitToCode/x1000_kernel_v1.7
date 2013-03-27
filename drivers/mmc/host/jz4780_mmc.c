@@ -490,9 +490,6 @@ start:
 	} else if (pending & ERROR_IFLG) {
 		unsigned int mask = ERROR_IFLG;
 
-        if (!host->cmd) {
-            dev_err(host->dev, "\n\n***************** host->cmd NULL*****************\n\n");
-        }
 		dev_err(host->dev, "err%d cmd%d iflg%08X status%08X\n",
 			host->state, host->cmd ? host->cmd->opcode : -1, iflg, status);
 
@@ -1082,6 +1079,7 @@ static void jzmmc_detect_change(unsigned long data)
 
 		if (!present || present_old) {
 			clear_bit(JZMMC_CARD_PRESENT, &host->flags);
+			tasklet_disable(&host->tasklet);
 			jzmmc_reset(host);
 
 			if (host->mrq && (host->state > STATE_IDLE)) {
@@ -1094,15 +1092,21 @@ static void jzmmc_detect_change(unsigned long data)
 				mmc_request_done(host->mmc, host->mrq);
 				host->state = STATE_IDLE;
 			}
+			mmc_detect_change(host->mmc, 0);
 		} else {
+			tasklet_enable(&host->tasklet);
 			set_bit(JZMMC_CARD_PRESENT, &host->flags);
-#ifdef CLK_CTRL
+#if 0
+			/*
+			 * spin_lock() here may case recursion,
+			 * so discard the clk operation.
+			 */
 			clk_enable(host->clk);
 			clk_enable(host->clk_gate);
 #endif
+			mmc_detect_change(host->mmc, msecs_to_jiffies(1000));
 		}
-		mmc_detect_change(host->mmc, 100);
-#ifdef CLK_CTRL
+#if 0
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_disable(host->clk_gate);
 			clk_disable(host->clk);
@@ -1611,7 +1615,9 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 					gpio_to_irq(host->pdata->gpio->cd.num));
 				break;
 			}
-
+			tasklet_disable(&host->tasklet);
+			clk_enable(host->clk);
+			clk_enable(host->clk_gate);
 			if(!timer_pending(&host->detect_timer)){
 				disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 				mod_timer(&host->detect_timer, jiffies);

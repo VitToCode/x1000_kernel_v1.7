@@ -99,7 +99,14 @@ __cpuinit void register_smp_ops(struct plat_smp_ops *ops)
 asmlinkage __cpuinit void start_secondary(void)
 {
 	unsigned int cpu;
+	unsigned int errorpc;
 
+	__asm__ __volatile__ (
+		"mfc0  %0, $30,  0   \n\t"
+		"nop                  \n\t"
+		:"=r"(errorpc)
+		:);
+	printk("reset errorpc:%08X\n", errorpc);
 #ifdef CONFIG_MIPS_MT_SMTC
 	/* Only do cpu_probe for first TC of CPU */
 	if ((read_c0_tcbind() & TCBIND_CURTC) != 0)
