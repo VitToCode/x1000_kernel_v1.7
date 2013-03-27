@@ -9,6 +9,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/gpio.h>
@@ -127,6 +128,21 @@ int jzgpio_set_func(enum gpio_port port,
 	gpio_set_func(jz,func,pins);
 	return 0;
 }
+
+int jz_gpio_set_func(int gpio, enum gpio_function func)
+{
+	int port = gpio / 32;
+	int pin = BIT(gpio & 0x1f);
+
+	struct jzgpio_chip *jz = &jz_gpio_chips[port];
+
+	if (~jz->dev_map[0] & pin)
+		return -EINVAL;
+
+	gpio_set_func(jz, func, pin);
+	return 0;
+}
+EXPORT_SYMBOL(jz_gpio_set_func);
 
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 {

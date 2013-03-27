@@ -42,6 +42,9 @@ typedef struct {
 	struct {
 
 		/*
+		 * got from datasheet of SoC-jz4780,
+		 * there are obvious errors on timing diagram
+		 *
 		 * CS/ADDR/DATA(write)
 		 * ______<-------    Tah+Tas+Taw<+2>    ------> ________
 		 *       |_____________________________________|
@@ -235,6 +238,7 @@ typedef struct {
 	bank_type_t bank_type;
 	gpemc_bank_timing_t bank_timing;
 
+	unsigned int cnt_addr_pins;
 	void __iomem *io_base;
 
 	void __iomem *io_nand_dat;
@@ -251,8 +255,6 @@ extern int gpemc_config_toggle_bank_timing(gpemc_bank_t *bank);
 
 extern void gpemc_set_bank_as_common_nand(gpemc_bank_t *bank);
 extern void gpemc_set_bank_as_toggle_nand(gpemc_bank_t *bank);
-extern void gpemc_set_bank_as_sram(gpemc_bank_t *bank);
-extern bank_type_t gpemc_get_bank_type(gpemc_bank_t *bank);
 
 extern void gpemc_enable_nand_flash(gpemc_bank_t *bank, bool enable);
 
