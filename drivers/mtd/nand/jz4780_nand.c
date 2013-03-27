@@ -503,34 +503,21 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 
 	/*
 	 * Detect NAND flash chips
-	 *
-	 * switch to toggle NAND if common NAND detect fail
 	 */
 
 	/* step1. detect as common NAND */
 	for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
 		nand_if = nand->nand_flash_if_table[bank];
 
-		gpemc_set_bank_as_common_nand(&nand_if->cs);
 		gpemc_relax_bank_timing(&nand_if->cs);
 	}
 
 	if (nand_scan_ident(mtd, nand->num_nand_flash_if,
 			nand->nand_flash_table)) {
-		/* step2. common NAND detect fail, retry as toggle NAND */
-		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
-			nand_if = nand->nand_flash_if_table[bank];
 
-			gpemc_set_bank_as_toggle_nand(&nand_if->cs);
-			gpemc_relax_bank_timing(&nand_if->cs);
-		}
-
-		if (nand_scan_ident(mtd, nand->num_nand_flash_if,
-				nand->nand_flash_table)) {
-			ret = -ENXIO;
-			dev_err(&pdev->dev, "Failed to detect NAND flash.\n");
-			goto err_free_wp_gpio;
-		}
+		ret = -ENXIO;
+		dev_err(&pdev->dev, "Failed to detect NAND flash.\n");
+		goto err_free_wp_gpio;
 	}
 
 	/*
@@ -545,9 +532,12 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	nand_dev_id = chip->read_byte(mtd);
 
 	/* step2. find NAND flash info */
+	nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
 	for (bank = 0; bank < nand->num_nand_flash_info; bank++)
 		if (nand_dev_id ==
-				nand->nand_flash_info_table[bank].nand_dev_id)
+				nand->nand_flash_info_table[bank].nand_dev_id &&
+				nand_if->cs.bank_type ==
+						nand->nand_flash_info_table[bank].type)
 			break;
 
 	if (bank == nand->num_nand_flash_info) {
@@ -615,7 +605,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		chip->ecc.bytes        = nand_info->ecc_step.ecc_size;
 
 		/*
-		 * TODO: this parameter should be carefully consider
+		 * TODO: this parameter should be carefully considered
 		 */
 		chip->ecc.strength     = nand->bch_req.ecc_level / 2;
 
@@ -748,7 +738,6 @@ static int __devexit jz4780_nand_remove(struct platform_device *pdev)
 
 		gpemc_release_cs(&nand_if->cs);
 	}
-
 
 	/* free ECC BCH resource */
 #ifdef	BCH_REQ_ALLOC_ECC_DATA_BUFFER

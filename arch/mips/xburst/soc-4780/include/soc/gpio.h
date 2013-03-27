@@ -56,6 +56,8 @@ extern int platform_devio_array_size;
 int jzgpio_set_func(enum gpio_port port,
 		    enum gpio_function func,unsigned long pins);
 
+int jz_gpio_set_func(int gpio, enum gpio_function func);
+
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 

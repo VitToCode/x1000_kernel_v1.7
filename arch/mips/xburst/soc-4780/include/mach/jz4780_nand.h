@@ -38,7 +38,6 @@ typedef enum {
 
 typedef struct {
 	int bank;
-	bank_type_t type;
 
 	int busy_gpio;
 	int busy_gpio_low_assert;
@@ -148,11 +147,13 @@ struct jz4780_nand_platform_data {
 		BUSY_GPIO, BUSY_GPIO_LOW_ASSERT,	\
 		WP_GPIO, WP_GPIO_LOW_ASSERT)	\
 		.bank = (BANK),	\
-		.type = BANK_TYPE_NAND,	\
 		.busy_gpio = (BUSY_GPIO),	\
 		.busy_gpio_low_assert = (BUSY_GPIO_LOW_ASSERT),	\
 		.wp_gpio = (WP_GPIO),	\
-		.wp_gpio_low_assert = (WP_GPIO_LOW_ASSERT),
+		.wp_gpio_low_assert = (WP_GPIO_LOW_ASSERT),	\
+		.cs = {	\
+			.bank_type = (BANK_TYPE_NAND),	\
+		},	\
 
 /* TODO: implement it */
 #define TOGGLE_NAND_INTERFACE(TODO)

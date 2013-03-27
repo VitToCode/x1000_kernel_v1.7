@@ -19,7 +19,10 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 
+#include <gpio.h>
+#include <soc/gpio.h>
 #include <soc/gpemc.h>
 
 #define GPEMC_REGS_FILE_BASE 	0x13410000
@@ -36,6 +39,15 @@
 #define GPEMC_NAND_BANK_DATA_OFFSET	0
 #define GPEMC_NAND_BANK_ADDR_OFFSET	0x800000
 #define GPEMC_NAND_BANK_CMD_OFFSET	0x400000
+
+#define JZ_GPIO_FUNC_MEM_CS     GPIO_FUNC_0
+#define JZ_GPIO_FUNC_MEM_RD_WE  GPIO_FUNC_0
+#define JZ_GPIO_FUNC_MEM_DATA   GPIO_FUNC_0
+#define JZ_GPIO_FUNC_MEM_WAIT   GPIO_FUNC_0
+#define JZ_GPIO_FUNC_MEM_ADDR   GPIO_FUNC_0
+
+#define JZ_GPIO_FUNC_ALE_CLE    GPIO_FUNC_0
+#define JZ_GPIO_FUNC_DQS        GPIO_FUNC_0
 
 static const u32 nT_to_adjs[] = {
 	/* 0 ~ 10 */
@@ -97,8 +109,27 @@ typedef struct {
 	volatile u32 sacr[6];
 } regs_file_t;
 
+struct addr_pins_pool {
+	u32 addr_pins[6];
+	u32 addr_pin_use_count[6];
+
+	spinlock_t lock;
+};
+
 /* instance a singleton gpemc */
 static struct {
+	const u32 gpio_pin_data[8];
+	struct addr_pins_pool addr_pins_pool;
+	const u32 gpio_pin_rd_we[2];
+	const u32 gpio_pin_wait;
+	const u32 gpio_pin_dqs;
+	const u32 gpio_pin_cs[7];
+
+	atomic_t pin_data_use_count;
+	atomic_t pin_wait_use_count;
+	atomic_t pin_dqs_use_count;
+	atomic_t pin_rd_we_use_count;
+
 	struct clk *clk;
 	DECLARE_BITMAP(bank_use_map, 64);
 
@@ -171,12 +202,71 @@ static struct {
 		"gpemc-bank5-mem",
 		"gpemc-bank6-mem",
 	},
+
+	.gpio_pin_data = {
+		GPIO_PA(0),
+		GPIO_PA(1),
+		GPIO_PA(2),
+		GPIO_PA(3),
+		GPIO_PA(4),
+		GPIO_PA(5),
+		GPIO_PA(6),
+		GPIO_PA(7),
+	},
+
+	.addr_pins_pool.addr_pins = {
+		/*
+		 * also CLE for NAND
+		 */
+#define PIN_INDEX_OF_CLE	0
+		[PIN_INDEX_OF_CLE] = GPIO_PB(0),
+
+		/*
+		 * also ALE for NAND
+		 */
+#define PIN_INDEX_OF_ALE	1
+		[PIN_INDEX_OF_ALE] = GPIO_PB(1),
+
+		GPIO_PB(2),
+		GPIO_PB(3),
+		GPIO_PB(4),
+		GPIO_PB(5),
+	},
+
+	.gpio_pin_rd_we = {
+		GPIO_PA(16),
+		GPIO_PA(17),
+	},
+
+	.gpio_pin_wait = GPIO_PA(27),
+
+	.gpio_pin_dqs = GPIO_PA(29),
+
+	.gpio_pin_cs = {
+		0,
+		GPIO_PA(21),
+		GPIO_PA(22),
+		GPIO_PA(23),
+		GPIO_PA(24),
+		GPIO_PA(25),
+		GPIO_PA(26),
+	},
+
 }, *gpemc = &instance; /* end instance a singleton gpemc */
 
 int __init gpemc_init(void) {
 	int i;
 
 	struct resource *res;
+
+	atomic_set(&gpemc->pin_data_use_count, 0);
+	memset(gpemc->addr_pins_pool.addr_pin_use_count,
+			sizeof(gpemc->addr_pins_pool.addr_pin_use_count), 0);
+	atomic_set(&gpemc->pin_wait_use_count, 0);
+	atomic_set(&gpemc->pin_rd_we_use_count, 0);
+	atomic_set(&gpemc->pin_dqs_use_count, 0);
+
+	spin_lock_init(&gpemc->addr_pins_pool.lock);
 
 	gpemc->clk = clk_get(NULL, "nemc");
 	if (IS_ERR(gpemc->clk)) {
@@ -215,15 +305,516 @@ err_return:
 
 postcore_initcall(gpemc_init);
 
+static int gpemc_request_gpio_generic(const u32 *array,
+		int count, enum gpio_function func,
+		atomic_t *use_count, const char *name)
+{
+	int i;
+	int ret = 0;
+
+	if (atomic_read(use_count) == 0) {
+		for (i = 0; i < count; i++) {
+			ret = gpio_request(array[i], name);
+			if (ret < 0) {
+				i--;
+				do {
+					gpio_free(array[i]);
+				} while (i--);
+
+				pr_err("gpemc: failed to request pin %s\n", name);
+				goto err_return;
+			}
+
+			ret = jz_gpio_set_func(array[i], func);
+			if (ret < 0) {
+				do {
+					gpio_free(array[i]);
+				} while (i--);
+
+				pr_err("gpemc: failed to set function for pin %s\n", name);
+				goto err_return;
+			}
+		}
+	}
+
+	atomic_inc(use_count);
+
+err_return:
+	return ret;
+}
+
+static void gpemc_release_gpio_generic(const u32 *array,
+		int count, atomic_t *use_count)
+{
+	int i;
+
+	atomic_dec(use_count);
+	if (atomic_read(use_count) == 0) {
+		for (i = 0; i < count; i++) {
+			gpio_free(array[i]);
+		}
+	}
+}
+
+static int gpemc_request_gpio_data(void)
+{
+	return gpemc_request_gpio_generic(gpemc->gpio_pin_data,
+			ARRAY_SIZE(gpemc->gpio_pin_data), JZ_GPIO_FUNC_MEM_DATA,
+			&gpemc->pin_data_use_count, "gpemc-data");
+}
+
+static void gpemc_release_gpio_data(void)
+{
+	gpemc_release_gpio_generic(gpemc->gpio_pin_data,
+			ARRAY_SIZE(gpemc->gpio_pin_data),
+			&gpemc->pin_data_use_count);
+}
+
+static int gpemc_request_gpio_addr_one(int index)
+{
+	int ret = 0;
+
+	BUG_ON(index > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins) - 1);
+
+	spin_lock(&gpemc->addr_pins_pool.lock);
+	if (gpemc->addr_pins_pool.addr_pin_use_count[index] == 0) {
+		spin_unlock(&gpemc->addr_pins_pool.lock);
+
+		ret = gpio_request(gpemc->addr_pins_pool.addr_pins[index],
+				"gpemc-addr");
+		if (ret) {
+			pr_err("gpemc: failed to request addr pin\n");
+			goto err_return;
+		}
+
+		ret = jz_gpio_set_func(gpemc->addr_pins_pool.addr_pins[index],
+				JZ_GPIO_FUNC_MEM_ADDR);
+		if (ret) {
+			pr_err("gpemc: failed to set function for addr pin\n");
+			gpio_free(gpemc->addr_pins_pool.addr_pins[index]);
+			goto err_return;
+		}
+	}
+
+	gpemc->addr_pins_pool.addr_pin_use_count[index]++;
+	spin_unlock(&gpemc->addr_pins_pool.lock);
+
+err_return:
+	return ret;
+}
+
+static void gpemc_release_gpio_addr_one(int index)
+{
+	int use_count;
+
+	BUG_ON(index > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins) - 1);
+
+	spin_lock(&gpemc->addr_pins_pool.lock);
+	use_count = --gpemc->addr_pins_pool.addr_pin_use_count[index];
+
+	if (use_count == 0) {
+		spin_unlock(&gpemc->addr_pins_pool.lock);
+		gpio_free(gpemc->addr_pins_pool.addr_pins[index]);
+	}
+	spin_unlock(&gpemc->addr_pins_pool.lock);
+}
+
+static int gpemc_request_gpio_addr(int cnt_addr_pins)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < cnt_addr_pins; i++) {
+		ret = gpemc_request_gpio_addr_one(i);
+		if (ret)
+			goto err_return;
+	}
+
+err_return:
+	return ret;
+}
+
+static void gpemc_release_gpio_addr(int cnt_addr_pins)
+{
+	int i;
+
+	for (i = 0; i < cnt_addr_pins; i++)
+		gpemc_release_gpio_addr_one(i);
+}
+
+
+static int gpemc_request_gpio_cle_ale(void)
+{
+	int ret;
+
+	ret = gpemc_request_gpio_addr_one(PIN_INDEX_OF_CLE);
+	if (ret)
+		goto err_return;
+
+	ret = gpemc_request_gpio_addr_one(PIN_INDEX_OF_ALE);
+	if (ret)
+		goto err_return;
+
+err_return:
+	return ret;
+}
+
+static void gpemc_release_gpio_cle_ale(void)
+{
+	gpemc_release_gpio_addr_one(PIN_INDEX_OF_CLE);
+	gpemc_release_gpio_addr_one(PIN_INDEX_OF_ALE);
+}
+
+static int gpemc_request_gpio_rd_we(void)
+{
+	return gpemc_request_gpio_generic(gpemc->gpio_pin_rd_we,
+			ARRAY_SIZE(gpemc->gpio_pin_rd_we), JZ_GPIO_FUNC_MEM_RD_WE,
+			&gpemc->pin_rd_we_use_count, "gpemc-rd/we");
+}
+
+static void gpemc_release_gpio_rd_we(void)
+{
+	gpemc_release_gpio_generic(gpemc->gpio_pin_rd_we,
+			ARRAY_SIZE(gpemc->gpio_pin_rd_we),
+			&gpemc->pin_rd_we_use_count);
+}
+
+static int gpemc_request_gpio_cs(int cs)
+{
+	int ret;
+	ret = gpio_request(gpemc->gpio_pin_cs[cs], "gpemc-cs");
+	if (ret < 0) {
+		pr_err("gpemc: failed to request cs pin\n");
+		goto err_return;
+	}
+
+	ret = jz_gpio_set_func(gpemc->gpio_pin_cs[cs], JZ_GPIO_FUNC_MEM_CS);
+	if (ret < 0) {
+		gpio_free(gpemc->gpio_pin_cs[cs]);
+		pr_err("gpemc: failed to set function for cs \n");
+		goto err_return;
+	}
+
+err_return:
+	return ret;
+}
+
+static void gpemc_release_gpio_cs(int cs)
+{
+	gpio_free(gpemc->gpio_pin_cs[cs]);
+}
+
+/*
+ * TODO: request input wait#
+ */
+#if 0
+
+static int gpemc_request_gpio_wait(void)
+{
+	return gpemc_request_gpio_generic(&gpemc->gpio_pin_wait,
+			1, JZ_GPIO_FUNC_MEM_WAIT,
+			&gpemc->pin_wait_use_count, "gpemc-wait");
+}
+
+static void gpemc_release_gpio_wait(void)
+{
+	gpemc_release_gpio_generic(&gpemc->gpio_pin_wait,
+			1, &gpemc->pin_wait_use_count);
+}
+
+#endif
+
+static int gpemc_request_gpio_dqs(void)
+{
+	return gpemc_request_gpio_generic(&gpemc->gpio_pin_dqs,
+			1, JZ_GPIO_FUNC_DQS,
+			&gpemc->pin_rd_we_use_count, "gpemc-dqs");
+}
+
+static void gpemc_release_gpio_dqs(void)
+{
+	gpemc_release_gpio_generic(&gpemc->gpio_pin_dqs,
+			1, &gpemc->pin_dqs_use_count);
+}
+
+static int gpemc_request_gpio_for_sram(gpemc_bank_t *bank)
+{
+
+	/*
+	 * need inout  DATA[7 : 0]
+	 *      output ADDR[cnt : 0]
+	 *      output WE#
+	 *      output RD#
+	 *      output CS#
+	 *
+	 * TODO: request input wait#
+	 */
+
+	int ret;
+
+	ret = gpemc_request_gpio_data();
+	if (ret)
+		return ret;
+
+	ret = gpemc_request_gpio_addr(bank->cnt_addr_pins);
+	if (ret)
+		goto err_release_data;
+
+	ret = gpemc_request_gpio_rd_we();
+	if (ret)
+		goto err_release_addr;
+
+	ret = gpemc_request_gpio_cs(bank->cs);
+	if (ret)
+		goto err_release_rd_we;
+
+err_release_rd_we:
+	gpemc_release_gpio_rd_we();
+
+err_release_addr:
+	gpemc_release_gpio_addr(bank->cnt_addr_pins);
+
+err_release_data:
+	gpemc_release_gpio_data();
+
+	return ret;
+}
+
+static int gpemc_request_gpio_for_command_nand(gpemc_bank_t *bank)
+{
+	/*
+	 * need inout  DATA[7 : 0]
+	 *      output CLE, ALE
+	 *      output WE#
+	 *      output RD#
+	 *      output CS#
+	 */
+
+	int ret;
+
+	ret = gpemc_request_gpio_data();
+	if (ret)
+		return ret;
+
+	ret = gpemc_request_gpio_cle_ale();
+	if (ret)
+		goto err_release_data;
+
+	ret = gpemc_request_gpio_rd_we();
+	if (ret)
+		goto err_release_cle_ale;
+
+	ret = gpemc_request_gpio_cs(bank->cs);
+	if (ret)
+		goto err_release_rd_we;
+
+err_release_rd_we:
+	gpemc_release_gpio_rd_we();
+
+err_release_cle_ale:
+	gpemc_release_gpio_cle_ale();
+
+err_release_data:
+	gpemc_release_gpio_data();
+
+	return ret;
+}
+
+static int gpemc_request_gpio_for_toggle_nand(gpemc_bank_t *bank)
+{
+	/*
+	 * need inout  DATA[7 : 0]
+	 *      output CLE, ALE
+	 *      output WE#
+	 *      output RD#
+	 *      output CS#
+	 *      output DQS
+	 */
+
+	int ret;
+
+	ret = gpemc_request_gpio_data();
+	if (ret)
+		return ret;
+
+	ret = gpemc_request_gpio_cle_ale();
+	if (ret)
+		goto err_release_data;
+
+	ret = gpemc_request_gpio_rd_we();
+	if (ret)
+		goto err_release_cle_ale;
+
+	ret = gpemc_request_gpio_cs(bank->cs);
+	if (ret)
+		goto err_release_rd_we;
+
+	ret = gpemc_request_gpio_dqs();
+	if (ret)
+		goto err_release_cs;
+
+err_release_cs:
+	gpemc_release_gpio_cs(bank->cs);
+
+err_release_rd_we:
+	gpemc_release_gpio_rd_we();
+
+err_release_cle_ale:
+	gpemc_release_gpio_cle_ale();
+
+err_release_data:
+	gpemc_release_gpio_data();
+
+	return ret;
+}
+
+static void gpemc_release_gpio_for_sram(gpemc_bank_t *bank)
+{
+	gpemc_release_gpio_data();
+	gpemc_release_gpio_rd_we();
+	gpemc_release_gpio_addr(bank->cnt_addr_pins);
+	gpemc_release_gpio_cs(bank->cs);
+}
+
+static void gpemc_release_gpio_for_command_nand(gpemc_bank_t *bank)
+{
+	gpemc_release_gpio_data();
+	gpemc_release_gpio_rd_we();
+	gpemc_release_gpio_cle_ale();
+	gpemc_release_gpio_cs(bank->cs);
+}
+
+static void gpemc_release_gpio_for_toggle_nand(gpemc_bank_t *bank)
+{
+	gpemc_release_gpio_data();
+	gpemc_release_gpio_rd_we();
+	gpemc_release_gpio_cle_ale();
+	gpemc_release_gpio_cs(bank->cs);
+	gpemc_release_gpio_dqs();
+}
+
+static int gpemc_request_gpio(gpemc_bank_t *bank)
+{
+	int ret;
+
+	switch (bank->bank_type) {
+	case BANK_TYPE_SRAM:
+		ret = gpemc_request_gpio_for_sram(bank);
+		break;
+
+	case BANK_TYPE_NAND:
+		ret = gpemc_request_gpio_for_command_nand(bank);
+		break;
+
+	case BANK_TYPE_TOGGLE:
+		ret = gpemc_request_gpio_for_toggle_nand(bank);
+		break;
+	}
+
+
+	return ret;
+}
+
+static void gpemc_release_gpio(gpemc_bank_t *bank)
+{
+	switch (bank->bank_type) {
+	case BANK_TYPE_SRAM:
+		gpemc_release_gpio_for_sram(bank);
+		break;
+
+	case BANK_TYPE_NAND:
+		gpemc_release_gpio_for_command_nand(bank);
+		break;
+
+	case BANK_TYPE_TOGGLE:
+		gpemc_release_gpio_for_toggle_nand(bank);
+		break;
+	}
+}
+
+void gpemc_set_bank_as_common_nand(gpemc_bank_t *bank)
+{
+	u32 index;
+
+	BUG_ON(bank->bank_type != BANK_TYPE_NAND ||
+			bank->bank_type != BANK_TYPE_TOGGLE);
+
+	/* set nand type as common nand */
+	index = 16 + bank->cs - 1;
+	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
+
+	/* set bank role as nand */
+	index = (bank->cs - 1) << 1;
+	gpemc->nand_regs_file->nfcsr |= BIT(index);
+
+	bank->bank_type = BANK_TYPE_NAND;
+}
+EXPORT_SYMBOL(gpemc_set_bank_as_common_nand);
+
+void gpemc_set_bank_as_toggle_nand(gpemc_bank_t *bank)
+{
+	u32 index;
+
+	BUG_ON(bank->bank_type != BANK_TYPE_NAND ||
+			bank->bank_type != BANK_TYPE_TOGGLE);
+
+	/* set nand type as toggle */
+	index = 16 + bank->cs - 1;
+	gpemc->nand_regs_file->nfcsr |= BIT(index);
+
+	/* set bank role as nand */
+	index = (bank->cs - 1) << 1;
+	gpemc->nand_regs_file->nfcsr |= BIT(index);
+
+	bank->bank_type = BANK_TYPE_TOGGLE;
+}
+EXPORT_SYMBOL(gpemc_set_bank_as_toggle_nand);
+
+static void gpemc_set_bank_as_sram(gpemc_bank_t *bank)
+{
+	u32 index;
+
+	/* set bank role as sram */
+	index = (bank->cs - 1) << 1;
+	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
+}
+
+static void gpemc_set_bank_role(gpemc_bank_t *bank)
+{
+	switch (bank->bank_type) {
+	case BANK_TYPE_SRAM:
+		gpemc_set_bank_as_sram(bank);
+		break;
+
+	case BANK_TYPE_NAND:
+		gpemc_set_bank_as_common_nand(bank);
+		break;
+
+	case BANK_TYPE_TOGGLE:
+		gpemc_set_bank_as_toggle_nand(bank);
+		break;
+	}
+}
+
 int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 {
 	struct resource *res;
+	int ret;
+
 	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc->bank_mem));
+	BUG_ON(bank->bank_type < BANK_TYPE_SRAM || bank->bank_type > BANK_TYPE_TOGGLE);
+
+	if (bank->bank_type == BANK_TYPE_SRAM)
+		BUG_ON(bank->cnt_addr_pins == 0);
 
 	if (test_bit(cs, gpemc->bank_use_map)) {
 		pr_err("gpemc: grab cs %d failed, it's busy.\n", cs);
 		goto err_busy_bank;
 	}
+
+	ret = gpemc_request_gpio(bank);
+	if (ret)
+		return ret;
 
 	res = request_mem_region(gpemc->bank_mem[cs].start,
 			resource_size(&gpemc->bank_mem[cs]), gpemc->bank_name[cs]);
@@ -240,6 +831,8 @@ int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 	bank->io_nand_dat = bank->io_base + GPEMC_NAND_BANK_DATA_OFFSET;
 	bank->io_nand_addr = bank->io_base + GPEMC_NAND_BANK_ADDR_OFFSET;
 	bank->io_nand_cmd = bank->io_base + GPEMC_NAND_BANK_CMD_OFFSET;
+
+	gpemc_set_bank_role(bank);
 
 	return 0;
 
@@ -258,6 +851,8 @@ void gpemc_release_cs(gpemc_bank_t* bank)
 
 	release_mem_region(gpemc->bank_mem[bank->cs].start,
 			resource_size(&gpemc->bank_mem[bank->cs]));
+
+	gpemc_release_gpio(bank);
 
 	clear_bit(bank->cs, gpemc->bank_use_map);
 }
@@ -323,7 +918,7 @@ EXPORT_SYMBOL(gpemc_fill_timing_from_sram);
 void gpemc_relax_bank_timing(gpemc_bank_t *bank)
 {
 	/* all sram timing relax */
-	gpemc->regs_file->smcr[bank->cs] = ~(u32)1;
+	gpemc->regs_file->smcr[bank->cs] = ~(u32)0;
 
 	/* BW=0, BL=4, Normal sram */
 	gpemc->regs_file->smcr[bank->cs] &=
@@ -406,56 +1001,13 @@ EXPORT_SYMBOL(gpemc_config_bank_timing);
 
 int gpemc_config_toggle_bank_timing(gpemc_bank_t *bank)
 {
+
 	/*
 	 * TODO
 	 */
 	return 0;
 }
 EXPORT_SYMBOL(gpemc_config_toggle_bank_timing);
-
-void gpemc_set_bank_as_common_nand(gpemc_bank_t *bank)
-{
-	u32 index;
-
-	/* set nand type as common nand */
-	index = 16 + bank->cs - 1;
-	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
-
-	/* set bank role as nand */
-	index = (bank->cs - 1) << 1;
-	gpemc->nand_regs_file->nfcsr |= BIT(index);
-
-	bank->bank_type = BANK_TYPE_NAND;
-}
-EXPORT_SYMBOL(gpemc_set_bank_as_common_nand);
-
-void gpemc_set_bank_as_toggle_nand(gpemc_bank_t *bank)
-{
-	u32 index;
-
-	/* set nand type as toggle */
-	index = 16 + bank->cs - 1;
-	gpemc->nand_regs_file->nfcsr |= BIT(index);
-
-	/* set bank role as nand */
-	index = (bank->cs - 1) << 1;
-	gpemc->nand_regs_file->nfcsr |= BIT(index);
-
-	bank->bank_type = BANK_TYPE_TOGGLE;
-}
-EXPORT_SYMBOL(gpemc_set_bank_as_toggle_nand);
-
-void gpemc_set_bank_as_sram(gpemc_bank_t *bank)
-{
-	u32 index;
-
-	/* set bank role as sram */
-	index = (bank->cs - 1) << 1;
-	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
-
-	bank->bank_type = BANK_TYPE_SRAM;
-}
-EXPORT_SYMBOL(gpemc_set_bank_as_sram);
 
 void gpemc_enable_nand_flash(gpemc_bank_t *bank, bool enable)
 {
@@ -468,9 +1020,3 @@ void gpemc_enable_nand_flash(gpemc_bank_t *bank, bool enable)
 		gpemc->nand_regs_file->nfcsr &= ~BIT(index);
 }
 EXPORT_SYMBOL(gpemc_enable_nand_flash);
-
-bank_type_t gpemc_get_bank_type(gpemc_bank_t *bank)
-{
-	return bank->bank_type;
-}
-EXPORT_SYMBOL(gpemc_get_bank_type);
