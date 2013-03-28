@@ -11,7 +11,7 @@ struct snd_codec_data codec_data = {
 	.record_digital_volume_base = 23,
 	.replay_digital_volume_base = 0,
 	/* default route */
-	.replay_def_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
+	.replay_def_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE},
 	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_AN1,
@@ -27,7 +27,7 @@ struct snd_codec_data codec_data = {
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_DISABLE},
-	.replay_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
+	.replay_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE},
 	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,

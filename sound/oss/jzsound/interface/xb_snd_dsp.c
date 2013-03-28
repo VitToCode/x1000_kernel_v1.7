@@ -1172,6 +1172,8 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		put_use_dsp_node(dp, node, copy_size);
 
 		if (dp->is_trans == false) {
+			printk("dp->is_trans == false \
+					it cannot be appear more than once when replay\n");
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {
 				snd_start_dma_transfer(dp , dp->dma_config.direction);
@@ -1227,7 +1229,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* OSS 4.x: Route setero output to the specified channels(obsolete) */
 		/* we do't support here */
 		//break;
-
+	case SNDCTL_DSP_STEREO:
 	case SNDCTL_DSP_CHANNELS: {
 		/* OSS 4.x: set the number of audio channels */
 		int channels = -1;
@@ -1236,21 +1238,38 @@ long xb_snd_dsp_ioctl(struct file *file,
 			return -EFAULT;
 		}
 
+		if (cmd == SNDCTL_DSP_STEREO) {
+			if (channels > 1)
+				return -EINVAL;
+			channels = channels ? 2 : 1;
+		}
+
 		/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
 		   if opend as O_RDWR, only replay channels will be set, if record
 		   channels also want to be set, use cmd SOUND_PCM_READ_CHANNELS instead*/
 		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->out_endpoint;
 			if (ddata->dev_ioctl)
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_CHANNELS, (unsigned long)&channels);
 			if (!ret)
 				break;
+			dp->channels = channels;
 		} else if (file->f_mode & FMODE_READ) {
+			dp = endpoints->in_endpoint;
 			if (ddata->dev_ioctl)
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
 			if (!ret)
 				break;
+			dp->channels = channels;
 		} else
 			return -EPERM;
+
+
+		if (cmd == SNDCTL_DSP_CHANNELS) {
+			if (channels > 2)
+				return -EFAULT;
+			channels = channels == 2 ? 1 : 0;
+		}
 
 		ret = put_user(channels, (int *)arg);
 		break;
@@ -1282,7 +1301,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		} else
 			return -EPERM;
 
-		blksize = dp->fragsize * dp->fragcnt;
+		blksize = dp->buffersize;
 
 		ret = put_user(blksize, (int *)arg);
 		break;
@@ -1343,13 +1362,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	case SNDCTL_DSP_GETISPACE: {
 		/* OSS 4.x: Returns the amount of recorded data that can be read without blocking */
-		int amount = 0;
+		audio_buf_info audio_info;
 
 		if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
-			amount = get_use_dsp_node_count(dp) * dp->fragsize;
-			ret = put_user(amount, (int *)arg);
-		}
+			audio_info.fragments = get_free_dsp_node_count(dp);
+			audio_info.fragsize = dp->buffersize;
+			audio_info.fragstotal = dp->fragcnt;
+			audio_info.bytes = get_free_dsp_node_count(dp) * dp->buffersize;
+			ret =  copy_to_user((void *)arg, &audio_info, sizeof(audio_info)) ? -EFAULT : 0;
+		} else
+			return -EINVAL;
 
 		break;
 	}
@@ -1371,13 +1394,18 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	case SNDCTL_DSP_GETOSPACE: {
 		/* OSS 4.x: Returns the amount of playback data that can be written without blocking */
-		int amount = 0;
+		audio_buf_info audio_info;
 
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
-			amount = get_free_dsp_node_count(dp) * dp->fragsize;
-			ret = put_user(amount, (int *)arg);
-		}
+			audio_info.fragments = get_free_dsp_node_count(dp);
+			audio_info.fragsize = dp->buffersize;
+			audio_info.fragstotal = dp->fragcnt;
+			audio_info.bytes = get_free_dsp_node_count(dp) * dp->buffersize;
+			ret =  copy_to_user((void *)arg, &audio_info, sizeof(audio_info)) ? -EFAULT : 0;
+		} else
+			return -EINVAL;
+
 
 		break;
 	}
@@ -1509,10 +1537,61 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
-		//case SNDCTL_DSP_SETFRAGMENT:
-		/* OSS 4.x: Sets the buffer size hint */
-		/* we do't support here */
-		//break;
+	case SNDCTL_DSP_SETFRAGMENT: {
+		#define FRAGMENT_SIZE_MUX 0x0000ffff
+		#define FRAGMENT_CNT_MUX  0xffff0000
+		int fragment = -1;
+		int fragcnts = -1;
+		int fragsize = 1;
+		int i;
+
+
+		if (get_user(fragment, (int *)arg))
+			return -EFAULT;
+
+		fragcnts = ((fragment & FRAGMENT_CNT_MUX) >> 16);
+		if (fragcnts > 8 || fragcnts < 2)
+			return -EINVAL;
+
+		for (i = 0; i < (fragment & FRAGMENT_SIZE_MUX);i++)
+			fragsize *= 2;
+
+
+		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->out_endpoint;
+			if (fragsize < 16 || fragsize > 8192)
+				return -EINVAL;
+			printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
+		} else if (file->f_mode & FMODE_READ) {
+			if (dp->channels > 1) {
+				if (fragsize < 16 || fragsize > 8192)
+					return -EINVAL;
+			} else {
+				/*
+				 * If mono we use stereo record ,then filter on software
+				 * So we use half of a fragment at most
+				 */
+				if (fragsize < 16 || fragsize > 4096)
+					return -EINVAL;
+			}
+			dp = endpoints->in_endpoint;
+		}
+
+		dp->buffersize = fragsize;
+		//dp->fragcnt = fragcnts;
+		/* TODO:
+		 *	We not support change fragcnts
+		 *	Should we support??
+		 */
+		printk("audio buffersize change to %d",dp->buffersize);
+		printk("audio buffercnt change to %d",dp->fragcnt);
+
+		ret = put_user(fragment, (int *)arg);
+		#undef FRAGMENT_SIZE_MUX
+		#undef FRAGMENT_CNT_MUX
+		break;
+	}
+
 
 		//case SNDCTL_DSP_SET_PLAYTGT:
 		/* OSS 4.x: Sets the current output routing */
@@ -1591,9 +1670,23 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* we do't support here */
 		//break;
 
-		//case SNDCTL_DSP_SYNC:
+	case SNDCTL_DSP_SYNC:
 		/* OSS 4.x: Suspend the application until all samples have been played */
-		/* we do't support here */
+		//TODO: check it will wait until replay complete
+		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->out_endpoint;
+			while (get_free_dsp_node_count(dp) != dp->fragcnt) {
+				if (dp->is_trans == false) {
+					snd_release_node(dp);
+				}
+				msleep(100);
+			}
+			ret = 0;
+		} else
+			ret = -ENOSYS;
+		break;
+
+		//case SNDCTL_DSP_RESET:
 		//break;
 
 		//case SNDCTL_DSP_SYNCSTART:
@@ -1806,11 +1899,12 @@ long xb_snd_dsp_ioctl(struct file *file,
 			return -EPERM;
 		break;
 	}
-        case SNDCTL_EXT_STOP_DMA: {
-                if (file->f_mode & FMODE_READ)
-                        dp = endpoints->in_endpoint;
-                if (file->f_mode & FMODE_WRITE)
-                        dp = endpoints->out_endpoint;
+
+    case SNDCTL_EXT_STOP_DMA: {
+        if (file->f_mode & FMODE_READ)
+             dp = endpoints->in_endpoint;
+        if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->out_endpoint;
 		if (dp != NULL) {
 			dp->force_stop_dma = true;
 			dmaengine_terminate_all(dp->dma_chan);
@@ -1820,19 +1914,20 @@ long xb_snd_dsp_ioctl(struct file *file,
 		}
 			return 0;
 	}
-		case SNDCTL_EXT_SET_REPLAY_VOLUME: {
-			int vol;											
-			if (get_user(vol, (int*)arg)){
-				return -EFAULT;
-			}
 
-			if (ddata->dev_ioctl) {
-				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
-				if (!ret)
-				   break;
-			}
-			ret = put_user(vol, (int *)arg);
-			break;
+	case SNDCTL_EXT_SET_REPLAY_VOLUME: {
+		int vol;
+		if (get_user(vol, (int*)arg)){
+			return -EFAULT;
+		}
+
+		if (ddata->dev_ioctl) {
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+			if (!ret)
+			   break;
+		}
+		ret = put_user(vol, (int *)arg);
+		break;
 	}
 
 	default:

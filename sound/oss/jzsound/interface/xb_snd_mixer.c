@@ -205,21 +205,56 @@ long xb_snd_mixer_ioctl(struct file *file,
 						struct snd_dev_data *ddata)
 {
 	unsigned long devices = 0;
+	int ret = 0;
 
 	switch (cmd) {
-        case SNDCTL_MIXER_LOOP_TEST_ON:
-            printk("set loop test route for phone.\n");
-            devices = SND_DEVICE_LOOP_TEST;
-            ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 
-            break;
+	case SOUND_MIXER_WRITE_VOLUME:{
 
-        case SNDCTL_MIXER_LOOP_TEST_OFF:
-            printk("close loop test route for phone.\n");
-            devices = SND_DEVICE_SPEAKER;
-            ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		int vol = 0;
+		if (get_user(vol, (int*)arg)){
+			return -EFAULT;
+		}
+		vol = vol & 0xff;
+		if (ddata->dev_ioctl) {
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+			if (ret < 0)
+			   break;
+		}
+		ret = put_user(vol, (int *)arg);
+		break;
+	}
+	case SOUND_MIXER_READ_VOLUME: {
 
-            break;
+		int vol = -1;
+		if (ddata->dev_ioctl) {
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+		}
+		vol = vol << 8 | vol;
+		ret = put_user(vol, (int *)arg);
+		break;
+	}
+
+	case SOUND_MIXER_READ_DEVMASK: {
+		int devmsk = (1 << SOUND_MIXER_VOLUME);
+		ret = put_user(devmsk, (int *)arg);
+		break;
+	}
+
+	case SNDCTL_MIXER_LOOP_TEST_ON:{
+		printk("set loop test route for phone.\n");
+		devices = SND_DEVICE_LOOP_TEST;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+
+		break;
+	}
+	case SNDCTL_MIXER_LOOP_TEST_OFF:{
+		printk("close loop test route for phone.\n");
+		devices = SND_DEVICE_SPEAKER;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+
+		break;
+	}
 
 		//case SNDCTL_MIX_DESCRIPTION:
 		/* OSS 4.x: get description text for a mixer control */
@@ -243,7 +278,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 		/* OSS 4.x: change value of a mixer control */
 		//break;
 	}
-	return -1;
+	return 0;
 }
 
 /********************************************************\

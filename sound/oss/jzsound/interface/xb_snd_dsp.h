@@ -76,7 +76,7 @@ enum snd_device_t {
 	SND_DEVICE_HEADSET_RECORD_INCALL,
 	SND_DEVICE_BUILDIN_RECORD_INCALL,
 	SND_DEVICE_CALL_END = SND_DEVICE_BUILDIN_RECORD_INCALL,	//call route end mark
-	
+
 	SND_DEVICE_COUNT
 };
 /**
@@ -228,6 +228,7 @@ struct dsp_pipe {
 	size_t              fragsize;              /* define by device */
 	size_t              fragcnt;               /* define by device */
 	size_t				buffersize;
+	size_t				channels;
 	struct list_head    free_node_list;
 	struct list_head    use_node_list;
 	struct dsp_node     *save_node;

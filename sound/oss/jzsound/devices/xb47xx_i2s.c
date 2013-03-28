@@ -686,7 +686,7 @@ static int i2s_set_device(unsigned long device)
 		return -1;
 
 	/*call state operation*/
-	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START && 
+	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START &&
             *(enum snd_device_t *)device <= SND_DEVICE_CALL_END)
 		i2s_is_incall_state = true;
 	else
@@ -1010,6 +1010,7 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 
 	(*dp)->fragsize = FRAGSIZE_M;
 	(*dp)->fragcnt = FRAGCNT_L;
+	(*dp)->channels = 2;
 	(*dp)->is_non_block = true;
 	(*dp)->is_used = false;
 	(*dp)->can_mmap =true;
@@ -1070,7 +1071,7 @@ static int i2s_global_init(struct platform_device *pdev)
 	/* request aic clk */
 	i2s_clk = clk_get(&pdev->dev, "aic0");
 	if (IS_ERR(i2s_clk)) {
-		printk(&pdev->dev, "aic clk_get failed\n");
+		dev_err(&pdev->dev, "aic clk_get failed\n");
 		goto __err_aic_clk;
 	}
 	clk_enable(i2s_clk);
