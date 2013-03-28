@@ -248,7 +248,7 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
-#ifdef CONFIG_USB_DWC_OTG
+#if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
 struct jzdwc_pin dete_pin = {
 	.num				= GPIO_USB_DETE,
 	.enable_level			= HIGH_ENABLE,
