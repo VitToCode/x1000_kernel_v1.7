@@ -163,6 +163,8 @@
 #define PM_GPIO_RDA8851_AP_WAKE_GSM         GPIO_PB(28)
 #define PM_GPIO_GSM_SIM_DETE                GPIO_PE(3)
 
+#define PM_GPIO_UART3_PULL                  GPIO_PA(31)
+
 // default gpio state is input pull;
 __initdata int gpio_ss_table[][2] = {
 #ifdef RDA8851_DEBUG
@@ -329,6 +331,10 @@ __initdata int gpio_ss_table[][2] = {
     {PM_GPIO_EAR_MIC_DETE        ,      GSS_INPUT_NOPULL},
 	{PM_GPIO_AMPEN              ,       GSS_OUTPUT_LOW	},
 
+
+	{PM_GPIO_UART3_PULL              ,       GSS_INPUT_PULL	},
+
+
 	/* GPIO Group Set End */
 	{GSS_TABLET_END,GSS_TABLET_END	}
 };
@@ -337,7 +343,7 @@ __initdata int gpio_ss_table[][2] = {
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
 bool need_update_gpio_ss(void)
 {
-    printk("i2s_is_incall = %d\n", i2s_is_incall());
+    //printk("i2s_is_incall = %d\n", i2s_is_incall());
     return i2s_is_incall();
 
 }
