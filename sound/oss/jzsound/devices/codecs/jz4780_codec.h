@@ -237,12 +237,12 @@
 /*------------------*/
  #define GCR_LIBYL_LRGI         7
  #define GCR_LIBYL_GIL          0
-  #define GCR_LIBYL_GIL_MASK    (0xf << GCR_LIBYL_GIL)
+  #define GCR_LIBYL_GIL_MASK    (0x1f << GCR_LIBYL_GIL)
 
 #define CODEC_REG_GCR_LIBYR     0x2b
 /*------------------*/
 #define GCR_LIBYR_GIR           0
- #define GCR_LIBYR_GIR_MASK     (0xf <<  GCR_LIBYR_GIR)
+ #define GCR_LIBYR_GIR_MASK     (0x1f <<  GCR_LIBYR_GIR)
 
 #define CODEC_REG_GCR_DACL      0x2c
 /*------------------*/

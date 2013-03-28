@@ -358,8 +358,8 @@ route_conf_base const route_record_clear_conf = {
 	.route_mic2_mode = MIC2_DISABLE,
 	.route_inputl_mode = INPUTL_TO_ADC_DISABLE,
 	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,
-	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,
-	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
+	//.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,
+	//.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,
 	.route_adc_mode = ADC_DISABLE,
 	.route_record_mixer_mode = RECORD_MIXER_NO_USE,
 };

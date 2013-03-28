@@ -2022,10 +2022,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			else
 				codec_platform_data->bypass_l_volume_base = route->bypass_l_volume_base;
 			codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
-		} else if (codec_platform_data->bypass_l_volume_base != default_bypass_l_volume_base) {
-			codec_platform_data->bypass_l_volume_base = default_bypass_l_volume_base;
-			codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
-		}
+		} 
 	}
 
 	/*set bypass right volume base*/
@@ -2036,10 +2033,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			else
 				codec_platform_data->bypass_r_volume_base = route->bypass_r_volume_base;
 			codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
-		} else if (codec_platform_data->bypass_r_volume_base != default_bypass_r_volume_base) {
-			codec_platform_data->bypass_r_volume_base = default_bypass_r_volume_base;
-			codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
-		}
+		} 
 	}
 }
 
@@ -2284,6 +2278,12 @@ static int codec_set_route(enum snd_codec_route_t route)
 		tmp_broute.gpio_spk_en_stat = KEEP_OR_IGNORE;
 		tmp_broute.gpio_hp_mute_stat = KEEP_OR_IGNORE;
 	}
+	tmp_broute.replay_volume_base = 0;			
+	tmp_broute.record_volume_base = 0;			
+	tmp_broute.record_digital_volume_base = 0;	
+	tmp_broute.replay_digital_volume_base = 0;	
+	tmp_broute.bypass_l_volume_base = 0;		
+	tmp_broute.bypass_r_volume_base = 0;		
 	tmp_broute.gpio_buildin_mic_en_stat = KEEP_OR_IGNORE;
 	return codec_set_board_route(&tmp_broute);
 }
