@@ -916,7 +916,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		}
 
 		/* close PHY */
-		if (likely(!dwc->keep_phy_on))
+		if (likely((!dwc->keep_phy_on) && !dwc->plugin))
 			cpm_clear_bit(7, CPM_OPCR);
 	}
 

@@ -1458,17 +1458,20 @@ static int dwc2_gadget_ep_queue(struct usb_ep *ep,
 	unsigned long		 flags;
 	int			 ret;
 
-	if (!dep->desc) {
-		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
-			request, ep->name);
-		return -ESHUTDOWN;
-	}
-
 	DWC2_GADGET_DEBUG_MSG("queing request %p to %s length %d\n",
 		request, ep->name, request->length);
 
 	dwc2_spin_lock_irqsave(dwc, flags);
+	if (!dep->desc) {
+		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
+			request, ep->name);
+		ret = -ESHUTDOWN;
+		goto out;
+	}
+
 	ret = __dwc2_gadget_ep_queue(dep, req);
+
+out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	return ret;
