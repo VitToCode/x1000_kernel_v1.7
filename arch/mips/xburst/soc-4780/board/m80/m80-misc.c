@@ -294,6 +294,9 @@ static int __init m80_board_init(void)
 #ifdef CONFIG_LCD_HSD101PWW1
 	platform_device_register(&hsd101pww1_device);
 #endif
+#ifdef CONFIG_LCD_LP101WX1_SLN2
+	platform_device_register(&lp101wx1_sln2_device);
+#endif
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
 #endif
