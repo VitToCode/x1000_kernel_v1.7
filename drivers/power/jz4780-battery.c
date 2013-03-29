@@ -66,6 +66,17 @@ static void get_slop_cut(void)
 	REG_WRITE(tmp, REG_EFUCFG);
 	spin_unlock_irqrestore(&lock, flags);
 
+	tmp = REG_READ(REG_EFUCFG);
+	tmp = (tmp >> 16) & 0xf;
+	if (tmp == 0xf) {
+		spin_lock_irqsave(&lock, flags);
+		tmp = REG_READ(REG_EFUCFG);
+		tmp &= ~(0xf << 20 | 0xf << 16);
+		tmp |= (RD_ADJ << 20) | (0xf << 16);
+		REG_WRITE(tmp, REG_EFUCFG);
+		spin_unlock_irqrestore(&lock, flags);
+	}
+
 	spin_lock_irqsave(&lock, flags);
 	tmp = REG_READ(REG_EFUCTRL);
 	tmp &= ~(0x1ff << 21 | 0x1f << 16 | 0x1 << 0);
@@ -612,7 +623,10 @@ static void jz_battery_resume_capacity_for_ac(struct jz_battery *jz_battery)
 	} else if (jz_battery->voltage <=
 			jz_battery->pdata->info.ac_max_vol - VOL_DIV) {
 		if (jz_battery->private.timecount > 3 * 60) {
-			jz_battery->capacity = jz_battery->capacity_calculate;
+			if (jz_battery->private.voltage < jz_battery->voltage) {
+				jz_battery->capacity = jz_battery->capacity_calculate;
+			} else if (jz_battery->private.timecount > 50 * 60)
+				printk("Battery driver: error in calculate capacity before sleep\n");
 		} else {
 			pr_info("Battery driver: the sleep time < 3m, the capcacity don't change\n");
 		}
@@ -641,8 +655,14 @@ static void jz_battery_resume_capacity_for_usb(struct jz_battery *jz_battery)
 					(jz_battery->usb_charge_time << 1);
 	} else if (jz_battery->voltage <=
 			jz_battery->pdata->info.usb_max_vol - VOL_DIV) {
-		if (jz_battery->private.timecount > 3 * 60)
-			jz_battery->capacity = jz_battery->capacity_calculate;
+		if (jz_battery->private.timecount > 3 * 60) {
+			if (jz_battery->private.voltage < jz_battery->voltage) {
+				jz_battery->capacity = jz_battery->capacity_calculate;
+			} else if (jz_battery->private.timecount > 50 * 60)
+				printk("Battery driver: error in calculate capacity before sleep\n");
+		} else {
+			pr_info("Battery driver: the sleep time < 3m, the capcacity don't change\n");
+		}
 	} else {
 		time_tmp = jz_battery->private.timecount -		\
 			((VOLTAGE_BOUNDARY - jz_battery->capacity) *	\
