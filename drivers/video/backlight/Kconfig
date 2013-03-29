@@ -182,6 +182,14 @@ config LCD_HSD101PWW1
 	  If you have a HSD101PWW1 Panel, say Y to enable its
 	  control driver.
 
+config LCD_LP101WX1_SLN2
+	tristate "LP101WX1_SLN2 LVDS TFT panel(1280x800)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a LP101WX1_SLN2 Panel, say Y to enable its
+	  control driver.
+
 config LCD_EK070TN93
 	tristate "EK070TN93 LCD Driver"
 	depends on BACKLIGHT_CLASS_DEVICE 
