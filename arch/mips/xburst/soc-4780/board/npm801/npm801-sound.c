@@ -41,7 +41,7 @@ struct snd_codec_data codec_data = {
 		.gpio_spk_en_stat = STATE_DISABLE,
 		.gpio_handset_en_stat = STATE_DISABLE,
 		.replay_volume_base = 0,
-		.bypass_r_volume_base = 6},
+		.bypass_r_volume_base = -4},
 	.call_speaker_route = {.route = SND_ROUTE_CALL_MIC_BYPASS_TO_HPRL,
 		.gpio_hp_mute_stat = STATE_DISABLE,
 		.gpio_spk_en_stat = STATE_ENABLE,
