@@ -234,7 +234,10 @@ struct wdt_reset {
 
 static int reset_task(void *data) {
 	struct wdt_reset *wdt = data;
-	set_user_nice(current, -5);
+	const struct sched_param param = {
+		.sched_priority = MAX_RT_PRIO-1,
+	};
+	sched_setscheduler(current,SCHED_RR,&param);
 
 	wdt_start_count(wdt->msecs + 1000);
 	while (1) {
