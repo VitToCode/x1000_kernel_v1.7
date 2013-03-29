@@ -87,50 +87,43 @@ void codec_sleep(int ms)
 		msleep(ms);
 }
 
-static inline void codec_sleep_wait_bitset(int reg,
-		unsigned bit,
-		int stime,
-		int line,int mode)
+static inline void codec_sleep_wait_bitset(int reg, unsigned bit,
+		int line, int mode)
 {
-	int count = 0;
-	while(!(read_inter_codec_reg(reg) & (1 << bit))) {
-		if (count < 10)
-			codec_sleep(stime * (++count));
-		else {
-			count++;
-			codec_sleep(stime *10);
-		}
-		if(count > 15){
-			printk("%s %d timeout event 0x%2x \n",__FILE__,line,mode);
-			break;
-		}
-	}
+	int i = 0;
+
+        for (i=0; i<3000; i++) {
+                codec_sleep(1);
+                if (read_inter_codec_reg(reg) & (1 << bit))
+                        return;
+        }
+	pr_err("CODEC:line%d Timed out waiting for event 0x%2x\n", line, mode);
 }
 
 static inline void codec_wait_event_complete(int event , int mode)
 {
 	if (event == IFR_ADC_MUTE_EVENT) {
 		if (__codec_test_jadc_mute_state() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__,mode);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event , __LINE__,mode);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_jadc_mute_state() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__,mode);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event ,  __LINE__,mode);
 			}
 		}
 	} else if (event == IFR_DAC_MUTE_EVENT) {
 		if (__codec_test_dac_mute_state() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__,mode);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event , __LINE__,mode);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_mute_state() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__,mode);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event ,  __LINE__,mode);
 			}
 		}
 	} else if (event == IFR_DAC_MODE_EVENT) {
 		if (__codec_test_dac_udp() != mode) {
-			codec_sleep_wait_bitset(CODEC_REG_IFR, event ,10,__LINE__,mode);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, event , __LINE__,mode);
 			__codec_set_irq_flag(1 << event);
 			if (__codec_test_dac_udp() != mode) {
-				codec_sleep_wait_bitset(CODEC_REG_IFR, event , 10,__LINE__,mode);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, event ,  __LINE__,mode);
 			}
 		}
 	}
