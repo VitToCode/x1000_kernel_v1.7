@@ -33,13 +33,6 @@ config WAKELOCK
 	  Enable wakelocks. When user space request a sleep state the
 	  sleep request will be delayed until no wake locks are held.
 
-config DUMP_PARTIAL_WAKELOCK
-    bool "dump partial wakelock support"
-    depends on WAKELOCK
-    default n
-    ---help---
-      Add a proc interface for debug.
-
 config WAKELOCK_STAT
 	bool "Wake lock stats"
 	depends on WAKELOCK

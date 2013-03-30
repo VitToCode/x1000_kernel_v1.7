@@ -13,6 +13,8 @@
 #include <linux/i2c-gpio.h>
 #include <linux/input.h>
 #include <linux/gsensor.h>
+#include <linux/lsensor.h>
+#include <linux/csensor.h>
 #include <linux/tsc.h>
 
 #include <mach/platform.h>
@@ -41,23 +43,29 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 };
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
-static struct gsensor_platform_data lis3dh_platform_data = {
-	.gpio_int = GPIO_LIS3DH_INT1,
+#ifdef CONFIG_SENSORS_MC32X0
+static struct gsensor_platform_data mc32x0_platform_data = {
+	.gpio_int = GPIO_MC32X0_INT1,
 	.poll_interval = 100,
-       	.min_interval = 40,
-	.max_interval = 400,
+       	.min_interval = 1,
+	.max_interval = 200,
 	.g_range = GSENSOR_2G,
-	.axis_map_x = 1,
-	.axis_map_y = 0,
+	.axis_map_x = 0,
+	.axis_map_y = 1,
 	.axis_map_z = 2,
-	.negate_x = 0,
+	.negate_x = 1,
 	.negate_y = 1,
 	.negate_z = 1,
 
 	.ori_pr_swap = 0,
 	.ori_pith_negate = 0,
 	.ori_roll_negate = 1,
+};
+#endif
+
+#ifdef CONFIG_SENSORS_STK220X
+static struct lsensor_platform_data stk220x_platform_data = {
+	.gpio_int = GPIO_PE(5),
 };
 #endif
 
@@ -69,8 +77,8 @@ static struct jztsc_pin t700d_tsc_gpio[] = {
 
 static struct jztsc_platform_data t700d_tsc_pdata = {
 	.gpio		= t700d_tsc_gpio,
-	.x_max		= 1344,
-	.y_max		= 960,
+	.x_max		= 1024,
+	.y_max		= 600,
 };
 #endif
 
@@ -82,69 +90,49 @@ static struct i2c_board_info t700d_i2c1_devs[] __initdata = {
 		.platform_data	= &t700d_tsc_pdata,
 	},
 #endif
-#ifdef CONFIG_TOUCHSCREEN_FT5X06
+#ifdef CONFIG_TOUCHSCREEN_ZET6221
 	{
-		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
+		I2C_BOARD_INFO("zet6221_tsc", 0x76), 
 		.platform_data	= &t700d_tsc_pdata,
 	},
 #endif
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)))
-#ifdef CONFIG_OV7675
-struct ov7675_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-	int cap_wait_frame;   /* filter n frames when capture image */
-};
-static struct ov7675_platform_data ov7675_pdata = {
-	.facing = 1,
-	.orientation = 0,
-	.mirror = 0,
-	.gpio_en = GPIO_OV7675_EN,
-	.gpio_rst = GPIO_OV7675_RST,
-	.cap_wait_frame = 3,
-};
-#endif
-#ifdef CONFIG_OV2650
-struct ov2650_platform_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-	int cap_wait_frame;   /* filter n frames when capture image */
-};
-
-static struct ov2650_platform_data ov2650_pdata = {
+#if (defined(CONFIG_HI704))
+static struct cam_sensor_plat_data hi253_pdata = {
 	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
-	.gpio_en = GPIO_OV2650_EN,
-	.gpio_rst = GPIO_OV2650_RST,
-	.cap_wait_frame = 3,
+	.gpio_en = GPIO_HI253_EN,
+	.gpio_rst = GPIO_HI253_RST,
+	.cap_wait_frame = 2,
 };
 #endif
+
+#if (defined(CONFIG_HI704))
+static struct cam_sensor_plat_data hi704_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_HI704_EN,
+	.gpio_rst = GPIO_HI704_RST,
+	.cap_wait_frame = 2,
+};
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 static struct i2c_board_info t700d_i2c2_devs[] __initdata = {
-#ifdef CONFIG_OV7675
+#ifdef CONFIG_HI253
 	{
-		I2C_BOARD_INFO("ov7675", 0x21),
-		.platform_data	= &ov7675_pdata,
+		I2C_BOARD_INFO("hi253", 0x20),
+		.platform_data	= &hi253_pdata,
 	},
 #endif
-#ifdef CONFIG_OV2650
+#ifdef CONFIG_HI704
 	{
-		I2C_BOARD_INFO("ov2650", 0x30),
-		.platform_data	= &ov2650_pdata,
+		I2C_BOARD_INFO("hi704", 0x30),
+		.platform_data	= &hi704_pdata,
 	},
 #endif
 };
@@ -158,10 +146,16 @@ static struct i2c_board_info t700d_i2c3_devs[] __initdata = {
 		.platform_data = &mma8452_platform_pdata,
 	},
 #endif
-#ifdef CONFIG_SENSORS_LIS3DH
+#ifdef CONFIG_SENSORS_MC32X0
 	{
-	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
-		.platform_data = &lis3dh_platform_data,
+	       	I2C_BOARD_INFO("gsensor_mc32x0",0x4c),
+		.platform_data = &mc32x0_platform_data,
+	},
+#endif
+#ifdef CONFIG_SENSORS_STK220X
+	{
+	       	I2C_BOARD_INFO("lsensor_stk220x",  0x20>>1),
+		.platform_data = &stk220x_platform_data,
 	},
 #endif
 };

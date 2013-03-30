@@ -36,7 +36,7 @@ struct platform_device kr080la4s_250_device = {
 };
 #endif
 
-#ifdef CONFIG_LCD_CRD080TI01_40NM01
+#ifdef CONFIG_LCD_SL007DC18B05
 #include <linux/crd080ti01_40nm01.h>
 static struct platform_crd080ti01_40nm01_data crd080ti01_40nm01_pdata= {
 /* gpio had been hardware control */
@@ -117,16 +117,16 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
-#ifdef CONFIG_LCD_CRD080TI01_40NM01
+#ifdef CONFIG_LCD_SL007DC18B05
 	{
-		.name = "1024x768",
+		.name = "1024x600",
 		.refresh = 60,
 		.xres = 1024,
-		.yres = 768,
+		.yres = 600,
 		.pixclock = KHZ2PICOS(52000),
-		.left_margin = 90,
+		.left_margin = 320,
 		.right_margin = 0,
-		.upper_margin = 10,
+		.upper_margin = 35,
 		.lower_margin = 0,
 		.hsync_len = 0,
 		.vsync_len = 0,
@@ -201,11 +201,11 @@ struct jzfb_platform_data jzfb1_pdata = {
 
 	.dither_enable = 0,
 #endif
-#ifdef CONFIG_LCD_CRD080TI01_40NM01
+#ifdef CONFIG_LCD_SL007DC18B05
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
-	.width = 162,
-	.height = 122,
+	.width = 153,
+	.height = 90,
 
 	.pixclk_falling_edge = 0,
 	.date_enable_active_low = 0,

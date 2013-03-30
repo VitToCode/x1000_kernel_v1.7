@@ -61,6 +61,11 @@ config HI253
 	depends on JZ_CIM
 	default n
 
+config HI704
+	bool "hi704 camera sensor"
+	depends on JZ_CIM
+	default n
+
 config FAKE
 	bool "fake camera sensor only for test"
 	depends on JZ_CIM
