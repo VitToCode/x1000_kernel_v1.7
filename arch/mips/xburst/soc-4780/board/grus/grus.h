@@ -49,7 +49,7 @@ extern struct snd_codec_data codec_data;
 #define GPIO_SPEAKER_EN_LEVEL	1	//1
 
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL	1
+#define GPIO_HP_INSERT_LEVEL	0
 
 #define GPIO_MIC_DETECT		-1		/*mic detect gpio*/
 #define GPIO_MIC_INSERT_LEVEL	-1
@@ -102,6 +102,9 @@ extern struct platform_nand_data jz_nand_chip_data;
 
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
+
+#define GPIO_OV3640_EN			GPIO_PF(15)
+#define GPIO_OV3640_RST			GPIO_PF(11)
 
 /**
  * usb detect pin
