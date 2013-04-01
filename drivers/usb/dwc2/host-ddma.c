@@ -2304,11 +2304,11 @@ static void dwc2_disable_channel(struct dwc2 *dwc, struct dwc2_channel *chan,
 	__dwc2_disable_channel_stage1(dwc, chan, DWC2_URB_CANCELING);
 	chan->waiting = 1;
 
-	dwc2_spin_unlock_irqrestore(dwc, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	wait_event(chan->disable_wq, (chan->disable_stage == 2));
 
-	dwc2_spin_lock_irqsave(dwc, flags);
+	spin_lock_irqsave(&dwc->lock, flags);
 	chan->waiting = 0;
 	__dwc2_disable_channel_stage2(dwc, chan, urb_status);
 }
@@ -2363,7 +2363,7 @@ static int dwc2_hcd_urb_enqueue(struct usb_hcd *hcd,
 		}
 	}
 
-	dwc2_spin_lock_irqsave(dwc, flags);
+	spin_lock_irqsave(&dwc->lock, flags);
 
 	if ( ((dwc->port1_status & USB_PORT_STAT_CONNECTION) == 0) ||
 		!dwc->device_connected) {
@@ -2420,7 +2420,7 @@ err_no_qh:
 		usb_hcd_unlink_urb_from_ep(hcd, urb);
 done_not_linked:
 	dwc2_trace_urb_enqueue(urb, ret);
-	dwc2_spin_unlock_irqrestore(dwc, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
 }
@@ -2433,7 +2433,7 @@ static int dwc2_hcd_urb_dequeue(struct usb_hcd *hcd,
 	unsigned long		 flags;
 	int			 ret;
 
-	dwc2_spin_lock_irqsave(dwc, flags);
+	spin_lock_irqsave(&dwc->lock, flags);
 	dwc2_trace_urb_dequeue(urb);
 
 	ret = usb_hcd_check_unlink_urb(hcd, urb, status);
@@ -2479,7 +2479,7 @@ static int dwc2_hcd_urb_dequeue(struct usb_hcd *hcd,
 	}
 
 done:
-	dwc2_spin_unlock_irqrestore(dwc, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 	return ret;
 }
 
@@ -2491,7 +2491,7 @@ static void dwc2_hcd_endpoint_reset(struct usb_hcd *hcd,
 	int		 is_out	    = usb_endpoint_dir_out(&ep->desc);
 	unsigned long	 flags;
 
-	dwc2_spin_lock_irqsave(dwc, flags);
+	spin_lock_irqsave(&dwc->lock, flags);
 	qh = ep->hcpriv;
 
 	/*
@@ -2510,7 +2510,7 @@ static void dwc2_hcd_endpoint_reset(struct usb_hcd *hcd,
 		}
 #endif
 	}
-	dwc2_spin_unlock_irqrestore(dwc, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 }
 
 static void dwc2_hcd_endpoint_disable(struct usb_hcd *hcd,
@@ -2519,11 +2519,11 @@ static void dwc2_hcd_endpoint_disable(struct usb_hcd *hcd,
 	struct dwc2_qh	*qh;
 	unsigned long	 flags;
 
-	dwc2_spin_lock_irqsave(dwc, flags);
+	spin_lock_irqsave(&dwc->lock, flags);
 	dwc2_trace_ep_disable(ep);
 	qh = ep->hcpriv;
 	if (!qh) {
-		dwc2_spin_unlock_irqrestore(dwc, flags);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return;
 	}
 
@@ -2559,7 +2559,7 @@ static void dwc2_hcd_endpoint_disable(struct usb_hcd *hcd,
 		}
 	}
 
-	dwc2_spin_unlock_irqrestore(dwc, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 }
 
 /*
