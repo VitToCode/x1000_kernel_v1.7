@@ -695,6 +695,8 @@ static int bch_probe(struct platform_device *pdev)
 	dev_info(bchc->dev, "SoC-jz4780 HW ECC-BCH support "
 			"functions initilized.\n");
 
+	return ret;
+
 err_release_mem:
 	release_mem_region(bchc->regs_file_mem.start,
 			resource_size(&bchc->regs_file_mem));

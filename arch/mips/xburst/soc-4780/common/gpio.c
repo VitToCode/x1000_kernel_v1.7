@@ -136,8 +136,17 @@ int jz_gpio_set_func(int gpio, enum gpio_function func)
 
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
-	if (~jz->dev_map[0] & pin)
+/*
+ * TODO: ugly stuff
+ * should i check and mark the pin has been requested?
+ * it's a duplicate of request_gpio
+ */
+#if 0
+	if (jz->dev_map[0] & pins)
 		return -EINVAL;
+
+	jz->dev_map[0] |= pins;
+#endif
 
 	gpio_set_func(jz, func, pin);
 	return 0;
