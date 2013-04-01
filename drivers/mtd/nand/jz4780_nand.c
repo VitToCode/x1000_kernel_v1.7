@@ -133,6 +133,7 @@ struct jz4780_nand {
 	int num_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;
+	nand_xfer_type_t old_xfer_type;
 
 	struct jz4780_nand_platform_data *pdata;
 	struct platform_device *pdev;
@@ -252,6 +253,233 @@ static void jz4780_nand_ecc_hwctl(struct mtd_info *mtd, int mode)
 	 */
 }
 
+static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
+			 int column, int page_addr)
+{
+	register struct nand_chip *chip = mtd->priv;
+	int ctrl = NAND_CTRL_CLE | NAND_CTRL_CHANGE;
+
+	struct jz4780_nand *nand;
+	nand = mtd_to_jz4780_nand(mtd);
+
+	switch (command) {
+	case NAND_CMD_READID:
+		nand->old_xfer_type = nand->xfer_type;
+
+		switch (nand->xfer_type) {
+		case NAND_XFER_DMA_IRQ:
+			nand->xfer_type = NAND_XFER_DMA_POLL;
+			break;
+
+		case NAND_XFER_CPU_IRQ:
+			nand->xfer_type = NAND_XFER_CPU_POLL;
+			break;
+
+		case NAND_XFER_DMA_POLL:
+		case NAND_XFER_CPU_POLL:
+			break;
+		}
+		break;
+	}
+
+	/* Write out the command to the device */
+	if (command == NAND_CMD_SEQIN) {
+		int readcmd;
+
+		if (column >= mtd->writesize) {
+			/* OOB area */
+			column -= mtd->writesize;
+			readcmd = NAND_CMD_READOOB;
+		} else if (column < 256) {
+			/* First 256 bytes --> READ0 */
+			readcmd = NAND_CMD_READ0;
+		} else {
+			column -= 256;
+			readcmd = NAND_CMD_READ1;
+		}
+		chip->cmd_ctrl(mtd, readcmd, ctrl);
+		ctrl &= ~NAND_CTRL_CHANGE;
+	}
+	chip->cmd_ctrl(mtd, command, ctrl);
+
+	/* Address cycle, when necessary */
+	ctrl = NAND_CTRL_ALE | NAND_CTRL_CHANGE;
+	/* Serially input address */
+	if (column != -1) {
+		/* Adjust columns for 16 bit buswidth */
+		if (chip->options & NAND_BUSWIDTH_16)
+			column >>= 1;
+		chip->cmd_ctrl(mtd, column, ctrl);
+		ctrl &= ~NAND_CTRL_CHANGE;
+	}
+	if (page_addr != -1) {
+		chip->cmd_ctrl(mtd, page_addr, ctrl);
+		ctrl &= ~NAND_CTRL_CHANGE;
+		chip->cmd_ctrl(mtd, page_addr >> 8, ctrl);
+		/* One more address cycle for devices > 32MiB */
+		if (chip->chipsize > (32 << 20))
+			chip->cmd_ctrl(mtd, page_addr >> 16, ctrl);
+	}
+	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
+
+	/*
+	 * Program and erase have their own busy handlers status and sequential
+	 * in needs no delay
+	 */
+	switch (command) {
+
+	case NAND_CMD_PAGEPROG:
+	case NAND_CMD_ERASE1:
+	case NAND_CMD_ERASE2:
+	case NAND_CMD_SEQIN:
+	case NAND_CMD_STATUS:
+		return;
+
+	case NAND_CMD_RESET:
+		if (chip->dev_ready)
+			break;
+		udelay(chip->chip_delay);
+		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
+			       NAND_CTRL_CLE | NAND_CTRL_CHANGE);
+		chip->cmd_ctrl(mtd,
+			       NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
+		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
+				;
+		return;
+
+		/* This applies to read commands */
+	default:
+		/*
+		 * If we don't have access to the busy pin, we apply the given
+		 * command delay
+		 */
+		if (!chip->dev_ready) {
+			udelay(chip->chip_delay);
+			return;
+		}
+	}
+	/*
+	 * Apply this short delay always to ensure that we do wait tWB in
+	 * any case on any machine.
+	 */
+	ndelay(100);
+
+	nand_wait_ready(mtd);
+
+	nand->xfer_type = nand->old_xfer_type;
+}
+
+static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
+			    int column, int page_addr)
+{
+	register struct nand_chip *chip = mtd->priv;
+
+	/* Emulate NAND_CMD_READOOB */
+	if (command == NAND_CMD_READOOB) {
+		column += mtd->writesize;
+		command = NAND_CMD_READ0;
+	}
+
+	/* Command latch cycle */
+	chip->cmd_ctrl(mtd, command & 0xff,
+		       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
+
+	if (column != -1 || page_addr != -1) {
+		int ctrl = NAND_CTRL_CHANGE | NAND_NCE | NAND_ALE;
+
+		/* Serially input address */
+		if (column != -1) {
+			/* Adjust columns for 16 bit buswidth */
+			if (chip->options & NAND_BUSWIDTH_16)
+				column >>= 1;
+			chip->cmd_ctrl(mtd, column, ctrl);
+			ctrl &= ~NAND_CTRL_CHANGE;
+			chip->cmd_ctrl(mtd, column >> 8, ctrl);
+		}
+		if (page_addr != -1) {
+			chip->cmd_ctrl(mtd, page_addr, ctrl);
+			chip->cmd_ctrl(mtd, page_addr >> 8,
+				       NAND_NCE | NAND_ALE);
+			/* One more address cycle for devices > 128MiB */
+			if (chip->chipsize > (128 << 20))
+				chip->cmd_ctrl(mtd, page_addr >> 16,
+					       NAND_NCE | NAND_ALE);
+		}
+	}
+	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
+
+	/*
+	 * Program and erase have their own busy handlers status, sequential
+	 * in, and deplete1 need no delay.
+	 */
+	switch (command) {
+
+	case NAND_CMD_CACHEDPROG:
+	case NAND_CMD_PAGEPROG:
+	case NAND_CMD_ERASE1:
+	case NAND_CMD_ERASE2:
+	case NAND_CMD_SEQIN:
+	case NAND_CMD_RNDIN:
+	case NAND_CMD_STATUS:
+	case NAND_CMD_DEPLETE1:
+		return;
+
+	case NAND_CMD_STATUS_ERROR:
+	case NAND_CMD_STATUS_ERROR0:
+	case NAND_CMD_STATUS_ERROR1:
+	case NAND_CMD_STATUS_ERROR2:
+	case NAND_CMD_STATUS_ERROR3:
+		/* Read error status commands require only a short delay */
+		udelay(chip->chip_delay);
+		return;
+
+	case NAND_CMD_RESET:
+		if (chip->dev_ready)
+			break;
+		udelay(chip->chip_delay);
+		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
+			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
+		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
+			       NAND_NCE | NAND_CTRL_CHANGE);
+		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
+				;
+		return;
+
+	case NAND_CMD_RNDOUT:
+		/* No ready / busy check necessary */
+		chip->cmd_ctrl(mtd, NAND_CMD_RNDOUTSTART,
+			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
+		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
+			       NAND_NCE | NAND_CTRL_CHANGE);
+		return;
+
+	case NAND_CMD_READ0:
+		chip->cmd_ctrl(mtd, NAND_CMD_READSTART,
+			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
+		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
+			       NAND_NCE | NAND_CTRL_CHANGE);
+
+		/* This applies to read commands */
+	default:
+		/*
+		 * If we don't have access to the busy pin, we apply the given
+		 * command delay.
+		 */
+		if (!chip->dev_ready) {
+			udelay(chip->chip_delay);
+			return;
+		}
+	}
+
+	/*
+	 * Apply this short delay always to ensure that we do wait tWB in
+	 * any case on any machine.
+	 */
+	ndelay(100);
+
+	nand_wait_ready(mtd);
+}
+
 static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 		const uint8_t *dat, uint8_t *ecc_code)
 {
@@ -338,14 +566,17 @@ static int request_busy_irq(nand_flash_if_t *nand_if)
 	if (ret)
 		return ret;
 
-	gpio_direction_input(ret);
+	ret = gpio_direction_input(nand_if->busy_gpio);
+	if (ret)
+		return ret;
+
 	nand_if->busy_irq = gpio_to_irq(nand_if->busy_gpio);
 
 	irq_flags = nand_if->busy_gpio_low_assert ?
 			IRQF_TRIGGER_RISING :
 				IRQF_TRIGGER_FALLING;
 
-	ret = request_irq(nand_if->busy_gpio, jz4780_nand_busy_isr,
+	ret = request_irq(nand_if->busy_irq, jz4780_nand_busy_isr,
 				irq_flags, label_busy_gpio[nand_if->bank], nand_if);
 
 	if (ret) {
@@ -358,11 +589,11 @@ static int request_busy_irq(nand_flash_if_t *nand_if)
 	return 0;
 }
 
-static int __devinit jz4780_nand_probe(struct platform_device *pdev)
+static int jz4780_nand_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int bank = 0;
-	int i = 0, j = 0, k = 0;
+	int i = 0, j = 0, k = 0, m = 0;
 	int nand_dev_id = 0;
 
 	struct nand_chip *chip;
@@ -397,15 +628,15 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	/*
 	 * request GPEMC banks
 	 */
-	for (i = 0; i < nand->num_nand_flash_if; i++) {
+	for (i = 0; i < nand->num_nand_flash_if; i++, j = i) {
+
 		nand_if = &pdata->nand_flash_if_table[i];
 		nand->nand_flash_if_table[i] = nand_if;
 		bank = nand_if->bank;
 		ret = gpemc_request_cs(&nand_if->cs, bank);
-		if (!ret) {
+		if (ret) {
 			dev_err(&pdev->dev,
 				"Failed to request GPEMC bank%d.\n", bank);
-			j = i;
 			goto err_release_cs;
 		}
 	}
@@ -416,13 +647,12 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	switch (nand->xfer_type) {
 	case NAND_XFER_CPU_IRQ:
 	case NAND_XFER_DMA_IRQ:
-		for (i = 0; i < nand->num_nand_flash_if; i++) {
+		for (i = 0; i < nand->num_nand_flash_if; i++, k = i) {
 			nand_if = &pdata->nand_flash_if_table[i];
 			ret = request_busy_irq(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
-					"Failed to request bank%d\n", bank);
-				k = i;
+					"Failed to request busy gpio irq for bank%d\n", bank);
 				goto err_free_irq;
 			}
 		}
@@ -442,14 +672,16 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	/*
 	 * request WP GPIO
 	 */
-	for (i = 0; i < nand->num_nand_flash_if; i++) {
+	for (i = 0; i < nand->num_nand_flash_if; i++, m = i) {
 		nand_if = &pdata->nand_flash_if_table[i];
 		if (nand_if->wp_gpio < 0)
 			continue;
 
-		if (gpio_is_valid(nand_if->wp_gpio)) {
+		if (!gpio_is_valid(nand_if->wp_gpio)) {
 			dev_err(&pdev->dev,
 				"Invalid wp GPIO:%d\n", nand_if->wp_gpio);
+
+			ret = -EINVAL;
 			goto err_free_wp_gpio;
 		}
 
@@ -458,6 +690,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev,
 				"Failed to request wp GPIO:%d\n", nand_if->wp_gpio);
+
 			goto err_free_wp_gpio;
 		}
 
@@ -487,6 +720,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	 */
 	chip              = &nand->chip;
 	chip->chip_delay  = 0;
+	chip->cmdfunc     = jz4780_nand_command;
 	chip->dev_ready   = jz4780_nand_dev_ready;
 	chip->select_chip = jz4780_nand_select_chip;
 	chip->cmd_ctrl    = jz4780_nand_cmd_ctrl;
@@ -531,7 +765,11 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	nand_dev_id = chip->read_byte(mtd);
 	nand_dev_id = chip->read_byte(mtd);
 
-	/* step2. find NAND flash info */
+	/* step2. replace NAND command function with large page version */
+	if (mtd->writesize > 512)
+		chip->cmdfunc = jz4780_nand_command_lp;
+
+	/* step3. find NAND flash info */
 	nand_if = nand->nand_flash_if_table[nand->curr_nand_if];
 	for (bank = 0; bank < nand->num_nand_flash_info; bank++)
 		if (nand_dev_id ==
@@ -547,7 +785,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 		goto err_free_wp_gpio;
 	}
 
-	/* step3. configure bank timing */
+	/* step4. configure bank timing */
 	nand_info = &nand->nand_flash_info_table[bank];
 	switch (nand_info->type) {
 	case BANK_TYPE_NAND:
@@ -685,7 +923,7 @@ static int __devinit jz4780_nand_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_wp_gpio:
-	for (bank = 0; bank < i; bank++) {
+	for (bank = 0; bank < m; bank++) {
 		nand_if = &pdata->nand_flash_if_table[bank];
 
 		gpio_free(nand_if->wp_gpio);
@@ -711,7 +949,7 @@ err_release_cs:
 	return ret;
 }
 
-static int __devexit jz4780_nand_remove(struct platform_device *pdev)
+static int jz4780_nand_remove(struct platform_device *pdev)
 {
 	struct jz4780_nand *nand;
 	nand_flash_if_t *nand_if;
@@ -756,7 +994,7 @@ static int __devexit jz4780_nand_remove(struct platform_device *pdev)
 
 static struct platform_driver jz4780_nand_driver = {
 	.probe = jz4780_nand_probe,
-	.remove = __devexit_p(jz4780_nand_remove),
+	.remove = jz4780_nand_remove,
 	.driver = {
 		.name = DRVNAME,
 		.owner = THIS_MODULE,
