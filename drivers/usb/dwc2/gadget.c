@@ -2268,11 +2268,11 @@ void dwc2_gadget_plug_change(int plugin) {
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 
+	dwc->plugin = !!plugin;
+
 	if (!dwc2_is_device_mode(dwc)) {
 		goto out;
 	}
-
-	dwc->plugin = !!plugin;
 
 	if (dwc->suspended)
 		goto out;
