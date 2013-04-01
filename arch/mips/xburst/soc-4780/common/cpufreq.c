@@ -75,6 +75,10 @@
 #define APLL_FREQ_STEP	CONFIG_APLL_FREQ_STEP
 #endif
 
+struct cpufreq_config {
+	int apll_on;
+	int nocpufreq;
+};
 #ifdef CONFIG_SMP
 struct lpj_info {
 	unsigned long	ref;
@@ -98,12 +102,17 @@ static unsigned long long timer_end = 0;
 static unsigned long long radical_time = 0;
 static int radical_cnt = 0;
 struct cpufreq_frequency_table __attribute__((weak)) freq_table[CPUFREQ_NR] = {{0,0}};
-static int apll_on = 0;
+static struct cpufreq_config freq_config = {
+	.apll_on	= 0,
+	.nocpufreq	= 0,
+};
 
 static int __init cpufreq_config_setup(char *str)
 {
 	if (!strcmp(str, "apll_on"))
-		apll_on = 1;
+		freq_config.apll_on = 1;
+	if (!strcmp(str, "nocpufreq"))
+		freq_config.nocpufreq = 1;
 
 	return 1;
 }
@@ -163,7 +172,7 @@ static int freq_table_prepare(void)
 	if (freq_table[0].frequency != 0)
 		goto done;
 
-	if (clk_is_enabled(apll) && apll_on) {
+	if (clk_is_enabled(apll) && freq_config.apll_on) {
 		freq_high = apll_rate;
 		max_rate = MAX_APLL_FREQ;
 		while (max_rate >= (freq_gate + APLL_FREQ_STEP)) {
@@ -513,6 +522,11 @@ static struct cpufreq_driver jz4780_driver = {
 
 static int __init jz4780_cpufreq_init(void)
 {
+	if (freq_config.nocpufreq) {
+		pr_info("No cpufreq\n");
+		return -EPERM;
+	}
+
 	cpu_clk = clk_get(NULL, "cclk");
 
 	if (IS_ERR(cpu_clk))
