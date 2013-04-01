@@ -23,6 +23,8 @@ struct jz_ehci_pri {
 	struct clk		*clk_gate;
 };
 
+#define hcd_to_jz(hcd)	((struct jz_ehci_pri *)(hcd_to_ehci(hcd) + 1))
+
 static void jz_start_ehc(struct jz_ehci_pri *ehci_pri)
 {
 #ifdef CONFIG_SOC_4780
@@ -133,7 +135,7 @@ static int ehci_hcd_jz_drv_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	ehci_pri = (struct jz_ehci_pri *)((unsigned char *)hcd + sizeof(struct ehci_hcd));
+	ehci_pri = hcd_to_jz(hcd);
 	ehci_pri->clk_gate = clk_get(&pdev->dev, clkname);
 	if (IS_ERR(ehci_pri->clk_gate)) {
 		dev_err(&pdev->dev, "clk gate get error\n");

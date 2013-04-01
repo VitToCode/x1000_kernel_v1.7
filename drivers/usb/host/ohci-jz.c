@@ -33,6 +33,8 @@ struct jz_ohci_pri {
 	struct clk		*clk_gate;
 };
 
+#define hcd_to_jz(hcd)	((struct jz_ohci_pri *)(hcd_to_ohci(hcd) + 1))
+
 /*-------------------------------------------------------------------------*/
 
 static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
@@ -109,7 +111,7 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 		goto err2;
 	}
 
-	ohci_pri = (struct jz_ohci_pri *)((unsigned char *)hcd + sizeof(struct ohci_hcd));
+	ohci_pri = hcd_to_jz(hcd);
 
 	ohci_pri->clk_gate = clk_get(&pdev->dev, clk_gate_name);
 	if (IS_ERR(ohci_pri->clk_gate)) {
