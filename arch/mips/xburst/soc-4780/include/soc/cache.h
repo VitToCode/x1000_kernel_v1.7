@@ -47,10 +47,10 @@ static inline void __jz_flush_cache_all(void)
 	/* invalidate BTB */
 	asm volatile (
 			".set mips32\n\t"
-			" mfc0 $k0, $16, 7\n\t"
+			" mfc0 $26, $16, 7\n\t"
 			" nop\n\t"
-			" ori $k0, 2\n\t"
-			" mtc0 $k0, $16, 7\n\t"
+			" ori $26, 2\n\t"
+			" mtc0 $26, $16, 7\n\t"
 			" nop\n\t"
 			".set mips32\n\t"
 		     );
@@ -81,10 +81,10 @@ static inline void __jz_cache_init(void)
 	}
 	/* invalidate BTB */
 	asm volatile (  ".set mips32\n\t"
-			" mfc0 $k0, $16, 7\n\t"
+			" mfc0 $26, $16, 7\n\t"
 			" nop\n\t"
-			" ori $k0, 2\n\t"
-			" mtc0 $k0, $16, 7\n\t"
+			" ori $26, 2\n\t"
+			" mtc0 $26, $16, 7\n\t"
 			" nop\n\t"
 			"nop\n\t"
 			".set mips32\n\t"
