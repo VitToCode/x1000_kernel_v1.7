@@ -13,7 +13,7 @@
 #include <mach/jznand.h>
 #include "zpad80.h"
 
-#define ECCBIT 24
+#define ECCBIT 4
 #ifdef CONFIG_MUL_PARTS
 static struct platform_nand_partition partition_info[] = {
 	{
@@ -69,7 +69,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndextern",
 	offset:704 * 0x100000LL,
-	size:3392 * 0x100000LL,
+	size:296 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -79,12 +79,12 @@ static struct platform_nand_partition partition_info[] = {
 		{
 		name:"nddata",
 		offset:704 * 0x100000LL,
-		size:1024 * 0x100000LL,
+		size:248 * 0x100000LL,
 		},
 		{
 		name:"ndmisc",
-		offset:1728 * 0x100000LL,
-		size:2368 * 0x100000LL,
+		offset:952 * 0x100000LL,
+		size:48 * 0x100000LL,
 		}
 	}
 	}
@@ -105,7 +105,7 @@ static int partition_reserved_badblocks[] = {
 	8,			/* reserved blocks of ndrecovery */
 	32,			/* reserved blocks of ndsystem */
 	36,			/* reserved blocks of ndcache */
-	256,			/* reserved blocks of ndextern */
+	64,			/* reserved blocks of ndextern */
 	1,			/* reserved blocks of nderror */
 };
 
@@ -151,7 +151,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"nddata",
 	offset:576 * 0x100000LL,
-	size:1024 * 0x100000LL,
+	size:128 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -159,7 +159,7 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
     name:"ndcache",
-    offset:1600 * 0x100000LL,
+    offset:704 * 0x100000LL,
     size:128 * 0x100000LL,
     mode:ZONE_MANAGER,
     eccbit:ECCBIT,
@@ -168,8 +168,8 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
 	name:"ndmisc",
-	offset:1728 * 0x100000LL,
-	size:2368 * 0x100000LL,
+	offset:832 * 0x100000LL,
+	size:128 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
