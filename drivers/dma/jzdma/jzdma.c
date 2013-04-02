@@ -88,9 +88,14 @@
 #ifdef MCU_TEST_INTER_DMA
 #define MCU_TEST_DATA_DMA 0xB3424FC0 //PDMA_BANK6 - 0x40
 #endif
+
+#ifdef CONFIG_NAND
+
 __initdata static int firmware[] = {
 #include "firmware.hex"
 };
+
+#endif
 
 struct jzdma_master;
 
@@ -293,6 +298,8 @@ static void jzdma_mcu_reset(struct jzdma_master *dma)
 	writel(dmcs, dma->iomem + DMCS);
 }
 
+#ifdef CONFIG_NAND
+
 static int jzdma_load_firmware(struct jzdma_master *dma)
 {
 	int i;
@@ -313,6 +320,8 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 #endif
 	return 0;
 }
+
+#endif
 
 static void jzdma_mcu_init(struct jzdma_master *dma)
 {
@@ -967,8 +976,15 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	}
 
 	jzdma_mcu_reset(dma);
+#ifdef CONFIG_NAND
+	/*
+	 * TODO: if functions of the firmware are beyond only service for NAND controller
+	 * we should remove CONFIG_NAND, but R/B# pin IRQ handler must be carefully considered.
+	 * Here, the firmware always response R/B# pin IRQ no matter whether requests came.
+	 */
 	jzdma_load_firmware(dma);
 	jzdma_mcu_init(dma);
+#endif
 
 	platform_set_drvdata(pdev,dma);
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
@@ -1000,14 +1016,20 @@ static int __exit jzdma_remove(struct platform_device *pdev)
 
 static int jzdma_suspend(struct platform_device * pdev, pm_message_t state)
 {
+#ifdef CONFIG_NAND
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
 	jzdma_mcu_reset(dma);
+#endif
+
 	return 0;		
 }
 static int jzdma_resume(struct platform_device * pdev)
 {
+#ifdef CONFIG_NAND
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
 	jzdma_mcu_init(dma);
+#endif
+
 	return 0;	
 }
 static struct platform_driver jzdma_driver = {
