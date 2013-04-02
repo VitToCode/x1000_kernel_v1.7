@@ -323,6 +323,8 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 
 #endif
 
+#ifdef CONFIG_NAND
+
 static void jzdma_mcu_init(struct jzdma_master *dma)
 {
 	unsigned long dmcs;
@@ -330,6 +332,8 @@ static void jzdma_mcu_init(struct jzdma_master *dma)
 	dmcs &= ~0x1;
 	writel(dmcs, dma->iomem + DMCS);
 }
+
+#endif
 
 static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t src,
 		dma_addr_t dst,unsigned cnt,enum dma_data_direction direction,int flag)
