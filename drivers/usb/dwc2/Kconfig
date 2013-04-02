@@ -32,6 +32,12 @@ config USB_DWC2_DEVICE_ONLY
 
 endchoice
 
+config BOARD_HAS_NO_DETE_FACILITY
+       bool "board has no plug detect facility"
+       default n
+       help
+         Say Y here if your board has no plug detect facility
+
 config USB_DWC2_DEBUG
 	bool "Enable Debugging(dev_dbg) Messages"
 	help

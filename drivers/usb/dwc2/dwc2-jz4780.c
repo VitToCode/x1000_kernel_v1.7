@@ -385,6 +385,12 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 #endif
 	}
 
+#ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
+	if (jz4780->dete_irq < 0) {
+		dwc2_plat_data->keep_phy_on = 1;
+	}
+#endif
+
 	usb_cpm_init();
 
 	//jz4780_usb_set_device_only_mode();
@@ -422,6 +428,12 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	if (jz4780->dete_irq >= 0) {
 		schedule_delayed_work(&jz4780->work, msecs_to_jiffies(10));
 	}
+
+#ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
+	if (jz4780->dete_irq < 0) {
+		dwc2_gadget_plug_change(1);
+	}
+#endif
 
 	return 0;
 
