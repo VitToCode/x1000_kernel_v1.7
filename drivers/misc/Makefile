@@ -64,3 +64,5 @@ obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
 obj-$(CONFIG_JZ_PWM)            += jz_pwm.o
 obj-$(CONFIG_JZ_MODEM)		+= jz_modem/
 obj-$(CONFIG_JZ4780_EFUSE)	+= jz4780_efuse.o
+
+obj-$(CONFIG_TD_SC8800S)        += sc8800s.o

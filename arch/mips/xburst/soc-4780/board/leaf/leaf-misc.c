@@ -191,13 +191,30 @@ static struct jz47xx_spi_info spi0_info_cfg = {
 #endif
 
 #ifdef CONFIG_SPI1_JZ4780
+#if defined(CONFIG_TD_SC8800S) || defined(CONFIG_TD_SC8800S_MODULE)
+#include <linux/sc8800s.h>
+static struct sc8800s_platform_data sc8800s_pdata = {
+        //.td_rts_irq     = IRQ_GPIO_0 + BB_AP_SPI_RTS,
+        .td_rts_pin     = GPIO_PE(3), //BB_AP_SPI_RTS
+        //.td_rdy_irq     = IRQ_GPIO_0 + BB_AP_SPI_RDY,
+        .td_rdy_pin     = GPIO_PE(16), //BB_AP_SPI_RDY
+	.ap_bb_spi_rts	= GPIO_PE(5),
+	.ap_bb_spi_rdy = GPIO_PE(14),
+	.power_on	= GPIO_PD(12),     
+};
+#endif
+
 static struct spi_board_info jz_spi1_board_info[] = {
+#if defined(CONFIG_TD_SC8800S) || defined(CONFIG_TD_SC8800S_MODULE)
     [0] = {
-	       .modalias       = "spidev",
-	       .bus_num	       = 1,
+	       .modalias       = "sc8800s",
 	       .chip_select    = 1,
+	       .bus_num	       = 1,
 	       .max_speed_hz   = 120000,
+	       .mode           = SPI_MODE_3 | SPI_LSB_FIRST,
+	       .platform_data  = &sc8800s_pdata,
     },
+#endif
 };
 
 static struct jz47xx_spi_info spi1_info_cfg = {

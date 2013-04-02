@@ -207,6 +207,14 @@ config LCD_EK070TN93
 	  If you have an EK070TN93 Panel, say Y to enable its
 	  control driver.
 
+config LCD_JCMT070T115A18
+	tristate "JCMT070T115A18 LCD Driver(800x480)"
+	depends on BACKLIGHT_CLASS_DEVICE 
+	default n
+	help
+	  If you have an JCMT070T115A18 Panel, say Y to enable its
+	  control driver.
+
 config LCD_HSD070IDW1
 	tristate "HSD070IDW1 LCD Driver"
 	depends on BACKLIGHT_CLASS_DEVICE && DISABLE_LVDS_FUNCTION

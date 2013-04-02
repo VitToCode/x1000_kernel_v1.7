@@ -68,7 +68,7 @@ EXCLUSIVE_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
 	leaf_vlcd,
 	"Vlcd",
-	"vlcd",	NULL,		3000000);
+	"vlcd",	NULL,		3300000);
 
 
 /**

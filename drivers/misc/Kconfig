@@ -605,6 +605,12 @@ config GSM_RDA8851CL
         help
           Support GSM modem RDA8851CL.
 
+config TD_SC8800S
+        tristate "Spectrum SC8800S"
+        depends on SPI 
+        help
+           TD tu830 modem
+
 config LTE_LI170
         bool "Use LTE modem LI170"
         depends on JZ_MODEM
