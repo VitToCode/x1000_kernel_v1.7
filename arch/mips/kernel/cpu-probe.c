@@ -1059,6 +1059,8 @@ platform:
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+	unsigned int errorpc;
+
 	decode_configs(c);
 	/* JZRISC does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
@@ -1072,6 +1074,14 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		c->ases |= MIPS_ASE_XBURSTMXU;
 
 		__write_32bit_c0_register($16, 7, 0x10);
+
+
+		__asm__ __volatile__ (
+			"mfc0  %0, $30,  0   \n\t"
+			"nop                  \n\t"
+			:"=r"(errorpc)
+			:);
+		printk("CPU%d: reset EPC:%08X\n", smp_processor_id(), errorpc);
 		break;
 	default:
 		panic("Unknown Ingenic Processor ID!");
