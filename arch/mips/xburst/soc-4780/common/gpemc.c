@@ -15,11 +15,15 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #include <gpio.h>
 #include <soc/gpio.h>
@@ -69,6 +73,11 @@ static const u32 nT_to_adjs[] = {
 
 	/* 26 ~ 31 */
 	15, 15, 15, 15, 15, 15
+};
+
+static const u32 adjs_to_nT[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8 ,9 ,10,
+	12, 15, 20, 25, 31
 };
 
 static inline u32 div_ceiling(u32 x, u32 y)
@@ -143,6 +152,10 @@ static struct {
 
 	const struct resource bank_mem[BANK_COUNT];
 	const char *bank_name[BANK_COUNT];
+	const char *bank_type_name[CNT_BANK_TYPES];
+	const char *bank_sram_type_name[CNT_SRAM_TYPES];
+
+	gpemc_bank_t *requested_banks[BANK_COUNT];
 } instance = {
 	.regs_file = (regs_file_t *)
 					CKSEG1ADDR(GPEMC_REGS_FILE_BASE),
@@ -205,6 +218,17 @@ static struct {
 		"gpemc-bank6-mem",
 	},
 
+	.bank_type_name = {
+		[BANK_TYPE_SRAM] = "SRAM",
+		[BANK_TYPE_NAND] = "Common NAND",
+		[BANK_TYPE_TOGGLE] = "Toggle NAND",
+	},
+
+	.bank_sram_type_name = {
+		[SRAM_TYPE_NORMAL] = "Normal",
+		[SRAM_TYPE_BURST] = "Burst",
+	},
+
 	.gpio_pin_data = {
 		GPIO_PA(0),
 		GPIO_PA(1),
@@ -255,57 +279,6 @@ static struct {
 	},
 
 }, *gpemc = &instance; /* end instance a singleton gpemc */
-
-int __init gpemc_init(void) {
-	int i;
-
-	struct resource *res;
-
-	atomic_set(&gpemc->pin_data_use_count, 0);
-	memset(gpemc->addr_pins_pool.addr_pin_use_count,
-			sizeof(gpemc->addr_pins_pool.addr_pin_use_count), 0);
-	atomic_set(&gpemc->pin_wait_use_count, 0);
-	atomic_set(&gpemc->pin_rd_we_use_count, 0);
-	atomic_set(&gpemc->pin_dqs_use_count, 0);
-
-	spin_lock_init(&gpemc->addr_pins_pool.lock);
-
-	gpemc->clk = clk_get(NULL, "nemc");
-	if (IS_ERR(gpemc->clk)) {
-		pr_err("failed to get gpemc clock.\n");
-		goto err_return;
-	}
-
-	res = request_mem_region(gpemc->regs_file_mem.start,
-			resource_size(&gpemc->regs_file_mem), "gpemc-regs-mem");
-	if (!res) {
-		pr_err("gpemc: grab gpemc regs file failed.\n");
-		goto err_return;
-	}
-
-	res = request_mem_region(gpemc->nand_regs_file_mem.start,
-			resource_size(&gpemc->nand_regs_file_mem),
-			"gpemc-nand-regs-mem");
-	if (!res) {
-		pr_err("gpemc: grab gpemc nand regs file failed.\n");
-		goto err_release_mem;
-	}
-
-	for (i = 0; i < 64; i++)
-		clear_bit(i, gpemc->bank_use_map);
-
-	return 0;
-
-err_release_mem:
-	release_mem_region(gpemc->regs_file_mem.start,
-			resource_size(&gpemc->regs_file_mem));
-
-err_return:
-	BUG();
-	return -EBUSY;
-}
-
-postcore_initcall(gpemc_init);
 
 static int gpemc_request_gpio_generic(const u32 *array,
 		int count, enum gpio_function func,
@@ -559,6 +532,11 @@ static int gpemc_request_gpio_for_sram(gpemc_bank_t *bank)
 
 	int ret;
 
+	WARN(!(bank->cnt_addr_pins > 0 && bank->cnt_addr_pins <= 6),
+			"gpemc: can not allocate %u pins for address.\n",
+			bank->cnt_addr_pins);
+	BUG_ON(bank->cnt_addr_pins > 6);
+
 	ret = gpemc_request_gpio_data();
 	if (ret)
 		return ret;
@@ -722,6 +700,8 @@ static int gpemc_request_gpio(gpemc_bank_t *bank)
 	case BANK_TYPE_TOGGLE:
 		ret = gpemc_request_gpio_for_toggle_nand(bank);
 		break;
+	default:
+		break;
 	}
 
 
@@ -741,6 +721,8 @@ static void gpemc_release_gpio(gpemc_bank_t *bank)
 
 	case BANK_TYPE_TOGGLE:
 		gpemc_release_gpio_for_toggle_nand(bank);
+		break;
+	default:
 		break;
 	}
 }
@@ -806,10 +788,12 @@ static void gpemc_set_bank_role(gpemc_bank_t *bank)
 	case BANK_TYPE_TOGGLE:
 		gpemc_set_bank_as_toggle_nand(bank);
 		break;
+	default:
+		break;
 	}
 }
 
-int gpemc_request_cs(gpemc_bank_t *bank, int cs)
+int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 {
 	struct resource *res;
 	int ret;
@@ -818,7 +802,11 @@ int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 	BUG_ON(bank->bank_type < BANK_TYPE_SRAM
 			|| bank->bank_type > BANK_TYPE_TOGGLE);
 
+	bank->dev = dev;
 	bank->cs = cs;
+	/* T count in nanoseconds */
+	bank->bank_timing.clk_T =
+			1000 * 1000 * 1000 / clk_get_rate(gpemc->clk);
 
 	if (bank->bank_type == BANK_TYPE_SRAM)
 		BUG_ON(bank->cnt_addr_pins == 0);
@@ -848,6 +836,8 @@ int gpemc_request_cs(gpemc_bank_t *bank, int cs)
 
 	gpemc_set_bank_role(bank);
 
+	gpemc->requested_banks[cs] = bank;
+
 	return 0;
 
 err_release_gpio:
@@ -872,6 +862,8 @@ void gpemc_release_cs(gpemc_bank_t* bank)
 	gpemc_release_gpio(bank);
 
 	clear_bit(bank->cs, gpemc->bank_use_map);
+
+	gpemc->requested_banks[bank->cs] = NULL;
 }
 EXPORT_SYMBOL(gpemc_release_cs);
 
@@ -880,13 +872,8 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 {
 	u32 temp;
 
-	/* bank Taw */
-	bank->bank_timing.sram_timing.Taw = timing->Trp;
-
 	/* bank Tas */
 	temp = max(timing->Tals, timing->Tcls);
-	temp = max(temp, timing->Tcs);
-	temp -= bank->bank_timing.sram_timing.Taw;
 	bank->bank_timing.sram_timing.Tas = temp;
 
 	/* bank Tah */
@@ -895,13 +882,19 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	temp = max(temp, timing->Tdh);
 	bank->bank_timing.sram_timing.Tah = temp;
 
+	/* bank Taw */
+	temp = max(timing->Trc, timing->Twc);
+	temp = max(temp - bank->bank_timing.sram_timing.Tah, timing->Trp);
+	bank->bank_timing.sram_timing.Taw = temp;
+
 	/*
 	 * bank Tstrv
 	 *
 	 * TODO: Twhr2 should be considered.
 	 *
 	 */
-	bank->bank_timing.sram_timing.Tstrv = timing->Twhr;
+	temp = max(timing->Trhw, timing->Twhr);
+	bank->bank_timing.sram_timing.Tstrv = temp;
 
 	/* bank Tbp */
 	temp = timing->Twp;
@@ -909,7 +902,7 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	bank->bank_timing.sram_timing.Tbp = temp;
 
 	/* bank BW */
-	bank->bank_timing.sram_timing.BW = timing->BW;
+	bank->bank_timing.BW = timing->BW;
 
 }
 EXPORT_SYMBOL(gpemc_fill_timing_from_nand);
@@ -935,11 +928,10 @@ EXPORT_SYMBOL(gpemc_fill_timing_from_sram);
 void gpemc_relax_bank_timing(gpemc_bank_t *bank)
 {
 	/* all sram timing relax */
-	gpemc->regs_file->smcr[bank->cs] = ~(u32)0;
+	gpemc->regs_file->smcr[bank->cs - 1] = ~(u32)0;
 
-	/* BW=0, BL=4, Normal sram */
-	gpemc->regs_file->smcr[bank->cs] &=
-			~(0x3 << 6) | ~(0x3 << 1) | ~(0x1 << 0);
+	/* BW=8, BL=4, Normal sram */
+	gpemc->regs_file->smcr[bank->cs - 1] &= ~((0x3 << 6) | 0x3f);
 
 	/* TODO: all toggle nand timing relax  */
 }
@@ -951,9 +943,10 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 	u32 clk_T;
 
 	/* T count in nanoseconds */
-	clk_T = div_ceiling(1000 * 1000 * 1000, clk_get_rate(gpemc->clk));
+	clk_T = bank->bank_timing.clk_T;
+	bank->bank_timing.clk_T = clk_T;
 
-	smcr = gpemc->regs_file->smcr[bank->cs];
+	smcr = gpemc->regs_file->smcr[bank->cs - 1];
 
 	switch (bank->bank_type) {
 	case BANK_TYPE_SRAM:
@@ -965,40 +958,57 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 	case BANK_TYPE_NAND:
 		/* Tah */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Tah, clk_T);
-		temp = min(temp, (u32)15);
+		if (temp > 15) {
+			pr_err("gpemc: Failed to configure Tah for bank%d,"
+					" Tah: %uT\n", bank->cs, temp);
+			return -EINVAL;
+		}
 		smcr &= ~(0xf << 12);
 		smcr |= temp << 12;
 
 		/* Taw */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Taw, clk_T);
-		temp = min(temp, (u32)31);
+		if (temp > 31) {
+			pr_err("gpemc: Failed to configure Taw for bank%d,"
+					" Taw: %uT\n", bank->cs, temp);
+			return -EINVAL;
+		}
 		temp = nT_to_adjs[temp];
-
 		smcr &= ~(0xf << 20);
 		smcr |= temp << 20;
 
 		/* Tas */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Tas, clk_T);
-		temp = min(temp, (u32)15);
+		if (temp > 15) {
+			pr_err("gpemc: Failed to configure Tas for bank%d,"
+					" Tas: %uT\n", bank->cs, temp);
+			return -EINVAL;
+		}
 		smcr &= ~(0xf << 8);
 		smcr |= temp << 8;
 
 		/* Tstrv */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Tstrv, clk_T);
+		if (temp > 63) {
+			pr_err("gpemc: Failed to configure Tstrv for bank%d,"
+					" Tstrv: %uT\n", bank->cs, temp);
+			return -EINVAL;
+		}
 		smcr &= ~(0x3f << 24);
 		smcr |= temp << 24;
 
 		/* Tbp */
 		temp = div_ceiling(bank->bank_timing.sram_timing.Tbp, clk_T);
+		if (temp > 31) {
+			pr_err("gpemc: Failed to configure Tbp for bank%d,"
+					" Tbp: %uT\n", bank->cs, temp);
+			return -EINVAL;
+		}
 		temp = nT_to_adjs[temp];
 		smcr &= ~(0xf << 16);
 		smcr |= temp << 16;
 
-		/* BW & BL */
-		smcr &= ~(0x3 << 6) | ~(0x3 << 1);
-		smcr |= bank->bank_timing.sram_timing.BW << 6;
-
-		gpemc->regs_file->smcr[bank->cs] = smcr;
+		gpemc->regs_file->smcr[bank->cs - 1] = smcr;
 
 		break;
 
@@ -1037,6 +1047,167 @@ void gpemc_enable_nand_flash(gpemc_bank_t *bank, bool enable)
 		gpemc->nand_regs_file->nfcsr &= ~BIT(index);
 }
 EXPORT_SYMBOL(gpemc_enable_nand_flash);
+
+int __init gpemc_init(void) {
+	int i;
+
+	struct resource *res;
+
+	atomic_set(&gpemc->pin_data_use_count, 0);
+	memset(gpemc->addr_pins_pool.addr_pin_use_count,
+			sizeof(gpemc->addr_pins_pool.addr_pin_use_count), 0);
+	memset(gpemc->requested_banks, sizeof(gpemc->requested_banks), 0);
+	atomic_set(&gpemc->pin_wait_use_count, 0);
+	atomic_set(&gpemc->pin_rd_we_use_count, 0);
+	atomic_set(&gpemc->pin_dqs_use_count, 0);
+
+	spin_lock_init(&gpemc->addr_pins_pool.lock);
+
+	gpemc->clk = clk_get(NULL, "nemc");
+	if (IS_ERR(gpemc->clk)) {
+		pr_err("failed to get gpemc clock.\n");
+		goto err_return;
+	}
+
+	res = request_mem_region(gpemc->regs_file_mem.start,
+			resource_size(&gpemc->regs_file_mem), "gpemc-regs-mem");
+	if (!res) {
+		pr_err("gpemc: grab gpemc regs file failed.\n");
+		goto err_return;
+	}
+
+	res = request_mem_region(gpemc->nand_regs_file_mem.start,
+			resource_size(&gpemc->nand_regs_file_mem),
+			"gpemc-nand-regs-mem");
+	if (!res) {
+		pr_err("gpemc: grab gpemc nand regs file failed.\n");
+		goto err_release_mem;
+	}
+
+	for (i = 0; i < 64; i++)
+		clear_bit(i, gpemc->bank_use_map);
+
+	pr_info("gpemc: SoC-jz4780 gpemc support functions initilized.\n");
+
+	return 0;
+
+err_release_mem:
+	release_mem_region(gpemc->regs_file_mem.start,
+			resource_size(&gpemc->regs_file_mem));
+
+err_return:
+	BUG();
+	return -EBUSY;
+}
+postcore_initcall(gpemc_init);
+
+#ifdef CONFIG_DEBUG_FS
+
+static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
+{
+	int cs;
+	gpemc_bank_t *bank;
+
+	for (cs = 1; cs < BANK_COUNT; cs++) {
+		if (test_bit(cs, gpemc->bank_use_map)) {
+			bank = gpemc->requested_banks[cs];
+
+			seq_printf(m, "====== Bank%d ======\n", cs);
+			seq_printf(m, "Owner: %s\n", dev_name(bank->dev));
+			seq_printf(m, "Type: %s\n",
+					gpemc->bank_type_name[bank->bank_type]);
+			seq_printf(m, "Clk: %luHz\n", clk_get_rate(gpemc->clk));
+			seq_printf(m, "Clk_T(floor): %uns\n", bank->bank_timing.clk_T);
+			seq_printf(m, "BW: %dbit\n", bank->bank_timing.BW);
+
+			switch (bank->bank_type) {
+			case BANK_TYPE_SRAM:
+				/*
+				 * TODO
+				 */
+				break;
+			case BANK_TYPE_NAND:
+			{
+				u32 smcr = gpemc->regs_file->smcr[cs - 1];
+				u32 temp;
+
+				seq_printf(m, "\n");
+				seq_printf(m, "Timings loaded from NAND chip\n");
+				seq_printf(m, "-----------------------------\n");
+				seq_printf(m, "Tstrv: %uns\n",
+						bank->bank_timing.sram_timing.Tstrv);
+				seq_printf(m, "Taw: %uns\n",
+						bank->bank_timing.sram_timing.Taw);
+				seq_printf(m, "Tbp: %uns\n",
+						bank->bank_timing.sram_timing.Tbp);
+				seq_printf(m, "Tah: %uns\n",
+						bank->bank_timing.sram_timing.Tah);
+				seq_printf(m, "Tas: %uns\n",
+						bank->bank_timing.sram_timing.Tas);
+
+				seq_printf(m, "\n");
+				seq_printf(m, "Timings configured to bank%d\n", cs);
+				seq_printf(m, "-----------------------------\n");
+				seq_printf(m, "Reg SMCR: [0x%p]=0x%x\n",
+						&gpemc->regs_file->smcr[cs - 1],
+						smcr);
+
+				temp = (smcr & (0x3f << 24)) >> 24;
+				seq_printf(m, "Tstrv: %uT(%uns)\n",
+						temp, temp * bank->bank_timing.clk_T);
+
+				temp = adjs_to_nT[(smcr & (0xf << 20)) >> 20];
+				seq_printf(m, "Taw: %uT(%uns)\n",
+						temp, temp * bank->bank_timing.clk_T);
+
+				temp = adjs_to_nT[(smcr & (0xf << 16)) >> 16];
+				seq_printf(m, "Tbp: %uT(%uns)\n",
+						temp, temp * bank->bank_timing.clk_T);
+
+				temp = (smcr & (0xf << 12)) >> 12;
+				seq_printf(m, "Tah: %uT(%uns)\n",
+						temp, temp * bank->bank_timing.clk_T);
+
+				temp = (smcr & (0xf << 8)) >> 8;
+				seq_printf(m, "Tas: %uT(%uns)\n",
+						temp, temp * bank->bank_timing.clk_T);
+				break;
+			}
+			case BANK_TYPE_TOGGLE:
+				/*
+				 * TODO
+				 */
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int gpemc_debugfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, gpemc_debugfs_show, NULL);
+}
+
+static const struct file_operations gpemc_debugfs_operations = {
+	.open		= gpemc_debugfs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int __init gpemc_debugfs_init(void)
+{
+	debugfs_create_file(DRVNAME, S_IFREG | S_IRUGO,
+			NULL, NULL, &gpemc_debugfs_operations);
+	return 0;
+}
+subsys_initcall(gpemc_debugfs_init);
+
+#endif
 
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
 MODULE_DESCRIPTION("SoC-jz4780 GPEMC(NEMC) support functions");

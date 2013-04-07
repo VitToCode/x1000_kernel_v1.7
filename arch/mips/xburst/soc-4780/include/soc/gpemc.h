@@ -19,26 +19,33 @@
 typedef enum {
 	BANK_TYPE_SRAM = 0,
 	BANK_TYPE_NAND,
-	BANK_TYPE_TOGGLE
+	BANK_TYPE_TOGGLE,
+
+	CNT_BANK_TYPES
 } bank_type_t;
 
 typedef enum {
-	BUS_WIDTH_8 = 0
+	BUS_WIDTH_8 = 8
 } bus_width_t;
 
 typedef enum  {
-	BURST_LENGTH_4 = 0,
-	BURST_LENGTH_8,
-	BURST_LENGTH_16,
-	BURST_LENGTH_32
+	BURST_LENGTH_4 = 4,
+	BURST_LENGTH_8 = 8,
+	BURST_LENGTH_16 = 16,
+	BURST_LENGTH_32 = 32
 } burst_length_t;
 
 typedef enum {
 	SRAM_TYPE_NORMAL = 0,
-	SRAM_TYPE_BURST
+	SRAM_TYPE_BURST,
+
+	CNT_SRAM_TYPES
 } sram_type_t;
 
 typedef struct {
+	u32 clk_T;
+	bus_width_t BW;
+
 	struct {
 
 		/*
@@ -69,7 +76,6 @@ typedef struct {
 		u32 Tas;
 
 		/* access attributes */
-		bus_width_t BW;
 		burst_length_t BL;
 		sram_type_t sram_type;
 	} sram_timing;
@@ -149,6 +155,15 @@ typedef struct {
 	 */
 	u32 Twc;
 
+	/*
+	 * Read Cycle Time
+	 */
+	u32 Trc;
+
+	/*
+	 * #RE High to #WE Low
+	 */
+	u32 Trhw;
 
 	/*
 	 * #WE High to #RE Low
@@ -193,11 +208,6 @@ typedef struct {
 		u32 Tww;
 
 		/*
-		 * #RE High to #WE Low
-		 */
-		u32 Trhw;
-
-		/*
 		 * Device Resetting Time(Read/Program/Erase)
 		 */
 		u32 Trst;
@@ -238,6 +248,8 @@ typedef struct {
 	bank_type_t bank_type;
 	gpemc_bank_timing_t bank_timing;
 
+	struct device* dev;
+
 	unsigned int cnt_addr_pins;
 	void __iomem *io_base;
 
@@ -246,7 +258,7 @@ typedef struct {
 	void __iomem *io_nand_cmd;
 } gpemc_bank_t;
 
-extern int gpemc_request_cs(gpemc_bank_t *bank, int cs);
+extern int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs);
 extern void gpemc_release_cs(gpemc_bank_t *bank);
 
 extern void gpemc_relax_bank_timing(gpemc_bank_t *bank);

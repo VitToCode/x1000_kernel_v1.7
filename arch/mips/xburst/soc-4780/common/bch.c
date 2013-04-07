@@ -30,7 +30,7 @@
 
 #define DRVNAME "jz4780-bch"
 
-#define USE_PIO
+#define CONFIG_JZ4780_BCH_USE_PIO
 
 #define BCH_INT_DECODE_FINISH	(1 << 3)
 #define BCH_INT_ENCODE_FINISH	(1 << 2)
@@ -437,9 +437,6 @@ static void bch_correct(bch_request_t *req)
 	}
 
 	req->ret_val = BCH_RET_OK;
-
-	if (req->complete)
-		req->complete(req);
 }
 
 static void bch_decode_correct_by_cpu(bch_request_t *req)
@@ -475,7 +472,7 @@ static void bch_clear_pending_interrupts(void)
 	bchc->regs_file->bhint = BCH_ENABLED_INT;
 }
 
-#ifndef USE_PIO
+#ifndef CONFIG_JZ4780_BCH_USE_PIO
 
 /* TODO: fill them */
 
@@ -511,16 +508,14 @@ static int bch_request_enqueue(bch_request_t *req)
 
 	spin_lock(&bchc->lock);
 	list_add_tail(&req->node, &bchc->req_list);
-	spin_unlock(&bchc->lock);
-
 	wake_up(&bchc->kbchd_wait);
+	spin_unlock(&bchc->lock);
 
 	return 0;
 }
 
 static int bch_request_dequeue(void)
 {
-	struct list_head *temp;
 	bch_request_t *req;
 
 	while (1) {
@@ -530,17 +525,14 @@ static int bch_request_dequeue(void)
 			break;
 		}
 
-		/*
-		 * no lock !? @$%^%&...
-		 * don't worry you are going to lock free area
-		 */
-		temp = bchc->req_list.next;
-		list_del_init(temp);
-		req = list_entry(temp, bch_request_t, node);
+		req = list_first_entry(&bchc->req_list,
+				bch_request_t, node);
+		list_del(&req->node);
+		spin_unlock(&bchc->lock);
 
 		switch (req->type) {
 		case BCH_REQ_ENCODE:
-#ifdef USE_PIO
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 			bch_encode_by_cpu(req);
 #else
 			bch_encode_by_dma(req);
@@ -548,7 +540,7 @@ static int bch_request_dequeue(void)
 			break;
 
 		case BCH_REQ_DECODE:
-#ifdef USE_PIO
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 			bch_decode_by_cpu(req);
 #else
 			bch_decode_by_dma(req);
@@ -557,11 +549,15 @@ static int bch_request_dequeue(void)
 			break;
 
 		case BCH_REQ_DECODE_CORRECT:
-#ifdef USE_PIO
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 			bch_decode_correct_by_cpu(req);
 #else
 			bch_decode_correct_by_dma(req);
 #endif
+			break;
+
+		case BCH_REQ_CORRECT:
+			bch_correct(req);
 			break;
 
 		default:
@@ -587,11 +583,6 @@ int bch_request_submit(bch_request_t *req)
 		return -EINVAL;
 	else if (req->dev == NULL)
 		return -ENODEV;
-
-	if (req->type == BCH_REQ_CORRECT) {
-		bch_correct(req);
-		return 0;
-	}
 
 	return bch_request_enqueue(req);
 }
@@ -643,8 +634,9 @@ static irqreturn_t bch_isr(int irq, void *__unused)
 {
 	/* care only en/decode finish interrupts */
 	if (bchc->regs_file->bhint &
-			(BCH_INT_DECODE_FINISH | BCH_INT_ENCODE_FINISH))
+			(BCH_INT_DECODE_FINISH | BCH_INT_ENCODE_FINISH)) {
 		complete(&bchc->req_done);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -671,7 +663,7 @@ static int bch_probe(struct platform_device *pdev)
 
 	bch_enable();
 
-#ifdef USE_PIO
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 	bch_pio_config();
 #else
 	bch_dma_config();
@@ -693,7 +685,7 @@ static int bch_probe(struct platform_device *pdev)
 	}
 
 	dev_info(bchc->dev, "SoC-jz4780 HW ECC-BCH support "
-			"functions initilized.\n");
+			"functions initialized.\n");
 
 	return ret;
 

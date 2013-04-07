@@ -49,6 +49,7 @@ typedef struct {
 	int busy_irq;
 
 	struct completion ready;
+	unsigned int ready_timout_ms;
 } nand_flash_if_t;
 
 typedef struct {
@@ -64,6 +65,7 @@ typedef struct {
 
 	struct {
 		u32 data_size;
+		u32 ecc_bits;
 		u32 ecc_size;
 	} ecc_step;
 
@@ -95,9 +97,9 @@ struct jz4780_nand_platform_data {
 		_ECC_BITS_PRE_ECC_STEP,	\
 		_Tcls, _Tclh, _Tals, _Talh,	\
 		_Tcs, _Tch, _Tds, _Tdh, _Twp,	\
-		_Twh, _Twc, _Tadl, _Twhr, _Twhr2,	\
+		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
 		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
-		_Trhw, _Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _BW)	\
+		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _BW)	\
 		.name = _NAME,	\
 		.nand_dev_id = (_DEV_ID),	\
 		.type = BANK_TYPE_NAND,	\
@@ -105,6 +107,7 @@ struct jz4780_nand_platform_data {
 			.data_size = (_DATA_SIZE_PRE_ECC_STEP),	\
 			.ecc_size =	\
 			(((_ECC_BITS_PRE_ECC_STEP) * 14 + 7) / 8),	\
+			.ecc_bits = _ECC_BITS_PRE_ECC_STEP,	\
 		},	\
 		.nand_timing = {	\
 			.common_nand_timing = {	\
@@ -119,6 +122,8 @@ struct jz4780_nand_platform_data {
 				.Twp = (_Twp),	\
 				.Twh = (_Twh),	\
 				.Twc = (_Twc),	\
+				.Trc = (_Trc),	\
+				.Trhw = (_Trhw),	\
 				.Twhr = (_Twhr),	\
 				.Twhr2 = (_Twhr2),	\
 				.Trp = (_Trp),	\
@@ -129,7 +134,6 @@ struct jz4780_nand_platform_data {
 					.Tcwaw = (_Tcwaw),	\
 					.Twb = (_Twb),	\
 					.Tww = (_Tww),	\
-					.Trhw = (_Trhw),	\
 					.Trst = (_Trst),	\
 					.Tfeat = (_Tfeat),	\
 					.Tdcbsyr = (_Tdcbsyr),	\

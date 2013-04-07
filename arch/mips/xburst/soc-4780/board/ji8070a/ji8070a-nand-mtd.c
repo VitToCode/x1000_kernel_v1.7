@@ -103,7 +103,9 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	.num_nand_flash_if = ARRAY_SIZE(nand_interfaces),
 
 	.ecc_type = NAND_ECC_TYPE_HW,
-	.xfer_type = NAND_XFER_CPU_IRQ,
+
+	/* use polled type cause speed gain is about 10% ~ 15% */
+	.xfer_type = NAND_XFER_CPU_POLL,
 };
 
 static struct platform_device nand_dev = {
