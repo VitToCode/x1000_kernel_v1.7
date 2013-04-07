@@ -351,6 +351,13 @@ config BACKLIGHT_PWM_ZPAD80
 	  If you have a LCD backlight adjustable by PWM, say Y to enable
 	  this driver. Choice JZ PWM driver and the PWM channel.
 
+config BACKLIGHT_DIGITAL_PULSE
+	tristate "Generic Digital pulse based Backlight Driver"
+	default n
+	help
+	  If you have a LCD backlight adjustable by Digital pulse, say Y to enable
+	  this driver.
+
 config BACKLIGHT_DA903X
 	tristate "Backlight Driver for DA9030/DA9034 using WLED"
 	depends on PMIC_DA903X

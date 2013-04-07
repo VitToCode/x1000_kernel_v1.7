@@ -50,4 +50,5 @@ obj-$(CONFIG_BACKLIGHT_ADP8870)	+= adp8870_bl.o
 obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 obj-$(CONFIG_BACKLIGHT_PWM_ZPAD80)	+= pwm_bl.o android_bl_zpad80.o
+obj-$(CONFIG_BACKLIGHT_DIGITAL_PULSE)	+= digital_pulse_bl.o
 

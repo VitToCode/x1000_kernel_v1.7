@@ -183,6 +183,9 @@ static int __init board_init(void)
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);
 #endif
+#ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
+	platform_device_register(&digital_pulse_backlight_device);
+#endif
 
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ4780_LCDC0

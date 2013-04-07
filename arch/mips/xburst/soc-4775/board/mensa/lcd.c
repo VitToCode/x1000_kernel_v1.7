@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/pwm_backlight.h>
+#include <linux/digital_pulse_backlight.h>
 #include <linux/at070tn93.h>
 
 #include <mach/jzfb.h>
@@ -357,4 +358,34 @@ struct platform_device backlight_device = {
 	},
 };
 
+#endif
+
+/***********************************************************************************************/
+#ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
+static int init_backlight(struct device *dev)
+{
+	return 0;
+}
+static void exit_backlight(struct device *dev)
+{
+
+}
+
+struct platform_digital_pulse_backlight_data bl_data = {
+	.digital_pulse_gpio = GPIO_PE(1),
+	.max_brightness = 255,
+	.dft_brightness = 120,
+	.max_brightness_step = 16,
+	.high_level_delay_us = 5,
+	.low_level_delay_us = 5,
+	.init = init_backlight,
+	.exit = exit_backlight,
+};
+
+struct platform_device digital_pulse_backlight_device = {
+	.name		= "digital-pulse-backlight",
+	.dev		= {
+		.platform_data	= &bl_data,
+	},
+};
 #endif

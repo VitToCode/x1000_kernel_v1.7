@@ -104,5 +104,12 @@ extern struct platform_nand_data jz_nand_chip_data;
 extern struct platform_device bcm4330_bt_power_device;
 #endif
 
+/**
+ * Digital pulse backlight
+ **/
+#ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
+extern struct platform_device digital_pulse_backlight_device;
+extern struct platform_digital_pulse_backlight_data bl_data;
+#endif
 
 #endif /* __BOARD_H__ */
