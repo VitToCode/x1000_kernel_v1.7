@@ -1127,6 +1127,19 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
+		if(mode->flag & FB_MODE_IS_JZ4780_VGA){
+			if(hds > 4 && (hde + 4) <= ht){
+				hds -= 4;
+				hde += 4;
+			}
+			/*
+			if(vds > 2 && (vde + 2) <= vt){
+				vds -= 2;
+				vde += 2;
+			}
+			*/
+		}
+
 		reg_write(jzfb, LCDC_DAH, (hds << 16) | hde);
 		reg_write(jzfb, LCDC_DAV, (vds << 16) | vde);
 
@@ -2462,7 +2475,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 		 (tmp & LCDC_HSYNC_HPS_MASK) >> LCDC_HSYNC_HPS_BIT,
 		 (tmp & LCDC_HSYNC_HPE_MASK) >> LCDC_HSYNC_HPE_BIT);
 	tmp = reg_read(jzfb, LCDC_VSYNC);
-	dev_info(dev, "LCDC_VSYNC:\t0x%08lx, HPS = %ld, HPE = %ld\n", tmp,
+	dev_info(dev, "LCDC_VSYNC:\t0x%08lx, VPS = %ld, VPE = %ld\n", tmp,
 		 (tmp & LCDC_VSYNC_VPS_MASK) >> LCDC_VSYNC_VPS_BIT,
 		 (tmp & LCDC_VSYNC_VPE_MASK) >> LCDC_VSYNC_VPE_BIT);
 	dev_info(dev, "==================================\n");
