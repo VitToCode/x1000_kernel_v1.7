@@ -1109,6 +1109,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(0x1c9e,0x9e00) },
 	{ USB_DEVICE(0x23a2,0x0001) },
         { USB_DEVICE(0x21f5,0x2012) },
+        { USB_DEVICE(0x19d2,0xffeb) },
 
 	{ } /* Terminating entry */
 };
