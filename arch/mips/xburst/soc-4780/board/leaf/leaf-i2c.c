@@ -41,7 +41,7 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 };
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_LIS3DH))
+#if defined(CONFIG_SENSORS_LIS3DH)
 static struct gsensor_platform_data lis3dh_platform_data = {
 	.gpio_int = GPIO_LIS3DH_INT1,
 	.poll_interval = 100,
@@ -87,6 +87,12 @@ static struct i2c_board_info leaf_i2c1_devs[] __initdata = {
 		I2C_BOARD_INFO("ft5x06_tsc", 0x01),
 		.platform_data	= &leaf_tsc_pdata,
 	},
+#endif
+#if (defined(CONFIG_TOUCHSCREEN_CT36X) || defined(CONFIG_TOUCHSCREEN_CT360))
+        {
+                I2C_BOARD_INFO("ct36x_ts", 0x01),
+                .platform_data = &leaf_tsc_pdata,
+        },
 #endif
 };
 #endif	/*I2C1*/
@@ -216,7 +222,7 @@ static struct i2c_board_info leaf_i2c3_devs[] __initdata = {
 #endif
 #ifdef CONFIG_SENSORS_LIS3DH
 	{
-	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
+		I2C_BOARD_INFO("gsensor_lis3dh", 0x19),
 		.platform_data = &lis3dh_platform_data,
 	},
 #endif

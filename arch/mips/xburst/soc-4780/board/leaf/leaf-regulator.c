@@ -91,9 +91,9 @@ FIXED_REGULATOR_DEF(
 
 FIXED_REGULATOR_DEF(
 	leaf_vgsensor,
-	"G-sensor",	3000000,	GPIO_PE(9),
+	"G-sensor",	3000000,	-EINVAL,
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	NULL,		"vgsensor",	"gsensor_mma8452");
+	NULL,		"vgsensor",	"gsensor_lis3dh");
 
 FIXED_REGULATOR_DEF(
 	leaf_vcim,
