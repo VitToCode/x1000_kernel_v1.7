@@ -533,8 +533,8 @@ static int init_nand_driver(void)
 	(g_partition+ret)->startblockID = blockid;
 	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
 	(g_partition+ret)->pageperblock = t_partition->pageperblock;
-	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * 1 ;
-	(g_partition+ret)->totalblocks = 1;
+	(g_partition+ret)->totalblocks = 4;
+	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * (g_partition+ret)->totalblocks;
 	(g_partition+ret)->mode = ONCE_MANAGER;   // this is special mark of badblock tabel partition
 	(g_partition+ret)->prData = t_partition->prData;
 	(g_partition+ret)->hwsector =512;
