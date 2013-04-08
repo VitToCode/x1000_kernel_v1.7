@@ -144,6 +144,7 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 	unsigned int value_sum = 0;
 	unsigned int max_value, min_value;
 	unsigned int i,j = 0, temp;
+	unsigned int max_index = 0, min_index = 0;
 	unsigned int real_voltage = 0;
 
 	current_value[0] = jz_battery_read_value(battery);
@@ -155,16 +156,23 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 		value_sum += current_value[i];
 		if (max_value < current_value[i]) {
 			max_value = current_value[i];
+			max_index = i;
 		}
 		if (min_value > current_value[i]) {
 			min_value = current_value[i];
+			min_index = i;
 		}
 	}
 
 	value_sum -= (max_value + min_value);
 	final_value = value_sum / 10;
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 12; i++) {
+		if (i == min_index)
+			continue;
+		if (i == max_index)
+			continue;
+
 		temp = abs(current_value[i] - final_value);
 		if (temp > 4) {
 			j++;
