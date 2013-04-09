@@ -273,7 +273,6 @@ inline static void read_parity_by_cpu(bch_request_t *req)
 		u32 *ecc_data32;
 		u8 *ecc_data8;
 		volatile u32 *parity32;
-		volatile u8 *parity8;
 
 		ecc_data32 = (u32 *)req->ecc_data;
 		parity32 = bchc->regs_file->bhpar;
@@ -281,9 +280,28 @@ inline static void read_parity_by_cpu(bch_request_t *req)
 			*ecc_data32++ = *parity32++;
 
 		ecc_data8 = (u8 *)ecc_data32;
-		parity8 = (u8 *)parity32;
-		while (j--)
-			*ecc_data8 = *parity32++;
+		switch (j) {
+		case 3:
+			j = *parity32;
+			*ecc_data8++ = j & 0xff;
+			*ecc_data8++ = (j >> 8) & 0xff;
+			*ecc_data8++ = (j >> 16) & 0xff;
+			break;
+
+		case 2:
+			j = *parity32;
+			*ecc_data8++ = j & 0xff;
+			*ecc_data8++ = (j >> 8) & 0xff;
+			break;
+
+		case 1:
+			j = *parity32;
+			*ecc_data8++ = j & 0xff;
+			break;
+
+		default:
+			break;
+		}
 
 		req->ret_val = BCH_RET_OK;
 	} else {
