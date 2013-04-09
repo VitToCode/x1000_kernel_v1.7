@@ -16,6 +16,9 @@ config BOARD_GIANT
 config BOARD_WARRIOR
         bool "Warrior"
 
+config BOARD_URBOARD
+        bool "Urboard"
+
 config BOARD_PRINTER
         bool "Printer"
 
@@ -76,6 +79,7 @@ config BOARD_NAME
 	default "test" if BOARD_TEST
 	default "Giant" if BOARD_GIANT
 	default "Warrior" if BOARD_WARRIOR
+	default "Urboard" if BOARD_URBOARD
 	default "Printer" if BOARD_PRINTER
 	default "Warrior" if BOARD_WARRIOR_V_1_1
 	default "Trooper" if BOARD_TROOPER
