@@ -69,7 +69,7 @@
   #define CR1_FMAT_MW1		  (2 << CR1_FMAT_BIT) /* National Microwire 1 format */
   #define CR1_FMAT_MW2		  (3 << CR1_FMAT_BIT) /* National Microwire 2 format */
 #define CR1_TTRG_BIT		16 /* SSI1 TX trigger */
-#define CR1_TTRG_MASK		(0xf << CR1_TTRG_BIT) 
+#define CR1_TTRG_MASK		(0xf << CR1_TTRG_BIT)
 #define CR1_MCOM_BIT		12
 #define CR1_MCOM_MASK		(0xf << CR1_MCOM_BIT)
 //  #define CR1_MCOM_BIT(NO)	  (##NO## << CR1_MCOM_BIT) /* N-bit command selected */
@@ -160,7 +160,7 @@ struct jz47xx_spi {
 	struct completion	done_rx;
 
 	spinlock_t		lock;
-	
+
 	u8			chnl;
 	u8			rw_mode;
 	u8			spi_mode;
@@ -184,7 +184,7 @@ struct jz47xx_spi {
 	/* temp buffers */
 	void			*buffer;
 	dma_addr_t		buffer_dma;
-	
+
 	void __iomem		*iomem;
 	unsigned long		phys;
 	int			 irq;
@@ -195,7 +195,7 @@ struct jz47xx_spi {
 	u32			 dma_flag;
 
 	void			(*set_cs)(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol);
-	
+
 	/* functions to deal with different size buffers */
 	u32 (*get_rx) (struct jz47xx_spi *);
 	u32 (*get_tx) (struct jz47xx_spi *);
@@ -208,10 +208,10 @@ struct jz47xx_spi {
 	struct scatterlist  	*sg_rx;	/* I/O scatter list */
 	struct scatterlist  	*sg_tx;	/* I/O scatter list */
 #endif
-	
+
 	unsigned long src_clk;
 	unsigned long spi_clk;
-	
+
 	struct jz_intr_cnt *g_jz_intr;
 
 	struct resource		*ioarea;
@@ -245,7 +245,7 @@ struct jz_intr_cnt{
 #define MAX_SPI_CHIPSELECT_NUM 		MAX_GPIO_NUM
 
 
-static inline void spi_writel(struct jz47xx_spi *spi, 
+static inline void spi_writel(struct jz47xx_spi *spi,
 			      unsigned short offset, u32 value)
 {
 	writel(value, spi->iomem + offset);
@@ -265,7 +265,7 @@ static inline void set_spi_clock_phase(struct jz47xx_spi *spi, unsigned int cpha
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_spi_clock_polarity(struct jz47xx_spi *spi, 
+static inline void set_spi_clock_polarity(struct jz47xx_spi *spi,
 					  unsigned int cpol)
 {
 	u32 tmp;
@@ -286,7 +286,7 @@ static inline void set_tx_lsb(struct jz47xx_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
-	tmp |= (tmp & ~CR0_TENDIAN_MASK) | (0x3 << CR0_TENDIAN_MASK);
+	tmp |= (tmp & ~CR0_TENDIAN_MASK) | (0x3 << CR0_TENDIAN_BIT);
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
