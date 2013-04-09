@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -28,9 +29,15 @@
 #include <soc/irq.h>
 #include <soc/bch.h>
 
+/*
+ * TODO: add to kbuild
+ */
+#define CONFIG_JZ4780_BCH_USE_PIO
+#define CONFIG_JZ4780_BCH_USE_IRQ
+
 #define DRVNAME "jz4780-bch"
 
-#define CONFIG_JZ4780_BCH_USE_PIO
+#define TIMEOUT_IN_MS 1000
 
 #define BCH_INT_DECODE_FINISH	(1 << 3)
 #define BCH_INT_ENCODE_FINISH	(1 << 2)
@@ -74,13 +81,19 @@ struct {
 	const struct resource regs_file_mem;
 
 	struct list_head req_list;
+
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
+
 	struct completion req_done;
+
+#endif
+	u32 saved_reg_bhint;
 	spinlock_t lock;
 
 	struct task_struct *kbchd_task;
 	wait_queue_head_t kbchd_wait;
 
-	struct device *dev;
+	struct platform_device *pdev;
 } instance = {
 	.regs_file = (regs_file_t *)
 					CKSEG1ADDR(BCH_REGS_FILE_BASE),
@@ -91,55 +104,221 @@ struct {
 
 }, *bchc = &instance;
 
-static inline u32 div_ceiling(u32 x, u32 y)
-{
-	return (x + y - 1) / y;
-}
-
-static void bch_select_encode(bch_request_t *req)
+inline static void bch_select_encode(bch_request_t *req)
 {
 	bchc->regs_file->bhcsr = 1 << 2;
 }
 
-static void bch_select_ecc_level(bch_request_t *req)
+inline static void bch_select_ecc_level(bch_request_t *req)
 {
 	bchc->regs_file->bhccr = 0x7f << 4;
-	bchc->regs_file->bhcsr = req->ecc_level;
+	bchc->regs_file->bhcsr = req->ecc_level << 4;
 }
 
-static void bch_select_calc_size(bch_request_t *req)
+inline static void bch_select_calc_size(bch_request_t *req)
 {
 	bchc->regs_file->bhcnt = 0;
-	bchc->regs_file->bhcnt = ((req->ecc_level * 14 >> 8) << 16)
-			| req->ecc_level;
+	bchc->regs_file->bhcnt = (req->parity_size << 16) | req->blksz;
 }
 
-static void bch_select_decode(bch_request_t *req)
+inline static void bch_select_decode(bch_request_t *req)
 {
 	bchc->regs_file->bhccr = 1 << 2;
 }
 
-static void bch_wait_for_encode_done(bch_request_t *req)
+inline static void bch_clear_pending_interrupts(void)
 {
-	wait_for_completion(&bchc->req_done);
+	/* clear enabled interrupts */
+	bchc->regs_file->bhint = BCH_ENABLED_INT;
 }
 
-static void bch_wait_for_decode_done(bch_request_t *req)
+inline static void bch_wait_for_encode_done(bch_request_t *req)
 {
-	wait_for_completion(&bchc->req_done);
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
+
+	int ret;
+	ret = wait_for_completion_timeout(&bchc->req_done,
+			msecs_to_jiffies(TIMEOUT_IN_MS));
+
+	WARN(!ret, "%s: Timeout when do request"
+			" type: %d from: %s\n",
+			dev_name(&bchc->pdev->dev),
+			req->type, dev_name(req->dev));
+	BUG_ON(!ret);
+
+#else
+
+	unsigned long timeo = jiffies +
+			msecs_to_jiffies(TIMEOUT_IN_MS);
+
+	do {
+		if (bchc->regs_file->bhint &
+				BCH_INT_ENCODE_FINISH)
+			goto done;
+	} while (time_before(jiffies, timeo));
+
+	WARN(1, "%s: Timeout when do request"
+			" type: %d from: %s\n",
+			dev_name(&bchc->pdev->dev),
+			req->type, dev_name(req->dev));
+	BUG_ON(1);
+
+done:
+	bchc->saved_reg_bhint = bchc->regs_file->bhint;
+	bch_clear_pending_interrupts();
+
+
+#endif
 }
 
-static void bch_start_new_operation(void)
+inline static void bch_wait_for_decode_done(bch_request_t *req)
+{
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
+
+	int ret;
+	ret = wait_for_completion_timeout(&bchc->req_done,
+			msecs_to_jiffies(TIMEOUT_IN_MS));
+
+	WARN(!ret, "%s: Timeout when do request"
+			" type: %d from: %s\n",
+			dev_name(&bchc->pdev->dev),
+			req->type, dev_name(req->dev));
+	BUG_ON(!ret);
+
+#else
+
+	unsigned long timeo = jiffies +
+			msecs_to_jiffies(TIMEOUT_IN_MS);
+
+	do {
+		if (bchc->regs_file->bhint &
+				(BCH_INT_DECODE_FINISH |
+						BCH_INT_UNCORRECT))
+			goto done;
+	} while (time_before(jiffies, timeo));
+
+	WARN(1, "%s: Timeout when do request"
+			" type: %d from: %s\n",
+			dev_name(&bchc->pdev->dev),
+			req->type, dev_name(req->dev));
+	BUG_ON(1);
+
+done:
+	bchc->saved_reg_bhint = bchc->regs_file->bhint;
+	bch_clear_pending_interrupts();
+
+#endif
+}
+
+inline static void bch_start_new_operation(void)
 {
 	/* start operation */
 	bchc->regs_file->bhcsr = 1 << 1;
 }
 
-static void bch_encode_by_cpu(bch_request_t *req)
-{
-	int j;
-	int i;
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 
+inline static void write_data_by_cpu(const void *data, u32 size)
+{
+	int i = size / sizeof(u32);
+	int j = size & 0x3;
+
+	volatile void *dst = &bchc->regs_file->bhdr;
+	const u32 *src32;
+	const u8 *src8;
+
+	src32 = (u32 *)data;
+	while (i--)
+		*(u32 *)dst = *src32++;
+
+	src8 = (u8 *)src32;
+	while (j--)
+		*(u8 *)dst = *src8++;
+}
+
+inline static void read_err_report_by_cpu(bch_request_t *req)
+{
+	if (unlikely(bchc->saved_reg_bhint & BCH_INT_UNCORRECT)) {
+		dev_err(&bchc->pdev->dev, "uncorrectable errors"
+				" when do request from %s\n", dev_name(req->dev));
+		req->errrept_word_cnt = 0;
+		req->cnt_ecc_errors = 0;
+		req->ret_val = BCH_RET_UNCORRECTABLE;
+
+	} else if (bchc->saved_reg_bhint & BCH_INT_DECODE_FINISH) {
+		int i;
+
+		req->errrept_word_cnt = (bchc->saved_reg_bhint
+				& (0x7f << 24)) >> 24;
+		req->cnt_ecc_errors = bchc->saved_reg_bhint
+				& (0x7f << 16);
+
+		for (i = 0; i < req->errrept_word_cnt; i++)
+			req->errrept_data[i] = bchc->regs_file->bherr[i];
+
+		req->ret_val = BCH_RET_OK;
+
+	} else {
+		req->errrept_word_cnt = 0;
+		req->cnt_ecc_errors = 0;
+		req->ret_val = BCH_RET_UNEXPECTED;
+	}
+}
+
+inline static void read_parity_by_cpu(bch_request_t *req)
+{
+	if (likely(bchc->saved_reg_bhint & BCH_INT_ENCODE_FINISH)) {
+		int i = req->parity_size / sizeof(u32);
+		int j = req->parity_size & 0x3;
+		u32 *ecc_data32;
+		u8 *ecc_data8;
+		volatile u32 *parity32;
+		volatile u8 *parity8;
+
+		ecc_data32 = (u32 *)req->ecc_data;
+		parity32 = bchc->regs_file->bhpar;
+		while (i--)
+			*ecc_data32++ = *parity32++;
+
+		ecc_data8 = (u8 *)ecc_data32;
+		parity8 = (u8 *)parity32;
+		while (j--)
+			*ecc_data8 = *parity32++;
+
+		req->ret_val = BCH_RET_OK;
+	} else {
+		req->ret_val = BCH_RET_UNEXPECTED;
+	}
+}
+
+#else
+
+/* TODO: fill them */
+
+inline static void bch_dma_config(void)
+{
+
+}
+
+inline static void write_data_by_dma(const void *data, u32 size)
+{
+
+}
+
+inline static void read_err_report_by_dma(bch_request_t *req)
+{
+
+}
+
+inline static void read_parity_by_dma(bch_request_t *req)
+{
+
+}
+
+#endif
+
+inline static void bch_encode(bch_request_t *req)
+{
 	/*
 	 * step1. basic config
 	 */
@@ -152,50 +331,12 @@ static void bch_encode_by_cpu(bch_request_t *req)
 	 */
 	bch_start_new_operation();
 
+
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 	/*
 	 * step3. transfer raw data which to be encoded
 	 */
-	switch (req->raw_data_width) {
-	case BCH_DATA_WIDTH_8:
-	{
-		const u8 *data = req->raw_data;
-		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_16:
-	{
-		const u16 *data = req->raw_data;
-		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz >> 1;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_32:
-	{
-		const u32 *data = req->raw_data;
-		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz >> 2;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	default:
-		BUG();
-		break;
-	}
+	write_data_by_cpu(req->raw_data, req->blksz);
 
 	/*
 	 * step4.
@@ -205,93 +346,21 @@ static void bch_encode_by_cpu(bch_request_t *req)
 	/*
 	 * step5. read out parity data
 	 */
-	if (bchc->regs_file->bhint & BCH_INT_ENCODE_FINISH) {
-		switch (req->ecc_data_width) {
-		case BCH_DATA_WIDTH_8:
-		{
-			u32 tmp;
-			u8 *p = req->ecc_data;
-			j = (req->ecc_level * 14 >> 3) >> 2;
+	read_parity_by_cpu(req);
+
+#else
+
+	/*
+	 * TODO
+	 */
+	#error "TODO: implement DMA transfer"
 
 
-			for (i = 0; i < j; i++) {
-				tmp = bchc->regs_file->bhpar[i];
-				*p++ = tmp & 0xff;
-				*p++ = (tmp >> 8) & 0xff;
-				*p++ = (tmp >> 16) & 0xff;
-				*p++ = (tmp >> 24) & 0xff;
-			}
-
-			j = (req->ecc_level * 14 >> 3) & 0x3;
-			tmp = bchc->regs_file->bhpar[i];
-			switch (j) {
-			case 1:
-				*p = tmp & 0xff;
-				break;
-
-			case 2:
-				*p++ = tmp & 0xff;
-				*p   = (tmp >> 8) & 0xff;
-				break;
-
-			case 3:
-				*p++ = tmp & 0xff;
-				*p++ = (tmp >> 8) & 0xff;
-				*p   = (tmp >> 16) & 0xff;
-				break;
-			}
-
-			break;
-		}
-
-		case BCH_DATA_WIDTH_16:
-		{
-			u32 tmp;
-			u16 *p = req->ecc_data;
-			j = (req->ecc_level * 14 >> 3) >> 1;
-
-
-			for (i = 0; i < j; i++) {
-				tmp = bchc->regs_file->bhpar[i];
-				*p++ = tmp & 0xffff;
-				*p++ = (tmp >> 16) & 0xffff;
-			}
-
-			j = (req->ecc_level * 14 >> 3) & 0x1;
-			if (j) {
-				tmp = bchc->regs_file->bhpar[i];
-				*p = tmp & 0xffff;
-			}
-
-			break;
-		}
-
-		case BCH_DATA_WIDTH_32:
-		{
-			u32 *p = req->ecc_data;
-			j = div_ceiling(req->ecc_level * 14 >> 3, sizeof(u32));
-			for (i = 0; i < j; i++)
-				*p++ = bchc->regs_file->bhpar[i];
-
-			break;
-		}
-
-		default:
-			BUG();
-			break;
-		}
-
-		req->ret_val = BCH_RET_OK;
-	} else {
-		req->ret_val = BCH_RET_UNEXPECTED;
-	}
+#endif
 }
 
-static void bch_decode_by_cpu(bch_request_t *req)
+inline static void bch_decode(bch_request_t *req)
 {
-	int j;
-	int i;
-
 	/*
 	 * step1. basic config
 	 */
@@ -304,95 +373,16 @@ static void bch_decode_by_cpu(bch_request_t *req)
 	 */
 	bch_start_new_operation();
 
+#ifdef CONFIG_JZ4780_BCH_USE_PIO
 	/*
 	 * step3. transfer raw data which to be decoded
 	 */
-	switch (req->raw_data_width) {
-	case BCH_DATA_WIDTH_8:
-	{
-		const u8 *data = req->raw_data;
-		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_16:
-	{
-		const u16 *data = req->raw_data;
-		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz >> 1;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_32:
-	{
-		const u32 *data = req->raw_data;
-		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
-
-		j = req->blksz >> 2;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	default:
-		BUG();
-		break;
-	}
+	write_data_by_cpu(req->raw_data, req->blksz);
 
 	/*
 	 * step4. following transfer ECC code
 	 */
-	switch (req->raw_data_width) {
-	case BCH_DATA_WIDTH_8:
-	{
-		u8 *data = req->ecc_data;
-		volatile u8 *p = (u8 *)&bchc->regs_file->bhdr;
-
-		j = req->ecc_level * 14 >> 3;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_16:
-	{
-		u16 *data = req->ecc_data;
-		volatile u16 *p = (u16 *)&bchc->regs_file->bhdr;
-
-		j = (req->ecc_level * 14 >> 3) >> 1;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	case BCH_DATA_WIDTH_32:
-	{
-		const u32 *data = req->raw_data;
-		volatile u32 *p = (u32 *)&bchc->regs_file->bhdr;
-
-		j = (req->ecc_level * 14 >> 3) >> 2;
-		for (i = 0; i < j; i++)
-			*p = data[i];
-
-		break;
-	}
-
-	default:
-		BUG();
-		break;
-	}
+	write_data_by_cpu(req->ecc_data, req->parity_size);
 
 	/*
 	 * step5.
@@ -402,27 +392,19 @@ static void bch_decode_by_cpu(bch_request_t *req)
 	/*
 	 * step6. read out error report data
 	 */
-	if (bchc->regs_file->bhint & BCH_INT_DECODE_FINISH) {
-		req->errrept_word_cnt = bchc->regs_file->bhint & (0x7f << 24);
-		req->cnt_ecc_errors = bchc->regs_file->bhint & (0x7f << 16);
-		for (i = 0; i < req->errrept_word_cnt; i++)
-			req->errrept_data[i] = bchc->regs_file->bherr[i];
+	read_err_report_by_cpu(req);
 
-		req->ret_val = BCH_RET_OK;
+#else
 
-	} else if (bchc->regs_file->bhint & BCH_INT_UNCORRECT){
-		req->errrept_word_cnt = 0;
-		req->cnt_ecc_errors = 0;
-		req->ret_val = BCH_RET_UNCORRECTABLE;
+	/*
+	 * TODO
+	 */
+	#error "TODO: implement DMA transfer"
 
-	} else {
-		req->errrept_word_cnt = 0;
-		req->cnt_ecc_errors = 0;
-		req->ret_val = BCH_RET_UNEXPECTED;
-	}
+#endif
 }
 
-static void bch_correct(bch_request_t *req)
+inline static void bch_correct(bch_request_t *req)
 {
 	int i;
 	int mask;
@@ -439,10 +421,10 @@ static void bch_correct(bch_request_t *req)
 	req->ret_val = BCH_RET_OK;
 }
 
-static void bch_decode_correct_by_cpu(bch_request_t *req)
+inline static void bch_decode_correct(bch_request_t *req)
 {
 	/* start decode process */
-	bch_decode_by_cpu(req);
+	bch_decode(req);
 
 	/* return if req is not correctable */
 	if (req->ret_val)
@@ -452,12 +434,12 @@ static void bch_decode_correct_by_cpu(bch_request_t *req)
 	bch_correct(req);
 }
 
-static void bch_pio_config(void)
+inline static void bch_pio_config(void)
 {
 	bchc->regs_file->bhccr = 1 << 11;
 }
 
-static void bch_enable(void)
+inline static void bch_enable(void)
 {
 	/* enable bchc */
 	bchc->regs_file->bhcsr = 1;
@@ -466,43 +448,7 @@ static void bch_enable(void)
 	bchc->regs_file->bhccr = 1 << 12;
 }
 
-static void bch_clear_pending_interrupts(void)
-{
-	/* clear enabled interrupts */
-	bchc->regs_file->bhint = BCH_ENABLED_INT;
-}
-
-#ifndef CONFIG_JZ4780_BCH_USE_PIO
-
-/* TODO: fill them */
-
-static void bch_dma_config(void)
-{
-	dev_err(bchc->dev, "unsupported operation.\n");
-	req->ret_val = BCH_RET_UNSUPPORTED;
-}
-
-static void bch_encode_by_dma(bch_request_t *req)
-{
-	dev_err(bchc->dev, "unsupported operation.\n");
-	req->ret_val = BCH_RET_UNSUPPORTED;
-}
-
-static void bch_decode_by_dma(bch_request_t *req)
-{
-	dev_err(bchc->dev, "unsupported operation.\n");
-	req->ret_val = BCH_RET_UNSUPPORTED;
-}
-
-static void bch_decode_correct_by_dma(bch_request_t *req)
-{
-	dev_err(bchc->dev, "unsupported operation.\n");
-	req->ret_val = BCH_RET_UNSUPPORTED;
-}
-
-#endif
-
-static int bch_request_enqueue(bch_request_t *req)
+inline static int bch_request_enqueue(bch_request_t *req)
 {
 	INIT_LIST_HEAD(&req->node);
 
@@ -514,7 +460,7 @@ static int bch_request_enqueue(bch_request_t *req)
 	return 0;
 }
 
-static int bch_request_dequeue(void)
+inline static int bch_request_dequeue(void)
 {
 	bch_request_t *req;
 
@@ -532,28 +478,15 @@ static int bch_request_dequeue(void)
 
 		switch (req->type) {
 		case BCH_REQ_ENCODE:
-#ifdef CONFIG_JZ4780_BCH_USE_PIO
-			bch_encode_by_cpu(req);
-#else
-			bch_encode_by_dma(req);
-#endif
+			bch_encode(req);
 			break;
 
 		case BCH_REQ_DECODE:
-#ifdef CONFIG_JZ4780_BCH_USE_PIO
-			bch_decode_by_cpu(req);
-#else
-			bch_decode_by_dma(req);
-
-#endif
+			bch_decode(req);
 			break;
 
 		case BCH_REQ_DECODE_CORRECT:
-#ifdef CONFIG_JZ4780_BCH_USE_PIO
-			bch_decode_correct_by_cpu(req);
-#else
-			bch_decode_correct_by_dma(req);
-#endif
+			bch_decode_correct(req);
 			break;
 
 		case BCH_REQ_CORRECT:
@@ -561,15 +494,14 @@ static int bch_request_dequeue(void)
 			break;
 
 		default:
-			dev_err(bchc->dev, "unsupported operation.\n");
+			WARN(1, "unknown request type: %d from %s\n",
+					req->type, dev_name(req->dev));
 			req->ret_val = BCH_RET_UNSUPPORTED;
 			break;
 		}
 
 		if (req->complete)
 			req->complete(req);
-
-		bch_clear_pending_interrupts();
 	}
 
 	return 0;
@@ -584,11 +516,13 @@ int bch_request_submit(bch_request_t *req)
 	else if (req->dev == NULL)
 		return -ENODEV;
 
+	req->parity_size = req->ecc_level * 14 >> 3;
+
 	return bch_request_enqueue(req);
 }
 EXPORT_SYMBOL(bch_request_submit);
 
-static int bch_thread(void *__unused)
+inline static int bch_thread(void *__unused)
 {
 	set_freezable();
 
@@ -601,15 +535,15 @@ static int bch_thread(void *__unused)
 		/* TODO: thread exiting control */
 	} while (!kthread_should_stop() || !list_empty(&bchc->req_list));
 
-	dev_err(bchc->dev, "kbchd exiting.\n");
+	dev_err(&bchc->pdev->dev, "kbchd exiting.\n");
 
 	return 0;
 }
 
-static void bch_clk_config(void)
+inline static void bch_clk_config(void)
 {
-	bchc->clk_bch = clk_get(bchc->dev, "cgu_bch");
-	bchc->clk_bch_gate = clk_get(bchc->dev, "bch");
+	bchc->clk_bch = clk_get(&bchc->pdev->dev, "cgu_bch");
+	bchc->clk_bch_gate = clk_get(&bchc->pdev->dev, "bch");
 
 	clk_enable(bchc->clk_bch_gate);
 
@@ -618,44 +552,60 @@ static void bch_clk_config(void)
 	clk_enable(bchc->clk_bch);
 }
 
-static void bch_irq_config(void)
+inline static void bch_irq_config(void)
 {
 	bchc->regs_file->bhintec = 0;
+	bchc->regs_file->bhint = ~(u32)0;
 
 	/*
 	 * enable de/encodeing finish
 	 * and uncorrectable interrupt
 	 */
 
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
 	bchc->regs_file->bhintes = BCH_ENABLED_INT;
+#endif
 }
 
-static irqreturn_t bch_isr(int irq, void *__unused)
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
+
+inline static irqreturn_t bch_isr(int irq, void *__unused)
 {
+	bchc->saved_reg_bhint = bchc->regs_file->bhint;
+
 	/* care only en/decode finish interrupts */
-	if (bchc->regs_file->bhint &
-			(BCH_INT_DECODE_FINISH | BCH_INT_ENCODE_FINISH)) {
+	if (bchc->regs_file->bhint & BCH_ENABLED_INT) {
 		complete(&bchc->req_done);
 	}
+
+	bch_clear_pending_interrupts();
 
 	return IRQ_HANDLED;
 }
 
-static int bch_probe(struct platform_device *pdev)
+#endif
+
+inline static int bch_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
 	struct resource *res;
 
 	spin_lock_init(&bchc->lock);
 	INIT_LIST_HEAD(&bchc->req_list);
 	init_waitqueue_head(&bchc->kbchd_wait);
+
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
+
 	init_completion(&bchc->req_done);
-	bchc->dev = &pdev->dev;
+
+#endif
+
+	bchc->pdev = pdev;
 
 	res = request_mem_region(bchc->regs_file_mem.start,
 			resource_size(&bchc->regs_file_mem), DRVNAME);
 	if (!res) {
-		dev_err(bchc->dev, "failed to grab regs file.\n");
+		dev_err(&bchc->pdev->dev, "failed to grab regs file.\n");
 		return -EBUSY;
 	}
 
@@ -674,17 +624,21 @@ static int bch_probe(struct platform_device *pdev)
 	bchc->kbchd_task = kthread_run(bch_thread, NULL, "kbchd");
 	if (IS_ERR(bchc->kbchd_task)) {
 		ret = PTR_ERR(bchc->kbchd_task);
-		dev_err(bchc->dev, "failed to start kbchd: %d\n", ret);
+		dev_err(&bchc->pdev->dev, "failed to start kbchd: %d\n", ret);
 		goto err_release_mem;
 	}
+
+#ifdef CONFIG_JZ4780_BCH_USE_IRQ
 
 	ret = request_irq(IRQ_BCH, bch_isr, 0, DRVNAME, NULL);
 	if (ret) {
-		dev_err(bchc->dev, "failed to request interrupt.\n");
+		dev_err(&bchc->pdev->dev, "failed to request interrupt.\n");
 		goto err_release_mem;
 	}
 
-	dev_info(bchc->dev, "SoC-jz4780 HW ECC-BCH support "
+#endif
+
+	dev_info(&bchc->pdev->dev, "SoC-jz4780 HW ECC-BCH support "
 			"functions initialized.\n");
 
 	return ret;

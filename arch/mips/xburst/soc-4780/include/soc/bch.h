@@ -47,13 +47,12 @@ struct bch_request {
 
 	request_type_t type;     /* (in) decode or encode */
 	int ecc_level;           /* (in) must 4 * n (n = 1, 2, 3 ... 16) */
+	int parity_size;         /* 14 * ecc_level / 8 */
 
 	const void *raw_data;    /* (in) must word aligned */
 	u32 blksz;               /* (in) according to raw_data_width MAX=1900 */
-	bch_data_width_t raw_data_width; /* (in)  */
 
 	void *ecc_data;          /* (in) must word aligned */
-	bch_data_width_t ecc_data_width; /* (in) */
 
 	u32 *errrept_data;       /* (in/out) must word aligned */
 	u32 errrept_word_cnt;    /* (in/out) errrept_data counter */
@@ -73,6 +72,11 @@ struct bch_request {
 typedef struct bch_request bch_request_t;
 
 extern int bch_request_submit(bch_request_t *req);
+
+static inline int bch_ecc_bits_to_bytes(int ecc_bits)
+{
+	return (ecc_bits * 14 + 7) / 8;
+}
 
 #define MAX_ERRREPT_DATA_SIZE   (64 * sizeof(u32))
 #define MAX_ECC_DATA_SIZE       (64 * 14 / 8)

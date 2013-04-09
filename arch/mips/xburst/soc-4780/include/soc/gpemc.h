@@ -121,11 +121,6 @@ typedef struct {
 	u32 Talh;
 
 	/*
-	 * #CE Setup Time
-	 */
-	u32 Tcs;
-
-	/*
 	 * #CE Hold Time
 	 */
 	u32 Tch;
@@ -181,6 +176,11 @@ typedef struct {
 	u32 Trp;
 
 	struct {
+		/*
+		 * #CE Setup Time
+		 */
+		u32 Tcs;
+
 		/*
 		 * address to data loading delay
 		 */
