@@ -119,3 +119,7 @@ static __init int nand_mtd_device_register(void)
 	return platform_device_register(&nand_dev);
 }
 arch_initcall(nand_mtd_device_register);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
+MODULE_DESCRIPTION("NNAND-MTD support template for JZ4780 SoC");

@@ -1213,5 +1213,3 @@ subsys_initcall(gpemc_debugfs_init);
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
 MODULE_DESCRIPTION("SoC-jz4780 GPEMC(NEMC) support functions");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:"DRVNAME);
-

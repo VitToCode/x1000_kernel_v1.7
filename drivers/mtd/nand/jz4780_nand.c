@@ -43,6 +43,9 @@
 
 #define MAX_RB_TIMOUT_MS  1000
 
+/* root entry to debug */
+static struct dentry *debugfs_root;
+
 /*
  * ******************************************************
  * 	NAND flash device name & ID
@@ -144,31 +147,6 @@ struct jz4780_nand {
 	struct dentry *debugfs_entry;
 #endif
 };
-
-
-/*
- * TODO: below should be settled in a separated module
- */
-#ifdef CONFIG_DEBUG_FS
-
-static struct dentry *debugfs_root;
-
-static int __init jz4780_debugfs_root_init(void)
-{
-	debugfs_root = debugfs_create_dir(DRVNAME, NULL);
-	BUG_ON(debugfs_root == NULL);
-
-	return 0;
-}
-subsys_initcall(jz4780_debugfs_root_init);
-
-static void __exit jz4780_debugfs_root_exit(void)
-{
-	debugfs_remove_recursive(debugfs_root);
-}
-module_exit(jz4780_debugfs_root_exit);
-
-#endif
 
 static struct jz4780_nand *mtd_to_jz4780_nand(struct mtd_info *mtd)
 {
@@ -777,8 +755,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 
 	nand->debugfs_entry = jz4780_nand_debugfs_init(nand);
-	if (!nand->debugfs_entry) {
+	if (IS_ERR(nand->debugfs_entry)) {
 		dev_err(&pdev->dev, "Failed to register debugfs entry.\n");
+
+		ret = PTR_ERR(nand->debugfs_entry);
 		goto err_free_nand;
 	}
 
@@ -1140,6 +1120,8 @@ static int jz4780_nand_remove(struct platform_device *pdev)
 
 	debugfs_remove_recursive(nand->debugfs_entry);
 
+	nand_release(&nand->mtd);
+
 	/* free NAND flash interface resource */
 	for (i = 0; i < nand->num_nand_flash_if; i++) {
 		nand_if = nand->nand_flash_if_table[i];
@@ -1186,6 +1168,14 @@ static struct platform_driver jz4780_nand_driver = {
 
 static int __init jz4780_nand_init(void)
 {
+#ifdef CONFIG_DEBUG_FS
+
+	debugfs_root = debugfs_create_dir(DRVNAME, NULL);
+	if (IS_ERR(debugfs_root))
+		return PTR_ERR(debugfs_root);
+
+#endif
+
 	return platform_driver_register(&jz4780_nand_driver);
 }
 module_init(jz4780_nand_init);
@@ -1193,6 +1183,12 @@ module_init(jz4780_nand_init);
 static void __exit jz4780_nand_exit(void)
 {
 	platform_driver_unregister(&jz4780_nand_driver);
+
+#ifdef CONFIG_DEBUG_FS
+
+	debugfs_remove_recursive(debugfs_root);
+
+#endif
 }
 module_exit(jz4780_nand_exit);
 
