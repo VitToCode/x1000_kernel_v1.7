@@ -140,10 +140,35 @@ struct jz4780_nand {
 	struct jz4780_nand_platform_data *pdata;
 	struct platform_device *pdev;
 
+#ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_entry;
+#endif
 };
 
+
+/*
+ * TODO: below should be settled in a separated module
+ */
+#ifdef CONFIG_DEBUG_FS
+
 static struct dentry *debugfs_root;
+
+static int __init jz4780_debugfs_root_init(void)
+{
+	debugfs_root = debugfs_create_dir(DRVNAME, NULL);
+	BUG_ON(debugfs_root == NULL);
+
+	return 0;
+}
+subsys_initcall(jz4780_debugfs_root_init);
+
+static void __exit jz4780_debugfs_root_exit(void)
+{
+	debugfs_remove_recursive(debugfs_root);
+}
+module_exit(jz4780_debugfs_root_exit);
+
+#endif
 
 static struct jz4780_nand *mtd_to_jz4780_nand(struct mtd_info *mtd)
 {
@@ -190,10 +215,12 @@ static int jz4780_nand_dev_is_ready(struct mtd_info *mtd)
 
 		ret = wait_for_completion_timeout(&nand_if->ready,
 				msecs_to_jiffies(nand_if->ready_timout_ms));
-		if (!ret)
-			dev_warn(&nand->pdev->dev,
-					"Timeout when wait NAND chip ready for bank%d.\n",
-					nand_if->bank);
+
+		WARN(!ret, "%s: Timeout when wait NAND chip ready for bank%d,"
+				" when issue command: 0x%x\n",
+				dev_name(&nand->pdev->dev),
+				nand_if->bank,
+				nand_if->curr_command);
 
 		ret = 1;
 	} else {
@@ -218,8 +245,8 @@ static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
 	this = mtd->priv;
 	nand = mtd_to_jz4780_nand(mtd);
 
-	/* deselect previous NAND flash chip */
 	if (chip == -1) {
+		/* deselect previous NAND flash chip */
 		nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
 		gpemc_enable_nand_flash(&nand_if->cs, 0);
 		nand->curr_nand_flash_if = -1;
@@ -232,7 +259,7 @@ static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
 		this->IO_ADDR_R = nand_if->cs.io_nand_dat;
 		this->IO_ADDR_W = nand_if->cs.io_nand_dat;
 
-		udelay(1);
+		ndelay(100);
 	}
 }
 
@@ -273,9 +300,13 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 
 	nand_xfer_type_t old_xfer_type;
 	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
 
 	nand = mtd_to_jz4780_nand(mtd);
 	old_xfer_type = nand->xfer_type;
+
+	nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
+	nand_if->curr_command = command;
 
 	switch (command) {
 	case NAND_CMD_READID:
@@ -387,6 +418,13 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			    int column, int page_addr)
 {
 	register struct nand_chip *chip = mtd->priv;
+
+	struct jz4780_nand *nand;
+	nand_flash_if_t *nand_if;
+
+	nand = mtd_to_jz4780_nand(mtd);
+	nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
+	nand_if->curr_command = command;
 
 	/* Emulate NAND_CMD_READOOB */
 	if (command == NAND_CMD_READOOB) {
@@ -501,8 +539,6 @@ static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 	struct jz4780_nand *nand;
 	bch_request_t *req;
 
-	return 0;
-
 	chip = mtd->priv;
 
 	if (chip->state == FL_READING)
@@ -529,8 +565,6 @@ static int jz4780_nand_ecc_correct_bch(struct mtd_info *mtd, uint8_t *dat,
 	struct nand_chip *chip;
 	struct jz4780_nand *nand;
 	bch_request_t *req;
-
-	return 0;
 
 	chip = mtd->priv;
 	nand = mtd_to_jz4780_nand(mtd);
@@ -613,7 +647,7 @@ static int request_busy_irq(nand_flash_if_t *nand_if)
 static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 {
 	struct jz4780_nand *nand = (struct jz4780_nand *)m->private;
-	nand_flash_if_t *nand_if = NULL;
+	nand_flash_if_t *nand_if;
 	nand_flash_info_t *nand_info = nand->curr_nand_flash_info;
 	int i, j;
 
@@ -691,10 +725,10 @@ static int jz4780_nand_debugfs_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations jz4780_nand_debugfs_ops = {
-	.open		= jz4780_nand_debugfs_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
+	.open     = jz4780_nand_debugfs_open,
+	.read     = seq_read,
+	.llseek   = seq_lseek,
+	.release  = single_release,
 };
 
 static struct dentry *jz4780_nand_debugfs_init(struct jz4780_nand *nand)
@@ -963,10 +997,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	/* step1. configure ECC step */
 	switch (nand->ecc_type) {
 	case NAND_ECC_TYPE_SW:
-		chip->ecc.mode         = NAND_ECC_SOFT_BCH;
-		chip->ecc.size         = nand->curr_nand_flash_info->ecc_step.data_size;
-		chip->ecc.bytes        =
-			(13 * (nand->curr_nand_flash_info->ecc_step.ecc_size * 8 / 14) + 7) / 8;
+		chip->ecc.mode  = NAND_ECC_SOFT_BCH;
+		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size;
+		chip->ecc.bytes =
+				(13 * nand->curr_nand_flash_info->ecc_step.ecc_bits + 7) / 8;
 
 		break;
 
@@ -974,14 +1008,15 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		nand->bch_req.dev       = &nand->pdev->dev;
 		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
 		nand->bch_req.ecc_level =
-			nand->curr_nand_flash_info->ecc_step.ecc_size * 8 / 14;
+				nand->curr_nand_flash_info->ecc_step.ecc_bits;
 
-		chip->ecc.mode         = NAND_ECC_HW;
-		chip->ecc.calculate    = jz4780_nand_ecc_calculate_bch;
-		chip->ecc.correct      = jz4780_nand_ecc_correct_bch;
-		chip->ecc.hwctl        = jz4780_nand_ecc_hwctl;
-		chip->ecc.size         = nand->curr_nand_flash_info->ecc_step.data_size;
-		chip->ecc.bytes        = nand->curr_nand_flash_info->ecc_step.ecc_size;
+		chip->ecc.mode      = NAND_ECC_HW;
+		chip->ecc.calculate = jz4780_nand_ecc_calculate_bch;
+		chip->ecc.correct   = jz4780_nand_ecc_correct_bch;
+		chip->ecc.hwctl     = jz4780_nand_ecc_hwctl;
+		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size;
+		chip->ecc.bytes = bch_ecc_bits_to_bytes(
+				nand->curr_nand_flash_info->ecc_step.ecc_bits);
 
 		/*
 		 * TODO: this parameter should be carefully considered
@@ -999,10 +1034,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			goto err_free_wp_gpio;
 		}
 #endif
-
-		nand->bch_req.ecc_data_width = 	BCH_DATA_WIDTH_32;
-		nand->bch_req.raw_data_width = BCH_DATA_WIDTH_32;
-
 		nand->bch_req.errrept_data = kzalloc(MAX_ERRREPT_DATA_SIZE,
 				GFP_KERNEL);
 		if (!nand->bch_req.errrept_data) {
@@ -1164,19 +1195,6 @@ static void __exit jz4780_nand_exit(void)
 	platform_driver_unregister(&jz4780_nand_driver);
 }
 module_exit(jz4780_nand_exit);
-
-#ifdef CONFIG_DEBUG_FS
-
-static int __init jz4780_debugfs_root_init(void)
-{
-	debugfs_root = debugfs_create_dir(DRVNAME, NULL);
-	BUG_ON(debugfs_root == NULL);
-
-	return 0;
-}
-subsys_initcall(jz4780_debugfs_root_init);
-
-#endif
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");

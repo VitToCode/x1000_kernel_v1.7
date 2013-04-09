@@ -47,6 +47,7 @@ typedef struct {
 
 	gpemc_bank_t cs;
 	int busy_irq;
+	unsigned int curr_command;
 
 	struct completion ready;
 	unsigned int ready_timout_ms;
@@ -64,9 +65,8 @@ typedef struct {
 	bank_type_t type;
 
 	struct {
-		u32 data_size;
-		u32 ecc_bits;
-		u32 ecc_size;
+		int data_size;
+		int ecc_bits;
 	} ecc_step;
 
 	nand_timing_t nand_timing;
@@ -105,8 +105,6 @@ struct jz4780_nand_platform_data {
 		.type = BANK_TYPE_NAND,	\
 		.ecc_step = {	\
 			.data_size = (_DATA_SIZE_PRE_ECC_STEP),	\
-			.ecc_size =	\
-			(((_ECC_BITS_PRE_ECC_STEP) * 14 + 7) / 8),	\
 			.ecc_bits = _ECC_BITS_PRE_ECC_STEP,	\
 		},	\
 		.nand_timing = {	\
@@ -115,7 +113,6 @@ struct jz4780_nand_platform_data {
 				.Tclh = (_Tclh),	\
 				.Tals = (_Tals),	\
 				.Talh = (_Talh),	\
-				.Tcs = (_Tcs),	\
 				.Tch = (_Tch),	\
 				.Tds = (_Tds),	\
 				.Tdh = (_Tdh),	\
@@ -129,6 +126,7 @@ struct jz4780_nand_platform_data {
 				.Trp = (_Trp),	\
 					\
 				.busy_wait_timing = {	\
+					.Tcs = (_Tcs),	\
 					.Tadl = (_Tadl),	\
 					.Trr = (_Trr),	\
 					.Tcwaw = (_Tcwaw),	\

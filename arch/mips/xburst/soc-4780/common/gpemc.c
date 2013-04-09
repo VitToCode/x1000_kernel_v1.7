@@ -1105,12 +1105,15 @@ postcore_initcall(gpemc_init);
 
 static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 {
+	u32 smcr;
+	u32 temp;
 	int cs;
 	gpemc_bank_t *bank;
 
 	for (cs = 1; cs < BANK_COUNT; cs++) {
 		if (test_bit(cs, gpemc->bank_use_map)) {
 			bank = gpemc->requested_banks[cs];
+			smcr = gpemc->regs_file->smcr[cs - 1];
 
 			seq_printf(m, "====== Bank%d ======\n", cs);
 			seq_printf(m, "Owner: %s\n", dev_name(bank->dev));
@@ -1128,8 +1131,6 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 				break;
 			case BANK_TYPE_NAND:
 			{
-				u32 smcr = gpemc->regs_file->smcr[cs - 1];
-				u32 temp;
 
 				seq_printf(m, "\n");
 				seq_printf(m, "Timings loaded from NAND chip\n");
@@ -1144,33 +1145,6 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 						bank->bank_timing.sram_timing.Tah);
 				seq_printf(m, "Tas: %uns\n",
 						bank->bank_timing.sram_timing.Tas);
-
-				seq_printf(m, "\n");
-				seq_printf(m, "Timings configured to bank%d\n", cs);
-				seq_printf(m, "-----------------------------\n");
-				seq_printf(m, "Reg SMCR: [0x%p]=0x%x\n",
-						&gpemc->regs_file->smcr[cs - 1],
-						smcr);
-
-				temp = (smcr & (0x3f << 24)) >> 24;
-				seq_printf(m, "Tstrv: %uT(%uns)\n",
-						temp, temp * bank->bank_timing.clk_T);
-
-				temp = adjs_to_nT[(smcr & (0xf << 20)) >> 20];
-				seq_printf(m, "Taw: %uT(%uns)\n",
-						temp, temp * bank->bank_timing.clk_T);
-
-				temp = adjs_to_nT[(smcr & (0xf << 16)) >> 16];
-				seq_printf(m, "Tbp: %uT(%uns)\n",
-						temp, temp * bank->bank_timing.clk_T);
-
-				temp = (smcr & (0xf << 12)) >> 12;
-				seq_printf(m, "Tah: %uT(%uns)\n",
-						temp, temp * bank->bank_timing.clk_T);
-
-				temp = (smcr & (0xf << 8)) >> 8;
-				seq_printf(m, "Tas: %uT(%uns)\n",
-						temp, temp * bank->bank_timing.clk_T);
 				break;
 			}
 			case BANK_TYPE_TOGGLE:
@@ -1181,6 +1155,33 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 			default:
 				break;
 			}
+
+			seq_printf(m, "\n");
+			seq_printf(m, "Timings configured to bank%d\n", cs);
+			seq_printf(m, "-----------------------------\n");
+			seq_printf(m, "Reg SMCR: [0x%p]=0x%x\n",
+					&gpemc->regs_file->smcr[cs - 1],
+					smcr);
+
+			temp = (smcr & (0x3f << 24)) >> 24;
+			seq_printf(m, "Tstrv: %uT(%uns)\n",
+					temp, temp * bank->bank_timing.clk_T);
+
+			temp = adjs_to_nT[(smcr & (0xf << 20)) >> 20];
+			seq_printf(m, "Taw: %uT(%uns)\n",
+					temp, temp * bank->bank_timing.clk_T);
+
+			temp = adjs_to_nT[(smcr & (0xf << 16)) >> 16];
+			seq_printf(m, "Tbp: %uT(%uns)\n",
+					temp, temp * bank->bank_timing.clk_T);
+
+			temp = (smcr & (0xf << 12)) >> 12;
+			seq_printf(m, "Tah: %uT(%uns)\n",
+					temp, temp * bank->bank_timing.clk_T);
+
+			temp = (smcr & (0xf << 8)) >> 8;
+			seq_printf(m, "Tas: %uT(%uns)\n",
+					temp, temp * bank->bank_timing.clk_T);
 		}
 	}
 
@@ -1193,10 +1194,10 @@ static int gpemc_debugfs_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations gpemc_debugfs_operations = {
-	.open		= gpemc_debugfs_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
+	.open    = gpemc_debugfs_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
 };
 
 static int __init gpemc_debugfs_init(void)
