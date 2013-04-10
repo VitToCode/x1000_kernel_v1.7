@@ -22,33 +22,36 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-//#include "../dwc/jzsoc.h"
 #include <soc/cpm.h>
 
 extern int usb_disabled(void);
 
-struct jz_ohci_pri {
+struct jz_ohci {
 	struct device		*dev;
 	struct clk		*clk;
-	struct clk		*clk_gate;
+	struct clk		*clk_cgu;
 };
 
-#define hcd_to_jz(hcd)	((struct jz_ohci_pri *)(hcd_to_ohci(hcd) + 1))
+#define hcd_to_jz(hcd)	((struct jz_ohci *)(hcd_to_ohci(hcd) + 1))
 
 /*-------------------------------------------------------------------------*/
 
-static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
+static void jz_start_ohc(struct jz_ohci *jz_ohci)
 {
-	dev_dbg(ohci_pri->dev, "Starting JZ OHCI USB Controller\n");
+	clk_enable(jz_ohci->clk);
+	clk_set_rate(jz_ohci->clk_cgu,48000000);
+	clk_enable(jz_ohci->clk_cgu);
+
 	cpm_start_ohci();
 }
 
-static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
+static void jz_stop_ohc(struct jz_ohci *jz_ohci)
 {
-	dev_dbg(ohci_pri->dev, "Stopping JZ OHCI USB Controller\n");
+	dev_dbg(jz_ohci->dev, "Stopping JZ OHCI USB Controller\n");
 
 	/* disable host controller */
 	cpm_stop_ohci();
+	clk_disable(jz_ohci->clk);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -71,11 +74,9 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 {
 	int retval;
 	int irq;
-	char *clkname = "cgu_uhc";
-	char *clk_gate_name = "uhc";
 	struct usb_hcd *hcd;
 	struct resource	*regs;
-	struct jz_ohci_pri *ohci_pri;
+	struct jz_ohci *jz_ohci;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -110,37 +111,37 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 		goto err2;
 	}
 
-	ohci_pri = hcd_to_jz(hcd);
+	jz_ohci = hcd_to_jz(hcd);
 
-	ohci_pri->clk_gate = clk_get(&pdev->dev, clk_gate_name);
-	if (IS_ERR(ohci_pri->clk_gate)) {
+	jz_ohci->clk= clk_get(&pdev->dev, "uhc");
+	if (IS_ERR(jz_ohci->clk)) {
 		dev_err(&pdev->dev, "clk gate get error\n");
-		retval = PTR_ERR(ohci_pri->clk_gate);
+		retval = PTR_ERR(jz_ohci->clk);
 		goto err2;
 	}
-	clk_enable(ohci_pri->clk_gate);
 
-	ohci_pri->clk = clk_get(&pdev->dev, clkname);
-	if (IS_ERR(ohci_pri->clk)) {
-		dev_err(&pdev->dev, "clk get error\n");
-		retval = PTR_ERR(ohci_pri->clk);
+	jz_ohci->clk_cgu = clk_get(&pdev->dev, "cgu_uhc");
+	if (IS_ERR(jz_ohci->clk_cgu)) {
+		dev_err(&pdev->dev, "clk cgu get error\n");
+		retval = PTR_ERR(jz_ohci->clk_cgu);
 		goto err2;
 	}
-	clk_set_rate(ohci_pri->clk, 48000000);
-	clk_enable(ohci_pri->clk);
+	clk_enable(jz_ohci->clk);
+	clk_set_rate(jz_ohci->clk_cgu, 48000000);
+	clk_enable(jz_ohci->clk_cgu);
 
-	ohci_pri->dev = &pdev->dev;
+	jz_ohci->dev = &pdev->dev;
 
-	jz_start_ohc(ohci_pri);
+	jz_start_ohc(jz_ohci);
 	ohci_hcd_init(hcd_to_ohci(hcd));
 
 	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
 	if (retval == 0)
 		return retval;
 
-	clk_put(ohci_pri->clk_gate);
-	clk_put(ohci_pri->clk);
-	jz_stop_ohc(ohci_pri);
+	clk_put(jz_ohci->clk);
+	clk_put(jz_ohci->clk_cgu);
+	jz_stop_ohc(jz_ohci);
 	iounmap(hcd->regs);
 err2:
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
@@ -165,15 +166,14 @@ err1:
  */
 static void usb_ohci_jz_remove(struct usb_hcd *hcd, struct platform_device *dev)
 {
-	struct jz_ohci_pri *ohci_pri;
+	struct jz_ohci *jz_ohci;
 
-	ohci_pri = (struct jz_ohci_pri *)((unsigned char *)hcd + sizeof(struct ohci_hcd));
+	jz_ohci = (struct jz_ohci *)((unsigned char *)hcd + sizeof(struct ohci_hcd));
 	usb_remove_hcd(hcd);
-	jz_stop_ohc(ohci_pri);
-	clk_disable(ohci_pri->clk_gate);
-	clk_put(ohci_pri->clk_gate);
-	clk_disable(ohci_pri->clk);
-	clk_put(ohci_pri->clk);
+	jz_stop_ohc(jz_ohci);
+	clk_disable(jz_ohci->clk);
+	clk_put(jz_ohci->clk_cgu);
+	clk_put(jz_ohci->clk);
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
@@ -205,7 +205,7 @@ static int __devinit ohci_jz_start(struct usb_hcd *hcd)
 static const struct hc_driver ohci_jz_hc_driver = {
 	.description =		hcd_name,
 	.product_desc =		"JZ OHCI",
-	.hcd_priv_size =	sizeof(struct ohci_hcd) + sizeof(struct jz_ohci_pri),
+	.hcd_priv_size =	sizeof(struct ohci_hcd) + sizeof(struct jz_ohci),
 
 	/*
 	 * generic hardware linkage
@@ -273,10 +273,10 @@ static int ohci_hcd_jz_drv_remove(struct platform_device *pdev)
 }
 
 /*TBD*/
-static int ohci_hcd_jz_drv_suspend(struct platform_device *pdev)
+static int ohci_hcd_jz_drv_suspend(struct platform_device *pdev,pm_message_t state)
 {
-	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 #ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	if (device_may_wakeup(&pdev->dev)) {
 		enable_irq_wake(hcd->irq);
         }
@@ -287,8 +287,8 @@ static int ohci_hcd_jz_drv_suspend(struct platform_device *pdev)
 
 static int ohci_hcd_jz_drv_resume(struct platform_device *pdev)
 {
-	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 #ifdef CONFIG_CPU_SUSPEND_TO_IDLE
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	if (device_may_wakeup(&pdev->dev)) {
 		disable_irq_wake(hcd->irq);
         }

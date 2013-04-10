@@ -737,7 +737,11 @@ struct syscore_ops clk_pm_ops = {
 
 void __init init_all_clk(void)
 {
-	int i;
+	int i,tmp;
+
+	tmp = cpm_inl(CPM_UHCCDR);
+	tmp = (tmp & ~(0x3<<30)) | (0x1<<30);
+	cpm_outl(tmp,CPM_UHCCDR);
 
 	init_ext_pll();
 	init_cpccr_clk();
@@ -984,13 +988,6 @@ EXPORT_SYMBOL(clk_get_parent);
 int cpm_start_ehci(void)
 {
 	int tmp;
-	/* enable clock gate */
-	cpm_clear_bit_lock(24, CPM_CLKGR0);
-
-	/* UHC clock source is OTG_PHY */
-	tmp = cpm_inl(CPM_UHCCDR);
-	tmp |= (0x3<<30);
-	cpm_outl(tmp,CPM_UHCCDR);
 
 	cpm_clear_bit(20, CPM_USBPCR);
 
