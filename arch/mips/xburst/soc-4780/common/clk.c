@@ -987,6 +987,7 @@ EXPORT_SYMBOL(clk_get_parent);
 
 int cpm_start_ehci(void)
 {
+	static int has_reset = 0;
 	int tmp;
 
 	cpm_clear_bit(20, CPM_USBPCR);
@@ -1032,11 +1033,14 @@ int cpm_start_ehci(void)
 	cpm_clear_bit(22, CPM_USBPCR);
 	udelay(300);
 
-	/* UHC soft reset */
-	cpm_set_bit(14, CPM_SRBC);
-	udelay(300);
-	cpm_clear_bit(14, CPM_SRBC);
-	udelay(300);
+	if(!has_reset) {
+		/* UHC soft reset */
+		cpm_set_bit(14, CPM_SRBC);
+		udelay(300);
+		cpm_clear_bit(14, CPM_SRBC);
+		udelay(300);
+		has_reset = 1;
+	}
 
 	return 0;
 }
