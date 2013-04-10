@@ -1017,7 +1017,6 @@ EXPORT_SYMBOL(cpm_start_ehci);
 int cpm_stop_ehci(void)
 {
 	cpm_clear_bit(6, CPM_OPCR);
-	cpm_set_bit_lock(22, CPM_CLKGR);
 	return 0;
 }
 EXPORT_SYMBOL(cpm_stop_ehci);
