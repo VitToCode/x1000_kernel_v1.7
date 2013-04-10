@@ -1498,6 +1498,7 @@ static void __init jzmmc_host_init(struct jzmmc_host *host, struct mmc_host *mmc
 	mmc->f_max = pdata->max_freq;
 	mmc->ocr_avail = pdata->ocr_avail;
 	mmc->caps |= pdata->capacity;
+	mmc->pm_flags |= pdata->pm_flags;
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
 	mmc->max_blk_count = 65535;
 	mmc->max_req_size = PAGE_SIZE * 16;

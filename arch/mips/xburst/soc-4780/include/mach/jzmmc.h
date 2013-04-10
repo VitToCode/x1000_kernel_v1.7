@@ -66,6 +66,7 @@ struct jzmmc_platform_data {
 	unsigned short			sdio_clk;
 	unsigned int			ocr_avail;
 	unsigned int			capacity;
+	unsigned int			pm_flags;
 	unsigned int			max_freq;
 	struct mmc_recovery_info	*recovery_info;
 	struct card_gpio		*gpio;

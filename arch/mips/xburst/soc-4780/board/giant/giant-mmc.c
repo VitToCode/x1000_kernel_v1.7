@@ -33,7 +33,8 @@ struct jzmmc_platform_data giant_inand_pdata = {
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 //	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED,
+	.pm_flags			= 0,
 	.recovery_info			= &giant_inand_recovery_info,
 	.gpio				= NULL,
 };
@@ -47,7 +48,8 @@ struct jzmmc_platform_data giant_tf_pdata = {
 	.removal  			= REMOVABLE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_4_BIT_DATA,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA,
+	.pm_flags			= 0,
 	.recovery_info			= NULL,
 	.gpio				= &giant_tf_gpio,
 };
@@ -57,6 +59,7 @@ struct jzmmc_platform_data giant_sdio_pdata = {
 	.sdio_clk			= 1,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_4_BIT_DATA,
+	.pm_flags			= MMC_PM_IGNORE_PM_NOTIFY,
 	.recovery_info			= NULL,
 	.gpio				= NULL,
 };
