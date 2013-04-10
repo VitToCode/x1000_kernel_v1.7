@@ -427,7 +427,7 @@ start:
 				jzmmc_data_done(host);
 			} else {
 				enable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
-				if (msc_readl(host, RES) & STAT_AUTO_CMD12_DONE) {
+				if (msc_readl(host, STAT) & STAT_AUTO_CMD12_DONE) {
 					disable_msc_irq(host, IMASK_AUTO_CMD12_DONE);
 					clear_msc_irq(host, IFLG_AUTO_CMD12_DONE);
 					host->state = STATE_IDLE;
@@ -489,9 +489,6 @@ start:
 	} else if (pending & ERROR_IFLG) {
 		unsigned int mask = ERROR_IFLG;
 
-        if (!host->cmd) {
-            dev_err(host->dev, "\n\n***************** host->cmd NULL*****************\n\n");
-        }
 		dev_err(host->dev, "err%d cmd%d iflg%08X status%08X\n",
 			host->state, host->cmd ? host->cmd->opcode : -1, iflg, status);
 
@@ -1094,6 +1091,7 @@ static void jzmmc_detect_change(unsigned long data)
 
 		if (!present || present_old) {
 			clear_bit(JZMMC_CARD_PRESENT, &host->flags);
+			tasklet_disable(&host->tasklet);
 			jzmmc_reset(host);
 
 			if (host->mrq && (host->state > STATE_IDLE)) {
@@ -1106,15 +1104,21 @@ static void jzmmc_detect_change(unsigned long data)
 				mmc_request_done(host->mmc, host->mrq);
 				host->state = STATE_IDLE;
 			}
+			mmc_detect_change(host->mmc, 0);
 		} else {
+			tasklet_enable(&host->tasklet);
 			set_bit(JZMMC_CARD_PRESENT, &host->flags);
-#ifdef CLK_CTRL
+#if 0
+			/*
+			 * spin_lock() here may case recursion,
+			 * so discard the clk operation.
+			 */
 			clk_enable(host->clk);
 			clk_enable(host->clk_gate);
 #endif
+			mmc_detect_change(host->mmc, msecs_to_jiffies(1000));
 		}
-		mmc_detect_change(host->mmc, 100);
-#ifdef CLK_CTRL
+#if 0
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_disable(host->clk_gate);
 			clk_disable(host->clk);
@@ -1506,6 +1510,7 @@ static void __init jzmmc_host_init(struct jzmmc_host *host, struct mmc_host *mmc
 	mmc->f_max = pdata->max_freq;
 	mmc->ocr_avail = pdata->ocr_avail;
 	mmc->caps |= pdata->capacity;
+	mmc->pm_flags |= pdata->pm_flags;
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
 	mmc->max_blk_count = 65535;
 	mmc->max_req_size = PAGE_SIZE * 16;
@@ -1600,9 +1605,10 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		} else {
 			gpio_direction_output(card_gpio->pwr.num,
 					      card_gpio->pwr.enable_level
-					? 0 : 1);
+					      ? 0 : 1);
 		}
 	}
+
 	switch (host->pdata->removal) {
 	case NONREMOVABLE:
 		break;
@@ -1622,7 +1628,9 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 					gpio_to_irq(host->pdata->gpio->cd.num));
 				break;
 			}
-
+			tasklet_disable(&host->tasklet);
+			clk_enable(host->clk);
+			clk_enable(host->clk_gate);
 			if(!timer_pending(&host->detect_timer)){
 				disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 				mod_timer(&host->detect_timer, jiffies);
@@ -1746,6 +1754,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	ret = jzmmc_gpio_init(host);
 	if (ret < 0)
 		goto err_gpio_init;
+
 	jzmmc_host_init(host, mmc);
 	ret = sysfs_create_group(&pdev->dev.kobj, &jzmmc_attr_group);
 	if (ret < 0)
