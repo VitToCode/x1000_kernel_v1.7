@@ -27,20 +27,12 @@ struct jz_ehci_pri {
 
 static void jz_start_ehc(struct jz_ehci_pri *ehci_pri)
 {
-#ifdef CONFIG_SOC_4780
-/*
- * Make sure which is phy0 which is phy1 after the real chip come back.
- */
-	//REG_CPM_OPCR |= (3 << 6);
-	clk_start_ehci();
-#endif
+	cpm_start_ehci();
 }
 
 static void jz_stop_ehc(struct jz_ehci_pri *ehci_pri)
 {
-#ifdef CONFIG_SOC_JZ4780
-	REG_CPM_OPCR &= ~OPCR_OTGPHY1_ENABLE;
-#endif
+	cpm_stop_ehci();
 }
 
 static const struct hc_driver ehci_jz_hc_driver = {

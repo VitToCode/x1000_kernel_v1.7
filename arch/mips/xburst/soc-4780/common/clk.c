@@ -981,37 +981,50 @@ struct clk *clk_get_parent(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_parent);
 
-int clk_start_ehci(void)
+int cpm_start_ehci(void)
 {
-#ifdef CONFIG_SOC_4780
-
+	int tmp;
 	/* enable clock gate */
 	cpm_clear_bit_lock(24, CPM_CLKGR0);
 
 	/* UHC clock source is OTG_PHY */
-	cpm_set_bit(30, CPM_UHCCDR);
-	cpm_set_bit(31, CPM_UHCCDR);
+	tmp = cpm_inl(CPM_UHCCDR);
+	tmp |= (0x3<<30);
+	cpm_outl(tmp,CPM_UHCCDR);
 
 	cpm_clear_bit(20, CPM_USBPCR);
 
 	/* The PLL uses CLKCORE as reference */
-	cpm_set_bit(26, CPM_USBPCR1);
-	cpm_set_bit(27, CPM_USBPCR1);
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp |= (0x3<<26);
+	cpm_outl(tmp,CPM_USBPCR1);
 
 	/* selects the reference clock frequency 48M */
-	cpm_set_bit(25, CPM_USBPCR1);
-	cpm_clear_bit(24, CPM_USBPCR1);
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp &= ~(0x3<<24);
+	switch(CONFIG_EXTAL_CLOCK) {
+		case 24000000:
+			tmp |= (1<<24);break;
+		case 48000000:
+			tmp |= (2<<24);break;
+		case 19200000:
+			tmp |= (3<<24);break;
+		case 12000000:
+		default:
+			tmp |= (0<<24);break;
+	}
+	cpm_outl(tmp,CPM_USBPCR1);
 
 	/* port1(uhc) hasn't forced to entered SUSPEND mode */
 	cpm_set_bit(6, CPM_OPCR);
 
 	/* The pull-down resistance on D-/D+ of port1 */
-	cpm_set_bit(22, CPM_USBPCR1);
-	cpm_set_bit(23, CPM_USBPCR1);
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp |= (0x3<<22);
+	cpm_outl(tmp,CPM_USBPCR1);
 
 	/* select utmi data bus width of port1 to 16bit/30M */
 	cpm_set_bit(18, CPM_USBPCR1);
-	//printk("%s:%d  REG_CPM_USBPCR1 = %#08x\n", __func__, __LINE__, REG_CPM_USBPCR1);
 
 	/* select utmi data bus width of controller to 16bit */
 	*((volatile int *) 0xb34900b0) |= (1 << 6);
@@ -1028,10 +1041,29 @@ int clk_start_ehci(void)
 	cpm_clear_bit(14, CPM_SRBC);
 	udelay(300);
 
-#endif
 	return 0;
 }
-EXPORT_SYMBOL(clk_start_ehci);
+EXPORT_SYMBOL(cpm_start_ehci);
+
+int cpm_stop_ehci(void)
+{
+	cpm_clear_bit(6, CPM_OPCR);
+	cpm_set_bit_lock(24, CPM_CLKGR0);
+	return 0;
+}
+EXPORT_SYMBOL(cpm_stop_ehci);
+
+int cpm_start_ohci(void)
+{
+	return cpm_start_ehci();
+}
+EXPORT_SYMBOL(cpm_start_ohci);
+
+int cpm_stop_ohci(void)
+{
+	return cpm_stop_ehci();
+}
+EXPORT_SYMBOL(cpm_stop_ohci);
 
 static int clk_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data)

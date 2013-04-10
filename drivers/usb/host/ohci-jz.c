@@ -40,9 +40,7 @@ struct jz_ohci_pri {
 static void jz_start_ohc(struct jz_ohci_pri *ohci_pri)
 {
 	dev_dbg(ohci_pri->dev, "Starting JZ OHCI USB Controller\n");
-	//REG_CPM_OPCR |= (3 << 6);
-	/* Set UHC clock and start */
-	clk_start_ehci();
+	cpm_start_ohci();
 }
 
 static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
@@ -50,6 +48,7 @@ static void jz_stop_ohc(struct jz_ohci_pri *ohci_pri)
 	dev_dbg(ohci_pri->dev, "Stopping JZ OHCI USB Controller\n");
 
 	/* disable host controller */
+	cpm_stop_ohci();
 }
 
 /*-------------------------------------------------------------------------*/

@@ -94,5 +94,8 @@
 #define cpm_test_bit(val,off)	do{}while(0)
 #endif
 
-int clk_start_ehci(void);
+int cpm_start_ehci(void);
+int cpm_stop_ehci(void);
+int cpm_start_ohci(void);
+int cpm_stop_ohci(void);
 #endif
