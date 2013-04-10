@@ -998,10 +998,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		chip->ecc.bytes = bch_ecc_bits_to_bytes(
 				nand->curr_nand_flash_info->ecc_step.ecc_bits);
 
-		/*
-		 * TODO: this parameter should be carefully considered
-		 */
-		chip->ecc.strength     = nand->bch_req.ecc_level / 2;
+		chip->ecc.strength = nand->bch_req.ecc_level;
 
 #ifdef BCH_REQ_ALLOC_ECC_DATA_BUFFER
 		nand->bch_req.ecc_data  = kzalloc(MAX_ECC_DATA_SIZE,

@@ -102,9 +102,28 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	.nand_flash_if_table = nand_interfaces,
 	.num_nand_flash_if = ARRAY_SIZE(nand_interfaces),
 
-	.ecc_type = NAND_ECC_TYPE_HW,
+	/*
+	 * only single thread soft BCH ECC have
+	 * already got 20% speed improvement.
+	 *
+	 * TODO:
+	 * does some guys who handle ECC hardware implementation
+	 * to look at kernel soft BCH codes.
+	 *
+	 * I got the patch commits here:
+	 *
+	 * http://lists.infradead.org/pipermail/linux-mtd/2011-February/033846.html
+	 *
+	 * and a benchmark of "kernel soft BCH algorithm" VS "Chien search" on that page.
+	 *
+	 */
+	.ecc_type = NAND_ECC_TYPE_SW,
 
-	/* use polled type cause speed gain is about 10% ~ 15% */
+
+	/*
+	 * use polled type cause speed gain
+	 * is about 10% ~ 15%
+	 */
 	.xfer_type = NAND_XFER_CPU_POLL,
 };
 
@@ -122,4 +141,4 @@ arch_initcall(nand_mtd_device_register);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
-MODULE_DESCRIPTION("NNAND-MTD support template for JZ4780 SoC");
+MODULE_DESCRIPTION("NAND-MTD support template for JZ4780 SoC");
