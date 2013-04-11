@@ -20,10 +20,9 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 #include <linux/regulator/consumer.h>
+#include <linux/jzlcd_pdata.h>
 
-#ifdef CONFIG_LCD_JCMT070T115A18
-#include <linux/jcmt070t115a18.h>
-static struct platform_jcmt070t115a18_data jcmt070t115a18_pdata= {
+static struct jzlcd_platform_data lcd_pdata= {
 	.gpio_de = GPIO_PC(9),
 	.gpio_vs = GPIO_PC(19),
 	.gpio_hs = GPIO_PC(18),
@@ -33,13 +32,12 @@ static struct platform_jcmt070t115a18_data jcmt070t115a18_pdata= {
 };
 
 /* LCD Panel Device */
-struct platform_device jcmt070t115a18_device = {
-	.name		= "jcmt070t115a18-lcd",
+struct platform_device jzlcd_device = {
+	.name		= "jz-lcd",
 	.dev		= {
-		.platform_data	= &jcmt070t115a18_pdata,
+		.platform_data	= &lcd_pdata,
 	},
 };
-#endif
 
 #ifdef CONFIG_FB_JZ4780_LCDC0
 /* LCDC0 output to HDMI and the default hdmi video mode list
@@ -87,6 +85,24 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+#ifdef CONFIG_LCD_LXJC070WHM_280_24A1
+	{
+		.name = "1024x600",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 600,
+		.pixclock = KHZ2PICOS(57000),
+		.left_margin = 140,
+		.right_margin = 160,
+		.upper_margin = 20,
+		.lower_margin = 12,
+		.hsync_len = 20,
+		.vsync_len = 3,
+		.sync = FB_SYNC_HOR_HIGH_ACT & FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
@@ -99,6 +115,19 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.height = 86,
 
 	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+#ifdef CONFIG_LCD_LXJC070WHM_280_24A1
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 1,
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 1,

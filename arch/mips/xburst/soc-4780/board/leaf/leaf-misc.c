@@ -349,7 +349,7 @@ static int __init leaf_board_init(void)
 	platform_device_register(&crd080ti01_40nm01_device);
 #endif
 #ifdef CONFIG_LCD_EK070TN93
-	platform_device_register(&ek070tn93_device);
+	platform_device_register(&jzlcd_device);
 #endif
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ4780_LCDC1

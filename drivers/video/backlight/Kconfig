@@ -207,12 +207,28 @@ config LCD_EK070TN93
 	  If you have an EK070TN93 Panel, say Y to enable its
 	  control driver.
 
+config LCD_JZLCD
+	tristate "JZLCD LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an JZLCD Panel, say Y to enable its
+	  control driver.
+
 config LCD_JCMT070T115A18
 	tristate "JCMT070T115A18 LCD Driver(800x480)"
-	depends on BACKLIGHT_CLASS_DEVICE 
+	depends on LCD_JZLCD
 	default n
 	help
 	  If you have an JCMT070T115A18 Panel, say Y to enable its
+	  control driver.
+
+config LCD_LXJC070WHM_280_24A1
+	tristate "LXJC070WHM_280_24A1 LCD Driver(1024x600)"
+	depends on LCD_JZLCD
+	default n
+	help
+	  If you have an LXJC070WHM_280_24A1 Panel, say Y to enable its
 	  control driver.
 
 config LCD_HSD070IDW1
