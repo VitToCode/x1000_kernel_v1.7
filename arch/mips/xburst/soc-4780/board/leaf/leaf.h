@@ -35,9 +35,7 @@ extern struct platform_device kr080la4s_250_device;
 #ifdef CONFIG_LCD_CRD080TI01_40NM01
 extern struct platform_device crd080ti01_40nm01_device;
 #endif
-#ifdef CONFIG_LCD_EK070TN93
-extern struct platform_device ek070tn93_device;
-#endif
+extern struct platform_device jzlcd_device;
 extern struct platform_device leaf_backlight_device;
 
 #ifdef CONFIG_JZ_MODEM
