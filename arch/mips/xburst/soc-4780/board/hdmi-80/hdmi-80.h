@@ -38,11 +38,11 @@ extern struct snd_codec_data codec_data;
 /**
  * audio gpio
  **/
-#define GPIO_HP_MUTE		GPIO_PD(13)	/*hp mute gpio*/
-#define GPIO_HP_MUTE_LEVEL	1		/*vaild level*/
+#define GPIO_HP_MUTE		-1//GPIO_PD(13)	/*hp mute gpio*/
+#define GPIO_HP_MUTE_LEVEL	-1//1		/*vaild level*/
 
-#define GPIO_SPEAKER_EN		GPIO_PE(6)	/*speaker enable gpio*/
-#define GPIO_SPEAKER_EN_LEVEL	1
+#define GPIO_SPEAKER_EN		-1//GPIO_PE(6)	/*speaker enable gpio*/
+#define GPIO_SPEAKER_EN_LEVEL	-1//1
 
 #define	GPIO_HP_DETECT		-1		/*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL	-1
@@ -65,12 +65,6 @@ extern struct snd_codec_data codec_data;
 #ifdef CONFIG_NAND_JZ4780
 extern struct platform_nand_data jz_nand_chip_data;
 #endif
-
-/**
- * pmem information
- **/
-#define JZ_PMEM_CAMERA_BASE	0x5e000000
-#define JZ_PMEM_CAMERA_SIZE	0x02000000
 
 /**
  * tsc gpio interface
@@ -97,6 +91,12 @@ extern struct platform_nand_data jz_nand_chip_data;
 
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
+
+/**
+ * pmem information
+ **/
+#define JZ_PMEM_CAMERA_BASE	0x5f000000
+#define JZ_PMEM_CAMERA_SIZE	0x01000000
 
 /**
  * motor gpio

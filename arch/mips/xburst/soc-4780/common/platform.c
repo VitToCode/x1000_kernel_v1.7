@@ -17,6 +17,7 @@
 #include <soc/gpio.h>
 #include <soc/base.h>
 #include <soc/irq.h>
+#include <gpio.h>
 
 #include <mach/platform.h>
 #include <mach/jzdma.h>
@@ -859,6 +860,28 @@ struct platform_device jz_nand_device = {
 	//	.dev.platform_data = &pisces_nand_chip_data,
 	.resource = jz_nand_res,
 	.num_resources =ARRAY_SIZE(jz_nand_res),
+};
+
+static struct resource ax88796c_resource[] = {
+    [0] = {
+        .start = NEMC_CS5_IOBASE,           /* Start of AX88796C base address */
+        .end   = NEMC_CS5_IOBASE + 0x3f, /* End of AX88796C base address */
+        .flags = IORESOURCE_MEM,
+    },
+
+    [1] = {
+        .start = IRQ_GPIO_BASE + GPIO_PF(18),            /* Interrupt line number */
+        .end   = IRQ_GPIO_BASE + GPIO_PF(18),
+        .flags = IORESOURCE_IRQ,
+    },
+
+};
+
+struct platform_device net_device_ax88796c = {
+    .name  = "ax88796c",
+    .id  = -1,
+    .num_resources = ARRAY_SIZE(ax88796c_resource),
+    .resource = ax88796c_resource,
 };
 
 static struct resource jz_hdmi_resources[] = {

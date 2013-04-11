@@ -251,6 +251,15 @@ config AX88796_93CX6
 	help
 	  Select this if your platform comes with an external 93CX6 eeprom.
 
+config AX88796C
+	tristate "ASIX AX88796c NE2000 clone support"
+	depends on ARM || MIPS || SUPERH
+	select PHYLIB
+	select MDIO_BITBANG
+	help
+	  AX88796c driver, using platform bus to provide
+	  chip detection and resources
+	  
 config MACE
 	tristate "MACE (Power Mac ethernet) support"
 	depends on PPC_PMAC && PPC32
