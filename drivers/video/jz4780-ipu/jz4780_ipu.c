@@ -1251,6 +1251,8 @@ static int ipu_setbuffer(struct jz_ipu *ipu, struct ipu_img_param *imgp, struct 
 
 			__enable_spage_map();
 		}
+	} else {
+			__disable_spage_map();
 	}
 
 	reg_write(ipu, IPU_Y_ADDR, py_buf);

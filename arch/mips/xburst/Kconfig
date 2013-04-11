@@ -178,3 +178,11 @@ config EARLY_INIT_RUN
 config TEST_RESET_DLL
 	bool "fast test reset_dll"
 	default n
+
+config JZ_IMEM
+	bool "jz imem"
+	default n
+	help
+	  Register two nodes:/proc/jz/imem and /proc/jz/imem1,
+	  The two node will take 16M and 8M memory space,
+	  Which is used such as by mplayer to encode and decode video and audio
