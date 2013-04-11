@@ -4,6 +4,7 @@
 
 #include <asm/io.h>
 #include "../interface/xb_snd_dsp.h"
+
 /**
  * global variable
  **/
@@ -248,4 +249,28 @@ pcm_set_reg(PCMDIV0,n,PCM_CLKDIV_MASK,PCM_CLKDIV_OFFSET)
 #define CODEC_WMODE                     0x2
 #define CODEC_RWMODE                    0x3
 
+typedef enum {
+	COINCIDENT_MODE,
+	ONE_SHIFT_MODE,
+} snd_pcm_data_start_mode_t;
+
+typedef enum {
+	PCM_MASTER,
+	PCM_SLAVE,
+} snd_pcm_mode_t;
+
+typedef unsigned long snd_pcm_sync_len_t;
+typedef unsigned long snd_pcm_solt_num_t;
+
+struct pcm_conf_info {
+	unsigned long pcm_sync_clk;		//rate
+	unsigned long pcm_clk;			//bit clk
+	unsigned long iss;
+	unsigned long oss;
+	snd_pcm_mode_t pcm_device_mode;
+	snd_pcm_data_start_mode_t pcm_imsb_pos;
+	snd_pcm_data_start_mode_t pcm_omsb_pos;
+	snd_pcm_sync_len_t pcm_sync_len;
+	snd_pcm_solt_num_t pcm_slot_num;
+};
 #endif /* _XB_SND_I2S_H_ */

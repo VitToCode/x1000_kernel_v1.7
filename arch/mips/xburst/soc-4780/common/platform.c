@@ -110,7 +110,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	NEMC_PORTA_CS6,
 #endif
 
-#ifdef	CONFIG_SOUND_I2S_JZ4780
+#ifdef	CONFIG_SOUND_I2S_JZ47XX
 #ifndef CONFIG_JZ_INTERNAL_CODEC
 	I2S_PORTDE,
 #endif
