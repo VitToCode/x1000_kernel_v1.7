@@ -71,17 +71,6 @@ menu "sound pcm codec list"
 endmenu
 endif #SOUND_PCM_JZ47XX
 
-
-menu "sound MIXER devices of xburst"
-
-config SOUND_MIXER0_JZ47XX
-	bool "Jz virtual mixer0 driver"
-	help
-		Say 'Y' to enable virtual mixer0
-
-endmenu
-
-
 menuconfig SOUND_XBURST_DETECT
 	bool "sound detect device of xburst"
 	default n

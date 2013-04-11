@@ -13,25 +13,15 @@ struct snd_codec_data codec_data = {
 
 	/* default route */
 	.replay_def_route = {
-#ifdef CONFIG_BOARD_URBOARD_V_1_1
 					.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
-#else
-					.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
-#endif
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},
-	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_AN1},
+	.record_def_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2},
 	/* device <-> route map */
-	.record_headset_mic_route = {
-#ifdef CONFIG_BOARD_URBOARD_V_1_1
-					.route = SND_ROUTE_RECORD_MIC2_SIN_AN3,
-#else
-					.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
-#endif
-					},
+	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2},
 
-	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_AN1},
+	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2},
 
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
@@ -39,11 +29,7 @@ struct snd_codec_data codec_data = {
 					.replay_volume_base = 0},
 
 	.replay_speaker_route = {
-#ifdef CONFIG_BOARD_URBOARD_V_1_1
 					.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
-#else
-					.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
-#endif
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},
