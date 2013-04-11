@@ -1127,6 +1127,7 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
+#ifdef FB_MODE_IS_JZ4780_VGA
 		if(mode->flag & FB_MODE_IS_JZ4780_VGA){
 			if(hds > 4 && (hde + 4) <= ht){
 				hds -= 4;
@@ -1139,6 +1140,7 @@ static int jzfb_set_par(struct fb_info *info)
 			}
 			*/
 		}
+#endif
 
 		reg_write(jzfb, LCDC_DAH, (hds << 16) | hde);
 		reg_write(jzfb, LCDC_DAV, (vds << 16) | vde);
