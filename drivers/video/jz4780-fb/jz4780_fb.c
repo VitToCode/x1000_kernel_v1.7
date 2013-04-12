@@ -44,6 +44,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
+static int jzfb_lcdc_reset(struct fb_info *info);
 
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id		= "jzfb",
@@ -1286,9 +1287,25 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	videosize *= NUM_FRAME_BUFFERS;
 
 	jzfb->vidmem_size = PAGE_ALIGN(videosize);
+
+	/**
+	 * Use the dma alloc coherent has waste some space,
+	 * If you need to alloc buffer for dma, open it,
+	 * else close it and use the Kmalloc.
+	 * And in jzfb_free_devmem() function is also set.
+	 */
+#if 0
 	jzfb->vidmem = dma_alloc_coherent(jzfb->dev,
 					  jzfb->vidmem_size,
 					  &jzfb->vidmem_phys, GFP_KERNEL);
+#else
+	jzfb->vidmem_size += PAGE_SIZE;
+	jzfb->vidmem = kmalloc(jzfb->vidmem_size, GFP_KERNEL);
+	jzfb->vidmem = (void *)((unsigned long)(jzfb->vidmem + (PAGE_SIZE-1))
+			& (~(PAGE_SIZE-1)));
+	jzfb->vidmem_phys = (unsigned long)virt_to_phys(jzfb->vidmem);
+#endif
+
 	if (!jzfb->vidmem)
 		return -ENOMEM;
 
@@ -1341,8 +1358,12 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 
 static void jzfb_free_devmem(struct jzfb *jzfb)
 {
+#if 0
 	dma_free_coherent(jzfb->dev, jzfb->vidmem_size,
 			  jzfb->vidmem, jzfb->vidmem_phys);
+#else
+	kfree(jzfb->vidmem);
+#endif
 	dma_free_coherent(jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 			  jzfb->framedesc, jzfb->framedesc_phys);
 	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
@@ -2124,9 +2145,11 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if (jzfb->irq_cnt++ > 100) {
 			unsigned int tmp;
+			jzfb->irq_cnt = 0;
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_OFUM);
 			dev_err(jzfb->dev, "disable OFU irq\n");
+			jzfb_lcdc_reset(jzfb->fb);
 		}
 		dev_err(jzfb->dev, "%s, Out FiFo underrun\n", __func__);
 	}
@@ -2653,6 +2676,185 @@ static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
 	__ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w),
 };
+
+static int jzfb_lcdc_reset(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct jzfb_platform_data *pdata = jzfb->pdata;
+	struct fb_var_screeninfo *var = &info->var;
+	struct fb_videomode *mode;
+	int is_enabled;
+	uint16_t hds, vds;
+	uint16_t hde, vde;
+	uint16_t ht, vt;
+	uint32_t cfg, ctrl;
+	uint32_t smart_cfg = 0, smart_ctrl = 0;
+	uint32_t pcfg;
+	unsigned long rate;
+	unsigned int tmp;
+
+#define REG_CPM_SOFT_RESET (*(volatile unsigned int*) 0xB00000C4)
+	tmp = REG_CPM_SOFT_RESET;
+	tmp |= (0x1 << 22);
+	REG_CPM_SOFT_RESET = tmp;
+	udelay(2);
+	tmp &= ~(0x1 << 22);
+	REG_CPM_SOFT_RESET = tmp;
+
+	mode = jzfb_get_mode(var, info);
+	if (mode == NULL) {
+		dev_err(info->dev, "%s get video mode failed\n", __func__);
+		return -EINVAL;
+	}
+
+	info->mode = mode;
+
+	hds = mode->hsync_len + mode->left_margin;
+	hde = hds + mode->xres;
+	ht = hde + mode->right_margin;
+
+	vds = mode->vsync_len + mode->upper_margin;
+	vde = vds + mode->yres;
+	vt = vde + mode->lower_margin;
+
+	/*
+	 * configure LCDC config register
+	 * use 8words descriptor, not use palette
+	 */
+	cfg = LCDC_CFG_NEWDES | LCDC_CFG_PALBP | LCDC_CFG_RECOVER;
+	cfg |= pdata->lcd_type;
+
+	if (!(mode->sync & FB_SYNC_HOR_HIGH_ACT))
+		cfg |= LCDC_CFG_HSP;
+
+	if (!(mode->sync & FB_SYNC_VERT_HIGH_ACT))
+		cfg |= LCDC_CFG_VSP;
+
+	if (pdata->pixclk_falling_edge)
+		cfg |= LCDC_CFG_PCP;
+
+	if (pdata->date_enable_active_low)
+		cfg |= LCDC_CFG_DEP;
+
+	/* configure LCDC control register */
+	ctrl = LCDC_CTRL_BST_64 | LCDC_CTRL_OFUM;
+	if (pdata->pinmd)
+		ctrl |= LCDC_CTRL_PINMD;
+
+	pcfg = 0xC0000000 | (511<<18) | (400<<9) | (256<<0);
+
+	/* configure smart LCDC registers */
+	if(pdata->lcd_type == LCD_TYPE_LCM) {
+		smart_cfg = pdata->smart_config.smart_type |
+			pdata->smart_config.cmd_width |
+			pdata->smart_config.data_width;
+
+		if (pdata->smart_config.clkply_active_rising)
+			smart_cfg |= SLCDC_CFG_CLK_ACTIVE_RISING;
+		if (pdata->smart_config.rsply_cmd_high)
+			smart_cfg |= SLCDC_CFG_RS_CMD_HIGH;
+		if (pdata->smart_config.csply_active_high)
+			smart_cfg |= SLCDC_CFG_CS_ACTIVE_HIGH;
+		smart_ctrl = SLCDC_CTRL_DMA_MODE | SLCDC_CTRL_DMA_EN;
+		//smart_ctrl &= ~(1 << 3);
+	}
+
+	if (mode->pixclock) {
+		rate = PICOS2KHZ(mode->pixclock) * 1000;
+		mode->refresh = rate / vt / ht;
+	} else {
+		if (pdata->lcd_type == LCD_TYPE_8BIT_SERIAL) {
+			rate = mode->refresh * (vt + 2 * mode->xres) * ht;
+		} else {
+			rate = mode->refresh * vt * ht;
+		}
+		mode->pixclock = KHZ2PICOS(rate / 1000);
+
+		var->pixclock = mode->pixclock;
+	}
+
+	is_enabled = jzfb->is_enabled;
+	if(is_enabled)
+		jzfb_disable(info);
+	else
+		clk_enable(jzfb->clk);
+
+	mutex_lock(&jzfb->lock);
+
+#ifndef CONFIG_FPGA_TEST
+	switch (pdata->lcd_type) {
+	case LCD_TYPE_SPECIAL_TFT_1:
+	case LCD_TYPE_SPECIAL_TFT_2:
+	case LCD_TYPE_SPECIAL_TFT_3:
+		reg_write(jzfb, LCDC_SPL, pdata->special_tft_config.spl);
+		reg_write(jzfb, LCDC_CLS, pdata->special_tft_config.cls);
+		reg_write(jzfb, LCDC_PS, pdata->special_tft_config.ps);
+		reg_write(jzfb, LCDC_REV, pdata->special_tft_config.ps);
+		break;
+	default:
+		cfg |= LCDC_CFG_PSM;
+		cfg |= LCDC_CFG_CLSM;
+		cfg |= LCDC_CFG_SPLM;
+		cfg |= LCDC_CFG_REVM;
+		break;
+	}
+#endif
+
+	if(pdata->lcd_type != LCD_TYPE_LCM) {
+		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
+		reg_write(jzfb, LCDC_DAH, (hds << 16) | hde);
+		reg_write(jzfb, LCDC_DAV, (vds << 16) | vde);
+
+		reg_write(jzfb, LCDC_HSYNC, mode->hsync_len);
+		reg_write(jzfb, LCDC_VSYNC, mode->vsync_len);
+	} else {
+		reg_write(jzfb, LCDC_VAT, (mode->xres << 16) | mode->yres);
+		reg_write(jzfb, LCDC_DAH, mode->xres);
+		reg_write(jzfb, LCDC_DAV, mode->yres);
+
+		reg_write(jzfb, LCDC_HSYNC, 0);
+		reg_write(jzfb, LCDC_VSYNC, 0);
+
+		reg_write(jzfb, SLCDC_CFG, smart_cfg);
+		reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
+	}
+
+	reg_write(jzfb, LCDC_CFG, cfg);
+	ctrl |= reg_read(jzfb, LCDC_CTRL);
+	reg_write(jzfb, LCDC_CTRL, ctrl);
+	reg_write(jzfb, LCDC_PCFG, pcfg);
+
+	jzfb_config_fg0(info);
+	jzfb_prepare_dma_desc(info);
+
+	mutex_unlock(&jzfb->lock);
+
+	clk_disable(jzfb->pclk);
+	clk_set_rate(jzfb->pclk, rate);
+	clk_enable(jzfb->pclk);
+
+	dev_info(jzfb->dev, "LCDC: PixClock:%lu\n", rate);
+	dev_info(jzfb->dev, "LCDC: PixClock:%lu(real)\n",
+			clk_get_rate(jzfb->pclk));
+
+	jzfb_config_image_enh(info);
+	/* panel'type is TFT LVDS, need to configure LVDS controller */
+	if (pdata->lvds && jzfb->id) {
+		jzfb_config_lvds_controller(info);
+	}
+	if (pdata->lcd_type == LCD_TYPE_LCM) {
+		jzfb_slcd_mcu_init(info);
+	}
+
+	if(is_enabled) {
+		jzfb_enable(info);
+	} else {
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
+	}
+
+	return 0;
+}
 
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
