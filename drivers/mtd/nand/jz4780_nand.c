@@ -525,7 +525,6 @@ static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
 	nand = mtd_to_jz4780_nand(mtd);
 	req  = &nand->bch_req;
 
-	req->blksz    = chip->ecc.size;
 	req->raw_data = dat;
 	req->type     = BCH_REQ_ENCODE;
 	req->ecc_data = ecc_code;
@@ -548,7 +547,6 @@ static int jz4780_nand_ecc_correct_bch(struct mtd_info *mtd, uint8_t *dat,
 	nand = mtd_to_jz4780_nand(mtd);
 	req  = &nand->bch_req;
 
-	req->blksz    = chip->ecc.size;
 	req->raw_data = dat;
 	req->type     = BCH_REQ_DECODE_CORRECT;
 	req->ecc_data = read_ecc;
@@ -879,7 +877,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 * Detect NAND flash chips
 	 */
 
-	/* step1. detect as common NAND */
+	/* step1. relax bank timings to scan */
 	for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
 		nand_if = nand->nand_flash_if_table[bank];
 
@@ -989,6 +987,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		nand->bch_req.complete  = jz4780_nand_bch_req_complete;
 		nand->bch_req.ecc_level =
 				nand->curr_nand_flash_info->ecc_step.ecc_bits;
+		nand->bch_req.blksz     =
+				nand->curr_nand_flash_info->ecc_step.data_size;
 
 		chip->ecc.mode      = NAND_ECC_HW;
 		chip->ecc.calculate = jz4780_nand_ecc_calculate_bch;
