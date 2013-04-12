@@ -31,7 +31,7 @@
 #include <linux/sched.h>
 #include <linux/random.h>
 
-static int dev = -EINVAL;
+static int dev = 5; /* -EINVAL; */
 module_param(dev, int, S_IRUGO);
 MODULE_PARM_DESC(dev, "MTD device number to use");
 
@@ -707,7 +707,7 @@ out:
 	printk(KERN_INFO "=================================================\n");
 	return err;
 }
-module_init(mtd_oobtest_init);
+late_initcall_sync(mtd_oobtest_init);
 
 static void __exit mtd_oobtest_exit(void)
 {
