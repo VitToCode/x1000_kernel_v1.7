@@ -34,10 +34,9 @@
 #define IR_MENU		16
 #define IR_BACK		83
 
-#if 0
-#define IR_VOLUMEUP	77
-#define IR_VOLUMEDOWN	90
-#endif
+#define IR_VOLUMEUP	(0x5c)
+#define IR_VOLUMEDOWN	(0x54)
+
 #define IR_UP		77
 #define IR_DOWN		90
 #define IR_LEFT		87
@@ -52,8 +51,20 @@
 #define	IR_PLAY		85
 #define	IR_PLAYPAUSE	89
 
-#define	IR_SOUND	84
 #define IR_MUTE		88
+
+#define IR_1		(0x17)
+#define IR_2		(0x1b)
+#define IR_3		(0x1f)
+#define IR_4		(0x16)
+#define IR_5		(0x1a)
+#define IR_6		(0x1e)
+#define IR_7		(0x15)
+#define IR_8		(0x19)
+#define IR_9		(0x1d)
+#define IR_DOT		(0x14)
+#define IR_0		(0x18)
+#define IR_DELETE	(0x1c)
 
 struct jz_remote {
 	struct platform_device	*pdev;
@@ -79,10 +90,11 @@ struct jz_remote {
 //key code tab
 static unsigned char initkey_code[ ] =
 {
-	KEY_POWER, KEY_HOME, KEY_MENU, KEY_BACK, KEY_UP, KEY_DOWN,	\
-	KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_HELP, KEY_SEARCH,		\
-	KEY_NEXTSONG, KEY_PREVIOUSSONG, KEY_PLAY, KEY_PLAYPAUSE,	\
-	KEY_SOUND, KEY_MUTE, KEY_WAKEUP
+	KEY_POWER, KEY_HOME, KEY_MENU, KEY_BACK, KEY_VOLUMEUP, KEY_VOLUMEDOWN,	\
+	KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_HELP, KEY_SEARCH,	\
+	KEY_NEXTSONG, KEY_PREVIOUSSONG, KEY_PLAY, KEY_PLAYPAUSE, KEY_MUTE, KEY_1,\
+	KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_DOT,	\
+	KEY_DELETE, KEY_WAKEUP
 };
 
 static int jz_remote_ctrl_open(struct input_dev *dev)
@@ -118,14 +130,14 @@ void jz_remote_send_key(struct jz_remote *jz_remote)
 	case IR_DOWN:
 		send_key = KEY_DOWN;
 		break;
-#if 0
+
 	case IR_VOLUMEUP:
 		send_key = KEY_VOLUMEUP;
 		break;
 	case IR_VOLUMEDOWN:
 		send_key = KEY_VOLUMEDOWN;
 		break;
-#endif
+
 	case IR_LEFT:
 		send_key = KEY_LEFT;
 		break;
@@ -153,11 +165,44 @@ void jz_remote_send_key(struct jz_remote *jz_remote)
 	case IR_PLAYPAUSE:
 		send_key = KEY_PLAYPAUSE;
 		break;
-	case IR_SOUND:
-		send_key = KEY_SOUND;
-		break;
 	case IR_MUTE:
 		send_key = KEY_MUTE;
+		break;
+	case IR_1:
+		send_key = KEY_1;
+		break;
+	case IR_2:
+		send_key = KEY_2;
+		break;
+	case IR_3:
+		send_key = KEY_3;
+		break;
+	case IR_4:
+		send_key = KEY_4;
+		break;
+	case IR_5:
+		send_key = KEY_5;
+		break;
+	case IR_6:
+		send_key = KEY_6;
+		break;
+	case IR_7:
+		send_key = KEY_7;
+		break;
+	case IR_8:
+		send_key = KEY_8;
+		break;
+	case IR_9:
+		send_key = KEY_9;
+		break;
+	case IR_DOT:
+		send_key = KEY_DOT;
+		break;
+	case IR_0:
+		send_key = KEY_0;
+		break;
+	case IR_DELETE:
+		send_key = KEY_DELETE;
 		break;
 	default:
 		printk("The key is not defined,key value is %d\n",jz_remote->current_data);
