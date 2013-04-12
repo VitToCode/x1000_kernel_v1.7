@@ -371,7 +371,7 @@ int hi704_init(struct cim_sensor *sensor_info)
 //      hi704_write_reg(client,0x90,0x02);
 //      hi704_write_reg(client,0x91,0x02);
 	hi704_write_reg(client,0x03, 0x00);//Page 0
-	hi704_write_reg(client,0x11, 0x91);//rotate
+	hi704_write_reg(client,0x11, 0x90);//rotate
 	//hi704_write_reg(client,0x03, 0x02);//Page 2
 	//hi704_write_reg(client,0x1a, 0x21);
 	hi704_write_reg(client,0x03,0x20);
@@ -478,7 +478,7 @@ int hi704_size_switch(struct cim_sensor *sensor_info,int width,int height)
 		hi704_write_reg(client,0x01, 0xf0);
 
 //		hi704_write_reg(client,0x03, 0x00);
-//		hi704_write_reg(client,0x11, 0x91);
+		hi704_write_reg(client,0x11, 0x90);
 		
 	}
 	return 0;

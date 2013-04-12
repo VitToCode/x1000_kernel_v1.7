@@ -344,18 +344,6 @@ static int mc32x0_chip_init(struct i2c_client *client)
 	uint8_t data = 0;
 
 	data = i2c_smbus_read_byte_data(client, MC32X0_PCODE_REG);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
-	printk("read data = 0x%x\n", data);
 
 	switch (data) {
 		case 0x19 :
@@ -450,11 +438,14 @@ static int mc32x0_read_data(short *x, short *y, short *z)
 	*z = ((mc32x0_data->pdata->negate_z) ? (-hw_d[mc32x0_data->pdata->axis_map_z])
 			: (hw_d[mc32x0_data->pdata->axis_map_z]));
 
-	rptdata_debug("report data: x:%05d  y:%05d  z:%05d\n",*x, *y, *z);
+
 
 	return 0;
 }
 
+#ifdef CONFIG_SENSORS_ORI
+extern void orientation_report_values(int x,int y,int z);
+#endif
 static void report_abs(void)
 {
 	short x,y,z;
@@ -462,15 +453,23 @@ static void report_abs(void)
 	if(mc32x0_read_data(&x, &y, &z) != 0)
 		return;
 
+	sensor_swap_pr((u16*)(&x),(u16*)(&y));
+	rptdata_debug("report data: x:%05d  y:%05d  z:%05d\n", x, y, z);
+
 	input_report_abs(mc32x0_data->input_dev, ABS_X, x);
 	input_report_abs(mc32x0_data->input_dev, ABS_Y, y);
 	input_report_abs(mc32x0_data->input_dev, ABS_Z, z);
 	//dprintk("x:%d \t y:%d \t z:%d \t\n",x,y,z);
 	input_sync(mc32x0_data->input_dev);
-#if 0
-	x >> 2;
-	y >> 2;
-	z >> 2;
+
+#ifdef CONFIG_SENSORS_ORI
+	if(mc32x0_data->pdata->ori_pr_swap == 1){
+		sensor_swap_pr((u16*)(&x),(u16*)(&y));
+	}
+	x = (mc32x0_data->pdata->ori_roll_negate) ? (-x)
+			: x;
+	y = (mc32x0_data->pdata->ori_pith_negate) ? (-y)
+			: y;
 	orientation_report_values(x,y,z);
 #endif
 }

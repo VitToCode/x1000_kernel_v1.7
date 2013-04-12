@@ -33,9 +33,9 @@ static struct gsensor_platform_data mma8452_platform_pdata = {
 	.axis_map_x = 0,
 	.axis_map_y = 1,
 	.axis_map_z = 2,
-	.negate_x = 1,
-	.negate_y = 1,
-	.negate_z = 1,
+	.negate_x = 0,
+	.negate_y = 0,
+	.negate_z = 0,
 
 	.ori_pr_swap = 0,
 	.ori_pith_negate = 0,
@@ -54,7 +54,7 @@ static struct gsensor_platform_data mc32x0_platform_data = {
 	.axis_map_y = 1,
 	.axis_map_z = 2,
 	.negate_x = 1,
-	.negate_y = 1,
+	.negate_y = 0,
 	.negate_z = 1,
 
 	.ori_pr_swap = 0,
@@ -77,8 +77,8 @@ static struct jztsc_pin t700d_tsc_gpio[] = {
 
 static struct jztsc_platform_data t700d_tsc_pdata = {
 	.gpio		= t700d_tsc_gpio,
-	.x_max		= 1024,
-	.y_max		= 600,
+	.x_max		= 960,
+	.y_max		= 640,
 };
 #endif
 
@@ -154,7 +154,7 @@ static struct i2c_board_info t700d_i2c3_devs[] __initdata = {
 #endif
 #ifdef CONFIG_SENSORS_STK220X
 	{
-	       	I2C_BOARD_INFO("lsensor_stk220x",  0x20>>1),
+	       	I2C_BOARD_INFO("stk_als",  0x20>>1),
 		.platform_data = &stk220x_platform_data,
 	},
 #endif

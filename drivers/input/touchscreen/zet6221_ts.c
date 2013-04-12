@@ -36,6 +36,12 @@
 #include <linux/tsc.h>
 
 #include <linux/interrupt.h>
+
+
+
+extern int __init zet622x_downloader( struct i2c_client *client );
+u8 pc[8];
+
 struct ts_event {
 	u16 au16_x[CFG_MAX_TOUCH_POINTS];	/*x coordinate */
 	u16 au16_y[CFG_MAX_TOUCH_POINTS];	/*y coordinate */
@@ -72,7 +78,7 @@ struct zet6221_ts_data {
 static void zet6221_ts_release(struct zet6221_ts_data *data);
 static void zet6221_ts_reset(struct zet6221_ts_data *ts);
 
-static s32 zet6221_i2c_read_tsdata(struct i2c_client *client, u8 *data, u8 length)
+s32 zet6221_i2c_read_tsdata(struct i2c_client *client, u8 *data, u8 length)
 {
 	struct i2c_msg msg;
 	msg.addr = client->addr;
@@ -82,7 +88,7 @@ static s32 zet6221_i2c_read_tsdata(struct i2c_client *client, u8 *data, u8 lengt
 	return i2c_transfer(client->adapter,&msg, 1);
 }
 
-static s32 zet6221_i2c_write_tsdata(struct i2c_client *client, u8 *data, u8 length)
+s32 zet6221_i2c_write_tsdata(struct i2c_client *client, u8 *data, u8 length)
 {
 	struct i2c_msg msg;
 	msg.addr = client->addr;
@@ -115,20 +121,24 @@ static int zet6221_read_touchdata(struct zet6221_ts_data *data)
 	u8 buf[POINT_READ_BUF] = { 0 };
 	int ret = -1, i = 0;
 
+#if 0
 	if (delayed_work_pending(&data->release_work)) {
 		cancel_delayed_work_sync(&data->release_work);
 	}
-
+#endif
 	memset(event, 0, sizeof(struct ts_event));
 	event->touch_point = 0;
 	ret = zet6221_i2c_read_tsdata(data->client, buf, POINT_READ_BUF);
 	if (ret < 0) {
-		schedule_delayed_work(&data->release_work, HZ / 2);
+		//schedule_delayed_work(&data->release_work, 0);
+		zet6221_ts_release(data);
+		zet6221_ts_reset(data);
 		return ret;
 	}
 
 	if (buf[0] != 0x3c) {
-		schedule_delayed_work(&data->release_work, HZ / 10);
+		//schedule_delayed_work(&data->release_work, 0);
+		zet6221_ts_release(data);
 		return 1;
 	}
 
@@ -137,17 +147,12 @@ static int zet6221_read_touchdata(struct zet6221_ts_data *data)
 		zet6221_ts_release(data);
 		return 1;
 	}
-	for (i = 0; i < POINT_READ_BUF; i++) {
-		printk("0x%x ",buf[i]);
-	}
-	printk(" ret = %d\n", ret);
 
 	event->touch_point = event->touch_num;
 
-	//for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
-	for (i = 0; i < 1; i++) {
+	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
 		event->au16_x[i] = ((buf[3+4*i] >> 4) << 8) | (buf[(3+4*i)+1]);
-		event->au16_y[i] = ((buf[3+4*i] & 0xf) << 8) | (buf[(3+4*i)+1]);
+		event->au16_y[i] = ((buf[3+4*i] & 0xf) << 8) | (buf[(3+4*i)+2]);
 		event->au8_finger_id[i] = i;
 		event->weight[i] = 250;
 	}
@@ -162,8 +167,7 @@ static int zet6221_report_value(struct zet6221_ts_data *data)
 {
 	struct ts_event *event = &data->event;
 	int i = 0;
-	//for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
-	for (i = 0; i < 1; i++) {
+	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
 
 		if(event->au16_x[i] > data->x_max || event->au16_y[i] > data->y_max)
 			continue;
@@ -179,7 +183,6 @@ static int zet6221_report_value(struct zet6221_ts_data *data)
 #ifdef CONFIG_TSC_SWAP_Y
 		tsc_swap_y(&(event->au16_y[i]),data->y_max);
 #endif
-		printk("(--------)event->au16_x[i] =%d, event->au16_y[i] =%d\n",event->au16_x[i], event->au16_y[i]);
 #if 0
         printk("event->au16_x[%d], event->au16_y[%d] = (%d, %d)\n",
                 i, i, event->au16_x[i], event->au16_y[i]);
@@ -273,6 +276,7 @@ static void zet6221_ts_reset(struct zet6221_ts_data *ts)
 	msleep(10);
 	set_pin_status(ts->gpio.wake, 1);
 	msleep(20);
+	printk("reset ts\n");
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -289,7 +293,6 @@ u8 zet6221_ts_get_report_mode_t(struct i2c_client *client)
 	int i;
 	int ResolutionY, ResolutionX, xyExchange,FingerNum, bufLength, KeyNum;
 	int inChargerMode;
-	u8 pc[8];
 	
 	ret=zet6221_i2c_write_tsdata(client, ts_report_cmd, 1);
 
@@ -371,15 +374,8 @@ static int zet6221_ts_probe(struct i2c_client *client,
 	struct input_dev *input_dev;
 	int err = 0;
 
-	printk("%s:%d\n",__func__, __LINE__);
-	printk("%s:%d\n",__func__, __LINE__);
-	printk("%s:%d\n",__func__, __LINE__);
-	printk("%s:%d\n",__func__, __LINE__);
-	printk("%s:%d\n",__func__, __LINE__);
-
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
-		printk("%s:%d\n",__func__, __LINE__);
 		goto exit_check_functionality_failed;
 	}
 
@@ -387,7 +383,6 @@ static int zet6221_ts_probe(struct i2c_client *client,
 
 	if (!zet6221_ts) {
 		err = -ENOMEM;
-		printk("%s:%d\n",__func__, __LINE__);
 		goto exit_alloc_data_failed;
 	}
 
@@ -403,7 +398,7 @@ static int zet6221_ts_probe(struct i2c_client *client,
 	zet6221_ts_power_on(zet6221_ts);
 
 	INIT_WORK(&zet6221_ts->work, tsc_work_handler);
-	INIT_DELAYED_WORK(&zet6221_ts->release_work, tsc_release);
+	//INIT_DELAYED_WORK(&zet6221_ts->release_work, tsc_release);
 	zet6221_ts->workqueue = create_singlethread_workqueue("zet6221_tsc");
 
 	client->irq = gpio_to_irq(zet6221_ts->gpio.irq->num);
@@ -465,6 +460,18 @@ static int zet6221_ts_probe(struct i2c_client *client,
 		goto exit_input_register_device_failed;
 	}
 	
+	zet6221_ts_reset(zet6221_ts);
+
+	if(zet622x_downloader(client)<=0) {
+		printk("zet6221_downloader failed\n");
+		printk("zet6221_downloader failed\n");
+		zet6221_ts_reset(zet6221_ts);
+		zet6221_ts_get_report_mode_t(client);
+	}
+
+	printk("zet6221_downloader ok\n");
+	printk("zet6221_downloader ok\n");
+
 	/*make sure CTP already finish startup process */
 	zet6221_ts_reset(zet6221_ts);
 	zet6221_ts_get_report_mode_t(client);
