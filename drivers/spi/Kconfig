@@ -28,6 +28,7 @@ menuconfig SPI
 
 if SPI
 
+
 config SPI_DEBUG
 	boolean "Debug support for SPI drivers"
 	depends on DEBUG_KERNEL
@@ -394,6 +395,8 @@ config SPI_TOPCLIFF_PCH
 	help
 	  SPI driver for the Topcliff PCH (Platform Controller Hub) SPI bus
 	  used in some x86 embedded processors.
+config URBOARD_SLIC
+	tristate "URBOARD_SLIC_DRIVER"
 
 config SPI_TXX9
 	tristate "Toshiba TXx9 SPI controller"
@@ -537,6 +540,8 @@ config JZ_SPIDEV_TEST
     tristate "Ingenic spi test driver"
     depends on SPI_JZ47XX
     default n
+
+source "drivers/spi/rbox/Kconfig"
 
 #
 # Add new SPI protocol masters in alphabetical order above this line

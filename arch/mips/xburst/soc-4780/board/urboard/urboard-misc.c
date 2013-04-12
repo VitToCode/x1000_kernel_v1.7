@@ -139,13 +139,12 @@ static struct platform_device jz_remote_device = {
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
        [0] = {
-	       .modalias       = "spidev",
+	       .modalias       = "slic_spi",
 	       .bus_num	       = 0,
 	       .chip_select    = 0,
-	       .max_speed_hz   = 1200000,
+	       .max_speed_hz   = 7500000,
        },
 };
-
 static struct jz47xx_spi_info spi0_info_cfg = {
        .chnl = 0,
        .bus_num = 0,
@@ -167,17 +166,18 @@ static struct spi_board_info jz_spi1_board_info[] = {
 static struct jz47xx_spi_info spi1_info_cfg = {
        .chnl = 1,
        .bus_num = 1,
-       .max_clk = 54000000,
+       .max_clk = 7500000,
        .num_chipselect = 2,
 };
 #endif
 #endif
+
 #if defined(CONFIG_SPI_GPIO)
 static struct spi_gpio_platform_data jz4780_spi_gpio_data = {
-	.sck	= (4*32 + 15),
-	.mosi	= (4*32 + 17),
-	.miso	= (4*32 + 14),
-	.num_chipselect	= 2,
+	.sck	= GPIO_PB(28),
+	.mosi	= GPIO_PB(29),
+	.miso	= GPIO_PB(20),
+	.num_chipselect	= 1,
 };
 
 static struct platform_device jz4780_spi_gpio_device = {
@@ -186,13 +186,13 @@ static struct platform_device jz4780_spi_gpio_device = {
 		.platform_data = &jz4780_spi_gpio_data,
 	},
 };
-
 static struct spi_board_info jz_spi0_board_info[] = {
        [0] = {
-	       .modalias       = "spidev",
+	       .modalias       = "slic_spi",
 	       .bus_num	       = 0,
 	       .chip_select    = 0,
-	       .max_speed_hz   = 120000,
+	       .max_speed_hz   = 7500000,
+	       .controller_data = (void *)GPIO_PB(31),
        },
 };
 #endif
