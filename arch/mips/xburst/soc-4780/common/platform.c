@@ -376,7 +376,7 @@ static u64 jz_pcm_dmamask =  ~(u32)0;
 static struct resource jz_pcm_resources[] = {
 	[0] = {
 		.start          = PCM0_IOBASE,
-		.end            = PCM0_IOBASE,
+		.end            = PCM0_IOBASE + 0x1000 -1,
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
