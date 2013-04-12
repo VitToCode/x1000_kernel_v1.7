@@ -81,14 +81,15 @@ struct {
 	const struct resource regs_file_mem;
 
 	struct list_head req_list;
+	spinlock_t lock;
 
 #ifdef CONFIG_JZ4780_BCH_USE_IRQ
 
 	struct completion req_done;
 
 #endif
+
 	u32 saved_reg_bhint;
-	spinlock_t lock;
 
 	struct task_struct *kbchd_task;
 	wait_queue_head_t kbchd_wait;
@@ -161,7 +162,7 @@ inline static void bch_wait_for_encode_done(bch_request_t *req)
 			" type: %d from: %s\n",
 			dev_name(&bchc->pdev->dev),
 			req->type, dev_name(req->dev));
-	BUG_ON(1);
+	BUG();
 
 done:
 	bchc->saved_reg_bhint = bchc->regs_file->bhint;
@@ -201,7 +202,7 @@ inline static void bch_wait_for_decode_done(bch_request_t *req)
 			" type: %d from: %s\n",
 			dev_name(&bchc->pdev->dev),
 			req->type, dev_name(req->dev));
-	BUG_ON(1);
+	BUG();
 
 done:
 	bchc->saved_reg_bhint = bchc->regs_file->bhint;

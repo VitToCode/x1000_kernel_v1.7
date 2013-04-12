@@ -352,8 +352,6 @@ static int gpemc_request_gpio_addr_one(int index, const char *name)
 	int ret = 0;
 	char pin_name[30];
 
-	BUG_ON(index > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins) - 1);
-
 	spin_lock(&gpemc->addr_pins_pool.lock);
 	if (gpemc->addr_pins_pool.addr_pin_use_count[index] == 0) {
 		spin_unlock(&gpemc->addr_pins_pool.lock);
@@ -387,8 +385,6 @@ err_return:
 static void gpemc_release_gpio_addr_one(int index)
 {
 	int use_count;
-
-	BUG_ON(index > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins) - 1);
 
 	spin_lock(&gpemc->addr_pins_pool.lock);
 	use_count = --gpemc->addr_pins_pool.addr_pin_use_count[index];
@@ -532,18 +528,15 @@ static int gpemc_request_gpio_for_sram(gpemc_bank_t *bank)
 
 	int ret;
 
-	WARN(!(bank->cnt_addr_pins > 0 && bank->cnt_addr_pins <= 6),
-			"gpemc: can not allocate %u pins for address.\n",
-			bank->cnt_addr_pins);
-	BUG_ON(bank->cnt_addr_pins > 6);
-
 	ret = gpemc_request_gpio_data();
 	if (ret)
 		return ret;
 
-	ret = gpemc_request_gpio_addr(bank->cnt_addr_pins);
-	if (ret)
-		goto err_release_data;
+	if (bank->cnt_addr_pins) {
+		ret = gpemc_request_gpio_addr(bank->cnt_addr_pins);
+		if (ret)
+			goto err_release_data;
+	}
 
 	ret = gpemc_request_gpio_rd_we();
 	if (ret)
@@ -567,7 +560,7 @@ err_release_data:
 	return ret;
 }
 
-static int gpemc_request_gpio_for_command_nand(gpemc_bank_t *bank)
+static int gpemc_request_gpio_for_common_nand(gpemc_bank_t *bank)
 {
 	/*
 	 * need inout  DATA[7 : 0]
@@ -667,7 +660,7 @@ static void gpemc_release_gpio_for_sram(gpemc_bank_t *bank)
 	gpemc_release_gpio_cs(bank->cs);
 }
 
-static void gpemc_release_gpio_for_command_nand(gpemc_bank_t *bank)
+static void gpemc_release_gpio_for_common_nand(gpemc_bank_t *bank)
 {
 	gpemc_release_gpio_data();
 	gpemc_release_gpio_rd_we();
@@ -694,7 +687,7 @@ static int gpemc_request_gpio(gpemc_bank_t *bank)
 		break;
 
 	case BANK_TYPE_NAND:
-		ret = gpemc_request_gpio_for_command_nand(bank);
+		ret = gpemc_request_gpio_for_common_nand(bank);
 		break;
 
 	case BANK_TYPE_TOGGLE:
@@ -716,7 +709,7 @@ static void gpemc_release_gpio(gpemc_bank_t *bank)
 		break;
 
 	case BANK_TYPE_NAND:
-		gpemc_release_gpio_for_command_nand(bank);
+		gpemc_release_gpio_for_common_nand(bank);
 		break;
 
 	case BANK_TYPE_TOGGLE:
@@ -772,6 +765,8 @@ static void gpemc_set_bank_as_sram(gpemc_bank_t *bank)
 	/* set bank role as sram */
 	index = (bank->cs - 1) << 1;
 	gpemc->nand_regs_file->nfcsr &= ~BIT(index);
+
+	bank->bank_type = BANK_TYPE_SRAM;
 }
 
 static void gpemc_set_bank_role(gpemc_bank_t *bank)
@@ -800,7 +795,7 @@ int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 
 	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc->bank_mem));
 	BUG_ON(bank->bank_type < BANK_TYPE_SRAM
-			|| bank->bank_type > BANK_TYPE_TOGGLE);
+			|| bank->bank_type >= CNT_BANK_TYPES);
 
 	bank->dev = dev;
 	bank->cs = cs;
@@ -808,8 +803,12 @@ int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 	bank->bank_timing.clk_T =
 			1000 * 1000 * 1000 / clk_get_rate(gpemc->clk);
 
-	if (bank->bank_type == BANK_TYPE_SRAM)
-		BUG_ON(bank->cnt_addr_pins == 0);
+	if (bank->bank_type == BANK_TYPE_SRAM) {
+		WARN(bank->cnt_addr_pins > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins),
+				"gpemc: can not allocate %u pins for address.\n",
+				bank->cnt_addr_pins);
+		BUG();
+	}
 
 	if (test_bit(cs, gpemc->bank_use_map)) {
 		pr_err("gpemc: grab cs %d failed, it's busy.\n", cs);
