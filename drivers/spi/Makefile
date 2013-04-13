@@ -57,7 +57,7 @@ obj-$(CONFIG_SPI_STMP3XXX)		+= spi_stmp.o
 obj-$(CONFIG_SPI_NUC900)		+= spi_nuc900.o
 
 obj-$(CONFIG_SPI_JZ4780) 		+= spi_jz47xx.o
-obj-$(CONFIG_RBOX)               += rbox/
+
 # special build for s3c24xx spi driver with fiq support
 spi_s3c24xx_hw-y			:= spi_s3c24xx.o
 spi_s3c24xx_hw-$(CONFIG_SPI_S3C24XX_FIQ) += spi_s3c24xx_fiq.o
