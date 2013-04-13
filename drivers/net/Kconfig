@@ -997,6 +997,10 @@ config DM9000
 config NEMC_CS6
          bool "NEMC_CS6"
 
+config DM9000_CDM_SA2
+	bool "set dm9000 CMD to SA2"
+        depends on DM9000 && !NAND_JZ4780_FUNCTION 
+
 config DM9000_DEBUGLEVEL
 	int "DM9000 maximum debug level"
 	depends on DM9000
