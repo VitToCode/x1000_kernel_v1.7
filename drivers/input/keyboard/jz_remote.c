@@ -64,7 +64,7 @@
 #define IR_9		(0x1d)
 #define IR_DOT		(0x14)
 #define IR_0		(0x18)
-#define IR_DELETE	(0x1c)
+#define IR_BACKSPACE	(0x1c)
 
 struct jz_remote {
 	struct platform_device	*pdev;
@@ -94,7 +94,7 @@ static unsigned char initkey_code[ ] =
 	KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_HELP, KEY_SEARCH,	\
 	KEY_NEXTSONG, KEY_PREVIOUSSONG, KEY_PLAY, KEY_PLAYPAUSE, KEY_MUTE, KEY_1,\
 	KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_DOT,	\
-	KEY_DELETE, KEY_WAKEUP
+	KEY_BACKSPACE, KEY_WAKEUP
 };
 
 static int jz_remote_ctrl_open(struct input_dev *dev)
@@ -112,9 +112,11 @@ void jz_remote_send_key(struct jz_remote *jz_remote)
 	//printk("JZ_REMOTE Driver:The Key is %d\n",jz_remote->current_data);
 
 	switch (jz_remote->current_data) {
+#if 0
 	case IR_POWER:
 		send_key = KEY_POWER;
 		break;
+#endif
 	case IR_HOME:
 		send_key = KEY_HOME;
 		break;
@@ -201,8 +203,8 @@ void jz_remote_send_key(struct jz_remote *jz_remote)
 	case IR_0:
 		send_key = KEY_0;
 		break;
-	case IR_DELETE:
-		send_key = KEY_DELETE;
+	case IR_BACKSPACE:
+		send_key = KEY_BACKSPACE;
 		break;
 	default:
 		printk("The key is not defined,key value is %d\n",jz_remote->current_data);
