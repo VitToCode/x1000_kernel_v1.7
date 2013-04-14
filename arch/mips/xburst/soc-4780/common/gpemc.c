@@ -34,6 +34,8 @@
 #define GPEMC_REGS_FILE_BASE 	0x13410000
 #define CPEMC_NAND_REGS_FILE_BASE	0x13410050
 
+#define BCH_CLK_RATE (200 * 1000 * 1000)
+
 #define BANK_COUNT 7
 #define GPEMC_CS1_IOBASE 0x1b000000
 #define GPEMC_CS2_IOBASE 0x1a000000
@@ -135,6 +137,8 @@ static struct {
 	const u32 gpio_pin_wait;
 	const u32 gpio_pin_dqs;
 	const u32 gpio_pin_cs[7];
+
+	atomic_t use_count;
 
 	atomic_t pin_data_use_count;
 	atomic_t pin_wait_use_count;
@@ -837,6 +841,10 @@ int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 
 	gpemc->requested_banks[cs] = bank;
 
+	if (atomic_read(&gpemc->use_count) == 0)
+		clk_enable(gpemc->clk);
+	atomic_inc(&gpemc->use_count);
+
 	return 0;
 
 err_release_gpio:
@@ -863,6 +871,10 @@ void gpemc_release_cs(gpemc_bank_t* bank)
 	clear_bit(bank->cs, gpemc->bank_use_map);
 
 	gpemc->requested_banks[bank->cs] = NULL;
+
+	atomic_dec(&gpemc->use_count);
+	if (atomic_read(&gpemc->use_count) == 0)
+		clk_disable(gpemc->clk);
 }
 EXPORT_SYMBOL(gpemc_release_cs);
 
@@ -1051,6 +1063,8 @@ int __init gpemc_init(void) {
 	int i;
 
 	struct resource *res;
+
+	atomic_set(&gpemc->use_count, 0);
 
 	atomic_set(&gpemc->pin_data_use_count, 0);
 	memset(gpemc->addr_pins_pool.addr_pin_use_count,
