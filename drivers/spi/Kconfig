@@ -169,6 +169,12 @@ config SPI_GPIO
 	  GPIO operations, you should be able to leverage that for better
 	  speed with a custom version of this driver; see the source code.
 
+config SPI_ZSPI
+	bool "zspi support"
+	depends on GENERIC_GPIO	
+	help
+	  This is a directly SPI.
+
 config SPI_IMX_VER_IMX1
 	def_bool y if SOC_IMX1
 
