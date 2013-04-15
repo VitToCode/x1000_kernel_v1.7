@@ -354,6 +354,14 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	int			 i	     = 0;
 	static int		 first_reset = 1;
 
+	/* Clear the Remote Wakeup Signalling */
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	dctl.b.rmtwkupsig = 0;
+	dctl.b.tstctl = 0;
+	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+	dwc->test_mode = false;
+
 	if (dwc->setup_prepared == 0) {
 		dwc2_ep0_out_start(dwc);
 	}
@@ -373,11 +381,6 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 
 	/* only disable in ep here */
 	__dwc2_gadget_ep_disable(dwc->eps[dwc->dev_if.num_out_eps], 1);
-
-	/* Clear the Remote Wakeup Signalling */
-	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.rmtwkupsig = 0;
-	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	/* Set NAK for all OUT EPs */
         for (i = 0; i <= dev_if->num_out_eps; i++) {
@@ -1711,6 +1714,9 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 		goto out;
 
 	if (dwc2_is_device_mode(dwc)) {
+		if (dwc->plugin)
+			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1730,8 +1736,6 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 	}
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
-
-	jz4780_set_charger_current(dwc);
 
 	return 0;
 }
@@ -2151,6 +2155,69 @@ void dwc2_handle_device_mode_interrupt(struct dwc2 *dwc, gintsts_data_t *gintr_s
 	}
 }
 
+static BLOCKING_NOTIFIER_HEAD(dwc2_notify_chain);
+
+int dwc2_register_state_notifier(struct notifier_block *nb)
+{
+        return blocking_notifier_chain_register(&dwc2_notify_chain, nb);
+}
+EXPORT_SYMBOL(dwc2_register_state_notifier);
+
+void dwc2_unregister_state_notifier(struct notifier_block *nb)
+{
+        blocking_notifier_chain_unregister(&dwc2_notify_chain, nb);
+}
+EXPORT_SYMBOL(dwc2_unregister_state_notifier);
+
+static void dwc2_ep0state_watcher_work(struct work_struct *work)
+{
+	struct dwc2	*dwc   = container_of(work, struct dwc2, ep0state_watcher_work);
+	int		 discon	= 0;
+	unsigned long	 flags;
+
+	dwc2_spin_lock_irqsave(dwc, flags);
+	discon = dwc->ep0state == EP0_DISCONNECTED;
+	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	DWC2_GADGET_DEBUG_MSG("%s: discon = %d\n", __func__, discon);
+	blocking_notifier_call_chain(&dwc2_notify_chain, discon, NULL);
+}
+
+static void dwc2_ep0state_watcher(unsigned long _dwc) {
+	struct dwc2	*dwc	= (struct dwc2 *)_dwc;
+	int		 notify = 0;
+	unsigned long	 flags;
+
+	dwc2_spin_lock_irqsave(dwc, flags);
+
+	dev_dbg(dwc->dev, "enter %s ep0state = %d ep0state_watch_count = %d\n",
+		__func__, dwc->ep0state, dwc->ep0state_watch_count);
+
+	if (dwc->ep0state_watch_count) {
+		if (dwc->ep0state != EP0_DISCONNECTED) {
+			dwc->ep0state_watch_count = 0;
+			notify = 1;
+		} else {
+			/* retry */
+			dwc->ep0state_watch_count --;
+			mod_timer(&dwc->ep0state_watcher,
+				jiffies + msecs_to_jiffies(DWC2_EP0STATE_WATCH_INTERVAL));
+		}
+	} else if (dwc->ep0state == EP0_DISCONNECTED) {
+		notify = 1;
+	}
+	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	if (notify)
+		schedule_work(&dwc->ep0state_watcher_work);
+}
+
+void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count) {
+	dwc->ep0state_watch_count = count;
+	mod_timer(&dwc->ep0state_watcher,
+		jiffies + msecs_to_jiffies(DWC2_EP0STATE_WATCH_INTERVAL));
+}
+
 /**
  * for use by usb_gadget_probe_driver()
  *
@@ -2214,6 +2281,11 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 
 	dwc->ep0state = EP0_DISCONNECTED;
 
+	init_timer(&dwc->ep0state_watcher);
+	dwc->ep0state_watcher.function = dwc2_ep0state_watcher;
+	dwc->ep0state_watcher.data = (unsigned long)dwc;
+	INIT_WORK(&dwc->ep0state_watcher_work, dwc2_ep0state_watcher_work);
+
 	ret = dwc2_gadget_init_endpoints(dwc);
 	if (ret)
 		goto err1;
@@ -2267,7 +2339,6 @@ void dwc2_gadget_plug_change(int plugin) {
 		return;
 
 	dwc2_spin_lock_irqsave(dwc, flags);
-
 	dwc->plugin = !!plugin;
 
 	if (!dwc2_is_device_mode(dwc)) {
@@ -2286,6 +2357,9 @@ void dwc2_gadget_plug_change(int plugin) {
 
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+		if (dwc->pullup_on)
+			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 	} else {
 		dctl.b.sftdiscon = 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);

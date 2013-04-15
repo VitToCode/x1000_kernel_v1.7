@@ -19,7 +19,6 @@
 
 #define OTG_CLK_NAME		"otg1"
 #define VBUS_REG_NAME		"vbus"
-#define UCHARGER_REG_NAME	"ucharger"
 
 #define USBRDT_VBFIL_LD_EN		25
 #define USBPCR_TXPREEMPHTUNE		6
@@ -47,10 +46,8 @@ struct dwc2_jz4780 {
 	struct jzdwc_pin 	*id_pin;
 	struct delayed_work	work;
 	struct delayed_work	host_id_work;
-	struct delayed_work	charger_delay_work;
 
 	struct regulator 	*vbus;
-	struct regulator 	*ucharger;
 
 	struct mutex		mutex;
 	int			pullup_on;
@@ -129,50 +126,6 @@ static inline void jz4780_usb_set_dual_mode(void)
 	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
-void jz4780_set_charger_current(struct dwc2 *dwc) {
-	struct dwc2_jz4780	*jz4780;
-	int			 insert;
-	int			 curr_limit;
-	dsts_data_t		 dsts;
-	int			 frame_num;
-
-	if (!dwc2_is_device_mode(dwc))
-		return;
-
-	jz4780 = container_of(dwc->pdev, struct dwc2_jz4780, dwc2);
-
-	curr_limit = regulator_get_current_limit(jz4780->ucharger);
-	printk("Before changed: the current is %d\n", curr_limit);
-
-	insert = get_pin_status(jz4780->dete);
-
-	/* read current frame/microframe number from DSTS register */
-	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
-	frame_num = dsts.b.soffn;
-
-	if ((insert == 1) && dwc->pullup_on &&
-		(frame_num == 0) &&
-		(dwc->op_state == DWC2_B_PERIPHERAL)) {
-		printk("upstream is not PC, it's a USB charger\n");
-		regulator_set_current_limit(jz4780->ucharger, 0, 800000);
-	}
-	curr_limit = regulator_get_current_limit(jz4780->ucharger);
-	printk("After changed: the current is %d\n", curr_limit);
-}
-
-static void set_charger_current_work(struct work_struct *work) {
-	struct dwc2_jz4780 *jz4780;
-	struct dwc2 *dwc;
-
-	jz4780 = container_of(work, struct dwc2_jz4780, charger_delay_work.work);
-	dwc = platform_get_drvdata(&jz4780->dwc2);
-
-	if (dwc)
-		jz4780_set_charger_current(dwc);
-	else		      /* re-schedule */
-		schedule_delayed_work(&jz4780->charger_delay_work, msecs_to_jiffies(600));
-}
-
 extern void dwc2_gadget_plug_change(int plugin);
 
 static void usb_detect_work(struct work_struct *work)
@@ -186,15 +139,6 @@ static void usb_detect_work(struct work_struct *work)
 	pr_info("USB %s\n", insert ? "connect" : "disconnect");
 	dwc2_gadget_plug_change(insert);
 
-	if (!IS_ERR(jz4780->ucharger)) {
-		if (insert) {
-			schedule_delayed_work(&jz4780->charger_delay_work,
-					msecs_to_jiffies(600));
-		} else {
-			regulator_set_current_limit(jz4780->ucharger, 0, 400000);
-			printk("Now recovery 400mA\n");
-		}
-	}
 	enable_irq(jz4780->dete_irq);
 }
 
@@ -329,15 +273,6 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	}
 	if (regulator_is_enabled(jz4780->vbus))
 		regulator_disable(jz4780->vbus);
-
-	jz4780->ucharger = regulator_get(NULL, UCHARGER_REG_NAME);
-
-	if (IS_ERR(jz4780->ucharger)) {
-		dev_err(&pdev->dev, "regulator %s get error\n", UCHARGER_REG_NAME);
-		goto fail_get_chg_reg;
-	} else {
-		INIT_DELAYED_WORK(&jz4780->charger_delay_work, set_charger_current_work);
-	}
 #else
 #error DWC OTG driver can NOT work without regulator!
 #endif
@@ -447,9 +382,6 @@ fail_req_dete_irq:
 		gpio_free(jz4780->dete->num);
 
 #ifdef CONFIG_REGULATOR
-	regulator_put(jz4780->ucharger);
-
-fail_get_chg_reg:
 	regulator_put(jz4780->vbus);
 
 fail_get_vbus_reg:
@@ -478,9 +410,6 @@ static int dwc2_jz4780_remove(struct platform_device *pdev) {
 		free_irq(jz4780->id_irq, jz4780);
 		gpio_free(jz4780->id_pin->num);
 	}
-
-	if (!IS_ERR(jz4780->ucharger))
-		regulator_put(jz4780->ucharger);
 
 	if (!IS_ERR(jz4780->vbus))
 		regulator_put(jz4780->vbus);

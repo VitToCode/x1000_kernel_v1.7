@@ -487,7 +487,13 @@ struct dwc2 {
 	enum dwc2_ep0_state		 ep0state;
 	enum dwc2_device_state		 dev_state;
 
-	struct timer_list delayed_status_watchdog;
+	struct timer_list	delayed_status_watchdog;
+
+#define DWC2_EP0STATE_WATCH_COUNT	10
+#define DWC2_EP0STATE_WATCH_INTERVAL	50 /* ms */
+	int			ep0state_watch_count;
+	struct timer_list	ep0state_watcher;
+	struct work_struct	ep0state_watcher_work;
 
 	/* Host */
 	struct usb_hcd		*hcd;
@@ -577,6 +583,28 @@ struct dwc2 {
 			break;						\
 	} while (1)
 
+#define dwc2_spin_trylock_irqsave(__dwc, flg)				\
+	do {								\
+		struct dwc2 *_dwc = (__dwc);				\
+		unsigned int loops = loops_per_jiffy * HZ / 1000;	\
+		int ret = 0;						\
+									\
+		spin_lock_irqsave(&_dwc->lock, (flg));			\
+		if (atomic_read(&_dwc->in_irq)) {			\
+			if (dwc->owner_cpu != smp_processor_id()) {	\
+				spin_unlock_irqrestore(&_dwc->lock, (flg)); \
+				loops--;				\
+				if (loops == 0) {			\
+					ret = -EAGAIN;			\
+					break;				\
+				}					\
+			} else						\
+				break;					\
+		} else							\
+			break;						\
+		(ret);							\
+	} while (1)
+
 #define dwc2_spin_unlock_irqrestore(__dwc, flg)			\
 	do {							\
 		struct dwc2 *_dwc = (__dwc);			\
@@ -608,6 +636,7 @@ void dwc2_host_exit(struct dwc2 *dwc);
 
 int dwc2_gadget_init(struct dwc2 *dwc);
 void dwc2_gadget_exit(struct dwc2 *dwc);
+void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count);
 
 void dwc2_enable_common_interrupts(struct dwc2 *dwc);
 uint8_t dwc2_is_device_mode(struct dwc2 *dwc);

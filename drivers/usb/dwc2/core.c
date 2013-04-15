@@ -898,6 +898,8 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			dwc2_gadget_handle_session_end(dwc);
 			dwc2_gadget_disconnect(dwc);
 
+			dwc2_start_ep0state_watcher(dwc, 0);
+
 			/* TODO: if adp enable, handle ADP Sense here */
 		}
 
@@ -1439,6 +1441,7 @@ static int dwc2_probe(struct platform_device *pdev)
 	spin_lock_init(&dwc->lock);
 	atomic_set(&dwc->in_irq, 0);
 	INIT_WORK(&dwc->otg_id_work, dwc2_conn_id_status_change_work);
+
 	platform_set_drvdata(pdev, dwc);
 
 	dwc->regs = regs;

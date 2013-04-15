@@ -690,10 +690,16 @@ static int dwc2_ep0_handle_feature(struct dwc2 *dwc,
 		case USB_DEVICE_TEST_MODE:
 			if ((wIndex & 0xff) != 0)
 				return -EINVAL;
+			/* 9.4.1: The Test_Mode feature cannot be cleared by the ClearFeature() request. */
 			if (!set)
 				return -EINVAL;
-
-			/* Test Mode Selector */
+			/*
+			 * The transition to test mode of an upstream facing port must not
+			 * happen until after the status stage of the request.
+			 *
+			 * NOTE: we do not bother to check if the Test Mode Selector is valid,
+			 *       the host must take care it!!!
+			 */
 			dwc->test_mode_nr = wIndex >> 8;
 			dwc->test_mode = true;
 			break;
@@ -966,6 +972,18 @@ static void dwc2_ep0_complete_data(struct dwc2 *dwc, int is_in) {
 static void dwc2_ep0_complete_status(struct dwc2 *dwc) {
 	struct dwc2_ep		*ep0	     = dwc2_ep0_get_ep0(dwc);
 	struct dwc2_request	*curr_req;
+	dctl_data_t		 dctl;
+
+	/* enter test mode if needed (exit by reset) */
+	if (dwc->test_mode) {
+		/*
+		 * The transition to test mode must be complete no later than 3 ms
+		 * after the completion of the status stage of the request.
+		 */
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		dctl.b.tstctl = dwc->test_mode_nr;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+	}
 
 	/*
 	 * prepare to receive SETUP again to ensure we are prepared!!!
@@ -976,6 +994,9 @@ static void dwc2_ep0_complete_status(struct dwc2 *dwc) {
 	if (curr_req) {
 		dwc2_gadget_giveback(ep0, curr_req, 0);
 	}
+
+	if (dwc->test_mode)
+		dev_info(dwc->dev, "entering Test Mode(%d)\n", dwc->test_mode_nr);
 
 	dwc->ep0state = EP0_SETUP_PHASE;
 }
