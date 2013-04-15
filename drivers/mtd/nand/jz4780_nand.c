@@ -49,7 +49,7 @@
 
 #define MAX_RB_TIMOUT_MS   20
 
-#define MAX_RESET_RELAY_MS 20
+#define MAX_RESET_DELAY_MS 20
 
 /* root entry to debug */
 static struct dentry *debugfs_root;
@@ -445,7 +445,7 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 			 * Apply this short delay always to ensure that we do wait tRST in
 			 * any case on any machine.
 			 */
-			mdelay(MAX_RESET_RELAY_MS);
+			mdelay(MAX_RESET_DELAY_MS);
 			break;
 		}
 
@@ -659,7 +659,7 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			 * Apply this short delay always to ensure that we do wait tRST in
 			 * any case on any machine.
 			 */
-			mdelay(MAX_RESET_RELAY_MS);
+			mdelay(MAX_RESET_DELAY_MS);
 			break;
 		}
 
