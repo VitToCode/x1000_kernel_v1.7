@@ -44,10 +44,12 @@
 
 #define DRVNAME "jz4780-nand"
 
-#define MAX_NUM_NAND_IF   7
-#define MAX_RB_DELAY_US   50
+#define MAX_NUM_NAND_IF    7
+#define MAX_RB_DELAY_US    50
 
-#define MAX_RB_TIMOUT_MS  20
+#define MAX_RB_TIMOUT_MS   20
+
+#define MAX_RESET_RELAY_MS 20
 
 /* root entry to debug */
 static struct dentry *debugfs_root;
@@ -101,7 +103,7 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 static nand_flash_info_t builtin_nand_info_table[] = {
 	{
 		/*
-		 * datasheet of K9GBG08U0A, P5, S1.2
+		 * Datasheet of K9GBG08U0A, V1.3, P5, S1.2
 		 * ECC : 24bit/1KB
 		 *
 		 * we assign 28bit/1KB here, the overs are usable when
@@ -112,7 +114,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			1024, 28,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
-			100, 100 * 1000, 1 * 1000, 90 * 1000,
+			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, BUS_WIDTH_8)
 	},
 };
@@ -323,6 +325,9 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 
 	nand_info = nand->curr_nand_flash_info;
 
+	/*
+	 * R/B# polling policy
+	 */
 	switch (command) {
 	case NAND_CMD_READID:
 	case NAND_CMD_RESET:
@@ -335,10 +340,10 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 			nand->xfer_type = NAND_XFER_CPU_POLL;
 			break;
 
-		case NAND_XFER_DMA_POLL:
-		case NAND_XFER_CPU_POLL:
+		default:
 			break;
 		}
+
 		break;
 	}
 
@@ -435,8 +440,15 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 		return;
 
 	case NAND_CMD_RESET:
-		if (chip->dev_ready)
+		if (chip->dev_ready) {
+			/*
+			 * Apply this short delay always to ensure that we do wait tRST in
+			 * any case on any machine.
+			 */
+			mdelay(MAX_RESET_RELAY_MS);
 			break;
+		}
+
 		udelay(chip->chip_delay);
 		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
 			       NAND_CTRL_CLE | NAND_CTRL_CHANGE);
@@ -468,10 +480,11 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	nand->xfer_type = old_xfer_type;
 }
 
-static void jz4780_nand_command_readoob_for_lp(struct mtd_info *mtd, unsigned int command,
-	    int column, int page_addr)
+static void jz4780_nand_command_readoob_lp(struct mtd_info *mtd,
+		int column, int page_addr)
 {
 	register struct nand_chip *chip = mtd->priv;
+	unsigned int command = NAND_CMD_READ0;
 
 	chip->cmd_ctrl(mtd, command & 0xff,
 			   NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
@@ -482,8 +495,9 @@ static void jz4780_nand_command_readoob_for_lp(struct mtd_info *mtd, unsigned in
 		/* Serially input address */
 		if (column != -1) {
 			/*
-			 * K9GBG08U0A P35 S4.8
-			 * Note1 A0 column address should be fixed to "0" in 1-plane read operation.
+			 * Datesheet K9GBG08U0A, V1.3, P35, S4.8
+			 * Note1: A0 column address should be fixed to "0"
+			 * in 1-plane read operation.
 			 */
 			chip->cmd_ctrl(mtd, 0, ctrl);
 			ctrl &= ~NAND_CTRL_CHANGE;
@@ -544,10 +558,7 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 	/* Emulate NAND_CMD_READOOB */
 	if (command == NAND_CMD_READOOB) {
 		column += mtd->writesize;
-		command = NAND_CMD_READ0;
-
-		return jz4780_nand_command_readoob_for_lp(mtd, command,
-				column, page_addr);
+		return jz4780_nand_command_readoob_lp(mtd, column, page_addr);
 	}
 
 	/* Command latch cycle */
@@ -643,8 +654,15 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 		return;
 
 	case NAND_CMD_RESET:
-		if (chip->dev_ready)
+		if (chip->dev_ready) {
+			/*
+			 * Apply this short delay always to ensure that we do wait tRST in
+			 * any case on any machine.
+			 */
+			mdelay(MAX_RESET_RELAY_MS);
 			break;
+		}
+
 		udelay(chip->chip_delay);
 		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
 			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
