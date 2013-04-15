@@ -166,11 +166,6 @@ typedef struct {
 	u32 Twhr;
 
 	/*
-	 * #WE High to #RE Low for Random data out
-	 */
-	u32 Twhr2;
-
-	/*
 	 * #RE Pulse Width
 	 */
 	u32 Trp;
@@ -226,6 +221,11 @@ typedef struct {
 		 * Dummy Busy Time for Intelligent Copy-Back Read
 		 */
 		u32 Tdcbsyr2;
+
+		/*
+		 * #WE High to #RE Low for Random data out
+		 */
+		u32 Twhr2;
 	} busy_wait_timing;
 
 	bus_width_t BW;
