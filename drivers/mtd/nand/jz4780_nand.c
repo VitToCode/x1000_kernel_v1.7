@@ -1209,27 +1209,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		nand->bch_req.blksz     =
 				nand->curr_nand_flash_info->ecc_step.data_size;
 
-		chip->ecc.mode      = NAND_ECC_HW;
-		chip->ecc.calculate = jz4780_nand_ecc_calculate_bch;
-		chip->ecc.correct   = jz4780_nand_ecc_correct_bch;
-		chip->ecc.hwctl     = jz4780_nand_ecc_hwctl;
-		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size;
-		chip->ecc.bytes = bch_ecc_bits_to_bytes(
-				nand->curr_nand_flash_info->ecc_step.ecc_bits);
-
-		chip->ecc.strength = nand->bch_req.ecc_level;
-
-#ifdef BCH_REQ_ALLOC_ECC_DATA_BUFFER
-		nand->bch_req.ecc_data  = kzalloc(MAX_ECC_DATA_SIZE,
-				GFP_KERNEL);
-		if (!nand->bch_req.ecc_data) {
-			dev_err(&pdev->dev,
-				"Failed to allocate ECC ecc_data buffer\n");
-			ret = -ENOMEM;
-
-			goto err_free_wp_gpio;
-		}
-#endif
 		nand->bch_req.errrept_data = kzalloc(MAX_ERRREPT_DATA_SIZE,
 				GFP_KERNEL);
 		if (!nand->bch_req.errrept_data) {
@@ -1242,6 +1221,16 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		}
 
 		init_completion(&nand->bch_req_done);
+
+		chip->ecc.mode      = NAND_ECC_HW;
+		chip->ecc.calculate = jz4780_nand_ecc_calculate_bch;
+		chip->ecc.correct   = jz4780_nand_ecc_correct_bch;
+		chip->ecc.hwctl     = jz4780_nand_ecc_hwctl;
+		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size;
+		chip->ecc.bytes = bch_ecc_bits_to_bytes(
+				nand->curr_nand_flash_info->ecc_step.ecc_bits);
+
+		chip->ecc.strength = nand->bch_req.ecc_level;
 
 		break;
 
@@ -1360,12 +1349,6 @@ static int jz4780_nand_remove(struct platform_device *pdev)
 
 		gpemc_release_cs(&nand_if->cs);
 	}
-
-	/* free ECC BCH resource */
-#ifdef	BCH_REQ_ALLOC_ECC_DATA_BUFFER
-	if (nand->bch_req.ecc_data)
-		kfree(nand->bch_req.ecc_data);
-#endif
 
 	if (nand->bch_req.errrept_data)
 		kfree(nand->bch_req.errrept_data);
