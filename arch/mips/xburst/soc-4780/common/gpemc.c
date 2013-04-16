@@ -887,23 +887,24 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	/* bank Tas */
 	temp = max(timing->Tals, timing->Tcls);
 	bank->bank_timing.sram_timing.Tas = temp;
+	bank->bank_timing.sram_timing.Tas += timing->all_timings_plus;
 
 	/* bank Tah */
 	temp = max(timing->Talh, timing->Tclh);
 	temp = max(temp, timing->Tch);
 	temp = max(temp, timing->Tdh);
 	bank->bank_timing.sram_timing.Tah = temp;
+	bank->bank_timing.sram_timing.Tah += timing->all_timings_plus;
 
 	/* bank Taw */
 	temp = max(timing->Trc, timing->Twc);
 	temp = max(temp - bank->bank_timing.sram_timing.Tah, timing->Trp);
 	bank->bank_timing.sram_timing.Taw = temp;
+	bank->bank_timing.sram_timing.Taw += timing->all_timings_plus;
 
 	/*
 	 * bank Tstrv
-	 *
-	 * TODO: Twhr2 should be considered.
-	 *
+	 * no need to do timings plus
 	 */
 	temp = max(timing->Trhw, timing->Twhr);
 	bank->bank_timing.sram_timing.Tstrv = temp;
@@ -912,6 +913,7 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	temp = timing->Twp;
 	temp = max(temp, (timing->Twc - timing->Twp));
 	bank->bank_timing.sram_timing.Tbp = temp;
+	bank->bank_timing.sram_timing.Tbp += timing->all_timings_plus;
 
 	/* bank BW */
 	bank->bank_timing.BW = timing->BW;

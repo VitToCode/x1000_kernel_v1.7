@@ -229,6 +229,8 @@ typedef struct {
 	} busy_wait_timing;
 
 	bus_width_t BW;
+
+	u32 all_timings_plus;
 } common_nand_timing_t;
 
 typedef struct {

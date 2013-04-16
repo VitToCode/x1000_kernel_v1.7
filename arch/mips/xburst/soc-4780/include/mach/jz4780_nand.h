@@ -95,6 +95,7 @@ struct jz4780_nand_platform_data {
 #define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
 		_DATA_SIZE_PRE_ECC_STEP,	\
 		_ECC_BITS_PRE_ECC_STEP,	\
+		_ALL_TIMINGS_PLUS,	\
 		_Tcls, _Tclh, _Tals, _Talh,	\
 		_Tcs, _Tch, _Tds, _Tdh, _Twp,	\
 		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
@@ -139,6 +140,7 @@ struct jz4780_nand_platform_data {
 				},	\
 					\
 				.BW = (_BW),	\
+				.all_timings_plus = (_ALL_TIMINGS_PLUS),	\
 			},	\
 		},
 

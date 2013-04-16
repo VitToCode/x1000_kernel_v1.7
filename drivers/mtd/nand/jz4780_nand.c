@@ -136,7 +136,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 28,
+			1024, 28, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
@@ -153,7 +153,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
-			1024, 28,
+			1024, 28, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 100, 60, 60, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, BUS_WIDTH_8)
@@ -1231,7 +1231,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		goto err_free_wp_gpio;
 	}
 
-	/* step4. configure bank timing */
+	/* step3. configure bank timing */
 	nand->curr_nand_flash_info = &nand->nand_flash_info_table[bank];
 	switch (nand->curr_nand_flash_info->type) {
 	case BANK_TYPE_NAND:
