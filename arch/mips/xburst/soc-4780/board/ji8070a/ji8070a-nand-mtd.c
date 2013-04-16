@@ -95,6 +95,56 @@ static nand_flash_if_t nand_interfaces[] = {
 	{ COMMON_NAND_INTERFACE(1, GPIO_BUSY0, 1, GPIO_WP, 1) },
 };
 
+static nand_flash_info_t board_support_nand_info_table[] = {
+
+	#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
+	#define NAND_FLASH_K9GBG08U0A_ID             0xd7
+
+	#define NAND_FLASH_MT29F32G08CBACAWP         "MT29F32G08CBACAWP"
+	#define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
+
+	{
+		/*
+		 * Datasheet of K9GBG08U0A, Rev-1.3, P5, S1.2
+		 * ECC : 24bit/1KB
+		 *
+		 * we assign 28bit/1KB here, the overs are usable when
+		 * bitflips occur in OOB area
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
+			1024, 28,
+			/*
+			 * all timings adjust to +5ns
+			 * **************************
+			 */
+			5,
+			/*
+			 * **************************
+			 */
+			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
+			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
+			100, 200 * 1000, 1 * 1000, 200 * 1000,
+			5 * 1000 * 1000, BUS_WIDTH_8)
+	},
+
+	{
+		/*
+		 * Datasheet of MT29F32G08CBACA(WP), Rev-E, P109, Table-17
+		 * ECC : 24bit/1080bytes
+		 *
+		 * we assign 28bit/1KB here, the overs are usable when
+		 * bitflips occur in OOB area
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
+			1024, 28, 0,
+			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
+			20, 20, 70, 100, 60, 60, 10, 20, 0, 100,
+			100, 100 * 1000, 0, 0, 0, BUS_WIDTH_8)
+	},
+};
+
 static struct jz4780_nand_platform_data nand_pdata = {
 	.part_table = parts,
 	.num_part = ARRAY_SIZE(parts),
@@ -125,6 +175,14 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	 * is about 10% ~ 15%
 	 */
 	.xfer_type = NAND_XFER_CPU_POLL,
+
+
+	/*
+	 * use board specific NAND timings because the timings
+	 * need adjust for this board
+	 */
+	.nand_flash_info_table = board_support_nand_info_table,
+	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_table),
 };
 
 static struct platform_device nand_dev = {
