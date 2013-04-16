@@ -920,7 +920,7 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 
 		seq_printf(m, "Chip name: %s\n", nand_info->name);
 		if (nand->chip.onfi_version)
-			seq_printf(m, "ONFI: v%d", nand->chip.onfi_version);
+			seq_printf(m, "ONFI: v%d\n", nand->chip.onfi_version);
 		else
 			seq_printf(m, "ONFI: unsupported\n");
 		seq_printf(m, "Chip devid: 0x%x\n", nand_info->nand_dev_id);
