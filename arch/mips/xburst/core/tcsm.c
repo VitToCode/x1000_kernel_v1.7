@@ -60,6 +60,33 @@ unsigned int get_cpu_tcsm(int cpu,int len,char *name) {
 	return 0;
 }
 
+#ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+unsigned long save_buf[ 32 * 1024 ] __attribute__ ((aligned (32)));
+unsigned long check_buf[ 32 * 1024 ] __attribute__ ((aligned (32)));
+void tcsm_check(int *a,int *b,int size)
+{
+	int i;
+	for(i=0;i<size/4;i++) {
+		if(a[i] != b[i]) {
+			printk("not sync.\nsave buf:");
+			for(i=0;i<size/4;i++) {
+				if(i%8 == 0) printk("\n");
+				printk("%08x ",a[i]);
+			}
+			printk("\ncheck buf:");
+
+			for(i=0;i<size/4;i++) {
+				if(i%8 == 0) printk("\n");
+				printk("%08x ",b[i]);
+			}
+			printk("\n");
+
+			break;
+		}
+	}
+}
+#endif
+
 extern unsigned long reserved_for_alloccache[]; //from c-jz.c
 void cpu0_save_tscm(void) {
 	struct tcsm_mem *pos;
@@ -71,6 +98,11 @@ void cpu0_save_tscm(void) {
 			memcpy((void*)((unsigned int)reserved_for_alloccache + pos->start),
 			       (void*)(pos->start + CPU_TCSM_BASE),
 			       pos->size);
+#ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+			memcpy((void*)((unsigned int)save_buf + pos->start),
+				(void*)(pos->start + CPU_TCSM_BASE),
+				pos->size);
+#endif
 		}
 	}
 	spin_unlock(&tcsm_lock);
@@ -85,6 +117,12 @@ void cpu0_restore_tscm(void) {
 			memcpy((void*)(pos->start + CPU_TCSM_BASE),
 			       (void*)((unsigned int)reserved_for_alloccache + pos->start),
 			       pos->size);
+#ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+			memcpy((void*)((unsigned int)check_buf + pos->start),
+				(void*)(pos->start + CPU_TCSM_BASE),
+				pos->size);
+			tcsm_check((int *)save_buf,(int *)check_buf,pos->size);
+#endif
 		}
 	}
 	spin_unlock(&tcsm_lock);

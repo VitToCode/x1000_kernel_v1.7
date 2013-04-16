@@ -77,6 +77,11 @@ config TRAPS_USE_TCSM
 	bool "move irq handler to tcsm"
 	default n
 
+config TRAPS_USE_TCSM_CHECK
+	depends on TRAPS_USE_TCSM
+	bool "check tcsm when power resume"
+	default n
+
 config EARLYSUSPEND_CPU
 	depends on EARLYSUSPEND
 	bool "suspend non-boot cpu when enter early suspend"
