@@ -32,22 +32,9 @@
 /**
  * global variable
  **/
-#ifndef  CONFIG_BT_SCO
-struct pcm_conf_info pcm_conf_info = {
-		.pcm_sync_clk = 8000,
-		.pcm_clk	= 8000*128,
-		.iss = 8,
-		.oss = 8,
-		.pcm_device_mode = PCM_MASTER,
-		.pcm_imsb_pos = ONE_SHIFT_MODE,
-		.pcm_omsb_pos = ONE_SHIFT_MODE,
-		.pcm_sync_len = 1,
-		.pcm_slot_num = 1,
-};
-#else
 struct pcm_conf_info pcm_conf_info = {
 		.pcm_sync_clk = 0,
-		.pcm_clk	= 12000000,
+		.pcm_clk	= 0,
 		.iss = 16,
 		.oss = 16,
 		.pcm_device_mode = PCM_SLAVE,
@@ -56,7 +43,6 @@ struct pcm_conf_info pcm_conf_info = {
 		.pcm_sync_len = 1,
 		.pcm_slot_num = 1,
 };
-#endif
 
 void volatile __iomem *volatile pcm_iomem;
 
@@ -635,13 +621,17 @@ pcm_default:
 	 * There is a very cursory arithmetic for pcmclk and pcm sync
 	 * If possible, do not use it,config the epll in bootlarder
 	 */
+	if (pcm_priv->pcmclk)
+		return -EINVAL;
 	div_total = pcm_priv->cpm_epll_clk/pcm_priv->pcmclk;
+	if (div_total == 0)
+		return -EINVAL;
 	if ((pcm_priv->cpm_epll_clk/div_total - pcm_priv->pcmclk) >
 			(pcm_priv->pcmclk - pcm_priv->cpm_epll_clk/(div_total+1)))
 		div_total = div_total + 1;
 	if (div_total > 512) {
 		for (i = 2; i <= 512;i++) {
-			if (div_total%i == 0 && div_total/i <=64) {
+			if (div_total%i == 0 && div_total/i <=64 || div_total/i == 0) {
 				sys_div = i;
 				pcm_clk_div = div_total/i;
 				break;
@@ -680,7 +670,6 @@ static int pcm_clk_init(struct platform_device *pdev)
 		goto __err_epll_clk_get;
 	}
 	pcm_priv->cpm_epll_clk = clk_get_rate(epll_clk);
-	printk("pcm_priv->cpm_epll_clk = %ld\n",pcm_priv->cpm_epll_clk);
 
 	pcmclk = clk_get(&pdev->dev, "pcm");
 	if (IS_ERR(pcmclk)) {
@@ -692,24 +681,19 @@ static int pcm_clk_init(struct platform_device *pdev)
 	if (pcm_priv->pcm_device_mode == PCM_MASTER)
 		calculate_pcm_clk();
 
-	if (pcm_priv->pcm_sysclk == 0) {
-		pcm_priv->pcm_sysclk = 12000000;
-		printk(KERN_WARNING"pcm sysclk is used default 12000000\n");
+	if (pcm_priv->pcm_sysclk != 0) {
+		pcm_sysclk = clk_get(&pdev->dev, "cgu_pcm");
+		if (IS_ERR(pcm_sysclk)) {
+			printk(KERN_ERR"CGU pcm clk_get failed\n");
+			goto __err_pcmclk;
+		}
+		clk_set_rate(pcm_sysclk, pcm_priv->pcm_sysclk);
+		if (clk_get_rate(pcm_sysclk) > pcm_priv->pcm_sysclk) {
+			printk("codec interface set rate fail clk_get_rate(pcm_sysclk) = %ld ,pcm_priv->pcm_sysclk = %ld\n",
+					clk_get_rate(pcm_sysclk),pcm_priv->pcm_sysclk);
+		}
+		clk_enable(pcm_sysclk);
 	}
-
-	pcm_sysclk = clk_get(&pdev->dev, "cgu_pcm");
-	if (IS_ERR(pcm_sysclk)) {
-		printk(KERN_ERR"CGU pcm clk_get failed\n");
-		goto __err_pcmclk;
-	}
-	clk_set_rate(pcm_sysclk, pcm_priv->pcm_sysclk);
-	if (clk_get_rate(pcm_sysclk) > pcm_priv->pcm_sysclk) {
-		printk("codec interface set rate fail clk_get_rate(pcm_sysclk) = %ld ,pcm_priv->pcm_sysclk = %ld\n",
-				clk_get_rate(pcm_sysclk),pcm_priv->pcm_sysclk);
-	}
-	printk("clk_get_rate(pcm_sysclk) = %ld ,pcm_priv->pcm_sysclk = %ld\n",
-			clk_get_rate(pcm_sysclk),pcm_priv->pcm_sysclk);
-	clk_enable(pcm_sysclk);
 
 	if (pcm_priv->pcm_device_mode == PCM_MASTER) {
 		__pcm_as_master();
@@ -752,7 +736,6 @@ static int pcm_init(struct platform_device *pdev)
 	struct dsp_pipe *pcm_pipe_out = NULL;
 	struct dsp_pipe *pcm_pipe_in = NULL;
 
-	printk("================pcm init============\n");
 	/* map io address */
 	pcm_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (pcm_resource == NULL) {
@@ -810,7 +793,6 @@ static int pcm_init(struct platform_device *pdev)
 	__pcm_flush_fifo();
 	__pcm_clear_ror();
 	__pcm_clear_tur();
-	printk("__pcm_set_receive_trigger================\n");
 	__pcm_set_receive_trigger(7);
 	__pcm_set_transmit_trigger(8);
 	__pcm_disable_overrun_intr();
@@ -869,12 +851,13 @@ struct snd_dev_data snd_mixer1_data = {
 
 static int __init init_pcm(void)
 {
-	pcm_priv = (struct pcm_board_info *)vmalloc(sizeof(struct pcm_board_info));
+	pcm_priv = (struct pcm_board_info *)vzalloc(sizeof(struct pcm_board_info));
 	if (!pcm_priv)
 		return -1;
 
 	pcm_priv->rate = pcm_conf_info.pcm_sync_clk;
 	pcm_priv->pcmclk = pcm_conf_info.pcm_clk;
+	pcm_priv->pcm_sysclk = pcm_conf_info.pcm_sysclk;
 	pcm_priv->pcm_device_mode = pcm_conf_info.pcm_device_mode;
 	pcm_priv->replay_format = pcm_conf_info.iss;
 	pcm_priv->record_format = pcm_conf_info.oss;
