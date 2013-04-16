@@ -61,6 +61,7 @@ unsigned int get_cpu_tcsm(int cpu,int len,char *name) {
 }
 
 #ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+static int error = 0;
 unsigned long save_buf[ 32 * 1024 ] __attribute__ ((aligned (32)));
 unsigned long check_buf[ 32 * 1024 ] __attribute__ ((aligned (32)));
 void tcsm_check(int *a,int *b,int size)
@@ -81,6 +82,7 @@ void tcsm_check(int *a,int *b,int size)
 			}
 			printk("\n");
 
+			error = 1;
 			break;
 		}
 	}
@@ -91,6 +93,9 @@ extern unsigned long reserved_for_alloccache[]; //from c-jz.c
 void cpu0_save_tscm(void) {
 	struct tcsm_mem *pos;
 	int i;
+#ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+	if(error) while(1);
+#endif
 	spin_lock(&tcsm_lock);
 	for(i = 0;i < tcsm_cur_pos;i++) {
 		pos = &tcsm_cell[i];

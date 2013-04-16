@@ -451,9 +451,15 @@ static int __init setup_gpio_irq(void)
 
 void gpio_suspend_set(struct jzgpio_chip *jz)
 {
-#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
+#ifdef CONFIG_TRAPS_USE_TCSM_CHECK
+	return;
+#endif
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+	return;
+#endif
+
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
-    if (need_update_gpio_ss()) {
+	if (need_update_gpio_ss()) {
 		gpio_set_func(jz,GPIO_OUTPUT0,
 				jz->sleep_state2.output_low & ~jz->wake_map);
 		gpio_set_func(jz,GPIO_OUTPUT1,
@@ -462,7 +468,7 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 				jz->sleep_state2.input_nopull & ~jz->wake_map);
 		gpio_set_func(jz,GPIO_INPUT_PULL,
 				jz->sleep_state2.input_pull & ~jz->wake_map);
-    } else {
+	} else {
 #endif
 		gpio_set_func(jz,GPIO_OUTPUT0,
 				jz->sleep_state.output_low & ~jz->wake_map);
@@ -473,8 +479,7 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 		gpio_set_func(jz,GPIO_INPUT_PULL,
 				jz->sleep_state.input_pull & ~jz->wake_map);
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
-    }
-#endif
+	}
 #endif
 }
 
