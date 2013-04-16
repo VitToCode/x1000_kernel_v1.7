@@ -969,6 +969,10 @@ config USB_G_ANDROID
 	  enabled and disabled dynamically.
 
 if USB_G_ANDROID
+config USB_ANDROID_RAWBULK
+	boolean "Android rawbulk framework function support"
+	depends on USB_G_ANDROID
+
 config  USB_SERIAL_NUM
 	string "SN(Serial Number of Device)"
 	default "Ingenic"

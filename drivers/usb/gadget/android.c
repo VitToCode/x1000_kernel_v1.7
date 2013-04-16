@@ -58,6 +58,9 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+#include "f_rawbulk.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -663,6 +666,43 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+static int rawbulk_function_init(struct android_usb_function *f,struct usb_composite_dev *cdev)
+{
+	return 0;
+}
+
+static void rawbulk_function_cleanup(struct android_usb_function *f)
+{
+}
+
+static int rawbulk_function_bind_config(struct android_usb_function *f,struct usb_configuration *c)
+{
+	if (!strncmp(f->name, "rawbulk", 5))
+		return rawbulk_bind_config(c, RAWBULK_TID_MODEM);
+	return -EINVAL;
+}
+
+static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
+		struct usb_composite_dev *cdev,
+		const struct usb_ctrlrequest *c)
+{
+	if ((c->bRequestType & USB_RECIP_MASK) == USB_RECIP_DEVICE &&
+			(c->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
+		struct rawbulk_function *fn = rawbulk_lookup_function(RAWBULK_TID_MODEM);
+		return rawbulk_function_setup(&fn->function, c);
+	}
+	return -1;
+}
+
+static struct android_usb_function rawbulk_modem_function = {
+	.name		= "rawbulk",
+	.init		= rawbulk_function_init,
+	.cleanup	= rawbulk_function_cleanup,
+	.bind_config	= rawbulk_function_bind_config,
+	.ctrlrequest	= rawbulk_function_ctrlrequest,
+};
+#endif
 
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
@@ -672,9 +712,11 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	&rawbulk_modem_function,
+#endif
 	NULL
 };
-
 
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
