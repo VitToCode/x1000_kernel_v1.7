@@ -683,7 +683,7 @@ static void gpemc_release_gpio_for_toggle_nand(gpemc_bank_t *bank)
 
 static int gpemc_request_gpio(gpemc_bank_t *bank)
 {
-	int ret;
+	int ret = 0;
 
 	switch (bank->bank_type) {
 	case BANK_TYPE_SRAM:
@@ -698,6 +698,7 @@ static int gpemc_request_gpio(gpemc_bank_t *bank)
 		ret = gpemc_request_gpio_for_toggle_nand(bank);
 		break;
 	default:
+		ret = -EINVAL;
 		break;
 	}
 
@@ -795,7 +796,7 @@ static void gpemc_set_bank_role(gpemc_bank_t *bank)
 int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 {
 	struct resource *res;
-	int ret;
+	int ret = 0;
 
 	BUG_ON(cs < 1 || cs >= ARRAY_SIZE(gpemc->bank_mem));
 	BUG_ON(bank->bank_type < BANK_TYPE_SRAM
@@ -938,11 +939,15 @@ EXPORT_SYMBOL(gpemc_fill_timing_from_sram);
 
 void gpemc_relax_bank_timing(gpemc_bank_t *bank)
 {
-	/* all sram timing relax */
-	gpemc->regs_file->smcr[bank->cs - 1] = ~(u32)0;
-
-	/* BW=8, BL=4, Normal sram */
-	gpemc->regs_file->smcr[bank->cs - 1] &= ~((0x3 << 6) | 0x3f);
+	/*
+	 * all sram timing relax to half of special cycles
+	 * BW=8, BL=4, Normal sram
+	 *
+	 * WTF!? it's reasonless that we got corrupt data if
+	 * set all special timings cycles to max
+	 */
+	gpemc->regs_file->smcr[bank->cs - 1] = (0xf << 24) | (0xc << 20)
+			| (0xc << 16) | (0x8 << 12) | (0x8 << 8);
 
 	/* TODO: all toggle nand timing relax  */
 }
