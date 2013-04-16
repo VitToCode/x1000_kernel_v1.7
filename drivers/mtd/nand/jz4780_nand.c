@@ -128,7 +128,7 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 static nand_flash_info_t builtin_nand_info_table[] = {
 	{
 		/*
-		 * Datasheet of K9GBG08U0A, V1.3, P5, S1.2
+		 * Datasheet of K9GBG08U0A, Rev-1.3, P5, S1.2
 		 * ECC : 24bit/1KB
 		 *
 		 * we assign 28bit/1KB here, the overs are usable when
@@ -142,7 +142,25 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, BUS_WIDTH_8)
 	},
+
+	{
+		/*
+		 * Datasheet of MT29F32G08CBACA(WP), Rev-E, P109, Table-17
+		 * ECC : 24bit/1080bytes
+		 *
+		 * we assign 28bit/1KB here, the overs are usable when
+		 * bitflips occur in OOB area
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
+			1024, 28,
+			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
+			20, 20, 70, 100, 60, 60, 10, 20, 0, 100,
+			100, 100 * 1000, 0, 0, 0, BUS_WIDTH_8)
+	},
 };
+
+
 
 const char *label_wp_gpio[] = {
 	DRVNAME"-THIS-IS-A-BUG",
@@ -901,6 +919,10 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 		seq_printf(m, "Attached NAND flash:\n");
 
 		seq_printf(m, "Chip name: %s\n", nand_info->name);
+		if (nand->chip.onfi_version)
+			seq_printf(m, "ONFI: v%d", nand->chip.onfi_version);
+		else
+			seq_printf(m, "ONFI: unsupported\n");
 		seq_printf(m, "Chip devid: 0x%x\n", nand_info->nand_dev_id);
 		seq_printf(m, "Chip size: %dMB\n", (int)(nand->chip.chipsize >> 20));
 		seq_printf(m, "Erase size: %ubyte\n", nand->mtd.erasesize);
@@ -1157,31 +1179,55 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 * post configure bank timing by detected NAND device
 	 */
 
-	/* step1. read devid */
-	chip->select_chip(mtd, 0);
-	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
-	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
-	nand_dev_id = chip->read_byte(mtd);
-	nand_dev_id = chip->read_byte(mtd);
-	chip->select_chip(mtd, -1);
-
-	/* step2. replace NAND command function with large page version */
+	/* step1. replace NAND command function with large page version */
 	if (mtd->writesize > 512)
 		chip->cmdfunc = jz4780_nand_command_lp;
 
-	/* step3. find NAND flash info */
-	nand_if = nand->nand_flash_if_table[0];
-	for (bank = 0; bank < nand->num_nand_flash_info; bank++)
-		if (nand_dev_id ==
-				nand->nand_flash_info_table[bank].nand_dev_id &&
-				nand_if->cs.bank_type ==
-						nand->nand_flash_info_table[bank].type)
-			break;
+	/* step2. find NAND flash info */
+	if (!chip->onfi_version) {
+		/*
+		 * by traditional way
+		 */
+		chip->select_chip(mtd, 0);
+		chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+		chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
+		nand_dev_id = chip->read_byte(mtd);
+		nand_dev_id = chip->read_byte(mtd);
+		chip->select_chip(mtd, -1);
+
+		nand_if = nand->nand_flash_if_table[0];
+			for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
+			if (nand_dev_id ==
+					nand->nand_flash_info_table[bank].nand_dev_id &&
+					nand_if->cs.bank_type ==
+							nand->nand_flash_info_table[bank].type)
+				break;
+		}
+	} else {
+		/*
+		 * by ONFI way
+		 */
+		nand_if = nand->nand_flash_if_table[0];
+		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
+			if (!strncmp(chip->onfi_params.model,
+					nand->nand_flash_info_table[bank].name, 20) &&
+					nand_if->cs.bank_type ==
+							nand->nand_flash_info_table[bank].type)
+				break;
+		}
+	}
 
 	if (bank == nand->num_nand_flash_info) {
-		dev_err(&pdev->dev,
-			"Failed to find NAND info for devid: 0x%x\n",
-				nand_dev_id);
+		if (!chip->onfi_version) {
+			dev_err(&pdev->dev,
+				"Failed to find NAND info for devid: 0x%x\n",
+					nand_dev_id);
+		} else {
+			dev_err(&pdev->dev,
+				"Failed to find NAND info for model: %s\n",
+					chip->onfi_params.model);
+		}
+
 		goto err_free_wp_gpio;
 	}
 
@@ -1189,7 +1235,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	nand->curr_nand_flash_info = &nand->nand_flash_info_table[bank];
 	switch (nand->curr_nand_flash_info->type) {
 	case BANK_TYPE_NAND:
-		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
+		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_nand(&nand_if->cs,
@@ -1207,7 +1253,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		break;
 
 	case BANK_TYPE_TOGGLE:
-		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
+		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_toggle(&nand_if->cs,

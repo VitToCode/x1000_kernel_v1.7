@@ -100,12 +100,12 @@ struct jz4780_nand_platform_data {
 		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
 		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
 		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _BW)	\
-		.name = _NAME,	\
+		.name = (_NAME),	\
 		.nand_dev_id = (_DEV_ID),	\
 		.type = BANK_TYPE_NAND,	\
 		.ecc_step = {	\
 			.data_size = (_DATA_SIZE_PRE_ECC_STEP),	\
-			.ecc_bits = _ECC_BITS_PRE_ECC_STEP,	\
+			.ecc_bits = (_ECC_BITS_PRE_ECC_STEP),	\
 		},	\
 		.nand_timing = {	\
 			.common_nand_timing = {	\
