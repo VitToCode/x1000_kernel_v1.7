@@ -66,9 +66,15 @@ static struct dentry *debugfs_root;
  *
  * "EC D7 94 7A" --- this one can be detected properly
  */
-#define NAND_FLASH_K9GBG08U0A_NANE  "K9GBG08U0A"
-#define NAND_FLASH_K9GBG08U0A_ID    0xd7
+#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
+#define NAND_FLASH_K9GBG08U0A_ID             0xd7
 
+
+/*
+ * Detected by rules of ONFI v2.2
+ */
+#define NAND_FLASH_MT29F32G08CBACAWP         "MT29F32G08CBACAWP"
+#define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
 
 /*
  * ******************************************************
@@ -83,6 +89,8 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 	 */
 
 	/*
+	 * K9GBG08U0A
+	 *
 	 * !!!Caution
 	 * please do not use busy pin IRQ over "K9GBG08U0A"
 	 * the chip is running under very rigorous timings
@@ -91,6 +99,23 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 		NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
 		0, 4096, 0, LP_OPTIONS
 	},
+
+
+
+	/*
+	 * MT29F32G08CBACA(WP) --- support ONFI v2.2
+	 *
+	 * it was detected by rules of ONFI v2.2
+	 * so you can complete remove this match entry
+	 *
+	 */
+	{
+		NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
+		0, 4096, 0, LP_OPTIONS
+	},
+
+
+	{NULL,}
 };
 
 
@@ -1155,7 +1180,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 
 	if (bank == nand->num_nand_flash_info) {
 		dev_err(&pdev->dev,
-			"Failed to find NAND info for devid:%d\n",
+			"Failed to find NAND info for devid: 0x%x\n",
 				nand_dev_id);
 		goto err_free_wp_gpio;
 	}
