@@ -669,15 +669,18 @@ static struct android_usb_function accessory_function = {
 #ifdef CONFIG_USB_ANDROID_RAWBULK
 static int rawbulk_function_init(struct android_usb_function *f,struct usb_composite_dev *cdev)
 {
+	printk("%s %d\n",__func__,__LINE__);
 	return 0;
 }
 
 static void rawbulk_function_cleanup(struct android_usb_function *f)
 {
+	printk("%s %d\n",__func__,__LINE__);
 }
 
 static int rawbulk_function_bind_config(struct android_usb_function *f,struct usb_configuration *c)
 {
+	printk("%s %d\n",__func__,__LINE__);
 	if (!strncmp(f->name, "rawbulk", 5))
 		return rawbulk_bind_config(c, RAWBULK_TID_MODEM);
 	return -EINVAL;
@@ -687,15 +690,23 @@ static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
 		struct usb_composite_dev *cdev,
 		const struct usb_ctrlrequest *c)
 {
+	printk("%s %d\n",__func__,__LINE__);
+	printk("bRequestType %x\n",c->bRequestType);
+	printk("bRequest %x\n",c->bRequest);
+	printk("wValue %x\n",c->wValue);
+	printk("wIndex %x\n",c->wIndex);
+	printk("wLength %x\n",c->wLength);
+#if 0
 	if ((c->bRequestType & USB_RECIP_MASK) == USB_RECIP_DEVICE &&
 			(c->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
 		struct rawbulk_function *fn = rawbulk_lookup_function(RAWBULK_TID_MODEM);
 		return rawbulk_function_setup(&fn->function, c);
 	}
+#endif
 	return -1;
 }
 
-static struct android_usb_function rawbulk_modem_function = {
+static struct android_usb_function rawbulk_function = {
 	.name		= "rawbulk",
 	.init		= rawbulk_function_init,
 	.cleanup	= rawbulk_function_cleanup,
@@ -713,7 +724,7 @@ static struct android_usb_function *supported_functions[] = {
 	&mass_storage_function,
 	&accessory_function,
 #ifdef CONFIG_USB_ANDROID_RAWBULK
-	&rawbulk_modem_function,
+	&rawbulk_function,
 #endif
 	NULL
 };
