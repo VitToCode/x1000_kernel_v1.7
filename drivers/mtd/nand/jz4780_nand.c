@@ -44,7 +44,6 @@
 
 #define DRVNAME "jz4780-nand"
 
-#define MAX_NUM_NAND_IF    7
 #define MAX_RB_DELAY_US    50
 
 #define MAX_RB_TIMOUT_MS   20
@@ -199,8 +198,6 @@ struct jz4780_nand {
 	struct nand_flash_dev *nand_flash_table;
 	int num_nand_flash;
 
-	nand_flash_info_t *nand_flash_info_table;
-	int num_nand_flash_info;
 	nand_flash_info_t *curr_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;
@@ -991,12 +988,105 @@ static struct dentry *jz4780_nand_debugfs_init(struct jz4780_nand *nand)
 
 #endif
 
+static nand_flash_info_t *jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
+{
+	struct mtd_info *mtd;
+	struct nand_chip *chip;
+
+	nand_flash_if_t *nand_if;
+	struct jz4780_nand_platform_data *pdata;
+
+	unsigned int nand_dev_id;
+	int i;
+
+	pdata = nand->pdata;
+	chip = &nand->chip;
+	mtd = &nand->mtd;
+
+	nand_if = nand->nand_flash_if_table[0];
+
+	if (!chip->onfi_version) {
+		/*
+		 * by traditional way
+		 */
+		chip->select_chip(mtd, 0);
+		chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+		chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
+		nand_dev_id = chip->read_byte(mtd);
+		nand_dev_id = chip->read_byte(mtd);
+		chip->select_chip(mtd, -1);
+
+		/*
+		 * first match from board specific timings
+		 */
+		for (i = 0; i < pdata->num_nand_flash_info; i++) {
+			if (nand_dev_id ==
+					pdata->nand_flash_info_table[i].nand_dev_id &&
+					nand_if->cs.bank_type ==
+							pdata->nand_flash_info_table[i].type)
+				return &pdata->nand_flash_info_table[i];
+		}
+
+		/*
+		 * if got nothing form board specific timings
+		 * we try to match form driver built-in timings
+		 */
+		for (i = 0; i < ARRAY_SIZE(builtin_nand_info_table); i++) {
+			if (nand_dev_id ==
+				  builtin_nand_info_table[i].nand_dev_id &&
+				  nand_if->cs.bank_type ==
+						  builtin_nand_info_table[i].type)
+				return &builtin_nand_info_table[i];
+		}
+	} else {
+		/*
+		 * by ONFI way
+		 */
+
+
+		/*
+		 * first match from board specific timings
+		 */
+		for (i = 0; i < pdata->num_nand_flash_info; i++) {
+			if (!strncmp(chip->onfi_params.model,
+					pdata->nand_flash_info_table[i].name, 20) &&
+					nand_if->cs.bank_type ==
+							pdata->nand_flash_info_table[i].type)
+				return &pdata->nand_flash_info_table[i];
+		}
+
+		/*
+		 * if got nothing form board specific timings
+		 * we try to match form driver built-in timings
+		 */
+		for (i = 0; i < ARRAY_SIZE(builtin_nand_info_table); i++) {
+			if (!strncmp(chip->onfi_params.model,
+					builtin_nand_info_table[i].name, 20) &&
+					nand_if->cs.bank_type ==
+							builtin_nand_info_table[i].type)
+				return &builtin_nand_info_table[i];
+		}
+	}
+
+
+	if (!chip->onfi_version) {
+		  dev_err(&nand->pdev->dev,
+				  "Failed to find NAND info for devid: 0x%x\n",
+						  nand_dev_id);
+	} else {
+		  dev_err(&nand->pdev->dev,
+				  "Failed to find NAND info for model: %s\n",
+						  chip->onfi_params.model);
+	}
+
+	return NULL;
+}
+
 static int jz4780_nand_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int bank = 0;
 	int i = 0, j = 0, k = 0, m = 0;
-	int nand_dev_id = 0;
 	int eccpos_start;
 
 	struct nand_chip *chip;
@@ -1024,6 +1114,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	}
 
 	nand->pdev = pdev;
+	nand->pdata = pdata;
 	platform_set_drvdata(pdev, nand);
 
 #ifdef CONFIG_DEBUG_FS
@@ -1135,12 +1226,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		pdata->num_nand_flash :
 			ARRAY_SIZE(builtin_nand_flash_table);
 
-	nand->nand_flash_info_table = pdata->nand_flash_info_table ?
-		pdata->nand_flash_info_table : builtin_nand_info_table;
-	nand->num_nand_flash_info = pdata->nand_flash_info_table ?
-		pdata->num_nand_flash_info :
-			ARRAY_SIZE(builtin_nand_info_table);
-
 	/*
 	 * attach to MTD subsystem
 	 */
@@ -1183,56 +1268,14 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	if (mtd->writesize > 512)
 		chip->cmdfunc = jz4780_nand_command_lp;
 
-	/* step2. find NAND flash info */
-	if (!chip->onfi_version) {
-		/*
-		 * by traditional way
-		 */
-		chip->select_chip(mtd, 0);
-		chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
-		chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
-		nand_dev_id = chip->read_byte(mtd);
-		nand_dev_id = chip->read_byte(mtd);
-		chip->select_chip(mtd, -1);
-
-		nand_if = nand->nand_flash_if_table[0];
-			for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
-			if (nand_dev_id ==
-					nand->nand_flash_info_table[bank].nand_dev_id &&
-					nand_if->cs.bank_type ==
-							nand->nand_flash_info_table[bank].type)
-				break;
-		}
-	} else {
-		/*
-		 * by ONFI way
-		 */
-		nand_if = nand->nand_flash_if_table[0];
-		for (bank = 0; bank < nand->num_nand_flash_info; bank++) {
-			if (!strncmp(chip->onfi_params.model,
-					nand->nand_flash_info_table[bank].name, 20) &&
-					nand_if->cs.bank_type ==
-							nand->nand_flash_info_table[bank].type)
-				break;
-		}
-	}
-
-	if (bank == nand->num_nand_flash_info) {
-		if (!chip->onfi_version) {
-			dev_err(&pdev->dev,
-				"Failed to find NAND info for devid: 0x%x\n",
-					nand_dev_id);
-		} else {
-			dev_err(&pdev->dev,
-				"Failed to find NAND info for model: %s\n",
-					chip->onfi_params.model);
-		}
-
+	/* step2. match NAND chip information */
+	nand->curr_nand_flash_info = jz4780_nand_match_nand_chip_info(nand);
+	if (!nand->curr_nand_flash_info) {
+		ret = -ENODEV;
 		goto err_free_wp_gpio;
 	}
 
 	/* step3. configure bank timing */
-	nand->curr_nand_flash_info = &nand->nand_flash_info_table[bank];
 	switch (nand->curr_nand_flash_info->type) {
 	case BANK_TYPE_NAND:
 		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
