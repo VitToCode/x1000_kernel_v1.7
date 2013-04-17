@@ -23,6 +23,8 @@
 #include <linux/mtd/partitions.h>
 #include <soc/gpemc.h>
 
+#define MAX_NUM_NAND_IF    7
+
 typedef enum {
 	/* NAND_XFER_<Data path driver>_<R/B# indicator> */
 	NAND_XFER_CPU_IRQ = 0,
@@ -60,7 +62,7 @@ typedef struct {
 
 typedef struct {
 	const char *name;
-	int nand_dev_id;
+	unsigned int nand_dev_id;
 
 	bank_type_t type;
 
@@ -79,17 +81,16 @@ struct jz4780_nand_platform_data {
 	nand_flash_if_t *nand_flash_if_table;
 	int num_nand_flash_if;
 
-	/* not NULL to override default built-in settings in driver */
-
-	struct nand_flash_dev *nand_flash_table;
-	int num_nand_flash;
-
 	nand_flash_info_t *nand_flash_info_table;
 	int num_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;  /* transfer type */
 
 	nand_ecc_type_t ecc_type;
+
+	int num_nand_flash;
+	/* not NULL to override default built-in settings in driver */
+	struct nand_flash_dev *nand_flash_table;
 };
 
 #define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\

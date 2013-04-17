@@ -115,33 +115,20 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
 			1024, 28,
 			/*
-			 * all timings adjust to +5ns
-			 * **************************
+			 * all timings adjust to +10ns
+			 *
+			 * we change this parameters
+			 * because mtd_torturetest failed
+			 * ******************************
 			 */
-			5,
+			10,
 			/*
-			 * **************************
+			 * ******************************
 			 */
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, BUS_WIDTH_8)
-	},
-
-	{
-		/*
-		 * Datasheet of MT29F32G08CBACA(WP), Rev-E, P109, Table-17
-		 * ECC : 24bit/1080bytes
-		 *
-		 * we assign 28bit/1KB here, the overs are usable when
-		 * bitflips occur in OOB area
-		 */
-		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
-			1024, 28, 0,
-			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 60, 10, 20, 0, 100,
-			100, 100 * 1000, 0, 0, 0, BUS_WIDTH_8)
 	},
 };
 
@@ -180,6 +167,15 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	/*
 	 * use board specific NAND timings because the timings
 	 * need adjust for this board
+	 *
+	 * the NAND timings match schema is
+	 *
+	 * First,  fetch NAND timings from following table if it's exist
+	 * Second, if board specific codes did not provide following table
+	 *         or driver can not find any matched information from
+	 *         following table, it will try match information from driver
+	 *         build-in NAND timings table, if also can not match anything,
+	 *         the NAND timings match will fail.
 	 */
 	.nand_flash_info_table = board_support_nand_info_table,
 	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_table),
