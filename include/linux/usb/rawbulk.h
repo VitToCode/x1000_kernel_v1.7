@@ -41,8 +41,8 @@
 #define MAX_TTY_TX_PACKAGE  64
 
 struct rawbulk_function {
-	const char *name;
-	const char *longname;
+	char name[32];
+	char longname[32];
 	struct device *dev;
 
 	/* Controls */

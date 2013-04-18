@@ -22,6 +22,10 @@
 #ifndef	__LINUX_USB_USBNET_H
 #define	__LINUX_USB_USBNET_H
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+#include <linux/usb/rawbulk.h>
+#endif
+
 /* interface from usbnet core to each USB networking link we handle */
 struct usbnet {
 	/* housekeeping */
@@ -35,6 +39,9 @@ struct usbnet {
 	unsigned char		suspend_count;
 	unsigned char		pkt_cnt, pkt_err;
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	struct rawbulk_transfer *transfer;
+#endif
 	/* i/o info: pipes etc */
 	unsigned		in, out;
 	struct usb_host_endpoint *status;

@@ -667,23 +667,21 @@ static struct android_usb_function accessory_function = {
 };
 
 #ifdef CONFIG_USB_ANDROID_RAWBULK
-static int rawbulk_function_init(struct android_usb_function *f,struct usb_composite_dev *cdev)
-{
-	f->config = (void *)rawbulk_init(cdev);
-	if(!f->config)
-		return -ENODEV;
-	return 0;
-}
-
-static void rawbulk_function_cleanup(struct android_usb_function *f)
+void rawbulk_function_unbind_config(struct android_usb_function *f, struct usb_configuration *c)
 {
 	struct rawbulk_function *fn = f->config;
+	printk("%s\n",__func__);
 	rawbulk_free(fn);
 }
 
 static int rawbulk_function_bind_config(struct android_usb_function *f,struct usb_configuration *c)
 {
-	struct rawbulk_function *fn = f->config;
+	printk("%s\n",__func__);
+	struct rawbulk_function *fn = rawbulk_init(c->cdev,f->name);
+	if(!fn)
+		return -ENODEV;
+	f->config = (void *)fn;
+
 	return rawbulk_bind_config(fn, c);
 }
 
@@ -692,14 +690,14 @@ static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
 		const struct usb_ctrlrequest *c)
 {
 	struct rawbulk_function *fn = f->config;
+	printk("%s\n",__func__);
 	return rawbulk_function_setup(fn, cdev, c);
 }
 
 static struct android_usb_function rawbulk_function = {
-	.name		= "rawbulk",
-	.init		= rawbulk_function_init,
-	.cleanup	= rawbulk_function_cleanup,
+	.name		= "rawbulk_bypass",
 	.bind_config	= rawbulk_function_bind_config,
+	.unbind_config	= rawbulk_function_unbind_config,
 	.ctrlrequest	= rawbulk_function_ctrlrequest,
 };
 #endif

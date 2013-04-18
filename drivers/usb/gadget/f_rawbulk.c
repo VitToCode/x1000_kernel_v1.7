@@ -209,7 +209,7 @@ static void rawbulk_destory_function(struct rawbulk_function *fn) {
 	kfree(fn);
 }
 
-struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev)
+struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev,char *name)
 {
 	struct rawbulk_function *fn;
 
@@ -218,8 +218,8 @@ struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev)
 		return NULL;
 
 	/* init default features of rawbulk functions */
-	fn->longname = "rawbulk bypass test";
-	fn->name = "rawbulk_bypass";
+	strcpy(fn->longname,"rawbulk bypass test");
+	strcpy(fn->name,name);
 	fn->string_defs[0].s = "None";
 	fn->nups = 1;
 	fn->ndowns = 1;
@@ -256,7 +256,7 @@ struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev)
 	fn->function.descriptors = fn->fs_descs;
 	fn->function.hs_descriptors = fn->hs_descs;
 
-	fn->transfer = rawbulk_transfer_get(fn->name);
+	fn->transfer = rawbulk_transfer_get(name);
 	if(!fn->transfer)
 		return NULL;
 	if (IS_ERR(fn->dev)) {

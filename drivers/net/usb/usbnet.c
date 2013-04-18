@@ -1347,6 +1347,9 @@ void usbnet_disconnect (struct usb_interface *intf)
 	usb_kill_urb(dev->interrupt);
 	usb_free_urb(dev->interrupt);
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	rawbulk_unbind_host_interface(intf,dev->transfer);
+#endif
 	free_netdev(net);
 }
 EXPORT_SYMBOL_GPL(usbnet_disconnect);
@@ -1372,6 +1375,13 @@ static struct device_type wlan_type = {
 static struct device_type wwan_type = {
 	.name	= "wwan",
 };
+
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+static int usbnet_intercept(struct usb_interface *interface, unsigned int flags)
+{
+	return 0;
+}
+#endif
 
 int
 usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
@@ -1525,6 +1535,11 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		netif_carrier_off(net);
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	dev->transfer = rawbulk_bind_host_interface(udev, usbnet_intercept, "rawbulk_bypass");
+	if(!dev->transfer)
+		goto out4;
+#endif
 	return 0;
 
 out4:
