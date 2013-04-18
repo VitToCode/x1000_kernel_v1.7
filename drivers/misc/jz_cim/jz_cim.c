@@ -1403,6 +1403,7 @@ static int cim_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto no_mem;
 	}
+
 	cim->dev = &pdev->dev;
 
 	pdata = pdev->dev.platform_data;
@@ -1434,7 +1435,7 @@ static int cim_probe(struct platform_device *pdev)
 	if(IS_ERR(cim->power)){
 		dev_err(&pdev->dev,"get regulator fail!\n");
 		ret = -ENODEV;
-		goto mem_failed;
+		goto io_failed;
 	}
 	#endif
 
