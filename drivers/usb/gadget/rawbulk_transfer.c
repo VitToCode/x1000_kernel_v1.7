@@ -80,10 +80,12 @@
 #undef KERN_DEBUG
 #define KERN_DEBUG
 
+static LIST_HEAD(trans_list);
+
 struct rawbulk_transfer {
 	int id;
-	spinlock_t lock;
 	int control;
+	char name[32];
 	struct usb_anchor submitted;
 	struct usb_function *function;
 	struct usb_interface *interface;
@@ -91,6 +93,7 @@ struct rawbulk_transfer {
 	rawbulk_autoreconn_callback_t autoreconn;
 	rawbulk_intercept_t inceptor;
 	spinlock_t suspend_lock;
+	spinlock_t lock;
 	int suspended;
 	struct {
 		int ntrans;
@@ -105,6 +108,7 @@ struct rawbulk_transfer {
 	char ctrl_response[MAX_RESPONSE];
 	struct usb_ctrlrequest forward_dr;
 	struct urb *forwarding_urb;
+	struct list_head list;
 };
 
 static inline int get_epnum(struct usb_host_endpoint *ep) {
@@ -1120,9 +1124,8 @@ int rawbulk_bind_transfer(struct rawbulk_transfer *transfer, struct usb_function
 }
 EXPORT_SYMBOL_GPL(rawbulk_bind_transfer);
 
-void rawbulk_unbind_transfer(struct rawbulk_transfer *transfer) {
-	int n;
-
+void rawbulk_unbind_transfer(struct rawbulk_transfer *transfer) 
+{
 	if (!transfer)
 		return;
 
@@ -1135,23 +1138,65 @@ void rawbulk_unbind_transfer(struct rawbulk_transfer *transfer) {
 
 EXPORT_SYMBOL_GPL(rawbulk_unbind_transfer);
 
-int rawbulk_bind_host_interface(struct usb_interface *interface,
-		rawbulk_intercept_t inceptor) {
+struct rawbulk_transfer *rawbulk_transfer_alloc(const char *name)
+{
+	struct rawbulk_transfer *t = rawbulk_transfer_get(name);
+	if (t) return NULL;
+
+	t = kzalloc(sizeof *t, GFP_KERNEL);
+	if (t) return NULL;
+
+	strcpy(t->name,name);
+
+	INIT_LIST_HEAD(&t->upstream.transactions);
+	INIT_LIST_HEAD(&t->downstream.transactions);
+
+	mutex_init(&t->mutex);
+	spin_lock_init(&t->lock);
+	spin_lock_init(&t->suspend_lock);
+	t->suspended = 0;
+	t->control = STOP_UPSTREAM | STOP_DOWNSTREAM;
+
+	init_usb_anchor(&t->submitted);
+
+	list_add_tail(&t->list,&trans_list);
+
+	return t;
+}
+
+void rawbulk_transfer_destory(struct rawbulk_transfer *transfer)
+{
+	rawbulk_stop_transactions(transfer);
+
+	if (transfer->forwarding_urb) {
+		usb_kill_urb(transfer->forwarding_urb);
+		usb_free_urb(transfer->forwarding_urb);
+		transfer->forwarding_urb = NULL;
+	}
+
+	list_del(&transfer->list);
+
+	kfree(transfer);
+}
+
+struct rawbulk_transfer *rawbulk_bind_host_interface(struct usb_interface *interface,
+		rawbulk_intercept_t inceptor,char *name) {
 	int n;
 	struct rawbulk_transfer *transfer;
 	struct usb_device *udev;
 
 	if (!interface || !inceptor)
-		return -EINVAL;
-
-	transfer->id = interface->cur_altsetting->desc.bInterfaceNumber;
-	transfer = id_to_transfer(transfer->id);
-	if (!transfer)
-		return -ENODEV;
+		return NULL;
 
 	udev = interface_to_usbdev(interface);
 	if (!udev)
-		return -ENODEV;
+		return NULL;
+
+	transfer = rawbulk_transfer_alloc(name);
+	if (!transfer)
+		return NULL;
+
+	transfer->id = interface->cur_altsetting->desc.bInterfaceNumber;
 
 	if (!transfer->udev) {
 		transfer->udev = udev;
@@ -1169,7 +1214,8 @@ int rawbulk_bind_host_interface(struct usb_interface *interface,
 
 	if (!transfer->upstream.host_ep || !transfer->downstream.host_ep) {
 		lerr("endpoints do not match bulk pair that needed\n");
-		return -EINVAL;
+		rawbulk_transfer_destory(transfer);
+		return NULL;
 	}
 
 	transfer->interface = interface;
@@ -1179,30 +1225,30 @@ int rawbulk_bind_host_interface(struct usb_interface *interface,
 		transfer->autoreconn(transfer->id);
 #endif
 
-	return 0;
+	return transfer;
 }
 
 EXPORT_SYMBOL_GPL(rawbulk_bind_host_interface);
 
-void rawbulk_unbind_host_interface(struct usb_interface *interface) {
-	int n;
-	int no_interfaces = 1;
-	struct rawbulk_transfer *transfer;
-	int transfer->id = interface->cur_altsetting->desc.bInterfaceNumber;
+void rawbulk_unbind_host_interface(struct usb_interface *interface,
+		struct rawbulk_transfer *transfer) {
 
 	if (!transfer)
 		return;
 
+	transfer->id = interface->cur_altsetting->desc.bInterfaceNumber;
 	rawbulk_stop_transactions(transfer);
 	transfer->upstream.host_ep = NULL;
 	transfer->downstream.host_ep = NULL;
 	transfer->interface = NULL;
 	transfer->inceptor = NULL;
 
-	usb_kill_urb(transfer->forwarding_urb);
-	usb_free_urb(transfer->forwarding_urb);
-	transfer->forwarding_urb = NULL;
-	transfer->udev = NULL;
+	if(transfer->forwarding_urb) {
+		usb_kill_urb(transfer->forwarding_urb);
+		usb_free_urb(transfer->forwarding_urb);
+		transfer->forwarding_urb = NULL;
+		transfer->udev = NULL;
+	}
 }
 
 EXPORT_SYMBOL_GPL(rawbulk_unbind_host_interface);
@@ -1274,38 +1320,15 @@ failto_start_upstream:
 
 EXPORT_SYMBOL_GPL(rawbulk_resume_host_interface);
 
-struct rawbulk_transfer *rawbulk_transfer_alloc(void)
+struct rawbulk_transfer *rawbulk_transfer_get(const char *name)
 {
-	struct rawbulk_transfer *t = kzalloc(sizeof *t, GFP_KERNEL);
-	if (!t)
-		return -ENOMEM;
-
-	INIT_LIST_HEAD(&t->upstream.transactions);
-	INIT_LIST_HEAD(&t->downstream.transactions);
-
-	mutex_init(&t->mutex);
-	spin_lock_init(&t->lock);
-	spin_lock_init(&t->suspend_lock);
-	t->suspended = 0;
-	t->control = STOP_UPSTREAM | STOP_DOWNSTREAM;
-
-	init_usb_anchor(&t->submitted);
-
-	return t;
-}
-
-void rawbulk_transfer_destory(struct rawbulk_transfer *transfer)
-{
-	rawbulk_stop_transactions(transfer);
-
-	if (transfer->forwarding_urb) {
-		usb_kill_urb(transfer->forwarding_urb);
-		usb_free_urb(transfer->forwarding_urb);
-		transfer->forwarding_urb = NULL;
+	struct rawbulk_transfer *t,*tmp;
+	list_for_each_entry_safe(t, tmp, &trans_list, list) {
+		if(!strcmp(t->name,name)) return t;
 	}
-
-	kfree(transfer);
+	return NULL;
 }
+EXPORT_SYMBOL_GPL(rawbulk_transfer_get);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);

@@ -256,6 +256,9 @@ struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev)
 	fn->function.descriptors = fn->fs_descs;
 	fn->function.hs_descriptors = fn->hs_descs;
 
+	fn->transfer = rawbulk_transfer_get(fn->name);
+	if(!fn->transfer)
+		return NULL;
 	if (IS_ERR(fn->dev)) {
 		kfree(fn);
 		return NULL;
@@ -301,7 +304,7 @@ static void rawbulk_auto_reconnect(struct rawbulk_function *fn) {
 
 	if (rawbulk_check_enable(fn) && fn->activated) {
 		printk(KERN_DEBUG "start %s again automatically.\n", fn->longname);
-		rc = rawbulk_start_transactions(fn, fn->nups,
+		rc = rawbulk_start_transactions(fn->transfer, fn->nups,
 				fn->ndowns, fn->upsz, fn->downsz, fn->splitsz, fn->pushable);
 		if (rc < 0) {
 			rawbulk_disable_function(fn);
@@ -372,7 +375,7 @@ int rawbulk_function_setup(struct rawbulk_function *fn,
 	int rc;
 	struct usb_request *req = cdev->req;
 
-	if (rawbulk_transfer_state(fn) < 0)
+	if (rawbulk_transfer_state(fn->transfer) < 0)
 		return -EOPNOTSUPP;
 
 	printk(KERN_DEBUG "DUMP ctrl: bRequestType = %02X, bRequest = %02X, " \

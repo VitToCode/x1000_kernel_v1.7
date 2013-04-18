@@ -112,9 +112,10 @@ int rawbulk_check_enable(struct rawbulk_function *fn);
 void rawbulk_disable_function(struct rawbulk_function *fn);
 
 /* bind/unbind host interfaces */
-int rawbulk_bind_host_interface(struct usb_interface *interface,
-		rawbulk_intercept_t inceptor);
-void rawbulk_unbind_host_interface(struct usb_interface *interface);
+struct rawbulk_transfer *rawbulk_bind_host_interface(struct usb_interface *interface,
+		rawbulk_intercept_t inceptor,char *name);
+void rawbulk_unbind_host_interface(struct usb_interface *interface,
+		struct rawbulk_transfer *transfer);
 
 /* operations for transactions */
 int rawbulk_start_transactions(struct rawbulk_transfer *transfer, int nups, int ndowns,
@@ -134,4 +135,5 @@ int rawbulk_forward_ctrlrequest(struct rawbulk_transfer *transfer, const struct 
 int rawbulk_transfer_statistics(struct rawbulk_transfer *transfer, char *buf);
 int rawbulk_transfer_state(struct rawbulk_transfer *transfer);
 
+struct rawbulk_transfer *rawbulk_transfer_get(const char *name);
 #endif /* __RAWBULK_HEADER_FILE__ */
