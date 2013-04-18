@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/machine.h>
 #include <linux/mfd/pmu-common.h>
+#include <linux/mfd/ricoh618.h>
 #include <linux/i2c.h>
 #include <gpio.h>
 
@@ -104,6 +105,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  * otherwise it should be supplied by a exclusive DC-DC, and you should define
  * it as a fixed regulator.
  */
+#ifndef CONFIG_BOARD_GRUS_V_1_0_1
 static struct regulator_info grus_pmu_regulators[] = {
 	{"OUT1", &grus_vcore_init_data},
 	{"OUT3", &grus_vccio_init_data},
@@ -114,25 +116,38 @@ static struct regulator_info grus_pmu_regulators[] = {
 	{"VBUS", &grus_vbus_init_data},
 };
 
-//#if defined(CHARG_DETECT_EN)
 static struct charger_board_info charger_board_info = {
 	.gpio	= -1,		//GPIO_PB(2),
 	.enable_level	= LOW_ENABLE,
-}; //#endif
+};
 
 static struct pmu_platform_data grus_pmu_pdata = {
 	.gpio = GPIO_PA(28),
 	.num_regulators = ARRAY_SIZE(grus_pmu_regulators),
 	.regulators = grus_pmu_regulators,
-//#if defined(CHARG_DETECT_EN)
 	.charger_board_info = &charger_board_info,
-//#endif
+};
+#else
+struct ricoh618_platform_data ricoh618_private = {
+	.gpio_base = -1,
+	.irq_base = IRQ_RESERVED_BASE,
 };
 
+static struct pmu_platform_data grus_pmu_pdata = {
+	.gpio = GPIO_PA(28),
+	.num_regulators = ARRAY_SIZE(grus_pmu_regulators),
+	.regulators = grus_pmu_regulators,
+	.private = ricoh618_private,
+};
+#endif
 #define PMU_I2C_BUSNUM 1
 
 struct i2c_board_info grus_pmu_board_info = {
+#ifndef CONFIG_BOARD_GRUS_V_1_0_1
 	I2C_BOARD_INFO("act8600", 0x5a),
+#else
+	I2C_BOARD_INFO("ricoh618", 0x32),
+#endif
 	.platform_data = &grus_pmu_pdata,
 };
 

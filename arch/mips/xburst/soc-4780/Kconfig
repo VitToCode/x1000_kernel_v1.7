@@ -67,6 +67,8 @@ config BOARD_I88
 config BOARD_GRUS
 		bool "Grus"
 
+config BOARD_GRUS_V_1_0_1
+		bool "Grus v1.0.1"
 
 config BOARD_ZPAD80
         bool "ZPAD80"
@@ -96,6 +98,7 @@ config BOARD_NAME
 	default "LEAF" if BOARD_LEAF
 	default "I88" if BOARD_I88
 	default "Grus" if BOARD_GRUS
+	default "GrusV101" if BOARD_GRUS_V_1_0_1
 	default "ZPAD80" if BOARD_ZPAD80
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
 

@@ -20,5 +20,6 @@ obj-$(CONFIG_BOARD_JI8070B)		+= ji8070a/
 obj-$(CONFIG_BOARD_Q8)			+= ji8070a/
 obj-$(CONFIG_BOARD_I88)			+= i88/
 obj-$(CONFIG_BOARD_GRUS)		+= grus/
+obj-$(CONFIG_BOARD_GRUS_V_1_0_1)	+= grus/
 obj-$(CONFIG_BOARD_ZPAD80)		+= zpad80/
 obj-$(CONFIG_BOARD_VGA_DONGLE)		+= vga-dongle/
