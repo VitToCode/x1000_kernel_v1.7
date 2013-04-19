@@ -1144,7 +1144,7 @@ struct rawbulk_transfer *rawbulk_transfer_alloc(const char *name)
 	if (t) return NULL;
 
 	t = kzalloc(sizeof *t, GFP_KERNEL);
-	if (t) return NULL;
+	if (!t) return NULL;
 
 	strcpy(t->name,name);
 
