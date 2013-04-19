@@ -29,7 +29,7 @@
 #include <linux/regulator/machine.h>
 
 
-#define ricoh618_rails(_name) "RICOH618_"#_name
+#define ricoh618_rails(_name) ""#_name
 
 /* RICHOH Regulator IDs */
 enum regulator_id {
