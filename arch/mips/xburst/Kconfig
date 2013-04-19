@@ -72,11 +72,6 @@ config HIBERNATE_RESET
 	bool "use hibernate reset instead watch dog reset"
 	default n
 
-config TRAPS_USE_TCSM
-	depends on MACH_XBURST
-	bool "move irq handler to tcsm"
-	default n
-
 config TRAPS_USE_TCSM_CHECK
 	depends on TRAPS_USE_TCSM
 	bool "check tcsm when power resume"
