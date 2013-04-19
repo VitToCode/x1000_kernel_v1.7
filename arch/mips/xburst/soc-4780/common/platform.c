@@ -223,11 +223,30 @@ static struct jzdma_platform_data jzdma_pdata = {
 	.irq_base = IRQ_MCU_BASE,
 	.irq_end = IRQ_MCU_END,
 	.map = {
+#ifdef CONFIG_NAND
+		/*
+		 * TODO:
+		 * you guys mark these channels
+		 * are dedicate for NAND ?
+		 *
+		 * you guys means no matter what driver need,
+		 * i must use JZDMA_REQ_NANDXXX to request
+		 * a common DMA channel ?
+		 *
+		 * i think we should level them original
+		 */
 		JZDMA_REQ_NAND0,
 		JZDMA_REQ_NAND1,
 		JZDMA_REQ_NAND2,
 		JZDMA_REQ_NAND3,
 		JZDMA_REQ_NAND4,
+#else
+		JZDMA_REQ_AUTO_TXRX,
+		JZDMA_REQ_AUTO_TXRX,
+		JZDMA_REQ_AUTO_TXRX,
+		JZDMA_REQ_AUTO_TXRX,
+		JZDMA_REQ_AUTO_TXRX,
+#endif
 		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S0,
