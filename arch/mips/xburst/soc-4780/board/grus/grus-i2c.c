@@ -15,6 +15,8 @@
 #include <linux/gsensor.h>
 #include <linux/tsc.h>
 
+#include <media/jz_cim.h>
+
 #include <mach/platform.h>
 #include <mach/jzmmc.h>
 #include <gpio.h>
@@ -100,7 +102,8 @@ static struct i2c_board_info grus_i2c1_devs[] __initdata = {
 };
 #endif	/*I2C1*/
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_SP0838))
+
+#ifdef CONFIG_SP0838
 struct sp0838_platform_data {
 	int facing;
 	int orientation;

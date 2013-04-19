@@ -673,8 +673,8 @@ static struct i2c_driver ricoh618_i2c_driver = {
 	.probe = ricoh618_i2c_probe,
 	.remove = __devexit_p(ricoh618_i2c_remove),
 #ifdef CONFIG_PM
-	.suspend = ricoh618_i2c_suspend,
-	.resume = ricoh618_i2c_resume,
+//	.suspend = ricoh618_i2c_suspend,
+//	.resume = ricoh618_i2c_resume,
 #endif
 	.id_table = ricoh618_i2c_id,
 };

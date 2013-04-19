@@ -15,6 +15,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/mfd/act8600-private.h>
+#include <linux/mfd/ricoh618.h>
 
 struct regulator_info {
 	const char name[8];
@@ -26,6 +27,7 @@ struct pmu_platform_data {
 	unsigned short num_regulators;
 	struct regulator_info *regulators;
 	struct charger_board_info *charger_board_info;
+	struct ricoh618_platform_data *private;
 };
 
 enum {
@@ -60,7 +62,7 @@ struct regulator_init_data REG##_init_data = {				\
 		.name			= NAME,				\
 		.min_uV			= VOL,				\
 		.max_uV			= VOL,				\
-        .apply_uV       = 1,                \
+		.apply_uV	        = 1,                \
 		.always_on		= ALWAYS_ON,			\
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
 	},								\

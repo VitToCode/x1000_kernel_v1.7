@@ -71,6 +71,13 @@ config REGULATOR_ACT8600
 	  This driver controls PMU ACT8600. It's a mfd cell driver of
 	  act8600-core.c
 
+config REGULATOR_RICOH618
+	depends on MFD_RICOH618
+	tristate "RICOH618 PMU voltage regulator"
+	help
+	  This driver controls PMU RICOH618. It's a mfd cell driver of
+	  ricoh618-core.c
+
 config REGULATOR_BQ24022
 	tristate "TI bq24022 Dual Input 1-Cell Li-Ion Charger IC"
 	help

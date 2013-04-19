@@ -37,8 +37,10 @@ IO_REGULATOR_DEF(
  * USB VBUS Regulators.
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
+#ifndef CONFIG_BOARD_GRUS_V_1_0_1
 VBUS_REGULATOR_DEF(
 	grus,	"Vcc-5v");
+#endif
 
 /**
  * Exclusive Regulators.
@@ -128,16 +130,25 @@ static struct pmu_platform_data grus_pmu_pdata = {
 	.charger_board_info = &charger_board_info,
 };
 #else
-struct ricoh618_platform_data ricoh618_private = {
+static struct regulator_info grus_pmu_regulators[] = {
+	{"DC1", &grus_vcore_init_data},
+	{"DC3", &grus_vccio_init_data},
+	{"LDO2", &grus_vwifi_init_data},
+	{"LDO3", &grus_vtsc_init_data},
+	{"LDO4", &grus_vgsensor_init_data},
+//	{"VBUS", &grus_vbus_init_data},
+};
+
+static struct ricoh618_platform_data ricoh618_private = {
 	.gpio_base = -1,
-	.irq_base = IRQ_RESERVED_BASE,
+//	.irq_base = IRQ_RESERVED_BASE,
 };
 
 static struct pmu_platform_data grus_pmu_pdata = {
 	.gpio = GPIO_PA(28),
 	.num_regulators = ARRAY_SIZE(grus_pmu_regulators),
 	.regulators = grus_pmu_regulators,
-	.private = ricoh618_private,
+	.private = &ricoh618_private,
 };
 #endif
 #define PMU_I2C_BUSNUM 1
