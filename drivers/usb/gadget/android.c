@@ -670,14 +670,12 @@ static struct android_usb_function accessory_function = {
 void rawbulk_function_unbind_config(struct android_usb_function *f, struct usb_configuration *c)
 {
 	struct rawbulk_function *fn = f->config;
-	printk("%s\n",__func__);
 	rawbulk_free(fn);
 }
 
 static int rawbulk_function_bind_config(struct android_usb_function *f,struct usb_configuration *c)
 {
-	printk("%s\n",__func__);
-	struct rawbulk_function *fn = rawbulk_init(c->cdev,f->name);
+	struct rawbulk_function *fn = rawbulk_init(c,f->name);
 	if(!fn)
 		return -ENODEV;
 	f->config = (void *)fn;
@@ -690,7 +688,6 @@ static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
 		const struct usb_ctrlrequest *c)
 {
 	struct rawbulk_function *fn = f->config;
-	printk("%s\n",__func__);
 	return rawbulk_function_setup(fn, cdev, c);
 }
 

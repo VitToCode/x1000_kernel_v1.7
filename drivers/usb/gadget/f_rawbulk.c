@@ -209,7 +209,7 @@ static void rawbulk_destory_function(struct rawbulk_function *fn) {
 	kfree(fn);
 }
 
-struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev,char *name)
+struct rawbulk_function *rawbulk_init(struct usb_configuration *c,char *name)
 {
 	struct rawbulk_function *fn;
 
@@ -228,6 +228,7 @@ struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev,char *name)
 	fn->splitsz = PAGE_SIZE;
 	fn->autoreconn = true;
 	fn->pushable = false;
+	fn->cdev = c->cdev;
 
 	/* init descriptors */
 	init_interface_desc(&fn->interface);
@@ -255,6 +256,7 @@ struct rawbulk_function *rawbulk_init(struct usb_composite_dev *cdev,char *name)
 	fn->function.strings = fn->strings;
 	fn->function.descriptors = fn->fs_descs;
 	fn->function.hs_descriptors = fn->hs_descs;
+	fn->function.config = c;
 
 	fn->transfer = rawbulk_transfer_get(name);
 	if(!fn->transfer)
