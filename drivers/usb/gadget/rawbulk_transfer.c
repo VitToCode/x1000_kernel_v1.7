@@ -77,9 +77,6 @@
 #define STOP_UPSTREAM   0x1
 #define STOP_DOWNSTREAM 0x2
 
-#undef KERN_DEBUG
-#define KERN_DEBUG
-
 static LIST_HEAD(trans_list);
 
 struct rawbulk_transfer {

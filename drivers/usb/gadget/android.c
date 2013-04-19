@@ -688,7 +688,7 @@ static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
 		const struct usb_ctrlrequest *c)
 {
 	struct rawbulk_function *fn = f->config;
-	return rawbulk_function_setup(fn, cdev, c);
+	return rawbulk_function_setup(&fn->function, c);
 }
 
 static struct android_usb_function rawbulk_function = {
