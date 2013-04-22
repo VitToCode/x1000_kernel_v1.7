@@ -134,13 +134,10 @@ static int ricoh618_list_voltage(struct regulator_dev *rdev, unsigned index)
 {
 	struct ricoh618_regulator *ri = rdev_get_drvdata(rdev);
 
-	if (test_value <= 10) {
-		printk("----test_value %d \n",ri->min_uV + ((ri->step_uV ) * index));
-		test_value++;
-	}
 	return ri->min_uV + ((ri->step_uV ) * index);
 }
 
+#ifdef RICOH618_SLEEP_MODE
 static int __ricoh618_set_s_voltage(struct device *parent,
 		struct ricoh618_regulator *ri, int min_uV, int max_uV)
 {
@@ -159,6 +156,7 @@ static int __ricoh618_set_s_voltage(struct device *parent,
 		dev_err(ri->dev, "Error in writing the sleep register\n");
 	return ret;
 }
+#endif
 
 static int __ricoh618_set_voltage(struct device *parent,
 		struct ricoh618_regulator *ri, int min_uV, int max_uV,
@@ -328,7 +326,7 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 	struct ricoh618_reg *ricoh618_reg;
 	struct pmu_platform_data *pdata = dev_get_platdata(iodev->dev);
 	struct regulator_dev **rdev;
-	int i, ret, size;
+	int i, size;
 
 	int err;
 
@@ -357,14 +355,14 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 		if (!ri) {
 			dev_err(pdev->dev.parent, "WARNING: can't find regulator: %s\n", reg_info->name);
 		} else {
-			dev_dbg(pdev->dev.parent, "register regulator: %s\n");
+			dev_dbg(pdev->dev.parent, "register regulator: %s\n",reg_info->name);
 			err = ricoh618_cache_regulator_register(pdev->dev.parent, ri);
 			if (err) {
 				dev_err(&pdev->dev, "Fail in caching register\n");
 			}
 			if (reg_info->init_data)
 				rdev[i] = regulator_register(&ri->desc, ricoh618_reg->dev,
-					reg_info->init_data, ricoh618_reg);
+					reg_info->init_data, ri);
 			if (IS_ERR_OR_NULL(rdev[i])) {
 				dev_err(&pdev->dev, "failed to register regulator %s\n",
 				ri->desc.name);
@@ -385,16 +383,18 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 		rdev[i] = regulator_register(&ri->desc, ricoh618_reg->dev,
 		reg_info->init_data, ricoh618_reg);
 		if (IS_ERR_OR_NULL(rdev)) {
+			err = PTR_ERR(rdev[i]);
 			dev_err(&pdev->dev, "failed to register regulator %s\n",
 			ri->desc.name);
 			rdev[i] = NULL;
-			goto err;
+			goto error;
 		}
 	}
 #endif
 
 	return 0;
-err:
+#ifdef CONFIG_CHARGER_RICOH618
+error:
 	for (i = 0; i < pdata->num_regulators; i++)
 		if (rdev[i])
 			regulator_unregister(rdev[i]);
@@ -402,7 +402,8 @@ err:
 	kfree(ricoh618_reg->rdev);
 	kfree(ricoh618_reg);
 
-	return ret;
+	return err;
+#endif
 }
 
 static int __devexit ricoh618_regulator_remove(struct platform_device *pdev)

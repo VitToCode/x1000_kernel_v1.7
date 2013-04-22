@@ -403,6 +403,7 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 	gwtc9xxxb_ts->power = regulator_get(&client->dev, "vtsc");
 	if (IS_ERR(gwtc9xxxb_ts->power)) {
 		dev_warn(&client->dev, "get regulator power failed\n");
+		gwtc9xxxb_ts->power = NULL;
 	}
 	gwtc9xxxb_ts_power_on(gwtc9xxxb_ts);
 #endif
