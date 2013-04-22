@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 
 #include <soc/irq.h>
+#include <soc/base.h>
 
 #include <mach/jzdma.h>
 
@@ -77,6 +78,11 @@
 #define DCM_STDE	BIT(2)
 #define DCM_TIE		BIT(1)
 #define DCM_LINK	BIT(0)
+
+#define DCM_CHAN1_SRC_NEMC	(0x1 << 26)
+#define DCM_CHAN1_SRC_DDR	(0x2 << 26)
+#define DCM_CHAN1_DST_NEMC	(0x1 << 24)
+#define DCM_CHAN1_DST_DDR	(0x2 << 24)
 
 #define MCU_MSG_TYPE_NORMAL	0x1<<24
 #define MCU_MSG_TYPE_INTC	0x2<<24
@@ -164,7 +170,7 @@ static inline struct jzdma_channel *to_jzdma_chan(struct dma_chan *chan)
 }
 
 /* tsz for 1,2,4,8,16,32,64 bytes */
-const static char dcm_tsz[7] = { 1,2,0,0,3,4,5};
+const static char dcm_tsz[7] = {1,2,0,0,3,4,5};
 static inline unsigned int get_current_tsz(unsigned long dcmp)
 {
 	int i;
@@ -269,20 +275,31 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 		dcm = DCM_DAI | dmac->rx_dcm_def;
 
 	/* clear LINK bit when issue pending */
-	dcm |= DCM_TIE | DCM_LINK;
+	dcm |= DCM_TIE;
+
+	if (dmac->id != 1)
+		dcm |= DCM_LINK;
 
 	for_each_sg(sgl, sg, sg_len, i) {
 		dma_addr_t mem;
 
 		mem = sg_dma_address(sg);
 
-		if (direction == DMA_TO_DEVICE) {
-                        tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
+		if (dmac->id == 1) {
+			/*
+			 * for special channel1
+			 * tsz = 7 (auto)
+			 */
+			dcm |= 7 << 8;
+			tsz = sg_dma_len(sg);
+		} else {
+			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
+		}
+
+		if (direction == DMA_TO_DEVICE) {
 			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz, dmac->type);
 		} else {
-                        tsz = get_max_tsz(mem | sg_dma_len(sg) | config->src_maxburst, &dcm);
-			tsz = sg_dma_len(sg) / tsz;
 			build_one_desc(dmac, config->src_addr, mem, dcm, tsz, dmac->type+1);
 		}
 	}
@@ -396,6 +413,19 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 
 	/* use 8-word descriptors */
 	writel(1<<30, dmac->iomem+CH_DCS);
+
+	/*
+	 * special channel1 can not use descriptor mode
+	 */
+	if (dmac->id == 1) {
+		writel(dmac->desc->dcm, dmac->iomem + CH_DCM);
+		writel(JZDMA_REQ_AUTO_TXRX, dmac->iomem + CH_DRT);
+		writel(dmac->desc->dsa, dmac->iomem + CH_DSA);
+		writel(dmac->desc->dta, dmac->iomem + CH_DTA);
+		writel(dmac->desc->dtc, dmac->iomem + CH_DTC);
+		writel(dmac->desc->sd, dmac->iomem + CH_DSD);
+		writel(dmac->desc->dcm, dmac->iomem + CH_DCM);
+	}
 
 	/* tx descriptor shouldn't reused before dma finished. */
 	dmac->tx_desc.flags |= DMA_CTRL_ACK;
@@ -616,15 +646,23 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 	desc->dcm &= ~DCM_LINK;
 	desc->dcm |= DCM_TIE;//bc
 
-	/* dma descriptor address */
-	writel(dmac->desc_phys, dmac->iomem+CH_DDA);
-	/* initiate descriptor fetch */
-	writel(BIT(dmac->id), dmac->master->iomem+DDRS);
+	/*
+	 * special channel1 can not use descriptor mode
+	 */
+	if (dmac->id != 1) {
+		/* dma descriptor address */
+		writel(dmac->desc_phys, dmac->iomem+CH_DDA);
+		/* initiate descriptor fetch */
+		writel(BIT(dmac->id), dmac->master->iomem+DDRS);
+	}
+
+	dump_dma_desc(dmac);
+	dump_dma(dmac->master);
 
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem+CH_DCS);
 
-        dump_dma_desc(dmac);
+	dump_dma_desc(dmac);
 	dump_dma(dmac->master);
 }
 
@@ -684,6 +722,15 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 					return -EINVAL;
 			}
 
+			/*
+			 * check and mark if access NEMC through channal1
+			 */
+			if (dmac->id == 1 &&
+					(config->dst_addr >= NEMC_CS6_IOBASE &&
+					(config->dst_addr < NEMC_CS1_IOBASE + 0x1000000))) {
+				dmac->tx_dcm_def |= DCM_CHAN1_SRC_DDR | DCM_CHAN1_DST_NEMC;
+			}
+
 			switch(config->src_addr_width) {
 				case DMA_SLAVE_BUSWIDTH_1_BYTE:
 					dmac->rx_dcm_def = DCM_SP_8 | DCM_DP_8;
@@ -699,6 +746,15 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
 					dev_warn(chan2dev(chan), "Bad DMA control argument !");
 					return -EINVAL;
+			}
+
+			/*
+			 * check and mark if access NEMC through channal1
+			 */
+			if (dmac->id == 1 &&
+					(config->src_addr >= NEMC_CS6_IOBASE &&
+					config->src_addr <= NEMC_CS1_IOBASE + 0x1000000)) {
+				dmac->rx_dcm_def |= DCM_CHAN1_SRC_NEMC | DCM_CHAN1_DST_DDR;
 			}
 
 			dmac->flags |= CHFLG_SLAVE;
@@ -847,7 +903,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	struct resource *iores;
 	short irq, irq_pdmam,irq_mcu;        /* irq_pdmam for PDMAM irq */
 	int i,ret = 0;
-        unsigned int pdma_program = 0;  /* set pdma DMACP register */
+	unsigned int pdma_program = 0;  /* set pdma DMACP register */
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
@@ -923,7 +979,15 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	dma->irq_pdmam = irq_pdmam;
 	dma->iomem = dma->iomem;
 	/* Hardware master enable */
-	writel(1 | 0x3f << 16, dma->iomem + DMAC);
+
+	/*
+	 * indeed it think we should
+	 * also enable special channel<0,1>
+	 * but when you guys enable it (set bit1)
+	 * the main cpu will never get interrupt
+	 * from dma channel when TC count down to 0
+	 */
+	writel(1 | (0x3f << 16), dma->iomem + DMAC);
 
 	for (i = 0; i < NR_DMA_CHANNELS; i++) {
 		struct jzdma_channel *dmac = &dma->channel[i];
@@ -934,30 +998,29 @@ static int __init jzdma_probe(struct platform_device *pdev)
 			dmac->type = GET_MAP_TYPE(dma->map[i]);
 		if(dmac->type == JZDMA_REQ_INVAL) {
 			dmac->type = JZDMA_REQ_AUTO;
-        		dmac->chan.private = (void *)dmac->type;
-                } else
-                        dmac->chan.private = (void *)dma->map[i];
+			dmac->chan.private = (void *)dmac->type;
+		} else
+			dmac->chan.private = (void *)dma->map[i];
 
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
 		if(dma->map[i] & (TYPE_MASK << 16)) { 
 			tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
 					(unsigned long)dmac);
-                        pdma_program |= (1 << i);
-                } else
+			pdma_program |= (1 << i);
+		} else
 			tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
 					(unsigned long)dmac);
 
 		dmac->iomem = dma->iomem + i * 0x20;
 		dmac->master = dma;
 
-		/* add chan like channel 5,4,3,... */
 		list_add(&dmac->chan.device_node,
 				&dma->dma_device.channels);
 		dev_dbg(&pdev->dev,"add chan (phy id %d , type 0x%02x)\n",i,dmac->type);
 	}
-        /* the corresponding dma channel is set programmable */
-        writel(pdma_program, dma->iomem + DMACP);
+	/* the corresponding dma channel is set programmable */
+	writel(pdma_program, dma->iomem + DMACP);
 
 	dma->dev = &pdev->dev;
 	dma->dma_device.dev = &pdev->dev;
