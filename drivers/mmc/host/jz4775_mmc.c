@@ -1225,7 +1225,7 @@ static inline void jzmmc_power_on(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_on\n");
 
-	if (host->power < 0) {
+	if (!IS_ERR(host->power)) {
 		regulator_enable(host->power);
 
 	} else if (host->pdata->gpio) {
@@ -1237,7 +1237,7 @@ static inline void jzmmc_power_off(struct jzmmc_host *host)
 {
 	dev_vdbg(host->dev, "power_off\n");
 
-	if (host->power < 0) {
+	if (!IS_ERR(host->power)) {
 		regulator_disable(host->power);
 
 	} else if (host->pdata->gpio) {
