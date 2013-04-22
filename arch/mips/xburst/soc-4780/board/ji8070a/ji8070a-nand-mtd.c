@@ -52,7 +52,7 @@
 #define SIZE_MISC        (16     * SIZE_MB)
 
 #define OFFSET_UDISK     (OFFSET_MISC + SIZE_MISC)
-#define SIZE_UDISK       (SIZE_ALL - OFFSET_UDISK)
+#define SIZE_UDISK       (SIZE_ALL - OFFSET_UDISK - 1)
 
 
 static struct mtd_partition parts[] = {
@@ -96,12 +96,8 @@ static nand_flash_if_t nand_interfaces[] = {
 };
 
 static nand_flash_info_t board_support_nand_info_table[] = {
-
 	#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
 	#define NAND_FLASH_K9GBG08U0A_ID             0xd7
-
-	#define NAND_FLASH_MT29F32G08CBACAWP         "MT29F32G08CBACAWP"
-	#define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
 
 	{
 		/*
@@ -115,13 +111,13 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
 			1024, 28,
 			/*
-			 * all timings adjust to +10ns
+			 * all timings adjust to +15ns
 			 *
 			 * we change this parameters
 			 * because mtd_torturetest failed
 			 * ******************************
 			 */
-			10,
+			15,
 			/*
 			 * ******************************
 			 */
@@ -179,6 +175,12 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	 */
 	.nand_flash_info_table = board_support_nand_info_table,
 	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_table),
+
+	/*
+	 * relocate hot functions like nand_command to TCSM
+	 * that will help to speed improvement.
+	 */
+	.relocate_hot_functions = 1,
 };
 
 static struct platform_device nand_dev = {
@@ -195,4 +197,4 @@ arch_initcall(nand_mtd_device_register);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Fighter Sun <wanmyqawdr@126.com>");
-MODULE_DESCRIPTION("NAND-MTD support template for JZ4780 SoC");
+MODULE_DESCRIPTION("NAND-MTD board specific support template for JZ4780 SoC");
