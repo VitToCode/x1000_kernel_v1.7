@@ -15,8 +15,6 @@
 #include <linux/gsensor.h>
 #include <linux/tsc.h>
 
-#include <media/jz_cim.h>
-
 #include <mach/platform.h>
 #include <mach/jzmmc.h>
 #include <gpio.h>
