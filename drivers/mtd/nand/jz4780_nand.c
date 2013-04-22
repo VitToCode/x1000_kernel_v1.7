@@ -6,7 +6,7 @@
  *  TODO:
  *  relocate hot points functions
  *  dual threads soft BCH ECC
- *	support toggle NAND
+ *  support toggle NAND
  *
  *
  *  This program is free software; you can redistribute it and/or modify it
@@ -48,12 +48,19 @@
 
 #define DRVNAME "jz4780-nand"
 
+/*
+ * this is ugly but got great speed gain
+ * this stuff implement none-interrupt DMA transfer
+ * and raw NAND read speed gain is about 40%
+ */
+#define CONFIG_JZ4780_NAND_USE_RAW_DMA
+
 #define MAX_RB_DELAY_US             50
 #define MAX_RB_TIMOUT_MS            50
 
 #define MAX_RESET_DELAY_MS          50
 
-#define MAX_DMA_TRANSFER_TIMOUT_MS  5000
+#define MAX_DMA_TRANSFER_TIMOUT_MS  1000
 
 /* root entry to debug */
 static struct dentry *debugfs_root;
@@ -817,6 +824,34 @@ static int jz4780_nand_request_dma(struct jz4780_nand* nand)
 
 	init_completion(&nand->dma_pipe.comp);
 
+
+	/*
+	 * TODO remove these ugly
+	 */
+#ifdef CONFIG_JZ4780_NAND_USE_RAW_DMA
+	{
+		struct jzdma_master *dma_master;
+		struct jzdma_channel *dma_channel;
+		unsigned int reg_dmac;
+		dma_channel = to_jzdma_chan(nand->dma_pipe.chan);
+		dma_master = dma_channel->master;
+
+		/*
+		 * basic configure DMA channel
+		 */
+		reg_dmac = readl(dma_master->iomem + DMAC);
+		if (!(reg_dmac & BIT(1))) {
+			/*
+			 * enable special channel0,1
+			 */
+			writel(reg_dmac | BIT(1), dma_master->iomem + DMAC);
+
+			dev_info(&nand->pdev->dev, "enable DMA"
+					" special channel<0,1>\n");
+		}
+	}
+#endif
+
 	return 0;
 }
 
@@ -1141,10 +1176,14 @@ jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 	return NULL;
 }
 
+#ifndef CONFIG_JZ4780_NAND_USE_RAW_DMA
+
 static void jz4780_nand_dma_callback(void *comp)
 {
 	complete((struct completion *) comp);
 }
+
+#endif
 
 static void jz4780_nand_cpu_read_buf(struct mtd_info *mtd,
 		uint8_t *buf, int len)
@@ -1156,9 +1195,11 @@ static void jz4780_nand_cpu_read_buf(struct mtd_info *mtd,
 		buf[i] = readb(chip->IO_ADDR_R);
 }
 
-static void jz4780_dma_read_buf(struct mtd_info *mtd,
+static void jz4780_nand_dma_read_buf(struct mtd_info *mtd,
 		void *addr, int len)
 {
+#ifndef CONFIG_JZ4780_NAND_USE_RAW_DMA
+
 	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
 	struct dma_async_tx_descriptor *tx;
 
@@ -1213,10 +1254,11 @@ static void jz4780_dma_read_buf(struct mtd_info *mtd,
 			msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS));
 
 	if (!ret) {
-		WARN(1, "timeout when DMA read NAND for %dms.\n",
+		WARN(1, "Timeout when DMA read NAND for %dms.\n",
 				MAX_DMA_TRANSFER_TIMOUT_MS);
 		goto out_copy;
 	}
+
 
 	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
 			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
@@ -1228,6 +1270,118 @@ out_copy_unmap:
 			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
 out_copy:
 	jz4780_nand_cpu_read_buf(mtd, (uint8_t *)addr, len);
+
+#else
+
+	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
+	struct jzdma_channel *dmac;
+	void __iomem *dmac_regs;
+	unsigned long timeo;
+	unsigned int n;
+
+	/*
+	 * find mapped low memory page
+	 * if use high memory as DMA buffer
+	 */
+	if (addr >= high_memory) {
+		struct page *p1;
+
+		if (((size_t)addr & PAGE_MASK) !=
+			((size_t)(addr + len - 1) & PAGE_MASK))
+			goto out_copy;
+		p1 = vmalloc_to_page(addr);
+		if (!p1)
+			goto out_copy;
+		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
+	}
+
+	sg_init_one(&nand->dma_pipe.sg, addr, len);
+	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+	if (n == 0) {
+		dev_err(&nand->pdev->dev,
+			"Failed to DMA map a %d byte buffer"
+			" when DMA read NAND.\n", len);
+		goto out_copy;
+	}
+
+	/*
+	 * step1. configure DMA channel
+	 */
+	dmac = to_jzdma_chan(nand->dma_pipe.chan);
+	dmac_regs = dmac->iomem;
+
+	/* no descriptor*/
+	writel(BIT(31), dmac_regs + CH_DCS);
+
+	/* src_addr */
+	writel(dmac->config->src_addr, dmac_regs + CH_DSA);
+
+	/* dst_addr */
+	writel(sg_dma_address(&nand->dma_pipe.sg), dmac_regs + CH_DTA);
+
+	/* channel cmd */
+	writel(DCM_DAI | dmac->rx_dcm_def, dmac_regs + CH_DCM);
+
+	/* request type */
+	writel(dmac->type, dmac_regs + CH_DRT);
+
+	/* transfer count */
+	writel(sg_dma_len(&nand->dma_pipe.sg), dmac_regs + CH_DTC);
+
+	wmb();
+
+	/*
+	 * step2. start no descriptor DMA transfer
+	 */
+	writel(BIT(0), dmac_regs + CH_DCS);
+
+	/*
+	 * step3. wait for transfer done
+	 */
+	timeo = jiffies + msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS);
+	do {
+		if (!readl(dmac_regs + CH_DTC))
+			break;
+
+		cond_resched();
+	} while (time_before(jiffies, timeo));
+
+	if (readl(dmac_regs + CH_DTC)) {
+		WARN(1, "Timeout when DMA read NAND for %dms.\n",
+				MAX_DMA_TRANSFER_TIMOUT_MS);
+		goto out_copy_unmap;
+	}
+
+	/*
+	 * step4. err check and stop
+	 */
+	dmac->dcs_saved = readl(dmac->iomem + CH_DCS);
+
+	if (dmac->dcs_saved & DCS_AR) {
+		dev_err(&nand->pdev->dev,
+				"DMA addr err: DCS%d = %lx\n",
+				dmac->id,dmac->dcs_saved);
+	} else if (dmac->dcs_saved & DCS_HLT) {
+		dev_err(&nand->pdev->dev,
+				"DMA halt: DCS%d = %lx\n",
+				dmac->id, dmac->dcs_saved);
+	}
+
+	writel(0, dmac->iomem + CH_DCS);
+
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+
+	return;
+
+out_copy_unmap:
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+out_copy:
+	jz4780_nand_cpu_read_buf(mtd, (uint8_t *)addr, len);
+
+#endif
 }
 
 static void jz4780_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
@@ -1235,7 +1389,7 @@ static void jz4780_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 	if (len <= mtd->oobsize)
 		jz4780_nand_cpu_read_buf(mtd, buf, len);
 	else
-		jz4780_dma_read_buf(mtd, buf, len);
+		jz4780_nand_dma_read_buf(mtd, buf, len);
 }
 
 static void jz4780_nand_cpu_write_buf(struct mtd_info *mtd,
@@ -1248,9 +1402,11 @@ static void jz4780_nand_cpu_write_buf(struct mtd_info *mtd,
 		writeb(buf[i], chip->IO_ADDR_W);
 }
 
-static void jz4780_dma_write_buf(struct mtd_info *mtd,
+static void jz4780_nand_dma_write_buf(struct mtd_info *mtd,
 		const void *addr, int len)
 {
+#ifndef CONFIG_JZ4780_NAND_USE_RAW_DMA
+
 	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
 	struct dma_async_tx_descriptor *tx;
 
@@ -1307,7 +1463,7 @@ static void jz4780_dma_write_buf(struct mtd_info *mtd,
 	if (!ret) {
 		WARN(!ret, "Timeout when DMA write NAND for %dms.\n",
 				MAX_DMA_TRANSFER_TIMOUT_MS);
-		goto out_copy;
+		goto out_copy_unmap;
 	}
 
 	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
@@ -1320,6 +1476,119 @@ out_copy_unmap:
 			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
 out_copy:
 	jz4780_nand_cpu_write_buf(mtd, (uint8_t *)addr, len);
+
+#else
+
+	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
+	struct jzdma_channel *dmac;
+	void __iomem *dmac_regs;
+	unsigned long timeo;
+	unsigned int n;
+
+	/*
+	 * find mapped low memory page
+	 * if use high memory as DMA buffer
+	 */
+	if (addr >= high_memory) {
+		struct page *p1;
+
+		if (((size_t)addr & PAGE_MASK) !=
+			((size_t)(addr + len - 1) & PAGE_MASK))
+			goto out_copy;
+		p1 = vmalloc_to_page(addr);
+		if (!p1)
+			goto out_copy;
+		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
+	}
+
+	sg_init_one(&nand->dma_pipe.sg, addr, len);
+	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+	if (n == 0) {
+		dev_err(&nand->pdev->dev,
+			"Failed to DMA map a %d byte buffer"
+			" when DMA read NAND.\n", len);
+		goto out_copy;
+	}
+
+	/*
+	 * step1. configure DMA channel
+	 */
+	dmac = to_jzdma_chan(nand->dma_pipe.chan);
+	dmac_regs = dmac->iomem;
+
+	/* no descriptor*/
+	writel(BIT(31), dmac_regs + CH_DCS);
+
+	/* src_addr */
+	writel(sg_dma_address(&nand->dma_pipe.sg), dmac_regs + CH_DSA);
+
+	/* dst_addr */
+	writel(dmac->config->dst_addr, dmac_regs + CH_DTA);
+
+	/* channel cmd */
+	writel(DCM_SAI | dmac->tx_dcm_def, dmac_regs + CH_DCM);
+
+	/* request type */
+	writel(dmac->type, dmac_regs + CH_DRT);
+
+	/* transfer count */
+	writel(sg_dma_len(&nand->dma_pipe.sg), dmac_regs + CH_DTC);
+
+	wmb();
+
+	/*
+	 * step2. start DMA transfer
+	 */
+	writel(BIT(0), dmac_regs + CH_DCS);
+
+	/*
+	 * step3. wait for transfer done
+	 */
+	timeo = jiffies + msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS);
+	do {
+		if (!readl(dmac_regs + CH_DTC))
+			break;
+
+		cond_resched();
+	} while (time_before(jiffies, timeo));
+
+	if (readl(dmac_regs + CH_DTC)) {
+		WARN(1, "Timeout when DMA read NAND for %dms.\n",
+				MAX_DMA_TRANSFER_TIMOUT_MS);
+		goto out_copy_unmap;
+	}
+
+	/*
+	 * step4. err check and stop
+	 */
+	dmac->dcs_saved = readl(dmac->iomem + CH_DCS);
+
+	if (dmac->dcs_saved & DCS_AR) {
+		dev_err(&nand->pdev->dev,
+				"DMA addr err: DCS%d = %lx\n",
+				dmac->id,dmac->dcs_saved);
+	} else if (dmac->dcs_saved & DCS_HLT) {
+		dev_err(&nand->pdev->dev,
+				"DMA halt: DCS%d = %lx\n",
+				dmac->id, dmac->dcs_saved);
+	}
+
+	writel(0, dmac->iomem + CH_DCS);
+
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+
+	return;
+
+out_copy_unmap:
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+out_copy:
+	jz4780_nand_cpu_read_buf(mtd, (uint8_t *)addr, len);
+
+
+#endif
 }
 
 static void jz4780_nand_write_buf(struct mtd_info *mtd,
@@ -1328,7 +1597,7 @@ static void jz4780_nand_write_buf(struct mtd_info *mtd,
 	if (len <= mtd->oobsize)
 		jz4780_nand_cpu_write_buf(mtd, buf, len);
 	else
-		jz4780_dma_write_buf(mtd, buf, len);
+		jz4780_nand_dma_write_buf(mtd, buf, len);
 }
 
 static int jz4780_nand_probe(struct platform_device *pdev)
