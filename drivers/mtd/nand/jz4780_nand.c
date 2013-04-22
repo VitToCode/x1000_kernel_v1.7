@@ -1206,22 +1206,6 @@ static void jz4780_nand_dma_read_buf(struct mtd_info *mtd,
 	unsigned int n;
 	int ret;
 
-	/*
-	 * find mapped low memory page
-	 * if use high memory as DMA buffer
-	 */
-	if (addr >= high_memory) {
-		struct page *p1;
-
-		if (((size_t)addr & PAGE_MASK) !=
-			((size_t)(addr + len - 1) & PAGE_MASK))
-			goto out_copy;
-		p1 = vmalloc_to_page(addr);
-		if (!p1)
-			goto out_copy;
-		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
-	}
-
 	sg_init_one(&nand->dma_pipe.sg, addr, len);
 	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
 			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
@@ -1256,7 +1240,7 @@ static void jz4780_nand_dma_read_buf(struct mtd_info *mtd,
 	if (!ret) {
 		WARN(1, "Timeout when DMA read NAND for %dms.\n",
 				MAX_DMA_TRANSFER_TIMOUT_MS);
-		goto out_copy;
+		goto out_copy_unmap;
 	}
 
 
@@ -1278,22 +1262,6 @@ out_copy:
 	void __iomem *dmac_regs;
 	unsigned long timeo;
 	unsigned int n;
-
-	/*
-	 * find mapped low memory page
-	 * if use high memory as DMA buffer
-	 */
-	if (addr >= high_memory) {
-		struct page *p1;
-
-		if (((size_t)addr & PAGE_MASK) !=
-			((size_t)(addr + len - 1) & PAGE_MASK))
-			goto out_copy;
-		p1 = vmalloc_to_page(addr);
-		if (!p1)
-			goto out_copy;
-		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
-	}
 
 	sg_init_one(&nand->dma_pipe.sg, addr, len);
 	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
@@ -1413,22 +1381,6 @@ static void jz4780_nand_dma_write_buf(struct mtd_info *mtd,
 	unsigned int n;
 	int ret;
 
-	/*
-	 * find mapped low memory page
-	 * if use high memory as DMA buffer
-	 */
-	if (addr >= high_memory) {
-		struct page *p1;
-
-		if (((size_t)addr & PAGE_MASK) !=
-			((size_t)(addr + len - 1) & PAGE_MASK))
-			goto out_copy;
-		p1 = vmalloc_to_page(addr);
-		if (!p1)
-			goto out_copy;
-		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
-	}
-
 	sg_init_one(&nand->dma_pipe.sg, addr, len);
 	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
 			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
@@ -1484,22 +1436,6 @@ out_copy:
 	void __iomem *dmac_regs;
 	unsigned long timeo;
 	unsigned int n;
-
-	/*
-	 * find mapped low memory page
-	 * if use high memory as DMA buffer
-	 */
-	if (addr >= high_memory) {
-		struct page *p1;
-
-		if (((size_t)addr & PAGE_MASK) !=
-			((size_t)(addr + len - 1) & PAGE_MASK))
-			goto out_copy;
-		p1 = vmalloc_to_page(addr);
-		if (!p1)
-			goto out_copy;
-		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
-	}
 
 	sg_init_one(&nand->dma_pipe.sg, addr, len);
 	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
@@ -1586,7 +1522,6 @@ out_copy_unmap:
 			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
 out_copy:
 	jz4780_nand_cpu_read_buf(mtd, (uint8_t *)addr, len);
-
 
 #endif
 }
