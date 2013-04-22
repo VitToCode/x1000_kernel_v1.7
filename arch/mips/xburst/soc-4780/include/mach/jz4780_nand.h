@@ -88,6 +88,8 @@ struct jz4780_nand_platform_data {
 
 	nand_ecc_type_t ecc_type;
 
+	int relocate_hot_functions;
+
 	int num_nand_flash;
 	/* not NULL to override default built-in settings in driver */
 	struct nand_flash_dev *nand_flash_table;
