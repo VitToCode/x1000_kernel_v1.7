@@ -157,7 +157,7 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	 * use polled type cause speed gain
 	 * is about 10% ~ 15%
 	 */
-	.xfer_type = NAND_XFER_CPU_POLL,
+	.xfer_type = NAND_XFER_DMA_POLL,
 
 
 	/*

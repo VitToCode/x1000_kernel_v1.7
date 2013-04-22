@@ -4,7 +4,8 @@
  *
  *
  *  TODO:
- *	DMA drove data path
+ *  relocate hot points functions
+ *  dual threads soft BCH ECC
  *	support toggle NAND
  *
  *
@@ -28,9 +29,11 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/completion.h>
+#include <linux/dmaengine.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/kallsyms.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -40,15 +43,17 @@
 
 #include <soc/gpemc.h>
 #include <soc/bch.h>
+#include <mach/jzdma.h>
 #include <mach/jz4780_nand.h>
 
 #define DRVNAME "jz4780-nand"
 
-#define MAX_RB_DELAY_US    50
+#define MAX_RB_DELAY_US             50
+#define MAX_RB_TIMOUT_MS            50
 
-#define MAX_RB_TIMOUT_MS   20
+#define MAX_RESET_DELAY_MS          50
 
-#define MAX_RESET_DELAY_MS 20
+#define MAX_DMA_TRANSFER_TIMOUT_MS  5000
 
 /* root entry to debug */
 static struct dentry *debugfs_root;
@@ -160,7 +165,6 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 };
 
 
-
 const char *label_wp_gpio[] = {
 	DRVNAME"-THIS-IS-A-BUG",
 	"bank1-nand-wp",
@@ -201,6 +205,17 @@ struct jz4780_nand {
 	nand_flash_info_t *curr_nand_flash_info;
 
 	nand_xfer_type_t xfer_type;
+	int use_dma;
+	int busy_poll;
+
+	struct {
+		struct dma_chan *chan;
+		struct dma_slave_config cfg;
+		enum jzdma_type type;
+		struct scatterlist sg;
+
+		struct completion comp;
+	} dma_pipe;
 
 	struct jz4780_nand_platform_data *pdata;
 	struct platform_device *pdev;
@@ -250,8 +265,7 @@ static int jz4780_nand_dev_is_ready(struct mtd_info *mtd)
 	nand = mtd_to_jz4780_nand(mtd);
 	nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
 
-	if (nand->xfer_type == NAND_XFER_CPU_IRQ ||
-		nand->xfer_type == NAND_XFER_DMA_IRQ) {
+	if (!nand->busy_poll) {
 
 		ret = wait_for_completion_timeout(&nand_if->ready,
 				msecs_to_jiffies(nand_if->ready_timout_ms));
@@ -309,14 +323,24 @@ static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
 		this->IO_ADDR_R = nand_if->cs.io_nand_dat;
 		this->IO_ADDR_W = nand_if->cs.io_nand_dat;
 
+		/* reconfigure DMA */
+		if (nand->use_dma &&
+				nand->curr_nand_flash_if != chip) {
+			nand->dma_pipe.cfg.src_addr =
+					(dma_addr_t)CPHYSADDR(this->IO_ADDR_R);
+			nand->dma_pipe.cfg.dst_addr =
+					(dma_addr_t)CPHYSADDR(this->IO_ADDR_W);
+			dmaengine_slave_config(nand->dma_pipe.chan, &nand->dma_pipe.cfg);
+		}
+
+		nand->curr_nand_flash_if = chip;
+
 		/*
 		 * Apply this short delay always to ensure that we do wait tCS in
 		 * any case on any machine.
 		 */
 		ndelay(100);
 	}
-
-	nand->curr_nand_flash_if = chip;
 }
 
 static void
@@ -352,13 +376,13 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	register struct nand_chip *chip = mtd->priv;
 	int ctrl = NAND_CTRL_CLE | NAND_CTRL_CHANGE;
 
-	nand_xfer_type_t old_xfer_type;
+	int old_busy_poll;
 	struct jz4780_nand *nand;
 	nand_flash_if_t *nand_if;
 	nand_flash_info_t *nand_info;
 
 	nand = mtd_to_jz4780_nand(mtd);
-	old_xfer_type = nand->xfer_type;
+	old_busy_poll = nand->busy_poll;
 
 	nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
 	nand_if->curr_command = command;
@@ -371,18 +395,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	switch (command) {
 	case NAND_CMD_READID:
 	case NAND_CMD_RESET:
-		switch (nand->xfer_type) {
-		case NAND_XFER_DMA_IRQ:
-			nand->xfer_type = NAND_XFER_DMA_POLL;
-			break;
-
-		case NAND_XFER_CPU_IRQ:
-			nand->xfer_type = NAND_XFER_CPU_POLL;
-			break;
-
-		default:
-			break;
-		}
+		if (!nand->busy_poll)
+			nand->busy_poll = 1;
 
 		break;
 	}
@@ -411,9 +425,6 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	ctrl = NAND_CTRL_ALE | NAND_CTRL_CHANGE;
 	/* Serially input address */
 	if (column != -1) {
-		/* Adjust columns for 16 bit buswidth */
-		if (chip->options & NAND_BUSWIDTH_16)
-			column >>= 1;
 		chip->cmd_ctrl(mtd, column, ctrl);
 		ctrl &= ~NAND_CTRL_CHANGE;
 	}
@@ -517,7 +528,7 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 
 	nand_wait_ready(mtd);
 
-	nand->xfer_type = old_xfer_type;
+	nand->busy_poll = old_busy_poll;
 }
 
 static void jz4780_nand_command_readoob_lp(struct mtd_info *mtd,
@@ -610,9 +621,6 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 
 		/* Serially input address */
 		if (column != -1) {
-			/* Adjust columns for 16 bit buswidth */
-			if (chip->options & NAND_BUSWIDTH_16)
-				column >>= 1;
 			chip->cmd_ctrl(mtd, column, ctrl);
 			ctrl &= ~NAND_CTRL_CHANGE;
 			chip->cmd_ctrl(mtd, column >> 8, ctrl);
@@ -760,6 +768,56 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 	ndelay(100);
 
 	nand_wait_ready(mtd);
+}
+
+static int jz4780_nand_relocate_hot_to_tcsm(struct jz4780_nand *nand)
+{
+	/*
+	 * TODO:
+	 * copy hot points functions to TCSM
+	 */
+	return 0;
+}
+
+static void jz4780_nand_unlocate_hot_from_tcsm(struct jz4780_nand *nand)
+{
+	/*
+	 * TODO: need tcsm_put
+	 */
+}
+
+static bool jz4780_nand_dma_filter(struct dma_chan *chan, void *filter_param)
+{
+	struct jz4780_nand *nand = container_of(filter_param,
+			struct jz4780_nand, dma_pipe);
+	/*
+	 * chan_id must 30, also is PHY channel1,
+	 * i did some speical modification for channel1
+	 * of ingenic dmaenginc codes.
+	 *
+	 * TODO: make it generic
+	 */
+	return (int)chan->private == (int)nand->dma_pipe.type &&
+			chan->chan_id == 30;
+}
+
+static int jz4780_nand_request_dma(struct jz4780_nand* nand)
+{
+	dma_cap_mask_t mask;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+
+	nand->dma_pipe.type = JZDMA_REQ_AUTO_TXRX;
+
+	nand->dma_pipe.chan = dma_request_channel(mask,
+			jz4780_nand_dma_filter, &nand->dma_pipe);
+	if (!nand->dma_pipe.chan)
+		return -ENXIO;
+
+	init_completion(&nand->dma_pipe.comp);
+
+	return 0;
 }
 
 static int jz4780_nand_ecc_calculate_bch(struct mtd_info *mtd,
@@ -988,7 +1046,8 @@ static struct dentry *jz4780_nand_debugfs_init(struct jz4780_nand *nand)
 
 #endif
 
-static nand_flash_info_t *jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
+static nand_flash_info_t *
+jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 {
 	struct mtd_info *mtd;
 	struct nand_chip *chip;
@@ -1082,6 +1141,196 @@ static nand_flash_info_t *jz4780_nand_match_nand_chip_info(struct jz4780_nand *n
 	return NULL;
 }
 
+static void jz4780_nand_dma_callback(void *comp)
+{
+	complete((struct completion *) comp);
+}
+
+static void jz4780_nand_cpu_read_buf(struct mtd_info *mtd,
+		uint8_t *buf, int len)
+{
+	int i;
+	struct nand_chip *chip = mtd->priv;
+
+	for (i = 0; i < len; i++)
+		buf[i] = readb(chip->IO_ADDR_R);
+}
+
+static void jz4780_dma_read_buf(struct mtd_info *mtd,
+		void *addr, int len)
+{
+	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
+	struct dma_async_tx_descriptor *tx;
+
+	unsigned int n;
+	int ret;
+
+	/*
+	 * find mapped low memory page
+	 * if use high memory as DMA buffer
+	 */
+	if (addr >= high_memory) {
+		struct page *p1;
+
+		if (((size_t)addr & PAGE_MASK) !=
+			((size_t)(addr + len - 1) & PAGE_MASK))
+			goto out_copy;
+		p1 = vmalloc_to_page(addr);
+		if (!p1)
+			goto out_copy;
+		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
+	}
+
+	sg_init_one(&nand->dma_pipe.sg, addr, len);
+	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+	if (n == 0) {
+		dev_err(&nand->pdev->dev,
+			"Failed to DMA map a %d byte buffer"
+			" when DMA read NAND.\n", len);
+		goto out_copy;
+	}
+
+	tx = dmaengine_prep_slave_sg(nand->dma_pipe.chan,
+			&nand->dma_pipe.sg, n,
+			DMA_FROM_DEVICE, DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!tx) {
+		dev_err(&nand->pdev->dev, "Failed to prepare"
+				" DMA read NAND.\n");
+		goto out_copy_unmap;
+	}
+
+	tx->callback = jz4780_nand_dma_callback;
+	tx->callback_param = &nand->dma_pipe.comp;
+	dmaengine_submit(tx);
+
+	/*
+	 * setup and start DMA using dma_addr
+	 */
+	dma_async_issue_pending(nand->dma_pipe.chan);
+
+	ret = wait_for_completion_timeout(&nand->dma_pipe.comp,
+			msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS));
+
+	if (!ret) {
+		WARN(1, "timeout when DMA read NAND for %dms.\n",
+				MAX_DMA_TRANSFER_TIMOUT_MS);
+		goto out_copy;
+	}
+
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+
+	return;
+
+out_copy_unmap:
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_FROM_DEVICE);
+out_copy:
+	jz4780_nand_cpu_read_buf(mtd, (uint8_t *)addr, len);
+}
+
+static void jz4780_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
+{
+	if (len <= mtd->oobsize)
+		jz4780_nand_cpu_read_buf(mtd, buf, len);
+	else
+		jz4780_dma_read_buf(mtd, buf, len);
+}
+
+static void jz4780_nand_cpu_write_buf(struct mtd_info *mtd,
+		const uint8_t *buf, int len)
+{
+	int i;
+	struct nand_chip *chip = mtd->priv;
+
+	for (i = 0; i < len; i++)
+		writeb(buf[i], chip->IO_ADDR_W);
+}
+
+static void jz4780_dma_write_buf(struct mtd_info *mtd,
+		const void *addr, int len)
+{
+	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
+	struct dma_async_tx_descriptor *tx;
+
+	unsigned int n;
+	int ret;
+
+	/*
+	 * find mapped low memory page
+	 * if use high memory as DMA buffer
+	 */
+	if (addr >= high_memory) {
+		struct page *p1;
+
+		if (((size_t)addr & PAGE_MASK) !=
+			((size_t)(addr + len - 1) & PAGE_MASK))
+			goto out_copy;
+		p1 = vmalloc_to_page(addr);
+		if (!p1)
+			goto out_copy;
+		addr = page_address(p1) + ((size_t)addr & ~PAGE_MASK);
+	}
+
+	sg_init_one(&nand->dma_pipe.sg, addr, len);
+	n = dma_map_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+	if (n == 0) {
+		dev_err(&nand->pdev->dev,
+			"Failed to DMA map a %d byte buffer"
+			" when DMA write NAND.\n", len);
+		goto out_copy;
+	}
+
+	tx = dmaengine_prep_slave_sg(nand->dma_pipe.chan,
+			&nand->dma_pipe.sg, n,
+			DMA_TO_DEVICE, DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!tx) {
+		dev_err(&nand->pdev->dev, "Failed to prepare"
+				" DMA write NAND.\n");
+		goto out_copy_unmap;
+	}
+
+	tx->callback = jz4780_nand_dma_callback;
+	tx->callback_param = &nand->dma_pipe.comp;
+	dmaengine_submit(tx);
+
+	/*
+	 * setup and start DMA using dma_addr
+	 */
+	dma_async_issue_pending(nand->dma_pipe.chan);
+
+	ret = wait_for_completion_timeout(&nand->dma_pipe.comp,
+			msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS));
+
+	if (!ret) {
+		WARN(!ret, "Timeout when DMA write NAND for %dms.\n",
+				MAX_DMA_TRANSFER_TIMOUT_MS);
+		goto out_copy;
+	}
+
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+
+	return;
+
+out_copy_unmap:
+	dma_unmap_sg(nand->dma_pipe.chan->device->dev,
+			&nand->dma_pipe.sg, 1, DMA_TO_DEVICE);
+out_copy:
+	jz4780_nand_cpu_write_buf(mtd, (uint8_t *)addr, len);
+}
+
+static void jz4780_nand_write_buf(struct mtd_info *mtd,
+		const uint8_t *buf, int len)
+{
+	if (len <= mtd->oobsize)
+		jz4780_nand_cpu_write_buf(mtd, buf, len);
+	else
+		jz4780_dma_write_buf(mtd, buf, len);
+}
+
 static int jz4780_nand_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1116,18 +1365,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	nand->pdev = pdev;
 	nand->pdata = pdata;
 	platform_set_drvdata(pdev, nand);
-
-#ifdef CONFIG_DEBUG_FS
-
-	nand->debugfs_entry = jz4780_nand_debugfs_init(nand);
-	if (IS_ERR(nand->debugfs_entry)) {
-		dev_err(&pdev->dev, "Failed to register debugfs entry.\n");
-
-		ret = PTR_ERR(nand->debugfs_entry);
-		goto err_free_nand;
-	}
-
-#endif
 
 	nand->num_nand_flash_if = pdata->num_nand_flash_if;
 	nand->xfer_type = pdata->xfer_type;
@@ -1179,10 +1416,14 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			}
 		}
 
+		nand->busy_poll = 1;
+
 		break;
 
 	default:
+		WARN(1, "Unsupport transfer type.\n");
 		BUG();
+
 		break;
 	}
 
@@ -1218,7 +1459,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * NAND flash device & info override
+	 * NAND flash devices support list override
 	 */
 	nand->nand_flash_table = pdata->nand_flash_table ?
 		pdata->nand_flash_table : builtin_nand_flash_table;
@@ -1235,6 +1476,55 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	chip->dev_ready   = jz4780_nand_dev_is_ready;
 	chip->select_chip = jz4780_nand_select_chip;
 	chip->cmd_ctrl    = jz4780_nand_cmd_ctrl;
+
+	switch (nand->xfer_type) {
+	case NAND_XFER_DMA_IRQ:
+	case NAND_XFER_DMA_POLL:
+		/*
+		 * DMA transfer
+		 */
+		ret = jz4780_nand_request_dma(nand);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to request DMA channel.\n");
+			goto err_free_wp_gpio;
+		}
+
+		chip->read_buf  = jz4780_nand_read_buf;
+		chip->write_buf = jz4780_nand_write_buf;
+
+		nand_if = nand->nand_flash_if_table[0];
+
+		nand->dma_pipe.cfg.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		nand->dma_pipe.cfg.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		nand->dma_pipe.cfg.dst_maxburst = 16;
+		nand->dma_pipe.cfg.src_maxburst = 16;
+		nand->dma_pipe.cfg.src_addr =
+				(dma_addr_t)CPHYSADDR(nand_if->cs.io_nand_dat);
+		nand->dma_pipe.cfg.dst_addr =
+				(dma_addr_t)CPHYSADDR(nand_if->cs.io_nand_dat);
+
+		dmaengine_slave_config(nand->dma_pipe.chan, &nand->dma_pipe.cfg);
+
+		nand->use_dma = 1;
+
+		break;
+
+	case NAND_XFER_CPU_IRQ:
+	case NAND_XFER_CPU_POLL:
+		/*
+		 * CPU transfer
+		 */
+		chip->read_buf  = jz4780_nand_cpu_read_buf;
+		chip->write_buf = jz4780_nand_cpu_write_buf;
+
+		break;
+
+	default:
+		WARN(1, "Unsupport transfer type.\n");
+		BUG();
+
+		break;
+	}
 
 	mtd              = &nand->mtd;
 	mtd->priv        = chip;
@@ -1257,7 +1547,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 
 		ret = -ENXIO;
 		dev_err(&pdev->dev, "Failed to detect NAND flash.\n");
-		goto err_free_wp_gpio;
+		goto err_dma_release_channel;
 	}
 
 	/*
@@ -1272,10 +1562,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	nand->curr_nand_flash_info = jz4780_nand_match_nand_chip_info(nand);
 	if (!nand->curr_nand_flash_info) {
 		ret = -ENODEV;
-		goto err_free_wp_gpio;
+		goto err_dma_release_channel;
 	}
 
-	/* step3. configure bank timing */
+	/* step3. configure bank timings */
 	switch (nand->curr_nand_flash_info->type) {
 	case BANK_TYPE_NAND:
 		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
@@ -1289,7 +1579,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"Failed to configure timings for bank%d\n"
 						, nand_if->bank);
-				goto err_free_wp_gpio;
+				goto err_dma_release_channel;
 			}
 		}
 
@@ -1307,7 +1597,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"Failed to configure timings for bank%d\n"
 						, nand_if->bank);
-				goto err_free_wp_gpio;
+				goto err_dma_release_channel;
 			}
 		}
 
@@ -1347,9 +1637,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Failed to allocate ECC errrept_data buffer\n");
 			ret = -ENOMEM;
-
-			kfree(nand->bch_req.ecc_data);
-			goto err_free_wp_gpio;
+			goto err_dma_release_channel;
 		}
 
 		init_completion(&nand->bch_req_done);
@@ -1399,7 +1687,30 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 */
 	if (nand_scan_tail(mtd)) {
 		ret = -ENXIO;
-		goto err_free_wp_gpio;
+		goto err_free_errrpt_data;
+	}
+
+#ifdef CONFIG_DEBUG_FS
+
+	nand->debugfs_entry = jz4780_nand_debugfs_init(nand);
+	if (IS_ERR(nand->debugfs_entry)) {
+		dev_err(&pdev->dev, "Failed to register debugfs entry.\n");
+
+		ret = PTR_ERR(nand->debugfs_entry);
+		goto err_free_errrpt_data;
+	}
+
+#endif
+
+	/*
+	 * relocate hot functions to TCSM
+	 */
+	if (pdata->relocate_hot_functions) {
+		ret = jz4780_nand_relocate_hot_to_tcsm(nand);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to relocate hot functions.\n");
+			goto err_debugfs_remove;
+		}
 	}
 
 	/*
@@ -1409,13 +1720,30 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			pdata->part_table, pdata->num_part);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add MTD device\n");
-		goto err_free_wp_gpio;
+		goto err_unlocate_hot;
 	}
 
 	dev_info(&pdev->dev,
 		"Successfully registered JZ4780 SoC NAND controller driver.\n");
 
 	return 0;
+
+err_unlocate_hot:
+	if (pdata->relocate_hot_functions)
+		jz4780_nand_unlocate_hot_from_tcsm(nand);
+
+err_debugfs_remove:
+	debugfs_remove_recursive(nand->debugfs_entry);
+
+err_free_errrpt_data:
+	if (pdata->ecc_type == NAND_ECC_TYPE_HW)
+		kfree(nand->bch_req.errrept_data);
+
+err_dma_release_channel:
+	if (nand->xfer_type == NAND_XFER_DMA_IRQ ||
+			nand->xfer_type == NAND_XFER_DMA_POLL)
+		dma_release_channel(nand->dma_pipe.chan);
+
 
 err_free_wp_gpio:
 	for (bank = 0; bank < m; bank++) {
@@ -1442,9 +1770,6 @@ err_release_cs:
 		gpemc_release_cs(&nand_if->cs);
 	}
 
-	debugfs_remove_recursive(nand->debugfs_entry);
-
-err_free_nand:
 	kfree(nand);
 
 	return ret;
@@ -1485,7 +1810,20 @@ static int jz4780_nand_remove(struct platform_device *pdev)
 	if (nand->bch_req.errrept_data)
 		kfree(nand->bch_req.errrept_data);
 
-	/* free device object */
+	if (nand->xfer_type == NAND_XFER_DMA_IRQ ||
+			nand->xfer_type == NAND_XFER_DMA_POLL)
+		dma_release_channel(nand->dma_pipe.chan);
+
+	/*
+	 * TODO
+	 * "unlocate..." implements nothing
+	 * so you may get in trouble when
+	 * do "insmod jz4780_nand.ko"
+	 * becuase of failed to allocate TCSM
+	 */
+	if (nand->pdata->relocate_hot_functions)
+		jz4780_nand_unlocate_hot_from_tcsm(nand);
+
 	kfree(nand);
 
 	return 0;
