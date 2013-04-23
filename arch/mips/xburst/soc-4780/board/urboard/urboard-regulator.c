@@ -44,34 +44,27 @@ VBUS_REGULATOR_DEF(
  */
 EXCLUSIVE_REGULATOR_DEF(
 	urboard_vwifi,
-	"Wi-Fi",
-	"vwifi",	NULL,		3300000);
-
-EXCLUSIVE_REGULATOR_DEF(
-	urboard_vcim_1_8,
-	"Camera1.8",
-	"vcim_1_8",	NULL,		1800000);
+	"Wi-Fi",	"vwifi",	NULL,
+	NULL,		3300000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	urboard_vcim,
-	"Camera",
-	"vcim",		NULL,		2800000);
+	"Camera1.8",	"vcim",		"Camera2.8",
+	NULL,		1500000,	1);
+
+EXCLUSIVE_REGULATOR_DEF(
+	urboard_vcim_2_8,
+	"Camera2.8",	"vcim_2_8",	NULL,
+	NULL,		2800000,	1);
 
 EXCLUSIVE_REGULATOR_DEF(
 	urboard_vdrvvbus,
-	"OTG-Vbus",
-	"vdrvvbus",	"jz-vbus",	5000000);
+	"OTG-Vbus",	"vdrvvbus",	NULL,
+	"jz-vbus",	5000000,	0);
 /**
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#if 0
-FIXED_REGULATOR_DEF(
-	urboard_host,
-	"Vcc-Host",	5000000,	GPIO_PF(15),
-	HIGH_ENABLE,	EN_AT_BOOT,	0,
-	NULL,		"vhost",	"jz-host");
-#endif
 
 FIXED_REGULATOR_DEF(
 	urboard_vcc5,
@@ -84,31 +77,10 @@ FIXED_REGULATOR_DEF(
 	"ethnet",	3300000,	GPIO_PB(25),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vethnet",	NULL);
-#if 0
-FIXED_REGULATOR_DEF(
-	urboard_vbus,
-	"OTG-Vbus",	5000000,	GPIO_PE(10),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	"Vcc-5V",	"vdrvvbus",	NULL);
-#endif
-#if 0
-FIXED_REGULATOR_DEF(
-	urboard_vcim,
-	"Camera",	2800000,	GPIO_PB(27),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
-	NULL,		"vcim",		"jz-cim");
-
-FIXED_REGULATOR_DEF(
-	urboard_vlcd,
-	"LCD",		3300000,	GPIO_PB(23),
-	HIGH_ENABLE,	EN_AT_BOOT,	0,
-	NULL,		"vlcd",		NULL);
-#endif
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&urboard_vcc5_regulator_device,
 	&urboard_ethnet_regulator_device,
-//	&urboard_host_regulator_device,
 };
 
 /*
@@ -123,8 +95,8 @@ static struct regulator_info urboard_pmu_regulators[] = {
 	{"OUT3", &urboard_vccio_init_data},
 	{"OUT4", &urboard_vdrvvbus_init_data},
 	{"OUT6", &urboard_vwifi_init_data},
-	{"OUT7", &urboard_vcim_init_data},
-	{"OUT8", &urboard_vcim_1_8_init_data},
+	{"OUT7", &urboard_vcim_2_8_init_data},
+	{"OUT8", &urboard_vcim_init_data},
 	{"VBUS", &urboard_vbus_init_data},
 };
 

@@ -44,32 +44,31 @@ VBUS_REGULATOR_DEF(
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
-EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
+EXCLUSIVE_REGULATOR_DEF(
 	t700d_vwifi,
-	"Wi-Fi",
-	"vwifi",	NULL,		3000000);
+	"Wi-Fi",	"vwifi",	NULL,
+	NULL,		3000000,	1);
 
-EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
+EXCLUSIVE_REGULATOR_DEF(
 	t700d_vtsc,
-	"Touch Screen",
-	"vtsc",		NULL,		3000000);
+	"Touch Screen",	"vtsc",		NULL,
+	NULL,		3000000,	1);
 /*
 EXCLUSIVE_REGULATOR_DEF(
 	t700d_vgsensor,
-	"G-sensor",
-	"vgsensor",	NULL,		3000000);
+	"G-sensor",	"vgsensor",
+	NULL,		NULL,		3000000);
 */
 
 EXCLUSIVE_REGULATOR_DEF(
 	t700d_vcc5v,
-	"VCC5V",
-	"vcc5v",	NULL,		5000000);
+	"VCC5V",	"vcc5v",	NULL,
+	NULL,		5000000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	t700d_vlcd,
-	"Vlcd",
-	"vlcd",	NULL,		3000000);
-
+	"Vlcd",		"vlcd",		NULL,
+	NULL,		3000000,	0);
 
 /**
  * Fixed voltage Regulators.

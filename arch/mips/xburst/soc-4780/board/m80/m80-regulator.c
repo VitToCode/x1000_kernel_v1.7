@@ -45,18 +45,18 @@ VBUS_REGULATOR_DEF(
  */
 EXCLUSIVE_REGULATOR_DEF(
 	m80_vwifi,
-	"Wi-Fi",
-	"vwifi",	NULL,		3300000);
+	"Wi-Fi",	"vwifi",	NULL,
+	NULL,		3300000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	m80_vtsc,
-	"Touch Screen",
-	"vtsc",		NULL,		3300000);
+	"Touch Screen",	"vtsc",		NULL,
+	NULL,		3300000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	m80_vlcd,
-	"V-vlcd",
-	"vlcd",	NULL,		3300000);
+	"V-vlcd",	"vlcd",		NULL,
+	NULL,		3300000,	0);
 
 /**
  * Fixed voltage Regulators.

@@ -62,43 +62,28 @@ struct regulator_init_data REG##_init_data = {				\
 		.name			= NAME,				\
 		.min_uV			= VOL,				\
 		.max_uV			= VOL,				\
-		.apply_uV	        = 1,                \
+		.apply_uV		= 1,				\
 		.always_on		= ALWAYS_ON,			\
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
 	},								\
 }
 
-#define EXCLUSIVE_REGULATOR_DEF(REG, NAME, SUPPLY, DEV_NAME, VOL)	\
+#define EXCLUSIVE_REGULATOR_DEF(REG, NAME, SUPPLY, SREG, DEV_NAME, VOL, APPLY_UV)	\
 static struct regulator_consumer_supply REG##_consumer =		\
 	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);				\
 									\
 struct regulator_init_data REG##_init_data = {				\
+	.supply_regulator = SREG,					\
 	.constraints = {						\
 		.name			= NAME,				\
 		.min_uV			= VOL,				\
 		.max_uV			= VOL,				\
+		.apply_uV		= APPLY_UV,			\
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
 	},								\
 	.num_consumer_supplies  = 1,					\
 	.consumer_supplies      = &REG##_consumer,			\
 }
-
-#define EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(REG, NAME, SUPPLY, DEV_NAME, VOL)	\
-static struct regulator_consumer_supply REG##_consumer =		\
-	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);				\
-									\
-struct regulator_init_data REG##_init_data = {				\
-	.constraints = {						\
-		.name			= NAME,				\
-		.min_uV			= VOL,				\
-		.max_uV			= VOL,				\
-        .apply_uV       = 1,                \
-		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,	\
-	},								\
-	.num_consumer_supplies  = 1,					\
-	.consumer_supplies      = &REG##_consumer,			\
-}
-
 
 #define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, EB, DELAY, SREG, SUPPLY, DEV_NAME)\
 static struct regulator_consumer_supply NAME##_regulator_consumer =			\

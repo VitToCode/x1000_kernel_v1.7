@@ -49,24 +49,24 @@ VBUS_REGULATOR_DEF(
  */
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vwifi,
-	"Wi-Fi",
-	"vwifi",	NULL,		3300000);
+	"Wi-Fi",	"vwifi",	NULL,
+	NULL,		3300000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vtsc,
-	"Touch Screen",
-	"vtsc",		NULL,		3300000);
+	"Touch Screen",	"vtsc",		NULL,
+	NULL,		3300000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vgsensor,
-	"G-sensor",
-	"vgsensor",	NULL,		3300000);
+	"G-sensor",	"vgsensor",	NULL,
+	NULL,		3300000,	0);
 
 #ifdef CONFIG_BOARD_WARRIOR_V_1_1
 EXCLUSIVE_REGULATOR_DEF(
 	warrior_vcc5,
-	"Vcc-5V",
-	"vhdmi",	"jz-hdmi",	5000000);
+	"Vcc-5V",	"vhdmi",	NULL,
+	"jz-hdmi",	5000000,	0);
 #endif
 /**
  * Fixed voltage Regulators.
