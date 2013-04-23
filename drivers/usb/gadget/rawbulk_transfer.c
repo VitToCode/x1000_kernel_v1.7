@@ -1226,9 +1226,9 @@ struct rawbulk_transfer *rawbulk_bind_host_interface(struct usb_interface *inter
 	for (n = 0; n < interface->cur_altsetting->desc.bNumEndpoints; n++) {
 		struct usb_host_endpoint *endpoint =
 			&interface->cur_altsetting->endpoint[n];
-		if (usb_endpoint_is_bulk_out(&endpoint->desc))
-			transfer->upstream.host_ep = endpoint;
 		if (usb_endpoint_is_bulk_in(&endpoint->desc))
+			transfer->upstream.host_ep = endpoint;
+		if (usb_endpoint_is_bulk_out(&endpoint->desc))
 			transfer->downstream.host_ep = endpoint;
 	}
 

@@ -1005,6 +1005,13 @@ EXPORT_SYMBOL_GPL(usb_stor_probe2);
 #include <linux/usb/rawbulk.h>
 int us_intercept(struct usb_interface *interface, unsigned int flags)
 {
+	int rc = 0;
+	struct us_data *us = usb_get_intfdata(interface);
+	struct urb *urb = us->current_urb;
+	/* reset urb */
+	usb_kill_urb(urb);
+	usb_clear_halt(urb->dev, urb->pipe);
+
 	return 0;
 }
 #endif
