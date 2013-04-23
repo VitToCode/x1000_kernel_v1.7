@@ -1001,11 +1001,22 @@ BadDevice:
 }
 EXPORT_SYMBOL_GPL(usb_stor_probe2);
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+#include <linux/usb/rawbulk.h>
+int us_intercept(struct usb_interface *interface, unsigned int flags)
+{
+	return 0;
+}
+#endif
+
 /* Handle a USB mass-storage disconnect */
 void usb_stor_disconnect(struct usb_interface *intf)
 {
 	struct us_data *us = usb_get_intfdata(intf);
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	rawbulk_unbind_host_interface(intf,us->transfer);
+#endif
 	US_DEBUGP("storage_disconnect() called\n");
 	quiesce_and_remove_host(us);
 	release_everything(us);
@@ -1044,6 +1055,9 @@ static int storage_probe(struct usb_interface *intf,
 	/* No special transport or protocol settings in the main module */
 
 	result = usb_stor_probe2(us);
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	us->transfer = rawbulk_bind_host_interface(intf, us_intercept, "rawbulk_bypass");
+#endif
 	return result;
 }
 

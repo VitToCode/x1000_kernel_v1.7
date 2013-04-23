@@ -105,6 +105,14 @@ static struct usb_ep *match_ep(struct usb_configuration *c,struct rawbulk_functi
 	return usb_ep_autoconfig(gadget, desc);
 }
 
+static inline void set_enable_state(struct rawbulk_function *fn, int enab) 
+{
+	unsigned long flags;
+	spin_lock_irqsave(&fn->lock, flags);
+	fn->enable = !!enab;
+	spin_unlock_irqrestore(&fn->lock, flags);
+}
+
 int rawbulk_function_bind(struct usb_configuration *c,struct usb_function *f)
 {
 	int rc, ifnum;
@@ -155,14 +163,20 @@ int rawbulk_function_bind(struct usb_configuration *c,struct usb_function *f)
 	fn->cdev = c->cdev;
 	fn->activated = 0;
 
-	return rawbulk_bind_transfer(fn->transfer, &fn->function, ep_out, ep_in,
+	rc = rawbulk_bind_transfer(fn->transfer, &fn->function, ep_out, ep_in,
 			rawbulk_auto_reconnect);
+
+	set_enable_state(fn,1);
+	fn->activated = 1;
+	schedule_work(&fn->activator);
+	return rc;
 }
 
 
 static int rawbulk_function_setalt(struct usb_function *f, unsigned intf,unsigned alt) 
 {
 	struct rawbulk_function *fn = function_to_rawbulk(f);
+	fn->pushable = false;
 	fn->activated = 1;
 	schedule_work(&fn->activator);
 	return 0;
@@ -199,13 +213,6 @@ int rawbulk_check_enable(struct rawbulk_function *fn)
 EXPORT_SYMBOL_GPL(rawbulk_check_enable);
 
 
-static inline void set_enable_state(struct rawbulk_function *fn, int enab) 
-{
-	unsigned long flags;
-	spin_lock_irqsave(&fn->lock, flags);
-	fn->enable = !!enab;
-	spin_unlock_irqrestore(&fn->lock, flags);
-}
 
 void rawbulk_disable_function(struct rawbulk_function *fn) 
 {
@@ -351,8 +358,8 @@ struct rawbulk_function *rawbulk_init(struct usb_configuration *c,char *name)
 	fn->upsz = PAGE_SIZE;
 	fn->downsz = PAGE_SIZE;
 	fn->splitsz = PAGE_SIZE;
-	fn->autoreconn = true;
-	fn->pushable = false;
+	fn->autoreconn = false;
+	fn->pushable = true;
 	fn->cdev = c->cdev;
 
 	/* init descriptors */
@@ -361,7 +368,7 @@ struct rawbulk_function *rawbulk_init(struct usb_configuration *c,char *name)
 	init_endpoint_desc(&fn->fs_bulkin_endpoint, 1, 64);
 	init_endpoint_desc(&fn->fs_bulkout_endpoint, 0, 64);
 
-	init_endpoint_desc(&fn->hs_bulkin_endpoint, 1, 64);
+	init_endpoint_desc(&fn->hs_bulkin_endpoint, 1, 512);
 	init_endpoint_desc(&fn->hs_bulkout_endpoint, 0, 512);
 
 	fn->fs_descs[INTF_DESC] = (struct usb_descriptor_header *) &fn->interface;

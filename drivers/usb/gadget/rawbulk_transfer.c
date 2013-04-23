@@ -722,8 +722,28 @@ static void response_complete(struct usb_ep *ep, struct usb_request *req) {
 		ldbg("feedback error %d\n", req->status);
 }
 
+static void forward_ctrl_complete_xx(struct urb *urb) {
+	int rc;
+	struct rawbulk_transfer *transfer  = urb->context;
+	struct upstream_transaction *upstream;
+	struct downstream_transaction *downstream;
+
+	list_for_each_entry(upstream, &transfer->upstream.transactions, tlist) {
+		if (upstream->state == UPSTREAM_STAT_FREE && !upstream->stalled) {
+			rc = start_upstream(upstream, GFP_KERNEL);
+		}
+	}
+
+	list_for_each_entry(downstream, &transfer->downstream.transactions, tlist) {
+		if (downstream->state == DOWNSTREAM_STAT_FREE && !downstream->stalled) {
+			rc = start_downstream(downstream);
+		}
+	}
+}
+
 static void forward_ctrl_complete(struct urb *urb) {
-	struct usb_composite_dev *cdev = urb->context;
+	struct rawbulk_transfer *t  = urb->context;
+	struct usb_composite_dev *cdev = t->cdev;
 	if (!cdev)
 		return;
 
@@ -745,6 +765,7 @@ int rawbulk_forward_ctrlrequest(struct rawbulk_transfer *transfer, const struct 
 	struct usb_device *dev;
 	struct urb *urb;
 
+	int re_dir = 0;
 	ldbg("req_type %02x req %02x value %04x index %04x len %d",
 			ctrl->bRequestType, ctrl->bRequest, ctrl->wValue, ctrl->wIndex,
 			ctrl->wLength);
@@ -768,21 +789,23 @@ int rawbulk_forward_ctrlrequest(struct rawbulk_transfer *transfer, const struct 
 	} else
 		urb = transfer->forwarding_urb;
 
+	if (ctrl->bRequestType == 0x0 && ctrl->bRequest == 0x09)
+		re_dir = 1;
 	if (ctrl->bRequestType & USB_DIR_IN)
 		usb_fill_control_urb(urb, dev,
 				usb_rcvctrlpipe(dev, 0),
 				(unsigned char *)&transfer->forward_dr,
 				transfer->ctrl_response,
 				__le16_to_cpu(ctrl->wLength),
-				forward_ctrl_complete,
-				transfer->cdev);
+				re_dir ? forward_ctrl_complete_xx : forward_ctrl_complete,
+				transfer);
 	else
 		usb_fill_control_urb(urb, dev,
 				usb_sndctrlpipe(dev, 0),
 				(unsigned char *)&transfer->forward_dr,
 				NULL, 0,
-				forward_ctrl_complete,
-				transfer->cdev);
+				re_dir ? forward_ctrl_complete_xx : forward_ctrl_complete,
+				transfer);
 
 	return usb_submit_urb(urb, GFP_ATOMIC);
 }
@@ -823,7 +846,7 @@ int rawbulk_start_transactions(struct rawbulk_transfer *transfer, int nups, int 
 		upsz = 4096;
 
 	for (n = 0; n < nups; n ++) {
-		upstream = alloc_upstream_transaction(transfer, upsz, pushable);
+		upstream = alloc_upstream_transaction(transfer, upsz, 0);
 		if (!upstream) {
 			rc = -ENOMEM;
 			ldbg("fail to allocate upstream transaction n %d", n);
