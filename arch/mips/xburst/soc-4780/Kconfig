@@ -69,9 +69,11 @@ config BOARD_GRUS
 
 config BOARD_GRUS_V_1_0_1
 		bool "Grus v1.0.1"
-
 config BOARD_ZPAD80
         bool "ZPAD80"
+
+config BOARD_EBOOK
+        bool "EBOOK"
 
 endchoice
 
@@ -101,4 +103,5 @@ config BOARD_NAME
 	default "GrusV101" if BOARD_GRUS_V_1_0_1
 	default "ZPAD80" if BOARD_ZPAD80
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
+	default "EBOOK" if BOARD_EBOOK
 

@@ -23,3 +23,4 @@ obj-$(CONFIG_BOARD_GRUS)		+= grus/
 obj-$(CONFIG_BOARD_GRUS_V_1_0_1)	+= grus/
 obj-$(CONFIG_BOARD_ZPAD80)		+= zpad80/
 obj-$(CONFIG_BOARD_VGA_DONGLE)		+= vga-dongle/
+obj-$(CONFIG_BOARD_EBOOK)		+= ebook/
