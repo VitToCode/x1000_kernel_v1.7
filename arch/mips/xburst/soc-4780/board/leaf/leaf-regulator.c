@@ -100,6 +100,13 @@ FIXED_REGULATOR_DEF(
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
+
+FIXED_REGULATOR_DEF(
+	leaf_vgps,
+	"Gps",	 3300000,	GPIO_PE(18),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vgps",	NULL);
+
 #if 0
 FIXED_REGULATOR_DEF(
 	leaf_vlcd,
@@ -112,6 +119,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&leaf_vgsensor_regulator_device,
 	//&leaf_vbus_regulator_device,
 	&leaf_vcim_regulator_device,
+	&leaf_vgps_regulator_device,
 	//&leaf_vlcd_regulator_device,
 };
 
