@@ -845,7 +845,7 @@ static int sc8800s_probe(struct spi_device *spi)
 	}
 
 	/* register sysfs hooks */
-	err = sysfs_create_group(&spi->dev.kobj, &sc8800s_attr_group);
+	err = sysfs_create_group(&sc8800s_device.this_device->kobj, &sc8800s_attr_group);
 	if (err)
 		goto exit_create_sysfs_group_failed;
 

@@ -10,7 +10,7 @@
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
 #include <mach/jzsnd.h>
 #endif
-//#define RDA8851_DEBUG
+//#define SC8800S_POWEROFF_DEBUG
 
 #define PM_GPIO_NAND_SD0               GPIO_PA(0) 
 #define PM_GPIO_NAND_SD1               GPIO_PA(1) 
@@ -152,151 +152,170 @@
 #define PM_GPIO_HDMI_SCL             GPIO_PF(24)
 #define PM_GPIO_HDMI_SDA             GPIO_PF(25)
 
-#define PM_GPIO_RDA8851_POWER_EN            GPIO_PE(8)
-#define PM_GPIO_RDA8851_URAT_TXD            GPIO_PD(28)
-#define PM_GPIO_RDA8851_URAT_RXD            GPIO_PD(26)
-#define PM_GPIO_RDA8851_URAT_RTS_N          GPIO_PD(29)
-#define PM_GPIO_RDA8851_URAT_CTS_N          GPIO_PD(27)
-#define PM_GPIO_RDA8851_AP_STATUS           GPIO_PB(30)
-#define PM_GPIO_RDA8851_GSM_STATUS          GPIO_PB(31)
-#define PM_GPIO_RDA8851_GSM_WAKE_AP         GPIO_PB(21)
-#define PM_GPIO_RDA8851_AP_WAKE_GSM         GPIO_PB(28)
-#define PM_GPIO_GSM_SIM_DETE                GPIO_PE(3)
+#define PM_GPIO_SC8800S_TD_PWR_EN	GPIO_PD(12)
+#define PM_GPIO_SC8800S_BB_AP_SPI_RDY	GPIO_PE(16)
+#define PM_GPIO_SC8800S_AP_BB_SPI_RDY	GPIO_PE(14)
+#define PM_GPIO_SC8800S_BB_WAKE_AP	GPIO_PE(17)
+#define PM_GPIO_SC8800S_AP_WAKE_BB	GPIO_PE(15)
+#define PM_GPIO_SC8800S_AP_BB_SPI_RTS	GPIO_PE(5)
+#define PM_GPIO_SC8800S_BB_AP_SPI_RTS	GPIO_PE(3)
+#define PM_GPIO_SC8800S_AP_SLEEP_STS	GPIO_PD(27)
+#define PM_GPIO_SC8800S_BB_SLEEP_STS	GPIO_PD(29)
+#define PM_GPIO_SC8800S_BB_AP_RESET	GPIO_PB(30)
+#define PM_GPIO_SC8800S_AP_BB_RESET	GPIO_PB(31)
+#define PM_GPIO_SC8800S_SPI_DR		GPIO_PB(20)
+#define PM_GPIO_SC8800S_SPI_DT		GPIO_PB(29)
+#define PM_GPIO_SC8800S_SPI_CLK		GPIO_PB(28)
+#define PM_GPIO_SC8800S_SPI_CSN		GPIO_PB(21)
+#define PM_GPIO_SC8800S_UART1_TXD	GPIO_PD(28)
+#define PM_GPIO_SC8800S_UART1_RXD	GPIO_PD(26)
 
-#define PM_GPIO_UART3_PULL                  GPIO_PA(31)
+#define PM_GPIO_UART3_PULL              GPIO_PA(31)
 
 // default gpio state is input pull;
 __initdata int gpio_ss_table[][2] = {
-#ifdef RDA8851_DEBUG
-    {PM_GPIO_RDA8851_POWER_EN     ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_URAT_TXD     ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_URAT_RXD     ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_URAT_RTS_N   ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_URAT_CTS_N   ,     GSS_OUTPUT_LOW},
-	{PM_GPIO_GSM_SIM_DETE         ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_AP_STATUS    ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_GSM_STATUS   ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_GSM_WAKE_AP  ,     GSS_OUTPUT_LOW},
-    {PM_GPIO_RDA8851_AP_WAKE_GSM  ,     GSS_OUTPUT_LOW},
+#ifdef SC8800S_POWEROFF_DEBUG
+	{PM_GPIO_SC8800S_TD_PWR_EN,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_AP_SPI_RDY,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_AP_BB_SPI_RDY,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_WAKE_AP,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_AP_WAKE_BB,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_AP_BB_SPI_RTS,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_AP_SPI_RTS,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_AP_SLEEP_STS,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_SLEEP_STS,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_AP_RESET,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_AP_BB_RESET,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_SPI_DR,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_SPI_DT,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_SPI_CLK,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_SPI_CSN,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_UART1_TXD,	GSS_OUTPUT_LOW	},
 #else
-    {PM_GPIO_RDA8851_POWER_EN     ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_URAT_TXD     ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_URAT_RXD     ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_URAT_RTS_N   ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_URAT_CTS_N   ,     GSS_IGNORE    },
-	{PM_GPIO_GSM_SIM_DETE         ,     GSS_IGNORE	  },
-    {PM_GPIO_RDA8851_AP_STATUS    ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_GSM_STATUS   ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_GSM_WAKE_AP  ,     GSS_IGNORE    },
-    {PM_GPIO_RDA8851_AP_WAKE_GSM  ,     GSS_IGNORE    },
+	{PM_GPIO_SC8800S_TD_PWR_EN,	GSS_IGNORE	},
+	{PM_GPIO_SC8800S_BB_AP_SPI_RDY,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_AP_BB_SPI_RDY,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_BB_WAKE_AP,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_AP_WAKE_BB,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_AP_BB_SPI_RTS,	GSS_IGNORE	},
+	{PM_GPIO_SC8800S_BB_AP_SPI_RTS,	GSS_IGNORE	},
+	{PM_GPIO_SC8800S_AP_SLEEP_STS,	GSS_OUTPUT_LOW	},
+	{PM_GPIO_SC8800S_BB_SLEEP_STS,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_BB_AP_RESET,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_AP_BB_RESET,	GSS_INPUT_NOPULL},
+	{PM_GPIO_SC8800S_SPI_DR,	GSS_INPUT_PULL	},
+	{PM_GPIO_SC8800S_SPI_DT,	GSS_INPUT_PULL	},
+	{PM_GPIO_SC8800S_SPI_CLK,	GSS_INPUT_PULL	},
+	{PM_GPIO_SC8800S_SPI_CSN,	GSS_INPUT_PULL	},
+	{PM_GPIO_SC8800S_UART1_TXD,	GSS_INPUT_PULL	},
+	{PM_GPIO_SC8800S_UART1_RXD,	GSS_INPUT_PULL	},
 #endif
-
-    {PM_GPIO_NAND_SD0             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD1             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD2             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD3             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD4             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD5             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD6             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_SD7             ,     GSS_INPUT_NOPULL},
-    {PM_GPIO_NAND_FRE_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_FWE_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_FRB_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_CS1_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_CS2_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_CS3_N           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_CS4_N           ,     GSS_INPUT_PULL  },
-    {PM_GPIO_NAND_FRB1_N          ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_FNDQS           ,     GSS_IGNORE      },
-    {PM_GPIO_NAND_SA0_CLE         ,     GSS_IGNORE      }, 
-    {PM_GPIO_NAND_SA1_ALE         ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_SD0             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD1             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD2             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD3             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD4             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD5             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD6             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_SD7             ,     GSS_INPUT_NOPULL},
+	{PM_GPIO_NAND_FRE_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_FWE_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_FRB_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_CS1_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_CS2_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_CS3_N           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_CS4_N           ,     GSS_INPUT_PULL  },
+	{PM_GPIO_NAND_FRB1_N          ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_FNDQS           ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_SA0_CLE         ,     GSS_IGNORE      },
+	{PM_GPIO_NAND_SA1_ALE         ,     GSS_IGNORE      },
 	{PM_GPIO_NAND_FWP_N           ,     GSS_OUTPUT_LOW  },
 
-    {PM_GPIO_CIM_PCLK             ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_HSYN             ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_VSYN             ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_MCLK             ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D0               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D1               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D2               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D3               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D4               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D5               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D6               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_D7               ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_PWDN_FRONT       ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_PWDN_BACK        ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_RST              ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_CIM_VCC_EN           ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_PCLK             ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_HSYN             ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_VSYN             ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_MCLK             ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D0               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D1               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D2               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D3               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D4               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D5               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D6               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_D7               ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_PWDN_FRONT       ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_PWDN_BACK        ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_RST              ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_CIM_VCC_EN           ,    GSS_OUTPUT_LOW  },
 
-    {PM_GPIO_LCD_RESET_EN         ,    GSS_INPUT_NOPULL}, 
-    {PM_GPIO_LCD_VCC_EN           ,    GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B0               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B1               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B2               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B3               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B4               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B5               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B6               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_B7               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_PCLK             ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_DE               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G0               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G1               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G2               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G3               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G4               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G5               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G6               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_G7               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_HSYN             ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_VSYN             ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R0               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R1               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R2               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R3               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R4               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R5               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R6               ,     GSS_OUTPUT_LOW  },
-    {PM_GPIO_LCD_R7               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_RESET_EN         ,    GSS_INPUT_NOPULL},
+	{PM_GPIO_LCD_VCC_EN           ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B0               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B1               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B2               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B3               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B4               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B5               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B6               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_B7               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_PCLK             ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_DE               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G0               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G1               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G2               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G3               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G4               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G5               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G6               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_G7               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_HSYN             ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_VSYN             ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R0               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R1               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R2               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R3               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R4               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R5               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R6               ,     GSS_OUTPUT_LOW  },
+	{PM_GPIO_LCD_R7               ,     GSS_OUTPUT_LOW  },
 	{PM_GPIO_LCD_PWM              ,     GSS_OUTPUT_LOW	},
 
-    {PM_GPIO_WLAN_PW_EN           ,      GSS_IGNORE}, /*cljiang*/
-    {PM_GPIO_WL_WAKE              ,      GSS_OUTPUT_LOW	},
-    {PM_GPIO_WL_MSC1_D0           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_WL_MSC1_D1           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_WL_MSC1_D2           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_WL_MSC1_D3           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_WL_MSC1_CLK          ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_WL_MSC1_CMD          ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WLAN_PW_EN           ,      GSS_IGNORE}, /*cljiang*/
+	{PM_GPIO_WL_WAKE              ,      GSS_OUTPUT_LOW	},
+	{PM_GPIO_WL_MSC1_D0           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WL_MSC1_D1           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WL_MSC1_D2           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WL_MSC1_D3           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WL_MSC1_CLK          ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_WL_MSC1_CMD          ,      GSS_INPUT_NOPULL},
 	{PM_GPIO_WL_REG_ON            ,     GSS_OUTPUT_LOW    },
 	{PM_GPIO_BT_REG_ON            ,     GSS_IGNORE	}, /*cljiang*/
 	{PM_GPIO_BT_WAKE              ,     GSS_IGNORE}, 
 	{PM_GPIO_BT_INT               ,   GSS_INPUT_PULL	}, 
 	{PM_GPIO_BT_RST_N             ,   GSS_IGNORE    }, /*cljiang*/
-    {PM_GPIO_BT_PCM_DO              ,      GSS_OUTPUT_LOW  },
-    {PM_GPIO_BT_PCM_CLK             ,      GSS_IGNORE	    },    
-    {PM_GPIO_BT_PCM_SYN             ,      GSS_IGNORE	    },    
-    {PM_GPIO_BT_PCM_DI              ,      GSS_OUTPUT_LOW	},
-    {PM_GPIO_BT_UART2_RTS_N         ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BT_UART2_CTS_N         ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BT_UART2_RXD           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BT_UART2_TXD           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BT_PCM_DO              ,      GSS_OUTPUT_LOW  },
+	{PM_GPIO_BT_PCM_CLK             ,      GSS_IGNORE	    },
+	{PM_GPIO_BT_PCM_SYN             ,      GSS_IGNORE	    },
+	{PM_GPIO_BT_PCM_DI              ,      GSS_OUTPUT_LOW	},
+	{PM_GPIO_BT_UART2_RTS_N         ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BT_UART2_CTS_N         ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BT_UART2_RXD           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BT_UART2_TXD           ,      GSS_INPUT_NOPULL},
 
-    {PM_GPIO_DC_DETE              ,     GSS_IGNORE      },
-    {PM_GPIO_PMU_IRQ_N            ,     GSS_IGNORE      },
-    {PM_GPIO_AP_WAKEUP_N          ,     GSS_IGNORE      },
-    {PM_GPIO_CHARGER_DET          ,     GSS_IGNORE  }, 
-    {PM_GPIO_KEY_1                ,    GSS_INPUT_NOPULL}, 
-    {PM_GPIO_MOTOR_EN             ,    GSS_OUTPUT_LOW  },
+	{PM_GPIO_DC_DETE              ,     GSS_IGNORE      },
+	{PM_GPIO_PMU_IRQ_N            ,     GSS_IGNORE      },
+	{PM_GPIO_AP_WAKEUP_N          ,     GSS_IGNORE      },
+	{PM_GPIO_CHARGER_DET          ,     GSS_IGNORE  },
+	{PM_GPIO_KEY_1                ,    GSS_INPUT_NOPULL},
+	{PM_GPIO_MOTOR_EN             ,    GSS_OUTPUT_LOW  },
 
-    {PM_GPIO_I2C3_SDA            ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_I2C3_SCK            ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BOOT_SEL0           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BOOT_SEL1           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_BOOT_SEL2           ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_I2C0_SDA            ,      GSS_INPUT_NOPULL},
-    {PM_GPIO_I2C0_SCK            ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_I2C3_SDA            ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_I2C3_SCK            ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BOOT_SEL0           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BOOT_SEL1           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_BOOT_SEL2           ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_I2C0_SDA            ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_I2C0_SCK            ,      GSS_INPUT_NOPULL},
 
 	{PM_GPIO_ID                 ,       GSS_INPUT_NOPULL},
 	{PM_GPIO_AVDEFUSE_EN_N      ,       GSS_INPUT_NOPULL},
@@ -326,9 +345,9 @@ __initdata int gpio_ss_table[][2] = {
 	{PM_GPIO_HDMI_SCL             ,   GSS_INPUT_NOPULL  },
 	{PM_GPIO_HDMI_SDA             ,   GSS_INPUT_NOPULL  },
 
-    {PM_GPIO_MIC_SEL              ,    GSS_OUTPUT_HIGH },
-    {PM_GPIO_HP_MUTE             ,      GSS_OUTPUT_HIGH	},
-    {PM_GPIO_EAR_MIC_DETE        ,      GSS_INPUT_NOPULL},
+	{PM_GPIO_MIC_SEL              ,    GSS_OUTPUT_HIGH },
+	{PM_GPIO_HP_MUTE             ,      GSS_OUTPUT_HIGH	},
+	{PM_GPIO_EAR_MIC_DETE        ,      GSS_INPUT_NOPULL},
 	{PM_GPIO_AMPEN              ,       GSS_OUTPUT_LOW	},
 
 
@@ -343,15 +362,15 @@ __initdata int gpio_ss_table[][2] = {
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
 bool need_update_gpio_ss(void)
 {
-    //printk("i2s_is_incall = %d\n", i2s_is_incall());
-    return i2s_is_incall();
+	//printk("i2s_is_incall = %d\n", i2s_is_incall());
+	return i2s_is_incall();
 
 }
 
 __initdata int gpio_ss_table2[][2] = {
-    {PM_GPIO_MIC_SEL              ,     GSS_IGNORE },
-    {PM_GPIO_HP_MUTE             ,      GSS_IGNORE },
-    {PM_GPIO_EAR_MIC_DETE        ,      GSS_IGNORE },
+	{PM_GPIO_MIC_SEL              ,     GSS_IGNORE },
+	{PM_GPIO_HP_MUTE             ,      GSS_IGNORE },
+	{PM_GPIO_EAR_MIC_DETE        ,      GSS_IGNORE },
 	{PM_GPIO_AMPEN              ,       GSS_IGNORE },
 
 	/* GPIO Group Set End */
