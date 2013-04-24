@@ -91,8 +91,10 @@
 #define I2C4_PORTF							\
 	{ .name = "i2c4-port-f-func1", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x3<<24, }
 
+#define SRAM_CS5_PORTAB_BIT8																																				\
+				{ .name = "sram0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x02030000, },     \
+        { .name = "sram1", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x0000003c, }
 /*******************************************************************************************************************/
-
 #define NAND_PORTAB_COMMON                                                      \
         { .name = "nand-0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x000c00ff, },     \
         { .name = "nand-1", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000003, }

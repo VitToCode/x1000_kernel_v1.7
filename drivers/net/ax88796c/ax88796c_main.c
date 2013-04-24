@@ -37,6 +37,8 @@ static int bus_wide = 1;
 
 static int mem;
 static int irq;
+static int reset;
+static int irq_pin;
 static int ps_level = AX_PS_D0;
 static int msg_enable = (NETIF_MSG_DRV |
 			 NETIF_MSG_PROBE |
@@ -1387,6 +1389,7 @@ ax88796c_free_skbuff (struct sk_buff_head *q)
  * Purpose: Device open and initialization
  * ----------------------------------------------------------------------------
  */
+#define ETH_INT_PIN	(32*5 + 14)
 static int 
 ax88796c_open(struct net_device *ndev)
 {
@@ -1408,12 +1411,22 @@ ax88796c_open(struct net_device *ndev)
 
 	ax88796c_init (ax_local);
 	
-	jzgpio_set_func(GPIO_PORT_F, GPIO_INT_LO, 1<<18);
+	ret = gpio_request(irq_pin, "aix88796 irq_pin");
+	if (ret){
+		printk("request irq_pin err\n");
+		return ret;
+	}
 
-	//gpio_to_irq(32*5 + 18);
-	//writel(1<<18, 0xb0010528);
+	ret = gpio_direction_input(irq_pin);
+	if (ret){
+		printk("gpio_direction_input err\n");
+		return ret;
+	}
 
-	/* Request IRQ */
+
+	printk("aix88796 irq_pin:%d, irq:%d\n", irq_pin, irq);
+
+	/* Request IRQ ndev->irq*/
 	ret = request_irq (ndev->irq, &ax88796c_interrupt,
 				IRQF_TRIGGER_LOW , ndev->name, ndev);
 	if (ret) {
@@ -1423,16 +1436,6 @@ ax88796c_open(struct net_device *ndev)
 				ndev->name, ndev->irq, ret);
 		return ret;
 	}
-printk("inter = 0x%08x\n", readl(0xb0010510));
-	printk("mask = 0x%08x\n", readl(0xb0010520));
-	printk("direct = 0x%08x\n", readl(0xb0010530));
-	printk("data = 0x%08x======>>>\n", readl(0xb0010540));
-	
-	writel(1<<18, 0xb0010528);
-	printk("\n\ninter = 0x%08x\n", readl(0xb0010510));
-	printk("mask = 0x%08x\n", readl(0xb0010520));
-	printk("direct = 0x%08x\n", readl(0xb0010530));
-	printk("data = 0x%08x\n", readl(0xb0010540));
 
 	ret = ax88796c_plat_dma_init (
 				ndev->base_addr,
@@ -1622,8 +1625,6 @@ ax88796c_probe (struct ax88796c_device *ax_local)
 				ndev->base_addr, ndev->irq);
 	}
 	
-	ax88796c_dump_regs (ax_local);
-	
 	return 0;
 }
 
@@ -1654,6 +1655,28 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 		mem = res->start;
 	}
 
+	if(!reset){
+		res = platform_get_resource_byname(pdev, IORESOURCE_IO, "reset_pin");
+		if (!res) {
+			printk("%s: get no resource !\n", AX88796C_DRV_NAME);
+			return -ENODEV;
+		}
+
+		reset = res->start;
+	}
+
+
+	if(!irq_pin){
+		res = platform_get_resource_byname(pdev, IORESOURCE_IO, "irq_pin");
+		if (!res) {
+			printk("%s: get no resource !\n", AX88796C_DRV_NAME);
+			return -ENODEV;
+		}
+
+		irq_pin = res->start;
+	}
+
+
 	/* Get the IRQ resource from kernel */
 	if(!irq)
 		irq = platform_get_irq(pdev, 0);
@@ -1670,45 +1693,34 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 		goto release_region;
 	}
 	
-	gpio_request(32*5 + 21, NULL);
-	gpio_direction_output(32*5 + 21, 0);
+	gpio_request(reset, "aix88796 reset pin");
+	gpio_direction_output(reset, 0);
 	mdelay(100);
-	gpio_direction_output(32*5 + 21, 1);
+	gpio_direction_output(reset, 1);
 	mdelay(100);
-
-	
+	/*
 	writel(0x00001Aff, 0xb3410038);
 	writel(0x000019ff, 0xb341003c);
 	writel(0x000018ff, 0xb3410040);
 	writel(0x000017ff, 0xb3410044);
 	writel(0x000016ff, 0xb3410048);
 
-	printk("SACR1 = 0x%08x\n", readl(0xb3410034));
+	printk("\n\nSACR1 = 0x%08x\n", readl(0xb3410034));
 	printk("SACR2 = 0x%08x\n", readl(0xb3410038));
 	printk("SACR3 = 0x%08x\n", readl(0xb341003c));
 	printk("SACR4 = 0x%08x\n", readl(0xb3410040));
 	printk("SACR5 = 0x%08x\n", readl(0xb3410044));
 	printk("SACR6 = 0x%08x\n", readl(0xb3410048));
-
+*/
 	writel(0x3fffff00, 0xb3410024);
-
+/*
 	volatile unsigned int temp;
 	temp = readl(0xb3410050);
 	printk("temp = 0x%x\n", temp);
 	writel(readl(0xb3410050) & (~0x3fc), 0xb3410050);
 	temp = readl(0xb3410050);
 	printk("temp = 0x%x\n", temp);
-	
-	printk("inter = 0x%08x\n", readl(0xb0010010));
-	printk("mask = 0x%08x\n", readl(0xb0010020));
-	printk("direct = 0x%08x\n", readl(0xb0010030));
-	printk("data = 0x%08x\n", readl(0xb0010040));
-	jzgpio_set_func(GPIO_PORT_A, GPIO_FUNC_0, 1<<17);
-	printk("\n\ninter = 0x%08x\n", readl(0xb0010010));
-	printk("mask = 0x%08x\n", readl(0xb0010020));
-	printk("direct = 0x%08x\n", readl(0xb0010030));
-	printk("data = 0x%08x\n", readl(0xb0010040));
-
+*/
 	ndev = alloc_etherdev (sizeof (struct ax88796c_device));
 	if (!ndev) {
 		printk("%s: could not allocate device.\n", AX88796C_DRV_NAME);

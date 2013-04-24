@@ -22,7 +22,7 @@
  */
 FIXED_REGULATOR_DEF(
 	hdmi_80_vcc5,
-	"Vcc-5V",	5000000,	GPIO_PA(17),
+	"Vcc-5V",	5000000,	GPIO_PE(15),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 

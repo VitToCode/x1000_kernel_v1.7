@@ -25,6 +25,8 @@
 #include "vga-dongle.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
+extern struct platform_device net_device_ax88796c;
+
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
 #ifdef GPIO_CALL
@@ -298,13 +300,13 @@ static int __init vga_dongle_board_init(void)
 #endif
 
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ4780_LCDC1
-	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
-#endif
+
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
-
+#ifdef CONFIG_FB_JZ4780_LCDC1
+	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
 /* AOSD */
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);
@@ -394,8 +396,9 @@ static int __init vga_dongle_board_init(void)
        spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
-
-
+#ifdef CONFIG_AX88796C
+       platform_device_register(&net_device_ax88796c);
+#endif
 	return 0;
 }
 

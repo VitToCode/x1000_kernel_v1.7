@@ -17,6 +17,10 @@
 #include <linux/jz_dwc.h>
 #include <linux/android_pmem.h>
 
+#include <soc/gpio.h>
+#include <soc/base.h>
+#include <soc/irq.h>
+
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
@@ -25,8 +29,6 @@
 #include <gpio.h>
 #include "hdmi-80.h"
 #include <../drivers/staging/android/timed_gpio.h>
-
-extern struct platform_device net_device_ax88796c;
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
@@ -233,10 +235,16 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
+#ifdef CONFIG_USB_DWC2
+struct jzdwc_pin dwc2_id_pin = {
+            .num                            = GPIO_PE(2),
+};
+#endif
+
 #if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
 struct jzdwc_pin dete_pin = {
-	.num				= GPIO_USB_DETE,
-	.enable_level			= HIGH_ENABLE,
+	.num				= -1,
+	.enable_level			= -1,
 };
 #endif
 
@@ -257,11 +265,59 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_AX88796C
+static struct resource ax88796c_resource[] = {
+    [0] = {
+        .start = NEMC_CS5_IOBASE,           /* Start of AX88796C base address */
+        .end   = NEMC_CS5_IOBASE + 0x3f, /* End of AX88796C base address */
+        .flags = IORESOURCE_MEM,
+    },
+
+    [1] = {
+        .start = IRQ_GPIO_BASE + AIX_ETH_INT,            /* Interrupt line number */
+        .end   = IRQ_GPIO_BASE + AIX_ETH_INT,
+        .flags = IORESOURCE_IRQ,
+    },
+
+    [2] = {
+    	.name = "irq_pin",
+		.start = AIX_ETH_INT,            /* Interrupt line number */
+		.end   = AIX_ETH_INT,
+		.flags = IORESOURCE_IO,
+    },
+
+    [3] = {
+    	.name = "reset_pin",
+		.start = AIX_ETH_RESET,            /* Interrupt line number */
+		.end   = AIX_ETH_RESET,
+		.flags = IORESOURCE_IO,
+    },
+};
+
+struct platform_device net_device_ax88796c = {
+    .name  = "ax88796c",
+    .id  = -1,
+    .num_resources = ARRAY_SIZE(ax88796c_resource),
+    .resource = ax88796c_resource,
+};
+#endif
+
 static int __init hdmi_80_board_init(void)
 {
+	
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
+#endif
+/* mmc */
+#ifdef CONFIG_MMC0_JZ4780
+	jz_device_register(&jz_msc0_device, &hdmi_80_tf_pdata);
+#endif
+#ifdef CONFIG_MMC1_JZ4780
+	jz_device_register(&jz_msc1_device, &hdmi_80_sdio_pdata);
+#endif
+#ifdef CONFIG_MMC2_JZ4780
+	jz_device_register(&jz_msc2_device, &hdmi_80_tf_pdata);
 #endif
 /* i2c */
 #ifdef CONFIG_I2C0_JZ4780
@@ -286,16 +342,7 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_JZ4780_IPU
 	platform_device_register(&jz_ipu1_device);
 #endif
-/* mmc */
-#ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &hdmi_80_tf_pdata);
-#endif
-#ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc1_device, &hdmi_80_sdio_pdata);
-#endif
-#ifdef CONFIG_MMC2_JZ4780
-	jz_device_register(&jz_msc2_device, &hdmi_80_tf_pdata);
-#endif
+
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
 	jz_device_register(&jz_i2s_device,&i2s_data);
@@ -372,11 +419,6 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_USB_EHCI_HCD
 	platform_device_register(&jz_ehci_device);
 #endif
-/* OTG */
-#ifdef CONFIG_USB_DWC2
-    platform_device_register(&jz_dwc_otg_device);
-#endif
-
 /* net */
 #ifdef CONFIG_JZ_MAC
 	platform_device_register(&jz_mac);
@@ -432,9 +474,13 @@ static int __init hdmi_80_board_init(void)
 	platform_device_register(&pmem_camera_device);
 #endif
 
+#ifdef CONFIG_USB_DWC2
+	platform_device_register(&jz_dwc_otg_device);
+#endif
 #ifdef CONFIG_AX88796C
        platform_device_register(&net_device_ax88796c);
 #endif
+
 	return 0;
 }
 

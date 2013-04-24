@@ -36,6 +36,13 @@ config  FAKE_NAND_DRIVER
 
 endchoice
 
+config NEMC_SRAM_8BIT
+	bool "Support JZ4780 8bit sram setting"
+	depends on NAND_JZ4780_FUNCTION && NAND_COMMON
+	default n
+        help
+	  If you want set JZ4780 sram function. This selects default is y.
+
 config NAND_JZ4780_FUNCTION
 	bool "Support JZ4780 function setting"
         depends on NAND_JZ4780 && !MMC0_JZ4780_PA_4BIT && !MMC0_JZ4780_PA_8BIT &&  !MMC0_JZ4780_PA_4BIT_RESET && ! MMC0_JZ4780_PA_8BIT_RESET
