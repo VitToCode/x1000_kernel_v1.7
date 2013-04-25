@@ -41,7 +41,6 @@ static void jz_start_ohc(struct jz_ohci *jz_ohci)
 	clk_enable(jz_ohci->clk);
 	clk_set_rate(jz_ohci->clk_cgu,48000000);
 	clk_enable(jz_ohci->clk_cgu);
-
 	cpm_start_ohci();
 }
 
@@ -126,9 +125,6 @@ static int usb_ohci_jz_probe(const struct hc_driver *driver,
 		retval = PTR_ERR(jz_ohci->clk_cgu);
 		goto err2;
 	}
-	clk_enable(jz_ohci->clk);
-	clk_set_rate(jz_ohci->clk_cgu, 48000000);
-	clk_enable(jz_ohci->clk_cgu);
 
 	jz_ohci->dev = &pdev->dev;
 
@@ -301,8 +297,8 @@ static struct platform_driver ohci_hcd_jz_driver = {
 	.probe		= ohci_hcd_jz_drv_probe,
 	.remove		= ohci_hcd_jz_drv_remove,
 	.shutdown	= usb_hcd_platform_shutdown,
-	.suspend	= ohci_hcd_jz_drv_suspend, 
-	.resume	= ohci_hcd_jz_drv_resume, 
+	.suspend	= ohci_hcd_jz_drv_suspend,
+	.resume	= ohci_hcd_jz_drv_resume,
 	.driver		= {
 		.name	= "jz-ohci",
 		.owner	= THIS_MODULE,

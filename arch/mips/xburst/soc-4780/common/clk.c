@@ -566,7 +566,7 @@ static int cgu_enable(struct clk *clk,int on)
 		if(cgu_clks[no].cache) {
 			cpm_outl(cgu_clks[no].cache,cgu_clks[no].off);
 
-			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off))
 				printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 		} else {
 			printk("######################################\n");
@@ -602,11 +602,11 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 
 	cgu_clks[no].cache = (x & ~(0x1<<cgu_clks[no].stop)) | (0x1<<cgu_clks[no].ce);
 
-	if(cpm_test_bit(cgu_clks[no].ce,cgu_clks[no].off) 
+	if(cpm_test_bit(cgu_clks[no].ce,cgu_clks[no].off)
 			&& !cpm_test_bit(cgu_clks[no].stop,cgu_clks[no].off)) {
 		cpm_outl(cgu_clks[no].cache, cgu_clks[no].off);
 
-		while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) 
+		while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off))
 			printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
 	}
 
@@ -751,7 +751,7 @@ void __init init_all_clk(void)
 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
 		if(clk_srcs[i].rate)
 			continue;
-		if((clk_srcs[i].flags & CLK_FLG_ENABLE) 
+		if((clk_srcs[i].flags & CLK_FLG_ENABLE)
 				&& !(clk_srcs[i].flags & CLK_FLG_GATE))
 			clk_srcs[i].count = 1;
 		if(clk_srcs[i].flags & CLK_FLG_PARENT) {
@@ -1000,7 +1000,7 @@ int cpm_start_ehci(void)
 	/* selects the reference clock frequency 48M */
 	tmp = cpm_inl(CPM_USBPCR1);
 	tmp &= ~(0x3<<24);
-	switch(CONFIG_EXTAL_CLOCK) {
+	switch(JZ_EXTAL) {
 		case 24000000:
 			tmp |= (1<<24);break;
 		case 48000000:
