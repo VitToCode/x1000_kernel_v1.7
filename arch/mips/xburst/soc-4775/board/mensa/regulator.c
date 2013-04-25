@@ -46,21 +46,21 @@ VBUS_REGULATOR_DEF(
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
-EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
+EXCLUSIVE_REGULATOR_DEF(
 	vwifi,
-	"Wi-Fi",
-	"vwifi",	NULL,		3000000);
+	"Wi-Fi",	"vwifi",	NULL,
+	NULL,		3300000,	0);
 
 
 EXCLUSIVE_REGULATOR_DEF(
 	vcc5v,
-	"VCC5V",
-	"vcc5v",	NULL,		5000000);
+	"VCC5V",	"vcc5v",	NULL,
+	NULL,	5000000,	0);
 
-EXCLUSIVE_REGULATOR_RESET_VOLT_DEF(
+EXCLUSIVE_REGULATOR_DEF(
 	vlcd,
-	"Vlcd",
-	"vlcd",	NULL,		3300000);
+	"Vlcd",	"vlcd",		NULL,
+	NULL,	3300000,	0);
 
 #ifndef CONFIG_NAND
 FIXED_REGULATOR_DEF(
