@@ -23,8 +23,8 @@ module_param(dwc2_ep0_debug_en, int, 0644);
 #define DWC2_EP0_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_ep0_debug_en)) {		\
-			printk("CPU%d: ", smp_processor_id());	\
-			printk("DWC2(EP0:): " msg);		\
+			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
+			printk(KERN_DEBUG "DWC2(EP0:): " msg);		\
 		}						\
         } while(0)
 #else

@@ -25,8 +25,8 @@ module_param(dwc2_rh_debug_en, int, 0644);
 #define DWC2_RH_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_rh_debug_en)) {		\
-			printk("CPU%d: ", smp_processor_id());	\
-			printk("DWC2(RH): " msg);		\
+			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
+			printk(KERN_DEBUG "DWC2(RH): " msg);		\
 		}						\
 	} while(0)
 

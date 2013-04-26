@@ -29,8 +29,8 @@ module_param(dwc2_gadget_debug_en, int, 0644);
 #define DWC2_GADGET_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_gadget_debug_en)) {		\
-			printk("CPU%d: ", smp_processor_id());	\
-			printk("DWC2(GADGET): " msg);		\
+			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
+			printk(KERN_DEBUG "DWC2(GADGET): " msg);		\
 		}						\
 	} while(0)
 #else
