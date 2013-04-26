@@ -255,13 +255,8 @@ static struct ricoh618_regulator ricoh618_regulators[] = {
 			900, 3500, 25000, 0x68, ricoh618_ops, 500),
 	RICOH618_REG(LDO4, 0x44, 2, 0x46, 2, 0x4E, 0x7F, 0x5A,
 			600, 3500, 25000, 0x74, ricoh618_ops, 500),
-//	RICOH618_REG(OUT8, 0x44, 3, 0x46, 3, 0x4F, 0x7F, 0x5B,
-//			900, 3500, 25000, 0x68, ricoh618_ops, 500),
-//	RICOH618_REG(OUTMSC, 0x44, 4, 0x46, 4, 0x50, 0x7F, 0x5C,
-//			900, 3500, 25000, 0x68, ricoh618_ops, 500),
-//	RICOH618_REG(VBUS, 0x45, 4, 0x00, 0x00, 0x56, 0x7F, 0x00,
-//			1700, 3500, 25000, 0x48, ricoh618_ops, 500),
-
+	RICOH618_REG(VBUS, 0xb3, 1, 0xb3, 1, -1, -1, -1,
+			-1, -1, -1, -1, ricoh618_ops, 500),
 };
 
 static inline struct ricoh618_regulator *find_regulator_info(const char *name)
@@ -275,43 +270,6 @@ static inline struct ricoh618_regulator *find_regulator_info(const char *name)
 
 	return NULL;
 }
-
-/*
-static int ricoh618_regulator_preinit(struct device *parent,
-		struct ricoh618_regulator *ri,
-		struct regulator_info *ricoh618_info)
-{
-	int ret = 0;
-
-	if (ricoh618_info->init_data.constraints.always_on)
-		return 0;
-
-	if (ricoh618_info->init_data.constraints.min_uV >= 0) {
-		ret = __ricoh618_set_voltage(parent, ri,
-				ricoh618_info.constraints.min_uV,
-				ricoh618_info.constraints.min_uV, 0);
-		if (ret < 0) {
-			dev_err(ri->dev, "Not able to initialize voltage %d "
-				"for rail %d err %d\n", ricoh618_pdata->init_uV,
-				ri->desc.id, ret);
-			return ret;
-		}
-	}
-
-	if (ricoh618_pdata->init_enable)
-		ret = ricoh618_set_bits(parent, ri->reg_en_reg,
-							(1 << ri->en_bit));
-	else
-		ret = ricoh618_clr_bits(parent, ri->reg_en_reg,
-							(1 << ri->en_bit));
-	if (ret < 0)
-		dev_err(ri->dev, "Not able to %s rail %d err %d\n",
-			(ricoh618_pdata->init_enable) ? "enable" : "disable",
-			ri->desc.id, ret);
-
-	return ret;
-}
-*/
 
 static inline int ricoh618_cache_regulator_register(struct device *parent,
 	struct ricoh618_regulator *ri)
@@ -330,7 +288,7 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 
 	int err;
 
-	printk("-----register ricoh618 regulator !!!!!!!!!!!\n\n\n");
+	printk("-----> register ricoh618 regulator!!!\n");
 	ricoh618_reg = kzalloc(sizeof(struct ricoh618_reg), GFP_KERNEL);
 	if (!ricoh618_reg)
 		return -ENOMEM;
@@ -368,8 +326,10 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 				ri->desc.name);
 				rdev[i] = NULL;
 			}
+			if (rdev[i] && ri->desc.ops->is_enabled && ri->desc.ops->is_enabled(rdev[i])) {
+				rdev[i]->use_count++;
+			}
 		}
-
 	}
 
 #ifdef CONFIG_CHARGER_RICOH618
@@ -388,6 +348,9 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 			ri->desc.name);
 			rdev[i] = NULL;
 			goto error;
+		}
+		if (rdev[i] && ri->desc.ops->is_enabled && ri->desc.ops->is_enabled(rdev[i])) {
+			rdev[i]->use_count++;
 		}
 	}
 #endif
@@ -425,8 +388,6 @@ static struct platform_driver ricoh618_regulator_driver = {
 
 static int __init ricoh618_regulator_init(void)
 {
-
-	printk("----- ricoh618 regulator init !!!!!!!!!!!\n\n\n");
 	return platform_driver_register(&ricoh618_regulator_driver);
 }
 subsys_initcall(ricoh618_regulator_init);

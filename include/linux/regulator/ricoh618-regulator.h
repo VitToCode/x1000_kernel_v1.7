@@ -43,6 +43,7 @@ enum regulator_id {
 	RICOH618_ID_LDO5,
 	RICOH618_ID_LDORTC1,
 	RICOH618_ID_LDORTC2,
+	RICOH618_ID_VBUS,
 };
 
 struct ricoh618_regulator_platform_data {

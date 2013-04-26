@@ -43,6 +43,13 @@ config BATTERY_JZ4780
 	  Say Y to enable support for the battery on Ingenic JZ4780 based
 	  boards.
 
+config BATTERY_RICOH618
+	tristate "Ricoh RD5T618 PMIC battery driver"
+	depends on MFD_RICOH618 && I2C && GENERIC_HARDIRQS
+	help
+	  Say Y to enable support for the battery control of the Ricoh RD5T618
+	  Power Management device.
+
 config CHARGER_ACT8600
 	tristate "ACT8600 battery charger support"
 	depends on MFD_ACT8600

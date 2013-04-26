@@ -36,7 +36,7 @@
 #define	INTEN_REG			0x9D
 #define	EN_ADCIR3_REG	0x8A
 #define	ADCCNT3_REG		0x66
-#define	VBATDATAH	_REG	0x6A
+#define	VBATDATAH_REG	0x6A
 #define	VBATDATAL_REG	0x6B
 
 #define CHGSTATE_REG		0xBD
