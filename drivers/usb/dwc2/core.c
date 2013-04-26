@@ -1594,6 +1594,8 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	dwc2_core_debug_en = 1;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
+	if (dwc2_is_host_mode(dwc))
+		 jz4780_set_vbus(dwc, 0);
 	dev_dbg(dwc->dev, "dwc2_suspend-ed\n");
 
 	return 0;
@@ -1648,6 +1650,9 @@ static int dwc2_resume(struct platform_device *pdev) {
 		dwc2_host_resume(dwc);
 	dwc2_core_debug_en = 0;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	if (dwc2_is_host_mode(dwc))
+		 jz4780_set_vbus(dwc, 1);
 
 	return 0;
 }

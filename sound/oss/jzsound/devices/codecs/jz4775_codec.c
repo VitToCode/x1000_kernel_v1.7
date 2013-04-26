@@ -65,7 +65,7 @@ extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_cl
 static int g_codec_sleep_mode = 1;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-     static struct early_suspend early_suspend;                                                                                      
+     static struct early_suspend early_suspend;
 #endif
 
 
@@ -383,7 +383,7 @@ static void dump_codec_gain_regs(void)
 /*=========================power on==========================*/
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-static void codec_early_suspend(struct early_suspend *handler)                                                                                               
+static void codec_early_suspend(struct early_suspend *handler)
 {
      __codec_switch_sb_micbias(POWER_OFF);
 }
@@ -2007,7 +2007,7 @@ static int codec_init(void)
 {
 
 	/* the generated IRQ is high level whit 8 SYS_CLK */
-	__codec_set_int_form(ICR_INT_HIGH_8CYCLES);
+	__codec_set_int_form(ICR_INT_HIGH);
 
 
 	/* set IRQ mask and clear IRQ flags*/
@@ -2707,7 +2707,7 @@ _ensure_stable:
 #endif /*CONFIG_JZ_HP_DETECT_CODEC*/
 	}
 
-	__codec_set_irq_flag(codec_ifr);
+	__codec_set_irq_flag((~0));
 	/* Unmask SCMC & JACK (ifdef CONFIG_JZ_HP_DETECT_CODEC) */
 	__codec_set_irq_mask(ICR_COMMON_MASK);
 
@@ -3042,7 +3042,7 @@ static void __exit cleanup_codec(void)
 {
 	platform_driver_unregister(&jz_codec_driver);
 #ifdef CONFIG_HAS_EARLYSUSPEND
-    unregister_early_suspend(&early_suspend);                                                                                   
+    unregister_early_suspend(&early_suspend);
 #endif
 }
 arch_initcall(init_codec);

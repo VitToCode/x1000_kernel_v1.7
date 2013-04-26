@@ -834,6 +834,8 @@ static void dwc2_qh_destroy(struct dwc2 *dwc, struct dwc2_qh *qh) {
 	kmem_cache_free(dwc->qh_cachep, qh);
 }
 
+static void dwc2_host_cleanup(struct dwc2 *dwc);
+
 // high bandwidth multiplier, as encoded in highspeed endpoint descriptors
 #define dwc2_hb_mult(wMaxPacketSize) (1 + (((wMaxPacketSize) >> 11) & 0x03))
 // ... and packet size, for any kind of endpoint descriptor
@@ -919,8 +921,9 @@ static struct dwc2_qh* dwc2_qh_make(struct dwc2 *dwc, struct urb *urb) {
 		dev_err(dwc->dev, "Change controller operating mode on the fly! "
 			"curr_mode = %d, want to change to %d\n",
 			dwc->mode, mode);
-		kmem_cache_free(dwc->qh_cachep, qh);
-		return NULL;
+		//kmem_cache_free(dwc->qh_cachep, qh);
+		//return NULL;
+		dwc2_host_cleanup(dwc);
 	}
 
 	dwc->mode = mode;
@@ -1784,7 +1787,7 @@ static int dwc2_start_int_channel(struct dwc2 *dwc, struct dwc2_channel *channel
 	hcchar.b.chdis = 0;
 
 	dwc2_trace_chan_trans_info(dwc, channel, urb_priv->control_stage, urb_priv->error_count,
-				hcchar.d32, hctsiz.d32, dwc_readl(&hc_regs->hcdma));
+				hcchar.d32, dwc_readl(&hc_regs->hctsiz), dwc_readl(&hc_regs->hcdma));
 	dwc_writel(hcchar.d32, &hc_regs->hcchar);
 
 	return 0;
@@ -2816,7 +2819,8 @@ static void dwc2_hcd_handle_int_hc_intr(struct dwc2 *dwc, struct dwc2_channel *c
 		dwc2_free_channel(dwc, channel);
 
 		/* interrupt do not partial IN/OUT, retry if partial IN/OUT */
-		if (!dma_desc->status.b.n_bytes) {
+		if ( (!(urb->transfer_flags & URB_SHORT_NOT_OK)) ||
+			(!dma_desc->status.b.n_bytes)) {
 			urb->actual_length += xfer_len;
 			dwc2_td_done(urb_priv, td);
 			dwc2_urb_done(dwc, urb, 0);
@@ -2992,9 +2996,66 @@ static void dwc2_hcd_handle_hc_intr(struct dwc2 *dwc) {
 	}
 }
 
+static void dwc2_host_cleanup(struct dwc2 *dwc) {
+	struct dwc2_qh		*qh;
+	struct dwc2_qh		*qh_temp;
+	int			 i;
+	struct dwc2_channel	*chan;
+
+	/*
+	 * the simplest way maybe tail the upper layer using port1_status
+	 * but when the user also removed the cable, the host may change to device mode,
+	 * in device mode, host registers are not accessible, so we must giveback any queued URBs ASAP
+	 */
+
+	/*
+	 * we must first set the qh->disabling to 1 because dwc2_urb_done()
+	 * will temperally unlock dwc->lock, and cause some funny things
+	 */
+
+	list_for_each_entry(qh, &dwc->busy_qh_list, list) {
+		if (!qh->disabling)
+			qh->disabling = 1;
+	}
+
+	for (i = 0; i < MAX_EPS_CHANNELS; i++) {
+		chan = dwc->channel_pool + i;
+		if (chan->urb_priv) { /* Bulk/Control/INT */
+			qh = chan->urb_priv->owner_qh;
+			if (chan->disable_stage == 0) {
+				//printk("%s: td %p on qh %p is transfering, chan = %p(%d)\n",
+				//		__func__, chan->td, chan->td->owner_qh, chan, chan->number);
+
+				__dwc2_disable_channel_stage1(dwc, chan, DWC2_URB_CANCELING);
+				chan->waiting = 0;
+			}
+
+			if (qh->type == USB_ENDPOINT_XFER_INT) {
+				/*
+				 * there seem a BUG in DWC HC, when Device Disconnect,
+				 * frame number freezed, and periodic transfer frozon
+				 *
+				 * Note that ISOC will actually not got here
+				 */
+				dwc2_qh_destroy(dwc, qh);
+			}
+		} else if (chan->qh) { /* ISOC */
+			dwc2_qh_destroy(dwc, chan->qh);
+		}
+	}
+
+	list_for_each_entry_safe(qh, qh_temp, &dwc->idle_qh_list, list) {
+		//printk("%s: qh %p is idle\n", __func__, qh);
+		dwc2_qh_destroy(dwc, qh);
+	}
+
+	dwc->mode = DWC2_HC_MODE_UNKNOWN;
+}
+
 /* A-Cable still connected but device disconnected. */
 void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
 	dwc->device_connected = 0;
+
 	/*
 	 * Turn off the vbus power only if the core has transitioned to device
 	 * mode. If still in host mode, need to keep power on to detect a
@@ -3003,59 +3064,7 @@ void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
 	if (unlikely(dwc2_is_device_mode(dwc))) {
 		printk("===========>TODO: enter %s: Device Mode\n", __func__);
 	} else {
-		struct dwc2_qh		*qh;
-		struct dwc2_qh		*qh_temp;
-		int			 i;
-		struct dwc2_channel	*chan;
-
-		/*
-		 * the simplest way maybe tail the upper layer using port1_status
-		 * but when the user also removed the cable, the host may change to device mode,
-		 * in device mode, host registers are not accessible, so we must giveback any queued URBs ASAP
-		 */
-
-		/*
-		 * we must first set the qh->disabling to 1 because dwc2_urb_done()
-		 * will temperally unlock dwc->lock, and cause some funny things
-		 */
-
-		list_for_each_entry(qh, &dwc->busy_qh_list, list) {
-			if (!qh->disabling)
-				qh->disabling = 1;
-		}
-
-		for (i = 0; i < MAX_EPS_CHANNELS; i++) {
-			chan = dwc->channel_pool + i;
-			if (chan->urb_priv) { /* Bulk/Control/INT */
-				qh = chan->urb_priv->owner_qh;
-				if (chan->disable_stage == 0) {
-					//printk("%s: td %p on qh %p is transfering, chan = %p(%d)\n",
-					//		__func__, chan->td, chan->td->owner_qh, chan, chan->number);
-
-					__dwc2_disable_channel_stage1(dwc, chan, DWC2_URB_CANCELING);
-					chan->waiting = 0;
-				}
-
-				if (qh->type == USB_ENDPOINT_XFER_INT) {
-					/*
-					 * there seem a BUG in DWC HC, when Device Disconnect,
-					 * frame number freezed, and periodic transfer frozon
-					 *
-					 * Note that ISOC will actually not got here
-					 */
-					dwc2_qh_destroy(dwc, qh);
-				}
-			} else if (chan->qh) { /* ISOC */
-				dwc2_qh_destroy(dwc, chan->qh);
-			}
-		}
-
-		list_for_each_entry_safe(qh, qh_temp, &dwc->idle_qh_list, list) {
-			//printk("%s: qh %p is idle\n", __func__, qh);
-			dwc2_qh_destroy(dwc, qh);
-		}
-
-		dwc->mode = DWC2_HC_MODE_UNKNOWN;
+		dwc2_host_cleanup(dwc);
 
 		/* TODO: if currently in A-Peripheral mode, do we need report HUB status? */
 		dwc->port1_status &= ~USB_PORT_STAT_RESET;
