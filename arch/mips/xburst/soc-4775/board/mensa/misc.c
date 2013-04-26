@@ -227,6 +227,10 @@ static int __init board_init(void)
 	platform_device_register(&jz_mac);
 #endif
 
+#ifdef CONFIG_JZ_VPU
+	platform_device_register(&jz_vpu_device);
+#endif
+
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
