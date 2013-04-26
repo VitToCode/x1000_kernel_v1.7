@@ -14,6 +14,7 @@
 #include <linux/mfd/pmu-common.h>
 #include <linux/mfd/ricoh618.h>
 #include <linux/i2c.h>
+#include <irq.h>
 #include <gpio.h>
 
 /**
@@ -33,6 +34,10 @@ IO_REGULATOR_DEF(
 	grus_vccio,
 	"Vcc-IO",	3300000,	1);
 
+#ifdef CONFIG_BOARD_GRUS_V_1_0_1
+VBUS_V101_REGULATOR_DEF(
+	grus);
+#endif
 /**
  * USB VBUS Regulators.
  * Switch of USB VBUS. It may be a actual or virtual regulator.
@@ -136,12 +141,17 @@ static struct regulator_info grus_pmu_regulators[] = {
 	{"LDO2", &grus_vwifi_init_data},
 	{"LDO3", &grus_vtsc_init_data},
 	{"LDO4", &grus_vgsensor_init_data},
-//	{"VBUS", &grus_vbus_init_data},
+	{"VBUS", &grus_vbus_init_data},
 };
 
 static struct ricoh618_platform_data ricoh618_private = {
 	.gpio_base = -1,
-//	.irq_base = IRQ_RESERVED_BASE,
+	.irq_base = IRQ_RESERVED_BASE,
+};
+
+static struct ricoh618_battery_platform_data ricoh618_bat_private = {
+	.alarm_vol_mv = 3000,
+	.monitor_time = 60,
 };
 
 static struct pmu_platform_data grus_pmu_pdata = {
@@ -149,6 +159,7 @@ static struct pmu_platform_data grus_pmu_pdata = {
 	.num_regulators = ARRAY_SIZE(grus_pmu_regulators),
 	.regulators = grus_pmu_regulators,
 	.private = &ricoh618_private,
+	.bat_private = &ricoh618_bat_private,
 };
 #endif
 #define PMU_I2C_BUSNUM 1

@@ -16,6 +16,7 @@
 #include <linux/regulator/fixed.h>
 #include <linux/mfd/act8600-private.h>
 #include <linux/mfd/ricoh618.h>
+#include <linux/power/ricoh618_battery.h>
 
 struct regulator_info {
 	const char name[8];
@@ -28,6 +29,7 @@ struct pmu_platform_data {
 	struct regulator_info *regulators;
 	struct charger_board_info *charger_board_info;
 	struct ricoh618_platform_data *private;
+	struct ricoh618_battery_platform_data *bat_private;
 };
 
 enum {
@@ -131,6 +133,14 @@ static struct regulator_init_data BOARD##_vbus_init_data = {				\
 	},										\
 	.num_consumer_supplies  = 1,							\
 	.consumer_supplies      = &vbus_consumer,					\
+}
+
+#define VBUS_V101_REGULATOR_DEF(BOARD)							\
+static struct regulator_init_data BOARD##_vbus_init_data = {				\
+	.constraints = {								\
+		.name			= "Vbus",					\
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,			\
+	},										\
 }
 
 #endif /* __LINUX_MFD_ACT8600_H */

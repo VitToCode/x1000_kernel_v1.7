@@ -31,6 +31,7 @@
 #include <linux/types.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <irq.h>
 
 /* Maximum number of main interrupts */
 #define MAX_INTERRUPT_MASKS	10
@@ -100,7 +101,7 @@
 
 /* RICOH618 IRQ definitions */
 enum {
-	RICOH618_IRQ_POWER_ON,
+	RICOH618_IRQ_POWER_ON = IRQ_RESERVED_BASE,
 	RICOH618_IRQ_EXTIN,
 	RICOH618_IRQ_PRE_VINDT,
 	RICOH618_IRQ_PREOT,

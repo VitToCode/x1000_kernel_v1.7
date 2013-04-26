@@ -34,6 +34,7 @@
 #include <linux/i2c.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/ricoh618.h>
+#include <linux/mfd/pmu-common.h>
 
 struct sleep_control_data {
 	u8 reg_add;
@@ -566,7 +567,7 @@ static struct mfd_cell ricoh618_cells[] = {
 	},
 	{
 		.id = 1,
-		.name = "ricoh618-charger",
+		.name = "ricoh618-battery",
 	},
 };
 
@@ -574,7 +575,9 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 			      const struct i2c_device_id *id)
 {
 	struct ricoh618 *ricoh618;
-	struct ricoh618_platform_data *pdata = i2c->dev.platform_data;
+	struct pmu_platform_data *pmu_pdata = dev_get_platdata(&i2c->dev);
+	struct ricoh618_platform_data *pdata =
+		(struct ricoh618_platform_data *)pmu_pdata->private;
 	int ret;
 
 	printk("hagahaga %s: \n",__func__);
@@ -591,6 +594,7 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 
 	ricoh618->bank_num = 0;
 
+	i2c->irq = gpio_to_irq(pmu_pdata->gpio);
 	if (i2c->irq) {
 		ret = ricoh618_irq_init(ricoh618, i2c->irq, pdata->irq_base);
 		if (ret) {
@@ -636,6 +640,10 @@ static int  __devexit ricoh618_i2c_remove(struct i2c_client *i2c)
 }
 
 #ifdef CONFIG_PM
+/*
+ * IRQ should be enabled when suspend, debug it later.
+ */
+/*
 static int ricoh618_i2c_suspend(struct i2c_client *i2c, pm_message_t state)
 {
 	printk("hagahaga %s: \n",__func__);
@@ -655,7 +663,7 @@ static int ricoh618_i2c_resume(struct i2c_client *i2c)
 		enable_irq(i2c->irq);
 	return 0;
 }
-
+*/
 #endif
 
 static const struct i2c_device_id ricoh618_i2c_id[] = {
@@ -673,8 +681,10 @@ static struct i2c_driver ricoh618_i2c_driver = {
 	.probe = ricoh618_i2c_probe,
 	.remove = __devexit_p(ricoh618_i2c_remove),
 #ifdef CONFIG_PM
-//	.suspend = ricoh618_i2c_suspend,
-//	.resume = ricoh618_i2c_resume,
+/*
+	.suspend = ricoh618_i2c_suspend,
+	.resume = ricoh618_i2c_resume,
+*/
 #endif
 	.id_table = ricoh618_i2c_id,
 };
