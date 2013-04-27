@@ -223,9 +223,13 @@ static int __init board_init(void)
 	platform_device_register(&jz_ehci_device);
 #endif
 
-#ifdef CONFIG_JZ_MAC
-	platform_device_register(&jz_mac);
+/* ethnet */
+#ifdef CONFIG_JZ4775_MAC
+	platform_device_register(&jz4775_mii_bus);
+	platform_device_register(&jz4775_mac_device);
+
 #endif
+
 
 #ifdef CONFIG_JZ_VPU
 	platform_device_register(&jz_vpu_device);

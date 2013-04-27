@@ -121,7 +121,8 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ_PWM_GPIO_D11
 #endif
 
-#ifdef CONFIG_JZ_MAC
+#ifdef CONFIG_JZ4775_MAC
+	MII_PORTBDF,
 #endif
 #if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
 	OTG_DRVVUS,
@@ -627,6 +628,7 @@ struct platform_device jz_ohci_device = {
 	.resource	= jz_ohci_resources,
 };
 
+#if 0
 static struct resource	jz_mac_res[] = {
 	{ .flags = IORESOURCE_MEM,
 		.start = ETHC_IOBASE,
@@ -640,7 +642,7 @@ static struct resource	jz_mac_res[] = {
 };
 
 struct platform_device jz_mac = {
-	.name = "jzmac",
+	.name = "jz_mac",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(jz_mac_res),
 	.resource = jz_mac_res,
@@ -648,6 +650,31 @@ struct platform_device jz_mac = {
 		.platform_data = NULL,
 	},
 };
+#else
+#if defined(CONFIG_JZ4775_MAC)
+#ifndef CONFIG_MDIO_GPIO
+struct platform_device jz4775_mii_bus = {
+        .name = "jz4775_mii_bus",
+};
+#else
+static struct mdio_gpio_platform_data mdio_gpio_data = {
+        .mdc = GPF(13),
+        .mdio = GPF(14),
+        .phy_mask = 0,
+        .irqs = { 0 },
+};
+static struct platform_device jz4775_mii_bus = {
+        .name = "mdio-gpio",
+        .dev.platform_data = &mdio_gpio_data,
+};
+#endif
+
+struct platform_device jz4775_mac_device = {
+        .name = "jz4775_mac",
+        .dev.platform_data = &jz4775_mii_bus,
+};
+#endif
+#endif
 
 /*  nand device  */
 static struct resource jz_nand_res[] ={

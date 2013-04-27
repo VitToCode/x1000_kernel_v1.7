@@ -81,6 +81,12 @@
 #define PWM_PORTE_BIT3							\
 	{ .name = "pwm3", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 3, }
 
+#define MII_PORTBDF                                                 \
+        { .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },   \
+        { .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
+        { .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
+
+
 #define OTG_DRVVUS							\
 	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
 
@@ -122,7 +128,9 @@ extern struct platform_device jz_cim_device;
 extern struct platform_device jz_ohci_device;
 extern struct platform_device jz_ehci_device;
 
-extern struct platform_device jz_mac;
+//extern struct platform_device jz_mac;
+extern struct platform_device jz4775_mii_bus;
+extern struct platform_device jz4775_mac_device;
 
 extern struct platform_device jz_nand_device;
 

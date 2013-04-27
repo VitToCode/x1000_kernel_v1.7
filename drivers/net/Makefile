@@ -118,6 +118,7 @@ obj-$(CONFIG_STMMAC_ETH) += stmmac/
 obj-$(CONFIG_SUNDANCE) += sundance.o
 obj-$(CONFIG_HAMACHI) += hamachi.o
 obj-$(CONFIG_NET) += Space.o loopback.o
+obj-$(CONFIG_JZ4775_MAC) += jz4775_mac/
 obj-$(CONFIG_SEEQ8005) += seeq8005.o
 obj-$(CONFIG_NET_SB1000) += sb1000.o
 obj-$(CONFIG_MAC8390) += mac8390.o
