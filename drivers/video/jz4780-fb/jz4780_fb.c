@@ -3047,6 +3047,12 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		if (!jzfb_copy_logo(jzfb->fb)) {
 			jzfb_change_dma_desc(jzfb->fb);
 		}
+#ifdef CONFIG_JZFB_LCDC_INIT
+		jzfb_set_par(jzfb->fb);
+		clk_enable(jzfb->pclk);
+		clk_enable(jzfb->clk);
+		jzfb_enable(jzfb->fb);
+#endif
 #endif
 	}
 #else
