@@ -24,6 +24,7 @@
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
+#include <linux/gpio.h>
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
@@ -105,13 +106,29 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+static void set_pwm1_gpio_function(void)
+{
+#define PWM1_GPIO_PXDATC (*(volatile unsigned int *)0xB0010418)
+#define PWM1_GPIO_PXIMC (*(volatile unsigned int *)0xB0010428)
+#define PWM1_GPIO_PXPEC (*(volatile unsigned int *)0xB0010438)
+#define PWM1_GPIO_PXFUNC (*(volatile unsigned int *)0xB0010448)
+	PWM1_GPIO_PXDATC = 0x2;
+	PWM1_GPIO_PXIMC = 0x2;
+	PWM1_GPIO_PXPEC = 0x2;
+	PWM1_GPIO_PXFUNC = 0x2;
+}
+#endif
 static void bk_e_suspend(struct early_suspend *h)
 {
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend); 
     pb->suspend = 1;
-    //pwm_config(pb->pwm, 0, pb->period);
-    //pwm_disable(pb->pwm);
+    pwm_config(pb->pwm, 0, pb->period);
+    pwm_disable(pb->pwm);
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+	gpio_direction_output(32*4+1, 0);
+#endif
 }
 
 static void bk_l_resume(struct early_suspend *h)
@@ -121,8 +138,11 @@ static void bk_l_resume(struct early_suspend *h)
             struct pwm_bl_data, bk_early_suspend); 
 
     pb->suspend = 0;
-    mutex_lock(&pb->pwm_lock);
-    pwm_disable(pb->pwm);
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+	set_pwm1_gpio_function();
+#endif
+	mutex_lock(&pb->pwm_lock);
+	pwm_disable(pb->pwm);
     brightness = pb->cur_brightness;
     brightness = pb->lth_brightness +
         (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
