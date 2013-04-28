@@ -103,18 +103,20 @@ struct cam_sensor_plat_data {
 	int orientation;
 	int mirror;   //camera mirror
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
+	int16_t	gpio_rst;	/* reset  gpio */
+	int16_t	gpio_en;	/* camera enable gpio */
+	int16_t	gpio_pwdn;      /* sensor powerdown gpio */
 	int cap_wait_frame;    /* filter n frames when capture image */
 };
 
-#ifdef CONFIG_SP0838
-static struct cam_sensor_plat_data sp0838_pdata = {
+#ifdef CONFIG_OV5640
+static struct cam_sensor_plat_data ov5640_pdata = {
 	.facing = 1,
 	.orientation = 0,
 	.mirror = 0,
-	.gpio_en = GPIO_SP0838_EN,
-	.gpio_rst = GPIO_SP0838_RST,
+	.gpio_en = GPIO_OV5640_EN,
+	.gpio_rst = GPIO_OV5640_RST,
+	.gpio_pwdn = GPIO_OV5640_PWDN,
 	.cap_wait_frame = 6,
 };
 #endif
@@ -123,10 +125,10 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 static struct i2c_board_info urboard_i2c2_devs[] __initdata = {
-#ifdef CONFIG_SP0838
+#ifdef CONFIG_OV5640
 	{
-		I2C_BOARD_INFO("sp0838", 0x18),
-		.platform_data	= &sp0838_pdata,
+		I2C_BOARD_INFO("ov5640", 0x3c),
+		.platform_data	= &ov5640_pdata,
 	},
 #endif
 };

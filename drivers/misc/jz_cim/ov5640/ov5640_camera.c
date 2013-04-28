@@ -50,7 +50,7 @@ static inline int sensor_i2c_master_send(struct i2c_client *client,const char *b
 
 #if 1
 	{
-		if (cam_t_i < 10) { 
+		if (cam_t_i < 10) {
 			cam_t1_buf[cam_t_i] = cpu_clock(smp_processor_id());
 			cam_t_i++;
 		}
@@ -89,13 +89,13 @@ static inline int sensor_i2c_master_recv(struct i2c_client *client, char *buf ,i
 
 int ov5640_write_reg(struct i2c_client *client,unsigned short reg, unsigned char val)
 {
-	unsigned char msg[3];  
+	unsigned char msg[3];
 	int ret;
 
     reg = cpu_to_be16(reg);
 
-	memcpy(&msg[0], &reg, 2);      
-	memcpy(&msg[2], &val, 1);      
+	memcpy(&msg[0], &reg, 2);
+	memcpy(&msg[2], &val, 1);
 
 	ret = sensor_i2c_master_send(client, msg, 3);
 
@@ -140,8 +140,7 @@ int ov5640_power_up(struct cim_sensor *sensor_info)
 
 	dev_info(&s->client->dev,"ov5640_power_up: GP%c%d\n", 'A'+s->gpio_en/32, s->gpio_en%32);
 
-	gpio_set_value(s->gpio_en,1);	//active high
-	//gpio_set_value(s->gpio_en,0);	//active low
+	gpio_set_value(s->gpio_en, 0);	//active low
 	mdelay(50);
 	s->is_enable = 1;
 	return 0;
@@ -158,7 +157,7 @@ int ov5640_power_down(struct cim_sensor *sensor_info)
 
 	s->is_enable = 0;
 
-	gpio_set_value(s->gpio_en,0);
+	gpio_set_value(s->gpio_en, 1);
 	mdelay(50);
 	return 0;
 }
@@ -228,7 +227,7 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 	strcpy(s->cs.name , "ov5640");
 	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
 	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_Y0UY1V; // | CIM_CFG_ORDER_UYVY;
-	s->cs.cim_cfg |= CIM_CFG_PCP; 
+	s->cs.cim_cfg |= CIM_CFG_PCP;
 	s->cs.modes.balance = WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT | WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
 	s->cs.modes.effect = EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA|EFFECT_PASTEL;
 	s->cs.modes.antibanding = ANTIBANDING_50HZ | ANTIBANDING_60HZ | ANTIBANDING_AUTO | ANTIBANDING_OFF;
@@ -240,7 +239,7 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.capture_size = ov5640_capture_table,
 	s->cs.prev_resolution_nr = ARRAY_SIZE(ov5640_preview_table);
 	s->cs.cap_resolution_nr = ARRAY_SIZE(ov5640_capture_table);
-	
+
 	s->cs.probe = ov5640_sensor_probe;
 	s->cs.init = ov5640_init;
 	s->cs.reset = ov5640_reset;
@@ -249,7 +248,7 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.af_init = ov5640_none;
 	s->cs.start_af = ov5640_none;
 	s->cs.stop_af = ov5640_none;
-	
+
 	s->cs.set_preivew_mode = ov5640_preview_set;
 	s->cs.set_capture_mode = ov5640_capture_set;
 	s->cs.set_video_mode = ov5640_none,
@@ -265,9 +264,9 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s->cs.set_luma_adaption = ov5640_none2;
 	s->cs.set_brightness = ov5640_none2;
 	s->cs.set_contrast = ov5640_none2;
-   
+
 	s->cs.private  = NULL;
-				
+
 	INIT_DELAYED_WORK(&s->work, ov5640_late_work);
 	ov5640_work_queue = create_singlethread_workqueue("ov5640_work_queue");
 	if (ov5640_work_queue == NULL) {
@@ -281,27 +280,40 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 		printk("err!!! no camera i2c pdata!!! \n\n");
 		return -1;
 	}
+
 	if(gpio_request(pdata->gpio_en, "ov5640_en")) {
-		printk("fail to request gpio_en GP%c%d!\n", 'A'+s->gpio_en/32, s->gpio_en%32);
+		printk("fail to request gpio_en GP%c%d!\n",
+				'A'+pdata->gpio_en/32, pdata->gpio_en%32);
+	} else {
+		s->gpio_en = pdata->gpio_en;
+		gpio_direction_output(s->gpio_en,1);
 	}
-	s->gpio_en = pdata->gpio_en;
 
-	if(gpio_request(pdata->gpio_pwdn, "ov5640_pwdn")) {
-		printk("fail to request gpio_pwdn GP%c%d!\n", 'A'+s->gpio_pwdn/32, s->gpio_pwdn%32);
+	if(!gpio_is_valid(pdata->gpio_pwdn)) {
+		printk("invalid gpio_pwdn GP%c%d! \n",
+			'A'+pdata->gpio_pwdn/32, pdata->gpio_pwdn%32);
+	} else {
+		if(gpio_request(pdata->gpio_pwdn, "ov5640_pwdn")) {
+			printk("fail to request gpio_pwdn GP%c%d!\n",
+				'A'+pdata->gpio_pwdn/32, pdata->gpio_pwdn%32);
+		} else {
+			s->gpio_pwdn = pdata->gpio_pwdn;
+			gpio_direction_output(s->gpio_pwdn,0);
+		}
 	}
-	s->gpio_pwdn = pdata->gpio_pwdn;
 
-	if(!gpio_is_valid(s->gpio_rst)) {
-		printk("invalid gpio_rst GP%c%d! \n", 'A'+s->gpio_rst/32, s->gpio_rst%32);
+	if(!gpio_is_valid(pdata->gpio_rst)) {
+		printk("invalid gpio_rst GP%c%d! \n",
+			'A'+pdata->gpio_rst/32, pdata->gpio_rst%32);
+	} else {
+		if(gpio_request(pdata->gpio_rst, "ov5640_rst")) {
+			printk("fail to request gpio_rst GP%c%d!\n",
+				'A'+pdata->gpio_rst/32, pdata->gpio_rst%32);
+		} else {
+			s->gpio_rst = pdata->gpio_rst;
+			gpio_direction_output(s->gpio_rst,1);
+		}
 	}
-	if(gpio_request(pdata->gpio_rst, "ov5640_rst")) {
-		printk("fail to request gpio_rst GP%c%d!\n", 'A'+s->gpio_rst/32, s->gpio_rst%32);
-	}
-	s->gpio_rst = pdata->gpio_rst;
-
-	gpio_direction_output(s->gpio_rst,1);
-	gpio_direction_output(s->gpio_en,1);
-	gpio_direction_output(s->gpio_pwdn,0);
 
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
