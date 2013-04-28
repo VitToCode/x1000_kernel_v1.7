@@ -16,7 +16,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/errno.h>
-#include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/crc32.h>
@@ -29,25 +28,25 @@
 #include <linux/ethtool.h>
 #include <linux/skbuff.h>
 #include <linux/platform_device.h>
-
 #include <linux/dma-mapping.h>
 
+#include <soc/gpio.h>
+#include <soc/irq.h>
+#include <linux/clk.h>
+#include <soc/cpm.h>
+#include <soc/base.h>
+
 #include "jz4775_mac.h"
-#include "jz4775_cpm.h"
-#include "jz4775_jpio.h"
 
 #define IOCTL_DUMP_REGISTER  SIOCDEVPRIVATE+1
 #define IOCTL_DUMP_DESC      SIOCDEVPRIVATE+2
 #ifndef IRQ_ETH
-#define IRQ_ETH		63
+#define IRQ_ETH		IRQ_GMAC
 #endif
-
 int debug_enable = 0;
 module_param(debug_enable, int, 0644);
 
 synopGMACdevice *gmacdev;
-
-//#include <asm/jzsoc.h>
 
 /* driver version: 1.0 */
 #define JZMAC_DRV_NAME		"jz4775_mac"
@@ -58,6 +57,22 @@ MODULE_AUTHOR("Lutts Wolf <slcao@ingenic.cn>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION(JZMAC_DRV_DESC);
 MODULE_ALIAS("platform:jz4775_mac");
+
+typedef enum {
+	/* MAC PHY Speed */
+	MAC_1000M,
+	MAC_100M,
+	MAC_10M,
+
+	/* MAC PHY Interface */
+	MAC_GMII,
+	MAC_MII,
+	MAC_RGMII,
+	MAC_RMII,
+
+	/* MAC PHY Soft reset */
+	MAC_SREST,
+} mac_clock_control;
 
 /* MDC  = 2.5 MHz */
 #ifndef JZMAC_MDC_CLK
@@ -71,67 +86,86 @@ MODULE_PARM_DESC(copybreak,
 		 "Maximum size of packet that is copied to a new buffer on receive");
 
 #define PKT_BUF_SZ (1580 + NET_IP_ALIGN)
-
 #define MAX_TIMEOUT_CNT	5000
-
 #define JZMAC_RX_BUFFER_WRITE	16	/* Must be power of 2 */
 
-#if 0
-static int skb_dma_map(struct device *dev, struct sk_buff *skb,
-		enum dma_data_direction dir)
+static void set_gpio_as_eth(void)
 {
-	struct skb_shared_info *sp = skb_shinfo(skb);
-	dma_addr_t map;
-	int i;
-
-	map = dma_map_single(dev, skb->data,
-			     skb_headlen(skb), dir);
-	if (dma_mapping_error(dev, map))
-		goto out_err;
-
-	//sp->dma_head = map;
-	(struct skb_shared_info *)skb->end = map;
-	for (i = 0; i < sp->nr_frags; i++) {
-		skb_frag_t *fp = &sp->frags[i];
-
-		map = dma_map_page(dev, fp->page, fp->page_offset,
-				   fp->size, dir);
-		if (dma_mapping_error(dev, map))
-			goto unwind;
-		sp->dma_maps[i] = map;
-	}
-
-	return 0;
-
-unwind:
-	while (--i >= 0) {
-		skb_frag_t *fp = &sp->frags[i];
-
-		dma_unmap_page(dev, sp->dma_maps[i],
-			       fp->size, dir);
-	}
-	dma_unmap_single(dev, sp->dma_head,
-			 skb_headlen(skb), dir);
-out_err:
-	return -ENOMEM;
+	jzgpio_set_func(GPIO_PORT_B, GPIO_FUNC_1, 0x00000010);
+	jzgpio_set_func(GPIO_PORT_D, GPIO_FUNC_1, 0x3c000000);
+	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0x0000fff0);
 }
 
-static void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
-		   enum dma_data_direction dir)
+/* Generate the bit field mask from msb to lsb */
+#define BITS_H2L(msb, lsb)  ((0xFFFFFFFF >> (32-((msb)-(lsb)+1))) << (lsb))
+#define MPHYC_ENA_GMII		(1 << 31)
+#define MPHYC_MAC_PHYINTF_MASK	BITS_H2L(2, 0)
+#define MPHYC_MAC_PHYINTF_MII	(0 << 0)
+#define MPHYC_MAC_PHYINTF_RGMII	(1 << 0)
+#define MPHYC_MAC_PHYINTF_RMII	(4 << 0)
+void set_mac_phy_clk(mac_clock_control mac_control)
 {
-	struct skb_shared_info *sp = skb_shinfo(skb);
-	int i;
+	unsigned int mphy_value = cpm_inl(CPM_MPHYC);
+	struct clk *cim_clk;
+	cim_clk = clk_get(NULL, "cim");
 
-	dma_unmap_single(dev, sp->dma_head,
-			 skb_headlen(skb), dir);
-	for (i = 0; i < sp->nr_frags; i++) {
-		skb_frag_t *fp = &sp->frags[i];
+	if (mphy_value & MPHYC_ENA_GMII) { /* Only used for GMII/RGMII mode */
+		switch (mac_control) {
+		default:
+			break;
+		case MAC_1000M:
+			clk_set_rate(cim_clk, (125 * 1000000L));
+			break;
+		case MAC_100M:
+			clk_set_rate(cim_clk, (25 * 1000000L));
+			break;
+		case MAC_10M:
+			clk_set_rate(cim_clk, (25 * 1000000L));
+		}
+	}
 
-		dma_unmap_page(dev, sp->dma_maps[i],
-			       fp->size, dir);
+	switch (mac_control) {
+	case MAC_GMII :
+	case MAC_RGMII :
+		/* Use CIM0 CLK for GMII/RGMII */
+		clk_enable(cim_clk);
+		clk_set_rate(cim_clk, (125 * 1000000L));
+		mphy_value |= MPHYC_ENA_GMII;
+		mphy_value &= ~(MPHYC_MAC_PHYINTF_MASK);
+		break;
+
+	case MAC_MII :
+	case MAC_RMII :
+		mphy_value &= ~(MPHYC_MAC_PHYINTF_MASK | MPHYC_ENA_GMII);
+		break;
+
+	case MAC_1000M:
+	case MAC_100M:
+	case MAC_10M:
+		return;
+
+	default:
+		printk("WARMING: can NOT set MAC mode %d\n", mac_control);
+		return;
+	}
+
+	switch (mac_control) {
+	default:
+		break;
+
+	case MAC_GMII :
+	case MAC_MII :
+		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_MII, CPM_MPHYC);
+		break;
+
+	case MAC_RGMII :
+		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_RGMII, CPM_MPHYC);
+		break;
+
+	case MAC_RMII :
+		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_RMII, CPM_MPHYC);
 	}
 }
-#endif
 
 static inline unsigned char str2hexnum(unsigned char c)
 {
@@ -525,11 +559,28 @@ static void desc_list_free_rx(struct jz4775_mac_local *lp) {
 
 		for(i = 0; i < JZMAC_RX_DESC_COUNT; i++) {
 			if (b[i].skb) {
-				dma_unmap_page(&lp->netdev->dev, b[i].dma,
-					       b[i].length,
+#if 0
+				skb_dma_unmap(&lp->netdev->dev, b[i].dma,
+					       b[i].length, b[i].mapped_as_page,
 					       DMA_FROM_DEVICE);
 				dev_kfree_skb_any(b[i].skb);
 				b[i].skb = NULL;
+#else
+				if (b[i].dma) {
+					if (b[i].mapped_as_page)
+						dma_unmap_page(&lp->netdev->dev, b[i].dma,
+							       b[i].length, DMA_FROM_DEVICE);
+					else
+						dma_unmap_single(&lp->netdev->dev, b[i].dma,
+								 b[i].length, DMA_FROM_DEVICE);
+					b[i].dma = 0;
+				}
+				if (b[i].skb) {
+					dev_kfree_skb_any(b[i].skb);
+					b[i].skb = NULL;
+				}
+				b[i].time_stamp = 0;
+#endif
 			}
 		}
 	}
@@ -631,10 +682,27 @@ static void jzmac_unmap_and_free_tx_resource(struct jz4775_mac_local *lp,
 	buffer_info->dma = 0;
 
 	if (buffer_info->skb) {
-		dma_unmap_page(&lp->netdev->dev, buffer_info->dma,
+#if 0
+		skb_dma_unmap(&lp->netdev->dev, buffer_info->dma, buffer_info->mapped_as_page
 			       buffer_info->length, DMA_TO_DEVICE);
 		dev_kfree_skb_any(buffer_info->skb);
 		buffer_info->skb = NULL;
+#else
+
+		if (buffer_info->dma) {
+			if (buffer_info->mapped_as_page)
+				dma_unmap_page(&lp->netdev->dev, buffer_info->dma,
+					       buffer_info->length, DMA_FROM_DEVICE);
+			else
+				dma_unmap_single(&lp->netdev->dev, buffer_info->dma,
+						 buffer_info->length, DMA_FROM_DEVICE);
+			buffer_info->dma = 0;
+		}
+		if (buffer_info->skb) {
+			dev_kfree_skb_any(buffer_info->skb);
+			buffer_info->skb = NULL;
+		}
+#endif
 	}
 	buffer_info->time_stamp = 0;
 }
@@ -763,15 +831,15 @@ static void jz4775_mac_adjust_link(struct net_device *dev)
 		if (phydev->speed != lp->old_speed) {
 			switch (phydev->speed) {
 			case 1000:
-				cpm_mac_phy(MAC_1000M);
+				set_mac_phy_clk(MAC_1000M);
 				synopGMAC_select_speed1000(gmacdev);
 				break;
 			case 100:
-				cpm_mac_phy(MAC_100M);
+				set_mac_phy_clk(MAC_100M);
 				synopGMAC_select_speed100(gmacdev);
 				break;
 			case 10:
-				cpm_mac_phy(MAC_10M);
+				set_mac_phy_clk(MAC_10M);
 				synopGMAC_select_speed10(gmacdev);
 				break;
 			default:
@@ -814,15 +882,17 @@ static int mii_probe(struct net_device *dev)
 	//int clkdiv[8] = { 4, 4, 6, 8, 10, 14, 20, 28 };
 	int i;
 
-	printk("---------------> mii probe 1\n");
 	/* search for connect PHY device */
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
 		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
-		  if (!tmp_phydev)
-			  continue; /* no PHY here... */
-		  phydev = tmp_phydev;
-		  break; /* found it */
+
+		if (!tmp_phydev)
+			continue; /* no PHY here... */
+
+		phydev = tmp_phydev;
+		break; /* found it */
 	}
+
 	/* now we are supposed to have a proper phydev, to attach to... */
 	if (!phydev) {
 		printk(KERN_INFO "%s: Don't found any phy device at all\n",
@@ -990,65 +1060,58 @@ static int jzmac_maybe_stop_tx(struct net_device *netdev,
 	return __jzmac_maybe_stop_tx(netdev, size);
 }
 
-#if 1
-#define JZMAC_MAX_TXD_PWR	12
-#define JZMAC_MAX_DATA_PER_TXD	(1<<JZMAC_MAX_TXD_PWR)
-
+#if 0
 static int jzmac_tx_map(struct jz4775_mac_local *lp,
 			struct jzmac_tx_ring *tx_ring,
 			struct sk_buff *skb)
 {
 	struct jzmac_buffer *buffer_info;
-	unsigned int len = skb_headlen(skb);
-	unsigned int offset = 0, size, count = 0, i, f;
-#if 1
-	unsigned int first, max_per_txd = JZMAC_MAX_DATA_PER_TXD;
-	unsigned int nr_frags, mss;
-
-	mss = skb_shinfo(skb)->gso_size;
-
-	/* The controller does a simple calculation to
-	 * make sure there is enough room in the FIFO before
-	 * initiating the DMA for each buffer.  The calc is:
-	 * 4 = ceil(buffer len/mss).  To make sure we don't
-	 * overrun the FIFO, adjust the max buffer len if mss
-	 * drops. */
-	if (mss) {
-		max_per_txd = min(mss << 2, max_per_txd);
-	}
-	nr_frags = skb_shinfo(skb)->nr_frags;
-	first = tx_ring->next_to_use;
-#endif
+	unsigned int i;
 
 	i = tx_ring->next_to_use;
 
-	while (len) {
-		buffer_info = &tx_ring->buffer_info[i];
-		size = min(len, max_per_txd);
-
-		/* Workaround for premature desc write-backs
-		 * in TSO mode.  Append 4-byte sentinel desc */
-		if (unlikely(mss && !nr_frags && size == len && size > 8))
-			size -= 4;
-
-		buffer_info->length = size;
-		/* set time_stamp *before* dma to help avoid a possible race */
-		buffer_info->time_stamp = jiffies;
-		buffer_info->dma = dma_map_single(&lp->netdev->dev,
-						  skb->data + offset,
-						  size,	DMA_TO_DEVICE);
-		if (dma_mapping_error(&lp->netdev->dev, buffer_info->dma))
-			goto dma_error;
-
-		len -= size;
-		offset += size;
-		count++;
-		if (len) {
-			i++;
-			if (unlikely(i == tx_ring->count))
-				i = 0;
-		}
+	if (skb_dma_map(&lp->netdev->dev, skb, DMA_TO_DEVICE)) {
+		dev_err(&lp->netdev->dev, "TX DMA map failed\n");
+		return 0;
 	}
+
+	buffer_info = &tx_ring->buffer_info[i];
+
+	//buffer_info->length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
+	buffer_info->length = skb->len;
+	buffer_info->dma = skb_shinfo(skb)->dma_head;
+	buffer_info->time_stamp = jiffies;
+	buffer_info->skb = skb;
+	return 1;
+}
+#else
+static int jzmac_tx_map(struct jz4775_mac_local *lp,
+			struct jzmac_tx_ring *tx_ring,
+			struct sk_buff *skb)
+{
+	struct net_device *pdev = lp->netdev;
+	struct jzmac_buffer *buffer_info;
+	unsigned int len = skb_headlen(skb);
+	unsigned int offset = 0, count = 0, i;
+	unsigned int f, segs;
+	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
+
+	i = tx_ring->next_to_use;
+
+	buffer_info = &tx_ring->buffer_info[i];
+	buffer_info->length = len;
+	buffer_info->time_stamp = jiffies;
+	buffer_info->dma = dma_map_single(&pdev->dev,
+					  skb->data + offset,
+					  len, DMA_TO_DEVICE);
+	buffer_info->mapped_as_page = false;
+	if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+		goto dma_error;
+	segs = skb_shinfo(skb)->gso_segs ? : 1;
+	tx_ring->buffer_info[i].skb = skb;
+	tx_ring->buffer_info[i].segs = segs;
+	tx_ring->buffer_info[i].transfering = 1;
+	count++;
 
 	for (f = 0; f < nr_frags; f++) {
 		struct skb_frag_struct *frag;
@@ -1056,106 +1119,58 @@ static int jzmac_tx_map(struct jz4775_mac_local *lp,
 		frag = &skb_shinfo(skb)->frags[f];
 		len = frag->size;
 		offset = frag->page_offset;
+		i++;
+		if (i == tx_ring->count)
+			i = 0;
 
-		while (len) {
-			i++;
-			if (unlikely(i == tx_ring->count))
-				i = 0;
+		buffer_info = &tx_ring->buffer_info[i];
+		buffer_info->length = len;
+		buffer_info->time_stamp = jiffies;
+		buffer_info->dma = dma_map_page(&pdev->dev, frag->page,
+						offset, len,
+						DMA_TO_DEVICE);
+		buffer_info->mapped_as_page = true;
+		if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+			goto dma_unwind;
+		segs = skb_shinfo(skb)->gso_segs ? : 1;
+		tx_ring->buffer_info[i].skb = skb;
+		tx_ring->buffer_info[i].segs = segs;
+		tx_ring->buffer_info[i].transfering = 1;
 
-			buffer_info = &tx_ring->buffer_info[i];
-			size = min(len, max_per_txd);
-			/* Workaround for premature desc write-backs
-			 * in TSO mode.  Append 4-byte sentinel desc */
-			if (unlikely(mss && f == (nr_frags-1) && size == len && size > 8))
-				size -= 4;
-
-			buffer_info->length = size;
-			buffer_info->time_stamp = jiffies;
-			buffer_info->dma = dma_map_page(&lp->netdev->dev, frag->page,
-							offset,	size,
-							DMA_TO_DEVICE);
-			if (dma_mapping_error(&lp->netdev->dev, buffer_info->dma))
-				goto dma_error;
-
-			len -= size;
-			offset += size;
-			count++;
-		}
+		count++;
 	}
 
-	tx_ring->buffer_info[i].skb = skb;
 
 	return count;
+dma_unwind:
+	dev_err(&pdev->dev, "Tx DMA map failed at dma_unwind\n");
+	while(--i > 0) {
+		buffer_info = &tx_ring->buffer_info[i];
+		if (buffer_info->dma) {
+			if (buffer_info->mapped_as_page)
+				dma_unmap_page(&pdev->dev, buffer_info->dma,
+					       buffer_info->length, DMA_TO_DEVICE);
+			else
+				dma_unmap_single(&pdev->dev, buffer_info->dma,
+						 buffer_info->length, DMA_TO_DEVICE);
+			buffer_info->dma = 0;
+		}
+		if (buffer_info->skb) {
+			dev_kfree_skb_any(buffer_info->skb);
+			buffer_info->skb = NULL;
+		}
+		buffer_info->time_stamp = 0;
+	}
 
 dma_error:
-	dev_err(&lp->netdev->dev, "TX DMA map failed\n");
+	dev_err(&pdev->dev, "Tx DMA map failed at dma_error\n");
 	buffer_info->dma = 0;
-	if (count)
-		count--;
-
-	while (count--) {
-		if (i==0)
-			i += tx_ring->count;
-		i--;
-		buffer_info = &tx_ring->buffer_info[i];
-		jzmac_unmap_and_free_tx_resource(lp, buffer_info);
-	}
+	return -ENOMEM;
 
 	return 0;
 }
 #endif
 
-#if 0
-static int jzmac_tx_map(struct jz4775_mac_local *lp,
-			struct jzmac_tx_ring *tx_ring,
-			struct sk_buff *skb)
-{
-	struct jzmac_buffer *buffer_info;
-	unsigned int i;
-
-	i = tx_ring->next_to_use;
-
-	if (skb_dma_map(&lp->netdev->dev, skb, DMA_TO_DEVICE)) {
-		dev_err(&lp->netdev->dev, "TX DMA map failed\n");
-		return 0;
-	}
-
-	buffer_info = &tx_ring->buffer_info[i];
-
-	//buffer_info->length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
-	buffer_info->length = skb->len;
-	buffer_info->dma = skb_shinfo(skb)->dma_head;
-	buffer_info->time_stamp = jiffies;
-	buffer_info->skb = skb;
-	return 1;
-}
-#endif
-
-#if 0
-static int jzmac_tx_map(struct jz4775_mac_local *lp,
-			struct jzmac_tx_ring *tx_ring,
-			struct sk_buff *skb)
-{
-	struct jzmac_buffer *buffer_info;
-	unsigned int i;
-
-	i = tx_ring->next_to_use;
-
-	if (skb_dma_map(&lp->netdev->dev, skb, DMA_TO_DEVICE)) {
-		dev_err(&lp->netdev->dev, "TX DMA map failed\n");
-		return 0;
-	}
-
-	buffer_info = &tx_ring->buffer_info[i];
-
-	//buffer_info->length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
-	buffer_info->length = skb->len;
-	buffer_info->dma = skb_shinfo(skb)->dma_head;
-	buffer_info->time_stamp = jiffies;
-	buffer_info->skb = skb;
-	return 1;
-}
-#endif
 static void jzmac_restart_tx_dma(struct jz4775_mac_local *lp) {
 	/* TODO: clear error status bits if any */
 	u32 data;
@@ -1955,7 +1970,7 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 	int rc;
 	int i;
 
-	printk("=======>gmacdev = 0x%08x<================\n", (u32)gmacdev);
+	//printk("=======>gmacdev = 0x%08x<================\n", (u32)gmacdev);
 	if (gmacdev) {
 		printk("=========>gmacdev->MacBase = 0x%08x DmaBase = 0x%08x\n",
 		       gmacdev->MacBase, gmacdev->DmaBase);
@@ -2000,6 +2015,7 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 #ifdef CONFIG_MDIO_GPIO
 	lp->mii_bus->priv = ndev;
 #endif
+
 	rc = mii_probe(ndev);
 	if (rc) {
 		dev_err(&pdev->dev, "MII Probe failed!\n");
@@ -2056,6 +2072,7 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
  out_err_probe_mac:
 	platform_set_drvdata(pdev, NULL);
 	free_netdev(ndev);
+
 	return rc;
 }
 
@@ -2143,113 +2160,60 @@ static int jz4775_mdiobus_reset(struct mii_bus *bus)
 
 static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 {
-	printk("jz4775_mii_bus_probe************************\n");
-
 	struct mii_bus *miibus;
 	int rc, i;
-	printk("jz4775_mii_bus_probe************************\n");
+	struct clk *gmac_clk;
+
+#if 0
 	cpm_start_clock(CGM_MAC);
+#else
+	gmac_clk = clk_get(NULL, "gmac");
+	if (clk_enable(gmac_clk) < 0) {
+		printk("enable gmac clk failed");
+		while(1);
+	}
+#endif
 
 #if defined(CONFIG_JZ4775_MAC_RMII)
-	cpm_mac_phy(MAC_RMII);
+	set_mac_phy_clk(MAC_RMII);
 #elif defined(CONFIG_JZ4775_MAC_RGMII)
-	cpm_mac_phy(MAC_RGMII);
+	set_mac_phy_clk(MAC_RGMII);
 #elif defined(CONFIG_JZ4775_MAC_GMII)
-	cpm_mac_phy(MAC_GMII);
+	set_mac_phy_clk(MAC_GMII);
 #else
-	cpm_mac_phy(MAC_MII);
+	set_mac_phy_clk(MAC_MII);
 #endif
 
 #ifdef CONFIG_JZ_FPGA // Only used for FPGA
-	__gpio_clear_pin(32 * 1 + 4);
-        __gpio_clear_pin(32 * 3 + 29);
-        __gpio_clear_pin(32 * 3 + 28);
-        __gpio_clear_pin(32 * 3 + 27);
-        __gpio_clear_pin(32 * 3 + 26);
-
-        REG_GPIO_PXINTC(5)  = 0xfff0;
-        REG_GPIO_PXMASKS(5) = 0xfff0;
-        REG_GPIO_PXPAT1C(5) = 0xfff0;
+	jzgpio_set_port_pins(1, PXPAT0C, 0x1 << 4);
+	jzgpio_set_port_pins(3, PXPAT0C, 0xf << 26);
+	jzgpio_set_port_pins(5, PXINTC, 0xfff0);
+	jzgpio_set_port_pins(5, PXMSKS, 0xfff0);
+	jzgpio_set_port_pins(5, PXPAT1C, 0xfff0);
 #if defined(CONFIG_JZ4775_MAC_RMII)
-        REG_GPIO_PXPAT0C(5) = 0x7f70;
-        REG_GPIO_PXPAT0S(5) = 0x8080;
+	jzgpio_set_port_pins(5, PXPAT0C, 0x7f70);
+	jzgpio_set_port_pins(5, PXPAT0S, 0x8080);
 #else
-	REG_GPIO_PXPAT0C(5) = 0xff70;
-        REG_GPIO_PXPAT0S(5) = 0x80;
+	jzgpio_set_port_pins(5, PXPAT0C, 0xff70);
+	jzgpio_set_port_pins(5, PXPAT0S, 0x80);
 #endif
 #endif /* CONFIG_JZ_FPGA */
 
+//#define GPIO_PHY_RESET		(32 * 1 + 7)
 #ifdef GPIO_PHY_RESET /* PHY hard reset */
-	__gpio_as_output0(GPIO_PHY_RESET);
+	jzgpio_set_func(GPIO_PORT_B, GPIO_OUTPUT0, 0x00000080);
         udelay(100000);
-        __gpio_as_output1(GPIO_PHY_RESET);
+	jzgpio_set_func(GPIO_PORT_B, GPIO_OUTPUT1, 0x00000080);
 #endif
-
-        __gpio_as_eth();
+	set_gpio_as_eth();
 
 #if defined(CONFIG_JZ4775_MAC_RGMII) || defined(CONFIG_JZ4775_MAC_GMII)
 	/* CIM MCLK / Gmac_gtxc */
-	REG_GPIO_PXINTC(1) =  0x00000200;
-	REG_GPIO_PXMASKC(1) = 0x00000200;
-	REG_GPIO_PXPAT1C(1) = 0x00000200;
-	REG_GPIO_PXPAT0C(1) = 0x00000200;
+	/* set Gmac as device 0 */
+	jzgpio_set_func(GPIO_PORT_B, GPIO_FUNC_0, 0x00000200);
 
 	/* Set Gmac_txclk gpio in */
-	//__gpio_as_input(32 * 5 + 6);
-	REG_GPIO_PXINTC(5) = 1 << 6;
-	REG_GPIO_PXMASKS(5) = 1 << 6;
-	REG_GPIO_PXPAT1S(5) = 1 << 6;
-	REG_GPIO_PXPENS(5) = 1 << 6;
-#endif
-
-#if 0
-	__gpio_as_input(32 * 5 + 6);
-	__gpio_as_input(32 * 5 + 7);
-
-	int old6 = 0;
-	int new6 = 0;
-	int old7 = 0;
-	int new7 = 0;
-
-	while(1) {
-		new6 = __gpio_get_pin(32 * 5 + 6);
-		if (old6 != new6) {
-			printk("====>PF06 clk ok\n");
-			old6 = new6;
-		}
-
-		new7 = __gpio_get_pin(32 * 5 + 7);
-		if (old7 != new7) {
-			printk("====>PF07 clk ok\n");
-			old7 = new7;
-		}
-	}
-#endif
-
-#if 0
-	/* we init gmac register resource here */
-	struct resource *gmac_dma_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
-	if (!request_mem_region(gmac_dma_res->start, resource_size(gmac_dma_res), pdev->name)) {
-		return -EBUSY;
-	}
-
-	gmacdev->DmaBase = ioremap(gmac_dma_res->start, resource_size(gmac_dma_res));
-	if (!gmacdev->DmaBase) {
-		rc = -ENOMEM;
-		goto out_err_mapdma;
-	}
-
-	struct resource *gmac_mac_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mac");
-	if (!request_mem_region(gmac_mac_res->start, resource_size(gmac_mac_res), pdev->name)) {
-		rc = -EBUSY;
-		goto out_err_get_mac_res;
-	}
-
-	gmacdev->MacBase = ioremap(gmac_mac_res->start, resource_size(gmac_mac_res));
-	if (!gmacdev->DmaBase) {
-		rc = -ENOMEM;
-		goto out_err_mapmac;
-	}
+	jzgpio_set_func(GPIO_PORT_F, GPIO_INPUT, 0x00000040);
 #endif
 
 	synopGMAC_reset(gmacdev);
@@ -2286,7 +2250,6 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, miibus);
-	printk("========>%s done!\n", __func__);
 
 	return 0;
 
@@ -2332,12 +2295,14 @@ static struct platform_driver jz4775_mii_bus_driver = {
 #else  /* CONFIG_MDIO_GPIO */
 static void jz4775_mdio_gpio_init(void) {
 	cpm_start_clock(CGM_MAC);
-	__gpio_as_eth();
+	set_gpio_as_eth();
 
+/* the gpio PD8 is not adjust to JZ4775, the right gipo is PB7 */
+//#define JZMAC_PHY_RESET_PIN	(32 * 4 + 8)
 #ifdef JZMAC_PHY_RESET_PIN
-	__gpio_as_output0(JZMAC_PHY_RESET_PIN);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_OUTPUT0, 0x00000100);
 	mdelay(10);
-        __gpio_as_output1(JZMAC_PHY_RESET_PIN);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_OUTPUT1, 0x00000100);
 #endif
 
 	synopGMAC_disable_interrupt_all(gmacdev);

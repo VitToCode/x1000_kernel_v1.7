@@ -663,7 +663,7 @@ static struct mdio_gpio_platform_data mdio_gpio_data = {
         .phy_mask = 0,
         .irqs = { 0 },
 };
-static struct platform_device jz4775_mii_bus = {
+struct platform_device jz4775_mii_bus = {
         .name = "mdio-gpio",
         .dev.platform_data = &mdio_gpio_data,
 };

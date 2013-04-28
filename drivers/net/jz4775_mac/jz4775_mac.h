@@ -13,6 +13,8 @@ struct jzmac_buffer {
 	u16 length;
 	volatile u8 transfering; /* used by tx */
 	volatile u8 invalid;	 /* used by rx */
+	u16 mapped_as_page;
+	unsigned int segs;
 };
 
 /* TX/RX descriptor defines */

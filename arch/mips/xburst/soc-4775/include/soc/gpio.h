@@ -63,4 +63,7 @@ int jzgpio_set_func(enum gpio_port port,
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 
+int jzgpio_set_port_pins(enum gpio_port port,
+		    unsigned long offset, unsigned long pins);
+
 #endif

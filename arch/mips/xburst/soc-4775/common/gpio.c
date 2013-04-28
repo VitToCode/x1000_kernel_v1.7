@@ -121,10 +121,21 @@ int jzgpio_set_func(enum gpio_port port,
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
+#if 0
 	if (~jz->dev_map[0] & pins)
 		return -EINVAL;
+#endif
 
 	gpio_set_func(jz,func,pins);
+	return 0;
+}
+
+int jzgpio_set_port_pins(enum gpio_port port,
+		    unsigned long offset, unsigned long pins)
+{
+	struct jzgpio_chip *chip = &jz_gpio_chips[port];
+	writel(pins, chip->reg + offset);
+
 	return 0;
 }
 
@@ -132,8 +143,10 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
+#if 0
 	if (~jz->dev_map[0] & pins)
 		return -EINVAL;
+#endif
 
 	if (enable_pull)
 		writel(pins, jz->reg + PXPENC);

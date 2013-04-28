@@ -82,9 +82,9 @@
 	{ .name = "pwm3", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 3, }
 
 #define MII_PORTBDF                                                 \
-        { .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_2, .pins = 0x10, },   \
+        { .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x00000010, },   \
         { .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
-        { .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xfff0, }
+        { .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x0000fff0, }
 
 
 #define OTG_DRVVUS							\
