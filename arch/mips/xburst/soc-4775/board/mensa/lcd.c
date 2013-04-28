@@ -24,6 +24,26 @@
 
 #include "board.h"
 
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+#include <linux/kd50g2_40nm_a2.h>
+static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
+	.gpio_lcd_disp = GPIO_PB(30),
+	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
+	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
+};
+
+/* LCD device */
+struct platform_device kd50g2_40nm_a2_device = {
+	.name		= "kd50g2_40nm_a2-lcd",
+	.dev		= {
+		.platform_data = &kd50g2_40nm_a2_pdata,	
+	},
+};
+#endif
+
+
+
 #ifdef CONFIG_LCD_KFM701A21_1A
 #include <linux/kfm701a21_1a.h>
 static struct platform_kfm701a21_1a_data kfm701a21_1a_pdata = {
@@ -189,24 +209,21 @@ struct fb_videomode jzfb0_videomode = {
 #endif
 
 #ifdef CONFIG_LCD_KD50G2_40NM_A2 // 60Hz@vpll=888MHz
-	{
-		.name = "800x480",
-		.refresh = 60,
-		.xres = 800,
-		.yres = 480,
-		.pixclock = KHZ2PICOS(33260),
-		.left_margin = 88,
-		.right_margin = 40,
-		.upper_margin = 33,
-		.lower_margin = 10,
-		.hsync_len = 128,
-		.vsync_len = 2,
-		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
-		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
-	},
+	.name = "800x480",
+	.refresh = 55,
+	.xres = 800,
+	.yres = 480,
+	.pixclock = KHZ2PICOS(33260),
+	.left_margin = 88,
+	.right_margin = 40,
+	.upper_margin = 8,
+	.lower_margin = 35,
+	.hsync_len = 128,
+	.vsync_len = 2,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
 #endif
-
 #ifdef CONFIG_LCD_AUO_A043FL01V2
 	.name = "480x272",
 	.refresh = 60,
@@ -290,6 +307,9 @@ struct jzfb_platform_data jzfb0_pdata = {
 #endif
 
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
+	.num_modes = 1,
+	.modes = &jzfb0_videomode,
+
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 108,
@@ -299,10 +319,7 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 1,
-	.lvds = 0,
-	.dither_enable = 0,
 #endif
-
 #ifdef CONFIG_LCD_AUO_A043FL01V2
 	.num_modes = 1,
 	.modes = &jzfb1_videomode,

@@ -104,6 +104,10 @@ extern struct platform_nand_data jz_nand_chip_data;
 extern struct platform_device bcm4330_bt_power_device;
 #endif
 
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+extern struct platform_device kd50g2_40nm_a2_device;
+#endif
+
 /**
  * Digital pulse backlight
  **/
