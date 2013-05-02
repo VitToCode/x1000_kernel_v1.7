@@ -89,13 +89,6 @@ MODULE_PARM_DESC(copybreak,
 #define MAX_TIMEOUT_CNT	5000
 #define JZMAC_RX_BUFFER_WRITE	16	/* Must be power of 2 */
 
-static void set_gpio_as_eth(void)
-{
-	jzgpio_set_func(GPIO_PORT_B, GPIO_FUNC_1, 0x00000010);
-	jzgpio_set_func(GPIO_PORT_D, GPIO_FUNC_1, 0x3c000000);
-	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0x0000fff0);
-}
-
 /* Generate the bit field mask from msb to lsb */
 #define BITS_H2L(msb, lsb)  ((0xFFFFFFFF >> (32-((msb)-(lsb)+1))) << (lsb))
 #define MPHYC_ENA_GMII		(1 << 31)
@@ -2184,28 +2177,11 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 	set_mac_phy_clk(MAC_MII);
 #endif
 
-#ifdef CONFIG_JZ_FPGA // Only used for FPGA
-	jzgpio_set_port_pins(1, PXPAT0C, 0x1 << 4);
-	jzgpio_set_port_pins(3, PXPAT0C, 0xf << 26);
-	jzgpio_set_port_pins(5, PXINTC, 0xfff0);
-	jzgpio_set_port_pins(5, PXMSKS, 0xfff0);
-	jzgpio_set_port_pins(5, PXPAT1C, 0xfff0);
-#if defined(CONFIG_JZ4775_MAC_RMII)
-	jzgpio_set_port_pins(5, PXPAT0C, 0x7f70);
-	jzgpio_set_port_pins(5, PXPAT0S, 0x8080);
-#else
-	jzgpio_set_port_pins(5, PXPAT0C, 0xff70);
-	jzgpio_set_port_pins(5, PXPAT0S, 0x80);
-#endif
-#endif /* CONFIG_JZ_FPGA */
-
 //#define GPIO_PHY_RESET		(32 * 1 + 7)
-#ifdef GPIO_PHY_RESET /* PHY hard reset */
-	jzgpio_set_func(GPIO_PORT_B, GPIO_OUTPUT0, 0x00000080);
-        udelay(100000);
-	jzgpio_set_func(GPIO_PORT_B, GPIO_OUTPUT1, 0x00000080);
+#ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
+	struct jz_gpio_phy_reset *gpio_phy_reset = platform_get_drvdata(pdev);
+	jzgpio_phy_reset(gpio_phy_reset);
 #endif
-	set_gpio_as_eth();
 
 #if defined(CONFIG_JZ4775_MAC_RGMII) || defined(CONFIG_JZ4775_MAC_GMII)
 	/* CIM MCLK / Gmac_gtxc */
@@ -2295,15 +2271,6 @@ static struct platform_driver jz4775_mii_bus_driver = {
 #else  /* CONFIG_MDIO_GPIO */
 static void jz4775_mdio_gpio_init(void) {
 	cpm_start_clock(CGM_MAC);
-	set_gpio_as_eth();
-
-/* the gpio PD8 is not adjust to JZ4775, the right gipo is PB7 */
-//#define JZMAC_PHY_RESET_PIN	(32 * 4 + 8)
-#ifdef JZMAC_PHY_RESET_PIN
-	jzgpio_set_func(GPIO_PORT_E, GPIO_OUTPUT0, 0x00000100);
-	mdelay(10);
-	jzgpio_set_func(GPIO_PORT_E, GPIO_OUTPUT1, 0x00000100);
-#endif
 
 	synopGMAC_disable_interrupt_all(gmacdev);
 }

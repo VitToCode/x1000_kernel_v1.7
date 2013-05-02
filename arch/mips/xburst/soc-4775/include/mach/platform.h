@@ -84,7 +84,7 @@
 #define MII_PORTBDF                                                 \
         { .name = "mii-0", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x00000010, },   \
         { .name = "mii-1", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3c000000, }, \
-        { .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x0000fff0, }
+        { .name = "mii-2", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0000fff0, }
 
 
 #define OTG_DRVVUS							\
@@ -127,10 +127,6 @@ extern struct platform_device jz_cim_device;
 
 extern struct platform_device jz_ohci_device;
 extern struct platform_device jz_ehci_device;
-
-//extern struct platform_device jz_mac;
-extern struct platform_device jz4775_mii_bus;
-extern struct platform_device jz4775_mac_device;
 
 extern struct platform_device jz_nand_device;
 

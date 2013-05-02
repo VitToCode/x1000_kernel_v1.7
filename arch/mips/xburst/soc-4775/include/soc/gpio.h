@@ -43,6 +43,15 @@ struct jz_gpio_func_def {
 #define GPIO_PG(n)      (5*32 + 23 + n)
 #endif
 
+/* PHY hard reset */
+struct jz_gpio_phy_reset {
+	enum gpio_port		port;
+	unsigned short		pin;
+	enum gpio_function	start_offset;
+	enum gpio_function	end_offset;
+	unsigned int		delaytime_usec;
+};
+
 /* 
  * must define this array in board special file.
  * define the gpio pins in this array, use GPIO_DEF_END
@@ -63,7 +72,6 @@ int jzgpio_set_func(enum gpio_port port,
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 
-int jzgpio_set_port_pins(enum gpio_port port,
-		    unsigned long offset, unsigned long pins);
+int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset);
 
 #endif

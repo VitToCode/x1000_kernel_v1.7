@@ -123,6 +123,66 @@ static struct jz_battery_platform_data mensa_battery_pdata = {
 };
 #endif
 
+#if 0
+static struct resource	jz_mac_res[] = {
+	{ .flags = IORESOURCE_MEM,
+		.start = ETHC_IOBASE,
+		.end = ETHC_IOBASE + 0xfff,
+	},
+#if 0
+	{ .flags = IORESOURCE_IRQ,
+		.start = IRQ_ETHC,
+	},
+#endif
+};
+
+struct platform_device jz_mac = {
+	.name = "jz_mac",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(jz_mac_res),
+	.resource = jz_mac_res,
+	.dev = {
+		.platform_data = NULL,
+	},
+};
+#else
+#if defined(CONFIG_JZ4775_MAC)
+#ifndef CONFIG_MDIO_GPIO
+#ifdef CONFIG_JZGPIO_PHY_RESET
+static struct jz_gpio_phy_reset gpio_phy_reset = {
+	.port	=	GPIO_PORT_B,
+	.pin	=	7,
+	.start_offset	=	GPIO_OUTPUT0,
+	.end_offset	=	GPIO_OUTPUT1,
+	.delaytime_usec	=	100000,
+};
+#endif
+struct platform_device jz4775_mii_bus = {
+        .name = "jz4775_mii_bus",
+#ifdef CONFIG_JZGPIO_PHY_RESET
+	.dev.platform_data = &gpio_phy_reset,
+#endif
+};
+#else
+static struct mdio_gpio_platform_data mdio_gpio_data = {
+        .mdc = GPF(13),
+        .mdio = GPF(14),
+        .phy_mask = 0,
+        .irqs = { 0 },
+};
+struct platform_device jz4775_mii_bus = {
+        .name = "mdio-gpio",
+        .dev.platform_data = &mdio_gpio_data,
+};
+#endif
+
+struct platform_device jz4775_mac_device = {
+        .name = "jz4775_mac",
+        .dev.platform_data = &jz4775_mii_bus,
+};
+#endif
+#endif
+
 static int __init board_init(void)
 {
 /* dma */
