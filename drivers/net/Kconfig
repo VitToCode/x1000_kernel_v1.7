@@ -2605,6 +2605,7 @@ config JZ4775_MAC
 	select CRC32
 	select MII
 	select PHYLIB
+	select PHY_RESET
 	help
 	  This is the driver for JZ4775 on-chip mac device.
 
