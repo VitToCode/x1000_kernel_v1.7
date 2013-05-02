@@ -592,7 +592,7 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			if (dmac->id == 1 &&
 					(config->dst_addr >= NEMC_CS6_IOBASE &&
 					(config->dst_addr < NEMC_CS1_IOBASE + 0x1000000))) {
-				dmac->tx_dcm_def |= DCM_CHAN1_SRC_DDR | DCM_CHAN1_DST_NEMC;
+				dmac->tx_dcm_def |= DCM_CH1_SRC_DDR | DCM_CH1_DST_NEMC;
 			}
 
 			switch(config->src_addr_width) {
@@ -618,7 +618,7 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			if (dmac->id == 1 &&
 					(config->src_addr >= NEMC_CS6_IOBASE &&
 					config->src_addr <= NEMC_CS1_IOBASE + 0x1000000)) {
-				dmac->rx_dcm_def |= DCM_CHAN1_SRC_NEMC | DCM_CHAN1_DST_DDR;
+				dmac->rx_dcm_def |= DCM_CH1_SRC_NEMC | DCM_CH1_DST_DDR;
 			}
 
 			dmac->flags |= CHFLG_SLAVE;
