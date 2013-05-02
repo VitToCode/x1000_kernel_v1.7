@@ -103,21 +103,18 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 		/*
 		 * Datasheet of K9GBG08U0A, Rev-1.3, P5, S1.2
 		 * ECC : 24bit/1KB
-		 *
-		 * we assign 28bit/1KB here, the overs are usable when
-		 * bitflips occur in OOB area
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 28,
+			1024, 24,
 			/*
-			 * all timings adjust to +15ns
+			 * all timings adjust to +10ns
 			 *
 			 * we change this parameters
 			 * because mtd_torturetest failed
 			 * ******************************
 			 */
-			15,
+			10,
 			/*
 			 * ******************************
 			 */
@@ -156,6 +153,8 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	/*
 	 * use polled type cause speed gain
 	 * is about 10% ~ 15%
+	 *
+	 * use DMA cause speed gain is about 14%
 	 */
 	.xfer_type = NAND_XFER_DMA_POLL,
 
@@ -169,18 +168,12 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	 * First,  fetch NAND timings from following table if it's exist
 	 * Second, if board specific codes did not provide following table
 	 *         or driver can not find any matched information from
-	 *         following table, it will try match information from driver
-	 *         build-in NAND timings table, if also can not match anything,
+	 *         following table, it will try to match information from driver
+	 *         built-in NAND timings table, if also can not match anything,
 	 *         the NAND timings match will fail.
 	 */
 	.nand_flash_info_table = board_support_nand_info_table,
 	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_table),
-
-	/*
-	 * relocate hot functions like nand_command to TCSM
-	 * that will help to speed improvement.
-	 */
-	.relocate_hot_functions = 1,
 };
 
 static struct platform_device nand_dev = {
