@@ -28,7 +28,7 @@
 #include <linux/kd50g2_40nm_a2.h>
 static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
 	.gpio_lcd_disp = GPIO_PB(30),
-	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_de   = 0,		//GPIO_PC(9),	/* chose sync mode */
 	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
 	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
 };
