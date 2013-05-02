@@ -49,10 +49,11 @@ typedef struct {
 
 	gpemc_bank_t cs;
 	int busy_irq;
-	unsigned int curr_command;
 
 	struct completion ready;
 	unsigned int ready_timout_ms;
+
+	unsigned int curr_command;
 } nand_flash_if_t;
 
 typedef struct {
@@ -88,11 +89,11 @@ struct jz4780_nand_platform_data {
 
 	nand_ecc_type_t ecc_type;
 
-	int relocate_hot_functions;
-
 	int num_nand_flash;
 	/* not NULL to override default built-in settings in driver */
 	struct nand_flash_dev *nand_flash_table;
+
+	int try_to_reloc_hot;
 };
 
 #define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
