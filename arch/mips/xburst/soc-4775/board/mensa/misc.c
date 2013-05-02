@@ -233,6 +233,10 @@ static int __init board_init(void)
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 
+
+#ifdef CONFIG_LCD_KD50G2_40NM_A2
+ 	platform_device_register(&kd50g2_40nm_a2_device);
+#endif
 /* panel and bl */
 //#ifdef CONFIG_LCD_BYD_BM8766U
 //	platform_device_register(&byd_bm8766u_device);
