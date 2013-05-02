@@ -3519,9 +3519,14 @@ int nand_scan_tail(struct mtd_info *mtd)
 		}
 		chip->ecc.calculate = nand_bch_calculate_ecc;
 		chip->ecc.correct = nand_bch_correct_data;
-		chip->ecc.read_page = nand_read_page_swecc;
-		chip->ecc.read_subpage = nand_read_subpage;
-		chip->ecc.write_page = nand_write_page_swecc;
+
+		if (!chip->ecc.read_page)
+			chip->ecc.read_page = nand_read_page_swecc;
+		if (!chip->ecc.read_subpage)
+			chip->ecc.read_subpage = nand_read_subpage;
+		if (!chip->ecc.write_page)
+			chip->ecc.write_page = nand_write_page_swecc;
+
 		chip->ecc.read_page_raw = nand_read_page_raw;
 		chip->ecc.write_page_raw = nand_write_page_raw;
 		chip->ecc.read_oob = nand_read_oob_std;
@@ -3546,6 +3551,7 @@ int nand_scan_tail(struct mtd_info *mtd)
 		}
 		chip->ecc.strength =
 			chip->ecc.bytes * 8 / fls(8 * chip->ecc.size);
+
 		break;
 
 	case NAND_ECC_NONE:

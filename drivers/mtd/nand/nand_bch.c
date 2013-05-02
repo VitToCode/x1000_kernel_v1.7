@@ -30,20 +30,6 @@
 #include <linux/bch.h>
 
 /**
- * struct nand_bch_control - private NAND BCH control structure
- * @bch:       BCH control structure
- * @ecclayout: private ecc layout for this BCH configuration
- * @errloc:    error location array
- * @eccmask:   XOR ecc mask, allows erased pages to be decoded as valid
- */
-struct nand_bch_control {
-	struct bch_control   *bch;
-	struct nand_ecclayout ecclayout;
-	unsigned int         *errloc;
-	unsigned char        *eccmask;
-};
-
-/**
  * nand_bch_calculate_ecc - [NAND Interface] Calculate ECC for data block
  * @mtd:	MTD block structure
  * @buf:	input buffer with raw data
