@@ -63,6 +63,7 @@ struct jzdwc_pin __attribute__((weak)) dwc2_id_pin = {
 	.enable_level = -1
 };
 
+#if DWC2_DEVICE_MODE_ENABLE
 static int get_pin_status(struct jzdwc_pin *pin)
 {
 	int val;
@@ -75,6 +76,7 @@ static int get_pin_status(struct jzdwc_pin *pin)
 		return !val;
 	return val;
 }
+#endif
 
 void jz4780_set_vbus(struct dwc2 *dwc, int is_on)
 {
@@ -131,6 +133,7 @@ static inline void jz4780_usb_set_dual_mode(void)
 	cpm_outl(tmp & ~(0x03 << USBPCR_IDPULLUP_MASK), CPM_USBPCR);
 }
 
+#if DWC2_DEVICE_MODE_ENABLE
 extern void dwc2_gadget_plug_change(int plugin);
 
 static void usb_detect_work(struct work_struct *work)
@@ -156,6 +159,7 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 #if DWC2_HOST_MODE_ENABLE
 static void usb_host_id_work(struct work_struct *work) {
@@ -287,6 +291,7 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 #endif /*DWC2_HOST_MODE_ENABLE */
 
 	jz4780->dete_irq = -1;
+#if DWC2_DEVICE_MODE_ENABLE
 	ret = gpio_request_one(jz4780->dete->num,
 			GPIOF_DIR_IN, "usb-charger-detect");
 	if (ret == 0) {
@@ -304,6 +309,8 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 			disable_irq(jz4780->dete_irq);
 		}
 	}
+#endif
+
 	jz4780->id_irq = -1;
 #if DWC2_HOST_MODE_ENABLE
 	ret = gpio_request_one(jz4780->id_pin->num,
@@ -387,12 +394,13 @@ fail_add_dwc2_dev:
 fail_add_dwc2_res:
 #if DWC2_HOST_MODE_ENABLE
 fail_req_id_irq:
-	free_irq(gpio_to_irq(jz4780->dete->num), jz4780);
 #endif
+#if DWC2_DEVICE_MODE_ENABLE
+	free_irq(gpio_to_irq(jz4780->dete->num), jz4780);
 fail_req_dete_irq:
 	if (gpio_is_valid(jz4780->dete->num))
 		gpio_free(jz4780->dete->num);
-
+#endif
 #if DWC2_HOST_MODE_ENABLE
 #ifdef CONFIG_REGULATOR
 	regulator_put(jz4780->vbus);

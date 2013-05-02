@@ -23,9 +23,7 @@
 
 #include "core.h"
 #include "gadget.h"
-#if DWC2_HOST_MODE_ENABLE
 #include "host.h"
-#endif
 #include "debug.h"
 
 #include "dwc2-jz4780.h"
@@ -814,6 +812,7 @@ static void dwc2_core_exit(struct dwc2 *dwc)
 {
 }
 
+#if DWC2_DEVICE_MODE_ENABLE
 /*
  * Caller must take care of lock
  */
@@ -842,6 +841,8 @@ static void dwc2_gadget_suspend(struct dwc2 *dwc)
 		dwc2_spin_lock(dwc);
 	}
 }
+#endif
+
 static void dwc2_handle_mode_mismatch_intr(struct dwc2 *dwc)
 {
 	gintsts_data_t gintsts;
@@ -868,6 +869,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	DWC2_CORE_DEBUG_MSG("%s: otgint = 0x%08x\n",
 			__func__, gotgint.d32);
 
+#if DWC2_DEVICE_MODE_ENABLE
 	if (gotgint.b.sesenddet) {
 		depctl_data_t	doepctl = {.d32 = 0 };
 		u32		doepdma;
@@ -895,6 +897,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			 * TODO: If Session End Detected the B-Cable has been disconnected.
 			 *       Reset PCD and Gadget driver to a clean state.
 			 */
+			dev_info(dwc->dev, "%s:%d\n",__func__,__LINE__);
 			dwc->lx_state = DWC_OTG_L0;
 			dwc2_gadget_handle_session_end(dwc);
 			dwc2_gadget_disconnect(dwc);
@@ -935,6 +938,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 		}
 	}
+#endif
 
 	if (gotgint.b.hstnegsucstschng) {
 		dev_info(dwc->dev, "OTG Interrupt: hstnegsucstschng\n");
@@ -1051,7 +1055,6 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 
 		dwc2_spin_unlock_irqrestore(dwc, flags);
 	} else {	      /* A-Device connector (Host Mode) */
-#if DWC2_HOST_MODE_ENABLE
 		DWC2_CORE_DEBUG_MSG("init DWC as A_HOST\n");
 
 		dwc2_spin_lock_irqsave(dwc, flags);
@@ -1075,9 +1078,6 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc2_spin_unlock_irqrestore(dwc, flags);
 		jz4780_set_vbus(dwc, 1);
 		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
-#else
-		dev_warn(dwc->dev,"A_HOST But host mode was not selected\n");
-#endif
 	}
 }
 
@@ -1087,7 +1087,9 @@ static void dwc2_handle_conn_id_status_change_intr(struct dwc2 *dwc) {
 	/* Just Log a warnning message */
 	dev_info(dwc->dev, "ID PIN CHANGED!\n");
 
+#if DWC2_HOST_MODE_ENABLE
 	schedule_work(&dwc->otg_id_work);
+#endif
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
@@ -1170,19 +1172,22 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 	gintsts_data_t gintsts;
 
 	if (dwc2_is_device_mode(dwc)) {
-		dctl_data_t dctl = {.d32 = 0 };
 		if (dwc->lx_state == DWC_OTG_L2) {
-			/* Clear the Remote Wakeup Signaling */
-
+		/* Clear the Remote Wakeup Signaling */
+#if DWC2_DEVICE_MODE_ENABLE
+			dctl_data_t dctl = {.d32 = 0 };
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.rmtwkupsig = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 			dwc2_gadget_resume(dwc);
+#endif
 		} else {
+#if DWC2_HOST_MODE_ENABLE
 			glpmcfg_data_t lpmcfg;
 			lpmcfg.d32 = dwc_readl(&dwc->core_global_regs->glpmcfg);
 			lpmcfg.b.hird_thres &= (~(1 << 4));
 			dwc_writel(lpmcfg.d32, &dwc->core_global_regs->glpmcfg);
+#endif
 		}
 		/** Change to L0 state*/
 		dwc->lx_state = DWC_OTG_L0;
@@ -1206,16 +1211,18 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
  */
 static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 {
-	dsts_data_t dsts;
 	gintsts_data_t gintsts;
 
 	if (dwc2_is_device_mode(dwc)) {
+#if DWC2_DEVICE_MODE_ENABLE
+		dsts_data_t dsts;
 		/* Check the Device status register to determine if the Suspend
 		 * state is active. */
 		dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 		dev_dbg(dwc->dev, "DSTS = 0x%08x\n", dsts.d32);
 
 		dwc2_gadget_suspend(dwc);
+#endif
 	} else {
 		dev_info(dwc->dev, "%s:%d: host mode not implemented!\n", __func__, __LINE__);
 	}
@@ -1256,6 +1263,7 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 		dwc2_handle_otg_intr(dwc);
 		gintr_status->b.otgintr = 0;
 	}
+
 	if (gintr_status->b.conidstschng) {
 		if (unlikely(gintr_status->b.disconnect || gintr_status->b.portintr)) {
 			dev_err(dwc->dev, "disconnect or portintr when conidstschng? BUG!!!!!!\n");
@@ -1263,10 +1271,12 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 		dwc2_handle_conn_id_status_change_intr(dwc);
 		gintr_status->b.conidstschng = 0;
 	}
+
 	if (gintr_status->b.disconnect) {
 		dwc2_handle_disconnect_intr(dwc);
 		gintr_status->b.disconnect = 0;
 	}
+
 	if (gintr_status->b.sessreqintr) {
 		dwc2_handle_session_req_intr(dwc);
 		gintr_status->b.sessreqintr = 0;
@@ -1279,6 +1289,7 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 		dwc2_handle_usb_suspend_intr(dwc);
 		gintr_status->b.usbsuspend = 0;
 	}
+
 #ifdef CONFIG_USB_DWC2_LPM
 	if (gintr_status->b.lpmtranrcvd) {
 		dwc2_handle_lpm_intr(dwc);
@@ -1288,6 +1299,7 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 		dwc2_handle_restore_done_intr(dwc);
 		gintr_status->b.restoredone = 0;
 	}
+
 	if (gintr_status->b.portintr && dwc2_is_device_mode(dwc)) {
 		/*
 		 * The port interrupt occurs while in device mode with HPRT0
@@ -1385,9 +1397,11 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 	dwc2_handle_common_interrupts(dwc, &gintr_status);
 
 	if (dwc2_is_device_mode(dwc)) {
+#if DWC2_DEVICE_MODE_ENABLE
 		dwc2_handle_device_mode_interrupt(dwc, &gintr_status);
 		if (unlikely(dwc2_do_reset_device_core(dwc)))
 			goto out;
+#endif
 	} else {
 #if DWC2_HOST_MODE_ENABLE
 		dwc2_handle_host_mode_interrupt(dwc, &gintr_status);
@@ -1507,11 +1521,13 @@ static int dwc2_probe(struct platform_device *pdev)
 	}
 #endif
 
+#if DWC2_DEVICE_MODE_ENABLE
 	ret = dwc2_gadget_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize gadget\n");
 		goto fail_init_gadget;
 	}
+#endif
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
 	dwc2_enable_global_interrupts(dwc);
@@ -1525,8 +1541,10 @@ static int dwc2_probe(struct platform_device *pdev)
 	return 0;
 
 fail_init_debugfs:
+#if DWC2_DEVICE_MODE_ENABLE
 	dwc2_gadget_exit(dwc);
 fail_init_gadget:
+#endif
 #if DWC2_HOST_MODE_ENABLE
 	dwc2_host_exit(dwc);
 fail_init_host:
@@ -1547,7 +1565,9 @@ static int dwc2_remove(struct platform_device *pdev)
 #if DWC2_HOST_MODE_ENABLE
 	dwc2_host_exit(dwc);
 #endif
+#if DWC2_DEVICE_MODE_ENABLE
 	dwc2_gadget_exit(dwc);
+#endif
 	dwc2_core_exit(dwc);
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
