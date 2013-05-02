@@ -23,7 +23,9 @@
 
 #include "core.h"
 #include "gadget.h"
+#if DWC2_HOST_MODE_ENABLE
 #include "host.h"
+#endif
 #include "debug.h"
 
 #include "dwc2-jz4780.h"
@@ -840,7 +842,6 @@ static void dwc2_gadget_suspend(struct dwc2 *dwc)
 		dwc2_spin_lock(dwc);
 	}
 }
-
 static void dwc2_handle_mode_mismatch_intr(struct dwc2 *dwc)
 {
 	gintsts_data_t gintsts;
@@ -1050,8 +1051,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 
 		dwc2_spin_unlock_irqrestore(dwc, flags);
 	} else {	      /* A-Device connector (Host Mode) */
-
-
+#if DWC2_HOST_MODE_ENABLE
 		DWC2_CORE_DEBUG_MSG("init DWC as A_HOST\n");
 
 		dwc2_spin_lock_irqsave(dwc, flags);
@@ -1073,9 +1073,11 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc->hcd->self.is_b_host = 0;
 		dwc2_host_mode_init(dwc);
 		dwc2_spin_unlock_irqrestore(dwc, flags);
-
 		jz4780_set_vbus(dwc, 1);
 		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
+#else
+		dev_warn(dwc->dev,"A_HOST But host mode was not selected\n");
+#endif
 	}
 }
 
@@ -1105,11 +1107,13 @@ static void dwc2_handle_disconnect_intr(struct dwc2 *dwc) {
 		 * there's nothing to do, session end will do all the stuff things
 		 */
 		dev_info(dwc->dev, "B-Peripheral disconnect event\n");
-	} else {	      /* A-Device */
+	} else {	    /* A-Device */
+#if DWC2_HOST_MODE_ENABLE
 		if (dwc->op_state == DWC2_A_HOST) {
 			/* A-Cable still connected but device disconnect */
 			dwc2_hcd_handle_device_disconnect_intr(dwc);
 		}
+#endif
 	}
 
 	gintsts.d32 = 0;
@@ -1135,6 +1139,7 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 	if (dwc2_is_device_mode(dwc)) {
 		dev_info(dwc->dev, "SRP: Device Mode\n");
 	} else {
+#if	DWC2_HOST_MODE_ENABLE
 		hprt0_data_t hprt0;
 
 		dev_info(dwc->dev, "SRP: Host Mode\n");
@@ -1143,6 +1148,9 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 		hprt0.d32 = dwc2_hc_read_hprt(dwc);
 		hprt0.b.prtpwr = 1;
 		dwc_writel(hprt0.d32, dwc->host_if.hprt0);
+#else
+		dev_warn(dwc->dev, "SRP: Host Mode ,But host mode was not select\n");
+#endif
 	}
 
 	/* Clear interrupt */
@@ -1169,7 +1177,6 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.rmtwkupsig = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
 			dwc2_gadget_resume(dwc);
 		} else {
 			glpmcfg_data_t lpmcfg;
@@ -1303,7 +1310,6 @@ static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
 		return 0;
 
 	dwc->do_reset_core = 0;
-
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dctl.b.sftdiscon = 1;
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1322,7 +1328,6 @@ static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 	}
-
 	return 1;
 }
 
@@ -1384,7 +1389,9 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 		if (unlikely(dwc2_do_reset_device_core(dwc)))
 			goto out;
 	} else {
+#if DWC2_HOST_MODE_ENABLE
 		dwc2_handle_host_mode_interrupt(dwc, &gintr_status);
+#endif
 	}
 
 	if (unlikely(gintr_status.d32)) {
@@ -1500,13 +1507,11 @@ static int dwc2_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if DWC2_DEVICE_MODE_ENABLE
 	ret = dwc2_gadget_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize gadget\n");
 		goto fail_init_gadget;
 	}
-#endif
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
 	dwc2_enable_global_interrupts(dwc);
@@ -1521,13 +1526,12 @@ static int dwc2_probe(struct platform_device *pdev)
 
 fail_init_debugfs:
 	dwc2_gadget_exit(dwc);
-
 fail_init_gadget:
+#if DWC2_HOST_MODE_ENABLE
 	dwc2_host_exit(dwc);
-
 fail_init_host:
+#endif
 	dwc2_core_exit(dwc);
-
 fail_init_core:
 	free_irq(irq, dwc);
 
@@ -1540,7 +1544,9 @@ static int dwc2_remove(struct platform_device *pdev)
 	struct dwc2	*dwc = platform_get_drvdata(pdev);
 	int		 irq;
 
+#if DWC2_HOST_MODE_ENABLE
 	dwc2_host_exit(dwc);
+#endif
 	dwc2_gadget_exit(dwc);
 	dwc2_core_exit(dwc);
 

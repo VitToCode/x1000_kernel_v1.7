@@ -1,6 +1,6 @@
 config USB_DWC2
 	tristate "DesignWare Core USB 2.0 Hi-Speed On-The-Go(OTG)"
-	depends on (USB && USB_GADGET)
+	depends on USB
 	help
 	  Say Y or M here if your system has a Dual Role SuperSpeed
 	  USB controller based on the DesignWare USB2.0 IP Core.
