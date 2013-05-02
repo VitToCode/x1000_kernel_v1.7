@@ -43,7 +43,7 @@ typedef enum {
 } sram_type_t;
 
 typedef struct {
-	u32 clk_T;
+	u64 clk_T_real_ps;
 	bus_width_t BW;
 
 	struct {
@@ -230,7 +230,7 @@ typedef struct {
 
 	bus_width_t BW;
 
-	u32 all_timings_plus;
+	int32_t all_timings_plus;
 } common_nand_timing_t;
 
 typedef struct {
