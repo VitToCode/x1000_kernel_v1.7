@@ -78,6 +78,7 @@ static int get_pin_status(struct jzdwc_pin *pin)
 
 void jz4780_set_vbus(struct dwc2 *dwc, int is_on)
 {
+#if DWC2_HOST_MODE_ENABLE
 	struct dwc2_jz4780	*jz4780;
 
 	jz4780 = container_of(dwc->pdev, struct dwc2_jz4780, dwc2);
@@ -93,6 +94,8 @@ void jz4780_set_vbus(struct dwc2 *dwc, int is_on)
 		if (regulator_is_enabled(jz4780->vbus))
 			regulator_disable(jz4780->vbus);
 	}
+#endif	/*DWC2_HOST_MODE_ENABLE*/
+
 }
 
 static inline void jz4780_usb_phy_init(struct dwc2_jz4780 *jz4780)
@@ -107,6 +110,7 @@ static inline void jz4780_usb_phy_init(struct dwc2_jz4780 *jz4780)
 
 static inline void jz4780_usb_set_device_only_mode(void)
 {
+	pr_info("DWC IN DEVICE ONLY MODE\n");
 	cpm_clear_bit(USBPCR_USB_MODE, CPM_USBPCR);
 	cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
 }
@@ -115,6 +119,7 @@ static inline void jz4780_usb_set_dual_mode(void)
 {
 	unsigned int tmp;
 
+	pr_info("DWC IN OTG MODE\n");
 	tmp = cpm_inl(CPM_USBPCR);
 	tmp |= 1 << USBPCR_USB_MODE;
 	tmp |= 1 << USBPCR_VBUSVLDEXT;
@@ -152,6 +157,7 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#if DWC2_HOST_MODE_ENABLE
 static void usb_host_id_work(struct work_struct *work) {
 	struct dwc2_jz4780	*jz4780;
 
@@ -175,6 +181,7 @@ static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
 
 	return IRQ_HANDLED;
 }
+#endif	/*DWC2_HOST_MODE_ENABLE*/
 
 static void usb_cpm_init(void) {
 	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;
@@ -264,6 +271,7 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 	}
 	clk_enable(jz4780->clk);
 
+#if DWC2_HOST_MODE_ENABLE
 #ifdef CONFIG_REGULATOR
 	jz4780->vbus = regulator_get(NULL, VBUS_REG_NAME);
 
@@ -275,7 +283,8 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 		regulator_disable(jz4780->vbus);
 #else
 #error DWC OTG driver can NOT work without regulator!
-#endif
+#endif /*CONFIG_REGULATOR*/
+#endif /*DWC2_HOST_MODE_ENABLE */
 
 	jz4780->dete_irq = -1;
 	ret = gpio_request_one(jz4780->dete->num,
@@ -295,8 +304,8 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 			disable_irq(jz4780->dete_irq);
 		}
 	}
-
 	jz4780->id_irq = -1;
+#if DWC2_HOST_MODE_ENABLE
 	ret = gpio_request_one(jz4780->id_pin->num,
 			GPIOF_DIR_IN, "usb-host-id-detect");
 	if (ret == 0) {
@@ -315,10 +324,9 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 			disable_irq(jz4780->id_irq);
 		}
 	} else {
-#if DWC2_HOST_MODE_ENABLE
 		dwc2_plat_data->keep_phy_on = 1;
-#endif
 	}
+#endif
 
 #ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
 	if (jz4780->dete_irq < 0) {
@@ -328,8 +336,11 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 
 	usb_cpm_init();
 
-	//jz4780_usb_set_device_only_mode();
+#if (DWC2_DEVICE_MODE_ENABLE) && !(DWC2_HOST_MODE_ENABLE)
+	jz4780_usb_set_device_only_mode();
+#else
 	jz4780_usb_set_dual_mode();
+#endif
 
 	jz4780_usb_phy_init(jz4780);
 
@@ -374,18 +385,20 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 
 fail_add_dwc2_dev:
 fail_add_dwc2_res:
+#if DWC2_HOST_MODE_ENABLE
 fail_req_id_irq:
 	free_irq(gpio_to_irq(jz4780->dete->num), jz4780);
-
+#endif
 fail_req_dete_irq:
 	if (gpio_is_valid(jz4780->dete->num))
 		gpio_free(jz4780->dete->num);
 
+#if DWC2_HOST_MODE_ENABLE
 #ifdef CONFIG_REGULATOR
 	regulator_put(jz4780->vbus);
-
 fail_get_vbus_reg:
 #endif	/* CONFIG_REGULATOR */
+#endif  /* DWC2_HOST_MODE_ENABLE */
 	clk_disable(jz4780->clk);
 	clk_put(jz4780->clk);
 
@@ -411,8 +424,10 @@ static int dwc2_jz4780_remove(struct platform_device *pdev) {
 		gpio_free(jz4780->id_pin->num);
 	}
 
+#if DWC2_HOST_MODE_ENABLE
 	if (!IS_ERR(jz4780->vbus))
 		regulator_put(jz4780->vbus);
+#endif
 
 	clk_disable(jz4780->clk);
 	clk_put(jz4780->clk);
