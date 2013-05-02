@@ -23,16 +23,21 @@
 #include <linux/power/li-ion-charger.h>
 #include <linux/power/jz4780-battery.h>
 #include <linux/mfd/pmu-common.h>
+#include <linux/earlysuspend.h>
+
+
 
 struct li_ion_charger {
 	const struct li_ion_charger_platform_data *pdata;
 	unsigned int irq;
 	struct delayed_work work;
-
 	int online;
 	int status;
 	struct power_supply charger;
+	struct early_suspend early_suspend;
 };
+
+
 
 static char* status_dbg(int status)
 {
@@ -78,10 +83,15 @@ static void li_ion_work(struct work_struct *work)
 	struct li_ion_charger *li_ion;
 	int status;
 	int online;
+
+        
 	li_ion = container_of(work, struct li_ion_charger, work.work);
 
+
+
+
 	online = gpio_get_value(li_ion->pdata->gpio) ^ li_ion->pdata->gpio_active_low;
-	pr_info("li_ion: li_ion_work: online=%d\n", online);
+	pr_info("li_ion: li_ion_work: online=%d \n", online);
 	if (online != li_ion->online) {
 		status = online ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_NOT_CHARGING;
 		if (status == POWER_SUPPLY_STATUS_NOT_CHARGING && is_ac_online())
@@ -95,9 +105,11 @@ static void li_ion_work(struct work_struct *work)
 		}
 		li_ion->online = online;
 	}
-
+        
 	enable_irq(li_ion->irq);
 }
+
+
 
 static irqreturn_t li_ion_irq(int irq, void *devid)
 {
@@ -141,6 +153,7 @@ static void li_ion_external_power_changed(struct power_supply *psy)
 		power_supply_changed(&li_ion->charger);
 	} else
 		pr_info("li_ion: ac changed (skip)\n");
+
 }
 
 static enum power_supply_property li_ion_properties[] = {
@@ -185,6 +198,21 @@ static void li_ion_callback_init(struct li_ion_charger *li_ion)
 	jz_battery->pmu_work_enable = pmu_work_enable;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void li_ion_early_suspend(struct early_suspend *early_suspend)
+{
+	struct li_ion_charger *li_ion ;
+	li_ion = container_of(early_suspend, struct li_ion_charger, early_suspend);
+	disable_irq_nosync(li_ion->irq);
+}
+static void li_ion_late_resume(struct early_suspend *early_suspend)
+{
+	struct li_ion_charger *li_ion ;
+	li_ion = container_of(early_suspend, struct li_ion_charger, early_suspend);	
+	enable_irq(li_ion->irq);
+}
+#endif
+
 static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 {
 	const struct li_ion_charger_platform_data *pdata = pdev->dev.platform_data;
@@ -220,6 +248,13 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 	charger->num_supplicants = ARRAY_SIZE(supply_list);
 	charger->external_power_changed = li_ion_external_power_changed;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	li_ion->early_suspend.suspend = li_ion_early_suspend;
+	li_ion->early_suspend.resume = li_ion_late_resume;
+	li_ion->early_suspend.level	= EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&li_ion->early_suspend);
+#endif
+
 	ret = gpio_request(pdata->gpio, dev_name(&pdev->dev));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request gpio pin: %d\n", ret);
@@ -244,16 +279,17 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&li_ion->work, li_ion_work);
 
+
 	irq = gpio_to_irq(pdata->gpio);
 	if (irq > 0) {
 		ret = request_any_context_irq(irq, li_ion_irq,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING ,
 				dev_name(&pdev->dev), li_ion);
 		if (ret)
 			dev_warn(&pdev->dev, "Failed to request irq: %d\n", ret);
 		else {
 			li_ion->irq = irq;
-			enable_irq_wake(li_ion->irq);
+			//enable_irq_wake(li_ion->irq);
 			disable_irq_nosync(irq);
 		}
 	}
@@ -288,10 +324,12 @@ static int __devexit li_ion_charger_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+
 #ifdef CONFIG_PM_SLEEP
 static int li_ion_charger_resume(struct device *dev)
 {
-#if 0
+#if 0 
 	struct platform_device *pdev = to_platform_device(dev);
 	struct li_ion_charger *li_ion = platform_get_drvdata(pdev);
 

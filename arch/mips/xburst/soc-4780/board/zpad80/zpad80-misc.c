@@ -25,6 +25,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
+#include <linux/regulator/consumer.h>
 
 #include "zpad80.h"
 //#include <../drivers/staging/android/timed_gpio.h>
@@ -93,12 +94,12 @@ static struct platform_device jz_timed_gpio_device = {
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data zpad80_battery_pdata = {
 	.info = {
-		.max_vol        = 4180,
-		.min_vol        = 3500,
+		.max_vol        = 4100,
+		.min_vol        = 3300,
 		.ac_max_vol     = 4200,
-		.ac_min_vol     = 3600,
-		.battery_max_cpt = 3000,
-		.ac_chg_current = 960*2,
+		.ac_min_vol     = 3400,
+		.battery_max_cpt = 2000,
+		.ac_chg_current = 1000,
 		.usb_chg_current = -1,
 		.sleep_current = 30,
 	},
@@ -128,7 +129,8 @@ static struct platform_device zpad80_ac_charger_device = {
 
 /* li-ion charger */
 static struct li_ion_charger_platform_data zpad80_li_ion_charger_pdata = {
-	.gpio = GPIO_PB(3),
+	.gpio = GPIO_PF(5),
+//.gpio = GPIO_PB(3),
 	.gpio_active_low = 1,
 };
 
@@ -226,6 +228,9 @@ static struct platform_device pmem_camera_device = {
 
 static int __init zpad80_board_init(void)
 {
+
+
+
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
@@ -412,11 +417,27 @@ const char *get_board_type(void)
 
 arch_initcall(zpad80_board_init);
 
+
+static struct wake_lock       keep_alive_lock;
+
 static int __init zpad80_board_lateinit(void)
 {
-	gpio_request(GPIO_PA(17), "5v_en");
-	gpio_direction_output(GPIO_PA(17), 1);
+	//gpio_request(GPIO_PA(17), "5v_en");
+	//gpio_direction_output(GPIO_PA(17), 1);
+	struct regulator *power_en;
 
+	power_en = regulator_get(NULL, "vpower_en");
+	if (IS_ERR(power_en)) {
+		dev_err(NULL, "failed to get regulator vpower_enn");
+		return PTR_ERR(power_en);
+    		}
+
+	regulator_enable(power_en);
+
+    /*can't sleep by hhu*/
+    wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
+    wake_lock(&keep_alive_lock);
+    
 	return 0;
 }
 

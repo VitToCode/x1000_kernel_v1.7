@@ -45,18 +45,18 @@ VBUS_REGULATOR_DEF(
  */
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vwifi,
-	"Wi-Fi",	"vwifi",	NULL,
-	NULL,		3300000,	0);
+	"Wi-Fi",
+	"vwifi",	NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vtsc,
-	"Touch Screen",	"vtsc",		NULL,
-	NULL,		3300000,	0);
+	"Touch Screen",
+	"vtsc",		NULL,		3300000);
 
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vlcd,
-	"V-vlcd",	"vlcd",		NULL,
-	NULL,		3300000,	0);
+	"V-vlcd",
+	"vlcd",	NULL,		3300000);
 
 /**
  * Fixed voltage Regulators.
@@ -90,9 +90,15 @@ FIXED_REGULATOR_DEF(
 
 FIXED_REGULATOR_DEF(
 	zpad80_vlcd_vcom,
-	"vlcd_vcom",		3300000,	GPIO_PF(9),
+	"vlcd_vcom",        3300000,    GPIO_PF(11),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
-	NULL,		"vlcd_vcom",		NULL);
+	NULL,       "vlcd_vcom",        NULL);
+
+FIXED_REGULATOR_DEF(
+	zpad80_vpower_en,
+	"vpower_en",		3300000,	GPIO_PF(9),
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
+	NULL,		"vpower_en",		NULL);
 
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
@@ -101,6 +107,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&zpad80_vbklight_regulator_device,
 	&zpad80_vlcd_en_regulator_device,
 	&zpad80_vlcd_vcom_regulator_device,
+	&zpad80_vpower_en_regulator_device,
 };
 
 /*
