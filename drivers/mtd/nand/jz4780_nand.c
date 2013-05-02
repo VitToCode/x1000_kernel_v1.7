@@ -1190,6 +1190,10 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 		seq_printf(m, "OOB size %dbyte\n", nand->mtd.oobsize);
 
 		seq_printf(m, "\n");
+		seq_printf(m, "Use DMA: %d\n", nand->use_dma);
+		seq_printf(m, "Use R/B# poll %d\n", nand->busy_poll);
+
+		seq_printf(m, "\n");
 		seq_printf(m, "Attached NAND flash ECC:\n");
 		seq_printf(m, "ECC type: %s\n", nand->ecc_type == NAND_ECC_TYPE_HW ?
 				"HW-BCH" : "SW-BCH");
