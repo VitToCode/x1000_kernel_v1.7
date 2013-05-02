@@ -826,9 +826,10 @@ int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 
 	bank->dev = dev;
 	bank->cs = cs;
-	/* T count in nanoseconds */
-	bank->bank_timing.clk_T =
-			1000 * 1000 * 1000 / clk_get_rate(gpemc->clk);
+
+	/* T(real) count in picosecond */
+	bank->bank_timing.clk_T_real_ps =
+			1000 * 1000 * 1000 / (clk_get_rate(gpemc->clk) / 1000);
 
 	if (bank->bank_type == BANK_TYPE_SRAM) {
 		WARN(bank->cnt_addr_pins > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins),
@@ -909,20 +910,17 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	/* bank Tas */
 	temp = max(timing->Tals, timing->Tcls);
 	bank->bank_timing.sram_timing.Tas = temp;
-	bank->bank_timing.sram_timing.Tas += timing->all_timings_plus;
 
 	/* bank Tah */
 	temp = max(timing->Talh, timing->Tclh);
 	temp = max(temp, timing->Tch);
 	temp = max(temp, timing->Tdh);
 	bank->bank_timing.sram_timing.Tah = temp;
-	bank->bank_timing.sram_timing.Tah += timing->all_timings_plus;
 
 	/* bank Taw */
 	temp = max(timing->Trc, timing->Twc);
 	temp = max(temp - bank->bank_timing.sram_timing.Tah, timing->Trp);
 	bank->bank_timing.sram_timing.Taw = temp;
-	bank->bank_timing.sram_timing.Taw += timing->all_timings_plus;
 
 	/*
 	 * bank Tstrv
@@ -935,7 +933,26 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	temp = timing->Twp;
 	temp = max(temp, (timing->Twc - timing->Twp));
 	bank->bank_timing.sram_timing.Tbp = temp;
-	bank->bank_timing.sram_timing.Tbp += timing->all_timings_plus;
+
+	if (timing->all_timings_plus >= 0) {
+		bank->bank_timing.sram_timing.Tas +=
+				(u32)timing->all_timings_plus;
+		bank->bank_timing.sram_timing.Tah +=
+				(u32)timing->all_timings_plus;
+		bank->bank_timing.sram_timing.Taw +=
+				(u32)timing->all_timings_plus;
+		bank->bank_timing.sram_timing.Tbp +=
+				(u32)timing->all_timings_plus;
+	} else {
+		bank->bank_timing.sram_timing.Tas -=
+				(u32)abs(timing->all_timings_plus);
+		bank->bank_timing.sram_timing.Tah -=
+				(u32)abs(timing->all_timings_plus);
+		bank->bank_timing.sram_timing.Taw -=
+				(u32)abs(timing->all_timings_plus);
+		bank->bank_timing.sram_timing.Tbp -=
+				(u32)abs(timing->all_timings_plus);
+	}
 
 	/* bank BW */
 	bank->bank_timing.BW = timing->BW;
@@ -980,11 +997,7 @@ EXPORT_SYMBOL(gpemc_relax_bank_timing);
 int gpemc_config_bank_timing(gpemc_bank_t *bank)
 {
 	u32 smcr, temp;
-	u32 clk_T;
-
-	/* T count in nanoseconds */
-	clk_T = bank->bank_timing.clk_T;
-	bank->bank_timing.clk_T = clk_T;
+	u64 clk_T_real_ps = bank->bank_timing.clk_T_real_ps;
 
 	smcr = gpemc->regs_file->smcr[bank->cs - 1];
 
@@ -997,7 +1010,8 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 
 	case BANK_TYPE_NAND:
 		/* Tah */
-		temp = div_ceiling(bank->bank_timing.sram_timing.Tah, clk_T);
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tah * 1000,
+				clk_T_real_ps);
 		if (temp > 15) {
 			pr_err("gpemc: Failed to configure Tah for bank%d,"
 					" Tah: %uT\n", bank->cs, temp);
@@ -1007,7 +1021,8 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 		smcr |= temp << 12;
 
 		/* Taw */
-		temp = div_ceiling(bank->bank_timing.sram_timing.Taw, clk_T);
+		temp = div_ceiling(bank->bank_timing.sram_timing.Taw * 1000,
+				clk_T_real_ps);
 		if (temp > 31) {
 			pr_err("gpemc: Failed to configure Taw for bank%d,"
 					" Taw: %uT\n", bank->cs, temp);
@@ -1018,7 +1033,8 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 		smcr |= temp << 20;
 
 		/* Tas */
-		temp = div_ceiling(bank->bank_timing.sram_timing.Tas, clk_T);
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tas * 1000,
+				clk_T_real_ps);
 		if (temp > 15) {
 			pr_err("gpemc: Failed to configure Tas for bank%d,"
 					" Tas: %uT\n", bank->cs, temp);
@@ -1028,7 +1044,8 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 		smcr |= temp << 8;
 
 		/* Tstrv */
-		temp = div_ceiling(bank->bank_timing.sram_timing.Tstrv, clk_T);
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tstrv * 1000,
+				clk_T_real_ps);
 		if (temp > 63) {
 			pr_err("gpemc: Failed to configure Tstrv for bank%d,"
 					" Tstrv: %uT\n", bank->cs, temp);
@@ -1038,7 +1055,8 @@ int gpemc_config_bank_timing(gpemc_bank_t *bank)
 		smcr |= temp << 24;
 
 		/* Tbp */
-		temp = div_ceiling(bank->bank_timing.sram_timing.Tbp, clk_T);
+		temp = div_ceiling(bank->bank_timing.sram_timing.Tbp * 1000,
+				clk_T_real_ps);
 		if (temp > 31) {
 			pr_err("gpemc: Failed to configure Tbp for bank%d,"
 					" Tbp: %uT\n", bank->cs, temp);
@@ -1096,9 +1114,9 @@ int __init gpemc_init(void) {
 	atomic_set(&gpemc->use_count, 0);
 
 	atomic_set(&gpemc->pin_data_use_count, 0);
-	memset(gpemc->addr_pins_pool.addr_pin_use_count,
-			sizeof(gpemc->addr_pins_pool.addr_pin_use_count), 0);
-	memset(gpemc->requested_banks, sizeof(gpemc->requested_banks), 0);
+	memset(gpemc->addr_pins_pool.addr_pin_use_count, 0,
+			sizeof(gpemc->addr_pins_pool.addr_pin_use_count));
+	memset(gpemc->requested_banks, 0, sizeof(gpemc->requested_banks));
 	atomic_set(&gpemc->pin_wait_use_count, 0);
 	atomic_set(&gpemc->pin_rd_we_use_count, 0);
 	atomic_set(&gpemc->pin_frd_fwe_use_count, 0);
@@ -1149,7 +1167,7 @@ postcore_initcall(gpemc_init);
 static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 {
 	u32 smcr;
-	u32 temp;
+	u64 temp;
 	int cs;
 	gpemc_bank_t *bank;
 
@@ -1163,7 +1181,8 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 			seq_printf(m, "Type: %s\n",
 					gpemc->bank_type_name[bank->bank_type]);
 			seq_printf(m, "Clk: %luHz\n", clk_get_rate(gpemc->clk));
-			seq_printf(m, "Clk_T(floor): %uns\n", bank->bank_timing.clk_T);
+			seq_printf(m, "clk_T(real): %llups\n",
+					bank->bank_timing.clk_T_real_ps);
 			seq_printf(m, "BW: %dbit\n", bank->bank_timing.BW);
 
 			switch (bank->bank_type) {
@@ -1180,6 +1199,7 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 				seq_printf(m, "-----------------------------\n");
 				seq_printf(m, "Tstrv: %uns\n",
 						bank->bank_timing.sram_timing.Tstrv);
+
 				seq_printf(m, "Taw: %uns\n",
 						bank->bank_timing.sram_timing.Taw);
 				seq_printf(m, "Tbp: %uns\n",
@@ -1207,24 +1227,24 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 					smcr);
 
 			temp = (smcr & (0x3f << 24)) >> 24;
-			seq_printf(m, "Tstrv: %uT(%uns)\n",
-					temp, temp * bank->bank_timing.clk_T);
+			seq_printf(m, "Tstrv: %lluT(%llups)\n",
+					temp, temp * bank->bank_timing.clk_T_real_ps);
 
 			temp = adjs_to_nT[(smcr & (0xf << 20)) >> 20];
-			seq_printf(m, "Taw: %uT(%uns)\n",
-					temp, temp * bank->bank_timing.clk_T);
+			seq_printf(m, "Taw: %lluT(%llups)\n",
+					temp, temp * bank->bank_timing.clk_T_real_ps);
 
 			temp = adjs_to_nT[(smcr & (0xf << 16)) >> 16];
-			seq_printf(m, "Tbp: %uT(%uns)\n",
-					temp, temp * bank->bank_timing.clk_T);
+			seq_printf(m, "Tbp: %lluT(%llups)\n",
+					temp, temp * bank->bank_timing.clk_T_real_ps);
 
 			temp = (smcr & (0xf << 12)) >> 12;
-			seq_printf(m, "Tah: %uT(%uns)\n",
-					temp, temp * bank->bank_timing.clk_T);
+			seq_printf(m, "Tah: %lluT(%llups)\n",
+					temp, temp * bank->bank_timing.clk_T_real_ps);
 
 			temp = (smcr & (0xf << 8)) >> 8;
-			seq_printf(m, "Tas: %uT(%uns)\n",
-					temp, temp * bank->bank_timing.clk_T);
+			seq_printf(m, "Tas: %lluT(%llups)\n",
+					temp, temp * bank->bank_timing.clk_T_real_ps);
 		}
 	}
 
