@@ -2632,8 +2632,15 @@ config JZ4775_MAC_RGMII
 	bool "RGMII"
 	help
 	  Select Reduced Gigabit Media Independent Interface
-
 endchoice
+
+config JZGPIO_PHY_RESET
+	bool "PHY_RESET"
+	depends on JZ4775_MAC
+	help
+	  This is the gpio for phy reset for 4775 net
+	  if there is no special porpose
+	  do open this item
 
 endif # NETDEV_1000
 

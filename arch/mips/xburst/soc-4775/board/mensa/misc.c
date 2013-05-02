@@ -152,8 +152,8 @@ struct platform_device jz_mac = {
 static struct jz_gpio_phy_reset gpio_phy_reset = {
 	.port	=	GPIO_PORT_B,
 	.pin	=	7,
-	.start_offset	=	GPIO_OUTPUT0,
-	.end_offset	=	GPIO_OUTPUT1,
+	.start_func	=	GPIO_OUTPUT0,
+	.end_func	=	GPIO_OUTPUT1,
 	.delaytime_usec	=	100000,
 };
 #endif

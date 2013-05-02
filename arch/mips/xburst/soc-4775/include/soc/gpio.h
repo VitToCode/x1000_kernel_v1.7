@@ -47,8 +47,8 @@ struct jz_gpio_func_def {
 struct jz_gpio_phy_reset {
 	enum gpio_port		port;
 	unsigned short		pin;
-	enum gpio_function	start_offset;
-	enum gpio_function	end_offset;
+	enum gpio_function	start_func;
+	enum gpio_function	end_func;
 	unsigned int		delaytime_usec;
 };
 

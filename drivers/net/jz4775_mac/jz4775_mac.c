@@ -2156,6 +2156,9 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 	struct mii_bus *miibus;
 	int rc, i;
 	struct clk *gmac_clk;
+#ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
+	struct jz_gpio_phy_reset *gpio_phy_reset;
+#endif
 
 #if 0
 	cpm_start_clock(CGM_MAC);
@@ -2179,7 +2182,7 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 
 //#define GPIO_PHY_RESET		(32 * 1 + 7)
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
-	struct jz_gpio_phy_reset *gpio_phy_reset = platform_get_drvdata(pdev);
+	gpio_phy_reset = dev_get_platdata(&pdev->dev);
 	jzgpio_phy_reset(gpio_phy_reset);
 #endif
 

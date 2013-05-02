@@ -146,10 +146,10 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 
 int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset)
 {
-	struct jzgpio_chip *chip = &jz_gpio_chips[gpio_phy_reset->port];
-	writel(1 << gpio_phy_reset->pin, chip->reg + gpio_phy_reset->start_offset);
+	struct jzgpio_chip *jz = &jz_gpio_chips[gpio_phy_reset->port];
+	gpio_set_func(jz, gpio_phy_reset->start_func, 1 << gpio_phy_reset->pin);
 	udelay(gpio_phy_reset->delaytime_usec);
-	writel(1 << gpio_phy_reset->pin, chip->reg + gpio_phy_reset->end_offset);
+	gpio_set_func(jz, gpio_phy_reset->end_func, 1 << gpio_phy_reset->pin);
 
 	return 0;
 }
