@@ -85,6 +85,12 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_USB_DETE                   GPIO_PA(16)
 
 /**
+ * pmem information
+ **/
+#define JZ_PMEM_ADSP_BASE   0x3e000000
+#define JZ_PMEM_ADSP_SIZE   0x02000000
+
+/**
  * sound platform data
  **/
 extern struct snd_codec_data codec_data;

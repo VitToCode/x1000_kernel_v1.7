@@ -183,6 +183,22 @@ struct platform_device jz4775_mac_device = {
 #endif
 #endif
 
+#ifdef CONFIG_ANDROID_PMEM
+static struct android_pmem_platform_data pmem_adsp_pdata = {
+	.name = "pmem_adsp",
+	.no_allocator = 0,
+	.cached = 1,
+	.start = JZ_PMEM_ADSP_BASE,
+	.size = JZ_PMEM_ADSP_SIZE,
+};
+
+static struct platform_device pmem_adsp_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = { .platform_data = &pmem_adsp_pdata },
+};
+#endif
+
 static int __init board_init(void)
 {
 /* dma */
@@ -336,6 +352,10 @@ static int __init board_init(void)
 #ifdef CONFIG_SPI_GPIO
        spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
        platform_device_register(&jz4780_spi_gpio_device);
+#endif
+
+#ifdef CONFIG_ANDROID_PMEM
+	platform_device_register(&pmem_adsp_device);
 #endif
 
 #ifdef CONFIG_USB_DWC2
