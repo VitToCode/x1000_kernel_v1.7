@@ -46,17 +46,17 @@ VBUS_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vwifi,
 	"Wi-Fi",
-	"vwifi",	NULL,		3300000);
+	"vwifi",	NULL,	NULL,	3300000,  0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vtsc,
 	"Touch Screen",
-	"vtsc",		NULL,		3300000);
+	"vtsc",		NULL,  NULL,	3300000,  0);
 
 EXCLUSIVE_REGULATOR_DEF(
 	zpad80_vlcd,
 	"V-vlcd",
-	"vlcd",	NULL,		3300000);
+	"vlcd",	NULL,  NULL,	3300000,  0);
 
 /**
  * Fixed voltage Regulators.
