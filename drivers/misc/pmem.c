@@ -32,7 +32,7 @@
 #define PMEM_MAX_ORDER 128
 #define PMEM_MIN_ALLOC PAGE_SIZE
 
-#define PMEM_DEBUG 1
+#define PMEM_DEBUG 0
 
 /* indicates that a refernce to this file has been taken via get_pmem_file,
  * the file should not be released until put_pmem_file is called */
@@ -102,7 +102,6 @@ struct pmem_region_node {
 
 struct pmem_info {
 	struct miscdevice dev;
-	struct pmem_data *data;
 	/* physical start address of the remaped pmem space */
 	unsigned long base;
 	/* vitual start address of the remaped pmem space */
@@ -206,12 +205,11 @@ int is_pmem_file(struct file *file)
 static int has_allocation(struct file *file)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	/* check is_pmem_file first if not accessed via pmem_file_ops */
 
-	if (unlikely(!pinfo->data))
+	if (unlikely(!file->private_data))
 		return 0;
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 	if (unlikely(data->index < 0))
 		return 0;
 	return 1;
@@ -222,14 +220,10 @@ static int is_master_owner(struct file *file)
 	struct file *master_file;
 	struct pmem_data *data;
 	int put_needed, ret = 0;
-	
-	struct pmem_info *pinfo = file->private_data;
 
 	if (!is_pmem_file(file) || !has_allocation(file))
 		return 0;
-
-	data = pinfo->data;
-
+	data = (struct pmem_data *)file->private_data;
 	if (PMEM_FLAGS_MASTERMAP & data->flags)
 		return 1;
 	master_file = fget_light(data->master_fd, &put_needed);
@@ -274,8 +268,7 @@ static void pmem_revoke(struct file *file, struct pmem_data *data);
 
 static int pmem_release(struct inode *inode, struct file *file)
 {
-	struct pmem_info *pinfo = file->private_data;
-	struct pmem_data *data = pinfo->data;
+	struct pmem_data *data = (struct pmem_data *)file->private_data;
 	struct pmem_region_node *region_node;
 	struct list_head *elt, *elt2;
 	int id = get_id(file), ret = 0;
@@ -318,7 +311,7 @@ static int pmem_release(struct inode *inode, struct file *file)
 			data->task = NULL;
 		}
 
-	pinfo->data = NULL;
+	file->private_data = NULL;
 
 	list_for_each_safe(elt, elt2, &data->region_list) {
 		region_node = list_entry(elt, struct pmem_region_node, list);
@@ -338,16 +331,22 @@ static int pmem_release(struct inode *inode, struct file *file)
 static int pmem_open(struct inode *inode, struct file *file)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo;
 	int id = get_id(file);
 	int ret = 0;
 
-	pinfo = file->private_data;
-	DLOG("current %u file %p(%d)\n", current->pid, file, file_count(file));
+	DLOG("current %u file %p(%ld)\n", current->pid, file, file_count(file));
 	/* setup file->private_data to indicate its unmapped */
 	/*  you can only open a pmem device one time */
-	if (pinfo->data != NULL)
+#if 0
+	if (file->private_data != NULL)
 		return -1;
+#else
+	if (file_count(file) > 1)
+	{
+		printk("you can only open a pmem device one time!\n");
+		return -1;
+	}
+#endif
 	data = kmalloc(sizeof(struct pmem_data), GFP_KERNEL);
 	if (!data) {
 		printk("pmem: unable to allocate memory for pmem metadata.");
@@ -365,7 +364,7 @@ static int pmem_open(struct inode *inode, struct file *file)
 	INIT_LIST_HEAD(&data->region_list);
 	init_rwsem(&data->sem);
 
-	pinfo->data = data;
+	file->private_data = data;
 	INIT_LIST_HEAD(&data->list);
 
 	mutex_lock(&pmem[id].data_list_lock);
@@ -545,8 +544,7 @@ static int pmem_remap_pfn_range(int id, struct vm_area_struct *vma,
 static void pmem_vma_open(struct vm_area_struct *vma)
 {
 	struct file *file = vma->vm_file;
-	struct pmem_info *pinfo = file->private_data;
-	struct pmem_data *data = pinfo->data;
+	struct pmem_data *data = file->private_data;
 	int id = get_id(file);
 	/* this should never be called as we don't support copying pmem
 	 * ranges via fork */
@@ -560,8 +558,7 @@ static void pmem_vma_open(struct vm_area_struct *vma)
 static void pmem_vma_close(struct vm_area_struct *vma)
 {
 	struct file *file = vma->vm_file;
-	struct pmem_info *pinfo = file->private_data;
-	struct pmem_data *data = pinfo->data;
+	struct pmem_data *data = file->private_data;
 
 	DLOG("current %u ppid %u file %p count %d\n", current->pid,
 	     current->parent->pid, file, file_count(file));
@@ -590,7 +587,6 @@ static struct vm_operations_struct vm_ops = {
 static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	int index;
 	unsigned long vma_size =  vma->vm_end - vma->vm_start;
 	int ret = 0, id = get_id(file);
@@ -603,7 +599,7 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 	down_write(&data->sem);
 	/* check this file isn't already mmaped, for submaps check this file
 	 * has never been mmaped */
@@ -694,7 +690,6 @@ int get_pmem_user_addr(struct file *file, unsigned long *start,
 		   unsigned long *len)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	if (!is_pmem_file(file) || !has_allocation(file)) {
 #if PMEM_DEBUG
 		printk(KERN_INFO "pmem: requested pmem data from invalid"
@@ -702,7 +697,7 @@ int get_pmem_user_addr(struct file *file, unsigned long *start,
 #endif
 		return -1;
 	}
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 	down_read(&data->sem);
 	if (data->vma) {
 		*start = data->vma->vm_start;
@@ -719,14 +714,13 @@ int get_pmem_addr(struct file *file, unsigned long *start,
 		  unsigned long *vstart, unsigned long *len)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	int id;
 
 	if (!is_pmem_file(file) || !has_allocation(file)) {
 		return -1;
 	}
 
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 	if (data->index == -1) {
 #if PMEM_DEBUG
 		printk(KERN_INFO "pmem: requested pmem data from file with no "
@@ -775,13 +769,12 @@ end:
 void put_pmem_file(struct file *file)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	int id;
 
 	if (!is_pmem_file(file))
 		return;
 	id = get_id(file);
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 #if PMEM_DEBUG
 	down_write(&data->sem);
 	if (data->ref == 0) {
@@ -798,7 +791,6 @@ void put_pmem_file(struct file *file)
 void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 {
 	struct pmem_data *data;
-	struct pmem_info *pinfo = file->private_data;
 	int id;
 	void *vaddr;
 	struct pmem_region_node *region_node;
@@ -810,7 +802,7 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 	}
 
 	id = get_id(file);
-	data = pinfo->data;
+	data = (struct pmem_data *)file->private_data;
 	if (!pmem[id].cached || file->f_flags & O_SYNC)
 		return;
 
@@ -818,7 +810,11 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 	vaddr = pmem_start_vaddr(id, data);
 	/* if this isn't a submmapped file, flush the whole thing */
 	if (unlikely(!(data->flags & PMEM_FLAGS_CONNECTED))) {
+#ifdef CONFIG_MIPS
+		dma_cache_wback((unsigned long)vaddr, pmem_len(id, data));
+#else
 		dmac_flush_range(vaddr, vaddr + pmem_len(id, data));
+#endif
 		goto end;
 	}
 	/* otherwise, flush the region of the file we are drawing */
@@ -829,7 +825,11 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 			region_node->region.len))) {
 			flush_start = vaddr + region_node->region.offset;
 			flush_end = flush_start + region_node->region.len;
+#ifdef CONFIG_MIPS
+			dma_cache_wback((unsigned long)flush_start, region_node->region.len);
+#else
 			dmac_flush_range(flush_start, flush_end);
+#endif
 			break;
 		}
 	}
@@ -839,8 +839,7 @@ end:
 
 static int pmem_connect(unsigned long connect, struct file *file)
 {
-	struct pmem_info *pinfo = file->private_data;
-	struct pmem_data *data = pinfo->data;
+	struct pmem_data *data = (struct pmem_data *)file->private_data;
 	struct pmem_data *src_data;
 	struct file *src_file;
 	int ret = 0, put_needed;
@@ -860,7 +859,7 @@ static int pmem_connect(unsigned long connect, struct file *file)
 		ret = -EINVAL;
 		goto err_bad_file;
 	}
-	src_data = ((struct pmem_info *)src_file->private_data)->data;
+	src_data = (struct pmem_data *)src_file->private_data;
 
 	if (has_allocation(file) && (data->index != src_data->index)) {
 		printk("pmem: file is already mapped but doesn't match this"
@@ -947,7 +946,7 @@ int pmem_remap(struct pmem_region *region, struct file *file,
 	struct mm_struct *mm = NULL;
 	struct list_head *elt, *elt2;
 	int id = get_id(file);
-	struct pmem_data *data = ((struct pmem_info *)file->private_data)->data;
+	struct pmem_data *data = (struct pmem_data *)file->private_data;
 
 	/* pmem region must be aligned on a page boundry */
 	if (unlikely(!PMEM_IS_PAGE_ALIGNED(region->offset) ||
@@ -1071,7 +1070,7 @@ static void pmem_revoke(struct file *file, struct pmem_data *data)
 
 static void pmem_get_size(struct pmem_region *region, struct file *file)
 {
-	struct pmem_data *data = ((struct pmem_info *)file->private_data)->data;
+	struct pmem_data *data = (struct pmem_data *)file->private_data;
 	int id = get_id(file);
 
 	if (!has_allocation(file)) {
@@ -1100,12 +1099,14 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				region.offset = 0;
 				region.len = 0;
 			} else {
-				data = ((struct pmem_info *)file->private_data)->data;
+				data = (struct pmem_data *)file->private_data;
 				region.offset = pmem_start_addr(id, data);
 				region.len = pmem_len(id, data);
 			}
+#if PMEM_DEBUG
 			printk(KERN_INFO "pmem: request for physical address of pmem region "
 					"from process %d.\n", current->pid);
+#endif
 			if (copy_to_user((void __user *)arg, &region,
 						sizeof(struct pmem_region)))
 				return -EFAULT;
@@ -1117,7 +1118,7 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_from_user(&region, (void __user *)arg,
 						sizeof(struct pmem_region)))
 				return -EFAULT;
-			data = ((struct pmem_info *)file->private_data)->data;
+			data = (struct pmem_data *)file->private_data;
 			return pmem_remap(&region, file, PMEM_MAP);
 		}
 		break;
@@ -1127,7 +1128,7 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_from_user(&region, (void __user *)arg,
 						sizeof(struct pmem_region)))
 				return -EFAULT;
-			data = ((struct pmem_info *)file->private_data)->data;
+			data = (struct pmem_data *)file->private_data;
 			return pmem_remap(&region, file, PMEM_UNMAP);
 			break;
 		}
@@ -1157,7 +1158,7 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		{
 			if (has_allocation(file))
 				return -EINVAL;
-			data = ((struct pmem_info *)file->private_data)->data;
+			data = (struct pmem_data *)file->private_data;
 			data->index = pmem_allocate(id, arg);
 			break;
 		}
@@ -1196,7 +1197,7 @@ static ssize_t debug_read(struct file *file, char __user *buf, size_t count,
 	struct list_head *elt, *elt2;
 	struct pmem_data *data;
 	struct pmem_region_node *region_node;
-	int id = (int)(((struct pmem_info *)file->private_data)->data);
+	int id = (int)file->private_data;
 	const int debug_bufmax = 4096;
 	static char buffer[4096];
 	int n = 0;
@@ -1289,8 +1290,13 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	}
 
 	if (pmem[id].cached)
+#ifdef CONFIG_MIPS
+		pmem[id].vbase = ioremap_cachable(pmem[id].base,
+						pmem[id].size);
+#else
 		pmem[id].vbase = ioremap_cached(pmem[id].base,
 						pmem[id].size);
+#endif	/* CONFIG_MIPS */
 #ifdef ioremap_ext_buffered
 	else if (pmem[id].buffered)
 		pmem[id].vbase = ioremap_ext_buffered(pmem[id].base,
