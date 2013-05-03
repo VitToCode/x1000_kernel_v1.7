@@ -95,6 +95,7 @@ struct jzhdmi{
 	unsigned int edid_done;
 	unsigned int is_suspended;
 	unsigned int edid_faild;
+	unsigned int hdmi_is_running;
 };
 
 /* ioctl commands */

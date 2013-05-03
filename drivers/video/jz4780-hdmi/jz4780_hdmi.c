@@ -385,7 +385,9 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case HDMI_POWER_ON:
 		dev_info(jzhdmi->dev, "Hdmi power on\n");
-		api_phy_enable(PHY_ENABLE);
+		if(jzhdmi->hdmi_is_running != 1){
+			api_phy_enable(PHY_ENABLE);
+		}
 		hdmi_init(jzhdmi);
 		ret = hdmi_read_edid(jzhdmi);
 		if(ret > 0){
@@ -435,6 +437,11 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&index, (void __user *)arg, sizeof(int)))
 			return -EFAULT;
 		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
+			if(jzhdmi->hdmi_is_running == 1 &&
+					jzhdmi->hdmi_info.out_type == index){
+				jzhdmi->hdmi_is_running = 0;
+				break;
+			}
 			jzhdmi->hdmi_info.out_type = index;
 		} else {
 			dev_err(jzhdmi->dev, "HDMI not support mode:%d\n",
@@ -453,7 +460,6 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case HDMI_POWER_OFF:
 		dev_info(jzhdmi->dev, "hdmi power off\n");
-
 		if(jzhdmi->hdmi_info.support_mode != NULL)
 			kzfree(jzhdmi->hdmi_info.support_mode);
 		if(jzhdmi->is_suspended == 0){
@@ -568,7 +574,6 @@ static struct file_operations jzhdmi_fops = {
 static int __devinit jzhdmi_probe(struct platform_device *pdev)
 {
 	int ret,i;
-	int hdmi_is_running = 0;
 	struct jzhdmi *jzhdmi;
 	struct resource *mem;
 
@@ -597,6 +602,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->mem = mem;
 	jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED,
 	jzhdmi->edid_faild = 0;
+	jzhdmi->hdmi_is_running = 0;
+	jzhdmi->hdmi_info.out_type = -1;
 
 	jzhdmi->hdmi_params.pProduct = (productParams_t*)kzalloc(
 		sizeof(productParams_t),GFP_KERNEL);
@@ -687,8 +694,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
 
 	if ((access_Read(0x3000) & 0x40)) /* check ENTMDS */
-		hdmi_is_running = 1;
-	if (!hdmi_is_running) {
+		jzhdmi->hdmi_is_running = 1;
+	if (!jzhdmi->hdmi_is_running) {
 		if (!api_Initialize(0, 1, 2500,0)) {
 			dev_err(jzhdmi->dev, "api_Initialize fail\n");
 			ret = -EINVAL;
@@ -724,8 +731,12 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	atomic_set(&jzhdmi->opened, 1);
 	init_waitqueue_head(&jzhdmi->wait);
 
-	if (hdmi_is_running)
+	if (jzhdmi->hdmi_is_running){
+#ifdef CONFIG_FORCE_RESOLUTION
+		jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+#endif
 		return 0;
+	}
 #ifdef CONFIG_FORCE_RESOLUTION
 	for (i = 0; i < 5; i++) {
 		if (!CONFIG_FORCE_RESOLUTION)
@@ -738,6 +749,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 			hdmi_read_edid(jzhdmi);
 			jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
 			hdmi_config(jzhdmi);
+			jzhdmi->hdmi_is_running = 1;
 			break;
 		} else {
 			if (i >= 4)
