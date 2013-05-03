@@ -2177,6 +2177,7 @@ static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 
+	mutex_lock(&jzfb->lock);
 	if (jzfb->pdata->alloc_vidmem) {
 		/* set suspend state and notify panel, backlight client */
 		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
@@ -2208,6 +2209,7 @@ static void jzfb_early_suspend(struct early_suspend *h)
 		clk_disable(jzfb->clk);
 		clk_disable(jzfb->pclk);
 	}
+	mutex_unlock(&jzfb->lock);
 }
 
 static void jzfb_late_resume(struct early_suspend *h)
@@ -3140,7 +3142,10 @@ static void jzfb_shutdown(struct platform_device *pdev)
 {
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 
-	fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+	mutex_lock(&jzfb->lock);
+	if(jzfb->is_enabled && !jzfb->is_suspend)
+		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+	mutex_unlock(&jzfb->lock);
 };
 
 static struct platform_driver jzfb_driver = {
