@@ -25,6 +25,8 @@
 
 #define MAX_NUM_NAND_IF    7
 
+struct jz4780_nand;
+
 typedef enum {
 	/* NAND_XFER_<Data path driver>_<R/B# indicator> */
 	NAND_XFER_CPU_IRQ = 0,
@@ -37,6 +39,14 @@ typedef enum {
 	NAND_ECC_TYPE_HW = 0,
 	NAND_ECC_TYPE_SW
 } nand_ecc_type_t;
+
+typedef enum {
+	NAND_OUTPUT_NORMAL_DRIVER = 0,
+	NAND_OUTPUT_UNDER_DRIVER1,
+	NAND_OUTPUT_UNDER_DRIVER2,
+	NAND_OUTPUT_OVER_DRIVER1,
+	NAND_OUTPUT_OVER_DRIVER2,
+} nand_output_driver_strength_t;
 
 typedef struct {
 	int bank;
@@ -73,6 +83,14 @@ typedef struct {
 	} ecc_step;
 
 	nand_timing_t nand_timing;
+
+	nand_output_driver_strength_t output_strength;
+
+	struct {
+		int timing_mode;
+	} onfi_special;
+
+	int (*nand_pre_init)(struct jz4780_nand *nand);
 } nand_flash_info_t;
 
 struct jz4780_nand_platform_data {
@@ -94,6 +112,7 @@ struct jz4780_nand_platform_data {
 	struct nand_flash_dev *nand_flash_table;
 
 	int try_to_reloc_hot;
+	int flash_bbt;
 };
 
 #define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
@@ -104,7 +123,8 @@ struct jz4780_nand_platform_data {
 		_Tcs, _Tch, _Tds, _Tdh, _Twp,	\
 		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
 		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
-		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _BW)	\
+		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _TIMING_MODE, _BW,	\
+		_OUTPUT_STRENGTH, _NAND_PRE_INIT)	\
 		.name = (_NAME),	\
 		.nand_dev_id = (_DEV_ID),	\
 		.type = BANK_TYPE_NAND,	\
@@ -146,7 +166,11 @@ struct jz4780_nand_platform_data {
 				.BW = (_BW),	\
 				.all_timings_plus = (_ALL_TIMINGS_PLUS),	\
 			},	\
-		},
+		},	\
+		\
+		.output_strength = (_OUTPUT_STRENGTH),	\
+		.onfi_special.timing_mode = (_TIMING_MODE),	\
+		.nand_pre_init = (_NAND_PRE_INIT),
 
 /* TODO: implement it */
 #define TOGGLE_NAND_CHIP_INFO(TODO)
@@ -168,5 +192,8 @@ struct jz4780_nand_platform_data {
 
 #define LP_OPTIONS NAND_SAMSUNG_LP_OPTIONS
 #define LP_OPTIONS16 (LP_OPTIONS | NAND_BUSWIDTH_16)
+
+extern int micron_nand_pre_init(struct jz4780_nand *nand);
+extern int samsung_nand_pre_init(struct jz4780_nand *nand);
 
 #endif

@@ -2,17 +2,23 @@
  *  Copyright (C) 2013 Fighter Sun <wanmyqawdr@126.com>
  *  JZ4780 SoC NAND controller driver
  *
- *
  *  TODO:
- *  support toggle NAND
  *
+ *  <Performance>
+ *  block cache with IO prefetch and LRU replacement scheme
+ *
+ *  <Stability>
+ *  PN random process
+ *
+ *  <Function>
+ *  support toggle NAND
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the License, or (at your
  *  option) any later version.
  *
- *  You should have received a copy of the GNU General Public License along
+ *  You should have received a copy o the GNU General Public License along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
@@ -64,12 +70,10 @@
 #define MAX_RB_TIMOUT_MS            50
 #define MAX_RESET_DELAY_MS          50
 
-#define MAX_DMA_TRANSFER_TIMOUT_MS  1000
+#define MAX_DMA_TRANSFER_TIMOUT_MS  50
 #define DMA_BUF_SIZE                PAGE_SIZE * 4
 
-#define MAX_CNT_SWECC_REQ           64
-#define MAX_SWECC_REQ_POLL_TIME_MS  10
-
+#define MAX_SWECC_REQ_POLL_TIME_MS  5
 
 /*
  * for relocation
@@ -82,8 +86,127 @@
 	(__builtin_constant_p(n) && (n)<=MAX_UDELAY_MS) ? (object)->udelay((n)*1000) : \
 	({unsigned long __ms=(n); while (__ms--) (object)->udelay(1000);}))
 
+struct jz4780_nand_dma {
+	struct dma_chan *chan;
+	struct dma_slave_config cfg;
+
+	enum jzdma_type type;
+};
+
+struct jz4780_nand_dma_buf {
+	void *buf;
+	dma_addr_t phy_addr;
+	int size;
+};
+
+#define OP_TYPE_SWECC_CALC       0
+#define OP_TYPE_SWECC_CALC_CORR  1
+#define OP_TYPE_SWECC_CORR       2
+
+struct jz4780_nand_swecc_pipe {
+	int op_type;
+
+	int eccsteps;
+	int eccbytes;
+	int eccsize;
+	uint8_t *buf;
+	uint8_t *ecc_calc;
+	uint8_t *ecc_code;
+	unsigned int max_bitflips;
+
+	int start;
+	int done;
+	spinlock_t lock;
+
+	struct mtd_info *mtd;
+	struct nand_ecc_ctrl *ecc;
+	struct nand_bch_control *nbc;
+	spinlock_t *ecc_stats_lock;
+
+	struct task_struct *task;
+	wait_queue_head_t wait;
+};
+
+struct jz4780_nand {
+	struct mtd_info mtd;
+
+	struct nand_chip chip;
+	struct nand_ecclayout ecclayout;
+
+	nand_flash_if_t *nand_flash_if_table[MAX_NUM_NAND_IF];
+	int num_nand_flash_if;
+	int curr_nand_flash_if;
+
+	bch_request_t bch_req;
+	struct completion bch_req_done;
+	nand_ecc_type_t ecc_type;
+
+	struct nand_flash_dev *nand_flash_table;
+	int num_nand_flash;
+
+	struct jz4780_nand_dma dma_pipe_nand;
+	struct jz4780_nand_dma_buf dma_buf;
+	spinlock_t ecc_stats_lock;
+
+	nand_flash_info_t *curr_nand_flash_info;
+
+	nand_xfer_type_t xfer_type;
+	int use_dma;
+	int busy_poll;
+
+	struct jz4780_nand_swecc_pipe swecc_another;
+	struct jz4780_nand_swecc_pipe swecc_current;
+
+	uint64_t cnt_page_read;
+	uint64_t cnt_page_write;
+	uint64_t cnt_subpage_read;
+
+	struct jz4780_nand_platform_data *pdata;
+	struct platform_device *pdev;
+
+#ifdef CONFIG_DEBUG_FS
+
+	struct dentry *debugfs_entry;
+
+#endif
+
+	/*
+	 * for relocation
+	 */
+	void (*gpemc_enable_nand_flash)(gpemc_bank_t *bank, bool enable);
+	void (*nand_wait_ready)(struct mtd_info *mtd);
+	int (*gpio_get_value)(unsigned gpio);
+	unsigned long (*wait_for_completion_timeout)(struct completion *x,
+			unsigned long timeout);
+	unsigned long (*msecs_to_jiffies)(const unsigned int m);
+	int (*printk)(const char *fmt, ...);
+	void (*ndelay)(unsigned int ns);
+	void (*udelay)(unsigned int us);
+};
+
+const char *label_wp_gpio[] = {
+	DRVNAME"-THIS-IS-A-BUG",
+	"bank1-nand-wp",
+	"bank2-nand-wp",
+	"bank3-nand-wp",
+	"bank4-nand-wp",
+	"bank5-nand-wp",
+	"bank6-nand-wp",
+};
+
+const char *label_busy_gpio[] = {
+	DRVNAME"-THIS-IS-A-BUG",
+	"bank1-nand-busy",
+	"bank2-nand-busy",
+	"bank3-nand-busy",
+	"bank4-nand-busy",
+	"bank5-nand-busy",
+	"bank6-nand-busy",
+};
+
 /* root entry to debug */
 static struct dentry *debugfs_root;
+
 
 /*
  * ******************************************************
@@ -104,7 +227,7 @@ static struct dentry *debugfs_root;
 /*
  * Detected by rules of ONFI v2.2
  */
-#define NAND_FLASH_MT29F32G08CBACAWP         "MT29F32G08CBACAWP"
+#define NAND_FLASH_MT29F32G08CBACAWP_NAME    "MT29F32G08CBACAWP"
 #define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
 
 /*
@@ -137,17 +260,18 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 	 * MT29F32G08CBACA(WP) --- support ONFI v2.2
 	 *
 	 * it was detected by rules of ONFI v2.2
-	 * so you can complete remove this match entry
+	 * so you can remove this match entry
 	 *
 	 */
 	{
-		NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
+		NAND_FLASH_MT29F32G08CBACAWP_NAME, NAND_FLASH_MT29F32G08CBACAWP_ID,
 		0, 4096, 0, LP_OPTIONS
 	},
 
 
 	{NULL,}
 };
+
 
 
 /*
@@ -164,11 +288,12 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 24, 0,
+			1024, 32, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
-			5 * 1000 * 1000, BUS_WIDTH_8)
+			5 * 1000 * 1000, 0, BUS_WIDTH_8,
+			NAND_OUTPUT_NORMAL_DRIVER, samsung_nand_pre_init)
 	},
 
 	{
@@ -177,127 +302,178 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 * ECC : 24bit/1080bytes
 		 */
 		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_MT29F32G08CBACAWP, NAND_FLASH_MT29F32G08CBACAWP_ID,
-			1024, 24, 0,
+			NAND_FLASH_MT29F32G08CBACAWP_NAME,
+			NAND_FLASH_MT29F32G08CBACAWP_ID,
+			1024, 32, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 60, 10, 20, 0, 100,
-			100, 100 * 1000, 0, 0, 0, BUS_WIDTH_8)
+			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
+			NAND_OUTPUT_NORMAL_DRIVER, micron_nand_pre_init)
 	},
 };
 
 
-const char *label_wp_gpio[] = {
-	DRVNAME"-THIS-IS-A-BUG",
-	"bank1-nand-wp",
-	"bank2-nand-wp",
-	"bank3-nand-wp",
-	"bank4-nand-wp",
-	"bank5-nand-wp",
-	"bank6-nand-wp",
-};
 
-const char *label_busy_gpio[] = {
-	DRVNAME"-THIS-IS-A-BUG",
-	"bank1-nand-busy",
-	"bank2-nand-busy",
-	"bank3-nand-busy",
-	"bank4-nand-busy",
-	"bank5-nand-busy",
-	"bank6-nand-busy",
-};
+/*
+ * ******************************************************
+ * 	NAND chip post initialize callbacks
+ * ******************************************************
+ */
+int micron_nand_pre_init(struct jz4780_nand *nand)
+{
+	struct nand_chip *chip = &nand->chip;
+	struct mtd_info *mtd = &nand->mtd;
+	nand_flash_info_t *nand_info = nand->curr_nand_flash_info;
+	int ret = 0;
+	int i;
 
-struct jz4780_nand_dma {
-	struct dma_chan *chan;
-	struct dma_slave_config cfg;
+	if (chip->onfi_version) {
+		/*
+		 * ONFI NAND
+		 */
 
-	enum jzdma_type type;
-};
+		if (!strncmp(chip->onfi_params.model,
+				NAND_FLASH_MT29F32G08CBACAWP_NAME, 20)) {
 
-struct jz4780_nand_dma_buf {
-	void *buf;
-	dma_addr_t phy_addr;
-	int size;
-};
+			uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
 
-struct jz4780_nand_swecc_req {
-	uint8_t *buf;
-	uint8_t *ecc_calc;
-	uint8_t *ecc_code;
+			for (i = 0; i < nand->num_nand_flash_if; i++) {
+				chip->select_chip(mtd, i);
+				/*
+				 * set async interface under a special timing mode
+				 */
+				memset(subfeature_param, 0, sizeof(subfeature_param));
+				subfeature_param[0] =
+						(uint8_t)nand_info->onfi_special.timing_mode;
+				ret = chip->onfi_set_features(mtd, chip,
+						0x1, subfeature_param);
+				if (ret) {
+					chip->select_chip(mtd, -1);
+					goto err_return;
+				}
 
-	int correct_state;
-};
+				/*
+				 * set output driver strength
+				 */
+				memset(subfeature_param, 0, sizeof(subfeature_param));
+				switch (nand_info->output_strength) {
+				case NAND_OUTPUT_NORMAL_DRIVER:
+					subfeature_param[0] = 0x2;
+					break;
 
-struct jz4780_nand_swecc_pipe {
-	struct jz4780_nand_swecc_req req[MAX_CNT_SWECC_REQ];
-	atomic_t curr_index;
-	int op_type_calculate;
+				case NAND_OUTPUT_UNDER_DRIVER1:
+				case NAND_OUTPUT_UNDER_DRIVER2:
+					subfeature_param[0] = 0x3;
+					break;
 
-	struct nand_ecc_ctrl *ecc;
-	struct nand_bch_control *nbc;
+				case NAND_OUTPUT_OVER_DRIVER1:
+					subfeature_param[0] = 0x1;
+					break;
 
-	int (*calculate)(struct nand_bch_control *nbc,
-			struct nand_ecc_ctrl *ecc, const uint8_t *dat,
-			uint8_t *ecc_code);
-	int (*correct)(struct nand_bch_control *nbc,
-			struct nand_ecc_ctrl *ecc,
-			uint8_t *dat, uint8_t *read_ecc,
-			uint8_t *calc_ecc);
+				case NAND_OUTPUT_OVER_DRIVER2:
+					subfeature_param[0] = 0x0;
+					break;
+				}
 
-	struct task_struct *task;
-	wait_queue_head_t wait;
-};
+				ret = chip->onfi_set_features(mtd, chip,
+						0x10, subfeature_param);
+				if (ret) {
+					chip->select_chip(mtd, -1);
+					goto err_return;
+				}
 
-struct jz4780_nand {
-	struct mtd_info mtd;
+				chip->select_chip(mtd, -1);
+			}
 
-	struct nand_chip chip;
-	struct nand_ecclayout ecclayout;
+		} else {
+			/*
+			 * TODO
+			 * add NAND special codes
+			 */
+		}
+	} else {
+		/*
+		 * not ONFI NAND
+		 */
+	}
 
-	nand_flash_if_t *nand_flash_if_table[MAX_NUM_NAND_IF];
-	int num_nand_flash_if;
-	int curr_nand_flash_if;
+err_return:
+	return ret;
+}
+EXPORT_SYMBOL(micron_nand_pre_init);
 
-	bch_request_t bch_req;
-	struct completion bch_req_done;
-	nand_ecc_type_t ecc_type;
+int samsung_nand_pre_init(struct jz4780_nand *nand)
+{
+	struct nand_chip *chip = &nand->chip;
+	struct mtd_info *mtd = &nand->mtd;
+	nand_flash_info_t *nand_info = nand->curr_nand_flash_info;
+	int ret = 0;
+	int i;
 
-	struct nand_flash_dev *nand_flash_table;
-	int num_nand_flash;
+	if (chip->onfi_version) {
+		/*
+		 * ONFI NAND
+		 */
+	} else {
+		/*
+		 * not ONFI NAND
+		 */
 
-	struct jz4780_nand_dma dma_pipe_nand;
-	struct jz4780_nand_dma_buf dma_buf;
+		/*
+		 * even it's not a ONFI NAND but
+		 * it's with the same commands set
+		 */
+		if (!strncmp(nand_info->name,
+				NAND_FLASH_K9GBG08U0A_NANE, 20)) {
 
-	nand_flash_info_t *curr_nand_flash_info;
+			uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
 
-	nand_xfer_type_t xfer_type;
-	int use_dma;
-	int busy_poll;
+			for (i = 0; i < nand->num_nand_flash_if; i++) {
+				chip->select_chip(mtd, i);
+				/*
+				 * set output driver strength
+				 */
+				memset(subfeature_param, 0, sizeof(subfeature_param));
+				switch (nand_info->output_strength) {
+				case NAND_OUTPUT_NORMAL_DRIVER:
+					subfeature_param[0] = 0x4;
+					break;
 
-	struct jz4780_nand_swecc_pipe swecc_current;
-	struct jz4780_nand_swecc_pipe swecc_pipe;
+				case NAND_OUTPUT_UNDER_DRIVER1:
+				case NAND_OUTPUT_UNDER_DRIVER2:
+					subfeature_param[0] = 0x2;
+					break;
 
-	struct jz4780_nand_platform_data *pdata;
-	struct platform_device *pdev;
+				case NAND_OUTPUT_OVER_DRIVER1:
+				case NAND_OUTPUT_OVER_DRIVER2:
+					subfeature_param[0] = 0x6;
+					break;
+				}
 
-#ifdef CONFIG_DEBUG_FS
+				ret = chip->onfi_set_features(mtd, chip,
+						0x10, subfeature_param);
+				/*
+				 * Samsung does not support
+				 * set_feature return value check
+				 */
+				ret = 0;
 
-	struct dentry *debugfs_entry;
+				chip->select_chip(mtd, -1);
+			}
 
-#endif
+		} else {
+			/*
+			 * TODO
+			 * add NAND special codes
+			 */
+		}
+	}
 
-	/*
-	 * for relocation
-	 */
-	void (*gpemc_enable_nand_flash)(gpemc_bank_t *bank, bool enable);
-	void (*nand_wait_ready)(struct mtd_info *mtd);
-	int (*gpio_get_value_cansleep)(unsigned gpio);
-	unsigned long (*wait_for_completion_timeout)(struct completion *x,
-			unsigned long timeout);
-	unsigned long (*msecs_to_jiffies)(const unsigned int m);
-	int (*printk)(const char *fmt, ...);
-	void (*ndelay)(unsigned int ns);
-	void (*udelay)(unsigned int us);
-};
+	return ret;
+}
+EXPORT_SYMBOL(samsung_nand_pre_init);
+
+
 
 static inline struct jz4780_nand *mtd_to_jz4780_nand(struct mtd_info *mtd)
 {
@@ -313,7 +489,9 @@ static inline int jz4780_nand_chip_is_ready(struct jz4780_nand *nand,
 	low_assert = nand_if->busy_gpio_low_assert;
 	gpio = nand_if->busy_gpio;
 
-	return !(nand->gpio_get_value_cansleep(gpio) ^ low_assert);
+	cond_resched();
+
+	return !(nand->gpio_get_value(gpio) ^ low_assert);
 }
 
 static void jz4780_nand_enable_wp(nand_flash_if_t *nand_if, int enable)
@@ -364,7 +542,8 @@ static int jz4780_nand_dev_is_ready(struct mtd_info *mtd)
 	}
 
 	/*
-	 * Apply this short delay always to ensure that we do wait tRR in
+	 * Apply this short delay always
+	 * to ensure that we do wait tRR in
 	 * any case on any machine.
 	 */
 	nand->ndelay(100);
@@ -383,7 +562,8 @@ static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
 
 	if (chip == -1) {
 		/*
-		 * Apply this short delay always to ensure that we do wait tCH in
+		 * Apply this short delay always
+		 * to ensure that we do wait tCH in
 		 * any case on any machine.
 		 */
 		nand->ndelay(100);
@@ -412,7 +592,8 @@ static void jz4780_nand_select_chip(struct mtd_info *mtd, int chip)
 		nand->curr_nand_flash_if = chip;
 
 		/*
-		 * Apply this short delay always to ensure that we do wait tCS in
+		 * Apply this short delay always
+		 * to ensure that we do wait tCS in
 		 * any case on any machine.
 		 */
 		nand->ndelay(100);
@@ -471,8 +652,7 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	switch (command) {
 	case NAND_CMD_READID:
 	case NAND_CMD_RESET:
-		if (!nand->busy_poll)
-			nand->busy_poll = 1;
+		nand->busy_poll = 1;
 
 		break;
 	}
@@ -503,6 +683,24 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	if (column != -1) {
 		chip->cmd_ctrl(mtd, column, ctrl);
 		ctrl &= ~NAND_CTRL_CHANGE;
+
+		switch (command) {
+		case NAND_CMD_SET_FEATURES:
+			if (nand_info->type == BANK_TYPE_NAND)
+				nand->ndelay(nand_info->nand_timing.
+						common_nand_timing.busy_wait_timing.Tadl);
+			else {
+				/*
+				 * TODO
+				 * implement Tadl delay
+				 */
+			}
+
+			break;
+
+		default:
+			break;
+		}
 	}
 	if (page_addr != -1) {
 		chip->cmd_ctrl(mtd, page_addr, ctrl);
@@ -550,7 +748,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
 
 	/*
-	 * Program and erase have their own busy handlers status and sequential
+	 * Program and erase have their own
+	 * busy handlers status and sequential
 	 * in needs no delay
 	 */
 	switch (command) {
@@ -565,7 +764,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	case NAND_CMD_RESET:
 		if (chip->dev_ready) {
 			/*
-			 * Apply this short delay always to ensure that we do wait tRST in
+			 * Apply this short delay always
+			 * to ensure that we do wait tRST in
 			 * any case on any machine.
 			 */
 			mdelay(nand, MAX_RESET_DELAY_MS);
@@ -584,7 +784,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 		/* This applies to read commands */
 	default:
 		/*
-		 * If we don't have access to the busy pin, we apply the given
+		 * If we don't have access
+		 * to the busy pin, we apply the given
 		 * command delay
 		 */
 		if (!chip->dev_ready) {
@@ -593,7 +794,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 		}
 	}
 	/*
-	 * Apply this short delay always to ensure that we do wait tWB in
+	 * Apply this short delay
+	 * always to ensure that we do wait tWB in
 	 * any case on any machine.
 	 */
 	nand->ndelay(100);
@@ -652,7 +854,8 @@ static inline void jz4780_nand_command_readoob_lp(struct mtd_info *mtd,
 	}
 
 	/*
-	 * Apply this short delay always to ensure that we do wait tWB in
+	 * Apply this short delay always
+	 * to ensure that we do wait tWB in
 	 * any case on any machine.
 	 */
 	nand->ndelay(100);
@@ -665,8 +868,8 @@ static inline void jz4780_nand_command_readoob_lp(struct mtd_info *mtd,
 	chip->cmdfunc(mtd, NAND_CMD_RNDOUT, column, page_addr);
 }
 
-static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
-			    int column, int page_addr)
+static void jz4780_nand_command_lp(struct mtd_info *mtd,
+		unsigned int command, int column, int page_addr)
 {
 	register struct nand_chip *chip = mtd->priv;
 
@@ -683,7 +886,7 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 	/* Emulate NAND_CMD_READOOB */
 	if (command == NAND_CMD_READOOB) {
 		column += mtd->writesize;
-		command = NAND_CMD_READ0;
+		return jz4780_nand_command_readoob_lp(mtd, column, page_addr);
 	}
 
 	/* Command latch cycle */
@@ -747,7 +950,8 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
 
 	/*
-	 * Program and erase have their own busy handlers status, sequential
+	 * Program and erase have their own
+	 * busy handlers status, sequential
 	 * in, and deplete1 need no delay.
 	 */
 	switch (command) {
@@ -767,14 +971,18 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 	case NAND_CMD_STATUS_ERROR1:
 	case NAND_CMD_STATUS_ERROR2:
 	case NAND_CMD_STATUS_ERROR3:
-		/* Read error status commands require only a short delay */
+		/*
+		 * Read error status commands
+		 * require only a short delay
+		 */
 		nand->udelay(chip->chip_delay);
 		return;
 
 	case NAND_CMD_RESET:
 		if (chip->dev_ready) {
 			/*
-			 * Apply this short delay always to ensure that we do wait tRST in
+			 * Apply this short delay always to
+			 * ensure that we do wait tRST in
 			 * any case on any machine.
 			 */
 			mdelay(nand, MAX_RESET_DELAY_MS);
@@ -935,7 +1143,6 @@ static int jz4780_nand_reloc_hot_to_tcsm(struct jz4780_nand *nand)
 		goto err_return;
 	chip->cmd_ctrl = addr;
 
-	blast_dcache32();
 	blast_icache32();
 
 	return 0;
@@ -1150,111 +1357,6 @@ static int request_busy_irq(nand_flash_if_t *nand_if)
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_FS
-
-static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
-{
-	struct jz4780_nand *nand = (struct jz4780_nand *)m->private;
-	nand_flash_if_t *nand_if;
-	nand_flash_info_t *nand_info = nand->curr_nand_flash_info;
-	int i, j;
-
-	seq_printf(m, "Attached banks:\n");
-	for (i = 0; i < nand->num_nand_flash_if; i++) {
-		nand_if = nand->nand_flash_if_table[i];
-
-		seq_printf(m, "bank%d\n", nand_if->bank);
-	}
-
-	if (nand->curr_nand_flash_if != -1) {
-		nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
-		seq_printf(m, "selected: bank%d\n",
-				nand_if->bank);
-	} else {
-		seq_printf(m, "selected: none\n");
-	}
-
-	if (nand_info) {
-		seq_printf(m, "\n");
-		seq_printf(m, "Attached NAND flash:\n");
-
-		seq_printf(m, "Chip name: %s\n", nand_info->name);
-		if (nand->chip.onfi_version)
-			seq_printf(m, "ONFI: v%d\n", nand->chip.onfi_version);
-		else
-			seq_printf(m, "ONFI: unsupported\n");
-		seq_printf(m, "Chip devid: 0x%x\n", nand_info->nand_dev_id);
-		seq_printf(m, "Chip size: %dMB\n", (int)(nand->chip.chipsize >> 20));
-		seq_printf(m, "Erase size: %ubyte\n", nand->mtd.erasesize);
-		seq_printf(m, "Write size: %dbyte\n", nand->mtd.writesize);
-		seq_printf(m, "OOB size %dbyte\n", nand->mtd.oobsize);
-
-		seq_printf(m, "\n");
-		seq_printf(m, "Use DMA: %d\n", nand->use_dma);
-		seq_printf(m, "Use R/B# poll %d\n", nand->busy_poll);
-
-		seq_printf(m, "\n");
-		seq_printf(m, "Attached NAND flash ECC:\n");
-		seq_printf(m, "ECC type: %s\n", nand->ecc_type == NAND_ECC_TYPE_HW ?
-				"HW-BCH" : "SW-BCH");
-		seq_printf(m, "ECC size: %dbyte\n", nand->chip.ecc.size);
-		seq_printf(m, "ECC bits: %d\n", nand->chip.ecc.strength);
-		seq_printf(m, "ECC bytes: %d\n", nand->chip.ecc.bytes);
-		seq_printf(m, "ECC steps: %d\n", nand->chip.ecc.steps);
-
-		seq_printf(m, "\n");
-		seq_printf(m, "ECC layout:\n");
-		seq_printf(m, "ecclayout.eccbytes: %d\n", nand->ecclayout.eccbytes);
-		seq_printf(m, "ecclayout.eccpos:\n");
-		for (i = 0; i < nand->chip.ecc.steps; i++) {
-			seq_printf(m, "ecc step: %d\n", i + 1);
-			for (j = 0; j < nand->chip.ecc.bytes - 1; j++) {
-				seq_printf(m, "%d, ",
-						nand->ecclayout.eccpos[i * nand->chip.ecc.bytes + j]);
-
-				if ((j + 1) % 10 == 0)
-					seq_printf(m, "\n");
-			}
-
-			seq_printf(m, "%d\n",
-					nand->ecclayout.eccpos[i * nand->chip.ecc.bytes + j]);
-		}
-
-		seq_printf(m, "ecclayout.oobavail: %d\n", nand->ecclayout.oobavail);
-		seq_printf(m, "ecclayout.oobfree:\n");
-		for (i = 0; i < ARRAY_SIZE(nand->ecclayout.oobfree); i++) {
-			struct nand_oobfree *oobfree = &nand->ecclayout.oobfree[i];
-			if (oobfree->length) {
-				seq_printf(m ,"oobfree[%d]:\n", i);
-				seq_printf(m, "length: %u\n", oobfree->length);
-				seq_printf(m, "offset: %u\n", oobfree->offset);
-			}
-		}
-	}
-
-	return 0;
-}
-
-static int jz4780_nand_debugfs_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, jz4780_nand_debugfs_show, inode->i_private);
-}
-
-static const struct file_operations jz4780_nand_debugfs_ops = {
-	.open     = jz4780_nand_debugfs_open,
-	.read     = seq_read,
-	.llseek   = seq_lseek,
-	.release  = single_release,
-};
-
-static struct dentry *jz4780_nand_debugfs_init(struct jz4780_nand *nand)
-{
-	return debugfs_create_file(dev_name(&nand->pdev->dev), S_IFREG | S_IRUGO,
-			debugfs_root, nand, &jz4780_nand_debugfs_ops);
-}
-
-#endif
-
 static nand_flash_info_t *
 jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 {
@@ -1408,9 +1510,7 @@ static inline void jz4780_nand_noirq_dma_read(struct mtd_info *mtd,
 	timeo = jiffies + msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS);
 	do {
 		if (readl(dmac_nand->iomem + CH_DCS) & DCS_TT)
-			break;
-
-		cond_resched();
+			goto dma_done;
 	} while (time_before(jiffies, timeo));
 
 	if (!(readl(dmac_nand->iomem + CH_DCS) & DCS_TT)) {
@@ -1433,6 +1533,7 @@ static inline void jz4780_nand_noirq_dma_read(struct mtd_info *mtd,
 		return;
 	}
 
+dma_done:
 	/*
 	 * step4. stop NAND transfer
 	 */
@@ -1464,7 +1565,7 @@ static inline void jz4780_nand_noirq_dma_read(struct mtd_info *mtd,
 
 static void jz4780_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
-	if (((uint32_t)buf & 0x3) || (len & 0x1f))
+	if (((uint32_t)buf & 0x3) || (len & 0x3f))
 		jz4780_nand_cpu_read_buf(mtd, buf, len);
 	else
 		jz4780_nand_noirq_dma_read(mtd, buf, len);
@@ -1551,10 +1652,13 @@ static inline void jz4780_nand_noirq_dma_write(struct mtd_info *mtd,
 	 */
 	timeo = jiffies + msecs_to_jiffies(MAX_DMA_TRANSFER_TIMOUT_MS);
 	do {
-		if (readl(dmac_nand->iomem + CH_DCS) & DCS_TT)
-			break;
-
-		cond_resched();
+		if (readl(dmac_nand->iomem + CH_DCS) & DCS_TT) {
+			/*
+			 * step5. stop NAND transfer
+			 */
+			writel(0, dmac_nand->iomem + CH_DCS);
+			return;
+		}
 	} while (time_before(jiffies, timeo));
 
 	if (!(readl(dmac_nand->iomem + CH_DCS) & DCS_TT)) {
@@ -1573,88 +1677,25 @@ static inline void jz4780_nand_noirq_dma_write(struct mtd_info *mtd,
 
 		return;
 	}
-
-	/*
-	 * step5. stop NAND transfer
-	 */
-	writel(0, dmac_nand->iomem + CH_DCS);
 }
 
 static void jz4780_nand_write_buf(struct mtd_info *mtd,
 		const uint8_t *buf, int len)
 {
-	if (((uint32_t)buf & 0x3) || (len & 0x1f))
+	if (((uint32_t)buf & 0x3) || (len & 0x3f))
 		jz4780_nand_cpu_write_buf(mtd, buf, len);
 	else
 		jz4780_nand_noirq_dma_write(mtd, buf, len);
 }
 
-static void jz4780_nand_do_swecc(struct jz4780_nand *__unused,
-		struct jz4780_nand_swecc_pipe *swecc_pipe)
-{
-	struct jz4780_nand_swecc_req *swecc_req;
-
-	if (swecc_pipe->op_type_calculate) {
-		while (atomic_read(&swecc_pipe->curr_index) != -1) {
-			swecc_req = &swecc_pipe->
-					req[atomic_read(&swecc_pipe->curr_index)];
-
-			swecc_pipe->calculate(swecc_pipe->nbc, swecc_pipe->ecc,
-					swecc_req->buf, swecc_req->ecc_calc);
-
-			atomic_dec(&swecc_pipe->curr_index);
-		}
-	} else {
-		while (atomic_read(&swecc_pipe->curr_index) != -1) {
-			swecc_req = &swecc_pipe->
-					req[atomic_read(&swecc_pipe->curr_index)];
-
-			swecc_req->correct_state =
-					swecc_pipe->correct(swecc_pipe->nbc, swecc_pipe->ecc,
-							swecc_req->buf, swecc_req->ecc_code,
-							swecc_req->ecc_calc);
-
-			atomic_dec(&swecc_pipe->curr_index);
-		}
-	}
-}
-
-static int jz4780_nand_swecc_thread(void *param)
-{
-	struct jz4780_nand *nand = param;
-	struct jz4780_nand_swecc_pipe *swecc_pipe = &nand->swecc_pipe;
-	unsigned long timeo = jiffies;
-
-	set_freezable();
-
-	do {
-		do {
-			if (atomic_read(&swecc_pipe->curr_index) == -1)
-				continue;
-
-			jz4780_nand_do_swecc(nand, swecc_pipe);
-
-			timeo = jiffies +
-						msecs_to_jiffies(MAX_SWECC_REQ_POLL_TIME_MS);
-
-		} while (time_before(jiffies, timeo));
-
-		wait_event_freezable(swecc_pipe->wait,
-				atomic_read(&swecc_pipe->curr_index) != -1 ||
-				kthread_should_stop());
-
-	} while (!kthread_should_stop());
-
-	return 0;
-}
-
-static int jz4780_nand_sw_ecc_calculate(struct nand_bch_control *nbc,
+static inline int jz4780_nand_sw_ecc_calculate(struct nand_bch_control *nbc,
 		struct nand_ecc_ctrl *ecc,
 		const uint8_t *buf, uint8_t *code)
 {
 	unsigned int i;
 
 	memset(code, 0, ecc->bytes);
+
 	encode_bch(nbc->bch, buf, ecc->size, code);
 
 	/* apply mask so that an erased page is a valid codeword */
@@ -1664,7 +1705,7 @@ static int jz4780_nand_sw_ecc_calculate(struct nand_bch_control *nbc,
 	return 0;
 }
 
-static int jz4780_nand_sw_ecc_correct(struct nand_bch_control *nbc,
+static inline int jz4780_nand_sw_ecc_correct(struct nand_bch_control *nbc,
 		struct nand_ecc_ctrl *ecc, uint8_t *buf,
 		uint8_t *read_ecc, uint8_t *calc_ecc)
 {
@@ -1681,77 +1722,137 @@ static int jz4780_nand_sw_ecc_correct(struct nand_bch_control *nbc,
 			/* else error in ecc, no action needed */
 		}
 	} else if (count < 0) {
-		printk(KERN_ERR "ecc unrecoverable error\n");
+		WARN(1, "ecc unrecoverable error: %d\n", count);
 		count = -1;
 	}
 	return count;
 }
 
-static int jz4780_nand_create_swecc_pipe(struct jz4780_nand *nand)
+static inline void jz4780_nand_do_swecc(struct jz4780_nand *__unused,
+		struct jz4780_nand_swecc_pipe *swecc)
 {
-	struct mtd_info *mtd = &nand->mtd;
-	struct nand_chip *chip = &nand->chip;
-	struct jz4780_nand_swecc_pipe *swecc_pipe;
-	int ret = 0;
+	int i;
+	uint8_t *p = swecc->buf;
+	int eccsize = swecc->eccsize;
+	int eccbytes = swecc->eccbytes;
+	int eccsteps = swecc->eccsteps;
+	uint8_t *ecc_calc = swecc->ecc_calc;
+	uint8_t *ecc_code = swecc->ecc_code;
 
-	extern int nr_cpu_ids;
-	if (nr_cpu_ids < 2)
-		return 0;
+	switch (swecc->op_type) {
+	case OP_TYPE_SWECC_CALC:
+		for (i = 0; eccsteps;
+				eccsteps--, i += eccbytes, p += eccsize) {
+			jz4780_nand_sw_ecc_calculate(swecc->nbc,
+					swecc->ecc, p, &ecc_calc[i]);
+		}
 
-	/*
-	 * another thread pipe
-	 */
-	swecc_pipe = &nand->swecc_pipe;
+		return;
 
-	atomic_set(&swecc_pipe->curr_index, -1);
-	init_waitqueue_head(&swecc_pipe->wait);
+	case OP_TYPE_SWECC_CALC_CORR:
+		for (i = 0; eccsteps;
+				eccsteps--, i += eccbytes, p += eccsize) {
+			jz4780_nand_sw_ecc_calculate(swecc->nbc,
+					swecc->ecc, p, &ecc_calc[i]);
+		}
 
-	swecc_pipe->ecc = &chip->ecc;
-	swecc_pipe->nbc = nand_bch_init(mtd, chip->ecc.size,
-			chip->ecc.bytes, &chip->ecc.layout);
-	swecc_pipe->calculate = jz4780_nand_sw_ecc_calculate;
-	swecc_pipe->correct = jz4780_nand_sw_ecc_correct;
+		eccsteps = swecc->eccsteps;
+		p = swecc->buf;
+		for (i = 0; eccsteps;
+				eccsteps--, i += eccbytes, p += eccsize) {
+			int stat;
 
-	swecc_pipe->task = kthread_run(jz4780_nand_swecc_thread, nand,
-			"nand-swecc");
-	if (IS_ERR(swecc_pipe->task)) {
-		ret = PTR_ERR(swecc_pipe->task);
-		dev_err(&nand->pdev->dev, "Failed to start swecc thread: %d\n", ret);
-		goto err_return;
+			stat = jz4780_nand_sw_ecc_correct(swecc->nbc,
+					swecc->ecc, p, &ecc_code[i], &ecc_calc[i]);
+			if (stat < 0) {
+				spin_lock(swecc->ecc_stats_lock);
+				swecc->mtd->ecc_stats.failed++;
+				spin_unlock(swecc->ecc_stats_lock);
+			} else {
+				spin_lock(swecc->ecc_stats_lock);
+				swecc->mtd->ecc_stats.corrected += stat;
+				spin_unlock(swecc->ecc_stats_lock);
+
+				swecc->max_bitflips = max_t(unsigned int,
+						swecc->max_bitflips, stat);
+			}
+		}
+
+		return;
+
+	case OP_TYPE_SWECC_CORR:
+		for (i = 0; eccsteps;
+				eccsteps--, i += eccbytes, p += eccsize) {
+			int stat;
+
+			stat = jz4780_nand_sw_ecc_correct(swecc->nbc,
+					swecc->ecc, p, &ecc_code[i], &ecc_calc[i]);
+			if (stat < 0) {
+				spin_lock(swecc->ecc_stats_lock);
+				swecc->mtd->ecc_stats.failed++;
+				spin_unlock(swecc->ecc_stats_lock);
+			} else {
+				spin_lock(swecc->ecc_stats_lock);
+				swecc->mtd->ecc_stats.corrected += stat;
+				spin_unlock(swecc->ecc_stats_lock);
+
+				swecc->max_bitflips = max_t(unsigned int,
+						swecc->max_bitflips, stat);
+			}
+		}
+
+		return;
 	}
-
-	/*
-	 * current thread pipe
-	 */
-	swecc_pipe = &nand->swecc_current;
-
-	swecc_pipe->ecc = &chip->ecc;
-	swecc_pipe->nbc = nand_bch_init(mtd, chip->ecc.size,
-			chip->ecc.bytes, &chip->ecc.layout);
-	swecc_pipe->calculate = jz4780_nand_sw_ecc_calculate;
-	swecc_pipe->correct = jz4780_nand_sw_ecc_correct;
-
-	atomic_set(&swecc_pipe->curr_index, -1);
-	init_waitqueue_head(&swecc_pipe->wait);
-
-err_return:
-	return ret;
 }
 
-static void jz4780_nand_destory_swecc_pipe(struct jz4780_nand *nand)
+static int jz4780_nand_swecc_thread(void *param)
 {
-	kthread_stop(nand->swecc_pipe.task);
-	nand_bch_free(nand->swecc_pipe.nbc);
-	nand_bch_free(nand->swecc_current.nbc);
+	struct jz4780_nand *nand = param;
+	struct jz4780_nand_swecc_pipe *swecc = &nand->swecc_another;
+	unsigned long timeo = jiffies;
+
+	set_freezable();
+
+	do {
+		do {
+			spin_lock(&swecc->lock);
+			if (swecc->start) {
+				swecc->start = 0;
+				spin_unlock(&swecc->lock);
+
+				jz4780_nand_do_swecc(nand, swecc);
+
+				spin_lock(&swecc->lock);
+				swecc->done = 1;
+			}
+			spin_unlock(&swecc->lock);
+
+			/*
+			 * we are working at polling
+			 * mode when many requests come
+			 */
+			cond_resched();
+			timeo = jiffies +
+				msecs_to_jiffies(MAX_SWECC_REQ_POLL_TIME_MS);
+		} while (time_before(jiffies, timeo));
+
+		wait_event_freezable(swecc->wait,
+				swecc->start || kthread_should_stop());
+
+	} while (!kthread_should_stop() || swecc->start);
+
+	dev_info(&nand->pdev->dev, "soft BCH"
+			" ECC thread exit.\n");
+
+	return 0;
 }
 
 static int jz4780_nand_read_page_swecc(struct mtd_info *mtd,
-		struct nand_chip *chip, uint8_t *buf, int oob_required, int page)
+	struct nand_chip *chip, uint8_t *buf, int oob_required, int page)
 {
-	int i, j, k, eccsize = chip->ecc.size;
+	int i, eccsize = chip->ecc.size;
 	int eccbytes = chip->ecc.bytes;
 	int eccsteps = chip->ecc.steps;
-	int half_eccsetps = eccsteps >> 1;
 	uint8_t *p = buf;
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	uint8_t *ecc_code = chip->buffers->ecccode;
@@ -1759,233 +1860,150 @@ static int jz4780_nand_read_page_swecc(struct mtd_info *mtd,
 	unsigned int max_bitflips = 0;
 
 	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
-	struct jz4780_nand_swecc_pipe *swecc_pipe = &nand->swecc_pipe;
-	struct jz4780_nand_swecc_pipe *swecc_current = &nand->swecc_current;
+	struct jz4780_nand_swecc_pipe *swecc_another =
+			&nand->swecc_another;
+	struct jz4780_nand_swecc_pipe *swecc_current =
+			&nand->swecc_current;
 	extern int nr_cpu_ids;
 
+	/*
+	 * in fact this function is running
+	 * under multi-threads but i just wanna
+	 * a not very exactly value, so no lock protected
+	 */
+	nand->cnt_page_read++;
+
 	chip->ecc.read_page_raw(mtd, chip, buf, 1, page);
+
+	for (i = 0; i < chip->ecc.total; i += 8) {
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+	}
+
+	for (i = 0; i < (chip->ecc.total & 0x7); i++)
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+
+	ecc_code = chip->buffers->ecccode;
 
 	if (nr_cpu_ids < 2) {
 		/*
 		 * single thread
 		 */
-		for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize)
-			chip->ecc.calculate(mtd, p, &ecc_calc[i]);
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->ecc_code = ecc_code;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = eccsteps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC_CORR;
 
-		/*
-		 * prepare read ECC codes
-		 */
-		j = chip->ecc.total >> 5;
-		for (i = 0, k = 0; i < (j << 3); i += 8, k = i << 2) {
-			((uint32_t *)ecc_code)[i + 0] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 0] >> 2];
+		jz4780_nand_do_swecc(nand, swecc_current);
 
-			((uint32_t *)ecc_code)[i + 1] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 4] >> 2];
-
-			((uint32_t *)ecc_code)[i + 2] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 8] >> 2];
-
-			((uint32_t *)ecc_code)[i + 3] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 12] >> 2];
-
-			((uint32_t *)ecc_code)[i + 4] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 16] >> 2];
-
-			((uint32_t *)ecc_code)[i + 5] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 20] >> 2];
-
-			((uint32_t *)ecc_code)[i + 6] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 24] >> 2];
-
-			((uint32_t *)ecc_code)[i + 7] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 28] >> 2];
-		}
-
-		k = i << 2;
-		j = chip->ecc.total & 0x1f;
-		for (i = k; i < k + j; i++)
-			ecc_code[i] = chip->oob_poi[eccpos[i]];
-
-		eccsteps = chip->ecc.steps;
-		p = buf;
-
-		for (i = 0 ; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
-			int stat;
-
-			stat = chip->ecc.correct(mtd, p, &ecc_code[i], &ecc_calc[i]);
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
-		}
-		return max_bitflips;
+		return swecc_current->max_bitflips;
 
 	} else {
 		/*
 		 * dual threads
 		 */
+		int half_eccsteps = eccsteps >> 1;
+
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->ecc_code = ecc_code;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = half_eccsteps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC_CORR;
+
+		swecc_another->buf = p + half_eccsteps * eccsize;
+		swecc_another->ecc_calc =
+				&ecc_calc[half_eccsteps * eccbytes];
+		swecc_another->ecc_code =
+				&ecc_code[half_eccsteps * eccbytes];
+		swecc_another->eccbytes = eccbytes;
+		swecc_another->eccsize = eccsize;
+		swecc_another->eccsteps = half_eccsteps;
+		swecc_another->op_type = OP_TYPE_SWECC_CALC_CORR;
 
 		/*
-		 * prepare current thread for ECC calculate
+		 * start another
 		 */
-		swecc_current->op_type_calculate = 1;
-		for (i = 0, j = 0; j < half_eccsetps;
-				i += eccbytes, j++, p += eccsize) {
-			swecc_current->req[j].buf = p;
-			swecc_current->req[j].ecc_calc = &ecc_calc[i];
-			swecc_current->req[j].ecc_code = &ecc_code[i];
-		}
-		atomic_set(&swecc_current->curr_index, half_eccsetps - 1);
+		spin_lock(&swecc_another->lock);
+		swecc_another->start = 1;
+		wake_up(&swecc_another->wait);
+		spin_unlock(&swecc_another->lock);
 
 		/*
-		 * prepare another thread for ECC calculate
-		 */
-		swecc_pipe->op_type_calculate = 1;
-		for (j = 0; j < half_eccsetps;
-				i += eccbytes, j++, p += eccsize) {
-			swecc_pipe->req[j].buf = p;
-			swecc_pipe->req[j].ecc_calc = &ecc_calc[i];
-			swecc_pipe->req[j].ecc_code = &ecc_code[i];
-		}
-
-		/*
-		 * start another thread for ECC calculate
-		 */
-		atomic_set(&swecc_pipe->curr_index, half_eccsetps - 1);
-		wake_up(&nand->swecc_pipe.wait);
-
-		/*
-		 * start current thread for ECC calculate
+		 * start current
 		 */
 		jz4780_nand_do_swecc(nand, swecc_current);
 
 		/*
-		 * wait for all done
+		 * all done ?
 		 */
-		while (atomic_read(&swecc_pipe->curr_index) != -1)
-			continue;
-
-		/*
-		 * prepare read ECC codes for ECC correct
-		 */
-		j = chip->ecc.total >> 5;
-		for (i = 0, k = 0; i < (j << 3); i += 8, k = i << 2) {
-			((uint32_t *)ecc_code)[i + 0] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 0] >> 2];
-
-			((uint32_t *)ecc_code)[i + 1] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 4] >> 2];
-
-			((uint32_t *)ecc_code)[i + 2] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 8] >> 2];
-
-			((uint32_t *)ecc_code)[i + 3] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 12] >> 2];
-
-			((uint32_t *)ecc_code)[i + 4] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 16] >> 2];
-
-			((uint32_t *)ecc_code)[i + 5] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 20] >> 2];
-
-			((uint32_t *)ecc_code)[i + 6] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 24] >> 2];
-
-			((uint32_t *)ecc_code)[i + 7] =
-					((uint32_t *)chip->oob_poi)[eccpos[k + 28] >> 2];
+		while (1) {
+			spin_lock(&swecc_another->lock);
+			if (swecc_another->done)
+				break;
+			spin_unlock(&swecc_another->lock);
 		}
+		swecc_another->done = 0;
+		spin_unlock(&swecc_another->lock);
 
-		k = i << 2;
-		j = chip->ecc.total & 0x1f;
-		for (i = k; i < k + j; i++)
-			ecc_code[i] = chip->oob_poi[eccpos[i]];
-
-		/*
-		 * prepare current thread for ECC correct
-		 */
-		swecc_current->op_type_calculate = 0;
-		atomic_set(&swecc_current->curr_index, half_eccsetps - 1);
-
-		/*
-		 * prepare another thread for ECC correct
-		 */
-		swecc_pipe->op_type_calculate = 0;
-
-		/*
-		 * start another thread for ECC correct
-		 */
-		atomic_set(&swecc_pipe->curr_index, half_eccsetps - 1);
-		wake_up(&nand->swecc_pipe.wait);
-
-		/*
-		 * start current thread for ECC correct
-		 */
-		jz4780_nand_do_swecc(nand, swecc_current);
-
-		/*
-		 * wait for all done
-		 */
-		while (atomic_read(&swecc_pipe->curr_index) != -1)
-			continue;
-
-		/*
-		 * errors check
-		 */
-		for (i = 0; i < half_eccsetps; i++) {
-			int stat;
-
-			stat = swecc_current->req[i].correct_state;
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
-
-			stat = swecc_pipe->req[i].correct_state;
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
-		}
+		max_bitflips = max_t(unsigned int,
+			swecc_another->max_bitflips,
+			swecc_current->max_bitflips);
 
 		return max_bitflips;
 	}
 }
 
 static int jz4780_nand_read_subpage_swecc(struct mtd_info *mtd,
-		struct nand_chip *chip, uint32_t data_offs,
-		uint32_t readlen, uint8_t *bufpoi)
+		struct nand_chip *chip, uint32_t data_offs, uint32_t readlen,
+		uint8_t *bufpoi)
 {
 	int start_step, end_step, num_steps;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
 	uint8_t *p;
-	int data_col_addr, i, j, gaps = 0;
-	int datafrag_len, eccfrag_len, aligned_len, aligned_pos;
-	int busw = (chip->options & NAND_BUSWIDTH_16) ? 2 : 1;
+	int data_col_addr, i, gaps = 0;
+	int eccsize = chip->ecc.size;
+	int eccbytes = chip->ecc.bytes;
+	uint8_t *ecc_calc = chip->buffers->ecccalc;
+	uint8_t *ecc_code = chip->buffers->ecccode;
+	int datafrag_len, eccfrag_len;
 	int index = 0;
 	unsigned int max_bitflips = 0;
 
 	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
-	struct jz4780_nand_swecc_pipe *swecc_pipe = &nand->swecc_pipe;
-	struct jz4780_nand_swecc_pipe *swecc_current = &nand->swecc_current;
+	struct jz4780_nand_swecc_pipe *swecc_another =
+			&nand->swecc_another;
+	struct jz4780_nand_swecc_pipe *swecc_current =
+			&nand->swecc_current;
 	extern int nr_cpu_ids;
 
+	/*
+	 * in fact this function is running
+	 * under multi-threads but i just wanna
+	 * a not very exactly value, so no lock protected
+	 */
+	nand->cnt_subpage_read++;
+
 	/* Column address within the page aligned to ECC size (256bytes) */
-	start_step = data_offs / chip->ecc.size;
-	end_step = (data_offs + readlen - 1) / chip->ecc.size;
+	start_step = data_offs / eccsize;
+	end_step = (data_offs + readlen - 1) / eccsize;
 	num_steps = end_step - start_step + 1;
 
 	/* Data size aligned to ECC ecc.size */
-	datafrag_len = num_steps * chip->ecc.size;
-	eccfrag_len = num_steps * chip->ecc.bytes;
+	datafrag_len = num_steps * eccsize;
+	eccfrag_len = num_steps * eccbytes;
 
-	data_col_addr = start_step * chip->ecc.size;
+	data_col_addr = start_step * eccsize;
 	/* If we read not a page aligned data */
 	if (data_col_addr != 0)
 		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, data_col_addr, -1);
@@ -1993,68 +2011,13 @@ static int jz4780_nand_read_subpage_swecc(struct mtd_info *mtd,
 	p = bufpoi + data_col_addr;
 	chip->read_buf(mtd, p, datafrag_len);
 
-	/* Calculate ECC */
-	if (nr_cpu_ids < 2) {
-		/*
-		 * single thread
-		 */
-		for (i = 0; i < eccfrag_len ; i += chip->ecc.bytes, p += chip->ecc.size)
-			chip->ecc.calculate(mtd, p, &chip->buffers->ecccalc[i]);
-	} else {
-		/*
-		 * dual threads
-		 */
-		int partial_eccsteps = num_steps >> 1;
-
-		/*
-		 * prepare current thread for ECC calculate
-		 */
-		swecc_current->op_type_calculate = 1;
-		for (i = 0, j = 0; j < partial_eccsteps;
-				i += chip->ecc.bytes, j++, p += chip->ecc.size) {
-			swecc_current->req[j].buf = p;
-			swecc_current->req[j].ecc_calc = &chip->buffers->ecccalc[i];
-			swecc_current->req[j].ecc_code = &chip->buffers->ecccode[i];
-		}
-		atomic_set(&swecc_current->curr_index, partial_eccsteps - 1);
-
-		/*
-		 * prepare another thread for ECC calculate
-		 */
-		partial_eccsteps = num_steps - partial_eccsteps;
-		swecc_pipe->op_type_calculate = 1;
-		for (j = 0; j < partial_eccsteps;
-				i += chip->ecc.bytes, j++, p += chip->ecc.size) {
-			swecc_pipe->req[j].buf = p;
-			swecc_pipe->req[j].ecc_calc = &chip->buffers->ecccalc[i];
-			swecc_pipe->req[j].ecc_code = &chip->buffers->ecccode[i];
-		}
-
-		/*
-		 * start another thread for ECC calculate
-		 */
-		atomic_set(&swecc_pipe->curr_index, partial_eccsteps - 1);
-		wake_up(&nand->swecc_pipe.wait);
-
-		/*
-		 * start current thread for ECC calculate
-		 */
-		jz4780_nand_do_swecc(nand, swecc_current);
-
-		/*
-		 * wait for all done
-		 */
-		while (atomic_read(&swecc_pipe->curr_index) != -1)
-			continue;
-	}
-
 	/*
 	 * The performance is faster if we position offsets according to
 	 * ecc.pos. Let's make sure that there are no gaps in ECC positions.
 	 */
 	for (i = 0; i < eccfrag_len - 1; i++) {
-		if (eccpos[i + start_step * chip->ecc.bytes] + 1 !=
-			eccpos[i + start_step * chip->ecc.bytes + 1]) {
+		if (eccpos[i + start_step * eccbytes] + 1 !=
+			eccpos[i + start_step * eccbytes + 1]) {
 			gaps = 1;
 			break;
 		}
@@ -2064,251 +2027,455 @@ static int jz4780_nand_read_subpage_swecc(struct mtd_info *mtd,
 		chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
 	} else {
 		/*
-		 * Send the command to read the particular ECC bytes take care
-		 * about buswidth alignment in read_buf.
+		 * Send the command to read the particular ECC bytes
 		 */
-		index = start_step * chip->ecc.bytes;
-
-		aligned_pos = eccpos[index] & ~(busw - 1);
-		aligned_len = eccfrag_len;
-		if (eccpos[index] & (busw - 1))
-			aligned_len++;
-		if (eccpos[index + (num_steps * chip->ecc.bytes)] & (busw - 1))
-			aligned_len++;
+		index = start_step * eccbytes;
 
 		chip->cmdfunc(mtd, NAND_CMD_RNDOUT,
-					mtd->writesize + aligned_pos, -1);
-		chip->read_buf(mtd, &chip->oob_poi[aligned_pos], aligned_len);
+					mtd->writesize + eccfrag_len, -1);
+		chip->read_buf(mtd, &chip->oob_poi[eccpos[index]], eccfrag_len);
 	}
 
-	for (i = 0; i < eccfrag_len; i++)
-		chip->buffers->ecccode[i] = chip->oob_poi[eccpos[i + index]];
+	eccpos += index;
+	for (i = 0; i < eccfrag_len; i += 8) {
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+	}
+
+	for (i = 0; i < (eccfrag_len & 0x7); i++)
+		*ecc_code++ = chip->oob_poi[*eccpos++];
+
+	ecc_code = chip->buffers->ecccode;
 
 	if (nr_cpu_ids < 2) {
 		/*
-		 * single thread correct
+		 * single thread
 		 */
-		p = bufpoi + data_col_addr;
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->ecc_code = ecc_code;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = num_steps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC_CORR;
 
-		for (i = 0; i < eccfrag_len ; i += chip->ecc.bytes, p += chip->ecc.size) {
-			int stat;
+		jz4780_nand_do_swecc(nand, swecc_current);
 
-			stat = chip->ecc.correct(mtd, p,
-				&chip->buffers->ecccode[i], &chip->buffers->ecccalc[i]);
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
-		}
+		return swecc_current->max_bitflips;
+
 	} else {
 		/*
-		 * dual threads correct
+		 * dual threads
 		 */
-		int partial_eccsteps = num_steps >> 1;
+		int half_eccsteps = num_steps >> 1;
+
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->ecc_code = ecc_code;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = half_eccsteps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC_CORR;
+
+		swecc_another->buf = p + half_eccsteps * eccsize;
+		swecc_another->ecc_calc =
+				&ecc_calc[half_eccsteps * eccbytes];
+		swecc_another->ecc_code =
+				&ecc_code[half_eccsteps * eccbytes];
+		swecc_another->eccbytes = eccbytes;
+		swecc_another->eccsize = eccsize;
+		swecc_another->eccsteps = num_steps - half_eccsteps;
+		swecc_another->op_type = OP_TYPE_SWECC_CALC_CORR;
 
 		/*
-		 * prepare current thread for ECC correct
+		 * start another
 		 */
-		swecc_current->op_type_calculate = 0;
-		atomic_set(&swecc_current->curr_index, partial_eccsteps - 1);
+		spin_lock(&swecc_another->lock);
+		swecc_another->start = 1;
+		wake_up(&swecc_another->wait);
+		spin_unlock(&swecc_another->lock);
 
 		/*
-		 * prepare another thread for ECC correct
-		 */
-		partial_eccsteps = num_steps - partial_eccsteps;
-		swecc_pipe->op_type_calculate = 0;
-
-		/*
-		 * start another thread for ECC correct
-		 */
-		atomic_set(&swecc_pipe->curr_index, partial_eccsteps - 1);
-		wake_up(&nand->swecc_pipe.wait);
-
-		/*
-		 * start current thread for ECC correct
+		 * start current
 		 */
 		jz4780_nand_do_swecc(nand, swecc_current);
 
 		/*
-		 * wait for all done
+		 * all done ?
 		 */
-		while (atomic_read(&swecc_pipe->curr_index) != -1)
-			continue;
-
-		/*
-		 * errors check
-		 */
-		for (i = 0; i < (num_steps >> 1); i++) {
-			int stat;
-
-			stat = swecc_current->req[i].correct_state;
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
+		while (1) {
+			spin_lock(&swecc_another->lock);
+			if (swecc_another->done)
+				break;
+			spin_unlock(&swecc_another->lock);
 		}
+		swecc_another->done = 0;
+		spin_unlock(&swecc_another->lock);
 
-		for (i = 0; i < (num_steps - (num_steps >> 1)); i++) {
-			int stat;
+		max_bitflips = max_t(unsigned int,
+			swecc_another->max_bitflips,
+			swecc_current->max_bitflips);
 
-			stat = swecc_pipe->req[i].correct_state;
-			if (stat < 0) {
-				mtd->ecc_stats.failed++;
-			} else {
-				mtd->ecc_stats.corrected += stat;
-				max_bitflips = max_t(unsigned int, max_bitflips, stat);
-			}
-		}
+		return max_bitflips;
 	}
-
-	return max_bitflips;
 }
 
 static int jz4780_nand_write_page_swecc(struct mtd_info *mtd,
 		struct nand_chip *chip, const uint8_t *buf, int oob_required)
 {
-	int i, j, k, eccsize = chip->ecc.size;
+	int i, eccsize = chip->ecc.size;
 	int eccbytes = chip->ecc.bytes;
 	int eccsteps = chip->ecc.steps;
-	int half_eccsetps = eccsteps >> 1;
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
-	const uint8_t *p = buf;
+	uint8_t *p = (uint8_t *)buf;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
 
 	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
-	struct jz4780_nand_swecc_pipe *swecc_pipe = &nand->swecc_pipe;
-	struct jz4780_nand_swecc_pipe *swecc_current = &nand->swecc_current;
+	struct jz4780_nand_swecc_pipe *swecc_another =
+		&nand->swecc_another;
+	struct jz4780_nand_swecc_pipe *swecc_current =
+		&nand->swecc_current;
 	extern int nr_cpu_ids;
+
+	/*
+	 * in fact this function is running
+	 * under multi-threads but i just wanna
+	 * a not very exactly value, so no lock protect
+	 */
+	nand->cnt_page_write++;
 
 	/* Software ECC calculation */
 	if (nr_cpu_ids < 2) {
 		/*
 		 * single thread
 		 */
-		for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize)
-			chip->ecc.calculate(mtd, p, &ecc_calc[i]);
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = eccsteps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC;
 
-		/*
-		 * copy back ECC codes
-		 */
-		j = chip->ecc.total >> 5;
-		for (i = 0, k = 0; i < (j << 3); i += 8, k = i << 2) {
-			((uint32_t *)chip->oob_poi)[eccpos[k +  0] >> 2] =
-					((uint32_t *)ecc_calc)[i + 0];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k +  4] >> 2] =
-					((uint32_t *)ecc_calc)[i + 1];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k +  8] >> 2] =
-					((uint32_t *)ecc_calc)[i + 2];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k + 12] >> 2] =
-					((uint32_t *)ecc_calc)[i + 3];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k + 16] >> 2] =
-					((uint32_t *)ecc_calc)[i + 4];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k + 20] >> 2] =
-					((uint32_t *)ecc_calc)[i + 5];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k + 24] >> 2] =
-					((uint32_t *)ecc_calc)[i + 6];
-
-			((uint32_t *)chip->oob_poi)[eccpos[k + 28] >> 2] =
-					((uint32_t *)ecc_calc)[i + 7];
-		}
-
-		k = i << 2;
-		j = chip->ecc.total & 0x1f;
-		for (i = k; i < k + j; i++)
-			chip->oob_poi[eccpos[i]] = ecc_calc[i];
-
-		return chip->ecc.write_page_raw(mtd, chip, buf, 1);
+		jz4780_nand_do_swecc(nand, swecc_current);
 	} else {
 		/*
-		 * dual thread
+		 * dual threads
 		 */
+		int half_eccsteps = eccsteps >> 1;
+
+		swecc_current->buf = p;
+		swecc_current->ecc_calc = ecc_calc;
+		swecc_current->eccbytes = eccbytes;
+		swecc_current->eccsize = eccsize;
+		swecc_current->eccsteps = half_eccsteps;
+		swecc_current->op_type = OP_TYPE_SWECC_CALC;
+
+		swecc_another->buf = p + half_eccsteps * eccsize;
+		swecc_another->ecc_calc =
+				&ecc_calc[half_eccsteps * eccbytes];
+		swecc_another->eccbytes = eccbytes;
+		swecc_another->eccsize = eccsize;
+		swecc_another->eccsteps = half_eccsteps;
+		swecc_another->op_type = OP_TYPE_SWECC_CALC;
 
 		/*
-		 * prepare current thread for ECC calculate
+		 * start another
 		 */
-		swecc_current->op_type_calculate = 1;
-		for (i = 0, j = 0; j < half_eccsetps;
-				i += eccbytes, j++, p += eccsize) {
-			swecc_current->req[j].buf = (uint8_t *)p;
-			swecc_current->req[j].ecc_calc = &ecc_calc[i];
-		}
-		atomic_set(&swecc_current->curr_index, half_eccsetps - 1);
+		spin_lock(&swecc_another->lock);
+		swecc_another->start = 1;
+		wake_up(&swecc_another->wait);
+		spin_unlock(&swecc_another->lock);
 
 		/*
-		 * prepare another thread for ECC calculate
-		 */
-		swecc_pipe->op_type_calculate = 1;
-		for (j = 0; j < half_eccsetps;
-				i += eccbytes, j++, p += eccsize) {
-			swecc_pipe->req[j].buf = (uint8_t *)p;
-			swecc_pipe->req[j].ecc_calc = &ecc_calc[i];
-		}
-
-		/*
-		 * start another thread for ECC calculate
-		 */
-		atomic_set(&swecc_pipe->curr_index, half_eccsetps - 1);
-		wake_up(&nand->swecc_pipe.wait);
-
-		/*
-		 * start current thread for ECC calculate
+		 * start current
 		 */
 		jz4780_nand_do_swecc(nand, swecc_current);
 
 		/*
-		 * wait for all done
+		 * all done ?
 		 */
-		while (atomic_read(&swecc_pipe->curr_index) != -1)
-			continue;
+		while (1) {
+			spin_lock(&swecc_another->lock);
+			if (swecc_another->done)
+				break;
+			spin_unlock(&swecc_another->lock);
+		}
+		swecc_another->done = 0;
+		spin_unlock(&swecc_another->lock);
+	}
 
-		/*
-		 * copy back ECC codes
-		 */
-		j = chip->ecc.total >> 5;
-		for (i = 0, k = 0; i < (j << 3); i += 8, k = i << 2) {
-			((uint32_t *)chip->oob_poi)[eccpos[k +  0] >> 2] =
-					((uint32_t *)ecc_calc)[i + 0];
+	/*
+	 * copy back ECC codes
+	 */
+	for (i = 0; i < chip->ecc.total; i += 8) {
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
+	}
 
-			((uint32_t *)chip->oob_poi)[eccpos[k +  4] >> 2] =
-					((uint32_t *)ecc_calc)[i + 1];
+	for (i = 0; i < (chip->ecc.total & 0x7); i++)
+		chip->oob_poi[*eccpos++] = *ecc_calc++;
 
-			((uint32_t *)chip->oob_poi)[eccpos[k +  8] >> 2] =
-					((uint32_t *)ecc_calc)[i + 2];
 
-			((uint32_t *)chip->oob_poi)[eccpos[k + 12] >> 2] =
-					((uint32_t *)ecc_calc)[i + 3];
+	return chip->ecc.write_page_raw(mtd, chip, buf, 1);
+}
 
-			((uint32_t *)chip->oob_poi)[eccpos[k + 16] >> 2] =
-					((uint32_t *)ecc_calc)[i + 4];
+static int jz4780_nand_create_swecc_pipe(struct jz4780_nand *nand)
+{
+	struct mtd_info *mtd = &nand->mtd;
+	struct nand_chip *chip = &nand->chip;
+	struct jz4780_nand_swecc_pipe *swecc;
+	int ret = 0;
 
-			((uint32_t *)chip->oob_poi)[eccpos[k + 20] >> 2] =
-					((uint32_t *)ecc_calc)[i + 5];
+	extern int nr_cpu_ids;
 
-			((uint32_t *)chip->oob_poi)[eccpos[k + 24] >> 2] =
-					((uint32_t *)ecc_calc)[i + 6];
+	/*
+	 * current thread pipe
+	 * this pipe will be processed in current thread
+	 */
+	swecc = &nand->swecc_current;
+	swecc->ecc = &chip->ecc;
+	swecc->nbc = chip->ecc.priv;
+	swecc->mtd = mtd;
+	swecc->done = 0;
+	swecc->start = 0;
+	swecc->ecc_stats_lock = &nand->ecc_stats_lock;
 
-			((uint32_t *)chip->oob_poi)[eccpos[k + 28] >> 2] =
-					((uint32_t *)ecc_calc)[i + 7];
+	if (nr_cpu_ids < 2)
+		return 0;
+
+	/*
+	 * another thread pipe
+	 * this pipe will be processed in thread nand_swecc
+	 */
+	swecc = &nand->swecc_another;
+	swecc->ecc = &chip->ecc;
+	swecc->nbc = nand_bch_init(mtd, chip->ecc.size,
+			chip->ecc.bytes, &chip->ecc.layout);
+	swecc->mtd = mtd;
+	swecc->done = 0;
+	swecc->start = 0;
+	swecc->ecc_stats_lock = &nand->ecc_stats_lock;
+	spin_lock_init(&swecc->lock);
+
+	init_waitqueue_head(&swecc->wait);
+	swecc->task = kthread_run(jz4780_nand_swecc_thread, nand,
+			"nand-swecc");
+	if (IS_ERR(swecc->task)) {
+		ret = PTR_ERR(swecc->task);
+		dev_err(&nand->pdev->dev, "Failed to start"
+				" nand-swecc thread: %d\n", ret);
+		goto err_return;
+	}
+
+err_return:
+	return ret;
+}
+
+static void jz4780_nand_destory_swecc_pipe(struct jz4780_nand *nand)
+{
+	kthread_stop(nand->swecc_another.task);
+	nand_bch_free(nand->swecc_another.nbc);
+}
+
+static int jz4780_nand_pre_init(struct jz4780_nand *nand)
+{
+	if (nand->curr_nand_flash_info->nand_pre_init)
+		return nand->curr_nand_flash_info->nand_pre_init(nand);
+
+	return 0;
+}
+
+static int jz4780_nand_onfi_set_features(struct mtd_info *mtd,
+		struct nand_chip *chip, int addr, uint8_t *subfeature_param)
+{
+	int status;
+
+	if (!chip->onfi_version)
+		return -EINVAL;
+
+	chip->cmdfunc(mtd, NAND_CMD_SET_FEATURES, addr, -1);
+	chip->write_buf(mtd, subfeature_param, ONFI_SUBFEATURE_PARAM_LEN);
+	status = chip->waitfunc(mtd, chip);
+	if (status & NAND_STATUS_FAIL)
+		return -EIO;
+	return 0;
+}
+
+static int jz4780_nand_onfi_get_features(struct mtd_info *mtd,
+		struct nand_chip *chip, int addr, uint8_t *subfeature_param)
+{
+	if (!chip->onfi_version)
+		return -EINVAL;
+
+	/* clear the sub feature parameters */
+	memset(subfeature_param, 0, ONFI_SUBFEATURE_PARAM_LEN);
+
+	chip->cmdfunc(mtd, NAND_CMD_GET_FEATURES, addr, -1);
+	chip->read_buf(mtd, subfeature_param, ONFI_SUBFEATURE_PARAM_LEN);
+	return 0;
+}
+
+#ifdef CONFIG_DEBUG_FS
+
+static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
+{
+	struct jz4780_nand *nand = (struct jz4780_nand *)m->private;
+	nand_flash_if_t *nand_if;
+	nand_flash_info_t *nand_info = nand->curr_nand_flash_info;
+	int i, j;
+
+	seq_printf(m, "Attached banks:\n");
+	for (i = 0; i < nand->num_nand_flash_if; i++) {
+		nand_if = nand->nand_flash_if_table[i];
+
+		seq_printf(m, "bank%d\n", nand_if->bank);
+	}
+
+	if (nand->curr_nand_flash_if != -1) {
+		nand_if = nand->nand_flash_if_table[nand->curr_nand_flash_if];
+		seq_printf(m, "selected: bank%d\n",
+				nand_if->bank);
+	} else {
+		seq_printf(m, "selected: none\n");
+	}
+
+	if (nand_info) {
+		seq_printf(m, "\n");
+		seq_printf(m, "Attached NAND flash:\n");
+
+		seq_printf(m, "Chip name: %s\n", nand_info->name);
+		if (nand->chip.onfi_version) {
+			seq_printf(m, "ONFI: v%d\n", nand->chip.onfi_version);
+			seq_printf(m, "Timing mode: %d\n",
+					nand_info->onfi_special.timing_mode);
+		} else {
+			seq_printf(m, "ONFI: unsupported\n");
+		}
+		seq_printf(m, "Chip devid: 0x%x\n", nand_info->nand_dev_id);
+		seq_printf(m, "Chip size: %dMB\n", (int)(nand->chip.chipsize >> 20));
+		seq_printf(m, "Erase size: %ubyte\n", nand->mtd.erasesize);
+		seq_printf(m, "Write size: %dbyte\n", nand->mtd.writesize);
+		seq_printf(m, "OOB size %dbyte\n", nand->mtd.oobsize);
+
+		seq_printf(m, "\n");
+		seq_printf(m, "Data path:\n");
+		seq_printf(m, "Use DMA: %d\n", nand->use_dma);
+		seq_printf(m, "Use R/B# poll: %d\n", nand->busy_poll);
+
+		seq_printf(m, "\n");
+		seq_printf(m, "NAND flash output driver strength:\n");
+		switch (nand_info->output_strength) {
+		case NAND_OUTPUT_NORMAL_DRIVER:
+			seq_printf(m, "Normal driver\n");
+			break;
+
+		case NAND_OUTPUT_UNDER_DRIVER1:
+			seq_printf(m, "Under driver(1)\n");
+			break;
+		case NAND_OUTPUT_UNDER_DRIVER2:
+			seq_printf(m, "Under driver(2)\n");
+			break;
+
+		case NAND_OUTPUT_OVER_DRIVER1:
+			seq_printf(m, "Over driver(1)\n");
+			break;
+		case NAND_OUTPUT_OVER_DRIVER2:
+			seq_printf(m, "Over driver(2)\n");
+			break;
 		}
 
-		k = i << 2;
-		j = chip->ecc.total & 0x1f;
-		for (i = k; i < k + j; i++)
-			chip->oob_poi[eccpos[i]] = ecc_calc[i];
+		seq_printf(m, "\n");
+		seq_printf(m, "Attached NAND flash ECC:\n");
+		seq_printf(m, "ECC type: %s\n", nand->ecc_type == NAND_ECC_TYPE_HW ?
+				"HW-BCH" : "SW-BCH");
+		if (nand->ecc_type == NAND_ECC_TYPE_SW) {
+			/*
+			 * check these parameters you can make a
+			 * fixed configuration to get speed improvement
+			 */
+			seq_printf(m, "Soft ECC-BCH parameter m: %d\n",
+					nand->swecc_current.nbc->bch->m);
+			seq_printf(m, "Soft ECC-BCH parameter t: %d\n",
+					nand->swecc_current.nbc->bch->t);
+			seq_printf(m, "\n");
+		}
 
-		return chip->ecc.write_page_raw(mtd, chip, buf, 1);
+		seq_printf(m, "ECC size: %dbyte\n", nand->chip.ecc.size);
+		seq_printf(m, "ECC bits: %d\n", nand->chip.ecc.strength);
+		seq_printf(m, "ECC bytes: %d\n", nand->chip.ecc.bytes);
+		seq_printf(m, "ECC steps: %d\n", nand->chip.ecc.steps);
+
+		seq_printf(m, "\n");
+		seq_printf(m, "ECC layout:\n");
+		seq_printf(m, "ecclayout.eccbytes: %d\n", nand->ecclayout.eccbytes);
+		seq_printf(m, "ecclayout.eccpos:\n");
+		for (i = 0; i < nand->chip.ecc.steps; i++) {
+			seq_printf(m, "ecc step: %d\n", i + 1);
+			for (j = 0; j < nand->chip.ecc.bytes - 1; j++) {
+				seq_printf(m, "%d, ",
+						nand->ecclayout.eccpos[i * nand->chip.ecc.bytes + j]);
+
+				if ((j + 1) % 10 == 0)
+					seq_printf(m, "\n");
+			}
+
+			seq_printf(m, "%d\n",
+					nand->ecclayout.eccpos[i * nand->chip.ecc.bytes + j]);
+		}
+
+		seq_printf(m, "ecclayout.oobavail: %d\n", nand->ecclayout.oobavail);
+		seq_printf(m, "ecclayout.oobfree:\n");
+		for (i = 0; i < ARRAY_SIZE(nand->ecclayout.oobfree); i++) {
+			struct nand_oobfree *oobfree = &nand->ecclayout.oobfree[i];
+			if (oobfree->length) {
+				seq_printf(m ,"oobfree[%d]:\n", i);
+				seq_printf(m, "length: %u\n", oobfree->length);
+				seq_printf(m, "offset: %u\n", oobfree->offset);
+			}
+		}
+
+		seq_printf(m, "\n");
+		seq_printf(m, "Runtime informations:\n");
+		seq_printf(m, "Page read times: %llu\n", nand->cnt_page_read);
+		seq_printf(m, "Page write times: %llu\n", nand->cnt_page_write);
+		seq_printf(m, "Subpage read times: %llu\n", nand->cnt_subpage_read);
+
 	}
+
+	return 0;
 }
+
+static int jz4780_nand_debugfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, jz4780_nand_debugfs_show, inode->i_private);
+}
+
+static const struct file_operations jz4780_nand_debugfs_ops = {
+	.open     = jz4780_nand_debugfs_open,
+	.read     = seq_read,
+	.llseek   = seq_lseek,
+	.release  = single_release,
+};
+
+static struct dentry *jz4780_nand_debugfs_init(struct jz4780_nand *nand)
+{
+	return debugfs_create_file(dev_name(&nand->pdev->dev), S_IFREG | S_IRUGO,
+			debugfs_root, nand, &jz4780_nand_debugfs_ops);
+}
+
+#endif
 
 static int jz4780_nand_probe(struct platform_device *pdev)
 {
@@ -2316,7 +2483,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	int bank = 0;
 	int i = 0, j = 0, k = 0, m = 0;
 	int eccpos_start;
-	int eccpos_gap;
 
 	struct nand_chip *chip;
 	struct mtd_info *mtd;
@@ -2377,7 +2543,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			ret = request_busy_irq(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
-					"Failed to request busy gpio irq for bank%d\n", bank);
+					"Failed to request busy"
+					" gpio irq for bank%d\n", bank);
 				goto err_free_busy_irq;
 			}
 		}
@@ -2391,7 +2558,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			ret = request_busy_poll(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
-					"Failed to request busy gpio irq for bank%d\n", bank);
+					"Failed to request busy"
+					" gpio irq for bank%d\n", bank);
 				goto err_free_busy_irq;
 			}
 		}
@@ -2456,6 +2624,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	chip->dev_ready   = jz4780_nand_dev_is_ready;
 	chip->select_chip = jz4780_nand_select_chip;
 	chip->cmd_ctrl    = jz4780_nand_cmd_ctrl;
+	chip->onfi_get_features = jz4780_nand_onfi_get_features;
+	chip->onfi_set_features = jz4780_nand_onfi_set_features;
 
 	switch (nand->xfer_type) {
 	case NAND_XFER_DMA_IRQ:
@@ -2498,14 +2668,29 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	mtd->name        = dev_name(&pdev->dev);
 	mtd->owner       = THIS_MODULE;
 
-	chip->options |= NAND_SKIP_BBTSCAN;
+	/*
+	 * if you use u-boot BBT creation code,specifying
+	 * this flag will let the kernel fish out the BBT
+	 * from the NAND, and also skip the full NAND scan
+	 * that can take 1/2s or so. little things...
+	 */
+	if (pdata->flash_bbt) {
+		chip->bbt_options |= NAND_BBT_USE_FLASH;
+		chip->options |= NAND_SKIP_BBTSCAN;
+	}
+	/*
+	 * nand_base handle subpage write by fill space
+	 * where are outside of the subpage with 0xff,
+	 * that make things totally wrong, so disable it.
+	 */
+	chip->options |= NAND_NO_SUBPAGE_WRITE;
 
 	/*
 	 * for relocation
 	 */
 	nand->gpemc_enable_nand_flash = gpemc_enable_nand_flash;
 	nand->nand_wait_ready = nand_wait_ready;
-	nand->gpio_get_value_cansleep = gpio_get_value_cansleep;
+	nand->gpio_get_value = gpio_get_value;
 	nand->wait_for_completion_timeout = wait_for_completion_timeout;
 	nand->msecs_to_jiffies = msecs_to_jiffies;
 	nand->printk = printk;
@@ -2535,25 +2720,36 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 * post configure bank timing by detected NAND device
 	 */
 
-	/* step1. replace NAND command function with large page version */
-	if (mtd->writesize > 512)
-		chip->cmdfunc = jz4780_nand_command_lp;
-
-	/* step2. match NAND chip information */
+	/* step1. match NAND chip information */
 	nand->curr_nand_flash_info = jz4780_nand_match_nand_chip_info(nand);
 	if (!nand->curr_nand_flash_info) {
 		ret = -ENODEV;
 		goto err_dma_release_channel;
 	}
 
-	/* step3. configure bank timings */
+	/*
+	 * step2. preinitialize NAND flash
+	 */
+	ret = jz4780_nand_pre_init(nand);
+	if (ret) {
+		dev_err(&nand->pdev->dev, "Failed to"
+				" preinitialize NAND chip.\n");
+		goto err_dma_release_channel;
+	}
+
+	/* step3. replace NAND command function with large page version */
+	if (mtd->writesize > 512)
+		chip->cmdfunc = jz4780_nand_command_lp;
+
+	/* step4. configure bank timings */
 	switch (nand->curr_nand_flash_info->type) {
 	case BANK_TYPE_NAND:
 		for (bank = 0; bank < nand->num_nand_flash_if; bank++) {
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_nand(&nand_if->cs,
-					&nand->curr_nand_flash_info->nand_timing.common_nand_timing);
+				&nand->curr_nand_flash_info->
+				nand_timing.common_nand_timing);
 
 			ret = gpemc_config_bank_timing(&nand_if->cs);
 			if (ret) {
@@ -2571,7 +2767,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 			nand_if = nand->nand_flash_if_table[bank];
 
 			gpemc_fill_timing_from_toggle(&nand_if->cs,
-					&nand->curr_nand_flash_info->nand_timing.toggle_nand_timing);
+				&nand->curr_nand_flash_info->
+				nand_timing.toggle_nand_timing);
 
 			ret = gpemc_config_bank_timing(&nand_if->cs);
 			if (ret) {
@@ -2599,12 +2796,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	switch (nand->ecc_type) {
 	case NAND_ECC_TYPE_SW:
 		chip->ecc.mode  = NAND_ECC_SOFT_BCH;
-		chip->ecc.read_page = jz4780_nand_read_page_swecc;
-		chip->ecc.read_subpage = jz4780_nand_read_subpage_swecc;
-		chip->ecc.write_page = jz4780_nand_write_page_swecc;
-		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size / 4;
-		chip->ecc.bytes = fls(8 * chip->ecc.size) *
-				nand->curr_nand_flash_info->ecc_step.ecc_bits / 4 / 8;
+		chip->ecc.size  =
+			nand->curr_nand_flash_info->ecc_step.data_size / 8;
+		chip->ecc.bytes = (fls(8 * chip->ecc.size) *
+			(nand->curr_nand_flash_info->ecc_step.ecc_bits / 8) + 7) / 8;
 		break;
 
 	case NAND_ECC_TYPE_HW:
@@ -2630,9 +2825,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		chip->ecc.calculate = jz4780_nand_ecc_calculate_bch;
 		chip->ecc.correct   = jz4780_nand_ecc_correct_bch;
 		chip->ecc.hwctl     = jz4780_nand_ecc_hwctl;
-		chip->ecc.size  = nand->curr_nand_flash_info->ecc_step.data_size;
+		chip->ecc.size  =
+			nand->curr_nand_flash_info->ecc_step.data_size;
 		chip->ecc.bytes = bch_ecc_bits_to_bytes(
-				nand->curr_nand_flash_info->ecc_step.ecc_bits);
+			nand->curr_nand_flash_info->ecc_step.ecc_bits);
 
 		chip->ecc.strength = nand->bch_req.ecc_level;
 
@@ -2654,17 +2850,14 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		mtd->writesize / chip->ecc.size * chip->ecc.bytes;
 
 	/*
-	 * ECC codes are right and word aligned
-	 * start position = (oobsize - eccbytes) @ word aligned address
+	 * ECC codes are right aligned
+	 * start position = oobsize - eccbytes
 	 */
 	eccpos_start = mtd->oobsize - nand->ecclayout.eccbytes;
-	eccpos_gap = eccpos_start & 0x3;
-	eccpos_start >>= 2;
-	eccpos_start <<= 2;
 	for (bank = 0; bank < nand->ecclayout.eccbytes; bank++)
 		nand->ecclayout.eccpos[bank] = eccpos_start + bank;
 
-	if (mtd->oobsize < (nand->ecclayout.eccbytes + eccpos_gap +
+	if (mtd->oobsize < (nand->ecclayout.eccbytes +
 			chip->badblockpos + 2)) {
 		WARN(1, "ECC codes are out of OOB area.\n");
 		BUG();
@@ -2672,17 +2865,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 
 	nand->ecclayout.oobfree->offset = chip->badblockpos + 2;
 	nand->ecclayout.oobfree->length =
-		mtd->oobsize - (nand->ecclayout.eccbytes + eccpos_gap +
-				chip->badblockpos + 2);
+		mtd->oobsize - (nand->ecclayout.eccbytes
+			+ chip->badblockpos + 2);
 
 	chip->ecc.layout = &nand->ecclayout;
-
-	/* step3. create dual thread ECC pipe */
-	ret = jz4780_nand_create_swecc_pipe(nand);
-	if (ret) {
-		dev_err(&nand->pdev->dev, "Failed to create swecc pipe.\n");
-		goto err_free_ecc;
-	}
 
 	/*
 	 * second phase NAND scan
@@ -2691,6 +2877,19 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		goto err_free_ecc;
 	}
+
+	/* create dual thread ECC pipe */
+	spin_lock_init(&nand->ecc_stats_lock);
+	ret = jz4780_nand_create_swecc_pipe(nand);
+	if (ret) {
+		dev_err(&nand->pdev->dev, "Failed to create swecc pipe.\n");
+		goto err_free_ecc;
+	}
+
+	/* override default ECC handlers */
+	chip->ecc.read_page = jz4780_nand_read_page_swecc;
+	chip->ecc.read_subpage = jz4780_nand_read_subpage_swecc;
+	chip->ecc.write_page = jz4780_nand_write_page_swecc;
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -2743,7 +2942,7 @@ err_debugfs_remove:
 
 err_free_ecc:
 	if (pdata->ecc_type == NAND_ECC_TYPE_SW &&
-			nand->swecc_pipe.task)
+			nand->swecc_another.task)
 		jz4780_nand_destory_swecc_pipe(nand);
 
 	if (pdata->ecc_type == NAND_ECC_TYPE_HW)
@@ -2821,7 +3020,7 @@ static int jz4780_nand_remove(struct platform_device *pdev)
 	}
 
 	if (nand->pdata->ecc_type == NAND_ECC_TYPE_SW &&
-			nand->swecc_pipe.task)
+			nand->swecc_another.task)
 		jz4780_nand_destory_swecc_pipe(nand);
 
 	if (nand->pdata->ecc_type == NAND_ECC_TYPE_HW &&

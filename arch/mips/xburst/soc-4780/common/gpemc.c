@@ -829,7 +829,9 @@ int gpemc_request_cs(struct device *dev, gpemc_bank_t *bank, int cs)
 
 	/* T(real) count in picosecond */
 	bank->bank_timing.clk_T_real_ps =
-			1000 * 1000 * 1000 / (clk_get_rate(gpemc->clk) / 1000);
+			(1000 * 1000 * 1000 +
+					(clk_get_rate(gpemc->clk) / 1000 - 1)) /
+					(clk_get_rate(gpemc->clk) / 1000);
 
 	if (bank->bank_type == BANK_TYPE_SRAM) {
 		WARN(bank->cnt_addr_pins > ARRAY_SIZE(gpemc->addr_pins_pool.addr_pins),
