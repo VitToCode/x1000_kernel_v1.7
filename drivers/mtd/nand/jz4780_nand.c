@@ -2935,18 +2935,20 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 		goto err_free_ecc;
 	}
 
-	/* create dual thread ECC pipe */
-	spin_lock_init(&nand->ecc_stats_lock);
-	ret = jz4780_nand_create_swecc_pipe(nand);
-	if (ret) {
-		dev_err(&nand->pdev->dev, "Failed to create swecc pipe.\n");
-		goto err_free_ecc;
-	}
+	if (nand->ecc_type == NAND_ECC_TYPE_SW) {
+		/* create dual thread ECC pipe */
+		spin_lock_init(&nand->ecc_stats_lock);
+		ret = jz4780_nand_create_swecc_pipe(nand);
+		if (ret) {
+			dev_err(&nand->pdev->dev, "Failed to create swecc pipe.\n");
+			goto err_free_ecc;
+		}
 
-	/* override default ECC handlers */
-	chip->ecc.read_page = jz4780_nand_read_page_swecc;
-	chip->ecc.read_subpage = jz4780_nand_read_subpage_swecc;
-	chip->ecc.write_page = jz4780_nand_write_page_swecc;
+		/* override default ECC handlers */
+		chip->ecc.read_page = jz4780_nand_read_page_swecc;
+		chip->ecc.read_subpage = jz4780_nand_read_subpage_swecc;
+		chip->ecc.write_page = jz4780_nand_write_page_swecc;
+	}
 
 #ifdef CONFIG_DEBUG_FS
 
