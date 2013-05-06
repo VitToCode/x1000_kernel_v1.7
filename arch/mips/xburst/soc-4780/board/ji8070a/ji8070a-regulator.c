@@ -103,7 +103,7 @@ FIXED_REGULATOR_DEF(
 	EXCLUSIVE_REGULATOR_DEF(
 		ji8070a_vq8lcd,
 		"vlcd",
-		"vlcd",NULL,	3300000);
+		"vlcd",NULL,  NULL, 3300000, 0);
 
 	FIXED_REGULATOR_DEF(
 		ji8070a_vlcd,
