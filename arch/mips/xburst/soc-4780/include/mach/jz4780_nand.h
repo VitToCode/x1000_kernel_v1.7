@@ -46,7 +46,18 @@ typedef enum {
 	NAND_OUTPUT_UNDER_DRIVER2,
 	NAND_OUTPUT_OVER_DRIVER1,
 	NAND_OUTPUT_OVER_DRIVER2,
+
+	CAN_NOT_ADJUST_OUTPUT_STRENGTH,
 } nand_output_driver_strength_t;
+
+typedef enum {
+	NAND_RB_DOWN_FULL_DRIVER = 0,
+	NAND_RB_DOWN_THREE_QUARTER_DRIVER,
+	NAND_RB_DOWN_ONE_HALF_DRIVER,
+	NAND_RB_DOWN_ONE_QUARTER_DRIVER,
+
+	CAN_NOT_ADJUST_RB_DOWN_STRENGTH
+} nand_rb_down_driver_strength_t;
 
 typedef struct {
 	int bank;
@@ -85,6 +96,7 @@ typedef struct {
 	nand_timing_t nand_timing;
 
 	nand_output_driver_strength_t output_strength;
+	nand_rb_down_driver_strength_t rb_down_strength;
 
 	struct {
 		int timing_mode;
@@ -124,7 +136,8 @@ struct jz4780_nand_platform_data {
 		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
 		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
 		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _TIMING_MODE, _BW,	\
-		_OUTPUT_STRENGTH, _NAND_PRE_INIT)	\
+		_OUTPUT_STRENGTH, _RB_DOWN_STRENGTH,	\
+		_NAND_PRE_INIT)	\
 		.name = (_NAME),	\
 		.nand_dev_id = (_DEV_ID),	\
 		.type = BANK_TYPE_NAND,	\
@@ -169,6 +182,7 @@ struct jz4780_nand_platform_data {
 		},	\
 		\
 		.output_strength = (_OUTPUT_STRENGTH),	\
+		.rb_down_strength = (_RB_DOWN_STRENGTH),	\
 		.onfi_special.timing_mode = (_TIMING_MODE),	\
 		.nand_pre_init = (_NAND_PRE_INIT),
 
