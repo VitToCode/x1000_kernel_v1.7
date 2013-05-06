@@ -125,7 +125,9 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
-			NAND_OUTPUT_UNDER_DRIVER1, samsung_nand_pre_init)
+			NAND_OUTPUT_UNDER_DRIVER1,
+			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
+			samsung_nand_pre_init)
 	},
 
 	{
@@ -140,7 +142,9 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
-			NAND_OUTPUT_UNDER_DRIVER1, micron_nand_pre_init)
+			NAND_OUTPUT_UNDER_DRIVER1,
+			NAND_RB_DOWN_FULL_DRIVER,
+			micron_nand_pre_init)
 	},
 };
 

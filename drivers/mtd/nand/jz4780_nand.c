@@ -14,11 +14,11 @@
  *  support toggle NAND
  *
  *  This program is free software; you can redistribute it and/or modify it
- *  under  the terms of the GNU General  Public License as published by the
+ *  under the terms of the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the License, or (at your
  *  option) any later version.
  *
- *  You should have received a copy o the GNU General Public License along
+ *  You should have received a copy of the GNU General Public License along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
@@ -293,7 +293,9 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
-			NAND_OUTPUT_NORMAL_DRIVER, samsung_nand_pre_init)
+			NAND_OUTPUT_NORMAL_DRIVER,
+			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
+			samsung_nand_pre_init)
 	},
 
 	{
@@ -308,7 +310,9 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
-			NAND_OUTPUT_NORMAL_DRIVER, micron_nand_pre_init)
+			NAND_OUTPUT_NORMAL_DRIVER,
+			NAND_RB_DOWN_FULL_DRIVER,
+			micron_nand_pre_init)
 	},
 };
 
@@ -332,29 +336,29 @@ int micron_nand_pre_init(struct jz4780_nand *nand)
 		 * ONFI NAND
 		 */
 
-		if (!strncmp(chip->onfi_params.model,
-				NAND_FLASH_MT29F32G08CBACAWP_NAME, 20)) {
+		uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
 
-			uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
+		for (i = 0; i < nand->num_nand_flash_if; i++) {
+			chip->select_chip(mtd, i);
 
-			for (i = 0; i < nand->num_nand_flash_if; i++) {
-				chip->select_chip(mtd, i);
-				/*
-				 * set async interface under a special timing mode
-				 */
-				memset(subfeature_param, 0, sizeof(subfeature_param));
-				subfeature_param[0] =
-						(uint8_t)nand_info->onfi_special.timing_mode;
-				ret = chip->onfi_set_features(mtd, chip,
-						0x1, subfeature_param);
-				if (ret) {
-					chip->select_chip(mtd, -1);
-					goto err_return;
-				}
+			/*
+			 * set async interface under a special timing mode
+			 */
+			memset(subfeature_param, 0, sizeof(subfeature_param));
+			subfeature_param[0] =
+					(uint8_t)nand_info->onfi_special.timing_mode;
+			ret = chip->onfi_set_features(mtd, chip,
+					0x1, subfeature_param);
+			if (ret) {
+				chip->select_chip(mtd, -1);
+				goto err_return;
+			}
 
-				/*
-				 * set output driver strength
-				 */
+			/*
+			 * set output driver strength
+			 */
+			if (nand_info->output_strength !=
+					CAN_NOT_ADJUST_OUTPUT_STRENGTH) {
 				memset(subfeature_param, 0, sizeof(subfeature_param));
 				switch (nand_info->output_strength) {
 				case NAND_OUTPUT_NORMAL_DRIVER:
@@ -373,6 +377,9 @@ int micron_nand_pre_init(struct jz4780_nand *nand)
 				case NAND_OUTPUT_OVER_DRIVER2:
 					subfeature_param[0] = 0x0;
 					break;
+
+				case CAN_NOT_ADJUST_OUTPUT_STRENGTH:
+					BUG();
 				}
 
 				ret = chip->onfi_set_features(mtd, chip,
@@ -381,15 +388,44 @@ int micron_nand_pre_init(struct jz4780_nand *nand)
 					chip->select_chip(mtd, -1);
 					goto err_return;
 				}
-
-				chip->select_chip(mtd, -1);
 			}
 
-		} else {
 			/*
-			 * TODO
-			 * add NAND special codes
+			 * set R/B# pull-down strength
 			 */
+			if (nand_info->rb_down_strength !=
+					CAN_NOT_ADJUST_RB_DOWN_STRENGTH) {
+				memset(subfeature_param, 0, sizeof(subfeature_param));
+				switch (nand_info->rb_down_strength) {
+				case NAND_RB_DOWN_FULL_DRIVER:
+					subfeature_param[0] = 0x0;
+					break;
+
+				case NAND_RB_DOWN_THREE_QUARTER_DRIVER:
+					subfeature_param[0] = 0x1;
+					break;
+
+				case NAND_RB_DOWN_ONE_HALF_DRIVER:
+					subfeature_param[0] = 0x2;
+					break;
+
+				case NAND_RB_DOWN_ONE_QUARTER_DRIVER:
+					subfeature_param[0] = 0x3;
+					break;
+
+				case CAN_NOT_ADJUST_RB_DOWN_STRENGTH:
+					BUG();
+				}
+
+				ret = chip->onfi_set_features(mtd, chip,
+						0x81, subfeature_param);
+				if (ret) {
+					chip->select_chip(mtd, -1);
+					goto err_return;
+				}
+			}
+
+			chip->select_chip(mtd, -1);
 		}
 	} else {
 		/*
@@ -423,16 +459,15 @@ int samsung_nand_pre_init(struct jz4780_nand *nand)
 		 * even it's not a ONFI NAND but
 		 * it's with the same commands set
 		 */
-		if (!strncmp(nand_info->name,
-				NAND_FLASH_K9GBG08U0A_NANE, 20)) {
+		uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
 
-			uint8_t subfeature_param[ONFI_SUBFEATURE_PARAM_LEN];
-
-			for (i = 0; i < nand->num_nand_flash_if; i++) {
-				chip->select_chip(mtd, i);
-				/*
-				 * set output driver strength
-				 */
+		for (i = 0; i < nand->num_nand_flash_if; i++) {
+			chip->select_chip(mtd, i);
+			/*
+			 * set output driver strength
+			 */
+			if (nand_info->output_strength !=
+					CAN_NOT_ADJUST_OUTPUT_STRENGTH) {
 				memset(subfeature_param, 0, sizeof(subfeature_param));
 				switch (nand_info->output_strength) {
 				case NAND_OUTPUT_NORMAL_DRIVER:
@@ -448,6 +483,9 @@ int samsung_nand_pre_init(struct jz4780_nand *nand)
 				case NAND_OUTPUT_OVER_DRIVER2:
 					subfeature_param[0] = 0x6;
 					break;
+
+				case CAN_NOT_ADJUST_OUTPUT_STRENGTH:
+					BUG();
 				}
 
 				ret = chip->onfi_set_features(mtd, chip,
@@ -457,15 +495,9 @@ int samsung_nand_pre_init(struct jz4780_nand *nand)
 				 * set_feature return value check
 				 */
 				ret = 0;
-
-				chip->select_chip(mtd, -1);
 			}
 
-		} else {
-			/*
-			 * TODO
-			 * add NAND special codes
-			 */
+			chip->select_chip(mtd, -1);
 		}
 	}
 
@@ -2375,7 +2407,7 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 		seq_printf(m, "Use R/B# poll: %d\n", nand->busy_poll);
 
 		seq_printf(m, "\n");
-		seq_printf(m, "NAND flash output driver strength:\n");
+		seq_printf(m, "NAND flash output driver strength: ");
 		switch (nand_info->output_strength) {
 		case NAND_OUTPUT_NORMAL_DRIVER:
 			seq_printf(m, "Normal driver\n");
@@ -2393,6 +2425,31 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 			break;
 		case NAND_OUTPUT_OVER_DRIVER2:
 			seq_printf(m, "Over driver(2)\n");
+			break;
+		case CAN_NOT_ADJUST_OUTPUT_STRENGTH:
+			seq_printf(m, "unsupport\n");
+			break;
+		}
+		seq_printf(m, "NAND flash R/B# pull-down driver strength: ");
+		switch (nand_info->rb_down_strength) {
+		case NAND_RB_DOWN_FULL_DRIVER:
+			seq_printf(m, "full\n");
+			break;
+
+		case NAND_RB_DOWN_THREE_QUARTER_DRIVER:
+			seq_printf(m, "3/4 full\n");
+			break;
+
+		case NAND_RB_DOWN_ONE_HALF_DRIVER:
+			seq_printf(m, "1/2 full\n");
+			break;
+
+		case NAND_RB_DOWN_ONE_QUARTER_DRIVER:
+			seq_printf(m, "1/4 full\n");
+			break;
+
+		case CAN_NOT_ADJUST_RB_DOWN_STRENGTH:
+			seq_printf(m, "unsupport\n");
 			break;
 		}
 
