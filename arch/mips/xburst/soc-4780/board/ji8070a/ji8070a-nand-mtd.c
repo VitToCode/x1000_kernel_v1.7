@@ -99,6 +99,9 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 	#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
 	#define NAND_FLASH_K9GBG08U0A_ID             0xd7
 
+	#define NAND_FLASH_MT29F32G08CBACAWP_NAME    "MT29F32G08CBACAWP"
+	#define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
+
 	{
 		/*
 		 * Datasheet of K9GBG08U0A, Rev-1.3, P5, S1.2
@@ -106,7 +109,7 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 24,
+			1024, 32,
 			/*
 			 * all timings adjust to +10ns
 			 *
@@ -121,7 +124,23 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
-			5 * 1000 * 1000, BUS_WIDTH_8)
+			5 * 1000 * 1000, 0, BUS_WIDTH_8,
+			NAND_OUTPUT_UNDER_DRIVER1, samsung_nand_pre_init)
+	},
+
+	{
+		/*
+		 * Datasheet of MT29F32G08CBACA(WP), Rev-E, P109, Table-17
+		 * ECC : 24bit/1080bytes
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_MT29F32G08CBACAWP_NAME,
+			NAND_FLASH_MT29F32G08CBACAWP_ID,
+			1024, 32, 0,
+			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
+			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
+			NAND_OUTPUT_UNDER_DRIVER1, micron_nand_pre_init)
 	},
 };
 
