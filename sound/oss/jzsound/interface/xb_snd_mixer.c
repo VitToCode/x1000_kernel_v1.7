@@ -255,6 +255,25 @@ long xb_snd_mixer_ioctl(struct file *file,
 
 		break;
 	}
+	case SOUND_MIXER_WRITE_LINE: {
+		devices = SND_DEVICE_HEADSET_MIC,
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		devices = SND_DEVICE_HEADSET,
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		break;
+	}
+	case SOUND_MIXER_WRITE_MIC:	 {
+		int gain = 0;
+		if (get_user(gain, (int*)arg)){
+			return -EFAULT;
+		}
+		devices = SND_DEVICE_BUILDIN_MIC,
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		devices = SND_DEVICE_SPEAKER,
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&gain);
+		break;
+	}
 
 		//case SNDCTL_MIX_DESCRIPTION:
 		/* OSS 4.x: get description text for a mixer control */

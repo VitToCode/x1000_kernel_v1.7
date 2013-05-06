@@ -2421,7 +2421,8 @@ static int codec_set_record_volume(int *val)
 }
 
 static int codec_set_mic_volume(int* val)
-{
+ {
+#ifdef CONFIG_ANDRIO
 #ifndef CONFIG_SOUND_XBURST_DEBUG
 	/*just set analog gm1 and gm2*/
 	int fixed_vol;
@@ -2442,12 +2443,13 @@ static int codec_set_mic_volume(int* val)
 	__codec_set_gm1(fixed_vol);
 	__codec_set_gm2(fixed_vol);
 	user_record_volume = *val;
-#else
+	return *val;
+#endif
+#endif
 	int val_tmp = *val;
 	*val = codec_set_gain_mic1(val_tmp);
 	val_tmp = *val;
 	*val = codec_set_gain_mic2(val_tmp);
-#endif
 	return *val;
 }
 

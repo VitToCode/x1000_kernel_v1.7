@@ -2032,7 +2032,7 @@ int xb_snd_dsp_open(struct inode *inode,
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE) {
 		if (dpo->is_used)
 			return 0;
-		else
+		else if (dpi->is_used && dpo->is_used)
 			return -ENODEV;
 	}
 
