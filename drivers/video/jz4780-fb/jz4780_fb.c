@@ -1206,6 +1206,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 	if(!jzfb->is_enabled)
 		return 0;
 
+	if(jzfb->is_suspend)
+		clk_enable(jzfb->clk);
+
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		reg_write(jzfb, LCDC_STATE, 0);
@@ -1298,16 +1301,19 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	jzfb->vidmem = dma_alloc_coherent(jzfb->dev,
 					  jzfb->vidmem_size,
 					  &jzfb->vidmem_phys, GFP_KERNEL);
+	if (!jzfb->vidmem)
+		return -ENOMEM;
 #else
 	jzfb->vidmem_size += PAGE_SIZE;
 	jzfb->vidmem = kmalloc(jzfb->vidmem_size, GFP_KERNEL);
+	if (!jzfb->vidmem)
+		return -ENOMEM;
+
 	jzfb->vidmem = (void *)((unsigned long)(jzfb->vidmem + (PAGE_SIZE-1))
 			& (~(PAGE_SIZE-1)));
 	jzfb->vidmem_phys = (unsigned long)virt_to_phys(jzfb->vidmem);
+	memset(jzfb->vidmem, 0x00, jzfb->vidmem_size);
 #endif
-
-	if (!jzfb->vidmem)
-		return -ENOMEM;
 
 	for (page = jzfb->vidmem;
 	     page < jzfb->vidmem + PAGE_ALIGN(jzfb->vidmem_size);
