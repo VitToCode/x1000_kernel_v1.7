@@ -2446,10 +2446,8 @@ static int codec_set_mic_volume(int* val)
 	return *val;
 #endif
 #endif
-	int val_tmp = *val;
-	*val = codec_set_gain_mic1(val_tmp);
-	val_tmp = *val;
-	*val = codec_set_gain_mic2(val_tmp);
+	 codec_set_gain_mic1(*val);
+	 codec_set_gain_mic2(*val);
 	return *val;
 }
 
