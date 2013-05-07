@@ -353,6 +353,10 @@ static u64 jz_i2c_dmamask =  ~(u32)0;
 			.start          = JZDMA_REQ_I2C##NO,			\
 			.flags          = IORESOURCE_DMA,			\
 		},								\
+		[3] = {								\
+			.start          = CONFIG_I2C##NO##_SPEED,			\
+			.flags          = IORESOURCE_BUS, \
+		},								\
 	};									\
 struct platform_device jz_i2c##NO##_device = {					\
 	.name = "jz-i2c",							\
@@ -364,11 +368,21 @@ struct platform_device jz_i2c##NO##_device = {					\
 	.num_resources  = ARRAY_SIZE(jz_i2c##NO##_resources),			\
 	.resource       = jz_i2c##NO##_resources,				\
 };
+#ifdef CONFIG_I2C0_JZ4780
 DEF_I2C(0);
+#endif
+#ifdef CONFIG_I2C1_JZ4780
 DEF_I2C(1);
+#endif
+#ifdef CONFIG_I2C2_JZ4780
 DEF_I2C(2);
+#endif
+#ifdef CONFIG_I2C3_JZ4780
 DEF_I2C(3);
+#endif
+#ifdef CONFIG_I2C4_JZ4780
 DEF_I2C(4);
+#endif
 
 /**
  * sound devices, include i2s,pcm, mixer0 - 1(mixer is used for debug) and an internal codec
