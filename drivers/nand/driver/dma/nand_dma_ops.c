@@ -11,6 +11,7 @@
 extern void set_read_retrial_mode(NAND_BASE *host, unsigned int pageid, unsigned char *data);
 extern unsigned char *retrialbuf;
 #define READ_RETRY_COUNT        8
+#define READ_RETRY_CYCLE        8
 
 #define MCU_TEST_INTER_NAND
 #ifdef MCU_TEST_INTER_NAND
@@ -435,7 +436,7 @@ read_page_singlenode_error1:
 int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes,void *databuf)
 {
 	int ret = 0;
-	int count = 0;
+	int count = 0, cycle = 0;
 	disable_rb_irq(pnand_api);
 #ifdef MCU_ONCE_RESERT
 	if(mcuresflag) {
@@ -451,13 +452,17 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 #endif
 	while(1) {
 		if (count == READ_RETRY_COUNT) {
-			printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
-					,__func__
-					,__LINE__
-					,pageid
-					,get_physical_addr(pnand_api, pageid)
-					,ret);
-			break;
+			printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+			       ,__func__
+			       ,__LINE__
+			       ,pageid
+			       ,get_physical_addr(pnand_api, pageid)
+			       ,cycle
+			       ,ret);
+			count = 0;
+			cycle++;
+			if (cycle == READ_RETRY_CYCLE)
+				break;
 		}
 		ret = read_page_singlenode(pnand_api, pageid, offset, bytes, databuf);
 		if (ret == ECC_ERROR) {
@@ -672,7 +677,7 @@ read_page_node_error1:
 
 int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 {
-	int count = 0;
+	int count = 0, cycle = 0;
 	Aligned_List *alignelist = list;
 	PageList *templist;
 	unsigned int opsmodel;
@@ -696,14 +701,19 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		if(opsmodel == 1){
 			while(1) {
 				if (count == READ_RETRY_COUNT) {
-					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
-							,__func__
-							,__LINE__
-							,templist->startPageID
-							,get_physical_addr(pnand_api, templist->startPageID)
-							,ret);
+					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+					       ,__func__
+					       ,__LINE__
+					       ,templist->startPageID
+					       ,get_physical_addr(pnand_api, templist->startPageID)
+					       ,cycle
+					       ,ret);
                                         count = 0;
-					break;
+					cycle++;
+					if (cycle == READ_RETRY_CYCLE) {
+						cycle = 0;
+						break;
+					}
 				}
 				ret = read_page_singlenode(pnand_api,templist->startPageID,
 						templist->OffsetBytes,templist->Bytes,templist->pData);
@@ -716,8 +726,12 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 				} else {
 					if (count > 0 && ret >= 0) {
 						ret = 1;
+						count = 0;
+						cycle = 0;
 						break;
 					}
+					count = 0;
+					cycle = 0;
 					break;
 				}
 			}
@@ -735,14 +749,19 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		}else{
 			while(1) {
 				if (count == READ_RETRY_COUNT) {
-					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d  ret =%d\n"
-							,__func__
-							,__LINE__
-							,templist->startPageID
-							,get_physical_addr(pnand_api, templist->startPageID)
-							,ret);
+					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+					       ,__func__
+					       ,__LINE__
+					       ,templist->startPageID
+					       ,get_physical_addr(pnand_api, templist->startPageID)
+					       ,cycle
+					       ,ret);
                                         count = 0;
-					break;
+					cycle++;
+					if (cycle == READ_RETRY_CYCLE) {
+						cycle = 0;
+						break;
+					}
 				}
 				ret = read_page_multinode(pnand_api,templist,opsmodel);
 				if (ret == ECC_ERROR) {
@@ -754,8 +773,12 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 				} else {
 					if (count > 0 && ret >= 0) {
 						ret = 1;
+						count = 0;
+						cycle = 0;
 						break;
 					}
+					count = 0;
+					cycle = 0;
 					break;
 				}
 			}
