@@ -204,9 +204,12 @@ const char *label_busy_gpio[] = {
 	"bank6-nand-busy",
 };
 
+#ifdef CONFIG_DEBUG_FS
+
 /* root entry to debug */
 static struct dentry *debugfs_root;
 
+#endif
 
 /*
  * ******************************************************
