@@ -2317,8 +2317,11 @@ err_return:
 
 static void jz4780_nand_destory_swecc_pipe(struct jz4780_nand *nand)
 {
-	kthread_stop(nand->swecc_another.task);
-	nand_bch_free(nand->swecc_another.nbc);
+	extern int nr_cpu_ids;
+	if (nr_cpu_ids > 2) {
+		kthread_stop(nand->swecc_another.task);
+		nand_bch_free(nand->swecc_another.nbc);
+	}
 }
 
 static int jz4780_nand_pre_init(struct jz4780_nand *nand)
