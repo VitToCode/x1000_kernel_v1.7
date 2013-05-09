@@ -2858,11 +2858,25 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	/* step1. configure ECC step */
 	switch (nand->ecc_type) {
 	case NAND_ECC_TYPE_SW:
+		/*
+		 * valid ECC configuration ?
+		 */
+		if (nand->curr_nand_flash_info->
+				ecc_step.data_size % 8
+				|| nand->curr_nand_flash_info->
+					ecc_step.ecc_bits % 8) {
+			ret = -EINVAL;
+			dev_err(&nand->pdev->dev, "Failed when configure ECC,"
+					" ECC size, and ECC bits must be a multiple of 8.\n");
+			goto err_dma_release_channel;
+		}
+
 		chip->ecc.mode  = NAND_ECC_SOFT_BCH;
 		chip->ecc.size  =
 			nand->curr_nand_flash_info->ecc_step.data_size / 8;
 		chip->ecc.bytes = (fls(8 * chip->ecc.size) *
 			(nand->curr_nand_flash_info->ecc_step.ecc_bits / 8) + 7) / 8;
+
 		break;
 
 	case NAND_ECC_TYPE_HW:
