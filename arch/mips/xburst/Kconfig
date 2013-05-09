@@ -77,16 +77,6 @@ config TRAPS_USE_TCSM_CHECK
 	bool "check tcsm when power resume"
 	default n
 
-config EARLYSUSPEND_CPU
-	depends on EARLYSUSPEND
-	bool "suspend non-boot cpu when enter early suspend"
-	default n
-
-config DELAY_CPU_UP
-	depends on EARLYSUSPEND_CPU
-	bool "add delay after smp late resume"
-	default y
-
 config CPUFREQ_CHANGE_VCORE
 	depends on CPU_FREQ
 	bool "change vcore voltage when cpu frequency has changed"
