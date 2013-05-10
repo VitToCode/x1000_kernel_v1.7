@@ -249,8 +249,8 @@ void fill_tlb_address(int vaddr, int lenth, struct x2d_proc_info* proc)
 		tlb_pos+=4;
 		addr += X2D_PAGE_SIZE;
 	}
-	dma_cache_wback(proc->tlb_base + s_pos,page_num * 4);
-	dma_cache_wback(vaddr,lenth);
+	dma_cache_wback_inv(proc->tlb_base + s_pos,page_num * 4);
+	dma_cache_wback_inv(vaddr,lenth);
 }
 
 #ifndef USE_DMMU_TLB
@@ -339,6 +339,7 @@ static int x2d_create_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 		dev_err(jz_x2d->dev,"malloc for struct proc_info fail\n");
 		return -EFAULT;
 	}
+	memset(x2d_proc, 0, sizeof(struct x2d_proc_info));
 	x2d_proc->pid = current->pid;
 	x2d_proc->x2d_filp = filp;
 	list_add_tail(&x2d_proc->list,&jz_x2d->proc_list);
@@ -456,7 +457,7 @@ static void x2d_dump_reg(struct x2d_device *jz_x2d, struct x2d_proc_info* p)
 static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 {
 	int i = 0;
-	struct x2d_proc_info * x2d_proc;
+	struct x2d_proc_info * x2d_proc = NULL;
 
 	mutex_lock(&jz_x2d->compose_lock);
 
@@ -464,6 +465,7 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
 	if (!x2d_proc) {
 		dev_err(jz_x2d->dev, "%s x2d_proc is NULL!", __func__);
+		mutex_unlock(&jz_x2d->compose_lock);
 		return -EFAULT;
 	}
 	jz_x2d->cur_filp = filp;
@@ -483,6 +485,8 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		reg_write(jz_x2d, REG_X2D_TLB_BASE, x2d_proc->configs.tlb_base);
 	} else {
 		dev_err(jz_x2d->dev, "x2d_proc->configs.tlb_base is zero");
+		clk_disable(jz_x2d->x2d_clk);
+		mutex_unlock(&jz_x2d->compose_lock);
 		return -EFAULT;
 	}
 #else 
@@ -544,7 +548,7 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		//the CSCM_EN mau affects the color of video for x2d
 		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(x2d_proc->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
 			|(x2d_proc->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
-			/*			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) */ \
+			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) \
 			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
@@ -557,19 +561,21 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
 		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
 		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
-		jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width;
-		jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height;
+		jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width & ~0xf;
+		jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height & ~0xf;
 		jz_x2d->chain_p->x2d_lays[i].ystr = (uint16_t)x2d_proc->configs.lay[i].y_stride;
 		jz_x2d->chain_p->x2d_lays[i].uvstr = (uint16_t)x2d_proc->configs.lay[i].v_stride;
 		jz_x2d->chain_p->x2d_lays[i].owidth = (uint16_t)x2d_proc->configs.lay[i].out_width;
 		jz_x2d->chain_p->x2d_lays[i].oheight= (uint16_t)x2d_proc->configs.lay[i].out_height;
 		jz_x2d->chain_p->x2d_lays[i].oxoffset= (uint16_t)x2d_proc->configs.lay[i].out_w_offset;
 		jz_x2d->chain_p->x2d_lays[i].oyoffset= (uint16_t)x2d_proc->configs.lay[i].out_h_offset;
-		jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)x2d_proc->configs.lay[i].h_scale_ratio;
-		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)x2d_proc->configs.lay[i].v_scale_ratio;
+		jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * 512) \
+				/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
+		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * 512) \
+				/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
 		jz_x2d->chain_p->x2d_lays[i].bk_argb = x2d_proc->configs.lay[i].msk_val;
 	}
-	dma_cache_wback((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
+	dma_cache_wback_inv((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
 
 #ifdef X2D_DEBUG
 	__x2d_enable_wthdog();
@@ -579,12 +585,12 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	__x2d_start_trig();
 
 	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue, 10*HZ)) {
-		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
+		dev_err(jz_x2d->dev,"wait queue time out  %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		__x2d_stop_trig();
 		x2d_dump_reg(jz_x2d,x2d_proc);
 		clk_disable(jz_x2d->x2d_clk);
 		mutex_unlock(&jz_x2d->compose_lock);
-		dev_err(jz_x2d->dev,"wait queue time out  %lx\n",reg_read(jz_x2d,REG_X2D_GLB_STATUS));
+		dev_err(jz_x2d->dev,"wait queue time out  %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		return -1;   
 	}
 
@@ -627,11 +633,13 @@ static int jz_x2d_set_config(struct x2d_device *jz_x2d,
 	mutex_lock(&jz_x2d->x2d_lock);
 	x2d_proc = x2d_index_procinfo(jz_x2d, filp);
 	if (!x2d_proc) {
+		mutex_unlock(&jz_x2d->x2d_lock);
 		dev_err(jz_x2d->dev, "%s x2d_index_procinfo Failed!", __func__);
 		return -EFAULT;
 	}
 
 	if (copy_from_user(&x2d_proc->configs, (void *)config, sizeof(struct jz_x2d_config))) {
+		mutex_unlock(&jz_x2d->x2d_lock);
 		dev_err(jz_x2d->dev, "copy_from_user Failed!!!");
 		return -EFAULT;
 	}
@@ -704,6 +712,7 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 		__x2d_clear_irq();
 		clk_disable(jz_x2d->x2d_clk);
 		wake_up_interruptible(&jz_x2d->set_wait_queue);
+		clk_enable(jz_x2d->x2d_clk);
 	}
 
 	jz_x2d->state = x2d_state_complete;
@@ -739,13 +748,22 @@ static int x2d_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
 	struct x2d_device *jz_x2d = NULL;
+	if (filp == NULL) {
+		printk("error: filp == NULL");
+		return -EFAULT;
+	}
 
 	jz_x2d = file_to_x2d(filp);
+	if (jz_x2d == NULL) {
+		printk("can't open x2d to filp: %p\n", filp);
+		return -EFAULT;
+	}
 	dev_info(jz_x2d->dev, "x2d open struct file: %p", filp);
 
 	mutex_lock(&jz_x2d->x2d_lock);
 	ret = x2d_create_procinfo(jz_x2d, filp);
 	if (ret < 0) {
+		mutex_unlock(&jz_x2d->x2d_lock);
 		dev_err(jz_x2d->dev, "x2d_create_procinfo failed!");
 		return -EFAULT;
 	}
@@ -765,6 +783,7 @@ static int x2d_release(struct inode *inode, struct file *filp)
 	mutex_lock(&jz_x2d->x2d_lock);
 	ret = x2d_free_procinfo(jz_x2d, filp);
 	if (ret < 0) {
+		mutex_unlock(&jz_x2d->x2d_lock);
 		dev_err(jz_x2d->dev, "x2d_free_procinfo failed!");
 		return -EFAULT;
 	}
@@ -857,7 +876,10 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	jz_x2d->dev = &pdev->dev;
 
 	jz_x2d->chain_p = kzalloc(sizeof(x2d_chain_info), GFP_KERNEL);
-
+	if (jz_x2d->chain_p == NULL) {
+		dev_err(&pdev->dev, "Error alloc jz_x2d->chain_p no memory!\n");
+		return -ENOMEM;
+	}
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
 		dev_err(&pdev->dev, "Failed to get register memory resource\n");
@@ -887,6 +909,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 
 	//jz_x2d->platdev = pdev; 
 	clk_enable(jz_x2d->x2d_clk);
+	clk_set_rate(jz_x2d->x2d_clk, 300000000);
 
 	x2d_id = __x2d_read_devid();
 	if (x2d_id != X2D_ID) {
