@@ -548,7 +548,7 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		//the CSCM_EN mau affects the color of video for x2d
 		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(x2d_proc->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
 			|(x2d_proc->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
-			|((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN) \
+			/* |((x2d_proc->configs.lay[i].format > X2D_INFORMAT_RGB565) << BIT_X2D_LAY_CSCM_EN)*/ \
 			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
@@ -909,7 +909,9 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 
 	//jz_x2d->platdev = pdev; 
 	clk_enable(jz_x2d->x2d_clk);
-	clk_set_rate(jz_x2d->x2d_clk, 300000000);
+
+	/* the hardware don't support x2d clock frequency set, so we don't need to set its rate */
+	//clk_set_rate(jz_x2d->x2d_clk, 300000000);
 
 	x2d_id = __x2d_read_devid();
 	if (x2d_id != X2D_ID) {
