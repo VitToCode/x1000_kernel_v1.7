@@ -22,7 +22,8 @@
 #define LCDC_OSDCTRL	(0x104) /* OSD Control Register */
 #define LCDC_OSDS	(0x108) /* OSD Status Register */
 #define LCDC_BGC0	(0x10c) /* Background 0 Color Register */
-#define LCDC_BGC1	(0x24c) /* Background 1 Color Register */
+#define LCDC_BGC1	(0x2c4) /* Background 1 Color Register */
+//#define LCDC_BGC1	(0x24c) /* Background 1 Color Register */
 #define LCDC_KEY0	(0x110) /* Foreground Color Key Register 0 */
 #define LCDC_KEY1	(0x114) /* Foreground Color Key Register 1 */
 #define LCDC_ALPHA	(0x118) /* ALPHA Register */
