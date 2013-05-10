@@ -335,6 +335,9 @@ DEF_MSC(0);
 DEF_MSC(1);
 DEF_MSC(2);
 
+#if (defined(CONFIG_I2C0_JZ4780) || defined(CONFIG_I2C1_JZ4780) ||	\
+		defined(CONFIG_I2C2_JZ4780) || defined(CONFIG_I2C3_JZ4780) ||	\
+		defined(CONFIG_I2C4_JZ4780))
 static u64 jz_i2c_dmamask =  ~(u32)0;
 
 #define DEF_I2C(NO)								\
@@ -382,6 +385,7 @@ DEF_I2C(3);
 #endif
 #ifdef CONFIG_I2C4_JZ4780
 DEF_I2C(4);
+#endif
 #endif
 
 /**
