@@ -2293,6 +2293,7 @@ static int jzfb_copy_logo(struct fb_info *info)
 	unsigned long src_addr = 0; /* x-boot logo buffer address */
 	unsigned long dst_addr = 0; /* kernel frame buffer address */
 	unsigned long size;
+	int i = 0;
 	struct jzfb *jzfb = info->par;
 
 	/* get buffer physical address */
@@ -2306,12 +2307,10 @@ static int jzfb_copy_logo(struct fb_info *info)
 
 	if (src_addr) {
 		src_addr = (unsigned long)phys_to_virt(src_addr);
-		dst_addr = (unsigned long)info->screen_base;
-
 		size = info->fix.line_length * info->var.yres;
-		memcpy((void *)dst_addr, (void *)src_addr, size);
-		if (NUM_FRAME_BUFFERS >= 2) {
-			dst_addr = (unsigned long)info->screen_base + size;
+
+		for(i=0; i<NUM_FRAME_BUFFERS; i++) {
+			dst_addr = (unsigned long)info->screen_base + i*size;
 			memcpy((void *)dst_addr, (void *)src_addr, size);
 		}
 	}
