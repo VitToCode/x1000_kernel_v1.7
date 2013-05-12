@@ -762,7 +762,7 @@ static int nand_block_probe(struct device *dev)
 
 	if (lpt->pt->mode == ZONE_MANAGER)
 		printk("INFO(nand block): pt[%s] capacity is [%d]MB\n", lpt->pt->name,
-		       div_s64_32((ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
+		       div_s64_32(((unsigned long long)ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
 
 	ndisk->disk->major = nand_block.major;
 	ndisk->disk->first_minor = cur_minor;
