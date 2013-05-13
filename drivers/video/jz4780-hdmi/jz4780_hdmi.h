@@ -91,6 +91,8 @@ struct jzhdmi{
 	struct hdmi_info hdmi_info;
 	struct regulator *hdmi_power;
 
+	struct mutex lock;
+
 	unsigned int hpd_connected;
 	unsigned int edid_done;
 	unsigned int is_suspended;

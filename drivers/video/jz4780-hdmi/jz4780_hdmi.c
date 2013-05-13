@@ -17,6 +17,7 @@
 #include <linux/miscdevice.h>
 #include <linux/switch.h>
 #include <linux/clk.h>
+#include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/earlysuspend.h>
@@ -497,6 +498,7 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	struct jzhdmi *jzhdmi;
 
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
+	mutex_lock(&jzhdmi->lock);
 	jzhdmi->is_suspended = 1;
 	hpd_callback(&api_mHpd);
 	system_InterruptDisable(TX_INT);
@@ -505,6 +507,7 @@ static void hdmi_early_suspend(struct early_suspend *h)
 
 	clk_disable(jzhdmi->hdmi_cgu_clk);
 	clk_disable(jzhdmi->hdmi_clk);
+	mutex_unlock(&jzhdmi->lock);
 }
 static void hdmi_late_resume(struct early_suspend *h)
 {
@@ -668,6 +671,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		goto err_regulator_put;
 	}
 
+	mutex_init(&jzhdmi->lock);
+
 	/*request_irq in bsp/system.c*/
 	jzhdmi->hdmi_switch.name = "hdmi";
 	ret = switch_dev_register(&jzhdmi->hdmi_switch);
@@ -796,12 +801,16 @@ static void jzhdmi_shutdown(struct platform_device *pdev)
 {
 	struct jzhdmi *jzhdmi = platform_get_drvdata(pdev);
 
-	if (!api_Standby()) {
-		dev_err(jzhdmi->dev, "API standby fail\n");
-		return;
+	mutex_lock(&jzhdmi->lock);
+	if(!jzhdmi->is_suspended) {
+		if (!api_Standby()) {
+			dev_err(jzhdmi->dev, "API standby fail\n");
+			return;
+		}
+		api_phy_enable(0);
+		//regulator_disable(jzhdmi->hdmi_power);
 	}
-	api_phy_enable(0);
-	//regulator_disable(jzhdmi->hdmi_power);
+	mutex_unlock(&jzhdmi->lock);
 }
 
 static int __devexit jzhdmi_remove(struct platform_device *pdev)
