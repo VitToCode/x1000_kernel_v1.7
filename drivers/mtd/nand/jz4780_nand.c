@@ -216,8 +216,12 @@ static struct dentry *debugfs_root;
  * ******************************************************
  * 	NAND flash chip name & ID
  * ******************************************************
- *
- *
+ */
+
+#define NAND_FLASH_K9K8G08U0D_NAME           "K9K8G08U0D"
+#define NAND_FLASH_K9K8G08U0D_ID             0xd3
+
+/*
  * !!!Caution
  * "K9GBG08U0A" may be with one of two ID sequences:
  * "EC D7 94 76" --- this one can not be detected properly
@@ -253,6 +257,15 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 	 * These are the new chips with large page size. The pagesize and the
 	 * erasesize is determined from the extended id bytes
 	 */
+
+	/*
+	 * K9K8G08U0D
+	 */
+	{
+		NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
+		0, 1024, 0, LP_OPTIONS
+	},
+
 
 	/*
 	 * K9GBG08U0A
@@ -304,6 +317,22 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
  * ******************************************************
  */
 static nand_flash_info_t builtin_nand_info_table[] = {
+	{
+		/*
+		 * Datasheet of K9K8G08U0D, Rev-0.2, P4, S1.2
+		 * ECC : 1bit/528Byte
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
+			1024, 16, 0,
+			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
+			25, 25, 70, 100, 60, 60, 12, 20, 0, 100,
+			100, 500 * 1000, 0, 0, 0, 0, BUS_WIDTH_8,
+			CAN_NOT_ADJUST_OUTPUT_STRENGTH,
+			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
+			samsung_nand_pre_init)
+	},
+
 	{
 		/*
 		 * Datasheet of K9GBG08U0A, Rev-1.3, P5, S1.2
