@@ -2405,7 +2405,7 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 		seq_printf(m, "Chip size: %dMB\n", (int)(nand->chip.chipsize >> 20));
 		seq_printf(m, "Erase size: %ubyte\n", nand->mtd.erasesize);
 		seq_printf(m, "Write size: %dbyte\n", nand->mtd.writesize);
-		seq_printf(m, "OOB size %dbyte\n", nand->mtd.oobsize);
+		seq_printf(m, "OOB size: %dbyte\n", nand->mtd.oobsize);
 
 		seq_printf(m, "\n");
 		seq_printf(m, "Data path:\n");
@@ -2926,6 +2926,12 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	nand->ecclayout.eccbytes =
 		mtd->writesize / chip->ecc.size * chip->ecc.bytes;
 
+	if (mtd->oobsize < (nand->ecclayout.eccbytes +
+			chip->badblockpos + 2)) {
+		WARN(1, "ECC codes are out of OOB area.\n");
+		BUG();
+	}
+
 	/*
 	 * ECC codes are right aligned
 	 * start position = oobsize - eccbytes
@@ -2933,12 +2939,6 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	eccpos_start = mtd->oobsize - nand->ecclayout.eccbytes;
 	for (bank = 0; bank < nand->ecclayout.eccbytes; bank++)
 		nand->ecclayout.eccpos[bank] = eccpos_start + bank;
-
-	if (mtd->oobsize < (nand->ecclayout.eccbytes +
-			chip->badblockpos + 2)) {
-		WARN(1, "ECC codes are out of OOB area.\n");
-		BUG();
-	}
 
 	nand->ecclayout.oobfree->offset = chip->badblockpos + 2;
 	nand->ecclayout.oobfree->length =
