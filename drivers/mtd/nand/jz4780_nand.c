@@ -9,6 +9,7 @@
  *
  *  <Stability>
  *  PN random process
+ *  Read retry
  *
  *  <Function>
  *  support toggle NAND
@@ -233,6 +234,14 @@ static struct dentry *debugfs_root;
 #define NAND_FLASH_MT29F32G08CBACAWP_NAME    "MT29F32G08CBACAWP"
 #define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
 
+
+/*
+ * Detected by rules of ONFI v2.3
+ */
+#define	NAND_FLASH_MT29F64G08CBABAWP_NAME    "MT29F64G08CBABAWP"
+#define	NAND_FLASH_MT29F64G08CBABAWP_ID      0x64
+
+
 /*
  * ******************************************************
  * 	Supported NAND flash chips
@@ -258,7 +267,6 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 	},
 
 
-
 	/*
 	 * MT29F32G08CBACA(WP) --- support ONFI v2.2
 	 *
@@ -272,9 +280,21 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 	},
 
 
+	/*
+	 * MT29F32G08CBACA(WP) --- support ONFI v2.3
+	 *
+	 * it was detected by rules of ONFI v2.3
+	 * so you can remove this match entry
+	 *
+	 */
+	{
+		NAND_FLASH_MT29F64G08CBABAWP_NAME, NAND_FLASH_MT29F64G08CBABAWP_ID,
+		0, 8192, 0, LP_OPTIONS
+	},
+
+
 	{NULL,}
 };
-
 
 
 /*
@@ -313,6 +333,26 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
+			NAND_OUTPUT_NORMAL_DRIVER,
+			NAND_RB_DOWN_FULL_DRIVER,
+			micron_nand_pre_init)
+	},
+
+	{
+		/*
+		 * Datasheet of MT29F64G08CBABA(WP), Rev-G, P119, Table-19
+		 * ECC : 40bit/1117bytes
+		 *
+		 * TODO: need read retry
+		 *
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_MT29F64G08CBABAWP_NAME,
+			NAND_FLASH_MT29F64G08CBABAWP_ID,
+			1024, 64, 0,
+			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
+			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			100, 100 * 1000, 1000, 0, 0, 5, BUS_WIDTH_8,
 			NAND_OUTPUT_NORMAL_DRIVER,
 			NAND_RB_DOWN_FULL_DRIVER,
 			micron_nand_pre_init)
@@ -2500,13 +2540,11 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 
 		seq_printf(m, "ecclayout.oobavail: %d\n", nand->ecclayout.oobavail);
 		seq_printf(m, "ecclayout.oobfree:\n");
-		for (i = 0; i < ARRAY_SIZE(nand->ecclayout.oobfree); i++) {
-			struct nand_oobfree *oobfree = &nand->ecclayout.oobfree[i];
-			if (oobfree->length) {
-				seq_printf(m ,"oobfree[%d]:\n", i);
-				seq_printf(m, "length: %u\n", oobfree->length);
-				seq_printf(m, "offset: %u\n", oobfree->offset);
-			}
+		for (i = 0; nand->ecclayout.oobfree[i].length &&
+					i < ARRAY_SIZE(nand->ecclayout.oobfree); i++) {
+			seq_printf(m ,"oobfree[%d]:\n", i);
+			seq_printf(m, "length: %u\n", nand->ecclayout.oobfree[i].length);
+			seq_printf(m, "offset: %u\n", nand->ecclayout.oobfree[i].offset);
 		}
 
 		seq_printf(m, "\n");
