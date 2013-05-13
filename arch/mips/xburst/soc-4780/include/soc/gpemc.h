@@ -177,9 +177,15 @@ typedef struct {
 		u32 Tcs;
 
 		/*
-		 * address to data loading delay
+		 * address to data loading delay for sequence in
 		 */
 		u32 Tadl;
+
+		/*
+		 * Change column setup time to data in/out or next command
+		 * often used in Micron NAND chips
+		 */
+		u32 Tccs;
 
 		/*
 		 * Ready to #RE low

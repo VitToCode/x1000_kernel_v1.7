@@ -125,7 +125,7 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			 * ******************************
 			 */
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
+			25, 25, 300, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
 			NAND_OUTPUT_UNDER_DRIVER1,
@@ -143,7 +143,7 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			NAND_FLASH_MT29F32G08CBACAWP_ID,
 			1024, 32, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
 			NAND_OUTPUT_UNDER_DRIVER1,
 			NAND_RB_DOWN_FULL_DRIVER,
@@ -163,7 +163,7 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			NAND_FLASH_MT29F64G08CBABAWP_ID,
 			1024, 64, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 1000, 0, 0, 5, BUS_WIDTH_8,
 			NAND_OUTPUT_UNDER_DRIVER1,
 			NAND_RB_DOWN_FULL_DRIVER,

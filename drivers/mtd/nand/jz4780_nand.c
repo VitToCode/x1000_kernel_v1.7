@@ -326,7 +326,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
 			1024, 16, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 70, 100, 60, 60, 12, 20, 0, 100,
+			25, 25, 70, 70, 100, 60, 60, 12, 20, 0, 100,
 			100, 500 * 1000, 0, 0, 0, 0, BUS_WIDTH_8,
 			CAN_NOT_ADJUST_OUTPUT_STRENGTH,
 			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
@@ -342,7 +342,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
 			1024, 32, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 300, 100, 100, 300, 12, 20, 300, 100,
+			25, 25, 300, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
 			NAND_OUTPUT_NORMAL_DRIVER,
@@ -360,7 +360,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_MT29F32G08CBACAWP_ID,
 			1024, 32, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
 			NAND_OUTPUT_NORMAL_DRIVER,
 			NAND_RB_DOWN_FULL_DRIVER,
@@ -380,7 +380,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_MT29F64G08CBABAWP_ID,
 			1024, 64, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 100, 60, 200, 10, 20, 0, 100,
+			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 1000, 0, 0, 5, BUS_WIDTH_8,
 			NAND_OUTPUT_NORMAL_DRIVER,
 			NAND_RB_DOWN_FULL_DRIVER,
@@ -781,6 +781,29 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	}
 	chip->cmd_ctrl(mtd, command, ctrl);
 
+	switch (command) {
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tcwaw
+		 * some Samsung NAND chips need Tcwaw before
+		 * address cycles
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tcwaw);
+		else {
+			/*
+			 * TODO
+			 * implement Tcwaw delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
 	/* Address cycle, when necessary */
 	ctrl = NAND_CTRL_ALE | NAND_CTRL_CHANGE;
 	/* Serially input address */
@@ -813,43 +836,45 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 		/* One more address cycle for devices > 32MiB */
 		if (chip->chipsize > (32 << 20))
 			chip->cmd_ctrl(mtd, page_addr >> 16, ctrl);
-
-		switch (nand_if->curr_command) {
-		case NAND_CMD_SEQIN:
-			/*
-			 * Apply this short delay to meet Tadl
-			 */
-			if (nand_info->type == BANK_TYPE_NAND)
-				nand->ndelay(nand_info->nand_timing.
-						common_nand_timing.busy_wait_timing.Tadl);
-			else {
-				/*
-				 * TODO
-				 * implement Tadl delay
-				 */
-			}
-			break;
-
-		case NAND_CMD_RNDIN:
-			/*
-			 * Apply this short delay to meet Tcwaw
-			 */
-			if (nand_info->type == BANK_TYPE_NAND)
-				nand->ndelay(nand_info->nand_timing.
-						common_nand_timing.busy_wait_timing.Tcwaw);
-			else {
-				/*
-				 * TODO
-				 * implement Tcwaw delay
-				 */
-			}
-			break;
-
-		default:
-			break;
-		}
 	}
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
+
+	switch (command) {
+	case NAND_CMD_SEQIN:
+		/*
+		 * Apply this short delay to meet Tadl
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tadl);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tccs
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tccs);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
 
 	/*
 	 * Program and erase have their own
@@ -997,6 +1022,29 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 	chip->cmd_ctrl(mtd, command & 0xff,
 		       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
 
+	switch (command) {
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tcwaw
+		 * Samsung NAND chips need Tcwaw before
+		 * address cycles
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tcwaw);
+		else {
+			/*
+			 * TODO
+			 * implement Tcwaw delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
 	if (column != -1 || page_addr != -1) {
 		int ctrl = NAND_CTRL_CHANGE | NAND_NCE | NAND_ALE;
 
@@ -1015,43 +1063,46 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 				chip->cmd_ctrl(mtd, page_addr >> 16,
 					       NAND_NCE | NAND_ALE);
 
-			switch (nand_if->curr_command) {
-			case NAND_CMD_SEQIN:
-				/*
-				 * Apply this short delay to meet Tadl
-				 */
-				if (nand_info->type == BANK_TYPE_NAND)
-					nand->ndelay(nand_info->nand_timing.
-							common_nand_timing.busy_wait_timing.Tadl);
-				else {
-					/*
-					 * TODO
-					 * implement Tadl delay
-					 */
-				}
-				break;
-
-			case NAND_CMD_RNDIN:
-				/*
-				 * Apply this short delay to meet Tcwaw
-				 */
-				if (nand_info->type == BANK_TYPE_NAND)
-					nand->ndelay(nand_info->nand_timing.
-							common_nand_timing.busy_wait_timing.Tcwaw);
-				else {
-					/*
-					 * TODO
-					 * implement Tcwaw delay
-					 */
-				}
-				break;
-
-			default:
-				break;
-			}
 		}
 	}
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
+
+	switch (command) {
+	case NAND_CMD_SEQIN:
+		/*
+		 * Apply this short delay to meet Tadl
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tadl);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tccs
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tccs);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
 
 	/*
 	 * Program and erase have their own
