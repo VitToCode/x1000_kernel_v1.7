@@ -594,6 +594,12 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 
 	ricoh618->bank_num = 0;
 
+	if (gpio_request_one(pmu_pdata->gpio,
+			     GPIOF_DIR_IN, "ricoh618_irq")) {
+		dev_err(ricoh618->dev, "no irq pin available\n");
+		pmu_pdata->gpio = -EBUSY;
+	}
+
 	i2c->irq = gpio_to_irq(pmu_pdata->gpio);
 	if (i2c->irq) {
 		ret = ricoh618_irq_init(ricoh618, i2c->irq, pdata->irq_base);

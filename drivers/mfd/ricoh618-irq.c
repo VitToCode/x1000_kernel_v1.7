@@ -47,6 +47,7 @@ static int irq_en_add[] = {
 	RICOH618_INT_EN_ADC2,
 	RICOH618_INT_EN_ADC3,
 	RICOH618_INT_EN_GPIO,
+	RICOH618_INT_EN_GPIO2,
 	RICOH618_INT_MSK_CHGCTR,
 	RICOH618_INT_MSK_CHGSTS1,
 	RICOH618_INT_MSK_CHGSTS2,
@@ -150,39 +151,39 @@ static const struct ricoh618_irq_data ricoh618_irqs[RICOH618_NR_IRQS] = {
 	[RICOH618_IRQ_GPIO2]		= RICOH618_IRQ(GPIO_INT, 4, 2, 2, 5),
 	[RICOH618_IRQ_GPIO3]		= RICOH618_IRQ(GPIO_INT, 4, 3, 3, 5),
 
-	[RICOH618_IRQ_FVADPDETSINT]	= RICOH618_IRQ(CHG_INT, 6, 0, 0, 6),
-	[RICOH618_IRQ_FVUSBDETSINT]	= RICOH618_IRQ(CHG_INT, 6, 1, 1, 6),
-	[RICOH618_IRQ_FVADPLVSINT]	= RICOH618_IRQ(CHG_INT, 6, 2, 2, 6),
-	[RICOH618_IRQ_FVUSBLVSINT]	= RICOH618_IRQ(CHG_INT, 6, 3, 3, 6),
-	[RICOH618_IRQ_FWVADPSINT]	= RICOH618_IRQ(CHG_INT, 6, 4, 4, 6),
-	[RICOH618_IRQ_FWVUSBSINT]	= RICOH618_IRQ(CHG_INT, 6, 5, 5, 6),
+	[RICOH618_IRQ_FVADPDETSINT]	= RICOH618_IRQ(CHG_INT, 6, 0, 0, 7),
+	[RICOH618_IRQ_FVUSBDETSINT]	= RICOH618_IRQ(CHG_INT, 6, 1, 1, 7),
+	[RICOH618_IRQ_FVADPLVSINT]	= RICOH618_IRQ(CHG_INT, 6, 2, 2, 7),
+	[RICOH618_IRQ_FVUSBLVSINT]	= RICOH618_IRQ(CHG_INT, 6, 3, 3, 7),
+	[RICOH618_IRQ_FWVADPSINT]	= RICOH618_IRQ(CHG_INT, 6, 4, 4, 7),
+	[RICOH618_IRQ_FWVUSBSINT]	= RICOH618_IRQ(CHG_INT, 6, 5, 5, 7),
 
-	[RICOH618_IRQ_FONCHGINT]	= RICOH618_IRQ(CHG_INT, 6, 6, 0, 7),
-	[RICOH618_IRQ_FCHGCMPINT]	= RICOH618_IRQ(CHG_INT, 6, 7, 1, 7),
-	[RICOH618_IRQ_FBATOPENINT]	= RICOH618_IRQ(CHG_INT, 6, 8, 2, 7),
-	[RICOH618_IRQ_FSLPMODEINT]	= RICOH618_IRQ(CHG_INT, 6, 9, 3, 7),
-	[RICOH618_IRQ_FBTEMPJTA1INT]	= RICOH618_IRQ(CHG_INT, 6, 10, 4, 7),
-	[RICOH618_IRQ_FBTEMPJTA2INT]	= RICOH618_IRQ(CHG_INT, 6, 11, 5, 7),
-	[RICOH618_IRQ_FBTEMPJTA3INT]	= RICOH618_IRQ(CHG_INT, 6, 12, 6, 7),
-	[RICOH618_IRQ_FBTEMPJTA4INT]	= RICOH618_IRQ(ADC_INT, 6, 13, 7, 7),
+	[RICOH618_IRQ_FONCHGINT]	= RICOH618_IRQ(CHG_INT, 6, 6, 0, 8),
+	[RICOH618_IRQ_FCHGCMPINT]	= RICOH618_IRQ(CHG_INT, 6, 7, 1, 8),
+	[RICOH618_IRQ_FBATOPENINT]	= RICOH618_IRQ(CHG_INT, 6, 8, 2, 8),
+	[RICOH618_IRQ_FSLPMODEINT]	= RICOH618_IRQ(CHG_INT, 6, 9, 3, 8),
+	[RICOH618_IRQ_FBTEMPJTA1INT]	= RICOH618_IRQ(CHG_INT, 6, 10, 4, 8),
+	[RICOH618_IRQ_FBTEMPJTA2INT]	= RICOH618_IRQ(CHG_INT, 6, 11, 5, 8),
+	[RICOH618_IRQ_FBTEMPJTA3INT]	= RICOH618_IRQ(CHG_INT, 6, 12, 6, 8),
+	[RICOH618_IRQ_FBTEMPJTA4INT]	= RICOH618_IRQ(ADC_INT, 6, 13, 7, 8),
 
-	[RICOH618_IRQ_FCURTERMINT]	= RICOH618_IRQ(CHG_INT, 6, 14, 0, 8),
-	[RICOH618_IRQ_FVOLTERMINT]	= RICOH618_IRQ(CHG_INT, 6, 15, 1, 8),
-	[RICOH618_IRQ_FICRVSINT]	= RICOH618_IRQ(CHG_INT, 6, 16, 2, 8),
-	[RICOH618_IRQ_FPOOR_CHGCURINT]	= RICOH618_IRQ(CHG_INT, 6, 17, 3, 8),
-	[RICOH618_IRQ_FOSCFDETINT1]	= RICOH618_IRQ(CHG_INT, 6, 18, 4, 8),
-	[RICOH618_IRQ_FOSCFDETINT2]	= RICOH618_IRQ(CHG_INT, 6, 19, 5, 8),
-	[RICOH618_IRQ_FOSCFDETINT3]	= RICOH618_IRQ(CHG_INT, 6, 20, 6, 8),
-	[RICOH618_IRQ_FOSCMDETINT]	= RICOH618_IRQ(CHG_INT, 6, 21, 7, 8),
+	[RICOH618_IRQ_FCURTERMINT]	= RICOH618_IRQ(CHG_INT, 6, 14, 0, 9),
+	[RICOH618_IRQ_FVOLTERMINT]	= RICOH618_IRQ(CHG_INT, 6, 15, 1, 9),
+	[RICOH618_IRQ_FICRVSINT]	= RICOH618_IRQ(CHG_INT, 6, 16, 2, 9),
+	[RICOH618_IRQ_FPOOR_CHGCURINT]	= RICOH618_IRQ(CHG_INT, 6, 17, 3, 9),
+	[RICOH618_IRQ_FOSCFDETINT1]	= RICOH618_IRQ(CHG_INT, 6, 18, 4, 9),
+	[RICOH618_IRQ_FOSCFDETINT2]	= RICOH618_IRQ(CHG_INT, 6, 19, 5, 9),
+	[RICOH618_IRQ_FOSCFDETINT3]	= RICOH618_IRQ(CHG_INT, 6, 20, 6, 9),
+	[RICOH618_IRQ_FOSCMDETINT]	= RICOH618_IRQ(CHG_INT, 6, 21, 7, 9),
 
-	[RICOH618_IRQ_FDIEOFFINT]	= RICOH618_IRQ(CHG_INT, 6, 22, 0, 9),
-	[RICOH618_IRQ_FDIEERRINT]	= RICOH618_IRQ(CHG_INT, 6, 23, 1, 9),
-	[RICOH618_IRQ_FBTEMPERRINT]	= RICOH618_IRQ(CHG_INT, 6, 24, 2, 9),
-	[RICOH618_IRQ_FVBATOVINT]	= RICOH618_IRQ(CHG_INT, 6, 25, 3, 9),
-	[RICOH618_IRQ_FTTIMOVINT]	= RICOH618_IRQ(CHG_INT, 6, 26, 4, 9),
-	[RICOH618_IRQ_FRTIMOVINT]	= RICOH618_IRQ(CHG_INT, 6, 27, 5, 9),
-	[RICOH618_IRQ_FVADPOVSINT]	= RICOH618_IRQ(CHG_INT, 6, 28, 6, 9),
-	[RICOH618_IRQ_FVUSBOVSINT]	= RICOH618_IRQ(CHG_INT, 6, 29, 7, 9),
+	[RICOH618_IRQ_FDIEOFFINT]	= RICOH618_IRQ(CHG_INT, 6, 22, 0, 10),
+	[RICOH618_IRQ_FDIEERRINT]	= RICOH618_IRQ(CHG_INT, 6, 23, 1, 10),
+	[RICOH618_IRQ_FBTEMPERRINT]	= RICOH618_IRQ(CHG_INT, 6, 24, 2, 10),
+	[RICOH618_IRQ_FVBATOVINT]	= RICOH618_IRQ(CHG_INT, 6, 25, 3, 10),
+	[RICOH618_IRQ_FTTIMOVINT]	= RICOH618_IRQ(CHG_INT, 6, 26, 4, 10),
+	[RICOH618_IRQ_FRTIMOVINT]	= RICOH618_IRQ(CHG_INT, 6, 27, 5, 10),
+	[RICOH618_IRQ_FVADPOVSINT]	= RICOH618_IRQ(CHG_INT, 6, 28, 6, 10),
+	[RICOH618_IRQ_FVUSBOVSINT]	= RICOH618_IRQ(CHG_INT, 6, 29, 7, 10),
 
 };
 
@@ -199,9 +200,11 @@ static void ricoh618_irq_unmask(struct irq_data *irq_data)
 	unsigned int __irq = irq_data->irq - ricoh618->irq_base;
 	const struct ricoh618_irq_data *data = &ricoh618_irqs[__irq];
 
-	ricoh618->group_irq_en[data->grp_index] |= (1 << data->grp_index);
-	if (ricoh618->group_irq_en[data->grp_index])
+	ricoh618->group_irq_en[data->master_bit] |= (1 << data->grp_index);
+	if (ricoh618->group_irq_en[data->master_bit]) {
 		ricoh618->intc_inten_reg |= 1 << data->master_bit;
+		/*printk("======> %s    %d   %d  0x%x \n\n", __func__, __LINE__, data->master_bit, ricoh618->group_irq_en[data->master_bit]);*/
+	}
 
 	if(data->master_bit == 6)	/* if Charger */
 		ricoh618->irq_en_reg[data->mask_reg_index] &= ~(1 << data->int_en_bit);
@@ -215,8 +218,8 @@ static void ricoh618_irq_mask(struct irq_data *irq_data)
 	unsigned int __irq = irq_data->irq - ricoh618->irq_base;
 	const struct ricoh618_irq_data *data = &ricoh618_irqs[__irq];
 
-	ricoh618->group_irq_en[data->grp_index] &= ~(1 << data->grp_index);
-	if (!ricoh618->group_irq_en[data->grp_index])
+	ricoh618->group_irq_en[data->master_bit] &= ~(1 << data->grp_index);
+	if (!ricoh618->group_irq_en[data->master_bit])
 		ricoh618->intc_inten_reg &= ~(1 << data->master_bit);
 
 	if(data->master_bit == 6)	/* if Charger */
@@ -247,7 +250,7 @@ static void ricoh618_irq_sync_unlock(struct irq_data *irq_data)
 						    ricoh618->irq_en_reg[i])))
 				ricoh618->irq_en_cache[i] =
 						ricoh618->irq_en_reg[i];
-		}
+			}
 	}
 
 	if (ricoh618->intc_inten_reg != ricoh618->intc_inten_cache) {
@@ -300,6 +303,7 @@ static irqreturn_t ricoh618_irq(int irq, void *data)
 	struct ricoh618 *ricoh618 = data;
 	u8 int_sts[MAX_INTERRUPT_MASKS];
 	u8 master_int;
+	u8 master_test;
 	int i;
 	int ret;
 
@@ -309,13 +313,22 @@ static irqreturn_t ricoh618_irq(int irq, void *data)
 
 	ret  = ricoh618_read(ricoh618->dev, RICOH618_INTC_INTMON,
 						&master_int);
+	printk("----> the int monitor register 0x%x \n", master_int);
 	if (ret < 0) {
 		dev_err(ricoh618->dev, "Error in reading reg 0x%02x "
 			"error: %d\n", RICOH618_INTC_INTMON, ret);
 		return IRQ_HANDLED;
 	}
-
-	for (i = 0; i < MAX_INTERRUPT_MASKS; ++i) {
+	/*ret  = ricoh618_read(ricoh618->dev, RICOH618_INTC_INTEN,
+						&master_test);
+	printk("----> the int enable register 0x%x \n", master_test);
+	if (ret < 0) {
+		dev_err(ricoh618->dev, "Error in reading reg 0x%02x "
+			"error: %d\n", RICOH618_INTC_INTMON, ret);
+		return IRQ_HANDLED;
+	}
+*/
+	for (i = 0; i <= MAX_INTERRUPT_MASKS; ++i) {
 		if (!(master_int & ricoh618->main_int_type[i]))
 			continue;
 		ret = ricoh618_read(ricoh618->dev,
@@ -326,6 +339,8 @@ static irqreturn_t ricoh618_irq(int irq, void *data)
 			int_sts[i] = 0;
 			continue;
 		}
+		/*printk("----> read the interrupt register 0x%x  0x%x  %d \n",
+				ricoh618->irq_mon_add[i], int_sts[i], i);*/
 
 		ret = ricoh618_write(ricoh618->dev,
 				ricoh618->irq_clr_add[i], ~int_sts[i]);
@@ -333,7 +348,6 @@ static irqreturn_t ricoh618_irq(int irq, void *data)
 			dev_err(ricoh618->dev, "Error in reading reg 0x%02x "
 				"error: %d\n", ricoh618->irq_clr_add[i], ret);
 		}
-
 	}
 
 	/* Merge gpio interrupts  for rising and falling case*/
@@ -344,9 +358,13 @@ static irqreturn_t ricoh618_irq(int irq, void *data)
 		const struct ricoh618_irq_data *data = &ricoh618_irqs[i];
 		if ((int_sts[data->mask_reg_index] & (1 << data->int_en_bit)) &&
 			(ricoh618->group_irq_en[data->master_bit] &
-					(1 << data->grp_index)))
+					(1 << data->grp_index))) {
 			handle_nested_irq(ricoh618->irq_base + i);
+		}
+		/*if (i == 31)
+			printk("~~~~~> dispatch 0x%x  0x%x %d  0x%x  0x%x  %d \n",int_sts[data->mask_reg_index], (1 << data->int_en_bit), data->int_en_bit,ricoh618->group_irq_en[data->master_bit], (1 << data->grp_index), data->grp_index);*/
 	}
+	printk("----> ricoh618_irq running!!!\n");
 	return IRQ_HANDLED;
 }
 
@@ -364,6 +382,7 @@ int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,
 				int irq_base)
 {
 	int i, ret;
+	u8 master_test;
 
 	if (!irq_base) {
 		dev_warn(ricoh618->dev, "No interrupt support on IRQ base\n");
@@ -371,6 +390,14 @@ int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,
 	}
 
 	mutex_init(&ricoh618->irq_lock);
+
+	ricoh618->irq_en_add = irq_en_add;
+	ricoh618->irq_mon_add = irq_mon_add;
+	ricoh618->irq_clr_add = irq_clr_add;
+	ricoh618->main_int_type = main_int_type;
+	for (i = 0; i < MAX_INTERRUPT_MASKS; ++i) {
+		printk("   0x%x \n",ricoh618->main_int_type[i]);
+	}
 
 	/* Initialize all locals to 0 */
 	for (i = 0; i < MAX_INTERRUPT_MASKS; i++) {
@@ -389,6 +416,7 @@ int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,
 		ret = ricoh618_write(ricoh618->dev,
 				ricoh618->irq_en_add[i],
 				ricoh618->irq_en_reg[i]);
+		printk("     %x    %x    \n", ricoh618->irq_en_add[i], ricoh618->irq_en_reg[i]);
 		if (ret < 0)
 			dev_err(ricoh618->dev, "Error in writing reg 0x%02x "
 				"error: %d\n", ricoh618->irq_en_add[i], ret);
@@ -403,10 +431,26 @@ int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,
 				"error: %d\n", ricoh618->gpedge_add[i], ret);
 	}
 
+	/*ret = ricoh618_write(ricoh618->dev, RICOH618_INTC_INTEN, 0xdb);*/
 	ret = ricoh618_write(ricoh618->dev, RICOH618_INTC_INTEN, 0x0);
 	if (ret < 0)
 		dev_err(ricoh618->dev, "Error in writing reg 0x%02x "
 				"error: %d\n", RICOH618_INTC_INTEN, ret);
+	ret  = ricoh618_read(ricoh618->dev, RICOH618_INTC_INTEN,
+						&master_test);
+	if (ret < 0)
+		dev_err(ricoh618->dev, "Error in writing reg 0x%02x "
+				"error: %d\n", RICOH618_INTC_INTEN, ret);
+	printk("----> the int enable register 0x%x \n", master_test);
+
+	/*ret = ricoh618_write(ricoh618->dev, RICOH618_INTC_INTPOL, 0x1);
+	ret  = ricoh618_read(ricoh618->dev, RICOH618_INTC_INTPOL,
+						&master_test);
+	if (ret < 0)
+		dev_err(ricoh618->dev, "Error in writing reg 0x%02x "
+				"error: %d\n", RICOH618_INTC_INTPOL, ret);
+	printk("----> the int polarity register 0x%x \n", master_test);
+*/
 
 	/* Clear all interrupts in case they woke up active. */
 	for (i = 0; i < MAX_INTERRUPT_MASKS; i++)  {
@@ -431,7 +475,7 @@ int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,
 #endif
 	}
 
-	ret = request_threaded_irq(irq, NULL, ricoh618_irq, IRQF_ONESHOT,
+	ret = request_threaded_irq(irq, NULL, ricoh618_irq, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				   "ricoh618", ricoh618);
 	if (ret < 0)
 		dev_err(ricoh618->dev, "Error in registering interrupt "

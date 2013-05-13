@@ -35,7 +35,7 @@
 
 /* Maximum number of main interrupts */
 #define MAX_INTERRUPT_MASKS	10
-#define MAX_MAIN_INTERRUPT	5
+#define MAX_MAIN_INTERRUPT	8
 #define MAX_GPEDGE_REG		1
 
 /* Power control register */
@@ -54,6 +54,7 @@
 #define RICOH618_INT_EN_ADC2		0x89
 #define RICOH618_INT_EN_ADC3		0x8A
 #define RICOH618_INT_EN_GPIO		0x94
+#define RICOH618_INT_EN_GPIO2		0x94
 #define RICOH618_INT_MSK_CHGCTR		0xBE
 #define RICOH618_INT_MSK_CHGSTS1	0xBF
 #define RICOH618_INT_MSK_CHGSTS2	0xC0
@@ -101,7 +102,7 @@
 
 /* RICOH618 IRQ definitions */
 enum {
-	RICOH618_IRQ_POWER_ON = IRQ_RESERVED_BASE,
+	RICOH618_IRQ_POWER_ON,
 	RICOH618_IRQ_EXTIN,
 	RICOH618_IRQ_PRE_VINDT,
 	RICOH618_IRQ_PREOT,
@@ -248,12 +249,12 @@ struct ricoh618 {
 	/* For group interrupt bits and address */
 	u8			irq_en_cache[MAX_INTERRUPT_MASKS];
 	u8			irq_en_reg[MAX_INTERRUPT_MASKS];
-	u8			irq_en_add[MAX_INTERRUPT_MASKS];
+	int			*irq_en_add;
 
 	/* Interrupt monitor and clear register */
-	u8			irq_mon_add[MAX_INTERRUPT_MASKS + 1];
-	u8			irq_clr_add[MAX_INTERRUPT_MASKS + 1];
-	u8			main_int_type[MAX_INTERRUPT_MASKS + 1];
+	int			*irq_mon_add;
+	int			*irq_clr_add;
+	int			*main_int_type;
 
 	/* For gpio edge */
 	u8			gpedge_cache[MAX_GPEDGE_REG];

@@ -55,6 +55,7 @@
 //bank 1
 //Top address for battery initial setting
 #define	BAT_INIT_TOP_REG	0xBC
+#define BAT_REL_SEL_REG     0xDA
 ////////////////////////////
 
 //detailed status in CHGSTATE (0xBD)

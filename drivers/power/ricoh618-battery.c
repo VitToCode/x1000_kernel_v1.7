@@ -36,7 +36,32 @@
 
 //define for function
 //if FG function is enabled, please define below item.
-//#define FUEL_GAGE_FUNCTION_ENABLE		
+#define FUEL_GAGE_FUNCTION_ENABLE
+
+/* FG setting */
+#define CUTOFF_VOL              1   /* mV "0" means cutoff
+                            * voltage = original
+                            * OCV table value */
+#define RICOH61x_REL1_SEL_VALUE         64  /* mv Range 0~240
+                            * (Step 16) */
+
+struct ricoh61x_soca_info {
+	int Rbat;
+	int n_cap;
+	int ocv_table[11];
+	int soc;		/* Latest FG SOC value */
+	int displayed_soc;
+	int status;		/* SOCA status 0: Not initial; 5: Finished */
+	int stable_count;
+	int chg_status;		/* chg_status */
+	int soc_delta;		/* soc delta for status3(DISP) */
+	int cc_delta;
+	int last_soc;
+	int ready_fg;
+	int reset_count;
+	int reset_soc[3];
+};
+
 
 struct ricoh618_battery_info {
 	struct device      *dev;
@@ -62,6 +87,7 @@ struct ricoh618_battery_info {
 	int		time_to_empty;
 	int		time_to_full;
 	unsigned	present : 1;
+	struct		ricoh61x_soca_info *soca;
 };
 
 static void ricoh618_battery_work(struct work_struct *work)
@@ -84,6 +110,104 @@ static void ricoh618_changed_work(struct work_struct *work)
 	return;
 }
 
+
+static int Calc_Linear_Interpolation(int x0, int y0, int x1, int y1, int y)
+{
+	int	alpha;
+	int x;
+
+	alpha = (y - y0)*100 / (y1 - y0);
+
+	x = ((100 - alpha) * x0 + alpha * x1) / 100;
+
+	return x;
+}
+static int ricoh618_set_OCV_table(struct ricoh618_battery_info *info)
+{
+	int		ret = 0;
+	int		ocv_table[11];
+	int		i, j;
+	int		available_cap;
+	int		temp;
+	int		start_par;
+	int		percent_step;
+	int		OCV_percent_new[11];
+
+	printk("----------- start set OCV  \n");
+	if (CUTOFF_VOL == 0) {	/* normal version */
+	} else {	/*Slice cutoff voltage version. */
+
+		/* get ocv table. this table is calculated by Apprication */
+		for (i = 0; i <= 10; i = i+1) {
+			temp = (battery_init_para[i*2]<<8)
+				 | (battery_init_para[i*2+1]);
+			/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
+			temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
+			ocv_table[i] = temp;
+		}
+
+
+		/* Check Start % */
+		for (i = 1; i < 11; i++) {
+			if (ocv_table[i] >= CUTOFF_VOL * 10) {
+				/* unit is 0.001% */
+				start_par = Calc_Linear_Interpolation(
+					(i-1)*1000, ocv_table[i-1], i*1000,
+					 ocv_table[i], (CUTOFF_VOL * 10));
+				i = 11;
+			}
+		}
+		/* calc new ocv percent */
+		percent_step = (10000 - start_par) / 10;
+
+		for (i = 0; i < 11; i++) {
+			OCV_percent_new[i]
+				 = start_par + percent_step*(i - 0);
+		}
+
+		/* calc new ocv voltage */
+		for (i = 0; i < 11; i++) {
+			for (j = 1; j < 11; j++) {
+				if (1000*j >= OCV_percent_new[i]) {
+					temp = Calc_Linear_Interpolation(
+						ocv_table[j-1], (j-1)*1000,
+						 ocv_table[j] , j*1000,
+						 OCV_percent_new[i]);
+
+					temp = temp * 4095 / 50000;
+
+					battery_init_para[i*2 + 1] = temp;
+					battery_init_para[i*2] = temp >> 8;
+
+					j = 11;
+				}
+			}
+		}
+
+		/* calc available capacity */
+		/* get avilable capacity */
+		/* battery_init_para23-24 is designe capacity */
+		available_cap = (battery_init_para[22]<<8)
+					 | (battery_init_para[23]);
+
+		available_cap = available_cap
+			 * ((10000 - start_par) / 100) / 100 ;
+
+
+		battery_init_para[23] =  available_cap;
+		battery_init_para[22] =  available_cap >> 8;
+
+	}
+	ret = ricoh618_bulk_writes_bank1(info->dev->parent,
+			 BAT_INIT_TOP_REG, 32, battery_init_para);
+	if (ret < 0) {
+		dev_err(info->dev, "batterry initialize error\n");
+		return ret;
+	}
+
+	return 1;
+}
+
 //Initial setting of battery
 static int ricoh618_init_battery(struct ricoh618_battery_info *info)
 {
@@ -92,25 +216,44 @@ static int ricoh618_init_battery(struct ricoh618_battery_info *info)
       //////////////////////////////
 #ifdef FUEL_GAGE_FUNCTION_ENABLE
 	uint8_t val = 0;
+	/* set kanwa state */
+	if (RICOH61x_REL1_SEL_VALUE > 240)
+		val = 0x0F;
+	else
+		val = RICOH61x_REL1_SEL_VALUE / 16 ;
+
+	val = 0x20 + val;
+
+	ret = ricoh618_write_bank1(info->dev->parent, BAT_REL_SEL_REG, val);
+	if (ret < 0) {
+		dev_err(info->dev, "Error in writing the OCV Tabler\n");
+		return ret;
+	}
+
 
 	ret = ricoh618_read(info->dev->parent, FG_CTRL_REG, &val);
 	if(ret<0){
 		dev_err(info->dev, "Error in reading the control register\n");
 		return ret;
 	}
-	
+
 	val = (val & 0x10) >> 4;//check FG_ACC DATA
-	
-	if(val == 0)
+
+	/*if(val == 0)
 	{//set initial setting of battery
-		ret = ricoh618_bulk_writes_bank1(info->dev->parent, BAT_INIT_TOP_REG, 32, battery_init_para);	
+		ret = ricoh618_bulk_writes_bank1(info->dev->parent, BAT_INIT_TOP_REG, 32, battery_init_para);
 		if(ret<0){
 			dev_err(info->dev, "batterry initialize error\n");
 			return ret;
 		}
 
+	}*/
+	ret = ricoh618_set_OCV_table(info);
+	if (ret < 0) {
+		dev_err(info->dev, "Error in writing the OCV Tabler\n");
+		return ret;
 	}
-	
+
 	ret = ricoh618_write(info->dev->parent, FG_CTRL_REG, 0x11);
 	if(ret<0){
 		dev_err(info->dev, "Error in writing the control register\n");
@@ -118,7 +261,7 @@ static int ricoh618_init_battery(struct ricoh618_battery_info *info)
 	}
 
 #endif
-      
+
       //////////////////////////////
 
 	if(info->alarm_vol_mv < 2700 || info->alarm_vol_mv > 3400){
@@ -148,6 +291,7 @@ static int get_power_supply_status(struct ricoh618_battery_info *info)
 	charge_state = (status & 0x1F);
 	supply_state = (status & 0xC0);
 
+	printk("-----> ricoh618 charge_state is 0x%x supply_state is 0x%x !!!!!!\n", charge_state, supply_state);
 	if (supply_state == SUPPLY_STATE_BAT)
 	{
 		temp = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -203,9 +347,9 @@ static int get_power_supply_status(struct ricoh618_battery_info *info)
 				break;
 		}
 	}
-	
+
 	return temp;
-} 
+}
 
 
 
@@ -216,9 +360,9 @@ static int get_check_fuel_gauge_reg(struct ricoh618_battery_info * info, int Reg
 	int old_data, current_data;
 	int i;
 	int ret = 0;
-	
+
 	old_data = 0;
-	
+
 	for( i = 0; i < 5 ; i++)
 	{
 		ret = ricoh618_read(info->dev->parent, Reg_h, &get_data_h);
@@ -232,28 +376,28 @@ static int get_check_fuel_gauge_reg(struct ricoh618_battery_info * info, int Reg
 			dev_err(info->dev, "Error in reading the control register\n");
 			return ret;
 		}
-		
+
 		current_data =((get_data_h & 0xff) << 8) | (get_data_l & 0xff);
 		current_data = (current_data & enable_bit);
-		
+
 		if(current_data == old_data)
 		{
 			return current_data;
 		}else{
-			
+
 			old_data = current_data;
 		}
 	}
-	
+
 	return current_data;
-}	
+}
 
 static int calc_capacity(struct ricoh618_battery_info *info)
 {
 	uint8_t capacity;
 	int temp;
 	int ret = 0;
-	
+
 	//get remaining battery capacity from fuel gauge
 	ret = ricoh618_read(info->dev->parent, SOC_REG, &capacity);
 	if(ret<0){
@@ -278,7 +422,7 @@ static int get_buttery_temp(struct ricoh618_battery_info *info)
 	}
 
 	ret = ( ret & 0x07ff);
-	
+
 	ret = ricoh618_read(info->dev->parent, TEMP_1_REG, &sign_bit);
 	if(ret<0){
 		dev_err(info->dev, "Error in reading the control register\n");
@@ -286,7 +430,7 @@ static int get_buttery_temp(struct ricoh618_battery_info *info)
 	}
 
 	sign_bit = ( (sign_bit & 0x08) >> 3 ); 							//bit3 of 0xED(TEMP_1) is sign_bit
-	
+
 	if(sign_bit ==0){ //positive value part
 		ret = ret * 625  / 1000;						//conversion unit // 1 unit is 0.0625 degree and retun unit should be 0.1 degree,
 	}else//negative value part
@@ -306,16 +450,16 @@ static int get_time_to_empty(struct ricoh618_battery_info *info)
 		dev_err(info->dev, "Error in reading the fuel gauge control register\n");
 		return ret;
 	}
-	
+
 	ret = ret * 60;									//conversion unit// 1unit is 1miniute and return nnit should be 1 second
-	
+
 	return ret;
 }
 
 static int get_time_to_full(struct ricoh618_battery_info *info)
 {
 	int ret = 0;
-	
+
 	ret = get_check_fuel_gauge_reg(info, TT_FULL_H_REG, TT_FULL_L_REG, 0xffff);
 	if(ret<0){
 		dev_err(info->dev, "Error in reading the fuel gauge control register\n");
@@ -331,19 +475,19 @@ static int get_time_to_full(struct ricoh618_battery_info *info)
 static int measure_vbatt_FG(struct ricoh618_battery_info *info, int *data)
 {
 	int ret = 0;
-	
+
 //	mutex_lock(&info->lock);
-	
-	ret =  get_check_fuel_gauge_reg(info, VOLTAGE_1_REG, VOLTAGE_2_REG, 0x0fff);	
+
+	ret =  get_check_fuel_gauge_reg(info, VOLTAGE_1_REG, VOLTAGE_2_REG, 0x0fff);
 	if(ret<0){
 		dev_err(info->dev, "Error in reading the fuel gauge control register\n");
 		mutex_unlock(&info->lock);
 		return ret;
 	}
-		
+
 	*data = ret;
-	*data = *data * 5000 / 4095;							//conversion unit 1 Unit is 1.22mv (5000/4095 mv)
-	*data = *data * 1000;									//return unit should be 1uV
+	*data = *data * 5000 / 4095;		//conversion unit 1 Unit is 1.22mv (5000/4095 mv)
+	*data = *data * 1000;			//return unit should be 1uV
 
 //	mutex_unlock(&info->lock);
 
@@ -357,7 +501,7 @@ static int measure_vbatt_ADC(struct ricoh618_battery_info *info, int *data)
 	int	i;
 	uint8_t data_l =0, data_h = 0;
 	int ret;
-	
+
 //	mutex_lock(&info->lock);
 
 	ret = ricoh618_set_bits(info->dev->parent, INTEN_REG, 0x08); 		//ADC interrupt enable
@@ -372,7 +516,7 @@ static int measure_vbatt_ADC(struct ricoh618_battery_info *info, int *data)
 		goto err;
 	}
 
-	ret = ricoh618_write(info->dev->parent, ADCCNT3_REG, 0x10);		//single request		
+	ret = ricoh618_write(info->dev->parent, ADCCNT3_REG, 0x10);		//single request
 	if(ret <0){
 		dev_err(info->dev, "Error in writing the control register\n");
 		goto err;
@@ -391,10 +535,10 @@ static int measure_vbatt_ADC(struct ricoh618_battery_info *info, int *data)
 			goto	done;
 		}
 	}
-	
+
 	dev_err(info->dev, "ADC conversion too long!\n");
 	goto err;
-	
+
 done:
 	ret = ricoh618_read(info->dev->parent, VBATDATAH_REG, &data_h);
 	if(ret <0){
@@ -411,11 +555,11 @@ done:
 	*data = ((data_h & 0xff) << 4) | (data_l & 0x0f);
 	*data = *data * 5000 / 4095;								//conversion unit 1 Unit is 1.22mv (5000/4095 mv)
 	*data = *data * 1000;									//return unit should be 1uV
-	
+
 //	mutex_unlock(&info->lock);
 
 	return 0;
-	
+
 err:
 	mutex_unlock(&info->lock);
 	return -1;
@@ -430,6 +574,7 @@ static void ricoh618_external_power_changed(struct power_supply *psy)
 	info = container_of(psy, struct ricoh618_battery_info, battery);
 	queue_delayed_work(info->monitor_wqueue,
 			   &info->changed_work, HZ / 2);
+//	printk("---> %s\n", __func__);
 	return;
 }
 
@@ -441,7 +586,7 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 	struct ricoh618_battery_info *info = dev_get_drvdata(psy->dev->parent);
 	int data = 0;
 	int ret = 0;
-	
+
 	mutex_lock(&info->lock);
 
 	switch (psp) {
@@ -452,12 +597,12 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 		info->status = ret;
 		dev_info(info->dev, "Power Supply Status is %d\n", info->status);
 		break;
-		
-	 //this setting is same as battery driver of 584		
+
+	 //this setting is same as battery driver of 584
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = info->present;
 		break;
- 
+
 	//current voltage is get from fuel gauge
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		/* return real vbatt Voltage */
@@ -469,7 +614,7 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 		val->intval = data;
 		info->cur_voltage = data / 1000;		//convert unit uV -> mV
 		dev_info(info->dev, "battery voltage is %d mV\n", info->cur_voltage);
-		
+
 		break;
 
 #ifdef	FUEL_GAGE_FUNCTION_ENABLE
@@ -480,7 +625,7 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 		info->capacity = ret;
 		dev_info(info->dev, "battery capacity is %d%%\n", info->capacity);
 		break;
-	
+
 	//current temperature of buttery
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = get_buttery_temp(info);
@@ -488,14 +633,14 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 		info->battery_temp = ret/10;
 		dev_info(info->dev, "battery temperature is %d degree \n",  info->battery_temp );
 		break;
-	
+
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
 		ret = get_time_to_empty(info);
 		val->intval = ret;
 		info->time_to_empty = ret/60;
 		dev_info(info->dev, "time of empty buttery is %d minutes \n", info->time_to_empty );
 		break;
-	
+
 	 case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
 		ret = get_time_to_full(info);
 		val->intval = ret;
@@ -512,13 +657,13 @@ static int ricoh618_batt_get_prop(struct power_supply *psy,
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
 		ret = 0;
 		break;
-		
+
 	default:
 		return -ENODEV;
 	}
-	
+
 	mutex_unlock(&info->lock);
-	
+
 	return ret;
 }
 
@@ -557,8 +702,9 @@ static irqreturn_t ricoh618_ac_irq(int irq, void *dev_id)
 {
 	struct ricoh618_battery_info *info = dev_id;
 
-//	power_supply_changed(&info->ac);
+	power_supply_changed(&info->ac);
 
+	printk("====> %s\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -570,6 +716,7 @@ static irqreturn_t ricoh618_usb_irq(int irq, void *dev_id)
 
 	power_supply_changed(&info->usb);
 
+	printk("====> %s\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -658,22 +805,20 @@ static __devinit int ricoh618_battery_probe(struct platform_device *pdev)
 	DEF_CHARGER(usb, "usb", POWER_SUPPLY_TYPE_USB);
 	DEF_CHARGER(ac, "ac", POWER_SUPPLY_TYPE_MAINS);
 #undef DEF_POWER
-	power_supply_register(&pdev->dev, &info->usb);
-	power_supply_register(&pdev->dev, &info->ac);
 
-	info->irq_usb = RICOH618_IRQ_FVUSBDETSINT;
-	info->irq_ac = RICOH618_IRQ_FVADPDETSINT;
+	info->irq_usb = RICOH618_IRQ_FVUSBDETSINT + IRQ_RESERVED_BASE;
+	info->irq_ac = RICOH618_IRQ_FVADPDETSINT + IRQ_RESERVED_BASE;
 
 	ret = request_threaded_irq(info->irq_ac, NULL, ricoh618_ac_irq,
-			  IRQF_DISABLED, "ricoh618_ac_irq", info);
+			  IRQF_TRIGGER_FALLING | IRQF_DISABLED, "ricoh618_ac_irq", info);
 	if (ret) {
 		dev_err(info->dev, "request ricoh618_ac_irq fail with error num = %d \n", ret);
 		goto out;
 	}
 	ret = request_threaded_irq(info->irq_usb, NULL, ricoh618_usb_irq,
-			  IRQF_DISABLED, "ricoh618_usb_irq", info);
+			  IRQF_TRIGGER_FALLING | IRQF_DISABLED, "ricoh618_usb_irq", info);
 	if (ret) {
-		dev_err(info->dev, "request ricoh618_ac_irq fail with error num = %d \n", ret);
+		dev_err(info->dev, "request ricoh618_usb_irq fail with error num = %d \n", ret);
 		goto out;
 	}
 
@@ -681,6 +826,10 @@ static __devinit int ricoh618_battery_probe(struct platform_device *pdev)
 	info->monitor_wqueue = create_singlethread_workqueue("ricoh618_battery_monitor");
 	INIT_DELAYED_WORK_DEFERRABLE(&info->monitor_work, ricoh618_battery_work);
 	INIT_DELAYED_WORK(&info->changed_work, ricoh618_changed_work);
+
+	power_supply_register(&pdev->dev, &info->usb);
+	power_supply_register(&pdev->dev, &info->ac);
+
 	queue_delayed_work(info->monitor_wqueue, &info->monitor_work,
 			   info->monitor_time);
 
@@ -688,7 +837,6 @@ static __devinit int ricoh618_battery_probe(struct platform_device *pdev)
 
 out:
 	kfree(info);
-	printk("-------> ;alkdjflksjdfl;akjflasdjkf \n");
 	return ret;
 }
 

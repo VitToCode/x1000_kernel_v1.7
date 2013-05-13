@@ -165,6 +165,8 @@ static int __ricoh618_set_voltage(struct device *parent,
 	int vsel;
 	int ret;
 	uint8_t vout_val;
+	uint8_t vout_val1;
+	uint8_t reg_en_test;
 
 	if ((min_uV < ri->min_uV) || (max_uV > ri->max_uV))
 		return -EDOM;
@@ -183,6 +185,24 @@ static int __ricoh618_set_voltage(struct device *parent,
 		dev_err(ri->dev, "Error in writing the Voltage register\n");
 	else
 		ri->vout_reg_cache = vout_val;
+	/*
+	ret = ricoh618_read(parent, ri->vout_reg, &vout_val1);
+	if (ret < 0) {
+		dev_err(&parent, "Error in reading the control register\n");
+		return ret;
+	}
+	ret = ricoh618_set_bits(parent, ri->reg_en_reg, (1 << ri->en_bit));
+	if (ret < 0) {
+		dev_err(&ri->dev, "Error in updating the STATE register\n");
+		return ret;
+	}
+	udelay(ri->delay);
+
+	ret = ricoh618_read(parent, ri->reg_en_reg, &reg_en_test);
+	printk("----> set_voltage vout_val = %d , vout_val1 = %d en_reg_bit = %x!!!! \n", vout_val, vout_val1, reg_en_test);
+	if (vout_val != vout_val1)
+		printk("\n\n");
+	*/
 
 	return ret;
 }
@@ -249,12 +269,12 @@ static struct ricoh618_regulator ricoh618_regulators[] = {
 			600, 3500, 12500, 0xE8, ricoh618_ops, 500),
 	RICOH618_REG(DC3, 0x30, 0, 0x30, 1, 0x38, 0xFF, 0x3D,
 			600, 3500, 12500, 0xE8, ricoh618_ops, 500),
-	RICOH618_REG(LDO2, 0x44, 0, 0x46, 0, 0x4C, 0x7F, 0x58,
+	RICOH618_REG(LDO2, 0x44, 1, 0x46, 1, 0x4D, 0x7F, 0x59,
 			900, 3500, 25000, 0x68, ricoh618_ops, 500),
-	RICOH618_REG(LDO3, 0x44, 1, 0x46, 1, 0x4D, 0x7F, 0x59,
-			900, 3500, 25000, 0x68, ricoh618_ops, 500),
-	RICOH618_REG(LDO4, 0x44, 2, 0x46, 2, 0x4E, 0x7F, 0x5A,
+	RICOH618_REG(LDO3, 0x44, 2, 0x46, 2, 0x4E, 0x7F, 0x5A,
 			600, 3500, 25000, 0x74, ricoh618_ops, 500),
+	RICOH618_REG(LDO4, 0x44, 3, 0x46, 3, 0x4F, 0x7F, 0x5B,
+			900, 3500, 25000, 0x68, ricoh618_ops, 500),
 	RICOH618_REG(VBUS, 0xb3, 1, 0xb3, 1, -1, -1, -1,
 			-1, -1, -1, -1, ricoh618_ops, 500),
 };
@@ -269,6 +289,23 @@ static inline struct ricoh618_regulator *find_regulator_info(const char *name)
 	}
 
 	return NULL;
+}
+
+static int ricoh618_set_longpress(struct device *parent, int delay)
+{
+	int ret;
+
+	ret = ricoh618_set_bits(parent, RICOH618_PWR_FUNC, 0x20);
+	if (ret < 0) {
+		dev_err(&parent, "Error in updating the STATE register\n");
+		return ret;
+	}
+	ricoh618_read(parent, RICOH618_PWR_FUNC, &ret);
+	printk("----> set the longpress 0x%x \n\n", ret);
+
+	udelay(delay);
+
+	return ret;
 }
 
 static inline int ricoh618_cache_regulator_register(struct device *parent,
@@ -353,7 +390,12 @@ static int __devinit ricoh618_regulator_probe(struct platform_device *pdev)
 			rdev[i]->use_count++;
 		}
 	}
+
 #endif
+	err = ricoh618_set_longpress(pdev->dev.parent, 500);
+	if (err) {
+		dev_err(&pdev->dev, "Fail in caching register\n");
+	}
 
 	return 0;
 #ifdef CONFIG_CHARGER_RICOH618
