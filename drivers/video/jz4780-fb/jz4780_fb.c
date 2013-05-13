@@ -1129,11 +1129,30 @@ static int jzfb_set_par(struct fb_info *info)
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
 #ifdef FB_MODE_IS_JZ4780_VGA
+		/*
+		 * If you are using a VGA output,
+		 * then you need to last a pix of the value is set to 0,
+		 * you can add the background size widened, that is,
+		 * the increase in the value of the VDE, plus at least 1,
+		 * the maximum can not exceed the value of VT.
+		 * Example:
+		 * LCD monitor manufacturers: ViewSonic
+		 * Model: VA926.
+		 * Set the resolution: 1280 * 1024
+		 * To set the parameters in xxx_lcd.c need to pay attention to:
+		 * 1. The timing need to use the standard timing
+		 * 2. If you will be using a VGA display, .flag = FB_MODE_IS_JZ4780_VGA
+		 * 3. sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+		 *	  The sync trigger for the high level active
+		 * 4. pixclk_falling_edge = 1, PIX clock trigger high level
+		 * 5. date_enable_active_low = 1, DATA enable is high level
+		 */
+
 		if(mode->flag & FB_MODE_IS_JZ4780_VGA){
-			if(hds > 4 && (hde + 4) <= ht){
-				hds -= 4;
-				hde += 4;
-			}
+			if((hde + 8) <= ht)
+				hde += 8;
+			else if((hde + 1) <= ht)
+				hde += 1;
 			/*
 			if(vds > 2 && (vde + 2) <= vt){
 				vds -= 2;
