@@ -242,8 +242,8 @@ static struct dentry *debugfs_root;
 /*
  * Detected by rules of ONFI v2.3
  */
-#define	NAND_FLASH_MT29F64G08CBABAWP_NAME    "MT29F64G08CBABAWP"
-#define	NAND_FLASH_MT29F64G08CBABAWP_ID      0x64
+#define NAND_FLASH_MT29F64G08CBABAWP_NAME    "MT29F64G08CBABAWP"
+#define NAND_FLASH_MT29F64G08CBABAWP_ID      0x64
 
 
 /*
