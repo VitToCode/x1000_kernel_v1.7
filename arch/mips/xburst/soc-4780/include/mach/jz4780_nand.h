@@ -133,7 +133,7 @@ struct jz4780_nand_platform_data {
 		_ALL_TIMINGS_PLUS,	\
 		_Tcls, _Tclh, _Tals, _Talh,	\
 		_Tcs, _Tch, _Tds, _Tdh, _Twp,	\
-		_Twh, _Twc, _Trc, _Tadl, _Trhw, _Twhr, _Twhr2,	\
+		_Twh, _Twc, _Trc, _Tadl, _Tccs, _Trhw, _Twhr, _Twhr2,	\
 		_Trp, _Trr,	_Tcwaw, _Twb, _Tww,	\
 		_Trst, _Tfeat, _Tdcbsyr, _Tdcbsyr2, _TIMING_MODE, _BW,	\
 		_OUTPUT_STRENGTH, _RB_DOWN_STRENGTH,	\
@@ -165,6 +165,7 @@ struct jz4780_nand_platform_data {
 				.busy_wait_timing = {	\
 					.Tcs = (_Tcs),	\
 					.Tadl = (_Tadl),	\
+					.Tccs = (_Tccs),	\
 					.Trr = (_Trr),	\
 					.Tcwaw = (_Tcwaw),	\
 					.Twb = (_Twb),	\
