@@ -326,7 +326,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
 			1024, 16, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 70, 70, 100, 60, 60, 12, 20, 0, 100,
+			25, 25, 70, 70, 100, 60, 0, 12, 20, 0, 100,
 			100, 500 * 1000, 0, 0, 0, 0, BUS_WIDTH_8,
 			CAN_NOT_ADJUST_OUTPUT_STRENGTH,
 			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
@@ -342,7 +342,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
 			1024, 32, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 300, 300, 100, 100, 300, 12, 20, 300, 100,
+			25, 25, 300, 300, 100, 120, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
 			NAND_OUTPUT_NORMAL_DRIVER,
@@ -731,6 +731,122 @@ static void jz4780_nand_ecc_hwctl(struct mtd_info *mtd, int mode)
 	 */
 }
 
+
+static inline void
+jz4780_nand_delay_after_command(struct jz4780_nand *nand,
+		nand_flash_info_t *nand_info,
+		unsigned int command)
+{
+	switch (command) {
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tcwaw
+		 * some Samsung NAND chips need Tcwaw before
+		 * address cycles
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tcwaw);
+		else {
+			/*
+			 * TODO
+			 * implement Tcwaw delay
+			 */
+		}
+
+		break;
+
+	case NAND_CMD_STATUS:
+		/*
+		 * Apply this short delay to meet Twhr
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Twhr);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	case NAND_CMD_RNDOUTSTART:
+		/*
+		 * Apply this short delay to meet Twhr2
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Twhr2);
+		else {
+			/*
+			 * TODO
+			 * implement Twhr2 delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
+}
+
+static inline void
+jz4780_nand_delay_after_address(struct jz4780_nand *nand,
+		nand_flash_info_t *nand_info,
+		unsigned int command)
+{
+	switch (command) {
+	case NAND_CMD_READID:
+		/*
+		 * Apply this short delay
+		 * always to ensure that we do wait Twhr in
+		 * any case on any machine.
+		 */
+		nand->udelay(nand->chip.chip_delay);
+
+		break;
+
+	case NAND_CMD_SET_FEATURES:
+	case NAND_CMD_SEQIN:
+		/*
+		 * Apply this short delay to meet Tadl
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tadl);
+		else {
+			/*
+			 * TODO
+			 * implement Tadl delay
+			 */
+		}
+
+		break;
+
+	case NAND_CMD_RNDIN:
+		/*
+		 * Apply this short delay to meet Tccs
+		 */
+		if (nand_info->type == BANK_TYPE_NAND)
+			nand->ndelay(nand_info->nand_timing.
+					common_nand_timing.busy_wait_timing.Tccs);
+		else {
+			/*
+			 * TODO
+			 * implement Tccs delay
+			 */
+		}
+
+		break;
+
+	default:
+		break;
+	}
+}
+
 static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 			 int column, int page_addr)
 {
@@ -781,28 +897,7 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	}
 	chip->cmd_ctrl(mtd, command, ctrl);
 
-	switch (command) {
-	case NAND_CMD_RNDIN:
-		/*
-		 * Apply this short delay to meet Tcwaw
-		 * some Samsung NAND chips need Tcwaw before
-		 * address cycles
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tcwaw);
-		else {
-			/*
-			 * TODO
-			 * implement Tcwaw delay
-			 */
-		}
-
-		break;
-
-	default:
-		break;
-	}
+	jz4780_nand_delay_after_command(nand, nand_info, command);
 
 	/* Address cycle, when necessary */
 	ctrl = NAND_CTRL_ALE | NAND_CTRL_CHANGE;
@@ -810,25 +905,8 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	if (column != -1) {
 		chip->cmd_ctrl(mtd, column, ctrl);
 		ctrl &= ~NAND_CTRL_CHANGE;
-
-		switch (command) {
-		case NAND_CMD_SET_FEATURES:
-			if (nand_info->type == BANK_TYPE_NAND)
-				nand->ndelay(nand_info->nand_timing.
-						common_nand_timing.busy_wait_timing.Tadl);
-			else {
-				/*
-				 * TODO
-				 * implement Tadl delay
-				 */
-			}
-
-			break;
-
-		default:
-			break;
-		}
 	}
+
 	if (page_addr != -1) {
 		chip->cmd_ctrl(mtd, page_addr, ctrl);
 		ctrl &= ~NAND_CTRL_CHANGE;
@@ -837,44 +915,10 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 		if (chip->chipsize > (32 << 20))
 			chip->cmd_ctrl(mtd, page_addr >> 16, ctrl);
 	}
+
+	jz4780_nand_delay_after_address(nand, nand_info, command);
+
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
-
-	switch (command) {
-	case NAND_CMD_SEQIN:
-		/*
-		 * Apply this short delay to meet Tadl
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tadl);
-		else {
-			/*
-			 * TODO
-			 * implement Tadl delay
-			 */
-		}
-
-		break;
-
-	case NAND_CMD_RNDIN:
-		/*
-		 * Apply this short delay to meet Tccs
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tccs);
-		else {
-			/*
-			 * TODO
-			 * implement Tadl delay
-			 */
-		}
-
-		break;
-
-	default:
-		break;
-	}
 
 	/*
 	 * Program and erase have their own
@@ -901,9 +945,13 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 			break;
 		}
 
-		nand->udelay(chip->chip_delay);
+		mdelay(nand, MAX_RESET_DELAY_MS);
+
 		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
 			       NAND_CTRL_CLE | NAND_CTRL_CHANGE);
+
+		jz4780_nand_delay_after_command(nand, nand_info, command);
+
 		chip->cmd_ctrl(mtd,
 			       NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
 		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
@@ -934,69 +982,6 @@ static void jz4780_nand_command(struct mtd_info *mtd, unsigned int command,
 	nand->busy_poll = old_busy_poll;
 }
 
-static inline void jz4780_nand_command_readoob_lp(struct mtd_info *mtd,
-		int column, int page_addr)
-{
-	register struct nand_chip *chip = mtd->priv;
-	unsigned int command = NAND_CMD_READ0;
-
-	struct jz4780_nand *nand = mtd_to_jz4780_nand(mtd);
-
-	chip->cmd_ctrl(mtd, command & 0xff,
-			   NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
-
-	if (column != -1 || page_addr != -1) {
-		int ctrl = NAND_CTRL_CHANGE | NAND_NCE | NAND_ALE;
-
-		/* Serially input address */
-		if (column != -1) {
-			/*
-			 * Datesheet K9GBG08U0A, V1.3, P35, S4.8
-			 * Note1: A0 column address should be fixed to "0"
-			 * in 1-plane read operation.
-			 */
-			chip->cmd_ctrl(mtd, 0, ctrl);
-			ctrl &= ~NAND_CTRL_CHANGE;
-			chip->cmd_ctrl(mtd, 0, ctrl);
-		}
-		if (page_addr != -1) {
-			chip->cmd_ctrl(mtd, page_addr, ctrl);
-			chip->cmd_ctrl(mtd, page_addr >> 8,
-					   NAND_NCE | NAND_ALE);
-			/* One more address cycle for devices > 128MiB */
-			if (chip->chipsize > (128 << 20))
-				chip->cmd_ctrl(mtd, page_addr >> 16,
-						   NAND_NCE | NAND_ALE);
-		}
-	}
-
-	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
-
-	chip->cmd_ctrl(mtd, NAND_CMD_READSTART,
-			   NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
-	chip->cmd_ctrl(mtd, NAND_CMD_NONE,
-			   NAND_NCE | NAND_CTRL_CHANGE);
-
-	if (!chip->dev_ready) {
-		nand->udelay(chip->chip_delay);
-		return;
-	}
-
-	/*
-	 * Apply this short delay always
-	 * to ensure that we do wait tWB in
-	 * any case on any machine.
-	 */
-	nand->ndelay(100);
-
-	nand->nand_wait_ready(mtd);
-
-	/*
-	 * Emulate NAND_CMD_RNDOUT seek to OOB column
-	 */
-	chip->cmdfunc(mtd, NAND_CMD_RNDOUT, column, page_addr);
-}
-
 static void jz4780_nand_command_lp(struct mtd_info *mtd,
 		unsigned int command, int column, int page_addr)
 {
@@ -1015,35 +1000,14 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 	/* Emulate NAND_CMD_READOOB */
 	if (command == NAND_CMD_READOOB) {
 		column += mtd->writesize;
-		return jz4780_nand_command_readoob_lp(mtd, column, page_addr);
+		command = NAND_CMD_READ0;
 	}
 
 	/* Command latch cycle */
 	chip->cmd_ctrl(mtd, command & 0xff,
 		       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
 
-	switch (command) {
-	case NAND_CMD_RNDIN:
-		/*
-		 * Apply this short delay to meet Tcwaw
-		 * Samsung NAND chips need Tcwaw before
-		 * address cycles
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tcwaw);
-		else {
-			/*
-			 * TODO
-			 * implement Tcwaw delay
-			 */
-		}
-
-		break;
-
-	default:
-		break;
-	}
+	jz4780_nand_delay_after_command(nand, nand_info, command);
 
 	if (column != -1 || page_addr != -1) {
 		int ctrl = NAND_CTRL_CHANGE | NAND_NCE | NAND_ALE;
@@ -1065,44 +1029,10 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 
 		}
 	}
+
+	jz4780_nand_delay_after_address(nand, nand_info, command);
+
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
-
-	switch (command) {
-	case NAND_CMD_SEQIN:
-		/*
-		 * Apply this short delay to meet Tadl
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tadl);
-		else {
-			/*
-			 * TODO
-			 * implement Tadl delay
-			 */
-		}
-
-		break;
-
-	case NAND_CMD_RNDIN:
-		/*
-		 * Apply this short delay to meet Tccs
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Tccs);
-		else {
-			/*
-			 * TODO
-			 * implement Tadl delay
-			 */
-		}
-
-		break;
-
-	default:
-		break;
-	}
 
 	/*
 	 * Program and erase have their own
@@ -1144,9 +1074,13 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 			break;
 		}
 
-		nand->udelay(chip->chip_delay);
+		mdelay(nand, MAX_RESET_DELAY_MS);
+
 		chip->cmd_ctrl(mtd, NAND_CMD_STATUS,
 			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
+
+		jz4780_nand_delay_after_command(nand, nand_info, command);
+
 		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
 			       NAND_NCE | NAND_CTRL_CHANGE);
 		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
@@ -1157,18 +1091,8 @@ static void jz4780_nand_command_lp(struct mtd_info *mtd,
 		/* No ready / busy check necessary */
 		chip->cmd_ctrl(mtd, NAND_CMD_RNDOUTSTART,
 			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
-		/*
-		 * Apply this short delay to meet Twhr2
-		 */
-		if (nand_info->type == BANK_TYPE_NAND)
-			nand->ndelay(nand_info->nand_timing.
-					common_nand_timing.busy_wait_timing.Twhr2);
-		else {
-			/*
-			 * TODO
-			 * implement Twhr2 delay
-			 */
-		}
+
+		jz4780_nand_delay_after_command(nand, nand_info, command);
 
 		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
 			       NAND_NCE | NAND_CTRL_CHANGE);

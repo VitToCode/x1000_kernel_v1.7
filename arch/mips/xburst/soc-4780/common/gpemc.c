@@ -926,7 +926,7 @@ void gpemc_fill_timing_from_nand(gpemc_bank_t *bank,
 	 * bank Tstrv
 	 * no need to do timings plus
 	 */
-	temp = max(timing->Trhw, timing->Twhr);
+	temp = timing->Trhw;
 	bank->bank_timing.sram_timing.Tstrv = temp;
 
 	/* bank Tbp */

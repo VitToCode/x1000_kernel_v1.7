@@ -159,7 +159,6 @@ struct jz4780_nand_platform_data {
 				.Twc = (_Twc),	\
 				.Trc = (_Trc),	\
 				.Trhw = (_Trhw),	\
-				.Twhr = (_Twhr),	\
 				.Trp = (_Trp),	\
 					\
 				.busy_wait_timing = {	\
@@ -174,6 +173,7 @@ struct jz4780_nand_platform_data {
 					.Tfeat = (_Tfeat),	\
 					.Tdcbsyr = (_Tdcbsyr),	\
 					.Tdcbsyr2 = (_Tdcbsyr2),	\
+					.Twhr = (_Twhr),	\
 					.Twhr2 = (_Twhr2),	\
 				},	\
 					\
