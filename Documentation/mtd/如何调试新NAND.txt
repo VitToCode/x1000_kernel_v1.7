@@ -98,7 +98,7 @@ drivers/mtd/nand/jz4780_nand.c
 
 24小时老化测试
 =============
-1.测试环境准备
+1. 测试环境准备
 	. Kernel 配置增加选择：
 		CONFIG_RELAY=y
 		CONFIG_BLK_DEV_INITRD=y
@@ -113,7 +113,7 @@ drivers/mtd/nand/jz4780_nand.c
 
 	. 烧录重新生成的zImage，如果使用xboot引导，请参考xboot配置：q8_nand_for_fighter_config
 
-2.测试流程
+2. 测试流程
 	. 确认 NAND chip 配置正确：
 		cat /sys/kernel/debug/jz4780-nand/jz4780_nand.x
 		cat /sys/kernel/debug/gpio
@@ -167,7 +167,7 @@ drivers/mtd/nand/jz4780_nand.c
 
 	. 更具体的定义请参考 arch/mips/xburst/soc-4780/include/mach/jz4780_nand.h
 
-4.NAND flash 信息搜索策略
+4. NAND flash 信息搜索策略
 	jz4780_nand.c 中的 NAND flash 信息称为:                 驱动内置默认信息
 	板级代码,如ji8070a-nand-mtd.c，中的 NAND flash 信息称为:  板级调整信息
 
@@ -176,7 +176,7 @@ drivers/mtd/nand/jz4780_nand.c
 
 	. 如果你没有提供 板级调整信息，那么驱动会使用 驱动内置默认信息
 
-5.针对特定板子的老化测试
+5. 针对特定板子的老化测试
 	. 测试准备:
 		配置内核 CONFIG_MTD_TORTURE_TEST = m
 		编译内核产生 mtd_torturetest.ko

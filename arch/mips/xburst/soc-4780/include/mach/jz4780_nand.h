@@ -84,6 +84,7 @@ typedef struct {
 
 typedef struct {
 	const char *name;
+	unsigned int nand_mfr_id;
 	unsigned int nand_dev_id;
 
 	bank_type_t type;
@@ -127,7 +128,7 @@ struct jz4780_nand_platform_data {
 	int flash_bbt;
 };
 
-#define COMMON_NAND_CHIP_INFO(_NAME, _DEV_ID,	\
+#define COMMON_NAND_CHIP_INFO(_NAME, _MFR_ID, _DEV_ID,	\
 		_DATA_SIZE_PRE_ECC_STEP,	\
 		_ECC_BITS_PRE_ECC_STEP,	\
 		_ALL_TIMINGS_PLUS,	\
@@ -139,6 +140,7 @@ struct jz4780_nand_platform_data {
 		_OUTPUT_STRENGTH, _RB_DOWN_STRENGTH,	\
 		_NAND_PRE_INIT)	\
 		.name = (_NAME),	\
+		.nand_mfr_id = (_MFR_ID),	\
 		.nand_dev_id = (_DEV_ID),	\
 		.type = BANK_TYPE_NAND,	\
 		.ecc_step = {	\

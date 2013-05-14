@@ -111,8 +111,9 @@ static nand_flash_info_t board_support_nand_info_adjust_table[] = {
 		 * ECC : 24bit/1KB
 		 */
 		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 32,
+			NAND_FLASH_K9GBG08U0A_NANE,
+			NAND_MFR_SAMSUNG, NAND_FLASH_K9GBG08U0A_ID,
+			1024, 48,
 			/*
 			 * all timings adjust to +10ns
 			 *

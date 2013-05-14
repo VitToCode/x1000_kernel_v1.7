@@ -323,7 +323,8 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 * ECC : 1bit/528Byte
 		 */
 		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
+			NAND_FLASH_K9K8G08U0D_NAME,
+			NAND_MFR_SAMSUNG, NAND_FLASH_K9K8G08U0D_ID,
 			1024, 16, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 70, 70, 100, 60, 60, 12, 20, 0, 100,
@@ -339,8 +340,9 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 * ECC : 24bit/1KB
 		 */
 		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_K9GBG08U0A_NANE, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 32, 0,
+			NAND_FLASH_K9GBG08U0A_NANE,
+			NAND_MFR_SAMSUNG, NAND_FLASH_K9GBG08U0A_ID,
+			1024, 48, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 300, 100, 120, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
@@ -357,7 +359,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_MT29F32G08CBACAWP_NAME,
-			NAND_FLASH_MT29F32G08CBACAWP_ID,
+			NAND_MFR_MICRON, NAND_FLASH_MT29F32G08CBACAWP_ID,
 			1024, 32, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
@@ -377,7 +379,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		 */
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_MT29F64G08CBABAWP_NAME,
-			NAND_FLASH_MT29F64G08CBABAWP_ID,
+			NAND_MFR_MICRON, NAND_FLASH_MT29F64G08CBABAWP_ID,
 			1024, 64, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
@@ -1445,6 +1447,7 @@ jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 	nand_flash_if_t *nand_if;
 	struct jz4780_nand_platform_data *pdata;
 
+	unsigned int nand_mfr_id;
 	unsigned int nand_dev_id;
 	int i;
 
@@ -1461,7 +1464,7 @@ jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 		chip->select_chip(mtd, 0);
 		chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
 		chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
-		nand_dev_id = chip->read_byte(mtd);
+		nand_mfr_id = chip->read_byte(mtd);
 		nand_dev_id = chip->read_byte(mtd);
 		chip->select_chip(mtd, -1);
 
@@ -1469,10 +1472,13 @@ jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 		 * first match from board specific timings
 		 */
 		for (i = 0; i < pdata->num_nand_flash_info; i++) {
-			if (nand_dev_id ==
+			if (nand_mfr_id ==
+					pdata->nand_flash_info_table[i].nand_mfr_id &&
+				nand_dev_id ==
 					pdata->nand_flash_info_table[i].nand_dev_id &&
-					nand_if->cs.bank_type ==
-							pdata->nand_flash_info_table[i].type)
+				nand_if->cs.bank_type ==
+					pdata->nand_flash_info_table[i].type)
+
 				return &pdata->nand_flash_info_table[i];
 		}
 
@@ -1481,10 +1487,13 @@ jz4780_nand_match_nand_chip_info(struct jz4780_nand *nand)
 		 * we try to match form driver built-in timings
 		 */
 		for (i = 0; i < ARRAY_SIZE(builtin_nand_info_table); i++) {
-			if (nand_dev_id ==
-				  builtin_nand_info_table[i].nand_dev_id &&
-				  nand_if->cs.bank_type ==
-						  builtin_nand_info_table[i].type)
+			if (nand_mfr_id ==
+					builtin_nand_info_table[i].nand_mfr_id &&
+				nand_dev_id ==
+					builtin_nand_info_table[i].nand_dev_id &&
+				nand_if->cs.bank_type ==
+					builtin_nand_info_table[i].type)
+
 				return &builtin_nand_info_table[i];
 		}
 	} else {
@@ -2436,15 +2445,24 @@ static int jz4780_nand_debugfs_show(struct seq_file *m, void *__unused)
 	if (nand_info) {
 		seq_printf(m, "\n");
 		seq_printf(m, "Attached NAND flash:\n");
-
 		seq_printf(m, "Chip name: %s\n", nand_info->name);
 		if (nand->chip.onfi_version) {
 			seq_printf(m, "ONFI: v%d\n", nand->chip.onfi_version);
 			seq_printf(m, "Timing mode: %d\n",
 					nand_info->onfi_special.timing_mode);
+			seq_printf(m, "Chip mfrid: 0x%x(%s)\n", nand_info->nand_mfr_id,
+					nand->chip.onfi_params.manufacturer);
 		} else {
 			seq_printf(m, "ONFI: unsupported\n");
+			/* Try to identify manufacturer */
+			for (i = 0; nand_manuf_ids[i].id != 0x0; i++) {
+				if (nand_manuf_ids[i].id == nand_info->nand_mfr_id)
+					break;
+			}
+			seq_printf(m, "Chip mfrid: 0x%x(%s)\n", nand_info->nand_mfr_id,
+					nand_manuf_ids[i].name);
 		}
+
 		seq_printf(m, "Chip devid: 0x%x\n", nand_info->nand_dev_id);
 		seq_printf(m, "Chip size: %dMB\n", (int)(nand->chip.chipsize >> 20));
 		seq_printf(m, "Erase size: %ubyte\n", nand->mtd.erasesize);
