@@ -56,8 +56,8 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	if (duty_ns < 0 || duty_ns > period_ns)
 		return -EINVAL;
 
-	/* period < 10us || period > 1s */
-	if (period_ns < 10000 || period_ns > 1000000000)
+	/* period < 200ns || period > 1s */
+	if (period_ns < 200 || period_ns > 1000000000)
 		return -EINVAL;
 
 	tmp = JZ_EXTAL;
