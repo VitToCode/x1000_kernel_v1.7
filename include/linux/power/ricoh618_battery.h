@@ -27,24 +27,35 @@
 
 //Defined buttery information
 #define	ADC_VDD_MV	2800
-#define	MIN_VOLTAGE	3100
+#define	MIN_VOLTAGE	3600
 #define	MAX_VOLTAGE	4200
 
 //618 Register information
 //bank 0
+#define PSWR_REG		0x07
 //for ADC
 #define	INTEN_REG			0x9D
 #define	EN_ADCIR3_REG	0x8A
 #define	ADCCNT3_REG		0x66
-#define	VBATDATAH_REG	0x6A
-#define	VBATDATAL_REG	0x6B
+#define	VBATDATAH_REG		0x6A
+#define	VBATDATAL_REG		0x6B
+
+#define CHGCTL1_REG		0xB3
+#define	REGISET1_REG		0xB6
+#define	REGISET2_REG		0xB7
+#define	CHGISET_REG		0xB8
+#define	BATSET2_REG		0xBB
 
 #define CHGSTATE_REG		0xBD
 
 #define	FG_CTRL_REG		0xE0
 #define	SOC_REG			0xE1
-#define	TT_EMPTY_H_REG	0xE7
-#define	TT_EMPTY_L_REG	0xE8
+#define	RE_CAP_H_REG		0xE2
+#define	RE_CAP_L_REG		0xE3
+#define	FA_CAP_H_REG		0xE4
+#define	FA_CAP_L_REG		0xE5
+#define	TT_EMPTY_H_REG		0xE7
+#define	TT_EMPTY_L_REG		0xE8
 #define	TT_FULL_H_REG		0xE9
 #define	TT_FULL_L_REG		0xEA
 #define	VOLTAGE_1_REG	0xEB
@@ -52,13 +63,21 @@
 #define	TEMP_1_REG		0xED
 #define	TEMP_2_REG		0xEE
 
-//bank 1
-//Top address for battery initial setting
-#define	BAT_INIT_TOP_REG	0xBC
-#define BAT_REL_SEL_REG     0xDA
-////////////////////////////
+#define	CC_CTRL_REG		0xEF
+#define	CC_SUMREG3_REG		0xF3
+#define	CC_SUMREG2_REG		0xF4
+#define	CC_SUMREG1_REG		0xF5
+#define	CC_SUMREG0_REG		0xF6
+#define	CC_AVERAGE1_REG		0xFB
+#define	CC_AVERAGE0_REG		0xFC
 
-//detailed status in CHGSTATE (0xBD)
+/* bank 1 */
+/* Top address for battery initial setting */
+#define	BAT_INIT_TOP_REG	0xBC
+#define	BAT_REL_SEL_REG		0xDA
+/**************************/
+
+/* detailed status in CHGSTATE (0xBD) */
 enum ChargeState {
 	CHG_STATE_CHG_OFF = 0,
 	CHG_STATE_CHG_READY_VADP,
@@ -77,18 +96,18 @@ enum ChargeState {
 	CHG_STATE_CHG_READY_VUSB,
 };
 
-enum SuppyState {
+enum SupplyState {
 	SUPPLY_STATE_BAT = 0,
 	SUPPLY_STATE_ADP,
 	SUPPLY_STATE_USB,
 } ;
 
 struct ricoh618_battery_platform_data {
-	int         alarm_vol_mv;
-	int         multiple;
-	unsigned long       monitor_time;
+	int	irq;
+	int	alarm_vol_mv;
+	int	multiple;
+	unsigned long	monitor_time;
 };
-
 
 
 #endif
