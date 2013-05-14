@@ -95,7 +95,7 @@ static nand_flash_if_t nand_interfaces[] = {
 	{ COMMON_NAND_INTERFACE(1, GPIO_BUSY0, 1, GPIO_WP, 1) },
 };
 
-static nand_flash_info_t board_support_nand_info_table[] = {
+static nand_flash_info_t board_support_nand_info_adjust_table[] = {
 	#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
 	#define NAND_FLASH_K9GBG08U0A_ID             0xd7
 
@@ -128,46 +128,9 @@ static nand_flash_info_t board_support_nand_info_table[] = {
 			25, 25, 300, 300, 100, 100, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
 			5 * 1000 * 1000, 0, BUS_WIDTH_8,
-			NAND_OUTPUT_UNDER_DRIVER1,
+			NAND_OUTPUT_NORMAL_DRIVER,
 			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
 			samsung_nand_pre_init)
-	},
-
-	{
-		/*
-		 * Datasheet of MT29F32G08CBACA(WP), Rev-E, P109, Table-17
-		 * ECC : 24bit/1080bytes
-		 */
-		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_MT29F32G08CBACAWP_NAME,
-			NAND_FLASH_MT29F32G08CBACAWP_ID,
-			1024, 32, 0,
-			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
-			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
-			NAND_OUTPUT_UNDER_DRIVER1,
-			NAND_RB_DOWN_FULL_DRIVER,
-			micron_nand_pre_init)
-	},
-
-	{
-		/*
-		 * Datasheet of MT29F64G08CBABA(WP), Rev-G, P119, Table-19
-		 * ECC : 40bit/1117bytes
-		 *
-		 * TODO: need read retry
-		 *
-		 */
-		COMMON_NAND_CHIP_INFO(
-			NAND_FLASH_MT29F64G08CBABAWP_NAME,
-			NAND_FLASH_MT29F64G08CBABAWP_ID,
-			1024, 64, 0,
-			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
-			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
-			100, 100 * 1000, 1000, 0, 0, 5, BUS_WIDTH_8,
-			NAND_OUTPUT_UNDER_DRIVER1,
-			NAND_RB_DOWN_FULL_DRIVER,
-			micron_nand_pre_init)
 	},
 };
 
@@ -218,8 +181,8 @@ static struct jz4780_nand_platform_data nand_pdata = {
 	 *         built-in NAND timings table, if also can not match anything,
 	 *         the NAND timings match will fail.
 	 */
-	.nand_flash_info_table = board_support_nand_info_table,
-	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_table),
+	.nand_flash_info_table = board_support_nand_info_adjust_table,
+	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_adjust_table),
 };
 
 static struct platform_device nand_dev = {
