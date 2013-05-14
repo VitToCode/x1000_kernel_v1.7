@@ -326,7 +326,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_FLASH_K9K8G08U0D_NAME, NAND_FLASH_K9K8G08U0D_ID,
 			1024, 16, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
-			25, 25, 70, 70, 100, 60, 0, 12, 20, 0, 100,
+			25, 25, 70, 70, 100, 60, 60, 12, 20, 0, 100,
 			100, 500 * 1000, 0, 0, 0, 0, BUS_WIDTH_8,
 			CAN_NOT_ADJUST_OUTPUT_STRENGTH,
 			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
