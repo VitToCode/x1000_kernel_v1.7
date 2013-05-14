@@ -161,11 +161,6 @@ typedef struct {
 	u32 Trhw;
 
 	/*
-	 * #WE High to #RE Low
-	 */
-	u32 Twhr;
-
-	/*
 	 * #RE Pulse Width
 	 */
 	u32 Trp;
@@ -175,6 +170,11 @@ typedef struct {
 		 * #CE Setup Time
 		 */
 		u32 Tcs;
+
+		/*
+		 * #WE High to #RE Low
+		 */
+		u32 Twhr;
 
 		/*
 		 * address to data loading delay for sequence in
