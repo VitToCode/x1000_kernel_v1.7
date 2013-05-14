@@ -285,7 +285,7 @@ static void __init init_ext_pll(void)
 			unsigned long m,n,o;
 			o = (1 << (((cppcr) >> 16) & 0x3));
 			n = (((cppcr) >> 18) & 0x1f) + 1;
-			m = (((cppcr) >> 24) & 0x3f) + 1;
+			m = (((cppcr) >> 24) & 0x7f) + 1;
 			clk_srcs[i].rate = ((JZ_EXTAL/1000) * m / n / o)*1000; /* fix 32bit overflow: (clock/1000)*1000 */
 		}
 	}
