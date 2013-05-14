@@ -34,7 +34,7 @@
 #include <irq.h>
 
 /* Maximum number of main interrupts */
-#define MAX_INTERRUPT_MASKS	10
+#define MAX_INTERRUPT_MASKS	11
 #define MAX_MAIN_INTERRUPT	8
 #define MAX_GPEDGE_REG		1
 
@@ -46,6 +46,7 @@
 #define RICOH618_PWR_REP_CNT		0x0F
 #define RICOH618_PWR_ON_TIMSET		0x10
 #define RICOH618_PWR_NOE_TIMSET		0x11
+#define RICOH618_PWR_IRSEL		0x15
 
 /* Interrupt enable register */
 #define RICOH618_INT_EN_SYS		0x12
@@ -59,6 +60,14 @@
 #define RICOH618_INT_MSK_CHGSTS1	0xBF
 #define RICOH618_INT_MSK_CHGSTS2	0xC0
 #define RICOH618_INT_MSK_CHGERR		0xC1
+
+/* Interrupt select register */
+#define RICOH618_PWR_IRSEL			0x15
+#define RICOH618_CHG_CTRL_DETMOD1	0xCA
+#define RICOH618_CHG_CTRL_DETMOD2	0xCB
+#define RICOH618_CHG_STAT_DETMOD1	0xCC
+#define RICOH618_CHG_STAT_DETMOD2	0xCD
+#define RICOH618_CHG_STAT_DETMOD3	0xCE
 
 /* interrupt status registers (monitor regs)*/
 #define RICOH618_INTC_INTPOL		0x9C
@@ -99,6 +108,18 @@
 
 #define RICOH618_REG_BANKSEL		0xFF
 
+/* Charger Control register */
+#define RICOH618_CHG_CTL1		0xB3
+
+/* ADC Control register */
+#define RICOH618_ADC_CNT1		0x64
+#define RICOH618_ADC_CNT2		0x65
+#define RICOH618_ADC_CNT3		0x66
+#define RICOH618_ADC_VADP_THL		0x7C
+#define RICOH618_ADC_VSYS_THL		0x80
+
+#define	RICOH618_FG_CTRL		0xE0
+#define	RICOH618_PSWR			0x07
 
 /* RICOH618 IRQ definitions */
 enum {
@@ -267,6 +288,7 @@ struct ricoh618 {
 struct ricoh618_platform_data {
 	int		num_subdevs;
 	struct	ricoh618_subdev_info *subdevs;
+	int (*init_port)(int irq_num); /* Init GPIO for IRQ pin */
 	int		gpio_base;
 	int		irq_base;
 	struct ricoh618_gpio_init_data *gpio_init_data;
@@ -274,17 +296,35 @@ struct ricoh618_platform_data {
 	bool enable_shutdown_pin;
 };
 
+/* ==================================== */
+/* RICOH618 Power_Key device data	*/
+/* ==================================== */
+struct ricoh618_pwrkey_platform_data {
+	int irq;
+	unsigned long delay_ms;
+};
+extern int pwrkey_wakeup;
+/* ==================================== */
+/* RICOH618 battery device data		*/
+/* ==================================== */
+extern int g_soc;
+extern int g_fg_on_mode;
 extern int ricoh618_read(struct device *dev, uint8_t reg, uint8_t *val);
 extern int ricoh618_read_bank1(struct device *dev, uint8_t reg, uint8_t *val);
 extern int ricoh618_bulk_reads(struct device *dev, u8 reg, u8 count, uint8_t *val);
+
 extern int ricoh618_bulk_reads_bank1(struct device *dev, u8 reg, u8 count, uint8_t *val);
+
 extern int ricoh618_write(struct device *dev, u8 reg, uint8_t val);
 extern int ricoh618_write_bank1(struct device *dev, u8 reg, uint8_t val);
 extern int ricoh618_bulk_writes(struct device *dev, u8 reg, u8 count, uint8_t *val);
+
 extern int ricoh618_bulk_writes_bank1(struct device *dev, u8 reg, u8 count,	uint8_t *val);
+
 extern int ricoh618_set_bits(struct device *dev, u8 reg, uint8_t bit_mask);
 extern int ricoh618_clr_bits(struct device *dev, u8 reg, uint8_t bit_mask);
 extern int ricoh618_update(struct device *dev, u8 reg, uint8_t val,	uint8_t mask);
+
 extern int ricoh618_update_bank1(struct device *dev, u8 reg, uint8_t val, uint8_t mask);
 extern int ricoh618_power_off(void);
 extern int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,int irq_base);
