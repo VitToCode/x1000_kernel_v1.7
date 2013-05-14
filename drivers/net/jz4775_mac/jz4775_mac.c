@@ -96,6 +96,9 @@ MODULE_PARM_DESC(copybreak,
 #define MPHYC_MAC_PHYINTF_MII	(0 << 0)
 #define MPHYC_MAC_PHYINTF_RGMII	(1 << 0)
 #define MPHYC_MAC_PHYINTF_RMII	(4 << 0)
+
+static int jz4775_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum);
+
 void set_mac_phy_clk(mac_clock_control mac_control)
 {
 	unsigned int mphy_value = cpm_inl(CPM_MPHYC);
@@ -1922,9 +1925,17 @@ static int jz4775_mac_change_mtu(struct net_device *netdev, int new_mtu) {
 
 static int jzmac_do_ioctl(struct net_device *netdev, struct ifreq *ifr, s32 cmd) {
 	struct jz4775_mac_local *lp = netdev_priv(netdev);
+
+	if (!netif_running(netdev)) {
+		printk("error : it is not in netif_running\n");
+		return -EINVAL;
+	}
+
+	return generic_mii_ioctl(&lp->mii, if_mii(ifr), cmd, NULL);
+
+#if 0
 	//if(netdev == NULL)
 	//	return -1;
-
 	switch(cmd)
 	{
 		case IOCTL_DUMP_REGISTER:               //IOCTL for reading IP registers : Read Registers
@@ -1938,8 +1949,8 @@ static int jzmac_do_ioctl(struct net_device *netdev, struct ifreq *ifr, s32 cmd)
 		default:
 			break;
 	}
-
 	return 0;
+#endif
 }
 
 static const struct net_device_ops jz4775_mac_netdev_ops = {
@@ -2021,6 +2032,13 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 	ndev->netdev_ops = &jz4775_mac_netdev_ops;
 	//ndev->ethtool_ops = &jz4775_mac_ethtool_ops;
 	ndev->watchdog_timeo = 2 * HZ;
+
+	lp->mii.phy_id_mask  = lp->phydev->phy_id;
+	lp->mii.phy_id		 = lp->phydev->phy_id;
+	lp->mii.reg_num_mask = 0x1f;
+	lp->mii.dev			 = ndev;
+	lp->mii.mdio_read    = jz4775_mdiobus_read;
+
 	netif_napi_add(ndev, &lp->napi, jzmac_clean, 32);
 
 	spin_lock_init(&lp->link_lock);

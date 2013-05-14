@@ -104,6 +104,7 @@ struct jz4775_mac_local {
 	u32 alloc_rx_buff_failed;
 
 	struct work_struct reset_task;
+	struct mii_if_info mii;
 };
 
 #endif	/* __JZ4755_MAC_H__ */
