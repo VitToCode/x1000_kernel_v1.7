@@ -1931,6 +1931,9 @@ static int jzmac_do_ioctl(struct net_device *netdev, struct ifreq *ifr, s32 cmd)
 		return -EINVAL;
 	}
 
+	if(!(lp->phydev->link))
+		return 0;
+
 	return generic_mii_ioctl(&lp->mii, if_mii(ifr), cmd, NULL);
 
 #if 0
