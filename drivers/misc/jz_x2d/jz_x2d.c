@@ -561,18 +561,29 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
 		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
 		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
-		jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width & ~0xf;
-		jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height & ~0xf;
+		if (x2d_proc->configs.lay[i].format == Tile_YUV420) {
+			jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width & ~0xf;
+			jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height & ~0xf;
+		}else {
+			jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width;
+			jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height;
+		}
 		jz_x2d->chain_p->x2d_lays[i].ystr = (uint16_t)x2d_proc->configs.lay[i].y_stride;
 		jz_x2d->chain_p->x2d_lays[i].uvstr = (uint16_t)x2d_proc->configs.lay[i].v_stride;
 		jz_x2d->chain_p->x2d_lays[i].owidth = (uint16_t)x2d_proc->configs.lay[i].out_width;
 		jz_x2d->chain_p->x2d_lays[i].oheight= (uint16_t)x2d_proc->configs.lay[i].out_height;
 		jz_x2d->chain_p->x2d_lays[i].oxoffset= (uint16_t)x2d_proc->configs.lay[i].out_w_offset;
 		jz_x2d->chain_p->x2d_lays[i].oyoffset= (uint16_t)x2d_proc->configs.lay[i].out_h_offset;
-		jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * 512) \
-				/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
-		jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * 512) \
-				/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
+
+		if (x2d_proc->configs.lay[i].format == Tile_YUV420) {
+			jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * 512) \
+					/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
+			jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * 512) \
+					/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
+		}else {
+			jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)x2d_proc->configs.lay[i].h_scale_ratio;
+			jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)x2d_proc->configs.lay[i].v_scale_ratio;
+		}
 		jz_x2d->chain_p->x2d_lays[i].bk_argb = x2d_proc->configs.lay[i].msk_val;
 	}
 	dma_cache_wback_inv((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));

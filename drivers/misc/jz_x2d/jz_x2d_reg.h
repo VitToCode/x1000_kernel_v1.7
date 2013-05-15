@@ -134,6 +134,16 @@
 
 #define X2D_ID					0xE003
 
+enum X2D_IN_FMT {
+	Alpha_RGB888 = 0,
+	RGB555,
+	RGB565,
+	YUV420_separate,
+	Tile_YUV420,
+	NV12,
+	NV21,
+};
+
 #define __x2d_read_devid()  	((0xffff <<BIT_X2D_ID & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)) )>>BIT_X2D_ID)
 //#define __x2d_if_wthdog_err() (1<< BIT_X2D_WDOG_EN & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
 //#define __x2d_if_irq_happpen() ((1<< BIT_X2D_IRQ_FLAG) & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
