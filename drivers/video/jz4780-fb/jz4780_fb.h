@@ -124,7 +124,7 @@ struct jzfb {
 	int pan_sync; /* frame update sync */
 
 	struct mutex lock;
-	spinlock_t suspend_lock;
+	struct mutex suspend_lock;
 
 	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
 	struct jzfb_osd_t osd; /* osd's config information */
