@@ -62,14 +62,10 @@
 
 #define CPM_LCR_PD_X2D		(0x1<<31)
 #define CPM_LCR_PD_VPU		(0x1<<30)
-#define CPM_LCR_PD_IPU		(0x1<<29)
-#define CPM_LCR_PD_EPD		(0x1<<28)
-#define CPM_LCR_PD_MASK		(0x7<<28)
+#define CPM_LCR_PD_MASK		(0x3<<30)
 #define CPM_LCR_X2DS 		(0x1<<27)
 #define CPM_LCR_VPUS		(0x1<<26)
-#define CPM_LCR_IPUS		(0x1<<25)
-#define CPM_LCR_EPDS		(0x1<<24)
-#define CPM_LCR_STATUS_MASK 	(0xf<<24)
+#define CPM_LCR_STATUS_MASK 	(0x3<<26)
 
 #define OPCR_ERCS		(0x1<<2)
 #define OPCR_PD			(0x1<<3)

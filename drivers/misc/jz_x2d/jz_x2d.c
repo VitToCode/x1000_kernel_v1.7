@@ -41,6 +41,7 @@
 #include <asm/io.h>
 #include <asm/thread_info.h>
 
+#include <mach/jzcpm_pwc.h>
 #include "jz_x2d.h"
 #include "jz_x2d_reg.h"
 
@@ -79,6 +80,7 @@ struct x2d_device {
 	struct resource * mem;
 	struct miscdevice misc_dev;
 	struct clk *x2d_clk;
+	void* cpm_pwc;
 
 	enum jz_x2d_state state;
 	enum jz_x2d_errcode errcode;
@@ -963,7 +965,20 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 
 	clk_disable(jz_x2d->x2d_clk);  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
+
+#ifdef CONFIG_SOC_4775
+	jz_x2d->cpm_pwc = cpm_pwc_get(PWC_X2D);
+	if(jz_x2d->cpm_pwc == NULL) {
+		dev_err(&pdev->dev, "get %s fail!\n",PWC_X2D);
+		goto err_exit;
+	}
+#else
+	jz_x2d->cpm_pwc = NULL;
+#endif
+	if(jz_x2d->cpm_pwc)
+		cpm_pwc_enable(jz_x2d->cpm_pwc);
 	printk("Virtual Driver of JZ X2D registered\n");
+
 	return 0;
 
 err_exit:
@@ -986,6 +1001,8 @@ static int __devexit x2d_remove(struct platform_device *pdev)
 {
 	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
 
+	if(jz_x2d->cpm_pwc)
+		cpm_pwc_put(jz_x2d->cpm_pwc);
 	iounmap(jz_x2d->base);
 	free_irq(jz_x2d->irq,jz_x2d);
 	release_mem_region(jz_x2d->mem->start, resource_size(jz_x2d->mem));

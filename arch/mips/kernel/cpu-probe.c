@@ -109,6 +109,9 @@ IDLE_PROGRAM:
 				      "	sync			\n"
 				      "	lw	$0,	0(%0)	\n"
 				      "	wait			\n"
+				      "	nop			\n"
+				      "	nop			\n"
+				      "	nop			\n"
 				      "	.set	pop		\n"
 				      :: "r" (0xa0000000)
 			);

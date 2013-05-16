@@ -82,13 +82,13 @@ static void inline rtc_write_reg(int reg,int value)
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 }
 
-#define HWFCR_WAIT_TIME(x) ((0x3ff-((0x3ff*(x))/2000)) << 5)
+#define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
 
 void jz_hibernate(void)
 {
 	local_irq_disable();
-	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 100ms */
-	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(100));
+	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 1000ms */
+	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
 	rtc_write_reg(RTC_HRCR, (60 << 5));
@@ -141,8 +141,8 @@ static void hibernate_restart(void) {
       	/* Clear reset status */
 	cpm_outl(0,CPM_RSR);
 
-	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 100ms */
-	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(100));
+	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 1000ms */
+	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
 	rtc_write_reg(RTC_HRCR, (60 << 5));

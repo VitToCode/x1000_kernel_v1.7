@@ -26,10 +26,11 @@ typedef void (*putchar_f_t)(char);
 static putchar_f_t putchar_f = check_uart;
 static void putchar(char ch)
 {
+	int timeout = 10000;
 	volatile u8 *base = uart_base;
 	/* Wait for fifo to shift out some bytes */
-	while ((base[OFF_LSR] & (LSR_TDRQ | LSR_TEMT)) 
-	       != (LSR_TDRQ | LSR_TEMT))
+	while ((base[OFF_LSR] & (LSR_TDRQ | LSR_TEMT))
+	       != (LSR_TDRQ | LSR_TEMT) && timeout--)
 		;
 	base[OFF_TDR] = (u8)ch;
 }

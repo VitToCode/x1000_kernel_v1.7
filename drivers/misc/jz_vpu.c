@@ -25,6 +25,7 @@
 
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <mach/jzcpm_pwc.h>
 
 #include "jz_vpu.h"
 
@@ -45,23 +46,17 @@ struct jz_vpu {
 	struct mutex		mutex;
 	pid_t			owner_pid;
 	unsigned int		status;
+	void*                   cpm_pwc;
 };
 
 static int vpu_on(struct jz_vpu *vpu)
 {
-	int cnt = 0xffff;
-
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
 		return -EBUSY;
 
 	clk_enable(vpu->clk);
 	clk_enable(vpu->clk_gate);
-	cpm_clear_bit(30, CPM_LCR);	//vpu power on
-	while ((cpm_inl(CPM_LCR) & CPM_LCR_VPUS) && --cnt);
-	if (!cnt) {
-		pr_err("power on vpu timeout!!!\n");
-		WARN_ON(1);
-	}
+	cpm_pwc_enable(vpu->cpm_pwc);
 
 	__asm__ __volatile__ (
 			"mfc0  $2, $16,  7   \n\t"
@@ -90,6 +85,7 @@ static long vpu_off(struct jz_vpu *vpu)
 	clk_disable(vpu->clk);
 	clk_disable(vpu->clk_gate);
 	cpm_set_bit(30,CPM_LCR);
+	cpm_pwc_disable(vpu->cpm_pwc);
 	wake_unlock(&vpu->wake_lock);
 	dev_dbg(vpu->dev, "[%d:%d] off\n", current->tgid, current->pid);
 
@@ -395,9 +391,13 @@ static int vpu_probe(struct platform_device *pdev)
 		goto err_request_irq;
 	}
 	disable_irq_nosync(vpu->irq);
-
+	vpu->cpm_pwc = cpm_pwc_get(PWC_VPU);
+	if(!vpu->cpm_pwc) {
+		dev_err(&pdev->dev, "get %s fail!\n",PWC_VPU);
+		goto err_request_power;
+	}
 	return 0;
-
+err_request_power:
 err_request_irq:
 	misc_deregister(&vpu->mdev);
 err_registe_misc:
@@ -414,7 +414,8 @@ err_get_mem:
 static int vpu_remove(struct platform_device *dev)
 {
 	struct jz_vpu *vpu = platform_get_drvdata(dev);
-
+	if(vpu->cpm_pwc)
+		cpm_pwc_put(vpu->cpm_pwc);
 	misc_deregister(&vpu->mdev);
 	wake_lock_destroy(&vpu->wake_lock);
 	clk_put(vpu->clk);

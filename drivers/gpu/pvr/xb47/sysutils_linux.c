@@ -57,6 +57,9 @@
 #include "pvr_drm.h"
 #endif
 
+#include <soc/cpm.h>
+#include <soc/base.h>
+#include <mach/jzcpm_pwc.h>
 #define	ONE_MHZ	1000000
 #define	HZ_TO_MHZ(m) ((m) / ONE_MHZ)
 
@@ -68,36 +71,25 @@ extern struct proc_dir_entry * dir;
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
 extern struct platform_device *gpsPVRLDMDev;
 #endif
-static IMG_BOOL PowerSupplyIsOFF(IMG_VOID)
+
+static IMG_BOOL PowerSupplyIsOFF(IMG_VOID *handle)
 {
-    return (inl(0x10000004) & (1 << 25));
+	return !cpm_pwc_is_enabled(handle);
 }
 
-static IMG_VOID TurnOffPowerSupply(IMG_VOID)
+static IMG_VOID TurnOffPowerSupply(IMG_UINT32 uData)
 {
-    if(!PowerSupplyIsOFF())
-    {
-        // Wait for GPU IDLE
-        do {
-        } while (!(inl(0x10000004) & (1 << 24)));
-        // Turn off the light
-        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
-        // Wait for power down
-        do {
-        } while (!(inl(0x10000004) & (1 << 25)));
-    }
+	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *)uData;
+	if(!PowerSupplyIsOFF(psSysSpecData->pPowerHandle)) {
+		cpm_pwc_disable(psSysSpecData->pPowerHandle);
+	}
 }
 
-static IMG_VOID TurnOnPowerSupply(IMG_VOID)
+static IMG_VOID TurnOnPowerSupply(IMG_UINT32 uData)
 {
-    if(PowerSupplyIsOFF())
-    {
-        // Turn on the light
-        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
-        // Wait for power on
-        do {
-        } while ((inl(0x10000004) & (1 << 25)));
-    }
+	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *)uData;
+	if(PowerSupplyIsOFF(psSysSpecData->pPowerHandle))
+		cpm_pwc_enable(psSysSpecData->pPowerHandle);
 }
 
 static PVRSRV_ERROR SetClockRate(SYS_SPECIFIC_DATA *psSysSpecificData, IMG_UINT32 ui32RequiredRate)
@@ -257,7 +249,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
             del_timer_sync(&psSysSpecData->psPowerDown_Timer);
             clk_enable(psSysSpecData->psTimer_Divider);
             clk_enable(psSysSpecData->psTimer_Gate);
-            TurnOnPowerSupply();
+            TurnOnPowerSupply((IMG_UINT32)psSysSpecData);
         }
 
 	{
@@ -344,10 +336,24 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 #endif
 
         {
-            clk_disable(psSysSpecData->psTimer_Gate);
-            clk_disable(psSysSpecData->psTimer_Divider);
-            mod_timer(&psSysSpecData->psPowerDown_Timer,
-                      jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS));
+		int count = 10000;
+		//wait gpu idle
+		while(!cpm_test_bit(20,CPM_LCR) && count--);
+		if(count <= 0) {
+			printk("wait idle timeout\n");
+		}
+		if(count < 9999)
+			printk("gpu count = %d\n",count);
+		if(count > 0) {
+			clk_disable(psSysSpecData->psTimer_Gate);
+			clk_disable(psSysSpecData->psTimer_Divider);
+			mod_timer(&psSysSpecData->psPowerDown_Timer,
+				  jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS));
+
+		}else {
+			del_timer_sync(&psSysSpecData->psPowerDown_Timer);
+		}
+
         }
 
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
@@ -356,9 +362,6 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 	PVR_UNREFERENCED_PARAMETER(psSysData);
 #endif
 }
-
-#include <soc/cpm.h>
-#include <soc/base.h>
 
 static int turbo_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
@@ -463,6 +466,10 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
         // Init the timer for turning off the power supply
         psSysSpecData->psPowerDown_Timer.expires = jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS);
         psSysSpecData->psPowerDown_Timer.function = TurnOffPowerSupply;
+        psSysSpecData->psPowerDown_Timer.data = (IMG_UINT32)psSysSpecData;
+
+        psSysSpecData->pPowerHandle = cpm_pwc_get(PWC_GPU);
+
         init_timer(&psSysSpecData->psPowerDown_Timer);
 
         CreateProcEntries(psSysSpecData);
@@ -497,6 +504,7 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	clk_put(psSysSpecData->psTimer_Gate);
 	clk_put(psSysSpecData->psTimer_Divider);
 
+	cpm_pwc_put(psSysSpecData->pPowerHandle);
         RemoveXBProcEntries();
 
 #else //#if defined(PVR_XB47_TIMING_CPM)

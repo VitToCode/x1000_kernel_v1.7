@@ -20,7 +20,7 @@
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
-
+#include <mach/jzcpm_pwc.h>
 /*
  * Bring up the priority of CPU on both AHB0 & AHB2
  */
@@ -43,7 +43,6 @@ void __init cpm_reset(void)
 #ifndef CONFIG_FPGA_TEST
 	unsigned long clkgr0 = cpm_inl(CPM_CLKGR0);
 	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
-	unsigned long lcr = cpm_inl(CPM_LCR);
 
 #if 1
 	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
@@ -55,14 +54,8 @@ void __init cpm_reset(void)
 	cpm_outl(0xfffffdff,CPM_CLKGR1);
 	mdelay(1);
 #endif
-	cpm_outl(lcr | CPM_LCR_PD_MASK | 0x8f<<8,CPM_LCR);
-	while((cpm_inl(CPM_LCR) & (0x7<<24)) != (0x7<<24));
-
-	cpm_outl(0,CPM_PSWC0ST);
-	cpm_outl(16,CPM_PSWC1ST);
-	cpm_outl(24,CPM_PSWC2ST);
-	cpm_outl(8,CPM_PSWC3ST);
 #endif
+	cpm_pwc_init();
 }
 
 int __init setup_init(void)

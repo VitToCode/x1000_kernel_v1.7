@@ -3054,6 +3054,9 @@ static void dwc2_host_cleanup(struct dwc2 *dwc) {
 
 /* A-Cable still connected but device disconnected. */
 void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
+	if (!dwc->device_connected)
+		return;
+
 	dwc->device_connected = 0;
 
 	/*

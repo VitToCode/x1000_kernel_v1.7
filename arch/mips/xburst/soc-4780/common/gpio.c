@@ -81,6 +81,7 @@ struct jzgpio_chip {
 	struct jzgpio_state sleep_state;
 	struct jzgpio_state sleep_state2;
 	unsigned int save[5];
+	spinlock_t gpiolock;
 };
 
 static struct jzgpio_chip jz_gpio_chips[];
@@ -103,18 +104,25 @@ static inline int gpio_pin_level(struct jzgpio_chip *jz, int pin)
 static void gpio_set_func(struct jzgpio_chip *chip,
 		enum gpio_function func, unsigned int pins)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&chip->gpiolock,flags);
+
+	writel(pins, chip->reg + PXMSKS);
 	writel(func & 0x8? pins : 0, chip->reg + PXINTS);
-	writel(func & 0x4? pins : 0, chip->reg + PXMSKS);
 	writel(func & 0x2? pins : 0, chip->reg + PXPAT1S);
 	writel(func & 0x1? pins : 0, chip->reg + PXPAT0S);
 
 	writel(func & 0x8? 0 : pins, chip->reg + PXINTC);
-	writel(func & 0x4? 0 : pins, chip->reg + PXMSKC);
 	writel(func & 0x2? 0 : pins, chip->reg + PXPAT1C);
 	writel(func & 0x1? 0 : pins, chip->reg + PXPAT0C);
 
 	writel(func & 0x10? pins : 0, chip->reg + PXPENC);
 	writel(func & 0x10? 0 : pins, chip->reg + PXPENS);
+	writel(func & 0x4? 0 : pins, chip->reg + PXMSKC); 
+	writel(pins, chip->reg + PXFLGC);
+
+	spin_unlock_irqrestore(&chip->gpiolock,flags);
 }
 
 int jzgpio_set_func(enum gpio_port port,
@@ -434,6 +442,7 @@ static int __init setup_gpio_irq(void)
 {
 	int i,j;
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
+		spin_lock_init(&jz_gpio_chips[i].gpiolock);
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
 					jz_gpio_chips[i].irq_chip.name, 
 					(void*)&jz_gpio_chips[i]))
@@ -651,6 +660,7 @@ int __init setup_gpio_pins(void)
 				GPIO_PORT_OFF - 1);
 		jz_gpio_chips[i].gpio_map[0] = 0xffffffff;
 	}
+	setup_gpio_irq();
 
 	for (i = 0; i < platform_devio_array_size ; i++) {
 		struct jz_gpio_func_def *g = &platform_devio_array[i];
@@ -676,7 +686,6 @@ int __init setup_gpio_pins(void)
 		gpio_set_func(jz, g->func, g->pins);
 	}
 
-	setup_gpio_irq();
 	jz_gpiolib_init();
 	register_syscore_ops(&gpio_pm_ops);
 
