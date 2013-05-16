@@ -28,7 +28,7 @@
 #define GPIO_WP          GPIO_PF(22)
 
 #define SIZE_MB          (1024 * 1024LL)
-#define SIZE_ALL         (8192 * SIZE_MB)
+#define SIZE_ALL         (10240 * SIZE_MB)
 
 #define OFFSET_XBOOT     (0)
 #define SIZE_XBOOT       (8      * SIZE_MB)
@@ -93,17 +93,12 @@ static struct mtd_partition parts[] = {
 
 static nand_flash_if_t nand_interfaces[] = {
 	{ COMMON_NAND_INTERFACE(1, GPIO_BUSY0, 1, GPIO_WP, 1) },
+	{ COMMON_NAND_INTERFACE(2, -1, 1, -1, 1) },
 };
 
 static nand_flash_info_t board_support_nand_info_adjust_table[] = {
 	#define NAND_FLASH_K9GBG08U0A_NANE           "K9GBG08U0A"
 	#define NAND_FLASH_K9GBG08U0A_ID             0xd7
-
-	#define NAND_FLASH_MT29F32G08CBACAWP_NAME    "MT29F32G08CBACAWP"
-	#define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
-
-	#define NAND_FLASH_MT29F64G08CBABAWP_NAME    "MT29F64G08CBABAWP"
-	#define NAND_FLASH_MT29F64G08CBABAWP_ID      0x64
 
 	{
 		/*
