@@ -502,10 +502,10 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	int ret = -1;
 	struct jzfb *jzfb = info->par;
-	spin_lock(&jzfb->suspend_lock);
+	mutex_lock(&jzfb->suspend_lock);
 	if(jzfb->is_suspend == 0)
 		ret = jzfb_image_enh_ioctl_internal(info, cmd, arg);
-	spin_unlock(&jzfb->suspend_lock);
+	mutex_unlock(&jzfb->suspend_lock);
 	return ret;
 }
 

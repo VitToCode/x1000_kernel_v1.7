@@ -1236,10 +1236,10 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		ctrl &= ~LCDC_CTRL_DIS;
 		reg_write(jzfb, LCDC_CTRL, ctrl);
 
-		spin_lock(&jzfb->suspend_lock);
+		mutex_lock(&jzfb->suspend_lock);
 		if (jzfb->is_suspend) {
 			jzfb->is_suspend = 0;
-			spin_unlock(&jzfb->suspend_lock);
+			mutex_unlock(&jzfb->suspend_lock);
 			if (jzfb->pdata->lvds && jzfb->id) {
 				jzfb_lvds_pll_reset(jzfb->fb);
 				jzfb_lvds_check_pll_lock(jzfb->fb);
@@ -1249,7 +1249,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 				jzfb_slcd_mcu_init(jzfb->fb);
 			}
 		} else {
-			spin_unlock(&jzfb->suspend_lock);
+			mutex_unlock(&jzfb->suspend_lock);
 		}
 		break;
 	default:
@@ -1462,13 +1462,13 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 				+ jzfb->frm_size * next_frm;
 		} else if (jzfb->osd.decompress) {
 #ifdef CONFIG_JZ4780_AOSD
-			spin_lock(&jzfb->suspend_lock);
+			mutex_lock(&jzfb->suspend_lock);
 			if (jzfb->is_suspend) {
-				spin_unlock(&jzfb->suspend_lock);
+				mutex_unlock(&jzfb->suspend_lock);
 				mutex_unlock(&jzfb->framedesc_lock);
 				return 0;
 			}
-			spin_unlock(&jzfb->suspend_lock);
+			mutex_unlock(&jzfb->suspend_lock);
 
 			if (aosd_info.is_desc_init) {
 				unsigned int count = 25;
@@ -2220,9 +2220,9 @@ static void jzfb_early_suspend(struct early_suspend *h)
 		/* disable LCDC */
 		jzfb_blank(FB_BLANK_POWERDOWN, jzfb->fb);
 	}
-	spin_lock(&jzfb->suspend_lock);
+	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 1;
-	spin_unlock(&jzfb->suspend_lock);
+	mutex_unlock(&jzfb->suspend_lock);
 
 #ifdef CONFIG_JZ4780_AOSD
 	/* The clock of aosd just need to close once */
@@ -2258,9 +2258,9 @@ static void jzfb_late_resume(struct early_suspend *h)
 		jzfb_blank(FB_BLANK_UNBLANK, jzfb->fb);
 	}
 
-	spin_lock(&jzfb->suspend_lock);
+	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
-	spin_unlock(&jzfb->suspend_lock);
+	mutex_unlock(&jzfb->suspend_lock);
 }
 #endif
 
@@ -2969,7 +2969,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	mutex_init(&jzfb->lock);
 	mutex_init(&jzfb->framedesc_lock);
-	spin_lock_init(&jzfb->suspend_lock);
+	mutex_init(&jzfb->suspend_lock);
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);
