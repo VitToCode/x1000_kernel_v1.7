@@ -596,7 +596,7 @@ static struct dwc2_ep *dwc2_wIndex_to_dep(struct dwc2 *dwc, __le16 wIndex_le)
 	u32		 windex = le16_to_cpu(wIndex_le);
 	u32		 epnum;
 
-	epnum = (windex & USB_ENDPOINT_NUMBER_MASK) << 1;
+	epnum = (windex & USB_ENDPOINT_NUMBER_MASK); // cli delete<< 1;
 	if ((windex & USB_ENDPOINT_DIR_MASK) == USB_DIR_IN)
 		epnum += dwc->dev_if.num_out_eps;
 
