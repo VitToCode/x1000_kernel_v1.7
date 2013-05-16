@@ -1188,12 +1188,20 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 	list_del(&req->list);
 
 	if (req->request.status == -EINPROGRESS) {
+#ifdef CONFIG_ANDROID /*
+					   * cli@ingenic.cn when we use linux File-backed Storage Gadget driver
+					   * its seems that short_not_ok should not be saw here by dwc2 driver
+					   * maybe it a gadget problem but dwc driver is work well,
+					   * because it ignore it so we ignore it for a while
+					   */
+
 		if (r->short_not_ok && (r->actual < r->length) && (status == 0)) {
 			DWC2_GADGET_DEBUG_MSG("trans complete success but short is not ok! "
 					"req = 0x%p, actual = %d, len = %d\n",
 					req, r->actual, r->length);
 			status = -EINVAL;
 		}
+#endif
 		req->request.status = status;
 	}
 

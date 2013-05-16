@@ -329,13 +329,13 @@ static struct {
 } mod_data = {					// Default values
 	.transport_parm		= "BBB",
 	.protocol_parm		= "SCSI",
-	.removable		= 0,
-	.can_stall		= 1,
+	.removable		= 1,
+	.can_stall		= 0,
 	.cdrom			= 0,
 	.vendor			= FSG_VENDOR_ID,
 	.product		= FSG_PRODUCT_ID,
 	.release		= 0xffff,	// Use controller chip type
-	.buflen			= 16384,
+	.buflen			= 64*1024,
 	};
 
 
@@ -2429,7 +2429,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 	}
 	fsg->phase_error = 0;
 	fsg->short_packet_received = 0;
-
 	down_read(&fsg->filesem);	// We're using the backing file
 	switch (fsg->cmnd[0]) {
 
@@ -3396,6 +3395,10 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 
 	if ((rc = check_parameters(fsg)) != 0)
 		goto out;
+	
+	if (usb_gadget_connect(gadget) < 0) {
+		printk(KERN_ERR"gadget ops is not register\n");
+	}
 
 	if (mod_data.removable) {	// Enable the store_xxx attributes
 		dev_attr_file.attr.mode = 0644;
