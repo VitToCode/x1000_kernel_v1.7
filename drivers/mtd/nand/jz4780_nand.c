@@ -2663,6 +2663,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	case NAND_XFER_DMA_IRQ:
 		for (i = 0; i < nand->num_nand_flash_if; i++, k = i) {
 			nand_if = &pdata->nand_flash_if_table[i];
+
+			if (nand_if->busy_gpio < 0)
+				continue;
+
 			ret = request_busy_irq(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
@@ -2678,6 +2682,10 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	case NAND_XFER_DMA_POLL:
 		for (i = 0; i < nand->num_nand_flash_if; i++, k = i) {
 			nand_if = &pdata->nand_flash_if_table[i];
+
+			if (nand_if->busy_gpio < 0)
+				continue;
+
 			ret = request_busy_poll(nand_if);
 			if (ret) {
 				dev_err(&pdev->dev,
@@ -2703,6 +2711,7 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 */
 	for (i = 0; i < nand->num_nand_flash_if; i++, m = i) {
 		nand_if = &pdata->nand_flash_if_table[i];
+
 		if (nand_if->wp_gpio < 0)
 			continue;
 
@@ -3096,12 +3105,18 @@ err_free_wp_gpio:
 	for (bank = 0; bank < m; bank++) {
 		nand_if = &pdata->nand_flash_if_table[bank];
 
+		if (nand_if->wp_gpio < 0)
+			continue;
+
 		gpio_free(nand_if->wp_gpio);
 	}
 
 err_free_busy_irq:
 	for (bank = 0; bank < k; bank++) {
 		nand_if = &pdata->nand_flash_if_table[bank];
+
+		if (nand_if->busy_gpio < 0)
+			continue;
 
 		if (pdata->xfer_type == NAND_XFER_CPU_IRQ ||
 				pdata->xfer_type ==NAND_XFER_DMA_IRQ)
