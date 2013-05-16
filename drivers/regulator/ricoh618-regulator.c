@@ -294,14 +294,18 @@ static inline struct ricoh618_regulator *find_regulator_info(const char *name)
 static int ricoh618_set_longpress(struct device *parent, int delay)
 {
 	int ret;
+	uint8_t val;
 
-	ret = ricoh618_set_bits(parent, RICOH618_PWR_FUNC, 0x20);
+	ricoh618_read(parent, RICOH618_PWR_ON_TIMSET, &val);
+	val &= ~(0x7 << 4);
+	ret = ricoh618_write(parent, RICOH618_PWR_ON_TIMSET, val | ricoh618_longpress_pwr[CONFIG_RICOH618_LONGPRESS_PWOFF]);
 	if (ret < 0) {
-		dev_err(&parent, "Error in updating the STATE register\n");
+		dev_err(parent, "Error in updating the STATE register\n");
 		return ret;
 	}
-	ricoh618_read(parent, RICOH618_PWR_FUNC, &ret);
-	printk("----> set the longpress 0x%x \n\n", ret);
+
+	/*ricoh618_read(parent, RICOH618_PWR_ON_TIMSET, &val);
+	printk("----> set the longpress 0x%x  time = 0x%x \n\n", val,ricoh618_longpress_pwr[CONFIG_RICOH618_LONGPRESS_PWOFF]);*/
 
 	udelay(delay);
 
