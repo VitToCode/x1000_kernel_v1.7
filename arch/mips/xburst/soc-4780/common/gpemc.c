@@ -1176,6 +1176,7 @@ static int gpemc_debugfs_show(struct seq_file *m, void *__unused)
 			bank = gpemc->requested_banks[cs];
 			smcr = gpemc->regs_file->smcr[cs - 1];
 
+			seq_printf(m, "\n");
 			seq_printf(m, "====== Bank%d ======\n", cs);
 			seq_printf(m, "Owner: %s\n", dev_name(bank->dev));
 			seq_printf(m, "Type: %s\n",
