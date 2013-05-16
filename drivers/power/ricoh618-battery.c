@@ -57,7 +57,7 @@
 
 
 /* FG setting */
-#define CUTOFF_VOL              1   /* mV "0" means cutoff
+#define CUTOFF_VOL              3600   /* mV "0" means cutoff
                             * voltage = original
                             * OCV table value */
 #define RICOH618_REL1_SEL_VALUE         64  /* mv Range 0~240

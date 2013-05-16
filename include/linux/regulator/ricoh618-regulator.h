@@ -46,6 +46,11 @@ enum regulator_id {
 	RICOH618_ID_VBUS,
 };
 
+uint8_t ricoh618_longpress_pwr[13] = {
+		0x00, 0x10, 0x20, 0x30, 0x30, 0x30, 0x40,
+		0x40, 0x50, 0x50, 0x60, 0x60, 0x70
+};
+
 struct ricoh618_regulator_platform_data {
 		struct regulator_init_data regulator;
 		int init_uV;
