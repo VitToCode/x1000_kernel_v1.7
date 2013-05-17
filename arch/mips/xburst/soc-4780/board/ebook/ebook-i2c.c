@@ -70,7 +70,7 @@ static struct jztsc_pin ebook_tsc_gpio[] = {
 static struct jztsc_platform_data ebook_tsc_pdata = {
 	.gpio		= ebook_tsc_gpio,
 	.x_max		= 1024,
-	.y_max		= 600,
+	.y_max		= 768,
 };
 #endif
 

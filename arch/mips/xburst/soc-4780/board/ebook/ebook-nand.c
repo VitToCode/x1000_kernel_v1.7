@@ -13,14 +13,13 @@
 #include <mach/jznand.h>
 #include "ebook.h"
 
-#define ECCBIT 40
-#define CONFIG_MUL_PARTS 1
+#define ECCBIT 24
 #ifdef CONFIG_MUL_PARTS
 static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndxboot",
 	offset:0 * 0x100000LL,
-	size:16 * 0x100000LL,
+	size:8 * 0x100000LL,
 	mode:SPL_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -29,7 +28,7 @@ static struct platform_nand_partition partition_info[] = {
 	},
 	{
 	name:"ndboot",
-	offset:16 * 0x100000LL,
+	offset:8 * 0x100000LL,
 	size:16 * 0x100000LL,
 	mode:DIRECT_MANAGER,
 	eccbit:ECCBIT,
@@ -39,7 +38,7 @@ static struct platform_nand_partition partition_info[] = {
 	},
 	{
 	name:"ndrecovery",
-	offset:32 * 0x100000LL,
+	offset:24 * 0x100000LL,
 	size:16 * 0x100000LL,
 	mode:DIRECT_MANAGER,
 	eccbit:ECCBIT,
@@ -50,7 +49,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndsystem",
 	offset:64 * 0x100000LL,
-	size:2048 * 0x100000LL,
+	size:(512 + 512) * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -59,8 +58,8 @@ static struct platform_nand_partition partition_info[] = {
 	},
 	{
 	name:"ndcache",
-	offset:2112 * 0x100000LL,
-	size:256 * 0x100000LL,
+	offset:(576 + 512) * 0x100000LL,
+	size:128 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -69,8 +68,8 @@ static struct platform_nand_partition partition_info[] = {
 	},
 	{
 	name:"ndextern",
-	offset:2368 * 0x100000LL,
-	size:(8192 - 2368) * 0x100000LL,
+	offset:(704 + 512) * 0x100000LL,
+	size:(7488-512) * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -78,13 +77,13 @@ static struct platform_nand_partition partition_info[] = {
 	ex_partition:{
 		{
 		name:"nddata",
-		offset:2368 * 0x100000LL,
+		offset:(704 + 512) * 0x100000LL,
 		size:1024 * 0x100000LL,
 		},
 		{
 		name:"ndmisc",
-		offset:3392 * 0x100000LL,
-		size:(8192 - 3392) * 0x100000LL,
+		offset:(1728 + 512) * 0x100000LL,
+		size:(6464 - 512) * 0x100000LL,
 		}
 	    }
 	}
@@ -100,12 +99,12 @@ static struct platform_nand_partition partition_info[] = {
  * block generated.
  */
 static int partition_reserved_badblocks[] = {
-	0,			/* reserved blocks of ndxboot */
-	1,			/* reserved blocks of ndboot */
-	1,			/* reserved blocks of ndrecovery */
-	1,			/* reserved blocks of ndsystem */
-	1,			/* reserved blocks of ndcache */
-	1,			/* reserved blocks of ndextern */
+	1,			/* reserved blocks of ndxboot */
+	2,			/* reserved blocks of ndboot */
+	2,			/* reserved blocks of ndrecovery */
+	16,			/* reserved blocks of ndsystem */
+	18,			/* reserved blocks of ndcache */
+	256,			/* reserved blocks of ndextern */
 	1,			/* reserved blocks of nderror */
 };
 

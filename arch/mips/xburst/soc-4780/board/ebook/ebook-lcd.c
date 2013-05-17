@@ -35,6 +35,22 @@ struct platform_device kr070la0s_270_device = {
 };
 #endif
 
+#ifdef CONFIG_LCD_TM080TDH01
+#include <linux/tm080tdh01.h>
+static struct platform_tm080tdh01_data tm080tdh01_pdata= {
+/* gpio had been hardware control */
+};
+
+/* LCD Panel Device */
+struct platform_device tm080tdh01_device = {
+	.name		= "tm080tdh01-lcd",
+	.dev		= {
+		.platform_data	= &tm080tdh01_pdata,
+	},
+};
+#endif
+
+
 #ifdef CONFIG_LCD_EK070TN93
 #include <linux/ek070tn93.h>
 static struct platform_ek070tn93_data ek070tn93_pdata= {
@@ -159,6 +175,24 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0
 	},
 #endif
+#ifdef CONFIG_LCD_TM080TDH01
+	{
+		.name = "1024x768",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 768,
+		.pixclock = KHZ2PICOS(60000),
+		.left_margin = 160,
+		.right_margin = 160,
+		.upper_margin = 23,
+		.lower_margin = 15,
+		.hsync_len = 0,
+		.vsync_len = 0,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0,
+	},
+#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
@@ -220,6 +254,47 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.lvds = 0,
 	.dither_enable = 0,
 #endif
+#ifdef CONFIG_LCD_TM080TDH01
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.lvds = 1,
+	.alloc_vidmem = 1,
+	.txctrl.data_format = VESA,
+	.txctrl.clk_edge_falling_7x = 0,
+	.txctrl.clk_edge_falling_1x = 1,
+	.txctrl.data_start_edge = START_EDGE_4,
+	.txctrl.operate_mode = LVDS_1X_CLKOUT,
+	.txctrl.edge_delay = DELAY_0_1NS,
+	.txctrl.output_amplitude = VOD_350MV,
+
+	.txpll0.ssc_enable = 0,
+	.txpll0.ssc_mode_center_spread = 0,
+	.txpll0.post_divider = POST_DIV_1,
+	.txpll0.feedback_divider = 70,
+	.txpll0.input_divider_bypass = 0,
+	.txpll0.input_divider = 10,
+
+	.txpll1.charge_pump = CHARGE_PUMP_10UA,
+	.txpll1.vco_gain = VCO_GAIN_150M_400M,
+	.txpll1.vco_biasing_current = VCO_BIASING_2_5UA,
+	.txpll1.sscn = 0,
+	.txpll1.ssc_counter = 0,
+
+	.txectrl.emphasis_level = 0,
+	.txectrl.emphasis_enable = 0,
+	.txectrl.ldo_output_voltage = LDO_OUTPUT_1_1V,
+	.txectrl.phase_interpolator_bypass = 1,
+	.txectrl.fine_tuning_7x_clk = 0,
+	.txectrl.coarse_tuning_7x_clk = 0,
+
+	.dither_enable = 0,
+
+#endif
+
 };
 #endif /* CONFIG_FB_JZ4780_LCDC1 */
 
@@ -237,7 +312,7 @@ static struct platform_pwm_backlight_data ebook_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
-	.pwm_period_ns	= 10000, /* 100 kHZ */
+	.pwm_period_ns	= 5000000, /* 5000 kHZ */
 	.init		= ebook_backlight_init,
 	.exit		= ebook_backlight_exit,
 };

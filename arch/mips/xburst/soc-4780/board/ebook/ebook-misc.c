@@ -21,10 +21,20 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
-#include <gpio.h>
+#include <soc/gpio.h>
 
 #include "ebook.h"
 #include <../drivers/staging/android/timed_gpio.h>
+
+
+
+#ifdef CONFIG_LCD_TM080TDH01
+#include <linux/tm080tdh01.h>
+
+/* LCD Panel Device */
+extern struct platform_device tm080tdh01_device;
+
+#endif
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
@@ -223,6 +233,7 @@ static struct platform_device pmem_camera_device = {
 
 static int __init ebook_board_init(void)
 {
+
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
@@ -289,6 +300,12 @@ static int __init ebook_board_init(void)
 #ifdef CONFIG_LCD_KR070LA0S_270
 	platform_device_register(&kr070la0s_270_device);
 #endif
+
+#ifdef CONFIG_LCD_TM080TDH01
+	platform_device_register(&tm080tdh01_device);
+#endif
+
+
 #ifdef CONFIG_LCD_EK070TN93
 	platform_device_register(&ek070tn93_device);
 #endif

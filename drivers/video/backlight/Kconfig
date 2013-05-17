@@ -158,6 +158,14 @@ config LCD_KR070LA0S_270
 	  If you have a KR070LA0S_270 Panel, say Y to enable its
 	  control driver. The panel's model is 20810700240110.
 
+config LCD_TM080TDH01
+	tristate "TM080TDH01 LVDS TFT panel(1024x768)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a TM080TDH01 Panel, say Y to enable its
+	  control driver.
+
 config LCD_SL007DC18B05
 	tristate "LCD_SL007DC18B05 LVDS TFT panel(1024x600)"
 	depends on BACKLIGHT_CLASS_DEVICE

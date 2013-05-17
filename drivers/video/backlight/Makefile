@@ -26,6 +26,7 @@ obj-$(CONFIG_LCD_JZLCD)	+= jzlcd.o
 
 obj-$(CONFIG_LCD_HSD101PWW1)	+= hsd101pww1.o
 obj-$(CONFIG_LCD_LP101WX1_SLN2)	+= lp101wx1_sln2.o
+obj-$(CONFIG_LCD_TM080TDH01)	+= tm080tdh01.o
 obj-$(CONFIG_LCD_KFM701A21_1A)	+= kfm701a21_1a.o
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
