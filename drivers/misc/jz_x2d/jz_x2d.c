@@ -920,6 +920,18 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
+#ifdef CONFIG_SOC_4775
+	jz_x2d->cpm_pwc = cpm_pwc_get(PWC_X2D);
+	if(jz_x2d->cpm_pwc == NULL) {
+		dev_err(&pdev->dev, "get %s fail!\n",PWC_X2D);
+		goto err_exit;
+	}
+#else
+	jz_x2d->cpm_pwc = NULL;
+#endif
+	if(jz_x2d->cpm_pwc)
+		cpm_pwc_enable(jz_x2d->cpm_pwc);
+
 	//jz_x2d->platdev = pdev; 
 	clk_enable(jz_x2d->x2d_clk);
 
@@ -966,17 +978,6 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	clk_disable(jz_x2d->x2d_clk);  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
 
-#ifdef CONFIG_SOC_4775
-	jz_x2d->cpm_pwc = cpm_pwc_get(PWC_X2D);
-	if(jz_x2d->cpm_pwc == NULL) {
-		dev_err(&pdev->dev, "get %s fail!\n",PWC_X2D);
-		goto err_exit;
-	}
-#else
-	jz_x2d->cpm_pwc = NULL;
-#endif
-	if(jz_x2d->cpm_pwc)
-		cpm_pwc_enable(jz_x2d->cpm_pwc);
 	printk("Virtual Driver of JZ X2D registered\n");
 
 	return 0;
