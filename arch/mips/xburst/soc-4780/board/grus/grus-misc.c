@@ -85,6 +85,19 @@ static struct gpio_keys_button board_buttons[] = {
 	},
 #endif
 };
+
+#ifdef CONFIG_BOARD_GRUS_V_1_0_1
+/***********************************************************\
+| * if you will use ricoh618 pmu, you must use its battery *|
+| * detect software to ganerate a *init.h file,            *|
+| * and then add it to here.                               *|
+\ * ********************************************************/
+uint8_t battery_init_para[32] = {
+        0x0B, 0xD5, 0x0B, 0xF4, 0x0C, 0x07, 0x0C, 0x17, 0x0C, 0x29, 0x0C, 0x3F, 0x0C, 0x63, 0x0C, 0x8D,
+        0x0C, 0xB6, 0x0C, 0xE8, 0x0D, 0x22, 0x09, 0x10, 0x00, 0x42, 0x0F, 0xC8, 0x05, 0x2A, 0x22, 0x56
+};
+#endif
+
 static struct gpio_keys_platform_data board_button_data = {
 	.buttons	= board_buttons,
 	.nbuttons	= ARRAY_SIZE(board_buttons),

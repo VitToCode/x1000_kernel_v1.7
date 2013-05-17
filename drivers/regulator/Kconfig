@@ -79,7 +79,7 @@ config REGULATOR_RICOH618
 	  ricoh618-core.c
 
 config RICOH618_LONGPRESS_PWOFF
-	int "setup ricoh618 longpress power-off (0,1,2,4,6,8,10,12/s)"
+	int "setup ricoh618 longpress power-off (0~12/s)"
 	range 0 12
 	default 4
 	depends on MFD_RICOH618
