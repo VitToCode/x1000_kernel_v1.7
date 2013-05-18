@@ -526,6 +526,11 @@
 //	General definitions
 //============================================================================
 
+#ifdef CONFIG_RF_GAIN_OFFSET
+#define	EEPROM_RF_GAIN_OFFSET			0x2F
+#define	EEPROM_RF_GAIN_VAL				0x1F6
+#endif //CONFIG_RF_GAIN_OFFSET
+
 
 #endif
 

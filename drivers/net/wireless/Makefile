@@ -64,5 +64,5 @@ obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 obj-$(CONFIG_BCM4329)	+= bcm4329/
 obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 obj-$(CONFIG_BCM4018X)    += bcm4018x/
-obj-$(CONFIG_RTL8188EU)  += wifi_power.o
+obj-$(BOARD_VGA_DONGLE)  += wifi_power.o
 

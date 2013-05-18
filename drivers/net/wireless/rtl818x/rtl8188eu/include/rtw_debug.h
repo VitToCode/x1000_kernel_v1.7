@@ -404,6 +404,14 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 	int proc_set_rx_signal(struct file *file, const char *buffer,
 		unsigned long count, void *data);
 #ifdef CONFIG_80211N_HT
+
+	int proc_get_ht_enable(char *page, char **start,
+			  off_t offset, int count,
+			  int *eof, void *data);
+			  
+	int proc_set_ht_enable(struct file *file, const char *buffer,
+		unsigned long count, void *data);
+
 	int proc_get_cbw40_enable(char *page, char **start,
 			  off_t offset, int count,
 			  int *eof, void *data);
@@ -446,6 +454,12 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		unsigned long count, void *data);
 
 #endif //CONFIG_BT_COEXIST
+
+#if defined(DBG_CONFIG_ERROR_DETECT)
+int proc_get_sreset(char *page, char **start, off_t offset, int count, int *eof, void *data);
+int proc_set_sreset(struct file *file, const char *buffer, unsigned long count, void *data);
+#endif /* DBG_CONFIG_ERROR_DETECT */
+
 #endif //CONFIG_PROC_DEBUG
 
 #endif	//__RTW_DEBUG_H__

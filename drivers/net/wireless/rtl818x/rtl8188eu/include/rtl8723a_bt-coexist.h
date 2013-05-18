@@ -47,6 +47,7 @@ typedef enum _RT_MEDIA_STATUS {
 
 #define	BT_TMP_BUF_SIZE		100
 
+void BT_SignalCompensation(PADAPTER padapter, u8 *rssi_wifi, u8 *rssi_bt);
 void BT_WifiScanNotify(PADAPTER padapter, u8 scanType);
 void BT_WifiAssociateNotify(PADAPTER padapter, u8 action);
 void BT_WifiMediaStatusNotify(PADAPTER padapter, RT_MEDIA_STATUS mstatus);
@@ -1258,6 +1259,7 @@ HCI_STATUS BTHCI_HandleHCICMD(PADAPTER padapter, PPACKET_IRP_HCICMD_DATA pHciCmd
 
 #ifdef __HALBTC87231ANT_C__ // HAL/BTCoexist/HalBtc87231Ant.h
 // ===== Below this line is sync from SD7 driver HAL/BTCoexist/HalBtc87231Ant.h =====
+#define GET_BT_INFO(padapter)	(&GET_HAL_DATA(padapter)->BtInfo)
 
 #define	BTC_FOR_SCAN_START				1
 #define	BTC_FOR_SCAN_FINISH				0
@@ -1305,8 +1307,11 @@ typedef struct _BTDM_8723A_1ANT
 	u8		RSSI_BT_Last;
 
 	u8		bWiFiHalt;
+	u8		bRAChanged;
 } BTDM_8723A_1ANT, *PBTDM_8723A_1ANT;
 
+void BTDM_1AntSignalCompensation(PADAPTER padapter, u8 *rssi_wifi, u8 *rssi_bt);
+void BTDM_1AntForDhcp(PADAPTER padapter);
 void BTDM_1AntBtCoexist8723A(PADAPTER padapter);
 
 // ===== End of sync from SD7 driver HAL/BTCoexist/HalBtc87231Ant.h =====
@@ -1456,6 +1461,7 @@ typedef struct _BT_COEXIST_8723A
 	u64					btInqPageStartTime; // for 2Ant
 	u8					c2hBtProfile; // for 1Ant
 	u8					btRetryCnt;
+	u16					AclTp;
 	u8					btInfoExt;
 	u8					bC2hBtInfoReqSent;
 	u8					bForceFwBtInfo;
@@ -1732,6 +1738,7 @@ void BTDM_SWCoexAllOff(PADAPTER padapter);
 void BTDM_HWCoexAllOff(PADAPTER padapter);
 void BTDM_CoexAllOff(PADAPTER padapter);
 void BTDM_TurnOffBtCoexistBeforeEnterIPS(PADAPTER padapter);
+void BTDM_SignalCompensation(PADAPTER padapter, u8 *rssi_wifi, u8 *rssi_bt);
 void BTDM_Coexist(PADAPTER padapter);
 #define BT_CoexistMechanism BTDM_Coexist
 void BTDM_UpdateCoexState(PADAPTER padapter);

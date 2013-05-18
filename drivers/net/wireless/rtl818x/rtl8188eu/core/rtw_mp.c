@@ -399,6 +399,8 @@ MPT_InitializeAdapter(
 	
 	_rtw_init_sema(&pMptCtx->MPh2c_Sema, 0);
 	_init_timer( &pMptCtx->MPh2c_timeout_timer, pAdapter->pnetdev, MPh2c_timeout_handle, pAdapter );
+
+	//before the reset bt patch command,set the wifi page 0's IO to BT mac reboot.
 #endif
 
 	pMptCtx->bMptWorkItemInProgress = _FALSE;
@@ -462,6 +464,10 @@ MPT_InitializeAdapter(
 	pMptCtx->backup0x52_RF_A = (u1Byte)PHY_QueryRFReg(pAdapter, RF_PATH_A, RF_0x52, 0x000F0);
 	pMptCtx->backup0x52_RF_B = (u1Byte)PHY_QueryRFReg(pAdapter, RF_PATH_A, RF_0x52, 0x000F0);
 #endif
+		//set ant to wifi side in mp mode
+#ifdef CONFIG_RTL8723A
+		rtl8723a_InitAntenna_Selection(pAdapter);	
+#endif //CONFIG_RTL8723A
 
 	//set ant to wifi side in mp mode
 	rtw_write16(pAdapter, 0x870, 0x300);
@@ -501,6 +507,16 @@ MPT_DeInitAdapter(
 	#ifdef CONFIG_RTL8723A
 	_rtw_free_sema(&(pMptCtx->MPh2c_Sema));
 	_cancel_timer_ex( &pMptCtx->MPh2c_timeout_timer);
+	
+	rtw_write32(pAdapter, 0xcc, (rtw_read32(pAdapter, 0xcc)& 0xFFFFFFFD)| 0x00000002);
+	rtw_write32(pAdapter, 0x6b, (rtw_read32(pAdapter, 0x6b)& 0xFFFFFFFB));
+	rtw_msleep_os(500);
+	rtw_write32(pAdapter, 0x6b, (rtw_read32(pAdapter, 0x6b)& 0xFFFFFFFB)| 0x00000004);
+	rtw_write32(pAdapter, 0xcc, (rtw_read32(pAdapter, 0xcc)& 0xFFFFFFFD));
+	rtw_msleep_os(1000);
+	
+	DBG_871X("_rtw_mp_xmit_priv reinit for normal mode\n");
+	_rtw_mp_xmit_priv(&pAdapter->xmitpriv);
 	#endif
 #if 0 // for Windows
 	PlatformFreeWorkItem( &(pMptCtx->MptWorkItem) );
@@ -514,6 +530,7 @@ MPT_DeInitAdapter(
 	}
 	NdisFreeSpinLock( &(pMptCtx->MptWorkItemSpinLock) );
 #endif
+	
 }
 
 static u8 mpt_ProStartTest(PADAPTER padapter)
@@ -578,6 +595,29 @@ static void disable_dm(PADAPTER padapter)
 	Switch_DM_Func(padapter, DYNAMIC_RF_CALIBRATION, _TRUE);
 }
 
+
+void MPT_PwrCtlDM(PADAPTER padapter, u32 bstart)
+{
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
+	struct dm_priv	*pdmpriv = &pHalData->dmpriv;
+
+	//Switch_DM_Func(padapter, DYNAMIC_RF_CALIBRATION, bstart);
+	if (bstart==1){
+		DBG_871X("in MPT_PwrCtlDM start \n");		
+		Switch_DM_Func(padapter, DYNAMIC_RF_TX_PWR_TRACK, _TRUE);
+		pdmpriv->InitODMFlag |= ODM_RF_TX_PWR_TRACK ;
+		pdmpriv->InitODMFlag |= ODM_RF_CALIBRATION ;
+		pdmpriv->TxPowerTrackControl = _TRUE;
+	}else{
+		DBG_871X("in MPT_PwrCtlDM stop \n");
+		disable_dm(padapter);
+		pdmpriv->TxPowerTrackControl = _FALSE;
+
+	}
+		
+}
+
+
 //This function initializes the DUT to the MP test mode
 s32 mp_start_test(PADAPTER padapter)
 {
@@ -598,7 +638,6 @@ s32 mp_start_test(PADAPTER padapter)
 	
 	//3 disable dynamic mechanism
 	disable_dm(padapter);
-
 	//3 0. update mp_priv
 
 	if (padapter->registrypriv.rf_config == RF_819X_MAX_TYPE) {
@@ -649,7 +688,7 @@ s32 mp_start_test(PADAPTER padapter)
 
 	//init mp_start_test status
 	if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
-		rtw_disassoc_cmd(padapter);
+		rtw_disassoc_cmd(padapter, 500, _TRUE);
 		rtw_indicate_disconnect(padapter);
 		rtw_free_assoc_resources(padapter, 1);
 	}
@@ -1276,13 +1315,17 @@ void SetPacketRx(PADAPTER pAdapter, u8 bStartRx)
 
 	if(bStartRx)
 	{
-		// Accept CRC error and destination address
+	// Accept CRC error and destination address
 #if 1
 //ndef CONFIG_RTL8723A
-		pHalData->ReceiveConfig = AAP | APM | AM | AB | APP_ICV | ADF | AMF | HTC_LOC_CTRL | APP_MIC | APP_PHYSTS;
+		//pHalData->ReceiveConfig = AAP | APM | AM | AB | APP_ICV | ADF | AMF | HTC_LOC_CTRL | APP_MIC | APP_PHYSTS;
 		
-		pHalData->ReceiveConfig |= ACRC32;
-		
+		//pHalData->ReceiveConfig |= ACRC32;
+
+		pHalData->ReceiveConfig = AAP | APM | AM | AB | APP_ICV | AMF | ADF | APP_FCS | HTC_LOC_CTRL | APP_MIC | APP_PHYSTS;
+
+		pHalData->ReceiveConfig |= (RCR_ACRC32|RCR_AAP);
+	
 		rtw_write32(pAdapter, REG_RCR, pHalData->ReceiveConfig);
 		
 		// Accept all data frames
@@ -1445,8 +1488,13 @@ void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
 	}
 	else
 	{
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		#ifdef CONFIG_RTL8723A_SDIO
+			max_xmit_extbuf_size = 20000;
+			num_xmit_extbuf = 1;
+		#else
+			max_xmit_extbuf_size = 6000;
+			num_xmit_extbuf = 8;
+		#endif
 	}
 
 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
@@ -1463,8 +1511,13 @@ void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
 
 	if(padapter->registrypriv.mp_mode ==0)
 	{
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		#ifdef CONFIG_RTL8723A_SDIO
+			max_xmit_extbuf_size = 20000;
+			num_xmit_extbuf = 1;
+		#else
+			max_xmit_extbuf_size = 6000;
+			num_xmit_extbuf = 8;
+		#endif
 	}
 	else
 	{
@@ -1530,6 +1583,30 @@ void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
 
 exit:
 	;
+}
+
+
+void Hal_ProSetCrystalCap (PADAPTER pAdapter , u32 CrystalCapVal)
+{
+	HAL_DATA_TYPE		*pHalData	= GET_HAL_DATA(pAdapter);
+
+		CrystalCapVal = CrystalCapVal & 0x3F;
+
+	if(IS_HARDWARE_TYPE_8192D(pAdapter))
+	{
+		PHY_SetBBReg(pAdapter, REG_AFE_XTAL_CTRL, 0xF0, CrystalCapVal & 0x0F);
+		PHY_SetBBReg(pAdapter, REG_AFE_PLL_CTRL, 0xF0000000, (CrystalCapVal & 0xF0) >> 4);
+	}
+	else if(IS_HARDWARE_TYPE_8188E(pAdapter))
+	{
+		// write 0x24[16:11] = 0x24[22:17] = CrystalCap
+		PHY_SetBBReg(pAdapter, REG_AFE_XTAL_CTRL, 0x7FF800, (CrystalCapVal | (CrystalCapVal << 6)));
+	}
+	else
+	{
+		DBG_871X(" not as 88E and 92D Hal_ProSetCrystalCap 0x2c !!!!!\n");
+		PHY_SetBBReg(pAdapter, 0x2c, 0xFFF000, (CrystalCapVal | (CrystalCapVal << 6)));	
+	}
 }
 
 

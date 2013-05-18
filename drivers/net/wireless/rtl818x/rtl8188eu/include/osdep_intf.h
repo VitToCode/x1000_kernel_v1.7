@@ -129,6 +129,11 @@ extern int rtw_ioctl(struct ifnet * ifp, u_long cmd, caddr_t data);
 #endif
 
 void rtw_ips_dev_unload(_adapter *padapter);
+
+#ifdef CONFIG_RF_GAIN_OFFSET
+void rtw_bb_rf_gain_offset(_adapter *padapter);
+#endif //CONFIG_RF_GAIN_OFFSET
+
 #ifdef CONFIG_IPS
 int rtw_ips_pwr_up(_adapter *padapter);
 void rtw_ips_pwr_down(_adapter *padapter);
@@ -136,9 +141,13 @@ void rtw_ips_pwr_down(_adapter *padapter);
 
 #ifdef CONFIG_CONCURRENT_MODE
 struct _io_ops;
-_adapter *rtw_drv_if2_init(_adapter *primary_padapter, char *name, void (*set_intf_ops)(struct _io_ops *pops));
-void rtw_drv_if2_free(_adapter *pbuddy_padapter);
+_adapter *rtw_drv_if2_init(_adapter *primary_padapter, void (*set_intf_ops)(struct _io_ops *pops));
+void rtw_drv_if2_free(_adapter *if2);
+void rtw_drv_if2_stop(_adapter *if2);
 #endif
+
+int rtw_drv_register_netdev(_adapter *padapter);
+void rtw_ndev_destructor(_nic_hdl ndev);
 
 #endif	//_OSDEP_INTF_H_
 
