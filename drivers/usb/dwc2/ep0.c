@@ -843,9 +843,8 @@ static void dwc2_ep0_inspect_setup(struct dwc2 *dwc)
 	/* seems that never return this value, but through the code,
 	 * this return value is possible, so print a warning here.
 	 */
-	if (ret == DELAYED_STATUS) {
-		dev_warn(dwc->dev, "DELAYED_STATUS!!!\n");
-	}
+	if (ret == DELAYED_STATUS)
+		DWC2_EP0_DEBUG_MSG("DELAYED_STATUS!!!\n");
 
 	if ((ret == DELAYED_STATUS) || (ret == USB_GADGET_DELAYED_STATUS)) {
 		dwc->ep0state = EP0_STATUS_PHASE;
