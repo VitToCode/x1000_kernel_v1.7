@@ -617,7 +617,7 @@ static void dwc2_gadget_clear_stall(struct dwc2_ep *dep) {
 		depctl_addr = &dev_if->out_ep_regs[epnum]->doepctl;
 	}
 
-	depctl.d32 = dwc_readl(&depctl_addr);
+	depctl.d32 = dwc_readl(depctl_addr);
 
 	depctl.b.stall = 0;
 	/*
@@ -1563,16 +1563,21 @@ static int dwc2_gadget_ep_set_halt(struct usb_ep *ep, int value) {
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 
-	if (usb_endpoint_xfer_isoc(dep->desc)) {
+	if (dep->desc && usb_endpoint_xfer_isoc(dep->desc)) {
 		dev_err(dwc->dev, "%s is of Isochronous type\n", dep->name);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	ret = __dwc2_gadget_ep_set_halt(dep, value);
+	if (!list_empty(&dep->request_list)) {
+		DWC2_GADGET_DEBUG_MSG("%d %s XFer In process\n",
+				dep->number,dep->is_in? "IN" : "OUT" );
+		ret = -EAGAIN;
+		goto out;
+	} else
+		ret = __dwc2_gadget_ep_set_halt(dep, value);
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
-
 	return ret;
 }
 

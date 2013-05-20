@@ -330,7 +330,7 @@ static struct {
 	.transport_parm		= "BBB",
 	.protocol_parm		= "SCSI",
 	.removable		= 1,
-	.can_stall		= 0,
+	.can_stall		= 1,
 	.cdrom			= 0,
 	.vendor			= FSG_VENDOR_ID,
 	.product		= FSG_PRODUCT_ID,
@@ -610,7 +610,7 @@ static struct bos_desc bos = {
             .wTotalLength = cpu_to_le16(sizeof(struct bos_desc) + sizeof(cap_lpm)),
             .bNumDeviceCaps = 1,
 };
- 
+
 #endif
 
 static struct usb_qualifier_descriptor
@@ -3395,7 +3395,7 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 
 	if ((rc = check_parameters(fsg)) != 0)
 		goto out;
-	
+
 	if (usb_gadget_connect(gadget) < 0) {
 		printk(KERN_ERR"gadget ops is not register\n");
 	}
