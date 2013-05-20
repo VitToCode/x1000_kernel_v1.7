@@ -363,7 +363,17 @@ static int vpu_probe(struct platform_device *pdev)
 		ret = PTR_ERR(vpu->clk);
 		goto err_get_clk_cgu;
 	}
+
+	/*
+	 * for jz4775, when vpu freq is set over 300M, the decode process
+	 * of vpu may be error some times which can led to graphic abnomal
+	 */
+
+#if defined(CONFIG_SOC_4775)
+	clk_set_rate(vpu->clk,250000000);
+#else
 	clk_set_rate(vpu->clk,300000000);
+#endif
 
 	vpu->dev = &pdev->dev;
 	vpu->mdev.minor = MISC_DYNAMIC_MINOR;
