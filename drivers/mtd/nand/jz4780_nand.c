@@ -71,7 +71,7 @@
 #define MAX_RB_TIMOUT_MS            50
 #define MAX_RESET_DELAY_MS          50
 
-#define MAX_DMA_TRANSFER_TIMOUT_MS  50
+#define MAX_DMA_TRANSFER_TIMOUT_MS  5000
 #define DMA_BUF_SIZE                PAGE_SIZE * 4
 
 #define MAX_SWECC_REQ_POLL_TIME_MS  5
@@ -325,7 +325,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9K8G08U0D_NAME,
 			NAND_MFR_SAMSUNG, NAND_FLASH_K9K8G08U0D_ID,
-			1024, 16, 0,
+			512, 8, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 70, 70, 100, 60, 60, 12, 20, 0, 100,
 			100, 500 * 1000, 0, 0, 0, 0, BUS_WIDTH_8,
@@ -342,7 +342,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_K9GBG08U0A_NANE,
 			NAND_MFR_SAMSUNG, NAND_FLASH_K9GBG08U0A_ID,
-			1024, 48, 0,
+			1024, 32, 0,
 			12, 5, 12, 5, 20, 5, 12, 5, 12, 10,
 			25, 25, 300, 300, 100, 120, 300, 12, 20, 300, 100,
 			100, 200 * 1000, 1 * 1000, 200 * 1000,
@@ -380,7 +380,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_MT29F64G08CBABAWP_NAME,
 			NAND_MFR_MICRON, NAND_FLASH_MT29F64G08CBABAWP_ID,
-			1024, 64, 0,
+			1024, 48, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 1000, 0, 0, 5, BUS_WIDTH_8,
@@ -2942,9 +2942,9 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 
 		chip->ecc.mode  = NAND_ECC_SOFT_BCH;
 		chip->ecc.size  =
-			nand->curr_nand_flash_info->ecc_step.data_size / 8;
+			nand->curr_nand_flash_info->ecc_step.data_size;
 		chip->ecc.bytes = (fls(8 * chip->ecc.size) *
-			(nand->curr_nand_flash_info->ecc_step.ecc_bits / 8) + 7) / 8;
+			(nand->curr_nand_flash_info->ecc_step.ecc_bits) + 7) / 8;
 
 		break;
 
