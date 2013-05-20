@@ -91,7 +91,7 @@ static inline void codec_sleep_wait_bitset(int reg, unsigned bit, int stime, int
 		codec_sleep(stime);
 		count++;
 		if(count > 10){
-			printk("%s %d timeout\n",__FILE__,__LINE__);
+			printk("%s %d timeout\n",__FILE__,line);
 			break;
 		}
 	}
@@ -392,9 +392,6 @@ static void codec_late_resume(struct early_suspend *handler)
      __codec_switch_sb_micbias(POWER_ON);
 }
 #endif
-
-
-
 
 static void codec_set_route_ready(int mode)
 {
@@ -805,6 +802,8 @@ static void codec_set_dac(int mode)
 	switch(mode){
 
 	case DAC_STEREO:
+		__codec_set_dac_stereo();
+		__codec_disable_dac_left_only();
 		if(__codec_get_sb_dac() == POWER_OFF){
 			__codec_switch_sb_dac(POWER_ON);
 			udelay(500);
@@ -817,11 +816,12 @@ static void codec_set_dac(int mode)
 			/* wait IFR_GUP set */
 			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GUP, 100,__LINE__);
 		}
-		__codec_set_dac_stereo();
-		__codec_disable_dac_left_only();
+
 		break;
 
 	case DAC_STEREO_WITH_LEFT_ONLY:
+		__codec_set_dac_stereo();
+		__codec_enable_dac_left_only();
 		if(__codec_get_sb_dac() == POWER_OFF){
 			__codec_switch_sb_dac(POWER_ON);
 			udelay(500);
@@ -834,11 +834,11 @@ static void codec_set_dac(int mode)
 			/* wait IFR_GUP set */
 			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GUP, 100,__LINE__);
 		}
-		__codec_set_dac_stereo();
-		__codec_enable_dac_left_only();
 		break;
 
 	case DAC_MONO:
+		__codec_set_dac_mono();
+		__codec_disable_dac_left_only();
 		/*When DAC_MONO=1, the left and right channels are mixed in digital
 		  part: the result is emitted on both left and right channel of DAC output. It
 		  corresponds to the average of left and right channels when
@@ -855,8 +855,6 @@ static void codec_set_dac(int mode)
 			/* wait IFR_GUP set */
 			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GUP, 100,__LINE__);
 		}
-		__codec_set_dac_mono();
-		__codec_disable_dac_left_only();
 		break;
 
 	case DAC_DISABLE:
@@ -934,11 +932,35 @@ static void codec_set_hp(int mode)
 	case HP_ENABLE_WITH_CAP:
 	case HP_ENABLE_CAP_LESS:
 		__codec_set_16ohm_load();
-		__codec_disable_hp_mute();
-#if 0
-		if (__codec_get_sb_hpcm() == POWER_OFF)
-			__codec_switch_sb_hpcm(POWER_ON);
-#else
+
+		if((__codec_get_dac_mute() == 0) && (__codec_get_sb_dac() == POWER_ON)){
+			/* enable dac mute */
+			__codec_set_irq_flag(1 << IFR_GDO);
+			__codec_enable_dac_mute();
+			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GDO, 100,__LINE__);
+			dac_mute_not_enable = 1;
+		}
+
+		if(__codec_get_sb_hp() == POWER_ON)
+		{
+			/* turn off sb_hp */
+			__codec_set_irq_flag(1 << IFR_RDO);
+			__codec_switch_sb_hp(POWER_OFF);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RDO, 100,__LINE__);
+
+			__codec_enable_hp_mute();
+		}
+
+		if (__codec_get_sb_dac() == POWER_ON)
+			__codec_switch_sb_dac(POWER_OFF);
+
+		if(__codec_get_sb_linein_to_bypass() == POWER_ON){
+			__codec_switch_sb_linein_to_bypass(POWER_OFF);
+			linein_to_bypass_power_on = 1;
+		}
+
+		__codec_switch_sb_dac(POWER_ON);
+
 		if (mode == HP_ENABLE_CAP_LESS) {
 			if (__codec_get_sb_hpcm() == POWER_OFF)
 				__codec_switch_sb_hpcm(POWER_ON);
@@ -946,39 +968,25 @@ static void codec_set_hp(int mode)
 			if (__codec_get_sb_hpcm() == POWER_ON)
 				__codec_switch_sb_hpcm(POWER_OFF);
 		}
-#endif
-		mdelay(1);
-		if(__codec_get_sb_hp() == POWER_OFF)
-		{
-			if(__codec_get_sb_linein_to_bypass() == POWER_ON){
-				__codec_switch_sb_linein_to_bypass(POWER_OFF);
-				linein_to_bypass_power_on = 1;
-			}
 
-			if((__codec_get_dac_mute() == 0) && (__codec_get_sb_dac() == POWER_ON)){
-				/* enable dac mute */
-				__codec_set_irq_flag(1 << IFR_GDO);
-				__codec_enable_dac_mute();
-				codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GDO, 100,__LINE__);
+		mdelay(10);			/*At last 10ms to avoid pop*/
 
-				dac_mute_not_enable = 1;
-			}
+		__codec_disable_hp_mute();
 
-			/* turn on sb_hp */
-			__codec_set_irq_flag(1 << IFR_RUP);
-			__codec_switch_sb_hp(POWER_ON);
-			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
+		/* turn on sb_hp */
+		__codec_set_irq_flag(1 << IFR_RUP);
+		__codec_switch_sb_hp(POWER_ON);
+		codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
 
-			if(linein_to_bypass_power_on){
-				__codec_switch_sb_linein_to_bypass(POWER_ON);
-			}
+		if(linein_to_bypass_power_on){
+			__codec_switch_sb_linein_to_bypass(POWER_ON);
+		}
 
-			if(dac_mute_not_enable){
-				/*disable dac mute*/
-				__codec_set_irq_flag(1 << IFR_GUP);
-				__codec_disable_dac_mute();
-				codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GUP, 100,__LINE__);
-			}
+		if(dac_mute_not_enable){
+			/*disable dac mute*/
+			__codec_set_irq_flag(1 << IFR_GUP);
+			__codec_disable_dac_mute();
+			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GUP, 100,__LINE__);
 		}
 		break;
 
@@ -1008,6 +1016,10 @@ static void codec_set_hp(int mode)
 
 			/* turn off sb_hp */
 			__codec_set_irq_flag(1 << IFR_RDO);
+			if (__codec_get_sb_hpcm() == POWER_ON) {
+				__codec_switch_sb_hpcm(POWER_OFF);
+				mdelay(1);
+			}
 			__codec_switch_sb_hp(POWER_OFF);
 			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RDO, 100,__LINE__);
 
@@ -1577,14 +1589,15 @@ static void codec_set_route_base(const void *arg)
 	if (conf->route_replay_mixer_mode)
 		codec_set_replay_mixer(conf->route_replay_mixer_mode);
 
-	if (conf->route_dac_mode)
-		codec_set_dac(conf->route_dac_mode);
 
 	if (conf->route_hp_mux_mode)
 		codec_set_hp_mux(conf->route_hp_mux_mode);
 
 	if (conf->route_hp_mode)
 		codec_set_hp(conf->route_hp_mode);
+
+	if (conf->route_dac_mode)
+		codec_set_dac(conf->route_dac_mode);
 
 	if (conf->route_lineout_mux_mode)
 		codec_set_lineout_mux(conf->route_lineout_mux_mode);
