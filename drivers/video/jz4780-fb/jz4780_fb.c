@@ -1209,7 +1209,7 @@ static int jzfb_set_par(struct fb_info *info)
 	if(is_enabled) {
 		jzfb_enable(info);
 	} else {
-		clk_disable(jzfb->clk);
+            //clk_disable(jzfb->clk);
 		clk_disable(jzfb->pclk);
 	}
 
@@ -2231,7 +2231,7 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	}
 #endif
 	if (jzfb->is_enabled) {
-		clk_disable(jzfb->clk);
+            //clk_disable(jzfb->clk);
 		clk_disable(jzfb->pclk);
 	}
 	mutex_unlock(&jzfb->lock);
@@ -2601,7 +2601,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 			 jzfb->framedesc[i]->desc_size);
 	}
 	if (!jzfb->is_enabled)
-		clk_disable(jzfb->clk);
+            ;//clk_disable(jzfb->clk);
 
 	return;
 }
@@ -3165,19 +3165,46 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 static void jzfb_shutdown(struct platform_device *pdev)
 {
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
-
-	mutex_lock(&jzfb->lock);
-	if(jzfb->is_enabled && !jzfb->is_suspend)
+	int is_fb_blank;
+	mutex_lock(&jzfb->suspend_lock);
+	is_fb_blank = (jzfb->is_suspend != 1);
+	jzfb->is_suspend = 1;
+	mutex_unlock(&jzfb->suspend_lock);
+	if(is_fb_blank)
 		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
-	mutex_unlock(&jzfb->lock);
 };
-
+#ifdef CONFIG_PM
+static int jzfb_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jzfb *jzfb = platform_get_drvdata(pdev);
+	clk_disable(jzfb->clk);
+	clk_disable(jzfb->pclk);
+	return 0;
+}
+static int jzfb_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jzfb *jzfb = platform_get_drvdata(pdev);
+	clk_enable(jzfb->pclk);
+	clk_enable(jzfb->clk);
+	return 0;
+}
+static const struct dev_pm_ops jzfb_pm_ops = {
+	.suspend	= jzfb_suspend,
+	.resume		= jzfb_resume,
+};
+#endif
 static struct platform_driver jzfb_driver = {
 	.probe 	= jzfb_probe,
 	.remove = jzfb_remove,
 	.shutdown = jzfb_shutdown,
 	.driver = {
 		.name = "jz-fb",
+#ifdef CONFIG_PM
+		.pm	= &jzfb_pm_ops,
+#endif
+
 	},
 };
 
