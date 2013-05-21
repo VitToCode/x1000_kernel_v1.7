@@ -20,9 +20,9 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
-//#define CONFIG_VGA_1440_900
-//#define CONFIG_VGA_1280_1024
-//#define CONFIG_VGA_1280_1024
+//#define CONFIG_VGA_1024x768_60HZ
+//#define CONFIG_VGA_1280x720_60HZ	// Recommend VPLL=888MHz
+//#define CONFIG_VGA_1280x1024_60HZ	// Recommend VPLL=648MHz
 
 #ifdef CONFIG_LCD_KR070LA0S_270
 #include <linux/kr070la0s_270.h>
@@ -103,6 +103,63 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
 		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_VGA_1024x768_60HZ
+	{
+		.name = "1024x768@60Hz",
+		.refresh = 60,
+		.xres = 1024,
+		.yres = 768,
+		.pixclock = KHZ2PICOS(65000),
+		.left_margin = 160 - 24,
+		.right_margin = 24 + 24,
+		.upper_margin = 29,
+		.lower_margin = 3,
+		.hsync_len = 136,
+		.vsync_len = 6,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0 | FB_MODE_IS_JZ4780_VGA
+	},
+#endif
+
+#ifdef CONFIG_VGA_1280x720_60HZ
+	{
+		.name = "1280x720@60Hz",
+		.refresh = 60,
+		.xres = 1280,
+		.yres = 720,
+		.pixclock = KHZ2PICOS(74250),
+		.left_margin = 220 + 48,
+		.right_margin = 110 - 48,
+		.upper_margin = 20,
+		.lower_margin = 5,
+		.hsync_len = 40,
+		.vsync_len = 5,
+		.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0 | FB_MODE_IS_JZ4780_VGA
+	},
+#endif
+
+#ifdef CONFIG_VGA_1280x1024_60HZ
+	{
+		.name = "1280x1024@60Hz",
+		.refresh = 60,
+		.xres = 1280,
+		.yres = 1024,
+		.pixclock = KHZ2PICOS(108000),
+		.left_margin = 248,
+		.right_margin = 48,
+		.upper_margin = 38,
+		.lower_margin = 1,
+		.hsync_len = 112,
+		.vsync_len = 3,
+		.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0 | FB_MODE_IS_JZ4780_VGA
 	},
 #endif
 
@@ -208,6 +265,48 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.txectrl.fine_tuning_7x_clk = 0,
 	.txectrl.coarse_tuning_7x_clk = 0,
 
+	.dither_enable = 0,
+#endif
+
+#ifdef CONFIG_VGA_1024x768_60HZ
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 1,
+	.date_enable_active_low = 1,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
+#ifdef CONFIG_VGA_1280x720_60HZ
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 1,
+	.date_enable_active_low = 1,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
+#ifdef CONFIG_VGA_1280x1024_60HZ
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 154,
+	.height = 86,
+
+	.pixclk_falling_edge = 1,
+	.date_enable_active_low = 1,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
 	.dither_enable = 0,
 #endif
 

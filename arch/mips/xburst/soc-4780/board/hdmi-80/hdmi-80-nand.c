@@ -69,7 +69,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndextern",
 	offset:960 * 0x100000LL,
-	size:7200 * 0x100000LL,
+	size:3136 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -84,7 +84,7 @@ static struct platform_nand_partition partition_info[] = {
 		{
 		name:"ndmisc",
 		offset:1472 * 0x100000LL,
-		size:6688 * 0x100000LL,
+		size:2624 * 0x100000LL,
 		}
 	}
 	}

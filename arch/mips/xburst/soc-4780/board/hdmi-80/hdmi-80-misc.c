@@ -235,19 +235,6 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
-#ifdef CONFIG_USB_DWC2
-struct jzdwc_pin dwc2_id_pin = {
-            .num                            = GPIO_PE(2),
-};
-#endif
-
-#if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
-struct jzdwc_pin dete_pin = {
-	.num				= -1,
-	.enable_level			= -1,
-};
-#endif
-
 #ifdef CONFIG_ANDROID_PMEM
 static struct android_pmem_platform_data pmem_camera_pdata = {
 	.name = "pmem_camera",

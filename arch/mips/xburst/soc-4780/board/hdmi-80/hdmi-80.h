@@ -78,13 +78,11 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_MMA8452_INT1		GPIO_PF(9)
 #define GPIO_LIS3DH_INT1		GPIO_PF(9)
 
-#define GPIO_USB_DETE
-
 /**
  * ethernet aix88796
  **/
-#define AIX_ETH_INT		GPIO_PF(14)
-#define AIX_ETH_RESET	GPIO_PF(15)
+#define AIX_ETH_INT		GPIO_PF(18)
+#define AIX_ETH_RESET	GPIO_PF(21)
 
 /**
  * keyboard gpio interface

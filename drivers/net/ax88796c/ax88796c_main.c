@@ -1072,7 +1072,7 @@ ax88796c_interrupt (int irq, void *dev_id, struct pt_regs * regs)
 	u16 interrupts;
 	unsigned long flags;
 	
-//	printk("==========irq==\n\n");
+	/* printk("*irq*\n\n"); */
 	spin_lock_irqsave (&ax_local->isr_lock, flags);
 
 	/* Mask all interrupts */
@@ -1389,7 +1389,6 @@ ax88796c_free_skbuff (struct sk_buff_head *q)
  * Purpose: Device open and initialization
  * ----------------------------------------------------------------------------
  */
-#define ETH_INT_PIN	(32*5 + 14)
 static int 
 ax88796c_open(struct net_device *ndev)
 {
@@ -1712,7 +1711,9 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 	printk("SACR5 = 0x%08x\n", readl(0xb3410044));
 	printk("SACR6 = 0x%08x\n", readl(0xb3410048));
 */
-	writel(0x3fffff00, 0xb3410024);
+	writel(((0xf << 24) | (0xc << 20)
+			| (0xc << 16) | (0x8 << 12) | (0x8 << 8)), 0xb3410024);
+	//writel(0x3fffff00, 0xb3410024);
 /*
 	volatile unsigned int temp;
 	temp = readl(0xb3410050);
