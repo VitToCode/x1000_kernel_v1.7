@@ -521,7 +521,7 @@ struct syscore_ops gpio_pm_ops = {
 int __init gpio_ss_check(void)
 {
 	unsigned int i,state,group,index;
-	unsigned int panic_flags[6] = {0,};
+	unsigned int panic_flags[7] = {0};
 
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].sleep_state.input_pull = 0xffffffff;
