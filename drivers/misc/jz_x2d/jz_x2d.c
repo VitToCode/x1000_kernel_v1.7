@@ -81,6 +81,7 @@ struct x2d_device {
 	struct miscdevice misc_dev;
 	struct clk *x2d_clk;
 	void* cpm_pwc;
+	unsigned int wd_cnt;
 
 	enum jz_x2d_state state;
 	enum jz_x2d_errcode errcode;
@@ -496,7 +497,10 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 			  (unsigned long)virt_to_phys((void *)x2d_proc->tlb_base));
 #endif
 
-	reg_write(jz_x2d, REG_X2D_WDOG_CNT, JZ4780_X2D_WTHDOG_1S);
+//	reg_write(jz_x2d, REG_X2D_WDOG_CNT, JZ4780_X2D_WTHDOG_1S);
+	reg_write(jz_x2d, REG_X2D_WDOG_CNT, jz_x2d->wd_cnt);
+	__x2d_enable_wthdog();
+
 	reg_write(jz_x2d, REG_X2D_LAY_GCTRL, x2d_proc->configs.layer_num);
 	reg_write(jz_x2d, REG_X2D_DHA, virt_to_phys(jz_x2d->chain_p));
 
@@ -591,13 +595,13 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	dma_cache_wback_inv((unsigned long)jz_x2d->chain_p,sizeof(x2d_chain_info));
 
 #ifdef X2D_DEBUG
-	__x2d_enable_wthdog();
+	//__x2d_enable_wthdog();
 	x2d_dump_reg(jz_x2d,x2d_proc);
 #endif
 	__x2d_enable_irq();
 	__x2d_start_trig();
 
-	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue, 10*HZ)) {
+	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue, HZ/10)) {
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		__x2d_stop_trig();
 		x2d_dump_reg(jz_x2d,x2d_proc);
@@ -876,6 +880,7 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	unsigned short x2d_id = 0;
 	struct resource *mem = NULL;
 	struct x2d_device *jz_x2d = NULL;
+	struct clk *clk_h0;
 
 	jz_x2d = kzalloc(sizeof(struct x2d_device),GFP_KERNEL);
 	if (jz_x2d == NULL) {
@@ -919,6 +924,12 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get x2d clock: %d\n", ret);
 		goto err_exit;
 	}
+
+	clk_h0 = clk_get(NULL,"h0clk");
+	if (!IS_ERR(clk_h0))
+		jz_x2d->wd_cnt = clk_get_rate(clk_h0);
+	else
+		jz_x2d->wd_cnt = JZ4780_X2D_WTHDOG_1S;
 
 #ifdef CONFIG_SOC_4775
 	jz_x2d->cpm_pwc = cpm_pwc_get(PWC_X2D);
