@@ -121,6 +121,7 @@ uint	 rtw_hal_init(_adapter *padapter)
 			else{
 			 	padapter->pbuddy_adapter->hw_init_completed = _FALSE;
 				RT_TRACE(_module_hal_init_c_,_drv_err_,("rtw_hal_init: hal__init fail(pbuddy_adapter)\n"));
+				DBG_871X("rtw_hal_init: hal__init fail(pbuddy_adapter)\n");
 				return status;
 			}
 		}
@@ -252,6 +253,14 @@ u8	rtw_hal_intf_ps_func(_adapter *padapter,HAL_INTF_PS_FUNC efunc_id, u8* val)
 	return _FAIL;
 }
 
+s32	rtw_hal_xmitframe_enqueue(_adapter *padapter, struct xmit_frame *pxmitframe)
+{
+	if(padapter->HalFunc.hal_xmitframe_enqueue)
+		return padapter->HalFunc.hal_xmitframe_enqueue(padapter, pxmitframe);
+
+	return _FALSE;	
+}
+
 s32	rtw_hal_xmit(_adapter *padapter, struct xmit_frame *pxmitframe)
 {
 	if(padapter->HalFunc.hal_xmit)
@@ -293,25 +302,26 @@ void	rtw_hal_free_recv_priv(_adapter *padapter)
 		padapter->HalFunc.free_recv_priv(padapter);
 }
 
-void rtw_hal_update_ra_mask(_adapter *padapter, u32 mac_id, u8 rssi_level)
+void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level)
 {
-	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
+	_adapter *padapter;
+	struct mlme_priv *pmlmepriv;
+
+	if(!psta)
+		return;
+
+	padapter = psta->padapter;
+
+	pmlmepriv = &(padapter->mlmepriv);
 
 	if(check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
 	{
-		struct sta_info *psta = NULL;
-		struct sta_priv *pstapriv = &padapter->stapriv;		
-#ifdef CONFIG_NATIVEAP_MLME	
-		if((mac_id-1)>0)
-			psta = pstapriv->sta_aid[(mac_id-1) - 1];	
-#endif
-		if(psta)
-			add_RATid(padapter, psta, 0);//todo: based on rssi_level
+		add_RATid(padapter, psta, rssi_level);
 	}
 	else
 	{	
 		if(padapter->HalFunc.UpdateRAMaskHandler)
-			padapter->HalFunc.UpdateRAMaskHandler(padapter,mac_id,rssi_level);
+			padapter->HalFunc.UpdateRAMaskHandler(padapter, psta->mac_id, rssi_level);
 	}	
 }
 
@@ -433,8 +443,10 @@ void	rtw_hal_sreset_init(_adapter *padapter)
 }
 void rtw_hal_sreset_reset(_adapter *padapter)
 {
+	padapter = GET_PRIMARY_ADAPTER(padapter);
+
 	if(padapter->HalFunc.silentreset)
-		padapter->HalFunc.silentreset(padapter);	
+		padapter->HalFunc.silentreset(padapter);
 }
 
 void rtw_hal_sreset_reset_value(_adapter *padapter)
@@ -465,13 +477,23 @@ u8   rtw_hal_sreset_get_wifi_status(_adapter *padapter)
 	return status;
 }
 
+bool rtw_hal_sreset_inprogress(_adapter *padapter)
+{
+	bool inprogress = _FALSE;
+
+	padapter = GET_PRIMARY_ADAPTER(padapter);
+
+	if(padapter->HalFunc.sreset_inprogress)
+		inprogress = padapter->HalFunc.sreset_inprogress(padapter);
+	return inprogress;
+}
 #endif	//DBG_CONFIG_ERROR_DETECT
 
 #ifdef CONFIG_IOL
-int rtw_hal_iol_cmd(ADAPTER *adapter, struct xmit_frame *xmit_frame, u32 max_wating_ms)
+int rtw_hal_iol_cmd(ADAPTER *adapter, struct xmit_frame *xmit_frame, u32 max_wating_ms, u32 bndy_cnt)
 {
 	if(adapter->HalFunc.IOL_exec_cmds_sync)
-		return adapter->HalFunc.IOL_exec_cmds_sync(adapter, xmit_frame, max_wating_ms);
+		return adapter->HalFunc.IOL_exec_cmds_sync(adapter, xmit_frame, max_wating_ms,bndy_cnt);
 	return _FAIL;
 }
 #endif
@@ -503,5 +525,10 @@ s32 rtw_hal_c2h_handler(_adapter *adapter, struct c2h_evt_hdr *c2h_evt)
 	if (adapter->HalFunc.c2h_handler)
 		ret = adapter->HalFunc.c2h_handler(adapter, c2h_evt);
 	return ret;
+}
+
+c2h_id_filter rtw_hal_c2h_id_filter_ccx(_adapter *adapter)
+{
+	return adapter->HalFunc.c2h_id_filter_ccx;
 }
 
