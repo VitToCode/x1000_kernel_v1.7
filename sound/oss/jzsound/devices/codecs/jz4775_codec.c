@@ -804,6 +804,7 @@ static void codec_set_dac(int mode)
 	case DAC_STEREO:
 		__codec_set_dac_stereo();
 		__codec_disable_dac_left_only();
+		/*If hp is enable  we use aviod pop sequence to open dac in set hp*/
 		if(__codec_get_sb_dac() == POWER_OFF){
 			__codec_switch_sb_dac(POWER_ON);
 			udelay(500);
@@ -941,48 +942,58 @@ static void codec_set_hp(int mode)
 			dac_mute_not_enable = 1;
 		}
 
-		if(__codec_get_sb_hp() == POWER_ON)
-		{
-			/* turn off sb_hp */
-			__codec_set_irq_flag(1 << IFR_RDO);
-			__codec_switch_sb_hp(POWER_OFF);
-			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RDO, 100,__LINE__);
+		/* Before we wanna to change the hpcm mode,
+		 * make sure hp is poweroff to avoid big pop
+		 */
+		if ((mode == HP_ENABLE_CAP_LESS &&
+					__codec_get_sb_hpcm() == POWER_OFF) ||
+				(mode ==  HP_ENABLE_WITH_CAP &&
+				 __codec_get_sb_hpcm()== POWER_ON)) {
+			if(__codec_get_sb_hp() == POWER_ON)
+			{
+				/* turn off sb_hp */
+				__codec_set_irq_flag(1 << IFR_RDO);
+				__codec_switch_sb_hp(POWER_OFF);
+				codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RDO, 100,__LINE__);
 
-			__codec_enable_hp_mute();
+				__codec_enable_hp_mute();
+
+				if (__codec_get_sb_dac() == POWER_ON)
+					__codec_switch_sb_dac(POWER_OFF);
+			}
 		}
 
-		if (__codec_get_sb_dac() == POWER_ON)
-			__codec_switch_sb_dac(POWER_OFF);
+		if (__codec_get_sb_hp() == POWER_OFF) {
+			if(__codec_get_sb_linein_to_bypass() == POWER_ON){
+				__codec_switch_sb_linein_to_bypass(POWER_OFF);
+				linein_to_bypass_power_on = 1;
+			}
 
-		if(__codec_get_sb_linein_to_bypass() == POWER_ON){
-			__codec_switch_sb_linein_to_bypass(POWER_OFF);
-			linein_to_bypass_power_on = 1;
+			__codec_switch_sb_dac(POWER_ON);
+
+			if (mode == HP_ENABLE_CAP_LESS) {
+				if (__codec_get_sb_hpcm() == POWER_OFF)
+					__codec_switch_sb_hpcm(POWER_ON);
+			} else {
+				if (__codec_get_sb_hpcm() == POWER_ON)
+					__codec_switch_sb_hpcm(POWER_OFF);
+			}
+
+			mdelay(10);			/*At last 10ms to avoid pop*/
+
+			__codec_disable_hp_mute();
+
+			/* turn on sb_hp */
+			__codec_set_irq_flag(1 << IFR_RUP);
+			__codec_switch_sb_hp(POWER_ON);
+			codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
+
+			if(linein_to_bypass_power_on){
+				__codec_switch_sb_linein_to_bypass(POWER_ON);
+			}
 		}
 
-		__codec_switch_sb_dac(POWER_ON);
-
-		if (mode == HP_ENABLE_CAP_LESS) {
-			if (__codec_get_sb_hpcm() == POWER_OFF)
-				__codec_switch_sb_hpcm(POWER_ON);
-		} else {
-			if (__codec_get_sb_hpcm() == POWER_ON)
-				__codec_switch_sb_hpcm(POWER_OFF);
-		}
-
-		mdelay(10);			/*At last 10ms to avoid pop*/
-
-		__codec_disable_hp_mute();
-
-		/* turn on sb_hp */
-		__codec_set_irq_flag(1 << IFR_RUP);
-		__codec_switch_sb_hp(POWER_ON);
-		codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
-
-		if(linein_to_bypass_power_on){
-			__codec_switch_sb_linein_to_bypass(POWER_ON);
-		}
-
-		if(dac_mute_not_enable){
+		if (dac_mute_not_enable) {
 			/*disable dac mute*/
 			__codec_set_irq_flag(1 << IFR_GUP);
 			__codec_disable_dac_mute();
@@ -1016,6 +1027,8 @@ static void codec_set_hp(int mode)
 
 			/* turn off sb_hp */
 			__codec_set_irq_flag(1 << IFR_RDO);
+
+			/*Power off hpcm,so we can wait RDO,otherwise can not wait RDO */
 			if (__codec_get_sb_hpcm() == POWER_ON) {
 				__codec_switch_sb_hpcm(POWER_OFF);
 				mdelay(1);
@@ -2146,36 +2159,15 @@ static int codec_reset(void)
 /******** codec_anti_pop ********/
 static int codec_anti_pop(int mode)
 {
-	//int	curr_hp_left_vol;
-	//int	curr_hp_right_vol;
-
 	codec_set_route_ready(CODEC_WMODE);
 	switch(mode) {
 		case CODEC_RWMODE:
 		case CODEC_RMODE:
 			break;
 		case CODEC_WMODE:
-			if (__codec_get_sb_hp() != POWER_ON)
-			{
-				__codec_switch_sb(POWER_ON);
-				codec_sleep(10);
-
-				__codec_switch_sb_sleep(POWER_ON);
-				codec_sleep(10);
-
-				__codec_switch_sb_dac(POWER_ON);
-				udelay(500);
-
-				__codec_enable_hp_mute();
-				mdelay(1);
-
-				/* turn on sb_hp */
-				__codec_clear_rup();
-				__codec_switch_sb_hp(POWER_ON);
-				codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
-
-				mdelay(1);
-			}
+			__codec_switch_sb_dac(POWER_ON);
+			udelay(500);
+			i2s_replay_zero_for_flush_codec();
 			break;
 	}
 	return 0;

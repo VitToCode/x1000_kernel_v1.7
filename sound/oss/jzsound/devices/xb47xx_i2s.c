@@ -151,7 +151,8 @@ static void i2s_set_filter(int mode , uint32_t channels)
 				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
 			}
 			else {
-				dp->filter = convert_8bits_signed2unsigned;
+				//dp->filter = convert_8bits_signed2unsigned;
+				dp->filter = NULL; //hardware convert
 				printk("dp->filter convert_8bits_signed2unsigned.\n");
 			}
 			break;
@@ -194,6 +195,7 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 {
 	int ret = 0;
 	int data_width = 0;
+	struct dsp_pipe *dp = NULL;
 
     /*
 	 * The value of format reference to soundcard.
@@ -207,18 +209,16 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	 */
 	debug_print("format = %d",*format);
 	switch (*format) {
-
 	case AFMT_U8:
 		data_width = 8;
 		if (mode & CODEC_WMODE) {
 			__i2s_set_oss_sample_size(0);
 			__i2s_disable_byteswap();
-			__i2s_enable_signadj();
 		}
 		if (mode & CODEC_RMODE) {
 			__i2s_set_iss_sample_size(0);
-			__i2s_disable_signadj();
 		}
+		__i2s_enable_signadj();
 		break;
 	case AFMT_S8:
 		data_width = 8;
@@ -260,10 +260,12 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 		return -ENODEV;
 
 	if (mode & CODEC_WMODE) {
+		dp = cur_codec->dsp_endpoints->in_endpoint;
 		if ((ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_DATA_WIDTH, data_width)) != 0) {
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_REPLAY_FORMAT");
 			return ret;
 		}
+		dp->dma_config.dst_addr_width = (data_width != 8) ? DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_1_BYTE;
 		if (cur_codec->replay_format != *format) {
 			cur_codec->replay_format = *format;
 			ret |= NEED_RECONF_TRIGGER;
@@ -272,10 +274,12 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	}
 
 	if (mode & CODEC_RMODE) {
+		dp = cur_codec->dsp_endpoints->out_endpoint;
 		if ((ret = cur_codec->codec_ctl(CODEC_SET_RECORD_DATA_WIDTH, data_width)) != 0) {
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_RECORD_FORMAT");
 			return ret;
 		}
+		dp->dma_config.src_addr_width = (data_width != 8) ? DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_1_BYTE;
 		if (cur_codec->record_format != *format) {
 			cur_codec->record_format = *format;
 			ret |= NEED_RECONF_TRIGGER | NEED_RECONF_FILTER;
@@ -507,7 +511,10 @@ static void i2s_set_trigger(int mode)
 		dp = cur_codec->dsp_endpoints->in_endpoint;
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		__i2s_set_receive_trigger(((I2S_RX_FIFO_DEPTH - burst_length/data_width) >> 1) - 1);
+		if (I2S_RX_FIFO_DEPTH <= burst_length/data_width)
+			__i2s_set_receive_trigger(((burst_length/data_width +1) >> 1) - 1);
+		else
+			__i2s_set_receive_trigger(8);
 	}
 
 	return;
@@ -526,8 +533,6 @@ static int i2s_enable(int mode)
 	if (!cur_codec)
 			return -ENODEV;
 
-	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
-
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
 		i2s_set_fmt(&replay_format,mode);
@@ -543,24 +548,32 @@ static int i2s_enable(int mode)
 	i2s_set_trigger(mode);
 	i2s_set_filter(mode,record_channel);
 
-#ifndef CONFIG_ANDROID
-	cur_codec->codec_ctl(CODEC_SET_DEFROUTE,mode);
-#endif
-
 	if (!dp_other->is_used) {
-		/*avoid pop FIXME*/
-		if (mode & CODEC_WMODE)
-			__i2s_flush_tfifo();
-		cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
 		__i2s_enable();
 		__i2s_select_i2s();
-		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 	}
+
+	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
 
 	i2s_is_incall_state = false;
 
+#ifndef CONFIG_ANDROID
+		cur_codec->codec_ctl(CODEC_SET_DEFROUTE,mode);
+#endif
 	return 0;
 }
+
+void i2s_replay_zero_for_flush_codec()
+{
+	__i2s_write_tfifo(0);	//avoid pop
+	__i2s_write_tfifo(0);
+	__i2s_write_tfifo(0);
+	__i2s_write_tfifo(0);
+	__i2s_enable_replay();
+	mdelay(2);
+	__i2s_disable_replay();
+}
+
 
 static int i2s_disable_channel(int mode)
 {
@@ -583,25 +596,17 @@ static int i2s_dma_enable(int mode)		//CHECK
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-#if 0
-		cur_codec->codec_ctl(CODEC_DAC_MUTE,1);
-		__i2s_enable_replay();
-		while(!__i2s_test_tur());
-		__i2s_enable_transmit_dma();
-#else
-		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 		__i2s_flush_tfifo();
+		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma();
 		__i2s_enable_replay();
-#endif
 	}
 	if (mode & CODEC_RMODE) {
-		cur_codec->codec_ctl(CODEC_ADC_MUTE,1);
 		__i2s_flush_rfifo();
+		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		__i2s_enable_record();
 		/* read the first sample and ignore it */
 		val = __i2s_read_rfifo();
-		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		__i2s_enable_receive_dma();
 	}
 
@@ -676,6 +681,7 @@ static void i2s_dma_need_reconfig(int mode)
 	}
 	return;
 }
+
 
 static int i2s_set_device(unsigned long device)
 {
@@ -1165,9 +1171,9 @@ static int i2s_global_init(struct platform_device *pdev)
 	__i2s_disable_transmit_intr();
 	__i2s_disable_receive_intr();
 	__i2s_send_rfirst();
+
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample();
-
 	__i2s_enable();
 	printk("i2s init success.\n");
 	return  cur_codec->codec_ctl(CODEC_INIT,0);

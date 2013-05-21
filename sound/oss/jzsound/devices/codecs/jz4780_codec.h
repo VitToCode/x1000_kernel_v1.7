@@ -26,7 +26,7 @@
 #define LEFT_CHANNEL		1
 #define RIGHT_CHANNEL		2
 
-#define MAX_RATE_COUNT		10
+#define MAX_RATE_COUNT		11
 
 /*
  * JZ4780 CODEC CODEC registers

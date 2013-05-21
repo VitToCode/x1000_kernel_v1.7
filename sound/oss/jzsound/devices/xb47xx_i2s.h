@@ -3,6 +3,7 @@
 #define __XB_SND_I2S_H__
 
 #include <asm/io.h>
+#include <linux/delay.h>
 #include "../interface/xb_snd_dsp.h"
 #include "../xb_snd_detect.h"
 
@@ -564,6 +565,8 @@ enum codec_mode {
 	CODEC_MASTER,
 	CODEC_SLAVE,
 };
+
+void i2s_replay_zero_for_flush_codec(void);
 
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC)

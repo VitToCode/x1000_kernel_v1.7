@@ -1172,7 +1172,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		put_use_dsp_node(dp, node, copy_size);
 
 		if (dp->is_trans == false) {
-			printk("dp->is_trans == false \
+			//printk("dp->is_trans == false \
 					it cannot be appear more than once when replay\n");
 			ret = snd_prepare_dma_desc(dp);
 			if (!ret) {

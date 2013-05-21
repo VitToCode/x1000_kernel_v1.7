@@ -2015,7 +2015,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			else
 				codec_platform_data->bypass_l_volume_base = route->bypass_l_volume_base;
 			codec_set_gain_input_bypass_left(codec_platform_data->bypass_l_volume_base);
-		} 
+		}
 	}
 
 	/*set bypass right volume base*/
@@ -2026,7 +2026,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			else
 				codec_platform_data->bypass_r_volume_base = route->bypass_r_volume_base;
 			codec_set_gain_input_bypass_right(codec_platform_data->bypass_r_volume_base);
-		} 
+		}
 	}
 }
 
@@ -2271,12 +2271,12 @@ static int codec_set_route(enum snd_codec_route_t route)
 		tmp_broute.gpio_spk_en_stat = KEEP_OR_IGNORE;
 		tmp_broute.gpio_hp_mute_stat = KEEP_OR_IGNORE;
 	}
-	tmp_broute.replay_volume_base = 0;			
-	tmp_broute.record_volume_base = 0;			
-	tmp_broute.record_digital_volume_base = 0;	
-	tmp_broute.replay_digital_volume_base = 0;	
-	tmp_broute.bypass_l_volume_base = 0;		
-	tmp_broute.bypass_r_volume_base = 0;		
+	tmp_broute.replay_volume_base = 0;
+	tmp_broute.record_volume_base = 0;
+	tmp_broute.record_digital_volume_base = 0;
+	tmp_broute.replay_digital_volume_base = 0;
+	tmp_broute.bypass_l_volume_base = 0;
+	tmp_broute.bypass_r_volume_base = 0;
 	tmp_broute.gpio_buildin_mic_en_stat = KEEP_OR_IGNORE;
 	return codec_set_board_route(&tmp_broute);
 }
@@ -2425,6 +2425,17 @@ static int codec_reset(void)
 /******** codec_anti_pop ********/
 static int codec_anti_pop_start(int mode)
 {
+	codec_prepare_ready(mode);
+	switch(mode) {
+		case CODEC_RWMODE:
+		case CODEC_RMODE:
+			break;
+		case CODEC_WMODE:
+			__codec_switch_sb_dac(POWER_ON);
+			udelay(500);
+			i2s_replay_zero_for_flush_codec();
+			break;
+	}
 	return 0;
 }
 
@@ -2656,7 +2667,7 @@ static int codec_set_record_rate(unsigned long *rate)
 	int speed = 0, val;
 	unsigned long mrate[MAX_RATE_COUNT] = {
 		8000,  11025, 12000, 16000, 22050,
-		24000, 32000, 44100, 48000, 96000,
+		24000, 32000, 44100, 48000, 88200,96000,
 	};
 
 	for (val = 0; val < MAX_RATE_COUNT; val++) {
@@ -2692,8 +2703,6 @@ static int codec_set_record_data_width(int width)
 		if (width == supported_width[fix_width])
 			break;
 	}
-	if (fix_width == 4)
-		return -EINVAL;
 
 	if (__codec_get_adc_word_length() >= fix_width)
 		return 0;
@@ -2762,7 +2771,7 @@ static int codec_set_replay_rate(unsigned long *rate)
 	int speed = 0, val;
 	unsigned long mrate[MAX_RATE_COUNT] = {
 		8000,  11025, 12000, 16000, 22050,
-		24000, 32000, 44100, 48000, 96000,
+		24000, 32000, 44100, 48000, 88200, 96000,
 	};
 	for (val = 0; val < MAX_RATE_COUNT; val++) {
 		if (*rate <= mrate[val]) {
