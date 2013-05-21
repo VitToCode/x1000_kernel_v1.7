@@ -635,6 +635,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH ?= mips
 CROSS_COMPILE ?= /mnt/sdb5/Ingenic/Umido/mips-4.3/bin/mips-linux-gnu-
 KSRC ?= /mnt/sdb5/Ingenic/Umido/kernel
+KVER := 3.0.8
 MODULE_NAME := wlan
 endif
 
