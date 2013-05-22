@@ -1963,21 +1963,8 @@ static int jz4780_nand_read_page_swecc(struct mtd_info *mtd,
 
 	chip->ecc.read_page_raw(mtd, chip, buf, 1, page);
 
-	for (i = 0; i < chip->ecc.total; i += 8) {
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-	}
-
-	for (i = 0; i < (chip->ecc.total & 0x7); i++)
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-
-	ecc_code = chip->buffers->ecccode;
+	for (i = 0; i < chip->ecc.total; i++)
+		ecc_code[i] = chip->oob_poi[eccpos[i]];
 
 	if (nr_cpu_ids < 2) {
 		/*
@@ -2125,21 +2112,8 @@ static int jz4780_nand_read_subpage_swecc(struct mtd_info *mtd,
 	}
 
 	eccpos += index;
-	for (i = 0; i < eccfrag_len; i += 8) {
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-	}
-
-	for (i = 0; i < (eccfrag_len & 0x7); i++)
-		*ecc_code++ = chip->oob_poi[*eccpos++];
-
-	ecc_code = chip->buffers->ecccode;
+	for (i = 0; i < eccfrag_len; i++)
+		ecc_code[i] = chip->oob_poi[eccpos[i]];
 
 	if (nr_cpu_ids < 2) {
 		/*
@@ -2301,20 +2275,8 @@ static int jz4780_nand_write_page_swecc(struct mtd_info *mtd,
 	/*
 	 * copy back ECC codes
 	 */
-	for (i = 0; i < chip->ecc.total; i += 8) {
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-	}
-
-	for (i = 0; i < (chip->ecc.total & 0x7); i++)
-		chip->oob_poi[*eccpos++] = *ecc_calc++;
-
+	for (i = 0; i < chip->ecc.total; i++)
+		chip->oob_poi[eccpos[i]] = ecc_calc[i];
 
 	return chip->ecc.write_page_raw(mtd, chip, buf, 1);
 }
