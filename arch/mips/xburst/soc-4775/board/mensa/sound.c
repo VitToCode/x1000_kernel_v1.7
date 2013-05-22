@@ -25,7 +25,7 @@ struct snd_codec_data codec_data = {
 	.replay_headset_route = {.route = REPLAY_HP_STEREO_CAP_LESS,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_DISABLE,
-					.replay_volume_base = 6},
+					.replay_volume_base = 0},
 
 	.replay_speaker_route = {
 					.route = REPLAY_HP_STEREO_CAP_LESS,
@@ -47,5 +47,5 @@ struct snd_codec_data codec_data = {
 	.gpio_mic_detect_en = {.gpio = GPIO_MIC_DETECT_EN,.active_level = GPIO_MIC_DETECT_EN_LEVEL},
 
 	/* gpio */
-	//hook_active_level = -1,
+	.hpsense_active_level = 1,
 };

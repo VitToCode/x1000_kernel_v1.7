@@ -2588,25 +2588,15 @@ static inline void codec_short_circut_handler(void)
 	int	curr_hp_left_vol;
 	int	curr_hp_right_vol;
 	unsigned int	load_flag = 0;
-	unsigned int	codec_ifr, delay;
-
+	unsigned int	delay;
 	#define VOL_DELAY_BASE 22               //per VOL delay time in ms
-
-	printk("JZ CODEC: Short circut detected! restart CODEC.\n");
-
 	curr_hp_left_vol = codec_get_gain_hp_left();
 	curr_hp_right_vol = codec_get_gain_hp_right();
-
 	/* delay */
 	delay = VOL_DELAY_BASE * (25 + (curr_hp_left_vol + curr_hp_right_vol)/2);
-
 	/* set hp gain to min */
 	codec_set_gain_hp_left(-25);
 	codec_set_gain_hp_right(-25);
-
-	printk("Short circut volume delay %d ms curr_hp_left_vol=%x curr_hp_right_vol=%x \n",
-	       delay, curr_hp_left_vol, curr_hp_right_vol);
-	codec_sleep(delay);
 
 	/* set 16ohm load to keep away from the bug can not waited RDO */
 	if(__codec_get_load() == LOAD_10KOHM)
@@ -2614,31 +2604,26 @@ static inline void codec_short_circut_handler(void)
 		__codec_set_16ohm_load();
 		load_flag = 1;
 	}
-#ifndef CONFIG_JZ_HP_DETECT_CODEC
 	//clear rdo rup
 	__codec_clear_rdo();
 	__codec_clear_rup();
 
 	/* turn off sb_hp */
-	__codec_switch_sb_hp(POWER_OFF);
-	codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RDO, 100,__LINE__);
-#endif //nodef CONFIG_HP_SENSE_DETECT
-
-	while (1) {
-		codec_ifr = __codec_get_irq_flag();
-		printk("waiting for SCMC recover finish ----- codec_ifr = 0x%02x\n", codec_ifr);
-		if ((codec_ifr & ((1 << IFR_SCMC) | (1 << IFR_SCLR))) == 0)
-			break;
-		__codec_set_irq_flag((1 << IFR_SCMC));
-		__codec_set_irq_flag((1 << IFR_SCLR));
-		codec_sleep(10);
-	}
-
-#ifndef CONFIG_JZ_HP_DETECT_CODEC
-	/* turn on sb_hp */
-	__codec_switch_sb_hp(POWER_ON);
-	codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_RUP, 100,__LINE__);
-#endif //nodef CONFIG_HP_SENSE_DETECT
+	//codec_set_hp(HP_DISABLE);
+	__codec_switch_sb_sleep(POWER_OFF);
+	codec_sleep(10);
+	__codec_switch_sb(POWER_OFF);
+	codec_sleep(100);
+	printk("JZ CODEC: Short circut detected! restart CODEC.\n");
+/* Updata SCMC/SCLR */
+	__codec_set_irq_flag((1 << IFR_SCMC));
+	__codec_set_irq_flag((1 << IFR_SCLR));
+	codec_sleep(10);
+	__codec_switch_sb(POWER_ON);
+	codec_sleep(250);
+	__codec_switch_sb_sleep(POWER_ON);
+	codec_sleep(400);
+	//codec_set_hp(HP_ENABLE_CAP_LESS);
 
 	if(load_flag)
 		__codec_set_10kohm_load();
@@ -2646,7 +2631,6 @@ static inline void codec_short_circut_handler(void)
 	/* restore hp gain */
 	codec_set_gain_hp_left(curr_hp_left_vol);
 	codec_set_gain_hp_right(curr_hp_right_vol);
-
 	codec_sleep(delay);
 
 	printk("JZ CODEC: Short circut restart CODEC hp out finish.\n");
@@ -2655,33 +2639,22 @@ static inline void codec_short_circut_handler(void)
 static int codec_irq_handle(struct work_struct *detect_work)
 {
 	unsigned char codec_ifr;
-#ifdef CONFIG_JZ_HP_DETECT_CODEC
+#if defined(CONFIG_JZ_HP_DETECT_CODEC)
 	int old_status = 0;
 	int new_status = 0;
 	int i;
-#endif /*CONFIG_JZ_HP_DETECT_CODEC*/
+#endif
 
 	codec_ifr = __codec_get_irq_flag();
-
 	/* Mask all irq temporarily */
 	if ((codec_ifr & (~ICR_COMMON_MASK & ICR_ALL_MASK))) {
 		do {
-			if (codec_ifr & (1 << IFR_SCLR)) {
-				printk("JZ CODEC: Short circut detected! codec_ifr = 0x%02x\n",codec_ifr);
+			if (codec_ifr & (1 << IFR_SCLR))
 				codec_short_circut_handler();
-			}
-
 			codec_ifr = __codec_get_irq_flag();
-
-			/* Updata SCMC/SCLR */
-			__codec_set_irq_flag((1 << IFR_SCMC));
-			__codec_set_irq_flag((1 << IFR_SCLR));
-
-			__codec_set_irq_mask(ICR_COMMON_MASK);
 		} while(codec_ifr & ((1 << IFR_SCMC) | (1 << IFR_SCLR)));
 
-#ifdef CONFIG_JZ_HP_DETECT_CODEC
-
+#if defined(CONFIG_JZ_HP_DETECT_CODEC)
 		if (codec_ifr & (1 << IFR_JACK_EVENT)) {
 _ensure_stable:
 			old_status = ((__codec_get_sr() & CODEC_JACK_MASK) != 0);
@@ -2708,8 +2681,7 @@ _ensure_stable:
 		/* Report status */
 		if(!work_pending(detect_work))
 			schedule_work(detect_work);
-
-#endif /*CONFIG_JZ_HP_DETECT_CODEC*/
+#endif
 	}
 
 	__codec_set_irq_flag((~0));

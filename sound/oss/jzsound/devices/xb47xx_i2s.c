@@ -44,11 +44,10 @@ static struct clk *codec_sysclk = NULL;
 static volatile bool i2s_is_incall_state = false;
 bool i2s_is_incall(void);
 
-#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC
 static struct workqueue_struct *i2s_work_queue;
 static struct work_struct	i2s_codec_work;
 #endif
-
 static int jz_get_hp_switch_state(void);
 
 static struct codec_info {
@@ -970,7 +969,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 |* functions
 \*##################################################################*/
 
-#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC
 static void i2s_codec_work_handler(struct work_struct *work)
 {
 	wait_event_interruptible(switch_data.wq,switch_data.hp_work.entry.next != NULL);
@@ -985,7 +984,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&i2s_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
-#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC
 	if (read_inter_codec_irq()){
 		codec_irq_set_mask();
 		if(!work_pending(&i2s_codec_work))
@@ -993,6 +992,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 	}
 #endif
 	/* if irq source is aic, process it here */
+
 	/*noting to do*/
 
 	spin_unlock_irqrestore(&i2s_irq_lock,flags);
@@ -1326,7 +1326,7 @@ static int __init init_i2s(void)
 {
 	init_waitqueue_head(&switch_data.wq);
 
-#ifdef CONFIG_JZ4780_INTERNAL_CODEC
+#if defined(CONFIG_JZ_INTERNAL_CODEC)
 	INIT_WORK(&i2s_codec_work, i2s_codec_work_handler);
 	i2s_work_queue = create_singlethread_workqueue("i2s_codec_irq_wq");
 
