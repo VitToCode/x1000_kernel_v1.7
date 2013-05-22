@@ -772,6 +772,8 @@ static long cim_shutdown(struct jz_cim *cim)
 		return 0;
 	cim->state = CS_IDLE;
 	dev_dbg(cim->dev," -----cim shut down\n");
+	clk_disable(cim->mclk);
+	mdelay(10);
 	cim_disable(cim);
 	cim_disable_dma(cim);
 	
