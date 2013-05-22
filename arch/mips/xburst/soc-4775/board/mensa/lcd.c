@@ -24,6 +24,24 @@
 
 #include "board.h"
 
+#ifdef CONFIG_LCD_BYD_BM8766U
+#include <linux/byd_bm8766u.h>
+static struct platform_byd_bm8766u_data byd_bm8766u_pdata= {
+	.gpio_lcd_disp = GPIO_PB(30),
+	.gpio_lcd_de   = 0,		//GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
+	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
+};
+
+/* LCD device */
+struct platform_device byd_bm8766u_device = {
+	.name		= "byd_bm8766u-lcd",
+	.dev		= {
+		.platform_data = &byd_bm8766u_pdata,
+	},
+};
+#endif
+
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 #include <linux/kd50g2_40nm_a2.h>
 static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
@@ -41,8 +59,6 @@ struct platform_device kd50g2_40nm_a2_device = {
 	},
 };
 #endif
-
-
 
 #ifdef CONFIG_LCD_KFM701A21_1A
 #include <linux/kfm701a21_1a.h>

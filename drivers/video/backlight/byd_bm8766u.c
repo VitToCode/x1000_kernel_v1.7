@@ -1,5 +1,5 @@
 /*
- * kernel/drivers/video/panel/jz_kd50g2_40nm_a2.c -- Ingenic LCD panel device
+ * kernel/drivers/video/panel/jz_byd_bm8766u.c -- Ingenic LCD panel device
  *
  * Copyright (C) 2005-2010, Ingenic Semiconductor Inc.
  *
@@ -12,8 +12,6 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-//#include <linux/init.h>
-//#include <linux/platform_device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -27,82 +25,76 @@
 #include <linux/regulator/consumer.h>
 #include <soc/gpio.h>
 
-#include <linux/kd50g2_40nm_a2.h>
+#include <linux/byd_bm8766u.h>
 
-//static struct lcd_board_info *lcd_board;
-//static struct lcd_soc_info *lcd_soc;
-struct kd50g2_40nm_a2_data {
+struct byd_bm8766u_data {
 	int lcd_power;
 	struct lcd_device *lcd;
-	struct platform_kd50g2_40nm_a2_data *pdata;
+	struct platform_byd_bm8766u_data *pdata;
 	struct regulator *lcd_vcc_reg;
 };
 
-static void kd50g2_40nm_a2_on(struct kd50g2_40nm_a2_data *dev) {
+static void byd_bm8766u_on(struct byd_bm8766u_data *dev) {
 	dev->lcd_power = 1;
 	regulator_enable(dev->lcd_vcc_reg);
-	if (dev->pdata->gpio_lcd_disp) {
-		/*
-		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
-		*/
-		mdelay(2);
+	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 1);
-	}
 	if (dev->pdata->gpio_lcd_de) /* set data mode*/
 		gpio_direction_output(dev->pdata->gpio_lcd_de, 0);
 
 	if (dev->pdata->gpio_lcd_hsync) /*sync mode*/
 		gpio_direction_output(dev->pdata->gpio_lcd_hsync, 1);
-	if (dev->pdata->gpio_lcd_vsync) 
+	if (dev->pdata->gpio_lcd_vsync)
 		gpio_direction_output(dev->pdata->gpio_lcd_vsync, 1);
 }
 
-static void kd50g2_40nm_a2_off(struct kd50g2_40nm_a2_data *dev)
+static void byd_bm8766u_off(struct byd_bm8766u_data *dev)
 {
 	dev->lcd_power = 0;
-	gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
+	if (dev->pdata->gpio_lcd_disp)
+		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
 	mdelay(2);
 	regulator_disable(dev->lcd_vcc_reg);
 	mdelay(10);
 }
 
-static int kd50g2_40nm_a2_set_power(struct lcd_device *lcd, int power)
+static int byd_bm8766u_set_power(struct lcd_device *lcd, int power)
 {
-	struct kd50g2_40nm_a2_data *dev = lcd_get_data(lcd);
+	struct byd_bm8766u_data *dev = lcd_get_data(lcd);
 
 	if (!power && !(dev->lcd_power)) {
-                kd50g2_40nm_a2_on(dev);
+                byd_bm8766u_on(dev);
         } else if (power && (dev->lcd_power)) {
-                kd50g2_40nm_a2_off(dev);
+                byd_bm8766u_off(dev);
         }
 	return 0;
 }
 
-static int kd50g2_40nm_a2_get_power(struct lcd_device *lcd)
+static int byd_bm8766u_get_power(struct lcd_device *lcd)
 {
-	struct kd50g2_40nm_a2_data *dev= lcd_get_data(lcd);
+	struct byd_bm8766u_data *dev= lcd_get_data(lcd);
 
 	return dev->lcd_power;
 }
 
-static int kd50g2_40nm_a2_set_mode(struct lcd_device *lcd, struct fb_videomode *mode)
+static int byd_bm8766u_set_mode(struct lcd_device *lcd, struct fb_videomode *mode)
 {
 	return 0;
 }
 
-static struct lcd_ops kd50g2_40nm_a2_ops = {
-	.set_power = kd50g2_40nm_a2_set_power,
-	.get_power = kd50g2_40nm_a2_get_power,
-	.set_mode = kd50g2_40nm_a2_set_mode,
+static struct lcd_ops byd_bm8766u_ops = {
+	.set_power = byd_bm8766u_set_power,
+	.get_power = byd_bm8766u_get_power,
+	.set_mode = byd_bm8766u_set_mode,
 };
 
-static int kd50g2_40nm_a2_probe(struct platform_device *pdev)
+static int byd_bm8766u_probe(struct platform_device *pdev)
 {
 	/* check the parameters from lcd_driver */
 	int ret;
-	struct kd50g2_40nm_a2_data *dev;
+	struct byd_bm8766u_data *dev;
 
-	dev = kzalloc(sizeof(struct kd50g2_40nm_a2_data), GFP_KERNEL);
+	dev = kzalloc(sizeof(struct byd_bm8766u_data), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
@@ -125,10 +117,10 @@ static int kd50g2_40nm_a2_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_lcd_vsync)
 		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 
-	kd50g2_40nm_a2_on(dev);
+	byd_bm8766u_on(dev);
 
-	dev->lcd = lcd_device_register("d50g2_40nm_a2on-lcd", &pdev->dev,
-				       dev, &kd50g2_40nm_a2_ops);
+	dev->lcd = lcd_device_register("byd_bm8766u-lcd", &pdev->dev,
+				       dev, &byd_bm8766u_ops);
 
 	if (IS_ERR(dev->lcd)) {
 		ret = PTR_ERR(dev->lcd);
@@ -141,12 +133,12 @@ static int kd50g2_40nm_a2_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devinit kd50g2_40nm_a2_remove(struct platform_device *pdev)
+static int __devinit byd_bm8766u_remove(struct platform_device *pdev)
 {
-	struct kd50g2_40nm_a2_data *dev = dev_get_drvdata(&pdev->dev);
+	struct byd_bm8766u_data *dev = dev_get_drvdata(&pdev->dev);
 
 	lcd_device_unregister(dev->lcd);
-	kd50g2_40nm_a2_off(dev);
+	byd_bm8766u_off(dev);
 
 	regulator_put(dev->lcd_vcc_reg);
 
@@ -166,44 +158,44 @@ static int __devinit kd50g2_40nm_a2_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int kd50g2_40nm_a2_suspend(struct platform_device *pdev,
+static int byd_bm8766u_suspend(struct platform_device *pdev,
 		pm_message_t state)
 {
 	return 0;
 }
 
-static int kd50g2_40nm_a2_resume(struct platform_device *pdev)
+static int byd_bm8766u_resume(struct platform_device *pdev)
 {
 	return 0;
 }
 #else
-#define kd50g2_40nm_a2_suspend	NULL
-#define kd50g2_40nm_a2_resume	NULL
+#define byd_bm8766u_suspend	NULL
+#define byd_bm8766u_resume	NULL
 #endif
 
-static struct platform_driver kd50g2_40nm_a2_driver = {
+static struct platform_driver byd_bm8766u_driver = {
 	.driver		= {
-		.name	= "kd50g2_40nm_a2-lcd",
+		.name	= "byd_bm8766u-lcd",
 		.owner	= THIS_MODULE,
 	},
-	.probe		= kd50g2_40nm_a2_probe,
-	.remove		= kd50g2_40nm_a2_remove,
-	.suspend	= kd50g2_40nm_a2_suspend,
-	.resume		= kd50g2_40nm_a2_resume,
+	.probe		= byd_bm8766u_probe,
+	.remove		= byd_bm8766u_remove,
+	.suspend	= byd_bm8766u_suspend,
+	.resume		= byd_bm8766u_resume,
 };
 
-static int __init kd50g2_40nm_a2_init(void)
+static int __init byd_bm8766u_init(void)
 {
 	// register the panel with lcd drivers
-	return platform_driver_register(&kd50g2_40nm_a2_driver);;
+	return platform_driver_register(&byd_bm8766u_driver);;
 }
-module_init(kd50g2_40nm_a2_init);
+module_init(byd_bm8766u_init);
 
-static void __exit kd50g2_40nm_a2_exit(void)
+static void __exit byd_bm8766u_exit(void)
 {
-	platform_driver_unregister(&kd50g2_40nm_a2_driver);
+	platform_driver_unregister(&byd_bm8766u_driver);
 }
-module_exit(kd50g2_40nm_a2_exit);
+module_exit(byd_bm8766u_exit);
 
-MODULE_DESCRIPTION("KD50G2_40NM_A2 lcd driver");
+MODULE_DESCRIPTION("BYD_BM8766U lcd driver");
 MODULE_LICENSE("GPL");

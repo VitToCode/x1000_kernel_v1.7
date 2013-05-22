@@ -255,9 +255,9 @@ static int __init board_init(void)
  	platform_device_register(&kd50g2_40nm_a2_device);
 #endif
 /* panel and bl */
-//#ifdef CONFIG_LCD_BYD_BM8766U
-//	platform_device_register(&byd_bm8766u_device);
-//#endif
+#ifdef CONFIG_LCD_BYD_BM8766U
+	platform_device_register(&byd_bm8766u_device);
+#endif
 #ifdef CONFIG_LCD_KFM701A21_1A
 	platform_device_register(&kfm701a21_1a_device);
 #endif
