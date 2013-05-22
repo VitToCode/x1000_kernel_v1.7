@@ -258,8 +258,10 @@ long xb_snd_mixer_ioctl(struct file *file,
 	case SOUND_MIXER_WRITE_LINE: {
 		devices = SND_DEVICE_HEADSET_MIC,
 		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+#if 0		//sndkit need open it
 		devices = SND_DEVICE_HEADSET,
 		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+#endif
 		break;
 	}
 	case SOUND_MIXER_WRITE_MIC:	 {
@@ -269,9 +271,11 @@ long xb_snd_mixer_ioctl(struct file *file,
 		}
 		devices = SND_DEVICE_BUILDIN_MIC,
 		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+#if 0		//sndkit need open it
 		devices = SND_DEVICE_SPEAKER,
 		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 		ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&gain);
+#endif
 		break;
 	}
 

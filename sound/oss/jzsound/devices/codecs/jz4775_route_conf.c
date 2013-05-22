@@ -42,6 +42,17 @@ route_conf_base const record_mic2_mono_diff_with_bias_conf = {
 	.route_record_mixer_mode = RECORD_MIXER_MIX1_INPUT_ONLY, //fix
 
 };
+route_conf_base const record_lineinl_and_lineinr_conf = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,//fix
+	.route_mic1_mode = MIC1_DISABLE,
+	.route_mic2_mode = MIC2_DISABLE,
+	.route_linein_to_adc_mode = LINEIN_TO_ADC_ENABLE,
+	.route_linein_to_bypass_mode = LINEIN_TO_BYPASS_DISABLE,
+	.route_record_mux_mode = RECORD_MUX_LINE_IN,
+	.route_adc_mode = ADC_STEREO,
+	.route_record_mixer_mode = RECORD_MIXER_MIX1_INPUT_ONLY,
+};
+
 route_conf_base const record_mic2_mono_diff_without_bias_conf;
 
 route_conf_base const record_mic2_mono_sing_with_bias_conf;
@@ -313,6 +324,10 @@ struct __codec_route_info codec_route_info[] = {
 	{
 		.route_name = RECORD_MIC2_MONO_DIFF_WITH_BIAS,
 		.route_conf = &record_mic2_mono_diff_with_bias_conf,
+	},
+	{
+		.route_name = RECORD_LININL_AND_LININR,
+		.route_conf = &record_lineinl_and_lineinr_conf,
 	},
 	/*********************** replay route **************************/
 	{
