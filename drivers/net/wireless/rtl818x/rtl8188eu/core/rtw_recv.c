@@ -4190,41 +4190,62 @@ void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS){
 			recvpriv->signal_qual_data.update_req = 1;
 		}
 
-		//update value of signal_strength, rssi, signal_qual
-		if(check_fwstate(&adapter->mlmepriv, _FW_UNDER_SURVEY) == _FALSE) {
-			tmp_s = (avg_signal_strength+(_alpha-1)*recvpriv->signal_strength);
-			if(tmp_s %_alpha)
-				tmp_s = tmp_s/_alpha + 1;
-			else
-				tmp_s = tmp_s/_alpha;
-			if(tmp_s>100)
-				tmp_s = 100;
-
-			tmp_q = (avg_signal_qual+(_alpha-1)*recvpriv->signal_qual);
-			if(tmp_q %_alpha)
-				tmp_q = tmp_q/_alpha + 1;
-			else
-				tmp_q = tmp_q/_alpha;
-			if(tmp_q>100)
-				tmp_q = 100;
-
-			recvpriv->signal_strength = tmp_s;
-			recvpriv->rssi = (s8)translate_percentage_to_dbm(tmp_s);
-			recvpriv->signal_qual = tmp_q;
-
-			#if defined(DBG_RX_SIGNAL_DISPLAY_PROCESSING) && 1
-			DBG_871X("%s signal_strength:%3u, rssi:%3d, signal_qual:%3u"
-				", num_signal_strength:%u, num_signal_qual:%u"
-				"\n"
-				, __FUNCTION__
-				, recvpriv->signal_strength
-				, recvpriv->rssi
-				, recvpriv->signal_qual
-				, num_signal_strength, num_signal_qual
-			);
-			#endif
+		if (num_signal_strength == 0) {
+			if (rtw_get_on_cur_ch_time(adapter) == 0
+				|| rtw_get_passing_time_ms(rtw_get_on_cur_ch_time(adapter)) < 2 * adapter->mlmeextpriv.mlmext_info.bcn_interval
+			) {
+				goto set_timer;
+			}
 		}
+
+		if(check_fwstate(&adapter->mlmepriv, _FW_UNDER_SURVEY) == _TRUE
+			|| check_fwstate(&adapter->mlmepriv, _FW_LINKED) == _FALSE
+		) { 
+			goto set_timer;
+		}
+
+		#ifdef CONFIG_CONCURRENT_MODE
+		if (check_buddy_fwstate(adapter, _FW_UNDER_SURVEY) == _TRUE)
+			goto set_timer;
+		#endif
+
+		//update value of signal_strength, rssi, signal_qual
+		tmp_s = (avg_signal_strength+(_alpha-1)*recvpriv->signal_strength);
+		if(tmp_s %_alpha)
+			tmp_s = tmp_s/_alpha + 1;
+		else
+			tmp_s = tmp_s/_alpha;
+		if(tmp_s>100)
+			tmp_s = 100;
+
+		tmp_q = (avg_signal_qual+(_alpha-1)*recvpriv->signal_qual);
+		if(tmp_q %_alpha)
+			tmp_q = tmp_q/_alpha + 1;
+		else
+			tmp_q = tmp_q/_alpha;
+		if(tmp_q>100)
+			tmp_q = 100;
+
+		recvpriv->signal_strength = tmp_s;
+		recvpriv->rssi = (s8)translate_percentage_to_dbm(tmp_s);
+		recvpriv->signal_qual = tmp_q;
+
+		#if defined(DBG_RX_SIGNAL_DISPLAY_PROCESSING) && 1
+		DBG_871X(FUNC_ADPT_FMT" signal_strength:%3u, rssi:%3d, signal_qual:%3u"
+			", num_signal_strength:%u, num_signal_qual:%u"
+			", on_cur_ch_ms:%d"
+			"\n"
+			, FUNC_ADPT_ARG(adapter)
+			, recvpriv->signal_strength
+			, recvpriv->rssi
+			, recvpriv->signal_qual
+			, num_signal_strength, num_signal_qual
+			, rtw_get_on_cur_ch_time(adapter) ? rtw_get_passing_time_ms(rtw_get_on_cur_ch_time(adapter)) : 0
+		);
+		#endif
 	}
+
+set_timer:
 	rtw_set_signal_stat_timer(recvpriv);
 	
 }

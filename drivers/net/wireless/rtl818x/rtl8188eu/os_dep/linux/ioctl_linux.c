@@ -5555,6 +5555,79 @@ exit:
 		
 }
 
+static int hexstr2bin(const char *hex, u8 *buf, size_t len)
+{
+	size_t i;
+	int a;
+	const char *ipos = hex;
+	u8 *opos = buf;
+
+	for (i = 0; i < len; i++) {
+		a = hex2byte_i(ipos);
+		if (a < 0)
+			return -1;
+		*opos++ = a;
+		ipos += 2;
+	}
+	return 0;
+}
+
+static int uuid_str2bin(const char *str, u8 *bin)
+{
+	const char *pos;
+	u8 *opos;
+
+	pos = str;
+	opos = bin;
+
+	if (hexstr2bin(pos, opos, 4))
+		return -1;
+	pos += 8;
+	opos += 4;
+
+	if (*pos++ != '-' || hexstr2bin(pos, opos, 2))
+		return -1;
+	pos += 4;
+	opos += 2;
+
+	if (*pos++ != '-' || hexstr2bin(pos, opos, 2))
+		return -1;
+	pos += 4;
+	opos += 2;
+
+	if (*pos++ != '-' || hexstr2bin(pos, opos, 2))
+		return -1;
+	pos += 4;
+	opos += 2;
+
+	if (*pos++ != '-' || hexstr2bin(pos, opos, 6))
+		return -1;
+
+	return 0;
+}
+
+static int rtw_p2p_set_wps_uuid(struct net_device *dev,
+	struct iw_request_info *info,
+	union iwreq_data *wrqu, char *extra)
+{
+
+	int ret = 0;
+	_adapter				*padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct wifidirect_info			*pwdinfo = &(padapter->wdinfo);
+
+	DBG_871X("[%s] data = %s\n", __FUNCTION__, extra);
+
+	if ((36 == strlen(extra)) && (uuid_str2bin(extra, pwdinfo->uuid) == 0)) 
+	{
+		pwdinfo->external_uuid = 1;
+	} else {
+		pwdinfo->external_uuid = 0;
+		ret = -EINVAL;
+	}
+
+	return ret;
+
+}
 #ifdef CONFIG_WFD
 static int rtw_p2p_set_pc(struct net_device *dev,
                                struct iw_request_info *info,
@@ -6270,6 +6343,11 @@ static int rtw_p2p_set(struct net_device *dev,
 	{
 		wrqu->data.length -= 11;
 		rtw_p2p_set_persistent( dev, info, wrqu, &extra[11] );
+	}
+	else if ( _rtw_memcmp ( extra, "uuid=", 5) )
+	{
+		wrqu->data.length -= 5;
+		ret = rtw_p2p_set_wps_uuid( dev, info, wrqu, &extra[5] );
 	}
 #ifdef CONFIG_WFD
 	else if ( _rtw_memcmp( extra, "sa=", 3 ) )

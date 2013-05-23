@@ -4845,7 +4845,12 @@ void issue_probersp_p2p(_adapter *padapter, unsigned char *da)
 		wpsielen += 2;
 
 		//	Value:
-		_rtw_memcpy( wpsie + wpsielen, myid( &padapter->eeprompriv ), ETH_ALEN );
+		if (pwdinfo->external_uuid == 0) {
+			_rtw_memset( wpsie + wpsielen, 0x0, 16 );
+			_rtw_memcpy( wpsie + wpsielen, myid( &padapter->eeprompriv ), ETH_ALEN );
+		} else {
+			_rtw_memcpy( wpsie + wpsielen, pwdinfo->uuid, 0x10 );
+		}
 		wpsielen += 0x10;
 
 		//	Manufacturer
@@ -5123,7 +5128,12 @@ int _issue_probereq_p2p(_adapter *padapter, u8 *da, int wait_ack)
 			wpsielen += 2;
 
 			//	Value:
-			_rtw_memcpy( wpsie + wpsielen, myid( &padapter->eeprompriv ), ETH_ALEN );
+			if (pwdinfo->external_uuid == 0) {
+				_rtw_memset( wpsie + wpsielen, 0x0, 16 );
+				_rtw_memcpy( wpsie + wpsielen, myid( &padapter->eeprompriv ), ETH_ALEN );
+			} else {
+				_rtw_memcpy( wpsie + wpsielen, pwdinfo->uuid, 0x10 );
+			}
 			wpsielen += 0x10;
 
 			//	Config Method
@@ -9282,7 +9292,7 @@ u8 collect_bss_info(_adapter *padapter, union recv_frame *precv_frame, WLAN_BSSI
 	}
 #endif // CONFIG_INTEL_WIDI
 
-	#if defined(DBG_RX_SIGNAL_DISPLAY_PROCESSING) & 1
+	#if defined(DBG_RX_SIGNAL_DISPLAY_SSID_MONITORED) & 1
 	if(strcmp(bssid->Ssid.Ssid, DBG_RX_SIGNAL_DISPLAY_SSID_MONITORED) == 0) {
 		DBG_871X("Receiving %s("MAC_FMT", DSConfig:%u) from ch%u with ss:%3u, sq:%3u, RawRSSI:%3ld\n"
 			, bssid->Ssid.Ssid, MAC_ARG(bssid->MacAddress), bssid->Configuration.DSConfig
@@ -11302,8 +11312,10 @@ u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 
 	if (pmlmeext->sitesurvey_res.state == SCAN_DISABLE)
 	{
+#ifdef CONFIG_CONCURRENT_MODE	
 		//for first time sitesurvey_cmd
 		rtw_hal_set_hwreg(padapter, HW_VAR_CHECK_TXBUF, 0);	
+#endif //CONFIG_CONCURRENT_MODE
 		
 		pmlmeext->sitesurvey_res.state = SCAN_START;
 		pmlmeext->sitesurvey_res.bss_cnt = 0;
@@ -12579,15 +12591,16 @@ void concurrent_chk_joinbss_done(_adapter *padapter, int join_res)
 	struct mlme_ext_info *pbuddy_mlmeinfo;
 	WLAN_BSSID_EX *pbuddy_network_mlmeext;
 
+	pmlmeext = &padapter->mlmeextpriv;
+	pmlmeinfo = &(pmlmeext->mlmext_info);
+
+
 	if(!rtw_buddy_adapter_up(padapter))
 	{
 		set_channel_bwmode(padapter, pmlmeext->cur_channel, pmlmeext->cur_ch_offset, pmlmeext->cur_bwmode);
 		return;
 	}
 
-	pmlmeext = &padapter->mlmeextpriv;
-	pmlmeinfo = &(pmlmeext->mlmext_info);	
-	
 	pbuddy_adapter = padapter->pbuddy_adapter;
 	pbuddy_mlmepriv = &(pbuddy_adapter->mlmepriv);
 	pbuddy_mlmeext = &pbuddy_adapter->mlmeextpriv;

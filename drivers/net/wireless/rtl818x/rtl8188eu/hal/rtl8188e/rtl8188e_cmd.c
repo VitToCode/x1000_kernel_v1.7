@@ -258,6 +258,11 @@ void rtl8188e_Add_RateATid(PADAPTER pAdapter, u32 bitmap, u8 arg, u8 rssi_level)
 
 	u8 macid, init_rate, raid, shortGIrate=_FALSE;
 
+#ifdef CONFIG_CONCURRENT_MODE
+	if(rtw_buddy_adapter_up(pAdapter) && pAdapter->adapter_type > PRIMARY_ADAPTER)	
+		pHalData = GET_HAL_DATA(pAdapter->pbuddy_adapter);				
+#endif //CONFIG_CONCURRENT_MODE
+
 	macid = arg&0x1f;
 
 #ifdef CONFIG_ODM_REFRESH_RAMASK
