@@ -2197,11 +2197,8 @@ static struct fb_ops jzfb_ops = {
 	.fb_mmap = jzfb_mmap,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void jzfb_early_suspend(struct early_suspend *h)
+static int __jzfb_suspend(struct jzfb *jzfb)
 {
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-
 	mutex_lock(&jzfb->lock);
 	if (jzfb->pdata->alloc_vidmem) {
 		/* set suspend state and notify panel, backlight client */
@@ -2235,12 +2232,12 @@ static void jzfb_early_suspend(struct early_suspend *h)
 		clk_disable(jzfb->pclk);
 	}
 	mutex_unlock(&jzfb->lock);
+
+	return 0;
 }
 
-static void jzfb_late_resume(struct early_suspend *h)
+static int __jzfb_resume(struct jzfb *jzfb)
 {
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-
 	if(jzfb->is_enabled) {
 		clk_enable(jzfb->pclk);
 		clk_enable(jzfb->clk);
@@ -2261,6 +2258,21 @@ static void jzfb_late_resume(struct early_suspend *h)
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
 	mutex_unlock(&jzfb->suspend_lock);
+
+	return 0;
+}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void jzfb_early_suspend(struct early_suspend *h)
+{
+	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+	__jzfb_suspend(jzfb);
+}
+
+static void jzfb_late_resume(struct early_suspend *h)
+{
+	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+	__jzfb_resume(jzfb);
 }
 #endif
 
@@ -3178,8 +3190,15 @@ static int jzfb_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
+
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	__jzfb_suspend(jzfb);
+#endif
+
 	clk_disable(jzfb->clk);
 	clk_disable(jzfb->pclk);
+
+
 	return 0;
 }
 static int jzfb_resume(struct device *dev)
@@ -3188,6 +3207,11 @@ static int jzfb_resume(struct device *dev)
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 	clk_enable(jzfb->pclk);
 	clk_enable(jzfb->clk);
+
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	return __jzfb_resume(jzfb);
+#endif
+
 	return 0;
 }
 static const struct dev_pm_ops jzfb_pm_ops = {

@@ -106,12 +106,8 @@ static struct lcd_ops android_bl_ops = {
 		.set_mode = android_bl_set_mode,
 };
 
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-
-static void bk_e_suspend(struct early_suspend *h)
+static int __android_bl_suspend(struct android_bl_data *dev)
 {
-	struct android_bl_data *dev = container_of(h, struct android_bl_data, bk_early_suspend);
 	if (dev->pdata->notify_on)
 		dev->pdata->notify_on(0);
 
@@ -119,12 +115,12 @@ static void bk_e_suspend(struct early_suspend *h)
 		regulator_disable(dev->lcd_bklight_reg);
 
 	regulator_disable(dev->lcd_vcc_reg);
+
+	return 0;
 }
 
-static void bk_l_resume(struct early_suspend *h)
+static int __android_bl_resume(struct android_bl_data *dev)
 {
-	struct android_bl_data *dev = container_of(h, struct android_bl_data, bk_early_suspend);
-
 	regulator_enable(dev->lcd_vcc_reg);
 
 	if (dev->pdata->gpio_reset) {
@@ -139,6 +135,24 @@ static void bk_l_resume(struct early_suspend *h)
 
 	if (dev->pdata->notify_on)
 		dev->pdata->notify_on(1);
+
+	return 0;
+}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+
+static void bk_e_suspend(struct early_suspend *h)
+{
+	struct android_bl_data *dev = container_of(h, struct android_bl_data, bk_early_suspend);
+
+	__android_bl_suspend(dev);
+}
+
+static void bk_l_resume(struct early_suspend *h)
+{
+	struct android_bl_data *dev = container_of(h, struct android_bl_data, bk_early_suspend);
+
+	__android_bl_resume(dev);
 }
 
 #endif
@@ -225,11 +239,22 @@ static int __devinit android_bl_remove(struct platform_device *pdev)
 static int android_bl_suspend(struct platform_device *pdev,
 pm_message_t state)
 {
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	struct android_bl_data *dev = dev_get_drvdata(&pdev->dev);
+
+	return __android_bl_suspend(dev);
+#endif
 	return 0;
 }
 
 static int android_bl_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	struct android_bl_data *dev = dev_get_drvdata(&pdev->dev);
+
+	return __android_bl_resume(dev);
+#endif
+
 	return 0;
 }
 
