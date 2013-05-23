@@ -1644,10 +1644,9 @@ static irqreturn_t ipu_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void ipu_early_suspend(struct early_suspend *h)
+static int ipu_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
+	struct jz_ipu *ipu = dev_get_drvdata(&pdev->dev);
 
 	spin_lock(&ipu->suspend_lock);
 	ipu->suspend_entered = 1;
@@ -1659,20 +1658,19 @@ static void ipu_early_suspend(struct early_suspend *h)
 		reg_write(ipu, IPU_TRIG, IPU_STOP);
 	}
 
-	return;
+	return 0;
 }
 
-static void ipu_late_resume(struct early_suspend *h)
+static int ipu_resume(struct platform_device *pdev)
 {
-	struct jz_ipu *ipu = container_of(h, struct jz_ipu, early_suspend);
+	struct jz_ipu *ipu = dev_get_drvdata(&pdev->dev);
 
 	spin_lock(&ipu->suspend_lock);
 	ipu->suspend_entered = 0;
 	spin_unlock(&ipu->suspend_lock);
 
-	return;
+	return 0;
 }
-#endif
 
 static int ipu_probe(struct platform_device *pdev)
 {
@@ -1749,14 +1747,6 @@ static int ipu_probe(struct platform_device *pdev)
 		goto err_set_drvdata;
 	}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	ipu->early_suspend.suspend = ipu_early_suspend;
-	ipu->early_suspend.resume = ipu_late_resume;
-	ipu->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB-15;
-	register_early_suspend(&ipu->early_suspend);
-#endif
-
-
 	/* for test */
 	ipu->pde = create_proc_entry(ipu->name, 0444, NULL);
 	if (ipu->pde) ipu->pde->read_proc = ipu_read_proc;
@@ -1797,6 +1787,8 @@ static struct platform_driver jz_ipu_driver = {
 	.driver = {
 		.name = "jz-ipu",
 	},
+	.suspend = ipu_suspend,
+	.resume = ipu_resume,
 };
 
 static int __init ipu_setup(void)

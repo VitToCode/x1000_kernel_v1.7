@@ -740,15 +740,16 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 }
 
 /*****************************suspend  resume********************************/
-static void x2d_early_suspend(struct early_suspend *handler)
+static int x2d_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
+	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
 	jz_x2d->state = x2d_state_suspend;
+	clk_disable(jz_x2d->x2d_clk);
 }
 
-static void x2d_early_resume(struct early_suspend *handler)
+static int x2d_resume(struct platform_device *pdev)
 {
-	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
+	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
 	jz_x2d->state = x2d_state_idle;
 	clk_enable(jz_x2d->x2d_clk);
 }
@@ -978,14 +979,6 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	init_waitqueue_head(&jz_x2d->set_wait_queue);
 	mutex_init(&jz_x2d->compose_lock);
 	mutex_init(&jz_x2d->x2d_lock);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	jz_x2d->early_suspend.suspend = x2d_early_suspend;
-	jz_x2d->early_suspend.resume = x2d_early_resume;
-	jz_x2d->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	register_early_suspend(&jz_x2d->early_suspend);
-#endif
-
 	clk_disable(jz_x2d->x2d_clk);  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
 
@@ -1031,6 +1024,8 @@ static struct platform_driver x2d_driver = {
 	.driver.owner	= THIS_MODULE,
 	.probe		= x2d_probe,
 	.remove		= x2d_remove,
+	.suspend = x2d_suspend,
+	.resume = x2d_resume,
 };
 
 static int __init x2d_init(void)
