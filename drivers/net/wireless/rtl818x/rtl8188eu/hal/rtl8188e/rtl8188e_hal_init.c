@@ -2782,6 +2782,13 @@ void rtl8188e_SetHalODMVar(
 		case HAL_ODM_STA_INFO:
 			{	
 				struct sta_info *psta = (struct sta_info *)pValue1;				
+				#ifdef CONFIG_CONCURRENT_MODE	
+				//get Primary adapter's odmpriv
+				if(Adapter->adapter_type > PRIMARY_ADAPTER){
+					pHalData = GET_HAL_DATA(Adapter->pbuddy_adapter);
+					podmpriv = &pHalData->odmpriv;	
+				}
+				#endif				
 				if(bSet){
 					DBG_8192C("### Set STA_(%d) info\n",psta->mac_id);
 					ODM_CmnInfoPtrArrayHook(podmpriv, ODM_CMNINFO_STA_STATUS,psta->mac_id,psta);
@@ -3824,4 +3831,5 @@ void SetBcnCtrlReg(
 
 	rtw_write8(padapter, REG_BCN_CTRL, (u8)pHalData->RegBcnCtrlVal);
 }
+
 

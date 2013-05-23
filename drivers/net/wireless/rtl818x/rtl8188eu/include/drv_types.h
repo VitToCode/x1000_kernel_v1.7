@@ -271,6 +271,7 @@ struct dvobj_priv
 	unsigned char	oper_channel; //saved channel info when call set_channel_bw
 	unsigned char	oper_bwmode;
 	unsigned char	oper_ch_offset;//PRIME_CHNL_OFFSET
+	u32 on_oper_ch_time;
 
 	_adapter *padapters[IFACE_ID_MAX];
 	u8 iface_nums; // total number of ifaces used runtime

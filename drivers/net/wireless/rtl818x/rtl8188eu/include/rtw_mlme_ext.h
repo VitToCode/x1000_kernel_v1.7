@@ -583,6 +583,8 @@ u8 rtw_get_oper_bw(_adapter *adapter);
 void rtw_set_oper_bw(_adapter *adapter, u8 bw);
 u8 rtw_get_oper_choffset(_adapter *adapter);
 void rtw_set_oper_choffset(_adapter *adapter, u8 offset);
+u32 rtw_get_on_oper_ch_time(_adapter *adapter);
+u32 rtw_get_on_cur_ch_time(_adapter *adapter);
 
 void set_channel_bwmode(_adapter *padapter, unsigned char channel, unsigned char channel_offset, unsigned short bwmode);
 void SelectChannel(_adapter *padapter, unsigned char channel);

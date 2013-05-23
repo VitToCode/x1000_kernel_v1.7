@@ -118,11 +118,28 @@ void Hal_mpt_SwitchRfSetting(PADAPTER pAdapter)
 	ULONG				ulbandwidth = pmp->bandwidth;
 	HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(pAdapter);
 	
+#if 0
 	// <20120525, Kordan> Dynamic mechanism for APK, asked by Dennis.
 		pmp->MptCtx.backup0x52_RF_A = (u1Byte)PHY_QueryRFReg(pAdapter, RF_PATH_A, RF_0x52, 0x000F0);
 		pmp->MptCtx.backup0x52_RF_B = (u1Byte)PHY_QueryRFReg(pAdapter, RF_PATH_B, RF_0x52, 0x000F0);
 		PHY_SetRFReg(pAdapter, RF_PATH_A, RF_0x52, 0x000F0, 0xD);
 		PHY_SetRFReg(pAdapter, RF_PATH_B, RF_0x52, 0x000F0, 0xD);
+#else
+	// <20120525, Kordan> Dynamic mechanism for APK, asked by Dennis.
+	if (IS_HARDWARE_TYPE_8188ES(pAdapter) && (1 <= ChannelToSw && ChannelToSw <= 11) &&
+		(ulRateIdx == MPT_RATE_MCS0 || ulRateIdx == MPT_RATE_1M || ulRateIdx == MPT_RATE_6M))
+	{
+		pmp->MptCtx.backup0x52_RF_A = (u1Byte)PHY_QueryRFReg(pAdapter, ODM_RF_PATH_A, RF_0x52, 0x000F0);
+		pmp->MptCtx.backup0x52_RF_B = (u1Byte)PHY_QueryRFReg(pAdapter, ODM_RF_PATH_B, RF_0x52, 0x000F0);
+		PHY_SetRFReg(pAdapter, ODM_RF_PATH_A, RF_0x52, 0x000F0, 0xD);
+		PHY_SetRFReg(pAdapter, ODM_RF_PATH_B, RF_0x52, 0x000F0, 0xD);
+	}
+	else if (IS_HARDWARE_TYPE_8188E(pAdapter))
+	{
+		PHY_SetRFReg(pAdapter, ODM_RF_PATH_A, RF_0x52, 0x000F0, pmp->MptCtx.backup0x52_RF_A);
+		PHY_SetRFReg(pAdapter, ODM_RF_PATH_B, RF_0x52, 0x000F0, pmp->MptCtx.backup0x52_RF_B);
+	}
+#endif	
 
 	return ;
 }
