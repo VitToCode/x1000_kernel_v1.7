@@ -108,7 +108,7 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 	return NOTIFY_DONE;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+/* set_pwm1_gpio_function can be used by either andriod or linux */
 #ifdef CONFIG_CLEAR_PWM_OUTPUT
 static void set_pwm1_gpio_function(void)
 {
@@ -122,36 +122,51 @@ static void set_pwm1_gpio_function(void)
 	PWM1_GPIO_PXFUNC = 0x2;
 }
 #endif
-static void bk_e_suspend(struct early_suspend *h)
+
+static int __pwm_backlight_suspend(struct pwm_bl_data *pb)
 {
-	struct pwm_bl_data *pb = container_of(h,
-            struct pwm_bl_data, bk_early_suspend); 
-    pb->suspend = 1;
-    pwm_config(pb->pwm, 0, pb->period);
-    pwm_disable(pb->pwm);
+	pb->suspend = 1;
+	pwm_config(pb->pwm, 0, pb->period);
+	pwm_disable(pb->pwm);
 #ifdef CONFIG_CLEAR_PWM_OUTPUT
 	gpio_direction_output(32*4+1, 0);
 #endif
+	return 0;
 }
 
-static void bk_l_resume(struct early_suspend *h)
+static int __pwm_backlight_resume(struct pwm_bl_data *pb)
 {
-    int brightness;
-	struct pwm_bl_data *pb = container_of(h,
-            struct pwm_bl_data, bk_early_suspend); 
-
-    pb->suspend = 0;
+	int brightness;
+	pb->suspend = 0;
 #ifdef CONFIG_CLEAR_PWM_OUTPUT
 	set_pwm1_gpio_function();
 #endif
 	mutex_lock(&pb->pwm_lock);
 	pwm_disable(pb->pwm);
-    brightness = pb->cur_brightness;
-    brightness = pb->lth_brightness +
+	brightness = pb->cur_brightness;
+	brightness = pb->lth_brightness +
         (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
-    pwm_config(pb->pwm, brightness, pb->period);
-    pwm_enable(pb->pwm);
-    mutex_unlock(&pb->pwm_lock);
+	pwm_config(pb->pwm, brightness, pb->period);
+	pwm_enable(pb->pwm);
+	mutex_unlock(&pb->pwm_lock);
+
+	return 0;
+}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void bk_e_suspend(struct early_suspend *h)
+{
+	struct pwm_bl_data *pb = container_of(h,
+            struct pwm_bl_data, bk_early_suspend);
+	__pwm_backlight_suspend(pb);
+}
+
+static void bk_l_resume(struct early_suspend *h)
+{
+	int brightness;
+	struct pwm_bl_data *pb = container_of(h,
+            struct pwm_bl_data, bk_early_suspend);
+	__pwm_backlight_resume(pb);
 }
 #endif
 
@@ -263,6 +278,10 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	__pwm_backlight_suspend(pb);
+#endif
+
 	if (pb->notify)
 		pb->notify(pb->dev, 0);
 	pwm_config(pb->pwm, 0, pb->period);
@@ -275,6 +294,11 @@ static int pwm_backlight_resume(struct platform_device *pdev)
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	backlight_update_status(bl);
+
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
+	return __pwm_backlight_resume(pb);
+#endif
 	return 0;
 }
 #else
