@@ -105,7 +105,6 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 }
 
 /* set_pwm1_gpio_function can be used by either andriod or linux */
-#ifdef CONFIG_CLEAR_PWM_OUTPUT
 static int __pwm_backlight_suspend(struct pwm_bl_data *pb)
 {
 	pb->suspend = 1;
@@ -130,6 +129,7 @@ static int __pwm_backlight_resume(struct pwm_bl_data *pb)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void bk_e_suspend(struct early_suspend *h)
 {
 	struct pwm_bl_data *pb = container_of(h,
