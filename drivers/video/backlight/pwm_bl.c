@@ -101,6 +101,9 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 
     pwm_config(pb->pwm, 0, pb->period);
     pwm_disable(pb->pwm);
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+	gpio_direction_output(32*4+1, 0);
+#endif
 
 	return NOTIFY_DONE;
 }
