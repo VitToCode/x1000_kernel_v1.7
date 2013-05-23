@@ -7,6 +7,7 @@
 
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 
 #include <asm/div64.h>
 
@@ -94,6 +95,9 @@ int pwm_enable(struct pwm_device *pwm)
 {
 	struct tcu_device *tcu_pwm = pwm->tcu_cha;
 	tcu_enable(tcu_pwm);
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_0, 0x1 << pwm->id);
+#endif
 	return 0;
 }
 
@@ -101,4 +105,7 @@ void pwm_disable(struct pwm_device *pwm)
 {
 	struct tcu_device *tcu_pwm = pwm->tcu_cha;
 	tcu_disable(tcu_pwm);
+#ifdef CONFIG_CLEAR_PWM_OUTPUT
+	gpio_direction_output((GPIO_PORT_E * 32 + pwm->id), 0);
+#endif
 }

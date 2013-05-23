@@ -24,7 +24,6 @@
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
-#include <linux/gpio.h>
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
@@ -101,36 +100,17 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 
     pwm_config(pb->pwm, 0, pb->period);
     pwm_disable(pb->pwm);
-#ifdef CONFIG_CLEAR_PWM_OUTPUT
-	gpio_direction_output(32*4+1, 0);
-#endif
 
 	return NOTIFY_DONE;
 }
 
 /* set_pwm1_gpio_function can be used by either andriod or linux */
 #ifdef CONFIG_CLEAR_PWM_OUTPUT
-static void set_pwm1_gpio_function(void)
-{
-#define PWM1_GPIO_PXDATC (*(volatile unsigned int *)0xB0010418)
-#define PWM1_GPIO_PXIMC (*(volatile unsigned int *)0xB0010428)
-#define PWM1_GPIO_PXPEC (*(volatile unsigned int *)0xB0010438)
-#define PWM1_GPIO_PXFUNC (*(volatile unsigned int *)0xB0010448)
-	PWM1_GPIO_PXDATC = 0x2;
-	PWM1_GPIO_PXIMC = 0x2;
-	PWM1_GPIO_PXPEC = 0x2;
-	PWM1_GPIO_PXFUNC = 0x2;
-}
-#endif
-
 static int __pwm_backlight_suspend(struct pwm_bl_data *pb)
 {
 	pb->suspend = 1;
 	pwm_config(pb->pwm, 0, pb->period);
 	pwm_disable(pb->pwm);
-#ifdef CONFIG_CLEAR_PWM_OUTPUT
-	gpio_direction_output(32*4+1, 0);
-#endif
 	return 0;
 }
 
@@ -138,9 +118,6 @@ static int __pwm_backlight_resume(struct pwm_bl_data *pb)
 {
 	int brightness;
 	pb->suspend = 0;
-#ifdef CONFIG_CLEAR_PWM_OUTPUT
-	set_pwm1_gpio_function();
-#endif
 	mutex_lock(&pb->pwm_lock);
 	pwm_disable(pb->pwm);
 	brightness = pb->cur_brightness;
