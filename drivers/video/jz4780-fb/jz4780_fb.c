@@ -1189,9 +1189,14 @@ static int jzfb_set_par(struct fb_info *info)
 
 	mutex_unlock(&jzfb->lock);
 
-	clk_disable(jzfb->pclk);
+	if(is_enabled) {
+            clk_disable(jzfb->pclk);
+        }
 	clk_set_rate(jzfb->pclk, rate);
-	clk_enable(jzfb->pclk);
+
+	if(is_enabled) {
+            clk_enable(jzfb->pclk);
+        }
 
 	dev_info(jzfb->dev, "LCDC: PixClock:%lu\n", rate);
 	dev_info(jzfb->dev, "LCDC: PixClock:%lu(real)\n",
@@ -1208,9 +1213,6 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(is_enabled) {
 		jzfb_enable(info);
-	} else {
-            //clk_disable(jzfb->clk);
-		clk_disable(jzfb->pclk);
 	}
 
 	return 0;
@@ -1916,6 +1918,16 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			/* enable end of frame interrupt */
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
+
+                        /* is lcdc already in earlysuspend, make trigger a vsync. */
+                        if (jzfb->is_suspend) {
+                            dev_err(jzfb->dev, "*** JZFB_SET_VSYNCINT but jzfb->is_suspend, trigger a dummy vsync end envent. ***\n");
+                            jzfb->vsync_timestamp = ktime_get();
+                            wmb();
+                            wake_up_interruptible(&jzfb->vsync_wq);
+                        }
+
+
 		} else {
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
@@ -2132,16 +2144,19 @@ static int jzfb_wait_for_vsync_thread(void *data)
 		if (ret > 0) {
 			char *envp[2];
 			char buf[64];
+                        int is_suspend;
 
 			mutex_lock(&jzfb->lock);
+                        is_suspend = jzfb->is_suspend;
 			/* rotate right */
 			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 |
 				 		jzfb->vsync_skip_map << 9) &
 						0x3ff;
 			mutex_unlock(&jzfb->lock);
-			if (!(jzfb->vsync_skip_map & 0x1))
+                        if ( !is_suspend ){
+                            if (!(jzfb->vsync_skip_map & 0x1))
 			        continue;
-
+                        }
 			snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(
 					 jzfb->vsync_timestamp));
 			envp[0] = buf;
@@ -2227,10 +2242,7 @@ static int __jzfb_suspend(struct jzfb *jzfb)
 		jzfb_aosd_disable(jzfb->fb);
 	}
 #endif
-	if (jzfb->is_enabled) {
-            //clk_disable(jzfb->clk);
-		clk_disable(jzfb->pclk);
-	}
+
 	mutex_unlock(&jzfb->lock);
 
 	return 0;
@@ -2238,10 +2250,6 @@ static int __jzfb_suspend(struct jzfb *jzfb)
 
 static int __jzfb_resume(struct jzfb *jzfb)
 {
-	if(jzfb->is_enabled) {
-		clk_enable(jzfb->pclk);
-		clk_enable(jzfb->clk);
-	}
 #ifdef CONFIG_JZ4780_AOSD
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
 		aosd_clock_enable(1);
@@ -2613,7 +2621,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 			 jzfb->framedesc[i]->desc_size);
 	}
 	if (!jzfb->is_enabled)
-            ;//clk_disable(jzfb->clk);
+            clk_disable(jzfb->clk);
 
 	return;
 }
@@ -2886,11 +2894,7 @@ static int jzfb_lcdc_reset(struct fb_info *info)
 
 	if(is_enabled) {
 		jzfb_enable(info);
-	} else {
-		clk_disable(jzfb->clk);
-		clk_disable(jzfb->pclk);
 	}
-
 	return 0;
 }
 
@@ -2963,6 +2967,9 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get lcdc clock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
+
+	/* Don't read or write lcdc registers until here. */
+	clk_enable(jzfb->clk);
 
 	if (!jzfb->pdata->alloc_vidmem) {
 		/* set default pixel clock to 27 MHz */
@@ -3053,9 +3060,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
 		goto err_kthread_stop;
 	}
-
-	/* Don't read or write lcdc registers until here. */
-	clk_enable(jzfb->clk);
 
 	if (jzfb->id == 1) {
 		dual_ctrl = reg_read(jzfb, LCDC_DUAL_CTRL);
@@ -3197,7 +3201,6 @@ static int jzfb_suspend(struct device *dev)
 
 	clk_disable(jzfb->clk);
 	clk_disable(jzfb->pclk);
-
 
 	return 0;
 }
