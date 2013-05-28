@@ -828,6 +828,8 @@ int hdmi_resume(struct platform_device *pdev)
 	system_InterruptEnable(TX_INT);
 	api_mHpd = (phy_HotPlugDetected(0) > 0);
 	hpd_callback(&api_mHpd);
+
+	return 0;
 }
 
 static struct platform_driver jzhdmi_driver = {
