@@ -33,7 +33,7 @@ CORE_REGULATOR_DEF(
  */
 IO_REGULATOR_DEF(
 	vccio,
-	"Vcc-IO",	3000000,	1);
+	"Vcc-IO",	3300000,	1);
 
 /**
  * USB VBUS Regulators.
