@@ -30,7 +30,6 @@
 #include <linux/version.h>
 #include <linux/io.h>
 #include <linux/memory.h>
-#include <linux/earlysuspend.h>
 #include <linux/dma-mapping.h>
 
 #include <asm/cacheflush.h>
@@ -90,7 +89,6 @@ struct x2d_device {
 	wait_queue_head_t set_wait_queue;
 
 	struct list_head proc_list;
-	struct early_suspend early_suspend;	
 	struct mutex x2d_lock;
 	struct mutex compose_lock;
 };
@@ -745,6 +743,7 @@ static int x2d_suspend(struct platform_device *pdev, pm_message_t state)
 	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
 	jz_x2d->state = x2d_state_suspend;
 	clk_disable(jz_x2d->x2d_clk);
+	return 0;
 }
 
 static int x2d_resume(struct platform_device *pdev)
@@ -752,6 +751,7 @@ static int x2d_resume(struct platform_device *pdev)
 	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
 	jz_x2d->state = x2d_state_idle;
 	clk_enable(jz_x2d->x2d_clk);
+	return 0;
 }
 
 /****************************sys call functions******************************/
@@ -1011,7 +1011,6 @@ static int __devexit x2d_remove(struct platform_device *pdev)
 	iounmap(jz_x2d->base);
 	free_irq(jz_x2d->irq,jz_x2d);
 	release_mem_region(jz_x2d->mem->start, resource_size(jz_x2d->mem));
-	unregister_early_suspend(&jz_x2d->early_suspend);
 	kzfree(jz_x2d->chain_p);
 	kzfree(jz_x2d);
 	misc_deregister(&jz_x2d->misc_dev);
