@@ -140,6 +140,25 @@ static struct fb_videomode jzfb1_videomode[] = {
 	},
 #endif
 
+#ifdef CONFIG_LCD_S369FG06 
+	{
+		.name = "480*800",
+		.refresh = 60, 
+		.xres = 480, 
+		.yres = 800, 
+		.pixclock = KHZ2PICOS(30844), 
+		.left_margin = 50,
+		.right_margin = 50,
+		.upper_margin = 7,		/* If you change upper and lower margin, */
+		.lower_margin = 8,		/* change it in struct specific_tl2796. */
+		.hsync_len = 50, 
+		.vsync_len = 10,		/* for tl2796: VFP = vsync_len + upper_margin */
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0
+	},
+#endif
+
 #ifdef CONFIG_LCD_KR070LA0S_270 // 60Hz@vpll=888MHz
 	{
 		.name = "1024x600",
@@ -270,6 +289,21 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.lvds = 0,
 	.dither_enable = 0,
 #endif
+
+#ifdef CONFIG_LCD_S369FG06
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 48,
+	.height = 80,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 1,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
 };
 #endif /* CONFIG_FB_JZ4780_LCDC1 */
 

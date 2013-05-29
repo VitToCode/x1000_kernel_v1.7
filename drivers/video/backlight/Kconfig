@@ -255,6 +255,22 @@ config LCD_KFM701A21_1A
 	  If you have an KFM701A21_1A Panel, say Y to enable its
 	  control driver. The driver IC of this module is SPFD5420A.
 
+config LCD_DRVIER_TL2796
+	bool 
+	depends on SPI && BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If your lcd is driving by ic tl2796, select it 
+
+config LCD_S369FG06
+	tristate "S369FG06 AMOLED LCD Driver, panel(480x800)"
+	depends on SPI && BACKLIGHT_CLASS_DEVICE
+	select LCD_DRVIER_TL2796
+	default n
+	help
+	  If you have an S369FG06 LCD Panel, say Y to enable its
+	  LCD control driver.
+	  
 endif # LCD_CLASS_DEVICE
 
 #

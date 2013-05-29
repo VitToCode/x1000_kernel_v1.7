@@ -18,6 +18,7 @@
 #include <linux/android_pmem.h>
 #include <linux/interrupt.h>
 #include <linux/dm9000.h>
+#include <linux/lcd.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
@@ -259,6 +260,69 @@ static struct spi_board_info jz_spi0_board_info[] = {
 	       .max_speed_hz   = 120000,
        },
 };
+
+#ifdef CONFIG_LCD_S369FG06
+/*Control the LCD power supply */
+static int lcd_power_on(struct lcd_device *ld, int enable)
+{
+	int ret = 0;
+	if (enable) {
+	  /* ret = regulator_enable(xxx);  */
+	} else {
+	  /* ret = regulator_disable(xxx);  */
+	}
+
+	return ret;
+}
+
+static int reset_lcd(struct lcd_device *ld)
+{
+	return 0;
+}
+
+struct specific_tl2796 {
+  const char *ld_name;			/* lcd device name  */
+  const char *bd_name;			/* backlight device name  */
+  int lcd_reset;				/* lcd reset pin */
+  int spi_cs;					/* spi cs pin */
+  
+  int upper_margin;				/* see struct fb_videomode */
+  int lower_margin;				/* 4 >= lower_margin <= 31 */
+  int vsync;					/* 4 >= upper_margin + vsync <= 31 */
+};
+
+struct specific_tl2796 s369fg06_tl2796 = {
+  .ld_name = "s369fg06",
+  .bd_name = "s369fg06-bd",
+  .lcd_reset = 3*32 + 10,
+  .spi_cs = 4*32 + 16,			/* spi_cs pin */
+  .lower_margin = 8,		
+  .upper_margin = 7,  
+  .vsync = 1,
+};
+
+static const struct lcd_platform_data s369fg06_pdata = {
+	.reset			= reset_lcd,
+	.power_on		= lcd_power_on,
+	.lcd_enabled		= 0,
+	.reset_delay		= 0,
+	.power_on_delay		= 25,
+	.power_off_delay	= 200,
+	.pdata 				= &s369fg06_tl2796,
+};
+
+static struct spi_board_info s369fg06_board_info[] = {
+       [0] = {
+	       .modalias       = "tl2796", //"spidev",
+	       .bus_num	       = 0,
+	       .chip_select    = 1,
+	       .max_speed_hz   = 120000,
+	       .platform_data  = &s369fg06_pdata,
+	       .controller_data = (void *)(4*32 +16), /* spi_cs pin */
+       },
+};
+#endif
+
 #endif
 
 #ifdef CONFIG_USB_DWC2
@@ -458,6 +522,9 @@ static int __init grus_board_init(void)
 
 #ifdef CONFIG_SPI_GPIO
        spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
+#ifdef CONFIG_LCD_S369FG06
+	   spi_register_board_info(s369fg06_board_info, ARRAY_SIZE(s369fg06_board_info));
+#endif
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
 
