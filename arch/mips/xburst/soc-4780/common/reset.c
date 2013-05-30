@@ -135,6 +135,7 @@ static void hibernate_restart(void) {
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	rtc_write_reg(RTC_RTCCR,rtc_rtccr & ~(0x1<<4));
 	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
 	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
 
