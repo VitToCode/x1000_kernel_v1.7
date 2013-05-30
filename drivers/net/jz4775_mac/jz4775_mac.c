@@ -99,68 +99,43 @@ MODULE_PARM_DESC(copybreak,
 
 static int jz4775_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum);
 
-void set_mac_phy_clk(mac_clock_control mac_control)
+void set_mac_phy_clk(mac_clock_control mac_control, unsigned long int *phy_clk)
 {
 	unsigned int mphy_value = cpm_inl(CPM_MPHYC);
-	struct clk *cim_clk;
-	cim_clk = clk_get(NULL, "cim");
-
-	if (mphy_value & MPHYC_ENA_GMII) { /* Only used for GMII/RGMII mode */
-		switch (mac_control) {
-		default:
-			break;
-		case MAC_1000M:
-			clk_set_rate(cim_clk, (125 * 1000000L));
-			break;
-		case MAC_100M:
-			clk_set_rate(cim_clk, (25 * 1000000L));
-			break;
-		case MAC_10M:
-			clk_set_rate(cim_clk, (25 * 1000000L));
-		}
-	}
-
-	switch (mac_control) {
-	case MAC_GMII :
-	case MAC_RGMII :
-		/* Use CIM0 CLK for GMII/RGMII */
-		clk_enable(cim_clk);
-		clk_set_rate(cim_clk, (125 * 1000000L));
-		mphy_value |= MPHYC_ENA_GMII;
-		mphy_value &= ~(MPHYC_MAC_PHYINTF_MASK);
+	/* cim0 and phy are common clk pin PB9 */
+	*phy_clk = 1000000L;
+	switch (mac_control){
+	case MAC_GMII:
+		mphy_value &= ~(7 << 0);
+		mphy_value |= 1 << 31;
+		*phy_clk *= 1000 / 8 ;
 		break;
-
-	case MAC_MII :
-	case MAC_RMII :
-		mphy_value &= ~(MPHYC_MAC_PHYINTF_MASK | MPHYC_ENA_GMII);
+	case MAC_RGMII:
+		mphy_value &= ~(7 << 0);
+		mphy_value |= ((1 << 31) || (1 << 0));
+		*phy_clk *= 1000 / 8 ;
 		break;
-
+	case MAC_MII:
+		mphy_value &= (~(1 << 31) || ~(7 << 0));
+		*phy_clk *= 100 / 4;
+		break;
+	case MAC_RMII:
+		mphy_value &= (~(1 << 31) || ~(7 << 0));
+		mphy_value |= (4 << 0);
+		*phy_clk *= 100 / 4;
+		break;
 	case MAC_1000M:
 	case MAC_100M:
 	case MAC_10M:
 		return;
-
 	default:
 		printk("WARMING: can NOT set MAC mode %d\n", mac_control);
 		return;
 	}
 
-	switch (mac_control) {
-	default:
-		break;
+	cpm_outl(mphy_value, CPM_MPHYC);
 
-	case MAC_GMII :
-	case MAC_MII :
-		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_MII, CPM_MPHYC);
-		break;
-
-	case MAC_RGMII :
-		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_RGMII, CPM_MPHYC);
-		break;
-
-	case MAC_RMII :
-		cpm_outl(mphy_value | MPHYC_MAC_PHYINTF_RMII, CPM_MPHYC);
-	}
+	return;
 }
 
 static inline unsigned char str2hexnum(unsigned char c)
@@ -827,15 +802,12 @@ static void jz4775_mac_adjust_link(struct net_device *dev)
 		if (phydev->speed != lp->old_speed) {
 			switch (phydev->speed) {
 			case 1000:
-				set_mac_phy_clk(MAC_1000M);
 				synopGMAC_select_speed1000(gmacdev);
 				break;
 			case 100:
-				set_mac_phy_clk(MAC_100M);
 				synopGMAC_select_speed100(gmacdev);
 				break;
 			case 10:
-				set_mac_phy_clk(MAC_10M);
 				synopGMAC_select_speed10(gmacdev);
 				break;
 			default:
@@ -935,12 +907,6 @@ static int mii_probe(struct net_device *dev)
 	lp->phydev = phydev;
 	
 	//jzmac_phy_dump(lp);
-#if 0
-	printk(KERN_INFO "%s: attached PHY driver [%s] "
-	       "(mii_bus:phy_addr=%s, irq=%d, mdc_clk=%dHz\n",
-	       JZMAC_DRV_NAME, phydev->drv->name, dev_name(&phydev->dev), phydev->irq,
-	       cpm_get_clock(CGU_H2CLK) / clkdiv[jzmac_get_mdc_clkdiv()]);
-#endif
 
 	return 0;
 }
@@ -2144,10 +2110,10 @@ static int jz4775_mac_resume(struct platform_device *pdev)
 /* Read an off-chip register in a PHY through the MDC/MDIO port */
 static int jz4775_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
 {
-	u16 data;
+	u16 data = 0;
 	s32 status;
 
-	status = synopGMAC_read_phy_reg((u32 *)gmacdev->MacBase, phy_addr, regnum, &data);
+	status = synopGMAC_read_phy_reg(gmacdev, phy_addr, regnum, &data);
 	//printk("=======>mdio read phy%d reg %d, return data = 0x%04x status = %d\n",
 	//		phy_addr, regnum, data, status);
 
@@ -2164,7 +2130,7 @@ static int jz4775_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
 {
 	//printk("======>mdio write phy%d reg %d with value = 0x%04x\n",
 	//		phy_addr, regnum, value);
-	return synopGMAC_write_phy_reg((u32 *)gmacdev->MacBase, phy_addr, regnum, value);
+	return synopGMAC_write_phy_reg(gmacdev, phy_addr, regnum, value);
 }
 
 static int jz4775_mdiobus_reset(struct mii_bus *bus)
@@ -2175,50 +2141,50 @@ static int jz4775_mdiobus_reset(struct mii_bus *bus)
 static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 {
 	struct mii_bus *miibus;
-	int rc, i;
-	struct clk *gmac_clk;
+	int rc = 0, i;
+	unsigned long int phy_clk_value = 0;
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	struct jz_gpio_phy_reset *gpio_phy_reset;
 #endif
+	struct clk *gmac_clk = clk_get(NULL, "gmac");
+	struct clk *phy_clk = clk_get(NULL, "cim");
 
-#if 0
-	cpm_start_clock(CGM_MAC);
-#else
-	gmac_clk = clk_get(NULL, "gmac");
-	if (clk_enable(gmac_clk) < 0) {
+	if ((clk_enable(gmac_clk) < 0) || (clk_enable(phy_clk) < 0)) {
 		printk("enable gmac clk failed");
-		while(1);
+		clk_put(gmac_clk);
+		clk_put(phy_clk);
+		goto out_err_alloc;
 	}
-#endif
 
 #if defined(CONFIG_JZ4775_MAC_RMII)
-	set_mac_phy_clk(MAC_RMII);
+	set_mac_phy_clk(MAC_RMII, &phy_clk_value);
 #elif defined(CONFIG_JZ4775_MAC_RGMII)
-	set_mac_phy_clk(MAC_RGMII);
+	set_mac_phy_clk(MAC_RGMII, &phy_clk_value);
 #elif defined(CONFIG_JZ4775_MAC_GMII)
-	set_mac_phy_clk(MAC_GMII);
+	set_mac_phy_clk(MAC_GMII, &phy_clk_value);
 #else
-	set_mac_phy_clk(MAC_MII);
+	set_mac_phy_clk(MAC_MII, &phy_clk_value);
 #endif
+	clk_set_rate(phy_clk, phy_clk_value);
+	clk_put(gmac_clk);
+	clk_put(phy_clk);
 
-//#define GPIO_PHY_RESET		(32 * 1 + 7)
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	gpio_phy_reset = dev_get_platdata(&pdev->dev);
 	jzgpio_phy_reset(gpio_phy_reset);
 #endif
 
 #if defined(CONFIG_JZ4775_MAC_RGMII) || defined(CONFIG_JZ4775_MAC_GMII)
-	/* CIM MCLK / Gmac_gtxc */
-	/* set Gmac as device 0 */
+	/* CIM0_MCLK/GMAC_GTXC/EPD_PWC/PB9 */
 	jzgpio_set_func(GPIO_PORT_B, GPIO_FUNC_0, 0x00000200);
-
-	/* Set Gmac_txclk gpio in */
+	/* Set GMAC_TXCLK/PF6 gpio in */
 	jzgpio_set_func(GPIO_PORT_F, GPIO_INPUT, 0x00000040);
 #endif
 
 	synopGMAC_reset(gmacdev);
 
 	/* init MDC CLK */
+	/* The CSR clock is used to generate the MDC clock for the SMA interface. */
 	synopGMAC_set_mdc_clk_div(gmacdev,GmiiCsrClk2);
 	gmacdev->ClockDivMdc = synopGMAC_get_mdc_clk_div(gmacdev);
 
@@ -2257,18 +2223,6 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 	mdiobus_free(miibus);
 
  out_err_alloc:
-#if 0
-	iounmap(gmacdev->MacBase);
-
- out_err_mapmac:
-	release_mem_region(gmac_mac_res->start, resource_size(gmac_mac_res));
-
- out_err_get_mac_res:
-	iounmap(gmacdev->DmaBase);
-
- out_err_mapdma:
-	release_mem_region(gmac_dma_res->start, resource_size(gmac_dma_res));
-#endif
 
 	return rc;
 }
