@@ -1792,8 +1792,8 @@ void synopGMAC_TS_read_target_timestamp(synopGMACdevice *gmacdev, u32 * sec_val,
  **********************************************************/
 s32 synopGMAC_set_mdc_clk_div(synopGMACdevice *gmacdev,u32 clk_div_val);
 u32 synopGMAC_get_mdc_clk_div(synopGMACdevice *gmacdev);
-s32 synopGMAC_read_phy_reg(u32 *RegBase,u32 PhyBase, u32 RegOffset, u16 * data);
-s32 synopGMAC_write_phy_reg(u32 *RegBase, u32 PhyBase, u32 RegOffset, u16 data);
+s32 synopGMAC_read_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset, u16 * data);
+s32 synopGMAC_write_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset, u16 data);
 s32 synopGMAC_phy_loopback(synopGMACdevice *gmacdev, bool loopback);
 s32 synopGMAC_read_version (synopGMACdevice * gmacdev) ;
 s32 synopGMAC_reset (synopGMACdevice * gmacdev );

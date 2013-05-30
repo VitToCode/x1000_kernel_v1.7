@@ -43,7 +43,9 @@
 s32 synopGMAC_set_mdc_clk_div(synopGMACdevice *gmacdev,u32 clk_div_val)
 {
 	u32 orig_data;
-	orig_data = synopGMACReadReg((u32 *)gmacdev->MacBase,GmacGmiiAddr); //set the mdc clock to the user defined value
+	while((orig_data = synopGMACReadReg((u32 *)gmacdev->MacBase,GmacGmiiAddr)) & GmiiBusy) {
+		printk("===>PHY busy!\n");
+	}
 	orig_data &= (~ GmiiCsrClkMask);
 	orig_data |= clk_div_val;
 	synopGMACWriteReg((u32 *)gmacdev->MacBase, GmacGmiiAddr ,orig_data);
@@ -76,17 +78,18 @@ u32 synopGMAC_get_mdc_clk_div(synopGMACdevice *gmacdev)
  * @param[out] u16 data read from the respective phy register (only valid iff return value is 0).
  * \return Returns 0 on success else return the error status.
  */
-s32 synopGMAC_read_phy_reg(u32 *RegBase,u32 PhyBase, u32 RegOffset, u16 * data)
+s32 synopGMAC_read_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset, u16 * data)
 {
-	u32 addr;
-	u32 loop_variable;
+	u32 addr = 0;
+	u32 loop_variable = 0;
+	u32 *RegBase = (u32 *)gmacdev->MacBase;
 
 	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
 		printk("===>PHY busy!\n");
 	}
 
 	addr = ((PhyBase << GmiiDevShift) & GmiiDevMask) | ((RegOffset << GmiiRegShift) & GmiiRegMask);
-	addr = addr | GmiiBusy ; //Gmii busy bit
+	addr = addr | (gmacdev->ClockDivMdc) | GmiiBusy; //Gmii busy bit
 
 	// printk("====>PHY: addr = 0x%08x\n", addr);
 
@@ -117,17 +120,23 @@ s32 synopGMAC_read_phy_reg(u32 *RegBase,u32 PhyBase, u32 RegOffset, u16 * data)
  * @param[in] data to be written to the respective phy register.
  * \return Returns 0 on success else return the error status.
  */
-s32 synopGMAC_write_phy_reg(u32 *RegBase, u32 PhyBase, u32 RegOffset, u16 data)
+s32 synopGMAC_write_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset, u16 data)
 {
 	u32 addr;
 	u32 loop_variable;
+	u32 *RegBase = (u32 *)gmacdev->MacBase;
 
+	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
+		printk("===>PHY busy!\n");
+	}
 	synopGMACWriteReg(RegBase,GmacGmiiData,data); // write the data in to GmacGmiiData register of synopGMAC ip
-
 	addr = ((PhyBase << GmiiDevShift) & GmiiDevMask) | ((RegOffset << GmiiRegShift) & GmiiRegMask) | GmiiWrite;
 
-	addr = addr | GmiiBusy ; //set Gmii clk to 20-35 Mhz and Gmii busy bit
+	addr = addr | (gmacdev->ClockDivMdc) | GmiiBusy ; //set Gmii clk to 20-35 Mhz and Gmii busy bit
 
+	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
+		printk("===>PHY busy!\n");
+	}
 	synopGMACWriteReg(RegBase,GmacGmiiAddr,addr);
         for(loop_variable = 0; loop_variable < DEFAULT_LOOP_VARIABLE; loop_variable++){
                 if (!(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy)){
@@ -158,9 +167,9 @@ s32 synopGMAC_phy_loopback(synopGMACdevice *gmacdev, bool loopback)
 {
 	s32 status = -ESYNOPGMACNOERR;
 	if(loopback)
-		status = synopGMAC_write_phy_reg((u32 *)gmacdev->MacBase, gmacdev->PhyBase, PHY_CONTROL_REG, Mii_Loopback);
+		status = synopGMAC_write_phy_reg(gmacdev, gmacdev->PhyBase, PHY_CONTROL_REG, Mii_Loopback);
 	else
-		status = synopGMAC_write_phy_reg((u32 *)gmacdev->MacBase, gmacdev->PhyBase, PHY_CONTROL_REG, Mii_NoLoopback);
+		status = synopGMAC_write_phy_reg(gmacdev, gmacdev->PhyBase, PHY_CONTROL_REG, Mii_NoLoopback);
 
 	return status;
 }
@@ -1149,7 +1158,7 @@ s32 synopGMAC_search_phy (synopGMACdevice * gmacdev) {
 	s32 status = -ESYNOPGMACNOERR;
 
 	for (phy_id = 0; phy_id < 32; phy_id++) {
-		status = synopGMAC_read_phy_reg((u32 *)gmacdev->MacBase, phy_id, PHY_STATUS_REG, &data);
+		status = synopGMAC_read_phy_reg(gmacdev, phy_id, PHY_STATUS_REG, &data);
 		if ( (!status) && (data != 0xffff)) {
 			if((data & Mii_AutoNegCmplt) != 0){
 				printk("====>phy %d Autonegotiation Complete\n", phy_id);
