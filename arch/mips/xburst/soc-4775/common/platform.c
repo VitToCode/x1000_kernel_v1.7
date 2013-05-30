@@ -127,8 +127,11 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
 	OTG_DRVVUS,
 #endif
-#if defined(CONFIG_JZ_CIM) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
-	CIM_PORTB,
+#if defined(CONFIG_JZ_CIM0) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
+	CIM0_PORTB,
+#endif
+#if defined(CONFIG_JZ_CIM1)
+	CIM1_PORTG,
 #endif
 
 #ifdef CONFIG_SPI0_JZ4780_PB
@@ -553,33 +556,34 @@ DEF_SSI(0);
 #endif
 
 /* CIM (camera module interface controller) */
-static struct resource jz_cim_resources[] = {
-	[0] = {
-		.flags = IORESOURCE_MEM,
-		.start = CIM_IOBASE,
-		.end = CIM_IOBASE + 0x10000 - 1,
-	},
-	[1] = {
-		.flags = IORESOURCE_IRQ,
-		.start = IRQ_CIM,
-	}
+#define DEF_CIM(NO)										\
+	static struct resource jz_cim##NO##_resources[] = {	\
+		[0] = {									\
+			.flags = IORESOURCE_MEM,			\
+			.start = CIM##NO##_IOBASE,			\
+			.end = CIM##NO##_IOBASE + 0x10000 - 1,	\
+		},										\
+		[1] = {									\
+			.flags = IORESOURCE_IRQ,			\
+			.start = IRQ_CIM##NO,				\
+			.end   = IRQ_CIM##NO,				\
+		},										\
+	};											\
+struct platform_device jz_cim##NO##_device = {	\
+	.name = "jz-cim",							\
+	.id = NO,									\
+	.resource = jz_cim##NO##_resources,			\
+	.num_resources = ARRAY_SIZE(jz_cim##NO##_resources),	\
 };
 
-#ifdef CONFIG_JZ_CIM
-struct platform_device jz_cim_device = {
-	.name = "jz-cim",
-	.id = -1,
-	.resource = jz_cim_resources,
-	.num_resources = ARRAY_SIZE(jz_cim_resources),
-};
-#else
-struct platform_device jz_cim_device = {
-	.name = "jz4780-cim",
-	.id = 0,
-	.resource = jz_cim_resources,
-	.num_resources = ARRAY_SIZE(jz_cim_resources),
-};
+#ifdef CONFIG_JZ_CIM0
+DEF_CIM(0);
 #endif
+#ifdef CONFIG_JZ_CIM1
+DEF_CIM(1);
+#endif
+
+
 
 /* X2D (Extreme 2D module interface controller) */
 static struct resource jz_x2d_res[] = {

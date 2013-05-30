@@ -354,7 +354,7 @@ int cim_set_tlbbase(struct jz_cim *cim)
 		return -1;
 	}
 	regval = reg_read(cim,CIM_TC);
-	regval |= cim->tlb_base;
+	regval = cim->tlb_base | (regval & 0x3);
 	reg_write(cim,CIM_TC,regval);
 	return 0;
 }
@@ -515,6 +515,13 @@ void cim_set_default(struct jz_cim *cim)
 			cfg |= CIM_CFG_SEP;	
 		} 
 		
+        /* NOTICE AND WARNNING
+         * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
+         * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
+         */
+        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+            ctrl |= CIM_CTRL_DMA_SYNC;
+
 	} else if (cim->state == CS_CAPTURE) {
 		w = cim->csize.w;
 		h = cim->csize.h;
@@ -530,12 +537,6 @@ void cim_set_default(struct jz_cim *cim)
 		}
 	}
 
-        /* NOTICE AND WARNNING
-         * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
-         * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
-         */
-        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
-            ctrl |= CIM_CTRL_DMA_SYNC;
 	ctrl |= CIM_CTRL_FRC_1;
 
 	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (0 << CIM_CTRL2_OPG_BIT);
@@ -638,9 +639,10 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 			break;
 		}
 	}
+	if(!cim->desc)
+		return -EFAULT;
 	cim->desc->first_used = true;
-
-	return cim->desc ? 0 : -EFAULT;
+	return 0;
 }
 
 static long cim_set_capture_size(struct jz_cim *cim)
@@ -1463,27 +1465,40 @@ static int cim_probe(struct platform_device *pdev)
 	if(pdata && pdata->power_off)
 		cim->power_off = pdata->power_off;
 
+	if(pdev->id == 0)
+		cim->clk = clk_get(&pdev->dev,"cim0");
+	else if(pdev->id == 1)
+		cim->clk = clk_get(&pdev->dev,"cim1");
+	else
+		cim->clk = clk_get(&pdev->dev,"cim");
 	
-	cim->clk = clk_get(&pdev->dev,"cim");
 	if(IS_ERR(cim->clk)) {
 		ret = -ENODEV;
 		goto no_desc;
 	}
 
-	cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk");
+	if(pdev->id == 0)
+		cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk0");
+	else if(pdev->id == 1)
+		cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk1");
+	else
+		cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk");
+
 	if(IS_ERR(cim->mclk)) {
 		ret = -ENODEV;
 		goto io_failed;
 	}
 
-	#if 1
+#ifdef CONFIG_CAMERA_SENSOR_NO_POWER_CTL
+	cim->power = NULL;
+#else
 	cim->power = regulator_get(&pdev->dev, "vcim");
 	if(IS_ERR(cim->power)){
 		dev_err(&pdev->dev,"get regulator fail!\n");
 		ret = -ENODEV;
 		goto io_failed;
 	}
-	#endif
+#endif
 
  	cim_scan_sensor(cim); 
 	

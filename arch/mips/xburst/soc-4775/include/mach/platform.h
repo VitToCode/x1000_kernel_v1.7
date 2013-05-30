@@ -90,8 +90,13 @@
 #define OTG_DRVVUS							\
 	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
 
-#define CIM_PORTB							\
-	{ .name = "cim",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }
+#define CIM0_PORTB							\
+	{ .name = "cim0",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }
+
+#define CIM1_PORTG							\
+	{ .name = "cim1",    .port = GPIO_PORT_G,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }
+
+
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;
@@ -123,7 +128,8 @@ extern struct platform_device jz_ssi1_device;
 
 extern struct platform_device jz_pdma_device;
 
-extern struct platform_device jz_cim_device;
+extern struct platform_device jz_cim0_device;
+extern struct platform_device jz_cim1_device;
 
 extern struct platform_device jz_ohci_device;
 extern struct platform_device jz_ehci_device;
