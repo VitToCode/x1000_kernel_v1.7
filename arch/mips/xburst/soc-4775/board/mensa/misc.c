@@ -99,6 +99,40 @@ static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
 #endif
 #endif
 
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775)) && (defined(CONFIG_JZ_CIM0) || defined(CONFIG_JZ_CIM1)))
+struct cam_sensor_plat_data {
+	int facing;
+	int orientation;
+	int mirror;   //camera mirror
+	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
+	uint16_t	gpio_rst;	/* resert  gpio */
+	uint16_t	gpio_en;	/* camera enable gpio */
+	int cap_wait_frame;    /* filter n frames when capture image */
+};
+
+#ifdef CONFIG_OV3640
+static struct cam_sensor_plat_data ov3640_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_OV3640_EN,
+	.gpio_rst = GPIO_OV3640_RST,
+	.cap_wait_frame = 6,
+};
+#endif
+#endif
+
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
+static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
+#ifdef CONFIG_OV3640
+	{
+		I2C_BOARD_INFO("ov3640", 0x3c),
+		.platform_data	= &ov3640_pdata,
+	},
+#endif
+};
+#endif	/*I2C1*/
+
 #if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
 struct jzdwc_pin dete_pin = {
         .num                            = GPIO_USB_DETE,
@@ -216,6 +250,9 @@ static int __init board_init(void)
 #ifdef CONFIG_I2C2_JZ4775
 	platform_device_register(&jz_i2c2_device);
 #endif
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
+	i2c_register_board_info(1, mensa_i2c1_devs, ARRAY_SIZE(mensa_i2c1_devs));
+#endif
 
 /* mmc */
 #ifndef CONFIG_NAND
@@ -287,8 +324,11 @@ static int __init board_init(void)
 	platform_device_register(&jz_uart3_device);
 #endif
 
-#ifdef CONFIG_JZ_CIM
-	platform_device_register(&jz_cim_device);
+#ifdef CONFIG_JZ_CIM0
+	platform_device_register(&jz_cim0_device);
+#endif
+#ifdef CONFIG_JZ_CIM1
+	platform_device_register(&jz_cim1_device);
 #endif
 
 /* x2d */

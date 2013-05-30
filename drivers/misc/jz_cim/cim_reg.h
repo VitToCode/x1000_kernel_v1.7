@@ -49,14 +49,14 @@
   #define	CIM_CFG_DMA_BURST_INCR32	(3 << CIM_CFG_DMA_BURST_TYPE_BIT)	/* Suggested High speed AHB*/
 #define	CIM_CFG_PACK_BIT	4
 #define	CIM_CFG_PACK_MASK	(0x7 << CIM_CFG_PACK_BIT)
-  #define CIM_CFG_PACK_VY1UY0	  (0 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_Y0VY1U	  (1 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_UY0VY1	  (2 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_Y1UY0V	  (3 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_Y0UY1V	  (4 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_UY1VY0	  (5 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_Y1VY0U	  (6 << CIM_CFG_PACK_BIT) 
-  #define CIM_CFG_PACK_VY0UY1	  (7 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_Y0UY1V	  (0 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_UY1VY0	  (1 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_Y1VY0U	  (2 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_VY0UY1	  (3 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_VY1UY0	  (4 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_Y1UY0V	  (5 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_UY0VY1	  (6 << CIM_CFG_PACK_BIT) 
+  #define CIM_CFG_PACK_Y0VY1U	  (7 << CIM_CFG_PACK_BIT) 
 #define	CIM_CFG_DSM_BIT		0
 #define	CIM_CFG_DSM_MASK	(0x3 << CIM_CFG_DSM_BIT)
   #define CIM_CFG_DSM_CPM	  (0 << CIM_CFG_DSM_BIT) /* CCIR656 Progressive Mode */
@@ -88,7 +88,7 @@
 #define	CIM_CTRL_FRC_BIT	16
 #define	CIM_CTRL_FRC_MASK	(0xf << CIM_CTRL_FRC_BIT)
 #define CIM_CTRL_FRC_1	        (0x0 << CIM_CTRL_FRC_BIT) /* Sample every frame */
-#define CIM_CTRL_FRC_10         (10 << CIM_CTRL_FRC_BIT)
+#define CIM_CTRL_FRC_10         (9 << CIM_CTRL_FRC_BIT)
 
 #define CIM_CTRL_MBEN           (1 << 6)    /* 16x16 yuv420  macro blocks */
 #define	CIM_CTRL_DMA_SYNC	(1 << 7)	/*when change DA, do frame sync */

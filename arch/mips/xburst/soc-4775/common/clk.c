@@ -128,7 +128,7 @@ enum {
 	CLK_ID_EHCI,
 #define CLK_NAME_EHCI		"ehci"
 	CLK_ID_CIM0,
-#define CLK_NAME_CIM0		"cim"
+#define CLK_NAME_CIM0		"cim0"
 	CLK_ID_CIM1,
 #define CLK_NAME_CIM1		"cim1"
 	CLK_ID_LCD,
@@ -166,7 +166,7 @@ enum {
 	CLK_ID_CIM_MUX,
 #define CLK_NAME_CIM_MUX	"cim mux"
 	CLK_ID_CGU_CIMMCLK0,
-#define CLK_NAME_CGU_CIMMCLK0	"cgu_cimmclk"
+#define CLK_NAME_CGU_CIMMCLK0	"cgu_cimmclk0"
 	CLK_ID_CGU_CIMMCLK1,
 #define CLK_NAME_CGU_CIMMCLK1	"cgu_cimmclk1"
 	CLK_ID_CGU_PCM,

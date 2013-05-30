@@ -57,6 +57,11 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_MIC_DETECT_EN		-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
 
+/**
+ * CIM gpio
+ **/
+#define GPIO_OV3640_EN		GPIO_PB(6)
+#define GPIO_OV3640_RST		GPIO_PA(27)
 
 /**
  * KEY gpio

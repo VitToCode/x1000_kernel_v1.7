@@ -5,6 +5,21 @@ config JZ_CIM
 	depends on MACH_XBURST
 	default y
 
+config JZ_CIM0
+	bool "Using Jz CIM Controller 0"
+	depends on JZ_CIM && SOC_4775
+	default n
+
+config JZ_CIM1
+	bool "Using Jz CIM Controller 1"
+	depends on JZ_CIM && SOC_4775
+	default n
+
+config CAMERA_SENSOR_NO_POWER_CTL
+	bool "no power control pin for camera sensor"
+	depends on JZ_CIM
+	default n
+
 config OV3640
 	bool "ov3640 camera sensor"
 	depends on JZ_CIM
