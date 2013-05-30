@@ -209,8 +209,8 @@ static int ov2650_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s = kzalloc(sizeof(struct ov2650_sensor), GFP_KERNEL);
 
 	strcpy(s->cs.name , "ov2650");
-	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
-	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_UY0VY1 | CIM_CFG_ORDER_UYVY;//CIM_CFG_PCP ||CIM_CFG_VSP
+	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_Y1VY0U;//CIM_CFG_PCP |
+	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_Y1VY0U | CIM_CFG_ORDER_UYVY;//CIM_CFG_PCP ||CIM_CFG_VSP
 	s->cs.modes.balance =  WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT 
 							| WHITE_BALANCE_INCANDESCENT;
 	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA|EFFECT_BLACKBOARD|EFFECT_PASTEL;

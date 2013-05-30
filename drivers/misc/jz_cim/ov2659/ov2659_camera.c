@@ -179,7 +179,7 @@ static int ov2659_probe(struct i2c_client *client, const struct i2c_device_id *i
 	s_back = kzalloc(sizeof(struct ov2659_sensor), GFP_KERNEL);
 
 	strcpy(s_front->cs.name , "ov2659-front");
-	s_front->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
+	s_front->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_Y1VY0U;//CIM_CFG_PCP |
 	s_front->cs.modes.balance = WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT
 							| WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
 	s_front->cs.modes.effect = EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
