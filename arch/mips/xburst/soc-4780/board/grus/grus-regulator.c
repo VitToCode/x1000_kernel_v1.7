@@ -90,13 +90,13 @@ FIXED_REGULATOR_DEF(
 FIXED_REGULATOR_DEF(
 	grus_vmmc,
 	"TF",		3300000,	GPIO_PF(19),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	LOW_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vmmc.2",	NULL);
 #else
 FIXED_REGULATOR_DEF(
 	grus_vmmc,
 	"TF",		3300000,	GPIO_PF(19),
-	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	LOW_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vmmc.0",	NULL);
 #endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
