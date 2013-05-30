@@ -225,8 +225,8 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 	}
 
 	strcpy(s->cs.name , "ov5640");
-	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_UY0VY1;//CIM_CFG_PCP |
-	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_Y0UY1V; // | CIM_CFG_ORDER_UYVY;
+	//s->cs.cim_cfg = CIM_CFG_DSM_GCM |CIM_CFG_VSP |CIM_CFG_PACK_Y1VY0U;//CIM_CFG_PCP |
+	s->cs.cim_cfg = CIM_CFG_DSM_GCM  | CIM_CFG_PACK_VY1UY0; // | CIM_CFG_ORDER_UYVY;
 	s->cs.cim_cfg |= CIM_CFG_PCP;
 	s->cs.modes.balance = WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT | WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
 	s->cs.modes.effect = EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA|EFFECT_PASTEL;
