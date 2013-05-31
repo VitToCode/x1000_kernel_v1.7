@@ -686,6 +686,11 @@ static int i2s_set_device(unsigned long device)
 {
 	unsigned long tmp_rate = 44100;
   	int ret = 0;
+	struct dsp_endpoints *endpoints = NULL;
+	struct dsp_pipe *dp = NULL;
+
+	endpoints = (struct dsp_endpoints *)((&i2s_data)->ext_data);
+	dp = endpoints->out_endpoint;
 
 	if (!cur_codec)
 		return -1;
@@ -740,6 +745,14 @@ static int i2s_set_device(unsigned long device)
 #endif
 				__i2s_master_clkset();
 				__i2s_disable_sysclk_output();
+			}
+
+			if (dp->is_trans == true) {
+				if (dp->pddata && dp->pddata->dev_ioctl) {
+					 if (dp->dma_config.direction == DMA_TO_DEVICE) {
+						cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
+					}
+				}
 			}
 
 			clk_set_rate(codec_sysclk,cur_codec->codec_clk);
