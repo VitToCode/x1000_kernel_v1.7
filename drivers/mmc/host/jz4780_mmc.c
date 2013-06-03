@@ -510,7 +510,10 @@ start:
 		    && (status & STAT_CRC_READ_ERROR)) {
 			dev_err(host->dev, "cmd53 crc error, retry.\n");
 			host->cmd->error = -1;
-			host->cmd->retries = 1;
+			if (host->cmd->retries == 0)
+				host->cmd->retries = 10;
+			else if (host->cmd->retries == 6)
+				host->cmd->retries = 0;
 			host->data->bytes_xfered = 0;
 			del_timer_sync(&host->request_timer);
 			host->state = STATE_IDLE;
@@ -1720,7 +1723,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	sprintf(regulator_name, "vmmc.%d", pdev->id);
 	host->power = regulator_get(host->dev, regulator_name);
 	if (IS_ERR(host->power)) {
-		dev_warn(host->dev, "vmmc regulator missing\n");
+		dev_warn(host->dev, "%s regulator miss\n", regulator_name);
 	}
 
 	if (host->pdata->pio_mode)
