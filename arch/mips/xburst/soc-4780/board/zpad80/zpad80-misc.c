@@ -94,14 +94,14 @@ static struct platform_device jz_timed_gpio_device = {
 #ifdef CONFIG_BATTERY_JZ4780
 static struct jz_battery_platform_data zpad80_battery_pdata = {
 	.info = {
-		.max_vol        = 4100,
+		.max_vol        = 4150,
 		.min_vol        = 3300,
 		.ac_max_vol     = 4200,
 		.ac_min_vol     = 3400,
 		.battery_max_cpt = 2000,
 		.ac_chg_current = 1000,
 		.usb_chg_current = -1,
-		.sleep_current = 30,
+		.sleep_current = 25,
 	},
 };
 #endif
@@ -129,8 +129,7 @@ static struct platform_device zpad80_ac_charger_device = {
 
 /* li-ion charger */
 static struct li_ion_charger_platform_data zpad80_li_ion_charger_pdata = {
-	.gpio = GPIO_PF(5),
-//.gpio = GPIO_PB(3),
+	.gpio = GPIO_PB(3),
 	.gpio_active_low = 1,
 };
 
@@ -259,14 +258,23 @@ static int __init zpad80_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
+#ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &zpad80_tf_pdata);
+	jz_device_register(&jz_msc0_device, &zpad80_inand_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &zpad80_sdio_pdata);
 #endif
 #ifdef CONFIG_MMC2_JZ4780
 	jz_device_register(&jz_msc2_device, &zpad80_tf_pdata);
+#endif
+#else
+#ifdef CONFIG_MMC0_JZ4780
+	jz_device_register(&jz_msc0_device, &zpad80_tf_pdata);
+#endif
+#ifdef CONFIG_MMC1_JZ4780
+	jz_device_register(&jz_msc1_device, &zpad80_sdio_pdata);
+#endif
 #endif
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
@@ -295,7 +303,7 @@ static int __init zpad80_board_init(void)
 	platform_device_register(&ek070tn93_device);
 #endif
 #ifdef CONFIG_LCD_HSD070IDW1
-	platform_device_register(&android_bl_device);
+ 	platform_device_register(&android_bl_device);
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM_ZPAD80
 	platform_device_register(&zpad80_backlight_device);
