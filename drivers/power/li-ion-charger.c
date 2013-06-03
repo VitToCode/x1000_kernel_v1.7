@@ -26,6 +26,7 @@
 #include <linux/earlysuspend.h>
 
 
+#define pr_info
 
 struct li_ion_charger {
 	const struct li_ion_charger_platform_data *pdata;
@@ -283,7 +284,7 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 	irq = gpio_to_irq(pdata->gpio);
 	if (irq > 0) {
 		ret = request_any_context_irq(irq, li_ion_irq,
-				IRQF_TRIGGER_RISING ,
+                IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				dev_name(&pdev->dev), li_ion);
 		if (ret)
 			dev_warn(&pdev->dev, "Failed to request irq: %d\n", ret);
