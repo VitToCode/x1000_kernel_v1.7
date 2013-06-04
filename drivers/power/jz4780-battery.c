@@ -119,8 +119,8 @@ static unsigned int jz_battery_read_value(struct jz_battery *jz_battery)
 
 	INIT_COMPLETION(jz_battery->read_completion);
 
-	jz_battery->cell->enable(jz_battery->pdev);
 	enable_irq(jz_battery->irq);
+	jz_battery->cell->enable(jz_battery->pdev);
 
 	tmp = wait_for_completion_interruptible_timeout(
 			&jz_battery->read_completion, HZ);
@@ -130,8 +130,8 @@ static unsigned int jz_battery_read_value(struct jz_battery *jz_battery)
 		value = tmp ? tmp : -ETIMEDOUT;
 	}
 
-	disable_irq(jz_battery->irq);
 	jz_battery->cell->disable(jz_battery->pdev);
+	disable_irq(jz_battery->irq);
 
 	mutex_unlock(&jz_battery->lock);
 

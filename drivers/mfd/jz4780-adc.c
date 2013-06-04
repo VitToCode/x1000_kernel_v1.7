@@ -140,7 +140,6 @@ static inline void jz_adc_enable(struct jz_adc *adc)
 	uint8_t val;
 
 	if (atomic_inc_return(&adc->clk_ref) == 1) {
-		clk_enable(adc->clk);
 		val = readb(adc->base + JZ_REG_ADC_ENABLE);
 		val &= ~BIT(7);
 		writeb(val, adc->base + JZ_REG_ADC_ENABLE);
@@ -155,7 +154,6 @@ static inline void jz_adc_disable(struct jz_adc *adc)
 		val = readb(adc->base + JZ_REG_ADC_ENABLE);
 		val |= BIT(7);
 		writeb(val, adc->base + JZ_REG_ADC_ENABLE);
-		clk_disable(adc->clk);
 	}
 }
 
@@ -359,8 +357,6 @@ static int __devinit jz_adc_probe(struct platform_device *pdev)
 	clkdiv_ms = CLKDIV_MS - 1;
 
 	jz_adc_clk_div(adc, clkdiv, clkdiv_us, clkdiv_ms);
-
-	clk_disable(adc->clk);
 
 	ret = mfd_add_devices(&pdev->dev, 0, jz_adc_cells,
 			ARRAY_SIZE(jz_adc_cells), mem_base, adc->irq_base);
