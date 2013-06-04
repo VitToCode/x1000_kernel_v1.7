@@ -23,7 +23,6 @@
 /* #define	DEBUG */
 
 #include <linux/version.h>
-
 /* #include <linux/config.h> */
 #ifdef	CONFIG_USB_DEBUG
 #   define DEBUG
@@ -43,7 +42,7 @@
 #include "axusbnet.c"
 #include "asix.h"
 
-#define DRV_VERSION	"4.6.0"
+#define DRV_VERSION	"4.7.0"
 
 static char version[] =
 KERN_INFO "ASIX USB Ethernet Adapter:v" DRV_VERSION
@@ -913,8 +912,10 @@ ax8817x_get_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
 	if (!opt)
 		return;
 
-	if (ax8817x_read_cmd(dev, AX_CMD_READ_MONITOR_MODE, 0, 0, 1, opt) < 0)
+	if (ax8817x_read_cmd(dev, AX_CMD_READ_MONITOR_MODE, 0, 0, 1, opt) < 0) {
+		kfree(opt);
 		return;
+	}
 
 	wolinfo->supported = WAKE_PHY | WAKE_MAGIC;
 
@@ -1141,6 +1142,7 @@ static int ax8817x_bind(struct usbnet *dev, struct usb_interface *intf)
 		ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP);
 	mii_nway_restart(&dev->mii);
 
+	kfree(buf);
 	printk(version);
 
 	return 0;
@@ -3558,6 +3560,7 @@ static void ax88772b_link_reset(struct work_struct *work)
 				       ret);
 			}
 		}
+		kfree(buf);
 		break;
 	}
 	default:
@@ -3565,7 +3568,7 @@ static void ax88772b_link_reset(struct work_struct *work)
 	}
 
 	ax772b_data->Event = AX_NOP;
-
+	
 	return;
 }
 

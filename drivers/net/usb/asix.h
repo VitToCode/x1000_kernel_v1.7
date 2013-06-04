@@ -1,6 +1,6 @@
 #ifndef	__LINUX_USBNET_ASIX_H
 #define	__LINUX_USBNET_ASIX_H
-//#include "include/linux/version.h"
+
 /*
  * Turn on this flag if the implementation of your USB host controller
  * cannot handle non-double word aligned buffer.
@@ -9,8 +9,6 @@
  * function "skb_reserve (skb, NET_IP_ALIGN)" to retain the buffer aligned on
  * double word alignment for ingress packets.
  */
-
-
 #define AX_FORCE_BUFF_ALIGN		1
 
 #define AX_MONITOR_MODE			0x01
@@ -59,8 +57,8 @@
 #define AX88772_MEDIUM_RX_ENABLE	0x0100
 #define AX88772_MEDIUM_100MB		0x0200
 #define AX88772_MEDIUM_DEFAULT	\
-	(AX88772_MEDIUM_FULL_DUPLEX | AX88772_MEDIUM_RX_FC_ENABLE | \
-	 AX88772_MEDIUM_TX_FC_ENABLE | AX88772_MEDIUM_100MB | \
+	(AX88772_MEDIUM_FULL_DUPLEX | (AX88772_MEDIUM_RX_FC_ENABLE & \
+	 ~AX88772_MEDIUM_TX_FC_ENABLE) | AX88772_MEDIUM_100MB | \
 	 AX88772_MEDIUM_RESERVED | AX88772_MEDIUM_RX_ENABLE)
 
 #define AX_CMD_SET_SW_MII		0x06
