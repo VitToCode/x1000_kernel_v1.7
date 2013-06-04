@@ -104,45 +104,31 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 	return NOTIFY_DONE;
 }
 
-/* set_pwm1_gpio_function can be used by either andriod or linux */
-static int __pwm_backlight_suspend(struct pwm_bl_data *pb)
-{
-	pb->suspend = 1;
-	pwm_config(pb->pwm, 0, pb->period);
-	pwm_disable(pb->pwm);
-	return 0;
-}
-
-static int __pwm_backlight_resume(struct pwm_bl_data *pb)
-{
-	int brightness;
-	pb->suspend = 0;
-	mutex_lock(&pb->pwm_lock);
-	pwm_disable(pb->pwm);
-	brightness = pb->cur_brightness;
-	brightness = pb->lth_brightness +
-        (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
-	pwm_config(pb->pwm, brightness, pb->period);
-	pwm_enable(pb->pwm);
-	mutex_unlock(&pb->pwm_lock);
-
-	return 0;
-}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void bk_e_suspend(struct early_suspend *h)
 {
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend);
-	__pwm_backlight_suspend(pb);
+    pb->suspend = 1;
+    pwm_config(pb->pwm, 0, pb->period);
+    pwm_disable(pb->pwm);
 }
 
 static void bk_l_resume(struct early_suspend *h)
 {
-	int brightness;
+    int brightness;
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend);
-	__pwm_backlight_resume(pb);
+
+    pb->suspend = 0;
+	mutex_lock(&pb->pwm_lock);
+	pwm_disable(pb->pwm);
+    brightness = pb->cur_brightness;
+    brightness = pb->lth_brightness +
+        (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
+    pwm_config(pb->pwm, brightness, pb->period);
+    pwm_enable(pb->pwm);
+    mutex_unlock(&pb->pwm_lock);
 }
 #endif
 
@@ -254,10 +240,6 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	__pwm_backlight_suspend(pb);
-#endif
-
 	if (pb->notify)
 		pb->notify(pb->dev, 0);
 	pwm_config(pb->pwm, 0, pb->period);
@@ -270,11 +252,6 @@ static int pwm_backlight_resume(struct platform_device *pdev)
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	backlight_update_status(bl);
-
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
-	return __pwm_backlight_resume(pb);
-#endif
 	return 0;
 }
 #else

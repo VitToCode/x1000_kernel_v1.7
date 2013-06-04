@@ -138,17 +138,22 @@ static int digital_pulse_bl_shutdown_notify(struct notifier_block *rnb,
 	return NOTIFY_DONE;
 }
 
-static int __digital_pulse_backlight_suspend(struct digital_pulse_bl_data *pb)
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void bk_e_suspend(struct early_suspend *h)
 {
+	struct digital_pulse_bl_data *pb = container_of(h,
+			struct digital_pulse_bl_data, bk_early_suspend);
+
 	pb->suspend = 1;
 	gpio_direction_output(pb->pdata->digital_pulse_gpio, 0);
-
-	return 0;
 }
 
-static int __digital_pulse_backlight_resume(struct digital_pulse_bl_data *pb)
+static void bk_l_resume(struct early_suspend *h)
 {
 	int brightness;
+	unsigned int i;
+	struct digital_pulse_bl_data *pb = container_of(h,
+			struct digital_pulse_bl_data, bk_early_suspend);
 
 	pb->suspend = 0;
 	mutex_lock(&pb->digital_pulse_lock);
@@ -164,27 +169,6 @@ static int __digital_pulse_backlight_resume(struct digital_pulse_bl_data *pb)
 		udelay(pb->pdata->high_level_delay_us);
 	}
 	mutex_unlock(&pb->digital_pulse_lock);
-
-	return 0;
-}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void bk_e_suspend(struct early_suspend *h)
-{
-	struct digital_pulse_bl_data *pb = container_of(h,
-			struct digital_pulse_bl_data, bk_early_suspend);
-
-	__digital_pulse_backlight_suspend(pb);
-}
-
-static void bk_l_resume(struct early_suspend *h)
-{
-	int brightness;
-	unsigned int i;
-	struct digital_pulse_bl_data *pb = container_of(h,
-			struct digital_pulse_bl_data, bk_early_suspend);
-
-	__digital_pulse_backlight_resume(pb);
 }
 #endif
 
@@ -289,9 +273,6 @@ static int digital_pulse_backlight_suspend(struct platform_device *pdev,
 {
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct digital_pulse_bl_data *pb = dev_get_drvdata(&bl->dev);
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	__digital_pulse_backlight_suspend(pb);
-#endif
 	if (pb->notify)
 		pb->notify(&bl->dev, 0);
 	close_backlight(bl);
@@ -303,13 +284,6 @@ static int digital_pulse_backlight_resume(struct platform_device *pdev)
 {
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	backlight_update_status(bl);
-
-#ifndef CONFIG_HAS_EARLYSUSPEND
-
-	struct digital_pulse_bl_data *pb = dev_get_drvdata(&bl->dev);
-
-	return __digital_pulse_backlight_resume(pb);
-#endif
 
 	return 0;
 }
