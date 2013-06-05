@@ -21,6 +21,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
+#include <linux/android_pmem.h>
 
 #include "vga-dongle.h"
 #include <../drivers/staging/android/timed_gpio.h>
@@ -233,6 +234,23 @@ struct jzdwc_pin dete_pin = {
 };
 #endif
 
+#ifdef CONFIG_ANDROID_PMEM
+static struct android_pmem_platform_data pmem_camera_pdata = {
+	.name = "pmem_camera",
+	.no_allocator = 0,
+	.cached = 1,
+	.start = JZ_PMEM_CAMERA_BASE,
+	.size = JZ_PMEM_CAMERA_SIZE,
+};
+
+
+static struct platform_device pmem_camera_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = { .platform_data = &pmem_camera_pdata },
+};
+#endif
+
 static int __init vga_dongle_board_init(void)
 {
 /* dma */
@@ -301,11 +319,13 @@ static int __init vga_dongle_board_init(void)
 
 /* lcdc framebuffer*/
 
+#ifdef CONFIG_FB_JZ4780_LCDC1
+	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
-#ifdef CONFIG_FB_JZ4780_LCDC1
-	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+
 #endif
 /* AOSD */
 #ifdef CONFIG_JZ4780_AOSD
@@ -403,6 +423,10 @@ static int __init vga_dongle_board_init(void)
 
 #ifdef CONFIG_AX88796C
        platform_device_register(&net_device_ax88796c);
+#endif
+
+#ifdef CONFIG_ANDROID_PMEM
+	platform_device_register(&pmem_camera_device);
 #endif
 	return 0;
 }
