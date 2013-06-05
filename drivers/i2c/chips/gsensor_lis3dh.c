@@ -956,8 +956,11 @@ static int __devexit lis3dh_acc_remove(struct i2c_client *client) {
 	return 0;
 }
 
-static int __lis3dh_acc_suspend(struct lis3dh_acc_data *acc)
-{
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void lis3dh_acc_late_resume(struct early_suspend *handler) {
+	struct lis3dh_acc_data *acc;
+
+	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
 	acc->is_suspend = 0;
 
 	enable_irq(acc->client->irq);
@@ -967,11 +970,12 @@ static int __lis3dh_acc_suspend(struct lis3dh_acc_data *acc)
 		lis3dh_acc_enable(acc);
 		mutex_unlock(&acc->lock);
 	}
-	return 0;
-};
+}
 
-static int __lis3dh_acc_resume(struct lis3dh_acc_data *acc)
-{
+static void lis3dh_acc_early_suspend(struct early_suspend *handler) {
+	struct lis3dh_acc_data *acc;
+
+	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
 	acc->is_suspend = 1;
 
 	disable_irq_nosync(acc->client->irq);
@@ -983,43 +987,8 @@ static int __lis3dh_acc_resume(struct lis3dh_acc_data *acc)
 		regulator_disable(acc->power);
 	}
 
-	return 0;
-}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void lis3dh_acc_late_resume(struct early_suspend *handler)
-{
-	struct lis3dh_acc_data *acc;
-
-	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
-	__lis3dh_acc_suspend(acc);
-}
-
-static void lis3dh_acc_early_suspend(struct early_suspend *handler)
-{
-	struct lis3dh_acc_data *acc;
-
-	acc = container_of(handler, struct lis3dh_acc_data, early_suspend);
-	__lis3dh_acc_resume(acc);
 }
 #endif
-
-int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
-	return __lis3dh_acc_suspend(acc);
-#endif
-	return 0;
-}
-int lis3dh_acc_resume(struct i2c_client *client)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
-	return __lis3dh_acc_resume(acc);
-#endif
-	return 0;
-}
 
 static const struct i2c_device_id lis3dh_acc_id[] = {
 		{ LIS3DH_ACC_DEV_NAME, 0 }, { }, };
@@ -1028,8 +997,7 @@ MODULE_DEVICE_TABLE(i2c, lis3dh_acc_id);
 
 static struct i2c_driver lis3dh_acc_driver = { .driver = { .owner = THIS_MODULE,
 		.name = LIS3DH_ACC_DEV_NAME, }, .probe = lis3dh_acc_probe, .remove =
-		__devexit_p(lis3dh_acc_remove), .id_table = lis3dh_acc_id, .suspend =
-		lis3dh_acc_suspend, .resume = lis3dh_acc_resume,};
+		__devexit_p(lis3dh_acc_remove), .id_table = lis3dh_acc_id, };
 
 static int __init lis3dh_acc_init(void) {
 	printk(KERN_INFO "%s accelerometer driver: init\n",

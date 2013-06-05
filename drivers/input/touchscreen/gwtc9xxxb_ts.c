@@ -292,9 +292,13 @@ static irqreturn_t gwtc9xxxb_ts_interrupt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-
-static int __gwtc9xxxb_ts_suspend(struct gwtc9xxxb_ts_data *ts)
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void gwtc9xxxb_ts_suspend(struct early_suspend *handler)
 {
+
+	struct gwtc9xxxb_ts_data *ts;
+	ts =  container_of(handler, struct gwtc9xxxb_ts_data, early_suspend);
+
 #ifdef CONFIG_GWTC9XXXB_DEBUG
 	printk("==gwtc9xxxb_ts_suspend=\n");
 #endif
@@ -304,31 +308,6 @@ static int __gwtc9xxxb_ts_suspend(struct gwtc9xxxb_ts_data *ts)
 	flush_workqueue(ts->ts_workqueue);
 	gwtc9xxxb_set_reg(ts, GWTC9XXXB_REG_SLEEP, SLEEP_MODE);
 	gwtc9xxxb_ts_power_off(ts);
-
-	return 0;
-}
-
-static int __gwtc9xxxb_ts_resume(struct gwtc9xxxb_ts_data *ts)
-{
-	gwtc9xxxb_ts_power_on(ts);
-#ifdef CONFIG_GWTC9XXXB_DEBUG
-	printk("==gwtc9xxxb_ts_resume=\n");
-#endif
-	gwtc9xxxb_ts_reset(ts);
-
-	enable_irq(ts->client->irq);
-
-	return 0;
-}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void gwtc9xxxb_ts_suspend(struct early_suspend *handler)
-{
-
-	struct gwtc9xxxb_ts_data *ts;
-	ts =  container_of(handler, struct gwtc9xxxb_ts_data, early_suspend);
-
-	__gwtc9xxxb_ts_suspend(ts);
 }
 
 static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
@@ -336,7 +315,13 @@ static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
 	struct gwtc9xxxb_ts_data *ts;
 	ts =  container_of(handler, struct gwtc9xxxb_ts_data, early_suspend);
 
-	__gwtc9xxxb_ts_resume(ts);
+	gwtc9xxxb_ts_power_on(ts);
+#ifdef CONFIG_GWTC9XXXB_DEBUG
+	printk("==gwtc9xxxb_ts_resume=\n");
+#endif
+	gwtc9xxxb_ts_reset(ts);
+
+	enable_irq(ts->client->irq);
 }
 #endif  //CONFIG_HAS_EARLYSUSPEND
 
@@ -541,26 +526,6 @@ static const struct i2c_device_id gwtc9xxxb_ts_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, gwtc9xxxb_ts_id);
 
-static int i2c_gwtc9xxxb_ts_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	struct gwtc9xxxb_ts_data *ts = i2c_get_clientdata(client);
-
-	return __gwtc9xxxb_ts_suspend(ts);
-#endif
-	return 0;
-}
-
-static int i2c_gwtc9xxxb_ts_resume(struct i2c_client *client)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	struct gwtc9xxxb_ts_data *ts = i2c_get_clientdata(client);
-
-	return 	__gwtc9xxxb_ts_resume(ts);
-#endif
-	return 0;
-}
-
 static struct i2c_driver gwtc9xxxb_ts_driver = {
 	.probe		= gwtc9xxxb_ts_probe,
 	.remove		= __devexit_p(gwtc9xxxb_ts_remove),
@@ -569,8 +534,6 @@ static struct i2c_driver gwtc9xxxb_ts_driver = {
 		.name	= GWTC9XXXB_NAME,
 		.owner	= THIS_MODULE,
 	},
-	.suspend = i2c_gwtc9xxxb_ts_suspend,
-	.resume = i2c_gwtc9xxxb_ts_resume,
 };
 
 static int __init gwtc9xxxb_ts_init(void)

@@ -2967,21 +2967,6 @@ static int __devexit jz_codec_remove(struct platform_device *pdev)
 
 	return 0;
 }
-static int jz_codec_suspend(struct platform_device *pdev, pm_message_t state)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-     __codec_switch_sb_micbias(POWER_OFF);
-#endif
-	return 0;
-}
-
-static int jz_codec_resume(struct platform_device *pdev)
-{
-#ifndef CONFIG_HAS_EARLYSUSPEND
-     __codec_switch_sb_micbias(POWER_ON);
-#endif
-	return 0;
-}
 
 static struct platform_driver jz_codec_driver = {
 	.probe		= jz_codec_probe,
@@ -2990,8 +2975,6 @@ static struct platform_driver jz_codec_driver = {
 		.name	= "jz_codec",
 		.owner	= THIS_MODULE,
 	},
-	.suspend = jz_codec_suspend,
-	.resume = jz_codec_resume,
 };
 
 void codec_irq_set_mask()

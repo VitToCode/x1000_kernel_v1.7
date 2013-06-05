@@ -2212,8 +2212,11 @@ static struct fb_ops jzfb_ops = {
 	.fb_mmap = jzfb_mmap,
 };
 
-static int __jzfb_suspend(struct jzfb *jzfb)
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void jzfb_early_suspend(struct early_suspend *h)
 {
+	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+
 	mutex_lock(&jzfb->lock);
 	if (jzfb->pdata->alloc_vidmem) {
 		/* set suspend state and notify panel, backlight client */
@@ -2244,12 +2247,11 @@ static int __jzfb_suspend(struct jzfb *jzfb)
 #endif
 
 	mutex_unlock(&jzfb->lock);
-
-	return 0;
 }
 
-static int __jzfb_resume(struct jzfb *jzfb)
+static void jzfb_late_resume(struct early_suspend *h)
 {
+	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 #ifdef CONFIG_JZ4780_AOSD
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
 		aosd_clock_enable(1);
@@ -2266,21 +2268,6 @@ static int __jzfb_resume(struct jzfb *jzfb)
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
 	mutex_unlock(&jzfb->suspend_lock);
-
-	return 0;
-}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void jzfb_early_suspend(struct early_suspend *h)
-{
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	__jzfb_suspend(jzfb);
-}
-
-static void jzfb_late_resume(struct early_suspend *h)
-{
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	__jzfb_resume(jzfb);
 }
 #endif
 
@@ -2895,6 +2882,7 @@ static int jzfb_lcdc_reset(struct fb_info *info)
 	if(is_enabled) {
 		jzfb_enable(info);
 	}
+
 	return 0;
 }
 
@@ -3194,11 +3182,6 @@ static int jzfb_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
-
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	__jzfb_suspend(jzfb);
-#endif
-
 	clk_disable(jzfb->clk);
 	clk_disable(jzfb->pclk);
 
@@ -3210,11 +3193,6 @@ static int jzfb_resume(struct device *dev)
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 	clk_enable(jzfb->pclk);
 	clk_enable(jzfb->clk);
-
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	return __jzfb_resume(jzfb);
-#endif
-
 	return 0;
 }
 static const struct dev_pm_ops jzfb_pm_ops = {

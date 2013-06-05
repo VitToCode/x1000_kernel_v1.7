@@ -30,6 +30,7 @@
 #include <linux/version.h>
 #include <linux/io.h>
 #include <linux/memory.h>
+#include <linux/earlysuspend.h>
 #include <linux/dma-mapping.h>
 
 #include <asm/cacheflush.h>
@@ -89,6 +90,7 @@ struct x2d_device {
 	wait_queue_head_t set_wait_queue;
 
 	struct list_head proc_list;
+	struct early_suspend early_suspend;
 	struct mutex x2d_lock;
 	struct mutex compose_lock;
 };
@@ -738,20 +740,18 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 }
 
 /*****************************suspend  resume********************************/
-static int x2d_suspend(struct platform_device *pdev, pm_message_t state)
+static void x2d_early_suspend(struct early_suspend *handler)
 {
-	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
+	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
 	jz_x2d->state = x2d_state_suspend;
 	clk_disable(jz_x2d->x2d_clk);
-	return 0;
 }
 
-static int x2d_resume(struct platform_device *pdev)
+static void x2d_early_resume(struct early_suspend *handler)
 {
-	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
+	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
 	jz_x2d->state = x2d_state_idle;
 	clk_enable(jz_x2d->x2d_clk);
-	return 0;
 }
 
 /****************************sys call functions******************************/
@@ -979,6 +979,14 @@ static int __devinit x2d_probe(struct platform_device *pdev)
 	init_waitqueue_head(&jz_x2d->set_wait_queue);
 	mutex_init(&jz_x2d->compose_lock);
 	mutex_init(&jz_x2d->x2d_lock);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	jz_x2d->early_suspend.suspend = x2d_early_suspend;
+	jz_x2d->early_suspend.resume = x2d_early_resume;
+	jz_x2d->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&jz_x2d->early_suspend);
+#endif
+
 	clk_disable(jz_x2d->x2d_clk);  
 	dev_info(&pdev->dev, "Virtual Driver of JZ X2D registered\n");
 
@@ -1011,6 +1019,9 @@ static int __devexit x2d_remove(struct platform_device *pdev)
 	iounmap(jz_x2d->base);
 	free_irq(jz_x2d->irq,jz_x2d);
 	release_mem_region(jz_x2d->mem->start, resource_size(jz_x2d->mem));
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&jz_x2d->early_suspend);
+#endif
 	kzfree(jz_x2d->chain_p);
 	kzfree(jz_x2d);
 	misc_deregister(&jz_x2d->misc_dev);
@@ -1023,8 +1034,6 @@ static struct platform_driver x2d_driver = {
 	.driver.owner	= THIS_MODULE,
 	.probe		= x2d_probe,
 	.remove		= x2d_remove,
-	.suspend = x2d_suspend,
-	.resume = x2d_resume,
 };
 
 static int __init x2d_init(void)
