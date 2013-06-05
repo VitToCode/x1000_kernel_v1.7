@@ -154,25 +154,6 @@ config USB_NET_AX8817X
 	  This driver creates an interface named "ethX", where X depends on
 	  what other networking devices you have in use.
 
-config USB_NET_AX8872X
-	tristate "ASIX AX8872x Based USB 2.0 Ethernet Adapters"
-	depends on USB_USBNET
-	select CRC32
-	
-	help
-	  This option adds support for ASIX AX88xxx based USB 2.0
-	  10/100 Ethernet adapters.
-
- 	  This driver should work with at least the following devices:
-            *ASIX AX88178 USB 2.0 Gigabit Ethernet Network Adapter
-            *ASIX AX88772 USB 2.0 Fast Ethernet Network Adapter
-            *ASIX AX88772A USB 2.0 Fast Ethernet Network Adapter
-            *ASIX AX88760 USB 2.0 MTT HUB and USB 2.0 to Fast Ethernet Combo Controller
-            *ASIX AX88772B USB 2.0 Fast Ethernet Network Adapter
-            *ASIX AX88772C USB 2.0 Fast Ethernet Network Adapter
-
-	  This driver creates an interface named "ethX", where X depends on
-	  what other networking devices you have in use.
 
 config USB_NET_CDCETHER
 	tristate "CDC Ethernet support (smart devices such as cable modems)"
