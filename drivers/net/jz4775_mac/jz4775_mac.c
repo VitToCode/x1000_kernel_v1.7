@@ -98,31 +98,27 @@ MODULE_PARM_DESC(copybreak,
 #define MPHYC_MAC_PHYINTF_RMII	(4 << 0)
 
 static int jz4775_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum);
+static int jz4775_mdio_phy_read(struct net_device *dev, int phy_id, int location);
 
-void set_mac_phy_clk(mac_clock_control mac_control, unsigned long int *phy_clk)
+void set_mac_phy_clk(mac_clock_control mac_control)
 {
 	unsigned int mphy_value = cpm_inl(CPM_MPHYC);
-	/* cim0 and phy are common clk pin PB9 */
-	*phy_clk = 1000000L;
+
 	switch (mac_control){
 	case MAC_GMII:
 		mphy_value &= ~(7 << 0);
 		mphy_value |= 1 << 31;
-		*phy_clk *= 1000 / 8 ;
 		break;
 	case MAC_RGMII:
 		mphy_value &= ~(7 << 0);
 		mphy_value |= ((1 << 31) || (1 << 0));
-		*phy_clk *= 1000 / 8 ;
 		break;
 	case MAC_MII:
 		mphy_value &= (~(1 << 31) || ~(7 << 0));
-		*phy_clk *= 100 / 4;
 		break;
 	case MAC_RMII:
 		mphy_value &= (~(1 << 31) || ~(7 << 0));
-		mphy_value |= (4 << 0);
-		*phy_clk *= 100 / 4;
+		mphy_value &= ~(4 << 0);
 		break;
 	case MAC_1000M:
 	case MAC_100M:
@@ -413,7 +409,7 @@ static void jzmac_alloc_rx_buffers(struct jz4775_mac_local *lp, int cleaned_coun
 			goto map_skb;
 		}
 
-		skb = netdev_alloc_skb(lp->netdev, lp->netdev->mtu + ETHERNET_HEADER + ETHERNET_CRC);
+		skb = netdev_alloc_skb_ip_align(lp->netdev, lp->netdev->mtu + ETHERNET_HEADER + ETHERNET_CRC);
 		if (unlikely(!skb)) {
 			/* Better luck next round */
 			lp->alloc_rx_buff_failed++;
@@ -428,6 +424,11 @@ static void jzmac_alloc_rx_buffers(struct jz4775_mac_local *lp, int cleaned_coun
 		buffer_info->dma = dma_map_single(&lp->netdev->dev,
 						  skb->data, skb_tailroom(skb),
 						  DMA_FROM_DEVICE);
+		if (dma_mapping_error(&lp->netdev->dev, buffer_info->dma)) {
+			dev_err(&lp->netdev->dev, "Rx DMA map failed\n");
+			lp->alloc_rx_buff_failed++;
+			break;
+		}
 
 		rx_desc->length |= ((skb_tailroom(skb) <<DescSize1Shift) & DescSize1Mask) |
 			((0 << DescSize2Shift) & DescSize2Mask);
@@ -530,31 +531,21 @@ static void desc_list_free_rx(struct jz4775_mac_local *lp) {
 
 		for(i = 0; i < JZMAC_RX_DESC_COUNT; i++) {
 			if (b[i].skb) {
-#if 0
-				skb_dma_unmap(&lp->netdev->dev, b[i].dma,
-					       b[i].length, b[i].mapped_as_page,
-					       DMA_FROM_DEVICE);
-				dev_kfree_skb_any(b[i].skb);
-				b[i].skb = NULL;
-#else
 				if (b[i].dma) {
-					if (b[i].mapped_as_page)
-						dma_unmap_page(&lp->netdev->dev, b[i].dma,
-							       b[i].length, DMA_FROM_DEVICE);
-					else
-						dma_unmap_single(&lp->netdev->dev, b[i].dma,
-								 b[i].length, DMA_FROM_DEVICE);
+					dma_unmap_single(&lp->netdev->dev, b[i].dma,
+							 b[i].length, DMA_FROM_DEVICE);
 					b[i].dma = 0;
 				}
-				if (b[i].skb) {
-					dev_kfree_skb_any(b[i].skb);
-					b[i].skb = NULL;
-				}
+
+				dev_kfree_skb_any(b[i].skb);
+				b[i].skb = NULL;
 				b[i].time_stamp = 0;
-#endif
 			}
 		}
 	}
+	vfree(lp->rx_ring.buffer_info);
+	lp->rx_ring.buffer_info = NULL;
+	lp->rx_ring.next_to_use = lp->rx_ring.next_to_clean = 0;
 }
 
 /* must be called from interrupt handler */
@@ -650,30 +641,19 @@ static void jzmac_unmap_and_free_tx_resource(struct jz4775_mac_local *lp,
 					     struct jzmac_buffer *buffer_info)
 {
 	buffer_info->transfering = 0;
-	buffer_info->dma = 0;
 
 	if (buffer_info->skb) {
-#if 0
-		skb_dma_unmap(&lp->netdev->dev, buffer_info->dma, buffer_info->mapped_as_page
-			       buffer_info->length, DMA_TO_DEVICE);
-		dev_kfree_skb_any(buffer_info->skb);
-		buffer_info->skb = NULL;
-#else
-
 		if (buffer_info->dma) {
 			if (buffer_info->mapped_as_page)
 				dma_unmap_page(&lp->netdev->dev, buffer_info->dma,
-					       buffer_info->length, DMA_FROM_DEVICE);
+					       buffer_info->length, DMA_TO_DEVICE);
 			else
 				dma_unmap_single(&lp->netdev->dev, buffer_info->dma,
-						 buffer_info->length, DMA_FROM_DEVICE);
+						 buffer_info->length, DMA_TO_DEVICE);
 			buffer_info->dma = 0;
 		}
-		if (buffer_info->skb) {
-			dev_kfree_skb_any(buffer_info->skb);
-			buffer_info->skb = NULL;
-		}
-#endif
+		dev_kfree_skb_any(buffer_info->skb);
+		buffer_info->skb = NULL;
 	}
 	buffer_info->time_stamp = 0;
 }
@@ -697,6 +677,9 @@ static void desc_list_free_tx(struct jz4775_mac_local *lp) {
 		}
 
 	}
+	vfree(lp->tx_ring.buffer_info);
+	lp->tx_ring.buffer_info = NULL;
+	lp->tx_ring.next_to_use = lp->tx_ring.next_to_clean = 0;
 }
 
 /* must called in interrupt handler */
@@ -1106,7 +1089,11 @@ static int jzmac_tx_map(struct jz4775_mac_local *lp,
 	return count;
 dma_unwind:
 	dev_err(&pdev->dev, "Tx DMA map failed at dma_unwind\n");
-	while(--i > 0) {
+	while(count-- > 0) {
+		i--;
+		if (i == 0) {
+			i = tx_ring->count;
+		}
 		buffer_info = &tx_ring->buffer_info[i];
 		if (buffer_info->dma) {
 			if (buffer_info->mapped_as_page)
@@ -1128,8 +1115,6 @@ dma_error:
 	dev_err(&pdev->dev, "Tx DMA map failed at dma_error\n");
 	buffer_info->dma = 0;
 	return -ENOMEM;
-
-	return 0;
 }
 #endif
 
@@ -1195,11 +1180,14 @@ static int jz4775_mac_hard_start_xmit(struct sk_buff *skb,
 		return NETDEV_TX_OK;
 	}
 
+	/* this can be cacelled for we should support it*/
+	/*
 	if (skb_shinfo(skb)->nr_frags) {
 		printk(JZMAC_DRV_NAME ": WARNING: fragment packet do not handled!!!\n");
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
+	*/
 
 	/* need: count + 2 desc gap to keep tail from touching
 	 * head, otherwise try next time */
@@ -1211,6 +1199,8 @@ static int jz4775_mac_hard_start_xmit(struct sk_buff *skb,
 
 	if (likely(count)) {
 		jzmac_tx_queue(lp, tx_ring);
+		/* Make sure there is space in the ring for the next send.*/
+		jzmac_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
 		//jzmac_dump_all_regs(__func__, __LINE__);
 	} else {
 		dev_kfree_skb_any(skb);
@@ -1237,12 +1227,6 @@ static bool jzmac_clean_tx_irq(struct jz4775_mac_local *lp) {
 	desc = JZMAC_TX_DESC(*tx_ring, i);
 	buffer_info = &tx_ring->buffer_info[i];
 
-#if 0			      /* just for debug */
-	printk("===>%s: next_to_clean = %d, tx_status = 0x%08x, tx_ctrl = 0x%08x\n",
-	       __func__, i, REG32(MAC_DMA_TX_STATUS), REG32(MAC_DMA_TX_CTRL));
-	jzmac_dump_dma_desc(desc);
-	jzmac_dump_dma_buffer_info(buffer_info);
-#endif
 	while (buffer_info->transfering &&
 	       !synopGMAC_is_desc_owned_by_dma(desc) &&
 	       (count < tx_ring->count)) {
@@ -1308,12 +1292,13 @@ static bool jzmac_clean_rx_irq(struct jz4775_mac_local *lp,
 	buffer_info = &rx_ring->buffer_info[i];
 
 	/* except the slot not used, if transfer done, buffer_info->invalid is always 0 */
-	while ( (!synopGMAC_is_desc_owned_by_dma(rx_desc)) && (!buffer_info->invalid)) {
+	while ((!synopGMAC_is_desc_owned_by_dma(rx_desc)) && (!buffer_info->invalid)) {
 		struct sk_buff *skb;
 
 		if (*work_done >= work_to_do)
 			break;
 		(*work_done)++;
+		rmb();  /* read descriptor and rx_buffer_info after status DD */
 
 		buffer_info->invalid = 1;
 		skb = buffer_info->skb;
@@ -1367,10 +1352,9 @@ static bool jzmac_clean_rx_irq(struct jz4775_mac_local *lp,
 		 * of reassembly being done in the stack */
 		if (length < copybreak) {
 			struct sk_buff *new_skb =
-				netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
+				netdev_alloc_skb_ip_align(netdev, length);
 
 			if (new_skb) {
-				skb_reserve(new_skb, NET_IP_ALIGN);
 				skb_copy_to_linear_data_offset(new_skb,
 							       -NET_IP_ALIGN,
 							       (skb->data -
@@ -1393,13 +1377,13 @@ static bool jzmac_clean_rx_irq(struct jz4775_mac_local *lp,
 		//netdev->last_rx = jiffies;
 
 	invalid_pkt:
-#if 1
+		rx_desc->status = 0;
 		/* return some buffers to hardware, one at a time is too slow */
 		if (unlikely(cleaned_count >= JZMAC_RX_BUFFER_WRITE)) {
 			jzmac_alloc_rx_buffers(lp, cleaned_count, 1);
 			cleaned_count = 0;
 		}
-#endif
+
 		/* use prefetched values */
 		rx_desc = next_rxd;
 		buffer_info = next_buffer;
@@ -1597,14 +1581,26 @@ static void jz4775_mac_disable(struct jz4775_mac_local *lp) {
 }
 
 static void jzmac_init(void) {
-	synopGMAC_wd_enable(gmacdev);
-	synopGMAC_jab_enable(gmacdev);
-	synopGMAC_frame_burst_enable(gmacdev);
-	synopGMAC_jumbo_frame_disable(gmacdev);
-	synopGMAC_rx_own_enable(gmacdev);
+	/*
+	 * disable the watchdog and gab to receive frames up to 16384 bytes
+	 * to adjust IP protocol
+	 */
+	synopGMAC_wd_disable(gmacdev);
+	synopGMAC_jab_disable(gmacdev);
+
+	/* cancel to set Frame Burst Enable for now we use duplex mode */
+	//synopGMAC_frame_burst_enable(gmacdev);
+
+	/* set jumbo to allow to receive Jumbo frames of 9,018 bytes */
+	//synopGMAC_jumbo_frame_disable(gmacdev);
+	synopGMAC_jumbo_frame_enable(gmacdev);
+
+	/* for we try to use duplex */
+	synopGMAC_rx_own_disable(gmacdev);
 	synopGMAC_loopback_off(gmacdev);
 	/* default to full duplex, I think this will be the common case */
 	synopGMAC_set_full_duplex(gmacdev);
+	/* here retry enabe may useless */
 	synopGMAC_retry_enable(gmacdev);
 	synopGMAC_pad_crc_strip_disable(gmacdev);
 	synopGMAC_back_off_limit(gmacdev,GmacBackoffLimit0);
@@ -1614,10 +1610,10 @@ static void jzmac_init(void) {
 
 	/* default to 100M, I think this will be the common case */
 	synopGMAC_select_mii(gmacdev);
+	synopGMAC_select_speed100(gmacdev);
 
-	/*Frame Filter Configuration*/
+	/* Frame Filter Configuration */
 	synopGMAC_frame_filter_enable(gmacdev);
-	//synopGMAC_frame_filter_disable(gmacdev);
 	synopGMAC_set_pass_control(gmacdev,GmacPassControl0);
 	synopGMAC_broadcast_enable(gmacdev);
 	synopGMAC_src_addr_filter_disable(gmacdev);
@@ -1640,6 +1636,7 @@ static void jz4775_mac_configure(struct jz4775_mac_local *lp) {
 #else
 	synopGMAC_dma_bus_mode_init(gmacdev, DmaBurstLength32 | DmaDescriptorSkip2);                      //pbl32 incr with rxthreshold 128
 #endif
+	/* DmaRxThreshCtrl128 is ok for the RX FIFO is configured to 256 Bytes */
 	synopGMAC_dma_control_init(gmacdev,DmaStoreAndForward |DmaTxSecondFrame|DmaRxThreshCtrl128);
 
 	/*Initialize the mac interface*/
@@ -1755,7 +1752,7 @@ static void jzmac_set_multicast_list(struct net_device *dev)
 		printk("%s: Enter promisc mode!\n",dev->name);
 	} else  if ((dev->flags & IFF_ALLMULTI) || (dev->mc.count > MULTICAST_FILTER_LIMIT)) {
 		/* Accept all multicast packets */
-		synopGMAC_promisc_enable(gmacdev);
+		synopGMAC_multicast_enable(gmacdev);
 
 		/* TODO: accept broadcast and enable multicast here */
 		printk("%s: Enter allmulticast mode!   %d \n",dev->name,dev->mc.count);
@@ -1808,13 +1805,6 @@ static int jz4775_mac_open(struct net_device *dev)
 
 	phy_write(lp->phydev, MII_BMCR, BMCR_RESET);
 	while(phy_read(lp->phydev, MII_BMCR) & BMCR_RESET);
-#if defined(CONFIG_JZ4775_MAC_RGMII)
-	/* xlsu for broadcom rgmii delay */
-	phy_write(lp->phydev, 0x1C, 0x8E00);
-	phy_write(lp->phydev, 0x1C, 0x0C00);
-	//phy_write(lp->phydev, 0x1C, 0x941E);
-	//phy_write(lp->phydev, 0x1C, 0x4400);
-#endif
 	phy_start(lp->phydev);
 
 	synopGMAC_reset(gmacdev);
@@ -1901,25 +1891,6 @@ static int jzmac_do_ioctl(struct net_device *netdev, struct ifreq *ifr, s32 cmd)
 		return 0;
 
 	return generic_mii_ioctl(&lp->mii, if_mii(ifr), cmd, NULL);
-
-#if 0
-	//if(netdev == NULL)
-	//	return -1;
-	switch(cmd)
-	{
-		case IOCTL_DUMP_REGISTER:               //IOCTL for reading IP registers : Read Registers
-			jzmac_dump_all_regs(__func__, __LINE__);
-			jzmac_phy_dump(lp);
-			break;
-
-		case IOCTL_DUMP_DESC:
-			jzmac_dump_all_desc(lp);
-			break;
-		default:
-			break;
-	}
-	return 0;
-#endif
 }
 
 static const struct net_device_ops jz4775_mac_netdev_ops = {
@@ -2002,11 +1973,11 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 	//ndev->ethtool_ops = &jz4775_mac_ethtool_ops;
 	ndev->watchdog_timeo = 2 * HZ;
 
-	lp->mii.phy_id_mask  = lp->phydev->phy_id;
-	lp->mii.phy_id		 = lp->phydev->phy_id;
+	lp->mii.phy_id	= lp->phydev->phy_id;
+	lp->mii.phy_id_mask  = 0x1f;
 	lp->mii.reg_num_mask = 0x1f;
-	lp->mii.dev			 = ndev;
-	lp->mii.mdio_read    = jz4775_mdiobus_read;
+	lp->mii.dev	= ndev;
+	lp->mii.mdio_read    = jz4775_mdio_phy_read;
 
 	netif_napi_add(ndev, &lp->napi, jzmac_clean, 32);
 
@@ -2014,8 +1985,8 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 	spin_lock_init(&lp->napi_poll_lock);
 
 	init_timer(&lp->watchdog_timer);
-	lp->watchdog_timer.function = &jzmac_watchdog;
 	lp->watchdog_timer.data = (unsigned long)lp;
+	lp->watchdog_timer.function = &jzmac_watchdog;
 
 	INIT_WORK(&lp->reset_task, jzmac_reset_task);
 
@@ -2124,6 +2095,12 @@ static int jz4775_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
 	return (int)data;
 }
 
+static int jz4775_mdio_phy_read(struct net_device *dev, int phy_id, int location)
+{
+	struct jz4775_mac_local *lp = netdev_priv(dev);
+	return jz4775_mdiobus_read(lp->mii_bus, phy_id, location);
+}
+
 /* Write an off-chip register in a PHY through the MDC/MDIO port */
 static int jz4775_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
 				u16 value)
@@ -2142,32 +2119,27 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 {
 	struct mii_bus *miibus;
 	int rc = 0, i;
-	unsigned long int phy_clk_value = 0;
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	struct jz_gpio_phy_reset *gpio_phy_reset;
 #endif
 	struct clk *gmac_clk = clk_get(NULL, "gmac");
-	struct clk *phy_clk = clk_get(NULL, "cim");
 
-	if ((clk_enable(gmac_clk) < 0) || (clk_enable(phy_clk) < 0)) {
-		printk("enable gmac clk failed");
+	if (clk_enable(gmac_clk) < 0) {
+		printk("enable gmac clk failed\n");
 		clk_put(gmac_clk);
-		clk_put(phy_clk);
 		goto out_err_alloc;
 	}
 
 #if defined(CONFIG_JZ4775_MAC_RMII)
-	set_mac_phy_clk(MAC_RMII, &phy_clk_value);
+	set_mac_phy_clk(MAC_RMII);
 #elif defined(CONFIG_JZ4775_MAC_RGMII)
-	set_mac_phy_clk(MAC_RGMII, &phy_clk_value);
+	set_mac_phy_clk(MAC_RGMII);
 #elif defined(CONFIG_JZ4775_MAC_GMII)
-	set_mac_phy_clk(MAC_GMII, &phy_clk_value);
+	set_mac_phy_clk(MAC_GMII);
 #else
-	set_mac_phy_clk(MAC_MII, &phy_clk_value);
+	set_mac_phy_clk(MAC_MII);
 #endif
-	clk_set_rate(phy_clk, phy_clk_value);
 	clk_put(gmac_clk);
-	clk_put(phy_clk);
 
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	gpio_phy_reset = dev_get_platdata(&pdev->dev);

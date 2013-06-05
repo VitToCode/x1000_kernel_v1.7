@@ -43,7 +43,8 @@
 s32 synopGMAC_set_mdc_clk_div(synopGMACdevice *gmacdev,u32 clk_div_val)
 {
 	u32 orig_data;
-	while((orig_data = synopGMACReadReg((u32 *)gmacdev->MacBase,GmacGmiiAddr)) & GmiiBusy) {
+	int times = 100;
+	while(((orig_data = synopGMACReadReg((u32 *)gmacdev->MacBase,GmacGmiiAddr)) & GmiiBusy) && (times-- > 0)) {
 		printk("===>PHY busy!\n");
 	}
 	orig_data &= (~ GmiiCsrClkMask);
@@ -83,8 +84,9 @@ s32 synopGMAC_read_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset,
 	u32 addr = 0;
 	u32 loop_variable = 0;
 	u32 *RegBase = (u32 *)gmacdev->MacBase;
+	int times = 100;
 
-	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
+	while((synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) && (times-- > 0)) {
 		printk("===>PHY busy!\n");
 	}
 
@@ -125,8 +127,9 @@ s32 synopGMAC_write_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset
 	u32 addr;
 	u32 loop_variable;
 	u32 *RegBase = (u32 *)gmacdev->MacBase;
+	int times = 100;
 
-	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
+	while((synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) && (times-- > 0)) {
 		printk("===>PHY busy!\n");
 	}
 	synopGMACWriteReg(RegBase,GmacGmiiData,data); // write the data in to GmacGmiiData register of synopGMAC ip
@@ -134,7 +137,8 @@ s32 synopGMAC_write_phy_reg(synopGMACdevice *gmacdev, u32 PhyBase, u32 RegOffset
 
 	addr = addr | (gmacdev->ClockDivMdc) | GmiiBusy ; //set Gmii clk to 20-35 Mhz and Gmii busy bit
 
-	while(synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) {
+	times = 100;
+	while((synopGMACReadReg(RegBase,GmacGmiiAddr) & GmiiBusy) && (times-- > 0)) {
 		printk("===>PHY busy!\n");
 	}
 	synopGMACWriteReg(RegBase,GmacGmiiAddr,addr);
@@ -213,8 +217,9 @@ s32 synopGMAC_reset (synopGMACdevice * gmacdev )
 		    	printk("Bus Mode Reg after reset: 0x%08x\n", data);
 		    mdelay(1);
 		    cnt ++;
-	    } else
+	    } else {
 		    break;
+	    }
 	}
 
 	return 0;
@@ -283,25 +288,25 @@ void synopGMAC_wd_disable(synopGMACdevice * gmacdev)
 
 /**
  * Enables the Jabber frame support.
- * When enabled, GMAC disabled the jabber timer, and can transfer 16,384 byte frames.
+ * When cleared, GMAC enables jabber timer. It cuts of transmitter if application
+ * sends more than 2048 bytes of data (10240 if Jumbo frame enabled).
  * @param[in] pointer to synopGMACdevice.
  * \return returns void.
  */
 void synopGMAC_jab_enable(synopGMACdevice * gmacdev)
 {
-	synopGMACSetBits((u32 *)gmacdev->MacBase, GmacConfig, GmacJabber);
+	synopGMACClearBits((u32 *)gmacdev->MacBase, GmacConfig, GmacJabber);
 	return;
 }
-/**
+/*
  * Disables the Jabber frame support.
- * When disabled, GMAC enables jabber timer. It cuts of transmitter if application
- * sends more than 2048 bytes of data (10240 if Jumbo frame enabled).
+ * When set, GMAC disabled the jabber timer, and can transfer 16,384 byte frames.
  * @param[in] pointer to synopGMACdevice.
  * \return returns void.
  */
 void synopGMAC_jab_disable(synopGMACdevice * gmacdev)
 {
-	synopGMACClearBits((u32 *)gmacdev->MacBase, GmacConfig, GmacJabber);
+	synopGMACSetBits((u32 *)gmacdev->MacBase, GmacConfig, GmacJabber);
 	return;
 }
 
