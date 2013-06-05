@@ -505,8 +505,6 @@ static void hdmi_early_suspend(struct early_suspend *h)
 	api_phy_enable(PHY_DISABLE_ALL);
 //	regulator_disable(jzhdmi->hdmi_power);
 
-	clk_disable(jzhdmi->hdmi_cgu_clk);
-	clk_disable(jzhdmi->hdmi_clk);
 	mutex_unlock(&jzhdmi->lock);
 }
 static void hdmi_late_resume(struct early_suspend *h)
@@ -514,9 +512,6 @@ static void hdmi_late_resume(struct early_suspend *h)
 	int api_mHpd = FALSE;
 	struct jzhdmi *jzhdmi;
 	jzhdmi = container_of(h, struct jzhdmi, early_suspend);
-
-	clk_enable(jzhdmi->hdmi_clk);
-	clk_enable(jzhdmi->hdmi_cgu_clk);
 
 //	regulator_enable(jzhdmi->hdmi_power);
 	api_phy_enable(PHY_ENABLE_HPD);
@@ -841,6 +836,26 @@ static int __devexit jzhdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+int hdmi_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct jzhdmi *jzhdmi = platform_get_drvdata(pdev);
+
+	clk_disable(jzhdmi->hdmi_cgu_clk);
+	clk_disable(jzhdmi->hdmi_clk);
+
+	return 0;
+}
+
+int hdmi_resume(struct platform_device *pdev)
+{
+	struct jzhdmi *jzhdmi = platform_get_drvdata(pdev);
+
+	clk_enable(jzhdmi->hdmi_clk);
+	clk_enable(jzhdmi->hdmi_cgu_clk);
+
+	return 0;
+}
+
 static struct platform_driver jzhdmi_driver = {
 	.probe = jzhdmi_probe,
 	.remove = __devexit_p(jzhdmi_remove),
@@ -849,6 +864,8 @@ static struct platform_driver jzhdmi_driver = {
 		.name = "jz-hdmi",
 		.owner = THIS_MODULE,
 	},
+	.suspend = hdmi_suspend,
+	.resume = hdmi_resume,
 };
 
 static int __init jzhdmi_init(void)

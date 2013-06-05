@@ -744,14 +744,12 @@ static void x2d_early_suspend(struct early_suspend *handler)
 {
 	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
 	jz_x2d->state = x2d_state_suspend;
-	clk_disable(jz_x2d->x2d_clk);
 }
 
 static void x2d_early_resume(struct early_suspend *handler)
 {
 	struct x2d_device *jz_x2d = container_of(handler, struct x2d_device, early_suspend);
 	jz_x2d->state = x2d_state_idle;
-	clk_enable(jz_x2d->x2d_clk);
 }
 
 /****************************sys call functions******************************/
@@ -1029,11 +1027,29 @@ static int __devexit x2d_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int x2d_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
+
+	clk_disable(jz_x2d->x2d_clk);
+	return 0;
+}
+
+static int x2d_resume(struct platform_device *pdev)
+{
+	struct x2d_device *jz_x2d = platform_get_drvdata(pdev);
+
+	clk_enable(jz_x2d->x2d_clk);
+	return 0;
+}
+
 static struct platform_driver x2d_driver = {
 	.driver.name	= "x2d",
 	.driver.owner	= THIS_MODULE,
 	.probe		= x2d_probe,
 	.remove		= x2d_remove,
+	.suspend	= x2d_suspend,
+	.resume		= x2d_resume,
 };
 
 static int __init x2d_init(void)
