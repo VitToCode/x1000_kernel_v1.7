@@ -226,7 +226,7 @@ static struct spi_board_info jz_spi0_board_info[] = {
 };
 #endif
 
-#if defined(CONFIG_USB_DWC_OTG) && defined(GPIO_USB_DETE)
+#if (defined(CONFIG_USB_DWC_OTG) || defined(CONFIG_USB_DWC2)) && defined(GPIO_USB_DETE)
 struct jzdwc_pin dete_pin = {
 	.num				= GPIO_USB_DETE,
 	.enable_level			= HIGH_ENABLE,
@@ -396,6 +396,11 @@ static int __init vga_dongle_board_init(void)
        spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
+
+#ifdef CONFIG_USB_DWC2
+	platform_device_register(&jz_dwc_otg_device);
+#endif
+
 #ifdef CONFIG_AX88796C
        platform_device_register(&net_device_ax88796c);
 #endif
