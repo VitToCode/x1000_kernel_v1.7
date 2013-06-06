@@ -144,6 +144,25 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 	return 0;
 }
 
+/* Functions followed for GPIOLIB */
+static int jz_gpio_set_pull(struct gpio_chip *chip,
+		unsigned offset, unsigned pull)
+{
+	struct jzgpio_chip *jz = gpio2jz(chip);
+
+	if (test_bit(offset, jz->gpio_map)) {
+		pr_err("BAD pull to input gpio.\n");
+		return -EINVAL;
+	}
+
+	if (!pull)
+		writel(BIT(offset), jz->reg + PXPENS);
+	else
+		writel(BIT(offset), jz->reg + PXPENC);
+
+	return 0;
+}
+
 int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[gpio_phy_reset->port];
@@ -372,6 +391,7 @@ static struct jzgpio_chip jz_gpio_chips[] = {
 			.direction_input	= jz_gpio_input,	\
 			.direction_output	= jz_gpio_output,	\
 			.set			= jz_gpio_set,		\
+			.set_pull		= jz_gpio_set_pull,	\
 			.get			= jz_gpio_get,		\
 			.to_irq			= jz_gpio_to_irq,	\
 			.request		= jz_gpio_request,	\
