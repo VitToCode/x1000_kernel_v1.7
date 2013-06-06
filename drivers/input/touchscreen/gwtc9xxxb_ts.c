@@ -414,17 +414,6 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 		goto exit_create_singlethread;
 	}
 
-	client->irq = gpio_to_irq(gwtc9xxxb_ts->gpio.irq->num);
-	err = request_irq(client->irq, gwtc9xxxb_ts_interrupt,
-			  IRQF_TRIGGER_FALLING | IRQF_DISABLED,
-			 "gwtc9xxxb_ts", gwtc9xxxb_ts);
-	if (err < 0) {
-		dev_err(&client->dev, "request irq failed\n");
-		goto exit_irq_request_failed;
-	}
-
-	disable_irq(gwtc9xxxb_ts->client->irq);
-
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		err = -ENOMEM;
@@ -472,6 +461,18 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 		dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
+
+	client->irq = gpio_to_irq(gwtc9xxxb_ts->gpio.irq->num);
+	err = request_irq(client->irq, gwtc9xxxb_ts_interrupt,
+			  IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			 "gwtc9xxxb_ts", gwtc9xxxb_ts);
+	if (err < 0) {
+		dev_err(&client->dev, "request irq failed\n");
+		goto exit_irq_request_failed;
+	}
+
+	disable_irq(gwtc9xxxb_ts->client->irq);
+
 
 #ifdef PENUP_TIMEOUT_TIMER
 	init_timer(&(gwtc9xxxb_ts->penup_timeout_timer));

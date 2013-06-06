@@ -180,6 +180,18 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 static int jz_gpio_set_pull(struct gpio_chip *chip,
 		unsigned offset, unsigned pull)
 {
+	struct jzgpio_chip *jz = gpio2jz(chip);
+
+	if (test_bit(offset, jz->gpio_map)) {
+		pr_err("BAD pull to input gpio.\n");
+		return -EINVAL;
+	}
+
+	if (!pull)
+		writel(BIT(offset), jz->reg + PXPENS);
+	else
+		writel(BIT(offset), jz->reg + PXPENC);
+
 	return 0;
 }
 
