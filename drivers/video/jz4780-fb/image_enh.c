@@ -503,7 +503,7 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 	int ret = -1;
 	struct jzfb *jzfb = info->par;
 	mutex_lock(&jzfb->suspend_lock);
-	if(jzfb->is_suspend == 0)
+	if((jzfb->is_suspend == 0) && jzfb->is_enabled)
 		ret = jzfb_image_enh_ioctl_internal(info, cmd, arg);
 	mutex_unlock(&jzfb->suspend_lock);
 	return ret;
