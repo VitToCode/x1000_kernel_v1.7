@@ -16,11 +16,13 @@
 #include <linux/proc_fs.h>
 #include <linux/ioport.h>
 
-
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
 #include <mach/jzcpm_pwc.h>
+
+extern void inline reset_keep_power(void);
+
 /*
  * Bring up the priority of CPU on both AHB0 & AHB2
  */
@@ -61,6 +63,9 @@ void __init cpm_reset(void)
 int __init setup_init(void)
 {
 	cpm_reset();
+#ifdef CONFIG_RESET_KEEP_POWER
+	reset_keep_power();
+#endif
         // CPU on AHB0 & AHB2
         /* If CPU0_PRIO=3, may cause CIM overflow and IPU underrun. so set CPU0_PRIO=0, 2013-02-01 */
         /* If CPU0_PRIO=0, may cause touch panel "i2c i2c-1: --I2C irq read timeout", so rollback CPU0_PRIO=3. 2013-02-04 */

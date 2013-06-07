@@ -67,6 +67,11 @@ config CPU_SUSPEND_TO_IDLE
         bool "cpu enter idle mode when sleep"
         default n
 
+config RESET_KEEP_POWER
+	depends on MACH_XBURST
+	bool "keep power when press reset key"
+	default y
+
 config HIBERNATE_RESET
 	depends on MACH_XBURST
 	bool "use hibernate reset instead watch dog reset"
