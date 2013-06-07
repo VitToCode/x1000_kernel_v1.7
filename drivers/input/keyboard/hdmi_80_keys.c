@@ -531,8 +531,8 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 
 	/*init is host */
 	gpio_request(GPIO_ID, NULL);
-	select_status = 1; // device mode
-	gpio_direction_output(GPIO_ID, 1);
+	select_status = 0; //0:host mode 1:device mode
+	gpio_direction_output(GPIO_ID, 0);
 
 
 	error = sysfs_create_group(&pdev->dev.kobj, &gpio_keys_attr_group);
