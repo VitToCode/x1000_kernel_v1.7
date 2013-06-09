@@ -35,6 +35,8 @@
 #include <linux/timer.h>
 #include <linux/tsc.h>
 
+#include <linux/gpio.h>
+
 #include <linux/interrupt.h>
 
 struct ts_event {
@@ -182,7 +184,7 @@ static int ft5x06_set_reg(struct ft5x06_ts_data *ts, u8 addr, u8 para)
 /*release the point*/
 static void ft5x06_ts_release(struct ft5x06_ts_data *data)
 {
-	/* input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0); */
+	/*input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0); */
 	input_mt_sync(data->input_dev);
 	input_sync(data->input_dev);
 }
@@ -334,9 +336,11 @@ static void ft5x06_gpio_init(struct ft5x06_ts_data *ts, struct i2c_client *clien
 
 static int ft5x06_ts_power_on(struct ft5x06_ts_data *ts)
 {
-	if (ts->power) {
-		if(atomic_cmpxchg(&ts->regulator_enabled, 0, 1) == 0)
-			return regulator_enable(ts->power);
+	if (!IS_ERR(ts->power)) {
+		if(atomic_cmpxchg(&ts->regulator_enabled, 0, 1) == 0) {
+			if (!regulator_is_enabled(ts->power))
+				return regulator_enable(ts->power);
+		}
 	}
 
 	return 0;
@@ -344,9 +348,11 @@ static int ft5x06_ts_power_on(struct ft5x06_ts_data *ts)
 
 static int ft5x06_ts_power_off(struct ft5x06_ts_data *ts)
 {
-	if (ts->power) {
-		if (atomic_cmpxchg(&ts->regulator_enabled, 1, 0))
-			return regulator_disable(ts->power);
+	if (!IS_ERR(ts->power)) {
+		if (atomic_cmpxchg(&ts->regulator_enabled, 1, 0)) {
+			if (regulator_is_enabled(ts->power))
+				return regulator_disable(ts->power);
+		}
 	}
 
 	return 0;
@@ -561,6 +567,8 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			ABS_MT_TOUCH_MAJOR, 0, 250, 0, 0);
 	input_set_abs_params(input_dev,
 			ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
+	input_set_abs_params(input_dev,
+			ABS_MT_TRACKING_ID, 0,CFG_MAX_TOUCH_POINTS, 0, 0);
 
 	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
@@ -611,11 +619,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
-	if(err < 0){
-		printk("ft5x06_ts probe failed\n");
-		goto exit_register_earlay_suspend;
-	}
-	//ft5x06_set_reg(ft5x06_ts, FT5X06_REG_THCAL, 4);
 
 #ifdef	FT5X06_DEBUG
 	err = sysfs_create_group(&(client->dev).kobj, &jztsc_attr_group);
