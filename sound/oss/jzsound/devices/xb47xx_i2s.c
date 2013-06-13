@@ -259,7 +259,7 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 		return -ENODEV;
 
 	if (mode & CODEC_WMODE) {
-		dp = cur_codec->dsp_endpoints->in_endpoint;
+		dp = cur_codec->dsp_endpoints->out_endpoint;
 		if ((ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_DATA_WIDTH, data_width)) != 0) {
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_REPLAY_FORMAT");
 			return ret;
@@ -273,7 +273,7 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	}
 
 	if (mode & CODEC_RMODE) {
-		dp = cur_codec->dsp_endpoints->out_endpoint;
+		dp = cur_codec->dsp_endpoints->in_endpoint;
 		if ((ret = cur_codec->codec_ctl(CODEC_SET_RECORD_DATA_WIDTH, data_width)) != 0) {
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_RECORD_FORMAT");
 			return ret;
@@ -309,7 +309,7 @@ static int i2s_set_channel(int* channel,int mode)
 			__i2s_out_channel_select(*channel - 1);
 			__i2s_disable_mono2stereo();
 		} else if (*channel == 1) {
-			__i2s_out_channel_select(*channel - 1);
+			__i2s_out_channel_select(*channel - 1);	//FIXME
 			__i2s_enable_mono2stereo();
 		} else
 			return -EINVAL;
@@ -521,12 +521,12 @@ static void i2s_set_trigger(int mode)
 
 static int i2s_enable(int mode)
 {
-	unsigned long replay_rate = 44100;
-	unsigned long record_rate = 8000;
+	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
+	unsigned long record_rate = DEFAULT_RECORD_SAMPLERATE;
 	unsigned long replay_format = 16;
 	unsigned long record_format = 16;
-	int replay_channel = 2;
-	int record_channel = 1;
+	int replay_channel = DEFAULT_REPLAY_CHANNEL;
+	int record_channel = DEFAULT_RECORD_CHANNEL;
 	struct dsp_pipe *dp_other = NULL;
 
 	if (!cur_codec)
@@ -1026,15 +1026,8 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_I2S0;
-
 	(*dp)->fragsize = FRAGSIZE_M;
 	(*dp)->fragcnt = FRAGCNT_L;
-	(*dp)->channels = 2;
-	(*dp)->is_non_block = true;
-	(*dp)->is_used = false;
-	(*dp)->can_mmap =true;
-	INIT_LIST_HEAD(&((*dp)->free_node_list));
-	INIT_LIST_HEAD(&((*dp)->use_node_list));
 
 	if (direction == DMA_TO_DEVICE) {
 		(*dp)->dma_config.src_maxburst = 64;

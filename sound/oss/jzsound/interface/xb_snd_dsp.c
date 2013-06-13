@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
+#include <asm/mipsregs.h>
 static bool spipe_is_init = 0;
 //#define DEBUG_REPLAY  0
 //#define AIC_DEBUG
@@ -73,6 +74,72 @@ static void put_use_dsp_node(struct dsp_pipe *dp, struct dsp_node *node,int usef
 		list_add_tail(&node->list, phead);
 	}
 	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+}
+
+static struct dsp_node *push_used_node_to_dma(struct dsp_pipe *dp)
+{
+	unsigned long lock_flags;
+	struct dsp_node *node = NULL;
+	struct list_head *phead_d = &dp->dma_node_list;
+	struct list_head *phead_u = &dp->use_node_list;
+
+	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+	if (list_empty(phead_u)) {
+		spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+		return NULL;
+	}
+	node = list_entry(phead_u->next, struct dsp_node, list);
+	list_del(phead_u->next);
+	list_add_tail(&node->list,phead_d);
+	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+	return node;
+}
+
+static int pop_dma_node_to_free(struct dsp_pipe *dp)
+{
+	unsigned long lock_flags;
+	struct dsp_node *node = NULL;
+	struct list_head *phead_d = &dp->dma_node_list;
+	struct list_head *phead_f = &dp->free_node_list;
+	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+	if (list_empty(phead_d)) {
+		spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+		return -1;
+	}
+	node = list_entry(phead_d->next, struct dsp_node, list);
+	list_del(phead_d->next);
+	node->start = 0;
+	node->end = 0;
+	list_add_tail(&node->list,phead_f);
+	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+	return 0;
+}
+
+static int pop_back_dma_node_to_use_head(struct dsp_pipe *dp)
+{
+	unsigned long lock_flags;
+	struct dsp_node *node = NULL;
+	struct list_head *phead_d = &dp->dma_node_list;
+	struct list_head *phead_u = &dp->use_node_list;
+
+	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+	if (list_empty(phead_d)) {
+		spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+		return -1;
+	}
+	node = list_entry(phead_d->prev, struct dsp_node, list);
+	list_del(phead_d->prev);
+	list_add(&node->list,phead_u);
+	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+	return 0;
+}
+
+static struct dsp_node *get_use_dsp_node_info(struct dsp_pipe *dp)
+{
+	struct list_head *phead = &dp->use_node_list;
+	if (list_empty(phead))
+		return NULL	;
+	return list_entry(phead->next, struct dsp_node, list);
 }
 
 static struct dsp_node *get_use_dsp_node(struct dsp_pipe *dp)
@@ -140,21 +207,60 @@ static int get_free_dsp_node_count(struct dsp_pipe *dp)
 	return count;
 }
 
-static int get_use_dsp_node_count(struct dsp_pipe *dp)
+static int get_unused_dma_node_num(struct dsp_pipe *dp,uint32_t node_base, int *total_count)
 {
-	int count = 0;
 	unsigned long lock_flags;
-	struct list_head *tmp = NULL;
-	struct list_head *phead = &dp->use_node_list;
+	struct list_head *phead_d = &dp->dma_node_list;
+	struct dsp_node *pos = NULL;
+	int flags = 0;
+	int count = 1;
+	*total_count = 0;
 
-	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
-	{
-		list_for_each(tmp, phead)
-			count ++;
+	spin_lock_irqsave(&dp->pipe_lock,lock_flags);
+	list_for_each_entry(pos,phead_d,list) {
+		(*total_count)++;
+		if (flags == 1)
+			count++;
+		if (pos->phyaddr == node_base)
+			flags = 1;
 	}
-	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
-
+	spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
 	return count;
+}
+
+static int  put_used_dma_node_free(struct dsp_pipe *dp,uint32_t node_base)
+{
+	unsigned long lock_flags;
+	struct list_head *phead_d = &dp->dma_node_list;
+	struct list_head *phead_f = &dp->free_node_list;
+	struct dsp_node *pos = NULL;
+	struct dsp_node *tmp = NULL;
+	int i = 0;
+
+	if (list_empty(phead_d)) {
+		return i;
+	}
+	spin_lock_irqsave(&dp->pipe_lock,lock_flags);
+	list_for_each_entry(pos,phead_d,list) {
+		if (pos->phyaddr == node_base)
+			goto delete_program;
+	}
+	spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
+	return i;
+
+delete_program:
+	list_for_each_entry_safe(pos,tmp,phead_d,list) {
+		if (pos->phyaddr == node_base)
+			break;
+		list_del(&pos->list);
+		pos->start = 0;
+		pos->end = 0;
+		list_add_tail(&pos->list, phead_f);
+		atomic_inc(&dp->avialable_couter);
+		i++;
+	}
+	spin_unlock_irqrestore(&dp->pipe_lock,lock_flags);
+	return i;
 }
 
 /********************************************************\
@@ -191,9 +297,9 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	snd_reconfig_dma(dp);
 
 	/* alloc one scatterlist */
-	dp->sg_len = 1;
+	dp->sg_len = 0;
 
-	dp->sg = vmalloc(sizeof(struct scatterlist) * dp->sg_len);
+	dp->sg = vzalloc(sizeof(struct scatterlist) * dp->fragcnt+1);
 	if (!dp->sg) {
 		return -ENOMEM;
 	}
@@ -203,14 +309,12 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 
 static void snd_release_dma(struct dsp_pipe *dp)
 {
-#ifndef CONFIG_ANDROID
-	int ret = 0;
-#endif
+	int ret = 0x7ffff;
+
 	if (dp) {
 		if (dp->dma_chan) {
 			if (dp->is_trans != false) {
-				dp->wait_stop_dma = true;
-#ifndef CONFIG_ANDROID		//kkshen added
+#ifndef CONFIG_ANDROID         //kkshen added
 				{
 					ret = 0x7fffff;
 
@@ -219,9 +323,13 @@ static void snd_release_dma(struct dsp_pipe *dp)
 					if (ret == 0) {
 						printk(KERN_INFO "sound dma transfer data error");
 					}
+
+					ret = 1;
 				}
 #endif
-				wait_event_interruptible(dp->wq, dp->is_trans == false);
+				dp->wait_stop_dma = true;
+				while(ret-- && wait_event_interruptible(dp->wq,dp->is_trans == false));
+				del_timer(&dp->transfer_watchdog);
 				dmaengine_terminate_all(dp->dma_chan);
 				dp->is_trans = false;
 				dp->wait_stop_dma = false;
@@ -253,8 +361,13 @@ static void snd_release_node(struct dsp_pipe *dp)
 			break;
 		put_free_dsp_node(dp, node);
 	};
-	if (dp->save_node != NULL)
+
+	if (dp->save_node != NULL) {
 		put_free_dsp_node(dp, dp->save_node);
+		dp->save_node = NULL;
+	} else
+		while(!pop_dma_node_to_free(dp));
+
 	free_count = get_free_dsp_node_count(dp);
 	if (free_count < dp->fragcnt)
 		printk("%s error buffer is lost when snd_release_node.\n",__func__);
@@ -269,7 +382,6 @@ static void snd_release_node(struct dsp_pipe *dp)
 
 }
 
-
 static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 {
 	struct dsp_node *node = NULL;
@@ -277,16 +389,18 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 
 	/* turn the dsp_node to dma desc */
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
-		node = get_use_dsp_node(dp);
-		if (!node)
+		dp->sg_len = 0;
+		while ((dp->sg_len != dp->fragcnt-1)) {
+			if ((node = push_used_node_to_dma(dp)) == NULL)
+				break;
+			sg_dma_address(&dp->sg[dp->sg_len]) = node->phyaddr;
+			sg_dma_len(&dp->sg[dp->sg_len]) = node->end - node->start;
+			dp->sg_len++;
+		}
+		if (!dp->sg_len) {
+			printk(KERN_DEBUG"AUDIO:user space write too slow\n");
 			return -ENOMEM;
-
-		dp->save_node = node;
-		dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
-
-		/* config sg */
-		sg_dma_address(dp->sg) = node->phyaddr;
-		sg_dma_len(dp->sg) = node->end - node->start;
+		}
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
 														  dp->sg,
@@ -294,8 +408,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 														  dp->dma_config.direction,
 														  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
-			dp->save_node = NULL;
-			put_use_dsp_node_head(dp, node, 0);
+			while (dp->sg_len-- || !pop_back_dma_node_to_use_head(dp));
 			return -EFAULT;
 		}
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
@@ -308,6 +421,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		/* config sg */
 		sg_dma_address(dp->sg) = node->phyaddr;
 		sg_dma_len(dp->sg) = node->size;
+		dp->sg_len = 1;
 		//printk("size = %d.\n",node->size);
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
@@ -334,32 +448,141 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 	return 0;
 }
 
-static void snd_start_dma_transfer(struct dsp_pipe *dp ,enum dma_data_direction direction)
+static void snd_start_dma_transfer(struct dsp_pipe *dp ,
+		enum dma_data_direction direction)
 {
 	dp->is_trans = true;
-	dp->force_stop_dma = false;
+
 	dma_async_issue_pending(dp->dma_chan);
+	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer &&
+			dp->samplerate == 44100) {
+		mod_timer(&dp->transfer_watchdog,
+				jiffies+msecs_to_jiffies(10));
+		atomic_set(&dp->watchdog_avail,0);
+	}
 }
+
+static dma_addr_t inline  dma_trans_addr(struct dsp_pipe *dp,
+		enum dma_data_direction direction)
+{
+	return dp->dma_chan->device->get_current_trans_addr(dp->dma_chan,
+			NULL,
+			NULL,
+			direction);
+}
+
+#if 0
+static int timer_count = 0;
+#endif
+
+static void replay_watch_function(unsigned long _dp)
+{
+	struct dsp_pipe *dp = (struct dsp_pipe *)_dp;
+	dma_addr_t pdma_addr = 0;
+	struct dma_async_tx_descriptor *desc = NULL;
+	struct dsp_node *node = NULL;
+	int total_count = 0;
+	uint32_t node_base = 0;
+	uint32_t node_offset = 0;
+	int delay = 0;
+	int success = 0;
+	int unused_num = 0;
+
+	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail) ||
+			dp->samplerate != 44100 /*FIXME NOW we just use 44100,other rate must be test*/)
+		return;
+
+	node = get_use_dsp_node_info(dp);
+	if (node) {
+		desc = dp->dma_chan->device->device_add_desc(dp->dma_chan,
+					node->phyaddr,
+					dp->dma_config.dst_addr,
+					node->end - node->start,
+					dp->dma_config.direction,
+					0x3 | ((dp->fragsize -1)) << 2);
+		if (!desc) {
+			if (!push_used_node_to_dma(dp)) {
+				printk("UNHAPPEND\n");
+				return;	/*there will not be happen*/
+			} else {
+#if 0
+				timer_count++;
+				if (!(timer_count%100))
+					printk(KERN_DEBUG"timer_count = %d\n",timer_count);
+#endif
+				success = 1;
+			}
+		} else {
+			success = -1;
+		}
+	}
+	pdma_addr = dma_trans_addr(dp,dp->dma_config.direction);
+	node_offset = ((unsigned long)pdma_addr & (dp->fragsize - 1));
+	node_base = ((unsigned long)pdma_addr & (~(dp->fragsize - 1)));
+	delay = (dp->buffersize - node_offset -1) * 500/(dp->channels * dp->samplerate);
+	//FIXME node->end - node->start instead dp->buffersize
+	if (success <= 0) {
+		int delay_time = 0;
+		unused_num = get_unused_dma_node_num(dp,node_base,&total_count);
+		if ((delay > 15 && unused_num < 2) ||(delay <=15 && unused_num < 3)) {
+			delay_time = unused_num*20;
+			if ((delay + delay_time) < 3) {
+				goto wait_interrupt_clean;
+			}
+			goto wait_interrupt;
+		}
+
+		if (success) {
+			if (dp->fragcnt - unused_num - 1 > 2) {
+				goto wait_interrupt;
+			}
+		}
+	}
+	mod_timer(&dp->transfer_watchdog,jiffies+msecs_to_jiffies(10));		//10ms timer
+wait_interrupt:
+	if (put_used_dma_node_free(dp,node_base))
+		if (dp->is_non_block == false)
+			wake_up_interruptible(&dp->wq);
+wait_interrupt_clean:
+	return;
+}
+
+static void record_watch_function(unsigned long _dp)
+{
+	return;
+}
+
+#if 0
+static int dma_count = 0;
+#endif
 
 static void snd_dma_callback(void *arg)
 {
 	struct dsp_pipe *dp = (struct dsp_pipe *)arg;
+	int available_node = 0;
 
-	/* unmap the node->phaddr */
+	atomic_set(&dp->watchdog_avail,1);
+
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
-		put_free_dsp_node(dp, dp->save_node);
+		while (!pop_dma_node_to_free(dp)) {
+			atomic_inc(&dp->avialable_couter);
+			available_node++;
+		}
+#if 0
+		printk(KERN_DEBUG"dma free available_node = %d\n",available_node);
+		if (!((++dma_count)%10)) {
+			printk("dma_count %d timer_count %d\n",dma_count,timer_count);
+		}
+#endif
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
-		dma_cache_sync(NULL, (void *)dp->save_node->pBuf, dp->save_node->size, dp->dma_config.direction);
 		put_use_dsp_node(dp, dp->save_node,dp->save_node->size);
-	} else {
-		printk("error: audio driver dma transfer.\n");
-		return;
+		atomic_inc(&dp->avialable_couter);
+		available_node++;
 	}
-	dp->save_node =	NULL;
-	atomic_inc(&dp->avialable_couter);
 
-	if (dp->is_non_block == false)
+	if (dp->is_non_block == false && available_node)
 		wake_up_interruptible(&dp->wq);
+	dp->save_node =	NULL;
 
 	/* if device closed, release the dma */
 	if (dp->wait_stop_dma == true) {
@@ -378,9 +601,9 @@ static void snd_dma_callback(void *arg)
 	}
 
 	/* start a new transfer */
-	if (!snd_prepare_dma_desc(dp))
-		snd_start_dma_transfer(dp , dp->dma_config.direction);
-	else {
+	if (!snd_prepare_dma_desc(dp)) {
+		snd_start_dma_transfer(dp ,dp->dma_config.direction);
+	} else {
 		dp->is_trans = false;
 		if (dp->pddata && dp->pddata->dev_ioctl) {
 			if (dp->dma_config.direction == DMA_FROM_DEVICE) {
@@ -391,6 +614,8 @@ static void snd_dma_callback(void *arg)
 			}
 		}
 	}
+
+	return;
 }
 
 /********************************************************\
@@ -469,7 +694,7 @@ static int release_shared_pipe_buf(struct dsp_pipe *dp, int spipe_id)
 {
 	if ((spipe_id < 0) || (spipe_id >= SND_SHARED_PIPE_CNT))
 		return -1;
-
+	dp->mod_timer = 1;
 	if (spipe[spipe_id].src_dp == dp) {
 		spipe[spipe_id].src_dp = NULL;
 	} else if (spipe[spipe_id].dst_dp == dp) {
@@ -521,6 +746,7 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 			spipe[spipe_id].sfragsize,
 			DMA_FROM_DEVICE);
 	dmaengine_submit(desc_in);
+	spipe[spipe_id].src_dp->mod_timer = 0;
 	snd_start_dma_transfer(spipe[spipe_id].src_dp ,
 			spipe[spipe_id].src_dp->dma_config.direction);
 
@@ -535,6 +761,7 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 			spipe[spipe_id].sfragsize,
 			DMA_TO_DEVICE);
 	dmaengine_submit(desc_out);
+	spipe[spipe_id].dst_dp->mod_timer = 0;
 	snd_start_dma_transfer(spipe[spipe_id].dst_dp , spipe[spipe_id].dst_dp->dma_config.direction);
 
 	return 0;
@@ -853,6 +1080,9 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	int i = 0;
 	struct dsp_node *node;
 
+	if (dp == NULL)
+		return -ENODEV;
+
 	if ((dp->fragsize != FRAGSIZE_S) &&
 		(dp->fragsize != FRAGSIZE_M) &&
 		(dp->fragsize != FRAGSIZE_L))
@@ -866,6 +1096,10 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	{
 		return -1;
 	}
+	
+	INIT_LIST_HEAD(&(dp->free_node_list));
+	INIT_LIST_HEAD(&(dp->dma_node_list));
+	INIT_LIST_HEAD(&(dp->use_node_list));
 
 	/* alloc memory */
 	dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
@@ -881,20 +1115,18 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 		if (!node)
 			goto init_pipe_error;
 
+		node->node_number = i;
 		node->pBuf = dp->vaddr + dp->fragsize * i;
 		node->phyaddr = dp->paddr + dp->fragsize * i;
 		node->start = 0;
 		node->end = 0;
 		node->size = dp->fragsize;
-
-		list_add(&node->list, &dp->free_node_list);
+		list_add_tail(&node->list, &dp->free_node_list);
 	}
 
+
+
 	/* init others */
-	if (direction == DMA_TO_DEVICE)
-		atomic_set(&dp->avialable_couter,dp->fragcnt);
-	else if (direction == DMA_FROM_DEVICE)
-		atomic_set(&dp->avialable_couter,0);
 	dp->dma_config.direction = direction;
 	dp->dma_chan = NULL;
 	dp->save_node = NULL;
@@ -905,11 +1137,32 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	dp->wait_stop_dma = false;
 	dp->force_stop_dma = false;
 	dp->need_reconfig_dma = false;
+	dp->is_shared = false;
+	dp->is_non_block = false;
 	dp->sg = NULL;
 	dp->sg_len = 0;
 	dp->filter = NULL;
 	dp->buffersize = dp->fragsize;
+	dp->mod_timer = 1;
+	dp->can_mmap = false;
+	dp->handle = NULL;
 
+	init_timer(&dp->transfer_watchdog);
+	if (direction == DMA_TO_DEVICE) {
+		atomic_set(&dp->avialable_couter,dp->fragcnt);
+		dp->watchdog_mdelay = 10;
+		dp->transfer_watchdog.function = replay_watch_function;
+		dp->samplerate = DEFAULT_REPLAY_SAMPLERATE;
+		dp->channels = DEFAULT_REPLAY_CHANNEL;
+	} else if (direction == DMA_FROM_DEVICE) {
+		atomic_set(&dp->avialable_couter,0);
+		dp->watchdog_mdelay = 128;
+		dp->transfer_watchdog.function = record_watch_function;
+		dp->samplerate = DEFAULT_RECORD_SAMPLERATE;
+		dp->channels = DEFAULT_RECORD_CHANNEL;
+	}
+	atomic_set(&dp->watchdog_avail,1);
+	dp->transfer_watchdog.data = (unsigned long)dp;
 	spin_lock_init(&dp->pipe_lock);
 
 	return 0;
@@ -1017,32 +1270,34 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 	if (dp->is_mmapd && dp->is_shared)
 		return -EBUSY;
+
+	dp->force_stop_dma = false;
 	do {
 		while(1) {
+			if (dp->force_stop_dma) {
+				dp->force_stop_dma = false;
+				return count - mcount;
+			}
 			node = get_use_dsp_node(dp);
 			if (dp->is_trans == false) {
 				ret = snd_prepare_dma_desc(dp);
 				if (!ret) {
 					snd_start_dma_transfer(dp , dp->dma_config.direction);
-					if (ddata && ddata->dev_ioctl /*&& first_start_record_dma == true*/) {
+					if (ddata && ddata->dev_ioctl) {
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
-						/*first_start_record_dma = false;*/
 					}
-				} else if (!node) {
+				} else if (!node)
 					return -EFAULT;
-				}
 			}
+
 			if (!node && dp->is_non_block)
 				return count - mcount;
+
 			if (!node) {
-                                if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
-						|| dp->force_stop_dma) < 0)
+				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)							|| dp->force_stop_dma == true) < 0)
 					return count - mcount;
-				if (dp->force_stop_dma) {
-					dp->force_stop_dma = false;
-					return count - mcount;
-				}
 			} else {
+				dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 				atomic_dec(&dp->avialable_couter);
 				break;
 			}
@@ -1058,32 +1313,36 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				}
 				fixed_buff_cnt = node_buff_cnt;
 			}
-			ret = copy_to_user((void *)buffer, (void *)(node->pBuf + node->start), fixed_buff_cnt);
+			if (copy_to_user((void *)buffer,
+						(void *)(node->pBuf + node->start), fixed_buff_cnt)) {
+				put_use_dsp_node_head(dp,node,0);
+				atomic_inc(&dp->avialable_couter);
+				return -EFAULT;
+			}
+
+			buffer += fixed_buff_cnt;
+			mcount -= fixed_buff_cnt;
+
 #ifdef DEBUG_RECORD
-		old_fs_record = get_fs();
-		set_fs(KERNEL_DS);
+			{
+				old_fs_record = get_fs();
+				set_fs(KERNEL_DS);
 
-		if (!IS_ERR(file_record)) {
-			vfs_write(file_record, (void *)(node->pBuf + node->start),fixed_buff_cnt, &file_record_offset);
-			file_record_offset = file_record->f_pos;
-		}
-		set_fs(old_fs_record);
+				if (!IS_ERR(file_record)) {
+					vfs_write(file_record,
+							(void *)(node->pBuf + node->start),
+							fixed_buff_cnt,
+							&file_record_offset);
+					file_record_offset = file_record->f_pos;
+				}
+				set_fs(old_fs_record);
+			}
 #endif
-
-			if (!ret) {
-				buffer += fixed_buff_cnt;
-				mcount -= fixed_buff_cnt;
-			} else
-				printk(KERN_ERR"i2s:read transfer error.\n");
-
-			//printk("fixed_buff_cnt %d, node_buff_cnt %d\n",fixed_buff_cnt,node_buff_cnt);
 			if (node_buff_cnt < node->end - node->start) {
 				put_use_dsp_node_head(dp,node,node_buff_cnt);
 				atomic_inc(&dp->avialable_couter);
 			} else
 				put_free_dsp_node(dp,node);
-			if (ret)
-				return -EFAULT;
 		}
 	} while (mcount > 0);
 
@@ -1102,7 +1361,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 {
 	int mcount = count;
 	int copy_size = 0;
-	int ret = -EINVAL;
+	int ret = 0;
 	struct dsp_node *node = NULL;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
@@ -1125,21 +1384,24 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	if (dp->is_mmapd && dp->is_shared)
 		return -EBUSY;
 
+	dp->force_stop_dma = false;
 	while (mcount > 0) {
 		while (1) {
+			if (dp->force_stop_dma) {
+				dp->force_stop_dma = false;
+				goto write_return;
+			}
 			node = get_free_dsp_node(dp);
 			if (!node) {
-				if (dp->is_trans == false)
-					return -1;
-				if (dp->is_non_block == true)
-					return count - mcount;
-				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
-						|| dp->force_stop_dma) < 0)
-					return count - mcount;
-				if (dp->force_stop_dma) {
-					dp->force_stop_dma = false;
-					return count - mcount;
+				if (dp->is_trans == false) {
+					ret = -ENOEXEC;
+					goto write_return;
 				}
+				if (dp->is_non_block == true)
+					goto write_return;
+				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
+							|| dp->force_stop_dma == true) < 0)
+					goto write_return;
 			} else {
 				atomic_dec(&dp->avialable_couter);
 				break;
@@ -1151,10 +1413,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		else
 			copy_size = mcount;
 
-		if (copy_from_user((void *)node->pBuf + node->start, buffer, copy_size) != 0) {
+		if (copy_from_user((void *)node->pBuf + node->start, buffer, copy_size)) {
 			put_free_dsp_node(dp,node);
 			atomic_inc(&dp->avialable_couter);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto write_return;
 		}
 
 #ifdef DEBUG_REPLAY
@@ -1169,23 +1432,22 @@ ssize_t xb_snd_dsp_write(struct file *file,
 #endif
 		buffer += copy_size;
 		mcount -= copy_size;
+		dma_cache_sync(NULL, (void *)node->pBuf, copy_size , dp->dma_config.direction);
 		put_use_dsp_node(dp, node, copy_size);
 
 		if (dp->is_trans == false) {
-			//printk("dp->is_trans == false \
-					it cannot be appear more than once when replay\n");
-			ret = snd_prepare_dma_desc(dp);
-			if (!ret) {
+			if (!snd_prepare_dma_desc(dp)) {
 				snd_start_dma_transfer(dp , dp->dma_config.direction);
-				if (ddata && ddata->dev_ioctl /*&& first_start_replay_dma == true*/) {
+				if (ddata && ddata->dev_ioctl)
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
-					/*first_start_replay_dma = false;*/
-				}
 			}
 		}
 	}
 
-	return count;
+write_return:
+	if (ret < 0)
+		return ret;
+	return count - mcount;
 }
 
 /********************************************************\
@@ -1265,7 +1527,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			return -EPERM;
 
 
-		if (cmd == SNDCTL_DSP_CHANNELS) {
+		if (cmd == SNDCTL_DSP_STEREO) {
 			if (channels > 2)
 				return -EFAULT;
 			channels = channels == 2 ? 1 : 0;
@@ -1643,15 +1905,19 @@ long xb_snd_dsp_ioctl(struct file *file,
 		   if opend as O_RDWR, only replay rate will be set, if record rate
 		   also need to be set, use cmd SOUND_PCM_READ_RATE instead */
 		if (file->f_mode & FMODE_WRITE) {
+			dp = endpoints->out_endpoint;
 			if (ddata->dev_ioctl)
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_RATE, (unsigned long)&rate);
 			if (!ret)
 				break;
+			dp->samplerate = rate;
 		} else if (file->f_mode & FMODE_READ) {
+			dp = endpoints->out_endpoint;
 			if (ddata->dev_ioctl)
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_RATE, (unsigned long)&rate);
 			if (!ret)
 				break;
+			dp->samplerate = rate;
 		} else
 			return -EPERM;
 
@@ -1674,20 +1940,22 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* OSS 4.x: Suspend the application until all samples have been played */
 		//TODO: check it will wait until replay complete
 		if (file->f_mode & FMODE_WRITE) {
+			int i = 0x7fffff;
 			dp = endpoints->out_endpoint;
-			while (get_free_dsp_node_count(dp) != dp->fragcnt) {
-				if (dp->is_trans == false) {
-					snd_release_node(dp);
-				}
-				msleep(100);
-			}
+			dp->wait_stop_dma = true;
+			while (wait_event_interruptible(dp->wq,
+						dp->is_trans == false) && i--);
+			if (!i)
+				return -EFAULT;
+			del_timer_sync(&dp->transfer_watchdog);
+			snd_release_node(dp);
 			ret = 0;
 		} else
 			ret = -ENOSYS;
 		break;
 
-		//case SNDCTL_DSP_RESET:
-		//break;
+	//case SNDCTL_DSP_RESET:
+	//break;
 
 		//case SNDCTL_DSP_SYNCSTART:
 		/* OSS 4.x: Starts all devices added to a synchronization group */
@@ -1698,6 +1966,23 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* OSS 4.x: Alters the S/PDIF interface setup */
 		/* we do't support here */
 		//break;
+		//
+	case SNDCTL_EXT_MOD_TIMER: {
+		int mod_timer	= 1;
+
+		if (get_user(mod_timer, (int*)arg))
+			return -EFAULT;
+
+		if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->in_endpoint;
+		else
+			dp = endpoints->out_endpoint;
+
+		dp->mod_timer = !!mod_timer;
+
+		ret = put_user(dp->mod_timer, (int *)arg);
+		break;
+	}
 
 	case SNDCTL_EXT_SET_DEVICE: {
 		/* extention: used for set audio route */
@@ -1716,24 +2001,28 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
+
 	case SNDCTL_EXT_SET_BUFFSIZE: {
-		int buffersize;
+		int buffersize = 4096;
 		if (get_user(buffersize,(int*)arg)) {
 			return -EFAULT;
 		}
 
-		if (file->f_mode & FMODE_WRITE) {
+		if (file->f_mode & FMODE_WRITE)
 			dp = endpoints->out_endpoint;
-			printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
-		} else if (file->f_mode & FMODE_READ)
+		else if (file->f_mode & FMODE_READ)
 			dp = endpoints->in_endpoint;
+
+		buffersize = buffersize & (~0xff);
 		if (buffersize >= dp->fragsize)
 			dp->buffersize = dp->fragsize;
 		else if (buffersize < dp->fragsize && buffersize >= 1024)
 			dp->buffersize = buffersize;
+		else if (dp->fragsize/4 >= 1024)
+			dp->buffersize = 1024;
 		else
-			printk("buffersize %d is not support,the range of buffersize frome %d to %d",
-					buffersize,1024,dp->fragsize);
+			dp->buffersize = dp->fragsize/4;
+
 		printk("audio buffersize change to %d",dp->buffersize);
 		ret = put_user(dp->buffersize, (int *)arg);
 		break;
@@ -1826,11 +2115,20 @@ long xb_snd_dsp_ioctl(struct file *file,
 				}
 
 				if (!node) {
-					wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1);
+					wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1
+							|| dp->force_stop_dma == true);
+					if (dp->force_stop_dma == true) {
+						info.bytes = 0;
+						info.offset = -1;
+						dp->force_stop_dma = false;
+						ret = copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
+						break;
+					}
 				} else {
 					dp->save_node = node;
 					info.bytes = node->size;
 					info.offset = node->pBuf - dp->vaddr;
+					dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 					ret = copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
 					atomic_dec(&dp->avialable_couter);
 				}
@@ -1882,6 +2180,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = copy_from_user((void *)&info, (void *)arg, sizeof(info)) ? -EFAULT : 0;
 			if (!ret) {
 				/* put node to use list */
+				dma_cache_sync(NULL,
+						(void *)dp->save_node->pBuf,
+						info.bytes,
+						dp->dma_config.direction);
 				put_use_dsp_node(dp, dp->save_node, info.bytes);
 				/* start dma transfer if dma is stopped */
 				if (dp->is_trans == false) {
@@ -1906,13 +2208,20 @@ long xb_snd_dsp_ioctl(struct file *file,
         if (file->f_mode & FMODE_WRITE)
 			dp = endpoints->out_endpoint;
 		if (dp != NULL) {
+			int i = 0x7ffff;
+			del_timer_sync(&dp->transfer_watchdog);
 			dp->force_stop_dma = true;
-			dmaengine_terminate_all(dp->dma_chan);
+			dp->wait_stop_dma = true;
+			while(wait_event_interruptible(dp->wq,dp->is_trans == false) && i--);
+			if (!i)
+				dmaengine_terminate_all(dp->dma_chan);
+			if (dp->force_stop_dma == true)
+				mdelay(20);
+			snd_release_node(dp);
 			dp->is_trans = false;
 			dp->wait_stop_dma = false;
-			wake_up_interruptible(&dp->wq);
 		}
-			return 0;
+		return 0;
 	}
 
 	case SNDCTL_EXT_SET_REPLAY_VOLUME: {
@@ -2045,7 +2354,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		}
 
 		first_start_record_dma = true;
-		dpi->is_non_block = file->f_flags & O_NONBLOCK;
+		dpi->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
 		/* enable dsp device record */
 		if (ddata->dev_ioctl) {
@@ -2073,7 +2382,7 @@ int xb_snd_dsp_open(struct inode *inode,
 
 		first_start_replay_dma = true;
 
-		dpo->is_non_block = file->f_flags & O_NONBLOCK;
+		dpo->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
 		/* enable dsp device replay */
 		if (ddata->dev_ioctl) {
