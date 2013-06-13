@@ -461,24 +461,12 @@ static int ft5x0x_ts_enable(struct ft5x0x_ts_data *ts) {
 
 static int ft5x0x_ts_disable(struct ft5x0x_ts_data *ts) {
 	int ret = 0;
-	int err = 1;
-	u8 value = 0;
-	u8 addr = 0;
-	int timeout = 0x05;
 
 	flush_workqueue(ts->ts_workqueue);
 	//ret = cancel_work_sync(&ts->pen_event_work);
 	if(cancel_delayed_work(&ts->pen_event_work))
 		enable_irq(ts->client->irq);
-	err = ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-	addr = FT5X0X_REG_PMODE;
-	ret = ft5x0x_i2c_rxdata(ts, &addr, 1, &value, 1);
-	if (err == 0) {
-		while ((0x03 != value) && (timeout-- > 0) && (ret <= 0)) {
-			msleep(10);
-			ret = ft5x0x_i2c_rxdata(ts, &addr, 1, &value, 1);
-		}
-	}
+	ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 	ret = ft5x0x_ts_power_off(ts);
 	if (ret < 0) {
 		dev_err(&ts->client->dev, "Failed to power off.");
@@ -680,8 +668,10 @@ static void ft5x0x_report_value(struct ft5x0x_ts_data *data)
 
 #endif	/* CONFIG_FT5X0X_MULTITOUCH*/
 	input_sync(data->input_dev);
+#ifdef CONFIG_FT5X0X_DEBUG
 	dev_info(&data->client->dev, "%s: 1:%d %d 2:%d %d", __func__,
 			event->x1, event->y1, event->x2, event->y2);
+#endif
 }	/*end ft5x0x_report_value*/
 
 static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
