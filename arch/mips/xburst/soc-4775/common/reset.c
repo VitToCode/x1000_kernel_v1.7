@@ -82,6 +82,17 @@ static void inline rtc_write_reg(int reg,int value)
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 }
 
+/*
+ * Function: Keep power for CPU core when reset.
+ * So that EPC, tcsm and so on can maintain it's status after reset-key pressed.
+ */
+void inline reset_keep_power(int keep_pwr)
+{
+	if (keep_pwr)
+		rtc_write_reg(RTC_PWRONCR,
+			      inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+}
+
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
 
 void jz_hibernate(void)
@@ -132,10 +143,13 @@ void jz_wdt_restart(char *command)
 
 static void hibernate_restart(void) {
 	uint32_t rtc_rtcsr,rtc_rtccr;
+
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+
 	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
+	rtc_rtccr &= ~(1 << 4);
 	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
 
       	/* Clear reset status */
