@@ -258,7 +258,7 @@ static int __init zpad80_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
-#ifndef CONFIG_NAND_JZ4780
+#if !defined(CONFIG_MMC0_JZ4780) || !defined(CONFIG_MTD_NAND_JZ4780)
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &zpad80_inand_pdata);
 #endif

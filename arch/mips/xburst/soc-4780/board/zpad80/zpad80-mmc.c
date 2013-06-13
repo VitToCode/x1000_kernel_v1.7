@@ -19,7 +19,8 @@
 static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
-#ifndef CONFIG_NAND_JZ4780
+
+#if !defined(CONFIG_MMC0_JZ4780) || !defined(CONFIG_MTD_NAND_JZ4780)
 #ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info zpad80_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
