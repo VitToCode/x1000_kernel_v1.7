@@ -124,8 +124,8 @@ struct file_operations dmmu_fops = {
 };
 
 /* transform the user's virturl addr to phys */
-static unsigned int get_phy_addr(unsigned int vaddr)
-{  
+static unsigned int get_phy_addr(unsigned int vaddr, int map)
+{
 	unsigned int addr = vaddr & (PAGE_SIZE-1);
 	pgd_t *pgdir;
 #ifdef CONFIG_PGTABLE_4
@@ -150,10 +150,15 @@ static unsigned int get_phy_addr(unsigned int vaddr)
 	if(pmd_none(*pmdir) || pmd_bad(*pmdir))  
 		return 0;  
 #endif
-	pte = pte_offset(pmdir,vaddr);  
-	if (pte_present(*pte)) {  
-		return addr | (pte_pfn(*pte) << PAGE_SHIFT);  
-	} 
+	pte = pte_offset(pmdir,vaddr);
+	if (pte_present(*pte)) {
+		struct page *page = pte_page(*pte);
+		if (map)
+			SetPageUnevictable(page);
+		else
+			ClearPageUnevictable(page);
+		return addr | (pte_pfn(*pte) << PAGE_SHIFT);
+	}
 
 	return 0;  
 }
@@ -195,7 +200,8 @@ static int traverse_dup_pages(struct list_head *head, unsigned int paddr)
 static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem, 
 							struct proc_page_tab_data *proc)
 {
-	int page_num, i, paddr, tlb_pos;
+	int page_num, i, tlb_pos;
+	unsigned int paddr;
 	int s_pos;
 	void *end, *addr;
 
@@ -210,11 +216,12 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 	mem->end_offset = ((unsigned int)mem->vaddr + mem->size) - (unsigned int)end;
 
 	s_pos = tlb_pos;
- 
+
+	down_write(&current->mm->mmap_sem);
 	for (i=0; i < page_num; i++) {
 		int *p_tlb;
 again:
-		paddr = get_phy_addr((unsigned int)addr);
+		paddr = get_phy_addr((unsigned int)addr, 1);
 		if (!paddr) {
 			void *tmp_vaddr = phys_to_virt(jz_dmmu.dummy_base);
 			memcpy(tmp_vaddr, addr, PAGE_SIZE>>4);
@@ -256,6 +263,7 @@ again:
 		addr += PAGE_SIZE;
 		dev_dbg(jz_dmmu.dev, "%d tlb_pos: %d, addr: %p, page_base: %p\n", __LINE__, tlb_pos, addr, page_base);
 	}
+	up_write(&current->mm->mmap_sem);
 
 	dma_cache_wback((unsigned int)(proc->vbase + s_pos), page_num * 4);
 
@@ -305,8 +313,13 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
 	tlb_pos = ((unsigned int)mem->vaddr >> PAGE_SHIFT) << 2;
 	s_pos = tlb_pos;
 
+	down_write(&current->mm->mmap_sem);
 	for (i = 0; i < page_num; i++) {
 		int *p_tlb;
+
+		get_phy_addr((unsigned int)vaddr, 0);
+		vaddr += PAGE_SIZE;
+
 		p_tlb = (int *)(proc->vbase + tlb_pos);
 
         /* find && release possible dup pages */
@@ -318,7 +331,8 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
   		*p_tlb = jz_dmmu.dummy_base;
 		tlb_pos += 4;
 	}
-	
+	up_write(&current->mm->mmap_sem);
+
 	return 0;
 }
 
