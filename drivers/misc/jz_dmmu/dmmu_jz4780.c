@@ -94,7 +94,8 @@ struct dmmu_global_data {
 	unsigned int base;  /* physical start address of the remaped dmmu space */	
 	unsigned char __iomem *vbase;  /* vitual start address of the remaped dmmu space */	
 	unsigned int size;  /* total size of the dmmu space */
-	unsigned int dummy_base;  /* dummy_base point to a 4k area used to fix a bug of X2D */
+	void * dummy_page_vbase;  /* dummy page,  point to a 4k area used to fix a bug of X2D */
+	unsigned int dummy_page_phys_addr;  /* dummy page physical address, point to a 4k area used to fix a bug of X2D */
 
 	unsigned int page_table_pool_init_capacity;  /* init capacity */
 	struct mutex page_table_pool_lock;
@@ -223,7 +224,7 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 again:
 		paddr = get_phy_addr((unsigned int)addr, 1);
 		if (!paddr) {
-			void *tmp_vaddr = phys_to_virt(jz_dmmu.dummy_base);
+			void *tmp_vaddr = jz_dmmu.dummy_page_vbase;
 			memcpy(tmp_vaddr, addr, PAGE_SIZE>>4);
 			goto again;
 		}
@@ -286,7 +287,7 @@ static void free_dup_pages(struct list_head *head, int *p_tlb)
 			dup_page->count--;
 			if (!dup_page->count) {
 				dev_dbg(jz_dmmu.dev, "%s %d\n",__func__,__LINE__);
-				*p_tlb = jz_dmmu.dummy_base;
+				*p_tlb = jz_dmmu.dummy_page_phys_addr;
 				list_del_init(pos);
 			}
 			break;
@@ -328,7 +329,7 @@ static int free_tlb_address(struct dmmu_mem_info *mem, struct proc_page_tab_data
 			free_dup_pages(head, p_tlb);
 		else
 #endif
-  		*p_tlb = jz_dmmu.dummy_base;
+		*p_tlb = jz_dmmu.dummy_page_phys_addr;
 		tlb_pos += 4;
 	}
 	up_write(&current->mm->mmap_sem);
@@ -822,6 +823,18 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+static inline void * i_memset32(void *vbase, unsigned int value32, int total_size)
+{
+    unsigned int * s32;
+    int iii, isize;
+    s32 = (unsigned int *)vbase;
+    isize = total_size/(sizeof(unsigned int));
+    for (iii=0; iii<isize; iii++) {
+        *s32++ = value32;
+    }
+    return (void*)s32;
+}
+
 static int dmmu_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -850,8 +863,9 @@ static int dmmu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "__get_free_page failed!\n");
 		goto err_get_page;
 	}
-	jz_dmmu.dummy_base = virt_to_phys(vaddr);
-	jz_dmmu.dummy_base += PAGE_VALID_BIT;
+	jz_dmmu.dummy_page_vbase = (vaddr);
+	jz_dmmu.dummy_page_phys_addr = virt_to_phys(vaddr);
+	jz_dmmu.dummy_page_phys_addr |= PAGE_VALID_BIT;
 	if (jz_dmmu.base) {
 		if (pdata->cached) {
 			jz_dmmu.vbase = ioremap_cachable(jz_dmmu.base, jz_dmmu.size);
@@ -872,9 +886,11 @@ static int dmmu_probe(struct platform_device *pdev)
 
 		/* page aligned */
 		jz_dmmu.vbase = (void*)(((unsigned int)jz_dmmu.vbase + PAGE_SIZE-1) & (~(PAGE_SIZE-1)));
-		memset(jz_dmmu.vbase, jz_dmmu.dummy_base, total_size);
 		jz_dmmu.base = virt_to_phys(jz_dmmu.vbase);
 	}
+
+        //memset(jz_dmmu.vbase, jz_dmmu.dummy_base, total_size);
+        i_memset32(jz_dmmu.vbase, jz_dmmu.dummy_page_phys_addr, total_size);
 
 	/* init mutex */
 	mutex_init(&jz_dmmu.page_table_pool_lock);
@@ -906,7 +922,7 @@ err_get_page:
 static int dmmu_remove(struct platform_device *pdev)
 {
 	void *vaddr;
-	vaddr = phys_to_virt(jz_dmmu.dummy_base);
+	vaddr = jz_dmmu.dummy_page_vbase;
 
 	kfree(vaddr);
 	kfree(jz_dmmu.vbase);
