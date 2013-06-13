@@ -353,6 +353,29 @@ static int mma8452_device_power_on(struct mma8452_data *mma)
 	return 0;
 }
 
+static int mma8452_reset(struct mma8452_data *mma)
+{
+	int err = 0;
+
+	err = mma8452_device_power_off(mma);
+	if (err) {
+		dev_err(&mma->client->dev,
+				"reset failed: %d\n", err);
+		return err;
+	}
+	mdelay(2);
+	err = mma8452_device_power_on(mma);
+	if (err) {
+		dev_err(&mma->client->dev,
+				"reset failed: %d\n", err);
+		return err;
+	}
+	mdelay(2);
+	atomic_set(&mma->enabled,1);
+
+	return 0;
+}
+
 static int mma8452_enable(struct mma8452_data *mma)
 {
 	int result;
@@ -568,6 +591,7 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 		dev_warn(&client->dev, "get regulator failed\n");
 	}
 	udelay(10);
+	mma8452_reset(mma);
 
         /*--read id must add to load mma8452 or lis3dh--*/
         printk(KERN_INFO "check mma8452 chip ID\n");
@@ -583,11 +607,6 @@ static int __devinit mma8452_probe(struct i2c_client *client,
 		dev_err(&client->dev, "no irq pin available\n");
 		mma->pdata->gpio_int = -EBUSY;
 	}
-	mma8452_device_power_off(mma);
-	udelay(100);
-	mma8452_device_power_on(mma);
-	udelay(100);
-	atomic_set(&mma->enabled,1);
 
 	i2c_set_clientdata(client,mma);
 
