@@ -42,6 +42,10 @@
 #endif
 
 
+#define DEFAULT_REPLAY_SAMPLERATE	44100
+#define DEFAULT_RECORD_SAMPLERATE	44100
+#define DEFAULT_REPLAY_CHANNEL		2
+#define DEFAULT_RECORD_CHANNEL		1
 /**
  * sound device
  **/
@@ -97,6 +101,7 @@ struct spipe_info {
     enum spipe_mode_t spipe_mode;
 };
 
+#define SNDCTL_EXT_MOD_TIMER				_SIOW ('P', 101, int)
 #define SNDCTL_EXT_SET_BUFFSIZE				_SIOR ('P', 100, int)
 #define SNDCTL_EXT_SET_DEVICE               _SIOR ('P', 99, int)
 #define SNDCTL_EXT_SET_STANDBY              _SIOR ('P', 98, int)
@@ -213,6 +218,7 @@ struct dsp_node {
 	unsigned int        end;
 	dma_addr_t			phyaddr;
 	size_t				size;
+	uint32_t			node_number;
 };
 
 struct dsp_pipe {
@@ -229,11 +235,19 @@ struct dsp_pipe {
 	size_t              fragcnt;               /* define by device */
 	size_t				buffersize;
 	size_t				channels;
+	unsigned			samplerate;
+	int					mod_timer;
 	struct list_head    free_node_list;
 	struct list_head    use_node_list;
+	struct list_head	dma_node_list;
 	struct dsp_node     *save_node;
 	wait_queue_head_t   wq;
 	atomic_t			avialable_couter;
+
+	atomic_t			watchdog_avail;
+	struct timer_list	transfer_watchdog;
+	uint32_t watchdog_mdelay;
+
 	/* state */
 	volatile bool       is_trans;
 	volatile bool       wait_stop_dma;

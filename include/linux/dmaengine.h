@@ -499,6 +499,11 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_cyclic)(
 		struct dma_chan *chan, dma_addr_t buf_addr, size_t buf_len,
 		size_t period_len, enum dma_data_direction direction);
+
+	dma_addr_t (*get_current_trans_addr)(
+			struct dma_chan *chan,dma_addr_t *dst_addr,
+			dma_addr_t *src_addr,enum dma_data_direction direction);
+
 	int (*device_control)(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 		unsigned long arg);
 
