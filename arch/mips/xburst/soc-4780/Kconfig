@@ -74,6 +74,8 @@ config BOARD_ZPAD80
 
 config BOARD_EBOOK
         bool "EBOOK"
+config BOARD_VEHICLE
+        bool "VEHICLE"
 
 endchoice
 
@@ -104,4 +106,5 @@ config BOARD_NAME
 	default "ZPAD80" if BOARD_ZPAD80
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
 	default "EBOOK" if BOARD_EBOOK
+	default "VEHICLE" if BOARD_VEHICLE
 
