@@ -119,21 +119,29 @@ static void ft5x0x_chip_reset(struct ft5x0x_ts_data *ts);
 
 static int ft5x0x_ts_power_on(struct ft5x0x_ts_data *ts)
 {
-	if (ts->power) {
-		if(atomic_cmpxchg(&ts->regulator_enabled, 0, 1) == 0)
-			return regulator_enable(ts->power);
+	if (!IS_ERR(ts->power)) {
+		if(atomic_cmpxchg(&ts->regulator_enabled, 0, 1) == 0) {
+			if (!regulator_is_enabled(ts->power)) {
+				return regulator_enable(ts->power);
+			}
+		}
 	}
 
+	dev_err(&ts->client->dev, "%s: Failed to get regulator.", __FUNCTION__);
 	return 0;
 }
 
 static int ft5x0x_ts_power_off(struct ft5x0x_ts_data *ts)
 {
-	if (ts->power) {
-		if (atomic_cmpxchg(&ts->regulator_enabled, 1, 0))
-			return regulator_disable(ts->power);
+	if (!IS_ERR(ts->power)) {
+		if (atomic_cmpxchg(&ts->regulator_enabled, 1, 0)) {
+			if (regulator_is_enabled(ts->power)) {
+				return regulator_disable(ts->power);
+			}
+		}
 	}
 
+	dev_err(&ts->client->dev, "%s: Failed to get regulator.", __FUNCTION__);
 	return 0;
 }
 
@@ -334,7 +342,7 @@ static int ft5x0x_touchkey_release(struct ft5x0x_ts_data *ft5x0x_ts)
 static int ft5x0x_i2c_rxdata(struct ft5x0x_ts_data *ts, char *writebuf, int writelen,
 						char *readbuf, int readlen)
 {
-	int ret;
+	int ret = 0;
 	if (writelen > 0) {
 		struct i2c_msg msgs[] = {
 			{
@@ -377,8 +385,7 @@ static int ft5x0x_i2c_rxdata(struct ft5x0x_ts_data *ts, char *writebuf, int writ
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int ft5x0x_i2c_txdata(struct ft5x0x_ts_data *ts, char *txdata, int length)
 {
-	int ret;
-
+	int ret = 0;
 	struct i2c_msg msg[] = {
 		{
 			.addr	= ts->client->addr,
@@ -739,9 +746,7 @@ static void ft5x0x_ts_suspend(struct early_suspend *handler)
 	mutex_lock(&ts->lock);
 	ts->is_suspend = 1;
 	disable_irq_nosync(ts->client->irq);
-	ret = ft5x0x_ts_disable(ts);
-	if (ret < 0)
-		dev_err(&ts->client->dev, "Failed to earlysuspend.");
+	ft5x0x_ts_disable(ts);
 	mutex_unlock(&ts->lock);
 }
 
@@ -756,9 +761,7 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 #endif
 	dev_info(&ts->client->dev, ": starting resume.");
 	mutex_lock(&ts->lock);
-	ret = ft5x0x_ts_enable(ts);
-	if (ret < 0)
-		dev_err(&ts->client->dev, "Failed to lateresume.");
+	ft5x0x_ts_enable(ts);
 	ts->is_suspend = 0;
 	mutex_unlock(&ts->lock);
 	enable_irq(ts->client->irq);
@@ -879,7 +882,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	client->dev.init_name=client->name;
 	ft5x0x_ts->power = regulator_get(&client->dev, "vtsc");
 	if (IS_ERR(ft5x0x_ts->power)) {
-		dev_warn(&client->dev, "get regulator failed\n");
+		dev_err(&client->dev, "Failed to get regulator.");
 	}
 	ft5x0x_ts_power_on(ft5x0x_ts);
 	msleep(500);
