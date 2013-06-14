@@ -127,7 +127,6 @@ static int ft5x0x_ts_power_on(struct ft5x0x_ts_data *ts)
 		}
 	}
 
-	dev_err(&ts->client->dev, "%s: Failed to get regulator.", __FUNCTION__);
 	return 0;
 }
 
@@ -141,7 +140,6 @@ static int ft5x0x_ts_power_off(struct ft5x0x_ts_data *ts)
 		}
 	}
 
-	dev_err(&ts->client->dev, "%s: Failed to get regulator.", __FUNCTION__);
 	return 0;
 }
 
