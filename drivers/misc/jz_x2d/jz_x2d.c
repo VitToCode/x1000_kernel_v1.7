@@ -54,6 +54,8 @@
 #define JZ4780_X2D_WTHDOG_1S 0xa0000000
 #define X2D_LAYER_OFFSET 0x1000
 
+#define X2D_SCALE_FACTOR 512
+
 //#define X2D_DEBUG
 //#define CLEAR_DST
 
@@ -582,11 +584,39 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		jz_x2d->chain_p->x2d_lays[i].oyoffset= (uint16_t)x2d_proc->configs.lay[i].out_h_offset;
 
 		if (x2d_proc->configs.lay[i].format == Tile_YUV420) {
-			jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * 512) \
-					/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
-			jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * 512) \
-					/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
-		}else {
+			switch (x2d_proc->configs.lay[i].transform) {
+				case X2D_H_MIRROR:
+				case X2D_V_MIRROR:
+				case X2D_ROTATE_0:
+				case X2D_ROTATE_180:
+					jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = \
+						(uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * X2D_SCALE_FACTOR) \
+						/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
+					jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = \
+						(uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * X2D_SCALE_FACTOR) \
+						/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
+					if(jz_x2d->chain_p->x2d_lays[i].swidth < jz_x2d->chain_p->x2d_lays[i].owidth)
+						jz_x2d->chain_p->x2d_lays[i].rsz_hcoef -= 1;
+					if(jz_x2d->chain_p->x2d_lays[i].sheight < jz_x2d->chain_p->x2d_lays[i].oheight)
+						jz_x2d->chain_p->x2d_lays[i].rsz_vcoef -= 1;
+					break;
+				case X2D_ROTATE_90:
+				case X2D_ROTATE_270:
+					jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = \
+						(uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].swidth * X2D_SCALE_FACTOR) \
+						/(uint16_t)jz_x2d->chain_p->x2d_lays[i].oheight);
+					jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = \
+						(uint16_t)(((uint32_t)jz_x2d->chain_p->x2d_lays[i].sheight * X2D_SCALE_FACTOR) \
+						/(uint16_t)jz_x2d->chain_p->x2d_lays[i].owidth);
+					if(jz_x2d->chain_p->x2d_lays[i].swidth < jz_x2d->chain_p->x2d_lays[i].oheight)
+						jz_x2d->chain_p->x2d_lays[i].rsz_hcoef -= 1;
+					if(jz_x2d->chain_p->x2d_lays[i].sheight < jz_x2d->chain_p->x2d_lays[i].owidth)
+						jz_x2d->chain_p->x2d_lays[i].rsz_vcoef -= 1;
+					break;
+				default:
+					dev_err(jz_x2d->dev,"undefined rotation degree!!!!");
+			}
+		} else {
 			jz_x2d->chain_p->x2d_lays[i].rsz_hcoef = (uint16_t)x2d_proc->configs.lay[i].h_scale_ratio;
 			jz_x2d->chain_p->x2d_lays[i].rsz_vcoef = (uint16_t)x2d_proc->configs.lay[i].v_scale_ratio;
 		}
