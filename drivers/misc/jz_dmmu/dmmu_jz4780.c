@@ -153,11 +153,13 @@ static unsigned int get_phy_addr(unsigned int vaddr, int map)
 #endif
 	pte = pte_offset(pmdir,vaddr);
 	if (pte_present(*pte)) {
+#ifdef CONFIG_COMPACTION // CONFIG_COMPACTION=y CONFIG_MIGRATION=y
 		struct page *page = pte_page(*pte);
 		if (map)
 			SetPageUnevictable(page);
 		else
 			ClearPageUnevictable(page);
+#endif
 		return addr | (pte_pfn(*pte) << PAGE_SHIFT);
 	}
 
