@@ -25,7 +25,7 @@
 #define CT36X_TS_POINT_NUM 10    // max touch points supported
 
 #ifdef CONFIG_BOARD_M80B
-#define CT36X_TS_X_REVERSE	1
+#define CT36X_TS_X_REVERSE	0
 #else
 #define CT36X_TS_X_REVERSE	0
 #endif
