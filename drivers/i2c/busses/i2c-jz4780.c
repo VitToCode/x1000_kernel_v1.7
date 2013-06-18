@@ -144,8 +144,10 @@ char *abrt_src[] = {
 
 
 #define I2C_FIFO_LEN 16
-#define TX_LEVEL (I2C_FIFO_LEN / 2)
-#define RX_LEVEL (I2C_FIFO_LEN / 2 - 1)
+/*#define TX_LEVEL (I2C_FIFO_LEN / 2)*/
+#define TX_LEVEL	3
+/*#define RX_LEVEL (I2C_FIFO_LEN / 2 - 1)*/
+#define RX_LEVEL	(I2C_FIFO_LEN - TX_LEVEL - 1)
 #define TIMEOUT	0x64
 
 #define BUFSIZE 200
@@ -161,8 +163,9 @@ struct jz_i2c {
 
 	/* begin of lock scope */
 	unsigned char	*rbuf;
-	int		 rd_len;
-	int		 rdcmd_len;
+	int		 rd_total_len;
+	int		 rd_data_xfered;
+	int		 rd_cmd_xfered;
 
 	unsigned char	*wbuf;
 	int		 wt_len;
@@ -571,35 +574,85 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 		goto done;
 	}
 
+	if (intst & I2C_INTST_RXOF) {
+		printk("----> receive fifo overflow!\n");
+        jz_i2c_trans_done(i2c);
+		goto done;
+	}
+
 	/* when read, always drain RX FIFO before we send more Read Commands to avoid fifo overrun */
 	if (i2c->is_write == 0) {
+		int rd_left;
+
 		while ((i2c_readl(i2c,I2C_STA) & I2C_STA_RFNE)){
 			*(i2c->rbuf++) = i2c_readl(i2c, I2C_DC) & 0xff;
-			i2c->rd_len--;
-			if (i2c->rd_len == 0) {
+			i2c->rd_data_xfered++;
+			if (i2c->rd_data_xfered == i2c->rd_total_len) {
 				jz_i2c_trans_done(i2c);
 				goto done;
 			}
 		}
 
-		if(i2c->rd_len > 0 &&  i2c->rd_len <= I2C_FIFO_LEN){
-			i2c_writel(i2c, I2C_RXTL, i2c->rd_len - 1);
+		rd_left = i2c->rd_total_len - i2c->rd_data_xfered;
+		/*
+		 * if rd_left > I2C_FIFO_LEN, I2C_RXTL remains RX_LEVEL,
+		 * but if rd_left < I2C_FIFO_LEN, set I2C_RXTL to (rd_left - 1)
+		 * so when all transfer complete, we will receive a RXFL interrupt
+		 */
+		if (rd_left <= I2C_FIFO_LEN){
+			i2c_writel(i2c, I2C_RXTL, rd_left - 1);
 		}
 	}
 
+#if 0			      /* for debug */
+	if ( (i2c->is_write == 0) & (i2c->adap.nr == 0) ) {
+		printk("===>total: %d data_xfered = %d cmd_xfered = %d intm=0x%08x intst=0x%08x\n",
+			i2c->rd_total_len, i2c->rd_data_xfered, i2c->rd_cmd_xfered,
+			i2c_readl(i2c,I2C_INTM), i2c_readl(i2c,I2C_INTST));
+	}
+#endif
+
 	if (intst & I2C_INTST_TXEMP) {
 		if (i2c->is_write == 0) {
-			/* because we have drained RX FIFO before,
-			 * so at this step, we can ensure that RX FIFO remain count <= (I2C_FIFO_LEN - TX_LEVEL) */
-			if(i2c->rdcmd_len >= (I2C_FIFO_LEN - TX_LEVEL)){
-				i2c_send_rcmd(i2c, I2C_FIFO_LEN - TX_LEVEL);
-				i2c->rdcmd_len -= (I2C_FIFO_LEN - TX_LEVEL);
-			}else{
-				i2c_send_rcmd(i2c, i2c->rdcmd_len);
-				i2c->rdcmd_len = 0;
+			int cmd_left = i2c->rd_total_len - i2c->rd_cmd_xfered;
+			int max_send = (I2C_FIFO_LEN - 1) - (i2c->rd_cmd_xfered - i2c->rd_data_xfered);
+			int cmd_to_send = min(cmd_left, max_send);
+
+			if (i2c->rd_cmd_xfered != 0)
+				cmd_to_send = min(cmd_to_send, I2C_FIFO_LEN - TX_LEVEL - 1);
+
+			/*
+			 * at this time:
+			 * 1. we have read rd_data_xfered bytes
+			 * 2. we have send rd_cmd_xfered commands
+			 *
+			 * we have (rd_total_len - rd_cmd_xfered) commands to send, BUT:
+			 *  if rd_cmd_xfered > rd_data_xfered:
+			 *     (rd_cmd_xfered - rd_data_xfered) are transfering
+			 *     we can only send max of (I2C_FIFO_LEN -  (rd_cmd_xfered - rd_data_xfered)) RD commands
+			 *  else rd_cmd_xfered will be equal rd_data_xfered
+			 *
+			 * So: we can send
+			 *    min( (I2C_FIFO_LEN - (rd_cmd_xfered - rd_data_xfered)), (rd_total_len - rd_cmd_xfered))
+			 *
+			 */
+
+			if (cmd_to_send) {
+				i2c_send_rcmd(i2c, cmd_to_send);
+				i2c->rd_cmd_xfered += cmd_to_send;
 			}
 
-			if (!i2c->rdcmd_len) {
+			cmd_left = i2c->rd_total_len - i2c->rd_cmd_xfered;
+			if (cmd_left == 0) {
+				/*
+				 * clear TXEMP interrupt, we are finish, do not need it any more!
+				 * NOTE: I2C_INTM_MTXABT is still needed, because cmd_left ==0
+				 *       do not mean all command are send to line
+				 */
+				intmsk = i2c_readl(i2c, I2C_INTM);
+				intmsk &= ~I2C_INTM_MTXEMP;
+				i2c_writel(i2c, I2C_INTM, intmsk);
+
 				tmp = i2c_readl(i2c,I2C_CTRL);
 				tmp &= ~I2C_CTRL_STPHLD;
 				i2c_writel(i2c,I2C_CTRL,tmp);
@@ -630,7 +683,7 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 
 				jz_i2c_trans_done(i2c);
 				goto done;
-                       }
+            }
 		}
 	}
 
@@ -676,8 +729,9 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 
 	i2c->is_write = 0;
 	i2c->rbuf = buf;
-	i2c->rd_len = len;
-	i2c->rdcmd_len = len;
+	i2c->rd_total_len = len;
+	i2c->rd_data_xfered = 0;
+	i2c->rd_cmd_xfered = 0;
 
 	if (len <= I2C_FIFO_LEN) {
 		i2c_writel(i2c, I2C_RXTL, len - 1);
@@ -697,7 +751,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 	atomic_set(&i2c->trans_done, 0);
 
 	i2c_writel(i2c, I2C_INTM,
-		I2C_INTM_MRXFL | I2C_INTM_MTXEMP | I2C_INTM_MTXABT);
+		I2C_INTM_MRXFL | I2C_INTM_MTXEMP | I2C_INTM_MTXABT | I2C_INTM_MRXOF);
 
 	tmp = i2c_readl(i2c, I2C_CTRL);
 	tmp |= I2C_CTRL_STPHLD;
