@@ -184,17 +184,14 @@ static int jz_battery_adjust_voltage(struct jz_battery *battery)
 		final_value = value_sum / (10 - j);
 	}
 
-	if ((slop == 0) && (cut == 0)) {
+	if ((slop == 2895) && (cut == 90000)) {
 		real_voltage = final_value * 1200 / 4096;
 		real_voltage *= 4;
-		pr_info("Battery driver:The voltage is %dmV\n",real_voltage);
+		pr_debug("Battery driver:The voltage is %dmV\n",real_voltage);
 	} else {
-		real_voltage = final_value * 1200 / 4096;
-		real_voltage *= 4;
-		pr_info("Battery driver:The voltage is %dmV\n",real_voltage);
 		real_voltage = (final_value * slop + cut) / 10000;
 		real_voltage *= 4;
-		pr_info("Battery driver:The adjust voltage is %dmV\n",real_voltage);
+		pr_debug("Battery driver:The adjust voltage is %dmV\n",real_voltage);
 	}
 
 	return real_voltage;
@@ -563,17 +560,17 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 	jz_battery->ac = ac;
 	jz_battery->usb = usb;
 
-	pr_info("Battery driver: Now battery status is %d, status_tmp is %d\n", jz_battery->status,
+	pr_debug("Battery driver: Now battery status is %d, status_tmp is %d\n", jz_battery->status,
 			jz_battery->status_tmp);
-	pr_info("Battery driver: Now display status is %d\n", jz_battery->status_charge);
-	pr_info("Battery driver: Now battery capacity calculate is %d\n", jz_battery->capacity_calculate);
+	pr_debug("Battery driver: Now display status is %d\n", jz_battery->status_charge);
+	pr_debug("Battery driver: Now battery capacity calculate is %d\n", jz_battery->capacity_calculate);
 
 	if (has_changed) {
 		unsigned int tmp = jz_battery->capacity;
-		pr_info("Battery driver: Now battery voltage is %dmV\n", jz_battery->voltage);
+		pr_debug("Battery driver: Now battery voltage is %dmV\n", jz_battery->voltage);
 		jz_battery_get_capacity(jz_battery);
 		if (tmp != jz_battery->capacity)
-			pr_info("Battery driver: Capacity is %d\n", jz_battery->capacity);
+			pr_debug("Battery driver: Capacity is %d\n", jz_battery->capacity);
 
 		power_supply_changed(&jz_battery->battery);
 	}
@@ -586,7 +583,7 @@ static void jz_battery_work(struct work_struct *work)
 
 	jz_battery_update_work(jz_battery);
 
-	pr_info("Battery driver: Next check time is %ds\n", jz_battery->next_scan_time);
+	pr_debug("Battery driver: Next check time is %ds\n", jz_battery->next_scan_time);
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
 }
 
@@ -636,7 +633,7 @@ static void jz_battery_resume_capacity_for_ac(struct jz_battery *jz_battery)
 			} else if (jz_battery->private.timecount > 50 * 60)
 				printk("Battery driver: error in calculate capacity before sleep\n");
 		} else {
-			pr_info("Battery driver: the sleep time < 3m, the capcacity don't change\n");
+			pr_debug("Battery driver: the sleep time < 3m, the capcacity don't change\n");
 		}
 	} else {
 		time_tmp = jz_battery->private.timecount -		\
@@ -669,7 +666,7 @@ static void jz_battery_resume_capacity_for_usb(struct jz_battery *jz_battery)
 			} else if (jz_battery->private.timecount > 50 * 60)
 				printk("Battery driver: error in calculate capacity before sleep\n");
 		} else {
-			pr_info("Battery driver: the sleep time < 3m, the capcacity don't change\n");
+			pr_debug("Battery driver: the sleep time < 3m, the capcacity don't change\n");
 		}
 	} else {
 		time_tmp = jz_battery->private.timecount -		\

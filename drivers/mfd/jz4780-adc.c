@@ -116,6 +116,7 @@ static void jz_adc_irq_ack(struct irq_data *data)
 static struct irq_chip jz_adc_irq_chip = {
 	.name = "jz4780-adc",
 	.irq_mask = jz_adc_irq_mask,
+	.irq_disable = jz_adc_irq_mask,
 	.irq_unmask = jz_adc_irq_unmask,
 	.irq_ack = jz_adc_irq_ack,
 };
