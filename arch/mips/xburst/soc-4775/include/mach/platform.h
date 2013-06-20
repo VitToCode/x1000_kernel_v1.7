@@ -144,6 +144,10 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
 
+#ifdef CONFIG_JZ4775_EFUSE
+extern struct platform_device jz_efuse_device;
+#endif
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #endif

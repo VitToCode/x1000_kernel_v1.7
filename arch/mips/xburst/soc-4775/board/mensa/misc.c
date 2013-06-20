@@ -10,6 +10,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/power/jz4780-battery.h>
@@ -234,6 +235,14 @@ static struct platform_device pmem_adsp_device = {
 };
 #endif
 
+/* efuse */
+#ifdef CONFIG_JZ4775_EFUSE
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+       /* supply 2.5V to VDDQ */
+       .gpio_vddq_en_n = -ENODEV,
+};
+#endif
+
 static int __init board_init(void)
 {
 /* dma */
@@ -412,7 +421,10 @@ static int __init board_init(void)
 #ifdef CONFIG_BCM4330_RFKILL
 		platform_device_register(&bcm4330_bt_power_device);
 #endif
-
+/* efuse */
+#ifdef CONFIG_JZ4775_EFUSE
+       jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
+#endif
 	return 0;
 }
 

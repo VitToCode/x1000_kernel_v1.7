@@ -31,7 +31,7 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 
-#ifdef CONFIG_JZ4780_EFUSE
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
 #include <mach/jz4780_efuse.h>
 #endif
 #include "gadget_chips.h"
@@ -1042,7 +1042,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	struct android_dev *dev = _android_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
 	int			gcnum, id, ret;
-#ifdef CONFIG_JZ4780_EFUSE
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
 	uint32_t		chip_id[4];
 #endif
 
@@ -1070,7 +1070,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	/* Default strings - should be updated by userspace */
 	strncpy(manufacturer_string, "Ingenic", sizeof(manufacturer_string) - 1);
 	strncpy(product_string, "Android Tablet", sizeof(product_string) - 1);
-#ifdef CONFIG_JZ4780_EFUSE
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
 	jz_efuse_id_read(1, chip_id);
 	snprintf(serial_string, sizeof(serial_string) - 1,
 		 "%s-%08x-%08x-%08x-%08x", CONFIG_USB_SERIAL_NUM,

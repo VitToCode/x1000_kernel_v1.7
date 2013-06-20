@@ -827,3 +827,9 @@ struct platform_device  jz_dwc_otg_device = {
 	.num_resources	= ARRAY_SIZE(jz_dwc_otg_resources),
 	.resource	= jz_dwc_otg_resources,
 };
+#ifdef CONFIG_JZ4775_EFUSE
+/* efuse */
+struct platform_device jz_efuse_device = {
+       .name = "jz4780-efuse",
+};
+#endif
