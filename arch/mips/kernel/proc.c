@@ -130,12 +130,12 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		
 		/* Android requires 'Hardware' to setup the init.%hardware%.rc */
 		seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
-
+#if ((define CONFIG_JZ4780_EFUSE) || (define CONFIG_JZ4780_EFUSE))
 printk("==============jz_efuse_id_read ... =========");
 		jz_efuse_id_read(1, efbuf);
 printk("==============jz_efuse_id_read ok ! =========");		
+#endif
 		seq_printf(m, "Serial		: %08x %08x %08x %08x\n", efbuf[0], efbuf[1], efbuf[2], efbuf[3]);
-
 		seq_printf(m, "\n");
 	}
 	return 0;
