@@ -79,10 +79,15 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_LIS3DH_INT1		GPIO_PF(9)
 
 /**
+ * IR remote gpio interface
+ **/
+#define GPIO_REMOTE_PIN		GPIO_PB(24)
+
+/**
  * ethernet aix88796
  **/
-#define AIX_ETH_INT		GPIO_PF(18)
-#define AIX_ETH_RESET	GPIO_PF(21)
+#define AIX_ETH_INT		GPIO_PF(14)	/*pf18*/
+#define AIX_ETH_RESET	GPIO_PF(15)		/*pf21*/
 
 /**
  * keyboard gpio interface

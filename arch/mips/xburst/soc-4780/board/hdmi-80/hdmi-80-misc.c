@@ -29,6 +29,7 @@
 #include <gpio.h>
 #include "hdmi-80.h"
 #include <../drivers/staging/android/timed_gpio.h>
+#include <linux/input/remote.h>
 
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
@@ -252,6 +253,20 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ_REMOTE
+static struct jz_remote_board_data jz_remote_board_data = {
+	.gpio = GPIO_REMOTE_PIN,
+};
+
+static struct platform_device jz_remote_device = {
+	.name = "jz-remote",
+	.id = -1,
+	.dev = {
+		.platform_data = &jz_remote_board_data,
+	},
+};
+#endif
+
 #ifdef CONFIG_AX88796C
 static struct resource ax88796c_resource[] = {
     [0] = {
@@ -464,6 +479,11 @@ static int __init hdmi_80_board_init(void)
 #ifdef CONFIG_USB_DWC2
 	platform_device_register(&jz_dwc_otg_device);
 #endif
+
+#ifdef CONFIG_JZ_REMOTE
+       platform_device_register(&jz_remote_device);
+#endif
+
 #ifdef CONFIG_AX88796C
        platform_device_register(&net_device_ax88796c);
 #endif

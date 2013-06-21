@@ -13,7 +13,7 @@
 #include <mach/jznand.h>
 #include "hdmi-80.h"
 
-#define ECCBIT 24
+#define ECCBIT 40
 #ifdef CONFIG_MUL_PARTS
 static struct platform_nand_partition partition_info[] = {
 	{
