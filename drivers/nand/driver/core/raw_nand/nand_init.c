@@ -179,7 +179,7 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 //	dprintf("DEBUG nand:nand_get_flash_type success\n");
 
 	if (pnand_type == 0) {
-		dprintf("Error:%s[%d] No NAND device found!!!\n",__func__,__LINE__);
+		eprintf("Error:%s[%d] No NAND device found!!!\n",__func__,__LINE__);
 		return -1;
 	}
 	pnand_ctrl->chip_select(host,pnand_io,0);
@@ -211,7 +211,7 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 		nand_set_features(0x10, wdata);
 		nand_get_features(0x10, rdata);
 		if (wdata[0] != rdata[0])
-			printk("Warning: Nand flash output driver set faild!!\n");
+			printk("Error:%s[%d] Nand flash output driver set faild!!\n",__func__,__LINE__);
 	}
 
 	/* Check for a chip array */
