@@ -269,7 +269,6 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	dev_id = ((nand_id[0] << 8) | nand_id[1]);
 	ext_id = ((nand_id[4] << 16) | (nand_id[3] << 8) | nand_id[2]);
-	dprintf("INFO: Nand Flash dev_id:0x%x ext_id:0x%x\n", dev_id, ext_id);
 	/* Lookup the flash id */
 	for (i = 0; i < flash_num; i++)
 	{
@@ -282,7 +281,9 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	if (index == -1) 
 	{
-		dprintf("DEBUG nand: No NAND Found");
+		dprintf("Error: Nand Flash dev_id:0x%x ext_id:0x%x\n", dev_id, ext_id);
+		dprintf("Error:%s[%d] No NAND Found, because the nand's id is wrong or we can't support this nand\n",
+													__func__,__LINE__);
 		return 0;
 	}
 	

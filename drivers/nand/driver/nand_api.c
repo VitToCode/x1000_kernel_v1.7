@@ -7,7 +7,6 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
-//#include <include/linuxver.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
@@ -188,7 +187,6 @@ void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
 
 	this->nand_ecc->eccsteps = this->writesize / this->nand_ecc->eccsize;
 	if (this->nand_ecc->eccsteps * this->nand_ecc->eccsize != this->writesize) {
-		printk(KERN_WARNING "Invalid ecc parameters\n");
 		BUG();
 	}
 }
@@ -322,11 +320,15 @@ static int nand_board_init(NAND_API * pnand_api)
 
 	ret = nand_chip_init(g_pnand_api.vnand_base,pnand_api);
 	if (ret == -1) {
-		printk("ERROR: NAND Chip Init Failed\n");
+		printk("ERROR:%s[%d] NAND Chip Init Failed !\n",__func__,__LINE__);
 		return -1;
 	}
 #ifdef CONFIG_NAND_DMA
 	ret =nand_dma_init(pnand_api);    //add later
+	if (ret == -1) {
+		printk("ERROR:%s[%d] nand_dma_init Failed !\n",__func__,__LINE__);
+		return -1;
+	}
 #endif
 	return ret;
 }
@@ -431,12 +433,13 @@ static int init_nand_driver(void)
 
 	ret =nand_board_init(&g_pnand_api);
 	if(ret){
-		eprintf("ERROR: nand_board_init Failed\n");
+		eprintf("ERROR:%s[%d] nand_board_init Failed\n",__func__,__LINE__);
 		goto init_nand_driver_error1;
 	}
 	setup_mtd_struct(&g_pnand_api,g_pnand_api.nand_chip);
 	if(g_pnand_api.nand_chip->pagesize < g_pnand_api.nand_ecc->eccsize){
-		eprintf("ERROR: pagesize < eccsize\n");
+		eprintf("ERROR:%s[%d] pagesize(%d) is smaller than eccsize(%d); please check pagesize in nand_ids.c\n",
+					__func__,__LINE__,g_pnand_api.nand_chip->pagesize,g_pnand_api.nand_ecc->eccsize);
 		goto init_nand_driver_error1;
 	}
 	pageperblock = g_pnand_api.nand_chip->ppblock;
@@ -458,7 +461,7 @@ static int init_nand_driver(void)
 	/*  add a partition that stored badblock tabel */
 	g_partition =(PPartition *)nand_malloc_buf((ipartition_num+1)*(sizeof(PPartition)));
 	if (!g_partition) {
-		eprintf("ERROR: g_partition malloc Failed\n");
+		eprintf("ERROR:%s[%d] g_partition malloc Failed\n",__func__,__LINE__);
 		goto init_nand_driver_error1;
 	}
 	memset(g_partition, 0x0, (ipartition_num+1)*(sizeof(PPartition)));
@@ -471,8 +474,13 @@ static int init_nand_driver(void)
 		(ptemp+ret)->eccbit = tmp_eccbit;
 		/**  cale freesize  **/
 		tmp_eccbytes =__bch_cale_eccbytes(tmp_eccbit);  //eccbytes per eccstep
-		if(((byteperpage/hwsector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize)
+		if(((byteperpage/hwsector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize){
 			tmp_freesize =hwsector;
+			printk("ERROR:%s[%d] eccbit is larger,\n",__func__,__LINE__);
+			printk("pagesize will be modified(%d -> %d),so that nand capacity will be become smaller!",
+										byteperpage,byteperpage-tmp_freesize);
+			printk("please modify eccbit in board-nand.c !\n");
+		}
 		else
 			tmp_freesize =0;
 		/*   cale ppartition vnand info     */
@@ -511,13 +519,13 @@ static int init_nand_driver(void)
 		(g_partition+ret)->parts_num= j;
 
 		if(byteperpage-tmp_freesize == 0){
-			eprintf("ERROR: pagesize equal 0\n");
+			eprintf("ERROR:%s[%d] please check pagesize in nand_ids.c and eccbit in board-nand.c !\n",__func__,__LINE__);
 			goto init_nand_driver_error2;
 		}
 		/*  blockid is physcial block id  */
 		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / pageperblock;
 		if(blockid > (totalblocks) || lastblockid > (g_partition +ret)->startblockID){
-			eprintf("ERROR: nand capacity insufficient\n");
+			eprintf("ERROR:%s[%d] nand capacity insufficient\n",__func__,__LINE__);
 			goto init_nand_driver_error2;
 		}
 		lastblockid = blockid;
@@ -543,7 +551,7 @@ static int init_nand_driver(void)
 
 	g_aligned_list =nand_malloc_buf((VNANDCACHESIZE + 2048) / 512 *sizeof(Aligned_List));
 	if (!g_aligned_list){
-		eprintf("ERROR: g_aligned_list malloc Failed\n");
+		eprintf("ERROR:%s[%d] g_aligned_list malloc Failed\n",__func__,__LINE__);
 		goto init_nand_driver_error2;
 	}
 	memset(g_aligned_list,0,(VNANDCACHESIZE + 2048) / 512 * sizeof(Aligned_List));
@@ -650,9 +658,8 @@ static inline int page_read(void *ppartition,int pageid, int offset,int bytes,vo
 {
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
-		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
+		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
 		return ENAND;   //return pageid error
 	}
 #ifdef CONFIG_NAND_DMA
@@ -717,9 +724,8 @@ static inline int panic_page_write(void *ppartition,int pageid,int offset,int by
 {
 	int ret; 
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	//      struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	if((pageid < 0) || (pageid > tmp_ppt->PageCount)) {
-		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
+		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
 		return ENAND;   //return pageid error
 	}
 
@@ -737,9 +743,8 @@ static inline int page_write(void *ppartition,int pageid,int offset,int bytes,vo
 {
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
 	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
-		eprintf("ERROR: pageid(%d) is more than totalpage(%d)\n",pageid, tmp_ppt->PageCount);
+		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
 		return ENAND;   //return pageid error
 	}
 #ifdef CONFIG_NAND_DMA
@@ -779,11 +784,8 @@ static inline int multipage_write(void *ppartition,PageList * write_pagelist)
 		nand_ops_parameter_reset(tmp_ppt);
 		ret =write_spl(g_pnand_api.vnand_base,g_aligned_list);
 	}else{
-		//printk("multipage write start\n");
 #ifdef CONFIG_NAND_DMA
-		//printk("multipage write set ppt\n");
 		g_pnand_api.nand_dma->ppt = tmp_ppt;
-		//printk("multipage dma write\n");
 		ret =nand_dma_write_pages(&g_pnand_api,g_aligned_list);
 #else
 		nand_ops_parameter_reset(tmp_ppt);
@@ -804,8 +806,6 @@ static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
 {
 	int ret;
 	PPartition * tmp_ppt = (PPartition *)ppartition;
-	//	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	//	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
 	if(!erase_blocklist){
 		eprintf("ERROR: %s[%d] blocklist is NULL\n",__func__,__LINE__);
 		return -1;
@@ -824,7 +824,7 @@ static inline int is_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	if(blockid >tmp_ppt->totalblocks){
-		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
+		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
 		return -1;
 	}
 	nand_ops_parameter_reset(tmp_ppt);
@@ -839,7 +839,7 @@ static int is_inherent_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	if(blockid >tmp_ppt->totalblocks){
-		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
+		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
 		return -1;
 	}
 	nand_ops_parameter_reset(tmp_ppt);
@@ -854,7 +854,7 @@ static inline int mark_badblock(void *ppartition,int blockid)
 {
 	PPartition * tmp_ppt = (PPartition *)ppartition;
 	if(blockid <0 || blockid >g_pnand_api.totalblock){
-		eprintf("ERROR: blockid(%d) is more than totalblocks(%d)\n",blockid, tmp_ppt->totalblocks);
+		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
 		return -1;
 	}
 	nand_ops_parameter_reset(tmp_ppt);

@@ -99,8 +99,8 @@ static inline void new_bch_correct(void *dat, unsigned int idx)
 
 	i = idx & BCH_ERR_INDEX_MASK;                           
 	bits = (idx & BCH_ERR_MASK_MASK)>>BCH_ERR_MASK_BIT;
-	index_s = i / 256;  // 512'bytes sector num
-	index_b = i % 256;  // unsigned short num  in a 512'bytes  sector
+	index_s = i / 512;  // 512'bytes sector num
+	index_b = i % 512;  // unsigned short num  in a 512'bytes  sector
 
 //	dprintf("error:i=%d unsigned short, bits=%d\n",i,bits);
 
@@ -151,7 +151,7 @@ static inline int bch_decode_correct(NAND_BASE *host,unsigned char *databuf)
 		return g_ret;
 	}		
 	if (stat & BCH_INTS_UNCOR) {
-//		dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
+		eprintf("Error:%s[%d] Uncorrectable ECC error; BCH_INTS = 0x%x\n",__func__,__LINE__,stat);
 		g_ret =ECC_ERROR;
 		return g_ret;
 	} else {
@@ -187,7 +187,7 @@ static int new_bch_decode_correct(NAND_BASE *host,void *buf)
 		return g_ret;
 	}		
 	if (stat & BCH_INTS_UNCOR) {
-		dprintf("NAND: Uncorrectable ECC error--   stat = 0x%x\n",stat);
+		eprintf("Error:%s[%d] Uncorrectable ECC error; BCH_INTS = 0x%x\n",__func__,__LINE__,stat);
 		g_ret =ECC_ERROR;
 		return g_ret;
 	} else {
@@ -375,7 +375,7 @@ static inline void ecc_init(void *nand_ecc, void *flash_type)
 	g_eccbuf_len =(type->pagesize / pnand_ecc->eccsize +1) * __bch_cale_eccbytes(BCH_ENABLE_MAXBITS) +1024;  
 	pnand_ecc->peccbuf =(unsigned char *)nand_malloc_buf(g_eccbuf_len);
 	if(!pnand_ecc->peccbuf)
-		eprintf("ERROR: pnand_ecc->peccbuf malloc Failed\n");
+		eprintf("ERROR:%s[%d] pnand_ecc->peccbuf malloc Failed\n",__func__,__LINE__);
 	memset(pnand_ecc->peccbuf,0xff,g_eccbuf_len);
 
 }

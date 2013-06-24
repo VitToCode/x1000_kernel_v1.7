@@ -149,7 +149,6 @@ static inline int do_select_chip(const NAND_API *pnand_api, unsigned int page)
  */
 static inline void do_deselect_chip(const NAND_API *pnand_api)
 {
-	//pnand_api->nand_ctrl->chip_select(pnand_api->vnand_base,pnand_api->nand_io,-1);
 }
 
 /*   get_physical_addr  */
@@ -177,7 +176,7 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 
 	cookie = dmaengine_submit(desc);
 	if (dma_submit_error(cookie)) {
-		printk("Failed: to do DMA submit\n");
+		printk("ERROR:%s[%d] DMA submit failed !\n",__func__,__LINE__);
 		return -2;  // error memory
 	}
 
@@ -192,6 +191,7 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 			int i;
 			for(i=0;i<6;i++)
 				test[i] = ((unsigned long long *)MCU_TEST_DATA_NAND)[i];
+			printk("Error:%s dma is timeout, these messages are used to debug!\n",__func__);
 			printk("cpu send msg       [%llu]\n",test[0]);
 			printk("mcu receive msg    [%llu]\n",test[1]);
 			printk("mcu send mailbox   [%llu]\n",test[2]);
@@ -227,11 +227,11 @@ static int wait_dma_finish(struct dma_chan *chan,struct dma_async_tx_descriptor 
 		}
 #endif
 		count++;
-	}while(!timeout && count <= 20);
+	}while(!timeout && count <= 10);
 
 	if(!timeout){
 #ifdef NAND_DMA_TEST_TIMEOUT
-		printk("Error: mcu dma tran; whether mailbox has been returned (%d)\n",test_timeout);
+		printk("Error:(flag = %d) : if flag is 1, mcu_complete_func has been executed;if flag is 0, it does't\n",test_timeout);
 		test_timeout = 0;
 #endif
 		return -4;  // this operation is timeout
@@ -268,7 +268,8 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 			nand_dma->mcu_chan,CPHYSADDR(PDMA_MSG_TCSMVA),
 			nand_dma->msg_phyaddr,sizeof(struct pdma_msg),flags);
 	if(nand_dma->desc == NULL) {
-		printk("Failed: nand mcu dma desc is NULL\n");
+		printk("ERROR:%s[%d] nand mcu dma desc is NULL !\n",__func__,__LINE__);
+		dump_stack();
 		ret = -1;
 		goto err_desc;
 	}
@@ -278,8 +279,10 @@ static int send_msg_to_mcu(const NAND_API *pnand_api)
 	ret = wait_dma_finish(nand_dma->mcu_chan,nand_dma->desc, mcu_complete_func,
 			&nand_dma->mailbox);
 	if(ret < 0) {
-		printk("Error: nemc channel current state (0x%llx) \n",((unsigned long long *)MCU_TEST_DATA_NAND)[6]);
-		printk("Error: mcu dma tran faild,mcu_steps(0x%x);please reboot\n",nand_dma->msg->info[MSG_MCU_TEST]);
+		printk("Error:%s[%d] nemc channel current state (0x%llx) \n",__func__,__LINE__,
+										((unsigned long long *)MCU_TEST_DATA_NAND)[6]);
+		printk("Error: mcu dma tran faild,mcu_steps(0x%x); next step while(1); please reboot\n",
+											nand_dma->msg->info[MSG_MCU_TEST]);
 		dump_stack();
 		while(1);
 	} else {
@@ -350,7 +353,8 @@ static int databuf_between_dmabuf(struct jznand_dma *nand_dma
 	nand_dma->desc = data_chan->device->device_prep_dma_memcpy(
 			data_chan,dma_dest,dma_src,bytes,flag);
 	if(!(nand_dma->desc)){
-		printk("ERROR: %s nand_dma desc is NULL\n",__func__);
+		printk("ERROR:%s[%d] nand_dma desc is NULL\n",__func__,__LINE__);
+		dump_stack();
 		ret = -2;  // error memory
 	}
 	return ret;
@@ -369,13 +373,14 @@ static int read_page_singlenode(const NAND_API *pnand_api
 	b_time();
 #endif
 	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
-		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
+		printk("Error:%s[%d] pageid is wrong,page %d PageCount:%d\n",__func__,__LINE__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		goto read_page_singlenode_error1;
 	}
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
-		printk("bytes = %d offset = %d byteperpage = %d\n",bytes,offset,byteperpage);
+		printk("Error:%s[%d] bytes or offset is wrong, bytes = %d offset = %d byteperpage = %d\n",__func__,__LINE__,
+													bytes,offset,byteperpage);
 		goto read_page_singlenode_error1;
 	}
 	phy_pageid = get_physical_addr(pnand_api,pageid);
@@ -393,12 +398,16 @@ static int read_page_singlenode(const NAND_API *pnand_api
 		        nand_dma->cache_phypageid = phy_pageid;
 			if(ret<0){
 				nand_dma->cache_phypageid = -1;
-				//	goto read_page_singlenode_error1;
 			}
-			databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_FROM_MBUF);
+			ret1 = databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_FROM_MBUF);
+			if(ret1<0){
+				ret =ret1;
+				goto read_page_singlenode_error1;
+			}
 			ret1 = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
 			if(ret1<0){
 				ret =ret1;
+				printk("Error:%s[%d] wait_dma_finish is failed !\n",__func__,__LINE__);
 				goto read_page_singlenode_error1;
 			}
 
@@ -411,10 +420,15 @@ static int read_page_singlenode(const NAND_API *pnand_api
 			}
 		}
 	}else{
-		databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_FROM_MBUF);
+		ret1 = databuf_between_dmabuf(nand_dma,offset,bytes,databuf,DMA_FROM_MBUF);
+		if(ret1<0){
+			ret =ret1;
+			goto read_page_singlenode_error1;
+		}
 		ret1 = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
 		if(ret1<0){
 			ret =ret1;
+			printk("Error:%s[%d] wait_dma_finish is failed !\n",__func__,__LINE__);
 			goto read_page_singlenode_error1;
 		}
 	}
@@ -443,7 +457,7 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 #endif
 		ret = mcu_reset(pnand_api);
 		if(ret < 0){
-			printk("%s mcu_reset is error \n",__func__);
+			printk("ERROR:%s[%d] mcu_reset is error!\n",__func__,__LINE__);
 			goto nand_dma_read_page_error;
 		}
 #ifdef MCU_ONCE_RESERT
@@ -452,7 +466,7 @@ int nand_dma_read_page(const NAND_API *pnand_api,int pageid,int offset,int bytes
 #endif
 	while(1) {
 		if (count == READ_RETRY_COUNT) {
-			printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+			printk("Warning: %s line %d vir_pageid = %d phy_pageid = %d, retry cycle = %d, ret =%d\n"
 			       ,__func__
 			       ,__LINE__
 			       ,pageid
@@ -495,13 +509,14 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	nand_dma->cache_phypageid = -1;
 	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
-		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
+		printk("Error:%s[%d] pageid is wrong,page %d PageCount:%d\n",__func__,__LINE__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		goto write_page_singlenode_error1;
 	}
 	if(bytes == 0 || (bytes + offset) > byteperpage){
 		ret =-1;
-		printk("bytes = %d offset = %d byteperpage = %d\n",bytes,offset,byteperpage);
+		printk("Error:%s[%d] bytes or offset is wrong, bytes = %d offset = %d byteperpage = %d\n",__func__,__LINE__,
+													bytes,offset,byteperpage);
 		goto write_page_singlenode_error1;
 	}
 	phy_pageid = get_physical_addr(pnand_api,pageid);
@@ -522,7 +537,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 		}
 		ret = wait_dma_finish(nand_dma->data_chan,nand_dma->desc,data_complete_func,NULL);
 		if(ret<0){
-			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+			printk("Error:%s[%d] wait_dma_finish is failed !\n",__func__,__LINE__);
 			goto write_page_singlenode_error1;
 		}
 		set_rw_msg(nand_dma,cs,NAND_DMA_WRITE,phy_pageid,nand_dma->data_buf);
@@ -536,7 +551,7 @@ static int write_page_singlenode(const NAND_API *pnand_api,int pageid,int offset
 #endif
 	ret = send_msg_to_mcu(pnand_api);
 	if(ret && (ret != -6))
-		printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
+		printk("ERROR:%s[%d]  phy_pageid = %d  ret =%d \n",__func__,__LINE__,phy_pageid,ret);
 #ifdef NAND_DMA_CALC_TIME
 	e_time();
 	dprintf("  %s  %d\n",__func__,__LINE__);
@@ -555,7 +570,7 @@ int nand_dma_write_page(const NAND_API *pnand_api,int pageid,int offset,int byte
 #endif
 		ret = mcu_reset(pnand_api);
 		if(ret < 0){
-			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+			printk("ERROR:%s[%d] mcu_reset is error!\n",__func__,__LINE__);
 			goto nand_dma_write_page_error;
 		}
 #ifdef MCU_ONCE_RESERT
@@ -584,7 +599,7 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 
 	int pageid =templist->startPageID;
 	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
-		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
+		printk("Error:%s[%d] pageid is wrong,page %d PageCount:%d\n",__func__,__LINE__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		num = temp;
 		goto read_page_node_error1;
@@ -612,8 +627,6 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 #endif
 		if (ret < 0){
 			nand_dma->cache_phypageid = -1;
-			//	num = temp;
-			// 	goto read_page_node_error1;
 		}
 	}
 	templist = pagelist;
@@ -622,13 +635,14 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 			if(!ret)
 				ret = -1;
 			templist->retVal = -1;
-			printk("aaa bytes = %d offset = %d byteperpage = %d\n",templist->Bytes,templist->OffsetBytes,byteperpage);
+			printk("Error:%s[%d] bytes or offset is wrong, bytes = %d offset = %d byteperpage = %d\n",__func__,__LINE__,
+										templist->Bytes,templist->OffsetBytes,byteperpage);
 			break;
 		}
 		ret1 = databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
 				templist->pData, DMA_FROM_MBUF);
 		if (ret1) {
-			printk("read_page_multinode databuf_between_dmabuf error.\n");
+			printk("Error:%s[%d] databuf_between_dmabuf error, ret = %d\n",__func__,__LINE__,ret1);
 			templist->retVal = ret1;
 			break;
 		}
@@ -641,8 +655,10 @@ static int read_page_multinode(const NAND_API *pnand_api,PageList *pagelist,unsi
 #endif
 	if (num > 0) {
 		ret1 = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
-		if(ret1)
+		if(ret1){
 			ret =ret1;
+			printk("Error:%s[%d] wait_dma_finish is failed !\n",__func__,__LINE__);
+		}
 read_page_node_error1:
 		templist = pagelist;
 		while (num--) {
@@ -688,7 +704,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 #endif
 		ret = mcu_reset(pnand_api);
 		if(ret < 0){
-			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+			printk("ERROR:%s[%d] mcu_reset is error!\n",__func__,__LINE__);
 			goto dma_read_pages_error1;
 		}
 #ifdef MCU_ONCE_RESERT
@@ -701,7 +717,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		if(opsmodel == 1){
 			while(1) {
 				if (count == READ_RETRY_COUNT) {
-					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+					printk("Warning: %s line %d vir_pageid = %d phy_pageid = %d, retry cycle = %d, ret =%d\n"
 					       ,__func__
 					       ,__LINE__
 					       ,templist->startPageID
@@ -749,7 +765,7 @@ int nand_dma_read_pages(const NAND_API *pnand_api, Aligned_List *list)
 		}else{
 			while(1) {
 				if (count == READ_RETRY_COUNT) {
-					printk("DEBUG: %s line %d vir_pageid = %d phy_pageid = %d, cycle = %d, ret =%d\n"
+					printk("Warning: %s line %d vir_pageid = %d phy_pageid = %d, retry cycle = %d, ret =%d\n"
 					       ,__func__
 					       ,__LINE__
 					       ,templist->startPageID
@@ -810,7 +826,7 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	int byteperpage =pnand_api->nand_dma->ppt->byteperpage;
 	int pageid = templist->startPageID;
 	if(pageid < 0 || pageid >= nand_dma->ppt->PageCount) {
-		printk("Error:%s, pageid is wrong,page %d PageCount:%d\n",__func__,pageid,nand_dma->ppt->PageCount);
+		printk("Error:%s[%d] pageid is wrong,page %d PageCount:%d\n",__func__,__LINE__,pageid,nand_dma->ppt->PageCount);
 		ret = -1;
 		num = temp;
 		goto write_multinode_error1;
@@ -826,7 +842,8 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 		if (templist->Bytes == 0 || (templist->Bytes + templist->OffsetBytes)>byteperpage) {
 			ret =-1;
 			templist->retVal = ret;
-			printk("aaa bytes = %d offset = %d byteperpage = %d\n",templist->Bytes,templist->OffsetBytes,byteperpage);
+			printk("Error:%s[%d] bytes or offset is wrong, bytes = %d offset = %d byteperpage = %d\n",__func__,__LINE__,
+										templist->Bytes,templist->OffsetBytes,byteperpage);
 			break;
 		}
 		dma_sync_single_for_device(nand_dev
@@ -835,7 +852,7 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 		ret=databuf_between_dmabuf(nand_dma, templist->OffsetBytes, templist->Bytes,
 				templist->pData, DMA_TO_MBUF);
 		if (ret) {
-			printk("write_page_multinode databuf_between_dmabuf error.\n");
+			printk("Error:%s[%d] databuf_between_dmabuf error, ret = %d\n",__func__,__LINE__,ret);
 			templist->retVal = ret;
 			break;
 		}
@@ -845,13 +862,13 @@ static int write_page_multinode(const NAND_API *pnand_api,PageList *pagelist,uns
 	if (num > 0) {
 		ret = wait_dma_finish(nand_dma->data_chan, nand_dma->desc, data_complete_func, NULL);
 		if(ret){
-			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+			printk("Error:%s[%d] wait_dma_finish is failed !\n",__func__,__LINE__);
 			goto write_multinode_error1;
 		}
 		set_rw_msg(nand_dma, cs, NAND_DMA_WRITE, phy_pageid, nand_dma->data_buf);
 		ret = send_msg_to_mcu(pnand_api);
 		if(ret && (ret != -6))
-			printk("DEBUG: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
+			printk("Warning: %s  phy_pageid = %d  ret =%d \n",__func__,phy_pageid,ret);
 write_multinode_error1:
 		templist = pagelist;
 		while (num--) {
@@ -895,7 +912,7 @@ int nand_dma_write_pages(const NAND_API *pnand_api, Aligned_List *list)
 #endif
 		ret = mcu_reset(pnand_api);
 		if(ret < 0){
-			printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+			printk("ERROR:%s[%d] mcu_reset is error!\n",__func__,__LINE__);
 			goto dma_write_pages_error1;
 		}
 #ifdef MCU_ONCE_RESERT
@@ -931,7 +948,7 @@ int nand_dma_init(NAND_API *pnand_api)
 	struct jznand_dma *nand_dma =(struct jznand_dma *)nand_malloc_buf(sizeof(struct jznand_dma));
 
 	if(!nand_dma){
-		printk("Failed: nand_dma mallocs failed !\n");
+		printk("Error:%s[%d] nand_dma mallocs failed !\n",__func__,__LINE__);
 		goto nand_dma_init_error1;
 	}
 	memset(nand_dma,0,sizeof(struct jznand_dma));
@@ -939,7 +956,7 @@ int nand_dma_init(NAND_API *pnand_api)
 	/*  request message channel,which be used for sending message to mcu  */
 	regs = platform_get_resource(pdev,IORESOURCE_DMA,0);
 	if (!regs) {
-		dev_err(&pdev->dev, "No nand dma resource 1\n");
+		dev_err(&pdev->dev, "No nand dma resource 1, please check nand's resource in platform.c!\n");
 		goto nand_dma_init_error2;
 	}
 	nand_dma->chan_type = regs->start;
@@ -947,13 +964,14 @@ int nand_dma_init(NAND_API *pnand_api)
 	dma_cap_set(DMA_SLAVE, mask);
 	nand_dma->mcu_chan = dma_request_channel(mask, filter, nand_dma);
 	if(nand_dma->mcu_chan < 0) {
-		printk("Failed: request mcu dma chan\n");
+		printk("Error:%s[%d] request mcu's dma_chan failed, please check nand's resource in platform.c and jzdma.h!\n",
+									__func__,__LINE__);
 		goto nand_dma_init_error2;
 	}
 	/* request data channel,which be used for memcpy */
 	regs = platform_get_resource(pdev,IORESOURCE_DMA,1);
 	if (!regs) {
-		dev_err(&pdev->dev, "No nand dma resource 2\n");
+		dev_err(&pdev->dev, "No nand dma resource 2, please check nand's resource in platform.c!\n");
 		goto nand_dma_init_error3;
 	}
 	nand_dma->chan_type = regs->start;
@@ -961,14 +979,15 @@ int nand_dma_init(NAND_API *pnand_api)
 	dma_cap_set(DMA_MEMCPY, mask);
 	nand_dma->data_chan = dma_request_channel(mask, filter, nand_dma);
 	if(nand_dma->data_chan < 0) {
-		printk("Failed: request data dma chan\n");
+		printk("Error:%s[%d] request data's dma_chan failed, please check nand's resource in platform.c and jzdma.h!\n",
+									__func__,__LINE__);
 		goto nand_dma_init_error3;
 	}
 	/*  init sg of message channel */
 	nand_dma->msg = (struct pdma_msg *)dma_alloc_coherent(nand_dma->mcu_chan->device->dev,
 			sizeof(struct pdma_msg),&nand_dma->msg_phyaddr, GFP_ATOMIC);
 	if(!(nand_dma->msg)){
-		printk("Failed: nand_dma->msg malloc failed\n");
+		printk("Error:%s[%d] nand_dma->msg malloc failed !\n",__func__,__LINE__);
 		goto nand_dma_init_error4;
 	}
 
@@ -976,7 +995,7 @@ int nand_dma_init(NAND_API *pnand_api)
 	nand_dma->data_buf = (unsigned char *)dma_alloc_coherent(nand_dma->data_chan->device->dev,
 			nand_dma->data_buf_len,&nand_dma->data_buf_phyaddr, GFP_ATOMIC);
 	if(!(nand_dma->data_buf)) {
-		printk("Failed: nand_dma_init data buf malloc failed !\n");
+		printk("Error:%s[%d] nand_dma_init data buf malloc failed !\n",__func__,__LINE__);
 		goto nand_dma_init_error5;
 	}
 
@@ -1020,7 +1039,7 @@ int nand_dma_resume(const NAND_API *pnand_api)
 	udelay(2);
 	ret = mcu_reset(pnand_api);
 	if(ret < 0){
-		printk("ERROR: %s[%d] ret = %d\n",__func__,__LINE__,ret);
+		printk("ERROR:%s[%d] mcu_reset is error!\n",__func__,__LINE__);
 	}
 	return ret;
 }

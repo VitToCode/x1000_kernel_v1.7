@@ -54,7 +54,7 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	/* reset nand */
 	ret = nand_reset();
 	if(ret < 0) {
-		printk("NAND reset error!! - ret=%d -\n",ret);
+		printk("Error:%s[%d] NAND reset error!! - ret=%d -\n",__func__,__LINE__,ret);
 		return 0;
 	}
 
@@ -65,7 +65,7 @@ static inline NAND_FLASH_DEV *nand_get_flash_type(NAND_BASE *host,NAND_API *pnan
 	/*get nand info from nand type info table in nand_ids.c*/
 	pnand_type = nand_scan_table(nand_id);
 #ifdef CONFIG_HW_BCH
-        dprintf("nand hardware bch\n");
+        dprintf("Info: nand hardware bch\n");
 #endif	
 	pnand_ctrl->chip_select(host,pnand_io,-1);
 	return pnand_type;
@@ -103,8 +103,10 @@ static inline unsigned int calc_free_size(NAND_API *pnand_api)
 	unsigned int eccpos = pnand_ecc->eccpos;
 	unsigned int freesize;
 
-	if ((pagesize / eccsize + 1) * eccbytes + eccpos >= oobsize)
+	if ((pagesize / eccsize + 1) * eccbytes + eccpos >= oobsize){
 		freesize = 512;
+		printk("ERROR:%s[%d] Invalid ecc parameters; please modify eccbit in menuconfig !\n",__func__,__LINE__);
+	}
 	else
 		freesize = 0;
 
@@ -177,13 +179,13 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 //	dprintf("DEBUG nand:nand_get_flash_type success\n");
 
 	if (pnand_type == 0) {
-		dprintf(" No NAND device found!!!\n");
+		dprintf("Error:%s[%d] No NAND device found!!!\n",__func__,__LINE__);
 		return -1;
 	}
 	pnand_ctrl->chip_select(host,pnand_io,0);
 	ret = nand_reset();
 	if(ret < 0) {
-		printk("Error: NAND second reset error!! - ret=%d -\n",ret);
+		printk("Error:%s[%d] NAND second reset error!! - ret=%d -\n",__func__,__LINE__,ret);
 		return ret;
 	}
 	if (pnand_type->timemode) {
@@ -238,7 +240,7 @@ int nand_chip_init(NAND_BASE *host,NAND_API *pnand_api)
 	}
 	
 	if (i > 1)
-		dprintf(" %d NAND chips detected\n", i);
+		dprintf("Info: the number of NAND chips is %d\n", i);
 	
 	/*set really confige now*/
 	g_maxchips = i;
