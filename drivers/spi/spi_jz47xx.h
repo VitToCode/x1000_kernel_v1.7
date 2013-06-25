@@ -155,7 +155,9 @@
 struct jz47xx_spi {
 	/* bitbang has to be first */
 	struct spi_bitbang	bitbang;
+	struct clk		*clk_gate;
 	struct clk		*clk;
+	unsigned int		clk_flag;
 	struct completion	done;
 	struct completion	done_rx;
 
@@ -255,6 +257,14 @@ static inline u32 spi_readl(struct jz47xx_spi *spi,
 				      unsigned short offset)
 {
 	return readl(spi->iomem + offset);
+}
+
+static inline void set_frmhl(struct jz47xx_spi *spi, unsigned int frmhl)
+{
+	u32 tmp;
+	tmp = spi_readl(spi, SSI_CR1);
+	tmp = (tmp & ~CR1_FRMHL_MASK) | frmhl;
+	spi_writel(spi, SSI_CR1, tmp);
 }
 
 static inline void set_spi_clock_phase(struct jz47xx_spi *spi, unsigned int cpha)

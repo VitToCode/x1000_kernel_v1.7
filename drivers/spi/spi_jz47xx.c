@@ -43,7 +43,6 @@
 #define  print_dbg(format,arg...)
 #endif
 
-
 #define JZ47XX_SPI_RX_BUF(type) 				\
 u32 jz47xx_spi_rx_buf_##type(struct jz47xx_spi *hw) 		\
 {								\
@@ -92,8 +91,6 @@ static void jz47xx_spi_cs(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol)
 	/* 	gpio_direction_output(pin_value, 0); */
 	/* else */
 	/* 	gpio_direction_output(pin_value, 1); */
-
-	/* gpio_free(pin_value); */
 }
 
 static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
@@ -107,7 +104,6 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 		if (hw->set_cs && hw->pdata)
 			hw->set_cs(hw->pdata, spi->chip_select, cspol^1);
 		break;
-
 	case BITBANG_CS_ACTIVE:
 		if (spi->mode & SPI_CPHA)
 			set_spi_clock_phase(hw, 1);
@@ -136,7 +132,6 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 		if (hw->set_cs && hw->pdata)
 			hw->set_cs(hw->pdata, spi->chip_select, cspol);
 		break;
-
 	default:
 		break;
 	}
@@ -146,39 +141,36 @@ static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 {
 	u16 cgv;
 	unsigned long cpm_rate;
+	unsigned long cpm_rate_a, cpm_rate_b;
 	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
 
-retry:
+	if (hw->clk_flag == 1)
+		return 0;
+
 	if (!hw->clk) {
-		hw->clk = clk_get(hw->dev, "ssi0");
+		hw->clk = clk_get(hw->dev, "cgu_ssi");
 		if (!hw->clk)
 			return -EINVAL;
 	}
 
 	cpm_rate = clk_get_rate(hw->clk);
-	if (!cpm_rate) {
-		dev_err(hw->dev, "Cannot get valid clock from cpm");
-		return -EINVAL;
-	} else {
-		if (cpm_rate < hz)
-			// no need to manipulate SSIGR
-			return 0;
+	cpm_rate_a = cpm_rate;
 
-		cgv = cpm_rate / (2 * hz) - 1;
+	if (cpm_rate > 2 * hw->pdata->max_clk) {
+		clk_set_rate(hw->clk, 2 * hw->pdata->max_clk);
 	}
 
-	if (cgv > 255) {
-		clk_set_rate(hw->clk, cpm_rate >> 1);
-		if (!clk_get_rate(hw->clk)) {
-			// not support the new rate, replace with the old one.
-			clk_set_rate(hw->clk, cpm_rate);
-			if (!clk_get_rate(hw->clk))
-				return 0;
-		} else
-			goto retry;
-	}
+	cpm_rate_b =  clk_get_rate(hw->clk);
 
+	cgv = cpm_rate_b / (2 * hz);
 	spi_writel(hw, SSI_GR, cgv);
+
+	/* if cpm_rate_a equals to cpm_rate_b, the external clock is selected */
+	if (cpm_rate_a != cpm_rate_b) {
+		if (!clk_is_enabled(hw->clk))
+			clk_enable(hw->clk);
+	}
+	hw->clk_flag = 1;
 
 	return 0;
 }
@@ -198,7 +190,6 @@ static void dma_tx_callback(void *data)
 	struct jz47xx_spi *hw = data;
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
-	complete(&hw->done);
 }
 
 static void dma_rx_callback(void *data)
@@ -207,7 +198,6 @@ static void dma_rx_callback(void *data)
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
 	dma_unmap_sg(hw->rxchan->device->dev, hw->sg_rx, 1, DMA_FROM_DEVICE);
-	complete(&hw->done_rx);
 }
 
 static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
@@ -251,7 +241,6 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	case SPI_8BITS:
 		tx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-
 		rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		break;
@@ -316,17 +305,13 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 		goto err_txdesc;
 	}
 
-
 	// config controller
-	ssi_enable(hw);
 	disable_tx_intr(hw);
 	disable_rx_intr(hw);
 
 	//revisit
 	disable_tx_error_intr(hw);
-//	disable_rx_error_intr(hw);
-//	enable_tx_error_intr(hw);
-	enable_rx_error_intr(hw);
+	disable_rx_error_intr(hw);
 
 	wait_transmit(hw);
 //	finish_transmit(hw);
@@ -342,6 +327,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	if (!(hw->rw_mode & R_MODE)) {
 		txdesc->callback = dma_tx_callback;
 		txdesc->callback_param = hw;
+		enable_tx_error_intr(hw);
 
 		dmaengine_submit(txdesc);
 		dma_async_issue_pending(txchan);
@@ -350,7 +336,6 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 		finish_transmit(hw);
 		flush_rxfifo(hw);
 		clear_errors(hw);
-		ssi_disable(hw);
 
 		return t->len;
 	}
@@ -395,6 +380,8 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 	rxdesc->callback = dma_rx_callback;
 	rxdesc->callback_param = hw;
+	enable_rx_error_intr(hw);
+	enable_tx_error_intr(hw);
 
 	dmaengine_submit(txdesc);
 	dmaengine_submit(rxdesc);
@@ -405,7 +392,6 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	finish_transmit(hw);
 //	flush_rxfifo(hw);
 	clear_errors(hw);
-	ssi_disable(hw);
 
 	return t->len;
 
@@ -608,7 +594,10 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 	enable_tx_error_intr(hw);
 	enable_rx_error_intr(hw);
 
+#ifdef SSI_DEGUG
 	dump_spi_reg(hw);
+#endif
+
 	/* to avoid RxFIFO overflow when CPU Mode at last time to fill */
 	if(last_flag) {
 		last_flag = 0;
@@ -650,7 +639,6 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 	flush_fifo(hw);
 
 	enable_receive(hw);
-	ssi_enable(hw);
 	clear_errors(hw);
 
 	memset(g_jz_intr, 0, sizeof *g_jz_intr);
@@ -674,8 +662,6 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 	finish_transmit(hw);
 	clear_errors(hw);
-	if (rxfifo_empty(hw))
-		ssi_disable(hw);
 
 	if(hw->rlen != t->len){
 		dev_info(hw->dev,"Length error:hw->rlen=%d  t->len=%d\n",hw->rlen,t->len);
@@ -722,8 +708,7 @@ static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 			disable_rx_intr(hw);
 
 			complete(&hw->done);
-		}
-		else {
+		} else {
 			clear_errors(hw);
 			enable_tx_error_intr(hw);
 		}
@@ -762,7 +747,6 @@ static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 		status = jz_spi_cpu_transfer(hw,0);
 		if(status < 0)
 		{
-			ssi_disable(hw);
 			disable_tx_intr(hw);
 			disable_rx_intr(hw);
 			dev_err(hw->dev,"jz_spi_cpu_transfer error!!!!!\n");
@@ -875,7 +859,6 @@ static int jz47xx_spi_setup(struct spi_device *spi)
 	} else
 		return -EINVAL;
 
-
 	if (!spi->bits_per_word)
 		spi->bits_per_word = 8;
 
@@ -929,7 +912,6 @@ static int jz47xx_spi_txrx(struct spi_device * spi, struct spi_transfer *t)
 	return hw->txrx_bufs(spi, t);
 }
 
-
 static irqreturn_t jz47xx_spi_irq(int irq, void *dev)
 {
 	struct jz47xx_spi *hw = dev;
@@ -939,10 +921,11 @@ static irqreturn_t jz47xx_spi_irq(int irq, void *dev)
 
 static int jz47xx_spi_init_setup(struct jz47xx_spi *hw)
 {
+	if (!clk_is_enabled(hw->clk_gate))
+		clk_enable(hw->clk_gate);
+
 	/* disable the SSI controller */
 	ssi_disable(hw);
-
-	clk_enable(hw->clk);
 
 	/* set default half_intr trigger */
 	hw->tx_trigger = SSI_TX_FIFO_THRESHOLD * 8;
@@ -968,6 +951,7 @@ static int jz47xx_spi_init_setup(struct jz47xx_spi *hw)
 
 	underrun_auto_clear(hw);
 	clear_errors(hw);
+	ssi_enable(hw);
 
 	return 0;
 }
@@ -986,6 +970,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	struct resource *res;
 	dma_cap_mask_t mask;
 	int err = 0;
+	char clkname[16];
 
 #ifdef CONFIG_JZ_SPI_BOARD_INFO_REGISTER
 	int i;
@@ -1064,11 +1049,17 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 		goto err_no_irq;
 	}
 
-	hw->clk = clk_get(&pdev->dev, "ssi0");
+	hw->clk = clk_get(&pdev->dev, "cgu_ssi");
 	if (IS_ERR(hw->clk)) {
 		dev_err(&pdev->dev, "Cannot get ssi clock\n");
-		err = -ENODEV;
-		goto err_no_clk;
+		return PTR_ERR(hw->clk);
+	}
+
+	sprintf(clkname, "ssi%d", pdev->id);
+	hw->clk_gate = clk_get(&pdev->dev, clkname);
+	if (IS_ERR(hw->clk_gate)) {
+		dev_err(&pdev->dev, "Cannot get ssi%d clock\n", pdev->id);
+		return PTR_ERR(hw->clk);
 	}
 
 	hw->src_clk = hw->pdata->max_clk;
@@ -1202,10 +1193,9 @@ err_tx_sgmap:
 	if (hw->buffer)
 		kfree(hw->buffer);
 	iounmap(hw->iomem);
-	clk_disable(hw->clk);
+	clk_put(hw->clk_gate);
 	clk_put(hw->clk);
 
-err_no_clk:
 err_no_iomap:
 	release_resource(hw->ioarea);
 	kfree(hw->ioarea);
@@ -1230,7 +1220,13 @@ static int __exit jz47xx_spi_remove(struct platform_device *dev)
 	free_irq(hw->irq, hw);
 	iounmap(hw->iomem);
 
-	clk_disable(hw->clk);
+	if(clk_is_enabled(hw->clk_gate))
+		clk_disable(hw->clk_gate);
+
+	if(clk_is_enabled(hw->clk))
+		clk_disable(hw->clk);
+
+	clk_put(hw->clk_gate);
 	clk_put(hw->clk);
 
 	release_resource(hw->ioarea);
@@ -1259,7 +1255,11 @@ static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
 
-	clk_disable(hw->clk);
+	if(clk_is_enabled(hw->clk_gate))
+		clk_disable(hw->clk_gate);
+
+	if(clk_is_enabled(hw->clk))
+		clk_disable(hw->clk);
 
 	return 0;
 }
@@ -1268,7 +1268,10 @@ static int jz47xx_spi_resume(struct platform_device *pdev)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
 
-	clk_enable(hw->clk);
+	if(!clk_is_enabled(hw->clk))
+		clk_enable(hw->clk);
+	if(!clk_is_enabled(hw->clk_gate))
+		clk_enable(hw->clk_gate);
 
 	return 0;
 }
