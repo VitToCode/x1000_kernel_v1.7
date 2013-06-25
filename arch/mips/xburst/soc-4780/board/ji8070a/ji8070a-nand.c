@@ -14,6 +14,14 @@
 #include "ji8070a.h"
 
 #define ECCBIT 24
+
+/**
+ * WARNING!!! DANGER! DANGER! DANGER!
+ * modify the partition table should be careful,
+ * it may produce effects on burn tools, both usb burn tool
+ * and card burn tool should be check and make the appropriate
+ * changes if modified this.
+ **/
 #ifdef CONFIG_MUL_PARTS
 static struct platform_nand_partition partition_info[] = {
 	{
