@@ -1154,7 +1154,7 @@ static inline int nand_write_1p_page(NAND_BASE *host,Aligned_List *aligned_list)
 	if(ret == 0)
 		ret =(state & NAND_STATUS_FAIL ? IO_ERROR : SUCCESS);
 	if(ret < 0){
-		eprintf"Error: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
+		eprintf("Error: %s [%d] ret = %d \n ",__func__,__LINE__,ret);
 		aligned_list->pagelist->retVal =ret;
 	}
 nand_write_1p_page_error:
