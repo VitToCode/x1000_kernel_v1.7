@@ -376,7 +376,7 @@ static int handle_req_thread(void *data)
 
 			if ((ndisk->sl_len <= 0)) {
 				printk("nand_rq_map_sl error, ndisk->sl_len = %d\n", ndisk->sl_len);
-				break;
+				err = -EIO;
 			}
 #ifdef DEBUG_STLIST
 			dump_sectorlist(ndisk->sl);
@@ -394,7 +394,7 @@ static int handle_req_thread(void *data)
 
 			if (ret < 0) {
 				printk("nand_block: NM %s error!\n", (rq_data_dir(req) == READ)? "read" : "write");
-				break;
+				err = -EIO;
 			}
 
 			spin_lock_irq(q->queue_lock);
