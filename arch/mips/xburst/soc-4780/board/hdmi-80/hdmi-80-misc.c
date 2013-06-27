@@ -254,8 +254,91 @@ static struct platform_device pmem_camera_device = {
 #endif
 
 #ifdef CONFIG_JZ_REMOTE
+
+#define IR_POWER    0
+#define IR_HOME     16
+#define IR_MENU     17
+#define IR_BACK     18
+
+#define IR_VOLUMEUP (4)
+#define IR_VOLUMEDOWN   (6)
+
+#define IR_UP       5
+#define IR_DOWN     13
+#define IR_LEFT     8
+#define IR_RIGHT    10
+#define IR_OK       9
+
+#define IR_HELP     86
+#define IR_SEARCH   94
+
+#define IR_NEXTSONG 81
+#define IR_PREVIOUSSONG 93
+#define IR_PLAY     85
+#define IR_PLAYPAUSE    89
+
+#define IR_MUTE     88
+
+#define IR_1        (0x17)
+#define IR_2        (0x1b)
+#define IR_3        (0x1f)
+#define IR_4        (0x16)
+#define IR_5        (0x1a)
+#define IR_6        (0x1e)
+#define IR_7        (0x15)
+#define IR_8        (0x19)
+#define IR_9        (0x1d)
+#define IR_DOT      (0x14)
+#define IR_0        (0x18)
+#define IR_BACKSPACE    (0x1c)
+unsigned  int jz_remote_key_map[256];
+static  int  jz_remote_init(void  *s)
+{
+    memset(jz_remote_key_map,-1,256*(sizeof(int)));
+
+    jz_remote_key_map[IR_POWER]=KEY_POWER;
+    jz_remote_key_map[IR_HOME]=KEY_HOME;
+    jz_remote_key_map[IR_MENU]=KEY_MENU;
+    jz_remote_key_map[IR_BACK]=KEY_BACK;
+
+    jz_remote_key_map[IR_VOLUMEUP]=KEY_VOLUMEUP;
+    jz_remote_key_map[IR_VOLUMEDOWN]=KEY_VOLUMEDOWN;
+
+    jz_remote_key_map[IR_UP]=KEY_UP  ;    
+    jz_remote_key_map[IR_DOWN]=KEY_DOWN ;  
+    jz_remote_key_map[IR_LEFT]=KEY_LEFT  ;
+    jz_remote_key_map[IR_RIGHT]=KEY_RIGHT;
+    jz_remote_key_map[IR_OK]=KEY_ENTER  ;
+
+    jz_remote_key_map[IR_HELP]=KEY_HELP;
+    jz_remote_key_map[IR_SEARCH]=KEY_SEARCH;
+
+    jz_remote_key_map[IR_NEXTSONG]=KEY_NEXTSONG;
+    jz_remote_key_map[IR_PREVIOUSSONG]=KEY_PREVIOUSSONG;
+    jz_remote_key_map[IR_PLAY]=KEY_PLAY;
+    jz_remote_key_map[IR_PLAYPAUSE]=KEY_PLAYPAUSE;
+
+    jz_remote_key_map[IR_MUTE]=KEY_MUTE;
+
+    jz_remote_key_map[IR_1]=KEY_1;
+    jz_remote_key_map[IR_2]=KEY_2;
+    jz_remote_key_map[IR_3]=KEY_3;
+    jz_remote_key_map[IR_4]=KEY_4;
+    jz_remote_key_map[IR_5]=KEY_5;
+    jz_remote_key_map[IR_6]=KEY_6;
+    jz_remote_key_map[IR_7]=KEY_7;
+    jz_remote_key_map[IR_8]=KEY_8;
+    jz_remote_key_map[IR_9]=KEY_9;
+    jz_remote_key_map[IR_0]=KEY_0;
+    jz_remote_key_map[IR_DOT]=KEY_DOT;
+    jz_remote_key_map[IR_BACKSPACE]=KEY_BACKSPACE;
+
+    return 0;
+}
 static struct jz_remote_board_data jz_remote_board_data = {
 	.gpio = GPIO_REMOTE_PIN,
+	.key_maps=jz_remote_key_map,
+	.init= jz_remote_init,
 };
 
 static struct platform_device jz_remote_device = {

@@ -13,8 +13,10 @@
 #ifndef	__REMOTE_H
 #define __REMOTE_H
 
-struct jz_remote_board_data{
-	short	gpio;
+struct jz_remote_board_data {
+	short gpio;
+	unsigned int *key_maps;
+	int (*init)(void *);
 };
 
 #endif	/*__REMOTE_H*/
