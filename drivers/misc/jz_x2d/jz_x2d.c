@@ -90,6 +90,7 @@ struct x2d_device {
 
 	x2d_chain_info * chain_p;
 	wait_queue_head_t set_wait_queue;
+	int wake_up_condition;
 
 	struct list_head proc_list;
 	struct early_suspend early_suspend;
@@ -458,6 +459,21 @@ static void x2d_dump_reg(struct x2d_device *jz_x2d, struct x2d_proc_info* p)
 	}
 }
 
+static inline void x2d_set_wake_up_condition(struct x2d_device *jz_x2d)
+{
+	jz_x2d->wake_up_condition = 1;
+}
+
+static inline void x2d_clear_wake_up_condition(struct x2d_device *jz_x2d)
+{
+	jz_x2d->wake_up_condition = 0;
+}
+
+static int x2d_check_wake_up_condition(struct x2d_device *jz_x2d)
+{
+	return jz_x2d->wake_up_condition;
+}
+
 /**************************************main function******************************************/
 static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 {
@@ -628,10 +644,12 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	//__x2d_enable_wthdog();
 	x2d_dump_reg(jz_x2d,x2d_proc);
 #endif
+	x2d_clear_wake_up_condition(jz_x2d);
 	__x2d_enable_irq();
 	__x2d_start_trig();
 
-	if(!interruptible_sleep_on_timeout(&jz_x2d->set_wait_queue, HZ/10)) {
+	if(!wait_event_interruptible_timeout(jz_x2d->set_wait_queue, \
+				x2d_check_wake_up_condition(jz_x2d), HZ/5)) {
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		__x2d_stop_trig();
 		x2d_dump_reg(jz_x2d,x2d_proc);
@@ -752,6 +770,8 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 	} else if (!(status_reg & X2D_BUSY)) {
 		jz_x2d->errcode = error_none;
 	}
+
+	x2d_set_wake_up_condition(jz_x2d);
 
 	if (jz_x2d->state == x2d_state_suspend) {
 		dev_info(jz_x2d->dev, "%s x2d already suspend!", __func__);
