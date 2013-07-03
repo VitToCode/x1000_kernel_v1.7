@@ -47,210 +47,241 @@
 //#define DUMP_DDR_REGS
 
 //#define CONFIG_SUSPEND_SUPREME_DEBUG
+#define save_regs_ra(base)      \
+	__asm__ __volatile__ (						\
+		".set push \n\t"					\
+		".set noreorder \n\t"					\
+		"sw	$31,116(%0)	\n\t"				\
+		".set pop \n\t"						\
+		:							\
+		: "r" (base)						\
+		: "memory"						\
+		)
+#define save_regs(base)							\
+	__asm__ __volatile__ (						\
+		".set push \n\t"					\
+		".set    noat		\n\t"				\
+		".set noreorder \n\t"					\
+		"addu 	$26, %0,$0	\n\t"				\
+		"mfhi	$27		\n\t"				\
+		"sw	$0,0($26)	\n\t"				\
+		"sw	$1,4($26)	\n\t"				\
+		"sw	$27,120($26)	\n\t"				\
+		"mflo	$27		\n\t"				\
+		"sw	$2,8($26)	\n\t"				\
+		"sw	$3,12($26)	\n\t"				\
+		"sw	$27,124($26)	\n\t"				\
+		"sw	$4,16($26)	\n\t"				\
+		"sw	$5,20($26)	\n\t"				\
+		"sw	$6,24($26)	\n\t"				\
+		"sw	$7,28($26)	\n\t"				\
+		"sw	$8,32($26)	\n\t"				\
+		"sw	$9,36($26)	\n\t"				\
+		"sw	$10,40($26)	\n\t"				\
+		"sw	$11,44($26)	\n\t"				\
+		"sw	$12,48($26)	\n\t"				\
+		"sw	$13,52($26)	\n\t"				\
+		"sw	$14,56($26)	\n\t"				\
+		"sw	$15,60($26)	\n\t"				\
+		"sw	$16,64($26)	\n\t"				\
+		"sw	$17,68($26)	\n\t"				\
+		"sw	$18,72($26)	\n\t"				\
+		"sw	$19,76($26)	\n\t"				\
+		"sw	$20,80($26)	\n\t"				\
+		"sw	$21,84($26)	\n\t"				\
+		"sw	$22,88($26)	\n\t"				\
+		"sw	$23,92($26)	\n\t"				\
+		"sw	$24,96($26)	\n\t"				\
+		"sw	$25,100($26)	\n\t"				\
+		"sw	$28,104($26)	\n\t"				\
+		"sw	$29,108($26)	\n\t"				\
+		"sw	$30,112($26)	\n\t"				\
+		"sw	$31,116($26)	\n\t"				\
+		"mfc0	$1, $0    	\n\t"				\
+		"mfc0	$2, $1    	\n\t"				\
+		"mfc0	$3, $2    	\n\t"				\
+		"mfc0	$4, $3    	\n\t"				\
+		"mfc0	$5, $4    	\n\t"				\
+		"mfc0	$6, $5    	\n\t"				\
+		"mfc0	$7, $6    	\n\t"				\
+		"mfc0	$8, $8    	\n\t"				\
+		"mfc0	$9, $10   	\n\t"				\
+		"mfc0	$10,$12   	\n\t"				\
+		"mfc0	$11, $12,1	\n\t"				\
+		"mfc0	$12, $13 	\n\t"				\
+		"mfc0	$13, $14    	\n\t"				\
+		"mfc0	$14, $15    	\n\t"				\
+		"mfc0	$15, $15,1    	\n\t"				\
+		"mfc0	$16, $16    	\n\t"				\
+		"mfc0	$17, $16,1    	\n\t"				\
+		"mfc0	$18, $16,2    	\n\t"				\
+		"mfc0	$19, $16,3    	\n\t"				\
+		"mfc0	$20, $16, 7    	\n\t"				\
+		"mfc0	$21, $17    	\n\t"				\
+		"sw	$1,  128($26)    \n\t"				\
+		"sw	$2,  132($26)    \n\t"				\
+		"sw	$3,  136($26)    \n\t"				\
+		"sw	$4,  140($26)    \n\t"				\
+		"sw	$5,  144($26)    \n\t"				\
+		"sw	$6,  148($26)    \n\t"				\
+		"sw	$7,  152($26)    \n\t"				\
+		"sw	$8,  156($26)    \n\t"				\
+		"sw	$9,  160($26)    \n\t"				\
+		"sw	$10, 164($26)    \n\t"				\
+		"sw	$11, 168($26)    \n\t"				\
+		"sw	$12, 172($26)    \n\t"				\
+		"sw	$13, 176($26)    \n\t"				\
+		"sw	$14, 180($26)    \n\t"				\
+		"sw	$15, 184($26)    \n\t"				\
+		"sw	$16, 188($26)    \n\t"				\
+		"sw	$17, 192($26)    \n\t"				\
+		"sw	$18, 196($26)    \n\t"				\
+		"sw	$19, 200($26)    \n\t"				\
+		"sw	$20, 204($26)    \n\t"				\
+		"sw	$21, 208($26)    \n\t"				\
+		"mfc0	$1, $18    	\n\t"				\
+		"mfc0	$2, $19    	\n\t"				\
+		"mfc0	$3, $23    	\n\t"				\
+		"mfc0	$4, $24    	\n\t"				\
+		"mfc0	$5, $26    	\n\t"				\
+		"mfc0	$6, $28		\n\t"				\
+		"mfc0	$7, $28,1	\n\t"				\
+		"mfc0	$8, $30		\n\t"				\
+		"mfc0	$9, $31		\n\t"				\
+		"mfc0	$10,$5,4 	\n\t"				\
+		"sw	$1,  212($26)	\n\t"				\
+		"sw	$2,  216($26)	\n\t"				\
+		"sw	$3,  220($26)	\n\t"				\
+		"sw	$4,  224($26)	\n\t"				\
+		"sw	$5,  228($26)	\n\t"				\
+		"sw	$6,  232($26)	\n\t"				\
+		"sw	$7,  236($26)	\n\t"				\
+		"sw	$8,  240($26)	\n\t"				\
+		"sw	$9,  244($26)	\n\t"				\
+		"sw	$10, 248($26)	\n\t"				\
+		".set pop \n\t"						\
+		:							\
+		: "r" (base)						\
+		: "memory",						\
+		  "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9", "$10", \
+		  "$11", "$12", "$13", "$14", "$15", "$16", "$17", "$18", "$19", "$20", \
+		  "$21", "$22", "$23", "$24", "$25", "$26", "$27",	\
+		  "$31"							\
+		)
 
-#define save_regs(base)		\
-	__asm__ __volatile__ (	\
-			".set    noat		\n\t"\
-			"addu 	$26, %0,$0	\n\t"\
-			"mfhi	$27		\n\t"\
-			"sw	$0,0($26)	\n\t"\
-			"sw	$1,4($26)	\n\t"\
-			"sw	$27,120($26)	\n\t"\
-			"mflo	$27		\n\t"\
-			"sw	$2,8($26)	\n\t"\
-			"sw	$3,12($26)	\n\t"\
-			"sw	$27,124($26)	\n\t"\
-			"sw	$4,16($26)	\n\t"\
-			"sw	$5,20($26)	\n\t"\
-			"sw	$6,24($26)	\n\t"\
-			"sw	$7,28($26)	\n\t"\
-			"sw	$8,32($26)	\n\t"\
-			"sw	$9,36($26)	\n\t"\
-			"sw	$10,40($26)	\n\t"\
-			"sw	$11,44($26)	\n\t"\
-			"sw	$12,48($26)	\n\t"\
-			"sw	$13,52($26)	\n\t"\
-"sw	$14,56($26)	\n\t"\
-"sw	$15,60($26)	\n\t"\
-"sw	$16,64($26)	\n\t"\
-"sw	$17,68($26)	\n\t"\
-"sw	$18,72($26)	\n\t"\
-"sw	$19,76($26)	\n\t"\
-"sw	$20,80($26)	\n\t"\
-"sw	$21,84($26)	\n\t"\
-"sw	$22,88($26)	\n\t"\
-"sw	$23,92($26)	\n\t"\
-"sw	$24,96($26)	\n\t"\
-"sw	$25,100($26)	\n\t"\
-"sw	$28,104($26)	\n\t"\
-"sw	$29,108($26)	\n\t"\
-"sw	$30,112($26)	\n\t"\
-"sw	$31,116($26)	\n\t"\
-"mfc0	$1, $0    	\n\t"\
-"mfc0	$2, $1    	\n\t"\
-"mfc0	$3, $2    	\n\t"\
-"mfc0	$4, $3    	\n\t"\
-"mfc0	$5, $4    	\n\t"\
-"mfc0	$6, $5    	\n\t"\
-"mfc0	$7, $6    	\n\t"\
-"mfc0	$8, $8    	\n\t"\
-"mfc0	$9, $10   	\n\t"\
-"mfc0	$10,$12   	\n\t"\
-"mfc0	$11, $12,1	\n\t"\
-"mfc0	$12, $13 	\n\t"\
-"mfc0	$13, $14    	\n\t"\
-"mfc0	$14, $15    	\n\t"\
-"mfc0	$15, $15,1    	\n\t"\
-"mfc0	$16, $16    	\n\t"\
-"mfc0	$17, $16,1    	\n\t"\
-"mfc0	$18, $16,2    	\n\t"\
-"mfc0	$19, $16,3    	\n\t"\
-"mfc0	$20, $16, 7    	\n\t"\
-"mfc0	$21, $17    	\n\t"\
-"sw	$1,  128($26)    \n\t"\
-"sw	$2,  132($26)    \n\t"\
-"sw	$3,  136($26)    \n\t"\
-"sw	$4,  140($26)    \n\t"\
-"sw	$5,  144($26)    \n\t"\
-"sw	$6,  148($26)    \n\t"\
-"sw	$7,  152($26)    \n\t"\
-"sw	$8,  156($26)    \n\t"\
-"sw	$9,  160($26)    \n\t"\
-"sw	$10, 164($26)    \n\t"\
-"sw	$11, 168($26)    \n\t"\
-"sw	$12, 172($26)    \n\t"\
-"sw	$13, 176($26)    \n\t"\
-"sw	$14, 180($26)    \n\t"\
-"sw	$15, 184($26)    \n\t"\
-"sw	$16, 188($26)    \n\t"\
-"sw	$17, 192($26)    \n\t"\
-"sw	$18, 196($26)    \n\t"\
-"sw	$19, 200($26)    \n\t"\
-"sw	$20, 204($26)    \n\t"\
-"sw	$21, 208($26)    \n\t"\
-"mfc0	$1, $18    	\n\t"\
-"mfc0	$2, $19    	\n\t"\
-"mfc0	$3, $23    	\n\t"\
-"mfc0	$4, $24    	\n\t"\
-"mfc0	$5, $26    	\n\t"\
-"mfc0	$6, $28		\n\t"\
-"mfc0	$7, $28,1	\n\t"\
-"mfc0	$8, $30		\n\t"\
-"mfc0	$9, $31		\n\t"\
-"mfc0	$10,$5,4 	\n\t"\
-"sw	$1,  212($26)	\n\t"\
-"sw	$2,  216($26)	\n\t"\
-"sw	$3,  220($26)	\n\t"\
-"sw	$4,  224($26)	\n\t"\
-"sw	$5,  228($26)	\n\t"\
-"sw	$6,  232($26)	\n\t"\
-"sw	$7,  236($26)	\n\t"\
-"sw	$8,  240($26)	\n\t"\
-"sw	$9,  244($26)	\n\t"\
-"sw	$10, 248($26)	\n\t"\
-: : "r" (base))
-
-#define load_regs(base)\
-	__asm__ __volatile__ (\
-			".set    noat		\n\t"\
-			"addu 	$26, %0,$0	\n\t"\
-			"lw	$1,  128($26)	\n\t"\
-			"lw	$2,  132($26)	\n\t"\
-			"lw	$3,  136($26)	\n\t"\
-			"lw	$4,  140($26)	\n\t"\
-			"lw	$5,  144($26)	\n\t"\
-			"lw	$6,  148($26)	\n\t"\
-			"lw	$7,  152($26)	\n\t"\
-			"lw	$8,  156($26)	\n\t"\
-			"lw	$9,  160($26)	\n\t"\
-			"lw	$10, 164($26)	\n\t"\
-			"lw	$11, 168($26)	\n\t"\
-			"lw	$12, 172($26)	\n\t"\
-			"lw	$13, 176($26)	\n\t"\
-			"lw	$14, 180($26)	\n\t"\
-			"lw	$15, 184($26)	\n\t"\
-			"lw	$16, 188($26)	\n\t"\
-			"lw	$17, 192($26)	\n\t"\
-			"lw	$18, 196($26)	\n\t"\
-"lw	$19, 200($26)	\n\t"\
-"lw	$20, 204($26)	\n\t"\
-"lw	$21, 208($26)	\n\t"\
-"mtc0	$1, $0		\n\t"\
-"mtc0	$2, $1		\n\t"\
-"mtc0	$3, $2		\n\t"\
-"mtc0	$4, $3		\n\t"\
-"mtc0	$5, $4		\n\t"\
-"mtc0	$6, $5		\n\t"\
-"mtc0	$7, $6		\n\t"\
-"mtc0	$8, $8		\n\t"\
-"mtc0	$9, $10		\n\t"\
-"mtc0	$10,$12		\n\t"\
-"mtc0	$11, $12,1	\n\t"\
-"mtc0	$12, $13	\n\t"\
-"mtc0	$13, $14	\n\t"\
-"mtc0	$14, $15	\n\t"\
-"mtc0	$15, $15,1	\n\t"\
-"mtc0	$16, $16	\n\t"\
-"mtc0	$17, $16,1	\n\t"\
-"mtc0	$18, $16,2	\n\t"\
-"mtc0	$19, $16,3	\n\t"\
-"mtc0	$20, $16,7	\n\t"\
-"mtc0	$21, $17	\n\t"\
-"lw	$1,  212($26)	\n\t"\
-"lw	$2,  216($26)	\n\t"\
-"lw	$3,  220($26)	\n\t"\
-"lw	$4,  224($26)	\n\t"\
-"lw	$5,  228($26)	\n\t"\
-"lw	$6,  232($26)	\n\t"\
-"lw	$7,  236($26)	\n\t"\
-"lw	$8,  240($26)	\n\t"\
-"lw	$9,  244($26)	\n\t"\
-"lw	$10, 248($26)	\n\t"\
-"mtc0	$1, $18		\n\t"\
-"mtc0	$2, $19		\n\t"\
-"mtc0	$3, $23		\n\t"\
-"mtc0	$4, $24		\n\t"\
-"mtc0	$5, $26		\n\t"\
-"mtc0	$6, $28		\n\t"\
-"mtc0	$7, $28,1	\n\t"\
-"mtc0	$8, $30		\n\t"\
-"mtc0	$9, $31		\n\t"\
-"mtc0	$10,$5,4	\n\t"\
-"lw	$27,	120($26)\n\t"\
-"lw	$0,	0($26)	\n\t"\
-"lw	$1,  	4($26)	\n\t"\
-"mthi	$27		\n\t"\
-"lw	$27,	124($26)\n\t"\
-"lw	$2,	8($26)	\n\t"\
-"lw	$3,  	12($26)	\n\t"\
-"mtlo	$27		\n\t"\
-"lw	$4,  	16($26)	\n\t"\
-"lw	$5,  	20($26)	\n\t"\
-"lw	$6,  	24($26)	\n\t"\
-"lw	$7,  	28($26)	\n\t"\
-"lw	$8,  	32($26)	\n\t"\
-"lw	$9,  	36($26)	\n\t"\
-"lw	$10, 	40($26)	\n\t"\
-"lw	$11, 	44($26)	\n\t"\
-"lw	$12, 	48($26)	\n\t"\
-"lw	$13, 	52($26)	\n\t"\
-"lw	$14, 	56($26)	\n\t"\
-"lw	$15, 	60($26)	\n\t"\
-"lw	$16, 	64($26)	\n\t"\
-"lw	$17, 	68($26)	\n\t"\
-"lw	$18, 	72($26)	\n\t"\
-"lw	$19, 	76($26)	\n\t"\
-"lw	$20, 	80($26)	\n\t"\
-"lw	$21, 	84($26)	\n\t"\
-"lw	$22, 	88($26)	\n\t"\
-"lw	$23, 	92($26)	\n\t"\
-"lw	$24, 	96($26)	\n\t"\
-"lw	$25, 	100($26)\n\t"\
-"lw	$28, 	104($26)\n\t"\
-"lw	$29, 	108($26)\n\t"\
-"lw	$30, 	112($26)\n\t"\
-"lw	$31, 	116($26)\n\t"\
-: : "r" (base))
+#define load_regs_jmp(base)							\
+	__asm__ __volatile__ (						\
+		".set push \n\t"					\
+		".set    noat		\n\t"				\
+		".set noreorder \n\t"					\
+		"addu 	$26, %0,$0	\n\t"				\
+		"lw	$1,  128($26)	\n\t"				\
+		"lw	$2,  132($26)	\n\t"				\
+		"lw	$3,  136($26)	\n\t"				\
+		"lw	$4,  140($26)	\n\t"				\
+		"lw	$5,  144($26)	\n\t"				\
+		"lw	$6,  148($26)	\n\t"				\
+		"lw	$7,  152($26)	\n\t"				\
+		"lw	$8,  156($26)	\n\t"				\
+		"lw	$9,  160($26)	\n\t"				\
+		"lw	$10, 164($26)	\n\t"				\
+		"lw	$11, 168($26)	\n\t"				\
+		"lw	$12, 172($26)	\n\t"				\
+		"lw	$13, 176($26)	\n\t"				\
+		"lw	$14, 180($26)	\n\t"				\
+		"lw	$15, 184($26)	\n\t"				\
+		"lw	$16, 188($26)	\n\t"				\
+		"lw	$17, 192($26)	\n\t"				\
+		"lw	$18, 196($26)	\n\t"				\
+		"lw	$19, 200($26)	\n\t"				\
+		"lw	$20, 204($26)	\n\t"				\
+		"lw	$21, 208($26)	\n\t"				\
+		"mtc0	$1, $0		\n\t"				\
+		"mtc0	$2, $1		\n\t"				\
+		"mtc0	$3, $2		\n\t"				\
+		"mtc0	$4, $3		\n\t"				\
+		"mtc0	$5, $4		\n\t"				\
+		"mtc0	$6, $5		\n\t"				\
+		"mtc0	$7, $6		\n\t"				\
+		"mtc0	$8, $8		\n\t"				\
+		"mtc0	$9, $10		\n\t"				\
+		"mtc0	$10,$12		\n\t"				\
+		"mtc0	$11, $12,1	\n\t"				\
+		"mtc0	$12, $13	\n\t"				\
+		"mtc0	$13, $14	\n\t"				\
+		"mtc0	$14, $15	\n\t"				\
+		"mtc0	$15, $15,1	\n\t"				\
+		"mtc0	$16, $16	\n\t"				\
+		"mtc0	$17, $16,1	\n\t"				\
+		"mtc0	$18, $16,2	\n\t"				\
+		"mtc0	$19, $16,3	\n\t"				\
+		"mtc0	$20, $16,7	\n\t"				\
+		"mtc0	$21, $17	\n\t"				\
+		"lw	$1,  212($26)	\n\t"				\
+		"lw	$2,  216($26)	\n\t"				\
+		"lw	$3,  220($26)	\n\t"				\
+		"lw	$4,  224($26)	\n\t"				\
+		"lw	$5,  228($26)	\n\t"				\
+		"lw	$6,  232($26)	\n\t"				\
+		"lw	$7,  236($26)	\n\t"				\
+		"lw	$8,  240($26)	\n\t"				\
+		"lw	$9,  244($26)	\n\t"				\
+		"lw	$10, 248($26)	\n\t"				\
+		"mtc0	$1, $18		\n\t"				\
+		"mtc0	$2, $19		\n\t"				\
+		"mtc0	$3, $23		\n\t"				\
+		"mtc0	$4, $24		\n\t"				\
+		"mtc0	$5, $26		\n\t"				\
+		"mtc0	$6, $28		\n\t"				\
+		"mtc0	$7, $28,1	\n\t"				\
+		"mtc0	$8, $30		\n\t"				\
+		"mtc0	$9, $31		\n\t"				\
+		"mtc0	$10,$5,4	\n\t"				\
+		"lw	$27,	120($26)\n\t"				\
+		"lw	$0,	0($26)	\n\t"				\
+		"lw	$1,  	4($26)	\n\t"				\
+		"mthi	$27		\n\t"				\
+		"lw	$27,	124($26)\n\t"				\
+		"lw	$2,	8($26)	\n\t"				\
+		"lw	$3,  	12($26)	\n\t"				\
+		"mtlo	$27		\n\t"				\
+		"lw	$4,  	16($26)	\n\t"				\
+		"lw	$5,  	20($26)	\n\t"				\
+		"lw	$6,  	24($26)	\n\t"				\
+		"lw	$7,  	28($26)	\n\t"				\
+		"lw	$8,  	32($26)	\n\t"				\
+		"lw	$9,  	36($26)	\n\t"				\
+		"lw	$10, 	40($26)	\n\t"				\
+		"lw	$11, 	44($26)	\n\t"				\
+		"lw	$12, 	48($26)	\n\t"				\
+		"lw	$13, 	52($26)	\n\t"				\
+		"lw	$14, 	56($26)	\n\t"				\
+		"lw	$15, 	60($26)	\n\t"				\
+		"lw	$16, 	64($26)	\n\t"				\
+		"lw	$17, 	68($26)	\n\t"				\
+		"lw	$18, 	72($26)	\n\t"				\
+		"lw	$19, 	76($26)	\n\t"				\
+		"lw	$20, 	80($26)	\n\t"				\
+		"lw	$21, 	84($26)	\n\t"				\
+		"lw	$22, 	88($26)	\n\t"				\
+		"lw	$23, 	92($26)	\n\t"				\
+		"lw	$24, 	96($26)	\n\t"				\
+		"lw	$25, 	100($26)\n\t"				\
+		"lw	$28, 	104($26)\n\t"				\
+		"lw	$29, 	108($26)\n\t"				\
+		"lw	$30, 	112($26)\n\t"				\
+		"lw	$31, 	116($26)\n\t"				\
+		"j	$31             \n\t"				\
+		"nop             \n\t"					\
+		".set pop \n\t"						\
+		:							\
+		: "r" (base)						\
+		: "memory",						\
+		  "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9", "$10", \
+		  "$11", "$12", "$13", "$14", "$15", "$16", "$17", "$18", "$19", "$20", \
+		  "$21", "$22", "$23", "$24", "$25", "$26", "$27",	\
+		  "$31"							\
+		)
 
 #define TCSM_BASE 	(0xb3422000)
 #define RETURN_ADDR 	(TCSM_BASE+0)
@@ -390,7 +421,20 @@ static noinline void reset_dll(void)
 	void (*return_func)(void);
 #ifndef TEST
 	register int i;
-	
+	__asm__ volatile(".set mips32\n\t"		\
+			 "la    $2,0x0000FF04   \n\t"   \
+			 "mtc0	$2,$12		\n\t"	\
+			 "nop		        \n\t"	\
+			 "nop		        \n\t"	\
+			 "la    $2,0x00800000   \n\t"   \
+			 "mtc0	$2,$13		\n\t"	\
+			 "nop		        \n\t"	\
+			 "mtc0  $0,$18          \n\t"	\
+			 "nop		        \n\t"	\
+			 "mtc0  $0,$19          \n\t"	\
+			 "nop		        \n\t"	\
+			 ".set mips32           \n\t" );
+
 	TCSM_PCHAR('0');
 	while(!((*(volatile unsigned *)0xb0000014) & (0x1<<4)))//wait pll stable
 		;
@@ -457,21 +501,53 @@ static noinline void reset_dll(void)
 
 static noinline void jz4780_resume(void)
 {
-	load_regs(*(volatile unsigned int *)REG_ADDR);
-	local_flush_tlb_all();
+	/*
+	 * NOTE: you can do some simple things here
+	 * for example: access memory, light a LED, etc.
+	 *
+	 * BUT, do not call kernel function which might_sleep(),
+	 * for example: printk()s, etc.
+	 *
+	 * as a principle: DO NOTE call any function here
+	 */
+
+	/* for example: set PE7 as output 1 */
+#if 0
+	*(volatile unsigned int *)0xb0010418 = (1 << 7);
+	*(volatile unsigned int *)0xb0010424 = (1 << 7);
+	*(volatile unsigned int *)0xb0010438 = (1 << 7);
+	*(volatile unsigned int *)0xb0010444 = (1 << 7);
+#endif
+
+	load_regs_jmp(*(volatile unsigned int *)REG_ADDR);
+	/* BE CARE!!! any code below this are not executed!!! */
 }
+
+#if 0
+static inline void dump_cpu_reg(void) {
+	int i;
+	for(i = 0; i < 256;i++) {
+		printk("regs[%d] = 0x%08x\n",i,regs[i]);
+	}
+}
+#endif
 
 static noinline void jz4780_suspend(void)
 {
-	save_regs(*(volatile unsigned int *)REG_ADDR);
+	/*
+	 *  WARNING: should not call any function in here
+	 */
+	save_regs_ra(*(volatile unsigned int *)REG_ADDR);
+	mb();
+
 #ifdef TEST
 	reset_dll();
 #else
 	blast_dcache32();
+	blast_icache32();
 	cache_prefetch(sleep,sleep_2);
-
-	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
 sleep:
+	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
 	__asm__ volatile(".set mips32\n\t"
 		"sync\n\t"
 		"sync\n\t"
@@ -482,6 +558,7 @@ sleep:
 		".set mips32");
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
 	jz4780_resume();
+	/* BE CARE!!! any code below this are not executed!!! */
 sleep_2:
 #endif
 	return;
@@ -496,6 +573,8 @@ static int jz4780_pm_enter(suspend_state_t state)
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_save_tscm();
 #endif
+
+	*(volatile unsigned int *)0xb0001024 &= ~1;    //enable rtc irq
 	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
 	mdelay(1);
@@ -514,17 +593,34 @@ static int jz4780_pm_enter(suspend_state_t state)
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
 
-	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
+	*(volatile unsigned int *)  0xB3010008 |= 0x1<<17;
 
 #ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 	printk("enter suspend.\n");
+#endif
+	mb();
+	save_regs(*(volatile unsigned int *)REG_ADDR);
+	/*
+	 * CheckPoint A
+	 *
+	 * save_regs() saved the context of jz4780_pm_enter before sleep;
+	 */
+	//printk("===========>haha\n");
 	jz4780_suspend();
+	/*
+	 * CheckPoint B
+	 *
+	 * when resume, PC goes to here, as if the code between A and B is never exist!
+	 */
+	mb();
+	local_flush_tlb_all();
+
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
 	TCSM_PCHAR('x');
 	TCSM_PCHAR('x');
 	printk("resume.\n");
-#else
-	jz4780_suspend();
 #endif
+//	dump_cpu_reg();
 	memcpy((void *)TCSM_BASE, tcsm_back, SAVE_SIZE);
 	cpm_outl(lcr,CPM_LCR);
 	cpm_outl(opcr,CPM_OPCR);

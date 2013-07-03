@@ -95,14 +95,17 @@ static void early_suspend(struct work_struct *work)
 		abort = 1;
 	spin_unlock_irqrestore(&state_lock, irqflags);
 
-	if (abort)
+	if (abort) {
+		mutex_unlock(&early_suspend_lock);
 		goto abort;
+	}
 
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: call handlers\n");
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
 		if (!(state & SUSPEND_REQUESTED)) {
 			abort = 1;
+			mutex_unlock(&early_suspend_lock);
 			goto abort;
 		}
 		if ((pos->suspend != NULL) && !(pos->state & SUSPENDED)) {
@@ -121,7 +124,7 @@ static void early_suspend(struct work_struct *work)
 abort:
 	if ((debug_mask & DEBUG_SUSPEND) && abort)
 		pr_info("early_suspend: abort, state %d\n", state);
-	mutex_unlock(&early_suspend_lock);
+
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
 		wake_unlock(&main_wake_lock);
