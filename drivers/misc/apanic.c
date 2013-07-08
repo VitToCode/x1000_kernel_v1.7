@@ -246,12 +246,31 @@ static void mtd_panic_erase(void)
 	int error = -ENOTTY;
 	char *panic = "ndapanic";
 
+#if 0
 	file = filp_open(PANIC_CHAR_PATH, O_RDWR, S_IRWXU);
 	if (IS_ERR(file)) {
 		printk("open /dev/char/ndapanic filed\n");	
 		return ;
 	}
+#endif
 
+	int erase_count = 100 , erase_i, erase_flag = 0;
+
+	for(erase_i = 0; erase_i < erase_count; erase_i++) {
+		file = filp_open(PANIC_CHAR_PATH, O_RDWR, 0);
+		if (IS_ERR(file)) {
+			printk("filp_open %s is %d times in %s\n", PANIC_CHAR_PATH, erase_i, __func__);
+			erase_flag++;
+			msleep(100);
+			continue;
+		}
+		break;
+	}
+
+	if(erase_flag == erase_count) {
+		printk("open /dev/char/ndapanic filed in %s\n", __func__);
+		return;
+	}
 
 	if (!file->f_op || !file->f_op->unlocked_ioctl) {
 		printk("==================no ioctl===================\n");
