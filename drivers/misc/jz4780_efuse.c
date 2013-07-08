@@ -213,11 +213,13 @@ static int efuse_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to set gpio as output: %d\n", ret);
 			goto err_free_gpio;
 		}
-	}
+
+		setup_timer(&vddq_protect_timer, jz_efuse_vddq_set, 0);
+		add_timer(&vddq_protect_timer);
+	} else
+		dev_info(&pdev->dev,"JZ4780-EFUSE: probe read only.\n");
 
 	spin_lock_init(&jz_efuse_lock);
-	setup_timer(&vddq_protect_timer, jz_efuse_vddq_set, 0);
-	add_timer(&vddq_protect_timer);
 	{
 	    int i;
 	    for (i = 0; i < ARRAY_SIZE(jz_efuse_sysfs_attrs); i++) {
