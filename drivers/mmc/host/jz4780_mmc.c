@@ -1799,6 +1799,8 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
 static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
@@ -1821,6 +1823,8 @@ static int jzmmc_resume(struct platform_device *dev)
 	return ret;
 }
 
+#endif
+
 static void jzmmc_shutdown(struct platform_device *pdev)
 {
 #if 0
@@ -1842,8 +1846,10 @@ static struct platform_driver jzmmc_driver = {
 		.name	= "jzmmc",
 		.owner	= THIS_MODULE,
 	},
+#ifdef CONFIG_PM
 	.suspend = jzmmc_suspend,
 	.resume = jzmmc_resume,
+#endif
 	.remove		= __exit_p(jzmmc_remove),
 	.shutdown	= jzmmc_shutdown,
 };
