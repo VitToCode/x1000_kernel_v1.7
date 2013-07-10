@@ -444,6 +444,7 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 	struct jzfb_display_size *display_size;
 	struct jzfb_framedesc *framedesc[MAX_DESC_NUM];
+	volatile int cnt = 50;
 
 	display_size = kzalloc(sizeof(struct jzfb_display_size), GFP_KERNEL);
 	framedesc[0] = kzalloc(sizeof(struct jzfb_framedesc) *
@@ -469,6 +470,14 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 		jzfb->framedesc[i]->cpos = framedesc[i]->cpos;
 		jzfb->framedesc[i]->desc_size = framedesc[i]->desc_size;
 	}
+
+	reg_write(jzfb, LCDC_STATE, 0);
+	while(!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_SOF) && --cnt)
+		mdelay(1);
+
+	if(!cnt)
+		printk("===> warning, wait lcd sof failed, please check, if enable sof in xboot\n");
+
 	if (jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
 	} else {
