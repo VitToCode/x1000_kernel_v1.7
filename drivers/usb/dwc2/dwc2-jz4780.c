@@ -306,6 +306,7 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 			dev_err(&pdev->dev, "request usb-detect fail\n");
 			goto fail_req_dete_irq;
 		} else {
+			irq_set_irq_wake(jz4780->dete_irq, 1);
 			disable_irq(jz4780->dete_irq);
 		}
 	}

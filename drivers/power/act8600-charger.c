@@ -15,13 +15,14 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/io.h>
-
+#include <linux/notifier.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/power_supply.h>
 #include <linux/power/jz4780-battery.h>
 #include <linux/mfd/act8600-private.h>
 #include <linux/mfd/pmu-common.h>
+#include <linux/err.h>
 
 static enum power_supply_property act8600_power_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
@@ -31,6 +32,47 @@ static char *supply_list[] = {
 	"battery",
 };
 
+#if defined(CONFIG_USB_DWC2) && defined(CONFIG_USB_CHARGER_SOFTWARE_JUDGE) && defined(CONFIG_REGULATOR)
+extern int dwc2_register_state_notifier(struct notifier_block *nb);
+extern void dwc2_unregister_state_notifier(struct notifier_block *nb);
+
+struct act8600_notify_st {
+	struct notifier_block mode_notify;
+	struct regulator  *usb_charger;
+	struct i2c_client *client;
+};
+
+static int dwc2_state_notifier(struct notifier_block * nb, unsigned long is_charger, void * unused)
+{
+	struct act8600_notify_st  *notify_st =
+		container_of(nb, struct act8600_notify_st, mode_notify);
+	struct regulator *usb_charger =
+		(struct regulator *)notify_st->usb_charger;
+	int	curr_limit = 0;
+	uint8_t otg_con;
+
+	if (notify_st->client && usb_charger) {
+		act8600_read_reg(notify_st->client,OTG_CON,&otg_con);
+		if (((!!otg_con & VBUSDAT) && (!!is_charger)) ||
+				(!is_charger)) {
+			curr_limit = regulator_get_current_limit(usb_charger);
+			printk("Before changed: the current is %d\n", curr_limit);
+			if (!!is_charger) {
+				/*charger...*/
+				regulator_set_current_limit(usb_charger, 0, 800000);
+			} else {
+				/*host...*/
+				regulator_set_current_limit(usb_charger, 0, 400000);
+			}
+			curr_limit = regulator_get_current_limit(usb_charger);
+			printk("After changed: the current is %d\n", curr_limit);
+
+		}
+	}
+	return 0;
+}
+#endif
+
 struct act8600_charger {
 	struct device *dev;
 	struct act8600 *iodev;
@@ -39,7 +81,12 @@ struct act8600_charger {
 
 	struct power_supply usb;
 	struct power_supply ac;
+
+#if defined(CONFIG_USB_DWC2) && defined(CONFIG_USB_CHARGER_SOFTWARE_JUDGE) && defined(CONFIG_REGULATOR)
+	struct act8600_notify_st *notify_st;
+#endif
 };
+
 
 static int act8600_get_charge_state(struct act8600_charger *charger,
 		struct jz_battery *jz_battery)
@@ -166,6 +213,7 @@ static unsigned int act8600_update_status(struct act8600_charger *charger)
 		act8600_write_reg(iodev->client, OTG_INTR, INVBUSF);
 	} else {
 		set_charger_offline(jz_battery, USB);
+		act8600_write_reg(iodev->client, OTG_CON , otg_con & ~DBILIMQ3);		//current limit to 400mA
 		act8600_write_reg(iodev->client, OTG_INTR, INVBUSR);
 	}
 #endif
@@ -332,6 +380,31 @@ static int __devinit act8600_charger_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+#if defined(CONFIG_USB_DWC2) && defined(CONFIG_USB_CHARGER_SOFTWARE_JUDGE) && defined(CONFIG_REGULATOR)
+	{
+		struct regulator *usb_charger = NULL;
+		struct act8600_notify_st *notify_st = NULL;
+		notify_st = (struct act8600_notify_st *)kzalloc(sizeof(struct act8600_notify_st),GFP_KERNEL);
+		if (notify_st) {
+			usb_charger = regulator_get(NULL, "ucharger");
+			if (IS_ERR(usb_charger)) {
+				dev_warn(&pdev->dev,"ucharger regulator get error,"
+						"usb charger can not be use\n");
+				kfree(notify_st);
+			} else {
+				charger->notify_st = notify_st;
+				notify_st->usb_charger = usb_charger;
+				notify_st->client = iodev->client;
+				notify_st->mode_notify.notifier_call = dwc2_state_notifier;
+				ret = dwc2_register_state_notifier(&notify_st->mode_notify);
+				if (ret)
+					dev_warn(&pdev->dev,"ucharger notifier_block regist error\n");
+			}
+		}
+	}
+#endif
+
+
 	INIT_DELAYED_WORK(&charger->work, act8600_charger_work);
 
 	if (pdata->charger_board_info->gpio != -1 && gpio_request_one(pdata->charger_board_info->gpio,
@@ -403,6 +476,18 @@ static int __devexit act8600_charger_remove(struct platform_device *pdev)
 	power_supply_unregister(&charger->ac);
 
 	free_irq(charger->irq, charger);
+
+#if defined(CONFIG_USB_DWC2) && defined(CONFIG_USB_CHARGER_SOFTWARE_JUDGE) && defined(CONFIG_REGULATOR)
+	if (charger->notify_st) {
+		if (charger->notify_st->usb_charger) {
+			dwc2_unregister_state_notifier(&charger->notify_st->mode_notify);
+			regulator_put(charger->notify_st->usb_charger);
+			charger->notify_st->usb_charger = NULL;
+		}
+		kfree(charger->notify_st);
+	}
+#endif
+
 	kfree(charger);
 
 	return 0;

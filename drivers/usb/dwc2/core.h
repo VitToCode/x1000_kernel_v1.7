@@ -473,7 +473,7 @@ struct dwc2 {
 	unsigned			 b_hnp_enable:1;
 	unsigned			 a_hnp_support:1;
 	unsigned			 a_alt_hnp_support:1;
-	unsigned			 plugin:1;
+	volatile unsigned	 plugin:1;
 	unsigned			 keep_phy_on:1;
 	/* for suspend/resume */
 	unsigned			 suspended:1;  /* 0: running, 1: suspended */
@@ -483,15 +483,18 @@ struct dwc2 {
 
 	unsigned int			 gintmsk;
 
-	int pullup_on;
+	volatile int pullup_on;
 	enum dwc2_ep0_state		 ep0state;
 	enum dwc2_device_state		 dev_state;
 
 	struct timer_list	delayed_status_watchdog;
 
-#define DWC2_EP0STATE_WATCH_COUNT	10
-#define DWC2_EP0STATE_WATCH_INTERVAL	50 /* ms */
-	int			ep0state_watch_count;
+#define DWC2_EP0STATE_WATCH_COUNT (CONFIG_CHARGER_JUDGE_TIME/200)
+#define DWC2_EP0STATE_WATCH_INTERVAL	200 /* ms */
+	volatile int		ep0state_watch_count;
+	volatile int		is_charger;
+	bool		force_host;
+	int			schedule_cpu;
 	struct timer_list	ep0state_watcher;
 	struct work_struct	ep0state_watcher_work;
 

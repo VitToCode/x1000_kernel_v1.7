@@ -901,9 +901,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			dwc->lx_state = DWC_OTG_L0;
 			dwc2_gadget_handle_session_end(dwc);
 			dwc2_gadget_disconnect(dwc);
-
-			dwc2_start_ep0state_watcher(dwc, 0);
-
+			//dwc2_stop_ep0state_watcher(dwc,0);
 			/* TODO: if adp enable, handle ADP Sense here */
 		}
 
