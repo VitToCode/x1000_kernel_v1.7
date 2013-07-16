@@ -107,17 +107,17 @@ void set_mac_phy_clk(mac_clock_control mac_control)
 	switch (mac_control){
 	case MAC_GMII:
 		mphy_value &= ~(7 << 0);
-		mphy_value |= 1 << 31;
+		mphy_value |= (1 << 31);
 		break;
 	case MAC_RGMII:
 		mphy_value &= ~(7 << 0);
-		mphy_value |= ((1 << 31) || (1 << 0));
+		mphy_value |= ((1 << 31) | (1 << 0));
 		break;
 	case MAC_MII:
-		mphy_value &= (~(1 << 31) || ~(7 << 0));
+		mphy_value &= (~(1 << 31) | ~(7 << 0));
 		break;
 	case MAC_RMII:
-		mphy_value &= (~(1 << 31) || ~(7 << 0));
+		mphy_value &= (~(1 << 31) | ~(7 << 0));
 		mphy_value &= ~(4 << 0);
 		break;
 	case MAC_1000M:
