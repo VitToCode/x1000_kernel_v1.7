@@ -166,11 +166,13 @@ struct snd_codec_data {
 
 #define SND_DEV_DSP0  	(SND_DEV_DSP + SOUND_STEP * 0)
 #define SND_DEV_DSP1  	(SND_DEV_DSP + SOUND_STEP * 1)
+#define SND_DEV_DSP2  	(SND_DEV_DSP + SOUND_STEP * 2)
 
 #define DEV_MIXER_NAME	"mixer"
 
 #define SND_DEV_MIXER0	(SND_DEV_CTL + SOUND_STEP * 0)
 #define SND_DEV_MIXER1 	(SND_DEV_CTL + SOUND_STEP * 1)
+#define SND_DEV_MIXER2 	(SND_DEV_CTL + SOUND_STEP * 2)
 
 #define minor2index(x)	((x) / SOUND_STEP)
 
@@ -204,8 +206,10 @@ struct snd_dev_data {
 
 extern struct snd_dev_data i2s_data;
 extern struct snd_dev_data pcm_data;
+extern struct snd_dev_data spdif_data;
 extern struct snd_dev_data snd_mixer0_data;		//for i2s debug
 extern struct snd_dev_data snd_mixer1_data;		//for pcm debug
+extern struct snd_dev_data snd_mixer2_data;		//for spdif debug
 /*call state*/
 extern bool i2s_is_incall(void);
 

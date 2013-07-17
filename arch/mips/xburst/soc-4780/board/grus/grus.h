@@ -48,7 +48,11 @@ extern struct snd_codec_data codec_data;
 #define GPIO_SPEAKER_EN		GPIO_PA(27)	//GPIO_PE(6)	/*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL	1	//1
 
+#ifdef	CONFIG_SOUND_SPDIF_JZ47XX
+#define	GPIO_HP_DETECT		-1 //GPIO_PE(7)	/*hp detect gpio*/
+#else
 #define	GPIO_HP_DETECT		GPIO_PE(7)	/*hp detect gpio*/
+#endif
 #define GPIO_HP_INSERT_LEVEL	0
 
 #define GPIO_MIC_DETECT		-1		/*mic detect gpio*/

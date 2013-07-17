@@ -123,6 +123,11 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	I2S_PORTDE,
 #endif
 #endif
+#ifdef	CONFIG_SOUND_SPDIF_JZ47XX
+#ifdef CONFIG_JZ_INTERNAL_CODEC
+	I2S_PORTDE,
+#endif
+#endif
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	PCM_PORTD,
 #endif
@@ -396,7 +401,7 @@ static u64 jz_i2s_dmamask =  ~(u32)0;
 static struct resource jz_i2s_resources[] = {
 	[0] = {
 		.start          = AIC0_IOBASE,
-		.end            = AIC0_IOBASE + 0x1000 -1,
+		.end            = AIC0_IOBASE + 0x70 -1,
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -440,6 +445,30 @@ struct platform_device jz_pcm_device = {
 	.num_resources  = ARRAY_SIZE(jz_pcm_resources),
 };
 
+static u64 jz_spdif_dmamask =  ~(u32)0;
+static struct resource jz_spdif_resources[] = {
+	[0] = {
+		.start          = SPDIF0_IOBASE,
+		.end            = SPDIF0_IOBASE + 0x20 -1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start			= IRQ_AIC0,
+		.end			= IRQ_AIC0,
+		.flags			= IORESOURCE_IRQ,
+	},
+};
+struct platform_device jz_spdif_device = {
+	.name		= DEV_DSP_NAME,
+	.id			= minor2index(SND_DEV_DSP2),
+	.dev = {
+		.dma_mask               = &jz_spdif_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.resource       = jz_spdif_resources,
+	.num_resources  = ARRAY_SIZE(jz_spdif_resources),
+};
+
 #define DEF_MIXER(NO)				\
 struct platform_device jz_mixer##NO##_device = {		\
 	.name	= DEV_MIXER_NAME,			\
@@ -447,6 +476,7 @@ struct platform_device jz_mixer##NO##_device = {		\
 };
 DEF_MIXER(0);
 DEF_MIXER(1);
+DEF_MIXER(2);
 
 struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
