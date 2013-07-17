@@ -327,7 +327,7 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 		COMMON_NAND_CHIP_INFO(
 			NAND_FLASH_MT29F32G08CBACAWP_NAME,
 			NAND_MFR_MICRON, NAND_FLASH_MT29F32G08CBACAWP_ID,
-			1024, 32, 0,
+			1024, 24, 0,
 			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
 			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
 			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
