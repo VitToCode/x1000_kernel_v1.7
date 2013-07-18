@@ -23,8 +23,7 @@ module_param(dwc2_ep0_debug_en, int, 0644);
 #define DWC2_EP0_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_ep0_debug_en)) {		\
-			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
-			printk(KERN_DEBUG "DWC2(EP0:): " msg);		\
+			dwc2_printk("ep0", msg);		\
 		}						\
         } while(0)
 #else
@@ -103,6 +102,8 @@ static __attribute__((unused)) void dwc2_ep0_dump_regs(struct dwc2 *dwc) {
 static const char *dwc2_ep0_state_string(enum dwc2_ep0_state state)
 {
 	switch (state) {
+	case EP0_WAITING_SETUP_PHASE:
+		return "Waiting Setup Phase";
 	case EP0_SETUP_PHASE:
 		return "Setup Phase";
 	case EP0_DATA_PHASE:
@@ -217,6 +218,8 @@ static int dwc2_ep0_do_status_phase(struct dwc2 *dwc) {
 		dwc->ep0_usb_req.request.length = 0;
 		dwc->ep0_usb_req.request.buf = (void *)0xFFFFFFFF;
 		dwc->ep0_usb_req.request.complete = dwc2_ep0_status_cmpl;
+		dwc->ep0_usb_req.transfering = 0;
+		/* NOTE: this req is not add to request_list, so giveback will not be called */
 		dwc2_ep0_start_transfer(dwc, &dwc->ep0_usb_req);
 		return 0;
 	}
@@ -325,7 +328,7 @@ static void dwc2_ep0_start_in_transfer(struct dwc2 *dwc,
 
 	req->xfersize = deptsiz.b.xfersize;
 	req->pktcnt = 1;
-
+	req->transfering = 1;
 
 	DWC2_EP0_DEBUG_MSG("IN: xfersize = %d next_dma_addr = 0x%08x zlp_transfered = %d dep->maxp = %d\n",
 			req->xfersize, req->next_dma_addr, req->zlp_transfered, dep->maxp);
@@ -357,13 +360,18 @@ static void dwc2_ep0_start_out_transfer(struct dwc2 *dwc,
 	struct dwc2_ep			*dep	  = req->dwc2_ep;
 	deptsiz0_data_t			 deptsiz;
 
+	/* NOTE: we transfer OUT packet by packet */
 	deptsiz.d32 = dwc_readl(&out_regs->doeptsiz);
 	deptsiz.b.xfersize = dep->maxp;
 	deptsiz.b.supcnt = 0;
 	deptsiz.b.pktcnt = 1;
 
+	if (req->trans_count_left == 0)
+		req->zlp_transfered = 1;
+
 	req->xfersize = dep->maxp;
 	req->pktcnt = 1;
+	req->transfering = 1;
 
 	DWC2_EP0_DEBUG_MSG("OUT: next_dma_addr = 0x%08x\n", req->next_dma_addr);
 
@@ -396,56 +404,65 @@ static void dwc2_ep0_start_transfer(struct dwc2 *dwc,
 		return;
 	}
 
+	DWC2_EP0_DEBUG_MSG("req 0x%p is_in = %d transfering = %d length = %d mapped = %d\n",
+			req, dep->is_in, req->transfering, r->length, req->mapped);
+
 	if (dep->is_in) {
-		if (( r->length != 0) && !req->mapped) {
-			r->dma = dma_map_single(dwc->dev, r->buf, r->length,
-						dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		if (!req->transfering) {
+			if (( r->length != 0) && !req->mapped) {
+				r->dma = dma_map_single(dwc->dev, r->buf, r->length,
+							dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
 
-			if (dma_mapping_error(dwc->dev, r->dma)) {
-				dev_err(dwc->dev, "failed to map buffer\n");
-				return;
+				if (dma_mapping_error(dwc->dev, r->dma)) {
+					dev_err(dwc->dev, "failed to map buffer\n");
+					return;
+				}
+
+				DWC2_EP0_DEBUG_MSG("req 0x%p mapped to 0x%08x, length = %d\n", req, r->dma, r->length);
+
+				req->trans_count_left = r->length;
+				req->next_dma_addr = r->dma;
+				req->zlp_transfered = 0;
+				req->mapped = 1;
+			} else if (r->length == 0) {
+				req->trans_count_left = 0;
+				req->next_dma_addr = 0;
+				req->zlp_transfered = 0;
 			}
-
-			DWC2_EP0_DEBUG_MSG("req 0x%p mapped to 0x%08x, length = %d\n", req, r->dma, r->length);
-
-			req->trans_count_left = r->length;
-			req->next_dma_addr = r->dma;
-			req->zlp_transfered = 0;
-			req->mapped = 1;
-		} else if (r->length == 0) {
-			req->trans_count_left = 0;
-			req->next_dma_addr = 0;
-			req->zlp_transfered = 0;
 		}
 
 		dwc2_ep0_start_in_transfer(dwc, req);
 	} else {
-		/* NOTE: we do not support >64 bytes OUT */
-		req->trans_count_left = r->length;
-		req->next_dma_addr = dwc->ep0out_shadow_dma;
-		req->zlp_transfered = 0;
+		if (!req->transfering) {
+			req->trans_count_left = r->length;
+			req->next_dma_addr = dwc->ep0out_shadow_dma;
+			req->zlp_transfered = 0;
+		}
 
 		dwc2_ep0_start_out_transfer(dwc, req);
 	}
 }
 
-static int __dwc2_gadget_ep0_queue(struct dwc2_ep *ep0,
+static int __dwc2_gadget_ep0_queue(struct dwc2_ep *outep0,
 				struct dwc2_request *req) {
 
-	struct dwc2	*dwc = ep0->dwc;
+	struct dwc2	*dwc	   = outep0->dwc;
 	struct dwc2_ep	*dep;
+	int		 can_queue = 0;
 
-	DWC2_EP0_DEBUG_MSG("ep0_queue: req = 0x%p len = %d delayed_status = %d ep0state=%s three=%d\n",
-			req, req->request.length,
-			dwc->delayed_status,
-			dwc2_ep0_state_string(dwc->ep0state),
-			dwc->three_stage_setup);
+	BUG_ON(outep0->is_in);
+
+	DWC2_EP0_DEBUG_MSG("ep0_queue: req = 0x%p len = %d zero = %d delayed_status = %d ep0state=%s three=%d\n",
+			   req, req->request.length, req->request.zero,
+			   dwc->delayed_status,
+			   dwc2_ep0_state_string(dwc->ep0state),
+			   dwc->three_stage_setup);
 
 	/*
 	 * NOTE: currently we do not support queue more than one request on EP0
 	 *       if someone wish to use EP0 as "bulk", he may remove this restrict.
 	 */
-	if (!list_empty(&ep0->request_list)) {
+	if (!list_empty(&outep0->request_list)) {
 		dev_err(dwc->dev, "ep0 request list is not empty when attemp to queue a new request!!!\n");
 		dump_stack();
 		return -EBUSY;
@@ -454,7 +471,12 @@ static int __dwc2_gadget_ep0_queue(struct dwc2_ep *ep0,
 	req->request.actual	= 0;
 	req->request.status	= -EINPROGRESS;
 
-	list_add_tail(&req->list, &ep0->request_list);
+	/*
+	 * Although there's IN and OUT EP0, but EP0 is actually not bi-direction,
+	 * so, all EP0 request are queue to OUT EP0 request_list,
+	 * request's real ep will assign later
+	 */
+	list_add_tail(&req->list, &outep0->request_list);
 
 	/*
 	 * In case gadget driver asked us to delay the STATUS phase,
@@ -468,7 +490,7 @@ static int __dwc2_gadget_ep0_queue(struct dwc2_ep *ep0,
 		req->dwc2_ep = dep;
 
 		if (dwc->delayed_status_sent) {
-			dwc2_gadget_giveback(ep0, req, 0);
+			dwc2_gadget_giveback(outep0, req, 0);
 			return 0;
 		} else {
 			del_timer(&dwc->delayed_status_watchdog);
@@ -493,12 +515,57 @@ static int __dwc2_gadget_ep0_queue(struct dwc2_ep *ep0,
 		return 0;
 	}
 
-	if (dwc->three_stage_setup && dwc->ep0state != EP0_STATUS_PHASE) {
-		/* Assign Real EP */
-		dep = dwc2_ep0_get_ep_by_dir(dwc, dwc->ep0_expect_in);
-		req->dwc2_ep = dep;
+	if (dwc->three_stage_setup) {
+		switch(dwc->ep0state) {
+		case EP0_SETUP_PHASE:
+			/* Assign Real EP */
+			dep = dwc2_ep0_get_ep_by_dir(dwc, dwc->ep0_expect_in);
+			req->dwc2_ep = dep;
 
-		dwc->ep0state = EP0_DATA_PHASE;
+			dwc->ep0state = EP0_DATA_PHASE;
+
+			can_queue = 1;
+			break;
+
+		case EP0_DATA_PHASE:
+			/* NOTE: we currently do not allow >1 data block */
+			break;
+
+		case EP0_STATUS_PHASE:
+			break;
+		case EP0_DISCONNECTED:
+		case EP0_WAITING_SETUP_PHASE:
+		default:
+			break;
+		}
+	} else {
+		switch(dwc->ep0state) {
+		case EP0_SETUP_PHASE:
+			if (req->request.zero || (req->request.length == 0)) {
+				/* Assign Real EP */
+				dep = dwc2_ep0_get_in_ep(dwc);;
+				req->dwc2_ep = dep;
+
+				dwc->ep0state = EP0_STATUS_PHASE;
+
+				can_queue = 1;
+			}
+			break;
+
+		case EP0_DATA_PHASE:
+			break;
+		case EP0_STATUS_PHASE:
+			break;
+		case EP0_DISCONNECTED:
+		case EP0_WAITING_SETUP_PHASE:
+		default:
+			break;
+		}
+	}
+
+	if (unlikely(!can_queue)) {
+		list_del(&req->list);
+		return -EINVAL;
 	}
 
 	dwc2_ep0_start_transfer(dwc, req);
@@ -526,6 +593,7 @@ int dwc2_gadget_ep0_queue(struct usb_ep *ep,
 			struct usb_request *request,
 			gfp_t gfp_flags) {
 	struct dwc2_request	*req = to_dwc2_request(request);
+	/* NOTE: see __dwc2_gadget_init_endpoints(), ep0 is actually OUT EP0 */
 	struct dwc2_ep		*ep0 = to_dwc2_ep(ep);
 	struct dwc2		*dwc = ep0->dwc;
 	unsigned long		 flags;
@@ -574,7 +642,7 @@ static void dwc2_ep0_stall_and_restart(struct dwc2 *dwc) {
 		dwc2_gadget_giveback(dep, req, -ECONNRESET);
 	}
 
-	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc->ep0state = EP0_WAITING_SETUP_PHASE;
 	dwc2_ep0_out_start(dwc);
 }
 
@@ -618,6 +686,9 @@ static int dwc2_ep0_handle_status(struct dwc2 *dwc,
 	u16			usb_status = 0;
 	__le16			*response_pkt;
 
+	if (dwc->dev_state != DWC2_CONFIGURED_STATE)
+		return -EINVAL;
+
 	recip = ctrl->bRequestType & USB_RECIP_MASK;
 	switch (recip) {
 	case USB_RECIP_DEVICE:
@@ -657,6 +728,7 @@ static int dwc2_ep0_handle_status(struct dwc2 *dwc,
 	dwc->ep0_usb_req.request.length = sizeof(*response_pkt);
 	dwc->ep0_usb_req.request.buf = &dwc->status_buf;
 	dwc->ep0_usb_req.request.complete = dwc2_ep0_status_cmpl;
+	dwc->ep0_usb_req.transfering = 0;
 
 	return __dwc2_gadget_ep0_queue(dwc->eps[0], &dwc->ep0_usb_req);
 }
@@ -671,10 +743,9 @@ static int dwc2_ep0_handle_feature(struct dwc2 *dwc,
 	u32			recip;
 	u32			wValue;
 	u32			wIndex;
-	int			ret;
+	int			ret = 0;
 	gotgctl_data_t gotgctl = {.d32 = 0 };
 	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-
 
 	wValue = le16_to_cpu(ctrl->wValue);
 	wIndex = le16_to_cpu(ctrl->wIndex);
@@ -743,8 +814,6 @@ static int dwc2_ep0_handle_feature(struct dwc2 *dwc,
 		default:
 			return -EINVAL;
 		}
-
-		dwc2_ep0_do_status_phase(dwc);
 		break;
 
 	case USB_RECIP_INTERFACE:
@@ -766,12 +835,14 @@ static int dwc2_ep0_handle_feature(struct dwc2 *dwc,
 			return -EINVAL;
 		}
 
-		dwc2_ep0_do_status_phase(dwc);
 		break;
 
 	default:
 		return -EINVAL;
 	};
+
+	/* ok, response with status */
+	dwc2_ep0_do_status_phase(dwc);
 
 	return 0;
 }
@@ -833,17 +904,13 @@ static void dwc2_ep0_inspect_setup(struct dwc2 *dwc)
 	else
 		ret = dwc2_ep0_delegate_req(dwc, ctrl);
 
-	if (!dwc->three_stage_setup) {
-		dwc->ep0state = EP0_STATUS_PHASE;
-	}
-
 	/* copied from storage_common.c */
 #define EP0_BUFSIZE	256
 #define DELAYED_STATUS	(EP0_BUFSIZE + 999)	/* An impossibly large value */
 	/* seems that never return this value, but through the code,
 	 * this return value is possible, so print a warning here.
 	 */
-	if (ret == DELAYED_STATUS)
+	if (unlikely(ret == DELAYED_STATUS))
 		DWC2_EP0_DEBUG_MSG("DELAYED_STATUS!!!\n");
 
 	if ((ret == DELAYED_STATUS) || (ret == USB_GADGET_DELAYED_STATUS)) {
@@ -882,9 +949,13 @@ static void dwc2_ep0_in_complete_data(struct dwc2 *dwc) {
 			deptsiz.d32 = dwc_readl(&dev_if->in_ep_regs[0]->dieptsiz);
 
 			/* The Programming Guide said xfercompl raised when xfersize and pktcnt gets zero */
-			WARN(deptsiz.b.xfersize, "%s: xfersize not zero when transfer complete\n", __func__);
+			WARN(deptsiz.b.xfersize, "%s: xfersize(%u) not zero when xfercompl\n",
+				__func__, deptsiz.b.xfersize);
 
 			trans_count = curr_req->xfersize - deptsiz.b.xfersize;
+
+			if (unlikely(trans_count < 0))
+				trans_count = curr_req->xfersize;
 		}
 
 		curr_req->trans_count_left -= trans_count;
@@ -913,6 +984,8 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 	deptsiz0_data_t		 deptsiz;
 	int			 trans_count = 0;
 
+	WARN(1, "who will use ep0 out???\n");
+
 	curr_req = next_request(&ep0->request_list);
 	if (curr_req == NULL) {
 		return;
@@ -923,20 +996,16 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 			/* TODO: Scatter/Gather DMA Mode here! */
 		} else {
 			deptsiz.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
-
-			/* The Programming Guide said xfercompl raised when xfersize and pktcnt gets zero */
-			WARN(deptsiz.b.xfersize, "%s: xfersize not zero when transfer complete\n", __func__);
-
 			trans_count = curr_req->xfersize - deptsiz.b.xfersize;
+
+			if (unlikely(trans_count < 0))
+				trans_count = curr_req->xfersize;
 		}
 
 		curr_req->trans_count_left -= trans_count;
 		if (curr_req->trans_count_left < 0) {
 			curr_req->trans_count_left = 0;
 		}
-
-		//curr_req->next_dma_addr += trans_count;
-		curr_req->request.actual += trans_count;
 
 		/* copy from shadow buffer to real buffer */
 		if (curr_req->request.length != 0) {
@@ -947,6 +1016,10 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 				(void *)dwc->ep0out_shadow_uncached,
 				trans_count);
 		}
+
+		/* OUT request dma address are always dwc->ep0out_shadow_dma */
+		// curr_req->next_dma_addr += trans_count;
+		curr_req->request.actual += trans_count;
 
 		/* if xfersize is not zero, we receive an short packet, the transfer is complete */
 		if (!deptsiz.b.xfersize && (curr_req->trans_count_left || need_send_zlp(curr_req))) {
@@ -997,7 +1070,7 @@ static void dwc2_ep0_complete_status(struct dwc2 *dwc) {
 	if (dwc->test_mode)
 		dev_info(dwc->dev, "entering Test Mode(%d)\n", dwc->test_mode_nr);
 
-	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc->ep0state = EP0_WAITING_SETUP_PHASE;
 }
 
 static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
@@ -1035,14 +1108,16 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 	DWC2_EP0_DEBUG_MSG("xfercompl: is_in = %d, setup = %d, ep0state = %s \n",
 			is_in, setup, dwc2_ep0_state_string(dwc->ep0state));
 
-	if ( (setup && (dwc->ep0state != EP0_SETUP_PHASE)) ||
-		(!setup && (dwc->ep0state == EP0_SETUP_PHASE))) {
+	if ( (setup && (dwc->ep0state != EP0_WAITING_SETUP_PHASE)) ||
+		(!setup && !((dwc->ep0state == EP0_DATA_PHASE) || (dwc->ep0state == EP0_STATUS_PHASE)))
+		) {
 		DWC2_EP0_DEBUG_MSG("Error: %s: setup = %d, ep0state = %d\n", __func__, setup, dwc->ep0state);
 		return;
 	}
 
 	switch (dwc->ep0state) {
-	case EP0_SETUP_PHASE:
+	case EP0_WAITING_SETUP_PHASE:
+		dwc->ep0state = EP0_SETUP_PHASE;
 		dev_vdbg(dwc->dev, "Inspecting Setup Bytes\n");
 		dwc2_ep0_inspect_setup(dwc);
 		break;
@@ -1080,12 +1155,7 @@ static void dwc2_ep0_handle_in_interrupt(struct dwc2_ep *dep) {
 
 	/* Transfer complete */
 	if (diepint.b.xfercompl) {
-		if (dep->type == USB_ENDPOINT_XFER_BULK &&
-			dep->interval > 1) {
-			/* TODO: need handle ISO special case here */
-		}
-
-		dwc2_ep0_xfer_complete(dwc, dep->is_in, 0);
+		dwc2_ep0_xfer_complete(dwc, 1, 0);
 
 		CLEAR_IN_EP0_INTR(xfercompl);
 		diepint.b.xfercompl = 0;
@@ -1195,7 +1265,7 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 
 	/* Transfer complete */
 	if (doepint.b.xfercompl) {
-		dwc2_ep0_xfer_complete(dwc, dep->is_in, 0);
+		dwc2_ep0_xfer_complete(dwc, 0, 0);
 
 		CLEAR_OUT_EP0_INTR(xfercompl);
 		doepint.b.xfercompl = 0;
@@ -1233,7 +1303,7 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 		retval = dwc2_ep0_get_ctrl_reqeust(dwc, &doeptsiz, rem_supcnt, back2back, setup_addr);
 		if (retval == 0) {
 			// Warning: do not call dwc2_ep0_out_start(dwc) here!
-			dwc2_ep0_xfer_complete(dwc, dep->is_in, 1);
+			dwc2_ep0_xfer_complete(dwc, 0, 1);
 		} else {
 			dwc->do_reset_core = 1;
 		}

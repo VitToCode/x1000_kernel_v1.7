@@ -4,8 +4,14 @@ ccflags-$(CONFIG_USB_DWC2_VERBOSE)	+= -DVERBOSE_DEBUG
 obj-$(CONFIG_USB_DWC2)			+= dwc2.o
 
 dwc2-y	:= core.o
+
+ifneq ($(CONFIG_USB_DWC2_DEVICE_ONLY),y)
 dwc2-y	+= host-ddma.o rh.o
+endif
+
+ifneq ($(CONFIG_USB_DWC2_HOST_ONLY),y)
 dwc2-y	+= gadget.o ep0.o
+endif
 
 ifneq ($(CONFIG_DEBUG_FS),)
 	dwc2-y				+= debugfs.o

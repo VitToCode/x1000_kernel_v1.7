@@ -47,4 +47,7 @@ static inline uint32_t dwc2_hc_read_hprt(struct dwc2 *dwc)
 void dwc2_handle_host_mode_interrupt(struct dwc2 *dwc, gintsts_data_t *gintr_status);
 void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc);
 
+void __dwc2_port_reset(struct dwc2 *dwc, bool do_reset);
+void dwc2_port_reset(struct dwc2 *dwc, bool do_reset);
+
 #endif	/* __DRIVERS_USB_DWC2_HOST_H */

@@ -29,8 +29,7 @@ module_param(dwc2_gadget_debug_en, int, 0644);
 #define DWC2_GADGET_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_gadget_debug_en)) {		\
-			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
-			printk(KERN_DEBUG "DWC2(GADGET): " msg);		\
+			dwc2_printk("gadget", msg);		\
 		}						\
 	} while(0)
 #else
@@ -295,6 +294,7 @@ void dwc2_gadget_handle_session_end(struct dwc2 *dwc) {
 		}
 
 		dwc2_flush_rx_fifo(dwc);
+
 		dwc->ep0state = EP0_DISCONNECTED;
 		dwc->delayed_status = false;
 		dwc->delayed_status_sent = true;
@@ -341,7 +341,8 @@ static void dwc2_wait_1st_ctrl_request(struct dwc2 *dwc) {
 #endif
 }
 
-void dwc2_stop_ep0state_watcher(struct dwc2 *dwc);
+void dwc2_notifier_call_chain_async(struct dwc2 *dwc);
+
 static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	struct dwc2_dev_if	*dev_if	     = &dwc->dev_if;
 	dctl_data_t		 dctl;
@@ -373,15 +374,10 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	} else
 		first_reset = 0;
 
-	if (dwc->is_charger) {
-		dev_warn(dwc->dev,"Host system busy or board interrupt lost happened\n");
-		dwc2_stop_ep0state_watcher(dwc);
-	}
-
 	// dwc2_dump_ep_regs(dwc, 0, __func__, __LINE__);
 
 	/* NOTE that at this point, ep0 is still not activated, see ENUM DONE */
-	dwc->ep0state = EP0_SETUP_PHASE;
+	//dwc->ep0state = EP0_WAITING_SETUP_PHASE;
 	dwc->dev_state = DWC2_DEFAULT_STATE;
 
 	/* only disable in ep here */
@@ -582,7 +578,8 @@ static int dwc2_gadget_handle_enum_done_intr(struct dwc2 *dwc)
 		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
 	}
 
-	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc->ep0state = EP0_WAITING_SETUP_PHASE;
+	dwc2_notifier_call_chain_async(dwc);
 
 	dep = dwc2_ep0_get_out_ep(dwc);
 	dep->flags &= ~DWC2_EP_ENABLED;
@@ -714,7 +711,7 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 	if (epnum == 0) {
 		u32 curr_dma = dwc_readl(&dev_if->out_ep_regs[0]->doepdma);
 		u32 low_limit = dwc->ctrl_req_addr;
-		u32 up_limit = dwc->ctrl_req_addr + PAGE_SIZE;
+		u32 up_limit = dwc->ctrl_req_addr + DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE;
 		if ( (low_limit <= curr_dma) && (curr_dma < up_limit) ) {
 			return;
 		}
@@ -1573,14 +1570,12 @@ static int dwc2_gadget_ep_set_halt(struct usb_ep *ep, int value) {
 		ret = -EINVAL;
 		goto out;
 	}
-#if 0
-	if (!list_empty(&dep->request_list)) {		//CHECK it needed??
+	if (!list_empty(&dep->request_list)) {
 		DWC2_GADGET_DEBUG_MSG("%d %s XFer In process\n",
 				dep->number,dep->is_in? "IN" : "OUT" );
 		ret = -EAGAIN;
 		goto out;
 	} else
-#endif
 		ret = __dwc2_gadget_ep_set_halt(dep, value);
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
@@ -1728,20 +1723,19 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 
-	if (dwc->pullup_on == is_on)
-		goto out;
-
 	dwc->pullup_on = is_on;
 
 	if (is_on && !dwc->plugin)
 		goto out;
 
 	if (dwc2_is_device_mode(dwc)) {
+		if (dwc->plugin)
+			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-		if (dwc->plugin && dwc->pullup_on)
-			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+
 		/*
 		 * Note: if we are diconnected, maybe we must stop Rx/Tx transfers
 		 *       or the upper layer must take care it? I am not sure about this,
@@ -1869,9 +1863,11 @@ static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 
 	if (dsts.b.errticerr) {
 		dctl_data_t	 dctl;
+
 		dev_err(dwc->dev, "errticerr! Perform a soft reset recover\n");
 		dwc2_core_init(dwc);
 		dwc2_device_mode_init(dwc);
+
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1920,6 +1916,7 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 			WARN(deptsiz.b.xfersize, "xfersize if not zero when xfer complete\n");
 
 			trans_count = req->xfersize - deptsiz.b.xfersize;
+			if (unlikely(trans_count < 0)) trans_count = req->xfersize;
 			req->trans_count_left -= trans_count;
 			req->next_dma_addr += trans_count;
 
@@ -2049,10 +2046,16 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 
 			deptsiz.d32 = dwc_readl(&out_ep_regs->doeptsiz);
 			trans_count = req->xfersize - deptsiz.b.xfersize;
+			if (unlikely(trans_count < 0))
+				trans_count = req->xfersize;
 
 			req->trans_count_left -= trans_count;
-			if (req->trans_count_left < 0)
+			if (unlikely(req->trans_count_left < 0)) {
+				dev_warn(dwc->dev, "%s: trans_count_left < 0! trans_count = %d\n",
+					__func__, trans_count);
+				deptsiz.b.xfersize = 0; /* force complete */
 				req->trans_count_left = 0;
+			}
 
 			req->next_dma_addr += trans_count;
 			req->request.actual += trans_count;
@@ -2176,42 +2179,42 @@ void dwc2_handle_device_mode_interrupt(struct dwc2 *dwc, gintsts_data_t *gintr_s
 
 static BLOCKING_NOTIFIER_HEAD(dwc2_notify_chain);
 
+#ifdef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
 int dwc2_register_state_notifier(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_register(&dwc2_notify_chain, nb);
+        return blocking_notifier_chain_register(&dwc2_notify_chain, nb);
 }
 EXPORT_SYMBOL(dwc2_register_state_notifier);
 
 void dwc2_unregister_state_notifier(struct notifier_block *nb)
 {
-	blocking_notifier_chain_unregister(&dwc2_notify_chain, nb);
+        blocking_notifier_chain_unregister(&dwc2_notify_chain, nb);
 }
 EXPORT_SYMBOL(dwc2_unregister_state_notifier);
 
 static void dwc2_ep0state_watcher_work(struct work_struct *work)
 {
 	struct dwc2	*dwc   = container_of(work, struct dwc2, ep0state_watcher_work);
-	int		 is_charger	= 0;
+	int		 discon	= 0;
 	unsigned long	 flags;
-	int notify = 0;
 
 	dwc2_spin_lock_irqsave(dwc, flags);
-	if (dwc->force_host) {
-		dwc->is_charger = 0;
-		dwc->force_host = false;
-		notify = 1;
-	} else if (dwc->ep0state_watch_count == 0 && !!dwc->plugin) {
-		is_charger = dwc->ep0state == EP0_DISCONNECTED;
-		dwc->is_charger = is_charger;
-		notify = 1;
-	}
+	discon = dwc->ep0state == EP0_DISCONNECTED;
+	if (dwc->extern_vbus_mode)
+		discon = 1;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
-	if (notify) {
-		DWC2_GADGET_DEBUG_MSG("%s: is_charger = %d\n", __func__, is_charger);
-		blocking_notifier_call_chain(&dwc2_notify_chain, is_charger, NULL);
-	}
+	DWC2_GADGET_DEBUG_MSG("%s: discon = %d\n", __func__, discon);
+	blocking_notifier_call_chain(&dwc2_notify_chain, discon, NULL);
+}
 
+void dwc2_notifier_call_chain_sync(int state) {
+	blocking_notifier_call_chain(&dwc2_notify_chain, state, NULL);
+}
+
+void dwc2_notifier_call_chain_async(struct dwc2 *dwc) {
+	dwc->ep0state_watch_count = 0;
+	schedule_work(&dwc->ep0state_watcher_work);
 }
 
 static void dwc2_ep0state_watcher(unsigned long _dwc) {
@@ -2230,40 +2233,32 @@ static void dwc2_ep0state_watcher(unsigned long _dwc) {
 			notify = 1;
 		} else {
 			/* retry */
-			dwc->ep0state_watch_count--;
+			dwc->ep0state_watch_count --;
 			mod_timer(&dwc->ep0state_watcher,
 				jiffies + msecs_to_jiffies(DWC2_EP0STATE_WATCH_INTERVAL));
 		}
-	} else if (dwc->ep0state == EP0_DISCONNECTED) {
-		dev_info(dwc->dev, "usb not connect with host \n");
+	} else {
 		notify = 1;
 	}
-	if (notify)
-		schedule_work_on(dwc->schedule_cpu,&dwc->ep0state_watcher_work);
 	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	if (notify)
+		schedule_work(&dwc->ep0state_watcher_work);
 }
 
+/* caller must takecare of lock */
 void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count) {
-#ifdef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
 	dwc->ep0state_watch_count = count;
+
+	if (count == 0) {
+		schedule_work(&dwc->ep0state_watcher_work);
+		return;
+	}
+
 	mod_timer(&dwc->ep0state_watcher,
 		jiffies + msecs_to_jiffies(DWC2_EP0STATE_WATCH_INTERVAL));
-#endif
 }
-
-void dwc2_stop_ep0state_watcher(struct dwc2 *dwc) {
-#ifdef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
-	if (dwc->ep0state_watch_count != 0)  {
-		del_timer(&dwc->ep0state_watcher);
-		dwc->ep0state_watch_count = 0;
-	} else {
-		dev_info(dwc->dev,"No need to delete timer\n");
-	}
-	dwc->is_charger = 0;
-	dwc->force_host = true;
-	schedule_work_on(dwc->schedule_cpu,&dwc->ep0state_watcher_work);
 #endif
-}
 
 /**
  * for use by usb_gadget_probe_driver()
@@ -2290,8 +2285,8 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 	 *       if this is not the case in your platform, please use __get_free_pages() directly
 	 */
 	dwc->ctrl_req_virt = dma_alloc_coherent(dwc->dev,
-					sizeof(*dwc->ctrl_req_virt) * DWC2_MAX_NUMBER_OF_SETUP_PKT,
-					&dwc->ctrl_req_addr, GFP_KERNEL);
+						DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE,
+						&dwc->ctrl_req_addr, GFP_KERNEL);
 	DWC2_GADGET_DEBUG_MSG("ctrl_req_virt = 0x%p, ctrl_req_addr = 0x%08x\n",
 			dwc->ctrl_req_virt, dwc->ctrl_req_addr);
 	if (!dwc->ctrl_req_virt) {
@@ -2325,15 +2320,15 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 	init_timer(&dwc->delayed_status_watchdog);
 	dwc->delayed_status_watchdog.function = dwc2_delayed_status_watchdog;
 	dwc->delayed_status_watchdog.data = (unsigned long)dwc;
-	dwc->ep0state = EP0_DISCONNECTED;
-	dwc->is_charger = 0;
-	dwc->force_host = false;
-	dwc->schedule_cpu = smp_processor_id();
 
+	dwc->ep0state = EP0_DISCONNECTED;
+
+#ifdef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
 	init_timer(&dwc->ep0state_watcher);
 	dwc->ep0state_watcher.function = dwc2_ep0state_watcher;
 	dwc->ep0state_watcher.data = (unsigned long)dwc;
 	INIT_WORK(&dwc->ep0state_watcher_work, dwc2_ep0state_watcher_work);
+#endif
 
 	ret = dwc2_gadget_init_endpoints(dwc);
 	if (ret)
@@ -2358,7 +2353,7 @@ err2:
 	dwc2_gadget_free_endpoints(dwc);
 
 err1:
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req_virt) * DWC2_MAX_NUMBER_OF_SETUP_PKT,
+	dma_free_coherent(dwc->dev, DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE,
 			dwc->ctrl_req_virt, dwc->ctrl_req_addr);
 err0:
 	return ret;
@@ -2370,7 +2365,7 @@ void dwc2_gadget_exit(struct dwc2 *dwc)
 
 	dwc2_gadget_free_endpoints(dwc);
 
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req_virt) * DWC2_MAX_NUMBER_OF_SETUP_PKT,
+	dma_free_coherent(dwc->dev, DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE,
 			dwc->ctrl_req_virt, dwc->ctrl_req_addr);
 
 	dma_unmap_single(dwc->dev, dwc->ep0out_shadow_dma, DWC_EP0_MAXPACKET, DMA_FROM_DEVICE);
@@ -2381,8 +2376,9 @@ void dwc2_gadget_exit(struct dwc2 *dwc)
 void dwc2_gadget_plug_change(int plugin) {
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
-	struct dwc2	*dwc = m_dwc;
+	struct dwc2	*dwc	      = m_dwc;
 	unsigned int	 value;
+	int		 extern_vbus_mode = 0;
 
 	if (!dwc)
 		return;
@@ -2390,8 +2386,20 @@ void dwc2_gadget_plug_change(int plugin) {
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dwc->plugin = !!plugin;
 
-	if (!dwc2_is_device_mode(dwc))
+	if (plugin && (dwc2_get_id_level(dwc) == 0)) {
+		extern_vbus_mode = 1;
+		dwc->extern_vbus_mode = 1;
+	}
+
+	if (!plugin)
+		dwc->extern_vbus_mode = 0;
+
+	dev_dbg(dwc->dev, "enter %s:%d: plugin = %d pullup = %d suspend = %d ext_vbus = %d\n",
+		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended, extern_vbus_mode);
+
+	if (!dwc2_is_device_mode(dwc) || extern_vbus_mode) {
 		goto out;
+	}
 
 	if (dwc->suspended)
 		goto out;
@@ -2402,16 +2410,15 @@ void dwc2_gadget_plug_change(int plugin) {
 		value = cpm_inl(CPM_OPCR);
 		if ( (value & (1 << 7)) == 0)
 			cpm_outl(value | (1 << 7), CPM_OPCR);
+
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
 		if (dwc->pullup_on)
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
-		else
-			dwc2_stop_ep0state_watcher(dwc);
 	} else {
 		dctl.b.sftdiscon = 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-		dwc2_stop_ep0state_watcher(dwc);
 
 		/*
 		 * Note: the following commented code is used for testing what will
@@ -2431,6 +2438,10 @@ void dwc2_gadget_plug_change(int plugin) {
 
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
+
+	if (extern_vbus_mode) {
+		dwc2_notifier_call_chain_async(dwc);
+	}
 }
 
 /**

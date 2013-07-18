@@ -60,6 +60,8 @@ struct dt_urb_enqueue {
 	struct urb	*urbp;
 	struct urb	 urb;
 	int		 eptype;
+	u32		 speed;
+	u32		 mps;
 	int		 ret;
 };
 
@@ -162,6 +164,7 @@ struct dt_start_channel {
 
 struct dt_chan_trans_info {
 	struct dwc2_channel *channel;
+	u32 frame_inuse[2];
 	int ctrl_stage;
 	int error_count;
 	u32 hcchar;
@@ -297,15 +300,20 @@ static void dwc2_trace_print_func_line(
 }
 
 void dwc2_trace_urb_enqueue(struct urb * urb, int ret) {
+	int is_in = usb_pipein(urb->pipe);
+
 	DWC_TRACE_GET_ENTRY;
+
 	entry->type = DWC_TRACE_URB_ENQUEUE;
 	entry->trace_info.urb_enqueue.urbp = urb;
 	entry->trace_info.urb_enqueue.eptype = usb_endpoint_type(&urb->ep->desc);
+	entry->trace_info.urb_enqueue.speed = urb->dev->speed;
+	entry->trace_info.urb_enqueue.mps = usb_maxpacket(urb->dev, urb->pipe, !is_in);
 	entry->trace_info.urb_enqueue.ret = ret;
 	memcpy(&entry->trace_info.urb_enqueue.urb, urb, sizeof(struct urb));
 }
 
-static void dwc2_dump_urb(struct urb *urb_addr, struct urb *urb, int eptype, int ret) {
+static void dwc2_dump_urb(struct urb *urb_addr, struct urb *urb, int eptype, u32 speed, u32 mps, int ret) {
 	int is_in = usb_pipein(urb->pipe);
 
 	const char *type_str;
@@ -330,8 +338,8 @@ static void dwc2_dump_urb(struct urb *urb_addr, struct urb *urb, int eptype, int
 	printk("urb = %p ep%d%s type=%s ep=%u dev=%u spd=%u interval=%d mps=%u sfrm=%u ret=%d\n",
 		urb_addr, usb_pipeendpoint (urb->pipe), is_in ? "in" : "out",
 		type_str, usb_pipeendpoint(urb->pipe),
-		usb_pipedevice(urb->pipe), urb->dev->speed, urb->interval,
-		usb_maxpacket(urb->dev, urb->pipe, !is_in), urb->start_frame, ret);
+		usb_pipedevice(urb->pipe), speed, urb->interval,
+		mps, urb->start_frame, ret);
 	printk("    dma=0x%08x len=%u flags=0x%08x sdma=0x%08x npkts=%d actual=%d status=%d\n",
 		urb->transfer_dma, urb->transfer_buffer_length, urb->transfer_flags,
 		urb->setup_dma, urb->number_of_packets, urb->actual_length, urb->status);
@@ -341,6 +349,8 @@ static void dwc2_trace_print_urb_enqueue(struct dwc_trace_entry *entry) {
 	dwc2_dump_urb(entry->trace_info.urb_enqueue.urbp,
 		&entry->trace_info.urb_enqueue.urb,
 		entry->trace_info.urb_enqueue.eptype,
+		entry->trace_info.urb_enqueue.speed,
+		entry->trace_info.urb_enqueue.mps,
 		entry->trace_info.urb_enqueue.ret);
 }
 
@@ -644,6 +654,8 @@ void dwc2_trace_chan_trans_info(
 
 	entry->type = DWC_TRACE_CHAN_TRANS_INFO;
 	entry->trace_info.chan_trans_info.channel = channel;
+	entry->trace_info.chan_trans_info.frame_inuse[0] = channel->frame_inuse[0];
+	entry->trace_info.chan_trans_info.frame_inuse[1] = channel->frame_inuse[1];
 	entry->trace_info.chan_trans_info.ctrl_stage = ctrl_stage;
 	entry->trace_info.chan_trans_info.error_count = error_count;
 	entry->trace_info.chan_trans_info.hcchar = hcchar;
@@ -659,7 +671,7 @@ void dwc2_trace_chan_trans_info(
 
 static void dwc2_trace_print_chan_trans_info(struct dwc_trace_entry *entry) {
 	printk("[CPU%d: %llu:%llu] chan%d trans info: ctrl_stage = %d, error_count = %d, "
-		"hcchar = 0x%08x hctsiz = 0x%08x hcdma=0x%08x hfnum=0x%08x\n",
+		"hcchar = 0x%08x hctsiz = 0x%08x hcdma=0x%08x hfnum=0x%08x frame_in_use: 0x%08x 0x%08x\n",
 		entry->trace_info.chan_trans_info.cpu_id,
 		entry->trace_info.chan_trans_info.cpu_clk[0],
 		entry->trace_info.chan_trans_info.cpu_clk[1],
@@ -669,7 +681,9 @@ static void dwc2_trace_print_chan_trans_info(struct dwc_trace_entry *entry) {
 		entry->trace_info.chan_trans_info.hcchar,
 		entry->trace_info.chan_trans_info.hctsiz,
 		entry->trace_info.chan_trans_info.hcdma,
-		entry->trace_info.chan_trans_info.hfnum);
+		entry->trace_info.chan_trans_info.hfnum,
+		entry->trace_info.chan_trans_info.frame_inuse[0],
+		entry->trace_info.chan_trans_info.frame_inuse[1]);
 }
 
 void dwc2_trace_gintsts(u32 gintsts, u32 gintmsk) {

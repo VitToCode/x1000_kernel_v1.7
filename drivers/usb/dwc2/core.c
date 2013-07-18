@@ -35,8 +35,7 @@ module_param(dwc2_core_debug_en, int, 0644);
 #define DWC2_CORE_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_core_debug_en)) {		\
-			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
-			printk(KERN_DEBUG "DWC2(CORE): " msg);		\
+			dwc2_printk("core", msg);		\
 		}						\
 	} while(0)
 
@@ -534,7 +533,7 @@ void dwc2_enable_common_interrupts(struct dwc2 *dwc)
 	/*
 	 * Enable the interrupts in the GINTMSK.
 	 */
-	intr_mask.b.modemismatch = 1;
+	intr_mask.b.modemismatch = 0;
 	intr_mask.b.otgintr = 1;
 
 	if (!dwc->dma_enable) {
@@ -760,9 +759,9 @@ int dwc2_core_init(struct dwc2 *dwc)
 	dwc->rx_fifo_size = dwc_readl(&global_regs->grxfsiz);
 	dwc->nperio_tx_fifo_size = dwc_readl(&global_regs->gnptxfsiz) >> 16;
 
-	dev_info(dwc->dev, "Total FIFO SZ=%d\n", dwc->total_fifo_size);
-	dev_info(dwc->dev, "Rx FIFO SZ=%d\n", dwc->rx_fifo_size);
-	dev_info(dwc->dev, "NP Tx FIFO SZ=%d\n", dwc->nperio_tx_fifo_size);
+	dev_dbg(dwc->dev, "Total FIFO SZ=%d\n", dwc->total_fifo_size);
+	dev_dbg(dwc->dev, "Rx FIFO SZ=%d\n", dwc->rx_fifo_size);
+	dev_dbg(dwc->dev, "NP Tx FIFO SZ=%d\n", dwc->nperio_tx_fifo_size);
 
 	/* High speed PHY init */
 	if (!dwc->phy_inited) {
@@ -785,7 +784,7 @@ int dwc2_core_init(struct dwc2 *dwc)
 	dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
 
 	/* External DMA Mode burst Settings */
-	dev_info(dwc->dev, "Architecture: External DMA\n");
+	dev_dbg(dwc->dev, "Architecture: External DMA\n");
 	ahbcfg.d32 = 0;
 	ahbcfg.b.hburstlen = DWC_GAHBCFG_EXT_DMA_BURST_16word;
 	ahbcfg.b.dmaenable = dwc->dma_enable;
@@ -819,6 +818,9 @@ static void dwc2_core_exit(struct dwc2 *dwc)
 static void dwc2_gadget_disconnect(struct dwc2 *dwc)
 {
 	if (dwc->gadget_driver && dwc->gadget_driver->disconnect) {
+#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+		wake_lock_timeout(&dwc->resume_wake_lock,msecs_to_jiffies(3000));
+#endif
 		dwc2_spin_unlock(dwc);
 		dwc->gadget_driver->disconnect(&dwc->gadget);
 		dwc2_spin_lock(dwc);
@@ -841,7 +843,11 @@ static void dwc2_gadget_suspend(struct dwc2 *dwc)
 		dwc2_spin_lock(dwc);
 	}
 }
-#endif
+#else
+#define dwc2_gadget_disconnect(d)	do {  } while(0)
+#define dwc2_gadget_resume(d)		do {  } while(0)
+#define dwc2_gadget_suspend(d)		do {  } while(0)
+#endif	/* DWC2_DEVICE_MODE_ENABLE */
 
 static void dwc2_handle_mode_mismatch_intr(struct dwc2 *dwc)
 {
@@ -897,11 +903,12 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			 * TODO: If Session End Detected the B-Cable has been disconnected.
 			 *       Reset PCD and Gadget driver to a clean state.
 			 */
-			dev_info(dwc->dev, "%s:%d\n",__func__,__LINE__);
 			dwc->lx_state = DWC_OTG_L0;
 			dwc2_gadget_handle_session_end(dwc);
 			dwc2_gadget_disconnect(dwc);
-			//dwc2_stop_ep0state_watcher(dwc,0);
+
+			dwc2_start_ep0state_watcher(dwc, 0);
+
 			/* TODO: if adp enable, handle ADP Sense here */
 		}
 
@@ -923,6 +930,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		if (likely((!dwc->keep_phy_on) && !dwc->plugin))
 			cpm_clear_bit(7, CPM_OPCR);
 	}
+#endif
 
 	if (gotgint.b.sesreqsucstschng) {
 		dev_info(dwc->dev, " ++OTG Interrupt: Session Reqeust Success Status Change++\n");
@@ -936,7 +944,6 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			dwc_writel(gotgctl.d32, &global_regs->gotgctl);
 		}
 	}
-#endif
 
 	if (gotgint.b.hstnegsucstschng) {
 		dev_info(dwc->dev, "OTG Interrupt: hstnegsucstschng\n");
@@ -969,11 +976,6 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			(dwc2_is_host_mode(dwc) ? "Host" : "Device"));
 		if (dwc2_is_device_mode(dwc)) {
 			dev_info(dwc->dev, "a_suspend->a_peripheral (%d)\n", dwc->op_state);
-
-			dwc2_spin_unlock(dwc);
-			//cil_hcd_disconnect(dwc);
-			//cil_pcd_start(dwc);
-			dwc2_spin_lock(dwc);
 			dwc->op_state = DWC2_A_PERIPHERAL;
 		} else {
 			/* TODO: */
@@ -986,7 +988,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	}
 
 	if (gotgint.b.debdone) {
-		dev_info(dwc->dev, " ++OTG Interrupt: " "Debounce Done++\n");
+		dev_dbg(dwc->dev, " ++OTG Interrupt: " "Debounce Done++\n");
 	}
 
 	/* Clear GOTGINT */
@@ -1002,7 +1004,6 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 {
 	struct dwc2	*dwc   = container_of(work, struct dwc2, otg_id_work);
 	uint32_t	 count = 0;
-	dctl_data_t	 dctl;
 	gotgctl_data_t	 gotgctl;
 	unsigned long	 flags;
 
@@ -1011,6 +1012,9 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 	DWC2_CORE_DEBUG_MSG("id status change, gotgctl = 0x%08x\n", gotgctl.d32);
 
 	if (gotgctl.b.conidsts) { /* B-Device connector (Device Mode) */
+#if DWC2_DEVICE_MODE_ENABLE
+		dctl_data_t	 dctl;
+
 		DWC2_CORE_DEBUG_MSG("init DWC core as B_PERIPHERAL\n");
 		jz4780_set_vbus(dwc, 0);
 
@@ -1035,14 +1039,20 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc2_device_mode_init(dwc);
 
 		if (likely(!dwc->plugin)) {
+#if 0
 			/* close PHY */
 			if (likely(!dwc->keep_phy_on))
 				cpm_clear_bit(7, CPM_OPCR);
+#endif
 
 			/* soft disconnect */
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.sftdiscon = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+
+			/* note that we do not close PHY, this is because after set sftdiscon=1,
+			 * a session end detect interrupt will be generate
+			 */
 		} else {
 			cpm_set_bit(7, CPM_OPCR);
 
@@ -1052,7 +1062,9 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		}
 
 		dwc2_spin_unlock_irqrestore(dwc, flags);
+#endif		 /* DWC2_DEVICE_MODE_ENABLE */
 	} else {	      /* A-Device connector (Host Mode) */
+#if DWC2_HOST_MODE_ENABLE
 		DWC2_CORE_DEBUG_MSG("init DWC as A_HOST\n");
 
 		dwc2_spin_lock_irqsave(dwc, flags);
@@ -1074,20 +1086,19 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc->hcd->self.is_b_host = 0;
 		dwc2_host_mode_init(dwc);
 		dwc2_spin_unlock_irqrestore(dwc, flags);
+
 		jz4780_set_vbus(dwc, 1);
 		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
+#endif	/* DWC2_HOST_MODE_ENABLE */
 	}
 }
 
 static void dwc2_handle_conn_id_status_change_intr(struct dwc2 *dwc) {
 	gintsts_data_t gintsts;
 
-	/* Just Log a warnning message */
-	dev_info(dwc->dev, "ID PIN CHANGED!\n");
+	dev_dbg(dwc->dev, "ID PIN CHANGED!\n");
 
-#if DWC2_HOST_MODE_ENABLE
 	schedule_work(&dwc->otg_id_work);
-#endif
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
@@ -1139,7 +1150,6 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 	if (dwc2_is_device_mode(dwc)) {
 		dev_info(dwc->dev, "SRP: Device Mode\n");
 	} else {
-#if	DWC2_HOST_MODE_ENABLE
 		hprt0_data_t hprt0;
 
 		dev_info(dwc->dev, "SRP: Host Mode\n");
@@ -1148,9 +1158,6 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 		hprt0.d32 = dwc2_hc_read_hprt(dwc);
 		hprt0.b.prtpwr = 1;
 		dwc_writel(hprt0.d32, dwc->host_if.hprt0);
-#else
-		dev_warn(dwc->dev, "SRP: Host Mode ,But host mode was not select\n");
-#endif
 	}
 
 	/* Clear interrupt */
@@ -1171,21 +1178,18 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 
 	if (dwc2_is_device_mode(dwc)) {
 		if (dwc->lx_state == DWC_OTG_L2) {
-		/* Clear the Remote Wakeup Signaling */
-#if DWC2_DEVICE_MODE_ENABLE
 			dctl_data_t dctl = {.d32 = 0 };
+
+			/* Clear the Remote Wakeup Signaling */
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.rmtwkupsig = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 			dwc2_gadget_resume(dwc);
-#endif
 		} else {
-#if DWC2_HOST_MODE_ENABLE
 			glpmcfg_data_t lpmcfg;
 			lpmcfg.d32 = dwc_readl(&dwc->core_global_regs->glpmcfg);
 			lpmcfg.b.hird_thres &= (~(1 << 4));
 			dwc_writel(lpmcfg.d32, &dwc->core_global_regs->glpmcfg);
-#endif
 		}
 		/** Change to L0 state*/
 		dwc->lx_state = DWC_OTG_L0;
@@ -1212,7 +1216,6 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 	gintsts_data_t gintsts;
 
 	if (dwc2_is_device_mode(dwc)) {
-#if DWC2_DEVICE_MODE_ENABLE
 		dsts_data_t dsts;
 		/* Check the Device status register to determine if the Suspend
 		 * state is active. */
@@ -1220,7 +1223,6 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 		dev_dbg(dwc->dev, "DSTS = 0x%08x\n", dsts.d32);
 
 		dwc2_gadget_suspend(dwc);
-#endif
 	} else {
 		dev_info(dwc->dev, "%s:%d: host mode not implemented!\n", __func__, __LINE__);
 	}
@@ -1314,6 +1316,7 @@ static void dwc2_handle_common_interrupts(struct dwc2 *dwc, gintsts_data_t *gint
 }
 
 static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
+#if DWC2_DEVICE_MODE_ENABLE
 	dctl_data_t	dctl;
 
 	if (likely(!dwc->do_reset_core || !dwc2_is_device_mode(dwc)))
@@ -1339,6 +1342,9 @@ static int dwc2_do_reset_device_core(struct dwc2 *dwc) {
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 	}
 	return 1;
+#else
+	return 0;
+#endif
 }
 
 static inline int dwc_lock(struct dwc2 *dwc)
@@ -1460,6 +1466,9 @@ static int dwc2_probe(struct platform_device *pdev)
 	spin_lock_init(&dwc->lock);
 	atomic_set(&dwc->in_irq, 0);
 	INIT_WORK(&dwc->otg_id_work, dwc2_conn_id_status_change_work);
+#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+	wake_lock_init(&dwc->resume_wake_lock, WAKE_LOCK_SUSPEND, "dwc2-resume");
+#endif
 
 	platform_set_drvdata(pdev, dwc);
 
@@ -1625,9 +1634,14 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	return 0;
 }
 
+extern void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count);
+
 static void dwc2_device_resume(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
 	unsigned int	 value;
+
+	dev_dbg(dwc->dev, "====>dwc->plug_status = %d dwc->plugin = %d dwc->pullup_on = %d\n",
+		dwc->plug_status, dwc->plugin, dwc->pullup_on);
 
 	if (!dwc->plug_status && dwc->plugin) {
 		dev_dbg(dwc->dev, "plugin when we are suspend, pullup_on = %d\n", dwc->pullup_on);
@@ -1649,6 +1663,10 @@ static void dwc2_device_resume(struct dwc2 *dwc) {
 
 	value = cpm_inl(CPM_OPCR);
 	cpm_outl(value | (dwc->phy_status << 7), CPM_OPCR);
+
+	if (dwc->plugin && dwc->pullup_on) {
+		dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+	}
 }
 
 static void dwc2_host_resume(struct dwc2 *dwc) {
@@ -1666,6 +1684,10 @@ static int dwc2_resume(struct platform_device *pdev) {
 		dwc2_is_device_mode(dwc));
 
 	dwc2_spin_lock_irqsave(dwc, flags);
+#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+	wake_lock_timeout(&dwc->resume_wake_lock,msecs_to_jiffies(3000));
+#endif
+
 	dwc->suspended = 0;
 
 	if (dwc2_is_device_mode(dwc))
@@ -1675,8 +1697,9 @@ static int dwc2_resume(struct platform_device *pdev) {
 	dwc2_core_debug_en = 0;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
-	if (dwc2_is_host_mode(dwc))
-		 jz4780_set_vbus(dwc, 1);
+	if (dwc2_is_host_mode(dwc) && (dwc2_get_id_level(dwc) == 0) && !dwc->extern_vbus_mode) {
+		jz4780_set_vbus(dwc, 1);
+	}
 
 	return 0;
 }
@@ -1708,7 +1731,7 @@ static void __exit dwc2_exit(void)
 	platform_driver_unregister(&dwc2_driver);
 }
 
-module_init(dwc2_init);
+fs_initcall(dwc2_init);
 module_exit(dwc2_exit);
 
 MODULE_ALIAS("platform:dwc2");

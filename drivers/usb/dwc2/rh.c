@@ -10,6 +10,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/sched.h>
 #include <asm/unaligned.h>
+#include <linux/gpio.h>
 
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
@@ -25,8 +26,7 @@ module_param(dwc2_rh_debug_en, int, 0644);
 #define DWC2_RH_DEBUG_MSG(msg...)				\
         do {							\
 		if (unlikely(dwc2_rh_debug_en)) {		\
-			printk(KERN_DEBUG "CPU%d: ", smp_processor_id());	\
-			printk(KERN_DEBUG "DWC2(RH): " msg);		\
+			dwc2_printk("rh", msg);			\
 		}						\
 	} while(0)
 
@@ -79,20 +79,23 @@ uint32_t calc_frame_interval(struct dwc2 *dwc)
 }
 
 void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
-	struct dwc2_host_if	*host_if = &dwc->host_if;
+	struct dwc2_host_if	*host_if       = &dwc->host_if;
 	hprt0_data_t		 hprt0;
-	int status_change = 0;
+	int			 status_change = 0;
+	unsigned long		 flags;
 
 	hprt0.d32 = dwc_readl(host_if->hprt0);
 
 	DWC2_RH_DEBUG_MSG("===>%s:%d: hprt0 = 0x%08x\n", __func__, __LINE__, hprt0.d32);
 
+	spin_lock_irqsave(&dwc->port1_status_lock, flags);
 	if (hprt0.b.prtconndet) {
-		DWC2_RH_DEBUG_MSG("Port Connect Detected\n");
+		DWC2_RH_DEBUG_MSG("Port Connect Detected(%u)\n", hprt0.b.prtconnsts);
 
 		dwc->port1_status &= ~(USB_PORT_STAT_LOW_SPEED
 				|USB_PORT_STAT_HIGH_SPEED
 				|USB_PORT_STAT_ENABLE);
+#if 0
 		if (hprt0.b.prtconnsts)
 			dwc->port1_status |= USB_PORT_STAT_CONNECTION;
 		else
@@ -100,7 +103,12 @@ void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
 
 		dwc->port1_status |= (USB_PORT_STAT_C_CONNECTION << 16);
 
+		dwc->device_connected = !!hprt0.b.prtconnsts;
+#else
+		dwc->port1_status |= USB_PORT_STAT_CONNECTION |
+			(USB_PORT_STAT_C_CONNECTION << 16);
 		dwc->device_connected = 1;
+#endif
 		status_change = 1;
 
 		/* The Hub driver asserts a reset when it sees port connect */
@@ -136,6 +144,19 @@ void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
 		} else {
 			dwc->port1_status &= ~USB_PORT_STAT_ENABLE;
 			dwc->port1_status |= (USB_PORT_STAT_C_ENABLE << 16);
+
+			dwc->port1_status &= ~USB_PORT_STAT_SUSPEND;
+			dwc->port1_status |= (USB_PORT_STAT_C_SUSPEND << 16);
+
+#if 0
+			if (hprt0.d32 == 0x00041409) {
+				printk("=====>re-power device\n");
+				/* vbus off */
+				gpio_set_value(GPIO_PE(10), 0);
+				mdelay(50);
+				gpio_set_value(GPIO_PE(10), 1);
+			}
+#endif
 		}
 		status_change = 1;
 	}
@@ -149,6 +170,8 @@ void dwc2_hcd_handle_port_intr(struct dwc2 *dwc) {
 
 		status_change = 1;
 	}
+
+	spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 
 	if (status_change) {
 		if (dwc->hcd->status_urb)
@@ -185,6 +208,9 @@ static void dwc2_port_suspend(struct dwc2 *dwc, bool do_suspend) {
 	pcgcctl_data_t pcgcctl;
 
 	DWC2_RH_DEBUG_MSG("%s:%d: do_suspend = %d\n", __func__, __LINE__, do_suspend);
+
+	if (unlikely(dwc2_is_device_mode(dwc) || dwc->extern_vbus_mode))
+		return;
 
 	if (do_suspend) {
 		if (dwc->hcd->self.b_hnp_enable) {
@@ -232,12 +258,15 @@ static void dwc2_port_suspend(struct dwc2 *dwc, bool do_suspend) {
 	}
 }
 
-static void dwc2_port_reset(struct dwc2 *dwc, bool do_reset) {
+void __dwc2_port_reset(struct dwc2 *dwc, bool do_reset) {
 	hprt0_data_t hprt0 = {.d32 = 0 };
 
 	DWC2_RH_DEBUG_MSG("%s:%d: do_reset = %d\n", __func__, __LINE__, do_reset);
 
 	if (do_reset) {
+		if (unlikely(dwc2_is_device_mode(dwc)))
+			goto update_status1;
+
 		hprt0.d32 = dwc2_hc_read_hprt(dwc);
 
 		{
@@ -257,35 +286,49 @@ static void dwc2_port_reset(struct dwc2 *dwc, bool do_reset) {
 			hprt0.b.prtrst = 1;
 			dwc_writel(hprt0.d32, dwc->host_if.hprt0);
 
+		update_status1:
 			dwc->port1_status |= USB_PORT_STAT_RESET;
 			dwc->port1_status &= ~USB_PORT_STAT_ENABLE;
 			/* wait at least 50ms(TDRSTR) */
 			dwc->rh_timer = jiffies + msecs_to_jiffies(100);
 		}
 	} else {
-		hprt0.d32 = dwc2_hc_read_hprt(dwc);
-		hprt0.b.prtrst = 0;
-		dwc_writel(hprt0.d32, dwc->host_if.hprt0);
+		if (likely(dwc2_is_host_mode(dwc))) {
+			hprt0.d32 = dwc2_hc_read_hprt(dwc);
+			hprt0.b.prtrst = 0;
+			dwc_writel(hprt0.d32, dwc->host_if.hprt0);
+
+			dwc->lx_state = DWC_OTG_L0;	/* Now back to the on state */
+		}
 
 		dwc->port1_status &= ~USB_PORT_STAT_RESET;
-
-		dwc->lx_state = DWC_OTG_L0;	/* Now back to the on state */
 	}
+}
+
+void dwc2_port_reset(struct dwc2 *dwc, bool do_reset) {
+	unsigned long flags;
+
+	spin_lock_irqsave(&dwc->port1_status_lock, flags);
+	__dwc2_port_reset(dwc, do_reset);
+	spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 }
 
 int dwc2_rh_hub_control(struct usb_hcd *hcd,
 			u16 typeReq, u16 wValue, u16 wIndex,
 			char *buf, u16 wLength) {
-	struct dwc2 *dwc = hcd_to_dwc2(hcd);
-	hprt0_data_t hprt0 = {.d32 = 0 };
-	unsigned int port_status;
-	glpmcfg_data_t lpmcfg;
-	u32 temp;
-	int retval = 0;
+	struct dwc2	*dwc	= hcd_to_dwc2(hcd);
+	hprt0_data_t	 hprt0	= {.d32 = 0 };
+	unsigned int	 port_status;
+	glpmcfg_data_t	 lpmcfg;
+	u32		 temp;
+	int		 retval = 0;
+	unsigned long	 flags;
 
 	DWC2_RH_DEBUG_MSG("%s:%d: typeReq = 0x%04x wValue = 0x%04x "
 			"wIndex = 0x%04x wLength = 0x%04x\n",
 			__func__, __LINE__, typeReq, wValue, wIndex, wLength);
+
+	spin_lock_irqsave(&dwc->port1_status_lock, flags);
 
 	switch (typeReq) {
 	case ClearHubFeature:
@@ -372,7 +415,7 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 		/* whoever resets must GetPortStatus to complete it!! */
 		if ((dwc->port1_status & USB_PORT_STAT_RESET)
 			&& time_after_eq(jiffies, dwc->rh_timer))
-			dwc2_port_reset(dwc, false);
+			__dwc2_port_reset(dwc, false);
 
 		if (!(dwc->port1_status & USB_PORT_STAT_CONNECTION)) {
 			/*
@@ -412,13 +455,16 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 		if (hprt0.b.prtpwr)
 			port_status |= USB_PORT_STAT_POWER;
 
-		if (hprt0.b.prtspd == DWC_HPRT0_PRTSPD_HIGH_SPEED)
-			port_status |= USB_PORT_STAT_HIGH_SPEED;
-		else if (hprt0.b.prtspd == DWC_HPRT0_PRTSPD_LOW_SPEED)
+		if (hprt0.b.prtspd == DWC_HPRT0_PRTSPD_LOW_SPEED) {
 			port_status |= USB_PORT_STAT_LOW_SPEED;
-
-		if (hprt0.b.prttstctl)
-			port_status |= USB_PORT_STAT_TEST;
+			port_status&= ~USB_PORT_STAT_HIGH_SPEED;
+		} else {
+			port_status &= ~USB_PORT_STAT_LOW_SPEED;
+			if (hprt0.b.prtspd == DWC_HPRT0_PRTSPD_HIGH_SPEED)
+				port_status |= USB_PORT_STAT_HIGH_SPEED;
+			else
+				port_status &= ~USB_PORT_STAT_HIGH_SPEED;
+		}
 
 		lpmcfg.d32 = dwc_readl(&dwc->core_global_regs->glpmcfg);
 		WARN(((dwc->lx_state == DWC_OTG_L1) ^ lpmcfg.b.prt_sleep_sts),
@@ -430,7 +476,8 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 
 		/* USB_PORT_FEAT_INDICATOR unsupported always 0 */
 
-		DWC2_RH_DEBUG_MSG("GetPortStatus: port_status = 0x%08x\n", port_status);
+		DWC2_RH_DEBUG_MSG("GetPortStatus: port1_status = 0x%08x port_status = 0x%08x\n",
+				dwc->port1_status, port_status);
 		put_unaligned(cpu_to_le32(port_status), (__le32 *) buf);
 		break;
 
@@ -445,7 +492,7 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 			dwc_writel(hprt0.d32, dwc->host_if.hprt0);
 			break;
 		case USB_PORT_FEAT_RESET:
-			dwc2_port_reset(dwc, true);
+			__dwc2_port_reset(dwc, true);
 			break;
 		case USB_PORT_FEAT_SUSPEND:
 			dwc2_port_suspend(dwc, true);
@@ -466,6 +513,8 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 		/* "protocol stall" on error */
 		retval = -EPIPE;
 	}
+
+	spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 
 	return 0;
 }

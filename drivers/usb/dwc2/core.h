@@ -8,9 +8,32 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+#include <linux/wakelock.h>
+#endif
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+
+
+#ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
+static int noinline __attribute__((unused))
+dwc2_printk(const char *comp, const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+	int rtn;
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+	rtn = printk("CPU%d: DWC2(%s): %pV", smp_processor_id(), comp, &vaf);
+	va_end(args);
+
+	return rtn;
+}
+#endif
 
 #define DWC2_HOST_MODE_ENABLE	1
 #define DWC2_DEVICE_MODE_ENABLE	1
@@ -123,6 +146,7 @@ struct dwc2_ep {
  */
 enum dwc2_ep0_state {
 	EP0_DISCONNECTED = 0,
+	EP0_WAITING_SETUP_PHASE,
 	EP0_SETUP_PHASE,
 	EP0_DATA_PHASE,
 	EP0_STATUS_PHASE,
@@ -309,7 +333,6 @@ struct dwc2_channel {
 	/* for isoc schedule */
 	u16			remain_slots;
 	struct dwc2_qh 		*qh;
-	int			is_isoc;
 
 	/* for halt(disable) a channel */
 	wait_queue_head_t	 disable_wq;
@@ -409,14 +432,14 @@ struct dwc2 {
 	struct usb_ctrlrequest		 ctrl_req;
 	struct usb_ctrlrequest		*ctrl_req_virt;
 	dma_addr_t			 ctrl_req_addr;
-#define DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE	 PAGE_SIZE
+#define DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE	 (4 * PAGE_SIZE)
 	int				 setup_prepared;
 
 	u16				 status_buf;
 	dma_addr_t			 status_buf_addr;
 	struct dwc2_request		 ep0_usb_req;
 	/*
-	 * because ep0out did not alloc disable operation,
+	 * because ep0out did not allow disable operation,
 	 * we use a shadow buffer here to avoid memory corruption
 	 */
 	u8				 ep0out_shadow_buf[DWC_EP0_MAXPACKET];
@@ -473,35 +496,39 @@ struct dwc2 {
 	unsigned			 b_hnp_enable:1;
 	unsigned			 a_hnp_support:1;
 	unsigned			 a_alt_hnp_support:1;
-	volatile unsigned	 plugin:1;
+	unsigned			 plugin:1;
 	unsigned			 keep_phy_on:1;
 	/* for suspend/resume */
 	unsigned			 suspended:1;  /* 0: running, 1: suspended */
 	unsigned			 phy_status:1; /* 0: suspend, 1: on */
 	unsigned			 sftdiscon:1;
 	unsigned			 plug_status:1;
+	unsigned			 extern_vbus_mode:1;
 
 	unsigned int			 gintmsk;
+#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+	struct wake_lock                 resume_wake_lock;
+#endif
 
-	volatile int pullup_on;
+	int pullup_on;
 	enum dwc2_ep0_state		 ep0state;
 	enum dwc2_device_state		 dev_state;
 
 	struct timer_list	delayed_status_watchdog;
 
-#define DWC2_EP0STATE_WATCH_COUNT (CONFIG_CHARGER_JUDGE_TIME/200)
-#define DWC2_EP0STATE_WATCH_INTERVAL	200 /* ms */
-	volatile int		ep0state_watch_count;
-	volatile int		is_charger;
-	bool		force_host;
-	int			schedule_cpu;
+#define DWC2_EP0STATE_WATCH_COUNT	10
+#define DWC2_EP0STATE_WATCH_INTERVAL	50 /* ms */
+#ifdef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
+	int			ep0state_watch_count;
 	struct timer_list	ep0state_watcher;
 	struct work_struct	ep0state_watcher_work;
+#endif
 
 	/* Host */
 	struct usb_hcd		*hcd;
 	int			device_connected;
 	u32			 port1_status;
+	spinlock_t		 port1_status_lock;
 	unsigned long		 rh_timer;
 
 	struct dwc2_channel	 channel_pool[MAX_EPS_CHANNELS];
@@ -578,7 +605,7 @@ struct dwc2 {
 		struct dwc2 *_dwc = (__dwc);				\
 		spin_lock_irqsave(&_dwc->lock, (flg));			\
 		if (atomic_read(&_dwc->in_irq)) {			\
-			if (dwc->owner_cpu != smp_processor_id()) {	\
+			if (_dwc->owner_cpu != smp_processor_id()) {	\
 				spin_unlock_irqrestore(&_dwc->lock, (flg)); \
 			} else						\
 				break;					\
@@ -588,25 +615,27 @@ struct dwc2 {
 
 #define dwc2_spin_trylock_irqsave(__dwc, flg)				\
 	do {								\
-		struct dwc2 *_dwc = (__dwc);				\
-		unsigned int loops = loops_per_jiffy * HZ / 1000;	\
-		int ret = 0;						\
+		do {							\
+			struct dwc2 *_dwc = (__dwc);			\
+			unsigned int loops = loops_per_jiffy * HZ / 1000; \
+			int ret = 0;					\
 									\
-		spin_lock_irqsave(&_dwc->lock, (flg));			\
-		if (atomic_read(&_dwc->in_irq)) {			\
-			if (dwc->owner_cpu != smp_processor_id()) {	\
-				spin_unlock_irqrestore(&_dwc->lock, (flg)); \
-				loops--;				\
-				if (loops == 0) {			\
-					ret = -EAGAIN;			\
+			spin_lock_irqsave(&_dwc->lock, (flg));		\
+			if (atomic_read(&_dwc->in_irq)) {		\
+				if (_dwc->owner_cpu != smp_processor_id()) { \
+					spin_unlock_irqrestore(&_dwc->lock, (flg)); \
+					loops--;			\
+					if (loops == 0) {		\
+						ret = -EAGAIN;		\
+						break;			\
+					}				\
+				} else					\
 					break;				\
-				}					\
 			} else						\
 				break;					\
-		} else							\
-			break;						\
+		} while (1);						\
 		(ret);							\
-	} while (1)
+	} while (0)
 
 #define dwc2_spin_unlock_irqrestore(__dwc, flg)			\
 	do {							\
@@ -639,7 +668,19 @@ void dwc2_host_exit(struct dwc2 *dwc);
 
 int dwc2_gadget_init(struct dwc2 *dwc);
 void dwc2_gadget_exit(struct dwc2 *dwc);
+
+#ifndef CONFIG_USB_CHARGER_SOFTWARE_JUDGE
+static void __attribute__((unused))
+dwc2_notifier_call_chain_sync(int state) {  }
+
+static void __attribute__((unused))
+dwc2_notifier_call_chain_async(struct dwc2 *dwc) {  }
+
+static void __attribute__((unused))
+dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count) {  }
+#else
 void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count);
+#endif
 
 void dwc2_enable_common_interrupts(struct dwc2 *dwc);
 uint8_t dwc2_is_device_mode(struct dwc2 *dwc);

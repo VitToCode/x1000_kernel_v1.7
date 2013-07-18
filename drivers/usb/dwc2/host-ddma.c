@@ -355,9 +355,11 @@ void dwc2_host_mode_init(struct dwc2 *dwc) {
 		struct dwc2_channel *chan;
 		struct dwc2_channel *chan_n;
 
+		/* the core is re-inited, so isoc channel can set to normal channel */
+
 		list_for_each_entry_safe(chan, chan_n, &dwc->idle_isoc_chan_list, list) {
-			list_del(&chan->list);
-			list_add(&chan->list, &dwc->chan_free_list);
+			list_del(&chan->list); /* del from idle_isoc_chan_list */
+			list_add(&chan->list, &dwc->chan_free_list); /* add to common chan_free_list */
 		}
 	}
 
@@ -437,10 +439,10 @@ static struct dwc2_channel* dwc2_request_channel(
 
 	chan = list_first_entry(&dwc->chan_free_list, struct dwc2_channel, list);
 	list_del(&chan->list); /* del from free_list */
+	list_add_tail(&chan->list, &dwc->chan_trans_list);
 
 	chan->urb_priv = urb_priv;
 	urb_priv->channel = chan;
-	chan->is_isoc = 0;
 
 	if (qh->trans_td_count == 0) {
 		list_del(&qh->list); /* del from idle list */
@@ -470,7 +472,6 @@ static struct dwc2_channel *dwc2_request_isoc_chan(struct dwc2 *dwc, struct dwc2
 
 	chan->qh = qh;
 	qh->channel = chan;
-	chan->is_isoc = 1;
 
 	list_del(&qh->list); /* del from idle list */
 	list_add(&qh->list, &dwc->busy_qh_list);
@@ -525,6 +526,24 @@ static void dwc2_channel_free_dispatch(struct dwc2 *dwc, struct dwc2_channel *ch
 	memset(chan->frame_inuse, 0, sizeof(chan->frame_inuse));
 }
 
+static void __dwc2_free_channel(struct dwc2 *dwc, struct dwc2_channel *chan) {
+	dwc2_channel_free_dispatch(dwc, chan);
+
+	chan->disable_stage = 0;
+	list_del(&chan->list); /* del from chan_trans_list */
+	list_add_tail(&chan->list, &dwc->chan_free_list);
+}
+
+/* called from qh destroy */
+static void dwc2_free_channel_simple(struct dwc2 *dwc, struct dwc2_channel *chan) {
+	if (chan->urb_priv) {
+		chan->urb_priv->channel = NULL;
+		chan->urb_priv = NULL;
+	}
+
+	__dwc2_free_channel(dwc, chan);
+}
+
 /* Caller must take care of lock and irq */
 static void dwc2_free_channel(struct dwc2 *dwc, struct dwc2_channel *chan) {
 	if (chan->urb_priv) {
@@ -539,15 +558,14 @@ static void dwc2_free_channel(struct dwc2 *dwc, struct dwc2_channel *chan) {
 		chan->urb_priv = NULL;
 	}
 
-	dwc2_channel_free_dispatch(dwc, chan);
-
-	list_del(&chan->list); /* del from chan_trans_list */
-	list_add_tail(&chan->list, &dwc->chan_free_list);
+	__dwc2_free_channel(dwc, chan);
 }
 
 static void dwc2_free_isoc_chan(struct dwc2 *dwc, struct dwc2_channel *chan) {
 	if (chan->qh) {
 		struct dwc2_qh * qh = chan->qh;
+
+		panic("dwc2-host-ddma:%d: this code is just reserved for debug, will never executed\n", __LINE__);
 
 		qh->channel = NULL;
 		list_del(&qh->list); /* del from busy list */
@@ -557,7 +575,6 @@ static void dwc2_free_isoc_chan(struct dwc2 *dwc, struct dwc2_channel *chan) {
 
 	dwc2_channel_free_dispatch(dwc, chan);
 
-	chan->is_isoc = 0;
 	list_del(&chan->list); /* del from busy_isoc_chan_list */
 	list_add_tail(&chan->list, &dwc->idle_isoc_chan_list);
 }
@@ -814,7 +831,7 @@ static void dwc2_qh_destroy(struct dwc2 *dwc, struct dwc2_qh *qh) {
 		urb_priv = list_first_entry(&qh->urb_list, struct dwc2_urb_priv, list);
 		if (urb_priv->channel) {
 			chan = urb_priv->channel;
-			urb_priv->channel->urb_priv = NULL;
+			dwc2_free_channel_simple(dwc, chan);
 		}
 
 		if (qh->channel)
@@ -2304,12 +2321,15 @@ static void __dwc2_disable_channel_stage2(struct dwc2 *dwc,
 /* caller must take care of lock&irq */
 static void dwc2_disable_channel(struct dwc2 *dwc, struct dwc2_channel *chan,
 				int urb_status, unsigned long flags) {
+	int timeout = 0;
+
 	__dwc2_disable_channel_stage1(dwc, chan, DWC2_URB_CANCELING);
 	chan->waiting = 1;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	wait_event(chan->disable_wq, (chan->disable_stage == 2));
+	timeout = wait_event_timeout(chan->disable_wq, (chan->disable_stage == 2), HZ);
+	WARN((timeout == 0), "wait channel%d disable timeout!\n", chan->number);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	chan->waiting = 0;
@@ -2341,7 +2361,7 @@ static void dwc2_schedule(struct dwc2 *dwc) {
 				if (ret) {
 					dwc2_free_channel(dwc, urb_priv->channel);
 				} else {
-					list_add_tail(&channel->list, &dwc->chan_trans_list);
+					//list_add_tail(&channel->list, &dwc->chan_trans_list);
 					urb_priv->state = DWC2_URB_TRANSFERING;
 				}
 			}
@@ -2844,6 +2864,8 @@ static void dwc2_hcd_handle_int_hc_intr(struct dwc2 *dwc, struct dwc2_channel *c
 	}
 }
 
+//#define DWC2_DEBUG_DESCRIPTOR_HANDLE
+
 /* Handle ISOC Interrupts */
 static void dwc2_hcd_handle_isoc_hc_intr(struct dwc2 *dwc, struct dwc2_channel *channel) {
 	int			 chan_num = channel->number;
@@ -2865,20 +2887,41 @@ static void dwc2_hcd_handle_isoc_hc_intr(struct dwc2 *dwc, struct dwc2_channel *
 			dwc_readl(&hc_regs->hctsiz),
 			dwc_readl(&hc_regs->hcdma));
 
-	if (hcint.b.xfercomp | hcint.b.chhltd) {
-		dwc_otg_host_dma_desc_t			*dma_desc;
+	if (hcint.b.xfercomp || hcint.b.chhltd) {
+		dwc_otg_host_dma_desc_t			*dma_desc	     = NULL;
 		struct usb_iso_packet_descriptor	*isoc_desc;
-		int					 done = 0;
+		int					 done		     = 0;
+		int					 urb_xfer_compl_hint = 0;
+#ifdef DWC2_DEBUG_DESCRIPTOR_HANDLE
+		int					 handled_desc_count = 0;
+#endif
 
 		while (!list_empty(&qh->urb_list)) {
 			urb_priv = list_first_entry(&qh->urb_list, struct dwc2_urb_priv, list);
+
+			/* get the status of the last td */
+			urb_xfer_compl_hint = 0;
+			td = list_entry(urb_priv->td_list.prev, struct dwc2_td, list);
+			if (td->dma_desc_idx >= 0) {
+				dma_desc = channel->sw_desc_list + td->dma_desc_idx;
+				urb_xfer_compl_hint = !dma_desc->status.b_isoc.a;
+			}
+
 			list_for_each_entry_safe(td, td_n, &urb_priv->td_list, list) {
 				if (td->dma_desc_idx < 0) {
 					done = 1;
 					break;
 				}
+
 				dma_desc = channel->sw_desc_list + td->dma_desc_idx;
-				if (dma_desc->status.b_isoc.a) {
+
+				if (unlikely(dma_desc->status.b_isoc.a && urb_xfer_compl_hint)) {
+					/* this desc is active, but the whole urb is complete! */
+					dma_desc->status.b_isoc.a = 0;
+					dma_desc->status.b_isoc.sts = DMA_DESC_STS_PKTERR;
+				}
+
+				if (dma_desc->status.b_isoc.a && (dma_desc->status.b_isoc.sts == 0)) {
 					done = 1;
 					break;
 				}
@@ -2886,12 +2929,52 @@ static void dwc2_hcd_handle_isoc_hc_intr(struct dwc2 *dwc, struct dwc2_channel *
 				isoc_desc = urb_priv->urb->iso_frame_desc + td->isoc_idx;
 				isoc_desc->status = dma_desc->status.b_isoc.sts ? -EPROTO : 0;
 				isoc_desc->actual_length = td->len - dma_desc->status.b_isoc.n_bytes;
+
+#ifdef DWC2_DEBUG_DESCRIPTOR_HANDLE
+				handled_desc_count++;
+#endif
 				dwc2_td_done(urb_priv, td);
 			}
 
 			if (list_empty(&urb_priv->td_list)) {
 				dwc2_urb_done(dwc, urb_priv->urb, 0);
 			}
+
+#ifdef DWC2_DEBUG_DESCRIPTOR_HANDLE
+			if (unlikely(hcint.b.xfercomp && (handled_desc_count == 0))) {
+				struct dwc2_urb_priv	*m_urb_priv;
+
+				printk(KERN_DEBUG "hcint = 0x%08x handled_desc_count = %d list=%d done=%d break_pos=%d\n",
+					hcint.d32, handled_desc_count, !list_empty(&qh->urb_list), done, break_pos);
+
+				if (dma_desc) {
+					printk(KERN_DEBUG "dma_desc status: a=%u sts=%u ioc=%u n_bytes=%u qh->mps=%u\n",
+						dma_desc->status.b_isoc.a,
+						dma_desc->status.b_isoc.sts,
+						dma_desc->status.b_isoc.ioc,
+						dma_desc->status.b_isoc.n_bytes,
+						qh->mps);
+				}
+
+				printk(KERN_DEBUG "========all descs=========\n");
+				list_for_each_entry(m_urb_priv, &qh->urb_list, list) {
+					printk(KERN_DEBUG "     =====urb=%p=====\n", m_urb_priv->urb);
+					list_for_each_entry_safe(td, td_n, &m_urb_priv->td_list, list) {
+						if (td->dma_desc_idx < 0) {
+							break;
+						}
+						dma_desc = channel->sw_desc_list + td->dma_desc_idx;
+
+						printk(KERN_DEBUG "dma_desc[%u] status: a=%u sts=%u ioc=%u n_bytes=%u\n",
+							td->dma_desc_idx,
+							dma_desc->status.b_isoc.a,
+							dma_desc->status.b_isoc.sts,
+							dma_desc->status.b_isoc.ioc,
+							dma_desc->status.b_isoc.n_bytes);
+					}
+				}
+			}
+#endif
 
 			if (done)
 				break;
@@ -3054,9 +3137,6 @@ static void dwc2_host_cleanup(struct dwc2 *dwc) {
 
 /* A-Cable still connected but device disconnected. */
 void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
-	if (!dwc->device_connected)
-		return;
-
 	dwc->device_connected = 0;
 
 	/*
@@ -3067,12 +3147,31 @@ void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
 	if (unlikely(dwc2_is_device_mode(dwc))) {
 		printk("===========>TODO: enter %s: Device Mode\n", __func__);
 	} else {
+		unsigned long	flags;
+		hprt0_data_t	hprt0;
+
 		dwc2_host_cleanup(dwc);
 
 		/* TODO: if currently in A-Peripheral mode, do we need report HUB status? */
+
+		spin_lock_irqsave(&dwc->port1_status_lock, flags);
+		if (dwc->port1_status & USB_PORT_STAT_RESET)
+			__dwc2_port_reset(dwc, 0);
 		dwc->port1_status &= ~USB_PORT_STAT_RESET;
-		dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
+
+		hprt0.d32 = dwc_readl(dwc->host_if.hprt0);
+
+		if (hprt0.b.prtconnsts)
+			dwc->port1_status |= USB_PORT_STAT_CONNECTION;
+		else
+			dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
+
+		//dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
 		dwc->port1_status |= (USB_PORT_STAT_C_CONNECTION << 16);
+
+		dwc->device_connected = !!hprt0.b.prtconnsts;
+
+		spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 
 		if (dwc->hcd->status_urb)
 			usb_hcd_poll_rh_status(dwc->hcd);
@@ -3246,6 +3345,7 @@ int dwc2_host_init(struct dwc2 *dwc) {
 	INIT_LIST_HEAD(&dwc->context_list);
 	INIT_LIST_HEAD(&dwc->idle_qh_list);
 	INIT_LIST_HEAD(&dwc->busy_qh_list);
+	spin_lock_init(&dwc->port1_status_lock);
 	dwc->hcd_started = 0;
 
 	*(struct dwc2 **)(hcd->hcd_priv) = dwc;

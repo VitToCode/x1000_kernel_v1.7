@@ -1,6 +1,6 @@
 config USB_DWC2
 	tristate "DesignWare Core USB 2.0 Hi-Speed On-The-Go(OTG)"
-	depends on USB
+	depends on USB_SUPPORT
 	help
 	  Say Y or M here if your system has a Dual Role SuperSpeed
 	  USB controller based on the DesignWare USB2.0 IP Core.
@@ -17,20 +17,30 @@ choice
 
 config USB_DWC2_DUAL_ROLE
 	bool "Both Host and Device"
+	depends on (USB && USB_GADGET)
 	help
 	  Say Y here to enable both Host and Device function
 
 config USB_DWC2_HOST_ONLY
 	bool "Host Mode Only"
+	depends on USB
 	help
 	  Say Y here to enable Host function only
 
 config USB_DWC2_DEVICE_ONLY
 	bool "Device Mode Only"
+	depends on USB_GADGET
 	help
 	  Say Y Here to enable Device function only
 
 endchoice
+
+config USB_DWC2_ALLOW_WAKEUP
+       bool "allow wakeup when usb cable plug/unplug"
+       depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_DEVICE_ONLY)
+       default y
+       help
+         Say Y here if you want usb cable plug/unplug to wakeup the system
 
 config BOARD_HAS_NO_DETE_FACILITY
        bool "board has no plug detect facility"
@@ -51,15 +61,11 @@ config USB_DWC2_VERBOSE
 
 config USB_CHARGER_SOFTWARE_JUDGE
 	bool "Enable software to judge connect to usb adapter or host"
+	depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_HOST_ONLY)
 	default n
 	help
 		Say Y here if you want increase usb charger current limit,
 		when connect to adapter
-config CHARGER_JUDGE_TIME
-	int "charger judge time in ms"
-	default 2000
-	help
-		Must be greater than 1000 and is a multiple of 50
 
 config USB_DWC2_VERBOSE_VERBOSE
 	bool "Enable Very Verbose Debugging Messagers"
@@ -71,8 +77,15 @@ config USB_DWC2_VERBOSE_VERBOSE
 
 config USB_DWC2_HOST_TRACER
 	bool "Enable tracing host operation flow"
+	depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_HOST_ONLY)
 	help
 	  Say Y here to enable tracing host operation flow,
 	  you must reserve 192M~256M memory
+
+config USB_DWC2_INPUT_EVDEV
+       bool "Enable host mode device wakeup"
+       depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_HOST_ONLY)
+       help
+         Say Y here to enable host device insert to wakeup screen
 
 endif
