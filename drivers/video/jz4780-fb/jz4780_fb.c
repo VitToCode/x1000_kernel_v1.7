@@ -2122,7 +2122,9 @@ static int jzfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
  	pgprot_val(vma->vm_page_prot) &= ~_CACHE_MASK;
 // 	pgprot_val(vma->vm_page_prot) |= _CACHE_UNCACHED; /* Uncacheable */
 	/* Write-Back */
-	pgprot_val(vma->vm_page_prot) |= _CACHE_CACHABLE_NONCOHERENT;
+	//pgprot_val(vma->vm_page_prot) |= _CACHE_CACHABLE_NONCOHERENT;
+	/* Write-Acceleration */
+	pgprot_val(vma->vm_page_prot) |= _CACHE_CACHABLE_WA;
 
 	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
 			       vma->vm_end - vma->vm_start,
