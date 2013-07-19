@@ -744,6 +744,7 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		cache_op(Hit_Writeback_Inv_D, addr & almask);
 		cache_op(Hit_Writeback_Inv_D, (addr + size - 1)  & almask);
+		iob();
 		blast_inv_dcache_range(addr, addr + size);
 	}
 

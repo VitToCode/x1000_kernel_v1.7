@@ -379,7 +379,7 @@ static void intc_irq_dispatch(void)
 		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
 	}
 	if (gpr[0]) {
-		generic_handle_irq(ffs(gpr[0]) -1 +IRQ_INTC_BASE);
+		do_IRQ(ffs(gpr[0]) -1 +IRQ_INTC_BASE);
 	}
 
 	if (ipr[1]) {

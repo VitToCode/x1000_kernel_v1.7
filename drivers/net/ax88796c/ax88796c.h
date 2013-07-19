@@ -37,17 +37,16 @@
 #include <linux/mii.h>
 #include <linux/if_vlan.h>
 #include <linux/inetdevice.h>
+#include <linux/platform_device.h>
 
 #include <asm/system.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/irq.h>
-#include <asm/dma.h>
-#include <linux/dma-mapping.h>
+//#include <asm/dma.h>
 //#include <asm/mach/arch.h>
-#include <linux/platform_device.h>
 
-#include "ax88796c_plat_dma.h"
+#include "ax88796c_plat.h"
 
 /* AX88796C naming declarations */
 #define AX88796C_DRV_NAME	"AX88796C"
@@ -73,22 +72,6 @@
 #define TX_MANUAL_DEQUEUE_CNT		0x30
 #endif
 
-#if (AX88796C_8BIT_MODE)
-static void inline AX_WRITE (u16 data, void __iomem *mem)
-{
-	writeb ((u8)data, mem);
-	writeb ((u8)(data >> 8), mem + 1);
-}
-
-static u16 inline AX_READ (void __iomem *mem)
-{
-        u16 data;
-        u8 *tmp = (u8 *)&data;
-        *tmp = readb (mem);
-        *(tmp+1) = readb (mem + 1);
-        return data;
-}
-#else
 static void inline AX_WRITE (u16 data, void __iomem *mem)
 {
 	writew (data, mem);
@@ -98,7 +81,16 @@ static u16 inline AX_READ (void __iomem *mem)
 {
 	return readw (mem);
 }
-#endif
+
+static void inline AX_OUTBLK (void __iomem *io_base, void *data, int count)
+{
+	writesw(io_base, data, (count + 1) >> 1);
+}
+
+static void inline AX_INBLK (void __iomem *io_base, void *data, int count)
+{
+	readsw(io_base, data, (count + 1) >> 1);
+}
 
 #define AX_SELECT_PAGE(a,b)		AX_WRITE (((AX_READ (b) & 0xFFF8) | a) , b)
 
@@ -134,7 +126,7 @@ static u16 inline AX_READ (void __iomem *mem)
 #define RX_HDR1_CRC_ERR			0x1000
 #define RX_HDR1_PKT_LEN			0x07FF
 #define RX_HDR2_SEQ_NUM			0xF800
-#define RX_HDR2_PKT_LEN_BAR		0x7FFF
+#define RX_HDR2_PKT_LEN_BAR		0x07FF
 #define RX_HDR3_CE			(1 << 15)
 #define RX_HDR3_L3_PKT_TYPE(x)		(((x) >> 13) & 0x0003)
 #define RX_HDR3_L4_PKT_TYPE(x)		(((x) >> 10) & 0x0007)
@@ -239,11 +231,18 @@ struct ax88796c_device {
 	void __iomem *membase;
 	struct mii_if_info mii;
 	struct net_device_stats stat;	/* The new statistics table. */
-	
+
+	unsigned long conf_start;
+	void __iomem *confbase;
+	struct tasklet_struct tasklet;
+
 	spinlock_t isr_lock;
 	struct timer_list watchdog;
 	enum watchdog_state w_state;
 	size_t w_ticks;
+
+	int	reset;
+	int	irq;
 
 	/* Tx variables */
 	u16	seq_num;
@@ -251,10 +250,10 @@ struct ax88796c_device {
 	struct sk_buff_head tx_busy_q;
 
 	u8	burst_len;
-		#define DMA_BURST_LEN_2_WORD	0x00
-		#define DMA_BURST_LEN_4_WORD	0x01
-		#define DMA_BURST_LEN_8_WORD	0x10
-		#define DMA_BURST_LEN_16_WORD	0x11
+		#define DMA_BURST_LEN_2_WORD	0
+		#define DMA_BURST_LEN_4_WORD	1
+		#define DMA_BURST_LEN_8_WORD	2
+		#define DMA_BURST_LEN_16_WORD	3
 	
 	/* Rx variables */
 	struct sk_buff_head rx_busy_q;
@@ -410,6 +409,8 @@ struct ax88796c_device {
 	#define TSNR_TXB_START		(1 << 15)
 #define P0_RTDPR	AX_SHIFT(0x14)
 #define P0_RXBCR1	AX_SHIFT(0x16)
+	#define RXBCR1_RXB_BL_BITS	0
+	#define RXBCR1_RXB_BL_MASK	(0x3FFF)
 	#define RXBCR1_RXB_DISCARD	(1 << 14)
 	#define RXBCR1_RXB_START	(1 << 15)
 #define P0_RXBCR2	AX_SHIFT(0x18)
@@ -422,7 +423,7 @@ struct ax88796c_device {
 	#define RTWCR_RXWC_MASK		(0x3FFF)
 	#define RTWCR_RX_LATCH		(1 << 15)
 #define P0_RCPHR	AX_SHIFT(0x1C)
-#define PG_HOST_WAKEUP	AX_SHIFT(0x1F)
+#define PG_HOST_WAKEUP	AX_SHIFT(0x1E)
 
 	/* Definition of PAGE1 */
 #define P1_RPPER	AX_SHIFT(0x02)
