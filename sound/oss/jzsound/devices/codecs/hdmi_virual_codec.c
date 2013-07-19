@@ -7,7 +7,6 @@
  *
  * Copyright (c) Ingenic Semiconductor Co., Ltd.
  */
-#ifdef CONFIG_SOUND_I2S_JZ47XX
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
@@ -29,7 +28,12 @@
 #include <mach/jzsnd.h>
 #include "../xb47xx_i2s.h"
 
+#ifdef CONFIG_SOUND_I2S_JZ47XX
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
+#endif
+#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+extern int spdif_register_codec(char*, void *,unsigned long,enum codec_mode);
+#endif
 
 static void codec_get_format_cap(unsigned long *format)
 {
@@ -55,10 +59,19 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 static int __init init_codec(void)
 {
 	int ret = 0;
+#ifdef CONFIG_SOUND_I2S_JZ47XX
 	ret = i2s_register_codec("hdmi", (void *)jzcodec_ctl,HDMI_SMAPLE_RATE,CODEC_SLAVE);
 	if (ret < 0)
 		printk("hdmi audio is not support\n");
 	printk("hdmi audio codec register success\n");
+#endif
+#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+	ret = spdif_register_codec("hdmi", (void *)jzcodec_ctl,HDMI_SMAPLE_RATE,CODEC_SLAVE);
+	if (ret < 0)
+		printk("hdmi audio is not support\n");
+	printk("hdmi audio codec register success\n");
+#endif
+
 	return 0;
 }
 
@@ -72,4 +85,3 @@ static void __exit cleanup_codec(void)
 arch_initcall_sync(init_codec);
 module_exit(cleanup_codec);
 MODULE_LICENSE("GPL");
-#endif

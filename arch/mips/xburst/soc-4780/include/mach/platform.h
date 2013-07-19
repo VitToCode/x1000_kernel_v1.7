@@ -163,10 +163,12 @@ extern struct platform_device jz_i2c4_device;
 
 extern struct platform_device jz_i2s_device;
 extern struct platform_device jz_pcm_device;
+extern struct platform_device jz_spdif_device;
 extern struct platform_device jz_codec_device;
 
 extern struct platform_device jz_mixer0_device;
 extern struct platform_device jz_mixer1_device;
+extern struct platform_device jz_mixer2_device;
 
 extern struct platform_device jz_gpu;
 

@@ -408,6 +408,10 @@ static int __init grus_board_init(void)
 	jz_device_register(&jz_i2s_device,&i2s_data);
 	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
 #endif
+#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+	jz_device_register(&jz_spdif_device,&spdif_data);
+	jz_device_register(&jz_mixer2_device,&snd_mixer2_data);
+#endif
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	jz_device_register(&jz_pcm_device,&pcm_data);
 	jz_device_register(&jz_mixer1_device,&snd_mixer1_data);

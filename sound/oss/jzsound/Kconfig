@@ -71,6 +71,13 @@ menu "sound pcm codec list"
 endmenu
 endif #SOUND_PCM_JZ47XX
 
+#******************************************************
+config SOUND_SPDIF_JZ47XX
+	bool "Jz On-Chip SPDIF driver"
+	default n
+	help
+		Say 'Y' to enable On-Chip pcm
+
 menuconfig SOUND_XBURST_DETECT
 	bool "sound detect device of xburst"
 	default n
