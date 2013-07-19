@@ -177,7 +177,7 @@ static int __devinit jz_remote_probe(struct platform_device *pdev)
 
 
 	ret = request_irq(jz_remote->irq, jz_remote_irq_handler,
-			IRQF_TRIGGER_FALLING | IRQF_DISABLED, "jz-remote", jz_remote);
+			IRQF_TRIGGER_FALLING | IRQF_DISABLED | IRQF_NO_SUSPEND, "jz-remote", jz_remote);
 	if (ret < 0) {
 		printk(KERN_CRIT "Can't request IRQ for jz_remote__irq\n");
 		return ret;
@@ -242,12 +242,41 @@ static int __devexit jz_remote__remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int jz_remote_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jz_remote *ddata = platform_get_drvdata(pdev);
+
+	enable_irq_wake(ddata->irq);
+
+	return 0;
+}
+
+static int jz_remote_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jz_remote *ddata = platform_get_drvdata(pdev);
+
+	disable_irq_wake(ddata->irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops jz_remote_pm_ops = {
+	.suspend	= jz_remote_suspend,
+	.resume		= jz_remote_resume,
+};
+#endif
 static struct platform_driver jz_remote_driver = {
 	.probe		= jz_remote_probe,
 	.remove 	= __devexit_p(jz_remote__remove),
 	.driver 	= {
 		.name	= "jz-remote",
 		.owner	= THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm	= &jz_remote_pm_ops,
+#endif
 	},
 };
 

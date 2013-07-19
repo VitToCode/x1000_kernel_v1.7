@@ -1,5 +1,18 @@
+/*
+ * S3C2410 platform
+ */
 
-#include "ax88796c_plat_dma.h"
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+#include <asm/arch/regs-mem.h>
+#include <asm/arch/regs-irq.h>
+#include <asm/arch/regs-gpio.h>
+#else
+#include <mach/regs-gpio.h>
+#include <mach/regs-mem.h>
+#include <plat/regs-dma.h>
+#endif
+
+#include "s3c2410_plat_dma.h"
 
 struct dma_channel {
 
@@ -18,8 +31,6 @@ struct dma_channel {
 	void (*rx_dma_complete)(void *data);
 
 } dma_chans;
-
-#ifdef CONFIG_ARCH_S3C2410
 
 #define S2440_TX_DMA_IRQ		IRQ_DMA0
 #define S2440_RX_DMA_IRQ		IRQ_DMA3
@@ -270,32 +281,7 @@ int ax88796c_plat_dma_init (unsigned long base_addr,
 	return ret;
 }
 
-void ax88796c_plat_init (int bus_type)
+void ax88796c_plat_init (void __iomem *confbase, int bus_type)
 {
 	ax88796c_plat_config_bank1 (bus_type);
 }
-
-#else	//#ifdef CONFIG_ARCH_S3C2410
-
-void dma_start (dma_addr_t dst, int len, u8 tx)
-{
-}
-
-void ax88796c_plat_dma_release (void)
-{
-}
-
-int ax88796c_plat_dma_init (unsigned long base_addr,
-				void (*tx_dma_complete)(void *data),
-				void (*rx_dma_complete)(void *data),
-				void *priv)
-{
-	return 0;
-}
-
-void ax88796c_plat_init (int bus_type)
-{
-}
-
-#endif	//#ifdef CONFIG_ARCH_S3C2410
-

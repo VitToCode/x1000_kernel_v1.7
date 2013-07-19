@@ -20,6 +20,8 @@
 #include "ax88796c.h"
 #include "ax88796c_ioctl.h"
 #include <linux/gpio.h>
+#include <linux/sched.h>
+
 #include <soc/gpio.h>
 
 /* Naming constant declarations */
@@ -35,10 +37,6 @@ static int bus_wide = 0;
 static int bus_wide = 1;
 #endif
 
-static int mem;
-static int irq;
-static int reset;
-static int irq_pin;
 static int ps_level = AX_PS_D0;
 static int msg_enable = (NETIF_MSG_DRV |
 			 NETIF_MSG_PROBE |
@@ -50,16 +48,12 @@ static int msg_enable = (NETIF_MSG_DRV |
 //			 NETIF_MSG_INTR |
 //			 NETIF_MSG_RX_STATUS |
 //			 NETIF_MSG_PKTDATA |
-			 NETIF_MSG_HW |
+//			 NETIF_MSG_HW |
 			 NETIF_MSG_WOL);
 
-module_param (mem, int, 0);
-module_param (irq, int, 0);
 module_param (msg_enable, int, 0);
 module_param (ps_level, int, 0);
 
-MODULE_PARM_DESC(mem, "MEMORY base address(es), required");
-MODULE_PARM_DESC(irq, "IRQ number(s)");
 MODULE_PARM_DESC(msg_enable, "Message level");
 MODULE_PARM_DESC(ps_level, "Power Saving Level (0:disable 1:level 1 2:level 2)");
 
@@ -77,7 +71,7 @@ static void ax88796c_dump_regs (struct ax88796c_device *ax_local)
 	void __iomem *ax_base = ax_local->membase;
 	u8 i, j;
 	
-	printk("ax_base = 0x%x\n", ax_base);
+	printk("ax_base = 0x%x\n", (u32)ax_base);
 	printk ("       Page0   Page1   Page2   Page3   "
 				"Page4   Page5   Page6   Page7\n");
 	for (i = 0; i < 0x20; i += 2) {
@@ -202,7 +196,7 @@ static int ax88796c_reset (struct ax88796c_device *ax_local)
  * Purpose: Load eeprom data from eeprom
  * ----------------------------------------------------------------------------
  */
-#ifndef CONFIG_BOARD_HDMI_80
+#ifdef CONFIG_BOARD_EEPROM
 static int ax88796c_reload_eeprom (struct ax88796c_device *ax_local)
 {
 	void __iomem *ax_base = ax_local->membase;
@@ -242,7 +236,7 @@ static void ax88796c_set_multicast (struct net_device *ndev)
 	unsigned long flags;
 	u16 rx_ctl = RXCR_AB;
 	u8 power;
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 	int mc_count = ndev->mc_count;
 #else
 	int mc_count = netdev_mc_count (ndev);
@@ -469,6 +463,7 @@ static void  inline
 ax88796c_tx_pio_xmit (struct ax88796c_device *ax_local, 
 		      const unsigned char *buf, int byte_count)
 {
+#if 0
 	void __iomem *ax_base = ax_local->membase;
 	unsigned int i, count;
 
@@ -476,6 +471,9 @@ ax88796c_tx_pio_xmit (struct ax88796c_device *ax_local,
 	for (i = 0; i < count; i += 2) {
 		AX_WRITE (*((u16 *)(buf + i)), ax_base + DATA_PORT_ADDR );
 	}
+#endif
+
+	AX_OUTBLK (ax_local->membase + DATA_PORT_ADDR, (void *)buf, byte_count);
 }
 
 /*
@@ -628,7 +626,7 @@ static void ax88796c_tx_dma_complete(void *priv)
 
 	return;
 }
-#endif /* #if (TX_DMA_MODE) */
+#endif /* TX_DMA_MODE */
 
 /*
  * ----------------------------------------------------------------------------
@@ -704,7 +702,9 @@ ax88696c_rx_fixup (struct ax88796c_device *ax_local,
 
 	/* Validate the RX header of this packet */
 	if ((((short)rxhdr->flags_len) & RX_HDR1_PKT_LEN) !=
-	    (~((short)rxhdr->seq_lenbar) & TX_HDR_SOP_PKTLEN)) {
+	   ((~((short)rxhdr->seq_lenbar)) & RX_HDR2_PKT_LEN_BAR)) {
+		printk("\n%s: RX frame error\n", __FUNCTION__);
+
 		ax_local->stat.rx_frame_errors++;
 		dev_kfree_skb_any (rx_skb);
 		return;
@@ -717,9 +717,8 @@ ax88696c_rx_fixup (struct ax88796c_device *ax_local,
 	skb_pull (rx_skb, sizeof (*rxhdr));
 	__pskb_trim (rx_skb, len);
 
-	return ax88796c_skb_return (ax_local, rx_skb, rxhdr);
-
-} /* End of ax_rx_fixup () */
+	ax88796c_skb_return (ax_local, rx_skb, rxhdr);
+}
 
 /*
  * ----------------------------------------------------------------------------
@@ -736,14 +735,14 @@ static int ax88796c_rx_pio (struct net_device *ndev)
 	u16 w_count;
 	u16 header;
 	u16 len;
-	int i;
+	//int i;
 	u8 loop_cnt = 20;
 
 	while (--loop_cnt) {
 
 		/* Read out the rx pkt counts and word counts */
-		AX_WRITE (RTWCR_RX_LATCH | AX_READ (ax_base + P0_RTWCR),
-				ax_base + P0_RTWCR);	
+		AX_WRITE (RTWCR_RX_LATCH, ax_base + P0_RTWCR);
+
 		pkt_cnt = AX_READ (ax_base + P0_RXBCR2) & RXBCR2_PKT_MASK;
 		if (!pkt_cnt)
 			break;
@@ -754,6 +753,7 @@ static int ax88796c_rx_pio (struct net_device *ndev)
 
 		if ((header & RX_HDR1_MII_ERR) || 
 			(header & RX_HDR1_CRC_ERR)) {
+			printk("%s: Rx CRC error!\n", ndev->name);
 			ax_local->stat.rx_crc_errors++;
 
 			/* skip this packet */
@@ -774,15 +774,21 @@ static int ax88796c_rx_pio (struct net_device *ndev)
 			AX_WRITE (RXBCR1_RXB_DISCARD, ax_base + P0_RXBCR1);
 			continue;
 		}
-		skb_put (skb, w_count * 2);
 
+		skb_put (skb, w_count * 2);
 		/* Start rx PIO transmission */
 		AX_WRITE (RXBCR1_RXB_START | w_count, ax_base + P0_RXBCR1);
+		/* Rx bridge ready sync */
+		while (!(AX_READ (ax_base + P0_RXBCR2) & RXBCR2_RXB_READY));
 
+#if 0
 		for (i = 0; i < skb->len; i += 2) {
 			*((u16 *)(skb->data + i)) =
 				AX_READ (ax_base + DATA_PORT_ADDR);
 		}
+#else
+		AX_INBLK(ax_base + DATA_PORT_ADDR, (void *)skb->data, skb->len);
+#endif
 
 		ax88696c_rx_fixup (ax_local, skb);
 	}
@@ -806,8 +812,10 @@ static int ax88796c_rx_dma (struct net_device *ndev)
 	struct skb_data *entry;
 	u16 pkt_cnt;
 
-	AX_WRITE (RTWCR_RX_LATCH | AX_READ (ax_base + P0_RTWCR),
-				ax_base + P0_RTWCR);	
+	/* Read out the rx pkt counts and word counts */
+	AX_WRITE (RTWCR_RX_LATCH, ax_base + P0_RTWCR);
+	//AX_WRITE (RTWCR_RX_LATCH | AX_READ (ax_base + P0_RTWCR),
+				//ax_base + P0_RTWCR);
 	pkt_cnt = AX_READ (ax_base + P0_RXBCR2) & RXBCR2_PKT_MASK;
 	if (!pkt_cnt) {
 		return 0;
@@ -819,6 +827,7 @@ static int ax88796c_rx_dma (struct net_device *ndev)
 
 	if ((header & RX_HDR1_MII_ERR) || 
 		(header & RX_HDR1_CRC_ERR)) {
+		printk("%s: Rx CRC error!\n", ndev->name);
 		ax_local->stat.rx_crc_errors++;
 
 		/* skip this packet */
@@ -841,24 +850,31 @@ static int ax88796c_rx_dma (struct net_device *ndev)
 
 	skb_put (skb, w_count * 2);
 
-	/* Enable RX bridge */
+	/* Start RX bridge */
 	AX_WRITE (RXBCR1_RXB_START | w_count, ax_base + P0_RXBCR1);
+	/* Rx bridge ready sync */
+	while (!(AX_READ (ax_base + P0_RXBCR2) & RXBCR2_RXB_READY));
 
+#if 1
 	entry = (struct skb_data *) skb->cb;
 	entry->phy_addr = dma_map_single (NULL, skb->data, skb->len,
 				DMA_FROM_DEVICE);
-	__skb_queue_tail (&ax_local->rx_busy_q, skb);
+#else
+	dma_sync_single_for_device(NULL, (dma_addr_t)virt_to_phys(skb->data), skb->len,
+				DMA_FROM_DEVICE);
+#endif
+	//__asm__ __volatile__ ("sync");
 
+	__skb_queue_tail (&ax_local->rx_busy_q, skb);
 	ax_local->rx_dmaing = 1;
 
 	/* Start rx DMA transmission */
 	dma_start (entry->phy_addr, w_count, 0);
+	//dma_start ((dma_addr_t)virt_to_phys(skb->data), w_count, 0);
 
 	return 1;
 }
-#endif
 
-#if (RX_DMA_MODE)
 /*
  * ----------------------------------------------------------------------------
  * Function Name: ax88796c_rx_dma_complete
@@ -884,10 +900,12 @@ static void ax88796c_rx_dma_complete(void *dev_temp)
 			printk ("%s: No RX SKB in queue\n", __FUNCTION__);
 		}
 	}
-	entry = (struct skb_data *) skb->cb;
 
+#if 1
+	entry = (struct skb_data *) skb->cb;
 	/* Unmap DMA address */
 	dma_unmap_single(NULL, entry->phy_addr, skb->len, DMA_FROM_DEVICE);
+#endif
 
 	/* Check if rx bridge is idle */
 	if ((AX_READ (ax_base + P0_RXBCR2) & RXBCR2_RXB_IDLE) == 0) {
@@ -899,6 +917,8 @@ static void ax88796c_rx_dma_complete(void *dev_temp)
 		ax88696c_rx_fixup (ax_local, skb);
 	}
 
+	/* Acknowlage RxPKT interrupt */
+	AX_WRITE (ISR_RXPKT, ax_base + P0_ISR);
 	ax_local->rx_dmaing = 0;
 
 	/* If the rx pkt in RX RAM */
@@ -908,13 +928,12 @@ static void ax88796c_rx_dma_complete(void *dev_temp)
 	if (ax_local->rx_dmaing) {
 		AX_WRITE((IMR_DEFAULT | IMR_RXPKT), ax_base + P0_IMR);
 	} else {
-		AX_WRITE (ISR_RXPKT, ax_base + P0_ISR);
 		AX_WRITE(IMR_DEFAULT, ax_base + P0_IMR);
 	}
 
 	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
 }
-#endif
+#endif /* RX_DMA_MODE */
 
 /*
  * ----------------------------------------------------------------------------
@@ -1060,44 +1079,42 @@ static void ax88796c_check_media (struct ax88796c_device *ax_local)
  * ----------------------------------------------------------------------------
  */
 static irqreturn_t
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
 ax88796c_interrupt (int irq, void *dev_id)
-#else
-ax88796c_interrupt (int irq, void *dev_id, struct pt_regs * regs)
-#endif
 {
 	struct net_device *ndev = dev_id;
     	struct ax88796c_device *ax_local = netdev_priv (ndev);
 	void __iomem *ax_base = ax_local->membase;
 	u16 interrupts;
+	u16 irqStatus, irqMask;
 	unsigned long flags;
 	
-	/* printk("*irq*\n\n"); */
 	spin_lock_irqsave (&ax_local->isr_lock, flags);
 
+	/* Get irq Mask */
+	irqMask = AX_READ (ax_base + P0_IMR);
 	/* Mask all interrupts */
 	AX_WRITE (IMR_MASKALL, ax_base + P0_IMR);
 
 	/* Check and handle each interrupt event */
 	interrupts = AX_READ (ax_base + P0_ISR);
+	/* Acknowledge all actived interrupts */
+	AX_WRITE (interrupts, ax_base + P0_ISR);
 
 	if (netif_msg_intr (ax_local)) {
-		printk ("\n%s: Interrupt status 0x%x\n",
+		printk ("\n%s: Interrupt status 0x%04x\n",
 			__FUNCTION__ , interrupts);
 	}
 
-	if (interrupts) {
-
-		/* RX interrupt */
-		if (interrupts & ISR_RXPKT) {
-
+	irqStatus = interrupts & (~irqMask);
+	if (irqStatus) {
+		/* Rx interrupt for Comming packet */
+		if (irqStatus & ISR_RXPKT) {
 			if (skb_queue_empty (&ax_local->rx_busy_q))
 				ax_local->low_level_input (ndev);
 		}
 
 		/* Tx free page interrupt */
-		if (interrupts & (ISR_TXPAGES)) {
-
+		if (irqStatus & (ISR_TXPAGES)) {
 			spin_lock (&ax_local->tx_busy_q.lock);
 
 			/* If there is any pending packet */ 	
@@ -1129,19 +1146,16 @@ ax88796c_interrupt (int irq, void *dev_id, struct pt_regs * regs)
 			spin_unlock (&ax_local->tx_busy_q.lock);
 		}
 
-		if (interrupts & ISR_LINK) {
+		if (irqStatus & ISR_LINK) {
 			ax88796c_check_media (ax_local);
 		}
-
-		/* Acknowledge all interrupts */
-		AX_WRITE (interrupts, ax_base + P0_ISR);
 	}
 
 	/* If rx interrupt is asserted, do not unmake rx interrupt */
 	if (ax_local->rx_dmaing) {
-		AX_WRITE((IMR_DEFAULT | IMR_RXPKT), ax_base + P0_IMR);
+		AX_WRITE (IMR_DEFAULT | IMR_RXPKT, ax_base + P0_IMR);
 	} else {
-		AX_WRITE(IMR_DEFAULT, ax_base + P0_IMR);
+		AX_WRITE (IMR_DEFAULT, ax_base + P0_IMR);
 	}
 
 	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
@@ -1395,11 +1409,7 @@ ax88796c_open(struct net_device *ndev)
 	struct ax88796c_device *ax_local = netdev_priv (ndev);
 	void __iomem *ax_base = ax_local->membase;
 	int ret = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
-	unsigned long irq_flag = SA_SHIRQ;
-#else
-	unsigned long irq_flag = IRQF_SHARED;
-#endif
+	unsigned long irq_flag = IRQF_DISABLED | IRQF_TRIGGER_LOW;
 	u8 power = ax88796c_check_power_state (ndev);
 
 	/* Mask interrupt first */
@@ -1409,25 +1419,12 @@ ax88796c_open(struct net_device *ndev)
 	ax_local->seq_num = 0;
 
 	ax88796c_init (ax_local);
-	
-	ret = gpio_request(irq_pin, "aix88796 irq_pin");
-	if (ret){
-		printk("request irq_pin err\n");
-		return ret;
-	}
 
-	ret = gpio_direction_input(irq_pin);
-	if (ret){
-		printk("gpio_direction_input err\n");
-		return ret;
-	}
-
-
-	printk("aix88796 irq_pin:%d, irq:%d\n", irq_pin, irq);
-
-	/* Request IRQ ndev->irq*/
+	/* Request IRQ GPIO */
+	gpio_request(ax_local->irq, "ax88796 irq");
+	/* Request Ax88796C IRQ ndev->irq */
 	ret = request_irq (ndev->irq, &ax88796c_interrupt,
-				IRQF_TRIGGER_LOW , ndev->name, ndev);
+				irq_flag, ndev->name, ndev);
 	if (ret) {
 		if (netif_msg_ifup (ax_local))
 			printk (KERN_ERR
@@ -1465,6 +1462,7 @@ ax88796c_open(struct net_device *ndev)
 	ax_local->watchdog.data = (unsigned long) ndev;
 	ax_local->w_state = chk_cable;
 	ax_local->w_ticks = 0;
+	ax_local->rx_dmaing = 0;
 
 	add_timer (&ax_local->watchdog);
 	
@@ -1482,7 +1480,6 @@ static int
 ax88796c_close(struct net_device *ndev)
 {
 	struct ax88796c_device *ax_local = netdev_priv (ndev);
-	unsigned long flags;
 
 	(void) ax88796c_check_power_state (ndev);
 
@@ -1490,10 +1487,10 @@ ax88796c_close(struct net_device *ndev)
 
 	del_timer_sync (&ax_local->watchdog);
 
-	/*Release IRQ*/
- 	spin_lock_irqsave (&ax_local->isr_lock, flags);
+	/* Release IRQ */
 	free_irq (ndev->irq, ndev);
-	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
+	/* Release IRQ GPIO */
+	gpio_free(ax_local->irq);
 
 	ax88796c_plat_dma_release ();
 
@@ -1516,6 +1513,7 @@ const struct net_device_ops ax88796c_netdev_ops = {
 	.ndo_get_stats		= ax88796c_get_stats,
 	.ndo_set_multicast_list = ax88796c_set_multicast,
 	.ndo_do_ioctl		= ax88796c_ioctl,
+	.ndo_change_mtu         = eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= ax88796c_set_mac_address,
 };
@@ -1533,7 +1531,7 @@ ax88796c_probe (struct ax88796c_device *ax_local)
 	struct net_device *ndev = ax_local->ndev;
 	void __iomem *ax_base;
 	int retval;
-	u16 temp;
+	u16 order;
 
 	ax_base = ax_local->membase;
 
@@ -1541,16 +1539,16 @@ ax88796c_probe (struct ax88796c_device *ax_local)
 	AX_WRITE (0xFF, ax_base + PG_HOST_WAKEUP);
 	msleep (200);
 
-	ax88796c_plat_init (bus_wide);
-
 	/* Check endian */
 	AX_SELECT_PAGE(PAGE0, ax_base + PG_PSR);
-	temp = AX_READ (ax_base + P0_BOR);
-	if (temp == 0x1234) {
+	order = AX_READ (ax_base + P0_BOR);
+	if (order == 0x1234) {
 		ax_local->plat_endian = PLAT_LITTLE_ENDIAN;
-	} else {
+	} else if (order == 0x3412){
 		AX_WRITE (0xFFFF, ax_base + P0_BOR);
 		ax_local->plat_endian = PLAT_BIG_ENDIAN;
+	} else {
+		return -ENXIO;
 	}
 
 	/* Reset AX88796C */
@@ -1623,7 +1621,7 @@ ax88796c_probe (struct ax88796c_device *ax_local)
 				ndev->name,
 				ndev->base_addr, ndev->irq);
 	}
-	
+
 	return 0;
 }
 
@@ -1638,108 +1636,83 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 {
 	struct ax88796c_device *ax_local;
 	struct resource *res = NULL;
-	void __iomem *addr;
 	int ret;
 	struct net_device *ndev;
 
-	/* User can overwrite AX88796C's base address */
-	if (!mem){
-
-		res = platform_get_resource (pdev, IORESOURCE_MEM, 0);
-		if (!res) {
-			printk("%s: get no resource !\n", AX88796C_DRV_NAME);
-			return -ENODEV;
-		}
-
-		mem = res->start;
-	}
-
-	if(!reset){
-		res = platform_get_resource_byname(pdev, IORESOURCE_IO, "reset_pin");
-		if (!res) {
-			printk("%s: get no resource !\n", AX88796C_DRV_NAME);
-			return -ENODEV;
-		}
-
-		reset = res->start;
-	}
-
-
-	if(!irq_pin){
-		res = platform_get_resource_byname(pdev, IORESOURCE_IO, "irq_pin");
-		if (!res) {
-			printk("%s: get no resource !\n", AX88796C_DRV_NAME);
-			return -ENODEV;
-		}
-
-		irq_pin = res->start;
-	}
-
-
-	/* Get the IRQ resource from kernel */
-	if(!irq)
-		irq = platform_get_irq(pdev, 0);
-
-	/* Request the regions */
-	if (!request_mem_region (mem, resource_size(res), "ax88796c")) {
-		printk("%s: request_mem_region fail !", AX88796C_DRV_NAME);
-		return -EBUSY;
-	}
-
-	addr = ioremap (mem, resource_size(res));
-	if (!addr) {
-		ret = -EBUSY;
-		goto release_region;
-	}
-	
-	gpio_request(reset, "aix88796 reset pin");
-	gpio_direction_output(reset, 0);
-	mdelay(100);
-	gpio_direction_output(reset, 1);
-	mdelay(100);
-	/*
-	writel(0x00001Aff, 0xb3410038);
-	writel(0x000019ff, 0xb341003c);
-	writel(0x000018ff, 0xb3410040);
-	writel(0x000017ff, 0xb3410044);
-	writel(0x000016ff, 0xb3410048);
-
-	printk("\n\nSACR1 = 0x%08x\n", readl(0xb3410034));
-	printk("SACR2 = 0x%08x\n", readl(0xb3410038));
-	printk("SACR3 = 0x%08x\n", readl(0xb341003c));
-	printk("SACR4 = 0x%08x\n", readl(0xb3410040));
-	printk("SACR5 = 0x%08x\n", readl(0xb3410044));
-	printk("SACR6 = 0x%08x\n", readl(0xb3410048));
-*/
-	writel(((0xf << 24) | (0xc << 20)
-			| (0xc << 16) | (0x8 << 12) | (0x8 << 8)), 0xb3410024);
-	//writel(0x3fffff00, 0xb3410024);
-/*
-	volatile unsigned int temp;
-	temp = readl(0xb3410050);
-	printk("temp = 0x%x\n", temp);
-	writel(readl(0xb3410050) & (~0x3fc), 0xb3410050);
-	temp = readl(0xb3410050);
-	printk("temp = 0x%x\n", temp);
-*/
+	/* Init network device */
 	ndev = alloc_etherdev (sizeof (struct ax88796c_device));
 	if (!ndev) {
 		printk("%s: could not allocate device.\n", AX88796C_DRV_NAME);
-		ret = -ENOMEM;
-		goto unmap_region;
+		return -ENOMEM;
 	}
 
 	SET_NETDEV_DEV(ndev, &pdev->dev);
 	platform_set_drvdata (pdev, ndev);
 
-	ndev->base_addr = mem;
-	ndev->irq = irq;
-
 	ax_local = netdev_priv (ndev);
-	ax_local->membase = addr;
- 	ax_local->ndev = ndev;
+	ax_local->ndev = ndev;
 	ax_local->msg_enable =  msg_enable;
 
+	/* User can overwrite AX88796C's base address */
+	res = platform_get_resource (pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		printk("%s: get no NEMC resource !\n", AX88796C_DRV_NAME);
+		ret = -ENODEV;
+		goto release_ndev;
+	}
+	ndev->base_addr = res->start;
+
+	/* Request the regions */
+	if (!request_mem_region (ndev->base_addr, resource_size(res), "ax88796c")) {
+		printk("%s: request_mem_region fail !", AX88796C_DRV_NAME);
+		ret = -EBUSY;
+		goto release_ndev;
+	}
+
+	ax_local->membase = ioremap (ndev->base_addr, resource_size(res));
+	if (!(ax_local->membase)) {
+		ret = -EBUSY;
+		goto release_region;
+	} 	
+
+	res = platform_get_resource (pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		printk("%s: get no NEMC Control resource !\n", AX88796C_DRV_NAME);
+		ret = -EBUSY;
+		goto unmap_region;
+	}
+	ax_local->conf_start = res->start;
+
+	ax_local->confbase = ioremap (ax_local->conf_start, resource_size(res));
+	if (!(ax_local->confbase)) {
+		ret = -EBUSY;
+		goto unmap_region;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "reset_pin");
+	if (!res) {
+		printk("%s: get no reset pin resource !\n", AX88796C_DRV_NAME);
+		ret = -ENODEV;
+		goto unmap_conf;
+	}
+	ax_local->reset = res->start;
+
+	/* Hard Reset Ethernet */
+	gpio_request(ax_local->reset, "ax88796 reset pin");
+	gpio_direction_output(ax_local->reset, 0);
+	mdelay(100);
+	gpio_direction_output(ax_local->reset, 1);
+	mdelay(100);
+
+	/* Get the IRQ resource from kernel */
+	ax_local->irq = platform_get_irq(pdev, 0);
+	if (ax_local->irq < 0) {
+		printk("%s: get no irq resource !\n", AX88796C_DRV_NAME);
+		ret = -ENXIO;
+		goto unmap_conf;
+	}
+	ndev->irq = gpio_to_irq(ax_local->irq);
+	
 	if (ps_level == AX_PS_D1) {
 		if (netif_msg_probe (ax_local))
 			printk ("AX88796C: Enable power saving level 1\n");
@@ -1756,16 +1729,24 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 	/* Enable Link Change and Magic Packet wakeup */
 	ax_local->wol = WFCR_LINKCH | WFCR_MAGICP;
 
+	ax88796c_plat_init (ax_local->confbase, bus_wide);
+
 	ret = ax88796c_probe (ax_local);
 	if (!ret)
 		return 0;
 
+unmap_conf:
+	iounmap (ax_local->confbase);
+
+unmap_region:
+	iounmap (ax_local->membase);
+	
+release_region:
+	release_mem_region (ndev->base_addr, AX88796C_IO_EXTENT);
+
+release_ndev:
 	platform_set_drvdata (pdev, NULL);
 	free_netdev (ndev);
-unmap_region:
-	iounmap (addr);
-release_region:
-	release_mem_region (mem, AX88796C_IO_EXTENT);
 
 	printk("%s: not found (%d).\n", AX88796C_DRV_NAME, ret);
 	return ret;
@@ -1837,7 +1818,16 @@ ax88796c_suspend(struct platform_device *p_dev, pm_message_t state)
 
 	AX_WRITE (IMR_MASKALL, ax_base + P0_IMR);
 
+	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
+
+	if(in_atomic())
+	{
+		printk("==== =======================\n");
+	}
+
 	ax88796c_plat_dma_release ();
+
+	spin_lock_irqsave (&ax_local->isr_lock, flags);
 
 	ax88796c_free_skbuff (&ax_local->tx_q);
 	ax88796c_free_skbuff (&ax_local->rx_busy_q);
@@ -1980,14 +1970,16 @@ static int __devexit ax88796c_exit_module(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct ax88796c_device *ax_local = netdev_priv (ndev);
 	void __iomem *ax_base = ax_local->membase;
+	void __iomem *ax_conf = ax_local->confbase;
 	struct resource *res;
 
 	platform_set_drvdata (pdev, NULL);
 	unregister_netdev (ndev);
 	iounmap (ax_base);
+	iounmap (ax_conf);
 
-	if (mem) {
-		release_mem_region (mem, AX88796C_IO_EXTENT);
+	if (ndev->base_addr) {
+		release_mem_region (ndev->base_addr, AX88796C_IO_EXTENT);
 	} else {
 		res = platform_get_resource (pdev, IORESOURCE_MEM, 0);
 		if (res)

@@ -17,6 +17,16 @@
 #include <linux/jz_dwc.h>
 #include <linux/android_pmem.h>
 
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/ioport.h>
+#include <linux/gpio.h>
+#include <linux/proc_fs.h>
+#include <linux/syscore_ops.h>
+#include <irq.h>
+
 #include <soc/gpio.h>
 #include <soc/base.h>
 #include <soc/irq.h>
@@ -352,39 +362,44 @@ static struct platform_device jz_remote_device = {
 
 #ifdef CONFIG_AX88796C
 static struct resource ax88796c_resource[] = {
-    [0] = {
-        .start = NEMC_CS5_IOBASE,           /* Start of AX88796C base address */
-        .end   = NEMC_CS5_IOBASE + 0x3f, /* End of AX88796C base address */
-        .flags = IORESOURCE_MEM,
-    },
+	[0] = {
+		.start = NEMC_CS5_IOBASE,		/* Start of AX88796C base address */
+		.end   = NEMC_CS5_IOBASE + 0x3f,	/* End of AX88796C base address */
+		.flags = IORESOURCE_MEM,
+	},
 
-    [1] = {
-        .start = IRQ_GPIO_BASE + AIX_ETH_INT,            /* Interrupt line number */
-        .end   = IRQ_GPIO_BASE + AIX_ETH_INT,
-        .flags = IORESOURCE_IRQ,
-    },
+	[1] = {
+		.start = NEMC_IOBASE,
+		.end   = NEMC_IOBASE + 0x50,
+		.flags = IORESOURCE_MEM,
+	},
 
-    [2] = {
-    	.name = "irq_pin",
-		.start = AIX_ETH_INT,            /* Interrupt line number */
-		.end   = AIX_ETH_INT,
+	[2] = {
+		.start = AX_ETH_INT,			/* Interrupt line number */
+		.flags = IORESOURCE_IRQ,
+	},
+
+	[3] = {
+		.name  = "reset_pin",
+		.start = AX_ETH_RESET,			/* Reset line number */
+		.end   = AX_ETH_RESET,
 		.flags = IORESOURCE_IO,
-    },
-
-    [3] = {
-    	.name = "reset_pin",
-		.start = AIX_ETH_RESET,            /* Interrupt line number */
-		.end   = AIX_ETH_RESET,
-		.flags = IORESOURCE_IO,
-    },
+	},
 };
 
 struct platform_device net_device_ax88796c = {
-    .name  = "ax88796c",
-    .id  = -1,
-    .num_resources = ARRAY_SIZE(ax88796c_resource),
-    .resource = ax88796c_resource,
+	.name  = "ax88796c",
+	.id  = -1,
+	.num_resources = ARRAY_SIZE(ax88796c_resource),
+	.resource = ax88796c_resource,
 };
+
+#define VAL_SMCR5	0x07773200
+void inline jz_eth_sdram_init(void __iomem *base, int bus_width)
+{
+	writel(VAL_SMCR5, (base + NEMC_SMCR5));
+}
+#undef VAL_SMCR5
 #endif
 
 static int __init hdmi_80_board_init(void)
@@ -584,3 +599,14 @@ const char *get_board_type(void)
 }
 
 arch_initcall(hdmi_80_board_init);
+
+static struct wake_lock keep_alive_lock;
+static int __init hdmi_80_board_lateinit(void)
+{
+	wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
+	wake_lock(&keep_alive_lock);
+
+	return 0;
+}
+
+late_initcall(hdmi_80_board_lateinit);
