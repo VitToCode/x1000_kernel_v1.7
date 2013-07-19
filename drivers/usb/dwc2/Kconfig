@@ -61,7 +61,7 @@ config USB_DWC2_VERBOSE
 
 config USB_CHARGER_SOFTWARE_JUDGE
 	bool "Enable software to judge connect to usb adapter or host"
-	depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_HOST_ONLY)
+	depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_DEVICE_ONLY)
 	default n
 	help
 		Say Y here if you want increase usb charger current limit,

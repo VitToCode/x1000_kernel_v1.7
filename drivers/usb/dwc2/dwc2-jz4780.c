@@ -75,6 +75,9 @@ struct jzdwc_pin __attribute__((weak)) dete_pin = {
 };
 #endif
 
+void (*set_charger_current)(int cur) = NULL;
+EXPORT_SYMBOL(set_charger_current);
+
 /* NOTE: the following global variables are only used by special late_initcall */
 static struct dwc2_jz4780 *g_dwc2_jz4780 = NULL;
 
@@ -97,9 +100,6 @@ extern void dwc2_notifier_call_chain_sync(int state);
 /* mA */
 #define CHARGER_CURRENT_USB	228
 #define CHARGER_CURRENT_CHARGER	500
-
-void (*set_charger_current)(int cur) = NULL;
-EXPORT_SYMBOL(set_charger_current);
 
 static void charger_set_current(int cur) {
 	if (set_charger_current) {
