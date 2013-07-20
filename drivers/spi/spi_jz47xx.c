@@ -137,14 +137,24 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 	}
 }
 
+/*************************************************************
+ * jz47xx_spi_set_clk: set the SPI_CLK.
+ * The min clock is 23438Hz, and the max clock is defined
+ * by max_clk or max_speed_hz(it is 54MHz for JZ4780, but
+ * the test max clock is 40MHz).
+ ************************************************************* */
 static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 {
 	u16 cgv;
-	unsigned long cpm_rate;
 	unsigned long cpm_rate_a, cpm_rate_b;
 	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
 
-	if (hw->clk_flag == 1)
+	if (hz > hw->pdata->max_clk) {
+		pr_err("The max_speed_hz can not more than max_clk\n");
+		return -EINVAL;
+	}
+
+	if (hw->set_clk_flag == 1)
 		return 0;
 
 	if (!hw->clk) {
@@ -153,16 +163,20 @@ static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 			return -EINVAL;
 	}
 
-	cpm_rate = clk_get_rate(hw->clk);
-	cpm_rate_a = cpm_rate;
+	cpm_rate_a = clk_get_rate(hw->clk);
 
-	if (cpm_rate > 2 * hw->pdata->max_clk) {
-		clk_set_rate(hw->clk, 2 * hw->pdata->max_clk);
+	if (hz >= 10000000)	{
+		clk_set_rate(hw->clk, 2 * hz);
+	} else {
+		clk_set_rate(hw->clk, 24000000);
 	}
 
 	cpm_rate_b =  clk_get_rate(hw->clk);
 
 	cgv = cpm_rate_b / (2 * hz);
+	if (cgv > 0)
+		cgv -= 1;
+
 	spi_writel(hw, SSI_GR, cgv);
 
 	/* if cpm_rate_a equals to cpm_rate_b, the external clock is selected */
@@ -170,7 +184,7 @@ static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 		if (!clk_is_enabled(hw->clk))
 			clk_enable(hw->clk);
 	}
-	hw->clk_flag = 1;
+	hw->set_clk_flag = 1;
 
 	return 0;
 }
@@ -243,28 +257,35 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 		tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		tx_config.dst_maxburst = 1;
+		tx_config.src_maxburst = 1;
+		rx_config.src_maxburst = 1;
+		rx_config.dst_maxburst = 1;
 		break;
 	case SPI_16BITS:
 		tx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		tx_config.dst_maxburst = 2;
+		tx_config.src_maxburst = 2;
+		rx_config.src_maxburst = 2;
+		rx_config.dst_maxburst = 2;
 		break;
 	case SPI_32BITS:
 		tx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		tx_config.dst_maxburst = 4;
+		tx_config.src_maxburst = 4;
+		rx_config.src_maxburst = 4;
+		rx_config.dst_maxburst = 4;
 		break;
 	}
 
 	tx_config.dst_addr = (dma_addr_t)(hw->phys + SSI_DR);
 	rx_config.src_addr = (dma_addr_t)(hw->phys + SSI_DR);
-	tx_config.dst_maxburst = 1;
-	tx_config.src_maxburst = 1;
-	rx_config.src_maxburst = 1;
-	rx_config.dst_maxburst = 1;
-
 	dmaengine_slave_config(txchan, &tx_config);
 	dmaengine_slave_config(rxchan, &rx_config);
 
@@ -1255,11 +1276,19 @@ static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
 
-	if(clk_is_enabled(hw->clk_gate))
+	if(clk_is_enabled(hw->clk_gate)) {
+		hw->clk_gate_flag = 1;
 		clk_disable(hw->clk_gate);
+	} else {
+		hw->clk_gate_flag = 0;
+	}
 
-	if(clk_is_enabled(hw->clk))
+	if(clk_is_enabled(hw->clk)) {
+		hw->clk_flag = 1;
 		clk_disable(hw->clk);
+	} else {
+		hw->clk_flag = 0;
+	}
 
 	return 0;
 }
@@ -1268,10 +1297,12 @@ static int jz47xx_spi_resume(struct platform_device *pdev)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
 
-	if(!clk_is_enabled(hw->clk))
+	if(hw->clk_flag == 1) {
 		clk_enable(hw->clk);
-	if(!clk_is_enabled(hw->clk_gate))
+	}
+	if(hw->clk_gate_flag == 1) {
 		clk_enable(hw->clk_gate);
+	}
 
 	return 0;
 }

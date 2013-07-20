@@ -156,8 +156,10 @@ struct jz47xx_spi {
 	/* bitbang has to be first */
 	struct spi_bitbang	bitbang;
 	struct clk		*clk_gate;
+	unsigned int            clk_gate_flag;
 	struct clk		*clk;
 	unsigned int		clk_flag;
+	unsigned int		set_clk_flag;
 	struct completion	done;
 	struct completion	done_rx;
 
