@@ -14,6 +14,7 @@ obj-$(CONFIG_TOUCHSCREEN_JZ_SSD253X)	+= ssd253x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X0X)        += ft5x0x_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X06)        += ft5x06_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MG8698S)        += mg8698s_ts.o
+obj-$(CONFIG_GSlX680_CAPACITIVE_TOUCHSCREEN)	+= gslX680.o
 obj-$(CONFIG_TOUCHSCREEN_ZET6221)        += zet6221_ts.o zet6221_downloader.o
 obj-$(CONFIG_TOUCHSCREEN_FT5306)        += ft5306_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CTP_IT7260)    += ctp_it7260.o

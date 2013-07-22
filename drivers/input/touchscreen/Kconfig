@@ -79,6 +79,12 @@ config TOUCHSCREEN_MG8698S
       help
       mg8698s a CTP controller,support panel 7"~10.1"
 
+config GSlX680_CAPACITIVE_TOUCHSCREEN
+      tristate "Touchscreen GSlX680"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      GSlX680 a CTP controller,support panel 7"
+
 config TOUCHSCREEN_ZET6221
       tristate "Touchscreen zet6221"
       depends on I2C && JZ4780_SUPPORT_TSC
