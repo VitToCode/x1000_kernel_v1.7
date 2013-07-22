@@ -742,7 +742,7 @@ config I2C1_JZ4780
 config I2C1_SPEED
 	int "Jz4780 i2c1 speed in KHZ"
 	range 100 400
-	default 100
+	default 400
     depends on I2C1_JZ4780
 
 config I2C2_JZ4780
@@ -762,7 +762,7 @@ config I2C3_JZ4780
 config I2C3_SPEED
 	int "Jz4780 i2c3 speed in KHZ"
 	range 100 400
-	default 100
+	default 300
     depends on I2C3_JZ4780
 
 config I2C4_JZ4780
