@@ -1050,7 +1050,7 @@ struct uart_ops serial_jz47xx_pops = {
 
 static struct uart_driver serial_jz47xx_reg = {
 	.owner		= THIS_MODULE,
-	.driver_name	= "JZ47XX serial",
+	.driver_name	= "JZ47XX_serial",
 	.dev_name	= "ttyS",
 	.major		= TTY_MAJOR,
 	.minor		= 64,
