@@ -1074,6 +1074,10 @@ static int i2c_jz_probe(struct platform_device *dev)
 	clk_enable(i2c->clk);
 	r = platform_get_resource(dev, IORESOURCE_BUS, 0);
 	i2c->speed = r->start;
+#if 0 //clivia tmp set
+	if(i2c->adap.nr == 1)
+		i2c->speed = 400;
+#endif
 	printk("------>i2c%d i2c->speed %d \n",i2c->adap.nr, i2c->speed);
 
 	i2c_set_speed(i2c);
