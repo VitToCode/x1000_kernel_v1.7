@@ -1063,6 +1063,18 @@ struct platform_device  jz_dwc_otg_device = {
 };
 
 /* efuse */
+
+static struct resource jz_efuse_resources[] = {
+	[0] = {
+		.start	= NEMC_IOBASE + 0xd0,
+		.end	= NEMC_IOBASE + 0xfc - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
 struct platform_device jz_efuse_device = {
-	.name = "jz4780-efuse",
+	.name	= "jz4780-efuse",
+	.id	= -1,
+	.num_resources	= ARRAY_SIZE(jz_efuse_resources),
+	.resource	= jz_efuse_resources,
 };

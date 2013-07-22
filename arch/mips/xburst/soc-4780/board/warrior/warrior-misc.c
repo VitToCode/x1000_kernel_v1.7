@@ -21,6 +21,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
 
 #include "warrior.h"
@@ -227,6 +228,13 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ4780_EFUSE
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = GPIO_PE(4),
+};
+#endif
+
 static int __init warrior_board_init(void)
 {
 /* dma */
@@ -315,6 +323,9 @@ static int __init warrior_board_init(void)
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &warrior_battery_pdata);
+#endif
+#ifdef CONFIG_JZ4780_EFUSE
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
