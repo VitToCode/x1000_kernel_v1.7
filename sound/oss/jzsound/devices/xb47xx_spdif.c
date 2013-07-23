@@ -132,62 +132,6 @@ bool spdif_is_incall(void)
 }
 
 /*##################################################################*\
-|* filter opt
-\*##################################################################*/
-static void spdif_set_filter(int mode , uint32_t channels)
-{
-	struct dsp_pipe *dp = NULL;
-
-	if (mode & CODEC_RMODE)
-		dp = cur_codec_spdif->dsp_endpoints->in_endpoint;
-	else
-		return;
-
-	switch(cur_codec_spdif->record_format) {
-		case AFMT_U8:
-			if (channels == 1) {
-				dp->filter = convert_8bits_stereo2mono_signed2unsigned;
-				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
-			}
-			else {
-				//dp->filter = convert_8bits_signed2unsigned;
-				dp->filter = NULL; //hardware convert
-				printk("dp->filter convert_8bits_signed2unsigned.\n");
-			}
-			break;
-		case AFMT_S8:
-			if (channels == 1) {
-				dp->filter = convert_8bits_stereo2mono;
-				printk("dp->filter convert_8bits_stereo2mono\n");
-			}
-			else {
-				dp->filter = NULL;
-				printk("dp->filter null\n");
-			}
-			break;
-		case AFMT_S16_BE:
-		case AFMT_S16_LE:
-			if (channels == 1) {
-#if 0
-				dp->filter = convert_16bits_stereomix2mono;
-				printk("dp->filter convert_16bits_stereomix2mono\n");
-#else
-				dp->filter = convert_16bits_stereo2mono;
-				printk("dp->filter convert_16bits_stereo2mono\n");
-#endif
-			}
-			else {
-				dp->filter = NULL;
-				printk("dp->filter null\n");
-			}
-			break;
-		default :
-			dp->filter = NULL;
-			printk("AUDIO DEVICE :filter set error.\n");
-	}
-}
-
-/*##################################################################*\
 |* dev_ioctl
 \*##################################################################*/
 static int spdif_set_fmt(unsigned long *format,int mode)
@@ -234,7 +178,7 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 
 	if (mode & CODEC_WMODE) {
 		dp = cur_codec_spdif->dsp_endpoints->out_endpoint;
-		dp->dma_config.dst_addr_width = (data_width != 8) ? DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_1_BYTE;
+		dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		if (cur_codec_spdif->replay_format != *format) {
 			cur_codec_spdif->replay_format = *format;
 			ret |= NEED_RECONF_TRIGGER;
@@ -350,23 +294,10 @@ static int get_burst_length(unsigned long val)
 
 static void spdif_set_trigger(int mode)
 {
-	int data_width = 0;
-
 	if (!cur_codec_spdif)
 		return;
 
 	if (mode & CODEC_WMODE) {
-		switch(cur_codec_spdif->replay_format) {
-		case AFMT_S8:
-		case AFMT_U8:
-			data_width = 8;
-			break;
-		default:
-		case AFMT_S16_BE:
-		case AFMT_S16_LE:
-			data_width = 16;
-			break;
-		}
 		__spdif_set_transmit_trigger(32);
 	}
 	if (mode &CODEC_RMODE) {
@@ -504,11 +435,8 @@ static int spdif_enable(int mode)
 	}
 
 	if (!dp_other->is_used) {
-		printk("----> %s dp->is_used %d \n", __func__, __LINE__);
 		__spdif_enable();
 	}
-
-	spdif_set_filter(mode,record_channel);
 
 	spdif_is_incall_state = false;
 
@@ -640,18 +568,10 @@ static int spdif_set_device(unsigned long device)
 	/*hdmi operation*/
 	if ((tmp_rate = cur_codec_spdif->replay_rate) == 0);
 		tmp_rate = 44100;
-	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
-		if (strcmp(cur_codec_spdif->name,"hdmi")) {
-			spdif_match_codec("hdmi");
-			spdif_set_rate(&tmp_rate,CODEC_WMODE);
-			printk("----> set hdmi virtual codec\n");
-		}
-	} else {
-		/*restore old device*/
-		if (!strcmp(cur_codec_spdif->name,"hdmi")) {
-			printk("----> spdif unsurpport internal codec, please choose other interface in settings\n");
-			ret = -1;
-		}
+	if (strcmp(cur_codec_spdif->name,"hdmi")) {
+		spdif_match_codec("hdmi");
+		spdif_set_rate(&tmp_rate,CODEC_WMODE);
+		printk("----> set hdmi virtual codec\n");
 	}
 
 	return ret;
@@ -731,15 +651,11 @@ static long spdif_ioctl(unsigned int cmd, unsigned long arg)
 
 	case SND_DSP_SET_REPLAY_CHANNELS:
 		/* set replay channels */
-		//if (ret & NEED_RECONF_FILTER)
-		//	spdif_set_filter(CODEC_WMODE,cur_codec_spdif->replay_codec_channel);
 		ret = 0;
 		break;
 
 	case SND_DSP_SET_RECORD_CHANNELS:
 		/* set record channels */
-		if (ret & NEED_RECONF_FILTER)
-			spdif_set_filter(CODEC_RMODE,cur_codec_spdif->record_codec_channel);
 		printk("spdif not support record!\n");
 		ret = -1;
 		break;
@@ -777,9 +693,6 @@ static long spdif_ioctl(unsigned int cmd, unsigned long arg)
 		   set the dp->need_reconfig_dma as true */
 		if (ret & NEED_RECONF_DMA)
 			spdif_dma_need_reconfig(CODEC_WMODE);
-		/* if need reconfig the filter, reconfig it */
-		//if (ret & NEED_RECONF_FILTER)
-		//	spdif_set_filter(CODEC_RMODE,cur_codec_spdif->replay_codec_channel);
 		ret = 0;
 		break;
 
