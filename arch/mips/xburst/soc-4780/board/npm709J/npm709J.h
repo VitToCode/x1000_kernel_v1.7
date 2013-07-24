@@ -103,8 +103,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_BACK			GPIO_PB(5)
 #define ACTIVE_LOW_BACK			1
 
-//#define GPIO_MENU			GPIO_PB(4)
-//#define ACTIVE_LOW_MENU			1
+#define GPIO_MENU			GPIO_PB(4)
+#define ACTIVE_LOW_MENU			1
 
 #define GPIO_ENDCALL			GPIO_PA(30)
 #define ACTIVE_LOW_ENDCALL		1
@@ -165,8 +165,8 @@ extern struct platform_nand_data jz_nand_chip_data;
  * USB detect pin
  **/
 
-// #define GPIO_HOME
-// #define ACTIVE_LOW_HOME			1
+#define GPIO_HOME			GPIO_PD(27)
+#define ACTIVE_LOW_HOME			1
 // #define GPIO_CALL
 // #define ACTIVE_LOW_CALL			1
 #endif /* __NPM709J_H__ */
