@@ -86,6 +86,8 @@ static long vpu_off(struct jz_vpu *vpu)
 	clk_disable(vpu->clk_gate);
 	cpm_set_bit(30,CPM_LCR);
 	cpm_pwc_disable(vpu->cpm_pwc);
+	/* Clear completion use_count here to avoid a unhandled irq after vpu off */
+	vpu->done.done = 0;
 	wake_unlock(&vpu->wake_lock);
 	dev_dbg(vpu->dev, "[%d:%d] off\n", current->tgid, current->pid);
 
