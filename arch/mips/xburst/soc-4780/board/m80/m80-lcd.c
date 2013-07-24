@@ -239,6 +239,15 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.modes = jzfb1_videomode,
 
 #ifdef CONFIG_LCD_HSD101PWW1
+	/*
+	 * NOTICE :
+	 *     HSD101PWW1_A's data sheet says it is a 18bit type lvds,so you shold do these changes
+	 *
+	 *          .lcd_type = LCD_TYPE_GENERIC_18_BIT,
+	 *          .bpp = 18,
+	 *          .txctrl.data_format = JEIDA,
+	 *
+	 */
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 230,
@@ -250,11 +259,8 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.alloc_vidmem = 1,
 
 	.lvds = 1,
-#ifdef CONFIG_BOARD_M80B
-	.txctrl.data_format = JEIDA,
-#else
 	.txctrl.data_format = VESA,
-#endif
+
 	.txctrl.clk_edge_falling_7x = 0,
 	.txctrl.clk_edge_falling_1x = 1,
 	.txctrl.data_start_edge = START_EDGE_4,
