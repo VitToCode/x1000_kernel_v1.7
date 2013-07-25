@@ -45,7 +45,7 @@ static struct ct36x_ts_info	ct36x_ts;
 
 static char const Binary_Data[]=
 {
-#ifdef CONFIG_BOARD_M80
+#ifdef CONFIG_BOARD_M80B
     #include "M80_CT363_V02_FB58_130122.dat"
 #else
     #include "M80_CT365_V03_105B_130111.dat"
