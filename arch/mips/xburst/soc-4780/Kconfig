@@ -46,6 +46,9 @@ config BOARD_Q8
 config BOARD_M80701
 		bool "M80701"
 
+config BOARD_HLBA1
+		bool "HLBA1"
+		
 config BOARD_HDMI_80
 		bool "HDMI_80"
 
@@ -90,6 +93,7 @@ config BOARD_NAME
 	default "Warrior" if BOARD_WARRIOR_V_1_1
 	default "Trooper" if BOARD_TROOPER
 	default "Captain" if BOARD_CAPTAIN
+	default "HLBA1" if BOARD_HLBA1
 	default "HDMI_80" if BOARD_HDMI_80
 	default "M80" if BOARD_M80
 	default "M80" if BOARD_M80B

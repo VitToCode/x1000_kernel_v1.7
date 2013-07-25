@@ -9,6 +9,7 @@ obj-$(CONFIG_BOARD_URBOARD)		+= urboard/
 obj-$(CONFIG_BOARD_TROOPER)	        += warrior/
 obj-$(CONFIG_BOARD_PRINTER)	        += printer/
 obj-$(CONFIG_BOARD_HDMI_80)		+= hdmi-80/
+obj-$(CONFIG_BOARD_HLBA1)		+= hlba1/
 obj-$(CONFIG_BOARD_M80)			+= m80/
 obj-$(CONFIG_BOARD_M80B)		+= m80/
 obj-$(CONFIG_BOARD_M80701)		+= m80701/
