@@ -18,7 +18,8 @@
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/android_pmem.h>
-
+#include <linux/interrupt.h>
+#include <linux/dm9000.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
@@ -456,6 +457,11 @@ static int __init npm709j_board_init(void)
 #ifdef CONFIG_JZ_MAC
 	platform_device_register(&jz_mac);
 #endif
+
+#ifdef CONFIG_DM9000
+	platform_device_register(&dm9000);
+#endif
+
 /* nand */
 #ifdef CONFIG_NAND_JZ4780
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
