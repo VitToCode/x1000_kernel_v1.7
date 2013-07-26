@@ -11,7 +11,7 @@
 #include <mach/platform.h>
 
 #include <mach/jznand.h>
-#include "npm709J.h"
+#include "npm709j.h"
 
 #define ECCBIT 24
 #ifdef CONFIG_MUL_PARTS

@@ -17,7 +17,7 @@
 #include <linux/gpio.h>
 #include <linux/modem_pm.h>
 
-#include "npm709J.h"
+#include "npm709j.h"
 
 #ifdef CONFIG_JZ_MODEM//clivia add
 static struct modem_data modems[] = {

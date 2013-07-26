@@ -79,7 +79,8 @@ config BOARD_EBOOK
         bool "EBOOK"
 config BOARD_VEHICLE
         bool "VEHICLE"
-
+config BOARD_NPM709J
+	bool "npm709j"
 endchoice
 
 config BOARD_NAME
@@ -111,4 +112,4 @@ config BOARD_NAME
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
 	default "EBOOK" if BOARD_EBOOK
 	default "VEHICLE" if BOARD_VEHICLE
-
+	default "npm709j" if BOARD_NPM709J

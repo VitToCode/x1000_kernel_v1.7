@@ -2,7 +2,7 @@
  * Copyright (c) 2012 Engenic Semiconductor Co., Ltd.
  *              http://www.ingenic.com/
  *
- * JZ4780 npm709J board lcd setup routines.
+ * JZ4780 npm709j board lcd setup routines.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -74,7 +74,7 @@ struct platform_device ek070tn93_device = {
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 #include <linux/kd50g2_40nm_a2.h>
 static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
-	.gpio_lcd_disp = 0,//clivia del for npm709J //GPIO_PD(11),
+	.gpio_lcd_disp = 0,//clivia del for npm709j //GPIO_PD(11),
 	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
 	.gpio_lcd_vsync = 0,//GPIO_PC(19), //clivia 0,
 	.gpio_lcd_hsync = 0,//GPIO_PC(18), //clivia 0,
@@ -311,7 +311,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 #endif /* CONFIG_FB_JZ4780_LCDC1 */
 
 #ifdef CONFIG_BACKLIGHT_PWM
-static int npm709J_backlight_init(struct device *dev)
+static int npm709j_backlight_init(struct device *dev)
 {
 #if 0
        struct regulator *vlcd;
@@ -329,24 +329,24 @@ static int npm709J_backlight_init(struct device *dev)
        return 0;
 }
 
-static void npm709J_backlight_exit(struct device *dev)
+static void npm709j_backlight_exit(struct device *dev)
 {
 }
 
-static struct platform_pwm_backlight_data npm709J_backlight_data = {
+static struct platform_pwm_backlight_data npm709j_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 255,
 	.dft_brightness	= 80,
 	.pwm_period_ns	= 10000, /* 100 kHZ */
-	.init		= npm709J_backlight_init,
-	.exit		= npm709J_backlight_exit,
+	.init		= npm709j_backlight_init,
+	.exit		= npm709j_backlight_exit,
 };
 
 /* Backlight Device */
-struct platform_device npm709J_backlight_device = {
+struct platform_device npm709j_backlight_device = {
 	.name		= "pwm-backlight",
 	.dev		= {
-		.platform_data	= &npm709J_backlight_data,
+		.platform_data	= &npm709j_backlight_data,
 	},
 };
 

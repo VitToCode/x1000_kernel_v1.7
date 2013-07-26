@@ -25,7 +25,7 @@
 #include <mach/jzssi.h>
 #include <gpio.h>
 
-#include "npm709J.h"
+#include "npm709j.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -119,9 +119,60 @@ static struct platform_device jz_timed_gpio_device = {
 	},
 };
 
+#ifdef CONFIG_DM9000
+
+#define DM9000_ETH_RET GPIO_PF(12)
+#define DM9000_ETH_INT GPIO_PE(19)
+static struct resource dm9000_resource[] = {
+
+	[0] = {
+		.start = 0x16000000,//DM9000_BASE,
+		.end = 0x16000001,//DM9000_BASE+,
+		.flags = IORESOURCE_MEM,
+	},
+
+	[1] = {
+		.start = 0x16000002,//DM9000_BASE,
+		.end = 0x16000005,//DM9000_BASE +,
+		.flags = IORESOURCE_MEM,
+	},
+
+	[2] = {
+		.start = IRQ_GPIO_BASE + GPIO_PE(19),// gpio_to_irq(DM9000_ETH_INT),
+		.end   = IRQ_GPIO_BASE + GPIO_PE(19),//gpio_to_irq(DM9000_ETH_INT),
+		.flags = IORESOURCE_IRQ | IRQF_TRIGGER_RISING,
+	},
+
+
+};
+static int dm9000_eth_gpio[] = {
+	[0] =  DM9000_ETH_RET,
+	[1] =  DM9000_ETH_INT,
+};
+
+static struct dm9000_plat_data dm9000_platform_data = {
+
+	.gpio = dm9000_eth_gpio,
+
+	.flags = DM9000_PLATF_8BITONLY | DM9000_PLATF_NO_EEPROM,
+
+
+};
+
+static struct platform_device dm9000  = {
+	.name	= "dm9000",
+	.id	= 0,
+	.resource = dm9000_resource,
+	.num_resources = ARRAY_SIZE(dm9000_resource),
+	.dev	= {
+		.platform_data	= &dm9000_platform_data,
+	},
+};
+
+#endif
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data npm709J_battery_pdata = {
+static struct jz_battery_platform_data npm709j_battery_pdata = {
 	.info = {
 		.max_vol        = 4080,
 		.min_vol        = 3600,
@@ -138,36 +189,36 @@ static struct jz_battery_platform_data npm709J_battery_pdata = {
 #endif
 
 /* ac charger */
-static char *npm709J_ac_supplied_to[] = {
+static char *npm709j_ac_supplied_to[] = {
 	"li_ion_charge",
 };
 
-static struct gpio_charger_platform_data npm709J_ac_charger_pdata = {
+static struct gpio_charger_platform_data npm709j_ac_charger_pdata = {
 	.name = "ac",
 	.type = POWER_SUPPLY_TYPE_MAINS,
 	.gpio = GPIO_PA(16),
 	.gpio_active_low = 0,
-	.supplied_to = npm709J_ac_supplied_to,
-	.num_supplicants = ARRAY_SIZE(npm709J_ac_supplied_to),
+	.supplied_to = npm709j_ac_supplied_to,
+	.num_supplicants = ARRAY_SIZE(npm709j_ac_supplied_to),
 };
 
-static struct platform_device npm709J_ac_charger_device = {
+static struct platform_device npm709j_ac_charger_device = {
 	.name = "gpio-charger",
 	.dev = {
-		.platform_data = &npm709J_ac_charger_pdata,
+		.platform_data = &npm709j_ac_charger_pdata,
 	},
 };
 
 /* li-ion charger */
-static struct li_ion_charger_platform_data npm709J_li_ion_charger_pdata = {
+static struct li_ion_charger_platform_data npm709j_li_ion_charger_pdata = {
 	.gpio = GPIO_PB(3),
 	.gpio_active_low = 1,
 };
 
-static struct platform_device npm709J_li_ion_charger_device = {
+static struct platform_device npm709j_li_ion_charger_device = {
 	.name = "li-ion-charger",
 	.dev = {
-		.platform_data = &npm709J_li_ion_charger_pdata,
+		.platform_data = &npm709j_li_ion_charger_pdata,
 	},
 };
 
@@ -263,7 +314,7 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
-static int __init npm709J_board_init(void)
+static int __init npm709j_board_init(void)
 {
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
@@ -295,20 +346,20 @@ static int __init npm709J_board_init(void)
 /* mmc */
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &npm709J_inand_pdata);
+	jz_device_register(&jz_msc0_device, &npm709j_inand_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc1_device, &npm709J_sdio_pdata);
+	jz_device_register(&jz_msc1_device, &npm709j_sdio_pdata);
 #endif
 #ifdef CONFIG_MMC2_JZ4780
-	jz_device_register(&jz_msc2_device, &npm709J_tf_pdata);
+	jz_device_register(&jz_msc2_device, &npm709j_tf_pdata);
 #endif
 #else
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &npm709J_tf_pdata);
+	jz_device_register(&jz_msc0_device, &npm709j_tf_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc1_device, &npm709J_sdio_pdata);
+	jz_device_register(&jz_msc1_device, &npm709j_sdio_pdata);
 #endif
 #endif
 /* sound */
@@ -329,7 +380,7 @@ static int __init npm709J_board_init(void)
 #endif
 /* panel and bl */
 #ifdef CONFIG_BACKLIGHT_PWM
-	platform_device_register(&npm709J_backlight_device);
+	platform_device_register(&npm709j_backlight_device);
 #endif
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 	platform_device_register(&kd50g2_40nm_a2_device);
@@ -356,7 +407,7 @@ static int __init npm709J_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &npm709J_battery_pdata);
+	jz_device_register(&jz_adc_device, &npm709j_battery_pdata);
 #endif
 
 /*bcm4330 bt*/
@@ -366,9 +417,9 @@ static int __init npm709J_board_init(void)
 
 
 /* ac charger */
-	platform_device_register(&npm709J_ac_charger_device);
+	platform_device_register(&npm709j_ac_charger_device);
 /* li-ion charger */
-	platform_device_register(&npm709J_li_ion_charger_device);
+	platform_device_register(&npm709j_li_ion_charger_device);
 
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
@@ -468,7 +519,7 @@ static int __init npm709J_board_init(void)
  */
 const char *get_board_type(void)
 {
-	return "npm709J";
+	return "npm709j";
 }
 
-arch_initcall(npm709J_board_init);
+arch_initcall(npm709j_board_init);

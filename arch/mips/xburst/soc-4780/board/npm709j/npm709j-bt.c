@@ -2,7 +2,7 @@
 #include <linux/gpio.h>
 #include <linux/bcm4330-rfkill.h>
 
-#include "npm709J.h"
+#include "npm709j.h"
 
 
 #define GPIO_BT_RST_N    GPIO_PF(8)

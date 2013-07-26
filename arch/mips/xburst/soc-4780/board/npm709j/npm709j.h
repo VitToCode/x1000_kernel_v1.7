@@ -1,5 +1,5 @@
-#ifndef __NPM709J_H__
-#define __NPM709J_H__
+#ifndef __NPM709j_H__
+#define __NPM709j_H__
 #include <gpio.h>
 
 /*
@@ -12,9 +12,9 @@ extern struct platform_device bcm4330_bt_power_device;
 /**
  * mmc platform data
  **/
-extern struct jzmmc_platform_data npm709J_inand_pdata;
-extern struct jzmmc_platform_data npm709J_tf_pdata;
-extern struct jzmmc_platform_data npm709J_sdio_pdata;
+extern struct jzmmc_platform_data npm709j_inand_pdata;
+extern struct jzmmc_platform_data npm709j_tf_pdata;
+extern struct jzmmc_platform_data npm709j_sdio_pdata;
 
 /**
  * lcd platform data
@@ -43,7 +43,7 @@ extern struct platform_device ek070tn93_device;
 extern struct platform_device kd50g2_40nm_a2_device;
 #endif
 
-extern struct platform_device npm709J_backlight_device;
+extern struct platform_device npm709j_backlight_device;
 
 #ifdef CONFIG_JZ_MODEM
 extern struct platform_device jz_modem_device;
@@ -169,4 +169,4 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define ACTIVE_LOW_HOME			1
 // #define GPIO_CALL
 // #define ACTIVE_LOW_CALL			1
-#endif /* __NPM709J_H__ */
+#endif /* __NPM709j_H__ */

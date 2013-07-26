@@ -19,7 +19,7 @@
 #include <mach/jzmmc.h>
 #include <gpio.h>
 
-#include "npm709J.h"
+#include "npm709j.h"
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4780)) && defined(CONFIG_SENSORS_MMA8452))
 static struct gsensor_platform_data mma8452_platform_pdata = {
@@ -62,20 +62,20 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 #endif
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
-static struct jztsc_pin npm709J_tsc_gpio[] = {
+static struct jztsc_pin npm709j_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
 };
 
-static struct jztsc_platform_data npm709J_tsc_pdata = {
-	.gpio		= npm709J_tsc_gpio,
+static struct jztsc_platform_data npm709j_tsc_pdata = {
+	.gpio		= npm709j_tsc_gpio,
 	.x_max		= 1344,
 	.y_max		= 960,
 };
 #endif
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
-static struct i2c_board_info npm709J_i2c1_devs[] __initdata = {
+static struct i2c_board_info npm709j_i2c1_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_MMA8452
 	{
 		I2C_BOARD_INFO("gsensor_mma8452",0x1c),
@@ -134,7 +134,7 @@ static struct ov2650_platform_data ov2650_pdata = {
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
-static struct i2c_board_info npm709J_i2c2_devs[] __initdata = {
+static struct i2c_board_info npm709j_i2c2_devs[] __initdata = {
 #ifdef CONFIG_OV7675
 	{
 		I2C_BOARD_INFO("ov7675", 0x21),
@@ -151,17 +151,17 @@ static struct i2c_board_info npm709J_i2c2_devs[] __initdata = {
 #endif	/*I2C2*/
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
-static struct i2c_board_info npm709J_i2c3_devs[] __initdata = {
+static struct i2c_board_info npm709j_i2c3_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_MG8698S
 	{
 		I2C_BOARD_INFO("mg8698s_tsc", 0x44),
-		.platform_data	= &npm709J_tsc_pdata,
+		.platform_data	= &npm709j_tsc_pdata,
 	},
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5X06
 	{
 		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
-		.platform_data	= &npm709J_tsc_pdata,
+		.platform_data	= &npm709j_tsc_pdata,
 	},
 #endif
 
@@ -203,7 +203,7 @@ DEF_GPIO_I2C(4,GPIO_PE(3),GPIO_PE(4));
 #endif /*CONFIG_I2C_GPIO*/
 
 
-static int __init npm709J_i2c_dev_init(void)
+static int __init npm709j_i2c_dev_init(void)
 {
 #ifdef CONFIG_I2C_GPIO
 
@@ -227,17 +227,17 @@ static int __init npm709J_i2c_dev_init(void)
 
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
-	i2c_register_board_info(1, npm709J_i2c1_devs, ARRAY_SIZE(npm709J_i2c1_devs));
+	i2c_register_board_info(1, npm709j_i2c1_devs, ARRAY_SIZE(npm709j_i2c1_devs));
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
-	i2c_register_board_info(2, npm709J_i2c2_devs, ARRAY_SIZE(npm709J_i2c2_devs));
+	i2c_register_board_info(2, npm709j_i2c2_devs, ARRAY_SIZE(npm709j_i2c2_devs));
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
-	i2c_register_board_info(3, npm709J_i2c3_devs, ARRAY_SIZE(npm709J_i2c3_devs));
+	i2c_register_board_info(3, npm709j_i2c3_devs, ARRAY_SIZE(npm709j_i2c3_devs));
 #endif
 	return 0;
 }
 
-arch_initcall(npm709J_i2c_dev_init);
+arch_initcall(npm709j_i2c_dev_init);

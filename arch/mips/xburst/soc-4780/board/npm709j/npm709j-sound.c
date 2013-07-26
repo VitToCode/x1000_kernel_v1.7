@@ -1,5 +1,5 @@
 #include <mach/jzsnd.h>
-#include "npm709J.h"
+#include "npm709j.h"
 
 struct snd_codec_data codec_data = {
 	.codec_sys_clk = 0 ,

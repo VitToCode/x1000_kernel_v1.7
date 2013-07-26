@@ -22,7 +22,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	npm709J,	1000000,	1400000);
+	npm709j,	1000000,	1400000);
 
 /**
  * I/O Regulator.
@@ -30,7 +30,7 @@ CORE_REGULATOR_DEF(
  * Voltage was inited at bootloader.
  */
 IO_REGULATOR_DEF(
-	npm709J_vccio,
+	npm709j_vccio,
 	"Vcc-IO",	3000000,	1);
 
 /**
@@ -38,35 +38,35 @@ IO_REGULATOR_DEF(
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
 VBUS_REGULATOR_DEF(
-	npm709J,	"VCC5V");
+	npm709j,	"VCC5V");
 
 /**
  * Exclusive Regulators.
  * They are only used by one device each other.
  */
 EXCLUSIVE_REGULATOR_DEF(
-	npm709J_vwifi,
+	npm709j_vwifi,
 	"Wi-Fi",	"vwifi",	NULL,
 	NULL,		3000000,	1);
 
 EXCLUSIVE_REGULATOR_DEF(
-	npm709J_vtsc,
+	npm709j_vtsc,
 	"Touch Screen",	"vtsc",		NULL,
 	NULL,		3000000,	1);
 /*
 EXCLUSIVE_REGULATOR_DEF(
-	npm709J_vgsensor,
+	npm709j_vgsensor,
 	"G-sensor",	"vgsensor",
 	NULL,		NULL,		3000000);
 */
 
 EXCLUSIVE_REGULATOR_DEF(
-	npm709J_vcc5v,
+	npm709j_vcc5v,
 	"VCC5V",	"vcc5v",	NULL,
 	NULL,		5000000,	0);
 
 EXCLUSIVE_REGULATOR_DEF(
-	npm709J_vlcd,
+	npm709j_vlcd,
 	"Vlcd",		"vlcd",		NULL,
 	NULL,		3000000,	1);
 
@@ -76,43 +76,43 @@ EXCLUSIVE_REGULATOR_DEF(
  * GPIO silulator regulators. Everyone is an independent device.
  */
 FIXED_REGULATOR_DEF(
-	npm709J_vhdmi,
+	npm709j_vhdmi,
 	"Vcc5V",	5000000,	-EINVAL,
 	0,		UN_AT_BOOT,	0,
 	NULL,		"vhdmi",	"jz-hdmi");
 
 #if 0
 FIXED_REGULATOR_DEF(
-	npm709J_vbus,
+	npm709j_vbus,
 	"OTG-Vbus",	5000000,	GPIO_PE(10),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
 
 FIXED_REGULATOR_DEF(
-	npm709J_vgsensor,
+	npm709j_vgsensor,
 	"G-sensor",	3000000,	GPIO_PE(9),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vgsensor",	"gsensor_mma8452");
 
 FIXED_REGULATOR_DEF(
-	npm709J_vcim,
+	npm709j_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
 #if 0
 FIXED_REGULATOR_DEF(
-	npm709J_vlcd,
+	npm709j_vlcd,
 	"LCD",		3000000,	GPIO_PB(23),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 #endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-	&npm709J_vhdmi_regulator_device,
-	&npm709J_vgsensor_regulator_device,
-	//&npm709J_vbus_regulator_device,
-	&npm709J_vcim_regulator_device,
-	//&npm709J_vlcd_regulator_device,
+	&npm709j_vhdmi_regulator_device,
+	&npm709j_vgsensor_regulator_device,
+	//&npm709j_vbus_regulator_device,
+	&npm709j_vcim_regulator_device,
+	//&npm709j_vlcd_regulator_device,
 };
 
 /*
@@ -122,15 +122,15 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  * otherwise it should be supplied by a exclusive DC-DC, and you should define
  * it as a fixed regulator.
  */
-static struct regulator_info npm709J_pmu_regulators[] = {
-	{"OUT1", &npm709J_vcore_init_data},
-	{"OUT3", &npm709J_vccio_init_data},
-	{"OUT4", &npm709J_vcc5v_init_data},
-	{"OUT6", &npm709J_vwifi_init_data},
- 	{"OUT7", &npm709J_vtsc_init_data},
-//	{"OUT8", &npm709J_vgsensor_init_data},
-	{"OUT8", &npm709J_vlcd_init_data},
-	{"VBUS", &npm709J_vbus_init_data},
+static struct regulator_info npm709j_pmu_regulators[] = {
+	{"OUT1", &npm709j_vcore_init_data},
+	{"OUT3", &npm709j_vccio_init_data},
+	{"OUT4", &npm709j_vcc5v_init_data},
+	{"OUT6", &npm709j_vwifi_init_data},
+ 	{"OUT7", &npm709j_vtsc_init_data},
+//	{"OUT8", &npm709j_vgsensor_init_data},
+	{"OUT8", &npm709j_vlcd_init_data},
+	{"VBUS", &npm709j_vbus_init_data},
 };
 
 static struct charger_board_info charger_board_info = {
@@ -138,21 +138,21 @@ static struct charger_board_info charger_board_info = {
 	.enable_level	= LOW_ENABLE,
 };
 
-static struct pmu_platform_data npm709J_pmu_pdata = {
+static struct pmu_platform_data npm709j_pmu_pdata = {
 	.gpio = GPIO_PA(28),
-	.num_regulators = ARRAY_SIZE(npm709J_pmu_regulators),
-	.regulators = npm709J_pmu_regulators,
+	.num_regulators = ARRAY_SIZE(npm709j_pmu_regulators),
+	.regulators = npm709j_pmu_regulators,
 	.charger_board_info = &charger_board_info,
 };
 
 #define PMU_I2C_BUSNUM 0
 
-struct i2c_board_info npm709J_pmu_board_info = {
+struct i2c_board_info npm709j_pmu_board_info = {
 	I2C_BOARD_INFO("act8600", 0x5a),
-	.platform_data = &npm709J_pmu_pdata,
+	.platform_data = &npm709j_pmu_pdata,
 };
 
-static int __init npm709J_pmu_dev_init(void)
+static int __init npm709j_pmu_dev_init(void)
 {
 	struct i2c_adapter *adap;
 	struct i2c_client *client;
@@ -165,7 +165,7 @@ static int __init npm709J_pmu_dev_init(void)
 		return -1;
 	}
 
-	client = i2c_new_device(adap, &npm709J_pmu_board_info);
+	client = i2c_new_device(adap, &npm709j_pmu_board_info);
 	if (!client) {
 		pr_err("failed to register pmu to i2c%d\n", busnum);
 		return -1;
@@ -180,7 +180,7 @@ static int __init npm709J_pmu_dev_init(void)
 				    ARRAY_SIZE(fixed_regulator_devices));
 }
 
-subsys_initcall_sync(npm709J_pmu_dev_init);
+subsys_initcall_sync(npm709j_pmu_dev_init);
 
 struct cpufreq_frequency_table  freq_table[] = {
     {1,   400  * 1000},
