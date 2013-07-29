@@ -300,7 +300,24 @@ long xb_snd_mixer_ioctl(struct file *file,
 		//case SNDCTL_MIX_WRITE:
 		/* OSS 4.x: change value of a mixer control */
 		//break;
+	case SOUND_MIXER_WRITE_LINE1: {
+		devices = SND_DEVICE_LINEIN1_RECORD;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		break;
 	}
+	case SOUND_MIXER_WRITE_LINE2: {
+		devices = SND_DEVICE_LINEIN2_RECORD;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		break;
+	}
+	case SOUND_MIXER_WRITE_LINE3: {
+		devices = SND_DEVICE_LINEIN3_RECORD;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		break;
+	}
+
+	}
+
 	return 0;
 }
 
