@@ -33,6 +33,15 @@ struct snd_codec_data codec_data = {
 	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
 						.gpio_hp_mute_stat = STATE_DISABLE,
 						.gpio_spk_en_stat = STATE_ENABLE},
+	/* linein route */
+	.record_linein1_route = {.route = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+						.gpio_hp_mute_stat = STATE_DISABLE,
+						.gpio_spk_en_stat = STATE_ENABLE,
+	},
+	.record_linein2_route = {.route = SND_ROUTE_RECORD_LINEIN2_SIN_AN3,
+						.gpio_hp_mute_stat = STATE_DISABLE,
+						.gpio_spk_en_stat = STATE_ENABLE,
+	},
 	/* gpio */
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},

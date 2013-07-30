@@ -41,6 +41,8 @@ enum snd_codec_route_t {
 	SND_ROUTE_RECORD_MIC2_SIN_AN3,
 	/*internal codec: linein 1 to adcrl*/
 	SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	/*internal codec: linein 2 to adcrl*/
+	SND_ROUTE_RECORD_LINEIN2_SIN_AN3,
 	/*internal codec: call record mic bypass to hprl*/
 	SND_ROUTE_RECORD_LINEIN1_AN2_SIN_TO_ADCL_AND_LINEIN2_AN3_SIN_TO_ADCR,
 
@@ -119,6 +121,9 @@ struct snd_codec_data {
 	/* device <-> route map record*/
 	struct snd_board_route record_headset_mic_route;
 	struct snd_board_route record_buildin_mic_route;
+	struct snd_board_route record_linein1_route;
+	struct snd_board_route record_linein2_route;
+	struct snd_board_route record_linein3_route;
 
 	/* device <-> route map replay*/
 	struct snd_board_route replay_headset_route;
