@@ -26,7 +26,6 @@
 #if defined(CONFIG_SERIAL_JZ47XX_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
 #define SUPPORT_SYSRQ
 #endif
-
 #include <linux/module.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
@@ -75,19 +74,29 @@ struct uart_jz47xx_port {
 	struct  scatterlist     sg_tx;
 	struct  dma_slave_config dma_config;
 	struct  dma_tx_state    txstate;
-	struct  tasklet_struct	tasklet_dma_tx;
+	struct  tasklet_struct	 tasklet_dma_tx;
 	struct  tasklet_struct   tasklet_dma_rx;
 	struct  tasklet_struct   tasklet_pio_rx;
 };
 static inline void check_modem_status(struct uart_jz47xx_port *up);
 static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned int baud);
 static inline void serial_dl_write(struct uart_port *up, int value);
-
+/*
+*Function:read register
+*Parameter:struct uart_jz47xx_port *up, int offset
+*Return:unsigned int:Register address
+*/
 static inline unsigned int serial_in(struct uart_jz47xx_port *up, int offset)
 {
 	offset <<= 2;
 	return readl(up->port.membase + offset);
 }
+
+/*
+*Function:write register
+*Parameter:struct uart_jz47xx_port *up, int offset,int value:write value
+*Return:void
+*/
 
 static inline void serial_out(struct uart_jz47xx_port *up, int offset, int value)
 {
@@ -95,24 +104,39 @@ static inline void serial_out(struct uart_jz47xx_port *up, int offset, int value
 	writel(value, up->port.membase + offset);
 }
 
+/*
+*Function: Enable Modem status interrupt
+*Parameter:struct uart_jz47xx_port
+*Return:void
+*/
 static void serial_jz47xx_enable_ms(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
 
-	up->ier |= UART_IER_MSI;
+	up->ier |= UART_IER_MSI;// Enable Modem status interrupt
 	serial_out(up, UART_IER, up->ier);
 }
 
+/*
+*Function:stop transmitting
+*Parameter:struct uart_jz47xx_port
+*Return:void
+*/
 static void serial_jz47xx_stop_tx(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
 
 	if (up->ier & UART_IER_THRI) {
-		up->ier &= ~UART_IER_THRI;
+		up->ier &= ~UART_IER_THRI;// Disable the transmit data request interrupt
 		serial_out(up, UART_IER, up->ier);
 	}
 }
 
+/*
+*Function:stop receiving
+*Parameter:struct uart_jz47xx_port *up
+*Return:void
+*/
 static void serial_jz47xx_stop_rx(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
@@ -140,10 +164,8 @@ static void dma_receive_chars(struct uart_jz47xx_port *up, int lsr, int residue,
 	 * printk("%s   %d \n",__func__,__LINE__);
 	 */
 	/* Sync in buffer */
-//	dma_sync_sg_for_cpu(up->port.dev, &up->sg_rx, 1, DMA_FROM_DEVICE);
 	tty_insert_flip_string(tty, sg_virt(&up->sg_rx), count); // notice
 	/* Return buffer to device */
-//	dma_sync_sg_for_device(up->port.dev, &up->sg_rx, 1, DMA_FROM_DEVICE);
 #if 0
 	if(!lsr){xs
 		tty_flip_buffer_push(tty);
@@ -218,6 +240,11 @@ static void jz47xx_dma_rx(unsigned long data)
 #endif
 }
 
+/*
+*Function:receive char
+*Parameter:unsigned long data,unsigned int status
+*Return:void
+*/
 static inline void receive_chars(unsigned long data, unsigned int status)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)data;
@@ -228,19 +255,24 @@ static inline void receive_chars(unsigned long data, unsigned int status)
 	/*
 	 * UART FIFO isn't empty and DMA buffer have data
 	 */
+
 	if(up->use_dma){
 		up->chan_rx->device->device_tx_status(up->chan_rx,up->cookie,&up->txstate);
 		count = DMA_BUFFER - up->txstate.residue;
 		if(count && up->txstate.residue)
 			dma_receive_chars(up, lsr, up->txstate.residue, count);
 	}
+
 	while ((status & UART_LSR_DR) && (max_count-- > 0))
+		//ready to receive data and max_count>0
 	{
-		ch = serial_in(up, UART_RX);
-		flag = TTY_NORMAL;
+		ch = serial_in(up, UART_RX);//read RX_Register
+		flag = TTY_NORMAL;// TTY_NORMAL=0
 		up->port.icount.rx++;
 
+		/*  Break interrupt error | prrity error | Frame error | overun error */
 		if (unlikely(status & (UART_LSR_BI | UART_LSR_PE |
+
 						UART_LSR_FE | UART_LSR_OE))) {
 			if (status & UART_LSR_BI) {
 				status &= ~(UART_LSR_FE | UART_LSR_PE);
@@ -288,11 +320,14 @@ ignore_char:
 		status = serial_in(up, UART_LSR);
 	}
 	tty_flip_buffer_push(tty);
+
+/* start to cancle */
 	if(up->use_dma){
 		dma_unmap_sg(up->port.dev, &up->sg_rx, 1, DMA_FROM_DEVICE);
 		tasklet_schedule(&up->tasklet_dma_rx);
 		enable_irq(up->port.irq);
 	}
+/*end to cancle*/
 }
 
 /*
@@ -426,21 +461,23 @@ static void serial_jz47xx_dma_init(struct uart_jz47xx_port *up)
 		printk("%s: alloc desc_rx failed.\n", __func__);
 }
 
+/* transmit one char*/
 static void transmit_chars(struct uart_jz47xx_port *up)
 {
 	struct circ_buf *xmit = &up->port.state->xmit;
 	int count;
 	if (up->port.x_char) {
-		serial_out(up, UART_TX, up->port.x_char);
+		serial_out(up, UART_TX, up->port.x_char);//transmit char=port.x_char
 		up->port.icount.tx++;
-		up->port.x_char = 0;
+		up->port.x_char = 0;//transmit finish x_char=0
 		return;
 	}
-	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
+	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {//xmit is empty or stop tx
 		serial_jz47xx_stop_tx(&up->port);
 		return;
 	}
 
+	/* try to tx char until xmit is empty or count=0*/
 	count = up->port.fifosize / 2;
 	do {
 		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
@@ -450,14 +487,14 @@ static void transmit_chars(struct uart_jz47xx_port *up)
 			break;
 	} while (--count > 0);
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+	/*if circ_chars is less than WARKUP_CHARS,then warkup 	*/
+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)//get the renainder of circ_chars
 		uart_write_wakeup(&up->port);
-
 
 	if (uart_circ_empty(xmit))
 		serial_jz47xx_stop_tx(&up->port);
 }
-//static inline void check_modem_status(struct uart_jz47xx_port *up);
+
 static void serial_jz47xx_start_tx(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
@@ -479,7 +516,6 @@ static void serial_jz47xx_start_tx(struct uart_port *port)
 static inline void check_modem_status(struct uart_jz47xx_port *up)
 {
 	int status;
-
 	status = serial_in(up, UART_MSR);
 
 	if ((status & UART_MSR_ANY_DELTA) == 0)
@@ -497,7 +533,6 @@ static inline irqreturn_t serial_jz47xx_irq(int irq, void *dev_id)
 {
 	struct uart_jz47xx_port *up = dev_id;
 	unsigned int iir, lsr;
-
 	iir = serial_in(up, UART_IIR);
 	lsr = serial_in(up, UART_LSR);
 	if (iir & UART_IIR_NO_INT)
@@ -510,7 +545,7 @@ static inline irqreturn_t serial_jz47xx_irq(int irq, void *dev_id)
 	else {
 		if (lsr & UART_LSR_DR)
 			receive_chars((unsigned long)up, lsr);
-		check_modem_status(up);
+		//check_modem_status(up);
 		if (lsr & UART_LSR_THRE)
 			transmit_chars(up);
 	}
@@ -530,6 +565,7 @@ static unsigned int serial_jz47xx_tx_empty(struct uart_port *port)
 	return ret;
 }
 
+/*get modem control*/
 static unsigned int serial_jz47xx_get_mctrl(struct uart_port *port)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
@@ -581,14 +617,14 @@ static int serial_jz47xx_startup(struct uart_port *port)
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
 	unsigned long flags;
 	int retval;
-	up->port.uartclk = clk_get_rate(up->clk);
+	up->port.uartclk = clk_get_rate(up->clk);//get clk
 
 	if(up->use_dma)
 		tasklet_schedule(&up->tasklet_dma_rx);
 	/*
 	 * Allocate the IRQ
 	 */
-	retval = request_irq(up->port.irq, serial_jz47xx_irq, 0, up->name, up);
+	retval = request_irq(up->port.irq, serial_jz47xx_irq, 0, up->name, up);//request irq
 	if (retval)
 		return retval;
 
@@ -682,10 +718,9 @@ static void serial_jz47xx_shutdown(struct uart_port *port)
 static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *termios,struct ktermios *old)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)port;
-	unsigned char cval;
+	unsigned char cval=0;
 	unsigned long flags;
-	unsigned int baud, quot;
-	unsigned int dll;
+	unsigned int baud;
 	unsigned short *quot1;
 
 	switch (termios->c_cflag & CSIZE) {
@@ -704,34 +739,30 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 			break;
 	}
 
-	if (termios->c_cflag & CSTOPB)
+	if (termios->c_cflag & CSTOPB){
 		cval |= UART_LCR_STOP;
-	if (termios->c_cflag & PARENB)
+	  }
+	if (termios->c_cflag & PARENB){
 		cval |= UART_LCR_PARITY;
-	if (!(termios->c_cflag & PARODD))
+	  }
+	if (!(termios->c_cflag & PARODD)){
 		cval |= UART_LCR_EPAR;
-
+	  }
+	serial_out(up, UART_LCR, cval);//write cval to UART_LCR
 	/*
 	 * Ask the core to calculate the divisor for us.
 	 */
-	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk);
-
-/*cljiang add from 4770 driver*/
-    quot1 = serial47xx_get_divisor(port, baud);
-/*cljiang end*/
-	
-//	quot = uart_get_divisor(port, baud);
+	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk);//get BaudRate
+	quot1 = serial47xx_get_divisor(port, baud);
 	/*
 	 * Ok, we're now changing the port state.  Do it with
 	 * interrupts disabled.
 	 */
 	spin_lock_irqsave(&up->port.lock, flags);
-
 	/*
 	 * Update the per-port timeout.
 	 */
 	uart_update_timeout(port, termios->c_cflag, baud);
-
 	up->port.read_status_mask = UART_LSR_OE | UART_LSR_THRE | UART_LSR_DR;
 	if (termios->c_iflag & INPCK)
 		up->port.read_status_mask |= UART_LSR_FE | UART_LSR_PE;
@@ -764,12 +795,24 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	 * CTS flow control flag and modem status interrupts
 	 */
 	up->ier &= ~UART_IER_MSI;
+	/*
+	 *enable modem status interrupts and enable modem function and control by hardware
+	 */
 	if (UART_ENABLE_MS(&up->port, termios->c_cflag)) {
 		up->ier |= UART_IER_MSI;
+		serial_out(up, UART_IER, up->ier);
 		up->port.mctrl = UART_MCR_MDCE | UART_MCR_FCM;
+		serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
 	}
-
-	serial_out(up, UART_IER, up->ier);
+	/*
+	 *disable modem status interrupts and clear MCR bits of modem function and control by hardware
+	 */
+	else {
+		up->ier &= ~UART_IER_MSI;
+		serial_out(up, UART_IER, up->ier);
+		up->port.mctrl &= ~(UART_MCR_MDCE | UART_MCR_FCM);
+		serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
+	     }
 #if 0
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
 	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
@@ -784,13 +827,11 @@ static void serial_jz47xx_set_termios(struct uart_port *port, struct ktermios *t
 	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 #endif
-/*cljiang add from 4770 driver*/
 	serial_dl_write(port, quot1[0]);
-	serial_out(up,UART_UMR, quot1[1]);
+	serial_out(up,UART_UMR, quot1[1]);//UART send or receive one bit takes quot1[1] cycles
 	serial_out(up,UART_UACR, quot1[2]);
-/*cljiang end*/
+
 	up->lcr = cval;					/* Save LCR */
-	serial_jz47xx_set_mctrl(&up->port, up->port.mctrl);
 
 	if(up->use_dma)
 		serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_UME | UART_FCR_DMA_SELECT | UART_FCR_CLEAR_XMIT |UART_FCR_CLEAR_RCVR | UART_FCR_R_TRIG_10);
@@ -806,10 +847,9 @@ static inline void serial_dl_write(struct uart_port *up, int value)
 	int lcr = serial_in(port,UART_LCR);
 	serial_out(port,UART_LCR, UART_LCR_DLAB);
 	serial_out(port,UART_DLL, value & 0xff);
-	serial_out(port,UART_DLM, value >> 8 & 0xff);
+	serial_out(port,UART_DLM, (value >> 8 )& 0xff);
 	serial_out(port,UART_LCR, lcr);
 }
-
 
 static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned int baud)
 {
@@ -817,7 +857,7 @@ static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned i
 	int a[12], b[12];
 	unsigned short div, umr, uacr;
 	unsigned short umr_best, div_best, uacr_best;
-	long long t0, t1, t2, t3;
+	unsigned long long t0, t1, t2, t3;
 
 	sum = 0;
 	umr_best = div_best = uacr_best = 0;
@@ -831,21 +871,21 @@ static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned i
 	}
 
 	while (1) {
-		umr = port->uartclk / (baud * div);
-		if (umr > 32) {
+		     umr = port->uartclk / (baud * div);
+		     if (umr > 32) {
 			div++;
 			continue;
-		}
-		if (umr < 4) {
+		      }
+		     if (umr < 4) {
 			break;
-		}
-		for (i = 0; i < 12; i++) {
+		      }
+		     for (i = 0; i < 12; i++) {
 			a[i] = umr;
 			b[i] = 0;
 			sum = 0;
 			for (j = 0; j <= i; j++) {
 				sum += a[j];
-			}
+			 }
 
 			/* the precision could be 1/2^(36) due to the value of t0 */
 			t0 = 0x1000000000LL;
@@ -858,31 +898,32 @@ static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned i
 			err = t1 - t2 - t3;
 
 			if (err > 0) {
-				a[i] += 1;
-				b[i] = 1;
-			}
-		}
+			   a[i] += 1;
+			   b[i] = 1;
+			 }
+		      }
 
-		uacr = 0;
-		for (i = 0; i < 12; i++) {
+		    uacr = 0;
+		    for (i = 0; i < 12; i++) {
 			if (b[i] == 1) {
 				uacr |= 1 << i;
 			}
-		}
-		if (div_best ==0){
+		     }
+                    if (div_best ==0){
 			div_best = div;
 			umr_best = umr;
 			uacr_best = uacr;
-		}
+		     }
 
 		/* the best value of umr should be near 16, and the value of uacr should better be smaller */
-		if (abs(umr - 16) < abs(umr_best - 16) || (abs(umr - 16) == abs(umr_best - 16) && uacr_best > uacr)) {
+		    if (abs(umr - 16) < abs(umr_best - 16) || (abs(umr - 16) == abs(umr_best - 16) && uacr_best > uacr))
+                     {
 			div_best = div;
 			umr_best = umr;
 			uacr_best = uacr;
-		}
-		div++;
-	}
+		     }
+		   div++;
+	         }
 
 	quot1[0] = div_best;
 	quot1[1] = umr_best;
@@ -890,9 +931,6 @@ static unsigned short *serial47xx_get_divisor(struct uart_port *port, unsigned i
 
 	return quot1;
 }
-
-
-
 
 static void serial_jz47xx_release_port(struct uart_port *port)
 {
@@ -950,7 +988,7 @@ static inline void wait_for_xmitr(struct uart_jz47xx_port *up)
 	if (up->port.flags & UPF_CONS_FLOW) {
 		tmout = 1000000;
 		while (--tmout &&
-				((serial_in(up, UART_MSR) & UART_MSR_CTS) == 0))
+				((serial_in(up, UART_MSR) & UART_MSR_CTS) == 0))//no CTS
 			udelay(1);
 	}
 }
@@ -1030,27 +1068,27 @@ static struct console serial_jz47xx_console = {
 #endif
 
 struct uart_ops serial_jz47xx_pops = {
-	.tx_empty	= serial_jz47xx_tx_empty,
-	.set_mctrl	= serial_jz47xx_set_mctrl,
-	.get_mctrl	= serial_jz47xx_get_mctrl,
-	.stop_tx	= serial_jz47xx_stop_tx,
-	.start_tx	= serial_jz47xx_start_tx,
-	.stop_rx	= serial_jz47xx_stop_rx,
-	.enable_ms	= serial_jz47xx_enable_ms,
-	.break_ctl	= serial_jz47xx_break_ctl,
-	.startup	= serial_jz47xx_startup,
-	.shutdown	= serial_jz47xx_shutdown,
-	.set_termios	= serial_jz47xx_set_termios,
-	.type		= serial_jz47xx_type,
-	.release_port	= serial_jz47xx_release_port,
-	.request_port	= serial_jz47xx_request_port,
-	.config_port	= serial_jz47xx_config_port,
-	.verify_port	= serial_jz47xx_verify_port,
+	.tx_empty	= serial_jz47xx_tx_empty,//TX Buffer empty
+	.set_mctrl	= serial_jz47xx_set_mctrl,//set Modem control
+	.get_mctrl	= serial_jz47xx_get_mctrl,//get Modem control
+	.stop_tx	= serial_jz47xx_stop_tx,//stop TX
+	.start_tx	= serial_jz47xx_start_tx,//start tx
+	.stop_rx	= serial_jz47xx_stop_rx,//stop rx
+	.enable_ms	= serial_jz47xx_enable_ms,//modem status enable
+	.break_ctl	= serial_jz47xx_break_ctl,//
+	.startup	= serial_jz47xx_startup,//start endport
+	.shutdown	= serial_jz47xx_shutdown,//shutdown endport
+	.set_termios	= serial_jz47xx_set_termios,//change para of endport
+	.type		= serial_jz47xx_type,//
+	.release_port	= serial_jz47xx_release_port,//release port I/O
+	.request_port	= serial_jz47xx_request_port,//
+	.config_port	= serial_jz47xx_config_port,//
+	.verify_port	= serial_jz47xx_verify_port,//
 };
 
 static struct uart_driver serial_jz47xx_reg = {
 	.owner		= THIS_MODULE,
-	.driver_name	= "JZ47XX_serial",
+	.driver_name	= "JZ47XX serial",
 	.dev_name	= "ttyS",
 	.major		= TTY_MAJOR,
 	.minor		= 64,
@@ -1119,7 +1157,6 @@ static int serial_jz47xx_probe(struct platform_device *dev)
 	up->port.dev = &dev->dev;
 	up->port.flags = UPF_IOREMAP | UPF_BOOT_AUTOCONF;
 	up->port.uartclk = clk_get_rate(up->clk);
-
 	up->port.membase = ioremap(mmres->start, mmres->end - mmres->start + 1);
 	if (!up->port.membase) {
 		ret = -ENOMEM;
