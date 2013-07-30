@@ -471,13 +471,14 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 		jzfb->framedesc[i]->desc_size = framedesc[i]->desc_size;
 	}
 
-	reg_write(jzfb, LCDC_STATE, 0);
-	while(!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_SOF) && --cnt)
-		mdelay(1);
+	if(reg_read(jzfb, LCDC_DA0) != jzfb->framedesc[0]->next) {
+		reg_write(jzfb, LCDC_STATE, 0);
+		while(!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_SOF) && --cnt)
+			mdelay(1);
 
-	if(!cnt)
-		printk("===> warning, wait lcd sof failed, please check, if enable sof in xboot\n");
-
+		if(!cnt)
+			printk("===> warning, wait lcd sof failed, please check, if enable sof in xboot\n");
+	}
 	if (jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
 	} else {
@@ -1506,7 +1507,25 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 			/* start aosd compress */
 			aosd_start();
 			if (aosd_info.is_desc_init == 0) {
-				jzfb_prepare_dma_desc(info);
+				/*jzfb_prepare_dma_desc(info);*/
+				if (aosd_info.with_alpha != 0 || aosd_info.bpp == 16) {
+					jzfb->framedesc[0]->cmd = LCDC_CMD_EOFINT | LCDC_CMD_FRM_EN;
+					jzfb->framedesc[0]->cmd |= LCDC_CMD_COMPEN;
+					jzfb->framedesc[0]->cmd |= (jzfb->osd.fg0.h & LCDC_CMD_LEN_MASK);
+					jzfb->framedesc[0]->offsize = aosd_info.dst_stride;
+				} else {
+					jzfb->framedesc[0]->offsize = 0;
+					jzfb->framedesc[0]->page_width = 0;
+				}
+				if((jzfb->osd.fg0.bpp != 16) || (jzfb->osd.fg0.bpp != 30)) {
+					jzfb->framedesc[0]->cpos &= ~(LCDC_CPOS_RGB_RGB565
+							| LCDC_CPOS_BPP_16 | LCDC_CPOS_BPP_30);
+					if (aosd_info.with_alpha == 0 && aosd_info.bpp != 16) {
+						jzfb->framedesc[0]->cpos |= LCDC_CPOS_BPP_CMPS_24;
+					} else {
+						jzfb->framedesc[0]->cpos |= LCDC_CPOS_BPP_18_24;
+					}
+				}
 				aosd_info.is_desc_init = 1;
 			}
 
@@ -2202,7 +2221,7 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_OFUM);
 			dev_err(jzfb->dev, "disable OFU irq\n");
-			jzfb_lcdc_reset(jzfb->fb);
+			/*jzfb_lcdc_reset(jzfb->fb);*/
 		}
 		dev_err(jzfb->dev, "%s, Out FiFo underrun\n", __func__);
 	}
