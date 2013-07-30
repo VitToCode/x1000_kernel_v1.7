@@ -212,6 +212,24 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.flag = 0,
 	},
 #endif
+#ifdef CONFIG_LCD_AT065TN14
+	{
+		.name = "800x480",
+		.refresh = 60,
+		.xres = 800,
+		.yres = 480,
+		.pixclock = KHZ2PICOS(33300),
+		.left_margin = 40,
+		.right_margin = 210,
+		.upper_margin = 22,
+		.lower_margin = 23,
+		.hsync_len = 3,
+		.vsync_len = 1,
+		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0,
+	}
+#endif
 };
 
 struct jzfb_platform_data jzfb1_pdata = {
@@ -280,7 +298,7 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.width = 143,
 	.height = 76,
 
-	.pixclk_falling_edge = 0,
+	.pixclk_falling_edge = 1,
 	.date_enable_active_low = 0,
 
 	.alloc_vidmem = 1,
