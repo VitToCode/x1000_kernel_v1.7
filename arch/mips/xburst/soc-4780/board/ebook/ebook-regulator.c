@@ -30,7 +30,7 @@ CORE_REGULATOR_DEF(
  */
 IO_REGULATOR_DEF(
 	ebook_vccio,
-	"Vcc-IO",	3300000,	1);
+	"Vcc-IO",	3000000,	1);
 
 /**
  * USB VBUS Regulators.
@@ -50,12 +50,12 @@ VBUS_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_DEF(
 	ebook_vwifi,
 	"Wi-Fi",	"vwifi",	NULL,
-	NULL,		3300000,	0);
+	NULL,		3000000,	1);
 
 EXCLUSIVE_REGULATOR_DEF(
 	ebook_vtsc,
 	"Touch Screen",	"vtsc",		NULL,
-	NULL,		3300000,	0);
+	NULL,		3000000,	1);
 
 EXCLUSIVE_REGULATOR_DEF(
 	ebook_vgsensor,
@@ -85,25 +85,35 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
+#if 0
 FIXED_REGULATOR_DEF(
 	ebook_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
-
+#endif
 FIXED_REGULATOR_DEF(
 	ebook_vlcd,
 	"LCD",		3300000,	GPIO_PB(23),
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 
+FIXED_REGULATOR_DEF(
+	ebook_vmmc,
+	"TF",		3300000,	GPIO_PF(20),
+	HIGH_ENABLE,	EN_AT_BOOT,	0,
+	NULL,		"vmmc.0",	NULL);
+
+
+
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 #ifndef CONFIG_BOARD_EBOOK_V_1_1
 	&ebook_vcc5_regulator_device,
 	&ebook_vbus_regulator_device,
 #endif
-	&ebook_vcim_regulator_device,
+	//&ebook_vcim_regulator_device,
 	&ebook_vlcd_regulator_device,
+	&ebook_vmmc_regulator_device,
 };
 
 /*

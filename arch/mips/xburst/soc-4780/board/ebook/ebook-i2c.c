@@ -76,19 +76,20 @@ static struct jztsc_platform_data ebook_tsc_pdata = {
 
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info ebook_i2c1_devs[] __initdata = {
-#ifdef CONFIG_SENSORS_MMA8452
+#ifdef	CONFIG_TOUCHSCREEN_NOVATEK
 	{
-		I2C_BOARD_INFO("gsensor_mma8452",0x1c),
-		.platform_data = &mma8452_platform_pdata,
+		I2C_BOARD_INFO("nt11003-ts", 0x01),
+		.platform_data	= &ebook_tsc_pdata,
 	},
 #endif
-#ifdef CONFIG_SENSORS_LIS3DH
+#ifdef CONFIG_TOUCHSCREEN_FT5X06
 	{
-	       	I2C_BOARD_INFO("gsensor_lis3dh",0x18),
-		.platform_data = &lis3dh_platform_data,
+		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
+		.platform_data	= &ebook_tsc_pdata,
 	},
 #endif
 };
+
 #endif	/*I2C1*/
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_JZ_CIM))
@@ -113,6 +114,17 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 };
 #endif
 
+#ifdef CONFIG_OV5640
+static struct cam_sensor_plat_data ov5640_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_OV5640_EN,
+	.gpio_rst = GPIO_OV5640_RST,
+	.cap_wait_frame = 6,
+};
+#endif
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
@@ -123,21 +135,29 @@ static struct i2c_board_info ebook_i2c2_devs[] __initdata = {
 		.platform_data	= &sp0838_pdata,
 	},
 #endif
+
+#ifdef CONFIG_OV5640
+	{
+		I2C_BOARD_INFO("ov5640", 0x18),
+		.platform_data	= &ov5640_pdata,
+
+	},
+#endif
 };
 #endif	/*I2C2*/
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info ebook_i2c3_devs[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_LDWZIC
+#ifdef CONFIG_SENSORS_MMA8452
 	{
-		I2C_BOARD_INFO("ldwzic_ts", 0x01),
-		.platform_data	= &ebook_tsc_pdata,
+		I2C_BOARD_INFO("gsensor_mma8452",0x1c),
+		.platform_data = &mma8452_platform_pdata,
 	},
 #endif
-#ifdef CONFIG_TOUCHSCREEN_FT5X06
+#ifdef CONFIG_SENSORS_LIS3DH
 	{
-		I2C_BOARD_INFO("ft5x06_tsc", 0x38),
-		.platform_data	= &ebook_tsc_pdata,
+		I2C_BOARD_INFO("gsensor_lis3dh",0x18),
+		.platform_data = &lis3dh_platform_data,
 	},
 #endif
 };
@@ -205,7 +225,9 @@ static int __init ebook_i2c_dev_init(void)
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+{
 	i2c_register_board_info(2, ebook_i2c2_devs, ARRAY_SIZE(ebook_i2c2_devs));
+}
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))

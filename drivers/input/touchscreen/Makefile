@@ -19,6 +19,7 @@ obj-$(CONFIG_TOUCHSCREEN_ZET6221)        += zet6221_ts.o zet6221_downloader.o
 obj-$(CONFIG_TOUCHSCREEN_FT5306)        += ft5306_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CTP_IT7260)    += ctp_it7260.o
 obj-$(CONFIG_TOUCHSCREEN_GWTC9XXXB)     += gwtc9xxxb_ts.o
+obj-$(CONFIG_TOUCHSCREEN_NOVATEK)       += novatek_ts.o
 obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix_ts.o
 ##########################################
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o

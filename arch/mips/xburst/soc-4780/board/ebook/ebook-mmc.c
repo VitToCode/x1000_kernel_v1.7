@@ -9,6 +9,7 @@
 #include "ebook.h"
 
 #define GPIO_WIFI_RST_N			GPIO_PF(7)
+#define GPIO_WLAN_PW_EN			GPIO_PD(8)
 
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
@@ -17,6 +18,9 @@
 #define NORMAL				1
 
 static struct wifi_data			iw8101_data;
+static int clk_32k = 0;
+static int wl_pw_en = 0;
+static int power_en;
 
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
@@ -161,14 +165,58 @@ struct jzmmc_platform_data ebook_sdio_pdata = {
 #define PXDSS		0x84   /* Port Drive Strength set Register */
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 
-static unsigned int gpio_bakup[4];
+//static unsigned int gpio_bakup[4];
+
+void clk_32k_on(void)
+{
+	jzrtc_enable_clk32k();
+	clk_32k++;
+	if (clk_32k > 2){
+		clk_32k = 2;
+	}
+	printk("cljiang---clk_32k_on:num = %d\n",clk_32k);
+}
+
+void clk_32k_off(void)
+{
+	clk_32k--;
+	if(clk_32k < 0){
+		clk_32k = 0;
+	}
+	if(clk_32k == 0){
+		jzrtc_disable_clk32k();
+	}
+	printk("cljiang---clk_32k_off:num = %d\n",clk_32k);
+}
+
+void wlan_pw_en_enable(void)
+{
+	gpio_set_value(power_en,1);
+	wl_pw_en++;
+	if(wl_pw_en > 2){
+		wl_pw_en = 2;
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
+
+void wlan_pw_en_disable(void)
+{
+	wl_pw_en--;
+	if(wl_pw_en < 0){
+		wl_pw_en = 0;
+	}
+	if(wl_pw_en == 0){
+		gpio_set_value(power_en,0);
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
 
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power;
 	int reset;
-
+/*
 	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -177,6 +225,7 @@ int iw8101_wlan_init(void)
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
+*/
 
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
@@ -217,8 +266,8 @@ int IW8101_wlan_power_on(int flag)
 		goto start;
 	return -ENODEV;
 start:
-	pr_debug("wlan power on:%d\n", flag);
-
+	pr_info("------------------------wlan power on:%d\n", flag);
+/*
 	writel(gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTS));
 	writel(~gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKS));
@@ -227,12 +276,14 @@ start:
 	writel(~gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1C));
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
-
-	jzrtc_enable_clk32k();
+*/
+	//jzrtc_enable_clk32k();
+	clk_32k_on();
 	msleep(200);
 
 	switch(flag) {
 		case RESET:
+			wlan_pw_en_enable();
 			regulator_enable(power);
 			jzmmc_clk_ctrl(1, 1);
 
@@ -245,6 +296,7 @@ start:
 			break;
 
 		case NORMAL:
+			wlan_pw_en_enable();
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
@@ -278,11 +330,12 @@ int IW8101_wlan_power_off(int flag)
 		goto start;
 	return -ENODEV;
 start:
-	pr_debug("wlan power off:%d\n", flag);
+	pr_info("--------------------------wlan power off:%d\n", flag);
 	switch(flag) {
 		case RESET:
 			gpio_set_value(reset, 0);
 
+			wlan_pw_en_disable();
 			regulator_disable(power);
 			jzmmc_clk_ctrl(1, 0);
 			break;
@@ -291,6 +344,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			wlan_pw_en_disable();
 
 			jzmmc_manual_detect(1, 0);
 			break;
@@ -298,8 +352,9 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_disable_clk32k();
-
+	//jzrtc_disable_clk32k();
+	clk_32k_off();
+/*
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = (unsigned int)readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -308,9 +363,13 @@ start:
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
-
+*/
 	return 0;
 }
+EXPORT_SYMBOL(wlan_pw_en_enable);
+EXPORT_SYMBOL(wlan_pw_en_disable);
+EXPORT_SYMBOL(clk_32k_on);
+EXPORT_SYMBOL(clk_32k_off);
 
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);

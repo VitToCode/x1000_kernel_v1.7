@@ -75,8 +75,8 @@ extern struct platform_nand_data jz_nand_chip_data;
 /**
  * tsc gpio interface
  **/
-#define GPIO_CTP_IRQ			GPIO_PF(19)
-#define GPIO_CTP_WAKE_UP		GPIO_PF(18)
+#define GPIO_CTP_IRQ			GPIO_PF(18)
+#define GPIO_CTP_WAKE_UP		GPIO_PF(19)
 
 /**
  * g sensor gpio interface
@@ -112,6 +112,9 @@ extern struct platform_nand_data jz_nand_chip_data;
 
 #define GPIO_SP0838_EN			GPIO_PB(18)
 #define GPIO_SP0838_RST			GPIO_PB(26)
+
+#define GPIO_OV5640_EN			GPIO_PB(27)
+#define GPIO_OV5640_RST			GPIO_PB(26)
 
 /**
  * USB detect pin
