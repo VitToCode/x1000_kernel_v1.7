@@ -94,7 +94,7 @@ route_conf_base const record_linein1_diff_to_adclr = {
 	.route_mic2_mode = MIC2_DISABLE,				//fix
 	.route_inputl_mode = INPUTL_TO_ADC_ENABLE,			//fix
 	.route_inputr_mode = INPUTR_TO_ADC_DISABLE,			//fix
-	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN1,		//..
+	.route_inputl_mux_mode = INPUTL_MUX_MIC1_TO_AN2,		//..
 	.route_inputl_to_bypass_mode = INPUTL_TO_BYPASS_DISABLE,	//fix
 	.route_inputr_to_bypass_mode = INPUTR_TO_BYPASS_DISABLE,	//fix
 	.route_record_mux_mode = RECORD_MUX_INPUTL_TO_LR,		//fix
@@ -446,7 +446,7 @@ struct __codec_route_info codec_route_info[] = {
 	},
 
 	{
-		.route_name = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+		.route_name = SND_ROUTE_RECORD_LINEIN1_DIFF_AN2,
 		.route_conf = &record_linein1_diff_to_adclr,
 	},
 

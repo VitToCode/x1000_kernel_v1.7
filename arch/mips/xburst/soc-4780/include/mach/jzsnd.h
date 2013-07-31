@@ -40,7 +40,7 @@ enum snd_codec_route_t {
 	/*internal codec: mic 2 to adcrl*/
 	SND_ROUTE_RECORD_MIC2_SIN_AN3,
 	/*internal codec: linein 1 to adcrl*/
-	SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	SND_ROUTE_RECORD_LINEIN1_DIFF_AN2,
 	/*internal codec: linein 2 to adcrl*/
 	SND_ROUTE_RECORD_LINEIN2_SIN_AN3,
 	/*internal codec: call record mic bypass to hprl*/
