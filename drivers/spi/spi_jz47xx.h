@@ -162,6 +162,8 @@ struct jz47xx_spi {
 	unsigned int		set_clk_flag;
 	struct completion	done;
 	struct completion	done_rx;
+	struct completion	done_tx_dma;
+	struct completion	done_rx_dma;
 
 	spinlock_t		lock;
 

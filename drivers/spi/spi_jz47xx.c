@@ -140,8 +140,8 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 /*************************************************************
  * jz47xx_spi_set_clk: set the SPI_CLK.
  * The min clock is 23438Hz, and the max clock is defined
- * by max_clk or max_speed_hz(it is 54MHz for JZ4780, but
- * the test max clock is 40MHz).
+ * by max_clk or max_speed_hz(it is 54MHz for JZ4780, and
+ * the test max clock is 30MHz).
  ************************************************************* */
 static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 {
@@ -179,7 +179,7 @@ static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 
 	spi_writel(hw, SSI_GR, cgv);
 
-	/* if cpm_rate_a equals to cpm_rate_b, the external clock is selected */
+	/* if the external clock is selected, cpm_rate_a equals to cpm_rate_b */
 	if (cpm_rate_a != cpm_rate_b) {
 		if (!clk_is_enabled(hw->clk))
 			clk_enable(hw->clk);
@@ -204,6 +204,7 @@ static void dma_tx_callback(void *data)
 	struct jz47xx_spi *hw = data;
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
+	complete(&hw->done_tx_dma);
 }
 
 static void dma_rx_callback(void *data)
@@ -212,10 +213,12 @@ static void dma_rx_callback(void *data)
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
 	dma_unmap_sg(hw->rxchan->device->dev, hw->sg_rx, 1, DMA_FROM_DEVICE);
+	complete(&hw->done_rx_dma);
 }
 
 static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 {
+	int ret;
 	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
 	struct dma_slave_config rx_config, tx_config;
 	struct dma_async_tx_descriptor *rxdesc;
@@ -228,8 +231,13 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 	/* Check that the channels are available */
 	if (!txchan || !rxchan) {
-		dev_dbg(&spi->dev, "no dma channel\n");
+		dev_err(&spi->dev, "no dma channel\n");
 		return -ENODEV;
+	}
+
+	if (t->len % hw->transfer_unit_size) {
+		pr_err("The length of tranfer data is error\n");
+		return -EFAULT;
 	}
 
 	hw->rw_mode = 0;
@@ -257,9 +265,9 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 		tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-		tx_config.dst_maxburst = 1;
+		tx_config.dst_maxburst = 64;
 		tx_config.src_maxburst = 1;
-		rx_config.src_maxburst = 1;
+		rx_config.src_maxburst = 64;
 		rx_config.dst_maxburst = 1;
 		break;
 	case SPI_16BITS:
@@ -304,13 +312,13 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 	hw->tx_trigger = hw->dma_tx_unit / (hw->txfifo_width >> 3);
 //	set_tx_trigger(hw, hw->tx_trigger);
-	set_tx_trigger(hw, 1);
+	set_tx_trigger(hw, 8);//The transfer is steady if the trigger number is used;
 	print_dbg("t->len: %d, tx fifo width: %d, set tx trigger value to %d\n", t->len, hw->txfifo_width, hw->tx_trigger);
 
 	sg_init_one(hw->sg_tx, hw->tx, t->len);
 	if (dma_map_sg(hw->txchan->device->dev,
 		       hw->sg_tx, 1, DMA_TO_DEVICE) != 1) {
-		dev_dbg(&spi->dev, "dma_map_sg tx error\n");
+		dev_err(&spi->dev, "dma_map_sg tx error\n");
 		printk("%s LINE %d: %s\n", __func__, __LINE__, __FILE__);
 		goto err_tx_sgmap;
 	}
@@ -321,7 +329,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 				      DMA_TO_DEVICE,
 				      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!txdesc) {
-		dev_dbg(&spi->dev, "device_prep_slave_sg error\n");
+		dev_err(&spi->dev, "device_prep_slave_sg error\n");
 		printk("%s LINE %d: %s\n", __func__, __LINE__, __FILE__);
 		goto err_txdesc;
 	}
@@ -352,7 +360,17 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 		dmaengine_submit(txdesc);
 		dma_async_issue_pending(txchan);
-		wait_for_completion(&hw->done);
+
+		ret = wait_for_completion_interruptible_timeout(&hw->done_tx_dma, 60 * HZ);
+		if (ret <= 0) {
+			printk("The tx_dma umap wait timeout\n");
+			goto err_txdesc;
+		}
+		ret = wait_for_completion_interruptible_timeout(&hw->done, 60 * HZ);
+		if (ret <= 0) {
+			printk("The spi transfer wait timeout\n");
+			goto err_txdesc;
+		}
 
 		finish_transmit(hw);
 		flush_rxfifo(hw);
@@ -375,14 +393,14 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 	hw->rx_trigger = hw->dma_rx_unit/(hw->rxfifo_width >> 3);
 //	set_rx_trigger(hw, hw->rx_trigger);
-	set_rx_trigger(hw, 1);
+	set_rx_trigger(hw, 1); //the rx trigger is steady for tranfer
 	print_dbg("t->len: %d, rx fifo width: %d, set rx trigger value to %d\n", t->len, hw->rxfifo_width, hw->rx_trigger);
 
 	sg_init_one(hw->sg_rx, hw->rx, t->len);
 
 	if (dma_map_sg(hw->rxchan->device->dev,
 		       hw->sg_rx, 1, DMA_FROM_DEVICE) != 1) {
-		dev_dbg(&spi->dev, "dma_map_sg rx error\n");
+		dev_err(&spi->dev, "dma_map_sg rx error\n");
 		goto err_rx_sgmap;
 	}
 
@@ -392,7 +410,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 				      DMA_FROM_DEVICE,
 				      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!rxdesc) {
-		dev_dbg(&spi->dev, "device_prep_slave_sg error\n");
+		dev_err(&spi->dev, "device_prep_slave_sg error\n");
 		goto err_rxdesc;
 	}
 
@@ -408,7 +426,20 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	dmaengine_submit(rxdesc);
 	dma_async_issue_pending(rxchan);
 	dma_async_issue_pending(txchan);
-	wait_for_completion(&hw->done_rx);
+
+	ret = wait_for_completion_interruptible_timeout(&hw->done_rx, 60 * HZ);
+	if (ret <= 0) {
+		dump_spi_reg(hw);
+		printk("The spi receiver wait timeout\n");
+		goto err_rxdesc;
+	}
+
+	ret = wait_for_completion_interruptible_timeout(&hw->done_rx_dma, 60 * HZ);
+	if (ret <= 0) {
+		dump_spi_reg(hw);
+		printk("The spi dam_callback wait timeout\n");
+		goto err_rxdesc;
+	}
 
 	finish_transmit(hw);
 //	flush_rxfifo(hw);
@@ -432,7 +463,7 @@ static irqreturn_t jz47xx_spi_dma_irq_callback(struct jz47xx_spi *hw)
 	print_dbg("%s: status register: %08x\n", __func__, spi_readl(hw, SSI_SR));
 
 	if (ssi_underrun(hw) && tx_error_intr(hw)) {
-		print_dbg("UNDR:");
+		print_dbg("UNDR:\n");
 
 		g_jz_intr->ssi_eti++;
 		disable_tx_error_intr(hw);
@@ -445,15 +476,15 @@ static irqreturn_t jz47xx_spi_dma_irq_callback(struct jz47xx_spi *hw)
 	}
 
 	if (ssi_overrun(hw) && rx_error_intr(hw)) {
-			print_dbg(" overrun:");
+			print_dbg(" overrun:\n");
 			g_jz_intr->ssi_eri++;
 
+			clear_errors(hw);
 			complete(&hw->done);
 			complete(&hw->done_rx);
 	}
 
 irq_done:
-	clear_errors(hw);
 	return IRQ_HANDLED;
 }
 
@@ -538,6 +569,11 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 	if (leave_len_bytes == 0) {
 		print_dbg("leave_len_bytes = 0\n");
 		return 0;
+	}
+
+	if (hw->len % hw->transfer_unit_size) {
+		pr_err("The length of tranfer data is error\n");
+		return -EFAULT;
 	}
 
 	unit_size = hw->transfer_unit_size;
@@ -1096,6 +1132,8 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hw);
 	init_completion(&hw->done);
 	init_completion(&hw->done_rx);
+	init_completion(&hw->done_tx_dma);
+	init_completion(&hw->done_rx_dma);
 	spin_lock_init(&hw->lock);
 
 	/* setup the state for the bitbang driver */
@@ -1143,13 +1181,13 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 
 		hw->sg_tx = kmalloc(sizeof(struct scatterlist), GFP_KERNEL);
 		if (!hw->sg_tx) {
-			dev_dbg(&pdev->dev, "Failed to alloc tx scatterlist\n");
+			dev_err(&pdev->dev, "Failed to alloc tx scatterlist\n");
 			goto err_tx_sgmap;
 		}
 
 		hw->sg_rx = kmalloc(sizeof(struct scatterlist), GFP_KERNEL);
 		if(!hw->sg_rx) {
-			dev_dbg(&pdev->dev, "Failed to alloc rx scatterlist\n");
+			dev_err(&pdev->dev, "Failed to alloc rx scatterlist\n");
 			goto err_rx_sgmap;
 		}
 	}
