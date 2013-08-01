@@ -500,11 +500,12 @@ ax88796c_tx_pio_start (struct net_device *ndev,
 				sizeof(entry->tx_eop));
 
 	/* If tx error interrupt is asserted */
-	if ((ISR_TXERR & AX_READ (ax_base + P0_ISR)) != 0)
-	{
-		ax_local->stat.tx_dropped++;
+	if (AX_READ (ax_base + P0_TSNR) & TXNR_TXB_ERR) {
+		/* Reinitial tx bridge */
 		AX_WRITE ((TXNR_TXB_REINIT | AX_READ (ax_base+P0_TSNR)),
 				ax_base+P0_TSNR);
+
+		ax_local->stat.tx_dropped++;
 		ax_local->seq_num = 0;	
 	} else {
 		ax_local->stat.tx_bytes += entry->len;
@@ -579,21 +580,21 @@ static void ax88796c_tx_dma_complete(void *priv)
 				sizeof(entry->tx_eop));
 
 	/* If tx bridge is idle */
-	if (((AX_READ ( ax_base + P0_TSNR ) & TXNR_TXB_IDLE) == 0) ||
-	    ((ISR_TXERR & AX_READ (ax_base + P0_ISR) ) != 0)) {
+	if (!(AX_READ (ax_base + P0_TSNR) & TXNR_TXB_IDLE) ||
+	   (AX_READ (ax_base + P0_TSNR) & TXNR_TXB_ERR)) {
 
-		AX_WRITE (ISR_TXERR, ax_base + P0_ISR);
-
-		ax_local->stat.tx_dropped++;
-
+		if (!(AX_READ (ax_base + P0_TSNR) & TXNR_TXB_ERR)) {
 		if (netif_msg_tx_err (ax_local))
 			printk ("%s: TX FIFO error, "
 				"re-initialize the TX bridge\n",
 				__FUNCTION__);
+		}
 
 		/* Reinitial tx bridge */	
 		AX_WRITE (TXNR_TXB_REINIT | AX_READ (ax_base+P0_TSNR),
 				ax_base+P0_TSNR);
+
+		ax_local->stat.tx_dropped++;
 		ax_local->seq_num = 0;
 	} else {
 		ax_local->stat.tx_bytes += entry->len;
@@ -855,22 +856,15 @@ static int ax88796c_rx_dma (struct net_device *ndev)
 	/* Rx bridge ready sync */
 	while (!(AX_READ (ax_base + P0_RXBCR2) & RXBCR2_RXB_READY));
 
-#if 1
 	entry = (struct skb_data *) skb->cb;
 	entry->phy_addr = dma_map_single (NULL, skb->data, skb->len,
 				DMA_FROM_DEVICE);
-#else
-	dma_sync_single_for_device(NULL, (dma_addr_t)virt_to_phys(skb->data), skb->len,
-				DMA_FROM_DEVICE);
-#endif
-	//__asm__ __volatile__ ("sync");
 
 	__skb_queue_tail (&ax_local->rx_busy_q, skb);
 	ax_local->rx_dmaing = 1;
 
 	/* Start rx DMA transmission */
 	dma_start (entry->phy_addr, w_count, 0);
-	//dma_start ((dma_addr_t)virt_to_phys(skb->data), w_count, 0);
 
 	return 1;
 }
@@ -901,11 +895,9 @@ static void ax88796c_rx_dma_complete(void *dev_temp)
 		}
 	}
 
-#if 1
 	entry = (struct skb_data *) skb->cb;
 	/* Unmap DMA address */
 	dma_unmap_single(NULL, entry->phy_addr, skb->len, DMA_FROM_DEVICE);
-#endif
 
 	/* Check if rx bridge is idle */
 	if ((AX_READ (ax_base + P0_RXBCR2) & RXBCR2_RXB_IDLE) == 0) {
@@ -1150,6 +1142,9 @@ ax88796c_interrupt (int irq, void *dev_id)
 			ax88796c_check_media (ax_local);
 		}
 	}
+
+	/* Acknowledge all actived interrupts */
+	AX_WRITE (interrupts, ax_base + P0_ISR);
 
 	/* If rx interrupt is asserted, do not unmake rx interrupt */
 	if (ax_local->rx_dmaing) {
@@ -1748,7 +1743,7 @@ release_ndev:
 	platform_set_drvdata (pdev, NULL);
 	free_netdev (ndev);
 
-	printk("%s: not found (%d).\n", AX88796C_DRV_NAME, ret);
+	printk("%s: Device not found (%d).\n", AX88796C_DRV_NAME, ret);
 	return ret;
 }
 
@@ -1819,11 +1814,6 @@ ax88796c_suspend(struct platform_device *p_dev, pm_message_t state)
 	AX_WRITE (IMR_MASKALL, ax_base + P0_IMR);
 
 	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
-
-	if(in_atomic())
-	{
-		printk("==== =======================\n");
-	}
 
 	ax88796c_plat_dma_release ();
 

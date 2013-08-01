@@ -1,7 +1,7 @@
 /*
- * dummy_plat_dma.c
+ * jz4780_plat_dma.c
  *
- * For Dummy Plat
+ * For Jz4780 Plat
  */
 #include "ax88796c_plat.h"
 #include <mach/jzdma.h>

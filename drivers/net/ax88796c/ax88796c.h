@@ -234,7 +234,6 @@ struct ax88796c_device {
 
 	unsigned long conf_start;
 	void __iomem *confbase;
-	struct tasklet_struct tasklet;
 
 	spinlock_t isr_lock;
 	struct timer_list watchdog;
