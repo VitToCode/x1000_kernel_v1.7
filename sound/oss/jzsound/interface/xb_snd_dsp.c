@@ -29,7 +29,12 @@ struct file *file_record = NULL;
 static loff_t file_record_offset = 0;
 static mm_segment_t old_fs_record;
 #endif
-
+#ifdef DEBUG_RECORD
+#define DEBUG_RECORD_FILE "/data/audiorecord.pcm"
+#endif
+#ifdef DEBUG_REPLAY
+#define DEBUG_REPLAYE_FILE "/data/audio.pcm"
+#endif
 static bool first_start_record_dma = true;
 
 static bool first_start_replay_dma = true;
@@ -2372,8 +2377,9 @@ int xb_snd_dsp_open(struct inode *inode,
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
-		if (dpo == NULL)
+		if (dpo == NULL) {
 			return -ENODEV;
+		}
 
 		if (dpo->is_used) {
 			printk("\nAudio write device is busy!\n");
@@ -2387,8 +2393,9 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* enable dsp device replay */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_REPLAY, 0);
-			if (ret < 0)
+			if (ret < 0) {
 				return -EIO;
+			}
 		}
 		dpo->is_used = true;
 
@@ -2401,20 +2408,24 @@ int xb_snd_dsp_open(struct inode *inode,
 	}
 
 #ifdef DEBUG_REPLAY
-	printk("DEBUG:----open /data/audio.pcm.pcm-%s\tline:%d\n",__func__,__LINE__);
-	f_test = filp_open("/data/audio.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR |O_CREAT);
+	printk("DEBUG:----open %s  %s\tline:%d\n",DEBUG_REPLAYE_FILE,__func__,__LINE__);
+	f_test = filp_open(DEBUG_REPLAYE_FILE, O_RDWR | O_APPEND, S_IRUSR | S_IWUSR |O_CREAT);
 	if (!IS_ERR(f_test)) {
 		printk("open debug audio sussess %p.\n",f_test);
 		f_test_offset = f_test->f_pos;
 	}
+	else
+			printk("---->open %s failed %d!\n",DEBUG_REPLAYE_FILE,f_test);
 #endif
 #ifdef DEBUG_RECORD
-	printk("DEBUG:----open /data/audiorecord.pcm -%s\tline:%d\n", __func__,__LINE__);
-	file_record = filp_open("/data/audiorecord.pcm", O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | O_CREAT);
+	printk("DEBUG:----open %s %s\tline:%d\n",DEBUG_RECORD_FILE, __func__,__LINE__);
+	file_record = filp_open(DEBUG_RECORD_FILE, O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | O_CREAT);
 	if (!IS_ERR(file_record)) {
 		printk("open debug audiorecord sucssess %p. \n", file_record);
 		file_record_offset = file_record->f_pos;
 	}
+	else
+			printk("---->open %s failed %d!\n",DEBUG_RECORD_FILE,file_record);
 #endif
 	LEAVE_FUNC()
 	return ret;

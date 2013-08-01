@@ -34,7 +34,7 @@ struct snd_codec_data codec_data = {
 						.gpio_hp_mute_stat = STATE_DISABLE,
 						.gpio_spk_en_stat = STATE_ENABLE},
 	/* linein route */
-	.record_linein1_route = {.route = SND_ROUTE_RECORD_LINEIN1_DIFF_AN1,
+	.record_linein1_route = {.route = SND_ROUTE_RECORD_LINEIN1_DIFF_AN2,
 						.gpio_hp_mute_stat = STATE_DISABLE,
 						.gpio_spk_en_stat = STATE_ENABLE,
 	},
