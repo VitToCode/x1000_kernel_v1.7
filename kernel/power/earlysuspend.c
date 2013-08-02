@@ -117,10 +117,14 @@ static void early_suspend(struct work_struct *work)
 	}
 	mutex_unlock(&early_suspend_lock);
 
+#ifdef CONFIG_SUSPEND_SYNC_WORKQUEUE
+	suspend_sys_sync_queue();
+#else
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: sync\n");
 
 	sys_sync();
+#endif
 abort:
 	if ((debug_mask & DEBUG_SUSPEND) && abort)
 		pr_info("early_suspend: abort, state %d\n", state);

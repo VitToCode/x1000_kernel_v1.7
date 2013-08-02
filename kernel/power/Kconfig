@@ -302,3 +302,6 @@ config SUSPEND_TIME
 	  keeps statistics on the time spent in suspend in
 	  /sys/kernel/debug/suspend_time
 
+config SUSPEND_SYNC_WORKQUEUE
+	bool "Suspend sync in workqueue"
+	depends on WAKELOCK
