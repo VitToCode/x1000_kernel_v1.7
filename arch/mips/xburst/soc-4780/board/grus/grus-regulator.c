@@ -105,6 +105,18 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&grus_vmmc_regulator_device,
 };
 
+#ifdef CONFIG_BOARD_GRUS_V_1_0_1
+/***********************************************************\
+| * if you will use ricoh618 pmu, you must use its battery *|
+| * detect software to ganerate a *init.h file,            *|
+| * and then add it to here.                               *|
+\ * ********************************************************/
+uint8_t battery_init_parameter[32] = {
+        0x0B, 0xD5, 0x0B, 0xF4, 0x0C, 0x07, 0x0C, 0x17, 0x0C, 0x29, 0x0C, 0x3F, 0x0C, 0x63, 0x0C, 0x8D,
+        0x0C, 0xB6, 0x0C, 0xE8, 0x0D, 0x22, 0x09, 0x10, 0x00, 0x42, 0x0F, 0xC8, 0x05, 0x2A, 0x22, 0x56
+};
+#endif
+
 /*
  * Regulators definitions used in PMU.
  *
@@ -152,6 +164,45 @@ static struct ricoh618_platform_data ricoh618_private = {
 static struct ricoh618_battery_platform_data ricoh618_bat_private = {
 	.alarm_vol_mv = 3000,
 	.monitor_time = 60,
+	.ch_vfchg 	= 0xFF,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+	.ch_vrchg 	= 0xFF,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
+	.ch_vbatovset 	= 0xFF,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
+	.ch_ichg 	= 0xFF,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
+	.ch_ilim_adp 	= 0xFF,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
+	.ch_ilim_usb 	= 0xFF,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
+	.ch_icchg 	= 0x03,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
+	.fg_target_vsys = 3000,	/* This value is the target one to DSOC=0% */
+	.fg_target_ibat = 1000, /* This value is the target one to DSOC=0% */
+	.jt_en 		= 0,	/* JEITA Enable	  = 0 or 1 (1:enable, 0:disable) */
+	.jt_hw_sw 	= 1,	/* JEITA HW or SW = 0 or 1 (1:HardWare, 0:SoftWare) */
+	.jt_temp_h 	= 50,	/* degree C */
+	.jt_temp_l 	= 12,	/* degree C */
+	.jt_vfchg_h 	= 0x03,	/* VFCHG High  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+	.jt_vfchg_l 	= 0,	/* VFCHG High  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+	.jt_ichg_h 	= 0x0D,	/* VFCHG Low  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+	.jt_ichg_l 	= 0x09,	/* ICHG Low   	= 0 - 0x1D (100mA - 3000mA) */
+
+/*  JEITA Parameter
+*
+*          VCHG
+*            |
+* jt_vfchg_h~+~~~~~~~~~~~~~~~~~~~+
+*            |                   |
+* jt_vfchg_l-| - - - - - - - - - +~~~~~~~~~~+
+*            |    Charge area    +          |
+*  -------0--+-------------------+----------+--- Temp
+*            !                   +
+*          ICHG
+*            |                   +
+*  jt_ichg_h-+ - -+~~~~~~~~~~~~~~+~~~~~~~~~~+
+*            +    |              +          |
+*  jt_ichg_l-+~~~~+   Charge area           |
+*            |    +              +          |
+*         0--+----+--------------+----------+--- Temp
+*            0   jt_temp_l      jt_temp_h   55
+*/
+	.battery_init_data = battery_init_parameter,
+
 };
 
 static struct pmu_platform_data grus_pmu_pdata = {

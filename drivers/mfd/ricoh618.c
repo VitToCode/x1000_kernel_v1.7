@@ -35,7 +35,9 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/ricoh618.h>
 #include <linux/mfd/pmu-common.h>
+#include <linux/delay.h>
 
+#define DEBUG
 struct sleep_control_data {
 	u8 reg_add;
 };
@@ -499,58 +501,128 @@ static void __devinit ricoh618_gpio_init(struct ricoh618 *ricoh618,
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-static void print_regs(const char *header, struct seq_file *s,
-		struct i2c_client *client, int start_offset,
-		int end_offset)
+static void print_regs(const char *header, struct i2c_client *client,
+		int start_offset, int end_offset)
 {
 	uint8_t reg_val;
 	int i;
 	int ret;
 
-	seq_printf(s, "%s\n", header);
+	/*seq_printf("%s\n", header);*/
+	printk("%s\n", header);
 	for (i = start_offset; i <= end_offset; ++i) {
 		ret = __ricoh618_read(client, i, &reg_val);
 		if (ret >= 0)
-			seq_printf(s, "Reg 0x%02x Value 0x%02x\n", i, reg_val);
+			/*seq_printf(s, "Reg 0x%02x Value 0x%02x\n", i, reg_val);*/
+			printk("Reg 0x%02x Value 0x%02x\n", i, reg_val);
 	}
-	seq_printf(s, "------------------\n");
+	printk("------------------\n");
 }
 
-static int dbg_ricoh_show(struct seq_file *s, void *unused)
+/*static int dbg_ricoh_show(struct seq_file *s, void *unused)*/
+static int dbg_ricoh_show(struct ricoh618 *ricoh)
 {
-	struct ricoh618 *ricoh = s->private;
+	/*struct ricoh618 *ricoh = s->private;*/
 	struct i2c_client *client = ricoh->client;
 
-	seq_printf(s, "RICOH618 Registers\n");
-	seq_printf(s, "------------------\n");
+	printk("RICOH618 Registers\n");
+	printk("------------------\n");
 
-	print_regs("System Regs",		s, client, 0x0, 0x05);
-	print_regs("Power Control Regs",	s, client, 0x07, 0x2B);
-	print_regs("DCDC  Regs",		s, client, 0x2C, 0x43);
-	print_regs("LDO   Regs",		s, client, 0x44, 0x5C);
-	print_regs("ADC   Regs",		s, client, 0x64, 0x8F);
-	print_regs("GPIO  Regs",		s, client, 0x90, 0x9B);
-	print_regs("INTC  Regs",		s, client, 0x9C, 0x9E);
-	print_regs("OPT   Regs",		s, client, 0xB0, 0xB1);
-	print_regs("CHG   Regs",		s, client, 0xB2, 0xDF);
-	print_regs("FUEL  Regs",		s, client, 0xE0, 0xFC);
+	print_regs("System Regs",		client, 0x0, 0x05);
+	print_regs("Power Control Regs", client, 0x07, 0x2B);
+	print_regs("DCDC  Regs",		client, 0x2C, 0x43);
+	print_regs("LDO   Regs",		client, 0x44, 0x5C);
+	print_regs("ADC   Regs",		client, 0x64, 0x8F);
+	print_regs("GPIO  Regs",		client, 0x90, 0x9B);
+	print_regs("INTC  Regs",		client, 0x9C, 0x9E);
+	print_regs("OPT   Regs",		client, 0xB0, 0xB1);
+	print_regs("CHG   Regs",		client, 0xB2, 0xDF);
+	print_regs("FUEL  Regs",		client, 0xE0, 0xFC);
 	return 0;
 }
 
 static int dbg_ricoh_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, dbg_ricoh_show, inode->i_private);
+	file->private_data = inode->i_private;
+	printk("   come %s \n",__func__);
+	return 0;
+	/*return single_open(file, dbg_ricoh_show, inode->i_private);*/
+}
+
+static int dbg_ricoh_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	char buf[32];
+	ssize_t buf_size;
+	char *start = buf;
+	unsigned long reg, value;
+	int ret = 0;
+	struct ricoh618 *ricoh = file->private_data;
+
+	buf_size = min(count, (sizeof(buf) - 1));
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	buf[buf_size] = 0;
+
+	while(*start == ' ')
+		start++;
+	reg = simple_strtoul(start, &start, 16);
+	while(*start == ' ')
+		start++;
+	if (strict_strtoul(start, 16, &value))
+		return -EINVAL;
+
+	add_taint(TAINT_USER);
+
+	printk("   %s  reg: 0x%lx  value: 0x%lx\n",__func__,reg,value);
+	ret = __ricoh618_write(ricoh->client,(u8)reg, (uint8_t)value);
+	if (ret)
+		printk("       write 0x%lx register failed!\n", reg);
+	else
+		printk("       write successed\n");
+
+	return buf_size;
+}
+
+static int dbg_ricoh_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct ricoh618 *ricoh = file->private_data;
+	/*struct i2c_client *client = ricoh->client;*/
+	char *buf;
+	ssize_t ret;
+
+	if (*ppos < 0 || !count)
+		return -EINVAL;
+
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = dbg_ricoh_show(ricoh);
+	if (ret >= 0) {
+        if (copy_to_user(user_buf, buf, ret)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		*ppos += ret;
+	}
+
+	kfree(buf);
+	return ret;
 }
 
 static const struct file_operations debug_fops = {
 	.open		= dbg_ricoh_open,
-	.read		= seq_read,
+	/*.read		= seq_read,
+	.llseek		= seq_lseek,*/
+	.read		= dbg_ricoh_read,
+	.write		= dbg_ricoh_write,
 	.llseek		= seq_lseek,
+
 	.release	= single_release,
 };
 static void __init ricoh618_debuginit(struct ricoh618 *ricoh)
 {
-	(void)debugfs_create_file("ricoh618", S_IRUGO, NULL,
+	(void)debugfs_create_file("ricoh618", S_IRWXUGO, NULL,
 			ricoh, &debug_fops);
 }
 #else
@@ -650,6 +722,7 @@ static int  __devexit ricoh618_i2c_remove(struct i2c_client *i2c)
  * IRQ should be enabled when suspend, debug it later.
  */
 /*
+*/
 static int ricoh618_i2c_suspend(struct i2c_client *i2c, pm_message_t state)
 {
 	printk("hagahaga %s: \n",__func__);
@@ -660,16 +733,26 @@ static int ricoh618_i2c_suspend(struct i2c_client *i2c, pm_message_t state)
 }
 
 
+int pwrkey_wakeup;
 static int ricoh618_i2c_resume(struct i2c_client *i2c)
 {
+	uint8_t reg_val;
+	int ret;
 
-	printk("hagahaga %s: \n",__func__);
+	printk(KERN_INFO "PMU: %s:\n", __func__);
+
+	ret = __ricoh618_read(i2c, RICOH618_INT_IR_SYS, &reg_val);
+	if (reg_val & 0x01) { /* If PWR_KEY wakeup */
+		printk(KERN_INFO "PMU: %s: PWR_KEY Wakeup\n", __func__);
+		pwrkey_wakeup = 1;
+		/* Clear PWR_KEY IRQ */
+		__ricoh618_write(i2c, RICOH618_INT_IR_SYS, 0x0);
+	}
 
 	if (i2c->irq)
 		enable_irq(i2c->irq);
 	return 0;
 }
-*/
 #endif
 
 static const struct i2c_device_id ricoh618_i2c_id[] = {
