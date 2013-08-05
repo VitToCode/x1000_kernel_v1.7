@@ -32,6 +32,7 @@
 
 //618 Register information
 //bank 0
+#define VINDAC_REG		0x03
 #define PSWR_REG		0x07
 //for ADC
 #define	INTEN_REG			0x9D
@@ -39,11 +40,15 @@
 #define	ADCCNT3_REG		0x66
 #define	VBATDATAH_REG		0x6A
 #define	VBATDATAL_REG		0x6B
+#define VSYSDATAH_REG       0x70
+#define VSYSDATAL_REG       0x71
 
 #define CHGCTL1_REG		0xB3
 #define	REGISET1_REG		0xB6
 #define	REGISET2_REG		0xB7
+#define TIMSET_REG		0xB9
 #define	CHGISET_REG		0xB8
+#define	BATSET1_REG		0xBA
 #define	BATSET2_REG		0xBB
 
 #define CHGSTATE_REG		0xBD
@@ -75,6 +80,7 @@
 /* Top address for battery initial setting */
 #define	BAT_INIT_TOP_REG	0xBC
 #define	BAT_REL_SEL_REG		0xDA
+#define	BAT_TA_SEL_REG		0xDB
 /**************************/
 
 /* detailed status in CHGSTATE (0xBD) */
@@ -107,6 +113,24 @@ struct ricoh618_battery_platform_data {
 	int	alarm_vol_mv;
 	int	multiple;
 	unsigned long	monitor_time;
+	uint8_t *battery_init_data;
+	int ch_vfchg;
+	int ch_vrchg;
+	int ch_vbatovset;
+	int ch_ichg;
+	int ch_ilim_adp;
+	int ch_ilim_usb;
+	int ch_icchg;
+	int fg_target_vsys;
+	int fg_target_ibat;
+	int jt_en;
+	int jt_hw_sw;
+	int jt_temp_h;
+	int jt_temp_l;
+	int jt_vfchg_h;
+	int jt_vfchg_l;
+	int jt_ichg_h;
+	int jt_ichg_l;
 };
 
 
