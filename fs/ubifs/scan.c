@@ -27,6 +27,7 @@
  * debugging functions.
  */
 
+#include "../drivers/mtd/ubi/ubi.h"
 #include "ubifs.h"
 
 /**
@@ -239,7 +240,8 @@ void ubifs_scanned_corruption(const struct ubifs_info *c, int lnum, int offs,
 {
 	int len;
 
-	ubifs_err("corruption at LEB %d:%d", lnum, offs);
+	ubifs_err("corruption at LEB %d(PEB %d):%d", lnum, c->ubi->vol->eba_tbl[lnum], offs);
+
 	if (dbg_failure_mode)
 		return;
 	len = c->leb_size - offs;

@@ -110,9 +110,7 @@ struct ubifs_debug_info {
 #define dbg_dump_stack() dump_stack()
 
 #define dbg_err(fmt, ...) do {                                                 \
-	spin_lock(&dbg_lock);                                                  \
 	ubifs_err(fmt, ##__VA_ARGS__);                                         \
-	spin_unlock(&dbg_lock);                                                \
 } while (0)
 
 const char *dbg_key_str0(const struct ubifs_info *c,
@@ -128,9 +126,7 @@ const char *dbg_key_str1(const struct ubifs_info *c,
 #define DBGKEY1(key) dbg_key_str1(c, (key))
 
 #define ubifs_dbg_msg(type, fmt, ...) do {                        \
-	spin_lock(&dbg_lock);                                     \
 	pr_debug("UBIFS DBG " type ": " fmt "\n", ##__VA_ARGS__); \
-	spin_unlock(&dbg_lock);                                   \
 } while (0)
 
 /* Just a debugging messages not related to any specific UBIFS subsystem */
