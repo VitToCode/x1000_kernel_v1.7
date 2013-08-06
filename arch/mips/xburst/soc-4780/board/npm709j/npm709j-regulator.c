@@ -107,12 +107,19 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,	EN_AT_BOOT,	0,
 	NULL,		"vlcd",		NULL);
 #endif
+FIXED_REGULATOR_DEF(
+	npm709j_vethnet,
+	"Ethnet",	3300000,	GPIO_PB(25),
+	HIGH_ENABLE,	UN_AT_BOOT,	0,
+	NULL,		"vethnet",	NULL);
+
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&npm709j_vhdmi_regulator_device,
 	&npm709j_vgsensor_regulator_device,
 	//&npm709j_vbus_regulator_device,
 	&npm709j_vcim_regulator_device,
 	//&npm709j_vlcd_regulator_device,
+	&npm709j_vethnet_regulator_device,
 };
 
 /*
