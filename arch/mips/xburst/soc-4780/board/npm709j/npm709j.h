@@ -69,13 +69,13 @@ extern struct snd_codec_data codec_data;
 #define GPIO_MIC_DETECT		GPIO_PD(15)		/*mic detect gpio*/
 #define GPIO_MIC_INSERT_LEVEL	0
 
-#define GPIO_MIC_SELECT		GPIO_PB(25)		/*mic select gpio*/
+#define GPIO_MIC_SELECT		-1//GPIO_PB(25)		/*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL	1			/*headset mic select level*/
 
 #define GPIO_HANDSET_EN		  -1		/*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL -1
 
-#define GPIO_MIC_DETECT_EN		GPIO_PB(25)  /*mic detect enable gpio*/
+#define GPIO_MIC_DETECT_EN		-1//GPIO_PB(25)  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL	0		/*mic detect enable gpio*/
 /**
  * nand platform data
@@ -161,6 +161,10 @@ extern struct platform_nand_data jz_nand_chip_data;
  */
 #define GPIO_MOTOR_PIN			GPIO_PB(24) /* PB24 */
 
+/*
+*ethnet power on 
+*/
+#define GPIO_ETHNET_POWER_EN		GPIO_PB(25) /* PB25 */
 /**
  * USB detect pin
  **/
