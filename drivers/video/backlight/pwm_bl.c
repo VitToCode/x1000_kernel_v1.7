@@ -50,18 +50,21 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	int max = bl->props.max_brightness;
 
     mutex_lock(&pb->pwm_lock);
+
 	if (bl->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
 
 	if (bl->props.fb_blank != FB_BLANK_UNBLANK)
 		brightness = 0;
 
-	if (pb->notify)
+	if (pb->notify) {
 		brightness = pb->notify(pb->dev, brightness);
-
-    if (pb->suspend && (brightness > pb->cur_brightness)) {
-        pb->cur_brightness = brightness;
-        //printk("pb->suspend, brightness =%d\n", brightness);
+	}
+    /*
+     * if backlight has been suspended we shouldn't update brightness
+     * until backlight has been resumed.
+     */
+    if (pb->suspend) {
         mutex_unlock(&pb->pwm_lock);
         return 0;
     }
@@ -120,7 +123,6 @@ static void bk_l_resume(struct early_suspend *h)
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend);
 
-    pb->suspend = 0;
 	mutex_lock(&pb->pwm_lock);
 	pwm_disable(pb->pwm);
     brightness = pb->cur_brightness;
@@ -128,6 +130,7 @@ static void bk_l_resume(struct early_suspend *h)
         (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
     pwm_config(pb->pwm, brightness, pb->period);
     pwm_enable(pb->pwm);
+    pb->suspend = 0;
     mutex_unlock(&pb->pwm_lock);
 }
 #endif
@@ -166,6 +169,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	pb->dev = &pdev->dev;
 
 	pb->pwm = pwm_request(data->pwm_id, "backlight");
+
 	if (IS_ERR(pb->pwm)) {
 		dev_err(&pdev->dev, "unable to request PWM for backlight\n");
 		ret = PTR_ERR(pb->pwm);
