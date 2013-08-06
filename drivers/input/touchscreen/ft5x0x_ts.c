@@ -358,7 +358,7 @@ static int ft5x0x_i2c_rxdata(struct ft5x0x_ts_data *ts, char *writebuf, int writ
 		};
 		ret = i2c_transfer(ts->client->adapter, msgs, 2);
 		if (ret < 0) {
-			dev_err(&ts->client->dev,"%s:i2c read error.", __func__);
+			dev_err(&ts->client->dev,"%s:i2c read error.\n", __func__);
 			ft5x0x_ts_release(ts);
 			ft5x0x_chip_reset(ts);
 		}
@@ -373,7 +373,7 @@ static int ft5x0x_i2c_rxdata(struct ft5x0x_ts_data *ts, char *writebuf, int writ
 		};
 		ret = i2c_transfer(ts->client->adapter, msgs, 1);
 		if (ret < 0) {
-			dev_err(&ts->client->dev,"%s:i2c read error.", __func__);
+			dev_err(&ts->client->dev,"%s:i2c read error.\n", __func__);
 			ft5x0x_chip_reset(ts);
 		}
 	}
@@ -395,7 +395,7 @@ static int ft5x0x_i2c_txdata(struct ft5x0x_ts_data *ts, char *txdata, int length
 	msleep(1);
 	ret = i2c_transfer(ts->client->adapter, msg, 1);
 	if (ret < 0) {
-		dev_err(&ts->client->dev,"%s:i2c write error.", __func__);
+		dev_err(&ts->client->dev,"%s:i2c write error.\n", __func__);
 		ft5x0x_ts_release(ts);
 		ft5x0x_chip_reset(ts);
 	}
@@ -413,7 +413,7 @@ static int ft5x0x_set_reg(struct ft5x0x_ts_data *ts, u8 addr, u8 para)
 	ret = ft5x0x_i2c_txdata(ts, buf, 2);
 	mutex_unlock(&ts->rwlock);
 	if (ret < 0) {
-		dev_err(&ts->client->dev, "Failed to write register. %#x retval: %d", buf[0], ret);
+		dev_err(&ts->client->dev, "Failed to write register %#x retval: %d\n", buf[0], ret);
 		return -1;
 	}
 
@@ -455,10 +455,10 @@ static int ft5x0x_ts_enable(struct ft5x0x_ts_data *ts) {
 	int ret = 0;
 	ret = ft5x0x_ts_power_on(ts);
 	if (ret < 0) {
-		dev_err(&ts->client->dev, "Failed to power on.");
+		dev_err(&ts->client->dev, "Failed to power on.\n");
 		return ret;
 	}
-	msleep(500);
+	msleep(100);
 	ft5x0x_chip_reset(ts);
 	msleep(100);
 	return 0;
@@ -474,7 +474,7 @@ static int ft5x0x_ts_disable(struct ft5x0x_ts_data *ts) {
 	ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 	ret = ft5x0x_ts_power_off(ts);
 	if (ret < 0) {
-		dev_err(&ts->client->dev, "Failed to power off.");
+		dev_err(&ts->client->dev, "Failed to power off.\n");
 		return ret;
 	}
 	return 0;
@@ -733,14 +733,13 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
-	int ret = 0;
 	struct ft5x0x_ts_data *ts;
 	ts =  container_of(handler, struct ft5x0x_ts_data, early_suspend);
 
 #ifdef CONFIG_FT5X0X_DEBUG
 	printk("==ft5x0x_ts_suspend=\n");
 #endif
-	dev_info(&ts->client->dev, ": starting suspend.");
+	dev_info(&ts->client->dev, ": starting suspend.\n");
 	mutex_lock(&ts->lock);
 	ts->is_suspend = 1;
 	disable_irq_nosync(ts->client->irq);
@@ -750,14 +749,13 @@ static void ft5x0x_ts_suspend(struct early_suspend *handler)
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
-	int ret = 0;
 	struct ft5x0x_ts_data *ts;
 	ts = container_of(handler, struct ft5x0x_ts_data, early_suspend);
 
 #ifdef CONFIG_FT5X0X_DEBUG
 	printk("==ft5x0x_ts_resume=\n");
 #endif
-	dev_info(&ts->client->dev, ": starting resume.");
+	dev_info(&ts->client->dev, ": starting resume.\n");
 	mutex_lock(&ts->lock);
 	ft5x0x_ts_enable(ts);
 	ts->is_suspend = 0;
@@ -819,29 +817,29 @@ static ssize_t pmode_reg_w(struct device* dev, struct device_attribute* attr,
 		return -ENOENT;
 
 	if (var > 4 || var < 0) {
-		dev_err(&client->dev, "Argument is not available");
+		dev_err(&client->dev, "Argument is not available.\n");
 		return -EINVAL;
 	}
 
 	switch (var) {
 	case 0:
-		dev_info(&client->dev, "set ft5x0x to active mode");
+		dev_info(&client->dev, "set ft5x0x to active mode.\n");
 		ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_ACTIVE);
 		break;
 	case 1:
-		dev_info(&client->dev, "set ft5x0x to monitor mode");
+		dev_info(&client->dev, "set ft5x0x to monitor mode.\n");
 		ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_MONITOR);
 		break;
 	case 2:
-		dev_info(&client->dev, "set ft5x0x to standby mode");
+		dev_info(&client->dev, "set ft5x0x to standby mode.\n");
 		ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_STANDBY);
 		break;
 	case 3:
-		dev_info(&client->dev, "set ft5x0x to hibernate mode");
+		dev_info(&client->dev, "set ft5x0x to hibernate mode.\n");
 		ft5x0x_set_reg(ts, FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 		break;
 	case 4:
-		dev_info(&client->dev, "wakeup ft5x0x...");
+		dev_info(&client->dev, "wakeup ft5x0x...\n");
 		ft5x0x_chip_reset(ts);
 		break;
 	default:
@@ -874,23 +872,31 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_alloc_data_failed;
 	}
 
-	mutex_init(&ft5x0x_ts->lock);
-	mutex_init(&ft5x0x_ts->rwlock);
-
-	client->dev.init_name=client->name;
-	ft5x0x_ts->power = regulator_get(&client->dev, "vtsc");
-	if (IS_ERR(ft5x0x_ts->power)) {
-		dev_err(&client->dev, "Failed to get regulator.");
+	pdata = client->dev.platform_data;
+	if (!pdata) {
+		dev_err(&client->dev, "%s: platform data is null.\n", __func__);
+		goto exit_platform_data_null;
 	}
-	ft5x0x_ts_power_on(ft5x0x_ts);
-	msleep(500);
-	atomic_set(&ft5x0x_ts->regulator_enabled, 0);
 
 	ft5x0x_ts->para.x_res = pdata->x_max - 1;
 	ft5x0x_ts->para.y_res = pdata->y_max - 1;
 	ft5x0x_ts->is_suspend = 0;
 	ft5x0x_ts->client = client;
+
+	mutex_init(&ft5x0x_ts->lock);
+	mutex_init(&ft5x0x_ts->rwlock);
+
 	i2c_set_clientdata(client, ft5x0x_ts);
+
+	client->dev.init_name=client->name;
+
+	ft5x0x_ts->power = regulator_get(&client->dev, "vtsc");
+	if (IS_ERR(ft5x0x_ts->power)) {
+		dev_err(&client->dev, "Failed to get regulator.\n");
+	}
+	ft5x0x_ts_power_on(ft5x0x_ts);
+	msleep(500);
+	atomic_set(&ft5x0x_ts->regulator_enabled, 0);
 
 	ft5x0x_gpio_init(ft5x0x_ts, client);
 
@@ -900,12 +906,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (!ft5x0x_ts->ts_workqueue) {
 		err = -ESRCH;
 		goto exit_create_singlethread;
-	}
-
-	pdata = client->dev.platform_data;
-	if (pdata == NULL) {
-		dev_err(&client->dev, "%s: platform data is null\n", __func__);
-		goto exit_platform_data_null;
 	}
 
 	client->irq = gpio_to_irq(ft5x0x_ts->gpio.irq->num);
@@ -1016,31 +1016,34 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	return 0;
 
 exit_input_register_device_failed:
-	input_free_device(input_dev);
+#ifdef CONFIG_TOUCHSCREEN_FT5X0X_TOUCH_KEY
+	input_unregister_device(ft5x0x_ts->input_dev1);
+#endif
 
 exit_input_register_device_failed1:
+#ifdef CONFIG_TOUCHSCREEN_FT5X0X_TOUCH_KEY
 	input_free_device(ft5x0x_ts->input_dev1);
+#endif
 
 exit_input_dev_alloc_failed1:
+	input_free_device(input_dev);
 
 exit_input_dev_alloc_failed:
 	free_irq(client->irq, ft5x0x_ts);
 
 exit_irq_request_failed:
-
-
-exit_platform_data_null:
 	//cancel_work_sync(&ft5x0x_ts->pen_event_work);
 	cancel_delayed_work(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 
 exit_create_singlethread:
 	i2c_set_clientdata(client, NULL);
-	kfree(ft5x0x_ts);
 	ft5x0x_ts_power_off(ft5x0x_ts);
 
-exit_alloc_data_failed:
+exit_platform_data_null:
+	kfree(ft5x0x_ts);
 
+exit_alloc_data_failed:
 exit_check_functionality_failed:
 	return err;
 }
