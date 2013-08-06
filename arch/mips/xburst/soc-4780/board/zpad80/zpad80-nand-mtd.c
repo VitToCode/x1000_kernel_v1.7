@@ -37,13 +37,13 @@
 #define SIZE_BOOT        (16     * SIZE_MB)
 
 #define OFFSET_SYSTEM    (OFFSET_BOOT + SIZE_BOOT)
-#define SIZE_SYSTEM      (512    * SIZE_MB)
+#define SIZE_SYSTEM      (320    * SIZE_MB)
 
 #define OFFSET_DATA      (OFFSET_SYSTEM + SIZE_SYSTEM)
-#define SIZE_DATA        (248   * SIZE_MB)
+#define SIZE_DATA        (512   * SIZE_MB)
 
 #define OFFSET_CACHE     (OFFSET_DATA + SIZE_DATA)
-#define SIZE_CACHE       (128    * SIZE_MB)
+#define SIZE_CACHE       (48    * SIZE_MB)
 
 #define OFFSET_RECOVERY  (OFFSET_CACHE + SIZE_CACHE)
 #define SIZE_RECOVERY    (16     * SIZE_MB)

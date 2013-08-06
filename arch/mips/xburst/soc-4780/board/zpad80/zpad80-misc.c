@@ -24,6 +24,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
 #include <linux/regulator/consumer.h>
 
@@ -139,6 +140,14 @@ static struct platform_device zpad80_li_ion_charger_device = {
 		.platform_data = &zpad80_li_ion_charger_pdata,
 	},
 };
+
+#ifdef CONFIG_JZ4780_EFUSE
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = -ENODEV,
+};
+#endif
+
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
@@ -323,6 +332,9 @@ static int __init zpad80_board_init(void)
 #ifdef CONFIG_BATTERY_JZ4780
 	jz_device_register(&jz_adc_device, &zpad80_battery_pdata);
 #endif
+#ifdef CONFIG_JZ4780_EFUSE
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
+#endif
 /* ac charger */
 	platform_device_register(&zpad80_ac_charger_device);
 /* li-ion charger */
@@ -430,18 +442,6 @@ static struct wake_lock       keep_alive_lock;
 
 static int __init zpad80_board_lateinit(void)
 {
-	//gpio_request(GPIO_PA(17), "5v_en");
-	//gpio_direction_output(GPIO_PA(17), 1);
-	struct regulator *power_en;
-
-	power_en = regulator_get(NULL, "vpower_en");
-	if (IS_ERR(power_en)) {
-		dev_err(NULL, "failed to get regulator vpower_enn");
-		return PTR_ERR(power_en);
-    		}
-
-	regulator_enable(power_en);
-
     /*can't sleep by hhu*/
     wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
     wake_lock(&keep_alive_lock);
