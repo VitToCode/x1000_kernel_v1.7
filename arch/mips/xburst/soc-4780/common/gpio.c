@@ -701,7 +701,11 @@ int __init setup_gpio_pins(void)
 			jz->dev_map[0] |= g->pins;
 		}
 
-		gpio_set_func(jz, g->func, g->pins);
+		if(strcmp(g->name,"lcd") == 0){
+			pr_info("ingore setting lcd's pins!\n");
+		} else {
+			gpio_set_func(jz, g->func, g->pins);
+		}
 	}
 
 	jz_gpiolib_init();
