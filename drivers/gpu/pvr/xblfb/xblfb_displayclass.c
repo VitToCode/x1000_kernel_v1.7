@@ -965,7 +965,12 @@ static XBLFB_ERROR XBLFBInitFBDev(XBLFB_DEVINFO *psDevInfo)
 	 * This is used internally, to ensure buffers start on page
 	 * boundaries, for the benefit of PVR Services.
 	 */
-	psPVRFBInfo->ulRoundedBufferSize = RoundUpToMultiple(psPVRFBInfo->ulBufferSize, ulLCM);
+	/*psPVRFBInfo->ulRoundedBufferSize = RoundUpToMultiple(psPVRFBInfo->ulBufferSize, ulLCM);*/
+
+	/* JZ4780 GPU requires only 4096 alignment,
+	 * and stride not necessarily aligned.
+	 */
+	psPVRFBInfo->ulRoundedBufferSize = RoundUpToMultiple(psPVRFBInfo->ulBufferSize, XBLFB_PAGE_SIZE);
 
 	if(psLINFBInfo->var.bits_per_pixel == 16)
 	{

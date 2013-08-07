@@ -44,7 +44,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
-static int jzfb_lcdc_reset(struct fb_info *info);
+/*static int jzfb_lcdc_reset(struct fb_info *info);*/
 
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id		= "jzfb",
@@ -1318,7 +1318,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 		return -EINVAL;
 	}
 
-	videosize = mode->xres * mode->yres;
+	videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
 	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
 	videosize *= NUM_FRAME_BUFFERS;
 
@@ -1721,6 +1721,7 @@ static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd)
 	aosd_info.bpp = info->var.bits_per_pixel;
 	aosd_info.width = info->var.xres;
 	aosd_info.height = info->var.yres;
+	aosd_info.src_stride = info->fix.line_length;
 	aosd_info.is_desc_init = 0;
 	aosd_init(&aosd_info);
 	aosd_info.buf_offset = (aosd_info.dst_stride << 2)
@@ -2351,7 +2352,8 @@ static int jzfb_copy_logo(struct fb_info *info)
 	unsigned long src_addr = 0; /* x-boot logo buffer address */
 	unsigned long dst_addr = 0; /* kernel frame buffer address */
 	unsigned long size;
-	int i = 0;
+	unsigned long offsize;
+	int i = 0, j = 0;
 	struct jzfb *jzfb = info->par;
 
 	/* get buffer physical address */
@@ -2365,11 +2367,27 @@ static int jzfb_copy_logo(struct fb_info *info)
 
 	if (src_addr) {
 		src_addr = (unsigned long)phys_to_virt(src_addr);
-		size = info->fix.line_length * info->var.yres;
+		if(ALIGN(info->var.xres, PIXEL_ALIGN) == info->var.xres) {
+			size = info->fix.line_length * info->var.yres;
 
-		for(i=0; i<NUM_FRAME_BUFFERS; i++) {
-			dst_addr = (unsigned long)info->screen_base + i*size;
-			memcpy((void *)dst_addr, (void *)src_addr, size);
+			for(i=0; i<NUM_FRAME_BUFFERS; i++) {
+				dst_addr = (unsigned long)info->screen_base + i*size;
+				memcpy((void *)dst_addr, (void *)src_addr, size);
+			}
+		} else {
+			size = info->var.bits_per_pixel * info->var.xres >> 3;
+			offsize = info->var.bits_per_pixel * (ALIGN(info->var.xres,
+								 PIXEL_ALIGN)-info->var.xres) >> 3;
+
+			dst_addr = (unsigned long)info->screen_base;
+			for(i=0; i<NUM_FRAME_BUFFERS; i++) {
+				unsigned long temp_src_addr = src_addr;
+				for(j=0; j<info->var.yres; j++) {
+					memcpy((void *)dst_addr, (void *)temp_src_addr, size);
+					dst_addr += (size + offsize);
+					temp_src_addr += size;
+				}
+			}
 		}
 	}
 
@@ -2742,6 +2760,7 @@ static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w),
 };
 
+#if 0
 static int jzfb_lcdc_reset(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
@@ -2918,6 +2937,7 @@ static int jzfb_lcdc_reset(struct fb_info *info)
 
 	return 0;
 }
+#endif
 
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {

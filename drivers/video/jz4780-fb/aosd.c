@@ -182,16 +182,16 @@ void aosd_init(struct jzfb_aosd_info *info)
 			/* 24bpp with alpha is equal to double 16bpp */
 			bpp = 16;
 			width = info->width * 2;
-			src_stride = (width * info->bpp) >> 5; /* in word */
+			src_stride = info->src_stride * 2 >> 2; /* in word */
 		} else {
 			bpp = info->bpp;
 			width = info->width;
-			src_stride = (width * info->bpp) >> 5; /* in word */
+			src_stride = info->src_stride >> 2; /* in word */
 		}
 	} else {
 		bpp = info->bpp;
 		width = info->width;
-		src_stride = (width * 32) >> 5; /* in word */
+		src_stride = info->src_stride >> 2; /* in word */
 	}
 
 	/*
@@ -295,8 +295,13 @@ void aosd_start(void)
 		volatile int i = 0, j = 0;
 		int cpsize = STRIDE_ALIGN * 4;
 		if((unsigned long)aosd_info.raddr < 0x10000000){
-			src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
-				+ (word_per_line * (aosd_info.height - 1));
+			if (aosd_info.with_alpha != 0 && aosd_info.bpp != 16) {
+				src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
+					+ ((aosd_info.src_stride / 2) * (aosd_info.height - 1));
+			} else {
+				src = (unsigned int *)phys_to_virt((unsigned long)aosd_info.raddr)
+					+ (aosd_info.src_stride * (aosd_info.height - 1));
+			}
 		}else{
 			/*Dealing with  the last line in third buf */
 			src = (unsigned int *)aosd_info.buf_virt_addr
