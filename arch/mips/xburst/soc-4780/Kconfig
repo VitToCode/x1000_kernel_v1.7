@@ -72,6 +72,10 @@ config BOARD_GRUS
 
 config BOARD_GRUS_V_1_0_1
 		bool "Grus v1.0.1"
+
+config BOARD_NPM3701
+		bool "npm3701"
+
 config BOARD_ZPAD80
         bool "ZPAD80"
 
@@ -108,6 +112,7 @@ config BOARD_NAME
 	default "I88" if BOARD_I88
 	default "Grus" if BOARD_GRUS
 	default "GrusV101" if BOARD_GRUS_V_1_0_1
+	default "npm3701" if BOARD_NPM3701
 	default "ZPAD80" if BOARD_ZPAD80
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
 	default "EBOOK" if BOARD_EBOOK
