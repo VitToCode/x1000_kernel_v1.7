@@ -37,9 +37,9 @@
 #include <soc/cache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <linux/regulator/consumer.h>
 #include <linux/err.h>
 #include <mach/jzcpm_pwc.h>
-
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
 #else
@@ -47,10 +47,12 @@ static void jzsoc_smp_showregs(void);
 #endif
 
 static DEFINE_SPINLOCK(smp_lock);
-#define smp_spinlock() 		spin_lock(&smp_lock)
-#define smp_spinunlock() 	spin_unlock(&smp_lock)
+#define smp_spinlock(flags)     spin_lock_irqsave(&smp_lock,flags)
+#define smp_spinunlock(flags) 	spin_unlock_irqrestore(&smp_lock,flags)
+static unsigned int cpu_reim = 1;
 
 static int smp_flag;
+//static struct regulator *scpu_regulator = NULL;
 
 #define SMP_FLAG (*(volatile int*)KSEG1ADDR(&smp_flag))
 
@@ -58,13 +60,11 @@ static struct cpumask cpu_ready_e, cpu_running, cpu_start;
 static struct cpumask *cpu_ready;
 static unsigned long boot_sp, boot_gp;
 static void *scpu_pwc = NULL;
-
 /* Special cp0 register init */
 static void __cpuinit jzsoc_smp_init(void)
 {
 	unsigned int imask = STATUSF_IP3 | STATUSF_IP2 |
 		STATUSF_IP1 | STATUSF_IP0;
-
 	change_c0_status(ST0_IM, imask);
 }
 
@@ -77,9 +77,11 @@ extern void percpu_timer_stop(void);
 void percpu_timer_setup(void);
 static void __cpuinit jzsoc_init_secondary(void)
 {
+	int cpu = smp_processor_id();
+	smp_disable_interrupt(cpu);
 	jzsoc_smp_init();
+	jzcpu_timer_setup();
 	jzsoc_smp_showregs();
-	jzcpu_timer_setup();		
 //	percpu_timer_setup();
 }
 
@@ -87,14 +89,16 @@ static void __cpuinit jzsoc_init_secondary(void)
  * Do any tidying up before marking online and running the idle
  * loop
  */
-
+extern void percpu_timer_cpu_affinity(void);
 static void __cpuinit jzsoc_smp_finish(void)
 {
 	int cpu = smp_processor_id();
+	cpu_reim |= (1 << cpu);
+	smp_enable_interrupt(cpu);
+	percpu_timer_cpu_affinity();
 	local_irq_enable();
-	//jz_cpu1_clockevent_init();
 	jzsoc_smp_showregs();
-	pr_info("[SMP] slave cpu%d start up finished.\n",cpu);
+	printk("[SMP] slave cpu%d start up finished.\n",cpu);
 }
 
 static struct bounce_addr {
@@ -172,8 +176,7 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	unsigned long flags,ctrl;
 
 
-	preempt_enable_no_resched();
-
+	printk("jzsoc_boot_secondary start\n");
 	local_irq_save(flags);
 
 	/* set reset bit! */
@@ -188,6 +191,7 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	cpm_clear_bit(15,CPM_CLKGR1);
 	cpm_pwc_enable(scpu_pwc);
 	preempt_disable();
+	preempt_enable_no_resched();
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
@@ -196,13 +200,12 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 wait:
 	if (!cpumask_test_cpu(cpu, cpu_ready))
 		goto wait;
-
-	pr_debug("[SMP] Booting CPU%d ...\n", cpu);
+	pr_info("[SMP] Booting CPU%d ...\n", cpu);
+//	pr_debug("[SMP] Booting CPU%d ...\n", cpu);
 	err = cpu_boot(cpu_logical_map(cpu), __KSTK_TOS(idle),
 			(unsigned long)task_thread_info(idle));
 	if (err != 0)
 		pr_err("start_cpu(%i) returned %i\n" , cpu, err);
-
 	local_irq_restore(flags);
 }
 
@@ -236,11 +239,11 @@ static void __init jzsoc_prepare_cpus(unsigned int max_cpus)
 
 	if(max_cpus <= 1) return;
 
-	set_smp_mbox0(0);	
+	set_smp_mbox0(0);
 	set_smp_mbox1(0);
 	set_smp_mbox2(0);
 	set_smp_mbox3(0);
-	
+
 	cpu_ready = (cpumask_t*)KSEG1ADDR(&cpu_ready_e);
 
 	pr_debug("[SMP] Prepare %d cpus.\n", max_cpus);
@@ -294,56 +297,43 @@ void jzsoc_cpus_done(void)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
+void reset_irq_resp_fifo(int cpu);
 int jzsoc_cpu_disable(void)
 {
 	unsigned int cpu = smp_processor_id();
-	unsigned int status;
+//	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
-
-	local_irq_disable();
-
 	cpu_clear(cpu, cpu_online_map);
 	cpu_clear(cpu, cpu_callin_map);
 
-	smp_spinlock();
-	status = get_smp_reim();
-	if(status & (1 << (cpu + 8))) {
-		status &= ~(1 << (cpu + 8));
-		status |= (1 << 8); // irq to cpu0
-		set_smp_reim(status);
-	}
-	smp_spinunlock();
-
+	local_irq_disable();
 	percpu_timer_stop();
-
+	cpu_reim &= ~(1 << cpu);
+	smp_disable_interrupt(cpu);
+	smp_enable_interrupt(0);
+	reset_irq_resp_fifo(cpu);
 	return 0;
 }
-
 void jzsoc_cpu_die(unsigned int cpu)
 {
 	unsigned long flags;
 	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return;
-
 	local_irq_save(flags);
-
 	cpumask_clear_cpu(cpu, cpu_ready);
 	cpumask_clear_cpu(cpu, &cpu_start);
 	cpumask_clear_cpu(cpu, &cpu_running);
-
 	wmb();
-
 	do{
 		status = get_smp_status();
 	}while(!(status & (1<<(cpu+16))));
-
 	cpm_pwc_disable(scpu_pwc);
-
 	cpm_set_bit(15,CPM_CLKGR1);
-
 	local_irq_restore(flags);
+
+	printk("disable cpu %d\n",cpu);
 }
 #endif
 
@@ -353,6 +343,9 @@ void __play_dead(void)
 				".set	mips3		\n"
 				"sync			\n"
 				"wait			\n"
+				"nop			\n"
+				"nop			\n"
+				"nop			\n"
 				".set	pop		\n"
 				);
 }
@@ -361,27 +354,27 @@ void play_dead(void)
 {
 	unsigned int cpu = smp_processor_id();
 
-	void (*do_play_dead)(void) = (void (*)(void))KSEG1ADDR(__play_dead); 
+	void (*do_play_dead)(void) = (void (*)(void))KSEG1ADDR(__play_dead);
 
 	local_irq_disable();
-
 	if(cpu == 0) set_smp_mbox0(0);
 	else if(cpu == 1) set_smp_mbox1(0);
 	else if(cpu == 2) set_smp_mbox2(0);
 	else if(cpu == 3) set_smp_mbox3(0);
 
 	smp_clr_pending(1<<cpu);
-
+	smp_clr_pending(1<<(cpu + 8));
 	while(1) {
 		while(cpumask_test_cpu(cpu, &cpu_running))
 			;
-
+		local_flush_tlb_all();
 		blast_icache_jz();
 		blast_dcache_jz();
 
 		do_play_dead();
 	}
 }
+
 
 struct plat_smp_ops jzsoc_smp_ops = {
 	.send_ipi_single	= jzsoc_send_ipi_single,
@@ -416,15 +409,13 @@ static void jzsoc_smp_showregs(void)
 	}
 #endif
 
-extern void smp_ipi_timer_interrupt(void);
-
-void jzsoc_mbox_interrupt(void)
+void jz_cputimer_interrupt(void);
+void jzsoc_mbox_interrupt(int cpu)
 {
-	int cpu = smp_processor_id();
 	unsigned int action = 0;
-
+	unsigned long flags;
 	//kstat_incr_irqs_this_cpu(IRQ_SMP_IPI, irq_to_desc(IRQ_SMP_IPI));
-	smp_spinlock();
+	smp_spinlock(flags);
 	switch(cpu) {
 #define	CASE_CPU(CPU) case CPU:			\
 		action = get_smp_mbox##CPU();	\
@@ -437,29 +428,40 @@ void jzsoc_mbox_interrupt(void)
 		CASE_CPU(3);
 	}
 	smp_clr_pending(1<<cpu);
-	smp_spinunlock();
+	smp_spinunlock(flags);
 
-	if(!action)
-		return;
-
+	if(!action) {
+	    goto ipi_finish;
+	}
 	/*
 	 * Call scheduler_ipi() if SMP_RESCHEDULE_YOURSELF,
 	 * we changed here in linux-3.0.8
 	 */
+	/*
 	if (action & SMP_RESCHEDULE_YOURSELF)
 		generic_handle_irq(IRQ_SMP_RESCHEDULE_YOURSELF);
 	if (action & SMP_CALL_FUNCTION)
 		generic_handle_irq(IRQ_SMP_CALL_FUNCTION);
-	if (action & SMP_IPI_TIMER)
-		smp_ipi_timer_interrupt();
+	*/
+	if (action & SMP_RESCHEDULE_YOURSELF)
+	       do_IRQ(IRQ_SMP_RESCHEDULE_YOURSELF);
+	if (action & SMP_CALL_FUNCTION)
+		do_IRQ(IRQ_SMP_CALL_FUNCTION);
 
+	if (action & SMP_IPI_TIMER)
+		jz_cputimer_interrupt();
+//		smp_ipi_timer_interrupt();
+ ipi_finish:
+	return;
 }
 
 long switch_cpu_irq(int cpu) {
 	int status,pending;
-	int nextcpu = (cpu + 1) % 2;
+	int nextcpu;
+	unsigned long flags;
 	long ret = 0;
-	smp_spinlock();
+	smp_spinlock(flags);
+	nextcpu = (cpu + 1) % 2;
 	if(cpu_online(nextcpu)){
 		status = get_smp_reim();
 		status &= ~(3 << 8);
@@ -472,8 +474,67 @@ long switch_cpu_irq(int cpu) {
 	pending = get_smp_status();
 	pending &= ~(1 << (cpu + 8));
 	set_smp_status(pending);
-	smp_spinunlock();
+	smp_spinunlock(flags);
 	return ret;
+}
+
+void smp_cputimer_broadcast(int cpu) {
+	jzsoc_send_ipi_single(cpu,SMP_IPI_TIMER);
+}
+
+void smp_enable_interrupt(int cpu) {
+	int status;
+	unsigned long flags;
+	smp_spinlock(flags);
+	status = get_smp_reim();
+	status |= 1 << (8 + cpu);
+	set_smp_reim(status);
+	smp_spinunlock(flags);
+}
+void smp_disable_interrupt(int cpu) {
+	int status;
+	unsigned long flags;
+	smp_spinlock(flags);
+	status = get_smp_reim();
+	status &= ~(1 << (8 + cpu));
+	set_smp_reim(status);
+	smp_spinunlock(flags);
+}
+
+void smpmask_disable_interrupt(int cpu) {
+	int status;
+	unsigned long flags;
+	smp_spinlock(flags);
+	status = get_smp_reim();
+	status &= ~(0xf << 8);
+	status |= cpu_reim << 8;
+	if(cpu != -1)
+		status &= ~(1 << (8 + cpu));
+	set_smp_reim(status);
+	smp_spinunlock(flags);
+}
+int smpmask_enable_interrupt(int cpu) {
+	int status;
+	unsigned long flags;
+	if(!cpu_online(cpu))
+		return -1;
+	smp_spinlock(flags);
+	status = get_smp_reim();
+	status &= ~(0xf << 8);
+	status |= 1 << (8 + cpu);
+	set_smp_reim(status);
+	smp_spinunlock(flags);
+	return 0;
+}
+
+void smp_clear_cpu_pending(int cpu){
+	unsigned int pending;
+	unsigned long flags;
+	smp_spinlock(flags);
+	pending = get_smp_status();
+	pending &= ~(1 << (cpu + 8));
+	set_smp_status(pending);
+	smp_spinunlock(flags);
 }
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND_CPU)
@@ -516,7 +577,14 @@ static int __init init_smp_early_suspend(void)
 	smp_early_suspend.suspend = smp_suspend;
 	smp_early_suspend.resume  = smp_resume;
 	register_early_suspend(&smp_early_suspend);
-
+/*
+	if(scpu_regulator == NULL) {
+		scpu_regulator = regulator_get(NULL, "scpu");
+		if (IS_ERR(scpu_regulator)) {
+			scpu_regulator = NULL;
+		}
+	}
+*/
 #ifdef CONFIG_DELAY_CPU_UP
 	INIT_DELAYED_WORK(&cpuup_work, cpuup_work_func);
 #endif

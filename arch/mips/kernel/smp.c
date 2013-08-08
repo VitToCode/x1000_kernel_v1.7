@@ -99,7 +99,6 @@ __cpuinit void register_smp_ops(struct plat_smp_ops *ops)
 asmlinkage __cpuinit void start_secondary(void)
 {
 	unsigned int cpu;
-
 #ifdef CONFIG_MIPS_MT_SMTC
 	/* Only do cpu_probe for first TC of CPU */
 	if ((read_c0_tcbind() & TCBIND_CURTC) != 0)
@@ -222,6 +221,10 @@ int __cpuinit __cpu_up(unsigned int cpu)
 {
 	struct task_struct *idle;
 
+	struct create_idle c_idle = {
+		.cpu    = cpu,
+		.done   = COMPLETION_INITIALIZER_ONSTACK(c_idle.done),
+	};
 	/*
 	 * Processor goes to start_secondary(), sets online flag
 	 * The following code is purely to make sure
@@ -232,23 +235,17 @@ int __cpuinit __cpu_up(unsigned int cpu)
 		 * Schedule work item to avoid forking user task
 		 * Ported from arch/x86/kernel/smpboot.c
 		 */
-		struct create_idle c_idle = {
-			.cpu    = cpu,
-			.done   = COMPLETION_INITIALIZER_ONSTACK(c_idle.done),
-		};
 
 		INIT_WORK_ONSTACK(&c_idle.work, do_fork_idle);
 		schedule_work(&c_idle.work);
 		wait_for_completion(&c_idle.done);
 		idle = cpu_idle_thread[cpu] = c_idle.idle;
-
 		if (IS_ERR(idle))
 			panic(KERN_ERR "Fork failed for CPU %d", cpu);
 	} else {
 		idle = cpu_idle_thread[cpu];
 		init_idle(idle, cpu);
 	}
-
 	mp_ops->boot_secondary(cpu, idle);
 
 	/*

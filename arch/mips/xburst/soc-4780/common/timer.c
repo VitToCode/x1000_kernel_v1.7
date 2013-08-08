@@ -1,8 +1,8 @@
 /*
  * linux/arch/mips/jz4760/time.c
- * 
+ *
  * Setting up the clock on the JZ4760 boards.
- * 
+ *
  * Copyright (C) 2008 Ingenic Semiconductor Inc.
  * Author: <jlwei@ingenic.cn>
  *
@@ -61,7 +61,7 @@ static cycle_t jz_get_cycles(struct clocksource *cs)
 		cycle_t cycle64;
 		unsigned int cycle32[2];
 	} cycle;
-	
+
 	do{
 		cycle.cycle32[1] = ost_readl(OST_CNTH);
 		cycle.cycle32[0] = ost_readl(OST_CNTL);
@@ -94,7 +94,11 @@ void __cpuinit jz_clocksource_init(void)
 	clk_put(ext_clk);
 	clocksource_register(&clocksource_jz);
 }
-
+enum timestate{
+	INIT,
+	FINI,
+	STOP,
+};
 struct jz_timerevent {
 	unsigned int count_addr;
 	unsigned int latch_addr;
@@ -109,6 +113,8 @@ struct jz_timerevent {
 	struct clock_event_device clkevt;
 	struct notifier_block  cpu_notify;
 	struct irqaction evt_action;
+	int cpu;
+	enum timestate state;
 };
 static DEFINE_PER_CPU(struct jz_timerevent, jzclockevent);
 
@@ -126,12 +132,12 @@ static inline void resettimer(struct jz_timerevent *tc,int count) {
 	outl((1 << tc->ch),tc->ctrl_addr + TCU_TFCR);
 	outl((1 << tc->ch),tc->ctrl_addr + TCU_TESR);
 }
-
 static int jz_set_next_event(unsigned long evt,
 			     struct clock_event_device *clk_evt_dev)
 {
 	struct jz_timerevent *evt_dev = container_of(clk_evt_dev,struct jz_timerevent,clkevt);
 	unsigned long flags;
+	//int cpu = smp_processor_id();
 	spin_lock_irqsave(&evt_dev->lock,flags);
 	if(evt <= 1) {
 		WARN_ON(1);
@@ -141,7 +147,6 @@ static int jz_set_next_event(unsigned long evt,
 	spin_unlock_irqrestore(&evt_dev->lock,flags);
 	return 0;
 }
-
 static void jz_set_mode(enum clock_event_mode mode,
 			struct clock_event_device *clkevt)
 {
@@ -168,23 +173,53 @@ static void jz_set_mode(enum clock_event_mode mode,
         }
 	spin_unlock_irqrestore(&evt_dev->lock,flags);
 }
+#ifdef CONFIG_SMP
+void jz_cputimer_interrupt(void) {
+	int cpu = smp_processor_id();
+	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
+	evt->clkevt.event_handler(&evt->clkevt);
+}
+void smp_cputimer_broadcast(int cpu);
+void jz_set_cpu_affinity(unsigned long irq,int cpu);
+#endif
 
+#ifdef CONFIG_EMERGENCY_MSG
+int is_emergency_msg(void *handle);
+void deinit_emergency_msg(void *handle);
+void emergency_msg_outlog(void *handle);
+extern void *emergency_msg;
+#endif
 static irqreturn_t jz_timer_interrupt(int irq, void *dev_id)
 {
 	struct jz_timerevent *evt_dev = dev_id;
 	int ctrl_addr = evt_dev->ctrl_addr;
 	int ctrlbit = 1 << evt_dev->ch;
+#ifdef CONFIG_EMERGENCY_MSG
+	//int cpu = smp_processor_id();
+	if(emergency_msg){
+		if(is_emergency_msg(emergency_msg)) {
+			emergency_msg_outlog(emergency_msg);
+		}
+	}
+#endif
 	if(inl(ctrl_addr + TCU_TFR) & ctrlbit) {
 		outl(ctrlbit,ctrl_addr + TCU_TFCR);
 		if(evt_dev->curmode == CLOCK_EVT_MODE_ONESHOT) {
 			stoptimer(evt_dev);
 		}
-		evt_dev->clkevt.event_handler(&evt_dev->clkevt);
-	}
+		if(evt_dev->state == INIT && evt_dev->cpu) {
+#ifdef CONFIG_SMP
+			smp_cputimer_broadcast(evt_dev->cpu);
+#endif
+		}
+		if(evt_dev->state == FINI) {
+			evt_dev->clkevt.event_handler(&evt_dev->clkevt);
+		}
 
+	}
 	return IRQ_HANDLED;
 }
-
+/*
 static int broadcast_cpuhp_notify(struct notifier_block *n,
 					unsigned long action, void *hcpu){
 	int hotcpu = (unsigned long)hcpu;
@@ -196,18 +231,18 @@ static int broadcast_cpuhp_notify(struct notifier_block *n,
 			break;
 		case CPU_ONLINE:
 			jz_set_mode(CLOCK_EVT_MODE_RESUME,&evt->clkevt);
-			break;	
+			break;
 		}
 	}
 	return NOTIFY_OK;
 }
-
+*/
 static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	struct clock_event_device *cd = &evt_dev->clkevt;
 	struct clk *ext_clk = clk_get(NULL,"ext1");
-	
+
 	spin_lock_init(&evt_dev->lock);
-	
+
 	evt_dev->rate = clk_get_rate(ext_clk) / CLKEVENT_DIV;
 	clk_put(ext_clk);
        	stoptimer(evt_dev);
@@ -219,7 +254,7 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 		evt_dev->evt_action.flags = IRQF_DISABLED | IRQF_PERCPU | IRQF_TIMER;
 		evt_dev->evt_action.name = "jz-timerirq";
 		evt_dev->evt_action.dev_id = (void*)evt_dev;
-		
+
 		if(setup_irq(evt_dev->irq, &evt_dev->evt_action) < 0) {
 			pr_err("timer request irq error\n");
 			BUG();
@@ -237,10 +272,13 @@ static void jz_clockevent_init(struct jz_timerevent *evt_dev,int cpu) {
 	cd->irq = evt_dev->irq;
 	cd->cpumask = cpumask_of(cpu);
 	clockevents_config_and_register(cd,evt_dev->rate,4,65536);
+/*
 	evt_dev->cpu_notify.notifier_call = broadcast_cpuhp_notify;
+
 	if(cpu == 0){
 		register_cpu_notifier(&evt_dev->cpu_notify);
 	}
+*/
 }
 
 #define  APB_OST_IOBASE   0x10002000
@@ -259,8 +297,11 @@ void __cpuinit jzcpu_timer_setup(void)
 {
 	int cpu = smp_processor_id();
 	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
+	evt->cpu = cpu;
+	evt->state = INIT;
 	switch(cpu) {
 	case 0:
+		evt->state = FINI;
 		evt->ch = 5;
 		evt->irq = IRQ_TCU1;
 		evt->count_addr = TCU_IOBASE + CH_TCNT(evt->ch);
@@ -269,6 +310,7 @@ void __cpuinit jzcpu_timer_setup(void)
 		evt->config_addr = TCU_IOBASE + CH_TCSR(evt->ch);
 		tcu_writel(CH_TDHR(evt->ch), 0xffff);
 		tcu_writel(TCU_TMSR, ((1 << evt->ch) | (1 << (evt->ch + 16))));
+
 		break;
 	case 1:
 		evt->ch = 15;
@@ -280,16 +322,27 @@ void __cpuinit jzcpu_timer_setup(void)
 		apbost_writel(OSTCNTH, 0);
 		break;
 	}
+	jz_set_cpu_affinity(evt->irq,0);
 	jz_clockevent_init(evt,cpu);
 }
 
 
 #ifdef CONFIG_HOTPLUG_CPU
+void jz_set_cpu_affinity(unsigned long irq,int cpu);
+void percpu_timer_cpu_affinity(void)
+{
+	unsigned int cpu = smp_processor_id();
+	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
+	jz_set_cpu_affinity(evt->irq,cpu);
+	evt->state = FINI;
+}
 void percpu_timer_stop(void)
 {
 	unsigned int cpu = smp_processor_id();
 	struct jz_timerevent *evt = &per_cpu(jzclockevent, cpu);
+	jz_set_cpu_affinity(evt->irq,0);
+	//evt->state = INIT;
+	evt->state = STOP;
 	evt->clkevt.set_mode(CLOCK_EVT_MODE_UNUSED, &evt->clkevt);
 }
 #endif
-

@@ -4,7 +4,11 @@
  * Copyright (C) 2006 Ingenic Semiconductor Inc.
  *
  */
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/string.h>
 
+#include <linux/spinlock.h>
 #include <asm/io.h>
 
 #include <soc/base.h>
@@ -33,6 +37,9 @@ static void putchar(char ch)
 	       != (LSR_TDRQ | LSR_TEMT) && timeout--)
 		;
 	base[OFF_TDR] = (u8)ch;
+}
+void err_putchar(char ch) {
+	putchar(ch);
 }
 static void putchar_dummy(char ch)
 {
@@ -72,3 +79,74 @@ void prom_putstr(char *s)
 		s++;
 	}
 }
+#ifdef CONFIG_EMERGENCY_MSG
+/* for dump msg */
+struct emergency_msg
+{
+	char *msg;
+	int len;
+	spinlock_t lock;
+};
+void* init_emergency_msg(void) {
+	struct emergency_msg *emsg;
+	emsg = (struct emergency_msg *)__get_free_page(GFP_KERNEL);
+	emsg->msg = (char *)(emsg + 1);
+	spin_lock_init(&emsg->lock);
+	emsg->len = PAGE_SIZE - sizeof(struct emergency_msg);
+	return (void *)emsg;
+}
+extern int log_buf_copy(char *dest, int idx, int len);
+extern void log_buf_clear(void);
+void emergency_msg_outlog(void *handle) {
+	struct emergency_msg *emsg = (struct emergency_msg *)handle;
+	unsigned long flags;
+	int len,idx,i;
+	spin_lock_irqsave(&emsg->lock,flags);
+	idx = 0;
+	while(1) {
+		len = log_buf_copy(emsg->msg,idx,emsg->len);
+		if(len <= 0)
+			break;
+		for(i = 0;i < len;i++) {
+			if(emsg->msg[i] == '\n')
+				putchar('\r');
+			putchar(emsg->msg[i]);
+		}
+		idx += len;
+	}
+	spin_unlock_irqrestore(&emsg->lock,flags);
+}
+void deinit_emergency_msg(void *handle) {
+	struct emergency_msg *emsg = (struct emergency_msg *)handle;
+	free_page((unsigned long)emsg);
+}
+
+int is_emergency_msg(void *handle) {
+	int lcr;
+	char c;
+	int r = 0;
+	int timeout = 16;
+	if(!(*(volatile unsigned int *)0xb0010000 & (1 << 30))) {
+		c = 0;
+		do {
+			lcr = *(volatile unsigned int *)(0xb0033000 + 0x14);
+			if(lcr & 1){
+				c = *(volatile unsigned int *)0xb0033000;
+				if(c == 0x0d) r = 1;
+				*(volatile unsigned int *)(0xb0033000 + 0x10) = 0;
+			}
+		}while((lcr & 1) && timeout--);
+		if(r) {
+			return 1;
+		}
+	}
+	return 0;
+}
+void *emergency_msg = NULL;
+static int __init init_emergency(void)
+{
+	emergency_msg = init_emergency_msg();
+	return 0;
+}
+module_init(init_emergency);
+#endif

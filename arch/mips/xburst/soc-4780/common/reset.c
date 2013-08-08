@@ -18,6 +18,7 @@
 #include <soc/cpm.h>
 #include <soc/extal.h>
 #include <soc/tcu.h>
+#include <soc/gpio.h>
 
 #include <asm/reboot.h>
 
@@ -71,53 +72,93 @@ static void wdt_stop_count(void)
 	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 }
 
-static void inline rtc_write_reg(int reg,int value)
+void rtc_write_reg(int reg,int value)
 {
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	int timeout,retry;
+	timeout = 100000;
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && --timeout);
+	retry = 3;
+	do{
 	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
-	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+		timeout = 100000;
+		while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && --timeout);
+
+		timeout = 100000;
+		while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN) && --timeout);
+	}while(timeout == 0 && retry--);
+	if(timeout == 0) {
+		printk("write rtc reg 0xa55a error!\n");
+	}
+
+	timeout =  100000;
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && --timeout);
+	retry = 3;
+	do{
 	outl(value,(RTC_IOBASE + reg));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+		timeout =  100000;
+		while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && --timeout);
+	}while(timeout == 0 && retry--);
+	if(timeout == 0) {
+		printk("write rtc reg %d error!\n",value);
+	}
 }
 
-/*
- * Function: Keep power for CPU core when reset.
- * So that EPC, tcsm and so on can maintain it's status after reset-key pressed.
- */
-void inline reset_keep_power(int keep_pwr)
+unsigned int  rtc_read_reg(int reg)
 {
-	if (keep_pwr)
-		rtc_write_reg(RTC_PWRONCR,
-			      inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+	unsigned int dreg;
+	int timeout = 10000;
+	do{
+		dreg = inl(RTC_IOBASE + reg);
+	}while(dreg != inl(RTC_IOBASE + reg) && timeout--);
+	if(timeout == 0) {
+		printk("read rtc reg error!\n");
 }
-
+	return dreg;
+}
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
+#ifdef CONFIG_BOARD_H600S
+static void poweroff_inand(void) {
+	printk("inand power off");
+	jzgpio_set_func(0, GPIO_OUTPUT1, 1 << 17);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 4);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 5);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 6);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 7);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 18);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 19);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 20);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 21);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 22);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 23);
+	jzgpio_set_func(0, GPIO_OUTPUT0, 1 << 24);
+	printk(" ... ok!\n");
+	mdelay(20);
 
+}
+#endif
 void jz_hibernate(void)
 {
 	local_irq_disable();
+#ifdef CONFIG_BOARD_H600S
+	poweroff_inand();
+#endif
 	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 1000ms */
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, (60 << 5));
+	rtc_write_reg(RTC_HRCR, (3 << 11));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
 
 	rtc_write_reg(RTC_HWCR, 0x8);
-
+	while(1) {
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
-
 	mdelay(200);
-
-	while(1) 
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
 }
-
+}
 void jz_wdt_restart(char *command)
 {
 	printk("Restarting after 4 ms\n");
@@ -134,7 +175,9 @@ void jz_wdt_restart(char *command)
 		cpm_outl(REBOOT_SIGNATURE,CPM_CPPSR);
 		cpm_outl(0x0,CPM_CPSPPR);
 	}
-	
+#ifdef CONFIG_BOARD_H600S
+	poweroff_inand();
+#endif
 	wdt_start_count(4);
 	mdelay(200);
 	while(1)
@@ -143,11 +186,9 @@ void jz_wdt_restart(char *command)
 
 static void hibernate_restart(void) {
 	uint32_t rtc_rtcsr,rtc_rtccr;
-
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
-
 	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
 	rtc_rtccr &= ~(1 << 4);
 	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
@@ -159,7 +200,7 @@ static void hibernate_restart(void) {
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, (60 << 5));
+	rtc_write_reg(RTC_HRCR, (125 << 5));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
@@ -169,7 +210,7 @@ static void hibernate_restart(void) {
 	rtc_write_reg(RTC_HCR, 0x1);
 
 	mdelay(200);
-	while(1) 
+	while(1)
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
 
 }
@@ -177,7 +218,6 @@ static void hibernate_restart(void) {
 void jz_hibernate_restart(char *command)
 {
 	local_irq_disable();
-
 	if ((command != NULL) && !strcmp(command, "recovery")) {
 		jz_wdt_restart(command);
 	}
@@ -217,7 +257,7 @@ static int reset_write_proc(struct file *file, const char __user *buffer,
 	if(count == 0) return count;
 	for(i = 0;i < ARRAY_SIZE(reset_command);i++) {
 		if(!strncmp(buffer,reset_command[i],strlen(reset_command[i]))) {
-			command = i + 1;
+			command++;
 			break;
 		}
 	}
@@ -251,16 +291,17 @@ static int reset_task(void *data) {
 	const struct sched_param param = {
 		.sched_priority = MAX_RT_PRIO-1,
 	};
+	int timeout;
 	sched_setscheduler(current,SCHED_RR,&param);
-
-	wdt_start_count(wdt->msecs + 1000);
+	wdt_start_count(wdt->msecs * 2 + 1000);
+	timeout = wdt->msecs;
 	while (1) {
 		if(kthread_should_stop()) {
 			wdt_stop_count();
 			break;
 		}
 		outl(0,WDT_IOBASE + WDT_TCNT);
-		msleep(wdt->msecs);
+		msleep(timeout);
 	}
 
 	return 0;
@@ -286,7 +327,7 @@ static int wdt_control_write_proc(struct file *file, const char __user *buffer,
 	}
 	return count;
 }
-	
+
 static int wdt_time_read_proc(char *page, char **start, off_t off,
 			  int count, int *eof, void *data){
 	int len = 0;
@@ -350,7 +391,7 @@ static int wdt_probe(struct platform_device *pdev)
 		res->write_proc = wdt_control_write_proc;
 		res->data = wdt;
 	}
-	
+
 	res = create_proc_entry("wdt_time", 0444, p);
 	if (res) {
 		res->read_proc = wdt_time_read_proc;
@@ -362,25 +403,29 @@ static int wdt_probe(struct platform_device *pdev)
 }
 
 int wdt_suspend(struct platform_device *pdev, pm_message_t state)
-{	
+{
 	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
-	if(wdt->stop) 
+	if(wdt->stop)
 		return 0;
-	kthread_stop(wdt->task);
+	wdt_stop_count();
+	//signal_wake_up(wdt->task,1);
+	//kthread_stop(wdt->task);
 	return 0;
 }
 
 void wdt_shutdown(struct platform_device *pdev)
-{	
+{
 	wdt_stop_count();
 }
-	
+
 int wdt_resume(struct platform_device *pdev)
 {
 	struct wdt_reset *wdt = dev_get_drvdata(&pdev->dev);
 	if(wdt->stop)
 		return 0;
-	wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
+	wdt_start_count(wdt->msecs * 2 + 1000);
+	outl(0,WDT_IOBASE + WDT_TCNT);
+	//wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
 	return 0;
 }
 
@@ -401,9 +446,13 @@ static struct platform_driver wdt_pdrv = {
 
 static int __init init_reset(void)
 {
+	unsigned int pwron;
 	platform_driver_register(&wdt_pdrv);
 	platform_device_register(&wdt_pdev);
+	pwron = rtc_read_reg(RTC_PWRONCR);
+	pwron &= ~1;
+	printk("pwron = 0x%08x\n",pwron);
+	rtc_write_reg(RTC_PWRONCR, pwron);
 	return 0;
 }
 module_init(init_reset);
-

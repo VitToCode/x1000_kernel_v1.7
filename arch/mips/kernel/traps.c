@@ -1300,6 +1300,8 @@ asmlinkage void do_mdmx(struct pt_regs *regs)
 asmlinkage void do_watch(struct pt_regs *regs)
 {
 	u32 cause;
+	struct mips3264_watch_reg_state *watches =
+		&current->thread.watch.mips3264;
 
 	/*
 	 * Clear WP (bit 22) bit of cause register so we don't loop
@@ -1308,7 +1310,6 @@ asmlinkage void do_watch(struct pt_regs *regs)
 	cause = read_c0_cause();
 	cause &= ~(1 << 22);
 	write_c0_cause(cause);
-
 	/*
 	 * If the current thread has the watch registers loaded, save
 	 * their values and send SIGTRAP.  Otherwise another thread
@@ -1318,6 +1319,9 @@ asmlinkage void do_watch(struct pt_regs *regs)
 		mips_read_watch_registers();
 		local_irq_enable();
 		force_sig(SIGTRAP, current);
+	} else if(watches->trace_type) {
+		local_irq_enable();
+		force_sig(SIGSEGV,current);
 	} else {
 		mips_clear_watch_registers();
 		local_irq_enable();

@@ -132,8 +132,11 @@ struct mips3264_watch_reg_state {
 	unsigned long watchlo[NUM_WATCH_REGS];
 	/* Only the mask and IRW bits from watchhi. */
 	u16 watchhi[NUM_WATCH_REGS];
-};
 
+	unsigned long lo[NUM_WATCH_REGS][NR_CPUS];
+	unsigned long hi[NUM_WATCH_REGS][NR_CPUS];
+	unsigned long trace_type;
+};
 union mips_watch_reg_state {
 	struct mips3264_watch_reg_state mips3264;
 };

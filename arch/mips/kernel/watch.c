@@ -19,6 +19,8 @@ void mips_install_watch_registers(void)
 {
 	struct mips3264_watch_reg_state *watches =
 		&current->thread.watch.mips3264;
+	if(watches->trace_type == 0)
+	{
 	switch (current_cpu_data.watch_reg_use_cnt) {
 	default:
 		BUG();
@@ -37,6 +39,26 @@ void mips_install_watch_registers(void)
 		write_c0_watchlo0(watches->watchlo[0]);
 		write_c0_watchhi0(0x40000007 | watches->watchhi[0]);
 	}
+	}else{
+		switch (current_cpu_data.watch_reg_use_cnt) {
+		default:
+			BUG();
+		case 4:
+			write_c0_watchlo3(watches->lo[3][smp_processor_id()]);
+			/* Write 1 to the I, R, and W bits to clear them, and
+			   1 to G so all ASIDs are trapped. */
+			write_c0_watchhi3(watches->hi[3][smp_processor_id()]);
+		case 3:
+			write_c0_watchlo3(watches->lo[2][smp_processor_id()]);
+			write_c0_watchhi3(watches->hi[2][smp_processor_id()]);
+		case 2:
+			write_c0_watchlo3(watches->lo[1][smp_processor_id()]);
+			write_c0_watchhi3(watches->hi[1][smp_processor_id()]);
+		case 1:
+			write_c0_watchlo3(watches->lo[0][smp_processor_id()]);
+			write_c0_watchhi3(watches->hi[0][smp_processor_id()]);
+		}
+	}
 }
 
 /*
@@ -48,6 +70,8 @@ void mips_read_watch_registers(void)
 {
 	struct mips3264_watch_reg_state *watches =
 		&current->thread.watch.mips3264;
+	if(watches->trace_type == 0)
+	{
 	switch (current_cpu_data.watch_reg_use_cnt) {
 	default:
 		BUG();
@@ -68,6 +92,7 @@ void mips_read_watch_registers(void)
 		 * signal that the conditions requested in watchlo
 		 * were met.  */
 		watches->watchhi[0] |= (watches->watchlo[0] & 7);
+		}
 	}
  }
 

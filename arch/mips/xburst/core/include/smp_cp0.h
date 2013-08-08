@@ -43,6 +43,12 @@
 		set_smp_status(stat);			\
 	} while(0)
 
-long switch_cpu_irq(int cpu);
 
+void smp_cputimer_broadcast(int cpu);
+long switch_cpu_irq(int cpu);
+void smp_enable_interrupt(int cpu);
+void smp_disable_interrupt(int cpu);
+void smp_clear_cpu_pending(int cpu);
+void smpmask_disable_interrupt(int cpu);
+int smpmask_enable_interrupt(int cpu);
 #endif

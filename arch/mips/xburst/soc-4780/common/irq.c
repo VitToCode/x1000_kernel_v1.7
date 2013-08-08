@@ -150,19 +150,190 @@ static struct irq_timer_monitor irq_srcs[] = {
 #undef DEF_IRQ
 };
 #endif
+static DEFINE_SPINLOCK(r_ipr_lock);
+#define ipr_spinlock(flags) 		spin_lock_irqsave(&r_ipr_lock,flags)
+#define ipr_spinunlock(flags) 	spin_unlock_irqrestore(&r_ipr_lock,flags)
+
+#ifdef CONFIG_SMP
+
+static unsigned int cpu_irq_affinity[NR_CPUS];
+
+//static unsigned int cpu_mask_affinity[NR_CPUS];
+
+//--------------------------------------------------------------
+/*
+  for Recently the corresponding interrupt of core
+*/
+
+static unsigned int irq_resp_fifo[NR_CPUS];
+static void init_irq_resp_fifo(void) {
+	int i;
+	for(i = 0;i < NR_CPUS;i++) {
+		irq_resp_fifo[i] = -1;
+	}
+}
+static void push_irq_resp_fifo(int num,int cpu) {
+	irq_resp_fifo[cpu] = num;
+}
+
+static int find_irq_for_cpu(int num) {
+	int j;
+	int n = -1;
+	for(j = 0; j < NR_CPUS;j++)
+		if(irq_resp_fifo[j] == num) {
+			n = j;
+		}
+	// -1 for any core;belse for response coreid;
+	return n;
+}
+
+void reset_irq_resp_fifo(int cpu) {
+	unsigned long flags;
+	ipr_spinlock(flags);
+	irq_resp_fifo[cpu] = -1;
+	ipr_spinunlock(flags);
+}
+
+//--------------------------------------------------------------
+/*
+ *    for Interrupt priority cycle accordingly
+ *    when irq to response then prev_irq is this bit,then next irq will
+ *    not response
+ */
+static unsigned int prev_irq[2];
+static int get_irq_number(unsigned int irq0,int irq1) {
+	int n1 = -1,n0 = -1;
+	unsigned int v0,v1;
+	v0 = irq0 & (~prev_irq[0]);
+	v1 = irq1 & (~prev_irq[1]);
+	if(v0) {
+		n0 = ffs(v0) - 1;
+	}else if(v1) {
+		n1 = ffs(v1) - 1;
+	} else {
+		if(irq0) {
+			n0 = ffs(irq0) - 1;
+			prev_irq[0] = 0;
+		} else if(irq1) {
+			n1 = ffs(irq1) - 1;
+			prev_irq[1] = 0;
+		}
+	}
+	if(n0 != -1)
+		return n0;
+	if(n1 != -1)
+		return n1 + 32;
+	return -1;
+}
+static void set_irq_number(int n) {
+	prev_irq[n / 32] |= 1 << (n % 32);
+}
+//--------------------------------------------------------------
+//* handle mask & unmask for intc
+static unsigned int irq_intc_mask[2];
+static unsigned int ctrlirq_intc_mask[2];
+static void irq_intc_ctrlmask_save(int number,int msk) {
+	void *base = intc_base + PART_OFF * (number / 32);
+//	if(number == 17)
+//		printk("&&&&&&&&&&&&& irq_intc_ctrlmask_save %d = %d\n",number,msk);
+	if (msk == 1) {
+		irq_intc_mask[number / 32] |= BIT(number % 32);
+		writel(BIT(number%32), base + IMSR_OFF);
+	}else if(msk == 0) {
+		irq_intc_mask[number / 32] &= ~BIT(number % 32);
+		if(!(ctrlirq_intc_mask[number / 32] & BIT(number % 32))){
+			writel(BIT(number%32), base + IMCR_OFF);
+		}
+	}
+}
+static void init_intc_mask(void){
+	void *base = intc_base;
+	irq_intc_mask[0] = readl(base + IMR_OFF);
+	irq_intc_mask[1] = readl(base + IMR_OFF + PART_OFF);
+}
+
+static void irq_intc_ctrlmask(int number,int msk) {
+	void *base = intc_base + PART_OFF * (number / 32);
+	if (msk == 1) {
+		ctrlirq_intc_mask[number / 32] |= BIT(number%32);
+		writel(BIT(number%32), base + IMSR_OFF);
+	}else if(msk == 0) {
+
+		if(!(irq_intc_mask[number / 32] & (1 << number % 32)))
+			writel(BIT(number%32), base + IMCR_OFF);
+		ctrlirq_intc_mask[number / 32] &= ~BIT(number%32);
+	}
+//	if(number == 17)
+//		printk("irq_intc %d = %x",number,readl(base + IMR_OFF));
+}
+
+/*
+static void irq_intc_ctrlmask_affinity(int cpu,int msk) {
+	void *base = intc_base;
+	if(msk == 1) {
+		writel(cpu_irq_affinity[cpu], base + IMSR_OFF);
+	}else{
+		writel(cpu_irq_affinity[cpu] & ~irq_intc_mask[0], base + IMCR_OFF);
+	}
+
+}
+*/
+//--------------------------------------------------------------
+static void set_intc_cpu(unsigned long irq_num,long cpu) {
+	int mask,i;
+	unsigned long flags;
+	int num = irq_num / 32;
+	mask = 1 << (irq_num % 32);
+	BUG_ON(num);
+	ipr_spinlock(flags);
+	for(i = 0;i < NR_CPUS;i++) {
+		if(i != cpu) {
+			cpu_irq_affinity[i] &= ~mask;
+		}else{
+			cpu_irq_affinity[i] |= mask;
+		}
+	}
+	if(cpu_online(cpu)) {
+		smp_enable_interrupt(cpu);
+	}
+	ipr_spinunlock(flags);
+	printk("enable cpu %d\n",(int)cpu);
+}
+static inline void init_intc_affinity(void) {
+	int i;
+	for(i = 0;i < NR_CPUS;i++) {
+		cpu_irq_affinity[i] = 0;
+	}
+}
+static inline int find_intc_affinity_cpu(int irqnumber) {
+	int i;
+	if(irqnumber < 32) {
+		for(i = 0;i < NR_CPUS;i++) {
+			if((1 << irqnumber) & cpu_irq_affinity[i])
+				return i;
+		}
+	}
+	return -1;
+}
+
+static int intc_set_affinity(struct irq_data *data, const struct cpumask *dest, bool force) {
+	return 0;
+}
+#endif
+
+void jz_set_cpu_affinity(unsigned long irq,int cpu) {
+	set_intc_cpu(irq - IRQ_INTC_BASE,cpu);
+}
 
 extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
 
 static void intc_irq_ctrl(struct irq_data *data, int msk, int wkup)
 {
 	int intc = (int)irq_data_get_irq_chip_data(data);
-	void *base = intc_base + PART_OFF * (intc/32);
-
-	if (msk == 1)
-		writel(BIT(intc%32), base + IMSR_OFF);
-	else if (msk == 0)
-		writel(BIT(intc%32), base + IMCR_OFF);
-
+	unsigned long flags;
+	ipr_spinlock(flags);
+	irq_intc_ctrlmask_save(intc,msk);
+	ipr_spinunlock(flags);
 	if (wkup == 1)
 		intc_wakeup[intc / 32] |= 1 << (intc % 32);
 	else if (wkup == 0)
@@ -184,35 +355,6 @@ static int intc_irq_set_wake(struct irq_data *data, unsigned int on)
 	intc_irq_ctrl(data, -1, !!on);
 	return 0;
 }
-#ifdef CONFIG_SMP
-
-static unsigned int cpu_irq_affinity[NR_CPUS];
-static unsigned int cpu_irq_unmask[NR_CPUS];
-static unsigned int cpu_mask_affinity[NR_CPUS];
-
-static inline void set_intc_cpu(unsigned long irq_num,long cpu) {
-	int mask,i;
-	int num = irq_num / 32;
-	mask = 1 << (irq_num % 32);
-	BUG_ON(num);
-
-	cpu_irq_affinity[cpu] |= mask;
-	for(i = 0;i < NR_CPUS;i++) {
-		if(i != cpu)
-			cpu_irq_unmask[i] &= ~mask;
-	}
-}
-static inline void init_intc_affinity(void) {
-	int i;
-	for(i = 0;i < NR_CPUS;i++) {
-		cpu_irq_unmask[i] = 0xffffffff;
-		cpu_irq_affinity[i] = 0;
-	}
-}
-static int intc_set_affinity(struct irq_data *data, const struct cpumask *dest, bool force) {
-	return 0;
-}
-#endif
 static struct irq_chip jzintc_chip = {
 	.name 		= "jz-intc",
 	.irq_mask	= intc_irq_mask,
@@ -225,7 +367,7 @@ static struct irq_chip jzintc_chip = {
 };
 
 #ifdef CONFIG_SMP
-extern void jzsoc_mbox_interrupt(void);
+extern void jzsoc_mbox_interrupt(int cpuid);
 static irqreturn_t ipi_reschedule(int irq, void *d)
 {
 	scheduler_ipi();
@@ -304,127 +446,186 @@ void __init arch_init_irq(void)
 #ifdef CONFIG_SMP
 	init_intc_affinity();
 	set_intc_cpu(26,0);
-	set_intc_cpu(27,1);
+//	set_intc_cpu(27,1);
 #endif
+	init_intc_mask();
+
+	init_irq_resp_fifo();
+	smp_enable_interrupt(0);
 	/* enable cpu interrupt mask */
 	set_c0_status(IE_IRQ0 | IE_IRQ1);
-
 #ifdef CONFIG_SMP
 	setup_ipi();
 #endif
 	return;
 }
+#if 0
+static unsigned int generic_irq_mask[2] = {0x3f000,0x9f0f0004};
+static void do_irq_dispatch(int number) {
 
-static void intc_irq_dispatch(void)
-{
-#ifdef IRQ_TIME_MONITOR_DEBUG
-	unsigned long long time_num[2];
-	unsigned long long time_sub;
-	unsigned int	irq_con;
-#endif
-	unsigned long ipr[2],gpr[2];
-	unsigned long ipr_intc;
-#ifdef CONFIG_SMP
-	unsigned long cpuid = smp_processor_id();
-	unsigned long nextcpu;
-#endif
-	ipr_intc = readl(intc_base + IPR_OFF);
-#ifdef CONFIG_SMP
-
-	ipr[0] = ipr_intc & cpu_irq_unmask[cpuid];
-#else
-	ipr[0] = ipr_intc;
-#endif
-	gpr[0] = ipr[0] & 0x3f000;
-	ipr[0] &= ~0x3f000;
-
-	ipr[1] = readl(intc_base + PART_OFF + IPR_OFF);
-	gpr[1] = ipr[1] & 0x9f0f0004;
-	ipr[1] &= ~0x9f0f0004;
-
-#ifdef IRQ_TIME_MONITOR_DEBUG
-	time_num[0] = sched_clock();
-	if(gpr[1] & 0x1f000000) {
-		generic_handle_irq(ffs(gpr[1]) +31 +IRQ_INTC_BASE);
-		irq_con = ffs(gpr[1]) +31 +IRQ_INTC_BASE;
+	if(generic_irq_mask[number / 32] & (1 << number % 32)) {
+		generic_handle_irq(number + IRQ_INTC_BASE);
 	}else {
-
-		if (ipr[0]) {
-			generic_handle_irq(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
-			irq_con = ffs(ipr[0]) -1 +IRQ_INTC_BASE;
-		}
-		if (gpr[0]) {
-			generic_handle_irq(ffs(gpr[0]) -1 +IRQ_INTC_BASE);
-			irq_con = ffs(gpr[0]) -1 +IRQ_INTC_BASE;
-		}
-
-		if (ipr[1]) {
-			generic_handle_irq(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
-			irq_con = ffs(ipr[1]) +31 +IRQ_INTC_BASE;
-		}
-		if (gpr[1]) {
-			generic_handle_irq(ffs(gpr[1]) +31 +IRQ_INTC_BASE);
-			irq_con = ffs(gpr[1]) +31 +IRQ_INTC_BASE;
-		}
+		do_IRQ(number + IRQ_INTC_BASE);
 	}
-	time_num[1] = sched_clock();
-	time_sub = time_num[1] - time_num[0];
-	if (echo_success && (time_sub > time_monitor[499]))
-		time_over[irq_con] += 1;
-	if (time_sub > time_monitor[irq_con])
-		time_monitor[irq_con] = time_sub;
-#else
-
-	if (ipr[0]) {
-		do_IRQ(ffs(ipr[0]) -1 +IRQ_INTC_BASE);
-	}
-	if (gpr[0]) {
-		do_IRQ(ffs(gpr[0]) -1 +IRQ_INTC_BASE);
-	}
-
-	if (ipr[1]) {
-		do_IRQ(ffs(ipr[1]) +31 +IRQ_INTC_BASE);
-	}
-	if (gpr[1]) {
-		generic_handle_irq(ffs(gpr[1]) +31 +IRQ_INTC_BASE);
-	}
+}
 #endif
-
-
-#ifdef CONFIG_SMP
-	nextcpu = switch_cpu_irq(cpuid);
-	if(nextcpu & 0x80000000) {
-		nextcpu &= ~0x80000000;
-		ipr_intc = ipr_intc & cpu_irq_affinity[nextcpu];
-		if(ipr_intc) {
-			cpu_mask_affinity[nextcpu] |= ipr_intc;
-			writel(ipr_intc, intc_base + IMSR_OFF);
-		}
-	}else if(nextcpu) {
-		if(cpu_mask_affinity[nextcpu]) {
-			writel(cpu_mask_affinity[nextcpu], intc_base + IMCR_OFF);
-			cpu_mask_affinity[nextcpu] = 0;
+static int cpu_send_irq = -1;
+static int irq_to_cpu = -1;
+int send_irq_to_cpu(int irq,int cpu) {
+	if(smpmask_enable_interrupt(cpu) == 0) {
+		irq_to_cpu = cpu;
+		cpu_send_irq = irq;
+		return 0;
+	}
+	//printk("cpu%d offline\n",cpu);
+	return -1;
+}
+static unsigned int response_cpu_busy = 0;
+#define DEBUG_IRQ
+#ifdef DEBUG_IRQ
+static unsigned int irq_count[64];
+static unsigned int irq_count_msk[64];
+static unsigned int gpio_irq_flg[5];
+static unsigned int gpio_irq_msk[5];
+void debug_check_irqcount(int num) {
+	int i;
+	unsigned int base = 0;
+	irq_count[num]++;
+	if(num < 18 && num >=12) {
+		base = 0xb0010050 + (5 - (num - 12)) * 0x100;
+		gpio_irq_flg[num - 12] = *(unsigned int *)base;
+		base = 0xb0010020 + (5 - (num - 12)) * 0x100;
+		gpio_irq_msk[num - 12] = *(unsigned int *)base;
+	}
+	if(num == 26) {
+		for(i = 0;i < 64;i++){
+			if(irq_count[i] > 2000) {
+				printk("number = %d count = %d\n",i,irq_count[i]);
+				if(i < 18 && i >= 12) {
+					printk("GPIO FLG %x\n",gpio_irq_flg[i - 12]);
+					printk("GPIO MSK %x\n",gpio_irq_msk[i - 12]);
+				}
+				if(irq_count_msk[i] < 100)
+					irq_count_msk[i]++;
+			}else
+				irq_count_msk[i] = 0;
+			irq_count[i] = 0;
 		}
 	}
+}
 #endif
+static void intc_irq_dispatch(int cpuid)
+{
+	unsigned int ipr_intc = 0,ipr_intc1 = 0;
+	int n = -1;
+	int for_cpu = 0;
+	unsigned long flags;
+	//void *base;
+	ipr_spinlock(flags);
+	if(irq_to_cpu != -1) {
+		if(irq_to_cpu == cpuid) {
+			n = cpu_send_irq;
+			goto irq_affinity;
+		}else{
+			if(!cpu_online(irq_to_cpu)) {
+				n = cpu_send_irq;
+				printk("cpu%d offline use %d response %d irq\n",irq_to_cpu,cpuid,n);
+				goto irq_affinity;
+			}else {
+				// should use this core response other irq,but no complete
+				goto  irq_unlock;
+			}
+		}
+	}
+	ipr_intc = readl(intc_base + IPR_OFF);
+	ipr_intc1 = readl(intc_base + PART_OFF + IPR_OFF);
+	if((ipr_intc | ipr_intc1) == 0)
+		goto irq_unlock;
+	n = get_irq_number(ipr_intc,ipr_intc1);
+	if(n == -1)
+		goto irq_unlock;
+
+	for_cpu = find_intc_affinity_cpu(n);
+	if(for_cpu != -1) {
+		if(for_cpu != cpuid && send_irq_to_cpu(n,for_cpu) == 0) {
+			//printk("ipr_intc = %x mask = %x\n",ipr_intc,cpuid);
+			n = -1;
+			goto irq_unlock;
+		}else{
+			goto irq_affinity;
+		}
+	}
+	for_cpu = find_irq_for_cpu(n);
+	if(for_cpu != -1 && for_cpu != cpuid){
+		if((response_cpu_busy & ~(1 << cpuid)) == 0 && send_irq_to_cpu(n,for_cpu) == 0){
+			n = -1;
+			goto irq_unlock;
+		}
+	}
+	push_irq_resp_fifo(n,cpuid);
+	set_irq_number(n);
+
+irq_affinity:
+	irq_intc_ctrlmask(n,1);
+#ifdef DEBUG_IRQ
+	debug_check_irqcount(n);
+#endif
+	if(irq_to_cpu != -1){
+		smpmask_disable_interrupt(-1);
+		irq_to_cpu = -1;
+	}
+	if(n != -1)
+		response_cpu_busy |= (1 << cpuid);
+irq_unlock:
+	ipr_spinunlock(flags);
+	if(n != -1) {
+		//base = intc_base + PART_OFF * (n / 32);
+		//printk("++++ number %d = %x\n",n,readl(base + IMR_OFF));
+		do_IRQ(n + IRQ_INTC_BASE);
+		//do_irq_dispatch(n);
+		ipr_spinlock(flags);
+#ifdef DEBUG_IRQ
+		if(irq_count_msk[n] < 6)
+#endif
+			irq_intc_ctrlmask(n,0);
+		//base = intc_base + PART_OFF * (n / 32);
+		//printk("---- number %d = %x\n",n,readl(base + IMR_OFF));
+		response_cpu_busy &= ~(1 << cpuid);
+		ipr_spinunlock(flags);
+
+	}
 }
 
 asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int cause = read_c0_cause();
-	unsigned int pending = cause & read_c0_status() & ST0_IM;
+	unsigned int pending;
+	int cpuid = smp_processor_id();
+	unsigned long flags;
+	pending = cause & read_c0_status() & ST0_IM;
+#ifdef CONFIG_SMP
+	if(pending & CAUSEF_IP3) {
+		ipr_spinlock(flags);
+		//irq_intc_ctrlmask_affinity(cpuid,1);
+		response_cpu_busy |= 1 << cpuid;
+		ipr_spinunlock(flags);
+
+		jzsoc_mbox_interrupt(cpuid);
+
+		ipr_spinlock(flags);
+		response_cpu_busy &= ~(1 << cpuid);
+		//irq_intc_ctrlmask_affinity(cpuid,0);
+		ipr_spinunlock(flags);
+	}
+#endif
 	if (cause & CAUSEF_IP4) {
 		do_IRQ(IRQ_OST);
 	}
-#ifdef CONFIG_SMP
-	if(pending & CAUSEF_IP3) {
-		jzsoc_mbox_interrupt();
+
+	if(pending & CAUSEF_IP2) {
+		intc_irq_dispatch(cpuid);
 	}
-#endif
-	if(pending & CAUSEF_IP2)
-		intc_irq_dispatch();
-	cause = read_c0_cause();
-	pending = cause & read_c0_status() & ST0_IM;
 }
 
 void arch_suspend_disable_irqs(void)

@@ -17,6 +17,7 @@
 #include <linux/smp.h>
 #include <linux/stddef.h>
 #include <linux/module.h>
+#include <linux/kallsyms.h>
 
 #include <asm/bugs.h>
 #include <asm/cpu.h>
@@ -30,7 +31,6 @@
 #include <asm/cacheflush.h> /* for run_uncached() */
 #include <asm/rjzcache.h>
 #include <asm/r4kcache.h>
-
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
  * the implementation of the "wait" feature differs between CPU families. This
@@ -1059,11 +1059,22 @@ platform:
 		break;
 	}
 }
-
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
 	unsigned int errorpc;
+	static unsigned int showerrorpc[NR_CPUS];
+	if(showerrorpc[cpu] == 0) {
+		__asm__ __volatile__ (
+			"mfc0  %0, $30,  0   \n\t"
+			"nop                  \n\t"
+			:"=r"(errorpc)
+			:);
 
+		printk("CPU%d RESET ERROR PC:%08X\n", cpu,errorpc);
+		if(kernel_text_address(errorpc))
+			print_ip_sym(errorpc);
+		showerrorpc[cpu] = 1;
+	}
 	decode_configs(c);
 	/* JZRISC does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
@@ -1077,14 +1088,6 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		c->ases |= MIPS_ASE_XBURSTMXU;
 
 		__write_32bit_c0_register($16, 7, 0x10);
-
-
-		__asm__ __volatile__ (
-			"mfc0  %0, $30,  0   \n\t"
-			"nop                  \n\t"
-			:"=r"(errorpc)
-			:);
-		printk("CPU%d: reset EPC:%08X\n", smp_processor_id(), errorpc);
 		break;
 	default:
 		panic("Unknown Ingenic Processor ID!");

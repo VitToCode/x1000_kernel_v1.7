@@ -725,6 +725,7 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 	{
 		PVR_DPF((PVR_DBG_ERROR,"SGXScheduleCCBCommandKM failed to acquire lock - "
 				 "ui32CallerID:%d eError:%u", ui32CallerID, eError));
+		PVRSRVPowerUnlock(ui32CallerID);
 		return eError;
 	}
 
