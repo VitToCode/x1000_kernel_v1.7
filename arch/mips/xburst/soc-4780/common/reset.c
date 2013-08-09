@@ -115,6 +115,18 @@ unsigned int  rtc_read_reg(int reg)
 }
 	return dreg;
 }
+
+/*
+ * Function: Keep power for CPU core when reset.
+ * So that EPC, tcsm and so on can maintain it's status after reset-key pressed.
+ */
+void inline reset_keep_power(int keep_pwr)
+{
+	if (keep_pwr)
+		rtc_write_reg(RTC_PWRONCR,
+			      inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+}
+
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
 #ifdef CONFIG_BOARD_H600S
 static void poweroff_inand(void) {
