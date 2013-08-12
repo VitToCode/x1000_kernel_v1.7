@@ -74,10 +74,10 @@ struct platform_device ek070tn93_device = {
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 #include <linux/kd50g2_40nm_a2.h>
 static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
-	.gpio_lcd_disp = 0,//clivia del for npm709j //GPIO_PD(11),
+	.gpio_lcd_disp = -1,//clivia del for npm709j //GPIO_PD(11),
 	.gpio_lcd_de   = GPIO_PC(9),	/* chose sync mode */
-	.gpio_lcd_vsync = 0,//GPIO_PC(19), //clivia 0,
-	.gpio_lcd_hsync = 0,//GPIO_PC(18), //clivia 0,
+	.gpio_lcd_vsync = -1,//GPIO_PC(19), //clivia 0,
+	.gpio_lcd_hsync = -1,//GPIO_PC(18), //clivia 0,
 };
 
 /* LCD device */
