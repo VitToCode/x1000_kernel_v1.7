@@ -58,6 +58,9 @@ config BOARD_VGA_DONGLE
 config BOARD_NPM801
 		bool "NPM801"
 
+config BOARD_CUCKOO
+        bool "cuckoo"
+
 config BOARD_T700D
 		bool "T700D"
 
@@ -107,6 +110,7 @@ config BOARD_NAME
 	default "Q8" if BOARD_Q8
 	default "M80701" if BOARD_M80701
 	default "NPM801" if BOARD_NPM801
+	default "cuckoo" if BOARD_CUCKOO
 	default "T700D" if BOARD_T700D
 	default "LEAF" if BOARD_LEAF
 	default "I88" if BOARD_I88

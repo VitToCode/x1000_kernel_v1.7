@@ -13,6 +13,7 @@ obj-$(CONFIG_BOARD_HLBA1)		+= hlba1/
 obj-$(CONFIG_BOARD_M80)			+= m80/
 obj-$(CONFIG_BOARD_M80B)		+= m80/
 obj-$(CONFIG_BOARD_M80701)		+= m80701/
+obj-$(CONFIG_BOARD_CUCKOO)	        += npm801/
 obj-$(CONFIG_BOARD_NPM801)		+= npm801/
 obj-$(CONFIG_BOARD_T700D)		+= t700d/
 obj-$(CONFIG_BOARD_LEAF)		+= leaf/
