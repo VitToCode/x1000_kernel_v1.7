@@ -31,7 +31,7 @@ struct snd_codec_data codec_data = {
 					.replay_volume_base = 0},
 
 	.replay_speaker_route = {
-					.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
+					.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},
