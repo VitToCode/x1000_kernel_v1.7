@@ -545,7 +545,7 @@ static inline irqreturn_t serial_jz47xx_irq(int irq, void *dev_id)
 	else {
 		if (lsr & UART_LSR_DR)
 			receive_chars((unsigned long)up, lsr);
-		//check_modem_status(up);
+		check_modem_status(up);
 		if (lsr & UART_LSR_THRE)
 			transmit_chars(up);
 	}
