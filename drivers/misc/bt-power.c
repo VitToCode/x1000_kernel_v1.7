@@ -34,7 +34,8 @@ static int bt_wake;
 static int bt_int;
 static struct regulator *power;
 
-static DEFINE_SPINLOCK(bt_power_lock);
+//static DEFINE_SPINLOCK(bt_power_lock);
+struct mutex bt_power_lock;
 
 extern void wlan_pw_en_enable(void);
 extern void wlan_pw_en_disable(void);
@@ -114,9 +115,14 @@ static int bt_rfkill_set_block(void *data, bool blocked)
 	int ret;
 
 	if (!first_called) {
-		spin_lock(&bt_power_lock);
+		//spin_lock(&bt_power_lock);
+		if (mutex_lock_interruptible(&bt_power_lock) != 0) {
+			printk("bt_rfkill_set_block---------->mutex_lock_interruptible : fail\n");
+			ret = -EIO;
+		}
 		ret = bt_power_control(blocked ? 0 : 1);
-		spin_unlock(&bt_power_lock);
+		//spin_unlock(&bt_power_lock);
+		mutex_unlock(&bt_power_lock);
 	} else {
 		first_called = false;
 		return 0;
@@ -134,6 +140,7 @@ static int bt_power_rfkill_probe(struct platform_device *pdev)
 	struct bcm4330_rfkill_platform_data *pdata = pdev->dev.platform_data;
 	int ret = -ENOMEM;
 	
+	mutex_init(&bt_power_lock);
 
 	pdata->rfkill = rfkill_alloc("bluetooth", &pdev->dev, RFKILL_TYPE_BLUETOOTH, 
                             &bt_rfkill_ops, NULL);
@@ -269,10 +276,15 @@ static int __devexit bt_power_remove(struct platform_device *pdev)
 
 	bt_power_rfkill_remove(pdev);
 
-	spin_lock(&bt_power_lock);
+	//spin_lock(&bt_power_lock);
+	if (mutex_lock_interruptible(&bt_power_lock) != 0) {
+		printk("bt_power_remove--->mutex_lock_interruptible : fail\n");
+		ret = -EIO;
+	}
 	bt_power_state = 0;
 	ret = bt_power_control(bt_power_state);
-	spin_unlock(&bt_power_lock);
+	//spin_unlock(&bt_power_lock);
+	mutex_unlock(&bt_power_lock);
 
 	return ret;
 }
