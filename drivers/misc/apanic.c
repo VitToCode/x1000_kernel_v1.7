@@ -196,7 +196,7 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		mutex_unlock(&drv_mutex);
 		return -EINVAL;
 	}
-	
+
 #endif
 	file = filp_open(PANIC_BLOCK_PATH, O_RDONLY, S_IRWXU);
 	if (NULL == file) {
@@ -224,7 +224,7 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		&len, ctx->bounce);
 
 	if (page_offset)
-		count = count < (ctx->mtd->writesize - page_offset) ? 
+		count = count < (ctx->mtd->writesize - page_offset) ?
 			count : (ctx->mtd->writesize - page_offset);
 	memcpy(buffer, ctx->bounce + page_offset, count);
 #endif
@@ -249,7 +249,7 @@ static void mtd_panic_erase(void)
 #if 0
 	file = filp_open(PANIC_CHAR_PATH, O_RDWR, S_IRWXU);
 	if (IS_ERR(file)) {
-		printk("open /dev/char/ndapanic filed\n");	
+		printk("open /dev/char/ndapanic filed\n");
 		return ;
 	}
 #endif
@@ -259,7 +259,6 @@ static void mtd_panic_erase(void)
 	for(erase_i = 0; erase_i < erase_count; erase_i++) {
 		file = filp_open(PANIC_CHAR_PATH, O_RDWR, 0);
 		if (IS_ERR(file)) {
-			printk("filp_open %s is %d times in %s\n", PANIC_CHAR_PATH, erase_i, __func__);
 			erase_flag++;
 			msleep(100);
 			continue;
@@ -271,6 +270,8 @@ static void mtd_panic_erase(void)
 		printk("open /dev/char/ndapanic filed in %s\n", __func__);
 		return;
 	}
+
+	printk("filp_open %s is %d times in %s sucessfully\n", PANIC_CHAR_PATH, erase_i, __func__);
 
 	if (!file->f_op || !file->f_op->unlocked_ioctl) {
 		printk("==================no ioctl===================\n");
@@ -376,7 +377,7 @@ static int apanic_proc_write(struct file *file, const char __user *buffer,
 }
 
 static int mtd_panic_notify(void *data);
-static void mtd_panic_notify_add(struct mtd_info *mtd) 
+static void mtd_panic_notify_add(struct mtd_info *mtd)
 {
 	struct task_struct      *tsk;
 
@@ -384,7 +385,7 @@ static void mtd_panic_notify_add(struct mtd_info *mtd)
 	if(IS_ERR(tsk)) {
 		printk("mtd_panic_notify_add error\n");
 	}
-	
+
 }
 static int mtd_panic_notify(void *data)
 {
@@ -418,7 +419,7 @@ static int mtd_panic_notify(void *data)
 		if (IS_ERR(file)) {
 			msleep(1000);
 		}
-		
+
 	}while(IS_ERR(file) && timeout++ < 1000);
 
 
