@@ -2612,6 +2612,15 @@ static int codec_set_device(enum snd_device_t device)
 		}
 		break;
 
+	case SND_DEVICE_LINEIN_RECORD:
+		if (codec_platform_data && codec_platform_data->record_linein_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->record_linein_route));
+			if(ret != codec_platform_data->record_linein_route.route) {
+				return -1;
+			}
+		}
+		break;
+
 	case SND_DEVICE_LINEIN1_RECORD:
 		if (codec_platform_data && codec_platform_data->record_linein1_route.route) {
 			ret = codec_set_board_route(&(codec_platform_data->record_linein1_route));
