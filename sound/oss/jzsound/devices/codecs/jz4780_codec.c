@@ -2251,6 +2251,7 @@ static int codec_set_default_route(int mode)
 	}
 	if (mode == CODEC_RWMODE) {
 		ret =  codec_set_board_route(&codec_platform_data->replay_def_route);
+		ret =  codec_set_board_route(&codec_platform_data->record_def_route);
 	} else if (mode == CODEC_WMODE) {
 		ret =  codec_set_board_route(&codec_platform_data->replay_def_route);
 	} else if (mode == CODEC_RMODE){

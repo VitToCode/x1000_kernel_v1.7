@@ -255,6 +255,12 @@ long xb_snd_mixer_ioctl(struct file *file,
 
 		break;
 	}
+	case SOUND_MIXER_SPEAKER: {
+		devices = SND_DEVICE_SPEAKER;
+		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+
+		break;
+	}
 	case SOUND_MIXER_WRITE_LINE: {
 		devices = SND_DEVICE_HEADSET_MIC,
 		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);

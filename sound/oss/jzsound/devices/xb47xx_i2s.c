@@ -556,9 +556,6 @@ static int i2s_enable(int mode)
 
 	i2s_is_incall_state = false;
 
-#ifndef CONFIG_ANDROID
-		cur_codec->codec_ctl(CODEC_SET_DEFROUTE,mode);
-#endif
 	return 0;
 }
 
@@ -1181,6 +1178,11 @@ static int i2s_global_init(struct platform_device *pdev)
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample();
 	__i2s_enable();
+
+#ifndef CONFIG_ANDROID
+		cur_codec->codec_ctl(CODEC_SET_DEFROUTE,CODEC_RWMODE);
+#endif
+
 	printk("i2s init success.\n");
 	return  cur_codec->codec_ctl(CODEC_INIT,0);
 
