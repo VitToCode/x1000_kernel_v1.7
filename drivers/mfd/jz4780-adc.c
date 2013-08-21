@@ -39,7 +39,13 @@
 #define JZ_REG_ADC_BATTERY_BASE 0x1c
 #define JZ_REG_ADC_HWMON_BASE	0x20
 #define JZ_REG_ADC_CLKDIV	0x28
-
+/*
+ *the following registeres is for touchscreen<junyang@ingenic.cn>
+ */
+#define JZ_REG_ADC_SAME		0x10
+#define JZ_REG_ADC_WAIT		0x14
+#define JZ_REG_ADC_TCH		0x18
+#define JZ_REG_ADC_CMD		0x24
 #define CLKDIV		120
 #define CLKDIV_US       2
 #define CLKDIV_MS       200
@@ -220,6 +226,35 @@ int jz_adc_set_config(struct device *dev, uint32_t mask, uint32_t val)
 
 	 return 0;
 }
+int adc_write_reg(struct device *dev ,uint8_t addr_offset,uint32_t mask,uint32_t val)
+{
+	struct jz_adc *adc = dev_get_drvdata(dev);
+	unsigned long flags;
+	uint32_t value;
+	if(!adc)
+		return -ENODEV;
+	spin_lock_irqsave(&adc->lock,flags);
+
+	value = readl(adc->base + addr_offset);
+	value &= ~mask;
+	value |= val;
+	writel(value,adc->base + addr_offset);
+	spin_unlock_irqrestore(&adc->lock,flags);
+	return 0;
+}
+uint32_t adc_read_reg(struct device *dev,uint8_t addr_offset)
+{
+	struct jz_adc *adc = dev_get_drvdata(dev);
+	unsigned long flags;
+	uint32_t ret;
+	if(!adc)
+		return -ENODEV;
+	spin_lock_irqsave(&adc->lock,flags);
+	ret = readl(adc->base + addr_offset);
+	spin_unlock_irqrestore(&adc->lock,flags);
+	return ret;
+}
+
 EXPORT_SYMBOL_GPL(jz_adc_set_config);
 
 static void jz_adc_clk_div(struct jz_adc *adc, const unsigned char clkdiv,
@@ -255,6 +290,41 @@ static struct resource jz_battery_resources[] = {
 	},
 };
 
+/*
+ *
+ */
+static struct resource jz_ts_resources[] = {
+	{
+		.start = JZ_ADC_IRQ_PENDOWN,
+		//.end   = JZ_ADC_IRQ_PENDOWN,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = JZ_ADC_IRQ_PENUP,
+		.end   = JZ_ADC_IRQ_PENUP,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = JZ_ADC_IRQ_TOUCH,
+		.end   = JZ_ADC_IRQ_TOUCH,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start = JZ_ADC_IRQ_SLPENDM,
+		.end   = JZ_ADC_IRQ_SLPENDM,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = JZ_REG_ADC_SAME,
+		.end   = JZ_REG_ADC_SAME + 0x0b,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = JZ_REG_ADC_CMD,
+		.end   = JZ_REG_ADC_CMD +3,
+		.flags = IORESOURCE_MEM,
+	},
+};
 static struct mfd_cell jz_adc_cells[] = {
 	{
 		.id = 0,
@@ -274,17 +344,36 @@ static struct mfd_cell jz_adc_cells[] = {
 		.enable = jz_adc_cell_enable,
 		.disable = jz_adc_cell_disable,
 	},
+	{
+		.id = 2,
+		.name = "jz4780-ts",
+		.num_resources = ARRAY_SIZE(jz_ts_resources),
+		.resources = jz_ts_resources,
+		.enable = jz_adc_cell_enable,
+		.disable = jz_adc_cell_disable,
+
+	},
 };
 
 static int __devinit jz_adc_probe(struct platform_device *pdev)
 {
 	int ret;
+	int i;
 	struct jz_adc *adc;
 	struct resource *mem_base;
 	int irq;
 	unsigned char clkdiv, clkdiv_us;
 	unsigned short clkdiv_ms;
-
+	struct jz_battery_info *battery_info;
+	struct jz_ts_info *ts_info;
+	struct jz_adc_platform_data *adc_platform_data = pdev->dev.platform_data;
+	if(!adc_platform_data)
+	{
+		dev_err(&pdev->dev,"no platform data,can't attach\n");
+		return -EINVAL;
+	}
+	battery_info = &adc_platform_data->battery_info;
+	ts_info = &adc_platform_data->ts_info;
 	adc = kmalloc(sizeof(*adc), GFP_KERNEL);
 	if (!adc) {
 		dev_err(&pdev->dev, "Failed to allocate driver structre\n");
@@ -358,7 +447,20 @@ static int __devinit jz_adc_probe(struct platform_device *pdev)
 	clkdiv_ms = CLKDIV_MS - 1;
 
 	jz_adc_clk_div(adc, clkdiv, clkdiv_us, clkdiv_ms);
-
+	for(i = 0;i < ARRAY_SIZE(jz_adc_cells);i++)
+	{
+		switch(jz_adc_cells[i].id)
+		{
+			case 1:
+				jz_adc_cells[i].platform_data = battery_info;
+				break;
+			case 2:
+				jz_adc_cells[i].platform_data = ts_info;
+				break;
+			default:
+				break;
+		}
+	}
 	ret = mfd_add_devices(&pdev->dev, 0, jz_adc_cells,
 			ARRAY_SIZE(jz_adc_cells), mem_base, adc->irq_base);
 	if (ret < 0) {
