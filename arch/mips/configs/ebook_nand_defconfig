@@ -791,7 +791,7 @@ CONFIG_SP0838=y
 # CONFIG_HI253 is not set
 # CONFIG_FAKE is not set
 CONFIG_JZ_PWM=y
-
+CONFIG_CAMERA_SENSOR_NO_POWER_CTL=y
 #
 # JZ PWM function pin select
 #
