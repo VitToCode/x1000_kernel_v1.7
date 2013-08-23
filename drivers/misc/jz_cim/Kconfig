@@ -100,3 +100,8 @@ config GT2005
         bool "gt2005 camera sensor"
         depends on JZ_CIM
         default n
+
+config TVP5150
+        bool "tvp5150  Texas Instruments video decoder"
+        depends on JZ_CIM
+        default n
