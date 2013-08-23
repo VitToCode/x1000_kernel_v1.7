@@ -109,7 +109,7 @@
 #define NAND_PORTA_CS5                                                      \
         { .name = "nand-cs5", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<25, }
 #define NEMC_PORTA_CS6                                                      \
-        { .name = "nemc-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<26 | 0x1<<17 | 0x1<<16, }       
+        { .name = "nemc-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<26 | 0x1<<17 | 0x1<<16, }
 #define DM9000_CDM_TO_SA2                                                   \
         { .name = "sdio-func", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x000000ff, }, \
         { .name = "addr-sa2",  .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000002, }
@@ -150,6 +150,16 @@
 
 #define CIM_PORTB							\
 	{ .name = "cim",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_0, .pins = 0xfff << 6, }
+
+#define PS2_JTAG \
+	{ .name = "ps2-jtag-30", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1<<30, },\
+	{ .name = "ps2-jtag-31", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 1<<31, }
+
+#define PS2_MOUSE_PORTD
+	{ .name = "ps2-mouse-pd", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3 << 4, }
+
+#define PS2_KEYBOARD_PORTD
+	{ .name = "ps2-keyboard-pd", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3 << 6, }
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
 extern struct platform_device jz_msc1_device;

@@ -192,7 +192,15 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SPI1_JZ4780_PE
        SSI1_PORTE,
 #endif
-
+#ifdef CONFIG_PS2_KEYBOARD_MOUSE_JTAG
+	PS2_JTAG,
+#endif
+#ifdef CONFIG_PS2_MOUSE_PD
+	PS2_MOUSE_PORTD,
+#endif
+#ifdef CONFIG_PS2_KEYBOARD_PD
+	PS2_KEYBOARD_PORTD,
+#endif
 };
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);

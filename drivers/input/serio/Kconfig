@@ -33,6 +33,30 @@ config SERIO_I8042
 	  To compile this driver as a module, choose M here: the
 	  module will be called i8042.
 
+config PS2_KEYBOARD_MOUSE_JTAG
+       bool "GPIO A,choose PS2 or JTAG"
+       depends on SERIO_I8042 && SOC_4780
+       help
+         If you want to use PS2 function,say Y or M here
+
+	 If unsure,say N.
+
+config PS2_KEYBOARD_PD
+       bool "GPIO D,enable kclk and kdata pins"
+       depends on SERIO_I8042 && SOC_4780
+       help
+         If you want to use PS2 KEYBOARD function,say Y or M here
+
+	 If unsure,say N.
+
+config PS2_MOUSE_PD
+       bool "GPIO D,enable mclk and mdata pins"
+       depends on SERIO_I8042 && SOC_4780
+       help
+         If you want to use PS2 MOUSE function,say Y or M here
+
+	 If unsure,say N.
+
 config SERIO_SERPORT
 	tristate "Serial port line discipline"
 	default y
