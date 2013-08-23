@@ -169,7 +169,7 @@ static void inline bit_clr(struct jz_cim *cim ,int offset,int bit)
 static inline void cim_enable(struct jz_cim *cim)
 {
 #ifdef DUMP_CIM_REGESITER_BEFORE_START
-    //cim_dump_reg(cim);
+	cim_dump_reg(cim);
 #endif
 	bit_set(cim,CIM_CTRL,CIM_CTRL_ENA);
 }
@@ -446,11 +446,8 @@ void cim_power_on(struct jz_cim *cim)
 			clk_enable(cim->clk);
 		
 		if(cim->mclk) {
-                    //clk_set_rate(cim->mclk, 24000000);
 #define CIM_CLOCK_TEST (24000000)
-//#define CIM_CLOCK_TEST (36000000)
                     clk_set_rate(cim->mclk, CIM_CLOCK_TEST);
-                    printk("========================== cim->mclk=%p CIM_CLOCK_TEST=%d ===============\n", cim->mclk, CIM_CLOCK_TEST);
                     clk_enable(cim->mclk);
 		}
 		cim->is_clock_enabled = 1;
@@ -515,13 +512,6 @@ void cim_set_default(struct jz_cim *cim)
 			cfg |= CIM_CFG_SEP;	
 		} 
 		
-        /* NOTICE AND WARNNING
-         * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
-         * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
-         */
-        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
-            ctrl |= CIM_CTRL_DMA_SYNC;
-
 	} else if (cim->state == CS_CAPTURE) {
 		w = cim->csize.w;
 		h = cim->csize.h;
@@ -537,9 +527,15 @@ void cim_set_default(struct jz_cim *cim)
 		}
 	}
 
+        /* NOTICE AND WARNNING
+         * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
+         * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
+         */
+        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+            ctrl |= CIM_CTRL_DMA_SYNC;
 	ctrl |= CIM_CTRL_FRC_1;
 
-	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (0 << CIM_CTRL2_OPG_BIT);
+	ctrl2 |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE | (2 << CIM_CTRL2_OPG_BIT);
 
         // If delete "CIM_CTRL2_FSC | CIM_CTRL2_ARIF", maybe cause overflow on warrior(npm706) board.
         //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
@@ -639,19 +635,44 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 			break;
 		}
 	}
+
 	if(!cim->desc)
 		return -EFAULT;
 	cim->desc->first_used = true;
 	return 0;
 }
+static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int width,int height)
+{
+	int voffset = 0;
+	int hoffset = 0;
+	int half_words_per_line = 0;
+
+	hoffset = 0;
+        half_words_per_line = image_w;
+	unsigned int wsize = 0;
+	unsigned int woffset = 0;
+	wsize = image_h << 16 | half_words_per_line;
+	reg_write(cim,CIM_SIZE,wsize);
+
+	woffset = reg_read(cim,CIM_OFFSET);
+	woffset &= ~(0x1fff << 16);
+	woffset &= ~(0x1fff);
+	woffset |= (voffset << 16) | hoffset;
+	reg_write(cim,CIM_OFFSET,woffset);
+	unsigned int ctrl = reg_read(cim,CIM_CTRL);
+	ctrl |= (1 << 14);
+	reg_write(cim,CIM_CTRL,ctrl);
+	printk("enable image mode (real size %d x %d) - %d x %d\n", width, height, image_w, image_h);
+	return 0;
+}
 
 static long cim_set_capture_size(struct jz_cim *cim)
 {
+#ifndef CONFIG_TVP5150
 	int i =0;
 	struct frm_size * p = cim->desc->capture_size;
 	for(i=0;i<cim->desc->cap_resolution_nr;i++){	 
 		if(cim->csize.w == p->w && cim->csize.h == p->h){
-			
 #ifdef KERNEL_INFO_PRINT
 			dev_info(cim->dev,"Found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
 #endif
@@ -667,10 +688,44 @@ static long cim_set_capture_size(struct jz_cim *cim)
 	if(cim->state == CS_CAPTURE)
 		cim->desc->set_resolution(cim->desc,cim->csize.w,cim->csize.h);
 	return 0;
+#else /*tvp5150*/
+	int i =0;
+	int fs_w, fs_h, fs_bpp;
+	struct frm_size * p = &(cim->desc->capture_size[cim->desc->cap_resolution_nr - 1]);
+	for(i=0;i<cim->desc->cap_resolution_nr;i++){
+		if(cim->csize.w == p->w && cim->csize.h == p->h){
+#ifdef KERNEL_INFO_PRINT
+			dev_info(cim->dev,"Found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
+#endif
+			break;
+		}
+		p = &(cim->desc->capture_size[cim->desc->cap_resolution_nr -1- i]);
+	}
+
+	if(i>= cim->desc->cap_resolution_nr){
+	dev_err(cim->dev,"Cannot found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
+			printk("use window\n");
+      printk("i = %d\n,cim->desc->cap_resolution_nr = %d\n",i,cim->desc->cap_resolution_nr);
+      cim_enable_image_mode(
+                      cim,
+                      cim->csize.w,
+                      cim->csize.h,
+                      p->w,
+                      p->h);
+      fs_w = p->w;//cim->desc->preview_size[cim->desc->prev_resolution_n];
+      fs_h = p->h;
+      fs_bpp = 16;
+	}
+	unsigned int fs = 0;
+	fs = ((fs_h - 1) << 16) | ((fs_bpp/8-1) << 14)| ((fs_w-1) << 0);
+	reg_write(cim,CIM_FS,fs);
+	return 0;
+#endif
 }
 
 static long cim_set_preview_size(struct jz_cim *cim)
 {
+#ifndef CONFIG_TVP5150
 	int i =0;
 	struct frm_size * p = cim->desc->preview_size;
 	for(i=0;i<cim->desc->prev_resolution_nr;i++){	 
@@ -690,6 +745,70 @@ static long cim_set_preview_size(struct jz_cim *cim)
 	if(cim->state == CS_PREVIEW)
 		cim->desc->set_resolution(cim->desc,cim->psize.w,cim->psize.h);
 	return 0;
+#else
+	int i =0;
+	int index = 0;
+	int fs_w, fs_h, fs_bpp;
+	unsigned int max_width,max_height;
+	max_width = cim->desc->preview_size[0].w;
+	max_height = cim->desc->preview_size[0].h;
+	printk("\n*******cim_set_preview_size********\n");
+	printk("cim->psize.w = %d\tcim->psize.h = %d\n",cim->psize.w,cim->psize.h);
+	struct frm_size * p = &(cim->desc->preview_size[cim->desc->prev_resolution_nr-1]);
+	for(index=0;index<cim->desc->prev_resolution_nr;index++){
+		if(p->w == max_width && p->h == max_height){
+#ifdef KERNEL_INFO_PRINT
+			dev_info(cim->dev,"Found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+#endif
+		printk("Found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+			break;
+		}
+		p = &(cim->desc->preview_size[cim->desc->prev_resolution_nr-1-index]);
+	}
+
+	for(i = index; i<cim->desc->prev_resolution_nr; i++)
+	{
+      printk("request preview size: %d x %d\t\tscan preview size: %d x %d\n",
+                      cim->psize.w,
+                      cim->psize.h,
+                      cim->desc->preview_size[i].w,
+                      cim->desc->preview_size[i].h);
+      if( cim->psize.w == cim->desc->preview_size[i].w &&
+          cim->psize.h == cim->desc->preview_size[i].h )
+      {
+              printk("support the request preview size: %d x %d\n", cim->psize.w, cim->psize.h);
+              break;
+      }
+	}
+
+	if(i>= cim->desc->prev_resolution_nr){
+		printk("Cannot found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+		printk("use window\n");
+		printk("i = %d\n,cim->desc->prev_resolution_nr = %d\n",i,cim->desc->prev_resolution_nr);
+		cim_enable_image_mode(
+				cim,
+				cim->psize.w,
+				cim->psize.h,
+				p->w,
+				p->h);
+		fs_w = p->w;//cim->desc->preview_size[cim->desc->prev_resolution_n];
+		fs_h = p->h;
+		fs_bpp = 16;
+	}
+	else
+	{
+		unsigned int ctrl = reg_read(cim,CIM_CTRL);
+		ctrl &= ~(1 << 14);
+		reg_write(cim,CIM_CTRL,ctrl);
+		fs_w = cim->desc->preview_size[i].w;//p->w;
+		fs_h = cim->desc->preview_size[i].h;//p->h;
+		fs_bpp =16;
+	}
+	unsigned int fs = 0;
+	fs = ((fs_h - 1) << 16) | ((fs_bpp/8-1) << 14)| ((fs_w-1) << 0);
+	reg_write(cim,CIM_FS,fs);
+	return 0;
+#endif
 }
 static irqreturn_t cim_irq_handler(int irq, void *data)
 {
@@ -900,7 +1019,6 @@ static long cim_start_capture(struct jz_cim *cim)
 	cim_clear_rfifo(cim);	// resetting rxfifo
 	cim_set_default(cim);
 //	dev_info(cim->dev,"%s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
-
 	cim->desc->set_capture_mode(cim->desc);
 	cim_set_capture_size(cim);
 	if(cim->tlb_flag == 1) {
@@ -927,10 +1045,50 @@ static long cim_start_capture(struct jz_cim *cim)
 	cim->state = CS_IDLE;
 	return dmadesc[CDESC_NR-1].buf;
 }
+void convert_frame(struct jz_cim * cim,unsigned long addr)
+{
+	int width,height;
+	unsigned int *low_addr;
+	low_addr = (unsigned int *)addr;
+	unsigned int *pBuf = NULL;
+	switch(cim->state){
+	case CS_PREVIEW:
+		width = cim->psize.w;
+		height = cim->psize.h;
+		break;
+	case CS_CAPTURE:
+		width = cim->csize.w;
+		height = cim->csize.h;
+		break;
+	}
+	int i,j;
+	int var = height - 288;
+	for(i = 0; i < 288 - var;i++)
+        {
+                for(j = 0;j < width / 2 ;j++)
+                {
+                        *(low_addr + (height - (288 - var) + i) * width /2 + j) = *(low_addr + (var + i) * width / 2 + j);
+                }
+        }
+	for(i = var -1; i > 0 ; i--)
+	{
+		for(j = 0;j <width /2;j++)
+		{
+			*(low_addr + (i * 2) * width / 2 + j) = *(low_addr + i * width /2 + j);
+		}
+	}
 
+	for(i = 1; i < var * 2;i = i + 2)
+	{
+		for(j = 0;j < width / 2 ;j++)
+		{
+			*(low_addr +  i * width /2 + j) = (*(low_addr + ( i - 1) * width / 2 + j));// + *(low_addr + (i + 1) * width / 2 + j))/2;
+		}
+	}
+}
 static unsigned long cim_get_preview_buf(struct jz_cim *cim)
 {
-    unsigned long addr ;
+ unsigned long addr ;
 	unsigned int cb_frame;
 	unsigned int cb_len;
 	unsigned int cr_frame;
@@ -1012,6 +1170,9 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
     if (fresh_buf == GET_BUF) { //2
         fresh_buf = 0;
     }
+#ifdef CONFIG_TVP5150
+	convert_frame(cim,addr);
+#endif
     spin_unlock_irqrestore(&cim->lock,flags);
 
     //if(addr == 0 || fid < 0 || fid >= PDESC_NR)
