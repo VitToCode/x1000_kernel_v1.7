@@ -55,6 +55,24 @@ struct platform_device ek070tn93_device = {
 };
 #endif
 
+#ifdef CONFIG_LCD_BYD_BM8766U
+#include <linux/byd_bm8766u.h>
+static struct platform_byd_bm8766u_data byd_bm8766u_pdata= {
+	.gpio_lcd_disp = GPIO_PB(30),
+	.gpio_lcd_de   = 0,		//GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
+	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
+};
+
+/* LCD device */
+struct platform_device byd_bm8766u_device = {
+	.name		= "byd_bm8766u-lcd",
+	.dev		= {
+		.platform_data = &byd_bm8766u_pdata,
+	},
+};
+#endif
+
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 #include <linux/kd50g2_40nm_a2.h>
 static struct platform_kd50g2_40nm_a2_data kd50g2_40nm_a2_pdata= {
@@ -118,6 +136,25 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
 		.flag = 0
+	},
+#endif
+
+#ifdef CONFIG_LCD_BYD_BM8766U
+	{
+		.name = "800x480",
+		.refresh = 55,
+		.xres = 800,
+		.yres = 480,
+		.pixclock = KHZ2PICOS(33260),
+		.left_margin = 88,
+		.right_margin = 40,
+		.upper_margin = 8,
+		.lower_margin = 35,
+		.hsync_len = 128,
+		.vsync_len = 2,
+		.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+		.vmode = FB_VMODE_NONINTERLACED,
+		.flag = 0,
 	},
 #endif
 
@@ -276,6 +313,21 @@ struct jzfb_platform_data jzfb1_pdata = {
 	.lvds = 0,
 	.dither_enable = 0,
 #endif
+
+#ifdef CONFIG_LCD_BYD_BM8766U
+	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
+	.bpp = 24,
+	.width = 108,
+	.height = 65,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+	.lvds = 0,
+	.dither_enable = 0,
+#endif
+
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,

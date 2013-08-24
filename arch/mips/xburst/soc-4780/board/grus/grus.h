@@ -28,6 +28,9 @@ extern struct platform_device kr070la0s_270_device;
 #ifdef CONFIG_LCD_EK070TN93
 extern struct platform_device ek070tn93_device;
 #endif
+#ifdef CONFIG_LCD_BYD_BM8766U
+extern struct platform_device byd_bm8766u_device;
+#endif
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 extern struct platform_device kd50g2_40nm_a2_device;
 #endif
