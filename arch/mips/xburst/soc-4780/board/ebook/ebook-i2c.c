@@ -100,6 +100,7 @@ struct cam_sensor_plat_data {
 	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
 	uint16_t	gpio_rst;	/* resert  gpio */
 	uint16_t	gpio_en;	/* camera enable gpio */
+	uint16_t	gpio_pwdn;	/* camera enable gpio */
 	int cap_wait_frame;    /* filter n frames when capture image */
 };
 
@@ -121,6 +122,7 @@ static struct cam_sensor_plat_data ov5640_pdata = {
 	.mirror = 0,
 	.gpio_en = GPIO_OV5640_EN,
 	.gpio_rst = GPIO_OV5640_RST,
+	.gpio_pwdn = GPIO_SP0838_PWDN,
 	.cap_wait_frame = 6,
 };
 #endif

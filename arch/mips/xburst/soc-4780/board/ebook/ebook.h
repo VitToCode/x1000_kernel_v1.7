@@ -115,6 +115,7 @@ extern struct platform_nand_data jz_nand_chip_data;
 
 #define GPIO_OV5640_EN			GPIO_PB(27)
 #define GPIO_OV5640_RST			GPIO_PB(26)
+#define GPIO_SP0838_PWDN		-1
 
 /**
  * USB detect pin
