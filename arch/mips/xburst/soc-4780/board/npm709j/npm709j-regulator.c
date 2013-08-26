@@ -95,11 +95,19 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vgsensor",	"gsensor_mma8452");
 
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
+FIXED_REGULATOR_DEF(
+	npm709j_vcim,
+	"Camera",	2800000,GPIO_PB(27),
+	HIGH_ENABLE,UN_AT_BOOT,	0,
+	NULL,		"vcim",		"jz4780-cim.0");
+#else
 FIXED_REGULATOR_DEF(
 	npm709j_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
+#endif
 #if 0
 FIXED_REGULATOR_DEF(
 	npm709j_vlcd,

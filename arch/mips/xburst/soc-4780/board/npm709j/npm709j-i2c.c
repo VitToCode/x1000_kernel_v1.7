@@ -138,9 +138,30 @@ static struct ov2650_platform_data ov2650_pdata = {
 	.cap_wait_frame = 3,
 };
 #endif
+#ifdef CONFIG_TVP5150
+struct tvp5150_platform_data {
+	int facing;
+	int orientation;
+	int mirror;
+	uint16_t gpio_rst;
+	uint16_t gpio_en;
+	int cap_wait_frame;
+};
+
+static struct tvp5150_platform_data tvp5150_pdata = {
+	.facing = 0,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_TVP5150_EN,
+	.gpio_rst= GPIO_TVP5150_RST,
+	.cap_wait_frame = 3,
+};
+#endif
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+#ifndef CONFIG_VIDEO_JZ4780_CIM_HOST
 static struct i2c_board_info npm709j_i2c2_devs[] __initdata = {
 #ifdef CONFIG_OV7675
 	{
@@ -154,7 +175,14 @@ static struct i2c_board_info npm709j_i2c2_devs[] __initdata = {
 		.platform_data	= &ov2650_pdata,
 	},
 #endif
+#ifdef CONFIG_TVP5150
+	{
+		I2C_BOARD_INFO("tvp5150", 0x5d),
+		.platform_data	= &tvp5150_pdata,
+	},
+#endif
 };
+#endif /*CONFIG_VIDEO_JZ4780_CIM_HOST*/
 #endif	/*I2C2*/
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
@@ -234,11 +262,11 @@ static int __init npm709j_i2c_dev_init(void)
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(1, npm709j_i2c1_devs, ARRAY_SIZE(npm709j_i2c1_devs));
 #endif
-
+#ifdef CONFIG_JZ_CIM
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
 	i2c_register_board_info(2, npm709j_i2c2_devs, ARRAY_SIZE(npm709j_i2c2_devs));
 #endif
-
+#endif /*CONFIG_JZ_CIM*/
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
 	i2c_register_board_info(3, npm709j_i2c3_devs, ARRAY_SIZE(npm709j_i2c3_devs));
 #endif

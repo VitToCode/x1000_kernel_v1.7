@@ -8,3 +8,4 @@ obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += npm709j-sound.o
 obj-$(CONFIG_NAND_JZ4780)	+= npm709j-nand.o
 obj-$(CONFIG_JZ_MODEM)		+= npm709j-modem.o
 obj-$(CONFIG_BCM4330_RFKILL) += npm709j-bt.o
+obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST) += npm709j-cim.o

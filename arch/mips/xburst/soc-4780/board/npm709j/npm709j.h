@@ -50,6 +50,17 @@ extern struct platform_device jz_modem_device;
 #endif
 
 /**
+ * camera sensor interface
+ **/
+
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
+
+#define TVP5150DECODER_SENSOR_RESET   GPIO_PF(15)
+#define TVP5150DECODER_SENSOR_EN      GPIO_PF(14)
+
+#endif
+
+/**
  * sound platform data
  **/
 extern struct snd_codec_data codec_data;
@@ -129,6 +140,9 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_OV2650_EN			GPIO_PB(19)
 #define GPIO_OV2650_RST			GPIO_PB(26)
 
+#define GPIO_TVP5150_EN                 GPIO_PF(14)
+#define GPIO_TVP5150_RST                GPIO_PF(15)
+
 /**
  * USB detect pin
  **/
@@ -155,6 +169,20 @@ extern struct platform_nand_data jz_nand_chip_data;
 #define GPIO_AP_WAKE_BP_LEVEL		0
 #define GPIO_AP_STATUS			GPIO_PB(30)
 #define GPIO_AP_STATUS_LEVEL		0
+
+/**
+ * camera sensor interface
+ **/
+
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
+
+#define CAMERA_SENSOR_RESET		GPIO_PF(15)
+#define CAMERA_BACK_SENSOR_EN	GPIO_PF(14)
+
+#define BACK_CAMERA_INDEX	0
+
+#endif
+
 
 /**
  * motor gpio
