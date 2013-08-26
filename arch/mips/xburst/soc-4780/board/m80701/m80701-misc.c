@@ -12,6 +12,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
@@ -86,8 +87,7 @@ static struct platform_device jz_timed_gpio_device = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data m80701_battery_pdata = {
-	.info = {
+static struct jz_battery_info  m80701_battery_info = {
 		.max_vol        = 4050,
 		.min_vol        = 3600,
 		.usb_max_vol    = 4100,
@@ -98,9 +98,10 @@ static struct jz_battery_platform_data m80701_battery_pdata = {
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
 		.sleep_current = 30,
-	},
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
+
 
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
@@ -252,7 +253,8 @@ static int __init m80701_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &m80701_battery_pdata);
+	adc_platform_data.battery_info = m80701_battery_info;
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0

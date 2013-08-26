@@ -15,6 +15,7 @@
 #include <linux/power/gpio-charger.h>
 #include <linux/power/li-ion-charger.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
@@ -92,8 +93,7 @@ static struct platform_device jz_timed_gpio_device = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data m80_battery_pdata = {
-	.info = {
+static struct jz_battery_info  m80_battery_info = {
 		.max_vol        = 4180,
 		.min_vol        = 3500,
 		.ac_max_vol     = 4200,
@@ -102,10 +102,9 @@ static struct jz_battery_platform_data m80_battery_pdata = {
 		.ac_chg_current = 960*2,
 		.usb_chg_current = -1,
 		.sleep_current = 30,
-	},
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
-
 /* ac charger */
 static char *m80_ac_supplied_to[] = {
 	"li_ion_charge",
@@ -316,7 +315,8 @@ static int __init m80_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &m80_battery_pdata);
+	adc_platform_data.battery_info = m80_battery_info;
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 /* ac charger */
 	platform_device_register(&m80_ac_charger_device);

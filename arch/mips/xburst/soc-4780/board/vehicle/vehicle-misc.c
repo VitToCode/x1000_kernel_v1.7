@@ -22,7 +22,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <soc/gpio.h>
-
+#include <linux/jz4780-adc.h>
 #include "vehicle.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
@@ -137,8 +137,7 @@ static struct platform_device jz_timed_gpio_device = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data vehicle_battery_pdata = {
-	.info = {
+static struct jz_battery_info  vehicle_battery_info = {
 		.max_vol        = 4080,
 		.min_vol        = 3600,
 		.usb_max_vol    = 4150,
@@ -149,10 +148,31 @@ static struct jz_battery_platform_data vehicle_battery_pdata = {
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
 		.sleep_current = 20,
-	},
 };
 #endif
 
+
+/*
+ *SADC
+ */
+#ifdef CONFIG_JZ4780_SUPPORT_RESISTANCE_TSC
+static struct jz_ts_info vehicle_ts_info ={
+	.x_max = 3920,
+	.x_min = 150,
+	.y_max = 3700,
+	.y_min = 270,
+	.z_max = 1024,
+	.z_min = 0,
+	.x_resolution = 800,
+	.y_resolution = 480,
+	.pressure_max = 256,
+	.x_r_plate = 800,
+	.y_r_plate = 480,
+};
+#endif
+#if defined(CONFIG_BATTERY_JZ4780) || defined(CONFIG_JZ4780_SUPPORT_RESISTANCE_TSC)
+static struct jz_adc_platform_data adc_platform_data;
+#endif
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
@@ -338,7 +358,13 @@ static int __init vehicle_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &vehicle_battery_pdata);
+	adc_platform_data.battery_info = vehicle_battery_info;
+#endif
+#ifdef CONFIG_JZ4780_SUPPORT_RESISTANCE_TSC
+	adc_platform_data.ts_info = vehicle_ts_info;
+#endif
+#if defined(CONFIG_BATTERY_JZ4780) || defined(CONFIG_JZ4780_SUPPORT_RESISTANCE_TSC)
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0

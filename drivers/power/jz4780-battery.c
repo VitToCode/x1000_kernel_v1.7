@@ -1006,17 +1006,17 @@ static int proc_read_status(char *page, char **start, off_t off,
 static int __devinit jz_battery_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct jz_battery_platform_data *pdata = pdev->dev.parent->platform_data;
 	struct jz_battery *jz_battery;
 	struct power_supply *battery;
 	struct proc_dir_entry *root;
 	struct proc_dir_entry *res;
-
+	struct jz_battery_info *info;
+	//******modify by vincent<junyang@ingenic.cn> 2013-08-19*****
+	struct jz_battery_platform_data *pdata = kzalloc(sizeof(struct jz_battery_platform_data),GFP_KERNEL);
 	if (!pdata) {
-		dev_err(&pdev->dev, "No platform_data supplied\n");
-		return -ENXIO;
+		dev_err(&pdev->dev, "Failed to allocate platform_data structre\n");
+		return -ENOMEM;
 	}
-
 	jz_battery = kzalloc(sizeof(*jz_battery), GFP_KERNEL);
 	if (!jz_battery) {
 		dev_err(&pdev->dev, "Failed to allocate driver structre\n");
@@ -1024,7 +1024,13 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 	}
 
 	jz_battery->cell = mfd_get_cell(pdev);
-
+	info = jz_battery->cell->platform_data;
+	if(!info)
+	{
+		dev_err(&pdev->dev,"no cell data,cat attach\n");
+		return -EINVAL;
+	}
+	pdata->info = *info;
 	jz_battery->irq = platform_get_irq(pdev, 0);
 	if (jz_battery->irq < 0) {
 		ret = jz_battery->irq;

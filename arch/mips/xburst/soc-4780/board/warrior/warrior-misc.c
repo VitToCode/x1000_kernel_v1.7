@@ -12,6 +12,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
@@ -120,8 +121,7 @@ static struct platform_device jz_timed_gpio_device = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data warrior_battery_pdata = {
-	.info = {
+static struct jz_battery_info  warrior_battery_info = {
 		.max_vol        = 4080,
 		.min_vol        = 3600,
 		.usb_max_vol    = 4150,
@@ -132,10 +132,9 @@ static struct jz_battery_platform_data warrior_battery_pdata = {
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
 		.sleep_current = 20,
-	},
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
-
 #ifdef CONFIG_SPI_JZ4780
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
@@ -322,7 +321,8 @@ static int __init warrior_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &warrior_battery_pdata);
+	adc_platform_data.battery_info = warrior_battery_info;
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 #ifdef CONFIG_JZ4780_EFUSE
 	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);

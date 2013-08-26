@@ -15,6 +15,7 @@
 #include <linux/power/gpio-charger.h>
 #include <linux/power/li-ion-charger.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
@@ -121,9 +122,8 @@ static struct platform_device jz_timed_gpio_device = {
 };
 
 /* Battery Info */
-#ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data i88_battery_pdata = {
-	.info = {
+ #ifdef CONFIG_BATTERY_JZ4780
+static struct jz_battery_info  i88_battery_info = {
 		.max_vol        = 4050,
 		.min_vol        = 3600,
 		.usb_max_vol    = 4100,
@@ -133,9 +133,10 @@ static struct jz_battery_platform_data i88_battery_pdata = {
 		.battery_max_cpt = 3000,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
-	},
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
+
 
 /* ac charger */
 static char *i88_ac_supplied_to[] = {
@@ -347,7 +348,8 @@ static int __init i88_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &i88_battery_pdata);
+	adc_platform_data.battery_info = i88_battery_info;
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 
 /*bcm4330 bt*/

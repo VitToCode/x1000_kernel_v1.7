@@ -61,19 +61,6 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 };
 #endif
 
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C3_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
-static struct jztsc_pin vehicle_tsc_gpio[] = {
-	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
-	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
-};
-
-static struct jztsc_platform_data vehicle_tsc_pdata = {
-	.gpio		= vehicle_tsc_gpio,
-	.x_max		= 1024,
-	.y_max		= 768,
-};
-#endif
-
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info vehicle_i2c1_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_MMA8452

@@ -12,6 +12,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/power/jz4780-battery.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz_dwc.h>
@@ -172,9 +173,9 @@ static struct platform_device dm9000  = {
 
 #endif
 /* Battery Info */
+
 #ifdef CONFIG_BATTERY_JZ4780
-static struct jz_battery_platform_data grus_battery_pdata = {
-	.info = {
+static struct jz_battery_info  grus_battery_info = {
 		.max_vol        = 4050,
 		.min_vol        = 3600,
 		.usb_max_vol    = 4100,
@@ -184,8 +185,8 @@ static struct jz_battery_platform_data grus_battery_pdata = {
 		.battery_max_cpt = 3000,
 		.ac_chg_current = 800,
 		.usb_chg_current = 400,
-	},
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
 
 #ifdef CONFIG_SPI_JZ4780
@@ -412,9 +413,6 @@ static int __init grus_board_init(void)
 	platform_device_register(&jz_gpu);
 #endif
 /* panel and bl */
-#ifdef CONFIG_LCD_BYD_BM8766U
-	platform_device_register(&byd_bm8766u_device);
-#endif
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
 	platform_device_register(&kd50g2_40nm_a2_device);
 #endif
@@ -436,7 +434,8 @@ static int __init grus_board_init(void)
 #endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
-	jz_device_register(&jz_adc_device, &grus_battery_pdata);
+	adc_platform_data.battery_info = grus_battery_info;
+	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
