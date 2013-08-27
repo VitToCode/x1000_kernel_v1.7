@@ -93,6 +93,8 @@ struct jz_battery {
 	int capacity_calculate;
 	unsigned long gate_voltage;
 
+	struct wake_lock work_wake_lock;
+
 	void *pmu_interface;
 	int (*get_pmu_status)(void *pmu_interface, int status);
 	void (*pmu_work_enable)(void *pmu_interface);

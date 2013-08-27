@@ -447,6 +447,52 @@ static int jz_battery_get_property(struct power_supply *psy,
 	return 0;
 }
 
+unsigned long get_wakeup_time(struct jz_battery *jz_battery)
+{
+	unsigned long tmp = 60 * 60;
+
+	if (jz_battery->pdata->info.sleep_current == 0){
+		tmp = 60 * 60;
+		return tmp;
+	}
+
+	if (jz_battery->capacity > 10) {
+		tmp = ((jz_battery->capacity - 10) *
+			jz_battery->pdata->info.battery_max_cpt * 36) /
+				(jz_battery->pdata->info.sleep_current);
+	} else if (jz_battery->capacity > 3) {
+		tmp = ((jz_battery->capacity - 3) *
+			jz_battery->pdata->info.battery_max_cpt * 36) /
+				(jz_battery->pdata->info.sleep_current);
+	} else if (jz_battery->capacity > 1){
+		tmp = ((jz_battery->capacity - 1) *
+			jz_battery->pdata->info.battery_max_cpt * 36) /
+			(jz_battery->pdata->info.sleep_current);
+	} else if (jz_battery->capacity == 1){
+		tmp = (jz_battery->pdata->info.battery_max_cpt * 36) /
+			jz_battery->pdata->info.sleep_current;
+	}
+
+	if (tmp == 0)
+		tmp = 30 * 60;
+
+	return tmp;
+}
+
+static void jz_battery_set_resume_time(struct jz_battery *jz_battery)
+{
+	struct timespec alarm_time;
+	unsigned long	 interval;
+
+	getnstimeofday(&alarm_time);
+
+	interval = get_wakeup_time(jz_battery);
+
+	alarm_time.tv_sec += interval;
+	alarm_start_range(&alarm, timespec_to_ktime(alarm_time),
+			timespec_to_ktime(alarm_time));
+}
+
 static void jz_battery_external_power_changed(struct power_supply *psy)
 {
 	struct jz_battery *jz_battery = psy_to_jz_battery(psy);
@@ -585,6 +631,7 @@ static void jz_battery_work(struct work_struct *work)
 
 	pr_debug("Battery driver: Next check time is %ds\n", jz_battery->next_scan_time);
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
+	jz_battery_set_resume_time(jz_battery);
 }
 
 static void wake_up_fun(struct alarm *alarm)
@@ -774,6 +821,8 @@ static void jz_battery_resume_work(struct work_struct *work)
 	pr_info("Battery driver: resume capacity is %d\n", jz_battery->capacity);
 	jz_battery->next_scan_time = 15;
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
+	jz_battery_set_resume_time(jz_battery);
+	wake_unlock(&jz_battery->work_wake_lock);
 }
 
 #ifdef CONFIG_PM
@@ -816,60 +865,22 @@ static int jz_battery_resume(struct platform_device *pdev)
 	struct jz_battery *jz_battery = platform_get_drvdata(pdev);
 
 	cancel_delayed_work(&jz_battery->resume_work);
-	schedule_delayed_work(&jz_battery->resume_work, msecs_to_jiffies(500));
+	wake_lock(&jz_battery->work_wake_lock);
+	schedule_delayed_work(&jz_battery->resume_work, HZ);
 
 	return 0;
 }
 #endif
 
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
-
-unsigned long get_wakeup_time(struct jz_battery *jz_battery)
-{
-	unsigned long tmp = 60 * 60;
-
-	if (jz_battery->pdata->info.sleep_current == 0){
-		tmp = 60 * 60;
-		return tmp;
-	}
-
-	if (jz_battery->capacity > 10) {
-		tmp = (((jz_battery->capacity - 10) *
-			jz_battery->pdata->info.battery_max_cpt) / 100)
-			/ (jz_battery->pdata->info.sleep_current) * 3600;
-	} else if (jz_battery->capacity > 3){
-		tmp = (jz_battery->capacity - 3) *
-			jz_battery->pdata->info.battery_max_cpt / 100
-			/ (jz_battery->pdata->info.sleep_current) * 3600;
-	} else if (jz_battery->capacity > 1){
-		tmp = (jz_battery->capacity - 1) *
-			jz_battery->pdata->info.battery_max_cpt / 100
-			/ (jz_battery->pdata->info.sleep_current) * 3600;
-	} else if (jz_battery->capacity == 1){
-		tmp = jz_battery->pdata->info.battery_max_cpt /	100
-			/ jz_battery->pdata->info.sleep_current * 3600;
-	}
-	return tmp;
-}
-
 #define WAKEUP_TIME	10
 
 static void jz_battery_early_suspend(struct early_suspend *early_suspend)
 {
 	struct jz_battery *jz_battery;
-	struct timespec alarm_time;
-	unsigned long	 interval;
 
 	jz_battery = container_of(early_suspend, struct jz_battery, early_suspend);
-
-	getnstimeofday(&alarm_time);
-
-	interval = get_wakeup_time(jz_battery);
-
-	alarm_time.tv_sec += interval;
-	alarm_start_range(&alarm, timespec_to_ktime(alarm_time),
-			timespec_to_ktime(alarm_time));
+	jz_battery_set_resume_time(jz_battery);
 }
 
 static void jz_battery_late_resume(struct early_suspend *early_suspend)
@@ -1087,6 +1098,7 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&jz_battery->work, jz_battery_work);
 	INIT_DELAYED_WORK(&jz_battery->init_work, jz_battery_init_work);
 	INIT_DELAYED_WORK(&jz_battery->resume_work, jz_battery_resume_work);
+	wake_lock_init(&jz_battery->work_wake_lock, WAKE_LOCK_SUSPEND, "jz_battery");
 
 	ret = request_irq(jz_battery->irq, jz_battery_irq_handler, 0,
 			pdev->name, jz_battery);
@@ -1164,6 +1176,7 @@ static int __devinit jz_battery_probe(struct platform_device *pdev)
 	return 0;
 
 err_iounmap:
+	wake_lock_destroy(&jz_battery->work_wake_lock);
 	platform_set_drvdata(pdev, NULL);
 	iounmap(jz_battery->base);
 err_release_mem_region:
@@ -1180,6 +1193,8 @@ static int __devexit jz_battery_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&jz_battery->work);
 	cancel_delayed_work_sync(&jz_battery->resume_work);
+
+	wake_lock_destroy(&jz_battery->work_wake_lock);
 
 	power_supply_unregister(&jz_battery->battery);
 
