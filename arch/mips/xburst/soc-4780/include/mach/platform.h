@@ -155,10 +155,10 @@
 	{ .name = "ps2-jtag-30", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1<<30, },\
 	{ .name = "ps2-jtag-31", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 1<<31, }
 
-#define PS2_MOUSE_PORTD
+#define PS2_MOUSE_PORTD							\
 	{ .name = "ps2-mouse-pd", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3 << 4, }
 
-#define PS2_KEYBOARD_PORTD
+#define PS2_KEYBOARD_PORTD						\
 	{ .name = "ps2-keyboard-pd", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x3 << 6, }
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_msc0_device;
