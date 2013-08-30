@@ -53,6 +53,8 @@ struct jz_battery {
 
 	int irq;
 
+	bool power_on_flag;
+
 	const struct mfd_cell *cell;
 
 	int status_charge;
