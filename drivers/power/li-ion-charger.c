@@ -92,7 +92,6 @@ static void li_ion_work(struct work_struct *work)
 
 
 	online = gpio_get_value(li_ion->pdata->gpio) ^ li_ion->pdata->gpio_active_low;
-	pr_info("li_ion: li_ion_work: online=%d \n", online);
 	if (online != li_ion->online) {
 		status = online ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_NOT_CHARGING;
 		if (status == POWER_SUPPLY_STATUS_NOT_CHARGING && is_ac_online())
@@ -116,7 +115,6 @@ static irqreturn_t li_ion_irq(int irq, void *devid)
 {
 	struct li_ion_charger *li_ion = devid;
 
-	pr_info("li_ion: li_ion_irq\n");
 	disable_irq_nosync(li_ion->irq);
 	schedule_delayed_work(&li_ion->work, msecs_to_jiffies(200));
 	return IRQ_HANDLED;
