@@ -559,6 +559,9 @@ static void jz_battery_update_work(struct jz_battery *jz_battery)
 			pr_info("Battery driver: Capacity is %d\n", jz_battery->capacity);
 
 		power_supply_changed(&jz_battery->battery);
+		if (jz_battery->power_on_flag) {
+			jz_battery_set_resume_time(jz_battery);
+		}
 	}
 }
 
@@ -571,7 +574,6 @@ static void jz_battery_work(struct work_struct *work)
 
 	pr_info("Battery driver: Next check time is %ds\n", jz_battery->next_scan_time);
 	schedule_delayed_work(&jz_battery->work, jz_battery->next_scan_time * HZ);
-	jz_battery_set_resume_time(jz_battery);
 }
 
 static void wake_up_fun(struct alarm *alarm)
@@ -601,6 +603,7 @@ static void jz_battery_init_work(struct work_struct *work)
 	schedule_delayed_work(&jz_battery->work, 20 * HZ);
 
 	alarm_init(&alarm, ANDROID_ALARM_RTC_WAKEUP, wake_up_fun);
+	jz_battery->power_on_flag = 1;
 
 	jz_battery->pmu_work_enable(jz_battery->pmu_interface);
 }

@@ -3,6 +3,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/tsc.h>
+#include <linux/jz4780-adc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/android_pmem.h>
@@ -143,20 +144,19 @@ struct jzdwc_pin dete_pin = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4775
-static struct jz_battery_platform_data mensa_battery_pdata = {
-        .info = {
-                .max_vol        = 4070,
-                .min_vol        = 3650,
-                .usb_max_vol    = 4140,
-                .usb_min_vol    = 3700,
-                .ac_max_vol     = 4170,
-                .ac_min_vol     = 3780,
-                .battery_max_cpt = 2300,
-                .ac_chg_current = 800,
-                .usb_chg_current = 400,
-                .sleep_current = 30,
-        },
+static struct jz_battery_info mensa_battery_pdata = {
+	.max_vol        = 4070,
+	.min_vol        = 3650,
+	.usb_max_vol    = 4140,
+	.usb_min_vol    = 3700,
+	.ac_max_vol     = 4170,
+	.ac_min_vol     = 3780,
+	.battery_max_cpt = 2300,
+	.ac_chg_current = 800,
+	.usb_chg_current = 400,
+        .sleep_current = 30,
 };
+static struct jz_adc_platform_data adc_platform_data;
 #endif
 
 #if 0
@@ -414,7 +414,8 @@ static int __init board_init(void)
 
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4775
-	jz_device_register(&jz_adc_device, &mensa_battery_pdata);
+	adc_platform_data.battery_info = mensa_battery_pdata;
+	jz_device_register(&jz_adc_device, &adc_platform_data);
 #endif
 
 /*IW8103_bcm4330*/
