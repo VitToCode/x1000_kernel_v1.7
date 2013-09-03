@@ -86,7 +86,6 @@ static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
 	var->yres_virtual = mode->yres * NUM_FRAME_BUFFERS;
 	var->xoffset = 0;
 	var->yoffset = 0;
-	var->pixclock = mode->pixclock;
 	var->left_margin = mode->left_margin;
 	var->right_margin = mode->right_margin;
 	var->upper_margin = mode->upper_margin;
@@ -95,6 +94,15 @@ static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
 	var->vsync_len = mode->vsync_len;
 	var->sync = mode->sync;
 	var->vmode = mode->vmode & FB_VMODE_MASK;
+        if(lcd_type == LCD_TYPE_LCM){
+                uint64_t pixclk = KHZ2PICOS((var->xres + var->left_margin + var->hsync_len) *
+                                        (var->yres + var->upper_margin + var->lower_margin + var->vsync_len) *
+                                            60 / 1000);
+                var->pixclock = (mode->pixclock < pixclk) ? pixclk : mode->pixclock;                
+        }
+        else{
+                var->pixclock = mode->pixclock;
+        }
 }
 
 #ifdef CONFIG_JZ4780_AOSD
@@ -126,9 +134,14 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
 		if (mode->xres == var->xres && mode->yres == var->yres &&
-		    mode->vmode == var->vmode && mode->pixclock == var->
-		    pixclock && mode->right_margin == var->right_margin)
-			return mode;
+		    mode->vmode == var->vmode &&  mode->right_margin == var->right_margin){
+                        if(jzfb->pdata->lcd_type != LCD_TYPE_LCM){
+                                if( mode->pixclock == var->pixclock)
+                                        return mode;
+                        }else{
+                                return mode;
+                        }
+                }
 	}
 
 	return NULL;
