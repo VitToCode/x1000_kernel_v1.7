@@ -472,6 +472,13 @@ config SPI_TLE62X0
 	  sysfs interface, with each line presented as a kind of GPIO
 	  exposing both switch control and diagnostic feedback.
 
+config SPI_JZ_TEST
+	tristate "Ingeinc JZ47XX SPI controller test driver"
+	depends on SPI_JZ4780
+	default n
+	help
+	  SPI controller of Ingenic JZ47xx series SoCs and it's driver test driver
+
 config SPI_JZ4780
 	tristate "Ingenic JZ4780 series SPI driver"
 	depends on MACH_XBURST

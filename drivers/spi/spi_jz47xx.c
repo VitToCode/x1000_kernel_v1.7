@@ -901,6 +901,16 @@ static int jz47xx_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 static int jz47xx_spi_setup(struct spi_device *spi)
 {
 	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	unsigned long flags;
+
+	spin_lock_irqsave(&hw->lock, flags);
+	if (hw->state & SUSPND) {
+		spin_unlock_irqrestore(&hw->lock, flags);
+		dev_err(&spi->dev,
+			"setup: SPI-%d not active!\n", spi->master->bus_num);
+		return -ESHUTDOWN;
+	}
+	spin_unlock_irqrestore(&hw->lock, flags);
 
 	if (spi->chip_select >= spi->master->num_chipselect) {
 		dev_err(&spi->dev, "cs%d >= max %d\n",
@@ -965,8 +975,25 @@ static int jz47xx_spi_setup(struct spi_device *spi)
 static int jz47xx_spi_txrx(struct spi_device * spi, struct spi_transfer *t)
 {
 	struct jz47xx_spi * hw = spi_master_get_devdata(spi->master);
+	unsigned int	ret;
+	unsigned long	flags;
 
-	return hw->txrx_bufs(spi, t);
+	spin_lock_irqsave(&hw->lock, flags);
+	if (hw->state & SUSPND) {
+		hw->state &= ~SPIBUSY;
+		spin_unlock_irqrestore(&hw->lock, flags);
+		printk("Now enter suspend, so cann't tranfer data\n");
+		return -ESHUTDOWN;
+	}
+	hw->state |= SPIBUSY;
+	spin_unlock_irqrestore(&hw->lock, flags);
+
+	ret = hw->txrx_bufs(spi, t);
+
+	spin_lock_irqsave(&hw->lock, flags);
+	hw->state &= ~SPIBUSY;
+	spin_unlock_irqrestore(&hw->lock, flags);
+	return ret;
 }
 
 static irqreturn_t jz47xx_spi_irq(int irq, void *dev)
@@ -1235,7 +1262,6 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	       "JZ47xx SSI Controller for SPI channel %d driver register\n",hw->chnl);
 
 	return 0;
-
 err_register:
 	free_irq(hw->irq, hw);
 free_rxchan:
@@ -1313,6 +1339,14 @@ static int __exit jz47xx_spi_remove(struct platform_device *dev)
 static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&hw->lock, flags);
+	hw->state |= SUSPND;
+	spin_unlock_irqrestore(&hw->lock, flags);
+
+	while (hw->state & SPIBUSY)
+		printk("Now spi is busy, waitting!\n");
 
 	if(clk_is_enabled(hw->clk_gate)) {
 		hw->clk_gate_flag = 1;
@@ -1334,6 +1368,7 @@ static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 static int jz47xx_spi_resume(struct platform_device *pdev)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
+	unsigned long	flags;
 
 	if(hw->clk_flag == 1) {
 		clk_enable(hw->clk);
@@ -1341,6 +1376,10 @@ static int jz47xx_spi_resume(struct platform_device *pdev)
 	if(hw->clk_gate_flag == 1) {
 		clk_enable(hw->clk_gate);
 	}
+
+	spin_lock_irqsave(&hw->lock, flags);
+	hw->state &= ~SUSPND;
+	spin_unlock_irqrestore(&hw->lock, flags);
 
 	return 0;
 }

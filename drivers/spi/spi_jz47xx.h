@@ -152,6 +152,11 @@
 
 #define BUFFER_SIZE	PAGE_SIZE
 
+#define SUSPND    (1<<0)
+#define SPIBUSY   (1<<1)
+#define RXBUSY    (1<<2)
+#define TXBUSY    (1<<3)
+
 struct jz47xx_spi {
 	/* bitbang has to be first */
 	struct spi_bitbang	bitbang;
@@ -166,6 +171,8 @@ struct jz47xx_spi {
 	struct completion	done_rx_dma;
 
 	spinlock_t		lock;
+
+	unsigned int		state;
 
 	u8			chnl;
 	u8			rw_mode;

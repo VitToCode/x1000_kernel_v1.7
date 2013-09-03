@@ -75,3 +75,4 @@ obj-$(CONFIG_SPI_TLE62X0)	+= tle62x0.o
 
 # SPI slave drivers (protocol for that link)
 # 	... add above this line ...
+obj-$(CONFIG_SPI_JZ_TEST) += spi_jz_test.o
