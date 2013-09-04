@@ -78,7 +78,7 @@ static int jzfb_release(struct fb_info *info, int user)
 }
 
 static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
-				  const struct fb_videomode *mode)
+				  const struct fb_videomode *mode,int lcd_type)
 {
 	var->xres = mode->xres;
 	var->yres = mode->yres;
@@ -520,7 +520,7 @@ static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	jzfb_videomode_to_var(var, mode);
+	jzfb_videomode_to_var(var, mode,jzfb->pdata->lcd_type);
 
 	switch (jzfb->pdata->bpp) {
 	case 16:
@@ -1817,7 +1817,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		for (i = 0; i < pdata->num_modes; i++) {
 			if (pdata->modes[i].flag == value) {
 				jzfb_videomode_to_var(&info->var,
-						      &pdata->modes[i]);
+						      &pdata->modes[i],jzfb->pdata->lcd_type);
 				return jzfb_set_par(info);
 			}
 		}
@@ -3049,7 +3049,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	video_mode = jzfb_checkout_videomode(jzfb->fb);
 	if (!video_mode)
 		goto err_iounmap;
-	jzfb_videomode_to_var(&fb->var, video_mode);
+	jzfb_videomode_to_var(&fb->var, video_mode, jzfb->pdata->lcd_type);
 	fb->var.width = pdata->width;
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
