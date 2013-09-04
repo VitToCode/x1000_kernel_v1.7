@@ -164,7 +164,7 @@ struct jzmmc_platform_data npm801_sdio_pdata = {
 #define PXDSS		0x84   /* Port Drive Strength set Register */
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 
-//static unsigned int gpio_bakup[4];
+static unsigned int gpio_bakup[4];
 
 void clk_32k_on(void)
 {
@@ -217,7 +217,7 @@ int iw8101_wlan_init(void)
 	int reset;
 
 	printk("cljiang-----enter iw8101_wlan_init\n");
-/*
+
 	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -226,7 +226,7 @@ int iw8101_wlan_init(void)
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
-*/
+
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
 		pr_err("wifi regulator missing\n");
@@ -281,7 +281,7 @@ int IW8101_wlan_power_on(int flag)
 	return -ENODEV;
 start:
 	pr_debug("wlan power on:%d\n", flag);
-/*
+
 	writel(gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTS));
 	writel(~gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKS));
@@ -290,8 +290,8 @@ start:
 	writel(~gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1C));
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
-*/
-//	jzrtc_enable_clk32k();/*clk32k*/
+
+	jzrtc_enable_clk32k();/*clk32k*/
 	clk_32k_on();
 	printk("cljiang------32k-----enable\n");
 	msleep(200);
@@ -334,8 +334,9 @@ int IW8101_wlan_power_off(int flag)
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
+        
+        printk("cljiang---IW8101_wlan_power_off\n");
 
-printk("cljiang---IW8101_wlan_power_off\n");
 	if (wifi_wake_lock == NULL)
 		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
 	else if (power == NULL)
@@ -369,9 +370,8 @@ start:
 	wake_unlock(wifi_wake_lock);
 
 	clk_32k_off();
-//	jzrtc_disable_clk32k();/*clk32k off*/
+	jzrtc_disable_clk32k();/*clk32k off*/
 	
-/*
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = (unsigned int)readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -380,7 +380,7 @@ start:
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
-*/
+
 	return 0;
 }
 
