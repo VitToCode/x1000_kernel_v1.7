@@ -4,7 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "os/clib.h"
+#include "clib.h"
 
 unsigned int nm_sleep(unsigned int seconds)
 {

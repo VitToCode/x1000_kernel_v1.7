@@ -9,6 +9,8 @@
 #define ZONE_MANAGER   	2
 #define ONCE_MANAGER  	3
 
+#define PT_USE_CACHE	0x01
+
 typedef struct _PPartition PPartition;
 typedef struct _PPartArray PPartArray;
 #define MUL_PARTS	4
@@ -44,6 +46,7 @@ struct _PPartition {
 	struct virt2phy_page *v2pp;
 	mul_parts parts[MUL_PARTS];
 	int parts_num;
+	int flags;
 };
 
 #define PPARTITION(pt) ((PPartition *)pt)

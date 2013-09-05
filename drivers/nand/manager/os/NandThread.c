@@ -1,7 +1,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-#include "os/NandThread.h"
+#include "NandThread.h"
 
 PNandThread CreateThread(PThreadFunction fn,void *data,int prio,char *name)
 {

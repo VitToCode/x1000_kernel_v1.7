@@ -14,7 +14,7 @@ enum nandmanager_cmd {
 };
 
 /*public*/
-int NandManger_Init(void);
+int NandManger_Init(void *heap, int heap_size);
 void NandManger_DeInit(int handle);
 
 int NandManger_getPartition(int handle, LPartition** pt);

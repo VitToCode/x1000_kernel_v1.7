@@ -3,17 +3,19 @@
 
 /************* NandSemaphore **********/
 typedef int NandSemaphore;
-void InitSemaphore(NandSemaphore*sem,int val); //val 1 is unLock val 0 is Lock
-void DeinitSemaphore(NandSemaphore* sem);
-void Semaphore_wait(NandSemaphore* sem);
-int Semaphore_waittimeout(NandSemaphore* sem,long jiffies); //timeout return < 0
-void Semaphore_signal(NandSemaphore* sem);
+void __InitSemaphore(NandSemaphore*sem,int val); //val 1 is unLock val 0 is Lock
+void __DeinitSemaphore(NandSemaphore* sem);
+void __Semaphore_wait(NandSemaphore* sem);
+int __Semaphore_waittimeout(NandSemaphore* sem,long jiffies); //timeout return < 0
+void __Semaphore_signal(NandSemaphore* sem);
 
 /************** andMutex **************/
 typedef int NandMutex;
-void InitNandMutex(NandMutex *mutex);
-void DeinitNandMutex(NandMutex *mutex);
-void NandMutex_Lock(NandMutex *mutex);
-void NandMutex_Unlock(NandMutex* mutex);
+
+void __InitNandMutex(NandMutex *mutex);
+void __DeinitNandMutex(NandMutex *mutex);
+void __NandMutex_Lock(NandMutex *mutex);
+void __NandMutex_Unlock(NandMutex* mutex);
+int __NandMutex_TryLock(NandMutex *mutex);
 
 #endif /* _NANDSEMPHORE_H_ */

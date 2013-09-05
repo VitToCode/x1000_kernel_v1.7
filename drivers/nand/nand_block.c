@@ -356,6 +356,7 @@ static int handle_req_thread(void *data)
 		set_current_state(TASK_RUNNING);
 
 		while(req) {
+			err = 0;
 #ifdef DEBUG_REQ
 			printk("%s: req = %p, start sector = %d, total = %d, buffer = %p\n",
 			       (rq_data_dir(req) == READ)? "READ":"WRITE",

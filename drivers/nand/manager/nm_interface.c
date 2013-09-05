@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 
+#define HEAP_SIZE (4 * 1024 * 1024 / 2)
 
 typedef struct __nm_intf {
 	int handler;	   		/* nand manager handler */
@@ -359,9 +360,8 @@ int NM_open(void)
 			printk("ERROR: %s, Can't alloc memory for nm_interface!\n", __func__);
 			return 0;
 		}
-		nm_intf->heap = (void*)kmalloc(3 * 1024 * 1024 / 2,GFP_KERNEL);
-		Nand_MemoryInit(nm_intf->heap,3 * 1024 * 1024 / 2,0);
-		nm_intf->handler = NandManger_Init();
+		nm_intf->heap = (void*)kmalloc(HEAP_SIZE, GFP_KERNEL);
+		nm_intf->handler = NandManger_Init(nm_intf->heap, HEAP_SIZE);
 		if (!nm_intf->handler) {
 			printk("ERROR: %s, Init NandManger faild!\n", __func__);
 			return 0;
