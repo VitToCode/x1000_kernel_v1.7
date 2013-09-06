@@ -46,13 +46,13 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_MMC2_JZ4775_PE_4BIT
 	MSC2_PORTE,
 #endif
-#ifdef CONFIG_I2C0_JZ4775
+#if	(defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C0_DMA_JZ4775))
 	I2C0_PORTD,
 #endif
-#ifdef CONFIG_I2C1_JZ4775
+#if	(defined(CONFIG_I2C1_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
 	I2C1_PORTE,
 #endif
-#ifdef CONFIG_I2C2_JZ4775
+#if	(defined(CONFIG_I2C2_JZ4775) || defined(CONFIG_I2C2_DMA_JZ4775))
 	I2C2_PORTE,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
@@ -268,6 +268,8 @@ DEF_MSC(1);
 DEF_MSC(2);
 
 static u64 jz_i2c_dmamask =  ~(u32)0;
+#if (defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C1_JZ4775) ||	\
+		defined(CONFIG_I2C2_JZ4775))
 
 #define DEF_I2C(NO)								\
 	static struct resource jz_i2c##NO##_resources[] = {			\
@@ -285,6 +287,10 @@ static u64 jz_i2c_dmamask =  ~(u32)0;
 			.start          = JZDMA_REQ_I2C##NO,			\
 			.flags          = IORESOURCE_DMA,			\
 		},								\
+		[3] = {								\
+			.start          = CONFIG_I2C##NO##_SPEED,			\
+			.flags          = IORESOURCE_BUS, \
+		},								\
 	};									\
 struct platform_device jz_i2c##NO##_device = {					\
 	.name = "jz-i2c",							\
@@ -296,9 +302,62 @@ struct platform_device jz_i2c##NO##_device = {					\
 	.num_resources  = ARRAY_SIZE(jz_i2c##NO##_resources),			\
 	.resource       = jz_i2c##NO##_resources,				\
 };
+#ifdef CONFIG_I2C0_JZ4775
 DEF_I2C(0);
+#endif
+#ifdef CONFIG_I2C1_JZ4775
 DEF_I2C(1);
+#endif
+#ifdef CONFIG_I2C2_JZ4775
 DEF_I2C(2);
+#endif
+#endif
+
+#if (defined(CONFIG_I2C0_DMA_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775) ||	\
+		defined(CONFIG_I2C2_DMA_JZ4775))
+
+#define DEF_I2C_DMA(NO)								\
+	static struct resource jz_i2c##NO##_dma_resources[] = {			\
+		[0] = {								\
+			.start          = I2C##NO##_IOBASE,			\
+			.end            = I2C##NO##_IOBASE + 0x1000 - 1,	\
+			.flags          = IORESOURCE_MEM,			\
+		},								\
+		[1] = {								\
+			.start          = IRQ_I2C##NO,				\
+			.end            = IRQ_I2C##NO,				\
+			.flags          = IORESOURCE_IRQ,			\
+		},								\
+		[2] = {								\
+			.start          = JZDMA_REQ_I2C##NO,			\
+			.flags          = IORESOURCE_DMA,			\
+		},								\
+		[3] = {								\
+			.start          = CONFIG_I2C##NO##_SPEED,			\
+			.flags          = IORESOURCE_BUS, \
+		},								\
+	};									\
+struct platform_device jz_i2c##NO##_dma_device = {					\
+	.name = "jz-i2c",							\
+	.id = NO,								\
+	.dev = {								\
+		.dma_mask               = &jz_i2c_dmamask,			\
+		.coherent_dma_mask      = 0xffffffff,				\
+	},									\
+	.num_resources  = ARRAY_SIZE(jz_i2c##NO##_dma_resources),			\
+	.resource       = jz_i2c##NO##_dma_resources,				\
+};
+
+#ifdef CONFIG_I2C0_DMA_JZ4775
+DEF_I2C_DMA(0);
+#endif
+#ifdef CONFIG_I2C1_DMA_JZ4775
+DEF_I2C_DMA(1);
+#endif
+#ifdef CONFIG_I2C2_DMA_JZ4775
+DEF_I2C_DMA(2);
+#endif
+#endif
 
 /**
  * sound devices, include i2s,pcm, mixer0 - 1(mixer is used for debug) and an internal codec

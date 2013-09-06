@@ -106,6 +106,10 @@ extern struct platform_device jz_i2c0_device;
 extern struct platform_device jz_i2c1_device;
 extern struct platform_device jz_i2c2_device;
 
+extern struct platform_device jz_i2c0_dma_device;
+extern struct platform_device jz_i2c1_dma_device;
+extern struct platform_device jz_i2c2_dma_device;
+
 extern struct platform_device jz_i2s_device;
 extern struct platform_device jz_pcm_device;
 extern struct platform_device jz_codec_device;

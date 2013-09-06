@@ -333,19 +333,15 @@ static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma
 	dev_vdbg(chan2dev(chan),"Channel %d add desc\n",dmac->chan.chan_id);
 
 	if(direction == DMA_TO_DEVICE) {
-		if (flag & 0x2)
+		if (flag & 0x3)
 			tsz = get_max_tsz(src|cnt|dmac->config->dst_maxburst, &dcm);
 		else
 			tsz = get_max_tsz(dmac->config->dst_maxburst, &dcm);
 
-		if (flag&0x1) {
 			dcm |= DCM_SAI | dmac->tx_dcm_def | DCM_LINK | DCM_TIE;
-		} else if(!(flag&0x1)){
-			dcm |= DCM_SAI | DCM_DAI | dmac->tx_dcm_def | DCM_LINK | DCM_TIE;
-		}
 		type = dmac->type;
 	} else {
-		if (flag&0x2)
+		if (flag&0x3)
 			tsz = get_max_tsz(dst|cnt|dmac->config->src_maxburst, &dcm);
 		else
 			tsz = get_max_tsz(dmac->config->src_maxburst, &dcm);
@@ -357,6 +353,8 @@ static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma
 		if (build_one_dymic_desc(dmac, src, dst, dcm, cnt/tsz, type, flag, direction)) {
 			return &dmac->tx_desc;
 		}
+	} else if (flag & 0x1){
+		build_one_desc(dmac, src, dst, dcm, cnt/tsz, type);
 	} else {
 		build_one_desc(dmac, src, dst, dcm, cnt, type);
 	}
@@ -373,6 +371,7 @@ static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma
 		}
 		return &dmac->tx_desc;
 	}
+
 	return NULL;
 }
 

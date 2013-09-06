@@ -639,7 +639,10 @@ static int i2c_jz_probe(struct platform_device *dev)
 	INIT_DELAYED_WORK(&i2c->clk_work, i2c_clk_work);
 
 	clk_enable(i2c->clk);
-	i2c_set_speed(i2c, CONFIG_I2C_JZ4775_SPEED * 1000);
+
+	r = platform_get_resource(dev, IORESOURCE_BUS, 0);
+
+	i2c_set_speed(i2c, r->start * 1000);
 
 	tmp = i2c_readl(i2c,I2C_DC);
 	tmp &= ~I2C_DC_STP;
