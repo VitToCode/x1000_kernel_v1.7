@@ -60,6 +60,15 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	if (pb->notify) {
 		brightness = pb->notify(pb->dev, brightness);
 	}
+
+#if 1
+    if (pb->suspend && (brightness > 0)) {
+		pb->cur_brightness = brightness;
+        //printk("pb->suspend, brightness =%d\n", brightness);
+        mutex_unlock(&pb->pwm_lock);
+        return 0;
+    }
+#else
     /*
      * if backlight has been suspended we shouldn't update brightness
      * until backlight has been resumed.
@@ -68,6 +77,7 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
         mutex_unlock(&pb->pwm_lock);
         return 0;
     }
+#endif
 
     pb->cur_brightness = brightness;
 	if (brightness == 0) {
