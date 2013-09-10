@@ -28,7 +28,6 @@
 #include <soc/gpio.h>
 
 #include <linux/kd50g2_40nm_a2.h>
-
 //static struct lcd_board_info *lcd_board;
 //static struct lcd_soc_info *lcd_soc;
 struct kd50g2_40nm_a2_data {
@@ -40,6 +39,7 @@ struct kd50g2_40nm_a2_data {
 
 static void kd50g2_40nm_a2_on(struct kd50g2_40nm_a2_data *dev) {
 	dev->lcd_power = 1;
+	if(!regulator_is_enabled(dev->lcd_vcc_reg))
 	regulator_enable(dev->lcd_vcc_reg);
 	if (dev->pdata->gpio_lcd_disp) {
 		/*
@@ -62,6 +62,7 @@ static void kd50g2_40nm_a2_off(struct kd50g2_40nm_a2_data *dev)
 	dev->lcd_power = 0;
 	gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
 	mdelay(2);
+	if(regulator_is_enabled(dev->lcd_vcc_reg))
 	regulator_disable(dev->lcd_vcc_reg);
 	mdelay(10);
 }

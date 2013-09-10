@@ -327,15 +327,21 @@ static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
 
 static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts)
 {
-	if (ts->power)
-		return regulator_disable(ts->power);
+
+	if (!IS_ERR(ts->power)) {
+		if (regulator_is_enabled(ts->power))
+			return regulator_disable(ts->power);
+	}
 	return 0;
 }
 
 static int gwtc9xxxb_ts_power_on(struct gwtc9xxxb_ts_data *ts)
 {
-	if (ts->power)
-		return regulator_enable(ts->power);
+
+	if (!IS_ERR(ts->power)) {
+		if (!regulator_is_enabled(ts->power))
+			return  regulator_enable(ts->power);
+	}
 	return 0;
 }
 
