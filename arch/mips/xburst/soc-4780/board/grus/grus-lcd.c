@@ -58,7 +58,7 @@ struct platform_device ek070tn93_device = {
 #ifdef CONFIG_LCD_BYD_BM8766U
 #include <linux/byd_bm8766u.h>
 static struct platform_byd_bm8766u_data byd_bm8766u_pdata= {
-	.gpio_lcd_disp = GPIO_PB(30),
+	.gpio_lcd_disp = GPIO_PD(11),
 	.gpio_lcd_de   = 0,		//GPIO_PC(9),	/* chose sync mode */
 	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
 	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
