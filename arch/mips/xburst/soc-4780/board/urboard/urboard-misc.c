@@ -24,6 +24,7 @@
 #include <linux/dm9000.h>
 #include <gpio.h>
 #include <linux/input/remote.h>
+#include <mach/jz4780_efuse.h>
 
 #include "urboard.h"
 #include <../drivers/staging/android/timed_gpio.h>
@@ -306,6 +307,13 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ4780_EFUSE
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = GPIO_PE(4),
+};
+#endif
+
 static int __init urboard_board_init(void)
 {
 /* dma */
@@ -481,6 +489,10 @@ static int __init urboard_board_init(void)
 
 #ifdef CONFIG_USB_DWC2
 	platform_device_register(&jz_dwc_otg_device);
+#endif
+
+#ifdef CONFIG_JZ4780_EFUSE
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
 	return 0;
 }
