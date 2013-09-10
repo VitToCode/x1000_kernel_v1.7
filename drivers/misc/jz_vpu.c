@@ -86,7 +86,7 @@ static int vpu_on(struct jz_vpu *vpu)
 			"mtc0  $2, $16,  7  \n\t"
 			"nop                  \n\t");
 	enable_irq(vpu->irq);
-	wake_lock(&vpu->wake_lock);
+	//wake_lock(&vpu->wake_lock);
 	dev_dbg(vpu->dev, "[%d:%d] on\n", current->tgid, current->pid);
 
 	return 0;
@@ -108,7 +108,7 @@ static long vpu_off(struct jz_vpu *vpu)
 	cpm_pwc_disable(vpu->cpm_pwc);
 	/* Clear completion use_count here to avoid a unhandled irq after vpu off */
 	vpu->done.done = 0;
-	wake_unlock(&vpu->wake_lock);
+        //wake_unlock(&vpu->wake_lock);
 	dev_dbg(vpu->dev, "[%d:%d] off\n", current->tgid, current->pid);
 
 	return 0;
@@ -418,7 +418,7 @@ static int vpu_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, vpu);
 
-	wake_lock_init(&vpu->wake_lock, WAKE_LOCK_SUSPEND, "vpu");
+	//wake_lock_init(&vpu->wake_lock, WAKE_LOCK_SUSPEND, "vpu");
 
 	mutex_init(&vpu->mutex);
 
@@ -456,7 +456,7 @@ static int vpu_remove(struct platform_device *dev)
 	if(vpu->cpm_pwc)
 		cpm_pwc_put(vpu->cpm_pwc);
 	misc_deregister(&vpu->mdev);
-	wake_lock_destroy(&vpu->wake_lock);
+	//wake_lock_destroy(&vpu->wake_lock);
 	clk_put(vpu->clk);
 	clk_put(vpu->clk_gate);
 	free_irq(vpu->irq, vpu);
