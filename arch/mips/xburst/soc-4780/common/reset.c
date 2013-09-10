@@ -198,9 +198,9 @@ void jz_wdt_restart(char *command)
 
 static void hibernate_restart(void) {
 	uint32_t rtc_rtcsr,rtc_rtccr;
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
-	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
-	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	while(!(rtc_read_reg(RTC_RTCCR) & RTCCR_WRDY));
+	rtc_rtcsr = rtc_read_reg(RTC_RTCSR);
+	rtc_rtccr = rtc_read_reg(RTC_RTCCR);
 	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
 	rtc_rtccr &= ~(1 << 4);
 	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
@@ -223,7 +223,7 @@ static void hibernate_restart(void) {
 
 	mdelay(200);
 	while(1)
-		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
+		printk("We should NOT come here.%08x\n",rtc_read_reg(RTC_HCR));
 
 }
 #ifdef CONFIG_HIBERNATE_RESET
@@ -269,7 +269,7 @@ static int reset_write_proc(struct file *file, const char __user *buffer,
 	if(count == 0) return count;
 	for(i = 0;i < ARRAY_SIZE(reset_command);i++) {
 		if(!strncmp(buffer,reset_command[i],strlen(reset_command[i]))) {
-			command++;
+			command = i + 1;
 			break;
 		}
 	}
