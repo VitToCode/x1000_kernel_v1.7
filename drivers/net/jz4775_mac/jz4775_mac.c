@@ -1807,7 +1807,11 @@ static int jz4775_mac_open(struct net_device *dev)
 	while(phy_read(lp->phydev, MII_BMCR) & BMCR_RESET);
 	phy_start(lp->phydev);
 
-	synopGMAC_reset(gmacdev);
+	if (synopGMAC_reset(gmacdev) < 0) {
+		printk("func:%s, synopGMAC_reset failed\n", __func__);
+		phy_stop(lp->phydev);
+		return -1;
+	}
 
 	/* init MDC CLK */
 	synopGMAC_set_mdc_clk_div(gmacdev,GmiiCsrClk2);
@@ -1919,7 +1923,10 @@ static int __devinit jz4775_mac_probe(struct platform_device *pdev)
 		printk("=========>gmacdev->MacBase = 0x%08x DmaBase = 0x%08x\n",
 		       gmacdev->MacBase, gmacdev->DmaBase);
 	}
-	synopGMAC_reset(gmacdev);
+	if (synopGMAC_reset(gmacdev) < 0) {
+		printk("func:%s, synopGMAC_reset failed\n", __func__);
+		return -1;
+	}
 	/* init MDC CLK */
 	synopGMAC_set_mdc_clk_div(gmacdev,GmiiCsrClk2);
 	gmacdev->ClockDivMdc = synopGMAC_get_mdc_clk_div(gmacdev);
@@ -2153,7 +2160,10 @@ static int __devinit jz4775_mii_bus_probe(struct platform_device *pdev)
 	jzgpio_set_func(GPIO_PORT_F, GPIO_INPUT, 0x00000040);
 #endif
 
-	synopGMAC_reset(gmacdev);
+	if (synopGMAC_reset(gmacdev) < 0) {
+		printk("func:%s, synopGMAC_reset failed\n", __func__);
+		return -1;
+	}
 
 	/* init MDC CLK */
 	/* The CSR clock is used to generate the MDC clock for the SMA interface. */
