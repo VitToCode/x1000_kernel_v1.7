@@ -27,7 +27,6 @@ struct ac_charger {
     int charging;
     int status;
     struct power_supply charger;
-    struct early_suspend early_suspend;
 };
 
 static char* status_dbg(int status)
@@ -82,8 +81,10 @@ static void ac_work(struct work_struct *work)
     pr_info("ac: ac_work: charging=%d \n", charging);
     if (charging != ac->charging) {
         status = charging ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_NOT_CHARGING;
-        if (status == POWER_SUPPLY_STATUS_NOT_CHARGING && is_ac_online(ac->pdata))
+        if (status == POWER_SUPPLY_STATUS_NOT_CHARGING && is_ac_online(ac->pdata)) {
+            printk("is_ac_online(ac->pdata) = %d\n", is_ac_online(ac->pdata));
             status = POWER_SUPPLY_STATUS_FULL;
+        }
         if (ac->status != status) {
             pr_info("ac: update status: %s -> %s\n",
                     status_dbg(ac->status), status_dbg(status));
@@ -180,21 +181,6 @@ static void ac_callback_init(struct ac_charger *ac)
     jz_battery->pmu_work_enable = pmu_work_enable;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void ac_early_suspend(struct early_suspend *early_suspend)
-{
-    struct ac_charger *ac ;
-    ac = container_of(early_suspend, struct ac_charger, early_suspend);
-    disable_irq_nosync(ac->irq);
-}
-static void ac_late_resume(struct early_suspend *early_suspend)
-{
-    struct ac_charger *ac ;
-    ac = container_of(early_suspend, struct ac_charger, early_suspend);
-    enable_irq(ac->irq);
-}
-#endif
-
 static int __devinit ac_charger_probe(struct platform_device *pdev)
 {
     const struct ac_charger_platform_data *pdata = pdev->dev.platform_data;
@@ -233,13 +219,6 @@ static int __devinit ac_charger_probe(struct platform_device *pdev)
     charger->supplied_to = pdata->supplied_to;
     charger->num_supplicants = pdata->num_supplicants;
     charger->external_power_changed = ac_external_power_changed;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-    ac->early_suspend.suspend = ac_early_suspend;
-    ac->early_suspend.resume = ac_late_resume;
-    ac->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-    register_early_suspend(&ac->early_suspend);
-#endif
 
     ret = gpio_request(pdata->gpio_ac, dev_name(&pdev->dev));
     if (ret) {
@@ -285,7 +264,7 @@ static int __devinit ac_charger_probe(struct platform_device *pdev)
             dev_warn(&pdev->dev, "Failed to request irq: %d\n", ret);
         else {
             ac->irq = irq;
-            //enable_irq_wake(ac->irq);
+            enable_irq_wake(ac->irq);
             disable_irq_nosync(irq);
         }
     }
