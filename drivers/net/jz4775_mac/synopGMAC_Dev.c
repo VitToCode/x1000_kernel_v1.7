@@ -203,23 +203,28 @@ s32 synopGMAC_read_version (synopGMACdevice * gmacdev)
  * @param[in] pointer to synopGMACdevice.
  * \return 0 on success else return the error status.
  */
-s32 synopGMAC_reset (synopGMACdevice * gmacdev )
+s32 synopGMAC_reset (synopGMACdevice * gmacdev)
 {
 	u32 data = 0;
 	int cnt = 0;
 	synopGMACWriteReg((u32 *)gmacdev->DmaBase, DmaBusMode ,DmaResetOn);
-        plat_delay(DEFAULT_LOOP_VARIABLE);
+	plat_delay(DEFAULT_LOOP_VARIABLE);
+
 	while (1) {
-	    data = synopGMACReadReg((u32 *)gmacdev->DmaBase, DmaBusMode);
-	    TR("DATA after Reset = %08x\n",data);
-	    if (data & DmaResetOn) {
-		    if (cnt > 10)
-		    	printk("Bus Mode Reg after reset: 0x%08x\n", data);
-		    mdelay(1);
-		    cnt ++;
-	    } else {
-		    break;
-	    }
+		data = synopGMACReadReg((u32 *)gmacdev->DmaBase, DmaBusMode);
+		TR("DATA after Reset = %08x\n",data);
+		if (data & DmaResetOn) {
+			if (cnt < 10) {
+				printk("Bus Mode Reg after reset: 0x%08x, cnt=%d\n", data, cnt);
+			} else {
+				return -1;
+			}
+
+			mdelay(1);
+			cnt ++;
+		} else {
+			break;
+		}
 	}
 
 	return 0;
