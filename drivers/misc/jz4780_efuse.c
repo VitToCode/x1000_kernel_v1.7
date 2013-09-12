@@ -682,18 +682,21 @@ static ssize_t jz_efuse_id_store(struct device *dev,
 {
 	struct jz_efuse * efuse = dev_get_drvdata(dev);
 	char *tmp_buf = NULL;
-	unsigned int *data = NULL;
 	int ret = -1;
+	int buf_len = strlen(buf);
 
-	if ((tmp_buf = kzalloc(16, GFP_KERNEL)) < 0) {
+	if (buf_len > 16) {
+		buf_len = 16;
+	}
+
+	if ((tmp_buf = kzalloc(buf_len, GFP_KERNEL)) < 0) {
 		ret = -ENOMEM;
 		goto kzalloc_tmp_buf_err;
 	}
-	data = (unsigned int *)tmp_buf;
-	sscanf (buf, "%08x %08x %08x %08x",
-			&data[0], &data[1], &data[2], &data[3]);
 
-	if ((ret = jz_nomal_efuse_write(efuse, tmp_buf, 16, &lpos)) < 0) {
+	strncpy(tmp_buf, buf, buf_len);
+
+	if ((ret = jz_nomal_efuse_write(efuse, tmp_buf, buf_len, &lpos)) < 0) {
 		goto write_nomal_efuse_err;
 	}
 
@@ -728,11 +731,47 @@ static ssize_t jz_efuse_user_id_store(struct device *dev,
 	return jz_efuse_id_store(dev, attr, buf, count, 0x18);
 }
 
+static ssize_t jz_efuse_protect_bit_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_efuse * efuse = dev_get_drvdata(dev);
+	char *tmp_buf = NULL;
+	unsigned int *data = NULL;
+	loff_t lpos = 0x1e0;
+	int ret = -1;
+
+	if ((tmp_buf = kzalloc(4, GFP_KERNEL)) < 0) {
+		ret = -ENOMEM;
+		goto kzalloc_tmp_buf_err;
+	}
+	data = (unsigned int *)tmp_buf;
+
+	if ((ret = jz_nomal_efuse_read(efuse, tmp_buf, 1, &lpos)) < 0) {
+		ret = -1;
+		goto read_nomal_efuse_err;
+	}
+
+	if (ret > 0) {
+		if ((ret = snprintf(buf, PAGE_SIZE, "%08x\n", data[0])) < 0) {
+			goto snprintf_err;
+		}
+	}
+
+snprintf_err:
+read_nomal_efuse_err:
+	kfree(tmp_buf);
+
+kzalloc_tmp_buf_err:
+	return ret;
+}
+
 static struct device_attribute jz_efuse_sysfs_attrs[] = {
     __ATTR(chip_id, S_IRUGO | S_IWUSR, jz_efuse_chip_id_show,
 		    jz_efuse_chip_id_store),
     __ATTR(user_id, S_IRUGO | S_IWUSR, jz_efuse_user_id_show,
 		    jz_efuse_user_id_store),
+    __ATTR(protect_bit, S_IRUGO | S_IWUSR, jz_efuse_protect_bit_show,
+		    NULL),
 };
 
 static int efuse_probe(struct platform_device *pdev)
@@ -952,7 +991,7 @@ void jz_efuse_id_read(int is_chip_id, uint32_t *buf)
 	}
 
 	lpos = (is_chip_id) > 0 ? 0x8 : 0x18;
-	if (jz_nomal_efuse_read(extra_efuse, (char *)buf, 32, &lpos) < 0) {
+	if (jz_nomal_efuse_read(extra_efuse, (char *)buf, 16, &lpos) < 0) {
 		printk("read %s failed\n", lpos == 0x8 ? "chip_id" : "user_id");
 		return;
 	}
