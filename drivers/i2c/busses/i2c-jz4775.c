@@ -58,10 +58,11 @@
 #define	I2C_SDASU		(0x94)
 #define	I2C_ACKGC		(0x98)
 #define	I2C_ENSTA		(0x9C)
+#define I2C_FLT			(0xA0)
 
 /* I2C Control Register (I2C_CTRL) */
 #define I2C_CTRL_SLVDIS		(1 << 6) /* after reset slave is disabled*/
-#define I2C_CTRL_REST		(1 << 5)	
+#define I2C_CTRL_REST		(1 << 5)
 #define I2C_CTRL_MATP		(1 << 4) /* 1: 10bit address 0: 7bit addressing*/
 #define I2C_CTRL_SATP		(1 << 3) /* 1: 10bit address 0: 7bit address*/
 #define I2C_CTRL_SPDF		(2 << 1) /* fast mode 400kbps */
@@ -129,7 +130,7 @@ char *abrt_src[] = {
 #define I2C_DC_STP			(1 << 9)
 #define I2C_DC_READ    			(1 << 8)
 
-#define I2C_ENB_I2CENB			(1 << 0) /* Enable the i2c */ 
+#define I2C_ENB_I2CENB			(1 << 0) /* Enable the i2c */
 
 /* I2C standard mode high count register(I2CSHCNT) */
 #define I2CSHCNT_ADJUST(n)      (((n) - 8) < 6 ? 6 : ((n) - 8))
@@ -243,62 +244,70 @@ static inline unsigned short i2c_readl(struct jz_i2c *i2c,unsigned short offset)
 		i2c->data_buf[i2c->cmd % BUFSIZE] += 1;
 	}
 #endif
-	//return (*(volatile unsigned short *)(i2c->iomem + offset)); 
+	//return (*(volatile unsigned short *)(i2c->iomem + offset));
 	return readl(i2c->iomem + offset);
 }
 
-static inline void i2c_writel(struct jz_i2c *i2c,unsigned short  offset,unsigned short value)
+static inline void i2c_writel(struct jz_i2c *i2c, unsigned short  offset, unsigned short value)
 {
-	//(*(volatile unsigned short *) (i2c->iomem + offset)) = (value); 
-	writel(value,i2c->iomem + offset);
+	//(*(volatile unsigned short *) (i2c->iomem + offset)) = (value);
+	writel(value, i2c->iomem + offset);
 }
 
 
 static int jz_i2c_disable(struct jz_i2c *i2c)
 {
 	int timeout = TIMEOUT;
-	i2c_writel(i2c,I2C_ENB,0);
-	while((i2c_readl(i2c,I2C_ENSTA) & I2C_ENB_I2CENB) && (--timeout > 0))
+	i2c_writel(i2c, I2C_ENB, 0);
+	while((i2c_readl(i2c, I2C_ENSTA) & I2C_ENB_I2CENB) && (--timeout > 0))
 		msleep(1);
 
-	return timeout?0:1;
+	if (timeout)
+		return 0;
+
+	printk("enable i2c%d failed\n", i2c->adap.nr);
+	return -ETIMEDOUT;
 }
 
 static int jz_i2c_enable(struct jz_i2c *i2c)
 {
 	int timeout = TIMEOUT;
 
-	i2c_writel(i2c,I2C_ENB,1);
-	while(!(i2c_readl(i2c,I2C_ENSTA) & I2C_ENB_I2CENB) && (--timeout > 0))
+	i2c_writel(i2c, I2C_ENB, 1);
+	while(!(i2c_readl(i2c, I2C_ENSTA) & I2C_ENB_I2CENB) && (--timeout > 0))
 		msleep(1);
 
-	return timeout?0:1;
+	if (timeout)
+		return 0;
+
+	printk("enable i2c%d failed\n", i2c->adap.nr);
+	return -ETIMEDOUT;
 }
 
 static void jz_i2c_reset(struct jz_i2c *i2c)
 {
 	unsigned short tmp;
 
-	i2c_readl(i2c,I2C_CTXABRT);
+	i2c_readl(i2c, I2C_CTXABRT);
 
-	tmp = i2c_readl(i2c,I2C_CTRL);
+	tmp = i2c_readl(i2c, I2C_CTRL);
 	tmp &= ~(1<<0);
-	i2c_writel(i2c,I2C_CTRL,tmp);
+	i2c_writel(i2c, I2C_CTRL, tmp);
 	udelay(10);
 	tmp |= (1<<0);
-	i2c_writel(i2c,I2C_CTRL,tmp);
+	i2c_writel(i2c, I2C_CTRL, tmp);
 
 	jz_i2c_disable(i2c);
 	udelay(10);
 	jz_i2c_enable(i2c);
 }
 
-void i2c_send_rcmd(struct jz_i2c *i2c,int cmd_count)
+void i2c_send_rcmd(struct jz_i2c *i2c, int cmd_count)
 {
 	int i;
 
-	for(i=0;i<cmd_count;i++) {
-		i2c_writel(i2c,I2C_DC,I2C_DC_READ);
+	for(i=0; i<cmd_count; i++) {
+		i2c_writel(i2c, I2C_DC, I2C_DC_READ);
 #ifdef CONFIG_I2C_DEBUG
 		i2c->cmd_buf[i2c->cmd % BUFSIZE] += 1;
 #endif
@@ -310,54 +319,54 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 	unsigned short tmp,intst,intmsk;
 	struct jz_i2c *i2c = dev_id;
 
-	intst = i2c_readl(i2c,I2C_INTST);
-	intmsk = i2c_readl(i2c,I2C_INTM);
+	intst = i2c_readl(i2c, I2C_INTST);
+	intmsk = i2c_readl(i2c, I2C_INTM);
 
 #ifdef CONFIG_I2C_DEBUG
 	//dev_info(&(i2c->adap.dev),"--I2C irq reg INTST:%x\n",intst);
 #endif
 	if((intst & I2C_INTST_RXFL) && (intmsk & I2C_INTM_MRXFL)) {
-		while ((i2c_readl(i2c,I2C_STA) & I2C_STA_RFNE)){
-			tmp = i2c_readl(i2c,I2C_DC) & 0xff;
+		while ((i2c_readl(i2c, I2C_STA) & I2C_STA_RFNE)){
+			tmp = i2c_readl(i2c, I2C_DC) & 0xff;
 			*(i2c->rbuf++)=tmp;
 			i2c->rd_len--;
 			if(i2c->rd_len == 0){
 				complete(&i2c->r_complete);
-				break;	
+				break;
 			}
 		}
 		if(i2c->rd_len > 0 &&  i2c->rd_len <= I2C_FIFO_LEN){
-			i2c_writel(i2c,I2C_RXTL,i2c->rd_len-1);
+			i2c_writel(i2c, I2C_RXTL, i2c->rd_len-1);
 		}
 	}
 
 	if ((intst & I2C_INTST_TXEMP) && (intmsk & I2C_INTM_MTXEMP)) {
-		tmp = i2c_readl(i2c,I2C_INTM);
+		tmp = i2c_readl(i2c, I2C_INTM);
 		tmp &= ~I2C_INTM_MTXEMP;
-		i2c_writel(i2c,I2C_INTM,tmp);
+		i2c_writel(i2c, I2C_INTM, tmp);
 
 		if (i2c->w_flag == 0) {
 			if(i2c->rdcmd_len >= (I2C_FIFO_LEN - TX_LEVEL)){
-				i2c_send_rcmd(i2c,I2C_FIFO_LEN - TX_LEVEL);
+				i2c_send_rcmd(i2c, I2C_FIFO_LEN - TX_LEVEL);
 				i2c->rdcmd_len -= (I2C_FIFO_LEN - TX_LEVEL);
 
-				tmp = i2c_readl(i2c,I2C_INTM);
+				tmp = i2c_readl(i2c, I2C_INTM);
 				tmp |= I2C_INTM_MTXEMP;
-				i2c_writel(i2c,I2C_INTM,tmp);
+				i2c_writel(i2c, I2C_INTM, tmp);
 			} else {
-				i2c_send_rcmd(i2c,i2c->rdcmd_len);
+				i2c_send_rcmd(i2c, i2c->rdcmd_len);
 				i2c->rdcmd_len = 0;
 
-				tmp = i2c_readl(i2c,I2C_DC);
+				tmp = i2c_readl(i2c, I2C_DC);
 				tmp |= I2C_DC_STP;
-				i2c_writel(i2c,I2C_DC,tmp);
+				i2c_writel(i2c, I2C_DC, tmp);
 			}
 		} else {
-			while ((i2c_readl(i2c,I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)) {
+			while ((i2c_readl(i2c, I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)) {
 				tmp = *(i2c->wbuf++);
 				if (i2c->wt_len == 1)
 					tmp |= I2C_DC_STP;
-				i2c_writel(i2c,I2C_DC,tmp);
+				i2c_writel(i2c, I2C_DC, tmp);
 				i2c->wt_len -= 1;
 			}
 			if (i2c->wt_len == 0)
@@ -366,9 +375,9 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 	}
 
 	if((intst & I2C_INTST_TXABT) && (intmsk & I2C_INTM_MTXABT)) {
-		tmp = i2c_readl(i2c,I2C_INTM);
+		tmp = i2c_readl(i2c, I2C_INTM);
 		tmp &= ~I2C_INTM_MTXABT;
-		i2c_writel(i2c,I2C_INTM,tmp);
+		i2c_writel(i2c, I2C_INTM, tmp);
 		complete(&i2c->r_complete);
 		complete(&i2c->w_complete);
 	}
@@ -376,36 +385,36 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void txabrt(struct jz_i2c *i2c,int src)
+static void txabrt(struct jz_i2c *i2c, int src)
 {
 	int i;
 
 	dev_err(&(i2c->adap.dev),"--I2C txabrt:\n");
 #ifdef CONFIG_I2C_DEBUG
-	dev_err(&(i2c->adap.dev),"--I2C device addr=%x\n",i2c_readl(i2c,I2C_TAR));
-	dev_err(&(i2c->adap.dev),"--I2C send cmd count:%d  %d\n",i2c->cmd,i2c->cmd_buf[i2c->cmd]);
-	dev_err(&(i2c->adap.dev),"--I2C receive data count:%d  %d\n",i2c->cmd,i2c->data_buf[i2c->cmd]);
+	dev_err(&(i2c->adap.dev), "--I2C device addr=%x\n", i2c_readl(i2c, I2C_TAR));
+	dev_err(&(i2c->adap.dev), "--I2C send cmd count:%d  %d\n", i2c->cmd, i2c->cmd_buf[i2c->cmd]);
+	dev_err(&(i2c->adap.dev), "--I2C receive data count:%d  %d\n", i2c->cmd, i2c->data_buf[i2c->cmd]);
 	jz_dump_i2c_regs(i2c);
 #endif
-	for(i=0;i<16;i++) {
+	for(i=0; i<16; i++) {
 		if(src & (0x1 << i))
-			dev_info(&(i2c->adap.dev),"--I2C TXABRT[%d]=%s\n",i,abrt_src[i]);
+			dev_info(&(i2c->adap.dev), "--I2C TXABRT[%d]=%s\n", i, abrt_src[i]);
 	}
 }
 
-static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cnt,int idx)
+static inline int xfer_read(struct jz_i2c *i2c, unsigned char *buf, int len, int cnt, int idx)
 {
 	int ret = 0;
 	long timeout;
 	unsigned short tmp;
 
 	i2c->w_flag = 0;
-	memset(buf,0,len);
+	memset(buf, 0, len);
 	i2c->rd_len = len;
 	i2c->rdcmd_len = len;
-	i2c->rbuf = buf; 
+	i2c->rbuf = buf;
 	if(len <=  I2C_FIFO_LEN){
-		i2c_writel(i2c,I2C_RXTL,len-1);
+		i2c_writel(i2c, I2C_RXTL, len-1);
 	}else{
 #ifdef CONFIG_I2C_DEBUG
 		i2c->cmd++;
@@ -415,28 +424,31 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 		i2c->cmd_buf[i2c->cmd % BUFSIZE] = 0;
 		i2c->data_buf[i2c->cmd % BUFSIZE] = 0;
 #endif
-		i2c_writel(i2c,I2C_RXTL,RX_LEVEL);
+		i2c_writel(i2c, I2C_RXTL, RX_LEVEL);
 	}
-	i2c_writel(i2c,I2C_TXTL,TX_LEVEL);
+	i2c_writel(i2c, I2C_TXTL, TX_LEVEL);
 
-	tmp = i2c_readl(i2c,I2C_INTM);
+	tmp = i2c_readl(i2c, I2C_INTM);
 	tmp |= I2C_INTM_MRXFL | I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
 	i2c_writel(i2c,I2C_INTM,tmp);
-	timeout = wait_for_completion_timeout(&i2c->r_complete, 
+	timeout = wait_for_completion_timeout(&i2c->r_complete,
 			msecs_to_jiffies(CONFIG_I2C_JZ4775_WAIT_MS));
 	if(!timeout){
-		dev_err(&(i2c->adap.dev),"--I2C irq read timeout\n");
+		dev_err(&(i2c->adap.dev), "--I2C irq read timeout\n");
 #ifdef CONFIG_I2C_DEBUG
-		dev_err(&(i2c->adap.dev),"--I2C send cmd count:%d  %d\n",i2c->cmd,i2c->cmd_buf[i2c->cmd]);
-		dev_err(&(i2c->adap.dev),"--I2C receive data count:%d  %d\n",i2c->cmd,i2c->data_buf[i2c->cmd]);
+		dev_err(&(i2c->adap.dev), "--I2C send cmd count:%d  %d\n", i2c->cmd,i2c->cmd_buf[i2c->cmd]);
+		dev_err(&(i2c->adap.dev), "--I2C receive data count:%d  %d\n", i2c->cmd, i2c->data_buf[i2c->cmd]);
 		jz_dump_i2c_regs(i2c);
 #endif
-		ret = -EIO;
+		ret = -ETIMEDOUT;
 	}
-	tmp = i2c_readl(i2c,I2C_TXABRT);
+	tmp = i2c_readl(i2c, I2C_TXABRT);
 	if(tmp) {
-		txabrt(i2c,tmp);
-		ret = -EIO;
+		txabrt(i2c, tmp);
+		if (tmp > 0x1 && tmp < 0x10)
+			ret = -ENXIO;
+		else
+			ret = -EIO;
 	}
 	if(ret < 0)
 		jz_i2c_reset(i2c);
@@ -444,7 +456,7 @@ static inline int xfer_read(struct jz_i2c *i2c,unsigned char *buf,int len,int cn
 	return ret;
 }
 
-static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int cnt,int idx)
+static inline int xfer_write(struct jz_i2c *i2c, unsigned char *buf, int len, int cnt, int idx)
 {
 	int ret = 0;
 	long timeout = TIMEOUT;
@@ -454,12 +466,12 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 	i2c->wbuf = buf;
 	i2c->wt_len = len;
 
-	i2c_writel(i2c,I2C_TXTL,TX_LEVEL);
-	tmp = i2c_readl(i2c,I2C_INTM);
+	i2c_writel(i2c, I2C_TXTL, TX_LEVEL);
+	tmp = i2c_readl(i2c, I2C_INTM);
 	tmp |= I2C_INTM_MTXEMP | I2C_INTM_MTXABT;
-	i2c_writel(i2c,I2C_INTM,tmp);
+	i2c_writel(i2c, I2C_INTM, tmp);
 
-	timeout = wait_for_completion_timeout(&i2c->w_complete, 
+	timeout = wait_for_completion_timeout(&i2c->w_complete,
 			msecs_to_jiffies(CONFIG_I2C_JZ4775_WAIT_MS));
 
 	if (!timeout) {
@@ -467,12 +479,15 @@ static inline int xfer_write(struct jz_i2c *i2c,unsigned char *buf,int len,int c
 #ifdef CONFIG_I2C_DEBUG
 		jz_dump_i2c_regs(i2c);
 #endif
-		ret = -EIO;
+		ret = -ETIMEDOUT;
 	}
-	tmp = i2c_readl(i2c,I2C_TXABRT);
+	tmp = i2c_readl(i2c, I2C_TXABRT);
 	if (tmp) {
-		txabrt(i2c,tmp);
-		ret = -EIO;
+		txabrt(i2c, tmp);
+		if (tmp > 0x1 && tmp < 0x10)
+			ret = -ENXIO;
+		else
+			ret = -EIO;
 	}
 	if(ret < 0)
 		jz_i2c_reset(i2c);
@@ -486,17 +501,17 @@ static int disable_i2c_clk(struct jz_i2c *i2c)
 
 	do {
 		udelay(90);
-		tmp = i2c_readl(i2c,I2C_STA);
+		tmp = i2c_readl(i2c, I2C_STA);
 	} while ((tmp & I2C_STA_MSTACT) && (--timeout > 0));
 
 	if (timeout > 0) {
 		clk_disable(i2c->clk);
 		return 0;
 	} else {
-		dev_err(&(i2c->adap.dev),"--I2C transport wait timeout, I2C_STA = 0x%x\n", tmp);
+		dev_err(&(i2c->adap.dev),"--I2C disable clk timeout, I2C_STA = 0x%x\n", tmp);
 		jz_i2c_reset(i2c);
 		clk_disable(i2c->clk);
-		return -EAGAIN;
+		return -ETIMEDOUT;
 	}
 }
 
@@ -507,24 +522,24 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 
 	clk_enable(i2c->clk);
 
-	if (msg->addr != i2c_readl(i2c,I2C_TAR)) {
-		i2c_writel(i2c,I2C_TAR,msg->addr);
+	if (msg->addr != i2c_readl(i2c, I2C_TAR)) {
+		i2c_writel(i2c, I2C_TAR, msg->addr);
 	}
 
-	for (i=0;i<count;i++,msg++) {
+	for (i = 0; i < count; i++, msg++) {
 		if (msg->flags & I2C_M_RD) {
-			ret = xfer_read(i2c,msg->buf,msg->len,count,i);
+			ret = xfer_read(i2c, msg->buf, msg->len, count, i);
 		} else {
-			ret = xfer_write(i2c,msg->buf,msg->len,count,i);
+			ret = xfer_write(i2c, msg->buf, msg->len, count, i);
 		}
 		if (ret) {
 			clk_disable(i2c->clk);
-			return -EAGAIN;
+			return ret;
 		}
 	}
 
 	if (disable_i2c_clk(i2c))
-		return -EAGAIN;
+		return -ETIMEDOUT;
 
 	return i;
 }
@@ -539,7 +554,7 @@ static const struct i2c_algorithm i2c_jz_algorithm = {
 	.functionality	= i2c_jz_functionality,
 };
 
-static int i2c_set_speed(struct jz_i2c *i2c,int rate)
+static int i2c_set_speed(struct jz_i2c *i2c, int rate)
 {
 	/*ns*/
 	long dev_clk = clk_get_rate(i2c->clk);
@@ -566,7 +581,8 @@ static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 	cnt_high = dev_clk/(rate*2);
 	cnt_low = dev_clk/(rate*2);
 
-	dev_info(&(i2c->adap.dev),"set:%ld  hold:%ld dev=%ld h=%ld l=%ld\n",setup_time,hold_time,dev_clk,cnt_high,cnt_low);
+	dev_info(&(i2c->adap.dev),"set:%ld  hold:%ld dev=%ld h=%ld l=%ld\n",
+			setup_time, hold_time, dev_clk, cnt_high, cnt_low);
 	if (setup_time > 255)
 		setup_time = 255;
 	if (setup_time <= 0)
@@ -575,21 +591,21 @@ static int i2c_set_speed(struct jz_i2c *i2c,int rate)
 		hold_time = 0xFFFF;
 
 	if (rate <= 100000) {
-		i2c_writel(i2c,I2C_SHCNT,I2CSHCNT_ADJUST(cnt_high));
-		i2c_writel(i2c,I2C_SLCNT,I2CSLCNT_ADJUST(cnt_low));
+		i2c_writel(i2c, I2C_SHCNT, I2CSHCNT_ADJUST(cnt_high));
+		i2c_writel(i2c, I2C_SLCNT, I2CSLCNT_ADJUST(cnt_low));
 	} else {
-		i2c_writel(i2c,I2C_FHCNT,I2CFHCNT_ADJUST(cnt_high));
-		i2c_writel(i2c,I2C_FLCNT,I2CFLCNT_ADJUST(cnt_low));
+		i2c_writel(i2c, I2C_FHCNT, I2CFHCNT_ADJUST(cnt_high));
+		i2c_writel(i2c, I2C_FLCNT, I2CFLCNT_ADJUST(cnt_low));
 	}
 
-	i2c_writel(i2c,I2C_SDASU,setup_time & 0xff);
-	i2c_writel(i2c,I2C_SDAHD,hold_time);
+	i2c_writel(i2c, I2C_SDASU, setup_time & 0xff);
+	i2c_writel(i2c, I2C_SDAHD, hold_time);
 
 	return 0;
 }
 
 static void i2c_clk_work(struct work_struct *work)
-{	
+{
 	struct jz_i2c *i2c = container_of(work, struct jz_i2c, clk_work.work);
 	clk_disable(i2c->clk);
 	i2c->enabled = 0;
@@ -616,21 +632,21 @@ static int i2c_jz_probe(struct platform_device *dev)
 	i2c->adap.nr 		= dev->id;
 	sprintf(i2c->adap.name, "i2c%u", dev->id);
 
-	i2c->clk = clk_get(&dev->dev,i2c->adap.name);
+	i2c->clk = clk_get(&dev->dev, i2c->adap.name);
 	if(!i2c->clk) {
 		ret = -ENODEV;
 		goto clk_failed;
 	}
 
 	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
-	i2c->iomem = ioremap(r->start,resource_size(r));
+	i2c->iomem = ioremap(r->start, resource_size(r));
 	if (!i2c->iomem) {
 		ret = -ENOMEM;
 		goto io_failed;
 	}
 
 	i2c->irq = platform_get_irq(dev, 0);
-	ret = request_irq(i2c->irq, jz_i2c_irq, IRQF_DISABLED,dev_name(&dev->dev), i2c);
+	ret = request_irq(i2c->irq, jz_i2c_irq, IRQF_DISABLED, dev_name(&dev->dev), i2c);
 	if(ret) {
 		ret = -ENODEV;
 		goto irq_failed;
@@ -644,26 +660,28 @@ static int i2c_jz_probe(struct platform_device *dev)
 
 	i2c_set_speed(i2c, r->start * 1000);
 
-	tmp = i2c_readl(i2c,I2C_DC);
+	tmp = i2c_readl(i2c, I2C_DC);
 	tmp &= ~I2C_DC_STP;
-	i2c_writel(i2c,I2C_DC,tmp);
+	i2c_writel(i2c, I2C_DC, tmp);
 
-	tmp = i2c_readl(i2c,I2C_CTRL);
+	tmp = i2c_readl(i2c, I2C_CTRL);
 	tmp |= I2C_CTRL_REST;
-	i2c_writel(i2c,I2C_CTRL,tmp);
+	i2c_writel(i2c, I2C_CTRL, tmp);
 
-	i2c_writel(i2c,I2C_INTM,0x0); 
+	i2c_writel(i2c, I2C_INTM, 0x0);
+
+	i2c_writel(i2c, I2C_FLT, 0xF);	/*set filter*/
 
 	init_completion(&i2c->r_complete);
 	init_completion(&i2c->w_complete);
 
 	i2c->cmd = 0;
-	memset(i2c->cmd_buf,0,BUFSIZE);
-	memset(i2c->data_buf,0,BUFSIZE);
+	memset(i2c->cmd_buf, 0, BUFSIZE);
+	memset(i2c->data_buf, 0, BUFSIZE);
 
 	ret = i2c_add_numbered_adapter(&i2c->adap);
 	if (ret < 0) {
-		dev_err(&(i2c->adap.dev),KERN_INFO "I2C: Failed to add bus\n");
+		dev_err(&(i2c->adap.dev), KERN_INFO "I2C: Failed to add bus\n");
 		goto adapt_failed;
 	}
 
@@ -677,7 +695,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	return 0;
 
 adapt_failed:
-	free_irq(i2c->irq,i2c);
+	free_irq(i2c->irq, i2c);
 irq_failed:
 	iounmap(i2c->iomem);
 io_failed:
@@ -691,7 +709,7 @@ no_mem:
 static int i2c_jz_remove(struct platform_device *dev)
 {
 	struct jz_i2c *i2c = platform_get_drvdata(dev);
-	free_irq(i2c->irq,i2c);
+	free_irq(i2c->irq, i2c);
 	iounmap(i2c->iomem);
 	clk_put(i2c->clk);
 	i2c_del_adapter(&i2c->adap);
