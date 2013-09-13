@@ -1,5 +1,6 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/tsc.h>
@@ -54,13 +55,13 @@ static struct gpio_keys_button board_buttons[] = {
 #endif
 
 #ifdef GPIO_ENDCALL
-	{   
+	{
 		.gpio           = GPIO_ENDCALL,
 		.code           = KEY_POWER,
 		.desc           = "end call key",
 		.active_low     = ACTIVE_LOW_ENDCALL,
 		.wakeup         = 1,
-	},  
+	},
 #endif
 };
 
@@ -80,23 +81,23 @@ static struct platform_device jz_button_device = {
 #endif
 
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
-static struct jztsc_pin mensa_tsc_gpio[] = { 
+static struct jztsc_pin mensa_tsc_gpio[] = {
 	        [0] = {GPIO_TP_INT,         LOW_ENABLE},
 		[1] = {GPIO_TP_WAKE,        HIGH_ENABLE},
 };
 
-static struct jztsc_platform_data mensa_tsc_pdata = { 
+static struct jztsc_platform_data mensa_tsc_pdata = {
 	        .gpio           = mensa_tsc_gpio,
 		.x_max          = 800,
 		.y_max          = 480,
 };
 
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-static struct i2c_board_info mensa_i2c0_devs[] __initdata = { 
-		        {   
+static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
+		        {
 				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
 				.platform_data = &mensa_tsc_pdata,
-			},  
+			},
 	};
 #endif
 #endif
@@ -243,6 +244,32 @@ static struct jz4780_efuse_platform_data jz_efuse_pdata = {
 };
 #endif
 
+/*define gpio i2c,if you use gpio i2c,please enable gpio i2c and disable i2c controller*/
+#ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
+
+#define DEF_GPIO_I2C(NO,GPIO_I2C_SDA,GPIO_I2C_SCK)		\
+static struct i2c_gpio_platform_data i2c##NO##_gpio_data = {	\
+	.sda_pin	= GPIO_I2C_SDA,				\
+	.scl_pin	= GPIO_I2C_SCK,				\
+};								\
+static struct platform_device i2c##NO##_gpio_device = {     	\
+	.name	= "i2c-gpio",					\
+	.id	= NO,						\
+	.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
+};
+
+
+#if (!defined(CONFIG_I2C0_JZ4775) && !defined(CONFIG_I2C0_DMA_JZ4775))
+DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
+#endif
+#if (!defined(CONFIG_I2C1_JZ4775) && !defined(CONFIG_I2C1_DMA_JZ4775))
+DEF_GPIO_I2C(1,GPIO_PE(30),GPIO_PE(31));
+#endif
+#if (!defined(CONFIG_I2C2_JZ4775) && !defined(CONFIG_I2C2_DMA_JZ4775))
+DEF_GPIO_I2C(2,GPIO_PE(0),GPIO_PE(3));
+#endif
+#endif
+
 static int __init board_init(void)
 {
 /* dma */
@@ -259,8 +286,33 @@ static int __init board_init(void)
 #ifdef CONFIG_I2C2_JZ4775
 	platform_device_register(&jz_i2c2_device);
 #endif
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
+
+#ifdef CONFIG_I2C0_DMA_JZ4775
+	platform_device_register(&jz_i2c0_dma_device);
+#endif
+#ifdef CONFIG_I2C1_DMA_JZ4775
+	platform_device_register(&jz_i2c1_dma_device);
+#endif
+#ifdef CONFIG_I2C2_DMA_JZ4775
+	platform_device_register(&jz_i2c2_dma_device);
+#endif
+
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
 	i2c_register_board_info(1, mensa_i2c1_devs, ARRAY_SIZE(mensa_i2c1_devs));
+#endif
+
+#ifdef CONFIG_I2C_GPIO
+
+#if (!defined(CONFIG_I2C0_JZ4775) && !defined(CONFIG_I2C0_DMA_JZ4775))
+	platform_device_register(&i2c0_gpio_device);
+#endif
+#if (!defined(CONFIG_I2C1_JZ4775) && !defined(CONFIG_I2C1_DMA_JZ4775))
+	platform_device_register(&i2c1_gpio_device);
+#endif
+#if (!defined(CONFIG_I2C2_JZ4775) && !defined(CONFIG_I2C2_DMA_JZ4775))
+	platform_device_register(&i2c2_gpio_device);
+#endif
+
 #endif
 
 /* mmc */
