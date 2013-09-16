@@ -327,7 +327,6 @@ static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
 
 static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts)
 {
-
 	if (!IS_ERR(ts->power)) {
 		if (regulator_is_enabled(ts->power))
 			return regulator_disable(ts->power);
@@ -337,9 +336,7 @@ static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts)
 
 static int gwtc9xxxb_ts_power_on(struct gwtc9xxxb_ts_data *ts)
 {
-
 	if (!IS_ERR(ts->power)) {
-		if (!regulator_is_enabled(ts->power))
 			return  regulator_enable(ts->power);
 	}
 	return 0;
@@ -406,7 +403,7 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 	gwtc9xxxb_gpio_init(gwtc9xxxb_ts);
 
 #if 1
-	gwtc9xxxb_ts->power = regulator_get(&client->dev, "vtsc");
+	gwtc9xxxb_ts->power = regulator_get(NULL, "vlcd");
 	if (IS_ERR(gwtc9xxxb_ts->power)) {
 		dev_warn(&client->dev, "get regulator power failed\n");
 		gwtc9xxxb_ts->power = NULL;

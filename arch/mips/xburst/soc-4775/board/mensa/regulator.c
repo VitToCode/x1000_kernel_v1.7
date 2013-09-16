@@ -75,16 +75,17 @@ FIXED_REGULATOR_DEF(
 		HIGH_ENABLE,    UN_AT_BOOT,     0,
 		NULL,           "vmmc.0",       NULL);
 #endif
+#if 0
 FIXED_REGULATOR_DEF(
 		vtsc,
 		"Touch Screen",           3000000,       -1,
 		HIGH_ENABLE,    UN_AT_BOOT,     0,  
 		NULL,           "vtsc",       NULL);
 
-
+#endif
 static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&vmmc_regulator_device,
-	&vtsc_regulator_device,
+	//&vtsc_regulator_device,
 };
 
 /*

@@ -39,8 +39,9 @@ struct kd50g2_40nm_a2_data {
 
 static void kd50g2_40nm_a2_on(struct kd50g2_40nm_a2_data *dev) {
 	dev->lcd_power = 1;
-	if(!regulator_is_enabled(dev->lcd_vcc_reg))
-	regulator_enable(dev->lcd_vcc_reg);
+	if(IS_ERR(dev->lcd_vcc_reg)) {
+		regulator_enable(dev->lcd_vcc_reg);
+		}
 	if (dev->pdata->gpio_lcd_disp) {
 		/*
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
@@ -70,12 +71,11 @@ static void kd50g2_40nm_a2_off(struct kd50g2_40nm_a2_data *dev)
 static int kd50g2_40nm_a2_set_power(struct lcd_device *lcd, int power)
 {
 	struct kd50g2_40nm_a2_data *dev = lcd_get_data(lcd);
-
 	if (!power && !(dev->lcd_power)) {
-                kd50g2_40nm_a2_on(dev);
-        } else if (power && (dev->lcd_power)) {
-                kd50g2_40nm_a2_off(dev);
-        }
+		kd50g2_40nm_a2_on(dev);
+	} else if (power&& (dev->lcd_power)) {
+		kd50g2_40nm_a2_off(dev);
+	}
 	return 0;
 }
 
