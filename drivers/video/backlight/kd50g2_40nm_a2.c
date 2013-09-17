@@ -39,7 +39,7 @@ struct kd50g2_40nm_a2_data {
 
 static void kd50g2_40nm_a2_on(struct kd50g2_40nm_a2_data *dev) {
 	dev->lcd_power = 1;
-	if(IS_ERR(dev->lcd_vcc_reg)) {
+	if(!IS_ERR(dev->lcd_vcc_reg)) {
 		regulator_enable(dev->lcd_vcc_reg);
 		}
 	if (dev->pdata->gpio_lcd_disp) {
