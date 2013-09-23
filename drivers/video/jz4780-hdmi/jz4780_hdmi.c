@@ -391,9 +391,9 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		hdmi_init(jzhdmi);
 		ret = hdmi_read_edid(jzhdmi);
-		if(ret > 0){
+		jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
+		if(ret > 0 && jzhdmi->hdmi_info.support_modenum > 0){
 			jzhdmi->edid_faild = 0;
-			jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
 			jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
 			dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
 			for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
