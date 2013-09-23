@@ -14,48 +14,56 @@
 #define IOCTL_X2D_FREE_GRAPHIC_BUF		_IO(X2D_IOCTL_MAGIC, 0x06)
 
 
-#define X2D_RGBORDER_RGB 			 0  
-#define X2D_RGBORDER_BGR			 1  
-#define X2D_RGBORDER_GRB			 2  
-#define X2D_RGBORDER_BRG			 3  
-#define X2D_RGBORDER_RBG			 4  
-#define X2D_RGBORDER_GBR			 5  
+#define X2D_RGBORDER_RGB 			 0
+#define X2D_RGBORDER_BGR			 1
+#define X2D_RGBORDER_GRB			 2
+#define X2D_RGBORDER_BRG			 3
+#define X2D_RGBORDER_RBG			 4
+#define X2D_RGBORDER_GBR			 5
 
-#define X2D_ALPHA_POSLOW			 1 
-#define X2D_ALPHA_POSHIGH			 0 
+#define X2D_ALPHA_POSLOW			 1
+#define X2D_ALPHA_POSHIGH			 0
 
 #define X2D_H_MIRROR				 4
 #define X2D_V_MIRROR				 8
-#define X2D_ROTATE_0				 0 
-#define	X2D_ROTATE_90 				 1 
-#define X2D_ROTATE_180				 2 
-#define X2D_ROTATE_270				 3 
+#define X2D_ROTATE_0				 0
+#define	X2D_ROTATE_90 				 1
+#define X2D_ROTATE_180				 2
+#define X2D_ROTATE_270				 3
 
-#define X2D_INFORMAT_ARGB888		0 
-#define X2D_INFORMAT_RGB555			1 
-#define X2D_INFORMAT_RGB565			2 
-#define X2D_INFORMAT_YUV420SP		3 
-#define X2D_INFORMAT_TILE420		4 
-#define X2D_INFORMAT_NV12			5 
-#define X2D_INFORMAT_NV21			6 
+#define X2D_INFORMAT_ARGB888		0
+#define X2D_INFORMAT_RGB555			1
+#define X2D_INFORMAT_RGB565			2
+#define X2D_INFORMAT_YUV420SP		3
+#define X2D_INFORMAT_TILE420		4
+#define X2D_INFORMAT_NV12			5
+#define X2D_INFORMAT_NV21			6
 
-#define X2D_OUTFORMAT_ARGB888		0 
-#define X2D_OUTFORMAT_XARGB888		1 
-#define X2D_OUTFORMAT_RGB565		2 
-#define X2D_OUTFORMAT_RGB555		3 
+#define X2D_OUTFORMAT_ARGB888		0
+#define X2D_OUTFORMAT_XARGB888		1
+#define X2D_OUTFORMAT_RGB565		2
+#define X2D_OUTFORMAT_RGB555		3
 
-#define X2D_OSD_MOD_CLEAR			3 
-#define X2D_OSD_MOD_SOURCE			1 
-#define X2D_OSD_MOD_DST				2 
-#define X2D_OSD_MOD_SRC_OVER		0 
-#define X2D_OSD_MOD_DST_OVER		4 
-#define X2D_OSD_MOD_SRC_IN			5 
-#define X2D_OSD_MOD_DST_IN			6 
-#define X2D_OSD_MOD_SRC_OUT			7 
-#define X2D_OSD_MOD_DST_OUT			8 
-#define X2D_OSD_MOD_SRC_ATOP		9 
-#define X2D_OSD_MOD_DST_ATOP		0xa 
+#define X2D_OSD_MOD_CLEAR			3
+#define X2D_OSD_MOD_SOURCE			1
+#define X2D_OSD_MOD_DST				2
+#define X2D_OSD_MOD_SRC_OVER		0
+#define X2D_OSD_MOD_DST_OVER		4
+#define X2D_OSD_MOD_SRC_IN			5
+#define X2D_OSD_MOD_DST_IN			6
+#define X2D_OSD_MOD_SRC_OUT			7
+#define X2D_OSD_MOD_DST_OUT			8
+#define X2D_OSD_MOD_SRC_ATOP		9
+#define X2D_OSD_MOD_DST_ATOP		0xa
 #define X2D_OSD_MOD_XOR				0xb
+
+/*Add by bcjia at 2013-9-23
+ *if you add physics addr for x2d
+ *please define X2D_USE_PHY_ADDR and modify
+ *struct src_layer and  struct jz_x2d_config
+ *in hwcomposer
+*/
+//#define X2D_USE_PHY_ADDR
 
 enum jz_x2d_state {
 	x2d_state_idle,
@@ -137,21 +145,31 @@ struct src_layer {
 	int h_scale_ratio;
 	int msk_val;
 
-	/* yuv address */
+	/* yuv virtual address */
 	int addr;
 	int u_addr;
 	int v_addr;
+
+#ifdef X2D_USE_PHY_ADDR
+	/* yuv physics address */
+	int addr_p;
+	int u_addr_p;
+	int v_addr_p;
+#endif
 	int y_stride;
 	int v_stride;
 };
 
 struct jz_x2d_config{
 	/* global val */
-	int watchdog_cnt; 
+	int watchdog_cnt;
 	unsigned int tlb_base;
 
-	/* dst val */ 
-	int dst_address;		//DST_BASE	
+	/* dst val */
+	int dst_address;		//DST_BASE (virtual addr)
+#ifdef X2D_USE_PHY_ADDR
+	int dst_address_p;		//DST_BASE (physics addr)
+#endif
 	int dst_alpha_val;		//DST__CTRL_STR - alpha
 	int dst_stride;			//DST__CTRL_STR -DST_STR
 	int dst_mask_val;		//DST_MASK_ARGB

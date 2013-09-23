@@ -148,7 +148,8 @@ enum X2D_IN_FMT {
 //#define __x2d_if_wthdog_err() (1<< BIT_X2D_WDOG_EN & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
 //#define __x2d_if_irq_happpen() ((1<< BIT_X2D_IRQ_FLAG) & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
 //#define __x2d_if_free()		   !( 0xf << BIT_X2D_GLB_STATE & (reg_read(jz_x2d,REG_X2D_GLB_STATUS)))
-#define __x2d_setup_default()	do{unsigned int reg = 0;\
+
+#define __x2d_setup_default_vaddr()	do{unsigned int reg = 0;\
 		reg |= 2<<BIT_X2D_SHARP_LEVEL;\
 		reg |= 3<<BIT_X2D_BANK_SELC;\
 		reg |= 1<<BIT_X2D_LAY0_TLB_EN;\
@@ -156,6 +157,12 @@ enum X2D_IN_FMT {
 		reg |= 1<<BIT_X2D_LAY2_TLB_EN;\
 		reg |= 1<<BIT_X2D_LAY3_TLB_EN;\
 		reg |= 1<<BIT_X2D_DST_TLB_EN;\
+		reg_write(jz_x2d,REG_X2D_GLB_CTRL,reg);\
+}while(0)
+
+#define __x2d_setup_default()	do{unsigned int reg = 0;\
+		reg |= 2<<BIT_X2D_SHARP_LEVEL;\
+		reg |= 3<<BIT_X2D_BANK_SELC;\
 		reg_write(jz_x2d,REG_X2D_GLB_CTRL,reg);\
 }while(0)
 
@@ -168,6 +175,12 @@ enum X2D_IN_FMT {
 #define __x2d_disable_irq()  bit_clr(jz_x2d,REG_X2D_GLB_CTRL ,BIT_X2D_IRQ_EN)
 #define __x2d_enable_dma()		bit_set(jz_x2d,REG_X2D_GLB_CTRL ,BIT_X2D_DMA_MOD_EN)
 #define __x2d_disable_dma()  bit_clr(jz_x2d,REG_X2D_GLB_CTRL ,BIT_X2D_DMA_MOD_EN)
+
+#define __x2d_set_lay_tlb(num) bit_set(jz_x2d,REG_X2D_GLB_CTRL ,(num+5))
+#define __x2d_clr_lay_tlb(num) bit_clr(jz_x2d,REG_X2D_GLB_CTRL ,(num+5))
+
+#define __x2d_set_dst_tlb()	bit_set(jz_x2d,REG_X2D_GLB_CTRL ,BIT_X2D_DST_TLB_EN)
+#define __x2d_clr_dst_tlb()	bit_clr(jz_x2d,REG_X2D_GLB_CTRL ,BIT_X2D_DST_TLB_EN)
 
 #define __x2d_start_trig()  bit_set(jz_x2d,REG_X2D_GLB_TRIG ,BIT_X2D_START_COMP)
 #define __x2d_stop_trig()  bit_set(jz_x2d,REG_X2D_GLB_TRIG ,BIT_X2D_STOP_COMP)

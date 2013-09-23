@@ -125,6 +125,15 @@ static void bit_set(struct x2d_device *jz_x2d, int offset, int bit)
 	reg_write(jz_x2d, offset, val);
 }
 
+static void bit_clr(struct x2d_device *jz_x2d, int offset, int bit)
+{
+	int val = 0;
+
+	val = reg_read(jz_x2d, offset);
+	val &= ~(1<<bit);
+	reg_write(jz_x2d, offset, val);
+}
+
 #if 0 //not use
 static void bit_clr(struct x2d_device *jz_x2d, int offset, int bit)
 {
@@ -396,6 +405,10 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_proc_info *p)
 			 p->pid, p->tlb_base, p->record_addr_num);
 	dev_info(jz_x2d->dev, "watchdog_cnt: %d\ntlb_base:%08x\ndst_address:%08x\n", 
 			 p->configs.watchdog_cnt, p->configs.tlb_base, p->configs.dst_address);
+#ifdef X2D_USE_PHY_ADDR
+	dev_info(jz_x2d->dev, "dst_address_p:%08x\n",
+			p->configs.dst_address_p);
+#endif
 	dev_info(jz_x2d->dev, "dst_alpha_val: %d\n dst_stride:%d\n dst_mask_val:%08x\n", 
 			 p->configs.dst_alpha_val, p->configs.dst_stride, p->configs.dst_mask_val);
 	dev_info(jz_x2d->dev, "dst_width: %d\n dst_height:%d\n dst_bcground:%08x\n", 
@@ -422,6 +435,11 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_proc_info *p)
 		dev_info(jz_x2d->dev, "h_scale_ratio: %d\n yuv address addr: %08x\n u_addr: %08x\n v_addr: %08x\n", 
 				 p->configs.lay[i].h_scale_ratio, p->configs.lay[i].addr,
 				 p->configs.lay[i].u_addr, p->configs.lay[i].v_addr);
+#ifdef X2D_USE_PHY_ADDR
+		dev_info(jz_x2d->dev, "yuv phy addr addr: %08x\n u_addr_p: %08x\n v_addr_p: %08x\n",
+				 p->configs.lay[i].addr_p, p->configs.lay[i].u_addr_p, p->configs.lay[i].v_addr_p);
+#endif
+
 		dev_info(jz_x2d->dev, "y_stride: %d\n v_stride: %d\n", 
 				 p->configs.lay[i].y_stride, p->configs.lay[i].v_stride);
 	}
@@ -498,7 +516,11 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	clk_enable(jz_x2d->x2d_clk);
 	__x2d_reset_trig();
 	//udelay(1);
+#ifdef X2D_USE_PHY_ADDR
 	__x2d_setup_default();
+#else
+	__x2d_setup_default_vaddr();
+#endif
 	__x2d_enable_dma();
 
 #ifdef USE_DMMU_TLB
@@ -531,8 +553,20 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	x2d_proc->configs.dst_mask_en = 1;
 	x2d_proc->configs.dst_alx2d_procha_val = 0x80;
 #endif
-
+#ifdef X2D_USE_PHY_ADDR
+	if((unsigned int)x2d_proc->configs.dst_address != 0){
+		__x2d_set_dst_tlb();
+		jz_x2d->chain_p->dst_addr = x2d_proc->configs.dst_address;
+	}else if((unsigned int)x2d_proc->configs.dst_address_p != 0){
+		__x2d_clr_dst_tlb();
+		jz_x2d->chain_p->dst_addr = x2d_proc->configs.dst_address_p;
+	}else{
+		dev_err(jz_x2d->dev,"x2d dst addr is error!!!");
+		return -1;
+	}
+#else
 	jz_x2d->chain_p->dst_addr = x2d_proc->configs.dst_address;
+#endif
 	jz_x2d->chain_p->dst_ctrl_str = ((x2d_proc->configs.dst_stride) << BIT_X2D_DST_STRIDE) \
 					|(x2d_proc->configs.dst_back_en << BIT_X2D_DST_BG_EN) \
 					|(x2d_proc->configs.dst_glb_alpha_en << BIT_X2D_DST_GLB_ALPHA_EN)\
@@ -569,6 +603,27 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		}
 		x2d_proc->configs.lay[i].preRGB_en = 0;
 #endif
+
+#ifdef X2D_USE_PHY_ADDR
+		if((uint32_t)x2d_proc->configs.lay[i].addr != 0){
+			__x2d_set_lay_tlb(i);
+			jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
+			jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
+			jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
+		}else if((uint32_t)x2d_proc->configs.lay[i].addr_p != 0){
+			__x2d_clr_lay_tlb(i);
+			jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr_p;
+			jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr_p;
+			jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr_p;
+		}else{
+			dev_err(jz_x2d->dev,"x2d layer[%d] addr is error!!!",i);
+			return -1;
+		}
+#else
+		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
+		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
+		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
+#endif
 		//the CSCM_EN mau affects the color of video for x2d
 		jz_x2d->chain_p->x2d_lays[i].lay_ctrl =(x2d_proc->configs.lay[i].glb_alpha_en << BIT_X2D_LAY_GLB_ALPHA_EN)\
 			|(x2d_proc->configs.lay[i].mask_en << BIT_X2D_LAY_MSK_EN)			\
@@ -582,9 +637,7 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)x2d_proc->configs.lay[i].global_alpha_val;
 		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)x2d_proc->configs.lay[i].transform;
 		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)x2d_proc->configs.lay[i].argb_order;
-		jz_x2d->chain_p->x2d_lays[i].y_addr = (uint32_t)x2d_proc->configs.lay[i].addr;
-		jz_x2d->chain_p->x2d_lays[i].v_addr = (uint32_t)x2d_proc->configs.lay[i].v_addr;
-		jz_x2d->chain_p->x2d_lays[i].u_addr = (uint32_t)x2d_proc->configs.lay[i].u_addr;
+
 		if (x2d_proc->configs.lay[i].format == Tile_YUV420) {
 			jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width & ~0xf;
 			jz_x2d->chain_p->x2d_lays[i].sheight = (uint16_t)x2d_proc->configs.lay[i].in_height & ~0xf;
