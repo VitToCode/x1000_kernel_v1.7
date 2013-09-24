@@ -913,9 +913,17 @@ if VIDEO_JZ4780_SUBSYSTEM
 config VIDEO_JZ4780_CIM_HOST
 	tristate "JZ4780 camera host interface cim driver"
 	depends on VIDEO_DEV && SOC_CAMERA
+	select VIDEOBUF_DMA_SG if JZ4780_CAMERA_SG
 	default n
 	---help---
 	  This is a v4l2 driver for the jz4780 cim Interface
+
+config JZ4780_CAMERA_SG
+	bool "jz4780 sg cim controller for v4l2"
+	depends on VIDEO_JZ4780_CIM_HOST
+	default n
+	---help---
+	  This is a v4l2 sg driver for the jz4780 cim Interface
 
 menuconfig FRONT_CAMERA
 	bool "Front camera sensor support"

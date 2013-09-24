@@ -303,6 +303,7 @@ static const struct regval_list ov5640_init_regs[] = {
 	{0x3a0d, 0x04},
 	{0x3a14, 0x03},
 	{0x3a15, 0xd8},
+	{0x4000, 0x81},
 	{0x4001, 0x02},
 	{0x4004, 0x02},
 	{0x3000, 0x00},
@@ -1449,6 +1450,7 @@ static int ov5640_try_fmt(struct v4l2_subdev *sd,
 
 	default:
 		mf->code = V4L2_MBUS_FMT_YUYV8_2X8;
+		mf->colorspace = V4L2_COLORSPACE_JPEG;
 		break;
 	}
 
