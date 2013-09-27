@@ -150,6 +150,11 @@ config LCD_BYD_BM8766U
 	depends on BACKLIGHT_CLASS_DEVICE
 	default n
 
+config LCD_HS_DS07012D
+	tristate "HS DS07012D panel(800x480)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+
 config LCD_KR070LA0S_270
 	tristate "KR070LA0S_270 LVDS TFT panel(1024x600)"
 	depends on BACKLIGHT_CLASS_DEVICE

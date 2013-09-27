@@ -13,6 +13,9 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/resource.h>
+#include <linux/i2c-gpio.h>
+
+#include <gpio.h>
 
 #include <soc/gpio.h>
 #include <soc/base.h>
@@ -357,6 +360,23 @@ DEF_I2C_DMA(1);
 #ifdef CONFIG_I2C2_DMA_JZ4775
 DEF_I2C_DMA(2);
 #endif
+#endif
+
+#ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
+
+#define DEF_GPIO_I2C(NO,GPIO_I2C_SDA,GPIO_I2C_SCK)		\
+static struct i2c_gpio_platform_data i2c##NO##_gpio_data = {	\
+	.sda_pin	= GPIO_I2C_SDA,				\
+	.scl_pin	= GPIO_I2C_SCK,				\
+	.udelay = 1,							\
+};								\
+struct platform_device i2c##NO##_gpio_device = {     	\
+	.name	= "i2c-gpio",					\
+	.id	= NO,						\
+	.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
+};
+
+DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
 #endif
 
 /**

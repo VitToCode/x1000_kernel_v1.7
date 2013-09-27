@@ -151,6 +151,9 @@ extern struct platform_device jz_dwc_otg_device;
 #ifdef CONFIG_JZ4775_EFUSE
 extern struct platform_device jz_efuse_device;
 #endif
+#ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
+extern struct platform_device i2c0_gpio_device;
+#endif
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
