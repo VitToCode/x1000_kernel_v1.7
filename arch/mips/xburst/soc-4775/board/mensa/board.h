@@ -66,13 +66,17 @@ extern struct platform_device kfm701a21_1a_device;
 /**
  * KEY gpio
  **/
-#define GPIO_HOME		GPIO_PG(15)
+// For the layout on Mensa, key 'menu' is necessary. So replacing 'home' with 'menu'.
+//#define GPIO_HOME		GPIO_PG(15)
+#define GPIO_MENU		GPIO_PG(15)
+
 #define GPIO_BACK		GPIO_PD(19)
 #define GPIO_VOLUMEDOWN		GPIO_PD(17)
 #define GPIO_VOLUMEUP		GPIO_PD(18)
 #define GPIO_ENDCALL            GPIO_PA(30)
 
 #define ACTIVE_LOW_HOME		1
+#define ACTIVE_LOW_MENU         1
 #define ACTIVE_LOW_BACK		1
 #define ACTIVE_LOW_ENDCALL      1
 

@@ -29,6 +29,14 @@ static struct gpio_keys_button board_buttons[] = {
 		.active_low	= ACTIVE_LOW_HOME,
 	},
 #endif
+#ifdef GPIO_MENU
+	{
+		.gpio		= GPIO_MENU,
+		.code   	= KEY_MENU,
+		.desc		= "menu key",
+		.active_low	= ACTIVE_LOW_MENU,
+	},
+#endif
 #ifdef GPIO_BACK
 	{
 		.gpio		= GPIO_BACK,
