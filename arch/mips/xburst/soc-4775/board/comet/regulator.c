@@ -24,7 +24,7 @@
  * Voltage was inited at bootloader.
  */
 CORE_REGULATOR_DEF(
-	mensa,	1000000,	1300000);
+	comet,	1000000,	1300000);
 
 /**
  * I/O Regulator.
@@ -40,7 +40,7 @@ IO_REGULATOR_DEF(
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
 VBUS_REGULATOR_DEF(
-	mensa,	"VCC5V");
+	comet,	"VCC5V");
 
 /**
  * Exclusive Regulators.
@@ -96,12 +96,12 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
  * it as a fixed regulator.
  */
 static struct regulator_info pmu_regulators[] = {
-	{"OUT1", &mensa_vcore_init_data},
+	{"OUT1", &comet_vcore_init_data},
 	{"OUT3", &vccio_init_data},
 	{"OUT4", &vcc5v_init_data},
 	{"OUT6", &vwifi_init_data},
 	{"OUT7", &vlcd_init_data},
-	{"VBUS", &mensa_vbus_init_data},
+	{"VBUS", &comet_vbus_init_data},
 };
 
 static struct charger_board_info charger_board_info = {

@@ -80,31 +80,31 @@ static struct platform_device jz_button_device = {
 #endif
 
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
-static struct jztsc_pin mensa_tsc_gpio[] = { 
+static struct jztsc_pin comet_tsc_gpio[] = { 
 	        [0] = {GPIO_TP_INT,         LOW_ENABLE},
 		[1] = {GPIO_TP_WAKE,        HIGH_ENABLE},
 };
 
-static struct jztsc_platform_data mensa_tsc_pdata = { 
-	        .gpio           = mensa_tsc_gpio,
+static struct jztsc_platform_data comet_tsc_pdata = { 
+	        .gpio           = comet_tsc_gpio,
 		.x_max          = 800,
 		.y_max          = 480,
 };
 
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-static struct i2c_board_info mensa_i2c0_devs[] __initdata = { 
+static struct i2c_board_info comet_i2c0_devs[] __initdata = { 
 		        {   
 				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-				.platform_data = &mensa_tsc_pdata,
+				.platform_data = &comet_tsc_pdata,
 			},  
 	};
 #endif
 
 #ifdef CONFIG_GSlX680_CAPACITIVE_TOUCHSCREEN
-static struct i2c_board_info mensa_i2c0_devs[] __initdata = { 
+static struct i2c_board_info comet_i2c0_devs[] __initdata = { 
 		        {   
 				I2C_BOARD_INFO("gslX680_ts", 0x40),
-				.platform_data = &mensa_tsc_pdata,
+				.platform_data = &comet_tsc_pdata,
 			},  
 	};
 #endif
@@ -135,7 +135,7 @@ static struct cam_sensor_plat_data ov3640_pdata = {
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
-static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
+static struct i2c_board_info comet_i2c1_devs[] __initdata = {
 #ifdef CONFIG_OV3640
 	{
 		I2C_BOARD_INFO("ov3640", 0x3c),
@@ -154,7 +154,7 @@ struct jzdwc_pin dete_pin = {
 
 /* Battery Info */
 #ifdef CONFIG_BATTERY_JZ4775
-static struct jz_battery_info mensa_battery_pdata = {
+static struct jz_battery_info comet_battery_pdata = {
 	.max_vol        = 4070,
 	.min_vol        = 3650,
 	.usb_max_vol    = 4140,
@@ -271,7 +271,7 @@ static int __init board_init(void)
 	platform_device_register(&jz_i2c2_device);
 #endif
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
-	i2c_register_board_info(1, mensa_i2c1_devs, ARRAY_SIZE(mensa_i2c1_devs));
+	i2c_register_board_info(1, comet_i2c1_devs, ARRAY_SIZE(comet_i2c1_devs));
 #endif
 
 /* mmc */
@@ -389,7 +389,7 @@ static int __init board_init(void)
 #endif
 
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
-	i2c_register_board_info(0, mensa_i2c0_devs, ARRAY_SIZE(mensa_i2c0_devs));
+	i2c_register_board_info(0, comet_i2c0_devs, ARRAY_SIZE(comet_i2c0_devs));
 #endif
 #ifdef CONFIG_RTC_DRV_JZ4775
 	platform_device_register(&jz_rtc_device);
@@ -425,7 +425,7 @@ static int __init board_init(void)
 
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4775
-	adc_platform_data.battery_info = mensa_battery_pdata;
+	adc_platform_data.battery_info = comet_battery_pdata;
 	jz_device_register(&jz_adc_device, &adc_platform_data);
 #endif
 
@@ -447,9 +447,9 @@ static int __init board_init(void)
 const char *get_board_type(void)
 {
 #if defined(CONFIG_NAND)
-	return "mensa";
+	return "comet";
 #else
-	return "mensa_msc";
+	return "comet_msc";
 #endif
 }
 

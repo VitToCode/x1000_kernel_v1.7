@@ -42,14 +42,14 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL		-1		/*vaild level*/
 
-#define GPIO_SPEAKER_EN			-1/*speaker enable gpio*/
-#define GPIO_SPEAKER_EN_LEVEL	-1
+#define GPIO_SPEAKER_EN			GPIO_PD(15)/*speaker enable gpio*/
+#define GPIO_SPEAKER_EN_LEVEL	1
 
 #define GPIO_HANDSET_EN		  -1		/*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL -1
 
-#define	GPIO_HP_DETECT		GPIO_PA(17)	/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL    1	
+#define	GPIO_HP_DETECT		-1	/*hp detect gpio*/
+#define GPIO_HP_INSERT_LEVEL    -1	
 #define GPIO_MIC_SELECT		-1		/*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL	-1		/*builin mic select level*/
 #define GPIO_MIC_DETECT		-1
@@ -66,10 +66,10 @@ extern struct platform_device kfm701a21_1a_device;
 /**
  * KEY gpio
  **/
-#define GPIO_HOME		GPIO_PG(15)
-#define GPIO_BACK		GPIO_PD(19)
-#define GPIO_VOLUMEDOWN		GPIO_PD(17)
-#define GPIO_VOLUMEUP		GPIO_PD(18)
+//#define GPIO_HOME		GPIO_PG(15)
+//#define GPIO_BACK		GPIO_PD(19)
+//#define GPIO_VOLUMEDOWN		GPIO_PD(17)
+//#define GPIO_VOLUMEUP		GPIO_PD(18)
 #define GPIO_ENDCALL            GPIO_PA(30)
 
 #define ACTIVE_LOW_HOME		1

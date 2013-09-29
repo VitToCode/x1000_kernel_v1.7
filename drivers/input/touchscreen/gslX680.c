@@ -709,7 +709,7 @@ static void report_data(struct gsl_ts *ts, u16 x, u16 y, u8 pressure, u8 id)
 
 //	print_info("#####id=%d,x=%d,y=%d######\n",id,x,y);
 
-	printk("clivia#id=%d,x=%d,y=%d#\n",id,x,y);
+//	printk("clivia#id=%d,x=%d,y=%d#\n",id,x,y);
 
 	if(x>=SCREEN_MAX_X||y>=SCREEN_MAX_Y)
 	{
