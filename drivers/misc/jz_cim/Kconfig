@@ -50,6 +50,11 @@ config SP0838
 	depends on JZ_CIM
 	default n
 
+config ADV7180
+       bool "adv7180 camera sensor"
+       depends on JZ_CIM
+       default n
+
 config GC0308
 	bool "gc0308 camera sensor"
 	depends on JZ_CIM

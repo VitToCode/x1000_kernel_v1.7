@@ -100,6 +100,17 @@ static struct cam_sensor_plat_data sp0838_pdata = {
 };
 #endif
 
+#ifdef CONFIG_ADV7180
+static struct cam_sensor_plat_data adv7180_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_ADV7180_EN,
+	.gpio_rst = GPIO_ADV7180_RST,
+	.cap_wait_frame = 6,
+};
+#endif
+
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
@@ -108,6 +119,13 @@ static struct i2c_board_info vehicle_i2c2_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("sp0838", 0x18),
 		.platform_data	= &sp0838_pdata,
+	},
+#endif
+
+#ifdef CONFIG_ADV7180
+	{
+		I2C_BOARD_INFO("adv7180", 0x21),
+		.platform_data	= &adv7180_pdata,
 	},
 #endif
 };
