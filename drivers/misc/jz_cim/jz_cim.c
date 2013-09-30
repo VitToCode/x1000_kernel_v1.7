@@ -501,7 +501,7 @@ void cim_set_default(struct jz_cim *cim)
 	if(cim->state == CS_PREVIEW) {
 		w = cim->psize.w;
 		h = cim->psize.h;
-	
+
 		if(cim->preview_output_format == CIM_CSC_YUV420P) {
 			ctrl2 |= CIM_CTRL2_CSC_YUV420;
 			cfg |= CIM_CFG_SEP;
@@ -539,8 +539,11 @@ void cim_set_default(struct jz_cim *cim)
 
         // If delete "CIM_CTRL2_FSC | CIM_CTRL2_ARIF", maybe cause overflow on warrior(npm706) board.
         //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
-            ctrl2 |= CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
-
+#ifndef CONFIG_ADV7180
+	ctrl2 |= CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
+#else
+	ctrl2 |= CIM_CTRL2_ARIF;
+#endif
 	cfg |= cim->desc->cim_cfg | CIM_CFG_DF_YUV422;
 
         /* NOTICE AND WARNNING
@@ -651,12 +654,26 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
         half_words_per_line = image_w;
 	unsigned int wsize = 0;
 	unsigned int woffset = 0;
+
 	wsize = image_h << 16 | half_words_per_line;
+
 	reg_write(cim,CIM_SIZE,wsize);
 
 	woffset = reg_read(cim,CIM_OFFSET);
 	woffset &= ~(0x1fff << 16);
 	woffset &= ~(0x1fff);
+
+#ifdef CONFIG_ADV7180
+	if(cim->desc->para.standard == 1 && image_h == 480) //PAL
+	{
+		voffset = 24;
+	}
+	else if(cim->desc->para.standard == 2 && image_h == 480)     //NTSC
+	{
+		voffset = 16;
+		hoffset = 24;
+	}
+#endif
 	woffset |= (voffset << 16) | hoffset;
 	reg_write(cim,CIM_OFFSET,woffset);
 	unsigned int ctrl = reg_read(cim,CIM_CTRL);
@@ -668,7 +685,7 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
 
 static long cim_set_capture_size(struct jz_cim *cim)
 {
-#ifndef CONFIG_TVP5150
+#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180))
 	int i =0;
 	struct frm_size * p = cim->desc->capture_size;
 	for(i=0;i<cim->desc->cap_resolution_nr;i++){	 
@@ -688,10 +705,11 @@ static long cim_set_capture_size(struct jz_cim *cim)
 	if(cim->state == CS_CAPTURE)
 		cim->desc->set_resolution(cim->desc,cim->csize.w,cim->csize.h);
 	return 0;
-#else /*tvp5150*/
+#else /*tvp5150 or adv7180*/
 	int i =0;
 	int fs_w, fs_h, fs_bpp;
 	struct frm_size * p = &(cim->desc->capture_size[cim->desc->cap_resolution_nr - 1]);
+
 	for(i=0;i<cim->desc->cap_resolution_nr;i++){
 		if(cim->csize.w == p->w && cim->csize.h == p->h){
 #ifdef KERNEL_INFO_PRINT
@@ -701,6 +719,24 @@ static long cim_set_capture_size(struct jz_cim *cim)
 		}
 		p = &(cim->desc->capture_size[cim->desc->cap_resolution_nr -1- i]);
 	}
+#ifdef CONFIG_ADV7180
+	if(cim->desc->para.standard == 1)
+	{
+		p->w = cim->desc->preview_size[0].w;
+		p->h = cim->desc->preview_size[0].h;
+	}
+	else if(cim->desc->para.standard == 2)
+	{
+		p->w = cim->desc->preview_size[1].w;
+		p->h = cim->desc->preview_size[1].h;
+	}
+
+	cim_enable_image_mode(cim,cim->csize.w,cim->csize.h,p->w,p->h);
+	fs_w = p->w;
+	fs_h = p->h;
+	fs_bpp = 16;
+
+#else
 
 	if(i>= cim->desc->cap_resolution_nr){
 	dev_err(cim->dev,"Cannot found the capture size %d * %d in sensor table\n",cim->csize.w,cim->csize.h);
@@ -716,6 +752,7 @@ static long cim_set_capture_size(struct jz_cim *cim)
       fs_h = p->h;
       fs_bpp = 16;
 	}
+#endif
 	unsigned int fs = 0;
 	fs = ((fs_h - 1) << 16) | ((fs_bpp/8-1) << 14)| ((fs_w-1) << 0);
 	reg_write(cim,CIM_FS,fs);
@@ -725,7 +762,7 @@ static long cim_set_capture_size(struct jz_cim *cim)
 
 static long cim_set_preview_size(struct jz_cim *cim)
 {
-#ifndef CONFIG_TVP5150
+#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180))
 	int i =0;
 	struct frm_size * p = cim->desc->preview_size;
 	for(i=0;i<cim->desc->prev_resolution_nr;i++){	 
@@ -749,9 +786,24 @@ static long cim_set_preview_size(struct jz_cim *cim)
 	int i =0;
 	int index = 0;
 	int fs_w, fs_h, fs_bpp;
-	unsigned int max_width,max_height;
+	unsigned int max_width = 0,max_height = 0;
+
+#ifdef CONFIG_ADV7180
+	if(cim->desc->para.standard == 1)
+	{
+		printk("\n***PAL MODE***\n");
+		max_width = cim->desc->preview_size[0].w;
+		max_height = cim->desc->preview_size[0].h;
+	}
+	else if(cim->desc->para.standard == 2){
+		printk("\n***NTSC MODE***\n");
+		max_width = cim->desc->preview_size[1].w;
+		max_height = cim->desc->preview_size[1].h;
+	}
+#else
 	max_width = cim->desc->preview_size[0].w;
 	max_height = cim->desc->preview_size[0].h;
+#endif
 	printk("\n*******cim_set_preview_size********\n");
 	printk("cim->psize.w = %d\tcim->psize.h = %d\n",cim->psize.w,cim->psize.h);
 	struct frm_size * p = &(cim->desc->preview_size[cim->desc->prev_resolution_nr-1]);
@@ -781,16 +833,25 @@ static long cim_set_preview_size(struct jz_cim *cim)
       }
 	}
 
+#ifdef CONFIG_ADV7180
+	if(cim->desc->para.standard == 2)  i = i + 1; // ntsc use window
+#else
 	if(i>= cim->desc->prev_resolution_nr){
 		printk("Cannot found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+	}
+#endif
+
+	if(i>= cim->desc->prev_resolution_nr){
 		printk("use window\n");
 		printk("i = %d\n,cim->desc->prev_resolution_nr = %d\n",i,cim->desc->prev_resolution_nr);
+
 		cim_enable_image_mode(
 				cim,
 				cim->psize.w,
 				cim->psize.h,
 				p->w,
 				p->h);
+
 		fs_w = p->w;//cim->desc->preview_size[cim->desc->prev_resolution_n];
 		fs_h = p->h;
 		fs_bpp = 16;
@@ -807,6 +868,7 @@ static long cim_set_preview_size(struct jz_cim *cim)
 	unsigned int fs = 0;
 	fs = ((fs_h - 1) << 16) | ((fs_bpp/8-1) << 14)| ((fs_w-1) << 0);
 	reg_write(cim,CIM_FS,fs);
+
 	return 0;
 #endif
 }
@@ -1047,7 +1109,8 @@ static long cim_start_capture(struct jz_cim *cim)
 }
 void convert_frame(struct jz_cim * cim,unsigned long addr)
 {
-	int width,height;
+	int width = 0,height = 0;
+	int standard;
 	unsigned int *low_addr;
 	low_addr = (unsigned int *)addr;
 	unsigned int *pBuf = NULL;
@@ -1061,15 +1124,20 @@ void convert_frame(struct jz_cim * cim,unsigned long addr)
 		height = cim->csize.h;
 		break;
 	}
+
+	standard = cim->psize.h/2;
+
 	int i,j;
-	int var = height - 288;
-	for(i = 0; i < 288 - var;i++)
+	int var = height - standard;
+
+	for(i = 0; i < standard - var;i++)
         {
                 for(j = 0;j < width / 2 ;j++)
                 {
-                        *(low_addr + (height - (288 - var) + i) * width /2 + j) = *(low_addr + (var + i) * width / 2 + j);
+                        *(low_addr + (height - (standard - var) + i) * width /2 + j) = *(low_addr + (var + i) * width / 2 + j);
                 }
         }
+
 	for(i = var -1; i > 0 ; i--)
 	{
 		for(j = 0;j <width /2;j++)
@@ -1170,7 +1238,7 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
     if (fresh_buf == GET_BUF) { //2
         fresh_buf = 0;
     }
-#ifdef CONFIG_TVP5150
+#if defined(CONFIG_TVP5150) || defined(CONFIG_ADV7180)
 	convert_frame(cim,addr);
 #endif
     spin_unlock_irqrestore(&cim->lock,flags);

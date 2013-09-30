@@ -142,6 +142,7 @@ struct mode_bit_map {
 	unsigned short scene_mode;
 	unsigned short focus_mode;
 	unsigned short fps;
+	unsigned short standard;  //PAL or NTSC
 };
 
 
