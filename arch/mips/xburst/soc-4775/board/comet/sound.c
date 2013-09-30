@@ -28,8 +28,9 @@ struct snd_codec_data codec_data = {
 					.replay_volume_base = 0},
 
 	.replay_speaker_route = {
-					.route = REPLAY_HP_STEREO_CAP_LESS,
-					.gpio_hp_mute_stat = STATE_DISABLE,
+		                        //.route = REPLAY_HP_STEREO_CAP_LESS,
+					.route = REPLAY_LINEOUT,
+					.gpio_hp_mute_stat = STATE_ENABLE,
 					.gpio_spk_en_stat = STATE_ENABLE,
 					.replay_volume_base = 6},
 
