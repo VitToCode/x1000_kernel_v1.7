@@ -87,7 +87,7 @@ extern struct platform_device kfm701a21_1a_device;
 /**
  * USB detect pin
  **/
-#define GPIO_USB_DETE                   GPIO_PA(16)
+#define GPIO_USB_DETE                   -1
 
 /**
  * pmem information
