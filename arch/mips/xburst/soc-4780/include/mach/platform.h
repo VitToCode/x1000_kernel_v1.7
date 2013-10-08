@@ -91,8 +91,8 @@
 #define I2C4_PORTF							\
 	{ .name = "i2c4-port-f-func1", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x3<<24, }
 
-#define SRAM_CS5_PORTAB_BIT8																																				\
-				{ .name = "sram0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x02030000, },     \
+#define SRAM_CS5_PORTAB_BIT8						\
+	{ .name = "sram0", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x02030000, },     \
         { .name = "sram1", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x0000003c, }
 /*******************************************************************************************************************/
 #define NAND_PORTAB_COMMON                                                      \
@@ -175,6 +175,11 @@ extern struct platform_device jz_i2s_device;
 extern struct platform_device jz_pcm_device;
 extern struct platform_device jz_spdif_device;
 extern struct platform_device jz_codec_device;
+
+/* only for ALSA device */
+extern struct platform_device jz4780_codec_device;
+extern struct platform_device jz47xx_i2s_device;
+extern struct platform_device jz47xx_pcm_device;
 
 extern struct platform_device jz_mixer0_device;
 extern struct platform_device jz_mixer1_device;

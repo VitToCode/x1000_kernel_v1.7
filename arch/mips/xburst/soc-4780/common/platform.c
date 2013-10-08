@@ -490,6 +490,24 @@ struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };
 
+/* only for ALSA platform devices */
+struct platform_device jz4780_codec_device = {
+	.name           = "jz4780-codec",
+	.id             = -1,
+};
+
+
+struct platform_device jz47xx_i2s_device = {
+	.name           = "jz47xx-i2s",
+	.id             = -1,
+};
+
+
+struct platform_device jz47xx_pcm_device = {
+	.name           = "jz47xx-pcm-audio",
+	.id             = -1,
+};
+
 /* GPU */
 static struct resource jz_gpu_resources[] = {
 	[0] = {

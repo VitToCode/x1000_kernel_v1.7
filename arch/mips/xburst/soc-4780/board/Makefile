@@ -27,5 +27,6 @@ obj-$(CONFIG_BOARD_NPM3701)		+= npm3701/
 obj-$(CONFIG_BOARD_ZPAD80)		+= zpad80/
 obj-$(CONFIG_BOARD_VGA_DONGLE)		+= vga-dongle/
 obj-$(CONFIG_BOARD_EBOOK)		+= ebook/
+obj-$(CONFIG_BOARD_NC750)		+= nc750/
 obj-$(CONFIG_BOARD_VEHICLE)		+= vehicle/
 obj-$(CONFIG_BOARD_NPM709J)             += npm709j/
