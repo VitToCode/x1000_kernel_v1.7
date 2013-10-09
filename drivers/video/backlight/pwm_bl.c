@@ -24,6 +24,7 @@
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
+#include <linux/suspend.h>
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
@@ -32,7 +33,10 @@ struct pwm_bl_data {
 	unsigned int		lth_brightness;
 	unsigned int		cur_brightness;
     unsigned int        max_brightness;
+	unsigned int		last_brightness;
 	unsigned int		suspend;
+	unsigned int		first_boot;
+	unsigned int		is_suspend;
     struct mutex        pwm_lock;
     struct notifier_block nb;
 	int			(*notify)(struct device *,
@@ -43,13 +47,66 @@ struct pwm_bl_data {
 #endif
 };
 
+/*
+ * Backlight control program at the system wake up
+ * need to wait until after the end of the pwm resume.
+ */
+static int wait_bk_l_resume(struct pwm_bl_data *pb)
+{
+	int wait_timeout = 2000;
+	suspend_state_t suspend_state = get_suspend_state();
+
+	if(pb->first_boot)
+		return 0;
+
+	if(suspend_state == PM_SUSPEND_MEM)
+		return 1;
+
+	while(pb->suspend && wait_timeout) {
+		msleep(1);
+		wait_timeout--;
+		if(get_suspend_state() == PM_SUSPEND_MEM)
+			return 1;
+	}
+	if(!wait_timeout) {
+		printk("pwm wait_bk_l_resume is time out\n");
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * Check the backlight settings are in the system wake-up phase.
+ */
+static inline int backlight_is_suspend(struct pwm_bl_data *pb, int brightness)
+{
+	if(pb->is_suspend && (brightness < pb->last_brightness)) {
+		pb->last_brightness = brightness;
+		return 1;
+	} else {
+		pb->last_brightness = brightness;
+		pb->is_suspend = 0;
+	}
+	return 0;
+}
+
 static int pwm_backlight_update_status(struct backlight_device *bl)
 {
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 	int brightness = bl->props.brightness;
 	int max = bl->props.max_brightness;
 
+	if(wait_bk_l_resume(pb)) {
+		/*pb->last_brightness = brightness;*/
+		return 0;
+	}
+
     mutex_lock(&pb->pwm_lock);
+
+	if(backlight_is_suspend(pb, brightness)) {
+		mutex_unlock(&pb->pwm_lock);
+		return 0;
+	}
 
 	if (bl->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
@@ -61,7 +118,7 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 		brightness = pb->notify(pb->dev, brightness);
 	}
 
-#if 1
+#if 0
     if (pb->suspend && (brightness > 0)) {
 		pb->cur_brightness = brightness;
         //printk("pb->suspend, brightness =%d\n", brightness);
@@ -111,8 +168,10 @@ static int pwm_bl_shutdown_notify(struct notifier_block *rnb,
 	struct pwm_bl_data *pb = container_of(rnb,
             struct pwm_bl_data, nb); 
 
+	mutex_lock(&pb->pwm_lock);
     pwm_config(pb->pwm, 0, pb->period);
     pwm_disable(pb->pwm);
+    mutex_unlock(&pb->pwm_lock);
 
 	return NOTIFY_DONE;
 }
@@ -122,25 +181,35 @@ static void bk_e_suspend(struct early_suspend *h)
 {
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend);
+
+	mutex_lock(&pb->pwm_lock);
     pb->suspend = 1;
-    pwm_config(pb->pwm, 0, pb->period);
-    pwm_disable(pb->pwm);
+	pb->first_boot = 0;
+	pb->is_suspend = 1;
+	pwm_config(pb->pwm, 0, pb->period);
+	pwm_disable(pb->pwm);
+    mutex_unlock(&pb->pwm_lock);
 }
 
 static void bk_l_resume(struct early_suspend *h)
 {
-    int brightness;
+#if 0
+	int brightness;
+#endif
 	struct pwm_bl_data *pb = container_of(h,
             struct pwm_bl_data, bk_early_suspend);
 
 	mutex_lock(&pb->pwm_lock);
+#if 0
 	pwm_disable(pb->pwm);
-    brightness = pb->cur_brightness;
-    brightness = pb->lth_brightness +
-        (brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
-    pwm_config(pb->pwm, brightness, pb->period);
-    pwm_enable(pb->pwm);
+	brightness = pb->cur_brightness;
+	brightness = pb->lth_brightness +
+		(brightness * (pb->period - pb->lth_brightness) / pb->max_brightness);
+	pwm_config(pb->pwm, brightness, pb->period);
+	pwm_enable(pb->pwm);
+#endif
     pb->suspend = 0;
+	pb->first_boot = 0;
     mutex_unlock(&pb->pwm_lock);
 }
 #endif
@@ -177,6 +246,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	pb->lth_brightness = data->lth_brightness *
 		(data->pwm_period_ns / data->max_brightness);
 	pb->dev = &pdev->dev;
+	pb->first_boot = 1;
 
 	pb->pwm = pwm_request(data->pwm_id, "backlight");
 
@@ -251,6 +321,11 @@ static int pwm_backlight_remove(struct platform_device *pdev)
 static int pwm_backlight_suspend(struct platform_device *pdev,
 				 pm_message_t state)
 {
+	/*
+	 * Android suspend and wake-up controlled by the earlysuspend
+	 * here do not do anything.
+	 */
+#if 0
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
@@ -258,14 +333,17 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 		pb->notify(pb->dev, 0);
 	pwm_config(pb->pwm, 0, pb->period);
 	pwm_disable(pb->pwm);
+#endif
 	return 0;
 }
 
 static int pwm_backlight_resume(struct platform_device *pdev)
 {
+#if 0
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	backlight_update_status(bl);
+#endif
 	return 0;
 }
 #else

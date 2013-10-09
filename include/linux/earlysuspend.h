@@ -18,6 +18,7 @@
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/list.h>
+#include <linux/suspend.h>
 #endif
 
 /* The early_suspend structure defines suspend and resume hooks to be called
@@ -48,6 +49,7 @@ struct early_suspend {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 void register_early_suspend(struct early_suspend *handler);
 void unregister_early_suspend(struct early_suspend *handler);
+suspend_state_t get_suspend_state(void);
 #else
 #define register_early_suspend(handler) do { } while (0)
 #define unregister_early_suspend(handler) do { } while (0)

@@ -324,11 +324,20 @@ struct backlight_device *backlight_device_register(const char *name,
 		return ERR_PTR(rc);
 	}
 
+	/*
+	 * When the system suspend or wake-up,
+	 * the backlight driver will be called multiple times,
+	 * there is no need to register fb.
+	 * If you want to open it,
+	 * please check FB and PWM drivers suspend and wake-up logic is normal.
+	 */
+#if 0
 	rc = backlight_register_fb(new_bd);
 	if (rc) {
 		device_unregister(&new_bd->dev);
 		return ERR_PTR(rc);
 	}
+#endif
 
 	new_bd->ops = ops;
 
@@ -364,7 +373,9 @@ void backlight_device_unregister(struct backlight_device *bd)
 	bd->ops = NULL;
 	mutex_unlock(&bd->ops_lock);
 
+#if 0
 	backlight_unregister_fb(bd);
+#endif
 	device_unregister(&bd->dev);
 }
 EXPORT_SYMBOL(backlight_device_unregister);
