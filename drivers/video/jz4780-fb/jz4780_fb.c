@@ -1739,7 +1739,7 @@ int jzfb_ipu_enable_clk(int id, unsigned int value)
 	}
 	return 0;
 #else
-	dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
+	printk("Error: CONFIG_JZ4780_IPU is not set\n");
 	return -EFAULT;
 #endif
 }
