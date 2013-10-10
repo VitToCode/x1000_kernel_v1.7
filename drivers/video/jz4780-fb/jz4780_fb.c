@@ -1796,7 +1796,8 @@ static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd)
 	aosd_info.bpp = info->var.bits_per_pixel;
 	aosd_info.width = info->var.xres;
 	aosd_info.height = info->var.yres;
-	aosd_info.src_stride = info->fix.line_length;
+	aosd_info.src_stride = info->var.bits_per_pixel * ALIGN(info->var.xres,
+							     PIXEL_ALIGN) >> 3;
 	aosd_info.is_desc_init = 0;
 	aosd_init(&aosd_info);
 	aosd_info.buf_offset = (aosd_info.dst_stride << 2)
