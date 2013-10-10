@@ -1126,7 +1126,7 @@ static int ipu_start(struct jz_ipu *ipu)
 #ifdef IPU_DEBUG
 	ipu_dump_regs(ipu);
 #endif
-
+	//printk("+++++++++=ipu->base: %p name=%s\n", ipu->iomem,ipu->name);
 	if (img->output_mode & IPU_OUTPUT_BLOCK_MODE) {
 		/* Wait for current frame to finished */
 		spin_lock_irqsave(&ipu->update_lock, irq_flags);
@@ -1388,8 +1388,8 @@ static int ipu_set_bypass(struct jz_ipu *ipu)
 		dev_err(ipu->dev, "ipu0_direct: %d, ipu1_direct: %d", ipu0_direct, ipu1_direct);
 		ret = -EFAULT;
 	}
-	dev_dbg(ipu->dev, "ipu0_direct: %d, ipu1_direct: %d", ipu0_direct, ipu1_direct);
-	dev_dbg(ipu->dev, "ipu0_nodirect: %d, ipu1_nodirect: %d", ipu0_nodirect, ipu1_nodirect);
+	dev_dbg(ipu->dev, "+ipu0_direct: %d, ipu1_direct: %d", ipu0_direct, ipu1_direct);
+	dev_dbg(ipu->dev, "+ipu0_nodirect: %d, ipu1_nodirect: %d", ipu0_nodirect, ipu1_nodirect);
 
 	mutex_unlock(&ipu_lock);
 
@@ -1406,6 +1406,37 @@ static int ipu_get_bypass_state(struct jz_ipu *ipu)
 	}
 
 	return 0;
+}
+
+extern int jzfb_ipu_enable_clk(int id, unsigned int value);
+extern int jzfb_ipu0_to_buf(int id, unsigned int value);
+
+static int ipu_enable_clk(struct jz_ipu *ipu,unsigned int value)
+{
+	int lcdid = 0,ret;
+	mutex_lock(&ipu_lock);
+	if (!strcmp(ipu->name, "ipu0")){
+		lcdid = 1;
+	}else if (!strcmp(ipu->name, "ipu1")){
+		lcdid = 0;
+	}
+	ret = jzfb_ipu_enable_clk(lcdid, value);
+	mutex_unlock(&ipu_lock);
+	return ret;
+}
+
+static int ipu0_to_buf(struct jz_ipu *ipu,unsigned int value)
+{
+	int lcdid = 0,ret;
+	mutex_lock(&ipu_lock);
+	if (!strcmp(ipu->name, "ipu0")){
+		lcdid = 1;
+	}else if (!strcmp(ipu->name, "ipu1")){
+		lcdid = 0;
+	}
+	ret = jzfb_ipu0_to_buf(lcdid, value);
+	mutex_unlock(&ipu_lock);
+	return ret;
 }
 
 static int ipu_clr_bypass(struct jz_ipu *ipu)
@@ -1485,6 +1516,7 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	void __user *argp = (void __user *)arg;
 	struct miscdevice *dev = file->private_data;
 	struct jz_ipu *ipu= container_of(dev, struct jz_ipu, misc_dev);
+	unsigned int value;
 
 	if (_IOC_TYPE(cmd) != JZIPU_IOC_MAGIC) {
 		dev_err(ipu->dev, "invalid cmd!\n");
@@ -1537,6 +1569,18 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_IPU_CLR_BYPASS:
 		ret = ipu_clr_bypass(ipu);
+		break;
+	case IOCTL_IPU_ENABLE_CLK:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_info(ipu->dev, "Enable IPU clock data error\n");
+			return -EFAULT;
+		}
+		ret=ipu_enable_clk(ipu,value);
+		break;
+	case IOCTL_IPU0_TO_BUF:
+		if (copy_from_user(&value, argp, sizeof(int)))
+			return -EFAULT;
+		ret=ipu0_to_buf(ipu,value);
 		break;
 	default:
 		dev_err(ipu->dev, "invalid command: 0x%08x\n", cmd);

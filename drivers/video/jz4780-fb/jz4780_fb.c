@@ -46,6 +46,9 @@ static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
 /*static int jzfb_lcdc_reset(struct fb_info *info);*/
 
+static struct jzfb *jzfb0;
+static struct jzfb *jzfb1;
+
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id		= "jzfb",
 	.type		= FB_TYPE_PACKED_PIXELS,
@@ -1369,7 +1372,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 
 	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
 		int i;
-		unsigned long cmd[2], *ptr;
+		unsigned long cmd[2]={0}, *ptr;
 
 		jzfb->desc_cmd_vidmem = dma_alloc_coherent(jzfb->dev, PAGE_SIZE,
 					    &jzfb->desc_cmd_phys, GFP_KERNEL);
@@ -1708,6 +1711,65 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 	return 0;
 }
 
+int jzfb_ipu_enable_clk(int id, unsigned int value)
+{
+#ifdef CONFIG_JZ4780_IPU
+	struct jzfb *jzfb = jzfb0;
+	unsigned int tmp;
+	if(id == 0 && jzfb0 != NULL)
+		jzfb = jzfb0;
+	else if(id == 1 && jzfb1 != NULL)
+		jzfb = jzfb1;
+
+	if(jzfb == NULL)
+		return -EFAULT;
+
+	if (value) {
+		/* the clock of ipu is depends on lcdc's clock */
+		clk_enable(jzfb->ipu_clk);
+		tmp = reg_read(jzfb, LCDC_OSDCTRL);
+		/* enable ipu0 clock */
+		tmp |= LCDC_OSDCTRL_IPU_CLKEN;
+		reg_write(jzfb, LCDC_OSDCTRL, tmp);
+	} else {
+		tmp = reg_read(jzfb, LCDC_OSDCTRL);
+		tmp &= ~LCDC_OSDCTRL_IPU_CLKEN;
+		reg_write(jzfb, LCDC_OSDCTRL, tmp);
+		clk_disable(jzfb->ipu_clk);
+	}
+	return 0;
+#else
+	dev_err(jzfb->dev, "CONFIG_JZ4780_IPU is not set\n");
+	return -EFAULT;
+#endif
+}
+int jzfb_ipu0_to_buf(int id, unsigned int value)
+{
+	struct jzfb *jzfb = jzfb0;
+	unsigned int tmp;
+	if(jzfb0 != NULL && id == 0)
+		jzfb = jzfb0;
+	else if(jzfb1 != NULL && id == 1)
+		jzfb = jzfb1;
+
+	if(jzfb == NULL)
+		return -EFAULT;
+
+	if (jzfb->id != 1) {
+		dev_err(jzfb->dev, "IPU WB isn't available in LCDC0");
+		return -EFAULT;
+	}
+	tmp = reg_read(jzfb, LCDC_DUAL_CTRL);
+	if (value) {
+		tmp |= LCDC_DUAL_CTRL_IPU_WR_SEL;
+		reg_write(jzfb, LCDC_DUAL_CTRL, tmp);
+	} else {
+		tmp &= ~LCDC_DUAL_CTRL_IPU_WR_SEL;
+		reg_write(jzfb, LCDC_DUAL_CTRL, tmp);
+	}
+	return 0;
+}
+
 #ifdef CONFIG_JZ4780_AOSD
 static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd)
 {
@@ -2026,6 +2088,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		}
 		mutex_unlock(&jzfb->framedesc_lock);
 		break;
+#if 0
+	/*ipu control be transferred to ipu by bcjia@ingenic in 2013-10-8*/
+
 	case JZFB_IPU0_TO_BUF:
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
@@ -2048,7 +2113,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "Enable IPU clock data error\n");
 			return -EFAULT;
 		}
-
+		//printk("-fb id=%d name=%s\n",jzfb->id,jzfb->clk_name);
 		if (value) {
 			/* the clock of ipu is depends on lcdc's clock */
 			clk_enable(jzfb->ipu_clk);
@@ -2067,6 +2132,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 #endif
 		break;
+#endif
 	case JZFB_ENABLE_LCDC_CLK:
 		if (copy_from_user(&value, argp, sizeof(int))) {
 			dev_info(info->dev, "Enable LCDC0 clock data error\n");
@@ -2997,6 +3063,12 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->id = pdev->id;
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
+
+	if(jzfb->id == 0){
+		jzfb0 = jzfb;
+	}else if(jzfb->id == 1){
+		jzfb1 = jzfb;
+	}
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_LCM) {

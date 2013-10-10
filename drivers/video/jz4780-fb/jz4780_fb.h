@@ -223,8 +223,8 @@ struct jzfb_aosd {
 #define JZFB_SET_COLORKEY		_IOW('F', 0x125, struct jzfb_color_key)
 #define JZFB_AOSD_EN			_IOW('F', 0x126, struct jzfb_aosd)
 #define JZFB_16X16_BLOCK_EN		_IOW('F', 0x127, int)
-#define JZFB_IPU0_TO_BUF		_IOW('F', 0x128, int)
-#define JZFB_ENABLE_IPU_CLK		_IOW('F', 0x129, int)
+//#define JZFB_IPU0_TO_BUF		_IOW('F', 0x128, int)
+//#define JZFB_ENABLE_IPU_CLK		_IOW('F', 0x129, int)
 #define JZFB_ENABLE_LCDC_CLK		_IOW('F', 0x130, int)
 /* Reserved for future extend */
 #define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)

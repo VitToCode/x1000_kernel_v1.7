@@ -208,6 +208,8 @@ struct jz_ipu {
 #define IOCTL_IPU_SET_BYPASS         _IO(JZIPU_IOC_MAGIC, 109)
 #define IOCTL_IPU_GET_BYPASS_STATE   _IOR(JZIPU_IOC_MAGIC, 110, int)
 #define IOCTL_IPU_CLR_BYPASS         _IO(JZIPU_IOC_MAGIC, 111)
+#define IOCTL_IPU_ENABLE_CLK         _IO(JZIPU_IOC_MAGIC, 112)
+#define IOCTL_IPU0_TO_BUF            _IO(JZIPU_IOC_MAGIC, 113)
 //#define IOCTL_GET_FREE_IPU       _IOR(JZIPU_IOC_MAGIC, 109, int)
 
 static inline unsigned int reg_read(struct jz_ipu *jzipu, int offset)
