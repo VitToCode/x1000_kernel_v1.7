@@ -90,49 +90,67 @@ static struct jztsc_platform_data comet_tsc_pdata = {
 		.x_max          = 800,
 		.y_max          = 480,
 };
-
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-static struct i2c_board_info comet_i2c0_devs[] __initdata = { 
-		        {   
-				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-				.platform_data = &comet_tsc_pdata,
-			},  
-	};
 #endif
 
-#ifdef CONFIG_GSlX680_CAPACITIVE_TOUCHSCREEN
-static struct i2c_board_info comet_i2c0_devs[] __initdata = { 
-		        {   
-				I2C_BOARD_INFO("gslX680_ts", 0x40),
-				.platform_data = &comet_tsc_pdata,
-			},  
-	};
-#endif
 
-#endif
-
-#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775)) && (defined(CONFIG_JZ_CIM0) || defined(CONFIG_JZ_CIM1)))
+#if (defined(CONFIG_JZ_CIM0) || defined(CONFIG_JZ_CIM1))
 struct cam_sensor_plat_data {
-	int facing;
-	int orientation;
-	int mirror;   //camera mirror
-	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
-	uint16_t	gpio_rst;	/* resert  gpio */
-	uint16_t	gpio_en;	/* camera enable gpio */
-	int cap_wait_frame;    /* filter n frames when capture image */
+        int facing;
+        int orientation;
+        int mirror;   //camera mirror
+        //u16   gpio_vcc;       /* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
+        uint16_t        gpio_rst;       /* resert  gpio */
+        uint16_t        gpio_en;        /* camera enable gpio */
+        int cap_wait_frame;    /* filter n frames when capture image */
 };
 
 #ifdef CONFIG_OV3640
 static struct cam_sensor_plat_data ov3640_pdata = {
-	.facing = 1,
-	.orientation = 0,
-	.mirror = 0,
-	.gpio_en = GPIO_OV3640_EN,
-	.gpio_rst = GPIO_OV3640_RST,
-	.cap_wait_frame = 6,
+        .facing = 1,
+        .orientation = 0,
+        .mirror = 0,
+        .gpio_en = GPIO_OV3640_EN,
+        .gpio_rst = GPIO_OV3640_RST,
+        .cap_wait_frame = 6,
 };
 #endif
+
+#ifdef CONFIG_GC0307
+static struct cam_sensor_plat_data gc0307_pdata = {
+        .facing = 1,
+        .orientation = 0,
+        .mirror = 0,
+        .gpio_en = -1,
+        .gpio_rst = -1,
+        .cap_wait_frame = 6,
+};
 #endif
+
+#endif
+
+static struct i2c_board_info comet_i2c0_devs[] __initdata = { 
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
+		        {   
+				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
+				.platform_data = &comet_tsc_pdata,
+			},  
+#endif
+#ifdef CONFIG_GSlX680_CAPACITIVE_TOUCHSCREEN
+		        {   
+				I2C_BOARD_INFO("gslX680_ts", 0x40),
+				.platform_data = &comet_tsc_pdata,
+			},  
+#endif
+
+#ifdef CONFIG_GC0307
+			{
+				I2C_BOARD_INFO("gc0307",0x21),
+				.platform_data = &gc0307_pdata,
+			},
+
+#endif
+	};
+
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
 static struct i2c_board_info comet_i2c1_devs[] __initdata = {
@@ -388,7 +406,8 @@ static int __init board_init(void)
 	platform_device_register(&jz_hdmi);
 #endif
 
-#ifdef CONFIG_JZ4775_SUPPORT_TSC
+//#ifdef CONFIG_JZ4775_SUPPORT_TSC
+#if (defined(CONFIG_JZ4775_SUPPORT_TSC) || defined(CONFIG_JZ4775_CIM0))
 	i2c_register_board_info(0, comet_i2c0_devs, ARRAY_SIZE(comet_i2c0_devs));
 #endif
 #ifdef CONFIG_RTC_DRV_JZ4775
