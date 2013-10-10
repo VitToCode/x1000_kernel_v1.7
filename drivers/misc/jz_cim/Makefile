@@ -16,3 +16,4 @@ obj-$(CONFIG_FAKE)		+= fake/
 obj-$(CONFIG_GT2005)              += gt2005/
 obj-$(CONFIG_TVP5150)              += tvp5150/
 obj-$(CONFIG_ADV7180)               += adv7180/
+obj-$(CONFIG_GC0307)               += gc0307/

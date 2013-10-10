@@ -110,3 +110,8 @@ config TVP5150
         bool "tvp5150  Texas Instruments video decoder"
         depends on JZ_CIM
         default n
+
+config GC0307
+        bool "gc0307  Galaxycore camer sensor"
+        depends on JZ_CIM
+        default n
