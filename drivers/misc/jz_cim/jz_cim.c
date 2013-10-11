@@ -118,11 +118,14 @@ struct jz_cim {
 	spinlock_t lock;
 	struct frm_size psize;
 	struct frm_size csize;
+#ifdef CONFIG_GC0307
+	struct frm_size offset;
+#endif
 	int tlb_flag;
 	unsigned long tlb_base;
 	unsigned long preview_output_format;
 	unsigned long capture_output_format;
-    CameraYUVMeta p_yuv_meta_data[SWAP_NR];
+    	CameraYUVMeta p_yuv_meta_data[SWAP_NR];
 	//CameraYUVMeta p_yuv_meta_data[PDESC_NR];
 	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
 	int is_clock_enabled;
@@ -674,6 +677,10 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
 		hoffset = 24;
 	}
 #endif
+#ifdef CONFIG_GC0307
+	voffset = cim->offset.w;
+	hoffset = cim->offset.h;
+#endif
 	woffset |= (voffset << 16) | hoffset;
 	reg_write(cim,CIM_OFFSET,woffset);
 	unsigned int ctrl = reg_read(cim,CIM_CTRL);
@@ -685,7 +692,7 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
 
 static long cim_set_capture_size(struct jz_cim *cim)
 {
-#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180))
+#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180) && !defined(CONFIG_GC0307))
 	int i =0;
 	struct frm_size * p = cim->desc->capture_size;
 	for(i=0;i<cim->desc->cap_resolution_nr;i++){	 
@@ -762,7 +769,7 @@ static long cim_set_capture_size(struct jz_cim *cim)
 
 static long cim_set_preview_size(struct jz_cim *cim)
 {
-#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180))
+#if (!defined(CONFIG_TVP5150) && !defined(CONFIG_ADV7180) && !defined(CONFIG_GC0307))
 	int i =0;
 	struct frm_size * p = cim->desc->preview_size;
 	for(i=0;i<cim->desc->prev_resolution_nr;i++){	 
@@ -1644,8 +1651,12 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_SET_PREVIEW_FMT:
 		case CIMIO_SET_CAPTURE_FMT:
 			return cim_set_output_format(cim, cmd, arg);
+		case CIMIO_SET_OFFSET:
+		#ifdef CONFIG_GC0307
+			return copy_from_user(&cim->offset, (void __user *)arg, sizeof(struct frm_size));
+		#endif
+			break;
 	}
-
 	return ret;
 }
 

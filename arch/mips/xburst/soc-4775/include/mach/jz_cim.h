@@ -5,7 +5,7 @@
 #define CIMIO_START_PREVIEW			0x02
 #define CIMIO_START_CAPTURE			0x03
 #define CIMIO_GET_FRAME				0x04
-#define CIMIO_GET_SENSORINFO		0x05
+#define CIMIO_GET_SENSORINFO			0x05
 #define CIMIO_GET_VAR				0x06
 #define CIMIO_GET_CAPTURE_PARAM			0x07
 #define CIMIO_GET_PREVIEW_PARAM			0x08		// get preview size and format
@@ -23,14 +23,15 @@
 #define CIMIO_STOP_PREVIEW			0x14
 #define CIMIO_SET_TLB_BASE			0x15
 #define CIMIO_GET_SENSOR_COUNT			0x16
-#define CIMIO_SET_PREVIEW_FMT		0x17
-#define CIMIO_SET_CAPTURE_FMT		0x18
+#define CIMIO_SET_PREVIEW_FMT			0x17
+#define CIMIO_SET_CAPTURE_FMT			0x18
+#define CIMIO_SET_OFFSET			0x19
 
 //cim output format, set according system/core/include/system/graphics.h
-#define HAL_PIXEL_FORMAT_YV12				0x32315659
+#define HAL_PIXEL_FORMAT_YV12			0x32315659
 #define HAL_PIXEL_FORMAT_JZ_YUV_420_P		0x47700001
 #define HAL_PIXEL_FORMAT_JZ_YUV_420_B		0x47700002
-#define HAL_PIXEL_FORMAT_YCbCr_422_I        0x14
+#define HAL_PIXEL_FORMAT_YCbCr_422_I        	0x14
 
 #define CIM_CSC_YUV420B				0x1
 #define CIM_CSC_YUV420P				0x2
