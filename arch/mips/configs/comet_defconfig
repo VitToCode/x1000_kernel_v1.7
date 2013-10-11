@@ -675,7 +675,28 @@ CONFIG_JZ_VPU=y
 #
 # CONFIG_TI_ST is not set
 # CONFIG_SENSORS_LIS3_I2C is not set
-# CONFIG_JZ_CIM is not set
+CONFIG_JZ_CIM=y
+CONFIG_JZ_CIM0=y
+# CONFIG_JZ_CIM1 is not set
+CONFIG_CAMERA_SENSOR_NO_POWER_CTL=y
+# CONFIG_OV3640 is not set
+# CONFIG_OV7675 is not set
+# CONFIG_OV2650 is not set
+# CONFIG_OV2659_MODULE is not set
+# CONFIG_OV5640 is not set
+# CONFIG_SP0838 is not set
+# CONFIG_ADV7180 is not set
+# CONFIG_GC0308 is not set
+# CONFIG_HORIZONTAL_MIRROR is not set
+# CONFIG_VERTICAL_MIRROR is not set
+# CONFIG_GC0308_Q8 is not set
+# CONFIG_GC2015 is not set
+# CONFIG_HI253 is not set
+# CONFIG_HI704 is not set
+# CONFIG_FAKE is not set
+# CONFIG_GT2005 is not set
+# CONFIG_TVP5150 is not set
+CONFIG_GC0307=y
 CONFIG_JZ_PWM=y
 
 #
