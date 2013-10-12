@@ -302,7 +302,8 @@ void update_recvframe_phyinfo_88e(
 			}
 			#endif
 		}
-		//to do Ad-hoc
+		else
+			sa = get_sa(wlanhdr);
 	}
 	else{
 		sa = get_sa(wlanhdr);
@@ -319,12 +320,6 @@ void update_recvframe_phyinfo_88e(
 	pkt_info.Rate = pattrib->mcs_rate;	
 	//rtl8188e_query_rx_phy_status(precvframe, pphy_status);
 
-	#ifdef CONFIG_CONCURRENT_MODE	
-	//get Primary adapter's odmpriv
-	if(padapter->adapter_type > PRIMARY_ADAPTER){
-		pHalData = GET_HAL_DATA(padapter->pbuddy_adapter);		
-	}
-	#endif
 	//_enter_critical_bh(&pHalData->odm_stainfo_lock, &irqL);	
 	ODM_PhyStatusQuery(&pHalData->odmpriv,pPHYInfo,(u8 *)pphy_status,&(pkt_info));
 	//_exit_critical_bh(&pHalData->odm_stainfo_lock, &irqL);
