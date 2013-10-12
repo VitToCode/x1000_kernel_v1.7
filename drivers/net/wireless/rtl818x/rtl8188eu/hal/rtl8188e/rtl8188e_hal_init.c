@@ -1031,12 +1031,12 @@ Exit:
 
 	//RT_TRACE(COMP_INIT, DBG_LOUD, (" <=== FirmwareDownload91C()\n"));
 #ifdef CONFIG_WOWLAN
-	if (padapter->pwrctrlpriv.wowlan_mode)
+	if (adapter_to_pwrctl(padapter)->wowlan_mode)
 		rtl8188e_InitializeFirmwareVars(padapter);	
 	else
 		DBG_871X_LEVEL(_drv_always_, "%s: wowland_mode:%d wowlan_wake_reason:%d\n", 
-			__func__, padapter->pwrctrlpriv.wowlan_mode, 
-			padapter->pwrctrlpriv.wowlan_wake_reason);
+			__func__, adapter_to_pwrctl(padapter)->wowlan_mode, 
+			adapter_to_pwrctl(padapter)->wowlan_wake_reason);
 #endif
 
 	return rtStatus;
@@ -1046,11 +1046,10 @@ Exit:
 void rtl8188e_InitializeFirmwareVars(PADAPTER padapter)
 {
 	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(padapter);
-	struct pwrctrl_priv *pwrpriv;
-	pwrpriv = &padapter->pwrctrlpriv;
+	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
 
 	// Init Fw LPS related.
-	padapter->pwrctrlpriv.bFwCurrentInPSMode = _FALSE;
+	pwrpriv->bFwCurrentInPSMode = _FALSE;
 	// Init H2C counter. by tynli. 2009.12.09.
 	pHalData->LastHMEBoxNum = 0;
 }
@@ -1095,7 +1094,7 @@ void rtl8188e_InitializeFirmwareVars(PADAPTER padapter)
 	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(padapter);
 
 	// Init Fw LPS related.
-	padapter->pwrctrlpriv.bFwCurrentInPSMode = _FALSE;
+	adapter_to_pwrctl(padapter)->bFwCurrentInPSMode = _FALSE;
 
 	// Init H2C counter. by tynli. 2009.12.09.
 	pHalData->LastHMEBoxNum = 0;
@@ -1108,10 +1107,13 @@ void rtl8188e_InitializeFirmwareVars(PADAPTER padapter)
 static void rtl8188e_free_hal_data(PADAPTER padapter)
 {
 _func_enter_;
-	if (padapter->HalData) {
+
+	if(padapter->HalData)
+	{
 		rtw_mfree(padapter->HalData, sizeof(HAL_DATA_TYPE));
 		padapter->HalData = NULL;
 	}
+	
 _func_exit_;
 }
 
@@ -2782,13 +2784,6 @@ void rtl8188e_SetHalODMVar(
 		case HAL_ODM_STA_INFO:
 			{	
 				struct sta_info *psta = (struct sta_info *)pValue1;				
-				#ifdef CONFIG_CONCURRENT_MODE	
-				//get Primary adapter's odmpriv
-				if(Adapter->adapter_type > PRIMARY_ADAPTER){
-					pHalData = GET_HAL_DATA(Adapter->pbuddy_adapter);
-					podmpriv = &pHalData->odmpriv;	
-				}
-				#endif				
 				if(bSet){
 					DBG_8192C("### Set STA_(%d) info\n",psta->mac_id);
 					ODM_CmnInfoPtrArrayHook(podmpriv, ODM_CMNINFO_STA_STATUS,psta->mac_id,psta);
@@ -2816,46 +2811,14 @@ void rtl8188e_SetHalODMVar(
 	}
 }	
 
-void rtl8188e_clone_haldata(_adapter* dst_adapter, _adapter* src_adapter)
-{
-#ifdef CONFIG_SDIO_HCI
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(dst_adapter);
-	//_thread_hdl_  SdioXmitThread;
-#ifndef CONFIG_SDIO_TX_TASKLET
-	_sema             temp_SdioXmitSema;
-	_sema             temp_SdioXmitTerminateSema;
-#endif
-	//u8                    SdioTxFIFOFreePage[SDIO_TX_FREE_PG_QUEUE];
-	_lock                temp_SdioTxFIFOFreePageLock;
-
-#ifndef CONFIG_SDIO_TX_TASKLET
-	_rtw_memcpy(&temp_SdioXmitSema, &(pHalData->SdioXmitSema), sizeof(_sema));
-	_rtw_memcpy(&temp_SdioXmitTerminateSema, &(pHalData->SdioXmitTerminateSema), sizeof(_sema));
-#endif
-	_rtw_memcpy(&temp_SdioTxFIFOFreePageLock, &(pHalData->SdioTxFIFOFreePageLock), sizeof(_lock));
-
-	_rtw_memcpy(dst_adapter->HalData, src_adapter->HalData, dst_adapter->hal_data_sz);
-
-#ifndef CONFIG_SDIO_TX_TASKLET	
-	_rtw_memcpy(&(pHalData->SdioXmitSema), &temp_SdioXmitSema, sizeof(_sema));
-	_rtw_memcpy(&(pHalData->SdioXmitTerminateSema), &temp_SdioXmitTerminateSema, sizeof(_sema));
-#endif
-	_rtw_memcpy(&(pHalData->SdioTxFIFOFreePageLock), &temp_SdioTxFIFOFreePageLock, sizeof(_lock));	
-
-#else
-	_rtw_memcpy(dst_adapter->HalData, src_adapter->HalData, dst_adapter->hal_data_sz);
-#endif
-
-}
-
 void rtl8188e_start_thread(_adapter *padapter)
 {
 #ifdef CONFIG_SDIO_HCI
 #ifndef CONFIG_SDIO_TX_TASKLET
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
+	struct xmit_priv *xmitpriv = &padapter->xmitpriv;
 
-	pHalData->SdioXmitThread = kthread_run(rtl8188es_xmit_thread, padapter, "RTWHALXT");
-	if (IS_ERR(pHalData->SdioXmitThread))
+	xmitpriv->SdioXmitThread = kthread_run(rtl8188es_xmit_thread, padapter, "RTWHALXT");
+	if (IS_ERR(xmitpriv->SdioXmitThread))
 	{
 		RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("%s: start rtl8188es_xmit_thread FAIL!!\n", __FUNCTION__));
 	}
@@ -2867,13 +2830,13 @@ void rtl8188e_stop_thread(_adapter *padapter)
 {
 #ifdef CONFIG_SDIO_HCI
 #ifndef CONFIG_SDIO_TX_TASKLET
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
+	struct xmit_priv *xmitpriv = &padapter->xmitpriv;
 
 	// stop xmit_buf_thread
-	if (pHalData->SdioXmitThread ) {
-		_rtw_up_sema(&pHalData->SdioXmitSema);
-		_rtw_down_sema(&pHalData->SdioXmitTerminateSema);
-		pHalData->SdioXmitThread = 0;
+	if (xmitpriv->SdioXmitThread ) {
+		_rtw_up_sema(&xmitpriv->SdioXmitSema);
+		_rtw_down_sema(&xmitpriv->SdioXmitTerminateSema);
+		xmitpriv->SdioXmitThread = 0;
 	}
 #endif
 #endif
@@ -2903,9 +2866,7 @@ void rtl8188e_set_hal_ops(struct hal_ops *pHalFunc)
 	pHalFunc->hal_dm_watchdog = &rtl8188e_HalDmWatchDog;
 
 	pHalFunc->Add_RateATid = &rtl8188e_Add_RateATid;
-#ifdef CONFIG_CONCURRENT_MODE		
-	pHalFunc->clone_haldata = &rtl8188e_clone_haldata;
-#endif
+
 	pHalFunc->run_thread= &rtl8188e_start_thread;
 	pHalFunc->cancel_thread= &rtl8188e_stop_thread;
 
@@ -3414,35 +3375,35 @@ void Hal_ReadPowerSavingMode88E(
 	)
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
-	struct pwrctrl_priv *pwrctrlpriv = &padapter->pwrctrlpriv;
+	struct pwrctrl_priv *pwrctl = adapter_to_pwrctl(padapter);
 	u8 tmpvalue;
 
 	if(AutoLoadFail){
-		padapter->pwrctrlpriv.bHWPowerdown = _FALSE;
-		padapter->pwrctrlpriv.bSupportRemoteWakeup = _FALSE;
+		pwrctl->bHWPowerdown = _FALSE;
+		pwrctl->bSupportRemoteWakeup = _FALSE;
 	}
 	else	{		
 
 		//hw power down mode selection , 0:rf-off / 1:power down
 
 		if(padapter->registrypriv.hwpdn_mode==2)
-			padapter->pwrctrlpriv.bHWPowerdown = (hwinfo[EEPROM_RF_FEATURE_OPTION_88E] & BIT4)?_TRUE:_FALSE;
+			pwrctl->bHWPowerdown = (hwinfo[EEPROM_RF_FEATURE_OPTION_88E] & BIT4)?_TRUE:_FALSE;
 		else
-			padapter->pwrctrlpriv.bHWPowerdown = padapter->registrypriv.hwpdn_mode;
+			pwrctl->bHWPowerdown = padapter->registrypriv.hwpdn_mode;
 
-		padapter->pwrctrlpriv.bHWPwrPindetect = padapter->registrypriv.hwpwrp_detect;
+		pwrctl->bHWPwrPindetect = padapter->registrypriv.hwpwrp_detect;
 				
 		// decide hw if support remote wakeup function
 		// if hw supported, 8051 (SIE) will generate WeakUP signal( D+/D- toggle) when autoresume
 #ifdef CONFIG_USB_HCI
-		padapter->pwrctrlpriv.bSupportRemoteWakeup = (hwinfo[EEPROM_USB_OPTIONAL_FUNCTION0] & BIT1)?_TRUE :_FALSE;
+		pwrctl->bSupportRemoteWakeup = (hwinfo[EEPROM_USB_OPTIONAL_FUNCTION0] & BIT1)?_TRUE :_FALSE;
 #endif //CONFIG_USB_HCI
 
 		//if(SUPPORT_HW_RADIO_DETECT(Adapter))	
-			//Adapter->registrypriv.usbss_enable = Adapter->pwrctrlpriv.bSupportRemoteWakeup ;
+			//Adapter->registrypriv.usbss_enable = pwrctl->bSupportRemoteWakeup ;
 		
 		DBG_8192C("%s...bHWPwrPindetect(%x)-bHWPowerdown(%x) ,bSupportRemoteWakeup(%x)\n",__FUNCTION__,
-		padapter->pwrctrlpriv.bHWPwrPindetect,padapter->pwrctrlpriv.bHWPowerdown ,padapter->pwrctrlpriv.bSupportRemoteWakeup);
+		pwrctl->bHWPwrPindetect, pwrctl->bHWPowerdown, pwrctl->bSupportRemoteWakeup);
 
 		DBG_8192C("### PS params=>  power_mgnt(%x),usbss_enable(%x) ###\n",padapter->registrypriv.power_mgnt,padapter->registrypriv.usbss_enable);
 	
@@ -3509,7 +3470,7 @@ Hal_ReadTxPowerInfo88E(
 	}
 
 	
-	// 2010/10/19 MH Add Regulator recognize for CU.
+	// 2010/10/19 MH Add Regulator recognize for EU.
 	if(!AutoLoadFail)
 	{
 		struct registry_priv  *registry_par = &padapter->registrypriv;
@@ -3754,7 +3715,7 @@ BOOLEAN HalDetectPwrDownMode88E(PADAPTER Adapter)
 {
 	u8 tmpvalue = 0;
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(Adapter);
-	struct pwrctrl_priv *pwrctrlpriv = &Adapter->pwrctrlpriv;
+	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(Adapter);
 
 	EFUSE_ShadowRead(Adapter, 1, EEPROM_RF_FEATURE_OPTION_88E, (u32 *)&tmpvalue);
 
@@ -3776,7 +3737,7 @@ BOOLEAN HalDetectPwrDownMode88E(PADAPTER Adapter)
 #ifdef CONFIG_WOWLAN
 void Hal_DetectWoWMode(PADAPTER pAdapter)
 {
-	pAdapter->pwrctrlpriv.bSupportRemoteWakeup = _TRUE;
+	adapter_to_pwrctl(pAdapter)->bSupportRemoteWakeup = _TRUE;
 	DBG_871X("%s\n", __func__);
 }
 #endif
@@ -3792,11 +3753,15 @@ void Hal_ReadRFGainOffset(
 	//
 	// BB_RF Gain Offset from EEPROM
 	//
-	res = rtw_efuse_access(Adapter, _FALSE, 0, EFUSE_MAX_SIZE, buff);
-	if(!AutoloadFail && res != _FAIL)
-		Adapter->eeprompriv.EEPROMRFGainOffset = buff[EEPROM_RF_GAIN_OFFSET_88E];
-	else
+	//res = rtw_efuse_access(Adapter, _FALSE, 0, EFUSE_MAX_SIZE, buff);
+	if(!AutoloadFail ){
+		Adapter->eeprompriv.EEPROMRFGainOffset = PROMContent[EEPROM_RF_GAIN_OFFSET_88E];
+		Adapter->eeprompriv.EEPROMRFGainVal=EFUSE_Read1Byte(Adapter, EEPROM_RF_GAIN_VAL_88E);
+	}
+	else{
 		Adapter->eeprompriv.EEPROMRFGainOffset = EEPROM_Default_RFGainOffset;
+		Adapter->eeprompriv.EEPROMRFGainVal=0xff;
+	}
 	DBG_871X("EEPRORFGainOffset = 0x%02x\n", Adapter->eeprompriv.EEPROMRFGainOffset);
 }
 #endif //CONFIG_RF_GAIN_OFFSET
@@ -3831,5 +3796,4 @@ void SetBcnCtrlReg(
 
 	rtw_write8(padapter, REG_BCN_CTRL, (u8)pHalData->RegBcnCtrlVal);
 }
-
 
