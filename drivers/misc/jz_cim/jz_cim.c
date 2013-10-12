@@ -1651,11 +1651,11 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_SET_PREVIEW_FMT:
 		case CIMIO_SET_CAPTURE_FMT:
 			return cim_set_output_format(cim, cmd, arg);
+#if(defined(CONFIG_GC0307) && defined(CONFIG_SOC_4775))
 		case CIMIO_SET_OFFSET:
-		#ifdef CONFIG_GC0307
 			return copy_from_user(&cim->offset, (void __user *)arg, sizeof(struct frm_size));
-		#endif
 			break;
+#endif
 	}
 	return ret;
 }
