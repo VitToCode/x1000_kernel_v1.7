@@ -103,18 +103,50 @@ static inline int gpio_pin_level(struct jzgpio_chip *jz, int pin)
 static void gpio_set_func(struct jzgpio_chip *chip,
 		enum gpio_function func, unsigned int pins)
 {
-	writel(func & 0x8? pins : 0, chip->reg + PXINTS);
-	writel(func & 0x4? pins : 0, chip->reg + PXMSKS);
-	writel(func & 0x2? pins : 0, chip->reg + PXPAT1S);
-	writel(func & 0x1? pins : 0, chip->reg + PXPAT0S);
+	unsigned long comp;
 
-	writel(func & 0x8? 0 : pins, chip->reg + PXINTC);
-	writel(func & 0x4? 0 : pins, chip->reg + PXMSKC);
-	writel(func & 0x2? 0 : pins, chip->reg + PXPAT1C);
-	writel(func & 0x1? 0 : pins, chip->reg + PXPAT0C);
+	comp = pins & readl(chip->reg + PXINT);
+	if((func & 0x8) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXINTS);
+	}
+	comp = pins & readl(chip->reg + PXMSK);
+	if((func & 0x4) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXMSKS);
+	}
+	comp = pins & readl(chip->reg + PXPAT1);
+	if((func & 0x2) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT1S);
+	}
+	comp = pins & readl(chip->reg + PXPAT0);
+	if((func & 0x1) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT0S);
+	}
 
-	writel(func & 0x10? pins : 0, chip->reg + PXPENC);
-	writel(func & 0x10? 0 : pins, chip->reg + PXPENS);
+	comp = pins & (~readl(chip->reg + PXINT));
+	if(!(func & 0x8) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXINTC);
+	}
+	comp = pins & (~readl(chip->reg + PXMSK));
+	if(!(func & 0x4) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXMSKC);
+	}
+	comp = pins & (~readl(chip->reg + PXPAT1));
+	if(!(func & 0x2) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT1C);
+	}
+	comp = pins & (~readl(chip->reg + PXPAT0));
+	if(!(func & 0x1) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT0C);
+	}
+
+	comp = pins & (~readl(chip->reg + PXPEN));
+	if((func & 0x10) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPENC);
+	}
+	comp = pins & readl(chip->reg + PXPEN);
+	if(!(func & 0x10) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPENS);
+	}
 }
 
 int jzgpio_set_func(enum gpio_port port,
