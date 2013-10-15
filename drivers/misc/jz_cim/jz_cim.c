@@ -429,7 +429,8 @@ static void cim_dump_reg(struct jz_cim *cim)
 static inline void cim_enable_mclk(struct jz_cim *cim)
 {
 	if(!cim->is_mclk_enabled) {
-		clk_enable(cim->mclk);
+		if(cim->mclk)
+			clk_enable(cim->mclk);
 		cim->is_mclk_enabled = 1;
 	}
 }
@@ -437,7 +438,8 @@ static inline void cim_enable_mclk(struct jz_cim *cim)
 static inline void cim_disable_mclk(struct jz_cim *cim)
 {
 	if(cim->is_mclk_enabled) {
-		clk_disable(cim->mclk);
+		if(cim->mclk)
+			clk_disable(cim->mclk);
 		cim->is_mclk_enabled = 0;
 	}
 }
@@ -524,7 +526,7 @@ void cim_set_default(struct jz_cim *cim)
 			cfg |= CIM_CFG_SEP;
 			
 		} else if(cim->capture_output_format == CIM_CSC_YUV420B) {
-			ctrl |= CIM_CTRL_MBEN;
+			ctrl |= CIM_CTRL_MBEN;		//macro(tile) mode
 			ctrl2 |= CIM_CTRL2_CSC_YUV420;
 			cfg |= CIM_CFG_SEP;	
 		}
@@ -534,7 +536,7 @@ void cim_set_default(struct jz_cim *cim)
          * only package YUV422I CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV;
          * YUV420B and YUV420P must not use CIM_CTRL_DMA_SYNC and CIM_CMD_OFRCV.
          */
-        if(cim->preview_output_format == CIM_BYPASS_YUV422I)
+        //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
             ctrl |= CIM_CTRL_DMA_SYNC;
 	ctrl |= CIM_CTRL_FRC_1;
 
@@ -563,13 +565,23 @@ void cim_set_default(struct jz_cim *cim)
         else 
             cfg |= CIM_CFG_DMA_BURST_INCR32; /* 16? 32? */
 
+#ifdef CONFIG_OV5640_RAW_BAYER
+	reg_write(cim, CIM_CFG, 0x00001c42);
+	reg_write(cim, CIM_CTRL, 0x00000084);
+//	reg_write(cim,CIM_CTRL2, 0x00c00027);	//bypass
+	reg_write(cim,CIM_CTRL2, 0x00000027);	//bypass
+	fs = (640 -1)<< CIM_FS_FHS_BIT | (480 -1)<< CIM_FS_FVS_BIT | 2 << CIM_FS_BPP_BIT;
+	reg_write(cim,CIM_FS,fs);	// VGA & one byte per pixel
+#else
 	fs = (w -1)<< CIM_FS_FHS_BIT | (h -1)<< CIM_FS_FVS_BIT | 1<< CIM_FS_BPP_BIT;
 
 	reg_write(cim,CIM_CFG,cfg);
 	reg_write(cim,CIM_CTRL,ctrl);
 	reg_write(cim,CIM_CTRL2,ctrl2);
 	reg_write(cim,CIM_FS,fs);
-	//cim_enable_fsc_intr(cim);
+#endif
+
+//	cim_enable_fsc_intr(cim);
 	cim_enable_eof_intr(cim);
 	cim_enable_rxfifo_overflow_intr(cim);
 	cim_enable_tlb_error_intr(cim);
@@ -652,6 +664,7 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
 	int voffset = 0;
 	int hoffset = 0;
 	int half_words_per_line = 0;
+	unsigned int ctrl = reg_read(cim,CIM_CTRL);
 
 	hoffset = 0;
         half_words_per_line = image_w;
@@ -683,7 +696,7 @@ static int cim_enable_image_mode(struct jz_cim *cim,int image_w,int image_h,int 
 #endif
 	woffset |= (voffset << 16) | hoffset;
 	reg_write(cim,CIM_OFFSET,woffset);
-	unsigned int ctrl = reg_read(cim,CIM_CTRL);
+
 	ctrl |= (1 << 14);
 	reg_write(cim,CIM_CTRL,ctrl);
 	printk("enable image mode (real size %d x %d) - %d x %d\n", width, height, image_w, image_h);
@@ -894,7 +907,7 @@ static irqreturn_t cim_irq_handler(int irq, void *data)
 
         //if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > 3 ) {
         if ( ( !(state_reg & CIM_STATE_DMA_EOF) ) || state_reg == fid || fid < 0 || fid > (SWAP_BUF-1) ) {
-            dev_info(cim->dev,"cim irq %d -------------   cim irq  \tstate_reg= %#x fid=%#x CIM_IID=%#x\n",
+            dev_err(cim->dev,"%s L%d: %d, state=%#x, fid=%#x, CIM_IID=%#x\n", __func__, __LINE__,
                      irq_count, (unsigned int)state_reg,fid, (unsigned int)reg_read(cim,CIM_IID));
         }
 
@@ -1006,8 +1019,10 @@ static long cim_shutdown(struct jz_cim *cim)
 	cim->state = CS_IDLE;
 	dev_dbg(cim->dev," -----cim shut down\n");
 	cim_disable_mclk(cim);
+#ifndef CONFIG_BOARD_4775_MENSA
 	if(!cim_get_and_check_cmd(cim))
 		dev_err(cim->dev," -----cim disable mclk timeout !\n");
+#endif
 	cim_disable(cim);
 	cim_disable_dma(cim);
 	cim_enable_mclk(cim);
@@ -1023,7 +1038,7 @@ static long cim_shutdown(struct jz_cim *cim)
 
 static long cim_start_preview(struct jz_cim *cim)
 {
-    dev_dbg(cim->dev, "__%s__\n", __func__);
+	dev_dbg(cim->dev,"__%s__\n", __func__);
 
 	cim->state = CS_PREVIEW;
 	cim->frm_id = -1;
@@ -1034,7 +1049,8 @@ static long cim_start_preview(struct jz_cim *cim)
 	cim_set_default(cim);
 
 	if ( cim->desc->first_used ) {
-		cim->desc->power_on(cim->desc);
+
+		cim->desc->power_on(cim->desc);		// sensor power up
 		cim->desc->reset(cim->desc);
 		cim->desc->init(cim->desc);
 
@@ -1042,7 +1058,7 @@ static long cim_start_preview(struct jz_cim *cim)
 		cim->desc->set_balance(cim->desc,cim->desc->para.balance);
 		cim->desc->set_effect(cim->desc,cim->desc->para.effect);
 		cim->desc->set_flash_mode(cim->desc,cim->desc->para.flash_mode);
-		cim->desc->set_focus_mode(cim->desc,cim->desc->para.focus_mode);
+//		cim->desc->set_focus_mode(cim->desc,cim->desc->para.focus_mode);
 		cim->desc->set_fps(cim->desc,cim->desc->para.fps);
 		cim->desc->set_scene_mode(cim->desc,cim->desc->para.scene_mode);
 		cim->desc->first_used = false;
@@ -1119,8 +1135,9 @@ void convert_frame(struct jz_cim * cim,unsigned long addr)
 	int width = 0,height = 0;
 	int standard;
 	unsigned int *low_addr;
-	low_addr = (unsigned int *)addr;
 	unsigned int *pBuf = NULL;
+
+	low_addr = (unsigned int *)addr;
 	switch(cim->state){
 	case CS_PREVIEW:
 		width = cim->psize.w;
@@ -1130,6 +1147,9 @@ void convert_frame(struct jz_cim * cim,unsigned long addr)
 		width = cim->csize.w;
 		height = cim->csize.h;
 		break;
+	default:
+		dev_err(cim->dev,"cim state is neither CS_PREVIEW nor CS_CAPTURE, so return\n");
+		return;
 	}
 
 	standard = cim->psize.h/2;
@@ -1196,7 +1216,7 @@ static unsigned long cim_get_preview_buf(struct jz_cim *cim)
             break;
         }
         else {
-            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(400))){
+            if(!interruptible_sleep_on_timeout(&cim->wait,msecs_to_jiffies(800))){
                 dev_err(cim->dev,"wait preview queue 200ms timeout! loop:%d\n", loop);
                 cim_dump_reg(cim);
             }
@@ -1364,8 +1384,6 @@ static void cim_free_mem(struct jz_cim *cim)
 
 static int cim_alloc_mem(struct jz_cim *cim)
 {
-	printk("__%s__\n", __func__);
-
 	//cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
 	//		sizeof(*cim->preview) * PDESC_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
 
@@ -1407,28 +1425,33 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
         }
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT; //YUV420Tile don't need auto recover
-		else
+		else {
+#ifdef CONFIG_OV5640_RAW_BAYER
+			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+#else
 			desc[i].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+#endif
+		}
 	
 #ifdef KERNEL_INFO_PRINT
 		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n", i, desc[i].buf);
 #endif		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
-                if (cim->tlb_flag == 1) {
-                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
-                    desc[i].cr_frame = yuv_meta_data[i].vAddr;
-                } else {
-                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
-                    desc[i].cr_frame = yuv_meta_data[i].vPhy;
-                }
+                		if (cim->tlb_flag == 1) {
+                		    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                		    desc[i].cr_frame = yuv_meta_data[i].vAddr;
+                		} else {
+                		    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                		    desc[i].cr_frame = yuv_meta_data[i].vPhy;
+                		}
 			} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
-                if (cim->tlb_flag == 1) {
-                    desc[i].cb_frame = yuv_meta_data[i].uAddr;
-                } else {
-                    desc[i].cb_frame = yuv_meta_data[i].uPhy;
-                }
-                desc[i].cr_frame = desc[i].cb_frame + 64;
+                		if (cim->tlb_flag == 1) {
+                		    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+                		} else {
+                		    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+                		}
+                		desc[i].cr_frame = desc[i].cb_frame + 64;
 			} 
 			
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
@@ -1591,7 +1614,10 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 	void __user *argp = (void __user *)arg;
 	long ret = 0;
-	//dev_info(cim->dev," -------------------ioctl %x\n",cmd);
+	unsigned long addr = 0;
+	unsigned long j1, j2;
+	static long long idx = 0;
+
 	switch (cmd) {
 		case CIMIO_SHUTDOWN:
 			return cim_shutdown(cim);
@@ -1600,7 +1626,8 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case CIMIO_START_CAPTURE:
 			return cim_start_capture(cim);
 		case CIMIO_GET_FRAME:
-			return cim_get_preview_buf(cim);
+			addr = cim_get_preview_buf(cim);
+			return addr;
 			break;
 		case CIMIO_GET_SENSORINFO:
 			{
@@ -1717,6 +1744,9 @@ static int cim_probe(struct platform_device *pdev)
 		goto no_desc;
 	}
 
+#ifdef CONFIG_CAMERA_SENSOR_NO_MCLK_CTL
+	cim->mclk = NULL;
+#else
 	if(pdev->id == 0)
 		cim->mclk = clk_get(&pdev->dev,"cgu_cimmclk0");
 	else if(pdev->id == 1)
@@ -1728,6 +1758,7 @@ static int cim_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto io_failed;
 	}
+#endif
 
 #ifdef CONFIG_CAMERA_SENSOR_NO_POWER_CTL
 	cim->power = NULL;
@@ -1760,6 +1791,8 @@ static int cim_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto io_failed2;
 	}
+
+	printk("==>%s L%d: iomem=%p\n", __func__, __LINE__, cim->iomem);
 
 	if(cim_alloc_mem(cim)) {
 		dev_err(&pdev->dev,"request mem failed!\n");

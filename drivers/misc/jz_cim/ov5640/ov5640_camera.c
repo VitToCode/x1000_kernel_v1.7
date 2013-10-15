@@ -10,6 +10,8 @@
 #include "ov5640_set.h"
 #include "../cim_reg.h"
 
+extern u16 g_chipid;	// 0x5640 or 0x5642
+
 static struct frm_size ov5640_capture_table[]= {
         {  320,  240 },         //QVGA
         {  640,  480 },         //VGA
@@ -138,11 +140,12 @@ int ov5640_power_up(struct cim_sensor *sensor_info)
 {
 	struct ov5640_sensor *s = container_of(sensor_info, struct ov5640_sensor, cs);
 
-	dev_info(&s->client->dev,"ov5640_power_up: GP%c%d\n", 'A'+s->gpio_en/32, s->gpio_en%32);
+	if (gpio_is_valid(s->gpio_en)) {
+		dev_info(&s->client->dev,"ov5640_power_up: GP%c%d\n", 'A'+s->gpio_en/32, s->gpio_en%32);
 
-	gpio_set_value(s->gpio_en, 0);	//active low
-	mdelay(50);
-	s->is_enable = 1;
+		gpio_set_value(s->gpio_en, 0);	//active low
+		mdelay(50);
+	}
 	return 0;
 }
 
@@ -150,15 +153,12 @@ int ov5640_power_down(struct cim_sensor *sensor_info)
 {
 	struct ov5640_sensor *s = container_of(sensor_info, struct ov5640_sensor, cs);
 
-	dev_info(&s->client->dev,"ov5640_power_down: GP%c%d\n", 'A'+s->gpio_en/32, s->gpio_en%32);
+	if (gpio_is_valid(s->gpio_en)) {
+		dev_info(&s->client->dev,"ov5640_power_down: GP%c%d\n", 'A'+s->gpio_en/32, s->gpio_en%32);
 
-//	while (s->is_af_done != 1)
-//		mdelay(50);
-
-	s->is_enable = 0;
-
-	gpio_set_value(s->gpio_en, 1);
-	mdelay(50);
+		gpio_set_value(s->gpio_en, 1);
+		mdelay(50);
+	}
 	return 0;
 }
 
@@ -181,6 +181,7 @@ int ov5640_sensor_probe(struct cim_sensor *sensor_info)
 	u8 chipid_high;
 	u8 chipid_low;
 	u8 revision;
+	int ret = 0;
 
 	s = container_of(sensor_info, struct ov5640_sensor, cs);
 	ov5640_power_up(sensor_info);
@@ -194,13 +195,24 @@ int ov5640_sensor_probe(struct cim_sensor *sensor_info)
 	chipid_low = ov5640_read_reg(s->client, 0x300b);
 	revision = ov5640_read_reg(s->client, 0x302a);
 	ov5640_power_down(sensor_info);
-	if ((chipid_high != 0x56) || (chipid_low != 0x40)) {
-		dev_err(&s->client->dev, "read sensor %s ID: 0x%x%x, Revision: 0x%x, failed!\n", s->client->name, chipid_high, chipid_low, revision);
-		return -1;
+
+	g_chipid = s->cs.chipid = chipid_high << 8 | chipid_low;
+
+	if ( (s->cs.chipid != 0x5640) && (s->cs.chipid != 0x5642) ) {
+		dev_err(&s->client->dev, "read sensor %s ID: 0x%x, Revision: 0x%x, failed!\n", s->client->name, s->cs.chipid, revision);
+		ret = -1;
+		goto out;
 	}
 
-	dev_info(&s->client->dev, "read sensor %s ID: 0x%x%x, Revision: 0x%x, ok!\n", s->client->name, chipid_high, chipid_low, revision);
-	return 0;
+	dev_info(&s->client->dev, "Sensor ID: 0x%x, Revision: 0x%x\n", s->cs.chipid, revision);
+	/*
+	 * read Module ID
+	 */
+	ov5640_read_otp(sensor_info);
+
+out:
+	ov5640_power_down(sensor_info);
+	return ret;
 }
 
 int ov5640_none(struct cim_sensor  *sensor_info)
@@ -267,12 +279,12 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	s->cs.private  = NULL;
 
-	INIT_DELAYED_WORK(&s->work, ov5640_late_work);
-	ov5640_work_queue = create_singlethread_workqueue("ov5640_work_queue");
-	if (ov5640_work_queue == NULL) {
-		pr_err("%s L%d: error!\n", __func__, __LINE__);
-		return -ENOMEM;
-	}
+//	INIT_DELAYED_WORK(&s->work, ov5640_late_work);
+//	ov5640_work_queue = create_singlethread_workqueue("ov5640_work_queue");
+//	if (ov5640_work_queue == NULL) {
+//		pr_err("%s L%d: error!\n", __func__, __LINE__);
+//		return -ENOMEM;
+//	}
 
 	s->client = client;
 	pdata = client->dev.platform_data;
@@ -281,12 +293,21 @@ static int ov5640_probe(struct i2c_client *client, const struct i2c_device_id *i
 		return -1;
 	}
 
-	if(gpio_request(pdata->gpio_en, "ov5640_en")) {
-		printk("fail to request gpio_en GP%c%d!\n",
-				'A'+pdata->gpio_en/32, pdata->gpio_en%32);
+	s->gpio_en = pdata->gpio_en;
+	s->gpio_rst = pdata->gpio_rst;
+	s->gpio_pwdn = pdata->gpio_pwdn;
+
+	if(!gpio_is_valid(pdata->gpio_en)) {
+		printk("invalid gpio_en GP%c%d! \n",
+			'A'+pdata->gpio_en/32, pdata->gpio_en%32);
 	} else {
-		s->gpio_en = pdata->gpio_en;
-		gpio_direction_output(s->gpio_en,1);
+		if(gpio_request(pdata->gpio_en, "ov5640_en")) {
+			printk("fail to request gpio_en GP%c%d!\n",
+					'A'+pdata->gpio_en/32, pdata->gpio_en%32);
+		} else {
+			s->gpio_en = pdata->gpio_en;
+			gpio_direction_output(s->gpio_en,1);
+		}
 	}
 
 	if(!gpio_is_valid(pdata->gpio_pwdn)) {

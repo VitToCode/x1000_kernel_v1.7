@@ -133,12 +133,40 @@ static struct cam_sensor_plat_data ov3640_pdata = {
 #endif
 #endif
 
+#ifdef CONFIG_OV5640
+struct ov5640_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   //camera mirror
+	//u16	gpio_vcc;	/* vcc enable gpio */   remove the gpio_vcc   , DO NOT use this pin for sensor power up ,cim will controls this
+	uint16_t	gpio_rst;	/* resert  gpio */
+	uint16_t	gpio_en;	/* sensor enable gpio */
+	uint16_t	gpio_pwdn;	/* sensor powerdown gpio */
+	int cap_wait_frame;   /* filter n frames when capture image */
+};
+static struct ov5640_platform_data ov5640_pdata = {
+	.facing = 0,
+	.orientation = 270,
+	.mirror = 0,
+	.gpio_en = -1,
+	.gpio_rst = GPIO_OV5640_RST,	// active low
+	.gpio_pwdn = GPIO_OV5640_PWDN,
+	.cap_wait_frame = 3,
+};
+#endif
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
 static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
 #ifdef CONFIG_OV3640
 	{
 		I2C_BOARD_INFO("ov3640", 0x3c),
 		.platform_data	= &ov3640_pdata,
+	},
+#endif
+#ifdef CONFIG_OV5640
+	{
+		I2C_BOARD_INFO("ov5640", 0x3c),
+		.platform_data	= &ov5640_pdata,
 	},
 #endif
 };
