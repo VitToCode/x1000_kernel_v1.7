@@ -100,28 +100,62 @@ static inline int gpio_pin_level(struct jzgpio_chip *jz, int pin)
 {
 	return !!(readl(jz->reg + PXPIN) & BIT(pin));
 }
-
 static void gpio_set_func(struct jzgpio_chip *chip,
 		enum gpio_function func, unsigned int pins)
 {
 	unsigned long flags;
+	unsigned long comp;
 
 	spin_lock_irqsave(&chip->gpiolock,flags);
 
-	writel(pins, chip->reg + PXMSKS);
-	writel(func & 0x8? pins : 0, chip->reg + PXINTS);
-	writel(func & 0x2? pins : 0, chip->reg + PXPAT1S);
-	writel(func & 0x1? pins : 0, chip->reg + PXPAT0S);
+	comp = pins & readl(chip->reg + PXMSK);
+	if(comp != pins){
+		writel(comp ^ pins, chip->reg + PXMSKS);
+	}
 
-	writel(func & 0x8? 0 : pins, chip->reg + PXINTC);
-	writel(func & 0x2? 0 : pins, chip->reg + PXPAT1C);
-	writel(func & 0x1? 0 : pins, chip->reg + PXPAT0C);
+	comp = pins & readl(chip->reg + PXINT);
+	if((func & 0x8) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXINTS);
+	}
+	comp = pins & readl(chip->reg + PXPAT1);
+	if((func & 0x2) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT1S);
+	}
+	comp = pins & readl(chip->reg + PXPAT0);
+	if((func & 0x1) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT0S);
+	}
 
-	writel(func & 0x10? pins : 0, chip->reg + PXPENC);
-	writel(func & 0x10? 0 : pins, chip->reg + PXPENS);
-	writel(func & 0x4? 0 : pins, chip->reg + PXMSKC); 
-	writel(pins, chip->reg + PXFLGC);
 
+	comp = pins & (~readl(chip->reg + PXINT));
+	if(!(func & 0x8) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXINTC);
+	}
+	comp = pins & (~readl(chip->reg + PXPAT1));
+	if(!(func & 0x2) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT1C);
+	}
+	comp = pins & (~readl(chip->reg + PXPAT0));
+	if(!(func & 0x1) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPAT0C);
+	}
+
+	comp = pins & (~readl(chip->reg + PXPEN));
+	if((func & 0x10) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPENC);
+	}
+	comp = pins & readl(chip->reg + PXPEN);
+	if(!(func & 0x10) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXPENS);
+	}
+	comp = pins & (~readl(chip->reg + PXMSK));
+	if(!(func & 0x4) && (comp != pins)){
+		writel(comp ^ pins, chip->reg + PXMSKC);
+	}
+	comp = pins & (~readl(chip->reg + PXFLG));
+	if(comp != pins){
+		writel(comp ^ pins, chip->reg + PXFLGC);
+	}
 	spin_unlock_irqrestore(&chip->gpiolock,flags);
 }
 
@@ -672,7 +706,6 @@ int __init setup_gpio_pins(void)
 {
 	int i;
 	pr_debug("setup gpio function.\n");
-
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].reg = ioremap(GPIO_IOBASE + i*GPIO_PORT_OFF,
 				GPIO_PORT_OFF - 1);
@@ -700,12 +733,7 @@ int __init setup_gpio_pins(void)
 			}
 			jz->dev_map[0] |= g->pins;
 		}
-
-		if(strcmp(g->name,"lcd") == 0){
-			pr_info("ingore setting lcd's pins!\n");
-		} else {
-			gpio_set_func(jz, g->func, g->pins);
-		}
+		gpio_set_func(jz, g->func, g->pins);
 	}
 
 	jz_gpiolib_init();
