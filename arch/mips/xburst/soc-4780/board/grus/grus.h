@@ -73,7 +73,7 @@ extern struct snd_codec_data codec_data;
  * nand platform data
  **/
 
-#ifdef CONFIG_NAND_JZ4780
+#ifdef CONFIG_NAND_DRIVER
 extern struct platform_nand_data jz_nand_chip_data;
 #endif
 

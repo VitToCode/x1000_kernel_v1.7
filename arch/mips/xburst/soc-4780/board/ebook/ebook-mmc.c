@@ -23,7 +23,7 @@ static int wl_pw_en = 0;
 static int power_en;
 
 int iw8101_wlan_init(void);
-#ifndef CONFIG_NAND_JZ4780
+#ifndef CONFIG_NAND_DRIVER
 #ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info ebook_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB

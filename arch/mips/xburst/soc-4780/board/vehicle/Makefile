@@ -5,7 +5,7 @@ obj-$(CONFIG_I2C)		+= vehicle-i2c.o
 obj-$(CONFIG_MFD_ACT8600)	+= vehicle-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= vehicle-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += vehicle-sound.o
-obj-$(CONFIG_NAND_JZ4780)	+= vehicle-nand.o
+obj-$(CONFIG_NAND_DRIVER)	+= vehicle-nand.o
 
 ifeq ($(CONFIG_BOARD_TROOPER), y)
 EXTRA_CFLAGS+=-DCONFIG_BOARD_VEHICLE_V_1_1

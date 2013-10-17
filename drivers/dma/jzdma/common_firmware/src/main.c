@@ -27,6 +27,7 @@ int main(void)
 {
 	struct nand_chip nand_info;
 	struct nand_chip *nand = &nand_info;
+#ifdef CONFIG_SOC_4780
 	unsigned char *oob_buf = (unsigned char *)TCSM_BANK4;//(unsigned char *)TCSM_BANK4;
 	struct nand_pipe_buf pipe_buf[2];
 	struct pdma_msg *msg;
@@ -34,7 +35,17 @@ int main(void)
 	pipe_buf[0].pipe_data = (unsigned char *)TCSM_BANK5;
 	pipe_buf[1].pipe_data = (unsigned char *)TCSM_BANK6;
 	msg = (struct pdma_msg *)(TCSM_BANK5 - 0x50); // TCSM last bank start
+#endif
 
+#ifdef CONFIG_SOC_4775
+	unsigned char *oob_buf = (unsigned char *)TCSM_BANK2;//(unsigned char *)TCSM_BANK2;
+	struct nand_pipe_buf pipe_buf[2];
+	struct pdma_msg *msg;
+
+	pipe_buf[0].pipe_data = (unsigned char *)TCSM_BANK3;
+	pipe_buf[1].pipe_data = (unsigned char *)TCSM_BANK4;
+	msg = (struct pdma_msg *)(TCSM_BANK3 - 0x50); // TCSM last bank start
+#endif
 	mcu_init();
 
 	channel_irq = 0;

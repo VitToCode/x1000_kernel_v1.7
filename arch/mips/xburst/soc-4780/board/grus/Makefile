@@ -6,4 +6,4 @@ obj-$(CONFIG_MFD_ACT8600)	+= grus-regulator.o
 obj-$(CONFIG_MFD_RICOH618)	+= grus-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= grus-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += grus-sound.o
-obj-$(CONFIG_NAND_JZ4780)	+= grus-nand.o
+obj-$(CONFIG_NAND_DRIVER)	+= grus-nand.o

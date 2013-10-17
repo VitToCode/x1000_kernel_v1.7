@@ -400,7 +400,7 @@ static int __init npm3701_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
-#ifndef CONFIG_NAND_JZ4780
+#ifndef CONFIG_NAND_DRIVER
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &npm3701_inand_pdata);
 #endif
@@ -496,7 +496,7 @@ static int __init npm3701_board_init(void)
 	platform_device_register(&jz_mac);
 #endif
 /* nand */
-#ifdef CONFIG_NAND_JZ4780
+#ifdef CONFIG_NAND_DRIVER
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
 /* hdmi */

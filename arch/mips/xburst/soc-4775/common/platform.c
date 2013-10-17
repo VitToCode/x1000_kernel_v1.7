@@ -74,6 +74,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_NAND_COMMON
 	NAND_PORTAB_COMMON,
 #endif
+#ifdef CONFIG_NAND_BUS_WIDTH_16
+	NAND_PORTA_BUS16,
+#endif
 #ifdef CONFIG_NAND_CS1
 	NAND_PORTA_CS1,
 #endif

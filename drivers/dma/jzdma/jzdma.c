@@ -23,11 +23,17 @@
 
 #include <mach/jzdma.h>
 
-#define MCU_TEST_INTER_DMA
+//#define MCU_TEST_INTER_DMA
 #ifdef MCU_TEST_INTER_DMA
-#define MCU_TEST_DATA_DMA 0xB3424FC0 //PDMA_BANK6 - 0x40
+#ifdef CONFIG_SOC_4780
+#define MCU_TEST_DATA_DMA 0xB3424FC0	//PDMA_BANK6 - 0x40
 #endif
 
+#ifdef CONFIG_SOC_4775
+#define MCU_TEST_DATA_NAND 0xB3426FC0	//PDMA_BANK5 - 0x40
+#endif
+
+#endif	//MCU_TEST_INTER_DMA
 #ifdef CONFIG_NAND
 
 __initdata static int firmware[] = {

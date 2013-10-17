@@ -17,6 +17,7 @@
 
 #define PDMA_FW_TCSM        0xB3422000
 #define PDMA_MSG_CHANNEL    3
+#ifdef	CONFIG_SOC_4780
 #define PDMA_MSG_TCSMPA     0x134247C0
 #define PDMA_BANK3      0xB3423800
 #define PDMA_BANK4      0xB3424000
@@ -24,6 +25,14 @@
 #define PDMA_BANK6      0xB3425000
 #define PDMA_BANK7      0xB3425800
 #define PDMA_MSG_TCSMVA    (PDMA_BANK5-0x50)
+#endif	//CONFIG_SOC_4780
+#ifdef	CONFIG_SOC_4775
+#define PDMA_MSG_TCSMPA     0x13424fb0
+#define PDMA_BANK3      0xB3425000
+#define PDMA_BANK4      0xB3426000
+#define PDMA_BANK5      0xB3427000
+#define PDMA_MSG_TCSMVA    (PDMA_BANK3-0x50)
+#endif	//CONFIG_SOC_4775
 
 /* CSn for NEMC*/
 #define NEMC_CS1                1

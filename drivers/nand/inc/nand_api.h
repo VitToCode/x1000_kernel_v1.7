@@ -72,6 +72,7 @@
 #define BLOCK_MOVE      1       // block move
 
 /* for read-retry */
+#define DONT_RETRY              0x00
 #define SAMSUNG_NAND            0x01
 #define HYNIX_NAND              0x02
 #define NEW_HYNIX_NAND          0x03

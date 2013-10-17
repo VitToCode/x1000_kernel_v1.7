@@ -6,7 +6,7 @@ obj-$(CONFIG_MFD_ACT8600)	+= npm801-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= npm801-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += npm801-sound.o
 ifneq ($(CONFIG_BOARD_CUCKOO), y)
-obj-$(CONFIG_NAND_JZ4780)	+= npm801-nand.o
+obj-$(CONFIG_NAND_DRIVER)	+= npm801-nand.o
 else
 obj-y += cuckoo-nand.o
 endif

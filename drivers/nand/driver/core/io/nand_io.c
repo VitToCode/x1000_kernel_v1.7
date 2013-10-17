@@ -132,7 +132,7 @@ static inline void send_addr512(int col, int row, int cycles)
  * @row:	row address
  * @cycles:	row cycles of NAND
  */
-static inline void send_addr2k(int col, int row, int cycles)
+static inline void send_addr2k_8bit(int col, int row, int cycles)
 {
 	//dprintf("send_addr2k:col 0x%x,row 0x%08x,cycles %d\n",col,row,cycles);
 	/* send column address */
@@ -140,7 +140,6 @@ static inline void send_addr2k(int col, int row, int cycles)
 		__nand_addr(col & 0xff);
 		__nand_addr((col >> 8) & 0xff);
 	}
-	
 	/* send row address */
 	if (row >= 0) {
 		for (; cycles > 0; cycles--) {
@@ -149,7 +148,23 @@ static inline void send_addr2k(int col, int row, int cycles)
 		}
 	}
 }
-
+static inline void send_addr2k_16bit(int col, int row, int cycles)
+{
+	//dprintf("send_addr2k:col 0x%x,row 0x%08x,cycles %d\n",col,row,cycles);
+	/* send column address */
+	if (col >= 0) {
+		col = col / 2;
+		__nand_addr(col & 0xff);
+		__nand_addr((col >> 8) & 0xff);
+	}
+	/* send row address */
+	if (row >= 0) {
+		for (; cycles > 0; cycles--) {
+			__nand_addr(row & 0xff);
+			row >>= 8;
+		}
+	}
+}
 /**
  * write_buf8 - send data to NAND using 8 bits I/O
  * @buf:	data buffer
@@ -198,7 +213,7 @@ static inline void read_buf16(void *buf, int count)
 {
 	int i;
 	unsigned short *p = (unsigned short *)buf;
-	for (i = 0; i < count / 2; i++)
+	for (i = 0; i < (count + 1) / 2; i++)
 		p[i] = read_data16();
 }
 
@@ -304,8 +319,10 @@ static inline void io_init(void *nand_io)
 	
 	if(pnand_io->pagesize == 512)
 		pnand_io->send_addr = send_addr512;
+	else if(pnand_io->buswidth == 8)
+		pnand_io->send_addr = send_addr2k_8bit;
 	else
-		pnand_io->send_addr = send_addr2k;
+		pnand_io->send_addr = send_addr2k_16bit;
 
 }
 
@@ -314,7 +331,7 @@ JZ_IO jz_nand_io =
 	.io_init = io_init,
 	.send_cmd_norb = send_cmd_norb,
 	.send_cmd_withrb = send_cmd_withrb,
-	.send_addr = send_addr2k,
+	.send_addr = send_addr2k_16bit,
 	.read_data_norb = read_data_norb,
 	.write_data_norb = write_data_norb,
 	.read_data_withrb = read_data_withrb,

@@ -6,7 +6,7 @@ obj-$(CONFIG_MFD_ACT8600)	+= warrior-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= warrior-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += warrior-sound.o
 ifneq ($(CONFIG_BOARD_TROOPER), y)
-obj-$(CONFIG_NAND_JZ4780)	+= warrior-nand.o
+obj-$(CONFIG_NAND_DRIVER)	+= warrior-nand.o
 else
 obj-y += trooper-nand.o
 endif

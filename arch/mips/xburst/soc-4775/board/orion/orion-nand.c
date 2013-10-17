@@ -236,7 +236,7 @@ static int partition_reserved_badblocks[] = {
 	10,			/* reserved blocks of mtd5 */
 };
 
-#endif				/* CONFIG_NAND_JZ4780_PISCES */
+#endif				/* CONFIG_NAND */
 #endif
 struct platform_nand_data jz_nand_chip_data = {
 	.nr_partitions = ARRAY_SIZE(partition_info),

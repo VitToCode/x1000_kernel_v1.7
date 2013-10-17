@@ -169,7 +169,7 @@ static int __init giant_board_init(void)
 	platform_device_register(&jz_button_device);
 #endif
 /* nand */
-#ifdef CONFIG_NAND_JZ4780
+#ifdef CONFIG_NAND_DRIVER
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
 

@@ -4,6 +4,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#ifdef CONFIG_SOC_4780
 #define TCSM_BANK0	0xF4000000
 #define TCSM_BANK1	0xF4000800
 #define TCSM_BANK2	0xF4001000
@@ -12,11 +13,29 @@
 #define TCSM_BANK5	0xF4002800
 #define TCSM_BANK6	0xF4003000
 #define TCSM_BANK7	0xF4003800
+#endif
+
+#ifdef CONFIG_SOC_4775
+#define TCSM_BANK0	0xF4000000
+#define TCSM_BANK1	0xF4001000
+#define TCSM_BANK2	0xF4002000
+#define TCSM_BANK3	0xF4003000
+#define TCSM_BANK4	0xF4004000
+#define TCSM_BANK5	0xF4005000
+#endif
+
 
 //#define MCU_TEST_INTER
 #ifdef MCU_TEST_INTER
+#ifdef CONFIG_SOC_4780
 #define MCU_TEST_DATA 0xF4002FC0  //TCSM_BANK6 - 0x40
 #endif
+
+#ifdef CONFIG_SOC_4775
+#define MCU_TEST_DATA (TCSM_BANK5 - 0x40)  //TCSM_BANK5 - 0x40
+#endif
+
+#endif //MCU_TEST_INTER
 
 #define NULL		0
 #define UNCOR_ECC	(0x01<<0)

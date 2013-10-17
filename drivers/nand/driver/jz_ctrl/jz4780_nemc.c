@@ -73,7 +73,7 @@ static inline void jz_nemc_setup_default(NAND_BASE *host,void *pnand_io)
 	int bchclk =clk_get_rate(host->bch_clk);
 #endif
 	if(p_io == 0)
-                dprintf("Error:%s[%d] p_io is NULL\n");
+                dprintf("Error:%s[%d] p_io is NULL\n",__func__,__LINE__);
 /*      gpio init          */
 #if 0
 	*(volatile unsigned int *)(0xb0010018) =0x00430000;
@@ -256,9 +256,15 @@ void jz_nemc_setup_later(NAND_BASE *host,void *pnand_io,void *flash_chip)
 		smcr |= 1 << NEMC_SMCR_BW_BIT;
 		p_io->buswidth = 16;
 #ifdef CONFIG_NAND_BUS_WIDTH_8
+	  	eprintf("Error: board config 8bits bus,but the nand is 16bits bus!\n");
+	  	eprintf("Error: next step is while(1).\n");
+		while(1);
 		p_io->buswidth =8;
 #endif
-#ifdef CONFIG_NAND_JZ4780
+#ifdef CONFIG_SOC_4780
+	  	eprintf("Error: the nemc of jz4780 only support 8bits bus,but the nand is 16bits bus!\n");
+	  	eprintf("Error: next step is while(1).\n");
+		while(1);
 		p_io->buswidth =8;
 #endif
 	}

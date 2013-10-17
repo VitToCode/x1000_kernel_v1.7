@@ -34,6 +34,9 @@ static void nand_send_addr(struct nand_chip *nand, int col_addr, int row_addr)
 	int i;
 
 	if (col_addr >= 0) {
+#ifdef CONFIG_NAND_BUS_WIDTH_16
+		col_addr = col_addr / 2;
+#endif
 		if (nand->pagesize != 512) {
 			__nand_addr(col_addr & 0xFF, nandport);
 			col_addr >>= 8;

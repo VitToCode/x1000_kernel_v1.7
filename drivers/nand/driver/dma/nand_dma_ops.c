@@ -15,8 +15,15 @@ extern unsigned char *retrialbuf;
 
 #define MCU_TEST_INTER_NAND
 #ifdef MCU_TEST_INTER_NAND
-#define MCU_TEST_DATA_NAND 0xB3424FC0 //PDMA_BANK6 - 0x40
+#ifdef CONFIG_SOC_4780
+#define MCU_TEST_DATA_NAND (PDMA_BANK6 - 0x40)
 #endif
+
+#ifdef CONFIG_SOC_4775
+#define MCU_TEST_DATA_NAND (PDMA_BANK5 - 0x40)
+#endif
+
+#endif	//MCU_TEST_INTER_NAND
 
 #define MCU_ONCE_RESERT
 #define NO_MEMSET
@@ -32,7 +39,7 @@ static inline  void b_time(void)
 static inline void e_time(void)
 {
 	long long etime = sched_clock();
-	printk("time = %llu ********",etime-time);
+	printk("time = %llu ********\n",etime-time);
 }
 #endif
 
@@ -317,12 +324,12 @@ static int mcu_reset(const NAND_API *pnand_api)
 	 */
 	fclk = clk_get_rate(host->nemc_gate);
 	fcycle = 1000000000 / (fclk / 1000); // unit: ps
-	nand_dma->msg->info[MSG_TWHR] = (((nand_type->twhr * 1000 + fcycle - 1) / fcycle) + 1);
-	nand_dma->msg->info[MSG_TWHR2] = (((nand_type->twhr2 * 1000 + fcycle - 1) / fcycle) + 1);
-	nand_dma->msg->info[MSG_TRR] = (((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1);
-	nand_dma->msg->info[MSG_TWB] = (((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1);
-	nand_dma->msg->info[MSG_TADL] = (((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1);
-	nand_dma->msg->info[MSG_TCWAW] = (((nand_type->tcwaw * 1000 + fcycle - 1) / fcycle) + 1);
+	nand_dma->msg->info[MSG_TWHR] = ((((nand_type->twhr * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
+	nand_dma->msg->info[MSG_TWHR2] = ((((nand_type->twhr2 * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
+	nand_dma->msg->info[MSG_TRR] = ((((nand_type->trr * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
+	nand_dma->msg->info[MSG_TWB] = ((((nand_type->twb * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
+	nand_dma->msg->info[MSG_TADL] = ((((nand_type->tadl * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
+	nand_dma->msg->info[MSG_TCWAW] = ((((nand_type->tcwaw * 1000 + fcycle - 1) / fcycle) + 1)) / 2;
 	printk("MCU:twhr=%d twhr2=%d trr=%d twb=%d tadl=%d tcwaw=%d\n"
 			,nand_dma->msg->info[MSG_TWHR]
 			,nand_dma->msg->info[MSG_TWHR2]

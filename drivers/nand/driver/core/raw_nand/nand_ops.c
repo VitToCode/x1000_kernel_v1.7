@@ -312,6 +312,7 @@ static inline void send_erase_2p_block2(unsigned int row)
 int send_read_status(unsigned char *status)
 {
 	int ret =0;
+	unsigned short tmp = 0;
 	NAND_FLASH_DEV *nand_type = (NAND_FLASH_DEV *)(g_pnand_chip->priv);
         mdelay(1);
 	ret =g_pnand_io->send_cmd_withrb(CMD_READSTATUS);
@@ -319,7 +320,12 @@ int send_read_status(unsigned char *status)
 		return ret;  // nand io_error
 	myndelay(nand_type->twhr);
         mdelay(1);
-	g_pnand_io->read_data_norb(status, 1);
+	if(g_pnand_io->buswidth == 16){
+		g_pnand_io->read_data_norb(&tmp, 1);
+		*status = tmp & 0xff;
+	}
+	else
+		g_pnand_io->read_data_norb(status, 1);
 	return 0;
 }
 
@@ -1753,6 +1759,7 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 	Aligned_List *alignelist = NULL;
 	int i;
 	int ret = 0;
+	unsigned int xboot_offsetblock = (g_pnand_chip->ppblock >= 128)?2:(128 / g_pnand_chip->ppblock + 1);
         if(list->pagelist->startPageID < g_pnand_chip->ppblock)
 		set_enhanced_slc(host, 0,slcdata);
 	memset(spl_bchbuf, 0xff, spl_bchsize);
@@ -1761,7 +1768,7 @@ int write_spl(NAND_BASE *host, Aligned_List *list)
 		if(alignelist->pagelist->startPageID < g_pnand_chip->ppblock) {
 			/* block 0 write spl, block 1 bakup block 0, X_BOOT_BLOCK is block 2,
 			 which block start write x-boot*/
-			for(i=0; i < X_BOOT_BLOCK; i++) {
+			for(i=0; i < xboot_offsetblock; i++) {
 
 				ret = spl_write_nand(host, alignelist, spl_bchbuf, spl_bchsize, i);
 
