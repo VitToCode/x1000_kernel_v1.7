@@ -97,7 +97,7 @@ void bk_on(int on)
 	bk_is_on = on;
 }
 static struct android_bl_platform_data bl_pdata= {
-	.delay_before_bkon = 0,
+	.delay_before_bkon = 200,
 	.notify_on = bk_on,
 	.bootloader_unblank = 1,
 };

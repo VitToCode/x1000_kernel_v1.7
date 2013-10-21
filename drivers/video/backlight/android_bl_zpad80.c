@@ -172,7 +172,7 @@ static int __devinit android_bl_probe(struct platform_device *pdev)
 		return PTR_ERR(dev->lcd_vcom_reg);
     	}
 
-	dev->lcd_bklight_reg = regulator_get(NULL, "vbklight");
+	dev->lcd_bklight_reg = regulator_get(NULL, "vlcd_vbacklight");
 	if (IS_ERR(dev->lcd_bklight_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vbklight\n");
 		dev->lcd_bklight_reg = NULL;
