@@ -28,8 +28,6 @@ enum nm_msg_type {
 	NM_MSG_ERASE_PERSENT,
 };
 
-int strncmp(const char *s1, const char *s2, size_t n);
-void* memmove(void* dest, const void* src, size_t n);
 int nm_print_message(enum nm_msg_type type, int arg);
 
 #endif /*_CLIB_H_*/
