@@ -20,7 +20,7 @@ static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
 
-#if !defined(CONFIG_MMC0_JZ4780) || !defined(CONFIG_MTD_NAND_JZ4780)
+#if !defined(CONFIG_MTD_NAND_JZ4780)
 #ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info zpad80_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
@@ -84,13 +84,13 @@ struct jzmmc_platform_data zpad80_sdio_pdata = {
  * or PA0 will be request.
  */
 static struct card_gpio zpad80_tf_gpio = {
-	.cd				= {GPIO_PF(20),		LOW_ENABLE},
+	.cd				= {GPIO_PA(26),		LOW_ENABLE},
 	.wp				= {-1,			-1},
 	.pwr				= {-1,			-1},
 };
 
 struct jzmmc_platform_data zpad80_tf_pdata = {
-	.removal  			= REMOVABLE,
+	.removal  			= DONTCARE, //REMOVABLE,
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA,
@@ -111,7 +111,7 @@ struct jzmmc_platform_data zpad80_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#else
+#else // for Nand boot
 #ifdef CONFIG_MMC1_JZ4780
 struct jzmmc_platform_data zpad80_sdio_pdata = {
 	.removal  			= MANUAL,
@@ -209,7 +209,7 @@ int IW8101_wlan_power_on(int flag)
 start:
 	pr_debug("wlan power on:%d\n", flag);
 	jzrtc_enable_clk32k();
-	mdelay(200);
+	msleep(200);
 
 	switch(flag) {
 		case RESET:
@@ -217,10 +217,10 @@ start:
 			jzmmc_clk_ctrl(1, 1);
 
 			gpio_set_value(reset, 0);
-			mdelay(200);
+			msleep(200);
 
 			gpio_set_value(reset, 1);
-			mdelay(200);
+			msleep(200);
 
 			break;
 
@@ -228,11 +228,11 @@ start:
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
-			mdelay(200);
+			msleep(200);
 
 			gpio_set_value(reset, 1);
 
-			mdelay(200);
+			msleep(200);
 			jzmmc_manual_detect(1, 1);
 
 			break;

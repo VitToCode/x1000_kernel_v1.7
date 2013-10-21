@@ -26,6 +26,8 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <mach/jz4780_efuse.h>
+
+#include <soc/base.h>
 #include <gpio.h>
 #include <linux/regulator/consumer.h>
 
@@ -114,7 +116,7 @@ static char *zpad80_ac_supplied_to[] = {
 static struct gpio_charger_platform_data zpad80_ac_charger_pdata = {
 	.name = "ac",
 	.type = POWER_SUPPLY_TYPE_MAINS,
-	.gpio = GPIO_PA(16),
+	.gpio = GPIO_PF(6),
 	.gpio_active_low = 0,
 	.supplied_to = zpad80_ac_supplied_to,
 	.num_supplicants = ARRAY_SIZE(zpad80_ac_supplied_to),
@@ -129,7 +131,7 @@ static struct platform_device zpad80_ac_charger_device = {
 
 /* li-ion charger */
 static struct li_ion_charger_platform_data zpad80_li_ion_charger_pdata = {
-	.gpio = GPIO_PB(3),
+	.gpio = GPIO_PF(8),
 	.gpio_active_low = 1,
 };
 
@@ -233,11 +235,50 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_AX88796C
+static struct resource ax88796c_resource[] = {
+	[0] = {
+		.start = NEMC_CS5_IOBASE,		/* Start of AX88796C base address */
+		.end   = NEMC_CS5_IOBASE + 0x3f,	/* End of AX88796C base address */
+		.flags = IORESOURCE_MEM,
+	},
+#if 1 
+	[1] = {
+		.start = NEMC_IOBASE,
+		.end   = NEMC_IOBASE + 0x50,
+		.flags = IORESOURCE_MEM,
+	},
+#endif
+	[2] = {
+		.start = AX_ETH_INT,			/* Interrupt line number */
+		.flags = IORESOURCE_IRQ,
+	},
+
+	[3] = {
+		.name  = "reset_pin",
+		.start = AX_ETH_RESET,			/* Reset line number */
+		.end   = AX_ETH_RESET,
+		.flags = IORESOURCE_IO,
+	},
+};
+
+struct platform_device net_device_ax88796c = {
+	.name  = "ax88796c",
+	.id  = -1,
+	.num_resources = ARRAY_SIZE(ax88796c_resource),
+	.resource = ax88796c_resource,
+};
+
+#define VAL_SMCR5	0x07773200
+void inline jz_eth_sdram_init(void __iomem *base, int bus_width)
+{
+	writel(VAL_SMCR5, (base + NEMC_SMCR5));
+}
+#undef VAL_SMCR5
+#endif
+
 static int __init zpad80_board_init(void)
 {
-
-
-
 /* dma */
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
@@ -266,7 +307,7 @@ static int __init zpad80_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 /* mmc */
-#if !defined(CONFIG_MMC0_JZ4780) || !defined(CONFIG_MTD_NAND_JZ4780)
+#if !defined(CONFIG_MTD_NAND_JZ4780)
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &zpad80_inand_pdata);
 #endif
@@ -421,6 +462,10 @@ static int __init zpad80_board_init(void)
 
 #ifdef CONFIG_ANDROID_PMEM
 	platform_device_register(&pmem_camera_device);
+#endif
+
+#ifdef CONFIG_AX88796C
+       platform_device_register(&net_device_ax88796c);
 #endif
 
 	return 0;

@@ -84,6 +84,13 @@ extern struct platform_nand_data jz_nand_chip_data;
  **/
 //#define GPIO_MMA8452_INT1		GPIO_PF(9)
 //#define GPIO_LIS3DH_INT1		GPIO_PF(9)
+ 
+ /**
+ * Ethernet AX88796C
+ **/
+#define NEMC_SMCR5        0x0024
+#define AX_ETH_INT        GPIO_PF(14)
+#define AX_ETH_RESET	   GPIO_PF(15)
 
 /**
  * keyboard gpio interface
