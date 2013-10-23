@@ -139,7 +139,7 @@ static void jzfb_videomode_to_var(struct fb_var_screeninfo *var,
                 uint64_t pixclk = KHZ2PICOS((var->xres + var->left_margin + var->hsync_len) *
                                         (var->yres + var->upper_margin + var->lower_margin + var->vsync_len) *
                                             60 / 1000);
-                var->pixclock = (mode->pixclock < pixclk) ? pixclk : mode->pixclock;                
+                var->pixclock = (mode->pixclock < pixclk) ? pixclk : mode->pixclock;
         }
         else{
                 var->pixclock = mode->pixclock;
@@ -174,14 +174,21 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
-		if (mode->xres == var->xres && mode->yres == var->yres &&
-		    mode->vmode == var->vmode &&  mode->right_margin == var->right_margin){
-                        if(jzfb->pdata->lcd_type != LCD_TYPE_LCM){
-                                if( mode->pixclock == var->pixclock)
-                                        return mode;
-                        }else{
-                                return mode;
-                        }
+		if (mode->flag & FB_MODE_IS_JZ4780_VGA) {
+			if (mode->xres == var->xres &&
+			    mode->yres == var->yres &&
+			    mode->pixclock == var-> pixclock)
+				return mode;
+		} else {
+			if (mode->xres == var->xres && mode->yres == var->yres &&
+			    mode->vmode == var->vmode &&  mode->right_margin == var->right_margin) {
+				if(jzfb->pdata->lcd_type != LCD_TYPE_LCM){
+					if( mode->pixclock == var->pixclock)
+						return mode;
+				}else{
+					return mode;
+				}
+			}
                 }
 	}
 
@@ -217,6 +224,34 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 #else
 	return pdata->modes;
 #endif
+	return NULL;
+}
+
+static struct fb_videomode *jzfb_checkout_max_vga_videomode(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct jzfb_platform_data *pdata = jzfb->pdata;
+	int i, flag;
+	int pix_size = 0;
+
+	for (i = 0; i < pdata->num_modes; i++) {
+		if((pdata->modes[i].xres * pdata->modes[i].yres) > pix_size) {
+			flag = pdata->modes[i].flag;
+			pix_size = pdata->modes[i].xres * pdata->modes[i].yres;
+		}
+	}
+
+	for (i = 0; i < pdata->num_modes; i++) {
+		if (pdata->modes[i].flag != flag)
+			continue;
+		return &pdata->modes[i];
+	}
+
+	if (i > pdata->num_modes) {
+		dev_err(jzfb->dev, "Find video mode fail\n");
+		return NULL;
+	}
+
 	return NULL;
 }
 
@@ -1194,6 +1229,7 @@ static int jzfb_set_par(struct fb_info *info)
 
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
 		reg_write(jzfb, LCDC_VAT, (ht << 16) | vt);
+
 #ifdef FB_MODE_IS_JZ4780_VGA
 		/*
 		 * If you are using a VGA output,
@@ -1226,6 +1262,8 @@ static int jzfb_set_par(struct fb_info *info)
 			}
 			*/
 		}
+		info->fix.line_length = info->var.bits_per_pixel * \
+			ALIGN(mode->xres, PIXEL_ALIGN) >> 3;
 #endif
 
 		reg_write(jzfb, LCDC_DAH, (hds << 16) | hde);
@@ -1371,6 +1409,16 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 		dev_err(jzfb->dev, "Checkout video mode fail\n");
 		return -EINVAL;
 	}
+
+#ifdef FB_MODE_IS_JZ4780_VGA
+	if(mode->flag & FB_MODE_IS_JZ4780_VGA){
+		mode = jzfb_checkout_max_vga_videomode(jzfb->fb);
+		if (!mode) {
+			dev_err(jzfb->dev, "Checkout VGA max pix video mode fail\n");
+			return -EINVAL;
+		}
+	}
+#endif
 
 	videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
 	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
@@ -3003,6 +3051,40 @@ static int jzfb_lcdc_reset(struct fb_info *info)
 		cfg |= LCDC_CFG_REVM;
 		break;
 	}
+#endif
+
+#ifdef FB_MODE_IS_JZ4780_VGA
+		/*
+		 * If you are using a VGA output,
+		 * then you need to last a pix of the value is set to 0,
+		 * you can add the background size widened, that is,
+		 * the increase in the value of the VDE, plus at least 1,
+		 * the maximum can not exceed the value of VT.
+		 * Example:
+		 * LCD monitor manufacturers: ViewSonic
+		 * Model: VA926.
+		 * Set the resolution: 1280 * 1024
+		 * To set the parameters in xxx_lcd.c need to pay attention to:
+		 * 1. The timing need to use the standard timing
+		 * 2. If you will be using a VGA display, .flag = FB_MODE_IS_JZ4780_VGA
+		 * 3. sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+		 *	  The sync trigger for the high level active
+		 * 4. pixclk_falling_edge = 1, PIX clock trigger high level
+		 * 5. date_enable_active_low = 1, DATA enable is high level
+		 */
+
+		if(mode->flag & FB_MODE_IS_JZ4780_VGA){
+			if((hde + 8) <= ht)
+				hde += 8;
+			else if((hde + 1) <= ht)
+				hde += 1;
+			/*
+			if(vds > 2 && (vde + 2) <= vt){
+				vds -= 2;
+				vde += 2;
+			}
+			*/
+		}
 #endif
 
 	if(pdata->lcd_type != LCD_TYPE_LCM) {
