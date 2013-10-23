@@ -145,16 +145,6 @@ static void i2s_set_filter(int mode , uint32_t channels)
 
 	switch(cur_codec->record_format) {
 		case AFMT_U8:
-			if (channels == 1) {
-				dp->filter = convert_8bits_stereo2mono_signed2unsigned;
-				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
-			}
-			else {
-				//dp->filter = convert_8bits_signed2unsigned;
-				dp->filter = NULL; //hardware convert
-				printk("dp->filter convert_8bits_signed2unsigned.\n");
-			}
-			break;
 		case AFMT_S8:
 			if (channels == 1) {
 				dp->filter = convert_8bits_stereo2mono;
@@ -543,13 +533,13 @@ static int i2s_enable(int mode)
 		i2s_set_fmt(&record_format,mode);
 		i2s_set_channel(&record_channel,mode);
 		i2s_set_rate(&record_rate,mode);
+		i2s_set_filter(mode,record_channel);
 	}
 	i2s_set_trigger(mode);
-	i2s_set_filter(mode,record_channel);
 
 	if (!dp_other->is_used) {
-		__i2s_enable();
 		__i2s_select_i2s();
+		__i2s_enable();
 	}
 
 	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
@@ -593,12 +583,14 @@ static int i2s_dma_enable(int mode)		//CHECK
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
 		__i2s_flush_tfifo();
+		mdelay(1);
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma();
 		__i2s_enable_replay();
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_flush_rfifo();
+		mdelay(1);
 		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		__i2s_enable_record();
 		/* read the first sample and ignore it */
@@ -1178,11 +1170,9 @@ static int i2s_global_init(struct platform_device *pdev)
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample();
 	__i2s_enable();
-
 #ifndef CONFIG_ANDROID
-		cur_codec->codec_ctl(CODEC_SET_DEFROUTE,CODEC_RWMODE);
+	cur_codec->codec_ctl(CODEC_SET_DEFROUTE,CODEC_RWMODE);
 #endif
-
 	printk("i2s init success.\n");
 	return  cur_codec->codec_ctl(CODEC_INIT,0);
 

@@ -2732,7 +2732,7 @@ static int codec_set_record_data_width(int width)
 	int supported_width[4] = {16, 18, 20, 24};
 	int fix_width;
 
-	for(fix_width = 0; fix_width < 4; fix_width ++)
+	for(fix_width = 0; fix_width < 3; fix_width ++)
 	{
 		if (width == supported_width[fix_width])
 			break;
