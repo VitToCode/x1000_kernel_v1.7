@@ -150,7 +150,7 @@ void genpkt_func(struct ax_command_info *info)
 	ioctl_cmd.pattern = pattern;
 	ioctl_cmd.length = length;
 	ifr->ifr_data = (caddr_t)&ioctl_cmd;
-  	if (ioctl(info->inet_sock, AX_PRIVATE, ifr) < 0)
+	if (ioctl(info->inet_sock, AX_PRIVATE, ifr) < 0)
 		perror("ioctl");
 	else {
 		printf ("AX88796C packet generator configured\n");

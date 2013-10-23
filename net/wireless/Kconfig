@@ -1,5 +1,8 @@
 config WIRELESS_EXT
-	bool
+	bool "wireless ext( depend by usbwifi driver)"
+	---help---
+	  wireless_exp will be depended by usbwifi driver(8188EU)
+	  Enable this if you have a wireless device
 
 config WEXT_CORE
 	def_bool y
@@ -14,7 +17,10 @@ config WEXT_SPY
 	bool
 
 config WEXT_PRIV
-	bool
+	bool "wext_priv( depend by usbwifi driver)"
+	---help---
+	  wireless_exp will be depended by usbwifi driver(8188EU)
+	  Enable this if you have a wireless device
 
 config CFG80211
 	tristate "cfg80211 - wireless configuration API"
