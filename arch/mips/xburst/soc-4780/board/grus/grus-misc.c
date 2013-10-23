@@ -435,6 +435,10 @@ static int __init grus_board_init(void)
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
+/* AOSD */
+#ifdef CONFIG_JZ4780_AOSD
+	platform_device_register(&jz_aosd_device);
+#endif
 /* ADC*/
 #ifdef CONFIG_BATTERY_JZ4780
 	adc_platform_data.battery_info = grus_battery_info;

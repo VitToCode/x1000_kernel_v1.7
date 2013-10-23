@@ -33,7 +33,7 @@
 #define STRIDE_ALIGN 64 /* 64 words aligned */
 
 struct jzfb_aosd_info aosd_info;
-struct jzaosd *jzaosd;
+struct jzaosd *jzaosd=NULL;
 
 unsigned int aosd_read_fwdcnt(void)
 {
@@ -167,6 +167,11 @@ void aosd_init(struct jzfb_aosd_info *info)
 	unsigned int wcmd;
 	unsigned int cfg;
 
+	if (!jzaosd){
+		printk("aosd do not init!\n");
+		return;
+	}
+
 	aosd_clock_enable(1); /* enable AOSD clock */
 
 	/* burst length: 128 words */
@@ -250,6 +255,10 @@ void aosd_start(void)
 	unsigned int word_per_line;
 	int timeout;
 
+	if (!jzaosd) {
+		printk("aosd do not init!\n");
+		return;
+	}
 	aosd_clock_enable(1);
 
 	/* set buffer address, the value of RADDR will auto increase */

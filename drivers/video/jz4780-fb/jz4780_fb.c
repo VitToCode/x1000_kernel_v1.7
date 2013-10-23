@@ -48,7 +48,45 @@ static int jzfb_set_par(struct fb_info *info);
 
 static struct jzfb *jzfb0;
 static struct jzfb *jzfb1;
+#if 0
+static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd);
+static void aosd_test(struct fb_info *fbinfo);
 
+static void aosd_test(struct fb_info *fbinfo)
+{
+    void * abuffer;
+    unsigned int phys_addr;
+    struct jzfb_aosd aosd;
+    static int a_enabled = 0;
+
+    if ( a_enabled )
+        return ;
+
+    a_enabled = 1;
+
+    printk("aosd_test() ENTER\n");
+    /* alloc aosd buffer */
+
+    /* 16MB */
+#define BUFFER_SIZE (0x1000000)
+#define BUFFER_ORDER (12)
+
+    abuffer = __get_free_pages(GFP_DMA, BUFFER_ORDER);
+    abuffer = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+    if(abuffer == NULL) {
+	    return;
+    }
+    phys_addr = virt_to_phys(abuffer);;
+
+    aosd.buf_phys_addr = phys_addr;
+
+    aosd.buf_size = 0x800000;
+    aosd.with_alpha = 1;
+
+    jzfb_aosd_enable(fbinfo, &aosd);
+
+}
+#endif
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id		= "jzfb",
 	.type		= FB_TYPE_PACKED_PIXELS,
@@ -1434,7 +1472,9 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	//struct timeval tv1, tv2;
 //	printk("jzfb_pan_display return 0\n");
 //	return 0;
-
+#if 0
+        aosd_test(info);
+#endif
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev,"No support for X panning for now\n");
 		return -EINVAL;
