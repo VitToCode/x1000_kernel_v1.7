@@ -370,6 +370,7 @@ void audio_start_dma(struct jz47xx_runtime_data *prtd, int mode)
 	int channel;
 
 	spin_lock(&prtd->lock);
+
 	if (prtd->first_transfer == 1) {
 		prtd->first_transfer = 0;
 	} else {
@@ -393,8 +394,8 @@ void audio_start_dma(struct jz47xx_runtime_data *prtd, int mode)
 	} else {
 		printk("next buffer is NULL for capture\n");
 		prtd->aic_dma_flag &= ~AIC_START_DMA;
-		return;
 	}
+
 	spin_unlock(&prtd->lock);
 }
 
