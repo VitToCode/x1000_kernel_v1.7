@@ -43,8 +43,6 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/irq.h>
-//#include <asm/dma.h>
-//#include <asm/mach/arch.h>
 
 #include "ax88796c_plat.h"
 

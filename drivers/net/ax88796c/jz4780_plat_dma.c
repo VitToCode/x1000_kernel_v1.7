@@ -94,7 +94,8 @@ void dma_start (dma_addr_t dst, int len, u8 tx)
 
 static bool ax88796c_dma_filter(struct dma_chan *chan, void *filter_param)
 {
-	return chan->chan_id >= 8;
+	/* DMA physics id = 32 - chan->chan_id */
+	return chan->chan_id >= 16;
 }
 
 int ax88796c_plat_dma_init (unsigned long base_addr,

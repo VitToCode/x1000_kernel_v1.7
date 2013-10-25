@@ -49,7 +49,7 @@ int ax88796c_plat_dma_init (unsigned long base_addr,
 			    void (*rx_dma_complete)(void *data),
 			    void *priv);
 void ax88796c_plat_dma_release (void);
-void dma_start(dma_addr_t dst, int len, u8 tx);
+void dma_start (dma_addr_t dst, int len, u8 tx);
 
 /* Plat Initialise */
 void ax88796c_plat_init (void __iomem *confbase, int bus_width);
