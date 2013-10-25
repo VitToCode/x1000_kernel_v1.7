@@ -92,6 +92,9 @@ config BOARD_NPM709J
 config BOARD_NC750
 	bool "NC750"
 
+config BOARD_RY1000
+	bool "ry1000"
+
 endchoice
 
 config BOARD_NAME
@@ -127,3 +130,4 @@ config BOARD_NAME
 	default "VEHICLE" if BOARD_VEHICLE
 	default "NC750" if BOARD_NC750
 	default "npm709j" if BOARD_NPM709J
+	default "ry1000" if BOARD_RY1000
