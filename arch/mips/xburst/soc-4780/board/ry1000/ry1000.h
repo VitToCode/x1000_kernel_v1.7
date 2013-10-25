@@ -1,5 +1,5 @@
-#ifndef __HDMI_80_H__
-#define __HDMI_80_H__
+#ifndef __RY1000_H__
+#define __RY1000_H__
 #include <gpio.h>
 
 /**
@@ -118,4 +118,4 @@ extern struct platform_nand_data jz_nand_chip_data;
 // #define ACTIVE_LOW_HOME			1
 // #define GPIO_CALL
 // #define ACTIVE_LOW_CALL			1
-#endif /* __HDMI_80_H__ */
+#endif /* __RY1000_H__ */

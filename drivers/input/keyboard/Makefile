@@ -54,3 +54,4 @@ obj-$(CONFIG_KEYBOARD_XTKBD)		+= xtkbd.o
 obj-$(CONFIG_KEYBOARD_W90P910)		+= w90p910_keypad.o
 obj-$(CONFIG_VGA_DONGLE_KEY)		+= vga_dongle_keys.o
 obj-$(CONFIG_JZ_REMOTE)                 += jz_remote.o
+obj-$(CONFIG_RY1000_KEY)		+= ry1000_keys.o

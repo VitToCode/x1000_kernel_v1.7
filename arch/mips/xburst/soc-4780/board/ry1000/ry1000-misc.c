@@ -52,55 +52,6 @@ static struct gpio_keys_button board_buttons[] = {
 		.active_low	= ACTIVE_LOW_CALL,
 	},
 #endif
-#ifdef GPIO_HOME
-	{
-		.gpio		= GPIO_HOME,
-		.code   	= KEY_HOME,
-		.desc		= "home key",
-		.active_low	= ACTIVE_LOW_HOME,
-	},
-#endif
-#ifdef GPIO_BACK
-	{
-		.gpio		= GPIO_BACK,
-		.code   	= KEY_BACK,
-		.desc		= "back key",
-		.active_low	= ACTIVE_LOW_BACK,
-	},
-#endif
-#ifdef GPIO_MENU
-	{
-		.gpio		= GPIO_MENU,
-		.code   	= KEY_MENU,
-		.desc		= "menu key",
-		.active_low	= ACTIVE_LOW_MENU,
-	},
-#endif
-#ifdef GPIO_ENDCALL
-	{
-		.gpio		= GPIO_ENDCALL,
-		.code   	= KEY_POWER,
-		.desc		= "end call key",
-		.active_low	= ACTIVE_LOW_ENDCALL,
-		.wakeup		= 1,
-	},
-#endif
-#ifdef GPIO_VOLUMEDOWN
-	{
-		.gpio		= GPIO_VOLUMEDOWN,
-		.code   	= KEY_VOLUMEDOWN,
-		.desc		= "volum down key",
-		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
-	},
-#endif
-#ifdef GPIO_VOLUMEUP
-	{
-		.gpio		= GPIO_VOLUMEUP,
-		.code   	= KEY_VOLUMEUP,
-		.desc		= "volum up key",
-		.active_low	= ACTIVE_LOW_VOLUMEUP,
-	},
-#endif
 };
 static struct gpio_keys_platform_data board_button_data = {
 	.buttons	= board_buttons,
@@ -117,7 +68,7 @@ static struct platform_device jz_button_device = {
 };
 #endif
 
-#ifdef CONFIG_HDMI_80_KEY
+#ifdef CONFIG_RY1000_KEY
 static struct gpio_keys_button board_keys[] = {
 #ifdef GPIO_OTG_SEL
 	{
@@ -542,7 +493,7 @@ static int __init ry1000_board_init(void)
 	platform_device_register(&jz_button_device);
 #endif
 
-#ifdef CONFIG_HDMI_80_KEY
+#ifdef CONFIG_RY1000_KEY
 	platform_device_register(&jz_key_device);
 #endif
 
