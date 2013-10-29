@@ -73,7 +73,7 @@ static struct gpio_keys_button board_keys[] = {
 #ifdef GPIO_OTG_SEL
 	{
 		.gpio		= GPIO_OTG_SEL,
-		.code   	= KEY_MENU,
+		.code   	= KEY_SEND,
 		.desc		= "otg select key",
 		.active_low	= ACTIVE_LOW_OTG_SEL,
 	},
