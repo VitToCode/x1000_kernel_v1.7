@@ -121,7 +121,7 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.vsync_len = 6,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0 | FB_MODE_IS_JZ4780_VGA
+		.flag = 0 | FB_MODE_IS_VGA
 	},
 #endif
 
@@ -140,7 +140,7 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.vsync_len = 5,
 		.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0 | FB_MODE_IS_JZ4780_VGA
+		.flag = 0 | FB_MODE_IS_VGA
 	},
 #endif
 
@@ -159,7 +159,7 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.vsync_len = 3,
 		.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0 | FB_MODE_IS_JZ4780_VGA
+		.flag = 0 | FB_MODE_IS_VGA
 	},
 #endif
 

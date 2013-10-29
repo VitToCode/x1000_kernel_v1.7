@@ -7,8 +7,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef __JZ4780_FB_H__
-#define __JZ4780_FB_H__
+#ifndef __JZ4775_FB_H__
+#define __JZ4775_FB_H__
 
 #include <linux/fb.h>
 
@@ -321,5 +321,14 @@ struct jzfb_platform_data {
 		uint32_t rev;
 	} special_tft_config;
 };
+
+//#define FB_MODE_IS_UNKNOWN	0
+//#define FB_MODE_IS_DETAILED	1
+//#define FB_MODE_IS_STANDARD	2
+//#define FB_MODE_IS_VESA		4
+//#define FB_MODE_IS_CALCULATED	8
+//#define FB_MODE_IS_FIRST	16
+//#define FB_MODE_IS_FROM_VAR     32
+#define FB_MODE_IS_VGA    (1 << 30)
 
 #endif

@@ -329,6 +329,6 @@ struct jzfb_platform_data {
 //#define FB_MODE_IS_CALCULATED	8
 //#define FB_MODE_IS_FIRST	16
 //#define FB_MODE_IS_FROM_VAR     32
-#define FB_MODE_IS_JZ4780_VGA    (1 << 30)
+#define FB_MODE_IS_VGA    (1 << 30)
 
 #endif

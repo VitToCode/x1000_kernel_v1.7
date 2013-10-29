@@ -121,7 +121,7 @@ static struct fb_videomode jzfb1_videomode[] = {
 		.vsync_len = 6,
 		.sync = 0 | 0, /* FB_SYNC_HOR_HIGH_ACT:0, FB_SYNC_VERT_HIGH_ACT:0 */
 		.vmode = FB_VMODE_NONINTERLACED,
-		.flag = 0
+		.flag = 0 | FB_MODE_IS_VGA
 	},
 #endif
 
