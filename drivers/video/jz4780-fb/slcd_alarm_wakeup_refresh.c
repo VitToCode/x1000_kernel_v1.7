@@ -25,7 +25,7 @@
 #define DEBUG_TEST
 
 
-/* 
+/*
  * NOTE: in suspend, printk depend on CONFIG_SUSPEND_SUPREME_DEBUG.
  * select CONFIG_SUSPEND_SUPREME_DEBUG or
  * #define CONFIG_SUSPEND_SUPREME_DEBUG in pm_p0.c and gpio.c
@@ -181,7 +181,7 @@ static int is_configed_slcd_rtc_alarm_refresh(void)
 /* -------------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------- */
 
-/* 
+/*
  * dump_rtc_regs
  */
 static int dump_rtc_regs(void)
@@ -196,14 +196,14 @@ static int dump_rtc_regs(void)
 	rtc_sar = jzrtc_read_reg(RTC_RTCSAR);
 	printk_dbg("****** %s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x, SAR-SR=%d\n", __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, (rtc_sar-rtc_sr));
 
-	printk_dbg("****** %s() old_rtc_alarm_enabled=%d, old_rtc_alarm_value=%#x, last_slcd_refresh_alarm_value=%#x, slcd_refresh_period=%#x\n", 
+	printk_dbg("****** %s() old_rtc_alarm_enabled=%d, old_rtc_alarm_value=%#x, last_slcd_refresh_alarm_value=%#x, slcd_refresh_period=%#x\n",
 	       __FUNCTION__, old_rtc_alarm_enabled, old_rtc_alarm_value, last_slcd_refresh_alarm_value, slcd_refresh_period);
 	return 0;
 #endif
 }
 
 
-/* 
+/*
  * check is it a rtc alarm wakeup
  */
 static int is_rtc_alarm_wakeup(void)
@@ -223,7 +223,7 @@ static int is_rtc_alarm_wakeup(void)
 }
 
 
-/* 
+/*
  * clear_rtc_alarm_flag
  */
 static int clear_rtc_alarm_flag(void)
@@ -242,7 +242,7 @@ static int clear_rtc_alarm_flag(void)
 }
 
 
-/* 
+/*
  * sar: alarm second value
  */
 static int set_rtc_alarm(int alarm_value)
@@ -268,7 +268,7 @@ static int set_rtc_alarm(int alarm_value)
 
 
 
-/* 
+/*
  * check is it a rtc alarm wakeup
  */
 static int is_slcd_refresh_rtc_alarm_wakeup(void)
@@ -280,13 +280,13 @@ static int is_slcd_refresh_rtc_alarm_wakeup(void)
 	rtc_sr = jzrtc_read_reg(RTC_RTCSR);
 	rtc_sar = jzrtc_read_reg(RTC_RTCSAR);
 	alarm_wakeup = is_rtc_alarm_wakeup();
-	printk_dbg("%s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x, last_slcd_refresh_alarm_value=%#x, alarm_wakeup=%d\n", 
+	printk_dbg("%s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x, last_slcd_refresh_alarm_value=%#x, alarm_wakeup=%d\n",
 	       __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, last_slcd_refresh_alarm_value, alarm_wakeup);
 
 	/*
 	 * what about old_rtc_alarm_value == next_sar ???
 	 */
-	if ( alarm_wakeup && (rtc_sar<=rtc_sr) && ( last_slcd_refresh_alarm_value == rtc_sar) 
+	if ( alarm_wakeup && (rtc_sar<=rtc_sr) && ( last_slcd_refresh_alarm_value == rtc_sar)
 	     && (last_slcd_refresh_alarm_value != old_rtc_alarm_value ) ) {
 		return 1;
 	}
@@ -295,7 +295,7 @@ static int is_slcd_refresh_rtc_alarm_wakeup(void)
 }
 
 
-/* 
+/*
  * period: slcd refresh period, in second.
  */
 static int reconfig_rtc_alarm(void)
@@ -309,7 +309,7 @@ static int reconfig_rtc_alarm(void)
 
 	/* restore_old_rtc_alarm */
 	if ( old_rtc_alarm_enabled ) {
-		/* compair the original alarm second value with new slcd refresh alarm wakeup value 
+		/* compair the original alarm second value with new slcd refresh alarm wakeup value
 		 * old_rtc_alarm_value must not illegal.
 		 * what about old_rtc_alarm_value == next_sar ???
 		 */
@@ -345,7 +345,7 @@ static void check_and_save_old_rtc_alarm(void)
 
 	/* fix old_rtc_alarm_value */
 	if ( old_rtc_alarm_enabled && (old_rtc_alarm_value <= rtc_sr)) {
-		printk_dbg("warning %s() disable old alarm. old_rtc_alarm_enabled=%d, old_rtc_alarm_value=%#x < rtc_sr=%#x\n", 
+		printk_dbg("warning %s() disable old alarm. old_rtc_alarm_enabled=%d, old_rtc_alarm_value=%#x < rtc_sr=%#x\n",
 		       __FUNCTION__, old_rtc_alarm_enabled, old_rtc_alarm_value, rtc_sr);
 		old_rtc_alarm_enabled = 0;
 	}
@@ -393,7 +393,7 @@ static int should_reconfig_slcd_rtc_alarm_wakeup(void)
 	printk_dbg("%s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x\n", __FUNCTION__, rtc_cr, rtc_sr, rtc_sar);
 
 	if ( old_rtc_alarm_enabled ) {
-		/* compair the original alarm second value with new slcd refresh alarm wakeup value 
+		/* compair the original alarm second value with new slcd refresh alarm wakeup value
 		 * old_rtc_alarm_value must not illegal.
 		 */
 		unsigned int next_refresh;
