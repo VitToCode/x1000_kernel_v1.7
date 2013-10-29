@@ -2445,6 +2445,14 @@ config JZFB_LCDC_INIT
 	  If you want to initialize the LCD controller when
 	  register framebuffer driver, say Y here.
 
+#config SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+#	bool "SLCD_SUSPEND_ALARM_WAKEUP_REFRESH"
+#	depends on SOC_4775 && FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
+#	default n
+#	help
+#	  Low level slcd refresh function when being suspend.
+#	  Set a rtc alarm wakeup to wakeup suspend.
+
 config FB_PUV3_UNIGFX
 	tristate "PKUnity v3 Unigfx framebuffer support"
 	depends on FB && UNICORE32 && ARCH_PUV3

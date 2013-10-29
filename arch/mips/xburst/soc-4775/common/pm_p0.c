@@ -457,10 +457,15 @@ sleep_2:
 	return;
 }
 
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+int jz4775_pm_enter(suspend_state_t state)
+#else
 static int jz4775_pm_enter(suspend_state_t state)
+#endif
 {
 	unsigned int lcr = cpm_inl(CPM_LCR);
 	unsigned int opcr = cpm_inl(CPM_OPCR);
+
 	disable_fpu();
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_save_tscm();
@@ -505,6 +510,7 @@ static int jz4775_pm_enter(suspend_state_t state)
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_restore_tscm();
 #endif
+
 	return 0;
 }
 
@@ -512,10 +518,19 @@ static int jz4775_pm_enter(suspend_state_t state)
  * Initialize power interface
  */
 
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+/* drivers/video/jz4780-fb/slcd_alarm_wakeup_refresh.c */
+extern int jz4775_pm_enter_with_slcd_rtc_alarm_refresh(suspend_state_t state);
+struct platform_suspend_ops pm_ops = {
+	.valid = suspend_valid_only_mem,
+	.enter = jz4775_pm_enter_with_slcd_rtc_alarm_refresh,
+};
+#else  /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = jz4775_pm_enter,
 };
+#endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 
 int __init jz4775_pm_init(void)
 {
