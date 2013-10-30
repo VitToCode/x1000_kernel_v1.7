@@ -252,7 +252,7 @@ static int set_rtc_alarm(int alarm_value)
 	rtc_cr = jzrtc_read_reg(RTC_RTCCR);
 	rtc_sr = jzrtc_read_reg(RTC_RTCSR);
 	rtc_sar = jzrtc_read_reg(RTC_RTCSAR);
-	printk_info("%s() RTCCR=%#x, SR=%#x, SAR=%#x, new SAR=%#x SAR-SR=%d\n", __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, alarm_value, (alarm_value-rtc_sr));
+	printk_info("%s() RTCCR=%#x, SR=%#x, SAR=%#x, old_rtc_alarm_value=%#x, new SAR=%#x SAR-SR=%d\n", __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, old_rtc_alarm_value, alarm_value, (alarm_value-rtc_sr));
 
 	rtc_sar = alarm_value;
 	jzrtc_write_reg(RTC_RTCSAR, rtc_sar);
@@ -280,14 +280,14 @@ static int is_slcd_refresh_rtc_alarm_wakeup(void)
 	rtc_sr = jzrtc_read_reg(RTC_RTCSR);
 	rtc_sar = jzrtc_read_reg(RTC_RTCSAR);
 	alarm_wakeup = is_rtc_alarm_wakeup();
-	printk_dbg("%s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x, last_slcd_refresh_alarm_value=%#x, alarm_wakeup=%d\n",
-	       __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, last_slcd_refresh_alarm_value, alarm_wakeup);
+	printk_dbg("%s() RTC_RTCCR=%#x, RTC_RTCSR=%#x, RTC_RTCSAR=%#x, last_slcd_refresh_alarm_value=%#x, old_rtc_alarm_value=%#x, alarm_wakeup=%d\n",
+		   __FUNCTION__, rtc_cr, rtc_sr, rtc_sar, last_slcd_refresh_alarm_value, old_rtc_alarm_value, alarm_wakeup);
 
 	/*
 	 * what about old_rtc_alarm_value == next_sar ???
 	 */
 	if ( alarm_wakeup && (rtc_sar<=rtc_sr) && ( last_slcd_refresh_alarm_value == rtc_sar)
-	     && (last_slcd_refresh_alarm_value != old_rtc_alarm_value ) ) {
+	     && (rtc_sar != old_rtc_alarm_value ) ) {
 		return 1;
 	}
 
