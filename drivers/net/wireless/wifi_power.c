@@ -31,12 +31,12 @@ static int wifi_major_num;
 
 static void wifi_power_on(void)
 {
-	RTL8188_wlan_power_on();
+	RTL8188_wlan_power_on(); //usb wifi use this api to control wifi power on
 }
 
 static void wifi_power_off(void)
 {
-	RTL8188_wlan_power_off();
+	RTL8188_wlan_power_off(); //usb wifi use this api to control wifi power off
 }
 
 static int wifi_power_open (struct inode *inode, struct file *file) 
