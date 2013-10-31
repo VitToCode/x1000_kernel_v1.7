@@ -361,10 +361,10 @@ static int __init ry1000_board_init(void)
 #endif
 /* mmc */
 #ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &ry1000_tf_pdata);
+	jz_device_register(&jz_msc0_device, &ry1000_inand_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc1_device, &ry1000_sdio_pdata);
+	jz_device_register(&jz_msc1_device, &ry1000_tf_pdata);
 #endif
 #ifdef CONFIG_MMC2_JZ4780
 	jz_device_register(&jz_msc2_device, &ry1000_tf_pdata);
