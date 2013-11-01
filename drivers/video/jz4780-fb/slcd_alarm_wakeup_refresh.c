@@ -21,7 +21,7 @@
 #include <soc/cpm.h>
 #include <soc/irq.h>
 #include <tcsm.h>
-
+#include "jz4780_fb.h"
 #define DEBUG_TEST
 
 
@@ -418,8 +418,8 @@ static int update_slcd(void * ignore)
 
 
 	/* update slcd */
-	printk_info("************************* update slcd, mdelay(10000) ******************** \n"); mdelay(3000);
-	//update_slcd_frame_buffer();
+	printk_dbg("****************** update slcd **************** \n");
+	update_slcd_frame_buffer();
 
 	/* check lcdc clocks */
 	disable_lcdc_clocks();

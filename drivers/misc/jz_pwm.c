@@ -60,8 +60,11 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	/* period < 200ns || period > 1s */
 	if (period_ns < 200 || period_ns > 1000000000)
 		return -EINVAL;
-
+#ifndef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 	tmp = JZ_EXTAL;
+#else
+	tmp = JZ_EXTAL;//32768 RTC CLOCK failure!
+#endif
 	tmp = tmp * period_ns;
 	do_div(tmp, 1000000000);
 	period = tmp;
@@ -82,7 +85,11 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	tcu_pwm->full_num = period;
 	tcu_pwm->half_num = (period - duty);
 	tcu_pwm->divi_ratio = prescaler;
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	tcu_pwm->clock = RTC_EN;
+#else
 	tcu_pwm->clock = EXT_EN;
+#endif
 	tcu_pwm->count_value = 0;
 	tcu_pwm->pwm_shutdown = 1;
 

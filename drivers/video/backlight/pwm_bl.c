@@ -136,6 +136,9 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
     }
 #endif
 
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	brightness = 120;
+#endif
     pb->cur_brightness = brightness;
 	if (brightness == 0) {
 		pwm_config(pb->pwm, 0, pb->period);
@@ -282,7 +285,9 @@ static int pwm_backlight_probe(struct platform_device *pdev)
     pb->bk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;//EARLY_SUSPEND_LEVEL_STOP_DRAWING;
     pb->bk_early_suspend.suspend = bk_e_suspend;
     pb->bk_early_suspend.resume = bk_l_resume;
+#ifndef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
     register_early_suspend(&pb->bk_early_suspend);
+#endif
 #endif
 
 	return 0;

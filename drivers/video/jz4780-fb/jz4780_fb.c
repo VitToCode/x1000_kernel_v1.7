@@ -34,6 +34,7 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 #include <linux/gpio.h>
+#include <asm/cacheflush.h>
 
 #include <mach/jzfb.h>
 
@@ -48,6 +49,11 @@ static int jzfb_set_par(struct fb_info *info);
 
 static struct jzfb *jzfb0;
 static struct jzfb *jzfb1;
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+static struct fb_info *suspend_fb;
+static void *suspend_base;
+int slcd_color_count = 0;
+#endif
 #if 0
 static int jzfb_aosd_enable(struct fb_info *info, struct jzfb_aosd *aosd);
 static void aosd_test(struct fb_info *fbinfo);
@@ -233,7 +239,7 @@ static struct fb_videomode *jzfb_checkout_max_vga_videomode(struct fb_info *info
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	int i, flag;
 	int pix_size = 0;
-
+	flag = 0;
 	for (i = 0; i < pdata->num_modes; i++) {
 		if((pdata->modes[i].xres * pdata->modes[i].yres) > pix_size) {
 			flag = pdata->modes[i].flag;
@@ -1182,7 +1188,7 @@ static int jzfb_set_par(struct fb_info *info)
 			smart_cfg |= SLCDC_CFG_RS_CMD_HIGH;
 		if (pdata->smart_config.csply_active_high)
 			smart_cfg |= SLCDC_CFG_CS_ACTIVE_HIGH;
-		smart_ctrl = SLCDC_CTRL_DMA_MODE | SLCDC_CTRL_DMA_EN;
+		smart_ctrl = /*SLCDC_CTRL_DMA_MODE |*/ SLCDC_CTRL_DMA_EN;
 		//smart_ctrl &= ~(1 << 3);
 	}
 
@@ -1311,6 +1317,7 @@ static int jzfb_set_par(struct fb_info *info)
 	}
 	if (pdata->lcd_type == LCD_TYPE_LCM) {
 		jzfb_slcd_mcu_init(info);
+		reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
 	}
 
 	if(is_enabled) {
@@ -1325,7 +1332,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 	int count = 10000;
 	unsigned long ctrl;
 	struct jzfb *jzfb = info->par;
-
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	return 0;
+#endif
 	if(!jzfb->is_enabled)
 		return 0;
 
@@ -1351,6 +1360,11 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			}
 			if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
 				jzfb_slcd_mcu_init(jzfb->fb);
+				msleep(50);
+				ctrl = reg_read(jzfb, SLCDC_CTRL);
+				ctrl &= ~SLCDC_CTRL_DMA_MODE;
+				ctrl |= SLCDC_CTRL_DMA_EN;
+				reg_write(jzfb, SLCDC_CTRL, ctrl);
 			}
 		} else {
 			mutex_unlock(&jzfb->suspend_lock);
@@ -1376,6 +1390,10 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			ctrl = reg_read(jzfb, LCDC_CTRL);
 			ctrl &= ~LCDC_CTRL_ENA;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
+
+			ctrl = reg_read(jzfb, SLCDC_CTRL);
+			ctrl &= ~SLCDC_CTRL_DMA_EN;
+			reg_write(jzfb, SLCDC_CTRL, ctrl);
 		}
 	}
 
@@ -1508,6 +1526,51 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 				  jzfb->desc_cmd_vidmem, jzfb->desc_cmd_phys);
 	}
 }
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+inline void memset32(void *addr,int color,int size)
+{
+	int *p32 = (int*)addr;
+	int k;
+	for (k = 0; k < size; k++) {
+		*p32++ = color;;
+	}
+}
+int update_slcd_frame_buffer(void)
+{
+	struct jzfb *jzfb = suspend_fb->par;
+	struct fb_var_screeninfo *var = &suspend_fb->var;
+	int width = var->xres;
+	int high = var->yres;
+	slcd_color_count++;
+	if (slcd_color_count & 1) {
+		memset32((void*)suspend_base, 0xff0000ff, width*high);
+	}
+	else {
+		memset32((void*)suspend_base, 0xff00ff00, width*high);
+	}
+
+	__flush_cache_all();
+
+	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+		/* smart tft spec code here */
+		unsigned long tmp;
+		jzfb->framedesc[0]->databuf =(unsigned long)virt_to_phys(suspend_base);
+		if (!jzfb->is_enabled)
+			return -EINVAL;;
+		tmp = reg_read(jzfb, SLCDC_CTRL);
+		//tmp |= SLCDC_CTRL_DMA_START;
+		tmp |= SLCDC_CTRL_DMA_MODE | SLCDC_CTRL_DMA_START;
+		reg_write(jzfb, SLCDC_CTRL, tmp);
+		printk("!!!!!! Should waiting Vsync End. !!!!!!\n");
+		mdelay(6);
+	} else {
+		/* LCD_TYPE_INTERLACED_TV */
+	}
+
+	return 0;
+}
+#endif /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
+
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
@@ -1541,7 +1604,16 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
         }
         else
             next_frm = var->yoffset / var->yres;
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	{
+		void * vaddr;
+		vaddr = (void*)(jzfb->vidmem + jzfb->frm_size * next_frm);
+		if ( next_frm & 1 )
+			vaddr += (400*240*2);
 
+		memset((void*)vaddr, 0xff, 400*240);
+	}
+#endif
 	jzfb->current_buffer = next_frm;
 		//dev_info(info->dev,"next_frm=%d, var->yoffset=%d, var->yres=%d\n",next_frm, var->yoffset, var->yres);
 
@@ -1648,7 +1720,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		if (!jzfb->is_enabled)
 			return -EINVAL;;
 		tmp = reg_read(jzfb, SLCDC_CTRL);
-		tmp |= SLCDC_CTRL_DMA_START;
+		tmp |= SLCDC_CTRL_DMA_START |SLCDC_CTRL_DMA_MODE;
 		reg_write(jzfb, SLCDC_CTRL, tmp);
 	} else {
 		/* LCD_TYPE_INTERLACED_TV */
@@ -2413,7 +2485,9 @@ static struct fb_ops jzfb_ops = {
 static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	return ;
+#endif
 	mutex_lock(&jzfb->lock);
 	if (jzfb->pdata->alloc_vidmem) {
 		/* set suspend state and notify panel, backlight client */
@@ -2449,6 +2523,9 @@ static void jzfb_early_suspend(struct early_suspend *h)
 static void jzfb_late_resume(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	return ;
+#endif
 #ifdef CONFIG_JZ4780_AOSD
 	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
 		aosd_clock_enable(1);
@@ -2506,7 +2583,7 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 		/* update display */
 		unsigned long tmp;
 		tmp = reg_read(jzfb, SLCDC_CTRL);
-		tmp |= SLCDC_CTRL_DMA_MODE | SLCDC_CTRL_DMA_START;
+		tmp |= /*SLCDC_CTRL_DMA_MODE | */SLCDC_CTRL_DMA_START;
 		reg_write(jzfb, SLCDC_CTRL, tmp);
 	}
 }
@@ -2520,6 +2597,7 @@ static int jzfb_copy_logo(struct fb_info *info)
 	int i = 0, j = 0;
 	struct jzfb *jzfb = info->par;
 
+	return -1;
 	/* get buffer physical address */
 	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
 	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {
@@ -3145,6 +3223,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
 	struct fb_videomode *video_mode;
 	struct resource *mem;
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	struct fb_videomode *mode;
+	unsigned int videosize = 0;
+#endif
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "Missing platform data\n");
@@ -3298,6 +3380,16 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to run vsync thread");
 		goto err_free_file;
 	}
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	suspend_fb = fb;
+	mode = jzfb_checkout_videomode(jzfb->fb);
+	videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
+	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
+
+	suspend_base = kmalloc(videosize, GFP_KERNEL);
+	if (!suspend_base)
+		return -ENOMEM;
+#endif
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
