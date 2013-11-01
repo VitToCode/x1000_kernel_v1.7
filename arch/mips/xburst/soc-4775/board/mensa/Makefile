@@ -1,6 +1,8 @@
 
-obj-y += misc.o lcd.o regulator.o sound.o
+obj-y += misc.o regulator.o sound.o
 
+ obj-$(CONFIG_FB_JZ4780_LCDC0)              += lcd.o
+ obj-$(CONFIG_FB_JZ4775_ANDROID_EPD)        += mensa-epd.o
  obj-$(CONFIG_NAND)              += nand.o
  obj-$(CONFIG_MMC_JZ4775)        += mmc.o
  obj-$(CONFIG_BCM4330_RFKILL)	 += bt.o

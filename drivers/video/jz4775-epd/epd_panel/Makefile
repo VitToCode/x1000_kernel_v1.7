@@ -1,0 +1,9 @@
+#
+# EPD panel Makefile for epd drivers.
+#
+
+obj-y += PVI110_B114_ED060SC4.o
+#obj-$(CONFIG_EPD_PANEL_PVI_ED060SC4)			+= PVI_ED060SC4.o
+obj-y += PVI_ED060XD1.o
+#obj-$(CONFIG_EPD_PANEL_PVI_ED097OC1)			+= PVI_ED097OC1.o
+#obj-$(CONFIG_EPD_PANEL_PVI_ED097OC5)			+= PVI_ED097OC5.o

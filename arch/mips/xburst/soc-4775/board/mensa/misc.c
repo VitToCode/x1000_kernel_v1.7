@@ -402,6 +402,10 @@ static int __init board_init(void)
 	platform_device_register(&digital_pulse_backlight_device);
 #endif
 
+#ifdef CONFIG_FB_JZ4775_ANDROID_EPD
+	platform_device_register(&jz_epdce_device);
+	jz_device_register(&jz_epd_device, &jz_epd_pdata);
+#endif
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ4780_LCDC0
 	jz_device_register(&jz_fb0_device, &jzfb0_pdata);

@@ -33,6 +33,15 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_LCD_PWM		GPIO_PE(1)
 #define GPIO_LCD_DISP		GPIO_PB(30)
 
+/* EPD Power Pins */
+#define GPIO_EPD_SIG_CTRL_N GPIO_PB(20)
+#define GPIO_EPD_PWR_EN     GPIO_PB(06)
+#define GPIO_EPD_PWR0       GPIO_PB(10)
+#define GPIO_EPD_PWR1       GPIO_PB(11)
+#define GPIO_EPD_PWR2       GPIO_PB(16)
+#define GPIO_EPD_PWR3       GPIO_PB(17)
+#define GPIO_EPD_PWR4       GPIO_PF(8)
+
 /**
  * TP gpio
  **/
@@ -132,6 +141,13 @@ extern struct platform_device kd50g2_40nm_a2_device;
 #ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
 extern struct platform_device digital_pulse_backlight_device;
 extern struct platform_digital_pulse_backlight_data bl_data;
+#endif
+
+
+#ifdef CONFIG_FB_JZ4775_ANDROID_EPD
+extern struct platform_device jz_epdce_device;
+extern struct platform_device jz_epd_device;
+extern struct jz_epd_platform_data jz_epd_pdata;
 #endif
 
 #endif /* __BOARD_H__ */

@@ -74,6 +74,9 @@
 #define LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
 
+#define EPD_PORTC \
+	{ .name = "epd-24bit", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
+
 #define PWM_PORTE_BIT0							\
 	{ .name = "pwm0", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 0, }
 #define PWM_PORTE_BIT1							\

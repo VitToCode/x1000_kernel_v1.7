@@ -106,6 +106,10 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	LCD_PORTC,
 #endif
 
+#ifdef CONFIG_JZ_EPD_GPIO_FUNCTION
+	EPD_PORTC,
+#endif
+
 #ifdef CONFIG_JZ_PWM_GPIO_E0
 	PWM_PORTE_BIT0,
 #endif
@@ -472,6 +476,58 @@ struct platform_device jz_fb##NO##_device = {					\
 	.resource       = jz_fb##NO##_resources,				\
 };
 DEF_LCD(0);
+
+/* EPD Controller */
+static struct resource jz_epd_resources[] = {
+		[0] = {
+			.start          = EPDC_IOBASE,
+			.end            = EPDC_IOBASE + 0x10000 - 1,
+			.flags          = IORESOURCE_MEM,
+		},
+		[1] = {
+			.start          = IRQ_EPDC,
+			.end            = IRQ_EPDC,
+			.flags          = IORESOURCE_IRQ,
+		}
+	};
+
+static u64 jz_epd_dmamask = ~(u32)0;
+struct platform_device jz_epd_device = {
+	.name           = "jz4775-epd",
+	.id             = 1,
+	.dev = {
+		.dma_mask               = &jz_epd_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.num_resources  = ARRAY_SIZE(jz_epd_resources),
+	.resource       = jz_epd_resources,
+};
+
+/* EPDCE Controller */
+static struct resource jz_epdce_resources[] = {
+	[0] = {
+		.start          = EPDCE_IOBASE,
+		.end            = EPDCE_IOBASE + 0x10000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start          = IRQ_EPDCE,
+		.end            = IRQ_EPDCE,
+		.flags          = IORESOURCE_IRQ,
+	}
+};
+
+static u64 jz_epdce_dmamask = ~(u32)0;
+struct platform_device jz_epdce_device = {
+	.name           = "jz4775-epdce",
+	.id             = 1,
+	.dev = {
+		.dma_mask               = &jz_epdce_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.num_resources  = ARRAY_SIZE(jz_epdce_resources),
+	.resource       = jz_epdce_resources,
+};
 
 /* UART ( uart controller) */
 static struct resource jz_uart0_resources[] = {
