@@ -10,9 +10,11 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/input.h>
+#include <linux/errno.h>
 
 #include <mach/jzsnd.h>
 
+#include "interface/xb_snd_dsp.h"
 #include "xb_snd_detect.h"
 
 //#define DETECT_HOOK_INT_FAST    50
@@ -59,6 +61,8 @@ static void snd_switch_work(struct work_struct *hp_work)
 	int state = 0;
 	int tmp_state =0;
 	int i = 0;
+	int ret = 0;
+	int device;
 	struct snd_switch_data *switch_data =
 		container_of(hp_work, struct snd_switch_data, hp_work);
 
@@ -125,6 +129,31 @@ static void snd_switch_work(struct work_struct *hp_work)
 	}
     SWITCH_DEBUG("%s,%d,%d\n",__func__,__LINE__,state);
 	snd_switch_set_state(switch_data, state);
+
+#ifndef CONFIG_ANDROID
+	if (state == 1) {
+		device = SND_DEVICE_HEADSET;
+		ret = switch_data->set_device((unsigned long)&device);
+		if (ret == -1)
+			printk("hp inser but dsp not open\n");
+		else if (ret < -1)
+			printk(" set_device failed in the hp changed!\n");
+	} else if (state == 2) {
+		device = SND_DEVICE_HEADPHONE;
+		ret = switch_data->set_device((unsigned long)&device);
+		if (ret == -1)
+			printk("hp inser but dsp not open\n");
+		else if (ret < -1)
+			printk(" set_device failed in the hp changed!\n");
+	} else {
+		device = SND_DEVICE_DEFAULT;
+		ret = switch_data->set_device((unsigned long)&device);
+		if (ret == -1)
+			printk("hp remove but dsp not open\n");
+		else if (ret < -1)
+			printk(" set_device failed in the hp changed!\n");
+	}
+#endif
 }
 static void hook_do_work(struct work_struct *hook_work)
 {
@@ -293,6 +322,8 @@ static int snd_switch_probe(struct platform_device *pdev)
 	switch_data->hp_state = -1;
 
 	platform_set_drvdata(pdev, switch_data);
+
+    SWITCH_DEBUG("snd_switch_probe\n");
 
 	ret = switch_dev_register(&switch_data->sdev);
 	if (ret < 0) {

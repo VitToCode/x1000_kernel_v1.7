@@ -681,6 +681,17 @@ static int i2s_set_device(unsigned long device)
 	endpoints = (struct dsp_endpoints *)((&i2s_data)->ext_data);
 	dp = endpoints->out_endpoint;
 
+#ifndef CONFIG_ANDROID
+	if (!dp->is_used)
+		return -1;
+	if ((*(enum snd_device_t *)device == SND_DEVICE_HDMI) && (dp->force_hdmi == false))
+		dp->force_hdmi = true;
+	else if(*(enum snd_device_t *)device == SND_DEVICE_SPEAKER)
+		dp->force_hdmi = false;
+	else if ((*(enum snd_device_t *)device == SND_DEVICE_DEFAULT) && (dp->force_hdmi == true))
+		*(enum snd_device_t *)device = SND_DEVICE_HDMI;
+#endif
+
 	if (!cur_codec)
 		return -1;
 
@@ -1170,9 +1181,7 @@ static int i2s_global_init(struct platform_device *pdev)
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample();
 	__i2s_enable();
-#ifndef CONFIG_ANDROID
-	cur_codec->codec_ctl(CODEC_SET_DEFROUTE,CODEC_RWMODE);
-#endif
+
 	printk("i2s init success.\n");
 	return  cur_codec->codec_ctl(CODEC_INIT,0);
 
@@ -1294,6 +1303,7 @@ struct snd_switch_data switch_data = {
 	.state_headphone_on =   "2",
 	.state_off	=	"0",
 	.codec_get_sate	=	jz_get_hp_switch_state,
+	.set_device	= i2s_set_device,
 	.type	=	SND_SWITCH_TYPE_CODEC,
 };
 

@@ -61,6 +61,7 @@ struct snd_switch_data {
 	int mic_select_level;
 
 	int (*codec_get_sate)(void);
+	int (*set_device)(unsigned long device);
 	atomic_t flag;
 	int hook_pressed;
 	int hp_state;

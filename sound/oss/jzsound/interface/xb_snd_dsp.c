@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
+//#include "xb47xx_i2s.h"
 #include <asm/mipsregs.h>
 static bool spipe_is_init = 0;
 //#define DEBUG_REPLAY  0
@@ -1101,7 +1102,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	{
 		return -1;
 	}
-	
+
 	INIT_LIST_HEAD(&(dp->free_node_list));
 	INIT_LIST_HEAD(&(dp->dma_node_list));
 	INIT_LIST_HEAD(&(dp->use_node_list));
@@ -2329,6 +2330,8 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	int state = 0;
+	int arg;
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
@@ -2374,6 +2377,13 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
+#ifndef CONFIG_ANDROID
+		arg = SND_DEVICE_BUILDIN_MIC;
+		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		if (arg < 0) {
+			return -EIO;
+		}
+#endif
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
@@ -2405,6 +2415,25 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
+		printk("hyang debug audio %s %d ret = %d\n", __func__, __LINE__, ret);
+
+#ifndef CONFIG_ANDROID
+		dpo->force_hdmi = false;
+		if (ddata->dev_ioctl) {
+			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
+			if (arg < 0) {
+				return -EIO;
+			}
+			if (state)
+				arg = SND_DEVICE_HEADSET;
+			else
+				arg = SND_DEVICE_SPEAKER;
+			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+			if (arg < 0) {
+				return -EIO;
+			}
+		}
+#endif
 	}
 
 #ifdef DEBUG_REPLAY

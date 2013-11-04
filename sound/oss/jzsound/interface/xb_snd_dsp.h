@@ -252,6 +252,7 @@ struct dsp_pipe {
 	atomic_t			watchdog_avail;
 	struct timer_list	transfer_watchdog;
 	uint32_t watchdog_mdelay;
+	volatile bool		force_hdmi;
 
 	/* state */
 	volatile bool       is_trans;
