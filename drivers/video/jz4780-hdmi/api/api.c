@@ -16,7 +16,16 @@
 #include "../util/error.h"
 #include "../phy/halSourcePhy.h"
 #include "../core/halMainController.h"
+#include "../cec/cec.h"
 
+static const u8 CEC_MASK = 0x02;
+static const u8 DONE = (0x1 << 0);
+static const u8 EOM = (0x1 << 1);
+static const u8 NACK = (0x1 << 2);
+static const u8 ARB_LOST = (0x1 << 3);
+static const u8 ERROR_FOLL = (0x1 << 5);
+static const u8 ERROR_INIT = (0x1 << 4);
+static const u8 WAKEUP = (0x1 << 6);
 
 static u16 api_mBaseAddress = 0;
 static state_t api_mCurrentState = API_NOT_INIT;
@@ -158,7 +167,7 @@ int api_Initialize(u16 address, u8 dataEnablePolarity, u16 sfrClock, u8 force) /
 #ifdef CONFIG_HMDI_JZ4780_DEBUG
 	printk("jz4780 hdmi %s  %d  control configured\n",__func__,__LINE_);
 #endif
-	if (control_Configure(api_mBaseAddress, pixelClock, 0, 8, 0, 0, 0, 0) != TRUE)
+	if (control_Configure(api_mBaseAddress, pixelClock, 0, 8, 0, 0, 1, 0) != TRUE)
 	{
 		return FALSE;
 	}
@@ -414,7 +423,7 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 		if (control_Configure(api_mBaseAddress, videoParams_GetPixelClock(video),
 				videoParams_GetPixelRepetitionFactor(video),
 				videoParams_GetColorResolution(video),
-				videoParams_IsColorSpaceConversion(video), audioOn, FALSE, hdcpOn)
+				videoParams_IsColorSpaceConversion(video), audioOn, TRUE, hdcpOn)
 				!= TRUE)
 		{
 			success = FALSE;
@@ -650,6 +659,19 @@ for (state = 0; state < 10; state++)
 			handled = TRUE;
 			access_CoreWriteByte(~(0xc), 0x3302);
 
+		}
+
+		state = control_InterruptCecState(0);//cec state
+		if(state>0){
+			halCEC_WriteByte(CEC_MASK, 0xff);//umask all cec interrupt
+			control_InterruptCecClear(0, state);
+			/*printk("---------Cec  sate=%x\n",state);*/
+			halCEC_WriteByte(CEC_MASK,~(WAKEUP|EOM|NACK|ARB_LOST|ERROR_FOLL|ERROR_INIT));
+			if (api_mEventRegistry[CEC_STATE] != NULL)
+			{
+				api_mEventRegistry[CEC_STATE](&state);
+			}
+			handled = TRUE;
 		}
 	}
 

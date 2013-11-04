@@ -64,6 +64,7 @@ typedef enum
 						- KSV list (5 bytes each entry) first
 						- Bstatus and M0 (10 bytes)
 						- V' 20 bytes */
+	CEC_STATE,
 	DUMMY		/* out of bound */
 }
 event_t;

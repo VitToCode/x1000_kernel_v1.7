@@ -31,11 +31,36 @@
 
 
 static struct jzhdmi *global_hdmi;
+
+void cec_switch_hdmi(void)
+{
+	hdmivsdb_t vsdb;
+	u16 phyaddr;
+	u8 value[1]={0};
+	u8 value1[3]={0};
+	/*send cec message <image view on>*/
+	value[0]=IMAGE_VIEW_ON;
+	sendmessage(value,1);
+	msleep(100);
+	/*send cec message <active source>*/
+	value1[0]=ACTIVE_SOURCE;
+	if ((api_EdidHdmivsdb(&vsdb) == TRUE)) {
+		phyaddr = hdmivsdb_GetPhysicalAddress(&vsdb);
+		dev_info(global_hdmi->dev, "Get device phy addr is %x\n",phyaddr);
+		value1[1] = phyaddr >> 8;
+		value1[2] = phyaddr & 0xf;
+	}
+	sendmessage(value1,3);
+}
+
 static void edid_callback(void *param)
 {
-	dev_info(global_hdmi->dev, "EDID reading done");
+	dev_info(global_hdmi->dev, "EDID reading done\n");
 	global_hdmi->edid_done = HDMI_HOTPLUG_EDID_DONE;
+
 	wake_up(&global_hdmi->wait);
+
+	cec_switch_hdmi();
 }
 
 static void hpd_callback(void *param)
@@ -49,6 +74,7 @@ static void hpd_callback(void *param)
 		dev_info(global_hdmi->dev, "HPD CONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED;
+		cec_switch_hdmi();
 	}
 }
 
@@ -692,6 +718,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	}
 
 	api_EventEnable(HPD_EVENT, hpd_callback, FALSE);
+	api_EventEnable(CEC_STATE, cec_callback, FALSE);
 
 	if ((access_Read(0x3000) & 0x40)) /* check ENTMDS */
 		jzhdmi->hdmi_is_running = 1;
