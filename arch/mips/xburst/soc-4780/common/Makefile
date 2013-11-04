@@ -16,6 +16,8 @@ else
 obj-y += clk.o
 endif
 
+obj-y += random.o
+
 obj-y += gpio.o 
 # only for debug
 #obj-y += pmmon.o 
