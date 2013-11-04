@@ -50,8 +50,8 @@ static int jzfb_set_par(struct fb_info *info);
 static struct jzfb *jzfb0;
 static struct jzfb *jzfb1;
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-static struct fb_info *suspend_fb;
-static void *suspend_base;
+struct fb_info *suspend_fb;
+void *suspend_base;
 int slcd_color_count = 0;
 #endif
 #if 0
@@ -2597,7 +2597,10 @@ static int jzfb_copy_logo(struct fb_info *info)
 	int i = 0, j = 0;
 	struct jzfb *jzfb = info->par;
 
+#ifdef	CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 	return -1;
+#endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
+
 	/* get buffer physical address */
 	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
 	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {

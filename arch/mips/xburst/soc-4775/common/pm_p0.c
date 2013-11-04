@@ -517,14 +517,10 @@ static int jz4775_pm_enter(suspend_state_t state)
 /*
  * Initialize power interface
  */
-
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-/* drivers/video/jz4780-fb/slcd_alarm_wakeup_refresh.c */
-extern int jz4775_pm_enter_with_slcd_rtc_alarm_refresh(suspend_state_t state);
-struct platform_suspend_ops pm_ops = {
-	.valid = suspend_valid_only_mem,
-	.enter = jz4775_pm_enter_with_slcd_rtc_alarm_refresh,
-};
+/* drivers/video/jz4780-fb/lcd_suspend_update/suspend_ops.c */
+extern struct platform_suspend_ops pm_ops;
+
 #else  /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
