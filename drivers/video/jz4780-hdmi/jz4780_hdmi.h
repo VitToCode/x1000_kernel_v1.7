@@ -16,7 +16,7 @@
 #include "edid/edid.h"
 #include "phy/halSourcePhy.h"
 #include "util/error.h"
-
+#include "cec/cec.h"
 #define GPA_ENABLE 0
 
 #define HDMI_VIDEO_MODE_NUM 64 /* for test */

@@ -56,4 +56,5 @@ bsp/mutex.o \
 bsp/board.o \
 util/error.o \
 util/log.o \
-util/bitOperation.o
+util/bitOperation.o\
+cec/cec.o
