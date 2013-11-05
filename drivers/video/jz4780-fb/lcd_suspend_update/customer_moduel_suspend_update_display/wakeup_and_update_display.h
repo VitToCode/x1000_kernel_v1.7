@@ -1,5 +1,5 @@
-#ifndef __SLCD_ALARM_WAKEUP_REFRESH_H__
-#define __SLCD_ALARM_WAKEUP_REFRESH_H__
+#ifndef __WAKEUP_AND_UPDATE_DISPLAY_H__
+#define __WAKEUP_AND_UPDATE_DISPLAY_H__
 
 
 struct clock_bitmap_buffer {
@@ -28,4 +28,4 @@ extern int slcd_refresh_finish(void);
 
 
 
-#endif /* __SLCD_ALARM_WAKEUP_REFRESH_H__ */
+#endif /* __WAKEUP_AND_UPDATE_DISPLAY_H__ */

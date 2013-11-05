@@ -25,11 +25,11 @@
 #include <tcsm.h>
 
 #include "rtc_alarm.h"
-#include "slcd_alarm_wakeup_refresh.h"
 #include "slcd_suspend_debug.h"
+#include "slcd_update.h"
+
 
 extern int jz4775_pm_enter(suspend_state_t state);
-
 
 
 /* -------------------------------------------------------------------------------- */
@@ -148,7 +148,6 @@ static int update_slcd(void * ignore)
 
 	/* update slcd */
 	printk_info("************************* update slcd, mdelay(10000) ******************** \n"); mdelay(3000);
-	//update_slcd_frame_buffer();
 	update_clock();
 
 	/* check lcdc clocks */
@@ -238,7 +237,7 @@ static int jz4775_pm_enter_with_slcd_rtc_alarm_refresh(suspend_state_t state)
 
 static int jz4775_suspend_begin(suspend_state_t state)
 {
-	printk("%s ENTER\n", __FUNCTION__);
+	printk_dbg("%s ENTER\n", __FUNCTION__);
 
 
 	slcd_refresh_prepare();
@@ -248,20 +247,20 @@ static int jz4775_suspend_begin(suspend_state_t state)
 
 static int jz4775_suspend_prepare(void)
 {
-	printk("%s ENTER\n", __FUNCTION__);
+	printk_dbg("%s ENTER\n", __FUNCTION__);
 	return 0;
 }
 
 static void jz4775_suspend_finish(void)
 {
-	printk("%s ENTER\n", __FUNCTION__);
+	printk_dbg("%s ENTER\n", __FUNCTION__);
 
 	return ;
 }
 
 static void jz4775_suspend_end(void)
 {
-	printk("%s ENTER\n", __FUNCTION__);
+	printk_dbg("%s ENTER\n", __FUNCTION__);
 
 	slcd_refresh_finish();
 

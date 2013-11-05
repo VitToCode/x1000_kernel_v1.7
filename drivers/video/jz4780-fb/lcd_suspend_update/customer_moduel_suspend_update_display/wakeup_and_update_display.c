@@ -17,31 +17,72 @@
 #include <linux/vmalloc.h>
 #include <linux/fb.h>
 
-#include <soc/cache.h>
-#include <soc/base.h>
-#include <soc/cpm.h>
-#include <soc/irq.h>
-#include <tcsm.h>
 
-#include "jz4780_fb.h"
+#include <slcd_update.h>
 #include "slcd_suspend_debug.h"
-#include "slcd_alarm_wakeup_refresh.h"
+
+#include "wakeup_and_update_display.h"
+
+
+#define ALARM_WAKEUP_PERIOD (6) /* default wakeup period 60 seconds. */
 
 
 
 /* -------------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------- */
-struct fb_var_screeninfo fb_var;
 
 //extern struct jzfb *jzfb0;
-extern struct fb_info *suspend_fb;
-extern void *suspend_base;
+static struct fb_info *fbinfo = NULL;
+static struct update_config_callback_ops * config_ops = NULL;
 
 
 static int buffer_count = 6;
 //static int next_buffer_count_buffer_count = 6;
 //static int buffer_size = (800*480*4 * 3); /* lcd frame_buffer size */
 static struct clock_buffers *clock_buffers=NULL;
+
+
+
+int init_clock_buffers(struct fb_info *info)
+{
+	if ( clock_buffers != NULL ) {
+		return 0;
+	}
+
+	if (!fbinfo) {
+		printk_info("init_clock_buffers() !fbinfo\n");
+		return -EINVAL;
+	}
+
+	/* alloc_bitmap_buffers */
+	{
+		int cnt;
+		struct clock_bitmap_buffer* bitmap_buffer;
+		struct fb_fix_screeninfo *fix;	/* Current fix */
+		//struct fb_var_screeninfo *var;	/* Current var */
+
+		fix = &fbinfo->fix;
+		//var = &fbinfo->var;
+
+		clock_buffers = (struct clock_buffers *) kmalloc(sizeof(struct clock_buffers), GFP_KERNEL);
+		if ( !clock_buffers ) {
+			printk_dbg("alloc clock_buffers failed\n");
+			return -1;
+		}
+
+		clock_buffers->next_buffer_count = 0;
+		clock_buffers->buffer_count = buffer_count;
+		clock_buffers->buffer_size = fix->smem_len; //buffer_size;
+		clock_buffers->bitmap_buffers = (struct clock_bitmap_buffer*)kmalloc(sizeof(struct clock_bitmap_buffer)*buffer_count, GFP_KERNEL);
+		bitmap_buffer = clock_buffers->bitmap_buffers;
+		for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
+			bitmap_buffer->valid=0;
+			bitmap_buffer ++;
+		}
+	}
+
+	return 0;
+}
 
 
 /* open bitmap file */
@@ -88,73 +129,15 @@ err_logo_close_file:
 }
 
 
-int update_clock(void)
-{
-	printk_dbg("%s() ENTER\n", __FUNCTION__);
-
-
-	printk_dbg("clock_buffers->next_buffer_count=%d\n", clock_buffers->next_buffer_count);
-
-
-	/* copy next_buffer_count_buffer to lcd frame buffer */
-	{
-		struct clock_bitmap_buffer *bitmap;
-		bitmap = clock_buffers->bitmap_buffers + clock_buffers->next_buffer_count;
-		if ( bitmap->valid ) {
-			void * fb;
-			int size;
-			int xres, yres;
-			struct jzfb *jzfb = suspend_fb->par;
-			struct fb_var_screeninfo *var = &suspend_fb->var;
-			xres = var->xres;
-			yres = var->yres;
-			size = jzfb->vidmem_size;
-
-			fb = jzfb->vidmem;
-			//fb = suspend_base;
-
-			printk_dbg("memcpy((void*)fb=%p, bitmap->buffer=%p, size=%d);, xres=%d, yres=%d\n",
-				   (void*)fb, (void*)bitmap->buffer, (int)size, (int)xres, (int)yres);
-
-			memcpy((void*)fb, bitmap->buffer, size);
-
-
-		}
-	}
-
-	/* update_slcd_frame_buffer */
-	//update_slcd_frame_buffer();
-
-	clock_buffers->next_buffer_count++;
-	if ( clock_buffers->next_buffer_count > clock_buffers->buffer_count-1)
-		clock_buffers->next_buffer_count = 0;
-
-
-	return 0;
-}
-
 
 static int alloc_bitmap_buffers(void)
 {
 	int cnt;
 	struct clock_bitmap_buffer *bitmap_buffer;
-	if ( clock_buffers == NULL ) {
-		struct jzfb *jzfb = suspend_fb->par;
-		clock_buffers = (struct clock_buffers *) kmalloc(sizeof(struct clock_buffers), GFP_KERNEL);
-		if ( !clock_buffers ) {
-			printk_dbg("alloc clock_buffers failed\n");
-			return -1;
-		}
 
-		clock_buffers->next_buffer_count = 0;
-		clock_buffers->buffer_count = buffer_count;
-		clock_buffers->buffer_size = jzfb->vidmem_size;//buffer_size;
-		clock_buffers->bitmap_buffers = (struct clock_bitmap_buffer*)kmalloc(sizeof(struct clock_bitmap_buffer)*buffer_count, GFP_KERNEL);
-		bitmap_buffer = clock_buffers->bitmap_buffers;
-		for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
-			bitmap_buffer->valid=0;
-			bitmap_buffer ++;
-		}
+	if ( !clock_buffers ) {
+		printk_dbg("clock_buffers = NULL\n");
+		return -1;
 	}
 
 	bitmap_buffer = clock_buffers->bitmap_buffers;
@@ -194,14 +177,19 @@ static int free_bitmap_buffers(void)
 		bitmap_buffer ++;
 	}
 
-
-
 	return 0;
 }
+
+/*
+ * get raw fb data:
+ *    "cat /dev/graphics/fb0 > /sdcard/fb0.dat"
+ */
 
 char *bitmap_filename[] = {
 	"/sdcard/fb0.dat",
 	"/sdcard/fb1.dat",
+	"/sdcard/fb2.dat",
+	"/sdcard/fb3.dat",
 };
 
 
@@ -219,7 +207,7 @@ static int load_bitmaps(void)
 	for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
 		char * filename;
 		printk_dbg("load_bitmaps(), cnt=%d, buffer_size=%d\n", cnt, clock_buffers->buffer_size);
-		filename = bitmap_filename[cnt&1];
+		filename = bitmap_filename[cnt%4];
 		if ( read_bitmap_file(filename, bitmap->buffer, clock_buffers->buffer_size) ) {
 			printk_dbg("read_bitmap_file(%s) failed\n", filename);
 			bitmap->valid = 0;
@@ -243,10 +231,18 @@ static int load_bitmaps(void)
 
 
 
-int slcd_refresh_prepare(void)
+static int prepare_bitmaps_before_suspend(struct fb_info * fb, void * ignore)
 {
 	int ret;
-	printk_dbg("%s() ENTER\n", __FUNCTION__);
+	printk_dbg("%s() ENTER, fb=%p, ignore=%p\n", __FUNCTION__, fb, ignore);
+
+	fbinfo = fb;
+
+	ret = init_clock_buffers(fb);
+	if ( ret ) {
+		printk_info("init_clock_buffers() failed ret=%d\n", ret);
+		return ret;
+	}
 
 	/* alloc bitmap buffers */
 	printk_dbg("%s() alloc bitmap buffers.\n", __FUNCTION__);
@@ -261,7 +257,7 @@ int slcd_refresh_prepare(void)
 }
 
 
-int slcd_refresh_finish(void)
+static void release_bitmaps_after_resume(void)
 {
 	printk_dbg("%s() ENTER\n", __FUNCTION__);
 
@@ -274,14 +270,92 @@ int slcd_refresh_finish(void)
 	printk_dbg("%s() free bitmap buffers.\n", __FUNCTION__);
 	free_bitmap_buffers();
 
+	return;
+}
+
+static int update_frame_buffer(struct fb_info * fb, void * addr, unsigned int rtc_second)
+{
+	printk_dbg("%s() ENTER, fb=%p, addr=%p, rtc_second=%d\n", __FUNCTION__, fb, addr, rtc_second);
+
+	printk_dbg("clock_buffers->next_buffer_count=%d\n", clock_buffers->next_buffer_count);
+
+	if ( !fb || !addr || !clock_buffers ) {
+		printk_info(" !fb || !addr\n");
+		return -EINVAL;
+	}
+
+	/* copy next_buffer_count_buffer to lcd frame buffer */
+	{
+		struct clock_bitmap_buffer *bitmap;
+		bitmap = clock_buffers->bitmap_buffers + clock_buffers->next_buffer_count;
+		if ( bitmap->valid ) {
+			struct fb_fix_screeninfo *fix;	/* Current fix */
+			struct fb_var_screeninfo *var;
+			void * fbaddr;
+			int xres, yres, size;
+
+			fix = &fbinfo->fix;
+			var = &fbinfo->var;
+			xres = var->xres;
+			yres = var->yres;
+			size = fix->smem_len;
+
+			fbaddr = addr;
+
+			printk_dbg("memcpy((void*)fb=%p, bitmap->buffer=%p, size=%d);, xres=%d, yres=%d\n",
+				   (void*)fbaddr, (void*)bitmap->buffer, (int)size, (int)xres, (int)yres);
+			if ( fbaddr )
+				memcpy((void*)fbaddr, bitmap->buffer, size);
+		}
+	}
+
+	clock_buffers->next_buffer_count++;
+	if ( clock_buffers->next_buffer_count > clock_buffers->buffer_count-1)
+		clock_buffers->next_buffer_count = 0;
+
+
+	/* set next alarm wakeup period */
+	if (config_ops && config_ops->set_period) {
+		config_ops->set_period(ALARM_WAKEUP_PERIOD);
+	}
+
+	return 0;
+};
+
+
+/*
+ * callbacks by kernel suspend.
+ * kernel/drivers/video/jz4780-fb/lcd_suspend_update/
+ */
+struct display_update_ops update_ops = {
+	.prepare = prepare_bitmaps_before_suspend,
+	.update_frame_buffer = update_frame_buffer,
+	.finish = release_bitmaps_after_resume,
+};
+
+
+
+static int __init drv_init(void)
+{
+	/* register callbacks to kernel suspend. */
+	config_ops = display_update_set_ops(&update_ops);
+
+
+	/* enable alarm wakeup function */
+	if (config_ops && config_ops->set_refresh) {
+		config_ops->set_refresh(1);
+	}
+
+	/* set next alarm wakeup period */
+	if (config_ops && config_ops->set_period) {
+		config_ops->set_period(ALARM_WAKEUP_PERIOD);
+	}
+
 	return 0;
 }
 
 
-int is_configed_slcd_rtc_alarm_refresh(void)
-{
+module_init(drv_init);
 
-	return 1;
-}
 
 #endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */

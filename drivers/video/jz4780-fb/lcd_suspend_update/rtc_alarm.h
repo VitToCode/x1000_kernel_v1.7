@@ -7,6 +7,7 @@ extern int reconfig_rtc_alarm(void);
 extern void check_and_save_old_rtc_alarm(void);
 
 extern int clear_rtc_alarm_flag(void);
+extern int rtc_set_alarm_wakeup_period(int period);
 
 
 

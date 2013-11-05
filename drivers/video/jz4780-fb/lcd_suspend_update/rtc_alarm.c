@@ -274,4 +274,12 @@ static int should_reconfig_slcd_rtc_alarm_wakeup(void)
 }
 #endif
 
+
+
+int rtc_set_alarm_wakeup_period(int period)
+{
+	slcd_refresh_period = period;
+	return 0;
+}
+
 #endif /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
