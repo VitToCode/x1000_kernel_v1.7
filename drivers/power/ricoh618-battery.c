@@ -33,6 +33,7 @@
 //#include <linux/power/ricoh618_battery_init.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/time.h>
 
 //define for function
 //if FG function is enabled, please define below item.
@@ -95,7 +96,7 @@ enum int_type {
 #define RICOH618_ENTER_LOW_VOL			70
 #define RICOH618_TAH_SEL2			5
 #define RICOH618_TAL_SEL2			6
-#define RICOH618_LOAD_C				829
+#define RICOH618_LOAD_C				1200
 
 /* define for FG status */
 enum {
@@ -377,7 +378,7 @@ static int calc_capacity_in_period(struct ricoh618_battery_info *info,
 	} else if (calc_capacity(info) == 100) {
 		/* Check HW soc is 100 or not */
 		cc_stop_flag = 0;
-	} else if (Ocv/1000 < get_OCV_voltage(info, 9)) {
+	} else if (Ocv > get_OCV_voltage(info, 9)) {		/*BUGs? ocv/1000 < getocv ROSS 20131012 */
 		/* Check VBAT is high level or not */
 		cc_stop_flag = 0;
 	} else {
@@ -499,7 +500,7 @@ static int get_target_use_cap(struct ricoh618_battery_info *info)
 								0x7fff);
 	use_cap = fa_cap - info->soca->re_cap_old;
 
-	Ocv_ZeroPer_now = info->soca->target_vsys * 1000 - Ibat_now * info->soca->Rsys;
+	Ocv_ZeroPer_now = info->soca->target_vsys*1000 - Ibat_now * info->soca->Rsys;						//Ross modified to debug!!! 1000 deleted
 
 	printk("PMU: -------  Rsys= %d: cutoff_ocv= %d: Ocv_ZeroPer_now= %d =======\n",
 	       info->soca->Rsys, info->soca->cutoff_ocv, Ocv_ZeroPer_now);
@@ -510,19 +511,19 @@ static int get_target_use_cap(struct ricoh618_battery_info *info)
 		temp = (battery_init_para[i*2]<<8)
 			 | (battery_init_para[i*2+1]);
 		/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
-		temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
+		temp = ((temp * 5000 * 10 / 4095) + 5) / 10;												//This was wrong !!###50000->>5000
 		ocv_table[i] = temp;
 		printk("PMU : %s : ocv_table %d is %d v\n",__func__, i, ocv_table[i]);
 	}
 
 	for (i = 1; i < 11; i++) {
-		printk("PMU : %s : ocv_table %d is %d v Ocv_ZerPernow is %d\n",__func__, i, ocv_table[i],(Ocv_ZeroPer_now / 100));
-		if (ocv_table[i] >= Ocv_ZeroPer_now / 100) {
+		printk("PMU : %s : ocv_table %d is %d v Ocv_ZerPernow is %d\n",__func__, i, ocv_table[i],(Ocv_ZeroPer_now / 1000));  //ROSS MODIFIED 100->>1000
+		if (ocv_table[i] >= Ocv_ZeroPer_now / 1000) {												//ROSS MODIFIED 100->>1000
 			/* unit is 0.001% */
 			start_per = Calc_Linear_Interpolation(
 				(i-1)*1000, ocv_table[i-1], i*1000,
-				 ocv_table[i], (Ocv_ZeroPer_now / 100));
-			i = 11;
+				 ocv_table[i], (Ocv_ZeroPer_now / 1000));											//ROSS MODIFIED 100->>1000
+			i = 11;				//QUIT DERECTLY
 		}
 	}
 
@@ -532,9 +533,9 @@ static int get_target_use_cap(struct ricoh618_battery_info *info)
 		   Target_Cutoff_Vol, Ocv_ZeroPer_now, start_per);*/
 
 	/* get RE_CAP_now */
-	RE_CAP_now = FA_CAP_now - use_cap;
-
-	if (RE_CAP_now < RE_CAP_GO_DOWN || info->soca->Vsys_ave < info->soca->target_vsys*1000) {
+	RE_CAP_now = FA_CAP_now - use_cap ;
+	printk("the target_vysy is %d n",info->soca->target_vsys);
+	if (RE_CAP_now < RE_CAP_GO_DOWN || info->soca->Vsys_ave < info->soca->target_vsys) {		//ROSS MODIFIED FOR BUG *1000 DELETED.
 		info->soca->hurry_up_flg = 1;
 	} else {
 		info->soca->hurry_up_flg = 0;
@@ -618,7 +619,7 @@ static void ricoh618_displayed_work(struct work_struct *work)
 				g_full_flag = 0;
 				info->soca->status = RICOH618_SOCA_FULL;
 				info->soca->update_count = 0;
-			} else if ((calc_ocv(info) > (get_OCV_voltage(info, 90)))
+			} else if ((calc_ocv(info) > (get_OCV_voltage(info, 9)))   //##################ROSS MODIFIED ,90->>9
 				&& (info->soca->Ibat_ave < 300)) {
 				g_full_flag = 0;
 				info->soca->status = RICOH618_SOCA_FULL;
@@ -626,6 +627,7 @@ static void ricoh618_displayed_work(struct work_struct *work)
 			}
 		} else { /* dis-charging */
 			if (info->soca->displayed_soc/100 < RICOH618_ENTER_LOW_VOL) {
+				info->soca->target_use_cap = 0;
 				info->soca->status = RICOH618_SOCA_LOW_VOL;
 			}
 		}
@@ -975,7 +977,17 @@ static void ricoh618_displayed_work(struct work_struct *work)
 							 FG_CTRL_REG, 0x51);
 			if (err < 0)
 				dev_err(info->dev, "Error in writing the control register\n");
-			info->soca->status = RICOH618_SOCA_STABLE;
+
+			info->soca->stable_count = 0;
+			info->soca->status = RICOH618_SOCA_FG_RESET;
+			info->soca->stable_count = 1;
+			queue_delayed_work(info->monitor_wqueue,
+					&info->charge_stable_work,
+					RICOH618_FG_RESET_TIME*HZ);
+/*			if(info->soca->status == RICOH618_SOCA_STABLE)						//ross added to tested!
+				{
+					printk("##ROSS's LOG : we are in the stable .THE STATUS NOW IS %d ;\n",info->soca->status);
+				}*/
 			info->soca->ready_fg = 0;
 		}
 		info->soca->displayed_soc = 0;
@@ -1000,11 +1012,12 @@ end_flow:
 			dev_err(info->dev, "Error in writing PSWR_REG\n");
 
 		g_soc = val;
+		} 															//ROSS modified for 20131015
 
 		err = calc_capacity_in_period(info, &cc_cap, &is_charging);
 		if (err < 0)
 			dev_err(info->dev, "Read cc_sum Error !!-----\n");
-	}
+	//}																//Ross lifted the } from this line to upper2031015
 
 	printk("PMU: ------- STATUS= %d: IBAT= %d: VSYS= %d: VBAT= %d: DSOC= %d: RSOC= %d: -------\n",
 	       info->soca->status, info->soca->Ibat_ave, info->soca->Vsys_ave, info->soca->Vbat_ave,
@@ -1241,6 +1254,13 @@ static void ricoh618_get_charge_work(struct work_struct *work)
 	ret = measure_vbatt_FG(info, &info->soca->Vbat[0]);
 	ret = measure_vsys_ADC(info, &info->soca->Vsys[0]);
 	ret = measure_Ibatt_FG(info, &info->soca->Ibat[0]);
+														/*EDIT 20131011*/
+	if ((RICOH618_SOCA_FG_RESET == info->soca->status)||(info->soca->Vbat[0]<500))
+	{
+		info->soca->Vbat[0] = info->soca->Vbat_ave;
+		info->soca->Vsys[0] = info->soca->Vsys_ave;
+		info->soca->Ibat[0] = info->soca->Ibat_ave;
+	}
 
 	info->soca->chg_count++;
 
@@ -1463,14 +1483,12 @@ static int check_jeita_status(struct ricoh618_battery_info *info, bool *is_jeita
 	if (info->soca->ready_fg) {
 		temp = get_battery_temp(info) / 10;
 	} else {
-		printk(KERN_INFO "JEITA: %s *** cannot update by resetting FG ******\n", __func__);
 		goto out;
 	}
 
 	/* Read BATSET2 */
 	err = ricoh618_read(info->dev->parent, BATSET2_REG, &batset2_org);
 	if (err < 0) {
-		dev_err(info->dev, "Error in readng the battery setting register\n");
 		goto out;
 	}
 	vfchg = (batset2_org & 0x70) >> 4;
@@ -1702,7 +1720,7 @@ static void check_charging_state_work(struct work_struct *work)
 		return;
 	}
 
-	/* Repid State && Charge Current about 0mA */
+	/* Rapid State && Charge Current about 0mA*/
 	if (((chargeCurrent > 0x3ffc && chargeCurrent < 0x3fff)
 		|| chargeCurrent < 0x05) && val == 0x43) {
 		printk("PMU:%s ==== No battery !! Enter Factory mode --- chargeCurrent:%d\n"
@@ -1770,14 +1788,16 @@ static int ricoh618_set_OCV_table(struct ricoh618_battery_info *info)
 
 	if ((info->soca->target_ibat == 0) || (info->soca->target_vsys == 0)) {	/* normal version */
 		info->soca->target_ibat = RICOH618_LOAD_C;
-		info->soca->target_vsys = (get_OCV_voltage(info, 0) * 1000 - RICOH618_LOAD_C * info->soca->Rsys) / 1000;
+		info->soca->target_vsys = (get_OCV_voltage(info, 0)  - RICOH618_LOAD_C * info->soca->Rsys)/1000 ;    //MODIFIED BY ROSS FOR THE  SAKE OF THE UNIT IS NOT COMPATIBLE
+		if (info->soca->target_vsys < 3400) //Ross added !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         info->soca->target_vsys = 3400;
 	} else {	/*Slice cutoff voltage version. */
 		/* get ocv table. this table is calculated by Apprication */
 		for (i = 0; i <= 10; i = i+1) {
 			temp = (battery_init_para[i*2]<<8)
 				 | (battery_init_para[i*2+1]);
 			/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
-			temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
+			temp = ((temp * 50000 * 10 / 4095) + 5) / 10;			//MODIFIED BY ROSS 5000->>4095
 			ocv_table[i] = temp;
 		}
 
@@ -1787,8 +1807,7 @@ static int ricoh618_set_OCV_table(struct ricoh618_battery_info *info)
 
 		Ibat_min = -1 * info->soca->target_ibat;
 //		info->soca->Rsys = Rbat + 55;
-//		info->soca->cutoff_ocv = info->soca->target_vsys - Ibat_min * info->soca->Rsys / 1000;
-
+		info->soca->cutoff_ocv = info->soca->target_vsys - Ibat_min * info->soca->Rsys / 1000;	//ROSS REVIVID THIS TO SCALING
 
 		printk("PMU: -------  Rbat= %d: Rsys= %d: cutoff_ocv= %d: =======\n",
 			Rbat, info->soca->Rsys, info->soca->cutoff_ocv);
@@ -1835,7 +1854,7 @@ static int ricoh618_set_OCV_table(struct ricoh618_battery_info *info)
 			temp = (battery_init_para[i*2]<<8)
 				 | (battery_init_para[i*2+1]);
 			/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
-			temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
+			temp = ((temp * 5000 * 10 / 4095) + 5) / 10;				//WHY ALL THE DATA IS *4095/50000? ROSS
 			ocv_table[i] = temp;
 			printk("PMU : %s : ocv_table %d is %d v\n",__func__, i, ocv_table[i]);
 		}
@@ -1856,6 +1875,18 @@ static int ricoh618_set_OCV_table(struct ricoh618_battery_info *info)
 	}
 	ret = ricoh618_bulk_writes_bank1(info->dev->parent,
 			 BAT_INIT_TOP_REG, 32, battery_init_para);
+	for (i = 0; i <= 10; i = i+1) {
+			temp = (battery_init_para[i*2]<<8)
+				 | (battery_init_para[i*2+1]);
+			/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
+			temp = ((temp * 5000 * 10 / 4095) + 5) / 10;				//WHY ALL THE DATA IS *4095/50000? ROSS
+			ocv_table[i] = temp;
+			printk("PMU : %s : wr ocv_table %d is %d v\n",__func__, i, ocv_table[i]);
+		}
+	uint8_t val;
+	ret = ricoh618_read_bank1(info->dev->parent,0xD5,&val);
+    printk("PMU : wr Resister is %x v\n",val);
+
 	if (ret < 0) {
 		dev_err(info->dev, "batterry initialize error\n");
 		return ret;
@@ -2638,7 +2669,7 @@ static int get_OCV_voltage(struct ricoh618_battery_info *info, int index)
 	/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
 	ret = ret * 50000 / 4095;
 	/* return unit should be 1uV */
-	ret = ret * 1000;
+	ret = ret * 100;
 	return ret;
 }
 
@@ -3274,11 +3305,11 @@ static int ricoh618_battery_suspend(struct device *dev)
 		g_soc = val;
 
 		info->soca->suspend_soc = (info->soca->displayed_soc + 50)/100;
-
-		ret = calc_capacity_in_period(info, &cc_cap, &is_charging);
-		if (ret < 0)
-			dev_err(info->dev, "Read cc_sum Error !!-----\n");
 	}
+
+	ret = calc_capacity_in_period(info, &cc_cap, &is_charging);
+	if (ret < 0)
+			dev_err(info->dev, "Read cc_sum Error !!-----\n");
 
 	if (info->soca->status == RICOH618_SOCA_STABLE
 		|| info->soca->status == RICOH618_SOCA_FULL)
@@ -3318,7 +3349,7 @@ static int ricoh618_battery_resume(struct device *dev)
 	bool is_charging = true;
 	bool is_jeita_updated;
 	int i;
-
+	int delta_time;								//ADDED to solve the inpulse bug 20131015
 #ifdef ENABLE_MASKING_INTERRUPT_IN_SLEEP
 	ricoh618_set_bits(dev->parent, RICOH618_INTC_INTEN, CHG_INT);
 #endif
