@@ -36,7 +36,7 @@ IO_REGULATOR_DEF(
  * USB VBUS Regulators.
  * Switch of USB VBUS. It may be a actual or virtual regulator.
  */
-#ifdef CONFIG_BOARD_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_PRINTER
 VBUS_REGULATOR_DEF(
 	printer,	"Vcc-5V");
 #else
@@ -62,7 +62,7 @@ EXCLUSIVE_REGULATOR_DEF(
 	"G-sensor",	"vgsensor",	NULL,
 	NULL,		3300000,	0);
 
-#ifdef CONFIG_BOARD_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_PRINTER
 EXCLUSIVE_REGULATOR_DEF(
 	printer_vcc5,
 	"Vcc-5V",	"vhdmi",	NULL,
@@ -72,7 +72,7 @@ EXCLUSIVE_REGULATOR_DEF(
  * Fixed voltage Regulators.
  * GPIO silulator regulators. Everyone is an independent device.
  */
-#ifndef CONFIG_BOARD_WARRIOR_V_1_1
+#ifndef CONFIG_BOARD_PRINTER
 FIXED_REGULATOR_DEF(
 	printer_vcc5,
 	"Vcc-5V",	5000000,	GPIO_PA(17),
@@ -98,7 +98,7 @@ FIXED_REGULATOR_DEF(
 	NULL,		"vlcd",		NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-#ifndef CONFIG_BOARD_WARRIOR_V_1_1
+#ifndef CONFIG_BOARD_PRINTER
 	&printer_vcc5_regulator_device,
 	&printer_vbus_regulator_device,
 #endif
@@ -116,7 +116,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 static struct regulator_info printer_pmu_regulators[] = {
 	{"OUT1", &printer_vcore_init_data},
 	{"OUT3", &printer_vccio_init_data},
-#ifdef CONFIG_BOARD_WARRIOR_V_1_1
+#ifdef CONFIG_BOARD_PRINTER
 	{"OUT4", &printer_vcc5_init_data},
 #endif
 	{"OUT6", &printer_vwifi_init_data},
