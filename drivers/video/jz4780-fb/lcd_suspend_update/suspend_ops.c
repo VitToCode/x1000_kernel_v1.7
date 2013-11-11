@@ -1,4 +1,3 @@
-
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 #include <linux/init.h>
 #include <linux/pm.h>
@@ -30,8 +29,6 @@
 
 
 extern int jz4775_pm_enter(suspend_state_t state);
-
-
 /* -------------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------- */
 
@@ -44,11 +41,11 @@ extern int jz4775_pm_enter(suspend_state_t state);
 #define IMSR_OFF	(0x08)
 #define IMCR_OFF	(0x0c)
 #define IPR_OFF		(0x10)
-
 //extern void __iomem *intc_base;
 #define intc_base ((void*)(INTC_IOBASE|0xB0000000))
 
 static unsigned long intc_saved[2];
+//static int func_is_open = 1;
 //static unsigned long intc_wakeup[2];
 //static unsigned long intc_read[2];
 
@@ -230,7 +227,6 @@ static int jz4775_pm_enter_with_slcd_rtc_alarm_refresh(suspend_state_t state)
 	else {
 		return_val = jz4775_pm_enter(state);
 	}
-
 	return return_val;
 }
 
@@ -238,10 +234,8 @@ static int jz4775_pm_enter_with_slcd_rtc_alarm_refresh(suspend_state_t state)
 static int jz4775_suspend_begin(suspend_state_t state)
 {
 	printk_dbg("%s ENTER\n", __FUNCTION__);
-
-
-	slcd_refresh_prepare();
-
+	if (is_configed_slcd_rtc_alarm_refresh())
+		slcd_refresh_prepare();
 	return 0;
 }
 
@@ -261,13 +255,17 @@ static void jz4775_suspend_finish(void)
 static void jz4775_suspend_end(void)
 {
 	printk_dbg("%s ENTER\n", __FUNCTION__);
-
-	slcd_refresh_finish();
-
+	if (is_configed_slcd_rtc_alarm_refresh())
+		slcd_refresh_finish();
 	return ;
 }
-
-
+#if 0
+void set_slcd_suspend_alarm_resume(int data){
+	func_is_open = data;
+	printk("++++++func_is_open++++++is %d  \n",func_is_open);
+}
+#endif
+//EXPORT_SYMBOL(set_slcd_suspend_alarm_resume);
 
 /* called by kernel/arch/mips/xburst/soc-4775/common/pm_p0.c
  * kernel/power/suspend.c:suspend_enter()

@@ -27,7 +27,6 @@ extern int update_clock(void);
 
 extern int slcd_refresh_prepare(void);
 extern int slcd_refresh_finish(void);
-
-
+//extern void set_slcd_suspend_alarm_resume(int);
 
 #endif /* __SLCD_UPDATE_H__ */

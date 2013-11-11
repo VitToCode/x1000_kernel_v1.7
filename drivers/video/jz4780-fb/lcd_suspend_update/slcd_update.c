@@ -59,7 +59,7 @@ int update_clock(void)
 	}
 
 	/* update_slcd_frame_buffer */
-	//update_slcd_frame_buffer();
+	update_slcd_frame_buffer();
 
 	printk("mdelay(3000);\n"); mdelay(3000);
 

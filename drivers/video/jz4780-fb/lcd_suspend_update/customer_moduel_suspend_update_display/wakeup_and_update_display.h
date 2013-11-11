@@ -18,6 +18,18 @@ struct clock_buffers {
 	struct clock_bitmap_buffer * bitmap_buffers;
 };
 
+struct pic_arg {
+	int pic_count;
+	char *pic_buf;
+	char *format;
+};
+
+enum watch_ops {
+	WATCH_OPEN = 1,
+	WATCH_PIC_PATH,
+	WATCH_PERIOD,
+	WATCH_CLOSE,
+};
 
 extern int is_configed_slcd_rtc_alarm_refresh(void);
 
