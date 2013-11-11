@@ -398,6 +398,9 @@ start:
 			break;
 		if (unlikely(check_error_status(host, status) != 0)) {
 			host->state = STATE_ERROR;
+			clear_msc_irq(host, IFLG_CRC_RES_ERR
+				      | IFLG_TIMEOUT_RES
+				      | IFLG_END_CMD_RES);
 			goto start;
 		}
 		jzmmc_command_done(host, mrq->cmd);
@@ -414,6 +417,10 @@ start:
 		if (!jzmmc_check_pending(host, EVENT_DATA_COMPLETE))
 			break;
 		if (unlikely(check_error_status(host, status) != 0)) {
+			clear_msc_irq(host, IFLG_DATA_TRAN_DONE
+				      | IFLG_CRC_READ_ERR
+				      | IFLG_CRC_WRITE_ERR
+				      | IFLG_TIMEOUT_READ);
 			if (request_need_stop(host->mrq))
 				send_stop_command(host);
 			host->state = STATE_ERROR;

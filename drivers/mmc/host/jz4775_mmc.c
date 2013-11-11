@@ -397,6 +397,9 @@ start:
 			break;
 		if (unlikely(check_error_status(host, status) != 0)) {
 			host->state = STATE_ERROR;
+			clear_msc_irq(host, IFLG_CRC_RES_ERR
+				      | IFLG_TIMEOUT_RES
+				      | IFLG_END_CMD_RES);
 			goto start;
 		}
 		jzmmc_command_done(host, mrq->cmd);
@@ -413,6 +416,10 @@ start:
 		if (!jzmmc_check_pending(host, EVENT_DATA_COMPLETE))
 			break;
 		if (unlikely(check_error_status(host, status) != 0)) {
+			clear_msc_irq(host, IFLG_DATA_TRAN_DONE
+				      | IFLG_CRC_READ_ERR
+				      | IFLG_CRC_WRITE_ERR
+				      | IFLG_TIMEOUT_READ);
 			if (request_need_stop(host->mrq))
 				send_stop_command(host);
 			host->state = STATE_ERROR;
@@ -1229,7 +1236,7 @@ static inline void jzmmc_power_on(struct jzmmc_host *host)
 	dev_vdbg(host->dev, "power_on\n");
 
 	if (!IS_ERR(host->power)) {
-		if(!regulator_is_enabled(host->power))
+		if (!regulator_is_enabled(host->power))
 		regulator_enable(host->power);
 
 	} else if (host->pdata->gpio) {
@@ -1242,7 +1249,7 @@ static inline void jzmmc_power_off(struct jzmmc_host *host)
 	dev_vdbg(host->dev, "power_off\n");
 
 	if (!IS_ERR(host->power)) {
-		if(regulator_is_enabled(host->power))
+		if (regulator_is_enabled(host->power))
 			regulator_disable(host->power);
 
 	} else if (host->pdata->gpio) {
@@ -1812,6 +1819,8 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
 static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
@@ -1834,6 +1843,8 @@ static int jzmmc_resume(struct platform_device *dev)
 	return ret;
 }
 
+#endif
+
 static void jzmmc_shutdown(struct platform_device *pdev)
 {
 #if 0
@@ -1855,8 +1866,10 @@ static struct platform_driver jzmmc_driver = {
 		.name	= "jzmmc",
 		.owner	= THIS_MODULE,
 	},
+#ifdef CONFIG_PM
 	.suspend = jzmmc_suspend,
 	.resume = jzmmc_resume,
+#endif
 	.remove		= __exit_p(jzmmc_remove),
 	.shutdown	= jzmmc_shutdown,
 };
