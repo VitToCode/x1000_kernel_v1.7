@@ -1108,10 +1108,24 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	INIT_LIST_HEAD(&(dp->use_node_list));
 
 	/* alloc memory */
+
+#ifndef FORCE_USE_TCSM
 	dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
+												  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
+												  &dp->paddr,
+												  GFP_KERNEL | GFP_DMA);
+#else
+	if (direction == DMA_FROM_DEVICE) {
+		dp->vaddr = 0xf4000000;
+	} else if (direction == DMA_TO_DEVICE) {
+		dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
 													  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
 													  &dp->paddr,
 													  GFP_KERNEL | GFP_DMA);
+
+	}
+#endif
+
 	if ((void*)dp->vaddr == NULL)
 		return -ENOMEM;
 
