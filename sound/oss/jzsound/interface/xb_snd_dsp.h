@@ -46,6 +46,9 @@
 #define DEFAULT_RECORD_SAMPLERATE	44100
 #define DEFAULT_REPLAY_CHANNEL		2
 #define DEFAULT_RECORD_CHANNEL		1
+
+//#define FORCE_USE_TCSM
+
 /**
  * sound device
  **/

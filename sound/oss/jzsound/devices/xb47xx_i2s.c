@@ -1027,7 +1027,11 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_I2S0;
 	(*dp)->fragsize = FRAGSIZE_M;
+#ifndef FORCE_USE_TCSM
 	(*dp)->fragcnt = FRAGCNT_L;
+#else
+	(*dp)->fragcnt = FRAGCNT_M;
+#endif
 
 	if (direction == DMA_TO_DEVICE) {
 		(*dp)->dma_config.src_maxburst = 64;
