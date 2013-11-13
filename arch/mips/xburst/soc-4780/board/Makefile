@@ -31,3 +31,4 @@ obj-$(CONFIG_BOARD_NC750)		+= nc750/
 obj-$(CONFIG_BOARD_VEHICLE)		+= vehicle/
 obj-$(CONFIG_BOARD_NPM709J)             += npm709j/
 obj-$(CONFIG_BOARD_RY1000)     += ry1000/
+obj-$(CONFIG_BOARD_DS_J801MB)		+= ds-j801mb/
