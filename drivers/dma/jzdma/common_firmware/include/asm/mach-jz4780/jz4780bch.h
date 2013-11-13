@@ -51,7 +51,7 @@
 #define BCH_CR_TAG_BIT		16 /* BCH User-provided TAG */
 #define BCH_CR_TAG_MASK		(0xffff << BCH_CR_TAG_BIT)
 #define BCH_CR_MZSB_BIT		13 /* BCH MAX Zero Bit in Erased Block */
-#define BCH_CR_MZSB_MASK	(0x7 << BCH_CR_MZSB_BIT)
+#define BCH_CR_MZSB_MASK(n)	(((n) > 12?0x7:0x2) << BCH_CR_MZSB_BIT)
 #define BCH_CR_BPS		(1 << 12)  /* BCH Decoder Bypass */
 #define BCH_CR_BSEL_BIT		4
 #define BCH_CR_BSEL_MASK	(0x7f << BCH_CR_BSEL_BIT)
@@ -126,15 +126,15 @@
  *************************************************************************/
 #define __bch_encoding(n)						\
 do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK);	\
+	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n);	\
+	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n));	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)
 
 #define __bch_decoding(n)						\
 do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK;	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK);	\
+	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n);	\
+	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n));	\
 	REG_BCH_CRS = BCH_CR_INIT;					\
 } while(0)
 

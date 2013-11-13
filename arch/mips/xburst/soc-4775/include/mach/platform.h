@@ -59,7 +59,7 @@
         { .name = "nand-pa", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x000c00ff, },	\
         { .name = "nand-pb", .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000003, }
 #define NAND_PORTA_BUS16						\
-        { .name = "nand-pg", .port = GPIO_PORT_G, .func = GPIO_FUNC_1, .pins = 0x0003fb00, }
+        { .name = "nand-pg", .port = GPIO_PORT_G, .func = GPIO_FUNC_1, .pins = 0x0003fc00, }
 #define NAND_PORTA_CS1                                                      \
         { .name = "nand-cs1", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<21, }
 #define NAND_PORTA_CS2                                                      \
