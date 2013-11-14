@@ -84,13 +84,15 @@ struct jzmmc_platform_data zpad80_sdio_pdata = {
  * or PA0 will be request.
  */
 static struct card_gpio zpad80_tf_gpio = {
-	.cd				= {GPIO_PA(26),		LOW_ENABLE},
+	.cd				= {GPIO_PA(26),		LOW_ENABLE},//for zpad80
+//	.cd				= {-1,		LOW_ENABLE},//for ers
 	.wp				= {-1,			-1},
-	.pwr				= {-1,			-1},
+	.pwr			= {-1,			-1},
 };
 
 struct jzmmc_platform_data zpad80_tf_pdata = {
-	.removal  			= DONTCARE, //REMOVABLE,
+//	.removal  			= DONTCARE, //REMOVABLE, for ers
+	.removal  			= REMOVABLE, //REMOVABLE, for zpad80
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA,

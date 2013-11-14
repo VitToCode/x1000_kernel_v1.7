@@ -23,7 +23,7 @@
 /* FIXME! when board fixed, remove it */
 FIXED_REGULATOR_DEF(
 	zpad80_vwifi,
-	"Wi-Fi",	3300000,	GPIO_PF(10),
+	"Wi-Fi",	3300000,	GPIO_PD(8),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,	"vwifi",	NULL);
 

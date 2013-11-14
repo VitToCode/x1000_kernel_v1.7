@@ -116,7 +116,8 @@ static char *zpad80_ac_supplied_to[] = {
 static struct gpio_charger_platform_data zpad80_ac_charger_pdata = {
 	.name = "ac",
 	.type = POWER_SUPPLY_TYPE_MAINS,
-	.gpio = GPIO_PF(6),
+	.gpio = GPIO_PF(6),	// for zpad80
+//	.gpio = GPIO_PF(4),	// for ers
 	.gpio_active_low = 0,
 	.supplied_to = zpad80_ac_supplied_to,
 	.num_supplicants = ARRAY_SIZE(zpad80_ac_supplied_to),
@@ -131,7 +132,8 @@ static struct platform_device zpad80_ac_charger_device = {
 
 /* li-ion charger */
 static struct li_ion_charger_platform_data zpad80_li_ion_charger_pdata = {
-	.gpio = GPIO_PF(8),
+	.gpio = GPIO_PF(8),	//for zpad80
+//	.gpio = GPIO_PF(5), //for ers
 	.gpio_active_low = 1,
 };
 
