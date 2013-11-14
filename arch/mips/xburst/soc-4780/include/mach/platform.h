@@ -110,9 +110,9 @@
         { .name = "nand-cs5", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<25, }
 #define NEMC_PORTA_CS6                                                      \
         { .name = "nemc-cs6", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x1<<26 | 0x1<<17 | 0x1<<16, }
-#define DM9000_CDM_TO_SA2                                                   \
+#define DM9000_CDM_TO_SA1                                                   \
         { .name = "sdio-func", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x000000ff, }, \
-        { .name = "addr-sa2",  .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000002, }
+        { .name = "addr-sa1",  .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000002, }
 /*******************************************************************************************************************/
 #define DISABLE_LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fffffff, }
