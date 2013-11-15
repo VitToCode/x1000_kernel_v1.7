@@ -470,8 +470,8 @@ static int jz4775_pm_enter(suspend_state_t state)
 #ifdef	CONFIG_TRAPS_USE_TCSM
 	cpu0_save_tscm();
 #endif
-	cpm_outl(LCR_LPM_SLEEP | 0xf000ff00,CPM_LCR);
-	while((cpm_inl(CPM_LCR) & 0xff000000) != 0xff000000);
+	cpm_outl(LCR_LPM_SLEEP | 0xc000ff00,CPM_LCR);
+	while((cpm_inl(CPM_LCR) & 0xcc000000) != 0xcc000000);
 	mdelay(1);
 	
 	cpm_outl(cpm_inl(CPM_USBPCR) | (1<<25),CPM_USBPCR);

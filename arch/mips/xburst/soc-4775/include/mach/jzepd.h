@@ -12,6 +12,14 @@
 
 #include <linux/fb.h>
 
+struct jz_epd_power_pin {
+	char *name;	// power name
+	unsigned active_level:1; // active level if power on
+	unsigned int pwr_gpio;	 // gpio
+	unsigned int pwr_on_delay; // power-on delay (us)
+	unsigned int pwr_off_delay; // power-off delay (us)
+};
+
 struct jz_epd_power_ctrl {
 	void (*epd_power_init)(void);
 	void (*epd_power_on)(void);

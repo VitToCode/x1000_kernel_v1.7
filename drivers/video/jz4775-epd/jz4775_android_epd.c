@@ -33,6 +33,7 @@
 #include "jz4775_android_epd.h"
 #include "epdc_regs.h"
 #include "epd_panel/epd_panel_info.h"
+#include "vee_lut/vee_lut.h"
 
 #define	CURBUF_NUM	1
 #define EPD_BPP		4
@@ -62,20 +63,22 @@
 #define	EPDC_LUT_DEBUG	0
 
 //#define EPDC_VSYNC_HARDWARE
-#define EPDC_VSYNC_TIME
+//#define EPDC_VSYNC_TIME
 
 static volatile unsigned char sta_lut_done;
 static volatile unsigned char sta_ref_start;
 static volatile unsigned char sta_ref_stop;
 static volatile unsigned char sta_pwron;
 static volatile unsigned char sta_pwroff = 1;
+static volatile unsigned char has_started;
 
 static unsigned char *frame_buffer	= NULL;
+static unsigned char *waveform_buffer   = NULL;
 static unsigned char *current_buffer	= NULL;
+static unsigned char *current_a2buffer	= NULL;
 static unsigned char *snooping_buffer	= NULL;
 static unsigned char *working_buffer	= NULL;
 static unsigned char *wfm_lut_buf	= NULL;
-extern unsigned char WAVEFORM_LUT[];
 
 static unsigned char *wfm_buf	= NULL;				// LUT buffer
 static unsigned char *snp_buf	= NULL;				// refresh command buffer
@@ -96,33 +99,26 @@ static unsigned int epd_temp = 8;
 static unsigned int frame_num;
 
 static unsigned int ref_times = 0;
-static unsigned int parallel_refresh_interval_times = 200;
+static unsigned int parallel_refresh_interval_times = 20;
 
 /*static struct timer_list temp_timer;*/
 static struct epd_panel_info panel_info;
+static struct timer_list mode_a2out_timer;
 
-typedef enum {
-	MODE_INIT,
-	MODE_DU,
-	MODE_GC16,
-	MODE_EMPTY,
-	MODE_A2,
-	MODE_GL16,
-	MODE_A2IN,
-	MODE_A2OUT,
-	MODE_GC16GU,
-	MODE_AUTO_DU,
-	MODE_AUTO_DUGC4,
-}epd_mode_e;
-static epd_mode_e epd_mode_set = MODE_GC16GU;
+static epd_mode_e epd_mode_set = MODE_A2;
+static epd_mode_e prev_epd_mode = -1,/*MODE_A2,*/ cur_epd_mode = MODE_GC16;
+static ref_mode_e ref_mode_set = PARALLEL_REF;
+static ref_mode_e prev_ref_mode = -1,/*PARTIAL_REF,*/ cur_ref_mode = PARALLEL_REF;
 
-typedef enum{
-	PARALLEL_REF,
-	PARTIAL_REF
-}ref_mode_e;
+extern unsigned char WAVEFORM_LUT[];
+extern struct compression_lut COMPRESSION_LUT[];
 
 extern int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var,
 		unsigned char *frame_buffer, unsigned char *current_buffer);
+extern int jz4775_epdce_vee(unsigned char * vee_lut);
+static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
+
+int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value);
 
 static int jz4775fb_open(struct fb_info *info, int user)
 {
@@ -135,22 +131,52 @@ static int jz4775fb_release(struct fb_info *info, int user)
 	dprintk("Close the framebuffer %s\n", info->fix.id);
 	return 0;
 }
-/*
-static void jz4775fb_print_palette(void *palette, int len)
+
+static int jz4775fb_wfm_lut_decompression(unsigned char *source_data,
+		unsigned char *data, struct compression_lut *lut)
 {
-	unsigned short *pal = (unsigned short *)palette;
-	int i;
-	dprintk("palette:\n");
-	for (i = 0; i < len; i++) {
-		if ((i * 8) % 256 == 0)
-			dprintk("\nfrm%d:\t", i * 8 / 256);
-		if (i % 16 == 0)
-			dprintk("\n\t");
-		dprintk("%04x ", pal[i]);
+	unsigned int data_length = lut[0].number;
+	unsigned int source_data_subscript = 0;
+	unsigned int data_subscript = 0;
+	unsigned int lut_subscript = 3;
+	unsigned int temp_i = 0;
+
+	while (data_subscript < data_length) {
+		if (source_data_subscript == lut[lut_subscript].subscript) {
+			for (temp_i = 0; temp_i < lut[lut_subscript].number + 1; temp_i++) {
+				data[data_subscript] = source_data[source_data_subscript];
+				data_subscript++;
+			}
+			lut_subscript++;
+		} else {
+			data[data_subscript] = source_data[source_data_subscript];
+			data_subscript++;
+		}
+		source_data_subscript++;
 	}
-	dprintk("\n");
+	return 0;
 }
-*/
+
+static int jz4775fb_epd_power_on(struct jz_epd *jz_epd)
+{
+	if (!jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_on) {
+		jz_epd->pdata->epd_power_ctrl.epd_power_on();
+		jz_epd->epd_power = 1;
+	}
+	REG_EPD_CTRL |= EPD_CTRL_PWRON;
+	return 0;
+}
+
+static int jz4775fb_epd_power_off(struct jz_epd *jz_epd)
+{
+	REG_EPD_CTRL |= EPD_CTRL_PWROFF;
+	if(jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_off) {
+		jz_epd->pdata->epd_power_ctrl.epd_power_off();
+		jz_epd->epd_power = 0;
+	}
+	return 0;
+}
+
 static void print_fb_info(struct fb_info *info)
 {
 	dprintk("info->node		= %d\n", info->node);
@@ -327,9 +353,9 @@ static void jz4775fb_fill_wfm_lut(epd_mode_e epd_mode)
 
 		frame_num = wfm_buf[pos / 2 + 64 * epd_mode + 4 * (epd_temp) + 3];
 
-		dprintk("PVI epd_mode = %d, epd_temp = %d\t", epd_mode, epd_temp);
-		dprintk("waveform_addr = 0x%x\n", (unsigned int)waveform_addr);
-		dprintk("frame_num = %d\n", frame_num);
+		printk("PVI epd_mode = %d, epd_temp = %d\t", epd_mode, epd_temp);
+		printk("waveform_addr = 0x%x\n", (unsigned int)waveform_addr);
+		printk("frame_num = %d\n", frame_num);
 
 		memcpy(wfm_lut_buf, waveform_addr, SIZE_PER_FRAME * frame_num);
 		dma_cache_wback_inv((unsigned int)wfm_lut_buf, WFM_LUT_SIZE);
@@ -434,53 +460,30 @@ static int jz4775fb_epd_mode_set(epd_mode_e epd_mode)
 {
 	epd_mode_e mode  = epd_mode;
 
-	if(mode == MODE_INIT)
-	{
+	if(mode == MODE_INIT) {
 		dprintk("Set epd mode MODE_INIT\n");
-	}
-	else if(mode == MODE_DU)
-	{
+	} else if(mode == MODE_DU) {
 		dprintk("Set epd mode MODE_DU\n");
-	}
-	else if(mode == MODE_GC16GU)
-	{
+	} else if(mode == MODE_GC16GU) {
 		dprintk("Set epd mode MODE_GC16GU\n");
-	}
-	else if(mode == MODE_GC16)
-	{
+	} else if(mode == MODE_GC16) {
 		dprintk("Set epd mode MODE_GC16\n");
-	}
-	else if(mode == MODE_EMPTY)
-	{
+	} else if(mode == MODE_EMPTY) {
 		dprintk("Set epd mode MODE_EMPTY\n");
 		return -1;
-	}
-	else if(mode == MODE_A2)
-	{
+	} else if(mode == MODE_A2) {
 		dprintk("Set epd mode MODE_A2\n");
-	}
-	else if(mode == MODE_GL16)
-	{
+	} else if(mode == MODE_GL16) {
 		dprintk("Set epd mode MODE_GL16\n");
-	}
-	else if(mode == MODE_A2IN)
-	{
+	} else if(mode == MODE_A2IN) {
 		dprintk("Set epd mode MODE_A2IN\n");
-	}
-	else if(mode == MODE_A2OUT)
-	{
+	} else if(mode == MODE_A2OUT) {
 		dprintk("Set epd mode MODE_A2OUT\n");
-	}
-	else if(mode == MODE_AUTO_DU)
-	{
+	} else if(mode == MODE_AUTO_DU) {
 		dprintk("Set epd mode MODE_AUTO_DU\n");
-	}
-	else if(mode == MODE_AUTO_DUGC4)
-	{
+	} else if(mode == MODE_AUTO_DUGC4) {
 		dprintk("Set epd mode MODE_AUTO_DUGC4\n");
-	}
-	else
-	{
+	} else {
 		dprintk("\nSet epd mode invalid!\n");
 		return -1;
 	}
@@ -500,7 +503,7 @@ static int jz4775fb_load_wfm_lut(epd_mode_e epd_mode)
 	REG_EPD_CFG	|= (frame_num - 1) << EPD_CFG_STEP;
 	sta_lut_done = 0;
 	REG_EPD_CTRL	|= EPD_CTRL_LUT_STRT ;
-	WAIT_INTERRUPT_STATUS(sta_lut_done == 1)
+	WAIT_INTERRUPT_STATUS(sta_lut_done == 1);
 	return 0;
 }
 
@@ -572,6 +575,32 @@ static int jz4775fb_load_auto_du_gc4_wfm_lut(void)
 	return 0;
 }
 
+static void jz4775fb_a2out_refresh(void *data)
+{
+	struct jz_epd *jz_epd = data;
+	if(sta_pwroff == 1)
+	{
+		mutex_lock(&jz_epd->lock);
+		if(jz_epd->is_suspend) {
+			mutex_unlock(&jz_epd->lock);
+			return;
+		}
+		cur_epd_mode = MODE_A2OUT;
+		/*jz4775fb_load_wfm_lut(cur_epd_mode, cur_epd_temp);*/
+		jz4775fb_load_wfm_lut(cur_epd_mode);
+		cur_ref_mode = PARTIAL_REF;
+		REG_EPD_CFG	&= ~1;
+		REG_EPD_CFG	|= cur_ref_mode;
+		prev_ref_mode = cur_ref_mode;
+		/*memset(current_buffer, 0xff, cur_buf_size);*/
+		REG_EPD_CURBF = (unsigned int)virt_to_phys(current_buffer);
+		sta_pwroff = 0;
+		has_started = 1;
+		jz4775fb_epd_power_on(jz_epd);
+		mutex_unlock(&jz_epd->lock);
+	}
+}
+
 static void jz4775fb_start_epd_refresh(void)
 {
 	*(volatile unsigned char *)snp_buf = 0xff;
@@ -622,88 +651,72 @@ static int jzfb_wait_for_vsync_thread(void *data)
 static irqreturn_t jz4775fb_epdc_interrupt_handler(int irq, void *data)
 {
 	unsigned int status = REG_EPD_STA;
-	unsigned int istatus= REG_EPD_ISRC;
 	struct jz_epd *jz_epd = (struct jz_epd *)data;
 
-	if(status & EPD_STA_IFF2U)
-	{
+	if(status & EPD_STA_IFF2U) {
 		REG_EPD_STA &= ~EPD_STA_IFF2U;
 	}
 
-	if(status & EPD_STA_IFF1U)
-	{
+	if(status & EPD_STA_IFF1U) {
 		REG_EPD_STA &= ~EPD_STA_IFF1U;
 	}
 
-	if(status & EPD_STA_IFF0U)
-	{
+	if(status & EPD_STA_IFF0U) {
 		REG_EPD_STA &= ~EPD_STA_IFF0U;
 	}
 
-	if(status & EPD_STA_WFF1O)
-	{
+	if(status & EPD_STA_WFF1O) {
 		REG_EPD_STA &= ~EPD_STA_WFF1O;
 	}
 
-	if(status & EPD_STA_WFF0O)
-	{
+	if(status & EPD_STA_WFF0O) {
 		REG_EPD_STA &= ~EPD_STA_WFF0O;
 	}
 
-	if(status & EPD_STA_OFFU)
-	{
+	if(status & EPD_STA_OFFU) {
 		REG_EPD_STA &= ~EPD_STA_OFFU;
 	}
 
-	if(status & EPD_STA_BDR_DONE)
-	{
+	if(status & EPD_STA_BDR_DONE) {
 		REG_EPD_STA &= ~EPD_STA_BDR_DONE;
 	}
 
-	if((status & EPD_STA_PWROFF) && (istatus & EPD_ISRC_PWROFF_INT_OPEN))
-	{
+	if(status & EPD_STA_PWROFF)	{
 		REG_EPD_STA &= ~EPD_STA_PWROFF;
 		sta_pwroff = 1;
-		if(jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_off) {
-			jz_epd->pdata->epd_power_ctrl.epd_power_off();
-			jz_epd->epd_power = 0;
-		}
+		if(cur_epd_mode == MODE_A2IN || cur_epd_mode == MODE_A2)
+			mod_timer(&mode_a2out_timer, jiffies + HZ / 2);
 	}
 
-	if((status & EPD_STA_PWRON) && (istatus & EPD_ISRC_PWRON_INT_OPEN))
-	{
+	if(status & EPD_STA_PWRON) {
 		REG_EPD_STA &= ~EPD_STA_PWRON;
+		jz4775fb_start_epd_refresh();
 		sta_pwron = 1;
 	}
 
-	if((status & EPD_STA_REF_STOP) && (istatus & EPD_ISRC_REF_STOP_INT_OPEN))
-	{
+	if(status & EPD_STA_REF_STOP) {
 		REG_EPD_STA &= ~EPD_STA_REF_STOP;
 		sta_ref_stop = 1;
 #ifdef EPDC_VSYNC_HARDWARE
 		jz_epd->vsync_timestamp = ktime_get();
 		wake_up_interruptible(&jz_epd->vsync_wq);
 #endif
-		if(jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_off) {
-			jz_epd->pdata->epd_power_ctrl.epd_power_off();
-			jz_epd->epd_power = 0;
-		}
+		jz4775fb_epd_power_off(jz_epd);
 	}
 
-	if(status & EPD_STA_REF_STRT)
-	{
+	if(status & EPD_STA_REF_STRT) {
 		REG_EPD_STA &= ~EPD_STA_REF_STRT;
 		sta_ref_start = 1;
+		sta_ref_stop = 0;
+		has_started = 0;
 	}
 
-	if(status & EPD_STA_LUT_DONE)
-	{
+	if(status & EPD_STA_LUT_DONE) {
 		REG_EPD_STA &= ~EPD_STA_LUT_DONE;
 		sta_lut_done = 1;
 	}
 
-	if((status & EPD_STA_FRM_END) && (istatus & EPD_ISRC_FRM_END_INT_OPEN))
-	{
+	if(status & EPD_STA_FRM_END) {
 		REG_EPD_STA &= ~EPD_STA_FRM_END;
 	}
 
@@ -745,75 +758,59 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 	struct fb_info *info_ptr = info;
 	struct jz_epd *jz_epd = info->par;
 
-	static epd_mode_e prev_epd_mode = MODE_GC16GU, cur_epd_mode = MODE_GC16GU;
-	static ref_mode_e prev_ref_mode = PARALLEL_REF, cur_ref_mode = PARALLEL_REF;
-
 	if (var_ptr->xoffset - info_ptr->var.xoffset)
 	{
 		dprintk("Not support X panning now!\n");
 		return -EINVAL;
 	}
 
+	mutex_lock(&jz_epd->lock);
+	if(jz_epd->is_suspend) {
+		mutex_unlock(&jz_epd->lock);
+		return 0;
+	}
+
 	next_frm = var_ptr->yoffset / var_ptr->yres;
 	frm_buf_addr = frame_buffer + frm_buf_size * next_frm;
 
-	cur_epd_mode = epd_mode_set;
-	if(cur_epd_mode == MODE_GC16)
-	{
+	if(epd_mode_set == MODE_A2) {
+		cur_epd_mode = ((cur_epd_mode != MODE_A2IN && cur_epd_mode != MODE_A2) ? MODE_A2IN : MODE_A2);
+	} else {
+		cur_epd_mode = epd_mode_set;
+	}
+
+	if(cur_epd_mode == MODE_A2IN) {
 		cur_ref_mode = PARALLEL_REF;
 		ref_times = 0;
-	}
-	else if(cur_epd_mode == MODE_EMPTY)
-	{
-		cur_epd_mode = MODE_GC16GU;
+	} else if(cur_epd_mode == MODE_A2) {
 		cur_ref_mode = PARTIAL_REF;
-		/*cur_ref_mode = PARALLEL_REF;*/
-	}
-	else
+		ref_times = 0;
+	} else if(cur_epd_mode == MODE_A2OUT) {
+		cur_ref_mode = ref_mode_set;
+		ref_times = 0;
+	} else if(((REG_EPD_STA & EPD_STA_EPD_IDLE) && (++ref_times == parallel_refresh_interval_times))) {
+		cur_epd_mode = MODE_GC16;
+		cur_ref_mode = PARALLEL_REF;
+		ref_times = 0;
+	} else
+		cur_ref_mode = ref_mode_set;
+
+	if((cur_ref_mode != prev_ref_mode))
 	{
-		if((parallel_refresh_interval_times == 0) || (++ref_times != parallel_refresh_interval_times))
-		{
-			cur_ref_mode = PARTIAL_REF;
-			/*cur_ref_mode = PARALLEL_REF;*/
-		}
-		else
-		{
-			cur_epd_mode = MODE_GC16;
-			cur_ref_mode = PARALLEL_REF;
-			ref_times = 0;
-		}
-	}
-
-	cur_buf_addr = current_buffer;
-	jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
-
-	if((cur_ref_mode != prev_ref_mode) || (cur_ref_mode == PARALLEL_REF))
-	{
-		/*if(sta_pwroff == 0)
-		{
-			WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
-		}*/
-		if(jz_epd->epd_power == 1)
-		{
-			WAIT_INTERRUPT_STATUS(jz_epd->epd_power == 0);
-		}
-
-		if(cur_ref_mode == PARTIAL_REF)
-		{
+		WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
+		if(cur_ref_mode == PARTIAL_REF)	{
 			REG_EPD_CFG	&= ~EPD_CFG_PARTIAL;
 			REG_EPD_CFG	|= EPD_CFG_PARTIAL;
-		}
-		else if(cur_ref_mode == PARALLEL_REF)
-		{
+		} else if(cur_ref_mode == PARALLEL_REF)	{
 			REG_EPD_CFG	&= ~EPD_CFG_PARTIAL;
 			REG_EPD_CFG	|= EPD_CFG_PARALLEL;
 		}
+		prev_ref_mode = cur_ref_mode;
 	}
 
 	if(cur_epd_mode != prev_epd_mode)
 	{
 		jz4775fb_epd_mode_set(cur_epd_mode);
-
 		if(cur_epd_mode == MODE_AUTO_DUGC4)
 			jz4775fb_load_auto_du_gc4_wfm_lut();
 		else if(cur_epd_mode == MODE_AUTO_DU)
@@ -822,32 +819,29 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 			jz4775fb_load_wfm_lut(cur_epd_mode);
 	}
 
-	if((REG_EPD_STA & EPD_STA_EPD_IDLE))
+	cur_buf_addr = current_buffer;
+	jz4775_epdce_vee(vee_lut_16gs);
+	jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
+	REG_EPD_CURBF = (unsigned int)virt_to_phys(cur_buf_addr);
+
+	if(cur_epd_mode == MODE_A2IN || cur_epd_mode == MODE_A2) {
+		cur_buf_addr = current_a2buffer;
+		jz4775_epdce_vee(vee_lut_2gs);
+		jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
+		REG_EPD_CURBF = (unsigned int)virt_to_phys(cur_buf_addr);
+	}
+
+	if((REG_EPD_STA & EPD_STA_EPD_IDLE) && !has_started)
 	{
-		/*if(sta_pwroff == 0)
-		{
-			WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
-		}
+		WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
 		sta_pwroff = 0;
-		sta_pwron = 0;
-		mdelay(5);
-		REG_EPD_CTRL |= EPD_CTRL_PWRON;
-
-		//TODO: if the time is not well ctrl , there will X2D-timeout.
-		WAIT_INTERRUPT_STATUS(sta_pwron == 1);
-		mdelay(1);*/
-
-		// NOTE:Between power-on and power-off to ensure correct logic.
-		if(!jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_on) {
-			jz_epd->pdata->epd_power_ctrl.epd_power_on();
-			jz_epd->epd_power = 1;
-		}
-		jz4775fb_start_epd_refresh();
+		has_started = 1;
+		jz4775fb_epd_power_on(jz_epd);
 	}
 
 	prev_epd_mode = cur_epd_mode;
-	prev_ref_mode = cur_ref_mode;
 
+	mutex_unlock(&jz_epd->lock);
 	return 0;
 }
 
@@ -856,6 +850,7 @@ static int jz4775fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long 
 	void __user *argp = (void __user *)arg;
 	unsigned int value;
 	struct jz_epd *jz_epd = (struct jz_epd *)info->par;
+	epd_mode_e epd_mode_set;
 
 	switch (cmd)
 	{
@@ -863,6 +858,16 @@ static int jz4775fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long 
 			if (copy_from_user(&epd_mode_set, argp, sizeof(epd_mode_e)))
 				return -EFAULT;
 			break;
+
+		case FBIO_SET_EINK_REFRESH_MODE:
+			if (copy_from_user(&ref_mode_set, argp, sizeof(ref_mode_e)))
+				return -EFAULT;
+			break;
+
+		case FBIO_SET_EINK_CLEAR_SCREEN:
+			jz4775fb_clear_screen(jz_epd, 0xff);
+			break;
+
 		case JZFB_SET_VSYNCINT:
 			if (copy_from_user(&value, argp, sizeof(int)))
 				return -EFAULT;
@@ -1036,7 +1041,7 @@ static int jz4775fb_map_smem(void)
 	wrk1_buf_size	= cur_buf_width	* cur_buf_height * 8 / 8;	/* pixcnt buffer */
 	wrk_buf_size	= wrk0_buf_size	+ wrk1_buf_size;		/* new + old + pixcnt buffer */
 
-	wfm_buf_size	= 1024 * 1024;
+	wfm_buf_size	= 1024 * 1024;//COMPRESSION_LUT[0].number;
 	snp_buf_size	= 4096 * 2;
 
 	dprintk("frm_buf_size	= %d\n", frm_buf_size);
@@ -1054,15 +1059,20 @@ static int jz4775fb_map_smem(void)
 
 	frame_buffer		= (unsigned char *)__get_free_pages(GFP_KERNEL, frm_buf_order);
 	current_buffer		= kmalloc((cur_buf_size) * CURBUF_NUM, GFP_KERNEL);
+	current_a2buffer	= kmalloc(cur_buf_size, GFP_KERNEL);
+	waveform_buffer     = kmalloc(wfm_buf_size, GFP_KERNEL);
 	working_buffer		= kmalloc(wrk_buf_size, GFP_KERNEL);
 	snooping_buffer		= kmalloc(snp_buf_size, GFP_KERNEL);
 	wfm_lut_buf			= kmalloc(WFM_LUT_SIZE, GFP_KERNEL);
 
-	if((!frame_buffer) || (!current_buffer) || (!working_buffer) || (!snooping_buffer) || (!wfm_lut_buf))
+	if((!frame_buffer) || (!current_buffer) || (!current_a2buffer) ||
+			(!waveform_buffer) || (!working_buffer) || (!snooping_buffer) || (!wfm_lut_buf))
 		return -ENOMEM;
 
 	memset((void *)frame_buffer,	0x00, PAGE_SIZE << frm_buf_order);
 	memset((void *)current_buffer,	0x00, cur_buf_size);
+	memset((void *)current_a2buffer, 0x00, cur_buf_size);
+	memset((void *)waveform_buffer, 0x00, wfm_buf_size);
 	memset((void *)working_buffer,	0x00, wrk_buf_size);
 	memset((void *)snooping_buffer,	0x00, snp_buf_size);
 	memset((void *)wfm_lut_buf,	0x00, WFM_LUT_SIZE);
@@ -1071,6 +1081,7 @@ static int jz4775fb_map_smem(void)
 	dprintk("frame_buffer	= 0x%08x\n", (unsigned int)frame_buffer);
 	dprintk("current_buffer	= 0x%08x\n", (unsigned int)current_buffer);
 	dprintk("working_buffer	= 0x%08x\n", (unsigned int)working_buffer);
+	dprintk("waveform_buffer    = 0x%08x\n", (unsigned int)waveform_buffer);
 	dprintk("snooping_buffer	= 0x%08x\n", (unsigned int)snooping_buffer);
 	dprintk("wfm_lut_buf = %p\n", wfm_lut_buf);
 
@@ -1088,7 +1099,8 @@ static int jz4775fb_map_smem(void)
 	dprintk("wrk0_buf = 0x%08x\n", (unsigned int)wrk0_buf);
 	dprintk("wrk1_buf = 0x%08x\n", (unsigned int)wrk1_buf);
 
-	wfm_buf = WAVEFORM_LUT;
+	jz4775fb_wfm_lut_decompression(WAVEFORM_LUT, waveform_buffer, COMPRESSION_LUT);
+	wfm_buf = (unsigned char *)(waveform_buffer);
 	dprintk("wfm_buf = 0x%08x\n", (unsigned int)wfm_buf);
 
 	snp_buf = snooping_buffer;
@@ -1110,6 +1122,12 @@ static void jz4775fb_unmap_smem(void)
 	if(current_buffer)
 		kfree(current_buffer);
 
+	if(current_a2buffer)
+		kfree(current_a2buffer);
+
+	if(waveform_buffer)
+		kfree(waveform_buffer);
+
 	if(working_buffer)
 		kfree(working_buffer);
 
@@ -1118,47 +1136,174 @@ static void jz4775fb_unmap_smem(void)
 
 	return;
 }
-/*
-static void jz4775fb_rotate_logobuf_180(unsigned char * buf, unsigned int size)
-{
-	int i;
-	unsigned char tmp;
-	unsigned int half_size = size / 2;
 
-	for(i = 0; i < half_size; i++)
-	{
-		tmp = buf[i];
-		buf[i] = buf[size - i];
-		buf[size - i] = tmp;
-	}
-}
-*/
-int jz4775fb_clear_screen(unsigned char value)
+int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value)
 {
-	if(sta_pwroff == 0)
-		WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
+	mutex_lock(&jz_epd->lock);
+	if(jz_epd->is_suspend) {
+		mutex_unlock(&jz_epd->lock);
+		return 0;
+	}
+	WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
 	sta_pwron = 0;
-	mdelay(5);
-	REG_EPD_CTRL |= EPD_CTRL_PWRON;
-	WAIT_INTERRUPT_STATUS(sta_pwron == 1);
+	cur_epd_mode = MODE_GC16;
 	jz4775fb_load_wfm_lut(MODE_GC16);
+	cur_ref_mode = PARALLEL_REF;
+	REG_EPD_CFG	&= ~1;
+	REG_EPD_CFG	|= cur_ref_mode;
+	prev_ref_mode = cur_ref_mode;
 	memset(current_buffer, value, cur_buf_size);
 	dma_cache_wback((unsigned int)current_buffer, cur_buf_size);
+	REG_EPD_CURBF = (unsigned int)virt_to_phys(current_buffer);
 	sta_pwroff = 0;
-	jz4775fb_start_epd_refresh();
+	has_started = 1;
+	jz4775fb_epd_power_on(jz_epd);
 	WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
+	mutex_unlock(&jz_epd->lock);
 	return 0;
 }
 
+/* epd sysfs attribute */
+static ssize_t dump_epd(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd != NULL)
+		print_fb_info(jz_epd->fb);
+	print_epdc_registers();
+
+	return 0;
+}
+
+static ssize_t screen_black(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd != NULL)
+		jz4775fb_clear_screen(jz_epd, 0x00);
+	return 0;
+}
+
+static ssize_t screen_white(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd != NULL)
+		jz4775fb_clear_screen(jz_epd, 0xff);
+	return 0;
+}
+
+static ssize_t epd_mode_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *epd_mode = NULL;
+	switch(epd_mode_set) {
+		case MODE_INIT: epd_mode = "MODE_INIT";break;
+		case MODE_DU:   epd_mode = "MODE_DU";break;
+		case MODE_GC16: epd_mode = "MODE_GC16";break;
+		case MODE_EMPTY:epd_mode = "MODE_EMPTY";break;
+		case MODE_A2:   epd_mode = "MODE_A2";break;
+		case MODE_GL16: epd_mode = "MODE_GL16";break;
+		case MODE_A2IN: epd_mode = "MODE_A2IN";break;
+		case MODE_A2OUT:epd_mode = "MODE_A2OUT";break;
+		case MODE_GC16GU:    epd_mode = "MODE_GC16GU";break;
+		case MODE_AUTO_DU:   epd_mode = "MODE_AUTO_DU";break;
+		case MODE_AUTO_DUGC4:epd_mode = "MODE_AUTO_DUGC4";break;
+		default:break;
+	}
+	if(epd_mode != NULL) {
+		sprintf(buf, "%s\n", epd_mode);
+		printk("epd_mode: %s\n", epd_mode);
+		return strlen(epd_mode) + 1;
+	}
+	return 0;
+}
+
+static ssize_t epd_mode_w(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	epd_mode_e epd_mode;
+
+	if(*buf != 'M' || count < 5)
+		return -EINVAL;
+
+	if(!strncmp(buf, "MODE_INIT", count - 1)) {
+		epd_mode = MODE_INIT;
+	} else if(!strncmp(buf, "MODE_DU", count - 1)) {
+		epd_mode = MODE_DU;
+	} else if(!strncmp(buf, "MODE_GC16", count - 1)) {
+		epd_mode = MODE_GC16;
+	} else if(!strncmp(buf, "MODE_EMPTY", count - 1)) {
+		epd_mode = MODE_EMPTY;
+	} else if(!strncmp(buf, "MODE_A2", count - 1)) {
+		epd_mode = MODE_A2;
+	} else if(!strncmp(buf, "MODE_GL16", count - 1)) {
+		epd_mode = MODE_GL16;
+	} else if(!strncmp(buf, "MODE_A2IN", count - 1)) {
+		epd_mode = MODE_A2IN;
+	} else if(!strncmp(buf, "MODE_A2OUT", count - 1)) {
+		epd_mode = MODE_A2OUT;
+	} else if(!strncmp(buf, "MODE_GC16GU", count - 1)) {
+		epd_mode = MODE_GC16GU;
+	} else if(!strncmp(buf, "MODE_AUTO_DU", count - 1)) {
+		epd_mode = MODE_AUTO_DU;
+	} else if(!strncmp(buf, "MODE_AUTO_DUGC4", count - 1)) {
+		epd_mode = MODE_AUTO_DUGC4;
+	} else {
+		return -EINVAL;
+	}
+
+	epd_mode_set = epd_mode;
+	return count;
+}
+
+static ssize_t refresh_mode_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if(ref_mode_set == PARALLEL_REF) {
+		sprintf(buf, "%s\n", "PARALLEL_REF");
+	} else if(ref_mode_set == PARTIAL_REF) {
+		sprintf(buf, "%s\n", "PARTIAL_REF ");
+	} else {
+		return 0;
+	}
+	return 13;
+}
+
+static ssize_t refresh_mode_w(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if(*buf != 'P' || count < 3)
+		return -EINVAL;
+
+	if(!strncmp(buf, "PARALLEL_REF", count - 1)) {
+		ref_mode_set = PARALLEL_REF;
+	} else if(!strncmp(buf, "PARTIAL_REF", count - 1)) {
+		ref_mode_set = PARTIAL_REF;
+	} else {
+		return -EINVAL;
+	}
+	return count;
+}
+
+static struct device_attribute epd_sysfs_attrs[] = {
+	__ATTR(    dump_epd, S_IRUGO|S_IWUSR, dump_epd, NULL),
+	__ATTR(screen_black, S_IRUGO|S_IWUSR, screen_black, NULL),
+	__ATTR(screen_white, S_IRUGO|S_IWUSR, screen_white, NULL),
+	__ATTR(    epd_mode, S_IRUGO|S_IWUSR, epd_mode_r, epd_mode_w),
+	__ATTR(refresh_mode, S_IRUGO|S_IWUSR, refresh_mode_r, refresh_mode_w),
+};
+
 static int __init jz4775fb_probe(struct platform_device *pdev)
 {
-	int retval = 0;
+	int ret = 0;
+	int i = 0;
 	struct jz_epd *jz_epd;
 	struct fb_info *fb0;
 	struct device *device = &pdev->dev;
 	struct jz_epd_platform_data *pdata = pdev->dev.platform_data;
 	struct resource *mem;
-	unsigned long rate = 40000000;//PICOS2KHZ(40000) * 1000;
+	unsigned long rate;
 
 	if(!pdata) {
 		dev_err(device, "Missing platform data\n");
@@ -1195,21 +1340,34 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	jz_epd->base = ioremap(mem->start, resource_size(mem));
 	if (!jz_epd->base) {
 		dev_err(device, "Failed to ioremap register memory region\n");
-		retval = -EBUSY;
+		ret = -EBUSY;
 		goto failed_alloc_fbinfo;
 	}
+
+	ret = dev_set_drvdata(device, jz_epd);
+	if (ret != 0) {
+		dev_err(device, "Failed to devices set driver data ERROR %d\n", ret);
+		ret = -EBUSY;
+		goto failed_alloc_fbinfo;
+	}
+
+	panel_info = epd_panel_info_init();
+	dprintk("EPD Panel: %s Resolution: %d * %d\n", panel_info.model, panel_info.epd_var.xres, panel_info.epd_var.yres);
 
 	sprintf(jz_epd->clk_name, "epdc");
 	sprintf(jz_epd->pclk_name, "lcd_pclk0");
 	jz_epd->epdc_clk = clk_get(device, jz_epd->clk_name);
 	jz_epd->pclk = clk_get(device, jz_epd->pclk_name);
 	if (IS_ERR(jz_epd->epdc_clk) || IS_ERR(jz_epd->pclk)) {
-		retval = PTR_ERR(jz_epd->epdc_clk);
-		dev_err(device, "Failed to get epdc clock: %d\n", retval);
+		ret = PTR_ERR(jz_epd->epdc_clk);
+		dev_err(device, "Failed to get epdc clock: %d\n", ret);
 		goto failed_get_clk;
 	}
 
 	clk_enable(jz_epd->epdc_clk);
+	rate = PICOS2KHZ(panel_info.epd_var.pixclock) * 1000;
+	if (!rate)
+		rate = 40000000;
 	clk_set_rate(jz_epd->pclk, rate);
 	dev_info(device, "EPDC: PixClock:%lu\n", rate);
 	dev_info(device, "EPDC: PixClock:%lu(real)\n",
@@ -1219,20 +1377,17 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	if(jz_epd->pdata->epd_power_ctrl.epd_power_init)
 		jz_epd->pdata->epd_power_ctrl.epd_power_init();
 
-	panel_info = epd_panel_info_init();
-	dprintk("EPD Panel: %s Resolution: %d * %d\n", panel_info.model, panel_info.epd_var.xres, panel_info.epd_var.yres);
-
 	/* Allocate frm buf, cur buf, wrk buf, wfm buf ...*/
-	retval = jz4775fb_map_smem();
-	if(retval)
+	ret = jz4775fb_map_smem();
+	if(ret)
 		goto failed_map_smem;
 
-	retval = jz4775fb_set_info(fb0);
-	if(retval)
+	ret = jz4775fb_set_info(fb0);
+	if(ret)
 		return -EINVAL;
 
-	retval = register_framebuffer(fb0);
-	if (retval)
+	ret = register_framebuffer(fb0);
+	if (ret)
 		return -EINVAL;
 
 #if defined(EPDC_VSYNC_HARDWARE) || defined(EPDC_VSYNC_TIME)
@@ -1247,23 +1402,25 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	}
 #endif
 
+	for (i = 0; i < ARRAY_SIZE(epd_sysfs_attrs); i++) {
+		ret = device_create_file(&pdev->dev, &epd_sysfs_attrs[i]);
+		if (ret)
+			break;
+	}
+
+	mutex_init(&jz_epd->lock);
+	setup_timer(&mode_a2out_timer, jz4775fb_a2out_refresh, jz_epd);
+
 	sprintf(jz_epd->irq_name, "epdc");
-	retval = request_irq(IRQ_EPDC, jz4775fb_epdc_interrupt_handler,
+	ret = request_irq(IRQ_EPDC, jz4775fb_epdc_interrupt_handler,
 			IRQF_DISABLED, jz_epd->irq_name, jz_epd);
-	if(retval)
+	if(ret)
 	{
 		dprintk("%s %d request irq failed\n",__FUNCTION__,__LINE__);
 	}
 
-	if(jz_epd->pdata->epd_power_ctrl.epd_power_on) {
-		jz_epd->pdata->epd_power_ctrl.epd_power_on();
-		jz_epd->epd_power = 1;
-	}
-
 	jz4775fb_epd_controller_init();
-	print_fb_info(fb0);
-	print_epdc_registers();
-	jz4775fb_clear_screen(0xff);
+	jz4775fb_clear_screen(jz_epd, 0xff);
 
 	return 0;
 
@@ -1280,7 +1437,7 @@ failed_alloc_fbinfo:
 	if (fb0)
 		framebuffer_release(fb0);
 
-	return retval;
+	return ret;
 }
 
 static int jz4775fb_remove(struct platform_device *pdev)
@@ -1288,6 +1445,7 @@ static int jz4775fb_remove(struct platform_device *pdev)
 	void *drvdata = platform_get_drvdata(pdev);
 	struct fb_info *fb0 = (struct fb_info *)drvdata;
 	struct jz_epd *jz_epd = fb0->par;
+	int i = 0;
 
 	kthread_stop(jz_epd->vsync_thread);
 	clk_disable(jz_epd->pclk);
@@ -1297,9 +1455,8 @@ static int jz4775fb_remove(struct platform_device *pdev)
 	if(jz_epd->epdc_clk)
 		clk_put(jz_epd->epdc_clk);
 
-	if(jz_epd->pdata->epd_power_ctrl.epd_power_off) {
-		jz_epd->pdata->epd_power_ctrl.epd_power_off();
-		jz_epd->epd_power = 0;
+	for (i = 0; i < ARRAY_SIZE(epd_sysfs_attrs); i++) {
+		device_remove_file(&pdev->dev, &epd_sysfs_attrs[i]);
 	}
 
 	if (fb0)
@@ -1313,13 +1470,28 @@ static int jz4775fb_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int jz4775fb_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	REG_EPD_CFG &= ~EPD_CFG_AUTO_STOP_ENA;
+	struct jz_epd *jz_epd = (struct jz_epd *)platform_get_drvdata(pdev);
+	/*jz4775fb_clear_screen(jz_epd, 0x00);*/
+	WAIT_INTERRUPT_STATUS(sta_pwroff);
+	mutex_lock(&jz_epd->lock);
+	jz_epd->is_suspend = 1;
+	REG_EPD_CTRL &= ~EPD_CTRL_EPD_ENA;
+	clk_disable(jz_epd->pclk);
+	clk_disable(jz_epd->epdc_clk);
+	mutex_unlock(&jz_epd->lock);
 	return 0;
 }
 
 static int jz4775fb_resume(struct platform_device *pdev)
 {
-	REG_EPD_CFG |= EPD_CFG_AUTO_STOP_ENA;
+	struct jz_epd *jz_epd = (struct jz_epd *)platform_get_drvdata(pdev);
+	mutex_lock(&jz_epd->lock);
+	clk_enable(jz_epd->pclk);
+	clk_enable(jz_epd->epdc_clk);
+	mdelay(1);
+	REG_EPD_CTRL |= EPD_CTRL_EPD_ENA;
+	jz_epd->is_suspend = 0;
+	mutex_unlock(&jz_epd->lock);
 	return 0;
 }
 #else

@@ -56,10 +56,20 @@
 
 #define WORD_ALIGN(addr,words_num)	(((unsigned int)(addr)+(((words_num) * 4)-1))&(~(((words_num) * 4)-1)))
 
-#define printk(...)	do{}while(0)
+#define EPDC_WAIT_MDELAY	2000	/* Wait 2000ms max.*/
+
+#define DEBUG 0
+#if DEBUG
+#define printk(format, arg...) printk(KERN_ALERT format, ## arg)
+#else
+#define printk(format, arg...) do {} while (0)
+#endif
+
+
 static volatile unsigned int is_oeof;
 static unsigned int snp_buf_size;
 static unsigned int *snp_buf	= NULL;
+static 	wait_queue_head_t interrupt_status_wq;
 
 extern struct fb_var_screeninfo fb_var_epd;
 
@@ -627,7 +637,7 @@ static int jz4775_epdce_controller_init_rgb(void)
 
 #if 1
 	jz4775_epdce_csc_rgb565_to_yuv444_601_wide_mode();
-	//jz4775_epdce_vee(vee_lut);
+	//jz4775_epdce_vee(vee_lut_16gs);
 	jz4775_epdce_csc_yuv444_to_rgb888_601_wide_mode();
 	//jz4775_y_33_clolor_filter_ena();
 	jz4775_output_rgb();
@@ -637,7 +647,7 @@ static int jz4775_epdce_controller_init_rgb(void)
 	REG_EPDCE_OFS =  400 << EPDCE_OFS_O_FRM_HS;
 	REG_EPDCE_OFC = EPDCE_OFC_SEL_Y;
 	jz4775_epdce_csc_rgb565_to_yuv444_601_wide_mode();
-	jz4775_epdce_vee(vee_lut);
+	jz4775_epdce_vee(vee_lut_16gs);
 	jz4775_dither_sel(outputbits);
 #endif
 
@@ -719,6 +729,7 @@ static irqreturn_t jz4775_epdce_interrupt_handler(int irq, void *dev_id)
 		REG_EPDCE_IC |= EPDCE_IC_OEOF;
 		printk("EPDCE_IS_OEOF REG_EPDCE_IS = 0x%08x\n", REG_EPDCE_IS);
 		is_oeof = 1;
+		wake_up(&interrupt_status_wq);
 	}
 
 	if(status & EPDCE_IS_OSTOP)
@@ -776,7 +787,7 @@ static int jz4775_epdce_controller_init(void)
 #endif
 
 #ifdef CONFIG_FB_JZ4775_EPDCE_Y_VEE
-	jz4775_epdce_vee(vee_lut);
+	jz4775_epdce_vee(vee_lut_16gs);
 #endif
 
 #ifdef CONFIG_FB_JZ4775_EPDCE_UV_HUE
@@ -919,9 +930,10 @@ static int jz4775_epdce_controller_init(void)
 
 int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var, unsigned char *frame_buffer, unsigned char *current_buffer)
 {
+	int ret = 0;
 	int fb_size, cb_size;
 	int xres, yres, fb_bpp, cb_bpp;
-	int time_out = 20;
+	unsigned long delay;
 
 	xres = fb_var->xres;
 	yres = fb_var->yres;
@@ -966,10 +978,14 @@ int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var, unsign
 	REG_EPDCE_DMAC = EPDCE_DMAC_CDMA_ENA;
 	REG_EPDCE_CTRL = EPDCE_CTRL_EPDCE_EN;
 
-	while(is_oeof == 0 && time_out--)
-		msleep(1);
-	printk("while(is_oeof == 0 && time_out--) time_out = %d\n", time_out);
-	/*msleep(3);	*/
+	delay = jiffies + msecs_to_jiffies(EPDC_WAIT_MDELAY);
+	while (time_before(jiffies, delay))
+	{
+		ret = wait_event_timeout(interrupt_status_wq, is_oeof == 1, msecs_to_jiffies(1));
+		printk("ret = %d is_oeof = %d REG_EPDCE_IS = 0x%08x\n", ret, is_oeof, REG_EPDCE_IS);
+		if (ret)
+			break;
+	}
 	dma_cache_wback_inv((unsigned long)current_buffer, cb_size);
 	//REG_EPDCE_IC |= EPDCE_IC_OSTOP | EPDCE_IC_OEOF | EPDCE_IC_OSOF | EPDCE_IC_ISTOP | EPDCE_IC_IEOF | EPDCE_IC_ISOF;
 
@@ -994,6 +1010,7 @@ static int __init jz4775_epdce_probe(struct platform_device *pdev)
 	}
 	clk_enable(epdce_clk);
 
+	init_waitqueue_head(&interrupt_status_wq);
 	if(request_irq(IRQ_EPDCE, jz4775_epdce_interrupt_handler, IRQF_DISABLED,"lcd1", 0))
 	{
 		printk("%s %d request irq failed\n",__FUNCTION__,__LINE__);

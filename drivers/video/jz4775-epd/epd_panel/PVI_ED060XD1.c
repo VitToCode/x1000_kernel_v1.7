@@ -121,7 +121,7 @@ struct epd_panel_info epd_panel_info_init(void)
 	xd1_info.epd_var.transp.length	= 0;
 	xd1_info.epd_var.transp.msb_right = 0;
 	/* Timing: All values in pixclocks; except pixclock (of course) */
-	//.pixclock		= KHZ2PICOS(__cpm_get_pixclk()/1000);	/* pixel clock in ps (pico seconds) */
+	xd1_info.epd_var.pixclock		= KHZ2PICOS(40000);	/* pixel clock in ps (pico seconds) */
 	xd1_info.epd_var.left_margin	= LBL;		/* time from sync to picture	*/
 	xd1_info.epd_var.right_margin	= LEL;		/* time from picture to sync	*/
 	xd1_info.epd_var.upper_margin	= FBL;		/* time from sync to picture	*/

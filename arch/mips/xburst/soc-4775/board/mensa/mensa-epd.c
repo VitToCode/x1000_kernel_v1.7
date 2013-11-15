@@ -20,53 +20,49 @@
 
 #include "board.h"
 
+static struct jz_epd_power_pin power_pin[] = {
+#if 0
+	{ "epd enable", 0, GPIO_EPD_SIG_CTRL_N, 0, 0 },
+	{ "epd pwr0",   1, GPIO_EPD_PWR0,     100, 0 },
+	{ "epd pwr1",   1, GPIO_EPD_PWR1,    1000, 0 },
+	{ "epd pwr3",   1, GPIO_EPD_PWR3,       0, 0 },
+	{ "epd pwr2",   1, GPIO_EPD_PWR2,     100, 0 },
+	{ "epd pwr4",   1, GPIO_EPD_PWR4,    1000, 0 }
+#endif
+#if 1
+	{ "epd enable",   0, GPIO_EPD_SIG_CTRL_N, 0, 0 },
+	{ "EPD_POWER_EN", 1, GPIO_PC(20),       100, 0 },
+	{ "EN",           1, GPIO_PC(21),         0, 0 },
+	{ "ENOP",         1, GPIO_PC(22),         0, 0 }
+#endif
+};
+
 static void mensa_epd_power_init(void)
 {
-	gpio_request(GPIO_EPD_SIG_CTRL_N, "epd enable");
-	gpio_request(GPIO_EPD_PWR0, "epd pwr0");
-	gpio_request(GPIO_EPD_PWR1, "epd pwr1");
-	gpio_request(GPIO_EPD_PWR2, "epd pwr2");
-	gpio_request(GPIO_EPD_PWR3, "epd pwr3");
-	gpio_request(GPIO_EPD_PWR4, "epd pwr4");
+	int i = 0;
+	for ( i = 0; i < ARRAY_SIZE(power_pin); i++ ) {
+		gpio_request(power_pin[i].pwr_gpio, power_pin[i].name);
+	}
 }
 
 //EPD power up sequence function for epd driver
 static void mensa_epd_power_on(void)
 {
-	gpio_direction_output(GPIO_EPD_SIG_CTRL_N, 0);
-	/*mensa_vdd_power_up*/
-	gpio_direction_output(GPIO_EPD_PWR0, 1);
-	udelay(100);
-	/*mensa_vneg_power_up(); */
-	gpio_direction_output(GPIO_EPD_PWR1, 1);
-	/*mensa_vee_power_up*/
-	mdelay(1);
-	/*mensa_vpos_power_up*/
-	gpio_direction_output(GPIO_EPD_PWR3, 1);
-	/*mensa_vgg_power_up*/
-	gpio_direction_output(GPIO_EPD_PWR2, 1);
-	udelay(100);
-	/*mensa_vcom_power_up*/
-	gpio_direction_output(GPIO_EPD_PWR4, 1);
-	mdelay(1);
+	int i = 0;
+	for ( i = 0; i < ARRAY_SIZE(power_pin); i++ ) {
+		gpio_direction_output(power_pin[i].pwr_gpio, power_pin[i].active_level);
+		udelay(power_pin[i].pwr_on_delay);
+	}
 }
 
 //EPD power down sequence function for epd driver
 static void mensa_epd_power_off(void)
 {
-	udelay(100);
-	/*mensa_vcom_power_down*/
-	gpio_direction_output(GPIO_EPD_PWR4, 0);
-	/*mensa_vgg_power_down*/
-	gpio_direction_output(GPIO_EPD_PWR2, 0);
-	/*mensa_vpos_power_down*/
-	gpio_direction_output(GPIO_EPD_PWR3, 0);
-	/*mensa_vneg_power_down*/
-	gpio_direction_output(GPIO_EPD_PWR1, 0);
-	/*mensa_vee_power_down*/
-	/*mensa_vdd_power_down*/
-	gpio_direction_output(GPIO_EPD_PWR0, 0);
-	gpio_direction_output(GPIO_EPD_SIG_CTRL_N, 1);
+	int i = 0;
+	for ( i = 0; i < ARRAY_SIZE(power_pin); i++ ) {
+		gpio_direction_output(power_pin[i].pwr_gpio, 1^power_pin[i].active_level);
+		udelay(power_pin[i].pwr_off_delay);
+	}
 }
 
 struct jz_epd_platform_data jz_epd_pdata = {

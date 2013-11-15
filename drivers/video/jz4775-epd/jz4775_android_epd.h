@@ -25,6 +25,30 @@
 #define NUM_FRAME_BUFFERS 3
 #endif
 
+typedef enum {
+	MODE_INIT,
+	MODE_DU,
+	MODE_GC16,
+	MODE_EMPTY,
+	MODE_A2,
+	MODE_GL16,
+	MODE_A2IN,
+	MODE_A2OUT,
+	MODE_GC16GU,
+	MODE_AUTO_DU,
+	MODE_AUTO_DUGC4,
+}epd_mode_e;
+
+typedef enum{
+	PARALLEL_REF,
+	PARTIAL_REF
+}ref_mode_e;
+
+struct compression_lut{
+	unsigned int subscript;
+	unsigned int number;
+};
+
 struct jz_epd {
 	int id;
 	int is_enabled;   /* 0:disable  1:enable */
@@ -82,29 +106,7 @@ static inline void reg_write(struct jz_epd *jz_epd, int offset, unsigned long va
 }
 
 /* ioctl commands base fb.h FBIO_XXX */
-#define JZFB_GET_MODENUM		_IOR('F', 0x100, int)
-#define JZFB_GET_MODELIST		_IOR('F', 0x101, int)
-#define JZFB_SET_VIDMEM			_IOW('F', 0x102, unsigned int *)
-#define JZFB_SET_MODE			_IOW('F', 0x103, int)
 #define JZFB_ENABLE				_IOW('F', 0x104, int)
-#define JZFB_GET_RESOLUTION		_IOWR('F', 0x105, struct jzfb_mode_res)
-/* Reserved for future extend */
-#define JZFB_SET_FG_SIZE		_IOW('F', 0x116, struct jzfb_fg_size)
-#define JZFB_GET_FG_SIZE		_IOWR('F', 0x117, struct jzfb_fg_size)
-#define JZFB_SET_FG_POS			_IOW('F', 0x118, struct jzfb_fg_pos)
-#define JZFB_GET_FG_POS			_IOWR('F', 0x119, struct jzfb_fg_pos)
-#define JZFB_GET_BUFFER			_IOR('F', 0x120, int)
-#define JZFB_GET_LCDC_ID	    _IOR('F', 0x121, int)
-/* Reserved for future extend */
-#define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
-#define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)
-#define JZFB_SET_COLORKEY		_IOW('F', 0x125, struct jzfb_color_key)
-#define JZFB_AOSD_EN			_IOW('F', 0x126, struct jzfb_aosd)
-#define JZFB_16X16_BLOCK_EN		_IOW('F', 0x127, int)
-#define JZFB_ENABLE_LCDC_CLK	_IOW('F', 0x130, int)
-/* Reserved for future extend */
-#define JZFB_ENABLE_FG0			_IOW('F', 0x139, int)
-#define JZFB_ENABLE_FG1			_IOW('F', 0x140, int)
 /* Reserved for future extend */
 #define JZFB_SET_VSYNCINT		_IOW('F', 0x210, int)
 #define JZFB_SET_PAN_SYNC		_IOW('F', 0x220, int)
@@ -147,5 +149,7 @@ static inline void reg_write(struct jz_epd *jz_epd, int offset, unsigned long va
 #define FBIO_GET_PANEL_TYPE	 	0x46c5
 #define FBIO_GET_WFM_LOTNUM		0x46c6
 #define FBIO_SET_EINK_FRAME_RATE 	0x46c7
+#define FBIO_SET_EINK_REFRESH_MODE 	0x46c8
+#define FBIO_SET_EINK_CLEAR_SCREEN	0x46c9
 
 #endif /* __JZ4775_ANDROID_EPD_H__ */
