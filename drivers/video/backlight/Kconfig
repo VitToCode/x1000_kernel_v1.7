@@ -283,6 +283,13 @@ config LCD_S369FG06
 	help
 	  If you have an S369FG06 LCD Panel, say Y to enable its
 	  LCD control driver.
+
+config LCD_KD301_M03545_0317A
+	bool "KD301_M03545_0317A panel(320x480)
+	depends on BACKLIGHT_CLASS_DEVICE 
+	default n
+	help
+	  If you have KD301_M03545_0317A panel, say Y to use it
 	  
 endif # LCD_CLASS_DEVICE
 

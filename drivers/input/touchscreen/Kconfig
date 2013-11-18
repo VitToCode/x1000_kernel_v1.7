@@ -74,6 +74,13 @@ config TOUCHSCREEN_FT5X06
       help
       ft5306 a CTP controller,support panel 7"~8.9"
 
+config TOUCHSCREEN_FT6X06
+	tristate "FocalTech FT6X06 TouchScreen driver"
+	depends on I2C
+	default n
+	help
+	  pisecs FocalTech FT6X06 TouchSreen Driver implemented by Ingenic.
+
 config TOUCHSCREEN_NOVATEK
       tristate "Touchscreen nt11003-ts"
       depends on I2C && JZ4780_SUPPORT_TSC
@@ -244,6 +251,12 @@ config TOUCHSCREEN_JZ_GT801_MULTI_TOUCH
 	help
 	  Ingenic touchscreen controller dricer with gt801
 	  gt801 support mulit points touch
+
+config TOUCHSCREEN_GT818X_868_968M
+	tristate "GT818X_868_968M TouchScreen driver"
+	depends on I2C
+	help
+	  The GT818X_868_968M TouchSreen Driver.
 	  
 config TOUCHSCREEN_LDWZIC
 	tristate "Touchscreen LDWZIC"

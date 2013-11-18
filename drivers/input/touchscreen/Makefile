@@ -81,3 +81,5 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_CT36X)   	+= ct36x_i2c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CT360)         += ct360_i2c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MG_KS0700H_S) += mg-i2c-ks0700h.o
+obj-$(CONFIG_TOUCHSCREEN_GT818X_868_968M) += gt818x_868_968m.o gt818x_868_968m_update.o goodix_tool.o
+obj-$(CONFIG_TOUCHSCREEN_FT6X06)        += ft6x06_ts.o

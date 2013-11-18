@@ -61,6 +61,9 @@
 #ifdef CONFIG_USB_ANDROID_RAWBULK
 #include "f_rawbulk.c"
 #endif
+#ifdef CONFIG_USB_ANDROID_CCID
+#include "f_ccid.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -193,6 +196,30 @@ static void android_work(struct work_struct *data)
 
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
+
+#ifdef CONFIG_USB_ANDROID_CCID
+static int ccid_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
+{
+	return ccid_setup();
+}
+
+static void ccid_function_cleanup(struct android_usb_function *f)
+{
+	ccid_cleanup();
+}
+
+static int ccid_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
+{
+	return ccid_bind_config(c);
+}
+
+static struct android_usb_function ccid_function = {
+	.name		= "ccid",
+	.init		= ccid_function_init,
+	.cleanup	= ccid_function_cleanup,
+	.bind_config	= ccid_function_bind_config,
+};
+#endif
 
 static int adb_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
@@ -551,8 +578,8 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	for (i = 0; i < nluns; i++){
 		config->fsg.luns[i].removable = 1;
 
-		/*add by bcjia to use cdrom to lun2*/ 
-		if(i == 2){ 
+		/*add by bcjia to use cdrom to lun2*/
+		if(i == 2){
 			config->fsg.luns[i].cdrom = 1;
 		}
 	}
@@ -700,6 +727,9 @@ static struct android_usb_function rawbulk_function = {
 #endif
 
 static struct android_usb_function *supported_functions[] = {
+#ifdef CONFIG_USB_ANDROID_CCID
+	&ccid_function,
+#endif
 	&adb_function,
 	&acm_function,
 	&mtp_function,
