@@ -485,7 +485,7 @@ static inline int init_dma_read(struct jz_i2c *i2c, unsigned char *dma_map_trigv
 }
 
 #elif (defined(USE_DESC_LINK))
-static inline int init_dma_read(struct jz_i2c *i2c, unsigned char *dma_map_trigval, 
+static inline int init_dma_read(struct jz_i2c *i2c, unsigned char *dma_map_trigval,
 		unsigned char *dma_map_buf, int len, int cnt)
 {
 	int  length = len;
@@ -982,7 +982,7 @@ static struct platform_driver jz_i2c_dma_driver = {
 	.probe		= jz_i2c_dma_probe,
 	.remove		= jz_i2c_remove,
 	.driver		= {
-		.name	= "jz-i2c",
+		.name	= "jz-i2c-dma",
 	},
 };
 

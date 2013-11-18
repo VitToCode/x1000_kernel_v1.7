@@ -348,7 +348,7 @@ DEF_I2C(2);
 		},								\
 	};									\
 struct platform_device jz_i2c##NO##_dma_device = {					\
-	.name = "jz-i2c",							\
+	.name = "jz-i2c-dma",							\
 	.id = NO,								\
 	.dev = {								\
 		.dma_mask               = &jz_i2c_dmamask,			\
