@@ -285,7 +285,7 @@ config LCD_S369FG06
 	  LCD control driver.
 
 config LCD_KD301_M03545_0317A
-	bool "KD301_M03545_0317A panel(320x480)
+	bool "KD301_M03545_0317A panel(320x480)"
 	depends on BACKLIGHT_CLASS_DEVICE 
 	default n
 	help
