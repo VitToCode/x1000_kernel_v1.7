@@ -16,14 +16,24 @@ int main(int argc,char **argv){
 		perror("open file failure!\n");
 		return -1;
 	}
-	//ret = ioctl(fd,WATCH_OPEN,0);
-	//ret = ioctl(fd,WATCH_PERIOD,24);
-	//ret = ioctl(fd,WATCH_CLOSE,0);
-	ret = ioctl(fd,WATCH_PIC_PATH,"hell;workl;jfdkl;jlsfj;jfa;slkf;kflsja");
+	ret = ioctl(fd,WATCH_OPEN,0);
 	if (ret == -1) {
-		perror("operate the devicd failure!\n");
+		perror("open this function failure!\n");
 		return -1;
 	}
+
+	ret = ioctl(fd,WATCH_PERIOD,24);
+	if (ret == -1) {
+		perror("set period failure!\n");
+		return -1;
+	}
+
+	ret = ioctl(fd,WATCH_PIC_PATH,"/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp;/data/bmp/11.bmp;/data/bmp/22.bmp;/data/bmp/33.bmp;/data/bmp/44.bmp;/data/bmp/55.bmp");
+	if (ret == -1) {
+		perror("set picture path failure!\n");
+		return -1;
+	}
+	//ret = ioctl(fd,WATCH_CLOSE,0);
 	ret = close(fd);
 	if (ret == -1) {
 		perror("close file is failure!\n");

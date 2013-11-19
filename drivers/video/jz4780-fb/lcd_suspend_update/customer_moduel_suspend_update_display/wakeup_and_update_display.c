@@ -32,7 +32,7 @@
 #define ALARM_WAKEUP_PERIOD (6) /* default wakeup period 60 seconds. */
 #define FUN_ON   1
 #define FUN_OFF  0
-#define PIC_MAX 20
+#define PIC_MAX 80
 
 
 /* -------------------------------------------------------------------------------- */
@@ -44,7 +44,6 @@ static struct update_config_callback_ops * config_ops = NULL;
 static int is_period_reconfig = 0;
 static int new_period;
 extern void set_slcd_suspend_alarm_resume(int data);
-static int buffer_count = 6;
 //static int next_buffer_count_buffer_count = 6;
 //static int buffer_size = (800*480*4 * 3); /* lcd frame_buffer size */
 static struct clock_buffers *clock_buffers = NULL;
@@ -52,89 +51,141 @@ static struct pic_arg *picture = NULL;
 
 int init_clock_buffers(struct fb_info *info)
 {
-	if ( clock_buffers != NULL ) {
-		return 0;
-	}
 
-	if (!fbinfo) {
-		printk_info("init_clock_buffers() !fbinfo\n");
-		return -EINVAL;
-	}
+        if (!fbinfo) {
+                printk_info("init_clock_buffers() !fbinfo\n");
+                return -EINVAL;
+        }
 
-	/* alloc_bitmap_buffers */
-	{
-		int cnt;
-		struct clock_bitmap_buffer* bitmap_buffer;
-		struct fb_fix_screeninfo *fix;	/* Current fix */
-		//struct fb_var_screeninfo *var;	/* Current var */
+        /* alloc_bitmap_buffers */
+        {
+                int cnt;
+                struct clock_bitmap_buffer* bitmap_buffer;
+                struct fb_fix_screeninfo *fix;  /* Current fix */
+                //struct fb_var_screeninfo *var;        /* Current var */
 
-		fix = &fbinfo->fix;
-		//var = &fbinfo->var;
+                fix = &fbinfo->fix;
+                //var = &fbinfo->var;
 
-		clock_buffers = (struct clock_buffers *) kmalloc(sizeof(struct clock_buffers), GFP_KERNEL);
-		if ( !clock_buffers ) {
-			printk_dbg("alloc clock_buffers failed\n");
-			return -1;
+		if ( clock_buffers == NULL ) {
+
+			clock_buffers = (struct clock_buffers *) kmalloc(sizeof(struct clock_buffers), GFP_KERNEL);
+			if ( !clock_buffers ) {
+				printk_dbg("alloc clock_buffers failed\n");
+				return -1;
+			}
 		}
+                clock_buffers->next_buffer_count = 0;
+                clock_buffers->buffer_count = picture->pic_count;
+                clock_buffers->buffer_size = fix->smem_len; //buffer_size;
+		clock_buffers->bitmap_buffers = (struct clock_bitmap_buffer*)kmalloc(sizeof(struct clock_bitmap_buffer)*clock_buffers->buffer_count, GFP_KERNEL);
+                bitmap_buffer = clock_buffers->bitmap_buffers;
+                for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
+                        bitmap_buffer->valid=0;
+                        bitmap_buffer ++;
+                }
+        }
 
-		clock_buffers->next_buffer_count = 0;
-		clock_buffers->buffer_count = buffer_count;
-		clock_buffers->buffer_size = fix->smem_len; //buffer_size;
-		clock_buffers->bitmap_buffers = (struct clock_bitmap_buffer*)kmalloc(sizeof(struct clock_bitmap_buffer)*buffer_count, GFP_KERNEL);
-		bitmap_buffer = clock_buffers->bitmap_buffers;
-		for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
-			bitmap_buffer->valid=0;
-			bitmap_buffer ++;
-		}
-	}
+        return 0;
 
-	return 0;
 }
 
 
 /* open bitmap file */
-static int read_bitmap_file(char * filename, char * data, int buffer_size) {
+static int read_bitmap_file(char * filename, char * buffer, int buffer_size)
+{
 	int err = 0;
-	struct file *pic_file;
+	struct file *pic_file = NULL;
 	unsigned count;
+	char *data = buffer;
 	loff_t ops;
-	//mm_segment_t old_fs;
+	mm_segment_t old_fs;
 
 	printk_dbg("filename=%s\n", filename);
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
 	pic_file = filp_open(filename, O_RDONLY, 0);
-	if (pic_file) {
-		printk(KERN_WARNING "%s: Can not open %s\n",
-		       __func__, filename);
+	if (pic_file < 0) {
+		printk(KERN_WARNING "%s: Can not open %s\n", __func__, filename);
 		return -ENOENT;
 	}
 	count = (unsigned)vfs_llseek(pic_file, (off_t)0, 2);
 	printk_dbg("count=%d\n", count);
 	if (count == 0) {
-		filp_close(pic_file,NULL);
 		err = -EIO;
 		goto err_logo_close_file;
 	}
-
 	printk_dbg("count=%d\n", count);
 	if ( count > buffer_size )
 		count = buffer_size;
-
-	vfs_llseek(pic_file, (off_t)0, 0);
-
-	if (!data) {
-		printk(KERN_WARNING "%s:Can not alloc data\n", __func__);
-		err = -ENOMEM;
-		goto err_logo_close_file;
-	}
+        /*read the bmp header*/
 	ops = 0;
-	//old_fs = get_fs();
-	//set_fs(KERNEL_DS);
-	if ((unsigned)vfs_read(pic_file, (char __user *)data, count,&ops) != count) {
-		err = -EIO;
+	{
+	int i = 0;
+	int j = 0;
+	BITMAPFILEHEADER file;
+	BITMAPINFOHEADER info;
+	vfs_read(pic_file,(char __user *)&file,sizeof(BITMAPFILEHEADER),&ops);
+	ops = (loff_t)sizeof(BITMAPFILEHEADER);
+	vfs_read(pic_file,(char __user *)&info,sizeof(BITMAPINFOHEADER),&ops);
+	printk_dbg("::0x%x::%d::%d\n",file.bfType,file.bfSize,file.bfOffBits);
+	printk_dbg("BITMAPFILEHEADER IS %d\n",sizeof(BITMAPFILEHEADER));
+	printk_dbg("::%d::%d::%d\n",info.biBitCount,info.biWidth,info.biHeight);
+	printk_dbg("BITMAPINFOHEADER IS %d\n",sizeof(BITMAPINFOHEADER));
+	if (0x4d42 != file.bfType) {
+		printk("It is not a bmp format picture!!!\n");
+		err =  -1;
+		goto err_logo_close_file;
+	} else {
+		if (!data) {
+			printk(KERN_WARNING "%s:Can not alloc data\n", __func__);
+			err = -ENOMEM;
+			goto err_logo_close_file;
+		}
+		memset(data,0,buffer_size);
+		if (32 == info.biBitCount) {
+			if (info.biHeight < 0) {
+				printk_dbg("It is a 32 bpp bmp picture!!!\n");
+				ops = vfs_llseek(pic_file,(loff_t)file.bfOffBits,SEEK_SET);
+				vfs_read(pic_file,(char __user *)data,count-file.bfOffBits,&ops);
+			}else {
+				for(j = 0; j < info.biHeight; j++) {
+					ops = vfs_llseek(pic_file,((off_t)(-info.biWidth)*4*(j+1)),SEEK_END);
+					vfs_read(pic_file,(char __user *)data,info.biWidth*4,&ops);
+				}
+			}
+		} else if (24 == info.biBitCount) {
+			printk_dbg("It is a 24 bpp picture!!!\n");
+			if (info.biHeight > 0) {
+				for(j = 0; j < info.biHeight; j++) {
+					ops = vfs_llseek(pic_file,((off_t)(-info.biWidth)*3*(j+1)),SEEK_END);
+					for(i = 0; i < info.biWidth; i++) {
+						char tmp;
+						data++;
+						vfs_read(pic_file,(char __user *)data,3,&ops);
+						tmp = *data;
+						*data = *(data+2);
+						*(data+2) = tmp;
+						data += 3;
+					}
+				}
+			} else {
+				printk_dbg("It is a 24bpp picture!!,but the order is forward!!!\n");
+				for (i = 0; i < count/3; i++){
+					vfs_read(pic_file,(char __user *)data,3,&ops);
+					data += 4;
+				}
+			}
+		} else {
+			printk("It is not a 24 bpp or 32 bpp bmp picture,we do not support it now!!!\n");
+			err =  -1;
+			goto err_logo_close_file;
+
+		}
 	}
-	//set_fs(old_fs);
-
-
+	}
+	set_fs(old_fs);
 err_logo_close_file:
 	filp_close(pic_file,NULL);
 
@@ -200,10 +251,10 @@ static int free_bitmap_buffers(void)
 
 //char *bitmap_filename[] = {
 char *bitmap_filename[PIC_MAX] = {
-	"/sdcard/fb0.dat",
-	"/sdcard/fb1.dat",
-	"/sdcard/fb2.dat",
-	"/sdcard/fb3.dat",
+	"/data/bmp/a.bmp",
+	"/data/bmp/b.bmp",
+	"/data/bmp/c.bmp",
+	"/data/bmp/d.bmp",
 };
 
 
@@ -216,14 +267,7 @@ static int load_bitmaps(void)
 		printk_dbg("clock_buffers = NULL\n");
 		return -1;
 	}
-#if 0
-	{
-	int i = picture->pic_count - 1;
-	for (;i >= 0; i--){
-		printk("++%s++\n",bitmap_filename[i]);
-	}
-	}
-#endif
+
 	bitmap = clock_buffers->bitmap_buffers;
 	for (cnt=0; cnt<clock_buffers->buffer_count; cnt++) {
 		char * filename;
@@ -249,9 +293,6 @@ static int load_bitmaps(void)
 
 /* -------------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------- */
-
-
-
 
 static int prepare_bitmaps_before_suspend(struct fb_info * fb, void * ignore)
 {
@@ -287,7 +328,6 @@ static void release_bitmaps_after_resume(void)
 	/* release  bitmaps */
 	printk_dbg("%s() release bitmaps.\n", __FUNCTION__);
 
-
 	/* free bitmap buffers */
 	printk_dbg("%s() free bitmap buffers.\n", __FUNCTION__);
 	free_bitmap_buffers();
@@ -321,7 +361,6 @@ static int update_frame_buffer(struct fb_info * fb, void * addr, unsigned int rt
 			xres = var->xres;
 			yres = var->yres;
 			size = fix->smem_len;
-
 			fbaddr = addr;
 
 			printk_dbg("memcpy((void*)fb=%p, bitmap->buffer=%p, size=%d);, xres=%d, yres=%d\n",
@@ -332,8 +371,10 @@ static int update_frame_buffer(struct fb_info * fb, void * addr, unsigned int rt
 	}
 
 	clock_buffers->next_buffer_count++;
-	if ( clock_buffers->next_buffer_count > clock_buffers->buffer_count-1)
+	printk_dbg("+++++clock_buffers->next_buffer_count is %d buffer_count is %d\n",clock_buffers->next_buffer_count,clock_buffers->buffer_count);
+	if ( clock_buffers->next_buffer_count > clock_buffers->buffer_count -1 ){
 		clock_buffers->next_buffer_count = 0;
+	}
 
 
 	/* set next alarm wakeup period */
@@ -346,13 +387,13 @@ static int update_frame_buffer(struct fb_info * fb, void * addr, unsigned int rt
 	}
 
 	return 0;
-};
+}
 
-int set_picture_path(unsigned long arg){
+int set_picture_path(unsigned long arg)
+{
 	int count = 0;
 	long length;
 	char *buf = NULL;
-	int i;
 	void __user *args = (void __user *)arg;
 
 	length = strlen(args);
@@ -382,12 +423,15 @@ int set_picture_path(unsigned long arg){
 	}
 	picture->pic_count = ++count;
 	printk_dbg("+++++++pic_count is %d+++++++\n",picture->pic_count);
-	i = picture->pic_count;
-	printk_dbg("+++++++pic_count is %d+++++++\n",i);
-	i--;
 #if 0
-	for(; i >= 0; i--){
-		printk("++count is %d,file is %s+++\n",i,bitmap_filename[i]);
+	{
+		int i;
+		i = picture->pic_count;
+		printk_dbg("+++++++pic_count is %d+++++++\n",i);
+		i--;
+		for(; i >= 0; i--){
+			printk("++count is %d,file is %s+++\n",i,bitmap_filename[i]);
+		}
 	}
 #endif
 	return 0;
@@ -459,15 +503,15 @@ static int __init drv_init(void)
 
 
 	/* enable alarm wakeup function */
+#if 0
 	if (config_ops && config_ops->set_refresh) {
 		config_ops->set_refresh(1);
 	}
-
+#endif
 	/* set next alarm wakeup period */
 	if (config_ops && config_ops->set_period) {
 		config_ops->set_period(ALARM_WAKEUP_PERIOD);
 	}
-
 	picture = kmalloc(sizeof(struct pic_arg),GFP_KERNEL);
 	if (!picture){
 		printk("kmalloc a picture struct failure!\n");
@@ -490,8 +534,6 @@ module_init(drv_init);
 
 static void __exit drv_exit(void)
 {
-	kfree(picture->pic_buf);
-	kfree(picture);
 	if (config_ops && config_ops->set_refresh) {
 		config_ops->set_refresh(0);
 	}

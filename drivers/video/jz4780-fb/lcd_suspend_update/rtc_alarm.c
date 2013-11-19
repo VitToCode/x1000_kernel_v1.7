@@ -25,11 +25,7 @@
 #include <tcsm.h>
 
 #include "jz4780_fb.h"
-
-
 #include "slcd_suspend_debug.h"
-
-
 
 
 //static int slcd_refresh_period = 60; /* slcd refresh in every 60 seconds. */
@@ -38,7 +34,6 @@ static unsigned int last_slcd_refresh_alarm_value = 0;
 
 static int old_rtc_alarm_enabled;
 static unsigned int old_rtc_alarm_value;
-
 
 
 /* copy from #include "drivers/rtc/rtc-jz4775.h" */

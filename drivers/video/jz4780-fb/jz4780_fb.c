@@ -1406,7 +1406,6 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	unsigned int videosize = 0;
 	struct fb_videomode *mode;
 	void *page;
-
 	jzfb->framedesc[0] = dma_alloc_coherent(
 		jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 		&jzfb->framedesc_phys, GFP_KERNEL);
@@ -1538,6 +1537,7 @@ inline void memset32(void *addr,int color,int size)
 int update_slcd_frame_buffer(void)
 {
 	struct jzfb *jzfb = suspend_fb->par;
+#if 0
 	struct fb_var_screeninfo *var = &suspend_fb->var;
 	int width = var->xres;
 	int high = var->yres;
@@ -1548,7 +1548,7 @@ int update_slcd_frame_buffer(void)
 	else {
 		memset32((void*)suspend_base, 0xff00ff00, width*high);
 	}
-
+#endif
 	__flush_cache_all();
 
 	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
@@ -3228,7 +3228,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	struct resource *mem;
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 	struct fb_videomode *mode;
-	unsigned int videosize = 0;
+	unsigned int slcd_videosize = 0;
 #endif
 
 	if (!pdata) {
@@ -3384,15 +3384,24 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_free_file;
 	}
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-	suspend_fb = fb;
-	mode = jzfb_checkout_videomode(jzfb->fb);
-	videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
-	videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
-
-	suspend_base = kmalloc(videosize, GFP_KERNEL);
-	if (!suspend_base)
+	suspend_fb = (struct fb_info *)kmalloc(sizeof(struct fb_info), GFP_KERNEL);
+	if(suspend_fb == NULL) {
+		printk("kmalloc suspend_fb failure!\n");
 		return -ENOMEM;
+     }
+	memcpy(suspend_fb,fb,sizeof(struct fb_info));
+	mode = jzfb_checkout_videomode(jzfb->fb);
+	slcd_videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
+	slcd_videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
+
+	suspend_base = kmalloc(slcd_videosize, GFP_KERNEL);
+	if (suspend_base == NULL)
+		return -ENOMEM;
+	suspend_fb->par = fb->par;
+	suspend_fb->fix.smem_len = slcd_videosize;
+	suspend_fb->screen_base = suspend_base;
 #endif
+
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n", ret);
