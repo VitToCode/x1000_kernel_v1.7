@@ -106,6 +106,27 @@ void sendmessage(u8 *value,int size)
 			halCEC_WriteByte(CEC_ADDR_L,0x10);
 			halCEC_WriteByte(CEC_ADDR_H,0x00);
 			break;
+	    case CEC_STANDBY:
+			printk("+cec send 'stand by'+\n");
+			halCEC_WriteByte(CEC_TX_DATA,0x1F);
+			for(i=0;i<size;i++){
+				halCEC_WriteByte(CEC_TX_DATA+i+1,value[i]);
+			}
+			halCEC_WriteByte(CEC_TX_CNT,tx_size);
+			halCEC_WriteByte(CEC_ADDR_L,0x02);
+			halCEC_WriteByte(CEC_ADDR_H,0x00);
+			break;
+	    case INACTIVE_SOURCE:
+			printk("+ cec send 'inactive source' +\n");
+			halCEC_WriteByte(CEC_TX_DATA,0x40);
+			for(i=0;i<size;i++){
+				halCEC_WriteByte(CEC_TX_DATA+i+1,value[i]);
+			}
+			halCEC_WriteByte(CEC_TX_CNT,tx_size);
+			halCEC_WriteByte(CEC_ADDR_L,0x10);
+			halCEC_WriteByte(CEC_ADDR_H,0x00);
+			break;
+
 #if 0
 		case :
 			printk("+cec send 'get phy addr'+\n");

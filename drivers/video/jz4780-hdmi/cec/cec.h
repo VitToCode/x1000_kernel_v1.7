@@ -12,6 +12,10 @@
 //u8 POLLING  
 #define IMAGE_VIEW_ON 0x04
 #define ACTIVE_SOURCE 0X82
+#define CEC_STANDBY 0x36
+#define INACTIVE_SOURCE 0x9D
+
+
 
 #define CEC_MAX_SIZE 16
 #define CEC_TIME_OUT 5

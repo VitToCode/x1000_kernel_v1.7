@@ -53,6 +53,31 @@ void cec_switch_hdmi(void)
 	sendmessage(value1,3);
 }
 
+void cec_switch_standby(void)
+{
+	u8 value[1] = {0};
+	value[0] = CEC_STANDBY;
+	sendmessage(value,1);
+}
+
+void cec_switch_tv(void)
+{
+	hdmivsdb_t vsdb;
+	u16 phyaddr;
+	u8 value[3] = {0};
+
+	cec_switch_hdmi();
+	msleep(100);
+	value[0] = INACTIVE_SOURCE;
+	if ((api_EdidHdmivsdb(&vsdb) == TRUE)) {
+		phyaddr = hdmivsdb_GetPhysicalAddress(&vsdb);
+		dev_info(global_hdmi->dev, "Get device phy addr is %x\n",phyaddr);
+		value[1] = phyaddr >> 8;
+		value[2] = phyaddr & 0xf;
+	}
+	sendmessage(value,3);
+}
+
 static void edid_callback(void *param)
 {
 	dev_info(global_hdmi->dev, "EDID reading done\n");
@@ -406,6 +431,7 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int index,i,ret = 0;
+	int cec_cmd = 0;
 	shortVideoDesc_t tmpsvd;
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
@@ -506,7 +532,25 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		kzfree(jzhdmi->hdmi_info.support_mode);
 		api_phy_enable(PHY_DISABLE_ALL);
 		break;
-
+	case HDMI_CEC_CTL:
+		if (copy_from_user(&cec_cmd, (void __user *)arg, sizeof(int)))
+			return -EFAULT;
+		printk("the cec_cmd is %d\n",cec_cmd);
+		switch(cec_cmd) {
+		case SWITCH_HDMI:
+			cec_switch_hdmi();
+			break;
+		case SWITCH_TV:
+			cec_switch_tv();
+			break;
+		case SWITCH_STANDBY:
+			cec_switch_standby();
+			break;
+		default:
+			printk("cec do not support this cmd:%d\n",cec_cmd);
+			return -EINVAL;
+		}
+		break;
 	default:
 		dev_info(jzhdmi->dev, "%s, cmd = %d is error\n",
 			 __func__, cmd);
