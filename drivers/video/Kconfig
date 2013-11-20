@@ -2517,6 +2517,12 @@ config FORCE_RESOLUTION
 	  If choice this function, then may sure the HDMI cable is connected
 	  when kernel is boot.
 
+config HDMI_NOT_CONTROL_IN_SURFACEFLINGER
+       tristate "HDMI do not control in surfaceflinger(for example in linux system)"
+       depends on HDMI
+	   help
+	   If you use linux system, please this select,so you can respose hpd
+
 config HDMI_JZ4780_DEBUG
        tristate "JZ4780 HDMI DEBUG"
        depends on HDMI

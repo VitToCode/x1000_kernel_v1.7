@@ -80,9 +80,11 @@ struct jzhdmi{
 	struct miscdevice hdmi_miscdev;
 	struct switch_dev hdmi_switch;
 	wait_queue_head_t wait;
+	int probe_finish;
 
 
-	struct delayed_work detect_work;
+	/*struct delayed_work detect_work;*/
+	struct work_struct 	detect_work;
 	struct workqueue_struct *workqueue;
 
 

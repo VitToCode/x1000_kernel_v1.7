@@ -88,6 +88,10 @@ static void edid_callback(void *param)
 	cec_switch_hdmi();
 }
 
+static bool hdmi_init(struct jzhdmi *jzhdmi);
+static int hdmi_config(struct jzhdmi *jzhdmi);
+static int hdmi_read_edid(struct jzhdmi *jzhdmi);
+static void jzhdmi_power_on(struct jzhdmi *jzhdmi);
 static void hpd_callback(void *param)
 {
 	u8 hpd = *((u8*)(param));
@@ -95,10 +99,19 @@ static void hpd_callback(void *param)
 		dev_info(global_hdmi->dev, "HPD DISCONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_DISCONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED;
+
+#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) && defined(CONFIG_FORCE_RESOLUTION)
+		api_phy_enable(PHY_ENABLE_HPD);
+#endif
 	} else {
 		dev_info(global_hdmi->dev, "HPD CONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED;
+
+#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) && defined(CONFIG_FORCE_RESOLUTION)
+		if (!work_pending(&global_hdmi->detect_work))
+			queue_work(global_hdmi->workqueue, &global_hdmi->detect_work);
+#endif
 		cec_switch_hdmi();
 	}
 }
@@ -427,41 +440,45 @@ void pri_hdmi_info(struct jzhdmi *jzhdmi)
 	}
 }
 #endif
+static void jzhdmi_power_on(struct jzhdmi *jzhdmi)
+{
+	int i,ret = 0;
+	shortVideoDesc_t tmpsvd;
+	dev_info(jzhdmi->dev, "Hdmi power on\n");
+	/*if(jzhdmi->hdmi_is_running != 1){*/
+		api_phy_enable(PHY_ENABLE);
+	/*}*/
+	hdmi_init(jzhdmi);
+	ret = hdmi_read_edid(jzhdmi);
+	jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
+	if(ret > 0 && jzhdmi->hdmi_info.support_modenum > 0){
+		jzhdmi->edid_faild = 0;
+		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
+		dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
+		for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
+			api_EdidSvd(i,&tmpsvd);
+			printk("%d ",tmpsvd.mCode);
+			jzhdmi->hdmi_info.support_mode[i] = tmpsvd.mCode;
+		}
+		printk("\n");
+	}else{
+		dev_info(jzhdmi->dev, "Read edid is failed,set mode to 720p60Hz or 1920x1080p06Hz\n");
+		jzhdmi->edid_faild = 1;
+		jzhdmi->hdmi_info.support_modenum = 2;
+		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
+		jzhdmi->hdmi_info.support_mode[0] = 4; /* 1280x720p @ 59.94/60Hz 16:9 */
+		jzhdmi->hdmi_info.support_mode[1] = 16;/* 1920x1080p @ 59.94/60Hz 16:9 */
+	}
+}
 
 static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int index,i,ret = 0;
-	int cec_cmd = 0;
-	shortVideoDesc_t tmpsvd;
+	int index,cec_cmd = 0;
 	struct jzhdmi *jzhdmi = (struct jzhdmi *)(file->private_data);
 
 	switch (cmd) {
 	case HDMI_POWER_ON:
-		dev_info(jzhdmi->dev, "Hdmi power on\n");
-		if(jzhdmi->hdmi_is_running != 1){
-			api_phy_enable(PHY_ENABLE);
-		}
-		hdmi_init(jzhdmi);
-		ret = hdmi_read_edid(jzhdmi);
-		jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
-		if(ret > 0 && jzhdmi->hdmi_info.support_modenum > 0){
-			jzhdmi->edid_faild = 0;
-			jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
-			dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
-			for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
-				api_EdidSvd(i,&tmpsvd);
-				printk("%d ",tmpsvd.mCode);
-				jzhdmi->hdmi_info.support_mode[i] = tmpsvd.mCode;
-			}
-			printk("\n");
-		}else{
-			dev_info(jzhdmi->dev, "Read edid is failed,set mode to 720p60Hz or 1920x1080p06Hz\n");
-			jzhdmi->edid_faild = 1;
-			jzhdmi->hdmi_info.support_modenum = 2;
-			jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
-			jzhdmi->hdmi_info.support_mode[0] = 4; /* 1280x720p @ 59.94/60Hz 16:9 */
-			jzhdmi->hdmi_info.support_mode[1] = 16;/* 1920x1080p @ 59.94/60Hz 16:9 */
-		}
+		jzhdmi_power_on(jzhdmi);
 		break;
 
 	case HDMI_GET_TVMODENUM:
@@ -594,7 +611,16 @@ static void hdmi_late_resume(struct early_suspend *h)
 
 void hdmi_detect_work_handler(struct work_struct *work)
 {
-	/*******************/
+	struct jzhdmi *jzhdmi =
+		container_of(work, struct jzhdmi, detect_work);
+	if(jzhdmi->probe_finish == 1){
+		dev_info(global_hdmi->dev, "HDMI do not control in surfaceflinger\n");
+		jzhdmi_power_on(global_hdmi);
+
+		global_hdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+		hdmi_config(global_hdmi);
+		global_hdmi->hdmi_is_running = 1;
+	}
 }
 static int jzhdmi_open(struct inode * inode, struct file * filp)
 {
@@ -673,6 +699,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->hdmi_is_running = 0;
 	jzhdmi->hdmi_info.out_type = -1;
 
+	jzhdmi->probe_finish = 0;
 	jzhdmi->hdmi_params.pProduct = (productParams_t*)kzalloc(
 		sizeof(productParams_t),GFP_KERNEL);
 	if(!jzhdmi->hdmi_params.pProduct){
@@ -753,7 +780,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		goto err_switch_dev_unregister;
 	}
 
-	INIT_DELAYED_WORK(&jzhdmi->detect_work,hdmi_detect_work_handler);
+	/*INIT_DELAYED_WORK(&jzhdmi->detect_work,hdmi_detect_work_handler);*/
+	INIT_WORK(&jzhdmi->detect_work,hdmi_detect_work_handler);
 
 	if (!access_Initialize((u8 *)jzhdmi->base)) {
 		dev_err(&pdev->dev, "HDMI initialize base address fail\n");
@@ -806,6 +834,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 #ifdef CONFIG_FORCE_RESOLUTION
 		jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
 #endif
+		jzhdmi->probe_finish = 1;
 		return 0;
 	}
 #ifdef CONFIG_FORCE_RESOLUTION
@@ -830,8 +859,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	}
 #endif
-
-
+	jzhdmi->probe_finish = 1;
 	return 0;
 
 err_unregister_early_suspend:
@@ -860,6 +888,7 @@ err_free_jzhdmi_mem:
 err_release_mem_region:
 	release_mem_region(mem->start, resource_size(mem));
 
+	jzhdmi->probe_finish = 1;
 	return ret;
 }
 
