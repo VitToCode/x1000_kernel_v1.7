@@ -1332,6 +1332,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 	int count = 10000;
 	unsigned long ctrl;
 	struct jzfb *jzfb = info->par;
+	unsigned long flags;
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 	return 0;
 #endif
@@ -1343,11 +1344,13 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
+		spin_lock_irqsave(&jzfb->reg_lock, flags);
 		reg_write(jzfb, LCDC_STATE, 0);
 		ctrl = reg_read(jzfb, LCDC_CTRL);
 		ctrl |= LCDC_CTRL_ENA;
 		ctrl &= ~LCDC_CTRL_DIS;
 		reg_write(jzfb, LCDC_CTRL, ctrl);
+		spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 
 		mutex_lock(&jzfb->suspend_lock);
 		if (jzfb->is_suspend) {
@@ -1372,21 +1375,26 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		break;
 	default:
 		if (jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
+			spin_lock_irqsave(&jzfb->reg_lock, flags);
 			ctrl = reg_read(jzfb, LCDC_CTRL);
 			ctrl |= LCDC_CTRL_DIS;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
+			spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 			while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
 			       && count--) {
 				udelay(10);
 			}
 			if (count >= 0) {
+				spin_lock_irqsave(&jzfb->reg_lock, flags);
 				ctrl = reg_read(jzfb, LCDC_STATE);
 				ctrl &= ~LCDC_STATE_LDD;
 				reg_write(jzfb, LCDC_STATE, ctrl);
+				spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 			} else {
 				dev_err(jzfb->dev, "LCDC disable state wrong");
 			}
 		} else {
+			spin_lock_irqsave(&jzfb->reg_lock, flags);
 			ctrl = reg_read(jzfb, LCDC_CTRL);
 			ctrl &= ~LCDC_CTRL_ENA;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
@@ -1394,6 +1402,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			ctrl = reg_read(jzfb, SLCDC_CTRL);
 			ctrl &= ~SLCDC_CTRL_DMA_EN;
 			reg_write(jzfb, SLCDC_CTRL, ctrl);
+			spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 		}
 	}
 
@@ -1994,6 +2003,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	int i;
 	unsigned int value;
 	unsigned int tmp;
+	unsigned long flags;
 	void __user *argp = (void __user *)arg;
 	struct jzfb *jzfb = info->par;
 	struct jzfb_platform_data *pdata = jzfb->pdata;
@@ -2174,7 +2184,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	case JZFB_SET_VSYNCINT:
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
-		if (value) {
+
+		spin_lock_irqsave(&jzfb->reg_lock, flags);
+		if (value && jzfb->is_vsync == 0) {
 			/* clear previous EOF flag */
 			tmp = reg_read(jzfb, LCDC_STATE);
 			reg_write(jzfb, LCDC_STATE, tmp & ~LCDC_STATE_EOF);
@@ -2182,19 +2194,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
 
-                        /* is lcdc already in earlysuspend, make trigger a vsync. */
-                        if (jzfb->is_suspend) {
-                            dev_err(jzfb->dev, "*** JZFB_SET_VSYNCINT but jzfb->is_suspend, trigger a dummy vsync end envent. ***\n");
-                            jzfb->vsync_timestamp = ktime_get();
-                            wmb();
-                            wake_up_interruptible(&jzfb->vsync_wq);
-                        }
-
-
-		} else {
-			tmp = reg_read(jzfb, LCDC_CTRL);
-			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
 		}
+		jzfb->is_vsync = value;
+		spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 		break;
 	case JZFB_SET_BACKGROUND:
 		if (copy_from_user(&osd.background, argp, sizeof(
@@ -2403,6 +2405,9 @@ static int jzfb_vsync_timestamp_changed(struct jzfb *jzfb,
 static int jzfb_wait_for_vsync_thread(void *data)
 {
 	struct jzfb *jzfb = (struct jzfb *)data;
+	char *envp[2];
+	unsigned int tmp;
+	unsigned long flags;
 
 	while (!kthread_should_stop()) {
 		ktime_t prev_timestamp = jzfb->vsync_timestamp;
@@ -2411,26 +2416,38 @@ static int jzfb_wait_for_vsync_thread(void *data)
 			jzfb_vsync_timestamp_changed(jzfb, prev_timestamp),
 			msecs_to_jiffies(100));
 		if (ret > 0) {
-			char *envp[2];
-			char buf[64];
-                        int is_suspend;
-
 			mutex_lock(&jzfb->lock);
-                        is_suspend = jzfb->is_suspend;
 			/* rotate right */
 			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 |
 				 		jzfb->vsync_skip_map << 9) &
 						0x3ff;
 			mutex_unlock(&jzfb->lock);
-                        if ( !is_suspend ){
-                            if (!(jzfb->vsync_skip_map & 0x1))
+			if (!(jzfb->vsync_skip_map & 0x1))
 			        continue;
-                        }
-			snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(
+			spin_lock_irqsave(&jzfb->reg_lock, flags);
+			if(!jzfb->is_vsync) {
+				tmp = reg_read(jzfb, LCDC_CTRL);
+				reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
+			}
+			spin_unlock_irqrestore(&jzfb->reg_lock, flags);
+			snprintf(jzfb->eventbuf, sizeof(jzfb->eventbuf), "VSYNC=%llu", ktime_to_ns(
 					 jzfb->vsync_timestamp));
-			envp[0] = buf;
+			envp[0] = jzfb->eventbuf;
 			envp[1] = NULL;
 			kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);
+		}
+
+		if(jzfb->is_vsync && jzfb->is_suspend) {
+			mutex_lock(&jzfb->lock);
+			jzfb->is_vsync = 0;
+			mutex_unlock(&jzfb->lock);
+			snprintf(jzfb->eventbuf, sizeof(jzfb->eventbuf), "VSYNC=%llu", ktime_to_ns(
+					 jzfb->vsync_timestamp));
+			envp[0] = jzfb->eventbuf;
+			envp[1] = NULL;
+			kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);
+			printk("suspend send vsync\n");
+
 		}
 	}
 
@@ -2441,7 +2458,9 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 {
 	unsigned int state;
 	struct jzfb *jzfb = (struct jzfb *)data;
+	unsigned long flags;
 
+	spin_lock_irqsave(&jzfb->reg_lock, flags);
 	state = reg_read(jzfb, LCDC_STATE);
 	if (state & LCDC_STATE_EOF) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
@@ -2463,6 +2482,7 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 		dev_err(jzfb->dev, "%s, Out FiFo underrun\n", __func__);
 	}
 
+	spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 	return IRQ_HANDLED;
 }
 
@@ -3317,6 +3337,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	mutex_init(&jzfb->lock);
 	mutex_init(&jzfb->framedesc_lock);
 	mutex_init(&jzfb->suspend_lock);
+	spin_lock_init(&jzfb->reg_lock);
 
 	fb_videomode_to_modelist(pdata->modes, pdata->num_modes,
 				 &fb->modelist);

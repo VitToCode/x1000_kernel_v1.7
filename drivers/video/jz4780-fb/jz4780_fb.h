@@ -125,6 +125,7 @@ struct jzfb {
 
 	struct mutex lock;
 	struct mutex suspend_lock;
+	spinlock_t reg_lock;  /* Read and write registers need to lock. */
 
 	enum jzfb_format_order fmt_order; /* frame buffer pixel format order */
 	struct jzfb_osd_t osd; /* osd's config information */
@@ -139,6 +140,9 @@ struct jzfb {
 	struct early_suspend early_suspend;
 #endif
 	int is_suspend;
+
+	char eventbuf[64];
+	int is_vsync;
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
