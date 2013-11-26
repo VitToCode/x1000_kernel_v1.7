@@ -914,7 +914,6 @@ static int __devexit jzhdmi_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	misc_deregister(&jzhdmi->hdmi_miscdev);
-	unregister_early_suspend(&jzhdmi->early_suspend);
 	destroy_workqueue(jzhdmi->workqueue);
 	switch_dev_unregister(&jzhdmi->hdmi_switch);
 	iounmap(jzhdmi->base);
