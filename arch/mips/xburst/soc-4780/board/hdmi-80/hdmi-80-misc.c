@@ -393,14 +393,6 @@ struct platform_device net_device_ax88796c = {
 	.resource = ax88796c_resource,
 };
 
-#define VAL_SMCR5	0x07773200
-void inline jz_eth_sdram_init(void __iomem *base, int bus_width)
-{
-	writel(VAL_SMCR5, (base + NEMC_SMCR5));
-}
-#undef VAL_SMCR5
-#endif
-
 static int __init hdmi_80_board_init(void)
 {
 	

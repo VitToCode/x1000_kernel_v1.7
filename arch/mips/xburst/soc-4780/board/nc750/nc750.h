@@ -85,7 +85,6 @@ extern struct platform_nand_data jz_nand_chip_data;
 /**
  * Ethernet AX88796C
  **/
-#define NEMC_SMCR5			0x0024
 #define AX_ETH_RESET			GPIO_PF(21)
 #define AX_ETH_INT			GPIO_PF(18)
 
