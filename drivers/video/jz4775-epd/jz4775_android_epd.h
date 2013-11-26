@@ -81,6 +81,7 @@ struct jz_epd {
 	int timer_vsync;
 
 	int epd_power;
+	struct regulator *vblk;/* eink backlight power */
 
 	struct mutex lock;
 	struct mutex suspend_lock;
@@ -144,12 +145,18 @@ static inline void reg_write(struct jz_epd *jz_epd, int offset, unsigned long va
 #define FBIO_ALPHA_OFF			0x46c0 /* disable alpha */
 #define FBIO_SET_ALPHA_VAL		0x46c1 /* set alpha value */
 #define FBIO_WAIT_EPD_SWAP_SIGNAL 	0x46c2 /* wait until end of frambuffer interrupt signal,Rill add for surfaceFlinger 100719*/
-#define FBIO_SET_EINK_WRITE_MODE 	0x46c3
-#define FBIO_SET_EINK_WRITE_REGION 	0x46c4
-#define FBIO_GET_PANEL_TYPE	 	0x46c5
-#define FBIO_GET_WFM_LOTNUM		0x46c6
-#define FBIO_SET_EINK_FRAME_RATE 	0x46c7
-#define FBIO_SET_EINK_REFRESH_MODE 	0x46c8
-#define FBIO_SET_EINK_CLEAR_SCREEN	0x46c9
+#define FBIO_GET_EINK_WRITE_MODE 	0x46c3 /* get epd write mode */
+#define FBIO_SET_EINK_WRITE_MODE 	0x46c4 /* set epd write mode */
+#define FBIO_SET_EINK_WRITE_REGION 	0x46c5
+#define FBIO_GET_PANEL_TYPE	 	0x46c6
+#define FBIO_GET_WFM_LOTNUM		0x46c7
+#define FBIO_SET_EINK_FRAME_RATE 	0x46c8
+#define FBIO_GET_EINK_REFRESH_MODE 	0x46c9 /* get epd refresh mode */
+#define FBIO_SET_EINK_REFRESH_MODE 	0x46ca /* set epd refresh mode */
+#define FBIO_SET_EINK_CLEAR_SCREEN	0x46cb /* clear screen 0:white 1:black */
+#define FBIO_GET_EINK_PARALLEL_REF_TIMES 0x46cc	/* get eink parallel refresh interval times */
+#define FBIO_SET_EINK_PARALLEL_REF_TIMES 0x46cd	/* set eink parallel refresh interval times */
+#define FBIO_GET_BACKLIGHT_POWER_STATUS  0x46ce /* eink get backlight power status 0:is power off 1:is power on */
+#define FBIO_SET_BACKLIGHT_POWER		 0x46cf	/* eink set backlight power 0:power off 1:power on */
 
 #endif /* __JZ4775_ANDROID_EPD_H__ */

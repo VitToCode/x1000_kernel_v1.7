@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/fs.h>
 
 #include <soc/gpio.h>
@@ -95,7 +96,7 @@ static unsigned int wrk_buf_size;
 static unsigned int wrk0_buf_size;
 static unsigned int wrk1_buf_size;
 
-static unsigned int epd_temp = 8;
+static unsigned int epd_temp = 5;
 static unsigned int frame_num;
 
 static unsigned int ref_times = 0;
@@ -353,9 +354,9 @@ static void jz4775fb_fill_wfm_lut(epd_mode_e epd_mode)
 
 		frame_num = wfm_buf[pos / 2 + 64 * epd_mode + 4 * (epd_temp) + 3];
 
-		printk("PVI epd_mode = %d, epd_temp = %d\t", epd_mode, epd_temp);
-		printk("waveform_addr = 0x%x\n", (unsigned int)waveform_addr);
-		printk("frame_num = %d\n", frame_num);
+		dprintk("PVI epd_mode = %d, epd_temp = %d\t", epd_mode, epd_temp);
+		dprintk("waveform_addr = 0x%x\n", (unsigned int)waveform_addr);
+		dprintk("frame_num = %d\n", frame_num);
 
 		memcpy(wfm_lut_buf, waveform_addr, SIZE_PER_FRAME * frame_num);
 		dma_cache_wback_inv((unsigned int)wfm_lut_buf, WFM_LUT_SIZE);
@@ -585,10 +586,11 @@ static void jz4775fb_a2out_refresh(void *data)
 			mutex_unlock(&jz_epd->lock);
 			return;
 		}
-		cur_epd_mode = MODE_A2OUT;
+		cur_epd_mode = MODE_GC16;//MODE_A2OUT;
+		prev_epd_mode = cur_epd_mode;
 		/*jz4775fb_load_wfm_lut(cur_epd_mode, cur_epd_temp);*/
 		jz4775fb_load_wfm_lut(cur_epd_mode);
-		cur_ref_mode = PARTIAL_REF;
+		cur_ref_mode = PARALLEL_REF;
 		REG_EPD_CFG	&= ~1;
 		REG_EPD_CFG	|= cur_ref_mode;
 		prev_ref_mode = cur_ref_mode;
@@ -684,7 +686,7 @@ static irqreturn_t jz4775fb_epdc_interrupt_handler(int irq, void *data)
 	if(status & EPD_STA_PWROFF)	{
 		REG_EPD_STA &= ~EPD_STA_PWROFF;
 		sta_pwroff = 1;
-		if(cur_epd_mode == MODE_A2IN || cur_epd_mode == MODE_A2)
+		if(cur_epd_mode == MODE_DU || cur_epd_mode == MODE_A2)
 			mod_timer(&mode_a2out_timer, jiffies + HZ / 2);
 	}
 
@@ -742,7 +744,7 @@ int jz4775fb_set_parallel_refresh(unsigned int cnt)
 	return 0;
 }
 
-int jz4775fb_get_parallel_refresh(unsigned int cnt)
+int jz4775fb_get_parallel_refresh(void)
 {
 	return parallel_refresh_interval_times;
 }
@@ -774,12 +776,12 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 	frm_buf_addr = frame_buffer + frm_buf_size * next_frm;
 
 	if(epd_mode_set == MODE_A2) {
-		cur_epd_mode = ((cur_epd_mode != MODE_A2IN && cur_epd_mode != MODE_A2) ? MODE_A2IN : MODE_A2);
+		cur_epd_mode = ((cur_epd_mode != MODE_DU && cur_epd_mode != MODE_A2) ? MODE_DU : MODE_A2);
 	} else {
 		cur_epd_mode = epd_mode_set;
 	}
 
-	if(cur_epd_mode == MODE_A2IN) {
+	if(cur_epd_mode == MODE_DU) {
 		cur_ref_mode = PARALLEL_REF;
 		ref_times = 0;
 	} else if(cur_epd_mode == MODE_A2) {
@@ -788,7 +790,8 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 	} else if(cur_epd_mode == MODE_A2OUT) {
 		cur_ref_mode = ref_mode_set;
 		ref_times = 0;
-	} else if(((REG_EPD_STA & EPD_STA_EPD_IDLE) && (++ref_times == parallel_refresh_interval_times))) {
+	} else if((parallel_refresh_interval_times != 0) &&	(REG_EPD_STA & EPD_STA_EPD_IDLE)
+			&& (++ref_times == parallel_refresh_interval_times)) {
 		cur_epd_mode = MODE_GC16;
 		cur_ref_mode = PARALLEL_REF;
 		ref_times = 0;
@@ -824,10 +827,14 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 	jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
 	REG_EPD_CURBF = (unsigned int)virt_to_phys(cur_buf_addr);
 
-	if(cur_epd_mode == MODE_A2IN || cur_epd_mode == MODE_A2) {
+	if(cur_epd_mode == MODE_DU || cur_epd_mode == MODE_A2) {
 		cur_buf_addr = current_a2buffer;
-		jz4775_epdce_vee(vee_lut_2gs);
-		jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
+		if(cur_epd_mode == MODE_DU) {
+			memset(cur_buf_addr, 0x00, cur_buf_size);
+		} else {
+			jz4775_epdce_vee(vee_lut_2gs);
+			jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
+		}
 		REG_EPD_CURBF = (unsigned int)virt_to_phys(cur_buf_addr);
 	}
 
@@ -850,12 +857,21 @@ static int jz4775fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long 
 	void __user *argp = (void __user *)arg;
 	unsigned int value;
 	struct jz_epd *jz_epd = (struct jz_epd *)info->par;
-	epd_mode_e epd_mode_set;
 
 	switch (cmd)
 	{
+		case FBIO_GET_EINK_WRITE_MODE:
+			if (copy_to_user(argp, &epd_mode_set, sizeof(epd_mode_e)))
+				return -EFAULT;
+			break;
+
 		case FBIO_SET_EINK_WRITE_MODE:
 			if (copy_from_user(&epd_mode_set, argp, sizeof(epd_mode_e)))
+				return -EFAULT;
+			break;
+
+		case FBIO_GET_EINK_REFRESH_MODE:
+			if (copy_to_user(argp, &ref_mode_set, sizeof(ref_mode_e)))
 				return -EFAULT;
 			break;
 
@@ -865,8 +881,44 @@ static int jz4775fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long 
 			break;
 
 		case FBIO_SET_EINK_CLEAR_SCREEN:
-			jz4775fb_clear_screen(jz_epd, 0xff);
+			if (copy_from_user(&value, argp, sizeof(unsigned int)))
+				return -EFAULT;
+			if (value) {
+				jz4775fb_clear_screen(jz_epd, 0x00);
+			} else {
+				jz4775fb_clear_screen(jz_epd, 0xff);
+			}
 			break;
+
+		case FBIO_GET_EINK_PARALLEL_REF_TIMES:
+			value = jz4775fb_get_parallel_refresh();
+			if (copy_to_user(argp, &value, sizeof(int)))
+				return -EFAULT;
+			break;
+
+		case FBIO_SET_EINK_PARALLEL_REF_TIMES:
+			if (copy_from_user(&value, argp, sizeof(unsigned int)))
+				return -EFAULT;
+			jz4775fb_set_parallel_refresh(value);
+			break;
+#if 0
+		case FBIO_GET_BACKLIGHT_POWER_STATUS:
+			value = regulator_is_enabled(jz_epd->vblk);
+			if (copy_to_user(argp, &value, sizeof(int)))
+				return -EFAULT;
+			break;
+
+		case FBIO_SET_BACKLIGHT_POWER:
+			if (copy_from_user(&value, argp, sizeof(unsigned int)))
+				return -EFAULT;
+			if (value) {
+				if(!regulator_is_enabled(jz_epd->vblk))
+					regulator_enable(jz_epd->vblk);
+			} else {
+				if(regulator_is_enabled(jz_epd->vblk))
+					regulator_disable(jz_epd->vblk);
+			}
+#endif
 
 		case JZFB_SET_VSYNCINT:
 			if (copy_from_user(&value, argp, sizeof(int)))
@@ -1002,8 +1054,7 @@ static int jz4775fb_set_info(struct fb_info *fbinfo)
 	fb->var.xoffset		= 0;
 	fb->var.xres_virtual	= fb->var.xres;
 	fb->var.yres_virtual	= fb->var.yres * NUM_FRAME_BUFFERS;
-	fb->var.pixclock	= 40000000;//KHZ2PICOS(cpm_get_clock(CGU_LPCLK0)/1000);	[> pixel clock in ps (pico seconds) <]
-
+	fb->var.pixclock	= panel_info.epd_var.pixclock;
 	/* Current framebuffer fix info*/
 	fb->fix.type		= FB_TYPE_PACKED_PIXELS;
 	fb->fix.type_aux	= 0;
@@ -1147,6 +1198,7 @@ int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value)
 	WAIT_INTERRUPT_STATUS(sta_pwroff == 1);
 	sta_pwron = 0;
 	cur_epd_mode = MODE_GC16;
+	prev_epd_mode = cur_epd_mode;
 	jz4775fb_load_wfm_lut(MODE_GC16);
 	cur_ref_mode = PARALLEL_REF;
 	REG_EPD_CFG	&= ~1;
@@ -1286,12 +1338,84 @@ static ssize_t refresh_mode_w(struct device *dev,
 	return count;
 }
 
+#if 0
+static ssize_t backlight_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd == NULL) {
+		printk("read backlight status error\n");
+		return 0;
+	}
+	if(regulator_is_enabled(jz_epd->vblk)) {
+		sprintf(buf, "%s\n", "enable");
+	} else {
+		sprintf(buf, "%s\n", "disable");
+	}
+	return strlen(buf);
+}
+
+static ssize_t backlight_w(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd == NULL) {
+		printk("write backlight status error\n");
+		return 0;
+	}
+	if(!strncmp(buf, "enable", 6)) {
+		if(!regulator_is_enabled(jz_epd->vblk))
+			regulator_enable(jz_epd->vblk);
+	} else if(!strncmp(buf, "disable", 7)) {
+		if(regulator_is_enabled(jz_epd->vblk))
+			regulator_disable(jz_epd->vblk);
+	}
+	return count;
+}
+#endif
+
+static ssize_t parallel_refresh_times_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	sprintf(buf, "%d\n", jz4775fb_get_parallel_refresh());
+	return strlen(buf);
+}
+
+static ssize_t parallel_refresh_times_w(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int value = 0;
+	const char *temp_buf = buf;
+
+	if ((*buf < '0') || (*buf > '9'))
+		return -EINVAL;
+
+	if(*buf == '0') {
+		jz4775fb_set_parallel_refresh(0);
+		return count;
+	}
+
+	while ((*temp_buf >= '0') && (*temp_buf <= '9')) {
+		value *= 10;
+		value += (*temp_buf - '0');
+		temp_buf++;
+	}
+
+	jz4775fb_set_parallel_refresh(value);
+	return count;
+}
+
 static struct device_attribute epd_sysfs_attrs[] = {
 	__ATTR(    dump_epd, S_IRUGO|S_IWUSR, dump_epd, NULL),
 	__ATTR(screen_black, S_IRUGO|S_IWUSR, screen_black, NULL),
 	__ATTR(screen_white, S_IRUGO|S_IWUSR, screen_white, NULL),
 	__ATTR(    epd_mode, S_IRUGO|S_IWUSR, epd_mode_r, epd_mode_w),
 	__ATTR(refresh_mode, S_IRUGO|S_IWUSR, refresh_mode_r, refresh_mode_w),
+#if 0
+	__ATTR(   backlight, S_IRUGO|S_IWUSR, backlight_r, backlight_w),
+#endif
+	__ATTR(parallel_refresh_times, S_IRUGO|S_IWUSR, parallel_refresh_times_r,
+			parallel_refresh_times_w),
 };
 
 static int __init jz4775fb_probe(struct platform_device *pdev)
@@ -1336,6 +1460,13 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	jz_epd->pdata = pdata;
 	jz_epd->id = pdev->id;
 	jz_epd->mem = mem;
+
+#if 0
+	jz_epd->vblk = regulator_get(&pdev->dev, "vblk");
+	if (IS_ERR(jz_epd->vblk)) {
+		printk(KERN_ERR "can't get vblk\n");
+	}
+#endif
 
 	jz_epd->base = ioremap(mem->start, resource_size(mem));
 	if (!jz_epd->base) {
@@ -1409,7 +1540,8 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&jz_epd->lock);
-	setup_timer(&mode_a2out_timer, jz4775fb_a2out_refresh, jz_epd);
+	setup_timer(&mode_a2out_timer,
+			(void *)jz4775fb_a2out_refresh, (unsigned long)jz_epd);
 
 	sprintf(jz_epd->irq_name, "epdc");
 	ret = request_irq(IRQ_EPDC, jz4775fb_epdc_interrupt_handler,
