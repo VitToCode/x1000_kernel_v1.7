@@ -54,11 +54,3 @@ struct platform_device net_device_ax88796c = {
 	.num_resources = ARRAY_SIZE(ax88796c_resource),
 	.resource = ax88796c_resource,
 };
-
-#define VAL_SMCR5	0x07773200
-//#define VAL_SMCR5	0x0fff7700
-void inline jz_eth_sdram_init(void __iomem *base, int bus_width)
-{
-	writel(VAL_SMCR5, (base + NEMC_SMCR5));
-}
-#undef VAL_SMCR5

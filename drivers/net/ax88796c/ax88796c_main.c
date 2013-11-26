@@ -18,9 +18,10 @@
  */
 
 #include "ax88796c.h"
+#include "ax88796c_plat.h"
 #include "ax88796c_ioctl.h"
-#include <linux/gpio.h>
 
+#include <linux/gpio.h>
 #include <soc/gpio.h>
 
 /* Naming constant declarations */
@@ -1721,7 +1722,7 @@ static int ax88796c_drv_probe(struct platform_device *pdev)
 	/* Enable Link Change and Magic Packet wakeup */
 	ax_local->wol = WFCR_LINKCH | WFCR_MAGICP;
 
-	ax88796c_plat_init (ax_local->confbase, bus_wide);
+	ax88796c_plat_init (ax_local, bus_wide);
 
 	ret = ax88796c_probe (ax_local);
 	if (!ret)

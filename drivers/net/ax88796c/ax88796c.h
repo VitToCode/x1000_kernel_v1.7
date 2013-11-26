@@ -44,7 +44,7 @@
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 
-#include "ax88796c_plat.h"
+#include "ax88796c_feature.h"
 
 /* AX88796C naming declarations */
 #define AX88796C_DRV_NAME	"AX88796C"
@@ -56,6 +56,12 @@
 /* TRUE: enable, FALSE: disable */
 #define AX88796C_WATCHDOG_PERIOD	(1 * HZ)
 #define AX88796C_WATCHDOG_RESTART	7
+
+#if (AX88796B_PIN_COMPATIBLE)
+#define DATA_PORT_ADDR			0x800
+#else
+#define DATA_PORT_ADDR			0x0020
+#endif
 
 #if (TX_DMA_MODE)
 #define TX_QUEUE_HIGH_WATER		45		/* Tx queue high water mark */
@@ -283,6 +289,25 @@ struct ax88796c_device {
 	int	msg_enable;
 
 };
+
+/* AX88797C AC Timming Character (Unit: ns) */
+#define TCYCLE_V33	48 /* Read/Write Cycle time */
+#define TCYCLE_V25	48
+#define TCYCLE_V18	53
+
+#define TRDL_V33	35 /* RDN low require time */
+#define TRDL_V25	35
+#define TRDL_V18	40
+
+#define TRDH		13 /* RDN HI require time */
+
+#define TDV_V33		30 /* Data valid time from RDN */
+#define TDV_V25		32
+#define TDV_V18		37
+
+#define TWRL		35 /* Write low require time */
+#define TWRH		13 /* Write HI require time */
+#define TDS		15 /* Data stable time */
 
 /* A88796C register definition */
 #if (AX88796B_PIN_COMPATIBLE)

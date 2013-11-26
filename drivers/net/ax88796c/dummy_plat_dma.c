@@ -3,6 +3,7 @@
  *
  * For Dummy Plat
  */
+#include "ax88796c.h"
 #include "ax88796c_plat.h"
 
 #if !defined(CONFIG_ARCH_S3C2410) && !defined(CONFIG_SOC_4780)

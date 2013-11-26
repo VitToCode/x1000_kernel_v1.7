@@ -12,7 +12,8 @@
 #include <plat/regs-dma.h>
 #endif
 
-#include "s3c2410_plat_dma.h"
+#include "ax88796c.h"
+#include "ax88796c_plat.h"
 
 struct dma_channel {
 

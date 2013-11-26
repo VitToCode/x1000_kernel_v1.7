@@ -3,8 +3,13 @@
  *
  * For Jz4780 Plat
  */
-#include "ax88796c_plat.h"
+#include <linux/clk.h>
+#include <linux/dmaengine.h>
+#include <asm/dma.h>
 #include <mach/jzdma.h>
+
+#include "ax88796c.h"
+#include "ax88796c_plat.h"
 
 enum jz_net_burst {
 	TX_BURST	= 0x3, /* DMA Burst 16Bytes */
@@ -21,8 +26,6 @@ struct jz_ax_dma {
 
 static struct jz_ax_dma tx_dma;
 static struct jz_ax_dma rx_dma;
-
-extern void inline jz_eth_sdram_init(void __iomem *base, int bus_width);
 
 #define DCM_RDIL	(4 << 16)
 static void jz_eth_dma_start(struct jz_ax_dma *dma_info, dma_addr_t mem_addr, int count)
@@ -161,7 +164,41 @@ void ax88796c_plat_dma_release (void)
 		dma_release_channel(rx_dma.chan);
 }
 
-void ax88796c_plat_init (void __iomem *confbase, int bus_width)
+static u32 jz_sram_smcr_get(int clock)
 {
-	jz_eth_sdram_init(confbase, bus_width);
+	int cycle = 1000000000 / (clock / 1000); /* Unit: ps */
+	u32 taw, tbp, tah, tas;
+
+	taw = (TRDL_V33 * 1000 + cycle - 1) / cycle - 1;
+	tbp = (TDV_V33 * 1000 + cycle -1) / cycle - 1;
+	tah = (TDS * 1000 + cycle - 1) / cycle / 2;
+	tas = (TDS * 1000 + cycle - 1) / cycle - tah - 1;
+
+#if 0
+	printk("%s: NEMC taw = %d, tbp = %d, tah = %d, tas = %d\n", AX88796C_DRV_NAME, taw, tbp, tah, tas);
+#endif
+
+	return (7 << 24) | (taw << 20) | (tbp << 16) | (tah << 12) | (tas << 8);
+}
+
+void ax88796c_plat_init (struct ax88796c_device *ax_local, int bus_width)
+{
+	int bank = ((0x1C000000 & 0xfffffff) - ((u32)ax_local->membase & 0xfffffff)) / 0x1000000;
+	void __iomem *base = ax_local->confbase + 0x14 + (bank - 1) * 0x4;
+	struct clk *ax_clk;
+	int clock;
+	u32 smcr_val;
+
+	ax_clk = clk_get(NULL, "nemc");
+	clock = clk_get_rate(ax_clk);
+
+	/* Calculat SMCR value with AHB2 clock */
+	smcr_val = jz_sram_smcr_get(clock);
+	/* Write SMCRn Register */
+	writel(smcr_val, base);
+
+#if 0
+	printk("%s: Clock: %dMHz\n", AX88796C_DRV_NAME, clock / 1000000);
+	printk("%s: SMCR: %08x, bank: %d\n", AX88796C_DRV_NAME, readl(base), bank);
+#endif
 }
