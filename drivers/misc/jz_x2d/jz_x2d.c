@@ -400,7 +400,6 @@ static int x2d_free_procinfo(struct x2d_device *jz_x2d, struct file *filp)
 static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_proc_info *p)
 {
 	int i;
-
 	dev_info(jz_x2d->dev, "x2d_process_info  pid: %d \n tlb_base: %08x\n record_addr_num: %d\n",
 			 p->pid, p->tlb_base, p->record_addr_num);
 	dev_info(jz_x2d->dev, "watchdog_cnt: %d\ntlb_base:%08x\ndst_address:%08x\n", 
@@ -418,14 +417,14 @@ static void x2d_dump_config(struct x2d_device *jz_x2d, struct x2d_proc_info *p)
 	dev_info(jz_x2d->dev, "dst_glb_alpha_en: %d\n dst_backpure_en:%08x\n configs.layer_num: %d\n", 
 			 p->configs.dst_glb_alpha_en, p->configs.dst_mask_en, p->configs.layer_num);
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < p->configs.layer_num; i++) {
 		dev_info(jz_x2d->dev,"layer[%d]: ======================================\n", i);
 		dev_info(jz_x2d->dev, "format: %d\n, transform: %d\n, global_alpha_val: %d\n, argb_order: %d\n",
 				 p->configs.lay[i].format, p->configs.lay[i].transform, 
 				 p->configs.lay[i].global_alpha_val, p->configs.lay[i].argb_order);
-		dev_info(jz_x2d->dev, "osd_mode: %d\n preRGB_en: %d\n glb_alpha_en: %d\n mask_en: %d\n", 
+		dev_info(jz_x2d->dev, "osd_mode: %d\n preRGB_en: %d\n glb_alpha_en: %d\n mask_en: %d\n msk_val=%x\n",
 				 p->configs.lay[i].osd_mode, p->configs.lay[i].preRGB_en,
-				 p->configs.lay[i].glb_alpha_en, p->configs.lay[i].mask_en);
+				 p->configs.lay[i].glb_alpha_en, p->configs.lay[i].mask_en,p->configs.lay[i].msk_val);
 		dev_info(jz_x2d->dev, "color_cov_en: %d\n in_width: %d\n in_height: %d\n out_width: %d\n", 
 				 p->configs.lay[i].color_cov_en, p->configs.lay[i].in_width,
 				 p->configs.lay[i].in_height, p->configs.lay[i].out_width);
@@ -631,12 +630,11 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 			|(x2d_proc->configs.lay[i].preRGB_en << BIT_X2D_LAY_PREM_EN)		\
 			|(x2d_proc->configs.lay[i].format << BIT_X2D_LAY_INPUT_FORMAT)		\
 			;
-		// preRGB test bhliu
-		jz_x2d->chain_p->x2d_lays[i].lay_ctrl |= x2d_proc->configs.lay[i].osd_mode << BIT_X2D_LAY_OSD_MOD;
 
 		jz_x2d->chain_p->x2d_lays[i].lay_galpha =(uint8_t)x2d_proc->configs.lay[i].global_alpha_val;
 		jz_x2d->chain_p->x2d_lays[i].rom_ctrl = (uint8_t)x2d_proc->configs.lay[i].transform;
-		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)x2d_proc->configs.lay[i].argb_order;
+		jz_x2d->chain_p->x2d_lays[i].RGBM = (uint8_t)x2d_proc->configs.lay[i].argb_order \
+			|(x2d_proc->configs.lay[i].osd_mode << 4);
 
 		if (x2d_proc->configs.lay[i].format == Tile_YUV420) {
 			jz_x2d->chain_p->x2d_lays[i].swidth = (uint16_t)x2d_proc->configs.lay[i].in_width & ~0xf;
