@@ -290,6 +290,13 @@ config LCD_KD301_M03545_0317A
 	default n
 	help
 	  If you have KD301_M03545_0317A panel, say Y to use it
+
+config LCD_TM035PDH03
+	bool "TM035PDH03 panel(320x480)"
+	depends on BACKLIGHT_CLASS_DEVICE 
+	default n
+	help
+	  If you have KD301_M03545_0317A panel, say Y to use it	  
 	  
 endif # LCD_CLASS_DEVICE
 
