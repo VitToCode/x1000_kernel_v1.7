@@ -362,6 +362,7 @@ static int is_gpt_valid(struct parsed_partitions *state, u64 lba,
 	 * within the disk.
 	 */
 	lastlba = last_lba(state->bdev);
+
 	if (le64_to_cpu((*gpt)->first_usable_lba) > lastlba) {
 		pr_debug("GPT: first_usable_lba incorrect: %lld > %lld\n",
 			 (unsigned long long)le64_to_cpu((*gpt)->first_usable_lba),
@@ -369,10 +370,11 @@ static int is_gpt_valid(struct parsed_partitions *state, u64 lba,
 		goto fail;
 	}
 	if (le64_to_cpu((*gpt)->last_usable_lba) > lastlba) {
+		(*gpt)->last_usable_lba = lastlba;
 		pr_debug("GPT: last_usable_lba incorrect: %lld > %lld\n",
 			 (unsigned long long)le64_to_cpu((*gpt)->last_usable_lba),
 			 (unsigned long long)lastlba);
-		goto fail;
+		//goto fail;
 	}
 
 	/* Check that sizeof_partition_entry has the correct value */
@@ -553,6 +555,7 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
 		return 0;
 
 	lastlba = last_lba(state->bdev);
+
         if (!force_gpt) {
                 /* This will be added to the EFI Spec. per Intel after v1.02. */
                 legacymbr = kzalloc(sizeof (*legacymbr), GFP_KERNEL);
