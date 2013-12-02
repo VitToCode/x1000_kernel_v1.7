@@ -30,6 +30,7 @@
 #include <soc/irq.h>
 
 #include <mach/jzepd.h>
+#include <asm/cacheflush.h>
 
 #include "jz4775_android_epd.h"
 #include "epdc_regs.h"
@@ -100,16 +101,22 @@ static unsigned int epd_temp = 5;
 static unsigned int frame_num;
 
 static unsigned int ref_times = 0;
-static unsigned int parallel_refresh_interval_times = 20;
+static unsigned int parallel_refresh_interval_times = 0;
 
 /*static struct timer_list temp_timer;*/
 static struct epd_panel_info panel_info;
-static struct timer_list mode_a2out_timer;
+/*static struct timer_list mode_a2out_timer;*/
 
 static epd_mode_e epd_mode_set = MODE_A2;
 static epd_mode_e prev_epd_mode = -1,/*MODE_A2,*/ cur_epd_mode = MODE_GC16;
 static ref_mode_e ref_mode_set = PARALLEL_REF;
 static ref_mode_e prev_ref_mode = -1,/*PARTIAL_REF,*/ cur_ref_mode = PARALLEL_REF;
+
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+struct fb_info *suspend_fb;
+void *suspend_base;
+int slcd_color_count = 0;
+#endif
 
 extern unsigned char WAVEFORM_LUT[];
 extern struct compression_lut COMPRESSION_LUT[];
@@ -118,8 +125,8 @@ extern int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var,
 		unsigned char *frame_buffer, unsigned char *current_buffer);
 extern int jz4775_epdce_vee(unsigned char * vee_lut);
 static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
-
-int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value);
+static int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value);
+static void jz4775fb_start_epd_refresh(void);
 
 static int jz4775fb_open(struct fb_info *info, int user)
 {
@@ -686,8 +693,8 @@ static irqreturn_t jz4775fb_epdc_interrupt_handler(int irq, void *data)
 	if(status & EPD_STA_PWROFF)	{
 		REG_EPD_STA &= ~EPD_STA_PWROFF;
 		sta_pwroff = 1;
-		if(cur_epd_mode == MODE_DU || cur_epd_mode == MODE_A2)
-			mod_timer(&mode_a2out_timer, jiffies + HZ / 2);
+		/*if(cur_epd_mode == MODE_DU || cur_epd_mode == MODE_A2)
+			mod_timer(&mode_a2out_timer, jiffies + HZ / 2);*/
 	}
 
 	if(status & EPD_STA_PWRON) {
@@ -734,8 +741,7 @@ static irqreturn_t jz4775fb_epdc_interrupt_handler(int irq, void *data)
  */
 int jz4775fb_set_parallel_refresh(unsigned int cnt)
 {
-	if(((cnt != 0) && (parallel_refresh_interval_times != 0)) || (cnt <= ref_times))
-		ref_times = 0;
+	ref_times = 0;
 	parallel_refresh_interval_times = cnt;
 
 	dprintk("Parallel refresh will occur every %d times, current counted times: %d\n", \
@@ -748,6 +754,93 @@ int jz4775fb_get_parallel_refresh(void)
 {
 	return parallel_refresh_interval_times;
 }
+
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+static int update_buffer_suspend_prepare(struct jz_epd *jz_epd)
+{
+	mutex_lock(&jz_epd->lock);
+	cur_ref_mode = PARALLEL_REF;
+	if((cur_ref_mode != prev_ref_mode))
+	{
+		if(cur_ref_mode == PARTIAL_REF)	{
+			REG_EPD_CFG	&= ~EPD_CFG_PARTIAL;
+			REG_EPD_CFG	|= EPD_CFG_PARTIAL;
+		} else if(cur_ref_mode == PARALLEL_REF)	{
+			REG_EPD_CFG	&= ~EPD_CFG_PARTIAL;
+			REG_EPD_CFG	|= EPD_CFG_PARALLEL;
+		}
+		prev_ref_mode = cur_ref_mode;
+	}
+	cur_epd_mode = MODE_GC16;
+	if(cur_epd_mode != prev_epd_mode)
+	{
+		jz4775fb_load_wfm_lut(cur_epd_mode);
+		prev_epd_mode = cur_epd_mode;
+	}
+	jz4775_epdce_vee(vee_lut_16gs);
+	REG_EPD_CURBF = (unsigned int)virt_to_phys(current_buffer);
+
+	if (!jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_on) {
+		jz_epd->pdata->epd_power_ctrl.epd_power_on();
+		jz_epd->epd_power = 1;
+	}
+	if (jz_epd->pdata->epd_power_ctrl.epd_suspend_power_off)
+		jz_epd->pdata->epd_power_ctrl.epd_suspend_power_off();
+
+	clk_disable(jz_epd->pclk);
+	clk_disable(jz_epd->epdc_clk);
+	mutex_unlock(&jz_epd->lock);
+	return 0;
+}
+
+static int update_buffer_resume_prapare(struct jz_epd *jz_epd)
+{
+	mutex_lock(&jz_epd->lock);
+	clk_enable(jz_epd->pclk);
+	clk_enable(jz_epd->epdc_clk);
+	if(jz_epd->epd_power && jz_epd->pdata->epd_power_ctrl.epd_power_off) {
+		jz_epd->pdata->epd_power_ctrl.epd_power_off();
+		jz_epd->epd_power = 0;
+	}
+	mutex_unlock(&jz_epd->lock);
+	return 0;
+}
+
+int update_slcd_frame_buffer(void)
+{
+	struct jz_epd *jz_epd = (struct jz_epd *)suspend_fb->par;
+	unsigned char *cur_buf_addr = current_buffer;
+	unsigned char *frm_buf_addr = suspend_base;
+
+	__flush_cache_all();
+	//prapare current_buffer data
+	jz4775_epdce_rgb565_to_16_grayscale(&jz_epd->fb->var, frm_buf_addr, cur_buf_addr);
+
+	//power on
+	if (jz_epd->pdata->epd_power_ctrl.epd_suspend_power_on)
+		jz_epd->pdata->epd_power_ctrl.epd_suspend_power_on();
+	REG_EPD_CTRL |= EPD_CTRL_PWRON;
+	WAIT_INTERRUPT_STATUS(REG_EPD_STA & EPD_STA_PWRON);
+	REG_EPD_STA &= ~EPD_STA_PWRON;
+
+	//refresh
+	jz4775fb_start_epd_refresh();
+	dma_cache_wback(snp_buf, snp_buf_size);
+
+	//wait refresh stop
+	WAIT_INTERRUPT_STATUS(REG_EPD_STA & EPD_STA_REF_STOP);
+	REG_EPD_STA &= ~EPD_STA_REF_STOP;
+
+	//power off
+	REG_EPD_CTRL |= EPD_CTRL_PWROFF;
+	if (jz_epd->pdata->epd_power_ctrl.epd_suspend_power_off)
+		jz_epd->pdata->epd_power_ctrl.epd_suspend_power_off();
+	WAIT_INTERRUPT_STATUS(REG_EPD_STA & EPD_STA_PWROFF);
+	REG_EPD_STA &= ~EPD_STA_PWROFF;
+
+	return 0;
+}
+#endif /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 
 static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
@@ -781,17 +874,17 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 		cur_epd_mode = epd_mode_set;
 	}
 
-	if(cur_epd_mode == MODE_DU) {
+	if(cur_epd_mode == MODE_DU && epd_mode_set == MODE_A2) {
 		cur_ref_mode = PARALLEL_REF;
 		ref_times = 0;
-	} else if(cur_epd_mode == MODE_A2) {
+	} /*else if(cur_epd_mode == MODE_A2) {
 		cur_ref_mode = PARTIAL_REF;
 		ref_times = 0;
 	} else if(cur_epd_mode == MODE_A2OUT) {
 		cur_ref_mode = ref_mode_set;
 		ref_times = 0;
-	} else if((parallel_refresh_interval_times != 0) &&	(REG_EPD_STA & EPD_STA_EPD_IDLE)
-			&& (++ref_times == parallel_refresh_interval_times)) {
+	}*/ else if((parallel_refresh_interval_times != 0) &&
+			(++ref_times == parallel_refresh_interval_times)) {
 		cur_epd_mode = MODE_GC16;
 		cur_ref_mode = PARALLEL_REF;
 		ref_times = 0;
@@ -830,7 +923,7 @@ static int jz4775fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *i
 	if(cur_epd_mode == MODE_DU || cur_epd_mode == MODE_A2) {
 		cur_buf_addr = current_a2buffer;
 		if(cur_epd_mode == MODE_DU) {
-			memset(cur_buf_addr, 0x00, cur_buf_size);
+			memset(cur_buf_addr, 0xff, cur_buf_size);
 		} else {
 			jz4775_epdce_vee(vee_lut_2gs);
 			jz4775_epdce_rgb565_to_16_grayscale(var_ptr, frm_buf_addr, cur_buf_addr);
@@ -919,6 +1012,15 @@ static int jz4775fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long 
 					regulator_disable(jz_epd->vblk);
 			}
 #endif
+
+		case FBIO_REFRESH_FB:
+			jz4775fb_pan_display(&jz_epd->fb->var, jz_epd->fb);
+			break;
+
+		case FBIO_REFRESH_A2OUT:
+			if (epd_mode_set == MODE_A2)
+				jz4775fb_a2out_refresh(jz_epd);
+			break;
 
 		case JZFB_SET_VSYNCINT:
 			if (copy_from_user(&value, argp, sizeof(int)))
@@ -1188,7 +1290,7 @@ static void jz4775fb_unmap_smem(void)
 	return;
 }
 
-int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value)
+static int jz4775fb_clear_screen(struct jz_epd *jz_epd, unsigned char value)
 {
 	mutex_lock(&jz_epd->lock);
 	if(jz_epd->is_suspend) {
@@ -1405,6 +1507,33 @@ static ssize_t parallel_refresh_times_w(struct device *dev,
 	return count;
 }
 
+static ssize_t refresh_fb_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd == NULL) {
+		printk("refresh fb error\n");
+		return -EINVAL;
+	}
+
+	jz4775fb_pan_display(&jz_epd->fb->var, jz_epd->fb);
+	return 0;
+}
+
+static ssize_t refresh_a2out_r(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct jz_epd *jz_epd = dev_get_drvdata(dev);
+	if(jz_epd == NULL) {
+		printk("refresh a2out error\n");
+		return -EINVAL;
+	}
+
+	if (epd_mode_set == MODE_A2)
+		jz4775fb_a2out_refresh(jz_epd);
+	return 0;
+}
+
 static struct device_attribute epd_sysfs_attrs[] = {
 	__ATTR(    dump_epd, S_IRUGO|S_IWUSR, dump_epd, NULL),
 	__ATTR(screen_black, S_IRUGO|S_IWUSR, screen_black, NULL),
@@ -1416,6 +1545,8 @@ static struct device_attribute epd_sysfs_attrs[] = {
 #endif
 	__ATTR(parallel_refresh_times, S_IRUGO|S_IWUSR, parallel_refresh_times_r,
 			parallel_refresh_times_w),
+	__ATTR( refresh_fb, S_IRUGO|S_IWUSR, refresh_fb_r, NULL),
+	__ATTR( refresh_a2out, S_IRUGO|S_IWUSR, refresh_a2out_r, NULL),
 };
 
 static int __init jz4775fb_probe(struct platform_device *pdev)
@@ -1423,11 +1554,14 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	int ret = 0;
 	int i = 0;
 	struct jz_epd *jz_epd;
-	struct fb_info *fb0;
+	struct fb_info *fb;
 	struct device *device = &pdev->dev;
 	struct jz_epd_platform_data *pdata = pdev->dev.platform_data;
 	struct resource *mem;
 	unsigned long rate;
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	unsigned int slcd_videosize = 0;
+#endif
 
 	if(!pdata) {
 		dev_err(device, "Missing platform data\n");
@@ -1447,15 +1581,15 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	}
 
 	/* Allocate space for info pointer */
-	fb0 = framebuffer_alloc(sizeof(struct jz_epd), device);
-	if (!fb0)
+	fb = framebuffer_alloc(sizeof(struct jz_epd), device);
+	if (!fb)
 		goto failed_alloc_fbinfo;
 
-	fb0->fbops = &jz4775fb_ops;
-	fb0->flags = FBINFO_FLAG_DEFAULT;
+	fb->fbops = &jz4775fb_ops;
+	fb->flags = FBINFO_FLAG_DEFAULT;
 
-	jz_epd = fb0->par;
-	jz_epd->fb = fb0;
+	jz_epd = fb->par;
+	jz_epd->fb = fb;
 	jz_epd->dev = device;
 	jz_epd->pdata = pdata;
 	jz_epd->id = pdev->id;
@@ -1513,11 +1647,11 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	if(ret)
 		goto failed_map_smem;
 
-	ret = jz4775fb_set_info(fb0);
+	ret = jz4775fb_set_info(fb);
 	if(ret)
 		return -EINVAL;
 
-	ret = register_framebuffer(fb0);
+	ret = register_framebuffer(fb);
 	if (ret)
 		return -EINVAL;
 
@@ -1540,8 +1674,8 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&jz_epd->lock);
-	setup_timer(&mode_a2out_timer,
-			(void *)jz4775fb_a2out_refresh, (unsigned long)jz_epd);
+	/*setup_timer(&mode_a2out_timer,
+			(void *)jz4775fb_a2out_refresh, (unsigned long)jz_epd);*/
 
 	sprintf(jz_epd->irq_name, "epdc");
 	ret = request_irq(IRQ_EPDC, jz4775fb_epdc_interrupt_handler,
@@ -1550,6 +1684,25 @@ static int __init jz4775fb_probe(struct platform_device *pdev)
 	{
 		dprintk("%s %d request irq failed\n",__FUNCTION__,__LINE__);
 	}
+
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	suspend_fb = (struct fb_info *)kmalloc(sizeof(struct fb_info), GFP_KERNEL);
+	if(suspend_fb == NULL) {
+		printk("kmalloc suspend_fb failure!\n");
+		return -ENOMEM;
+     }
+	memcpy(suspend_fb,fb,sizeof(struct fb_info));
+	slcd_videosize = panel_info.epd_var.xres * panel_info.epd_var.yres;
+	slcd_videosize *= panel_info.epd_var.bits_per_pixel >> 3;
+
+	suspend_base = kmalloc(slcd_videosize, GFP_KERNEL);
+	if (suspend_base == NULL)
+		return -ENOMEM;
+	memset(suspend_base, 0x00, slcd_videosize);
+	suspend_fb->par = fb->par;
+	suspend_fb->fix.smem_len = slcd_videosize;
+	suspend_fb->screen_base = suspend_base;
+#endif
 
 	jz4775fb_epd_controller_init();
 	jz4775fb_clear_screen(jz_epd, 0xff);
@@ -1566,8 +1719,8 @@ failed_get_clk:
 		clk_put(jz_epd->epdc_clk);
 
 failed_alloc_fbinfo:
-	if (fb0)
-		framebuffer_release(fb0);
+	if (fb)
+		framebuffer_release(fb);
 
 	return ret;
 }
@@ -1575,8 +1728,8 @@ failed_alloc_fbinfo:
 static int jz4775fb_remove(struct platform_device *pdev)
 {
 	void *drvdata = platform_get_drvdata(pdev);
-	struct fb_info *fb0 = (struct fb_info *)drvdata;
-	struct jz_epd *jz_epd = fb0->par;
+	struct fb_info *fb = (struct fb_info *)drvdata;
+	struct jz_epd *jz_epd = fb->par;
 	int i = 0;
 
 	kthread_stop(jz_epd->vsync_thread);
@@ -1591,10 +1744,10 @@ static int jz4775fb_remove(struct platform_device *pdev)
 		device_remove_file(&pdev->dev, &epd_sysfs_attrs[i]);
 	}
 
-	if (fb0)
+	if (fb)
 	{
-		unregister_framebuffer(fb0);
-		framebuffer_release(fb0);
+		unregister_framebuffer(fb);
+		framebuffer_release(fb);
 	}
 	return 0;
 }
@@ -1605,6 +1758,11 @@ static int jz4775fb_suspend(struct platform_device *pdev, pm_message_t state)
 	struct jz_epd *jz_epd = (struct jz_epd *)platform_get_drvdata(pdev);
 	/*jz4775fb_clear_screen(jz_epd, 0x00);*/
 	WAIT_INTERRUPT_STATUS(sta_pwroff);
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	jz_epd->is_suspend = 1;
+	update_buffer_suspend_prepare(jz_epd);
+	return 0;
+#endif
 	mutex_lock(&jz_epd->lock);
 	jz_epd->is_suspend = 1;
 	REG_EPD_CTRL &= ~EPD_CTRL_EPD_ENA;
@@ -1617,6 +1775,11 @@ static int jz4775fb_suspend(struct platform_device *pdev, pm_message_t state)
 static int jz4775fb_resume(struct platform_device *pdev)
 {
 	struct jz_epd *jz_epd = (struct jz_epd *)platform_get_drvdata(pdev);
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	update_buffer_resume_prapare(jz_epd);
+	jz_epd->is_suspend = 0;
+	return 0;
+#endif
 	mutex_lock(&jz_epd->lock);
 	clk_enable(jz_epd->pclk);
 	clk_enable(jz_epd->epdc_clk);

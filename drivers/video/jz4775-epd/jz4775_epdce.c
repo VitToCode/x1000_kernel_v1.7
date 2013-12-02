@@ -65,6 +65,7 @@
 #define printk(format, arg...) do {} while (0)
 #endif
 
+static struct clk *epdce_clk;
 
 static volatile unsigned int is_oeof;
 static unsigned int snp_buf_size;
@@ -978,6 +979,9 @@ int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var, unsign
 	REG_EPDCE_DMAC = EPDCE_DMAC_CDMA_ENA;
 	REG_EPDCE_CTRL = EPDCE_CTRL_EPDCE_EN;
 
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	mdelay(5);
+#else
 	delay = jiffies + msecs_to_jiffies(EPDC_WAIT_MDELAY);
 	while (time_before(jiffies, delay))
 	{
@@ -986,6 +990,8 @@ int jz4775_epdce_rgb565_to_16_grayscale(struct fb_var_screeninfo *fb_var, unsign
 		if (ret)
 			break;
 	}
+#endif
+
 	dma_cache_wback_inv((unsigned long)current_buffer, cb_size);
 	//REG_EPDCE_IC |= EPDCE_IC_OSTOP | EPDCE_IC_OEOF | EPDCE_IC_OSOF | EPDCE_IC_ISTOP | EPDCE_IC_IEOF | EPDCE_IC_ISOF;
 
@@ -1044,11 +1050,13 @@ static int jz4775_epdce_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int jz4775_epdce_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	clk_disable(epdce_clk);
 	return 0;
 }
 
 static int jz4775_epdce_resume(struct platform_device *pdev)
 {
+	clk_enable(epdce_clk);
 	return 0;
 }
 #else

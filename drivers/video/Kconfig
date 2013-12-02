@@ -2461,7 +2461,7 @@ config JZFB_LCDC_INIT
 
 #config SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 #	bool "SLCD_SUSPEND_ALARM_WAKEUP_REFRESH"
-#	depends on SOC_4775 && FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
+#	depends on SOC_4775 && FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0 || FB_JZ4775_ANDROID_EPD)
 #	default n
 #	help
 #	  Low level slcd refresh function when being suspend.

@@ -24,6 +24,10 @@ struct jz_epd_power_ctrl {
 	void (*epd_power_init)(void);
 	void (*epd_power_on)(void);
 	void (*epd_power_off)(void);
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	void (*epd_suspend_power_on)(void);
+	void (*epd_suspend_power_off)(void);
+#endif
 };
 
 struct jz_epd_platform_data {

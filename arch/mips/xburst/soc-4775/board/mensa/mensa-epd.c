@@ -65,9 +65,35 @@ static void mensa_epd_power_off(void)
 	}
 }
 
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+static void mensa_epd_suspend_power_on(void)
+{
+	//GPIO_PC(20) EPD_POWER_EN output 1
+	*(volatile unsigned int *)0xb0010244 = (0x1 << 20);
+	//GPIO_PC(21) EN output 1
+	*(volatile unsigned int *)0xb0010244 = (0x1 << 21);
+	//GPIO_PC(22) ENOP output 1
+	*(volatile unsigned int *)0xb0010244 = (0x1 << 22);
+}
+
+static void mensa_epd_suspend_power_off(void)
+{
+	//GPIO_PC(20) EPD_POWER_EN output 0
+	*(volatile unsigned int *)0xb0010248 = (0x1 << 20);
+	//GPIO_PC(21) EN output 0
+	*(volatile unsigned int *)0xb0010248 = (0x1 << 21);
+	//GPIO_PC(22) ENOP output 0
+	*(volatile unsigned int *)0xb0010248 = (0x1 << 22);
+}
+#endif
+
 struct jz_epd_platform_data jz_epd_pdata = {
 	.epd_power_ctrl.epd_power_init = mensa_epd_power_init,
 	.epd_power_ctrl.epd_power_on = mensa_epd_power_on,
 	.epd_power_ctrl.epd_power_off = mensa_epd_power_off,
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	.epd_power_ctrl.epd_suspend_power_on = mensa_epd_suspend_power_on,
+	.epd_power_ctrl.epd_suspend_power_off = mensa_epd_suspend_power_off,
+#endif
 };
 

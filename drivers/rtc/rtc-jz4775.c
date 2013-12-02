@@ -81,29 +81,6 @@ static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 	wait_write_ready(dev); 
 }
 
-/* for arch/mips/xburst/soc-4775/common/slcd_alarm_wakeup_refresh.c */
-#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-struct jz_rtc * g_jzrtc = NULL;
-
-unsigned int jzrtc_read_reg(int offset)
-{
-	if ( g_jzrtc == NULL ) {
-		printk("%s g_jzrtc == NULL\n", __FUNCTION__);
-		return 0;
-	}
-	return jzrtc_readl(g_jzrtc, offset);
-}
-
-void jzrtc_write_reg(int offset, unsigned int value)
-{
-	if ( g_jzrtc == NULL ) {
-		printk("%s g_jzrtc == NULL\n", __FUNCTION__);
-		return ;
-	}
-	return jzrtc_writel(g_jzrtc, offset, value);
-}
-#endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
-
 static inline void jzrtc_clrl(struct jz_rtc *dev,int offset, unsigned int value)
 {
 	jzrtc_writel(dev, offset, jzrtc_readl(dev,offset) & ~(value));
@@ -409,9 +386,6 @@ static int jz4775_rtc_probe(struct platform_device *pdev)
 	if (!rtc)
 		return -ENOMEM;
 
-#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-	g_jzrtc = rtc;
-#endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 	rtc->irq = platform_get_irq(pdev, 0);
 	if (rtc->irq < 0) {
 		dev_err(&pdev->dev, "no irq for rtc tick\n");

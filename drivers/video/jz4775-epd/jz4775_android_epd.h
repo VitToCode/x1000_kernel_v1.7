@@ -158,5 +158,7 @@ static inline void reg_write(struct jz_epd *jz_epd, int offset, unsigned long va
 #define FBIO_SET_EINK_PARALLEL_REF_TIMES 0x46cd	/* set eink parallel refresh interval times */
 #define FBIO_GET_BACKLIGHT_POWER_STATUS  0x46ce /* eink get backlight power status 0:is power off 1:is power on */
 #define FBIO_SET_BACKLIGHT_POWER		 0x46cf	/* eink set backlight power 0:power off 1:power on */
+#define FBIO_REFRESH_FB					 0x46d0	/* refresh fb, can exec pan_display function */
+#define FBIO_REFRESH_A2OUT				 0x46d1	/* if epd_mode is MODE_A2, you can refresh all by FBIO_REFRESH_A2OUT */
 
 #endif /* __JZ4775_ANDROID_EPD_H__ */
