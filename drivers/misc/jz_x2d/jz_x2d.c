@@ -494,7 +494,7 @@ static int x2d_check_wake_up_condition(struct x2d_device *jz_x2d)
 /**************************************main function******************************************/
 static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 {
-	int i = 0;
+	int i = 0,dst_stride = 0;
 	struct x2d_proc_info * x2d_proc = NULL;
 
 	mutex_lock(&jz_x2d->compose_lock);
@@ -566,7 +566,14 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 #else
 	jz_x2d->chain_p->dst_addr = x2d_proc->configs.dst_address;
 #endif
-	jz_x2d->chain_p->dst_ctrl_str = ((x2d_proc->configs.dst_stride) << BIT_X2D_DST_STRIDE) \
+
+	/*dst_stride must 8 aligned*/
+	if(x2d_proc->configs.dst_stride % 8 != 0){
+		dev_err(jz_x2d->dev,"Notes: dst stride (%d) should be 8 aligned\n",x2d_proc->configs.dst_stride);
+	}
+	dst_stride = (x2d_proc->configs.dst_stride) & (~0x7);
+
+	jz_x2d->chain_p->dst_ctrl_str = (dst_stride << BIT_X2D_DST_STRIDE) \
 					|(x2d_proc->configs.dst_back_en << BIT_X2D_DST_BG_EN) \
 					|(x2d_proc->configs.dst_glb_alpha_en << BIT_X2D_DST_GLB_ALPHA_EN)\
 					|(x2d_proc->configs.dst_preRGB_en << BIT_X2D_DST_PREM_EN)\
