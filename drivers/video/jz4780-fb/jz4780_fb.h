@@ -143,6 +143,12 @@ struct jzfb {
 
 	char eventbuf[64];
 	int is_vsync;
+
+	/* Add a new buffer and to display */
+	struct jzfb_framedesc *new_fb_framedesc; /* new buffer descriptor */
+	dma_addr_t new_fb_framedesc_phys; /* new buffer descriptor physical address */
+	void *new_fb_vidmem; /* new framebuffer address */
+	dma_addr_t new_fb_vidmem_phys; /* new framebuffer physical address */
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
@@ -241,6 +247,11 @@ struct jzfb_aosd {
 
 #define JZFB_SET_NEED_SYSPAN	_IOR('F', 0x310, int)
 #define NOGPU_PAN				_IOR('F', 0x311, int)
+
+/* Support for multiple buffer, can be switched. */
+#define JZFB_ACQUIRE_BUFFER		_IOR('F', 0x441, int)	//acquire new buffer and to display
+#define JZFB_RELEASE_BUFFER		_IOR('F', 0x442, int)	//release the acquire buffer
+#define JZFB_CHANGE_BUFFER		_IOR('F', 0x443, int)	//change the acquire buffer
 
 /* define in image_enh.c */
 extern int jzfb_config_image_enh(struct fb_info *info);

@@ -1717,7 +1717,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 			}
 			jzfb->framedesc[0]->databuf = aosd_info.waddr;
 			jzfb->framedesc[0]->id = aosd_info.next_frame_id;
-#endif
+#endif /* CONFIG_JZ4780_AOSD */
 		} else {
 			/* 16x16 block mode */
 		}
@@ -2009,6 +2009,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_videomode *mode = info->mode;
 	int *buf;
+
+	volatile int cnt = 50;
 
 	union {
 		struct jzfb_fg_pos fg_pos;
@@ -2347,6 +2349,60 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		mutex_lock(&jzfb->framedesc_lock);
 		jzfb->need_syspan = value;
 		mutex_unlock(&jzfb->framedesc_lock);
+		break;
+	case JZFB_ACQUIRE_BUFFER:
+		jzfb->new_fb_vidmem = kmalloc(jzfb->vidmem_size, GFP_KERNEL);
+		if(jzfb->new_fb_vidmem == NULL) {
+			dev_err(info->dev, "kmalloc ACQUIRE_BUFFER failure!\n");
+			return -ENOMEM;
+		}
+		jzfb->new_fb_vidmem = (void *)((unsigned long)(jzfb->new_fb_vidmem + (PAGE_SIZE-1))
+				& (~(PAGE_SIZE-1)));
+		jzfb->new_fb_vidmem_phys = (unsigned long)virt_to_phys(jzfb->new_fb_vidmem);
+		memset(jzfb->new_fb_vidmem, 0x00, jzfb->vidmem_size);
+
+		jzfb->new_fb_framedesc = kzalloc(sizeof(struct jzfb_framedesc), GFP_KERNEL);
+		if(jzfb->new_fb_framedesc == NULL) {
+			dev_err(info->dev, "kzalloc ACQUIRE_BUFFER failure!\n");
+			return -ENOMEM;
+		}
+		jzfb->new_fb_framedesc_phys = (unsigned long)virt_to_phys(jzfb->new_fb_framedesc);
+		memcpy(jzfb->new_fb_framedesc, jzfb->framedesc[0], sizeof(struct jzfb_framedesc));
+		jzfb->new_fb_framedesc->next = jzfb->new_fb_framedesc_phys;
+		jzfb->new_fb_framedesc->databuf = jzfb->new_fb_vidmem_phys;
+
+		reg_write(jzfb, LCDC_STATE, 0);
+		while(!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_SOF) && --cnt)
+			mdelay(1);
+		if(!cnt)
+			printk("===> warning, wait lcd sof failed, please check, if enable sof in xboot\n");
+
+		reg_write(jzfb, LCDC_DA0, jzfb->new_fb_framedesc->next);
+
+		copy_to_user(argp, &jzfb->new_fb_vidmem_phys, sizeof(int));
+
+		break;
+	case JZFB_CHANGE_BUFFER:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_err(info->dev, "change buffer failed\n");
+			return -EFAULT;
+		}
+		jzfb->new_fb_framedesc->databuf = jzfb->new_fb_vidmem_phys
+			+ jzfb->frm_size * value;
+		break;
+	case JZFB_RELEASE_BUFFER:
+		reg_write(jzfb, LCDC_STATE, 0);
+		while(!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_SOF) && --cnt)
+			mdelay(1);
+		if(!cnt)
+			printk("===> warning, wait lcd sof failed, please check, if enable sof in xboot\n");
+
+		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
+
+		kzfree(jzfb->new_fb_framedesc);
+		kfree(jzfb->new_fb_vidmem);
+		jzfb->new_fb_framedesc = NULL;
+		jzfb->new_fb_vidmem = NULL;
 		break;
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);
