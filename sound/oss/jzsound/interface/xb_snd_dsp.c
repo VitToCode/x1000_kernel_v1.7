@@ -2432,6 +2432,15 @@ int xb_snd_dsp_open(struct inode *inode,
 		printk("hyang debug audio %s %d ret = %d\n", __func__, __LINE__, ret);
 
 #ifndef CONFIG_ANDROID
+#if CONFIG_HDMI_JZ4780
+		dpo->force_hdmi = true;
+		arg = SND_DEVICE_HDMI;
+		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		printk("%s: HDMI output\n",__func__);
+		if (arg < 0) {
+			return -EIO;
+		}
+#else
 		dpo->force_hdmi = false;
 		if (ddata->dev_ioctl) {
 			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
@@ -2447,6 +2456,7 @@ int xb_snd_dsp_open(struct inode *inode,
 				return -EIO;
 			}
 		}
+#endif
 #endif
 	}
 

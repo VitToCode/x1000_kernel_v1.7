@@ -362,7 +362,9 @@ route_conf_base const route_replay_clear_conf = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC,
 	/*--------route-----------*/
 	.route_dac_mode = DAC_DISABLE,
+#ifdef CONFIG_ANDROID
 	.route_hp_mode = HP_DISABLE,
+#endif
 	.route_lineout_mode = LINEOUT_DISABLE,
 	.route_replay_mixer_mode = REPLAY_MIXER_NO_USE,
 };
