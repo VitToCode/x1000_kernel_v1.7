@@ -1,4 +1,7 @@
-obj-$(CONFIG_HDMI_JZ4780)	+= jz4780_hdmi.o \
+obj-$(CONFIG_HDMI_JZ4780) += jzhdmi.o
+
+jzhdmi-y = \
+jz4780_hdmi.o \
 api/api.o \
 core/halAudioClock.o \
 core/halFrameComposerPackets.o \
