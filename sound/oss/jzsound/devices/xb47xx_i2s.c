@@ -353,27 +353,31 @@ static int i2s_set_channel(int* channel,int mode)
  *	i2sdr  23
  *	cguclk 11.277916M (practical)
  *	error  -0.10%
+ *  If using internal codec, EPLL should be 204MHz to divide 12MHz SYSCLK
+ *  If using external codec and AIC support BITCLK, EPLL should be 270MHz to divide exact sample rate
 \***************************************************************/
 static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 {
 	int i;
-	unsigned long mrate[10] = {
-		8000, 11025,16000,22050,24000,
-		32000,44100,48000,96000,192000,
+	unsigned long mrate[12] = {
+		8000, 11025, 12000, 16000,22050,24000,
+		32000,44100, 48000, 88200,96000,192000,
 	};
-	unsigned long mcguclk[10] = {
-		5523978, 8458438, 8458438, 11277917,16916875,
-		16916875,33833750,33833750,67667500,135335000,
+
+	unsigned long mcguclk[12] = {
+		8192000, 11333338, 12288000, 8192000, 11333338, 12288000,
+		8192000, 11333338, 12288000, 11333338,12288000, 25500000,
 	};
-	for (i=0; i<9; i++) {
+	for (i=0; i<=11; i++) {
 		if (*rate <= mrate[i]) {
 			*rate = mrate[i];
 			break;
 		}
 	}
-	if (i >= 9) {
+	if (i > 11) {
+		printk("The rate isnot be support, here fix 44100 sample rate\n");
 		*rate = 44100; /*unsupport rate use default*/
-		return mcguclk[6];
+		return mcguclk[7];
 	}
 
 	return mcguclk[i];
@@ -394,16 +398,14 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 			|* SYSCLK not standard over sample rate clock ,so it would   *|
 			|* not be output to external codec                           *|
 			\*************************************************************/
-			if (strcmp(cur_codec->name,"hdmi"))
-				cgu_aic_clk = calculate_cgu_aic_rate(rate);
-			else
-				cgu_aic_clk = cur_codec->codec_clk;
+			cgu_aic_clk = calculate_cgu_aic_rate(rate);
+
 			__i2s_stop_bitclk();
-			if (cur_codec->codec_clk != cgu_aic_clk || !strcmp(cur_codec->name,"hdmi")) {
+			if (cur_codec->codec_clk != cgu_aic_clk) {
 				cur_codec->codec_clk = cgu_aic_clk;
 				if (codec_sysclk == NULL)
 					return -1;
-				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+				clk_set_rate(codec_sysclk, cur_codec->codec_clk);
 				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
 					printk("external codec set rate fail.\n");
 				}

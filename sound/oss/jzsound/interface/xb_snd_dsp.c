@@ -2432,7 +2432,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		printk("hyang debug audio %s %d ret = %d\n", __func__, __LINE__, ret);
 
 #ifndef CONFIG_ANDROID
-#ifdef CONFIG_HDMI_JZ4780
+#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
 		dpo->force_hdmi = true;
 		arg = SND_DEVICE_HDMI;
 		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
