@@ -66,7 +66,7 @@ EXCLUSIVE_REGULATOR_DEF(
 EXCLUSIVE_REGULATOR_DEF(
 	printer_vcc5,
 	"Vcc-5V",	"vhdmi",	NULL,
-	"jz-hdmi",	3300000,	0);
+	"jz-hdmi",	5000000,	0);
 #endif
 /**
  * Fixed voltage Regulators.
@@ -85,11 +85,16 @@ FIXED_REGULATOR_DEF(
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	"Vcc-5V",	"vdrvvbus",	NULL);
 #endif
+/*
+ * printer not support camera ,remove it
+ */
+/*
 FIXED_REGULATOR_DEF(
 	printer_vcim,
 	"Camera",	2800000,	GPIO_PB(27),
 	HIGH_ENABLE,	UN_AT_BOOT,	0,
 	NULL,		"vcim",		"jz-cim");
+*/
 
 FIXED_REGULATOR_DEF(
 	printer_vlcd,
@@ -102,7 +107,7 @@ static struct platform_device *fixed_regulator_devices[] __initdata = {
 	&printer_vcc5_regulator_device,
 	&printer_vbus_regulator_device,
 #endif
-	&printer_vcim_regulator_device,
+	//&printer_vcim_regulator_device,
 	&printer_vlcd_regulator_device,
 };
 
