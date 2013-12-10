@@ -29,6 +29,15 @@
 /*In normal mode this define should not open*/
 //#define DVIMODE 1
 
+#ifdef CONFIG_FORCE_RESOLUTION
+static int resolution = CONFIG_FORCE_RESOLUTION;
+#ifdef CONFIG_HDMI_JZ4780_MODULE
+module_param(resolution, int, 0644);
+MODULE_PARM_DESC(resolution, "HDMI output resolution index, \
+		you can locate the valid value in \
+		arch/mips/xburst/soc-4780/include/mach/fb_hdmi_modes.h");
+#endif
+#endif
 
 static struct jzhdmi *global_hdmi;
 
@@ -94,23 +103,40 @@ static int hdmi_read_edid(struct jzhdmi *jzhdmi);
 static void jzhdmi_power_on(struct jzhdmi *jzhdmi);
 static void hpd_callback(void *param)
 {
+	int i = 0;
 	u8 hpd = *((u8*)(param));
+
 	if (hpd != TRUE) {
 		dev_info(global_hdmi->dev, "HPD DISCONNECT\n");
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_DISCONNECTED);
-		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED;
 
-#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) && defined(CONFIG_FORCE_RESOLUTION)
+		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED;
+		global_hdmi->hdmi_info.support_modenum = 0;
+		for(i=0; i < HDMI_VIDEO_MODE_NUM; i++){
+			global_hdmi->hdmi_info.support_mode[i] = 0;
+		}
+		global_hdmi->hdmi_is_running = 0;
+
+#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) || defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER_MODULE)
+#ifdef CONFIG_FORCE_RESOLUTION
 		api_phy_enable(PHY_ENABLE_HPD);
+#endif
 #endif
 	} else {
 		dev_info(global_hdmi->dev, "HPD CONNECT\n");
+
+#ifdef CONFIG_HDMI_JZ4780_MODULE
+		jzfb_set_videomode(resolution);
+#endif
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED;
+		global_hdmi->hdmi_is_running = 1;
 
-#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) && defined(CONFIG_FORCE_RESOLUTION)
+#if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) || defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER_MODULE)
+#ifdef CONFIG_FORCE_RESOLUTION
 		if (!work_pending(&global_hdmi->detect_work))
 			queue_work(global_hdmi->workqueue, &global_hdmi->detect_work);
+#endif
 #endif
 		cec_switch_hdmi();
 	}
@@ -451,9 +477,9 @@ static void jzhdmi_power_on(struct jzhdmi *jzhdmi)
 	hdmi_init(jzhdmi);
 	ret = hdmi_read_edid(jzhdmi);
 	jzhdmi->hdmi_info.support_modenum = api_EdidSvdCount();
+
 	if(ret > 0 && jzhdmi->hdmi_info.support_modenum > 0){
 		jzhdmi->edid_faild = 0;
-		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
 		dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
 		for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
 			api_EdidSvd(i,&tmpsvd);
@@ -465,7 +491,6 @@ static void jzhdmi_power_on(struct jzhdmi *jzhdmi)
 		dev_info(jzhdmi->dev, "Read edid is failed,set mode to 720p60Hz or 1920x1080p06Hz\n");
 		jzhdmi->edid_faild = 1;
 		jzhdmi->hdmi_info.support_modenum = 2;
-		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum,GFP_KERNEL);
 		jzhdmi->hdmi_info.support_mode[0] = 4; /* 1280x720p @ 59.94/60Hz 16:9 */
 		jzhdmi->hdmi_info.support_mode[1] = 16;/* 1920x1080p @ 59.94/60Hz 16:9 */
 	}
@@ -509,7 +534,6 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (index >= 1 && index <= HDMI_VIDEO_MODE_NUM) {
 			if(jzhdmi->hdmi_is_running == 1 &&
 					jzhdmi->hdmi_info.out_type == index){
-				jzhdmi->hdmi_is_running = 0;
 				break;
 			}
 			jzhdmi->hdmi_info.out_type = index;
@@ -568,6 +592,13 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		}
 		break;
+	case HDMI_GET_STATUS:
+		if (copy_to_user((void __user *)arg, &jzhdmi->hdmi_info.hdmi_status, sizeof(int))) {
+			dev_err(jzhdmi->dev, "HDMI get support mode num failed\n");
+			return -EFAULT;
+		}
+		break;
+
 	default:
 		dev_info(jzhdmi->dev, "%s, cmd = %d is error\n",
 			 __func__, cmd);
@@ -617,7 +648,7 @@ void hdmi_detect_work_handler(struct work_struct *work)
 		dev_info(global_hdmi->dev, "HDMI do not control in surfaceflinger\n");
 		jzhdmi_power_on(global_hdmi);
 
-		global_hdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+		global_hdmi->hdmi_info.out_type = resolution;
 		hdmi_config(global_hdmi);
 		global_hdmi->hdmi_is_running = 1;
 	}
@@ -695,6 +726,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->dev = &pdev->dev;
 	jzhdmi->mem = mem;
 	jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED,
+	jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*HDMI_VIDEO_MODE_NUM, GFP_KERNEL);
 	jzhdmi->edid_faild = 0;
 	jzhdmi->hdmi_is_running = 0;
 	jzhdmi->hdmi_info.out_type = -1;
@@ -765,7 +797,6 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	mutex_init(&jzhdmi->lock);
 
-	/*request_irq in bsp/system.c*/
 	jzhdmi->hdmi_switch.name = "hdmi";
 	ret = switch_dev_register(&jzhdmi->hdmi_switch);
 	if (ret < 0){
@@ -832,22 +863,29 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 
 	if (jzhdmi->hdmi_is_running){
 #ifdef CONFIG_FORCE_RESOLUTION
-		jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+		jzhdmi->hdmi_info.out_type = resolution;
 #endif
 		jzhdmi->probe_finish = 1;
 		return 0;
 	}
 #ifdef CONFIG_FORCE_RESOLUTION
 	for (i = 0; i < 5; i++) {
-		if (!CONFIG_FORCE_RESOLUTION)
+		if (!resolution)
 			break;
 		if ((phy_HotPlugDetected(0) > 0)) {
 			dev_info(jzhdmi->dev, "Force HDMI init VIC %d\n",
-				 CONFIG_FORCE_RESOLUTION);
+				 resolution);
+			jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED,
+			jzhdmi_power_on(jzhdmi);
+#if 0
 			api_phy_enable(PHY_ENABLE);
 			hdmi_init(jzhdmi);
 			hdmi_read_edid(jzhdmi);
-			jzhdmi->hdmi_info.out_type = CONFIG_FORCE_RESOLUTION;
+#endif
+			jzhdmi->hdmi_info.out_type = resolution;
+#ifdef CONFIG_HDMI_JZ4780_MODULE
+			jzfb_set_videomode(resolution); //defined in driver/video/jz4780-fb/jz4780_fb.c
+#endif
 			hdmi_config(jzhdmi);
 			jzhdmi->hdmi_is_running = 1;
 			break;
@@ -860,6 +898,7 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	}
 #endif
 	jzhdmi->probe_finish = 1;
+
 	return 0;
 
 err_unregister_early_suspend:
@@ -912,6 +951,7 @@ static int __devexit jzhdmi_remove(struct platform_device *pdev)
 {
 	struct jzhdmi *jzhdmi = platform_get_drvdata(pdev);
 
+	api_Standby();
 	platform_set_drvdata(pdev, NULL);
 	misc_deregister(&jzhdmi->hdmi_miscdev);
 	destroy_workqueue(jzhdmi->workqueue);
@@ -926,6 +966,8 @@ static int __devexit jzhdmi_remove(struct platform_device *pdev)
 	unregister_early_suspend(&jzhdmi->early_suspend);
 #endif
 	kzfree(jzhdmi->hdmi_params.pVideo);
+	if(jzhdmi->hdmi_info.support_mode)
+		kzfree(jzhdmi->hdmi_info.support_mode);
 	if (jzhdmi->hdmi_params.pHdcp)
 		kzfree(jzhdmi->hdmi_params.pHdcp);
 	kzfree(jzhdmi->hdmi_params.pAudio);
