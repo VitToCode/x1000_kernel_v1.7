@@ -489,7 +489,7 @@ static int __init grus_board_init(void)
 	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
 /* hdmi */
-#ifdef CONFIG_HDMI_JZ4780
+#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
 	platform_device_register(&jz_hdmi);
 #endif
 /* rtc */
