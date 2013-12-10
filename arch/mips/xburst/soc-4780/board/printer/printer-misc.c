@@ -23,7 +23,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
-
+#include <linux/wakelock.h>
 #include "printer.h"
 #include <../drivers/staging/android/timed_gpio.h>
 
@@ -424,7 +424,7 @@ static void init_modem(struct work_struct *work) {
 	gpio_direction_output(GPIO_PD(12), 0);
 	cancel_delayed_work(&modem_work);
 }
-
+static struct wake_lock»        keep_alive_lock;
 static int __init printer_board_lateinit(void) {
 	printk(">>>>>>start init sew-290 modem\n");
 	if (!gpio_is_valid(GPIO_PB(29)))
@@ -450,7 +450,9 @@ static int __init printer_board_lateinit(void) {
 
 	INIT_DELAYED_WORK(&modem_work, init_modem);
 	schedule_delayed_work(&modem_work, msecs_to_jiffies(5000));
-
+        /* when demo, keep alive */
+        wake_lock_init(&keep_alive_lock, WAKE_LOCK_SUSPEND, "keep_alive_lock");
+	wake_lock(&keep_alive_lock);
 	return 0;
 }
 late_initcall(printer_board_lateinit);
