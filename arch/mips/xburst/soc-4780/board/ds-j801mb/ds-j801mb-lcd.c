@@ -112,7 +112,11 @@ struct jzfb_platform_data jzfb0_hdmi_pdata = {
 	.pixclk_falling_edge = 1,
 	.date_enable_active_low = 0,
 
+#ifdef CONFIG_ANDROID
 	.alloc_vidmem = 0,
+#else
+	.alloc_vidmem = 1,
+#endif
 };
 #endif
 
