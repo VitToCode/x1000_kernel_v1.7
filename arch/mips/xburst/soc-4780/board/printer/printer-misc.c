@@ -424,7 +424,7 @@ static void init_modem(struct work_struct *work) {
 	gpio_direction_output(GPIO_PD(12), 0);
 	cancel_delayed_work(&modem_work);
 }
-static struct wake_lock»        keep_alive_lock;
+static struct wake_lock        keep_alive_lock;
 static int __init printer_board_lateinit(void) {
 	printk(">>>>>>start init sew-290 modem\n");
 	if (!gpio_is_valid(GPIO_PB(29)))
