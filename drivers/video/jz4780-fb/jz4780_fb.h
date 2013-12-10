@@ -84,6 +84,7 @@ struct jzfb {
 	int id;           /* 0, lcdc0  1, lcdc1 */
 	int is_enabled;   /* 0, disable  1, enable */
 	int irq;          /* lcdc interrupt num */
+	int flag;	/* fb_videomode->flag, but without FB_MODE_IS_HDMI */
 	/* need_syspan
 	 * 0: not need system pan display only hdmi (use in only hdmi)
 	 * 1: need system pan display (used in lcd or(lcd and hdmi))

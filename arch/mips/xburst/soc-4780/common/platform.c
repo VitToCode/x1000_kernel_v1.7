@@ -136,7 +136,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #else
 	LCD_PORTC,
 #endif
-#ifdef CONFIG_HDMI_JZ4780
+#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
 	HDMI_PORTF,
 #endif
 #ifdef CONFIG_JZ_PWM_GPIO_E0

@@ -116,5 +116,7 @@ enum CEC_CTL_CMD {
 #define	HDMI_GET_TVMODE			_IOR('F', 0x305, int)
 #define HDMI_POWER_OFF_COMPLETE		_IO('F', 0x306)
 #define HDMI_CEC_CTL		        _IOW('F', 0x307, int)
+#define HDMI_GET_STATUS			_IOR('F', 0x308, int)
 
+extern int jzfb_set_videomode(int flag);
 #endif

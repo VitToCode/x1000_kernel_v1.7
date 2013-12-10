@@ -45,6 +45,9 @@ static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
+static int jzfb_copy_logo(struct fb_info *info);
+static void jzfb_change_dma_desc(struct fb_info *info);
+static void jzfb_display_v_color_bar(struct fb_info *info);
 /*static int jzfb_lcdc_reset(struct fb_info *info);*/
 
 static struct jzfb *jzfb0;
@@ -176,8 +179,11 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 					  struct fb_info *info)
 {
 	size_t i;
+	int flag;
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
+
+	flag = jzfb->flag | FB_MODE_IS_HDMI;
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
 		if (mode->flag & FB_MODE_IS_VGA) {
@@ -185,6 +191,10 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 			    mode->yres == var->yres &&
 			    mode->pixclock == var-> pixclock)
 				return mode;
+		}else if (mode->flag & FB_MODE_IS_HDMI) {
+			if (mode->flag != flag)
+				continue;
+			return mode;
 		} else {
 			if (mode->xres == var->xres && mode->yres == var->yres &&
 			    mode->vmode == var->vmode &&  mode->right_margin == var->right_margin) {
@@ -205,7 +215,10 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 {
 	struct jzfb *jzfb = info->par;
 	struct jzfb_platform_data *pdata = jzfb->pdata;
+	int flag;
+	int i;
 
+#if 0
 #ifdef CONFIG_FORCE_RESOLUTION
 	if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
 		return pdata->modes;
@@ -231,6 +244,24 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 	return pdata->modes;
 #endif
 	return NULL;
+#else
+	if (!jzfb->flag || jzfb->id == 1)
+		return pdata->modes;
+
+	if (jzfb->flag < 0 || jzfb->flag > 64) {
+		dev_err(jzfb->dev, "Invalid mode flag: %d\n", jzfb->flag);
+		return NULL;
+	}
+	flag = jzfb->flag | FB_MODE_IS_HDMI;
+	for (i = 0; i < pdata->num_modes; i++) {
+		if (pdata->modes[i].flag != flag)
+			continue;
+		return &pdata->modes[i];
+	}
+
+	dev_err(jzfb->dev, "Find video mode fail\n");
+	return NULL;
+#endif
 }
 
 static struct fb_videomode *jzfb_checkout_max_vga_videomode(struct fb_info *info)
@@ -1266,9 +1297,11 @@ static int jzfb_set_par(struct fb_info *info)
 				vde += 2;
 			}
 			*/
-			info->fix.line_length = info->var.bits_per_pixel * \
-						ALIGN(mode->xres, PIXEL_ALIGN) >> 3;
 		}
+
+		//force to update fix.line_length
+		info->fix.line_length = info->var.bits_per_pixel * \
+					ALIGN(mode->xres, PIXEL_ALIGN) >> 3;
 
 		reg_write(jzfb, LCDC_DAH, (hds << 16) | hde);
 		reg_write(jzfb, LCDC_DAV, (vds << 16) | vde);
@@ -1519,6 +1552,49 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	return 0;
 }
 
+/**
+ * jzfb_set_videomode - Set videomode, dedicated to LCDC0(Only for HDMI output now!)
+ * @flag: fb_videomode->flag
+ */
+int jzfb_set_videomode(int flag)
+{
+	int i = 0;
+	struct jzfb *jzfb = NULL;
+	struct jzfb_platform_data *pdata = NULL;
+	struct fb_info *info = NULL;
+	struct fb_videomode *mode;
+
+	if(jzfb0 != NULL)
+		jzfb = jzfb0;
+	else{
+		dev_err(info->dev, "LCDC0 not found in %s.\n", __func__);
+		return -EFAULT;
+	}
+
+	pdata = jzfb->pdata;
+	info = jzfb->fb;
+	jzfb->flag = flag;
+
+	mode = jzfb_checkout_videomode(info);
+	if (!mode) {
+		dev_err(jzfb->dev, "*****Checkout videomode %d fail*****\n", flag);
+		return -EINVAL;
+	}
+	jzfb_videomode_to_var(&info->var, mode, pdata->lcd_type);
+	jzfb_set_par(info);
+
+	//TODO: redraw the kernel logo.
+#if 0
+	if(fb_prepare_logo(jzfb->fb, FB_ROTATE_UR)){
+		dev_info(jzfb->dev, "show logo\n");
+		fb_show_logo(jzfb->fb, FB_ROTATE_UR);
+	}
+#endif
+
+	return 0;
+}
+EXPORT_SYMBOL(jzfb_set_videomode);
+
 static void jzfb_free_devmem(struct jzfb *jzfb)
 {
 #if 0
@@ -1602,7 +1678,7 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
                 case (1080*2):
                     next_frm = 2;
                     break;
-                case 720:
+                 case 720:
                 case (1080*1):
                     next_frm = 1;
                     break;
@@ -2873,6 +2949,8 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 
 	if (!jzfb->is_enabled)
 		clk_enable(jzfb->clk);
+
+	dev_info(dev, "dump LCDC%d's register...\n", jzfb->id);
 	/* LCD Controller Resgisters */
 	dev_info(dev, "LCDC_CFG: \t0x%08lx\n", reg_read(jzfb, LCDC_CFG));
 	dev_info(dev, "LCDC_CTRL:\t0x%08lx\n", reg_read(jzfb, LCDC_CTRL));
@@ -3341,6 +3419,11 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->id = pdev->id;
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
+#ifdef CONFIG_FORCE_RESOLUTION
+	jzfb->flag = CONFIG_FORCE_RESOLUTION;
+#else
+	jzfb->flag = 0;
+#endif
 
 	if(jzfb->id == 0){
 		jzfb0 = jzfb;
@@ -3464,16 +3547,18 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	suspend_fb = (struct fb_info *)kmalloc(sizeof(struct fb_info), GFP_KERNEL);
 	if(suspend_fb == NULL) {
 		printk("kmalloc suspend_fb failure!\n");
-		return -ENOMEM;
-     }
+		goto err_kthread_stop;
+	}
 	memcpy(suspend_fb,fb,sizeof(struct fb_info));
 	mode = jzfb_checkout_videomode(jzfb->fb);
+	if(!mode)
+		goto err_kthread_stop;
 	slcd_videosize = ALIGN(mode->xres, PIXEL_ALIGN) * mode->yres;
 	slcd_videosize *= jzfb_get_controller_bpp(jzfb) >> 3;
 
 	suspend_base = kmalloc(slcd_videosize, GFP_KERNEL);
 	if (suspend_base == NULL)
-		return -ENOMEM;
+		goto err_kthread_stop;
 	suspend_fb->par = fb->par;
 	suspend_fb->fix.smem_len = slcd_videosize;
 	suspend_fb->screen_base = suspend_base;
