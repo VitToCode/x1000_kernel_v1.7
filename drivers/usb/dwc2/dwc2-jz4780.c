@@ -608,8 +608,12 @@ static int dwc2_jz4780_probe(struct platform_device *pdev) {
 		dev_err(&pdev->dev, "regulator %s get error\n", VBUS_REG_NAME);
 		goto fail_get_vbus_reg;
 	}
+#ifndef CONFIG_BOARD_PRINTER
 	if (regulator_is_enabled(jz4780->vbus))
 		regulator_disable(jz4780->vbus);
+#else
+	regulator_enable(jz4780->vbus);
+#endif/*CONFIG_BOARD_PRINTER*/
 #else
 #error DWC OTG driver can NOT work without regulator!
 #endif
