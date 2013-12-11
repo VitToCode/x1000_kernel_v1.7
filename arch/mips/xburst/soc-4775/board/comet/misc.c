@@ -248,6 +248,21 @@ struct platform_device jz4775_mac_device = {
 #endif
 
 #ifdef CONFIG_ANDROID_PMEM
+/* arch/mips/kernel/setup.c */
+extern unsigned long set_reserved_pmem_total_size(unsigned long size);
+void board_pmem_setup(void)
+{
+	/* reserve memory for pmem. */
+	unsigned long pmem_total_size=0;
+#if defined(JZ_PMEM_ADSP_SIZE) && (JZ_PMEM_ADSP_SIZE>0)
+	pmem_total_size += JZ_PMEM_ADSP_SIZE;
+#endif
+#if defined(JZ_PMEM_CAMERA_SIZE) && (JZ_PMEM_CAMERA_SIZE>0)
+	pmem_total_size += JZ_PMEM_CAMERA_SIZE;
+#endif
+	set_reserved_pmem_total_size(pmem_total_size);
+}
+
 static struct android_pmem_platform_data pmem_adsp_pdata = {
 	.name = "pmem_adsp",
 	.no_allocator = 0,

@@ -53,7 +53,8 @@ extern struct platform_device kd301_device;
 /**
  * pmem information
  **/
-#define JZ_PMEM_ADSP_BASE   0x0e000000
+/* auto allocate pmem in arch_mem_init(), do not assigned base addr, just set 0 */
+#define JZ_PMEM_ADSP_BASE   0x0          // 0x0e000000
 #define JZ_PMEM_ADSP_SIZE   0x02000000
 
 /**
