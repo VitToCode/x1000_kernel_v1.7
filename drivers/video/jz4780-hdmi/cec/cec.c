@@ -169,7 +169,7 @@ void sendmessage(u8 *value,int size)
 				printk("Waiting send message\n");
 			i++;
 			if(i>CEC_TIME_OUT){
-				printk("Waitimg send message timeout");
+				printk("Waiting send message timeout");
 				break;
 			}
 		}

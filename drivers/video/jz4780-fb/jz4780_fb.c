@@ -183,21 +183,26 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
 
+	/*
+	 * ONLY HDMI output mode will use jzfb->flag Now!
+	 * When HDMI, __func__ get flag from jzfb->flag EACH TIME;
+	 * So, if you want to change videomode, Update jzfb->flag before invoke __func__.
+	 */
 	flag = jzfb->flag | FB_MODE_IS_HDMI;
 
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
 		if (mode->flag & FB_MODE_IS_VGA) {
 			if (mode->xres == var->xres &&
 			    mode->yres == var->yres &&
-			    mode->pixclock == var-> pixclock)
+			    mode->pixclock == var->pixclock)
 				return mode;
-		}else if (mode->flag & FB_MODE_IS_HDMI) {
+		} else if (mode->flag & FB_MODE_IS_HDMI) {
 			if (mode->flag != flag)
 				continue;
 			return mode;
 		} else {
 			if (mode->xres == var->xres && mode->yres == var->yres &&
-			    mode->vmode == var->vmode &&  mode->right_margin == var->right_margin) {
+			    mode->vmode == var->vmode && mode->right_margin == var->right_margin) {
 				if(jzfb->pdata->lcd_type != LCD_TYPE_LCM){
 					if( mode->pixclock == var->pixclock)
 						return mode;
@@ -208,6 +213,7 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
                 }
 	}
 
+	dev_err(info->dev, "%s get video mode failed\n", __func__);
 	return NULL;
 }
 
@@ -218,33 +224,6 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 	int flag;
 	int i;
 
-#if 0
-#ifdef CONFIG_FORCE_RESOLUTION
-	if (!CONFIG_FORCE_RESOLUTION || jzfb->id == 1) {
-		return pdata->modes;
-	} else {
-		int i, flag;
-
-		flag = CONFIG_FORCE_RESOLUTION;
-		if (flag <= 0 || flag > 64) {
-			dev_err(jzfb->dev, "Invalid mode flag: %d\n", flag);
-			return NULL;
-		}
-		for (i = 0; i < pdata->num_modes; i++) {
-			if (pdata->modes[i].flag != flag)
-				continue;
-			return &pdata->modes[i];
-		}
-		if (i > pdata->num_modes) {
-			dev_err(jzfb->dev, "Find video mode fail\n");
-			return NULL;
-		}
-	}
-#else
-	return pdata->modes;
-#endif
-	return NULL;
-#else
 	if (!jzfb->flag || jzfb->id == 1)
 		return pdata->modes;
 
@@ -252,6 +231,7 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 		dev_err(jzfb->dev, "Invalid mode flag: %d\n", jzfb->flag);
 		return NULL;
 	}
+
 	flag = jzfb->flag | FB_MODE_IS_HDMI;
 	for (i = 0; i < pdata->num_modes; i++) {
 		if (pdata->modes[i].flag != flag)
@@ -261,7 +241,6 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 
 	dev_err(jzfb->dev, "Find video mode fail\n");
 	return NULL;
-#endif
 }
 
 static struct fb_videomode *jzfb_checkout_max_vga_videomode(struct fb_info *info)
@@ -1554,11 +1533,10 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 
 /**
  * jzfb_set_videomode - Set videomode, dedicated to LCDC0(Only for HDMI output now!)
- * @flag: fb_videomode->flag
+ * @flag: ==>fb_videomode->flag, but without FB_MODE_IS_HDMI
  */
 int jzfb_set_videomode(int flag)
 {
-	int i = 0;
 	struct jzfb *jzfb = NULL;
 	struct jzfb_platform_data *pdata = NULL;
 	struct fb_info *info = NULL;
@@ -2085,6 +2063,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_videomode *mode = info->mode;
 	int *buf;
+	int videomode_flag;	//with FB_MODE_IS_HDMI flag
 
 	volatile int cnt = 50;
 
@@ -2105,9 +2084,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	case JZFB_GET_MODELIST:
 		buf = kzalloc(sizeof(int) * pdata->num_modes, GFP_KERNEL);
 		for (i = 0; i < pdata->num_modes; i++) {
-			if (!pdata->modes[i].flag)
+			if (!(pdata->modes[i].flag & ~FB_MODE_IS_HDMI))
 				continue;
-			buf[i] = pdata->modes[i].flag;
+			buf[i] = pdata->modes[i].flag & ~FB_MODE_IS_HDMI;
 		}
 		copy_to_user(argp, buf, sizeof(int) * pdata->num_modes);
 		kzfree(buf);
@@ -2121,8 +2100,11 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
 
+		jzfb->flag = value;
+		videomode_flag = value | FB_MODE_IS_HDMI;
 		for (i = 0; i < pdata->num_modes; i++) {
-			if (pdata->modes[i].flag == value) {
+			if (pdata->modes[i].flag == videomode_flag) {
+				dev_info(info->dev, "Setting video mode %d...\n", jzfb->flag);
 				jzfb_videomode_to_var(&info->var,
 						      &pdata->modes[i],jzfb->pdata->lcd_type);
 				return jzfb_set_par(info);
@@ -2150,7 +2132,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		} else {
 			for (i = 0; i < pdata->num_modes; i++) {
-				if (pdata->modes[i].flag != osd.res.index)
+				videomode_flag = osd.res.index | FB_MODE_IS_HDMI;
+				if (pdata->modes[i].flag != videomode_flag)
 					continue;
 				osd.res.w = pdata->modes[i].xres;
 				osd.res.h = pdata->modes[i].yres;

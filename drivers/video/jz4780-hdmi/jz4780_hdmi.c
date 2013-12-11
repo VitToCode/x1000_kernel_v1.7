@@ -130,7 +130,9 @@ static void hpd_callback(void *param)
 #endif
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED;
-		global_hdmi->hdmi_is_running = 1;
+
+		if (global_hdmi->probe_finish == 1)
+			global_hdmi->hdmi_is_running = 1;
 
 #if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) || defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER_MODULE)
 #ifdef CONFIG_FORCE_RESOLUTION
@@ -649,6 +651,7 @@ void hdmi_detect_work_handler(struct work_struct *work)
 		jzhdmi_power_on(global_hdmi);
 
 		global_hdmi->hdmi_info.out_type = resolution;
+		dev_info(global_hdmi->dev, "Setting video mode %d...\n", global_hdmi->hdmi_info.out_type);
 		hdmi_config(global_hdmi);
 		global_hdmi->hdmi_is_running = 1;
 	}
@@ -875,13 +878,8 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 		if ((phy_HotPlugDetected(0) > 0)) {
 			dev_info(jzhdmi->dev, "Force HDMI init VIC %d\n",
 				 resolution);
-			jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED,
 			jzhdmi_power_on(jzhdmi);
-#if 0
-			api_phy_enable(PHY_ENABLE);
-			hdmi_init(jzhdmi);
-			hdmi_read_edid(jzhdmi);
-#endif
+			jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED,
 			jzhdmi->hdmi_info.out_type = resolution;
 #ifdef CONFIG_HDMI_JZ4780_MODULE
 			jzfb_set_videomode(resolution); //defined in driver/video/jz4780-fb/jz4780_fb.c
