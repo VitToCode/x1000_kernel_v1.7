@@ -20,6 +20,7 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 #include <mach/jzcpm_pwc.h>
+#include <mach/platform.h>
 
 extern void reset_keep_power(void);
 
@@ -93,6 +94,11 @@ void __init plat_mem_setup(void)
 	iomem_resource.end	= 0xffffffff;
 	setup_init();
 	init_all_clk();
+
+#ifdef CONFIG_ANDROID_PMEM
+	/* reserve memory for pmem. */
+	board_pmem_setup();
+#endif
 	return;
 }
 

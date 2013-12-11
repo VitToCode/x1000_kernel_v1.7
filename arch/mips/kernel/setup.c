@@ -453,6 +453,34 @@ static int __init early_parse_mem(char *p)
 }
 early_param("mem", early_parse_mem);
 
+
+#ifdef CONFIG_ANDROID_PMEM
+#ifdef CONFIG_SOC_4775
+//unsigned long start, size;
+static unsigned long  g_pmem_total_size=0;
+static unsigned long  g_pmem_start=0;
+
+/* called in arch/mips/xburst/soc-4775/common/setup.c */
+unsigned long set_reserved_pmem_total_size(unsigned long size)
+{
+	g_pmem_total_size = size;
+	return 0;
+}
+
+unsigned long get_reserved_pmem_size(void)
+{
+	return g_pmem_total_size;
+}
+
+unsigned long get_reserved_pmem_start(void)
+{
+	return g_pmem_start;
+}
+
+#endif	/* CONFIG_SOC_4775 */
+#endif	/* CONFIG_ANDROID_PMEM  */
+
+
 static void __init arch_mem_init(char **cmdline_p)
 {
 	extern void plat_mem_setup(void);
@@ -486,6 +514,40 @@ static void __init arch_mem_init(char **cmdline_p)
 		pr_info("User-defined physical RAM map:\n");
 		print_memory_map();
 	}
+#ifdef CONFIG_ANDROID_PMEM
+#ifdef CONFIG_SOC_4775
+	/* reserve memory for pmem. */
+	printk(KERN_INFO "reserve memory for pmem, g_pmem_total_size: %#x\n",  (unsigned int)g_pmem_total_size);
+	if ( g_pmem_total_size > 0x10000 ) {
+		int i;
+		const int field = 2 * sizeof(unsigned long);
+
+		for (i = boot_mem_map.nr_map-1; i>-1; i--) {
+
+			if (BOOT_MEM_RAM == boot_mem_map.map[i].type
+			    && (unsigned long)boot_mem_map.map[i].size > g_pmem_total_size
+				) {
+				printk(KERN_INFO "          original, memory %d: %0*Lx @ %0*Lx ", i,
+				       field, (unsigned long long) boot_mem_map.map[i].size,
+				       field, (unsigned long long) boot_mem_map.map[i].addr);
+
+				boot_mem_map.map[i].size -= g_pmem_total_size;
+				g_pmem_start = (unsigned long)boot_mem_map.map[i].addr + (unsigned long)boot_mem_map.map[i].size;
+				printk(KERN_INFO "after reserve pmem, memory %d: %0*Lx @ %0*Lx ", i,
+				       field, (unsigned long long) boot_mem_map.map[i].size,
+				       field, (unsigned long long) boot_mem_map.map[i].addr);
+
+				printk(KERN_INFO "reserve memory for pmem,    : %0*Lx @ %0*Lx ",
+				       field, (unsigned long long) g_pmem_total_size,
+				       field, (unsigned long long) g_pmem_start);
+				printk(KERN_INFO "\n");
+
+				break;
+			}
+		}
+	}
+#endif	/* CONFIG_SOC_4775 */
+#endif	/* CONFIG_ANDROID_PMEM  */
 
 	bootmem_init();
 	device_tree_init();

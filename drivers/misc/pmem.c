@@ -1243,6 +1243,35 @@ static struct miscdevice pmem_dev = {
 };
 #endif
 
+#ifdef CONFIG_SOC_4775
+/* arch/mips/kernel/setup.c */
+extern unsigned long get_reserved_pmem_size(void);
+extern unsigned long get_reserved_pmem_start(void);
+
+static unsigned long alloc_reserved_pmem(unsigned long size)
+{
+	unsigned long start;
+	static long pmem_remain_size = -1;
+	if ( pmem_remain_size == -1 ) {
+		pmem_remain_size = get_reserved_pmem_size();
+	}
+
+	printk(KERN_INFO "alloc_reserved_pmem(), pmem_remain_size=%#lx, require size=%#lx\n", pmem_remain_size, size);
+
+	if ( pmem_remain_size < size) {
+		printk(KERN_INFO "!!! alloc_reserved_pmem(%lu) failed!", size);
+		return 0;
+	}
+
+	pmem_remain_size -= size;
+	start = get_reserved_pmem_start() + pmem_remain_size;
+
+	printk(KERN_INFO "alloc_reserved_pmem(), start=%#x\n", (unsigned int)start);
+
+	return start;
+}
+#endif	/* CONFIG_SOC_4775 */
+
 int pmem_setup(struct android_pmem_platform_data *pdata,
 	       long (*ioctl)(struct file *, unsigned int, unsigned long),
 	       int (*release)(struct inode *, struct file *))
@@ -1255,7 +1284,20 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pmem[id].no_allocator = pdata->no_allocator;
 	pmem[id].cached = pdata->cached;
 	pmem[id].buffered = pdata->buffered;
+
+#ifdef CONFIG_SOC_4775
+	{
+		unsigned long start;
+		start = alloc_reserved_pmem(pdata->size);
+		if ( start == 0 ) {
+			start = pdata->start;
+		}
+		pmem[id].base = start;
+	}
+#else
 	pmem[id].base = pdata->start;
+#endif /* CONFIG_SOC_4775 */
+
 	pmem[id].size = pdata->size;
 	pmem[id].ioctl = ioctl;
 	pmem[id].release = release;

@@ -162,4 +162,8 @@ extern struct platform_device i2c0_gpio_device;
 
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
+#ifdef CONFIG_ANDROID_PMEM
+extern void board_pmem_setup(void);
+#endif
+
 #endif
