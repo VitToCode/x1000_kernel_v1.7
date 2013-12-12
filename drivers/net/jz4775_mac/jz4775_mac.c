@@ -104,26 +104,30 @@ void set_mac_phy_clk(mac_clock_control mac_control)
 {
 	unsigned int mphy_value = cpm_inl(CPM_MPHYC);
 
+	mphy_value &= ~((1 << 31) | (7 << 0));
+
 	switch (mac_control){
 	case MAC_GMII:
-		mphy_value &= ~(7 << 0);
-		mphy_value |= (1 << 31);
+		mphy_value |= (1 << 31) | (0 << 0);
 		break;
+
 	case MAC_RGMII:
-		mphy_value &= ~(7 << 0);
-		mphy_value |= ((1 << 31) | (1 << 0));
+		mphy_value |= (1 << 31) | (1 << 0);
 		break;
+
 	case MAC_MII:
-		mphy_value &= (~(1 << 31) | ~(7 << 0));
+		mphy_value |= (0 << 0);
 		break;
+
 	case MAC_RMII:
-		mphy_value &= (~(1 << 31) | ~(7 << 0));
-		mphy_value &= ~(4 << 0);
+		mphy_value |= (4 << 0);
 		break;
+
 	case MAC_1000M:
 	case MAC_100M:
 	case MAC_10M:
 		return;
+
 	default:
 		printk("WARMING: can NOT set MAC mode %d\n", mac_control);
 		return;
