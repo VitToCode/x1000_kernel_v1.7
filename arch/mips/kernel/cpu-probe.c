@@ -96,12 +96,14 @@ void r4k_wait_irqoff(void)
 	}								\
 	while(0)
 
-static void jz4780_wait_irqoff(void)
+
+static void jz_wait_irqoff(void)
 {
 	local_irq_disable();
+#ifdef CONFIG_SOC_4780
 	blast_dcache_jz();
+#endif
 	cache_prefetch(IDLE_PROGRAM);
-
 IDLE_PROGRAM:
 	if (!need_resched())
 		__asm__ __volatile__ ("	.set	push		\n"
@@ -119,7 +121,6 @@ IDLE_PROGRAM:
 
 	return;
 }
-
 /*
  * The RM7000 variant has to handle erratum 38.  The workaround is to not
  * have any pending stores when the WAIT instruction is executed.
@@ -237,7 +238,7 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_JZRISC:
-		cpu_wait = jz4780_wait_irqoff;
+		cpu_wait = jz_wait_irqoff;
 		break;
 
 	case CPU_RM7000:
