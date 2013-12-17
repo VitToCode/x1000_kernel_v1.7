@@ -24,6 +24,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <gpio.h>
 #include <linux/gpio.h>
 #include "ds-j801mb.h"
@@ -187,6 +188,15 @@ static struct jz_battery_info  ds_j801mb_battery_info = {
 		.usb_chg_current = 400,
 };
 static struct jz_adc_platform_data adc_platform_data;
+#endif
+
+#ifdef CONFIG_JZ4780_EFUSE
+/* efuse */
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	//.gpio_vddq_en_n = -ENODEV,
+	.gpio_vddq_en_n = GPIO_PE(3),
+};
 #endif
 
 #ifdef CONFIG_SPI_JZ4780
@@ -443,6 +453,10 @@ static int __init ds_j801mb_board_init(void)
 #ifdef CONFIG_BATTERY_JZ4780
 	adc_platform_data.battery_info = ds_j801mb_battery_info;
 	jz_device_register(&jz_adc_device,&adc_platform_data);
+#endif
+#ifdef CONFIG_JZ4780_EFUSE
+/* efuse */
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
