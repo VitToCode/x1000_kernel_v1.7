@@ -177,6 +177,10 @@ struct jzdwc_pin dete_pin = {
         .num                            = GPIO_USB_DETE,
         .enable_level                   = HIGH_ENABLE,
 };
+
+struct jzdwc_pin __attribute__((weak)) dwc2_id_pin = {
+	.num          = GPIO_PB(5),
+};
 #endif
 
 /* Battery Info */
