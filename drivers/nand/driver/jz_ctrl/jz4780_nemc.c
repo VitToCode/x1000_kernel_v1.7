@@ -41,9 +41,11 @@ static int nand_calc_smcr(NAND_BASE *host,void *flash_chip)
 */
 	/* NEMC.TAS */
 	data = (flash->tals * 1000 + cycle - 1) / cycle;
+	data -= (data >= 1) ? 1 : 0;
 	smcr_val |= (data & NEMC_SMCR_TAS_MASK) << NEMC_SMCR_TAS_BIT;
 	/* NEMC.TAH */
 	data = (flash->talh * 1000 + cycle -1) / cycle;
+	data -= (data >= 1) ? 1 : 0;
 	smcr_val |= (data & NEMC_SMCR_TAH_MASK) << NEMC_SMCR_TAH_BIT;
 	/* NEMC.TBP */
 	data = (flash->twp * 1000 + cycle - 1) / cycle;

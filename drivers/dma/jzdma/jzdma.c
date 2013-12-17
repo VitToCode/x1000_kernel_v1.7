@@ -806,6 +806,7 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 	unsigned long pending, mailbox = 0;
 	int mask;
 	struct jzdma_master *master = (struct jzdma_master *)dev;
+	struct jzdma_channel *dmac = master->channel + 3;
 
 	pending = readl(master->iomem + DMINT);
 
@@ -816,7 +817,9 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 #ifdef MCU_TEST_INTER_DMA
 		(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
 #endif
-			generic_handle_irq(IRQ_MCU);
+		*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
+		tasklet_schedule(&dmac->tasklet);
+//			generic_handle_irq(IRQ_MCU);
 		}
 		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
 			generic_handle_irq(IRQ_GPIO0);
