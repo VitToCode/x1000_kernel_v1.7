@@ -706,7 +706,7 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	__x2d_enable_irq();
 	__x2d_start_trig();
 
-	if(!wait_event_interruptible_timeout(jz_x2d->set_wait_queue, \
+	if(!wait_event_timeout(jz_x2d->set_wait_queue, \
 				x2d_check_wake_up_condition(jz_x2d), HZ/5)) {
 		dev_err(jz_x2d->dev,"wait queue time out  %lx\n", reg_read(jz_x2d,REG_X2D_GLB_STATUS));
 		__x2d_stop_trig();
