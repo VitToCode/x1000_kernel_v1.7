@@ -836,13 +836,13 @@ static irqreturn_t x2d_irq_handler(int irq, void *dev_id)
 		__x2d_stop_trig();
 		__x2d_clear_irq();
 		clk_disable(jz_x2d->x2d_clk);
-		wake_up_interruptible(&jz_x2d->set_wait_queue);
+		wake_up(&jz_x2d->set_wait_queue);
 		clk_enable(jz_x2d->x2d_clk);
 	}
 
 	jz_x2d->state = x2d_state_complete;
 	__x2d_clear_irq();
-	wake_up_interruptible(&jz_x2d->set_wait_queue);
+	wake_up(&jz_x2d->set_wait_queue);
 
 	return IRQ_HANDLED;
 }
