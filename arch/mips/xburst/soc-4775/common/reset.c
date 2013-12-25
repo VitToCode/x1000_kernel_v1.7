@@ -217,7 +217,7 @@ static int reset_write_proc(struct file *file, const char __user *buffer,
 	if(count == 0) return count;
 	for(i = 0;i < ARRAY_SIZE(reset_command);i++) {
 		if(!strncmp(buffer,reset_command[i],strlen(reset_command[i]))) {
-			command++;
+			command = i + 1;
 			break;
 		}
 	}
