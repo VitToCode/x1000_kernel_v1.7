@@ -331,11 +331,25 @@ static int jzfb_calculate_size(struct fb_info *info,
 		return -EINVAL;
 	}
 
+	if ((jzfb->osd.fg1.x + jzfb->osd.fg1.w > mode->xres) |
+	    (jzfb->osd.fg1.y + jzfb->osd.fg1.h > mode->yres) |
+	    (jzfb->osd.fg1.x >= mode->xres) |
+	    (jzfb->osd.fg1.y >= mode->yres)) {
+		dev_info(info->dev, "Invalid foreground size or position");
+		return -EINVAL;
+	}
+
 	/* lcd display area */
 	size->fg0_line_size = jzfb->osd.fg0.w * jzfb->osd.fg0.bpp >> 3;
 	/* word aligned and in word */
 	size->fg0_line_size = ALIGN(size->fg0_line_size, 4) >> 2;
 	size->fg0_frm_size = size->fg0_line_size * jzfb->osd.fg0.h;
+
+	/* lcd display area */
+	size->fg1_line_size = jzfb->osd.fg1.w * jzfb->osd.fg0.bpp >> 3;
+	/* word aligned and in word */
+	size->fg1_line_size = ALIGN(size->fg1_line_size, 4) >> 2;
+	size->fg1_frm_size = size->fg1_line_size * jzfb->osd.fg1.h;
 
 	/* panel PIXEL_ALIGN stride buffer area */
 	size->panel_line_size = ALIGN(mode->xres, PIXEL_ALIGN) *
@@ -345,9 +359,14 @@ static int jzfb_calculate_size(struct fb_info *info,
 	jzfb->frm_size = size->panel_line_size * mode->yres << 2;
 
 	size->height_width = (jzfb->osd.fg0.h - 1) << LCDC_DESSIZE_HEIGHT_BIT
-		& LCDC_DESSIZE_HEIGHT_MASK;
+						& LCDC_DESSIZE_HEIGHT_MASK;
 	size->height_width |=((jzfb->osd.fg0.w -1) << LCDC_DESSIZE_WIDTH_BIT
-			      & LCDC_DESSIZE_WIDTH_MASK);
+						& LCDC_DESSIZE_WIDTH_MASK);
+
+	size->fg1_height_width = (jzfb->osd.fg1.h - 1) << LCDC_DESSIZE_HEIGHT_BIT
+						& LCDC_DESSIZE_HEIGHT_MASK;
+	size->fg1_height_width |=((jzfb->osd.fg1.w -1) << LCDC_DESSIZE_WIDTH_BIT
+						& LCDC_DESSIZE_WIDTH_MASK);
 
 	return 0;
 }
@@ -518,9 +537,6 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 	 * the descriptor of DMA 1 just init once
 	 * and generally no need to use it
 	 */
-	if (jzfb->fg1_framedesc)
-		return;
-
 	jzfb->fg1_framedesc = jzfb->framedesc[0] + (jzfb->desc_num - 1);
 	jzfb->fg1_framedesc->next = jzfb->framedesc_phys + sizeof(
 		struct jzfb_framedesc) * (jzfb->desc_num - 1);
@@ -1427,6 +1443,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 	unsigned int videosize = 0;
 	struct fb_videomode *mode;
 	void *page;
+
 	jzfb->framedesc[0] = dma_alloc_coherent(
 		jzfb->dev, sizeof(struct jzfb_framedesc) * jzfb->desc_num,
 		&jzfb->framedesc_phys, GFP_KERNEL);
@@ -1534,6 +1551,8 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 /**
  * jzfb_set_videomode - Set videomode, dedicated to LCDC0(Only for HDMI output now!)
  * @flag: ==>fb_videomode->flag, but without FB_MODE_IS_HDMI
+ *
+ * __func__ will be invoked in HDMI driver module.
  */
 int jzfb_set_videomode(int flag)
 {
@@ -1639,17 +1658,13 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	int next_frm;
 	struct jzfb *jzfb = info->par;
-	//struct timeval tv1, tv2;
-//	printk("jzfb_pan_display return 0\n");
-//	return 0;
-#if 0
-        aosd_test(info);
-#endif
+
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev,"No support for X panning for now\n");
 		return -EINVAL;
 	}
 
+	printk("var->yoffset = %d\n", var->yoffset);
         if ( var->yres == 720 || var->yres == 1080) { /* work around for HDMI device */
             switch ( var->yoffset ) {
                 case 1440:
@@ -1664,9 +1679,9 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
                     next_frm = 0;
                     break;
             }
-        }
-        else
+        } else {
             next_frm = var->yoffset / var->yres;
+	}
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 	{
 		void * vaddr;
@@ -1677,9 +1692,6 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		memset((void*)vaddr, 0xff, 400*240);
 	}
 #endif
-	jzfb->current_buffer = next_frm;
-		//dev_info(info->dev,"next_frm=%d, var->yoffset=%d, var->yres=%d\n",next_frm, var->yoffset, var->yres);
-
 	mutex_lock(&jzfb->framedesc_lock);
 	if(var->reserved[1] != NOGPU_PAN){
 		if (jzfb->pan_sync) {
@@ -1707,8 +1719,25 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
 		if (!jzfb->osd.decompress && !jzfb->osd.block) {
+#ifdef CONFIG_ANDROID //android only use fg0 now. But used all 3 buffers.
 			jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 				+ jzfb->frm_size * next_frm;
+			jzfb->current_buffer0 = next_frm;
+#else //linux can use fg0 and fg1
+			printk("next_frm:%d [0: fg0's buffer; 1: fg1's buffer]\n",next_frm);
+			if(next_frm == 0){  //is fg0
+				jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
+					+ jzfb->frm_size * next_frm;
+				jzfb->current_buffer0 = next_frm;
+			}
+			else if(next_frm == 1){ //Now, fg1 use fg0's 2rd buffer simply, may alloc later.
+				jzfb->fg1_framedesc->databuf = jzfb->vidmem_phys
+					+ jzfb->frm_size * next_frm;
+				jzfb->current_buffer1 = next_frm;
+			}
+#endif
+			printk("jzfb->framedesc[0]->databuf:%08x\n",jzfb->framedesc[0]->databuf);
+			printk("jzfb->fg1_framedesc->databuf:%08x\n",jzfb->fg1_framedesc->databuf);
 		} else if (jzfb->osd.decompress) {
 #ifdef CONFIG_JZ4780_AOSD
 			mutex_lock(&jzfb->suspend_lock);
@@ -1801,10 +1830,10 @@ static void jzfb_set_alpha(struct fb_info *info, struct jzfb_fg_alpha *fg_alpha)
 	struct jzfb *jzfb = info->par;
 	struct jzfb_framedesc *framedesc;
 
-	if (!fg_alpha->fg) {
+	if (!fg_alpha->fg) { //fg0
 		desc_num = jzfb->desc_num -1;
 		framedesc = jzfb->framedesc[0];
-	} else {
+	} else { //fg1
 		desc_num = 1;
 		framedesc = jzfb->fg1_framedesc;
 	}
@@ -1900,23 +1929,33 @@ static int jzfb_set_foreground_position(struct fb_info *info,
 	}
 	/*
 	 * The rules of f0, f1's position:
-	 * f0.x + f0.w <= panel.w;
-	 * f0.y + f0.h <= panel.h;
+	 * fg.x + fg.w <= panel.w;
+	 * fg.y + fg.h <= panel.h;
 	 */
-	if ((fg_pos->x + jzfb->osd.fg0.w > mode->xres) |
-	    (fg_pos->y + jzfb->osd.fg0.h > mode->yres) |
-	    (fg_pos->x >= mode->xres) |
-	    (fg_pos->y >= mode->yres)) {
-		dev_info(info->dev, "Invalid foreground position");
-		return -EINVAL;
-	}
-	jzfb->osd.fg0.x = fg_pos->x;
-	jzfb->osd.fg0.y = fg_pos->y;
+	if (!fg_pos->fg) { //fg0
+		if ((fg_pos->x + jzfb->osd.fg0.w > mode->xres) |
+				(fg_pos->y + jzfb->osd.fg0.h > mode->yres) |
+				(fg_pos->x >= mode->xres) |
+				(fg_pos->y >= mode->yres)) {
+			dev_info(info->dev, "Invalid fg0 position");
+			return -EINVAL;
+		}
+		jzfb->osd.fg0.x = fg_pos->x;
+		jzfb->osd.fg0.y = fg_pos->y;
 
-	if (!fg_pos->fg) {
 		desc_num = jzfb->desc_num -1;
 		framedesc = jzfb->framedesc[0];
-	} else {
+	}else{ //fg1
+		if ((fg_pos->x + jzfb->osd.fg1.w > mode->xres) |
+				(fg_pos->y + jzfb->osd.fg1.h > mode->yres) |
+				(fg_pos->x >= mode->xres) |
+				(fg_pos->y >= mode->yres)) {
+			dev_info(info->dev, "Invalid fg1 position");
+			return -EINVAL;
+		}
+		jzfb->osd.fg1.x = fg_pos->x;
+		jzfb->osd.fg1.y = fg_pos->y;
+
 		desc_num = 1;
 		framedesc = jzfb->fg1_framedesc;
 	}
@@ -2063,6 +2102,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_videomode *mode = info->mode;
 	int *buf;
+	int tmp_id;
 	int videomode_flag;	//with FB_MODE_IS_HDMI flag
 
 	volatile int cnt = 50;
@@ -2157,18 +2197,26 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 				dev_err(jzfb->dev, "Video mode is NULL\n");
 				return -EINVAL;
 			}
-			if ((jzfb->osd.fg0.x + osd.fg_size.w > mode->xres) |
-			    (jzfb->osd.fg0.y + osd.fg_size.h > mode->yres)) {
-				dev_info(info->dev, "Invalid foreground size");
-				return -EINVAL;
-			}
-			if (!osd.fg_size.fg) {
+			if (!osd.fg_size.fg) { //fg0
+				if ((jzfb->osd.fg0.x + osd.fg_size.w > mode->xres) |
+						(jzfb->osd.fg0.y + osd.fg_size.h > mode->yres)) {
+					dev_info(info->dev, "Invalid fg0 size");
+					return -EINVAL;
+				}
+
 				jzfb->osd.fg0.w = osd.fg_size.w;
 				jzfb->osd.fg0.h = osd.fg_size.h;
-				return jzfb_prepare_dma_desc(info);
-			} else {
-				/* LCDC DMA 1 is not used for now */
+			} else { //fg1
+				if ((jzfb->osd.fg1.x + osd.fg_size.w > mode->xres) |
+						(jzfb->osd.fg1.y + osd.fg_size.h > mode->yres)) {
+					dev_info(info->dev, "Invalid fg1 size");
+					return -EINVAL;
+				}
+
+				jzfb->osd.fg1.w = osd.fg_size.w;
+				jzfb->osd.fg1.h = osd.fg_size.h;
 			}
+			return jzfb_prepare_dma_desc(info);
 		}
 		break;
 	case JZFB_GET_FG_SIZE:
@@ -2178,9 +2226,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-		if (!osd.fg_size.fg) {
+		if (!osd.fg_size.fg) { //fg0
 			value = reg_read(jzfb, LCDC_SIZE0);
-		} else {
+		} else { //fg1
 			value = reg_read(jzfb, LCDC_SIZE1);
 		}
 		osd.fg_size.w = value & LCDC_SIZE_WIDTH_MASK;
@@ -2222,7 +2270,18 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case JZFB_GET_BUFFER:
-		if (copy_to_user(argp, &jzfb->current_buffer, sizeof(int))) {
+		if (copy_from_user(&tmp_id, argp, sizeof(int))) {
+			dev_info(info->dev, "copy FG num from user failed\n");
+			return -EFAULT;
+		}
+		printk("buffer0 = %d, %d\n", jzfb->current_buffer0, jzfb->current_buffer1);
+
+		if(tmp_id == 0) //fg0
+			tmp_id = jzfb->current_buffer0;
+		else{ //fg1, use fg0's second buffer
+			tmp_id = 1;
+		}
+		if (copy_to_user(argp, &tmp_id, sizeof(int))) {
 			dev_info(info->dev, "user get current buffer failed\n");
 			return -EFAULT;
 		}
@@ -3402,11 +3461,22 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->id = pdev->id;
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
+
+	/*in Linux, */
+	if (jzfb->id == 0) {
 #ifdef CONFIG_FORCE_RESOLUTION
-	jzfb->flag = CONFIG_FORCE_RESOLUTION;
+		jzfb->flag = CONFIG_FORCE_RESOLUTION;
 #else
-	jzfb->flag = 0;
+		jzfb->flag = 0;
 #endif
+#ifndef CONFIG_ANDROID
+		if(jzfb->flag <= 0){
+			dev_err(&pdev->dev, "WARNING: CONFIG_FORCE_RESOLUTION invalid\n");
+			ret = -EINVAL;
+			goto err_framebuffer_release;
+		}
+#endif
+	}
 
 	if(jzfb->id == 0){
 		jzfb0 = jzfb;
@@ -3574,10 +3644,9 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 				clk_enable(jzfb->pclk);
 				clk_enable(jzfb->clk);
 				jzfb_enable(jzfb->fb);
-				//jzfb_display_v_color_bar(jzfb->fb);
 			}
 		}
-#else
+#else  /* !CONFIG_FORCE_RESOLUTION */
 		if (!jzfb_copy_logo(jzfb->fb)) {
 			jzfb_change_dma_desc(jzfb->fb);
 		}
@@ -3586,15 +3655,15 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		clk_enable(jzfb->pclk);
 		clk_enable(jzfb->clk);
 		jzfb_enable(jzfb->fb);
-#endif
-#endif
+#endif /* CONFIG_JZFB_LCDC_INIT */
+#endif  /* CONFIG_FORCE_RESOLUTION */
 	}
-#else
+#else  /* CONFIG_FPGA_TEST */
 	if (jzfb->vidmem_phys) {
 		jzfb_set_par(jzfb->fb);
 		jzfb_enable(jzfb->fb);
 		if (jzfb->id) {
-			/* set pixel clock for lcd devide */
+			/* set pixel clock for lcd device */
 			reg_write(jzfb, LCDC_REV, 1 << 16);
 		}
 		jzfb_display_v_color_bar(jzfb->fb);
@@ -3604,7 +3673,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		/* set pixel clock for hdmi 480p test */
 		reg_write(jzfb, LCDC_REV, 0 << 16);
 	}
-#endif
+#endif  /* CONFIG_FPGA_TEST */
 	if(!jzfb->is_enabled) {
 		clk_disable(jzfb->clk);
 		clk_disable(jzfb->pclk);

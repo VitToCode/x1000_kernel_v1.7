@@ -41,8 +41,11 @@ struct jzfb_framedesc {
 struct jzfb_display_size {
 	u32 fg0_line_size;
 	u32 fg0_frm_size;
+	u32 fg1_line_size;
+	u32 fg1_frm_size;
 	u32 panel_line_size;
 	u32 height_width;
+	u32 fg1_height_width;
 };
 
 enum jzfb_format_order {
@@ -111,6 +114,8 @@ struct jzfb {
 
 	int frm_size;
 	int current_buffer;
+	int current_buffer0;
+	int current_buffer1;
 	/* dma 0 descriptor base address */
 	struct jzfb_framedesc *framedesc[MAX_DESC_NUM];
 	struct jzfb_framedesc *fg1_framedesc; /* FG 1 dma descriptor */

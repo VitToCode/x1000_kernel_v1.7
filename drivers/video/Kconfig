@@ -2416,13 +2416,18 @@ choice
 	prompt "allocation frame buffer"
 	default THREE_FRAME_BUFFERS
 
+config ONE_FRAME_BUFFERS
+       bool "alloc 1 frame buffers"
+       help
+	one frame buffer
+
 config TWO_FRAME_BUFFERS
-       bool "allocation 2 frame buffers"
+       bool "alloc 2 frame buffers"
        help
 	double frame buffer
 
 config THREE_FRAME_BUFFERS
-       bool "allocation 3 frame buffers"
+       bool "alloc 3 frame buffers"
        help
 	treble frame buffer
 endchoice
@@ -2497,7 +2502,7 @@ menuconfig HDMI
 	   help
 	   HDMI output support.
 
-comment "HDMI driver"
+comment "Jz4780 HDMI driver"
 	depends on HDMI
 
 config HDMI_JZ4780
@@ -2506,7 +2511,7 @@ config HDMI_JZ4780
        default y
 
 config FORCE_RESOLUTION
-	depends on HDMI
+	depends on HDMI_JZ4780
 	int "Force HDMI initialization resolution"
 	default 0
 	help
@@ -2519,13 +2524,13 @@ config FORCE_RESOLUTION
 
 config HDMI_NOT_CONTROL_IN_SURFACEFLINGER
        tristate "HDMI do not control in surfaceflinger(for example in linux system)"
-       depends on HDMI
+       depends on HDMI_JZ4780
 	   help
 	   If you use linux system, please this select,so you can respose hpd
 
 config HDMI_JZ4780_DEBUG
        tristate "JZ4780 HDMI DEBUG"
-       depends on HDMI
+       depends on HDMI_JZ4780
 
 config JZ4780_IPU
        bool "jz4780 ipu driver"
