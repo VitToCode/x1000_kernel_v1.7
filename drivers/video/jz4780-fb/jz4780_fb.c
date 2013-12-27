@@ -1664,7 +1664,6 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	printk("var->yoffset = %d\n", var->yoffset);
         if ( var->yres == 720 || var->yres == 1080) { /* work around for HDMI device */
             switch ( var->yoffset ) {
                 case 1440:
@@ -1736,8 +1735,6 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 				jzfb->current_buffer1 = next_frm;
 			}
 #endif
-			printk("jzfb->framedesc[0]->databuf:%08x\n",jzfb->framedesc[0]->databuf);
-			printk("jzfb->fg1_framedesc->databuf:%08x\n",jzfb->fg1_framedesc->databuf);
 		} else if (jzfb->osd.decompress) {
 #ifdef CONFIG_JZ4780_AOSD
 			mutex_lock(&jzfb->suspend_lock);
@@ -2274,7 +2271,6 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			dev_info(info->dev, "copy FG num from user failed\n");
 			return -EFAULT;
 		}
-		printk("buffer0 = %d, %d\n", jzfb->current_buffer0, jzfb->current_buffer1);
 
 		if(tmp_id == 0) //fg0
 			tmp_id = jzfb->current_buffer0;
@@ -3462,7 +3458,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
 
-	/*in Linux, */
+	/*
+	 * if HDMI resolution index is 0 or NOT SET,
+	 * Linux will not register LCDC0.
+	 */
 	if (jzfb->id == 0) {
 #ifdef CONFIG_FORCE_RESOLUTION
 		jzfb->flag = CONFIG_FORCE_RESOLUTION;

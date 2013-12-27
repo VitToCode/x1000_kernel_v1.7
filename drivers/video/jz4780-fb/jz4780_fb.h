@@ -113,7 +113,6 @@ struct jzfb {
 	dma_addr_t desc_cmd_phys;
 
 	int frm_size;
-	int current_buffer;
 	int current_buffer0;
 	int current_buffer1;
 	/* dma 0 descriptor base address */
