@@ -1014,7 +1014,7 @@ int cpm_start_ohci(void)
 
 	cpm_set_bit(17,CPM_USBPCR1);
 
-	cpm_set_bit(7, CPM_OPCR);
+	cpm_set_bit(6, CPM_OPCR);
 
 	/* OTG PHY reset */
 	cpm_set_bit(22, CPM_USBPCR);
@@ -1043,7 +1043,7 @@ int cpm_stop_ohci(void)
 	/* disable ohci phy power */
 	cpm_clear_bit(17,CPM_USBPCR1);
 
-	cpm_clear_bit(7, CPM_OPCR);
+	cpm_clear_bit(6, CPM_OPCR);
 
 	printk(KERN_DEBUG __FILE__
 	       ": stop JZ OHCI USB Controller\n");
@@ -1117,4 +1117,3 @@ static int __init init_clk_proc(void)
 }
 
 module_init(init_clk_proc);
-
