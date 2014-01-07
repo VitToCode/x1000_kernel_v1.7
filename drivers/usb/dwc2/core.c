@@ -467,18 +467,10 @@ void dwc2_disable_global_interrupts(struct dwc2 *dwc)
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
 }
 
-uint8_t dwc2_is_device_mode(struct dwc2 *dwc)
-{
-	uint32_t curmod = dwc_readl(&dwc->core_global_regs->gintsts);
-
-	return (curmod & 0x1) == 0;
-}
-
-uint8_t dwc2_is_host_mode(struct dwc2 *dwc)
-{
-	uint32_t curmod = dwc_readl(&dwc->core_global_regs->gintsts);
-
-	return (curmod & 0x1) == 1;
+void dwc2_disable_clock(struct dwc2 *dwc) {
+	dwc2_core_init(dwc);
+	dwc2_disable_global_interrupts(dwc);
+	dwc2_clk_disable(dwc);
 }
 
 /**
@@ -868,6 +860,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	gotgint_data_t gotgint;
 	gotgctl_data_t gotgctl;
 	gintsts_data_t gintsts;
+	dctl_data_t dctl;
 	//gintmsk_data_t gintmsk;
 	//gpwrdn_data_t gpwrdn;
 
@@ -927,7 +920,8 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		}
 
 		/* close PHY */
-		if (likely((!dwc->keep_phy_on) && !dwc->plugin))
+		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+		if (likely((!dwc->keep_phy_on) && (dctl.b.sftdiscon || !dwc->plugin)))
 			cpm_clear_bit(7, CPM_OPCR);
 	}
 #endif
@@ -1449,7 +1443,13 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 		printk("===>unhandled interrupt! gintr_status = 0x%08x\n",
 			gintr_status.d32);
 	}
+
 out:
+	if (unlikely( (!dwc->plugin) && !cpm_test_bit(7, CPM_OPCR) &&
+				dwc2_is_device_mode(dwc) && !dwc2_has_ep_enabled(dwc))) {
+		dwc2_disable_clock(dwc);
+	}
+
 	dwc_unlock(dwc);
 	spin_unlock(&dwc->lock);
 
@@ -1560,6 +1560,7 @@ static int dwc2_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize gadget\n");
 		goto fail_init_gadget;
 	}
+	dwc2_disable_global_interrupts(dwc);
 #endif
 
 	ret = request_irq(irq, dwc2_interrupt, 0, "dwc2", dwc);
@@ -1570,7 +1571,8 @@ static int dwc2_probe(struct platform_device *pdev)
 	}
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
-	dwc2_enable_global_interrupts(dwc);
+	//dwc2_enable_global_interrupts(dwc);
+	dwc2_clk_disable(dwc);
 
 	ret = dwc2_debugfs_init(dwc);
 	if (ret) {

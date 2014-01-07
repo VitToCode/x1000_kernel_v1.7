@@ -68,6 +68,8 @@ struct dwc2_jz4780 {
 #endif	/* DWC2_HOST_MODE_ENABLE */
 };
 
+#define to_dwc2_jz4780(dwc) container_of((dwc)->pdev, struct dwc2_jz4780, dwc2);
+
 #if DWC2_DEVICE_MODE_ENABLE
 struct jzdwc_pin __attribute__((weak)) dete_pin = {
 	.num	      = -1,
@@ -498,6 +500,24 @@ static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
 }
 #endif	/* DWC2_HOST_MODE_ENABLE */
 
+void dwc2_clk_enable(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	clk_enable(jz4780->clk);
+}
+
+void dwc2_clk_disable(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	clk_disable(jz4780->clk);
+}
+
+int dwc2_clk_is_enabled(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	return clk_is_enabled(jz4780->clk);
+}
+
 static void usb_cpm_init(void) {
 	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;
 	unsigned int usbpcr1;
@@ -532,7 +552,7 @@ static void usb_cpm_init(void) {
 	/* OTGTUNE adjust */
 	//cpm_outl(7 << 14, CPM_USBPCR);
 
-	cpm_outl(0x8180385F, CPM_USBPCR);
+	cpm_outl(0x8380385F, CPM_USBPCR);
 }
 
 static u64 dwc2_jz4780_dma_mask = DMA_BIT_MASK(32);

@@ -584,21 +584,39 @@ struct dwc2 {
 #if 0
 #define dwc_writel(v, p)					\
 	({							\
-		printk("===>%s:%d writel %p to 0x%08x\n",	\
-			__func__, __LINE__, (p), (v));		\
-		writel((v), (p));				\
+		printk("===>%s:%d writel %p to 0x%08x\n",		\
+			__func__, __LINE__, (p), (v));			\
+		writel((v), (p));					\
 	})
 
-#define dwc_readl(p)						\
-	({							\
-		u32 val = readl((p));				\
-		printk("===>%s:%d readl %p, got 0x%08x\n",	\
-			__func__, __LINE__, (p), val);		\
-		val;						\
+#define dwc_readl(p)							\
+	({								\
+		u32 val = readl((p));					\
+		printk("===>%s:%d readl %p, got 0x%08x\n",		\
+			__func__, __LINE__, (p), val);			\
+		val;							\
 	})
+#else
+#if 0
+#define dwc_writel(v, p) ({						\
+			if ( (*(volatile unsigned int *)0xb0000020) & (1 << 2)) { \
+				while(1)				\
+					printk("====>enter %s:%d\n", __func__, __LINE__); \
+			}						\
+			writel((v), (p));				\
+		})
+
+#define dwc_readl(p) ({							\
+			if ( (*(volatile unsigned int *)0xb0000020) & (1 << 2)) { \
+				while(1)				\
+					printk("====>enter %s:%d\n", __func__, __LINE__); \
+			}						\
+			readl((p));					\
+		})
 #else
 #define dwc_writel(v, p) writel((v), (p))
 #define dwc_readl(p) readl((p))
+#endif
 #endif
 
 #define dwc2_spin_lock_irqsave(__dwc, flg)				\
@@ -684,8 +702,18 @@ void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count);
 #endif
 
 void dwc2_enable_common_interrupts(struct dwc2 *dwc);
-uint8_t dwc2_is_device_mode(struct dwc2 *dwc);
-uint8_t dwc2_is_host_mode(struct dwc2 *dwc);
+
+#define dwc2_is_device_mode(dwc) ({					\
+			uint32_t m_curmod = dwc_readl(&dwc->core_global_regs->gintsts);	\
+									\
+			(m_curmod & 0x1) == 0;				\
+		})
+
+#define dwc2_is_host_mode(dwc) ({					\
+			uint32_t m_curmod = dwc_readl(&dwc->core_global_regs->gintsts);	\
+									\
+			(m_curmod & 0x1) == 1;				\
+		})
 
 void dwc2_wait_3_phy_clocks(void);
 void dwc2_core_reset(struct dwc2 *dwc);
@@ -695,5 +723,8 @@ void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num);
 void dwc2_flush_rx_fifo(struct dwc2 *dwc);
 
 void dwc2_enable_global_interrupts(struct dwc2 *dwc);
+void dwc2_disable_global_interrupts(struct dwc2 *dwc);
+
+void dwc2_disable_clock(struct dwc2 *dwc);
 
 #endif /* __DRIVERS_USB_DWC2_CORE_H */

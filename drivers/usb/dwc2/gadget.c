@@ -974,6 +974,24 @@ static void dwc2_gadget_stop_in_transfer(struct dwc2_ep *dep) {
 
 /* --------------------------------usb_ep_ops--------------------------- */
 
+#ifdef CONFIG_USB_DWC2_DISABLE_CLOCK
+int dwc2_has_ep_enabled(struct dwc2 *dwc) {
+	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
+	int			 num_eps = dev_if->num_out_eps + dev_if->num_in_eps;
+	struct dwc2_ep		*dep;
+	int			 i	 = 0;
+
+	for (i = 0; i < num_eps; i++) {
+		dep = dwc->eps[i];
+		if (dep->flags & DWC2_EP_ENABLED) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static int dwc2_gadget_ep0_enable(struct usb_ep *ep,
 				const struct usb_endpoint_descriptor *desc)
 {
@@ -1109,6 +1127,10 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 	dep->type = 0;
 	dep->maxp = 0;
 	dep->flags = 0;
+
+	if (unlikely( (!dwc->plugin) && !cpm_test_bit(7, CPM_OPCR) && !dwc2_has_ep_enabled(dwc))) {
+		dwc2_disable_clock(dwc);
+	}
 
 	return 0;
 }
@@ -1726,6 +1748,9 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	dwc->pullup_on = is_on;
 
+	if (unlikely(!dwc2_clk_is_enabled(dwc)))
+		goto out;
+
 	if (is_on && !dwc->plugin)
 		goto out;
 
@@ -1738,6 +1763,11 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 			gotgctl.b.bvalidoven = 0;
 			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+
+			if (dwc->pullup_on) {
+				unsigned int value = cpm_inl(CPM_OPCR);
+				cpm_outl(value | (1 << 7), CPM_OPCR);
+			}
 		}
 
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
@@ -2403,8 +2433,20 @@ void dwc2_gadget_plug_change(int plugin) {
 		dwc->extern_vbus_mode = 1;
 	}
 
-	if (!plugin)
+	if (!plugin) {
 		dwc->extern_vbus_mode = 0;
+		if (!dwc2_clk_is_enabled(dwc))
+			goto out;
+	} else {
+		if (!dwc2_clk_is_enabled(dwc)) {
+			dwc2_clk_enable(dwc);
+			dwc2_core_init(dwc);
+			mdelay(1);
+			dwc->op_state = DWC2_B_PERIPHERAL;
+			dwc2_device_mode_init(dwc);
+			mdelay(1);
+		}
+	}
 
 	dev_dbg(dwc->dev, "enter %s:%d: plugin = %d pullup = %d suspend = %d ext_vbus = %d\n",
 		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended, extern_vbus_mode);
@@ -2437,34 +2479,37 @@ void dwc2_gadget_plug_change(int plugin) {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 		}
 	} else {
-		dctl.b.sftdiscon = 1;
-		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		if (dctl.b.sftdiscon && !cpm_test_bit(7, CPM_OPCR) && !dwc2_has_ep_enabled(dwc)) {
+			dwc2_disable_clock(dwc);
+		} else {
+			dctl.b.sftdiscon = 1;
+			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 #if !DWC2_HOST_MODE_ENABLE
-		{
-			gotgctl_data_t gotgctl;
+			{
+				gotgctl_data_t gotgctl;
 
-			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
-			gotgctl.b.bvalidoven = 1;
-			gotgctl.b.bvalidovval = 0;
-			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
-		}
+				gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+				gotgctl.b.bvalidoven = 1;
+				gotgctl.b.bvalidovval = 0;
+				dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+			}
 #endif
-
-		/*
-		 * Note: the following commented code is used for testing what will
-		 *       happen if we unplug then quickly re-plug
-		 */
+			/*
+			 * Note: the following commented code is used for testing what will
+			 *       happen if we unplug then quickly re-plug
+			 */
 #if 0
-		DWC_PR(0x004);
-		DWC_PR(0x014);
-		mdelay(1000);
-		DWC_PR(0x004);
-		DWC_PR(0x014);
+			DWC_PR(0x004);
+			DWC_PR(0x014);
+			mdelay(1000);
+			DWC_PR(0x004);
+			DWC_PR(0x014);
 
-		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
-		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+			dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 #endif
+		}
 	}
 
 out:
@@ -2487,6 +2532,8 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	int		 ret;
 	struct dwc2	*dwc = m_dwc;
 	struct dwc2_ep	*dep;
+	unsigned long   flags;
+	dctl_data_t     dctl;
 
 	if (driver == NULL) {
 		pr_err("%s: driver is NULL\n", __func__);
@@ -2530,7 +2577,9 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	dev_info(dwc->dev, "registered gadget driver '%s'\n",
 		driver->driver.name);
 
-	if (likely(dwc2_is_device_mode(dwc))) {
+	dwc2_spin_lock_irqsave(dwc, flags);
+	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
+	if (unlikely(!dctl.b.sftdiscon && dwc2_clk_is_enabled(dwc) && dwc2_is_device_mode(dwc))) {
 		/* default to 64 */
 		dwc2_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 
@@ -2549,6 +2598,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		}
 		dwc2_ep0_out_start(dwc);
 	}
+	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	dwc->gadget_driver = driver;
 

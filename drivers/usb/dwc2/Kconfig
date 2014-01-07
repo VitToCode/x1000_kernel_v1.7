@@ -88,4 +88,14 @@ config USB_DWC2_INPUT_EVDEV
        help
          Say Y here to enable host device insert to wakeup screen
 
+config USB_DWC2_DISABLE_CLOCK
+       bool "Disable clock when usb cable unplug"
+       depends on USB_DWC2_DEVICE_ONLY
+       default y
+       help
+         Say Y here to disable clock gate when usb cable unplug.
+
+	 Currently only support Device Mode, but this does not means
+	 that we do not support Host Mode.
+
 endif
