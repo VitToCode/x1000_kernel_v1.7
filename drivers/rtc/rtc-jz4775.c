@@ -368,7 +368,7 @@ static void jz4775_rtc_enable(struct jz_rtc *rtc)
 	jzrtc_writel(rtc, RTC_HWRSR, 0);
 
 	/* enabled Power detect*/
-	jzrtc_writel(rtc, RTC_HWCR,((~(EPDET_DEFAULT << 3)) | (jzrtc_readl(rtc, RTC_HWCR))));
+	jzrtc_writel(rtc, RTC_HWCR,((jzrtc_readl(rtc, RTC_HWCR) & 0x7) | (EPDET_DEFAULT << 3)));
 
 	return ;
 
