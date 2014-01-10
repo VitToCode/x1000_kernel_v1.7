@@ -1414,8 +1414,19 @@ ssize_t xb_snd_dsp_write(struct file *file,
 			node = get_free_dsp_node(dp);
 			if (!node) {
 				if (dp->is_trans == false) {
-					ret = -ENOEXEC;
-					goto write_return;
+					int free_count = 0;
+					while (!pop_dma_node_to_free(dp)) ;
+
+					while(1) {
+						node = get_use_dsp_node(dp);
+						if (!node)
+							break;
+						put_free_dsp_node(dp, node);
+					};
+					free_count = get_free_dsp_node_count(dp);
+					atomic_set(&dp->avialable_couter,free_count);
+					printk("Dma write error release node count %d\n",
+							free_count);
 				}
 				if (dp->is_non_block == true)
 					goto write_return;
