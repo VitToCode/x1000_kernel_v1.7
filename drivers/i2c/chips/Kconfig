@@ -35,6 +35,12 @@ config SENSORS_MC32X0
         depends on GSENSOR
         help
 
+config SENSORS_BMA250E
+	bool "BOSCH BMA250E triaxial accerleration sensor"
+	depends on GSENSOR
+	help
+
+
 config SENSORS_ORI
 	tristate "g_sensor orientation driver"
 	depends on GSENSOR 

@@ -20,8 +20,33 @@
 #include <mach/jzfb.h>
 #include <mach/fb_hdmi_modes.h>
 
+#ifdef CONFIG_LCD_TM035PDH03
 #include <linux/tm035pdh03.h>
+#endif
+
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+#include <linux/kd301_m03545_0317a.h>
+#endif
+
 #include "board.h"
+
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+static struct platform_kd301_data kd301_pdata = {
+	.gpio_lcd_spi_dr = GPIO_PC(0),
+	.gpio_lcd_spi_dt = GPIO_PC(1),
+	.gpio_lcd_spi_clk = GPIO_PC(10),
+	.gpio_lcd_spi_ce = GPIO_PC(11),
+	.gpio_lcd_reset = GPIO_PB(28),
+	.v33_reg_name = "vlcd",
+};
+
+struct platform_device kd301_device = {
+	.name = "kd301_m03545_0317a",
+	.dev = {
+		.platform_data = &kd301_pdata,
+	},
+};
+#endif	/* CONFIG_LCD_KD301_M03545_0317A */
 
 #ifdef CONFIG_LCD_TM035PDH03
 static struct platform_tm035_data tm035_pdata = {
@@ -44,6 +69,23 @@ struct platform_device tm035_device = {
 /*************************************************************/
 
 struct fb_videomode jzfb0_videomode = {
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+.name = "320x480",
+	 .refresh = 70,
+	 .xres = 320,
+	 .yres = 480,
+	 .pixclock = KHZ2PICOS(11316),
+	 .left_margin = 1,
+	 .right_margin = 10,
+	 .upper_margin = 0,
+	 .lower_margin = 2,
+	 .hsync_len = 3,
+	 .vsync_len = 2,
+	 .sync = 0 | 0,
+	 .vmode = FB_VMODE_NONINTERLACED,
+	 .flag = 0,
+#endif
+
 #ifdef CONFIG_LCD_TM035PDH03
 	.name = "320x480",
 	.refresh = 60,
@@ -63,6 +105,21 @@ struct fb_videomode jzfb0_videomode = {
 };
 
 struct jzfb_platform_data jzfb0_pdata = {
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+	.num_modes = 1,
+	.modes = &jzfb0_videomode,
+
+	.lcd_type = LCD_TYPE_GENERIC_18_BIT,
+	.bpp = 24,
+	.width = 49,
+	.height = 74,
+
+	.pixclk_falling_edge = 0,
+	.date_enable_active_low = 0,
+
+	.alloc_vidmem = 1,
+#endif
+
 #ifdef CONFIG_LCD_TM035PDH03
 	.num_modes = 1,
 	.modes = &jzfb0_videomode,

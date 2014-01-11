@@ -15,6 +15,9 @@ extern struct jzfb_platform_data jzfb0_pdata;
 #ifdef CONFIG_LCD_TM035PDH03
 extern struct platform_device tm035_device;
 #endif
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+extern struct platform_device kd301_device;
+#endif
 extern struct platform_device backlight_device;
 
 extern struct jzmmc_platform_data inand_pdata;

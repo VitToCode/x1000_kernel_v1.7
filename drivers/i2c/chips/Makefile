@@ -15,6 +15,7 @@ obj-$(CONFIG_SENSORS_MC32X0)	+= gsensor_mc32x0.o
 obj-$(CONFIG_SENSORS_LIS3DH)	+= gsensor_lis3dh.o
 obj-$(CONFIG_SENSORS_DMARD06)	+= gsensor_dmard06.o
 obj-$(CONFIG_SENSORS_STK220X)	+= lsensor_stk220x.o
+obj-$(CONFIG_SENSORS_BMA250E)   += bma250e.o
 obj-$(CONFIG_SENSORS_ORI)	+= gsensor_ori.o
 
 ifeq ($(CONFIG_I2C_DEBUG_CHIP),y)

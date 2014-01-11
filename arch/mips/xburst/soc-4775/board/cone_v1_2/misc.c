@@ -20,8 +20,8 @@
 
 #include "board.h"
 
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
-#include <linux/i2c/ft6x06_ts.h>
+#ifdef CONFIG_SENSORS_BMA250E
+#include <linux/i2c/bma250e.h>
 #endif
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -57,9 +57,45 @@ static struct i2c_board_info cone_v1_2_i2c0_devs[] __initdata = {
 };
 #endif
 
+#ifdef CONFIG_SENSORS_BMA250E
+static int bma250_setup(struct device *dev) {
+	return 0;
+}
+
+static void bma250_teardown(struct device *dev) {
+
+}
+
+static void bma250_hw_config(int enable) {
+
+}
+
+static void bma250_power_mode(int enable) {
+}
+
+struct bma250_registers bma250_reg = {
+	.bw_sel = BMA250_BW_7_81HZ,
+	.range = BMA250_RANGE_2G,
+};
+
+struct bma250_platform_data bma250_pdata = {
+	.setup = bma250_setup,
+	.teardown = bma250_teardown,
+	.hw_config = bma250_hw_config,
+	.power_mode = bma250_power_mode,
+	.reg = &bma250_reg,
+	.rate = 200,	      /* ms */
+};
+#endif
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
 static struct i2c_board_info cone_v1_2_i2c1_devs[] __initdata = {
-/* NOTE: Gsensor add here */ 
+#ifdef CONFIG_SENSORS_BMA250E
+	{
+		I2C_BOARD_INFO(BMA250_NAME, 0x18),
+		.platform_data = &bma250_pdata,
+	},
+#endif
 };
 #endif
 
@@ -75,14 +111,8 @@ static struct ft6x06_platform_data ft6x06_tsc_pdata = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ4775))
 static struct i2c_board_info cone_v1_2_i2c2_devs[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_GT818X_868_968M
-	        { I2C_BOARD_INFO("Goodix-TS", 0x5d), },
-#endif
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
-	{
-		I2C_BOARD_INFO(FT6X06_NAME, 0x38),
-		.platform_data = &ft6x06_tsc_pdata,
-	},
+#ifdef CONFIG_TOUCHSCREEN_GT9XX_CONE
+		{ I2C_BOARD_INFO("Goodix-TS", 0x5d), },
 #endif
 };
 #endif
@@ -173,7 +203,8 @@ static int __init board_init(void)
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
 #endif
-/* i2c */
+
+	/* i2c */
 #ifdef CONFIG_I2C0_JZ4775
 	platform_device_register(&jz_i2c0_device);
 #endif
@@ -194,16 +225,6 @@ static int __init board_init(void)
 	platform_device_register(&jz_i2c2_dma_device);
 #endif
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
-	i2c_register_board_info(1, cone_v1_2_i2c0_devs, ARRAY_SIZE(cone_v1_2_i2c0_devs));
-#endif
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
-	i2c_register_board_info(1, cone_v1_2_i2c1_devs, ARRAY_SIZE(cone_v1_2_i2c1_devs));
-#endif
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4775) || defined(CONFIG_I2C2_DMA_JZ4775))
-	i2c_register_board_info(1, cone_v1_2_i2c2_devs, ARRAY_SIZE(cone_v1_2_i2c2_devs));
-#endif
-
 #ifdef CONFIG_I2C_GPIO
 #if (!defined(CONFIG_I2C0_JZ4775) && !defined(CONFIG_I2C0_DMA_JZ4775))
 	platform_device_register(&i2c0_gpio_device);
@@ -215,6 +236,10 @@ static int __init board_init(void)
 	platform_device_register(&i2c2_gpio_device);
 #endif
 #endif
+
+	i2c_register_board_info(0, cone_v1_2_i2c0_devs, ARRAY_SIZE(cone_v1_2_i2c0_devs));
+	i2c_register_board_info(1, cone_v1_2_i2c1_devs, ARRAY_SIZE(cone_v1_2_i2c1_devs));
+	i2c_register_board_info(2, cone_v1_2_i2c2_devs, ARRAY_SIZE(cone_v1_2_i2c2_devs));
 
 #ifdef CONFIG_MMC0_JZ4775
 	jz_device_register(&jz_msc0_device, &inand_pdata);
@@ -236,7 +261,11 @@ static int __init board_init(void)
 #ifdef CONFIG_LCD_TM035PDH03
 	platform_device_register(&tm035_device);
 #endif
-	
+
+#ifdef CONFIG_LCD_KD301_M03545_0317A
+	platform_device_register(&kd301_device);
+#endif
+
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);
 #endif
@@ -292,7 +321,7 @@ static int __init board_init(void)
 /*IW8103_bcm4330*/
 #ifdef CONFIG_BCM4330_RFKILL
 		platform_device_register(&bcm4330_bt_power_device);
-#endif	
+#endif
 	return 0;
 }
 
@@ -306,6 +335,3 @@ const char *get_board_type(void)
 }
 
 arch_initcall(board_init);
-
-
-

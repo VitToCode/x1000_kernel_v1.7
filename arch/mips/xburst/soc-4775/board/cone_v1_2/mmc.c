@@ -10,7 +10,7 @@
 #include "board.h"
 
 #define GPIO_WIFI_RST_N		GPIO_PB(30)
-#define GPIO_WLAN_PW_EN		-1
+#define GPIO_WLAN_PW_EN		GPIO_PC(31)
 #define RESET                   0
 #define NORMAL                  1
 

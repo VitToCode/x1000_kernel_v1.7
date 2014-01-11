@@ -257,6 +257,12 @@ config TOUCHSCREEN_GT818X_868_968M
 	depends on I2C
 	help
 	  The GT818X_868_968M TouchSreen Driver.
+
+config TOUCHSCREEN_GT9XX_CONE
+	bool "GT9XX for cone board"
+	depends on I2C
+	help
+	  The CONE customized GT9xx touchscreen driver
 	  
 config TOUCHSCREEN_LDWZIC
 	tristate "Touchscreen LDWZIC"
