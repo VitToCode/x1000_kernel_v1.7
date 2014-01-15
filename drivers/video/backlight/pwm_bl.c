@@ -47,6 +47,7 @@ struct pwm_bl_data {
 #endif
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 /*
  * Backlight control program at the system wake up
  * need to wait until after the end of the pwm resume.
@@ -89,6 +90,7 @@ static inline int backlight_is_suspend(struct pwm_bl_data *pb, int brightness)
 	}
 	return 0;
 }
+#endif // CONFIG_HAS_EARLYSUSPEND
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
 {
@@ -96,17 +98,21 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	int brightness = bl->props.brightness;
 	int max = bl->props.max_brightness;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	if(wait_bk_l_resume(pb)) {
 		/*pb->last_brightness = brightness;*/
 		return 0;
 	}
+#endif
 
     mutex_lock(&pb->pwm_lock);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	if(backlight_is_suspend(pb, brightness)) {
 		mutex_unlock(&pb->pwm_lock);
 		return 0;
 	}
+#endif
 
 	if (bl->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
@@ -330,7 +336,7 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 	 * Android suspend and wake-up controlled by the earlysuspend
 	 * here do not do anything.
 	 */
-#if 0
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
@@ -344,7 +350,7 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 
 static int pwm_backlight_resume(struct platform_device *pdev)
 {
-#if 0
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	backlight_update_status(bl);
