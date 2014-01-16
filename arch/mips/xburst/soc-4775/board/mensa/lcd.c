@@ -292,15 +292,20 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.lvds = 0,
 
 	.smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
-	.smart_config.cmd_width = SMART_LCD_CWIDTH_18_BIT_ONCE,
+	.smart_config.cmd_width = SMART_LCD_CWIDTH_18_BIT_ONCE,  /* KFM701A21_1A: 18-bit? 16-bit? */
 	.smart_config.data_width = SMART_LCD_DWIDTH_18_BIT_ONCE_PARALLEL_SERIAL,
+	.smart_config.data_width2 = SMART_LCD_DWIDTH_18_BIT_ONCE_PARALLEL_SERIAL,
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.write_gram_cmd = 0x0202,
+
+	.smart_config.continuous_dma = 0, /* 1: auto continuous dma. 0: trigger DMA_RESTART per-frame dma. */
+
+	.smart_config.write_gram_cmd = 0x00000804, /* 0x00000202(16bit) -->> 0x00000804(18bit) ? */
 	.smart_config.bus_width = 18,
 	.smart_config.length_data_table = ARRAY_SIZE(kfm701a21_1a_data_table),
 	.smart_config.data_table = kfm701a21_1a_data_table,
+	.smart_config.init = 0, /* smart lcd special initial function */
 
 	.dither_enable = 1,
 	.dither.dither_red = 1, /* 6bit */

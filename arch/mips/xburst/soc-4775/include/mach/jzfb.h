@@ -295,16 +295,20 @@ struct jzfb_platform_data {
 	struct {
 		enum smart_lcd_type smart_type;
 		enum smart_lcd_cwidth cmd_width;
-		enum smart_lcd_dwidth data_width;
+		enum smart_lcd_dwidth data_width;  /* data_width: the data width when mcu init. */
+		enum smart_lcd_dwidth data_width2; /* data_width2: the data width when dma frame buffer. */
 
 		unsigned clkply_active_rising:1;
 		unsigned rsply_cmd_high:1;
 		unsigned csply_active_high:1;
 
-		unsigned long write_gram_cmd;
+		int continuous_dma; /* 1: auto continuous dma. 0: trigger DMA_RESTART per-frame dma. */
+
+		unsigned long write_gram_cmd;		/* write graphic ram command, in word, for example 8-bit bus, write_gram_cmd=C3C2C1C0. */
 		unsigned bus_width;
 		size_t length_data_table;
 		struct smart_lcd_data_table *data_table;
+		int (*init)(void); /* smart lcd special initial function */
 	} smart_config;
 
 	unsigned dither_enable:1;

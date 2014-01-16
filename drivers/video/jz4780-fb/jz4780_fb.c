@@ -459,9 +459,11 @@ static void jzfb_config_smart_lcd_dma(struct fb_info *info,
 				      struct jzfb_framedesc *framedesc)
 {
 	struct jzfb *jzfb = info->par;
+	/* DMA_CMD0 <<==>> DMA_FB, empty cmd buffer */
+	//framedesc->next = jzfb->framedesc_phys + sizeof(struct jzfb_framedesc) * (1);
+	/* DMA_CMD1 <<==>> DMA_FB, , with write_gram_cmd cmd buffer */
+	framedesc->next = jzfb->framedesc_phys + sizeof(struct jzfb_framedesc) * (2);
 
-	framedesc->next = jzfb->framedesc_phys + sizeof(
-		struct jzfb_framedesc) * (jzfb->desc_num - 3);
 	framedesc->databuf = jzfb->vidmem_phys;
 	framedesc->id = 0xda0da0;
 
@@ -521,11 +523,30 @@ static void jzfb_config_smart_lcd_dma(struct fb_info *info,
 	framedesc[2].next = jzfb->framedesc_phys;
 	framedesc[2].databuf = jzfb->desc_cmd_phys;
 	framedesc[2].id = 0xda0da2;
-	framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 4;
 	framedesc[2].offsize = 0;
 	framedesc[2].page_width = 0;
-	framedesc[2].cpos = 4;
 	framedesc[2].desc_size = 0;
+	{
+#define DMA_CMD_LENGTH_IN_WORDS (1)
+		int cmd_num_per_word;
+		switch (jzfb->pdata->smart_config.bus_width) {
+		default:
+		case 17 ... 32:
+			cmd_num_per_word = 1;
+			break;
+		case 9 ... 16:
+			cmd_num_per_word = 2;
+			break;
+		case 8:
+			cmd_num_per_word = 4;
+			break;
+		}
+
+		framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | DMA_CMD_LENGTH_IN_WORDS;
+		framedesc[2].cpos = cmd_num_per_word*DMA_CMD_LENGTH_IN_WORDS;
+	}
+
+	return;
 }
 
 static void jzfb_config_fg1_dma(struct fb_info *info,
@@ -604,7 +625,7 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
 	} else {
 		reg_write(jzfb, LCDC_DA0, (unsigned int)virt_to_phys(
-				  (void *)jzfb->framedesc[2]));
+				  (void *)jzfb->framedesc[2])); /* CMD1 buffer, write gram. */
 	}
 
 	jzfb_config_fg1_dma(info, display_size);
@@ -1038,8 +1059,27 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 
 	is_enabled = jzfb->is_enabled;
 	if (!is_enabled) {
-		jzfb_enable(info);
+		uint32_t ctrl;
+		//jzfb_enable(info);
+		ctrl = reg_read(jzfb, LCDC_CTRL);
+		ctrl |= LCDC_CTRL_ENA;
+		ctrl &= ~LCDC_CTRL_DIS;
+		reg_write(jzfb, LCDC_CTRL, ctrl);
 	}
+
+
+	if (pdata->smart_config.init)
+		pdata->smart_config.init();
+
+
+        //if (pdata->smart_config.data_width) {
+        if ( 1 ) {
+                int tmp = reg_read(jzfb, SLCDC_CFG);
+                tmp &= ~SLCDC_CFG_DWIDTH_MASK;
+                //tmp |= /*SMART_LCD_DWIDTH_8_BIT_TWICE_TIME_PARALLEL;*/SMART_LCD_DWIDTH_8_BIT_THIRD_TIME_PARALLEL;
+                tmp |= pdata->smart_config.data_width;
+                reg_write(jzfb, SLCDC_CFG, tmp);
+        }
 
 	if (pdata->smart_config.length_data_table &&
 	    pdata->smart_config.data_table) {
@@ -1070,8 +1110,23 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	}
 
 	if (!is_enabled) {
-		jzfb_disable(info);
+		//jzfb_disable(info);
+		uint32_t ctrl;
+
+		ctrl = reg_read(jzfb, LCDC_CTRL);
+		ctrl &= ~LCDC_CTRL_ENA;
+		reg_write(jzfb, LCDC_CTRL, ctrl);
 	}
+        //if (pdata->smart_config.data_width2) {
+        if ( 1 ) {
+                int tmp = reg_read(jzfb, SLCDC_CFG);
+                tmp &= ~SLCDC_CFG_DWIDTH_MASK;
+                //tmp |= /*SMART_LCD_DWIDTH_8_BIT_TWICE_TIME_PARALLEL;*/SMART_LCD_DWIDTH_8_BIT_THIRD_TIME_PARALLEL;
+                tmp |= pdata->smart_config.data_width2;
+                reg_write(jzfb, SLCDC_CFG, tmp);
+        }
+
+	return ;
 }
 
 static void jzfb_enable(struct fb_info *info)
@@ -1092,9 +1147,19 @@ static void jzfb_enable(struct fb_info *info)
 	ctrl &= ~LCDC_CTRL_DIS;
 	reg_write(jzfb, LCDC_CTRL, ctrl);
 
+	/* start slcd dma */
 	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
 		ctrl = reg_read(jzfb, SLCDC_CTRL);
-		ctrl |= SLCDC_CTRL_DMA_START;
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			ctrl |=  SLCDC_CTRL_DMA_EN;
+			ctrl |=  SLCDC_CTRL_DMA_MODE;
+
+			ctrl |= SLCDC_CTRL_DMA_START; /* DMA Re-start */
+		}
+		else {
+			//smart_ctrl &= ~SLCDC_CTRL_DMA_MODE;
+			ctrl = SLCDC_CTRL_DMA_EN;
+		}
 		reg_write(jzfb, SLCDC_CTRL, ctrl);
 	}
 
@@ -1214,8 +1279,12 @@ static int jzfb_set_par(struct fb_info *info)
 			smart_cfg |= SLCDC_CFG_RS_CMD_HIGH;
 		if (pdata->smart_config.csply_active_high)
 			smart_cfg |= SLCDC_CFG_CS_ACTIVE_HIGH;
-		smart_ctrl = /*SLCDC_CTRL_DMA_MODE |*/ SLCDC_CTRL_DMA_EN;
-		//smart_ctrl &= ~(1 << 3);
+
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			smart_ctrl |= SLCDC_CTRL_DMA_MODE;
+		}
+		else {
+		}
 	}
 
 	if (mode->pixclock) {
@@ -1312,6 +1381,7 @@ static int jzfb_set_par(struct fb_info *info)
 		reg_write(jzfb, LCDC_VSYNC, 0);
 
 		reg_write(jzfb, SLCDC_CFG, smart_cfg);
+
 		reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
 	}
 
@@ -1343,8 +1413,19 @@ static int jzfb_set_par(struct fb_info *info)
 	if (pdata->lvds && jzfb->id) {
 		jzfb_config_lvds_controller(info);
 	}
+
 	if (pdata->lcd_type == LCD_TYPE_LCM) {
 		jzfb_slcd_mcu_init(info);
+
+		smart_ctrl = reg_read(jzfb, SLCDC_CTRL);
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			smart_ctrl |=  SLCDC_CTRL_DMA_EN;
+			smart_ctrl |=  SLCDC_CTRL_DMA_MODE;
+		}
+		else {
+			//smart_ctrl &= ~SLCDC_CTRL_DMA_MODE;
+			smart_ctrl = 0;
+		}
 		reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
 	}
 
@@ -1391,10 +1472,22 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			}
 			if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
 				jzfb_slcd_mcu_init(jzfb->fb);
-				msleep(50);
+				//msleep(50); /* ???? */
+				reg_write(jzfb, LCDC_DA0, (unsigned int)virt_to_phys(
+							(void *)jzfb->framedesc[2])); /* CMD1, write_gram_cmd */
+
+				/* start slcd dma */
 				ctrl = reg_read(jzfb, SLCDC_CTRL);
-				ctrl &= ~SLCDC_CTRL_DMA_MODE;
-				ctrl |= SLCDC_CTRL_DMA_EN;
+				if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+					ctrl |=  SLCDC_CTRL_DMA_EN;
+					ctrl |=  SLCDC_CTRL_DMA_MODE;
+
+					ctrl |= SLCDC_CTRL_DMA_START; /* DMA Re-start */
+				}
+				else {
+					//smart_ctrl &= ~SLCDC_CTRL_DMA_MODE;
+					ctrl = SLCDC_CTRL_DMA_EN;
+				}
 				reg_write(jzfb, SLCDC_CTRL, ctrl);
 			}
 		} else {
@@ -1427,9 +1520,11 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			ctrl &= ~LCDC_CTRL_ENA;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
 
-			ctrl = reg_read(jzfb, SLCDC_CTRL);
-			ctrl &= ~SLCDC_CTRL_DMA_EN;
-			reg_write(jzfb, SLCDC_CTRL, ctrl);
+			if ( jzfb->pdata->smart_config.continuous_dma ) {
+				ctrl = reg_read(jzfb, SLCDC_CTRL);
+				ctrl &= ~SLCDC_CTRL_DMA_EN;
+				reg_write(jzfb, SLCDC_CTRL, ctrl);
+			}
 			spin_unlock_irqrestore(&jzfb->reg_lock, flags);
 		}
 	}
@@ -1517,6 +1612,7 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 
 		ptr = (unsigned long *)jzfb->desc_cmd_vidmem;
 		cmd[0] = jzfb->pdata->smart_config.write_gram_cmd;
+#if 0		/* already set "write_gram_cmd = 0x2c2c2c2c", do not need re-order cmd */
 		switch (jzfb->pdata->smart_config.bus_width) {
 		case 18:
 			cmd[0] = (cmd[0] & 0xff) << 1 | (cmd[0] & 0xff00) << 2;
@@ -1532,13 +1628,16 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 			cmd[0] = (cmd[0] & 0xff) >> 0;
 			break;
 		default:
+			cmd[1] = cmd[0];
 			dev_err(jzfb->dev, "Don't support %d bit bus\n",
 				jzfb->pdata->smart_config.bus_width);
 			break;
 		}
+#endif	/* if 0 */
+
 		for (i = 0; i < 4; i += 2) {
 			ptr[i] = cmd[0];
-			ptr[i + 1] = cmd[1];
+			ptr[i + 1] = cmd[0];
 		}
 	}
 
@@ -1653,6 +1752,24 @@ int update_slcd_frame_buffer(void)
 }
 #endif /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 
+#ifdef SLCD_DMA_RESTART_WORK_AROUND
+static void inline enable_frame_end_irq(struct jzfb *jzfb){
+        unsigned long reg;
+        /* clear previous EOF flag */
+        reg = reg_read(jzfb, LCDC_STATE);
+        reg_write(jzfb, LCDC_STATE, reg & ~LCDC_STATE_EOF);
+        /* enable end of frame interrupt */
+        reg = reg_read(jzfb, LCDC_CTRL);
+        reg_write(jzfb, LCDC_CTRL, reg | LCDC_CTRL_EOFM);
+}
+
+static void inline disable_frame_end_irq(struct jzfb *jzfb){
+        unsigned long reg;
+        reg = reg_read(jzfb, LCDC_CTRL);
+        reg_write(jzfb, LCDC_CTRL, reg & ~LCDC_CTRL_EOFM);
+
+}
+#endif	/* SLCD_DMA_RESTART_WORK_AROUND */
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
@@ -1803,14 +1920,65 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		}
 	} else if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
 		/* smart tft spec code here */
-		unsigned long tmp;
 		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 			+ jzfb->frm_size * next_frm;
+
 		if (!jzfb->is_enabled)
-			return -EINVAL;;
-		tmp = reg_read(jzfb, SLCDC_CTRL);
-		tmp |= SLCDC_CTRL_DMA_START |SLCDC_CTRL_DMA_MODE;
-		reg_write(jzfb, SLCDC_CTRL, tmp);
+			return -EINVAL;
+
+#ifdef CONFIG_SLCD_CV90_M4844_P1
+		slcd_send_mcu_command(jzfb, 0xcd);
+		msleep(50);
+		slcd_send_mcu_command(jzfb, 0x2c);
+#endif
+                /*
+                 * The SLCD SOC design, if in pre-frame dma transfering, SLCDC_CTRL_DMA_START will be ignore.
+                 * so should waiting for pre-frame dma end.
+                 */
+#ifdef SLCD_DMA_RESTART_WORK_AROUND
+
+/*
+  Jz-SLCDC will ignore DMA_RESTART when it is doing a dma transfer.
+  It is to say, if the interval time that a new jzfb_pan_display() operation
+  between last jzfb_pan_display() less than a dma transfer time(16ms),
+  Jz-SLCDC will ignore the new DMA_RESTART. The new frame cann't display on screen.
+
+  Fix method: Use JZ-LCDC end-of-frame(EOF) interrupt, when last frame EOF
+  interrupt occur, than trigger DMA_RESTART.
+*/
+
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			/* here is the productor, frame end irq_handler is the consumer. */
+			jzfb->slcd_dma_start_count++;
+
+			if ( jzfb->slcd_dma_start_count > 2) { /* skip pre-frame, and restart dma x2. */
+				//printk("%s() new frame arrival re-start dma jzfb->slcd_dma_start_count=%d\n", __FUNCTION__, jzfb->slcd_dma_start_count);
+				jzfb->slcd_dma_start_count = 2;
+			}
+
+			enable_frame_end_irq(jzfb);
+		}
+#endif
+		{		/* slcd re-start dma */
+			unsigned long reg;
+			reg = reg_read(jzfb, SLCDC_CTRL);
+			reg |= SLCDC_CTRL_DMA_START;
+			reg_write(jzfb, SLCDC_CTRL, reg);
+		}
+
+#if 0
+                /* polling the SLCD BUSY */
+                {
+			int polling;
+			polling = 200;
+			do {
+				unsigned int state;
+				state = reg_read(jzfb, SLCDC_STATE);
+				printk("%03d: udelay(100) SLCDC_STATE= %x\n", polling, state);
+				udelay(100);
+			} while ( polling-- );
+                }
+#endif
 	} else {
 		/* LCD_TYPE_INTERLACED_TV */
 	}
@@ -2634,9 +2802,42 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	state = reg_read(jzfb, LCDC_STATE);
 	if (state & LCDC_STATE_EOF) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
+
+#ifndef SLCD_DMA_RESTART_WORK_AROUND
 		jzfb->vsync_timestamp = ktime_get();
 		wmb();
 		wake_up_interruptible(&jzfb->vsync_wq);
+#else  /* SLCD_DMA_RESTART_WORK_AROUND */
+		if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+			unsigned long reg;
+
+			//printk("jzfb_irq_handler() jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", jzfb->slcd_dma_start_count, state);
+			/* polling the SLCD BUSY */
+			/* { */
+			/*     unsigned int sstate; */
+			/*     sstate = reg_read(jzfb, SLCDC_STATE); */
+			/*     printk("SLCDC_STATE= %x\n", sstate); */
+			/*     sstate = reg_read(jzfb, SLCDC_STATE); */
+			/*     printk("SLCDC_STATE= %x\n", sstate); */
+			/* } */
+
+			/* here is the consumer. */
+			jzfb->slcd_dma_start_count--;
+
+			/* new frame arrival? re-start dma? */
+			if( jzfb->slcd_dma_start_count > 0 ) {
+				reg = reg_read(jzfb, SLCDC_CTRL);
+				reg |= SLCDC_CTRL_DMA_START;
+				reg_write(jzfb, SLCDC_CTRL, reg);
+				//printk("%s() new frame arrival? re-start dma? jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", __FUNCTION__, jzfb->slcd_dma_start_count, state);
+			}
+			else if( jzfb->slcd_dma_start_count < 0 ) {
+				jzfb->slcd_dma_start_count = 0;
+			} else {
+				//disable_frame_end_irq(jzfb);
+			}
+		}
+#endif	/* SLCD_DMA_RESTART_WORK_AROUND */
 	}
 
 	if (state & LCDC_STATE_OFU) {
@@ -2769,12 +2970,14 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 
 	jzfb_config_image_enh(info);
 
-	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
-		/* update display */
-		unsigned long tmp;
-		tmp = reg_read(jzfb, SLCDC_CTRL);
-		tmp |= /*SLCDC_CTRL_DMA_MODE | */SLCDC_CTRL_DMA_START;
-		reg_write(jzfb, SLCDC_CTRL, tmp);
+	/* update display ??? */
+	if ( 0 && jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			unsigned long reg;
+			reg = reg_read(jzfb, SLCDC_CTRL);
+			reg |= /*SLCDC_CTRL_DMA_MODE | */SLCDC_CTRL_DMA_START;
+			reg_write(jzfb, SLCDC_CTRL, reg);
+		}
 	}
 }
 
@@ -2902,6 +3105,19 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 			}
 		}
 	}
+
+	for (i=1; i < NUM_FRAME_BUFFERS; i++) {
+		memcpy(jzfb->vidmem + i * jzfb->frm_size, jzfb->vidmem, jzfb->frm_size);
+	}
+
+	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			unsigned int ctrl = reg_read(jzfb, SLCDC_CTRL);
+			ctrl |= SLCDC_CTRL_DMA_START;
+			reg_write(jzfb, SLCDC_CTRL, ctrl);
+		}
+	}
+	return ;
 }
 
 static void jzfb_display_h_color_bar(struct fb_info *info)
@@ -2977,6 +3193,19 @@ static void jzfb_display_h_color_bar(struct fb_info *info)
 			}
 		}
 	}
+
+	for (i=1; i < NUM_FRAME_BUFFERS; i++) {
+		memcpy(jzfb->vidmem + i * jzfb->frm_size, jzfb->vidmem, jzfb->frm_size);
+	}
+
+	if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+		if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+			unsigned int ctrl = reg_read(jzfb, SLCDC_CTRL);
+			ctrl |= SLCDC_CTRL_DMA_START;
+			reg_write(jzfb, SLCDC_CTRL, ctrl);
+		}
+	}
+	return ;
 }
 
 static void dump_lcdc_registers(struct jzfb *jzfb)
@@ -3100,6 +3329,140 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
 	return;
 }
 
+static inline int memset32(void * addr, unsigned int v32, int size)
+{
+	int iii;
+	unsigned int *p32;
+
+	p32 = (unsigned int *)addr;
+	for (iii=0; iii< size/(sizeof(unsigned int)); iii++) {
+		*p32++ = v32;
+	}
+
+	return 0;
+}
+
+/* LCD_SSD2805C_LH155 */
+static ssize_t pan_display_test(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	//int w, h, bpp;
+	struct fb_var_screeninfo *var;
+	struct fb_info *info;
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+
+	int timeout_cnt = 3;
+
+	info = jzfb->fb;
+	var = &info->var;
+
+#if 0
+	w = jzfb->osd.fg0.w;
+	h = jzfb->osd.fg0.h;
+	bpp = jzfb->osd.fg0.bpp;
+
+	switch (bpp) {
+	case 18 ... 32:
+		bpp = 4;
+		break;
+	default:
+		bpp = 2;
+	}
+#endif	/* if 0 */
+
+	while (timeout_cnt-- > 0) {
+		printk("%s(), jzfb->frm_size=%d.\n", __FUNCTION__, jzfb->frm_size);
+
+		memset(jzfb->vidmem, 0x00, jzfb->frm_size);
+		memset(jzfb->vidmem + jzfb->frm_size, 0xff, jzfb->frm_size);
+		memset32(jzfb->vidmem + jzfb->frm_size*2, 0xffff0000, jzfb->frm_size);
+		__flush_cache_all();
+
+		/* pan_display_test */
+		var->yoffset =  var->yres * 0;
+		printk("%s(), var->yoffset=%d, black frame.\n", __FUNCTION__, var->yoffset);
+		jzfb_pan_display(var, info);
+		//mdelay(100);
+
+		/* pan_display_test */
+		var->yoffset =  var->yres * 1;
+		printk("%s(), var->yoffset=%d, white frame.\n", __FUNCTION__, var->yoffset);
+		jzfb_pan_display(var, info);
+		//mdelay(100);
+
+		/* pan_display_test */
+		var->yoffset =  var->yres * 2;
+		printk("%s(), var->yoffset=%d, red frame.\n", __FUNCTION__, var->yoffset);
+		jzfb_pan_display(var, info);
+		//mdelay(1);
+
+		msleep(1000*6);
+	}
+
+	return 0;
+}
+
+
+/* CONFIG_LCD_SSD2805C_LH155 */
+static int slcd_dma_restart_test(struct jzfb *info)
+{
+	//int w, h, bpp;
+	//struct jzfb *jzfb = info->par;
+	struct jzfb *jzfb = info;
+	int timeout_cnt = 4;
+
+#if 0
+	w = jzfb->osd.fg0.w;
+	h = jzfb->osd.fg0.h;
+	bpp = jzfb->osd.fg0.bpp;
+
+	switch (bpp) {
+	case 18 ... 32:
+		bpp = 4;
+		break;
+	default:
+		bpp = 2;
+	}
+#endif	/* if 0 */
+
+	while (timeout_cnt-- > 0) {
+		unsigned long reg;
+
+		memset(jzfb->vidmem, 0x00, jzfb->frm_size);
+		memset(jzfb->vidmem + jzfb->frm_size, 0xff, jzfb->frm_size);
+		memset(jzfb->vidmem + jzfb->frm_size*2, 0xe0, jzfb->frm_size);
+		__flush_cache_all();
+
+		/* smart tft spec code here */
+		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
+			+ jzfb->frm_size * 0;
+
+		reg = reg_read(jzfb, SLCDC_CTRL);
+		reg |= SLCDC_CTRL_DMA_START;
+		reg_write(jzfb, SLCDC_CTRL, reg);
+		msleep(3000);
+
+		/* smart tft spec code here */
+		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
+			+ jzfb->frm_size * 1;
+
+		reg = reg_read(jzfb, SLCDC_CTRL);
+		reg |= SLCDC_CTRL_DMA_START;
+		reg_write(jzfb, SLCDC_CTRL, reg);
+		msleep(3000);
+	}
+
+	return 0;
+}
+
+static ssize_t dma_restart_test(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+
+	slcd_dma_restart_test(jzfb);
+
+	return 0;
+}
+
 static ssize_t dump_lcd(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct jzfb *jzfb = dev_get_drvdata(dev);
@@ -3195,6 +3558,8 @@ static struct device_attribute lcd_sysfs_attrs[] = {
 	__ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL),
 	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
 	__ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w),
+	__ATTR(pan_display_test, S_IRUGO|S_IWUSR, pan_display_test, NULL),
+	__ATTR(dma_restart_test, S_IRUGO|S_IWUSR, dma_restart_test, NULL),
 };
 
 #if 0
@@ -3458,6 +3823,9 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
 
+#ifdef SLCD_DMA_RESTART_WORK_AROUND
+        jzfb->slcd_dma_start_count = 0;
+#endif
 	/*
 	 * if HDMI resolution index is 0 or NOT SET,
 	 * Linux will not register LCDC0.

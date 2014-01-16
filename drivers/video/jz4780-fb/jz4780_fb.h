@@ -16,6 +16,19 @@
 #define PIXEL_ALIGN 16
 #define MAX_DESC_NUM 4
 
+#ifndef CONFIG_SLCDC_DMA_CONTNUALLY_TRANSFER
+/*
+  Jz-SLCDC will ignore DMA_RESTART when it is doing a dma transfer.
+  It is to say, if the interval time that a new jzfb_pan_display() operation
+  between last jzfb_pan_display() less than a dma transfer time(16ms),
+  Jz-SLCDC will ignore the new DMA_RESTART. The new frame cann't display on screen.
+
+  Fix method: Use JZ-LCDC end-of-frame(EOF) interrupt, when last frame EOF
+  interrupt occur, than trigger DMA_RESTART.
+*/
+#define SLCD_DMA_RESTART_WORK_AROUND
+#endif
+
 /**
  * @next: physical address of next frame descriptor
  * @databuf: physical address of buffer
@@ -154,6 +167,9 @@ struct jzfb {
 	dma_addr_t new_fb_framedesc_phys; /* new buffer descriptor physical address */
 	void *new_fb_vidmem; /* new framebuffer address */
 	dma_addr_t new_fb_vidmem_phys; /* new framebuffer physical address */
+#ifdef SLCD_DMA_RESTART_WORK_AROUND
+        int slcd_dma_start_count;
+#endif
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
