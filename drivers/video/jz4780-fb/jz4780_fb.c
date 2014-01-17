@@ -2803,38 +2803,42 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	if (state & LCDC_STATE_EOF) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
 
-#ifndef SLCD_DMA_RESTART_WORK_AROUND
-		jzfb->vsync_timestamp = ktime_get();
-		wmb();
-		wake_up_interruptible(&jzfb->vsync_wq);
-#else  /* SLCD_DMA_RESTART_WORK_AROUND */
-		if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
-			unsigned long reg;
+		if (jzfb->pdata->lcd_type != LCD_TYPE_LCM) {
+			jzfb->vsync_timestamp = ktime_get();
+			wmb();
+			wake_up_interruptible(&jzfb->vsync_wq);
+		}
+		else { //if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+#ifdef SLCD_DMA_RESTART_WORK_AROUND
+			if ( ! jzfb->pdata->smart_config.continuous_dma ) {
+				/* SLCD_DMA_RESTART_WORK_AROUND */
+				unsigned long reg;
 
-			//printk("jzfb_irq_handler() jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", jzfb->slcd_dma_start_count, state);
-			/* polling the SLCD BUSY */
-			/* { */
-			/*     unsigned int sstate; */
-			/*     sstate = reg_read(jzfb, SLCDC_STATE); */
-			/*     printk("SLCDC_STATE= %x\n", sstate); */
-			/*     sstate = reg_read(jzfb, SLCDC_STATE); */
-			/*     printk("SLCDC_STATE= %x\n", sstate); */
-			/* } */
+				//printk("jzfb_irq_handler() jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", jzfb->slcd_dma_start_count, state);
+				/* polling the SLCD BUSY */
+				/* { */
+				/*     unsigned int sstate; */
+				/*     sstate = reg_read(jzfb, SLCDC_STATE); */
+				/*     printk("SLCDC_STATE= %x\n", sstate); */
+				/*     sstate = reg_read(jzfb, SLCDC_STATE); */
+				/*     printk("SLCDC_STATE= %x\n", sstate); */
+				/* } */
 
-			/* here is the consumer. */
-			jzfb->slcd_dma_start_count--;
+				/* here is the consumer. */
+				jzfb->slcd_dma_start_count--;
 
-			/* new frame arrival? re-start dma? */
-			if( jzfb->slcd_dma_start_count > 0 ) {
-				reg = reg_read(jzfb, SLCDC_CTRL);
-				reg |= SLCDC_CTRL_DMA_START;
-				reg_write(jzfb, SLCDC_CTRL, reg);
-				//printk("%s() new frame arrival? re-start dma? jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", __FUNCTION__, jzfb->slcd_dma_start_count, state);
-			}
-			else if( jzfb->slcd_dma_start_count < 0 ) {
-				jzfb->slcd_dma_start_count = 0;
-			} else {
-				//disable_frame_end_irq(jzfb);
+				/* new frame arrival? re-start dma? */
+				if( jzfb->slcd_dma_start_count > 0 ) {
+					reg = reg_read(jzfb, SLCDC_CTRL);
+					reg |= SLCDC_CTRL_DMA_START;
+					reg_write(jzfb, SLCDC_CTRL, reg);
+					//printk("%s() new frame arrival? re-start dma? jzfb->slcd_dma_start_count=%d: LCDC_STATE= %x\n", __FUNCTION__, jzfb->slcd_dma_start_count, state);
+				}
+				else if( jzfb->slcd_dma_start_count < 0 ) {
+					jzfb->slcd_dma_start_count = 0;
+				} else {
+					//disable_frame_end_irq(jzfb);
+				}
 			}
 		}
 #endif	/* SLCD_DMA_RESTART_WORK_AROUND */

@@ -16,7 +16,6 @@
 #define PIXEL_ALIGN 16
 #define MAX_DESC_NUM 4
 
-#ifndef CONFIG_SLCDC_DMA_CONTNUALLY_TRANSFER
 /*
   Jz-SLCDC will ignore DMA_RESTART when it is doing a dma transfer.
   It is to say, if the interval time that a new jzfb_pan_display() operation
@@ -27,7 +26,6 @@
   interrupt occur, than trigger DMA_RESTART.
 */
 #define SLCD_DMA_RESTART_WORK_AROUND
-#endif
 
 /**
  * @next: physical address of next frame descriptor
