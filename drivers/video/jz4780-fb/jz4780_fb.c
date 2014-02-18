@@ -3826,19 +3826,19 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->id = pdev->id;
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
+	jzfb->flag = 0;
 
 #ifdef SLCD_DMA_RESTART_WORK_AROUND
         jzfb->slcd_dma_start_count = 0;
 #endif
 	/*
-	 * if HDMI resolution index is 0 or NOT SET,
+	 * On Jz4780, if HDMI resolution index is 0 or NOT SET,
 	 * Linux will not register LCDC0.
 	 */
+#ifdef CONFIG_SOC_4780
 	if (jzfb->id == 0) {
 #ifdef CONFIG_FORCE_RESOLUTION
 		jzfb->flag = CONFIG_FORCE_RESOLUTION;
-#else
-		jzfb->flag = 0;
 #endif
 #ifndef CONFIG_ANDROID
 		if(jzfb->flag <= 0){
@@ -3848,6 +3848,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		}
 #endif
 	}
+#endif
 
 	if(jzfb->id == 0){
 		jzfb0 = jzfb;
