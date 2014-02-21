@@ -161,6 +161,30 @@ int jzgpio_set_func(enum gpio_port port,
 	return 0;
 }
 
+int jz_gpio_set_func(int gpio, enum gpio_function func)
+{
+        int port = gpio / 32;
+        int pin = BIT(gpio & 0x1f);
+
+        struct jzgpio_chip *jz = &jz_gpio_chips[port];
+
+/*
+ * TODO: ugly stuff
+ * should i check and mark the pin has been requested?
+ * it's a duplicate of request_gpio
+ */
+#if 0
+        if (jz->dev_map[0] & pins)
+                return -EINVAL;
+
+        jz->dev_map[0] |= pins;
+#endif
+
+        gpio_set_func(jz, func, pin);
+        return 0;
+}
+
+
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];

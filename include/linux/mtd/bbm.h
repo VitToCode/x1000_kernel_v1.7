@@ -132,7 +132,7 @@ struct nand_bbt_descr {
 /*
  * Constants for oob configuration
  */
-#define NAND_SMALL_BADBLOCK_POS		5
+#define NAND_SMALL_BADBLOCK_POS		0
 #define NAND_LARGE_BADBLOCK_POS		0
 #define ONENAND_BADBLOCK_POS		0
 

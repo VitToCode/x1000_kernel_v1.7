@@ -34,3 +34,9 @@ obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
 obj-y += ahbm.o 
+
+ifeq ($(CONFIG_MTD_NAND_JZ4775), y)
+obj-y += gpemc.o
+obj-y += bch.o
+endif
+
