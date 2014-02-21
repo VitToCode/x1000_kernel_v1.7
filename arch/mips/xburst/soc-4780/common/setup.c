@@ -53,7 +53,11 @@ void __init cpm_reset(void)
 	mdelay(1);
 	cpm_outl(0x27f87ffe,CPM_CLKGR0);
 	mdelay(1);
+#ifdef CONFIG_SERIAL_JZ47XX_UART4
+	cpm_outl(0xfffff9ff,CPM_CLKGR1);
+#else
 	cpm_outl(0xfffffdff,CPM_CLKGR1);
+#endif
 	mdelay(1);
 #endif
 #endif

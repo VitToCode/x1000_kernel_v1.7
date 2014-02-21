@@ -114,8 +114,10 @@
         { .name = "sdio-func", .port = GPIO_PORT_A, .func = GPIO_FUNC_0, .pins = 0x000000ff, }, \
         { .name = "addr-sa1",  .port = GPIO_PORT_B, .func = GPIO_FUNC_0, .pins = 0x00000002, }
 /*******************************************************************************************************************/
-#define DISABLE_LCD_PORTC							\
+#define DISABLE_LCD_AND_UART4_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fffffff, }
+#define DISABLE_LCD_PORTC							\
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fEffBff, }
 
 #define LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }

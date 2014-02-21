@@ -11,3 +11,4 @@ obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)	+= urboard-cim.o
 ifeq ($(CONFIG_BOARD_TROOPER), y)
 EXTRA_CFLAGS+=-DCONFIG_BOARD_URBOARD_V_1_1
 endif
+obj-$(CONFIG_BCM4330_RFKILL) += urboard-bt.o
