@@ -161,7 +161,7 @@ static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndsystem",
 	offset:64 * 0x100000LL,
-	size:512 * 0x100000LL,
+	size:(512 +512) * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
@@ -169,7 +169,7 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
 	name:"nddata",
-	offset:576 * 0x100000LL,
+	offset:(576+512) * 0x100000LL,
 	size:1024 * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
@@ -178,7 +178,7 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
     name:"ndcache",
-    offset:1600 * 0x100000LL,
+    offset:(1600+512) * 0x100000LL,
     size:128 * 0x100000LL,
     mode:ZONE_MANAGER,
     eccbit:ECCBIT,
@@ -187,7 +187,7 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
 	name:"ndapanic",
-	offset:1728 * 0x100000LL,
+	offset:(1728+512) * 0x100000LL,
 	size:2 * 0x100000LL,
 	mode:DIRECT_MANAGER,
 	eccbit:ECCBIT,
@@ -196,8 +196,8 @@ static struct platform_nand_partition partition_info[] = {
     },
 	{
 	name:"ndmisc",
-	offset:1730 * 0x100000LL,
-	size:2366 * 0x100000LL,
+	offset:(1730+512) * 0x100000LL,
+	size:(2366-512) * 0x100000LL,
 	mode:ZONE_MANAGER,
 	eccbit:ECCBIT,
 	use_planes:ONE_PLANE,
