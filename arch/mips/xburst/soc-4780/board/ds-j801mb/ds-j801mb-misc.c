@@ -438,13 +438,24 @@ static int __init ds_j801mb_board_init(void)
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&ds_j801mb_backlight_device);
 #endif
-#ifdef CONFIG_FB_JZ4780_LCDC0
-	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
-#endif
+
 /* lcdc framebuffer*/
+#ifdef CONFIG_FB_REG_LCDC1_FIRST
 #ifdef CONFIG_FB_JZ4780_LCDC1
 	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
 #endif
+#ifdef CONFIG_FB_JZ4780_LCDC0
+	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
+#endif
+#else
+#ifdef CONFIG_FB_JZ4780_LCDC0
+	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
+#endif
+#ifdef CONFIG_FB_JZ4780_LCDC1
+	jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
+#endif
+
 /* AOSD */
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);

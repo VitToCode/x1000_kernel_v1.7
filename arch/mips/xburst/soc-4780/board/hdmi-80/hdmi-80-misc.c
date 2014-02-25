@@ -462,11 +462,20 @@ static int __init hdmi_80_board_init(void)
 #endif
 
 /* lcdc framebuffer*/
+#ifdef CONFIG_FB_REG_LCDC1_FIRST
+#ifdef CONFIG_FB_JZ4780_LCDC1
+       jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
 #ifdef CONFIG_FB_JZ4780_LCDC0
-	jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
+       jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
+#endif
+#else
+#ifdef CONFIG_FB_JZ4780_LCDC0
+       jz_device_register(&jz_fb0_device, &jzfb0_hdmi_pdata);
 #endif
 #ifdef CONFIG_FB_JZ4780_LCDC1
-        jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+       jz_device_register(&jz_fb1_device, &jzfb1_pdata);
+#endif
 #endif
 
 /* AOSD */

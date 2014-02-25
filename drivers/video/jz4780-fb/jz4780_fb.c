@@ -570,8 +570,8 @@ static void jzfb_config_fg1_dma(struct fb_info *info,
 	jzfb->fg1_framedesc->page_width = 0;
 
 	/* global alpha mode, data has not been premultied, COEF_SLE is 11 */
-	jzfb->fg1_framedesc->cpos = LCDC_CPOS_BPP_18_24 | jzfb->osd.fg0.y <<
-		LCDC_CPOS_YPOS_BIT | jzfb->osd.fg0.x | LCDC_CPOS_PREMULTI
+	jzfb->fg1_framedesc->cpos = LCDC_CPOS_BPP_18_24 | jzfb->osd.fg1.y <<
+		LCDC_CPOS_YPOS_BIT | jzfb->osd.fg1.x | LCDC_CPOS_PREMULTI
 		| LCDC_CPOS_COEF_SLE_3;
 
 	jzfb->fg1_framedesc->desc_size = size->height_width | 0xff <<
@@ -1839,14 +1839,14 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 			jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 				+ jzfb->frm_size * next_frm;
 			jzfb->current_buffer0 = next_frm;
-#else //linux can use fg0 and fg1
-			printk("next_frm:%d [0: fg0's buffer; 1: fg1's buffer]\n",next_frm);
-			if(next_frm == 0){  //is fg0
+#else //linux support fg0(fg0 support 2 buffers) and fg1(fg1 support only 1 buffer)
+			dev_info(jzfb->dev, "next_frm:%d [0-1: fg0's buffer; 2: fg1's buffer]\n",next_frm);
+			if(next_frm == 0 || next_frm == 1){  //is fg0
 				jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 					+ jzfb->frm_size * next_frm;
 				jzfb->current_buffer0 = next_frm;
 			}
-			else if(next_frm == 1){ //Now, fg1 use fg0's 2rd buffer simply, may alloc later.
+			else if(next_frm == 2){ //Now, fg1 use fg0's 3rd buffer simply, may alloc later.
 				jzfb->fg1_framedesc->databuf = jzfb->vidmem_phys
 					+ jzfb->frm_size * next_frm;
 				jzfb->current_buffer1 = next_frm;
@@ -2442,8 +2442,8 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 
 		if(tmp_id == 0) //fg0
 			tmp_id = jzfb->current_buffer0;
-		else{ //fg1, use fg0's second buffer
-			tmp_id = 1;
+		else{ //fg1, use fg0's third buffer
+			tmp_id = 2;
 		}
 		if (copy_to_user(argp, &tmp_id, sizeof(int))) {
 			dev_info(info->dev, "user get current buffer failed\n");
@@ -3831,24 +3831,17 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 #ifdef SLCD_DMA_RESTART_WORK_AROUND
         jzfb->slcd_dma_start_count = 0;
 #endif
-	/*
-	 * On Jz4780, if HDMI resolution index is 0 or NOT SET,
-	 * Linux will not register LCDC0.
-	 */
-#ifdef CONFIG_SOC_4780
 	if (jzfb->id == 0) {
 #ifdef CONFIG_FORCE_RESOLUTION
 		jzfb->flag = CONFIG_FORCE_RESOLUTION;
 #endif
 #ifndef CONFIG_ANDROID
 		if(jzfb->flag <= 0){
-			dev_err(&pdev->dev, "WARNING: CONFIG_FORCE_RESOLUTION invalid\n");
-			ret = -EINVAL;
-			goto err_framebuffer_release;
+			dev_info(&pdev->dev,
+				 "CONFIG_FORCE_RESOLUTION invalid(if using HDMI, this is ERROR; if NO HDMI, Please ignore)\n");
 		}
 #endif
 	}
-#endif
 
 	if(jzfb->id == 0){
 		jzfb0 = jzfb;
