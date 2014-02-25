@@ -194,7 +194,6 @@ int ov5640_sensor_probe(struct cim_sensor *sensor_info)
 	chipid_high = ov5640_read_reg(s->client, 0x300a);
 	chipid_low = ov5640_read_reg(s->client, 0x300b);
 	revision = ov5640_read_reg(s->client, 0x302a);
-	ov5640_power_down(sensor_info);
 
 	g_chipid = s->cs.chipid = chipid_high << 8 | chipid_low;
 

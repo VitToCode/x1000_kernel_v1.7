@@ -132,7 +132,11 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	PCM_PORTD,
 #endif
 #ifndef CONFIG_DISABLE_LVDS_FUNCTION
+#ifndef CONFIG_SERIAL_JZ47XX_UART4
+	DISABLE_LCD_AND_UART4_PORTC,
+#else
 	DISABLE_LCD_PORTC,
+#endif
 #else
 	LCD_PORTC,
 #endif

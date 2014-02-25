@@ -403,6 +403,11 @@ static int __init urboard_board_init(void)
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);
 #endif
+
+/*bcm4330 bt*/
+#ifdef CONFIG_BCM4330_RFKILL
+	platform_device_register(&bcm4330_bt_power_device);
+#endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	platform_device_register(&jz_uart0_device);

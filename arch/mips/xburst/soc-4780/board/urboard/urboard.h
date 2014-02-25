@@ -2,6 +2,12 @@
 #define __URBOARD_H__
 #include <gpio.h>
 
+/*
+bcm4330 bluetooth
+*/
+#ifdef CONFIG_BCM4330_RFKILL
+extern struct platform_device bcm4330_bt_power_device;
+#endif
 /**
  * mmc platform data
  **/
