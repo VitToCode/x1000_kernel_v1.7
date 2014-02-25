@@ -785,22 +785,7 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t mcu_int_handler(int irq_pdmam, void *dev)
-{
-	struct jzdma_master *master = (struct jzdma_master *)dev;
-	unsigned long mailbox = 0;
-	struct jzdma_channel *dmac = master->channel + 3;
-#ifdef MCU_TEST_INTER_DMA
-	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+4))++;
-#endif
-
-	mailbox = readl(master->iomem + DMNMB);
-	*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
-	tasklet_schedule(&dmac->tasklet);
-	return IRQ_HANDLED;
-}
-
-
+#ifdef CONFIG_NAND
 irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 {
 	unsigned long pending, mailbox = 0;
@@ -817,7 +802,7 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 #ifdef MCU_TEST_INTER_DMA
 		(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
 #endif
-		*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffff);
+		*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffffff);
 		tasklet_schedule(&dmac->tasklet);
 //			generic_handle_irq(IRQ_MCU);
 		}
@@ -829,12 +814,12 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 			*((volatile int *)(0xb0010058)) &= ~(1<<mask);
 			generic_handle_irq(IRQ_GPIO0);
 		}
-}
+	}
 	writel(0, master->iomem + DMINT);
 
 	return IRQ_HANDLED;
 }
-
+#endif
 static int jzdma_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
@@ -951,15 +936,12 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	ret = request_irq(irq, jzdma_int_handler, IRQF_DISABLED,"pdma", dma);
 	if (ret)
 		goto release_iomap;
-	/* request irq_mcu */
-	ret = request_irq(irq_mcu, mcu_int_handler, IRQF_DISABLED,"mcu", dma);
-	if (ret)
-		goto release_iomap;
+#ifdef CONFIG_NAND
 	/* request irq_pdmam */
 	ret = request_irq(irq_pdmam, pdma_int_handler, IRQF_DISABLED,"pdmam", dma);
 	if (ret)
 		goto release_iomap;
-
+#endif
 	/* Initialize dma engine */
 	dma_cap_set(DMA_MEMCPY, dma->dma_device.cap_mask);
 	dma_cap_set(DMA_SLAVE, dma->dma_device.cap_mask);
