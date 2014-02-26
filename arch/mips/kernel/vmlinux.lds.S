@@ -9,9 +9,6 @@ ENTRY(kernel_entry)
 PHDRS {
 	text PT_LOAD FLAGS(7);	/* RWX */
 	note PT_NOTE FLAGS(4);	/* R__ */
-#ifdef CONFIG_PFSV1
-	pfsv1 PT_NOTE FLAGS(4);	/* R__ */
-#endif
 }
 
 #ifdef CONFIG_32BIT
@@ -132,22 +129,22 @@ SECTIONS
 	. = ALIGN(4);
 	pfsv1.datatype.offset : {
 		KEEP(*(pfsv1.datatype.offset))
-	} : pfsv1 = 0
+	} : note = 0
 
 	. = ALIGN(4);
 	pfsv1.param.desc : {
 		KEEP(*(pfsv1.param.desc));
-	} : pfsv1 = 0
+	} : note = 0
 
 	. = ALIGN(4);
 	pfsv1.help.zh_cn.utf8 : {
 		KEEP(*(pfsv1.help.zh_cn.utf8));
-	} : pfsv1 = 0
+	} : note = 0
 
 	. = ALIGN(4);
 	pfsv1.help.en_us.utf8 : {
 		KEEP(*(pfsv1.help.en_us.utf8));
-	} : pfsv1 = 0
+	} : note = 0
 
 	. = ALIGN(4);
 #endif
