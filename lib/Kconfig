@@ -19,6 +19,12 @@ config RATIONAL
 config GENERIC_FIND_FIRST_BIT
 	bool
 
+config PFSV1
+	bool "PFSv1 implementation helpers"
+	default n
+	help
+	  This is implementation helpers of Parameterized firmware specification v1
+
 config CRC_CCITT
 	tristate "CRC-CCITT functions"
 	help
