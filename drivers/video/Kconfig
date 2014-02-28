@@ -2387,13 +2387,25 @@ config FB_JZ4780_LCDC0
 
 config FB_JZ4780_LCDC1
 	tristate "JZ4780 LCDC1 framebuffer support"
-	depends on FB && (SOC_4780 || SOC_4775)
+	depends on FB && SOC_4780
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
 	default y
 	help
 	  Framebuffer support for the JZ4780 SoC.
+
+config FB_REG_LCDC1_FIRST
+	bool "Register LCDC1 firstly"
+	depends on FB_JZ4780_LCDC0 && FB_JZ4780_LCDC1
+	default y
+	help
+	  if choose this (default)
+	    register LCDC1 to /dev/fb0
+	    register LCDC0 to /dev/fb1
+	  else
+	    register LCDC0 to /dev/fb0
+	    register LCDC1 to /dev/fb1
 
 config FB_JZ4775_ANDROID_EPD
 	tristate "JZ4775 Android EPD Controller support"
@@ -2503,11 +2515,11 @@ menuconfig HDMI
 	   HDMI output support.
 
 comment "Jz4780 HDMI driver"
-	depends on HDMI
+	depends on HDMI && SOC_4780
 
 config HDMI_JZ4780
        tristate "JZ4780 HDMI driver"
-       depends on HDMI
+       depends on HDMI && SOC_4780
        default y
 
 config FORCE_RESOLUTION
