@@ -35,6 +35,7 @@
 #include <linux/kthread.h>
 #include <linux/gpio.h>
 #include <asm/cacheflush.h>
+#include <linux/console.h>
 
 #include <mach/jzfb.h>
 
@@ -1656,36 +1657,42 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 int jzfb_set_videomode(int flag)
 {
 	struct jzfb *jzfb = NULL;
-	struct jzfb_platform_data *pdata = NULL;
 	struct fb_info *info = NULL;
 	struct fb_videomode *mode;
+	struct fb_var_screeninfo var;
+	int ret = -1;
 
 	if(jzfb0 != NULL)
 		jzfb = jzfb0;
 	else{
-		dev_err(info->dev, "LCDC0 not found in %s.\n", __func__);
+		printk("ERROR: LCDC0 not found in %s.\n", __func__);
 		return -EFAULT;
 	}
-
-	pdata = jzfb->pdata;
 	info = jzfb->fb;
+
 	jzfb->flag = flag;
 
 	mode = jzfb_checkout_videomode(info);
 	if (!mode) {
-		dev_err(jzfb->dev, "*****Checkout videomode %d fail*****\n", flag);
+		dev_err(jzfb->dev, "*****Checkout videomode (flag is %d) fail*****\n", flag);
 		return -EINVAL;
 	}
-	jzfb_videomode_to_var(&info->var, mode, pdata->lcd_type);
-	jzfb_set_par(info);
 
-	//TODO: redraw the kernel logo.
-#if 0
-	if(fb_prepare_logo(jzfb->fb, FB_ROTATE_UR)){
-		dev_info(jzfb->dev, "show logo\n");
-		fb_show_logo(jzfb->fb, FB_ROTATE_UR);
-	}
-#endif
+	memcpy(&var, &info->var, sizeof(var));
+	var.activate |= (FB_ACTIVATE_FORCE | FB_ACTIVATE_NOW);
+	jzfb_videomode_to_var(&var, mode, jzfb->pdata->lcd_type);
+
+	/* copy from driver/video/fbmem.c */
+	if (!lock_fb_info(info))
+		return -ENODEV;
+	console_lock();
+	info->flags |= FBINFO_MISC_USEREVENT;
+	ret = fb_set_var(info, &var);
+	info->flags &= ~FBINFO_MISC_USEREVENT;
+	console_unlock();
+	unlock_fb_info(info);
+	if(ret)
+		dev_err(jzfb->dev, "in %s, call fb_set_var error\n", __func__);
 
 	return 0;
 }
@@ -4112,8 +4119,17 @@ static void jzfb_shutdown(struct platform_device *pdev)
 	is_fb_blank = (jzfb->is_suspend != 1);
 	jzfb->is_suspend = 1;
 	mutex_unlock(&jzfb->suspend_lock);
-	if(is_fb_blank)
+	if(is_fb_blank){
+		/* copy from driver/video/fbmem.c */
+		if (!lock_fb_info(jzfb->fb))
+			return;
+                console_lock();
+                jzfb->fb->flags |= FBINFO_MISC_USEREVENT;
 		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+                jzfb->fb->flags &= ~FBINFO_MISC_USEREVENT;
+                console_unlock();
+                unlock_fb_info(jzfb->fb);
+	}
 };
 #ifdef CONFIG_PM
 static int jzfb_suspend(struct device *dev)

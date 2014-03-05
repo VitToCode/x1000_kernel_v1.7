@@ -150,3 +150,16 @@ static int __init init_emergency(void)
 }
 module_init(init_emergency);
 #endif
+
+#if 0
+static char pbuffer[4096];
+void prom_printk(const char *fmt, ...) {
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(pbuffer, 4096, fmt, args);
+	va_end(args);
+
+	prom_putstr(pbuffer);
+}
+#endif
