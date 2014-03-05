@@ -111,7 +111,7 @@ struct cam_sensor_plat_data {
 
 #ifdef CONFIG_OV5640
 static struct cam_sensor_plat_data ov5640_pdata = {
-	.facing = 1,
+	.facing = 0,
 	.orientation = 0,
 	.mirror = 0,
 	.gpio_en = GPIO_OV5640_EN,
