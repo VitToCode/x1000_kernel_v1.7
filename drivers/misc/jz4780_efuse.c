@@ -334,7 +334,7 @@ static ssize_t jz_efuse_read(struct file *filp, char *buf, size_t size, loff_t *
 	}
 
 	if ((tmp_buf = kzalloc(size, GFP_KERNEL)) < 0) {
-		ret -ENOMEM;
+		ret = -ENOMEM;
 		goto kzalloc_tmp_buf_err;
 	}
 
