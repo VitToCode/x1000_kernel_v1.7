@@ -130,6 +130,8 @@ struct jz_cim {
 	CameraYUVMeta c_yuv_meta_data[CDESC_NR];
 	int is_clock_enabled;
 	int is_mclk_enabled;
+
+	unsigned char num;
 };
 
 static unsigned int right_num = 0;
@@ -544,10 +546,10 @@ void cim_set_default(struct jz_cim *cim)
 
         // If delete "CIM_CTRL2_FSC | CIM_CTRL2_ARIF", maybe cause overflow on warrior(npm706) board.
         //if(cim->preview_output_format == CIM_BYPASS_YUV422I)
-#ifndef CONFIG_ADV7180
-	ctrl2 |= CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
-#else
+#if defined(CONFIG_TVP5150) || defined(CONFIG_ADV7180)
 	ctrl2 |= CIM_CTRL2_ARIF;
+#else
+	ctrl2 |= CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
 #endif
 	cfg |= cim->desc->cim_cfg | CIM_CFG_DF_YUV422;
 
@@ -601,7 +603,6 @@ int camera_sensor_register(struct cim_sensor *desc)
 void cim_scan_sensor(struct jz_cim *cim)
 {
 	struct cim_sensor *desc;
-	static struct cim_sensor *tmpdesc = NULL;
 	struct list_head *tmp;
 	cim->sensor_count  = 0;
 	cim_power_on(cim);
@@ -613,31 +614,32 @@ void cim_scan_sensor(struct jz_cim *cim)
 			list_del(&desc->list);
 			desc = list_entry(tmp, struct cim_sensor, list);
 		}
-		else
-			tmpdesc = desc;
 		//desc->shutdown(desc);
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
 			desc->first_used = true;
-			if(desc->facing == CAMERA_FACING_BACK) {
+			if(desc->facing == CAMERA_FACING_BACK && 
+			   ((desc->pos == 0) ? 1 : ((desc->pos - 1) == cim->num)) ) {
 				desc->id = cim->sensor_count;
 				cim->sensor_count++;
-				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
-						desc->name,desc->id,desc->facing);
+				cim->desc = desc;
+				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d pos:%d\n",
+						desc->name,desc->id,desc->facing,desc->pos);
 			}
 	}
 
 	list_for_each_entry(desc, &sensor_list, list) {
-			if(desc->facing == CAMERA_FACING_FRONT) {
+			if(desc->facing == CAMERA_FACING_FRONT &&
+			   ((desc->pos == 0) ? 1 : ((desc->pos - 1) == cim->num)) ) {
 				desc->id = cim->sensor_count;
 				cim->sensor_count++;
-				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d\n",
-						desc->name,desc->id,desc->facing);
+				cim->desc = desc;
+				dev_info(cim->dev,"sensor_name:%s\t\tid:%d facing:%d pos:%d\n",
+						desc->name,desc->id,desc->facing,desc->pos);
 			}
 	}
 
-	cim->desc = desc;
 	cim_power_off(cim);
 }
 
@@ -648,14 +650,18 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc->id == id) {
+		if(desc->id == id && (desc->pos - 1) == cim->num) {
+			//printk(" %s() found desc->id:%d id:%d pos:%d num:%d \n", __func__,desc->id,id,desc->pos,cim->num);
 			cim->desc = desc;
+			desc = NULL;
 			break;
-		}
+		} 
 	}
 
-	if(!cim->desc)
+	if(desc != NULL) {
+		printk(" [WARNING!!!] %s failed\n", __func__);
 		return -EFAULT;
+	}
 	cim->desc->first_used = true;
 	return 0;
 }
@@ -820,37 +826,20 @@ static long cim_set_preview_size(struct jz_cim *cim)
 		max_width = cim->desc->preview_size[1].w;
 		max_height = cim->desc->preview_size[1].h;
 	}
-#else
+#else	// Maybe CONFIG_TVP5150
 	max_width = cim->desc->preview_size[0].w;
 	max_height = cim->desc->preview_size[0].h;
 #endif
 	printk("\n*******cim_set_preview_size********\n");
 	printk("cim->psize.w = %d\tcim->psize.h = %d\n",cim->psize.w,cim->psize.h);
-	struct frm_size * p = &(cim->desc->preview_size[cim->desc->prev_resolution_nr-1]);
-	for(index=0;index<cim->desc->prev_resolution_nr;index++){
-		if(p->w == max_width && p->h == max_height){
-#ifdef KERNEL_INFO_PRINT
-			dev_info(cim->dev,"Found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
-#endif
-		printk("Found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+	struct frm_size * p ;
+
+	for(i = 0; i<cim->desc->prev_resolution_nr; i++) {
+		if( cim->psize.w == cim->desc->preview_size[i].w &&
+			cim->psize.h == cim->desc->preview_size[i].h ) {
+			printk("This sensor support the request preview size: %d x %d\n", cim->psize.w, cim->psize.h);
 			break;
 		}
-		p = &(cim->desc->preview_size[cim->desc->prev_resolution_nr-1-index]);
-	}
-
-	for(i = index; i<cim->desc->prev_resolution_nr; i++)
-	{
-      printk("request preview size: %d x %d\t\tscan preview size: %d x %d\n",
-                      cim->psize.w,
-                      cim->psize.h,
-                      cim->desc->preview_size[i].w,
-                      cim->desc->preview_size[i].h);
-      if( cim->psize.w == cim->desc->preview_size[i].w &&
-          cim->psize.h == cim->desc->preview_size[i].h )
-      {
-              printk("support the request preview size: %d x %d\n", cim->psize.w, cim->psize.h);
-              break;
-      }
 	}
 
 #ifdef CONFIG_ADV7180
@@ -858,12 +847,27 @@ static long cim_set_preview_size(struct jz_cim *cim)
 #else
 	if(i>= cim->desc->prev_resolution_nr){
 		printk("Cannot found the preview size %d * %d in sensor table\n",cim->psize.w,cim->psize.h);
+
+		index = cim->desc->prev_resolution_nr - 1;
+		do {
+			p = &(cim->desc->preview_size[index]);
+			if (p->w >= cim->psize.w && p->h >= cim->psize.h) {
+				printk("We will use the size(%d,%d) preview. index:%d\n", p->w, p->h, index);
+				break;
+			}
+		} while (--index >= 0);
+
+		if (index < 0) {
+			printk("preview size greater than sensor support size.\n");
+			p = &(cim->desc->preview_size[0]);
+			// FIXME : I don't know this operation is right.(twxie)
+		}
 	}
 #endif
 
 	if(i>= cim->desc->prev_resolution_nr){
 		printk("use window\n");
-		printk("i = %d\n,cim->desc->prev_resolution_nr = %d\n",i,cim->desc->prev_resolution_nr);
+		printk("i = %d\t,cim->desc->prev_resolution_nr = %d\n",i,cim->desc->prev_resolution_nr);
 
 		cim_enable_image_mode(
 				cim,
@@ -1581,8 +1585,8 @@ static int cim_set_output_format(struct jz_cim *cim, unsigned int cmd, unsigned 
 
 static int cim_open(struct inode *inode, struct file *file)
 {
-//	struct miscdevice *dev = file->private_data;
-//	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
+	//struct miscdevice *dev = file->private_data;
+	//struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
 	return 0;
 }
 
@@ -1593,8 +1597,8 @@ static int cim_close(struct inode *inode, struct file *file)
 
 	cim_shutdown(cim);
 	cim_power_off(cim);
-	if(cim->desc->shutdown)
-		cim->desc->shutdown(cim->desc);
+	//if(cim->desc->shutdown)
+		//cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
 	cim->tlb_flag = 0;
 	cim->tlb_base = 0;
@@ -1720,6 +1724,7 @@ static int cim_probe(struct platform_device *pdev)
 	}
 
 	cim->dev = &pdev->dev;
+	cim->num = pdev->id;
 
 	pdata = pdev->dev.platform_data;
 
@@ -1809,7 +1814,14 @@ static int cim_probe(struct platform_device *pdev)
 	init_waitqueue_head(&cim->wait);
 
 	cim->misc_dev.minor = MISC_DYNAMIC_MINOR;
-	cim->misc_dev.name = "cim";
+
+	if (pdev->id == 0)
+		cim->misc_dev.name = "cim0";
+	else if (pdev->id == 1)
+		cim->misc_dev.name = "cim1";
+	else 
+		cim->misc_dev.name = "cim";
+
 	cim->misc_dev.fops = &cim_fops;
 	spin_lock_init(&cim->lock);
 
@@ -1820,7 +1832,7 @@ static int cim_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev,cim);
-
+	
 	dev_info(&pdev->dev,"ingenic camera interface module registered.\n");
 
         {

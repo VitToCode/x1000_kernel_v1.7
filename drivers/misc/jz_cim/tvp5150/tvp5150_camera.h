@@ -7,6 +7,7 @@ struct tvp5150_platform_data {
 	uint16_t gpio_rst;
 	uint16_t gpio_en;
 	int cap_wait_frame;
+	unsigned char pos;      /* pos @ cim, pos should be 0 while only cim */         //twxie
 };
 
 struct tvp5150_sensor {

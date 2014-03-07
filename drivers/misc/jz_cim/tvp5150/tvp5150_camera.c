@@ -16,14 +16,10 @@
 
 static struct frm_size tvp5150_capture_table[]= {
 		{720,576},
-		{720,480},
-		{640,480},
 };
 
 static struct frm_size tvp5150_preview_table[]= {
 		{720,576},
-		{720,480},
-		{640,480},
 };
 
 static inline int sensor_i2c_master_send(struct i2c_client *client,const char *buf ,int count)
@@ -111,7 +107,7 @@ int tvp5150_power_up(struct cim_sensor *sensor_info)
 #ifdef TVP5150_KERNEL_PRINT
 	printk("tvp5150 power up-----------\n");
 #endif
-	gpio_set_value(s->gpio_en,1);
+	if (gpio_is_valid(s->gpio_en)) gpio_set_value(s->gpio_en,1);
 	mdelay(50);
 	return 0;
 }
@@ -123,7 +119,7 @@ int tvp5150_power_down(struct cim_sensor *sensor_info)
 #ifdef TVP5150_KERNEL_PRINT
 	printk("tvp5150 power down-----------\n");
 #endif
-	gpio_set_value(s->gpio_en,0);
+	if (gpio_is_valid(s->gpio_en)) gpio_set_value(s->gpio_en,0);
 	mdelay(50);
 	return 0;
 }
@@ -135,10 +131,10 @@ int tvp5150_reset(struct cim_sensor *sensor_info)
 #ifdef TVP5150_KERNEL_PRINT
 	printk("tvp5150 reset-----------------------\n");
 #endif
-	gpio_set_value(s->gpio_rst,0);
-	msleep(250);
-	gpio_set_value(s->gpio_rst,1);
-	msleep(1000);
+	if (gpio_is_valid(s->gpio_rst)) gpio_set_value(s->gpio_rst,0);
+	msleep(50);
+	if (gpio_is_valid(s->gpio_rst)) gpio_set_value(s->gpio_rst,1);
+	msleep(1);
 
 	return 0;
 }
@@ -201,7 +197,7 @@ static int tvp5150_probe(struct i2c_client *client, const struct i2c_device_id *
 	s = kzalloc(sizeof(struct tvp5150_sensor), GFP_KERNEL);
 	printk("tvp5150_probe++++++++++++++++++++++++++++++\n");
 	strcpy(s->cs.name , "tvp5150");
-	s->cs.cim_cfg = CIM_CFG_DSM_CIM  | CIM_CFG_PACK_Y1VY0U | CIM_CFG_DF_ITU656 | CIM_CFG_ORDER_UYVY ;
+	s->cs.cim_cfg = CIM_CFG_DSM_CIM  | CIM_CFG_PACK_Y1VY0U | CIM_CFG_DF_ITU656 | CIM_CFG_ORDER_UYVY;
 /*	s->cs.modes.balance =  WHITE_BALANCE_AUTO | WHITE_BALANCE_DAYLIGHT | WHITE_BALANCE_CLOUDY_DAYLIGHT
 		| WHITE_BALANCE_INCANDESCENT | WHITE_BALANCE_FLUORESCENT;
 	s->cs.modes.effect =	EFFECT_NONE|EFFECT_MONO|EFFECT_NEGATIVE|EFFECT_SEPIA|EFFECT_AQUA;
@@ -248,23 +244,23 @@ static int tvp5150_probe(struct i2c_client *client, const struct i2c_device_id *
 		return -1;
 	}
 
-	if(gpio_request(pdata->gpio_en, "tvp5150_en") || gpio_request(pdata->gpio_rst, "tvp5150_rst")){
-		dev_err(&client->dev,"request tvp5150 gpio rst and en fail\n");
-		return -1;
+	if (gpio_request(pdata->gpio_en, "tvp5150_en"))
+		printk(" tvp5150 no PDN operation.\n");
+
+	if (gpio_request(pdata->gpio_rst, "tvp5150_rst")) {
+               	dev_err(&client->dev,"request tvp5150 gpio rst fail\n");
+               	return -1;
 	}
+	
 	s->gpio_en= pdata->gpio_en;
 	s->gpio_rst = pdata->gpio_rst;
 
-	if(!(gpio_is_valid(s->gpio_rst) && gpio_is_valid(s->gpio_en))){
-		dev_err(&client->dev," tvp5150  gpio is invalid\n");
-		return -1;
-	}
-
-	gpio_direction_output(s->gpio_rst,0);
-	gpio_direction_output(s->gpio_en,1);
+	if (gpio_is_valid(s->gpio_rst)) gpio_direction_output(s->gpio_rst,0);
+	if (gpio_is_valid(s->gpio_en)) gpio_direction_output(s->gpio_en,1);
 	s->cs.facing = pdata->facing;
 	s->cs.orientation = pdata->orientation;
 	s->cs.cap_wait_frame = pdata->cap_wait_frame;
+	s->cs.pos = pdata->pos;
 	camera_sensor_register(&s->cs);
 	printk("tvp5150_probe-----------------------------\n");
 	return 0;

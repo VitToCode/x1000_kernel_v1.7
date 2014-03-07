@@ -610,6 +610,7 @@ int tvp5150_init(struct cim_sensor *sensor_info)
 	/* Initializes TVP5150 to stream enabled values */
 	//tvp5150_write_inittab(client, tvp5150_init_enable);
 	tvp5150_write_reg(client, TVP5150_MISC_CTL, 0x09);
+	mdelay(10);
 	/* Initialize fmt */
 	//tvp5150_set_std(client);
 
