@@ -22,6 +22,9 @@ config BOARD_4775_CONE_V1_2
 config BOARD_4775_HSUN
 	bool "HSUN"
 
+config BOARD_4775_SEDBIO
+	bool "SEDBIO"
+
 endchoice
 
 config BOARD_NAME
@@ -32,3 +35,4 @@ config BOARD_NAME
 	default "cone" if BOARD_4775_CONE
 	default "cone_v1_2" if BOARD_4775_CONE_V1_2
 	default "hsun" if BOARD_4775_HSUN
+	default "sedbio" if BOARD_4775_SEDBIO
