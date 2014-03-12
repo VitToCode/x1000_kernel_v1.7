@@ -71,8 +71,13 @@
 #define DISABLE_LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fffffff, }
 
-#define LCD_PORTC							\
+#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#define LCD_PORTC \
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0ffff3fc, }
+#else
+#define LCD_PORTC \
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
+#endif
 
 #define EPD_PORTC \
 	{ .name = "epd-24bit", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }

@@ -24,6 +24,12 @@
 #define FT6x06_REG_FW_VER		0xA6
 #define FT6x06_REG_POINT_RATE	0x88
 #define FT6x06_REG_THGROUP	0x80
+#define FT6x06_REG_D_MODE	0x00
+#define FT6x06_REG_G_MODE	0xA4
+#define FT6x06_REG_P_MODE	0xA5
+#define FT6x06_REG_CTRL	0x86
+#define FT6x06_REG_STATE	0xBC
+
 
 int ft6x06_i2c_Read(struct i2c_client *client, char *writebuf, int writelen,
 		    char *readbuf, int readlen);

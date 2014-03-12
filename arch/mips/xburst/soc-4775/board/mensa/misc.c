@@ -16,7 +16,8 @@
 #include <gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/power/jz4780-battery.h>
-
+#include <linux/i2c/ft6x06_ts.h>
+#include <linux/interrupt.h>
 #include "board.h"
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -89,6 +90,7 @@ static struct platform_device jz_button_device = {
 #endif
 
 #ifdef CONFIG_JZ4775_SUPPORT_TSC
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct jztsc_pin mensa_tsc_gpio[] = {
 	        [0] = {GPIO_TP_INT,         LOW_ENABLE},
 		[1] = {GPIO_TP_WAKE,        HIGH_ENABLE},
@@ -100,10 +102,26 @@ static struct jztsc_platform_data mensa_tsc_pdata = {
 		.y_max          = 480,
 };
 
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
 		        {
 				I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
+				.platform_data = &mensa_tsc_pdata,
+			},
+	};
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_FT6X06
+static struct ft6x06_platform_data mensa_tsc_pdata = {
+		.x_max          = 480,
+		.y_max          = 800,
+		.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
+		.irq = (32 * 1 + 29),
+		.reset = (32 *1 + 28),
+};
+
+static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
+		        {
+				I2C_BOARD_INFO("ft6x06_ts", 0x38),
 				.platform_data = &mensa_tsc_pdata,
 			},
 	};
@@ -427,6 +445,9 @@ static int __init board_init(void)
 /* panel and bl */
 #ifdef CONFIG_LCD_BYD_BM8766U
 	platform_device_register(&byd_bm8766u_device);
+#endif
+#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+	platform_device_register(&byd_8991_device);
 #endif
 #ifdef CONFIG_LCD_KFM701A21_1A
 	platform_device_register(&kfm701a21_1a_device);

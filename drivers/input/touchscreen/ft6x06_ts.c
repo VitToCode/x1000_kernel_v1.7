@@ -37,6 +37,7 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/regulator/consumer.h>
+// #include <linux/tsc.h>
 
 //#define FTS_CTL_IIC
 //#define SYSFS_DEBUG
@@ -253,6 +254,11 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 	}
 	if (event->touch_point > 0)
 		input_sync(data->input_dev);
+	
+	dev_dbg(&data->client->dev, "$ly-test----%s: x1:%d y1:%d |<*_*>| \
+			x2:%d y2:%d \n", __func__,
+			event->au16_x[0], event->au16_y[0], 
+			event->au16_x[1], event->au16_y[1]);
 }
 
 static void ft6x06_work_handler(struct work_struct *work)
@@ -326,7 +332,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	int err = 0;
 	unsigned char uc_reg_value;
 	unsigned char uc_reg_addr;
-
+	
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
@@ -357,7 +363,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	gpio_direction_output(pdata->reset, 1);
 #endif
 
-	ft6x06_ts->vcc_reg = regulator_get(NULL, "vtsc");
+	ft6x06_ts->vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(ft6x06_ts->vcc_reg)) {
 		dev_err(&client->dev, "failed to get VCC regulator.");
 		err = PTR_ERR(ft6x06_ts->vcc_reg);
@@ -434,6 +440,27 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] touch threshold is %d.\n",
 		uc_reg_value * 4);
+
+	uc_reg_addr = FT6x06_REG_D_MODE;
+	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	dev_dbg(&client->dev, "[FTS] DEVICE_MODE = 0x%x\n", uc_reg_value);
+
+	uc_reg_addr = FT6x06_REG_G_MODE;
+	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	dev_dbg(&client->dev, "[FTS] G_MODE = 0x%x\n", uc_reg_value);
+	
+	uc_reg_addr = FT6x06_REG_P_MODE;
+	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	dev_dbg(&client->dev, "[FTS] POWER_MODE = 0x%x\n", uc_reg_value);
+	
+	uc_reg_addr = FT6x06_REG_STATE;
+	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	dev_dbg(&client->dev, "[FTS] STATE = 0x%x\n", uc_reg_value);
+	
+	uc_reg_addr = FT6x06_REG_CTRL;
+	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
+	dev_dbg(&client->dev, "[FTS] CTRL = 0x%x\n", uc_reg_value);
+
 #ifdef SYSFS_DEBUG
 	ft6x06_create_sysfs(client);
 #endif

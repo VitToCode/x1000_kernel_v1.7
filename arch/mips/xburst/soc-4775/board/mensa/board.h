@@ -127,6 +127,9 @@ extern struct platform_device backlight_device;
 extern struct platform_device byd_bm8766u_device;
 #endif
 
+#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+extern struct platform_device byd_8991_device;
+#endif
 /**
 * nand platform data
 **/
