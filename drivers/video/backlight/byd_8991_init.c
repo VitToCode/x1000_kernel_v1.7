@@ -1,7 +1,7 @@
 #include <asm/delay.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
-
+//#define DEBUG
 
 /*PE1  LCD_BACKLIGNT   */
 #define back_light(n)\
@@ -25,64 +25,85 @@
 
 /*PC11 SPI_MISO */
 #define SDI()\
-	__gpio_get_value((32*2 + 11))	
+	gpio_get_value((32*2 + 11))
+
 
 void SPI_3W_SET_CMD(unsigned char c)
 {
 	unsigned char i;
+	
 	udelay(10);
-	CS(0); 
-
 	SCK(0);
-	udelay(10);    
-	SDO(0); 
-	udelay(10);    
-	SCK(1); 
-	udelay(10);    
+	SDO(0);
+	udelay(10);
+	SCK(1);
+	udelay(20);
 	for(i=0;i<8;i++)
 	{
-
 		SCK(0);
-		udelay(10);  
-		SDO(((c&0x80)>>7));   
-		udelay(10);	
+		SDO(((c&0x80)>>7));
+		udelay(10);
 		SCK(1);
-		udelay(10); 
-		c=c<<1;  
+		udelay(20);
+		c=c<<1;
 	}
-	CS(1); 
-	udelay(10);
-	SDO(0);
-
 }
 
 void SPI_3W_SET_PAs(unsigned char d)
 {
 	unsigned char i;
+	
 	udelay(10);
+	SCK(0);
+	SDO(1);
+	udelay(10);
+	SCK(1);
+	udelay(20);
+	for(i=0;i<8;i++)
+	{
+		SCK(0);
+		SDO(((d&0x80)>>7));
+		udelay(10);
+		SCK(1);
+		udelay(20);
+		d=d<<1;
+	}
+}
+unsigned char SPI_GET_REG_VAL()
+{
+	unsigned char i;
+	unsigned char data = 0;
+
+	udelay(10);
+	for(i=0;i<8;i++)
+	{
+		SCK(0);
+		data <<= 1;
+		data |=SDI();
+		udelay(10);
+		SCK(1);
+		udelay(20);
+		printk("sdi= 0x%x\n",data);
+	}
+	return data;
+}
+
+unsigned char SPI_READ_REG(unsigned char reg)
+{
+	int data = 0;
+	
 	CS(0);
 	udelay(10);
-
-	SCK(0);
+	SPI_3W_SET_CMD(0xB9); //Set_EXTC
+	SPI_3W_SET_PAs(0xFF);
+	SPI_3W_SET_PAs(0x83);
+	SPI_3W_SET_PAs(0x69);
+	
+	SPI_3W_SET_CMD(reg);
+	data = SPI_GET_REG_VAL();
+	CS(1);
 	udelay(10);
-	SDO(1);   
-	udelay(10);   
-	SCK(1);
-	udelay(10);  
-	for(i=0;i<8;i++)
-	{ 
-		SCK(0);
-		udelay(10);  
-		SDO(((d&0x80)>>7)); 
-		udelay(10);  
-		SCK(1);
-		udelay(10); 
-		d=d<<1;		
-	}
-	CS(1);  
-	udelay(10);  
-	SDO(0);
-
+	printk("reg(0x%x)=0x%x\n",reg,data);
 }
 
 void Initial_IC(void)
@@ -94,8 +115,18 @@ void Initial_IC(void)
 	RESET(0);
 	udelay(10000); // Delay 10ms // This delay time is necessary
 	RESET(1);
-	udelay(100000); // Delay 100 ms  
+	udelay(100000); // Delay 100 ms
 
+#ifdef DEBUG
+	while(1){
+/*The default reg(0x08)'s value is 0x08, if the	IC is working*/
+		SPI_READ_REG(0X0A);
+	}
+#endif
+
+	CS(0);
+	udelay(10);
+	
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
 	SPI_3W_SET_PAs(0x83);
@@ -138,15 +169,18 @@ void Initial_IC(void)
 	SPI_3W_SET_PAs(0x03);
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x01);
+	
 	SPI_3W_SET_CMD(0xB4); // SET Display column inversion
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x18);
 	SPI_3W_SET_PAs(0x80);
 	SPI_3W_SET_PAs(0x06);
 	SPI_3W_SET_PAs(0x02);
+	
 	SPI_3W_SET_CMD(0xB6); // SET VCOM
 	SPI_3W_SET_PAs(0x3A);
 	SPI_3W_SET_PAs(0x3A);
+	
 	SPI_3W_SET_CMD(0xD5); // SETGIP
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x03);
@@ -174,6 +208,7 @@ void Initial_IC(void)
 	SPI_3W_SET_PAs(0x0F);
 	SPI_3W_SET_PAs(0x04);
 	SPI_3W_SET_PAs(0x00);
+	
 	SPI_3W_SET_CMD(0xE0); // Set Gamma
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x13);
@@ -209,6 +244,7 @@ void Initial_IC(void)
 	SPI_3W_SET_PAs(0x14);
 	SPI_3W_SET_PAs(0x0F);
 	SPI_3W_SET_PAs(0x17);
+	
 	SPI_3W_SET_CMD(0xC1); //Set DGC function
 	SPI_3W_SET_PAs(0x01);
 	//R
@@ -239,7 +275,6 @@ void Initial_IC(void)
 	SPI_3W_SET_PAs(0xC1);
 	SPI_3W_SET_PAs(0xC9);
 	SPI_3W_SET_PAs(0xD0);
-
 	SPI_3W_SET_PAs(0xD7);
 	SPI_3W_SET_PAs(0xE0);
 	SPI_3W_SET_PAs(0xE7);
@@ -345,9 +380,10 @@ void Initial_IC(void)
 
 	SPI_3W_SET_CMD(0x3A); //Set COLMOD
 	SPI_3W_SET_PAs(0x77);
+
 	SPI_3W_SET_CMD(0x11); //Sleep Out
-	udelay(120000); //120ms
+	udelay(150000); //at least 120ms
 
 	SPI_3W_SET_CMD(0x29); //Display On 
-	udelay(200000); //120ms
+	CS(1);
 }
