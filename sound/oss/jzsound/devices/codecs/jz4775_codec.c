@@ -2405,7 +2405,7 @@ static int codec_set_record_data_width(int width)
 
 	for(fix_width = 0; fix_width < 4; fix_width ++)
 	{
-		if (width == supported_width[fix_width])
+		if (width <= supported_width[fix_width])
 			break;
 	}
 	if (fix_width == 4)
@@ -2500,44 +2500,20 @@ static int codec_set_replay_data_width(int width)
 	int supported_width[4] = {16, 18, 20, 24};
 	int fix_width;
 
-	for(fix_width = 0; fix_width < 3; fix_width ++)
+	for(fix_width = 0; fix_width < 4; fix_width ++)
 	{
 		if (width <= supported_width[fix_width])
 			break;
 	}
+
+	if (fix_width == 4)
+		return -EINVAL;
 
 	__codec_select_dac_word_length(fix_width);
 
 	return 0;
 }
 
-static int codec_set_replay_volume(int *val)
-{
-	/*just set analog gol and gor*/
-	unsigned long fixed_vol;
-	int volume_base = 0;
-
-	if (codec_platform_data &&
-			codec_platform_data->replay_volume_base >= -25 &&
-			codec_platform_data->replay_volume_base <= 6)
-		volume_base = codec_platform_data->replay_volume_base;
-
-	fixed_vol = (6 - volume_base) + ((25 + volume_base) * (100 -(*val))/ 100);
-
-	__codec_set_gol(fixed_vol);
-	__codec_set_gor(fixed_vol);
-
-	user_replay_volume = *val;
-
-	return *val;
-}
-
-static int codec_set_replay_channel(int* channel)
-{
-	if (*channel != 1)
-		*channel = 2;
-	return 0;
-}
 /*---------------------------------------*/
 /**
  * CODEC set mute
@@ -2556,7 +2532,7 @@ static int codec_mute(int val,int mode)
 				codec_sleep_wait_bitset(CODEC_REG_IFR, IFR_GDO, 100,__LINE__);
 			}
 		} else {
-			if(__codec_get_dac_mute()){
+			if(__codec_get_dac_mute() && user_replay_volume){
 				/* disable dac mute */
 				__codec_set_irq_flag(1 << IFR_GUP);
 				__codec_disable_dac_mute();
@@ -2568,6 +2544,46 @@ static int codec_mute(int val,int mode)
 		/*JZ4775 not support adc mute*/
 	}
 
+	return 0;
+}
+
+static int codec_set_replay_volume(int *val)
+{
+	/*just set analog gol and gor*/
+	unsigned long fixed_vol;
+	int volume_base = 0;
+
+	/* get current volume */
+        if (*val < 0){
+                *val = user_replay_volume;
+                return *val;
+        }
+
+	if (codec_platform_data &&
+			codec_platform_data->replay_volume_base >= -25 &&
+			codec_platform_data->replay_volume_base <= 6)
+		volume_base = codec_platform_data->replay_volume_base;
+
+	fixed_vol = (6 - volume_base) + ((25 + volume_base) * (100 -(*val))/ 100);
+
+	__codec_set_gol(fixed_vol);
+	__codec_set_gor(fixed_vol);
+
+	user_replay_volume = *val;
+
+        if(*val == 0){
+                codec_mute(1 ,CODEC_WMODE);
+        }else{
+                codec_mute(0 ,CODEC_WMODE);
+        }
+
+	return *val;
+}
+
+static int codec_set_replay_channel(int* channel)
+{
+	if (*channel != 1)
+		*channel = 2;
 	return 0;
 }
 
@@ -2711,8 +2727,7 @@ static int codec_get_hp_state(int *state)
 
 static void codec_get_format_cap(unsigned long *format)
 {
-	*format = AFMT_S16_LE|AFMT_S8;
-
+	*format = AFMT_S24_LE|AFMT_U24_LE|AFMT_U16_LE|AFMT_S16_LE|AFMT_S8|AFMT_U8;
 }
 
 static void codec_debug_default(void)

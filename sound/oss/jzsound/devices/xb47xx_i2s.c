@@ -31,6 +31,7 @@
 #include <soc/base.h>
 #include "xb47xx_i2s.h"
 #include "codecs/jz4780_codec.h"
+#include <soc/cpm.h>
 /**
  * global variable
  **/
@@ -122,6 +123,7 @@ static void i2s_match_codec(char *name)
 		codec_info = container_of(list,struct codec_info,list);
 		if (!strcmp(codec_info->name,name)) {
 			cur_codec = codec_info;
+			return;
 		}
 	}
 }
@@ -155,7 +157,7 @@ static void i2s_set_filter(int mode , uint32_t channels)
 				printk("dp->filter null\n");
 			}
 			break;
-		case AFMT_S16_BE:
+		case AFMT_U16_LE:
 		case AFMT_S16_LE:
 			if (channels == 1) {
 #if 0
@@ -171,6 +173,17 @@ static void i2s_set_filter(int mode , uint32_t channels)
 				printk("dp->filter null\n");
 			}
 			break;
+                case AFMT_S24_LE:
+                case AFMT_U24_LE:
+                        if (channels == 1) {
+                                dp->filter = convert_32bits_stereo2mono;
+                                printk("dp->filter convert_32bits_stereo2mono\n");
+                        }
+                        else {
+                                dp->filter = NULL;
+                                printk("dp->filter null\n");
+                        }
+                        break;
 		default :
 			dp->filter = NULL;
 			printk("AUDIO DEVICE :filter set error.\n");
@@ -185,17 +198,19 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	int ret = 0;
 	int data_width = 0;
 	struct dsp_pipe *dp = NULL;
-
     /*
-	 * The value of format reference to soundcard.
-	 * AFMT_MU_LAW      0x00000001
-	 * AFMT_A_LAW       0x00000002
-	 * AFMT_IMA_ADPCM   0x00000004
-	 * AFMT_U8			0x00000008
-	 * AFMT_S16_LE      0x00000010
-	 * AFMT_S16_BE      0x00000020
-	 * AFMT_S8			0x00000040
-	 */
+	 The value of format reference to soundcard.h.
+	 AFMT_U8                  0x00000008
+         AFMT_S16_LE              0x00000010
+         AFMT_S16_BE              0x00000020
+         AFMT_S8                  0x00000040
+         AFMT_U16_LE              0x00000080
+         AFMT_U16_BE              0x00000100
+         AFMT_S24_LE              0x00000800
+         AFMT_S24_BE              0x00001000
+         AFMT_U24_LE              0x00002000
+         AFMT_U24_BE              0x00004000
+    */
 	debug_print("format = %d",*format);
 	switch (*format) {
 	case AFMT_U8:
@@ -229,6 +244,16 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 			__i2s_set_iss_sample_size(1);
 		__i2s_disable_signadj();
 		break;
+        case AFMT_U16_LE:
+                data_width = 16;
+                if (mode & CODEC_WMODE) {
+                        __i2s_set_oss_sample_size(1);
+                        __i2s_disable_byteswap();
+                }
+                if (mode & CODEC_RMODE)
+                        __i2s_set_iss_sample_size(1);
+                __i2s_enable_signadj();
+                break;
 	case AFMT_S16_BE:
 		data_width = 16;
 		if (mode & CODEC_WMODE) {
@@ -241,6 +266,40 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 		}
 		__i2s_disable_signadj();
 		break;
+        case AFMT_U16_BE:
+                data_width = 16;
+                if (mode & CODEC_WMODE) {
+                        __i2s_set_oss_sample_size(1);
+                        __i2s_enable_byteswap();
+                }
+                if (mode == CODEC_RMODE) {
+                        __i2s_set_iss_sample_size(1);
+                        *format = AFMT_U16_LE;
+                }
+                __i2s_enable_signadj();
+                break;
+        case AFMT_S24_LE:
+                data_width = 24;
+                if (mode & CODEC_WMODE) {
+                        __i2s_set_oss_sample_size(4);
+                        __i2s_disable_byteswap();
+                }
+                if (mode == CODEC_RMODE) {
+                        __i2s_set_iss_sample_size(4);
+                }
+                __i2s_disable_signadj();
+                break;
+        case AFMT_U24_LE:
+                data_width = 24;
+                if (mode & CODEC_WMODE) {
+                        __i2s_set_oss_sample_size(4);
+                        __i2s_disable_byteswap();
+                }
+                if (mode == CODEC_RMODE) {
+                        __i2s_set_iss_sample_size(4);
+                }
+                __i2s_enable_signadj();
+                break;
 	default :
 		printk("I2S: there is unknown format 0x%x.\n",(unsigned int)*format);
 		return -EINVAL;
@@ -254,7 +313,13 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_REPLAY_FORMAT");
 			return ret;
 		}
-		dp->dma_config.dst_addr_width = (data_width != 8) ? DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_1_BYTE;
+                if(data_width == 8)
+                        dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+                else if(data_width == 16)
+                        dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+                else
+                        dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+
 		if (cur_codec->replay_format != *format) {
 			cur_codec->replay_format = *format;
 			ret |= NEED_RECONF_TRIGGER;
@@ -268,7 +333,14 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_RECORD_FORMAT");
 			return ret;
 		}
-		dp->dma_config.src_addr_width = (data_width != 8) ? DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_1_BYTE;
+
+                if(data_width == 8)
+                        dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+                else if(data_width == 16)
+                        dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+                else
+                        dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+
 		if (cur_codec->record_format != *format) {
 			cur_codec->record_format = *format;
 			ret |= NEED_RECONF_TRIGGER | NEED_RECONF_FILTER;
@@ -410,7 +482,7 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 					printk("external codec set rate fail.\n");
 				}
 			}
-			*rate = __i2s_set_sample_rate(cur_codec->codec_clk,*rate);
+			__i2s_set_sample_rate(cur_codec->codec_clk,*rate);
 			__i2s_start_bitclk();
 		}
 		ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_RATE,(unsigned long)rate);
@@ -431,7 +503,7 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 					printk("external codec set rate fail.\n");
 				}
 			}
-			*rate = __i2s_set_isample_rate(cur_codec->codec_clk,*rate);
+			__i2s_set_isample_rate(cur_codec->codec_clk,*rate);
 			__i2s_start_ibitclk();
 		}
 		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_RATE,(unsigned long)rate);
@@ -472,9 +544,15 @@ static void i2s_set_trigger(int mode)
 		case AFMT_U8:
 			data_width = 8;
 			break;
+		case AFMT_S24_LE:
+                case AFMT_U24_LE:
+                        data_width = 32;
+                        break;
 		default:
 		case AFMT_S16_BE:
+		case AFMT_U16_BE:
 		case AFMT_S16_LE:
+		case AFMT_U16_LE:
 			data_width = 16;
 			break;
 		}
@@ -493,8 +571,12 @@ static void i2s_set_trigger(int mode)
 		case AFMT_U8:
 			data_width = 8;
 			break;
+		case AFMT_S24_LE:
+                case AFMT_U24_LE:
+                        data_width = 32;
+                        break;
 		default :
-		case AFMT_S16_BE:
+		case AFMT_U16_LE:
 		case AFMT_S16_LE:
 			data_width = 16;
 			break;
@@ -569,7 +651,7 @@ static int i2s_disable_channel(int mode)
 		cur_codec->codec_ctl(CODEC_TURN_OFF,mode);
 
 	if (mode & CODEC_WMODE) {
-		__i2s_disable_replay();
+		i2s_replay_zero_for_flush_codec();
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_record();
@@ -624,12 +706,12 @@ static int i2s_get_fmt_cap(unsigned long *fmt_cap,int mode)
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-		i2s_fmt_cap |= AFMT_S16_LE|AFMT_S16_BE|AFMT_S8|AFMT_U8;
+		i2s_fmt_cap |= AFMT_S24_LE|AFMT_U24_LE|AFMT_S16_LE|AFMT_S16_BE|AFMT_U16_LE|AFMT_U16_BE|AFMT_S8|AFMT_U8;
 		cur_codec->codec_ctl(CODEC_GET_REPLAY_FMT_CAP, *fmt_cap);
 
 	}
 	if (mode & CODEC_RMODE) {
-		i2s_fmt_cap |= AFMT_S16_LE|AFMT_S8|AFMT_U8;
+		i2s_fmt_cap |= AFMT_S24_LE|AFMT_U24_LE|AFMT_U16_LE|AFMT_S16_LE|AFMT_S8|AFMT_U8;
 		cur_codec->codec_ctl(CODEC_GET_RECORD_FMT_CAP, *fmt_cap);
 	}
 
@@ -711,11 +793,12 @@ static int i2s_set_device(unsigned long device)
 	}
 
 	/*hdmi operation*/
-	if ((tmp_rate = cur_codec->replay_rate) == 0);
+	if ((tmp_rate = cur_codec->replay_rate) == 0)
 		tmp_rate = 44100;
 	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
 		if (strcmp(cur_codec->name,"hdmi")) {
 			i2s_match_codec("hdmi");
+			cur_codec->codec_clk = 0;
 			__i2s_stop_bitclk();
 			__i2s_external_codec();
 			__i2s_master_clkset();
@@ -762,6 +845,7 @@ static int i2s_set_device(unsigned long device)
 				printk("codec codec set rate fail.\n");
 			}
 			__i2s_start_bitclk();
+			i2s_set_rate(&tmp_rate,CODEC_WMODE);
 		}
 	}
 
@@ -1058,6 +1142,7 @@ static int i2s_global_init(struct platform_device *pdev)
 	struct dsp_pipe *i2s_pipe_out = NULL;
 	struct dsp_pipe *i2s_pipe_in = NULL;
 	struct clk *i2s_clk = NULL;
+        unsigned int cgu,idx;
 
 	i2s_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (i2s_resource == NULL) {
@@ -1157,14 +1242,25 @@ static int i2s_global_init(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "cgu_aic clk_get failed\n");
 		goto __err_codec_clk;
 	}
-	/*set sysclk output for codec*/
-	clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-	if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
-		printk("codec interface set rate fail.\n");
-		goto __err_codec_clk;
-	}
-	clk_enable(codec_sysclk);
 
+        cgu = cpm_inl(CPM_I2SCDR);
+        idx = cgu >> 31;
+        if(idx){
+                /*set sysclk output for codec*/
+                clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+
+                if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+                        printk("codec interface set rate fail.\n");
+                        goto __err_codec_clk;
+                }
+                clk_enable(codec_sysclk);
+        }else{
+                if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+                        printk("codec interface set rate fail.\n");
+                        goto __err_codec_clk;
+                }
+                printk("codec clock from exclk\n");
+        }
 
 	__i2s_start_bitclk();
 	__i2s_start_ibitclk();

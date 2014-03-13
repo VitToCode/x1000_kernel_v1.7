@@ -591,8 +591,12 @@ static unsigned long cgu_get_rate(struct clk *clk)
 	unsigned long x;
 	int no = CLK_CGU_NO(clk->flags);
 
-	if(clk->parent == &clk_srcs[CLK_ID_EXT1])
-		return clk->parent->rate;
+	if(clk->parent == &clk_srcs[CLK_ID_EXT1]) {
+		if ((no == 2) || (no == 14))
+			return clk->parent->rate/2;
+		else
+			return clk->parent->rate;
+	}
 
 	if(cgu_clks[no].div == 0)
 		return clk_get_rate(clk->parent);

@@ -298,6 +298,7 @@ int convert_8bits_stereo2mono(void *buff, int *data_len,int needed_size);
 int convert_8bits_stereo2mono_signed2unsigned(void *buff, int *data_len,int needed_size);
 int convert_16bits_stereo2mono(void *buff, int *data_len,int needed_size);
 int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size);
+int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size);
 
 /**
  * functions interface

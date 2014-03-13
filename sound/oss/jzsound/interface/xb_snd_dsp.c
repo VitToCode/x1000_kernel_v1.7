@@ -1078,6 +1078,47 @@ int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size)
 	return ((*data_len) >> 1);
 }
 
+int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size)
+{
+        /* stride = 64 bytes = 2 channels * 4 byte * 8 pipelines */
+        int data_len_64aligned = 0;
+        int data_cnt_ushort = 0;
+        int mono_cur, stereo_cur;
+        unsigned int *ushort_buff = (unsigned int *)buff;
+
+        if ((*data_len) > needed_size*2)
+                *data_len = needed_size*2;
+
+        *data_len = (*data_len) & (~0x7);
+
+        data_len_64aligned = (*data_len) & ~0x3f;
+        data_cnt_ushort = data_len_64aligned / 4;
+
+        /* copy 8 times each loop */
+        for (stereo_cur = mono_cur = 0;
+             stereo_cur < data_cnt_ushort;
+             stereo_cur += 16, mono_cur += 8) {
+
+                ushort_buff[mono_cur + 0] = ushort_buff[stereo_cur + 0];
+                ushort_buff[mono_cur + 1] = ushort_buff[stereo_cur + 2];
+                ushort_buff[mono_cur + 2] = ushort_buff[stereo_cur + 4];
+                ushort_buff[mono_cur + 3] = ushort_buff[stereo_cur + 6];
+                ushort_buff[mono_cur + 4] = ushort_buff[stereo_cur + 8];
+                ushort_buff[mono_cur + 5] = ushort_buff[stereo_cur + 10];
+                ushort_buff[mono_cur + 6] = ushort_buff[stereo_cur + 12];
+                ushort_buff[mono_cur + 7] = ushort_buff[stereo_cur + 14];
+        }
+        BUG_ON(stereo_cur != data_cnt_ushort);
+
+        /* remaining data */
+        for (; stereo_cur < (*data_len) / 4; stereo_cur += 2, mono_cur++) {
+                ushort_buff[mono_cur] = ushort_buff[stereo_cur];
+        }
+
+        return ((*data_len) >>1);
+}
+
+
 /********************************************************\
  * others
 \********************************************************/
@@ -1985,8 +2026,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = -ENOSYS;
 		break;
 
-	//case SNDCTL_DSP_RESET:
-	//break;
+	case SNDCTL_DSP_RESET:
+	      break;
 
 		//case SNDCTL_DSP_SYNCSTART:
 		/* OSS 4.x: Starts all devices added to a synchronization group */
@@ -2372,10 +2413,10 @@ int xb_snd_dsp_open(struct inode *inode,
 	dpo->pddata = ddata;
 
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE) {
-		if (dpo->is_used)
-			return 0;
-		else if (dpi->is_used && dpo->is_used)
-			return -ENODEV;
+	        if (dpo->is_used)
+                        return 0;
+                else if (dpi->is_used && dpo->is_used)
+                        return -ENODEV;
 	}
 
 	if (file->f_mode & FMODE_READ) {
@@ -2440,7 +2481,6 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
-		printk("hyang debug audio %s %d ret = %d\n", __func__, __LINE__, ret);
 
 #ifndef CONFIG_ANDROID
 #if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
@@ -2510,8 +2550,8 @@ int xb_snd_dsp_release(struct inode *inode,
 	if (ddata == NULL)
 		return -1;
 
-	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
-		return 0;
+        if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
+                return 0;
 
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL)

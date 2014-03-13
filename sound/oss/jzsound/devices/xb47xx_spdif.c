@@ -566,7 +566,7 @@ static int spdif_set_device(unsigned long device)
 	}
 
 	/*hdmi operation*/
-	if ((tmp_rate = cur_codec_spdif->replay_rate) == 0);
+	if ((tmp_rate = cur_codec_spdif->replay_rate) == 0)
 		tmp_rate = 44100;
 	if (strcmp(cur_codec_spdif->name,"hdmi")) {
 		spdif_match_codec("hdmi");

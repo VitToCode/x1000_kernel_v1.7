@@ -2734,12 +2734,9 @@ static int codec_set_record_data_width(int width)
 
 	for(fix_width = 0; fix_width < 3; fix_width ++)
 	{
-		if (width == supported_width[fix_width])
+		if (width <= supported_width[fix_width])
 			break;
 	}
-
-	if (__codec_get_adc_word_length() >= fix_width)
-		return 0;
 
 	__codec_select_adc_word_length(fix_width);
 	if (__codec_get_adc_word_length() == fix_width)
@@ -3097,7 +3094,7 @@ static int codec_get_hp_state(int *state)
 
 static void codec_get_format_cap(unsigned long *format)
 {
-	*format = AFMT_S16_LE|AFMT_S8;
+	*format = AFMT_S24_LE|AFMT_U24_LE|AFMT_U16_LE|AFMT_S16_LE|AFMT_S8|AFMT_U8;
 }
 
 static void codec_debug_default(void)
