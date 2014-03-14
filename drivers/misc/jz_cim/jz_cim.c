@@ -650,8 +650,8 @@ static int cim_select_sensor(struct jz_cim *cim,int id)
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
 	list_for_each_entry(desc, &sensor_list, list) {
-		if(desc->id == id && (desc->pos - 1) == cim->num) {
-			//printk(" %s() found desc->id:%d id:%d pos:%d num:%d \n", __func__,desc->id,id,desc->pos,cim->num);
+		if(desc->id == id && ((desc->pos == 0) ? 1 : ((desc->pos - 1) == cim->num))) {
+			printk(" %s() found desc->id:%d id:%d pos:%d num:%d \n", __func__,desc->id,id,desc->pos,cim->num);
 			cim->desc = desc;
 			desc = NULL;
 			break;
@@ -1022,6 +1022,7 @@ static long cim_shutdown(struct jz_cim *cim)
 		return 0;
 	cim->state = CS_IDLE;
 	dev_dbg(cim->dev," -----cim shut down\n");
+
 	cim_disable_mclk(cim);
 #ifndef CONFIG_BOARD_4775_MENSA
 	if(!cim_get_and_check_cmd(cim))
@@ -1594,11 +1595,12 @@ static int cim_close(struct inode *inode, struct file *file)
 {
 	struct miscdevice *dev = file->private_data;
 	struct jz_cim *cim = container_of(dev, struct jz_cim, misc_dev);
-
 	cim_shutdown(cim);
 	cim_power_off(cim);
-	//if(cim->desc->shutdown)
-		//cim->desc->shutdown(cim->desc);
+	/*if you want Switching betwen two sensor ,
+	 * must close one sensor, then open another sensor */
+	if(cim->desc->shutdown)
+		cim->desc->shutdown(cim->desc);
 	cim->state = CS_IDLE;
 	cim->tlb_flag = 0;
 	cim->tlb_base = 0;

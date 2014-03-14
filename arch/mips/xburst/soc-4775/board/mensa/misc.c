@@ -160,6 +160,44 @@ static struct cam_sensor_plat_data tvp5150_pdata = {
 	.cap_wait_frame = 6,
 };
 #endif
+#ifdef CONFIG_OV7675
+struct ov7675_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   /*camera mirror*/
+	uint16_t        gpio_rst;       /* resert  gpio */
+	uint16_t        gpio_en;        /* camera enable gpio */
+	int cap_wait_frame;   /* filter n frames when capture image */
+};
+static struct ov7675_platform_data ov7675_pdata = {
+	.facing = 1,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_OV7675_EN,
+	.gpio_rst = GPIO_OV7675_RST,
+	.cap_wait_frame = 3,
+};
+#endif
+#ifdef CONFIG_OV2650
+struct ov2650_platform_data {
+	int facing;
+	int orientation;
+	int mirror;   /*camera mirror*/
+	uint16_t        gpio_rst;       /* resert  gpio */
+	uint16_t        gpio_en;        /* camera enable gpio */
+	int cap_wait_frame;   /* filter n frames when capture image */
+};
+
+static struct ov2650_platform_data ov2650_pdata = {
+	.facing = 0,
+	.orientation = 0,
+	.mirror = 0,
+	.gpio_en = GPIO_OV2650_EN,
+	.gpio_rst = GPIO_OV2650_RST,
+	.cap_wait_frame = 3,
+};
+#endif
+
 #endif
 
 #ifdef CONFIG_OV5640
@@ -202,6 +240,18 @@ static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("tvp5150", 0x5d),
 		.platform_data	= &tvp5150_pdata,
+	},
+#endif
+#ifdef CONFIG_OV7675
+	{
+		I2C_BOARD_INFO("ov7675", 0x21),
+		.platform_data  = &ov7675_pdata,
+	},
+#endif
+#ifdef CONFIG_OV2650
+	{
+		I2C_BOARD_INFO("ov2650", 0x30),
+		.platform_data  = &ov2650_pdata,
 	},
 #endif
 };

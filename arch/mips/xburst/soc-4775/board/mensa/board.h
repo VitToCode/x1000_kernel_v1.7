@@ -75,6 +75,12 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_OV5640_PWDN	GPIO_PB(6)
 #define GPIO_OV5640_RST		GPIO_PA(27)
 
+#define GPIO_OV2650_EN          GPIO_PB(6)
+#define GPIO_OV2650_RST         GPIO_PA(27)
+
+#define GPIO_OV7675_EN          GPIO_PD(20)
+#define GPIO_OV7675_RST         GPIO_PA(27)
+
 /**
  * KEY gpio
  **/
