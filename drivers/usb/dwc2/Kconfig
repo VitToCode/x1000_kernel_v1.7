@@ -90,7 +90,7 @@ config USB_DWC2_INPUT_EVDEV
 
 config USB_DWC2_DISABLE_CLOCK
        bool "Disable clock when usb cable unplug"
-       depends on USB_DWC2_DEVICE_ONLY
+       depends on USB_DWC2_DEVICE_ONLY && !BOARD_HAS_NO_DETE_FACILITY
        default y
        help
          Say Y here to disable clock gate when usb cable unplug.

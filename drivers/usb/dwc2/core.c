@@ -923,6 +923,19 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		if (likely((!dwc->keep_phy_on) && (dctl.b.sftdiscon || !dwc->plugin)))
 			cpm_clear_bit(7, CPM_OPCR);
+
+#ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
+#if !DWC2_HOST_MODE_ENABLE
+		{
+			gotgctl_data_t gotgctl;
+
+			/* ensure bvalid signal is from PHY */
+			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+			gotgctl.b.bvalidoven = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+		}
+#endif
+#endif
 	}
 #endif
 
@@ -1220,6 +1233,19 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2 *dwc)
 		dev_dbg(dwc->dev, "DSTS = 0x%08x\n", dsts.d32);
 
 		dwc2_gadget_suspend(dwc);
+
+#ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
+#if !DWC2_HOST_MODE_ENABLE
+		if (dwc->ep0state != EP0_DISCONNECTED) {
+			gotgctl_data_t gotgctl;
+
+			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+			gotgctl.b.bvalidoven = 1;
+			gotgctl.b.bvalidovval = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+		}
+#endif
+#endif
 	} else {
 		dev_info(dwc->dev, "%s:%d: host mode not implemented!\n", __func__, __LINE__);
 	}
@@ -1401,7 +1427,7 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 		dwc_otg_hc_regs_t *hc_regs;
 		hcint_data_t hcint;
 
-		printk("gintsts=0x%08x & gintmsk=0x%08x = 0x%08x\n",
+		printk("gintsts=0x%08x & gintmsk=0x%08x = 0x%08x\n"
 			"haint=0x%08x daint=0x%08x hprt=0x%08x gotgint=0x%08x\n",
 		       gintsts.d32, gintmsk.d32, gintr_status.d32,
 		       *((volatile unsigned int *)0xb3500414),
