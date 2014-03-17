@@ -258,6 +258,7 @@ typedef struct cim_sensor {
     struct mode_bit_map para;   //indicate currnet parameter value
 
     bool first_used;
+    unsigned char pos;
 
     //add by wwzhao for ov5640
     bool sharpness_supported;

@@ -13,18 +13,18 @@
 extern u16 g_chipid;	// 0x5640 or 0x5642
 
 static struct frm_size ov5640_capture_table[]= {
-        {  320,  240 },         //QVGA
-        {  640,  480 },         //VGA
-        { 1280,  720 },         //720P
-        { 1920, 1080 },         //1080P
         { 2592, 1944 },         //5MP
+        { 1920, 1080 },         //1080P
+        { 1280,  720 },         //720P
+        {  640,  480 },         //VGA
+        {  320,  240 },         //QVGA
 };
 
 static struct frm_size ov5640_preview_table[]= {
-        {  320,  240 },         //QVGA
-        {  640,  480 },         //VGA
-        { 1280,  720 },         //720P
         { 1920, 1080 },         //1080P
+        { 1280,  720 },         //720P
+        {  640,  480 },         //VGA
+        {  320,  240 },         //QVGA
 };
 
 int cam_t_j = 0, cam_t_i = 0;
