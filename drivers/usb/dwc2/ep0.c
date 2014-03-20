@@ -134,7 +134,7 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 
         if (unlikely(dwc->last_ep0out_normal))
             goto directly_start;
-        
+
 	if (dwc->setup_prepared) {
 		if (!doepctl.b.epena) {
 			DWC2_EP0_DEBUG_MSG("setup prepared but ep0out is stoped by someone! "
@@ -150,7 +150,7 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	}
 
 	if (unlikely(doepctl.b.epena)) {
-		DWC2_EP0_DEBUG_MSG("ep0 is already enabled! doepctl = 0x%08x, doeptsize0 = 0x%08x\n", 
+		DWC2_EP0_DEBUG_MSG("ep0 is already enabled! doepctl = 0x%08x, doeptsize0 = 0x%08x\n",
 				doepctl.d32, doeptsize0.d32);
 		return;
 	}
@@ -631,6 +631,7 @@ static void dwc2_ep0_stall_and_restart(struct dwc2 *dwc) {
 	dev_info(dwc->dev, "%s\n", __func__);
 
 	dep = dwc2_ep0_get_in_ep(dwc);
+	 __dwc2_gadget_ep_set_halt(dep, 1);
 	dep->flags = DWC2_EP_ENABLED;
 
 	dep = dwc2_ep0_get_out_ep(dwc);
@@ -692,12 +693,12 @@ static int dwc2_ep0_handle_status(struct dwc2 *dwc,
 	u16			usb_status = 0;
 	__le16			*response_pkt;
 
-	if (dwc->dev_state != DWC2_CONFIGURED_STATE)
-		return -EINVAL;
 
 	recip = ctrl->bRequestType & USB_RECIP_MASK;
 	switch (recip) {
 	case USB_RECIP_DEVICE:
+		if (dwc->dev_state == DWC2_DEFAULT_STATE)
+			return -EINVAL;
 		if (le16_to_cpu(ctrl->wIndex) == 0xF000) {
 			/* TODO: handle OTG Status Selector here! */
 		} else {
@@ -708,6 +709,8 @@ static int dwc2_ep0_handle_status(struct dwc2 *dwc,
 		break;
 
 	case USB_RECIP_INTERFACE:
+		if (dwc->dev_state != DWC2_CONFIGURED_STATE)
+			return -EINVAL;
 		/*
 		 * Function Remote Wake Capable	D0
 		 * Function Remote Wakeup	D1
@@ -715,6 +718,10 @@ static int dwc2_ep0_handle_status(struct dwc2 *dwc,
 		break;
 
 	case USB_RECIP_ENDPOINT:
+		if ((dwc->dev_state == DWC2_ADDRESS_STATE &&
+				ctrl->wIndex != 0) ||
+			dwc->dev_state == DWC2_DEFAULT_STATE)
+			return -EINVAL;
 		dep = dwc2_wIndex_to_dep(dwc, ctrl->wIndex);
 		if (!dep)
 			return -EINVAL;
@@ -1274,7 +1281,7 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 	DWC2_EP0_DEBUG_MSG("doepint = 0x%08x\n", doepint.d32);
 
 	/* Transfer complete */
-	if (doepint.b.xfercompl) {            
+	if (doepint.b.xfercompl) {
 		dwc2_ep0_xfer_complete(dwc, 0, 0);
 
                 CLEAR_OUT_EP0_INTR(xfercompl);
