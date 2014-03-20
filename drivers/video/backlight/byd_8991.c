@@ -57,6 +57,8 @@ static void byd_8991_on(struct byd_8991_data *dev) {
 		gpio_direction_output(dev->pdata->gpio_lcd_sdo, 1);
 	if (dev->pdata->gpio_lcd_sdi)
 		gpio_direction_input(dev->pdata->gpio_lcd_sdi);
+
+	Initial_IC();
 }
 
 static void byd_8991_off(struct byd_8991_data *dev)
@@ -141,12 +143,10 @@ static int byd_8991_probe(struct platform_device *pdev)
 		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 #endif
 	gpio_request((32*1 + 30), "reset");
-	gpio_request((32*4 + 1), "back_light");
+	gpio_request((32*4 + 1), "pwm_out");
+	gpio_request((32*2 + 20), "back_light_select");
 
 	byd_8991_on(dev);
-//	printk("$ly!!!----------- start inii_8911_lcd\n");
-	Initial_IC();
-//	printk("$ly!!!----------- end inii_8911_lcd\n");
 
 	dev->lcd = lcd_device_register("byd_8991-lcd", &pdev->dev,
 				       dev, &byd_8991_ops);

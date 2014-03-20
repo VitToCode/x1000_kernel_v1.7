@@ -1,32 +1,46 @@
 #include <asm/delay.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+
 //#define DEBUG
 
+#define PWM_OUT             (32*4 + 1)
+#define LCD_RESET           (32*1 + 30)
+#define SPI_CS              (32*2 + 0)
+#define SPI_CLK             (32*2 + 1)
+#define SPI_MOSI            (32*2 + 10)
+#define SPI_MISO            (32*2 + 11)
+#define LCD_BACK_LIGHT_SEL   (32*2 + 20)
+
+#ifdef DEBUG
 /*PE1  LCD_BACKLIGNT   */
 #define back_light(n)\
-     gpio_direction_output((32*4 + 1), n)
+     gpio_direction_output(PWM_OUT, n)
+#endif
 
 /*PB30  LCD_RESET   */
 #define RESET(n)\
-     gpio_direction_output((32*1 + 30), n)
+     gpio_direction_output(LCD_RESET, n)
 
 /*PC0  SPI_CS   */
 #define CS(n)\
-     gpio_direction_output((32*2 + 0), n)
+     gpio_direction_output(SPI_CS, n)
 
-/*PC1  SPI_CS   */
+/*PC1  SPI_CLK   */
 #define SCK(n)\
-     gpio_direction_output((32*2 + 1), n)
+     gpio_direction_output(SPI_CLK, n)
 
 /*PC10 SPI_MOSI */
 #define SDO(n)\
-	 gpio_direction_output((32*2 + 10), n)
+	 gpio_direction_output(SPI_MOSI, n)
 
 /*PC11 SPI_MISO */
 #define SDI()\
-	gpio_get_value((32*2 + 11))
+	gpio_get_value(SPI_MISO)
 
+/*PC20 BACK_LIGHT_SELECT */
+#define BACK_LIGHT_SEL(n)\
+	 gpio_direction_output(LCD_BACK_LIGHT_SEL, n)
 
 void SPI_3W_SET_CMD(unsigned char c)
 {
@@ -69,7 +83,7 @@ void SPI_3W_SET_PAs(unsigned char d)
 		d=d<<1;
 	}
 }
-unsigned char SPI_GET_REG_VAL()
+unsigned char SPI_GET_REG_VAL(void)
 {
 	unsigned char i;
 	unsigned char data = 0;
@@ -88,7 +102,7 @@ unsigned char SPI_GET_REG_VAL()
 	return data;
 }
 
-unsigned char SPI_READ_REG(unsigned char reg)
+void SPI_READ_REG(unsigned char reg)
 {
 	int data = 0;
 	
@@ -106,9 +120,38 @@ unsigned char SPI_READ_REG(unsigned char reg)
 	printk("reg(0x%x)=0x%x\n",reg,data);
 }
 
+void SET_BRIGHT_CTRL(void)
+{
+	printk("This is the screen brightness ctrl!\n");
+	CS(0);
+	udelay(10);
+	
+	SPI_3W_SET_CMD(0xB9); //Set_EXTC
+	SPI_3W_SET_PAs(0xFF);
+	SPI_3W_SET_PAs(0x83);
+	SPI_3W_SET_PAs(0x69);
+
+	SPI_3W_SET_CMD(0x53); //SET DISP CTRL
+	SPI_3W_SET_PAs(0x2c);
+	
+	SPI_3W_SET_CMD(0x51); //SET BRIGHTNESS
+	SPI_3W_SET_PAs(0xf0);
+
+	//SPI_3W_SET_CMD(0x55); //SET CABC CMD
+	//SPI_3W_SET_PAs(0x01);
+	
+	//SPI_3W_SET_CMD(0x5e); //SET MIN BRIGHTNESS
+	//SPI_3W_SET_PAs(0xf);
+	
+	CS(1);
+	udelay(10);
+}
 void Initial_IC(void)
 {
+
+#ifdef DEBUG
 	back_light(1);
+#endif
 
 	RESET(1);
 	udelay(1000); // Delay 1ms
@@ -386,4 +429,12 @@ void Initial_IC(void)
 
 	SPI_3W_SET_CMD(0x29); //Display On 
 	CS(1);
+
+#ifdef CONFIG_BACKLIGHT_PWM
+	BACK_LIGHT_SEL(1);
+#else
+	BACK_LIGHT_SEL(0);
+	SET_BRIGHT_CTRL();
+#endif
+
 }

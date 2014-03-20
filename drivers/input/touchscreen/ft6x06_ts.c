@@ -63,6 +63,8 @@ struct ft6x06_ts_data {
 	unsigned int irq_pin;
 	unsigned int x_max;
 	unsigned int y_max;
+	unsigned int va_x_max;
+	unsigned int va_y_max;
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct ts_event event;
@@ -240,8 +242,8 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 
 	for (i = 0; i < event->touch_point; i++) {
 		/* LCD view area */
-		if (event->au16_x[i] < data->x_max
-		    && event->au16_y[i] < data->y_max) {
+		if (event->au16_x[i] < data->va_x_max
+		    && event->au16_y[i] < data->va_y_max) {
 			if ((event->au8_touch_event[i] == FTS_POINT_DOWN)
 				|| (event->au8_touch_event[i] == FTS_POINT_CONTACT)) {
 				ft6x06_touch_down(data, event->au8_finger_id[i],
@@ -250,6 +252,8 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 			} else {
 				ft6x06_touch_up(data, event->au8_finger_id[i]);
 			}
+		}
+		else{
 		}
 	}
 	if (event->touch_point > 0)
@@ -353,6 +357,8 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	ft6x06_ts->pdata = pdata;
 	ft6x06_ts->x_max = pdata->x_max - 1;
 	ft6x06_ts->y_max = pdata->y_max - 1;
+	ft6x06_ts->va_x_max = 299;
+	ft6x06_ts->va_y_max = 479;
 #ifdef CONFIG_PM
 	err = gpio_request(pdata->reset, "ft6x06 reset");
 	if (err < 0) {
@@ -388,8 +394,10 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, PRESS_MAX, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, ft6x06_ts->x_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, ft6x06_ts->y_max, 0, 0);
+	// input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, ft6x06_ts->x_max, 0, 0);
+	// input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, ft6x06_ts->y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, ft6x06_ts->va_x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, ft6x06_ts->va_y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, PRESS_MAX, 0, 0);

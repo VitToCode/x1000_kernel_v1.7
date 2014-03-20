@@ -73,7 +73,7 @@
 
 #ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
 #define LCD_PORTC \
-	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0ffff3fc, }
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fcff3fc, }
 #else
 #define LCD_PORTC \
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }

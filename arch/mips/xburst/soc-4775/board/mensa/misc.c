@@ -112,8 +112,8 @@ static struct i2c_board_info mensa_i2c0_devs[] __initdata = {
 
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
 static struct ft6x06_platform_data mensa_tsc_pdata = {
-		.x_max          = 480,
-		.y_max          = 800,
+		.x_max          = 300,
+		.y_max          = 520,
 		.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
 		.irq = (32 * 1 + 29),
 		.reset = (32 *1 + 28),

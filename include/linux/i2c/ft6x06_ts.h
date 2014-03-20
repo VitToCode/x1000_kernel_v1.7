@@ -39,6 +39,8 @@ int ft6x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen);
 struct ft6x06_platform_data {
 	unsigned int x_max;
 	unsigned int y_max;
+	unsigned int va_x_max;
+	unsigned int va_y_max;
 	unsigned long irqflags;
 	unsigned int irq;
 	unsigned int reset;
