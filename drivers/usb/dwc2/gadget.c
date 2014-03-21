@@ -1023,6 +1023,12 @@ static int __dwc2_gadget_ep_enable(struct dwc2_ep *dep,
 		dep->desc = desc;
 		dep->type = usb_endpoint_type(desc);
 		dep->maxp = __le16_to_cpu(desc->wMaxPacketSize);
+		if (dep->type == USB_ENDPOINT_XFER_INT) {
+			dep->mc = dwc2_hb_mult(dep->maxp);
+			dep->maxp = dwc2_max_packet(dep->maxp);
+		} else {
+			dep->mc = DWC_MAX_PKT_CNT;
+		}
 
 		/* TODO: 2^(bInterval - 1) is the high-speed case, please take care of fs/ls */
 		if (desc->bInterval)
@@ -1271,6 +1277,7 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 	struct dwc2_request		*req;
 	deptsiz_data_t			 deptsiz;
 	depctl_data_t			 depctl;
+	int	                        pktcnt;
 
 	req = next_request(&dep->request_list);
 	if (unlikely(req == NULL)) {
@@ -1286,6 +1293,7 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 		req->zlp_transfered = 1;
 		deptsiz.b.xfersize = 0;
 		deptsiz.b.pktcnt = 1;
+		pktcnt = 1;
 	} else {
 		/*
 		 * transfer size = n * mps + sp;
@@ -1301,16 +1309,15 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 		 */
 
 		int n, sp;
-		int pktcnt;
 
 		n = req->trans_count_left / dep->maxp;
-		if (n > DWC_MAX_PKT_CNT)
-			n = DWC_MAX_PKT_CNT;
+		if (n > dep->mc)
+			n = dep->mc;
 
 		pktcnt = n;
 
 		sp = req->trans_count_left - n * dep->maxp;
-		if ( (sp > 0) && (n == DWC_MAX_PKT_CNT)) {
+		if ( (sp > 0) && (n == dep->mc)) {
 			sp = 0;
 		}
 
@@ -1333,8 +1340,14 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 	/* Write the DMA register */
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
-			if (dep->type != USB_ENDPOINT_XFER_ISOC)
+			if (dep->type == USB_ENDPOINT_XFER_INT) {
+				deptsiz.b.mc = pktcnt;
+			} else if (dep->type != USB_ENDPOINT_XFER_ISOC) {
 				deptsiz.b.mc = 1;
+			} else {
+				// ISOC
+				/* FIXME: */
+			}
 
 			dwc_writel(deptsiz.d32, &in_regs->dieptsiz);
 			dwc_writel(req->next_dma_addr, &in_regs->diepdma);

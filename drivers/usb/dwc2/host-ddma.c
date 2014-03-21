@@ -832,7 +832,7 @@ static void dwc2_qh_destroy(struct dwc2 *dwc, struct dwc2_qh *qh) {
 		if (qh->period)
 			bd /= qh->period;
 
-		dwc->hcd->self.bandwidth_allocated += bd;
+		dwc->hcd->self.bandwidth_allocated -= bd;
 	}
 
 	while (!list_empty(&qh->urb_list)) {
@@ -866,11 +866,6 @@ static void dwc2_qh_destroy(struct dwc2 *dwc, struct dwc2_qh *qh) {
 }
 
 static void dwc2_host_cleanup(struct dwc2 *dwc);
-
-// high bandwidth multiplier, as encoded in highspeed endpoint descriptors
-#define dwc2_hb_mult(wMaxPacketSize) (1 + (((wMaxPacketSize) >> 11) & 0x03))
-// ... and packet size, for any kind of endpoint descriptor
-#define dwc2_max_packet(wMaxPacketSize) ((wMaxPacketSize) & 0x07ff)
 
 static struct dwc2_qh* dwc2_qh_make(struct dwc2 *dwc, struct urb *urb) {
 	struct dwc2_qh			*qh;

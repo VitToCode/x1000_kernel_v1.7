@@ -100,6 +100,11 @@ dwc2_printk(const char *comp, const char *fmt, ...)
 #define DWC_P_HCTSIZ(name, ch)   printk("  hctsiz(%d)=0x%08x\n", (ch), name)
 #define DWC_P_HCDMA(name, ch)     printk("   hcdma(%d)=0x%08x\n", (ch), name)
 
+// high bandwidth multiplier, as encoded in highspeed endpoint descriptors
+#define dwc2_hb_mult(wMaxPacketSize) (1 + (((wMaxPacketSize) >> 11) & 0x03))
+// ... and packet size, for any kind of endpoint descriptor
+#define dwc2_max_packet(wMaxPacketSize) ((wMaxPacketSize) & 0x07ff)
+
 
 /*-------------------Device----------------- */
 
@@ -131,6 +136,7 @@ struct dwc2_ep {
 	u8			 number;
 	u8			 type;
 	u16			 maxp;
+	u16                      mc;
 	u32			 interval;
 	unsigned		 is_in:1;
 
