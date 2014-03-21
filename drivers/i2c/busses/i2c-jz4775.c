@@ -354,11 +354,10 @@ static irqreturn_t jz_i2c_irq(int irqno, void *dev_id)
 				tmp |= I2C_INTM_MTXEMP;
 				i2c_writel(i2c, I2C_INTM, tmp);
 			} else {
-				i2c_send_rcmd(i2c, i2c->rdcmd_len);
+				i2c_send_rcmd(i2c, i2c->rdcmd_len-1);
 				i2c->rdcmd_len = 0;
 
-				tmp = i2c_readl(i2c, I2C_DC);
-				tmp |= I2C_DC_STP;
+				tmp = I2C_DC_STP | I2C_DC_READ;
 				i2c_writel(i2c, I2C_DC, tmp);
 			}
 		} else {
