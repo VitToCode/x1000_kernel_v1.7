@@ -41,8 +41,11 @@
 #define GET_BUF 2
 #define SWAP_BUF 3
 #define SWAP_NR (GET_BUF+SWAP_BUF)
+#define RESERVE_BUF SWAP_NR
+#define RESERVED_NR 1
 #define CDESC_NR	1
 
+//#define RESERVE_FRAME_DEBUG 1
 //#define KERNEL_INFO_PRINT
 
 //#define DUMP_CIM_REGESITER_BEFORE_START
@@ -1392,8 +1395,8 @@ static int cim_alloc_mem(struct jz_cim *cim)
 	//cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
 	//		sizeof(*cim->preview) * PDESC_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
 
-    cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
-			sizeof(*cim->preview) * SWAP_NR,(dma_addr_t *)&cim->preview, GFP_KERNEL);
+	cim->pdesc_vaddr = dma_alloc_coherent(cim->dev,
+			sizeof(*cim->preview) * (SWAP_NR + RESERVED_NR),(dma_addr_t *)&cim->preview, GFP_KERNEL);
 
 	///cim->preview = kzalloc(sizeof(struct jz_cim_dma_desc) * PDESC_NR,GFP_KERNEL);
 	if (!cim->preview)
@@ -1408,6 +1411,132 @@ static int cim_alloc_mem(struct jz_cim *cim)
 
 	return 0;
 }
+static int reserve_frame(unsigned int reserve_buffer, struct jz_cim *cim)
+{
+	unsigned long addr ;
+	unsigned int cb_frame;
+	unsigned int cb_len;
+	unsigned int cr_frame;
+	unsigned int cr_len;
+	unsigned long flags;
+	int fid;
+	int i = 0;
+	struct jz_cim_dma_desc * desc;
+	desc  = (struct jz_cim_dma_desc *)cim->pdesc_vaddr;
+	if ((desc[RESERVE_BUF].buf == 0) || (desc[RESERVE_BUF].cb_frame == 0) || (desc[RESERVE_BUF].cr_frame == 0)) {
+		printk("desc[RESERVE_BUF] not maloc !\n");
+		return -1;
+	}
+	for (fid = 0; fid < SWAP_NR; fid++) {
+		if (reserve_buffer == desc[fid].buf) {
+			if ((fid >= 0) && (fid <= 2))
+				return -1;
+#ifdef RESERVE_FRAME_DEBUG
+			for (i = 0;i < (RESERVE_BUF + 1);i++) {
+				printk("desc[i].buf = 0x%x\n",desc[i].buf);
+			}
+			printk("fid = %d, desc[RESERVE_BUF].buf = 0x%x, desc[fid].buf = 0x%x\n",
+					fid, desc[RESERVE_BUF].buf, desc[fid].buf);
+#endif
+
+			spin_lock_irqsave(&cim->lock,flags);
+
+			/*copy desc[fid] data*/
+			addr =  desc[fid].buf;
+
+			/*swap desc[fid] and desc[RESERVE_BUF] data*/
+			desc[fid].buf = desc[RESERVE_BUF].buf;
+
+			/*copy desc[fid] data*/
+			desc[RESERVE_BUF].buf = addr;
+
+			if (cim->preview_output_format != CIM_BYPASS_YUV422I) {
+				cb_frame = desc[fid].cb_frame;
+				cr_frame = desc[fid].cr_frame;
+				cb_len = desc[fid].cb_len;
+				cr_len = desc[fid].cr_len;
+
+				/*swap desc[fid] and desc[RESERVE_BUF] data*/
+				desc[fid].cb_frame = desc[RESERVE_BUF].cb_frame;
+				desc[fid].cr_frame = desc[RESERVE_BUF].cr_frame;
+				desc[fid].cb_len = desc[RESERVE_BUF].cb_len;
+				desc[fid].cr_len = desc[RESERVE_BUF].cr_len;
+
+				/*copy desc[fid] data*/
+				desc[RESERVE_BUF].cb_frame = cb_frame;
+				desc[RESERVE_BUF].cr_frame = cr_frame;
+				desc[RESERVE_BUF].cb_len = cb_len;
+				desc[RESERVE_BUF].cr_len = cr_len;
+			}
+			/*dma_cache_wback((unsigned long)(&desc[fid]), sizeof(struct jz_cim_dma_desc));*/
+#if defined(CONFIG_TVP5150) || defined(CONFIG_ADV7180)
+			convert_frame(cim,addr);
+#endif
+			spin_unlock_irqrestore(&cim->lock,flags);
+#ifdef RESERVE_FRAME_DEBUG
+			printk("fid = %d, desc[RESERVE_BUF].buf = 0x%x, desc[fid].buf = 0x%x\n",
+					fid, desc[RESERVE_BUF].buf, desc[fid].buf);
+#endif
+
+		}
+	}
+
+	return 1;
+}
+
+static int cim_prepare_reserve_pdma(struct jz_cim *cim, unsigned long addr){
+	unsigned int preview_imgsize = cim->psize.w * cim->psize.h;
+	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->pdesc_vaddr;
+	CameraYUVMeta *yuv_meta_data = (CameraYUVMeta *) addr;
+
+	if(cim->state != CS_IDLE)
+		return -EBUSY;
+
+	desc[RESERVE_BUF].next = virt_to_phys(NULL);
+	desc[RESERVE_BUF].id = RESERVE_BUF;
+	if (cim->tlb_flag == 1) {
+		desc[RESERVE_BUF].buf = yuv_meta_data->yAddr;
+	} else {
+		desc[RESERVE_BUF].buf = yuv_meta_data->yPhy;
+	}
+	if(cim->preview_output_format != CIM_BYPASS_YUV422I)
+		desc[RESERVE_BUF].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT; //YUV420Tile don't need auto recover
+	else {
+#ifdef CONFIG_OV5640_RAW_BAYER
+		desc[RESERVE_BUF].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+#else
+		desc[RESERVE_BUF].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+#endif
+	}
+
+#ifdef KERNEL_INFO_PRINT
+	dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n", RESERVE_BUF, desc[RESERVE_BUF].buf);
+#endif
+	if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
+		if(cim->preview_output_format == CIM_CSC_YUV420P) {
+			if (cim->tlb_flag == 1) {
+				desc[RESERVE_BUF].cb_frame = yuv_meta_data->uAddr;
+				desc[RESERVE_BUF].cr_frame = yuv_meta_data->vAddr;
+			} else {
+				desc[RESERVE_BUF].cb_frame = yuv_meta_data->uPhy;
+				desc[RESERVE_BUF].cr_frame = yuv_meta_data->vPhy;
+			}
+		} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
+			if (cim->tlb_flag == 1) {
+				desc[RESERVE_BUF].cb_frame = yuv_meta_data->uAddr;
+			} else {
+				desc[RESERVE_BUF].cb_frame = yuv_meta_data->uPhy;
+			}
+			desc[RESERVE_BUF].cr_frame = desc[RESERVE_BUF].cb_frame + 64;
+		}
+		desc[RESERVE_BUF].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
+		desc[RESERVE_BUF].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
+#ifdef KERNEL_INFO_PRINT
+		dev_info(cim->dev,"cim set C buffer[%d] phys is: %x\n", RESERVE_BUF, desc[RESERVE_BUF].cb_frame);
+#endif
+	}
+	return 1;
+}
 
 static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 {
@@ -1415,19 +1544,18 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 	unsigned int preview_imgsize = cim->psize.w * cim->psize.h;
 	struct jz_cim_dma_desc * desc = (struct jz_cim_dma_desc *) cim->pdesc_vaddr;
 	CameraYUVMeta *yuv_meta_data = (CameraYUVMeta *) addr;
-	
+
 	if(cim->state != CS_IDLE)
 		return -EBUSY;
-	
-	//for(i=0;i<PDESC_NR;i++) {
     for(i=0;i<SWAP_NR;i++) {
 		desc[i].next = (dma_addr_t)(&cim->preview[i+1]);
-		desc[i].id 	= i;
-        if (cim->tlb_flag == 1) {
-            desc[i].buf = yuv_meta_data[i].yAddr;
-        } else {
-            desc[i].buf = yuv_meta_data[i].yPhy;
-        }
+		desc[i].id      = i;
+	 if (cim->tlb_flag == 1) {
+	     desc[i].buf = yuv_meta_data[i].yAddr;
+	 } else {
+	     desc[i].buf = yuv_meta_data[i].yPhy;
+	 }
+
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I)
 			desc[i].cmd = (preview_imgsize >> 2) | CIM_CMD_EOFINT; //YUV420Tile don't need auto recover
 		else {
@@ -1437,28 +1565,28 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
 			desc[i].cmd = ((preview_imgsize << 1) >> 2) | CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 #endif
 		}
-	
+
 #ifdef KERNEL_INFO_PRINT
 		dev_info(cim->dev,"cim set Y buffer[%d] phys is: %x\n", i, desc[i].buf);
 #endif		
 		if(cim->preview_output_format != CIM_BYPASS_YUV422I) {
 			if(cim->preview_output_format == CIM_CSC_YUV420P) {
-                		if (cim->tlb_flag == 1) {
-                		    desc[i].cb_frame = yuv_meta_data[i].uAddr;
-                		    desc[i].cr_frame = yuv_meta_data[i].vAddr;
-                		} else {
-                		    desc[i].cb_frame = yuv_meta_data[i].uPhy;
-                		    desc[i].cr_frame = yuv_meta_data[i].vPhy;
-                		}
+                               if (cim->tlb_flag == 1) {
+				    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+			            desc[i].cr_frame = yuv_meta_data[i].vAddr;
+				} else {
+				    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+				    desc[i].cr_frame = yuv_meta_data[i].vPhy;
+				}
 			} else if(cim->preview_output_format == CIM_CSC_YUV420B) {
-                		if (cim->tlb_flag == 1) {
-                		    desc[i].cb_frame = yuv_meta_data[i].uAddr;
-                		} else {
-                		    desc[i].cb_frame = yuv_meta_data[i].uPhy;
-                		}
-                		desc[i].cr_frame = desc[i].cb_frame + 64;
-			} 
-			
+				if (cim->tlb_flag == 1) {
+				    desc[i].cb_frame = yuv_meta_data[i].uAddr;
+				} else {
+				    desc[i].cb_frame = yuv_meta_data[i].uPhy;
+				}
+				desc[i].cr_frame = desc[i].cb_frame + 64;
+			}
+
 			desc[i].cb_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 			desc[i].cr_len = (cim->psize.w >> 1) * (cim->psize.h >> 1) >> 2;
 #ifdef KERNEL_INFO_PRINT
@@ -1471,7 +1599,7 @@ static int cim_prepare_pdma(struct jz_cim *cim, unsigned long addr)
     desc[SWAP_BUF-1].next = (dma_addr_t)(&cim->preview[0]); // 3 - 1
 
     for (i = 0; i < GET_BUF; i++) { // 2
-        desc[SWAP_BUF + i].next = virt_to_phys(NULL);
+	 desc[SWAP_BUF + i].next = virt_to_phys(NULL);
     }
 
 	//dma_cache_wback((unsigned long)(&cim->preview[0]), sizeof(struct jz_cim_dma_desc) *PDESC_NR);
@@ -1689,6 +1817,15 @@ static long cim_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return copy_from_user(&cim->offset, (void __user *)arg, sizeof(struct frm_size));
 			break;
 #endif
+		case CIMIO_SET_RESERVE_MEM:
+			return cim_prepare_reserve_pdma(cim,arg);
+		case CIMIO_RESERVE_FRAME:
+			if(reserve_frame(arg, cim) == -1){
+				printk("reserve_frame failed!,fid >= 0 && fid <= 2\n");
+				return -1;
+			}
+			break;
+
 	}
 	return ret;
 }

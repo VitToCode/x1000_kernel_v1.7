@@ -26,6 +26,8 @@
 #define CIMIO_SET_PREVIEW_FMT			0x17
 #define CIMIO_SET_CAPTURE_FMT			0x18
 #define CIMIO_SET_OFFSET			0x19
+#define CIMIO_RESERVE_FRAME                     0x20
+#define CIMIO_SET_RESERVE_MEM                   0x21
 
 //cim output format, set according system/core/include/system/graphics.h
 #define HAL_PIXEL_FORMAT_YV12			0x32315659
