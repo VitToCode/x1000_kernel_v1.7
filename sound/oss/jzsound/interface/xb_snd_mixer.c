@@ -250,7 +250,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 	}
 
 	case SOUND_MIXER_READ_OUTSRC: {
-	
+
 		int tmp;
 		tmp = SOUND_MIXER_SPEAKER;
 
@@ -260,8 +260,8 @@ long xb_snd_mixer_ioctl(struct file *file,
 		}
 		break;
 	}
-				
-	case SOUND_MIXER_WRITE_OUTSRC: { 
+
+	case SOUND_MIXER_WRITE_OUTSRC: {
 		int tmp;
 		if (get_user(tmp, (int*)arg)){
 			return -EFAULT;
@@ -308,7 +308,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 			return -EFAULT;
 		break;
 	}
-				   
+
 	case SOUND_MIXER_WRITE_VOLUME:
 	case SOUND_MIXER_WRITE_IMIX:
 	case SOUND_MIXER_WRITE_OGAIN:
@@ -339,7 +339,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 	case SOUND_MIXER_WRITE_RECLEV:
 	case SOUND_MIXER_WRITE_IGAIN:
 	case SOUND_MIXER_WRITE_MIC: {
-	
+
 		int vol = 0;
 		if (get_user(vol, (int*)arg)){
 			return -EFAULT;
@@ -383,7 +383,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 			return -EFAULT;
 		break;
 	}
-							   
+
 	case SOUND_MIXER_READ_LINE:
 	case SOUND_MIXER_READ_LINE1:
 	case SOUND_MIXER_READ_LINE2:
@@ -397,7 +397,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 			return -EFAULT;
 		break;
 	}
-							   
+
 	case SOUND_MIXER_READ_IGAIN:
 	case SOUND_MIXER_READ_RECLEV:
 	case SOUND_MIXER_READ_MIC: {
@@ -450,7 +450,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 		//case SNDCTL_MIX_WRITE:
 		/* OSS 4.x: change value of a mixer control */
 		//break;
-	default : 
+	default :
 		printk("unsupported cmd \n");
 		break;
 	}

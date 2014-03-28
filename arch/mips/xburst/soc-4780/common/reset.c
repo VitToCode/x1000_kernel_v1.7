@@ -20,6 +20,7 @@
 #include <soc/extal.h>
 #include <soc/tcu.h>
 #include <soc/gpio.h>
+#include <linux/notifier.h>
 
 #include <asm/reboot.h>
 
@@ -49,6 +50,39 @@
 #define RECOVERY_SIGNATURE	(0x001a1a)
 #define REBOOT_SIGNATURE	(0x003535)
 #define UNMSAK_SIGNATURE	(0x7c0000)//do not use these bits
+
+static BLOCKING_NOTIFIER_HEAD(reset_notifier_chain);
+
+/**
+ *	reset_notifier_client_register - register a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int reset_notifier_client_register(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&reset_notifier_chain, nb);
+}
+EXPORT_SYMBOL(reset_notifier_client_register);
+
+/**
+ *	reset_notifier_client_unregister - unregister a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int reset_notifier_client_unregister(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&reset_notifier_chain, nb);
+}
+EXPORT_SYMBOL(reset_notifier_client_unregister);
+
+/**
+ * reset_notifier_call_chain - notify clients of reset_events
+ *
+ */
+int reset_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&reset_notifier_chain, val, v);
+}
+EXPORT_SYMBOL_GPL(reset_notifier_call_chain);
+
 
 static void wdt_start_count(int msecs)
 {
@@ -169,9 +203,7 @@ void jz_hibernate(void)
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
-#ifdef CONFIG_BOARD_GRUS_V_1_0_1
-	ricoh618_power_off();
-#endif
+	reset_notifier_call_chain(PM_POST_HIBERNATION, NULL);
 
 	mdelay(200);
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));

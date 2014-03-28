@@ -31,6 +31,7 @@
 #include <linux/types.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/notifier.h>
 #include <irq.h>
 
 /* Maximum number of main interrupts */
@@ -257,6 +258,7 @@ struct ricoh618 {
 	struct device		*dev;
 	struct i2c_client	*client;
 	struct mutex		io_lock;
+	struct notifier_block ricoh618_notifier;
 	int			gpio_base;
 	struct gpio_chip	gpio_chip;
 	int			irq_base;
@@ -328,7 +330,6 @@ extern int ricoh618_clr_bits(struct device *dev, u8 reg, uint8_t bit_mask);
 extern int ricoh618_update(struct device *dev, u8 reg, uint8_t val,	uint8_t mask);
 
 extern int ricoh618_update_bank1(struct device *dev, u8 reg, uint8_t val, uint8_t mask);
-extern int ricoh618_power_off(void);
 extern int ricoh618_irq_init(struct ricoh618 *ricoh618, int irq,int irq_base);
 extern int ricoh618_irq_exit(struct ricoh618 *ricoh618);
 

@@ -2480,6 +2480,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		printk("register hdmi notify\n");
 			arg = (int)ddata->dev_ioctl(SND_DSP_REGISTER_NOTIFIER, (unsigned long)dpo);
 			if (arg < 0) {
+				printk("register hdmi notify failed\n");
 				return -EIO;
 			}
 		}
@@ -2565,7 +2566,6 @@ int xb_snd_dsp_release(struct inode *inode,
 				return ret;
 			}
 #if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-		printk("\n unregister hmdi failed\n\n");
 			ret = (int)ddata->dev_ioctl(SND_DSP_UNREGISTER_NOTIFIER, (unsigned long)dpo);
 			if (ret < 0) {
 				printk("\n unregister hmdi failed\n\n");

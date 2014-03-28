@@ -851,12 +851,12 @@ static int i2s_set_device(unsigned long device)
 
 static int i2s_register_hdmi_notifier(struct notifier_block *nb)
 {
-	return hdmi_notifier_client_register(nb);	
+	return hdmi_notifier_client_register(nb);
 }
 
 static int i2s_unregister_hdmi_notifier(struct notifier_block *nb)
 {
-	return hdmi_notifier_client_unregister(nb);	
+	return hdmi_notifier_client_unregister(nb);
 }
 
 #ifndef CONFIG_ANDROID
@@ -865,7 +865,7 @@ static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long 
 	int ret;
 
 	if (event == HDMI_EVENT_CONNECT) {
-		ret = jz_get_hp_switch_state();		
+		ret = jz_get_hp_switch_state();
 		if (ret)
 			ret = SND_DEVICE_HEADSET;
 		else
@@ -873,14 +873,14 @@ static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long 
 
 		ret = i2s_set_device((unsigned long)&ret);
 	} else if (event == HDMI_EVENT_DISCONNECT) {
-		ret = jz_get_hp_switch_state();		
+		ret = jz_get_hp_switch_state();
 		if (ret)
 			ret = SND_DEVICE_HEADSET;
 		else
 			ret = SND_DEVICE_SPEAKER;
 
 		ret = i2s_set_device((unsigned long)&ret);
-	} else 
+	} else
 		printk("\n%s event not match\n", __func__);
 
 	return ret;

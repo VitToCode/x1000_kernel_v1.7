@@ -61,6 +61,9 @@ static struct sleep_control_data sleep_data[] = {
 	SLEEP_INIT(LDORTC1, 0x2A),
 };
 
+extern int reset_notifier_client_register(struct notifier_block *nb);
+extern int reset_notifier_client_unregister(struct notifier_block *nb);
+
 static inline int __ricoh618_read(struct i2c_client *client,
 				  u8 reg, uint8_t *val)
 {
@@ -386,7 +389,7 @@ out:
 }
 
 static struct i2c_client *ricoh618_i2c_client;
-int ricoh618_power_off(void)
+static int ricoh618_power_off(void)
 {
 	int ret;
 	uint8_t val = 0;
@@ -412,8 +415,32 @@ int ricoh618_power_off(void)
 	/* Power OFF */
 	__ricoh618_write(ricoh618_i2c_client, RICOH618_PWR_SLP_CNT, 0x1);
 
-
+	printk("ricoh618_power_off successed\n\n");
 	return 0;
+}
+
+static int ricoh618_register_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_register(nb);
+}
+
+static int ricoh618_unregister_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_unregister(nb);
+}
+
+static int ricoh618_reset_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	int ret;
+
+	if (event == PM_POST_HIBERNATION) {
+		ret = ricoh618_power_off();
+		if (ret < 0)
+			printk("ricoh618_power_off failed \n");
+	} else
+		printk("\n%s event not match\n", __func__);
+
+	return ret;
 }
 
 
@@ -709,6 +736,7 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 	mutex_init(&ricoh618->io_lock);
 
 	ricoh618->bank_num = 0;
+	ricoh618->ricoh618_notifier.notifier_call = ricoh618_reset_notifier_handler;
 
 	ricoh618_read_pwroff_on(ricoh618->dev);
 
@@ -736,6 +764,12 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 		goto err_add_devs;
 	}
 
+	ret = ricoh618_register_reset_notifier(&(ricoh618->ricoh618_notifier));
+	if (ret) {
+		printk("ricoh618_register_reset_notifier failed\n");
+		goto err_add_notifier;
+	}
+
 	ricoh618_gpio_init(ricoh618, pdata);
 
 	ricoh618_debuginit(ricoh618);
@@ -743,6 +777,7 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 	ricoh618_i2c_client = i2c;
 	return 0;
 
+err_add_notifier:
 err_add_devs:
 	if (i2c->irq)
 		ricoh618_irq_exit(ricoh618);
@@ -753,14 +788,20 @@ err_irq_init:
 
 static int  __devexit ricoh618_i2c_remove(struct i2c_client *i2c)
 {
+	int ret = 0;
 	struct ricoh618 *ricoh618 = i2c_get_clientdata(i2c);
 
 	if (i2c->irq)
 		ricoh618_irq_exit(ricoh618);
 
+	ret = ricoh618_unregister_reset_notifier(&(ricoh618->ricoh618_notifier));
+	if (ret) {
+		printk("ricoh618_register_reset_notifier failed\n");
+	}
+
 	mfd_remove_devices(ricoh618->dev);
 	kfree(ricoh618);
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_PM
