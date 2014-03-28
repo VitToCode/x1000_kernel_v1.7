@@ -17,6 +17,7 @@
 #include <linux/poll.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
+#include <linux/notifier.h>
 #include <linux/dma-mapping.h>
 
 /*####################################################*\
@@ -203,6 +204,9 @@ enum snd_dsp_command {
 	 **/
 	SND_DSP_CLR_ROUTE,
 
+	SND_DSP_REGISTER_NOTIFIER,
+	SND_DSP_UNREGISTER_NOTIFIER,
+
 	SND_DSP_DEBUG,
 };
 
@@ -256,6 +260,7 @@ struct dsp_pipe {
 	struct timer_list	transfer_watchdog;
 	uint32_t watchdog_mdelay;
 	volatile bool		force_hdmi;
+	struct notifier_block hdmi_notifier;
 
 	/* state */
 	volatile bool       is_trans;

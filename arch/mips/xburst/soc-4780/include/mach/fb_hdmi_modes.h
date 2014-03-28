@@ -13,6 +13,10 @@
 
 #define ADD_HDMI_VIDEO_MODE(mode) mode
 
+#define HDMI_EVENT_CONNECT		0X01
+#define HDMI_EVENT_DISCONNECT		0X02
+
+
 /*
  * struct fb_videomode - Defined in kernel/include/linux/fb.h
  * name

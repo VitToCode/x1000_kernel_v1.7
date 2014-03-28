@@ -23,11 +23,15 @@
 #include <linux/earlysuspend.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/notifier.h>
+#include <mach/fb_hdmi_modes.h>
 
 #include "jz4780_hdmi.h"
 
 /*In normal mode this define should not open*/
 //#define DVIMODE 1
+
+static BLOCKING_NOTIFIER_HEAD(hdmi_notifier_chain);
 
 #ifdef CONFIG_FORCE_RESOLUTION
 static int resolution = CONFIG_FORCE_RESOLUTION;
@@ -87,6 +91,38 @@ void cec_switch_tv(void)
 	sendmessage(value,3);
 }
 
+
+/**
+ *	hdmi_notifier_client_register - register a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int hdmi_notifier_client_register(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hdmi_notifier_chain, nb);
+}
+EXPORT_SYMBOL(hdmi_notifier_client_register);
+
+/**
+ *	hdmi_notifier_client_unregister - unregister a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int hdmi_notifier_client_unregister(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hdmi_notifier_chain, nb);
+}
+EXPORT_SYMBOL(hdmi_notifier_client_unregister);
+
+/**
+ * hdmi_notifier_call_chain - notify clients of hdmi_events
+ *
+ */
+int hdmi_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&hdmi_notifier_chain, val, v);
+}
+EXPORT_SYMBOL_GPL(hdmi_notifier_call_chain);
+
+
 static void edid_callback(void *param)
 {
 	dev_info(global_hdmi->dev, "EDID reading done\n");
@@ -117,6 +153,8 @@ static void hpd_callback(void *param)
 		}
 		global_hdmi->hdmi_is_running = 0;
 
+		hdmi_notifier_call_chain(HDMI_EVENT_DISCONNECT, NULL);
+
 #if defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER) || defined(CONFIG_HDMI_NOT_CONTROL_IN_SURFACEFLINGER_MODULE)
 #ifdef CONFIG_FORCE_RESOLUTION
 		api_phy_enable(PHY_ENABLE_HPD);
@@ -130,6 +168,8 @@ static void hpd_callback(void *param)
 #endif
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_CONNECTED);
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_CONNECTED;
+
+		hdmi_notifier_call_chain(HDMI_EVENT_CONNECT, NULL);
 
 		if (global_hdmi->probe_finish == 1)
 			global_hdmi->hdmi_is_running = 1;

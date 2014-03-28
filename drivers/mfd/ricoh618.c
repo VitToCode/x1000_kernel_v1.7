@@ -152,6 +152,10 @@ int ricoh618_write(struct device *dev, u8 reg, uint8_t val)
 	struct ricoh618 *ricoh618 = dev_get_drvdata(dev);
 	int ret = 0;
 
+	if (!ricoh618) {
+		printk("%s get drvdata failed\n", __func__);
+		return -1;
+	}
 	mutex_lock(&ricoh618->io_lock);
 	ret = set_bank_ricoh618(dev, 0);
 	if( !ret )
@@ -206,6 +210,24 @@ int ricoh618_bulk_writes_bank1(struct device *dev, u8 reg, u8 len, uint8_t *val)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ricoh618_bulk_writes_bank1);
+
+static void ricoh618_read_pwroff_on(struct device *dev)
+{
+	int ret = 0;
+	uint8_t val;
+
+	ret = __ricoh618_read(to_i2c_client(dev), RICOH618_PWR_ON_HIS, &val);
+	if( !ret )
+		printk("RICOH618: power on squence: 0x%x\n", val);
+	else
+		printk("%s failed\n", __func__);
+
+	ret = __ricoh618_read(to_i2c_client(dev), RICOH618_PWR_OFF_HIS, &val);
+	if( !ret )
+		printk("RICOH618: power off squence: 0x%x\n", val);
+	else
+		printk("%s failed\n", __func__);
+}
 
 int ricoh618_read(struct device *dev, u8 reg, uint8_t *val)
 {
@@ -366,8 +388,30 @@ out:
 static struct i2c_client *ricoh618_i2c_client;
 int ricoh618_power_off(void)
 {
+	int ret;
+	uint8_t val = 0;
 	if (!ricoh618_i2c_client)
 		return -EINVAL;
+
+	val = g_soc;
+	val &= 0x7f;
+	ret = __ricoh618_write(ricoh618_i2c_client, RICOH618_PSWR, val);
+	if (ret < 0)
+		dev_err(&(ricoh618_i2c_client->dev), "Error in writing PSWR_REG\n");
+
+	if (g_fg_on_mode == 0) {
+		ret = ricoh618_clr_bits(ricoh618_i2c_client,
+					 RICOH618_FG_CTRL, 0x01);
+		if (ret < 0)
+			dev_err(&(ricoh618_i2c_client->dev), "Error in writing FG_CTRL\n");
+	}
+
+	/* Not repeat power ON after power off(Power Off/N_OE) */
+	__ricoh618_write(ricoh618_i2c_client, RICOH618_PWR_REP_CNT, 0x0);
+
+	/* Power OFF */
+	__ricoh618_write(ricoh618_i2c_client, RICOH618_PWR_SLP_CNT, 0x1);
+
 
 	return 0;
 }
@@ -665,6 +709,8 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 	mutex_init(&ricoh618->io_lock);
 
 	ricoh618->bank_num = 0;
+
+	ricoh618_read_pwroff_on(ricoh618->dev);
 
 	if (gpio_request_one(pmu_pdata->gpio,
 			     GPIOF_DIR_IN, "ricoh618_irq")) {

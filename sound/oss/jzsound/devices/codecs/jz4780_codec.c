@@ -2746,10 +2746,17 @@ static int codec_set_record_data_width(int width)
 
 static int codec_set_record_volume(int *val)
 {
-	int val_tmp = *val;
-	*val = codec_set_gain_adc_left(val_tmp);
-	val_tmp = *val;
-	*val = codec_set_gain_adc_right(val_tmp);
+	int val_tmp;
+	if(*val < 0){
+                *val = 0;
+        }
+        if(*val > 100){
+                *val = 100;
+        }
+        val_tmp = *val;
+
+	codec_set_gain_adc_left(val_tmp / 5);
+	codec_set_gain_adc_right(val_tmp / 5);
 	return 0;
 }
 

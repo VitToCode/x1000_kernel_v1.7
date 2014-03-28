@@ -39,6 +39,8 @@
 #define MAX_GPEDGE_REG		1
 
 /* Power control register */
+#define RICOH618_PWR_ON_HIS			0x09
+#define RICOH618_PWR_OFF_HIS		0x0A
 #define RICOH618_PWR_WD			0x0B
 #define RICOH618_PWR_WD_COUNT		0x0C
 #define RICOH618_PWR_FUNC		0x0D

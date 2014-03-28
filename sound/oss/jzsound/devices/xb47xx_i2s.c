@@ -27,6 +27,7 @@
 #include <linux/wait.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
+#include <mach/fb_hdmi_modes.h>
 #include <soc/irq.h>
 #include <soc/base.h>
 #include "xb47xx_i2s.h"
@@ -50,6 +51,9 @@ static struct workqueue_struct *i2s_work_queue;
 static struct work_struct	i2s_codec_work;
 #endif
 static int jz_get_hp_switch_state(void);
+
+extern int hdmi_notifier_client_register(struct notifier_block *nb);
+extern int hdmi_notifier_client_unregister(struct notifier_block *nb);
 
 static struct codec_info {
 	struct list_head list;
@@ -211,7 +215,7 @@ static int i2s_set_fmt(unsigned long *format,int mode)
          AFMT_U24_LE              0x00002000
          AFMT_U24_BE              0x00004000
     */
-	debug_print("format = %d",*format);
+	debug_print("format = %ld",*format);
 	switch (*format) {
 	case AFMT_U8:
 		data_width = 8;
@@ -754,7 +758,6 @@ static void i2s_dma_need_reconfig(int mode)
 	return;
 }
 
-
 static int i2s_set_device(unsigned long device)
 {
 	unsigned long tmp_rate = 44100;
@@ -765,20 +768,10 @@ static int i2s_set_device(unsigned long device)
 	endpoints = (struct dsp_endpoints *)((&i2s_data)->ext_data);
 	dp = endpoints->out_endpoint;
 
-#ifndef CONFIG_ANDROID
-	if (!dp->is_used)
-		return -1;
-	if ((*(enum snd_device_t *)device == SND_DEVICE_HDMI) && (dp->force_hdmi == false))
-		dp->force_hdmi = true;
-	else if(*(enum snd_device_t *)device == SND_DEVICE_SPEAKER)
-		dp->force_hdmi = false;
-	else if ((*(enum snd_device_t *)device == SND_DEVICE_DEFAULT) && (dp->force_hdmi == true))
-		*(enum snd_device_t *)device = SND_DEVICE_HDMI;
-#endif
-
 	if (!cur_codec)
 		return -1;
 
+	printk("%s\n", __func__);
 	/*call state operation*/
 	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START &&
             *(enum snd_device_t *)device <= SND_DEVICE_CALL_END)
@@ -805,6 +798,7 @@ static int i2s_set_device(unsigned long device)
 			__i2s_start_bitclk();
 			i2s_set_rate(&tmp_rate,CODEC_WMODE);
 		}
+		printk("\n%s set hdmi\n\n", __func__);
 	} else {
 		/*restore old device*/
 		if (!strcmp(cur_codec->name,"hdmi")) {
@@ -854,6 +848,49 @@ static int i2s_set_device(unsigned long device)
 
 	return ret;
 }
+
+static int i2s_register_hdmi_notifier(struct notifier_block *nb)
+{
+	return hdmi_notifier_client_register(nb);	
+}
+
+static int i2s_unregister_hdmi_notifier(struct notifier_block *nb)
+{
+	return hdmi_notifier_client_unregister(nb);	
+}
+
+#ifndef CONFIG_ANDROID
+static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	int ret;
+
+	if (event == HDMI_EVENT_CONNECT) {
+		ret = jz_get_hp_switch_state();		
+		if (ret)
+			ret = SND_DEVICE_HEADSET;
+		else
+			ret = SND_DEVICE_HDMI;
+
+		ret = i2s_set_device((unsigned long)&ret);
+	} else if (event == HDMI_EVENT_DISCONNECT) {
+		ret = jz_get_hp_switch_state();		
+		if (ret)
+			ret = SND_DEVICE_HEADSET;
+		else
+			ret = SND_DEVICE_SPEAKER;
+
+		ret = i2s_set_device((unsigned long)&ret);
+	} else 
+		printk("\n%s event not match\n", __func__);
+
+	return ret;
+}
+#else
+static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	return 0;
+}
+#endif
 
 /********************************************************\
  * dev_ioctl
@@ -1051,6 +1088,16 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_CLR_ROUTE,arg);
 		break;
+	case SND_DSP_REGISTER_NOTIFIER:
+		ret = i2s_register_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
+		if (ret < 0)
+			printk("SOUND_ERROR: register hdmi_notifier failed\n");
+		break;
+	case SND_DSP_UNREGISTER_NOTIFIER:
+		ret = i2s_unregister_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
+		if (ret < 0)
+			printk("SOUND_ERROR: register hdmi_notifier failed\n");
+		break;
 	case SND_DSP_DEBUG:
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DEBUG,arg);
@@ -1118,6 +1165,10 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 #else
 	(*dp)->fragcnt = FRAGCNT_M;
 #endif
+
+	if (direction == DMA_TO_DEVICE) {
+		(*dp)->hdmi_notifier.notifier_call = i2s_hdmi_notifier_handler;
+	}
 
 	if (direction == DMA_TO_DEVICE) {
 		(*dp)->dma_config.src_maxburst = 64;

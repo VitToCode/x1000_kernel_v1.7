@@ -17,6 +17,23 @@
 /********************************************************\
  * llseek
 \********************************************************/
+
+static struct xb_mixer_data {
+	int main_volume;
+	int speaker_volume;
+	int line_volume;
+	int mic_volume;
+	int replay_volume;
+	int record_volume;
+	int igain_volume;
+	int ogain_volume;
+	int line1_volume;
+	int line2_volume;
+	int line3_volume;
+	int record_source;
+	int replay_source;
+} mixer_data;
+
 loff_t xb_snd_mixer_llseek(struct file *file,
 						   loff_t offset,
 						   int origin,
@@ -199,6 +216,7 @@ unsigned int xb_snd_mixer_poll(struct file *file,
 /********************************************************\
  * ioctl
 \********************************************************/
+
 long xb_snd_mixer_ioctl(struct file *file,
 						unsigned int cmd,
 						unsigned long arg,
@@ -209,7 +227,92 @@ long xb_snd_mixer_ioctl(struct file *file,
 
 	switch (cmd) {
 
-	case SOUND_MIXER_WRITE_VOLUME:{
+	case SOUND_MIXER_READ_DEVMASK: {
+
+		int tmp;
+		tmp = SOUND_MIXER_VOLUME | SOUND_MIXER_SPEAKER| SOUND_MIXER_LINE | \
+				SOUND_MIXER_MIC | SOUND_MIXER_IGAIN | SOUND_MIXER_OGAIN | \
+				SOUND_MIXER_LINE1 | SOUND_MIXER_LINE2 | SOUND_MIXER_LINE3;
+
+        if(put_user(tmp, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+
+	case SOUND_MIXER_READ_RECSRC: {
+
+		int tmp;
+		tmp = SOUND_MIXER_MIC | SOUND_MIXER_LINE | SOUND_MIXER_LINE1 | SOUND_MIXER_LINE2 | SOUND_MIXER_LINE3;
+
+        if(put_user(tmp, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+
+	case SOUND_MIXER_READ_OUTSRC: {
+	
+		int tmp;
+		tmp = SOUND_MIXER_SPEAKER;
+
+        if(put_user(tmp, (long *) arg)) {
+			printk("%s put_user failed %d\n", __func__, __LINE__);
+			return -EFAULT;
+		}
+		break;
+	}
+				
+	case SOUND_MIXER_WRITE_OUTSRC: { 
+		int tmp;
+		if (get_user(tmp, (int*)arg)){
+			return -EFAULT;
+		}
+		if (tmp == SOUND_MIXER_SPEAKER)
+			devices = SND_DEVICE_SPEAKER;
+		else
+			return -ENXIO;
+
+		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if (ret < 0)
+			return ret;
+
+        if(put_user(tmp, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+
+	case SOUND_MIXER_WRITE_RECSRC: {
+
+		int tmp;
+		if (get_user(tmp, (int*)arg)){
+			return -EFAULT;
+		}
+
+		if (tmp == SOUND_MIXER_MIC)
+			devices = SND_DEVICE_BUILDIN_MIC;
+		else if (tmp == SOUND_MIXER_LINE)
+			devices = SND_DEVICE_LINEIN_RECORD;
+		else if (tmp == SOUND_MIXER_LINE1)
+			devices = SND_DEVICE_LINEIN1_RECORD;
+		else if (tmp == SOUND_MIXER_LINE2)
+			devices = SND_DEVICE_LINEIN2_RECORD;
+		else if (tmp == SOUND_MIXER_LINE3)
+			devices = SND_DEVICE_LINEIN3_RECORD;
+		else
+			return -ENXIO;
+
+		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if (ret < 0)
+			return ret;
+
+        if(put_user(tmp, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+				   
+	case SOUND_MIXER_WRITE_VOLUME:
+	case SOUND_MIXER_WRITE_IMIX:
+	case SOUND_MIXER_WRITE_OGAIN:
+	case SOUND_MIXER_WRITE_SPEAKER: {
 
 		int vol = 0;
 		if (get_user(vol, (int*)arg)){
@@ -219,69 +322,110 @@ long xb_snd_mixer_ioctl(struct file *file,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
 			if (ret < 0)
-			   break;
+				return ret;
 		}
 		ret = put_user(vol, (int *)arg);
+		mixer_data.main_volume = vol;
+		mixer_data.ogain_volume = vol;
+		mixer_data.speaker_volume = vol;
+		mixer_data.replay_volume = vol;
 		break;
 	}
-	case SOUND_MIXER_READ_VOLUME: {
 
-		int vol = -1;
+	case SOUND_MIXER_WRITE_LINE:
+	case SOUND_MIXER_WRITE_LINE1:
+	case SOUND_MIXER_WRITE_LINE2:
+	case SOUND_MIXER_WRITE_LINE3:
+	case SOUND_MIXER_WRITE_RECLEV:
+	case SOUND_MIXER_WRITE_IGAIN:
+	case SOUND_MIXER_WRITE_MIC: {
+	
+		int vol = 0;
+		if (get_user(vol, (int*)arg)){
+			return -EFAULT;
+		}
+		vol = vol & 0xff;
 		if (ddata->dev_ioctl) {
-			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL, (unsigned long)&vol);
+			if (ret < 0)
+				return ret;
 		}
-		vol = vol << 8 | vol;
 		ret = put_user(vol, (int *)arg);
+		mixer_data.line_volume = vol;
+		mixer_data.line1_volume = vol;
+		mixer_data.line2_volume = vol;
+		mixer_data.line3_volume = vol;
+		mixer_data.mic_volume = vol;
+		break;
+
+	}
+
+	case SOUND_MIXER_READ_VOLUME: {
+		int gain = 0;
+		int tmp;
+		gain = mixer_data.main_volume;
+		tmp = gain << 8;
+        gain = gain | tmp;
+        if(put_user(gain, (long *) arg))
+			return -EFAULT;
 		break;
 	}
 
-	case SOUND_MIXER_READ_DEVMASK: {
-		int devmsk = (1 << SOUND_MIXER_VOLUME);
-		ret = put_user(devmsk, (int *)arg);
+	case SOUND_MIXER_READ_IMIX:
+	case SOUND_MIXER_READ_OGAIN:
+	case SOUND_MIXER_READ_SPEAKER: {
+		int gain = 0;
+		int tmp;
+		gain = mixer_data.speaker_volume;
+		tmp = gain << 8;
+        gain = gain | tmp;
+        if(put_user(gain, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+							   
+	case SOUND_MIXER_READ_LINE:
+	case SOUND_MIXER_READ_LINE1:
+	case SOUND_MIXER_READ_LINE2:
+	case SOUND_MIXER_READ_LINE3: {
+		int gain = 0;
+		int tmp;
+		gain = mixer_data.line_volume;
+		tmp = gain << 8;
+        gain = gain | tmp;
+        if(put_user(gain, (long *) arg))
+			return -EFAULT;
+		break;
+	}
+							   
+	case SOUND_MIXER_READ_IGAIN:
+	case SOUND_MIXER_READ_RECLEV:
+	case SOUND_MIXER_READ_MIC: {
+		int gain = 0;
+		int tmp;
+		gain = mixer_data.mic_volume;
+		tmp = gain << 8;
+        gain = gain | tmp;
+        if(put_user(gain, (long *) arg))
+			return -EFAULT;
 		break;
 	}
 
 	case SNDCTL_MIXER_LOOP_TEST_ON:{
 		printk("set loop test route for phone.\n");
 		devices = SND_DEVICE_LOOP_TEST;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-
+		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if (ret < 0)
+			return ret;
 		break;
 	}
 	case SNDCTL_MIXER_LOOP_TEST_OFF:{
 		printk("close loop test route for phone.\n");
 		devices = SND_DEVICE_SPEAKER;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if (ret < 0)
+			return ret;
 
-		break;
-	}
-	case SOUND_MIXER_SPEAKER: {
-		devices = SND_DEVICE_SPEAKER;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-
-		break;
-	}
-	case SOUND_MIXER_WRITE_LINE: {
-		devices = SND_DEVICE_HEADSET_MIC,
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-#if 0		//sndkit need open it
-		devices = SND_DEVICE_HEADSET,
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-#endif
-		break;
-	}
-	case SOUND_MIXER_WRITE_MIC:	 {
-		int gain = 0;
-		if (get_user(gain, (int*)arg)){
-			return -EFAULT;
-		}
-		devices = SND_DEVICE_BUILDIN_MIC,
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-#if 0		//sndkit need open it
-		devices = SND_DEVICE_SPEAKER,
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-		ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&gain);
-#endif
 		break;
 	}
 
@@ -306,27 +450,9 @@ long xb_snd_mixer_ioctl(struct file *file,
 		//case SNDCTL_MIX_WRITE:
 		/* OSS 4.x: change value of a mixer control */
 		//break;
-	case SOUND_MIXER_READ_LINE: {
-		devices = SND_DEVICE_LINEIN_RECORD;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+	default : 
+		printk("unsupported cmd \n");
 		break;
-	}
-	case SOUND_MIXER_READ_LINE1: {
-		devices = SND_DEVICE_LINEIN1_RECORD;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-		break;
-	}
-	case SOUND_MIXER_READ_LINE2: {
-		devices = SND_DEVICE_LINEIN2_RECORD;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-		break;
-	}
-	case SOUND_MIXER_READ_LINE3: {
-		devices = SND_DEVICE_LINEIN3_RECORD;
-		ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
-		break;
-	}
-
 	}
 
 	return 0;
@@ -367,5 +493,18 @@ int xb_snd_mixer_release(struct inode *inode,
 \********************************************************/
 int xb_snd_mixer_probe(struct snd_dev_data *ddata)
 {
+
+	mixer_data.main_volume		= 0;
+	mixer_data.speaker_volume	= 0;
+	mixer_data.line_volume		= 0;
+	mixer_data.mic_volume		= 0;
+	mixer_data.replay_volume	= 0;
+	mixer_data.record_volume	= 0;
+	mixer_data.igain_volume		= 0;
+	mixer_data.ogain_volume		= 0;
+	mixer_data.line1_volume		= 0;
+	mixer_data.line2_volume		= 0;
+	mixer_data.line3_volume		= 0;
+
 	return 0;
 }

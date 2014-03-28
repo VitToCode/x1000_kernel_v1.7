@@ -13,6 +13,7 @@
 #include <linux/kthread.h>
 #include <linux/syscore_ops.h>
 #include <linux/platform_device.h>
+#include <linux/mfd/ricoh618.h>
 
 #include <soc/base.h>
 #include <soc/cpm.h>
@@ -167,6 +168,11 @@ void jz_hibernate(void)
 	while(1) {
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
+
+#ifdef CONFIG_BOARD_GRUS_V_1_0_1
+	ricoh618_power_off();
+#endif
+
 	mdelay(200);
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
 }

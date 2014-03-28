@@ -2396,7 +2396,6 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-	int state = 0;
 	int arg;
 	ENTER_FUNC();
 
@@ -2443,13 +2442,6 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
-#ifndef CONFIG_ANDROID
-		arg = SND_DEVICE_BUILDIN_MIC;
-		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		if (arg < 0) {
-			return -EIO;
-		}
-#endif
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
@@ -2480,34 +2472,17 @@ int xb_snd_dsp_open(struct inode *inode,
 		if (ret) {
 			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
+			return ret;
 		}
 
-#ifndef CONFIG_ANDROID
-#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
-		dpo->force_hdmi = true;
-		arg = SND_DEVICE_HDMI;
-		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		printk("%s: HDMI output\n",__func__);
-		if (arg < 0) {
-			return -EIO;
-		}
-#else
-		dpo->force_hdmi = false;
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
 		if (ddata->dev_ioctl) {
-			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
-			if (arg < 0) {
-				return -EIO;
-			}
-			if (state)
-				arg = SND_DEVICE_HEADSET;
-			else
-				arg = SND_DEVICE_SPEAKER;
-			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		printk("register hdmi notify\n");
+			arg = (int)ddata->dev_ioctl(SND_DSP_REGISTER_NOTIFIER, (unsigned long)dpo);
 			if (arg < 0) {
 				return -EIO;
 			}
 		}
-#endif
 #endif
 	}
 
@@ -2585,8 +2560,18 @@ int xb_snd_dsp_release(struct inode *inode,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
-			if (ret)
+			if (ret) {
 				ret = -EFAULT;
+				return ret;
+			}
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
+		printk("\n unregister hmdi failed\n\n");
+			ret = (int)ddata->dev_ioctl(SND_DSP_UNREGISTER_NOTIFIER, (unsigned long)dpo);
+			if (ret < 0) {
+				printk("\n unregister hmdi failed\n\n");
+				return -EIO;
+			}
+#endif
 		}
 		dpo->is_used = false;
 	}
@@ -2608,6 +2593,9 @@ int xb_snd_dsp_release(struct inode *inode,
 int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 {
 	int ret = -1;
+#ifndef CONFIG_ANDROID
+	int arg, state;
+#endif
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
@@ -2629,6 +2617,23 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 		if (ret)
 			goto error2;
 	}
+
+#ifndef CONFIG_ANDROID
+		if (ddata->dev_ioctl) {
+			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
+			if (arg < 0) {
+				return -EIO;
+			}
+			if (state)
+				arg = SND_DEVICE_HEADSET;
+			else
+				arg = SND_DEVICE_SPEAKER;
+			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+			if (arg < 0) {
+				return -EIO;
+			}
+		}
+#endif
 
 	if (!spipe_is_init)  {
 		ret = spipe_init(ddata->dev);
