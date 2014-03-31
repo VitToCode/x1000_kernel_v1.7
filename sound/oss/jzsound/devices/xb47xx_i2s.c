@@ -27,12 +27,14 @@
 #include <linux/wait.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
-#include <mach/fb_hdmi_modes.h>
 #include <soc/irq.h>
 #include <soc/base.h>
 #include "xb47xx_i2s.h"
 #include "codecs/jz4780_codec.h"
 #include <soc/cpm.h>
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
+#include <mach/fb_hdmi_modes.h>
+#endif
 /**
  * global variable
  **/
@@ -52,8 +54,10 @@ static struct work_struct	i2s_codec_work;
 #endif
 static int jz_get_hp_switch_state(void);
 
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
 extern int hdmi_notifier_client_register(struct notifier_block *nb);
 extern int hdmi_notifier_client_unregister(struct notifier_block *nb);
+#endif
 
 static struct codec_info {
 	struct list_head list;
@@ -849,6 +853,7 @@ static int i2s_set_device(unsigned long device)
 	return ret;
 }
 
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
 static int i2s_register_hdmi_notifier(struct notifier_block *nb)
 {
 	return hdmi_notifier_client_register(nb);
@@ -859,7 +864,6 @@ static int i2s_unregister_hdmi_notifier(struct notifier_block *nb)
 	return hdmi_notifier_client_unregister(nb);
 }
 
-#ifndef CONFIG_ANDROID
 static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	int ret;
@@ -1088,15 +1092,20 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_CLR_ROUTE,arg);
 		break;
+
 	case SND_DSP_REGISTER_NOTIFIER:
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
 		ret = i2s_register_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
 		if (ret < 0)
 			printk("SOUND_ERROR: register hdmi_notifier failed\n");
+#endif
 		break;
 	case SND_DSP_UNREGISTER_NOTIFIER:
+#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
 		ret = i2s_unregister_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
 		if (ret < 0)
 			printk("SOUND_ERROR: register hdmi_notifier failed\n");
+#endif
 		break;
 	case SND_DSP_DEBUG:
 		if (cur_codec)
