@@ -81,6 +81,9 @@ struct ft6x06_ts_data {
 #define FTS_POINT_DOWN		0x00
 #define FTS_POINT_CONTACT	0x02
 
+unsigned char key_home_status = 0;
+unsigned char key_back_status = 0;
+unsigned char key_menu_status = 0;
 
 /*
 *ft6x06_i2c_Read-read data and write data by i2c
@@ -253,7 +256,54 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 				ft6x06_touch_up(data, event->au8_finger_id[i]);
 			}
 		}
+		/*Virtual key*/
 		else{
+			if ((event->au8_touch_event[i] == FTS_POINT_DOWN)
+					|| (event->au8_touch_event[i] == FTS_POINT_CONTACT)) {
+				if(event->au16_y[i] >= data->va_y_max
+						&& event->au16_y[i] <= data->y_max) {
+					/*menu key*/
+					if (event->au16_x[i] >= 0 && event->au16_x[i] < 100){
+						if(0 == key_menu_status){
+							input_event(data->input_dev,EV_KEY,KEY_MENU,1);
+							//printk("this test-------------------------key_menu down\n");
+							key_menu_status = 1;
+						}
+					}
+					/*home key*/
+					if (event->au16_x[i] >= 100 && event->au16_x[i] < 200){
+						if(0 == key_home_status){
+							input_event(data->input_dev,EV_KEY,KEY_HOMEPAGE,1);
+							//printk("this test-------------------------key_home_page down\n");
+							key_home_status = 1;
+						}
+					}
+					/*back key*/
+					if (event->au16_x[i] >= 200 && event->au16_x[i] < 300){
+						if(0 == key_back_status){
+							input_event(data->input_dev,EV_KEY,KEY_BACK,1);
+							//printk("this test-------------------------key_back down\n");
+							key_back_status = 1;
+						}
+					}
+				}
+			}else{
+				if(1 == key_menu_status){
+					input_event(data->input_dev,EV_KEY,KEY_MENU,0);
+					//printk("this test-------------------------key_menu up\n");
+					key_menu_status = 0;
+				}
+				if(1 == key_home_status){
+					input_event(data->input_dev,EV_KEY,KEY_HOMEPAGE,0);
+					//printk("this test-------------------------key_home_page up\n");
+					key_home_status = 0;
+				}
+				if(1 == key_back_status){
+					input_event(data->input_dev,EV_KEY,KEY_BACK,0);
+					//printk("this test-------------------------key_back up\n");
+					key_back_status = 0;
+				}
+			}
 		}
 	}
 	if (event->touch_point > 0)
@@ -390,6 +440,10 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
 	set_bit(ABS_MT_PRESSURE, input_dev->absbit);
+	set_bit(EV_SYN, input_dev->evbit);
+	set_bit(KEY_HOMEPAGE, input_dev->keybit);
+	set_bit(KEY_BACK, input_dev->keybit);
+	set_bit(KEY_MENU, input_dev->keybit);
 
 	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
