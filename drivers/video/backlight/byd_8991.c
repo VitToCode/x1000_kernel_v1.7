@@ -26,7 +26,7 @@
 #include <soc/gpio.h>
 
 #include <linux/byd_8991.h>
-extern void Initial_IC(void);
+extern void Initial_IC(struct platform_byd_8991_data *pdata);
 
 struct byd_8991_data {
 	int lcd_power;
@@ -57,8 +57,10 @@ static void byd_8991_on(struct byd_8991_data *dev) {
 		gpio_direction_output(dev->pdata->gpio_lcd_sdo, 1);
 	if (dev->pdata->gpio_lcd_sdi)
 		gpio_direction_input(dev->pdata->gpio_lcd_sdi);
+	if (dev->pdata->gpio_lcd_back_sel) /*sync mode*/
+		gpio_direction_output(dev->pdata->gpio_lcd_back_sel, 1);
 
-	Initial_IC();
+	Initial_IC(dev->pdata);
 }
 
 static void byd_8991_off(struct byd_8991_data *dev)

@@ -407,8 +407,8 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	ft6x06_ts->pdata = pdata;
 	ft6x06_ts->x_max = pdata->x_max - 1;
 	ft6x06_ts->y_max = pdata->y_max - 1;
-	ft6x06_ts->va_x_max = 299;
-	ft6x06_ts->va_y_max = 479;
+	ft6x06_ts->va_x_max = pdata->va_x_max - 1;
+	ft6x06_ts->va_y_max = pdata->va_y_max - 1;
 #ifdef CONFIG_PM
 	err = gpio_request(pdata->reset, "ft6x06 reset");
 	if (err < 0) {

@@ -18,6 +18,7 @@
  * @gpio_lcd_clk: spi clk
  * @gpio_lcd_sdi: spi in  [cpu -----> lcd]
  * @gpio_lcd_sdo: spi out [lcd -----> cpu]
+ * @gpio_lcd_backlight_sel: backlight select 0: lcd self-ctrl 1: pwm ctrl
  */
 struct platform_byd_8991_data {
 	unsigned int gpio_lcd_disp;
@@ -28,6 +29,7 @@ struct platform_byd_8991_data {
 	unsigned int gpio_lcd_clk;
 	unsigned int gpio_lcd_sdo;
 	unsigned int gpio_lcd_sdi;
+	unsigned int gpio_lcd_back_sel;
 };
 
 #endif /* _BYD_8991_H */

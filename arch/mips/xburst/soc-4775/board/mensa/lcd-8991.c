@@ -19,6 +19,7 @@ static struct platform_byd_8991_data byd_8991_pdata= {
 	.gpio_lcd_clk = GPIO_PC(1),
 	.gpio_lcd_sdo = GPIO_PC(10),
 	.gpio_lcd_sdi = GPIO_PC(11),
+	.gpio_lcd_back_sel = GPIO_PC(20),
 };
 
 /* LCD device */

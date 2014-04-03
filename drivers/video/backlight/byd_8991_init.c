@@ -1,46 +1,42 @@
 #include <asm/delay.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/byd_8991.h>
 
 //#define DEBUG
 
-#define PWM_OUT             (32*4 + 1)
-#define LCD_RESET           (32*1 + 30)
-#define SPI_CS              (32*2 + 0)
-#define SPI_CLK             (32*2 + 1)
-#define SPI_MOSI            (32*2 + 10)
-#define SPI_MISO            (32*2 + 11)
-#define LCD_BACK_LIGHT_SEL   (32*2 + 20)
+struct platform_byd_8991_data *byd_8991_pdata = NULL;
 
 #ifdef DEBUG
 /*PE1  LCD_BACKLIGNT   */
+#define PWM_OUT             (32*4 + 1)
 #define back_light(n)\
      gpio_direction_output(PWM_OUT, n)
 #endif
 
 /*PB30  LCD_RESET   */
 #define RESET(n)\
-     gpio_direction_output(LCD_RESET, n)
+     gpio_direction_output(byd_8991_pdata->gpio_lcd_disp, n)
 
 /*PC0  SPI_CS   */
 #define CS(n)\
-     gpio_direction_output(SPI_CS, n)
+     gpio_direction_output(byd_8991_pdata->gpio_lcd_cs, n)
 
 /*PC1  SPI_CLK   */
 #define SCK(n)\
-     gpio_direction_output(SPI_CLK, n)
+     gpio_direction_output(byd_8991_pdata->gpio_lcd_clk, n)
 
 /*PC10 SPI_MOSI */
 #define SDO(n)\
-	 gpio_direction_output(SPI_MOSI, n)
+	 gpio_direction_output(byd_8991_pdata->gpio_lcd_sdo, n)
 
 /*PC11 SPI_MISO */
 #define SDI()\
-	gpio_get_value(SPI_MISO)
+	gpio_get_value(byd_8991_pdata->gpio_lcd_sdi)
 
 /*PC20 BACK_LIGHT_SELECT */
 #define BACK_LIGHT_SEL(n)\
-	 gpio_direction_output(LCD_BACK_LIGHT_SEL, n)
+	 gpio_direction_output(byd_8991_pdata->gpio_lcd_back_sel, n)
 
 void SPI_3W_SET_CMD(unsigned char c)
 {
@@ -146,9 +142,9 @@ void SET_BRIGHT_CTRL(void)
 	CS(1);
 	udelay(10);
 }
-void Initial_IC(void)
+void Initial_IC(struct platform_byd_8991_data *pdata)
 {
-
+	byd_8991_pdata = pdata;
 #ifdef DEBUG
 	back_light(1);
 #endif
@@ -437,4 +433,6 @@ void Initial_IC(void)
 	SET_BRIGHT_CTRL();
 #endif
 
+	byd_8991_pdata = NULL;
+	return;
 }
