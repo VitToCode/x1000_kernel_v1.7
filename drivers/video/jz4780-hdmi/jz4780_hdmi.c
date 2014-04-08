@@ -147,10 +147,6 @@ static void hpd_callback(void *param)
 		switch_set_state(&global_hdmi->hdmi_switch,HDMI_HOTPLUG_DISCONNECTED);
 
 		global_hdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED;
-		global_hdmi->hdmi_info.support_modenum = 0;
-		for(i=0; i < HDMI_VIDEO_MODE_NUM; i++){
-			global_hdmi->hdmi_info.support_mode[i] = 0;
-		}
 		global_hdmi->hdmi_is_running = 0;
 
 		hdmi_notifier_call_chain(HDMI_EVENT_DISCONNECT, NULL);
@@ -522,6 +518,7 @@ static void jzhdmi_power_on(struct jzhdmi *jzhdmi)
 
 	if(ret > 0 && jzhdmi->hdmi_info.support_modenum > 0){
 		jzhdmi->edid_faild = 0;
+		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum, GFP_KERNEL);
 		dev_info(jzhdmi->dev, "Hdmi get tv edid code:");
 		for(i=0;i<jzhdmi->hdmi_info.support_modenum;i++){
 			api_EdidSvd(i,&tmpsvd);
@@ -533,6 +530,7 @@ static void jzhdmi_power_on(struct jzhdmi *jzhdmi)
 		dev_info(jzhdmi->dev, "Read edid is failed,set mode to 720p60Hz or 1920x1080p06Hz\n");
 		jzhdmi->edid_faild = 1;
 		jzhdmi->hdmi_info.support_modenum = 2;
+		jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*jzhdmi->hdmi_info.support_modenum, GFP_KERNEL);
 		jzhdmi->hdmi_info.support_mode[0] = 4; /* 1280x720p @ 59.94/60Hz 16:9 */
 		jzhdmi->hdmi_info.support_mode[1] = 16;/* 1920x1080p @ 59.94/60Hz 16:9 */
 	}
@@ -612,7 +610,7 @@ static long jzhdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 #endif
 		if(jzhdmi->hdmi_info.support_mode != NULL)
-		kzfree(jzhdmi->hdmi_info.support_mode);
+			kzfree(jzhdmi->hdmi_info.support_mode);
 		api_phy_enable(PHY_DISABLE_ALL);
 		break;
 	case HDMI_CEC_CTL:
@@ -769,10 +767,10 @@ static int __devinit jzhdmi_probe(struct platform_device *pdev)
 	jzhdmi->dev = &pdev->dev;
 	jzhdmi->mem = mem;
 	jzhdmi->hdmi_info.hdmi_status = HDMI_HOTPLUG_DISCONNECTED,
-	jzhdmi->hdmi_info.support_mode = kzalloc(sizeof(int)*HDMI_VIDEO_MODE_NUM, GFP_KERNEL);
 	jzhdmi->edid_faild = 0;
 	jzhdmi->hdmi_is_running = 0;
 	jzhdmi->hdmi_info.out_type = -1;
+	jzhdmi->hdmi_info.support_modenum = 0;
 
 	jzhdmi->probe_finish = 0;
 	jzhdmi->hdmi_params.pProduct = (productParams_t*)kzalloc(

@@ -412,7 +412,7 @@ int api_Configure(videoParams_t * video, audioParams_t * audio,
 		}
 		else
 		{
-			printk("No HDCP parameters provided: not configured\n");
+			/*printk("No HDCP parameters provided: not configured\n");*/
 		}
 		if (board_PixelClock(api_mBaseAddress, videoParams_GetPixelClock(video),
 				videoParams_GetColorResolution(video)) != TRUE)
