@@ -36,9 +36,4 @@ extern struct platform_device auo_a043fl01v2_device;
 extern struct platform_device at070tn93_device;
 #endif
 
-/**
-* nand platform data
-**/
-extern struct platform_nand_data jz_nand_chip_data;
-
 #endif /* __TEST_H__ */

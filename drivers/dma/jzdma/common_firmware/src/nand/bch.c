@@ -4,64 +4,73 @@
 #include <common.h>
 #include <nand.h>
 #include <pdma.h>
-
+#include <mcu.h>
 #include <asm/jzsoc.h>
 
 //#define BCH_DEBUG
 
 static inline void bch_encode_enable(int ecclevel, int eccsize, int parsize)
 {
+	__bch_ints_clear();
 	__bch_cnt_set(eccsize, parsize);
 	__bch_encoding(ecclevel);
 }
 
 static inline void bch_decode_enable(int ecclevel, int eccsize, int parsize)
 {
+	__bch_ints_clear();
 	__bch_cnt_set(eccsize, parsize);
 	__bch_decoding(ecclevel);
 }
 
 /* BCH ENCOGING CFG */
-void pdma_bch_calculate(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf)
+void pdma_bch_encode_prepare(NandChip *nand_info, PipeNode *pipe)
 {
-	bch_encode_enable(nand->ecclevel, nand->eccsize, nand->eccbytes);
+	bch_encode_enable(nand_info->ecclevel, nand_info->eccsize, nand_info->eccbytes);
 
 	/* write DATA to BCH_DR */
-	bch_channel_cfg(pipe_buf->pipe_data, (unsigned char *)BCH_DR,
-			nand->eccsize, TCSM_TO_BCH);
+#if 1
+	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR, nand_info->eccsize, TCSM_TO_BCH);
+	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
+#else	
+	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR, nand_info->eccsize, TCSM_TO_BCH);
+	__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
 	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
 
+	while (!__pdmac_channel_end_detected(PDMA_BCH_CHANNEL));
+	__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
+	__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
+
+	/* clear bch's register */
+	__bch_encints_clear();
+	__bch_disable();
+/*	{
+		int i = 0;
+		for(i = 0; i <1024; i++){
+			*(volatile unsigned char *)(BCH_DR) = *(pipe->pipe_data + i);
+		}
+	}*/
+#endif
 }
 
 /* BCH DECOGING CFG */
-void pdma_bch_correct(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf, unsigned char *par_buf)
+void pdma_bch_decode_prepare(NandChip *nand_info, PipeNode *pipe)
 {
-	int i;
-
-	bch_decode_enable(nand->ecclevel, nand->eccsize, nand->eccbytes);
-#ifdef MCU_TEST_INTER
-	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (5 << 16);
-#endif
-	/* Move Parity Part to follow Current Data */
-	for (i = 0; i < nand->eccbytes; i++)
-		pipe_buf->pipe_par[i] = par_buf[i];
+	bch_decode_enable(nand_info->ecclevel, nand_info->eccsize, nand_info->eccbytes);
 
 	/* write DATA and PARITY to BCH_DR */
-	bch_channel_cfg(pipe_buf->pipe_data, (unsigned char *)BCH_DR,
-			nand->eccsize + nand->eccbytes, TCSM_TO_BCH);
+	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR,nand_info->eccsize + nand_info->eccbytes, TCSM_TO_BCH);
 	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
-
 }
 //----------------------------------------------------------------------------/
 
 /* BCH ENCOGING HANDLE */
-static void bch_calculate_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
-				unsigned char *par_buf)
+void bch_encode_complete(NandChip *nand_info, PipeNode *pipe)
 {
-	int i;
-
+    /* wait for finishing encoding */
+	__mbch_encode_sync();
 	/* get Parity to TCSM */
-	bch_channel_cfg((unsigned char *)BCH_PAR0, pipe_buf->pipe_par, nand->eccbytes, BCH_TO_TCSM);
+	bch_channel_cfg((unsigned char *)BCH_PAR0, pipe->pipe_par, nand_info->eccbytes, BCH_TO_TCSM);
 	__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
 	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
 
@@ -74,29 +83,13 @@ static void bch_calculate_handle(struct nand_chip *nand, struct nand_pipe_buf *p
 	__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
 	__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
 
-	/* Move Current Data to Parity Part */
-	for (i = 0; i < nand->eccbytes; i++)
-		par_buf[i] = pipe_buf->pipe_par[i];
-}
-
-void irq_bch_calculate_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf,
-				unsigned char *par_buf)
-{
-	__mbch_encode_sync();
-
-#ifdef MCU_TEST_INTER
-			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (6 << 16);
-#endif
-	bch_calculate_handle(nand, pipe_buf, par_buf);
-#ifdef MCU_TEST_INTER
-			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (7 << 16);
-#endif
+	/* clear bch's register */
 	__bch_encints_clear();
 	__bch_disable();
 }
 
 /* BCH DECOGING HANDLE */
-static void bch_error_correct(struct nand_chip *nand, unsigned short *data_buf,
+static void bch_error_correct(NandChip *nand, unsigned short *data_buf,
 				unsigned int *err_buf, int err_bit)
 {
 	unsigned short err_mask;
@@ -108,28 +101,29 @@ static void bch_error_correct(struct nand_chip *nand, unsigned short *data_buf,
 	data_buf[idx] ^= err_mask;
 }
 
-static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
-				unsigned int *err_buf, int *report)
+void bch_decode_complete(NandChip *nand, unsigned char *data_buf,unsigned char *err_buf, char *report)
 {
 	unsigned int stat;
 	int i, err_cnt;
-
+	/* wait for finishing decoding */
+	__mbch_decode_sync();
 	/* get BCH Status */
 	stat = REG_BCH_INTS;
+	*report = 0;
 
         if (stat & BCH_INTS_ALLf) {
-                *report = ALL_FF; /* ECC ALL 'FF' */
+                *report = MSG_RET_EMPTY; /* ECC ALL 'FF' */
         }else if (stat & BCH_INTS_UNCOR) {
-		*report = UNCOR_ECC; /* Uncorrectable ECC Error*/
+		*report = MSG_RET_FAIL; /* Uncorrectable ECC Error*/
 	} else if (stat & BCH_INTS_ERR) {
 		err_cnt = (stat & BCH_INTS_TERRC_MASK) >> BCH_INTS_TERRC_BIT;
-		if(err_cnt >= nand->ecclevel - (nand->ecclevel>2?nand->ecclevel/2:1))
-        		*report = MOVE_BLOCK; /* Move Block*/
+		if(err_cnt > nand->ecclevel / 3)
+			*report = MSG_RET_MOVE; /* Move Block*/
 		err_cnt = (stat & BCH_INTS_ERRC_MASK) >> BCH_INTS_ERRC_BIT;
 
 		if (err_cnt) {
 			/* read BCH Error Report use Special CH0 */
-			bch_channel_cfg((unsigned char *)BCH_ERR0, (void *)err_buf, err_cnt << 2, BCH_TO_TCSM);
+			bch_channel_cfg((unsigned char *)BCH_ERR0, err_buf, err_cnt << 2, BCH_TO_TCSM);
 			__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
 			__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
 
@@ -141,32 +135,13 @@ static void bch_correct_handle(struct nand_chip *nand, unsigned char *data_buf,
 #endif
 			__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
 			__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
-#ifdef MCU_TEST_INTER
-			*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (8 << 16);
-#endif
+
 			for (i = 0; i < err_cnt; i++)
-				bch_error_correct(nand, (unsigned short *)data_buf, err_buf, i);
+				bch_error_correct(nand, (unsigned short *)data_buf, (unsigned int *)err_buf, i);
 		}
-	} else {
-		*report = 0;
 	}
-#ifdef MCU_TEST_INTER
-	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (9 << 16);
-#endif
-}
-
-void irq_bch_correct_handle(struct nand_chip *nand, struct nand_pipe_buf *pipe_buf)
-{
-	unsigned int *err_buf = (unsigned int *)(pipe_buf->pipe_par);
-	int report = 0;
-
-	__mbch_decode_sync();
-#ifdef MCU_TEST_INTER
-	*(unsigned int *)(nand->mcu_test) = nand->pipe_cnt | (7 << 16);
-#endif
-	bch_correct_handle(nand, pipe_buf->pipe_data, err_buf, &report);
+	/* clear bch's register */
 	__bch_decints_clear();
 	__bch_disable();
-        
-    nand->report |= report;
 }
+

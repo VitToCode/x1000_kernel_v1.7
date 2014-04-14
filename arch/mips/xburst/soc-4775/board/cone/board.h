@@ -62,12 +62,6 @@ extern struct platform_device kd301_device;
  **/
 extern struct snd_codec_data codec_data;
 
-
-/**
-* nand platform data
-**/
-extern struct platform_nand_data jz_nand_chip_data;
-
 #ifdef CONFIG_BCM4330_RFKILL
 extern struct platform_device bcm4330_bt_power_device;
 #endif

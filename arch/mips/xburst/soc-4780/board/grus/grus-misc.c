@@ -496,7 +496,7 @@ static int __init grus_board_init(void)
 
 /* nand */
 #ifdef CONFIG_NAND_DRIVER
-	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
+	jz_device_register(&jz_nand_device, NULL);
 #endif
 /* hdmi */
 #if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)

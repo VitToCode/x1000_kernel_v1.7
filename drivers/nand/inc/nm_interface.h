@@ -5,6 +5,7 @@
 #include "singlelist.h"
 #include "lpartition.h"
 #include "ppartition.h"
+#include "nandmanagerinterface.h"
 
 enum cmd {
 	SUSPEND,
@@ -46,7 +47,7 @@ NM_ppt* NM_getPPartition(int handler);
 void NM_startNotify(int handler, void (*start)(int), int prdata);
 int NM_PrepareNewFlash(int handler);
 int NM_CheckUsedFlash(int handler);
-int NM_EraseFlash(int handler);
+int NM_EraseFlash(int handler, int force);
 void NM_regPtInstallFn(int handler, int data);
 int NM_ptInstall(int handler, char *ptname);
 int NM_open(void);

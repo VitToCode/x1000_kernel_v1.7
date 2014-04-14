@@ -310,16 +310,7 @@ int NM_UpdateErrorPartition(NM_ppt *ppt)
 		return -1;
 	}
 
-	if (!nm_intf->is_scaned) {
-		if (NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_SCAN_BADBLOCKS, 0))
-		{
-			printk("ERROR: %s, scan badblocks error!\n", __func__);
-			return -1;
-		}
-		nm_intf->is_scaned = 1;
-	}
-
-	return NandManger_UpdateErrorPartition(nm_intf->handler, (ppt ? ppt->pt : NULL));
+	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_UPDATE_ERRPT, 0);
 }
 
 int NM_PrepareNewFlash(int handler)
@@ -342,14 +333,14 @@ int NM_CheckUsedFlash(int handler)
 	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_CHECK_USED_FLASH, 0);
 }
 
-int NM_EraseFlash(int handler)
+int NM_EraseFlash(int handler, int force)
 {
 	if ((NM_intf*)handler != nm_intf) {
 		printk("ERROR: %s, Unknown NM handler!\n", __func__);
 		return -1;
 	}
 
-	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_ERASE_FLASH, 0);
+	return NandManger_Ioctrl(nm_intf->handler, force, 0);
 }
 
 int NM_open(void)
@@ -361,7 +352,7 @@ int NM_open(void)
 			return 0;
 		}
 		nm_intf->heap = (void*)kmalloc(HEAP_SIZE, GFP_KERNEL);
-		nm_intf->handler = NandManger_Init(nm_intf->heap, HEAP_SIZE);
+		nm_intf->handler = NandManger_Init(nm_intf->heap, HEAP_SIZE, 0);
 		if (!nm_intf->handler) {
 			printk("ERROR: %s, Init NandManger faild!\n", __func__);
 			return 0;
@@ -424,15 +415,6 @@ int NM_ptInstall(int handler, char *ptname)
 	if ((NM_intf*)handler != nm_intf) {
 		printk("ERROR: %s, Unknown NM handler!\n", __func__);
 		return -1;
-	}
-
-	if (!nm_intf->is_scaned) {
-		if (NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_SCAN_BADBLOCKS, 0))
-		{
-			printk("ERROR: %s, scan badblocks error!\n", __func__);
-			return -1;
-		}
-		nm_intf->is_scaned = 1;
 	}
 
 	if (nm_intf->ndPtInstall)

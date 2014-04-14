@@ -17,6 +17,7 @@ enum {
 
 int nm_dbg_level = DUG_LEVEL_WARNING;
 int utils_dbg_level = DUG_LEVEL_WARNING;
+int libops_dbg_level = DUG_LEVEL_WARNING;
 
 module_param(nm_dbg_level,int,0644);
 

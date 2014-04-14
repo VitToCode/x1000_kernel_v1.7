@@ -1,4 +1,5 @@
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/vmalloc.h>
 #include "NandSemaphore.h"
@@ -67,4 +68,36 @@ void __NandMutex_Unlock(NandMutex* mutex)
 int __NandMutex_TryLock(NandMutex *mutex)
 {
 	return mutex_trylock((struct mutex *)(*mutex));
+}
+
+typedef struct __ndspinlock {
+	spinlock_t lock;
+	unsigned long flags;
+} ndspinlock;
+
+void __InitNandSpinLock(NandSpinLock *lock)
+{
+	ndspinlock *ndlock = vmalloc(sizeof(ndspinlock));
+	spin_lock_init(&(ndlock->lock));
+	*lock = (NandSpinLock)ndlock;
+}
+
+void __DeInitNandSpinLock(NandSpinLock *lock)
+{
+	ndspinlock *ndlock = (ndspinlock *)(*lock);
+	vfree(ndlock);
+}
+
+void __NandSpinLock_Lock(NandSpinLock *lock)
+{
+	ndspinlock *ndlock = (ndspinlock *)(*lock);
+	//spin_lock_irqsave(&(ndlock->lock), ndlock->flags);
+	spin_lock(&(ndlock->lock));
+}
+
+void __NandSpinLock_Unlock(NandSpinLock *lock)
+{
+	ndspinlock *ndlock = (ndspinlock *)(*lock);
+	//spin_unlock_irqrestore(&(ndlock->lock), ndlock->flags);
+	spin_unlock(&(ndlock->lock));
 }

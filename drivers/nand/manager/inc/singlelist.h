@@ -63,6 +63,11 @@ static inline  void singlelist_add_head(struct singlelist *top,struct singlelist
 #define singlelist_for_each(pos, head) \
 	for (pos = (head); pos != NULL; pos = pos->next)
 
+/*
+#define singlelist_for_each_ext(pos, head, next)			\
+	for (next = (head); pos = next, (next ? next = next->next : NULL), pos != NULL;)
+*/
+
 #define singlelist_container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - singlelist_offsetof(type,member) );})

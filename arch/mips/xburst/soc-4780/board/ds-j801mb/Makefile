@@ -6,4 +6,3 @@ obj-$(CONFIG_MFD_ACT8600)	+= ds-j801mb-regulator.o
 obj-$(CONFIG_MFD_RICOH618)	+= ds-j801mb-regulator.o
 obj-$(CONFIG_MMC_JZ4780)	+= ds-j801mb-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += ds-j801mb-sound.o
-obj-$(CONFIG_NAND_DRIVER)	+= ds-j801mb-nand.o

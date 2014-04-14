@@ -414,7 +414,7 @@ static int __init zpad80_board_init(void)
 #endif
 /* nand */
 #ifdef CONFIG_NAND_DRIVER
-	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
+	jz_device_register(&jz_nand_device, NULL);
 #endif
 /* hdmi */
 #ifdef CONFIG_HDMI_JZ4780

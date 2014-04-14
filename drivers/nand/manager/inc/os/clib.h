@@ -23,6 +23,8 @@ extern void serial_put_hex(unsigned int  d);
 unsigned int nm_sleep(unsigned int seconds);
 long long nd_getcurrentsec_ns(void);
 unsigned int nd_get_timestamp(void);
+unsigned int nd_get_phyaddr(void * addr);
+unsigned int nd_get_pid(void);
 
 enum nm_msg_type {
 	NM_MSG_ERASE_PERSENT,

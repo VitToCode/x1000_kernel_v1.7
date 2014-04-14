@@ -93,11 +93,9 @@
 #define DCM_CH1_TCSM_TO_DDR  (DCM_CH1_SRC_TCSM | DCM_CH1_DST_DDR)
 #define DCM_CH1_DDR_TO_TCSM  (DCM_CH1_SRC_DDR  | DCM_CH1_DST_TCSM)
 
-#define MCU_MSG_TYPE_NORMAL	0x1<<24
-#define MCU_MSG_TYPE_INTC	0x2<<24
-#define MCU_MSG_TYPE_INTC_MASKA	0x3<<24
-#define GET_MSG_TYPE(msg) 	(msg & 0x07000000)
-#define GET_MSG_MASK(msg)	(msg >> 27)
+#define MCU_MSG_TYPE_NORMAL	0x1
+#define MCU_MSG_TYPE_INTC	0x2
+#define MCU_MSG_TYPE_INTC_MASKA	0x3
 
 enum jzdma_req_type {
 #define _RTP(NAME) JZDMA_REQ_##NAME##_TX,JZDMA_REQ_##NAME##_RX

@@ -464,7 +464,7 @@ static int __init npm709j_board_init(void)
 
 /* nand */
 #ifdef CONFIG_NAND_DRIVER
-	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
+	jz_device_register(&jz_nand_device, NULL);
 #endif
 /* hdmi */
 #ifdef CONFIG_HDMI_JZ4780

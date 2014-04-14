@@ -1,1103 +1,1265 @@
-/*
- *  lib_nand/nand_api.c
- *
- * JZ Nand Driver API
- *
- */
-#include <linux/platform_device.h>
-#include <linux/types.h>
-#include <linux/interrupt.h>
-#include <linux/wait.h>
-#include <linux/delay.h>
-#include <linux/sched.h>
-#include <linux/gpio.h>
-#include <linux/device.h>
-#include <linux/math64.h>
-#include <linux/completion.h>
-#include <mach/jznand.h>
-#include "nand_api.h"
-#include "vnandinfo.h"   //change later
-#include "nand_char.h"   //change later
-#include "nand_debug.h"   //change later
-
-//#define DEBUG_ERASE
-//#define NAPI_DEBUG_TIME_WRITE
-//#define NAPI_DEBUG_TIME_READ
-#ifdef JZNAND_DRIVE_DEBUG
-#define NAND_API_DUMP
-#endif
-
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-#define NAPI_DBG_READ	0
-#define NAPI_DBG_WRITE	1
-#define BYTE_PER_PAGE	8192
-#define DEBUG_TIME_BYTES (10 * 1024 *1024)
-struct __data_distrib {
-	unsigned int _0KBytes;		// x == 0
-	unsigned int _0_2KBytes;	// 0 < x < 2
-	unsigned int _2KBytes;		// x == 2
-	unsigned int _2_4KBytes;	// 2 < x < 4
-	unsigned int _4KBytes;		// x == 4
-	unsigned int _4_6KBytes;	// 4 < x < 6
-	unsigned int _6KBytes;		// x == 6
-	unsigned int _6_8KBytes;	// 6 < x < 8
-	unsigned int _8KBytes;		// x == 8
-};
-
-static unsigned long long rd_btime = 0;
-static unsigned long long wr_btime = 0;
-static unsigned long long rd_sum_time = 0;
-static unsigned long long wr_sum_time = 0;
-static unsigned int rd_sum_bytes = 0;
-static unsigned int wr_sum_bytes = 0;
-static unsigned int rd_sum_pages = 0;
-static unsigned int wr_sum_pages = 0;
-static struct __data_distrib rd_dbg_distrib = {0};
-static struct __data_distrib wr_dbg_distrib = {0};
-
-/*for example: div_s64_32(3,2) = 2*/
-static inline int div_s64_32(long long dividend , int divisor);
-static inline void calc_bytes(int mode, int bytes)
-{
-	if (mode == NAPI_DBG_READ)
-		rd_sum_bytes += bytes;
-	else
-		wr_sum_bytes += bytes;
-}
-
-static inline void calc_pages(int mode, int pages)
-{
-	if (mode == NAPI_DBG_READ)
-		rd_sum_pages += pages;
-	else
-		wr_sum_pages += pages;
-}
-
-static inline void calc_distrib(int mode, int bytes)
-{
-	struct __data_distrib *distrib;
-
-	if (mode == NAPI_DBG_READ)
-		distrib = &rd_dbg_distrib;
-	else
-		distrib = &wr_dbg_distrib;
-
-	if (bytes == 0) {
-		distrib->_0KBytes ++;
-	} else if ((bytes > 0 * 1024) && (bytes < 2 * 1024)) {
-		distrib->_0_2KBytes ++;
-	} else if (bytes == 2 * 1024) {
-		distrib->_2KBytes ++;
-	} else if ((bytes > 2 * 1024) && (bytes < 4 * 1024)) {
-		distrib->_2_4KBytes ++;
-	} else if (bytes == 4 * 1024) {
-		distrib->_4KBytes ++;
-	} else if ((bytes > 4 * 1024) && (bytes < 6 * 1024)) {
-		distrib->_4_6KBytes ++;
-	} else if (bytes == 6 * 1024) {
-		distrib->_6KBytes ++;
-	} else if ((bytes > 6 * 1024) && (bytes < 8 * 1024)) {
-		distrib->_6_8KBytes ++;
-	} else if (bytes == 8 * 1024) {
-		distrib->_8KBytes ++;
-	} else {
-		printk("%s, line:%d, Bytes error!, bytes = %d\n", __func__, __LINE__, bytes);
-	}
-}
-
-static inline void begin_time(int mode)
-{
-	if (mode == NAPI_DBG_READ)
-		rd_btime = sched_clock();
-	else
-		wr_btime = sched_clock();
-}
-
-static inline void end_time(int mode)
-{
-	int times, bytes, theory_bytes;
-	unsigned long long etime = sched_clock();
-
-	if (mode == NAPI_DBG_READ) {
-		rd_sum_time += (etime - rd_btime);
-		if (rd_sum_bytes >= DEBUG_TIME_BYTES) {
-#ifdef NAPI_DEBUG_TIME_READ
-			times = div_s64_32(rd_sum_time, 1000 * 1000);
-			bytes = rd_sum_bytes / 1024;
-			theory_bytes = rd_sum_pages * BYTE_PER_PAGE / 1024;
-			printk("READ: nand_api speed debug, %dms, %dKb, %d, %dKb/s, %dKb/s\n",
-				   times, bytes, rd_sum_pages, (bytes * 1000) / times, (theory_bytes * 1000) / times);
-			printk("[    0KBytes]:(%d)\n[0 - 2KBytes]:(%d)\n[    2KBytes]:(%d)\n[2 - 4KBytes]:(%d)\n",
-				   rd_dbg_distrib._0KBytes, rd_dbg_distrib._0_2KBytes,
-				   rd_dbg_distrib._2KBytes, rd_dbg_distrib._2_4KBytes);
-			printk("[    4KBytes]:(%d)\n[4 - 6KBytes]:(%d)\n[    6KBytes]:(%d)\n[6 - 8KBytes]:(%d)\n",
-				   rd_dbg_distrib._4KBytes, rd_dbg_distrib._4_6KBytes,
-				   rd_dbg_distrib._6KBytes, rd_dbg_distrib._6_8KBytes);
-			printk("[    8KBytes]:(%d)\n\n", rd_dbg_distrib._8KBytes);
-#endif
-			rd_sum_bytes = rd_sum_time = rd_sum_pages = 0;
-			memset(&rd_dbg_distrib, 0, sizeof(struct __data_distrib));
-		}
-	} else {
-		wr_sum_time += (etime - wr_btime);
-		if (wr_sum_bytes >= DEBUG_TIME_BYTES) {
-#ifdef NAPI_DEBUG_TIME_WRITE
-			times = div_s64_32(wr_sum_time, 1000 * 1000);
-			bytes = wr_sum_bytes / 1024;
-			theory_bytes = wr_sum_pages * BYTE_PER_PAGE / 1024;
-			printk("WRITE: nand_api speed debug, %dms, %dKb, %d, %dKb/s, %dKb/s\n",
-				   times, bytes, wr_sum_pages, (bytes * 1000) / times, (theory_bytes * 1000) / times);
-			printk("[    0KBytes]:(%d)\n[0 - 2KBytes]:(%d)\n[    2KBytes]:(%d)\n[2 - 4KBytes]:(%d)\n",
-				   wr_dbg_distrib._0KBytes, wr_dbg_distrib._0_2KBytes,
-				   wr_dbg_distrib._2KBytes, wr_dbg_distrib._2_4KBytes);
-			printk("[    4KBytes]:(%d)\n[4 - 6KBytes]:(%d)\n[    6KBytes]:(%d)\n[6 - 8KBytes]:(%d)\n",
-				   wr_dbg_distrib._4KBytes, wr_dbg_distrib._4_6KBytes,
-				   wr_dbg_distrib._6KBytes, wr_dbg_distrib._6_8KBytes);
-			printk("[    8KBytes]:(%d)\n\n", wr_dbg_distrib._8KBytes);
-#endif
-			wr_sum_bytes = wr_sum_time = wr_sum_pages = 0;
-			memset(&wr_dbg_distrib, 0, sizeof(struct __data_distrib));
-		}
-	}
-}
-#endif
-
-static inline int div_s64_32(long long dividend , int divisor)  // for example: div_s64_32(3,2) = 2
-{
-	long long result=0;
-	int remainder=0;
-	result =div_s64_rem(dividend,divisor,&remainder);
-	result = remainder ? (result +1):result;
-	return result;
-}
-
-void setup_mtd_struct(NAND_API *pnand_api, JZ_NAND_CHIP *pnand_chip)
-{
-	NAND_API *this = pnand_api;
-
-	this->writesize = pnand_chip->writesize;
-	this->erasesize = pnand_chip->erasesize;
-	this->ppblock = pnand_chip->ppblock;
-	this->totalblock = pnand_chip->bpchip * pnand_chip->numchips;
-
-	/*
-	 * Set the number of read / write steps for one page depending on ECC
-	 * mode
-	 */
-
-	this->nand_ecc->eccsteps = this->writesize / this->nand_ecc->eccsize;
-	if (this->nand_ecc->eccsteps * this->nand_ecc->eccsize != this->writesize) {
-		BUG();
-	}
-}
-
-#ifdef NAND_API_DUMP
 /**
- * ffs_ll - find first bit set in a 64bit word.
- * @word: The word to search
- */
-static inline int ffs_ll(unsigned long long word)
-{
-	unsigned int low = word & 0xffffffff;
-	unsigned int high = word >> 32;
-	int i;
+ * driver/nand_api.c
+ *
+ * Ingenic Nand Driver
+ *
+ **/
+#include "nandinterface.h"
+#include "vnandinfo.h"
+#include "singlelist.h"
+#include "blocklist.h"
+#include "ppartition.h"
+#include "pagelist.h"
 
-	for(i = 0; i < 32; i++) {
-		if (low & 0x1)
-			break;
-		low >>= 1;
-	}
-	if (i == 32) {
-		for(i = 0; i < 32; i++) {
-			if (high & 0x1)
-				break;
-			high >>= 1;
-		}
-		i += 32;
-	}
-	if (i == 64)
-		return 0;
-	else
-		return (i + 1);
+#include <os_clib.h>
+#include <speed_dug.h>
+#include "nand_debug.h"
+#include "nddata.h"
+#include "nand_api.h"
+#include "nand_io.h"
+#include "nand_bch.h"
+#include "nand_ops.h"
+#include "errptinfo.h"
+
+//#define COMPAT_OLD_USB_BURN
+
+/* global */
+nand_data *nddata = NULL;
+extern int nd_raw_boundary;
+
+void (*__clear_rb_state)(rb_item *);
+int (*__wait_rb_timeout) (rb_item *, int);
+int (*__try_wait_rb) (rb_item *, int);
+void (*__wp_enable) (int);
+void (*__wp_disable) (int);
+nand_flash * (*__get_nand_flash) (void);
+
+extern int os_clib_init(os_clib *clib);
+
+/*========================= NandInterface =========================*/
+/**
+ * if block is 'X', it is virtual
+ *	     rb0   rb1   ...   rb(totalrbs)
+ *     row ========================= (real start)
+ *	   | raw |  X  | ... |  X  |
+ *	   | pts |  X  | ... |  X  |
+ *	   ------------------------- raw_boundary
+ *	   |    zone               |
+ *	   |    pts                |
+ *	   ========================= rbblocks (real end)
+ *	   :  X  : map : ... : map |
+ *	   :  X  : ed  : ... : ed  |
+ *	   ------------------------- (virtual end)
+ *	   column
+**/
+static inline int is_blockid_virtual(ndpartition *npt, int blockid)
+{
+	int totalrbs = nddata->rbinfo->totalrbs;
+	int chipprb = nddata->csinfo->totalchips / nddata->rbinfo->totalrbs;
+	int column = blockid % totalrbs;
+	int row = (npt->startblockid + blockid * npt->blockpvblock) / totalrbs;
+	int raw_boundary = nddata->ptinfo->raw_boundary;
+	int rbblocks = chipprb * nddata->cinfo->maxvalidblocks;
+
+	return ((column > 0) && (row < raw_boundary)) || ((column == 0) && (row >= rbblocks));
 }
 
-
-void dump_nand_chip(JZ_NAND_CHIP *pnand_chip)
+static int single_page_read(void *ppartition, int pageid, int offsetbyte, int bytecount, void *data)
 {
-	dprintf("NAND chip:0x%x\n",(int)pnand_chip);
+	int ret;
+	PageList ppl_node;
+	PPartition *ppt = (PPartition *)ppartition;
 
-	dprintf("  pagesize    %d\n", pnand_chip->pagesize);
-	dprintf("  oobsize     %d\n", pnand_chip->oobsize);
-	dprintf("  blocksize    %d\n", pnand_chip->blocksize);
-	dprintf("  ppblock    %d\n", pnand_chip->ppblock);
-	dprintf("  realplanenum   %d\n", pnand_chip->realplanenum);
-	dprintf("  buswidth   %d\n", pnand_chip->buswidth);
-	dprintf("  row_cycles     %d\n", pnand_chip->row_cycles);
-	dprintf("  numchips     %d\n", pnand_chip->numchips);
-	dprintf("  badblockpos     %d\n", pnand_chip->badblockpos);
-	dprintf("  planenum     %d\n", pnand_chip->planenum);
-	dprintf("  freesize     %d\n", pnand_chip->freesize);
-	dprintf("  writesize     %d\n", pnand_chip->writesize);
-	dprintf("  erasesize     %d\n", pnand_chip->erasesize);
-	dprintf("  chipsize     %lld\n", pnand_chip->chipsize);
-	dprintf("^_^\n");
+	ppl_node.head.next = NULL;
+	ppl_node.startPageID = pageid;
+	ppl_node.OffsetBytes = offsetbyte;
+	ppl_node.Bytes = bytecount;
+	ppl_node.pData = data;
 
-}
+	speed_dug_begin(NDD_READ, &ppl_node);
+	ret = nandops_read(nddata->ops_context, (ndpartition *)ppt->prData, &ppl_node);
+	speed_dug_end(NDD_READ);
 
-static void dump_nand_io(JZ_IO *pnand_io)
-{
-	dprintf("NAND io:0x%x\n",(int)pnand_io);
+	if (ret == ECC_ERROR)
+		ndd_dump_uncorrect_err(nddata, ppt, &ppl_node);
 
-	dprintf("  dataport    0x%x\n", (int)pnand_io->dataport);
-	dprintf("  cmdport     0x%x\n", (int)pnand_io->cmdport);
-	dprintf("  addrport    0x%x\n", (int)pnand_io->addrport);
-	dprintf("  buswidth    %d\n", pnand_io->buswidth);
-	dprintf("  pagesize    %d\n", pnand_io->pagesize);
-	dprintf("-_-\n");
-}
-
-static void dump_nand_ecc(JZ_ECC *pnand_ecc)
-{
-	dprintf("NAND ecc:0x%x\n",(int)pnand_ecc);
-	dprintf("  eccsize    %d\n", pnand_ecc->eccsize);
-	dprintf("  eccbytes     %d\n", pnand_ecc->eccbytes);
-	dprintf("  parsize    %d\n", pnand_ecc->parsize);
-	dprintf("  eccbit    %d\n", pnand_ecc->eccbit);
-	dprintf("  eccpos    %d\n", pnand_ecc->eccpos);
-	dprintf("  eccsteps   %d\n", pnand_ecc->eccsteps);
-	dprintf("-_-\n");
-}
-
-void dump_nand_api(NAND_API *pnand_api)
-{
-	dprintf("NAND API:\n");
-	dprintf("  writesize=%d\n", pnand_api->writesize);
-	dprintf("  erasesize=%d\n", pnand_api->erasesize);
-	dprintf("  ppblock=%d\n", pnand_api->ppblock);
-	dprintf("  totalblock=%d\n", pnand_api->totalblock);
-	dprintf("  nemc:0x%x\n",(unsigned int)(pnand_api->nand_ctrl));
-	dprintf("  ecc:0x%x\n",(unsigned int)(pnand_api->nand_ecc));
-	dprintf("  io:0x%x\n",(unsigned int)(pnand_api->nand_io));
-	dprintf("  chip:0x%x\n",(unsigned int)(pnand_api->nand_chip));
-	dprintf("o_o\n");
-}
-#endif
-
-/*************       nand  configure        ************/
-#define GPIOA_20_IRQ (0*32 + 20)
-static struct completion nand_rb;
-DECLARE_WAIT_QUEUE_HEAD(nand_rb_queue);
-
-extern JZ_NAND_CHIP jz_raw_nand;
-extern JZ_IO        jznand_io;
-extern JZ_ECC       jznand_ecc;
-extern NAND_CTRL    jznand_nemc;
-
-/*********            nand api             ********/
-
-static NAND_API  g_pnand_api;
-static Aligned_List * g_aligned_list;
-static struct platform_device *g_pdev;
-static struct platform_nand_data *g_pnand_data;
-static PPartArray g_partarray;
-static PPartition *g_partition = NULL;
-
-/*
- * nand_board_init
- */
-static int nand_board_init(NAND_API * pnand_api)
-{
-	int ret =0;
-	pnand_api->nand_ecc =&jznand_ecc;
-	pnand_api->nand_io = &jznand_io;
-
-#ifdef CONFIG_TOGGLE_NAND
-	pnand_api->nand_chip =&jz_toggle_nand;
-#else
-	pnand_api->nand_chip =&jz_raw_nand;
-#endif
-	pnand_api->nand_ctrl =&jznand_nemc;
-
-	ret = nand_chip_init(g_pnand_api.vnand_base,pnand_api);
-	if (ret == -1) {
-		printk("ERROR:%s[%d] NAND Chip Init Failed !\n",__func__,__LINE__);
-		return -1;
-	}
-#ifdef CONFIG_NAND_DMA
-	ret =nand_dma_init(pnand_api);    //add later
-	if (ret == -1) {
-		printk("ERROR:%s[%d] nand_dma_init Failed !\n",__func__,__LINE__);
-		return -1;
-	}
-#endif
 	return ret;
 }
-/*
- * nand_board_deinit
- */
-static void nand_board_deinit(NAND_API * pnand_api)
+
+static int single_page_write(void *ppartition, int pageid, int offsetbyte, int bytecount, void *data)
 {
-#ifdef CONFIG_NAND_DMA
-	nand_dma_deinit(pnand_api->nand_dma);    //add later
-#endif
-	return ;
-}
-
-/*
- * Main initialization routine
- */
-
-/*    nand_wait_rb interrupt handler  */
-static irqreturn_t jznand_waitrb_interrupt(int irq, void *dev_id)
-{
-	complete(&nand_rb);
-	return IRQ_HANDLED;
-}
-/*    nand_wait_rb  */
-int nand_wait_rb(void)
-{
-	unsigned int ret;
-	do{
-#if 1
-	ret = wait_for_completion_timeout(&nand_rb,(msecs_to_jiffies(500)));
-#else
-	ret =wait_for_completion(&nand_rb);
-#endif
-        udelay(10);
-	}while(ret == -ERESTARTSYS);
-	if(!ret)
-		return TIMEOUT;
-	return 0;
-}
-
-/*  nand driver init    */
-static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist);
-static inline int init_nand_vm(void * vNand)
-{
-	VNandManager *tmp_manager =(VNandManager *)vNand;
-	VNandInfo *tmp_info = &(tmp_manager->info);
-	struct platform_nand_partition *plat_data,*tmpplat;
-	PPartition *pt;
-
-	/* platform_nand_partition */
-	plat_data = (struct platform_nand_partition *)nand_malloc_buf(sizeof(struct platform_nand_partition));
-	if(!g_pnand_data)
-		return -1;
-	tmpplat = g_pnand_data->partitions;
-	plat_data->eccbit = tmpplat->eccbit;  // these eccbit should be equal in every partitions
-	plat_data->use_planes = ONE_PLANE;
-	/* PPartition */
-	pt = (PPartition *)nand_malloc_buf(sizeof(PPartition));
-	pt->startblockID = 0;
-	pt->pageperblock = g_pnand_api.nand_chip->ppblock;
-	pt->byteperpage = g_pnand_api.nand_chip->pagesize;
-	pt->totalblocks = g_pnand_api.totalblock;
-	pt->badblockcount = 0;
-	pt->actualbadblockcount = 0;
-	pt->hwsector = 512;
-	pt->startPage = pt->startblockID * pt->pageperblock;
-	pt->PageCount = pt->totalblocks * pt->pageperblock;
-	pt->prData = plat_data;
-
-	tmp_info->startBlockID = 0;
-	tmp_info->PagePerBlock = g_pnand_api.nand_chip->ppblock;
-	tmp_info->BytePerPage =  g_pnand_api.nand_chip->pagesize;
-	tmp_info->TotalBlocks =  g_pnand_api.totalblock;
-	tmp_info->MaxBadBlockCount = g_pnand_api.nand_chip->maxbadblockcount;
-	tmp_info->hwSector = g_pnand_api.nand_ecc->eccsize;
-	tmp_info->prData = (void *)pt;
-	if(!g_partition)
-		return -1;
-	tmp_manager->pt = &g_partarray;
-	dprintf("*** init_nand_vm is ok ***\n");
-	return 0;
-}
-static int init_nand_driver(void)
-{
-	static PPartition *t_partition;  // temporary partition
-
 	int ret;
-	int j;//record count for ex_partition
-	int ipartition_num=0;
-	struct  platform_nand_partition *ptemp=0;
-	unsigned int *tmp_badblock_info=0;
-	int tmp_eccbit=0, tmp_freesize=0;
-	int tmp_oobsize=0,tmp_eccpos=0,tmp_eccbytes=0;
-	int blockid =0;
-	int lastblockid =0;
-	unsigned int use_planenum=0;
-	unsigned int pageperblock = 0;
-	unsigned int byteperpage =  0;
-	unsigned int totalblocks =  0;
-	unsigned int hwsector = 0;
+	PageList ppl_node;
+	PPartition *ppt = (PPartition *)ppartition;
 
-	ret =nand_board_init(&g_pnand_api);
-	if(ret){
-		eprintf("ERROR:%s[%d] nand_board_init Failed\n",__func__,__LINE__);
-		goto init_nand_driver_error1;
-	}
-	setup_mtd_struct(&g_pnand_api,g_pnand_api.nand_chip);
-	if(g_pnand_api.nand_chip->pagesize < g_pnand_api.nand_ecc->eccsize){
-		eprintf("ERROR:%s[%d] pagesize(%d) is smaller than eccsize(%d); please check pagesize in nand_ids.c\n",
-					__func__,__LINE__,g_pnand_api.nand_chip->pagesize,g_pnand_api.nand_ecc->eccsize);
-		goto init_nand_driver_error1;
-	}
-	pageperblock = g_pnand_api.nand_chip->ppblock;
-	byteperpage =  g_pnand_api.nand_chip->pagesize;
-	totalblocks =  g_pnand_api.totalblock;
-	hwsector = g_pnand_api.nand_ecc->eccsize;
-#ifdef NAND_API_DUMP
-	dump_nand_api(&g_pnand_api);
-	dump_nand_chip(g_pnand_api.nand_chip);
-	dump_nand_io(g_pnand_api.nand_io);
-	dump_nand_ecc(g_pnand_api.nand_ecc);
-#endif
-	tmp_oobsize =g_pnand_api.nand_chip->oobsize;
-	tmp_eccpos  =g_pnand_api.nand_ecc->eccpos;
-	tmp_badblock_info =(unsigned int *)g_pnand_data->priv;
+	ppl_node.head.next = NULL;
+	ppl_node.startPageID = pageid;
+	ppl_node.OffsetBytes = offsetbyte;
+	ppl_node.Bytes = bytecount;
+	ppl_node.pData = data;
 
-	ipartition_num =g_pnand_data->nr_partitions;
-	ptemp =g_pnand_data->partitions;
-	/*  add a partition that stored badblock tabel */
-	g_partition =(PPartition *)nand_malloc_buf((ipartition_num+1)*(sizeof(PPartition)));
-	if (!g_partition) {
-		eprintf("ERROR:%s[%d] g_partition malloc Failed\n",__func__,__LINE__);
-		goto init_nand_driver_error1;
-	}
-	memset(g_partition, 0x0, (ipartition_num+1)*(sizeof(PPartition)));
+	__wp_disable(nddata->gpio_wp);
+	ndd_dump_rewrite(nddata, ppt, &ppl_node);
+	speed_dug_begin(NDD_WRITE, &ppl_node);
+	ret = nandops_write(nddata->ops_context, (ndpartition *)ppt->prData, &ppl_node);
+	speed_dug_end(NDD_WRITE);
+	__wp_enable(nddata->gpio_wp);
 
-	for(ret=0; ret<ipartition_num; ret++)
-	{
-		tmp_eccbit =(ptemp+ret)->eccbit;
-		if (tmp_eccbit < g_pnand_api.nand_ecc->eccbit)
-			tmp_eccbit = g_pnand_api.nand_ecc->eccbit;
-		(ptemp+ret)->eccbit = tmp_eccbit;
-		/**  cale freesize  **/
-		tmp_eccbytes =__bch_cale_eccbytes(tmp_eccbit);  //eccbytes per eccstep
-		if(((byteperpage/hwsector)*tmp_eccbytes)+tmp_eccpos > tmp_oobsize){
-			tmp_freesize =hwsector;
-			printk("ERROR:%s[%d] eccbit is larger,\n",__func__,__LINE__);
-			printk("pagesize will be modified(%d -> %d),so that nand capacity will be become smaller!",
-										byteperpage,byteperpage-tmp_freesize);
-			printk("please modify eccbit in board-nand.c !\n");
+	return ret;
+}
+
+static int multi_page_read(void *ppartition, PageList *pl)
+{
+	int ret;
+	PPartition *ppt = (PPartition *)ppartition;
+	ndpartition *npt = (ndpartition *)ppt->prData;
+
+	speed_dug_begin(NDD_READ, pl);
+	ret = nandops_read(nddata->ops_context, npt, pl);
+	speed_dug_end(NDD_READ);
+
+	if (ret == ECC_ERROR)
+		ndd_dump_uncorrect_err(nddata, ppt, pl);
+
+	return ret;
+}
+
+static int multi_page_write(void *ppartition, PageList *pl)
+{
+	int ret;
+	PPartition *ppt = (PPartition *)ppartition;
+	ndpartition *npt = (ndpartition *)ppt->prData;
+
+        ndd_dump_write_reread_prepare(pl);
+
+	__wp_disable(nddata->gpio_wp);
+	ndd_dump_rewrite(nddata, ppt, pl);
+	speed_dug_begin(NDD_WRITE, pl);
+	ret = nandops_write(nddata->ops_context, npt, pl);
+	speed_dug_end(NDD_WRITE);
+	__wp_enable(nddata->gpio_wp);
+
+	if (ret == SUCCESS)
+		ndd_dump_write_reread_complete(nddata, ppt, pl);
+
+	return ret;
+}
+
+static int multi_block_erase(void* ppartition, BlockList *bl)
+{
+	int ret = 0, cur = 0;
+	unsigned int bitmap = 0xffffffff;
+	struct singlelist list_head;
+	struct singlelist *pos, *top = NULL, *tmp_node = NULL, *virtual_list = NULL, *normal_list = NULL;
+	BlockList *bl_node;
+	PPartition *ppt = (PPartition *)ppartition;
+	ndpartition *npt = (ndpartition *)ppt->prData;
+
+	/* singlelist head can not be deleted, 'list_head' is used to fix this issue */
+	list_head.next = &bl->head;
+	singlelist_for_each(pos, &bl->head) {
+		if (tmp_node) {
+			tmp_node->next = NULL;
+			if (!virtual_list)
+				virtual_list = tmp_node;
+			else
+				singlelist_add_tail(virtual_list, tmp_node);
+			bitmap &= ~(1 << (cur - 1));
+			tmp_node = NULL;
 		}
-		else
-			tmp_freesize =0;
-		/*   cale ppartition vnand info     */
-		use_planenum = (ptemp+ret)->use_planes ? g_pnand_api.nand_chip->planenum : 1;
-		(g_partition+ret)->name = (ptemp+ret)->name;
-		(g_partition+ret)->hwsector =512;
-		(g_partition+ret)->byteperpage = byteperpage-tmp_freesize;
-		(g_partition+ret)->actualbadblockcount = 0;
-		(g_partition+ret)->startblockID = div_s64_32((ptemp+ret)->offset,((g_partition+ret)->byteperpage * pageperblock));
-		/*  two-plane operation : startblockID must be even  */
-		(g_partition+ret)->startblockID +=(g_partition+ret)->startblockID % use_planenum;
-		(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
-		(g_partition+ret)->pageperblock = pageperblock * use_planenum;
-		(g_partition+ret)->PageCount = div_s64_32(((ptemp+ret)->size),((g_partition+ret)->byteperpage));
-		(g_partition+ret)->totalblocks = (g_partition+ret)->PageCount / (g_partition+ret)->pageperblock;
-		(g_partition+ret)->PageCount = (g_partition+ret)->totalblocks * (g_partition+ret)->pageperblock;
-		(g_partition+ret)->badblockcount = ((g_partition+ret)->totalblocks
-                                * g_pnand_api.nand_chip->maxbadblockcount
-                                + g_pnand_api.nand_chip->bpchip - 1) / g_pnand_api.nand_chip->bpchip;
-
-		if ((g_partition+ret)->badblockcount < tmp_badblock_info[ret])
-			(g_partition+ret)->badblockcount = tmp_badblock_info[ret];
-
-		(g_partition+ret)->mode = (ptemp+ret)->mode;
-		(g_partition+ret)->prData = (void *)(ptemp+ret);
-
-		j = 0;
-		while(((ptemp+ret)->ex_partition+j)->size != 0){
-		    ((g_partition+ret)->parts+j)->startblockID =
-			    div_s64_32(((ptemp+ret)->ex_partition+j)->offset, ((g_partition+ret)->byteperpage * pageperblock));
-		    ((g_partition+ret)->parts+j)->totalblocks =
-			    div_s64_32(((ptemp+ret)->ex_partition+j)->size, ((g_partition+ret)->byteperpage * pageperblock));
-		    ((g_partition+ret)->parts+j)->name = ((ptemp+ret)->ex_partition+j)->name;
-		    j++;
+		bl_node = singlelist_entry(pos, BlockList, head);
+		if (is_blockid_virtual(npt, bl_node->startBlock)) {
+			ndd_debug("%s, pt[%s], block [%d] is virtual\n", __func__, npt->name, bl_node->startBlock);
+			bl_node->retVal = 0; /* we return ok, but do nothing */
+			singlelist_del(&list_head, pos);
+			tmp_node = pos;
 		}
-		(g_partition+ret)->parts_num= j;
-
-		if(byteperpage-tmp_freesize == 0){
-			eprintf("ERROR:%s[%d] please check pagesize in nand_ids.c and eccbit in board-nand.c !\n",__func__,__LINE__);
-			goto init_nand_driver_error2;
-		}
-		/*  blockid is physcial block id  */
-		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / pageperblock;
-		if(blockid > (totalblocks) || lastblockid > (g_partition +ret)->startblockID){
-			eprintf("ERROR:%s[%d] nand capacity insufficient\n",__func__,__LINE__);
-			goto init_nand_driver_error2;
-		}
-		lastblockid = blockid;
+		cur++;
 	}
-	/*  add partition of badblock tabel;the block,which is subtracted from last partition,
-	 *   is as badblock partition.
-	 */
-	t_partition = g_partition+ipartition_num-1;  //last partiton from board
-	(g_partition+ret)->name = "nderror";
-	(g_partition+ret)->byteperpage = t_partition->byteperpage;
-	(g_partition+ret)->badblockcount = (g_partition + ret - 1)->badblockcount;//tmp_badblock_info[ret];
-	(g_partition+ret)->actualbadblockcount = 0;
-	(g_partition+ret)->startblockID = blockid;
-	(g_partition+ret)->startPage = (g_partition+ret)->startblockID  * pageperblock;
-	(g_partition+ret)->pageperblock = t_partition->pageperblock;
-	(g_partition+ret)->totalblocks = 4;
-	(g_partition+ret)->PageCount =(g_partition+ret)->pageperblock * (g_partition+ret)->totalblocks;
-	(g_partition+ret)->mode = ONCE_MANAGER;   // this is special mark of badblock tabel partition
-	(g_partition+ret)->prData = t_partition->prData;
-	(g_partition+ret)->hwsector =512;
-	g_partarray.ppt = g_partition;
-	g_partarray.ptcount = ipartition_num+1;
 
-	g_aligned_list =nand_malloc_buf((VNANDCACHESIZE + 2048) / 512 *sizeof(Aligned_List));
-	if (!g_aligned_list){
-		eprintf("ERROR:%s[%d] g_aligned_list malloc Failed\n",__func__,__LINE__);
-		goto init_nand_driver_error2;
+	if (list_head.next) {
+		__wp_disable(nddata->gpio_wp);
+		ret = nandops_erase(nddata->ops_context, npt, singlelist_container_of(list_head.next, BlockList, head));
+		__wp_enable(nddata->gpio_wp);
+		if (!ret)
+			ndd_dump_erase(nddata, npt, bl);
 	}
-	memset(g_aligned_list,0,(VNANDCACHESIZE + 2048) / 512 * sizeof(Aligned_List));
 
-	nand_ops_parameter_init();
+	if (virtual_list) {
+		normal_list = &bl->head;
+		while (normal_list || virtual_list) {
+			for (cur = 0; cur < sizeof(unsigned int) * 8; cur++) {
+				if ((bitmap & (1 << cur)) == 0) {
+					if (!virtual_list)
+						RETURN_ERR(ENAND, "virtual list not map bitmap\n");
+					tmp_node = virtual_list;
+					singlelist_del(virtual_list, tmp_node);
+				} else {
+					if (!normal_list)
+						RETURN_ERR(ENAND,"normal list not map bitmap\n");
+					tmp_node = normal_list;
+					singlelist_del(normal_list, tmp_node);
+				}
+				tmp_node->next = NULL;
+				if (!top)
+					top = tmp_node;
+				else
+					singlelist_add(top, tmp_node);
+			}
+		}
 
-#ifdef DEBUG_ERASE
-	{
-		int ret;
-		BlockList blocklist;
-        blocklist.startBlock = 0;
-        blocklist.BlockCount = 128;
-        blocklist.head.next = 0;
-		ret = multiblock_erase(&g_partition[0], &blocklist);
-		if (ret != 0) {
-			printk("ndisk erase err \n");
-			dump_stack();
-			while(1);
-		}
-		blocklist.startBlock = 0;
-		blocklist.BlockCount = 128;
-		blocklist.head.next = 0;
-		ret = multiblock_erase(&g_partition[1], &blocklist);
-		if (ret != 0) {
-			printk("mdisk erase err \n");
-			dump_stack();
-			while(1);
-		}
+		bl = singlelist_entry(top, BlockList, head);
 	}
+
+	return ret;
+}
+
+static int is_badblock(void *ppartition, int blockid)
+{
+	int ret;
+	PPartition *ppt = (PPartition *)ppartition;
+	ndpartition *npt = (ndpartition *)ppt->prData;
+
+	/* if block is virtual, it is bad block */
+	if (is_blockid_virtual(npt, blockid)) {
+		ndd_debug("%s, pt[%s], block [%d] is virtual\n", __func__, npt->name, blockid);
+		return ENAND;
+	}
+
+	ret = nandops_isbadblk(nddata->ops_context, npt, blockid);
+
+#ifdef CHECK_USED_BLOCK
+	if ((ret == 0) && (blockid >= 0))
+		ret = ndd_dump_check_used_block(nddata, ppt, blockid);
 #endif
 
-	dprintf("INFO: nand init finish\n");
+	return ret;
+}
+
+static int mark_badblock(void *ppartition, int blockid)
+{
+	int ret;
+	PPartition *ppt = (PPartition *)ppartition;
+	ndpartition *npt = (ndpartition *)ppt->prData;
+
+	/* if block is virtual, mark it will do nothing */
+	if (is_blockid_virtual(npt, blockid)) {
+		ndd_debug("%s, pt[%s], block [%d] is virtual\n", __func__, npt->name, blockid);
+		return 0;
+	}
+
+	__wp_disable(nddata->gpio_wp);
+	ret = nandops_markbadblk(nddata->ops_context, npt, blockid);
+	__wp_enable(nddata->gpio_wp);
+
+	return ret;
+}
+
+static inline int get_ppt_startblockID(ndpartition *npt);
+static inline int get_ppt_totalblocks(ndpartition *npt);
+static inline void fill_ptavailable_badblock(PPartition *ppt);
+static int ioctl(enum ndd_cmd cmd, int args)
+{
+	int ret = 0;
+
+	switch (cmd) {
+	case NDD_UPDATE_ERRPT: {
+		PPartition *pt = (PPartition *)args;
+		ret = nand_update_errpt(nddata,(nand_flash *)(nddata->cinfo->flash), pt);
+		if(ret < 0){
+			ndd_print(NDD_ERROR,"%s %d nand_update_errpt error!\n",__func__,__LINE__);
+		}
+		if(ret >= 0)
+			fill_ptavailable_badblock(pt);
+		break;
+	}
+	default:
+		ndd_print(NDD_WARNING, "WARNING, unknown ioctl command!\n");
+	}
+
+	return ret;
+}
+
+static inline const char* get_ppt_name(ndpartition *npt)
+{
+	return npt->name;
+}
+static inline int get_ppt_byteperpage(ndpartition *npt)
+{
+	return npt->pagesize;
+}
+static inline int get_ppt_pageperblock(ndpartition *npt)
+{
+	return npt->blockpvblock * npt->pagepblock;
+}
+static inline int get_ppt_startblockID(ndpartition *npt)
+{
+	return npt->startblockid;
+}
+static inline int get_ppt_totalblocks(ndpartition *npt)
+{
+	return npt->totalblocks / npt->blockpvblock;
+}
+static inline int get_ppt_PageCount(ndpartition *npt)
+{
+	return npt->totalblocks * npt->pagepblock;
+}
+static inline int get_ppt_startPage(ndpartition *npt)
+{
+	return npt->startblockid * npt->pagepblock;
+}
+static inline int get_ppt_mode(ndpartition *npt)
+{
+	return npt->nm_mode;
+}
+static inline void* get_ppt_prData(ndpartition *npt)
+{
+	return (void *)npt;
+}
+static inline int get_ppt_pagespergroup(ndpartition *npt)
+{
+	return npt->pagepblock * npt->blockpvblock * npt->vblockpgroup;
+}
+static inline int get_ppt_groupperzone(ndpartition *npt)
+{
+	return npt->groupspzone;
+}
+static inline int get_ppt_flags(ndpartition *npt)
+{
+	return npt->flags;
+}
+
+static inline void fill_ptavailable_badblock(PPartition *ppt)
+{
+	int i, blockid;
+	int endflag = 0;
+	int totalblocks = ppt->totalblocks;
+	int unit_size = ppt->groupperzone;
+	unsigned int *badTable = ppt->pt_badblock_info;
+	unsigned int *alailableTable = ppt->pt_availableblockid;
+	int block_in_badtable = 0;
+	int unalign_unit_start = 0, unalign_unit_end = 0;
+	int bad_index = 0, bad_count = 0, totalbads = 0;
+	int align_index = 0, unalign_index = 0;
+	int bad_blockid = -1;
+
+	/* clear alailableTable */
+	ndd_memset(alailableTable, 0xff, totalblocks * sizeof(int));
+
+	/* get total badblock count */
+	while (badTable[bad_index++] != -1)
+		totalbads++;
+
+	/* fill ppt->badblockcount */
+	ppt->badblockcount = totalbads;
+
+	bad_index = 0;
+	unalign_index = totalblocks - totalbads - 1;
+	do {
+		bad_blockid = badTable[bad_index];
+
+		if (bad_blockid == -1) {
+			/* for the last time */
+			bad_blockid = totalblocks;
+			endflag = 1;
+		}
+
+		unalign_unit_start = bad_blockid / unit_size * unit_size;
+		unalign_unit_end = (totalblocks - unalign_unit_start) >= unit_size ?
+			(unalign_unit_start + unit_size - 1) : (totalblocks - unalign_unit_start - 1);
+
+		/* fill align blocks */
+		for (; (align_index + bad_count) < unalign_unit_start; align_index++)
+			alailableTable[align_index] = align_index + bad_count;
+
+		/* fill unalign blocks */
+		for (blockid = unalign_unit_start; blockid <= unalign_unit_end; blockid++) {
+			block_in_badtable = 0;
+			/* check if block in badtable */
+			for (i = bad_index; badTable[i] <= unalign_unit_end; i++) {
+				if (badTable[i] == blockid) {
+					block_in_badtable = 1;
+					bad_count++;
+					bad_index++;
+					break;
+				}
+			}
+			if (!block_in_badtable) {
+				alailableTable[unalign_index--] = blockid;
+				/* regard unaligned block as badblock in algorithm */
+				bad_count++;
+			}
+		}
+		//ppt->unalign_block_start = unalign_index + 1;
+
+		/* get next bad blockid */
+		if (endflag) break;
+	} while (1);
+}
+
+static inline int fill_ppartition(PPartition *ppt)
+{
+	int pt_index,i;
+	unsigned int ptcount = nddata->ptinfo->ptcount;
+	ndpartition *npt = nddata->ptinfo->pt;
+
+	for (pt_index = 0; pt_index < ptcount; pt_index++) {
+		/* fill PPartition */
+		ppt[pt_index].name = get_ppt_name(npt + pt_index);
+		ndd_debug("%s[%d] ppt->name = %s ndparts_num = %d\n",__func__,__LINE__,
+					ppt[pt_index].name, npt[pt_index].ndparts_num);
+		ppt[pt_index].byteperpage = get_ppt_byteperpage(npt + pt_index);
+		ppt[pt_index].pageperblock = get_ppt_pageperblock(npt + pt_index);
+		ppt[pt_index].startblockID = get_ppt_startblockID(npt + pt_index);
+		ppt[pt_index].totalblocks = get_ppt_totalblocks(npt + pt_index);
+		ppt[pt_index].PageCount = get_ppt_PageCount(npt + pt_index);
+		ppt[pt_index].badblockcount = 0;
+		ppt[pt_index].hwsector = HW_SECTOR;
+		ppt[pt_index].startPage = get_ppt_startPage(npt + pt_index);
+		ppt[pt_index].mode = get_ppt_mode(npt + pt_index);
+		ppt[pt_index].prData = get_ppt_prData(npt + pt_index);
+		ppt[pt_index].v2pp = NULL;
+		ppt[pt_index].pagespergroup = get_ppt_pagespergroup(npt + pt_index);
+		ppt[pt_index].groupperzone = get_ppt_groupperzone(npt + pt_index);
+		ppt[pt_index].flags = get_ppt_flags(npt + pt_index);
+		ppt[pt_index].pt_badblock_info = (npt + pt_index)->pt_badblock_info;
+		ppt[pt_index].parts_num = npt[pt_index].ndparts_num;
+		if(pt_index == ptcount -1){
+			/* ndvirtual */
+			ppt[pt_index].pt_availableblockid = NULL;
+			break;
+		}
+		ppt[pt_index].pt_availableblockid = (unsigned int *)ndd_alloc(ppt[pt_index].totalblocks * sizeof(unsigned int));
+		if(!(ppt[pt_index].pt_availableblockid)){
+			ndd_print(NDD_ERROR,"alloc pt_availableblockid memory error!\n");
+			return -1;
+		}
+		fill_ptavailable_badblock(&ppt[pt_index]);
+		for (i = 0; i < npt[pt_index].ndparts_num; i++) {
+			ndd_debug("%s[%d] pt->name = %s totalblocks = %d,blockpvblock = %d\n",__func__,__LINE__,
+				npt[pt_index].ndparts[i].name, npt[pt_index].ndparts[i].totalblocks, npt[pt_index].blockpvblock);
+			ppt[pt_index].parts[i].name = npt[pt_index].ndparts[i].name;
+			ppt[pt_index].parts[i].startblockID = npt[pt_index].ndparts[i].startblockID;
+			ppt[pt_index].parts[i].totalblocks = npt[pt_index].ndparts[i].totalblocks /
+				npt[pt_index].blockpvblock;
+		}
+	}
 	return 0;
-init_nand_driver_error2:
-	nand_free_buf(g_partition);
-init_nand_driver_error1:
+}
+
+static int init_nand(void *vNand)
+{
+	int ret;
+	PPartArray *ppta;
+	PPartition *ppt;
+	int ptcount = nddata->ptinfo->ptcount;
+	int vpt_index = ptcount - 1;
+	VNandManager *vnm =(VNandManager *)vNand;
+
+	ppt = ndd_alloc(sizeof(PPartition) * ptcount);
+	if (!ppt)
+		GOTO_ERR(alloc_ppt);
+
+	ppta = ndd_alloc(sizeof(PPartArray));
+	if (!ppta)
+		GOTO_ERR(alloc_ppta);
+
+	/* get ppartitions */
+	ret = fill_ppartition(ppt);
+	if (ret)
+		GOTO_ERR(fill_ppt);
+
+	/* PPartArray */
+	ppta->ptcount = ptcount - 1;
+	ppta->ppt = ppt;
+
+	/* VNandManager -> VNandInfo  ppta->ppt[nddata->ptcount] is 'ndvirtual' */
+	vnm->info.startBlockID = ppta->ppt[vpt_index].startblockID;
+	vnm->info.PagePerBlock = ppta->ppt[vpt_index].pageperblock;
+	vnm->info.BytePerPage = ppta->ppt[vpt_index].byteperpage;
+	vnm->info.TotalBlocks = ppta->ppt[vpt_index].totalblocks;
+	vnm->info.MaxBadBlockCount = ppta->ppt[vpt_index].badblockcount;
+	vnm->info.hwSector = ppta->ppt[vpt_index].hwsector;
+	vnm->info.prData = (void *)&ppta->ppt[vpt_index];
+
+	/* VNandManager -> PPartArray */
+	vnm->pt = ppta;
+
+	/* dump */
+	ndd_dump_ppartition(ppta->ppt, ptcount);
+
+	return 0;
+
+ERR_LABLE(fill_ppt):
+	ndd_free(ppta);
+ERR_LABLE(alloc_ppta):
+	ndd_free(ppt);
+ERR_LABLE(alloc_ppt):
 	return -1;
 }
 
-/*
- * page_aligned -- pagelist will be transformed into aligned_list,
- *
- */
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list, int rwflag)
-#else
-static inline void page_aligned(PageList * pagelist, Aligned_List * aligned_list)
-#endif
+static int deinit_nand(void *vNand)
 {
-	struct singlelist *listhead;
-	PageList *pnextpagelist=0;
-	int i=0;
-	//memset(aligned_list,0,sizeof(Aligned_List));
-	aligned_list->pagelist =pagelist;
-	aligned_list->opsmodel =1;
-	aligned_list->next =0;
-	i++;
-	listhead = (pagelist->head).next;
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	calc_bytes(rwflag, pagelist->Bytes);
-	calc_distrib(rwflag, pagelist->Bytes);
-	calc_pages(rwflag, 1);
-#endif
-	while(listhead)
-	{
-		pnextpagelist = singlelist_entry(listhead,PageList,head);
-		switch(pnextpagelist->startPageID - pagelist->startPageID){
-			case 0:
-				pagelist = pnextpagelist;
-				aligned_list->opsmodel++;
-				break;
-			case 1:
-				if(!(pagelist->startPageID %2))
-					aligned_list->opsmodel |= 1<<24;
-			default :
-				aligned_list->next = aligned_list+1;
-				aligned_list =aligned_list->next;
-				//memset(aligned_list,0,sizeof(Aligned_List));
-				pagelist = pnextpagelist;
-				aligned_list->pagelist =pagelist;
-				aligned_list->opsmodel =1;
-				aligned_list->next =0;
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-				calc_pages(rwflag, 1);
-#endif
-				break;
-		}
-		i++;
-		listhead = (pagelist->head).next;
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-		calc_bytes(rwflag, pagelist->Bytes);
-		calc_distrib(rwflag, pagelist->Bytes);
-#endif
-	}
-	return;
-}
+	VNandManager *vnm =(VNandManager *)vNand;
 
-/*
- * page_read - read one page data
- * @page: the page which will be read
- * @databuf: the data buffer will return the page data
- */
-static inline int page_read(void *ppartition,int pageid, int offset,int bytes,void * databuf)
-{
-	int ret;
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
-		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
-		return ENAND;   //return pageid error
-	}
-#ifdef CONFIG_NAND_DMA
-	g_pnand_api.nand_dma->ppt = tmp_ppt;
-	ret =nand_dma_read_page(&g_pnand_api,pageid,offset,bytes,databuf);
-#else
-	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_read_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
-#endif
-	return ret;
-}
-
-/*
- * multipage_read - read many pages data
- *
- */
-static inline int multipage_read(void *ppartition,PageList * read_pagelist)
-{
-	int ret;
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	begin_time(NAPI_DBG_READ);
-#endif
-	if(!read_pagelist){
-		dev_err(&g_pdev->dev," nand read_pagelist is null\n");
-		return -1;
+	if (vnm->pt) {
+		if (vnm->pt->ppt)
+			ndd_free(vnm->pt->ppt);
+		ndd_free(vnm->pt);
 	}
 
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	page_aligned(read_pagelist,g_aligned_list, NAPI_DBG_READ);
-#else
-	page_aligned(read_pagelist,g_aligned_list);
-#endif
-
-	if(tmp_part_attrib == PART_XBOOT){
-		nand_ops_parameter_reset(tmp_ppt);
-		ret =read_spl(g_pnand_api.vnand_base,g_aligned_list);
-	}else{
-#ifdef CONFIG_NAND_DMA
-                g_pnand_api.nand_dma->ppt = tmp_ppt;
-                ret =nand_dma_read_pages(&g_pnand_api,g_aligned_list);
-#else
-		nand_ops_parameter_reset(tmp_ppt);
-		ret =nand_read_pages(g_pnand_api.vnand_base,g_aligned_list);
-#endif
-	}
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	end_time(NAPI_DBG_READ);
-#endif
-	return ret;
-}
-
-/*
- * panic_page_write - write one page data no schedule
- * @page: the page which will be read
- * @databuf: the data buffer will return the page data
- * add by yqwang
- */
-static inline int panic_page_write(void *ppartition,int pageid,int offset,int bytes,void * databuf)
-{
-	int ret; 
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if((pageid < 0) || (pageid > tmp_ppt->PageCount)) {
-		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
-		return ENAND;   //return pageid error
-	}
-
-	nand_ops_parameter_reset(tmp_ppt);
-	ret =panic_nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
-	return ret; 
-}
-
-/*
- * page_write - write one page data
- * @page: the page which will be read
- * @databuf: the data buffer will return the page data
- */
-static inline int page_write(void *ppartition,int pageid,int offset,int bytes,void * databuf)
-{
-	int ret;
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if((pageid < 0) || (pageid > tmp_ppt->PageCount)){
-		eprintf("ERROR:%s[%d] pageid(%d) is more than totalpage(%d)\n",__func__,__LINE__,pageid, tmp_ppt->PageCount);
-		return ENAND;   //return pageid error
-	}
-#ifdef CONFIG_NAND_DMA
-        g_pnand_api.nand_dma->ppt = tmp_ppt;
-        ret =nand_dma_write_page(&g_pnand_api,pageid,offset,bytes,databuf);
-#else
-	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_write_page(g_pnand_api.vnand_base,pageid,offset,bytes,databuf);
-#endif
-	return ret;
-}
-/*
- * multipage_write - read many pages data
- *
- */
-static inline int multipage_write(void *ppartition,PageList * write_pagelist)
-{
-	int ret;
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	struct platform_nand_partition * tmp_pf = (struct platform_nand_partition *)tmp_ppt->prData;
-	unsigned char tmp_part_attrib = tmp_pf->part_attrib;
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	begin_time(NAPI_DBG_WRITE);
-#endif
-	if(!write_pagelist){
-		dev_err(&g_pdev->dev," nand write_pagelist is null\n");
-		return -1;
-	}
-
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	page_aligned(write_pagelist,g_aligned_list, NAPI_DBG_WRITE);
-#else
-	page_aligned(write_pagelist,g_aligned_list);
-#endif
-
-	if(tmp_part_attrib == PART_XBOOT){
-		nand_ops_parameter_reset(tmp_ppt);
-		ret =write_spl(g_pnand_api.vnand_base,g_aligned_list);
-	}else{
-#ifdef CONFIG_NAND_DMA
-		g_pnand_api.nand_dma->ppt = tmp_ppt;
-		ret =nand_dma_write_pages(&g_pnand_api,g_aligned_list);
-#else
-		nand_ops_parameter_reset(tmp_ppt);
-		ret =nand_write_pages(g_pnand_api.vnand_base,g_aligned_list);
-#endif
-	}
-#if defined(NAPI_DEBUG_TIME_WRITE) || defined(NAPI_DEBUG_TIME_READ)
-	end_time(NAPI_DBG_WRITE);
-#endif
-	return ret;
-}
-
-/*
- * multiblock_erase - erase blocks
- *
- */
-static inline int multiblock_erase(void *ppartition,BlockList * erase_blocklist)
-{
-	int ret;
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(!erase_blocklist){
-		eprintf("ERROR: %s[%d] blocklist is NULL\n",__func__,__LINE__);
-		return -1;
-	}
-	nand_ops_parameter_reset(tmp_ppt);
-	ret =nand_erase_blocks(g_pnand_api.vnand_base,erase_blocklist);
-	g_pnand_api.nand_dma->cache_phypageid = -1;
-	return ret;
-}
-
-/*
- * is_badblock - judge badblock
- *
- */
-static inline int is_badblock(void *ppartition,int blockid)
-{
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid >tmp_ppt->totalblocks){
-		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
-		return -1;
-	}
-	nand_ops_parameter_reset(tmp_ppt);
-	return isbadblock(g_pnand_api.vnand_base,blockid);
-}
-
-/*
- * is_inherent_badblock - judge inherent badblock
- *
- */
-static int is_inherent_badblock(void *ppartition,int blockid)
-{
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid >tmp_ppt->totalblocks){
-		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
-		return -1;
-	}
-	nand_ops_parameter_reset(tmp_ppt);
-	return isinherentbadblock(g_pnand_api.vnand_base,blockid);
-}
-
-/*
- * mark_badblock - mark badblock
- *
- */
-static inline int mark_badblock(void *ppartition,int blockid)
-{
-	PPartition * tmp_ppt = (PPartition *)ppartition;
-	if(blockid <0 || blockid >g_pnand_api.totalblock){
-		eprintf("ERROR:%s[%d] blockid(%d) is more than totalblocks(%d)\n",__func__,__LINE__,blockid, tmp_ppt->totalblocks);
-		return -1;
-	}
-	nand_ops_parameter_reset(tmp_ppt);
-	return markbadblock(g_pnand_api.vnand_base,blockid);
-}
-
-/*
- * deinit_nand
- *
- */
-static inline int deinit_nand(void *vNand)
-{
-	nand_board_deinit(&g_pnand_api);
-
-	nand_free_buf(g_pnand_api.vnand_base);
-	g_pnand_api.vnand_base =0;
-	nand_free_buf(g_pnand_api.pnand_base);
-	g_pnand_api.vnand_base =0;
-	nand_free_buf(g_partition);
-	g_partition =0;
-	nand_free_buf(g_aligned_list);
-	g_aligned_list =0;
-
-	free_irq(gpio_to_irq(g_pnand_api.pnand_base->rb_irq),NULL);
-
-	dprintf("\ndeinit_nand  nand_free_buf ok  *********\n");
 	return 0;
 }
 
-/*********************************************/
-/******         nand driver register    ******/
-/*********************************************/
-
-NandInterface jz_nand_interface = {
-	.iInitNand = init_nand_vm,
-	.iPageRead = page_read,
-	.iPageWrite = page_write,
-	.iMultiPageRead = multipage_read,
-	.iMultiPageWrite = multipage_write,
-	.iMultiBlockErase = multiblock_erase,
+NandInterface nand_interface = {
+	.iPageRead = single_page_read,
+	.iPageWrite = single_page_write,
+	.iMultiPageRead = multi_page_read,
+	.iMultiPageWrite = multi_page_write,
+	.iMultiBlockErase = multi_block_erase,
 	.iIsBadBlock = is_badblock,
-	.iIsInherentBadBlock = is_inherent_badblock,
 	.iMarkBadBlock = mark_badblock,
+	.iIoctl = ioctl,
+	.iInitNand = init_nand,
 	.iDeInitNand = deinit_nand,
-	.iPanicPageWrite = panic_page_write,
 };
-/*
- * Probe for the NAND device.
- */
-static int __devinit plat_nand_probe(struct platform_device *pdev)
+
+/*========================= NandDriver =========================*/
+
+unsigned int get_nandflash_maxvalidblocks(void)
 {
-	struct resource         *regs;
-	int             irq;
-	int ret=0;
+	if(!nddata && !(nddata->cinfo) && !(nddata->cinfo->flash))
+		return 0;
+	return ((nand_flash *)(nddata->cinfo->flash))->maxvalidblocks;
+}
 
-	dprintf("INFO: Nand driver start...\n");
-	g_pdev = pdev;
-	g_pnand_api.pdev = (void *)pdev;
-	g_pnand_data = (struct platform_nand_data *)(pdev->dev.platform_data);
-	if (!g_pnand_data) {
-		dev_err(&pdev->dev, "No platform_data\n");
-                return -1;
-	}
-        g_pnand_api.gpio_wp = g_pnand_data->gpio_wp;
-        if (!g_pnand_api.gpio_wp) {
-		dev_err(&pdev->dev, "No set gpio wp pin\n");
-                return -1;
-        }
-	if (gpio_request(g_pnand_api.gpio_wp, "nand_wp")) {
-		dev_err(&pdev->dev, "the gpio wp pin is err\n");
-                return -1;
-        }
-        /* disable nand 'WP' */
-        gpio_direction_output(g_pnand_api.gpio_wp, 1);
+static inline int next_platpt_connected(unsigned int plat_index,
+					plat_ptitem *plat_pt, unsigned int plat_ptcount)
+{
+	return (((plat_index + 1) < plat_ptcount) &&
+		((plat_pt[plat_index].offset + plat_pt[plat_index].size) == plat_pt[plat_index + 1].offset));
+}
 
-	g_pnand_api.vnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
-	if(!g_pnand_api.vnand_base){
-		dev_err(&pdev->dev,"Malloc virtual nand base info \n");
-		goto nand_probe_error1;
-	}
-	g_pnand_api.pnand_base =(NAND_BASE *)nand_malloc_buf(sizeof(NAND_BASE));
-	if(!g_pnand_api.pnand_base){
-		dev_err(&pdev->dev,"Malloc physical nand base info \n");
-		goto nand_probe_error2;
-	}
-	/* get nemc clock and bch clock */
-	g_pnand_api.vnand_base->nemc_gate =clk_get(&pdev->dev,"nemc");
-	clk_enable(g_pnand_api.vnand_base->nemc_gate);
-	g_pnand_api.vnand_base->bch_gate =clk_get(&pdev->dev,"bch");
-	clk_enable(g_pnand_api.vnand_base->bch_gate);
-	g_pnand_api.vnand_base->bch_clk =clk_get(&pdev->dev,"cgu_bch");
-        clk_disable(g_pnand_api.vnand_base->bch_clk);
-        clk_set_rate(g_pnand_api.vnand_base->bch_clk, clk_get_rate(g_pnand_api.vnand_base->nemc_gate));
-	clk_enable(g_pnand_api.vnand_base->bch_clk);
+static inline int get_group_vblocks(chip_info *cinfo, unsigned short blockpvlblock, unsigned int groupspzone)
+{
+	unsigned int vblocksize = (cinfo->pagesize * cinfo->ppblock) * blockpvlblock;
 
-	/*   nemc resource  */
-	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!regs) {
-		dev_err(&pdev->dev, "No nemc iomem resource\n");
-		goto nand_probe_error3;
-	}
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "No nemc irq resource\n");
-		goto nand_probe_error3;
-	}
-	g_pnand_api.vnand_base->nemc_iomem =ioremap(regs->start, resource_size(regs));
-	g_pnand_api.pnand_base->nemc_iomem =(void __iomem *)regs->start;
-	g_pnand_api.vnand_base->nemc_irq = g_pnand_api.pnand_base->nemc_irq=irq;
-	/*  bch resource  */
-	regs = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!regs) {
-		dev_err(&pdev->dev, "No bch iomem resource\n");
-		goto nand_probe_error3;
-	}
-	irq = platform_get_irq(pdev, 1);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "No bch irq resource\n");
-		goto nand_probe_error3;
-	}
-	g_pnand_api.vnand_base->bch_iomem =ioremap(regs->start, resource_size(regs));
-	g_pnand_api.pnand_base->bch_iomem =(void __iomem *)regs->start;
-	g_pnand_api.vnand_base->bch_irq = g_pnand_api.pnand_base->bch_irq=irq;
-	/*  pdma resource  */
-	regs = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (!regs) {
-		dev_err(&pdev->dev, "No pdma iomem resource\n");
-		goto nand_probe_error3;
-	}
-	irq = platform_get_irq(pdev, 2);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "No pdma irq resource\n");
-		goto nand_probe_error3;
-	}
-	g_pnand_api.vnand_base->pdma_iomem =ioremap(regs->start, resource_size(regs));
-	g_pnand_api.pnand_base->pdma_iomem =(void __iomem *)regs->start;
-	g_pnand_api.vnand_base->irq = g_pnand_api.pnand_base->irq=irq;
+#ifdef COMPAT_OLD_USB_BURN
+	return 4;
+#endif
+	/* group vblocks may be at 2 ~ 16 */
+	if ((REF_ZONE_SIZE / groupspzone / vblocksize) < 2)
+		return 2;
+	else if ((REF_ZONE_SIZE / groupspzone / vblocksize) > 16)
+		return 16;
+	else
+		return REF_ZONE_SIZE / groupspzone / vblocksize;
+}
 
-	/*  nand chip port resource  */
-	regs = platform_get_resource(pdev, IORESOURCE_MEM, 3);
-	if (!regs) {
-		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
-		goto nand_probe_error3;
-	}
-	g_pnand_api.vnand_base->nemc_cs6_iomem =ioremap(regs->start, resource_size(regs));
-	g_pnand_api.pnand_base->nemc_cs6_iomem =(void __iomem *)regs->start;
+static inline unsigned int get_raw_boundary(plat_ptinfo *platptinfo, chip_info *cinfo, unsigned short totalrbs)
+{
+	unsigned int raw_boundary = 0;
+	unsigned char nm_mode, last_nm_mode = -1;
+	unsigned short pt_index = platptinfo->ptcount;
+	plat_ptitem *plat_pt = platptinfo->pt_table;
 
-	/*   nand rb irq request */
-	if (gpio_request_one(g_pnand_api.pnand_base->irq,
-				GPIOF_DIR_IN, "nand_rb")) {
-		dev_err(&pdev->dev, "No nand_chip iomem resource\n");
-		goto nand_probe_error3;
-	}
-	irq = gpio_to_irq(g_pnand_api.pnand_base->irq);
-	ret = request_irq(irq,jznand_waitrb_interrupt,IRQF_DISABLED | IRQF_TRIGGER_RISING,
-			"jznand-wait-rb",NULL);
-	if (ret) {
-		dev_err(&g_pdev->dev,"request detect irq-%d fail\n",gpio_to_irq(GPIOA_20_IRQ));
-		goto nand_probe_error3;
-	}
-	g_pnand_api.vnand_base->rb_irq = g_pnand_api.pnand_base->rb_irq = irq;
-	init_completion(&nand_rb);
-
-	ret = init_nand_driver();
-	if(ret){
-		dev_err(&g_pdev->dev,"init_nand_driver failed\n");
-		goto nand_probe_error3;
+	while (pt_index--) {
+		nm_mode = plat_pt[pt_index].nm_mode;
+		if ((nm_mode != ZONE_MANAGER) && (last_nm_mode == ZONE_MANAGER)) {
+			unsigned int blocksize = cinfo->pagesize * cinfo->ppblock;
+			unsigned short alignunit = cinfo->planenum * totalrbs;
+			unsigned int blockid = ndd_div_s64_32((plat_pt[pt_index + 1].offset + blocksize - 1), blocksize);
+			raw_boundary = ((blockid + (alignunit - 1)) / alignunit) * alignunit;
+			break;
 		}
-
-	Register_NandDriver(&jz_nand_interface);
-
-	dprintf("INFO: Nand probe success!\n");
-	return 0;
-nand_probe_error3:
-	nand_free_buf(g_pnand_api.pnand_base);
-nand_probe_error2:
-	nand_free_buf(g_pnand_api.vnand_base);
-nand_probe_error1:
-	return -ENXIO;
+		last_nm_mode = nm_mode;
+	}
+	nd_raw_boundary = raw_boundary;
+	return raw_boundary;
 }
 
-/*
- * Remove a NAND device.
- */
-static int __devexit plat_nand_remove(struct platform_device *pdev)
+static inline int get_startblockid(plat_ptitem *plat_pt, chip_info *cinfo,
+				   unsigned short totalrbs, unsigned int raw_boundary)
 {
-	// do nothing
-	iounmap(g_pnand_api.vnand_base->nemc_iomem);
-	iounmap(g_pnand_api.vnand_base->bch_iomem);
-	iounmap(g_pnand_api.vnand_base->pdma_iomem);
-	iounmap(g_pnand_api.vnand_base->nemc_cs6_iomem);
+	unsigned int blocksize = cinfo->pagesize * cinfo->ppblock;
+	unsigned int blockid = ndd_div_s64_32((plat_pt->offset + blocksize - 1), blocksize);
 
-	clk_disable(g_pnand_api.vnand_base->bch_gate);
-	clk_disable(g_pnand_api.vnand_base->bch_clk);
-	clk_disable(g_pnand_api.vnand_base->nemc_gate);
-	clk_put(g_pnand_api.vnand_base->bch_gate);
-	clk_put(g_pnand_api.vnand_base->bch_clk);
-	clk_put(g_pnand_api.vnand_base->nemc_gate);
-
-	return 0;
+#if 0
+	if (plat_pt->nm_mode == ZONE_MANAGER) {
+		unsigned short alignunit = cinfo->planenum * totalrbs;
+		return (((blockid + (alignunit - 1)) / alignunit) * alignunit)
+			+ (totalrbs > 1 ? (raw_boundary * (totalrbs - 1)) : 0);
+	} else
+		return blockid * totalrbs;
+#else
+	return blockid;
+#endif
 }
 
-static int plat_nand_suspend(struct platform_device *dev, pm_message_t state)
+static inline int get_endblockid(plat_ptitem *plat_pt, chip_info *cinfo,
+				 unsigned short totalchips, unsigned short totalrbs,
+				 unsigned int raw_boundary)
 {
+	unsigned int blockid;
+	unsigned long long offset;
+	unsigned int blocksize = cinfo->pagesize * cinfo->ppblock;
+
+	if (plat_pt->size == -1) {
+		blockid = cinfo->maxvalidblocks * totalchips;
+		/* update last plat partition totalblocks
+		   rb    rb
+		   ------------- nand start
+		   | raw | X X |
+		   | pts | X X | here mark bad blocks, and mirror to 'vtl'
+		   -------------
+		   |    zone   |
+		   |    pts    |
+		   ------------- nand end
+		   | X X | vtl |
+		   | X X |     | here add to last zone pt
+		   -------------
+		*/
+		blockid += (totalrbs > 1) ? (raw_boundary * totalrbs) : 0;
+	} else {
+		offset = plat_pt->offset + plat_pt->size;
+		blockid = ndd_div_s64_32(offset, blocksize);
+	}
+#if 0
+	if (plat_pt->nm_mode == ZONE_MANAGER) {
+		unsigned short alignunit = cinfo->planenum * totalrbs;
+		return (blockid / alignunit * alignunit) - 1;
+	} else
+		return blockid * totalrbs - 1;
+#else
+	return blockid - 1;
+#endif
+}
+
+static inline int fill_ex_partition(ndpartition *pt, plat_ex_partition *plat_expta,
+				    chip_info *cinfo, unsigned short totalrbs)
+{
+	int i = 0;
+	int blockid, statblockID = 0, endblockID;
+	unsigned int blocksize = cinfo->pagesize * cinfo->ppblock;
+
+	while (plat_expta[i].size != 0) {
+		pt->ndparts[i].startblockID = statblockID;
+		if (plat_expta[i].size == -1)
+			endblockID = pt->totalblocks - 1;
+		else {
+			blockid = ndd_div_s64_32(plat_expta[i].offset + plat_expta[i].size, blocksize);
+			if (pt->nm_mode == ZONE_MANAGER) {
+				unsigned short alignunit = cinfo->planenum * totalrbs;
+				endblockID = (blockid / alignunit * alignunit) - 1;
+			} else
+				endblockID = blockid - 1;
+		}
+		pt->ndparts[i].totalblocks = endblockID - statblockID + 1;
+		pt->ndparts[i].name = plat_expta[i].name;
+		statblockID += pt->ndparts[i].totalblocks;
+		i++;
+	}
+	pt->ndparts_num = i;
+
 	return 0;
 }
-static int plat_nand_resume(struct platform_device *dev)
+
+static pt_info* get_ptinfo(chip_info *cinfo, unsigned short totalchips,
+			   unsigned short totalrbs, plat_ptinfo *platptinfo)
+{
+	ndpartition *pt = NULL;
+	pt_info *ptinfo = NULL;
+	unsigned int endblockid;
+	unsigned short plat_ptcount = platptinfo->ptcount;
+	unsigned short ptcount = plat_ptcount + REDUN_PT_NUM;
+	plat_ptitem *plat_pt = platptinfo->pt_table;
+	unsigned short pt_index = plat_ptcount;
+	unsigned short redunpt_start = plat_ptcount;
+
+	ndd_dump_plat_partition(platptinfo);
+
+	ptinfo = ndd_alloc(sizeof(pt_info) + sizeof(ndpartition) * ptcount);
+	if (!ptinfo)
+		RETURN_ERR(NULL, "alloc memory for ptinfo error");
+	else {
+		ndd_memset(ptinfo, 0, sizeof(pt_info) + sizeof(ndpartition) * ptcount);
+		ptinfo->ptcount = ptcount;
+		ptinfo->pt = (ndpartition *)((unsigned char *)ptinfo + sizeof(pt_info));
+	}
+
+//	ptinfo->raw_boundary = get_raw_boundary(platptinfo, cinfo, totalrbs);
+	ptinfo->raw_boundary = nd_raw_boundary;
+	pt = ptinfo->pt;
+
+	while (pt_index--) {
+		/* init ndpartition */
+		pt[pt_index].name = plat_pt[pt_index].name;
+		pt[pt_index].pagesize = cinfo->pagesize;
+		pt[pt_index].pagepblock = cinfo->ppblock;
+		pt[pt_index].startblockid = get_startblockid(&plat_pt[pt_index], cinfo,
+							     totalrbs, ptinfo->raw_boundary);
+		if (next_platpt_connected(pt_index, plat_pt, plat_ptcount))
+			endblockid = pt[pt_index + 1].startblockid - 1;
+		else
+			endblockid = get_endblockid(&plat_pt[pt_index], cinfo, totalchips,
+						    totalrbs, ptinfo->raw_boundary);
+		pt[pt_index].totalblocks = endblockid - pt[pt_index].startblockid + 1;
+
+		ndd_debug("%s[%d] pt->name = %s\n", __func__,__LINE__,pt[pt_index].name);
+		if (plat_pt[pt_index].nm_mode == ZONE_MANAGER) {
+			pt[pt_index].groupspzone = totalrbs;
+#ifdef COMPAT_OLD_USB_BURN
+			if (!ndd_strcmp("ndsystem", pt[pt_index].name))
+				pt[pt_index].blockpvblock = 1;
+			else
+				pt[pt_index].blockpvblock = cinfo->planenum;
+#else
+			pt[pt_index].blockpvblock = cinfo->planenum;
+#endif
+			pt[pt_index].vblockpgroup = get_group_vblocks(cinfo, cinfo->planenum, totalrbs);
+#ifdef COMPAT_OLD_USB_BURN
+			if (!ndd_strcmp("ndsystem", pt[pt_index].name))
+				pt[pt_index].planes = 1;
+			else
+				pt[pt_index].planes = cinfo->planenum;
+#else
+			pt[pt_index].planes = cinfo->planenum;
+#endif
+			while (1) {
+				/* check if pt has too few zones, we need to adjust blocks per zone */
+				unsigned int zoneblocks = pt[pt_index].blockpvblock *
+					pt[pt_index].vblockpgroup * pt[pt_index].groupspzone;
+				unsigned int zonecount = pt[pt_index].totalblocks / zoneblocks;
+				if (zonecount < ZONE_COUNT_LIMIT) {
+					if (pt[pt_index].vblockpgroup > 1)
+						pt[pt_index].vblockpgroup /= 2;
+					else if (pt[pt_index].blockpvblock > 1) {
+						pt[pt_index].blockpvblock /= 2;
+						pt[pt_index].planes /=2;
+					} else {
+						ndd_print(NDD_WARNING, "WARNING: pt[%s] has too few blocks"
+							  " as ZONE_MANAGER partition, totalblocks = %d\n",
+							  pt[pt_index].name, pt[pt_index].totalblocks);
+						break;
+					}
+				} else
+					break;
+			}
+		} else {
+			pt[pt_index].groupspzone = totalrbs;
+			pt[pt_index].blockpvblock = 1;
+			pt[pt_index].vblockpgroup = 1;
+			pt[pt_index].planes = 1;
+		}
+		pt[pt_index].eccbit = cinfo->eccbit;
+		pt[pt_index].ops_mode = plat_pt[pt_index].ops_mode;
+		pt[pt_index].nm_mode = plat_pt[pt_index].nm_mode;
+		pt[pt_index].copy_mode = DEFAULT_COPY_MODE;
+		pt[pt_index].flags = plat_pt[pt_index].flags;
+		pt[pt_index].pt_badblock_info = plat_pt[pt_index].pt_badblock_info;
+		fill_ex_partition(&pt[pt_index], plat_pt[pt_index].ex_partition, cinfo, totalrbs);
+		pt[pt_index].handler = 0;
+	}
+
+	/* ndvirtual */
+	pt[redunpt_start].name = "ndvirtual";
+	pt[redunpt_start].pagesize = cinfo->pagesize;
+	pt[redunpt_start].pagepblock = cinfo->ppblock;
+	pt[redunpt_start].startblockid = 0;
+	pt[redunpt_start].totalblocks = cinfo->maxvalidblocks * totalchips;
+	if (totalrbs > 1)
+		pt[redunpt_start].totalblocks += totalrbs * ptinfo->raw_boundary;
+	pt[redunpt_start].blockpvblock = 1;
+	pt[redunpt_start].groupspzone = totalrbs;
+	pt[redunpt_start].vblockpgroup = get_group_vblocks(cinfo, cinfo->planenum, totalrbs);
+	pt[redunpt_start].eccbit = cinfo->eccbit;
+	pt[redunpt_start].planes = ONE_PLANE;
+	pt[redunpt_start].ops_mode = DEFAULT_OPS_MODE;
+	pt[redunpt_start].nm_mode = ZONE_MANAGER;
+	pt[redunpt_start].copy_mode = DEFAULT_COPY_MODE;
+	pt[redunpt_start].flags = 0;
+	pt[redunpt_start].handler = 0;
+
+	ndd_dump_ptinfo(ptinfo);
+
+	return ptinfo;
+}
+
+static void free_ptinfo(pt_info *ptinfo)
+{
+	ndd_free(ptinfo);
+}
+
+static cs_info* get_csinfo(nfi_base *base, rb_info *rbinfo)
+{
+	int cs_index;
+	cs_info *csinfo = NULL;
+	rb_item *rbitem = NULL;
+
+	csinfo = ndd_alloc(sizeof(cs_info) + (sizeof(cs_item) * CS_PER_NFI));
+	if (!csinfo)
+		RETURN_ERR(NULL, "alloc memory for cs info error");
+	else {
+		csinfo->totalchips = 0;
+		csinfo->csinfo_table = (cs_item *)((unsigned char *)csinfo + sizeof(cs_info));
+	}
+
+	for (cs_index = 0; cs_index < CS_PER_NFI; cs_index++) {
+		rbitem = get_rbitem(base, cs_index, rbinfo);
+		if (rbitem) {
+			ndd_debug("%s[%d] csinfo->totalchips = %d cs_index = %d [%d] [%d]\n", __func__,__LINE__,
+						csinfo->totalchips, cs_index, (unsigned int)csinfo,
+									(unsigned int)(csinfo->csinfo_table));
+			csinfo->csinfo_table[csinfo->totalchips].id = cs_index;
+			csinfo->csinfo_table[csinfo->totalchips].rbitem = rbitem;
+			csinfo->csinfo_table[csinfo->totalchips].iomem = base->cs_iomem[cs_index];
+			csinfo->totalchips++;
+		}
+	}
+
+	if (csinfo->totalchips < rbinfo->totalrbs) {
+		ndd_free(csinfo);
+		RETURN_ERR(NULL, "scand totalchips [%d] is less than totalrbs [%d]",
+			   csinfo->totalchips, rbinfo->totalrbs);
+	}
+
+	ndd_dump_csinfo(csinfo);
+
+	return csinfo;
+}
+
+static void free_csinfo(cs_info *csinfo)
+{
+	ndd_free(csinfo);
+}
+
+static int fill_cinfo(nand_data *nddata, const nand_flash *ndflash)
+{
+	nfi_base *base = &(nddata->base->nfi);
+	chip_info *cinfo = nddata->cinfo;
+	/* init nddata->cinfo */
+	cinfo->manuf = ndflash->id >> 8;
+	cinfo->pagesize = ndflash->pagesize;
+	cinfo->oobsize = ndflash->oobsize;
+	cinfo->ppblock = ndflash->blocksize / ndflash->pagesize;
+	cinfo->maxvalidblocks = ndflash->maxvalidblocks / ndflash->chips;
+	cinfo->maxvalidpages = cinfo->maxvalidblocks * cinfo->ppblock;
+	cinfo->planepdie = ndflash->planepdie;
+	cinfo->totaldies = ndflash->diepchip;
+	cinfo->origbadblkpos = ndflash->badblockpos;
+	cinfo->badblkpos = ndflash->oobsize - 4;
+	cinfo->eccpos = 0;
+	cinfo->buswidth = ndflash->buswidth;
+	cinfo->rowcycles = ndflash->rowcycles;
+	cinfo->eccbit = ndflash->eccbit;
+	cinfo->planenum = ndflash->realplanenum > 2 ? 2 : ndflash->realplanenum;
+	cinfo->planeoffset = ndflash->planeoffset;
+	cinfo->options = ndflash->options;
+
+	/* if support read retry, get retry parm table */
+	if (SUPPROT_READ_RETRY(cinfo)) {
+		cinfo->retryparms = ndd_alloc(sizeof(retry_parms));
+		if (!cinfo->retryparms)
+			RETURN_ERR(ENAND, "can not alloc memory for retryparms");
+
+		cinfo->retryparms->mode = READ_RETRY_MODE(cinfo);
+		if (get_retry_parms(base, 0, nddata->rbinfo, cinfo->retryparms)) {
+			ndd_free(cinfo->retryparms);
+			RETURN_ERR(ENAND, "get retry data error");
+		}
+	} else
+		cinfo->retryparms = NULL;
+
+	cinfo->timing = &(ndflash->timing);
+	cinfo->flash = (void *)ndflash;
+
+	return 0;
+}
+
+static io_base* get_base(struct nand_api_osdependent *private)
+{
+	return private->base;
+}
+
+static int nandflash_setup(nfi_base *base, cs_info *csinfo, rb_info *rbinfo, chip_info *cinfo)
+{
+	int cs_index, cs_id, ret = 0;
+	unsigned short totalchips = csinfo->totalchips;
+	cs_item *csinfo_table = csinfo->csinfo_table;
+
+	for (cs_index = 0; cs_index < totalchips; cs_index++) {
+		cs_id = csinfo_table[cs_index].id;
+		ret = nand_set_features(base, cs_id, csinfo_table[cs_index].rbitem, cinfo);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+int clear_rb_state(int cs_index)
+{
+	cs_item *csitem = &(nddata->csinfo->csinfo_table[cs_index]);
+
+	__clear_rb_state(csitem->rbitem);
+
+	return 0;
+}
+int wait_rb_timeout(int cs_index, int timeout)
+{
+	int ret = SUCCESS;
+
+	cs_item *csitem = &(nddata->csinfo->csinfo_table[cs_index]);
+
+	ret = __wait_rb_timeout(csitem->rbitem, timeout);
+	if (ret < 0)
+		ret = TIMEOUT;
+	else
+		ret = SUCCESS;
+
+	return ret;
+}
+
+static inline int init_platptitem_memory(plat_ptinfo *platptinfo)
+{
+	platptinfo->pt_table = (plat_ptitem *)ndd_alloc(sizeof(plat_ptitem) * platptinfo->ptcount);
+	if(!platptinfo->pt_table){
+		ndd_print(NDD_ERROR,"ERROR: %s %d alloc private plat_ptinfo error!\n",__func__,__LINE__);
+		return -1;
+	}
+	return 0;
+}
+static inline void deinit_platptitem_memory(plat_ptinfo *platptinfo)
+{
+	ndd_free(platptinfo->pt_table);
+	platptinfo->pt_table = NULL;
+}
+
+static int get_nand_sharing_params(nand_flash *ndflash)
+{
+	struct nand_basic_info *src_parms = &(share_parms.nandinfo);
+
+	if (share_parms.magic != 0x646e616e)
+		RETURN_ERR(ENAND, "get nand sharing params error, magic = [%x]", share_parms.magic);
+
+	ndflash->id = src_parms->id;
+	ndflash->extid = src_parms->extid;
+	ndflash->pagesize = src_parms->pagesize;
+	ndflash->oobsize = src_parms->oobsize;
+	ndflash->blocksize = src_parms->blocksize;
+	ndflash->totalblocks = src_parms->totalblocks;
+	ndflash->maxvalidblocks = src_parms->maxvalidblocks;
+	ndflash->eccbit = src_parms->eccbit;
+	ndflash->planepdie = src_parms->planepdie;
+	ndflash->diepchip = src_parms->diepchip;
+	ndflash->chips = src_parms->chips;
+	ndflash->buswidth = src_parms->buswidth;
+	ndflash->realplanenum = src_parms->realplanenum;
+	ndflash->badblockpos = src_parms->badblockpos;
+	ndflash->rowcycles = src_parms->rowcycles;
+	ndflash->planeoffset = src_parms->planeoffset;
+	ndflash->options = src_parms->options;
+
+	return 0;
+}
+
+static int get_cinfo_rbinfo_from_errpt(nand_data *nddata, struct nand_api_osdependent *private)
+{
+	int ret = 0, rb_index = 0;
+	nand_flash *ndflash;
+	rb_item *rbinfo_table = NULL;
+
+	ndflash = (nand_flash *)ndd_alloc(sizeof(nand_flash));
+	if(!ndflash){
+		ret = -1;
+		GOTO_ERR(alloc_ndflash);
+	}
+
+	/* get sharing parms of nand */
+	ret = get_nand_sharing_params(ndflash);
+	if(ret < 0){
+		ret = -1;
+		GOTO_ERR(get_sharing_parms);
+	}
+
+	/* init operations of errpt */
+	nand_errpt_init(ndflash);
+
+	if(ndflash->pagesize >= DEFAULT_ECCSIZE)
+		nddata->eccsize = DEFAULT_ECCSIZE;
+	else
+		nddata->eccsize = 512;
+	nddata->spl_eccsize = SPL_ECCSIZE;
+
+	/* alloc rbinfo memory */
+	nddata->rbinfo = private->get_rbinfo_memory();
+	if(!nddata->rbinfo){
+		GOTO_ERR(get_rbinfo);
+	}
+	rbinfo_table = nddata->rbinfo->rbinfo_table;
+
+	/* get rbinfo and nandflash parameters */
+	ndd_debug("\nread head info from errpt:\n");
+	ret = get_errpt_head(nddata, &(private->platptinfo), ndflash);
+	if (ret < 0)
+		GOTO_ERR(get_errpt_head);
+	ndd_dump_nandflash(ndflash);
+
+	/* alloc ptinfo memory */
+	ret = init_platptitem_memory(&(private->platptinfo));
+	if(ret < 0)
+		GOTO_ERR(init_platptinfo);
+
+	/* init irq of rb */
+	ret = private->ndd_gpio_request(nddata->gpio_wp, "nand_wp");
+	if(ret < 0)
+		GOTO_ERR(request_wp);
+
+	for(rb_index = 0; rb_index < nddata->rbinfo->totalrbs; rb_index++){
+		ret = private->gpio_irq_request(rbinfo_table[rb_index].gpio,
+				&(rbinfo_table[rb_index].irq), (int)(rbinfo_table[rb_index].irq_private));
+		if(ret < 0)
+			GOTO_ERR(request_rb_irq);
+	}
+
+	/* init csinfo */
+	ndd_debug("\nget csinfo:\n");
+	nddata->csinfo = get_csinfo(&(nddata->base->nfi), nddata->rbinfo);
+	if (!nddata->csinfo)
+		GOTO_ERR(get_csinfo);
+
+	/* init cinfo */
+	ret = fill_cinfo(nddata, ndflash);
+	if (ret < 0)
+		GOTO_ERR(fill_cinfo);
+	ndd_dump_chip_info(nddata->cinfo);
+
+	ndd_debug("\nget plat_ptinfo from errpt:\n");
+	/* get information of paritions */
+	ret = get_errpt_ppainfo(nddata, &(private->platptinfo), ndflash);
+	if(ret < 0)
+		GOTO_ERR(get_ppainfo);
+
+	nand_errpt_deinit();
+
+	return 0;
+
+ERR_LABLE(get_ppainfo):
+	ndd_free(nddata->csinfo);
+ERR_LABLE(fill_cinfo):
+	free_csinfo(nddata->csinfo);
+	nddata->csinfo = NULL;
+ERR_LABLE(get_csinfo):
+ERR_LABLE(request_rb_irq):
+ERR_LABLE(request_wp):
+	if(nddata->cinfo->retryparms)
+		ndd_free(nddata->cinfo->retryparms);
+ERR_LABLE(get_errpt_head):
+	private->abandon_rbinfo_memory(nddata->rbinfo);
+ERR_LABLE(get_rbinfo):
+	deinit_platptitem_memory(&(private->platptinfo));
+ERR_LABLE(init_platptinfo):
+	nand_errpt_deinit();
+ERR_LABLE(get_sharing_parms):
+ERR_LABLE(alloc_ndflash):
+	return ret;
+}
+
+static int get_cinfo_rbinfo_from_burntool(nand_data *nddata, struct nand_api_osdependent *private)
 {
 	int ret = 0;
-#ifdef CONFIG_NAND_DMA
-	ret = nand_dma_resume(&g_pnand_api);
+	nand_flash *ndflash = NULL;
+
+	ndflash = __get_nand_flash();
+	if (!ndflash)
+		GOTO_ERR(no_flash);
+	ndd_dump_nandflash(ndflash);
+
+	/* init operations of errpt */
+	nand_errpt_init(ndflash);
+
+	if(ndflash->pagesize >= DEFAULT_ECCSIZE)
+		nddata->eccsize = DEFAULT_ECCSIZE;
+	else
+		nddata->eccsize = 512;;
+
+	nddata->spl_eccsize = SPL_ECCSIZE;
+	nddata->cinfo->drv_strength = private->drv_strength;
+	nddata->gpio_wp = private->gpio_wp;
+
+	nddata->rbinfo = private->rbinfo;
+
+	ndd_debug("\nget csinfo:\n");
+	nddata->csinfo = get_csinfo(&(nddata->base->nfi), nddata->rbinfo);
+	if (!nddata->csinfo)
+		GOTO_ERR(get_csinfo);
+
+	ret = fill_cinfo(nddata, ndflash);
+	if (ret)
+		GOTO_ERR(fill_cinfo);
+
+	ndd_dump_chip_info(nddata->cinfo);
+
+#if 0
+	switch(private->erasemode){
+		case NAND_NORMAL_ERASE_MODE:
+			ret = nand_write_errpt(nddata, &(private->platptinfo), ndflash);
+			break;
+		case NAND_FORCE_ERASE_MODE;
+			ret = nand_write_errpt(nddata, &(private->platptinfo), ndflash);
+			break;
+		case NAND_FACTORY_ERASE_MODE;
+			ret = nand_write_errpt(nddata, &(private->platptinfo), ndflash);
+			break;
+		default:
+			/* get rbinfo and nandflash parameters */
+			ret = get_errpt_head(nddata, *(private->platptinfo), ndflash);
+			if(ret >= 0){
+				nddata->cinfo->maxvalidblocks = ndflash->maxvalidblocks / ndflash->chips;
+				nddata->cinfo->maxvalidpages = nddata->cinfo->maxvalidblocks * nddata->cinfo->ppblock;
+			}
+			break;
+	}
+#else
+	if (private->erasemode) {
+		ret = nand_write_errpt(nddata, &(private->platptinfo), ndflash, private->erasemode);
+	} else {
+		/* get rbinfo and nandflash parameters */
+		ret = get_errpt_head(nddata, &(private->platptinfo), ndflash);
+		if(ret >= 0){
+			nddata->cinfo->maxvalidblocks = ndflash->maxvalidblocks / ndflash->chips;
+			nddata->cinfo->maxvalidpages = nddata->cinfo->maxvalidblocks * nddata->cinfo->ppblock;
+			ret = get_errpt_ppainfo(nddata, &(private->platptinfo), ndflash);
+		}
+	}
 #endif
+
+ERR_LABLE(fill_cinfo):
+	if(ret < 0){
+		free_csinfo(nddata->csinfo);
+		nddata->csinfo = NULL;
+	}
+ERR_LABLE(get_csinfo):
+ERR_LABLE(no_flash):
+	nand_errpt_deinit();
 	return ret;
 }
-static struct platform_driver plat_nand_driver = {
-	.probe		= plat_nand_probe,
-	.remove		= __exit_p(plat_nand_remove),
-	.suspend        = plat_nand_suspend,
-	.resume         = plat_nand_resume,
-	.driver		= {
-		.name	= "jz_nand",
-		.owner	= THIS_MODULE,
-	},
-};
 
-static int __init plat_nand_init(void)
+int nand_api_init(struct nand_api_osdependent *private)
 {
-	//	return platform_driver_probe(&plat_nand_driver, plat_nand_probe);
-	return platform_driver_register(&plat_nand_driver);
+	int ret;
+	int cs_index;
+
+	os_clib_init(&(private->clib));
+	ndd_dump_status();
+
+	__clear_rb_state = private->clear_rb_state;
+	__wait_rb_timeout = private->wait_rb_timeout;
+	__try_wait_rb = private->try_wait_rb;
+	__wp_enable = private->wp_enable;
+	__wp_disable = private->wp_disable;
+	__get_nand_flash = private->get_nand_flash;
+
+	nddata = ndd_alloc(sizeof(nand_data));
+	if (!nddata)
+		RETURN_ERR(ENAND, "alloc memory for nddata error");
+
+	nddata->cinfo = ndd_alloc(sizeof(chip_info));
+	if(!nddata->cinfo)
+		GOTO_ERR(alloc_cinfo);
+
+	nddata->base = get_base(private);
+	if (!nddata->base)
+		GOTO_ERR(get_base);
+
+	for (cs_index = 0; cs_index < CS_PER_NFI; cs_index++) {
+		ret = early_nand_prepare(&(nddata->base->nfi), cs_index);
+		if(ret != SUCCESS)
+			GOTO_ERR(nand_prepare);
+	}
+
+	nddata->clear_rb = clear_rb_state;
+	nddata->wait_rb = wait_rb_timeout;
+	ndd_debug("\nget nand rb info and chip info:\n");
+	if (!private->get_nand_flash)
+		ret = get_cinfo_rbinfo_from_errpt(nddata, private);
+	else
+		ret = get_cinfo_rbinfo_from_burntool(nddata,private);
+	if(ret < 0)
+		GOTO_ERR(get_cinfo_rbinfo);
+
+	ndd_debug("\nnand flash setup:\n");
+	ret = nandflash_setup(&(nddata->base->nfi), nddata->csinfo, nddata->rbinfo, nddata->cinfo);
+	if (ret){
+		ndd_print(NDD_ERROR,"WARNING:nand set feature failed!\n");
+		//GOTO_ERR(setup_nandflash);
+	}
+
+	ndd_debug("\nget ndpartition:\n");
+	nddata->ptinfo = get_ptinfo(nddata->cinfo, nddata->csinfo->totalchips,
+				    nddata->rbinfo->totalrbs, &(private->platptinfo));
+	if (!nddata->ptinfo)
+		GOTO_ERR(get_ptinfo);
+
+	ndd_debug("\nnand ops init:\n");
+	nddata->ops_context = nandops_init(nddata);
+	if (!nddata->ops_context)
+		GOTO_ERR(ops_init);
+
+	ndd_debug("\nregister NandManger:\n");
+	Register_NandDriver(&nand_interface);
+
+	ndd_debug("nand driver init ok!\n");
+	return 0;
+
+ERR_LABLE(ops_init):
+	free_ptinfo(nddata->ptinfo);
+ERR_LABLE(get_ptinfo):
+//ERR_LABLE(setup_nandflash):
+ERR_LABLE(get_cinfo_rbinfo):
+	if(nddata->csinfo)
+		free_csinfo(nddata->csinfo);
+ERR_LABLE(nand_prepare):
+ERR_LABLE(get_base):
+	ndd_free(nddata->cinfo);
+ERR_LABLE(alloc_cinfo):
+	ndd_free(nddata);
+	return -1;
 }
 
-static void __exit plat_nand_exit(void)
+int nand_api_suspend(void)
 {
-	platform_driver_unregister(&plat_nand_driver);
+	int ret;
+
+	ret = nandops_suspend(nddata->ops_context);
+	if (ret)
+		RETURN_ERR(ret, "nand ops suspend error!");
+
+	ret = nand_io_suspend();
+	if (ret)
+		RETURN_ERR(ret, "nand io suspend error!");
+
+	ret = nand_bch_suspend();
+	if (ret)
+		RETURN_ERR(ret, "nand bch suspend error!");
+
+	return 0;
 }
 
-#ifdef CONFIG_EARLY_INIT_RUN
-rootfs_initcall(plat_nand_init);
-#else
-module_init(plat_nand_init);
-#endif
-module_exit(plat_nand_exit);
-MODULE_DESCRIPTION("JZ4780 Nand driver");
-MODULE_AUTHOR(" ingenic ");
-MODULE_LICENSE("GPL v2");
-MODULE_VERSION("20120623");
+int nand_api_resume(void)
+{
+	int ret;
+
+	ret = nand_io_resume();
+	if (ret)
+		RETURN_ERR(ret, "nand io resume error!");
+
+	ret = nand_bch_resume();
+	if (ret)
+		RETURN_ERR(ret, "nand bch resume error!");
+
+	ret = nandops_resume(nddata->ops_context);
+	if (ret)
+		RETURN_ERR(ret, "nand ops resume error!");
+
+	return 0;
+}

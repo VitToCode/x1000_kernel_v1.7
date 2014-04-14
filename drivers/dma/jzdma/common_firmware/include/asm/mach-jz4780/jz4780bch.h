@@ -177,6 +177,7 @@ do {							\
 #define __bch_decode_sync()	while (!(REG_BCH_INTS & BCH_INTS_DECF))
 #define __bch_decode_sdmf()	while (!(REG_BCH_INTS & BCH_INTS_SDMF))
 
+#define __bch_ints_clear()	(REG_BCH_INTS = 0xff)
 #define __bch_encints_clear()	(REG_BCH_INTS |= BCH_INTS_ENCF)
 #define __bch_decints_clear()	(REG_BCH_INTS |= BCH_INTS_DECF)
 

@@ -22,7 +22,6 @@
 #include <mach/platform.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
-#include <mach/jznand.h>
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
@@ -94,17 +93,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 #ifdef CONFIG_NAND_COMMON
 	NAND_PORTAB_COMMON,
-#endif
-#ifdef CONFIG_NAND_CS1
 	NAND_PORTA_CS1,
-#endif
-#ifdef CONFIG_NAND_CS2
 	NAND_PORTA_CS2,
-#endif
-#ifdef CONFIG_NAND_CS3
 	NAND_PORTA_CS3,
-#endif
-#ifdef CONFIG_NAND_CS4
 	NAND_PORTA_CS4,
 #endif
 #ifdef CONFIG_NAND_CS5
@@ -940,23 +931,30 @@ static struct resource jz_nand_res[] ={
 		.end = PDMA_IOBASE +0x10000 -1,
 	},
 	[5] = {
-		.flags = IORESOURCE_IRQ,
-		.start = (32*0)+20,               // GPIOA 20
-	},
-	[6] = {
 		.flags = IORESOURCE_DMA,
 		.start = JZDMA_REQ_NAND3,
 	},
-	[7] = {
-		.flags = IORESOURCE_DMA,
-		.start = JZDMA_REQ_AUTO,
-	},
 	/**  csn resource  **/
+	[6] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS1_IOBASE,
+		.end = NEMC_CS1_IOBASE + 0x1000000 -1,
+	},
+	[7] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS2_IOBASE,
+		.end = NEMC_CS2_IOBASE + 0x1000000 -1,
+	},
 	[8] = {
 		.flags = IORESOURCE_MEM,
-		.start = NEMC_CS6_IOBASE,
-		.end = NEMC_CS6_IOBASE + 0x6000000 -1,
-	}
+		.start = NEMC_CS3_IOBASE,
+		.end = NEMC_CS3_IOBASE + 0x1000000 -1,
+	},
+	[9] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS4_IOBASE,
+		.end = NEMC_CS4_IOBASE + 0x1000000 -1,
+	},
 };
 
 struct platform_device jz_nand_device = {

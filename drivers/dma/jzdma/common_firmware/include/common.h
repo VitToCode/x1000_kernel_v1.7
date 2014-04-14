@@ -4,7 +4,18 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#ifdef CONFIG_SOC_4780
+#include <linux/compiler.h>
+
+#define MCU_TEST_INTER
+#ifdef MCU_TEST_INTER
+#define MCU_TEST_DATA 0xF40037C0  //TCSM_BANK7 - 0x40
+#endif
+
+#define __bank4		__section(.tcsm_bank4_1)
+#define __bank5		__section(.tcsm_bank5_1)
+#define __bank6		__section(.tcsm_bank6_1)
+#define __bank7		__section(.tcsm_bank7_1)
+
 #define TCSM_BANK0	0xF4000000
 #define TCSM_BANK1	0xF4000800
 #define TCSM_BANK2	0xF4001000
@@ -13,35 +24,13 @@
 #define TCSM_BANK5	0xF4002800
 #define TCSM_BANK6	0xF4003000
 #define TCSM_BANK7	0xF4003800
-#endif
-
-#ifdef CONFIG_SOC_4775
-#define TCSM_BANK0	0xF4000000
-#define TCSM_BANK1	0xF4001000
-#define TCSM_BANK2	0xF4002000
-#define TCSM_BANK3	0xF4003000
-#define TCSM_BANK4	0xF4004000
-#define TCSM_BANK5	0xF4005000
-#endif
-
-
-//#define MCU_TEST_INTER
-#ifdef MCU_TEST_INTER
-#ifdef CONFIG_SOC_4780
-#define MCU_TEST_DATA 0xF4002FC0  //TCSM_BANK6 - 0x40
-#endif
-
-#ifdef CONFIG_SOC_4775
-#define MCU_TEST_DATA (TCSM_BANK5 - 0x40)  //TCSM_BANK5 - 0x40
-#endif
-
-#endif //MCU_TEST_INTER
 
 #define NULL		0
-#define UNCOR_ECC	(0x01<<0)
-#define ALL_FF          (0x01<<1)
-#define MOVE_BLOCK      (0x01<<2) 
 #define ALIGN_ADDR_WORD(addr)	(void *)((((unsigned int)(addr) >> 2) + 1) << 2)
+
+#define MCU_SOFT_IRQ		(1 << 2)
+#define MCU_CHANNEL_IRQ		(1 << 1)
+#define MCU_INTC_IRQ		(1 << 0)
 
 typedef		char s8;
 typedef	unsigned char	u8;

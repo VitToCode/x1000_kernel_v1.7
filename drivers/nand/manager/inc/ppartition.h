@@ -27,7 +27,7 @@ struct badblockhandle {
 };
 struct virt2phy_page {
 	int blm;
-	unsigned short _2kPerPage;
+	unsigned short vpp; // virtual page per physical page;
 };
 struct _PPartition {
 	const char *name;
@@ -36,16 +36,18 @@ struct _PPartition {
 	int byteperpage;
 	int totalblocks;
 	int badblockcount;
-	int actualbadblockcount;
 	int hwsector;
 	int startPage;
 	int PageCount;
 	int mode;
 	void *prData;
-	struct badblockhandle *badblock;
+	unsigned int *pt_badblock_info;
+	unsigned int *pt_availableblockid;
 	struct virt2phy_page *v2pp;
 	mul_parts parts[MUL_PARTS];
 	int parts_num;
+	int groupperzone;
+	int pagespergroup;
 	int flags;
 };
 

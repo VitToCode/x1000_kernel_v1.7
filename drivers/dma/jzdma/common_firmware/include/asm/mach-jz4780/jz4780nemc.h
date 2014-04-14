@@ -125,6 +125,11 @@
 // BITCNT(bit 3):0-disable, 1-enable
 // BITCNT(bit 4):0-calculate, 1's number, 1-calculate 0's number
 // BITCNT(bit 5):0-no reset, 1-reset bitcnt
+#define NEMC_PNCR_BITRST	(1 << 5)
+#define NEMC_PNCR_BIT_MASK	(1 << 4)
+#define NEMC_PNCR_BIT0		(1 << 4)
+#define NEMC_PNCR_BIT1		(0 << 4)
+#define NEMC_PNCR_BITEN		(1 << 3)
 #define NEMC_PNCR_PNRST		(1 << 1)
 #define NEMC_PNCR_PNEN		(1 << 0)
 
@@ -197,15 +202,33 @@
 
 #ifndef __MIPS_ASSEMBLER
 
-#if 0
-#define __pn_enable()           (REG_NEMC_PNCR = NEMC_PNCR_PNRST | NEMC_PNCR_PNEN)
-#define __pn_disable()          (REG_NEMC_PNCR = 0x0)
+#if 1
+#define __pn_enable()           (REG_NEMC_PNCR |= NEMC_PNCR_PNRST | NEMC_PNCR_PNEN)
+#define __pn_disable()          (REG_NEMC_PNCR &= ~(NEMC_PNCR_PNEN))
+//#define __pn_disable()          (REG_NEMC_PNCR = 0)
 
 #else
 #define __pn_enable()           {}
 #define __pn_disable()          {}
 
 #endif
+
+#define __nemc_counter0_enable()	\
+do{									\
+	unsigned int tmp = REG_NEMC_PNCR;				\
+	tmp &= ~(NEMC_PNCR_BIT_MASK);					\
+	tmp |= NEMC_PNCR_BITRST | NEMC_PNCR_BIT0 | NEMC_PNCR_BITEN;	\
+	REG_NEMC_PNCR = tmp;						\
+}while(0)
+#define __nemc_counter1_enable()	\
+do{									\
+	unsigned int tmp = REG_NEMC_PNCR;				\
+	tmp &= ~(NEMC_PNCR_BIT_MASK);					\
+	tmp |= NEMC_PNCR_BITRST | NEMC_PNCR_BIT1 | NEMC_PNCR_BITEN;	\
+	REG_NEMC_PNCR = tmp;						\
+}while(0)
+#define __nemc_counter_disable()	(REG_NEMC_PNCR &= ~(NEMC_PNCR_BITEN))
+#define	__nemc_read_counter(n)		((n) = REG_NEMC_BITCNT)
 
 #ifdef __BOOT_ROM__
 #define __nand_enable()		(REG_NEMC_NFCSR = NEMC_NFCSR_NFE1 | NEMC_NFCSR_NFCE1)

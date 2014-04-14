@@ -65,13 +65,6 @@ extern struct snd_codec_data codec_data;
 
 #define GPIO_MIC_DETECT_EN		-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
-/**
- * nand platform data
- **/
-
-#ifdef CONFIG_NAND_DRIVER
-extern struct platform_nand_data jz_nand_chip_data;
-#endif
 
 /**
  * tsc gpio interface

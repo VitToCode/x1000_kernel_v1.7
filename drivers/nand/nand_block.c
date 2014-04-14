@@ -28,6 +28,7 @@
 //#define DEBUG_SYS
 //#define DEBUG_REQ
 //#define DEBUG_STLIST
+//#define DEBUG_REREAD_DATA
 
 #define BLOCK_NAME 		"nand_block"
 #define MAX_MINORS		255
@@ -84,7 +85,7 @@ static inline int div_s64_32(long long dividend , int divisor)
 #endif
 
 #if defined(DEBUG_TIME_WRITE) || defined(DEBUG_TIME_READ)
-#define DEBUG_TIME_BYTES (10 * 1024 *1024)
+#define DEBUG_TIME_BYTES (10 * 1024 *1024) //10MB, max is 40MB
 struct __data_distrib {
 	unsigned int _1_4sectors;
 	unsigned int _5_8sectors;
@@ -153,7 +154,7 @@ static inline void begin_time(int mode)
 
 static inline void end_time(int mode)
 {
-	int times, bytes;
+	int times, bytes, KBps;
 	unsigned long long etime = sched_clock();
 
 	if (mode == READ) {
@@ -162,8 +163,10 @@ static inline void end_time(int mode)
 #ifdef DEBUG_TIME_READ
 			times = div_s64_32(rd_sum_time, 1000 * 1000);
 			bytes = rd_sum_bytes / 1024;
-			printk("READ: nand_block speed debug, %dms, %dKb, %dKb/s\n",
-			       times, bytes, (bytes * 1000) / times);
+			KBps = (bytes * 1000) / times;
+			printk("READ: nand_block speed debug, %dms, %dKb, %d.%d%dMB/s\n",
+			       times, bytes,  KBps / 1024, (KBps % 1024) * 10 / 1024,
+			       (((KBps % 1024) * 10) % 1024) * 10 / 1024);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 			       rd_dbg_distrib._1_4sectors, rd_dbg_distrib._5_8sectors,
 			       rd_dbg_distrib._9_16sectors, rd_dbg_distrib._17_32sectors);
@@ -181,8 +184,10 @@ static inline void end_time(int mode)
 #ifdef DEBUG_TIME_WRITE
 			times = div_s64_32(wr_sum_time, 1000 * 1000);
 			bytes = wr_sum_bytes / 1024;
-			printk("WRITE: nand_block speed debug, %dms, %dKb, %dKb/s\n",
-			       times, bytes, (bytes * 1000) / times);
+			KBps = (bytes * 1000) / times;
+			printk("WRITE: nand_block speed debug, %dms, %dKb, %d.%d%dMB/s\n",
+			       times, bytes, KBps / 1024, (KBps % 1024) * 10 / 1024,
+			       (((KBps % 1024) * 10) % 1024) * 10 / 1024);
 			printk("[  1 -   4]:(%d)\n[  5 -   8]:(%d)\n[  9 -  16]:(%d)\n[ 17 -  32]:(%d)\n",
 			       wr_dbg_distrib._1_4sectors, wr_dbg_distrib._5_8sectors,
 			       wr_dbg_distrib._9_16sectors, wr_dbg_distrib._17_32sectors);
@@ -233,6 +238,94 @@ static inline void dump_sectorlist(SectorList *top)
 }
 #endif
 
+#ifdef DEBUG_REREAD_DATA
+unsigned char *origin_buf = NULL;
+spinlock_t print_lock;
+unsigned int writebytes, readbytes;
+static int spinlock_inited = 0;
+static void dump_reread_data_prepare(struct __nand_disk *ndisk)
+{
+	unsigned int offset, bytes;
+	struct singlelist *pos = NULL;
+	SectorList *sl_node, *sl = ndisk->sl;
+
+	if (origin_buf == NULL)
+		origin_buf = kmalloc(256 * 1024, GFP_KERNEL);
+
+	if (origin_buf) {
+		offset = 0;
+		singlelist_for_each(pos, &sl->head) {
+			sl_node = singlelist_entry(pos, SectorList, head);
+			bytes = sl_node->sectorCount * ndisk->sectorsize;
+			memcpy(origin_buf + offset, sl_node->pData, bytes);
+			offset += bytes;
+		}
+		writebytes = offset;
+	}
+}
+static void dump_reread_data_complete(struct __nand_disk *ndisk)
+{
+	int i, ret;
+	unsigned long flags;
+	unsigned char v1, v2;
+	unsigned int offset, bytes;
+	struct singlelist *pos = NULL;
+	SectorList *sl_node, *sl = ndisk->sl;
+
+	if (spinlock_inited == 0) {
+		spin_lock_init(&print_lock);
+		spinlock_inited = 1;
+	}
+
+	if (origin_buf) {
+		ret = NM_ptRead(ndisk->pinfo->context, ndisk->sl);
+		if (ret < 0) {
+			printk("ERROR:[%s] dump reread return error! ret = %d\n",
+			       ndisk->pinfo->lpt->pt->name, ret);
+			while(1);
+		}
+
+		offset = 0;
+		singlelist_for_each(pos, &sl->head) {
+			sl_node = singlelist_entry(pos, SectorList, head);
+			bytes = sl_node->sectorCount * ndisk->sectorsize;
+			ret = memcmp(origin_buf + offset, sl_node->pData, bytes);
+			if (ret) {
+				spin_lock_irqsave(&print_lock, flags);
+				printk("ERROR:[%s] dump reread data error!\n",
+				       ndisk->pinfo->lpt->pt->name);
+				printk("============= orign write data:");
+				for (i = 0; i < bytes; i++) {
+					v1 = *((unsigned char *)origin_buf + offset + i);
+					if (!(i % 16))
+						printk("\n%04d: ", i / 16);
+					printk(" %02x", v1);
+				}
+				printk("\n============= data of reread:");
+				for (i = 0; i < bytes; i++) {
+					v2 = *((unsigned char *)sl_node->pData + i);
+					if (!(i % 16))
+						printk("\n%04d: ", i / 16);
+					printk(" %02x", v2);
+				}
+				printk("\n");
+				spin_unlock_irqrestore(&print_lock, flags);
+				while(1);
+			}
+			offset += bytes;
+		}
+		readbytes = offset;
+		if (readbytes != writebytes) {
+			printk("ERROR:[%s] write sectorlist has been changed!\n",
+			       ndisk->pinfo->lpt->pt->name);
+			while(1);
+		}
+	}
+}
+#else
+static void dump_reread_data_prepare(struct __nand_disk *ndisk) {}
+static void dump_reread_data_complete(struct __nand_disk *ndisk) {}
+#endif
 /*#################################################################*\
  *# request
  \*#################################################################*/
@@ -388,9 +481,11 @@ static int handle_req_thread(void *data)
 				ret = NM_ptRead(ndisk->pinfo->context, ndisk->sl);
 				end_time(READ);
 			} else {
+				dump_reread_data_prepare(ndisk);
 				begin_time(WRITE);
 				ret = NM_ptWrite(ndisk->pinfo->context, ndisk->sl);
 				end_time(WRITE);
+				dump_reread_data_complete(ndisk);
 			}
 
 			if (ret < 0) {
@@ -603,8 +698,10 @@ static struct __nand_disk * get_ndisk_by_dev(const struct device *dev)
 	return NULL;
 }
 
-
-struct hd_struct *add_partition_for_disk(struct gendisk *disk, int partno, sector_t start, sector_t len, int flags, struct partition_meta_info *info, char *name)
+struct hd_struct *add_partition_for_disk(struct gendisk *disk, int partno,
+					 sector_t start, sector_t len,
+					 int flags, struct partition_meta_info *info,
+					 char *name)
 {
 	struct hd_struct *p;
 	dev_t devt = MKDEV(0, 0);
@@ -617,6 +714,7 @@ struct hd_struct *add_partition_for_disk(struct gendisk *disk, int partno, secto
 	err = disk_expand_part_tbl(disk, partno);
 	if (err)
 		return ERR_PTR(err);
+
 	ptbl = disk->part_tbl;
 
 	if (ptbl->part[partno])
@@ -640,7 +738,6 @@ struct hd_struct *add_partition_for_disk(struct gendisk *disk, int partno, secto
 	p->nr_sects = len;
 	p->partno = partno;
 	p->policy = get_disk_ro(disk);
-
 
 	if (info) {
 		struct partition_meta_info *pinfo = alloc_part_info(disk);
@@ -705,16 +802,13 @@ out_put:
 	return ERR_PTR(err);
 }
 
-
 static int nand_block_probe(struct device *dev)
 {
-	int ret = -ENOMEM;
+	int i, ret = -ENOMEM;
 	static unsigned int cur_minor = 0;
 	struct __nand_disk *ndisk = NULL;
 	struct __partition_info *pinfo = (struct __partition_info *)dev->platform_data;
 	NM_lpt *lpt = pinfo ? pinfo->lpt : NULL;
-	int ptmp = 0, pedege = 0;
-	unsigned long sum_count = 0;
 	struct hd_struct *hd;
 	DBG_FUNC();
 
@@ -751,7 +845,10 @@ static int nand_block_probe(struct device *dev)
 		printk("ERROR(nand block): blk_init_queue error!\n");
 		goto probe_err2;
 	}
-	//elevator_change(ndisk->queue, "noop");
+
+	/* operate partition of SPL/DIRECT_MANAGER need to keeps write data in order */
+	if (pinfo->lpt->pt->mode != ZONE_MANAGER)
+		elevator_change(ndisk->queue, "noop");
 
 	/* init ndisk */
 	ndisk->sl_len = 0;
@@ -761,9 +858,8 @@ static int nand_block_probe(struct device *dev)
 	ndisk->segmentsize = lpt->pt->segmentsize;
 	ndisk->capacity = lpt->pt->sectorCount;
 
-	if (lpt->pt->mode == ZONE_MANAGER)
-		printk("INFO(nand block): pt[%s] capacity is [%d]MB\n", lpt->pt->name,
-		       div_s64_32(((unsigned long long)ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
+	printk("INFO(nand block): pt[%s] capacity is [%d]MB\n", lpt->pt->name,
+	       div_s64_32(((unsigned long long)ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
 
 	ndisk->disk->major = nand_block.major;
 	ndisk->disk->first_minor = cur_minor;
@@ -784,19 +880,17 @@ static int nand_block_probe(struct device *dev)
 	/* add gendisk */
 	add_disk(ndisk->disk);
 
-	if(lpt->pt->parts_num >  0 && lpt->pt->mode == ZONE_MANAGER){
-		pedege = lpt->pt->startSector;
-		for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++)
-			sum_count = sum_count + (lpt->pt->lparts+ptmp)->sectorCount;
-		for(ptmp=0; ptmp< lpt->pt->parts_num; ptmp++){
-			(lpt->pt->lparts+ptmp)->sectorCount = lpt->pt->sectorCount * 100 / sum_count * (lpt->pt->lparts+ptmp)->sectorCount / 100;
-			hd = add_partition_for_disk(ndisk->disk, ptmp+1, pedege, (lpt->pt->lparts+ptmp)->sectorCount, ADDPART_FLAG_NONE, ndisk->disk->part0.info, (lpt->pt->lparts+ptmp)->name);
-			if(!hd){
-				printk("ERROR:add_partition fail!\n");
-			}
-			pedege = pedege + (lpt->pt->lparts+ptmp)->sectorCount;
-		}
+	/* add parts of gendisk */
+	for(i = 0; i < lpt->pt->parts_num; i++){
+		lmul_parts *part = lpt->pt->lparts + i;
+		hd = add_partition_for_disk(ndisk->disk, (i + 1),
+					    part->startSector, part->sectorCount,
+					    ADDPART_FLAG_NONE, ndisk->disk->part0.info,
+					    part->name);
+		if (!hd)
+			printk("ERROR: add_partition [%s] fail!\n", part->name);
 	}
+
 	/* add ndisk to disk_list */
 	singlelist_add(&nand_block.disk_list, &ndisk->list);
 

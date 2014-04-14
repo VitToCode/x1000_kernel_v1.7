@@ -51,7 +51,11 @@ void __init cpm_reset(void)
 	mdelay(1);
 	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
 	mdelay(1);
+#ifdef CONFIG_NAND_DRIVER
+	cpm_outl(0x27d87ffe,CPM_CLKGR0);
+#else
 	cpm_outl(0x27f87ffe,CPM_CLKGR0);
+#endif
 	mdelay(1);
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
 	cpm_outl(0xfffff9ff,CPM_CLKGR1);

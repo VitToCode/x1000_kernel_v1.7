@@ -136,10 +136,6 @@ extern struct platform_device byd_bm8766u_device;
 #ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
 extern struct platform_device byd_8991_device;
 #endif
-/**
-* nand platform data
-**/
-extern struct platform_nand_data jz_nand_chip_data;
 
 #ifdef CONFIG_BCM4330_RFKILL
 extern struct platform_device bcm4330_bt_power_device;

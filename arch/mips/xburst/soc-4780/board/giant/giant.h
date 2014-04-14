@@ -44,9 +44,4 @@ extern struct platform_device giant_backlight_device;
  **/
 extern struct snd_codec_data codec_data;
 
-/**
- * nand platform data
- **/
-extern struct platform_nand_data jz_nand_chip_data;
-
 #endif /* __TEST_H__ */

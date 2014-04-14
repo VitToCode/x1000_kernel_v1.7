@@ -17,6 +17,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/irq.h>
 
 #include <soc/irq.h>
 #include <soc/base.h>
@@ -39,6 +40,26 @@
 __initdata static int firmware[] = {
 #include "firmware.hex"
 };
+
+struct s_mailbox{
+	unsigned short msg;
+	unsigned short type;
+};
+union u_mailbox{
+	struct s_mailbox mb;
+	unsigned int     mbox;
+};
+#define REG_INTC_SET_CPUMASK0 		(*(volatile unsigned int *)(0xb0001008))
+#define REG_INTC_CLEAR_CPUMASK0 	(*(volatile unsigned int *)(0xb000100c))
+#define REG_INTC_MCUMASK0 		(*(volatile unsigned int *)(0xb0001038))
+
+#define MCU_TEST_INTER_DMA
+#ifdef MCU_TEST_INTER_DMA
+#define MCU_TEST_DATA_DMA 0xB34257C0 //PDMA_BANK7 - 0x40
+#endif
+
+#define DMA_MAILBOX_NAND (*(volatile unsigned int *)(0xb3422020))
+#define DMA_MAILBOX_GPIO (*(volatile unsigned int *)(0xb3422024))
 
 #endif
 
@@ -250,6 +271,8 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 		dev_dbg(dma->dev,"%08x:%08x:%08x:%08x\n",
 				firmware[i],firmware[i+1],firmware[i+2],firmware[i+3]);
 	memcpy(dma->iomem + TCSM,firmware,sizeof(firmware));
+	DMA_MAILBOX_NAND = 0;
+	DMA_MAILBOX_GPIO = 0;
 #ifdef MCU_TEST_INTER_DMA
 				(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
 				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+1)) = 0;
@@ -788,31 +811,21 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 #ifdef CONFIG_NAND
 irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 {
-	unsigned long pending, mailbox = 0;
-	int mask;
+	unsigned long pending;
 	struct jzdma_master *master = (struct jzdma_master *)dev;
 	struct jzdma_channel *dmac = master->channel + 3;
 
 	pending = readl(master->iomem + DMINT);
 
 	if(pending & DMINT_N_IP){
-		mailbox = readl(master->iomem + DMNMB);
-
-		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_NORMAL) {
-#ifdef MCU_TEST_INTER_DMA
-		(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+3))++;
-#endif
-		*(int *)dmac->tx_desc.callback_param = (mailbox & 0xffffff);
-		tasklet_schedule(&dmac->tasklet);
-//			generic_handle_irq(IRQ_MCU);
+		if(DMA_MAILBOX_NAND){
+			*(int *)dmac->tx_desc.callback_param = DMA_MAILBOX_NAND;
+			DMA_MAILBOX_NAND = 0;
+			tasklet_schedule(&dmac->tasklet);
 		}
-		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC) {
+		if(DMA_MAILBOX_GPIO){
 			generic_handle_irq(IRQ_GPIO0);
-		}
-		if(GET_MSG_TYPE(mailbox) == MCU_MSG_TYPE_INTC_MASKA) {
-			mask = GET_MSG_MASK(mailbox);
-			*((volatile int *)(0xb0010058)) &= ~(1<<mask);
-			generic_handle_irq(IRQ_GPIO0);
+			DMA_MAILBOX_GPIO = 0;
 		}
 	}
 	writel(0, master->iomem + DMINT);
@@ -872,7 +885,101 @@ int pdmam_set_wake(struct irq_data *data, unsigned int on)
 {
 	return 0;
 }
+#ifdef CONFIG_NAND
+/*************************************************************************
+if nand was config:
+	After cpu was woke up,the mcu should be handler
+those interruptions of GPIO0,so that it was convenient to read/write nand,
+the process of GPIO0's interruption as follows
+	|----------------------------------|
+	|               GPIO0              |
+	|                 |                |
+	|      |--****--INTC---------->|   |
+	|      |   MASK       UNMASK   |   |
+	|      CPU                    MCU  |
+	|                              |   |
+	|                         MAILEBOX |
+	|      | <---------------------|   |
+	|      |                           |
+	|    jzdma                         |
+	|      |                           |
+	|   soft intc                      |
+	|      |                           |
+	| handler func of intc             |
+	|__________________________________|
 
+	On the contraty, when cpu will go to sleep, the cpu should be handler
+GPIO0's interruptions, it was convenient to the next step, which is that cpu was
+woke up.
+				GPIO0
+				  |
+		       |---------INTC-------->|
+		       | unmask          mask |
+		       CPU                   MCU
+		       |
+		       |
+		 handler func of intc
+************************************************************************/
+static void nand_intc_irq_ctrl(struct irq_data *data, int msk, int wkup)
+{
+/*
+	int intc = (int)irq_data_get_irq_chip_data(data);
+	void *base = intc_base + PART_OFF * (intc/32);
+
+	if (msk == 1)
+		writel(BIT(intc%32), base + IMSR_OFF);
+	else if (msk == 0)
+		writel(BIT(intc%32), base + IMCR_OFF);
+	if (wkup == 1)
+		intc_wakeup[intc / 32] |= 1 << (intc % 32);
+	else if (wkup == 0)
+		intc_wakeup[intc / 32] &= ~(1 << (intc % 32));
+*/
+}
+
+static void nand_intc_irq_unmask(struct irq_data *data)
+{
+	nand_intc_irq_ctrl(data, 0, -1);
+}
+
+static void nand_intc_irq_mask(struct irq_data *data)
+{
+	nand_intc_irq_ctrl(data, 1, -1);
+}
+static int nand_intc_irq_set_wake(struct irq_data *data, unsigned int on)
+{
+	nand_intc_irq_ctrl(data, -1, !!on);
+	return 0;
+}
+static struct irq_chip nand_jzintc_chip = {
+	.name 		= "jz-intc",
+	.irq_mask	= nand_intc_irq_mask,
+	.irq_mask_ack 	= nand_intc_irq_mask,
+	.irq_unmask 	= nand_intc_irq_unmask,
+	.irq_set_wake 	= nand_intc_irq_set_wake,
+};
+static struct irq_chip *save_irq_chip = NULL;
+static void save_and_replace_gpio0_irq_chip(void)
+{
+	if(!save_irq_chip){
+		REG_INTC_SET_CPUMASK0 = (0x1 << 17);
+		REG_INTC_MCUMASK0 |= (0x1 << 17);
+		save_irq_chip = irq_get_chip(IRQ_GPIO0);
+		irq_set_chip(IRQ_GPIO0, &nand_jzintc_chip);
+		REG_INTC_MCUMASK0 &= ~(0x1 << 17);
+	}
+}
+static void restore_gpio0_irq_chip(void)
+{
+	if(save_irq_chip){
+		REG_INTC_SET_CPUMASK0 = (0x1 << 17);
+		REG_INTC_MCUMASK0 |= (0x1 << 17);
+		irq_set_chip(IRQ_GPIO0, save_irq_chip);
+		REG_INTC_CLEAR_CPUMASK0 = (0x1 << 17);
+		save_irq_chip = NULL;
+	}
+}
+#endif /* CONFIG_NAND */
 static int __init jzdma_probe(struct platform_device *pdev)
 {
 	struct jzdma_master *dma;
@@ -1026,6 +1133,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	 */
 	jzdma_load_firmware(dma);
 	jzdma_mcu_init(dma);
+	save_and_replace_gpio0_irq_chip();
 #endif
 
 	platform_set_drvdata(pdev,dma);
@@ -1061,6 +1169,7 @@ static int jzdma_suspend(struct platform_device * pdev, pm_message_t state)
 #ifdef CONFIG_NAND
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
 	jzdma_mcu_reset(dma);
+	restore_gpio0_irq_chip();
 #endif
 
 	return 0;
@@ -1070,6 +1179,7 @@ static int jzdma_resume(struct platform_device * pdev)
 #ifdef CONFIG_NAND
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
 	jzdma_mcu_init(dma);
+	save_and_replace_gpio0_irq_chip();
 #endif
 
 	return 0;

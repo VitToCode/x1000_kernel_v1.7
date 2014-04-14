@@ -7,7 +7,7 @@
  * Copyright (C) 2006 Ingenic Semiconductor Inc.
  *
  */
-#define TCSM_STACK_TOP	0xF4001FFC
+#define TCSM_STACK_TOP	(0xF4001F3C)
 #define TCSM_BANK0_PA	0xF4000000
 
 	.text
@@ -80,7 +80,9 @@ _intr_entry:
 	sw	$23, 23*4($29)
 	sw	$24, 24*4($29)
 	sw	$25, 25*4($29)
+	mfhi	$26
 	sw	$26, 26*4($29)
+	mflo	$27
 	sw	$27, 27*4($29)
 	sw	$28, 28*4($29)
 	sw	$29, 29*4($29)
@@ -120,7 +122,9 @@ _intr_entry:
 	lw	$24, 24*4($29)
 	lw	$25, 25*4($29)
 	lw	$26, 26*4($29)
+	mthi	$26
 	lw	$27, 27*4($29)
+	mtlo	$27
 	lw	$28, 28*4($29)
 	lw	$29, 29*4($29)
 	lw	$30, 30*4($29)

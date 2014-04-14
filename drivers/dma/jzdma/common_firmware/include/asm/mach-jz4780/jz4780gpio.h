@@ -364,7 +364,7 @@
 #define REG_GPIO_PXDSC(n)	REG32(GPIO_PXDSC((n))) /* interrupt flag */
 #endif
 
-#ifndef __MIPS_ASSEMBLER
+#ifndef __MIPS_ASSEMBLER /**/
 
 /*----------------------------------------------------------------
  * p is the port number (0,1,2,3,4,5)
@@ -375,48 +375,48 @@
 //----------------------------------------------------------------
 // Function Pins Mode
 #define __gpio_as_func0(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXINTC(p) = (1 << o);		\
-	REG_GPIO_PXMASKC(p) = (1 << o);		\
-	REG_GPIO_PXPAT1C(p) = (1 << o);		\
-	REG_GPIO_PXPAT0C(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXINTC(p) = (1 << o);		\
+		REG_GPIO_PXMASKC(p) = (1 << o);		\
+		REG_GPIO_PXPAT1C(p) = (1 << o);		\
+		REG_GPIO_PXPAT0C(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_as_func1(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXINTC(p) = (1 << o);		\
-	REG_GPIO_PXMASKC(p) = (1 << o);		\
-	REG_GPIO_PXPAT1C(p) = (1 << o);		\
-	REG_GPIO_PXPAT0S(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXINTC(p) = (1 << o);		\
+		REG_GPIO_PXMASKC(p) = (1 << o);		\
+		REG_GPIO_PXPAT1C(p) = (1 << o);		\
+		REG_GPIO_PXPAT0S(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_as_func2(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXINTC(p) = (1 << o);		\
-	REG_GPIO_PXMASKC(p) = (1 << o);		\
-	REG_GPIO_PXPAT1S(p) = (1 << o);		\
-	REG_GPIO_PXPAT0C(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXINTC(p) = (1 << o);		\
+		REG_GPIO_PXMASKC(p) = (1 << o);		\
+		REG_GPIO_PXPAT1S(p) = (1 << o);		\
+		REG_GPIO_PXPAT0C(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_as_func3(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXINTC(p) = (1 << o);		\
-	REG_GPIO_PXMASKC(p) = (1 << o);		\
-	REG_GPIO_PXPAT1S(p) = (1 << o);		\
-	REG_GPIO_PXPAT0S(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXINTC(p) = (1 << o);		\
+		REG_GPIO_PXMASKC(p) = (1 << o);		\
+		REG_GPIO_PXPAT1S(p) = (1 << o);		\
+		REG_GPIO_PXPAT0S(p) = (1 << o);		\
+	} while (0)
 
 #if 0
 /*
@@ -425,146 +425,146 @@ do {						\
  * MII_CRS MII_MDC MII_MDIO
  */
 #define __gpio_as_eth()				\
-do {						\
-	REG_GPIO_PXINTC(1) =  0x00000010;	\
-	REG_GPIO_PXMASKC(1) = 0x00000010;	\
-	REG_GPIO_PXPAT1S(1) = 0x00000010;	\
-	REG_GPIO_PXPAT0C(1) = 0x00000010;	\
-	REG_GPIO_PXINTC(3) =  0x3c000000;	\
-	REG_GPIO_PXMASKC(3) = 0x3c000000;	\
-	REG_GPIO_PXPAT1C(3) = 0x3c000000;	\
-	REG_GPIO_PXPAT0S(3) = 0x3c000000;	\
-	REG_GPIO_PXINTC(5) =  0x0000fff0;	\
-	REG_GPIO_PXMASKC(5) = 0x0000fff0;	\
-	REG_GPIO_PXPAT1C(5) = 0x0000fff0;	\
-	REG_GPIO_PXPAT0C(5) = 0x0000fff0;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(1) =  0x00000010;	\
+		REG_GPIO_PXMASKC(1) = 0x00000010;	\
+		REG_GPIO_PXPAT1S(1) = 0x00000010;	\
+		REG_GPIO_PXPAT0C(1) = 0x00000010;	\
+		REG_GPIO_PXINTC(3) =  0x3c000000;	\
+		REG_GPIO_PXMASKC(3) = 0x3c000000;	\
+		REG_GPIO_PXPAT1C(3) = 0x3c000000;	\
+		REG_GPIO_PXPAT0S(3) = 0x3c000000;	\
+		REG_GPIO_PXINTC(5) =  0x0000fff0;	\
+		REG_GPIO_PXMASKC(5) = 0x0000fff0;	\
+		REG_GPIO_PXPAT1C(5) = 0x0000fff0;	\
+		REG_GPIO_PXPAT0C(5) = 0x0000fff0;	\
+	} while (0)
 #endif
 
 #define __gpio_as_eth()				\
-do {						\
-	REG_GPIO_PXINTC(1) =  0x00000010;	\
-	REG_GPIO_PXMASKC(1) = 0x00000010;	\
-	REG_GPIO_PXPAT1S(1) = 0x00000010;	\
-	REG_GPIO_PXPAT0C(1) = 0x00000010;	\
-	REG_GPIO_PXINTC(3) =  0x3c000000;	\
-	REG_GPIO_PXMASKC(3) = 0x3c000000;	\
-	REG_GPIO_PXPAT1C(3) = 0x3c000000;	\
-	REG_GPIO_PXPAT0S(3) = 0x3c000000;	\
-	REG_GPIO_PXINTC(5) =  0x0000fff0;	\
-	REG_GPIO_PXMASKC(5) = 0x0000fff0;	\
-	REG_GPIO_PXPAT1C(5) = 0x0000fff0;	\
-	REG_GPIO_PXPAT0C(5) = 0x0000fff0;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(1) =  0x00000010;	\
+		REG_GPIO_PXMASKC(1) = 0x00000010;	\
+		REG_GPIO_PXPAT1S(1) = 0x00000010;	\
+		REG_GPIO_PXPAT0C(1) = 0x00000010;	\
+		REG_GPIO_PXINTC(3) =  0x3c000000;	\
+		REG_GPIO_PXMASKC(3) = 0x3c000000;	\
+		REG_GPIO_PXPAT1C(3) = 0x3c000000;	\
+		REG_GPIO_PXPAT0S(3) = 0x3c000000;	\
+		REG_GPIO_PXINTC(5) =  0x0000fff0;	\
+		REG_GPIO_PXMASKC(5) = 0x0000fff0;	\
+		REG_GPIO_PXPAT1C(5) = 0x0000fff0;	\
+		REG_GPIO_PXPAT0C(5) = 0x0000fff0;	\
+	} while (0)
 
 /*
  * GPS_CLK GPS_MAG GPS_SIG
  */
 #define __gpio_as_gps()			\
-do {						\
-	REG_GPIO_PXFUNS(5) = 0x00000007;	\
-	REG_GPIO_PXTRGC(5) = 0x00000007;	\
-	REG_GPIO_PXSELS(5) = 0x00000007;	\
-	REG_GPIO_PXPENS(5) = 0x00000007;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(5) = 0x00000007;	\
+		REG_GPIO_PXTRGC(5) = 0x00000007;	\
+		REG_GPIO_PXSELS(5) = 0x00000007;	\
+		REG_GPIO_PXPENS(5) = 0x00000007;		\
+	} while (0)
 
 /*
  * UART0_TxD, UART0_RxD
  */
 #define __gpio_as_uart0()			\
-do {						\
-	REG_GPIO_PXINTC(5) = (0x9 << 0);	\
-	REG_GPIO_PXMASKC(5) = (0x9 << 0);	\
-	REG_GPIO_PXPAT0C(5) = (0x9 << 0);	\
-	REG_GPIO_PXPAT1C(5)  = (0x9 << 0);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(5) = (0x9 << 0);	\
+		REG_GPIO_PXMASKC(5) = (0x9 << 0);	\
+		REG_GPIO_PXPAT0C(5) = (0x9 << 0);	\
+		REG_GPIO_PXPAT1C(5)  = (0x9 << 0);	\
+	} while (0)
 /*
  * UART0_TxD, UART0_RxD, UART0_CTS, UART0_RTS
  */
 #define __gpio_as_uart0_ctsrts()		\
-do {						\
-	REG_GPIO_PXINTC(5) = (0xf << 0);	\
-	REG_GPIO_PXMASKC(5) = (0xf << 0);	\
-	REG_GPIO_PXPAT0C(5) = (0xf << 0);	\
-	REG_GPIO_PXPAT1C(5)  = (0xF << 0);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(5) = (0xf << 0);	\
+		REG_GPIO_PXMASKC(5) = (0xf << 0);	\
+		REG_GPIO_PXPAT0C(5) = (0xf << 0);	\
+		REG_GPIO_PXPAT1C(5)  = (0xF << 0);	\
+	} while (0)
 
 /*
  * UART1_TxD, UART1_RxD
  */
 #define __gpio_as_uart1()			\
-do {						\
-	REG_GPIO_PXINTC(3) = (0x3 << 26);	\
-	REG_GPIO_PXMASKC(3) = (0x3 << 26);	\
-	REG_GPIO_PXPAT0C(3) = (0x3 << 26);	\
-	REG_GPIO_PXPAT1C(3)  = (0x3 << 26);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(3) = (0x3 << 26);	\
+		REG_GPIO_PXMASKC(3) = (0x3 << 26);	\
+		REG_GPIO_PXPAT0C(3) = (0x3 << 26);	\
+		REG_GPIO_PXPAT1C(3)  = (0x3 << 26);	\
+	} while (0)
 /*
  * UART1_TxD, UART1_RxD, UART1_CTS, UART1_RTS
  */
 #define __gpio_as_uart1_ctsrts()		\
-do {						\
-	REG_GPIO_PXINTC(3) = (0xf << 26);	\
-	REG_GPIO_PXMASKC(3) = (0xf << 26);	\
-	REG_GPIO_PXPAT0C(3) = (0xf << 26);	\
-	REG_GPIO_PXPAT1C(3)  = (0xf << 26);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(3) = (0xf << 26);	\
+		REG_GPIO_PXMASKC(3) = (0xf << 26);	\
+		REG_GPIO_PXPAT0C(3) = (0xf << 26);	\
+		REG_GPIO_PXPAT1C(3)  = (0xf << 26);	\
+	} while (0)
 
 /*
  * UART2_TxD, UART2_RxD
  */
 #define __gpio_as_uart2()			\
-do {						\
-	REG_GPIO_PXINTC(3) = (0xc << 4);	\
-	REG_GPIO_PXMASKC(3) = (0xc << 4);	\
-	REG_GPIO_PXPAT0C(3) = (0xc << 4);	\
-	REG_GPIO_PXPAT1S(3)  = (0xc << 4);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(3) = (0xc << 4);	\
+		REG_GPIO_PXMASKC(3) = (0xc << 4);	\
+		REG_GPIO_PXPAT0C(3) = (0xc << 4);	\
+		REG_GPIO_PXPAT1S(3)  = (0xc << 4);	\
+	} while (0)
 /*
  * UART2_TxD, UART2_RxD, UART2_CTS, UART2_RTS
  */
 #define __gpio_as_uart2_ctsrts()		\
-do {						\
-	REG_GPIO_PXINTC(3) = (0xf << 4);	\
-	REG_GPIO_PXMASKC(3) = (0xf << 4);	\
-	REG_GPIO_PXPAT0C(3) = (0xf << 4);	\
-	REG_GPIO_PXPAT1S(3)  = (0xf << 4);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(3) = (0xf << 4);	\
+		REG_GPIO_PXMASKC(3) = (0xf << 4);	\
+		REG_GPIO_PXPAT0C(3) = (0xf << 4);	\
+		REG_GPIO_PXPAT1S(3)  = (0xf << 4);	\
+	} while (0)
 
 /*
  * UART3_TxD, UART3_RxD
  */
 #define __gpio_as_uart3()			\
-do {						\
-	REG_GPIO_PXINTC(3) = (0x1 << 12);	\
-	REG_GPIO_PXMASKC(3) = (0x1 << 12);	\
-	REG_GPIO_PXPAT0C(3) = (0x1 << 12);	\
-	REG_GPIO_PXPAT1C(3)  = (0x1 << 12);	\
-	REG_GPIO_PXINTC(4) = (0x1 << 5);	\
-	REG_GPIO_PXMASKC(4) = (0x1 << 5);	\
-	REG_GPIO_PXPAT0C(4) = (0x1 << 5);	\
-	REG_GPIO_PXPAT1S(4)  = (0x1 << 5);	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(3) = (0x1 << 12);	\
+		REG_GPIO_PXMASKC(3) = (0x1 << 12);	\
+		REG_GPIO_PXPAT0C(3) = (0x1 << 12);	\
+		REG_GPIO_PXPAT1C(3)  = (0x1 << 12);	\
+		REG_GPIO_PXINTC(4) = (0x1 << 5);	\
+		REG_GPIO_PXMASKC(4) = (0x1 << 5);	\
+		REG_GPIO_PXPAT0C(4) = (0x1 << 5);	\
+		REG_GPIO_PXPAT1S(4)  = (0x1 << 5);	\
+	} while (0)
 /*
  * UART3_TxD, UART3_RxD, UART3_CTS, UART3_RTS
  */
 #define __gpio_as_uart3_ctsrts()			\
-do {							\
-	REG_GPIO_PXINTC(3) = (0x1 << 12);		\
-	REG_GPIO_PXMASKC(3) = (0x1 << 12);		\
-	REG_GPIO_PXPAT0C(3) = (0x1 << 12);		\
-	REG_GPIO_PXPAT1C(3)  = (0x1 << 12);		\
-	REG_GPIO_PXINTC(4) = (0x1 << 5) | (0x3 << 8);	\
-	REG_GPIO_PXMASKC(4) = (0x1 << 5) | (0x3 << 8);	\
-	REG_GPIO_PXPAT0C(4) = (0x1 << 5) | (0x3 << 8);	\
-	REG_GPIO_PXPAT1S(4)  = (0x1 << 5);		\
-	REG_GPIO_PXPAT1C(4)  = (0x3 << 8);		\
-} while (0)
+	do {							\
+		REG_GPIO_PXINTC(3) = (0x1 << 12);		\
+		REG_GPIO_PXMASKC(3) = (0x1 << 12);		\
+		REG_GPIO_PXPAT0C(3) = (0x1 << 12);		\
+		REG_GPIO_PXPAT1C(3)  = (0x1 << 12);		\
+		REG_GPIO_PXINTC(4) = (0x1 << 5) | (0x3 << 8);	\
+		REG_GPIO_PXMASKC(4) = (0x1 << 5) | (0x3 << 8);	\
+		REG_GPIO_PXPAT0C(4) = (0x1 << 5) | (0x3 << 8);	\
+		REG_GPIO_PXPAT1S(4)  = (0x1 << 5);		\
+		REG_GPIO_PXPAT1C(4)  = (0x3 << 8);		\
+	} while (0)
 
 //fixme twxie
 #define __gpio_as_uart4()			\
-do {					\
-} while (0)
+	do {					\
+	} while (0)
 
 
 /*
@@ -572,180 +572,180 @@ do {					\
  * @n: chip select number(1 ~ 6)
  */
 #define __gpio_as_nand_8bit(n)						\
-do {		              						\
-	REG_GPIO_PXINTC(0) = 0x000c00ff; /* SD0 ~ SD7, CS1#, FRE#, FWE# */ \
-	REG_GPIO_PXMASKC(0) = 0x000c00ff;				\
-	REG_GPIO_PXPAT1C(0) = 0x000c00ff;				\
-	REG_GPIO_PXPAT0C(0) = 0x000c00ff;				\
-	REG_GPIO_PXPENS(0) = 0x000c00ff;				\
-									\
-	REG_GPIO_PXINTC(1) = 0x00000003; /* CLE(SA2), ALE(SA3) */	\
-	REG_GPIO_PXMASKC(1) = 0x00000003;				\
-	REG_GPIO_PXPAT1C(1) = 0x00000003;				\
-	REG_GPIO_PXPAT0C(1) = 0x00000003;				\
-	REG_GPIO_PXPENS(1) = 0x00000003;				\
-									\
-	REG_GPIO_PXINTC(0) = 0x00200000 << ((n)-1); /* CSn */		\
-	REG_GPIO_PXMASKC(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPAT1C(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPAT0C(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPENS(0) = 0x00200000 << ((n)-1);			\
-									\
-	REG_GPIO_PXINTC(0) = 0x00100000; /* FRB#(input) */		\
-	REG_GPIO_PXMASKS(0) = 0x00100000;				\
-	REG_GPIO_PXPAT1S(0) = 0x00100000;				\
-	REG_GPIO_PXPENS(0) = 0x00100000;				\
-} while (0)
+	do {		              						\
+		REG_GPIO_PXINTC(0) = 0x000c00ff; /* SD0 ~ SD7, CS1#, FRE#, FWE# */ \
+		REG_GPIO_PXMASKC(0) = 0x000c00ff;				\
+		REG_GPIO_PXPAT1C(0) = 0x000c00ff;				\
+		REG_GPIO_PXPAT0C(0) = 0x000c00ff;				\
+		REG_GPIO_PXPENS(0) = 0x000c00ff;				\
+		\
+		REG_GPIO_PXINTC(1) = 0x00000003; /* CLE(SA2), ALE(SA3) */	\
+		REG_GPIO_PXMASKC(1) = 0x00000003;				\
+		REG_GPIO_PXPAT1C(1) = 0x00000003;				\
+		REG_GPIO_PXPAT0C(1) = 0x00000003;				\
+		REG_GPIO_PXPENS(1) = 0x00000003;				\
+		\
+		REG_GPIO_PXINTC(0) = 0x00200000 << ((n)-1); /* CSn */		\
+		REG_GPIO_PXMASKC(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPAT1C(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPAT0C(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPENS(0) = 0x00200000 << ((n)-1);			\
+		\
+		REG_GPIO_PXINTC(0) = 0x00100000; /* FRB#(input) */		\
+		REG_GPIO_PXMASKS(0) = 0x00100000;				\
+		REG_GPIO_PXPAT1S(0) = 0x00100000;				\
+		REG_GPIO_PXPENS(0) = 0x00100000;				\
+	} while (0)
 
 #define __gpio_as_nand_16bit(n)						\
-do {		              						\
-									\
-	REG_GPIO_PXINTC(0) = 0x000cffff; /* SD0 ~ SD15, CS1#, FRE#, FWE# */ \
-	REG_GPIO_PXMASKC(0) = 0x000cffff;				\
-	REG_GPIO_PXPAT1C(0) = 0x000cffff;				\
-	REG_GPIO_PXPAT0C(0) = 0x000cffff;				\
-	REG_GPIO_PXPENS(0) = 0x000cffff;				\
-									\
-	REG_GPIO_PXINTC(1) = 0x00000003; /* CLE(SA2), ALE(SA3) */	\
-	REG_GPIO_PXMASKC(1) = 0x00000003;				\
-	REG_GPIO_PXPAT1C(1) = 0x00000003;				\
-	REG_GPIO_PXPAT0C(1) = 0x00000003;				\
-	REG_GPIO_PXPENS(1) = 0x00000003;				\
-									\
-	REG_GPIO_PXINTC(0) = 0x00200000 << ((n)-1); /* CSn */		\
-	REG_GPIO_PXMASKC(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPAT1C(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPAT0C(0) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPENS(0) = 0x00200000 << ((n)-1);			\
-									\
-	REG_GPIO_PXINTC(0) = 0x00100000; /* FRB#(input) */		\
-	REG_GPIO_PXMASKS(0) = 0x00100000;				\
-	REG_GPIO_PXPAT1S(0) = 0x00100000;				\
-	REG_GPIO_PXPENS(0) = 0x00100000;				\
-} while (0)
+	do {		              						\
+		\
+		REG_GPIO_PXINTC(0) = 0x000cffff; /* SD0 ~ SD15, CS1#, FRE#, FWE# */ \
+		REG_GPIO_PXMASKC(0) = 0x000cffff;				\
+		REG_GPIO_PXPAT1C(0) = 0x000cffff;				\
+		REG_GPIO_PXPAT0C(0) = 0x000cffff;				\
+		REG_GPIO_PXPENS(0) = 0x000cffff;				\
+		\
+		REG_GPIO_PXINTC(1) = 0x00000003; /* CLE(SA2), ALE(SA3) */	\
+		REG_GPIO_PXMASKC(1) = 0x00000003;				\
+		REG_GPIO_PXPAT1C(1) = 0x00000003;				\
+		REG_GPIO_PXPAT0C(1) = 0x00000003;				\
+		REG_GPIO_PXPENS(1) = 0x00000003;				\
+		\
+		REG_GPIO_PXINTC(0) = 0x00200000 << ((n)-1); /* CSn */		\
+		REG_GPIO_PXMASKC(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPAT1C(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPAT0C(0) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPENS(0) = 0x00200000 << ((n)-1);			\
+		\
+		REG_GPIO_PXINTC(0) = 0x00100000; /* FRB#(input) */		\
+		REG_GPIO_PXMASKS(0) = 0x00100000;				\
+		REG_GPIO_PXPAT1S(0) = 0x00100000;				\
+		REG_GPIO_PXPENS(0) = 0x00100000;				\
+	} while (0)
 
 /*
  * Toggle nDQS
  */
 #define __gpio_as_nand_toggle						\
-do {									\
-	REG_GPIO_PXINTC(0) = 0x20000000; /* NDQS */			\
-	REG_GPIO_PXMASKC(0) = 0x20000000;				\
-	REG_GPIO_PXPAT1C(0) = 0x20000000;				\
-	REG_GPIO_PXPAT0C(0) = 0x20000000;				\
-	REG_GPIO_PXPENS(0) = 0x20000000;				\
-} while (0)
+	do {									\
+		REG_GPIO_PXINTC(0) = 0x20000000; /* NDQS */			\
+		REG_GPIO_PXMASKC(0) = 0x20000000;				\
+		REG_GPIO_PXPAT1C(0) = 0x20000000;				\
+		REG_GPIO_PXPAT0C(0) = 0x20000000;				\
+		REG_GPIO_PXPENS(0) = 0x20000000;				\
+	} while (0)
 
 /*
  * CS4#, RD#, WR#, WAIT#, A0 ~ A22, D0 ~ D7
  * @n: chip select number(1 ~ 4)
  */
 #define __gpio_as_nor_8bit(n)						\
-do {								        \
-	/* 32/16-bit data bus */					\
-	REG_GPIO_PXFUNS(0) = 0x000000ff;				\
-	REG_GPIO_PXSELC(0) = 0x000000ff;				\
-	REG_GPIO_PXPENS(0) = 0x000000ff;					\
-									\
-	REG_GPIO_PXFUNS(2) = 0x00200000 << ((n)-1); /* CSn */		\
-	REG_GPIO_PXSELC(2) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPENS(2) = 0x00200000 << ((n)-1);			\
-									\
-	REG_GPIO_PXFUNS(1) = 0x0000ffff; /* A0~A15 */			\
-	REG_GPIO_PXSELC(1) = 0x0000ffff;				\
-	REG_GPIO_PXPENS(1) = 0x0000ffff;					\
-	REG_GPIO_PXFUNS(2) = 0x06110007; /* RD#, WR#, WAIT#, A20~A22 */	\
-	REG_GPIO_PXSELC(2) = 0x06110007;				\
-	REG_GPIO_PXPENS(2) = 0x06110007;					\
-	REG_GPIO_PXFUNS(2) = 0x000e0000; /* A17~A19 */	        	\
-	REG_GPIO_PXSELS(2) = 0x000e0000;				\
-	REG_GPIO_PXPENS(2) = 0x000e0000;					\
-} while (0)
+	do {								        \
+		/* 32/16-bit data bus */					\
+		REG_GPIO_PXFUNS(0) = 0x000000ff;				\
+		REG_GPIO_PXSELC(0) = 0x000000ff;				\
+		REG_GPIO_PXPENS(0) = 0x000000ff;					\
+		\
+		REG_GPIO_PXFUNS(2) = 0x00200000 << ((n)-1); /* CSn */		\
+		REG_GPIO_PXSELC(2) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPENS(2) = 0x00200000 << ((n)-1);			\
+		\
+		REG_GPIO_PXFUNS(1) = 0x0000ffff; /* A0~A15 */			\
+		REG_GPIO_PXSELC(1) = 0x0000ffff;				\
+		REG_GPIO_PXPENS(1) = 0x0000ffff;					\
+		REG_GPIO_PXFUNS(2) = 0x06110007; /* RD#, WR#, WAIT#, A20~A22 */	\
+		REG_GPIO_PXSELC(2) = 0x06110007;				\
+		REG_GPIO_PXPENS(2) = 0x06110007;					\
+		REG_GPIO_PXFUNS(2) = 0x000e0000; /* A17~A19 */	        	\
+		REG_GPIO_PXSELS(2) = 0x000e0000;				\
+		REG_GPIO_PXPENS(2) = 0x000e0000;					\
+	} while (0)
 
 /*
  * CS4#, RD#, WR#, WAIT#, A0 ~ A22, D0 ~ D15
  * @n: chip select number(1 ~ 4)
  */
 #define __gpio_as_nor_16bit(n)						\
-do {	               							\
-	/* 32/16-bit data normal order */				\
-	REG_GPIO_PXFUNS(0) = 0x0000ffff;				\
-	REG_GPIO_PXSELC(0) = 0x0000ffff;				\
-	REG_GPIO_PXPENS(0) = 0x0000ffff;					\
-									\
-	REG_GPIO_PXFUNS(2) = 0x00200000 << ((n)-1); /* CSn */		\
-	REG_GPIO_PXSELC(2) = 0x00200000 << ((n)-1);			\
-	REG_GPIO_PXPENS(2) = 0x00200000 << ((n)-1);			\
-									\
-	REG_GPIO_PXFUNS(1) = 0x0000ffff; /* A0~A15 */			\
-	REG_GPIO_PXSELC(1) = 0x0000ffff;				\
-	REG_GPIO_PXPENS(1) = 0x0000ffff;					\
-	REG_GPIO_PXFUNS(2) = 0x06110007; /* RD#, WR#, WAIT#, A20~A22 */	\
-	REG_GPIO_PXSELC(2) = 0x06110007;				\
-	REG_GPIO_PXPENS(2) = 0x06110007;					\
-	REG_GPIO_PXFUNS(2) = 0x000e0000; /* A17~A19 */	        	\
-	REG_GPIO_PXSELS(2) = 0x000e0000;				\
-	REG_GPIO_PXPENS(2) = 0x000e0000;					\
-} while (0)
+	do {	               							\
+		/* 32/16-bit data normal order */				\
+		REG_GPIO_PXFUNS(0) = 0x0000ffff;				\
+		REG_GPIO_PXSELC(0) = 0x0000ffff;				\
+		REG_GPIO_PXPENS(0) = 0x0000ffff;					\
+		\
+		REG_GPIO_PXFUNS(2) = 0x00200000 << ((n)-1); /* CSn */		\
+		REG_GPIO_PXSELC(2) = 0x00200000 << ((n)-1);			\
+		REG_GPIO_PXPENS(2) = 0x00200000 << ((n)-1);			\
+		\
+		REG_GPIO_PXFUNS(1) = 0x0000ffff; /* A0~A15 */			\
+		REG_GPIO_PXSELC(1) = 0x0000ffff;				\
+		REG_GPIO_PXPENS(1) = 0x0000ffff;					\
+		REG_GPIO_PXFUNS(2) = 0x06110007; /* RD#, WR#, WAIT#, A20~A22 */	\
+		REG_GPIO_PXSELC(2) = 0x06110007;				\
+		REG_GPIO_PXPENS(2) = 0x06110007;					\
+		REG_GPIO_PXFUNS(2) = 0x000e0000; /* A17~A19 */	        	\
+		REG_GPIO_PXSELS(2) = 0x000e0000;				\
+		REG_GPIO_PXPENS(2) = 0x000e0000;					\
+	} while (0)
 
 /*
  * LCD_D0~LCD_D7, LCD_PCLK, LCD_HSYNC, LCD_VSYNC, LCD_DE
  */
 #define __gpio_as_lcd_8bit()			\
-do {						\
-	REG_GPIO_PXINTC(2) = 0x000c03ff;	\
-	REG_GPIO_PXMASKC(2)  = 0x000c03ff;		\
-	REG_GPIO_PXPAT0C(2) = 0x000c03ff;	\
-	REG_GPIO_PXPAT1C(2) = 0x000c03ff;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(2) = 0x000c03ff;	\
+		REG_GPIO_PXMASKC(2)  = 0x000c03ff;		\
+		REG_GPIO_PXPAT0C(2) = 0x000c03ff;	\
+		REG_GPIO_PXPAT1C(2) = 0x000c03ff;		\
+	} while (0)
 
 /*
  * LCD_R3~LCD_R7, LCD_G2~LCD_G7, LCD_B3~LCD_B7,
  * LCD_PCLK, LCD_HSYNC, LCD_VSYNC, LCD_DE
  */
 #define __gpio_as_lcd_16bit()			\
-do {						\
-	REG_GPIO_PXINTC(2) = 0x0f8ff3f8;	\
-	REG_GPIO_PXMASKC(2) = 0x0f8ff3f8;	\
-	REG_GPIO_PXPAT0C(2) = 0x0f8ff3f8;	\
-	REG_GPIO_PXPAT1C(2) = 0x0f8ff3f8;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(2) = 0x0f8ff3f8;	\
+		REG_GPIO_PXMASKC(2) = 0x0f8ff3f8;	\
+		REG_GPIO_PXPAT0C(2) = 0x0f8ff3f8;	\
+		REG_GPIO_PXPAT1C(2) = 0x0f8ff3f8;		\
+	} while (0)
 
 /*
  * LCD_R2~LCD_R7, LCD_G2~LCD_G7, LCD_B2~LCD_B7,
  * LCD_PCLK, LCD_HSYNC, LCD_VSYNC, LCD_DE
  */
 #define __gpio_as_lcd_18bit()			\
-do {						\
-	REG_GPIO_PXINTC(2) = 0x0fcff3fc;	\
-	REG_GPIO_PXMASKC(2) = 0x0fcff3fc;	\
-	REG_GPIO_PXPAT0C(2) = 0x0fcff3fc;	\
-	REG_GPIO_PXPAT1C(2) = 0x0fcff3fc;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(2) = 0x0fcff3fc;	\
+		REG_GPIO_PXMASKC(2) = 0x0fcff3fc;	\
+		REG_GPIO_PXPAT0C(2) = 0x0fcff3fc;	\
+		REG_GPIO_PXPAT1C(2) = 0x0fcff3fc;		\
+	} while (0)
 
 /*
  * LCD_R0~LCD_R7, LCD_G0~LCD_G7, LCD_B0~LCD_B7,
  * LCD_PCLK, LCD_HSYNC, LCD_VSYNC, LCD_DE
  */
 #define __gpio_as_lcd_24bit()			\
-do {						\
-	REG_GPIO_PXINTC(2) = 0x0fffffff;	\
-	REG_GPIO_PXMASKC(2)  = 0x0fffffff;	\
-	REG_GPIO_PXPAT0C(2) = 0x0fffffff;	\
-	REG_GPIO_PXPAT1C(2) = 0x0fffffff;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(2) = 0x0fffffff;	\
+		REG_GPIO_PXMASKC(2)  = 0x0fffffff;	\
+		REG_GPIO_PXPAT0C(2) = 0x0fffffff;	\
+		REG_GPIO_PXPAT1C(2) = 0x0fffffff;		\
+	} while (0)
 
 /*
  *  LCD_CLS, LCD_SPL, LCD_PS, LCD_REV
  */
 #define __gpio_as_lcd_special()			\
-do {						\
-	REG_GPIO_PXINTC(2) = 0x0fffffff;	\
-	REG_GPIO_PXMASKC(2) = 0x0fffffff;	\
-	REG_GPIO_PXPAT0C(2) = 0x0feffbfc;	\
-	REG_GPIO_PXPAT0S(2) = 0x00100403;	\
-	REG_GPIO_PXPAT1C(2) = 0x0fffffff;		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(2) = 0x0fffffff;	\
+		REG_GPIO_PXMASKC(2) = 0x0fffffff;	\
+		REG_GPIO_PXPAT0C(2) = 0x0feffbfc;	\
+		REG_GPIO_PXPAT0S(2) = 0x00100403;	\
+		REG_GPIO_PXPAT1C(2) = 0x0fffffff;		\
+	} while (0)
 
 /*
  * CIM_D0~CIM_D7, CIM_MCLK, CIM_PCLK, CIM_VSYNC, CIM_HSYNC
@@ -787,14 +787,14 @@ do {						\
 #else
 
 #define __gpio_as_aic()				\
-do {						\
-	REG_GPIO_PXFUNS(4) = 0x16c00000;	\
-	REG_GPIO_PXTRGC(4) = 0x02c00000;	\
-	REG_GPIO_PXTRGS(4) = 0x14000000;	\
-	REG_GPIO_PXSELC(4) = 0x14c00000;	\
-	REG_GPIO_PXSELS(4) = 0x02000000;	\
-	REG_GPIO_PXPENS(4)  = 0x16c00000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(4) = 0x16c00000;	\
+		REG_GPIO_PXTRGC(4) = 0x02c00000;	\
+		REG_GPIO_PXTRGS(4) = 0x14000000;	\
+		REG_GPIO_PXSELC(4) = 0x14c00000;	\
+		REG_GPIO_PXSELS(4) = 0x02000000;	\
+		REG_GPIO_PXPENS(4)  = 0x16c00000;	\
+	} while (0)
 #endif
 
 #define __gpio_as_pcm0()			\
@@ -817,37 +817,37 @@ do {						\
  * MSC0_CMD, MSC0_CLK, MSC0_D0 ~ MSC0_D7
  */
 #define __gpio_as_msc0_boot()			\
-do {						\
-	REG_GPIO_PXINTC(0) = 0x00fc0000;	\
-	REG_GPIO_PXMASKC(0)  = 0x00fc0000;	\
-	REG_GPIO_PXPAT1C(0) = 0x00fc0000;	\
-	REG_GPIO_PXPAT0S(0) = 0x00fc0000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(0) = 0x00fc0000;	\
+		REG_GPIO_PXMASKC(0)  = 0x00fc0000;	\
+		REG_GPIO_PXPAT1C(0) = 0x00fc0000;	\
+		REG_GPIO_PXPAT0S(0) = 0x00fc0000;	\
+	} while (0)
 
 #define __gpio_as_msc0_4bit()			\
-do {						\
-	REG_GPIO_PXINTC(4)  = 0x30f00000;	\
-	REG_GPIO_PXMASKC(4) = 0x30f00000;	\
-	REG_GPIO_PXPAT1C(4) = 0x30f00000;	\
-	REG_GPIO_PXPAT0C(4) = 0x30f00000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(4)  = 0x30f00000;	\
+		REG_GPIO_PXMASKC(4) = 0x30f00000;	\
+		REG_GPIO_PXPAT1C(4) = 0x30f00000;	\
+		REG_GPIO_PXPAT0C(4) = 0x30f00000;	\
+	} while (0)
 
 
 #define __gpio_as_msc1_4bit()			\
-do {						\
-	REG_GPIO_PXINTC(4) = 0x30f00000;	\
-	REG_GPIO_PXMASKC(4)  = 0x30f00000;	\
-	REG_GPIO_PXPAT0S(4) = 0x30f00000;	\
-	REG_GPIO_PXPAT1C(4) = 0x30f00000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(4) = 0x30f00000;	\
+		REG_GPIO_PXMASKC(4)  = 0x30f00000;	\
+		REG_GPIO_PXPAT0S(4) = 0x30f00000;	\
+		REG_GPIO_PXPAT1C(4) = 0x30f00000;	\
+	} while (0)
 
 #define __gpio_as_msc2_4bit()			\
-do {						\
-	REG_GPIO_PXINTC(4) = 0x30f00000;	\
-	REG_GPIO_PXMASKC(4)  = 0x30f00000;	\
-	REG_GPIO_PXPAT0C(4) = 0x30f00000;	\
-	REG_GPIO_PXPAT1S(4) = 0x30f00000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(4) = 0x30f00000;	\
+		REG_GPIO_PXMASKC(4)  = 0x30f00000;	\
+		REG_GPIO_PXPAT0C(4) = 0x30f00000;	\
+		REG_GPIO_PXPAT1S(4) = 0x30f00000;	\
+	} while (0)
 
 /*
  * MSC0_CMD, MSC0_CLK, MSC0_D0 ~ MSC0_D3
@@ -860,17 +860,17 @@ do {						\
  * TSCLK, TSSTR, TSFRM, TSFAIL, TSDI0~7
  */
 #define __gpio_as_tssi()                        \
-do {                                            \
-        REG_GPIO_PXINTC(1) = 0xf0300000;        \
-        REG_GPIO_PXMASKC(1)  = 0xf0300000;                \
-        REG_GPIO_PXPAT0S(1) = 0xf0300000;       \
-        REG_GPIO_PXPAT1S(1) = 0xf0300000;               \
-                                                        \
-        REG_GPIO_PXINTC(1) = 0x0fc00000;        \
-        REG_GPIO_PXMASKC(1)  = 0x0fc00000;                \
-        REG_GPIO_PXPAT0C(1) = 0x0fc00000;       \
-        REG_GPIO_PXPAT1C(1) = 0x0fc00000;               \
-} while (0)
+	do {                                            \
+		REG_GPIO_PXINTC(1) = 0xf0300000;        \
+		REG_GPIO_PXMASKC(1)  = 0xf0300000;                \
+		REG_GPIO_PXPAT0S(1) = 0xf0300000;       \
+		REG_GPIO_PXPAT1S(1) = 0xf0300000;               \
+		\
+		REG_GPIO_PXINTC(1) = 0x0fc00000;        \
+		REG_GPIO_PXMASKC(1)  = 0x0fc00000;                \
+		REG_GPIO_PXPAT0C(1) = 0x0fc00000;       \
+		REG_GPIO_PXPAT1C(1) = 0x0fc00000;               \
+	} while (0)
 
 /*
  * SSI_CE0, SSI_CE1, SSI_GPC, SSI_CLK, SSI_DT, SSI_DR
@@ -878,17 +878,17 @@ do {                                            \
 //fixme twxie
 #if 0
 #define __gpio_as_ssi()				\
-do {						\
-	REG_GPIO_PXFUNS(0) = 0x002c0000; /* SSI0_CE0, SSI0_CLK, SSI0_DT	*/ \
-	REG_GPIO_PXTRGS(0) = 0x002c0000;	\
-	REG_GPIO_PXSELC(0) = 0x002c0000;	\
-	REG_GPIO_PXPENS(0)  = 0x002c0000;	\
-						\
-	REG_GPIO_PXFUNS(0) = 0x00100000; /* SSI0_DR */	\
-	REG_GPIO_PXTRGC(0) = 0x00100000;	\
-	REG_GPIO_PXSELS(0) = 0x00100000;	\
-	REG_GPIO_PXPENS(0)  = 0x00100000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(0) = 0x002c0000; /* SSI0_CE0, SSI0_CLK, SSI0_DT	*/ \
+		REG_GPIO_PXTRGS(0) = 0x002c0000;	\
+		REG_GPIO_PXSELC(0) = 0x002c0000;	\
+		REG_GPIO_PXPENS(0)  = 0x002c0000;	\
+		\
+		REG_GPIO_PXFUNS(0) = 0x00100000; /* SSI0_DR */	\
+		REG_GPIO_PXTRGC(0) = 0x00100000;	\
+		REG_GPIO_PXSELS(0) = 0x00100000;	\
+		REG_GPIO_PXPENS(0)  = 0x00100000;	\
+	} while (0)
 #endif
 #define __gpio_as_ssi()  
 
@@ -898,12 +898,12 @@ do {						\
 //fixme twxie
 #if 0
 #define __gpio_as_ssi_1()			\
-do {						\
-	REG_GPIO_PXFUNS(5) = 0x0000fc00;	\
-	REG_GPIO_PXTRGC(5) = 0x0000fc00;	\
-	REG_GPIO_PXSELC(5) = 0x0000fc00;	\
-	REG_GPIO_PXPENS(5)  = 0x0000fc00;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(5) = 0x0000fc00;	\
+		REG_GPIO_PXTRGC(5) = 0x0000fc00;	\
+		REG_GPIO_PXSELC(5) = 0x0000fc00;	\
+		REG_GPIO_PXPENS(5)  = 0x0000fc00;	\
+	} while (0)
 #endif
 #define __gpio_as_ssi_1()  
 
@@ -913,12 +913,12 @@ do {						\
 //fixme twxie
 #if 0
 #define __gpio_as_ssi2_1()			\
-do {						\
-	REG_GPIO_PXFUNS(5) = 0xf0300000;	\
-	REG_GPIO_PXTRGC(5) = 0xf0300000;	\
-	REG_GPIO_PXSELS(5) = 0xf0300000;	\
-	REG_GPIO_PXPENS(5)  = 0xf0300000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(5) = 0xf0300000;	\
+		REG_GPIO_PXTRGC(5) = 0xf0300000;	\
+		REG_GPIO_PXSELS(5) = 0xf0300000;	\
+		REG_GPIO_PXPENS(5)  = 0xf0300000;	\
+	} while (0)
 #endif
 #define __gpio_as_ssi2_1()  
 
@@ -944,83 +944,83 @@ do {						\
  * PWM0
  */
 #define __gpio_as_pwm0()			\
-do {						\
-	REG32(GPIO_PXDATC(4)) = 0x1;		\
-	REG32(GPIO_PXIMC(4)) = 0x1;		\
-	REG32(GPIO_PXPEC(4)) = 0x1;		\
-	REG32(GPIO_PXFUNC(4)) = 0x1;		\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(4)) = 0x1;		\
+		REG32(GPIO_PXIMC(4)) = 0x1;		\
+		REG32(GPIO_PXPEC(4)) = 0x1;		\
+		REG32(GPIO_PXFUNC(4)) = 0x1;		\
+	} while (0)
 
 /*
  * PWM1
  */
 #define __gpio_as_pwm1()			\
-do {						\
-	REG32(GPIO_PXDATC(4)) = 0x2;		\
-	REG32(GPIO_PXIMC(4)) = 0x2;		\
-	REG32(GPIO_PXPEC(4)) = 0x2;		\
-	REG32(GPIO_PXFUNC(4)) = 0x2;		\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(4)) = 0x2;		\
+		REG32(GPIO_PXIMC(4)) = 0x2;		\
+		REG32(GPIO_PXPEC(4)) = 0x2;		\
+		REG32(GPIO_PXFUNC(4)) = 0x2;		\
+	} while (0)
 
 /*
  * PWM2
  */
 #define __gpio_as_pwm2()			\
-do {						\
-	REG32(GPIO_PXDATC(4)) = 0x4;		\
-	REG32(GPIO_PXIMC(4)) = 0x4;		\
-	REG32(GPIO_PXPEC(4)) = 0x4;		\
-	REG32(GPIO_PXFUNC(4)) = 0x4;		\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(4)) = 0x4;		\
+		REG32(GPIO_PXIMC(4)) = 0x4;		\
+		REG32(GPIO_PXPEC(4)) = 0x4;		\
+		REG32(GPIO_PXFUNC(4)) = 0x4;		\
+	} while (0)
 
 /*
  * PWM3
  */
 #define __gpio_as_pwm3()			\
-do {						\
-	REG32(GPIO_PXDATC(4)) = 0x8;		\
-	REG32(GPIO_PXIMC(4)) = 0x8;		\
-	REG32(GPIO_PXPEC(4)) = 0x8;		\
-	REG32(GPIO_PXFUNC(4)) = 0x8;		\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(4)) = 0x8;		\
+		REG32(GPIO_PXIMC(4)) = 0x8;		\
+		REG32(GPIO_PXPEC(4)) = 0x8;		\
+		REG32(GPIO_PXFUNC(4)) = 0x8;		\
+	} while (0)
 
 /*
  * PWM4
  */
 #define __gpio_as_pwm4()			\
-do {						\
-	REG32(0xB0010418) = 0x10;		\
-	REG32(0xB0010428) = 0x10;		\
-	REG32(0xB0010438) = 0x10;		\
-	REG32(0xB0010448) = 0x10;		\
-} while (0)
+	do {						\
+		REG32(0xB0010418) = 0x10;		\
+		REG32(0xB0010428) = 0x10;		\
+		REG32(0xB0010438) = 0x10;		\
+		REG32(0xB0010448) = 0x10;		\
+	} while (0)
 
 /*
  * PWM5
  */
 #define __gpio_as_pwm5()			\
-do {						\
-	REG32(GPIO_PXDATC(4)) = 0x20;		\
-	REG32(GPIO_PXIMC(4)) = 0x20;		\
-	REG32(GPIO_PXPEC(4)) = 0x20;		\
-	REG32(GPIO_PXFUNC(4)) = 0x20;		\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(4)) = 0x20;		\
+		REG32(GPIO_PXIMC(4)) = 0x20;		\
+		REG32(GPIO_PXPEC(4)) = 0x20;		\
+		REG32(GPIO_PXFUNC(4)) = 0x20;		\
+	} while (0)
 
 #define __gpio_as_pwm6()			\
-do {						\
-	REG32(GPIO_PXDATC(3)) = 0x1 << 10;	\
-	REG32(GPIO_PXIMC(3)) = 0x1 << 10;	\
-	REG32(GPIO_PXPEC(3)) = 0x1 << 10;	\
-	REG32(GPIO_PXFUNC(3)) = 0x1 << 10;	\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(3)) = 0x1 << 10;	\
+		REG32(GPIO_PXIMC(3)) = 0x1 << 10;	\
+		REG32(GPIO_PXPEC(3)) = 0x1 << 10;	\
+		REG32(GPIO_PXFUNC(3)) = 0x1 << 10;	\
+	} while (0)
 
 #define __gpio_as_pwm7()			\
-do {						\
-	REG32(GPIO_PXDATC(3)) = 0x1 << 11;	\
-	REG32(GPIO_PXIMC(3)) = 0x1 << 11;	\
-	REG32(GPIO_PXPEC(3)) = 0x1 << 11;	\
-	REG32(GPIO_PXFUNC(3)) = 0x1 << 11;	\
-} while (0)
+	do {						\
+		REG32(GPIO_PXDATC(3)) = 0x1 << 11;	\
+		REG32(GPIO_PXIMC(3)) = 0x1 << 11;	\
+		REG32(GPIO_PXPEC(3)) = 0x1 << 11;	\
+		REG32(GPIO_PXFUNC(3)) = 0x1 << 11;	\
+	} while (0)
 
 /*
  * n = 0 ~ 7
@@ -1031,111 +1031,112 @@ do {						\
  * OWI - PA29 function 1
  */
 #define __gpio_as_owi()				\
-do {						\
-	REG_GPIO_PXFUNS(0) = 0x20000000;	\
-	REG_GPIO_PXTRGC(0) = 0x20000000;	\
-	REG_GPIO_PXSELS(0) = 0x20000000;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(0) = 0x20000000;	\
+		REG_GPIO_PXTRGC(0) = 0x20000000;	\
+		REG_GPIO_PXSELS(0) = 0x20000000;	\
+	} while (0)
 
 /*
  * SCC - PD08 function 0
  *       PD09 function 0
  */
 #define __gpio_as_scc()				\
-do {						\
-	REG_GPIO_PXFUNS(3) = 0xc0000300;	\
-	REG_GPIO_PXTRGC(3) = 0xc0000300;	\
-	REG_GPIO_PXSELC(3) = 0xc0000300;	\
-} while (0)
+	do {						\
+		REG_GPIO_PXFUNS(3) = 0xc0000300;	\
+		REG_GPIO_PXTRGC(3) = 0xc0000300;	\
+		REG_GPIO_PXSELC(3) = 0xc0000300;	\
+	} while (0)
 
 #define __gpio_as_otg_drvvbus()	\
-do {	\
-	__gpio_as_func0(4*32+10);		\
-} while (0)
+	do {	\
+		__gpio_as_func0(4*32+10);		\
+	} while (0)
 
 //-------------------------------------------
 // GPIO or Interrupt Mode
 
 #define __gpio_get_port(p)	(REG_GPIO_PXPIN(p))
 #define __gpio_port_as_output0(p, o)		\
-do {						\
-    REG_GPIO_PXINTC(p) = (1 << (o));		\
-    REG_GPIO_PXMASKS(p) = (1 << (o));		\
-    REG_GPIO_PXPAT1C(p) = (1 << (o));		\
-    REG_GPIO_PXPAT0C(p) = (1 << (o));		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(p) = (1 << (o));		\
+		REG_GPIO_PXMASKS(p) = (1 << (o));		\
+		REG_GPIO_PXPAT1C(p) = (1 << (o));		\
+		REG_GPIO_PXPAT0C(p) = (1 << (o));		\
+	} while (0)
 
 #define __gpio_port_as_output1(p, o)		\
-do {						\
-    REG_GPIO_PXINTC(p) = (1 << (o));		\
-    REG_GPIO_PXMASKS(p) = (1 << (o));		\
-    REG_GPIO_PXPAT1C(p) = (1 << (o));		\
-    REG_GPIO_PXPAT0S(p) = (1 << (o));		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(p) = (1 << (o));		\
+		REG_GPIO_PXMASKS(p) = (1 << (o));		\
+		REG_GPIO_PXPAT1C(p) = (1 << (o));		\
+		REG_GPIO_PXPAT0S(p) = (1 << (o));		\
+	} while (0)
 
 #define __gpio_port_as_input(p, o)		\
-do {						\
-    REG_GPIO_PXINTC(p) = (1 << (o));		\
-    REG_GPIO_PXMASKS(p) = (1 << (o));		\
-    REG_GPIO_PXPAT1S(p) = (1 << (o));		\
-    REG_GPIO_PXPAT0C(p) = (1 << (o));		\
-} while (0)
+	do {						\
+		REG_GPIO_PXINTC(p) = (1 << (o));		\
+		REG_GPIO_PXMASKS(p) = (1 << (o));		\
+		REG_GPIO_PXPAT1S(p) = (1 << (o));		\
+		REG_GPIO_PXPAT0C(p) = (1 << (o));		\
+	} while (0)
 
 
 #define __gpio_as_output0(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	__gpio_port_as_output0(p, o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		__gpio_port_as_output0(p, o);		\
+	} while (0)
 
 #define __gpio_as_output1(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	__gpio_port_as_output1(p, o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		__gpio_port_as_output1(p, o);		\
+	} while (0)
 
 #define __gpio_as_output(n)	__gpio_as_output0(n)
 
 #define __gpio_as_input(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	__gpio_port_as_input(p, o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		__gpio_port_as_input(p, o);		\
+	} while (0)
 
 #define __gpio_set_pin(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXPAT0S(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXPAT0S(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_clear_pin(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXPAT0C(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXPAT0C(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_get_pin(n)			\
-({						\
-	unsigned int p, o, v;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	if (__gpio_get_port(p) & (1 << o))	\
-		v = 1;				\
-	else					\
-		v = 0;				\
-	v;					\
-})
+	({						\
+	 unsigned int p, o, v;			\
+	 p = (n) / 32;				\
+	 o = (n) % 32;				\
+	 if (__gpio_get_port(p) & (1 << o))	\
+	 v = 1;				\
+	 else					\
+	 v = 0;				\
+	 v;					\
+	 })
 
+/*
 #define __gpio_as_irq_high_level(n)		\
 	do {					\
 		unsigned int p, o;		\
@@ -1157,6 +1158,22 @@ do {						\
 		REG_GPIO_PXPAT1C(p) = (1 << o);	\
 		REG_GPIO_PXPAT0C(p) = (1 << o);	\
 	} while (0)
+*/
+#define __gpio_as_irq_high_level(n)		\
+	do {					\
+		unsigned int p, o;		\
+		p = (n) / 32;			\
+		o = (n) % 32;			\
+		REG_GPIO_PXPAT0S(p) = (1 << o);	\
+	} while (0)
+
+#define __gpio_as_irq_low_level(n)		\
+	do {					\
+		unsigned int p, o;		\
+		p = (n) / 32;			\
+		o = (n) % 32;			\
+		REG_GPIO_PXPAT0C(p) = (1 << o);	\
+	} while (0)
 
 #define __gpio_as_irq_rise_edge(n)		\
 	do {					\
@@ -1170,68 +1187,83 @@ do {						\
 	} while (0)
 
 #define __gpio_as_irq_fall_edge(n)		\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXINTS(p) = (1 << o);  \
-        REG_GPIO_PXMASKC(p) = (1 << o);   \
-        REG_GPIO_PXPAT1S(p) = (1 << o); \
-        REG_GPIO_PXPAT0C(p) = (1 << o); \
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXINTS(p) = (1 << o);  \
+		REG_GPIO_PXMASKC(p) = (1 << o);   \
+		REG_GPIO_PXPAT1S(p) = (1 << o); \
+		REG_GPIO_PXPAT0C(p) = (1 << o); \
+	} while (0)
 
 #define __gpio_mask_irq(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXMASKS(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXMASKS(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_unmask_irq(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXMASKC(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXMASKC(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_ack_irq(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXFLGC(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXFLGC(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_group_irq(n)			\
-({						\
-	register int tmp, i;			\
-	tmp = REG_GPIO_PXFLG((n));		\
-	for (i=31;i>=0;i--)			\
-		if (tmp & (1 << i))		\
-			break;			\
-	i;					\
-})
+	({						\
+	 register int tmp, i;			\
+	 tmp = REG_GPIO_PXFLG((n));		\
+	 for (i=31;i>=0;i--)			\
+	 if (tmp & (1 << i))		\
+	 break;			\
+	 i;					\
+	 })
 
 #define __gpio_enable_pull(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXPEC(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXPEC(p) = (1 << o);		\
+	} while (0)
 
 #define __gpio_disable_pull(n)			\
-do {						\
-	unsigned int p, o;			\
-	p = (n) / 32;				\
-	o = (n) % 32;				\
-	REG_GPIO_PXPENS(p) = (1 << o);		\
-} while (0)
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXPENS(p) = (1 << o);		\
+	} while (0)
 
+
+#define __gpio_clear_flag(n)			\
+	do {						\
+		unsigned int p, o;			\
+		p = (n) / 32;				\
+		o = (n) % 32;				\
+		REG_GPIO_PXSELC(p) |= (1 << o);		\
+	} while (0)
+
+#define __gpio_penging_irq(n)			\
+	({						\
+	 register int p, o;			\
+	 p = (n) / 32;				\
+	 o = (n) % 32;				\
+	 REG_GPIO_PXFLG((p)) & (1 << o);		\
+	 })
 
 #endif /* __MIPS_ASSEMBLER */
-
 #endif /* __JZ4780GPIO_H__ */
 

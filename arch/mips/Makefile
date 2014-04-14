@@ -179,6 +179,7 @@ libs-$(CONFIG_CFE)		+= arch/mips/fw/cfe/
 libs-$(CONFIG_SNIPROM)		+= arch/mips/fw/sni/
 libs-y				+= arch/mips/fw/lib/
 libs-$(CONFIG_NAND)		+= arch/mips/xburst/lib/nand/
+libs-$(CONFIG_NAND)		+= arch/mips/xburst/lib/ndd/
 
 #
 # Kernel compression

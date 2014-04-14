@@ -194,7 +194,8 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		break;
 	}
 	case CMD_HARD_ERASE_ALL: {
-		ret = NM_EraseFlash(nand_char.nm_handler);
+		int force = NANDMANAGER_ERASE_FLASH;
+		ret = NM_EraseFlash(nand_char.nm_handler, force);
 		if (ret)
 			printk("%s: line:%d, erase all nand flash error, ret = %d\n",
 				   __func__, __LINE__, ret);
