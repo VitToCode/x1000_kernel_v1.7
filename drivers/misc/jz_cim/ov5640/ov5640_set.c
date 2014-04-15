@@ -452,6 +452,52 @@ int ov5640_reg_writes(struct i2c_client *client, const struct ov5640_reg reglist
 	return 0;
 }
 
+
+static int ov5640_reg_reads(struct i2c_client *client, const struct ov5640_reg reglist[])
+{
+	int err = 0;
+	int i = 0;
+
+	u8 val;
+
+	printk("xfge==>%s L%d: enter\n", __func__, __LINE__);
+	while (reglist[i].reg != 0xffff) {
+		err = ov5640_reg_read(client, reglist[i].reg, &val);
+	//	err = ov5640_write_reg(client, reglist[i].reg, reglist[i].val);
+		if (err)
+			return err;
+		printk("xfge==>%s L%d: {0x%04x, 0x%02x}\n", __func__, __LINE__, reglist[i].reg, val);
+		i++;
+		msleep(10);
+	}
+	printk("xfge==>%s L%d: leave\n", __func__, __LINE__);
+	return 0;
+}
+
+
+static int ov5640_reg_reads2(struct i2c_client *client, const struct ov5640_reg reglist[])
+{
+	int err = 0;
+	int i = 0;
+
+	u8 val;
+	printk("xfge==>%s L%d: enter\n", __func__, __LINE__);
+
+	while (reglist[i].reg != 0xffff) {
+		err = ov5640_reg_read(client, reglist[i].reg, &val);
+	//	err = ov5640_write_reg(client, reglist[i].reg, reglist[i].val);
+		if (err)
+			return err;
+		if (reglist[i].val != val) {
+			printk("%s(): {reg 0x%04x, w 0x%02x:r 0x%02x}\n", __func__, reglist[i].reg, reglist[i].val, val);
+		}
+		i++;
+		msleep(10);
+	}
+	printk("xfge==>%s L%d: leave\n", __func__, __LINE__);
+	return 0;
+}
+
 //---------------------------------------------------
 //		legacy code
 //---------------------------------------------------
@@ -665,6 +711,8 @@ int ov5640_init(struct cim_sensor *sensor_info)
 	//printk("==>%s L%d: Reg(3031)=0x%02x\n", __func__, __LINE__, val);
 
 	dev_info(&client->dev, "ov5640 init ok\n");
+
+	//ov5640_reg_reads(client, ov5640_init_table);
 	return 0;
 err:
 	dev_info(&client->dev, "ov5640 init fail\n");
@@ -1660,6 +1708,41 @@ int ov5640_fix_ae(struct ov5640_sensor *s)
 #define OV5640_DEBUG_FS
 #ifdef OV5640_DEBUG_FS
 #include <linux/proc_fs.h>
+
+static int camera_read_proc(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	//struct ov5640_sensor *s;
+	u8 chipid_high;
+	u8 chipid_low;
+	u8 revision;
+	int ret = 0;
+	int camera_chipid;
+
+	/*
+	 * check and show chip ID
+	 */
+	chipid_high = ov5640_read_reg(g_client, 0x300a);
+	chipid_low = ov5640_read_reg(g_client, 0x300b);
+	revision = ov5640_read_reg(g_client, 0x302a);
+
+	g_chipid = camera_chipid = chipid_high << 8 | chipid_low;
+
+	if ( (camera_chipid != 0x5640) && (camera_chipid != 0x5642) ) {
+		dev_err(&g_client->dev, "read sensor %s ID: 0x%x, Revision: 0x%x, failed!\n", g_client->name, camera_chipid, revision);
+		ret = -1;
+		return 0;
+	}
+
+	dev_err(&g_client->dev, "Sensor ID: 0x%x, Revision: 0x%x\n", camera_chipid, revision);
+
+
+	ov5640_reg_reads2(g_client, ov5640_init_table);
+	ov5640_reg_reads(g_client, ov5640_init_table);
+
+	return 0;
+}
+
 static int camera_write_proc(struct file *file, const char __user *buffer,
 		unsigned long count, void *data)
 {
@@ -1691,7 +1774,7 @@ static int __init init_camera_proc(void)
 
 	res = create_proc_entry("camera", 0666, NULL);
 	if (res) {
-		res->read_proc = NULL;
+		res->read_proc = camera_read_proc;
 		res->write_proc = camera_write_proc;
 		res->data = NULL;
 	}
