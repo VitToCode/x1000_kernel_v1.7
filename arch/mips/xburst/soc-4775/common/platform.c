@@ -139,6 +139,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	CIM1_PORTG,
 #endif
 
+#ifdef CONFIG_SPI0_JZ4780_PA
+       SSI0_PORTA,
+#endif
 #ifdef CONFIG_SPI0_JZ4780_PB
 #endif
 #ifdef CONFIG_SPI0_JZ4780_PD
@@ -639,8 +642,9 @@ struct platform_device jz_uart3_device = {
 	.num_resources  = ARRAY_SIZE(jz_uart3_resources),
 	.resource       = jz_uart3_resources,
 };
-
+#ifndef CONFIG_SPI0_PIO_ONLY
 static u64 jz_ssi_dmamask =  ~(u32)0;
+#endif
 
 #define DEF_SSI(NO)							       \
 static struct resource jz_ssi##NO##_resources[] = {			       \
