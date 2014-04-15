@@ -64,6 +64,7 @@ obj-$(CONFIG_JZ_VPU)		+= jz_vpu.o
 obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
 obj-$(CONFIG_JZ_PWM)            += jz_pwm.o
 obj-$(CONFIG_JZ_MODEM)		+= jz_modem/
+obj-$(CONFIG_JZ_SPI_NOR)        += jz_spi_nor/
 obj-$(CONFIG_JZ4780_EFUSE)	+= jz4780_efuse.o
 obj-$(CONFIG_JZ4775_EFUSE)	+= jz4775_efuse.o
 

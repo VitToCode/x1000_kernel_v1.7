@@ -386,6 +386,119 @@ static struct jz4780_efuse_platform_data jz_efuse_pdata = {
 };
 #endif
 
+/* SPI NOR */
+#ifdef CONFIG_JZ_SPI_NOR
+struct spi_nor_block_info {
+        u32 blocksize;
+        u8 cmd_blockerase;
+        /* MAX Busytime for block erase, unit: ms */
+        u32 be_maxbusy;
+};
+
+struct spi_nor_platform_data {
+        u32 pagesize;
+        u32 sectorsize;
+        u32 chipsize;
+
+        /* Some NOR flash has different blocksize and block erase command,
+         * One command with One blocksize. */
+        struct spi_nor_block_info *block_info;
+        int num_block_info;
+
+        /* Flash Address size, unit: Bytes */
+        int addrsize;
+
+        /* MAX Busytime for page program, unit: ms */
+        u32 pp_maxbusy;
+        /* MAX Busytime for sector erase, unit: ms */
+        u32 se_maxbusy;
+        /* MAX Busytime for chip erase, unit: ms */
+        u32 ce_maxbusy;
+
+        /* Flash status register num, Max support 3 register */
+        int st_regnum;
+};
+
+static struct spi_nor_block_info flash_block_info[] = {
+        {
+                .blocksize      = 64 * 1024,
+                .cmd_blockerase = 0xD8,
+                .be_maxbusy     = 1200  /* 1.2s */
+        },
+
+        {
+                .blocksize      = 32 * 1024,
+                .cmd_blockerase = 0x52,
+                .be_maxbusy     = 1000  /* 1s */
+        },
+};
+
+static struct spi_nor_platform_data spi_nor_pdata = {
+        .pagesize       = 256,
+        .sectorsize     = 4 * 1024,
+        .chipsize       = 16384 * 1024,
+
+        .block_info     = flash_block_info,
+        .num_block_info = ARRAY_SIZE(flash_block_info),
+
+        .addrsize       = 3,
+        .pp_maxbusy     = 3,            /* 3ms */
+        .se_maxbusy     = 400,          /* 400ms */
+        .ce_maxbusy     = 80 * 1000,    /* 80s */
+
+        .st_regnum      = 3,
+};
+#endif
+
+/* SSI */
+#ifdef CONFIG_SPI_JZ4780
+#ifdef CONFIG_SPI0_JZ4780
+static struct jz47xx_spi_info spi0_info_cfg = {
+        .chnl           = 0,
+        .bus_num        = 0,
+        .max_clk        = 54000000,
+        .num_chipselect = 1,
+        .chipselect     = {GPIO_PA(23)},
+};
+#endif
+#endif
+
+/* SPI By GPIO */
+#ifdef CONFIG_SPI_GPIO
+static struct spi_gpio_platform_data jz4780_spi_gpio_data = {
+        .sck            = GPIO_PD(24),
+        .mosi           = GPIO_PD(21),
+        .miso           = GPIO_PD(20),
+        .num_chipselect = 2,
+};
+
+static struct platform_device jz4780_spi_gpio_device = {
+        .name   = "spi_gpio",
+        .id     = 0,
+        .dev    = {
+                .platform_data = &jz4780_spi_gpio_data,
+        },
+};
+#endif /* CONFIG_SPI_GPIO */
+
+/* SPI Devices */
+#if defined(CONFIG_SPI_JZ4780) || defined(CONFIG_SPI_GPIO)
+static struct spi_board_info jz_spi_board_info[] = {
+#ifdef CONFIG_JZ_SPI_NOR
+        /* SPI NOR */
+        [0] = {
+                .modalias               = "jz_nor",
+                .platform_data          = &spi_nor_pdata,
+                .controller_data        = (void *)GPIO_PD(23), /* cs for spi gpio */
+                .max_speed_hz           = 12000000,
+                .bus_num                = 0,
+                .chip_select            = 0,
+                .mode                   = SPI_MODE_3,
+        },
+#endif
+};
+#endif
+
 /*define gpio i2c,if you use gpio i2c,please enable gpio i2c and disable i2c controller*/
 #ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
 
@@ -585,10 +698,10 @@ static int __init board_init(void)
 	platform_device_register(&jz_rtc_device);
 #endif
 
-
+/* SSI */
 #ifdef CONFIG_SPI_JZ4780
+       spi_register_board_info(jz_spi_board_info, ARRAY_SIZE(jz_spi_board_info));
 #ifdef CONFIG_SPI0_JZ4780
-       spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
        platform_device_register(&jz_ssi0_device);
        platform_device_add_data(&jz_ssi0_device, &spi0_info_cfg, sizeof(struct jz47xx_spi_info));
 #endif
@@ -601,7 +714,7 @@ static int __init board_init(void)
 #endif
 
 #ifdef CONFIG_SPI_GPIO
-       spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
+       spi_register_board_info(jz_spi_board_info, ARRAY_SIZE(jz_spi_board_info));
        platform_device_register(&jz4780_spi_gpio_device);
 #endif
 

@@ -505,6 +505,8 @@ choice
 	prompt "JZ4780 SSI0 controller function pins select"
 	depends on SPI0_JZ4780
 	default SPI0_JZ4780_PB
+config SPI0_JZ4780_PA
+        bool "GPIO A"
 config SPI0_JZ4780_PB
 	bool "GPIO B"
 config SPI0_JZ4780_PD
@@ -543,8 +545,15 @@ endchoice
 
 config JZ_SPI_BOARD_INFO_REGISTER
     bool "Board info associated by spi master"
-    depends on SPI_JZ47XX
+    depends on SPI_JZ4780
     default n
+
+config JZ_SPI_PIO_CE
+        bool "Use GPIO CE on JZ SSI controller 0"
+        depends on SPI_JZ4780
+        default n
+        help
+          Use GPIO control SSI CE by CPU. Sometimes controller's CE NOT match SPI Protocal
 
 config JZ_SPIDEV_TEST
     tristate "Ingenic spi test driver"

@@ -171,6 +171,7 @@ struct jz47xx_spi {
 	struct completion	done_rx_dma;
 
 	spinlock_t		lock;
+	spinlock_t		txrx_lock;
 
 	unsigned int		state;
 
@@ -239,6 +240,7 @@ struct jz_intr_cnt{
 	int dma_tx_cnt;
 	int dma_rx_cnt;
 	int ssi_intr_cnt;
+	int max_ssi_intr;
 	int ssi_txi;
 	int ssi_rxi;
 	int ssi_eti;
@@ -530,7 +532,7 @@ static inline void finish_transmit(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void wait_transmit(struct jz47xx_spi *spi)
+static inline void start_transmit(struct jz47xx_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);

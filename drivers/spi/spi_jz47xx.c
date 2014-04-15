@@ -79,18 +79,10 @@ JZ47XX_SPI_TX_BUF(u32)
 
 static void jz47xx_spi_cs(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol)
 {
-	/* int ret; */
-	/* u32 pin_value = *(spi->chipselect + cs); */
-
-	/* ret = gpio_request(pin_value, "JZ47XX_SPI_CS"); */
-	/* if(ret) { */
-	/* 	printk(KERN_ERR "failed to request GPIO for SPIX"); */
-	/* } */
-
-	/* if(!pol) */
-	/* 	gpio_direction_output(pin_value, 0); */
-	/* else */
-	/* 	gpio_direction_output(pin_value, 1); */
+#ifdef CONFIG_JZ_SPI_PIO_CE
+	u32 pin_value = *(spi->chipselect + cs);
+	gpio_direction_output(pin_value, !pol ? 0 : 1);
+#endif
 }
 
 static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
@@ -246,7 +238,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	if(t->rx_buf)
 		hw->rw_mode |= R_MODE;
 
-	// all transfer starts with tx, ends with rx.
+	/* all transfer starts with tx, ends with rx. */
 	if (hw->rw_mode & W_MODE)
 		hw->tx = t->tx_buf;
 	else
@@ -311,8 +303,8 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	}
 
 	hw->tx_trigger = hw->dma_tx_unit / (hw->txfifo_width >> 3);
-//	set_tx_trigger(hw, hw->tx_trigger);
-	set_tx_trigger(hw, 8);//The transfer is steady if the trigger number is used;
+	//set_tx_trigger(hw, hw->tx_trigger);
+	set_tx_trigger(hw, 8); //The transfer is steady if the trigger number is used
 	print_dbg("t->len: %d, tx fifo width: %d, set tx trigger value to %d\n", t->len, hw->txfifo_width, hw->tx_trigger);
 
 	sg_init_one(hw->sg_tx, hw->tx, t->len);
@@ -342,8 +334,8 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	disable_tx_error_intr(hw);
 	disable_rx_error_intr(hw);
 
-	wait_transmit(hw);
-//	finish_transmit(hw);
+	start_transmit(hw);
+	//finish_transmit(hw);
 
 	flush_fifo(hw);
 
@@ -392,7 +384,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	}
 
 	hw->rx_trigger = hw->dma_rx_unit/(hw->rxfifo_width >> 3);
-//	set_rx_trigger(hw, hw->rx_trigger);
+	//set_rx_trigger(hw, hw->rx_trigger);
 	set_rx_trigger(hw, 1); //the rx trigger is steady for tranfer
 	print_dbg("t->len: %d, rx fifo width: %d, set rx trigger value to %d\n", t->len, hw->rxfifo_width, hw->rx_trigger);
 
@@ -442,7 +434,7 @@ static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 	}
 
 	finish_transmit(hw);
-//	flush_rxfifo(hw);
+	//flush_rxfifo(hw);
 	clear_errors(hw);
 
 	return t->len;
@@ -490,63 +482,62 @@ irq_done:
 
 static inline u32 cpu_read_rxfifo(struct jz47xx_spi *hw)
 {
-	u32 cnt, dat;
 	u8 unit_size = hw->transfer_unit_size;
-	print_dbg("The count of RxFIFO is %d \n", get_rxfifo_count(hw));
+	u32 cnt, dat;
+	int dummy_read = 0;
 
-	if (get_rxfifo_count(hw) < 1) {
-		print_dbg("The count of TxFIFO is %d \n", get_rxfifo_count(hw));
+	print_dbg("The count of RxFIFO is %d \n", get_rxfifo_count(hw));
+	if (get_rxfifo_count(hw) < 1)
 		return 0;
-	}
 
 	cnt = hw->rlen;
 	if ((hw->rw_mode & RW_MODE) == W_MODE) {
 		print_dbg("W_MODE\n");
-		hw->rlen += unit_size * get_rxfifo_count(hw);
-
-		flush_rxfifo(hw);
-		return (hw->rlen - cnt);
+		dummy_read = 1;
 	}
+
+	spin_lock(&hw->lock);
 
 	while (!rxfifo_empty(hw)) {
-		spin_lock(&hw->lock);
 		hw->rlen += unit_size;
-		dat = hw->get_rx(hw);
-		spin_unlock(&hw->lock);
-		print_dbg("-%x,",dat);
+
+		if (dummy_read)
+			dat = spi_readl(hw, SSI_DR);
+		else
+			dat = hw->get_rx(hw);
 	}
+
+	spin_unlock(&hw->lock);
+
 	return (hw->rlen - cnt);
 }
 
-static inline u32 cpu_write_txfifo(struct jz47xx_spi *hw,u32 entries)
+static inline u32 cpu_write_txfifo(struct jz47xx_spi *hw, u32 entries)
 {
-	u32 i,cnt,count;
-	u32 dat;
 	u8 unit_size = hw->transfer_unit_size;
+	u32 i, cnt, count;
+	u32 dat;
 
-	if ((!entries ) || (!(hw->rw_mode & RW_MODE))) {
-		return -1;
-	}
+	if ((!entries ) || (!(hw->rw_mode & RW_MODE)))
+		return 0;
 
 	cnt = entries;
 	count = cnt * unit_size;
+
+	spin_lock(&hw->lock);
 	if (hw->rw_mode & W_MODE) {
-		for (i=0; i<cnt; i++) {
-			spin_lock(&hw->lock);
+		for (i = 0; i < cnt; i++) {
 			hw->count += unit_size;
 			dat = (u32)(hw->get_tx(hw));
-			spin_unlock(&hw->lock);
-			print_dbg("+%x,\n",dat);
 		}
 	} else {		 /* read, fill txfifo with 0 */
-		for (i=0;i<cnt;i++) {
-			spin_lock(&hw->lock);
+		for (i = 0; i < cnt; i++) {
 			hw->count += unit_size;
 			transmit_data(hw, 0);
-			spin_unlock(&hw->lock);
 		}
-		print_dbg("0x0...,\n");
 	}
+	spin_unlock(&hw->lock);
+
 	print_dbg("hw->count:%d. %s LINE %d: %s\n", hw->count, __func__, __LINE__, __FILE__);
 	return count;
 }
@@ -554,20 +545,26 @@ static inline u32 cpu_write_txfifo(struct jz47xx_spi *hw,u32 entries)
 static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 {
 	unsigned char int_flag = 0, last_flag = 0;
-	unsigned int unit_size, trigger, send_entries, entries = 0, cnt;
+	u32 entries = 0, send_entries = 0;
+	u32 unit_size, trigger;
 	long leave_len_bytes;
+	u32 retlen;
+
 	print_dbg("%s LINE %d: %s\n", __func__, __LINE__, __FILE__);
 
 	/* calculate the left entries */
 	leave_len_bytes = hw->len - hw->count;
 
 	if (hw->len < hw->count) {
-		dev_err(hw->dev, "Fill data len error!!!(len < count)\n");
+		dev_err(hw->dev,
+			"Fill data len error!!!(len : count > %d : %d)\n",
+			hw->len, hw->count);
 		return -1;
 	}
 
 	if (leave_len_bytes == 0) {
 		print_dbg("leave_len_bytes = 0\n");
+		printk("leave_len_bytes = 0\n");
 		return 0;
 	}
 
@@ -589,10 +586,8 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 	}
 	print_dbg("%s unit_size:%d, entries:%d\n", __func__, unit_size, entries);
 
-	trigger = JZ_SSI_MAX_FIFO_ENTRIES - hw->tx_trigger;
-
-	/* calculate the entries which will be sent currently  */
-	/* distinguish between the first and interrupt */
+	/* calculate the entries which will be sent currently
+	 * distinguish between the first and interrupt */
 	if (hw->is_first) {
 		/* CPU Mode should reset SSI triggers at first */
 		hw->tx_trigger = SSI_TX_FIFO_THRESHOLD * 8;
@@ -603,15 +598,17 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 
 		if(entries <= JZ_SSI_MAX_FIFO_ENTRIES)	{
 			send_entries = entries;
-		}
-		else {
+		} else {
 			/* need enable half_intr, left entries will be sent
 			   in SSI interrupt and receive the datas */
 			send_entries = JZ_SSI_MAX_FIFO_ENTRIES;
 			int_flag = 1;
 		}
+		start_transmit(hw);
+
 		hw->is_first = 0;
-	} else {	/* happen in interrupts */
+	} else { /* happen in interrupts */
+		trigger = JZ_SSI_MAX_FIFO_ENTRIES - hw->tx_trigger;
 		if (entries <= trigger) {
 			send_entries = entries;
 			/* the last part of data shouldn't disable RXI_intr
@@ -631,9 +628,19 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 			send_entries = length;
 	}
 
+	/* fill the txfifo with CPU Mode */
+	retlen = cpu_write_txfifo(hw, send_entries);
+	if (!retlen) {
+		dev_info(hw->dev,"cpu_write_txfifo error!\n");
+		return -1;
+	}
+	print_dbg("+:(%d)\n", retlen);
+
+	enable_tx_error_intr(hw);
+	enable_rx_error_intr(hw);
+
 	/* every time should control the SSI half_intrs */
 	if (int_flag) {
-		wait_transmit(hw);
 		enable_txfifo_half_empty_intr(hw);
 		enable_rxfifo_half_full_intr(hw);
 	} else {
@@ -641,34 +648,26 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 		disable_rxfifo_half_full_intr(hw);
 	}
 
-	/* fill the txfifo with CPU Mode */
-	if ((cnt = cpu_write_txfifo(hw,send_entries)) < 0) {
-		dev_info(hw->dev,"cpu_write_txfifo error!\n");
-		return -1;
+	/* to avoid RxFIFO overflow when CPU Mode at last time to fill */
+	if (last_flag) {
+		last_flag = 0;
+		enable_rxfifo_half_full_intr(hw);
 	}
-	print_dbg("+:(%d)\n",cnt);
-
-	enable_tx_error_intr(hw);
-	enable_rx_error_intr(hw);
 
 #ifdef SSI_DEGUG
 	dump_spi_reg(hw);
 #endif
-
-	/* to avoid RxFIFO overflow when CPU Mode at last time to fill */
-	if(last_flag) {
-		last_flag = 0;
-		enable_rxfifo_half_full_intr(hw);
-	}
 
 	return 0;
 }
 
 static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 {
-	int status;
 	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
 	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
+	u32 entries;
+	int status;
+	unsigned long flags;
 
 	hw->tx = t->tx_buf;
 	hw->rx = t->rx_buf;
@@ -676,7 +675,6 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 	hw->count = 0;
 	hw->rlen = 0;
 	hw->dma_flag &= ~SPI_DMA_ACK;
-	g_jz_intr->ssi_intr_cnt = 0;
 
 	hw->rw_mode = 0;
 	if(hw->tx)
@@ -684,44 +682,49 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 	if(hw->rx)
 		hw->rw_mode |= R_MODE;
 
-	if(t->tx_dma)
-		hw->rw_mode |= W_DMA;
-	if(t->rx_dma)
-		hw->rw_mode |= R_DMA;
-
 	disable_tx_intr(hw);
 	disable_rx_intr(hw);
 
-	wait_transmit(hw);
+	start_transmit(hw);
 	flush_fifo(hw);
 
 	enable_receive(hw);
 	clear_errors(hw);
 
-	memset(g_jz_intr, 0, sizeof *g_jz_intr);
+	memset(g_jz_intr, 0, sizeof(struct jz_intr_cnt));
+	/* Calculate Max IRQ numbers for SSI error out */
+	entries = hw->len * 8 / hw->bits_per_word;
+	g_jz_intr->max_ssi_intr = (entries + JZ_SSI_MAX_FIFO_ENTRIES - 1) /
+				  JZ_SSI_MAX_FIFO_ENTRIES * 2 + 2;
 
 #ifdef SSI_DEGUG
 	dump_spi_reg(hw);
 #endif
 
+	/* This start SSI transfer, write data or 0 to txFIFO.
+	 * irq is locked to protect SSI config registers */
+	spin_lock_irqsave(&hw->txrx_lock, flags);
 	hw->is_first = 1;
-	status = jz_spi_cpu_transfer(hw,0);
-
+	status = jz_spi_cpu_transfer(hw, 0);
 	if (status < 0) {
+		dev_err(hw->dev,"ERROR:spi_transfer error(%d)!\n", status);
 		disable_tx_intr(hw);
 		disable_rx_intr(hw);
-		dev_err(hw->dev,"ERROR:spi_transfer error(%d)!\n",status);
+		spin_unlock_irqrestore(&hw->txrx_lock, flags);
+
 		return status;
 	}
+	spin_unlock_irqrestore(&hw->txrx_lock, flags);
 
 	/* wait the interrupt finish the transfer( one spi_transfer be sent ) */
-	wait_for_completion(&hw->done);
+	wait_for_completion_interruptible(&hw->done);
 
 	finish_transmit(hw);
 	clear_errors(hw);
 
-	if(hw->rlen != t->len){
-		dev_info(hw->dev,"Length error:hw->rlen=%d  t->len=%d\n",hw->rlen,t->len);
+	if (hw->rlen != t->len) {
+		dev_info(hw->dev, "Length error:hw->rlen=%d  t->len=%d\n", hw->rlen,t->len);
+
 		if(hw->rlen > hw->len)
 			hw->rlen = hw->len;
 	}
@@ -731,33 +734,30 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 {
+	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
 	long left_count = hw->len - hw->count;
 	u8 flag = 0;
 	u32 cnt;
 	int status;
-	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
 
 	g_jz_intr->ssi_intr_cnt++;
 	/* to avoid die in interrupt if some error occur */
-	if (g_jz_intr->ssi_intr_cnt > MAX_SSI_INTR) {
+	if (g_jz_intr->ssi_intr_cnt > g_jz_intr->max_ssi_intr) {
 		disable_tx_intr(hw);
 		disable_rx_intr(hw);
-		dev_err(hw->dev,"\nERROR:SSI interrupts too many count(%d)!\n",
+		dev_err(hw->dev,"ssi interrupts too many count(%d)!\n",
 			g_jz_intr->ssi_intr_cnt);
 
-		g_jz_intr->ssi_intr_cnt = 0;
-
 		complete(&hw->done);
-
 		goto irq_done;
 	}
 
-	if( ssi_underrun(hw) && tx_error_intr(hw) ) {
+	if ( ssi_underrun(hw) && tx_error_intr(hw) ) {
 		print_dbg("UNDR:");
 		g_jz_intr->ssi_eti++;
 		disable_tx_error_intr(hw);
 
-		if( left_count == 0){
+		if(left_count == 0){
 			cnt = cpu_read_rxfifo(hw);
 			print_dbg("-:(%d)\n",cnt);
 
@@ -773,7 +773,7 @@ static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 		flag++;
 	}
 
-	if( ssi_overrun(hw) && rx_error_intr(hw) ) {
+	if ( ssi_overrun(hw) && rx_error_intr(hw) ) {
 		print_dbg(" overrun:");
 		g_jz_intr->ssi_eri++;
 
@@ -796,17 +796,16 @@ static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 	}
 
 	if ( txfifo_half_empty_intr(hw) &&
-		 txfifo_half_empty(hw)) {
+		txfifo_half_empty(hw)) {
 
 		print_dbg("TXI:");
 		g_jz_intr->ssi_txi++;
 
-		status = jz_spi_cpu_transfer(hw,0);
-		if(status < 0)
-		{
+		status = jz_spi_cpu_transfer(hw, 0);
+		if (status < 0) {
+			dev_err(hw->dev,"jz_spi_cpu_transfer error!!!!!\n");
 			disable_tx_intr(hw);
 			disable_rx_intr(hw);
-			dev_err(hw->dev,"jz_spi_cpu_transfer error!!!!!\n");
 			complete(&hw->done);
 
 			goto irq_done;
@@ -814,8 +813,7 @@ static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
 		flag++;
 	}
 
-	if(!flag)
-	{
+	if (!flag) {
 		dev_info(hw->dev, "\nERROR:SSI interrupt Type error\n");
 		complete(&hw->done);
 	}
@@ -960,6 +958,13 @@ static int jz47xx_spi_setup(struct spi_device *spi)
 		spi->max_speed_hz = hw->src_clk;
 	}
 
+	spin_lock(&hw->bitbang.lock);
+	if (!hw->bitbang.busy) {
+		hw->bitbang.chipselect(spi, BITBANG_CS_INACTIVE);
+		/* need to ndelay for 0.5 clocktick ? */
+	}
+	spin_unlock(&hw->bitbang.lock);
+
 	return 0;
 }
 
@@ -1054,6 +1059,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	struct resource *res;
 	dma_cap_mask_t mask;
 	int err = 0;
+	int num_cs_got = 0;
 	char clkname[16];
 
 #ifdef CONFIG_JZ_SPI_BOARD_INFO_REGISTER
@@ -1100,6 +1106,17 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 		err = -ENOENT;
 		goto err_no_pdata;
 	}
+
+#ifdef CONFIG_JZ_SPI_PIO_CE
+	for (i = 0; i < hw->pdata->num_chipselect; i++, num_cs_got = i) {
+		err = gpio_request(hw->pdata->chipselect[i], "JZ47XX_SPI_CS");
+		if(err) {
+			dev_err(&pdev->dev, "Request cs_gpio: %d is occupied\n",
+							hw->pdata->chipselect[i]);
+			goto err_cs_gpio;
+		}
+	}
+#endif
 
 	/* find and map our resources */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1162,9 +1179,9 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	init_completion(&hw->done_tx_dma);
 	init_completion(&hw->done_rx_dma);
 	spin_lock_init(&hw->lock);
+	spin_lock_init(&hw->txrx_lock);
 
 	/* setup the state for the bitbang driver */
-
 	hw->bitbang.master         = hw->master;
 	hw->bitbang.setup_transfer = jz47xx_spi_setupxfer;
 	hw->bitbang.chipselect     = jz47xx_spi_chipsel;
@@ -1262,6 +1279,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	       "JZ47xx SSI Controller for SPI channel %d driver register\n",hw->chnl);
 
 	return 0;
+
 err_register:
 	free_irq(hw->irq, hw);
 free_rxchan:
@@ -1286,6 +1304,12 @@ err_no_iomap:
 	kfree(hw->ioarea);
 
 err_no_iores:
+
+#ifdef CONFIG_JZ_SPI_PIO_CE
+err_cs_gpio:
+	for (i = 0; i < num_cs_got; i++)
+		gpio_free(hw->pdata->chipselect[i]);
+#endif
 err_no_pdata:
 	spi_master_put(hw->master);;
 
@@ -1296,6 +1320,7 @@ err_nomem:
 static int __exit jz47xx_spi_remove(struct platform_device *dev)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(dev);
+	int i;
 
 	spi_master_put(hw->master);
 	spi_bitbang_stop(&hw->bitbang);
@@ -1326,6 +1351,12 @@ static int __exit jz47xx_spi_remove(struct platform_device *dev)
 		dma_release_channel(hw->txchan);
 		printk("dma_tx_chnl release\n");
 	}
+
+#ifdef CONFIG_JZ_SPI_PIO_CE
+	/* release chipselect gpio */
+	for (i = 0; i < hw->pdata->num_chipselect; i++)
+		gpio_free(hw->pdata->chipselect[i]);
+#endif
 
 	kfree(hw->g_jz_intr);
 	kfree(hw);

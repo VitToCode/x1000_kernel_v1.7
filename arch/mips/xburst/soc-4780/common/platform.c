@@ -169,6 +169,10 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	CIM_PORTB,
 #endif
 
+
+#ifdef CONFIG_SPI0_JZ4780_PA
+       SSI0_PORTA,
+#endif
 #ifdef CONFIG_SPI0_JZ4780_PB
        SSI0_PORTB,
 #endif
