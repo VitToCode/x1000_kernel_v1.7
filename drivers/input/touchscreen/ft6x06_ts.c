@@ -161,9 +161,22 @@ int ft6x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 static void ft6x06_ts_release(struct ft6x06_ts_data *data)
 {
 	//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0);
-	input_mt_sync(data->input_dev);
+	input_report_abs(data->input_dev, ABS_PRESSURE, 0);
+	input_report_key(data->input_dev, BTN_TOUCH, 0);
+	if(1 == key_menu_status){
+		input_event(data->input_dev,EV_KEY,KEY_MENU,0);
+		key_menu_status = 0;
+	}
+	if(1 == key_home_status){
+		input_event(data->input_dev,EV_KEY,KEY_HOMEPAGE,0);
+		key_home_status = 0;
+	}
+	if(1 == key_back_status){
+		input_event(data->input_dev,EV_KEY,KEY_BACK,0);
+		key_back_status = 0;
+	}
 	input_sync(data->input_dev);
-	printk("===>ts_release\n");
+	//printk("===>ts_release\n");
 }
 
 /*Read touch point information when the interrupt  is asserted.*/
@@ -176,6 +189,7 @@ static int ft6x06_read_Touchdata(struct ft6x06_ts_data *data)
 	u8 pointid = FT_MAX_ID;
 
 	ret = ft6x06_i2c_Read(data->client, buf, 1, buf, POINT_READ_BUF);
+
 	if (ret < 0) {
 		dev_err(&data->client->dev, "%s read touchdata failed.\n",
 			__func__);
@@ -183,7 +197,7 @@ static int ft6x06_read_Touchdata(struct ft6x06_ts_data *data)
 	}
 	memset(event, 0, sizeof(struct ts_event));
 
-#if 0
+#ifndef CONFIG_FT6X06_MULTITOUCH
 	event->touch_point = buf[2] & 0x0F;
 	if (event->touch_point == 0) {
 		ft6x06_ts_release(data);
@@ -216,6 +230,7 @@ static int ft6x06_read_Touchdata(struct ft6x06_ts_data *data)
 	return 0;
 }
 
+#ifdef CONFIG_FT6X06_MULTITOUCH
 static void ft6x06_touch_down(struct ft6x06_ts_data *ts, s32 id, s32 x, s32 y, s32 w)
 {
 	// printk("ID%d down, (%d, %d)\n", id, x, y);
@@ -232,6 +247,7 @@ static void ft6x06_touch_up(struct ft6x06_ts_data *ts, s32 id)
 	input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, -1);
 	// printk("ID%d up\n", id);
 }
+#endif
 
 /*
 *report the point information
@@ -239,22 +255,40 @@ static void ft6x06_touch_up(struct ft6x06_ts_data *ts, s32 id)
 static void ft6x06_report_value(struct ft6x06_ts_data *data)
 {
 	struct ts_event *event = &data->event;
-	int i = 0;
-	int up_point = 0;
-	//int touch_point = 0;
 
+	int i = 0;
 	for (i = 0; i < event->touch_point; i++) {
 		/* LCD view area */
 		if (event->au16_x[i] < data->va_x_max
 		    && event->au16_y[i] < data->va_y_max) {
+#ifdef CONFIG_FT6X06_MULTITOUCH
 			if ((event->au8_touch_event[i] == FTS_POINT_DOWN)
 				|| (event->au8_touch_event[i] == FTS_POINT_CONTACT)) {
 				ft6x06_touch_down(data, event->au8_finger_id[i],
 						event->au16_x[i], event->au16_y[i],
 						event->pressure);
+
 			} else {
 				ft6x06_touch_up(data, event->au8_finger_id[i]);
 			}
+#else
+			if(0 == i){
+				s16 convert_x = 0;
+				s16 convert_y = 0;
+				convert_x = event->au16_x[0];
+				convert_y = event->au16_y[0];
+#ifndef  CONFIG_ANDROID
+				convert_x = (event->au16_x[0] * 8 / 5);
+				convert_y = (event->au16_y[0] * 5 / 3);
+#endif
+				if (event->touch_point == 1) {
+					input_report_abs(data->input_dev, ABS_X, (u16)convert_x);
+					input_report_abs(data->input_dev, ABS_Y, (u16)convert_y);
+					input_report_abs(data->input_dev, ABS_PRESSURE, event->pressure);
+				}
+				input_report_key(data->input_dev, BTN_TOUCH, 1);
+			}
+#endif
 		}
 		/*Virtual key*/
 		else{
@@ -306,9 +340,8 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 			}
 		}
 	}
-	if (event->touch_point > 0)
-		input_sync(data->input_dev);
 	
+	input_sync(data->input_dev);
 	dev_dbg(&data->client->dev, "$ly-test----%s: x1:%d y1:%d |<*_*>| \
 			x2:%d y2:%d \n", __func__,
 			event->au16_x[0], event->au16_y[0], 
@@ -333,7 +366,6 @@ static void ft6x06_work_handler(struct work_struct *work)
 static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
-	int ret = 0;
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0
@@ -419,6 +451,13 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	gpio_direction_output(pdata->reset, 1);
 #endif
 
+	err = gpio_request(pdata->irq,"ft6x06 irq");
+	if (err < 0) {
+		dev_err(&client->dev, "%s:failed to set gpio irq.\n",
+			__func__);
+		goto exit_request_fail;
+	}
+	gpio_direction_input(pdata->irq);
 	ft6x06_ts->vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(ft6x06_ts->vcc_reg)) {
 		dev_err(&client->dev, "failed to get VCC regulator.");
@@ -436,14 +475,11 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 
 	ft6x06_ts->input_dev = input_dev;
 
+#ifdef CONFIG_FT6X06_MULTITOUCH
 	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
 	set_bit(ABS_MT_PRESSURE, input_dev->absbit);
-	set_bit(EV_SYN, input_dev->evbit);
-	set_bit(KEY_HOMEPAGE, input_dev->keybit);
-	set_bit(KEY_BACK, input_dev->keybit);
-	set_bit(KEY_MENU, input_dev->keybit);
 
 	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
@@ -457,13 +493,26 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev,
 			     ABS_MT_TRACKING_ID, 0, CFG_MAX_TOUCH_POINTS, 0, 0);
+	input_mt_init_slots(input_dev, 255);
+#else
+	set_bit(ABS_X, input_dev->absbit);
+	set_bit(ABS_Y, input_dev->absbit);
+	set_bit(ABS_PRESSURE, input_dev->absbit);
+	set_bit(EV_SYN, input_dev->evbit);
+	set_bit(BTN_TOUCH, input_dev->keybit);
 
+	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->va_x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->va_y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, PRESS_MAX, 0 , 0);
+#endif
 	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
 	set_bit(EV_SYN, input_dev->evbit);
 
+	set_bit(KEY_HOMEPAGE, input_dev->keybit);
+	set_bit(KEY_BACK, input_dev->keybit);
+	set_bit(KEY_MENU, input_dev->keybit);
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
-	input_mt_init_slots(input_dev, 255);
 
 	input_dev->name = FT6X06_NAME;
 	input_dev->id.bustype = BUS_I2C;

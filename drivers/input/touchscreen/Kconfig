@@ -81,6 +81,13 @@ config TOUCHSCREEN_FT6X06
 	help
 	  pisecs FocalTech FT6X06 TouchSreen Driver implemented by Ingenic.
 
+config FT6X06_MULTITOUCH
+	bool "Enable multi-touch on FocalTech FT6X06 "
+	depends on TOUCHSCREEN_FT6X06
+	default y
+	help
+	  support multitouch ft6206,if you want , say Y here.
+
 config TOUCHSCREEN_NOVATEK
       tristate "Touchscreen nt11003-ts"
       depends on I2C && JZ4780_SUPPORT_TSC
