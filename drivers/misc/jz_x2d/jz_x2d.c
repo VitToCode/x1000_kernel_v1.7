@@ -164,6 +164,10 @@ static int get_srcfmt_bpp(int format)
 
 static int get_dstfmt_bpp(int format)
 {
+	if ( format & NEW_DST_FORMAT_BIT) {
+		format = (format>>BIT_X2D_DST_RGB_FORMAT)&3;
+	}
+
 	switch (format) {
 		case X2D_OUTFORMAT_ARGB888:
 		case X2D_OUTFORMAT_XARGB888:
@@ -583,9 +587,17 @@ static int jz_x2d_start_compose(struct x2d_device *jz_x2d, struct file *filp)
 	jz_x2d->chain_p->dst_width = (uint16_t)x2d_proc->configs.dst_width;	
 	jz_x2d->chain_p->overlay_num = x2d_proc->configs.layer_num;
 	jz_x2d->chain_p->dst_tile_en  = 0;
-	jz_x2d->chain_p->dst_fmt = (X2D_ALPHA_POSHIGH << BIT_X2D_DST_ALPHA_POS)\
-				   |(x2d_proc->configs.dst_format << BIT_X2D_DST_RGB_FORMAT)\
-				   |(X2D_RGBORDER_RGB << BIT_X2D_DST_RGB_ORDER);
+
+	if ( x2d_proc->configs.dst_format & NEW_DST_FORMAT_BIT ) {
+		jz_x2d->chain_p->dst_fmt = x2d_proc->configs.dst_format & ~(NEW_DST_FORMAT_BIT);
+	}
+	else {
+		jz_x2d->chain_p->dst_fmt = (X2D_ALPHA_POSHIGH << BIT_X2D_DST_ALPHA_POS)\
+			|(x2d_proc->configs.dst_format << BIT_X2D_DST_RGB_FORMAT)\
+			|(X2D_RGBORDER_RGB << BIT_X2D_DST_RGB_ORDER); // orig code
+		//|(X2D_RGBORDER_BGR << BIT_X2D_DST_RGB_ORDER); // abgr
+	}
+	//dev_err(jz_x2d->dev, "jz_x2d->chain_p->dst_fmt=0x%x, x2d_proc->configs.dst_format=%#x\n", jz_x2d->chain_p->dst_fmt, x2d_proc->configs.dst_format);
 	jz_x2d->chain_p->dst_argb = x2d_proc->configs.dst_bcground;
 
 	for (i = 0; i < x2d_proc->configs.layer_num; i++) {

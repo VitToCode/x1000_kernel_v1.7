@@ -3784,6 +3784,26 @@ static int jzfb_lcdc_reset(struct fb_info *info)
 }
 #endif
 
+static enum jzfb_format_order get_xboot_lcd_rgb_order(struct jzfb *jzfb)
+{
+	enum jzfb_format_order rgb;
+	unsigned int rgb_ctrl;
+
+	rgb_ctrl = reg_read(jzfb, LCDC_RGBC);
+
+	//printk("%d %s(), rgb_ctrl=%x\n", __LINE__, __FUNCTION__, rgb_ctrl);
+
+	if ( (rgb_ctrl & LCDC_RGBC_EVENRGB_MASK) == LCDC_RGBC_EVEN_BGR ) {
+		rgb = FORMAT_X8B8G8R8;
+	}
+	else {
+		rgb = FORMAT_X8R8G8B8;
+	}
+
+	//printk("%d %s() rgb=%x\n", __LINE__, __FUNCTION__, rgb);
+	return rgb;
+}
+
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3913,7 +3933,17 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
 
+#ifdef CONFIG_FB_RGB_ORDER
+	jzfb->fmt_order = CONFIG_FB_RGB_ORDER;
+#else
+
+#if defined(CONFIG_ANDROID) && defined(CONFIG_SOC_4775)
+	//jzfb->fmt_order = FORMAT_X8B8G8R8;
+	jzfb->fmt_order = get_xboot_lcd_rgb_order(jzfb);
+#else
 	jzfb->fmt_order = FORMAT_X8R8G8B8;
+#endif	/* defined(CONFIG_ANDROID) && defined(CONFIG_SOC_4775) */
+#endif	/* CONFIG_FB_RGB_ORDER */
 
 	jzfb_check_var(&fb->var, fb);
 
