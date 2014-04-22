@@ -15,3 +15,4 @@ obj-y += pm_slcd.o
 else
 obj-y += pm.o
 endif
+obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)     += mensa-cim.o

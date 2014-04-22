@@ -55,23 +55,25 @@ static int soc_camera_power_set(struct soc_camera_device *icd,
 				struct soc_camera_link *icl,
 				int power_on)
 {
-	int ret;
+	int ret = 0;
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 
 	if (power_on) {
-		ret = regulator_enable(ici->regul);
-		if (ret < 0) {
-			dev_err(&icd->dev, "Cannot enable regulators\n");
-			return ret;
+		if (ici->regul != NULL) {
+			ret = regulator_enable(ici->regul);
+			if (ret < 0) {
+				dev_err(&icd->dev, "Cannot enable regulators\n");
+				return ret;
+			}
 		}
-
 		if (icl->power)
 			ret = icl->power(icd->pdev, power_on);
 		if (ret < 0) {
 			dev_err(&icd->dev,
-				"Platform failed to power-on the camera.\n");
-
-			regulator_disable(ici->regul);
+					"Platform failed to power-on the camera.\n");
+			if (ici->regul != NULL) {
+				regulator_disable(ici->regul);
+			}
 			return ret;
 		}
 	} else {
@@ -83,15 +85,16 @@ static int soc_camera_power_set(struct soc_camera_device *icd,
 				"Platform failed to power-off the camera.\n");
 			return ret;
 		}
-
-		ret = regulator_disable(ici->regul);
-		if (ret < 0) {
-			dev_err(&icd->dev, "Cannot disable regulators\n");
-			return ret;
+		if (ici->regul != NULL) {
+			ret = regulator_disable(ici->regul);
+			if (ret < 0) {
+				dev_err(&icd->dev, "Cannot disable regulators\n");
+				return ret;
+			}
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 const struct soc_camera_format_xlate *soc_camera_xlate_by_fourcc(

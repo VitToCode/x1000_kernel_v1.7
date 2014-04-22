@@ -1330,14 +1330,31 @@ static int __devinit jz4780_camera_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto err_kzalloc_pcdev;
 	}
-
+#if defined(CONFIG_BOARD_4775_MENSA)
+	pcdev->clk = clk_get(&pdev->dev, "cim1");
+	if (IS_ERR(pcdev->clk)) {
+		err = PTR_ERR(pcdev->clk);
+		dev_err(&pdev->dev, "%s:can't get clk %s\n", __func__,  "cim1");
+		goto err_get_clk_cim;
+	}
+#else
 	pcdev->clk = clk_get(&pdev->dev, "cim");
 	if (IS_ERR(pcdev->clk)) {
 		err = PTR_ERR(pcdev->clk);
 		dev_err(&pdev->dev, "%s:can't get clk %s\n", __func__,  "cim");
 		goto err_get_clk_cim;
 	}
+#endif
 
+#if defined(CONFIG_BOARD_4775_MENSA)
+	pcdev->mclk = clk_get(&pdev->dev, "cgu_cimmclk1");
+	if (IS_ERR(pcdev->mclk)) {
+		err = PTR_ERR(pcdev->mclk);
+		dev_err(&pdev->dev, "%s:can't get clk %s\n",
+				__func__, "cgu_cimmclk1");
+		goto err_get_clk_cgu_cimmclk;
+	}
+#else
 	pcdev->mclk = clk_get(&pdev->dev, "cgu_cimmclk");
 	if (IS_ERR(pcdev->mclk)) {
 		err = PTR_ERR(pcdev->mclk);
@@ -1345,13 +1362,13 @@ static int __devinit jz4780_camera_probe(struct platform_device *pdev)
 				__func__, "cgu_cimmclk");
 		goto err_get_clk_cgu_cimmclk;
 	}
-
+#endif
 	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim");
 	if(IS_ERR(pcdev->soc_host.regul)){
 		err = -ENODEV;
 		dev_err(&pdev->dev, "%s:can't get regulator %s!\n",
 				__func__, "vcim");
-		goto err_get_regulator_cim;
+		pcdev->soc_host.regul = NULL;
 	}
 
 	pcdev->res = res;
@@ -1425,7 +1442,6 @@ err_request_irq:
 err_ioremap_resource:
 	release_mem_region(res->start, resource_size(res));
 err_request_mem_region:
-err_get_regulator_cim:
 	clk_put(pcdev->mclk);
 err_get_clk_cgu_cimmclk:
 	clk_put(pcdev->clk);

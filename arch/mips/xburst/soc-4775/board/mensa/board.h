@@ -3,6 +3,11 @@
 #include <gpio.h>
 #include <soc/gpio.h>
 
+#define FRONT_CAMERA_INDEX	0
+#define BACK_CAMERA_INDEX	1
+
+#define CAMERA_SENSOR_RESET	GPIO_PA(27)
+#define CAMERA_FRONT_SENSOR_EN	GPIO_PB(6)
 
 #ifndef CONFIG_BOARD_NAME
 #define CONFIG_BOARD_NAME "mensa"
@@ -86,7 +91,7 @@ extern struct platform_device kfm701a21_1a_device;
  **/
 // For the layout on Mensa, key 'menu' is necessary. So replacing 'home' with 'menu'.
 //#define GPIO_HOME		GPIO_PG(15)
-#if defined(CONFIG_JZ_CIM1)
+#if defined(CONFIG_JZ_CIM1) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 #define GPIO_MENU		(-1)
 #else
 #define GPIO_MENU		GPIO_PG(15)

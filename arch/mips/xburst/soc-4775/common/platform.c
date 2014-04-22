@@ -135,7 +135,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #if defined(CONFIG_JZ_CIM0) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 	CIM0_PORTB,
 #endif
-#if defined(CONFIG_JZ_CIM1)
+#if defined(CONFIG_JZ_CIM1) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 	CIM1_PORTG,
 #endif
 
@@ -728,7 +728,26 @@ DEF_CIM(0);
 DEF_CIM(1);
 #endif
 
+#if defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
+static struct resource jz_cim_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = CIM1_IOBASE,
+		.end = CIM1_IOBASE + 0x10000 - 1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_CIM1,
+	}
+};
 
+struct platform_device jz_cim_device = {
+	.name = "jz4780-cim",
+	.id = 0,
+	.resource = jz_cim_resources,
+	.num_resources = ARRAY_SIZE(jz_cim_resources),
+};
+#endif
 
 /* X2D (Extreme 2D module interface controller) */
 static struct resource jz_x2d_res[] = {

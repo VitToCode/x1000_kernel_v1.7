@@ -199,9 +199,6 @@ static struct ov2650_platform_data ov2650_pdata = {
 	.cap_wait_frame = 3,
 };
 #endif
-
-#endif
-
 #ifdef CONFIG_OV5640
 struct ov5640_platform_data {
 	int facing;
@@ -224,7 +221,11 @@ static struct ov5640_platform_data ov5640_pdata = {
 };
 #endif
 
+#endif
+
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775))
+#ifdef CONFIG_JZ_CIM
 static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
 #ifdef CONFIG_OV3640
 	{
@@ -257,6 +258,23 @@ static struct i2c_board_info mensa_i2c1_devs[] __initdata = {
 	},
 #endif
 };
+#elif defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
+struct i2c_board_info mensa_i2c1_devs_v4l2[2] = {
+
+	[FRONT_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV5640_FRONT
+		I2C_BOARD_INFO("ov5640-front", 0x3c),
+#endif
+	},
+
+	[BACK_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV5640_BACK
+		I2C_BOARD_INFO("ov5640-back", 0x3c + 1),
+#endif
+	},
+};
+#endif
+
 #endif	/*I2C1*/
 
 #if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
@@ -553,7 +571,9 @@ static int __init board_init(void)
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
+#ifdef CONFIG_JZ_CIM
 	i2c_register_board_info(1, mensa_i2c1_devs, ARRAY_SIZE(mensa_i2c1_devs));
+#endif
 #endif
 
 #ifdef CONFIG_I2C_GPIO

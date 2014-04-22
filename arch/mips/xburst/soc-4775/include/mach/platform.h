@@ -145,6 +145,7 @@ extern struct platform_device jz_pdma_device;
 
 extern struct platform_device jz_cim0_device;
 extern struct platform_device jz_cim1_device;
+extern struct platform_device jz_cim_device;
 
 extern struct platform_device jz_ohci_device;
 extern struct platform_device jz_ehci_device;
