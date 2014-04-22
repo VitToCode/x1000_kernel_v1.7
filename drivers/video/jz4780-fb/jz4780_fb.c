@@ -2693,6 +2693,9 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		jzfb->new_fb_framedesc = NULL;
 		jzfb->new_fb_vidmem = NULL;
 		break;
+	case JZFB_GET_LCDTYPE:
+		copy_to_user(argp, &(jzfb->pdata->lcd_type), sizeof(int));
+		break;
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);
 		break;

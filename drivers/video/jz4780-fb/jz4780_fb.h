@@ -245,7 +245,8 @@ struct jzfb_aosd {
 #define JZFB_SET_FG_POS			_IOW('F', 0x118, struct jzfb_fg_pos)
 #define JZFB_GET_FG_POS			_IOWR('F', 0x119, struct jzfb_fg_pos)
 #define JZFB_GET_BUFFER			_IOR('F', 0x120, int)
-#define JZFB_GET_LCDC_ID	       	_IOR('F', 0x121, int)
+#define JZFB_GET_LCDC_ID		_IOR('F', 0x121, int)
+#define JZFB_GET_LCDTYPE		_IOR('F', 0x122, int)
 /* Reserved for future extend */
 #define JZFB_SET_ALPHA			_IOW('F', 0x123, struct jzfb_fg_alpha)
 #define JZFB_SET_BACKGROUND		_IOW('F', 0x124, struct jzfb_bg)
