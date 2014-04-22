@@ -131,7 +131,7 @@ static struct jz_adc_platform_data adc_platform_data;
 /* efuse */
 static struct jz4780_efuse_platform_data jz_efuse_pdata = {
 	/* supply 2.5V to VDDQ */
-	.gpio_vddq_en_n = -ENODEV,
+	.gpio_vddq_en_n = GPIO_PE(4),
 };
 
 #ifdef CONFIG_SPI_JZ4780
@@ -344,6 +344,14 @@ struct platform_device net_device_ax88796c = {
 	.resource = ax88796c_resource,
 };
 
+#define VAL_SMCR5	0x07773200
+void inline jz_eth_sdram_init(void __iomem *base, int bus_width)
+{
+	writel(VAL_SMCR5, (base + NEMC_SMCR5));
+}
+#undef VAL_SMCR5
+#endif
+
 static int __init ry1000_board_init(void)
 {
 	
@@ -468,7 +476,7 @@ static int __init ry1000_board_init(void)
 #endif
 /* nand */
 #ifdef CONFIG_NAND_DRIVER
-	jz_device_register(&jz_nand_device, NULL);
+	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
 #endif
 /* hdmi */
 #ifdef CONFIG_HDMI_JZ4780
