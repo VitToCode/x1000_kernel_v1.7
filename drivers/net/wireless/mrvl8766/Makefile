@@ -18,6 +18,9 @@
 # ARE EXPRESSLY DISCLAIMED.  The License provides additional details about 
 # this warranty disclaimer.
 
+KERNELDIR=../../../../
+CROSS_COMPILE=mipsel-linux-android-
+ARCH=mips
 CC=		$(CROSS_COMPILE)gcc
 LD=		$(CROSS_COMPILE)ld
 BACKUP=		/root/backup
