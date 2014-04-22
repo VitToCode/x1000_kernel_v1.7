@@ -1,7 +1,0 @@
-config 88W8766
-    tristate " Marvell 88W8766 USB WiFi & BT "
-    depends on USB 
-    select WIRELESS_EXT
-    select WEXT_PRIV
-    ---help---
-    Help message of Marvell 88W8766 wifi & BT
