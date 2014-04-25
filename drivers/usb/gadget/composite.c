@@ -415,7 +415,6 @@ static int set_config(struct usb_composite_dev *cdev,
 		case USB_SPEED_HIGH:	speed = "high"; break;
 		default:		speed = "?"; break;
 		} ; speed; }), number, c ? c->label : "unconfigured");
-
 	if (!c)
 		goto done;
 
@@ -1365,9 +1364,13 @@ void usb_composite_setup_continue(struct usb_composite_dev *cdev)
 		WARN(cdev, "%s: Unexpected call\n", __func__);
 
 	} else if (--cdev->delayed_status == 0) {
+#else
+		if (cdev->delayed_status)
+			cdev->delayed_status--;		/* Add by cli@20140425
+							 * clean up cdev->delayed_status
+							 */
 #endif
-
-		DBG(cdev, "%s: Completing delayed status\n", __func__);
+		INFO(cdev, "%s: Completing delayed status\n", __func__);
 		req->length = 0;
 		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
 		if (value < 0) {
