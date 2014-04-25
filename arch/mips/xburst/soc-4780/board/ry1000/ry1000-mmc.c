@@ -58,7 +58,7 @@ struct jzmmc_platform_data ry1000_inand_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#ifdef CONFIG_MMC1_JZ4780
+#ifdef CONFIG_MMC2_JZ4780
 struct jzmmc_platform_data ry1000_sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
@@ -76,7 +76,7 @@ struct jzmmc_platform_data ry1000_sdio_pdata = {
 	.private_init			= iw8101_wlan_init,
 };
 #endif
-#if defined(CONFIG_MMC2_JZ4780) || defined(CONFIG_MMC0_JZ4780)
+#if defined(CONFIG_MMC1_JZ4780) || defined(CONFIG_MMC0_JZ4780)
 /*
  * WARING:
  * If a GPIO is not used or undefined, it must be set -1,
@@ -97,8 +97,8 @@ struct jzmmc_platform_data ry1000_tf_pdata = {
 #ifdef CONFIG_MMC0_JZ4780
 	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 #endif
-#ifdef CONFIG_MMC2_JZ4780
-	.max_freq			= CONFIG_MMC2_MAX_FREQ,
+#ifdef CONFIG_MMC1_JZ4780
+	.max_freq			= CONFIG_MMC1_MAX_FREQ,
 #endif
 	.recovery_info			= NULL,
 	.gpio				= &ry1000_tf_gpio,
