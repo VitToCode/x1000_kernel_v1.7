@@ -291,12 +291,7 @@ static void jz_i2c_reset(struct jz_i2c *i2c)
 
 	i2c_readl(i2c, I2C_CTXABRT);
 
-	tmp = i2c_readl(i2c, I2C_CTRL);
-	tmp &= ~(1<<0);
-	i2c_writel(i2c, I2C_CTRL, tmp);
-	udelay(10);
-	tmp |= (1<<0);
-	i2c_writel(i2c, I2C_CTRL, tmp);
+	i2c_readl(i2c, I2C_INTST);
 
 	jz_i2c_disable(i2c);
 	udelay(10);
@@ -536,9 +531,9 @@ static inline int xfer_write(struct jz_i2c *i2c, unsigned char *buf, int len, in
 static int disable_i2c_clk(struct jz_i2c *i2c)
 {
 	int timeout = 10;
-	int tmp = i2c_readl(i2c, I2C_STA);;
+	int tmp = i2c_readl(i2c, I2C_STA);
 
-	while ((tmp & I2C_STA_MSTACT) && (--timeout > 0));
+	while ((tmp & I2C_STA_MSTACT) && (--timeout > 0))
 	{
 		udelay(90);
 		tmp = i2c_readl(i2c, I2C_STA);
