@@ -769,7 +769,11 @@ static int __init board_init(void)
  */
 const char *get_board_type(void)
 {
-	return "mensa";
+#ifdef CONFIG_NAND
+    return "mensa_nand";
+#else
+    return "mensa_mmc";
+#endif
 }
 
 arch_initcall(board_init);
