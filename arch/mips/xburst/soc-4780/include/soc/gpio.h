@@ -61,4 +61,5 @@ int jz_gpio_set_func(int gpio, enum gpio_function func);
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 
+int mcu_gpio_register(unsigned int reg);
 #endif

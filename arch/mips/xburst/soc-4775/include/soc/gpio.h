@@ -75,5 +75,5 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 
 int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset);
-
+int mcu_gpio_register(unsigned int reg);
 #endif
