@@ -14,17 +14,17 @@
    while (!(REG_GPIO_PXPIN(0) & 0x00100000));
    }
  */
-extern void nemcdelay(unsigned int loops);
+extern void mcu_delay(unsigned int cycle);
 
-__bank5 void nand_enable(NandChip *nandinfo, int cs)
+void nand_enable(NandChip *nandinfo, int cs)
 {
-	nemcdelay(nandinfo->tclh);
+	mcu_delay(nandinfo->tclh);
 	__nand_enable(cs);
-	nemcdelay(nandinfo->tcs);
+	mcu_delay(nandinfo->tcs);
 }
-__bank5 void nand_disable(NandChip *nandinfo)
+void nand_disable(NandChip *nandinfo)
 {
-	nemcdelay(nandinfo->tclh);
+	mcu_delay(nandinfo->tclh);
 	__nand_disable();
 }
 static void nand_send_addr(struct nand_mcu_ops *mcu, int col_addr, int row_addr)
@@ -58,12 +58,12 @@ __bank4 unsigned int send_nand_command(struct nand_mcu_ops *mcu, struct msgdata_
 	int ret = 0;
 	cmd0.offset = -1;
 	__nand_cmd(command,mcu->common.nand_io);
-	nemcdelay(cmd_delay);
+	mcu_delay(cmd_delay);
 	if(cmd->offset == cmd0.offset){
 		nand_send_addr(mcu,-1,cmd->pageid);
 	}else
 		nand_send_addr(mcu,(int)(cmd->offset) * 512,cmd->pageid);
-	nemcdelay(addr_delay);
+	mcu_delay(addr_delay);
 	if(command == NAND_CMD_STATUS){
 		__nand_status(ret, mcu->common.nand_io);
 		if(ret & NAND_STATUS_FAIL){
@@ -82,14 +82,13 @@ void send_read_random(struct nand_mcu_ops *mcu, int offset)
 	__nand_cmd(NAND_CMD_RNDOUT, mcu->common.nand_io);
 	nand_send_addr(mcu, offset, -1);
 	__nand_cmd(NAND_CMD_RNDOUTSTART, mcu->common.nand_io);
-	nemcdelay(mcu->nand_info.twhr2);
+	mcu_delay(mcu->nand_info.twhr2);
 }
 
 __bank4 void send_prog_random(struct nand_mcu_ops *mcu, int offset)
 {
 	__nand_cmd(NAND_CMD_RNDIN,mcu->common.nand_io);
-	nemcdelay(mcu->nand_info.tcwaw);
+	mcu_delay(mcu->nand_info.tcwaw);
 	nand_send_addr(mcu, offset, -1);
-	nemcdelay(mcu->nand_info.tadl);
+	mcu_delay(mcu->nand_info.tadl);
 }
-

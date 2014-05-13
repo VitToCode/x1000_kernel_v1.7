@@ -363,7 +363,9 @@ static int __init nand_init(void)
 {
 	nand_data *nddata;
 	int ret = 0,i;
-
+	struct clk *io_clk;
+	struct clk *bch_clk;
+	struct clk *bch_cgu_clk;
 	printk("module init start ....................\n");
 	nddata = kmalloc(sizeof(nand_data),GFP_KERNEL);
 	if(!nddata){
@@ -371,12 +373,15 @@ static int __init nand_init(void)
 		while(1);
 	}
 	init_nand_data(nddata,0);
-	clk_enable(clk_get(NULL,"nemc"));
-	clk_enable(clk_get(NULL,"bch"));
-        clk_disable(clk_get(NULL,"cgu_bch"));
-        clk_set_rate(clk_get(NULL,"cgu_bch"), clk_get_rate(clk_get(NULL,"cgu_bch")));
-	clk_enable(clk_get(NULL,"cgu_bch"));
-	printk("clkgate=0x%08x bchclk=%ld \n",*(volatile unsigned int *)0xb0000020,clk_get_rate(clk_get(NULL,"cgu_bch")));
+	io_clk = clk_get(NULL,nand_io_get_clk_name());
+	clk_enable(io_clk);
+	bch_clk = clk_get(NULL,nand_bch_get_clk_name());
+	bch_cgu_clk = clk_get(NULL,nand_bch_get_cgu_clk_name());
+	clk_enable(bch_clk);
+        clk_disable(bch_cgu_clk);
+        clk_set_rate(bch_cgu_clk, clk_get_rate(bch_cgu_clk));
+	clk_enable(bch_cgu_clk);
+	printk("clkgate=0x%08x bchclk=%ld \n",*(volatile unsigned int *)0xb0000020,clk_get_rate(bch_cgu_clk));
 	for(i=0;i<8;i++)
 		set_gpio_function(i,0,0); // A
 	set_gpio_function(18,0,0); //group A

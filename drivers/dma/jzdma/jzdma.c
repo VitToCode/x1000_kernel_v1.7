@@ -21,6 +21,7 @@
 
 #include <soc/irq.h>
 #include <soc/base.h>
+#include <soc/gpio.h>
 
 #include <mach/jzdma.h>
 
@@ -60,7 +61,8 @@ union u_mailbox{
 
 #define DMA_MAILBOX_NAND (*(volatile unsigned int *)(0xb3422020))
 #define DMA_MAILBOX_GPIO (*(volatile unsigned int *)(0xb3422024))
-
+#define MAILBOX_GPIO_PEND_ADDR0 ((volatile unsigned int *)0xb3422028)
+#define MAILBOX_GPIO_PEND_ADDR5 ((volatile unsigned int *)0xb3422040)
 #endif
 
 /* tsz for 1,2,4,8,16,32,64 bytes */
@@ -273,6 +275,9 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 	memcpy(dma->iomem + TCSM,firmware,sizeof(firmware));
 	DMA_MAILBOX_NAND = 0;
 	DMA_MAILBOX_GPIO = 0;
+	for(i = 0;i <= MAILBOX_GPIO_PEND_ADDR5 - MAILBOX_GPIO_PEND_ADDR0; i++)
+		MAILBOX_GPIO_PEND_ADDR0[i] = 0;
+
 #ifdef MCU_TEST_INTER_DMA
 				(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
 				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+1)) = 0;
@@ -824,7 +829,13 @@ irqreturn_t pdma_int_handler(int irq_pdmam, void *dev)
 			tasklet_schedule(&dmac->tasklet);
 		}
 		if(DMA_MAILBOX_GPIO){
-			generic_handle_irq(IRQ_GPIO0);
+			int i;
+			for(i = 0;i < MAILBOX_GPIO_PEND_ADDR5 - MAILBOX_GPIO_PEND_ADDR0;i++)
+			{
+				if(MAILBOX_GPIO_PEND_ADDR0[i])
+					generic_handle_irq(IRQ_MCU_GPIO0 + i);
+				MAILBOX_GPIO_PEND_ADDR0[i] = 0;
+			}
 			DMA_MAILBOX_GPIO = 0;
 		}
 	}
@@ -920,43 +931,21 @@ woke up.
 		       |
 		 handler func of intc
 ************************************************************************/
-static void nand_intc_irq_ctrl(struct irq_data *data, int msk, int wkup)
-{
-/*
-	int intc = (int)irq_data_get_irq_chip_data(data);
-	void *base = intc_base + PART_OFF * (intc/32);
-
-	if (msk == 1)
-		writel(BIT(intc%32), base + IMSR_OFF);
-	else if (msk == 0)
-		writel(BIT(intc%32), base + IMCR_OFF);
-	if (wkup == 1)
-		intc_wakeup[intc / 32] |= 1 << (intc % 32);
-	else if (wkup == 0)
-		intc_wakeup[intc / 32] &= ~(1 << (intc % 32));
-*/
-}
-
 static void nand_intc_irq_unmask(struct irq_data *data)
 {
-	nand_intc_irq_ctrl(data, 0, -1);
+	return;
 }
 
 static void nand_intc_irq_mask(struct irq_data *data)
 {
-	nand_intc_irq_ctrl(data, 1, -1);
+	return;
 }
-static int nand_intc_irq_set_wake(struct irq_data *data, unsigned int on)
-{
-	nand_intc_irq_ctrl(data, -1, !!on);
-	return 0;
-}
+
 static struct irq_chip nand_jzintc_chip = {
 	.name 		= "jz-intc",
 	.irq_mask	= nand_intc_irq_mask,
 	.irq_mask_ack 	= nand_intc_irq_mask,
 	.irq_unmask 	= nand_intc_irq_unmask,
-	.irq_set_wake 	= nand_intc_irq_set_wake,
 };
 static struct irq_chip *save_irq_chip = NULL;
 static void save_and_replace_gpio0_irq_chip(void)
@@ -1047,6 +1036,13 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	/* request irq_pdmam */
 	ret = request_irq(irq_pdmam, pdma_int_handler, IRQF_DISABLED,"pdmam", dma);
 	if (ret)
+		goto release_iomap;
+
+	for(i = IRQ_MCU_GPIO0; i <= IRQ_MCU_GPIO5; i++)
+		irq_set_chip_and_handler(i, &nand_jzintc_chip, handle_simple_irq);
+
+	ret = mcu_gpio_register((unsigned int)MAILBOX_GPIO_PEND_ADDR0);
+	if(ret)
 		goto release_iomap;
 #endif
 	/* Initialize dma engine */

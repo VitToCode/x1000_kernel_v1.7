@@ -6,10 +6,8 @@
  * Copyright (C) 2012 Ingenic Semiconductor Co., Ltd.
  */
 
-#ifndef __JZ4780BCH_H__
-#define __JZ4780BCH_H__
-
-#define BCH_BASE	0x134D0000
+#ifndef __BCH_H__
+#define __BCH_H__
 
 /*************************************************************************
  * BCH
@@ -28,24 +26,6 @@
 #define BCH_INTEC	(BCH_BASE + 0x18C) /* BCH Interrupt Clear register */
 #define BCH_INTE	(BCH_BASE + 0x190) /* BCH Interrupt Enable register */
 #define BCH_TO		(BCH_BASE + 0x194) /* BCH User Tag Output register */
-
-#define REG_BCH_CR	REG32(BCH_CR)
-#define REG_BCH_CRS	REG32(BCH_CRS)
-#define REG_BCH_CRC	REG32(BCH_CRC)
-#define REG_BCH_CNT	REG32(BCH_CNT)
-#define REG_BCH_DR	REG8(BCH_DR)
-#define REG_BCH_DR8	REG8(BCH_DR)
-#define REG_BCH_DR16	REG16(BCH_DR)
-#define REG_BCH_DR32	REG32(BCH_DR)
-#define REG_BCH_PAR0	REG32(BCH_PAR0)
-#define REG_BCH_PAR(n)	REG32(BCH_PAR(n))
-#define REG_BCH_ERR0	REG32(BCH_ERR0)
-#define REG_BCH_ERR(n)	REG32(BCH_ERR(n))
-#define REG_BCH_INTS	REG32(BCH_INTS)
-#define REG_BCH_INTES	REG32(BCH_INTES)
-#define REG_BCH_INTEC	REG32(BCH_INTEC)
-#define REG_BCH_INTE	REG32(BCH_INTE)
-#define REG_BCH_TO	REG32(BCH_TO)
 
 /* BCH Control Register*/
 #define BCH_CR_TAG_BIT		16 /* BCH User-provided TAG */
@@ -118,77 +98,4 @@
 /* BCH User TAG OUTPUT Register */
 #define BCH_BHTO_TAGO_BIT	0
 #define BCH_BHTO_TAGO_MASK	(0xffff << BCH_TAGO_MASK)
-
-#ifndef __MIPS_ASSEMBLER
-
-/*************************************************************************
- * BCH INIT	n = BCH_BIT
- *************************************************************************/
-#define __bch_encoding(n)						\
-do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n);	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n));	\
-	REG_BCH_CRS = BCH_CR_INIT;					\
-} while(0)
-
-#define __bch_decoding(n)						\
-do {									\
-	REG_BCH_CRS = BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n);	\
-	REG_BCH_CRC = ~(BCH_CR_BSEL(n) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(n));	\
-	REG_BCH_CRS = BCH_CR_INIT;					\
-} while(0)
-
-#define __bch_encoding_4bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_4 | BCH_CR_ENCE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_decoding_4bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_4 | BCH_CR_DECE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_encoding_8bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_8 | BCH_CR_ENCE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_decoding_8bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_8 | BCH_CR_DECE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_encoding_24bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_24 | BCH_CR_ENCE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_decoding_24bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_24 | BCH_CR_DECE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_encoding_64bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_64 | BCH_CR_ENCE | BCH_CR_INIT | BCH_CR_BCHE)
-#define __bch_decoding_64bit() \
-	(REG_BCH_CR = BCH_CR_BSEL_64 | BCH_CR_DECE | BCH_CR_INIT | BCH_CR_BCHE)
-
-#define __bch_disable()		(REG_BCH_CRC = BCH_CR_BCHE)
-
-#if 0
-/* BCH common macro define */
-#define BCH_ENCODE		1
-#define BCH_DECODE		0
-
-#define __ecc_enable(encode, bit)			\
-do {							\
-	unsigned int tmp = BCH_CR_INIT | BCH_CR_BCHE;	\
-	if (encode)					\
-		tmp |= BCH_CR_ENCE;			\
-	tmp |= BCH_CR_BSEL(bit);			\
-	REG_BCH_CRS = tmp;				\
-	REG_BCH_CRC = ~tmp;				\
-} while (0)
-#endif
-
-#define __bch_encode_sync()	while (!(REG_BCH_INTS & BCH_INTS_ENCF))
-#define __bch_decode_sync()	while (!(REG_BCH_INTS & BCH_INTS_DECF))
-#define __bch_decode_sdmf()	while (!(REG_BCH_INTS & BCH_INTS_SDMF))
-
-#define __bch_ints_clear()	(REG_BCH_INTS = 0xff)
-#define __bch_encints_clear()	(REG_BCH_INTS |= BCH_INTS_ENCF)
-#define __bch_decints_clear()	(REG_BCH_INTS |= BCH_INTS_DECF)
-
-/* blk = ECC_BLOCK_SIZE, par = ECC_PARITY_SIZE */
-#define __bch_cnt_set(blk, par) \
-do { \
-	REG_BCH_CNT &= ~(BCH_CNT_PARITY_MASK | BCH_CNT_BLOCK_MASK); \
-	REG_BCH_CNT |= ((par) << BCH_CNT_PARITY_BIT | (blk) << BCH_CNT_BLOCK_BIT); \
-} while(0)
-
-#endif /* __MIPS_ASSEMBLER */
-
-#endif /* __JZ4780BCH_H__ */
-
+#endif /* __JZBCH_H__ */

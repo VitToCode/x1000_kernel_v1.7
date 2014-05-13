@@ -20,6 +20,7 @@ typedef struct __nand_io {
 	void *addrport;
 	transadaptor trans;
 	chip_info *cinfo;
+	const emc_nand_timing *timing;
 	unsigned int copy_context;
 } nand_io;
 
@@ -38,7 +39,7 @@ void pn_disable(int context)
 	io->base->writel(NEMC_PNCR, tmp);
 }
 
-void nemc_counter0_enable(int context)
+void nand_io_counter0_enable(int context)
 {
 	nand_io *io = (nand_io *)context;
 	unsigned int tmp = io->base->readl(NEMC_PNCR);
@@ -47,7 +48,7 @@ void nemc_counter0_enable(int context)
 	io->base->writel(NEMC_PNCR, tmp);
 }
 
-void nemc_counter1_enable(int context)
+void nand_io_counter1_enable(int context)
 {
 	nand_io *io = (nand_io *)context;
 	unsigned int tmp = io->base->readl(NEMC_PNCR);
@@ -56,14 +57,14 @@ void nemc_counter1_enable(int context)
 	io->base->writel(NEMC_PNCR, tmp);
 }
 
-unsigned int nemc_read_counter(int context)
+unsigned int nand_io_read_counter(int context)
 {
 	nand_io *io = (nand_io *)context;
 
 	return io->base->readl(NEMC_BITCNT);
 }
 
-void nemc_counter_disable(int context)
+void nand_io_counter_disable(int context)
 {
 	nand_io *io = (nand_io *)context;
 	unsigned int tmp = io->base->readl(NEMC_PNCR);
@@ -77,38 +78,37 @@ static inline void init_nandchip_smcr_n(nfi_base *base, unsigned int cs, unsigne
 
 static inline void nand_enable(nand_io *io, unsigned int cs)
 {
-	const nand_timing *ndtiming = io->cinfo ? io->cinfo->timing : NULL;
-
-	if(ndtiming)
-		ndd_ndelay(ndtiming->tALH);
-	else
-		ndd_ndelay(500); // 300ns
-
+	const emc_nand_timing *timing = io->timing;
+	ndd_ndelay(timing ? timing->tALH : 500);
 	io->base->writel(NEMC_NFCSR, (NEMC_NFCSR_NFE(cs) | NEMC_NFCSR_NFCE(cs)));
-
-	if(ndtiming)
-		ndd_ndelay(ndtiming->tCS);
-	else
-		ndd_ndelay(500); // 300ns
+	ndd_ndelay(timing ? timing->tCS : 500);
 }
 
 static void nand_disable(nand_io *io, unsigned int cs)
 {
-	const nand_timing *ndtiming = io->cinfo ? io->cinfo->timing : NULL;
-
-	if(ndtiming)
-		ndd_ndelay(ndtiming->tALH);
-	else
-		ndd_ndelay(500); // 300ns
-
+	const emc_nand_timing *timing = io->timing;
+	ndd_ndelay(timing ? timing->tALH : 500);
 	io->base->writel(NEMC_NFCSR, (NEMC_NFCSR_NFEC(cs) | NEMC_NFCSR_NFCEC(cs)));
 }
 
-static int nand_calc_smcr(nfi_base *base, chip_info *cinfo)
+static void setup_timing(nfi_base *base, int val)
 {
-	int smcr = 0;
-	int valume;
-	const nand_timing *timing = cinfo->timing;
+	int cs_index;
+
+	for(cs_index = 0; cs_index < CS_PER_NFI; cs_index++)
+		init_nandchip_smcr_n(base, cs_index, val);
+
+	ndd_debug("--NEMC_SMCR: value = 0x%08x \n", *(volatile unsigned int *)0xb3410014);
+}
+
+static void nand_io_setup_default(nfi_base *base)
+{
+	setup_timing(base, SMCR_DEFAULT_VAL);
+}
+
+static void nand_io_setup_optimize(nfi_base *base, const emc_nand_timing *timing, int buswidth)
+{
+	int valume, smcr = 0;
 	int cycle = 1000000000 / (base->rate / 1000);  //unit: ps
 
 	/* NEMC.TAS */
@@ -137,32 +137,12 @@ static int nand_calc_smcr(nfi_base *base, chip_info *cinfo)
 	valume = (timing->tRHW * 1000 + cycle - 1) / cycle;
 	smcr |= (valume & NEMC_SMCR_STRV_MASK) << NEMC_SMCR_STRV_BIT;
 
-	if (cinfo->buswidth == 16)
+	if (buswidth == 16)
 		smcr |= 1 << NEMC_SMCR_BW_BIT;
 
 	ndd_debug("INFO: tals=%d talh=%d twp=%d trp=%d smcr=0x%08x\n"
                         , timing->tALS, timing->tALH, timing->tWP, timing->tRP, smcr);
-	return smcr;
-}
 
-static void setup_timing(nfi_base *base, int val)
-{
-	int cs_index;
-
-	for(cs_index = 0; cs_index < CS_PER_NFI; cs_index++)
-		init_nandchip_smcr_n(base, cs_index, val);
-
-	ndd_debug("--NEMC_SMCR: value = 0x%08x \n", *(volatile unsigned int *)0xb3410014);
-}
-
-static void nand_io_setup_default(nfi_base *base)
-{
-	setup_timing(base, SMCR_DEFAULT_VAL);
-}
-
-static void nand_io_setup_optimize(nfi_base *base, chip_info *cinfo)
-{
-	int smcr = nand_calc_smcr(base, cinfo);
 	setup_timing(base, smcr);
 }
 
@@ -228,10 +208,12 @@ int nand_io_open(nfi_base *base, chip_info *cinfo)
 	nand_io_init(nandio->base);
 	if (cinfo) {
 		nandio->cinfo = cinfo;
-		nand_io_setup_optimize(nandio->base, nandio->cinfo);
+		nandio->timing = (const emc_nand_timing *)(cinfo->ops_timing.io_timing);
+		nand_io_setup_optimize(nandio->base, nandio->timing, cinfo->buswidth);
 	} else {
 		nandio->cinfo = NULL;
-		/*setup default 8bit buswidth, if you want to use 16bit, 
+		nandio->timing = NULL;
+		/*setup default 8bit buswidth, if you want to use 16bit,
 		  you should call <nand_io_setup_default_16bit> after <nand_io_open>*/
 		nand_io_setup_default(nandio->base);
 	}
@@ -341,6 +323,12 @@ int nand_io_receive_data(int context, unsigned char *dst, unsigned int len)
 	return 0;
 }
 
+int nand_io_send_waitcomplete(int context, chip_info *cinfo)
+{
+	ndd_ndelay(cinfo->ops_timing.tWC * 64);
+	return 0;
+}
+
 int nand_io_suspend(void)
 {
 	return 0;
@@ -349,4 +337,32 @@ int nand_io_suspend(void)
 int nand_io_resume(void)
 {
 	return 0;
+}
+
+char* nand_io_get_clk_name(void) {
+	return NAND_IO_CLK_NAME;
+}
+
+//------------------------------------------------------------------------------
+static void convert2opstiming(nand_ops_timing *ops_timing, const nand_timing *nandtiming) {
+	const emc_nand_timing *timing = &nandtiming->emc;
+#define assign(member) ops_timing->member = timing->member
+	assign(tRP);
+	assign(tWP);
+	assign(tWHR);
+	assign(tWHR2);
+	assign(tRR);
+	assign(tWB);
+	assign(tADL);
+	assign(tCWAW);
+	assign(tCS);
+	assign(tCLH);
+#undef assign
+	ops_timing->tWC = timing->tWP + timing->tALS + timing->tALH;
+	ops_timing->io_timing = (void *)timing;
+}
+
+void nand_controll_adpt(chip_info *cinfo, const nand_flash *ndflash) {
+	convert2opstiming(&cinfo->ops_timing, &ndflash->timing);
+	cinfo->ops_timing.io_etiming = &ndflash->nand_extra;
 }

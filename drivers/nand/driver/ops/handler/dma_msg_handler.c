@@ -189,7 +189,7 @@ static int mcu_init(nand_dma *nd_dma,Nand_Task *nandtask,int id)
 	nand_data *nd_data = nd_dma->data;
 	struct taskmsg_init *msg = nd_dma->msg_init;
 	chip_info *ndinfo = nd_data->cinfo;
-	const nand_timing *ndtime = ndinfo->timing;
+	nand_ops_timing *ndtime = &ndinfo->ops_timing;
 	unsigned int fcycle;
 	int i;
 	msg->ops.bits.type = MSG_MCU_INIT;
@@ -205,12 +205,12 @@ static int mcu_init(nand_dma *nd_dma,Nand_Task *nandtask,int id)
 	 *  firware has the same's clock as nemc's clock,which is AHB2.
 	 */
 	fcycle = 1000000000 / (nd_data->base->nfi.rate / 1000); // unit: ps
-	msg->info.twhr2 = (((ndtime->tWHR2 * 1000 + fcycle - 1) / fcycle) + 1);
-	msg->info.tcwaw = (((ndtime->tCWAW * 1000 + fcycle - 1) / fcycle) + 1);
-	msg->info.tadl = (((ndtime->tADL * 1000 + fcycle - 1) / fcycle) + 1);
-	msg->info.tcs = (((ndtime->tCS * 1000 + fcycle - 1) / fcycle) + 1);
-	msg->info.tclh= (((ndtime->tCLH * 1000 + fcycle - 1) / fcycle) + 1);
-	msg->info.tsync = ((((ndtime->tALS + ndtime->tALH + ndtime->tWP) * 64 * 1000 + fcycle - 1) / fcycle) + 1);
+	msg->info.twhr2 = ((ndtime->tWHR2 * 1000 + fcycle - 1) / fcycle) + 1;
+	msg->info.tcwaw = ((ndtime->tCWAW * 1000 + fcycle - 1) / fcycle) + 1;
+	msg->info.tadl = ((ndtime->tADL * 1000 + fcycle - 1) / fcycle) + 1;
+	msg->info.tcs = ((ndtime->tCS * 1000 + fcycle - 1) / fcycle) + 1;
+	msg->info.tclh= ((ndtime->tCLH * 1000 + fcycle - 1) / fcycle) + 1;
+	msg->info.tsync = ((ndtime->tWC * 64 * 1000 + fcycle - 1) / fcycle) + 1;
 
 //	msg->info.eccpos = ndinfo->eccpos;
 	msg->info.buswidth = ndinfo->buswidth;
@@ -373,4 +373,3 @@ void dma_msg_handle_deinit(int msghandler)
 	}
 	kfree(handler);
 }
-

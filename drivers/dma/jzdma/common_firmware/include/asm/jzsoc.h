@@ -18,17 +18,13 @@
 /*
  * SoC include
  */
-#include <asm/mach-jz4780/jz4780.h>
-
-/*
- * Generic I/O routines
- */
-#define readb(addr)	(*(volatile unsigned char *)(addr))
-#define readw(addr)	(*(volatile unsigned short *)(addr))
-#define readl(addr)	(*(volatile unsigned int *)(addr))
-
-#define writeb(b,addr)	((*(volatile unsigned char *)(addr)) = (b))
-#define writew(b,addr)	((*(volatile unsigned short *)(addr)) = (b))
-#define writel(b,addr)	((*(volatile unsigned int *)(addr)) = (b))
+#include <asm/mach/jz4780-base.h>
+//#include <asm/mach/jz4785-base.h>
+#include <asm/mach/gpio.h>
+#include <asm/mach/bch.h>
+#include <asm/mach/misc.h>
+#include <asm/mach/nemc.h>
+//#include <asm/mach/nfi.h>
+#include <asm/mach/pdma.h>
 
 #endif /* __ASM_JZSOC_H__ */

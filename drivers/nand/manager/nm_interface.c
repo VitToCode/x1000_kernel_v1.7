@@ -310,7 +310,7 @@ int NM_UpdateErrorPartition(NM_ppt *ppt)
 		return -1;
 	}
 
-	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_UPDATE_ERRPT, 0);
+	return NandManger_Ioctrl(nm_intf->handler, NANDMANAGER_UPDATE_ERRPT, (int)(ppt->pt));
 }
 
 int NM_PrepareNewFlash(int handler)

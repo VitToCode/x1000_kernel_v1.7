@@ -5,18 +5,19 @@
 #define __PDMA_H__
 #include "nand.h"
 #define PDMA_BCH_CHANNEL        0
-#define PDMA_NEMC_CHANNEL       1
+#define PDMA_IO_CHANNEL         1
 #define PDMA_DDR_CHANNEL        2
 #define PDMA_MSG_CHANNEL	3
 #define PDMA_MOVE_CHANNEL	4
 
 #define NEMC_TO_TCSM	(1 << 0)
 #define TCSM_TO_NEMC	(1 << 1)
-#define BCH_TO_TCSM		(1 << 2)
-#define TCSM_TO_BCH		(1 << 3)
-#define DDR_TO_TCSM		(1 << 4)
-#define TCSM_TO_DDR		(1 << 5)
+#define BCH_TO_TCSM	(1 << 2)
+#define TCSM_TO_BCH	(1 << 3)
+#define DDR_TO_TCSM	(1 << 4)
+#define TCSM_TO_DDR	(1 << 5)
 #define TCSM_TO_NEMC_FILL	(1 << 6)
+#define DMA_WAIT_FINISH       (1 << 16)
 
 /* the descriptor of pdma is defined*/
 #define DESC_DCM            0x00
@@ -66,17 +67,30 @@
 		__pdma_write_cp0((tmp & -2), 12, 0);         \
 	}while(0)
 
-void nemc_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
+void io_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
 		unsigned int trans_count, int mode);
-void bch_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
+void bch_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
 		unsigned int trans_count, int mode);
-void ddr_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
+void ddr_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
 		unsigned int trans_count, int mode, int channel);
 void pdma_channel_init(void);
 
-void pdma_nand_nemc_data(unsigned int src,unsigned int dest, unsigned int len, unsigned int direction);
-void pdma_nand_nemc_parity(unsigned int src, unsigned int dest, unsigned int len,unsigned int direction);
-void pdma_nand_ddr_data(unsigned int src,unsigned int dest,unsigned int len,unsigned int direction);
-void pdma_nand_movetaskmsg(unsigned int src_addr, unsigned int dest_addr, unsigned int len);
+#define pdma_nand_io_data(src,dest,len,direction)			\
+	do{								\
+		io_channel_dmastart((unsigned char *)src, (unsigned char *)dest, len, direction); \
+	}while(0)
 
+#define pdma_nand_io_parity(src,dest,len,direction)			\
+	do{								\
+		io_channel_dmastart((unsigned char *)src, (unsigned char *)dest, len, direction | DMA_WAIT_FINISH); \
+	}while(0)
+#define pdma_nand_ddr_data(src,dest,len,direction)			\
+	do {								\
+		ddr_channel_dmastart((unsigned char *)src,(unsigned char *)dest,len,direction,PDMA_DDR_CHANNEL); \
+	}while(0)
+
+#define pdma_nand_movetaskmsg(src, dest, len)				\
+	do{								\
+		ddr_channel_dmastart((unsigned char *)src,(unsigned char *)dest, len, DDR_TO_TCSM, PDMA_MOVE_CHANNEL); \
+	} while (0)
 #endif /* __PDMA_H__ */

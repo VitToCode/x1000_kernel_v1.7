@@ -6,98 +6,95 @@
 #include <pdma.h>
 #include <asm/jzsoc.h>
 
-__bank4 void nemc_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
+#define PDMA_BCH_DCMD (PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 | PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE)
+#define PDMA_IO_DCMD (PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 | PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE)
+#define PDMA_DDR_DCMD (PDMAC_DCMD_SAI | PDMAC_DCMD_DAI | PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 | PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE)
+
+void io_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
 		unsigned int trans_count, int mode)
 {
+	unsigned int dcmd = PDMA_IO_DCMD;
+	unsigned int direction = mode & 0xffff;
+	unsigned int wait = mode & DMA_WAIT_FINISH;
+
 	/* the count must be multiple of 4bytes,because of RDIL = 4bytes.*/
-	REG_PDMAC_DTC(PDMA_NEMC_CHANNEL) = (((trans_count + 3) >> 2) << 2);
-	REG_PDMAC_DRT(PDMA_NEMC_CHANNEL) = PDMAC_DRT_RT_AUTO;
-
-	if (mode & NEMC_TO_TCSM) {
-		REG_PDMAC_DSA(PDMA_NEMC_CHANNEL) = CPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(PDMA_NEMC_CHANNEL) = TPHYSADDR((u32)dest_addr);
-
-		REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) &= ~(PDMAC_DCMD_SID_MASK | PDMAC_DCMD_DID_MASK |
-				PDMAC_DCMD_SAI | PDMAC_DCMD_DAI);
-		REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) |= PDMAC_DCMD_SID_SPECIAL | PDMAC_DCMD_DID_TCSM |
-			PDMAC_DCMD_DAI;
+	REG32(PDMAC_DCCS(PDMA_IO_CHANNEL)) = 0;
+	REG32(PDMAC_DTC(PDMA_IO_CHANNEL)) = (((trans_count + 3) >> 2) << 2);
+	REG32(PDMAC_DRT(PDMA_IO_CHANNEL)) = PDMAC_DRT_RT_AUTO;
+	if(wait)
+		dcmd &= ~PDMAC_DCMD_TIE;
+	if (direction & NEMC_TO_TCSM) {
+		REG32(PDMAC_DSA(PDMA_IO_CHANNEL)) = CPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(PDMA_IO_CHANNEL)) = TPHYSADDR((u32)dest_addr);
+		dcmd |= PDMAC_DCMD_SID_SPECIAL | PDMAC_DCMD_DID_TCSM | PDMAC_DCMD_DAI;
 	} else { /* TCSM_TO_NEMC or TCSM_TO_NEMC_FILL */
-		REG_PDMAC_DSA(PDMA_NEMC_CHANNEL) = TPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(PDMA_NEMC_CHANNEL) = CPHYSADDR((u32)dest_addr);
-
-		REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) &= ~(PDMAC_DCMD_SID_MASK | PDMAC_DCMD_DID_MASK |
-				PDMAC_DCMD_SAI | PDMAC_DCMD_DAI);
-		if(mode & TCSM_TO_NEMC){ /* TCSM_TO_NEMC */
-			REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL |
-				PDMAC_DCMD_SAI;
+		REG32(PDMAC_DSA(PDMA_IO_CHANNEL)) = TPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(PDMA_IO_CHANNEL)) = CPHYSADDR((u32)dest_addr);
+		if(direction & TCSM_TO_NEMC){ /* TCSM_TO_NEMC */
+			dcmd |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL | PDMAC_DCMD_SAI;
 		}else
-			REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL;
+			dcmd |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL;
 	}
+	REG32(PDMAC_DCMD(PDMA_IO_CHANNEL)) = dcmd;
+	REG32(PDMAC_DCCS(PDMA_IO_CHANNEL)) = PDMAC_DCCS_NDES | PDMAC_DCCS_CTE;
+	while(wait && !(REG32(PDMAC_DCCS(PDMA_IO_CHANNEL)) & PDMAC_DCCS_TT));
 }
 
-__bank4 void bch_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
+void bch_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
 		unsigned int trans_count, int mode)
 {
+	unsigned int dcmd = PDMA_BCH_DCMD;
+	unsigned int direction = mode & 0xffff;
+	unsigned int wait = mode & DMA_WAIT_FINISH;
 	/* the count must be multiple of 4bytes,because of RDIL = 4bytes.*/
-	REG_PDMAC_DTC(PDMA_BCH_CHANNEL) = (((trans_count + 3) >> 2) << 2);
-	REG_PDMAC_DRT(PDMA_BCH_CHANNEL) = PDMAC_DRT_RT_AUTO;
-
-	if (mode & BCH_TO_TCSM) {
-		REG_PDMAC_DSA(PDMA_BCH_CHANNEL) = CPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(PDMA_BCH_CHANNEL) = TPHYSADDR((u32)dest_addr);
-
-		REG_PDMAC_DCMD(PDMA_BCH_CHANNEL) &= ~(PDMAC_DCMD_SID_MASK | PDMAC_DCMD_DID_MASK |
-				PDMAC_DCMD_SAI | PDMAC_DCMD_DAI);
-		REG_PDMAC_DCMD(PDMA_BCH_CHANNEL) |= PDMAC_DCMD_SID_SPECIAL | PDMAC_DCMD_DID_TCSM |
-			PDMAC_DCMD_SAI | PDMAC_DCMD_DAI;
+	REG32(PDMAC_DCCS(PDMA_BCH_CHANNEL)) = 0;
+	REG32(PDMAC_DTC(PDMA_BCH_CHANNEL)) = (((trans_count + 3) >> 2) << 2);
+	REG32(PDMAC_DRT(PDMA_BCH_CHANNEL)) = PDMAC_DRT_RT_AUTO;
+	if(wait)
+		dcmd &= ~PDMAC_DCMD_TIE;
+	if (direction & BCH_TO_TCSM) {
+		REG32(PDMAC_DSA(PDMA_BCH_CHANNEL)) = CPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(PDMA_BCH_CHANNEL)) = TPHYSADDR((u32)dest_addr);
+		dcmd |= PDMAC_DCMD_SID_SPECIAL | PDMAC_DCMD_DID_TCSM | PDMAC_DCMD_SAI | PDMAC_DCMD_DAI;
 	} else { /* TCSM_TO_BCH */
-		REG_PDMAC_DSA(PDMA_BCH_CHANNEL) = TPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(PDMA_BCH_CHANNEL) = CPHYSADDR((u32)dest_addr);
-
-		REG_PDMAC_DCMD(PDMA_BCH_CHANNEL) &= ~(PDMAC_DCMD_SID_MASK | PDMAC_DCMD_DID_MASK |
-				PDMAC_DCMD_SAI | PDMAC_DCMD_DAI);
-		REG_PDMAC_DCMD(PDMA_BCH_CHANNEL) |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL |
-			PDMAC_DCMD_SAI;
+		REG32(PDMAC_DSA(PDMA_BCH_CHANNEL)) = TPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(PDMA_BCH_CHANNEL)) = CPHYSADDR((u32)dest_addr);
+		dcmd |= PDMAC_DCMD_SID_TCSM | PDMAC_DCMD_DID_SPECIAL | PDMAC_DCMD_SAI;
 	}
+	REG32(PDMAC_DCMD(PDMA_BCH_CHANNEL)) = dcmd;
+	REG32(PDMAC_DCCS(PDMA_BCH_CHANNEL)) = PDMAC_DCCS_NDES | PDMAC_DCCS_CTE;
+	while(wait && !(REG32(PDMAC_DCCS(PDMA_BCH_CHANNEL)) & PDMAC_DCCS_TT));
 }
 
-__bank4 void ddr_channel_cfg(unsigned char *source_addr, unsigned char *dest_addr,
-		unsigned int trans_count, int mode, int channel)
+void ddr_channel_dmastart(unsigned char *source_addr, unsigned char *dest_addr,
+				  unsigned int trans_count, int mode, int channel)
 {
 	/* the count must be multiple of 4bytes,because of RDIL = 4bytes.*/
-	REG_PDMAC_DTC(channel) = (((trans_count + 3) >> 2) << 2);
-	REG_PDMAC_DRT(channel) = PDMAC_DRT_RT_AUTO;
-
-	if (mode & DDR_TO_TCSM) {
-		REG_PDMAC_DSA(channel) = CPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(channel) = TPHYSADDR((u32)dest_addr);
+	unsigned int dcmd = PDMA_DDR_DCMD;
+	unsigned int direction = mode & 0xffff;
+	REG32(PDMAC_DCCS(channel)) = 0;
+	REG32(PDMAC_DTC(channel)) = (((trans_count + 3) >> 2) << 2);
+	REG32(PDMAC_DRT(channel)) = PDMAC_DRT_RT_AUTO;
+	if (direction & DDR_TO_TCSM) {
+		REG32(PDMAC_DSA(channel)) = CPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(channel)) = TPHYSADDR((u32)dest_addr);
 	} else { /* TCSM_TO_DDR */
-		REG_PDMAC_DSA(channel) = TPHYSADDR((u32)source_addr);
-		REG_PDMAC_DTA(channel) = CPHYSADDR((u32)dest_addr);
+		REG32(PDMAC_DSA(channel)) = TPHYSADDR((u32)source_addr);
+		REG32(PDMAC_DTA(channel)) = CPHYSADDR((u32)dest_addr);
 	}
+	REG32(PDMAC_DCMD(channel)) = dcmd;
+	REG32(PDMAC_DCCS(channel)) = PDMAC_DCCS_NDES | PDMAC_DCCS_CTE;
 }
 
-__bank5  void pdma_channel_init(void)
+
+void pdma_channel_init(void)
 {
 	/* Enable Special Channel 0 and Channel 1 */
-	REG_PDMAC_DMAC |= PDMAC_DMAC_CH01;
+	REG32(PDMAC_DMAC) |= PDMAC_DMAC_CH01;
 
-	REG_PDMAC_DCCS(PDMA_DDR_CHANNEL) |= PDMAC_DCCS_NDES;
-	REG_PDMAC_DCCS(PDMA_MOVE_CHANNEL) |= PDMAC_DCCS_NDES;
+	REG32(PDMAC_DCCS(PDMA_DDR_CHANNEL)) |= PDMAC_DCCS_NDES;
+	REG32(PDMAC_DCCS(PDMA_MOVE_CHANNEL)) |= PDMAC_DCCS_NDES;
 
-	__pdmac_channel_programmable_set(PDMA_NEMC_CHANNEL);
-	__pdmac_channel_programmable_set(PDMA_BCH_CHANNEL);
-	__pdmac_channel_programmable_set(PDMA_DDR_CHANNEL);
-	__pdmac_channel_programmable_set(PDMA_MOVE_CHANNEL);
-
-	REG_PDMAC_DCMD(PDMA_NEMC_CHANNEL) = PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 |
-		PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE;
-	REG_PDMAC_DCMD(PDMA_BCH_CHANNEL) = PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 |
-		PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE;
-	REG_PDMAC_DCMD(PDMA_DDR_CHANNEL) = PDMAC_DCMD_SAI | PDMAC_DCMD_DAI |
-		PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 |
-		PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE;
-	REG_PDMAC_DCMD(PDMA_MOVE_CHANNEL) = PDMAC_DCMD_SAI | PDMAC_DCMD_DAI |
-		PDMAC_DCMD_SWDH_32 | PDMAC_DCMD_DWDH_32 |
-		PDMAC_DCMD_TSZ_AUTO | PDMAC_DCMD_TIE | PDMAC_DCMD_RDIL_4BYTE;
+	REG32(PDMAC_DMACP) |= ((1 << PDMA_IO_CHANNEL) | (1 << PDMA_BCH_CHANNEL) |
+			       (1 << PDMA_DDR_CHANNEL) | ( 1 << PDMA_MOVE_CHANNEL));
 }

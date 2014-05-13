@@ -5,10 +5,8 @@
  *
  * Copyright (C) 2010 Ingenic Semiconductor Co., Ltd.
  */
-#ifndef __JZ4780PDMAC_H__
-#define __JZ4780PDMAC_H__
-
-#define PDMAC_BASE	0x13420000
+#ifndef __PDMAC_H__
+#define __PDMAC_H__
 
 #define MAX_DMA_NUM	32  /* max 32 channels */
 
@@ -43,7 +41,7 @@
 #define PDMAC_DMNMB	(PDMAC_BASE + 0x1034) /* DMA MCU Normal Mailbox */
 #define PDMAC_DMSMB	(PDMAC_BASE + 0x1038) /* DMA MCU Security Mailbox */
 #define PDMAC_DMINT	(PDMAC_BASE + 0x103C) /* DMA MCU Interrupt */
-
+#if 0
 #define REG_PDMAC_DSA(n)	REG32(PDMAC_DSA(n))
 #define REG_PDMAC_DTA(n)	REG32(PDMAC_DTA(n))
 #define REG_PDMAC_DTC(n)	REG32(PDMAC_DTC(n))
@@ -68,7 +66,7 @@
 #define REG_PDMAC_DMNMB		REG32(PDMAC_DMNMB)
 #define REG_PDMAC_DMSMB		REG32(PDMAC_DMSMB)
 #define REG_PDMAC_DMINT		REG32(PDMAC_DMINT)
-
+#endif
 /* DMA Transfer Count */
 #define PDMAC_DTC_TC_BIT	0
 #define PDMAC_DTC_TC_MAKS	(0x7fffff << PDMAC_DTC_TC_BIT)
@@ -83,36 +81,6 @@
 #define PDMAC_DRT_RT_I2S0IN	(0x07 << PDMAC_DRT_RT_BIT)
 #define PDMAC_DRT_RT_AUTO	(0x08 << PDMAC_DRT_RT_BIT)
 #define PDMAC_DRT_RT_SADCIN	(0x09 << PDMAC_DRT_RT_BIT)
-#if 0
-/* 10 ~ 11 is reserved */
-#define PDMAC_DRSR_RS_EXTERN	(12 << PDMAC_DRT_RT_BIT)
-/* 13 is reserved */
-#define PDMAC_DRSR_RS_UART3OUT	(14 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART3IN	(15 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART2OUT	(16 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART2IN	(17 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART1OUT	(18 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART1IN	(19 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART0OUT	(20 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_UART0IN	(21 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_SSI0OUT	(22 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_SSI0IN	(23 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_AICOUT	(24 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_AICIN	(25 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC0OUT	(26 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC0IN	(27 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_TCU	(28 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_SADC	(29 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC1OUT	(30 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC1IN	(31 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_SSI1OUT	(32 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_SSI1IN	(33 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_PM0OUT	(34 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_PM0IN	(35 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC2OUT	(36 << PDMAC_DRT_RT_BIT)
-#define PDMAC_DRSR_RS_MSC2IN	(37 << PDMAC_DRT_RT_BIT)
-/* others are reserved */
-#endif
 
 /* DMA Channel Control/Status Register */
 #define PDMAC_DCCS_NDES		(1 << 31) /* Descriptor or No-Descriptor Transfer Select (0 : 1) */
@@ -232,7 +200,7 @@
 #define PDMAC_DMCS_SCOFF_BIT	8
 #define PDMAC_DMCS_SCOFF_MASK	(0xffff << PDMAC_DMCS_SCOFF_BIT)
 #define PDMAC_DMCS_BCH_DB	(1 << 7) /* Block Syndrome of BCH Decoding */
-#define PDMAC_DMCS_BCH_DF	(1 << 6) /* BCH Decoding finished */ 
+#define PDMAC_DMCS_BCH_DF	(1 << 6) /* BCH Decoding finished */
 #define PDMAC_DMCS_BCH_EF	(1 << 5) /* BCH Encoding finished */
 #define PDMAC_DMCS_BTB_INV	(1 << 4) /* Invalidates BTB in MCU */
 #define PDMAC_DMCS_SC_CALL	(1 << 3) /* SecurityCall */
@@ -245,41 +213,21 @@
 /* [15:2] reserved */
 #define PDMAC_DMINT_S_IMSK	(1 << 1) /* Security Mailbox IRQ mask */
 #define PDMAC_DMINT_N_IMSK	(1 << 0) /* Normal Mailbox IRQ mask */
-
+#if 0
 #ifndef __MIPS_ASSEMBLER
 /***************************************************************************
  * PDMAC
  ***************************************************************************/
 
+
 #define __pdmac_enable()	(REG_PDMAC_DMAC |= PDMAC_DMAC_DMAE)
 #define __pdmac_disable()	(REG_PDMAC_DMAC &= ~PDMAC_DMAC_DMAE)
 
 /* m is the DMA controller index (0, 1), n is the DMA channel index (0 - 11) */
-#if 0
-#define __dmac_enable_module()	(REG_PDMAC_PDMACR() |= PDMAC_PDMACR_DMAE | PDMAC_PDMACR_PR_012345)
-#define __dmac_disable_module(m)			\
-	( REG_PDMAC_PDMACR(m) &= ~PDMAC_PDMACR_DMAE )
-
-/* p=0,1,2,3 */
-#define __dmac_set_priority(m,p)					\
-	do {								\
-		REG_PDMAC_PDMACR(m) &= ~PDMAC_PDMACR_PR_MASK;		\
-		REG_PDMAC_PDMACR(m) |= ((p) << PDMAC_PDMACR_PR_BIT);	\
-	} while (0)
-#endif
 
 #define __pdmac_check_halt_error() (REG_PDMAC_DMAC & PDMAC_DMAC_HLT)
 #define __pdmac_check_addr_error() (REG_PDMAC_DMAC & PDMAC_DMAC_AR)
 
-#if 0
-#define __dmac_channel_enable_clk(n)					\
-	REG_PDMAC_PDMACKE((n)/HALF_DMA_NUM) |= 1 << ((n)-(n)/HALF_DMA_NUM*HALF_DMA_NUM);
-
-#define __dmac_enable_descriptor(n)			\
-	( REG_PDMAC_DCCSR((n)) &= ~PDMAC_DCCSR_NDES )
-#define __dmac_disable_descriptor(n)			\
-	( REG_PDMAC_DCCSR((n)) |= PDMAC_DCCSR_NDES )
-#endif
 
 #define __pdmac_channel_enable(n)		(REG_PDMAC_DCCS(n) |= PDMAC_DCCS_CTE)
 #define __pdmac_channel_disable(n)		(REG_PDMAC_DCCS(n) &= ~PDMAC_DCCS_CTE)
@@ -290,108 +238,12 @@
 #define __pdmac_channel_irq_enable(n)		(REG_PDMAC_DCMD(n) |= PDMAC_DCMD_TIE)
 #define __pdmac_channel_irq_disable(n)		(REG_PDMAC_DCMD(n) &= ~PDMAC_DCMD_TIE)
 
-#if 0
-#define __dmac_channel_enable_irq(n)		\
-	( REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_TIE )
-#define __dmac_channel_disable_irq(n)			\
-	( REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_TIE )
-#endif
 
 #define __pdmac_channel_halt_detected(n)	(REG_PDMAC_DCCS(n) & PDMAC_DCCS_HLT)
 #define __pdmac_channel_end_detected(n)		(REG_PDMAC_DCCS(n) & PDMAC_DCCS_TT)
 #define __pdmac_channel_address_error_detected(n)	\
-		(REG_PDMAC_DCCS(n) & PDMAC_DCCS_AR)
+	(REG_PDMAC_DCCS(n) & PDMAC_DCCS_AR)
 
-#if 0
-#define __dmac_channel_clear_transmit_halt(n)				\
-	do {								\
-		/* clear both channel halt error and globle halt error */ \
-		REG_PDMAC_DCCSR(n) &= ~PDMAC_DCCSR_HLT;			\
-		REG_PDMAC_PDMACR(n/HALF_DMA_NUM) &= ~PDMAC_PDMACR_HLT;	\
-	} while (0)
-#define __dmac_channel_clear_transmit_end(n)		\
-	(  REG_PDMAC_DCCSR(n) &= ~PDMAC_DCCSR_TT )
-#define __dmac_channel_clear_address_error(n)				\
-	do {								\
-		REG_PDMAC_DDA(n) = 0; /* clear descriptor address register */ \
-		REG_PDMAC_DSAR(n) = 0; /* clear source address register */ \
-		REG_PDMAC_DTAR(n) = 0; /* clear target address register */ \
-		/* clear both channel addr error and globle address error */ \
-		REG_PDMAC_DCCSR(n) &= ~PDMAC_DCCSR_AR;			\
-		REG_PDMAC_PDMACR(n/HALF_DMA_NUM) &= ~PDMAC_PDMACR_AR;	\
-	} while (0)
-#define __dmac_channel_clear_count_terminated(n)	\
-	(  REG_PDMAC_DCCSR((n)) &= ~PDMAC_DCCSR_CT )
-#define __dmac_channel_clear_descriptor_invalid(n)	\
-	(  REG_PDMAC_DCCSR((n)) &= ~PDMAC_DCCSR_INV )
-
-#define __dmac_channel_set_transfer_unit_32bit(n)		\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DS_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DS_32BIT;	\
-	} while (0)
-
-#define __dmac_channel_set_transfer_unit_16bit(n)		\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DS_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DS_16BIT;	\
-	} while (0)
-
-#define __dmac_channel_set_transfer_unit_8bit(n)		\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DS_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DS_8BIT;	\
-	} while (0)
-
-#define __dmac_channel_set_transfer_unit_16byte(n)		\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DS_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DS_16BYTE;	\
-	} while (0)
-
-#define __dmac_channel_set_transfer_unit_32byte(n)		\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DS_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DS_32BYTE;	\
-	} while (0)
-
-/* w=8,16,32 */
-#define __dmac_channel_set_dest_port_width(n,w)			\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DWDH_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DWDH_##w;	\
-	} while (0)
-
-/* w=8,16,32 */
-#define __dmac_channel_set_src_port_width(n,w)			\
-	do {							\
-		REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_SWDH_MASK;	\
-		REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_SWDH_##w;	\
-	} while (0)
-
-/* v=0-15 */
-#define __dmac_channel_set_rdil(n,v)				\
-	do {							\
-	REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_RDIL_MASK;		\
-	REG_PDMAC_DCMD((n) |= ((v) << PDMAC_DCMD_RDIL_BIT));	\
-} while (0)
-
-#define __dmac_channel_dest_addr_fixed(n)		\
-	(  REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_DAI )
-#define __dmac_channel_dest_addr_increment(n)		\
-	(  REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_DAI )
-
-#define __dmac_channel_src_addr_fixed(n)		\
-	(  REG_PDMAC_DCMD((n)) &= ~PDMAC_DCMD_SAI )
-#define __dmac_channel_src_addr_increment(n)		\
-	(  REG_PDMAC_DCMD((n)) |= PDMAC_DCMD_SAI )
-
-#define __dmac_channel_set_doorbell(n)					\
-	(  REG_PDMAC_DMADBSR((n)/HALF_DMA_NUM) = (1 << ((n)-(n)/HALF_DMA_NUM*HALF_DMA_NUM)) )
-
-#define __dmac_channel_irq_detected(n)  ( REG_PDMAC_DMAIPR((n)/HALF_DMA_NUM) & (1 << ((n)-(n)/HALF_DMA_NUM*HALF_DMA_NUM)) )
-#define __dmac_channel_ack_irq(n)       ( REG_PDMAC_DMAIPR((n)/HALF_DMA_NUM) &= ~(1 <<((n)-(n)/HALF_DMA_NUM*HALF_DMA_NUM)) )
-#endif
 
 #define __pdmac_channel_priv_irq_set(n)		(REG_PDMAC_DCIRQM = ~(1 << (n)))
 #define __pdmac_channel_priv_irq_add(n)		(REG_PDMAC_DCIRQM &= ~(1 << (n)))
@@ -429,18 +281,8 @@
 
 #define __pdmac_msmb_send(n)		(REG_PDMAC_DMSMB = (n))
 #define __pdmac_msmb_clear()		(REG_PDMAC_DMSMB = 0)
-
-#if 0
-static __inline__ int __dmac_get_irq(void)
-{
-	int i;
-	for (i = 0; i < MAX_DMA_NUM; i++)
-		if (__dmac_channel_irq_detected(i))
-			return i;
-	return -1;
-}
 #endif
 
 #endif /* __MIPS_ASSEMBLER */
 
-#endif /* __JZ4780PDMAC_H__ */
+#endif /* __PDMAC_H__ */

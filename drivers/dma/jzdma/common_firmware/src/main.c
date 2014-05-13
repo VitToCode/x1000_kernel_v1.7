@@ -9,16 +9,14 @@
 #include <asm/jzsoc.h>
 
 
-static __bank5 noinline void mcu_init(void)
+static noinline void mcu_init(void)
 {
-	__pdmac_mnmb_clear();
-	__pdmac_msmb_clear();
-
 	/* clear mailbox irq pending */
-	__pdmac_mmb_irq_clear();
-	__pdmac_mnmb_unmask();
+	REG32(PDMAC_DMNMB) = 0;
+	REG32(PDMAC_DMSMB) = 0;
+	REG32(PDMAC_DMINT) = PDMAC_DMINT_S_IMSK;
 	/* clear irq mask for channel irq */
-	__pdmac_channel_irq_unmask();
+	REG32(PDMAC_DCIRQM) = 0;
 }
 
 struct nand_mcu_ops mcu_ops;
@@ -122,4 +120,3 @@ int main(void)
 	}
 	return 0;
 }
-

@@ -12,9 +12,9 @@
 #endif
 
 #define __bank4		__section(.tcsm_bank4_1)
-#define __bank5		__section(.tcsm_bank5_1)
-#define __bank6		__section(.tcsm_bank6_1)
-#define __bank7		__section(.tcsm_bank7_1)
+//#define __bank5		__section(.tcsm_bank5_1)
+//#define __bank6		__section(.tcsm_bank6_1)
+//#define __bank7		__section(.tcsm_bank7_1)
 
 #define TCSM_BANK0	0xF4000000
 #define TCSM_BANK1	0xF4000800

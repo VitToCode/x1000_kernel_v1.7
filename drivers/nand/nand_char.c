@@ -28,6 +28,7 @@ static struct __nand_char {
 	NM_ppt *pptl;
 } nand_char;
 
+extern unsigned int get_nandflash_maxvalidblocks(void);
 static int update_error_pt(NM_ppt *ppt)
 {
 	return NM_UpdateErrorPartition(ppt);
@@ -204,6 +205,29 @@ static long nand_char_unlocked_ioctl(struct file *fd, unsigned int cmd, unsigned
 		if (ret)
 			printk("%s: line:%d, update error partition error, ret = %d\n",
 				   __func__, __LINE__, ret);
+		break;
+	}
+	case CMD_GET_NANDFLASH_MAXVALIDBLCOKS: {
+		ret = get_nandflash_maxvalidblocks();
+		return ret;
+	}
+	case CMD_SET_SPL_SIZE: {
+		int spl_size;
+		int context;
+		NM_lpt *lpt = NULL;
+
+		ret = copy_from_user(&spl_size, (unsigned char *)arg, sizeof(int));
+		if(!ret){
+			lpt = singlelist_entry(&nand_char.lptl->list, NM_lpt, list);
+			if ((context = NM_ptOpen(nand_char.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
+				printk("can not open NM %s, mode = %d\n", lpt->pt->name, lpt->pt->mode);
+				return -1;
+			}
+			NM_ptIoctrl(context, NANDMANAGER_SET_XBOOT_OFFSET, spl_size);
+
+			NM_ptClose(context);
+		}else
+			printk("nand_char_driver: copy_from_user error!\n");
 		break;
 	}
 	default:

@@ -17,6 +17,9 @@
 
 #include <nand_api.h>
 
+#include <nand_io.h>
+#include <nand_bch.h>
+
 #define USE_EDGE_IRQ
 
 struct nand_api_osdependent ndd_private;
@@ -137,9 +140,13 @@ static void ndd_wp_disable(int gpio)
 
 static void ndd_clear_rb_state(rb_item *rbitem)
 {
-	if (try_wait_for_completion((struct completion *)rbitem->irq_private))
+	struct completion *rb_comp = (struct completion *)rbitem->irq_private;
+
+	if (try_wait_for_completion(rb_comp)) {
 		printk("WARNING: nand driver has an unprocess rb! irq = %d, gpio = %d\n",
 		       rbitem->irq, rbitem->gpio);
+		init_completion(rb_comp);
+	}
 }
 
 static int ndd_wait_rb_timeout(rb_item *rbitem, int timeout)
@@ -150,7 +157,7 @@ static int ndd_wait_rb_timeout(rb_item *rbitem, int timeout)
 		ret = wait_for_completion_timeout((struct completion *)rbitem->irq_private,
 						  (msecs_to_jiffies(timeout)));
 		if (ret == 0){
-			printk("nand_driver.c[%s]: wait rb timeout!\n ",__func__);
+			printk("nand_driver.c[%s]: wait rb timeout! rb_comp = %p\n ",__func__, rbitem->irq_private);
 			ret = -1;
 		}else
 			ret = 0;
@@ -272,11 +279,22 @@ static irqreturn_t nand_waitrb_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int gpio_irq_request(unsigned short gpio, unsigned short *irq, int rbcomp)
+static int gpio_irq_request(unsigned short gpio, unsigned short *irq, void **irq_private)
 {
 	int ret;
 	char *name_gpio, *name_irq;
-	struct completion *rb_comp = (struct completion *)rbcomp;
+	//struct completion *rb_comp = (struct completion *)rbcomp;
+	struct completion *rb_comp;
+
+	rb_comp = kmalloc(sizeof(struct completion), GFP_KERNEL);
+	if (!rb_comp)
+		return -1;
+
+	/* init rb complition */
+	init_completion(rb_comp);
+
+	/* init irq_private */
+	*irq_private = (void *)rb_comp;
 
 	/* request gpio */
 	name_gpio = vmalloc(32);
@@ -308,9 +326,8 @@ static int gpio_irq_request(unsigned short gpio, unsigned short *irq, int rbcomp
 		return ret;
 	}
 
-	/* init rb complition */
-	init_completion(rb_comp);
-	//printk("\t request rb irq: gpio = [%d], irq = [%d], comp = [%p]\n", gpio, *irq, rb_comp);
+	//printk("\t request rb irq: gpio = [%d], irq = [%d], comp = [%p], irq_private = %p\n",
+	//       gpio, *irq, rb_comp, *irq_private);
 
 #ifndef USE_EDGE_IRQ
 	while (ignore_irqs) {
@@ -413,7 +430,8 @@ static inline int get_devices_clk(struct device	*dev, io_base *base)
 	bch_base *bch = &(base->bch);
 
 	/* get nfi clk */
-	nfi->gate = clk_get(dev, "nemc");
+
+	nfi->gate = clk_get(dev, nand_io_get_clk_name());
 	if (IS_ERR(nfi->gate)) {
 		printk("ERROR: get nfi gate clk error!\n");
 		return -1;
@@ -430,12 +448,12 @@ static inline int get_devices_clk(struct device	*dev, io_base *base)
 	}
 
 	/* get bch clk */
-	bch->gate = clk_get(dev, "bch");
+	bch->gate = clk_get(dev,nand_bch_get_clk_name());
 	if (IS_ERR(bch->gate)) {
 		printk("ERROR: get bch gate clk error!\n");
 		return -1;
 	}
-	bch->clk = clk_get(dev, "cgu_bch");
+	bch->clk = clk_get(dev, nand_bch_get_cgu_clk_name());
 	if (IS_ERR(bch->clk)) {
 		printk("ERROR: get bch clk error!\n");
 		return -1;
@@ -498,35 +516,147 @@ static int ndd_gpio_request(unsigned int gpio, const char *lable)
 	}
 	return ret;
 }
-static rb_info *get_rbinfo_memory(void)
-{
-	rb_info *rbinfo = NULL;
-	unsigned char *rb_comp_base;
-	int i = 0;
-	rbinfo = kzalloc(sizeof(rb_info) +
-				     sizeof(rb_item) * CS_PER_NFI +
-				     sizeof(struct completion) * CS_PER_NFI,
-				     GFP_KERNEL);
-	if(rbinfo){
-		rbinfo->rbinfo_table = (rb_item *)((unsigned char *)rbinfo + sizeof(rb_info));
-		rb_comp_base = (unsigned char *)rbinfo->rbinfo_table + sizeof(rb_item) * CS_PER_NFI;
-		for (i = 0; i < CS_PER_NFI; i++)
-			rbinfo->rbinfo_table[i].irq_private = rb_comp_base + sizeof(struct completion) * i;
-	}
-	return rbinfo;
-}
-static void abandon_rbinfo_memory(rb_info *rbinfo)
-{
-	kfree(rbinfo);
-}
+
 /* ############################################################################################ *\
  * nand driver main functions
 \* ############################################################################################ */
+struct driver_attribute ndd_attr;
+static ssize_t ndd_show(struct device_driver *driver, char *buf)
+{
+	int ret;
+	nand_flash_id id;
+	int count = sizeof(nand_flash_id);
+
+	ret = nand_api_get_nandflash_id(&id);
+	if (ret) {
+		printk("ERROR: %s, get nandflash id failed!\n", __func__);
+		return 0;
+	}
+	memcpy(buf, &id, count);
+	printk("%s, id = %x, extid = %x\n", __func__, id.id, id.extid);
+	return count;
+}
+
+/**
+ *	     +=============+=======================+
+ *  buf:     |   buf_head  |         args          |
+ *	     +=============+=======================+
+ *           +-----------+-----------+-------------+
+ * buf_head: |	 MAGIC	 |   nf_off  |	   ... 	   |
+ *	     +-----------+-----------+-------------+
+ *           +-----------+-------------------------+
+ * nf_buf:   |   MAGIC   |        nandflash        |
+ *	     +-----------+-------------------------+
+ *           +-----------+-----------+-------------+
+ * rb_buf:   |   MAGIC   |  RB_COUNT |   rb_table  |
+ *	     +-----------+-----------+-------------+
+ *           +-----------+-----------+-------------+
+ * pt_buf:   |   MAGIC   |  PT_COUNT |   pt_table  |
+ *	     +-----------+-----------+-------------+
+ *           |-> 4Byte ->|-> 4Byte ->|<- ... ... ->|
+ **/
+static ssize_t ndd_store(struct device_driver *driver, const char *buf, size_t count)
+{
+#define MAGIC_SIZE	sizeof(int)
+#define PTCOUNT_SIZE	4
+#define RBCOUNT_SIZE	4
+	int ret;
+	int totalrbs, ptcount;
+	const char *nf_buf, *rb_buf, *pt_buf, *wp_buf, *ds_buf, *em_buf;
+	struct nand_api_platdependent *platdep;
+	struct buf_head {
+		int magic; // NAND_MAGIC
+		int nf_off; // nf_buf offset, nand_flash
+		int rb_off; // rb_buf offset, rb_info
+		int pt_off; // pt_buf offset, plat_ptinfo
+		int wp_off; // wp_buf offset, gpio_wp
+		int ds_off; // ds_buf offset, drv_strength
+		int em_off; // em_buf offset, erasemode
+	} *bhead;
+
+	/* get buf_head */
+	bhead = (struct buf_head *)buf;
+	if (bhead->magic != NAND_MAGIC) {
+		printk("ERROR: %s maigc error, maigic is [%08x], need [%08x]\n", __func__, bhead->magic, NAND_MAGIC);
+		goto err;
+	}
+
+	/* check magic */
+	nf_buf = buf + bhead->nf_off;
+	rb_buf = buf + bhead->rb_off;
+	pt_buf = buf + bhead->pt_off;
+	wp_buf = buf + bhead->wp_off;
+	ds_buf = buf + bhead->ds_off;
+	em_buf = buf + bhead->em_off;
+	if ((*((int *)nf_buf) != NAND_MAGIC) || (*((int *)rb_buf) != NAND_MAGIC) ||
+	    (*((int *)pt_buf) != NAND_MAGIC) || (*((int *)wp_buf) != NAND_MAGIC) ||
+	    (*((int *)ds_buf) != NAND_MAGIC) || (*((int *)em_buf) != NAND_MAGIC)) {
+		printk("ERROR: %s check magic error! NAND_MAGIC = [%08x]\n"
+		       "nand_flash magic = [%08x]\nrb_info magic = [%08x]\n"
+		       "plat_ptinfo magic = [%08x]\ngpio_wp magic = [%08x]\n"
+		       "drv_strength magic = [%08x]\nerasemode magic = [%08x]\n",
+		       __func__, NAND_MAGIC, *(int *)nf_buf, *(int *)rb_buf,
+		       *(int *)pt_buf, *(int *)wp_buf, *(int *)ds_buf, *(int *)em_buf);
+		goto err;
+	}
+
+	/* get rbcount, get pcount*/
+	totalrbs = *((unsigned short *)(rb_buf + MAGIC_SIZE));
+	ptcount = *((unsigned short *)(pt_buf + MAGIC_SIZE));
+	if (((totalrbs < 0) || (totalrbs > MAX_RB_COUNT)) || ((ptcount < 0) || (ptcount > MAX_PT_COUNT))) {
+		printk("ERROR: %s totalrbs or ptcount out of limit, bs = [%d], pts = [%d]",
+		       __func__, totalrbs, ptcount);
+		goto err;
+	}
+
+	/* allock buf for platdep */
+	platdep = kmalloc(sizeof(struct nand_api_platdependent) + sizeof(nand_flash) +
+			  sizeof(rb_info) + totalrbs * sizeof(rb_item) + sizeof(plat_ptinfo) +
+			  ptcount * sizeof(plat_ptitem),  GFP_KERNEL);
+	if (!platdep) {
+		printk("ERROR: %s get platdep memory error!\n", __func__);
+		goto err;
+	} else {
+		char *mem = (char *)platdep;
+		mem += sizeof(struct nand_api_platdependent); platdep->nandflash = (nand_flash *)mem;
+		mem += sizeof(nand_flash); platdep->rbinfo = (rb_info *)mem;
+		mem += sizeof(rb_info);	platdep->rbinfo->rbinfo_table = (rb_item *)mem;
+		mem += totalrbs * sizeof(rb_item); platdep->platptinfo = (plat_ptinfo *)mem;
+		mem += sizeof(plat_ptinfo); platdep->platptinfo->pt_table = (plat_ptitem *)mem;
+	}
+
+	/* get nandflash */
+	memcpy(platdep->nandflash, (nf_buf + MAGIC_SIZE), sizeof(nand_flash));
+
+	/* get rbinfo */
+	platdep->rbinfo->totalrbs = totalrbs;
+	memcpy(platdep->rbinfo->rbinfo_table, rb_buf + MAGIC_SIZE + RBCOUNT_SIZE, totalrbs * sizeof(rb_item));
+
+	/* get platptinfo */
+	platdep->platptinfo->ptcount = ptcount;
+	memcpy(platdep->platptinfo->pt_table, pt_buf + MAGIC_SIZE + PTCOUNT_SIZE, ptcount * sizeof(plat_ptitem));
+
+	/* get gpio_wp */
+	platdep->gpio_wp = *((int *)(wp_buf + MAGIC_SIZE));
+
+	/* get drv_strength */
+	platdep->drv_strength = *((int*)(ds_buf + MAGIC_SIZE));
+
+	/* get erasemode */
+	platdep->erasemode = *((int *)(em_buf + MAGIC_SIZE));
+
+	ret = nand_api_reinit(platdep);
+	if (ret) {
+		printk("ERROR: %s nand_api_reinit error!\n", __func__);
+		goto err;
+	}
+err:
+	return count;
+}
+
 static int nand_probe(struct platform_device *pdev)
 {
 	int ret;
-
-	ndd_private.rbinfo = NULL;
 
 	/* alloc memory for io_base and fill nand base */
 	ndd_private.base = kzalloc(sizeof(io_base), GFP_KERNEL);
@@ -545,9 +675,6 @@ static int nand_probe(struct platform_device *pdev)
 	ndd_private.try_wait_rb = ndd_try_wait_rb;
 	ndd_private.gpio_irq_request = gpio_irq_request;
 	ndd_private.ndd_gpio_request = ndd_gpio_request;
-	ndd_private.get_rbinfo_memory = get_rbinfo_memory;
-	ndd_private.abandon_rbinfo_memory = abandon_rbinfo_memory;
-	ndd_private.get_nand_flash = NULL;
 	/* clib */
 	ndd_private.clib.ndelay = ndd_ndelay;
 	ndd_private.clib.div_s64_32 = ndd_div_s64_32;
@@ -561,7 +688,6 @@ static int nand_probe(struct platform_device *pdev)
 	ndd_private.clib.dma_cache_wback = ndd_dma_cache_wback;
 	ndd_private.clib.dma_cache_inv = ndd_dma_cache_inv;
 	ndd_private.clib.get_time_nsecs = ndd_get_time_nsecs;
-	ndd_private.erasemode = 0;
 
 	/* nand api init */
 	ret = nand_api_init(&ndd_private);
@@ -612,7 +738,22 @@ static struct platform_driver __jz_nand_driver = {
 
 static int __init nand_init(void)
 {
-	return platform_driver_register(&__jz_nand_driver);
+	int ret;
+
+	ret = platform_driver_register(&__jz_nand_driver);
+	if (ret)
+		return ret;
+
+	ndd_attr.show = ndd_show;
+	ndd_attr.store = ndd_store;
+	sysfs_attr_init(&ndd_attr.attr);
+	ndd_attr.attr.name = "control";
+	ndd_attr.attr.mode = S_IRUGO | S_IWUSR;
+	ret = driver_create_file(&(__jz_nand_driver.driver), &ndd_attr);
+	if (ret)
+		printk("WARNING(nand block): driver_create_file error!\n");
+
+	return ret;
 }
 
 static void __exit nand_exit(void)

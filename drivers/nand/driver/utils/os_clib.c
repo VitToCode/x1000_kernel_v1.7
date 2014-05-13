@@ -9,7 +9,7 @@ void (*ndd_ndelay) (unsigned long nsecs);
 int (*ndd_div_s64_32)(long long dividend, int divisor);
 void* (*ndd_alloc)(unsigned int size);
 void (*ndd_free)(void *addr);
-int (*printf)(const char *fmt, ...);
+int (*ndd_printf)(const char *fmt, ...);
 void* (*ndd_memcpy)(void *dst, const void *src, unsigned int count);
 void* (*ndd_memset)(void *s, int c, unsigned int count);
 int (*ndd_strcmp)(const char *cs, const char *ct);
@@ -86,9 +86,9 @@ int os_clib_init(os_clib *clib)
 		RETURN_ERR(ENAND, "function ndd_dma_cache_inv() not defined!\n");
 
 	/*#############################*/
-	printf = clib->printf;
-	if (!printf)
-		RETURN_ERR(ENAND, "function printf() not defined!\n");
+	ndd_printf = clib->printf;
+	if (!ndd_printf)
+		RETURN_ERR(ENAND, "function ndd_printf() not defined!\n");
 
 	ndd_get_time_nsecs = clib->get_time_nsecs;
 	if (!ndd_get_time_nsecs)

@@ -5,10 +5,8 @@
  *
  * Copyright (C) 2012 Ingenic Semiconductor Co., Ltd.
  */
-#ifndef __JZ4780NEMC_H__
-#define __JZ4780NEMC_H__
-
-#define NEMC_BASE	0x13410000
+#ifndef __NEMC_H__
+#define __NEMC_H__
 
 #define NEMC_CS1	0x1B000000 /* read-write area in static bank 1 */
 #define NEMC_CS2	0x1A000000 /* read-write area in static bank 2 */
@@ -138,7 +136,7 @@
 #define NEMC_TGWE_WCD		(1 << 16) /* DQS Setup Time for data input start Done */
 #define NEMC_TGWE_SDE(n)	(1 << ((n) - 1))
 #define NEMC_TGWE_SDE6		(1 << 5) /* Set DQS output enable bank6 */
-#define NEMC_TGWE_SDE5		(1 << 4) 
+#define NEMC_TGWE_SDE5		(1 << 4)
 #define NEMC_TGWE_SDE4		(1 << 3)
 #define NEMC_TGWE_SDE3		(1 << 2)
 #define NEMC_TGWE_SDE2		(1 << 1)
@@ -202,76 +200,30 @@
 
 #ifndef __MIPS_ASSEMBLER
 
-#if 1
 #define __pn_enable()           (REG_NEMC_PNCR |= NEMC_PNCR_PNRST | NEMC_PNCR_PNEN)
 #define __pn_disable()          (REG_NEMC_PNCR &= ~(NEMC_PNCR_PNEN))
-//#define __pn_disable()          (REG_NEMC_PNCR = 0)
 
-#else
-#define __pn_enable()           {}
-#define __pn_disable()          {}
-
-#endif
-
-#define __nemc_counter0_enable()	\
+#define __nand_counter0_enable()					\
 do{									\
 	unsigned int tmp = REG_NEMC_PNCR;				\
 	tmp &= ~(NEMC_PNCR_BIT_MASK);					\
 	tmp |= NEMC_PNCR_BITRST | NEMC_PNCR_BIT0 | NEMC_PNCR_BITEN;	\
 	REG_NEMC_PNCR = tmp;						\
 }while(0)
-#define __nemc_counter1_enable()	\
+#define __nand_counter1_enable()					\
 do{									\
 	unsigned int tmp = REG_NEMC_PNCR;				\
 	tmp &= ~(NEMC_PNCR_BIT_MASK);					\
 	tmp |= NEMC_PNCR_BITRST | NEMC_PNCR_BIT1 | NEMC_PNCR_BITEN;	\
 	REG_NEMC_PNCR = tmp;						\
 }while(0)
-#define __nemc_counter_disable()	(REG_NEMC_PNCR &= ~(NEMC_PNCR_BITEN))
-#define	__nemc_read_counter(n)		((n) = REG_NEMC_BITCNT)
-
-#ifdef __BOOT_ROM__
-#define __nand_enable()		(REG_NEMC_NFCSR = NEMC_NFCSR_NFE1 | NEMC_NFCSR_NFCE1)
-#define __nand_disable()	(REG_NEMC_NFCSR = 0)
-
-#define __tnand_dphtd_sync()	while (!(REG_NEMC_TGPD & NEMC_TGPD_DPHTD1))
-
-/* Toggle NAND CE# Control */
-#define __tnand_enable() \
-do { \
-        REG_NEMC_NFCSR = NEMC_NFCSR_TNFE1 | NEMC_NFCSR_NFE1; \
-        __tnand_dphtd_sync(); \
-        REG_NEMC_NFCSR |= NEMC_NFCSR_NFCE1 | NEMC_NFCSR_DAEC; \
-} while (0)
-
-#define __tnand_disable() \
-do { \
-        REG_NEMC_NFCSR &= ~NEMC_NFCSR_NFCE1; \
-        __tnand_dphtd_sync(); \
-        REG_NEMC_NFCSR = 0; \
-} while (0)
-
-#define __tnand_datard_perform() \
-do { \
-        REG_NEMC_TGWE |= NEMC_TGWE_DAE; \
-        __tnand_dae_sync(); \
-} while (0)
-
-#define __tnand_dqsdelay_init(value) \
-do { \
-        unsigned int tmp; \
-        tmp = REG_NEMC_TGDR & (~NEMC_TGDR_RDQS_MASK); \
-        REG_NEMC_TGDR = tmp | ((value) & NEMC_TGDR_RDQS_MASK); \
-} while (0)
-
-#else
+#define __nand_counter_disable()	(REG_NEMC_PNCR &= ~(NEMC_PNCR_BITEN))
+#define	__nand_read_counter(n)		((n) = REG_NEMC_BITCNT)
 
 #define __nand_enable(n)	(REG_NEMC_NFCSR = NEMC_NFCSR_NFCE(n) | NEMC_NFCSR_NFE(n))
 #define __nand_disable()	(REG_NEMC_NFCSR = 0)
 
 #define __tnand_dphtd_sync(n)	while (!(REG_NEMC_TGPD & NEMC_TGPD_DPHTD(n)))
-
-#endif /* __BOOT_ROM__ */
 
 #define __tnand_dae_sync()	while (!(REG_NEMC_TGWE & NEMC_TGWE_DAE))
 #define __tnand_wcd_sync()	while (!(REG_NEMC_TGWE & NEMC_TGWE_WCD))
@@ -284,7 +236,7 @@ do { \
         __tnand_dphtd_sync(); \
         REG_NEMC_NFCSR |= NEMC_NFCSR_NFCE1; \
 } while (0)
-        
+
 #define __tnand_fce_clear() \
 do { \
         REG_NEMC_NFCSR |= NEMC_NFCSR_DAEC; \
@@ -294,5 +246,4 @@ do { \
 
 #endif /* __MIPS_ASSEMBLER */
 
-#endif /* __JZ4780NEMC_H__ */
-
+#endif /* __NEMC_H__ */

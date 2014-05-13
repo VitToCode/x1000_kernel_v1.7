@@ -11,16 +11,36 @@
 
 static inline void bch_encode_enable(int ecclevel, int eccsize, int parsize)
 {
-	__bch_ints_clear();
-	__bch_cnt_set(eccsize, parsize);
-	__bch_encoding(ecclevel);
+	unsigned int bch_cnt,bch_cr;
+
+	// __bch_ints_clear
+	REG32(BCH_CRS) = BCH_CR_BCHE;
+	REG32(BCH_INTS) = 0xffffffff;
+	// __bch_cnt_set
+	bch_cnt = REG32(BCH_CNT);
+	bch_cnt &= ~(BCH_CNT_PARITY_MASK | BCH_CNT_BLOCK_MASK);
+	bch_cnt |= (parsize << BCH_CNT_PARITY_BIT | eccsize << BCH_CNT_BLOCK_BIT);
+	REG32(BCH_CNT) = bch_cnt;
+	//__bch_encoding(ecclevel);
+        bch_cr = BCH_CR_BSEL(ecclevel) | BCH_CR_ENCE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(ecclevel) | BCH_CR_INIT;
+	REG32(BCH_CR) = bch_cr;
 }
 
 static inline void bch_decode_enable(int ecclevel, int eccsize, int parsize)
 {
-	__bch_ints_clear();
-	__bch_cnt_set(eccsize, parsize);
-	__bch_decoding(ecclevel);
+	unsigned int bch_cnt,bch_cr;
+
+	REG32(BCH_CRS) = BCH_CR_BCHE;
+	// __bch_ints_clear
+	REG32(BCH_INTS) = 0xffffffff;
+        // __bch_cnt_set
+	bch_cnt = REG32(BCH_CNT);
+	bch_cnt &= ~(BCH_CNT_PARITY_MASK | BCH_CNT_BLOCK_MASK);
+	bch_cnt |= (parsize << BCH_CNT_PARITY_BIT | eccsize << BCH_CNT_BLOCK_BIT);
+	REG32(BCH_CNT) = bch_cnt;
+	// __bch_decoding(ecclevel);
+	bch_cr = BCH_CR_BSEL(ecclevel) | BCH_CR_DECE | BCH_CR_BCHE | BCH_CR_MZSB_MASK(ecclevel)| BCH_CR_INIT;
+	REG32(BCH_CR) = bch_cr;
 }
 
 /* BCH ENCOGING CFG */
@@ -30,9 +50,8 @@ void pdma_bch_encode_prepare(NandChip *nand_info, PipeNode *pipe)
 
 	/* write DATA to BCH_DR */
 #if 1
-	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR, nand_info->eccsize, TCSM_TO_BCH);
-	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
-#else	
+	bch_channel_dmastart(pipe->pipe_data, (unsigned char *)BCH_DR, nand_info->eccsize, TCSM_TO_BCH);
+#else
 	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR, nand_info->eccsize, TCSM_TO_BCH);
 	__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
 	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
@@ -42,9 +61,9 @@ void pdma_bch_encode_prepare(NandChip *nand_info, PipeNode *pipe)
 	__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
 
 	/* clear bch's register */
-	__bch_encints_clear();
-	__bch_disable();
-/*	{
+	REG32(BCH_INTS) = 0xffffffff;
+	REG32(BCH_CRC) = BCH_CR_BCHE;
+	/*{
 		int i = 0;
 		for(i = 0; i <1024; i++){
 			*(volatile unsigned char *)(BCH_DR) = *(pipe->pipe_data + i);
@@ -59,33 +78,20 @@ void pdma_bch_decode_prepare(NandChip *nand_info, PipeNode *pipe)
 	bch_decode_enable(nand_info->ecclevel, nand_info->eccsize, nand_info->eccbytes);
 
 	/* write DATA and PARITY to BCH_DR */
-	bch_channel_cfg(pipe->pipe_data, (unsigned char *)BCH_DR,nand_info->eccsize + nand_info->eccbytes, TCSM_TO_BCH);
-	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
+	bch_channel_dmastart(pipe->pipe_data, (unsigned char *)BCH_DR,nand_info->eccsize + nand_info->eccbytes, TCSM_TO_BCH);
 }
 //----------------------------------------------------------------------------/
 
 /* BCH ENCOGING HANDLE */
 void bch_encode_complete(NandChip *nand_info, PipeNode *pipe)
 {
-    /* wait for finishing encoding */
-	__mbch_encode_sync();
+	/* wait for finishing encoding */
+	while (REG32(PDMAC_DMCS) & PDMAC_DMCS_BCH_EF);
 	/* get Parity to TCSM */
-	bch_channel_cfg((unsigned char *)BCH_PAR0, pipe->pipe_par, nand_info->eccbytes, BCH_TO_TCSM);
-	__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
-	__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
-
-#ifdef BCH_DEBUG
-	volatile int timeout = 4000; //for debug
-	while (!__pdmac_channel_end_detected(PDMA_BCH_CHANNEL) && timeout--);
-#else
-	while (!__pdmac_channel_end_detected(PDMA_BCH_CHANNEL));
-#endif
-	__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
-	__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
-
+	bch_channel_dmastart((unsigned char *)BCH_PAR0, pipe->pipe_par, nand_info->eccbytes, BCH_TO_TCSM | DMA_WAIT_FINISH);
 	/* clear bch's register */
-	__bch_encints_clear();
-	__bch_disable();
+	REG32(BCH_INTS) = 0xffffffff;
+	REG32(BCH_CRC) = BCH_CR_BCHE;
 }
 
 /* BCH DECOGING HANDLE */
@@ -106,9 +112,11 @@ void bch_decode_complete(NandChip *nand, unsigned char *data_buf,unsigned char *
 	unsigned int stat;
 	int i, err_cnt;
 	/* wait for finishing decoding */
-	__mbch_decode_sync();
+	while (REG32(PDMAC_DMCS) & PDMAC_DMCS_BCH_DF);
+
 	/* get BCH Status */
-	stat = REG_BCH_INTS;
+	stat = REG32(BCH_INTS);
+
 	*report = 0;
 
         if (stat & BCH_INTS_ALLf) {
@@ -123,25 +131,12 @@ void bch_decode_complete(NandChip *nand, unsigned char *data_buf,unsigned char *
 
 		if (err_cnt) {
 			/* read BCH Error Report use Special CH0 */
-			bch_channel_cfg((unsigned char *)BCH_ERR0, err_buf, err_cnt << 2, BCH_TO_TCSM);
-			__pdmac_channel_irq_disable(PDMA_BCH_CHANNEL);
-			__pdmac_special_channel_launch(PDMA_BCH_CHANNEL);
-
-#ifdef BCH_DEBUG
-			volatile int timeout = 4000; //for debug
-			while (!__pdmac_channel_end_detected(PDMA_BCH_CHANNEL) && timeout--);
-#else
-			while (!__pdmac_channel_end_detected(PDMA_BCH_CHANNEL));
-#endif
-			__pdmac_channel_mirq_clear(PDMA_BCH_CHANNEL);
-			__pdmac_channel_irq_enable(PDMA_BCH_CHANNEL);
-
+			bch_channel_dmastart((unsigned char *)BCH_ERR0, err_buf, err_cnt << 2, BCH_TO_TCSM | DMA_WAIT_FINISH);
 			for (i = 0; i < err_cnt; i++)
 				bch_error_correct(nand, (unsigned short *)data_buf, (unsigned int *)err_buf, i);
 		}
 	}
 	/* clear bch's register */
-	__bch_decints_clear();
-	__bch_disable();
+	REG32(BCH_INTS) = 0xffffffff;
+	REG32(BCH_CRC) = BCH_CR_BCHE;
 }
-

@@ -9,7 +9,7 @@
 #include <asm/jzsoc.h>
 
 /**
- * if random has no effect, we need to 
+ * if random has no effect, we need to
  * use this macro to fix the dma trans.
 */
 #define DATA_4BYTES_ALIGN
@@ -34,6 +34,8 @@ union u_mailbox{
 
 #define MAILBOX_NAND (*(volatile unsigned int *)(0xf4000020))
 #define MAILBOX_GPIO (*(volatile unsigned int *)(0xf4000024))
+#define MAILBOX_GPIO_PEND_ADDR0 ((volatile unsigned int *)0xf4000028)
+#define MAILBOX_GPIO_PEND_ADDR5 ((volatile unsigned int *)0xf4000040))
 static void (*mcu_write_port)(void *,int);
 volatile unsigned int mcurunflag = 0;
 static volatile union u_mailbox mailbox;
@@ -48,7 +50,7 @@ static unsigned int badblockdata = 0xffffffff;
 
 extern struct nand_mcu_ops mcu_ops;
 
-void nemcdelay(unsigned int loops)
+void mcu_delay(unsigned int cycle)
 {
 	__asm__ __volatile__ (
 			"       .set    noreorder           \n"
@@ -56,8 +58,8 @@ void nemcdelay(unsigned int loops)
 			"1:     bnez    %0, 1b              \n"
 			"       subu    %0, 1               \n"
 			"       .set    reorder             \n"
-			: "=r" (loops)
-			: "0" (loops));
+			: "=r" (cycle)
+			: "0" (cycle));
 }
 
 void trap_entry(void)
@@ -65,32 +67,32 @@ void trap_entry(void)
 	unsigned int intctl;
 	int i;
 	unsigned int pend,mark,intc;
-
+	unsigned int rb0_pend, rb1_pend,is_rb0,is_rb1;
+	unsigned int dcirqp;
 	intctl = __pdma_read_cp0(12, 1);
 
 	if (intctl & MCU_CHANNEL_IRQ) {
+		dcirqp = REG32(PDMAC_DCIRQP);
 		for (i = 0; i < 5; i++) {
 			/* check MCU channel irq */
-			if (__pdmac_channel_mirq_check(i)) {
-				if (__pdmac_channel_enabled(i)){
-					switch(i) {
-						case PDMA_BCH_CHANNEL:
-							g_opsresource.bits.chan0 = AVAILABLE;
-							break;
-						case PDMA_NEMC_CHANNEL:
-							g_opsresource.bits.chan1 = AVAILABLE;
-							break;
-						case PDMA_DDR_CHANNEL:
-							g_opsresource.bits.chan2 = AVAILABLE;
-							break;
-						case PDMA_MSG_CHANNEL:
-						case PDMA_MOVE_CHANNEL:
-							g_opsresource.bits.msgflag += INCREASE;
-							break;
-						default: break;
-					}
-				__pdmac_channel_mirq_clear(i);
+			if (dcirqp & ( 1 << i)) {
+				switch(i) {
+				case PDMA_BCH_CHANNEL:
+					g_opsresource.bits.chan0 = AVAILABLE;
+					break;
+				case PDMA_IO_CHANNEL:
+					g_opsresource.bits.chan1 = AVAILABLE;
+					break;
+				case PDMA_DDR_CHANNEL:
+					g_opsresource.bits.chan2 = AVAILABLE;
+					break;
+				case PDMA_MSG_CHANNEL:
+				case PDMA_MOVE_CHANNEL:
+					g_opsresource.bits.msgflag += INCREASE;
+					break;
+				default: break;
 				}
+				REG32(PDMAC_DCCS(i)) = 0;
 			}
 		}
 	}
@@ -99,75 +101,38 @@ void trap_entry(void)
 		pend = REG_GPIO_PXFLG(0);
 		intc = REG_GPIO_PXINT(0);
 		pend &= (~mark & intc);
-		if(pend){
-#ifdef USE_EDGE_IRQ
-		if (mcurunflag) {
-			unsigned int rb0_pend = 0, rb1_pend = 0;
-
-			if (mcu_ops.nand_info.rb0 != 0xff)
-				rb0_pend = __gpio_penging_irq(mcu_ops.nand_info.rb0);
-				//rb0_pend = pend & (0x1 << mcu_ops.nand_info.rb0);
-			if (mcu_ops.nand_info.rb1 != 0xff)
-				rb1_pend = __gpio_penging_irq(mcu_ops.nand_info.rb1);
-			//	rb1_pend = pend & (0x1 << mcu_ops.nand_info.rb1);
-
-			if (rb0_pend || rb1_pend) {
-				if (rb0_pend) {
-					__gpio_mask_irq(mcu_ops.nand_info.rb0);
-					g_opsresource.bits.rb0 = AVAILABLE;
-					g_opsresource.bits.setrb0 = GOTRB;
-				}
-				if (rb1_pend) {
-					__gpio_mask_irq(mcu_ops.nand_info.rb1);
-					g_opsresource.bits.rb1 = AVAILABLE;
-					g_opsresource.bits.setrb1 = GOTRB;
-				}
-
-				if ((g_opsresource.bits.setrb0 == GOTRB) && (g_opsresource.bits.setrb1 == GOTRB)) {
-					if (mcu_ops.nand_info.rb0 != 0xff) {
-						__gpio_clear_flag(mcu_ops.nand_info.rb0);
-						__gpio_unmask_irq(mcu_ops.nand_info.rb0);
+		is_rb0 = (mcu_ops.nand_info.rb0 != 0xff);
+		is_rb1 = (mcu_ops.nand_info.rb1 != 0xff);
+		rb0_pend = is_rb0 ? pend & (0x1 << mcu_ops.nand_info.rb0) : 0;
+		rb1_pend = is_rb1 ? pend & (0x1 << mcu_ops.nand_info.rb1) : 0;
+		if (pend) {
+			if(mcurunflag && (rb0_pend || rb1_pend)){
+				unsigned int gpin1,gpin2,gpin;
+				while(rb0_pend || rb1_pend) {
+					gpin1 = REG_GPIO_PXPIN(0);
+					if(rb0_pend) {
+						REG_GPIO_PXFLGC(0) = 0x1 << mcu_ops.nand_info.rb0;
+						g_opsresource.bits.rb0 = AVAILABLE;
+						g_opsresource.bits.setrb0 = GOTRB;
 					}
-					if(mcu_ops.nand_info.rb1 != 0xff) {
-						__gpio_clear_flag(mcu_ops.nand_info.rb1);
-						__gpio_unmask_irq(mcu_ops.nand_info.rb1);
-					}
-				}
-				return;
-			}
-		}
+					if(rb1_pend) {
+						REG_GPIO_PXFLGC(0) = 0x1 << mcu_ops.nand_info.rb1;
+						g_opsresource.bits.rb1 = AVAILABLE;
+						g_opsresource.bits.setrb1 = GOTRB;
 
-		mailbox.mb.type = MCU_MSG_INTC;
-		MAILBOX_GPIO = mailbox.mbox;
-		__pdmac_mnmb_send(mailbox.mbox);
-#else
-		if ((mcu_ops.nand_info.rb0 != 0xff) && __gpio_penging_irq(mcu_ops.nand_info.rb0)) {
-			if (__gpio_get_pin(mcu_ops.nand_info.rb0) == IRQ_LEVEL_LOW) {
-				__gpio_as_irq_high_level(mcu_ops.nand_info.rb0);
-				__gpio_clear_flag(mcu_ops.nand_info.rb0);
-				return;
-			} else if (mcurunflag) {
-				__gpio_as_irq_low_level(mcu_ops.nand_info.rb0);
-				g_opsresource.bits.rb0 = AVAILABLE;
-				__gpio_clear_flag(mcu_ops.nand_info.rb0);
-				return;
+					}
+					gpin2 = REG_GPIO_PXPIN(0);
+					gpin = gpin1 ^ gpin2;
+					rb0_pend = is_rb0 ? (gpin2 & gpin) & (1 <<  mcu_ops.nand_info.rb0) : 0;
+					rb1_pend = is_rb1 ? (gpin2 & gpin) & (1 <<  mcu_ops.nand_info.rb1) : 0;
+				}
+			} else {
+				REG_GPIO_PXMASKS(0) = pend;
+				mailbox.mb.type = MCU_MSG_INTC;
+				MAILBOX_GPIO = mailbox.mbox;
+				MAILBOX_GPIO_PEND_ADDR0[0] = pend;
+				REG32(PDMAC_DMNMB) = mailbox.mbox;
 			}
-		}
-		if ((mcu_ops.nand_info.rb1 != 0xff) && __gpio_penging_irq(mcu_ops.nand_info.rb1)) {
-			if (__gpio_get_pin(mcu_ops.nand_info.rb1) == IRQ_LEVEL_LOW) {
-				__gpio_as_irq_high_level(mcu_ops.nand_info.rb1);
-				__gpio_clear_flag(mcu_ops.nand_info.rb1);
-				return;
-			} else if (mcurunflag) {
-				__gpio_as_irq_low_level(mcu_ops.nand_info.rb1);
-				g_opsresource.bits.rb1 = AVAILABLE;
-				__gpio_clear_flag(mcu_ops.nand_info.rb1);
-				return;
-			}
-		}
-		mailbox.mb.type = MCU_MSG_INTC;
-		__pdmac_mnmb_send(mailbox.mbox);
-#endif
 		}
 	}
 }
@@ -253,14 +218,14 @@ static inline void send_mailbox_to_cpu(unsigned short msg)
 	mcurunflag = 0;
 	mailbox.mb.type = MCU_MSG_NORMAL;
 	mailbox.mb.msg = msg;
-	while(REG_PDMAC_DMINT & PDMAC_DMINT_N_IP);
+	while(REG32(PDMAC_DMINT) & PDMAC_DMINT_N_IP);
 //	(*(((unsigned int *)(MCU_TEST_DATA))+6))++;
 	MAILBOX_NAND = mailbox.mbox;
-	__pdmac_mnmb_send(mailbox.mbox);
+	REG32(PDMAC_DMNMB) = mailbox.mbox;
 	__pdma_irq_enable();
 }
 
-static __bank5 void mcu_nand_init(struct nand_mcu_ops *mcu, int context)
+static void mcu_nand_init(struct nand_mcu_ops *mcu, int context)
 {
 	struct taskmsg_init *msg = (struct taskmsg_init *)context;
 	NandChip *nandinfo = &(mcu->nand_info);
@@ -321,7 +286,7 @@ static int mcu_nand_readdata(struct task_msg *msg, int pipe)
 	while(__resource_satisfy(resource.flag, msg->ops.bits.resource)){
 		switch(msg->ops.bits.state){
 			case CHAN1_DATA:
-				if(common->chan_descriptor & (0x1 << PDMA_NEMC_CHANNEL))
+				if(common->chan_descriptor & (0x1 << PDMA_IO_CHANNEL))
 					goto readdata_tail;
 				change_nand_cs(nandinfo, common, msg->ops.bits.chipsel);
 				set_resource(R_CHAN1,UNAVAILABLE);
@@ -336,29 +301,29 @@ static int mcu_nand_readdata(struct task_msg *msg, int pipe)
 
 #ifdef MCU_NAND_USE_PN
 				__pn_enable();
-				__nemc_counter0_enable();
+				__nand_counter0_enable();
 #endif
 #ifdef DATA_4BYTES_ALIGN
 				/* if pagesize == 512, read all data of page and wait rb */
 				if (nandinfo->pagesize == 512)
-					pdma_nand_nemc_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
+					pdma_nand_io_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
 							    nandinfo->eccsize + (nandinfo->oobsize + 3) / 4 * 4, NEMC_TO_TCSM);
 				else
-					pdma_nand_nemc_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
+					pdma_nand_io_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
 							    nandinfo->eccsize + (nandinfo->eccbytes + 3) / 4 * 4, NEMC_TO_TCSM);
 #else
-				pdma_nand_nemc_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
+				pdma_nand_io_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
 						    nandinfo->eccsize + nandinfo->eccbytes, NEMC_TO_TCSM);
 				/* if pagesize == 512, read all data of page and wait rb */
 				if (nandinfo->pagesize == 512)
-					pdma_nand_nemc_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
+					pdma_nand_io_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
 							    nandinfo->eccsize + nandinfo->oobsize, NEMC_TO_TCSM);
 				else
-					pdma_nand_nemc_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
+					pdma_nand_io_data(common->nand_io, (u32)(mcu_ops.pipe[pipe].pipe_data),
 							    nandinfo->eccsize + nandinfo->eccbytes, NEMC_TO_TCSM);
 
 #endif
-				SET_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_NEMC_CHANNEL);
+				SET_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_IO_CHANNEL);
 				/* the preparation of next step */
 				msg->ops.bits.resource &= ~(0x01 << R_NEMC);
 				msg->ops.bits.state = CHAN1_PARITY;
@@ -371,13 +336,13 @@ static int mcu_nand_readdata(struct task_msg *msg, int pipe)
 				}
 				break;
 			case CHAN1_PARITY:
-				CLEAR_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_NEMC_CHANNEL);
+				CLEAR_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_IO_CHANNEL);
 				set_resource(R_NEMC,AVAILABLE);
 				common->current_cs = -1;
 				nand_disable(nandinfo);
 #ifdef MCU_NAND_USE_PN
-				__nemc_read_counter(cnt);
-				__nemc_counter_disable();
+				__nand_read_counter(cnt);
+				__nand_counter_disable();
 				__pn_disable();
 				if(cnt < nandinfo->ecclevel){
 					set_ret_value(common->ret,common->ret_index,MSG_RET_EMPTY);
@@ -489,7 +454,7 @@ static __bank4 int mcu_nand_writedata(struct task_msg *msg, int pipe)
 				msg->ops.bits.resource = resource.flag;
 				break;
 			case CHAN1_DATA:
-				if(common->chan_descriptor & (0x1 << PDMA_NEMC_CHANNEL))
+				if(common->chan_descriptor & (0x1 << PDMA_IO_CHANNEL))
 					goto writedata_tail;
 				change_nand_cs(nandinfo, common, msg->ops.bits.chipsel);
 				set_resource(R_CHAN1,UNAVAILABLE);
@@ -506,24 +471,24 @@ static __bank4 int mcu_nand_writedata(struct task_msg *msg, int pipe)
 				__pn_enable();
 #endif
 #ifdef DATA_4BYTES_ALIGN
-				pdma_nand_nemc_data((u32)(mcu_ops.pipe[pipe].pipe_data), common->nand_io,
+				pdma_nand_io_data((u32)(mcu_ops.pipe[pipe].pipe_data), common->nand_io,
 						    nandinfo->eccsize + (nandinfo->eccbytes + 3) / 4 * 4, TCSM_TO_NEMC);
 #else
-				pdma_nand_nemc_data((u32)(mcu_ops.pipe[pipe].pipe_data), common->nand_io,
+				pdma_nand_io_data((u32)(mcu_ops.pipe[pipe].pipe_data), common->nand_io,
 						    nandinfo->eccsize + nandinfo->eccbytes, TCSM_TO_NEMC);
 
 #endif
-				SET_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_NEMC_CHANNEL);
+				SET_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_IO_CHANNEL);
 				/* the preparation of next step */
 				msg->ops.bits.resource &= ~(0x01 << R_NEMC);
 				msg->ops.bits.state = CHAN1_PARITY;
 				break;
 			case CHAN1_PARITY:
-				nemcdelay(nandinfo->tsync);
+				mcu_delay(nandinfo->tsync);
 #ifdef MCU_NAND_USE_PN
 				__pn_disable();
 #endif
-				CLEAR_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_NEMC_CHANNEL);
+				CLEAR_CHAN_DESCRIPTOR(common->chan_descriptor, PDMA_IO_CHANNEL);
 				set_resource(R_NEMC,AVAILABLE);
 				ret = TASK_FINISH;
 				goto writedata_tail;
@@ -613,7 +578,7 @@ static unsigned int mcu_nand_sendcmd(struct nand_mcu_ops *mcu, int context)
 #else
 				send_prog_random(&mcu_ops, g_writeoffset + nandinfo->eccsize + nandinfo->eccbytes);
 #endif
-				pdma_nand_nemc_parity((u32)(&badblockdata), mcu->common.nand_io, i, TCSM_TO_NEMC_FILL);
+				pdma_nand_io_parity((u32)(&badblockdata), mcu->common.nand_io, i, TCSM_TO_NEMC_FILL);
 			}
 		}
 #endif //FILL_UP_WRITE_PAGE

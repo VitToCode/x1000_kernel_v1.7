@@ -6,8 +6,8 @@
  * Copyright (C) 2010 Ingenic Semiconductor Co., Ltd.
  */
 
-#ifndef __JZ4780MISC_H__
-#define __JZ4780MISC_H__
+#ifndef __MISC_H__
+#define __MISC_H__
 
 
 #if defined(__ASSEMBLY__) || defined(__LANGUAGE_ASSEMBLY)
@@ -88,4 +88,4 @@
 #define get_bf_value(data, lsb, mask)  (((data) & (mask)) >> (lsb))
 
 
-#endif /* __JZ4780MISC_H__ */
+#endif /* __MISC_H__ */

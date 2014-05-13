@@ -199,4 +199,7 @@
 #define BCH_DECODE      0
 #define __bch_cale_eccbytes(eccbit)  (14*(eccbit)>>3)
 #define BCH_ENABLE_MAXBITS 64
+
+#define BCH_CLK_NAME    "bch"
+#define BCH_CGU_CLK_NAME    "cgu_bch"
 #endif /* __JZ4780_BCH_H__ */

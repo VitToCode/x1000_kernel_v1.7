@@ -217,6 +217,7 @@ int nand_bch_open(bch_base *base, int eccsize)
 
 	ndbch->base = base;
 	nand_bch_init(ndbch->base);
+
 	ndbch->eccsize = eccsize;
 	ndbch->copy_context = cpu_move_init(&ndbch->trans);
 	if(ndbch->copy_context < 0) {
@@ -349,4 +350,10 @@ int nand_bch_decode_complete(int context, PipeNode *pipe)
 int get_parity_size(unsigned char eccbit)
 {
 	return __bch_cale_eccbytes(eccbit);
+}
+char *nand_bch_get_clk_name(void) {
+	return BCH_CLK_NAME;
+}
+char *nand_bch_get_cgu_clk_name(void) {
+	return BCH_CGU_CLK_NAME;
 }

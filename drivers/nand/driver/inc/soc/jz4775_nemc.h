@@ -139,4 +139,5 @@
 #define NEMC_CS_COUNT   6   /*THe max count of cs nemc support*/
 
 #define NAND_STATUS_FALL 0x01
+#define NAND_IO_CLK_NAME "nemc"
 #endif /* __JZ4775_NEMC_H__ */

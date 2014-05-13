@@ -71,9 +71,9 @@ int nandops_read(int context, ndpartition *pt, PageList *pl)
 				flag = msghandler->handler(msghandler->context, nandtask[i]);
 				if(flag){
 					ret = flag;
-					if((ret != ALL_FF) && (ret != BLOCK_MOVE)){
-						ndd_print(NDD_ERROR, "ERROR: [%s] nandops read error, ret = %d\n",
-								pt->name, ret);
+					if((ret != ALL_FF) && (ret != BLOCK_MOVE) && (retrycnt >= 8)){
+						ndd_print(NDD_ERROR, "ERROR: [%s] nandops read error, ret = %d retrycnt = %d\n",
+								pt->name, ret, retrycnt);
 						ndd_dump_taskmsg(nandtask[i]->msg,nandtask[i]->msg_index);
 					}
 				}
@@ -316,20 +316,11 @@ int nandops_init(nand_data *data)
 	libcinfo.totalblocks = cinfo->maxvalidblocks;
 	libcinfo.totalpages = cinfo->maxvalidpages;
 	libcinfo.pagesize = cinfo->pagesize;
-	libcinfo.tALS = cinfo->timing->tALS;
-	libcinfo.tALH = cinfo->timing->tALH;
-	libcinfo.tRP = cinfo->timing->tRP;
-	libcinfo.tWP = cinfo->timing->tWP;
-	libcinfo.tRHW = cinfo->timing->tRHW;
-	libcinfo.tWHR = cinfo->timing->tWHR;
-	libcinfo.tWHR2 = cinfo->timing->tWHR2;
-	libcinfo.tRR = cinfo->timing->tRR;
-	libcinfo.tWB = cinfo->timing->tWB;
-	libcinfo.tADL = cinfo->timing->tADL;
-	libcinfo.tCWAW = cinfo->timing->tCWAW;
-	libcinfo.tCS = cinfo->timing->tCS;
-	libcinfo.tCLH = cinfo->timing->tCLH;
-	/* init struct lib_nandioinfo */
+
+	libcinfo.ops_timing = &cinfo->ops_timing;
+
+
+/* init struct lib_nandioinfo */
 	libioinfo = (struct lib_nandioinfo *)ndd_alloc(sizeof(struct lib_nandioinfo) * iocount);
 	if(!libioinfo)
 		GOTO_ERR(alloc_libioinfo);
