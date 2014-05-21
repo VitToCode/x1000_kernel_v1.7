@@ -1045,6 +1045,7 @@ static int nand_disk_install(char *name)
 	struct device *dev = NULL;
 	struct singlelist *plist = NULL;
 	struct __partition_info *pinfo = NULL;
+	int install_flag=0;
 
 	DBG_FUNC();
 
@@ -1059,16 +1060,6 @@ static int nand_disk_install(char *name)
 	singlelist_for_each(plist, &lptl->list) {
 		lpt = singlelist_entry(plist, NM_lpt, list);
 
-		/* partiton with this mode do not need to open */
-		if (lpt->pt->mode == ONCE_MANAGER) {
-			if(installAll)
-				return 0;
-			else{
-				printk("ERROR(nand block): can not install disk [%s]!\n", name);
-				return -1;
-			}
-		}
-
 		if (!installAll && strcmp(lpt->pt->name, name))
 			continue;
 
@@ -1080,6 +1071,7 @@ static int nand_disk_install(char *name)
 				continue;
 		}
 
+		install_flag=1;
 		printk("nand block, install partition [%s]!\n", lpt->pt->name);
 
 		if ((context = NM_ptOpen(nand_block.nm_handler, lpt->pt->name, lpt->pt->mode)) == 0) {
@@ -1118,7 +1110,10 @@ static int nand_disk_install(char *name)
 		if(!installAll)
 			break;
 	}
-
+	if(install_flag==0){
+		printk("%s can't install partitions %s\n",__func__,name);
+		return -1;
+	}
 	return 0;
 
 start_err2:
