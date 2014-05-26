@@ -16,6 +16,7 @@
 #define SUPPROT_READ_RETRY(cinfo)	((cinfo)->options & NAND_READ_RETRY)
 #define READ_RETRY_MODE(cinfo)		(((cinfo)->options >> 16) & 0x0f)
 #define TIMING_MODE(cinfo)		(((cinfo)->options >> 20) & 0x0f)
+#define GET_NAND_TYPE(cinfo)	(((cinfo)->options >> 24) & 0x0f)
 
 #define RETRY_DATA_SIZE		64
 

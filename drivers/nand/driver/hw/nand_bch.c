@@ -3,12 +3,7 @@
 #include <nand_bch.h>
 #include <cpu_trans.h>
 
-#ifdef CONFIG_SOC_4780
-#include <soc/jz4780_bch.h>
-#elif defined(CONFIG_SOC_4775)
-#include <soc/jz4775_bch.h>
-#endif
-
+#include <soc/jz_bch.h>
 /*****  the operation of bch registers  *****/
 static int ref_cnt = 0;
 
@@ -172,7 +167,8 @@ static int bch_decode_correct(nand_bch *ndbch, PipeNode *pipe)
 	}
 
 	if (stat & BCH_INTS_UNCOR) {
-		RETURN_ERR(ECC_ERROR, "Uncorrectable ECC error -- stat = 0x%08x", stat);
+		//RETURN_ERR(ECC_ERROR, "Uncorrectable ECC error -- stat = 0x%08x", stat);
+		return ECC_ERROR;
 	} else {
 		if (stat & BCH_INTS_ERR) {
 			/* Error occurred */

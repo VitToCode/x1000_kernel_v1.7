@@ -1019,13 +1019,6 @@ static int get_ppainfo_from_errpt(nand_data *nddata, struct nand_api_platdepende
 }
 
 static int nand_api_later_init(nand_data *nddata, plat_ptinfo *platptinfo) {
-	int ret = 0;
-
-	ndd_debug("\nnand flash setup:\n");
-	ret = nandflash_setup(&(nddata->base->nfi), nddata->csinfo, nddata->rbinfo, nddata->cinfo);
-	if (ret)
-		ndd_print(NDD_ERROR,"WARNING:nand set feature failed!\n");
-
 	ndd_debug("\nget ndpartition:\n");
 	nddata->ptinfo = get_ptinfo(nddata->cinfo, nddata->csinfo->totalchips,
 				    nddata->rbinfo->totalrbs, platptinfo);
@@ -1158,6 +1151,11 @@ int nand_api_init(struct nand_api_osdependent *osdep)
 		if (!nddata->csinfo)
 			GOTO_ERR(get_csinfo);
 
+		ndd_debug("\nnand flash setup:\n");
+		ret = nandflash_setup(&(nddata->base->nfi), nddata->csinfo, nddata->rbinfo, nddata->cinfo);
+		if (ret)
+			ndd_print(NDD_ERROR,"WARNING:nand set feature failed!\n");
+
 		ndd_debug("\nget ppainfo from errpt:\n");
 		ret = get_ppainfo_from_errpt(nddata, nddata->platdep);
 		if (ret < 0)
@@ -1240,6 +1238,11 @@ int nand_api_reinit(struct nand_api_platdependent *platdep)
 	nddata->csinfo = get_csinfo(&(nddata->base->nfi), nddata->rbinfo);
 	if (!nddata->csinfo)
 		GOTO_ERR(get_csinfo);
+
+	ndd_debug("\nnand flash setup:\n");
+	ret = nandflash_setup(&(nddata->base->nfi), nddata->csinfo, nddata->rbinfo, nddata->cinfo);
+	if (ret)
+		ndd_print(NDD_ERROR,"WARNING:nand set feature failed!\n");
 
 	if (platdep->erasemode) {
 		/* init operations of errpt */

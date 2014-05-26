@@ -5,7 +5,7 @@
 #include <ndcommand.h>
 #include <cpu_trans.h>
 
-#include <soc/jz4785_nfi.h>
+#include <soc/jz_nfi.h>
 
 #define NAND_DEFAULT_BUS	NAND_BUSWIDTH_8BIT
 #define NAND_DEFAULT_MODE	NAND_IF_COMMON
@@ -47,6 +47,8 @@ typedef struct __nand_io {
 	}while(0)
 #endif
 extern int (*__wait_rb_timeout) (rb_item *, int);
+void nand_io_setup_timing_default(int context);
+int nand_io_setup_timing_optimize(int context, chip_info *cinfo/*, rb_item *rbitem*/);
 /******  the operation of nfi registers  ******/
 void pn_enable(int context)
 {
@@ -114,32 +116,31 @@ static void nand_nfi_disable(nfi_base *base)
 static void set_nand_timing_default(nfi_base *base)
 {
 	//ndd_debug("##### base->writel = %p, base->iomem = 0x%08x\n",base->writel,(unsigned int)base->iomem);
-	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0xf) | NAND_NFIT0_WWE(0xf)));
-	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0xf) | NAND_NFIT1_SRE(0xf)));
-	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0xf) | NAND_NFIT2_HRE(0xf)));
-	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0xf) | NAND_NFIT3_WCS(0xf)));
+	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x0) | NAND_NFIT0_WWE(0x3)));
+	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x0) | NAND_NFIT1_SRE(0x0)));
+	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x3) | NAND_NFIT2_HRE(0x0)));
+	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0x2) | NAND_NFIT3_WCS(0x1)));
 	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(0xf) | NAND_NFIT4_EDO(0xf)));
 }
-static void set_nand_timing_optimize(nfi_base *base, nand_timing *timing)
+static void set_nand_timing_optimize(nfi_base *base, nfi_nand_timing *timing)
 {
 
 
 
 	//dsqiu ---------------------
 
-/*
 	unsigned long cycle = base->cycle;  //unit: ps
 	unsigned int lbit,hbit;
-	hbit = ((timing->tWH - timing->tDH) * 1000 + cycle - 1) / cycle;
+	hbit = ((timing->tWH - timing->tDH) * 1000) / cycle;
 	lbit = ((timing->tWP) * 1000 + cycle - 1) / cycle;
 	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(hbit) | NAND_NFIT0_WWE(lbit)));
 
-	hbit = ((timing->tDH) * 1000 + cycle - 1) / cycle;
+	hbit = ((timing->tDH) * 1000) / cycle;
 	lbit = ((timing->tREH - timing->tDH ) * 1000 + cycle - 1) / cycle;
 	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(hbit) | NAND_NFIT1_SRE(lbit)));
 
 	hbit = ((timing->tRP) * 1000 + cycle - 1) / cycle;
-	lbit = ((timing->tDH) * 1000 + cycle - 1) / cycle;
+	lbit = ((timing->tDH) * 1000) / cycle;
 	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(hbit) | NAND_NFIT2_HRE(lbit)));
 
 	hbit = ((timing->tCS) * 1000 + cycle - 1) / cycle;
@@ -147,16 +148,34 @@ static void set_nand_timing_optimize(nfi_base *base, nand_timing *timing)
 	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(hbit) | NAND_NFIT3_WCS(lbit)));
 
 	hbit = ((timing->tRR) * 1000 + cycle - 1) / cycle;
-	lbit = (0 * 1000 + cycle - 1) / cycle;
+	lbit = (1 * 1000 + cycle - 1) / cycle ;
 	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(hbit) | NAND_NFIT4_EDO(lbit)));
-*/
-	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x1) | NAND_NFIT0_WWE(0x3)));
-	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x1) | NAND_NFIT1_SRE(0x1)));
-	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x3) | NAND_NFIT2_HRE(0x1)));
+/*
+	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x0) | NAND_NFIT0_WWE(0x2)));
+	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x0) | NAND_NFIT1_SRE(0x0)));
+	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x3) | NAND_NFIT2_HRE(0x0)));
 	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0x7) | NAND_NFIT3_WCS(0x7)));
 	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(0xf) | NAND_NFIT4_EDO(0xf)));
+*/
 }
+static void recalc_writecycle(nfi_base *base,chip_info *cinfo)
+{
+	int tset,twait,thold;
+	int t0,t1,t;
+	unsigned long cycle = base->cycle;  //unit: ps
+	t0 = base->readl(NAND_NFIT0);
+	tset = (t0 >> NAND_NFIT0_SWE_BIT) & 0xffff;
+	tset = tset + 1;
+	twait = t0 & 0xffff;
 
+	t1 = base->readl(NAND_NFIT1);
+	thold = t1 >> NAND_NFIT1_HWE_BIT;
+	thold = thold + 1;
+	t = tset + twait + thold;
+	cinfo->ops_timing.tWC = (t * cycle + 999) / 1000;
+	//ndd_print(NDD_DEBUG,"%s(%s) %d tWC  = %d\n",__FUNCTION__,__FILE__,__LINE__,cinfo->ops_timing.tWC);
+
+}
 /*
    set the buswidth and mode of nand;
    @context:
@@ -442,16 +461,14 @@ int nand_io_open(nfi_base *base, chip_info *cinfo)
 	nandio->base = base;
 	nandio->cinfo = cinfo;
 	nand_io_init(nandio->base);
-	/*
-	   if (cinfo) {
-	   nandio->cinfo = cinfo;
-	   nand_io_setup_timing_optimize(nandio->base, nandio->cinfo);
-	   } else {
-	   nandio->cinfo = NULL;
-	   nand_io_setup_timing_default(nandio->base);
-
-	   }
-	*/
+	if (cinfo) {
+		nandio->cinfo = cinfo;
+		nand_io_setup_timing_optimize((int)nandio, nandio->cinfo);
+		recalc_writecycle(base, cinfo);
+	} else {
+		nandio->cinfo = NULL;
+		nand_io_setup_timing_default((int)nandio);
+	}
 	nandio->copy_context = cpu_move_init(&nandio->trans);
 	if (nandio->copy_context < 0) {
 		ndd_free(nandio);
@@ -479,7 +496,7 @@ void nand_io_setup_timing_default(int context)
 			*(volatile unsigned int *)(0xb3410010),*(volatile unsigned int *)(0xb3410054));
 }
 
-int nand_io_setup_timing_optimize(int context, chip_info *cinfo, rb_item *rbitem)
+int nand_io_setup_timing_optimize(int context, chip_info *cinfo/*, rb_item *rbitem*/)
 {
 	nand_io *io = (nand_io *)context;
 	unsigned int bus = NAND_BUSWIDTH_8BIT;
@@ -494,9 +511,10 @@ int nand_io_setup_timing_optimize(int context, chip_info *cinfo, rb_item *rbitem
 #endif
 	}
 	set_nand_bus_mode(io->base, bus, GET_NAND_TYPE(cinfo));
-	set_nand_timing_optimize(io->base, (nand_timing *)cinfo->ops_timing.io_timing);
+	set_nand_timing_optimize(io->base, (nfi_nand_timing *)cinfo->ops_timing.io_timing);
+	//set_nand_timing_default(io->base);
 	if(GET_NAND_TYPE(cinfo) == COMMON_EDO_NAND){
-		ret = auto_adapt_edo_nand(io, cinfo, rbitem);
+		//ret = auto_adapt_edo_nand(io, cinfo, rbitem);///// kyhe add
 	}else if(GET_NAND_TYPE(cinfo) == TOGGLE_DDR_NAND){
 		ret = auto_adapt_toggle_nand(io, cinfo);
 	}else if(GET_NAND_TYPE(cinfo) == ONFI_DDR_NAND){
@@ -569,7 +587,7 @@ void nand_io_send_spec_addr(int context, int addr, unsigned int rowcycle, unsign
 	while(rowcycle > 1){
 		__send_addr_to_nand(io->addrport, (addr & 0xff), 0, 0, 0);
 		addr = addr >> 0x08;
-		cycle--;
+		rowcycle--;
 	}
 	if(rowcycle)
 		__send_addr_to_nand(io->addrport, (addr & 0xff), 0, delay, 0);
@@ -612,9 +630,7 @@ int nand_io_receive_data(int context, unsigned char *dst, unsigned int len)
 	return 0;
 }
 int nand_io_send_waitcomplete(int context, chip_info *cinfo) {
-	nfi_nand_timing *timing = (nfi_nand_timing *)cinfo->ops_timing.io_timing;
-	unsigned int tWC = timing->tWP + timing->tWH;
-	ndd_ndelay(tWC * 64);
+	ndd_ndelay(cinfo->ops_timing.tWC * 64);
 	return 0;
 }
 void nand_io_setup_default_16bit(nfi_base *base)

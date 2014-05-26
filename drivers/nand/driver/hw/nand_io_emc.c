@@ -4,11 +4,7 @@
 #include <nand_info.h>
 #include <cpu_trans.h>
 
-#ifdef CONFIG_SOC_4780
-#include <soc/jz4780_nemc.h>
-#elif defined(CONFIG_SOC_4775)
-#include <soc/jz4775_nemc.h>
-#endif
+#include <soc/jz_nemc.h>
 
 /******  the operation of nemc registers  ******/
 static int ref_cnt = 0;

@@ -204,6 +204,7 @@ static int mcu_init(nand_dma *nd_dma,Nand_Task *nandtask,int id)
 	/* calc firmware cycle in ps
 	 *  firware has the same's clock as nemc's clock,which is AHB2.
 	 */
+//__ndd_dump_chip_info(ndinfo);
 	fcycle = 1000000000 / (nd_data->base->nfi.rate / 1000); // unit: ps
 	msg->info.twhr2 = ((ndtime->tWHR2 * 1000 + fcycle - 1) / fcycle) + 1;
 	msg->info.tcwaw = ((ndtime->tCWAW * 1000 + fcycle - 1) / fcycle) + 1;
