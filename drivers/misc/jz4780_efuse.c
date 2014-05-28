@@ -725,10 +725,126 @@ static ssize_t jz_efuse_user_id_show(struct device *dev,
 	return jz_efuse_id_show(dev, attr, buf, 0x18);
 }
 
+static void jz_efuse_id_real_write(struct jz_efuse *efuse, uint32_t *buf, unsigned int addr)
+{
+	unsigned int tmp_buf[8];
+	unsigned int tmp = 0;
+	unsigned long flag = 0;
+	int i = 0;
+	dump_jz_efuse(efuse);
+
+#if 0
+	if (jz_nomal_efuse_read_bytes(efuse, (char *)&tmp_buf, addr, skip) < 0) {
+		printk("read efuse at addr = %x failed\n", addr);
+		return -1;
+	}
+
+	if (is_space_written((char *)tmp_buf, (char *)buf, skip)) {
+		printk("ERROR: the write spaced has been written\n");
+		return -1;
+	}
+#endif
+
+#if 1
+	/* 1. Set config register */
+	spin_lock_irqsave(&efuse->lock, flag);
+	tmp = readl(efuse->iomem + JZ_EFUCFG);
+	tmp &= ~((0xf << 12) | (0xfff << 0));
+	tmp |= (efuse->efucfg_info.wr_adj << 12)
+		| (efuse->efucfg_info.wr_strobe << 0);
+	writel(tmp, efuse->iomem + JZ_EFUCFG);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	printk("efuse efucfg is 0x%x\n", JZ_EFUCFG + efuse->iomem);
+#endif
+	/* 2. Write want program data to EFUSE data buffer 0-7 registers */
+		for (i = 0; i < 4; i++) {
+			printk("befor write: iomem is 0x%x, JZ_EFUDATA[%d] is =0x%x\n",
+					efuse->iomem, i, readl(efuse->iomem + JZ_EFUDATA(i)));
+			printk("now write (int)buf is 0x%x\n", *(buf+i));
+			writel(*(buf + i), efuse->iomem + JZ_EFUDATA(i));
+			printk("after write: iomem is 0x%x, JZ_EFUDATA[%d] is =0x%x\n",
+					efuse->iomem, i, readl(efuse->iomem + JZ_EFUDATA(i)));
+		}
+
+#if 1
+	/*
+	 * 3. Set control register, indicate want to program address,
+	 * data length.
+	 */
+	spin_lock_irqsave(&efuse->lock, flag);
+	tmp = readl(efuse->iomem + JZ_EFUCTRL);
+	tmp &= ~((0x1 << 30) | (0x1ff << 21) | (0x1 << 15) | (0x3 << 0));
+	if (addr >= (STRTADDR + 0x200)) {
+		tmp |= (1 << 30);
+	}
+	tmp |= (addr << 21) | (4 << 16);
+	writel(tmp, efuse->iomem + JZ_EFUCTRL);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	/* 4. Write control register PG_EN bit to 1 */
+	spin_lock_irqsave(&efuse->lock, flag);
+	tmp = readl(efuse->iomem + JZ_EFUCTRL);
+	tmp |= (1 << 15);
+	writel(tmp, efuse->iomem + JZ_EFUCTRL);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	/* 5. Connect VDDQ pin to 2.5V */
+	spin_lock_irqsave(&efuse->lock, flag);
+	efuse->is_timer_on = 1;
+	jz_efuse_vddq_set((unsigned long)efuse);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	/* 6. Write control register WR_EN bit */
+	spin_lock_irqsave(&efuse->lock, flag);
+	tmp = readl(efuse->iomem + JZ_EFUCTRL);
+	tmp |= (1 << 1);
+	writel(tmp, efuse->iomem + JZ_EFUCTRL);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	/* 7. Wait status register WR_DONE set to 1. */
+	do {
+		tmp = readl(efuse->iomem + JZ_EFUSTATE);
+	}while(!(tmp & WR_DONE));
+
+	/* 8. Disconnect VDDQ pin from 2.5V. */
+	spin_lock_irqsave(&efuse->lock, flag);
+	efuse->is_timer_on = 0;
+	jz_efuse_vddq_set((unsigned long)efuse);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+
+	/* 9. Write control register PG_EN bit to 0. */
+	spin_lock_irqsave(&efuse->lock, flag);
+	tmp = readl(efuse->iomem + JZ_EFUCTRL);
+	tmp &= ~(1 << 15);
+	writel(tmp, efuse->iomem + JZ_EFUCTRL);
+	spin_unlock_irqrestore(&efuse->lock, flag);
+#endif
+
+	return 0;
+
+}
+
+static void jz_efuse_id_write(struct jz_efuse *efuse, int is_chip_id, uint32_t *buf)
+{
+	if (is_chip_id) {
+		jz_efuse_id_real_write(efuse, buf, 0x8);
+	} else {
+		jz_efuse_id_real_write(efuse, buf, 0x18);
+	}
+}
+
 static ssize_t jz_efuse_user_id_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	return jz_efuse_id_store(dev, attr, buf, count, 0x18);
+	struct jz_efuse * efuse = dev_get_drvdata(dev);
+	uint32_t data[4];
+	printk("\n1--jz_efuse_user_id_store\n");
+
+	sscanf (buf, "%08x %08x %08x %08x", &data[0], &data[1], &data[2], &data[3]);
+	dev_info(dev, "user id store: %08x %08x %08x %08x\n", data[0], data[1], data[2], data[3]);
+	jz_efuse_id_write(efuse, 0, data);
+	return strnlen(buf, PAGE_SIZE);
 }
 
 static ssize_t jz_efuse_protect_bit_show(struct device *dev,

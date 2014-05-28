@@ -106,12 +106,6 @@ void jz_efuse_id_read(int is_chip_id, uint32_t *buf)
 printk("1--jz_efuse_id_read\n");
 	spin_lock(&jz_efuse_lock);
 
-//chip is reset
-//
-//
-/////////////////
-
-
 	if (is_chip_id ) {
 		/*jz_efuse_reg_write(JZ_REG_EFUSE_CTRL,  0x1 << 0 );
 		while (!(jz_efuse_reg_read(JZ_REG_EFUSE_CTRL) & (0x1 << 0)));
@@ -173,7 +167,7 @@ static ssize_t jz_efuse_chip_id_show(struct device *dev, struct device_attribute
 printk("1--jz_efuse_chip_id_show\n");
 
 	jz_efuse_id_read(1, data);
-	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\n", data[0], data[1], data[2], data[3]);
+	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\0", data[0], data[1], data[2], data[3]);
 }
 
 static ssize_t jz_efuse_user_id_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -182,7 +176,7 @@ printk("1--jz_efuse_user_id_show\n");
 	uint32_t data[4];
 
 	jz_efuse_id_read(0, data);
-	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\n", data[0], data[1], data[2], data[3]);
+	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\0", data[0], data[1], data[2], data[3]);
 }
 
 static ssize_t jz_efuse_chip_id_store(struct device *dev,
