@@ -82,6 +82,7 @@ snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-jz4740-codec-objs := jz4740.o
 snd-soc-jz4780-icdc-objs := jz4780_icdc.o
+snd-soc-jz4775-icdc-objs := jz4775_icdc.o
 
 # Amp
 snd-soc-lm4857-objs := lm4857.o
@@ -114,6 +115,7 @@ obj-$(CONFIG_SND_SOC_DMIC)	+= snd-soc-dmic.o
 obj-$(CONFIG_SND_SOC_L3)	+= snd-soc-l3.o
 obj-$(CONFIG_SND_SOC_JZ4740_CODEC)	+= snd-soc-jz4740-codec.o
 obj-$(CONFIG_SND_SOC_JZ4780_ICDC)       += snd-soc-jz4780-icdc.o
+obj-$(CONFIG_SND_SOC_JZ4775_ICDC)	+= snd-soc-jz4775-icdc.o
 obj-$(CONFIG_SND_SOC_MAX98088)	+= snd-soc-max98088.o
 obj-$(CONFIG_SND_SOC_MAX98095)	+= snd-soc-max98095.o
 obj-$(CONFIG_SND_SOC_MAX9850)	+= snd-soc-max9850.o

@@ -456,6 +456,24 @@ struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };
 
+/* only for ALSA platform devices */
+struct platform_device jz4775_codec_device = {
+	.name           = "jz4775-codec",
+	.id             = -1,
+};
+
+
+struct platform_device jz47xx_i2s_device = {
+	.name           = "jz47xx-i2s",
+	.id             = -1,
+};
+
+
+struct platform_device jz47xx_pcm_device = {
+	.name           = "jz47xx-pcm-audio",
+	.id             = -1,
+};
+
 static u64 jz_fb_dmamask = ~(u64)0;
 
 #define DEF_LCD(NO)								\

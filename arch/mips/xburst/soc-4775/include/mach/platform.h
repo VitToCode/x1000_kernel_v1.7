@@ -125,6 +125,10 @@ extern struct platform_device jz_i2s_device;
 extern struct platform_device jz_pcm_device;
 extern struct platform_device jz_codec_device;
 
+extern struct platform_device jz4775_codec_device;
+extern struct platform_device jz47xx_i2s_device;
+extern struct platform_device jz47xx_pcm_device;
+
 extern struct platform_device jz_mixer0_device;
 extern struct platform_device jz_mixer1_device;
 

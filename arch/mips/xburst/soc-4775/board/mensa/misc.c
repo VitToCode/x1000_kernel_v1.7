@@ -623,6 +623,18 @@ static int __init board_init(void)
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 
+#ifdef CONFIG_SND_SOC_JZ4775_ICDC
+	platform_device_register(&jz4775_codec_device);
+#endif
+
+#ifdef CONFIG_SND_JZ47XX_SOC_I2S
+	platform_device_register(&jz47xx_i2s_device);
+#endif
+
+#ifdef CONFIG_SND_JZ47XX_SOC
+	platform_device_register(&jz47xx_pcm_device);
+#endif
+
 
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
  	platform_device_register(&kd50g2_40nm_a2_device);

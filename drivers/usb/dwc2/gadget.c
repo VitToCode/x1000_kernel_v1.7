@@ -2650,7 +2650,10 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	dev_info(dwc->dev, "unbind gadget driver %s...\n",
 		driver->driver.name);
 	dwc->gadget_driver = NULL;
+        if (driver->disconnect != NULL)
+                driver->disconnect(&dwc->gadget);
 	driver->unbind(&dwc->gadget);
+	dwc->gadget.dev.driver = NULL;
 
 	dev_info(dwc->dev, "unregistered gadget driver %s\n", driver->driver.name);
 	return 0;

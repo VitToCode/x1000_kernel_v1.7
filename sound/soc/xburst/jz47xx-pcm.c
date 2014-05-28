@@ -16,9 +16,18 @@
 #include <asm/io.h>
 #include "jz47xx-pcm.h"
 #include "include/dma.h"
+
+#ifdef CONFIG_SOC_4780
 #include "include/jz4780pdma.h"
 #include "include/jz4780aic.h"
 #include "include/jz4780cpm.h"
+#endif
+
+#ifdef CONFIG_SOC_4775
+#include "include/jz4775pdma.h"
+#include "include/jz4775aic.h"
+#include "include/jz4775cpm.h"
+#endif
 
 static int jz_pcm_debug = 0;
 module_param(jz_pcm_debug, int, 0644);
@@ -84,7 +93,7 @@ static int jz_request_dma(int dev_id,
 {
 	int i = -1;
 	struct jzdma_channel *dmac = NULL;
-	
+
 	dma_cap_mask_t mask;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
@@ -96,9 +105,9 @@ static int jz_request_dma(int dev_id,
 		dmac->tx_desc.callback          = irqhandler;
 		dmac->tx_desc.callback_param    = param;
 		dmac->tx_desc.cookie            = 0;
-			
-		//i= replay_channel->chan_id;     //Be careful, this is a virtual dma number 
-		i= dmac->id;                        
+
+		//i= replay_channel->chan_id;     //Be careful, this is a virtual dma number
+		i= dmac->id;
 	}
 	if(dev_id == SNDRV_PCM_STREAM_CAPTURE){
 		record_channel = dma_request_channel(mask, jz47xx_pcm_dma_filter, NULL);
@@ -209,6 +218,7 @@ static int jz47xx_dma_buf_enqueue(struct jz47xx_runtime_data *prtd, dma_addr_t d
 	aic_buf->next = NULL;
 	aic_buf->data = aic_buf->ptr = data;
 	aic_buf->size = size;
+	memset((void *)data, 0x0, size);
 	if( prtd->curr == NULL) {
 		prtd->curr = aic_buf;
 		prtd->end  = aic_buf;
@@ -347,12 +357,12 @@ void jz_pcm_start_normal_dma(struct jz47xx_runtime_data *prtd,
 #ifdef CONFIG_SND_SOC_JZ4770_ICDC
 	REG_DMAC_DMACR(chan / HALF_DMA_NUM) |= DMAC_DMACR_DMAE;
 #endif
-#ifdef CONFIG_SND_SOC_JZ4780_ICDC
+#if defined (CONFIG_SND_SOC_JZ4780_ICDC) || defined(CONFIG_SND_SOC_JZ4775_ICDC)
 	REG_DMAC_DMACR |= DMAC_DMACR_DMAE;
 #endif
-	
+
 	REG_DMAC_DCCSR(chan) |= DMAC_DCCSR_EN;
-	
+
 	if(mode == DMA_MODE_WRITE){
 		dmac =to_jzdma_chan(replay_channel);
 		dmac->status = STAT_RUNNING;
@@ -377,17 +387,19 @@ void audio_start_dma(struct jz47xx_runtime_data *prtd, int mode)
 		aic_buf = prtd->curr;
 		if (aic_buf != NULL) {
 			prtd->curr = aic_buf->next;
-			prtd->next = aic_buf->next;
+			prtd->next = prtd->curr->next;
 			aic_buf->next  = NULL;
 			kfree(aic_buf);
+                        prtd->dma_loaded--;
 			aic_buf = NULL;
 		}
 	}
 
-	aic_buf = prtd->next;
+	aic_buf = prtd->curr;
 	channel = prtd->params->channel;
 	if (aic_buf) {
 		dma_cache_wback_inv(CKSEG1ADDR((unsigned long)aic_buf->data),(unsigned long)aic_buf->size);
+
 		jz_pcm_start_normal_dma(prtd, channel, aic_buf->data,
 					aic_buf->size, mode);
 		prtd->aic_dma_flag |= AIC_START_DMA;
@@ -430,7 +442,7 @@ static void jz47xx_pcm_enqueue(struct snd_pcm_substream *substream)
 }
 
 static void schedule_next_period(struct snd_pcm_substream *substream) {
-	
+
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct jz47xx_runtime_data *prtd = runtime->private_data;
 	unsigned long flags;
@@ -438,23 +450,20 @@ static void schedule_next_period(struct snd_pcm_substream *substream) {
        	if (substream && snd_pcm_running(substream))
 		snd_pcm_period_elapsed(substream);
 
-	spin_lock(&prtd->lock);
-	prtd->dma_loaded--;
-	if (prtd->state & ST_RUNNING) {
-		jz47xx_pcm_enqueue(substream);
-	}
-	spin_unlock(&prtd->lock);
-
 	local_irq_save(flags);
 	if (prtd->state & ST_RUNNING) {
 		if (prtd->dma_loaded) {
-			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+                        if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 				audio_start_dma(prtd, DMA_MODE_WRITE);
 			else
 				audio_start_dma(prtd, DMA_MODE_READ);
 		}
 	}
 	local_irq_restore(flags);
+
+        spin_lock(&prtd->lock);
+        jz47xx_pcm_enqueue(substream);
+	spin_unlock(&prtd->lock);
 }
 
 /*
@@ -467,7 +476,7 @@ void  jz47xx_pcm_dma_callback(void *param)
 	struct jz47xx_runtime_data *prtd = runtime->private_data;
 
 	prtd->aic_dma_flag &= ~AIC_START_DMA;
-	
+
 	schedule_next_period(substream);
 }
 
@@ -488,7 +497,7 @@ static int jz47xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 
 	PCM_DEBUG_MSG("enter %s\n", __func__);
-	
+
 	if (!dma)
 	 	return 0;
 
@@ -615,14 +624,35 @@ static int jz47xx_pcm_prepare(struct snd_pcm_substream *substream)
 
 	/* flush the DMA channel and DMA channel bit check */
 	jz47xx_dma_ctrl(prtd->params->channel);
-	prtd->dma_loaded = 0;
-	prtd->dma_pos = prtd->dma_start;
 
 	/* enqueue dma buffers */
 	jz47xx_pcm_enqueue(substream);
 
 	return ret;
 
+}
+
+static void jz47xx_pcm_clean(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct jz47xx_runtime_data *prtd = runtime->private_data;
+        struct jz47xx_dma_buf_aic *aic_buf = NULL;
+
+        aic_buf = prtd->curr;
+        while (aic_buf != NULL) {
+                prtd->curr = aic_buf->next;
+                kfree(aic_buf);
+                aic_buf = prtd->curr;
+        }
+
+	prtd->aic_dma_flag = 0;
+        prtd->curr = NULL;
+        prtd->next = NULL;
+        prtd->end = NULL;
+        prtd->dma_loaded = 0;
+        prtd->dma_start = runtime->dma_addr;
+        prtd->dma_pos = prtd->dma_start;
+        prtd->first_transfer = 1;
 }
 
 static int jz47xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -634,7 +664,7 @@ static int jz47xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		prtd->state |= ST_RUNNING;
+                prtd->state |= ST_RUNNING;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			audio_start_dma(prtd, DMA_MODE_WRITE);
 		} else {
@@ -644,16 +674,18 @@ static int jz47xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
+                prtd->state &= ~ST_RUNNING;
+		__i2s_disable_transmit_dma();
+		jz47xx_dma_ctrl(prtd->params->channel);
+                jz47xx_pcm_clean(substream);
+                break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		prtd->state &= ~ST_RUNNING;
 		break;
-
 	case SNDRV_PCM_TRIGGER_RESUME:
-		printk(" RESUME \n");
-		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		printk(" RESTART \n");
+		prtd->state |= ST_RUNNING;
 		break;
 
 	default:
@@ -698,7 +730,7 @@ jz47xx_pcm_pointer(struct snd_pcm_substream *substream)
 		res = ptr - prtd->dma_start;
 	}
 	spin_unlock(&prtd->lock);
-	
+
 	x = bytes_to_frames(runtime, res);
 	if (x >= runtime->buffer_size)         //change it from '==' to '>='
 		x = 0;
@@ -735,7 +767,7 @@ static int jz47xx_pcm_open(struct snd_pcm_substream *substream)
 		  (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		  "playback" : "capture");
 
-	snd_soc_set_runtime_hwparams(substream, &jz47xx_pcm_hardware);
+        snd_soc_set_runtime_hwparams(substream, &jz47xx_pcm_hardware);
 	prtd = kzalloc(sizeof(struct jz47xx_runtime_data), GFP_KERNEL);
 	if (prtd == NULL)
 		return -ENOMEM;
@@ -760,13 +792,9 @@ static int jz47xx_pcm_close(struct snd_pcm_substream *substream)
 
 	if (prtd)
 		aic_buf = prtd->curr;
-
 	while (aic_buf != NULL) {
 		prtd->curr = aic_buf->next;
-		prtd->next = aic_buf->next;
-		aic_buf->next  = NULL;
 		kfree(aic_buf);
-		aic_buf = NULL;
 		aic_buf = prtd->curr;
 	}
 
@@ -776,6 +804,7 @@ static int jz47xx_pcm_close(struct snd_pcm_substream *substream)
 		prtd->end = NULL;
 		kfree(prtd);
 	}
+
 	return 0;
 }
 
@@ -861,7 +890,7 @@ static void jz47xx_pcm_free_dma_buffers(struct snd_pcm *pcm)
 			continue;
 
 		dma_free_noncoherent(pcm->card->dev, buf->bytes,
-		  buf->area, buf->addr);
+                                     buf->area, buf->addr);
 		buf->area = NULL;
 	}
 }
@@ -921,16 +950,14 @@ static int __devexit jz47xx_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
 static struct platform_driver jz_dma_driver = {
 	.driver = {
-		.name = "jz47xx-pcm-audio",   
+		.name = "jz47xx-pcm-audio",
 		.owner = THIS_MODULE,
 	},
 	.probe = jz47xx_platform_probe,
 	.remove = __devexit_p(jz47xx_platform_remove),
 };
-
 
 static int __init jz47xx_soc_platform_init(void)
 {
