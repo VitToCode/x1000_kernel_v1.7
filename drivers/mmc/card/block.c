@@ -34,6 +34,7 @@
 #include <linux/delay.h>
 #include <linux/capability.h>
 #include <linux/compat.h>
+#include <linux/proc_fs.h>
 
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
@@ -1780,6 +1781,132 @@ static const struct mmc_fixup blk_fixups[] =
 	END_FIXUP
 };
 
+#ifdef CONFIG_ERASE_ALL_MMC
+static int mmc_do_erase_all_card(struct mmc_card *card)
+{
+	struct mmc_blk_data *md;
+	unsigned int nr, from = 0;
+	unsigned int arg = 0;
+	int err;
+
+	md = mmc_blk_alloc(card);
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	mmc_claim_host(card->host);
+#if 0
+	if (!mmc_card_mmc(card)) {
+		printk("Only MMC card is permitted to erase\n");
+		return -EPERM;
+	}
+#else
+	if (mmc_card_sd(card))
+		arg = MMC_ERASE_ARG;
+#endif
+
+	nr = get_capacity(md->disk) -1;
+	err = mmc_erase(card, from, nr, arg);
+	mmc_release_host(card->host);
+	if (err != 0) {
+		printk("Err is %d\n",err);
+	}
+	return err;
+}
+
+static ssize_t mmc_erase_all_card(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	int ret;
+	unsigned long   enable;
+	struct mmc_card *card;
+
+	ret = strict_strtoul(buf, 0, &enable);
+	if (ret)
+		return ret;
+
+	card = container_of(dev, struct mmc_card, dev);
+	if (1 == enable) {
+		ret = mmc_do_erase_all_card(card);
+		if (ret != 0) {
+			printk("Erase all card failed\n");
+			return ret;
+		}
+	} else {
+		printk("Please input the right value(1 for erase all card)\n");
+		return -EINVAL;
+	}
+
+	return size;
+}
+
+static struct device_attribute attributes[] = {
+	__ATTR(erase_card, S_IRUSR | S_IWUSR, NULL, mmc_erase_all_card),
+};
+
+static int create_sysfs_interface(struct device *dev)
+{
+	int i = 0;
+	for ( ; i < ARRAY_SIZE(attributes); i++) {
+		if (device_create_file(dev, attributes + i))
+			goto err;
+	}
+	return 0;
+
+err:
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		device_remove_file(dev, attributes + i);
+	return -1;
+}
+
+
+static int erase_all_emmc(struct file *file, const char __user *buffer,
+			   unsigned long count, void *data)
+{
+	struct mmc_card *card = (struct mmc_card *)data;
+	unsigned int val;
+	char erase[3];
+	int ret;
+#if 0
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
+#endif
+
+	ret = copy_from_user(erase, buffer, count);
+	if (ret)
+		return -EFAULT;
+
+	val = simple_strtoul(erase, NULL, 0);
+	if (1 == val) {
+		ret = mmc_do_erase_all_card(card);
+		if (ret != 0) {
+			printk("Erase all card failed\n");
+			return ret;
+		}
+	} else {
+		printk("Please input the right value(1 for erase all card)\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static void mkdir_for_erase_emmc(struct mmc_card *card, char *name)
+{
+	struct proc_dir_entry *root, *child;
+	struct proc_dir_entry *res;
+
+	root = proc_mkdir("erase_card", 0);
+
+	child = proc_mkdir(name, root);
+
+	res = create_proc_entry("erase_all_emmc", 0600, child);
+	if (res) {
+		res->write_proc = erase_all_emmc;
+		res->data = card;
+	}
+}
+#endif
+
 static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
@@ -1817,6 +1944,11 @@ static int mmc_blk_probe(struct mmc_card *card)
 		if (mmc_add_disk(part_md))
 			goto out;
 	}
+#ifdef CONFIG_ERASE_ALL_MMC
+	if (!mmc_card_sdio(card)) {
+		mkdir_for_erase_emmc(card, md->disk->disk_name);
+	}
+#endif
 	return 0;
 
  out:
@@ -1837,6 +1969,11 @@ static void mmc_blk_remove(struct mmc_card *card)
 	mmc_set_drvdata(card, NULL);
 #ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 	mmc_set_bus_resume_policy(card->host, 0);
+#endif
+#ifdef CONFIG_ERASE_ALL_MMC
+	remove_proc_entry("erase_card/mmcblk0/erase_all_emmc", 0);
+	remove_proc_entry("erase_card/mmcblk0", 0);
+	remove_proc_entry("erase_card", NULL);
 #endif
 }
 
