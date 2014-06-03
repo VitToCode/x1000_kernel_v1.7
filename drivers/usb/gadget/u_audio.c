@@ -23,9 +23,15 @@
  * This component encapsulates the ALSA devices for USB audio gadget
  */
 
+#ifdef CONFIG_ANDROID
 #define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D0p"
 #define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D0c"
 #define FILE_CONTROL		"/dev/snd/controlC0"
+#else
+#define FILE_PCM_PLAYBACK	"/dev/pcmC0D0p"
+#define FILE_PCM_CAPTURE	"/dev/pcmC0D0c"
+#define FILE_CONTROL		"/dev/controlC0"
+#endif
 
 static char *fn_play = FILE_PCM_PLAYBACK;
 module_param(fn_play, charp, S_IRUGO);
@@ -189,6 +195,12 @@ try_again:
 	}
 
 	frames = bytes_to_frames(runtime, count);
+
+//NOTE: I don't know why pc send some dirty data to us, so I'm not sure
+//      to do this is right, maybe lose some data, but I did it.
+        if (frames != snd->rate / 4)
+                return 0;
+
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	result = snd_pcm_lib_write(snd->substream, buf, frames);

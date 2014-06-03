@@ -12,9 +12,19 @@
 #include "jz47xx-pcm.h"
 #include "jz47xx-i2s.h"
 #include "include/dma.h"
+
+#ifdef CONFIG_SOC_4780
 #include "include/jz4780pdma.h"
 #include "include/jz4780aic.h"
 #include "include/jz4780cpm.h"
+#endif
+
+#ifdef CONFIG_SOC_4775
+#include "include/jz4775pdma.h"
+#include "include/jz4775aic.h"
+#include "include/jz4775cpm.h"
+#endif
+
 
 #define I2S_RFIFO_DEPTH 32
 #define I2S_TFIFO_DEPTH 64
@@ -118,8 +128,8 @@ static void jz47xx_snd_tx_ctrl(int on)
 		__aic_write_tfifo(0x0);
 		while(!__aic_transmit_underrun());
 		__i2s_disable_replay();
-		__aic_clear_errors();	
-                 
+		__aic_clear_errors();
+
 		if (!is_recording)
 			__i2s_disable();
 	}
@@ -277,26 +287,27 @@ static void jz47xx_i2s_shutdown(struct snd_pcm_substream *substream, struct snd_
  *   */
 unsigned int cpm_get_xpllout(src_clk sclk_name)
 {
+#ifdef CONFIG_SOC_4780
 	unsigned int exclk = JZ_EXTAL;
 	unsigned int xpll_ctrl = 0, pllout;
 	unsigned int m, n, od;
 
 	switch (sclk_name) {
-		case SCLK_APLL:
-			xpll_ctrl = INREG32(CPM_CPAPCR);
-			break;
-		case SCLK_MPLL:
-			xpll_ctrl = INREG32(CPM_CPMPCR);
-			break;
-		case SCLK_EPLL:
-			xpll_ctrl = INREG32(CPM_CPEPCR);
-			break;
-		case SCLK_VPLL:
-			xpll_ctrl = INREG32(CPM_CPVPCR);
-			break;
-		default:
-			printk("WARNING: can NOT get the %dpll's clock\n", sclk_name);
-			break;
+        case SCLK_APLL:
+                xpll_ctrl = INREG32(CPM_CPAPCR);
+                break;
+        case SCLK_MPLL:
+                xpll_ctrl = INREG32(CPM_CPMPCR);
+                break;
+        case SCLK_EPLL:
+                xpll_ctrl = INREG32(CPM_CPEPCR);
+                break;
+        case SCLK_VPLL:
+                xpll_ctrl = INREG32(CPM_CPVPCR);
+                break;
+        default:
+                printk("WARNING: can NOT get the %dpll's clock\n", sclk_name);
+                break;
 	}
 
 	if (xpll_ctrl & CPXPCR_XPLLBP) {
@@ -317,6 +328,34 @@ unsigned int cpm_get_xpllout(src_clk sclk_name)
 
 	pllout = exclk * m / (n * od);
 	printk("pllout == %d\n", pllout);
+#else
+        unsigned int cpxpcr = 0, pllout =  __cpm_get_extalclk();
+	unsigned int m, n, no;
+
+	switch (sclk_name) {
+	case SCLK_APLL:
+		cpxpcr = INREG32(CPM_CPAPCR);
+		if ((cpxpcr & CPAPCR_EN) && (!(cpxpcr & CPAPCR_BP))) {
+			m = ((cpxpcr & CPAPCR_M_MASK) >> CPAPCR_M_LSB) + 1;
+			n = ((cpxpcr & CPAPCR_N_MASK) >> CPAPCR_N_LSB) + 1;
+			no = 1 << ((cpxpcr & CPAPCR_OD_MASK) >> CPAPCR_OD_LSB);
+			pllout = ((JZ_EXTAL) * m / (n * no));
+		}
+		break;
+	case SCLK_MPLL:
+		cpxpcr = INREG32(CPM_CPMPCR);
+		if ((cpxpcr & CPMPCR_EN) && (!(cpxpcr & CPMPCR_BP))) {
+			m = ((cpxpcr & CPMPCR_M_MASK) >> CPMPCR_M_LSB) + 1;
+			n = ((cpxpcr & CPMPCR_N_MASK) >> CPMPCR_N_LSB) + 1;
+			no = 1 << ((cpxpcr & CPMPCR_OD_MASK) >> CPMPCR_OD_LSB);
+			pllout = ((JZ_EXTAL) * m / (n * no));
+		}
+		break;
+	default:
+		printk("WARNING: can NOT get the %dpll's clock\n", sclk_name);
+		break;
+	}
+#endif
 
 	return pllout;
 }
@@ -327,10 +366,11 @@ unsigned int cpm_get_xpllout(src_clk sclk_name)
  *    */
 static void set_i2s_clock(int clk_sour, unsigned int clk_hz)
 {
-	unsigned int extclk = __cpm_get_extalclk();
+        unsigned int extclk = __cpm_get_extalclk();
 	unsigned int pllclk;
 	unsigned int div;
 
+#ifdef CONFIG_SOC_4780
 	if(clk_hz == extclk){
 		__cpm_select_i2sclk_exclk();
 		REG_CPM_I2SCDR |= I2SCDR_CE_I2S;
@@ -360,10 +400,45 @@ static void set_i2s_clock(int clk_sour, unsigned int clk_hz)
 			udelay(100);
 		}
 	}
+#else
+	if(clk_hz == (extclk / 2)){
+		printk("i2S from exclk and clock is %d\n", (extclk/2));
+		__cpm_select_i2sclk_exclk();
+		REG_CPM_I2SCDR |= I2SCDR_CE_I2S;
+		while (INREG32(CPM_I2SCDR) & I2SCDR_I2S_BUSY){
+			printk("Wait : I2SCDR stable\n");
+			udelay(100);
+		}
+	}else{
+		if(clk_sour){
+			pllclk = cpm_get_xpllout(SCLK_APLL);
+			printk("i2S from APLL and clock is %d\n", pllclk);
+		}else{
+			pllclk = cpm_get_xpllout(SCLK_MPLL);
+			printk("i2S from MPLL and clock is %d\n", pllclk);
+		}
+		if((pllclk % clk_hz) * 2 >= clk_hz)
+			div = (pllclk / clk_hz) + 1;
+		else
+			div = pllclk / clk_hz;
+
+		if(clk_sour)
+			OUTREG32(CPM_I2SCDR, I2SCDR_I2CS | I2SCDR_CE_I2S | (div - 1));
+		else
+			OUTREG32(CPM_I2SCDR, I2SCDR_I2CS | I2SCDR_CE_I2S | I2SCDR_I2PCS | (div - 1));
+
+		printk("div==%d\n",div);
+		while (INREG32(CPM_I2SCDR) & I2SCDR_I2S_BUSY){
+			printk("Wait : I2SCDR stable\n");
+			udelay(100);
+		}
+	}
+#endif
 }
 
 void cpm_start_clock(clock_gate_module module_name)
 {
+#ifdef CONFIG_SOC_4780
 	unsigned int cgr_index, module_index;
 
 	if (module_name == CGM_ALL_MODULE) {
@@ -395,6 +470,18 @@ void cpm_start_clock(clock_gate_module module_name)
 					module_name);
 			break;
 	}
+#else
+	if (module_name == CGM_ALL_MODULE) {
+		OUTREG32(CPM_CLKGR0, 0x0);
+		return;
+	}
+
+	if (module_name & 0x1f) {
+		CLRREG32(CPM_CLKGR0, 1 << module_name);
+        } else {
+		printk("WARNING: can NOT start the %d's clock\n", module_name);
+	}
+#endif
 }
 
 
@@ -411,7 +498,7 @@ static int jz47xx_i2s_probe(struct snd_soc_dai *dai)
 	set_i2s_clock(0, 12000000);
 #endif
 	printk("start set AIC register....\n");
-	
+
 	__i2s_disable();
 	__aic_disable_transmit_dma();
 	__aic_disable_receive_dma();
@@ -436,7 +523,7 @@ static int jz47xx_i2s_probe(struct snd_soc_dai *dai)
 
 	__i2s_disable_replay();
 	__i2s_disable();
-	
+
 	jz47xx_snd_tx_ctrl(0);
 	jz47xx_snd_rx_ctrl(0);
 
@@ -510,7 +597,7 @@ static struct platform_driver jz47xx_i2s_plat_driver = {
 	.probe  = jz47xx_i2s_dev_probe,
 	.remove = jz47xx_i2s_dev_remove,
 	.driver = {
-		.name = "jz47xx-i2s",       
+		.name = "jz47xx-i2s",
 		.owner = THIS_MODULE,
 	},
 };
@@ -518,7 +605,7 @@ static struct platform_driver jz47xx_i2s_plat_driver = {
 
 static int __init jz47xx_i2s_init(void)
 {
-        return platform_driver_register(&jz47xx_i2s_plat_driver); 
+        return platform_driver_register(&jz47xx_i2s_plat_driver);
 }
 module_init(jz47xx_i2s_init);
 

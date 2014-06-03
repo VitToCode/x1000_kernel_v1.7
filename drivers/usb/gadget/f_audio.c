@@ -46,7 +46,7 @@ static int generic_get_cmd(struct usb_audio_control *con, u8 cmd);
 #define F_AUDIO_NUM_INTERFACES	2
 
 /* B.3.1  Standard AC Interface Descriptor */
-static struct usb_interface_descriptor ac_interface_desc __initdata = {
+static struct usb_interface_descriptor ac_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
 	.bDescriptorType =	USB_DT_INTERFACE,
 	.bNumEndpoints =	0,
@@ -188,7 +188,7 @@ static struct usb_endpoint_descriptor as_out_ep_desc  = {
 };
 
 /* Class-specific AS ISO OUT Endpoint Descriptor */
-static struct uac_iso_endpoint_descriptor as_iso_out_desc __initdata = {
+static struct uac_iso_endpoint_descriptor as_iso_out_desc = {
 	.bLength =		UAC_ISO_ENDPOINT_DESC_SIZE,
 	.bDescriptorType =	USB_DT_CS_ENDPOINT,
 	.bDescriptorSubtype =	UAC_EP_GENERAL,
@@ -197,7 +197,7 @@ static struct uac_iso_endpoint_descriptor as_iso_out_desc __initdata = {
 	.wLockDelay =		__constant_cpu_to_le16(1),
 };
 
-static struct usb_descriptor_header *f_audio_desc[] __initdata = {
+static struct usb_descriptor_header *f_audio_desc[] = {
 	(struct usb_descriptor_header *)&ac_interface_desc,
 	(struct usb_descriptor_header *)&ac_header_desc,
 
@@ -609,6 +609,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		} else {
 			struct f_audio_buf *copy_buf = audio->copy_buf;
+
 			if (copy_buf) {
 				list_add_tail(&copy_buf->list,
 						&audio->play_queue);
@@ -656,6 +657,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	int			status;
 	struct usb_ep		*ep;
 
+        usb_function_deactivate(f);
 	f_audio_build_desc(audio);
 
 	/* allocate instance-specific interface IDs, and patch descriptors */
@@ -693,6 +695,8 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	} else
 		f->descriptors = usb_copy_descriptors(f_audio_desc);
 
+        usb_function_activate(f);
+
 	return 0;
 
 fail:
@@ -704,6 +708,8 @@ static void
 f_audio_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_audio		*audio = func_to_audio(f);
+
+        usb_function_deactivate(f);
 
 	usb_free_descriptors(f->descriptors);
 	usb_free_descriptors(f->hs_descriptors);
