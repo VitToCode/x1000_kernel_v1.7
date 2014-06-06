@@ -51,6 +51,7 @@ static void jzfb_change_dma_desc(struct fb_info *info);
 static void jzfb_display_v_color_bar(struct fb_info *info);
 /*static int jzfb_lcdc_reset(struct fb_info *info);*/
 
+static int showFPS = 0;
 static struct jzfb *jzfb0;
 static struct jzfb *jzfb1;
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
@@ -1778,10 +1779,48 @@ static void inline disable_frame_end_irq(struct jzfb *jzfb){
 }
 #endif	/* SLCD_DMA_RESTART_WORK_AROUND */
 
+
+#define SPEC_TIME_IN_NS (1000*1000000)	/* 1s */
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	int next_frm;
 	struct jzfb *jzfb = info->par;
+
+	{/*debug */
+		static struct timespec time_now, time_last;
+		struct timespec time_interval;
+		long long  interval_in_ns;
+		unsigned int interval_in_ms;
+		static unsigned int fpsCount = 0;
+
+		jzfb->pan_display_count++;
+		if(showFPS){
+			switch(showFPS){
+				case 1:
+					fpsCount++;
+					time_now = current_kernel_time();
+					time_interval = timespec_sub(time_now, time_last);
+					interval_in_ns = timespec_to_ns(&time_interval);
+					if ( interval_in_ns > SPEC_TIME_IN_NS ) {
+						printk(KERN_DEBUG " Pan display FPS: %d\n",fpsCount);
+						fpsCount = 0;
+						time_last = time_now;
+					}
+					break;
+				case 2:
+					time_now = current_kernel_time();
+					time_interval = timespec_sub(time_now, time_last);
+					interval_in_ns = timespec_to_ns(&time_interval);
+					interval_in_ms = (unsigned long)interval_in_ns/1000000;
+					printk(KERN_DEBUG " Pan display interval: %d\n",interval_in_ms);
+					time_last = time_now;
+					break;
+				default:
+					break;
+			}
+		}
+	}/*end debug*/
+
 
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev,"No support for X panning for now\n");
@@ -3566,16 +3605,6 @@ static ssize_t vsync_skip_w(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static struct device_attribute lcd_sysfs_attrs[] = {
-	__ATTR(dump_lcd, S_IRUGO|S_IWUSR, dump_lcd, NULL),
-	__ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL),
-	__ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL),
-	__ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL),
-	__ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w),
-	__ATTR(pan_display_test, S_IRUGO|S_IWUSR, pan_display_test, NULL),
-	__ATTR(dma_restart_test, S_IRUGO|S_IWUSR, dma_restart_test, NULL),
-};
-
 #if 0
 static int jzfb_lcdc_reset(struct fb_info *info)
 {
@@ -3807,10 +3836,67 @@ static enum jzfb_format_order get_xboot_lcd_rgb_order(struct jzfb *jzfb)
 	return rgb;
 }
 
+
+static ssize_t fps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk("\n-----you can choice print way:\n");
+	printk("Example: echo NUM > show_fps\n");
+	printk("NUM = 0: close fps statistics\n");
+	printk("NUM = 1: print recently fps\n");
+	printk("NUM = 2: print interval between last and this pan_display\n");
+	printk("NUM = 3: print pan_display count\n\n");
+	return 0;
+}
+
+static ssize_t fps_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	int num = 0;
+	struct jzfb *jzfb = dev_get_drvdata(dev);
+	num = simple_strtoul(buf, NULL, 0);
+	if(num < 0 || num > 3){
+		printk("\n--please 'cat show_fps' to view using the method\n\n");
+		return n;
+	}
+	showFPS = num;
+	if(showFPS == 3)
+		printk(KERN_DEBUG " Pand display count=%d\n",jzfb->pan_display_count);
+	return n;
+}
+/**********************lcd_debug***************************/
+static DEVICE_ATTR(dump_lcd, S_IRUGO|S_IWUSR, dump_lcd, NULL);
+static DEVICE_ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL);
+static DEVICE_ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL);
+static DEVICE_ATTR(dump_aosd, S_IRUGO|S_IWUSR, dump_aosd, NULL);
+static DEVICE_ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w);
+static DEVICE_ATTR(pan_display_test, S_IRUGO|S_IWUSR, pan_display_test, NULL);
+static DEVICE_ATTR(dma_restart_test, S_IRUGO|S_IWUSR, dma_restart_test, NULL);
+static DEVICE_ATTR(show_fps, S_IRUGO|S_IWUSR, fps_show, fps_store);
+
+static struct attribute *lcd_debug_attrs[] = {
+	&dev_attr_dump_lcd.attr,
+	&dev_attr_dump_h_color_bar.attr,
+	&dev_attr_dump_v_color_bar.attr,
+	&dev_attr_dump_aosd.attr,
+	&dev_attr_vsync_skip.attr,
+	&dev_attr_pan_display_test.attr,
+	&dev_attr_dma_restart_test.attr,
+	&dev_attr_show_fps.attr,
+	NULL,
+};
+
+const char lcd_group_name[] = "debug";
+static struct attribute_group lcd_debug_attr_group = {
+	.name	= lcd_group_name,
+	.attrs	= lcd_debug_attrs,
+};
+/********************************************************/
+
+
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int i;
 	unsigned int dual_ctrl; /* Dual LCDC Channel Control */
 	struct jzfb *jzfb;
 	struct fb_info *fb;
@@ -3857,6 +3943,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->mem = mem;
 	jzfb->need_syspan = 1;
 	jzfb->flag = 0;
+	jzfb->pan_display_count = 0;
 
 #ifdef SLCD_DMA_RESTART_WORK_AROUND
         jzfb->slcd_dma_start_count = 0;
@@ -3981,11 +4068,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	register_early_suspend(&jzfb->early_suspend);
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		ret = device_create_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-		if (ret)
-			break;
-	}
+	ret = sysfs_create_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 	if (ret) {
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
@@ -4089,9 +4172,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 err_kthread_stop:
 	kthread_stop(jzfb->vsync_thread);
 err_free_file:
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-	}
+	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&jzfb->early_suspend);
 #endif
@@ -4117,7 +4198,6 @@ err_release_mem_region:
 static int __devexit jzfb_remove(struct platform_device *pdev)
 {
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
-	int i;
 
 	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
@@ -4129,9 +4209,7 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	clk_put(jzfb->hdmi_clk);
 	clk_put(jzfb->hdmi_pclk);
 
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-	}
+	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&jzfb->early_suspend);

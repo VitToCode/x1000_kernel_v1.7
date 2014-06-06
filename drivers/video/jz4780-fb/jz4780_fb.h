@@ -168,6 +168,7 @@ struct jzfb {
 #ifdef SLCD_DMA_RESTART_WORK_AROUND
         int slcd_dma_start_count;
 #endif
+	unsigned int pan_display_count;
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
