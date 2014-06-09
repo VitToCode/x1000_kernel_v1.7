@@ -99,18 +99,22 @@ static void snd_switch_work(struct work_struct *hp_work)
 		mdelay(1000);
 	}
 
-	if (state == 1 && switch_data->mic_gpio != -1) {
-		gpio_direction_input(switch_data->mic_gpio);
-		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
-			state <<= 1;
-		else
-			state <<= 0;
-	} else
-		state <<= 1;
+	if (state == 1) {
+		if (switch_data->mic_gpio != -1) {
+			gpio_direction_input(switch_data->mic_gpio);
+			if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
+				state <<= 1;
+			else
+				state <<= 0;
+		} else if (switch_data->mic_select_gpio == -1) {
+			state << 1;
+		}
+	}
 
 	if (state == 1) {
-		if (switch_data->mic_select_gpio != -1)
-			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+		if (switch_data->mic_select_gpio != -1) {
+			//gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+		}
 		if (atomic_read(&switch_data->flag) == 0 && switch_data->hook_valid_level != -1) {
 			enable_irq(switch_data->hook_irq);
 			SWITCH_DEBUG("==========hp work enable irq========\n");

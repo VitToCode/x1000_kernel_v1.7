@@ -146,6 +146,11 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			devices = SND_DEVICE_LOOP_TEST;
 			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
+		case '8':
+			printk(" \"8\" set linein/buildmic route.\n");
+			devices = SND_DEVICE_BUILDIN_MIC;
+			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			break;
 		case 'c':
 			/*printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
 			if(copy_from_user((void *)buf_vol, buffer, 2)) {
