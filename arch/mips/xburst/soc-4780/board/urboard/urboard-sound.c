@@ -21,7 +21,8 @@ struct snd_codec_data codec_data = {
 	/* device <-> route map */
 	.record_headset_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2},
 
-	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2},
+	.record_buildin_mic_route = {.route = SND_ROUTE_RECORD_MIC1_SIN_AN2,
+                                     .gpio_buildin_mic_en_stat = STATE_DISABLE},
 
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
