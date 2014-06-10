@@ -129,9 +129,11 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ4775_MAC
 	MII_PORTBDF,
 #endif
-#if defined(USB_DWC_OTG_DUAL) || defined(USB_DWC_HOST_ONLY)
+
+#ifdef CONFIG_USB_DWC2_DRVVBUS_PIN
 	OTG_DRVVUS,
 #endif
+
 #if defined(CONFIG_JZ_CIM0) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 	CIM0_PORTB,
 #endif

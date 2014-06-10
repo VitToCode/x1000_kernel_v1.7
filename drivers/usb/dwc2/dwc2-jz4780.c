@@ -352,6 +352,24 @@ static inline void jz4780_usb_set_mode(void) {
 #endif
 }
 
+void dwc2_clk_enable(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	clk_enable(jz4780->clk);
+}
+
+void dwc2_clk_disable(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	clk_disable(jz4780->clk);
+}
+
+int dwc2_clk_is_enabled(struct dwc2 *dwc) {
+	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
+
+	return clk_is_enabled(jz4780->clk);
+}
+
 #if DWC2_DEVICE_MODE_ENABLE
 static int get_pin_status(struct jzdwc_pin *pin)
 {
@@ -427,9 +445,12 @@ int dwc2_get_id_level(struct dwc2 *dwc) {
 
 static void usb_host_id_timer(unsigned long _jz4780) {
 	struct dwc2_jz4780 *jz4780 = (struct dwc2_jz4780 *)_jz4780;
+	struct dwc2 *dwc = platform_get_drvdata(&jz4780->dwc2);
 
 	if (gpio_get_value(jz4780->id_pin->num) == 0) { /* host */
 		cpm_set_bit(7, CPM_OPCR);
+		if (!dwc2_clk_is_enabled(dwc))
+			dwc2_enable_clk(dwc);
 	}
 
 	if (jz4780->host_id_dog_count > 0) {
@@ -439,14 +460,16 @@ static void usb_host_id_timer(unsigned long _jz4780) {
 }
 
 static int __usb_host_id_change(struct dwc2_jz4780 *jz4780) {
+	struct dwc2 *dwc = platform_get_drvdata(&jz4780->dwc2);
 	int is_host = 0;
 
 	// printk("==============>enter %s, id pin level=%d\n",
 	//	__func__, gpio_get_value(jz4780->id_pin->num));
-
 	if (gpio_get_value(jz4780->id_pin->num) == 0) { /* host */
 		cpm_set_bit(7, CPM_OPCR);
 		is_host = 1;
+		if (!dwc2_clk_is_enabled(dwc))
+			dwc2_enable_clk(dwc);
 	}
 
 	jz4780->host_id_dog_count = DWC2_HOST_ID_MAX_DOG_COUNT;
@@ -499,24 +522,6 @@ static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
 	return IRQ_HANDLED;
 }
 #endif	/* DWC2_HOST_MODE_ENABLE */
-
-void dwc2_clk_enable(struct dwc2 *dwc) {
-	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
-
-	clk_enable(jz4780->clk);
-}
-
-void dwc2_clk_disable(struct dwc2 *dwc) {
-	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
-
-	clk_disable(jz4780->clk);
-}
-
-int dwc2_clk_is_enabled(struct dwc2 *dwc) {
-	struct dwc2_jz4780 *jz4780 = to_dwc2_jz4780(dwc);
-
-	return clk_is_enabled(jz4780->clk);
-}
 
 static void usb_cpm_init(void) {
 	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;

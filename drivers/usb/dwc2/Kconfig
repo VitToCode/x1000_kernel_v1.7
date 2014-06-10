@@ -35,6 +35,11 @@ config USB_DWC2_DEVICE_ONLY
 
 endchoice
 
+config USB_DWC2_DRVVBUS_PIN
+	depends on (USB_DWC2_HOST_ONLY || USB_DWC2_DUAL_ROLE)
+	help
+	 Say Y here to use dwc2 drvvbus pin
+
 config USB_DWC2_ALLOW_WAKEUP
        bool "allow wakeup when usb cable plug/unplug"
        depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_DEVICE_ONLY)

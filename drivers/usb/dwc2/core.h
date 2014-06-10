@@ -731,6 +731,7 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc);
 void dwc2_enable_global_interrupts(struct dwc2 *dwc);
 void dwc2_disable_global_interrupts(struct dwc2 *dwc);
 
+void dwc2_enable_clk(struct dwc2 *dwc);
 void dwc2_disable_clock(struct dwc2 *dwc);
 
 #endif /* __DRIVERS_USB_DWC2_CORE_H */

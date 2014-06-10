@@ -2452,7 +2452,7 @@ void dwc2_gadget_plug_change(int plugin) {
 			goto out;
 	} else {
 		if (!dwc2_clk_is_enabled(dwc)) {
-			dwc2_clk_enable(dwc);
+			dwc2_enable_clk(dwc);
 			dwc2_core_init(dwc);
 			mdelay(1);
 			dwc->op_state = DWC2_B_PERIPHERAL;

@@ -467,6 +467,12 @@ void dwc2_disable_global_interrupts(struct dwc2 *dwc)
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
 }
 
+void dwc2_enable_clk(struct dwc2 *dwc)
+{
+	dwc2_clk_enable(dwc);
+	dwc2_enable_global_interrupts(dwc);
+}
+
 void dwc2_disable_clock(struct dwc2 *dwc) {
 	dwc2_core_init(dwc);
 	dwc2_disable_global_interrupts(dwc);
