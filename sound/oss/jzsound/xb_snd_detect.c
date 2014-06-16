@@ -113,7 +113,7 @@ static void snd_switch_work(struct work_struct *hp_work)
 
 	if (state == 1) {
 		if (switch_data->mic_select_gpio != -1) {
-			//gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
+			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
 		}
 		if (atomic_read(&switch_data->flag) == 0 && switch_data->hook_valid_level != -1) {
 			enable_irq(switch_data->hook_irq);
