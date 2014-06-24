@@ -245,13 +245,15 @@ static void jz47xx_dma_rx(unsigned long data)
 *Parameter:unsigned long data,unsigned int status
 *Return:void
 */
-static inline void receive_chars(unsigned long data, unsigned int status)
+static inline void receive_chars(unsigned long data)
 {
 	struct uart_jz47xx_port *up = (struct uart_jz47xx_port *)data;
 	struct tty_struct *tty = up->port.state->port.tty;
 	unsigned int ch, flag,count;
 	int max_count = 256;
+	unsigned int status= serial_in(up, UART_LSR);
 	int lsr = status & UART_LSR_DR;
+
 	/*
 	 * UART FIFO isn't empty and DMA buffer have data
 	 */
@@ -544,7 +546,7 @@ static inline irqreturn_t serial_jz47xx_irq(int irq, void *dev_id)
 	}
 	else {
 		if (lsr & UART_LSR_DR)
-			receive_chars((unsigned long)up, lsr);
+			receive_chars((unsigned long)up);
 		check_modem_status(up);
 		if (lsr & UART_LSR_THRE)
 			transmit_chars(up);

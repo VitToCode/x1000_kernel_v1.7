@@ -1,0 +1,21 @@
+choice
+	prompt "Board type"
+	depends on SOC_M200
+	default BOARD_DORADO
+
+config BOARD_4785_FPGA
+       bool "FPGA"
+
+config BOARD_DORADO
+       bool "DORADO"
+endchoice
+
+config BOARD_NAME
+	string
+	default "fpga" if BOARD_4785_FPGA
+	default "dorado" if BOARD_DORADO
+
+config JZ_BIG_LITTLE_SWITCH
+	depends on SOC_M200
+	bool "jz m200 big little cpu switch"
+	default y

@@ -13,7 +13,6 @@
 #include <asm/mipsregs.h>
 #include <asm/processor.h>
 #include <asm/mips_machine.h>
-#include <mach/jz4780_efuse.h>
 
 extern const char *get_board_type(void);
 
@@ -130,9 +129,6 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		
 		/* Android requires 'Hardware' to setup the init.%hardware%.rc */
 		seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
-#if ((defined CONFIG_JZ4780_EFUSE) || (defined CONFIG_JZ4775_EFUSE))
-		jz_efuse_id_read(1, efbuf);
-#endif
 		seq_printf(m, "Serial		: %08x %08x %08x %08x\n", efbuf[0], efbuf[1], efbuf[2], efbuf[3]);
 		seq_printf(m, "\n");
 	}

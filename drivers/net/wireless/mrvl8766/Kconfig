@@ -1,5 +1,5 @@
 config MRVL8766
-    tristate " Marvell MRVL8766 USB WiFi & BT "
+    tristate "Marvell MRVL8766 USB WiFi & BT "
     depends on USB
     select WIRELESS_EXT
     select WEXT_PRIV

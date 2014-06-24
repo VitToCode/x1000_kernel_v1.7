@@ -178,7 +178,7 @@ static inline void tx49_blast_icache32(void)
 	unsigned long end = start + current_cpu_data.icache.waysize;
 	unsigned long ws_inc = 1UL << current_cpu_data.icache.waybit;
 	unsigned long ws_end = current_cpu_data.icache.ways <<
-	                       current_cpu_data.icache.waybit;
+		               current_cpu_data.icache.waybit;
 	unsigned long ws, addr;
 
 	CACHE32_UNROLL32_ALIGN2;
@@ -847,7 +847,7 @@ static void __cpuinit probe_pcache(void)
 		icache_size = 1 << (12 + ((config & CONF_IC) >> 9));
 		c->icache.linesz = 16 << ((config & CONF_IB) >> 5);
 		c->icache.ways = 1;
-		c->icache.waybit = 0; 	/* doesn't matter */
+		c->icache.waybit = 0;	/* doesn't matter */
 
 		dcache_size = 1 << (12 + ((config & CONF_DC) >> 6));
 		c->dcache.linesz = 16 << ((config & CONF_DB) >> 4);
@@ -1249,7 +1249,7 @@ static void __cpuinit setup_scache(void)
 #ifdef CONFIG_R5000_CPU_SCACHE
 		r5k_sc_init();
 #endif
-                return;
+		return;
 
 	case CPU_RM7000:
 	case CPU_RM9000:
@@ -1264,14 +1264,12 @@ static void __cpuinit setup_scache(void)
 		return;
 #endif
 
-	case CPU_JZRISC:
-		return;
 	default:
 		if (c->isa_level == MIPS_CPU_ISA_M32R1 ||
 		    c->isa_level == MIPS_CPU_ISA_M32R2 ||
 		    c->isa_level == MIPS_CPU_ISA_M64R1 ||
 		    c->isa_level == MIPS_CPU_ISA_M64R2) {
-#ifdef CONFIG_MIPS_CPU_SCACHE
+#ifdef CONFIG_BOARD_SCACHE
 			if (mips_sc_init ()) {
 				scache_size = c->scache.ways * c->scache.sets * c->scache.linesz;
 				printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",

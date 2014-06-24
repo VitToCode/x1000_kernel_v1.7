@@ -35,7 +35,6 @@
 #define PRID_COMP_LEXRA		0x0b0000
 #define PRID_COMP_NETLOGIC	0x0c0000
 #define PRID_COMP_CAVIUM	0x0d0000
-#define PRID_COMP_INGENIC	0xd00000
 
 /*
  * Assigned values for the product ID register.  In order to detect a
@@ -141,9 +140,18 @@
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_INGENIC
+ * cpu_h(12bit CPU_FEATURE),chips(8bit),cpu_l(12bit CPU_ISA_ID)
  */
+#define PRID_CPU_FEATURE_MASK       0xFFF00000
+#define PRID_CPU_CHIPS_MASK         0x000FF000
+#define PRID_CPU_ISA_MASK           0x00000FFF
 
-#define PRID_IMP_JZRISC        0x0200
+#define PRID_IMP_JZRISC             0x00010000
+#define PRID_IMP_JZ4775             0x2ed00000
+#define PRID_IMP_JZ4780             0x3ee00000
+#define PRID_IMP_JZ4785             0x7ae00000
+#define PRID_IMP_ISA_R2             0x0000024f
+
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_NETLOGIC

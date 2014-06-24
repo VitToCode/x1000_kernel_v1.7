@@ -2,7 +2,7 @@
 choice
 	prompt "SOC type"
 	depends on MACH_XBURST
-	default SOC_4780
+	default SOC_M200
 
 config SOC_4780
 	bool "4780"
@@ -19,6 +19,14 @@ config SOC_4775
 	select TRACEPOINTS
 	select SYS_SUPPORTS_HIGHMEM
 	select GENERIC_CLOCKEVENTS_BROADCAST
+
+config SOC_M200
+	bool "m200"
+	select JZRISC
+	select TRACEPOINTS
+	select SYS_SUPPORTS_HIGHMEM
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
 endchoice
 
 config JZRISC
@@ -30,25 +38,23 @@ config JZRISC
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
-config SOC_VER
-	int
-	default "75" if SOC_4775
-	default "80" if SOC_4780
-
 if SOC_4775
 source "arch/mips/xburst/soc-4775/Kconfig"
 endif
 if SOC_4780
 source "arch/mips/xburst/soc-4780/Kconfig"
 endif
+if SOC_M200
+source "arch/mips/xburst/soc-m200/Kconfig"
+endif
 
 config EXTAL_CLOCK
-	depends on MACH_XBURST 
+	depends on MACH_XBURST
 	int "extal clock in MHz"
 	default 12
 
 config FPGA_TEST
-	depends on MACH_XBURST 
+	depends on MACH_XBURST
 	bool "FPGA_TEST"
 	default n
 
@@ -165,7 +171,7 @@ config ARM_ELF_SUPPORT
 config SUSPEND_TEST
 	bool "auto suspend test"
 	default n
-	
+
 config EARLY_INIT_RUN
 	bool "early run init process"
 	default n

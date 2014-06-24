@@ -266,6 +266,10 @@ static void __init bootmem_init(void)
 	 */
 	reserved_end = max(init_initrd(),
 			   (unsigned long) PFN_UP(__pa_symbol(&_end)));
+        /*
+         * Redo reserved_end because there is no need to reserve so much memory(about 20MB).
+         */
+        reserved_end = (unsigned long) PFN_UP(__pa_symbol(&_end));
 
 	/*
 	 * max_low_pfn is not a number of pages. The number of pages

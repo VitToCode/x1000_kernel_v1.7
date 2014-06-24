@@ -1,7 +1,5 @@
 /*
- * linux/arch/mips/jz4775/proc.c
- *
- * /proc/jz/ procfs for jz4775 on-chip modules.
+ * /proc/jz/ procfs for jz on-chip modules.
  *
  * Copyright (C) 2006 Ingenic Semiconductor Inc.
  * Author: <jlwei@ingenic.cn>
@@ -29,11 +27,9 @@
 #include <linux/page-flags.h>
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
-
+#include <jz_proc.h>
 //#define DEBUG 1
 #undef DEBUG
-
-struct proc_dir_entry *proc_jz_root;
 
 /* CP0 hazard avoidance. */
 static void ipu_del_wired_entry( void )
@@ -302,12 +298,13 @@ static void imem_free(unsigned int phys_addr)
 
 static void imem_free_all(void)
 {
-	struct imem_list *imem;
+	struct imem_list *imem, *tmp;
 
 	imem = imem_list_head;
 	while (imem) {
-		kfree(imem);
+		tmp = imem;
 		imem = imem->next;
+		kfree(tmp);
 	}
 
 	imem_list_head = NULL;
@@ -316,8 +313,9 @@ static void imem_free_all(void)
 
         imem = imem1_list_head;
         while (imem) {
-                kfree(imem);
+		tmp = imem;
                 imem = imem->next;
+		kfree(tmp);
         }
 
         imem1_list_head = NULL;
@@ -462,7 +460,7 @@ static int imem1_write_proc(struct file *file, const char *buffer, unsigned long
 	} else if ((val >= 0) && (val <= IMEM1_MAX_ORDER)) {
 		/* allocate 2^val pages */
 		imem1_alloc(val);
-	} else {			
+	} else {
 		/* free buffer which phys_addr is val */
 		imem_free(val);
 	}
@@ -477,16 +475,17 @@ static int imem1_write_proc(struct file *file, const char *buffer, unsigned long
 static int __init jz_proc_init(void)
 {
 	struct proc_dir_entry *res;
+	struct proc_dir_entry *jz_proc;
 	unsigned int virt_addr, i;
-	proc_jz_root = proc_mkdir("jz", 0);
+	jz_proc = jz_proc_mkdir("mem");
 
 	/*
-	 * Reserve a 16MB memory for IPU on JZ4775.
+	 * Reserve a 16MB memory for IPU on JZ.
 	 */
 	jz_imem_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM_MAX_ORDER);
 	if (jz_imem_base) {
 		/* imem (IPU memory management) */
-		res = create_proc_entry("imem", 0644, proc_jz_root);
+		res = create_proc_entry("imem", 0644, jz_proc);
 		if (res) {
 			res->read_proc = imem_read_proc;
 			res->write_proc = imem_write_proc;
@@ -512,7 +511,7 @@ static int __init jz_proc_init(void)
         jz_imem1_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM1_MAX_ORDER);
         if (jz_imem1_base) {
                 /* imem (IPU memory management) */
-                res = create_proc_entry("imem1", 0644, proc_jz_root);
+                res = create_proc_entry("imem1", 0644, jz_proc);
                 if (res) {
                         res->read_proc = imem1_read_proc;
                         res->write_proc = imem1_write_proc;
@@ -531,7 +530,7 @@ static int __init jz_proc_init(void)
 
                 printk("Total %dMB memory1 at 0x%x was reserved for IPU\n",
                        (unsigned int)((1 << IMEM1_MAX_ORDER) * PAGE_SIZE)/1000000, jz_imem1_base);
-        } 
+        }
         else
            printk("NOT enough memory for imem1\n");
 

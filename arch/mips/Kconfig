@@ -229,6 +229,7 @@ config MACH_XBURST
 	select HAVE_CLK
 	select SYS_SUPPORTS_HOTPLUG_CPU
 	select SYS_SUPPORTS_HIGHMEM
+	select JZ_CPU_SCACHE
 
 config LANTIQ
 	bool "Lantiq based platforms"
@@ -1867,6 +1868,9 @@ config IP22_CPU_SCACHE
 config MIPS_CPU_SCACHE
 	bool
 	select BOARD_SCACHE
+config JZ_CPU_SCACHE
+	bool
+	select BOARD_SCACHE
 
 config R5000_CPU_SCACHE
 	bool
@@ -1917,7 +1921,7 @@ config MIPS_MT_SMP
 	  the TLB for its own exclusive use. For a layman this model can
 	  be described as similar to what Intel calls Hyperthreading. At
 	  some point MIPS marketing decided to renamed to SMVP but the
-	  renaming hasn't caught on as of yet. 
+	  renaming hasn't caught on as of yet.
 
 	  For further information see http://www.linux-mips.org/wiki/34K#VSMP
 
