@@ -32,4 +32,4 @@ endif
 # PCI doesn't provide nops if CONFIG_PCI isn't enabled.
 ##
 
-obj-$(CONFIG_USB_DWC2)		+= dwc2-jz.o
+obj-$(CONFIG_USB_DWC2)		+= dwc2_jz.o
