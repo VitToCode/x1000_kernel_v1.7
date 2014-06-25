@@ -1,4 +1,4 @@
-obj-y += jzdma.o
+obj-y += jz_dma.o
 
 ifeq ($(CONFIG_NAND), y)
 

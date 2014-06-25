@@ -42,17 +42,17 @@ __initdata static int firmware[] = {
 #include "firmware.hex"
 };
 
-struct s_mailbox{
+struct s_mailbox {
 	unsigned short msg;
 	unsigned short type;
 };
-union u_mailbox{
+union u_mailbox {
 	struct s_mailbox mb;
-	unsigned int     mbox;
+	unsigned int mbox;
 };
-#define REG_INTC_SET_CPUMASK0 		(*(volatile unsigned int *)(0xb0001008))
-#define REG_INTC_CLEAR_CPUMASK0 	(*(volatile unsigned int *)(0xb000100c))
-#define REG_INTC_MCUMASK0 		(*(volatile unsigned int *)(0xb0001038))
+#define REG_INTC_SET_CPUMASK0		(*(volatile unsigned int *)(0xb0001008))
+#define REG_INTC_CLEAR_CPUMASK0	(*(volatile unsigned int *)(0xb000100c))
+#define REG_INTC_MCUMASK0		(*(volatile unsigned int *)(0xb0001038))
 
 #define MCU_TEST_INTER_DMA
 #ifdef MCU_TEST_INTER_DMA
@@ -66,13 +66,14 @@ union u_mailbox{
 #endif
 
 /* tsz for 1,2,4,8,16,32,64 bytes */
-const static char dcm_tsz[7] = {1,2,0,0,3,4,5};
+const static char dcm_tsz[7] = { 1, 2, 0, 0, 3, 4, 5 };
+
 static inline unsigned int get_current_tsz(unsigned long dcmp)
 {
 	int i;
 	int val = (dcmp & DCM_TSZ_MSK) >> DCM_TSZ_SHF;
-	for(i = 0;i < sizeof(dcm_tsz)/sizeof(dcm_tsz[0]);i++){
-		if(val == dcm_tsz[i])
+	for (i = 0; i < sizeof(dcm_tsz) / sizeof(dcm_tsz[0]); i++) {
+		if (val == dcm_tsz[i])
 			break;
 	}
 	return (1 << i);
@@ -101,32 +102,47 @@ static void dump_dma_desc(struct jzdma_channel *dmac)
 	struct dma_desc *desc = dmac->desc;
 	int i;
 
-	for(i = 0; i < dmac->desc_nr; i++)
+	for (i = 0; i < dmac->desc_nr; i++)
 		dev_info(chan2dev(&dmac->chan),
-				"DSA: %x, DTA: %x, DCM: %lx, DTC:%lx DRT:%x\n",
-				desc[i].dsa,desc[i].dta,desc[i].dcm,desc[i].dtc,desc[i].drt);
+			 "DSA: %x, DTA: %x, DCM: %lx, DTC:%lx DRT:%x\n",
+			 desc[i].dsa, desc[i].dta, desc[i].dcm, desc[i].dtc,
+			 desc[i].drt);
 
-	dev_info(chan2dev(&dmac->chan),"CH_DSA = 0x%08x\n",readl(dmac->iomem + CH_DSA));
-	dev_info(chan2dev(&dmac->chan),"CH_DTA = 0x%08x\n",readl(dmac->iomem + CH_DTA));
-	dev_info(chan2dev(&dmac->chan),"CH_DTC = 0x%08x\n",readl(dmac->iomem + CH_DTC));
-	dev_info(chan2dev(&dmac->chan),"CH_DRT = 0x%08x\n",readl(dmac->iomem + CH_DRT));
-	dev_info(chan2dev(&dmac->chan),"CH_DCS = 0x%08x\n",readl(dmac->iomem + CH_DCS));
-	dev_info(chan2dev(&dmac->chan),"CH_DCM = 0x%08x\n",readl(dmac->iomem + CH_DCM));
-	dev_info(chan2dev(&dmac->chan),"CH_DDA = 0x%08x\n",readl(dmac->iomem + CH_DDA));
-	dev_info(chan2dev(&dmac->chan),"CH_DSD = 0x%08x\n",readl(dmac->iomem + CH_DSD));
+	dev_info(chan2dev(&dmac->chan), "CH_DSA = 0x%08x\n",
+		 readl(dmac->iomem + CH_DSA));
+	dev_info(chan2dev(&dmac->chan), "CH_DTA = 0x%08x\n",
+		 readl(dmac->iomem + CH_DTA));
+	dev_info(chan2dev(&dmac->chan), "CH_DTC = 0x%08x\n",
+		 readl(dmac->iomem + CH_DTC));
+	dev_info(chan2dev(&dmac->chan), "CH_DRT = 0x%08x\n",
+		 readl(dmac->iomem + CH_DRT));
+	dev_info(chan2dev(&dmac->chan), "CH_DCS = 0x%08x\n",
+		 readl(dmac->iomem + CH_DCS));
+	dev_info(chan2dev(&dmac->chan), "CH_DCM = 0x%08x\n",
+		 readl(dmac->iomem + CH_DCM));
+	dev_info(chan2dev(&dmac->chan), "CH_DDA = 0x%08x\n",
+		 readl(dmac->iomem + CH_DDA));
+	dev_info(chan2dev(&dmac->chan), "CH_DSD = 0x%08x\n",
+		 readl(dmac->iomem + CH_DSD));
 }
 
 static void dump_dma(struct jzdma_master *master)
 {
-	dev_info(master->dev,"DMAC   = 0x%08x\n",readl(master->iomem + DMAC));
-	dev_info(master->dev,"DIRQP  = 0x%08x\n",readl(master->iomem + DIRQP));
-	dev_info(master->dev,"DDR    = 0x%08x\n",readl(master->iomem + DDR));
-	dev_info(master->dev,"DDRS   = 0x%08x\n",readl(master->iomem + DDRS));
-	dev_info(master->dev,"DMACP  = 0x%08x\n",readl(master->iomem + DMACP));
-	dev_info(master->dev,"DSIRQP = 0x%08x\n",readl(master->iomem + DSIRQP));
-	dev_info(master->dev,"DSIRQM = 0x%08x\n",readl(master->iomem + DSIRQM));
-	dev_info(master->dev,"DCIRQP = 0x%08x\n",readl(master->iomem + DCIRQP));
-	dev_info(master->dev,"DCIRQM = 0x%08x\n",readl(master->iomem + DCIRQM));
+	dev_info(master->dev, "DMAC   = 0x%08x\n", readl(master->iomem + DMAC));
+	dev_info(master->dev, "DIRQP  = 0x%08x\n",
+		 readl(master->iomem + DIRQP));
+	dev_info(master->dev, "DDR    = 0x%08x\n", readl(master->iomem + DDR));
+	dev_info(master->dev, "DDRS   = 0x%08x\n", readl(master->iomem + DDRS));
+	dev_info(master->dev, "DMACP  = 0x%08x\n",
+		 readl(master->iomem + DMACP));
+	dev_info(master->dev, "DSIRQP = 0x%08x\n",
+		 readl(master->iomem + DSIRQP));
+	dev_info(master->dev, "DSIRQM = 0x%08x\n",
+		 readl(master->iomem + DSIRQM));
+	dev_info(master->dev, "DCIRQP = 0x%08x\n",
+		 readl(master->iomem + DCIRQP));
+	dev_info(master->dev, "DCIRQM = 0x%08x\n",
+		 readl(master->iomem + DCIRQM));
 }
 void jzdma_dump(struct dma_chan *chan)
 {
@@ -140,8 +156,9 @@ EXPORT_SYMBOL_GPL(jzdma_dump);
 #define dump_dma(A) (void)(0)
 #endif
 
-static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t dst,
-		unsigned long dcm, unsigned cnt,enum jzdma_type type)
+static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,
+			  dma_addr_t dst, unsigned long dcm, unsigned cnt,
+			  enum jzdma_type type)
 {
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr;
 	if (dmac->desc_nr >= dmac->desc_max)
@@ -151,37 +168,41 @@ static int build_one_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t 
 	desc->dta = dst;
 	desc->dcm = dcm;
 	desc->drt = type;
-	desc->dtc = (((unsigned int)(desc + 1) >> 4)<<24) + cnt;
+	desc->dtc = (((unsigned int)(desc + 1) >> 4) << 24) + cnt;
 	dmac->desc_nr++;
 
 	return 0;
 }
 
-static int build_one_dymic_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_addr_t dst,
-		unsigned long dcm, unsigned cnt,enum jzdma_type type,int flag,
-		enum dma_data_direction direction)
+static int build_one_dymic_desc(struct jzdma_channel *dmac, dma_addr_t src,
+				dma_addr_t dst, unsigned long dcm, unsigned cnt,
+				enum jzdma_type type, int flag,
+				enum dma_data_direction direction)
 {
-	struct dma_desc *desc = dmac->desc + (dmac->desc_nr%dmac->desc_max);
+	struct dma_desc *desc = dmac->desc + (dmac->desc_nr % dmac->desc_max);
 	unsigned dma_addr = 0;
 	unsigned dma_addr_t = 0;
 	unsigned addr_mask = ~(flag >> 2);
 
-	if (flag&0x2) {
+	if (flag & 0x2) {
 		if (dmac->desc_nr > 2) {
-			struct dma_desc *desc_pre0 = dmac->desc + (dmac->desc_nr -1)%dmac->desc_max;
-			struct dma_desc *desc_pre1 = dmac->desc + (dmac->desc_nr -2)%dmac->desc_max;
+			struct dma_desc *desc_pre0 =
+			    dmac->desc + (dmac->desc_nr - 1) % dmac->desc_max;
+			struct dma_desc *desc_pre1 =
+			    dmac->desc + (dmac->desc_nr - 2) % dmac->desc_max;
 			if (direction == DMA_TO_DEVICE) {
 				dma_addr_t = readl(dmac->iomem + CH_DSA);
 				dma_addr = (dma_addr_t & addr_mask);
 				if ((desc_pre0->dsa & addr_mask) == dma_addr ||
-						(desc_pre1->dsa & addr_mask) == dma_addr) {
+				    (desc_pre1->dsa & addr_mask) == dma_addr) {
 					return -1;
 				}
 
 			} else {
-				dma_addr = (readl(dmac->iomem + CH_DTA) & addr_mask);
-				if ((desc_pre0->dta & addr_mask) == dma_addr ||
-						(desc_pre1->dta & addr_mask) == dma_addr)
+				dma_addr =
+				    (readl(dmac->iomem + CH_DTA) & addr_mask);
+				if ((desc_pre0->dta & addr_mask) == dma_addr
+				    || (desc_pre1->dta & addr_mask) == dma_addr)
 					return -1;
 			}
 			desc_pre0->dcm |= DCM_LINK;
@@ -198,18 +219,19 @@ static int build_one_dymic_desc(struct jzdma_channel *dmac, dma_addr_t src,dma_a
 	desc->dcm = dcm;
 	desc->drt = type;
 
-	if (!((dmac->desc_nr+1)%(dmac->desc_max)))
-		desc->dtc = (((unsigned int)(dmac->desc)>>4) << 24) + cnt;
+	if (!((dmac->desc_nr + 1) % (dmac->desc_max)))
+		desc->dtc = (((unsigned int)(dmac->desc) >> 4) << 24) + cnt;
 	else
-		desc->dtc = (((unsigned int)(desc + 1) >> 4)<<24) + cnt;
+		desc->dtc = (((unsigned int)(desc + 1) >> 4) << 24) + cnt;
 
 	dmac->desc_nr++;
 
 	return 0;
 }
 
-static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl, unsigned int sg_len,
-		enum dma_data_direction direction)
+static int build_desc_from_sg(struct jzdma_channel *dmac,
+			      struct scatterlist *sgl, unsigned int sg_len,
+			      enum dma_data_direction direction)
 {
 	struct dma_slave_config *config = dmac->config;
 	struct scatterlist *sg;
@@ -240,14 +262,18 @@ static int build_desc_from_sg(struct jzdma_channel *dmac,struct scatterlist *sgl
 			dcm |= 7 << 8;
 			tsz = sg_dma_len(sg);
 		} else {
-			tsz = get_max_tsz(mem | sg_dma_len(sg) | config->dst_maxburst, &dcm);
+			tsz =
+			    get_max_tsz(mem | sg_dma_len(sg) | config->
+					dst_maxburst, &dcm);
 			tsz = sg_dma_len(sg) / tsz;
 		}
 
 		if (direction == DMA_TO_DEVICE) {
-			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz, dmac->type);
+			build_one_desc(dmac, mem, config->dst_addr, dcm, tsz,
+				       dmac->type);
 		} else {
-			build_one_desc(dmac, config->src_addr, mem, dcm, tsz, dmac->type+1);
+			build_one_desc(dmac, config->src_addr, mem, dcm, tsz,
+				       dmac->type + 1);
 		}
 	}
 
@@ -267,25 +293,28 @@ static void jzdma_mcu_reset(struct jzdma_master *dma)
 static int jzdma_load_firmware(struct jzdma_master *dma)
 {
 	int i;
-	dev_info(dma->dev,"firmware size:%d bytes\n",sizeof(firmware));
-	dev_dbg(dma->dev,"dump:\n");
-	for(i=0;i<256;i+=4)
-		dev_dbg(dma->dev,"%08x:%08x:%08x:%08x\n",
-				firmware[i],firmware[i+1],firmware[i+2],firmware[i+3]);
-	memcpy(dma->iomem + TCSM,firmware,sizeof(firmware));
+	dev_info(dma->dev, "firmware size:%d bytes\n", sizeof(firmware));
+	dev_dbg(dma->dev, "dump:\n");
+	for (i = 0; i < 256; i += 4)
+		dev_dbg(dma->dev, "%08x:%08x:%08x:%08x\n",
+			firmware[i], firmware[i + 1], firmware[i + 2],
+			firmware[i + 3]);
+
+	memcpy(dma->iomem + TCSM, firmware, sizeof(firmware));
+
 	DMA_MAILBOX_NAND = 0;
 	DMA_MAILBOX_GPIO = 0;
 	for(i = 0;i <= MAILBOX_GPIO_PEND_ADDR5 - MAILBOX_GPIO_PEND_ADDR0; i++)
 		MAILBOX_GPIO_PEND_ADDR0[i] = 0;
 
 #ifdef MCU_TEST_INTER_DMA
-				(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+1)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+2)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+3)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+4)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+5)) = 0;
-				(*(((unsigned long long *)MCU_TEST_DATA_DMA)+6)) = 0;
+	(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 1)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 2)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 3)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 4)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 5)) = 0;
+	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 6)) = 0;
 #endif
 	return 0;
 }
@@ -308,8 +337,10 @@ static void jzdma_mcu_init(struct jzdma_master *dma)
  *	get dma current transfer address
  */
 static dma_addr_t jzdma_get_current_trans_addr(struct dma_chan *chan,
-		dma_addr_t *dst_addr, dma_addr_t *src_addr,
-		enum dma_data_direction direction)
+					       dma_addr_t * dst_addr,
+					       dma_addr_t * src_addr,
+					       enum dma_data_direction
+					       direction)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	dma_addr_t ret_val = 0;
@@ -350,57 +381,73 @@ static dma_addr_t jzdma_get_current_trans_addr(struct dma_chan *chan,
  *			return NULL for succses or dmac->tx_desc to failed ,
  *			the client cannot submit function
  */
-static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma_addr_t src,
-		dma_addr_t dst,unsigned cnt,enum dma_data_direction direction,int flag)
+static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan,
+						      dma_addr_t src,
+						      dma_addr_t dst,
+						      unsigned cnt,
+						      enum dma_data_direction
+						      direction, int flag)
 {
-	unsigned long tsz,dcm=0,type = 0;
+	unsigned long tsz, dcm = 0, type = 0;
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 
-	if (!(flag&0x2) && !(dmac->status == STAT_STOPED || dmac->status == STAT_PREPED)) {
+	if (!(flag & 0x2)
+	    && !(dmac->status == STAT_STOPED || dmac->status == STAT_PREPED)) {
 		return NULL;
 	}
 
-	if ((flag&0x2) && (dmac->status == STAT_STOPED || dmac->status == STAT_PREPED)) {
+	if ((flag & 0x2)
+	    && (dmac->status == STAT_STOPED || dmac->status == STAT_PREPED)) {
 		return &dmac->tx_desc;
 	}
 
-	dev_vdbg(chan2dev(chan),"Channel %d add desc\n",dmac->chan.chan_id);
+	dev_vdbg(chan2dev(chan), "Channel %d add desc\n", dmac->chan.chan_id);
 
-	if(direction == DMA_TO_DEVICE) {
-		if (flag & 0x3)
-			tsz = get_max_tsz(src|cnt|dmac->config->dst_maxburst, &dcm);
+	if (direction == DMA_TO_DEVICE) {
+		if (flag & 0x2)
+			tsz =
+			    get_max_tsz(src | cnt | dmac->config->dst_maxburst,
+					&dcm);
 		else
 			tsz = get_max_tsz(dmac->config->dst_maxburst, &dcm);
 
+		if (flag & 0x1) {
 			dcm |= DCM_SAI | dmac->tx_dcm_def | DCM_LINK | DCM_TIE;
+		} else if (!(flag & 0x1)) {
+			dcm |=
+			    DCM_SAI | DCM_DAI | dmac->
+			    tx_dcm_def | DCM_LINK | DCM_TIE;
+		}
 		type = dmac->type;
 	} else {
-		if (flag&0x3)
-			tsz = get_max_tsz(dst|cnt|dmac->config->src_maxburst, &dcm);
+		if (flag & 0x2)
+			tsz =
+			    get_max_tsz(dst | cnt | dmac->config->src_maxburst,
+					&dcm);
 		else
 			tsz = get_max_tsz(dmac->config->src_maxburst, &dcm);
 		dcm |= DCM_DAI | dmac->rx_dcm_def | DCM_TIE | DCM_LINK;
-		type = dmac->type+1;
+		type = dmac->type + 1;
 	}
 
-	if (flag&0x2) {
-		if (build_one_dymic_desc(dmac, src, dst, dcm, cnt/tsz, type, flag, direction)) {
+	if (flag & 0x2) {
+		if (build_one_dymic_desc
+		    (dmac, src, dst, dcm, cnt / tsz, type, flag, direction)) {
 			return &dmac->tx_desc;
 		}
-	} else if (flag & 0x1){
-		build_one_desc(dmac, src, dst, dcm, cnt/tsz, type);
 	} else {
 		build_one_desc(dmac, src, dst, dcm, cnt, type);
 	}
 
 	BUG_ON(!(dmac->flags & CHFLG_SLAVE));
 
-	if (dmac->status == STAT_STOPED ||	dmac->status == STAT_PREPED) {
-		if (!(flag&0x2)) {
+	if (dmac->status == STAT_STOPED || dmac->status == STAT_PREPED) {
+		if (!(flag & 0x2)) {
 			/* tx descriptor shouldn't reused before dma finished. */
 			dmac->tx_desc.flags |= DMA_CTRL_ACK;
 			/* use 8-word descriptors */
-			writel(1<<30, dmac->iomem+CH_DCS);
+			writel(1 << 30, dmac->iomem + CH_DCS);
+			dmac->fake_cyclic = 0;
 			dmac->status = STAT_PREPED;
 		}
 		return &dmac->tx_desc;
@@ -409,15 +456,23 @@ static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma
 	return NULL;
 }
 
-static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
-		unsigned int sg_len, enum dma_data_direction direction,unsigned long flags)
+static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan
+							   *chan,
+							   struct scatterlist
+							   *sgl,
+							   unsigned int sg_len,
+							   enum
+							   dma_data_direction
+							   direction,
+							   unsigned long flags)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 
 	if (dmac->status != STAT_STOPED)
 		return NULL;
 
-	dev_vdbg(chan2dev(chan),"Channel %d prepare slave sg list\n",dmac->chan.chan_id);
+	dev_vdbg(chan2dev(chan), "Channel %d prepare slave sg list\n",
+		 dmac->chan.chan_id);
 
 	BUG_ON(!(dmac->flags & CHFLG_SLAVE));
 
@@ -431,7 +486,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 	build_desc_from_sg(dmac, sgl, sg_len, direction);
 
 	/* use 8-word descriptors */
-	writel(1<<30, dmac->iomem+CH_DCS);
+	writel(1 << 30, dmac->iomem + CH_DCS);
 
 	/*
 	 * special channel1 can not use descriptor mode
@@ -448,12 +503,16 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 
 	/* tx descriptor shouldn't reused before dma finished. */
 	dmac->tx_desc.flags |= DMA_CTRL_ACK;
+	dmac->fake_cyclic = 0;
 	dmac->status = STAT_PREPED;
 	return &dmac->tx_desc;
 }
 
-static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, dma_addr_t dma_dest,
-		dma_addr_t dma_src, size_t len, unsigned long flags)
+static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan,
+							 dma_addr_t dma_dest,
+							 dma_addr_t dma_src,
+							 size_t len,
+							 unsigned long flags)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	unsigned long tsz,dcm = 0;
@@ -463,24 +522,32 @@ static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, 
 
 	tsz = get_max_tsz(dma_dest | dma_src | len, &dcm);
 
-	dev_vdbg(chan2dev(chan),"Channel %d prepare memcpy d:%x s:%x l:%d %lx %lx\n"
-			,dmac->chan.chan_id, dma_dest, dma_src, len, tsz, dcm);
+	dev_vdbg(chan2dev(chan),
+		 "Channel %d prepare memcpy d:%x s:%x l:%d %lx %lx\n",
+		 dmac->chan.chan_id, dma_dest, dma_src, len, tsz, dcm);
 
 	dcm |= DCM_TIE | DCM_DAI | DCM_SAI | DCM_LINK;
-	build_one_desc(dmac, dma_src, dma_dest, dcm, len/tsz, JZDMA_REQ_AUTO);
+	build_one_desc(dmac, dma_src, dma_dest, dcm, len / tsz, JZDMA_REQ_AUTO);
 
 	/* use 8-word descriptors */
-	writel(1<<30, dmac->iomem+CH_DCS);
+	writel(1 << 30, dmac->iomem + CH_DCS);
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
-
+	dmac->fake_cyclic = 0;
 	dmac->status = STAT_PREPED;
 	return &dmac->tx_desc;
 }
 
-static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
-		size_t buf_len, size_t period_len,enum dma_data_direction direction)
+static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan
+							     *chan,
+							     dma_addr_t
+							     dma_addr,
+							     size_t buf_len,
+							     size_t period_len,
+							     enum
+							     dma_data_direction
+							     direction)
 {
 	int i = 0;
 	unsigned long tsz = 0;
@@ -511,7 +578,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 	   when call jzdma_issue_pending(); will not effect
 	   the real desc we need to use (desc[0 ~ (periods-1)])
 	 */
-	if (periods >= dmac->desc_max - 1)
+	if (periods >= dmac->desc_max)
 		return NULL;
 
 	for (i = 0; i <= periods; i++) {
@@ -519,13 +586,17 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 		desc = dmac->desc + dmac->desc_nr;
 		/* computer tsz */
 		if (direction == DMA_TO_DEVICE) {
-			tsz = get_max_tsz(dma_addr | period_len | config->dst_maxburst, &dcm);
+			tsz =
+			    get_max_tsz(dma_addr | period_len | config->
+					dst_maxburst, &dcm);
 			cnt = period_len / tsz;
 			desc->dsa = dma_addr;
 			desc->dta = config->dst_addr;
 			desc->drt = dmac->type;
 		} else {
-			tsz = get_max_tsz(dma_addr | period_len | config->src_maxburst, &dcm);
+			tsz =
+			    get_max_tsz(dma_addr | period_len | config->
+					src_maxburst, &dcm);
 			cnt = period_len / tsz;
 			desc->dsa = config->src_addr;
 			desc->dta = dma_addr;
@@ -544,11 +615,13 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 	}
 
 	/* use 8-word descriptors */
-	writel(1<<30, dmac->iomem+CH_DCS);
+	writel(1 << 30, dmac->iomem + CH_DCS);
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
 
+	/* this is cyclic, may need to fake it (see jzdma_issue_pending) */
+	dmac->fake_cyclic = FAKECYCLIC_POSSIBLE;
 	dmac->status = STAT_PREPED;
 
 	return &dmac->tx_desc;
@@ -579,8 +652,9 @@ static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 	return cookie;
 }
 
-static enum dma_status jzdma_tx_status(struct dma_chan *chan,dma_cookie_t cookie,
-		struct dma_tx_state *txstate)
+static enum dma_status jzdma_tx_status(struct dma_chan *chan,
+				       dma_cookie_t cookie,
+				       struct dma_tx_state *txstate)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	dma_cookie_t last_used;
@@ -590,17 +664,22 @@ static enum dma_status jzdma_tx_status(struct dma_chan *chan,dma_cookie_t cookie
 	last_used = chan->cookie;
 
 	ret = dma_async_is_complete(cookie, dmac->last_completed, last_used);
-	if(dmac->residue == -1) {
-		residue = readl(dmac->iomem + CH_DTC) * get_current_tsz(readl(dmac->iomem + CH_DCM));
-		dma_set_tx_state(txstate, dmac->last_completed, last_used, residue);
+	if (dmac->residue == -1) {
+		residue =
+		    readl(dmac->iomem +
+			  CH_DTC) * get_current_tsz(readl(dmac->iomem +
+							  CH_DCM));
+		dma_set_tx_state(txstate, dmac->last_completed, last_used,
+				 residue);
 	} else {
-		dma_set_tx_state(txstate, dmac->last_completed, last_used, dmac->residue);
+		dma_set_tx_state(txstate, dmac->last_completed, last_used,
+				 dmac->residue);
 	}
 
 	if (ret == DMA_SUCCESS
-			&& dmac->last_completed != dmac->last_good
-			&& (dma_async_is_complete(cookie, dmac->last_good, last_used)
-				== DMA_IN_PROGRESS))
+	    && dmac->last_completed != dmac->last_good
+	    && (dma_async_is_complete(cookie, dmac->last_good, last_used)
+		== DMA_IN_PROGRESS))
 		ret = DMA_ERROR;
 
 	return ret;
@@ -613,22 +692,26 @@ static void jzdma_chan_tasklet(unsigned long data)
 
 	dcs = dmac->dcs_saved;
 
-	dev_vdbg(chan2dev(&dmac->chan),"tasklet: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
+	dev_vdbg(chan2dev(&dmac->chan), "tasklet: DCS%d=%lx\n",
+		 dmac->chan.chan_id, dcs);
 
 	if (dcs & DCS_AR)
-		dev_notice(chan2dev(&dmac->chan),"Addr Error: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
+		dev_notice(chan2dev(&dmac->chan), "Addr Error: DCS%d=%lx\n",
+			   dmac->chan.chan_id, dcs);
 	if (dcs & DCS_HLT)
-		dev_notice(chan2dev(&dmac->chan),"DMA Halt: DCS%d=%lx\n", dmac->chan.chan_id, dcs);
+		dev_notice(chan2dev(&dmac->chan), "DMA Halt: DCS%d=%lx\n",
+			   dmac->chan.chan_id, dcs);
 
 	spin_lock(&dmac->lock);
 	if (dcs & DCS_TT)
 		dmac->last_good = dmac->tx_desc.cookie;
 
-	dmac->status = STAT_STOPED;
+	if (!(dmac->fake_cyclic & FAKECYCLIC_ACTIVE)) {
+		dmac->status = STAT_STOPED;
+		dmac->desc_nr = 0;
+	}
 
-	dmac->last_completed = dmac->tx_desc.cookie;
-	dmac->desc_nr = 0;
-	spin_unlock(&dmac->lock);
+		spin_unlock(&dmac->lock);
 
 	if (dmac->tx_desc.callback)
 		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
@@ -640,12 +723,12 @@ static void pdmam_chan_tasklet(unsigned long data)
 #ifdef MCU_TEST_INTER_DMA
 	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+5))++;
 #endif
-        spin_lock(&dmac->lock);
-        dmac->status = STAT_STOPED;
-        dmac->last_good = dmac->tx_desc.cookie;
-        dmac->last_completed = dmac->tx_desc.cookie;
-        dmac->desc_nr = 0;
-        spin_unlock(&dmac->lock);
+	spin_lock(&dmac->lock);
+	dmac->status = STAT_STOPED;
+	dmac->last_good = dmac->tx_desc.cookie;
+	dmac->last_completed = dmac->tx_desc.cookie;
+	dmac->desc_nr = 0;
+	spin_unlock(&dmac->lock);
 	if (dmac->tx_desc.callback)
 		dmac->tx_desc.callback(dmac->tx_desc.callback_param);
 }
@@ -654,7 +737,7 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr - 1;
-
+	int i;
 	if (dmac->status != STAT_SUBED)
 		return;
 
@@ -664,20 +747,41 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 			"Channel %d issue pending\n",dmac->chan.chan_id);
 
 	desc->dcm &= ~DCM_LINK;
-	desc->dcm |= DCM_TIE;//bc
+	desc->dcm |= DCM_TIE;	//bc
+
+	if ((dmac->fake_cyclic & FAKECYCLIC_POSSIBLE) && dmac->tx_desc.callback) {
+		/*
+		 * The DMA controller doesn't support triggering an interrupt
+		 * after processing each descriptor, only after processing an
+		 * entire terminated list of descriptors.For a cyclic DMA
+		 * setup the list of descriptors is not terminated so we can
+		 * never get an interrupt.
+		 *
+		 * If the user requested a callback for a cyclic DMA setup then
+		 * we workaround this hardware limitation here by degrading to
+		 * a set of unlinked descriptors which we will submit in
+		 * sequence in response to the completion of processing the
+		 * previous descriptor
+		 */
+
+		for (i = 0; i < dmac->desc_nr; i++)
+			dmac->desc[i].dcm &= ~DCM_LINK;
+		dmac->fake_cyclic = FAKECYCLIC_ACTIVE;
+	} else
+		dmac->fake_cyclic = 0;
 
 	/*
 	 * special channel1 can not use descriptor mode
 	 */
 	if (dmac->id != 1) {
 		/* dma descriptor address */
-		writel(dmac->desc_phys, dmac->iomem+CH_DDA);
+		writel(dmac->desc_phys, dmac->iomem + CH_DDA);
 		/* initiate descriptor fetch */
-		writel(BIT(dmac->id), dmac->master->iomem+DDRS);
+		writel(BIT(dmac->id), dmac->master->iomem + DDRS);
 	}
 
 	/* DCS.CTE = 1 */
-	set_bit(0, dmac->iomem+CH_DCS);
+	set_bit(0, dmac->iomem + CH_DCS);
 
 	dump_dma_desc(dmac);
 	dump_dma(dmac->master);
@@ -701,85 +805,85 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 }
 
 static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
-		unsigned long arg)
+			 unsigned long arg)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct dma_slave_config *config = (void*)arg;
 	int ret = 0;
 
 	switch (cmd) {
-		case DMA_TERMINATE_ALL:
-			jzdma_terminate_all(chan);
+	case DMA_TERMINATE_ALL:
+		jzdma_terminate_all(chan);
+		break;
+
+	case DMA_SLAVE_CONFIG:
+		ret |= !config->src_addr_width || !config->dst_addr_width;
+		ret |= !config->src_maxburst || !config->dst_maxburst;
+		ret |= !config->src_addr && !config->dst_addr;
+		if (ret) {
+			dev_warn(chan2dev(chan), "Bad DMA control argument !");
+			ret = -EINVAL;
 			break;
+		}
 
-		case DMA_SLAVE_CONFIG:
-			ret |= !config->src_addr_width || !config->dst_addr_width;
-			ret |= !config->src_maxburst || !config->dst_maxburst;
-			ret |= !config->src_addr && !config->dst_addr;
-			if (ret) {
-				dev_warn(chan2dev(chan), "Bad DMA control argument !");
-				ret = -EINVAL;
-				break;
-			}
-
-			switch(config->dst_addr_width) {
-				case DMA_SLAVE_BUSWIDTH_1_BYTE:
-					dmac->tx_dcm_def = DCM_SP_8 | DCM_DP_8;
-					break;
-				case DMA_SLAVE_BUSWIDTH_2_BYTES:
-					dmac->tx_dcm_def = DCM_SP_16 | DCM_DP_16;
-					break;
-				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->tx_dcm_def &= ~DCM_SP_32;
-					dmac->tx_dcm_def &= ~DCM_DP_32;
-					break;
-				case DMA_SLAVE_BUSWIDTH_8_BYTES:
-				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
-					dev_warn(chan2dev(chan), "Bad DMA control argument !");
-					return -EINVAL;
-			}
-
-			/*
-			 * check and mark if access NEMC through channal1
-			 */
-			if (dmac->id == 1 &&
-					(config->dst_addr >= NEMC_CS6_IOBASE &&
-					(config->dst_addr < NEMC_CS1_IOBASE + 0x1000000))) {
-				dmac->tx_dcm_def |= DCM_CH1_SRC_DDR | DCM_CH1_DST_NEMC;
-			}
-
-			switch(config->src_addr_width) {
-				case DMA_SLAVE_BUSWIDTH_1_BYTE:
-					dmac->rx_dcm_def = DCM_SP_8 | DCM_DP_8;
-					break;
-				case DMA_SLAVE_BUSWIDTH_2_BYTES:
-					dmac->rx_dcm_def = DCM_SP_16 | DCM_DP_16;
-					break;
-				case DMA_SLAVE_BUSWIDTH_4_BYTES:
-					dmac->rx_dcm_def &= ~DCM_SP_32;
-					dmac->rx_dcm_def &= ~DCM_DP_32;
-					break;
-				case DMA_SLAVE_BUSWIDTH_8_BYTES:
-				case DMA_SLAVE_BUSWIDTH_UNDEFINED:
-					dev_warn(chan2dev(chan), "Bad DMA control argument !");
-					return -EINVAL;
-			}
-
-			/*
-			 * check and mark if access NEMC through channal1
-			 */
-			if (dmac->id == 1 &&
-					(config->src_addr >= NEMC_CS6_IOBASE &&
-					config->src_addr <= NEMC_CS1_IOBASE + 0x1000000)) {
-				dmac->rx_dcm_def |= DCM_CH1_SRC_NEMC | DCM_CH1_DST_DDR;
-			}
-
-			dmac->flags |= CHFLG_SLAVE;
-			dmac->config = config;
+		switch (config->dst_addr_width) {
+		case DMA_SLAVE_BUSWIDTH_1_BYTE:
+			dmac->tx_dcm_def = DCM_SP_8 | DCM_DP_8;
 			break;
+		case DMA_SLAVE_BUSWIDTH_2_BYTES:
+			dmac->tx_dcm_def = DCM_SP_16 | DCM_DP_16;
+			break;
+		case DMA_SLAVE_BUSWIDTH_4_BYTES:
+			dmac->tx_dcm_def &= ~DCM_SP_32;
+			dmac->tx_dcm_def &= ~DCM_DP_32;
+			break;
+		case DMA_SLAVE_BUSWIDTH_8_BYTES:
+		case DMA_SLAVE_BUSWIDTH_UNDEFINED:
+			dev_warn(chan2dev(chan), "Bad DMA control argument !");
+			return -EINVAL;
+		}
 
-		default:
-			return -ENOSYS;
+		/*
+		 * check and mark if access NEMC through channal1
+		 */
+		if (dmac->id == 1 &&
+		    (config->dst_addr >= NEMC_CS6_IOBASE &&
+		     (config->dst_addr < NEMC_CS1_IOBASE + 0x1000000))) {
+			dmac->tx_dcm_def |= DCM_CH1_SRC_DDR | DCM_CH1_DST_NEMC;
+		}
+
+		switch (config->src_addr_width) {
+		case DMA_SLAVE_BUSWIDTH_1_BYTE:
+			dmac->rx_dcm_def = DCM_SP_8 | DCM_DP_8;
+			break;
+		case DMA_SLAVE_BUSWIDTH_2_BYTES:
+			dmac->rx_dcm_def = DCM_SP_16 | DCM_DP_16;
+			break;
+		case DMA_SLAVE_BUSWIDTH_4_BYTES:
+			dmac->tx_dcm_def &= ~DCM_SP_32;
+			dmac->tx_dcm_def &= ~DCM_DP_32;
+			break;
+		case DMA_SLAVE_BUSWIDTH_8_BYTES:
+		case DMA_SLAVE_BUSWIDTH_UNDEFINED:
+			dev_warn(chan2dev(chan), "Bad DMA control argument !");
+			return -EINVAL;
+		}
+
+		/*
+		 * check and mark if access NEMC through channal1
+		 */
+		if (dmac->id == 1 &&
+		    (config->src_addr >= NEMC_CS6_IOBASE &&
+		     config->src_addr <= NEMC_CS1_IOBASE + 0x1000000)) {
+			dmac->rx_dcm_def |= DCM_CH1_SRC_NEMC | DCM_CH1_DST_DDR;
+		}
+
+		dmac->flags |= CHFLG_SLAVE;
+		dmac->config = config;
+		break;
+
+	default:
+		return -ENOSYS;
 	}
 
 	return ret;
@@ -796,7 +900,7 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 	for (i = 0; i < NR_DMA_CHANNELS; i++) {
 		struct jzdma_channel *dmac = master->channel + i;
 
-		if (!(pending & (1<<i)))
+		if (!(pending & (1 << i)))
 			continue;
 
 		dmac->dcs_saved = readl(dmac->iomem + CH_DCS);
@@ -805,6 +909,17 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 			continue;
 
 		tasklet_schedule(&dmac->tasklet);
+		if (dmac->fake_cyclic & FAKECYCLIC_ACTIVE) {
+			uint32_t ndesc = dmac->desc_phys;
+			int idx = (dmac->fake_cyclic & FAKECYCLIC_IDX) + 1;
+			idx %= dmac->desc_nr - 1;
+			dmac->fake_cyclic &= ~FAKECYCLIC_IDX;
+			dmac->fake_cyclic |= idx;
+			ndesc += idx * sizeof(struct dma_desc);
+			writel(ndesc, dmac->iomem + CH_DDA);
+			writel(BIT(dmac->id), dmac->master->iomem + DDRS);
+			writel((1 << 30) | (1 << 0), dmac->iomem + CH_DCS);
+		}
 	}
 	pending = readl(master->iomem + DMAC);
 	pending &= ~(DMAC_HLT | DMAC_AR);
@@ -875,7 +990,8 @@ static void jzdma_free_chan_resources(struct dma_chan *chan)
 	dmac->flags = 0;
 	dmac->status = 0;
 
-	dma_free_coherent(chan2dev(chan), PAGE_SIZE,dmac->desc, dmac->desc_phys);
+	dma_free_coherent(chan2dev(chan), PAGE_SIZE, dmac->desc,
+			  dmac->desc_phys);
 }
 
 unsigned int pdmam_startup_irq(struct irq_data *data)
@@ -950,7 +1066,7 @@ static struct irq_chip nand_jzintc_chip = {
 static struct irq_chip *save_irq_chip = NULL;
 static void save_and_replace_gpio0_irq_chip(void)
 {
-	if(!save_irq_chip){
+	if (!save_irq_chip) {
 		REG_INTC_SET_CPUMASK0 = (0x1 << 17);
 		REG_INTC_MCUMASK0 |= (0x1 << 17);
 		save_irq_chip = irq_get_chip(IRQ_GPIO0);
@@ -960,7 +1076,7 @@ static void save_and_replace_gpio0_irq_chip(void)
 }
 static void restore_gpio0_irq_chip(void)
 {
-	if(save_irq_chip){
+	if (save_irq_chip) {
 		REG_INTC_SET_CPUMASK0 = (0x1 << 17);
 		REG_INTC_MCUMASK0 |= (0x1 << 17);
 		irq_set_chip(IRQ_GPIO0, save_irq_chip);
@@ -974,31 +1090,31 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	struct jzdma_master *dma;
 	struct jzdma_platform_data *pdata;
 	struct resource *iores;
-	short irq, irq_pdmam,irq_mcu;        /* irq_pdmam for PDMAM irq */
-	int i,ret = 0;
-	unsigned int pdma_program = 0;  /* set pdma DMACP register */
+	short irq, irq_pdmam, irq_mcu;	/* irq_pdmam for PDMAM irq */
+	int i, ret = 0;
+	unsigned int pdma_program = 0;	/* set pdma DMACP register */
 
 	dma = kzalloc(sizeof(*dma), GFP_KERNEL);
 	if (!dma)
 		return -ENOMEM;
 
 	pdata = pdev->dev.platform_data;
-	if(!pdata)
+	if (!pdata)
 		return -ENODATA;
 
 	dma->map = pdata->map;
 
-	dma->irq_chip.name 		= "pdmam";
-	dma->irq_chip.irq_startup 	= pdmam_startup_irq;
-	dma->irq_chip.irq_shutdown 	= pdmam_irq_dummy;
-	dma->irq_chip.irq_unmask 	= pdmam_irq_dummy;
-	dma->irq_chip.irq_mask 		= pdmam_irq_dummy;
-	dma->irq_chip.irq_mask_ack	= pdmam_irq_dummy;
-	dma->irq_chip.irq_set_type 	= pdmam_set_type;
-	dma->irq_chip.irq_set_wake	= pdmam_set_wake;
+	dma->irq_chip.name = "pdmam";
+	dma->irq_chip.irq_startup = pdmam_startup_irq;
+	dma->irq_chip.irq_shutdown = pdmam_irq_dummy;
+	dma->irq_chip.irq_unmask = pdmam_irq_dummy;
+	dma->irq_chip.irq_mask = pdmam_irq_dummy;
+	dma->irq_chip.irq_mask_ack = pdmam_irq_dummy;
+	dma->irq_chip.irq_set_type = pdmam_set_type;
+	dma->irq_chip.irq_set_wake = pdmam_set_wake;
 
-	for(i=pdata->irq_base;i<=pdata->irq_end;i++)
-		irq_set_chip_and_handler(i,&dma->irq_chip,handle_level_irq);
+	for (i = pdata->irq_base; i <= pdata->irq_end; i++)
+		irq_set_chip_and_handler(i, &dma->irq_chip, handle_level_irq);
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
@@ -1006,7 +1122,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	irq_mcu = platform_get_irq_byname(pdev, "mcu");
 	irq_pdmam = platform_get_irq_byname(pdev, "pdmam");
 
-	if (!iores || irq < 0 || irq_pdmam <0) {
+	if (!iores || irq < 0 || irq_pdmam < 0) {
 		ret = -EINVAL;
 		goto free_dma;
 	}
@@ -1071,9 +1187,9 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 		dmac->id = i;
 
-		if(dma->map)
+		if (dma->map)
 			dmac->type = GET_MAP_TYPE(dma->map[i]);
-		if(dmac->type == JZDMA_REQ_INVAL) {
+		if (dmac->type == JZDMA_REQ_INVAL) {
 			dmac->type = JZDMA_REQ_AUTO;
 			dmac->chan.private = (void *)dmac->type;
 		} else
@@ -1081,20 +1197,20 @@ static int __init jzdma_probe(struct platform_device *pdev)
 
 		spin_lock_init(&dmac->lock);
 		dmac->chan.device = &dma->dma_device;
-		if(dma->map[i] & (TYPE_MASK << 16)) {
+		if (dma->map[i] & (TYPE_MASK << 16)) {
 			tasklet_init(&dmac->tasklet, pdmam_chan_tasklet,
-					(unsigned long)dmac);
+				     (unsigned long)dmac);
 			pdma_program |= (1 << i);
 		} else
 			tasklet_init(&dmac->tasklet, jzdma_chan_tasklet,
-					(unsigned long)dmac);
+				     (unsigned long)dmac);
 
 		dmac->iomem = dma->iomem + i * 0x20;
 		dmac->master = dma;
 
-		list_add(&dmac->chan.device_node,
-				&dma->dma_device.channels);
-		dev_dbg(&pdev->dev,"add chan (phy id %d , type 0x%02x)\n",i,dmac->type);
+		list_add(&dmac->chan.device_node, &dma->dma_device.channels);
+		dev_dbg(&pdev->dev, "add chan (phy id %d , type 0x%02x)\n", i,
+			dmac->type);
 	}
 	/* the corresponding dma channel is set programmable */
 	writel(pdma_program, dma->iomem + DMACP);
@@ -1132,7 +1248,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	save_and_replace_gpio0_irq_chip();
 #endif
 
-	platform_set_drvdata(pdev,dma);
+	platform_set_drvdata(pdev, dma);
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;
 
@@ -1142,13 +1258,13 @@ release_irq:
 release_iomap:
 	iounmap(dma->iomem);
 release_clk:
-	if(dma->clk)
+	if (dma->clk)
 		clk_put(dma->clk);
 release_mem:
 	release_mem_region(iores->start, resource_size(iores));
 free_dma:
 	kfree(dma);
-	dev_dbg(dma->dev, "init failed %d\n",ret);
+	dev_dbg(dma->dev, "init failed %d\n", ret);
 	return ret;
 }
 
@@ -1160,7 +1276,7 @@ static int __exit jzdma_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int jzdma_suspend(struct platform_device * pdev, pm_message_t state)
+static int jzdma_suspend(struct platform_device *pdev, pm_message_t state)
 {
 #ifdef CONFIG_NAND
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
@@ -1181,12 +1297,12 @@ static int jzdma_resume(struct platform_device * pdev)
 	return 0;
 }
 static struct platform_driver jzdma_driver = {
-	.driver		= {
-		.name	= "jz-dma",
-	},
-	.remove		= __exit_p(jzdma_remove),
-	.suspend        = jzdma_suspend,
-	.resume         = jzdma_resume,
+	.driver = {
+		   .name = "jz-dma",
+		   },
+	.remove = __exit_p(jzdma_remove),
+	.suspend = jzdma_suspend,
+	.resume = jzdma_resume,
 };
 
 static int __init jzdma_module_init(void)
@@ -1196,5 +1312,5 @@ static int __init jzdma_module_init(void)
 subsys_initcall(jzdma_module_init);
 
 MODULE_AUTHOR("Zhong Zhiping <zpzhong@ingenic.cn>");
-MODULE_DESCRIPTION("Ingenic jz4770 dma driver");
+MODULE_DESCRIPTION("Ingenic jz dma driver");
 MODULE_LICENSE("GPL");
