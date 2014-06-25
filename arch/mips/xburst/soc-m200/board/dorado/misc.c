@@ -646,24 +646,24 @@ static int __init board_init(void)
 #endif
 
 /* audio */
-#ifdef CONFIG_SOUND_JZ_I2S_V1_2
+#ifdef CONFIG_SOUND_JZ_I2S_V12
 	jz_device_register(&jz_i2s_device,&i2s_data);
 	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
 #endif
-#ifdef CONFIG_SOUND_JZ_SPDIF_V1_2
+#ifdef CONFIG_SOUND_JZ_SPDIF_V12
 	jz_device_register(&jz_spdif_device,&spdif_data);
 	jz_device_register(&jz_mixer2_device,&snd_mixer2_data);
 #endif
-#ifdef CONFIG_SOUND_JZ_DMIC_V1_2
+#ifdef CONFIG_SOUND_JZ_DMIC_V12
 	jz_device_register(&jz_dmic_device,&dmic_data);
 	jz_device_register(&jz_mixer3_device,&snd_mixer3_data);
 #endif
 
-#ifdef CONFIG_SOUND_JZ_PCM_V1_2
+#ifdef CONFIG_SOUND_JZ_PCM_V12
 	jz_device_register(&jz_pcm_device,&pcm_data);
 	jz_device_register(&jz_mixer1_device,&snd_mixer1_data);
 #endif
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V1_2
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 	/* ovisp */

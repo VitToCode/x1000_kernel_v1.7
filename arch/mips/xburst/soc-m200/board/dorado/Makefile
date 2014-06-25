@@ -11,7 +11,7 @@ obj-$(CONFIG_LCD_OTM8012A_TFT1P6449) += lcd-otm8012a.o
 obj-$(CONFIG_LCD_HX8389_B11_G) += lcd-hx8389_b11_g.o
 obj-$(CONFIG_LCD_LH155) += lcd-lh155.o
 
-obj-$(CONFIG_SOUND_OSS_XBURST_V1_2)		    += sound.o
+obj-$(CONFIG_SOUND_OSS_XBURST)		    += sound.o
 obj-$(CONFIG_VIDEO_OVISP) += camera.o
 
 obj-$(CONFIG_BCM_PM_CORE) += bcm_power_control.o

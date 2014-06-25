@@ -109,17 +109,17 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_NAND_CS6
 #endif
 
-#ifdef	CONFIG_SOUND_JZ_I2S_V1_2
-#ifndef CONFIG_JZ_INTERNAL_CODEC_V1_2
+#ifdef	CONFIG_SOUND_JZ_I2S_V12
+#ifndef CONFIG_JZ_INTERNAL_CODEC_V12
 	I2S_PORTDE,
 #endif
 #endif
-#ifdef	CONFIG_SOUND_JZ_SPDIF_V1_2
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V1_2
+#ifdef	CONFIG_SOUND_JZ_SPDIF_V12
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	I2S_PORTDE,
 #endif
 #endif
-#ifdef CONFIG_SOUND_JZ_PCM_V1_2
+#ifdef CONFIG_SOUND_JZ_PCM_V12
 	PCM_PORTF,
 #endif
 

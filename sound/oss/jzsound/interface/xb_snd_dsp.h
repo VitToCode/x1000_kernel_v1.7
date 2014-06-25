@@ -17,7 +17,6 @@
 #include <linux/poll.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
-#include <linux/notifier.h>
 #include <linux/dma-mapping.h>
 
 /*####################################################*\
@@ -47,9 +46,7 @@
 #define DEFAULT_RECORD_SAMPLERATE	44100
 #define DEFAULT_REPLAY_CHANNEL		2
 #define DEFAULT_RECORD_CHANNEL		1
-
-//#define FORCE_USE_TCSM
-
+//#define DEFAULT_RECORD_CHANNEL		2
 /**
  * sound device
  **/
@@ -110,6 +107,7 @@ struct spipe_info {
     enum spipe_mode_t spipe_mode;
 };
 
+#define SNDCTL_EXT_SET_DEBUG				_SIOW ('P', 102, int)
 #define SNDCTL_EXT_MOD_TIMER				_SIOW ('P', 101, int)
 #define SNDCTL_EXT_SET_BUFFSIZE				_SIOR ('P', 100, int)
 #define SNDCTL_EXT_SET_DEVICE               _SIOR ('P', 99, int)
@@ -130,7 +128,7 @@ enum snd_dsp_command {
 	 * the command flowed is used to enable/disable
 	 * replay/record.
 	 **/
-	SND_DSP_ENABLE_REPLAY,
+	SND_DSP_ENABLE_REPLAY=0,
 	SND_DSP_DISABLE_REPLAY,
 	SND_DSP_ENABLE_RECORD,
 	SND_DSP_DISABLE_RECORD,
@@ -200,14 +198,16 @@ enum snd_dsp_command {
 	SND_DSP_SET_MIC_VOL,
 	SND_DSP_SET_REPLAY_VOL,
 	/**
+	 *	@SND_DSP_SET_DMIC_TRIGGER_MODE set dmic trigger
+	 **/
+	SND_DSP_SET_DMIC_TRIGGER_MODE,
+	/**
 	 * @SND_DSP_CLR_ROUTE  for pretest
 	 **/
 	SND_DSP_CLR_ROUTE,
 
-	SND_DSP_REGISTER_NOTIFIER,
-	SND_DSP_UNREGISTER_NOTIFIER,
-
 	SND_DSP_DEBUG,
+	SND_DSP_SET_VOICE_TRIGGER,
 };
 
 /**
@@ -220,6 +220,7 @@ enum snd_dsp_command {
 #define FRAGCNT_S   2
 #define FRAGCNT_M   4
 #define FRAGCNT_L   8
+#define FRAGCNT_B   16
 
 
 
@@ -260,7 +261,6 @@ struct dsp_pipe {
 	struct timer_list	transfer_watchdog;
 	uint32_t watchdog_mdelay;
 	volatile bool		force_hdmi;
-	struct notifier_block hdmi_notifier;
 
 	/* state */
 	volatile bool       is_trans;
@@ -303,7 +303,8 @@ int convert_8bits_stereo2mono(void *buff, int *data_len,int needed_size);
 int convert_8bits_stereo2mono_signed2unsigned(void *buff, int *data_len,int needed_size);
 int convert_16bits_stereo2mono(void *buff, int *data_len,int needed_size);
 int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size);
-int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size);
+int convert_32bits_stereo2_16bits_mono(void *buff, int *data_len, int needed_size);
+int convert_32bits_2_20bits_tri_mode(void *buff, int *data_len, int needed_size);
 
 /**
  * functions interface

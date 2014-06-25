@@ -5,8 +5,7 @@
 
 obj-$(CONFIG_SOUND_OSS_XBURST) 		+= devices/
 
-obj-$(CONFIG_SOUND_OSS_XBURST) 		+= interface/ xb_snd_card.o 
+obj-$(CONFIG_SOUND_OSS_XBURST) 		+= interface/ xb_snd_card.o
 
 obj-$(CONFIG_SOUND_XBURST_DETECT)	+= xb_snd_detect.o
 
-obj-$(CONFIG_SOUND_XBURST_DEBUG)	+= xb_snd_debug.o

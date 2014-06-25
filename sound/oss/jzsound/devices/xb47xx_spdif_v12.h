@@ -4,8 +4,8 @@
 
 #include <asm/io.h>
 #include <linux/delay.h>
-#include "../interface/xb_snd_dsp.h"
-#include "../xb_snd_detect.h"
+#include "../interface/xb_snd_dsp_v12.h"
+#include "../xb_snd_detect_v12.h"
 
 extern unsigned int DEFAULT_REPLAY_ROUTE;
 extern unsigned int DEFAULT_RECORD_ROUTE;

@@ -23,7 +23,6 @@ extern void volatile __iomem *volatile i2s_iomem;
 /**
  * registers
  **/
-
 #define AICFR 0x0
 #define AICCR 0x4
 #define AICCR1 0x8
@@ -42,12 +41,12 @@ extern void volatile __iomem *volatile i2s_iomem;
 #define RGADW  0xa4
 #define RGDATA 0xa8
 
+static unsigned long read_val;
+static unsigned long tmp_val;
 
 /**
  * i2s register control
  **/
-static unsigned long read_val;
-static unsigned long tmp_val;
 #define i2s_write_reg(addr,val)        \
 	writel(val,i2s_iomem+addr)
 
@@ -93,6 +92,8 @@ static unsigned long tmp_val;
 #define I2S_ISYNCD_MASK        (0x1 << I2S_ISYNCD_OFFSET)
 #define I2S_IBCKD_OFFSET       (10)
 #define I2S_IBCKD_MASK         (0x1 << I2S_IBCKD_OFFSET)
+#define I2S_MSB_OFFSET         (12)
+#define I2S_MSB_MASK           (0x1 << I2S_MSB_OFFSET)
 #define I2S_TFTH_OFFSET        (16)
 #define I2S_TFTH_MASK          (0x1f << I2S_TFTH_OFFSET)
 #define I2S_RFTH_OFFSET        (24)
@@ -144,6 +145,10 @@ do {	\
 	i2s_set_reg(AICFR,1,I2S_IBCKD_MASK,I2S_IBCKD_OFFSET)
 #define __i2s_isync_input()            \
 	i2s_set_reg(AICFR,0,I2S_ISYNCD_MASK,I2S_ISYNCD_OFFSET)
+#define __i2s_enable_24bitmsb()			\
+	i2s_set_reg(AICFR,1,I2S_MSB_MASK,I2S_MSB_OFFSET)
+#define __i2s_disable_24bitmsb()			\
+	i2s_set_reg(AICFR,0,I2S_MSB_MASK,I2S_MSB_OFFSET)
 #define __i2s_isync_output()           \
 	i2s_set_reg(AICFR,1,I2S_ISYNCD_MASK,I2S_ISYNCD_OFFSET)
 
@@ -159,9 +164,10 @@ do {	\
 	do {                                            \
 		__i2s_bclk_output();                    \
 		__i2s_sync_output();                    \
-		__i2s_isync_output();                   \
-		__i2s_ibclk_output();                   \
 	}while(0)
+		/*__i2s_isync_output();                   \
+		__i2s_ibclk_output();                   \*/
+
 
 #define __i2s_play_zero()              \
 	i2s_set_reg(AICFR,0,I2S_LSMP_MASK,I2S_LSMP_OFFSET)
@@ -254,6 +260,8 @@ do {	\
 	i2s_set_reg(AICCR,1,I2S_TFLUSH_MASK,I2S_TFLUSH_OFFSET)
 #define __i2s_flush_rfifo()            \
 	i2s_set_reg(AICCR,1,I2S_RFLUSH_MASK,I2S_RFLUSH_OFFSET)
+#define __i2s_test_flush_tfifo()               \
+	i2s_get_reg(AICCR,I2S_TFLUSH_MASK,I2S_TFLUSH_OFFSET)
 
 #define __i2s_enable_overrun_intr()    \
 	i2s_set_reg(AICCR,1,I2S_EROR_MASK,I2S_EROR_OFFSET)
@@ -399,7 +407,9 @@ do {	\
 
 static inline unsigned long  __i2s_set_sample_rate(unsigned long sys_clk, unsigned long sync)
 {
-	int div = sys_clk/(64*sync) - 1;
+	/*int div = sys_clk/(64*sync) - 1;*/
+	int div = sys_clk/(64*sync);
+//	div = 3;
 	i2s_set_reg(I2SDIV,div,I2S_DV_MASK,I2S_DV_OFFSET);
 
 	return sys_clk/(64*(div + 1));

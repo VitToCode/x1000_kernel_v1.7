@@ -61,10 +61,11 @@ static void snd_switch_work(struct work_struct *hp_work)
 	int state = 0;
 	int tmp_state =0;
 	int i = 0;
-	int ret = 0;
-	int device;
+//	int ret = 0;
+//	int device;
 	struct snd_switch_data *switch_data =
 		container_of(hp_work, struct snd_switch_data, hp_work);
+
 
 	/* if gipo switch */
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
@@ -99,22 +100,18 @@ static void snd_switch_work(struct work_struct *hp_work)
 		mdelay(1000);
 	}
 
-	if (state == 1) {
-		if (switch_data->mic_gpio != -1) {
-			gpio_direction_input(switch_data->mic_gpio);
-			if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
-				state <<= 1;
-			else
-				state <<= 0;
-		} else if (switch_data->mic_select_gpio == -1) {
-			state << 1;
-		}
-	}
+	if (state == 1 && switch_data->mic_gpio != -1) {
+		gpio_direction_input(switch_data->mic_gpio);
+		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
+			state <<= 1;
+		else
+			state <<= 0;
+	} else
+		state <<= 1;
 
 	if (state == 1) {
-		if (switch_data->mic_select_gpio != -1) {
+		if (switch_data->mic_select_gpio != -1)
 			gpio_direction_output(switch_data->mic_select_gpio, !switch_data->mic_select_level);
-		}
 		if (atomic_read(&switch_data->flag) == 0 && switch_data->hook_valid_level != -1) {
 			enable_irq(switch_data->hook_irq);
 			SWITCH_DEBUG("==========hp work enable irq========\n");
@@ -135,6 +132,7 @@ static void snd_switch_work(struct work_struct *hp_work)
 	snd_switch_set_state(switch_data, state);
 
 #ifndef CONFIG_ANDROID
+#if 0
 	if (state == 1) {
 		device = SND_DEVICE_HEADSET;
 		ret = switch_data->set_device((unsigned long)&device);
@@ -157,6 +155,7 @@ static void snd_switch_work(struct work_struct *hp_work)
 		else if (ret < -1)
 			printk(" set_device failed in the hp changed!\n");
 	}
+#endif
 #endif
 }
 static void hook_do_work(struct work_struct *hook_work)
@@ -447,7 +446,6 @@ static struct platform_device_id xb_snd_det_ids[] = {
 	{}
 #undef JZ_HP_DETECT_TABLE
 };
-
 
 
 static struct platform_driver snd_switch_driver = {

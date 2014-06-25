@@ -29,9 +29,10 @@
 #include <mach/jzsnd.h>
 #include <soc/irq.h>
 #include <soc/base.h>
-#include "xb47xx_spdif.h"
-#include "xb47xx_i2s.h"
-#include "codecs/jz4780_codec.h"
+#include "xb47xx_spdif_v12.h"
+#include "xb47xx_i2s_v12.h"
+#include <linux/delay.h>
+#include "codecs/jz_codec_v12.h"
 /**
  * global variable
  **/
@@ -43,7 +44,7 @@ static volatile bool spdif_is_incall_state = false;
 static LIST_HEAD(codecs_head);
 bool spdif_is_incall(void);
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 /*static struct workqueue_struct *spdif_work_queue;
 static struct work_struct	spdif_codec_work;*/
 #endif
@@ -412,7 +413,7 @@ static int spdif_enable(int mode)
 	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
 	unsigned long replay_format = 16;
 	/*int replay_channel = DEFAULT_REPLAY_CHANNEL;*/
-	int record_channel = DEFAULT_RECORD_CHANNEL;
+//	int record_channel = DEFAULT_RECORD_CHANNEL;
 	struct dsp_pipe *dp_other = NULL;
 	int ret = 0;
 
@@ -429,6 +430,7 @@ static int spdif_enable(int mode)
 		return -1;
 
 	if (mode & CODEC_WMODE) {
+		printk("come to %s %d set dp_other\n", __func__, __LINE__);
 		dp_other = cur_codec_spdif->dsp_endpoints->in_endpoint;
 		spdif_set_fmt(&replay_format,mode);
 		spdif_set_rate(&replay_rate,mode);
@@ -566,7 +568,7 @@ static int spdif_set_device(unsigned long device)
 	}
 
 	/*hdmi operation*/
-	if ((tmp_rate = cur_codec_spdif->replay_rate) == 0)
+	if ((tmp_rate = cur_codec_spdif->replay_rate) == 0);
 		tmp_rate = 44100;
 	if (strcmp(cur_codec_spdif->name,"hdmi")) {
 		spdif_match_codec("hdmi");
@@ -589,7 +591,9 @@ static long spdif_ioctl(unsigned int cmd, unsigned long arg)
 		/* enable spdif replay */
 		/* set spdif default record format, channels, rate */
 		/* set default replay route */
+		printk("  spdif ioctl enable cmd\n");
 		ret = spdif_enable(CODEC_WMODE);
+		printk("  spdif ioctl enable cmd complete\n");
 		break;
 
 	case SND_DSP_DISABLE_REPLAY:
@@ -825,6 +829,7 @@ static int spdif_global_init(struct platform_device *pdev)
 
 	spdif_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (spdif_resource == NULL) {
+		printk("%s spdif_resource get failed!\n", __func__);
 		return -1;
 	}
 
@@ -842,10 +847,12 @@ static int spdif_global_init(struct platform_device *pdev)
 
 	ret = spdif_init_pipe(&spdif_pipe_out,DMA_TO_DEVICE,spdif_resource->start);
 	if (ret < 0) {
+		printk("%s init write pipe failed!\n", __func__);
 		goto __err_init_pipeout;
 	}
 	ret = spdif_init_pipe(&spdif_pipe_in,DMA_FROM_DEVICE,spdif_resource->start);
 	if (ret < 0) {
+		printk("%s init read pipe failed!\n", __func__);
 		goto __err_init_pipein;
 	}
 
@@ -853,11 +860,12 @@ static int spdif_global_init(struct platform_device *pdev)
 	spdif_endpoints.in_endpoint = spdif_pipe_in;
 
 	/*request aic clk */
-	spdif_clk = clk_get(&pdev->dev, "aic0");
+	spdif_clk = clk_get(&pdev->dev, "aic");
 	if (IS_ERR(spdif_clk)) {
 		dev_err(&pdev->dev, "----> aic clk_get failed\n");
 		goto __err_aic_clk;
 	}
+
 
 	spdif_match_codec("hdmi");
 	if (cur_codec_spdif == NULL) {
@@ -865,7 +873,6 @@ static int spdif_global_init(struct platform_device *pdev)
 		ret = -1;
 		goto __err_match_codec;
 	}
-
 	/* request irq */
 	/*spdif_resource = platform_get_resource(pdev,IORESOURCE_IRQ,0);
 	if (spdif_resource == NULL) {

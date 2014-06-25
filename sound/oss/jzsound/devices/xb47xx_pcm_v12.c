@@ -27,7 +27,7 @@
 #include <mach/jzsnd.h>
 #include <soc/irq.h>
 #include <soc/base.h>
-#include "xb47xx_pcm.h"
+#include "xb47xx_pcm_v12.h"
 
 /**
  * global variable
@@ -143,6 +143,7 @@ static int pcm_set_fmt(unsigned long *format,int mode)
 		*format = AFMT_S16_LE;
 		if (mode & CODEC_WMODE) {
 			__pcm_set_oss_sample_size(1);
+			/*__pcm_set_oss_sample_size(0);*/
 			dp_out->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 			dp_out->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		}
@@ -198,6 +199,8 @@ static int pcm_set_rate(unsigned long *rate)
 		} else
 			*rate = pcm_priv->rate;
 	}
+//	__pcm_set_syndiv(div);
+
 	return 0;
 }
 
@@ -211,6 +214,7 @@ static int pcm_set_pcmclk(unsigned long pcmclk)
 		__pcm_set_clkdiv(div);
 	} else
 		return -EINVAL;
+//	__pcm_set_clkdiv(div);
 	return 0;
 }
 
@@ -251,7 +255,7 @@ static void pcm_set_trigger(int mode)
 		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|dp->dma_config.dst_maxburst);
 		__pcm_set_transmit_trigger((PCM_FIFO_DEPTH - burst_length/data_width) - 1);
 		printk("PCM_FIFO_DEPTH - burst_length/data_width - 1 = %d\n",(PCM_FIFO_DEPTH - burst_length/data_width) - 1);
-	}
+}
 	if (mode &CODEC_RMODE) {
 		switch(pcm_priv->record_format) {
 		case AFMT_U8:
@@ -345,6 +349,7 @@ static int pcm_dma_enable(int mode)
 		__pcm_enable_receive_dma();
 	}
 
+//	dump_pcm_reg();
 	return 0;
 }
 
@@ -631,7 +636,7 @@ pcm_default:
 		div_total = div_total + 1;
 	if (div_total > 512) {
 		for (i = 2; i <= 512;i++) {
-			if (div_total%i == 0 && div_total/i <=64 || div_total/i == 0) {
+			if (((div_total%i == 0) && (div_total/i <=64)) || (div_total/i == 0)) {
 				sys_div = i;
 				pcm_clk_div = div_total/i;
 				break;
@@ -664,13 +669,12 @@ static int pcm_clk_init(struct platform_device *pdev)
 	struct clk *pcm_sysclk = NULL;
 	struct clk *pcmclk = NULL;
 
-	epll_clk = clk_get(&pdev->dev,"epll");
+	epll_clk = clk_get(&pdev->dev,"mpll");
 	if (IS_ERR(epll_clk)) {
 		printk(KERN_ERR"pcm get epll_clk fail\n");
 		goto __err_epll_clk_get;
 	}
 	pcm_priv->cpm_epll_clk = clk_get_rate(epll_clk);
-
 	pcmclk = clk_get(&pdev->dev, "pcm");
 	if (IS_ERR(pcmclk)) {
 		dev_dbg(&pdev->dev, "pcm clk_get failed\n");

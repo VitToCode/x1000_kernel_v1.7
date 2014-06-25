@@ -29,15 +29,14 @@
 #include <mach/jzsnd.h>
 #include <soc/irq.h>
 #include <soc/base.h>
-#include "xb47xx_i2s.h"
-#include "codecs/jz4780_codec.h"
-#include <soc/cpm.h>
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-#include <mach/fb_hdmi_modes.h>
-#endif
+#include "xb47xx_i2s_v12.h"
+#include "codecs/jz_codec_v12.h"
 /**
  * global variable
  **/
+
+#define AFMT_S24_LE			0x00000800
+
 void volatile __iomem *volatile i2s_iomem;
 static LIST_HEAD(codecs_head);
 static spinlock_t i2s_irq_lock;
@@ -48,17 +47,13 @@ static struct clk *codec_sysclk = NULL;
 static volatile bool i2s_is_incall_state = false;
 bool i2s_is_incall(void);
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 static struct workqueue_struct *i2s_work_queue;
 static struct work_struct	i2s_codec_work;
 #endif
 static int jz_get_hp_switch_state(void);
 
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-extern int hdmi_notifier_client_register(struct notifier_block *nb);
-extern int hdmi_notifier_client_unregister(struct notifier_block *nb);
-#endif
-
+extern void codec_irq_set_mask(void);
 static struct codec_info {
 	struct list_head list;
 	char *name;
@@ -155,6 +150,16 @@ static void i2s_set_filter(int mode , uint32_t channels)
 
 	switch(cur_codec->record_format) {
 		case AFMT_U8:
+			if (channels == 1) {
+				dp->filter = convert_8bits_stereo2mono_signed2unsigned;
+				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
+			}
+			else {
+				//dp->filter = convert_8bits_signed2unsigned;
+				dp->filter = NULL; //hardware convert
+				printk("dp->filter convert_8bits_signed2unsigned.\n");
+			}
+			break;
 		case AFMT_S8:
 			if (channels == 1) {
 				dp->filter = convert_8bits_stereo2mono;
@@ -181,17 +186,17 @@ static void i2s_set_filter(int mode , uint32_t channels)
 				printk("dp->filter null\n");
 			}
 			break;
-                case AFMT_S24_LE:
-                case AFMT_U24_LE:
-                        if (channels == 1) {
-                                dp->filter = convert_32bits_stereo2mono;
-                                printk("dp->filter convert_32bits_stereo2mono\n");
-                        }
-                        else {
-                                dp->filter = NULL;
-                                printk("dp->filter null\n");
-                        }
-                        break;
+		case AFMT_S24_LE:
+		case AFMT_U24_LE:
+			if (channels == 1) {
+				//dp->filter = convert_32bits_stereo2mono;
+				printk("dp->filter convert_32bits_stereo2mono\n");
+			}
+			else {
+				dp->filter = NULL;
+				printk("dp->filter null\n");
+			}
+			break;
 		default :
 			dp->filter = NULL;
 			printk("AUDIO DEVICE :filter set error.\n");
@@ -206,20 +211,18 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	int ret = 0;
 	int data_width = 0;
 	struct dsp_pipe *dp = NULL;
+
     /*
-	 The value of format reference to soundcard.h.
-	 AFMT_U8                  0x00000008
-         AFMT_S16_LE              0x00000010
-         AFMT_S16_BE              0x00000020
-         AFMT_S8                  0x00000040
-         AFMT_U16_LE              0x00000080
-         AFMT_U16_BE              0x00000100
-         AFMT_S24_LE              0x00000800
-         AFMT_S24_BE              0x00001000
-         AFMT_U24_LE              0x00002000
-         AFMT_U24_BE              0x00004000
-    */
-	debug_print("format = %ld",*format);
+	 * The value of format reference to soundcard.
+	 * AFMT_MU_LAW      0x00000001
+	 * AFMT_A_LAW       0x00000002
+	 * AFMT_IMA_ADPCM   0x00000004
+	 * AFMT_U8			0x00000008
+	 * AFMT_S16_LE      0x00000010
+	 * AFMT_S16_BE      0x00000020
+	 * AFMT_S8			0x00000040
+	 */
+	debug_print("format = %d",*format);
 	switch (*format) {
 	case AFMT_U8:
 		data_width = 8;
@@ -274,7 +277,8 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 		}
 		__i2s_disable_signadj();
 		break;
-        case AFMT_U16_BE:
+#if 0
+       case AFMT_U16_BE:
                 data_width = 16;
                 if (mode & CODEC_WMODE) {
                         __i2s_set_oss_sample_size(1);
@@ -308,6 +312,21 @@ static int i2s_set_fmt(unsigned long *format,int mode)
                 }
                 __i2s_enable_signadj();
                 break;
+#endif
+	case AFMT_S24_LE:
+		data_width = 24;
+		ret = 100000;
+		printk("come here %d\n", __LINE__);
+		if (mode & CODEC_WMODE) {
+			__i2s_set_oss_sample_size(4);
+			__i2s_disable_byteswap();
+		}
+
+	//	__i2s_enable_24bitmsb();
+		__i2s_disable_signadj();
+		dump_i2s_reg();
+		printk("come here \n");
+		break;
 	default :
 		printk("I2S: there is unknown format 0x%x.\n",(unsigned int)*format);
 		return -EINVAL;
@@ -439,6 +458,7 @@ static int i2s_set_channel(int* channel,int mode)
 static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 {
 	int i;
+#if 1
 	unsigned long mrate[12] = {
 		8000, 11025, 12000, 16000,22050,24000,
 		32000,44100, 48000, 88200,96000,192000,
@@ -448,16 +468,26 @@ static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 		8192000, 11333338, 12288000, 8192000, 11333338, 12288000,
 		8192000, 11333338, 12288000, 11333338,12288000, 25500000,
 	};
-	for (i=0; i<=11; i++) {
+#else
+	unsigned long mrate[10] = {
+		8000, 11025,16000,22050,24000,
+		32000,44100,48000,96000,192000,
+	};
+	unsigned long mcguclk[10] = {
+		5523978, 8458438, 8458438, 11277917,16916875,
+		16916875,33833750,33833750,67667500,135335000,
+	};
+#endif
+	for (i=0; i<9; i++) {
 		if (*rate <= mrate[i]) {
 			*rate = mrate[i];
 			break;
 		}
 	}
-	if (i > 11) {
-		printk("The rate isnot be support, here fix 44100 sample rate\n");
+
+	if (i >= 9) {
 		*rate = 44100; /*unsupport rate use default*/
-		return mcguclk[7];
+		return mcguclk[6];
 	}
 
 	return mcguclk[i];
@@ -478,19 +508,21 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 			|* SYSCLK not standard over sample rate clock ,so it would   *|
 			|* not be output to external codec                           *|
 			\*************************************************************/
-			cgu_aic_clk = calculate_cgu_aic_rate(rate);
-
+			if (strcmp(cur_codec->name,"hdmi"))
+				cgu_aic_clk = calculate_cgu_aic_rate(rate);
+			else
+				cgu_aic_clk = cur_codec->codec_clk;
 			__i2s_stop_bitclk();
-			if (cur_codec->codec_clk != cgu_aic_clk) {
+			if (cur_codec->codec_clk != cgu_aic_clk || !strcmp(cur_codec->name,"hdmi")) {
 				cur_codec->codec_clk = cgu_aic_clk;
 				if (codec_sysclk == NULL)
 					return -1;
-				clk_set_rate(codec_sysclk, cur_codec->codec_clk);
+				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
 				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
 					printk("external codec set rate fail.\n");
 				}
 			}
-			__i2s_set_sample_rate(cur_codec->codec_clk,*rate);
+			*rate = __i2s_set_sample_rate(cur_codec->codec_clk,*rate);
 			__i2s_start_bitclk();
 		}
 		ret = cur_codec->codec_ctl(CODEC_SET_REPLAY_RATE,(unsigned long)rate);
@@ -501,6 +533,7 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 			cgu_aic_clk = calculate_cgu_aic_rate(rate);
 			if (strcmp(cur_codec->name,"hdmi"))
 				return 0;
+			printk("------ come to %s %d\n", __func__, __LINE__);
 			__i2s_stop_ibitclk();
 			if (cur_codec->codec_clk != cgu_aic_clk) {
 				cur_codec->codec_clk = cgu_aic_clk;
@@ -511,7 +544,7 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 					printk("external codec set rate fail.\n");
 				}
 			}
-			__i2s_set_isample_rate(cur_codec->codec_clk,*rate);
+			*rate = __i2s_set_isample_rate(cur_codec->codec_clk,*rate);
 			__i2s_start_ibitclk();
 		}
 		ret = cur_codec->codec_ctl(CODEC_SET_RECORD_RATE,(unsigned long)rate);
@@ -624,6 +657,7 @@ static int i2s_enable(int mode)
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
 		i2s_set_fmt(&record_format,mode);
 		i2s_set_channel(&record_channel,mode);
+		printk("------ come to %s \n", __func__);
 		i2s_set_rate(&record_rate,mode);
 		i2s_set_filter(mode,record_channel);
 	}
@@ -675,14 +709,12 @@ static int i2s_dma_enable(int mode)		//CHECK
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
 		__i2s_flush_tfifo();
-		mdelay(1);
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma();
 		__i2s_enable_replay();
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_flush_rfifo();
-		mdelay(1);
 		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		__i2s_enable_record();
 		/* read the first sample and ignore it */
@@ -762,6 +794,7 @@ static void i2s_dma_need_reconfig(int mode)
 	return;
 }
 
+
 static int i2s_set_device(unsigned long device)
 {
 	unsigned long tmp_rate = 44100;
@@ -775,7 +808,6 @@ static int i2s_set_device(unsigned long device)
 	if (!cur_codec)
 		return -1;
 
-	printk("%s\n", __func__);
 	/*call state operation*/
 	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START &&
             *(enum snd_device_t *)device <= SND_DEVICE_CALL_END)
@@ -790,7 +822,7 @@ static int i2s_set_device(unsigned long device)
 	}
 
 	/*hdmi operation*/
-	if ((tmp_rate = cur_codec->replay_rate) == 0)
+	if ((tmp_rate = cur_codec->replay_rate) == 0);
 		tmp_rate = 44100;
 	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
 		if (strcmp(cur_codec->name,"hdmi")) {
@@ -802,30 +834,31 @@ static int i2s_set_device(unsigned long device)
 			__i2s_start_bitclk();
 			i2s_set_rate(&tmp_rate,CODEC_WMODE);
 		}
-		printk("\n%s set hdmi\n\n", __func__);
 	} else {
 		/*restore old device*/
 		if (!strcmp(cur_codec->name,"hdmi")) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 			i2s_match_codec("internal_codec");
-#elif defined(CONFIG_JZ_EXTERNAL_CODEC)
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
 			i2s_match_codec("external_codec");
 #endif
 			__i2s_stop_bitclk();
-#if defined(CONFIG_JZ_EXTERNAL_CODEC)
+#if defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
 			__i2s_external_codec();
 #endif
 
 			if (cur_codec->codec_mode == CODEC_MASTER) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 				__i2s_internal_codec_master();
 #endif
+				printk("   come to codec master\n ");
 				__i2s_slave_clkset();
 				__i2s_enable_sysclk_output();
 			} else if (cur_codec->codec_mode == CODEC_SLAVE) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 				__i2s_internal_codec_slave();
 #endif
+				printk("   come to codec slave\n ");
 				__i2s_master_clkset();
 				__i2s_disable_sysclk_output();
 			}
@@ -843,7 +876,6 @@ static int i2s_set_device(unsigned long device)
 				printk("codec codec set rate fail.\n");
 			}
 			__i2s_start_bitclk();
-			i2s_set_rate(&tmp_rate,CODEC_WMODE);
 		}
 	}
 
@@ -852,49 +884,6 @@ static int i2s_set_device(unsigned long device)
 
 	return ret;
 }
-
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-static int i2s_register_hdmi_notifier(struct notifier_block *nb)
-{
-	return hdmi_notifier_client_register(nb);
-}
-
-static int i2s_unregister_hdmi_notifier(struct notifier_block *nb)
-{
-	return hdmi_notifier_client_unregister(nb);
-}
-
-static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
-{
-	int ret;
-
-	if (event == HDMI_EVENT_CONNECT) {
-		ret = jz_get_hp_switch_state();
-		if (ret)
-			ret = SND_DEVICE_HEADSET;
-		else
-			ret = SND_DEVICE_HDMI;
-
-		ret = i2s_set_device((unsigned long)&ret);
-	} else if (event == HDMI_EVENT_DISCONNECT) {
-		ret = jz_get_hp_switch_state();
-		if (ret)
-			ret = SND_DEVICE_HEADSET;
-		else
-			ret = SND_DEVICE_SPEAKER;
-
-		ret = i2s_set_device((unsigned long)&ret);
-	} else
-		printk("\n%s event not match\n", __func__);
-
-	return ret;
-}
-#else
-static int i2s_hdmi_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
-{
-	return 0;
-}
-#endif
 
 /********************************************************\
  * dev_ioctl
@@ -1092,21 +1081,6 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_CLR_ROUTE,arg);
 		break;
-
-	case SND_DSP_REGISTER_NOTIFIER:
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-		ret = i2s_register_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
-		if (ret < 0)
-			printk("SOUND_ERROR: register hdmi_notifier failed\n");
-#endif
-		break;
-	case SND_DSP_UNREGISTER_NOTIFIER:
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-		ret = i2s_unregister_hdmi_notifier(&((*(struct dsp_pipe *)arg).hdmi_notifier));
-		if (ret < 0)
-			printk("SOUND_ERROR: register hdmi_notifier failed\n");
-#endif
-		break;
 	case SND_DSP_DEBUG:
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DEBUG,arg);
@@ -1124,7 +1098,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 |* functions
 \*##################################################################*/
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 static void i2s_codec_work_handler(struct work_struct *work)
 {
 	wait_event_interruptible(switch_data.wq,switch_data.hp_work.entry.next != NULL);
@@ -1139,7 +1113,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&i2s_irq_lock,flags);
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
-#ifdef CONFIG_JZ_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	if (read_inter_codec_irq()){
 		codec_irq_set_mask();
 		if(!work_pending(&i2s_codec_work))
@@ -1159,7 +1133,8 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 {
 	if (*dp != NULL || dp == NULL)
 		return 0;
-	*dp = vmalloc(sizeof(struct dsp_pipe));
+	//*dp = vmalloc(sizeof(struct dsp_pipe));
+	*dp = kmalloc(sizeof(struct dsp_pipe),GFP_KERNEL);
 	if (*dp == NULL) {
 		return -ENOMEM;
 	}
@@ -1169,15 +1144,7 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_I2S0;
 	(*dp)->fragsize = FRAGSIZE_M;
-#ifndef FORCE_USE_TCSM
 	(*dp)->fragcnt = FRAGCNT_L;
-#else
-	(*dp)->fragcnt = FRAGCNT_M;
-#endif
-
-	if (direction == DMA_TO_DEVICE) {
-		(*dp)->hdmi_notifier.notifier_call = i2s_hdmi_notifier_handler;
-	}
 
 	if (direction == DMA_TO_DEVICE) {
 		(*dp)->dma_config.src_maxburst = 64;
@@ -1201,30 +1168,35 @@ static int i2s_global_init(struct platform_device *pdev)
 	struct resource *i2s_resource = NULL;
 	struct dsp_pipe *i2s_pipe_out = NULL;
 	struct dsp_pipe *i2s_pipe_in = NULL;
-	struct clk *i2s_clk = NULL;
-        unsigned int cgu,idx;
+	static struct clk *i2s_clk = NULL;
 
 	i2s_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (i2s_resource == NULL) {
+		printk(" platform_get_resource failed %d \n", __LINE__);
 		return -1;
 	}
 
 	/* map io address */
+	printk("----- start i2s init!\n");
 	if (!request_mem_region(i2s_resource->start, resource_size(i2s_resource), pdev->name)) {
+		printk(" mem_region failed %d \n", __LINE__);
 		return -EBUSY;
 	}
 	i2s_iomem = ioremap(i2s_resource->start, resource_size(i2s_resource));
 	if (!i2s_iomem) {
+		printk(" ioremap failed %d \n", __LINE__);
 		ret =  -ENOMEM;
 		goto __err_ioremap;
 	}
 
 	ret = i2s_init_pipe(&i2s_pipe_out,DMA_TO_DEVICE,i2s_resource->start);
 	if (ret < 0) {
+		printk(" i2s_init_pipe failed %d \n", __LINE__);
 		goto __err_init_pipeout;
 	}
 	ret = i2s_init_pipe(&i2s_pipe_in,DMA_FROM_DEVICE,i2s_resource->start);
 	if (ret < 0) {
+		printk(" i2s_init_pipe failed %d \n", __LINE__);
 		goto __err_init_pipein;
 	}
 
@@ -1232,30 +1204,31 @@ static int i2s_global_init(struct platform_device *pdev)
 	i2s_endpoints.in_endpoint = i2s_pipe_in;
 
 	/* request aic clk */
-	i2s_clk = clk_get(&pdev->dev, "aic0");
+	i2s_clk = clk_get(&pdev->dev, "aic");
 	if (IS_ERR(i2s_clk)) {
 		dev_err(&pdev->dev, "aic clk_get failed\n");
 		goto __err_aic_clk;
 	}
 	clk_enable(i2s_clk);
-
 	spin_lock_init(&i2s_irq_lock);
 
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 	i2s_match_codec("internal_codec");
-#elif defined(CONFIG_JZ_EXTERNAL_CODEC)
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
 	i2s_match_codec("i2s_external_codec");
 #else
-	dev_info("WARNING: unless one codec must be select for i2s.\n");
+//	dev_info("WARNING: unless one codec must be select for i2s.\n");
 #endif
 	if (cur_codec == NULL) {
 		ret = 0;
+		printk("------match codec failed~\n");
 		goto __err_match_codec;
 	}
 
 	/* request irq */
 	i2s_resource = platform_get_resource(pdev,IORESOURCE_IRQ,0);
 	if (i2s_resource == NULL) {
+		printk(" platform_get_resource failed %d \n", __LINE__);
 		ret = -1;
 		goto __err_irq;
 	}
@@ -1263,6 +1236,7 @@ static int i2s_global_init(struct platform_device *pdev)
 	ret = request_irq(i2s_resource->start, i2s_irq_handler,
 					  IRQF_DISABLED, "aic_irq", NULL);
 	if (ret < 0) {
+		printk(" platform_get_resource failed %d \n", __LINE__);
 		goto __err_irq;
 	}
 
@@ -1277,19 +1251,19 @@ static int i2s_global_init(struct platform_device *pdev)
 	__i2s_select_i2s();
 
 
-#if defined(CONFIG_JZ_EXTERNAL_CODEC)
+#if defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
 	__i2s_external_codec();
 #endif
 
 	if (cur_codec->codec_mode == CODEC_MASTER) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 		__i2s_internal_codec_master();
 #endif
 		__i2s_slave_clkset();
 		/*sysclk output*/
 		__i2s_enable_sysclk_output();
 	} else if (cur_codec->codec_mode == CODEC_SLAVE) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 		__i2s_internal_codec_slave();
 #endif
 		__i2s_master_clkset();
@@ -1297,30 +1271,19 @@ static int i2s_global_init(struct platform_device *pdev)
 	}
 
 	/*set sysclk output for codec*/
-	codec_sysclk = clk_get(&pdev->dev,"cgu_aic");
+	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
 	if (IS_ERR(codec_sysclk)) {
 		dev_dbg(&pdev->dev, "cgu_aic clk_get failed\n");
 		goto __err_codec_clk;
 	}
+	/*set sysclk output for codec*/
+	clk_set_rate(codec_sysclk,cur_codec->codec_clk);
+	if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+		printk("codec interface set rate fail.\n");
+		goto __err_codec_clk;
+	}
+	clk_enable(codec_sysclk);
 
-        cgu = cpm_inl(CPM_I2SCDR);
-        idx = cgu >> 31;
-        if(idx){
-                /*set sysclk output for codec*/
-                clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-
-                if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
-                        printk("codec interface set rate fail.\n");
-                        goto __err_codec_clk;
-                }
-                clk_enable(codec_sysclk);
-        }else{
-                if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
-                        printk("codec interface set rate fail.\n");
-                        goto __err_codec_clk;
-                }
-                printk("codec clock from exclk\n");
-        }
 
 	__i2s_start_bitclk();
 	__i2s_start_ibitclk();
@@ -1344,8 +1307,12 @@ static int i2s_global_init(struct platform_device *pdev)
 	__i2s_play_lastsample();
 	__i2s_enable();
 
+
 	printk("i2s init success.\n");
-	return  cur_codec->codec_ctl(CODEC_INIT,0);
+	printk("i2s set device success.\n");
+	cur_codec->codec_ctl(CODEC_INIT,0);
+
+	return 0;
 
 __err_codec_clk:
 	clk_put(codec_sysclk);
@@ -1354,9 +1321,9 @@ __err_irq:
 	clk_put(i2s_clk);
 __err_aic_clk:
 __err_match_codec:
-	vfree(i2s_pipe_in);
+	kfree(i2s_pipe_in);
 __err_init_pipein:
-	vfree(i2s_pipe_out);
+	kfree(i2s_pipe_out);
 __err_init_pipeout:
 	iounmap(i2s_iomem);
 __err_ioremap:
@@ -1371,6 +1338,7 @@ static int i2s_init(struct platform_device *pdev)
 	ret = i2s_global_init(pdev);
 
 	return ret;
+//	return 0;
 }
 
 static void i2s_shutdown(struct platform_device *pdev)
@@ -1496,7 +1464,7 @@ static int __init init_i2s(void)
 {
 	init_waitqueue_head(&switch_data.wq);
 
-#if defined(CONFIG_JZ_INTERNAL_CODEC)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 	INIT_WORK(&i2s_codec_work, i2s_codec_work_handler);
 	i2s_work_queue = create_singlethread_workqueue("i2s_codec_irq_wq");
 

@@ -14,8 +14,8 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "xb_snd_dsp.h"
-//#include "xb47xx_i2s.h"
 #include <asm/mipsregs.h>
+#include <asm/io.h>
 static bool spipe_is_init = 0;
 //#define DEBUG_REPLAY  0
 //#define AIC_DEBUG
@@ -31,10 +31,12 @@ static loff_t file_record_offset = 0;
 static mm_segment_t old_fs_record;
 #endif
 #ifdef DEBUG_RECORD
-#define DEBUG_RECORD_FILE "/data/audiorecord.pcm"
+#define DEBUG_RECORD_FILE "audiorecord.pcm"
+//#define DEBUG_RECORD_FILE "/data/audiorecord.pcm"
 #endif
 #ifdef DEBUG_REPLAY
-#define DEBUG_REPLAYE_FILE "/data/audio.pcm"
+//#define DEBUG_REPLAYE_FILE "/data/audio.pcm"
+#define DEBUG_REPLAYE_FILE "audio.pcm"
 #endif
 static bool first_start_record_dma = true;
 
@@ -196,6 +198,23 @@ static void put_use_dsp_node_head(struct dsp_pipe *dp,struct dsp_node *node,int 
 
 }
 
+static int get_use_dsp_node_count(struct dsp_pipe *dp)
+{
+	int count = 0;
+	unsigned long lock_flags;
+	struct list_head *tmp = NULL;
+	struct list_head *phead = &dp->use_node_list;
+
+	spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+	{
+		list_for_each(tmp, phead)
+			count ++;
+	}
+	spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+
+	return count;
+}
+
 static int get_free_dsp_node_count(struct dsp_pipe *dp)
 {
 	int count = 0;
@@ -313,16 +332,53 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	return 0;
 }
 
-static void snd_release_dma(struct dsp_pipe *dp)
+#if 0
+static void snd_dmic_release_dma(struct dsp_pipe *dp)
 {
 	int ret = 0x7ffff;
 
 	if (dp) {
 		if (dp->dma_chan) {
 			if (dp->is_trans != false) {
+
 #ifndef CONFIG_ANDROID         //kkshen added
 				{
-					ret = 0x7fffff;
+
+					if (dp->dma_config.direction == DMA_TO_DEVICE)
+						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
+					if (ret == 0) {
+						printk(KERN_INFO "sound dma transfer data error");
+					}
+
+					ret = 1;
+				}
+#endif
+				dp->wait_stop_dma = true;
+				while(ret-- && ((*(volatile unsigned int *)0xb0021000 & 0xc0) != 0xc));
+				del_timer(&dp->transfer_watchdog);
+				dmaengine_terminate_all(dp->dma_chan);
+				dp->is_trans = false;
+				dp->wait_stop_dma = false;
+			}
+			dma_release_channel(dp->dma_chan);
+			dp->dma_chan = NULL;
+		}
+		if (dp->sg) {
+			vfree(dp->sg);
+			dp->sg = NULL;
+		}
+	}
+}
+#endif
+static void snd_release_dma(struct dsp_pipe *dp)
+{
+	int ret = 0xf;
+
+	if (dp) {
+		if (dp->dma_chan) {
+			if (dp->is_trans != false) {
+#ifndef CONFIG_ANDROID         //kkshen added
+				{
 
 					if (dp->dma_config.direction == DMA_TO_DEVICE)
 						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
@@ -375,6 +431,7 @@ static void snd_release_node(struct dsp_pipe *dp)
 		while(!pop_dma_node_to_free(dp));
 
 	free_count = get_free_dsp_node_count(dp);
+	printk("free_count: %d\n", free_count);
 	if (free_count < dp->fragcnt)
 		printk("%s error buffer is lost when snd_release_node.\n",__func__);
 	else if (free_count > dp->fragcnt) {
@@ -419,8 +476,10 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		}
 	} else if (dp->dma_config.direction == DMA_FROM_DEVICE) {
 		node = get_free_dsp_node(dp);
-		if (!node)
+		if (!node) {
+			printk("free: %d, user: %d\n", get_free_dsp_node_count(dp), get_use_dsp_node_count(dp));
 			return -ENOMEM;
+		}
 
 		dp->save_node = node;
 
@@ -428,7 +487,6 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		sg_dma_address(dp->sg) = node->phyaddr;
 		sg_dma_len(dp->sg) = node->size;
 		dp->sg_len = 1;
-		//printk("size = %d.\n",node->size);
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
 														  dp->sg,
@@ -438,6 +496,7 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		if (!desc) {
 			put_free_dsp_node(dp, node);
 			dp->save_node = NULL;
+			printk("device_prep_slave_sg failed %d\n", __LINE__);
 			return -EFAULT;
 		}
 	} else {
@@ -566,8 +625,10 @@ static void snd_dma_callback(void *arg)
 {
 	struct dsp_pipe *dp = (struct dsp_pipe *)arg;
 	int available_node = 0;
+	int ret = 0;
 
 	atomic_set(&dp->watchdog_avail,1);
+
 
 	if (dp->dma_config.direction == DMA_TO_DEVICE) {
 		while (!pop_dma_node_to_free(dp)) {
@@ -606,11 +667,13 @@ static void snd_dma_callback(void *arg)
 		dp->need_reconfig_dma = false;
 	}
 
-	/* start a new transfer */
-	if (!snd_prepare_dma_desc(dp)) {
+
+
+	if (!(ret = snd_prepare_dma_desc(dp))) {
 		snd_start_dma_transfer(dp ,dp->dma_config.direction);
 	} else {
 		dp->is_trans = false;
+		printk("prep failed ret%d\n", ret);
 		if (dp->pddata && dp->pddata->dev_ioctl) {
 			if (dp->dma_config.direction == DMA_FROM_DEVICE) {
 				dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX,0);
@@ -1078,6 +1141,7 @@ int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size)
 	return ((*data_len) >> 1);
 }
 
+#if 0
 int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size)
 {
         /* stride = 64 bytes = 2 channels * 4 byte * 8 pipelines */
@@ -1118,7 +1182,56 @@ int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size)
         return ((*data_len) >>1);
 }
 
+#endif
+/*
+ * Convert stereo data to mono data for dmic, data width: 32 bits/2 channel
+ *
+ * buff:	buffer address
+ * data_len:	data length in kernel space, the length of stereo data
+ *		calculated by "node->end - node->start"
+ */
+int convert_32bits_stereo2_16bits_mono(void *buff, int *data_len, int needed_size)
+{
 
+	/* stride = 32 bytes = 2 channels * 2 byte * 8 pipelines */
+	signed short *ushort_buff = (unsigned short*)buff;
+	unsigned int *uint_buff = (unsigned int*)buff;
+	int i = 0;
+
+	if ((*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	*data_len = (*data_len) & (~0x3);
+
+	/*when 16bit format one sample has four bytes
+	 *so we can not operat the singular byte*/
+
+	for(i = 0; i < ((*data_len)>>2); i++) {
+			ushort_buff[i] = (signed short)uint_buff[i];
+	}
+	/* remaining data */
+
+	return ((*data_len)>>1);
+}
+
+int convert_32bits_2_20bits_tri_mode(void *buff, int *data_len, int needed_size)
+{
+	unsigned int *uint_buff = (unsigned int*)buff;
+	int i = 0;
+
+	if ((*data_len) > needed_size*2)
+		*data_len = needed_size*2;
+
+	/*when 16bit format one sample has four bytes
+	 *so we can not operat the singular byte*/
+
+	for(i = 0; i < ((*data_len)>>2); i++) {
+			printk("0x%x\n",uint_buff[i]);
+			uint_buff[i] = uint_buff[i]>>8;
+	}
+
+	return (*data_len);
+}
 /********************************************************\
  * others
 \********************************************************/
@@ -1139,6 +1252,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 
 	if ((dp->fragcnt != FRAGCNT_S) &&
 		(dp->fragcnt != FRAGCNT_M) &&
+		(dp->fragcnt != FRAGCNT_B) &&
 		(dp->fragcnt != FRAGCNT_L))
 	{
 		return -1;
@@ -1150,29 +1264,17 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 
 	/* alloc memory */
 
-#ifndef FORCE_USE_TCSM
 	dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
 												  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
 												  &dp->paddr,
 												  GFP_KERNEL | GFP_DMA);
-#else
-	if (direction == DMA_FROM_DEVICE) {
-		dp->vaddr = 0xf4000000;
-	} else if (direction == DMA_TO_DEVICE) {
-		dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
-													  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
-													  &dp->paddr,
-													  GFP_KERNEL | GFP_DMA);
-
-	}
-#endif
-
 	if ((void*)dp->vaddr == NULL)
 		return -ENOMEM;
 
 	/* init dsp nodes */
 	for (i = 0; i < dp->fragcnt; i++) {
-		node = vmalloc(sizeof(struct dsp_node));
+//		node = vmalloc(sizeof(struct dsp_node));
+		node = kmalloc(sizeof(struct dsp_node),GFP_KERNEL);
 		if (!node)
 			goto init_pipe_error;
 
@@ -1230,7 +1332,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 init_pipe_error:
 	/* free all the node in free_node_list */
 	list_for_each_entry(node, &dp->free_node_list, list)
-		vfree(node);
+		kfree(node);
 	/* free memory */
 	dmam_free_noncoherent(dev,
 						  dp->fragsize * dp->fragcnt,
@@ -1332,6 +1434,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	if (dp->is_mmapd && dp->is_shared)
 		return -EBUSY;
 
+
 	dp->force_stop_dma = false;
 	do {
 		while(1) {
@@ -1345,6 +1448,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				if (!ret) {
 					snd_start_dma_transfer(dp , dp->dma_config.direction);
 					if (ddata && ddata->dev_ioctl) {
+
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
 					}
 				} else if (!node)
@@ -1355,7 +1459,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				return count - mcount;
 
 			if (!node) {
-				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)							|| dp->force_stop_dma == true) < 0)
+				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)|| dp->force_stop_dma == true) < 0)
 					return count - mcount;
 			} else {
 				dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
@@ -1365,7 +1469,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 		}
 
 		if ((node_buff_cnt = node->end - node->start) > 0) {
-			//printk("node->start = %d,node->end %d,mcount = %d\n",node->start,node->end,mcount);
+
 			if (dp->filter) {
 				fixed_buff_cnt = dp->filter((void *)(node->pBuf + node->start), &node_buff_cnt ,mcount);
 			} else {
@@ -1380,6 +1484,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				atomic_inc(&dp->avialable_couter);
 				return -EFAULT;
 			}
+
 
 			buffer += fixed_buff_cnt;
 			mcount -= fixed_buff_cnt;
@@ -1404,6 +1509,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				atomic_inc(&dp->avialable_couter);
 			} else
 				put_free_dsp_node(dp,node);
+				//dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
+	//		}
 		}
 	} while (mcount > 0);
 
@@ -1501,11 +1608,14 @@ ssize_t xb_snd_dsp_write(struct file *file,
 			f_test_offset = f_test->f_pos;
 		}
 		set_fs(old_fs);
+
 #endif
 		buffer += copy_size;
 		mcount -= copy_size;
+
 		dma_cache_sync(NULL, (void *)node->pBuf, copy_size , dp->dma_config.direction);
 		put_use_dsp_node(dp, node, copy_size);
+
 
 		if (dp->is_trans == false) {
 			if (!snd_prepare_dma_desc(dp)) {
@@ -2026,8 +2136,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = -ENOSYS;
 		break;
 
-	case SNDCTL_DSP_RESET:
-	      break;
+	//case SNDCTL_DSP_RESET:
+	//break;
 
 		//case SNDCTL_DSP_SYNCSTART:
 		/* OSS 4.x: Starts all devices added to a synchronization group */
@@ -2285,8 +2395,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp->force_stop_dma = true;
 			dp->wait_stop_dma = true;
 			while(wait_event_interruptible(dp->wq,dp->is_trans == false) && i--);
-			if (!i)
+			if (!i) {
 				dmaengine_terminate_all(dp->dma_chan);
+			}
+			local_irq_disable();
 			if (dp->force_stop_dma == true)
 				mdelay(20);
 			snd_release_node(dp);
@@ -2311,6 +2423,21 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
+	case SNDCTL_DSP_SETTRIGGER: {
+
+		int tri_h;
+		if (get_user(tri_h, (int*)arg)){
+			return -EFAULT;
+		}
+
+		if (ddata->dev_ioctl) {
+			ret = (int)ddata->dev_ioctl(SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
+			if (!ret)
+			   break;
+		}
+		ret = put_user(*(int *)arg, (int *)arg);
+		break;
+	}
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
 			   __func__, __LINE__, cmd);
@@ -2393,17 +2520,19 @@ int xb_snd_dsp_open(struct inode *inode,
 					struct snd_dev_data *ddata)
 {
 	int ret = -ENXIO;
+	int arg,state;
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-	int arg;
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
+		while(1);
 		return -ENODEV;
 	}
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL) {
+		while(1);
 		return -ENODEV;
 	}
 	dpi = endpoints->in_endpoint;
@@ -2412,10 +2541,10 @@ int xb_snd_dsp_open(struct inode *inode,
 	dpo->pddata = ddata;
 
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE) {
-	        if (dpo->is_used)
-                        return 0;
-                else if (dpi->is_used && dpo->is_used)
-                        return -ENODEV;
+		if (dpo->is_used)
+			return 0;
+		else if (dpi->is_used && dpo->is_used)
+			return -ENODEV;
 	}
 
 	if (file->f_mode & FMODE_READ) {
@@ -2442,6 +2571,13 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
+#ifndef CONFIG_ANDROID
+		arg = SND_DEVICE_BUILDIN_MIC;
+		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		if (arg < 0) {
+			return -EIO;
+		}
+#endif
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
@@ -2472,18 +2608,35 @@ int xb_snd_dsp_open(struct inode *inode,
 		if (ret) {
 			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
-			return ret;
 		}
 
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
+
+#ifndef CONFIG_ANDROID
+#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
+		dpo->force_hdmi = true;
+		arg = SND_DEVICE_HDMI;
+		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		printk("%s: HDMI output\n",__func__);
+		if (arg < 0) {
+			return -EIO;
+		}
+#else
+		dpo->force_hdmi = false;
 		if (ddata->dev_ioctl) {
-		printk("register hdmi notify\n");
-			arg = (int)ddata->dev_ioctl(SND_DSP_REGISTER_NOTIFIER, (unsigned long)dpo);
+			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
 			if (arg < 0) {
-				printk("register hdmi notify failed\n");
+				return -EIO;
+			}
+			if (state)
+				arg = SND_DEVICE_HEADSET;
+			else
+				arg = SND_DEVICE_SPEAKER;
+			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+			if (arg < 0) {
 				return -EIO;
 			}
 		}
+#endif
 #endif
 	}
 
@@ -2526,8 +2679,8 @@ int xb_snd_dsp_release(struct inode *inode,
 	if (ddata == NULL)
 		return -1;
 
-        if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
-                return 0;
+	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
+		return 0;
 
 	endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	if (endpoints == NULL)
@@ -2535,6 +2688,9 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (file->f_mode & FMODE_READ) {
 		dpi = endpoints->in_endpoint;
+//		if (ddata->minor == SND_DEV_DSP3)
+//			snd_dmic_release_dma(dpi);
+//		else
 		snd_release_dma(dpi);
 		snd_release_node(dpi);
 	}
@@ -2561,17 +2717,8 @@ int xb_snd_dsp_release(struct inode *inode,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
-			if (ret) {
+			if (ret)
 				ret = -EFAULT;
-				return ret;
-			}
-#if	((!defined(CONFIG_ANDROID)) && (defined(CONFIG_HDMI_JZ4780)))
-			ret = (int)ddata->dev_ioctl(SND_DSP_UNREGISTER_NOTIFIER, (unsigned long)dpo);
-			if (ret < 0) {
-				printk("\n unregister hmdi failed\n\n");
-				return -EIO;
-			}
-#endif
 		}
 		dpo->is_used = false;
 	}
@@ -2593,9 +2740,6 @@ int xb_snd_dsp_release(struct inode *inode,
 int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 {
 	int ret = -1;
-#ifndef CONFIG_ANDROID
-	int arg, state;
-#endif
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
@@ -2617,23 +2761,6 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 		if (ret)
 			goto error2;
 	}
-
-#ifndef CONFIG_ANDROID
-		if (ddata->dev_ioctl) {
-			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
-			if (arg < 0) {
-				return -EIO;
-			}
-			if (state)
-				arg = SND_DEVICE_HEADSET;
-			else
-				arg = SND_DEVICE_SPEAKER;
-			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-			if (arg < 0) {
-				return -EIO;
-			}
-		}
-#endif
 
 	if (!spipe_is_init)  {
 		ret = spipe_init(ddata->dev);
