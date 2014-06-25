@@ -309,7 +309,7 @@ static struct mpu_platform_data mpu9250_platform_data = {
 };
 #endif	/* CONFIG_INV_MPU_IIO */
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ_V10) || defined(CONFIG_I2C0_DMA_V10))
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V10))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 
 #ifdef CONFIG_JZ4785_SUPPORT_TSC
@@ -337,7 +337,7 @@ static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 };
 #endif
 
-#if (defined(CONFIG_I2C_GPIO_V10) || defined(CONFIG_I2C1_JZ_V10))
+#if (defined(CONFIG_I2C_V12_GPIO) || defined(CONFIG_I2C1_V12_JZ))
 
 #ifdef CONFIG_WM8594_CODEC_V1_2
 static struct snd_codec_data wm8594_codec_pdata = {
@@ -509,42 +509,42 @@ static int __init board_init(void)
 
 /*i2c*/
 #ifdef CONFIG_I2C_GPIO
-#ifndef CONFIG_I2C0_JZ_V10
+#ifndef CONFIG_I2C0_V12_JZ
 	platform_device_register(&i2c0_gpio_device);
 #endif
-#ifndef CONFIG_I2C1_JZ_V10
+#ifndef CONFIG_I2C1_V12_JZ
 	platform_device_register(&i2c1_gpio_device);
 #endif
 
-#ifndef CONFIG_I2C2_JZ_V10
+#ifndef CONFIG_I2C2_V12_JZ
 	platform_device_register(&i2c2_gpio_device);
 #endif
-#ifndef CONFIG_I2C3_JZ_V10
+#ifndef CONFIG_I2C3_V12_JZ
 	platform_device_register(&i2c3_gpio_device);
 #endif
 #endif	/* CONFIG_I2C_GPIO */
 
-#ifdef CONFIG_I2C0_JZ_V10
+#ifdef CONFIG_I2C0_V12_JZ
 	platform_device_register(&jz_i2c0_device);
 #endif
 
-#ifdef CONFIG_I2C1_JZ_V10
+#ifdef CONFIG_I2C1_V12_JZ
 	platform_device_register(&jz_i2c1_device);
 #endif
 
-#ifdef CONFIG_I2C2_JZ_V10
+#ifdef CONFIG_I2C2_V12_JZ
 	platform_device_register(&jz_i2c2_device);
 #endif
 
-#ifdef CONFIG_I2C3_JZ_V10
+#ifdef CONFIG_I2C3_V12_JZ
 	platform_device_register(&jz_i2c3_device);
 #endif
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ_V10) || defined(CONFIG_I2C0_DMA_V10))
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V10))
 	i2c_register_board_info(0, jz_i2c0_devs, ARRAY_SIZE(jz_i2c0_devs));
 #endif
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_JZ_V10) || defined(CONFIG_I2C1_DMA_V10))
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ) || defined(CONFIG_I2C1_DMA_V10))
 	i2c_register_board_info(1, jz_i2c1_devs, ARRAY_SIZE(jz_i2c1_devs));
 #endif
 

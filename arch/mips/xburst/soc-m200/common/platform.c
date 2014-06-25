@@ -49,25 +49,27 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZMMC_V12_MMC2_PE_4BIT
 	MSC2_PORTE,
 #endif
-#if	(defined(CONFIG_I2C0_JZ_V10))
+#if	(defined(CONFIG_I2C0_V12_JZ))
 	I2C0_PORTD,
 #endif
-#if	(defined(CONFIG_I2C1_JZ_V10))
+#if	(defined(CONFIG_I2C1_V12_JZ))
 	I2C1_PORTE,
 #endif
-#if	(defined(CONFIG_I2C2_JZ_V10))
-#ifdef I2C2_PA
-	I2C2_PORTA,
-#else
-	I2C2_PORTE,
+
+#if	(defined(CONFIG_I2C2_V12_JZ))
+	#ifdef I2C2_PA
+		I2C2_PORTA,
+	#else
+		I2C2_PORTE,
+	#endif
 #endif
-#endif
-#if	(defined(CONFIG_I2C3_JZ_V10))
-#ifdef I2C3_PB
-	I2C3_PORTB,
-#else
-	I2C3_PORTC,
-#endif
+
+#if	(defined(CONFIG_I2C3_V12_JZ))
+	#ifdef I2C3_PB
+		I2C3_PORTB,
+	#else
+		I2C3_PORTC,
+	#endif
 #endif
 #ifdef CONFIG_OVISP_I2C
 	ISP_I2C,
@@ -613,8 +615,8 @@ struct platform_device jz_ehci_device = {
 	.resource = jz_ehci_resources,
 };
 
-#if (defined(CONFIG_I2C0_JZ_V10) || defined(CONFIG_I2C1_JZ_V10) ||	\
-     defined(CONFIG_I2C2_JZ_V10) || defined(CONFIG_I2C3_JZ_V10))
+#if (defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C1_V12_JZ) ||	\
+     defined(CONFIG_I2C2_V12_JZ) || defined(CONFIG_I2C3_V12_JZ))
 static u64 jz_i2c_dmamask = ~(u32) 0;
 
 #define DEF_I2C(NO)							\
@@ -648,16 +650,16 @@ static u64 jz_i2c_dmamask = ~(u32) 0;
 		.num_resources  = ARRAY_SIZE(jz_i2c##NO##_resources),	\
 		.resource       = jz_i2c##NO##_resources,		\
 	};
-#ifdef CONFIG_I2C0_JZ_V10
+#ifdef CONFIG_I2C0_V12_JZ
 DEF_I2C(0);
 #endif
-#ifdef CONFIG_I2C1_JZ_V10
+#ifdef CONFIG_I2C1_V12_JZ
 DEF_I2C(1);
 #endif
-#ifdef CONFIG_I2C2_JZ_V10
+#ifdef CONFIG_I2C2_V12_JZ
 DEF_I2C(2);
 #endif
-#ifdef CONFIG_I2C3_JZ_V10
+#ifdef CONFIG_I2C3_V12_JZ
 DEF_I2C(3);
 #endif
 #endif
