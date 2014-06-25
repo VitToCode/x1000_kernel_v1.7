@@ -7,7 +7,7 @@
 
 #include "board.h"
 
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#ifdef CONFIG_LCD_BYD_8991FTGF
 #include <linux/byd_8991.h>
 static struct platform_byd_8991_data byd_8991_pdata= {
 	.gpio_lcd_disp  = GPIO_PE(10),
@@ -30,7 +30,7 @@ struct platform_device byd_8991_device = {
 	},
 };
 
-struct fb_videomode jzfb0_8991_videomode = {
+struct fb_videomode jzfb_8991_videomode = {
 	.name = "480x800",
 	.refresh = 60,
 	.xres = 480,
@@ -48,9 +48,9 @@ struct fb_videomode jzfb0_8991_videomode = {
 	.flag = 0,
 };
 
-struct jzfb_platform_data jzfb0_pdata = {
+struct jzfb_platform_data jzfb_pdata = {
 	.num_modes = 1,
-	.modes = &jzfb0_8991_videomode,
+	.modes = &jzfb_8991_videomode,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,

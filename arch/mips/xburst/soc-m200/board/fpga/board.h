@@ -4,8 +4,8 @@
 #include <soc/gpio.h>
 
 /* lcd pdata and display panel */
-#ifdef CONFIG_FB_JZ_V1_2
-extern struct jzfb_platform_data jzfb0_pdata;
+#ifdef CONFIG_FB_JZ_V12
+extern struct jzfb_platform_data jzfb_pdata;
 #endif
 #ifdef CONFIG_JZ_MIPI_DSI
 extern struct jzdsi_platform_data jzdsi_pdata;

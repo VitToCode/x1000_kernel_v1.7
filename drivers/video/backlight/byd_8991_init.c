@@ -41,7 +41,7 @@ struct platform_byd_8991_data *byd_8991_pdata = NULL;
 void SPI_3W_SET_CMD(unsigned char c)
 {
 	unsigned char i;
-	
+
 	udelay(10);
 	SCK(0);
 	SDO(0);
@@ -62,7 +62,7 @@ void SPI_3W_SET_CMD(unsigned char c)
 void SPI_3W_SET_PAs(unsigned char d)
 {
 	unsigned char i;
-	
+
 	udelay(10);
 	SCK(0);
 	SDO(1);
@@ -101,14 +101,14 @@ unsigned char SPI_GET_REG_VAL(void)
 void SPI_READ_REG(unsigned char reg)
 {
 	int data = 0;
-	
+
 	CS(0);
 	udelay(10);
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
 	SPI_3W_SET_PAs(0x83);
 	SPI_3W_SET_PAs(0x69);
-	
+
 	SPI_3W_SET_CMD(reg);
 	data = SPI_GET_REG_VAL();
 	CS(1);
@@ -121,7 +121,7 @@ void SET_BRIGHT_CTRL(void)
 	printk("This is the screen brightness ctrl!\n");
 	CS(0);
 	udelay(10);
-	
+
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
 	SPI_3W_SET_PAs(0x83);
@@ -129,16 +129,16 @@ void SET_BRIGHT_CTRL(void)
 
 	SPI_3W_SET_CMD(0x53); //SET DISP CTRL
 	SPI_3W_SET_PAs(0x2c);
-	
+
 	SPI_3W_SET_CMD(0x51); //SET BRIGHTNESS
 	SPI_3W_SET_PAs(0xf0);
 
 	//SPI_3W_SET_CMD(0x55); //SET CABC CMD
 	//SPI_3W_SET_PAs(0x01);
-	
+
 	//SPI_3W_SET_CMD(0x5e); //SET MIN BRIGHTNESS
 	//SPI_3W_SET_PAs(0xf);
-	
+
 	CS(1);
 	udelay(10);
 }
@@ -165,7 +165,7 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 
 	CS(0);
 	udelay(10);
-	
+
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
 	SPI_3W_SET_PAs(0x83);
@@ -208,18 +208,18 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 	SPI_3W_SET_PAs(0x03);
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x01);
-	
+
 	SPI_3W_SET_CMD(0xB4); // SET Display column inversion
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x18);
 	SPI_3W_SET_PAs(0x80);
 	SPI_3W_SET_PAs(0x06);
 	SPI_3W_SET_PAs(0x02);
-	
+
 	SPI_3W_SET_CMD(0xB6); // SET VCOM
 	SPI_3W_SET_PAs(0x3A);
 	SPI_3W_SET_PAs(0x3A);
-	
+
 	SPI_3W_SET_CMD(0xD5); // SETGIP
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x03);
@@ -247,7 +247,7 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 	SPI_3W_SET_PAs(0x0F);
 	SPI_3W_SET_PAs(0x04);
 	SPI_3W_SET_PAs(0x00);
-	
+
 	SPI_3W_SET_CMD(0xE0); // Set Gamma
 	SPI_3W_SET_PAs(0x00);
 	SPI_3W_SET_PAs(0x13);
@@ -283,7 +283,7 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 	SPI_3W_SET_PAs(0x14);
 	SPI_3W_SET_PAs(0x0F);
 	SPI_3W_SET_PAs(0x17);
-	
+
 	SPI_3W_SET_CMD(0xC1); //Set DGC function
 	SPI_3W_SET_PAs(0x01);
 	//R
@@ -423,7 +423,7 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 	SPI_3W_SET_CMD(0x11); //Sleep Out
 	udelay(150000); //at least 120ms
 
-	SPI_3W_SET_CMD(0x29); //Display On 
+	SPI_3W_SET_CMD(0x29); //Display On
 	CS(1);
 
 #ifdef CONFIG_BACKLIGHT_PWM

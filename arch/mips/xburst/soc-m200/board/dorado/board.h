@@ -4,11 +4,8 @@
 #include <soc/gpio.h>
 
 /* lcd pdata and display panel */
-#ifdef CONFIG_FB_JZ_V1_2
-extern struct jzfb_platform_data jzfb0_pdata;
-#endif
-#ifdef CONFIG_JZ_MIPI_DSI
-extern struct jzdsi_platform_data jzdsi_pdata;
+#ifdef CONFIG_FB_JZ_V12
+extern struct jzfb_platform_data jzfb_pdata;
 #endif
 #ifdef CONFIG_LCD_KFM701A21_1A
 extern struct platform_device kfm701a21_1a_device;
@@ -16,8 +13,8 @@ extern struct platform_device kfm701a21_1a_device;
 #ifdef CONFIG_LCD_LH155
 extern struct platform_device lh155_device;
 #endif
-#ifdef CONFIG_LCD_HX8389_B11_G
-extern struct platform_device hx8389_b11_g_device;
+#ifdef CONFIG_LCD_BYD_9177AA
+extern struct platform_device byd_9177aa_device;
 #endif
 #ifdef CONFIG_LCD_CV90_M5377_P30
 extern struct platform_device cv90_m5377_p30_device;
@@ -25,7 +22,7 @@ extern struct platform_device cv90_m5377_p30_device;
 #ifdef CONFIG_LCD_BYD_BM8766U
 extern struct platform_device byd_bm8766u_device;
 #endif
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#ifdef CONFIG_LCD_BYD_8991FTGF
 extern struct platform_device byd_8991_device;
 #endif
 #ifdef CONFIG_LCD_TRULY_TFT240240_2_E

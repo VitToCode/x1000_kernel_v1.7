@@ -24,7 +24,7 @@
 #include <mach/jzfb.h>
 #include "board.h"
 #include <linux/otm8012a_init_mipi.h>
-struct fb_videomode jzfb0_videomode = {
+struct fb_videomode jzfb_videomode = {
 	.name = "480x854",
 	.refresh = 60,
 	.xres = 480,
@@ -45,7 +45,7 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.video_config.no_of_lanes = 2,
 	.video_config.virtual_channel = 0,
 	.video_config.color_coding = COLOR_CODE_24BIT,
-	.video_config.byte_clock = DEFAULT_BYTE_CLOCK / 8,	/* KHz  */
+	.video_config.byte_clock = DEFAULT_DATALANE_BPS / 8,	/* KHz  */
 	.video_config.video_mode = VIDEO_BURST_WITH_SYNC_PULSES,
 	.video_config.receive_ack_packets = 0,	/* enable receiving of ack packets */
 	.video_config.pixel_clock = 24000,	/* dpi_clock */
@@ -74,9 +74,9 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.cmd_packet_len = 200,
 };
 
-struct jzfb_platform_data jzfb0_pdata = {
+struct jzfb_platform_data jzfb_pdata = {
 	.num_modes = 1,
-	.modes = &jzfb0_videomode,
+	.modes = &jzfb_videomode,
 	.dsi_pdata = &jzdsi_pdata,
 
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,

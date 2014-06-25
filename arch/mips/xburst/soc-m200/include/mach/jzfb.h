@@ -86,6 +86,7 @@ struct smart_lcd_data_table {
 };
 
 struct jzdsi_platform_data {
+	struct fb_videomode *modes;
 	struct video_config video_config;
 	struct dsi_config dsi_config;
 	struct dsi_cmd_packet *cmd_list;

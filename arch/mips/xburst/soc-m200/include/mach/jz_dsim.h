@@ -10,7 +10,7 @@
 #include <linux/device.h>
 #include <linux/fb.h>
 
-#define DEFAULT_BYTE_CLOCK	(CONFIG_DEFAULT_BYTE_CLOCK * 1000)
+#define DEFAULT_DATALANE_BPS	(CONFIG_DEFAULT_DATALANE_BPS * 1000)
 #define REFERENCE_FREQ (24000)  //24MHZ, ext
 #define DPHY_DIV_UPPER_LIMIT    (40000)
 #define DPHY_DIV_LOWER_LIMIT    (1000)
@@ -209,14 +209,9 @@ struct dsi_master_ops {
 	int (*cmd_read) (struct dsi_device * dsi, unsigned int data_id,
 			 unsigned int data0, unsigned int req_size,
 			 u8 * rx_buf);
-	int (*get_dsi_frame_done) (struct dsi_device * dsi);
-	int (*clear_dsi_frame_done) (struct dsi_device * dsi);
-
-	int (*get_fb_frame_done) (struct fb_info * info);
-	void (*trigger) (struct fb_info * info);
-	int (*set_early_blank_mode) (struct dsi_device * dsi, int power);
-	int (*set_blank_mode) (struct dsi_device * dsi, int power);
 	int (*video_cfg) (struct dsi_device * dsi);
 };
+
+extern struct jzdsi_platform_data jzdsi_pdata;
 
 #endif /* _JZ_MIPI_DSIM_H */

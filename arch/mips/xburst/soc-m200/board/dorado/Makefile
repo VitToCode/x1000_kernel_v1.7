@@ -5,10 +5,10 @@ obj-$(CONFIG_REGULATOR_DA9024) += regulator.o
 obj-$(CONFIG_REGULATOR_RICOH619) += board-power-619.o
 
 obj-$(CONFIG_LCD_TRULY_TFT240240_2_E) += truly_tft240240.o
-obj-$(CONFIG_BM347WV_F_8991FTGF_HX8369) += lcd-8991.o
+obj-$(CONFIG_LCD_BYD_8991FTGF) += lcd-8991.o
 obj-$(CONFIG_LCD_CV90_M5377_P30) += lcd-mirasol.o
 obj-$(CONFIG_LCD_OTM8012A_TFT1P6449) += lcd-otm8012a.o
-obj-$(CONFIG_LCD_HX8389_B11_G) += lcd-hx8389_b11_g.o
+obj-$(CONFIG_LCD_BYD_9177AA) += lcd-9177aa.o
 obj-$(CONFIG_LCD_LH155) += lcd-lh155.o
 
 obj-$(CONFIG_SOUND_OSS_XBURST)		    += sound.o

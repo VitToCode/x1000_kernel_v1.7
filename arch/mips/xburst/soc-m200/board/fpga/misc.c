@@ -145,8 +145,8 @@ static int __init board_init(void)
 	platform_device_register(&digital_pulse_backlight_device);
 #endif
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ_V1_2
-	jz_device_register(&jz_fb_device, &jzfb0_pdata);
+#ifdef CONFIG_FB_JZ_V12
+	jz_device_register(&jz_fb_device, &jzfb_pdata);
 #endif
 
 /*mipi-dsi */

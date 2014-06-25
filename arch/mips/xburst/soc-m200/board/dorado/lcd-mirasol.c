@@ -237,7 +237,7 @@ static int cv90_m5377_p30_dma_transfer_end_callback(void*jzfb)
 
 
 
-struct fb_videomode jzfb0_videomode = {
+struct fb_videomode jzfb_videomode = {
 	.name = "288x192",
 	.refresh = 45,
 	.xres = 288,
@@ -254,9 +254,9 @@ struct fb_videomode jzfb0_videomode = {
 	.flag = 0,
 };
 
-struct jzfb_platform_data jzfb0_pdata = {
+struct jzfb_platform_data jzfb_pdata = {
 		.num_modes = 1,
-		.modes = &jzfb0_videomode,
+		.modes = &jzfb_videomode,
 
         .lcd_type = LCD_TYPE_LCM,
         .bpp = 24,

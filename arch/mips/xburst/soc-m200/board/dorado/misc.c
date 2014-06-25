@@ -559,7 +559,7 @@ static int __init board_init(void)
 #ifdef CONFIG_LCD_BYD_BM8766U
 	platform_device_register(&byd_bm8766u_device);
 #endif
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#ifdef CONFIG_LCD_BYD_8991FTGF
 	platform_device_register(&byd_8991_device);
 #endif
 #ifdef CONFIG_LCD_KFM701A21_1A
@@ -568,8 +568,8 @@ static int __init board_init(void)
 #ifdef CONFIG_LCD_LH155
 	platform_device_register(&lh155_device);
 #endif
-#ifdef CONFIG_LCD_HX8389_B11_G
-	platform_device_register(&hx8389_b11_g_device);
+#ifdef CONFIG_LCD_BYD_9177AA
+	platform_device_register(&byd_9177aa_device);
 #endif
 
 #ifdef CONFIG_LCD_TRULY_TFT240240_2_E
@@ -587,13 +587,8 @@ static int __init board_init(void)
 	platform_device_register(&digital_pulse_backlight_device);
 #endif
 /* lcdc framebuffer*/
-#ifdef CONFIG_FB_JZ_V1_2
-	jz_device_register(&jz_fb_device, &jzfb0_pdata);
-#endif
-
-/*mipi-dsi */
-#ifdef CONFIG_JZ_MIPI_DSI
-	jz_device_register(&jz_dsi_device, &jzdsi_pdata);
+#ifdef CONFIG_FB_JZ_V12
+	jz_device_register(&jz_fb_device, &jzfb_pdata);
 #endif
 
 /*ipu*/
