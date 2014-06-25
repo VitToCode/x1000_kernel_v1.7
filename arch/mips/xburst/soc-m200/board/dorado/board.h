@@ -32,6 +32,11 @@ extern struct platform_device byd_8991_device;
 extern struct platform_device truly_tft240240_device;
 #endif
 
+/* PMU ricoh619 */
+#ifdef CONFIG_REGULATOR_RICOH619
+#define PMU_IRQ_N		GPIO_PA(28)
+#endif /* CONFIG_REGULATOR_RICOH619 */
+
 /* pmu d2041 or 9024 gpio def*/
 #define GPIO_PMU_IRQ		GPIO_PA(3)
 #define GPIO_GSENSOR_INT1       GPIO_PA(15)

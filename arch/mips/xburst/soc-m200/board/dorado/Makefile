@@ -2,6 +2,7 @@
 obj-y += misc.o
 obj-y += mmc.o
 obj-$(CONFIG_REGULATOR_DA9024) += regulator.o
+obj-$(CONFIG_REGULATOR_RICOH619) += board-power-619.o
 
 obj-$(CONFIG_LCD_TRULY_TFT240240_2_E) += truly_tft240240.o
 obj-$(CONFIG_BM347WV_F_8991FTGF_HX8369) += lcd-8991.o

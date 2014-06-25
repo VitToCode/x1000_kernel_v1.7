@@ -78,6 +78,14 @@ config REGULATOR_DA9024
 	    This driver controls PMIC DA9024. It's a platform driver depends on mfd driver
 	    about d2041-i2c.c
 
+config REGULATOR_RICOH619
+	tristate "Ricoh R5T619 Power regulators"
+	depends on MFD_RICOH619
+	default n
+	help
+	  This driver supports regulator driver for the Ricoh R5T619
+	  Power Management device.
+
 config REGULATOR_RICOH618
 	depends on MFD_RICOH618
 	tristate "RICOH618 PMU voltage regulator"

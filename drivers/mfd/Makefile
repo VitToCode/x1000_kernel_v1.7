@@ -101,3 +101,4 @@ obj-$(CONFIG_TPS65911_COMPARATOR)	+= tps65911-comparator.o
 obj-$(CONFIG_MFD_ACT8600)	+= act8600-core.o
 obj-$(CONFIG_MFD_DA9024)    	+= d2041-core.o d2041-irq.o d2041-i2c.o
 obj-$(CONFIG_MFD_RICOH618)	+= ricoh618.o ricoh618-irq.o
+obj-$(CONFIG_MFD_RICOH619)	+= ricoh619.o ricoh619-irq.o
