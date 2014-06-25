@@ -15,8 +15,8 @@
 #include <linux/i2c.h>
 #include <linux/cpufreq.h>
 #include <gpio.h>
-#include <linux/d2041/pmic_v1_2.h>
-#include <linux/d2041/core_v1_2.h>
+#include <linux/d2041/d2041_pmic.h>
+#include <linux/d2041/d2041_core.h>
 #include "board.h"
 
 #define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, EB, DELAY, SREG, SUPPLY, DEV_NAME)\
@@ -53,7 +53,7 @@ static struct platform_device NAME##_regulator_device = {				\
 	}										\
 }
 
-#if defined(CONFIG_MFD_DA9024_V1_2)
+#if defined(CONFIG_MFD_DA9024)
 static struct regulator_consumer_supply d2041_consumer_supply[D2041_NUMBER_OF_REGULATORS] = {
 	[D2041_BUCK_1] = REGULATOR_SUPPLY("cpu_core", NULL),
 	[D2041_BUCK_2] = REGULATOR_SUPPLY("cpu_vmema", NULL),

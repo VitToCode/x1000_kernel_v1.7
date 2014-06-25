@@ -71,6 +71,13 @@ config REGULATOR_ACT8600
 	  This driver controls PMU ACT8600. It's a mfd cell driver of
 	  act8600-core.c
 
+config REGULATOR_DA9024
+	  depends on MFD_DA9024
+	  tristate "DA9024 PMIC voltage regulator"
+	  help
+	    This driver controls PMIC DA9024. It's a platform driver depends on mfd driver
+	    about d2041-i2c.c
+
 config REGULATOR_RICOH618
 	depends on MFD_RICOH618
 	tristate "RICOH618 PMU voltage regulator"
@@ -330,4 +337,3 @@ config REGULATOR_GPIO
 
 
 endif
-
