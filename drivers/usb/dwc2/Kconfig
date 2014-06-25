@@ -38,6 +38,7 @@ endchoice
 config USB_DWC2_DRVVBUS_PIN
        bool "allow use dwc2 drvvbus pin"
 	depends on (USB_DWC2_HOST_ONLY || USB_DWC2_DUAL_ROLE)
+	default n
 	help
 	 Say Y here to use dwc2 drvvbus pin
 

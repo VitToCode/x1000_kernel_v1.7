@@ -230,7 +230,7 @@ struct dwc2_isoc_qh_ptr {
 
 struct dwc2_frame {
 	struct list_head	isoc_qh_list; /* of dwc2_isoc_qh_ptr */
-	struct dwc2_qh		*int_qh_head;
+	struct dwc2_qh		*int_qh_head;	/* interrupt qh*/
 };
 
 struct dwc2_qh {

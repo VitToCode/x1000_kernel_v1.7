@@ -415,6 +415,7 @@ static int set_config(struct usb_composite_dev *cdev,
 		case USB_SPEED_HIGH:	speed = "high"; break;
 		default:		speed = "?"; break;
 		} ; speed; }), number, c ? c->label : "unconfigured");
+
 	if (!c)
 		goto done;
 

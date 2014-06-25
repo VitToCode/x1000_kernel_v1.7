@@ -17,7 +17,7 @@
 #include "core.h"
 #include "host.h"
 
-#include "dwc2-jz4780.h"
+#include "dwc2_jz.h"
 
 #ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
 int dwc2_rh_debug_en = 0;
@@ -359,7 +359,7 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 		case USB_PORT_FEAT_POWER:
 			/* TODO: use platform callback instead of directly call 4780 specific routines */
 			if (!hcd->self.is_b_host)
-				jz4780_set_vbus(dwc, 0);
+				jz_set_vbus(dwc, 0);
 
 			hprt0.d32 = dwc2_hc_read_hprt(dwc);
 			hprt0.b.prtpwr = 0;

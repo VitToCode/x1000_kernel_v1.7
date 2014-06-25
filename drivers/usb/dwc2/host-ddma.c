@@ -17,7 +17,7 @@
 #include "host.h"
 #include "debug.h"
 
-#include "dwc2-jz4780.h"
+#include "dwc2_jz.h"
 
 /**
  * @dump_dir: bit0 --- OUT; bit1 --- IN
@@ -611,7 +611,7 @@ static void dwc2_hcd_stop(struct usb_hcd *hcd) {
 	dwc_writel(hprt0.d32, dwc->host_if.hprt0);
 	mdelay(1);
 
-	jz4780_set_vbus(dwc, 0);
+	jz_set_vbus(dwc, 0);
 }
 
 static int dwc2_hcd_get_frame_number(struct usb_hcd *hcd) {
@@ -679,6 +679,7 @@ static void dwc2_giveback_context_list(struct dwc2 *dwc, void *context) {
 		kmem_cache_free(dwc->context_cachep, ctx_list);
 	}
 }
+
 static void dwc2_schedule(struct dwc2 *dwc);
 void dwc2_urb_done(struct dwc2 *dwc, struct urb *urb, int status) {
 	struct dwc2_urb_priv *urb_priv = urb->hcpriv;
@@ -730,7 +731,7 @@ void dwc2_urb_done(struct dwc2 *dwc, struct urb *urb, int status) {
 				dwc2_schedule(dwc);
 			}
 		}
-	} else{
+	} else {
 		struct dwc2_urb_context *ctx_list;
 
 		ctx_list = dwc2_hcd_find_urb_context(dwc, urb->context);

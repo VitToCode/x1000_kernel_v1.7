@@ -19,8 +19,7 @@
 #include "core.h"
 #include "gadget.h"
 #include "debug.h"
-
-#include "dwc2-jz4780.h"
+#include "dwc2_jz.h"
 
 #ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
 int dwc2_gadget_debug_en = 0;
@@ -1134,7 +1133,7 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 	dep->maxp = 0;
 	dep->flags = 0;
 
-	if (unlikely( (!dwc->plugin) && !cpm_test_bit(7, CPM_OPCR) && !dwc2_has_ep_enabled(dwc))) {
+	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend() && !dwc2_has_ep_enabled(dwc))) {
 		dwc2_disable_clock(dwc);
 	}
 
@@ -1777,10 +1776,8 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 			gotgctl.b.bvalidoven = 0;
 			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
 
-			if (dwc->pullup_on) {
-				unsigned int value = cpm_inl(CPM_OPCR);
-				cpm_outl(value | (1 << 7), CPM_OPCR);
-			}
+			if (dwc->pullup_on)
+				jz_otg_phy_suspend(0);
 		}
 
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
@@ -2461,12 +2458,11 @@ void dwc2_gadget_plug_change(int plugin) {
 		}
 	}
 
-	dev_dbg(dwc->dev, "enter %s:%d: plugin = %d pullup = %d suspend = %d ext_vbus = %d\n",
-		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended, extern_vbus_mode);
-
 	if (!dwc2_is_device_mode(dwc) || extern_vbus_mode) {
 		goto out;
 	}
+	dev_dbg(dwc->dev,"enter %s:%d: plugin = %d pullup = %d suspend = %d ext_vbus = %d\n",
+		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended, extern_vbus_mode);
 
 	if (dwc->suspended)
 		goto out;
@@ -2474,9 +2470,8 @@ void dwc2_gadget_plug_change(int plugin) {
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 
 	if (plugin) {
-		value = cpm_inl(CPM_OPCR);
-		if ( (value & (1 << 7)) == 0)
-			cpm_outl(value | (1 << 7), CPM_OPCR);
+		if (jz_otg_phy_is_suspend())
+			jz_otg_phy_suspend(0);
 
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -2492,7 +2487,7 @@ void dwc2_gadget_plug_change(int plugin) {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 		}
 	} else {
-		if (dctl.b.sftdiscon && !cpm_test_bit(7, CPM_OPCR) && !dwc2_has_ep_enabled(dwc)) {
+		if (dctl.b.sftdiscon && jz_otg_phy_is_suspend() && !dwc2_has_ep_enabled(dwc)) {
 			dwc2_disable_clock(dwc);
 		} else {
 			dctl.b.sftdiscon = 1;

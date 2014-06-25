@@ -144,6 +144,7 @@ extern struct jzmmc_platform_data sdio_pdata;
 /**
  * USB detect pin
  **/
+#define GPIO_USB_ID			GPIO_PA(13)
 #define GPIO_USB_DETE			GPIO_PA(14)
 
 extern struct ovisp_camera_platform_data ovisp_camera_info;

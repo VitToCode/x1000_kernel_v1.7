@@ -26,7 +26,7 @@
 #include "host.h"
 #include "debug.h"
 
-#include "dwc2-jz4780.h"
+#include "dwc2_jz.h"
 
 #ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
 int dwc2_core_debug_en = 0;
@@ -265,14 +265,11 @@ void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
 	gintsts_data_t			 gintsts;
 	dctl_data_t			 dctl;
 	int				 count	     = 0;
-	unsigned			 cpm_opcr;
 	unsigned			 phy_status;
 
-	cpm_opcr = cpm_inl(CPM_OPCR);
-	phy_status = !!(cpm_opcr & (1 << 7));
-
 	/* enable PHY */
-	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
+	phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(0);
 
 	/*
 	 * Check that GINTSTS.GINNakEff=0
@@ -350,7 +347,7 @@ void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
 
 	dwc2_wait_3_phy_clocks();
 
-	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
+	jz_otg_phy_suspend(!phy_status);
 }
 
 void dwc2_flush_rx_fifo(struct dwc2 *dwc)
@@ -360,14 +357,12 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 	gintsts_data_t			 gintsts;
 	dctl_data_t			 dctl;
 	int				 count	     = 0;
-	unsigned			 cpm_opcr;
 	unsigned			 phy_status;
 
-	cpm_opcr = cpm_inl(CPM_OPCR);
-	phy_status = !!(cpm_opcr & (1 << 7));
-
 	/* enable PHY */
-	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
+	phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(0);
+
 
 	gintsts.d32 = dwc_readl(&global_regs->gintsts);
 	if ((gintsts.b.goutnakeff == 0) && dwc2_is_device_mode(dwc)) {
@@ -436,7 +431,7 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc)
 
 	dwc2_wait_3_phy_clocks();
 
-	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
+	jz_otg_phy_suspend(!phy_status);
 }
 
 void dwc2_wait_3_phy_clocks(void) {
@@ -452,7 +447,7 @@ void dwc2_wait_3_phy_clocks(void) {
 void dwc2_enable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
-
+	printk("enable globle inter\n");
 	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 1;
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
@@ -462,6 +457,7 @@ void dwc2_disable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
 
+	printk("disable globle inter\n");
 	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 0;
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
@@ -710,15 +706,13 @@ int dwc2_core_init(struct dwc2 *dwc)
 	gahbcfg_data_t			 ahbcfg	     = {.d32 = 0 };
 	gusbcfg_data_t			 usbcfg	     = {.d32 = 0 };
 	gotgctl_data_t			 gotgctl     = {.d32 = 0 };
-	unsigned			 cpm_opcr;
 	unsigned			 phy_status;
 	int				 i	     = 0;
 
-	cpm_opcr = cpm_inl(CPM_OPCR);
-	phy_status = !!(cpm_opcr & (1 << 7));
-
 	/* enable PHY */
-	cpm_outl(cpm_opcr | (1 << 7), CPM_OPCR);
+	phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(0);
+
 
 	/* Common Initialization */
 	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
@@ -800,7 +794,7 @@ int dwc2_core_init(struct dwc2 *dwc)
 	/* Enable common interrupts */
 	dwc2_enable_common_interrupts(dwc);
 
-	cpm_outl(cpm_opcr | (phy_status << 7), CPM_OPCR);
+	jz_otg_phy_suspend(!phy_status);
 
 	return 0;
 }
@@ -928,7 +922,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		/* close PHY */
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		if (likely((!dwc->keep_phy_on) && (dctl.b.sftdiscon || !dwc->plugin)))
-			cpm_clear_bit(7, CPM_OPCR);
+			jz_otg_phy_suspend(1);
 
 #ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
 #if !DWC2_HOST_MODE_ENABLE
@@ -1029,7 +1023,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dctl_data_t	 dctl;
 
 		DWC2_CORE_DEBUG_MSG("init DWC core as B_PERIPHERAL\n");
-		jz4780_set_vbus(dwc, 0);
+		jz_set_vbus(dwc, 0);
 
 		dwc2_spin_lock_irqsave(dwc, flags);
 		dwc2_core_init(dwc);
@@ -1055,7 +1049,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 #if 0
 			/* close PHY */
 			if (likely(!dwc->keep_phy_on))
-				cpm_clear_bit(7, CPM_OPCR);
+				jz_otg_phy_suspend(1);
 #endif
 
 			/* soft disconnect */
@@ -1067,8 +1061,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 			 * a session end detect interrupt will be generate
 			 */
 		} else {
-			cpm_set_bit(7, CPM_OPCR);
-
+			jz_otg_phy_suspend(0);
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1100,7 +1093,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc2_host_mode_init(dwc);
 		dwc2_spin_unlock_irqrestore(dwc, flags);
 
-		jz4780_set_vbus(dwc, 1);
+		jz_set_vbus(dwc, 1);
 		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
 #endif	/* DWC2_HOST_MODE_ENABLE */
 	}
@@ -1477,7 +1470,7 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 	}
 
 out:
-	if (unlikely( (!dwc->plugin) && !cpm_test_bit(7, CPM_OPCR) &&
+	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend() &&
 				dwc2_is_device_mode(dwc) && !dwc2_has_ep_enabled(dwc))) {
 		dwc2_disable_clock(dwc);
 	}
@@ -1603,8 +1596,8 @@ static int dwc2_probe(struct platform_device *pdev)
 	}
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
-	//dwc2_enable_global_interrupts(dwc);
-	dwc2_clk_disable(dwc);
+	dwc2_enable_global_interrupts(dwc);
+	//dwc2_clk_disable(dwc);
 
 	ret = dwc2_debugfs_init(dwc);
 	if (ret) {
@@ -1653,9 +1646,6 @@ static int dwc2_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static void dwc2_device_suspend(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
-	unsigned int	 value;
-
-	value = cpm_inl(CPM_OPCR);
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dwc->sftdiscon = dctl.b.sftdiscon;
@@ -1663,19 +1653,17 @@ static void dwc2_device_suspend(struct dwc2 *dwc) {
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	/* suspend PHY0 */
-	dwc->phy_status = !!(value & (1 << 7));
-	cpm_outl(value & ~(1 << 7), CPM_OPCR);
+	dwc->phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(1);
 
 	dwc->plug_status = dwc->plugin;
 }
 
 static void dwc2_host_suspend(struct dwc2 *dwc) {
-	unsigned int	 value;
 
-	value = cpm_inl(CPM_OPCR);
 	/* suspend PHY0 */
-	dwc->phy_status = !!(value & (1 << 7));
-	cpm_outl(value & ~(1 << 7), CPM_OPCR);
+	dwc->phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(1);
 }
 
 static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
@@ -1695,7 +1683,7 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	if (dwc2_is_host_mode(dwc))
-		 jz4780_set_vbus(dwc, 0);
+		 jz_set_vbus(dwc, 0);
 	dev_dbg(dwc->dev, "dwc2_suspend-ed\n");
 
 	return 0;
@@ -1705,7 +1693,6 @@ extern void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count);
 
 static void dwc2_device_resume(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
-	unsigned int	 value;
 
 	dev_dbg(dwc->dev, "====>dwc->plug_status = %d dwc->plugin = %d dwc->pullup_on = %d\n",
 		dwc->plug_status, dwc->plugin, dwc->pullup_on);
@@ -1728,8 +1715,7 @@ static void dwc2_device_resume(struct dwc2 *dwc) {
 	dctl.b.sftdiscon = dwc->sftdiscon;
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
-	value = cpm_inl(CPM_OPCR);
-	cpm_outl(value | (dwc->phy_status << 7), CPM_OPCR);
+	jz_otg_phy_suspend(!dwc->phy_status);
 
 	if (dwc->plugin && dwc->pullup_on) {
 		dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
@@ -1737,10 +1723,7 @@ static void dwc2_device_resume(struct dwc2 *dwc) {
 }
 
 static void dwc2_host_resume(struct dwc2 *dwc) {
-	unsigned int	 value;
-
-	value = cpm_inl(CPM_OPCR);
-	cpm_outl(value | (dwc->phy_status << 7), CPM_OPCR);
+	jz_otg_phy_suspend(!dwc->phy_status);
 }
 
 static int dwc2_resume(struct platform_device *pdev) {
@@ -1765,7 +1748,7 @@ static int dwc2_resume(struct platform_device *pdev) {
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	if (dwc2_is_host_mode(dwc) && (dwc2_get_id_level(dwc) == 0) && !dwc->extern_vbus_mode) {
-		jz4780_set_vbus(dwc, 1);
+		jz_set_vbus(dwc, 1);
 	}
 
 	return 0;
