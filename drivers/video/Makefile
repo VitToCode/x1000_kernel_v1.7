@@ -162,7 +162,7 @@ obj-$(CONFIG_FB_JZ_V12)     	  += jz_fb_v12/
 obj-$(CONFIG_FB_JZ4775_ANDROID_EPD)     += jz4775-epd/
 obj-$(CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH) += lcd_suspend_update/
 obj-$(CONFIG_HDMI_JZ4780)	  += jz4780-hdmi/
-obj-$(CONFIG_JZ4780_IPU)  	  += jz4780-ipu/
+obj-$(CONFIG_JZ_IPU)          += jz_ipu/
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o

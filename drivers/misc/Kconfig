@@ -544,9 +544,6 @@ config APANIC_PLABEL
  	 crashdumps, enter it here.
 config JZ_X2D
 	bool "JZ EXtreme2D  for 2D driver"
-config JZ_DMMU
-	bool "JZ DMMU driver"
-	default y
 
 config JZ_VPU
 	bool "VPU driver for Ingenic"
@@ -561,6 +558,7 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/jz_cim/Kconfig"
+source "drivers/misc/jz_dmmu/Kconfig"
 
 config JZ_PWM
 	bool "JZ PWM driver"

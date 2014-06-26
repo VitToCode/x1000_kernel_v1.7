@@ -2516,9 +2516,7 @@ config HDMI_JZ4780_DEBUG
        tristate "JZ4780 HDMI DEBUG"
        depends on HDMI_JZ4780
 
-config JZ4780_IPU
-       bool "jz4780 ipu driver"
-       default y
 
+source "drivers/video/jz_ipu/Kconfig"
 source "drivers/video/jz_fb_v12/Kconfig"
 endmenu

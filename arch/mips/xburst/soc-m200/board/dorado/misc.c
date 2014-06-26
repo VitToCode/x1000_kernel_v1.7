@@ -592,7 +592,7 @@ static int __init board_init(void)
 #endif
 
 /*ipu*/
-#if defined CONFIG_JZ_IPU_V1_2
+#if defined CONFIG_JZ_IPU_V12
 	platform_device_register(&jz_ipu_device);
 #endif
 
