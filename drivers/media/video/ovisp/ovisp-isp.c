@@ -1312,42 +1312,11 @@ static int isp_clk_disable(struct isp_device *isp, unsigned int type)
 
 static int isp_powerdown(struct isp_device * isp)
 {
-	/*csi poweroff*/
-	//if(regulator_is_enabled(isp->csi_power))
-	//regulator_disable(isp->csi_power);
-
 	return 0;
 }
 
 static int isp_powerup(struct isp_device * isp)
 {
-#if 0
-	//cpm_outl(0,CPM_PSWC0ST);
-	//cpm_outl(16,CPM_PSWC1ST);
-	//cpm_outl(24,CPM_PSWC2ST);
-	//cpm_outl(8,CPM_PSWC3ST);
-	int temp;
-	printk("####isp powerup \n");
-	*((volatile unsigned int *)0xb0000090) = 0;
-	*((volatile unsigned int *)0xb0000094) = 16;
-	*((volatile unsigned int *)0xb0000098) = 24;
-	*((volatile unsigned int *)0xb00000a2) = 8;
-
-	mdelay(1000);
-	temp = *((volatile unsigned int *)0xb00000c4);
-	temp |= 1 << 22;
-	printk("temp : %x\n", temp);
-	*((volatile unsigned int *)0xb00000c4) = temp;
-	temp &= ~(1<<22);
-	*((volatile unsigned int *)0xb00000c4) = temp;
-
-	printk(" cpm rst :::::%x\n", *((volatile unsigned int *)0xb00000c4));
-#else
-
-	//if(!regulator_is_enabled(isp->csi_power))
-	//regulator_enable(isp->csi_power);
-
-#endif
 	return 0;
 }
 
@@ -2367,10 +2336,10 @@ static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, uns
 			}else
 				list_add_tail(&(v->vaddr_entry), &(p->vaddr_list));
 		}
-		//ret = dmmu_match_user_mem_tlb((void*)vaddr, size);
+		ret = dmmu_match_user_mem_tlb((void*)vaddr, size);
 		if(ret < 0)
 			goto match_fail;
-		//ret = dmmu_map_user_mem((void *)vaddr, size);
+		ret = dmmu_map_user_mem((void *)vaddr, size);
 		if(ret < 0)
 			goto map_fail;
 	}
@@ -2402,7 +2371,7 @@ static int isp_tlb_unmap_all_vaddr(struct isp_device *isp)
 			if(!list_empty(&(p->vaddr_list))){
 				list_for_each_entry(v, &(p->vaddr_list), vaddr_entry){
 					list_del(&(v->vaddr_entry));
-					//dmmu_unmap_user_mem((void *)(v->vaddr), v->size);
+					dmmu_unmap_user_mem((void *)(v->vaddr), v->size);
 					kfree(v);
 					v = &(p->vaddr_list);
 				}
@@ -2421,7 +2390,7 @@ static int isp_tlb_init(struct isp_device *isp)
 	/* first */
 	if(list_empty(&(isp->tlb_list))){
 		ISP_PRINT(ISP_INFO,"^^^%s[%d] mmu_init! \n",__func__,__LINE__);
-		//ret = dmmu_init();
+		ret = dmmu_init();
 		if(ret < 0)
 			goto dmmu_fail;
 		isp->tlb_flag = 1;
@@ -2447,7 +2416,7 @@ static int isp_tlb_init(struct isp_device *isp)
 		}
 		p->pid = pid;
 		INIT_LIST_HEAD(&(p->vaddr_list));
-		//ret = dmmu_get_page_table_base_phys(&(p->tlbbase));
+		ret = dmmu_get_page_table_base_phys(&(p->tlbbase));
 		ISP_PRINT(ISP_INFO,"^^^%s[%d] alloc pidmanager! tlbbase = 0x%08x\n",__func__,__LINE__,p->tlbbase);
 		isp_s_tlb_base(isp,&(p->tlbbase));
 		if(ret < 0)
@@ -2499,7 +2468,7 @@ static int isp_tlb_deinit(struct isp_device *isp)
 	/* last */
 	if(list_empty(&(isp->tlb_list))){
 		ISP_PRINT(ISP_INFO,"%s[%d] mmu_deinit! \n",__func__,__LINE__);
-		//ret = dmmu_deinit();
+		ret = dmmu_deinit();
 		isp->tlb_flag = 0;
 	}
 	return ret;
@@ -2588,7 +2557,6 @@ int isp_device_release(struct isp_device* isp)
 	if (!isp)
 		return -EINVAL;
 
-	//regulator_put(isp->csi_power);
 	csi_phy_release();
 	isp_clk_release(isp);
 	isp_i2c_release(isp);

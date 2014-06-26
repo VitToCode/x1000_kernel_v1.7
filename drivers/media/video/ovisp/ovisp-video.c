@@ -1524,6 +1524,7 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	isp->pdata = pdata;
 	isp->irq_notify = ovisp_camera_irq_notify;
 	isp->data = camdev;
+
 #if 0
 	isp->csi_power = regulator_get(isp->dev, "csi_avdd");
 	if(IS_ERR(isp->csi_power)) {

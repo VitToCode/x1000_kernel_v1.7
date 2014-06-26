@@ -22,9 +22,7 @@ static int ov5645_power(int onoff)
 	}
 	if (onoff) {
 		printk("[board camera]:%s, power on\n", __func__);
-		//gpio_direction_output(CAMERA_PWDN_N, 0);
 		mdelay(10);
-		//gpio_direction_output(CAMERA_PWDN_N, 1);
 		//gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
 		;
 	} else {
@@ -73,7 +71,7 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 };
 
 struct ovisp_camera_platform_data ovisp_camera_info = {
-	.i2c_adapter_id = 3,
+	.i2c_adapter_id = 4, /* larger than host i2c nums */
 #ifdef CONFIG_OVISP_I2C
 	.flags = CAMERA_USE_ISP_I2C | CAMERA_USE_HIGH_BYTE
 			| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
