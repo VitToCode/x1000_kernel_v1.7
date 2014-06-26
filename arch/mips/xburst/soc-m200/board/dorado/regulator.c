@@ -217,7 +217,7 @@ static struct regulator_init_data d2041_reg_init_data[D2041_NUMBER_OF_REGULATORS
 			.max_uV = 2500 * 1000,
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 			.valid_modes_mask = REGULATOR_MODE_NORMAL,
-			.always_on = 0,
+			.always_on = 1,
 			.boot_on = 1,
 			.apply_uV = 1,
 		},

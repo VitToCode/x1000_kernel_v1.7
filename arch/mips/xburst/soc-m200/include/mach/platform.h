@@ -118,6 +118,9 @@
 #define PWM_PORTE_BIT3							\
 	{ .name = "pwm3", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 3, }
 
+#define MCLK_PORTE_BIT2                 \
+{ .name = "mclk", .port = GPIO_PORT_E, .func = GPIO_FUNC_3, .pins = 1 << 2, }
+
 /*******************************************************************************************************************/
 
 #define MII_PORTBDF							\

@@ -109,7 +109,7 @@ struct v4l2_mbus_framefmt {
 	__u32			code;
 	__u32			field;
 	__u32			colorspace;
-	__u32			reserved[7];
+	__u32			reserved[156];
 };
 
 #endif

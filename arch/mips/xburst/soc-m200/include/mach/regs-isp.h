@@ -49,12 +49,12 @@
 #define MAC_MEMORY_WIDTH			(0x1f028)
 #define MAC_MEMORY_UV_WIDTH			(0x1f02a)
 /*isp output: 2*/
-#define ISP_OUTPUT_FORMAT_2			(0x1f022)
-#define ISP_OUTPUT_WIDTH_2			(0x1f024)
-#define ISP_OUTPUT_HEIGHT_2			(0x1f026)
+#define ISP_OUTPUT_FORMAT_2			(0x1f02c)
+#define ISP_OUTPUT_WIDTH_2			(0x1f02e)
+#define ISP_OUTPUT_HEIGHT_2			(0x1f030)
 /*output1 memory width*/
-#define MAC_MEMORY_WIDTH_2			(0x1f028)
-#define MAC_MEMORY_UV_WIDTH_2		 (0x1f02a)
+#define MAC_MEMORY_WIDTH_2			(0x1f032)
+#define MAC_MEMORY_UV_WIDTH_2		 (0x1f034)
 
 /* 3. isp configuration */
 #define ISP_EXPOSURE_RATIO           (0x1f070)
@@ -167,10 +167,10 @@
 #define REG_ISP_GENERAL_PURPOSE_REG3		(0x63913)
 #define REG_ISP_GENERAL_PURPOSE_REG7		(0x63917)
 
-#define REG_ISP_INT_STAT			(0x63928)
-#define REG_ISP_INT_STAT_1			(0x63929)
-#define REG_ISP_INT_EN				(0x63924)
-#define REG_ISP_INT_EN_1			(0x63925)
+#define REG_ISP_INT_STAT_H			(0x63928)
+#define REG_ISP_INT_STAT_L			(0x63929)
+#define REG_ISP_INT_EN_H			(0x63924)
+#define REG_ISP_INT_EN_L			(0x63925)
 
 #define REG_ISP_MAC_INT_STAT_H			(0x63b32)
 #define REG_ISP_MAC_INT_STAT_L			(0x63b33)
@@ -282,9 +282,12 @@
 #define I2C_SPEED_200				(0x08)
 
 /* ISP interrupts mask. */
-#define MASK_INT_CMDSET				(1 << 0)
+#define MASK_INT_MAC1_DROP			(1 << 9)
+#define MASK_INT_CMDSET				(1 << 8)
+#define MASK_INT_MAC1_DONE			(1 << 7)
+#define MASK_INT_MAC1				(1 << 6)
 #define MASK_INT_MAC				(1 << 5)
-#define MASK_INT_GPIO				(1 << 0)
+//#define MASK_INT_GPIO				(1 << 0)
 
 /* ISP mac interrupts mask. */
 /* Low mask. */

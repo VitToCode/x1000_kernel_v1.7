@@ -4,66 +4,12 @@
 #include <linux/delay.h>
 
 #define CAMERA_RST			GPIO_PD(27)
-#define CAMERA_PWDN_N		GPIO_PA(13)
+#define CAMERA_PWDN_N		GPIO_PA(13) /* pin conflict with USB_ID */
 #define CAMERA_MCLK			GPIO_PE(2) /* no use */
 
 
 
 #if defined(CONFIG_VIDEO_OVISP)
-#if defined(CONFIG_VIDEO_OV5647)
-static int ov5647_power(int onoff)
-{
-	printk("############## ov5647 power : %d################\n", onoff);
-
-	if (onoff) {
-		;
-	} else {
-		;
-	}
-
-	return 0;
-}
-
-static int ov5647_reset(void)
-{
-	printk("############## ov5647 reset################\n");
-
-	return 0;
-}
-
-static struct i2c_board_info ov5647_board_info = {
-	.type = "ov5647",
-	.addr = 0x36,
-};
-#endif /* CONFIG_VIDEO_OV5647 */
-
-
-#if defined(CONFIG_VIDEO_front_camera)
-static int front_camera_pwdn = mfp_to_gpio(front_camera_POWERDOWN_PIN);
-static int front_camera_power(int onoff)
-{
-	printk("############## front_camera power : %d################\n", onoff);
-
-	if (onoff) {
-		;
-	} else {
-		;
-	}
-
-	return 0;
-}
-
-static int front_camera_reset(void)
-{
-	printk("############## front_camera reset################\n");
-	return 0;
-}
-
-static struct i2c_board_info front_camera_board_info = {
-	.type = "front_camera",
-	.addr = 0x31,
-};
-#endif /* CONFIG_VIDEO_front_camera */
 
 int temp = 1;
 #if defined(CONFIG_VIDEO_OV5645)
@@ -75,15 +21,15 @@ static int ov5645_power(int onoff)
 		temp = 0;
 	}
 	if (onoff) {
-	printk("##### power on######### %s\n", __func__);
-		gpio_direction_output(CAMERA_PWDN_N, 0);
+		printk("[board camera]:%s, power on\n", __func__);
+		//gpio_direction_output(CAMERA_PWDN_N, 0);
 		mdelay(10);
-		gpio_direction_output(CAMERA_PWDN_N, 1);
+		//gpio_direction_output(CAMERA_PWDN_N, 1);
 		//gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
 		;
 	} else {
-		printk("##### power off ######### %s\n", __func__);
-		gpio_direction_output(CAMERA_PWDN_N, 0);
+		printk("[board camera]:%s, power off\n", __func__);
+		//gpio_direction_output(CAMERA_PWDN_N, 0);
 		gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
 		;
 	}
@@ -93,7 +39,7 @@ static int ov5645_power(int onoff)
 
 static int ov5645_reset(void)
 {
-	printk("############## %s\n", __func__);
+	printk("[board camera]:%s\n", __func__);
 
 #if 1
 	/*reset*/
@@ -113,45 +59,13 @@ static struct i2c_board_info ov5645_board_info = {
 #endif /* CONFIG_VIDEO_OV5645 */
 
 static struct ovisp_camera_client ovisp_camera_clients[] = {
-#if defined(CONFIG_VIDEO_OV5647)
-	{
-		.board_info = &ov5647_board_info,
-		.flags = CAMERA_CLIENT_IF_MIPI,
-		.mclk_rate = 26000000,
-		.max_video_width = 1280,
-		.max_video_height = 960,
-		.power = ov5647_power,
-		.reset = ov5647_reset,
-	},
-#endif /* CONFIG_VIDEO_OV5647 */
-
-#if defined(CONFIG_VIDEO_front_camera)
-	{
-		.board_info = &front_camera_board_info,
-		.flags = CAMERA_CLIENT_IF_DVP
-				| CAMERA_CLIENT_CLK_EXT
-				| CAMERA_CLIENT_ISP_BYPASS,
-		.mclk_parent_name = "pll1_mclk",
-		.mclk_name = "clkout1_clk",
-		.mclk_rate = 24000000,
-		.power = front_camera_power,
-		.reset = front_camera_reset,
-	},
-#endif /* CONFIG_VIDEO_front_camera */
-
 #if defined(CONFIG_VIDEO_OV5645)
 	{
 		.board_info = &ov5645_board_info,
-#if 0
-		.flags = CAMERA_CLIENT_IF_MIPI
-				| CAMERA_CLIENT_CLK_EXT
-				| CAMERA_CLIENT_ISP_BYPASS,
-#else
 		.flags = CAMERA_CLIENT_IF_MIPI,
-#endif
-		.mclk_rate = 26000000,
-		.max_video_width = 1280,
-		.max_video_height = 960,
+		.mclk_rate = 24000000,
+		.max_video_width = 2592,
+		.max_video_height = 1944,
 		.power = ov5645_power,
 		.reset = ov5645_reset,
 	},

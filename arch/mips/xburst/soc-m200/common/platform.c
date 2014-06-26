@@ -73,6 +73,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 #ifdef CONFIG_OVISP_I2C
 	ISP_I2C,
+	MCLK_PORTE_BIT2,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	UART0_PORTF,

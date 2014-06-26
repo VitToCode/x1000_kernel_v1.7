@@ -488,6 +488,12 @@ config VIDEO_TCM825X
 	---help---
 	  This is a driver for the Toshiba TCM825x VGA camera sensor.
 	  It is used for example in Nokia N800.
+config VIDEO_OV5645
+	  tristate "OmniVision OV5645 sensor support"
+	  depends on I2C && VIDEO_V4L2
+	  ---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV5645 camera.
 
 comment "Video improvement chips"
 
@@ -771,6 +777,21 @@ config VIDEO_OMAP3_DEBUG
 	depends on VIDEO_OMAP3
 	---help---
 	  Enable debug messages on OMAP 3 camera controller driver.
+
+config VIDEO_OVISP
+	  bool "OVISP"
+	  select VIDEOBUF2_CORE
+	  select VIDEOBUF2_MEMOPS
+	  depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	  ---help---
+	  Driver for OmniVision ISP.
+
+config OVISP_I2C
+	  bool "OVISP I2C"
+	  depends on VIDEO_OVISP
+	  ---help---
+	  USE ISP internal I2C.
+
 
 config SOC_CAMERA
 	tristate "SoC camera support"
