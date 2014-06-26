@@ -643,7 +643,7 @@ static int i2c_set_speed(struct i2c_jz *i2c, int rate)
 	}
 
 	//setup_time = (10000000/(rate*4)) + 1;
-	setup_time = (dev/(rate*4)) + 1;
+	setup_time = (dev_clk/(rate*4)) + 1;
 	//hold_time =  (10000000/(rate*4)) - 1;
 	hold_time =  (dev_clk/(rate*4)) - 1;
 
