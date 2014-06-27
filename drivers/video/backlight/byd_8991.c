@@ -151,8 +151,6 @@ static int byd_8991_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_lcd_vsync)
 		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 #endif
-	gpio_request((32*4 + 1), "pwm_out");
-
 	byd_8991_on(dev);
 
 	dev->lcd = lcd_device_register("byd_8991-lcd", &pdev->dev,

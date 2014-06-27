@@ -16,8 +16,8 @@ int temp = 1;
 static int ov5645_power(int onoff)
 {
 	if(temp) {
-	gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-	gpio_request(CAMERA_RST, "CAMERA_RST");
+//		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+		gpio_request(CAMERA_RST, "CAMERA_RST");
 		temp = 0;
 	}
 	if (onoff) {
