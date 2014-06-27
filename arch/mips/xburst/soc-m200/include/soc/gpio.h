@@ -27,7 +27,6 @@ enum gpio_port {
 	GPIO_PORT_A, GPIO_PORT_B,
 	GPIO_PORT_C, GPIO_PORT_D,
 	GPIO_PORT_E, GPIO_PORT_F,
-	GPIO_PORT_G,
 	/* this must be last */
 	GPIO_NR_PORTS,
 };
@@ -62,6 +61,10 @@ struct jz_gpio_phy_reset {
 extern struct jz_gpio_func_def platform_devio_array[];
 extern int platform_devio_array_size;
 
+struct gpio_reg_func {
+	unsigned int save[5];
+};
+
 /*
  * This functions are used in special driver which need
  * operate the device IO pin.
@@ -74,6 +77,8 @@ int jz_gpio_set_func(int gpio, enum gpio_function func);
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,
 		     unsigned long pins);
 
-int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset);
-
+int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
+			    unsigned long pins, struct gpio_reg_func *rfunc);
+int jz_gpio_restore_func(enum gpio_port port,
+			 unsigned long pins, struct gpio_reg_func *rfunc);
 #endif

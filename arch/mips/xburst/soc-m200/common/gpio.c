@@ -27,8 +27,7 @@
 
 #define GPIO_PORT_OFF	0x100
 #define GPIO_SHADOW_OFF	0xF00
-#define NR_GPIO_PORT	6
-#define NR_GPIO_NUM	(NR_GPIO_PORT*32)
+#define GPIO_SIZE	0x1000
 
 #define PXPIN		0x00   /* PIN Level Register */
 #define PXINT		0x10   /* Port Interrupt Register */
@@ -157,6 +156,86 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 	writel(grp & 0x7, chip->shadow_reg + PZGID2LD);
 }
 
+static void gpio_restore_func(struct jzgpio_chip *chip,
+			      struct gpio_reg_func *rfunc, unsigned int pins)
+{
+	unsigned long comp;
+	unsigned long grp;
+
+	grp = ((unsigned int)chip->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
+
+	comp = pins & rfunc->save[0];
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXINTS);
+	}
+	comp = pins & rfunc->save[1];
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXMSKS);
+	}
+	comp = pins & rfunc->save[2];
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPAT1S);
+	}
+	comp = pins & rfunc->save[3];
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPAT0S);
+	}
+
+	comp = pins & (~rfunc->save[0]);
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXINTC);
+	}
+	comp = pins & (~rfunc->save[1]);
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXMSKC);
+	}
+	comp = pins & (~rfunc->save[2]);
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPAT1C);
+	}
+	comp = pins & (~rfunc->save[3]);
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPAT0C);
+	}
+
+	comp = pins & rfunc->save[4];
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPENS);
+	}
+	comp = pins & (~rfunc->save[4]);
+	if(comp != pins) {
+		writel(comp ^ pins, chip->shadow_reg + PXPENC);
+	}
+
+	/* configure PzGID2LD to specify which port group to load */
+	writel(grp & 0x7, chip->shadow_reg + PZGID2LD);
+}
+int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
+			    unsigned long pins, struct gpio_reg_func *rfunc)
+{
+	struct jzgpio_chip *jz = &jz_gpio_chips[port];
+
+	rfunc->save[0] = readl(jz->reg + PXINT);
+	rfunc->save[1] = readl(jz->reg + PXMSK);
+	rfunc->save[2] = readl(jz->reg + PXPAT0);
+	rfunc->save[3] = readl(jz->reg + PXPAT1);
+	rfunc->save[4] = readl(jz->reg + PXPEN);
+
+	gpio_set_func(jz, dst_func, pins);
+
+	return 0;
+}
+
+int jz_gpio_restore_func(enum gpio_port port,
+			 unsigned long pins, struct gpio_reg_func *rfunc)
+{
+	struct jzgpio_chip *jz = &jz_gpio_chips[port];
+
+	gpio_restore_func(jz, rfunc, pins);
+
+	return 0;
+}
+
 int jzgpio_set_func(enum gpio_port port,
 		    enum gpio_function func,unsigned long pins)
 {
@@ -227,18 +306,6 @@ static int jz_gpio_set_pull(struct gpio_chip *chip,
 	return 0;
 }
 
-int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset)
-{
-#if 0
-	struct jzgpio_chip *jz = &jz_gpio_chips[gpio_phy_reset->port];
-
-	gpio_set_func(jz, gpio_phy_reset->start_func, 1 << gpio_phy_reset->pin);
-	udelay(gpio_phy_reset->delaytime_usec);
-	gpio_set_func(jz, gpio_phy_reset->end_func, 1 << gpio_phy_reset->pin);
-#endif
-	return 0;
-}
-
 /* Functions followed for GPIOLIB */
 
 static void jz_gpio_set(struct gpio_chip *chip,
@@ -246,7 +313,7 @@ static void jz_gpio_set(struct gpio_chip *chip,
 {
 	struct jzgpio_chip *jz = gpio2jz(chip);
 
-	if (! test_bit(offset, jz->out_map)) {
+	if (!test_bit(offset, jz->out_map)) {
 		pr_err("BAD set to input gpio.\n");
 		return;
 	}
@@ -303,8 +370,15 @@ static int jz_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct jzgpio_chip *jz = gpio2jz(chip);
 
-	if(! test_bit(offset, jz->gpio_map))
+	if(!test_bit(offset, jz->gpio_map)) {
+		printk(KERN_WARNING "gpio has conflict\n");
 		return -EINVAL;
+	}
+	if(jz->dev_map[0] & offset) {
+		panic("%s:gpio functions has redefinition", __FILE__);
+		while(1);
+	}
+	jz->dev_map[0] |= offset;
 
 	/* Disable pull up/down as default */
 	writel(BIT(offset), jz->reg + PXPENS);
@@ -323,6 +397,8 @@ static void jz_gpio_free(struct gpio_chip *chip, unsigned offset)
 	writel(BIT(offset), jz->reg + PXPENC);
 
 	set_bit(offset, jz->gpio_map);
+
+	jz->dev_map[0] &= ~offset;
 }
 
 /* Functions followed for GPIO IRQ */
@@ -459,7 +535,7 @@ static struct jzgpio_chip jz_gpio_chips[] = {
 			.set			= jz_gpio_set,		\
 			.set_pull		= jz_gpio_set_pull,	\
 			.get			= jz_gpio_get,		\
-			.to_irq			= jz_gpio_to_irq, \
+			.to_irq			= jz_gpio_to_irq,	\
 			.request		= jz_gpio_request,	\
 			.free			= jz_gpio_free,		\
 		}							\
@@ -469,8 +545,7 @@ static struct jzgpio_chip jz_gpio_chips[] = {
 	ADD_JZ_CHIP("GPIO C",2, 2*32, 32),
 	ADD_JZ_CHIP("GPIO D",3, 3*32, 32),
 	ADD_JZ_CHIP("GPIO E",4, 4*32, 32),
-	ADD_JZ_CHIP("GPIO F",5, 5*32, 23),
-	ADD_JZ_CHIP("GPIO G",6, 5*32+23, 23),
+	ADD_JZ_CHIP("GPIO F",5, 5*32, 16),
 #undef ADD_JZ_CHIP
 };
 
@@ -505,7 +580,8 @@ static irqreturn_t gpio_handler(int irq, void *data)
 
 static int __init setup_gpio_irq(void)
 {
-	int i,j;
+	int i, j;
+
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
 				jz_gpio_chips[i].irq_chip.name,
@@ -713,8 +789,7 @@ int __init setup_gpio_pins(void)
 	int i;
 	void __iomem *base;
 
-	pr_debug("setup gpio function.\n");
-	base = ioremap(GPIO_IOBASE, GPIO_PORT_OFF - 1);
+	base = ioremap(GPIO_IOBASE, GPIO_SIZE);
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].reg = base + i * GPIO_PORT_OFF;
 		jz_gpio_chips[i].shadow_reg = base + GPIO_SHADOW_OFF;
@@ -736,7 +811,7 @@ int __init setup_gpio_pins(void)
 		jz = &jz_gpio_chips[g->port];
 		if (GPIO_AS_FUNC(g->func)) {
 			if(jz->dev_map[0] & g->pins) {
-				panic("%s:gpio functions has redefinition of '%s'",__FILE__,g->name);
+				panic("%s:gpio functions has redefinition of '%s'", __FILE__, g->name);
 				while(1);
 			}
 			jz->dev_map[0] |= g->pins;
@@ -758,13 +833,15 @@ int __init setup_gpio_pins(void)
 }
 
 arch_initcall(setup_gpio_pins);
-
+/* -------------------------gpio proc----------------------- */
+#include <jz_proc.h>
 static int gpio_read_proc(char *page, char **start, off_t off,
 			  int count, int *eof, void *data)
 {
 	int len = 0;
 	int i;
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
+
+#define PRINT(ARGS...) len += sprintf (page + len, ##ARGS)
 	PRINT("INT\t\tMASK\t\tPAT1\t\tPAT0\n");
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		PRINT("0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
@@ -779,14 +856,20 @@ static int gpio_read_proc(char *page, char **start, off_t off,
 
 static int __init init_gpio_proc(void)
 {
-	struct proc_dir_entry *res;
+	struct proc_dir_entry *res, *p;
 
-	res = create_proc_entry("gpios", 0444, NULL);
+	p = jz_proc_mkdir("gpio");
+	if (!p) {
+		pr_warning("create_proc_entry for common gpio failed.\n");
+		return -ENODEV;
+	}
+	res = create_proc_entry("gpios", 0600, p);
 	if (res) {
 		res->read_proc = gpio_read_proc;
 		res->write_proc = NULL;
-		res->data = NULL;
+		res->data =(void *)p;
 	}
+
 	return 0;
 }
 
