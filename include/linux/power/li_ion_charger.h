@@ -24,7 +24,8 @@
  * @gpio_active_low:	Should be set to 1 if the GPIO is active low otherwise 0
  */
 struct li_ion_charger_platform_data {
-	int gpio;
+	int gpio_ac;
+	int gpio_charge;
 	int gpio_active_low;
 };
 

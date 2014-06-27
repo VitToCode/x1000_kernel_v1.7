@@ -43,6 +43,15 @@ config BATTERY_JZ4780
 	  Say Y to enable support for the battery on Ingenic JZ4780 based
 	  boards.
 
+config JZ_BATTERY
+	tristate "Ingenic battery"
+	depends on MFD_JZ_SADC_V12
+	help
+	  Say Y to enable support for the battery on Ingenic M200 based
+	  boards.
+
+
+
 config BATTERY_RICOH618
 	tristate "Ricoh RD5T618 PMIC battery driver"
 	depends on MFD_RICOH618 && I2C && GENERIC_HARDIRQS
@@ -277,7 +286,7 @@ config CHARGER_GPIO
 	  called gpio-charger.
 
 config CHARGER_LI_ION
-	tristate "JZ4780 Li-ion charger"
+	tristate "JZ Li-ion charger"
 	depends on GPIOLIB
 
 config CHARGER_AC

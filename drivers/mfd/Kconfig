@@ -113,6 +113,15 @@ config MFD_JZ4780_SADC
 	  Say yes here if you want support for the SADC unit in the JZ4780 SoC.
 	  This driver is necessary for jz4780-battery driver.
 
+config MFD_JZ_SADC_V12
+	tristate "Support for the M200 SADC core"
+	select MFD_CORE
+	depends on SOC_M200
+	help
+	  Say yes here if you want support for the SADC unit in the M200 SoC.
+	  This driver is necessary for jz_battery driver.
+
+
 config MFD_88PM860X
 	bool "Support Marvell 88PM8606/88PM8607"
 	depends on I2C=y && GENERIC_HARDIRQS

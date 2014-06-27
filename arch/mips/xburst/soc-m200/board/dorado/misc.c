@@ -1,5 +1,7 @@
 #include <linux/platform_device.h>
-#include <linux/power/li-ion-charger.h>
+#include <linux/power/jz_battery.h>
+#include <linux/power/li_ion_charger.h>
+#include <linux/jz_adc.h>
 #include <linux/i2c.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio_keys.h>
@@ -386,7 +388,7 @@ DEF_GPIO_I2C(3,GPIO_PD(10),GPIO_PD(11));
 #endif /*CONFIG_I2C_GPIO*/
 
 
-#ifdef CONFIG_BATTERY_JZ4785
+#ifdef CONFIG_JZ_BATTERY
 
 static struct jz_battery_info  dorado_battery_info = {
 	.max_vol        = 4050,
@@ -398,8 +400,6 @@ static struct jz_battery_info  dorado_battery_info = {
 	.battery_max_cpt = 3000,
 	.ac_chg_current = 800,
 	.usb_chg_current = 400,
-	.slop_r = 0,
-	.cut_r = 0,
 };
 
 static struct jz_adc_platform_data adc_platform_data;
@@ -473,7 +473,7 @@ static int __init board_init(void)
 {
 
 	/* ADC */
-#ifdef CONFIG_BATTERY_JZ4785
+#ifdef CONFIG_JZ_BATTERY
 	adc_platform_data.battery_info = dorado_battery_info;
 	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
@@ -482,7 +482,7 @@ static int __init board_init(void)
 	platform_device_register(&jz_li_ion_charger_device);
 #endif
 	/* VPU */
-#ifdef CONFIG_JZ_VPU_V1_2
+#ifdef CONFIG_JZ_VPU_V12
 	platform_device_register(&jz_vpu_device);
 #endif
 #ifdef CONFIG_KEYBOARD_GPIO
