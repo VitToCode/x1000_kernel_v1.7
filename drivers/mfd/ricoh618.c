@@ -61,9 +61,6 @@ static struct sleep_control_data sleep_data[] = {
 	SLEEP_INIT(LDORTC1, 0x2A),
 };
 
-extern int reset_notifier_client_register(struct notifier_block *nb);
-extern int reset_notifier_client_unregister(struct notifier_block *nb);
-
 static inline int __ricoh618_read(struct i2c_client *client,
 				  u8 reg, uint8_t *val)
 {
@@ -433,7 +430,7 @@ static int ricoh618_reset_notifier_handler(struct notifier_block *this, unsigned
 {
 	int ret;
 
-	if (event == PM_POST_HIBERNATION) {
+	if (event == JZ_POST_HIBERNATION) {
 		ret = ricoh618_power_off();
 		if (ret < 0)
 			printk("ricoh618_power_off failed \n");

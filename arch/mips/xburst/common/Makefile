@@ -9,3 +9,4 @@ obj-y += get-cpu-features.o
 obj-y += proc-exec.o
 obj-y += mxu.o
 obj-y += proc.o
+obj-y += jz_notifier.o

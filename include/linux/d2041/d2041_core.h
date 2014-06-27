@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
+#include <linux/notifier.h>
 #include <linux/d2041/d2041_pmic.h>
 #include <linux/d2041/d2041_rtc.h>
 #include <linux/d2041/d2041_audio.h>
@@ -168,6 +169,8 @@ struct d2041 {
 	int (*read_dev)(struct d2041 * const d2041, char const reg, int const size, void * const dest);
 	int (*write_dev)(struct d2041 * const d2041, char const reg, int const size, const u8 *src/*void * const src*/);
 	u8 *reg_cache;
+
+        struct notifier_block d2041_notifier;
 
 	/* Interrupt handling */
 	struct work_struct irq_work;

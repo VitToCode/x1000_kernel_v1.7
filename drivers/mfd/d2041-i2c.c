@@ -21,11 +21,34 @@
 #include <linux/d2041/d2041_core.h>
 #include <linux/d2041/d2041_reg.h>
 #include <linux/slab.h>
+#include <jz_notifier.h>
 
 #define MCTL_OFF      0x00
 #define MCTL_ON       0x01
 #define MCTL_SLEEP    0x02
 extern struct d2041 *d2041_regl_info;
+
+static int d2041_register_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_register(nb);
+}
+
+static int d2041_unregister_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_unregister(nb);
+}
+
+static int d2041_reset_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	if (event == JZ_POST_HIBERNATION) {
+		d2041_system_poweroff();
+                return 0;
+	} else {
+		printk("\n%s event not match\n", __func__);
+                return EINVAL;
+        }
+
+}
 
 static int d2041_i2c_read_device(struct d2041 * const d2041, char const reg,
 		int const bytes, void * const dest)
@@ -105,8 +128,15 @@ static int d2041_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *i
 	d2041->i2c_client = i2c;
 	d2041->read_dev = d2041_i2c_read_device;
 	d2041->write_dev = d2041_i2c_write_device;
+        d2041->d2041_notifier.notifier_call = d2041_reset_notifier_handler;
 
-	ret = d2041_device_init(d2041, i2c->irq, i2c->dev.platform_data);
+        ret = d2041_register_reset_notifier(&(d2041->d2041_notifier));
+	if (ret) {
+		printk("d2041_register_reset_notifier failed\n");
+		goto err;
+	}
+
+        ret = d2041_device_init(d2041, i2c->irq, i2c->dev.platform_data);
 	if (ret < 0)
 		goto err;
 
@@ -118,11 +148,15 @@ err:
 
 static int d2041_i2c_remove(struct i2c_client *i2c)
 {
+        int ret = 0;
 	struct d2041 *d2041 = i2c_get_clientdata(i2c);
-
+	ret = d2041_unregister_reset_notifier(&(d2041->d2041_notifier));
+	if (ret) {
+		printk("d2041_unregister_reset_notifier failed\n");
+	}
 	d2041_device_exit(d2041);
 	kfree(d2041);
-	return 0;
+	return ret;
 }
 
 static const struct i2c_device_id d2041_i2c_id[] = {
