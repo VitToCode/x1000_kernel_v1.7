@@ -26,6 +26,7 @@
 #include <soc/gpio.h>
 
 #include <linux/byd_8991.h>
+#define DEBUG_LCD_VCC_ALWAYS_ON
 extern void Initial_IC(struct platform_byd_8991_data *pdata);
 
 struct byd_8991_data {
@@ -37,7 +38,9 @@ struct byd_8991_data {
 
 static void byd_8991_on(struct byd_8991_data *dev) {
 	dev->lcd_power = 1;
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	regulator_enable(dev->lcd_vcc_reg);
+#endif
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 1);
 #if 0
@@ -48,7 +51,7 @@ static void byd_8991_on(struct byd_8991_data *dev) {
 	if (dev->pdata->gpio_lcd_vsync)
 		gpio_direction_output(dev->pdata->gpio_lcd_vsync, 1);
 #endif
-	/*spi interface init*/	
+	/*spi interface init*/
 	if (dev->pdata->gpio_lcd_cs)
 		gpio_direction_output(dev->pdata->gpio_lcd_cs, 1);
 	if (dev->pdata->gpio_lcd_clk) /* set data mode*/
@@ -71,7 +74,9 @@ static void byd_8991_off(struct byd_8991_data *dev)
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
 	mdelay(2);
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	regulator_disable(dev->lcd_vcc_reg);
+#endif
 	mdelay(10);
 }
 
@@ -117,25 +122,27 @@ static int byd_8991_probe(struct platform_device *pdev)
 	dev->pdata = pdev->dev.platform_data;
 
 	dev_set_drvdata(&pdev->dev, dev);
-
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
 	}
-
+#endif
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_request(dev->pdata->gpio_lcd_disp, "display on");
-	
+
 	/* lcd spi interface */
 	if (dev->pdata->gpio_lcd_cs)
 		gpio_request(dev->pdata->gpio_lcd_cs, "spi_cs");
 	if (dev->pdata->gpio_lcd_clk)
 		gpio_request(dev->pdata->gpio_lcd_clk, "spi_clk");
-	if (dev->pdata->gpio_lcd_disp)
+	if (dev->pdata->gpio_lcd_sdo)
 		gpio_request(dev->pdata->gpio_lcd_sdo, "spi_sdo");
-	if (dev->pdata->gpio_lcd_disp)
+	if (dev->pdata->gpio_lcd_sdi)
 		gpio_request(dev->pdata->gpio_lcd_sdi, "spi_sdi");
+	if (dev->pdata->gpio_lcd_back_sel)
+		gpio_request(dev->pdata->gpio_lcd_back_sel, "back_light_ctrl");
 #if 0
 	if (dev->pdata->gpio_lcd_de)
 		gpio_request(dev->pdata->gpio_lcd_de, "data enable");
@@ -144,15 +151,13 @@ static int byd_8991_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_lcd_vsync)
 		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 #endif
-	gpio_request((32*1 + 30), "reset");
 	gpio_request((32*4 + 1), "pwm_out");
-	gpio_request((32*2 + 20), "back_light_select");
 
 	byd_8991_on(dev);
 
 	dev->lcd = lcd_device_register("byd_8991-lcd", &pdev->dev,
 				       dev, &byd_8991_ops);
-	
+
 	if (IS_ERR(dev->lcd)) {
 		ret = PTR_ERR(dev->lcd);
 		dev->lcd = NULL;
@@ -171,18 +176,18 @@ static int __devinit byd_8991_remove(struct platform_device *pdev)
 
 	lcd_device_unregister(dev->lcd);
 	byd_8991_off(dev);
-
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	regulator_put(dev->lcd_vcc_reg);
-
+#endif
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_free(dev->pdata->gpio_lcd_disp);
 	if (dev->pdata->gpio_lcd_cs)
 		gpio_free(dev->pdata->gpio_lcd_cs);
 	if (dev->pdata->gpio_lcd_clk)
 		gpio_free(dev->pdata->gpio_lcd_clk);
-	if (dev->pdata->gpio_lcd_disp)
+	if (dev->pdata->gpio_lcd_sdo)
 		gpio_free(dev->pdata->gpio_lcd_sdo);
-	if (dev->pdata->gpio_lcd_disp)
+	if (dev->pdata->gpio_lcd_sdi)
 		gpio_free(dev->pdata->gpio_lcd_sdi);
 #if 0
 	if (dev->pdata->gpio_lcd_de)

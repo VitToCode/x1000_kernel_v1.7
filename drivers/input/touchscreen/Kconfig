@@ -11,6 +11,14 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 ############-ingenic-touchscreen-############
+config M200_SUPPORT_TSC
+	bool "Touchscreen Supported on M200"
+	depends on SOC_M200 && INPUT_TOUCHSCREEN
+	help
+	  This selects the touchscreen that Ingenic XBurst JZ4785 support,
+	  say Y or N here.
+
+	  If unsure, say N.
 config JZ4780_SUPPORT_RESISTANCE_TSC
 	bool "TouchScreen of resistive Supported on JZ4780"
 	depends on MFD_JZ4780_SADC
@@ -38,13 +46,13 @@ config JZ4775_SUPPORT_TSC
 	  If unsure, say N.
 
 
-config TOUCHSCREEN_XY_YX                                                                                                                                
+config TOUCHSCREEN_XY_YX
       tristate "Touchscreen is used as vertical"
       depends on JZ4780_SUPPORT_TSC
       help
       touchscreen is used as vertical
 
-config TOUCHSCREEN_X_FLIP                                                                                                                                
+config TOUCHSCREEN_X_FLIP
       tristate "Touchscreen x axis flip"
       depends on JZ4780_SUPPORT_TSC
       help
@@ -60,14 +68,14 @@ config TOUCHSCREEN_HD_LCM
       tristate "Touchscreen HD LCM"
       depends on JZ4780_SUPPORT_TSC
       help
-      High-Definition screen for same size LCM 
-			
+      High-Definition screen for same size LCM
+
 config TOUCHSCREEN_FT5306
       tristate "Touchscreen ft5306"
       depends on I2C && JZ4780_SUPPORT_TSC
       help
       ft5306 a CTP controller,support panel 7"~8.9"
-			
+
 config TOUCHSCREEN_FT5X06
       tristate "Touchscreen ft5x06"
       depends on I2C && JZ4780_SUPPORT_TSC

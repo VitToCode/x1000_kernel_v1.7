@@ -42,6 +42,7 @@
 //#define FTS_CTL_IIC
 //#define SYSFS_DEBUG
 //#define FTS_APK_DEBUG
+#define DEBUG_LCD_VCC_ALWAYS_ON
 #ifdef FTS_CTL_IIC
 #include "focaltech_ctl.h"
 #endif
@@ -340,12 +341,12 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 			}
 		}
 	}
-	
-	input_sync(data->input_dev);
+
 	dev_dbg(&data->client->dev, "$ly-test----%s: x1:%d y1:%d |<*_*>| \
 			x2:%d y2:%d \n", __func__,
-			event->au16_x[0], event->au16_y[0], 
+			event->au16_x[0], event->au16_y[0],
 			event->au16_x[1], event->au16_y[1]);
+	input_sync(data->input_dev);
 }
 
 static void ft6x06_work_handler(struct work_struct *work)
@@ -366,6 +367,7 @@ static void ft6x06_work_handler(struct work_struct *work)
 static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
+	//printk("in ts_interrupt\n");
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0
@@ -418,7 +420,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	int err = 0;
 	unsigned char uc_reg_value;
 	unsigned char uc_reg_addr;
-	
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
@@ -441,6 +443,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	ft6x06_ts->y_max = pdata->y_max - 1;
 	ft6x06_ts->va_x_max = pdata->va_x_max - 1;
 	ft6x06_ts->va_y_max = pdata->va_y_max - 1;
+
 #ifdef CONFIG_PM
 	err = gpio_request(pdata->reset, "ft6x06 reset");
 	if (err < 0) {
@@ -458,6 +461,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 		goto exit_request_fail;
 	}
 	gpio_direction_input(pdata->irq);
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	ft6x06_ts->vcc_reg = regulator_get(NULL, "vlcd");
 	if (IS_ERR(ft6x06_ts->vcc_reg)) {
 		dev_err(&client->dev, "failed to get VCC regulator.");
@@ -465,7 +469,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 		goto exit_request_reset;
 	}
 	regulator_enable(ft6x06_ts->vcc_reg);
-
+#endif
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		err = -ENOMEM;
@@ -559,15 +563,15 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	uc_reg_addr = FT6x06_REG_G_MODE;
 	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] G_MODE = 0x%x\n", uc_reg_value);
-	
+
 	uc_reg_addr = FT6x06_REG_P_MODE;
 	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] POWER_MODE = 0x%x\n", uc_reg_value);
-	
+
 	uc_reg_addr = FT6x06_REG_STATE;
 	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] STATE = 0x%x\n", uc_reg_value);
-	
+
 	uc_reg_addr = FT6x06_REG_CTRL;
 	ft6x06_i2c_Read(client, &uc_reg_addr, 1, &uc_reg_value, 1);
 	dev_dbg(&client->dev, "[FTS] CTRL = 0x%x\n", uc_reg_value);
@@ -612,11 +616,12 @@ exit_request_fail:
 #endif
 
 exit_input_dev_alloc_failed:
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	if (!IS_ERR(ft6x06_ts->vcc_reg)) {
 		regulator_disable(ft6x06_ts->vcc_reg);
 		regulator_put(ft6x06_ts->vcc_reg);
 	}
-
+#endif
 	i2c_set_clientdata(client, NULL);
 	kfree(ft6x06_ts);
 
@@ -641,12 +646,12 @@ static int __devexit ft6x06_ts_remove(struct i2c_client *client)
 	ft_rw_iic_drv_exit();
 	#endif
 	free_irq(client->irq, ft6x06_ts);
-
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	if (!IS_ERR(ft6x06_ts->vcc_reg)) {
 		regulator_disable(ft6x06_ts->vcc_reg);
 		regulator_put(ft6x06_ts->vcc_reg);
 	}
-
+#endif
 	kfree(ft6x06_ts);
 	i2c_set_clientdata(client, NULL);
 	return 0;

@@ -15,7 +15,6 @@
 #include <mach/platform.h>
 #include <mach/jz_efuse.h>
 #include <gpio.h>
-#include <linux/i2c/ft6x06_ts.h>
 #include "board.h"
 
 #if defined(CONFIG_INV_MPU_IIO)
@@ -130,7 +129,7 @@ static struct platform_device jz_li_ion_charger_device = {
 #endif
 
 /*touchscreen*/
-#ifdef CONFIG_JZ4785_SUPPORT_TSC
+#ifdef CONFIG_M200_SUPPORT_TSC
 
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct jztsc_pin fpga_tsc_gpio[] = {
@@ -146,6 +145,7 @@ static struct jztsc_platform_data fpga_tsc_pdata = {
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
+#include <linux/i2c/ft6x06_ts.h>
 static struct ft6x06_platform_data ft6x06_tsc_pdata = {
 		.x_max          = 300,
 		.y_max          = 540,
@@ -157,7 +157,7 @@ static struct ft6x06_platform_data ft6x06_tsc_pdata = {
 };
 #endif
 
-#endif /*CONFIG_JZ4785_SUPPORT_TSC*/
+#endif
 
 #if defined(CONFIG_INV_MPU_IIO)
 static struct regulator *inv_mpu_power_vdd = NULL;
@@ -312,7 +312,7 @@ static struct mpu_platform_data mpu9250_platform_data = {
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V12))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 
-#ifdef CONFIG_JZ4785_SUPPORT_TSC
+#ifdef CONFIG_M200_SUPPORT_TSC
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 	{
 	 I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
@@ -326,7 +326,7 @@ static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		.platform_data = &ft6x06_tsc_pdata,
 	},
 #endif
-#endif /*CONFIG_JZ4785_SUPPORT_TSC*/
+#endif /*CONFIG_M200_SUPPORT_TSC*/
 #if defined(CONFIG_INV_MPU_IIO)
 	{
 		I2C_BOARD_INFO("mpu6500", 0x68),
