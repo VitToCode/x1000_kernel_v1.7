@@ -617,6 +617,7 @@ CONFIG_MISC_DEVICES=y
 # CONFIG_APANIC is not set
 # CONFIG_JZ_X2D is not set
 # CONFIG_JZ_VPU is not set
+CONFIG_JZ_VPU_V12=y
 # CONFIG_C2PORT is not set
 
 #

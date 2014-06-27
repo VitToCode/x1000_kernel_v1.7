@@ -5,7 +5,7 @@
 EXTRA_CFLAGS    += -Idrivers/nand/manager/inc/ \
 		   -Idrivers/nand/manager/inc/linux/ \
 		   -Idrivers/nand/manager/lib/inc/  \
-		   -Idrivers/nand/inc/ 
+		   -Idrivers/nand/inc/
 
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o
@@ -61,6 +61,7 @@ obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-y				+= jz_cim/
 obj-$(CONFIG_JZ_X2D)    	+= jz_x2d/
 obj-$(CONFIG_JZ_VPU)		+= jz_vpu.o
+obj-$(CONFIG_JZ_VPU_V12)	+= jz_vpu_v12.o
 obj-$(CONFIG_JZ_DMMU)           += jz_dmmu/
 obj-$(CONFIG_JZ_PWM)            += jz_pwm.o
 obj-$(CONFIG_JZ_MODEM)		+= jz_modem/

@@ -550,6 +550,11 @@ config JZ_VPU
 	help
 	  Support for Ingenic VPU muti-thread operations.
 
+config JZ_VPU_V12
+	bool "VPU driver v12 for Ingenic m200"
+	help
+	  Support for Ingenic VPU muti-thread operations.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -618,7 +623,7 @@ config GSM_RDA8851CL
 
 config TD_SC8800S
         tristate "Spectrum SC8800S"
-        depends on SPI 
+        depends on SPI
         help
            TD tu830 modem
 
