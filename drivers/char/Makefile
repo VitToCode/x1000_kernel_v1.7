@@ -64,4 +64,5 @@ obj-$(CONFIG_RAMOOPS)		+= ramoops.o
 
 obj-$(CONFIG_JS_RTC)		+= js-rtc.o
 obj-$(CONFIG_OPERATE_GPIO)	+= operate_gpio.o
+obj-$(CONFIG_JZ_VP)		+= jz_virtual_privilege.o
 js-rtc-y = rtc.o
