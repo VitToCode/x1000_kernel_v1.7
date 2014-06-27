@@ -1239,6 +1239,41 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	int next_frm;
 	unsigned int tmp = 0;
 	struct jzfb *jzfb = info->par;
+
+	{/*debug*/
+		static struct timespec time_now, time_last;
+		struct timespec time_interval;
+		long long  interval_in_ns;
+		unsigned int interval_in_ms;
+		static unsigned int fpsCount = 0;
+
+		jzfb->pan_display_count++;
+		if(showFPS){
+			switch(showFPS){
+				case 1:
+					fpsCount++;
+					time_now = current_kernel_time();
+					time_interval = timespec_sub(time_now, time_last);
+					interval_in_ns = timespec_to_ns(&time_interval);
+					if ( interval_in_ns > SPEC_TIME_IN_NS ) {
+						printk(KERN_DEBUG " Pan display FPS: %d\n",fpsCount);
+						fpsCount = 0;
+						time_last = time_now;
+					}
+					break;
+				case 2:
+					time_now = current_kernel_time();
+					time_interval = timespec_sub(time_now, time_last);
+					interval_in_ns = timespec_to_ns(&time_interval);
+					interval_in_ms = (unsigned long)interval_in_ns/1000000;
+					printk(KERN_DEBUG " Pan display interval: %d\n",interval_in_ms);
+					time_last = time_now;
+					break;
+				default:
+					break;
+			}
+		}
+	}/*end debug*/
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev, "No support for X panning for now\n");
 		return -EINVAL;
@@ -2283,12 +2318,54 @@ vsync_skip_w(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static struct device_attribute lcd_sysfs_attrs[] = {
-	__ATTR(dump_lcd, S_IRUGO | S_IWUSR, dump_lcd, NULL),
-	__ATTR(dump_h_color_bar, S_IRUGO | S_IWUSR, dump_h_color_bar, NULL),
-	__ATTR(dump_v_color_bar, S_IRUGO | S_IWUSR, dump_v_color_bar, NULL),
-	__ATTR(vsync_skip, S_IRUGO | S_IWUSR, vsync_skip_r, vsync_skip_w),
+static ssize_t fps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk("\n-----you can choice print way:\n");
+	printk("Example: echo NUM > show_fps\n");
+	printk("NUM = 0: close fps statistics\n");
+	printk("NUM = 1: print recently fps\n");
+	printk("NUM = 2: print interval between last and this pan_display\n");
+	printk("NUM = 3: print pan_display count\n\n");
+	return 0;
+}
+
+static ssize_t fps_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	int num = 0;
+	num = simple_strtoul(buf, NULL, 0);
+	if(num < 0 || num > 3){
+		printk("\n--please 'cat show_fps' to view using the method\n\n");
+		return n;
+	}
+	showFPS = num;
+	if(showFPS == 3)
+		printk(KERN_DEBUG " Pand display count=%d\n",jzfb->pan_display_count);
+	return n;
+}
+/**********************lcd_debug***************************/
+static DEVICE_ATTR(dump_lcd, S_IRUGO|S_IWUSR, dump_lcd, NULL);
+static DEVICE_ATTR(dump_h_color_bar, S_IRUGO|S_IWUSR, dump_h_color_bar, NULL);
+static DEVICE_ATTR(dump_v_color_bar, S_IRUGO|S_IWUSR, dump_v_color_bar, NULL);
+static DEVICE_ATTR(vsync_skip, S_IRUGO|S_IWUSR, vsync_skip_r, vsync_skip_w);
+static DEVICE_ATTR(show_fps, S_IRUGO|S_IWUSR, fps_show, fps_store);
+
+static struct attribute *lcd_debug_attrs[] = {
+	&dev_attr_dump_lcd.attr,
+	&dev_attr_dump_h_color_bar.attr,
+	&dev_attr_dump_v_color_bar.attr,
+	&dev_attr_vsync_skip.attr,
+	&dev_attr_show_fps.attr,
+	NULL,
 };
+
+const char lcd_group_name[] = "debug";
+static struct attribute_group lcd_debug_attr_group = {
+	.name	= lcd_group_name,
+	.attrs	= lcd_debug_attrs,
+};
+
 
 void test_pattern(struct jzfb *jzfb)
 {
@@ -2423,7 +2500,21 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	fb->var.height = pdata->height;
 	fb->var.bits_per_pixel = pdata->bpp;
 
-	jzfb->fmt_order = FORMAT_X8R8G8B8;
+        /* Android generic FrameBuffer format is A8B8G8R8(B3B2B1B0), so we set A8B8G8R8 as default.
+         *
+         * If set rgb order as A8B8G8R8, both SLCD cmd_buffer and data_buffer bytes sequence changed.
+         * so remain slcd format X8R8G8B8, until fix this problem.(<lgwang@ingenic.cn>, 2014-06-20)
+         */
+#ifdef CONFIG_ANDROID
+        if (pdata->lcd_type == LCD_TYPE_LCM) {
+            jzfb->fmt_order = FORMAT_X8R8G8B8;
+        }
+        else {
+            jzfb->fmt_order = FORMAT_X8B8G8R8;
+        }
+#else
+        jzfb->fmt_order = FORMAT_X8R8G8B8;
+#endif
 
 	jzfb_check_var(&fb->var, fb);
 
@@ -2457,11 +2548,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	register_early_suspend(&jzfb->early_suspend);
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		ret = device_create_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-		if (ret)
-			break;
-	}
+	ret = sysfs_create_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 	if (ret) {
 		dev_err(&pdev->dev, "device create file failed\n");
 		ret = -EINVAL;
