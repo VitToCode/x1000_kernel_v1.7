@@ -9,7 +9,7 @@
 #define NUM_FRAME_BUFFERS 3
 #endif
 
-#define PIXEL_ALIGN 16
+#define PIXEL_ALIGN 4
 #define MAX_DESC_NUM 4
 
 /**
@@ -129,6 +129,7 @@ struct jzfb {
 	struct early_suspend early_suspend;
 #endif
 	int is_suspend;
+	unsigned int pan_display_count;
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)

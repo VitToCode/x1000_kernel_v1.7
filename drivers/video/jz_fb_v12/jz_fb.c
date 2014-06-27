@@ -55,6 +55,7 @@ static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
 
+static int showFPS = 0;
 static struct jzfb *jzfb;
 static const struct fb_fix_screeninfo jzfb_fix __devinitdata = {
 	.id = "jzfb",
@@ -1234,6 +1235,7 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 	}
 }
 
+#define SPEC_TIME_IN_NS (1000*1000000)  /* 1s */
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	int next_frm;
@@ -2404,7 +2406,6 @@ void test_pattern(struct jzfb *jzfb)
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int i;
 	struct fb_info *fb;
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
 	struct fb_videomode *video_mode;
@@ -2550,7 +2551,8 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	ret = sysfs_create_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 	if (ret) {
-		dev_err(&pdev->dev, "device create file failed\n");
+		dev_err(&pdev->dev, "device create sysfs group failed\n");
+
 		ret = -EINVAL;
 		goto err_free_irq;
 	}
@@ -2590,9 +2592,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 err_kthread_stop:
 	kthread_stop(jzfb->vsync_thread);
 err_free_file:
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-	}
+	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&jzfb->early_suspend);
 #endif
@@ -2621,7 +2621,6 @@ err_release_mem_region:
 static int __devexit jzfb_remove(struct platform_device *pdev)
 {
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
-	int i;
 
 	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
@@ -2630,9 +2629,7 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	clk_put(jzfb->pclk);
 	clk_put(jzfb->clk);
 
-	for (i = 0; i < ARRAY_SIZE(lcd_sysfs_attrs); i++) {
-		device_remove_file(&pdev->dev, &lcd_sysfs_attrs[i]);
-	}
+	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&jzfb->early_suspend);
