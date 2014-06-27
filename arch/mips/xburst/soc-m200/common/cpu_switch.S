@@ -22,11 +22,20 @@
 #define TLB_SAVE_RESTORE 1
 
 	.data
-	.extern _regs_stack
-	.extern _tlb_entry_regs
-	.extern _wait_flags
-	.extern _ready_flags
-
+	.global _regs_stack
+_regs_stack:
+	.space 64 * 4,0
+	.global _tlb_entry_regs
+_tlb_entry_regs:
+	.space 32 * 3 * 4 + 32,0
+	.global	_wait_flag
+	.align  5
+_wait_flag:
+	.space 32,0
+	.global	_ready_flag
+	.align  5
+_ready_flag:
+	.space 32,0
 	.text
 	.global	save_goto
 	.align	2
@@ -199,14 +208,6 @@ restore_goto:
 
 	la	t0, _regs_stack
 
-	/* restore CTRL:RPC */
-	mfc0	k0, CORE_CTRL
-	li	k1, 0xfffff0ff
-	and	k0, k0, k1
-	lw	k1, 51*4(t0)
-	or	k0, k0, k1
-	mtc0	k0, CORE_CTRL
-
 	/* restore regs */
 	lw	s0, 0*4(t0)
 	lw	s1, 1*4(t0)
@@ -240,27 +241,6 @@ switch_cpu:
 	.set	noreorder
 	.set	noat
 
-	/* mask current cpu irq_INTC */
-	mfc0	v0, CP0_EBASE
-	andi	v0, v0,0x3ff   //v0 is the cpu No.
-
-	mfc0	t8, CORE_REIM
-
-	lui	t3, 0xffff
-	beqz	v0, 1f
-	nop
-	ori	t3, 0xfdff	// mask irq cpu1
-	and	t8, t8, t3
-	ori	t8, 0x100	// unmask irq cpu0
-	b	2f
-	nop
-
-1:
-	ori	t3, 0xfeff	// mask irq cpu0
-	and	t8, t8, t3
-	ori	t8, 0x200	// unmask irq cpu1
-2:
-	mtc0	t8, CORE_REIM
 #if PMON_DEBUG
 
 /*in debug this is the time for old core before flush cache */
@@ -319,29 +299,48 @@ switch_cpu:
 	addiu	t0, t0, 32
 	sync
 #endif
+#ifdef SW_DEBUG
+	jal flush_cache_all_1
+	nop
 
-
+	la  a0,0x12345678
+	jal show_message
+	nop
+#endif
+#if 1
 /* wait for ready flag */
 	la	k0, _wait_flag
 	li	k1, 0x20000000
 	add	k0, k0, k1
 wait_wait_ready:
 	lw	k1, 0(k0)
+	nop
 	beq	k1, zero ,wait_wait_ready
 	nop
-
 	sw  zero, 0(k0)
-
+#endif
+#ifdef SW_DEBUG
+	la  a0,0x12345677
+	jal show_message
+	nop
+#endif
 #if READY_FLAG
 /* after flush cache ,we set ready flag */
 	la	k0, _ready_flag
 	li	k1, 0x20000000
 	add	k0, k0, k1
+#ifdef SW_DEBUG
+	lw     a0, 0(k0)
+	jal show_message
+	nop
+#endif
 	li	k1, 1
 	sw	k1, 0(k0)
 #endif
-
+loopwait:
 	wait			// cpu0/1 wait is closed
+	b loopwait
+	nop
 	/* ------------------cpu switch end --------------------------*/
 
 	.set	reorder
@@ -362,6 +361,13 @@ _start_secondary:
 	.set	push
 	.set	noat
 	.set	noreorder
+#ifdef SW_DEBUG
+	la t0,0x10000
+aaaaa:
+	addiu  t0,-1
+	bne    t0,zero,aaaaa
+	nop
+#endif
 
 	/* tell old cpu i'm up uncache write*/
 	la	t0, _wait_flag
@@ -461,6 +467,7 @@ wait_ready:
 	lw	k1, 0(k0)
 	beq	k1, zero ,wait_ready
 	nop
+	sw	zero, 0(k0)
 
 #if PMON_DEBUG
 	/* clear pmon */
@@ -477,8 +484,11 @@ wait_ready:
 #endif
 	mtc0	v1, CORE_CTRL
 //	sw	t6, 0(t7)
-	sw	zero, 0(k0)
-
+#ifdef SW_DEBUG
+	la  a0,0x12345676
+	jal show_message
+	nop
+#endif
 	la	k0,restore_goto
 	jr	k0
 	nop

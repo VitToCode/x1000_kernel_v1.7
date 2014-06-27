@@ -16,21 +16,13 @@ obj-y += platform.o
 
 obj-y += clk/
 
-obj-y += jz_big_little_switch.o cpu_switch.o
-
-
-ifeq ($(CONFIG_PM_POWERDOWN_P0),y)
 obj-y += pm_p0.o
-else
-obj-y += pm.o
-endif
 
 obj-$(CONFIG_USB_SUPPORT) += cpm_usb.o
 
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
-ifeq ($(CONFIG_CPU_FREQ),y)
-obj-$(CONFIG_JZ_BIG_LITTLE_SWITCH) += jz_big_little_switch.o cpu_switch.o
-endif
+obj-y += jz_big_little_switch.o cpu_switch.o
+obj-$(SW-DEBUG) +=  cpu_switch_debug.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o

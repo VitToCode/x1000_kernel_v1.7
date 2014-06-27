@@ -1,6 +1,6 @@
 #ifndef __CHIP_CACHE_H__
 #define __CHIP_CACHE_H__
-
+#include <asm/cacheops.h>
 #define cache_prefetch(label,l2)					\
 do{									\
 	unsigned long addr,end;						\

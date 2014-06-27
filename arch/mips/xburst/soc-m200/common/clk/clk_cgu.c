@@ -3,14 +3,11 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-
-#include <asm/cacheops.h>
 #include <soc/cache.h>
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
 #include "clk.h"
-
 static DEFINE_SPINLOCK(cpm_cgu_lock);
 struct clk_selectors {
 	unsigned int route[4];
@@ -412,7 +409,7 @@ void __init init_cgu_clk(struct clk *clk)
 {
 	int no;
 	int id;
-
+	printk("REG32(0xb3012088) = %x\n",REG32(0xb3012088));
 	REG32(0xb3012088) |= 4 << 16;
 	if (clk->flags & CLK_FLG_PARENT) {
 		id = CLK_PARENT(clk->flags);

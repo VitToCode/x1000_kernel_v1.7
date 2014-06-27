@@ -1,19 +1,12 @@
-#include <linux/types.h>
+
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/delay.h>
-#include <linux/init.h>
-#include <linux/err.h>
-#include <linux/clk.h>
-#include <linux/io.h>
-#include <linux/opp.h>
-#include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
-#include <linux/syscalls.h>
-#include <linux/kthread.h>
 #include <linux/proc_fs.h>
+#include <linux/clk.h>
 
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
@@ -22,26 +15,161 @@
 #include <asm/cpu.h>
 #include <smp_cp0.h>
 
-int _regs_stack[64];
-int _tlb_entry_regs[32 * 3 + 4];
-int _ready_flag;
-int _wait_flag;
-
-spinlock_t switch_lock;
-struct clk *p0_clk;
-struct clk *p1_clk;
-static unsigned int little_max, big_min;
-static unsigned int cpu_proc;
+/* int _regs_stack[64]; */
+/* int _tlb_entry_regs[32 * 3 + 4]; */
+/* int _ready_flag; */
+/* int _wait_flag; */
 
 extern long long save_goto(unsigned int);
 extern void switch_cpu(void);
 extern void _start_secondary(void);
 
-int change_cpu_init(unsigned int freqs_max, unsigned int freqs_min)
+static struct cpu_core_ctrl
+{
+	unsigned int coreid;
+	unsigned int rate;
+	unsigned int target_coreid; //temp use this var
+	unsigned int up_limit;
+	unsigned int down_limit;
+	spinlock_t switch_lock;
+	struct clk *clk[2];
+	unsigned int used_sw_core;
+	struct workqueue_struct *sw_core_q;
+	struct work_struct work;
+} sw_core = {
+	.up_limit = 300*1000*1000,
+	.down_limit = 150*1000*1000,
+	.used_sw_core = 1,
+};
+
+#define core_clk_enable(clk,id)			\
+	do{					\
+		if(clk[id])			\
+			clk_enable(clk[id]);	\
+	}while(0)
+#define core_clk_disable(clk,id)		\
+	do{					\
+		if(clk[id])			\
+			clk_disable(clk[id]);	\
+	}while(0)
+static int reset_core(int cpuid)
+{
+
+	unsigned int ctrl;
+	/*
+	 * first we save the CTRL.RPC and set RPC = 1
+	 * set SW_RSTX = 1 keep reset another cpu
+	 */
+	ctrl = get_smp_ctrl();
+	ctrl |= (1 << cpuid);
+	printk("ctrl0 = %x\n",ctrl);
+	set_smp_ctrl(ctrl);
+
+	/*
+	 * then start another cpu
+	 * hardware request!!!
+	 */
+	ctrl = get_smp_ctrl();
+	ctrl &= ~(1 << cpuid);
+	printk("ctrl0 = %x\n",ctrl);
+	set_smp_ctrl(ctrl);
+	printk("status 0x%08x\n",get_smp_status());
+	return 0;
+}
+
+static void stop_core(int cpuid)
+{
+	unsigned int tmp;
+	tmp = get_smp_ctrl();
+	tmp |= (1 << cpuid);
+	set_smp_ctrl(tmp);
+}
+static void core_interrupt(int cpuid,int mask)
+{
+	unsigned int tmp;
+	tmp = get_smp_reim();
+	if(mask)
+		tmp &= ~(1 << (cpuid + 8));
+	else
+		tmp |= 1 << (cpuid + 8);
+	set_smp_reim(tmp);
+	printk("reim = %x\n",get_smp_reim());
+
+}
+void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate)
+{
+	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
+	core->target_coreid = -1;
+	printk("cur_coreid = %d\n", core->coreid);
+	if(core->used_sw_core){
+		if(core->coreid == 1){
+			if(target_rate > core->up_limit && cur_rate <= core->up_limit) {
+				core_interrupt(0,0);
+				core_clk_enable(core->clk,0);
+				reset_core(0);
+				core->target_coreid = 0;
+			}
+
+		}else{
+			if(target_rate < core->down_limit && cur_rate >= core->down_limit) {
+				core_interrupt(1,1);
+				core_clk_enable(core->clk,1);
+				reset_core(1);
+				core->target_coreid = 1;
+			}
+		}
+	}
+}
+static void switch_core_work(struct work_struct *work)
+{
+	unsigned long flags;
+	int cpu_no;
+	unsigned int tmp;
+	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)container_of(work,struct cpu_core_ctrl,work);
+	spin_lock_irqsave(&core->switch_lock, flags);
+	tmp = get_smp_reim();
+	tmp &= ~(3 << 8);
+	set_smp_reim(tmp);
+
+	//local_flush_tlb_all();
+	save_goto((unsigned int)switch_cpu);
+	spin_unlock_irqrestore(&core->switch_lock, flags);
+	cpu_no = read_c0_ebase() & 1;
+	if(core->target_coreid == cpu_no) {
+		stop_core(core->coreid);
+		core_clk_disable(core->clk,core->coreid);
+		core_interrupt(core->target_coreid,0);
+		core->coreid = core->target_coreid;
+		printk("convert to id %d\n",core->target_coreid);
+	}else {
+		printk("convert core fail!\n");
+		BUG_ON(1);
+	}
+	printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
+	printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
+
+}
+void switch_core(void *handle)
+{
+	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
+	if(core->target_coreid != -1) {
+		printk("queue_work\n");
+		queue_work(core->sw_core_q,&core->work);
+		flush_work_sync(&core->work);
+	}
+}
+extern unsigned int _wait_flag;
+extern unsigned int _ready_flag;
+static int __init switch_cpu_init(struct cpu_core_ctrl *pcore)
 {
 	unsigned int scpu_start_addr = 0, i, j;
 	unsigned int *tmp;
 	unsigned long flags;
+	pcore->sw_core_q = create_singlethread_workqueue("sw_core");
+	if(!pcore->sw_core_q)
+		return -ENOMEM;
+
+	INIT_WORK(&pcore->work,switch_core_work);
 
 #define MAX_REQUEST_ALLOC_SIZE 4096
 	tmp = (unsigned int *)kmalloc(MAX_REQUEST_ALLOC_SIZE, GFP_KERNEL);
@@ -58,145 +186,39 @@ int change_cpu_init(unsigned int freqs_max, unsigned int freqs_min)
 		free_page(tmp[j]);
 	local_irq_restore(flags);
 
+	pcore->clk[0] = clk_get(NULL, "p0");
+	if (IS_ERR(pcore->clk[0])) {
+		printk("get p0clk fail!\n");
+		pcore->clk[0] = NULL;
+	}
+
+	pcore->clk[1] = clk_get(NULL, "p1");
+	if (IS_ERR(pcore->clk[1])) {
+		printk("get p1clk fail!\n");
+		pcore->clk[1] = NULL;
+	}
+	core_clk_enable(pcore->clk,pcore->coreid);
 	printk("the secondary cpu base addr is %x\n", scpu_start_addr);
 	BUG_ON(scpu_start_addr == 0);
 	kfree(tmp);
+	memcpy((void *)scpu_start_addr, (void *)_start_secondary, 0x1000);
 
-	memcpy((void *)scpu_start_addr, (void *)_start_secondary, 0xC0 * 4);
 	/* we need flush L2CACHE */
-	dma_cache_sync(NULL, (void *)scpu_start_addr, 0x300, DMA_TO_DEVICE);
-
+	dma_cache_sync(NULL, (void *)scpu_start_addr, 0x1000, DMA_TO_DEVICE);
+	dma_cache_sync(NULL, (void *)&_wait_flag, 32, DMA_TO_DEVICE);
+	dma_cache_sync(NULL, (void *)&_ready_flag, 32, DMA_TO_DEVICE);
+	{
+		unsigned int ctrl;
+		ctrl = get_smp_ctrl();
+		ctrl |= (3 << 8);
+		set_smp_ctrl(ctrl);
+	}
 	set_smp_reim((scpu_start_addr & 0xffff0000) | 0x1ff);
-
-	spin_lock_init(&switch_lock);
-
-	p0_clk = clk_get(NULL, "p0");
-	if (IS_ERR(p0_clk)) {
-		printk("get p0clk fail!\n");
-		return -1;
-	}
-	clk_enable(p0_clk);
-
-	p1_clk = clk_get(NULL, "p1");
-	if (IS_ERR(p1_clk)) {
-		printk("get p0clk fail!\n");
-		clk_put(p0_clk);
-		return -1;
-	}
-
-	little_max = freqs_max;
-	big_min = freqs_min;
+	spin_lock_init(&pcore->switch_lock);
+	pcore->coreid = read_c0_ebase() & 1;
 
 	return 0;
 }
-
-static int power_on_another_cpu(int cpu)
-{
-	if (0 == cpu)
-		clk_enable(p1_clk);
-	else
-		clk_enable(p0_clk);
-
-	return 0;
-}
-
-static int power_down_cpu(int cpu)
-{
-	if (0 == cpu)
-		clk_disable(p0_clk);
-	else
-		clk_disable(p1_clk);
-
-	return 0;
-}
-
-static int start_another_core(int cpu)
-{
-	volatile unsigned int ctrl;
-
-	/*
-	 * first we save the CTRL.RPC and set RPC = 1
-	 * set SW_RSTX = 1 keep reset another cpu
-	 */
-	ctrl = get_smp_ctrl();
-	_regs_stack[51] = ctrl & (0x3 << 8);
-	ctrl |= (0x3 << 8);
-
-	if (0 == cpu)
-		ctrl |= 0x2;
-	else
-		ctrl |= 0x1;
-	set_smp_ctrl(ctrl);
-
-	/*
-	 * then start another cpu
-	 * hardware request!!!
-	 */
-	ctrl = get_smp_ctrl();
-	if(0 == cpu)
-		ctrl &= ~(0x2);
-	else
-		ctrl &= ~(0x1);
-	set_smp_ctrl(ctrl);
-
-	return 0;
-}
-
-int is_need_switch(struct clk *cpu_clk, unsigned int freqs_new,
-		   unsigned int freqs_old)
-{
-	volatile int cpu_no;
-	int ret = 0, need_switch = 0;
-#ifndef CONFIG_FPGA_TEST
-	unsigned long flags;
-#endif
-
-	if(!cpu_proc)
-		return need_switch;
-
-	cpu_no = read_c0_ebase() & 1;
-	if ((freqs_old >= big_min) && (freqs_new < big_min) && (cpu_no == 0)) {
-		need_switch = 1;
-		power_on_another_cpu(cpu_no);
-#ifndef CONFIG_FPGA_TEST
-		spin_lock_irqsave(&switch_lock, flags);
-		ret = clk_set_rate(cpu_clk, big_min * 1000);
-		spin_unlock_irqrestore(&switch_lock, flags);
-#endif
-		start_another_core(cpu_no);
-	} else if ((freqs_old <= little_max) && (freqs_new > little_max) && (cpu_no == 1)) {
-		need_switch = 1;
-		power_on_another_cpu(cpu_no);
-#ifndef CONFIG_FPGA_TEST
-		spin_lock_irqsave(&switch_lock, flags);
-		ret = clk_set_rate(cpu_clk, little_max * 1000);
-		spin_unlock_irqrestore(&switch_lock, flags);
-#endif
-		start_another_core(cpu_no);
-	}
-	if(ret < 0) {
-		printk("clk set rate fail\n");
-		return ret;
-	}
-	return need_switch;
-}
-
-void jz_switch_cpu(void)
-{
-	unsigned long flags;
-	int cpu_no;
-
-	cpu_no = read_c0_ebase() & 1;
-
-	spin_lock_irqsave(&switch_lock, flags);
-	save_goto((unsigned int)switch_cpu);
-	spin_unlock_irqrestore(&switch_lock, flags);
-	power_down_cpu(cpu_no);
-
-	printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
-	printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
-}
-
 /* ------------------------------cpu switch proc------------------------------- */
 static void get_str_from_user(unsigned char *str, int strlen,
 			      const char *buffer, unsigned long count)
@@ -263,7 +285,6 @@ static int cpu_wait_proc_write(struct file *file, const char __user *buffer,
 			       unsigned long count, void *data)
 {
 	char str[10];
-
 	get_str_from_user(str,10,buffer,count);
 	if(strlen(str) > 0) {
 		if (strncmp(str, "wait", 5) == 0) {
@@ -276,7 +297,6 @@ static int cpu_switch_read_proc(char *page, char **start, off_t off,
 				int count, int *eof, void *data)
 {
 	int cpu_no, len;
-
 	cpu_no = read_c0_ebase() & 1;
 	len = sprintf(page,"current cpu status is %s cpu\n", !cpu_no? "big" : "little");
 
@@ -285,39 +305,39 @@ static int cpu_switch_read_proc(char *page, char **start, off_t off,
 
 static int cpu_switch_write_proc(struct file *file, const char __user *buffer,unsigned long count, void *data)
 {
+	struct cpu_core_ctrl *p = (struct cpu_core_ctrl *)data;
 	if(count && (buffer[0] == '1'))
-		cpu_proc = 1;
+		p->used_sw_core = 1;
 	else if(count && (buffer[0] == '0'))
-		cpu_proc = 0;
+		p->used_sw_core = 0;
 	else
 		printk("\"echo 1 > cpu_switch\" or \"echo 0 > cpu_switch \" ");
 	return count;
 }
-
-static int __init cpu_switch_proc(void)
+void* __init create_switch_core(void)
 {
 	struct proc_dir_entry *res,*p;
 
 	p = jz_proc_mkdir("cpu_switch");
 	if (!p) {
 		pr_warning("create_proc_entry for common cpu switch failed.\n");
-		return -ENODEV;
+		return NULL;
 	}
 	res = create_proc_entry("cpu_switch", 0600, p);
 	if (res) {
 		res->read_proc = cpu_switch_read_proc;
 		res->write_proc = cpu_switch_write_proc;
-		res->data =(void *)p;
-		cpu_proc = 1;
+		res->data = (void *) &sw_core;
 	}
 	res = create_proc_entry("wait", 0600, p);
 	if (res) {
 		res->read_proc = NULL;
 		res->write_proc = cpu_wait_proc_write;
-		res->data = (void *)p;
+		res->data = (void *) &sw_core;
 	}
+	if(switch_cpu_init(&sw_core) != 0){
+		return NULL;
+	}
+	return (void *)&sw_core;
 
-	return 0;
 }
-
-module_init(cpu_switch_proc);

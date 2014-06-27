@@ -3,7 +3,7 @@
 config JZ_CIM
 	bool "ingenic camera interface module"
 	depends on MACH_XBURST
-	default y
+	default n
 
 config JZ_CIM0
 	bool "Using Jz CIM Controller 0"

@@ -11,6 +11,9 @@
 #include <soc/extal.h>
 #include "clk.h"
 #define USE_PLL
+extern void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate);
+extern void switch_core(void *handle);
+extern void* __init create_switch_core(void);
 static DEFINE_SPINLOCK(cpm_cpccr_lock);
 struct cpccr_clk {
 	short off,sel,ce;
@@ -26,6 +29,7 @@ static struct cpccr_clk cpccr_clks[] = {
 	CPCCR_CLK(SCLKA,-1, -1,30),
 #undef CPCCR_CLK
 };
+static void *switch_core_handle;
 #define l2div_policy(rate,div) (rate > 200 * 1000 * 1000 ? div * 3 - 1 : div - 1)
 static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *parentclk,unsigned int cpccr) {
 	unsigned int parent_rate;
@@ -51,14 +55,14 @@ static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *pa
 	}
 
 	cache_prefetch(LAB5,LAB6);
+	fast_iob();
 LAB5:
 	cpccr &= ~((0xf << cpccr_clks[CDIV].off) | (0xf << cpccr_clks[L2CDIV].off));
 	cpccr |= ((cdiv << cpccr_clks[CDIV].off) | (l2div << cpccr_clks[L2CDIV].off));
 	cpccr |= (1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce);
 	cpm_outl(cpccr,CPM_CPCCR);
 	/* wait not busy */
-	while(cpm_inl(CPM_CPCSR) & 0x7);
-	cpm_inl(CPM_CPCCR);
+	while(cpm_inl(CPM_CPCSR) & 1);
 LAB6:
 	cpccr &= ~((1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce));
 	cpm_outl(cpccr,CPM_CPCCR);
@@ -85,7 +89,9 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 		cpccr_sel_src = cpccr >> 30;
 		if(rate > prate) {
 			clk->parent = get_clk_from_id(CLK_ID_APLL);
+			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
 			ret = clk_set_rate(clk->parent,rate);
+			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 			cpccr &= ~(3 << 30);
 			cpccr |= 1 << 30;
 			cpm_outl(cpccr,CPM_CPCCR);
@@ -140,6 +146,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			 *    1. switch to ddrsel & switch to 200M cclk
 			 */
 			cache_prefetch(LAB1,LAB2);
+			fast_iob();
 		LAB1:
 			tdiv = (ddr_pll_rate + 200 * 1000 * 1000 - 1) / (200 * 1000 * 1000);
 			tdiv = tdiv - 1;
@@ -147,10 +154,18 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			cpccr_temp |= cpccr_temp | (ddrsel << 28) | (tdiv << cpccr_clks[CDIV].off) | (tdiv << cpccr_clks[L2CDIV].off) ;
 			cpccr_temp |= (1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce);
 			cpm_outl(cpccr_temp,CPM_CPCCR);
-			cpm_inl(CPM_CPCCR);
+			while(cpm_inl(CPM_CPCSR) & 1);
+			//cpm_inl(CPM_CPCCR);
 		LAB2:
+			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
+			if(switch_core_handle)
+				prepare_switch_core(switch_core_handle,clk->rate,rate);
 			// 2. set pll freq
 			ret = clk_set_rate(parentclk,rate);
+			if(switch_core_handle)
+				switch_core(switch_core_handle);
+			spin_lock_irqsave(&cpm_cpccr_lock,flags);
+
 			if(ret != 0) {
 				/*
 				 *  3. switch to csel
@@ -170,6 +185,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				 *  3. switch to csel
 				 */
 				cache_prefetch(LAB3,LAB4);
+				fast_iob();
 			LAB3:
 				cpccr = cpm_inl(CPM_CPCCR);     // reread cpccr
 				cpccr_temp = cpccr | (1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce);
@@ -179,7 +195,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				cpm_outl(cpccr_temp,CPM_CPCCR);
 				cpccr_temp  &=  ~((1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce));
 				cpm_outl(cpccr_temp,CPM_CPCCR);
-				cpm_inl(CPM_CPCCR);
+				while(cpm_inl(CPM_CPCSR) & 1);
 			LAB4:
 				clk->rate = parentclk->rate;
 				get_clk_from_id(CLK_ID_L2CLK)->rate = parentclk->rate / (l2div + 1);
@@ -187,7 +203,16 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 
 		}
 #else
-		ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr);
+		{
+			unsigned int prev_rate = clk->rate;
+			ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr);
+			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
+			if(switch_core_handle) {
+				prepare_switch_core(switch_core_handle,prev_rate,rate);
+				switch_core(switch_core_handle);
+			}
+			spin_lock_irqsave(&cpm_cpccr_lock,flags);
+		}
 #endif
 		break;
 	default:
@@ -247,3 +272,13 @@ void __init init_cpccr_clk(struct clk *clk)
 	clk->rate = cpccr_get_rate(clk);
 	clk->ops = &clk_cpccr_ops;
 }
+static int __init init_switch_core(void)
+{
+	switch_core_handle = create_switch_core();
+	if(switch_core_handle == NULL) {
+		printk("switch core init error!\n");
+		return -ENODEV;
+	}
+	return 0;
+}
+module_init(init_switch_core);
