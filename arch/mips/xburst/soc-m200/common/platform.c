@@ -308,7 +308,7 @@ static struct resource jz_adc_resources[] = {
 
 
 struct platform_device jz_adc_device = {
-	.name   = "jz4785-adc",
+	.name   = "jz-adc",
 	.id = -1,
 	.num_resources  = ARRAY_SIZE(jz_adc_resources),
 	.resource   = jz_adc_resources,

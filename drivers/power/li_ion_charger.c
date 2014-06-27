@@ -20,17 +20,17 @@
 #include <linux/slab.h>
 
 #include <linux/delay.h>
-#include <linux/power/li-ion-charger.h>
-#include <linux/power/jz4780-battery.h>
+#include <linux/power/li_ion_charger.h>
+#include <linux/power/jz_battery.h>
 #include <linux/mfd/pmu-common.h>
 #include <linux/earlysuspend.h>
 
 
-#define pr_info
 
 struct li_ion_charger {
 	const struct li_ion_charger_platform_data *pdata;
-	unsigned int irq;
+	unsigned int irq_charge;
+	unsigned int irq_ac;
 	struct delayed_work work;
 	int online;
 	int status;
@@ -39,7 +39,7 @@ struct li_ion_charger {
 };
 
 
-
+#ifdef DEBUG
 static char* status_dbg(int status)
 {
 	switch (status) {
@@ -57,20 +57,20 @@ static char* status_dbg(int status)
 		return "ERROR";
 	}
 }
-
-static int is_ac_online(void)
+#endif
+static int is_ac_online(struct li_ion_charger *li_ion)
 {
-	union power_supply_propval ac_val;
-	struct power_supply *psy_ac = power_supply_get_by_name("ac");
-	psy_ac->get_property(psy_ac, POWER_SUPPLY_PROP_ONLINE, &ac_val);
-	return ac_val.intval;
+	return !gpio_get_value(li_ion->pdata->gpio_ac);
+}
+static int is_charge_online(struct li_ion_charger *li_ion)
+{
+	return !gpio_get_value(li_ion->pdata->gpio_charge);
 }
 
 static void update_battery(struct li_ion_charger *li_ion, int status)
 {
 	struct power_supply *psy_battery = power_supply_get_by_name("battery");
 	struct jz_battery *jz_battery = container_of(psy_battery, struct jz_battery, battery);
-
 	set_charger_offline(jz_battery, USB);
 	if (status == POWER_SUPPLY_STATUS_NOT_CHARGING)
 		set_charger_offline(jz_battery, AC);
@@ -85,40 +85,46 @@ static void li_ion_work(struct work_struct *work)
 	int status;
 	int online;
 
-        
 	li_ion = container_of(work, struct li_ion_charger, work.work);
 
+	online = is_ac_online(li_ion);
 
-
-
-	online = gpio_get_value(li_ion->pdata->gpio) ^ li_ion->pdata->gpio_active_low;
-	if (online != li_ion->online) {
-		status = online ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_NOT_CHARGING;
-		if (status == POWER_SUPPLY_STATUS_NOT_CHARGING && is_ac_online())
-			status = POWER_SUPPLY_STATUS_FULL;
-		if (li_ion->status != status) {
-			pr_info("li_ion: update status: %s -> %s\n",
-				status_dbg(li_ion->status), status_dbg(status));
-			li_ion->status = status;
-			update_battery(li_ion, status);//
-			power_supply_changed(&li_ion->charger);
-		}
-		li_ion->online = online;
+	status = online ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_NOT_CHARGING;
+	if (status == POWER_SUPPLY_STATUS_CHARGING && !is_charge_online(li_ion)){
+		status = POWER_SUPPLY_STATUS_FULL;
 	}
-        
-	enable_irq(li_ion->irq);
+
+	if ((li_ion->status != status)) {
+		li_ion->status = status;
+		update_battery(li_ion, status);
+		power_supply_changed(&li_ion->charger);
+	}
+
+	li_ion->online = online;
+
+	enable_irq(li_ion->irq_ac);
 }
-
-
 
 static irqreturn_t li_ion_irq(int irq, void *devid)
 {
 	struct li_ion_charger *li_ion = devid;
 
-	disable_irq_nosync(li_ion->irq);
+	if(irq == li_ion->irq_ac){
+		disable_irq_nosync(li_ion->irq_ac);
+
+		if(is_ac_online(li_ion))
+			enable_irq(li_ion->irq_charge);
+
+		else if(!is_ac_online(li_ion))
+			disable_irq_nosync(li_ion->irq_charge);
+
+	}
+
 	schedule_delayed_work(&li_ion->work, msecs_to_jiffies(200));
 	return IRQ_HANDLED;
 }
+
+
 
 static inline struct li_ion_charger *psy_to_li_ion(struct power_supply *psy)
 {
@@ -145,13 +151,13 @@ static void li_ion_external_power_changed(struct power_supply *psy)
 {
 	struct li_ion_charger *li_ion = psy_to_li_ion(psy);
 
-	if (li_ion->status == POWER_SUPPLY_STATUS_FULL && !is_ac_online()) {
-		pr_info("li_ion: ac offline: FULL -> NOT_CHARGING\n");
+	if (li_ion->status == POWER_SUPPLY_STATUS_FULL && !is_ac_online(li_ion)) {
+		pr_debug("li_ion: ac offline: FULL -> NOT_CHARGING\n");
 		li_ion->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		update_battery(li_ion, li_ion->status);//
 		power_supply_changed(&li_ion->charger);
 	} else
-		pr_info("li_ion: ac changed (skip)\n");
+		pr_debug("li_ion: ac changed (skip)\n");
 
 }
 
@@ -169,7 +175,7 @@ static int get_pmu_status(void *pmu_interface, int status)
 
 	switch (status) {
 	case AC:
-		return is_ac_online();
+		return is_ac_online(li_ion);
 	case USB:
 		return 0;
 	case STATUS:
@@ -182,7 +188,7 @@ static void pmu_work_enable(void *pmu_interface)
 {
 	struct li_ion_charger *li_ion = (struct li_ion_charger *)pmu_interface;
 
-	pr_info("li_ion: pmu_work_enable\n");
+	pr_debug("li_ion: p_ion->workmu_work_enable\n");
 	schedule_delayed_work(&li_ion->work, msecs_to_jiffies(200));
 }
 
@@ -191,7 +197,6 @@ static void li_ion_callback_init(struct li_ion_charger *li_ion)
 	struct power_supply *psy = power_supply_get_by_name("battery");
 	struct jz_battery *jz_battery;
 	jz_battery = container_of(psy, struct jz_battery, battery);
-
 	jz_battery->pmu_interface = li_ion;
 	jz_battery->get_pmu_status = get_pmu_status;
 	jz_battery->pmu_work_enable = pmu_work_enable;
@@ -202,13 +207,15 @@ static void li_ion_early_suspend(struct early_suspend *early_suspend)
 {
 	struct li_ion_charger *li_ion ;
 	li_ion = container_of(early_suspend, struct li_ion_charger, early_suspend);
-	disable_irq_nosync(li_ion->irq);
+	disable_irq_nosync(li_ion->irq_ac);
+	disable_irq_nosync(li_ion->irq_charge);
 }
 static void li_ion_late_resume(struct early_suspend *early_suspend)
 {
 	struct li_ion_charger *li_ion ;
-	li_ion = container_of(early_suspend, struct li_ion_charger, early_suspend);	
-	enable_irq(li_ion->irq);
+	li_ion = container_of(early_suspend, struct li_ion_charger, early_suspend);
+	enable_irq(li_ion->irq_ac);
+	enable_irq(li_ion->irq_charge);
 }
 #endif
 
@@ -225,11 +232,15 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	if (!gpio_is_valid(pdata->gpio)) {
+	if (!gpio_is_valid(pdata->gpio_ac)) {
 		dev_err(&pdev->dev, "Invalid gpio pin\n");
 		return -EINVAL;
 	}
 
+	if (!gpio_is_valid(pdata->gpio_charge)) {
+		dev_err(&pdev->dev, "Invalid gpio pin\n");
+		return -EINVAL;
+	}
 	li_ion = kzalloc(sizeof(*li_ion), GFP_KERNEL);
 	if (!li_ion) {
 		dev_err(&pdev->dev, "Failed to alloc driver structure\n");
@@ -237,7 +248,6 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 	}
 
 	charger = &li_ion->charger;
-
 	charger->name = "li_ion_charge";
 	charger->type = POWER_SUPPLY_TYPE_MAINS;
 	charger->properties = li_ion_properties;
@@ -254,15 +264,27 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 	register_early_suspend(&li_ion->early_suspend);
 #endif
 
-	ret = gpio_request(pdata->gpio, dev_name(&pdev->dev));
+	ret = gpio_request(pdata->gpio_charge, dev_name(&pdev->dev));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request gpio pin: %d\n", ret);
 		goto err_free;
 	}
-	ret = gpio_direction_input(pdata->gpio);
+
+	ret = gpio_direction_input(pdata->gpio_charge);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set gpio to input: %d\n", ret);
-		goto err_gpio_free;
+		goto err_gpio_free_charge;
+	}
+
+	ret = gpio_request(pdata->gpio_ac, dev_name(&pdev->dev));
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to request gpio pin: %d\n", ret);
+		goto err_free;
+	}
+	ret = gpio_direction_input(pdata->gpio_ac);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to set gpio to input: %d\n", ret);
+		goto err_gpio_free_ac;
 	}
 
 	li_ion->pdata = pdata;
@@ -273,49 +295,66 @@ static int __devinit li_ion_charger_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to register power supply: %d\n",
 			ret);
-		goto err_gpio_free;
+		goto err_gpio_free_charge;
 	}
 
 	INIT_DELAYED_WORK(&li_ion->work, li_ion_work);
 
-
-	irq = gpio_to_irq(pdata->gpio);
+	irq = gpio_to_irq(pdata->gpio_charge);
 	if (irq > 0) {
 		ret = request_any_context_irq(irq, li_ion_irq,
-                IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				dev_name(&pdev->dev), li_ion);
-		if (ret)
+               IRQF_TRIGGER_RISING,
+				"li_ion_charge", li_ion);
+		if (ret){
 			dev_warn(&pdev->dev, "Failed to request irq: %d\n", ret);
-		else {
-			li_ion->irq = irq;
-			//enable_irq_wake(li_ion->irq);
-			disable_irq_nosync(irq);
+		} else {
+			li_ion->irq_charge = irq;
+			if(!is_ac_online(li_ion))
+				disable_irq_nosync(li_ion->irq_charge);
+		}
+	}
+
+	irq = gpio_to_irq(pdata->gpio_ac);
+	if(irq > 0) {
+			ret = request_any_context_irq(irq, li_ion_irq,
+                IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"li_ion_ac", li_ion);
+		if (ret){
+			dev_warn(&pdev->dev, "Failed to request irq: %d\n", ret);
+		} else {
+			li_ion->irq_ac = irq;
+			disable_irq_nosync(li_ion->irq_ac);
 		}
 	}
 
 	li_ion_callback_init(li_ion);
-
 	platform_set_drvdata(pdev, li_ion);
 
 	return 0;
 
-err_gpio_free:
-	gpio_free(pdata->gpio);
+err_gpio_free_ac:
+	gpio_free(pdata->gpio_ac);
+err_gpio_free_charge:
+	gpio_free(pdata->gpio_charge);
 err_free:
 	kfree(li_ion);
 	return ret;
 }
 
-static int __devexit li_ion_charger_remove(struct platform_device *pdev)
+static int __devexit  li_ion_charger_remove(struct platform_device *pdev)
 {
 	struct li_ion_charger *li_ion = platform_get_drvdata(pdev);
 
-	if (li_ion->irq)
-		free_irq(li_ion->irq, &li_ion->charger);
+	if (li_ion->irq_ac)
+		free_irq(li_ion->irq_ac, &li_ion->charger);
+
+	if (li_ion->irq_charge)
+		free_irq(li_ion->irq_charge, &li_ion->charger);
 
 	power_supply_unregister(&li_ion->charger);
 
-	gpio_free(li_ion->pdata->gpio);
+	gpio_free(li_ion->pdata->gpio_ac);
+	gpio_free(li_ion->pdata->gpio_charge);
 
 	platform_set_drvdata(pdev, NULL);
 	kfree(li_ion);
@@ -328,7 +367,7 @@ static int __devexit li_ion_charger_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int li_ion_charger_resume(struct device *dev)
 {
-#if 0 
+#if 0
 	struct platform_device *pdev = to_platform_device(dev);
 	struct li_ion_charger *li_ion = platform_get_drvdata(pdev);
 

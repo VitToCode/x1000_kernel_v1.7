@@ -88,6 +88,7 @@ obj-$(CONFIG_MFD_JANZ_CMODIO)	+= janz-cmodio.o
 obj-$(CONFIG_MFD_JZ4740_ADC)	+= jz4740-adc.o
 obj-$(CONFIG_MFD_JZ4775_SADC)	+= jz4775-adc.o
 obj-$(CONFIG_MFD_JZ4780_SADC)	+= jz4780-adc.o
+obj-$(CONFIG_MFD_JZ_SADC_V12)	+= jz_adc_v12.o
 obj-$(CONFIG_MFD_TPS6586X)	+= tps6586x.o
 obj-$(CONFIG_MFD_VX855)		+= vx855.o
 obj-$(CONFIG_MFD_WL1273_CORE)	+= wl1273-core.o
