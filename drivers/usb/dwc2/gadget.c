@@ -14,7 +14,7 @@
 #include <linux/usb/gadget.h>
 
 #include <soc/base.h>
-#include <soc/cpm.h>
+#include <linux/jz_dwc.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -370,7 +370,7 @@ static void dwc2_gadget_handle_usb_reset_intr(struct dwc2 *dwc) {
 	dwc2_wait_1st_ctrl_request(dwc);
 
 	if (likely(!first_reset)) {
-		dwc2_gadget_handle_session_end(dwc);
+		//dwc2_gadget_handle_session_end(dwc);			//cli ????
 	} else
 		first_reset = 0;
 
@@ -535,7 +535,6 @@ static int dwc2_gadget_handle_enum_done_intr(struct dwc2 *dwc)
 	int		 ret;
 
 	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-
 	/* read the DSTS register to determine the enumeration speed */
 	dsts.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dsts);
 
@@ -1083,7 +1082,7 @@ static int dwc2_gadget_ep_enable(struct usb_ep *ep,
 		dev_err(dwc->dev, "invalid endpoint transfer type\n");
 	}
 
-	dev_dbg(dwc->dev, "Enabling %s\n", dep->name);
+	DWC2_GADGET_DEBUG_MSG("Enabling %s\n", dep->name);
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 	ret = __dwc2_gadget_ep_enable(dep, desc);
@@ -1133,8 +1132,8 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 	dep->maxp = 0;
 	dep->flags = 0;
 
-	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend() && !dwc2_has_ep_enabled(dwc))) {
-		dwc2_disable_clock(dwc);
+	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend())) {
+		dwc2_suspend_controller(dwc , 0);
 	}
 
 	return 0;
@@ -1779,7 +1778,6 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 			if (dwc->pullup_on)
 				jz_otg_phy_suspend(0);
 		}
-
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -2386,9 +2384,8 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 	if (ret)
 		goto err1;
 
-	if (dwc2_is_device_mode(dwc)) {
+	if (dwc2_is_device_mode(dwc))
 		dwc2_device_mode_init(dwc);
-	}
 
 	ret = device_register(&dwc->gadget.dev);
 	if (ret) {
@@ -2425,74 +2422,62 @@ void dwc2_gadget_exit(struct dwc2 *dwc)
 	device_unregister(&dwc->gadget.dev);
 }
 
-void dwc2_gadget_plug_change(int plugin) {
+extern int dwc2_host_vbus_is_extern(struct dwc2* dwc);
+void dwc2_gadget_plug_change(int plugin)  {
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
 	struct dwc2	*dwc	      = m_dwc;
-	unsigned int	 value;
-	int		 extern_vbus_mode = 0;
 
 	if (!dwc)
 		return;
-
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dwc->plugin = !!plugin;
 
-	if (plugin && (dwc2_get_id_level(dwc) == 0)) {
-		extern_vbus_mode = 1;
-		dwc->extern_vbus_mode = 1;
-	}
-
+#ifdef DWC2_HOST_MODE_ENABLE
+	if (!!dwc2_host_vbus_is_extern(dwc))
+		goto out;
+#endif
 	if (!plugin) {
-		dwc->extern_vbus_mode = 0;
 		if (!dwc2_clk_is_enabled(dwc))
 			goto out;
 	} else {
 		if (!dwc2_clk_is_enabled(dwc)) {
-			dwc2_enable_clk(dwc);
-			dwc2_core_init(dwc);
-			mdelay(1);
-			dwc->op_state = DWC2_B_PERIPHERAL;
+			dwc2_resume_controller(dwc, 0);
 			dwc2_device_mode_init(dwc);
-			mdelay(1);
 		}
+		jz_otg_phy_suspend(0);
 	}
 
-	if (!dwc2_is_device_mode(dwc) || extern_vbus_mode) {
+	if (!dwc2_is_device_mode(dwc))
 		goto out;
-	}
-	dev_dbg(dwc->dev,"enter %s:%d: plugin = %d pullup = %d suspend = %d ext_vbus = %d\n",
-		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended, extern_vbus_mode);
+
+	dev_dbg(dwc->dev,"enter %s:%d: plugin = %d pullup = %d suspend = %d\n",
+		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
 
 	if (dwc->suspended)
 		goto out;
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-
 	if (plugin) {
-		if (jz_otg_phy_is_suspend())
-			jz_otg_phy_suspend(0);
-
-		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
-		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
 		if (dwc->pullup_on) {
 			gotgctl_data_t gotgctl;
-
-			/* ensure bvalid signal is from PHY */
 			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
-			gotgctl.b.bvalidoven = 0;
-			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
-
+			if (gotgctl.b.bvalidoven) {
+				gotgctl.b.bvalidoven = 0;
+				dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+			}
+		}
+		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
+		if (dwc->pullup_on) {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 		}
 	} else {
-		if (dctl.b.sftdiscon && jz_otg_phy_is_suspend() && !dwc2_has_ep_enabled(dwc)) {
-			dwc2_disable_clock(dwc);
+		if (dctl.b.sftdiscon && jz_otg_phy_is_suspend()) {
+			dwc2_suspend_controller(dwc, 0);
 		} else {
 			dctl.b.sftdiscon = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
 #if !DWC2_HOST_MODE_ENABLE
 			{
 				gotgctl_data_t gotgctl;
@@ -2518,12 +2503,14 @@ void dwc2_gadget_plug_change(int plugin) {
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 #endif
 		}
+
+		dwc2_suspend_controller(dwc, 0);
 	}
 
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
-	if (extern_vbus_mode) {
+	if (dwc->extern_vbus_mode) {
 		dwc2_notifier_call_chain_async(dwc);
 	}
 }
@@ -2572,7 +2559,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 
 	dwc->gadget.dev.driver = &driver->driver;
 
-	dev_info(dwc->dev, "bind to driver %s\n", driver->driver.name);
+	dev_info(dwc->dev, "bind to driver %s %s, %d\n", driver->driver.name, __func__,__LINE__);
 	ret = bind(&dwc->gadget);
 	if (ret) {
 		dev_err(dwc->dev, "bind to driver %s failed: ret = %d\n",
@@ -2581,9 +2568,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		dwc->gadget.dev.driver = 0;
 		return ret;
 	}
-
-	dev_info(dwc->dev, "registered gadget driver '%s'\n",
-		driver->driver.name);
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);

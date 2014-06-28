@@ -47,7 +47,6 @@ dwc2_printk(const char *comp, const char *fmt, ...)
 #undef DWC2_HOST_MODE_ENABLE
 #define DWC2_HOST_MODE_ENABLE	0
 #endif
-
 /** Macros defined for DWC OTG HW Release version */
 
 #define OTG_CORE_REV_2_60a	0x4F54260A
@@ -510,6 +509,7 @@ struct dwc2 {
 	unsigned			 phy_status:1; /* 0: suspend, 1: on */
 	unsigned			 sftdiscon:1;
 	unsigned			 plug_status:1;
+	/* host mode still charge from the usb cable*/
 	unsigned			 extern_vbus_mode:1;
 
 	unsigned int			 gintmsk;
@@ -723,6 +723,8 @@ void dwc2_enable_common_interrupts(struct dwc2 *dwc);
 
 void dwc2_wait_3_phy_clocks(void);
 void dwc2_core_reset(struct dwc2 *dwc);
+int dwc2_disable(struct dwc2 *dwc);
+int dwc2_enable(struct dwc2 *dwc);
 
 void calculate_fifo_size(struct dwc2 *dwc);
 void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num);
@@ -730,8 +732,5 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc);
 
 void dwc2_enable_global_interrupts(struct dwc2 *dwc);
 void dwc2_disable_global_interrupts(struct dwc2 *dwc);
-
-void dwc2_enable_clk(struct dwc2 *dwc);
-void dwc2_disable_clock(struct dwc2 *dwc);
 
 #endif /* __DRIVERS_USB_DWC2_CORE_H */

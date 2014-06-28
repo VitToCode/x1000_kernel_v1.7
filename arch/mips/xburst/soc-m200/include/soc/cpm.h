@@ -97,11 +97,5 @@ int cpm_start_ehci(void);
 int cpm_stop_ehci(void);
 int cpm_start_ohci(void);
 int cpm_stop_ohci(void);
-void jz_otg_set_dual_mode(void);
-void jz_otg_set_device_only_mode(void);
-void jz_otg_phy_init(void);
-void otg_cpm_init(void);
-void jz_otg_phy_suspend(int suspend);
-int jz_otg_phy_is_suspend(void);
 #endif
 /* __CPM_H__ */

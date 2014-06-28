@@ -19,7 +19,7 @@
 #include <linux/usb/gadget.h>
 
 #include <soc/base.h>
-#include <soc/cpm.h>
+#include <linux/jz_dwc.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -447,7 +447,7 @@ void dwc2_wait_3_phy_clocks(void) {
 void dwc2_enable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
-	printk("enable globle inter\n");
+
 	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 1;
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
@@ -457,22 +457,9 @@ void dwc2_disable_global_interrupts(struct dwc2 *dwc)
 {
 	gahbcfg_data_t ahbcfg;
 
-	printk("disable globle inter\n");
 	ahbcfg.d32 = dwc_readl(&dwc->core_global_regs->gahbcfg);
 	ahbcfg.b.glblintrmsk = 0;
 	dwc_writel(ahbcfg.d32, &dwc->core_global_regs->gahbcfg);
-}
-
-void dwc2_enable_clk(struct dwc2 *dwc)
-{
-	dwc2_clk_enable(dwc);
-	dwc2_enable_global_interrupts(dwc);
-}
-
-void dwc2_disable_clock(struct dwc2 *dwc) {
-	dwc2_core_init(dwc);
-	dwc2_disable_global_interrupts(dwc);
-	dwc2_clk_disable(dwc);
 }
 
 /**
@@ -783,6 +770,15 @@ int dwc2_core_init(struct dwc2 *dwc)
 	dwc_writel(ahbcfg.d32, &global_regs->gahbcfg);
 
 	usbcfg.d32 = dwc_readl(&global_regs->gusbcfg);
+	usbcfg.b.force_host_mode = 0;
+	usbcfg.b.force_dev_mode = 0;
+#if 0
+	if (dwc2_usb_mode() == HOST_ONLY) {
+		usbcfg.b.force_host_mode = 1;
+	} else if (dwc2_usb_mode() == DEVICE_ONLY) {
+		usbcfg.b.force_dev_mode = 1;
+	}
+#endif
 	usbcfg.b.hnpcap = 1;
 	usbcfg.b.srpcap = 1;
 	dwc_writel(usbcfg.d32, &global_regs->gusbcfg);
@@ -860,10 +856,9 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 	gotgint_data_t gotgint;
 	gotgctl_data_t gotgctl;
 	gintsts_data_t gintsts;
+#if DWC2_DEVICE_MODE_ENABLE
 	dctl_data_t dctl;
-	//gintmsk_data_t gintmsk;
-	//gpwrdn_data_t gpwrdn;
-
+#endif
 	gotgint.d32 = dwc_readl(&global_regs->gotgint);
 	DWC2_CORE_DEBUG_MSG("%s: otgint = 0x%08x\n",
 			__func__, gotgint.d32);
@@ -874,7 +869,6 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		u32		doepdma;
 
 		dev_info(dwc->dev, "session end detected!\n");
-
 		gotgctl.d32 = dwc_readl(&global_regs->gotgctl);
 		DWC2_CORE_DEBUG_MSG("%s:%d gotgctl = 0x%08x op_state = %d\n",
 				__func__, __LINE__, gotgctl.d32, dwc->op_state);
@@ -899,9 +893,7 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			dwc->lx_state = DWC_OTG_L0;
 			dwc2_gadget_handle_session_end(dwc);
 			dwc2_gadget_disconnect(dwc);
-
 			dwc2_start_ep0state_watcher(dwc, 0);
-
 			/* TODO: if adp enable, handle ADP Sense here */
 		}
 
@@ -918,7 +910,6 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 			//printk("====>doep0ctl = 0x%08x\n", dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl));
 			//printk("====>setup_prepared = %d\n", dwc->setup_prepared);
 		}
-
 		/* close PHY */
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		if (likely((!dwc->keep_phy_on) && (dctl.b.sftdiscon || !dwc->plugin)))
@@ -1046,12 +1037,6 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc2_device_mode_init(dwc);
 
 		if (likely(!dwc->plugin)) {
-#if 0
-			/* close PHY */
-			if (likely(!dwc->keep_phy_on))
-				jz_otg_phy_suspend(1);
-#endif
-
 			/* soft disconnect */
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.sftdiscon = 1;
@@ -1061,7 +1046,10 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 			 * a session end detect interrupt will be generate
 			 */
 		} else {
-			jz_otg_phy_suspend(0);
+			if (jz_otg_phy_is_suspend()) {
+				printk("\n\n\n\n WARNNING let me know\n\n\n\n");
+				jz_otg_phy_suspend(0);
+			}
 			dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 			dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -1159,7 +1147,6 @@ static void dwc2_handle_session_req_intr(struct dwc2 *dwc)
 		hprt0_data_t hprt0;
 
 		dev_info(dwc->dev, "SRP: Host Mode\n");
-
 		/* Turn on the port power bit. */
 		hprt0.d32 = dwc2_hc_read_hprt(dwc);
 		hprt0.b.prtpwr = 1;
@@ -1470,9 +1457,8 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 	}
 
 out:
-	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend() &&
-				dwc2_is_device_mode(dwc) && !dwc2_has_ep_enabled(dwc))) {
-		dwc2_disable_clock(dwc);
+	if (unlikely((!dwc->plugin) && jz_otg_phy_is_suspend() && dwc2_is_device_mode(dwc))) {
+		dwc2_suspend_controller(dwc , 0);
 	}
 
 	dwc_unlock(dwc);
@@ -1563,13 +1549,13 @@ static int dwc2_probe(struct platform_device *pdev)
 	dwc->otg_ver = 1;
 
 	dwc2_init_csr(dwc);
-
 	dwc2_disable_global_interrupts(dwc);
 	ret = dwc2_core_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize core\n");
 		goto fail_init_core;
 	}
+
 
 #if DWC2_HOST_MODE_ENABLE
 	ret = dwc2_host_init(dwc);
@@ -1585,7 +1571,6 @@ static int dwc2_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize gadget\n");
 		goto fail_init_gadget;
 	}
-	dwc2_disable_global_interrupts(dwc);
 #endif
 
 	ret = request_irq(irq, dwc2_interrupt, 0, "dwc2", dwc);
@@ -1597,7 +1582,11 @@ static int dwc2_probe(struct platform_device *pdev)
 
 	/* TODO: if enable ADP support, start ADP here instead of enable global interrupts */
 	dwc2_enable_global_interrupts(dwc);
-	//dwc2_clk_disable(dwc);
+	if (!dwc->keep_phy_on) {
+		dwc2_suspend_controller(dwc , 0);
+	} else {
+		dwc2_resume_controller(dwc , 0);
+	}
 
 	ret = dwc2_debugfs_init(dwc);
 	if (ret) {
@@ -1683,7 +1672,7 @@ static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
 	if (dwc2_is_host_mode(dwc))
-		 jz_set_vbus(dwc, 0);
+		jz_set_vbus(dwc, 0);
 	dev_dbg(dwc->dev, "dwc2_suspend-ed\n");
 
 	return 0;

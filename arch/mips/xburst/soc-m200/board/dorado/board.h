@@ -2,6 +2,7 @@
 #define __BOARD_H__
 #include <gpio.h>
 #include <soc/gpio.h>
+#include <linux/jz_dwc.h>
 
 /* lcd pdata and display panel */
 #ifdef CONFIG_FB_JZ_V12
@@ -147,7 +148,11 @@ extern struct jzmmc_platform_data sdio_pdata;
  * USB detect pin
  **/
 #define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID_LEVEL		LOW_ENABLE
 #define GPIO_USB_DETE			GPIO_PA(14)
+#define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
+#define GPIO_USB_DRVVBUS		GPIO_PE(10)
+#define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
 
 extern struct ovisp_camera_platform_data ovisp_camera_info;
 
