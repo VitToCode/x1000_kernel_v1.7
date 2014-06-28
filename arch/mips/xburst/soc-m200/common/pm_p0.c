@@ -29,8 +29,6 @@
 #include <linux/fs.h>
 #include <linux/sysctl.h>
 #include <linux/delay.h>
-//#include <asm/mach-xburst/cacheops.h>
-//#include <asm/mach-xburst/rjzcache.h>
 #include <asm/fpu.h>
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
@@ -221,6 +219,7 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 static noinline void cpu_sleep(void)
 {
 	config_powerdown_core((unsigned int *)0xb3422000);
+	REG32(0xb34f0008) |= (1 << 17);
 	__asm__ volatile(".set mips32\n\t"
 			 "sync\n\t"
 			 "lw $0,0(%0)\n\t"
@@ -231,7 +230,6 @@ static noinline void cpu_sleep(void)
 			 :
 			 : "r" (0xa0000000) );
 	printk("sleep!\n");
-	//*(volatile unsigned int *)0xb00000b8 = (0xffffffff) & (~((1 << 17) | (1 << 15) | (1 << 31) | (1 << 2)));
 	cache_prefetch(LABLE1,LABLE2);
 LABLE1:
 	__asm__ volatile(".set mips32\n\t"
@@ -275,6 +273,7 @@ RETRY_LABLE:
 		}
 
 	}
+	REG32(0xb34f0008) &= ~(1 << 17);
 	dump_ddr_param();
 #ifdef DDR_MEM_TEST
 	check_ddr_data();
