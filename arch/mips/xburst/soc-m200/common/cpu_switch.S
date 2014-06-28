@@ -16,6 +16,14 @@
 #define CP0_EBASE	$15, 1
 #define CP0_CONFIG	$16, 0
 #define CP0_CONFIG1	$16, 1
+#define CP0_CONFIG7	$16, 7
+#define PMON_CSR	$17, 7
+#define PMON_HIGH	$17, 4
+#define PMON_LC		$17, 5
+#define PMON_RC		$17, 6
+#define CP0_WATCHLo	$18, 0
+#define CP0_WATCHHI	$19, 0
+#define CP0_DESAVE	$31, 0
 
 #define READY_FLAG 1
 #define PMON_DEBUG 0
@@ -24,9 +32,11 @@
 	.data
 	.global _regs_stack
 _regs_stack:
+	.align  5
 	.space 64 * 4,0
 	.global _tlb_entry_regs
 _tlb_entry_regs:
+	.align  5
 	.space 32 * 3 * 4 + 32,0
 	.global	_wait_flag
 	.align  5
@@ -82,10 +92,37 @@ save_goto:
 	mfc0	k1, CP0_ENTRYHI
 	sw	k1, 17*4(k0)
 
-	mfhi	k1
+	mfc0	k1, CP0_CONFIG
 	sw	k1, 18*4(k0)
-	mflo	k1
+
+	mfc0	k1, CP0_CONFIG7
 	sw	k1, 19*4(k0)
+
+	mfc0	k1, CP0_WATCHLo
+	sw	k1, 20*4(k0)
+
+	mfc0	k1, CP0_WATCHHI
+	sw	k1, 21*4(k0)
+
+	mfc0	k1, CP0_DESAVE
+	sw	k1, 22*4(k0)
+
+	mfc0	k1, PMON_CSR
+	sw	k1, 23*4(k0)
+
+	mfc0	k1, PMON_HIGH
+	sw	k1, 24*4(k0)
+
+	mfc0	k1, PMON_LC
+	sw	k1, 24*4(k0)
+
+	mfc0	k1, PMON_RC
+	sw	k1, 25*4(k0)
+
+	mfhi	k1
+	sw	k1, 26*4(k0)
+	mflo	k1
+	sw	k1, 27*4(k0)
 
 #if TLB_SAVE_RESTORE
 	/* save tlb entry */
@@ -146,11 +183,6 @@ restore_goto:
 
 	la	k1, _regs_stack
 
-	lw	k0, 18*4(k1)
-	mthi	k0
-	lw	k0, 19*4(k1)
-	mtlo	k0
-
 	lw	k0, 15*4(k1)
 	mtc0	k0, CP0_PAGEMASK
 
@@ -205,6 +237,38 @@ restore_goto:
 
 	lw	k0, 12*4(k1)
 	mtc0	k0, CP0_STATUS
+
+	lw	k0, 18*4(k1)
+	mtc0	k0, CP0_CONFIG
+
+	lw	k0, 19*4(k1)
+	mtc0	k0, CP0_CONFIG7
+
+	lw	k0, 20*4(k1)
+	mtc0	k0, CP0_WATCHLo
+
+	lw	k0, 21*4(k1)
+	mtc0	k0, CP0_WATCHHI
+
+	lw	k0, 22*4(k1)
+	mtc0	k0, CP0_DESAVE
+
+	lw	k0, 23*4(k1)
+	mtc0	k0, PMON_CSR
+
+	lw	k0, 24*4(k1)
+	mtc0	k0, PMON_HIGH
+
+	lw	k0, 24*4(k1)
+	mtc0	k0, PMON_LC
+
+	lw	k0, 25*4(k1)
+	mtc0	k0, PMON_RC
+
+	lw	k0, 26*4(k1)
+	mthi	k0
+	lw	k0, 27*4(k1)
+	mtlo	k0
 
 	la	t0, _regs_stack
 

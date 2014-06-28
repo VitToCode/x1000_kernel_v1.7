@@ -104,7 +104,7 @@ void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target
 	if(core->used_sw_core){
 		if(core->coreid == 1){
 			if(target_rate > core->up_limit && cur_rate <= core->up_limit) {
-				core_interrupt(0,0);
+				core_interrupt(0,1);
 				core_clk_enable(core->clk,0);
 				reset_core(0);
 				core->target_coreid = 0;
