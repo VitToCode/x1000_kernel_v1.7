@@ -55,6 +55,7 @@ obj-y				+= lis3lv02d/
 obj-y				+= carma/
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_BCM4330_RFKILL) 	+= bt-power.o
+obj-$(CONFIG_BCM_PM_CORE) 	+= bcm-pm-core.o
 obj-$(CONFIG_GPS_RFKILL) 	+= gps-power.o
 obj-$(CONFIG_APANIC)		+= apanic.o nand2mtd.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
