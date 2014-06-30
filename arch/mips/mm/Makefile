@@ -37,7 +37,7 @@ obj-$(CONFIG_R5000_CPU_SCACHE)  += sc-r5k.o
 obj-$(CONFIG_RM7000_CPU_SCACHE)	+= sc-rm7k.o
 obj-$(CONFIG_MIPS_CPU_SCACHE)	+= sc-mips.o
 
-ifdef CONFIG_CACHE_OP_RADICAL
+ifdef CONFIG_JZ_CPU_SCACHE
 obj-$(CONFIG_CPU_MIPS32)	+= c-r4k.o
 else
 obj-$(CONFIG_CPU_MIPS32)	+= c-jz.o
