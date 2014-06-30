@@ -4,8 +4,8 @@
  * Copyright (c) Ingenic Semiconductor Co., Ltd.
  */
 
-#ifndef __JZ4785_CODEC_H__
-#define __JZ4785_CODEC_H__
+#ifndef __M200_CODEC_H__
+#define __M200_CODEC_H__
 
 #include <mach/jzsnd.h>
 #include "../xb47xx_i2s_v12.h"
@@ -29,7 +29,7 @@
 #define MAX_RATE_COUNT		11
 
 /*
- * JZ4785 CODEC CODEC registers
+ * M200 CODEC CODEC registers
  */
 /*==========================================*/
 #define CODEC_REG_SR		0x0

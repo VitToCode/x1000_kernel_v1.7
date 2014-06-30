@@ -43,11 +43,11 @@ if JZ_INTERNAL_CODEC_V12
 	help
 		Say "Y" to enable jz4775 internal codec.
 
-	config JZ4785_INTERNAL_CODEC_V12
-	bool "jz4785 internal codec"
+	config M200_INTERNAL_CODEC_V12
+	bool "m200 internal codec"
 	depends on SOC_M200
 	help
-		Say "Y" to enable jz4785 internal codec.
+		Say "Y" to enable m200 internal codec.
 endif #JZ_INTERNAL_CODEC
 
 menuconfig JZ_EXTERNAL_CODEC_V12

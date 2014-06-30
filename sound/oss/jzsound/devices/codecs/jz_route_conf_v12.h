@@ -8,8 +8,8 @@
  * Copyright (c) Ingenic Semiconductor Co., Ltd.
  */
 
-#ifndef __JZ4785_ROUTE_CONF_H__
-#define __JZ4785_ROUTE_CONF_H__
+#ifndef __M200_ROUTE_CONF_H__
+#define __M200_ROUTE_CONF_H__
 
 #include <mach/jzsnd.h>
 
@@ -236,4 +236,4 @@ struct __codec_route_info {
 
 extern struct __codec_route_info codec_route_info[];
 
-#endif /*__JZ4785_ROUTE_CONF_H__*/
+#endif /*__M200_ROUTE_CONF_H__*/

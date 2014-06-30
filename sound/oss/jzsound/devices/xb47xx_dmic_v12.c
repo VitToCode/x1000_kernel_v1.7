@@ -207,6 +207,7 @@ static int dmic_set_voice_trigger(unsigned long *THR ,int mode)
 {
 	int ret = 0;
 
+	 printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
 		__dmic_clear_tur();
@@ -230,7 +231,7 @@ static int dmic_set_voice_trigger(unsigned long *THR ,int mode)
 		__dmic_reset();
 		while(__dmic_get_reset());
 		__dmic_enable_rdms();
-		__dmic_set_request(65);
+		//__dmic_set_request(65);
 		clk_disable(dmic_clk);
 	}
 

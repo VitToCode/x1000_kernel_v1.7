@@ -1,5 +1,5 @@
 /*
- * Linux/sound/oss/xb47XX/xb4785/jz_codec_v12.c
+ * Linux/sound/oss/xb47XX/codec/jz_codec_v12.c
  *
  * CODEC CODEC driver for Ingenic m200 MIPS processor
  *
@@ -743,7 +743,7 @@ static void codec_set_record_mux(int mode)
 
 	case RECORD_MUX_INPUTL_TO_LR:
 		/* if digital micphone is not select, */
-		/* 4785 codec auto set ADC_LEFT_ONLY to 1 */
+		/* M200 codec auto set ADC_LEFT_ONLY to 1 */
 		__codec_set_dmic_mux(CODEC_DMIC_SEL_ADC);
 		__codec_disable_dmic_clk();
 		__codec_set_mic_mono();
@@ -3385,12 +3385,12 @@ void codec_irq_set_mask(void)
 /**
  * Module init
  */
-#define JZ4785_INTERNAL_CODEC_CLOCK 12000000
+#define M200_INTERNAL_CODEC_CLOCK 12000000
 static int __init init_codec(void)
 {
 	int retval;
 
-	i2s_register_codec("internal_codec", (void *)jzcodec_ctl,JZ4785_INTERNAL_CODEC_CLOCK,CODEC_MASTER);
+    i2s_register_codec("internal_codec", (void *)jzcodec_ctl,M200_INTERNAL_CODEC_CLOCK,CODEC_MASTER);
 	retval = platform_driver_register(&jz_codec_driver);
 	if (retval) {
 		printk("JZ CODEC: Could net register jz_codec_driver\n");
