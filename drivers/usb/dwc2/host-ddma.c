@@ -170,7 +170,7 @@ static __attribute__((unused)) void dwc2_dump_host_regs(
 	}
 }
 
-static __attribute__((always_inline))
+static inline  __attribute__((always_inline))
 unsigned short dwc2_hc_get_frame_number(struct dwc2 *dwc) {
 	hfnum_data_t	hfnum;
 	uint16_t	mod = (DWC2_MAX_MICROFRAME - 1);

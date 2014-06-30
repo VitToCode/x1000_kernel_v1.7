@@ -51,7 +51,7 @@ static ssize_t reg_read(struct file *file, char __user *buf,
 static ssize_t reg_write(struct file * file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
-	int ret = -1,i = 0;
+	int ret = 0, i = 0;
 	char param[50]={0};
 	unsigned int reg_param[2]={0,-1};
 	unsigned int tmp_value0,tmp_value1;

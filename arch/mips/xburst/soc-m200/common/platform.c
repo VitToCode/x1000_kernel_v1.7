@@ -173,7 +173,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ_PWM_GPIO_D11
 #endif
 
-#ifdef CONFIG_USB_DWC2_DRVVBUS_PIN
+#ifdef CONFIG_USB_DWC2_DRVVBUS_FUNCTION_PIN
 	OTG_DRVVUS,
 #endif
 

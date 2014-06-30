@@ -32,4 +32,25 @@ struct dwc_jz_pri {
 	void			(*callback)(struct dwc_jz_pri *jz_pri);
 };
 
+typedef enum otg_mode {
+	DEVICE_ONLY = 1,
+	HOST_ONLY = 2,
+	DUAL_MODE = 3,
+} otg_mode_t;
+
+static otg_mode_t inline  dwc2_usb_mode(void) {
+#if defined(CONFIG_USB_DWC2_HOST_ONLY)
+	return HOST_ONLY;
+#elif defined(CONFIG_USB_DWC2_DEVICE_ONLY)
+	return DEVICE_ONLY;
+#else
+	return DUAL_MODE;
+#endif
+}
+
+void jz_otg_phy_init(otg_mode_t mode);
+void jz_otg_phy_suspend(int suspend);
+int  jz_otg_phy_is_suspend(void);
+void jz_otg_phy_powerdown(void);
+void jz_otg_ctr_reset(void);
 #endif

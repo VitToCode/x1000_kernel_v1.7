@@ -35,22 +35,22 @@ config USB_DWC2_DEVICE_ONLY
 
 endchoice
 
-config USB_DWC2_DRVVBUS_PIN
-       bool "allow use dwc2 drvvbus pin"
+config USB_DWC2_DRVVBUS_FUNCTION_PIN
+       bool "Allow use dwc2 drvvbus function pin"
 	depends on (USB_DWC2_HOST_ONLY || USB_DWC2_DUAL_ROLE)
 	default n
 	help
 	 Say Y here to use dwc2 drvvbus pin
 
 config USB_DWC2_ALLOW_WAKEUP
-       bool "allow wakeup when usb cable plug/unplug"
+       bool "Allow wakeup when usb cable plug/unplug"
        depends on (USB_DWC2_DUAL_ROLE || USB_DWC2_DEVICE_ONLY)
        default y
        help
          Say Y here if you want usb cable plug/unplug to wakeup the system
 
 config BOARD_HAS_NO_DETE_FACILITY
-       bool "board has no plug detect facility"
+       bool "Board has no plug detect facility"
        default n
        help
          Say Y here if your board has no plug detect facility
@@ -97,12 +97,13 @@ config USB_DWC2_INPUT_EVDEV
 
 config USB_DWC2_DISABLE_CLOCK
        bool "Disable clock when usb cable unplug"
-       depends on USB_DWC2_DEVICE_ONLY && !BOARD_HAS_NO_DETE_FACILITY
+       depends on USB_DWC2_DEVICE_ONLY || (USB_DWC2_DUAL_ROLE && !USB_DWC2_DRVVBUS_FUNCTION_PIN)
        default y
        help
          Say Y here to disable clock gate when usb cable unplug.
-
-	 Currently only support Device Mode, but this does not means
-	 that we do not support Host Mode.
-
+	 Currently only support Device Mode and OTG Mode , but this does not means
+	 that we do not support Host Mode. Especially when OTG Mode ,
+	 Note : 1, we can not support drvvbus function pin, because , insert otg may bring some jitter
+	 our controler will have an session end interrupt.
+		2, if we don not have detect pin or id pin clock and phy always keep on except suspend
 endif
