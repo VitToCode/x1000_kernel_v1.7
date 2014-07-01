@@ -205,7 +205,7 @@ int dmmu_release_handle(struct proc_page_tab_data *table)
 
 static int dmmu_release(struct inode *inode, struct file *file)
 {
-	struct proc_page_tab_data *table = (struct proc_page_tab_data *)file->private_data;
+	struct proc_page_tab_data *table = dmmu_get_table(current->tgid);
 	dmmu_release_handle(table);
 	return 0;
 }
@@ -394,16 +394,16 @@ static int dump_mem_info(struct proc_page_tab_data *table,struct dmmu_mem_info *
 	pgd_base = (unsigned int *)(table->alloced_pgd_vaddr);
 
 	printk("----------------    dmmu_mem_info  ----------buile time: %s\n",__TIME__);
-	printk("mem->size = %d,mem->vaddr = %x\n",mem->size,(int)mem->vaddr);
+	printk("mem->size = 0x%08x (%d),mem->vaddr = 0x%x\n",mem->size,mem->size,(int)mem->vaddr);
 	printk("----------------    TLB info       ------------------\n");
-	printk(" dump_mem_info table->alloced_pgd_paddr = %x\n",table->alloced_pgd_paddr);
-	printk("pgd_base = %p\n",pgd_base);
+	printk(" dump_mem_info table->alloced_pgd_paddr = 0x%x\n",table->alloced_pgd_paddr);
+	printk("pgd_base = 0x%p\n",pgd_base);
 
 	printk("dump pgd: \n");
 	pgd_num = pgd_num_cale(mem);
 	for(i = 0; i < pgd_num; i++){
 		pgd_index = (unsigned int)(vaddr_test) >> 22;
-		printk("pgd_index_addr= %p, pgd_index_content %x, pgd_index=%d\n",pgd_base + pgd_index, *(pgd_base + pgd_index), pgd_index);
+		printk("pgd_index_addr= 0x%p, pgd_index_content 0x%x, pgd_index=%d\n",pgd_base + pgd_index, *(pgd_base + pgd_index), pgd_index);
 		vaddr_test += SECONDARY_SIZE;
 	}
 	i = 0;
@@ -418,14 +418,14 @@ static int dump_mem_info(struct proc_page_tab_data *table,struct dmmu_mem_info *
 		pte_addr_v = (unsigned int *)((unsigned int )pte_addr_v);
 
 		pte_index = ((unsigned int)vaddr_test & 0x3ff000) >> 12;
-		printk("pte_addr_p=%p, pte_addr_v=%p, pte_index=%d, pgd_index=%d,vaddr_test=%p \n",
+		printk("pte_addr_p=0x%p, pte_addr_v=0x%p, pte_index=%d, pgd_index=%d,vaddr_test=0x%p \n",
 			   (void *)pte_addr, (void *)pte_addr_v, pte_index, pgd_index,vaddr_test);
 		for(j = pte_index; j < 1024; j++){
 		/*for(j = 0; j < 1024; j++){*/
 			pte_index_addr = (unsigned int *)(pte_addr_v + j);
 			value = *pte_index_addr & _PAGE_VALID;
 			if(value != 0){
-				printk("index=%04d, pte_index_addr=0x%p, pte_index_content=0x%08x, [%p]=0x%08x  [%p]=0x%08x\n",
+				printk("index=%04d, pte_index_addr=0x%p, pte_index_content=0x%08x, [0x%p]=0x%08x  [0x%p]=0x%08x\n",
 				       j,pte_index_addr, *pte_index_addr,
 				       (int *)phys_to_virt(*pte_index_addr & ~0xfff),
 				       *(int *)phys_to_virt(*pte_index_addr & ~0xfff),
@@ -611,10 +611,16 @@ static long dmmu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	unsigned int pbase;
 	unsigned int p_addr;
 	unsigned int v_addr;
+	void __user *argp;
 	struct dmmu_dma_flush_cache dma_f;
-	struct proc_page_tab_data *table = (struct proc_page_tab_data *)file->private_data;
-	void __user *argp = (void __user *)arg;
 	struct dmmu_mem_info mem;
+	struct proc_page_tab_data *table = dmmu_get_table(current->tgid);
+	if(table == NULL){
+		printk("+++%s error:You may release handle!\n",__func__);
+		return -EFAULT;
+	}
+
+	argp = (void __user *)arg;
 	switch (cmd){
 	case DMMU_GET_TLB_PGD_BASE_PHYS:
 		get_pgd_base(table,&pbase);
