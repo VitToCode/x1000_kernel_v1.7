@@ -595,7 +595,6 @@ static int __init setup_gpio_irq(void)
 	int i, j;
 
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
-		spin_lock_init(&jz_gpio_chips[i].gpio_lock);
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
 				jz_gpio_chips[i].irq_chip.name,
 				(void*)&jz_gpio_chips[i]))
@@ -807,6 +806,7 @@ int __init setup_gpio_pins(void)
 		jz_gpio_chips[i].reg = base + i * GPIO_PORT_OFF;
 		jz_gpio_chips[i].shadow_reg = base + GPIO_SHADOW_OFF;
 		jz_gpio_chips[i].gpio_map[0] = 0xffffffff;
+		spin_lock_init(&jz_gpio_chips[i].gpio_lock);
 	}
 
 	for (i = 0; i < platform_devio_array_size ; i++) {
