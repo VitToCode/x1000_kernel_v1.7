@@ -1452,9 +1452,11 @@ static irqreturn_t ipu_irq_handler(int irq, void *data)
 	dummy_read = reg_read(ipu, IPU_STATUS);	/* avoid irq looping or disable_irq */
 	__ipu_disable_irq();
 
-	if (dummy_read & 0x300) {
+	if (dummy_read & 0x100) {
 		dev_err(ipu->dev, "-----stlb err addr=%x\n",
 			reg_read(ipu, IPU_VADDR_STLB_ERR));
+	}
+	if (dummy_read & 0x200) {
 		dev_err(ipu->dev, "-----dtlb err addr=%x\n",
 			reg_read(ipu, IPU_VADDR_DTLB_ERR));
 	}
