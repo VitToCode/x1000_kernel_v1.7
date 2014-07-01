@@ -6128,7 +6128,12 @@ gckOS_CacheFlush(
 #endif
 
 #elif defined(CONFIG_MIPS)
-    dma_cache_wback_inv((unsigned long) Logical, Bytes);
+    /* deprecated */
+    //dma_cache_wback_inv((unsigned long) Logical, Bytes);
+
+    /* flush Logical address, kernel/include/asm-generic/dma-mapping-broken.h */
+    dma_cache_sync(NULL, Logical, Bytes, DMA_BIDIRECTIONAL);
+
 #elif defined(CONFIG_PPC)
     /* TODO */
 #else
