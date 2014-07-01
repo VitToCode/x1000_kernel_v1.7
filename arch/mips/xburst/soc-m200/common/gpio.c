@@ -595,6 +595,7 @@ static int __init setup_gpio_irq(void)
 	int i, j;
 
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
+		spin_lock_init(&jz_gpio_chips[i].gpio_lock);
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
 				jz_gpio_chips[i].irq_chip.name,
 				(void*)&jz_gpio_chips[i]))
@@ -820,7 +821,6 @@ int __init setup_gpio_pins(void)
 			break;
 		}
 
-		spin_lock_init(&jz_gpio_chips[i].gpio_lock);
 		jz = &jz_gpio_chips[g->port];
 		if (GPIO_AS_FUNC(g->func)) {
 			if(jz->dev_map[0] & g->pins) {
