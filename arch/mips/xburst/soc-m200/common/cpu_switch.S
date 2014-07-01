@@ -114,15 +114,15 @@ save_goto:
 	sw	k1, 24*4(k0)
 
 	mfc0	k1, PMON_LC
-	sw	k1, 24*4(k0)
-
-	mfc0	k1, PMON_RC
 	sw	k1, 25*4(k0)
 
-	mfhi	k1
+	mfc0	k1, PMON_RC
 	sw	k1, 26*4(k0)
-	mflo	k1
+
+	mfhi	k1
 	sw	k1, 27*4(k0)
+	mflo	k1
+	sw	k1, 28*4(k0)
 
 #if TLB_SAVE_RESTORE
 	/* save tlb entry */
@@ -259,15 +259,15 @@ restore_goto:
 	lw	k0, 24*4(k1)
 	mtc0	k0, PMON_HIGH
 
-	lw	k0, 24*4(k1)
+	lw	k0, 25*4(k1)
 	mtc0	k0, PMON_LC
 
-	lw	k0, 25*4(k1)
+	lw	k0, 26*4(k1)
 	mtc0	k0, PMON_RC
 
-	lw	k0, 26*4(k1)
-	mthi	k0
 	lw	k0, 27*4(k1)
+	mthi	k0
+	lw	k0, 28*4(k1)
 	mtlo	k0
 
 	la	t0, _regs_stack
