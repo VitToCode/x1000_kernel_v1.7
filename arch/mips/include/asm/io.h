@@ -300,7 +300,12 @@ static inline void iounmap(const volatile void __iomem *addr)
 #ifdef CONFIG_CPU_CAVIUM_OCTEON
 #define war_octeon_io_reorder_wmb()  		wmb()
 #else
+#ifdef CONFIG_SOC_M200
+#define war_octeon_io_reorder_wmb()		do{*(volatile unsigned int *)0xa0000000;}while(0)
+#else
 #define war_octeon_io_reorder_wmb()		do { } while (0)
+#endif
+
 #endif
 
 #define __BUILD_MEMORY_SINGLE(pfx, bwlq, type, irq)			\
