@@ -79,7 +79,7 @@
 #define I2C_STA_ACT		(1 << 0) /* I2C Activity Status */
 
 /* I2C Transmit Abort Status Register (I2C_TXABRT) */
-char *abrt_src[] = {
+static const char *abrt_src[] = {
 	"I2C_TXABRT_ABRT_7B_ADDR_NOACK",
 	"I2C_TXABRT_ABRT_10ADDR1_NOACK",
 	"I2C_TXABRT_ABRT_10ADDR2_NOACK",
@@ -322,7 +322,7 @@ static irqreturn_t i2c_jz_irq(int irqno, void *dev_id)
 #ifdef I2C_DEBUG
 	dev_info(&(i2c->adap.dev),"--I2C irq reg INTST:%x\n",intst);
 #endif
-if((intst & I2C_INTST_TXABT) && (intmsk & I2C_INTM_MTXABT)) {
+	if((intst & I2C_INTST_TXABT) && (intmsk & I2C_INTM_MTXABT)) {
 		// all data require'll abort,when trans data abort
                 i2c_writel(i2c, I2C_INTM, 0);
                 if(!i2c->w_flag)
@@ -395,16 +395,16 @@ if((intst & I2C_INTST_TXABT) && (intmsk & I2C_INTM_MTXABT)) {
                 i2c_writel(i2c, I2C_INTM, tmp);
 		tmp1 = i2c_readl(i2c, I2C_STA);
 		if(i2c->w_flag){
-				complete(&i2c->w_complete);
+			complete(&i2c->w_complete);
 		}
-	}
-	if(intst & I2C_INTST_ISTT) {
+	}else if(intst & I2C_INTST_ISTT) {
+		// wait restart bit trans for next transform.
 		tmp = i2c_readl(i2c, I2C_INTM);
                 tmp &= ~I2C_INTST_ISTT;
                 i2c_writel(i2c, I2C_INTM, tmp);
 		tmp1 = i2c_readl(i2c, I2C_STA);
 		if(i2c->w_flag){
-				complete(&i2c->w_complete);
+			complete(&i2c->w_complete);
 		}
 	}
 
@@ -476,7 +476,8 @@ static inline int xfer_read(struct i2c_jz *i2c, unsigned char *buf, int len, int
 			ret = -ENXIO;
 		else
 			ret = -EIO;
-		if(tmp & 8) {
+		// ABRT_GCALL_READ
+		if(tmp & (1 << 5)) {
 			ret = -EAGAIN;
 		}
 		i2c_readl(i2c,I2C_CTXABRT);
@@ -543,6 +544,7 @@ static inline int xfer_write(struct i2c_jz *i2c, unsigned char *buf, int len, in
 			ret = -ENXIO;
 		else
 			ret = -EIO;
+//after I2C_TXABRT_ABRT_XDATA_NOACK error,this required core to resend
 		if(tmp & 8) {
                         ret = -EAGAIN;
                 }
@@ -576,7 +578,7 @@ static int i2c_disable_clk(struct i2c_jz *i2c)
 
 static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 {
-	int i,ret;
+	int i,ret = 0;
 	struct i2c_jz *i2c = adap->algo_data;
 
 	clk_enable(i2c->clk);
@@ -589,7 +591,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int count)
 		if (msg->flags & I2C_M_RD) {
 			ret = xfer_read(i2c, msg->buf, msg->len, count, i);
 		} else {
-			if((count > 1) && ((msg+1)->flags & I2C_M_RD)){
+			if((i < count - 1) && ((msg+1)->flags & I2C_M_RD)){
 				if((msg+1)->flags & I2C_M_NOSTART){
 					i2c->restart = 0;
 				}
@@ -641,14 +643,32 @@ static int i2c_set_speed(struct i2c_jz *i2c, int rate)
 		tmp = 0x45 | (1<<5);      /* fast speed mode*/
 		i2c_writel(i2c,I2C_CTRL,tmp);
 	}
+	/*         high
+	 *         ____     ____      ____      ____
+	 *  clk __|  | |___|    |____|    |____|    |___
+	 *           | | |
+	 *           | | |
+	 *           |_|_|     _________      ____
+	 * data    __/ | |\___/         \____/    \____
+	 *    setup->| |<|
+	 *           ->| |<-hold
+	 */
 
-	//setup_time = (10000000/(rate*4)) + 1;
-	setup_time = (dev_clk/(rate*4)) + 1;
+	//setup_time = (10 000 000/(rate*4)) + 1;
+	setup_time = (dev_clk/(rate * 4));
+	if(setup_time > 1) setup_time -= 1;
 	//hold_time =  (10000000/(rate*4)) - 1;
-	hold_time =  (dev_clk/(rate*4)) - 1;
+	hold_time =  (dev_clk/(rate*4));
 
-	cnt_high = dev_clk/(rate*2);
-	cnt_low = dev_clk/(rate*2);
+	/*         high
+	 *         ____     ____
+	 *  clk __|    |___|    |____
+	 *              low
+	 *        |<--period--->|
+	 *
+	 */
+	cnt_high = dev_clk/(rate * 2);
+	cnt_low = dev_clk/(rate * 2);
 
 	dev_info(&(i2c->adap.dev),"set:%ld  hold:%ld dev=%ld h=%ld l=%ld\n",
 			setup_time, hold_time, dev_clk, cnt_high, cnt_low);
@@ -785,22 +805,9 @@ static int i2c_jz_remove(struct platform_device *dev)
 	kfree(i2c);
 	return 0;
 }
-
-static int i2c_jz_suspend(struct platform_device *dev, pm_message_t state)
-{
-#if 0
-	struct i2c_jz *i2c = platform_get_drvdata(dev);
-	cancel_delayed_work(&i2c->clk_work);
-	clk_disable(i2c->clk);
-	i2c->enabled = 0;
-#endif
-	return 0;
-}
-
 static struct platform_driver i2c_jz_driver = {
 	.probe		= i2c_jz_probe,
 	.remove		= i2c_jz_remove,
-	.suspend 	= i2c_jz_suspend,
 	.driver		= {
 		.name	= "jz-i2c",
 	},

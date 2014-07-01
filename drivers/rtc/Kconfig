@@ -138,6 +138,15 @@ config RTC_DRV_TEST
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-test.
 
+config RTC_DRV_JZ4775
+        tristate "JZ4775"
+	help
+	If you say Y here you will get access to the real time clock
+	  built into your JZ4775 CPU.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rtc-jz4775.
+
 comment "I2C RTC drivers"
 	depends on I2C
 
@@ -180,14 +189,6 @@ config RTC_DRV_JZ4780
 	  To compile this driver as a module, choose M here: the
 	  module will be called rtc-jz4780.
 
-config RTC_DRV_JZ4775                                                    
-	tristate "JZ4775"
-	help          
-	  If you say Y here you will get access to the real time clock
-	  built into your JZ4775 CPU. 
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called rtc-jz4775.
 
 config RTC_DRV_DS1374
 	tristate "Dallas/Maxim DS1374"

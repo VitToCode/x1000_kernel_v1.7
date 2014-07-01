@@ -70,13 +70,13 @@ static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 {
 
 	int timeout = 0x100000;						
-	wait_write_ready(dev);						
+//	wait_write_ready(dev);
 	writel(WENR_WENPAT_WRITABLE, dev->iomem + RTC_WENR);		
 	wait_write_ready(dev);						
 	while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);	
 	if (timeout <= 0)						
 		pr_info("RTC :  wait_writable timeout!\n");		
-
+	wait_write_ready(dev);
 	writel(value,dev->iomem + offset);
 	wait_write_ready(dev); 
 }
