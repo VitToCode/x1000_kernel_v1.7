@@ -73,6 +73,7 @@ struct jzgpio_chip {
 	void __iomem *reg;
 	void __iomem *shadow_reg;
 	int irq_base;
+	spinlock_t gpio_lock;
 	DECLARE_BITMAP(dev_map, 32);
 	DECLARE_BITMAP(gpio_map, 32);
 	DECLARE_BITMAP(irq_map, 32);
@@ -105,8 +106,10 @@ static inline int gpio_pin_level(struct jzgpio_chip *jz, int pin)
 static void gpio_set_func(struct jzgpio_chip *chip,
 			  enum gpio_function func, unsigned int pins)
 {
-	unsigned long comp;
+	unsigned long comp, flags;
 	unsigned long grp;
+
+	spin_lock_irqsave(&chip->gpio_lock,flags);
 
 	grp = ((unsigned int)chip->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
 
@@ -154,13 +157,17 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 	}
 	/* configure PzGID2LD to specify which port group to load */
 	writel(grp & 0x7, chip->shadow_reg + PZGID2LD);
+
+	spin_unlock_irqrestore(&chip->gpio_lock,flags);
 }
 
 static void gpio_restore_func(struct jzgpio_chip *chip,
 			      struct gpio_reg_func *rfunc, unsigned int pins)
 {
-	unsigned long comp;
+	unsigned long comp, flags;
 	unsigned long grp;
+
+	spin_lock_irqsave(&chip->gpio_lock,flags);
 
 	grp = ((unsigned int)chip->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
 
@@ -209,6 +216,8 @@ static void gpio_restore_func(struct jzgpio_chip *chip,
 
 	/* configure PzGID2LD to specify which port group to load */
 	writel(grp & 0x7, chip->shadow_reg + PZGID2LD);
+
+	spin_unlock_irqrestore(&chip->gpio_lock,flags);
 }
 int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
 			    unsigned long pins, struct gpio_reg_func *rfunc)
@@ -686,13 +695,13 @@ struct syscore_ops gpio_pm_ops = {
 int __init gpio_ss_check(void)
 {
 	unsigned int i,state,group,index;
-	unsigned int panic_flags[7] = {0};
+	unsigned int panic_flags[GPIO_NR_PORTS] = {0};
 
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].sleep_state.input_pull = 0xffffffff;
 	}
 
-	for(i = 0; gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
+	for(i = 0; i < GPIO_NR_PORTS && gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
 		group = gpio_ss_table[i][0] / 32;
 		index = gpio_ss_table[i][0] % 32;
 		state = gpio_ss_table[i][1];
@@ -811,6 +820,7 @@ int __init setup_gpio_pins(void)
 			break;
 		}
 
+		spin_lock_init(&jz_gpio_chips[i].gpio_lock);
 		jz = &jz_gpio_chips[g->port];
 		if (GPIO_AS_FUNC(g->func)) {
 			if(jz->dev_map[0] & g->pins) {

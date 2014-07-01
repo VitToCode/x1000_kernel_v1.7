@@ -306,7 +306,6 @@ static struct resource jz_adc_resources[] = {
 	},
 };
 
-
 struct platform_device jz_adc_device = {
 	.name   = "jz-adc",
 	.id = -1,
@@ -314,13 +313,11 @@ struct platform_device jz_adc_device = {
 	.resource   = jz_adc_resources,
 };
 
-
-
 /* MSC ( msc controller v1.2) */
 static u64 jz_msc_dmamask = ~(u32) 0;
 
-#define DEF_MSC(NO)						    \
-	static struct resource jz_msc##NO##_resources[] = {         \
+#define DEF_MSC(NO)							\
+	static struct resource jz_msc##NO##_resources[] = {		\
 		{							\
 			.start          = MSC##NO##_IOBASE,		\
 			.end            = MSC##NO##_IOBASE + 0x1000 - 1, \
@@ -359,13 +356,15 @@ static struct resource jz_fb_resources[] = {
 		.end = IRQ_LCD,
 		.flags = IORESOURCE_IRQ,
 	},
-	};
+};
 
-struct platform_device jz_fb_device = {.name = "jz-fb",
+struct platform_device jz_fb_device = {
+	.name = "jz-fb",
 	.id = 0,
-	.dev = {.dma_mask = &jz_fb_dmamask,
+	.dev = {
+		.dma_mask = &jz_fb_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.num_resources = ARRAY_SIZE(jz_fb_resources),
 	.resource = jz_fb_resources,
 };
@@ -382,7 +381,6 @@ static struct resource jz_vpu_resource[] = {
 		.end   = IRQ_VPU,
 		.flags = IORESOURCE_IRQ,
 	},
-
 };
 
 struct platform_device jz_vpu_device = {
@@ -394,22 +392,26 @@ struct platform_device jz_vpu_device = {
 
 /* ipu */
 static u64 jz_ipu_dmamask = ~(u64) 0;
-static struct resource jz_ipu_resources[] = {[0] = {.start = IPU_IOBASE,
-						    .end =
-						    IPU_IOBASE + 0x8000 - 1,
-						    .flags = IORESOURCE_MEM,
-						    },
-[1] = {.start = IRQ_IPU,
-       .end = IRQ_IPU,
-       .flags = IORESOURCE_IRQ,
-       },
+static struct resource jz_ipu_resources[] = {
+	[0] = {
+		.start = IPU_IOBASE,
+		.end = IPU_IOBASE + 0x8000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_IPU,
+		.end = IRQ_IPU,
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
-struct platform_device jz_ipu_device = {.name = "jz-ipu",
+struct platform_device jz_ipu_device = {
+	.name = "jz-ipu",
 	.id = 0,
-	.dev = {.dma_mask = &jz_ipu_dmamask,
+	.dev = {
+		.dma_mask = &jz_ipu_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.num_resources = ARRAY_SIZE(jz_ipu_resources),
 	.resource = jz_ipu_resources,
 };
@@ -417,15 +419,15 @@ struct platform_device jz_ipu_device = {.name = "jz-ipu",
 /*DWC OTG*/
 static struct resource jz_dwc_otg_resources[] = {
 	[0] = {
-	       .start = OTG_IOBASE,
-	       .end = OTG_IOBASE + 0x40000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = OTG_IOBASE,
+		.end = OTG_IOBASE + 0x40000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .flags = IORESOURCE_IRQ,
-	       .start = IRQ_OTG,
-	       .end = IRQ_OTG,
-	       },
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_OTG,
+		.end = IRQ_OTG,
+	},
 };
 
 struct platform_device jz_dwc_otg_device = {
@@ -438,20 +440,20 @@ struct platform_device jz_dwc_otg_device = {
 /* UART ( uart controller) */
 static struct resource jz_uart0_resources[] = {
 	[0] = {
-	       .start = UART0_IOBASE,
-	       .end = UART0_IOBASE + 0x1000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = UART0_IOBASE,
+		.end = UART0_IOBASE + 0x1000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_UART0,
-	       .end = IRQ_UART0,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_UART0,
+		.end = IRQ_UART0,
+		.flags = IORESOURCE_IRQ,
+	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART0_DMA
 	[2] = {
-	       .start = JZDMA_REQ_UART0,
-	       .flags = IORESOURCE_DMA,
-	       },
+		.start = JZDMA_REQ_UART0,
+		.flags = IORESOURCE_DMA,
+	},
 #endif
 };
 
@@ -464,20 +466,20 @@ struct platform_device jz_uart0_device = {
 
 static struct resource jz_uart1_resources[] = {
 	[0] = {
-	       .start = UART1_IOBASE,
-	       .end = UART1_IOBASE + 0x1000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = UART1_IOBASE,
+		.end = UART1_IOBASE + 0x1000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_UART1,
-	       .end = IRQ_UART1,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_UART1,
+		.end = IRQ_UART1,
+		.flags = IORESOURCE_IRQ,
+	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART1_DMA
 	[2] = {
-	       .start = JZDMA_REQ_UART1,
-	       .flags = IORESOURCE_DMA,
-	       },
+		.start = JZDMA_REQ_UART1,
+		.flags = IORESOURCE_DMA,
+	},
 #endif
 };
 
@@ -490,20 +492,20 @@ struct platform_device jz_uart1_device = {
 
 static struct resource jz_uart2_resources[] = {
 	[0] = {
-	       .start = UART2_IOBASE,
-	       .end = UART2_IOBASE + 0x1000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = UART2_IOBASE,
+		.end = UART2_IOBASE + 0x1000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_UART2,
-	       .end = IRQ_UART2,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_UART2,
+		.end = IRQ_UART2,
+		.flags = IORESOURCE_IRQ,
+	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART2_DMA
 	[2] = {
-	       .start = JZDMA_REQ_UART2,
-	       .flags = IORESOURCE_DMA,
-	       },
+		.start = JZDMA_REQ_UART2,
+		.flags = IORESOURCE_DMA,
+	},
 #endif
 };
 
@@ -516,20 +518,20 @@ struct platform_device jz_uart2_device = {
 
 static struct resource jz_uart3_resources[] = {
 	[0] = {
-	       .start = UART3_IOBASE,
-	       .end = UART3_IOBASE + 0x1000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = UART3_IOBASE,
+		.end = UART3_IOBASE + 0x1000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_UART3,
-	       .end = IRQ_UART3,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_UART3,
+		.end = IRQ_UART3,
+		.flags = IORESOURCE_IRQ,
+	},
 #ifdef CONFIG_SERIAL_JZ47XX_UART3_DMA
 	[2] = {
-	       .start = JZDMA_REQ_UART3,
-	       .flags = IORESOURCE_DMA,
-	       },
+		.start = JZDMA_REQ_UART3,
+		.flags = IORESOURCE_DMA,
+	},
 #endif
 };
 
@@ -543,15 +545,15 @@ struct platform_device jz_uart3_device = {
 /* OHCI (USB full speed host controller) */
 static struct resource jz_ohci_resources[] = {
 	[0] = {
-	       .start = OHCI_IOBASE,
-	       .end = OHCI_IOBASE + 0x10000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = OHCI_IOBASE,
+		.end = OHCI_IOBASE + 0x10000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_OHCI,
-	       .end = IRQ_OHCI,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_OHCI,
+		.end = IRQ_OHCI,
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
 static u64 ohci_dmamask = ~(u32) 0;
@@ -562,7 +564,7 @@ struct platform_device jz_ohci_device = {
 	.dev = {
 		.dma_mask = &ohci_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.num_resources = ARRAY_SIZE(jz_ohci_resources),
 	.resource = jz_ohci_resources,
 };
@@ -570,17 +572,15 @@ struct platform_device jz_ohci_device = {
 /* EHCI (USB high speed host controller) */
 static struct resource jz_ehci_resources[] = {
 	[0] = {
-	       .start = EHCI_IOBASE,
-	       .end = EHCI_IOBASE + 0x10000 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
-#if 1
+		.start = EHCI_IOBASE,
+		.end = EHCI_IOBASE + 0x10000 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_EHCI,
+		.start = IRQ_EHCI,
 	       .end = IRQ_EHCI,
-	       .flags = IORESOURCE_IRQ,
+		.flags = IORESOURCE_IRQ,
 	       },
-#endif
 };
 
 /* The dmamask must be set for OHCI to work */
@@ -592,7 +592,7 @@ struct platform_device jz_ehci_device = {
 	.dev = {
 		.dma_mask = &ehci_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.num_resources = ARRAY_SIZE(jz_ehci_resources),
 	.resource = jz_ehci_resources,
 };
@@ -660,7 +660,7 @@ static struct resource jz_i2s_resources[] = {
 	       .start = IRQ_AIC0,
 	       .end = IRQ_AIC0,
 	       .flags = IORESOURCE_IRQ,
-	       },
+	},
 };
 
 struct platform_device jz_i2s_device = {
@@ -669,7 +669,7 @@ struct platform_device jz_i2s_device = {
 	.dev = {
 		.dma_mask = &jz_i2s_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.resource = jz_i2s_resources,
 	.num_resources = ARRAY_SIZE(jz_i2s_resources),
 };
@@ -677,15 +677,15 @@ struct platform_device jz_i2s_device = {
 static u64 jz_pcm_dmamask = ~(u32) 0;
 static struct resource jz_pcm_resources[] = {
 	[0] = {
-	       .start = PCM0_IOBASE,
-	       .end = PCM0_IOBASE,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = PCM0_IOBASE,
+		.end = PCM0_IOBASE,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_PCM0,
-	       .end = IRQ_PCM0,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_PCM0,
+		.end = IRQ_PCM0,
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device jz_pcm_device = {
@@ -694,7 +694,7 @@ struct platform_device jz_pcm_device = {
 	.dev = {
 		.dma_mask = &jz_pcm_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.resource = jz_pcm_resources,
 	.num_resources = ARRAY_SIZE(jz_pcm_resources),
 };
@@ -702,15 +702,15 @@ struct platform_device jz_pcm_device = {
 static u64 jz_spdif_dmamask = ~(u32) 0;
 static struct resource jz_spdif_resources[] = {
 	[0] = {
-	       .start = SPDIF0_IOBASE,
-	       .end = SPDIF0_IOBASE + 0x20 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = SPDIF0_IOBASE,
+		.end = SPDIF0_IOBASE + 0x20 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_AIC0,
-	       .end = IRQ_AIC0,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_AIC0,
+		.end = IRQ_AIC0,
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device jz_spdif_device = {
@@ -719,7 +719,7 @@ struct platform_device jz_spdif_device = {
 	.dev = {
 		.dma_mask = &jz_spdif_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.resource = jz_spdif_resources,
 	.num_resources = ARRAY_SIZE(jz_spdif_resources),
 };
@@ -727,15 +727,15 @@ struct platform_device jz_spdif_device = {
 static u64 jz_dmic_dmamask = ~(u32) 0;
 static struct resource jz_dmic_resources[] = {
 	[0] = {
-	       .start = DMIC_IOBASE,
-	       .end = DMIC_IOBASE + 0x70 - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
+		.start = DMIC_IOBASE,
+		.end = DMIC_IOBASE + 0x70 - 1,
+		.flags = IORESOURCE_MEM,
+	},
 	[1] = {
-	       .start = IRQ_DMIC,
-	       .end = IRQ_DMIC,
-	       .flags = IORESOURCE_IRQ,
-	       },
+		.start = IRQ_DMIC,
+		.end = IRQ_DMIC,
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device jz_dmic_device = {
@@ -744,16 +744,16 @@ struct platform_device jz_dmic_device = {
 	.dev = {
 		.dma_mask = &jz_dmic_dmamask,
 		.coherent_dma_mask = 0xffffffff,
-		},
+	},
 	.resource = jz_dmic_resources,
 	.num_resources = ARRAY_SIZE(jz_dmic_resources),
 };
 
-#define DEF_MIXER(NO)				\
-struct platform_device jz_mixer##NO##_device = {		\
-	.name	= DEV_MIXER_NAME,			\
-	.id		= minor2index(SND_DEV_MIXER##NO),	\
-};
+#define DEF_MIXER(NO)							\
+	struct platform_device jz_mixer##NO##_device = {		\
+		.name	= DEV_MIXER_NAME,				\
+		.id	= minor2index(SND_DEV_MIXER##NO),		\
+	};
 DEF_MIXER(0);
 DEF_MIXER(1);
 DEF_MIXER(2);
@@ -765,53 +765,53 @@ struct platform_device jz_codec_device = {
 
 
 static u64 jz_ssi_dmamask =  ~(u32)0;
-#define DEF_SSI(NO)							       \
-	static struct resource jz_ssi##NO##_resources[] = {			       \
-		[0] = {								       \
-			.flags	       = IORESOURCE_MEM,			       \
-			.start	       = SSI##NO##_IOBASE,			       \
-			.end	       = SSI##NO##_IOBASE + 0x1000 - 1,		       \
-		},								       \
-		[1] = {								       \
-			.flags	       = IORESOURCE_IRQ,			       \
-			.start	       = IRQ_SSI##NO,				       \
-			.end	       = IRQ_SSI##NO,				       \
-		},								       \
-		[2] = {								       \
-			.flags	       = IORESOURCE_DMA,			       \
-			.start	       = JZDMA_REQ_SSI##NO,			       \
-		},								       \
-	};									       \
-struct platform_device jz_ssi##NO##_device = {				       \
-	.name = "jz-ssi",						       \
-	.id = NO,							       \
-	.dev = {								       \
-		.dma_mask	       = &jz_ssi_dmamask,		       \
-		.coherent_dma_mask      = 0xffffffff,			       \
-	},								       \
-	.resource       = jz_ssi##NO##_resources,			       \
-	.num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),		       \
-};
+#define DEF_SSI(NO)							\
+	static struct resource jz_ssi##NO##_resources[] = {		\
+		[0] = {							\
+			.flags	       = IORESOURCE_MEM,		\
+			.start	       = SSI##NO##_IOBASE,		\
+			.end	       = SSI##NO##_IOBASE + 0x1000 - 1,	\
+		},							\
+		[1] = {							\
+			.flags	       = IORESOURCE_IRQ,		\
+			.start	       = IRQ_SSI##NO,			\
+			.end	       = IRQ_SSI##NO,			\
+		},							\
+		[2] = {							\
+			.flags	       = IORESOURCE_DMA,		\
+			.start	       = JZDMA_REQ_SSI##NO,		\
+		},							\
+	};								\
+	struct platform_device jz_ssi##NO##_device = {			\
+		.name = "jz-ssi",					\
+		.id = NO,						\
+		.dev = {						\
+			.dma_mask	       = &jz_ssi_dmamask,	\
+			.coherent_dma_mask      = 0xffffffff,		\
+		},							\
+		.resource       = jz_ssi##NO##_resources,		\
+		.num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),	\
+	};
 
-#define DEF_PIO_SSI(NO)							       \
-	static struct resource jz_ssi##NO##_resources[] = {			       \
-		[0] = {								       \
-			.flags	       = IORESOURCE_MEM,			       \
-			.start	       = SSI##NO##_IOBASE,			       \
-			.end	       = SSI##NO##_IOBASE + 0x1000 - 1,		       \
-		},								       \
-		[1] = {								       \
-			.flags	       = IORESOURCE_IRQ,			       \
-			.start	       = IRQ_SSI##NO,				       \
-			.end	       = IRQ_SSI##NO,				       \
-		},								       \
-	};									       \
-struct platform_device jz_ssi##NO##_device = {				       \
-	.name = "jz-ssi",						       \
-	.id = NO,							       \
-	.resource       = jz_ssi##NO##_resources,			       \
-	.num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),		       \
-};
+#define DEF_PIO_SSI(NO)							\
+	static struct resource jz_ssi##NO##_resources[] = {		\
+		[0] = {							\
+			.flags	       = IORESOURCE_MEM,		\
+			.start	       = SSI##NO##_IOBASE,		\
+			.end	       = SSI##NO##_IOBASE + 0x1000 - 1,	\
+		},							\
+		[1] = {							\
+			.flags	       = IORESOURCE_IRQ,		\
+			.start	       = IRQ_SSI##NO,			\
+			.end	       = IRQ_SSI##NO,			\
+		},							\
+	};								\
+	struct platform_device jz_ssi##NO##_device = {			\
+		.name = "jz-ssi",					\
+		.id = NO,						\
+		.resource       = jz_ssi##NO##_resources,		\
+		.num_resources  = ARRAY_SIZE(jz_ssi##NO##_resources),	\
+	};
 #ifdef CONFIG_SPI0_PIO_ONLY
 DEF_PIO_SSI(0);
 #else
