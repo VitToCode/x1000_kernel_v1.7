@@ -114,13 +114,8 @@ int dmmu_deinit()
 		return -1;
 	}
 
-	/*In order to avoid close when more thean on open
-	*in the same process.
-	*only release when process exit.
-	*/
-
-	/*close(dmmu_fd); */
-	/*dmmu_fd = -1;*/
+	close(dmmu_fd);
+	dmmu_fd = -1;
 
 	return 0;
 }

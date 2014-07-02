@@ -145,6 +145,7 @@ struct proc_page_tab_data *dmmu_open_handle(pid_t pid)
 		if(table_tmp->pid == pid){
 			printk("++NOTICE: You need only open /dev/dmmu one time in the same process!++\n");
 			/*printk("++table_tmp=%p\n",table_tmp);*/
+			table_tmp->ref_times++;
 			spin_unlock(&jz_dmmu.list_lock);
 			return table_tmp;
 		}
@@ -161,7 +162,7 @@ struct proc_page_tab_data *dmmu_open_handle(pid_t pid)
 	table->alloced_pgd_vaddr = alloc_pgd_vaddr;
 	table->alloced_pgd_paddr = alloc_pgd_paddr;
 	table->alloced_page_num  = 0;
-	table->ref_times = 0;
+	table->ref_times++;
 	table->pid = pid;
 	spin_lock(&jz_dmmu.list_lock);
 	list_add_tail(&table->list, &jz_dmmu.process_list);
@@ -185,8 +186,15 @@ static int dmmu_open(struct inode *inode, struct file *file)
 
 int dmmu_release_handle(struct proc_page_tab_data *table)
 {
-	if(table == NULL)
+	if(table == NULL){
+		printk("+++%s warring: You may have released handle!\n",__func__);
 		return 0;
+	}
+
+	if(--table->ref_times){
+		printk("+++warring: You may open /dev/dmmu more than one time in the same process!++\n");
+		return 0;
+	}
 
 	spin_lock(&jz_dmmu.list_lock);
 	list_del(&table->list);
@@ -258,7 +266,6 @@ int mem_map_new_tlb(struct proc_page_tab_data *table,struct dmmu_mem_info *mem)
 	unsigned int pgd_num = -1;
 
 	pgd_t *cpu_pgd_addr = current->mm->pgd;
-	table->ref_times++;
 	vaddr = mem->vaddr;
 
 	pgd_num = pgd_num_cale(mem);
@@ -315,7 +322,6 @@ int mem_map_new_tlb(struct proc_page_tab_data *table,struct dmmu_mem_info *mem)
 	int i,j,pte_offset,pgd_offset,pgd_num;
 	int *pte_vaddr;
 	int size = 0;
-	table->ref_times++;
 
 	pgd_num = pgd_num_cale(mem);
 	for(i = 0; i < pgd_num; i++){
