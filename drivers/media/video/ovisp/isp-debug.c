@@ -7,10 +7,10 @@ void dump_isp_set_para(struct isp_device *isp, struct isp_parm *iparm, unsigned 
 {
 	ISP_PRINT(ISP_INFO,"-----------------------------  dump set parameter ----------------------------------\n");
 	ISP_PRINT(ISP_INFO,"%s:input format:%08x, output format, %08x\n", __func__, iformat, oformat);
-	ISP_PRINT(ISP_INFO,"%s:iparm->in_width:%d, in_width:0x%x\n", __func__, iparm->in_width, iparm->in_width);
-	ISP_PRINT(ISP_INFO,"%s:iparm->in_height:%d, in_height:0x%x\n", __func__, iparm->in_height, iparm->in_height);
-	ISP_PRINT(ISP_INFO,"%s:iparm->out_width:%d, out_width:0x%x\n", __func__, iparm->out_width, iparm->out_width);
-	ISP_PRINT(ISP_INFO,"%s:iparm->out_height:%d, out_height:0x%x\n", __func__, iparm->out_height, iparm->out_height);
+	ISP_PRINT(ISP_INFO,"%s:iparm->in_width:%d, in_width:0x%x\n", __func__, iparm->input.width, iparm->input.width);
+	ISP_PRINT(ISP_INFO,"%s:iparm->in_height:%d, in_height:0x%x\n", __func__, iparm->input.height, iparm->input.height);
+	ISP_PRINT(ISP_INFO,"%s:iparm->out_width:%d, out_width:0x%x\n", __func__, iparm->output[0].width, iparm->output[0].width);
+	ISP_PRINT(ISP_INFO,"%s:iparm->out_height:%d, out_height:0x%x\n", __func__, iparm->output[0].height, iparm->output[0].height);
 	ISP_PRINT(ISP_INFO,"---------------------------------------------------------------------------\n");
 }
 
@@ -84,7 +84,7 @@ void dump_isp_configuration(struct isp_device * isp)
 	}
 	ISP_PRINT(ISP_INFO,"output configuration\n");
 	for(i = 0; i < 0x13; i++) {
-		ISP_PRINT(ISP_INFO,"0%x:==>0x%x\n", 0x1f020 + i,isp_firmware_readb(isp, 0x1f020 + i));
+		ISP_PRINT(ISP_INFO,"0%x:==>0x%x\n", 0x1f022 + i,isp_firmware_readb(isp, 0x1f022 + i));
 	}
 }
 

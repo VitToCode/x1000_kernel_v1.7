@@ -101,20 +101,6 @@ static int isp_intc_enable(struct isp_device * isp, unsigned short mask)
 
 	return 0;
 }
-void isp_dump_configuration(struct isp_device * isp)
-{
-	int i;
-
-	printk("input configuration\n");
-	for(i = 0; i < 0xf; i++) {
-		printk("0%x:==>0x%x\n", 0x1f000 + i,isp_firmware_readb(isp, 0x1f000 + i));
-	}
-	printk("output configuration\n");
-	for(i = 0; i < 0x13; i++) {
-		printk("0%x:==>0x%x\n", 0x1f020 + i,isp_firmware_readb(isp, 0x1f020 + i));
-	}
-}
-
 
 static unsigned short isp_intc_state(struct isp_device *isp)
 {
@@ -230,133 +216,80 @@ static int isp_send_cmd(struct isp_device *isp, unsigned char id,
 	return ret;
 }
 
-#if 0
-static int isp_set_address(struct isp_device * isp, unsigned int id, unsigned int addr)
-{
-	unsigned int reg = id ? REG_BASE_ADDR1 : REG_BASE_ADDR0;
-	unsigned int regw = reg;
-	isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-	isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-	isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-	isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-
-		regw = reg + 0x04;
-
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x08;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x0c;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x60;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x58;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x64;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		regw = reg + 0x5c;
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-}
-#else
 static int isp_set_address(struct isp_device *isp,
 		unsigned int id, unsigned int addr)
 {
-#define CHAN_NUM 1
-#define VIDEO_NUM 1
-#define SIZE 1280*720
-	//#undef REG_BASE_ADDR1
-	//#undef REG_BASE_ADDR0
-	//#define REG_BASE_ADDR0  0x63b0d
-	//#define REG_BASE_ADDR1	0x63b1c
+	struct isp_parm *iparm = &isp->parm;
 	unsigned int reg = id ? REG_BASE_ADDR1 : REG_BASE_ADDR0;
 	unsigned int regw = reg;
-
-//	printk("%s########################:%x\n", __func__, addr);
-	isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-	isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-	isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-	isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-
-	if ((2 == VIDEO_NUM) || (3 == VIDEO_NUM)) {
-		regw = reg + 0x04;
-		addr += SIZE;
-//		printk("%s########################:%x\n", __func__, addr);
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
+	unsigned int addrw = addr;
+	switch(iparm->output[0].addrnums){
+		case 3:
+			addrw = addr + iparm->output[0].addroff[2];
+			regw = reg + 0x08;
+			isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+		case 2:
+			addrw = addr + iparm->output[0].addroff[1];
+			regw = reg + 0x04;
+			isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+		case 1:
+			addrw = addr;
+			regw = reg;
+			isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+			break;
+		default:
+			ISP_PRINT(ISP_ERROR, "%s[%d] addrnums is wrong; it should be 1 ~ 3,but it is %d",
+					__func__,__LINE__,iparm->output[0].addrnums);
+			break;
 	}
-	if (3 == VIDEO_NUM) {
-		regw = reg + 0x08;
-		addr += SIZE / 4;
-		printk("%s########################:%x\n", __func__, addr);
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-	}
-
-	if (2 == CHAN_NUM) {
-		regw = reg + 0x0c;
-		if (1 == VIDEO_NUM)
-			addr += SIZE;/*use for yuv422,if raw8,then addr +=size*/
-		else if (2 == VIDEO_NUM)
-			addr += SIZE / 2;
-		else
-			addr += SIZE / 4;
-		printk("%s########################:%x\n", __func__, addr);
-		isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-		isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-		isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-		isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		if ((2 == VIDEO_NUM) || (3 == VIDEO_NUM)) {
-			if (0 == id)
-				regw = reg + 0x60;
-			else
-				regw = reg + 0x58;
-			addr += SIZE;
-			printk("%s########################:%x\n", __func__, addr);
-			isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-			isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-			isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-			isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
-		}
-		if (3 == VIDEO_NUM) {
-			if (0 == id)
-				regw = reg + 0x64;
-			else
-				regw = reg + 0x5c;
-			addr += SIZE / 4;
-			printk("%s########################:%x\n", __func__, addr);
-			isp_reg_writeb(isp, (addr >> 24) & 0xff, regw);
-			isp_reg_writeb(isp, (addr >> 16) & 0xff, regw + 1);
-			isp_reg_writeb(isp, (addr >> 8) & 0xff, regw + 2);
-			isp_reg_writeb(isp, (addr >> 0) & 0xff, regw + 3);
+	if(iparm->out_videos == 2){
+		addr += iparm->output[0].imagesize;
+		switch(iparm->output[1].addrnums){
+			case 3:
+				addrw = addr + iparm->output[1].addroff[2];
+				if (0 == id)
+					regw = reg + 0x64;
+				else
+					regw = reg + 0x5c;
+				isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+				isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+				isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+				isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+			case 2:
+				addrw = addr + iparm->output[1].addroff[1];
+				if (0 == id)
+					regw = reg + 0x60;
+				else
+					regw = reg + 0x58;
+				isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+				isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+				isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+				isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+			case 1:
+				addrw = addr;
+				regw = reg + 0x0c;
+				isp_reg_writeb(isp, (addrw >> 24) & 0xff, regw);
+				isp_reg_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+				isp_reg_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+				isp_reg_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+				break;
+			default:
+				ISP_PRINT(ISP_ERROR, "%s[%d] addrnums is wrong; it should be 1 ~ 3,but it is %d",
+						__func__,__LINE__,iparm->output[1].addrnums);
+				break;
 		}
 	}
 	return 0;
 }
-#endif
 #if 0
 static int isp_calc_zoom(struct isp_device *isp)
 {
@@ -530,24 +463,53 @@ static int isp_set_parameters(struct isp_device *isp)
 	struct isp_parm *iparm = &isp->parm;
 	struct ovisp_camera_dev *camera_dev;
 	unsigned short iformat;
-	unsigned short oformat;
+	unsigned short oformat0;
+	unsigned short oformat1;
 	u32 snap_paddr;
 
 	camera_dev = (struct ovisp_camera_dev *)(isp->data);
+#if 0
 	if(isp->hdr_mode==1)
 		snap_paddr = camera_dev->offline.paddr;
 	else
 		snap_paddr = isp->buf_start.addr;
-	if (iparm->in_format == V4L2_MBUS_FMT_YUYV8_2X8)
+#endif
+	if (iparm->input.format == V4L2_MBUS_FMT_YUYV8_2X8)
 		iformat = IFORMAT_YUV422;
+	else if(iparm->input.format == V4L2_MBUS_FMT_SBGGR10_1X10)
+		iformat = IFORMAT_RAW10;
 	else
 		iformat = IFORMAT_RAW8;
-
-	if (iparm->out_format == V4L2_PIX_FMT_NV21)
-		oformat = OFORMAT_YUV420;
-	else
-		oformat = OFORMAT_YUV422;
-
+	switch (iparm->output[0].format) {
+		case V4L2_PIX_FMT_YUYV:
+			oformat0 = OFORMAT_YUV422;
+			iparm->output[0].addrnums = 1;
+			iparm->output[0].addroff[0] = 0;
+			break;
+		case V4L2_PIX_FMT_SGBRG8:
+			oformat0 = OFORMAT_RAW8;
+			iparm->output[0].addrnums = 1;
+			iparm->output[0].addroff[0] = 0;
+			break;
+		case V4L2_PIX_FMT_YUV420:
+			oformat0 = OFORMAT_YUV420;
+			iparm->output[0].addrnums = 3;
+			iparm->output[0].addroff[0] = 0;
+			iparm->output[0].addroff[1] = iparm->output[0].width * iparm->output[0].height;
+			iparm->output[0].addroff[2] = iparm->output[0].addroff[1] * 5 /4;
+			break;
+		case V4L2_PIX_FMT_NV12YUV422:
+		case V4L2_PIX_FMT_NV12:
+			oformat0 = OFORMAT_NV12;
+			iparm->output[0].addrnums = 2;
+			iparm->output[0].addroff[0] = 0;
+			iparm->output[0].addroff[1] = iparm->output[0].width * iparm->output[0].height;
+			ISP_PRINT(ISP_INFO, "iparm is addoff[1] = %d imagesize = %d\n",iparm->output[0].addroff[1],
+					iparm->output[0].imagesize);
+			break;
+		default:
+			return -EINVAL;
+	}
 	if (!isp->bypass)
 		iformat |= ISP_PROCESS;/*bypass isp or isp processing*/
 
@@ -573,32 +535,24 @@ static int isp_set_parameters(struct isp_device *isp)
 	isp_firmware_writeb(isp, (iformat >> 8) & 0xff, ISP_INPUT_FORMAT);
 	isp_firmware_writeb(isp, iformat & 0xff, ISP_INPUT_FORMAT + 1);
 
-	isp_firmware_writeb(isp, (iparm->in_width >> 8) & 0xff,
+	isp_firmware_writeb(isp, (iparm->input.width >> 8) & 0xff,
 			SENSOR_OUTPUT_WIDTH);
-	isp_firmware_writeb(isp, iparm->in_width & 0xff,
+	isp_firmware_writeb(isp, iparm->input.width & 0xff,
 			SENSOR_OUTPUT_WIDTH + 1);
 
-	isp_firmware_writeb(isp, (iparm->in_height >> 8) & 0xff,
+	isp_firmware_writeb(isp, (iparm->input.height >> 8) & 0xff,
 			SENSOR_OUTPUT_HEIGHT);
-	isp_firmware_writeb(isp, iparm->in_height & 0xff,
+	isp_firmware_writeb(isp, iparm->input.height & 0xff,
 			SENSOR_OUTPUT_HEIGHT + 1);
 
 	/*IDI CONTROL, DISABLE ISP IDI SCALE*/
 	isp_firmware_writeb(isp, 0x00, ISP_IDI_CONTROL);
 	isp_firmware_writeb(isp, 0x00, ISP_IDI_CONTROL + 1);
 	/* idi w,h */
-#if 0
-	isp_firmware_writeb(isp, (iparm->in_width >> 8) & 0xff, ISP_IDI_OUTPUT_WIDTH);
-	isp_firmware_writeb(isp, iparm->in_width & 0xff, ISP_IDI_OUTPUT_WIDTH + 1);
-	isp_firmware_writeb(isp, (iparm->in_height >> 8) & 0xff, ISP_IDI_OUTPUT_HEIGHT);
-	isp_firmware_writeb(isp, iparm->in_height & 0xff, ISP_IDI_OUTPUT_HEIGHT + 1);
-#else
-	/*idi output the same as isp*/
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff, ISP_IDI_OUTPUT_WIDTH);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff, ISP_IDI_OUTPUT_WIDTH + 1);
-	isp_firmware_writeb(isp, (iparm->out_height >> 8) & 0xff, ISP_IDI_OUTPUT_HEIGHT);
-	isp_firmware_writeb(isp, iparm->out_height & 0xff, ISP_IDI_OUTPUT_HEIGHT + 1);
-#endif
+	isp_firmware_writeb(isp, (iparm->input.width >> 8) & 0xff, ISP_IDI_OUTPUT_WIDTH);
+	isp_firmware_writeb(isp, iparm->input.width & 0xff, ISP_IDI_OUTPUT_WIDTH + 1);
+	isp_firmware_writeb(isp, (iparm->input.height >> 8) & 0xff, ISP_IDI_OUTPUT_HEIGHT);
+	isp_firmware_writeb(isp, iparm->input.height & 0xff, ISP_IDI_OUTPUT_HEIGHT + 1);
 
 	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_H_START);
 	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_H_START + 1);
@@ -607,43 +561,72 @@ static int isp_set_parameters(struct isp_device *isp)
 
 	/* 2. OUTPUT CONFIGRATION */
 	/* output1 */
-	isp_firmware_writeb(isp, (oformat >> 8) & 0xff, ISP_OUTPUT_FORMAT);
-	isp_firmware_writeb(isp, oformat & 0xff, ISP_OUTPUT_FORMAT + 1);
+	isp_firmware_writeb(isp, (oformat0 >> 8) & 0xff, ISP_OUTPUT_FORMAT);
+	isp_firmware_writeb(isp, oformat0 & 0xff, ISP_OUTPUT_FORMAT + 1);
 
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff,
+	isp_firmware_writeb(isp, (iparm->output[0].width >> 8) & 0xff,
 			ISP_OUTPUT_WIDTH);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff,
+	isp_firmware_writeb(isp, iparm->output[0].width & 0xff,
 			ISP_OUTPUT_WIDTH + 1);
-	isp_firmware_writeb(isp, (iparm->out_height >> 8) & 0xff,
+	isp_firmware_writeb(isp, (iparm->output[0].height >> 8) & 0xff,
 			ISP_OUTPUT_HEIGHT);
-	isp_firmware_writeb(isp, iparm->out_height & 0xff,
+	isp_firmware_writeb(isp, iparm->output[0].height & 0xff,
 			ISP_OUTPUT_HEIGHT + 1);
 	/*y memwidth*/
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff, MAC_MEMORY_WIDTH);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff, MAC_MEMORY_WIDTH + 1);
+	isp_firmware_writeb(isp, (iparm->output[0].width >> 8) & 0xff, MAC_MEMORY_WIDTH);
+	isp_firmware_writeb(isp, iparm->output[0].width & 0xff, MAC_MEMORY_WIDTH + 1);
 
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff, MAC_MEMORY_UV_WIDTH);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff, MAC_MEMORY_UV_WIDTH + 1);
+	isp_firmware_writeb(isp, (iparm->output[0].width >> 8) & 0xff, MAC_MEMORY_UV_WIDTH);
+	isp_firmware_writeb(isp, iparm->output[0].width & 0xff, MAC_MEMORY_UV_WIDTH + 1);
 	/*uv memwidth*/
 	/* output2 */
-	isp_firmware_writeb(isp, (oformat >> 8) & 0xff, ISP_OUTPUT_FORMAT_2);
-	isp_firmware_writeb(isp, oformat & 0xff, ISP_OUTPUT_FORMAT_2 + 1);
+	if(iparm->out_videos == 2){
+		switch (iparm->output[1].format) {
+			case V4L2_PIX_FMT_YUYV:
+				oformat1 = OFORMAT_YUV422;
+				iparm->output[1].addrnums = 1;
+				iparm->output[1].addroff[0] = 0;
+				break;
+			case V4L2_PIX_FMT_SGBRG8:
+				oformat1 = OFORMAT_RAW8;
+				iparm->output[1].addrnums = 1;
+				iparm->output[1].addroff[0] = 0;
+				break;
+			case V4L2_PIX_FMT_YUV420:
+				oformat1 = OFORMAT_YUV420;
+				iparm->output[1].addrnums = 3;
+				iparm->output[1].addroff[0] = 0;
+				iparm->output[1].addroff[1] = iparm->output[1].width * iparm->output[1].height;
+				iparm->output[1].addroff[2] = iparm->output[1].addroff[1] * 5 /4;
+				break;
+			case V4L2_PIX_FMT_NV12YUV422:
+			case V4L2_PIX_FMT_NV12:
+				oformat1 = OFORMAT_NV12;
+				iparm->output[1].addrnums = 2;
+				iparm->output[1].addroff[0] = 0;
+				iparm->output[1].addroff[1] = iparm->output[1].width * iparm->output[1].height;
+				break;
+			default:
+				return -EINVAL;
+		}
+		isp_firmware_writeb(isp, (oformat1 >> 8) & 0xff, ISP_OUTPUT_FORMAT_2);
+		isp_firmware_writeb(isp, oformat1 & 0xff, ISP_OUTPUT_FORMAT_2 + 1);
 
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff,
-			ISP_OUTPUT_WIDTH_2);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff,
-			ISP_OUTPUT_WIDTH_2 + 1);
-	isp_firmware_writeb(isp, (iparm->out_height >> 8) & 0xff,
-			ISP_OUTPUT_HEIGHT_2);
-	isp_firmware_writeb(isp, iparm->out_height & 0xff,
-			ISP_OUTPUT_HEIGHT_2 + 1);
+		isp_firmware_writeb(isp, (iparm->output[1].width >> 8) & 0xff,
+				ISP_OUTPUT_WIDTH_2);
+		isp_firmware_writeb(isp, iparm->output[1].width & 0xff,
+				ISP_OUTPUT_WIDTH_2 + 1);
+		isp_firmware_writeb(isp, (iparm->output[1].height >> 8) & 0xff,
+				ISP_OUTPUT_HEIGHT_2);
+		isp_firmware_writeb(isp, iparm->output[1].height & 0xff,
+				ISP_OUTPUT_HEIGHT_2 + 1);
 
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff, MAC_MEMORY_WIDTH_2);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff, MAC_MEMORY_WIDTH_2 + 1);
+		isp_firmware_writeb(isp, (iparm->output[1].width >> 8) & 0xff, MAC_MEMORY_WIDTH_2);
+		isp_firmware_writeb(isp, iparm->output[1].width & 0xff, MAC_MEMORY_WIDTH_2 + 1);
 
-	isp_firmware_writeb(isp, (iparm->out_width >> 8) & 0xff, MAC_MEMORY_UV_WIDTH_2);
-	isp_firmware_writeb(isp, iparm->out_width & 0xff, MAC_MEMORY_UV_WIDTH_2 + 1);
-
+		isp_firmware_writeb(isp, (iparm->output[1].width >> 8) & 0xff, MAC_MEMORY_UV_WIDTH_2);
+		isp_firmware_writeb(isp, iparm->output[1].width & 0xff, MAC_MEMORY_UV_WIDTH_2 + 1);
+	}
 	/* 3. ISP CONFIGURATION */
 	//zoom in 1x
 	isp_firmware_writeb(isp, 0x01, 0x1f084);
@@ -677,7 +660,7 @@ static int isp_set_parameters(struct isp_device *isp)
 	}
 
 	isp_firmware_writeb(isp, 0x06, 0x1fff9);
-	isp_dump_configuration(isp);
+	dump_isp_configuration(isp);
 	return 0;
 }
 
@@ -914,7 +897,10 @@ static int isp_set_format(struct isp_device *isp)
 
 	{	/*pzqi add*/
 		isp_reg_writeb(isp, 0x00, COMMAND_REG6);
-		isp_reg_writeb(isp, 0x01, COMMAND_REG7); /* one video */
+		if(isp->parm.out_videos == 1)
+			isp_reg_writeb(isp, 0x01, COMMAND_REG7);
+		else
+			isp_reg_writeb(isp, 0x02, COMMAND_REG7);
 	}
 	if (isp_send_cmd(isp, CMD_SET_FORMAT, ISP_FORMAT_TIMEOUT)) {
 		ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait format set done!\n");
@@ -1103,62 +1089,88 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	unsigned short irq_status;
 	unsigned short mac_irq_status = 0;
 	unsigned int notify = 0;
-//	start_time = sched_clock();
+	//start_time = sched_clock();
 	irq_status = isp_intc_state(isp);
-	if (irq_status & MASK_INT_MAC) {
-		mac_irq_status = isp_mac_int_state(isp);
-	}
+	mac_irq_status = isp_mac_int_state(isp);
 	/* Command set done interrupt. */
 	if (irq_status & MASK_INT_CMDSET) {
 		complete(&isp->completion);
 	}
-	/* Drop. */
-	if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
-		if(mac_irq_status & MASK_INT_DROP0){
-			notify |= ISP_NOTIFY_DROP_FRAME0;
-			ISP_PRINT(ISP_INFO,"drop 0 !!\n");
-			isp->pp_buf = true;
-		}
-		if(mac_irq_status & MASK_INT_DROP1){
-			notify |= ISP_NOTIFY_DROP_FRAME1;
-			ISP_PRINT(ISP_INFO,"drop 1 !!\n");
-			isp->pp_buf = false;
-		}
-	}
-	/* Done. */
-	if (mac_irq_status & (MASK_INT_WRITE_DONE0 | MASK_INT_WRITE_DONE1)){
-		if (mac_irq_status & MASK_INT_WRITE_DONE0) {
-			notify |= ISP_NOTIFY_DATA_DONE0;
-			ISP_PRINT(ISP_INFO,"done - 0!\n");
-			isp->pp_buf = false;
-		}
-		else if (mac_irq_status & MASK_INT_WRITE_DONE1) {
-			notify |= ISP_NOTIFY_DATA_DONE1;
-			ISP_PRINT(ISP_INFO,"done - 1!\n");
-			isp->pp_buf = true;
-		}
-	}
-	/* FIFO overflow */
-	if (mac_irq_status & (MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1)) {
-		ISP_PRINT(ISP_WARNING,"overflow\n");
-		notify |= ISP_NOTIFY_OVERFLOW;
+	if (irq_status & MASK_INT_MAC) {
+		//	mac_irq_status = isp_mac_int_state(isp);
 
-	}
+		/* Drop. */
+		if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
+			if(mac_irq_status & MASK_INT_DROP0){
+				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME0;
+				ISP_PRINT(ISP_INFO,"drop 0 !!\n");
+				//isp->pp_buf = true;
+			}
+			if(mac_irq_status & MASK_INT_DROP1){
+				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME1;
+				ISP_PRINT(ISP_INFO,"drop 1 !!\n");
+				//isp->pp_buf = false;
+			}
+		}
+		/* Done. */
+		if (mac_irq_status & (MASK_INT_WRITE_DONE0 | MASK_INT_WRITE_DONE1)){
+			if (mac_irq_status & MASK_INT_WRITE_DONE0) {
+				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE0;
+				ISP_PRINT(ISP_INFO,"done - 0!\n");
+				//isp->pp_buf = false;
+			}
+			else if (mac_irq_status & MASK_INT_WRITE_DONE1) {
+				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE1;
+				ISP_PRINT(ISP_INFO,"done - 1!\n");
+				//isp->pp_buf = true;
+			}
+#if 0
+			//dump_mac(isp);
+			//dump_isp_debug_regs(isp);
 
-	if(mac_irq_status & MASK_INT_WRITE_START0) {
-		ISP_PRINT(ISP_INFO,"start 0\n");
-		notify |= ISP_NOTIFY_DATA_START0;
-		/*dump_firmware_reg(isp, 0x1ee90, 12);*/
-	}
-	if(mac_irq_status & MASK_INT_WRITE_START1) {
-		ISP_PRINT(ISP_INFO,"start 1\n");
-		notify |= ISP_NOTIFY_DATA_START1;
-		/*dump_firmware_reg(isp, 0x1ee90, 12);*/
-	}
+			//		ISP_PRINT(ISP_INFO, "1C056 IS %#x\n",isp_firmware_readb(isp, 0x1c056));
+			/*dump_isp_exposure(isp);*/
 
+			//__dump_isp_regs(isp, 0x63b00, 0x63bd2);
+			//dump_isp_configs(isp);
+			dump_firmware_reg(isp, 0x1e010, 0x16);
+			dump_firmware_reg(isp, 0x1e056, 0x12);
+			dump_firmware_reg(isp, 0x1e070, 8);
+			__dump_isp_regs(isp, 0x66500, 0x34);
+			ISP_PRINT(ISP_INFO,"1e022 IS %#x\n", isp_firmware_readb(isp, 0x1e022));
+			dump_firmware_reg(isp, 0x1e056, 18);
+			ISP_PRINT(ISP_INFO,"65003 IS %#x\n", isp_reg_readb(isp, 0x65003));
+			dump_firmware_reg(isp, 0x1e030, 6);
+			/*dump_isp_configs(isp);*/
+			/*dump_isp_range_regs(isp,0x1ee90,0x0f);*/
+			/*dump_isp_debug_regs(isp);*/
+#endif
+		}
+		/* FIFO overflow */
+		if (mac_irq_status & (MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1)) {
+			ISP_PRINT(ISP_WARNING,"overflow\n");
+			notify |= ISP_NOTIFY_OVERFLOW;
+
+		}
+
+		if(mac_irq_status & MASK_INT_WRITE_START0) {
+			ISP_PRINT(ISP_INFO,"start 0\n");
+			notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START0;
+			/*dump_firmware_reg(isp, 0x1ee90, 12);*/
+		}
+		if(mac_irq_status & MASK_INT_WRITE_START1) {
+			ISP_PRINT(ISP_INFO,"start 1\n");
+			notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START1;
+			/*dump_firmware_reg(isp, 0x1ee90, 12);*/
+		}
+	}
+//	end_time = sched_clock();
+//	printk("()time0 = %lldns\n", (end_time - start_time));
+//	start_time = sched_clock();
 	isp_irq_notify(isp, notify);
 //	end_time = sched_clock();
-//	printk("%s  time = %lldns\n", (end_time - start_time));
+//	printk("()time1 = %lldns\n", (end_time - start_time));
+	//printk("^^*^^\n");
 	return IRQ_HANDLED;
 }
 
@@ -1312,6 +1324,7 @@ static int isp_clk_disable(struct isp_device *isp, unsigned int type)
 
 static int isp_powerdown(struct isp_device * isp)
 {
+
 	return 0;
 }
 
@@ -1467,11 +1480,9 @@ static int isp_update_buffer(struct isp_device *isp, struct isp_buffer *buf, int
 	if(index == 0){
 		isp_set_address(isp, 0, buf->addr);
 		isp_reg_writeb(isp, 0x01, REG_BASE_ADDR_READY);
-		isp->pp_buf = false;
 	}else{
 		isp_set_address(isp, 1, buf->addr);
 		isp_reg_writeb(isp, 0x02, REG_BASE_ADDR_READY);
-		isp->pp_buf = true;
 	}
 
 	return 0;
@@ -1813,9 +1824,7 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	isp->snapshot = cap->snapshot;
 	isp->client = cap->client;
 
-	//ISP_PRINT(ISP_INFO, "width is %d,height is %d,v4l2_field is %d\n", frame.width,frame.height,frame.field);
 	printk( "width is %d,height is %d,v4l2_field is %d\n", frame.width,frame.height,frame.field);
-	//isp->buf_start = cap->buf;
 	if (isp->format_active) {
 		isp_set_parameters(isp);
 		if (!isp->snapshot) {
@@ -1833,8 +1842,6 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 		isp_set_parameters(isp);
 		ret = isp_set_capture(isp);
 	}
-
-
 #ifdef OVISP_CSI_TEST
 	printk("csi sensor test ! \n");
 	while(1) {
@@ -1917,9 +1924,10 @@ static int isp_check_fmt(struct isp_device *isp, struct isp_format *f)
 		break;
 	case V4L2_PIX_FMT_SGBRG8:
 		break;
-		//case V4L2_PIX_FMT_NV12YUV422:
-		//break;
+	case V4L2_PIX_FMT_NV12YUV422:
+		break;
 	case V4L2_PIX_FMT_NV12:
+		break;
 		/* Now, we don't support yuv420sp. */
 	default:
 		return -EINVAL;
@@ -1978,23 +1986,33 @@ static int isp_s_fmt(struct isp_device *isp, struct isp_format *f)
 			|| (isp->fmt_data.hts != f->fmt_data->hts))
 		isp->format_active = 1;
 
-	if ((iparm->in_width != in_width)
-			|| (iparm->in_height != in_height)
-			|| (iparm->out_width != f->width)
-			|| (iparm->out_height != f->height)
-			|| (iparm->out_format != f->fourcc)
-			|| (iparm->in_format != f->code))
+	if ((iparm->input.width != in_width)
+			|| (iparm->input.height != in_height)
+			|| (iparm->output[0].width != f->width)
+			|| (iparm->output[0].height != f->height)
+			|| (iparm->output[0].format != f->fourcc)
+			|| (iparm->input.format != f->code))
 		isp->format_active = 1;
 
 	/* Save the parameters. */
-	iparm->in_width = in_width;
-	iparm->in_height = in_height;
-	iparm->in_format = f->code;
-	iparm->out_width = f->width;
-	iparm->out_height = f->height;
-	iparm->out_format = f->fourcc;
-	iparm->crop_width = iparm->in_width;
-	iparm->crop_height = iparm->in_height;
+	if(f->fourcc == V4L2_PIX_FMT_NV12YUV422){
+		iparm->out_videos = 2;
+		iparm->output[1].width = 640;
+		iparm->output[1].height = 360;
+		iparm->output[1].format = V4L2_PIX_FMT_YUYV;
+		iparm->output[1].imagesize = 640*360*2;
+	}else{
+		iparm->out_videos = 1;
+	}
+	iparm->output[0].width = f->width;
+	iparm->output[0].height = f->height;
+	iparm->output[0].format = f->fourcc;
+	iparm->output[0].imagesize = (f->width * f->height * f->depth) >> 3;
+	iparm->input.width = in_width;
+	iparm->input.height = in_height;
+	iparm->input.format = f->code;
+	iparm->crop_width = iparm->input.width;
+	iparm->crop_height = iparm->input.height;
 	iparm->crop_x = 0;
 	iparm->crop_y = 0;
 	memcpy(&isp->fmt_data, f->fmt_data, sizeof(isp->fmt_data));
@@ -2262,11 +2280,12 @@ static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, uns
 	struct isp_tlb_vaddrmanager *prev = NULL;
 	struct isp_tlb_vaddrmanager *after = NULL;
 	struct isp_tlb_vaddrmanager *tmv = NULL;
-	pid_t pid = current->pid;
+	pid_t pid = current->tgid;
 
 	if(list_empty(&(isp->tlb_list))){
 		ISP_PRINT(ISP_ERROR,"%s[%d] vaddr can't map because tlb isn't inited!\n",__func__,__LINE__);
 		ret = -EINVAL;
+		goto out;
 	}
 	list_for_each_entry(tmp, &(isp->tlb_list), pid_entry){
 		if(tmp->pid == pid){
@@ -2274,8 +2293,10 @@ static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, uns
 			break;
 		}
 	}
-	if(!p)
+	if(!p){
 		ret = -EINVAL;
+		goto out;
+	}
 
 	list_for_each_entry(tmv, &(p->vaddr_list), vaddr_entry){
 		if(tmv->vaddr <= vaddr && vaddr < tmv->vaddr + tmv->size){
@@ -2348,6 +2369,7 @@ map_fail:
 match_fail:
 	kfree(v);
 alloc_fail:
+out:
 	return ret;
 }
 static int isp_tlb_unmap_all_vaddr(struct isp_device *isp)
@@ -2355,7 +2377,8 @@ static int isp_tlb_unmap_all_vaddr(struct isp_device *isp)
 	struct isp_tlb_pidmanager *p = NULL;
 	struct isp_tlb_pidmanager *tmp = NULL;
 	struct isp_tlb_vaddrmanager *v = NULL;
-	pid_t pid = current->pid;
+	struct list_head *pos = NULL;
+	pid_t pid = current->tgid;
 
 	if(!list_empty(&(isp->tlb_list))){
 		list_for_each_entry(tmp, &(isp->tlb_list), pid_entry){
@@ -2369,11 +2392,12 @@ static int isp_tlb_unmap_all_vaddr(struct isp_device *isp)
 			ISP_PRINT(ISP_INFO,"^^^%s[%d] unmap!\n",__func__,__LINE__);
 			/* if vaddr_list  of the tlb_pidmanager isn't empty, release it */
 			if(!list_empty(&(p->vaddr_list))){
-				list_for_each_entry(v, &(p->vaddr_list), vaddr_entry){
+				list_for_each(pos, &(p->vaddr_list)){
+					v = list_entry(pos, struct isp_tlb_vaddrmanager,vaddr_entry);
 					list_del(&(v->vaddr_entry));
 					dmmu_unmap_user_mem((void *)(v->vaddr), v->size);
 					kfree(v);
-					v = &(p->vaddr_list);
+					pos = &(p->vaddr_list);
 				}
 			}
 		}
@@ -2385,7 +2409,7 @@ static int isp_tlb_init(struct isp_device *isp)
 	int ret = 0;
 	struct isp_tlb_pidmanager *p = NULL;
 	struct isp_tlb_pidmanager *tmp = NULL;
-	pid_t pid = current->pid;
+	pid_t pid = current->tgid;
 
 	/* first */
 	if(list_empty(&(isp->tlb_list))){
@@ -2406,7 +2430,7 @@ static int isp_tlb_init(struct isp_device *isp)
 		}
 	}
 
-	/* if current->pid isn't in tlb_list, add a isp_tlb_pidmanager */
+	/* if current->tgid isn't in tlb_list, add a isp_tlb_pidmanager */
 	if(!p){
 		p = kzalloc(sizeof(*p), GFP_KERNEL);
 		if(!p){
@@ -2436,7 +2460,8 @@ static int isp_tlb_deinit(struct isp_device *isp)
 	struct isp_tlb_pidmanager *p = NULL;
 	struct isp_tlb_pidmanager *tmp = NULL;
 	struct isp_tlb_vaddrmanager *vaddr = NULL;
-	pid_t pid = current->pid;
+	struct list_head *pos = NULL;
+	pid_t pid = current->tgid;
 
 	if(isp->tlb_flag == 0)
 		return 0;
@@ -2450,16 +2475,17 @@ static int isp_tlb_deinit(struct isp_device *isp)
 		}
 	}
 
-	/* if current->pid is find, release it  */
+	/* if current->tgid is find, release it  */
 	if(p){
 		list_del(&(p->pid_entry));
 
 		/* if vaddr_list  of the tlb_pidmanager, release it */
 		if(!list_empty(&(p->vaddr_list))){
-			list_for_each_entry(vaddr, &(p->vaddr_list), vaddr_entry){
+			list_for_each(pos, &(p->vaddr_list)){
+				vaddr = list_entry(pos, struct isp_tlb_vaddrmanager,vaddr_entry);
 				list_del(&(vaddr->vaddr_entry));
 				kfree(vaddr);
-				vaddr = &(p->vaddr_list);
+				pos = &(p->vaddr_list);
 			}
 		}
 		kfree(p);

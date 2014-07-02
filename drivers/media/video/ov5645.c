@@ -847,7 +847,7 @@ static struct regval_list ov5645_init_regs_420Mbps_5M[] = {
 
 	{OV5645_REG_END, 0x00},	/* END MARKER */
 };
-static struct regval_list ov5645_init_regs_raw10[] = {
+static struct regval_list ov5645_init_regs_raw10_720p[] = {
 
 	/* @@ MIPI_2lane_720P_RAW10_30fps */
 	/* 99 1280 720 */
@@ -994,7 +994,7 @@ static struct regval_list ov5645_init_regs_raw10[] = {
        {0x5a21, 0x00},
        {0x5a24, 0x00},
        {0x3008, 0x02},
-       {0x3503, 0x07},//manual exposoure
+       {0x3503, 0x00},//manual exposoure
        {0x5180, 0xff},
        {0x5181, 0xf2},
        {0x5182, 0x00},
@@ -1352,7 +1352,8 @@ static int ov5645_init(struct v4l2_subdev *sd, u32 val)
 	//ret = ov5645_write_array(sd, ov5645_init_regs_s56M);
 	//ret = ov5645_write_array(sd, ov5645_init_regs_420Mbps_5M);
 	//ret = ov5645_write_array(sd, ov5645_init_regs_672Mbps_1080p);
-	ret = ov5645_write_array(sd, ov5645_init_regs_672Mbps_5M);
+	//ret = ov5645_write_array(sd, ov5645_init_regs_672Mbps_5M);
+	ret = ov5645_write_array(sd, ov5645_init_regs_raw10_720p);
 	if (ret < 0)
 		return ret;
 	//ov5645_read_array(sd, ov5645_init_regs);
@@ -1401,6 +1402,13 @@ static struct ov5645_format_struct {
 	struct regval_list *regs;
 } ov5645_formats[] = {
 	{
+		/*RAW10 FORMAT, 10 bit per pixel*/
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= NULL,
+	},
+#if 0
+	{
 		/*RAW8 FORMAT, 8 bit per pixel*/
 		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
@@ -1412,6 +1420,7 @@ static struct ov5645_format_struct {
 		.regs = NULL,
 
 	}
+#endif
 	/*add other format supported*/
 };
 #define N_OV5645_FMTS ARRAY_SIZE(ov5645_formats)
@@ -1431,14 +1440,14 @@ static struct ov5645_win_size {
 	},
 	/* SXGA */
 	{
-		.width		= SXGA_WIDTH,
-		.height		= SXGA_HEIGHT,
+		.width		= SXGA_WIDTH, /*1280*/
+		.height		= SXGA_HEIGHT, /*960*/
 		.vts		= 0x3d8,
 		.regs 		= ov5645_win_sxga,
 	},
 	{
-		.width		= 720,
-		.height		= 640,
+		.width		= _720P_WIDTH, /*1280*/
+		.height		= _720P_HEIGHT, /*720*/
 		.vts		= 0x01e0,
 		.regs		= ov5645_win_vga,
 	},

@@ -136,7 +136,7 @@ static void ovisp_vb2_put_userptr(void *mem_priv)
 	if (!buf)
 		return;
 
-	vb2_put_vma(buf->vma);
+//	vb2_put_vma(buf->vma);
 	kfree(buf);
 }
 

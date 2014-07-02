@@ -26,26 +26,33 @@
 #include "ovisp-csi.h"
 #include "../ov5645.h"
 static struct ovisp_camera_format formats[] = {
+#if 0
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
 		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc   = V4L2_PIX_FMT_YUYV,
 		.depth    = 16,
 	},
+#endif
+	{
+		.name     = "YUV 4:2:2 packed, YCbYCr",
+		.code	  =  V4L2_MBUS_FMT_SBGGR10_1X10,
+		.fourcc   = V4L2_PIX_FMT_YUYV,
+		.depth    = 16,
+	},
+
 	{
 		.name     = "YUV 4:2:0 semi planar, Y/CbCr",
 		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc   = V4L2_PIX_FMT_NV12,
 		.depth    = 12,
 	},
-#if 0
 	{
 		.name     = "YUV 4:2:0 semi planar, Y/CbCr",
 		.code	  = V4L2_MBUS_FMT_SBGGR10_1X10,
 		.fourcc   = V4L2_PIX_FMT_NV12YUV422,
 		.depth    = 12,
 	},
-#endif
 	{
 		.name	  ="RAW8",
 		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
@@ -176,7 +183,6 @@ static int ovisp_subdev_power_off(struct ovisp_camera_dev *camdev,
 {
 	struct ovisp_camera_subdev *csd = &camdev->csd[index];
 	int ret;
-
 
 	if (camdev->input >= 0) {
 		ret = v4l2_subdev_call(csd->sd, core, s_power, 0);
@@ -422,7 +428,6 @@ static int ovisp_camera_update_buffer(struct ovisp_camera_dev *camdev, int index
 	struct ovisp_camera_capture *capture = &camdev->capture;
 	struct isp_buffer buf;
 	int ret;
-
 	if(camdev->vbq.memory == V4L2_MEMORY_MMAP){
 		buf.addr = ovisp_vb2_plane_paddr(&capture->active[index]->vb, 0);
 	}
@@ -631,11 +636,14 @@ static int ovisp_camera_try_format(struct ovisp_camera_dev *camdev)
 		frame->ifmt.dev_height = frame->height;
 	} else {
 		ISP_PRINT(ISP_INFO,"%s:%d %d\n", __func__, __LINE__, csd->max_width);
-		frame->ifmt.dev_width = csd->max_width;
-		frame->ifmt.dev_height = csd->max_height;
+		//frame->ifmt.dev_width = csd->max_width;
+		//frame->ifmt.dev_height = csd->max_height;
+		frame->ifmt.dev_width = frame->width; //modify by xhshen
+		frame->ifmt.dev_height = frame->height;
 	}
 	frame->ifmt.code = frame->fmt->code;
 	frame->ifmt.fourcc = frame->fmt->fourcc;
+	frame->ifmt.depth = frame->fmt->depth;
 	frame->ifmt.fmt_data = v4l2_get_fmt_data(&frame->vmfmt);
 	memset(frame->ifmt.fmt_data, 0, sizeof(*frame->ifmt.fmt_data));
 
@@ -684,7 +692,7 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	if (status & ISP_NOTIFY_DATA_DONE) {
 		buf = NULL;
 		spin_lock_irqsave(&camdev->slock, flags);
-		if((status & ISP_NOTIFY_DATA_DONE0) == ISP_NOTIFY_DATA_DONE0){
+		if((status & ISP_NOTIFY_DATA_DONE0)){
 			buf = capture->active[0];
 			capture->active[0] = NULL;
 		}else{
@@ -714,7 +722,7 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 		}
 		spin_unlock_irqrestore(&camdev->slock, flags);
 		if(buf){
-			if((status & ISP_NOTIFY_DATA_START0)== ISP_NOTIFY_DATA_START0){
+			if((status & ISP_NOTIFY_DATA_START0)){
 				capture->active[1] = buf;
 				ovisp_camera_update_buffer(camdev, 1);
 			}else{
@@ -729,21 +737,24 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 
 	if (status & ISP_NOTIFY_DROP_FRAME){
 		buf = NULL;
-		capture->drop_frames++;
-		spin_lock_irqsave(&camdev->slock, flags);
-		if (!list_empty(&capture->list)){
-			buf = list_entry(capture->list.next,
-				struct ovisp_camera_buffer, list);
-			list_del(&buf->list);
-		}
-		spin_unlock_irqrestore(&camdev->slock, flags);
-		if(buf){
-			if((status & ISP_NOTIFY_DROP_FRAME0) == ISP_NOTIFY_DROP_FRAME0){
-				capture->active[0] = buf;
-				ovisp_camera_update_buffer(camdev, 0);
-			}else{
-				capture->active[1] = buf;
-				ovisp_camera_update_buffer(camdev, 1);
+		if(((status & ISP_NOTIFY_DROP_FRAME0) && capture->active[0] == NULL)
+			|| ((status & ISP_NOTIFY_DROP_FRAME1) && capture->active[1] == NULL)){
+			capture->drop_frames++;
+			spin_lock_irqsave(&camdev->slock, flags);
+			if (!list_empty(&capture->list)){
+				buf = list_entry(capture->list.next,
+						struct ovisp_camera_buffer, list);
+				list_del(&buf->list);
+			}
+			spin_unlock_irqrestore(&camdev->slock, flags);
+			if(buf){
+				if((status & ISP_NOTIFY_DROP_FRAME0)){
+					capture->active[0] = buf;
+					ovisp_camera_update_buffer(camdev, 0);
+				}else{
+					capture->active[1] = buf;
+					ovisp_camera_update_buffer(camdev, 1);
+				}
 			}
 		}
 	}
@@ -768,14 +779,10 @@ static int ovisp_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 		(*nbuffers)--;
 
 	*nplanes = 1;
-	sizes[0] = size;
-#if 0
-	/*sizes[0] = 640*480*6;*/
 	if(frame->ifmt.fourcc == V4L2_PIX_FMT_NV12YUV422)
 		sizes[0] = size + 640*360*2;
 	else
-		sizes[0] = 1280*960*2;
-#endif
+		sizes[0] = size;
 	alloc_ctxs[0] = camdev->alloc_ctx;
 	ISP_PRINT(ISP_INFO,"*nbuffers = %d\n",*nbuffers);
 	if (*nbuffers == 1)
@@ -1525,12 +1532,6 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	isp->irq_notify = ovisp_camera_irq_notify;
 	isp->data = camdev;
 
-#if 0
-	isp->csi_power = regulator_get(isp->dev, "csi_avdd");
-	if(IS_ERR(isp->csi_power)) {
-		    dev_warn(isp->dev, "csi regulator missing\n");
-	}
-#endif
 	ret = isp_device_init(isp);
 	if (ret) {
 		ISP_PRINT(ISP_ERROR,"Unable to init isp device.n");

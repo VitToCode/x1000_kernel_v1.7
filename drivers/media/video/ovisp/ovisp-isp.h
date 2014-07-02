@@ -17,14 +17,14 @@
 
 /* ISP notify types. */
 #define ISP_NOTIFY_DATA_START			(0x00010000)
-#define ISP_NOTIFY_DATA_START0			(0x00010001)
-#define ISP_NOTIFY_DATA_START1			(0x00010002)
+#define ISP_NOTIFY_DATA_START0			(0x00000001)
+#define ISP_NOTIFY_DATA_START1			(0x00000002)
 #define ISP_NOTIFY_DATA_DONE			(0x00020000)
-#define ISP_NOTIFY_DATA_DONE0			(0x00020010)
+#define ISP_NOTIFY_DATA_DONE0			(0x00000010)
 #define ISP_NOTIFY_DATA_DONE1			(0x00020020)
 #define ISP_NOTIFY_DROP_FRAME			(0x00040000)
-#define ISP_NOTIFY_DROP_FRAME0			(0x00040100)
-#define ISP_NOTIFY_DROP_FRAME1			(0x00040200)
+#define ISP_NOTIFY_DROP_FRAME0			(0x00000100)
+#define ISP_NOTIFY_DROP_FRAME1			(0x00000200)
 #define ISP_NOTIFY_OVERFLOW			(0x00080000)
 
 /*ISP group write config*/
@@ -36,6 +36,8 @@
 /* ISP clock number. */
 #define ISP_CLK_NUM				(5)
 
+/*  Vendor-specific formats   */
+#define V4L2_PIX_FMT_NV12YUV422	v4l2_fourcc('N', 'Y', '2', 'V') /* output 2 videos, one video is nv12, other is yuv422 */
 struct isp_device;
 
 struct isp_buffer {
@@ -49,6 +51,7 @@ struct isp_format {
 	unsigned int dev_height;
 	unsigned int code;
 	unsigned int fourcc;
+	unsigned int depth;
 	struct v4l2_fmt_data *fmt_data;
 };
 
@@ -62,7 +65,14 @@ struct isp_prop {
 	int index;
 	int bypass;
 };
-
+struct isp_flow_parm{
+	unsigned int width;
+	unsigned int height;
+	unsigned int format;
+	unsigned int addrnums;
+	unsigned int addroff[3];
+	unsigned int imagesize;
+};
 struct isp_parm {
 	int contrast;
 	int effects;
@@ -83,12 +93,9 @@ struct isp_parm {
 	int hflip;
 	int vflip;
 	int frame_rate;
-	int in_width;
-	int in_height;
-	int in_format;
-	int out_width;
-	int out_height;
-	int out_format;
+	struct isp_flow_parm input;
+	int out_videos;
+	struct isp_flow_parm output[2];
 	int crop_x;
 	int crop_y;
 	int crop_width;
@@ -249,25 +256,13 @@ static inline unsigned char isp_reg_readb(struct isp_device *isp,
 static inline void isp_reg_writel(struct isp_device *isp,
 		unsigned int value, unsigned int offset)
 {
-#if 0
-	writeb((value >> 24) & 0xff, isp->base + offset + 3);
-	writeb((value >> 16) & 0xff, isp->base + offset + 2);
-	writeb((value >> 8) & 0xff, isp->base + offset + 1);
-	writeb(value & 0xff, isp->base + offset + 0);
-#else
 	writel(value, isp->base + offset);
-#endif
 }
 
 static inline void isp_reg_writew(struct isp_device *isp,
 		unsigned short value, unsigned int offset)
 {
-#if 0
-	writeb((value >> 8) & 0xff, isp->base + offset  + 1);
-	writeb(value & 0xff, isp->base + offset + 0);
-#else
 	writew(value, isp->base + offset);
-#endif
 }
 
 static inline void isp_reg_writeb(struct isp_device *isp,
