@@ -943,17 +943,10 @@ static int jzfb_set_par(struct fb_info *info)
 		reg_write(jzfb, LCDC_VSYNC, mode->vsync_len);
 	} else {
 #ifdef CONFIG_JZ_MIPI_DSI
-		mipi_dsih_write_word(jzfb->dsi, R_DSI_HOST_CMD_MODE_CFG,
-				     0xffffff0);
-		lcd_panel_init(jzfb->dsi, jzfb->dsi->cmd_list,
-			       jzfb->dsi->cmd_packet_len);
-		mipi_dsih_dphy_enable_hs_clk(jzfb->dsi, 1);
-		mipi_dsih_dphy_auto_clklane_ctrl(jzfb->dsi, 1);
 		smart_cfg |= 1 << 16;
 		smart_new_cfg |= 4 << 13;
 		smart_ctrl |= 1 << 7 | 1 << 6;
-		mipi_dsih_write_word(jzfb->dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
-		/*0:enable video mode, 1:enable cmd mode */
+
 		mipi_dsih_hal_gen_set_mode(jzfb->dsi, 1);
 		mipi_dsih_hal_dpi_color_coding(jzfb->dsi,
 			jzfb->dsi->video_config->color_coding);
@@ -1023,13 +1016,6 @@ static int jzfb_set_par(struct fb_info *info)
 	else {
 		cfg |= 1 << 24;
 		reg_write(jzfb, LCDC_CFG, cfg);
-		smart_ctrl = reg_read(jzfb, SLCDC_CTRL);
-
-		mipi_dsih_write_word(jzfb->dsi, R_DSI_HOST_CMD_MODE_CFG,
-				     0xffffff0);
-		lcd_panel_init(jzfb->dsi, jzfb->dsi->cmd_list,
-			       jzfb->dsi->cmd_packet_len);
-		mipi_dsih_dphy_auto_clklane_ctrl(jzfb->dsi, 1);
 		jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
 	}
 
@@ -1757,11 +1743,7 @@ static int jzfb_wait_for_vsync_thread(void *data)
 	while (!kthread_should_stop()) {
 		ktime_t prev_timestamp = jzfb->vsync_timestamp;
 		int ret = wait_event_interruptible_timeout(jzfb->vsync_wq,
-							   jzfb_vsync_timestamp_changed
-							   (jzfb,
-							    prev_timestamp),
-							   msecs_to_jiffies
-							   (100));
+				jzfb_vsync_timestamp_changed(jzfb, prev_timestamp), msecs_to_jiffies(100));
 		if (ret > 0) {
 			char *envp[2];
 			char buf[64];
@@ -1770,16 +1752,14 @@ static int jzfb_wait_for_vsync_thread(void *data)
 			mutex_lock(&jzfb->lock);
 			is_suspend = jzfb->is_suspend;
 			/* rotate right */
-			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 |
-						jzfb->vsync_skip_map << 9) &
-			    0x3ff;
+			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 | jzfb->vsync_skip_map << 9) & 0x3ff;
 			mutex_unlock(&jzfb->lock);
 			if (!is_suspend) {
 				if (!(jzfb->vsync_skip_map & 0x1))
 					continue;
 			}
 			snprintf(buf, sizeof(buf), "VSYNC=%llu",
-				 ktime_to_ns(jzfb->vsync_timestamp));
+					ktime_to_ns(jzfb->vsync_timestamp));
 			envp[0] = buf;
 			envp[1] = NULL;
 			kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);

@@ -140,6 +140,5 @@ unsigned int  mipi_dsih_write_register_configuration(struct dsi_device * dsi, re
 unsigned short mipi_dsih_gen_rd_packet(struct dsi_device * dsi, unsigned char vc, unsigned char data_type, unsigned char msb_byte, unsigned char lsb_byte, unsigned char bytes_to_read, unsigned char* read_buffer);
 dsih_error_t mipi_dsih_gen_wr_packet(struct dsi_device * dsi, unsigned char vc, unsigned char data_type, unsigned char* params, unsigned short param_length);
 
-
-void lcd_panel_init(struct dsi_device * dsi, struct dsi_cmd_packet command_data[], int cmd_packet_len);
+int write_command(struct dsi_device * dsi, struct dsi_cmd_packet cmd_data);
 #endif /* MIPI_DSI_API_H_ */
