@@ -337,6 +337,9 @@ err_gpio_free_ac:
 err_gpio_free_charge:
 	gpio_free(pdata->gpio_charge);
 err_free:
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&li_ion->early_suspend);
+#endif
 	kfree(li_ion);
 	return ret;
 }
