@@ -31,6 +31,7 @@
 #include <linux/types.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/notifier.h>
 
 /* Maximum number of main interrupts */
 #define MAX_INTERRUPT_MASKS	13
@@ -270,6 +271,7 @@ struct ricoh61x {
 	struct device		*dev;
 	struct i2c_client	*client;
 	struct mutex		io_lock;
+        struct notifier_block   ricoh61x_notifier;
 	int			gpio_base;
 	struct gpio_chip	gpio_chip;
 	int			irq_base;

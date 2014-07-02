@@ -36,6 +36,7 @@
 #include <linux/mfd/ricoh618.h>
 #include <linux/mfd/pmu-common.h>
 #include <linux/delay.h>
+#include <jz_notifier.h>
 
 #define DEBUG
 struct sleep_control_data {

@@ -35,7 +35,7 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/ricoh619.h>
 #include <linux/delay.h>
-
+#include <jz_notifier.h>
 
 struct sleep_control_data {
 	u8 reg_add;
@@ -429,6 +429,30 @@ int ricoh619_power_off(void)
 	return 0;
 }
 
+static int ricoh61x_register_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_register(nb);
+}
+
+static int ricoh61x_unregister_reset_notifier(struct notifier_block *nb)
+{
+	return reset_notifier_client_unregister(nb);
+}
+
+static int ricoh61x_reset_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	int ret;
+
+	if (event == JZ_POST_HIBERNATION) {
+		ret = ricoh619_power_off();
+		if (ret < 0)
+			printk("ricoh619_power_off failed \n");
+	} else
+		printk("\n%s event not match\n", __func__);
+
+	return ret;
+}
+
 static int ricoh61x_gpio_get(struct gpio_chip *gc, unsigned offset)
 {
 	struct ricoh61x *ricoh61x = container_of(gc, struct ricoh61x,
@@ -726,6 +750,7 @@ static int ricoh61x_i2c_probe(struct i2c_client *client,
 	mutex_init(&ricoh61x->io_lock);
 
 	ricoh61x->bank_num = 0;
+        ricoh61x->ricoh61x_notifier.notifier_call = ricoh61x_reset_notifier_handler;
 
 	/* For init PMIC_IRQ port */
 	//ret = pdata->init_port(client->irq);
@@ -744,6 +769,12 @@ static int ricoh61x_i2c_probe(struct i2c_client *client,
 		goto err_add_devs;
 	}
 
+	ret = ricoh61x_register_reset_notifier(&(ricoh61x->ricoh61x_notifier));
+	if (ret) {
+		printk("ricoh619_register_reset_notifier failed\n");
+		goto err_add_notifier;
+	}
+
 	ricoh61x_noe_init(ricoh61x);
 
 	ricoh61x_gpio_init(ricoh61x, pdata);
@@ -753,6 +784,7 @@ static int ricoh61x_i2c_probe(struct i2c_client *client,
 	ricoh61x_i2c_client = client;
 	return 0;
 
+err_add_notifier:
 err_add_devs:
 	if (client->irq)
 		ricoh61x_irq_exit(ricoh61x);
@@ -763,14 +795,20 @@ err_irq_init:
 
 static int  __devexit ricoh61x_i2c_remove(struct i2c_client *client)
 {
-	struct ricoh61x *ricoh61x = i2c_get_clientdata(client);
+	int ret = 0;
+        struct ricoh61x *ricoh61x = i2c_get_clientdata(client);
 
 	if (client->irq)
 		ricoh61x_irq_exit(ricoh61x);
 
+        ret = ricoh61x_unregister_reset_notifier(&(ricoh61x->ricoh61x_notifier));
+	if (ret) {
+		printk("ricoh61x_unregister_reset_notifier failed\n");
+	}
+
 	ricoh61x_remove_subdevs(ricoh61x);
 	kfree(ricoh61x);
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_PM
@@ -787,7 +825,7 @@ static int ricoh61x_i2c_suspend(struct i2c_client *client, pm_message_t state)
 int pwrkey_wakeup;
 static int ricoh61x_i2c_resume(struct i2c_client *client)
 {
-	uint8_t reg_val;
+        uint8_t reg_val;
 	int ret;
 
 	printk(KERN_INFO "PMU: %s:\n", __func__);
