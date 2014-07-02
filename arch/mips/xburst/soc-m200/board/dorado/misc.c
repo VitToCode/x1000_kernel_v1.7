@@ -93,7 +93,7 @@ static struct platform_device jz_button_device = {
 #endif
 
 /* efuse */
-#ifdef CONFIG_JZ_EFUSE_V10
+#ifdef CONFIG_JZ_EFUSE_V12
 static struct jz_efuse_platform_data jz_efuse_pdata = {
        /* supply 2.5V to VDDQ */
 	.gpio_vddq_en_n = GPIO_PA(12),
@@ -678,7 +678,7 @@ static int __init board_init(void)
 	platform_device_register(&jz_rtc_device);
 #endif
 /* efuse */
-#ifdef CONFIG_JZ_EFUSE_V10
+#ifdef CONFIG_JZ_EFUSE_V12
        jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
 	return 0;

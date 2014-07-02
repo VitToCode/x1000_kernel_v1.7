@@ -647,4 +647,8 @@ config JZ4775_EFUSE
 	bool "JZ4775 EFUSE Driver"
 	default n
 
+config JZ_EFUSE_V12
+    bool "JZ V12 EFUSE Driver"
+	default n
+
 endif # MISC_DEVICES

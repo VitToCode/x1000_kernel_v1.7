@@ -872,9 +872,9 @@ struct platform_device jz_rtc_device = {
 };
 #endif
 
-#ifdef CONFIG_JZ_EFUSE_V10
+#ifdef CONFIG_JZ_EFUSE_V12
 /* efuse */
 struct platform_device jz_efuse_device = {
-       .name = "jz-efuse-v10",
+       .name = "jz-efuse-v12",
 };
 #endif

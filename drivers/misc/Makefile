@@ -69,5 +69,6 @@ obj-$(CONFIG_JZ_MODEM)		+= jz_modem/
 obj-$(CONFIG_JZ_SPI_NOR)        += jz_spi_nor/
 obj-$(CONFIG_JZ4780_EFUSE)	+= jz4780_efuse.o
 obj-$(CONFIG_JZ4775_EFUSE)	+= jz4775_efuse.o
+obj-$(CONFIG_JZ_EFUSE_V12)	+= jz_efuse_v12.o
 
 obj-$(CONFIG_TD_SC8800S)        += sc8800s.o
