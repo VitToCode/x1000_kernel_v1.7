@@ -18,6 +18,7 @@
 #include <mach/jz_efuse.h>
 #include <gpio.h>
 #include "board.h"
+#include <mach/jz_dsim.h>
 
 #if defined(CONFIG_INV_MPU_IIO)
 #include <linux/inv_mpu.h>
@@ -571,14 +572,14 @@ static int __init board_init(void)
 #ifdef CONFIG_LCD_BYD_8991FTGF
 	platform_device_register(&byd_8991_device);
 #endif
+#ifdef CONFIG_LCD_BYD_9177AA
+	mipi_dsi_register_lcd_device(&byd_9177aa_device);
+#endif
 #ifdef CONFIG_LCD_KFM701A21_1A
 	platform_device_register(&kfm701a21_1a_device);
 #endif
 #ifdef CONFIG_LCD_LH155
-	platform_device_register(&lh155_device);
-#endif
-#ifdef CONFIG_LCD_BYD_9177AA
-	platform_device_register(&byd_9177aa_device);
+	mipi_dsi_register_lcd_device(&lh155_device);
 #endif
 
 #ifdef CONFIG_LCD_TRULY_TFT240240_2_E

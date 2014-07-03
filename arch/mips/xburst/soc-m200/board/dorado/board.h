@@ -12,10 +12,10 @@ extern struct jzfb_platform_data jzfb_pdata;
 extern struct platform_device kfm701a21_1a_device;
 #endif
 #ifdef CONFIG_LCD_LH155
-extern struct platform_device lh155_device;
+extern struct mipi_dsim_lcd_device	lh155_device;
 #endif
 #ifdef CONFIG_LCD_BYD_9177AA
-extern struct platform_device byd_9177aa_device;
+extern struct mipi_dsim_lcd_device	byd_9177aa_device;
 #endif
 #ifdef CONFIG_LCD_CV90_M5377_P30
 extern struct platform_device cv90_m5377_p30_device;

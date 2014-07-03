@@ -37,6 +37,16 @@
 #include "jz_mipi_dsi_regs.h"
 
 #define DSI_IOBASE      0x13014000
+struct mipi_dsim_ddi {
+	int				bus_id;
+	struct list_head		list;
+	struct mipi_dsim_lcd_device	*dsim_lcd_dev;
+	struct mipi_dsim_lcd_driver	*dsim_lcd_drv;
+};
+
+static LIST_HEAD(dsim_ddi_list);
+
+static DEFINE_MUTEX(mipi_dsim_lock);
 
 void dump_dsi_reg(struct dsi_device *dsi);
 static DEFINE_MUTEX(dsi_lock);
@@ -261,8 +271,8 @@ dsih_error_t jz_dsi_phy_cfg(struct dsi_device * dsi)
 /* define MIPI-DSI Master operations. */
 static struct dsi_master_ops jz_master_ops = {
 	.video_cfg = jz_dsi_video_cfg,
+	.cmd_write = write_command,	/*jz_dsi_wr_data, */
 	.cmd_read = NULL,	/*jz_dsi_rd_data, */
-	.cmd_write = NULL,	/*jz_dsi_wr_data, */
 };
 
 int jz_dsi_phy_open(struct dsi_device *dsi)
@@ -455,12 +465,154 @@ void set_base_dir_tx(struct dsi_device *dsi, void *param)
 	}
 }
 
+int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device *lcd_dev)
+{
+	struct mipi_dsim_ddi *dsim_ddi;
+
+	if (!lcd_dev->name) {
+		pr_err("dsim_lcd_device name is NULL.\n");
+		return -EFAULT;
+	}
+
+	dsim_ddi = kzalloc(sizeof(struct mipi_dsim_ddi), GFP_KERNEL);
+	if (!dsim_ddi) {
+		pr_err("failed to allocate dsim_ddi object.\n");
+		return -ENOMEM;
+	}
+
+	dsim_ddi->dsim_lcd_dev = lcd_dev;
+
+	mutex_lock(&mipi_dsim_lock);
+	list_add_tail(&dsim_ddi->list, &dsim_ddi_list);
+	mutex_unlock(&mipi_dsim_lock);
+
+	return 0;
+}
+
+static struct mipi_dsim_ddi *mipi_dsi_find_lcd_device(
+					struct mipi_dsim_lcd_driver *lcd_drv)
+{
+	struct mipi_dsim_ddi *dsim_ddi, *next;
+	struct mipi_dsim_lcd_device *lcd_dev;
+
+	mutex_lock(&mipi_dsim_lock);
+
+	list_for_each_entry_safe(dsim_ddi, next, &dsim_ddi_list, list) {
+		if (!dsim_ddi)
+			goto out;
+
+		lcd_dev = dsim_ddi->dsim_lcd_dev;
+		if (!lcd_dev)
+			continue;
+
+		if ((strcmp(lcd_drv->name, lcd_dev->name)) == 0) {
+			/**
+			 * bus_id would be used to identify
+			 * connected bus.
+			 */
+			dsim_ddi->bus_id = lcd_dev->bus_id;
+			mutex_unlock(&mipi_dsim_lock);
+
+			return dsim_ddi;
+		}
+
+		list_del(&dsim_ddi->list);
+		kfree(dsim_ddi);
+	}
+
+out:
+	mutex_unlock(&mipi_dsim_lock);
+
+	return NULL;
+}
+
+int mipi_dsi_register_lcd_driver(struct mipi_dsim_lcd_driver *lcd_drv)
+{
+	struct mipi_dsim_ddi *dsim_ddi;
+
+	if (!lcd_drv->name) {
+		pr_err("dsim_lcd_driver name is NULL.\n");
+		return -EFAULT;
+	}
+
+	dsim_ddi = mipi_dsi_find_lcd_device(lcd_drv);
+	if (!dsim_ddi) {
+		pr_err("mipi_dsim_ddi object not found.\n");
+		return -EFAULT;
+	}
+
+	dsim_ddi->dsim_lcd_drv = lcd_drv;
+
+	pr_info("registered panel driver(%s) to mipi-dsi driver.\n",
+		lcd_drv->name);
+
+	return 0;
+
+}
+
+static struct mipi_dsim_ddi *mipi_dsi_bind_lcd_ddi(
+						struct dsi_device *dsim,
+						const char *name)
+{
+	struct mipi_dsim_ddi *dsim_ddi, *next;
+	struct mipi_dsim_lcd_driver *lcd_drv;
+	struct mipi_dsim_lcd_device *lcd_dev;
+	int ret;
+
+	mutex_lock(&dsim->lock);
+
+	list_for_each_entry_safe(dsim_ddi, next, &dsim_ddi_list, list) {
+		lcd_drv = dsim_ddi->dsim_lcd_drv;
+		lcd_dev = dsim_ddi->dsim_lcd_dev;
+#if 0
+		if (!lcd_drv || !lcd_dev ||
+			(dsim->id != dsim_ddi->bus_id))
+				continue;
+#endif
+
+		dev_dbg(dsim->dev, "lcd_drv->id = %d, lcd_dev->id = %d\n",
+				lcd_drv->id, lcd_dev->id);
+		dev_dbg(dsim->dev, "lcd_dev->bus_id = %d, dsim->id = %d\n",
+				lcd_dev->bus_id, dsim->id);
+
+		if ((strcmp(lcd_drv->name, name) == 0)) {
+			lcd_dev->master = dsim;
+
+			lcd_dev->dev.parent = dsim->dev;
+			dev_set_name(&lcd_dev->dev, "%s", lcd_drv->name);
+
+			ret = device_register(&lcd_dev->dev);
+			if (ret < 0) {
+				dev_err(dsim->dev,
+					"can't register %s, status %d\n",
+					dev_name(&lcd_dev->dev), ret);
+				mutex_unlock(&dsim->lock);
+
+				return NULL;
+			}
+
+			dsim->dsim_lcd_dev = lcd_dev;
+			dsim->dsim_lcd_drv = lcd_drv;
+
+			mutex_unlock(&dsim->lock);
+
+			return dsim_ddi;
+		}
+	}
+
+	mutex_unlock(&dsim->lock);
+
+	return NULL;
+}
+
+
 static int jz_dsi_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct dsi_device *dsi;
 	struct dsi_phy *dsi_phy;
 	struct jzdsi_platform_data *pdata = to_dsi_plat(pdev);
+	struct mipi_dsim_ddi *dsim_ddi;
 	int retry = 5;
 	int st_mask = 0;
 	int ret = -EINVAL;
@@ -480,7 +632,6 @@ static int jz_dsi_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_dsi_phy;
 	}
-
 	dsi->state = NOT_INITIALIZED;
 	dsi->dsi_config = &(pdata->dsi_config);
 	dsi->dev = &pdev->dev;
@@ -503,8 +654,6 @@ static int jz_dsi_probe(struct platform_device *pdev)
 	dsi->video_config->v_back_porch_lines = pdata->modes->lower_margin;
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
 	dsi->master_ops = &jz_master_ops;
-	dsi->cmd_list = pdata->cmd_list;
-	dsi->cmd_packet_len = pdata->cmd_packet_len;
 
 	dsi->clock = clk_get(&pdev->dev, "dsi");
 	if (IS_ERR(dsi->clock)) {
@@ -531,7 +680,6 @@ static int jz_dsi_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_mem_region;
 	}
-
 	dsi->address = (unsigned int)ioremap(res->start, resource_size(res));
 	if (!dsi->address) {
 		dev_err(&pdev->dev, "failed to remap io region\n");
@@ -539,6 +687,21 @@ static int jz_dsi_probe(struct platform_device *pdev)
 		goto err_ioremap;
 	}
 	dsi->dsi_phy->address = dsi->address;
+
+	mutex_init(&dsi->lock);
+
+	dsim_ddi = mipi_dsi_bind_lcd_ddi(dsi, pdata->modes->name);
+	if (!dsim_ddi) {
+		dev_err(&pdev->dev, "mipi_dsim_ddi object not found.\n");
+		ret = -EINVAL;
+		goto err_bind_lcd;
+	}
+
+	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->probe)
+		dsim_ddi->dsim_lcd_drv->probe(dsim_ddi->dsim_lcd_dev);
+
+	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
+		dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
 
 	/*select mipi dsi */
 	*((volatile unsigned int *)0xb30500a4) = 1 << 7;	//MCTRL
@@ -565,9 +728,8 @@ static int jz_dsi_probe(struct platform_device *pdev)
 	pr_info("wait for phy config ready\n");
 	if (dsi->video_config->no_of_lanes == 2)
 		st_mask = 0x95;
-	else {
+	else
 		st_mask = 0x15;
-	}
 
 	/*checkout phy clk lock and  clklane, datalane stopstate  */
 	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
@@ -575,21 +737,30 @@ static int jz_dsi_probe(struct platform_device *pdev)
 			printk("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
 	}
 
-
 	if (!retry)
 		goto err_phy_state;
 
 	dsi->state = INITIALIZED;
 	pdata->dsi_state = &dsi->state;
 
-#ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
-	unsigned int tmp = 0;
-	/*low power */
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 0xffffff0);
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				     0xffffff0);
 
-	lcd_panel_init(dsi, dsi->cmd_list, dsi->cmd_packet_len);
+	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
+		dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
+	}else{
+		printk("lcd mipi panel init failed!\n");
+		goto err_panel_init;
+	}
 
 	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
+	dsi->suspended = false;
+
+#ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
+	unsigned int tmp = 0;
 	jz_dsi_video_cfg(dsi);
 
 	tmp = mipi_dsih_read_word(dsi, R_DSI_HOST_VID_MODE_CFG);
@@ -598,12 +769,16 @@ static int jz_dsi_probe(struct platform_device *pdev)
 #endif
 
 	return 0;
+err_panel_init:
+	dev_err(dsi->dev, "lcd mipi panel init error\n");
 err_phy_state:
 	dev_err(dsi->dev, "jz dsi phy state error\n");
 err_phy_cfg:
 	dev_err(dsi->dev, "jz dsi phy cfg error\n");
 err_phy_open:
 	dev_err(dsi->dev, "jz dsi phy open error\n");
+err_bind_lcd:
+	iounmap((void *)res->start);
 err_ioremap:
 	release_mem_region(dsi->res->start, resource_size(dsi->res));
 err_mem_region:
@@ -640,12 +815,56 @@ static int jz_dsi_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int jz_dsi_suspend(struct device *dev)
 {
-	 /*FIXED*/ return 0;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dsi_device *dsim = platform_get_drvdata(pdev);
+	struct mipi_dsim_lcd_driver *client_drv = dsim->dsim_lcd_drv;
+	struct mipi_dsim_lcd_device *client_dev = dsim->dsim_lcd_dev;
+
+	if (dsim->suspended)
+		return 0;
+
+	if (client_drv && client_drv->suspend)
+		client_drv->suspend(client_dev);
+
+	/* disable MIPI-DSI PHY. */
+	//phy_power_off(dsim->phy);
+
+	clk_disable(dsim->clock);
+
+	dsim->suspended = true;
+
+	return 0;
 }
 
 static int jz_dsi_resume(struct device *dev)
 {
-	 /*FIXED*/ return 0;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dsi_device *dsim = platform_get_drvdata(pdev);
+	struct mipi_dsim_lcd_driver *client_drv = dsim->dsim_lcd_drv;
+	struct mipi_dsim_lcd_device *client_dev = dsim->dsim_lcd_dev;
+
+
+	if (!dsim->suspended)
+		return 0;
+
+	/* lcd panel power on. */
+	if (client_drv && client_drv->power_on)
+		client_drv->power_on(client_dev, 1);
+
+
+	/* enable MIPI-DSI PHY. */
+	//phy_power_on(dsim->phy);
+
+	clk_enable(dsim->clock);
+
+	///mipi_update_cfg(dsim);
+
+	/* set lcd panel sequence commands. */
+	if (client_drv && client_drv->set_sequence)
+		client_drv->set_sequence(client_dev);
+
+	dsim->suspended = false;
+	return 0;
 }
 #endif
 
@@ -673,17 +892,15 @@ static struct resource jz_dsi_resources[] = {
 
 struct platform_device jz_dsi_device = {
 	.name = "jz-dsi",
-	.id = -1,
+	.id = 0,
 	.dev = {
 		.platform_data = &jzdsi_pdata,
 	},
 	.num_resources = ARRAY_SIZE(jz_dsi_resources),
 	.resource = jz_dsi_resources,
 };
-
-
-
-/*static int __init jz_dsi_init(void)
+#if 0
+static int __init jz_dsi_init(void)
 {
 	return platform_driver_register(&jz_dsi_driver);
 }
@@ -695,7 +912,8 @@ static void __exit jz_dsi_exit(void)
 
 arch_initcall(jz_dsi_init);
 module_exit(jz_dsi_exit);
-*/
+#endif
+
 MODULE_AUTHOR("ykliu <ykliu@ingenic.cn>");
 MODULE_DESCRIPTION("Ingenic SoC MIPI-DSI driver");
 MODULE_LICENSE("GPL");

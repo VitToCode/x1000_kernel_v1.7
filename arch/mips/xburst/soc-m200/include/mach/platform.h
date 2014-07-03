@@ -184,7 +184,7 @@ extern struct platform_device jz_msc1_device;
 extern struct platform_device jz_msc2_device;
 
 extern struct platform_device jz_fb_device;
-extern struct platform_device jz_dsi_device;
+//extern struct platform_device jz_dsi_device;
 extern struct platform_device jz_ipu_device;
 extern struct platform_device jz_pdma_device;
 

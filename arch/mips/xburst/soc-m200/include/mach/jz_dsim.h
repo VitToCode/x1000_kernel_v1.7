@@ -28,6 +28,8 @@
 #define MAX_NULL_SIZE		1023
 #define TX_ESC_CLK_DIV		7
 #define MAX_WORD_COUNT     150
+#define PANEL_NAME_SIZE     (32)
+
 
 enum dsi_interface_type {
 	DSIM_COMMAND,
@@ -127,6 +129,7 @@ struct video_config {
 	unsigned short v_total_lines;	/* v_total */
 };
 
+
 struct dsi_device {
 	struct device *dev;
 	int id;
@@ -140,6 +143,9 @@ struct dsi_device {
 	struct dsi_phy *dsi_phy;
 	struct video_config *video_config;
 	struct dsi_master_ops *master_ops;
+	struct mipi_dsim_lcd_device *dsim_lcd_dev;
+	struct mipi_dsim_lcd_driver *dsim_lcd_drv;
+
 
 	struct dsi_cmd_packet *cmd_list;
 	int cmd_packet_len;
@@ -157,11 +163,42 @@ struct dsi_phy {
 
 };
 
+struct mipi_dsim_lcd_device {
+	char            *name;
+	struct device       dev;
+	int         id;
+	int         bus_id;
+	int         irq;
+	int         panel_reverse;
+
+	struct dsi_device *master;
+	void            *platform_data;
+};
+
+struct mipi_dsim_lcd_driver {
+	char            *name;
+	int         id;
+
+	void    (*power_on)(struct mipi_dsim_lcd_device *dsim_dev, int enable);
+	void    (*set_sequence)(struct mipi_dsim_lcd_device *dsim_dev);
+	int (*probe)(struct mipi_dsim_lcd_device *dsim_dev);
+	int (*remove)(struct mipi_dsim_lcd_device *dsim_dev);
+	void    (*shutdown)(struct mipi_dsim_lcd_device *dsim_dev);
+	int (*suspend)(struct mipi_dsim_lcd_device *dsim_dev);
+	int (*resume)(struct mipi_dsim_lcd_device *dsim_dev);
+};
+struct mipi_dsim_platform_data {
+	char				lcd_panel_name[PANEL_NAME_SIZE];
+
+	struct mipi_dsim_config		*dsim_config;
+	unsigned int			enabled;
+	void				*lcd_panel_info;
+};
+
 struct dsi_cmd_packet {
 	unsigned char packet_type;
 	unsigned char cmd0_or_wc_lsb;
 	unsigned char cmd1_or_wc_msb;
-	unsigned char delay_time;
 	unsigned char cmd_data[MAX_WORD_COUNT];
 };
 
@@ -204,14 +241,20 @@ struct loop_band {
  */
 
 struct dsi_master_ops {
-	int (*cmd_write) (struct dsi_device * dsi, unsigned int data_id,
-			  const unsigned char *data0, unsigned int data1);
-	int (*cmd_read) (struct dsi_device * dsi, unsigned int data_id,
-			 unsigned int data0, unsigned int req_size,
-			 u8 * rx_buf);
+	int (*cmd_write) (struct dsi_device * dsi, struct dsi_cmd_packet cmd_data);
+	int (*cmd_read) (struct dsi_device * dsi, u8 * rx_buf);
 	int (*video_cfg) (struct dsi_device * dsi);
 };
 
 extern struct jzdsi_platform_data jzdsi_pdata;
+int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device
+		                        *lcd_dev);
+/**
+ *  * register mipi_dsim_lcd_driver object defined by lcd panel driver
+ *   * to mipi-dsi driver.
+ *    */
+int mipi_dsi_register_lcd_driver(struct mipi_dsim_lcd_driver
+		                        *lcd_drv);
+
 
 #endif /* _JZ_MIPI_DSIM_H */
