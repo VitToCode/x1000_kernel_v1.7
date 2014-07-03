@@ -7,7 +7,8 @@
 #define DMMU_PGD_VLD		0x1
 
 /* Bit 0~11 is secondary tlb check code in our TLB design */
-#define DMMU_PTE_CHECK_PAGE_VALID		_PAGE_VALID
+//#define DMMU_PTE_CHECK_PAGE_VALID		_PAGE_VALID
+#define DMMU_PTE_CHECK_PAGE_VALID		_PAGE_PRESENT
 /* no use now */
 #define DMMU_PTE_CHECK_PAGE_READ		(_PAGE_VALID | _PAGE_READ)
 #define DMMU_PTE_CHECK_PAGE_WRITE		(_PAGE_VALID | _PAGE_WRITE)

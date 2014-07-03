@@ -2247,8 +2247,8 @@ static int isp_s_tlb_base(struct isp_device *isp, unsigned int *tlb_base)
 	int tlb_en = 1;
 	int mipi_sel = 1;
 	int tlb_invld = 1;
-	int tlb_gcn = 0x80;  /*12 bits TLB golden check number*/
-	int tlb_cnm = 0x80;  /*12 bits TLB check number mask*/
+	int tlb_gcn = DMMU_PTE_CHECK_PAGE_VALID;
+	int tlb_cnm = DMMU_PTE_CHECK_PAGE_VALID;
 	int tlb_ridx = 0;  /*6 bits TLB entry read-index*/
 	unsigned int _tlb_base  = *tlb_base;
 

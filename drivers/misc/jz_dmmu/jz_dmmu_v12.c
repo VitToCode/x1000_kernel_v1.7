@@ -348,10 +348,14 @@ int mem_unmap_new_tlb(struct proc_page_tab_data *table,struct dmmu_mem_info *mem
 
 int dmmu_match_handle(struct dmmu_mem_info *mem)
 {
+	/* Do not remove this code; */
 #if 1
 	/**refer to kernel/mm/memory.c
 	 *make_pages_present(...)*/
 
+#if 1
+	 make_pages_present((unsigned long )mem->vaddr,(unsigned long)(mem->vaddr+mem->size));
+#else
 	int ret, len, write;
 	struct vm_area_struct * vma;
 	unsigned long vm_page_prot, addr, end;
@@ -379,6 +383,7 @@ int dmmu_match_handle(struct dmmu_mem_info *mem)
 		return ret;
 	return ret == len ? 0 : -EFAULT;
 
+#endif
 #else
 	memset(mem->vaddr,0,mem->size);
 #endif

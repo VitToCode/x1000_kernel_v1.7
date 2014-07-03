@@ -1176,8 +1176,7 @@ static int ipu_enable_clk(struct jz_ipu *ipu, unsigned int value)
 {
 	int ret = 0;
 	mutex_lock(&ipu_lock);
-	dev_info(ipu->dev, "!!!!!!!!!!!enable ipu clk!!!!\n");
-	/* Fix me */
+	/* dev_info(ipu->dev, "!!!!!!!!!!!enable ipu clk!!!!\n"); */
 	ret = 0;
 	mutex_unlock(&ipu_lock);
 	return ret;
