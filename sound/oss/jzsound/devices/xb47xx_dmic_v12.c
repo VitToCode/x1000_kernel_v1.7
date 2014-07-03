@@ -207,7 +207,7 @@ static int dmic_set_voice_trigger(unsigned long *THR ,int mode)
 {
 	int ret = 0;
 
-	 printk("THR = %ld\n",*THR);
+	printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
 		__dmic_clear_tur();
@@ -897,7 +897,8 @@ static void dmic_shutdown(struct platform_device *pdev)
 
 static int dmic_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	dmic_set_voice_trigger(0,CODEC_RMODE);
+	unsigned long thr = 0;
+	dmic_set_voice_trigger(&thr,CODEC_RMODE);
 	return 0;
 }
 
