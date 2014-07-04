@@ -169,6 +169,18 @@ static struct ft6x06_platform_data ft6x06_tsc_pdata = {
 };
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_FT5336
+#include <linux/i2c/ft5336_ts.h>
+static struct ft5336_platform_data ft5336_tsc_pdata = {
+		.x_max          = 540,
+		.y_max          = 1020,
+		.va_x_max		= 540,
+		.va_y_max		= 960,
+		.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
+		.irq = GPIO_PB(0),
+		.reset = GPIO_PA(12),
+};
+#endif
 #endif
 
 #if defined(CONFIG_INV_MPU_IIO)
@@ -336,6 +348,12 @@ static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("ft6x06_ts", 0x38),
 		.platform_data = &ft6x06_tsc_pdata,
+	},
+#endif
+#ifdef CONFIG_TOUCHSCREEN_FT5336
+	{
+		I2C_BOARD_INFO("ft5336_ts", 0x38),
+		.platform_data = &ft5336_tsc_pdata,
 	},
 #endif
 #endif /*CONFIG_M200_SUPPORT_TSC*/
