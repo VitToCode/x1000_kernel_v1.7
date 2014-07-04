@@ -82,9 +82,15 @@ config TOUCHSCREEN_FT5X06
       help
       ft5306 a CTP controller,support panel 7"~8.9"
 
+config TOUCHSCREEN_FT5336
+	tristate "FocalTech FT5336 TouchScreen driver"
+	depends on I2C && M200_SUPPORT_TSC && I2C0_V12_JZ
+	default n
+	help
+	  FocalTech FT5336GQQ TouchSreen Driver implemented by Ingenic.
 config TOUCHSCREEN_FT6X06
 	tristate "FocalTech FT6X06 TouchScreen driver"
-	depends on I2C && I2C0_V12_JZ
+	depends on I2C && M200_SUPPORT_TSC && I2C0_V12_JZ
 	default n
 	help
 	  pisecs FocalTech FT6X06 TouchSreen Driver implemented by Ingenic.
