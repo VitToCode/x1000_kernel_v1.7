@@ -19,3 +19,14 @@ struct proc_dir_entry * jz_proc_mkdir(char *s)
 	p = proc_mkdir(s,proc_jz_root);
 	return p;
 }
+
+struct proc_dir_entry * get_jz_proc_root(void)
+{
+	if(!proc_jz_root) {
+		proc_jz_root = proc_mkdir("jz", 0);
+		if(!proc_jz_root)
+			return NULL;
+	}
+	return proc_jz_root;
+}
+

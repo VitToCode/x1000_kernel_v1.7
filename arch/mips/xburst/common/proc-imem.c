@@ -477,8 +477,11 @@ static int __init jz_proc_init(void)
 	struct proc_dir_entry *res;
 	struct proc_dir_entry *jz_proc;
 	unsigned int virt_addr, i;
+#ifndef CONFIG_USE_JZ_ROOT_DIR
 	jz_proc = jz_proc_mkdir("mem");
-
+#else
+	jz_proc = get_jz_proc_root();
+#endif
 	/*
 	 * Reserve a 16MB memory for IPU on JZ.
 	 */
