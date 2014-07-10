@@ -46,7 +46,7 @@ const struct isp_reg_t isp_mipi_regs_init[] = {
 		{0x65005, 0x10},
 
 #endif
-
+		{0x63b35, 0x04},
 		//{0x63022, 0x81},
 		/*{0x65007, 0x20},*/
 };
