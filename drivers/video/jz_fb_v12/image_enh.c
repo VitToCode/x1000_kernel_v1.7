@@ -479,7 +479,7 @@ int jzfb_config_image_enh(struct fb_info *info)
 	unsigned int tmp;
 	struct enh_dither *dither;
 
-	dev_info(jzfb->dev, "enter func %s()\n", __func__);
+	/* dev_info(jzfb->dev, "enter func %s()\n", __func__); */
 	/* the bpp of panel <= 18 need to enable dither */
 	if (pdata->dither_enable) {
 		dither = kzalloc(sizeof(struct enh_dither), GFP_KERNEL);
@@ -512,7 +512,7 @@ int jzfb_image_enh_ioctl(struct fb_info *info, unsigned int cmd,
 	int ret = -1;
 	struct jzfb *jzfb = info->par;
 	mutex_lock(&jzfb->suspend_lock);
-	if ((jzfb->is_suspend == 0) && jzfb->is_enabled)
+	if ((jzfb->is_suspend == 0) && jzfb->is_lcd_en)
 		ret = jzfb_image_enh_ioctl_internal(info, cmd, arg);
 	mutex_unlock(&jzfb->suspend_lock);
 	return ret;

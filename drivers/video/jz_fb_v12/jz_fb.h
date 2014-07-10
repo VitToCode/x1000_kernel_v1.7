@@ -76,13 +76,15 @@ struct jzfb_osd_t {
 };
 
 struct jzfb {
-	int is_enabled;		/* 0, disable  1, enable */
+	int is_lcd_en;		/* 0, disable  1, enable */
+	int is_clk_en;		/* 0, disable  1, enable */
 	int irq;		/* lcdc interrupt num */
 	int open_cnt;
 	int irq_cnt;
 	int desc_num;
 	char clk_name[16];
 	char pclk_name[16];
+	char pwcl_name[16];
 	char irq_name[16];
 
 	struct fb_info *fb;
@@ -124,6 +126,7 @@ struct jzfb {
 
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *pwcl;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
@@ -132,6 +135,8 @@ struct jzfb {
 	unsigned int pan_display_count;
 };
 
+void jzfb_clk_enable(struct jzfb *jzfb);
+void jzfb_clk_disable(struct jzfb *jzfb);
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
 {
 	return readl(jzfb->base + offset);
