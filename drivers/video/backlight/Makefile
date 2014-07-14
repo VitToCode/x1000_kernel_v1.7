@@ -37,7 +37,7 @@ obj-$(CONFIG_LCD_KFM701A21_1A)	+= kfm701a21_1a.o
 obj-$(CONFIG_LCD_LH155)	+= lh155.o
 obj-$(CONFIG_LCD_KD301_M03545_0317A) += kd301_m03545_0317a.o
 obj-$(CONFIG_LCD_TM035PDH03)    += tm035pdh03.o
-
+obj-$(CONFIG_LCD_TRULY_TFT240240_2_E) += truly_tft240240_2_e.o
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o
