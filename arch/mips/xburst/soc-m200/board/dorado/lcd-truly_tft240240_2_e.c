@@ -31,6 +31,9 @@
 #define GPIO_LCD_RD            GPIO_PC(17)
 #define GPIO_BL_PWR_EN         GPIO_PC(18)
 
+/*ifdef is 18bit,6-6-6 ,ifndef default 5-6-6*/
+#define CONFIG_SLCD_TRULY_18BIT
+
 #ifdef	CONFIG_SLCD_TRULY_18BIT
 static int slcd_inited = 1;
 #else
@@ -156,9 +159,9 @@ static struct smart_lcd_data_table truly_tft240240_data_table[] = {
 
 	{0x3a, 0x3a, 1, 0},
 #if defined(CONFIG_SLCD_TRULY_18BIT)  //if 18bit/pixel unusual. try to use 16bit/pixel
-	{0x3a, 0x06, 2, 0}, //55   m
+	{0x3a, 0x06, 2, 0}, //6-6-6
 #else
-	{0x3a, 0x05, 2, 0}, //55   m
+	{0x3a, 0x05, 2, 0}, //5-6-5
 #endif
 //	{0x3a, 0x55, 2, 0},
 
@@ -303,7 +306,13 @@ struct jzfb_platform_data jzfb_pdata = {
 	.smart_config.data_width      = SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL, //due to new slcd mode, must be 24bit
 	.smart_config.data_new_width  = SMART_LCD_NEW_DWIDTH_8_BIT,          //9bit, according to panel bus width
 	.smart_config.data_new_times  = SMART_LCD_NEW_DTIMES_ONCE,   //8bit once, for 8bit command
-	.smart_config.data_new_times2 = SMART_LCD_NEW_DTIMES_TWICE, //8bit three times, for 24bit RGB color
+
+#if defined(CONFIG_SLCD_TRULY_18BIT)  //if 18bit/pixel unusual. try to use 16bit/pixel
+	.smart_config.data_new_times2 = SMART_LCD_NEW_DTIMES_THICE, //18bit three times, for 6-6-6
+#else
+	.smart_config.data_new_times2 = SMART_LCD_NEW_DTIMES_TWICE,//16bit two times,for 5-6-5
+#endif
+
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high       = 0,
 	.smart_config.csply_active_high    = 0,

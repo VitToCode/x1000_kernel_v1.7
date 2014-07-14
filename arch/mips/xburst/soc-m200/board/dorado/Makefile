@@ -4,7 +4,7 @@ obj-y += mmc.o
 obj-$(CONFIG_REGULATOR_DA9024) += regulator.o
 obj-$(CONFIG_REGULATOR_RICOH619) += board-power-619.o
 
-obj-$(CONFIG_LCD_TRULY_TFT240240_2_E) += lcd-truly.o
+obj-$(CONFIG_LCD_TRULY_TFT240240_2_E) += lcd-truly_tft240240_2_e.o
 obj-$(CONFIG_LCD_BYD_8991FTGF) += lcd-8991.o
 obj-$(CONFIG_LCD_CV90_M5377_P30) += lcd-mirasol.o
 obj-$(CONFIG_LCD_OTM8012A_TFT1P6449) += lcd-otm8012a.o
