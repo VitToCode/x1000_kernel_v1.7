@@ -65,7 +65,7 @@ extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_cl
 static int g_codec_sleep_mode = 1;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-     static struct early_suspend early_suspend;
+static struct early_suspend early_suspend;
 #endif
 
 
@@ -218,43 +218,43 @@ static void dump_gpio_state(void)
 	int val = -1;
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_hp_mute.gpio != -1)) {
+	   (codec_platform_data->gpio_hp_mute.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_hp_mute.gpio);
 		printk("gpio hp mute %d statue is %d.\n",codec_platform_data->gpio_hp_mute.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_spk_en.gpio != -1)) {
+	   (codec_platform_data->gpio_spk_en.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_spk_en.gpio);
 		printk("gpio speaker enable %d statue is %d.\n",codec_platform_data->gpio_spk_en.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_handset_en.gpio != -1)) {
+	   (codec_platform_data->gpio_handset_en.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_handset_en.gpio);
 		printk("gpio handset enable %d statue is %d.\n",codec_platform_data->gpio_handset_en.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_hp_detect.gpio != -1)) {
+	   (codec_platform_data->gpio_hp_detect.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_hp_detect.gpio);
 		printk("gpio hp detect %d statue is %d.\n",codec_platform_data->gpio_hp_detect.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_mic_detect.gpio != -1)) {
+	   (codec_platform_data->gpio_mic_detect.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_mic_detect.gpio);
 		printk("gpio mic detect %d statue is %d.\n",codec_platform_data->gpio_mic_detect.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_mic_detect_en.gpio != -1)) {
+	   (codec_platform_data->gpio_mic_detect_en.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_mic_detect_en.gpio);
 		printk("gpio mic detect enable %d statue is %d.\n",codec_platform_data->gpio_mic_detect_en.gpio, val);
 	}
 
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_buildin_mic_select.gpio != -1)) {
+	   (codec_platform_data->gpio_buildin_mic_select.gpio != -1)) {
 		val = __gpio_get_value(codec_platform_data->gpio_buildin_mic_select.gpio);
 		printk("gpio_mic_switch %d statue is %d.\n",codec_platform_data->gpio_buildin_mic_select.gpio, val);
 	}
@@ -304,76 +304,76 @@ static void dump_codec_gain_regs(void)
 
 /*-------------------*/
 #if CODEC_DUMP_IOC_CMD
-#define DUMP_IOC_CMD(value)	\
-	do {	\
-		printk("[codec IOCTL]++++++++++++++++++++++++++++\n");			\
-		printk("%s  cmd = %d, arg = %lu-----%s\n", __func__, cmd, arg, value); 	\
-		codec_print_ioc_cmd(cmd);						\
-		printk("[codec IOCTL]----------------------------\n");			\
+#define DUMP_IOC_CMD(value)						\
+	do {								\
+		printk("[codec IOCTL]++++++++++++++++++++++++++++\n");	\
+		printk("%s  cmd = %d, arg = %lu-----%s\n", __func__, cmd, arg, value); \
+		codec_print_ioc_cmd(cmd);				\
+		printk("[codec IOCTL]----------------------------\n");	\
 	} while (0)
 #else //CODEC_DUMP_IOC_CMD
 #define DUMP_IOC_CMD(value)
 #endif //CODEC_DUMP_IOC_CMD
 
 #if CODEC_DUMP_GPIO_STATE
-#define DUMP_GPIO_STATE()	\
-	do {	\
-		dump_gpio_state();	 \
+#define DUMP_GPIO_STATE()			\
+	do {					\
+		dump_gpio_state();		\
 	} while (0)
 #else
 #define DUMP_GPIO_STATE()
 #endif
 
 #if CODEC_DUMP_ROUTE_REGS
-#define DUMP_ROUTE_REGS(value)	\
-	do {	\
+#define DUMP_ROUTE_REGS(value)						\
+	do {								\
 		printk("codec register dump,%s\tline:%d-----%s:\n",	\
 		       __func__, __LINE__, value);			\
 		dump_codec_regs();					\
 	} while (0)
 #else //CODEC_DUMP_ROUTE_REGS
-#define DUMP_ROUTE_REGS(value)	\
-	do {	\
-		if (!strcmp("enter",value))	\
-		ENTER_FUNC()			\
-		else if (!strcmp("leave",value))\
-		LEAVE_FUNC()			\
+#define DUMP_ROUTE_REGS(value)				\
+	do {						\
+		if (!strcmp("enter",value))		\
+			ENTER_FUNC();			\
+		else if (!strcmp("leave",value))	\
+			LEAVE_FUNC();			\
 	} while (0)
 #endif //CODEC_DUMP_ROUTE_REGS
 
 #if CODEC_DUMP_ROUTE_PART_REGS
-#define DUMP_ROUTE_PART_REGS(value)	\
-	do {	\
+#define DUMP_ROUTE_PART_REGS(value)					\
+	do {								\
 		if (mode != DISABLE) {					\
-		printk("codec register dump,%s\tline:%d-----%s:\n", 	\
-			__func__, __LINE__, value);			\
+			printk("codec register dump,%s\tline:%d-----%s:\n", \
+			       __func__, __LINE__, value);		\
 			dump_codec_route_regs();			\
 		}							\
 	} while (0)
 #else //CODEC_DUMP_ROUTE_PART_REGS
-#define DUMP_ROUTE_PART_REGS(value)	\
-	do {	\
-		if (!strcmp("enter",value))	\
-		ENTER_FUNC()			\
-		else if (!strcmp("leave",value))\
-		LEAVE_FUNC()			\
+#define DUMP_ROUTE_PART_REGS(value)			\
+	do {						\
+		if (!strcmp("enter",value))		\
+			ENTER_FUNC();			\
+		else if (!strcmp("leave",value))	\
+			LEAVE_FUNC();			\
 	} while (0)
 #endif //CODEC_DUMP_ROUTE_PART_REGS
 
 #if CODEC_DUMP_GAIN_PART_REGS
-#define DUMP_GAIN_PART_REGS(value)	\
-	do {	\
+#define DUMP_GAIN_PART_REGS(value)					\
+	do {								\
 		printk("codec register dump,%s\tline:%d-----%s:\n",	\
 		       __func__, __LINE__, value);			\
 		dump_codec_gain_regs();					\
 	} while (0)
 #else //CODEC_DUMP_GAIN_PART_REGS
-#define DUMP_GAIN_PART_REGS(value) \
-	do {	\
-		if (!strcmp("enter",value))	\
-		ENTER_FUNC()			\
-		else if (!strcmp("leave",value))\
-		LEAVE_FUNC()			\
+#define DUMP_GAIN_PART_REGS(value)			\
+	do {						\
+		if (!strcmp("enter",value))		\
+			ENTER_FUNC();			\
+		else if (!strcmp("leave",value))	\
+			LEAVE_FUNC();			\
 	} while (0)
 #endif //CODEC_DUMP_GAIN_PART_REGS
 
@@ -385,11 +385,11 @@ static void dump_codec_gain_regs(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void codec_early_suspend(struct early_suspend *handler)
 {
-     __codec_switch_sb_micbias(POWER_OFF);
+	__codec_switch_sb_micbias(POWER_OFF);
 }
 static void codec_late_resume(struct early_suspend *handler)
 {
-     __codec_switch_sb_micbias(POWER_ON);
+	__codec_switch_sb_micbias(POWER_ON);
 }
 #endif
 
@@ -946,9 +946,9 @@ static void codec_set_hp(int mode)
 		 * make sure hp is poweroff to avoid big pop
 		 */
 		if ((mode == HP_ENABLE_CAP_LESS &&
-					__codec_get_sb_hpcm() == POWER_OFF) ||
-				(mode ==  HP_ENABLE_WITH_CAP &&
-				 __codec_get_sb_hpcm()== POWER_ON)) {
+		     __codec_get_sb_hpcm() == POWER_OFF) ||
+		    (mode ==  HP_ENABLE_WITH_CAP &&
+		     __codec_get_sb_hpcm()== POWER_ON)) {
 			if(__codec_get_sb_hp() == POWER_ON)
 			{
 				/* turn off sb_hp */
@@ -1759,7 +1759,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
 			codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
 		} else if (codec_platform_data->record_digital_volume_base !=
-				default_record_digital_volume_base) {
+			   default_record_digital_volume_base) {
 			codec_platform_data->record_digital_volume_base = default_record_digital_volume_base;
 			codec_set_gain_adc_left(codec_platform_data->record_digital_volume_base);
 			codec_set_gain_adc_right(codec_platform_data->record_digital_volume_base);
@@ -1776,7 +1776,7 @@ static void codec_set_gain_base(struct snd_board_route *route)
 			codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
 			codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
 		} else if (codec_platform_data->replay_digital_volume_base !=
-				default_replay_digital_volume_base) {
+			   default_replay_digital_volume_base) {
 			codec_platform_data->replay_digital_volume_base = default_replay_digital_volume_base;
 			codec_set_gain_dac_left(codec_platform_data->replay_digital_volume_base);
 			codec_set_gain_dac_right(codec_platform_data->replay_digital_volume_base);
@@ -1961,24 +1961,24 @@ static int codec_set_board_route(struct snd_board_route *broute)
 
 	/* set gpio after set route */
 	if (broute->gpio_hp_mute_stat == STATE_DISABLE ||
-			(resave_hp_mute == 0 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
+	    (resave_hp_mute == 0 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
 		gpio_disable_hp_mute();
 	else if (broute->gpio_hp_mute_stat == STATE_ENABLE ||
-			(resave_hp_mute == 1 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
+		 (resave_hp_mute == 1 && broute->gpio_hp_mute_stat == KEEP_OR_IGNORE))
 		gpio_enable_hp_mute();
 
 	if (broute->gpio_handset_en_stat == STATE_ENABLE ||
-			(resave_handset_en == 1 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
+	    (resave_handset_en == 1 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
 		gpio_enable_handset_en();
 	else if (broute->gpio_handset_en_stat == STATE_DISABLE ||
-			(resave_handset_en == 0 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
+		 (resave_handset_en == 0 && broute->gpio_handset_en_stat == KEEP_OR_IGNORE))
 		gpio_disable_handset_en();
 
 	if (broute->gpio_spk_en_stat == STATE_ENABLE ||
-			(resave_spk_en == 1 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
+	    (resave_spk_en == 1 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
 		gpio_enable_spk_en();
 	else if (broute->gpio_spk_en_stat == STATE_DISABLE ||
-			(resave_spk_en == 0 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
+		 (resave_spk_en == 0 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
 		gpio_disable_spk_en();
 
 	if (broute->gpio_buildin_mic_en_stat == STATE_DISABLE)
@@ -2161,14 +2161,14 @@ static int codec_anti_pop(int mode)
 {
 	codec_set_route_ready(CODEC_WMODE);
 	switch(mode) {
-		case CODEC_RWMODE:
-		case CODEC_RMODE:
-			break;
-		case CODEC_WMODE:
-			__codec_switch_sb_dac(POWER_ON);
-			udelay(500);
-			i2s_replay_zero_for_flush_codec();
-			break;
+	case CODEC_RWMODE:
+	case CODEC_RMODE:
+		break;
+	case CODEC_WMODE:
+		__codec_switch_sb_dac(POWER_ON);
+		udelay(500);
+		i2s_replay_zero_for_flush_codec();
+		break;
 	}
 	return 0;
 }
@@ -2426,7 +2426,7 @@ static int codec_set_record_volume(int *val)
 }
 
 static int codec_set_mic_volume(int* val)
- {
+{
 #ifdef CONFIG_ANDRIO
 #ifndef CONFIG_SOUND_XBURST_DEBUG
 	/*just set analog gm1 and gm2*/
@@ -2434,8 +2434,8 @@ static int codec_set_mic_volume(int* val)
 	int volume_base;
 
 	if (codec_platform_data &&
-			codec_platform_data->record_volume_base >= 0 &&
-			codec_platform_data->record_volume_base <=20)
+	    codec_platform_data->record_volume_base >= 0 &&
+	    codec_platform_data->record_volume_base <=20)
 	{
 		volume_base = codec_platform_data->record_volume_base;
 
@@ -2451,8 +2451,8 @@ static int codec_set_mic_volume(int* val)
 	return *val;
 #endif
 #endif
-	 codec_set_gain_mic1(*val);
-	 codec_set_gain_mic2(*val);
+	codec_set_gain_mic1(*val);
+	codec_set_gain_mic2(*val);
 	return *val;
 }
 
@@ -2560,8 +2560,8 @@ static int codec_set_replay_volume(int *val)
         }
 
 	if (codec_platform_data &&
-			codec_platform_data->replay_volume_base >= -25 &&
-			codec_platform_data->replay_volume_base <= 6)
+	    codec_platform_data->replay_volume_base >= -25 &&
+	    codec_platform_data->replay_volume_base <= 6)
 		volume_base = codec_platform_data->replay_volume_base;
 
 	fixed_vol = (6 - volume_base) + ((25 + volume_base) * (100 -(*val))/ 100);
@@ -2605,7 +2605,7 @@ static inline void codec_short_circut_handler(void)
 	int	curr_hp_right_vol;
 	unsigned int	load_flag = 0;
 	unsigned int	delay;
-	#define VOL_DELAY_BASE 22               //per VOL delay time in ms
+#define VOL_DELAY_BASE 22               //per VOL delay time in ms
 	curr_hp_left_vol = codec_get_gain_hp_left();
 	curr_hp_right_vol = codec_get_gain_hp_right();
 	/* delay */
@@ -2672,7 +2672,7 @@ static int codec_irq_handle(struct work_struct *detect_work)
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
 		if (codec_ifr & (1 << IFR_JACK_EVENT)) {
-_ensure_stable:
+		_ensure_stable:
 			old_status = ((__codec_get_sr() & CODEC_JACK_MASK) != 0);
 			/* Read status at least 3 times to make sure it is stable. */
 			for (i = 0; i < 3; ++i) {
@@ -2716,7 +2716,7 @@ static int codec_get_hp_state(int *state)
 		return -EIO;
 #elif defined(CONFIG_JZ_HP_DETECT_GPIO)
 	if(codec_platform_data &&
-			(codec_platform_data->gpio_hp_detect.gpio != -1)) {
+	   (codec_platform_data->gpio_hp_detect.gpio != -1)) {
 		*state  = __gpio_get_value(codec_platform_data->gpio_hp_detect.gpio);
 	}
 	else
@@ -2759,7 +2759,7 @@ static void codec_debug_default(void)
 static void codec_debug(char arg)
 {
 	switch(arg) {
-	/*...*/
+		/*...*/
 	case '0':
 	default:
 		codec_debug_default();
@@ -2922,17 +2922,17 @@ static int jz_codec_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
-			&codec_platform_data->gpio_mic_detect,
-			&codec_platform_data->gpio_mic_detect_en,
-			&codec_platform_data->gpio_buildin_mic_select,
-			codec_platform_data->hook_active_level);
+			      &codec_platform_data->gpio_mic_detect,
+			      &codec_platform_data->gpio_mic_detect_en,
+			      &codec_platform_data->gpio_buildin_mic_select,
+			      codec_platform_data->hook_active_level);
 #elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
-						 &codec_platform_data->gpio_hp_detect,
-						 &codec_platform_data->gpio_mic_detect,
-						 &codec_platform_data->gpio_mic_detect_en,
-						 &codec_platform_data->gpio_buildin_mic_select,
-						 codec_platform_data->hook_active_level);
+			      &codec_platform_data->gpio_hp_detect,
+			      &codec_platform_data->gpio_mic_detect,
+			      &codec_platform_data->gpio_mic_detect_en,
+			      &codec_platform_data->gpio_buildin_mic_select,
+			      codec_platform_data->hook_active_level);
 #endif
 	if (codec_platform_data->gpio_mic_detect.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_mic_detect.gpio,"gpio_mic_detect") < 0) {
@@ -2947,9 +2947,9 @@ static int jz_codec_probe(struct platform_device *pdev)
 		}
 
 	if (codec_platform_data->gpio_mic_detect_en.gpio != -1 &&
-			codec_platform_data->gpio_buildin_mic_select.gpio !=
-			codec_platform_data->gpio_mic_detect_en.gpio)
-			/*many times gpio_mic_detect_en is equel to gpio_buildin_mic_select*/
+	    codec_platform_data->gpio_buildin_mic_select.gpio !=
+	    codec_platform_data->gpio_mic_detect_en.gpio)
+		/*many times gpio_mic_detect_en is equel to gpio_buildin_mic_select*/
 		if (gpio_request(codec_platform_data->gpio_mic_detect_en.gpio,"gpio_mic_detect_en") < 0) {
 			gpio_free(codec_platform_data->gpio_mic_detect_en.gpio);
 			gpio_request(codec_platform_data->gpio_mic_detect_en.gpio,"gpio_mic_detect_en");
@@ -3017,10 +3017,10 @@ static int __init init_codec(void)
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	    early_suspend.suspend = codec_early_suspend;
-	    early_suspend.resume = codec_late_resume;
-	    early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	    register_early_suspend(&early_suspend);
+	early_suspend.suspend = codec_early_suspend;
+	early_suspend.resume = codec_late_resume;
+	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&early_suspend);
 #endif
 
 
@@ -3034,7 +3034,7 @@ static void __exit cleanup_codec(void)
 {
 	platform_driver_unregister(&jz_codec_driver);
 #ifdef CONFIG_HAS_EARLYSUSPEND
-    unregister_early_suspend(&early_suspend);
+	unregister_early_suspend(&early_suspend);
 #endif
 }
 arch_initcall(init_codec);

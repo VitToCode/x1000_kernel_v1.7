@@ -44,7 +44,7 @@ static bool first_start_replay_dma = true;
 
 /*###########################################################*\
  * sub functions
-\*###########################################################*/
+ \*###########################################################*/
 /********************************************************\
  * buffer
 \********************************************************/
@@ -466,10 +466,10 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		}
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
-														  dp->sg,
-														  dp->sg_len,
-														  dp->dma_config.direction,
-														  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+								  dp->sg,
+								  dp->sg_len,
+								  dp->dma_config.direction,
+								  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
 			while (dp->sg_len-- || !pop_back_dma_node_to_use_head(dp));
 			return -EFAULT;
@@ -489,10 +489,10 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 		dp->sg_len = 1;
 
 		desc = dp->dma_chan->device->device_prep_slave_sg(dp->dma_chan,
-														  dp->sg,
-														  dp->sg_len,
-														  dp->dma_config.direction,
-														  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+								  dp->sg,
+								  dp->sg_len,
+								  dp->dma_config.direction,
+								  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		if (!desc) {
 			put_free_dsp_node(dp, node);
 			dp->save_node = NULL;
@@ -514,26 +514,26 @@ static int snd_prepare_dma_desc(struct dsp_pipe *dp)
 }
 
 static void snd_start_dma_transfer(struct dsp_pipe *dp ,
-		enum dma_data_direction direction)
+				   enum dma_data_direction direction)
 {
 	dp->is_trans = true;
 
 	dma_async_issue_pending(dp->dma_chan);
 	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer &&
-			dp->samplerate == 44100) {
+	    dp->samplerate == 44100) {
 		mod_timer(&dp->transfer_watchdog,
-				jiffies+msecs_to_jiffies(10));
+			  jiffies+msecs_to_jiffies(10));
 		atomic_set(&dp->watchdog_avail,0);
 	}
 }
 
 static dma_addr_t inline  dma_trans_addr(struct dsp_pipe *dp,
-		enum dma_data_direction direction)
+					 enum dma_data_direction direction)
 {
 	return dp->dma_chan->device->get_current_trans_addr(dp->dma_chan,
-			NULL,
-			NULL,
-			direction);
+							    NULL,
+							    NULL,
+							    direction);
 }
 
 #if 0
@@ -554,17 +554,17 @@ static void replay_watch_function(unsigned long _dp)
 	int unused_num = 0;
 
 	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail) ||
-			dp->samplerate != 44100 /*FIXME NOW we just use 44100,other rate must be test*/)
+	    dp->samplerate != 44100 /*FIXME NOW we just use 44100,other rate must be test*/)
 		return;
 
 	node = get_use_dsp_node_info(dp);
 	if (node) {
 		desc = dp->dma_chan->device->device_add_desc(dp->dma_chan,
-					node->phyaddr,
-					dp->dma_config.dst_addr,
-					node->end - node->start,
-					dp->dma_config.direction,
-					0x3 | ((dp->fragsize -1)) << 2);
+							     node->phyaddr,
+							     dp->dma_config.dst_addr,
+							     node->end - node->start,
+							     dp->dma_config.direction,
+							     0x3 | ((dp->fragsize -1)) << 2);
 		if (!desc) {
 			if (!push_used_node_to_dma(dp)) {
 				printk("UNHAPPEND\n");
@@ -809,26 +809,26 @@ static int start_bypass_trans(struct dsp_pipe *dp, int spipe_id)
 
 	/* enable record dma */
 	desc_in = spipe[spipe_id].src_dp->dma_chan->device->device_prep_dma_cyclic(
-			spipe[spipe_id].src_dp->dma_chan,
-			spipe[spipe_id].spaddr,
-			spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
-			spipe[spipe_id].sfragsize,
-			DMA_FROM_DEVICE);
+		spipe[spipe_id].src_dp->dma_chan,
+		spipe[spipe_id].spaddr,
+		spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
+		spipe[spipe_id].sfragsize,
+		DMA_FROM_DEVICE);
 	dmaengine_submit(desc_in);
 	spipe[spipe_id].src_dp->mod_timer = 0;
 	snd_start_dma_transfer(spipe[spipe_id].src_dp ,
-			spipe[spipe_id].src_dp->dma_config.direction);
+			       spipe[spipe_id].src_dp->dma_config.direction);
 
 	/* sleep for one fragment full */
 	msleep((spipe[spipe_id].sfragsize / spipe[spipe_id].samplesize / spipe[spipe_id].rate) * 1000);
 
 	/* enable replay dma */
 	desc_out = spipe[spipe_id].dst_dp->dma_chan->device->device_prep_dma_cyclic(
-			spipe[spipe_id].dst_dp->dma_chan,
-			spipe[spipe_id].spaddr,
-			spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
-			spipe[spipe_id].sfragsize,
-			DMA_TO_DEVICE);
+		spipe[spipe_id].dst_dp->dma_chan,
+		spipe[spipe_id].spaddr,
+		spipe[spipe_id].sfragcnt * spipe[spipe_id].sfragsize,
+		spipe[spipe_id].sfragsize,
+		DMA_TO_DEVICE);
 	dmaengine_submit(desc_out);
 	spipe[spipe_id].dst_dp->mod_timer = 0;
 	snd_start_dma_transfer(spipe[spipe_id].dst_dp , spipe[spipe_id].dst_dp->dma_config.direction);
@@ -866,13 +866,13 @@ static int spipe_init(struct device *dev)
 	int i = 0;
 
 	spipe[0].svaddr = (unsigned long)dmam_alloc_noncoherent(dev,
-						   SPIPE_DEF_FRAGSIZE * SPIPE_DEF_FRAGCNT * SND_SHARED_PIPE_CNT,
-						   &spipe[0].spaddr,
-						   GFP_KERNEL | GFP_DMA);
+								SPIPE_DEF_FRAGSIZE * SPIPE_DEF_FRAGCNT * SND_SHARED_PIPE_CNT,
+								&spipe[0].spaddr,
+								GFP_KERNEL | GFP_DMA);
 
 	if (spipe[0].spaddr == 0) {
 		printk("SOUDND ERROR: %s(line:%d) alloc memory error!\n",
-			   __func__, __LINE__);
+		       __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -1207,7 +1207,7 @@ int convert_32bits_stereo2_16bits_mono(void *buff, int *data_len, int needed_siz
 	 *so we can not operat the singular byte*/
 
 	for(i = 0; i < ((*data_len)>>2); i++) {
-			ushort_buff[i] = (signed short)uint_buff[i];
+		ushort_buff[i] = (signed short)uint_buff[i];
 	}
 	/* remaining data */
 
@@ -1226,8 +1226,8 @@ int convert_32bits_2_20bits_tri_mode(void *buff, int *data_len, int needed_size)
 	 *so we can not operat the singular byte*/
 
 	for(i = 0; i < ((*data_len)>>2); i++) {
-			printk("0x%x\n",uint_buff[i]);
-			uint_buff[i] = uint_buff[i]>>8;
+		printk("0x%x\n",uint_buff[i]);
+		uint_buff[i] = uint_buff[i]>>8;
 	}
 
 	return (*data_len);
@@ -1244,16 +1244,16 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 		return -ENODEV;
 
 	if ((dp->fragsize != FRAGSIZE_S) &&
-		(dp->fragsize != FRAGSIZE_M) &&
-		(dp->fragsize != FRAGSIZE_L))
+	    (dp->fragsize != FRAGSIZE_M) &&
+	    (dp->fragsize != FRAGSIZE_L))
 	{
 		return -1;
 	}
 
 	if ((dp->fragcnt != FRAGCNT_S) &&
-		(dp->fragcnt != FRAGCNT_M) &&
-		(dp->fragcnt != FRAGCNT_B) &&
-		(dp->fragcnt != FRAGCNT_L))
+	    (dp->fragcnt != FRAGCNT_M) &&
+	    (dp->fragcnt != FRAGCNT_B) &&
+	    (dp->fragcnt != FRAGCNT_L))
 	{
 		return -1;
 	}
@@ -1265,9 +1265,9 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	/* alloc memory */
 
 	dp->vaddr = (unsigned long)dmam_alloc_noncoherent(dev,
-												  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
-												  &dp->paddr,
-												  GFP_KERNEL | GFP_DMA);
+							  PAGE_ALIGN(dp->fragsize * dp->fragcnt),
+							  &dp->paddr,
+							  GFP_KERNEL | GFP_DMA);
 	if ((void*)dp->vaddr == NULL)
 		return -ENOMEM;
 
@@ -1335,9 +1335,9 @@ init_pipe_error:
 		kfree(node);
 	/* free memory */
 	dmam_free_noncoherent(dev,
-						  dp->fragsize * dp->fragcnt,
-						  (void*)dp->vaddr,
-						  dp->paddr);
+			      dp->fragsize * dp->fragcnt,
+			      (void*)dp->vaddr,
+			      dp->paddr);
 	return -1;
 }
 
@@ -1350,9 +1350,9 @@ static void deinit_pipe(struct dsp_pipe *dp,struct device *dev)
 		vfree(node);
 	/* free memory */
 	dmam_free_noncoherent(dev,
-						  dp->fragsize * dp->fragcnt,
-						  (void*)dp->vaddr,
-						  dp->paddr);
+			      dp->fragsize * dp->fragcnt,
+			      (void*)dp->vaddr,
+			      dp->paddr);
 }
 
 static int mmap_pipe(struct dsp_pipe *dp, struct vm_area_struct *vma)
@@ -1386,14 +1386,14 @@ static int mmap_pipe(struct dsp_pipe *dp, struct vm_area_struct *vma)
 
 /*###########################################################*\
  * interfacees
-\*###########################################################*/
+ \*###########################################################*/
 /********************************************************\
  * llseek
  \********************************************************/
 loff_t xb_snd_dsp_llseek(struct file *file,
-		loff_t offset,
-		int origin,
-		struct snd_dev_data *ddata)
+			 loff_t offset,
+			 int origin,
+			 struct snd_dev_data *ddata)
 {
 	return 0;
 }
@@ -1402,10 +1402,10 @@ loff_t xb_snd_dsp_llseek(struct file *file,
  * read
  \********************************************************/
 ssize_t xb_snd_dsp_read(struct file *file,
-		char __user *buffer,
-		size_t count,
-		loff_t *ppos,
-		struct snd_dev_data *ddata)
+			char __user *buffer,
+			size_t count,
+			loff_t *ppos,
+			struct snd_dev_data *ddata)
 {
 	int	mcount = count;
 	int ret = -EINVAL;
@@ -1415,7 +1415,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
-	ENTER_FUNC()
+	ENTER_FUNC();
 	if (!(file->f_mode & FMODE_READ))
 		return -EPERM;
 
@@ -1479,7 +1479,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				fixed_buff_cnt = node_buff_cnt;
 			}
 			if (copy_to_user((void *)buffer,
-						(void *)(node->pBuf + node->start), fixed_buff_cnt)) {
+					 (void *)(node->pBuf + node->start), fixed_buff_cnt)) {
 				put_use_dsp_node_head(dp,node,0);
 				atomic_inc(&dp->avialable_couter);
 				return -EFAULT;
@@ -1496,9 +1496,9 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 				if (!IS_ERR(file_record)) {
 					vfs_write(file_record,
-							(void *)(node->pBuf + node->start),
-							fixed_buff_cnt,
-							&file_record_offset);
+						  (void *)(node->pBuf + node->start),
+						  fixed_buff_cnt,
+						  &file_record_offset);
 					file_record_offset = file_record->f_pos;
 				}
 				set_fs(old_fs_record);
@@ -1509,12 +1509,12 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				atomic_inc(&dp->avialable_couter);
 			} else
 				put_free_dsp_node(dp,node);
-				//dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
-	//		}
+			//dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
+			//		}
 		}
 	} while (mcount > 0);
 
-	LEAVE_FUNC()
+	LEAVE_FUNC();
 	return count - mcount;
 }
 
@@ -1522,10 +1522,10 @@ ssize_t xb_snd_dsp_read(struct file *file,
  * write
  \********************************************************/
 ssize_t xb_snd_dsp_write(struct file *file,
-		const char __user *buffer,
-		size_t count,
-		loff_t *ppos,
-		struct snd_dev_data *ddata)
+			 const char __user *buffer,
+			 size_t count,
+			 loff_t *ppos,
+			 struct snd_dev_data *ddata)
 {
 	int mcount = count;
 	int copy_size = 0;
@@ -1574,12 +1574,12 @@ ssize_t xb_snd_dsp_write(struct file *file,
 					free_count = get_free_dsp_node_count(dp);
 					atomic_set(&dp->avialable_couter,free_count);
 					printk("Dma write error release node count %d\n",
-							free_count);
+					       free_count);
 				}
 				if (dp->is_non_block == true)
 					goto write_return;
 				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
-							|| dp->force_stop_dma == true) < 0)
+							     || dp->force_stop_dma == true) < 0)
 					goto write_return;
 			} else {
 				atomic_dec(&dp->avialable_couter);
@@ -1636,8 +1636,8 @@ write_return:
  * ioctl
  \********************************************************/
 unsigned int xb_snd_dsp_poll(struct file *file,
-		poll_table *wait,
-		struct snd_dev_data *ddata)
+			     poll_table *wait,
+			     struct snd_dev_data *ddata)
 {
 	return -EINVAL;
 }
@@ -1650,9 +1650,9 @@ unsigned int xb_snd_dsp_poll(struct file *file,
  * works, if a dsp device opend as O_RDWR, it will return -1
  **/
 long xb_snd_dsp_ioctl(struct file *file,
-		unsigned int cmd,
-		unsigned long arg,
-		struct snd_dev_data *ddata)
+		      unsigned int cmd,
+		      unsigned long arg,
+		      struct snd_dev_data *ddata)
 {
 	long ret = -EINVAL;
 	struct dsp_pipe *dp = NULL;
@@ -1982,8 +1982,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 	}
 
 	case SNDCTL_DSP_SETFRAGMENT: {
-		#define FRAGMENT_SIZE_MUX 0x0000ffff
-		#define FRAGMENT_CNT_MUX  0xffff0000
+#define FRAGMENT_SIZE_MUX 0x0000ffff
+#define FRAGMENT_CNT_MUX  0xffff0000
 		int fragment = -1;
 		int fragcnts = -1;
 		int fragsize = 1;
@@ -2031,8 +2031,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 		printk("audio buffercnt change to %d",dp->fragcnt);
 
 		ret = put_user(fragment, (int *)arg);
-		#undef FRAGMENT_SIZE_MUX
-		#undef FRAGMENT_CNT_MUX
+#undef FRAGMENT_SIZE_MUX
+#undef FRAGMENT_CNT_MUX
 		break;
 	}
 
@@ -2126,7 +2126,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->out_endpoint;
 			dp->wait_stop_dma = true;
 			while (wait_event_interruptible(dp->wq,
-						dp->is_trans == false) && i--);
+							dp->is_trans == false) && i--);
 			if (!i)
 				return -EFAULT;
 			del_timer_sync(&dp->transfer_watchdog);
@@ -2136,8 +2136,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = -ENOSYS;
 		break;
 
-	//case SNDCTL_DSP_RESET:
-	//break;
+		//case SNDCTL_DSP_RESET:
+		//break;
 
 		//case SNDCTL_DSP_SYNCSTART:
 		/* OSS 4.x: Starts all devices added to a synchronization group */
@@ -2298,7 +2298,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 				if (!node) {
 					wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) >= 1
-							|| dp->force_stop_dma == true);
+								 || dp->force_stop_dma == true);
 					if (dp->force_stop_dma == true) {
 						info.bytes = 0;
 						info.offset = -1;
@@ -2363,9 +2363,9 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (!ret) {
 				/* put node to use list */
 				dma_cache_sync(NULL,
-						(void *)dp->save_node->pBuf,
-						info.bytes,
-						dp->dma_config.direction);
+					       (void *)dp->save_node->pBuf,
+					       info.bytes,
+					       dp->dma_config.direction);
 				put_use_dsp_node(dp, dp->save_node, info.bytes);
 				/* start dma transfer if dma is stopped */
 				if (dp->is_trans == false) {
@@ -2384,10 +2384,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
-    case SNDCTL_EXT_STOP_DMA: {
-        if (file->f_mode & FMODE_READ)
-             dp = endpoints->in_endpoint;
-        if (file->f_mode & FMODE_WRITE)
+	case SNDCTL_EXT_STOP_DMA: {
+		if (file->f_mode & FMODE_READ)
+			dp = endpoints->in_endpoint;
+		if (file->f_mode & FMODE_WRITE)
 			dp = endpoints->out_endpoint;
 		if (dp != NULL) {
 			int i = 0x7ffff;
@@ -2417,7 +2417,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
 			if (!ret)
-			   break;
+				break;
 		}
 		ret = put_user(vol, (int *)arg);
 		break;
@@ -2433,19 +2433,19 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
 			if (!ret)
-			   break;
+				break;
 		}
 		ret = put_user(*(int *)arg, (int *)arg);
 		break;
 	}
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
-			   __func__, __LINE__, cmd);
+		       __func__, __LINE__, cmd);
 		return -1;
 	}
 
 	/* some operation may need to reconfig the dma, such as,
-	 if we reset the format, it may cause reconfig the dma */
+	   if we reset the format, it may cause reconfig the dma */
 	if (file->f_mode & FMODE_READ) {
 		dp = endpoints->in_endpoint;
 		if (dp && dp->need_reconfig_dma == true) {
@@ -2472,8 +2472,8 @@ long xb_snd_dsp_ioctl(struct file *file,
  * mmap
  \********************************************************/
 int xb_snd_dsp_mmap(struct file *file,
-		struct vm_area_struct *vma,
-		struct snd_dev_data *ddata)
+		    struct vm_area_struct *vma,
+		    struct snd_dev_data *ddata)
 {
 	int ret = -ENODEV;
 	struct dsp_pipe *dp = NULL;
@@ -2516,8 +2516,8 @@ int xb_snd_dsp_mmap(struct file *file,
  * open
 \********************************************************/
 int xb_snd_dsp_open(struct inode *inode,
-					struct file *file,
-					struct snd_dev_data *ddata)
+		    struct file *file,
+		    struct snd_dev_data *ddata)
 {
 	int ret = -ENXIO;
 	int arg,state;
@@ -2648,7 +2648,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		f_test_offset = f_test->f_pos;
 	}
 	else
-			printk("---->open %s failed %d!\n",DEBUG_REPLAYE_FILE,f_test);
+		printk("---->open %s failed %d!\n",DEBUG_REPLAYE_FILE,f_test);
 #endif
 #ifdef DEBUG_RECORD
 	printk("DEBUG:----open %s %s\tline:%d\n",DEBUG_RECORD_FILE, __func__,__LINE__);
@@ -2658,9 +2658,9 @@ int xb_snd_dsp_open(struct inode *inode,
 		file_record_offset = file_record->f_pos;
 	}
 	else
-			printk("---->open %s failed %d!\n",DEBUG_RECORD_FILE,file_record);
+		printk("---->open %s failed %d!\n",DEBUG_RECORD_FILE,file_record);
 #endif
-	LEAVE_FUNC()
+	LEAVE_FUNC();
 	return ret;
 }
 
@@ -2668,8 +2668,8 @@ int xb_snd_dsp_open(struct inode *inode,
  * release
  \********************************************************/
 int xb_snd_dsp_release(struct inode *inode,
-		struct file *file,
-		struct snd_dev_data *ddata)
+		       struct file *file,
+		       struct snd_dev_data *ddata)
 {
 	int ret = 0;
 	struct dsp_pipe *dpi = NULL;

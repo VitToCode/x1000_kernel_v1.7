@@ -27,17 +27,17 @@
 //#define SND_DEBUG
 #ifdef SND_DEBUG
 #define ENTER_FUNC()	\
-	printk("++++++enter %s++++++.\n" ,__func__);
+	printk("++++++enter %s++++++.\n" ,__func__)
 #define LEAVE_FUNC()	\
-	printk("------leave %s------.\n" ,__func__);
+	printk("------leave %s------.\n" ,__func__)
 #define debug_print(fmt,args...)	\
 		do {	\
 			printk("#######(%s:%d):",__func__,__LINE__);	\
 			printk(fmt".\n",##args);\
 		} while (0)
 #else
-#define ENTER_FUNC() {;}
-#define LEAVE_FUNC() {;}
+#define ENTER_FUNC()
+#define LEAVE_FUNC()
 #define debug_print(fmt,args...)  do {} while(0)
 #endif
 
