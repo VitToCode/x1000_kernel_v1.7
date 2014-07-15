@@ -495,6 +495,21 @@ config VIDEO_OV5645
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
 	  OV5645 camera.
 
+config VIDEO_OV9724
+	  tristate "OmniVision OV9724 sensor support"
+	  depends on I2C && VIDEO_V4L2
+	  ---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV9724 camera.
+
+config VIDEO_OV8858
+	  tristate "OmniVision OV8858 sensor support"
+	  depends on I2C && VIDEO_V4L2
+	  ---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV8858 camera.
+
+
 comment "Video improvement chips"
 
 config VIDEO_UPD64031A
@@ -791,7 +806,23 @@ config OVISP_I2C
 	  depends on VIDEO_OVISP
 	  ---help---
 	  USE ISP internal I2C.
+config DVP_CAMERA0
+	  bool "select DVP interface camera and portC"
+	  depends on VIDEO_OVISP && !FB_JZ_V1_2 && !JZ_EPD_GPIO_FUNCTION && SOC_M200
+	  ---help---
+	  USE a camera of dvp interface.
 
+config MIPI_CAMERA
+	  bool "select MIPI interface camera"
+	  depends on VIDEO_OVISP && SOC_M200
+	  ---help---
+	  USE a camera of mipi interface.
+
+config DVP_OV9712
+	tristate "ov9712 camera support"
+	depends on DVP_CAMERA0 && I2C
+	help
+	  This is a ov9712 camera driver
 
 config SOC_CAMERA
 	tristate "SoC camera support"

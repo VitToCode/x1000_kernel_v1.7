@@ -480,6 +480,9 @@ static int isp_set_parameters(struct isp_device *isp)
 		iformat = IFORMAT_RAW10;
 	else
 		iformat = IFORMAT_RAW8;
+#if defined(CONFIG_VIDEO_OV9724)
+		iformat = IFORMAT_RAW10;
+#endif
 	switch (iparm->output[0].format) {
 		case V4L2_PIX_FMT_YUYV:
 			oformat0 = OFORMAT_YUV422;
@@ -880,7 +883,6 @@ static int isp_i2c_fill_buffer(struct isp_device *isp)
 #if 1
 static int isp_set_format(struct isp_device *isp)
 {
-	isp_intc_enable(isp, MASK_INT_CMDSET);
 	isp_i2c_fill_buffer(isp);
 	isp_reg_writeb(isp, ISP_CCLK_DIVIDER, COMMAND_REG4);
 
@@ -1104,12 +1106,10 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 			if(mac_irq_status & MASK_INT_DROP0){
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME0;
 				ISP_PRINT(ISP_INFO,"drop 0 !!\n");
-				//isp->pp_buf = true;
 			}
 			if(mac_irq_status & MASK_INT_DROP1){
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME1;
 				ISP_PRINT(ISP_INFO,"drop 1 !!\n");
-				//isp->pp_buf = false;
 			}
 		}
 		/* Done. */
@@ -1117,12 +1117,10 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 			if (mac_irq_status & MASK_INT_WRITE_DONE0) {
 				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE0;
 				ISP_PRINT(ISP_INFO,"done - 0!\n");
-				//isp->pp_buf = false;
 			}
 			else if (mac_irq_status & MASK_INT_WRITE_DONE1) {
 				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE1;
 				ISP_PRINT(ISP_INFO,"done - 1!\n");
-				//isp->pp_buf = true;
 			}
 #if 0
 			//dump_mac(isp);
@@ -1273,7 +1271,7 @@ static int isp_clk_init(struct isp_device *isp)
 		if(isp_clks[i].rate != DUMMY_CLOCK_RATE) {
 			ret = clk_set_rate(isp->clk[i], isp_clks[i].rate);
 			if(ret){
-				printk("set rate failed ! XXXXXXXXXXXXXXXXXx \n");
+				ISP_PRINT(ISP_ERROR, KERN_ERR "set rate failed ! XXXXXXXXXXXXXXXXXx \n");
 			}
 		}
 
@@ -1824,7 +1822,7 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	isp->snapshot = cap->snapshot;
 	isp->client = cap->client;
 
-	printk( "width is %d,height is %d,v4l2_field is %d\n", frame.width,frame.height,frame.field);
+	ISP_PRINT(ISP_INFO, "width is %d,height is %d,v4l2_field is %d\n", frame.width,frame.height,frame.field);
 	if (isp->format_active) {
 		isp_set_parameters(isp);
 		if (!isp->snapshot) {
@@ -1833,7 +1831,6 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 		} else {
 			ret = isp_set_capture(isp);
 		}
-		//while(1);
 		if (ret)
 			return ret;
 	}
@@ -1842,6 +1839,7 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 		isp_set_parameters(isp);
 		ret = isp_set_capture(isp);
 	}
+//#define OVISP_CSI_TEST
 #ifdef OVISP_CSI_TEST
 	printk("csi sensor test ! \n");
 	while(1) {
@@ -1887,7 +1885,6 @@ static int isp_stop_capture(struct isp_device *isp, void *data)
 	isp_reg_writeb(isp, 0x00, REG_BASE_ADDR_READY);
 	isp_intc_state(isp);
 	isp_mac_int_state(isp);
-
 	return 0;
 }
 
@@ -1949,14 +1946,17 @@ static int isp_try_fmt(struct isp_device *isp, struct isp_format *f)
 
 static int isp_pre_fmt(struct isp_device *isp, struct isp_format *f)
 {
+	struct ovisp_camera_client *client = &isp->pdata->client[isp->input];
 	int ret = 0;
 
-	if (!isp->bypass && (isp->fmt_data.mipi_clk != f->fmt_data->mipi_clk)) {
-		ISP_PRINT(ISP_INFO,"isp pre fmt restart phy!!!\n");
-		ISP_PRINT(ISP_INFO,"f->fmt_data->mipi_clk = %d\n",f->fmt_data->mipi_clk);
-		ret = csi_phy_start(0, f->fmt_data->mipi_clk);
-		if (!ret)
-			isp->fmt_data.mipi_clk = f->fmt_data->mipi_clk;
+	if (client->flags & CAMERA_CLIENT_IF_MIPI) {
+		if (!isp->bypass && (isp->fmt_data.mipi_clk != f->fmt_data->mipi_clk)) {
+			ISP_PRINT(ISP_INFO,"isp pre fmt restart phy!!!\n");
+			ISP_PRINT(ISP_INFO,"f->fmt_data->mipi_clk = %d\n",f->fmt_data->mipi_clk);
+			ret = csi_phy_start(0, f->fmt_data->mipi_clk);
+			if (!ret)
+				isp->fmt_data.mipi_clk = f->fmt_data->mipi_clk;
+		}
 	}
 	return ret;
 }

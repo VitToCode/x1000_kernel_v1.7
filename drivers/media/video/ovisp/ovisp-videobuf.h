@@ -17,7 +17,6 @@ ovisp_vb2_plane_vaddr(struct vb2_buffer *vb, unsigned int plane_no)
 {
 	void * vaddr = vb2_plane_vaddr(vb, plane_no);
 
-	ISP_PRINT(ISP_INFO,"%s:vaddr:%p\n", __func__, vb2_plane_vaddr(vb, plane_no));
 	return (unsigned long)vaddr;
 }
 

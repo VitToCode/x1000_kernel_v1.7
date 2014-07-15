@@ -166,8 +166,13 @@ int csi_phy_start(unsigned int id, unsigned int freq)
 	int i;
 
 	ISP_PRINT(ISP_INFO,"csi_phy_start being called\n");
+#if defined(CONFIG_VIDEO_OV9724)
+	csi_set_on_lanes(1);
+	//csi_set_on_lanes(2); /*two lane*/
+#else
 	//csi_set_on_lanes(1);
 	csi_set_on_lanes(2); /*two lane*/
+#endif
 
 	/*reset phy*/
 	csi_core_write_part(PHY_SHUTDOWNZ, 0, 0, 1);

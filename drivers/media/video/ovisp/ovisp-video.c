@@ -40,7 +40,6 @@ static struct ovisp_camera_format formats[] = {
 		.fourcc   = V4L2_PIX_FMT_YUYV,
 		.depth    = 16,
 	},
-
 	{
 		.name     = "YUV 4:2:0 semi planar, Y/CbCr",
 		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
@@ -116,9 +115,9 @@ static int ovisp_subdev_power_on(struct ovisp_camera_dev *camdev,
 	struct v4l2_cropcap caps;
 	int ret;
 
-	////ret = ovisp_subdev_mclk_on(camdev, index);
-	//if (ret)
-	//return ret;
+	ret = ovisp_subdev_mclk_on(camdev, index);
+	if (ret)
+		return ret;
 
 	/* first camera work power on */
 	if(!regulator_is_enabled(camdev->camera_power))
@@ -232,7 +231,6 @@ struct ovisp_camera_format *ovisp_camera_find_format(
 			break;
 		fmt++;
 	}
-
 	if (i == num)
 		return NULL;
 
@@ -292,18 +290,18 @@ static int ovisp_camera_init_client(struct ovisp_camera_dev *camdev,
 
 	if (client->flags & CAMERA_CLIENT_INDEP_I2C) {
 		i2c_adapter_id = client->i2c_adapter_id;
-		ISP_PRINT(ISP_INFO,"111111111111\n");
+		ISP_PRINT(ISP_INFO,"11111 %s i2c_adapter_id = %d\n",__func__,i2c_adapter_id);
 	}
 	else {
 		i2c_adapter_id = camdev->pdata->i2c_adapter_id;
-		ISP_PRINT(ISP_INFO,"2222222222222222222\n");
+		ISP_PRINT(ISP_INFO,"22222 %s i2c_adapter_id = %d\n",__func__,i2c_adapter_id);
 	}
 	if (client->flags & CAMERA_CLIENT_ISP_BYPASS)
 		csd->bypass = 1;
 	else
 		csd->bypass = 0;
 
-	//ret = ovisp_camera_get_mclk(camdev, client, index);
+	ret = ovisp_camera_get_mclk(camdev, client, index);
 	//if (ret)
 	//return ret;
 
@@ -684,11 +682,9 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	struct ovisp_camera_frame *frame = &camdev->frame;
 	struct ovisp_camera_buffer *buf = NULL;
 	unsigned long flags;
-
 	if (!capture->running)
 		return 0;
 
-	//ISP_PRINT(ISP_INFO,"%s:%d,<<<irq_notify>>> status:0x%x\n", __func__, __LINE__, status);
 	if (status & ISP_NOTIFY_DATA_DONE) {
 		buf = NULL;
 		spin_lock_irqsave(&camdev->slock, flags);
@@ -851,7 +847,6 @@ static void ovisp_vb2_buffer_queue(struct vb2_buffer *vb)
 	struct ovisp_camera_capture *capture = &camdev->capture;
 	unsigned long flags;
 
-	ISP_PRINT(ISP_INFO,"%s=========1=======%d\n",__func__, __LINE__);
 	spin_lock_irqsave(&camdev->slock, flags);
 	list_add_tail(&buf->list, &capture->list);
 #if 0
@@ -871,7 +866,6 @@ static void ovisp_vb2_buffer_queue(struct vb2_buffer *vb)
 		ISP_PRINT(ISP_INFO,"%s:%d start_capture!\n",__func__,__LINE__);
 		ovisp_camera_start_capture(camdev);
 	}
-//	ISP_PRINT(ISP_INFO,"%s=========1=======%d\n",__func__, __LINE__);
 }
 
 static int ovisp_vb2_start_streaming(struct vb2_queue *vq)

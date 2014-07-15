@@ -635,7 +635,7 @@ void dump_isp_exposure_init(struct isp_device *isp)
 	ISP_PRINT(ISP_INFO," 0x1e034 IS %#x\n", isp_firmware_readb(isp, 0x1e034));
 	ISP_PRINT(ISP_INFO," 0x1e035 IS %#x\n",	isp_firmware_readb(isp, 0x1e035));
 }
-
+#if 0
 void dump_sensor_exposure(struct v4l2_subdev *sd)
 {
 	int ret;
@@ -666,3 +666,7 @@ void dump_sensor_exposure(struct v4l2_subdev *sd)
 	ret = ov5645_read(sd, 0x350b, &val);
 	ISP_PRINT(ISP_INFO, "OV5645 manual en 0x350b is %#x\n", val);
 }
+#else
+void dump_sensor_exposure(struct v4l2_subdev *sd)
+{}
+#endif

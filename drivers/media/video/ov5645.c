@@ -12,7 +12,6 @@
 #include "ov5645.h"
 
 
-
 #define OV5645_CHIP_ID_H	(0x56)
 #define OV5645_CHIP_ID_L	(0x45)
 
@@ -32,7 +31,6 @@
 #define OV5645_REG_DELAY	0xfffe
 
 //#define OV5645_YUV
-
 
 struct ov5645_format_struct;
 struct ov5645_info {
@@ -879,8 +877,8 @@ static struct regval_list ov5645_init_regs_raw10_720p[] = {
        {0x3035, 0x21},   //;30fps
        {0x3036, 0x69},
        {0x3500, 0x00},
-       {0x3501, 0x01},
-       {0x3502, 0x00},
+       {0x3501, 0x02},
+       {0x3502, 0xe4},
        {0x350a, 0x00},
        {0x350b, 0x3f},
        {0x3600, 0x0a},
@@ -994,7 +992,7 @@ static struct regval_list ov5645_init_regs_raw10_720p[] = {
        {0x5a21, 0x00},
        {0x5a24, 0x00},
        {0x3008, 0x02},
-       {0x3503, 0x00},//manual exposoure
+       {0x3503, 0x07},//manual exposoure
        {0x5180, 0xff},
        {0x5181, 0xf2},
        {0x5182, 0x00},
@@ -1188,7 +1186,9 @@ static struct regval_list ov5645_stream_off[] = {
 
 	{OV5645_REG_END, 0x00},	/* END MARKER */
 };
-
+static struct regval_list ov5645_win_720p[] = {
+	{OV5645_REG_END, 0x00},	/* END MARKER */
+};
 static struct regval_list ov5645_win_sxga[] = {
 	{OV5645_REG_END, 0x00},	/* END MARKER */
 };
@@ -1402,15 +1402,14 @@ static struct ov5645_format_struct {
 	struct regval_list *regs;
 } ov5645_formats[] = {
 	{
-		/*RAW10 FORMAT, 10 bit per pixel*/
-		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
+		/*RAW8 FORMAT, 8 bit per pixel*/
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.regs 		= NULL,
 	},
-#if 0
 	{
-		/*RAW8 FORMAT, 8 bit per pixel*/
-		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
+		/*RAW10 FORMAT, 10 bit per pixel*/
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.regs 		= NULL,
 	},
@@ -1420,7 +1419,6 @@ static struct ov5645_format_struct {
 		.regs = NULL,
 
 	}
-#endif
 	/*add other format supported*/
 };
 #define N_OV5645_FMTS ARRAY_SIZE(ov5645_formats)
@@ -1431,7 +1429,7 @@ static struct ov5645_win_size {
 	int	vts;
 	struct regval_list *regs; /* Regs to tweak */
 } ov5645_win_sizes[] = {
-	/* 2560*1920 */
+	/* 2592*1944 */
 	{
 		.width		= MAX_WIDTH,
 		.height		= MAX_HEIGHT,
@@ -1445,9 +1443,16 @@ static struct ov5645_win_size {
 		.vts		= 0x3d8,
 		.regs 		= ov5645_win_sxga,
 	},
+	/* 1280*720 */
 	{
-		.width		= _720P_WIDTH, /*1280*/
-		.height		= _720P_HEIGHT, /*720*/
+		.width		= 1280,
+		.height		= 720,
+		.vts		= 0x2e4,
+		.regs 		= ov5645_win_720p,
+	},
+	{
+		.width		= 720,
+		.height		= 640,
 		.vts		= 0x01e0,
 		.regs		= ov5645_win_vga,
 	},
@@ -1746,7 +1751,6 @@ static int ov5645_s_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *r
 static int ov5645_s_power(struct v4l2_subdev *sd, int on)
 {
 		printk("--%s:%d\n", __func__, __LINE__);
-
 	return 0;
 }
 
