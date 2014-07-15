@@ -7,7 +7,7 @@ menuconfig JZ_IPU
 choice
 	prompt "IPU Version Choice "
 	depends on JZ_IPU
-	default JZ_IPU_V12
+	default JZ_IPU_V10
 
 config JZ_IPU_V10
 	bool "IPU V10 Driver"
