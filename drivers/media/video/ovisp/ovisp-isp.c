@@ -638,8 +638,8 @@ static int isp_set_parameters(struct isp_device *isp)
 	//isp config
 	isp_firmware_writeb(isp, 0x01, 0x1f070);
 	isp_firmware_writeb(isp, 0x00, 0x1f071);
-	isp_firmware_writeb(isp, 0x03, 0x1f072);
-	isp_firmware_writeb(isp, 0x46, 0x1f073);
+	isp_firmware_writeb(isp, 0x02, 0x1f072);
+	isp_firmware_writeb(isp, 0xd4, 0x1f073);
 
 	isp_firmware_writeb(isp, 0x00, 0x1f074);
 	isp_firmware_writeb(isp, 0x10, 0x1f075);
@@ -650,8 +650,8 @@ static int isp_set_parameters(struct isp_device *isp)
 	isp_firmware_writeb(isp, 0x10, 0x1f079);
 	//isp_firmware_writeb(isp, 0x32, 0x1f07a);
 	//isp_firmware_writeb(isp, 0x00, 0x1f07b);
-	isp_firmware_writeb(isp, 0x03, 0x1f07a);
-	isp_firmware_writeb(isp, 0x21, 0x1f07b);
+	isp_firmware_writeb(isp, 0x02, 0x1f07a);
+	isp_firmware_writeb(isp, 0xe4, 0x1f07b);
 
 	/* 4. CAPTURE CONFIGURATION */
 
@@ -1801,7 +1801,7 @@ static void isp_set_exposure_init(struct isp_device *isp)
 	isp_reg_writeb(isp, 0x14, 0x66532);
 	isp_reg_writeb(isp, 0x14, 0x66533);
 
-	isp_firmware_writeb(isp, 0x01, 0x1e022);
+	isp_firmware_writeb(isp, 0x00, 0x1e022);
 	isp_firmware_writeb(isp, 0x00, 0x1e030);
 	isp_firmware_writeb(isp, 0x00, 0x1e031);
 	isp_firmware_writeb(isp, 0x34, 0x1e032);
@@ -1826,7 +1826,7 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	if (isp->format_active) {
 		isp_set_parameters(isp);
 		if (!isp->snapshot) {
-			//isp_set_exposure_init(isp);
+			isp_set_exposure_init(isp);
 			ret = isp_set_format(isp);
 		} else {
 			ret = isp_set_capture(isp);

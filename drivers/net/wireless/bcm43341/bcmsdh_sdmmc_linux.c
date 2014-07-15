@@ -102,7 +102,11 @@ PBCMSDH_SDMMC_INSTANCE gInstance;
 
 extern int bcmsdh_probe(struct device *dev);
 extern int bcmsdh_remove(struct device *dev);
+#ifdef CONFIG_PM_SLEEP
 extern volatile bool dhd_mmc_suspend;
+#else
+volatile bool dhd_mmc_suspend;
+#endif
 
 static int bcmsdh_sdmmc_probe(struct sdio_func *func,
                               const struct sdio_device_id *id)

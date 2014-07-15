@@ -2182,8 +2182,10 @@ static int codec_set_board_route(struct snd_board_route *broute)
 
 	if (broute->route != SND_ROUTE_RECORD_CLEAR) {
 		/* keep_old_route is used in resume part and record release */
-		if (cur_route == NULL || cur_route->route == SND_ROUTE_ALL_CLEAR)
-			keep_old_route = broute;
+		if (cur_route == NULL || cur_route->route == SND_ROUTE_ALL_CLEAR) {
+//			keep_old_route = broute;
+			keep_old_route = &codec_platform_data->replay_def_route;
+		}
 		else if (cur_route->route >= SND_ROUTE_RECORD_ROUTE_START &&
 			 cur_route->route <= SND_ROUTE_RECORD_ROUTE_END && keep_old_route != NULL) {
 			/*DO NOTHING IN THIS CASE*/
@@ -2359,12 +2361,19 @@ static int codec_init(void)
 static int codec_turn_off(int mode)
 {
 	int ret = 0;
+	struct snd_board_route *return_brfore_route = keep_old_route;
 
 	if (mode & CODEC_RMODE) {
 		ret = codec_set_route(SND_ROUTE_RECORD_CLEAR);
 		if(ret != SND_ROUTE_RECORD_CLEAR)
 		{
 			printk("JZ CODEC: codec_turn_off_part record mode error!\n");
+			return -1;
+		}
+		ret = codec_set_route(return_brfore_route->route);
+		if(ret != return_brfore_route->route)
+		{
+			printk("JZ CODEC: codec set return_brfore_route error!\n");
 			return -1;
 		}
 	}
