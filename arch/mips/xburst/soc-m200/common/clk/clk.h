@@ -265,4 +265,6 @@ void __init init_gate_clk(struct clk *clk);
 void __init cpm_pwc_init(void);
 void __init init_pwc_clk(struct clk *clk);
 int cpm_pwc_enable_ctrl(struct clk *clk,int on);
+void cpm_pwc_suspend(void);
+void cpm_pwc_resume(void);
 #endif /* _CLK_H_ */

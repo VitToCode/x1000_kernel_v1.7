@@ -153,9 +153,13 @@ void switch_core(void *handle)
 {
 	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
 	if(core->target_coreid != -1) {
-		printk("queue_work\n");
-		queue_work(core->sw_core_q,&core->work);
-		flush_work_sync(&core->work);
+		if(!(current->flags & PF_KTHREAD)) {
+			printk("queue_work\n");
+			queue_work(core->sw_core_q,&core->work);
+			flush_work_sync(&core->work);
+		}else{
+			switch_core_work(&core->work);
+		}
 	}
 }
 extern unsigned int _wait_flag;

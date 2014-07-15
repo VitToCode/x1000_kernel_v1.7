@@ -25,6 +25,7 @@ struct cpm_pwc
 struct cpm_pwc_ctrl {
 	spinlock_t spin_lock;
 	struct  wake_lock  pwc_wakelock;
+	unsigned int is_suspend;
 }cpm_pwc_ctrl;
 static struct cpm_pwc cpm_pwc_srcs[] = {
 #define PWC_SRC(ID,offset,ctrl,wait,delay)	\
@@ -103,7 +104,7 @@ int cpm_pwc_enable_ctrl(struct clk *clk,int on) {
 		cpm_pwc_poweron((unsigned long)pwc);
 		clk->flags |= CLK_FLG_ENABLE;
 	} else {
-		if(pwc->delay_ms){
+		if(cpm_pwc_ctrl.is_suspend == 0 && pwc->delay_ms){
 			mod_timer(&pwc->timer,jiffies + msecs_to_jiffies(pwc->delay_ms));
 			wake_lock_timeout(&cpm_pwc_ctrl.pwc_wakelock,msecs_to_jiffies(pwc->delay_ms));
 		}
@@ -112,6 +113,20 @@ int cpm_pwc_enable_ctrl(struct clk *clk,int on) {
 		clk->flags &= ~CLK_FLG_ENABLE;
 	}
 	return 0;
+}
+void cpm_pwc_suspend(void)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&cpm_pwc_ctrl.spin_lock,flags);
+	cpm_pwc_ctrl.is_suspend = 1;
+	spin_unlock_irqrestore(&cpm_pwc_ctrl.spin_lock,flags);
+}
+void cpm_pwc_resume(void)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&cpm_pwc_ctrl.spin_lock,flags);
+	cpm_pwc_ctrl.is_suspend = 0;
+	spin_unlock_irqrestore(&cpm_pwc_ctrl.spin_lock,flags);
 }
 
 void __init cpm_pwc_init(void)
@@ -123,6 +138,7 @@ void __init cpm_pwc_init(void)
 	cpm_outl(24,CPM_PSWC2ST);
 	cpm_outl(8,CPM_PSWC3ST);
 	spin_lock_init(&cpm_pwc_ctrl.spin_lock);
+	cpm_pwc_ctrl.is_suspend = 0;
 	wake_lock_init(&cpm_pwc_ctrl.pwc_wakelock,WAKE_LOCK_SUSPEND,"pwc wakelock");
 	for(i = 0;i < ARRAY_SIZE(cpm_pwc_srcs);i++) {
 		setup_timer(&cpm_pwc_srcs[i].timer,cpm_pwc_poweroff,(unsigned long)&cpm_pwc_srcs[i]);

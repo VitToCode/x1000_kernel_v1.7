@@ -24,7 +24,7 @@ enum gpio_function {
 #define GPIO_AS_FUNC(func)  (! ((func) & 0xc))
 
 enum gpio_port {
-	GPIO_PORT_A, GPIO_PORT_B,
+	GPIO_PORT_A = 0, GPIO_PORT_B,
 	GPIO_PORT_C, GPIO_PORT_D,
 	GPIO_PORT_E, GPIO_PORT_F,
 	/* this must be last */

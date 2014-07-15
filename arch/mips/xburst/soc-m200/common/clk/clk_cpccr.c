@@ -54,7 +54,7 @@ static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *pa
 		goto SET_CPCCR_RATE_ERR;
 	}
 
-	cache_prefetch(LAB5,LAB6);
+	cache_prefetch(LAB5,64);
 	fast_iob();
 LAB5:
 	cpccr &= ~((0xf << cpccr_clks[CDIV].off) | (0xf << cpccr_clks[L2CDIV].off));
@@ -63,7 +63,7 @@ LAB5:
 	cpm_outl(cpccr,CPM_CPCCR);
 	/* wait not busy */
 	while(cpm_inl(CPM_CPCSR) & 1);
-LAB6:
+
 	cpccr &= ~((1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce));
 	cpm_outl(cpccr,CPM_CPCCR);
 	clk->rate = parentclk->rate / (cdiv + 1);
@@ -145,7 +145,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			/*
 			 *    1. switch to ddrsel & switch to 200M cclk
 			 */
-			cache_prefetch(LAB1,LAB2);
+			cache_prefetch(LAB1,64);
 			fast_iob();
 		LAB1:
 			tdiv = (ddr_pll_rate + 200 * 1000 * 1000 - 1) / (200 * 1000 * 1000);
@@ -156,7 +156,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			cpm_outl(cpccr_temp,CPM_CPCCR);
 			while(cpm_inl(CPM_CPCSR) & 1);
 			//cpm_inl(CPM_CPCCR);
-		LAB2:
+
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
 			if(switch_core_handle)
 				prepare_switch_core(switch_core_handle,clk->rate,rate);
@@ -184,7 +184,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				/*
 				 *  3. switch to csel
 				 */
-				cache_prefetch(LAB3,LAB4);
+				cache_prefetch(LAB3,64);
 				fast_iob();
 			LAB3:
 				cpccr = cpm_inl(CPM_CPCCR);     // reread cpccr
@@ -196,7 +196,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				cpccr_temp  &=  ~((1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce));
 				cpm_outl(cpccr_temp,CPM_CPCCR);
 				while(cpm_inl(CPM_CPCSR) & 1);
-			LAB4:
+
 				clk->rate = parentclk->rate;
 				get_clk_from_id(CLK_ID_L2CLK)->rate = parentclk->rate / (l2div + 1);
 			}

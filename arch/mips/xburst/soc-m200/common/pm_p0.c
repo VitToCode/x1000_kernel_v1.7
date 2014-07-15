@@ -38,47 +38,13 @@
 #include <asm/r4kcache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <soc/ddr.h>
 #include <tcsm.h>
+#include <smp_cp0.h>
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
 
 #define get_cp0_ebase()	__read_32bit_c0_register($15, 1)
-
-#define REG32(x) *(volatile unsigned int *)(x)
-
-#define DDRP_PIR_INIT		(1 << 0)
-#define DDRP_PIR_DLLSRST	(1 << 1)
-#define DDRP_PIR_DLLLOCK	(1 << 2)
-#define DDRP_PIR_ZCAL   	(1 << 3)
-#define DDRP_PIR_ITMSRST   	(1 << 4)
-#define DDRP_PIR_DRAMRST   	(1 << 5)
-#define DDRP_PIR_DRAMINT   	(1 << 6)
-#define DDRP_PIR_QSTRN   	(1 << 7)
-#define DDRP_PIR_EYETRN   	(1 << 8)
-#define DDRP_PIR_DLLBYP   	(1 << 17)
-#define DDRP_PGSR_IDONE		(1 << 0)
-#define DDRP_PGSR_DLDONE	(1 << 1)
-#define DDRP_PGSR_ZCDONE	(1 << 2)
-#define DDRP_PGSR_DIDONE	(1 << 3)
-#define DDRP_PGSR_DTDONE	(1 << 4)
-#define DDRP_PGSR_DTERR 	(1 << 5)
-#define DDRP_PGSR_DTIERR 	(1 << 6)
-#define DDRP_PGSR_DFTEERR 	(1 << 7)
-
-
-#define DDRC_BASE	0xb34f0000
-#define DDR_PHY_OFFSET	(-0x4e0000 + 0x1000)
-
-#define DDRP_PIR	(DDR_PHY_OFFSET + 0x4) /* PHY Initialization Register */
-#define DDRP_PGSR	(DDR_PHY_OFFSET + 0xc) /* PHY General Status Register*/
-#define DDRP_DX0GSR     (DDR_PHY_OFFSET + 0x71 * 4)
-
-#define DDRP_DXnDQSTR(n)     (DDR_PHY_OFFSET + (0x10 * n + 0x75) * 4)
-#define DDRP_DXnDQTR(n)      (DDR_PHY_OFFSET + (0x10 * n + 0x74) * 4)
-
-#define ddr_writel(value, reg)	REG32(DDRC_BASE + reg) = (value)
-#define ddr_readl(reg)		REG32(DDRC_BASE + reg)
-
 
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)
@@ -92,12 +58,12 @@ extern int restore_goto(void);
 	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;		\
 	while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
 
-#define TCSM_DELAY(x) \
-	i=x;	\
-	while(i--)	\
-	__asm__ volatile(".set mips32\n\t"\
-			"nop\n\t"\
-			".set mips32")
+#define TCSM_DELAY(x)					\
+	i = x;						\
+	while(i--)					\
+		__asm__ volatile(".set mips32\n\t"	\
+				 "nop\n\t"		\
+				 ".set mips32")
 
 
 static inline void serial_put_hex(unsigned int x) {
@@ -111,20 +77,23 @@ static inline void serial_put_hex(unsigned int x) {
 	}
 }
 #ifdef DDR_MEM_TEST
-unsigned int *test_mem;
-static unsigned int test_mem_space[0x100000 / 4];
+#define MEM_TEST_SIZE   0x100000
+static unsigned int test_mem_space[MEM_TEST_SIZE / 4];
+
 static inline void test_ddr_data_init(void) {
 	int i;
-	test_mem = test_mem_space;
-	test_mem = (unsigned int *)((unsigned int)test_mem | 0xa0000000);
+	unsigned int *test_mem;
+	test_mem = (unsigned int *)((unsigned int)test_mem_space | 0xa0000000);
 	dma_cache_wback_inv((unsigned int)test_mem_space,0x100000);
-	for(i = 0;i < 0x100000 / 4;i++) {
+	for(i = 0;i < MEM_TEST_SIZE / 4;i++) {
 		test_mem[i] = (unsigned int)&test_mem[i];
 	}
 }
 static inline void check_ddr_data(void) {
 	int i;
-	for(i = 0;i < 0x100000 / 4;i++) {
+	unsigned int *test_mem;
+	test_mem = (unsigned int *)((unsigned int)test_mem_space | 0xa0000000);
+	for(i = 0;i < MEM_TEST_SIZE / 4;i++) {
 		unsigned int dd;
 		dd = test_mem[i];
 		if(dd != (unsigned int)&test_mem[i]) {
@@ -152,15 +121,11 @@ static inline void dump_ddr_param(void) {
 		TCSM_PCHAR('\r');
 		TCSM_PCHAR('\n');
 	}
-	TCSM_PCHAR('i');
+	TCSM_PCHAR(':');
 	serial_put_hex(ddr_readl(DDRP_PGSR));
 	TCSM_PCHAR('\r');
 	TCSM_PCHAR('\n');
 
-	TCSM_PCHAR('i');
-	serial_put_hex(ddr_readl(DDRP_PGSR));
-	TCSM_PCHAR('\r');
-	TCSM_PCHAR('\n');
 }
 extern void dump_clk(void);
 struct save_reg
@@ -190,9 +155,6 @@ static void restore_all_reg(void)
 	}
 	m_save_reg_count = 0;
 }
-
-extern unsigned int _regs_stack[];
-
 static inline void config_powerdown_core(unsigned int *resume_pc) {
 	unsigned int cpu_no,opcr;
 	/* set SLBC and SLPC */
@@ -216,10 +178,23 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 	blast_icache32();
 	blast_scache32();
 }
+/* void set_gpio_func(int port,int pin,int type) { */
+/* 	int i; */
+/* 	int addr = 0xb0010010 + port * 0x100; */
+/* 	for(i = 0;i < 4;i++){ */
+/* 		REG32(addr + 0x10 * i) &= ~(1 << pin); */
+/* 		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin); */
+/* 	} */
+/* } */
+#define SLEEP_TSCM_SPACE    0xb3423000
+#define SLEEP_TSCM_DATA_LEN 0x20
+#define SLEEP_TSCM_TEXT     (SLEEP_TSCM_SPACE+SLEEP_TSCM_DATA_LEN)
+#define SLEEP_TSCM_DATA     (SLEEP_TSCM_SPACE)
+#define SLEEP_TSCM_TEXT_LEN (2048 - SLEEP_TSCM_DATA_LEN)
 static noinline void cpu_sleep(void)
 {
-	config_powerdown_core((unsigned int *)0xb3422000);
-	REG32(0xb34f0008) |= (1 << 17);
+	register unsigned int val;
+	config_powerdown_core((unsigned int *)SLEEP_TSCM_TEXT);
 	__asm__ volatile(".set mips32\n\t"
 			 "sync\n\t"
 			 "lw $0,0(%0)\n\t"
@@ -229,9 +204,33 @@ static noinline void cpu_sleep(void)
 			 ".set mips32 \n\t"
 			 :
 			 : "r" (0xa0000000) );
-	printk("sleep!\n");
-	cache_prefetch(LABLE1,LABLE2);
+	/* printk("sleep!\n"); */
+	/* printk("int mask:0x%08x\n",REG32(0xb0001004)); */
+	/* printk("gate:0x%08x\n",cpm_inl(CPM_CLKGR)); */
+	/* printk("CPM_DDRCDR:0x%08x\n",cpm_inl(CPM_DDRCDR)); */
+	/* printk("DDRC_AUTOSR_EN: %x\n",ddr_readl(DDRC_AUTOSR_EN)); */
+	/* printk("DDRC_DLP: %x\n",ddr_readl(DDRC_DLP)); */
+
+	cache_prefetch(LABLE1,200);
 LABLE1:
+	val = ddr_readl(DDRC_AUTOSR_EN);
+	REG32(SLEEP_TSCM_DATA + 0) = val;
+
+	ddr_writel(0,DDRC_AUTOSR_EN);             // exit auto sel-refresh
+	val = ddr_readl(DDRC_DLP);
+	REG32(SLEEP_TSCM_DATA + 4) = val;
+	if(!(ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP) && !val)
+	{
+		ddr_writel(0xf003 , DDRC_DLP);
+		val = ddr_readl(DDRP_DSGCR);
+		val |= (1 << 4);
+		ddr_writel(val,DDRP_DSGCR);
+	}
+
+	val = ddr_readl(DDRC_CTRL);
+	val |= (1 << 17);   // enter to hold ddr state
+	ddr_writel(val,DDRC_CTRL);
+
 	__asm__ volatile(".set mips32\n\t"
 			 "wait\n\t"
 			 "nop\n\t"
@@ -244,42 +243,62 @@ LABLE1:
 	/* 	f = (void (*)(void))cpm_inl(CPM_SLPC); */
 	/* 	f(); */
 	/* } */
-LABLE2:
 	while(1)
 		TCSM_PCHAR('n');
 
 }
-
 static noinline void cpu_resume(void)
 {
-	int retrycount = 0;
-RETRY_LABLE:
-	ddr_writel(DDRP_PIR_INIT |  DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ZCAL | DDRP_PIR_ITMSRST , DDRP_PIR);
-	while((ddr_readl(DDRP_DX0GSR) & 0x3) != 3)
-	while (ddr_readl(DDRP_PGSR) != (DDRP_PGSR_IDONE | DDRP_PGSR_DLDONE
-					 | DDRP_PGSR_ZCDONE | DDRP_PGSR_DIDONE | DDRP_PGSR_DTDONE)) {
+	register int val = 0;
+	register int bypassmode = 0;
+	TCSM_PCHAR('o');
+	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
+	if(!bypassmode) {
+		val = DDRP_PIR_INIT | DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ITMSRST;
+	RETRY_LABLE:
+		ddr_writel(val, DDRP_PIR);
+		while((ddr_readl(DDRP_DX0GSR) & 0x3) != 3);
+		while (ddr_readl(DDRP_PGSR) != (DDRP_PGSR_IDONE | DDRP_PGSR_DLDONE | DDRP_PGSR_ZCDONE
+						| DDRP_PGSR_DIDONE | DDRP_PGSR_DTDONE)) {
 
-		if(ddr_readl(DDRP_PGSR) & (DDRP_PGSR_DTERR | DDRP_PGSR_DTIERR)) {
+			if(ddr_readl(DDRP_PGSR) & (DDRP_PGSR_DTERR | DDRP_PGSR_DTIERR)) {
 
-			ddr_writel(1 << 28,DDRP_PIR);
-			while((ddr_readl(DDRP_DX0GSR) & 0x3) != 0)
-				TCSM_PCHAR('1');
-			retrycount++;
-			serial_put_hex(retrycount);
-			TCSM_PCHAR('\r');
-			TCSM_PCHAR('\n');
-			goto RETRY_LABLE;
-			//	goto retry_lable;
+				ddr_writel(1 << 28,DDRP_PIR);
+				while((ddr_readl(DDRP_DX0GSR) & 0x3) != 0)
+					TCSM_PCHAR('1');
+				val++;
+				serial_put_hex(val);
+				TCSM_PCHAR('\r');
+				TCSM_PCHAR('\n');
+				goto RETRY_LABLE;
+			}
 		}
-
 	}
-	REG32(0xb34f0008) &= ~(1 << 17);
+
+	val = ddr_readl(DDRC_CTRL);
+	val &= ~(1<< 17);    // exit to hold ddr state
+	ddr_writel(val,DDRC_CTRL);
+	serial_put_hex(REG32(SLEEP_TSCM_DATA + 4));
+	if(!REG32(SLEEP_TSCM_DATA + 4) && !bypassmode)
+	{
+		ddr_writel(0x0 , DDRC_DLP);
+		{
+			val = ddr_readl(DDRP_DSGCR);
+			val &= ~(1 << 4);
+			ddr_writel(val,DDRP_DSGCR);
+		}
+	}
+	if(REG32(SLEEP_TSCM_DATA + 0))
+		ddr_writel(1,DDRC_AUTOSR_EN);   // enter auto sel-refresh
+
+
 	dump_ddr_param();
 #ifdef DDR_MEM_TEST
 	check_ddr_data();
 #endif
 	write_c0_ecc(0x0);
 	__jz_cache_init();
+	TCSM_PCHAR('r');
 	__asm__ volatile(".set mips32\n\t"
 			 "jr %0\n\t"
 			 "nop\n\t"
@@ -310,12 +329,15 @@ static int jz4785_pm_enter(suspend_state_t state)
 	unsigned int  lcr_tmp;
 	unsigned int  opcr_tmp;
 	unsigned int gate,spcr0;
-
+	unsigned int core_ctrl;
+	unsigned int i;
 	disable_fpu();//FIXME by wli
 #ifdef DDR_MEM_TEST
 	test_ddr_data_init();
 #endif
-	load_func_to_tcsm((unsigned int *)0xb3422000,(unsigned int *)cpu_resume,4096);
+	for(i = 0;i < SLEEP_TSCM_DATA_LEN;i += 4)
+		REG32(SLEEP_TSCM_DATA + i) = 0;
+	load_func_to_tcsm((unsigned int *)SLEEP_TSCM_TEXT,(unsigned int *)cpu_resume,SLEEP_TSCM_TEXT_LEN);
 
 	lcr_tmp = read_save_reg_add(CPM_IOBASE + CPM_LCR);
 	lcr_tmp &= ~3;
@@ -343,10 +365,18 @@ static int jz4785_pm_enter(suspend_state_t state)
 	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
 	gate &= ~(3  | (1 << 21));
 	cpm_outl(gate,CPM_CLKGR);
+	core_ctrl = get_smp_ctrl();
+	set_smp_ctrl(core_ctrl & ~(3 << 8));
+
+	//read_save_reg_add(0x134f0304);
+	//REG32(0xb34f0304) = 0;       // exit auto sel-refresh
+	//__fast_iob();
 	mb();
 	save_goto((unsigned int)cpu_sleep);
 	mb();
 	restore_all_reg();
+
+	set_smp_ctrl(core_ctrl);
 	return 0;
 }
 

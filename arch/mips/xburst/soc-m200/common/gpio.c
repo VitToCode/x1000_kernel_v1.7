@@ -63,10 +63,12 @@ int __init gpio_ss_recheck(void);
 extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
 
 struct jzgpio_state {
-	unsigned int output_low;
-	unsigned int output_high;
-	unsigned int input_pull;
-	unsigned int input_nopull;
+	unsigned int pxint;
+	unsigned int pxmsk;
+	unsigned int pxpat1;
+	unsigned int pxpat0;
+	unsigned int pxpen;
+	unsigned int pxignore;
 };
 
 struct jzgpio_chip {
@@ -82,7 +84,6 @@ struct jzgpio_chip {
 	struct irq_chip  irq_chip;
 	unsigned int wake_map;
 	struct jzgpio_state sleep_state;
-	struct jzgpio_state sleep_state2;
 	unsigned int save[5];
 };
 
@@ -110,9 +111,7 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 	unsigned long grp;
 
 	spin_lock_irqsave(&chip->gpio_lock,flags);
-
 	grp = ((unsigned int)chip->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
-
 	comp = pins & readl(chip->reg + PXINT);
 	if((func & 0x8) && (comp != pins)){
 		writel(comp ^ pins, chip->shadow_reg + PXINTS);
@@ -157,7 +156,6 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 	}
 	/* configure PzGID2LD to specify which port group to load */
 	writel(grp & 0x7, chip->shadow_reg + PZGID2LD);
-
 	spin_unlock_irqrestore(&chip->gpio_lock,flags);
 }
 
@@ -612,31 +610,83 @@ static int __init setup_gpio_irq(void)
 
 void gpio_suspend_set(struct jzgpio_chip *jz)
 {
-#ifndef CONFIG_SUSPEND_SUPREME_DEBUG
-#ifdef CONFIG_RECONFIG_SLEEP_GPIO
-	if (need_update_gpio_ss()) {
-		gpio_set_func(jz,GPIO_OUTPUT0,
-			      jz->sleep_state2.output_low & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_OUTPUT1,
-			      jz->sleep_state2.output_high & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT,
-			      jz->sleep_state2.input_nopull & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT_PULL,
-			      jz->sleep_state2.input_pull & ~jz->wake_map);
-	} else {
-#endif
-		gpio_set_func(jz,GPIO_OUTPUT0,
-			      jz->sleep_state.output_low & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_OUTPUT1,
-			      jz->sleep_state.output_high & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT,
-			      jz->sleep_state.input_nopull & ~jz->wake_map);
-		gpio_set_func(jz,GPIO_INPUT_PULL,
-			      jz->sleep_state.input_pull & ~jz->wake_map);
-#ifdef CONFIG_RECONFIG_SLEEP_GPIO
-	}
-#endif
-#endif
+	unsigned int d,grp;
+	unsigned int pxint,pxmsk,pxpat1,pxpat0,pxpen;
+	unsigned long flags;
+	spin_lock_irqsave(&jz->gpio_lock,flags);
+
+	grp = ((unsigned int)jz->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
+
+	d = jz->wake_map | jz->sleep_state.pxignore;
+	//printk("grp: %d wake_map:0x%08x pxignore:0x%08x\n",grp,jz->wake_map,jz->sleep_state.pxignore);
+
+	jz->save[0] = readl(jz->reg + PXINT);
+	jz->save[1] = readl(jz->reg + PXMSK);
+	jz->save[2] = readl(jz->reg + PXPAT1);
+	jz->save[3] = readl(jz->reg + PXPAT0);
+	jz->save[4] = readl(jz->reg + PXPEN);
+
+	// gpio ignore will read func init state
+
+	pxint = jz->save[0] & d;
+	pxmsk = jz->save[1] & d;
+	pxpat1 = jz->save[2] & d;
+	pxpat0 = jz->save[3] & d;
+	pxpen = jz->save[4] & d;
+
+	//printk("aa grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n",
+	//       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen);
+
+	pxint |= (jz->sleep_state.pxint & (~d));
+	pxmsk |= (jz->sleep_state.pxmsk & (~d));
+	pxpat1 |= (jz->sleep_state.pxpat1 & (~d));
+	pxpat0 |= (jz->sleep_state.pxpat0 & (~d));
+	pxpen |= (jz->sleep_state.pxpen & (~d));
+
+	/* printk("grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n", */
+	/*       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen); */
+        //set set reg
+	writel(pxint,jz->shadow_reg + PXINTS);
+	writel(pxmsk,jz->shadow_reg + PXMSKS);
+	writel(pxpat1,jz->shadow_reg + PXPAT1S);
+	writel(pxpat0,jz->shadow_reg + PXPAT0S);
+	writel(pxpen,jz->shadow_reg + PXPENS);
+	//set clear reg
+	writel(~pxint,jz->shadow_reg + PXINTC);
+	writel(~pxmsk,jz->shadow_reg + PXMSKC);
+	writel(~pxpat1,jz->shadow_reg + PXPAT1C);
+	writel(~pxpat0,jz->shadow_reg + PXPAT0C);
+	writel(~pxpen,jz->shadow_reg + PXPENC);
+
+//	printk("grp %d:\n",grp);
+/* #define output_str(x) \ */
+/* 	printk("\t "#x " 0x%08x\n",readl(jz->shadow_reg + x)); */
+
+/* 	output_str(PXINT); */
+/* 	output_str(PXMSK); */
+/* 	output_str(PXPAT1); */
+/* 	output_str(PXPAT0); */
+/* 	output_str(PXPEN); */
+/* #undef output_str */
+
+	/* writel(pxint,jz->reg + PXINT); */
+	/* writel(pxmsk,jz->reg + PXMSK); */
+	/* writel(pxpat1,jz->reg + PXPAT1); */
+	/* writel(pxpat0,jz->reg + PXPAT0); */
+	/* writel(pxpen,jz->reg + PXPEN); */
+	writel(grp & 0x7, jz->shadow_reg + PZGID2LD);
+
+/* #define output_str(x) \ */
+/* 	printk("\t " #x " 0x%08x\n",readl(jz->reg + x)); */
+/* 	output_str(PXINT); */
+/* 	output_str(PXMSK); */
+/* 	output_str(PXPAT1); */
+/* 	output_str(PXPAT0); */
+/* 	output_str(PXPEN); */
+/* #undef output_str */
+
+
+	spin_unlock_irqrestore(&jz->gpio_lock,flags);
 }
 
 int gpio_suspend(void)
@@ -647,7 +697,6 @@ int gpio_suspend(void)
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
-
 		for(j=0;j<32;j++) {
 			if (jz->wake_map & (0x1<<j)) {
 				irq = jz->irq_base + j;
@@ -655,13 +704,6 @@ int gpio_suspend(void)
 				__enable_irq(desc, irq, true);
 			}
 		}
-
-		jz->save[0] = readl(jz->reg + PXINT);
-		jz->save[1] = readl(jz->reg + PXMSK);
-		jz->save[2] = readl(jz->reg + PXPAT1);
-		jz->save[3] = readl(jz->reg + PXPAT0);
-		jz->save[4] = readl(jz->reg + PXPEN);
-
 		gpio_suspend_set(jz);
 	}
 	return 0;
@@ -674,16 +716,19 @@ void gpio_resume(void)
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
-		writel(jz->save[0], jz->reg + PXINTS);
-		writel(~jz->save[0], jz->reg + PXINTC);
-		writel(jz->save[1], jz->reg + PXMSKS);
-		writel(~jz->save[1], jz->reg + PXMSKC);
-		writel(jz->save[2], jz->reg + PXPAT1S);
-		writel(~jz->save[2], jz->reg + PXPAT1C);
-		writel(jz->save[3], jz->reg + PXPAT0S);
-		writel(~jz->save[3], jz->reg + PXPAT0C);
-		writel(jz->save[4], jz->reg + PXPENS);
-		writel(~jz->save[4], jz->reg + PXPENC);
+		writel(jz->save[0], jz->shadow_reg + PXINTS);
+		writel(jz->save[1], jz->shadow_reg + PXMSKS);
+		writel(jz->save[2], jz->shadow_reg + PXPAT1S);
+		writel(jz->save[3], jz->shadow_reg + PXPAT0S);
+		writel(jz->save[4], jz->shadow_reg + PXPENS);
+
+		writel(~jz->save[0], jz->shadow_reg + PXINTC);
+		writel(~jz->save[1], jz->shadow_reg + PXMSKC);
+		writel(~jz->save[2], jz->shadow_reg + PXPAT1C);
+		writel(~jz->save[3], jz->shadow_reg + PXPAT0C);
+		writel(~jz->save[4], jz->shadow_reg + PXPENC);
+
+		writel(i & 0x7, jz->shadow_reg + PZGID2LD);
 	}
 }
 
@@ -696,19 +741,25 @@ int __init gpio_ss_check(void)
 {
 	unsigned int i,state,group,index;
 	unsigned int panic_flags[GPIO_NR_PORTS] = {0};
-
+	const unsigned int default_type = GPIO_INPUT_PULL;
+	enum gpio_function gpio_type = default_type;
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
-		jz_gpio_chips[i].sleep_state.input_pull = 0xffffffff;
+		jz_gpio_chips[i].sleep_state.pxpen = default_type & 0x10 ? 0xffffffff : 0;
+		jz_gpio_chips[i].sleep_state.pxint = default_type & 0x8 ? 0xffffffff : 0;
+		jz_gpio_chips[i].sleep_state.pxmsk = default_type & 0x4 ? 0xffffffff : 0;
+		jz_gpio_chips[i].sleep_state.pxpat1 = default_type & 0x2 ? 0xffffffff : 0;
+		jz_gpio_chips[i].sleep_state.pxpat0 = default_type & 0x1 ? 0xffffffff : 0;
+		jz_gpio_chips[i].sleep_state.pxignore = 0xffffffff;
 	}
-
-	for(i = 0; i < GPIO_NR_PORTS && gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
+	for(i = 0; gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
 		group = gpio_ss_table[i][0] / 32;
 		index = gpio_ss_table[i][0] % 32;
 		state = gpio_ss_table[i][1];
-
-		jz_gpio_chips[group].sleep_state.input_pull =
-			jz_gpio_chips[group].sleep_state.input_pull & ~(1 << index);
-
+		if(group >= GPIO_NR_PORTS)
+		{
+			printk("ERROR: gpio_ss_table[%d] is invalid!\n",i);
+			continue;
+		}
 		if(panic_flags[group] & (1 << index)) {
 			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
 			printk("\nwarning : (%d line) same gpio already set before this line!\n",i);
@@ -722,79 +773,46 @@ int __init gpio_ss_check(void)
 		} else {
 			panic_flags[group] |= 1 << index;
 		}
-
 		switch(state) {
 		case GSS_OUTPUT_HIGH:
-			jz_gpio_chips[group].sleep_state.output_high |= 1 << index;
+			gpio_type = GPIO_OUTPUT1;
 			break;
 		case GSS_OUTPUT_LOW:
-			jz_gpio_chips[group].sleep_state.output_low |= 1 << index;
+			gpio_type = GPIO_OUTPUT0;
 			break;
 		case GSS_INPUT_PULL:
-			jz_gpio_chips[group].sleep_state.input_pull |= 1 << index;
+			gpio_type = GPIO_INPUT_PULL;
 			break;
 		case GSS_INPUT_NOPULL:
-			jz_gpio_chips[group].sleep_state.input_nopull |= 1 << index;
+			gpio_type = GPIO_INPUT;
+			break;
+		case GSS_IGNORE:
+			gpio_type = -1;
 			break;
 		}
-	}
 
-	pr_info("GPIO sleep states:\n");
-	for(i = 0; i < GPIO_NR_PORTS; i++) {
-		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n",
-			jz_gpio_chips[i].sleep_state.output_high,
-			jz_gpio_chips[i].sleep_state.output_low,
-			jz_gpio_chips[i].sleep_state.input_pull,
-			jz_gpio_chips[i].sleep_state.input_nopull);
-	}
+		if(gpio_type == -1)
+			jz_gpio_chips[group].sleep_state.pxignore |= 1 << index;
+		else{
 
-	return 0;
-}
+#define SLEEP_SET_STATE(st,t)	do{					\
+				if((gpio_type) & (t))			\
+					jz_gpio_chips[group].sleep_state.px##st |= 1 << (index); \
+				else					\
+					jz_gpio_chips[group].sleep_state.px##st &= ~(1 << (index)); \
+			}while(0)
 
-#ifdef CONFIG_RECONFIG_SLEEP_GPIO
-int __init gpio_ss_recheck(void)
-{
-	unsigned int i,state,group,index;
+			SLEEP_SET_STATE(pen,0x10);
+			SLEEP_SET_STATE(int,0x8);
+			SLEEP_SET_STATE(msk,0x4);
+			SLEEP_SET_STATE(pat1,0x2);
+			SLEEP_SET_STATE(pat0,0x1);
+#undef SLEEP_SET_STATE
 
-	for (i = 0; i < GPIO_NR_PORTS; i++) {
-		jz_gpio_chips[i].sleep_state2.output_high = jz_gpio_chips[i].sleep_state.output_high;
-		jz_gpio_chips[i].sleep_state2.output_low  = jz_gpio_chips[i].sleep_state.output_low;
-		jz_gpio_chips[i].sleep_state2.input_pull  = jz_gpio_chips[i].sleep_state.input_pull;
-		jz_gpio_chips[i].sleep_state2.input_nopull = jz_gpio_chips[i].sleep_state.input_nopull;
-	}
-
-	for(i = 0; gpio_ss_table2[i][1] != GSS_TABLET_END;i++) {
-		group = gpio_ss_table2[i][0] / 32;
-		index = gpio_ss_table2[i][0] % 32;
-		state = gpio_ss_table2[i][1];
-
-		printk("%s: group=%d, index=%d, state=%d\n",__func__, group, index, state);
-		jz_gpio_chips[group].sleep_state2.output_high &= ~(1 << index);
-		jz_gpio_chips[group].sleep_state2.output_low  &= ~(1 << index);
-		jz_gpio_chips[group].sleep_state2.input_pull  &= ~(1 << index);
-		jz_gpio_chips[group].sleep_state2.input_nopull &= ~(1 << index);
-
-		switch(state) {
-		case GSS_OUTPUT_HIGH:
-			jz_gpio_chips[group].sleep_state2.output_high |= 1 << index;
-			break;
-		case GSS_OUTPUT_LOW:
-			jz_gpio_chips[group].sleep_state2.output_low |= 1 << index;
-			break;
-		case GSS_INPUT_PULL:
-			jz_gpio_chips[group].sleep_state2.input_pull |= 1 << index;
-			break;
-		case GSS_INPUT_NOPULL:
-			jz_gpio_chips[group].sleep_state2.input_nopull |= 1 << index;
-			break;
-		default:
-			break;
 		}
 	}
-
 	return 0;
 }
-#endif
 
 int __init setup_gpio_pins(void)
 {

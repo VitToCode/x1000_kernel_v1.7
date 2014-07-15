@@ -1,12 +1,12 @@
 #ifndef __CHIP_CACHE_H__
 #define __CHIP_CACHE_H__
 #include <asm/cacheops.h>
-#define cache_prefetch(label,l2)					\
+#define cache_prefetch(label,size)					\
 do{									\
 	unsigned long addr,end;						\
 	/* Prefetch codes from label */					\
 	addr = (unsigned long)(&&label) & ~(32 - 1);			\
-	end = (unsigned long)(&&l2) & ~(32 - 1);			\
+	end = (unsigned long)(&&label + size) & ~(32 - 1);		\
 	end += 32;							\
 	for (; addr < end; addr += 32) {				\
 		__asm__ volatile (					\

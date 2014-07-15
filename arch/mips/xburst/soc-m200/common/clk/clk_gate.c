@@ -73,6 +73,7 @@ static unsigned short sram_pwc[] = {
 	SRAM_RELATIVE_CLK(GATE(19),SSI1),
 	SRAM_RELATIVE_CLK(GATE(37),AES),
 	SRAM_RELATIVE_CLK(GATE(0),NFI),
+	SRAM_RELATIVE_CLK(GATE(24),LCD),
 #undef SRAM_RELATIVE_CLK
 };
 static int cpm_gate_enable(struct clk *clk,int on){

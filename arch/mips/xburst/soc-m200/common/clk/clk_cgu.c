@@ -7,6 +7,7 @@
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
+#include <soc/ddr.h>
 #include "clk.h"
 static DEFINE_SPINLOCK(cpm_cgu_lock);
 struct clk_selectors {
@@ -359,7 +360,7 @@ static int ddr_set_rate(struct clk *clk, unsigned long rate)
 	}
 	printk("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa div= %d\n",div);
 	spin_lock_irqsave(&cpm_cgu_lock,flags);
-	cache_prefetch(DDRCLAB1,DDRCLAB2);
+	cache_prefetch(DDRCLAB1,200);
 	fast_iob();
 DDRCLAB1:
 	REG32(0xb3012068) = 0;
@@ -385,7 +386,6 @@ DDRCLAB1:
 	cpm_clear_bit(25,CPM_DDRCDR);
 	REG32(0xb3012068) = 0xf0000100;
         fail = REG32(0xa0000000);
-DDRCLAB2:
 	if(cpm_inl(CPM_DDRCDR) & 1 << 24) {
 		printk("fail!\n");
 	}else
@@ -409,8 +409,9 @@ void __init init_cgu_clk(struct clk *clk)
 {
 	int no;
 	int id;
-	printk("REG32(0xb3012088) = %x\n",REG32(0xb3012088));
-	REG32(0xb3012088) |= 4 << 16;
+	//printk("REG32(0xb3012088) = %x\n",REG32(0xb3012088));
+
+
 	if (clk->flags & CLK_FLG_PARENT) {
 		id = CLK_PARENT(clk->flags);
 		clk->parent = get_clk_from_id(id);
@@ -426,8 +427,16 @@ void __init init_cgu_clk(struct clk *clk)
 
 	if(no == CGU_MSC_MUX)
 		clk->ops = NULL;
-	else if(no == CGU_DDR)
+	else if(no == CGU_DDR){
 		clk->ops = &clk_ddr_ops;
+		/*
+		 * DDR request cpm to stop clk  (4 << 16)
+		 * CPM response ddr stop clk request (1 << 24)
+		 */
+		if(ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP)
+			cpm_set_bit(24,CPM_DDRCDR);
+		REG32(0xb3012088) |= 4 << 16;
+	}
 	else
 		clk->ops = &clk_cgu_ops;
 

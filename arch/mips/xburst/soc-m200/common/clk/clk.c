@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
 #include <linux/vmalloc.h>
+#include <linux/suspend.h>
 
 #include <soc/cpm.h>
 #include <soc/base.h>
@@ -24,23 +25,35 @@
 #include <jz_proc.h>
 
 #include "clk.h"
-static unsigned long clkgr;
 
 int clk_suspend(void)
 {
-	clkgr = cpm_inl(CPM_CLKGR);
-
-	cpm_outl(clkgr | 0x1fd83ff8,CPM_CLKGR);
-	udelay(20);
+	printk("clk suspend!\n");
 	return 0;
 }
 
 void clk_resume(void)
 {
-	cpm_outl(clkgr,CPM_CLKGR);
-	mdelay(5);
+	printk("clk resume!\n");
 }
-
+int clk_sleep_pm_callback(struct notifier_block *nfb,unsigned long action,void *ignored)
+{
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		printk("clk_sleep_pm_callback PM_SUSPEND_PREPARE\n");
+		cpm_pwc_suspend();
+		break;
+	case PM_POST_SUSPEND:
+		printk("clk_sleep_pm_callback PM_POST_SUSPEND\n");
+		cpm_pwc_resume();
+		break;
+	}
+	return NOTIFY_OK;
+}
+static struct notifier_block clk_sleep_pm_notifier = {
+	.notifier_call = clk_sleep_pm_callback,
+	.priority = 0,
+};
 struct syscore_ops clk_pm_ops = {
 	.suspend = clk_suspend,
 	.resume = clk_resume,
@@ -97,6 +110,7 @@ void __init init_all_clk(void)
 			init_clk_parent(clk_srcs[i].parent);
 	}
 	register_syscore_ops(&clk_pm_ops);
+	register_pm_notifier(&clk_sleep_pm_notifier);
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
 			clk_srcs[CLK_ID_CCLK].rate/1000/1000,
 			clk_srcs[CLK_ID_L2CLK].rate/1000/1000,
@@ -166,7 +180,7 @@ int clk_is_enabled(struct clk *clk)
 {
 	if(clk->source)
 		clk = clk->source;
-	return clk->flags & CLK_FLG_ENABLE;
+	return !!(clk->flags & CLK_FLG_ENABLE);
 }
 EXPORT_SYMBOL(clk_is_enabled);
 void clk_disable(struct clk *clk)
