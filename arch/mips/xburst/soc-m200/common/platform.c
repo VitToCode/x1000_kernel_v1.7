@@ -57,7 +57,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 
 #if	(defined(CONFIG_I2C2_V12_JZ))
-	#ifdef I2C2_PA
+	#ifdef CONFIG_I2C2_PA
 		I2C2_PORTA,
 	#else
 		I2C2_PORTE,

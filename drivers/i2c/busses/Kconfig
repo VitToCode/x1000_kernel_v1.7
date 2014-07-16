@@ -868,6 +868,17 @@ config I2C2_V12_JZ
 	tristate "JZ_v12 i2c controler 2 Interface support"
 	depends on SOC_M200
 
+
+choice
+	prompt "JZ_v12 i2c controler 2  function pins select"
+	depends on I2C2_V12_JZ
+	default I2C2_PA
+config I2C3_PA
+	bool "gpa16 & gpa17"
+config I2C3_PE
+	bool "gpe0 & gpe3"
+endchoice
+
 config I2C2_SPEED
 	int "Jz_v12 i2c2 speed in KHZ"
 	range 100 400
@@ -877,6 +888,18 @@ config I2C2_SPEED
 config I2C3_V12_JZ
 	tristate "JZ i2c v12 controler 3 Interface support"
 	depends on SOC_M200
+
+choice
+	prompt "JZ_v12 i2c controler 3  function pins select"
+	depends on I2C3_V12_JZ
+	default I2C3_PB
+config I2C3_PB
+	bool "gpb7 & gpb8"
+config I2C3_PC
+	bool "gpc22 & gpb23"
+endchoice
+
+
 
 config I2C3_SPEED
 	int "Jz_v12 i2c3 speed in KHZ"
@@ -901,6 +924,7 @@ config I2C_V12_PDMA_JZ
     depends on (I2C0_V12_JZ || I2C1_V12_JZ || I2C2_V12_JZ || I2C3_V12_JZ) && XBURST_DMAC
     help
 	Select Jzv12 i2c && XBURST_DMAC.
+
 
 
 comment "External I2C/SMBus adapter drivers"
