@@ -210,28 +210,31 @@ static int dmic_set_voice_trigger(unsigned long *THR ,int mode)
 	printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
+		clk_enable(dmic_clk);
 		__dmic_clear_tur();
+		__dmic_clear_trigger();
 		__dmic_disable_empty_int();
 		__dmic_disable_interface();
 		__dmic_set_tri_mode(2);
-		__dmic_set_thr_high(40000);
+	//	__dmic_set_thr_high(40000);
 		if(*THR != 0)
 			__dmic_set_thr_low(*THR);
 		else
-			__dmic_set_thr_low(4000);
+			__dmic_set_thr_low(5000);
 		//__dmic_set_m_max(500);
-		__dmic_set_n_max(2);
+		//__dmic_set_n_max(2);
 		__dmic_enable_hpf2();
 		__dmic_enable_wake_int();
 		__dmic_enable_tri_int();
 		__dmic_enable_prerd_int();
 		__dmic_enable_full_int();
 		__dmic_clear_tur();
-		__dmic_enable_tri();
+		__dmic_clear_trigger();
 		__dmic_reset();
 		while(__dmic_get_reset());
 		__dmic_enable_rdms();
 		//__dmic_set_request(65);
+		__dmic_enable_tri();
 		clk_disable(dmic_clk);
 	}
 
@@ -364,6 +367,7 @@ static int dmic_set_rate(unsigned long *rate,int mode)
 
 static int dmic_record_deinit(int mode)
 {
+	__dmic_clear_trigger();
 	__dmic_clear_tur();
 	__dmic_disable_rdms();
 
@@ -426,6 +430,7 @@ static int dmic_enable(int mode)
 	__dmic_disable_tri_int();
 	__dmic_disable_wake_int();
 	__dmic_enable_hpf2();
+	__dmic_clear_trigger();
 	__dmic_clear_tur();
 
 #ifdef CONFIG_JZ_DMIC1
@@ -454,6 +459,7 @@ static int dmic_dma_enable(int mode)		//CHECK
 
 		__dmic_set_request(65);
 		__dmic_enable_rdms();
+		__dmic_clear_trigger();
 		__dmic_clear_tur();
 	}
 	if (mode & CODEC_WMODE) {
