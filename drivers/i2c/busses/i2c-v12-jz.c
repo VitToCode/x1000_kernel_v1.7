@@ -509,7 +509,7 @@ static inline int xfer_write(struct i2c_jz *i2c, unsigned char *buf, int len, in
 		i2c_readl(i2c,I2C_CSTP);  // clear stop bit
 		tmp = I2C_INTM_MTXEMP | I2C_INTM_MTXABT | I2C_INTST_ISTP;
 	}
-	i2c_writel(i2c, I2C_INTM, tmp);
+
 
 	while ((i2c_readl(i2c, I2C_STA) & I2C_STA_TFNF) && (i2c->wt_len > 0)) {
 		tmp = *i2c->wbuf++;
@@ -526,6 +526,8 @@ static inline int xfer_write(struct i2c_jz *i2c, unsigned char *buf, int len, in
 	if(i2c->wt_len == 0) {
 		i2c_writel(i2c, I2C_TXTL, 0);
 	}
+
+	i2c_writel(i2c, I2C_INTM, tmp);
 
 	timeout = wait_for_completion_timeout(&i2c->w_complete,
 			msecs_to_jiffies(wait_complete_timeout_ms));
@@ -700,6 +702,8 @@ static void i2c_clk_work(struct work_struct *work)
 	i2c->enabled = 0;
 }
 
+
+
 static int i2c_jz_probe(struct platform_device *dev)
 {
 	int ret = 0;
@@ -781,6 +785,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	clk_disable(i2c->clk);
 	i2c->enabled = 0;
 
+
 	return 0;
 
 adapt_failed:
@@ -815,6 +820,7 @@ static struct platform_driver i2c_jz_driver = {
 
 static int __init i2c_jz_init(void)
 {
+
 	return platform_driver_register(&i2c_jz_driver);
 }
 
