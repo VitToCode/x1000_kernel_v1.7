@@ -61,8 +61,9 @@ static void snd_switch_work(struct work_struct *hp_work)
 	int state = 0;
 	int tmp_state =0;
 	int i = 0;
-//	int ret = 0;
-//	int device;
+	int ret = 0;
+	int device;
+
 	struct snd_switch_data *switch_data =
 		container_of(hp_work, struct snd_switch_data, hp_work);
 
@@ -132,7 +133,6 @@ static void snd_switch_work(struct work_struct *hp_work)
 	snd_switch_set_state(switch_data, state);
 
 #ifndef CONFIG_ANDROID
-#if 0
 	if (state == 1) {
 		device = SND_DEVICE_HEADSET;
 		ret = switch_data->set_device((unsigned long)&device);
@@ -155,7 +155,6 @@ static void snd_switch_work(struct work_struct *hp_work)
 		else if (ret < -1)
 			printk(" set_device failed in the hp changed!\n");
 	}
-#endif
 #endif
 }
 static void hook_do_work(struct work_struct *hook_work)

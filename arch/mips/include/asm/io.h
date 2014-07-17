@@ -301,7 +301,7 @@ static inline void iounmap(const volatile void __iomem *addr)
 #define war_octeon_io_reorder_wmb()  		wmb()
 #else
 #ifdef CONFIG_SOC_M200
-#define war_octeon_io_reorder_wmb()		do{*(volatile unsigned int *)0xa0000000;}while(0)
+#define war_octeon_io_reorder_wmb()		do{ }while(0)
 #else
 #define war_octeon_io_reorder_wmb()		do { } while (0)
 #endif
