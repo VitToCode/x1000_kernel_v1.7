@@ -44,3 +44,4 @@ obj-$(CONFIG_CHARGER_AC)	+= ac-charger.o
 
 obj-$(CONFIG_CHARGER_ACT8600)	+= act8600-charger.o
 obj-$(CONFIG_BATTERY_RICOH618)	+= ricoh618-battery.o
+obj-$(CONFIG_BATTERY_RICOH619)	+= ricoh619-battery.o
