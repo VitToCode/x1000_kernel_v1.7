@@ -59,6 +59,13 @@ config BATTERY_RICOH618
 	  Say Y to enable support for the battery control of the Ricoh RD5T618
 	  Power Management device.
 
+config BATTERY_RICOH619
+	tristate "Ricoh R5T619 PMIC battery driver"
+	depends on MFD_RICOH619 && I2C && GENERIC_HARDIRQS
+	help
+	  Say Y to enable support for the battery control of the Ricoh R5T619
+	  Power Management device.
+
 config CHARGER_ACT8600
 	tristate "ACT8600 battery charger support"
 	depends on MFD_ACT8600
