@@ -32,7 +32,7 @@ extern struct platform_device truly_tft240240_device;
 
 /* PMU ricoh619 */
 #ifdef CONFIG_REGULATOR_RICOH619
-#define PMU_IRQ_N		GPIO_PA(28)
+#define PMU_IRQ_N		GPIO_PA(3)
 #endif /* CONFIG_REGULATOR_RICOH619 */
 
 /* pmu d2041 or 9024 gpio def*/
@@ -120,6 +120,7 @@ extern struct jzmmc_platform_data sdio_pdata;
 #define HOST_WAKE_BT	GPIO_PA(1)
 #define BT_WAKE_HOST	GPIO_PA(0)
 #define BT_REG_EN	GPIO_PA(2)
+#define BT_UART_RTS	GPIO_PF(2)
 #if 0
 #define GPIO_BT_REG_ON      GPIO_PB(30)
 #define GPIO_BT_WAKE        GPIO_PB(20)
@@ -164,10 +165,10 @@ extern struct snd_codec_data codec_data;
 #ifdef CONFIG_BCM_PM_CORE
 extern struct platform_device bcm_power_platform_device;
 #endif
-#ifdef CONFIG_BT
+#ifdef CONFIG_BROADCOM_RFKILL
 extern struct platform_device bt_power_device;
 extern struct platform_device bluesleep_device;
-#endif
+#endif /* CONFIG_BROADCOM_RFKILL */
 #ifdef CONFIG_BCM2079X_NFC
 extern struct bcm2079x_platform_data bcm2079x_pdata;
 #endif

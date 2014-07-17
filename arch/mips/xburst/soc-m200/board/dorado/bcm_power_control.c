@@ -35,10 +35,11 @@ struct platform_device	bcm_power_platform_device = {
 #endif
 
 /*For BlueTooth*/
-#ifdef CONFIG_BT
+#ifdef CONFIG_BROADCOM_RFKILL
 #include <linux/bt-rfkill.h>
 static void set_pin_status(int bt_power_state)
 {
+#if 0
 	if(bt_power_state){
 		/*set UART0_RXD, UART0_CTS_N ,2 pins to input nopull*/
 		jzgpio_set_func(GPIO_PORT_F, GPIO_INPUT, 0x3);
@@ -70,10 +71,12 @@ static void set_pin_status(int bt_power_state)
 		/*set PCM0_DO ,PCM0_CLK, PCM0_SYN ,PCM0_DI 4 pins to OUTPUT_LOW*/
 		jzgpio_set_func(GPIO_PORT_F, GPIO_OUTPUT0 , 0xF << 12);
 	}
+#endif
 }
 
 static void restore_pin_status(int bt_power_state)
 {
+#if 0
 	if(!bt_power_state) {
 		/*set BT_INT to interrupt rise trigger*/
 		jzgpio_set_func(GPIO_BT_INT / 32, GPIO_INT_RE,
@@ -85,26 +88,29 @@ static void restore_pin_status(int bt_power_state)
 
 	/*set PCM0_DO ,PCM0_CLK, PCM0_SYN ,PCM0_DI 4 pins to FUNC*/
 	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_1, 0xF << 12);
+#endif
 }
 
 static struct bt_rfkill_platform_data  bt_gpio_data = {
 
 	.gpio = {
 		.bt_rst_n = -1,
-		.bt_reg_on = BT_REG_ON,
-		.host_wake_bt = HOST_WAKE_BT,
-		.bt_wake_host = BT_WAKE_HOST,
+		.bt_reg_on = BT_REG_EN,
+		.bt_wake = HOST_WAKE_BT,
+		.bt_int = BT_WAKE_HOST,
+		.bt_uart_rts = BT_UART_RTS,
 #if 0
 		.bt_int_flagreg = -1,
 		.bt_int_bit = -1,
-		.bt_uart_rts = BT_UART_RTS,
 #endif
 	},
 
 	.restore_pin_status = restore_pin_status,
 	.set_pin_status = set_pin_status,
+#if 0
 	.suspend_gpio_set = NULL,
 	.resume_gpio_set = NULL,
+#endif
 };
 
 struct platform_device bt_power_device  = {
@@ -123,7 +129,7 @@ struct platform_device bluesleep_device = {
 	},
 
 };
-#endif /* CONFIG_BT */
+#endif /* CONFIG_BROADCOM_RFKILL */
 
 /*For NFC*/
 #ifdef CONFIG_BCM2079X_NFC

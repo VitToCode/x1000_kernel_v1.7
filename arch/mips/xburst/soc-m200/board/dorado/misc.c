@@ -520,6 +520,11 @@ static int __init board_init(void)
 	platform_device_register(&bcm_power_platform_device);
 #endif
 
+#ifdef CONFIG_BROADCOM_RFKILL
+	platform_device_register(&bt_power_device);
+	platform_device_register(&bluesleep_device);
+#endif /* CONFIG_BROADCOM_RFKILL */
+
 #ifdef CONFIG_SPI_JZ_V1_2
 #ifdef CONFIG_SPI0_JZ_V1_2
        spi_register_board_info(jz_spi0_board_info, ARRAY_SIZE(jz_spi0_board_info));
