@@ -2,7 +2,7 @@
  * Copyright (c) 2012 Ingenic Semiconductor Co., Ltd.
  *              http://www.ingenic.com/
  *
- * JZ4785 dorado board lcd setup routines.
+ * M200 dorado board lcd setup routines.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

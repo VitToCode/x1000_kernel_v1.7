@@ -101,7 +101,7 @@ typedef struct _gckGALDEVICE
     /* Device Debug File System Entry in kernel. */
     struct _gcsDEBUGFS_Node * dbgNode;
 
-#if ENABLE_GPU_CLOCK_BY_DRIVER && (defined(CONFIG_SOC_4785) || defined(CONFIG_SOC_M200)) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
+#if ENABLE_GPU_CLOCK_BY_DRIVER && defined(CONFIG_SOC_M200) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
     struct clk * clk_pwc_gpu;
     struct clk * clk_gpu;
     struct clk * clk_cgu_gpu;

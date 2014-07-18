@@ -608,7 +608,7 @@ gckGALDEVICE_Construct(
     }
 
     memset(device, 0, sizeof(struct _gckGALDEVICE));
-#if ENABLE_GPU_CLOCK_BY_DRIVER && (defined(CONFIG_SOC_4785) || defined(CONFIG_SOC_M200)) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
+#if ENABLE_GPU_CLOCK_BY_DRIVER && defined(CONFIG_SOC_M200) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
     {
         /* CONFIG_SOC_M200: clk = NULL, Power_ON = 0; Clock_ON; cleared by memset */
         //device->Power_ON = device->Clock_ON = 0;
@@ -639,7 +639,7 @@ gckGALDEVICE_Construct(
             //gcmkONERROR(gcvSTATUS_GENERIC_IO);
         }
     }
-#endif  /* #if ENABLE_GPU_CLOCK_BY_DRIVER && (defined(CONFIG_SOC_4785) || defined(CONFIG_SOC_M200)) */
+#endif  /* #if ENABLE_GPU_CLOCK_BY_DRIVER && defined(CONFIG_SOC_M200) */
 
     device->dbgNode = gcvNULL;
 

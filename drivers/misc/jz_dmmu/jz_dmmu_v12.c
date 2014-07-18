@@ -1,6 +1,6 @@
 /* drivers/misc/dmmu_v1_2.c
  *
- * DMMU: Device MMU, TLB TABLE for JZ4785: H2D,VPU,VIDEO-DEC,VIDEO-ENC
+ * DMMU: Device MMU, TLB TABLE for M200: H2D,VPU,VIDEO-DEC,VIDEO-ENC
  *
  * Copyright (C) 2013 Ingenic
  *

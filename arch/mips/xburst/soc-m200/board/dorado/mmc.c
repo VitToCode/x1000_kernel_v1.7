@@ -32,7 +32,6 @@ struct jzmmc_platform_data sdio_pdata = {
 #ifndef CONFIG_NAND
 #ifdef CONFIG_JZMMC_V12_MMC0
 
-/* on fpga 4785, use MMC_CAP_1_BIT_DATA instead of MMC_CAP_4_BIT_DATA */
 struct jzmmc_platform_data inand_pdata = {
 	.removal  			= DONTCARE,
 	.sdio_clk			= 0,

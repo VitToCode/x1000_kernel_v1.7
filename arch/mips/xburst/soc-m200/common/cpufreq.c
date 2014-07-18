@@ -47,19 +47,19 @@ static unsigned long set_cpu_freqs[] = {
 	CPUFREQ_TABLE_END
 };
 #define SUSPEMD_FREQ_INDEX 3
-static int jz4785_verify_speed(struct cpufreq_policy *policy)
+static int m200_verify_speed(struct cpufreq_policy *policy)
 {
 	return cpufreq_frequency_table_verify(policy, jz_cpufreq->freq_table);
 }
 
-static unsigned int jz4785_getspeed(unsigned int cpu)
+static unsigned int m200_getspeed(unsigned int cpu)
 {
 	if (cpu >= NR_CPUS)
 		return 0;
 	return clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
 }
 
-static int jz4785_target(struct cpufreq_policy *policy,
+static int m200_target(struct cpufreq_policy *policy,
 			 unsigned int target_freq,
 			 unsigned int relation)
 {
@@ -79,7 +79,7 @@ static int jz4785_target(struct cpufreq_policy *policy,
 		return -EINVAL;
 	}
 
-	freqs.old = jz4785_getspeed(policy->cpu);
+	freqs.old = m200_getspeed(policy->cpu);
 	freqs.cpu = policy->cpu;
 
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
@@ -89,7 +89,7 @@ static int jz4785_target(struct cpufreq_policy *policy,
 	printk("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
-	freqs.new = jz4785_getspeed(policy->cpu);
+	freqs.new = m200_getspeed(policy->cpu);
 
 	/*
 	 * Note that loops_per_jiffy is not updated on SMP systems in
@@ -113,7 +113,7 @@ static void init_freq_table(struct cpufreq_frequency_table *table)
 
 	}
 }
-static int __cpuinit jz4785_cpu_init(struct cpufreq_policy *policy)
+static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
 	jz_cpufreq = (struct jz_cpufreq *)kzalloc(sizeof(struct jz_cpufreq) +
 						  sizeof(struct cpufreq_frequency_table) * ARRAY_SIZE(set_cpu_freqs), GFP_KERNEL);
@@ -136,7 +136,7 @@ static int __cpuinit jz4785_cpu_init(struct cpufreq_policy *policy)
 #endif
 	policy->min = policy->cpuinfo.min_freq;
 	policy->max = policy->cpuinfo.max_freq;
-	policy->cur = jz4785_getspeed(policy->cpu);
+	policy->cur = m200_getspeed(policy->cpu);
 	/*
 	 * On JZ47XX SMP configuartion, both processors share the voltage
 	 * and clock. So both CPUs needs to be scaled together and hence
@@ -158,7 +158,7 @@ cpu_clk_err:
 	return -1;
 }
 
-static int jz4785_cpu_suspend(struct cpufreq_policy *policy)
+static int m200_cpu_suspend(struct cpufreq_policy *policy)
 {
 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) {
 		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk);
@@ -167,7 +167,7 @@ static int jz4785_cpu_suspend(struct cpufreq_policy *policy)
 	return 0;
 }
 
-int jz4785_cpu_resume(struct cpufreq_policy *policy)
+int m200_cpu_resume(struct cpufreq_policy *policy)
 {
 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) {
 		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate);
@@ -175,29 +175,29 @@ int jz4785_cpu_resume(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static struct freq_attr *jz4785_cpufreq_attr[] = {
+static struct freq_attr *m200_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
 };
 
-static struct cpufreq_driver jz4785_driver = {
-	.name		= "jz4785",
+static struct cpufreq_driver m200_driver = {
+	.name		= "m200",
 	.flags		= CPUFREQ_STICKY,
-	.verify		= jz4785_verify_speed,
-	.target		= jz4785_target,
-	.get		= jz4785_getspeed,
-	.init		= jz4785_cpu_init,
-	.suspend	= jz4785_cpu_suspend,
-	.resume		= jz4785_cpu_resume,
-	.attr		= jz4785_cpufreq_attr,
+	.verify		= m200_verify_speed,
+	.target		= m200_target,
+	.get		= m200_getspeed,
+	.init		= m200_cpu_init,
+	.suspend	= m200_cpu_suspend,
+	.resume		= m200_cpu_resume,
+	.attr		= m200_cpufreq_attr,
 };
 
-static int __init jz4785_cpufreq_init(void)
+static int __init m200_cpufreq_init(void)
 {
-	return cpufreq_register_driver(&jz4785_driver);
+	return cpufreq_register_driver(&m200_driver);
 }
 
 MODULE_AUTHOR("ztyan<ztyan@ingenic.cn>");
 MODULE_DESCRIPTION("cpufreq driver for JZ47XX SoCs");
 MODULE_LICENSE("GPL");
-module_init(jz4785_cpufreq_init);
+module_init(m200_cpufreq_init);
