@@ -818,7 +818,7 @@ static int jzfb_set_par(struct fb_info *info)
 	/*
 	 * configure LCDC config register
 	 * use 8words descriptor, not use palette
-	 * ! JZ4785 NOT SUPPORT PALETTE FUNCTION, DO NOT SET LCDC_CFG_PALBP(BIT27), IT CAUGHT BPP16 COLOR ERROR.
+	 * ! M200 NOT SUPPORT PALETTE FUNCTION, DO NOT SET LCDC_CFG_PALBP(BIT27), IT CAUGHT BPP16 COLOR ERROR.
 	 */
 	/*SET PALBP TO AVOID FORMAT TRANSFER */
 

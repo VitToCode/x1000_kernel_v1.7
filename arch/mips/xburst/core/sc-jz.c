@@ -125,7 +125,7 @@ static inline int __init mips_sc_probe(void)
 	case PRID_IMP_JZ4775:
 	case PRID_IMP_JZ4780:
 		return 0;
-	case PRID_IMP_JZ4785:
+	case PRID_IMP_M200:
 		break;
 	default:
 		printk("pls check processor_id[0x%08x],sc_jz not support!\n",c->processor_id);

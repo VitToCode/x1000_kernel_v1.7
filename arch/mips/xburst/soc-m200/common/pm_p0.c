@@ -1,7 +1,7 @@
 /*
- * linux/arch/mips/jz4785/pm.c
+ * linux/arch/mips/xburst/soc-m200/common/pm_p0.c
  *
- *  JZ4785 Power Management Routines
+ *  M200 Power Management Routines
  *  Copyright (C) 2006 - 2012 Ingenic Semiconductor Inc.
  *
  *  This program is free software; you can distribute it and/or modify it
@@ -323,7 +323,7 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 		tcsm_addr[i] = instr;
 	}
 }
-static int jz4785_pm_enter(suspend_state_t state)
+static int m200_pm_enter(suspend_state_t state)
 {
 
 	unsigned int  lcr_tmp;
@@ -331,7 +331,8 @@ static int jz4785_pm_enter(suspend_state_t state)
 	unsigned int gate,spcr0;
 	unsigned int core_ctrl;
 	unsigned int i;
-	disable_fpu();//FIXME by wli
+
+	disable_fpu();
 #ifdef DDR_MEM_TEST
 	test_ddr_data_init();
 #endif
@@ -385,16 +386,17 @@ static int jz4785_pm_enter(suspend_state_t state)
  */
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
-	.enter = jz4785_pm_enter,
+	.enter = m200_pm_enter,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);
 
-int __init jz4785_pm_init(void)
+int __init m200_pm_init(void)
 {
         volatile unsigned int lcr,opcr;//,i;
+
 	suspend_set_ops(&pm_ops);
-/* changed by wli */
+
         /* init opcr and lcr for idle */
         lcr = cpm_inl(CPM_LCR);
         lcr &= ~(0x7);		/* LCR.SLEEP.DS=1'b0,LCR.LPM=2'b00*/
@@ -409,4 +411,4 @@ int __init jz4785_pm_init(void)
 	return 0;
 }
 
-arch_initcall(jz4785_pm_init);
+arch_initcall(m200_pm_init);

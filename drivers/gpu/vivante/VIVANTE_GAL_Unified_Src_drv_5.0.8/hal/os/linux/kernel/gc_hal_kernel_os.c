@@ -6498,7 +6498,7 @@ static inline unsigned int get_phy_addr(unsigned long vaddr)
 	}
 	if(vaddr >= 0x80000000){
 		return virt_to_phys((void *)vaddr);
-	}	 
+	}
 	pgdir = pgd_offset(current->mm, vaddr);
 	if(pgd_none(*pgdir) || pgd_bad(*pgdir))
 		return 0;
@@ -7159,7 +7159,7 @@ gckOS_SetGPUPower(
     gcmkHEADER_ARG("Os=0x%X Core=%d Clock=%d Power=%d", Os, Core, Clock, Power);
 
     /* TODO: Put your code here. */
-#if ENABLE_GPU_CLOCK_BY_DRIVER && (defined(CONFIG_SOC_4785) || defined(CONFIG_SOC_M200)) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
+#if ENABLE_GPU_CLOCK_BY_DRIVER && defined(CONFIG_SOC_M200) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
 
     //printk("gckOS_SetGPUPower() Os=0x%X Core=%d Clock=%d Power=%d\n", Os, Core, Clock, Power);
     {

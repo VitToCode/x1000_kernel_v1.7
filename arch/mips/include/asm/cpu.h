@@ -149,7 +149,7 @@
 #define PRID_IMP_JZRISC             0x00010000
 #define PRID_IMP_JZ4775             0x2ed00000
 #define PRID_IMP_JZ4780             0x3ee00000
-#define PRID_IMP_JZ4785             0x7ae00000
+#define PRID_IMP_M200               0x7ae00000
 #define PRID_IMP_ISA_R2             0x0000024f
 
 

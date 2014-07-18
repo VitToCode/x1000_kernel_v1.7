@@ -15,7 +15,7 @@ config M200_SUPPORT_TSC
 	bool "Touchscreen Supported on M200"
 	depends on SOC_M200 && INPUT_TOUCHSCREEN
 	help
-	  This selects the touchscreen that Ingenic XBurst JZ4785 support,
+	  This selects the touchscreen that Ingenic XBurst M200 support,
 	  say Y or N here.
 
 	  If unsure, say N.
@@ -152,7 +152,7 @@ choice
 	prompt "FT5X06 TOUCH POINT NUMBER"
 	depends on FT5X0X_MULTITOUCH
 	default FT5X0X_MULTITOUCH_TWO_POINT
-	
+
 config FT5X0X_MULTITOUCH_TWO_POINT
 		bool "FT5x0x CTP SUPPORT TWO POINT "
 
@@ -177,7 +177,7 @@ choice
 
 config FT5X0X_TOUCHKEY_INGENIC
 		bool "product: INGENIC (LINDEN)"
-			
+
 config FT5X0X_TOUCHKEY_PISCES
 		bool "product: INGENIC (PISCES)"
 
@@ -206,7 +206,7 @@ config 	TSC_SWAP_Y
 		default n
 		help
 			say Y here if you need flip x y.
-		  
+
 config FT5X0X_DEBUG
 		bool "Enable FT5X0X TouchScreen driver Debug output"
 		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
@@ -228,7 +228,7 @@ config GWTC9XXXB_MULTITOUCH
 
 config GWTC9XXXB_DEBUG
 	bool "Enable GWTC9xxxB TouchScreen driver Debug output"
-	depends on TOUCHSCREEN_GWTC9XXXB 
+	depends on TOUCHSCREEN_GWTC9XXXB
 	default n
 	help
 		say Y here if you are trying to debug gwtc9xxxb
@@ -250,7 +250,7 @@ config CT36X_FWUPDATE
 	depends on TOUCHSCREEN_CT36X||TOUCHSCREEN_CT360
 	default n
 	help
-	  ct36x CTP controller Firmware update. Before the upgrade, 
+	  ct36x CTP controller Firmware update. Before the upgrade,
 	  you need to be copied *.dat file to the dir, each controller
 	  only need to update one time.
 
@@ -284,7 +284,7 @@ config TOUCHSCREEN_GT9XX_CONE
 	depends on I2C
 	help
 	  The CONE customized GT9xx touchscreen driver
-	  
+
 config TOUCHSCREEN_LDWZIC
 	tristate "Touchscreen LDWZIC"
 	depends on I2C && JZ4780_SUPPORT_TSC
