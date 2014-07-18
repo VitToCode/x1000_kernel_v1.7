@@ -1462,7 +1462,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)|| dp->force_stop_dma == true) < 0)
 					return count - mcount;
 			} else {
-				dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 				atomic_dec(&dp->avialable_couter);
 				break;
 			}
@@ -1509,8 +1508,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				atomic_inc(&dp->avialable_couter);
 			} else
 				put_free_dsp_node(dp,node);
-			//dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
-			//		}
+
+			dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 		}
 	} while (mcount > 0);
 
