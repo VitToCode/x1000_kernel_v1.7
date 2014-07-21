@@ -1473,6 +1473,81 @@ static struct video_device ovisp_camera = {
 	.fops = &ovisp_v4l2_fops,
 	.ioctl_ops = &ovisp_v4l2_ioctl_ops,
 };
+/* -------------------sysfs interface------------------- */
+struct clk *debug_csi_clk;
+static ssize_t debug_mipi_csi_init(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	printk("dump csi\n");
+	/*clk init */
+	debug_csi_clk = clk_get(NULL, "csi");
+	if(IS_ERR(debug_csi_clk)) {
+		printk("error: cannot get csi clock\n");
+	}
+	clk_enable(debug_csi_clk);
+
+	csi_phy_start(0, 24000000);
+	return 0;
+}
+static ssize_t debug_mipi_csi_dump_regs(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	printk("dump regs\n");
+	dump_csi_reg();
+	return 0;
+}
+static ssize_t debug_set_mipi_lanes(struct device *dev,
+		struct device_attribute *attr,
+		char *buf, size_t count)
+{
+	int rc;
+	unsigned long lanes;
+	rc = strict_strtoul(buf, 0, &lanes);
+	if (rc)
+		return rc;
+
+		printk("====[debug] set mipi lanes: %d\n", lanes);
+	if(lanes ==1 || lanes == 2) {
+		printk("====[debug] set mipi lanes: %d\n", lanes);
+	} else {
+		printk("unsupported lanes set\n");
+		csi_set_on_lanes(lanes);
+	}
+
+	return count;
+}
+static ssize_t debug_mipi_csi_close(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	printk("csi close\n");
+	/*clk init */
+	csi_phy_release();
+	clk_disable(debug_csi_clk);
+	return 0;
+}
+
+static DEVICE_ATTR(mipi_csi_init, S_IRUSR | S_IRGRP | S_IROTH, debug_mipi_csi_init, NULL);
+static DEVICE_ATTR(mipi_csi_dump, S_IRUSR | S_IRGRP | S_IROTH, debug_mipi_csi_dump_regs, NULL);
+static DEVICE_ATTR(set_mipi_lanes, S_IWUSR | S_IWGRP, NULL, debug_set_mipi_lanes);
+static DEVICE_ATTR(mipi_csi_close, S_IRUSR | S_IRGRP | S_IROTH, debug_mipi_csi_close, NULL);
+
+static struct attribute *mipi_csi_attributes[] = {
+	&dev_attr_mipi_csi_init.attr,
+	&dev_attr_mipi_csi_dump.attr,
+	&dev_attr_set_mipi_lanes.attr,
+	&dev_attr_mipi_csi_close.attr,
+	NULL
+};
+static const struct attribute_group mipi_csi_attr_group = {
+	    .attrs = mipi_csi_attributes,
+};
+
+
+
+/* -------------------end sysfs interface--------------- */
 
 static int ovisp_camera_probe(struct platform_device *pdev)
 {
@@ -1490,6 +1565,12 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 		ISP_PRINT(ISP_ERROR,"Platform data not set\n");
 		return -EINVAL;
 	}
+
+	/*for csi debug*/
+	ret = sysfs_create_group(&pdev->dev.kobj, &mipi_csi_attr_group);
+	if (ret < 0)
+		goto err_sysfs_create;
+
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
@@ -1660,6 +1741,7 @@ free_isp_dev:
 	kfree(camdev->isp);
 free_camera_dev:
 	kfree(camdev);
+err_sysfs_create:
 exit:
 	return ret;
 

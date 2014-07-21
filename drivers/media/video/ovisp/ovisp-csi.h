@@ -47,5 +47,6 @@ extern int csi_phy_stop(unsigned int id);
 
 extern void dump_csi_reg(void);
 extern void check_csi_error(void);
+extern unsigned char csi_set_on_lanes(unsigned char lanes);
 
 #endif/*__OVISP_CSI_H__*/
