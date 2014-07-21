@@ -25,6 +25,7 @@ obj-$(CONFIG_LCD_HS_DS07012D)	+= hs_ds07012d.o
 obj-$(CONFIG_LCD_BYD_BM8766U)	+= byd_bm8766u.o
 obj-$(CONFIG_LCD_BYD_8991FTGF)	+= byd_8991.o byd_8991_init.o
 obj-$(CONFIG_LCD_BYD_9177AA)	+= byd_9177aa.o
+obj-$(CONFIG_LCD_TRULY_TDO_HD0499K) += truly_tdo_hd0499k.o
 obj-$(CONFIG_LCD_DRVIER_TL2796)	+= panel_tl2796.o
 obj-$(CONFIG_LCD_EK070TN93)		+= ek070tn93.o
 obj-$(CONFIG_LCD_AT065TN14)		+= at065tn14.o

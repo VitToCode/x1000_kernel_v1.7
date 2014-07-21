@@ -396,7 +396,6 @@ struct platform_device jz_vpu_device = {
 };
 
 
-#if 0
 /*MIPI-DSI (dsi host controller)*/
 #ifdef CONFIG_JZ_MIPI_DSI
 #include <mach/jz_dsim.h>
@@ -415,8 +414,6 @@ struct platform_device jz_dsi_device = {
 	.resource = jz_dsi_resources,
 };
 #endif
-#endif
-
 
 /* ipu */
 static u64 jz_ipu_dmamask = ~(u64) 0;

@@ -161,6 +161,12 @@ config LCD_BYD_9177AA
 	help
 	   jz mipi dsi.dpi TFT display panel  support
 
+config LCD_TRULY_TDO_HD0499K
+	tristate "truly tdo_hd0499k  mipi-dsi panel(720x1280)"
+	depends on FB && JZ_MIPI_DSI
+	help
+	   jz mipi dsi.dpi TFT display panel  support
+
 config LCD_HS_DS07012D
 	tristate "HS DS07012D panel(800x480)"
 	depends on BACKLIGHT_CLASS_DEVICE
