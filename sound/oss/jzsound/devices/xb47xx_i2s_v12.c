@@ -37,6 +37,8 @@
 
 #define AFMT_S24_LE			0x00000800
 
+static struct clk * g_i2s_clk;
+
 void volatile __iomem *volatile i2s_iomem;
 static LIST_HEAD(codecs_head);
 static spinlock_t i2s_irq_lock;
@@ -1209,6 +1211,7 @@ static int i2s_global_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "aic clk_get failed\n");
 		goto __err_aic_clk;
 	}
+	g_i2s_clk = i2s_clk;
 	clk_enable(i2s_clk);
 	spin_lock_init(&i2s_irq_lock);
 
@@ -1359,11 +1362,17 @@ static int i2s_suspend(struct platform_device *pdev, pm_message_t state)
 	if (cur_codec && !i2s_is_incall())
 		cur_codec->codec_ctl(CODEC_SUSPEND,0);
 	__i2s_disable();
+	if(clk_is_enabled(g_i2s_clk)) {
+		clk_disable(g_i2s_clk);
+	}
 	return 0;
 }
 
 static int i2s_resume(struct platform_device *pdev)
 {
+	if(!clk_is_enabled(g_i2s_clk)) {
+		clk_enable(g_i2s_clk);
+	}
 	__i2s_enable();
 	if (cur_codec && !i2s_is_incall())
 		cur_codec->codec_ctl(CODEC_RESUME,0);

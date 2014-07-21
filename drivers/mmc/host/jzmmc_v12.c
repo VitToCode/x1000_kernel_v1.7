@@ -1113,12 +1113,11 @@ static void jzmmc_detect_change(unsigned long data)
 #endif
 			mmc_detect_change(host->mmc, msecs_to_jiffies(1000));
 		}
-#if 0
+
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_disable(host->clk_gate);
 			clk_disable(host->clk);
 		}
-#endif
 	}
 
 	enable_irq(gpio_to_irq(host->pdata->gpio->cd.num));
@@ -1801,15 +1800,19 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
+#ifdef CONFIG_PM
 static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
 
-	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO)
+	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 		ret = mmc_suspend_host(host->mmc);
 
+		if(clk_is_enabled(host->clk)) {
+			clk_disable(host->clk);
+		}
+	}
 	return ret;
 }
 
@@ -1818,15 +1821,19 @@ static int jzmmc_resume(struct platform_device *dev)
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
 
-	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO)
-		ret = mmc_resume_host(host->mmc);
+	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 
+		if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
+			clk_enable(host->clk);
+			jzmmc_reset(host);
+		}
+		ret = mmc_resume_host(host->mmc);
+	}
 	return ret;
 }
-
+#endif
 static void jzmmc_shutdown(struct platform_device *pdev)
 {
-#if 0
 	struct jzmmc_host *host = mmc_get_drvdata(pdev);
 
 	/*
@@ -1837,7 +1844,6 @@ static void jzmmc_shutdown(struct platform_device *pdev)
 	dev_vdbg(host->dev, "shutdown\n");
 	if(host->mmc->card && !mmc_card_sdio(host->mmc->card))
 	   mmc_remove_host(host->mmc);
-#endif
 }
 
 static struct platform_driver jzmmc_driver = {
@@ -1845,8 +1851,10 @@ static struct platform_driver jzmmc_driver = {
 		.name	= "jzmmc_v1.2",
 		.owner	= THIS_MODULE,
 	},
+#ifdef CONFIG_PM
 	.suspend = jzmmc_suspend,
 	.resume = jzmmc_resume,
+#endif
 	.remove		= __exit_p(jzmmc_remove),
 	.shutdown	= jzmmc_shutdown,
 };
