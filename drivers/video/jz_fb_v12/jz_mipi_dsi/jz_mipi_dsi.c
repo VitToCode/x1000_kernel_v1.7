@@ -36,7 +36,6 @@
 #include "jz_mipi_dsih_hal.h"
 #include "jz_mipi_dsi_regs.h"
 
-#define DSI_IOBASE      0x13014000
 struct mipi_dsim_ddi {
 	int				bus_id;
 	struct list_head		list;
@@ -268,22 +267,17 @@ dsih_error_t jz_dsi_phy_cfg(struct dsi_device * dsi)
 	return OK;
 }
 
-/* define MIPI-DSI Master operations. */
-static struct dsi_master_ops jz_master_ops = {
-	.video_cfg = jz_dsi_video_cfg,
-	.cmd_write = write_command,	/*jz_dsi_wr_data, */
-	.cmd_read = NULL,	/*jz_dsi_rd_data, */
-};
-
 int jz_dsi_phy_open(struct dsi_device *dsi)
 {
 	struct video_config *video_config;
 	video_config = dsi->video_config;
 
 	pr_info("entry %s()\n", __func__);
+#if 0
 	if (dsi->dsi_phy->status == INITIALIZED) {
 		return ERR_DSI_PHY_INVALID;
 	}
+#endif
 
 	jz_dsih_dphy_reset(dsi, 0);
 	jz_dsih_dphy_stop_wait_time(dsi, 0x1c);	/* 0x1c: */
@@ -465,6 +459,135 @@ void set_base_dir_tx(struct dsi_device *dsi, void *param)
 	}
 }
 
+static void jz_mipi_update_cfg(struct dsi_device *dsi)
+{
+	int ret;
+	int st_mask = 0;
+	int retry = 5;
+	dsi->state = NOT_INITIALIZED;
+	ret = jz_dsi_phy_open(dsi);
+	if (ret) {
+		printk("open the phy failed!\n");
+	}
+
+	/*set command mode */
+	mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
+	/*set this register for cmd size, default 0x6 */
+	mipi_dsih_write_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE, 0x6);
+
+	/*
+	 * jz_dsi_phy_cfg:
+	 * PLL programming, config the output freq to DEFAULT_DATALANE_BPS.
+	 * */
+	ret = jz_dsi_phy_cfg(dsi);
+	if (ret) {
+		printk("phy configigure failed!\n");
+	}
+
+	pr_info("wait for phy config ready\n");
+	if (dsi->video_config->no_of_lanes == 2)
+		st_mask = 0x95;
+	else
+		st_mask = 0x15;
+
+	/*checkout phy clk lock and  clklane, datalane stopstate  */
+	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
+	       st_mask && retry--) {
+			printk("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
+	}
+
+	if (!retry){
+		printk("wait for phy config failed!\n");
+	}
+
+	dsi->state = INITIALIZED;
+
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				     0xffffff0);
+
+}
+static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
+		int power)
+{
+	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
+	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
+
+	switch (power) {
+	case FB_BLANK_POWERDOWN:
+		if (dsi->suspended)
+			return 0;
+
+		if (client_drv && client_drv->suspend)
+			client_drv->suspend(client_dev);
+
+		jz_dsih_dphy_clock_en(dsi, 0);
+		jz_dsih_dphy_shutdown(dsi, 0);
+		clk_disable(dsi->clock);
+		mipi_dsih_hal_power(dsi, 0);
+
+		dsi->suspended = true;
+
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
+{
+	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
+	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
+
+	switch (power) {
+	case FB_BLANK_UNBLANK:
+		if (!dsi->suspended)
+			return 0;
+
+		/* enable MIPI-DSI PHY. */
+		clk_enable(dsi->clock);
+
+		jz_mipi_update_cfg(dsi);
+		/* lcd panel power on. */
+		if (client_drv && client_drv->power_on)
+			client_drv->power_on(client_dev, 1);
+
+		/* set lcd panel sequence commands. */
+		if (client_drv && client_drv->set_sequence)
+			client_drv->set_sequence(client_dev);
+
+		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
+		mipi_dsih_hal_power(dsi, 1);
+		dsi->suspended = false;
+
+		break;
+	case FB_BLANK_NORMAL:
+		/* TODO. */
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+
+
+/* define MIPI-DSI Master operations. */
+static struct dsi_master_ops jz_master_ops = {
+	.video_cfg = jz_dsi_video_cfg,
+	.cmd_write = write_command,	/*jz_dsi_wr_data, */
+	.cmd_read = NULL,	/*jz_dsi_rd_data, */
+	.set_early_blank_mode   = jz_mipi_dsi_early_blank_mode,
+	.set_blank_mode         = jz_mipi_dsi_blank_mode,
+};
+
+
+
 int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device *lcd_dev)
 {
 	struct mipi_dsim_ddi *dsim_ddi;
@@ -570,9 +693,9 @@ static struct mipi_dsim_ddi *mipi_dsi_bind_lcd_ddi(
 				continue;
 #endif
 
-		dev_dbg(dsim->dev, "lcd_drv->id = %d, lcd_dev->id = %d\n",
+		dev_info(dsim->dev, "lcd_drv->id = %d, lcd_dev->id = %d\n",
 				lcd_drv->id, lcd_dev->id);
-		dev_dbg(dsim->dev, "lcd_dev->bus_id = %d, dsim->id = %d\n",
+		dev_info(dsim->dev, "lcd_dev->bus_id = %d, dsim->id = %d\n",
 				lcd_dev->bus_id, dsim->id);
 
 		if ((strcmp(lcd_drv->name, name) == 0)) {
@@ -638,18 +761,18 @@ static int jz_dsi_probe(struct platform_device *pdev)
 	dsi->id = pdev->id;
 
 	dsi_phy->status = NOT_INITIALIZED;
-	dsi_phy->reference_freq = REFERENCE_FREQ;	/*default 24MHz ? */
+	dsi_phy->reference_freq = REFERENCE_FREQ;
 	dsi_phy->bsp_pre_config = set_base_dir_tx;
 	dsi->dsi_phy = dsi_phy;
 	dsi->video_config = &(pdata->video_config);
 	dsi->video_config->pixel_clock = PICOS2KHZ(pdata->modes->pixclock);	// dpi_clock
 	dsi->video_config->h_polarity = pdata->modes->sync & FB_SYNC_HOR_HIGH_ACT;
 	dsi->video_config->h_active_pixels = pdata->modes->xres;
-	dsi->video_config->h_sync_pixels = pdata->modes->hsync_len;	// min 4 pixels
+	dsi->video_config->h_sync_pixels = pdata->modes->hsync_len;
 	dsi->video_config->h_back_porch_pixels = pdata->modes->right_margin;
 	dsi->video_config->h_total_pixels = pdata->modes->xres + pdata->modes->hsync_len + pdata->modes->left_margin + pdata->modes->right_margin;
 	dsi->video_config->v_active_lines = pdata->modes->yres;
-	dsi->video_config->v_polarity =  pdata->modes->sync & FB_SYNC_VERT_HIGH_ACT;	//1:active high, 0: active low
+	dsi->video_config->v_polarity =  pdata->modes->sync & FB_SYNC_VERT_HIGH_ACT;
 	dsi->video_config->v_sync_lines = pdata->modes->vsync_len;
 	dsi->video_config->v_back_porch_lines = pdata->modes->lower_margin;
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
@@ -758,6 +881,7 @@ static int jz_dsi_probe(struct platform_device *pdev)
 
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	dsi->suspended = false;
+	mipi_dsih_hal_power(dsi, 1);
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
 	unsigned int tmp = 0;
@@ -881,38 +1005,6 @@ struct platform_driver jz_dsi_driver = {
 		   .pm = &jz_dsi_pm_ops,
 		   },
 };
-
-static struct resource jz_dsi_resources[] = {
-	[0] = {
-	       .start = DSI_IOBASE,
-	       .end = DSI_IOBASE + 0x190,
-	       .flags = IORESOURCE_MEM,
-	       },
-};
-
-struct platform_device jz_dsi_device = {
-	.name = "jz-dsi",
-	.id = 0,
-	.dev = {
-		.platform_data = &jzdsi_pdata,
-	},
-	.num_resources = ARRAY_SIZE(jz_dsi_resources),
-	.resource = jz_dsi_resources,
-};
-#if 0
-static int __init jz_dsi_init(void)
-{
-	return platform_driver_register(&jz_dsi_driver);
-}
-
-static void __exit jz_dsi_exit(void)
-{
-	platform_driver_unregister(&jz_dsi_driver);
-}
-
-arch_initcall(jz_dsi_init);
-module_exit(jz_dsi_exit);
-#endif
 
 MODULE_AUTHOR("ykliu <ykliu@ingenic.cn>");
 MODULE_DESCRIPTION("Ingenic SoC MIPI-DSI driver");

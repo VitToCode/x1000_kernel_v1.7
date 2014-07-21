@@ -21,13 +21,12 @@
 #include <mach/jzfb.h>
 #include "board.h"
 
-#define MIPI_RST_N GPIO_PC(3)
-#define MIPI_PWR GPIO_PC(2)
-int byd_9177aa_reset(struct lcd_device *lcd)
+#define MIPI_RST_N GPIO_PA(12)
+#define MIPI_PWR GPIO_PC(17)
+int truly_tdo_hd0499k_reset(struct lcd_device *lcd)
 {
 	int ret=0;
 	printk("==============%s, %d\n", __func__, __LINE__);
-	gpio_free(MIPI_RST_N);
 	ret = gpio_request(MIPI_RST_N, "lcd mipi panel rst");
 	if (ret) {
 		printk(KERN_ERR "can's request lcd panel rst\n");
@@ -40,43 +39,43 @@ int byd_9177aa_reset(struct lcd_device *lcd)
 	return 0;
 }
 
-int byd_9177aa_power_on(struct lcd_device *lcd, int enable)
+int truly_tdo_hd0499k_power_on(struct lcd_device *lcd, int enable)
 {
 	int ret=0;
 	printk("==============%s, %d\n", __func__, __LINE__);
-	gpio_free(MIPI_PWR);
 	ret = gpio_request(MIPI_PWR, "lcd mipi panel avcc");
 	if (ret) {
 		printk(KERN_ERR "can's request lcd panel avcc\n");
 		return ret;
 	}
-	gpio_direction_output(MIPI_PWR, enable); /* 2.8v en*/
+	//gpio_direction_output(MIPI_PWR, !enable); /* 2.8v en*/
+	gpio_direction_output(MIPI_PWR, 0); /* 2.8v en*/
 	msleep(2);
 	return 0;
 }
-struct lcd_platform_data byd_9177aa_data = {
-	.reset = byd_9177aa_reset,
-	.power_on= byd_9177aa_power_on,
+struct lcd_platform_data truly_tdo_hd0499k_data = {
+	.reset = truly_tdo_hd0499k_reset,
+	.power_on= truly_tdo_hd0499k_power_on,
 };
 
-struct mipi_dsim_lcd_device	byd_9177aa_device={
-	.name		= "byd_9177aa-lcd",
+struct mipi_dsim_lcd_device	truly_tdo_hd0499k_device={
+	.name		= "truly_tdo_hd0499k-lcd",
 	.id = 0,
-	.platform_data = &byd_9177aa_data,
+	.platform_data = &truly_tdo_hd0499k_data,
 };
 
 struct fb_videomode jzfb_videomode = {
-	.name = "byd_9177aa-lcd",
+	.name = "truly_tdo_hd0499k-lcd",
 	.refresh = 60,
-	.xres = 540,
-	.yres = 960,
+	.xres = 720,
+	.yres = 1280,
 	.pixclock = KHZ2PICOS(25000),
-	.left_margin = 48,
-	.right_margin = 48,
-	.upper_margin = 9,
-	.lower_margin = 13,
-	.hsync_len = 48,
-	.vsync_len = 2,
+	.left_margin = 18,
+	.right_margin = 12,
+	.upper_margin = 18,
+	.lower_margin = 2,
+	.hsync_len = 18,
+	.vsync_len = 1,
 	.sync = FB_SYNC_HOR_HIGH_ACT & FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
@@ -95,7 +94,7 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.video_config.is_18_loosely = 0,
 	.video_config.data_en_polarity = 1,
 
-	.dsi_config.max_lanes = 4,
+	.dsi_config.max_lanes = 2,
 	.dsi_config.max_hs_to_lp_cycles = 100,
 	.dsi_config.max_lp_to_hs_cycles = 40,
 	.dsi_config.max_bta_cycles = 4095,

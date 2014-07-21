@@ -598,6 +598,9 @@ static int __init board_init(void)
 #ifdef CONFIG_LCD_BYD_9177AA
 	mipi_dsi_register_lcd_device(&byd_9177aa_device);
 #endif
+#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
+	mipi_dsi_register_lcd_device(&truly_tdo_hd0499k_device);
+#endif
 #ifdef CONFIG_LCD_KFM701A21_1A
 	platform_device_register(&kfm701a21_1a_device);
 #endif
@@ -616,9 +619,16 @@ static int __init board_init(void)
 #ifdef CONFIG_BACKLIGHT_PWM
 	platform_device_register(&backlight_device);
 #endif
+
 #ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
 	platform_device_register(&digital_pulse_backlight_device);
 #endif
+
+/*mipi-dsi */
+#ifdef CONFIG_JZ_MIPI_DSI
+	jz_device_register(&jz_dsi_device, &jzdsi_pdata);
+#endif
+
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ_V12
 	jz_device_register(&jz_fb_device, &jzfb_pdata);

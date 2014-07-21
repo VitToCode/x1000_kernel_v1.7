@@ -13,6 +13,8 @@
  * @return the dsi host core version
  */
 unsigned int mipi_dsih_hal_get_version(struct dsi_device * dsi);
+/*enable dsihost*/
+void mipi_dsih_hal_power(struct dsi_device * dsi, int on);
 /**
  * set the virtual channel ID that is indexes to the DPI video mode stream
  * @param vc virtual channel ID

@@ -260,7 +260,6 @@ static int byd_9177aa_probe(struct mipi_dsim_lcd_device *dsim_dev)
 static int byd_9177aa_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct byd_9177aa *lcd = dev_get_drvdata(&dsim_dev->dev);
-
 	byd_9177aa_sleep_in(lcd);
 	msleep(lcd->ddi_pd->power_off_delay);
 	byd_9177aa_display_off(lcd);

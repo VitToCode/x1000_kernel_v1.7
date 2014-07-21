@@ -244,6 +244,8 @@ struct dsi_master_ops {
 	int (*cmd_write) (struct dsi_device * dsi, struct dsi_cmd_packet cmd_data);
 	int (*cmd_read) (struct dsi_device * dsi, u8 * rx_buf);
 	int (*video_cfg) (struct dsi_device * dsi);
+	int (*set_early_blank_mode)(struct dsi_device *dsi, int power);
+	int (*set_blank_mode)(struct dsi_device *dsi, int power);
 };
 
 extern struct jzdsi_platform_data jzdsi_pdata;

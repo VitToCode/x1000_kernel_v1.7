@@ -47,7 +47,6 @@
 #include "regs.h"
 
 extern void dump_dsi_reg(struct dsi_device *dsi);
-extern struct platform_device jz_dsi_device;
 extern struct platform_driver jz_dsi_driver;
 
 static void dump_lcdc_registers(struct jzfb *jzfb);
@@ -1845,6 +1844,10 @@ static void jzfb_early_suspend(struct early_suspend *h)
 {
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
 	mutex_lock(&jzfb->lock);
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi->master_ops->set_early_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
+#endif
+
 	if (jzfb->pdata->alloc_vidmem) {
 		/* set suspend state and notify panel, backlight client */
 		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
@@ -1873,6 +1876,9 @@ static void jzfb_late_resume(struct early_suspend *h)
 {
 	/*enable clock*/
 	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
+#endif
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 	clk_enable(jzfb->pclk);
@@ -2481,7 +2487,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 #ifdef CONFIG_JZ_MIPI_DSI
 	jzfb->jz_dsi_driver = &jz_dsi_driver;
 	jzfb->jz_dsi_device = &jz_dsi_device;
-	platform_device_register(jzfb->jz_dsi_device);
 	if(jzfb->jz_dsi_driver->probe)
 		jzfb->jz_dsi_driver->probe(jzfb->jz_dsi_device);
 	jzfb->dsi = container_of(pdata->dsi_pdata->dsi_state, struct dsi_device, state);
