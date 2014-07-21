@@ -11,9 +11,9 @@ void check_csi_error(void) {
 		temp1 = csi_core_read(ERR1);
 		temp2 = csi_core_read(ERR2);
 		if(temp1 != 0)
-			ISP_PRINT(ISP_INFO,"error-------- 1:0x%08x\n", temp1);
+			printk("error-------- 1:0x%08x\n", temp1);
 		if(temp2 != 0)
-			ISP_PRINT(ISP_INFO,"error-------- 2:0x%08x\n", temp2);
+			printk("error-------- 2:0x%08x\n", temp2);
 	}
 }
 
@@ -45,9 +45,9 @@ static unsigned char  csi_event_disable(unsigned int  mask, unsigned char err_re
 	return 0;
 }
 
-static unsigned char csi_set_on_lanes(unsigned char lanes)
+unsigned char csi_set_on_lanes(unsigned char lanes)
 {
-	ISP_PRINT(ISP_INFO,"%s:----------> lane num: %d\n", __func__, lanes);
+	printk("%s:----------> lane num: %d\n", __func__, lanes);
 	return csi_core_write_part(N_LANES, (lanes - 1), 0, 2);
 }
 
@@ -68,7 +68,7 @@ static void mipi_csih_dphy_test_clock(int value)
 
 static void mipi_csih_dphy_test_data_out(void)
 {
-	ISP_PRINT(ISP_INFO,"%s --------:%08x\n", __func__, csi_core_read(PHY_TST_CTRL1));
+	printk("%s --------:%08x\n", __func__, csi_core_read(PHY_TST_CTRL1));
 }
 
 static void mipi_csih_dphy_write(unsigned char address, unsigned char * data, unsigned char data_length)
@@ -138,9 +138,9 @@ static int csi_phy_ready(unsigned int id)
 	ready = csi_core_read(PHY_STATE);
 
 #if 1
-	ISP_PRINT(ISP_INFO,"%s:phy state ready:0x%08x\n", __func__, ready);
+	printk("%s:phy state ready:0x%08x\n", __func__, ready);
 #endif
-	if ((ready & (1 << 9)) || (ready & (1 << 10 )) || (ready & (1<<4)))
+	if ((ready & (1 << 10 )) && (ready & (1<<4)))
 		return 1;
 
 	return 0;
@@ -149,7 +149,7 @@ static int csi_phy_ready(unsigned int id)
 
 int csi_phy_init(void)
 {
-	ISP_PRINT(ISP_INFO,"csi_phy_init being called ....\n");
+	printk("csi_phy_init being called ....\n");
 	return 0;
 }
 
@@ -165,12 +165,10 @@ int csi_phy_start(unsigned int id, unsigned int freq)
 	int retries = 30;
 	int i;
 
-	ISP_PRINT(ISP_INFO,"csi_phy_start being called\n");
 #if defined(CONFIG_VIDEO_OV9724)
 	csi_set_on_lanes(1);
-	//csi_set_on_lanes(2); /*two lane*/
+
 #else
-	//csi_set_on_lanes(1);
 	csi_set_on_lanes(2); /*two lane*/
 #endif
 
