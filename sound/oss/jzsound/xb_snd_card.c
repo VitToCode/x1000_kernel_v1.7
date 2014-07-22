@@ -275,6 +275,10 @@ static int xb_snd_suspend(struct platform_device *pdev, pm_message_t state)
 	int ret = 0;
 	struct snd_dev_data *ddata = pdev->dev.platform_data;
 	ENTER_FUNC();
+	if((ddata->minor & 0x0f) == SND_DEV_DSP)
+		ret = xb_snd_dsp_suspend(ddata);
+	if(ret)
+		return ret;
 	if (ddata && ddata->suspend)
 		ret = ddata->suspend(pdev, state);
 	LEAVE_FUNC();
@@ -291,6 +295,10 @@ static int xb_snd_resume(struct platform_device *pdev)
 	ENTER_FUNC();
 	if (ddata && ddata->resume)
 		ret = ddata->resume(pdev);
+	if(ret)
+		return ret;
+	if((ddata->minor & 0x0f) == SND_DEV_DSP)
+		ret = xb_snd_dsp_suspend(ddata);
 	LEAVE_FUNC();
 	return ret;
 }

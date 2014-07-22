@@ -18,6 +18,7 @@
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
 #include <linux/dma-mapping.h>
+#include <linux/mutex.h>
 
 /*####################################################*\
  * sound pipe and command used for dsp device
@@ -285,6 +286,7 @@ struct dsp_pipe {
 	/* lock */
 	spinlock_t          pipe_lock;
 	struct snd_dev_data *	pddata;
+	struct mutex        mutex;
 };
 
 struct dsp_endpoints {
@@ -349,4 +351,6 @@ int xb_snd_dsp_release(struct inode *inode,
 
 int xb_snd_dsp_probe(struct snd_dev_data *ddata);
 
+int xb_snd_dsp_suspend(struct snd_dev_data *ddata);
+int xb_snd_dsp_resume(struct snd_dev_data *ddata);
 #endif //__XB_SND_DSP_H__

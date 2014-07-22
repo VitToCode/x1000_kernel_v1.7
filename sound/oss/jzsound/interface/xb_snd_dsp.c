@@ -38,9 +38,6 @@ static mm_segment_t old_fs_record;
 //#define DEBUG_REPLAYE_FILE "/data/audio.pcm"
 #define DEBUG_REPLAYE_FILE "audio.pcm"
 #endif
-static bool first_start_record_dma = true;
-
-static bool first_start_replay_dma = true;
 
 /*###########################################################*\
  * sub functions
@@ -314,6 +311,7 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	/* Try to grab a DMA channel */
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
+	dp->force_stop_dma = false;
 	dp->dma_chan = dma_request_channel(mask, dma_chan_filter, (void*)dp);
 
 	if (dp->dma_chan == NULL) {
@@ -375,6 +373,7 @@ static void snd_release_dma(struct dsp_pipe *dp)
 	int ret = 0xf;
 
 	if (dp) {
+		dp->force_stop_dma = false;
 		if (dp->dma_chan) {
 			if (dp->is_trans != false) {
 #ifndef CONFIG_ANDROID         //kkshen added
@@ -658,7 +657,7 @@ static void snd_dma_callback(void *arg)
 			dp->is_trans = false;
 		}
 		dp->wait_stop_dma = false;
-		wake_up_interruptible(&dp->wq);
+		wake_up(&dp->wq);
 		return;
 	}
 
@@ -1327,7 +1326,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	atomic_set(&dp->watchdog_avail,1);
 	dp->transfer_watchdog.data = (unsigned long)dp;
 	spin_lock_init(&dp->pipe_lock);
-
+	mutex_init(&dp->mutex);
 	return 0;
 init_pipe_error:
 	/* free all the node in free_node_list */
@@ -1348,6 +1347,7 @@ static void deinit_pipe(struct dsp_pipe *dp,struct device *dev)
 	/* free all the node in free_node_list */
 	list_for_each_entry(node, &dp->free_node_list, list)
 		vfree(node);
+	mutex_destroy(&dp->mutex);
 	/* free memory */
 	dmam_free_noncoherent(dev,
 			      dp->fragsize * dp->fragcnt,
@@ -1434,12 +1434,12 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	if (dp->is_mmapd && dp->is_shared)
 		return -EBUSY;
 
-
-	dp->force_stop_dma = false;
+	mutex_lock(&dp->mutex);
 	do {
 		while(1) {
 			if (dp->force_stop_dma) {
 				dp->force_stop_dma = false;
+				mutex_unlock(&dp->mutex);
 				return count - mcount;
 			}
 			node = get_use_dsp_node(dp);
@@ -1451,16 +1451,23 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
 					}
-				} else if (!node)
+				} else if (!node) {
+					mutex_unlock(&dp->mutex);
 					return -EFAULT;
+				}
 			}
 
-			if (!node && dp->is_non_block)
+			if (!node && dp->is_non_block) {
+				mutex_unlock(&dp->mutex);
 				return count - mcount;
+			}
 
 			if (!node) {
-				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)|| dp->force_stop_dma == true) < 0)
+				if (wait_event_interruptible(dp->wq,
+							     (atomic_read(&dp->avialable_couter) >= 1 || dp->force_stop_dma == true)) < 0) {
+					mutex_unlock(&dp->mutex);
 					return count - mcount;
+				}
 			} else {
 				atomic_dec(&dp->avialable_couter);
 				break;
@@ -1481,6 +1488,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 					 (void *)(node->pBuf + node->start), fixed_buff_cnt)) {
 				put_use_dsp_node_head(dp,node,0);
 				atomic_inc(&dp->avialable_couter);
+				mutex_unlock(&dp->mutex);
 				return -EFAULT;
 			}
 
@@ -1514,6 +1522,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	} while (mcount > 0);
 
 	LEAVE_FUNC();
+	mutex_unlock(&dp->mutex);
 	return count - mcount;
 }
 
@@ -1551,7 +1560,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	if (dp->is_mmapd && dp->is_shared)
 		return -EBUSY;
 
-	dp->force_stop_dma = false;
+	mutex_lock(&dp->mutex);
 	while (mcount > 0) {
 		while (1) {
 			if (dp->force_stop_dma) {
@@ -1626,6 +1635,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	}
 
 write_return:
+	mutex_unlock(&dp->mutex);
 	if (ret < 0)
 		return ret;
 	return count - mcount;
@@ -1666,7 +1676,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 	/* O_RDWR mode operation, do not allowed */
 	if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_WRITE))
 		return -EPERM;
-
 	switch (cmd) {
 		//case SNDCTL_DSP_BIND_CHANNEL:
 		/* OSS 4.x: Route setero output to the specified channels(obsolete) */
@@ -1678,12 +1687,15 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int channels = -1;
 
 		if (get_user(channels, (int *)arg)) {
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
 
 		if (cmd == SNDCTL_DSP_STEREO) {
-			if (channels > 1)
-				return -EINVAL;
+			if (channels > 1){
+				ret = -EINVAL;
+				goto EXIT_IOCTRL;
+			}
 			channels = channels ? 2 : 1;
 		}
 
@@ -1692,25 +1704,34 @@ long xb_snd_dsp_ioctl(struct file *file,
 		   channels also want to be set, use cmd SOUND_PCM_READ_CHANNELS instead*/
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
-			if (ddata->dev_ioctl)
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_CHANNELS, (unsigned long)&channels);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 			dp->channels = channels;
 		} else if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
-			if (ddata->dev_ioctl)
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 			dp->channels = channels;
-		} else
-			return -EPERM;
-
+		} else{
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 
 		if (cmd == SNDCTL_DSP_STEREO) {
-			if (channels > 2)
-				return -EFAULT;
+			if (channels > 2) {
+				ret = -EFAULT;
+				goto EXIT_IOCTRL;
+			}
 			channels = channels == 2 ? 1 : 0;
 		}
 
@@ -1741,9 +1762,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->out_endpoint;
 		} else if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
-		} else
-			return -EPERM;
-
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		blksize = dp->buffersize;
 
 		ret = put_user(blksize, (int *)arg);
@@ -1777,18 +1799,27 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
 		   if opend as O_RDWR, only replay supported formats will be return */
 		if (file->f_mode & FMODE_WRITE) {
-			if (ddata->dev_ioctl)
+			dp = endpoints->out_endpoint;
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT_CAP, (unsigned long)&mask);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 		} else if (file->f_mode & FMODE_READ) {
-			if (ddata->dev_ioctl)
+			dp = endpoints->in_endpoint;
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT_CAP, (unsigned long)&mask);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
-		} else
-			return -EPERM;
-
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		ret = put_user(mask, (int *)arg);
 		break;
 	}
@@ -1809,14 +1840,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 		if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
+			mutex_lock(&dp->mutex);
 			audio_info.fragments = get_free_dsp_node_count(dp);
 			audio_info.fragsize = dp->buffersize;
 			audio_info.fragstotal = dp->fragcnt;
 			audio_info.bytes = get_free_dsp_node_count(dp) * dp->buffersize;
+			mutex_unlock(&dp->mutex);
 			ret =  copy_to_user((void *)arg, &audio_info, sizeof(audio_info)) ? -EFAULT : 0;
-		} else
-			return -EINVAL;
-
+		} else {
+			ret = -EINVAL;
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -1841,14 +1875,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
+			mutex_lock(&dp->mutex);
 			audio_info.fragments = get_free_dsp_node_count(dp);
 			audio_info.fragsize = dp->buffersize;
 			audio_info.fragstotal = dp->fragcnt;
 			audio_info.bytes = get_free_dsp_node_count(dp) * dp->buffersize;
+			mutex_unlock(&dp->mutex);
 			ret =  copy_to_user((void *)arg, &audio_info, sizeof(audio_info)) ? -EFAULT : 0;
-		} else
-			return -EINVAL;
-
+		} else {
+			ret = -EINVAL;
+			goto EXIT_IOCTRL;
+		}
 
 		break;
 	}
@@ -1939,43 +1976,63 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int fmt = -1;
 
 		if (get_user(fmt, (int *)arg)) {
-			return -EFAULT;
+		       ret = -EFAULT;
+		       goto EXIT_IOCTRL;
 		}
 
 		if (fmt == AFMT_QUERY) {
 			/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
 			   if opend as O_RDWR, only replay current format will be return */
 			if (file->f_mode & FMODE_WRITE) {
-				if (ddata->dev_ioctl)
+				dp = endpoints->out_endpoint;
+				if (ddata->dev_ioctl) {
+					mutex_lock(&dp->mutex);
 					ret = (int)ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				}
 				if (!ret)
 					break;
 			} else if (file->f_mode & FMODE_READ) {
-				if (ddata->dev_ioctl)
+				dp = endpoints->in_endpoint;
+				if (ddata->dev_ioctl){
+					mutex_lock(&dp->mutex);
 					ret = (int)ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				}
 				if (!ret)
 					break;
-			} else
-				return -EPERM;
+			} else {
+				ret = -EPERM;
+				goto EXIT_IOCTRL;
+			}
 		}
 
 		/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
 		   if opend as O_RDWR, only replay format will be set */
 		if (file->f_mode & FMODE_WRITE) {
 			/* set format */
-			if (ddata->dev_ioctl)
+			dp = endpoints->out_endpoint;
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 		} else if (file->f_mode & FMODE_READ) {
 			/* set format */
-			if (ddata->dev_ioctl)
+			dp = endpoints->in_endpoint;
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
-		} else
-			return -EPERM;
-
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		ret = put_user(fmt, (int *)arg);
 		break;
 	}
@@ -1989,12 +2046,15 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int i;
 
 
-		if (get_user(fragment, (int *)arg))
-			return -EFAULT;
-
+		if (get_user(fragment, (int *)arg)) {
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
+		}
 		fragcnts = ((fragment & FRAGMENT_CNT_MUX) >> 16);
-		if (fragcnts > 8 || fragcnts < 2)
-			return -EINVAL;
+		if (fragcnts > 8 || fragcnts < 2) {
+			ret = -EINVAL;
+			goto EXIT_IOCTRL;
+		}
 
 		for (i = 0; i < (fragment & FRAGMENT_SIZE_MUX);i++)
 			fragsize *= 2;
@@ -2002,20 +2062,26 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
-			if (fragsize < 16 || fragsize > 8192)
-				return -EINVAL;
+			if (fragsize < 16 || fragsize > 8192) {
+				ret = -EINVAL;
+				goto EXIT_IOCTRL;
+			}
 			printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
 		} else if (file->f_mode & FMODE_READ) {
 			if (dp->channels > 1) {
-				if (fragsize < 16 || fragsize > 8192)
-					return -EINVAL;
+				if (fragsize < 16 || fragsize > 8192) {
+					ret = -EINVAL;
+					goto EXIT_IOCTRL;
+				}
 			} else {
 				/*
 				 * If mono we use stereo record ,then filter on software
 				 * So we use half of a fragment at most
 				 */
-				if (fragsize < 16 || fragsize > 4096)
-					return -EINVAL;
+				if (fragsize < 16 || fragsize > 4096) {
+					ret = -EINVAL;
+					goto EXIT_IOCTRL;
+				}
 			}
 			dp = endpoints->in_endpoint;
 		}
@@ -2079,7 +2145,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int rate = -1;
 
 		if (get_user(rate, (int *)arg)) {
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
 
 		/* fatal: this command can be well used in O_RDONLY and O_WRONLY mode,
@@ -2087,21 +2154,28 @@ long xb_snd_dsp_ioctl(struct file *file,
 		   also need to be set, use cmd SOUND_PCM_READ_RATE instead */
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
-			if (ddata->dev_ioctl)
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_RATE, (unsigned long)&rate);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 			dp->samplerate = rate;
 		} else if (file->f_mode & FMODE_READ) {
-			dp = endpoints->out_endpoint;
-			if (ddata->dev_ioctl)
+			dp = endpoints->in_endpoint;
+			if (ddata->dev_ioctl) {
+				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_RATE, (unsigned long)&rate);
+				mutex_unlock(&dp->mutex);
+			}
 			if (!ret)
 				break;
 			dp->samplerate = rate;
-		} else
-			return -EPERM;
-
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		ret = put_user(rate, (int *)arg);
 
 		break;
@@ -2123,13 +2197,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (file->f_mode & FMODE_WRITE) {
 			int i = 0x7fffff;
 			dp = endpoints->out_endpoint;
+			mutex_lock(&dp->mutex);
 			dp->wait_stop_dma = true;
 			while (wait_event_interruptible(dp->wq,
 							dp->is_trans == false) && i--);
-			if (!i)
-				return -EFAULT;
+			if (!i) {
+				ret = -EFAULT;
+				goto EXIT_IOCTRL;
+			}
 			del_timer_sync(&dp->transfer_watchdog);
 			snd_release_node(dp);
+			mutex_unlock(&dp->mutex);
 			ret = 0;
 		} else
 			ret = -ENOSYS;
@@ -2151,8 +2229,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 	case SNDCTL_EXT_MOD_TIMER: {
 		int mod_timer	= 1;
 
-		if (get_user(mod_timer, (int*)arg))
-			return -EFAULT;
+		if (get_user(mod_timer, (int*)arg)) {
+			ret = -EINVAL;
+			goto EXIT_IOCTRL;
+		}
 
 		if (file->f_mode & FMODE_WRITE)
 			dp = endpoints->in_endpoint;
@@ -2169,11 +2249,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* extention: used for set audio route */
 		int device;
 		if (get_user(device, (int*)arg)) {
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
-
+		if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->in_endpoint;
+		else
+			dp = endpoints->out_endpoint;
 		if (ddata->dev_ioctl) {
+			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&device);
+			mutex_unlock(&dp->mutex);
 			if (!ret)
 				break;
 		}
@@ -2186,7 +2272,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 	case SNDCTL_EXT_SET_BUFFSIZE: {
 		int buffersize = 4096;
 		if (get_user(buffersize,(int*)arg)) {
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
 
 		if (file->f_mode & FMODE_WRITE)
@@ -2214,11 +2301,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int mode = -1;
 
 		if (get_user(mode, (int*)arg)) {
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
-
+		if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->out_endpoint;
+		else if (file->f_mode & FMODE_READ)
+			dp = endpoints->in_endpoint;
 		if (ddata->dev_ioctl) {
+			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)&mode);
+			mutex_unlock(&dp->mutex);
 			if (!ret)
 				break;
 		}
@@ -2238,14 +2331,16 @@ long xb_snd_dsp_ioctl(struct file *file,
 				dp = endpoints->in_endpoint;
 			else if (info.spipe_mode == SPIPE_MODE_REPLAY)
 				dp = endpoints->out_endpoint;
-			else
-				return -EFAULT;
-
+			else {
+				ret = -EFAULT;
+				goto EXIT_IOCTRL;
+			}
+			mutex_lock(&dp->mutex);
 			spipe_id = start_bypass_trans(dp, info.spipe_id);
-
+			mutex_unlock(&dp->mutex);
 			ret = put_user(spipe_id, (int *)arg);
 		} else
-			return ret;
+			goto EXIT_IOCTRL;
 		break;
 	}
 
@@ -2260,14 +2355,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 				dp = endpoints->in_endpoint;
 			else if (info.spipe_mode == SPIPE_MODE_REPLAY)
 				dp = endpoints->out_endpoint;
-			else
-				return -EFAULT;
-
+			else {
+				ret = -EFAULT;
+				goto EXIT_IOCTRL;
+			}
+			mutex_lock(&dp->mutex);
 			spipe_id = stop_bypass_trans(dp, info.spipe_id);
-
+			mutex_unlock(&dp->mutex);
 			ret = put_user(spipe_id, (int *)arg);
-		} else
-			return ret;
+		} else {
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -2278,6 +2376,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 		if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
+			mutex_lock(&dp->mutex);
 			while(1) {
 				node = get_use_dsp_node(dp);
 				if (dp->is_trans == false) {
@@ -2285,13 +2384,16 @@ long xb_snd_dsp_ioctl(struct file *file,
 					if (!ret) {
 						snd_start_dma_transfer(dp , dp->dma_config.direction);
 					} else if (!node) {
-						return -EFAULT;
+						ret = -EFAULT;
+						mutex_unlock(&dp->mutex);
+						goto EXIT_IOCTRL;
 					}
 				}
 
 				if (dp->is_non_block) {
 					info.bytes = 0;
 					info.offset = -1;
+					mutex_unlock(&dp->mutex);
 					return copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
 				}
 
@@ -2314,8 +2416,11 @@ long xb_snd_dsp_ioctl(struct file *file,
 					atomic_dec(&dp->avialable_couter);
 				}
 			}
-		} else
-			return -EPERM;
+			mutex_unlock(&dp->mutex);
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -2324,8 +2429,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (file->f_mode & FMODE_READ) {
 			dp = endpoints->in_endpoint;
 			put_free_dsp_node(dp, dp->save_node);
-		} else
-			return -EPERM;
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -2347,8 +2454,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				info.offset = -1;
 			}
 			ret = copy_to_user((void *)arg, &info, sizeof(info)) ? -EFAULT : 0;
-		} else
-			return -EPERM;
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -2360,6 +2469,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->out_endpoint;
 			ret = copy_from_user((void *)&info, (void *)arg, sizeof(info)) ? -EFAULT : 0;
 			if (!ret) {
+				mutex_lock(&dp->mutex);
 				/* put node to use list */
 				dma_cache_sync(NULL,
 					       (void *)dp->save_node->pBuf,
@@ -2377,9 +2487,12 @@ long xb_snd_dsp_ioctl(struct file *file,
 						printk(KERN_ERR"audio driver :dma start failed ,drop the audio data.\n");
 					}
 				}
+				mutex_unlock(&dp->mutex);
 			}
-		} else
-			return -EPERM;
+		} else {
+			ret = -EPERM;
+			goto EXIT_IOCTRL;
+		}
 		break;
 	}
 
@@ -2390,6 +2503,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 			dp = endpoints->out_endpoint;
 		if (dp != NULL) {
 			int i = 0x7ffff;
+			mutex_lock(&dp->mutex);
 			del_timer_sync(&dp->transfer_watchdog);
 			dp->force_stop_dma = true;
 			dp->wait_stop_dma = true;
@@ -2397,24 +2511,32 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (!i) {
 				dmaengine_terminate_all(dp->dma_chan);
 			}
-			local_irq_disable();
+
 			if (dp->force_stop_dma == true)
 				mdelay(20);
 			snd_release_node(dp);
 			dp->is_trans = false;
 			dp->wait_stop_dma = false;
+			mutex_unlock(&dp->mutex);
 		}
-		return 0;
+		ret = 0;
+		goto EXIT_IOCTRL;
 	}
 
 	case SNDCTL_EXT_SET_REPLAY_VOLUME: {
 		int vol;
 		if (get_user(vol, (int*)arg)){
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
-
+		if (file->f_mode & FMODE_READ)
+			dp = endpoints->in_endpoint;
+		if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->out_endpoint;
 		if (ddata->dev_ioctl) {
+			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+			mutex_unlock(&dp->mutex);
 			if (!ret)
 				break;
 		}
@@ -2426,11 +2548,17 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 		int tri_h;
 		if (get_user(tri_h, (int*)arg)){
-			return -EFAULT;
+			ret = -EFAULT;
+			goto EXIT_IOCTRL;
 		}
-
+		if (file->f_mode & FMODE_READ)
+			dp = endpoints->in_endpoint;
+		if (file->f_mode & FMODE_WRITE)
+			dp = endpoints->out_endpoint;
 		if (ddata->dev_ioctl) {
+			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
+			mutex_unlock(&dp->mutex);
 			if (!ret)
 				break;
 		}
@@ -2440,7 +2568,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
 		       __func__, __LINE__, cmd);
-		return -1;
+		ret = -1;
+		goto EXIT_IOCTRL;
 	}
 
 	/* some operation may need to reconfig the dma, such as,
@@ -2449,7 +2578,9 @@ long xb_snd_dsp_ioctl(struct file *file,
 		dp = endpoints->in_endpoint;
 		if (dp && dp->need_reconfig_dma == true) {
 			if (dp->is_trans == false) {
+				mutex_lock(&dp->mutex);
 				snd_reconfig_dma(dp);
+				mutex_unlock(&dp->mutex);
 				dp->need_reconfig_dma = false;
 			}
 		}
@@ -2458,12 +2589,14 @@ long xb_snd_dsp_ioctl(struct file *file,
 		dp = endpoints->out_endpoint;
 		if (dp && dp->need_reconfig_dma == true) {
 			if (dp->is_trans == false) {
+				mutex_lock(&dp->mutex);
 				snd_reconfig_dma(dp);
+				mutex_unlock(&dp->mutex);
 				dp->need_reconfig_dma = false;
 			}
 		}
 	}
-
+EXIT_IOCTRL:
 	return ret;
 }
 
@@ -2519,7 +2652,6 @@ int xb_snd_dsp_open(struct inode *inode,
 		    struct snd_dev_data *ddata)
 {
 	int ret = -ENXIO;
-	int arg,state;
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
@@ -2547,21 +2679,25 @@ int xb_snd_dsp_open(struct inode *inode,
 	}
 
 	if (file->f_mode & FMODE_READ) {
+		ret = 0;
 		if (dpi == NULL)
 			return -ENODEV;
+		mutex_lock(&dpi->mutex);
 		if (dpi->is_used) {
 			printk("\nAudio read device is busy!\n");
-			return -EBUSY;
+			ret = -EBUSY;
+			goto EXIT_READ_LABLE;
 		}
 
-		first_start_record_dma = true;
 		dpi->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
 		/* enable dsp device record */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_RECORD, 0);
-			if (ret < 0)
-				return -EIO;
+			if (ret < 0) {
+				ret = -EIO;
+				goto EXIT_READ_LABLE;
+			}
 		}
 		dpi->is_used = true;
 		/* request dma for record */
@@ -2574,22 +2710,27 @@ int xb_snd_dsp_open(struct inode *inode,
 		arg = SND_DEVICE_BUILDIN_MIC;
 		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
 		if (arg < 0) {
-			return -EIO;
+			ret = -EIO;
+			goto EXIT_READ_LABLE;
 		}
 #endif
+	EXIT_READ_LABLE:
+		mutex_unlock(&dpi->mutex);
+		if(ret)
+			return ret;
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
+		ret = 0;
 		if (dpo == NULL) {
 			return -ENODEV;
 		}
-
+		mutex_lock(&dpo->mutex);
 		if (dpo->is_used) {
 			printk("\nAudio write device is busy!\n");
-			return -EBUSY;
+			ret = -EBUSY;
+			goto EXIT_WRITE_LABLE;
 		}
-
-		first_start_replay_dma = true;
 
 		dpo->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
@@ -2597,7 +2738,8 @@ int xb_snd_dsp_open(struct inode *inode,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_REPLAY, 0);
 			if (ret < 0) {
-				return -EIO;
+				ret = -EIO;
+				goto EXIT_WRITE_LABLE;
 			}
 		}
 		dpo->is_used = true;
@@ -2617,14 +2759,16 @@ int xb_snd_dsp_open(struct inode *inode,
 		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
 		printk("%s: HDMI output\n",__func__);
 		if (arg < 0) {
-			return -EIO;
+			ret = -EIO;
+			goto EXIT_WRITE_LABLE;
 		}
 #else
 		dpo->force_hdmi = false;
 		if (ddata->dev_ioctl) {
 			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
 			if (arg < 0) {
-				return -EIO;
+				ret = -EIO;
+				goto EXIT_WRITE_LABLE;
 			}
 			if (state)
 				arg = SND_DEVICE_HEADSET;
@@ -2632,11 +2776,16 @@ int xb_snd_dsp_open(struct inode *inode,
 				arg = SND_DEVICE_SPEAKER;
 			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
 			if (arg < 0) {
-				return -EIO;
+				ret = -EIO;
+				goto EXIT_WRITE_LABLE;
 			}
 		}
 #endif
 #endif
+EXIT_WRITE_LABLE:
+		mutex_unlock(&dpo->mutex);
+		if(ret)
+			return ret;
 	}
 
 #ifdef DEBUG_REPLAY
@@ -2690,14 +2839,18 @@ int xb_snd_dsp_release(struct inode *inode,
 //		if (ddata->minor == SND_DEV_DSP3)
 //			snd_dmic_release_dma(dpi);
 //		else
+		mutex_lock(&dpi->mutex);
 		snd_release_dma(dpi);
 		snd_release_node(dpi);
+		mutex_unlock(&dpi->mutex);
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
 		dpo = endpoints->out_endpoint;
+		mutex_lock(&dpo->mutex);
 		snd_release_dma(dpo);
 		snd_release_node(dpo);
+		mutex_unlock(&dpo->mutex);
 	}
 
 	if (dpi) {
@@ -2775,4 +2928,28 @@ error2:
 	deinit_pipe(endpoints->out_endpoint, ddata->dev);
 error1:
 	return ret;
+}
+int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
+{
+	if (ddata){
+		struct dsp_endpoints * endpoints = (struct dsp_endpoints *)ddata->ext_data;
+		bool out_trans,in_trans;
+		if(endpoints->out_endpoint) {
+			mutex_lock(&endpoints->out_endpoint->mutex);
+			out_trans = endpoints->out_endpoint->is_trans;
+			mutex_unlock(&endpoints->out_endpoint->mutex);
+		}
+		if(endpoints->in_endpoint){
+			mutex_lock(&endpoints->in_endpoint->mutex);
+			in_trans = endpoints->in_endpoint->is_trans;
+			mutex_unlock(&endpoints->in_endpoint->mutex);
+		}
+		if(out_trans || in_trans)
+			return -1;
+	}
+	return 0;
+}
+int xb_snd_dsp_resume(struct snd_dev_data *ddata)
+{
+	return 0;
 }
