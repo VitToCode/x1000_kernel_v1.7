@@ -6686,6 +6686,24 @@ gckOS_GetThreadID(
 **
 **      Nothing.
 */
+/*#define DEBUG*/
+#ifdef DEBUG
+static inline int dump_m200_gpu_clock(void)
+{
+#define REG_CPM_LPG *((volatile unsigned long *)0xb0000004)
+#define REG_CPM_GT1 *((volatile unsigned long *)0xb0000028)
+#define REG_CPM_GPU *((volatile unsigned long *)0xb0000088)
+
+	printk("==============================\n");
+	printk("REG_CPM_LPG=%08x\n",(unsigned int)REG_CPM_LPG);
+	printk("REG_CPM_GT1=%08x\n",(unsigned int)REG_CPM_GT1);
+	printk("REG_CPM_GPU=%08x\n",(unsigned int)REG_CPM_GPU);
+
+
+	return 0;
+}
+#endif
+
 gceSTATUS
 gckOS_SetGPUPower(
     IN gckOS Os,
@@ -6732,6 +6750,9 @@ gckOS_SetGPUPower(
         mutex_unlock(&Os->registerAccessLocks[Core]);
     }
 
+#ifdef DEBUG
+    dump_m200_gpu_clock();
+#endif
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 }

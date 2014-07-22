@@ -139,13 +139,18 @@ static uint stuckDump = 1;
 module_param(stuckDump, uint, 0644);
 MODULE_PARM_DESC(stuckDump, "Level of stuck dump content (1: Minimal, 2: Middle, 3: Maximal)");
 
-static int showArgs = 0;
+static int showArgs = 1;
 module_param(showArgs, int, 0644);
 
 static int gpu3DMinClock = 1;
 module_param(gpu3DMinClock, int, 0644);
 
 static int contiguousRequested = 0;
+
+#if ENABLE_GPU_CLOCK_BY_DRIVER
+    unsigned long coreClock = (CONFIG_GPU_CLOCK_2X) /2;
+    module_param(coreClock, ulong, 0644);
+#endif
 
 static int drv_open(
     struct inode* inode,
@@ -263,6 +268,9 @@ gckOS_DumpParam(
     printk("  logFileSize       = %d KB \n",  logFileSize);
     printk("  recovery          = %d\n",      recovery);
     printk("  stuckDump         = %d\n",      stuckDump);
+#if ENABLE_GPU_CLOCK_BY_DRIVER
+    printk("  coreClock         = %lu\n",     coreClock);
+#endif
     printk("  gpuProfiler       = %d\n",      gpuProfiler);
 }
 

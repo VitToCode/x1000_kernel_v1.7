@@ -7,7 +7,7 @@ HAL_KERNEL_DIR  := hal/kernel
 
 #VIV_DRIVER_PATH :=drivers/gpu/vivante/VIVANTE_GAL_Unified_Src_drv_5.0.11.p1
 AQROOT :=drivers/gpu/vivante/VIVANTE_GAL_Unified_Src_drv_5.0.11.p1
-
+PLATFORM :=m200/m200
 
 ifdef CONFIG_VIVANTE_ENABLE_VG
 VIVANTE_ENABLE_VG := 1
@@ -25,13 +25,11 @@ endif
 
 
 # CONFIG_GPU_DYNAMIC_CLOCK_POWER. If not define CONFIG_GPU_DYNAMIC_CLOCK_POWER, power on gpu module and enable gpu clock when drv_init().
-#EXTRA_CFLAGS += -DCONFIG_GPU_DYNAMIC_CLOCK_POWER
-EXTRA_CFLAGS += -UCONFIG_GPU_DYNAMIC_CLOCK_POWER
-
 
 ### debug
 
 ### release
+### The below EXTRA_CFLAGS are the same between building android and linux ###
 EXTRA_CFLAGS += -DDBG=0
 
 

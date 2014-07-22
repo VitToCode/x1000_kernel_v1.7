@@ -42,6 +42,6 @@ config VIVANTE_ENABLE_VG
 config GPU_DYNAMIC_CLOCK_POWER
 	tristate "GPU_DYNAMIC_CLOCK_POWER"
 	depends on VIVANTE_GPU_GC1000 && SOC_M200
-	default n
+	default y
 	help
 	  CONFIG_GPU_DYNAMIC_CLOCK_POWER. If not define CONFIG_GPU_DYNAMIC_CLOCK_POWER, power on gpu module and enable gpu clock when drv_init().
