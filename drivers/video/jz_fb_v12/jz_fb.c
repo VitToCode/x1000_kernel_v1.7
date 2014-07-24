@@ -1881,7 +1881,6 @@ static void jzfb_late_resume(struct early_suspend *h)
 #endif
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
-	clk_enable(jzfb->pclk);
 	jzfb_set_par(jzfb->fb);
 
 	if (jzfb->pdata->alloc_vidmem) {
@@ -1890,6 +1889,8 @@ static void jzfb_late_resume(struct early_suspend *h)
 	} else {
 		jzfb_blank(FB_BLANK_UNBLANK, jzfb->fb);
 	}
+	jzfb_disable(jzfb->fb);
+	jzfb_enable(jzfb->fb);
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
 	mutex_unlock(&jzfb->suspend_lock);
