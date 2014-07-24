@@ -680,7 +680,15 @@ static void snd_dma_callback(void *arg)
 			else if (dp->dma_config.direction == DMA_TO_DEVICE) {
 				dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX,0);
 			}
+		} else if(dp->pddata && dp->pddata->dev_ioctl_2) {
+			if (dp->dma_config.direction == DMA_FROM_DEVICE) {
+				dp->pddata->dev_ioctl_2(dp->pddata, SND_DSP_DISABLE_DMA_RX,0);
+			}
+			else if (dp->dma_config.direction == DMA_TO_DEVICE) {
+				dp->pddata->dev_ioctl_2(dp->pddata, SND_DSP_DISABLE_DMA_TX,0);
+			}
 		}
+
 	}
 
 	return;
@@ -1448,8 +1456,9 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				if (!ret) {
 					snd_start_dma_transfer(dp , dp->dma_config.direction);
 					if (ddata && ddata->dev_ioctl) {
-
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+					} else if(ddata && ddata->dev_ioctl_2) {
+						ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_DMA_RX, 0);
 					}
 				} else if (!node) {
 					mutex_unlock(&dp->mutex);
@@ -1628,8 +1637,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		if (dp->is_trans == false) {
 			if (!snd_prepare_dma_desc(dp)) {
 				snd_start_dma_transfer(dp , dp->dma_config.direction);
-				if (ddata && ddata->dev_ioctl)
+				if (ddata && ddata->dev_ioctl) {
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
+				} else if(ddata &&ddata->dev_ioctl_2) {
+					ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_DMA_TX, 0);
+				}
 			}
 		}
 	}
@@ -1708,6 +1720,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_CHANNELS, (unsigned long)&channels);
 				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_CHANNELS, (unsigned long)&channels);
+				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
 				break;
@@ -1717,6 +1733,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (ddata->dev_ioctl) {
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
+				mutex_unlock(&dp->mutex);
+			} else if (ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
 				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
@@ -1804,6 +1824,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT_CAP, (unsigned long)&mask);
 				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_FMT_CAP, (unsigned long)&mask);
+				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
 				break;
@@ -1812,6 +1836,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (ddata->dev_ioctl) {
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT_CAP, (unsigned long)&mask);
+				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_FMT_CAP, (unsigned long)&mask);
 				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
@@ -1989,6 +2017,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 					mutex_lock(&dp->mutex);
 					ret = (int)ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt);
 					mutex_unlock(&dp->mutex);
+				} else if(ddata->dev_ioctl_2) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
 				}
 				if (!ret)
 					break;
@@ -1997,6 +2029,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				if (ddata->dev_ioctl){
 					mutex_lock(&dp->mutex);
 					ret = (int)ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt);
+					mutex_unlock(&dp->mutex);
+				} else if(ddata->dev_ioctl_2) {
+					mutex_lock(&dp->mutex);
+					ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt);
 					mutex_unlock(&dp->mutex);
 				}
 				if (!ret)
@@ -2016,6 +2052,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
 				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_FMT, (unsigned long)&fmt);
+				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
 				break;
@@ -2025,6 +2065,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (ddata->dev_ioctl) {
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
+				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_FMT, (unsigned long)&fmt);
 				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
@@ -2158,6 +2202,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_RATE, (unsigned long)&rate);
 				mutex_unlock(&dp->mutex);
+			} else if(ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_RATE, (unsigned long)&rate);
+				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
 				break;
@@ -2167,6 +2215,10 @@ long xb_snd_dsp_ioctl(struct file *file,
 			if (ddata->dev_ioctl) {
 				mutex_lock(&dp->mutex);
 				ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_RATE, (unsigned long)&rate);
+				mutex_unlock(&dp->mutex);
+			} else if (ddata->dev_ioctl_2) {
+				mutex_lock(&dp->mutex);
+				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_RATE, (unsigned long)&rate);
 				mutex_unlock(&dp->mutex);
 			}
 			if (!ret)
@@ -2260,9 +2312,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&device);
 			mutex_unlock(&dp->mutex);
-			if (!ret)
-				break;
+		} else if(ddata->dev_ioctl_2) {
+			mutex_lock(&dp->mutex);
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&device);
+			mutex_unlock(&dp->mutex);
 		}
+		if (!ret)
+			break;
 
 		ret = put_user(device, (int *)arg);
 		break;
@@ -2312,9 +2368,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_STANDBY, (unsigned long)&mode);
 			mutex_unlock(&dp->mutex);
-			if (!ret)
-				break;
+		} else if (ddata->dev_ioctl_2) {
+			mutex_lock(&dp->mutex);
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_STANDBY, (unsigned long)&mode);
+			mutex_unlock(&dp->mutex);
 		}
+		if (!ret)
+			break;
 
 		ret = put_user(mode, (int*)arg);
 		break;
@@ -2537,9 +2597,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
 			mutex_unlock(&dp->mutex);
+		} else if (ddata->dev_ioctl_2) {
+			mutex_lock(&dp->mutex);
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+			mutex_unlock(&dp->mutex);
+		}
 			if (!ret)
 				break;
-		}
 		ret = put_user(vol, (int *)arg);
 		break;
 	}
@@ -2559,9 +2623,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
 			mutex_unlock(&dp->mutex);
-			if (!ret)
-				break;
+		} else if (ddata->dev_ioctl_2) {
+			mutex_lock(&dp->mutex);
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
+			mutex_lock(&dp->mutex);
 		}
+		if (!ret)
+			break;
 		ret = put_user(*(int *)arg, (int *)arg);
 		break;
 	}
@@ -2694,11 +2762,11 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* enable dsp device record */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_RECORD, 0);
-			if (ret < 0) {
-				ret = -EIO;
-				goto EXIT_READ_LABLE;
-			}
+		} else if (ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_RECORD, 0);
 		}
+		if (ret < 0)
+			return -EIO;
 		dpi->is_used = true;
 		/* request dma for record */
 		ret = snd_reuqest_dma(dpi);
@@ -2708,7 +2776,11 @@ int xb_snd_dsp_open(struct inode *inode,
 		}
 #ifndef CONFIG_ANDROID
 		arg = SND_DEVICE_BUILDIN_MIC;
-		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		if (ddata->dev_ioctl) {
+			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		} else if (ddata->dev_ioctl_2) {
+			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		}
 		if (arg < 0) {
 			ret = -EIO;
 			goto EXIT_READ_LABLE;
@@ -2737,11 +2809,13 @@ int xb_snd_dsp_open(struct inode *inode,
 		/* enable dsp device replay */
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_ENABLE_REPLAY, 0);
+		} else if(ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_REPLAY, 0);
+		}
 			if (ret < 0) {
 				ret = -EIO;
 				goto EXIT_WRITE_LABLE;
 			}
-		}
 		dpo->is_used = true;
 
 		/* request dma for replay */
@@ -2756,7 +2830,11 @@ int xb_snd_dsp_open(struct inode *inode,
 #if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
 		dpo->force_hdmi = true;
 		arg = SND_DEVICE_HDMI;
-		arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		if (ddata->dev_ioctl) {
+			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		} else if(ddata->dev_ioctl_2) {
+			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		}
 		printk("%s: HDMI output\n",__func__);
 		if (arg < 0) {
 			ret = -EIO;
@@ -2778,6 +2856,19 @@ int xb_snd_dsp_open(struct inode *inode,
 			if (arg < 0) {
 				ret = -EIO;
 				goto EXIT_WRITE_LABLE;
+			}
+		} else if(ddata->dev_ioctl_2) {
+			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_HP_DETECT, (unsigned long)&state);
+			if (arg < 0) {
+				return -EIO;
+			}
+			if (state)
+				arg = SND_DEVICE_HEADSET;
+			else
+				arg = SND_DEVICE_SPEAKER;
+			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+			if (arg < 0) {
+				return -EIO;
 			}
 		}
 #endif
@@ -2860,6 +2951,11 @@ int xb_snd_dsp_release(struct inode *inode,
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_RECORD, 0);
 			if (ret)
 				ret = -EFAULT;
+		} else if(ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_DISABLE_DMA_RX, 0);
+			ret |= (int)ddata->dev_ioctl_2(ddata, SND_DSP_DISABLE_RECORD, 0);
+			if (ret)
+				ret = -EFAULT;
 		}
 		dpi->is_used = false;
 	}
@@ -2869,6 +2965,11 @@ int xb_snd_dsp_release(struct inode *inode,
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX, 0);
 			ret |= (int)ddata->dev_ioctl(SND_DSP_DISABLE_REPLAY, 0);
+			if (ret)
+				ret = -EFAULT;
+		} else if(ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_DISABLE_DMA_TX, 0);
+			ret |= (int)ddata->dev_ioctl_2(ddata, SND_DSP_DISABLE_REPLAY, 0);
 			if (ret)
 				ret = -EFAULT;
 		}

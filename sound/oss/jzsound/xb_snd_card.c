@@ -153,7 +153,6 @@ static long xb_snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	long ret = -EIO;
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
-
 	ENTER_FUNC();
 	switch (dev & 0x0f) {
 	case SND_DEV_DSP:

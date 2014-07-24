@@ -103,53 +103,89 @@ ssize_t xb_snd_mixer_write(struct file *file,
 	switch (buf_byte) {
 		case '1' :
 			printk(" \"1\" command :print codec and aic register.\n");
-			ddata->dev_ioctl(SND_MIXER_DUMP_REG,0);
+			if(ddata->dev_ioctl)
+				ddata->dev_ioctl(SND_MIXER_DUMP_REG,0);
+			else if(ddata->dev_ioctl_2)
+				ddata->dev_ioctl_2(ddata, SND_MIXER_DUMP_REG,0);
+
 			break;
 		case '2':
 			printk(" \"2\" command :print audio hp and speaker gpio state.\n");
-			ddata->dev_ioctl(SND_MIXER_DUMP_GPIO,0);
+			if(ddata->dev_ioctl)
+				ddata->dev_ioctl(SND_MIXER_DUMP_GPIO,0);
+			else if(ddata->dev_ioctl_2)
+				ddata->dev_ioctl_2(ddata, SND_MIXER_DUMP_GPIO,0);
 			break;
 		case '3':
 			printk(" \"3\" command :print current format channels and rate.\n");
-			ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt_in);
-			ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt_out);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt_in);
+				ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt_out);
+			} else if(ddata->dev_ioctl) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt_in);
+				ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt_out);
+			}
 			printk("record format : ");
 			print_format(fmt_in);
 			printk("replay format : ");
 			print_format(fmt_out);
+			if(ddata->dev_ioctl) {
 			ddata->dev_ioctl(SND_DSP_GET_RECORD_CHANNELS,(unsigned long)&channels_in);
 			ddata->dev_ioctl(SND_DSP_GET_REPLAY_CHANNELS,(unsigned long)&channels_out);
-			printk("record channels : %d.\n", channels_in);
-			printk("replay channels : %d.\n", channels_out);
+			//printk("record channels : %d.\n", channels_in);
+			//printk("replay channels : %d.\n", channels_out);
 			ddata->dev_ioctl(SND_DSP_GET_RECORD_RATE,(unsigned long)&rate_in);
 			ddata->dev_ioctl(SND_DSP_GET_REPLAY_RATE,(unsigned long)&rate_out);
-			printk("record samplerate : %ld.\n", rate_in);
-			printk("replay samplerate : %ld.\n", rate_out);
+			//printk("record samplerate : %ld.\n", rate_in);
+			//printk("replay samplerate : %ld.\n", rate_out);
+			} else if(ddata->dev_ioctl_2) {
+			ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_CHANNELS,(unsigned long)&channels_in);
+			ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_CHANNELS,(unsigned long)&channels_out);
+			//printk("record channels : %d.\n", channels_in);
+			//printk("replay channels : %d.\n", channels_out);
+			ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_RATE,(unsigned long)&rate_in);
+			ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_RATE,(unsigned long)&rate_out);
+			//printk("record samplerate : %ld.\n", rate_in);
+			//printk("replay samplerate : %ld.\n", rate_out);
+
+			}
 			break;
 		case '4':
 			printk(" \"4\" command:print headphone detect state.\n");
-			ddata->dev_ioctl(SND_DSP_GET_HP_DETECT,(unsigned long)&hp_state);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_GET_HP_DETECT,(unsigned long)&hp_state);
+			} else if(ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_GET_HP_DETECT,(unsigned long)&hp_state);
+			}
 			printk("headphone state : %d.\n ",hp_state);
 			break;
 		case '5':
 			printk(" \"5\" set headphone route.\n");
 			devices = SND_DEVICE_HEADSET;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			} else if(ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			}
 			break;
 		case '6':
 			printk(" \"6\" set speaker route.\n");
 			devices = SND_DEVICE_SPEAKER;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			} else if(ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			}
 			break;
 		case '7':
 			printk(" \"7\" set loop test route for phone.\n");
 			devices = SND_DEVICE_LOOP_TEST;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			//ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
 		case '8':
 			printk(" \"8\" set linein/buildmic route.\n");
 			devices = SND_DEVICE_BUILDIN_MIC;
-			ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+			//ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
 			break;
 		case 'c':
 			/*printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
@@ -169,7 +205,11 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			}
 			volume = (buf_vol[1] - '0') * 10 + (buf_vol[2] - '0');
 			printk("mic volume is %d.\n",volume);
-			ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&volume);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_SET_MIC_VOL,(unsigned long)&volume);
+			} else if(ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_SET_MIC_VOL,(unsigned long)&volume);
+			}
 			printk("mic volume is %d.\n",volume);
 			break;
 		case 'v':
@@ -178,17 +218,29 @@ ssize_t xb_snd_mixer_write(struct file *file,
 				return -EFAULT;
 			}
 			volume = (buf_vol[1] - '0') * 10 + (buf_vol[2] - '0');
-			ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL,(unsigned long)&volume);
+			if(ddata->dev_ioctl) {
+				ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL,(unsigned long)&volume);
+			} else if(ddata->dev_ioctl_2) {
+				ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_VOL,(unsigned long)&volume);
+			}
 			printk("record volume is %d.\n",volume);
 			break;
 		case 'd':
 			printk("\"d\" misc debug\n");
 			if(copy_from_user((void *)buf_vol, buffer, 2)) {
 				printk("audio misc debug default opreation\n");
-				ddata->dev_ioctl(SND_DSP_DEBUG,0);
+				if(ddata->dev_ioctl)
+					ddata->dev_ioctl(SND_DSP_DEBUG,0);
+				else if(ddata->dev_ioctl_2)
+					ddata->dev_ioctl_2(ddata, SND_DSP_DEBUG,0);
+
+
 			} else {
 				printk("audio misc debug interface NO %c\n",buf_vol[1]);
-				ddata->dev_ioctl(SND_DSP_DEBUG,(unsigned long)buf_vol[1]);
+				if(ddata->dev_ioctl)
+					ddata->dev_ioctl(SND_DSP_DEBUG,(unsigned long)buf_vol[1]);
+				else if(ddata->dev_ioctl_2)
+					ddata->dev_ioctl_2(ddata, SND_DSP_DEBUG,(unsigned long)buf_vol[1]);
 			}
 			break;
 		default:
@@ -275,8 +327,11 @@ long xb_snd_mixer_ioctl(struct file *file,
 			devices = SND_DEVICE_SPEAKER;
 		else
 			return -ENXIO;
-
-		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if(ddata->dev_ioctl) {
+			ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		} else if(ddata->dev_ioctl_2) {
+			ret = ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		}
 		if (ret < 0)
 			return ret;
 
@@ -304,8 +359,11 @@ long xb_snd_mixer_ioctl(struct file *file,
 			devices = SND_DEVICE_LINEIN3_RECORD;
 		else
 			return -ENXIO;
-
-		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if(ddata->dev_ioctl) {
+			ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		} else if(ddata->dev_ioctl_2) {
+			ret = ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		}
 		if (ret < 0)
 			return ret;
 
@@ -326,9 +384,11 @@ long xb_snd_mixer_ioctl(struct file *file,
 		vol = vol & 0xff;
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
-			if (ret < 0)
-				return ret;
+		} else if(ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
 		}
+		if (ret < 0)
+			return ret;
 		ret = put_user(vol, (int *)arg);
 		mixer_data.main_volume = vol;
 		mixer_data.ogain_volume = vol;
@@ -350,11 +410,15 @@ long xb_snd_mixer_ioctl(struct file *file,
 			return -EFAULT;
 		}
 		vol = vol & 0xff;
+
+		int tmp = SND_DSP_SET_RECORD_VOL;
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL, (unsigned long)&vol);
-			if (ret < 0)
-				return ret;
+		} else if (ddata->dev_ioctl_2) {
+			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_VOL, (unsigned long)&vol);
 		}
+		if (ret < 0)
+			return ret;
 		ret = put_user(vol, (int *)arg);
 		mixer_data.line_volume = vol;
 		mixer_data.line1_volume = vol;
@@ -419,7 +483,11 @@ long xb_snd_mixer_ioctl(struct file *file,
 	case SNDCTL_MIXER_LOOP_TEST_ON:{
 		printk("set loop test route for phone.\n");
 		devices = SND_DEVICE_LOOP_TEST;
-		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if(ddata->dev_ioctl) {
+			ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		} else if(ddata->dev_ioctl_2) {
+			ret = ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		}
 		if (ret < 0)
 			return ret;
 		break;
@@ -427,12 +495,16 @@ long xb_snd_mixer_ioctl(struct file *file,
 	case SNDCTL_MIXER_LOOP_TEST_OFF:{
 		printk("close loop test route for phone.\n");
 		devices = SND_DEVICE_SPEAKER;
-		ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		if(ddata->dev_ioctl) {
+			ret = ddata->dev_ioctl(SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		} else if(ddata->dev_ioctl_2) {
+			ret = ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE,(unsigned long)&devices);
+		}
 		if (ret < 0)
 			return ret;
 
 		break;
-	}
+									}
 
 		//case SNDCTL_MIX_DESCRIPTION:
 		/* OSS 4.x: get description text for a mixer control */
