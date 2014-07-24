@@ -116,7 +116,8 @@ module_param(bankSize, ulong, 0644);
 static int fastClear = -1;
 module_param(fastClear, int, 0644);
 
-static int compression = -1;
+//static int compression = -1;
+static int compression = 0;
 module_param(compression, int, 0644);
 
 static int powerManagement = 1;

@@ -6686,23 +6686,6 @@ gckOS_GetThreadID(
 **
 **      Nothing.
 */
-/*#define DEBUG*/
-#ifdef DEBUG
-static inline int dump_m200_gpu_clock(void)
-{
-#define REG_CPM_LPG *((volatile unsigned long *)0xb0000004)
-#define REG_CPM_GT1 *((volatile unsigned long *)0xb0000028)
-#define REG_CPM_GPU *((volatile unsigned long *)0xb0000088)
-
-	printk("==============================\n");
-	printk("REG_CPM_LPG=%08x\n",(unsigned int)REG_CPM_LPG);
-	printk("REG_CPM_GT1=%08x\n",(unsigned int)REG_CPM_GT1);
-	printk("REG_CPM_GPU=%08x\n",(unsigned int)REG_CPM_GPU);
-
-
-	return 0;
-}
-#endif
 
 gceSTATUS
 gckOS_SetGPUPower(
@@ -6726,16 +6709,6 @@ gckOS_SetGPUPower(
 
     clockChange = (Clock != Os->clockStates[Core]);
 
-    if (powerChange)
-    {
-        if (platform && platform->ops->setPower)
-        {
-            gcmkVERIFY_OK(platform->ops->setPower(platform, Core, Power));
-        }
-
-        Os->powerStates[Core] = Power;
-    }
-
     if (clockChange)
     {
         mutex_lock(&Os->registerAccessLocks[Core]);
@@ -6750,9 +6723,16 @@ gckOS_SetGPUPower(
         mutex_unlock(&Os->registerAccessLocks[Core]);
     }
 
-#ifdef DEBUG
-    dump_m200_gpu_clock();
-#endif
+    if (powerChange)
+    {
+        if (platform && platform->ops->setPower)
+        {
+            gcmkVERIFY_OK(platform->ops->setPower(platform, Core, Power));
+        }
+
+        Os->powerStates[Core] = Power;
+    }
+
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 }

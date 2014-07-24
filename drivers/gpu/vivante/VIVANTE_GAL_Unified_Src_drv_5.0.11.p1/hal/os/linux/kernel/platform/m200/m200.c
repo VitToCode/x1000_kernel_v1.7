@@ -21,6 +21,24 @@
 #include "gc_hal_kernel_platform.h"
 
 extern unsigned long coreClock;
+#define DEBUG
+#ifdef DEBUG
+static inline int dump_m200_gpu_clock(void)
+{
+#define REG_CPM_LPG *((volatile unsigned long *)0xb0000004)
+#define REG_CPM_GT1 *((volatile unsigned long *)0xb0000028)
+#define REG_CPM_GPU *((volatile unsigned long *)0xb0000088)
+
+	printk("==============================\n");
+	printk("REG_CPM_LPG=%08x\n",(unsigned int)REG_CPM_LPG);
+	printk("REG_CPM_GT1=%08x\n",(unsigned int)REG_CPM_GT1);
+	printk("REG_CPM_GPU=%08x\n",(unsigned int)REG_CPM_GPU);
+
+
+	return 0;
+}
+#endif
+
 gctBOOL
 _NeedAddDevice(
 		IN gckPLATFORM Platform
@@ -129,6 +147,7 @@ _adjustParam(
 	Args->registerMemBase = 0x13040000;
 	Args->contiguousSize  = (CONFIG_GPU_CONTIGUOUS_SIZE_MB) << 20;
 	Args->physSize        = 0x80000000;
+	Args->compression     = 0;
 
 	return gcvSTATUS_OK;
 }
@@ -139,15 +158,29 @@ _setPower(
 		IN gctBOOL Enable
 		)
 {
-#ifdef CONFIG_GPU_DYNAMIC_CLOCK_POWER
 	if(!Platform){
 		printk("Error! No platform! Can't [setpower] \nIN %s:%d \n",__FILE__,__LINE__);
 		return gcvSTATUS_INVALID_ARGUMENT;
 	}
+#if 0
+	printk("Platform->Power_ON = %d ,Enable = %d\n",Platform->Power_ON,Enable);
+#endif
+
+#ifdef CONFIG_GPU_DYNAMIC_CLOCK_POWER
 	if(!Platform->Power_ON && Enable){
 		clk_enable(Platform->clk_pwc_gpu);
 		Platform->Power_ON = 1;
 	}
+	if(Platform->Power_ON && !Platform->Clock_ON && !Enable){
+		clk_disable(Platform->clk_pwc_gpu);
+		Platform->Power_ON = 0;
+	}
+	if(Platform->Power_ON && Platform->Clock_ON && !Enable){
+		Platform->Power_ON = 0;
+	}
+#endif
+#if 0
+	dump_m200_gpu_clock();
 #endif
 	return gcvSTATUS_OK;
 }
@@ -163,17 +196,28 @@ _setClock(
 		printk("Error! No platform! Can't [setclock] \nIN %s:%d \n",__FILE__,__LINE__);
 		return gcvSTATUS_INVALID_ARGUMENT;
 	}
+#if 0
+	printk("Platform->Clock_ON = %d ,Enable = %d\n",Platform->Clock_ON,Enable);
+#endif
 
 #ifdef CONFIG_GPU_DYNAMIC_CLOCK_POWER
 	if(!Platform->Clock_ON && Enable) {
 		clk_enable(Platform->clk_gpu);
 		clk_enable(Platform->clk_cgu_gpu);
 		Platform->Clock_ON = 1;
-	} else {
+	}
+	if(Platform->Clock_ON && !Enable) {
 		clk_disable(Platform->clk_cgu_gpu);
 		clk_disable(Platform->clk_gpu);
 		Platform->Clock_ON = 0;
 	}
+	if(!Platform->Power_ON && !Platform->Clock_ON && !Enable) {
+		clk_disable(Platform->clk_pwc_gpu);
+	}
+
+#endif
+#if 0
+	dump_m200_gpu_clock();
 #endif
 	return gcvSTATUS_OK;
 }
@@ -192,9 +236,11 @@ _putPower(
 		if(Platform ->Clock_ON) {
 			clk_disable(Platform->clk_cgu_gpu);
 			clk_disable(Platform->clk_gpu);
+			clk_disable(Platform->clk_pwc_gpu);
 		}
 		clk_put(Platform->clk_cgu_gpu);
 		clk_put(Platform->clk_gpu);
+		clk_put(Platform->clk_pwc_gpu);
 #else
 		struct clk * clk = NULL;
 		clk = clk_get(NULL, "cgu_gpu");
@@ -204,6 +250,7 @@ _putPower(
 		clk_disable(clk);
 		clk_put(clk);
 #endif
+		Platform->Power_ON = 0;
 	}
 	return gcvSTATUS_OK;
 }
