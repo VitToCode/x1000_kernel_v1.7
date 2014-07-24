@@ -376,7 +376,6 @@ out:
 static struct i2c_client *ricoh61x_i2c_client;
 int ricoh619_power_off(void)
 {
-#if 0
 	int ret;
 	uint8_t reg_val;
 	reg_val = g_soc;
@@ -425,7 +424,6 @@ int ricoh619_power_off(void)
 	/* Power OFF */
 	__ricoh61x_write(ricoh61x_i2c_client, RICOH61x_PWR_SLP_CNT, 0x1);
 
-#endif
 	return 0;
 }
 
