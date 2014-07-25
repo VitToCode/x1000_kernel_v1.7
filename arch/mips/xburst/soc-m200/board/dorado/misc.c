@@ -664,6 +664,11 @@ static int __init board_init(void)
 	jz_device_register(&jz_dsi_device, &jzdsi_pdata);
 #endif
 
+/* epd */
+#ifdef CONFIG_JZ_EPD_V12
+	jz_device_register(&jz_epd_device, &jz_epd_pdata);
+#endif
+
 /* lcdc framebuffer*/
 #ifdef CONFIG_FB_JZ_V12
 	jz_device_register(&jz_fb_device, &jzfb_pdata);

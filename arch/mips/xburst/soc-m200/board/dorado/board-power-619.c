@@ -137,8 +137,11 @@ static struct regulator_consumer_supply ricoh619_ldortc2_supply_0[] = {
 RICOH_PDATA_INIT(dc1, 0,	600,   3500, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc2, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc3, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
+#ifdef CONFIG_JZ_EPD_V12
+RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);
+#else
 RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, 1, 1, 1, 1800, 1, 1, 0, 0, 0);
-
+#endif
 RICOH_PDATA_INIT(ldo1, 0,	900,   3500, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo2, 0,	900,   3500, 0, 1, 1, 1, 2500, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo3, 0,	900,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);

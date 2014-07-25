@@ -461,6 +461,31 @@ struct platform_device jz_dwc_otg_device = {
 	.num_resources = ARRAY_SIZE(jz_dwc_otg_resources),
 	.resource = jz_dwc_otg_resources,
 };
+/* EPD Controller */
+static struct resource jz_epd_resources[] = {
+		[0] = {
+			.start          = EPDC_IOBASE,
+			.end            = EPDC_IOBASE + 0x10000 - 1,
+			.flags          = IORESOURCE_MEM,
+		},
+		[1] = {
+			.start          = IRQ_EPDC,
+			.end            = IRQ_EPDC,
+			.flags          = IORESOURCE_IRQ,
+		}
+	};
+
+static u64 jz_epd_dmamask = ~(u32)0;
+struct platform_device jz_epd_device = {
+	.name           = "jz-epd",
+	.id             = 1,
+	.dev = {
+		.dma_mask               = &jz_epd_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.num_resources  = ARRAY_SIZE(jz_epd_resources),
+	.resource       = jz_epd_resources,
+};
 
 /* UART ( uart controller) */
 static struct resource jz_uart0_resources[] = {

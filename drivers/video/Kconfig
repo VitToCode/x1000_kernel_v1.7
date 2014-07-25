@@ -2417,6 +2417,36 @@ config FB_JZ4775_ANDROID_EPD
 	help
 	  Framebuffer support for the JZ4775 EPD Controller driver.
 
+config JZ_EPD_V12
+	tristate "JZ EPD framebuffer V1.2"
+	depends on FB && SOC_M200
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  Framebuffer support for the M200 EPD Controller driver.
+
+choice
+	depends on JZ_EPD_V12
+	prompt "EPD panel"
+	default	ET017QC1
+
+config ET017QC1
+	bool "ET017QC1"
+	help
+	"ET017QC1" panel support
+
+config ED060XD1
+	bool "ED060XD1"
+	help
+	"ED060XD1" panel support
+
+endchoice
+
+config JZ_EPD_GPIO_FUNCTION
+       bool "Enable EPD GPIO function for JZSOC EPD controller"
+       depends on FB && (FB_JZ4775_ANDROID_EPD || JZ_EPD_V12)
+       default n
 
 config MAP_DATABUS_TO_LCDC0
 	bool "map lcd databus to lcdc0"
@@ -2426,11 +2456,6 @@ config MAP_DATABUS_TO_LCDC0
 config DISABLE_LVDS_FUNCTION
        bool "disable LVDS function for JZSOC lcd controller"
        depends on FB && (FB_JZ4780_LCDC1 || FB_JZ4780_LCDC0)
-       default n
-
-config JZ_EPD_GPIO_FUNCTION
-       bool "Enable EPD GPIO function for JZSOC EPD controller"
-       depends on FB && (FB_JZ4775_ANDROID_EPD)
        default n
 
 config JZ4780_AOSD

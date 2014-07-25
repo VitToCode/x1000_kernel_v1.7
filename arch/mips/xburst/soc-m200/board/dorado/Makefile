@@ -18,6 +18,8 @@ obj-$(CONFIG_VIDEO_OVISP) += camera.o
 
 obj-$(CONFIG_BCM_PM_CORE) += bcm_power_control.o
 
+obj-$(CONFIG_JZ_EPD_V12)	+= epd.o
+
 ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 obj-y += pm_slcd.o
 else

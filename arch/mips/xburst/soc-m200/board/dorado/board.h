@@ -58,6 +58,12 @@ extern struct platform_device truly_tft240240_device;
 #define GPIO_LCD_SPI_DR		GPIO_PE(3)
 #define GPIO_LCD_EXCLKO		GPIO_PD(15)
 
+/* EPD Power Pins */
+#define GPIO_EPD_PWR0       GPIO_PC(22)
+#define GPIO_EPD_PWR1       GPIO_PC(23)
+#define GPIO_EPD_PWR2       GPIO_PC(24)
+#define GPIO_EPD_PWR3       GPIO_PC(25)
+
 extern struct platform_device backlight_device;
 /* Digital pulse backlight*/
 #ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
@@ -174,6 +180,11 @@ extern struct platform_device bluesleep_device;
 #endif /* CONFIG_BROADCOM_RFKILL */
 #ifdef CONFIG_BCM2079X_NFC
 extern struct bcm2079x_platform_data bcm2079x_pdata;
+#endif
+
+#ifdef CONFIG_JZ_EPD_V12
+extern struct platform_device jz_epd_device;
+extern struct jz_epd_platform_data jz_epd_pdata;
 #endif
 
 #endif /* __BOARD_H__ */

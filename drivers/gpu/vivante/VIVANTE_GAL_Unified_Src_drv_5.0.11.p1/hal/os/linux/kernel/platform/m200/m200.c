@@ -241,6 +241,7 @@ _putPower(
 		clk_put(Platform->clk_cgu_gpu);
 		clk_put(Platform->clk_gpu);
 		clk_put(Platform->clk_pwc_gpu);
+		Platform->Power_ON = 0;
 #else
 		struct clk * clk = NULL;
 		clk = clk_get(NULL, "cgu_gpu");
@@ -250,7 +251,6 @@ _putPower(
 		clk_disable(clk);
 		clk_put(clk);
 #endif
-		Platform->Power_ON = 0;
 	}
 	return gcvSTATUS_OK;
 }
