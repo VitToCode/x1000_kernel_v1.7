@@ -91,7 +91,7 @@ extern struct jzmmc_platform_data sdio_pdata;
 /**
  * TP gpio
  **/
-#define GPIO_TP_WAKE		GPIO_PA(12)
+#define GPIO_TP_WAKE		GPIO_PE(10)
 #define GPIO_TP_INT		GPIO_PB(0)
 
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/

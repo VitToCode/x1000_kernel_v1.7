@@ -156,16 +156,43 @@ static struct jztsc_platform_data fpga_tsc_pdata = {
 };
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_FT6X0X
+#include <linux/i2c/ft6x0x_ts.h>
+extern int touch_power_init(struct device *dev);
+extern int touch_power_on(struct device *dev);
+extern int touch_power_off(struct device *dev);
+
+static struct jztsc_pin ft6x0x_tsc_gpio[] = {
+	 [0] = {GPIO_TP_INT,         LOW_ENABLE},
+	 [1] = {GPIO_TP_WAKE,        LOW_ENABLE},
+};
+
+static struct ft6x0x_platform_data ft6x0x_tsc_pdata = {
+	.gpio           = ft6x0x_tsc_gpio,
+	.x_max          = 240,
+	.y_max          = 240,
+	.fw_ver         = 0x21,
+#ifdef CONFIG_KEY_SPECIAL_POWER_KEY
+	.blight_off_timer = 3000,   //3s
+#endif
+	.power_init     = touch_power_init,
+	.power_on       = touch_power_on,
+	.power_off      = touch_power_off,
+};
+
+#endif
+
+
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
 #include <linux/i2c/ft6x06_ts.h>
 static struct ft6x06_platform_data ft6x06_tsc_pdata = {
-		.x_max          = 300,
-		.y_max          = 540,
-		.va_x_max		= 300,
-		.va_y_max		= 480,
-		.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
-		.irq = (32 * 1 + 0),
-		.reset = (32 * 0 + 12),
+	.x_max          = 300,
+	.y_max          = 540,
+	.va_x_max		= 300,
+	.va_y_max		= 480,
+	.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
+	.irq = (32 * 1 + 0),
+	.reset = (32 * 0 + 12),
 };
 #endif
 
@@ -350,6 +377,14 @@ static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		.platform_data = &ft6x06_tsc_pdata,
 	},
 #endif
+
+#ifdef CONFIG_TOUCHSCREEN_FT6X0X
+	{
+		I2C_BOARD_INFO("ft6x0x_tsc", 0x38),
+		.platform_data = &ft6x0x_tsc_pdata,
+	},
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_FT5336
 	{
 		I2C_BOARD_INFO("ft5336_ts", 0x38),

@@ -42,7 +42,7 @@ static struct jz_cpufreq {
 static unsigned long set_cpu_freqs[] = {
 	12000,
 	24000  ,60000 ,120000,
-	200000 ,30000 ,600000,
+	200000 ,300000 ,600000,
 	792000,1008000,1200000,
 	CPUFREQ_TABLE_END
 };

@@ -102,6 +102,40 @@ config FT6X06_MULTITOUCH
 	help
 	  support multitouch ft6206,if you want , say Y here.
 
+config TOUCHSCREEN_FT6X0X
+       tristate "Touchscreen ft6x0x"
+       depends on I2C && M200_SUPPORT_TSC
+       help
+       ft6x0x is a CTP controller
+
+if TOUCHSCREEN_FT6X0X
+config FT6X0X_EXT_FUNC
+	 bool "ft6x0x extra function"
+	 depends on TOUCHSCREEN_FT6X0X
+	 default n
+	 help
+		ft6x0x extra function:
+		l.sysfs inferface
+		2.tp firmware upgrade control
+		3.tp regs read write
+
+if FT6X0X_EXT_FUNC
+choice
+	 prompt "ft6x0x fireware"
+		  depends on FT6X0X_EXT_FUNC
+		  default TOUCHSCREEN_FT6X0X_YIYANG_1S
+config TOUCHSCREEN_FT6X0X_YIYANG_1S
+	 bool "YIYANG fireware monitor 1S"
+
+config TOUCHSCREEN_FT6X0X_YIYANG_10S
+	 bool "YIYANG fireware monitor 10S"
+
+config TOUCHSCREEN_FT6X0X_TWS
+	 bool "TWS fireware"
+endchoice
+endif
+endif
+
 config TOUCHSCREEN_NOVATEK
       tristate "Touchscreen nt11003-ts"
       depends on I2C && JZ4780_SUPPORT_TSC
