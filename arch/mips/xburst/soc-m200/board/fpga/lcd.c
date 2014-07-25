@@ -648,7 +648,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.modes = &jzfb_videomode,
 	.dsi_pdata = &jzdsi_pdata,
 
-	.lcd_type = LCD_TYPE_LCM,
+	.lcd_type = LCD_TYPE_SLCD,
 	.bpp = 18,
 	.width = 31,
 	.height = 31,
@@ -676,7 +676,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.num_modes = 1,
 	.modes = &jzfb_videomode,
 
-	.lcd_type = LCD_TYPE_LCM,
+	.lcd_type = LCD_TYPE_SLCD,
 	.bpp = 24,
 
 	.pixclk_falling_edge = 0,
@@ -704,7 +704,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.num_modes = 1,
 	.modes = &jzfb_videomode,
 
-	.lcd_type = LCD_TYPE_LCM,
+	.lcd_type = LCD_TYPE_SLCD,
 	.bpp = 18,
 	.width = 39,
 	.height = 65,
@@ -726,8 +726,8 @@ struct jzfb_platform_data jzfb_pdata = {
 	.smart_config.data_new_times = SMART_LCD_NEW_DTIMES_ONCE,
 	.smart_config.newcfg_6800_md = 0,
 	.smart_config.newcfg_fmt_conv = 1,
-	.smart_config.newcfg_datatx_type = 0,
-	.smart_config.newcfg_cmdtx_type = 0,
+	.smart_config.datatx_type_serial = 0,
+	.smart_config.cmdtx_type_serial = 0,
 	.smart_config.newcfg_cmd_9bit = 0,
 	.smart_config.write_gram_cmd = 0x0202,
 	.smart_config.bus_width = 18,

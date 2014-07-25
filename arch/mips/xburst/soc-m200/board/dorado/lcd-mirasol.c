@@ -258,7 +258,7 @@ struct jzfb_platform_data jzfb_pdata = {
 		.num_modes = 1,
 		.modes = &jzfb_videomode,
 
-        .lcd_type = LCD_TYPE_LCM,
+        .lcd_type = LCD_TYPE_SLCD,
         .bpp = 24,
 
         .pixclk_falling_edge = 0,
