@@ -98,7 +98,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.modes = &jzfb_videomode,
 	.dsi_pdata = &jzdsi_pdata,
 
-	.lcd_type = LCD_TYPE_LCM,
+	.lcd_type = LCD_TYPE_SLCD,
 	.bpp = 18,
 	.width = 31,
 	.height = 31,
@@ -114,7 +114,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.write_gram_cmd = 0x2C2C,
+	.smart_config.write_gram_cmd = 0x2C2C2C2C,
 	.smart_config.bus_width = 8,
 	.dither_enable = 1,
 	.dither.dither_red = 1,	/* 6bit */
