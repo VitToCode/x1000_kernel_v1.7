@@ -2723,6 +2723,7 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	int arg=0,state=0;
 	ENTER_FUNC();
 
 	if (ddata == NULL) {

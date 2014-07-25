@@ -2370,6 +2370,11 @@ static int codec_turn_off(int mode)
 			printk("JZ CODEC: codec_turn_off_part record mode error!\n");
 			return -1;
 		}
+		if(return_brfore_route == NULL){
+			printk("the keep old route is NULL ,return\n");
+			return -1;
+		}
+
 		ret = codec_set_route(return_brfore_route->route);
 		if(ret != return_brfore_route->route)
 		{
