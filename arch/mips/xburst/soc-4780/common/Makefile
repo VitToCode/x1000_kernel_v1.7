@@ -9,6 +9,7 @@ obj-y += timer.o
 obj-y += serial.o 
 obj-y += tcu.o
 obj-y += jzcpm_pwc.o
+obj-$(CONFIG_USB) += cpm_usb.o
 
 ifeq ($(CONFIG_FPGA_TEST),y)
 obj-y += clk_fpga.o
