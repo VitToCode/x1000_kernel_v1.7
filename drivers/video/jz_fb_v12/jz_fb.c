@@ -1804,6 +1804,7 @@ static void jzfb_late_resume(struct early_suspend *h)
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 	jzfb_set_par(jzfb->fb);
+	jzfb_disable(jzfb->fb);
 	jzfb_enable(jzfb->fb);
 
 	mutex_lock(&jzfb->suspend_lock);
