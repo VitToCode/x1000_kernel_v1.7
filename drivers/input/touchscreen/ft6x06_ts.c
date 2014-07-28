@@ -55,6 +55,7 @@ struct ts_event {
 	u8 au8_touch_event[CFG_MAX_TOUCH_POINTS];	/*touch event:
 					0 -- down; 1-- contact; 2 -- contact */
 	u8 au8_finger_id[CFG_MAX_TOUCH_POINTS];	/*touch ID */
+	u8 au8_touch_wight[CFG_MAX_TOUCH_POINTS];	/*touch Wight */
 	u16 pressure;
 	u8 touch_point;
 };
@@ -161,8 +162,6 @@ int ft6x06_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 /*release the point*/
 static void ft6x06_ts_release(struct ft6x06_ts_data *data)
 {
-	//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0);
-	input_report_abs(data->input_dev, ABS_PRESSURE, 0);
 	input_report_key(data->input_dev, BTN_TOUCH, 0);
 	if(1 == key_menu_status){
 		input_event(data->input_dev,EV_KEY,KEY_MENU,0);
@@ -176,6 +175,7 @@ static void ft6x06_ts_release(struct ft6x06_ts_data *data)
 		input_event(data->input_dev,EV_KEY,KEY_BACK,0);
 		key_back_status = 0;
 	}
+	input_mt_sync(data->input_dev);
 	input_sync(data->input_dev);
 	//printk("===>ts_release\n");
 }
@@ -198,17 +198,14 @@ static int ft6x06_read_Touchdata(struct ft6x06_ts_data *data)
 	}
 	memset(event, 0, sizeof(struct ts_event));
 
-#ifndef CONFIG_FT6X06_MULTITOUCH
 	event->touch_point = buf[2] & 0x0F;
 	if (event->touch_point == 0) {
 		ft6x06_ts_release(data);
 		return 1;
 	}
-#endif
 
 	event->touch_point = 0;
 	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
-	//for (i = 0; i < event->touch_point; i++) {
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
@@ -224,31 +221,14 @@ static int ft6x06_read_Touchdata(struct ft6x06_ts_data *data)
 		    buf[FT_TOUCH_EVENT_POS + FT_TOUCH_STEP * i] >> 6;
 		event->au8_finger_id[i] =
 		    (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
+		event->au8_touch_wight[i] =
+			(buf[FT_TOUCH_WEIGHT_POS + FT_TOUCH_STEP * i]);
 	}
 
 	event->pressure = FT_PRESS;
 
 	return 0;
 }
-
-#ifdef CONFIG_FT6X06_MULTITOUCH
-static void ft6x06_touch_down(struct ft6x06_ts_data *ts, s32 id, s32 x, s32 y, s32 w)
-{
-	// printk("ID%d down, (%d, %d)\n", id, x, y);
-	input_mt_slot(ts->input_dev, id);
-	input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, id);
-	input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
-	input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);
-	input_report_abs(ts->input_dev, ABS_MT_PRESSURE, w);
-}
-
-static void ft6x06_touch_up(struct ft6x06_ts_data *ts, s32 id)
-{
-	input_mt_slot(ts->input_dev, id);
-	input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, -1);
-	// printk("ID%d up\n", id);
-}
-#endif
 
 /*
 *report the point information
@@ -263,15 +243,15 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 		if (event->au16_x[i] < data->va_x_max
 		    && event->au16_y[i] < data->va_y_max) {
 #ifdef CONFIG_FT6X06_MULTITOUCH
-			if ((event->au8_touch_event[i] == FTS_POINT_DOWN)
-				|| (event->au8_touch_event[i] == FTS_POINT_CONTACT)) {
-				ft6x06_touch_down(data, event->au8_finger_id[i],
-						event->au16_x[i], event->au16_y[i],
-						event->pressure);
-
-			} else {
-				ft6x06_touch_up(data, event->au8_finger_id[i]);
-			}
+			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
+					event->au16_x[i]);
+			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
+					event->au16_y[i]);
+			input_report_abs(data->input_dev,ABS_MT_TOUCH_MAJOR,
+					event->au8_touch_wight[i]);
+			input_report_abs(data->input_dev,ABS_MT_WIDTH_MAJOR,
+					event->au8_touch_wight[i]);
+			input_mt_sync(data->input_dev);
 #else
 			if(0 == i){
 				s16 convert_x = 0;
@@ -393,16 +373,23 @@ static void ft6x06_ts_suspend(struct early_suspend *handler)
 	dev_dbg(&ts->client->dev, "[FTS]ft6x06 suspend\n");
 	disable_irq(ts->pdata->irq);
 }
-
+static void ft6x06_ts_reset(struct ft6x06_ts_data *ts)
+{
+	printk("in ft6x06_ts_reset func \n");
+	gpio_set_value(ts->pdata->reset, 1);
+	msleep(5);
+	gpio_set_value(ts->pdata->reset, 0);
+	msleep(10);
+	gpio_set_value(ts->pdata->reset, 1);
+	msleep(15);
+}
 static void ft6x06_ts_resume(struct early_suspend *handler)
 {
 	struct ft6x06_ts_data *ts = container_of(handler, struct ft6x06_ts_data,
 						early_suspend);
 
 	dev_dbg(&ts->client->dev, "[FTS]ft6x06 resume.\n");
-	gpio_set_value(ts->pdata->reset, 0);
-	msleep(20);
-	gpio_set_value(ts->pdata->reset, 1);
+	ft6x06_ts_reset(ts);
 	enable_irq(ts->pdata->irq);
 }
 #else
@@ -483,21 +470,12 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
-	set_bit(ABS_MT_PRESSURE, input_dev->absbit);
+	set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
 
-	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, PRESS_MAX, 0, 0);
-	// input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, ft6x06_ts->x_max, 0, 0);
-	// input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, ft6x06_ts->y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, ft6x06_ts->va_x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, ft6x06_ts->va_y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, PRESS_MAX, 0, 0);
-	input_set_abs_params(input_dev,
-			     ABS_MT_TRACKING_ID, 0, CFG_MAX_TOUCH_POINTS, 0, 0);
-	input_mt_init_slots(input_dev, 255);
 #else
 	set_bit(ABS_X, input_dev->absbit);
 	set_bit(ABS_Y, input_dev->absbit);
@@ -532,6 +510,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 		goto exit_input_register_device_failed;
 	}
 	/*make sure CTP already finish startup process */
+	ft6x06_ts_reset(ft6x06_ts);
 	msleep(150);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
