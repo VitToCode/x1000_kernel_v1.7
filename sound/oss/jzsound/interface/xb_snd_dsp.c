@@ -39,9 +39,17 @@ static mm_segment_t old_fs_record;
 #define DEBUG_REPLAYE_FILE "audio.pcm"
 #endif
 
+
 /*###########################################################*\
  * sub functions
  \*###########################################################*/
+
+
+static struct dsp_endpoints * xb_dsp_get_endpoints(struct snd_dev_data *ddata)
+{
+	return ddata->get_endpoints(ddata);
+}
+
 /********************************************************\
  * buffer
 \********************************************************/
@@ -1429,8 +1437,11 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 	if (ddata == NULL)
 		return -ENODEV;
-
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return -ENODEV;
 
@@ -1557,7 +1568,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	if (ddata == NULL)
 		return -ENODEV;
 
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return -ENODEV;
 
@@ -1681,7 +1696,12 @@ long xb_snd_dsp_ioctl(struct file *file,
 
 	if (ddata == NULL)
 		return -ENODEV;
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return -ENODEV;
 
@@ -2685,7 +2705,11 @@ int xb_snd_dsp_mmap(struct file *file,
 	if (ddata == NULL)
 		return ret;
 
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return ret;
 
@@ -2723,14 +2747,18 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-	int arg=0,state=0;
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
 		while(1);
 		return -ENODEV;
 	}
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL) {
 		while(1);
 		return -ENODEV;
@@ -2922,7 +2950,11 @@ int xb_snd_dsp_release(struct inode *inode,
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
 		return 0;
 
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return -1;
 
@@ -3000,7 +3032,11 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 	if (ddata == NULL)
 		return -1;
 
-	endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	if(ddata->priv_data) {
+		endpoints = xb_dsp_get_endpoints(ddata);
+	} else {
+		endpoints = (struct dsp_endpoints *)ddata->ext_data;
+	}
 	if (endpoints == NULL)
 		return -1;
 	/* out_endpoint init */
@@ -3034,7 +3070,13 @@ error1:
 int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 {
 	if (ddata){
-		struct dsp_endpoints * endpoints = (struct dsp_endpoints *)ddata->ext_data;
+		struct dsp_endpoints * endpoints = NULL;
+
+		if(ddata->priv_data) {
+			endpoints = xb_dsp_get_endpoints(ddata);
+		} else {
+			endpoints = (struct dsp_endpoints *)ddata->ext_data;
+		}
 		bool out_trans,in_trans;
 		if(endpoints->out_endpoint) {
 			mutex_lock(&endpoints->out_endpoint->mutex);
