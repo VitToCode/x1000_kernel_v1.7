@@ -37,17 +37,13 @@
  * global variable
  **/
 void volatile __iomem *volatile dmic_iomem;
-//static volatile bool dmic_is_incall_state = false;
 static LIST_HEAD(codecs_head);
 
-
-//static spinlock_t dmic_irq_lock;
 #define DMIC_IRQ
+
 struct jz_dmic {
 	unsigned long  rate_type;
 };
-
-//struct clk *dmic_clk = NULL;
 
 struct dmic_device {
 
@@ -58,13 +54,13 @@ struct dmic_device {
 	struct resource * res;
 	struct clk * i2s_clk; /*i2s_clk*/
 	struct clk * clk; /*dmic clk*/
-	struct clk * pwc_clk;
+	struct clk * pwc_clk;/* dmic pwc*/
 	volatile bool dmic_is_incall_state;
 	void __iomem * dmic_iomem;
 
+	struct dsp_endpoints *dmic_endpoints;
 	struct jz_dmic * cur_dmic;
 };
-
 
 static int dmic_set_private_data(struct snd_dev_data *ddata, struct dmic_device * dmic_dev)
 {
@@ -80,7 +76,7 @@ struct snd_dev_data * dmic_get_ddata(struct platform_device *pdev) {
 	return pdev->dev.platform_data;
 }
 
-static struct dsp_endpoints dmic_endpoints;
+//static struct dsp_endpoints dmic_endpoints;
 static int dmic_global_init(struct platform_device *pdev);
 bool dmic_is_incall(struct dmic_device * dmic_dev);
 
@@ -123,7 +119,7 @@ static int dmic_set_fmt(struct dmic_device * dmic_dev, unsigned long *format,int
 
 	int ret = 0;
 	struct dsp_pipe *dp = NULL;
-
+	struct dsp_endpoints * dmic_endpoints = dmic_dev->dmic_endpoints;
     /*
 	 * The value of format reference to soundcard.
 	 * AFMT_MU_LAW      0x00000001
@@ -146,7 +142,7 @@ static int dmic_set_fmt(struct dmic_device * dmic_dev, unsigned long *format,int
 	}
 
 	if (mode & CODEC_RMODE) {
-		dp = dmic_endpoints.in_endpoint;
+		dp = dmic_endpoints->in_endpoint;
 		dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		ret |= NEED_RECONF_TRIGGER;
 		ret |= NEED_RECONF_DMA;
@@ -165,9 +161,10 @@ static int dmic_set_fmt(struct dmic_device * dmic_dev, unsigned long *format,int
 static void dmic_set_filter(struct dmic_device * dmic_dev, int mode , uint32_t channels)
 {
 	struct dsp_pipe *dp = NULL;
+	struct dsp_endpoints * dmic_endpoints = dmic_dev->dmic_endpoints;
 
 	if (mode & CODEC_RMODE)
-		dp = dmic_endpoints.in_endpoint;
+		dp = dmic_endpoints->in_endpoint;
 	else
 		return;
 
@@ -432,6 +429,7 @@ static int dmic_record_init(struct dmic_device * dmic_dev, int mode)
 
 static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 {
+	struct dsp_endpoints * dmic_endpoints = dmic_dev->dmic_endpoints;
 	unsigned long record_rate = 8000;
 	unsigned long record_format = 16;
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
@@ -447,7 +445,7 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 
 	if (mode & CODEC_RMODE) {
 		printk("come to %s %d set dp_other\n", __func__, __LINE__);
-		dp_other = dmic_endpoints.in_endpoint;
+		dp_other = dmic_endpoints->in_endpoint;
 		dmic_set_fmt(dmic_dev, &record_format,mode);
 		dmic_set_rate(dmic_dev, &record_rate,mode);
 	}
@@ -469,7 +467,6 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 #endif
 	__dmic_enable();
 
-	printk("4444444444444\n");
 	dmic_dev->dmic_is_incall_state = false;
 
 	return 0;
@@ -545,9 +542,10 @@ static int dmic_get_fmt(struct dmic_device * dmic_dev, unsigned long *fmt, int m
 static void dmic_dma_need_reconfig(struct dmic_device * dmic_dev, int mode)
 {
 	struct dsp_pipe	*dp = NULL;
+	struct dsp_endpoints * dmic_endpoints = dmic_dev->dmic_endpoints;
 
 	if (mode & CODEC_RMODE) {
-		dp = dmic_endpoints.in_endpoint;
+		dp = dmic_endpoints->in_endpoint;
 		dp->need_reconfig_dma = true;
 	}
 	if (mode & CODEC_WMODE) {
@@ -784,6 +782,37 @@ static irqreturn_t dmic_irq_handler(int irq, void *dev_id)
 }
 #endif
 
+static int dmic_init_pipe_2(struct dsp_pipe *dp , enum dma_data_direction direction,unsigned long iobase)
+{
+	if(dp == NULL) {
+		printk("%s dp is null!!\n", __func__);
+		return -EINVAL;
+	}
+	dp->dma_config.direction = direction;
+	dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	dp->dma_type = JZDMA_REQ_I2S1;
+	dp->fragsize = FRAGSIZE_M;
+	dp->fragcnt = FRAGCNT_L;
+	/*(*dp)->fragcnt = FRAGCNT_B;*/
+
+	if (direction == DMA_FROM_DEVICE) {
+		dp->dma_config.src_maxburst = 32;
+		dp->dma_config.dst_maxburst = 32;
+		dp->dma_config.src_addr = iobase + DMICDR;
+		dp->dma_config.dst_addr = 0;
+	} else  if (direction == DMA_TO_DEVICE) {
+		dp->dma_config.src_maxburst = 32;
+		dp->dma_config.dst_maxburst = 32;
+		dp->dma_config.dst_addr = iobase + AICDR;
+		dp->dma_config.src_addr = 0;
+	} else
+		return -1;
+
+
+	return 0;
+}
+
 static int dmic_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsigned long iobase)
 {
 	if (*dp != NULL || dp == NULL)
@@ -856,19 +885,33 @@ static int dmic_global_init(struct platform_device *pdev)
 
 /****************************!!!!!!!!*************************/
 	dmic_iomem = dmic_dev->dmic_iomem;
-	ret = dmic_init_pipe(&dmic_pipe_out,DMA_TO_DEVICE,dmic_dev->res->start);
+
+
+	dmic_pipe_out = kmalloc(sizeof(struct dsp_pipe),GFP_KERNEL);
+	ret = dmic_init_pipe_2(dmic_pipe_out,DMA_TO_DEVICE,dmic_dev->res->start);
 	if (ret < 0) {
 		printk("%s init write pipe failed!\n", __func__);
 		goto __err_init_pipeout;
 	}
-	ret = dmic_init_pipe(&dmic_pipe_in,DMA_FROM_DEVICE,dmic_dev->res->start);
+
+	dmic_pipe_in = kmalloc(sizeof(struct dsp_pipe),GFP_KERNEL);
+	ret = dmic_init_pipe_2(dmic_pipe_in,DMA_FROM_DEVICE,dmic_dev->res->start);
 	if (ret < 0) {
 		printk("%s init read pipe failed!\n", __func__);
 		goto __err_init_pipein;
 	}
 
-	dmic_endpoints.out_endpoint = dmic_pipe_out;
-	dmic_endpoints.in_endpoint = dmic_pipe_in;
+	dmic_dev->dmic_endpoints = kmalloc(sizeof(struct dsp_endpoints), GFP_KERNEL);
+	if(!dmic_dev->dmic_endpoints) {
+		printk("err, unable to malloc dsp_endpoints\n");
+		goto __err_init_endpoints;
+	}
+
+	dmic_dev->dmic_endpoints->out_endpoint = dmic_pipe_out;
+	dmic_dev->dmic_endpoints->in_endpoint = dmic_pipe_in;
+
+	//dmic_endpoints.out_endpoint = dmic_pipe_out;
+	//dmic_endpoints.in_endpoint = dmic_pipe_in;
 /*****************************!!!!!!!! next ***********************/
 
 	/*request dmic clk */
@@ -918,6 +961,8 @@ __err_dmic_clk:
 __err_irq:
 	clk_disable(dmic_dev->clk);
 	clk_put(dmic_dev->clk);
+__err_init_endpoints:
+	vfree(dmic_pipe_in);
 __err_init_pipein:
 	vfree(dmic_pipe_out);
 __err_init_pipeout:
@@ -977,10 +1022,19 @@ static int dmic_resume(struct platform_device *pdev)
 	return 0;
 }
 
+struct dsp_endpoints * dmic_get_endpoints(struct snd_dev_data *ddata)
+{
+	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
+
+	printk("dmic_get_endpoints\n");
+	return dmic_dev->dmic_endpoints;
+}
+
 struct snd_dev_data dmic_data = {
 	//.dev_ioctl	   	= dmic_ioctl,
 	.dev_ioctl_2	= dmic_ioctl,
-	.ext_data		= &dmic_endpoints,
+	//.ext_data		= &dmic_endpoints,
+	.get_endpoints	= dmic_get_endpoints,
 	.minor			= SND_DEV_DSP3,
 	.init			= dmic_init,
 	.shutdown		= dmic_shutdown,
