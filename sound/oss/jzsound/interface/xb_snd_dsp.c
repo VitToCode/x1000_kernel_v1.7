@@ -2747,6 +2747,9 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+#ifndef CONFIG_ANDROID
+	int arg = 0, state = 0;
+#endif
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
