@@ -2070,129 +2070,142 @@ static void jzfb_display_h_color_bar(struct fb_info *info)
 		}
 	}
 }
-
 static void dump_lcdc_registers(struct jzfb *jzfb)
 {
-	int i,is_clk_en;
-	long unsigned int tmp;
-	struct device *dev = jzfb->dev;
+    int i,is_clk_en;
+    long unsigned int tmp;
+    struct device *dev = jzfb->dev;
 
-	is_clk_en = jzfb->is_clk_en;
-	jzfb_clk_enable(jzfb);
+    is_clk_en = jzfb->is_clk_en;
+    jzfb_clk_enable(jzfb);
 
-	/* LCD Controller Resgisters */
-	dev_info(dev, "jzfb->base: \t0x%08x\n", (unsigned int)(jzfb->base));
+    /* LCD Controller Resgisters */
+    dev_info(dev, "jzfb->base:\t0x%08x\n", (unsigned int)(jzfb->base));
 
-	dev_info(dev, "LCDC_CFG: \t0x%08lx\n", reg_read(jzfb, LCDC_CFG));
-	dev_info(dev, "LCDC_CTRL:\t0x%08lx\n", reg_read(jzfb, LCDC_CTRL));
-	dev_info(dev, "LCDC_STATE:\t0x%08lx\n", reg_read(jzfb, LCDC_STATE));
-	dev_info(dev, "LCDC_OSDC:\t0x%08lx\n", reg_read(jzfb, LCDC_OSDC));
-	dev_info(dev, "LCDC_OSDCTRL:\t0x%08lx\n", reg_read(jzfb, LCDC_OSDCTRL));
-	dev_info(dev, "LCDC_OSDS:\t0x%08lx\n", reg_read(jzfb, LCDC_OSDS));
-	dev_info(dev, "LCDC_BGC0:\t0x%08lx\n", reg_read(jzfb, LCDC_BGC0));
-	dev_info(dev, "LCDC_BGC1:\t0x%08lx\n", reg_read(jzfb, LCDC_BGC1));
-	dev_info(dev, "LCDC_KEY0:\t0x%08lx\n", reg_read(jzfb, LCDC_KEY0));
-	dev_info(dev, "LCDC_KEY1:\t0x%08lx\n", reg_read(jzfb, LCDC_KEY1));
-	dev_info(dev, "LCDC_ALPHA:\t0x%08lx\n", reg_read(jzfb, LCDC_ALPHA));
-	dev_info(dev, "LCDC_IPUR:\t0x%08lx\n", reg_read(jzfb, LCDC_IPUR));
-	dev_info(dev, "==================================\n");
-	tmp = reg_read(jzfb, LCDC_VAT);
-	dev_info(dev, "LCDC_VAT: \t0x%08lx, HT = %ld, VT = %ld\n", tmp,
-		 (tmp & LCDC_VAT_HT_MASK) >> LCDC_VAT_HT_BIT,
-		 (tmp & LCDC_VAT_VT_MASK) >> LCDC_VAT_VT_BIT);
-	tmp = reg_read(jzfb, LCDC_DAH);
-	dev_info(dev, "LCDC_DAH: \t0x%08lx, HDS = %ld, HDE = %ld\n", tmp,
-		 (tmp & LCDC_DAH_HDS_MASK) >> LCDC_DAH_HDS_BIT,
-		 (tmp & LCDC_DAH_HDE_MASK) >> LCDC_DAH_HDE_BIT);
-	tmp = reg_read(jzfb, LCDC_DAV);
-	dev_info(dev, "LCDC_DAV: \t0x%08lx, VDS = %ld, VDE = %ld\n", tmp,
-		 (tmp & LCDC_DAV_VDS_MASK) >> LCDC_DAV_VDS_BIT,
-		 (tmp & LCDC_DAV_VDE_MASK) >> LCDC_DAV_VDE_BIT);
-	tmp = reg_read(jzfb, LCDC_HSYNC);
-	dev_info(dev, "LCDC_HSYNC:\t0x%08lx, HPS = %ld, HPE = %ld\n", tmp,
-		 (tmp & LCDC_HSYNC_HPS_MASK) >> LCDC_HSYNC_HPS_BIT,
-		 (tmp & LCDC_HSYNC_HPE_MASK) >> LCDC_HSYNC_HPE_BIT);
-	tmp = reg_read(jzfb, LCDC_VSYNC);
-	dev_info(dev, "LCDC_VSYNC:\t0x%08lx, VPS = %ld, VPE = %ld\n", tmp,
-		 (tmp & LCDC_VSYNC_VPS_MASK) >> LCDC_VSYNC_VPS_BIT,
-		 (tmp & LCDC_VSYNC_VPE_MASK) >> LCDC_VSYNC_VPE_BIT);
-	dev_info(dev, "==================================\n");
-	dev_info(dev, "LCDC_XYP0:\t0x%08lx\n", reg_read(jzfb, LCDC_XYP0));
-	dev_info(dev, "LCDC_XYP1:\t0x%08lx\n", reg_read(jzfb, LCDC_XYP1));
-	dev_info(dev, "LCDC_SIZE0:\t0x%08lx\n", reg_read(jzfb, LCDC_SIZE0));
-	dev_info(dev, "LCDC_SIZE1:\t0x%08lx\n", reg_read(jzfb, LCDC_SIZE1));
-	dev_info(dev, "LCDC_RGBC \t0x%08lx\n", reg_read(jzfb, LCDC_RGBC));
-	dev_info(dev, "LCDC_PS:  \t0x%08lx\n", reg_read(jzfb, LCDC_PS));
-	dev_info(dev, "LCDC_CLS: \t0x%08lx\n", reg_read(jzfb, LCDC_CLS));
-	dev_info(dev, "LCDC_SPL: \t0x%08lx\n", reg_read(jzfb, LCDC_SPL));
-	dev_info(dev, "LCDC_REV: \t0x%08lx\n", reg_read(jzfb, LCDC_REV));
-	dev_info(dev, "LCDC_IID: \t0x%08lx\n", reg_read(jzfb, LCDC_IID));
-	dev_info(dev, "==================================\n");
-	dev_info(dev, "LCDC_DA0: \t0x%08lx\n", reg_read(jzfb, LCDC_DA0));
-	dev_info(dev, "LCDC_SA0: \t0x%08lx\n", reg_read(jzfb, LCDC_SA0));
-	dev_info(dev, "LCDC_FID0:\t0x%08lx\n", reg_read(jzfb, LCDC_FID0));
-	dev_info(dev, "LCDC_CMD0:\t0x%08lx\n", reg_read(jzfb, LCDC_CMD0));
-	dev_info(dev, "LCDC_OFFS0:\t0x%08lx\n", reg_read(jzfb, LCDC_OFFS0));
-	dev_info(dev, "LCDC_PW0: \t0x%08lx\n", reg_read(jzfb, LCDC_PW0));
-	dev_info(dev, "LCDC_CNUM0:\t0x%08lx\n", reg_read(jzfb, LCDC_CNUM0));
-	dev_info(dev, "LCDC_DESSIZE0:\t0x%08lx\n",
-		 reg_read(jzfb, LCDC_DESSIZE0));
-	dev_info(dev, "==================================\n");
-	dev_info(dev, "LCDC_DA1: \t0x%08lx\n", reg_read(jzfb, LCDC_DA1));
-	dev_info(dev, "LCDC_SA1: \t0x%08lx\n", reg_read(jzfb, LCDC_SA1));
-	dev_info(dev, "LCDC_FID1:\t0x%08lx\n", reg_read(jzfb, LCDC_FID1));
-	dev_info(dev, "LCDC_CMD1:\t0x%08lx\n", reg_read(jzfb, LCDC_CMD1));
-	dev_info(dev, "LCDC_OFFS1:\t0x%08lx\n", reg_read(jzfb, LCDC_OFFS1));
-	dev_info(dev, "LCDC_PW1: \t0x%08lx\n", reg_read(jzfb, LCDC_PW1));
-	dev_info(dev, "LCDC_CNUM1:\t0x%08lx\n", reg_read(jzfb, LCDC_CNUM1));
-	dev_info(dev, "LCDC_DESSIZE1:\t0x%08lx\n",
-		 reg_read(jzfb, LCDC_DESSIZE1));
-	dev_info(dev, "==================================\n");
-	dev_info(dev, "LCDC_PCFG:\t0x%08lx\n", reg_read(jzfb, LCDC_PCFG));
-	dev_info(dev, "==================================\n");
-	dev_info(dev, "SLCDC_CFG: \t0x%08lx\n", reg_read(jzfb, SLCDC_CFG));
-	dev_info(dev, "SLCDC_CTRL: \t0x%08lx\n", reg_read(jzfb, SLCDC_CTRL));
-	dev_info(dev, "SLCDC_STATE: \t0x%08lx\n", reg_read(jzfb, SLCDC_STATE));
-	dev_info(dev, "SLCDC_DATA: \t0x%08lx\n", reg_read(jzfb, SLCDC_DATA));
-	dev_info(dev, "SLCDC_CFG_NEW: \t0x%08lx\n",
-		 reg_read(jzfb, SLCDC_CFG_NEW));
-	dev_info(dev, "SLCDC_WTIME: \t0x%08lx\n", reg_read(jzfb, SLCDC_WTIME));
-	dev_info(dev, "SLCDC_TAS: \t0x%08lx\n", reg_read(jzfb, SLCDC_TAS));
-	dev_info(dev, "==================================\n");
-	for (i = 0; i < jzfb->desc_num; i++) {
-		if (!jzfb->framedesc[i])
-			break;
-		dev_info(dev, "==================================\n");
-		if (i != jzfb->desc_num - 1) {
-			dev_info(dev, "jzfb->framedesc[%d]: %p\n", i,
-				 jzfb->framedesc[i]);
-			dev_info(dev, "DMA 0 descriptor value in memory\n");
-		} else {
-			dev_info(dev, "jzfb->fg1_framedesc: %p\n",
-				 jzfb->framedesc[i]);
-			dev_info(dev, "DMA 1 descriptor value in memory\n");
-		}
-		dev_info(dev, "framedesc[%d]->next: \t0x%08x\n", i,
-			 jzfb->framedesc[i]->next);
-		dev_info(dev, "framedesc[%d]->databuf:  \t0x%08x\n", i,
-			 jzfb->framedesc[i]->databuf);
-		dev_info(dev, "framedesc[%d]->id: \t0x%08x\n", i,
-			 jzfb->framedesc[i]->id);
-		dev_info(dev, "framedesc[%d]->cmd:\t0x%08x\n", i,
-			 jzfb->framedesc[i]->cmd);
-		dev_info(dev, "framedesc[%d]->offsize:\t0x%08x\n", i,
-			 jzfb->framedesc[i]->offsize);
-		dev_info(dev, "framedesc[%d]->page_width:\t0x%08x\n", i,
-			 jzfb->framedesc[i]->page_width);
-		dev_info(dev, "framedesc[%d]->cpos:\t0x%08x\n", i,
-			 jzfb->framedesc[i]->cpos);
-		dev_info(dev, "framedesc[%d]->desc_size:\t0x%08x\n", i,
-			 jzfb->framedesc[i]->desc_size);
-	}
-	if (!is_clk_en)
-		jzfb_clk_disable(jzfb);
+    dev_info(dev, "LCDC_CFG:(0x%08x)\t0x%08lx\n",LCDC_CFG, reg_read(jzfb, LCDC_CFG));
+    dev_info(dev, "LCDC_CTRL:(0x%08x)\t0x%08lx\n", LCDC_CTRL,reg_read(jzfb, LCDC_CTRL));
+    dev_info(dev, "LCDC_STATE:(0x%08x)\t0x%08lx\n",LCDC_STATE, reg_read(jzfb, LCDC_STATE));
+    dev_info(dev, "LCDC_OSDC:(0x%08x)\t0x%08lx\n",LCDC_OSDC, reg_read(jzfb, LCDC_OSDC));
+    dev_info(dev, "LCDC_OSDCTRL:(0x%08x)\t0x%08lx\n",LCDC_OSDCTRL, reg_read(jzfb, LCDC_OSDCTRL));
+    dev_info(dev, "LCDC_OSDS:(0x%08x)\t0x%08lx\n",LCDC_OSDS, reg_read(jzfb, LCDC_OSDS));
+    dev_info(dev, "LCDC_BGC0:(0x%08x)\t0x%08lx\n",LCDC_BGC0, reg_read(jzfb, LCDC_BGC0));
+    dev_info(dev, "LCDC_BGC1:(0x%08x)\t0x%08lx\n",LCDC_BGC1, reg_read(jzfb, LCDC_BGC1));
+    dev_info(dev, "LCDC_KEY0:(0x%08x)\t0x%08lx\n",LCDC_KEY0, reg_read(jzfb, LCDC_KEY0));
+    dev_info(dev, "LCDC_KEY1:(0x%08x)\t0x%08lx\n", LCDC_KEY1,reg_read(jzfb, LCDC_KEY1));
+    dev_info(dev, "LCDC_ALPHA:(0x%08x)\t0x%08lx\n",LCDC_ALPHA, reg_read(jzfb, LCDC_ALPHA));
+    dev_info(dev, "LCDC_IPUR:(0x%08x)\t0x%08lx\n",LCDC_IPUR, reg_read(jzfb, LCDC_IPUR));
+    dev_info(dev, "==================================\n");
+    tmp = reg_read(jzfb, LCDC_VAT);
+    dev_info(dev, "LCDC_VAT:(0x%08x)\t0x%08lx, HT = %ld, VT = %ld\n",LCDC_VAT, tmp,
+            (tmp & LCDC_VAT_HT_MASK) >> LCDC_VAT_HT_BIT,
+            (tmp & LCDC_VAT_VT_MASK) >> LCDC_VAT_VT_BIT);
+    tmp = reg_read(jzfb, LCDC_DAH);
+    dev_info(dev, "LCDC_DAH:(0x%08x)\t0x%08lx, HDS = %ld, HDE = %ld\n", LCDC_DAH,tmp,
+            (tmp & LCDC_DAH_HDS_MASK) >> LCDC_DAH_HDS_BIT,
+            (tmp & LCDC_DAH_HDE_MASK) >> LCDC_DAH_HDE_BIT);
+    tmp = reg_read(jzfb, LCDC_DAV);
+    dev_info(dev, "LCDC_DAV:(0x%08x)\t0x%08lx, VDS = %ld, VDE = %ld\n", LCDC_DAV,tmp,
+            (tmp & LCDC_DAV_VDS_MASK) >> LCDC_DAV_VDS_BIT,
+            (tmp & LCDC_DAV_VDE_MASK) >> LCDC_DAV_VDE_BIT);
+    tmp = reg_read(jzfb, LCDC_HSYNC);
+    dev_info(dev, "LCDC_HSYNC:(0x%08x)\t0x%08lx, HPS = %ld, HPE = %ld\n", LCDC_HSYNC,tmp,
+            (tmp & LCDC_HSYNC_HPS_MASK) >> LCDC_HSYNC_HPS_BIT,
+            (tmp & LCDC_HSYNC_HPE_MASK) >> LCDC_HSYNC_HPE_BIT);
+    tmp = reg_read(jzfb, LCDC_VSYNC);
+    dev_info(dev, "LCDC_VSYNC:(0x%08x)\t0x%08lx, VPS = %ld, VPE = %ld\n", LCDC_VSYNC,tmp,
+            (tmp & LCDC_VSYNC_VPS_MASK) >> LCDC_VSYNC_VPS_BIT,
+            (tmp & LCDC_VSYNC_VPE_MASK) >> LCDC_VSYNC_VPE_BIT);
+    dev_info(dev, "==================================\n");
+    dev_info(dev, "LCDC_XYP0:(0x%08x)\t0x%08lx\n",LCDC_XYP0, reg_read(jzfb, LCDC_XYP0));
+    dev_info(dev, "LCDC_XYP1:(0x%08x)\t0x%08lx\n",LCDC_XYP1, reg_read(jzfb, LCDC_XYP1));
+    dev_info(dev, "LCDC_SIZE0:(0x%08x)\t0x%08lx\n",LCDC_SIZE0, reg_read(jzfb, LCDC_SIZE0));
+    dev_info(dev, "LCDC_SIZE1:(0x%08x)\t0x%08lx\n",LCDC_SIZE1, reg_read(jzfb, LCDC_SIZE1));
+    dev_info(dev, "LCDC_RGBC:(0x%08x) \t0x%08lx\n",LCDC_RGBC, reg_read(jzfb, LCDC_RGBC));
+    dev_info(dev, "LCDC_PS:(0x%08x)\t0x%08lx\n",LCDC_PS, reg_read(jzfb, LCDC_PS));
+    dev_info(dev, "LCDC_CLS:(0x%08x)\t0x%08lx\n",LCDC_CLS, reg_read(jzfb, LCDC_CLS));
+    dev_info(dev, "LCDC_SPL:(0x%08x)\t0x%08lx\n",LCDC_SPL, reg_read(jzfb, LCDC_SPL));
+    dev_info(dev, "LCDC_REV:(0x%08x)\t0x%08lx\n",LCDC_REV, reg_read(jzfb, LCDC_REV));
+    dev_info(dev, "LCDC_IID:(0x%08x)\t0x%08lx\n",LCDC_IID, reg_read(jzfb, LCDC_IID));
+    dev_info(dev, "==================================\n");
+    dev_info(dev, "LCDC_DA0:(0x%08x)\t0x%08lx\n",LCDC_DA0, reg_read(jzfb, LCDC_DA0));
+    dev_info(dev, "LCDC_SA0:(0x%08x)\t0x%08lx\n",LCDC_SA0, reg_read(jzfb, LCDC_SA0));
+    dev_info(dev, "LCDC_FID0:(0x%08x)\t0x%08lx\n",LCDC_FID0, reg_read(jzfb, LCDC_FID0));
+    dev_info(dev, "LCDC_CMD0:(0x%08x)\t0x%08lx\n",LCDC_CMD0, reg_read(jzfb, LCDC_CMD0));
+    dev_info(dev, "LCDC_OFFS0:(0x%08x)\t0x%08lx\n",LCDC_OFFS0, reg_read(jzfb, LCDC_OFFS0));
+    dev_info(dev, "LCDC_PW0:(0x%08x)\t0x%08lx\n", LCDC_PW0,reg_read(jzfb, LCDC_PW0));
+    dev_info(dev, "LCDC_CNUM0:(0x%08x)\t0x%08lx\n",LCDC_CNUM0, reg_read(jzfb, LCDC_CNUM0));
+    dev_info(dev, "LCDC_DESSIZE0:(0x%08x)\t0x%08lx\n",LCDC_DESSIZE0,
+            reg_read(jzfb, LCDC_DESSIZE0));
+    dev_info(dev, "==================================\n");
+    dev_info(dev, "LCDC_DA1:(0x%08x)\t0x%08lx\n",LCDC_DA1, reg_read(jzfb, LCDC_DA1));
+    dev_info(dev, "LCDC_SA1:(0x%08x)\t0x%08lx\n",LCDC_SA1, reg_read(jzfb, LCDC_SA1));
+    dev_info(dev, "LCDC_FID1:(0x%08x)\t0x%08lx\n",LCDC_FID1, reg_read(jzfb, LCDC_FID1));
+    dev_info(dev, "LCDC_CMD1:(0x%08x)\t0x%08lx\n", LCDC_CMD1,reg_read(jzfb, LCDC_CMD1));
+    dev_info(dev, "LCDC_OFFS1:(0x%08x)\t0x%08lx\n",LCDC_OFFS1, reg_read(jzfb, LCDC_OFFS1));
+    dev_info(dev, "LCDC_PW1:(0x%08x)\t0x%08lx\n",LCDC_PW1, reg_read(jzfb, LCDC_PW1));
+    dev_info(dev, "LCDC_CNUM1:(0x%08x)\t0x%08lx\n",LCDC_CNUM1, reg_read(jzfb, LCDC_CNUM1));
+    dev_info(dev, "LCDC_DESSIZE1:(0x%08x)\t0x%08lx\n",LCDC_DESSIZE1,
+            reg_read(jzfb, LCDC_DESSIZE1));
+    dev_info(dev, "==================================\n");
+    dev_info(dev, "LCDC_PCFG:(0x%08x)\t0x%08lx\n",LCDC_PCFG, reg_read(jzfb, LCDC_PCFG));
+    dev_info(dev, "==================================\n");
+    dev_info(dev, "SLCDC_CFG:(0x%08x) \t0x%08lx\n",SLCDC_CFG, reg_read(jzfb, SLCDC_CFG));
+    dev_info(dev, "SLCDC_CTRL:(0x%08x) \t0x%08lx\n",SLCDC_CTRL, reg_read(jzfb, SLCDC_CTRL));
+    dev_info(dev, "SLCDC_STATE:(0x%08x) \t0x%08lx\n",SLCDC_STATE, reg_read(jzfb, SLCDC_STATE));
+    dev_info(dev, "SLCDC_DATA:(0x%08x) \t0x%08lx\n",SLCDC_DATA, reg_read(jzfb, SLCDC_DATA));
+    dev_info(dev, "SLCDC_CFG_NEW:(0x%08x) \t0x%08lx\n",SLCDC_CFG_NEW,
+            reg_read(jzfb, SLCDC_CFG_NEW));
+    dev_info(dev, "SLCDC_WTIME:(0x%08x) \t0x%08lx\n",SLCDC_WTIME, reg_read(jzfb, SLCDC_WTIME));
+    dev_info(dev, "SLCDC_TAS:(0x%08x) \t0x%08lx\n",SLCDC_TAS, reg_read(jzfb, SLCDC_TAS));
+    dev_info(dev, "==================================\n");
+    printk("reg:0x10000020 value=0x%08x  (24bit) Clock Gate Register0\n",
+            *(unsigned int *)0xb0000020);
+    printk("reg:0x100000e4 value=0x%08x  (5bit_lcdc 21bit_lcdcs) Power Gate Register: \n",
+            *(unsigned int *)0xb00000e4);
+    printk("reg:0x100000b8 value=0x%08x  (10bit) SRAM Power Control Register0 \n",
+            *(unsigned int *)0xb00000b8);
+    printk("reg:0x10000064 value=0x%08x  Lcd pixclock \n",
+            *(unsigned int *)0xb0000064);
+    printk("==================================\n");
+    printk("PCINT:\t0x%08x\n", *(unsigned int *)0xb0010210);
+    printk("PCMASK:\t0x%08x\n",*(unsigned int *)0xb0010220);
+    printk("PCPAT1:\t0x%08x\n",*(unsigned int *)0xb0010230);
+    printk("PCPAT0:\t0x%08x\n",*(unsigned int *)0xb0010240);static
+        dev_info(dev, "==================================\n");
+    for (i = 0; i < jzfb->desc_num; i++) {
+        if (!jzfb->framedesc[i])
+            break;
+        dev_info(dev, "==================================\n");
+        if (i != jzfb->desc_num - 1) {
+            dev_info(dev, "jzfb->framedesc[%d]: %p\n", i,
+                    jzfb->framedesc[i]);
+            dev_info(dev, "DMA 0 descriptor value in memory\n");
+        } else {
+            dev_info(dev, "jzfb->fg1_framedesc: %p\n",
+                    jzfb->framedesc[i]);
+            dev_info(dev, "DMA 1 descriptor value in memory\n");
+        }
+        dev_info(dev, "framedesc[%d]->next: \t0x%08x\n", i,
+                jzfb->framedesc[i]->next);
+        dev_info(dev, "framedesc[%d]->databuf:  \t0x%08x\n", i,
+                jzfb->framedesc[i]->databuf);
+        dev_info(dev, "framedesc[%d]->id: \t0x%08x\n", i,
+                jzfb->framedesc[i]->id);
+        dev_info(dev, "framedesc[%d]->cmd:\t0x%08x\n", i,
+                jzfb->framedesc[i]->cmd);
+        dev_info(dev, "framedesc[%d]->offsize:\t0x%08x\n", i,
+                jzfb->framedesc[i]->offsize);
+        dev_info(dev, "framedesc[%d]->page_width:\t0x%08x\n", i,
+                jzfb->framedesc[i]->page_width);
+        dev_info(dev, "framedesc[%d]->cpos:\t0x%08x\n", i,
+                jzfb->framedesc[i]->cpos);
+        dev_info(dev, "framedesc[%d]->desc_size:\t0x%08x\n", i,
+                jzfb->framedesc[i]->desc_size);
+    }
+    if (!is_clk_en)
+        jzfb_clk_disable(jzfb);
 
-	return;
+    return;
 }
 
 static ssize_t
