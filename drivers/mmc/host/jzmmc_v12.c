@@ -1793,6 +1793,8 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 	iounmap(host->decshds[0].dma_desc);
 	regulator_put(host->power);
 	clk_disable(host->clk);
+	clk_disable(host->clk_gate);
+
 	clk_put(host->clk);
 	clk_put(host->clk_gate);
 	iounmap(host->iomem);
@@ -1811,6 +1813,7 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 
 		if(clk_is_enabled(host->clk)) {
 			clk_disable(host->clk);
+			clk_disable(host->clk_gate);
 		}
 	}
 	return ret;
@@ -1825,6 +1828,7 @@ static int jzmmc_resume(struct platform_device *dev)
 
 		if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 			clk_enable(host->clk);
+			clk_enable(host->clk_gate);
 			jzmmc_reset(host);
 		}
 		ret = mmc_resume_host(host->mmc);
