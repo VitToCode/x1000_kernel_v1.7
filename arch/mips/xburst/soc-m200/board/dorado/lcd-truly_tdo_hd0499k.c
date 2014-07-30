@@ -130,25 +130,7 @@ static int backlight_init(struct device *dev)
 		return ret;
 	}
 
-	ret = gpio_request(GPIO_BL_PWR_EN, "BL PWR");
-	if (ret) {
-		printk(KERN_ERR "failed to reqeust BL PWR\n");
-		return ret;
-	}
-
-//	gpio_direction_output(GPIO_BL_PWR_EN, 1);
-
 	return 0;
-}
-
-static int backlight_notify(struct device *dev, int brightness)
-{
-	if (brightness)
-		gpio_direction_output(GPIO_BL_PWR_EN, 1);
-	else
-		gpio_direction_output(GPIO_BL_PWR_EN, 0);
-
-	return brightness;
 }
 
 static void backlight_exit(struct device *dev)
@@ -163,7 +145,6 @@ static struct platform_pwm_backlight_data backlight_data = {
 	.pwm_period_ns	= 30000,
 	.init		= backlight_init,
 	.exit		= backlight_exit,
-	.notify		= backlight_notify,
 };
 
 struct platform_device backlight_device = {

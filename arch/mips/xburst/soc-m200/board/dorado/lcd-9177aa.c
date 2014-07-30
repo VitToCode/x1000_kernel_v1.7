@@ -87,7 +87,7 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.video_config.no_of_lanes = 2,
 	.video_config.virtual_channel = 0,
 	.video_config.color_coding = COLOR_CODE_24BIT,
-	.video_config.byte_clock = DEFAULT_DATALANE_BPS / 8,	/* KHz  */
+	.video_config.byte_clock =  DEFAULT_DATALANE_BPS / 8,	/* KHz  */
 	.video_config.video_mode = VIDEO_BURST_WITH_SYNC_PULSES,
 	.video_config.receive_ack_packets = 0,	/* enable receiving of ack packets */
 	/*loosely: R0R1R2R3R4R5__G0G1G2G3G4G5G6__B0B1B2B3B4B5B6,
@@ -131,25 +131,9 @@ static int backlight_init(struct device *dev)
 		return ret;
 	}
 
-	ret = gpio_request(GPIO_BL_PWR_EN, "BL PWR");
-	if (ret) {
-		printk(KERN_ERR "failed to reqeust BL PWR\n");
-		return ret;
-	}
-
 //	gpio_direction_output(GPIO_BL_PWR_EN, 1);
 
 	return 0;
-}
-
-static int backlight_notify(struct device *dev, int brightness)
-{
-	if (brightness)
-		gpio_direction_output(GPIO_BL_PWR_EN, 1);
-	else
-		gpio_direction_output(GPIO_BL_PWR_EN, 0);
-
-	return brightness;
 }
 
 static void backlight_exit(struct device *dev)
@@ -164,7 +148,6 @@ static struct platform_pwm_backlight_data backlight_data = {
 	.pwm_period_ns	= 30000,
 	.init		= backlight_init,
 	.exit		= backlight_exit,
-	.notify		= backlight_notify,
 };
 
 struct platform_device backlight_device = {
