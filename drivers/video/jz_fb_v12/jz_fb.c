@@ -2170,7 +2170,7 @@ static void dump_lcdc_registers(struct jzfb *jzfb)
     printk("PCINT:\t0x%08x\n", *(unsigned int *)0xb0010210);
     printk("PCMASK:\t0x%08x\n",*(unsigned int *)0xb0010220);
     printk("PCPAT1:\t0x%08x\n",*(unsigned int *)0xb0010230);
-    printk("PCPAT0:\t0x%08x\n",*(unsigned int *)0xb0010240);static
+    printk("PCPAT0:\t0x%08x\n",*(unsigned int *)0xb0010240);
         dev_info(dev, "==================================\n");
     for (i = 0; i < jzfb->desc_num; i++) {
         if (!jzfb->framedesc[i])
