@@ -48,7 +48,6 @@ extern struct platform_device truly_tft240240_device;
 #define GPIO_LCD_RST		GPIO_PA(12)
 #define GPIO_LCD_CS		GPIO_PA(11)
 #define GPIO_LCD_RD		GPIO_PC(8)
-#define GPIO_BL_PWR_EN		GPIO_PD(26)
 #define GPIO_MIPI_IF_SEL	GPIO_PC(1)
 #define GPIO_MIPI_RST		GPIO_PE(29)
 #define GPIO_LCD_B_SYNC		GPIO_PE(20)
