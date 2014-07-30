@@ -36,9 +36,10 @@
 /**
  * global variable
  **/
-void volatile __iomem *volatile dmic_iomem;
 static LIST_HEAD(codecs_head);
 
+
+#define FIFO_THR_VALE	(65)
 #define DMIC_IRQ
 
 struct jz_dmic {
@@ -50,13 +51,16 @@ struct dmic_device {
 	int dmic_irq;
 	spinlock_t dmic_irq_lock;
 
+	spinlock_t dmic_lock; /*P:register*/
 	char name[20];
 	struct resource * res;
-	struct clk * i2s_clk; /*i2s_clk*/
-	struct clk * clk; /*dmic clk*/
-	struct clk * pwc_clk;/* dmic pwc*/
+	struct clk * i2s_clk; /*i2s_clk P:mutex */
+	struct clk * clk; /*dmic clk P:mutex */
+	struct clk * pwc_clk;/* dmic pwc P:mutex */
 	volatile bool dmic_is_incall_state;
 	void __iomem * dmic_iomem;
+
+	struct mutex mutex; /*not used*/
 
 	struct dsp_endpoints *dmic_endpoints;
 	struct jz_dmic * cur_dmic;
@@ -76,9 +80,53 @@ struct snd_dev_data * dmic_get_ddata(struct platform_device *pdev) {
 	return pdev->dev.platform_data;
 }
 
-//static struct dsp_endpoints dmic_endpoints;
 static int dmic_global_init(struct platform_device *pdev);
 bool dmic_is_incall(struct dmic_device * dmic_dev);
+
+
+
+/* -----------------register access ------------------*/
+static inline void dmic_enable_irq(struct dmic_device *dmic_dev, unsigned long bits)
+{
+	unsigned long imsk, flags;
+	spin_lock_irqsave(&dmic_dev->dmic_lock, flags);
+	imsk = dmic_readl(dmic_dev, DMICIMR);
+	imsk &= ~bits;
+	dmic_writel(dmic_dev, DMICIMR, imsk);
+	spin_unlock_irqrestore(&dmic_dev->dmic_lock, flags);
+}
+static inline void dmic_disable_irq(struct dmic_device * dmic_dev, unsigned long bits)
+{
+	unsigned long imsk, flags;
+	spin_lock_irqsave(&dmic_dev->dmic_lock, flags);
+	imsk = dmic_readl(dmic_dev, DMICIMR);
+	imsk |= bits;
+	dmic_writel(dmic_dev, DMICIMR, imsk);
+	spin_unlock_irqrestore(&dmic_dev->dmic_lock, flags);
+
+}
+static inline void dmic_clear_irq(struct dmic_device *dmic_dev, unsigned long bits)
+{
+	dmic_writel(dmic_dev, DMICICR, bits);
+}
+
+static inline void dmic_write_part(struct dmic_device *dmic_dev, unsigned int reg, \
+		unsigned int value, unsigned int shift, enum regs_bit_width width)
+{
+	unsigned int mask = (1 << width) - 1;
+	unsigned int temp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dmic_dev->dmic_lock, flags);
+
+	temp = dmic_readl(dmic_dev, reg);
+	temp &= ~(mask << shift);
+	temp |= (value & mask) << shift;
+	dmic_writel(dmic_dev, reg, temp);
+
+	spin_unlock_irqrestore(&dmic_dev->dmic_lock, flags);
+}
+/* ---------------register access end--------------*/
 
 /*##################################################################*\
  | dump
@@ -88,15 +136,15 @@ static void dump_dmic_reg(struct dmic_device *dmic_dev)
 {
 	int i;
 	unsigned long reg_addr[] = {
-		DMICCR0, DMICGCR, DMICIMR, DMICINTCR, DMICTRICR, DMICTHRH,
-		DMICTHRL, DMICTRIMMAX, DMICTRINMAX, DMICFTHR, DMICFSR, DMICCGDIS
+		DMICCR0, DMICGCR, DMICIMR, DMICICR, DMICTRICR, DMICTHRH,
+		DMICTHRL, DMICTRIMMAX, DMICTRINMAX, DMICFCR, DMICFSR, DMICCGDIS
 	};
 
 	for (i = 0;i < 12; i++) {
 		printk("##### dmic reg0x%x,=0x%x.\n",
-	   	(unsigned int)reg_addr[i],dmic_read_reg(reg_addr[i]));
+	   	(unsigned int)reg_addr[i],dmic_readl(dmic_dev, reg_addr[i]));
 	}
-	printk("##### intc,=0x%x.\n",*((volatile unsigned int *)(0xb0001000)));
+	//printk("##### intc,=0x%x.\n",*((volatile unsigned int *)(0xb0001000)));
 }
 
 /*######DMICTRIMMAX############################################################*\
@@ -169,15 +217,7 @@ static void dmic_set_filter(struct dmic_device * dmic_dev, int mode , uint32_t c
 		return;
 
 	if (channels == 1) {
-#if 0
-		dp->filter = convert_16bits_stereomix2mono;
-		printk("dp->filter convert_16bits_stereomix2mono\n");
-		dp->filter = convert_32bits_stereo2_16bits_mono;
-#else
 		dp->filter = convert_16bits_stereo2mono;
-		/*dp->filter = convert_32bits_stereo2_16bits_mono;*/
-	//	printk("dp->filter convert_32bits_stereo2_16bits_mono\n");
-#endif
 	} else if (channels == 3){
 		dp->filter = convert_32bits_2_20bits_tri_mode;
 	} else if (channels == 2){
@@ -188,42 +228,16 @@ static void dmic_set_filter(struct dmic_device * dmic_dev, int mode , uint32_t c
 	}
 }
 
-#if 0
-#define I2S_RX_FIFO_DEPTH       32
-
-static int get_burst_length(unsigned long val)
-{
-	/* burst bytes for 1,2,4,8,16,32,64 bytes */
-	int ord;
-
-	ord = ffs(val) - 1;
-	if (ord < 0)
-		ord = 0;
-	else if (ord > 6)
-		ord = 6;
-
-	/* if tsz == 8, set it to 4 */
-	return (ord == 3 ? 4 : 1 << ord)*8;
-}
-#endif
 static int dmic_set_trigger(struct dmic_device * dmic_dev, int mode)
 {
-
 	if (mode & CODEC_RMODE) {
 
-		__dmic_enable_rdms();
-#if 0
-		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
-				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
-		if (I2S_RX_FIFO_DEPTH <= burst_length/data_width)
-			__i2s_set_receive_trigger(((burst_length/data_width +1) >> 1) - 1);
-		else
-			__i2s_set_receive_trigger(8);
-#endif
-		__dmic_set_request(65);
+		dmic_write_part(dmic_dev, DMICFCR, 1, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
+
+		dmic_write_part(dmic_dev, DMICFCR, 65, DMICFCR_THR, REGS_BIT_WIDTH_7BIT);
+
 		return 0;
 	}
-
 
 	if (mode & CODEC_WMODE) {
 		return -1;
@@ -235,37 +249,46 @@ static int dmic_set_trigger(struct dmic_device * dmic_dev, int mode)
 static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *THR ,int mode)
 {
 	int ret = 0;
-
+	unsigned int iflg = 0;
+	unsigned int imsk = 0;
 	printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
-		clk_enable(dmic_dev->clk);
-		__dmic_clear_tur();
-		__dmic_clear_trigger();
-		__dmic_disable_empty_int();
-		__dmic_disable_interface();
-		__dmic_set_tri_mode(2);
-	//	__dmic_set_thr_high(40000);
+		 clk_enable(dmic_dev->clk);
+		iflg |= DMICICR_TRIFLG;
+		imsk |= DMICIMR_MASK_ALL;
+		dmic_disable_irq(dmic_dev, imsk);
+		dmic_clear_irq(dmic_dev, iflg);
+
+		/* close dmic data path*/
+		dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_DIS, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
+
+		/* trigger config*/
+		dmic_write_part(dmic_dev, DMICTRICR, 2, DMICTRICR_TRI_MOD, REGS_BIT_WIDTH_4BIT);
 		if(*THR != 0)
-			__dmic_set_thr_low(*THR);
+			dmic_write_part(dmic_dev, DMICTHRL, *THR, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
 		else
-			__dmic_set_thr_low(5000);
-		//__dmic_set_m_max(500);
-		//__dmic_set_n_max(2);
-		__dmic_enable_hpf2();
-		__dmic_enable_wake_int();
-		__dmic_enable_tri_int();
-		__dmic_enable_prerd_int();
-		__dmic_enable_full_int();
-		__dmic_clear_tur();
-		__dmic_clear_trigger();
-		__dmic_reset();
-		while(__dmic_get_reset());
-		__dmic_enable_rdms();
-		//__dmic_set_request(65);
-		__dmic_enable_tri();
+			dmic_write_part(dmic_dev, DMICTHRL, 5000, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
+
+		dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_HPF2_EN, REGS_BIT_WIDTH_1BIT);
+		/*clear tri module*/
+		dmic_write_part(dmic_dev, DMICTRICR, 1 , DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
+
+		/*reset dmic*/
+		dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_RESET, REGS_BIT_WIDTH_1BIT);
+		while(dmic_readl(dmic_dev, DMICCR0) & (1 << DMICCR0_RESET));
+
+		dmic_write_part(dmic_dev, DMICFCR, 1, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
+
+		/*enable trigger*/
+		dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_TRI_EN, REGS_BIT_WIDTH_1BIT);
+
 		clk_disable(dmic_dev->clk);
-	}
+
+		imsk = 0;
+		imsk |= DMICIMR_WAKE_MASK | DMICIMR_TRI_MASK; /* we only need wake and trigger interrupt */
+		dmic_enable_irq(dmic_dev, imsk);
+	 }
 
 	if (mode & CODEC_WMODE) {
 		return -1;
@@ -278,20 +301,19 @@ static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *
 static int dmic_set_channel(struct dmic_device * dmic_dev, int* channel,int mode)
 {
 	int ret = 0;
-
+	/* no need timing dependent */
 	debug_print("channel = %d",*channel);
 	if (mode & CODEC_RMODE) {
 		if (*channel == 2) {
-			__dmic_select_stereo();
-			__dmic_disable_pack();
-			__dmic_disable_unpack_dis();
+			dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_STEREO, REGS_BIT_WIDTH_1BIT);
+			dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_PACK_EN, REGS_BIT_WIDTH_1BIT);
+			dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_UNPACK_DIS, REGS_BIT_WIDTH_1BIT);
+
 			dmic_set_filter(dmic_dev, CODEC_RMODE, 0);
-			//__dmic_enable_split_lr();
 		} else  {
-			__dmic_select_mono();
-			__dmic_enable_pack();
-			__dmic_enable_unpack_dis();
-			//dmic_set_filter(CODEC_RMODE, 1);
+			dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_STEREO, REGS_BIT_WIDTH_1BIT);
+			dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_PACK_EN, REGS_BIT_WIDTH_1BIT);
+			dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_UNPACK_DIS, REGS_BIT_WIDTH_1BIT);
 		}
 	}
 	if (mode & CODEC_WMODE) {
@@ -300,49 +322,6 @@ static int dmic_set_channel(struct dmic_device * dmic_dev, int* channel,int mode
 
 	return ret;
 }
-
-/***************************************************************\
- *  Use codec slave mode clock rate list
- *  We do not hope change EPLL,so we use 270.67M (fix) epllclk
- *  for minimum error
- *  270.67M ---	M:203 N:9 OD:1
- *	 rate	 dmicdr	 cguclk		 dmicdv.div	samplerate/error
- *	|192000	|1		|135.335M	|10			|+0.12%
- *	|96000	|3		|67.6675M	|10			|+0.12%
- *	|48000	|7		|33.83375M	|10			|-0.11%
- *	|44100	|7		|33.83375M	|11			|-0.10%
- *	|32000	|11		|22.555833M	|10			|+0.12%
- *	|24000	|15		|16.916875M	|10			|+0.12%
- *	|22050	|15		|16.916875M	|11			|-0.12%
- *	|16000	|23		|11.277916M	|10			|+0.12%
- *	|12000  |31		|8.458437M	|10			|+0.12%
- *	|11025	|31		|8.458437M	|11			|-0.10%
- *	|8000	|47		|5.523877M	|10			|+0.12%
- *	HDMI:
- *	sysclk 11.2896M (theoretical)
- *	dmicdr  23
- *	cguclk 11.277916M (practical)
- *	error  -0.10%
-\***************************************************************/
-/*static unsigned long calculate_cgu_dmic_rate(unsigned long *rate)
-{
-	int i;
-	unsigned long mrate[10] = {
-		8000, 16000 ,48000,
-	};
-	for (i=0; i<3; i++) {
-		if (*rate <= mrate[i]) {
-			*rate = mrate[i];
-			break;
-		}
-	}
-	if (i >= 3) {
-		*rate = 8000; [>unsupport rate use default<]
-		return mrate[0];
-	}
-
-	return mrate[i];
-}*/
 
 static int dmic_set_rate(struct dmic_device * dmic_dev, unsigned long *rate,int mode)
 {
@@ -360,16 +339,16 @@ static int dmic_set_rate(struct dmic_device * dmic_dev, unsigned long *rate,int 
 	if (mode & CODEC_RMODE) {
 		if (*rate == 8000){
 			cur_dmic->rate_type = 0;
-			__dmic_select_8k_mode();
-			__dmic_select_prefetch_8k();
+			dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_8K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
+			dmic_write_part(dmic_dev, DMICTRICR, DMICTRICR_PREFETCH_8K, DMICTRICR_PREFETCH, REGS_BIT_WIDTH_2BIT);
 		}
 		else if (*rate == 16000){
 			cur_dmic->rate_type = 1;
-			__dmic_select_16k_mode();
-			__dmic_select_prefetch_16k();
+			dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_16K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
+			dmic_write_part(dmic_dev, DMICTRICR, DMICTRICR_PREFETCH_16K, DMICTRICR_PREFETCH, REGS_BIT_WIDTH_2BIT);
 		}
 		else if (*rate == 48000){
-			__dmic_select_48k_mode();
+			dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_48K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
 		}
 		else
 			printk("DMIC: unsurpport samplerate: %ld\n", *rate);
@@ -377,29 +356,13 @@ static int dmic_set_rate(struct dmic_device * dmic_dev, unsigned long *rate,int 
 
 	return ret;
 }
-#define DMIC_TX_FIFO_DEPTH		64
-
-/*static int get_burst_length(unsigned long val)
-{
-	[> burst bytes for 1,2,4,8,16,32,64 bytes <]
-	int ord;
-
-	ord = ffs(val) - 1;
-	if (ord < 0)
-		ord = 0;
-	else if (ord > 6)
-		ord = 6;
-
-	[> if tsz == 8, set it to 4 <]
-	return (ord == 3 ? 4 : 1 << ord)*8;
-}*/
 
 static int dmic_record_deinit(struct dmic_device * dmic_dev, int mode)
 {
-	__dmic_clear_trigger();
-	__dmic_clear_tur();
-	__dmic_disable_rdms();
+	dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
+	dmic_clear_irq(dmic_dev, DMICICR_MASK_ALL);
 
+	dmic_write_part(dmic_dev, DMICFCR, 0, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
 	return 0;
 }
 
@@ -412,10 +375,11 @@ static int dmic_record_init(struct dmic_device * dmic_dev, int mode)
 		return -1;
 	}
 
-	__dmic_select_8k_mode();
+	dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_8K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
 
-	__dmic_reset();
-	while(__dmic_get_reset()) {
+	/*dmic reset*/
+	dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_RESET, REGS_BIT_WIDTH_1BIT);
+	while(dmic_readl(dmic_dev, DMICCR0) & (1 << DMICCR0_RESET)) {
 		if (rst_test-- <= 0) {
 			printk("-----> rest dmic failed!\n");
 			return -1;
@@ -435,6 +399,7 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
 	struct dsp_pipe *dp_other = NULL;
 	int ret = 0;
+
 	clk_enable(dmic_dev->clk);
 	if (mode & CODEC_WMODE)
 		return -1;
@@ -450,22 +415,23 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 		dmic_set_rate(dmic_dev, &record_rate,mode);
 	}
 
-	__dmic_set_gm(9);
-	__dmic_disable_empty_int();
-//	__dmic_disable_lp_mode();
-	__dmic_enable_hpf();
-	__dmic_disable_prerd_int();
-	__dmic_disable_prefetch();
-	__dmic_disable_tri_int();
-	__dmic_disable_wake_int();
-	__dmic_enable_hpf2();
-	__dmic_clear_trigger();
-	__dmic_clear_tur();
+	dmic_disable_irq(dmic_dev, DMICIMR_MASK_ALL);
+	dmic_clear_irq(dmic_dev, DMICICR_MASK_ALL);
+
+	dmic_write_part(dmic_dev, DMICGCR, 9, DMIC_GCR, REGS_BIT_WIDTH_4BIT);
+
+	dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_HPF1_EN, REGS_BIT_WIDTH_1BIT);
+
+	dmic_write_part(dmic_dev, DMICTRICR, DMICTRICR_PREFETCH_DIS, DMICTRICR_PREFETCH, REGS_BIT_WIDTH_2BIT);
+
+	dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_HPF2_EN, REGS_BIT_WIDTH_1BIT);
+	dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
+
 
 #ifdef CONFIG_JZ_DMIC1
-	__dmic_enable_split_lr();
+	dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_SPLIT_DI, REGS_BIT_WIDTH_1BIT);
 #endif
-	__dmic_enable();
+	dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_DMIC_EN, REGS_BIT_WIDTH_1BIT);
 
 	dmic_dev->dmic_is_incall_state = false;
 
@@ -475,7 +441,7 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 static int dmic_disable(struct dmic_device * dmic_dev, int mode)
 {
 	dmic_record_deinit(dmic_dev, mode);
-	__dmic_disable();
+	dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_DMIC_EN, REGS_BIT_WIDTH_1BIT);
 
 	return 0;
 }
@@ -483,13 +449,11 @@ static int dmic_disable(struct dmic_device * dmic_dev, int mode)
 static int dmic_dma_enable(struct dmic_device * dmic_dev, int mode)		//CHECK
 {
 	if (mode & CODEC_RMODE) {
-//		__dmic_reset();
-//		while(__dmic_get_reset());
+		dmic_write_part(dmic_dev, DMICFCR, 65, DMICFCR_THR, REGS_BIT_WIDTH_7BIT);
+		dmic_write_part(dmic_dev, DMICFCR, 1, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
 
-		__dmic_set_request(65);
-		__dmic_enable_rdms();
-		__dmic_clear_trigger();
-		__dmic_clear_tur();
+		dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
+		dmic_clear_irq(dmic_dev, DMICICR_MASK_ALL);
 	}
 	if (mode & CODEC_WMODE) {
 		printk("DMIC: dmic unsurpport replay\n");
@@ -502,7 +466,7 @@ static int dmic_dma_enable(struct dmic_device * dmic_dev, int mode)		//CHECK
 static int dmic_dma_disable(struct dmic_device * dmic_dev, int mode)		//CHECK seq dma and func
 {
 	if (mode & CODEC_RMODE) {
-		__dmic_disable_rdms();
+		dmic_write_part(dmic_dev, DMICFCR, 0, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
 	}
 	else
 		return -1;
@@ -744,39 +708,25 @@ static long dmic_ioctl(struct snd_dev_data *ddata, unsigned int cmd, unsigned lo
 #ifdef DMIC_IRQ
 static irqreturn_t dmic_irq_handler(int irq, void *dev_id)
 {
-	unsigned long flags;
 	irqreturn_t ret = IRQ_HANDLED;
 	struct dmic_device * dmic_dev = (struct dmic_device *)dev_id;
+	unsigned int dmic_stat = dmic_readl(dmic_dev, DMICICR);
 
-	spin_lock_irqsave(&dmic_dev->dmic_irq_lock,flags);
-	if (__dmic_test_tri_int() || __dmic_test_wake_int()) {
-		printk("AUDIO: trigger!\n");
+	if((dmic_stat & DMICICR_TRIFLG) || \
+			(dmic_stat & DMICICR_WAKEUP)) {
+		/*trigger part*/
+		printk("AUDIO TRIGGER!\n");
+		dmic_disable_irq(dmic_dev, DMICIMR_TRI_MASK | DMICIMR_WAKE_MASK);
+		dmic_clear_irq(dmic_dev, DMICICR_TRIFLG | DMICICR_WAKEUP);
+
 		clk_enable(dmic_dev->clk);
-		__dmic_clear_trigger();
-		__dmic_set_rate(dmic_dev->cur_dmic->rate_type);
-		__dmic_disable_tri_int();
-		__dmic_disable_wake_int();
-		__dmic_disable_tri();
-		__dmic_clear_tur();
-		__dmic_enable_empty_int();
-		if (__dmic_test_full_int())
-			printk("tri & full\n");
-		__dmic_clear_tur();
-	} else if (__dmic_test_prerd_int() || __dmic_test_empty_int() || __dmic_test_full_int()) {
-		if (!__dmic_get_prerd_int() && __dmic_test_prerd_int()) {
-			__dmic_disable_prerd_int();
-			 printk("pre~\n\n\n");
-		}
+		dmic_write_part(dmic_dev, DMICCR0, dmic_dev->cur_dmic->rate_type, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
 
-		if (!__dmic_get_empty_int() && __dmic_test_empty_int()) {
-			__dmic_disable_empty_int();
-			__dmic_clear_empty_flag();
-		}
-		if (__dmic_test_full_int())
-			printk("tri & full\n");
+		/*disable trigger*/
+		dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_TRI_EN, REGS_BIT_WIDTH_1BIT);
+	} else {
+		/*ignore other irqs*/
 	}
-
-	spin_unlock_irqrestore(&dmic_dev->dmic_irq_lock,flags);
 
 	return ret;
 }
@@ -809,39 +759,6 @@ static int dmic_init_pipe_2(struct dsp_pipe *dp , enum dma_data_direction direct
 	} else
 		return -1;
 
-
-	return 0;
-}
-
-static int dmic_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsigned long iobase)
-{
-	if (*dp != NULL || dp == NULL)
-		return 0;
-	*dp = vmalloc(sizeof(struct dsp_pipe));
-	if (*dp == NULL) {
-		return -ENOMEM;
-	}
-
-	(*dp)->dma_config.direction = direction;
-	(*dp)->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	(*dp)->dma_type = JZDMA_REQ_I2S1;
-	(*dp)->fragsize = FRAGSIZE_M;
-	(*dp)->fragcnt = FRAGCNT_L;
-	/*(*dp)->fragcnt = FRAGCNT_B;*/
-
-	if (direction == DMA_FROM_DEVICE) {
-		(*dp)->dma_config.src_maxburst = 32;
-		(*dp)->dma_config.dst_maxburst = 32;
-		(*dp)->dma_config.src_addr = iobase + DMICDR;
-		(*dp)->dma_config.dst_addr = 0;
-	} else	if (direction == DMA_TO_DEVICE) {
-		(*dp)->dma_config.src_maxburst = 32;
-		(*dp)->dma_config.dst_maxburst = 32;
-		(*dp)->dma_config.dst_addr = iobase + AICDR;
-		(*dp)->dma_config.src_addr = 0;
-	} else
-		return -1;
 
 	return 0;
 }
@@ -883,10 +800,6 @@ static int dmic_global_init(struct platform_device *pdev)
 		goto __err_ioremap;
 	}
 
-/****************************!!!!!!!!*************************/
-	dmic_iomem = dmic_dev->dmic_iomem;
-
-
 	dmic_pipe_out = kmalloc(sizeof(struct dsp_pipe),GFP_KERNEL);
 	ret = dmic_init_pipe_2(dmic_pipe_out,DMA_TO_DEVICE,dmic_dev->res->start);
 	if (ret < 0) {
@@ -910,10 +823,6 @@ static int dmic_global_init(struct platform_device *pdev)
 	dmic_dev->dmic_endpoints->out_endpoint = dmic_pipe_out;
 	dmic_dev->dmic_endpoints->in_endpoint = dmic_pipe_in;
 
-	//dmic_endpoints.out_endpoint = dmic_pipe_out;
-	//dmic_endpoints.in_endpoint = dmic_pipe_in;
-/*****************************!!!!!!!! next ***********************/
-
 	/*request dmic clk */
 	dmic_dev->i2s_clk = clk_get(&pdev->dev, "cgu_i2s");
 	if (IS_ERR(dmic_dev->i2s_clk)) {
@@ -936,7 +845,9 @@ static int dmic_global_init(struct platform_device *pdev)
 		goto __err_dmic_clk;
 	}
 	clk_enable(dmic_dev->pwc_clk);
+
 	spin_lock_init(&dmic_dev->dmic_irq_lock);
+	spin_lock_init(&dmic_dev->dmic_lock);
 
 #ifdef DMIC_IRQ
 	/* request irq */
@@ -991,7 +902,7 @@ static void dmic_shutdown(struct platform_device *pdev)
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
 
-	__dmic_disable();
+	dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_DMIC_EN, REGS_BIT_WIDTH_1BIT);
 
 	clk_disable(dmic_dev->clk);
 	clk_disable(dmic_dev->pwc_clk);
@@ -1007,7 +918,7 @@ static int dmic_suspend(struct platform_device *pdev, pm_message_t state)
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
 
-	dmic_set_voice_trigger(dmic_dev, &thr,CODEC_RMODE);
+	dmic_set_voice_trigger(dmic_dev, &thr, CODEC_RMODE);
 	return 0;
 }
 
@@ -1026,14 +937,11 @@ struct dsp_endpoints * dmic_get_endpoints(struct snd_dev_data *ddata)
 {
 	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
 
-	printk("dmic_get_endpoints\n");
 	return dmic_dev->dmic_endpoints;
 }
 
 struct snd_dev_data dmic_data = {
-	//.dev_ioctl	   	= dmic_ioctl,
 	.dev_ioctl_2	= dmic_ioctl,
-	//.ext_data		= &dmic_endpoints,
 	.get_endpoints	= dmic_get_endpoints,
 	.minor			= SND_DEV_DSP3,
 	.init			= dmic_init,
@@ -1043,7 +951,6 @@ struct snd_dev_data dmic_data = {
 };
 
 struct snd_dev_data snd_mixer3_data = {
-	//.dev_ioctl	   	= dmic_ioctl,
 	.dev_ioctl_2	= dmic_ioctl,
 	.minor			= SND_DEV_MIXER3,
 };

@@ -1430,7 +1430,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	struct dsp_node *node = NULL;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-
 	ENTER_FUNC();
 	if (!(file->f_mode & FMODE_READ))
 		return -EPERM;
@@ -2646,7 +2645,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		} else if (ddata->dev_ioctl_2) {
 			mutex_lock(&dp->mutex);
 			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_VOICE_TRIGGER, (unsigned long)&tri_h);
-			mutex_lock(&dp->mutex);
+			mutex_unlock(&dp->mutex);
 		}
 		if (!ret)
 			break;
@@ -3074,13 +3073,13 @@ int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 {
 	if (ddata){
 		struct dsp_endpoints * endpoints = NULL;
+		bool out_trans,in_trans;
 
 		if(ddata->priv_data) {
 			endpoints = xb_dsp_get_endpoints(ddata);
 		} else {
 			endpoints = (struct dsp_endpoints *)ddata->ext_data;
 		}
-		bool out_trans,in_trans;
 		if(endpoints->out_endpoint) {
 			mutex_lock(&endpoints->out_endpoint->mutex);
 			out_trans = endpoints->out_endpoint->is_trans;
