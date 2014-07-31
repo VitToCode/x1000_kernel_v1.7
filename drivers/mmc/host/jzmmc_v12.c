@@ -1675,8 +1675,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	struct resource	*regs;
 	struct jzmmc_host *host = NULL;
 	struct mmc_host *mmc;
-
-
+	char regulator_name[16];
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
@@ -1723,7 +1722,8 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		goto err_ioremap;
 	mmc_set_drvdata(pdev, host);
 
-	host->power = regulator_get(host->dev, "cpu_mem12");
+	sprintf(regulator_name, "vmmc.%d", pdev->id);
+	host->power = regulator_get(host->dev, regulator_name);
 	if (IS_ERR(host->power)) {
 		dev_warn(host->dev, "vmmc regulator missing\n");
 	}

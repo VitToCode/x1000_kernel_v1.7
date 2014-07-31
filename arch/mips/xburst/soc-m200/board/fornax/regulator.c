@@ -123,8 +123,8 @@ static struct regulator_init_data d2041_reg_init_data[D2041_NUMBER_OF_REGULATORS
 	[D2041_BUCK_4] = {
 		.constraints = {
 			.name = "BUCK_4",
-			.min_uV = 1800 * 1000,
-			.max_uV = 1800 * 1000,
+			.min_uV = 3300 * 1000,
+			.max_uV = 3300 * 1000,
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 			.valid_modes_mask = REGULATOR_MODE_NORMAL,
 			.always_on = 1,
@@ -332,6 +332,7 @@ static struct regulator_init_data d2041_reg_init_data[D2041_NUMBER_OF_REGULATORS
 	},
 };
 
+
 static int d2041_board_irq_init(struct d2041 *d2041)
 {
 	int res;
@@ -376,9 +377,14 @@ struct d2041_platform_data d2041_platform_pdata = {
 #endif
 
 //FIXED_REGULATOR_DEF(usi_vbat, "USI_VDD", 3900*1000 ,GPIO_WLAN_PW_EN, 1, 0, 0, NULL,"usi_vbat", NULL);
+FIXED_REGULATOR_DEF(
+	vmmc,
+	"TF",		3300000,	GPIO_PB(0),
+	LOW_ENABLE,	EN_AT_BOOT,	0,
+	NULL,		"vmmc.1",	NULL);
 
 static struct platform_device *fixed_regulator_devices[] __initdata = {
-	//&usi_vbat_regulator_device,
+	&vmmc_regulator_device,
 };
 
 #define PMU_I2C_BUSNUM 1

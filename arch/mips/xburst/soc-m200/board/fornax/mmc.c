@@ -54,9 +54,9 @@ struct jzmmc_platform_data inand_pdata = {
 #ifdef CONFIG_JZMMC_V12_MMC1
 
 static struct card_gpio tf_gpio = {
-	.cd				= {GPIO_PB(0),		LOW_ENABLE},
+	.cd				= {GPIO_PA(0),		LOW_ENABLE},
 	.wp				= {-1,			-1},
-	.pwr				= {GPIO_PA(0),		LOW_ENABLE},
+	.pwr				= {-1,		-1},
 };
 
 struct jzmmc_platform_data tf_pdata = {
