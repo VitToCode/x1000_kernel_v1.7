@@ -74,6 +74,10 @@ struct mipi_dsim_lcd_device	lh155_device={
 	.platform_data = &lh155_data,
 };
 
+unsigned long lh155_cmd_buf[]= {
+	0x2C2C2C2C,
+};
+
 struct jzdsi_platform_data jzdsi_pdata = {
 	.modes = &jzfb_videomode,
 	.video_config.no_of_lanes = 1,
@@ -103,18 +107,11 @@ struct jzfb_platform_data jzfb_pdata = {
 	.width = 31,
 	.height = 31,
 
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
-
-	.smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
-	.smart_config.cmd_width = SMART_LCD_CWIDTH_8_BIT_ONCE,
-	.smart_config.data_width = SMART_LCD_DWIDTH_8_BIT_ONCE_PARALLEL_SERIAL,
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.write_gram_cmd = 0x2C2C2C2C,
+	.smart_config.write_gram_cmd = lh155_cmd_buf,
+	.smart_config.length_cmd = ARRAY_SIZE(lh155_cmd_buf),
 	.smart_config.bus_width = 8,
 	.dither_enable = 1,
 	.dither.dither_red = 1,	/* 6bit */

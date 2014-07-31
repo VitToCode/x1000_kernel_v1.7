@@ -404,6 +404,11 @@ jzfb_config_smart_lcd_dma(struct fb_info *info,
 			framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 1;
 			framedesc[2].cpos = 4;
 			break;
+		case 9:
+		case 16:
+			framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 1;
+			framedesc[2].cpos = 2;
+			break;
 		default:
 			framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 1;
 			framedesc[2].cpos = 1;
@@ -574,14 +579,12 @@ static void slcd_send_mcu_data(struct jzfb *jzfb, unsigned long data)
 	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | data);
 }
 
-/* Sent a command with data (18-bit bus, 16-bit index, 16-bit register value) */
 static void
 slcd_set_mcu_register(struct jzfb *jzfb, unsigned long cmd, unsigned long data)
 {
 	slcd_send_mcu_command(jzfb, cmd);
 	slcd_send_mcu_data(jzfb, data);
 }
-
 static void jzfb_slcd_mcu_init(struct fb_info *info)
 {
 	unsigned int is_lcd_en, i;
@@ -606,32 +609,23 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	    && pdata->smart_config.data_table) {
 		for (i = 0; i < pdata->smart_config.length_data_table; i++) {
 			switch (pdata->smart_config.data_table[i].type) {
-			case 0:
-				slcd_set_mcu_register(jzfb,
-						      pdata->
-						      smart_config.data_table
-						      [i].reg,
-						      pdata->
-						      smart_config.data_table
-						      [i].value);
+			case SMART_CONFIG_DATA:
+				slcd_send_mcu_data(
+					jzfb,
+					pdata->smart_config.data_table[i].value);
 				break;
-			case 1:
-				slcd_send_mcu_command(jzfb,
-						      pdata->
-						      smart_config.data_table
-						      [i].value);
+			case SMART_CONFIG_CMD:
+				slcd_send_mcu_command(
+					jzfb,
+					pdata->smart_config.data_table[i].value);
 				break;
-			case 2:
-				slcd_send_mcu_data(jzfb,
-						   pdata->
-						   smart_config.data_table[i].
-						   value);
+			case SMART_CONFIG_UDELAY:
+				udelay(pdata->smart_config.data_table[i].value);
 				break;
 			default:
 				dev_err(jzfb->dev, "Unknow SLCD data type\n");
 				break;
 			}
-			udelay(pdata->smart_config.data_table[i].udelay);
 		}
 		{
 			int count = 10000;
@@ -648,17 +642,10 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 
 	}
 
-	if (pdata->smart_config.data_width2) {
-		int tmp = reg_read(jzfb, SLCDC_CFG);
-		tmp &= ~SMART_LCD_DWIDTH_MASK;
-		tmp |= pdata->smart_config.data_width2;
-		reg_write(jzfb, SLCDC_CFG, tmp);
-		dev_dbg(jzfb->dev, "mcu init over.the cfg is %08x\n", tmp);
-	}
-	if (pdata->smart_config.data_new_times2) {
+	if(pdata->bpp / pdata->smart_config.bus_width != 1 ) {
 		int tmp = reg_read(jzfb, SLCDC_CFG_NEW);
-		tmp &= ~(3<<8); //mask the 8~9bit
-		tmp |= pdata->smart_config.data_new_times2;
+		tmp &= ~(SMART_LCD_DWIDTH_MASK); //mask the 8~9bit
+		tmp |=  (pdata->bpp / pdata->smart_config.bus_width)  == 2 ? SMART_LCD_NEW_DTIMES_TWICE : SMART_LCD_NEW_DTIMES_THICE;
 		reg_write(jzfb, SLCDC_CFG_NEW, tmp);
 		dev_dbg(jzfb->dev, "the slcd  slcd_cfg_new is %08x\n", tmp);
 	}
@@ -811,7 +798,7 @@ static int jzfb_set_par(struct fb_info *info)
 	if (pdata->pixclk_falling_edge)
 		cfg |= LCDC_CFG_PCP;
 
-	if (pdata->date_enable_active_low)
+	if (pdata->data_enable_active_low)
 		cfg |= LCDC_CFG_DEP;
 
 	/* configure LCDC control register */
@@ -823,9 +810,33 @@ static int jzfb_set_par(struct fb_info *info)
 
 	/* configure smart LCDC registers */
 	if (pdata->lcd_type == LCD_TYPE_SLCD) {
-		smart_cfg = pdata->smart_config.smart_type |
-		    pdata->smart_config.cmd_width | pdata->
-		    smart_config.data_width;
+		smart_cfg = pdata->smart_config.smart_type | SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL;
+
+		switch(pdata->smart_config.bus_width){
+		case 8:
+			smart_cfg |= SMART_LCD_CWIDTH_8_BIT_ONCE;
+			smart_new_cfg |= SMART_LCD_NEW_DWIDTH_8_BIT;
+			break;
+		case 9:
+			smart_cfg |= SMART_LCD_CWIDTH_9_BIT_ONCE;
+			smart_new_cfg |= SMART_LCD_NEW_DWIDTH_9_BIT;
+			break;
+		case 16:
+			smart_cfg |= SMART_LCD_CWIDTH_16_BIT_ONCE;
+			smart_new_cfg |= SMART_LCD_NEW_DWIDTH_16_BIT;
+			break;
+		case 18:
+			smart_cfg |= SMART_LCD_CWIDTH_18_BIT_ONCE;
+			smart_new_cfg |= SMART_LCD_NEW_DWIDTH_18_BIT;
+			break;
+		case 24:
+			smart_cfg |= SMART_LCD_CWIDTH_24_BIT_ONCE;
+			smart_new_cfg |= SMART_LCD_NEW_DWIDTH_24_BIT;
+			break;
+		default:
+			printk("ERR: please check out your bus width config\n");
+			break;
+		}
 
 		if (pdata->smart_config.clkply_active_rising)
 			smart_cfg |= SLCDC_CFG_CLK_ACTIVE_RISING;
@@ -840,8 +851,7 @@ static int jzfb_set_par(struct fb_info *info)
 
 		smart_ctrl |= (SLCDC_CTRL_NEW_MODE | SLCDC_CTRL_NOT_USE_TE); //new slcd mode
 		smart_ctrl &= ~SLCDC_CTRL_MIPI_MODE;
-		smart_new_cfg |= pdata->smart_config.data_new_width |
-		    pdata->smart_config.data_new_times;
+		smart_new_cfg |= SMART_LCD_NEW_DTIMES_ONCE;
 
 		if (pdata->smart_config.newcfg_6800_md)
 			smart_new_cfg |= SLCDC_NEW_CFG_6800_MD;
@@ -913,7 +923,7 @@ static int jzfb_set_par(struct fb_info *info)
 		 * 3. sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 		 *        The sync trigger for the high level active
 		 * 4. pixclk_falling_edge = 1, PIX clock trigger high level
-		 * 5. date_enable_active_low = 1, DATA enable is high level
+		 * 5. data_enable_active_low = 1, DATA enable is high level
 		 */
 
 		if (mode->flag & FB_MODE_IS_VGA) {
@@ -1134,16 +1144,13 @@ static int jzfb_alloc_devmem(struct jzfb *jzfb)
 
 	if (jzfb->pdata->lcd_type == LCD_TYPE_SLCD) {
 		int i;
-		unsigned long cmd[2] = { 0 }, *ptr;
+		unsigned long *ptr;
 		jzfb->desc_cmd_vidmem = dma_alloc_coherent(jzfb->dev, PAGE_SIZE,
 							   &jzfb->desc_cmd_phys,
 							   GFP_KERNEL);
 		ptr = (unsigned long *)jzfb->desc_cmd_vidmem;
-		cmd[0] = jzfb->pdata->smart_config.write_gram_cmd;
-		cmd[1] = cmd[0];
-		for (i = 0; i < 4; i += 2) {
-			ptr[i] = cmd[0];
-			ptr[i + 1] = cmd[1];
+		for (i = 0; i < jzfb->pdata->smart_config.length_cmd; i++) {
+			ptr[i] = jzfb->pdata->smart_config.write_gram_cmd[i];
 		}
 	}
 

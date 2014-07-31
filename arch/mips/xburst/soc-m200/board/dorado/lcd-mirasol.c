@@ -175,53 +175,60 @@ struct platform_device cv90_m5377_p30_device = {
 static struct smart_lcd_data_table cv90_m5377_p30_data_table[] = {
 
 	/* Extended CMD enable CMD */
-         {0xB9, 0xB9, 1, 0},
+         {0, 0xB9},
 
-         {0xB9, 0xff, 2, 0},
-         {0xB9, 0x52, 2, 0},
-         {0xB9, 0x52, 2, 0},
+         {1, 0xff},
+         {1, 0x52},
+         {1, 0x52},
 
          /* sleep out command, and wait > 35ms */
-         {0x11, 0x11, 1, 200000},
+         {0, 0x11},
+         {2, 200000},
 
 	 /* Set Pixel Format Cmd */
-         {0x3a, 0x3a, 1, 0},
-         //{0x3a, 0x01, 2, 0},	/* 6bit */
-      //   {0x3a, 0x05, 2, 0},	/* 16bit */
-         {0x3a, 0x06, 2, 0},	/* 24bit? */
+         {0, 0x3a},
+         //{1, 0x01},	/* 6bit */
+      //   {1, 0x05},	/* 16bit */
+         {1, 0x06},	/* 24bit? */
 
 	 /* Pixel Format = 6bit? */
 
 #if 1
 	/* Enable CP */
-         {0xf4, 0xF4, 1, 0},
-         {0x00, 0x01, 2, 0},	/* Enable CP */
-         {0x00, 0x01, 2, 0},	/* Photo Mode */
-         {0x00, 0x02, 2, 0},	/* Floyd Steinberg */
+         {0, 0xF4},
+         {1, 0x01},	/* Enable CP */
+         {1, 0x01},	/* Photo Mode */
+         {1, 0x02},	/* Floyd Steinberg */
 #else
-	/* Disable CP */
-         {0xf4, 0xF4, 1, 0},
-         {0x00, 0x00, 2, 0},	/* Disable CP */
-         {0x00, 0x00, 2, 0},	/* Photo Mode */
-         {0x00, 0x00, 2, 0},	/* Floyd Steinberg */
+	/* Disable CP*/
+         {0, 0xF4},
+         {1, 0x00},	/* Disable CP */
+         {1, 0x00},	/* Photo Mode */
+         {1, 0x00},	/* Floyd Steinberg */
 #endif
 
-	 /* RAM Command */
-         {0x00, 0xbd, 1, 0},
-         {0x00, 0x00, 2, 0},
+	 /* RAM Comma*/
+         {1, 0xbd},
+         {1, 0x00},
 
 
 	 /* Display On */
-         {0x29, 0x29, 1, 0},
+         {0, 0x29},
 
 
 
 	 /* polling NBUSY, proceed on the rising edge. */
-         //{0xcd, 0xcd, 1, 50000},
-        // {0x2c, 0x2c, 1, 0},
+         //{0, 0xcd},
+         //{2, 50000},
+        // {0, 0x2c},
 
 
 };
+
+unsigned long cv90_m5377_p30_cmd_buf[]= {
+	0x2C2C2CCD,
+};
+
 
 static int cv90_m5377_p30_dma_transfer_begin_callback(void*jzfb)
 {
@@ -260,24 +267,14 @@ struct jzfb_platform_data jzfb_pdata = {
 
         .lcd_type = LCD_TYPE_SLCD,
         .bpp = 24,
-
-        .pixclk_falling_edge = 0,
-        .date_enable_active_low = 0,
-
-		.alloc_vidmem = 1,
         .dither_enable = 0,
 
-        .smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
-		.smart_config.cmd_width = SMART_LCD_CWIDTH_8_BIT_ONCE, //8bit, according to the 8bit command
-		.smart_config.data_width = SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL, //due to new slcd mode, must be 24bit
-        .smart_config.data_new_width = SMART_LCD_NEW_DWIDTH_8_BIT,  //8bit, according to panel bus width
-        .smart_config.data_new_times = SMART_LCD_NEW_DTIMES_ONCE,   //8bit once, for 8bit command
-        .smart_config.data_new_times2 = SMART_LCD_NEW_DTIMES_THICE,   //8bit three times, for 24bit RGB color
         .smart_config.clkply_active_rising = 0,
         .smart_config.rsply_cmd_high = 0,
         .smart_config.csply_active_high = 0,
 		/* write graphic ram command, in word, for example 8-bit bus, write_gram_cmd=C3C2C1C0. */
-		.smart_config.write_gram_cmd = 0x2c2c2ccd,
+		.smart_config.write_gram_cmd = cv90_m5377_p30_cmd_buf,
+		.smart_config.length_cmd = ARRAY_SIZE(cv90_m5377_p30_cmd_buf),
 
         .smart_config.bus_width = 8,  //due to panel bus width
 		.smart_config.length_data_table = ARRAY_SIZE(cv90_m5377_p30_data_table),

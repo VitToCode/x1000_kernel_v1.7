@@ -604,6 +604,19 @@ static struct smart_lcd_data_table smart_lcd_data_table[] = {
 };
 #endif
 
+unsigned long lh155_cmd_buf[]={
+	{0x2c2c2c2c}
+};
+unsigned long cv90_m5377_p30_cmd_buf[]={
+	{0x2c2c2ccd}
+
+};
+unsigned long kfm701a21_1a_cmd_buf[]={
+	{0x02020202}
+};
+
+
+
 struct jzfb_platform_data jzfb_pdata = {
 #ifdef CONFIG_LCD_BYD_BM8766U
 	.num_modes = 1,
@@ -615,9 +628,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 65,
 
 	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
+	.data_enable_active_low = 0,
 
 	.dither_enable = 1,
 	.dither.dither_red = 0,	/* 8bit */
@@ -637,9 +648,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 98,
 
 	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
+	.data_enable_active_low = 0,
 
 #endif
 
@@ -653,18 +662,11 @@ struct jzfb_platform_data jzfb_pdata = {
 	.width = 31,
 	.height = 31,
 
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
-
-	.smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
-	.smart_config.cmd_width = SMART_LCD_CWIDTH_8_BIT_ONCE,
-	.smart_config.data_width = SMART_LCD_DWIDTH_8_BIT_ONCE_PARALLEL_SERIAL,
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.write_gram_cmd = 0x2C2C,
+	.smart_config.write_gram_cmd = lh155_cmd_buf,
+	.smart_config.length_cmd = ARRAY_SIZE(lh155_cmd_buf),
 	.smart_config.bus_width = 8,
 	.dither_enable = 1,
 	.dither.dither_red = 1,	/* 6bit */
@@ -678,11 +680,6 @@ struct jzfb_platform_data jzfb_pdata = {
 
 	.lcd_type = LCD_TYPE_SLCD,
 	.bpp = 24,
-
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
 	.dither_enable = 0,
 
 	.smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
@@ -692,7 +689,8 @@ struct jzfb_platform_data jzfb_pdata = {
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.write_gram_cmd = 0x2ccd2ccd,
+	.smart_config.write_gram_cmd = cv90_m5377_p30,
+	.smart_config.length_cmd = ARRAY_SIZE(cv90_m5377_p30),
 	.smart_config.bus_width = 8,
 	.smart_config.length_data_table = ARRAY_SIZE(smart_lcd_data_table),
 	.smart_config.data_table = smart_lcd_data_table,
@@ -710,26 +708,16 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 65,
 	.pinmd = 0,
 
-	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
-	.smart_config.smart_type = SMART_LCD_TYPE_PARALLEL,
-	.smart_config.cmd_width = SMART_LCD_CWIDTH_18_BIT_ONCE,
-
-	.smart_config.data_width = SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL,
-	.smart_config.data_width2 = SMART_LCD_DWIDTH_24_BIT_ONCE_PARALLEL,
 	.smart_config.clkply_active_rising = 0,
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
-	.smart_config.data_new_width = SMART_LCD_NEW_DWIDTH_16_BIT,
-	.smart_config.data_new_times = SMART_LCD_NEW_DTIMES_ONCE,
 	.smart_config.newcfg_6800_md = 0,
 	.smart_config.newcfg_fmt_conv = 1,
 	.smart_config.datatx_type_serial = 0,
 	.smart_config.cmdtx_type_serial = 0,
 	.smart_config.newcfg_cmd_9bit = 0,
-	.smart_config.write_gram_cmd = 0x0202,
+	.smart_config.write_gram_cmd = kfm701a21_1a_cmd_buf,
+	.smart_config.length_cmd = ARRAY_SIZE(kfm701a21_1a_cmd_buf),
 	.smart_config.bus_width = 18,
 	.smart_config.length_data_table = ARRAY_SIZE(kfm701a21_1a_data_table),
 	.smart_config.data_table = kfm701a21_1a_data_table,
@@ -750,7 +738,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 65,
 
 	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
+	.data_enable_active_low = 0,
 
 	.alloc_vidmem = 1,
 #endif

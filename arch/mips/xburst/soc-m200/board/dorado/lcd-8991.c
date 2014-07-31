@@ -58,9 +58,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 75,
 	/*this pixclk_edge is for lcd_controller sending data, which is reverse to lcd*/
 	.pixclk_falling_edge = 1,
-	.date_enable_active_low = 0,
-
-	.alloc_vidmem = 1,
+	.data_enable_active_low = 0,
 
 };
 

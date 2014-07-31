@@ -85,9 +85,8 @@ struct jzfb_platform_data jzfb_pdata = {
 	.height = 98,
 
 	.pixclk_falling_edge = 0,
-	.date_enable_active_low = 0,
+	.data_enable_active_low = 0,
 
-	.alloc_vidmem = 1,
 };
 
 /**************************************************************************************************/
