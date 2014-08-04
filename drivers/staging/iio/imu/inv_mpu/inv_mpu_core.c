@@ -273,9 +273,16 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 	u8 data;
 	int result;
 
+	if(st->chip_config.is_asleep && !power_on)
+		return 0;
+
 	reg = &st->reg;
-	if (power_on)
+	if (power_on) {
 		data = 0;
+		if (st->plat_data.power_on) {
+			st->plat_data.power_on();
+		}
+	}
 	else
 		data = BIT_SLEEP;
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, data);
@@ -295,6 +302,10 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 		result = inv_lpa_freq(st, st->chip_config.lpa_freq);
 		if (result)
 			return result;
+	} else {
+		if (st->plat_data.power_off) {
+			st->plat_data.power_off();
+		}
 	}
 	st->chip_config.is_asleep = !power_on;
 
@@ -345,7 +356,7 @@ static int inv_init_config(struct iio_dev *indio_dev)
 	st->chip_config.gyro_enable = 1;
 	st->chip_config.gyro_fifo_enable = 1;
 	st->chip_config.dmp_output_rate = INIT_DMP_OUTPUT_RATE;
-	if (INV_MPU6500 == st->chip_type) 
+	if (INV_MPU6500 == st->chip_type)
 		st->self_test.samples = INIT_ST_6500_SAMPLES;
 	else
 		st->self_test.samples = INIT_ST_SAMPLES;
@@ -796,8 +807,8 @@ static ssize_t inv_dmp_attr_store(struct device *dev,
 	int result, data;
 	u16 sdata;
 	mutex_lock(&indio_dev->mlock);
-	if (st->chip_config.is_asleep | 
-		(!st->chip_config.firmware_loaded) | 
+	if (st->chip_config.is_asleep |
+		(!st->chip_config.firmware_loaded) |
 		st->chip_config.enable)
 	{
 		result = -EINVAL;
@@ -1139,7 +1150,6 @@ static ssize_t inv_attr_show(struct device *dev,
 		return sprintf(buf, "%s\n", f[st->chip_config.lpa_freq]);
 	}
 	case ATTR_SELF_TEST:
-		
 		if (INV_MPU3050 == st->chip_type)
 			result = 1;
 		else
@@ -2260,12 +2270,12 @@ static struct i2c_driver inv_mpu_driver = {
 	.class = I2C_CLASS_HWMON,
 	.probe		=	inv_mpu_probe,
 	.remove		=	inv_mpu_remove,
-//	.shutdown	=	inv_mpu_shutdown,
+	.shutdown	=	inv_mpu_shutdown,
 	.id_table	=	inv_mpu_id,
 	.driver = {
 		.owner	=	THIS_MODULE,
 		.name	=	"inv-mpu-iio",
-//		.pm     =       INV_MPU_PMOPS,
+		.pm     =       INV_MPU_PMOPS,
 	},
 	.address_list = normal_i2c,
 };

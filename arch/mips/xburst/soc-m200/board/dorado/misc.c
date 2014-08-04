@@ -296,8 +296,6 @@ static int inv_mpu_power_on(void)
 		}
 
 		atomic_set(&inv_mpu_powered, 1);
-
-		msleep(200);
 	}
 	return 0;
 err_vio:

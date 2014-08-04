@@ -200,4 +200,4 @@ static int __init m200_cpufreq_init(void)
 MODULE_AUTHOR("ztyan<ztyan@ingenic.cn>");
 MODULE_DESCRIPTION("cpufreq driver for JZ47XX SoCs");
 MODULE_LICENSE("GPL");
-module_init(m200_cpufreq_init);
+arch_initcall(m200_cpufreq_init);
