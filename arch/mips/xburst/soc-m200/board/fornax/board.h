@@ -4,34 +4,6 @@
 #include <soc/gpio.h>
 #include <linux/jz_dwc.h>
 
-/* lcd pdata and display panel */
-#ifdef CONFIG_FB_JZ_V12
-extern struct jzfb_platform_data jzfb_pdata;
-#endif
-#ifdef CONFIG_LCD_KFM701A21_1A
-extern struct platform_device kfm701a21_1a_device;
-#endif
-#ifdef CONFIG_LCD_LH155
-extern struct mipi_dsim_lcd_device	lh155_device;
-#endif
-#ifdef CONFIG_LCD_BYD_9177AA
-extern struct mipi_dsim_lcd_device	byd_9177aa_device;
-#endif
-#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
-extern struct mipi_dsim_lcd_device	truly_tdo_hd0499k_device;
-#endif
-#ifdef CONFIG_LCD_CV90_M5377_P30
-extern struct platform_device cv90_m5377_p30_device;
-#endif
-#ifdef CONFIG_LCD_BYD_BM8766U
-extern struct platform_device byd_bm8766u_device;
-#endif
-#ifdef CONFIG_LCD_BYD_8991FTGF
-extern struct platform_device byd_8991_device;
-#endif
-#ifdef CONFIG_LCD_TRULY_TFT240240_2_E
-extern struct platform_device truly_tft240240_device;
-#endif
 
 /* PMU ricoh619 */
 #ifdef CONFIG_REGULATOR_RICOH619
@@ -41,38 +13,6 @@ extern struct platform_device truly_tft240240_device;
 /* pmu d2041 or 9024 gpio def*/
 #define GPIO_PMU_IRQ		GPIO_PA(3)
 #define GPIO_GSENSOR_INT1       GPIO_PA(15)
-
-/* about lcdc gpio */
-#define GPIO_LCD_PWM		GPIO_PE(1)
-#define GPIO_LCD_DISP		GPIO_PE(10)
-#define GPIO_LCD_RST		GPIO_PA(12)
-#define GPIO_LCD_CS		GPIO_PA(11)
-#define GPIO_LCD_RD		GPIO_PC(8)
-#define GPIO_BL_PWR_EN		GPIO_PD(26)
-#define GPIO_MIPI_IF_SEL	GPIO_PC(1)
-#define GPIO_MIPI_RST		GPIO_PE(29)
-#define GPIO_LCD_B_SYNC		GPIO_PE(20)
-#define GPIO_LCD_SPI_CLK	GPIO_PD(28)
-#define GPIO_LCD_SPI_CS		GPIO_PA(11)
-#define GPIO_LCD_SPI_DT		GPIO_PE(0)
-#define GPIO_LCD_SPI_DR		GPIO_PE(3)
-#define GPIO_LCD_EXCLKO		GPIO_PD(15)
-
-/* EPD Power Pins */
-#define GPIO_EPD_PWR0       GPIO_PC(22)
-#define GPIO_EPD_PWR1       GPIO_PC(23)
-#define GPIO_EPD_PWR2       GPIO_PC(24)
-#define GPIO_EPD_PWR3       GPIO_PC(25)
-
-extern struct platform_device backlight_device;
-/* Digital pulse backlight*/
-#ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
-extern struct platform_device digital_pulse_backlight_device;
-extern struct platform_digital_pulse_backlight_data bl_data;
-#endif
-#ifdef CONFIG_BACKLIGHT_PWM
-extern struct platform_device backlight_device;
-#endif
 #ifndef CONFIG_BOARD_NAME
 #define CONFIG_BOARD_NAME "fornax"
 #endif
@@ -94,12 +34,6 @@ extern struct jzmmc_platform_data sdio_pdata;
 #define GPIO_ENDCALL            GPIO_PA(30)
 #define ACTIVE_LOW_ENDCALL      1
 
-/**
- * TP gpio
- **/
-#define GPIO_TP_WAKE		GPIO_PE(10)
-#define GPIO_TP_INT		GPIO_PB(0)
-
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL		-1		/*vaild level*/
 
@@ -119,45 +53,18 @@ extern struct jzmmc_platform_data sdio_pdata;
 #define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
 
 /*
- * For BCM2079X NFC
- */
-#define NFC_REQ		GPIO_PC(26)
-#define NFC_REG_PU	GPIO_PC(27)
-#define HOST_WAKE_NFC   GPIO_PA(11)
+IR-CUT
+*/
+#define MOTOR_DRV_P GPIO_PF(12)
+#define MOTOR_DRV_N GPIO_PF(15)
 
-/* BT gpio */
-#define HOST_WAKE_BT	GPIO_PA(1)
-#define BT_WAKE_HOST	GPIO_PA(0)
-#define BT_REG_EN	GPIO_PA(2)
-#define BT_UART_RTS	GPIO_PF(2)
-#if 0
-#define GPIO_BT_REG_ON      GPIO_PB(30)
-#define GPIO_BT_WAKE        GPIO_PB(20)
-#define GPIO_BT_INT    	    GPIO_PB(31)
-//#define GPIO_BT_RST_N       GPIO_PB(28)
-#define GPIO_BT_UART_RTS    GPIO_PF(2)
-#define GPIO_PB_FLGREG      (0x10010158)
-#define GPIO_BT_INT_BIT	    (1 << (GPIO_BT_INT % 32))
-#endif
 
-/* wifi gpio */
-#define HOST_WAKE_WL	GPIO_PA(10)
-#define WL_WAKE_HOST	GPIO_PA(9)
-#define WL_REG_EN	GPIO_PA(8)
-#if 0
-#define GPIO_WLAN_REG_ON	GPIO_PG(7)
-#define GPIO_WLAN_INT	        GPIO_PG(8)
-#define GPIO_WLAN_WAKE	        GPIO_PB(28)
-//#define GPIO_WIFI_RST_N     GPIO_PB(20)
-#endif
-
-#define WLAN_PWR_EN	(-1)
-//#define WLAN_PWR_EN	GPIO_PE(3)
+#define INFRARED_INT GPIO_PA(15)
 
 /**
  * USB detect pin
  **/
-#define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID			GPIO_PC(9)
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
 #define GPIO_USB_DETE			GPIO_PA(14)
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
