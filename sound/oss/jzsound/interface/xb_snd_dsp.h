@@ -147,7 +147,7 @@ enum snd_dsp_command {
 	 **/
 	SND_DSP_SET_REPLAY_RATE,
 	SND_DSP_SET_RECORD_RATE,
-	SND_DSP_GET_REPLAY_RATE,
+	SND_DSP_GET_REPLAY_RATE, /*10*/
 	SND_DSP_GET_RECORD_RATE,
 	/**
 	 * @SND_DSP_SET_XXXX_CHANNELS is used to set replay/record
@@ -172,7 +172,7 @@ enum snd_dsp_command {
 	SND_DSP_GET_REPLAY_FMT,
 	SND_DSP_SET_REPLAY_FMT,
 	SND_DSP_GET_RECORD_FMT_CAP,
-	SND_DSP_GET_RECORD_FMT,
+	SND_DSP_GET_RECORD_FMT,	/*20*/
 	SND_DSP_SET_RECORD_FMT,
 	/**
 	 * @SND_DSP_SET_DEVICE is used to set audio route
@@ -201,7 +201,7 @@ enum snd_dsp_command {
 	/**
 	 *	@SND_DSP_SET_DMIC_TRIGGER_MODE set dmic trigger
 	 **/
-	SND_DSP_SET_DMIC_TRIGGER_MODE,
+	SND_DSP_SET_DMIC_TRIGGER_MODE, /*30*/
 	/**
 	 * @SND_DSP_CLR_ROUTE  for pretest
 	 **/
@@ -209,6 +209,14 @@ enum snd_dsp_command {
 
 	SND_DSP_DEBUG,
 	SND_DSP_SET_VOICE_TRIGGER,
+	/**
+	 *	@SND_DSP_FLUSH_SYNC, wait for ioctl work done.
+	 * */
+	SND_DSP_FLUSH_SYNC,	/*34*/
+	/**
+	 * @SND_DSP_RESUME_PROCEDURE, called by driver, resume.
+	 */
+	SND_DSP_RESUME_PROCEDURE,
 };
 
 /**

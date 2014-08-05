@@ -54,13 +54,19 @@ struct dmic_device {
 	spinlock_t dmic_lock; /*P:register*/
 	char name[20];
 	struct resource * res;
-	struct clk * i2s_clk; /*i2s_clk P:mutex */
-	struct clk * clk; /*dmic clk P:mutex */
-	struct clk * pwc_clk;/* dmic pwc P:mutex */
+	struct clk * i2s_clk;
+	struct clk * clk;
+	struct clk * pwc_clk;
 	volatile bool dmic_is_incall_state;
 	void __iomem * dmic_iomem;
 
-	struct mutex mutex; /*not used*/
+	struct mutex mutex; /*used for ioctl*/
+
+	/*work queue*/
+	struct workqueue_struct *dmic_work_queue;
+	struct work_struct dmic_work;
+	unsigned int ioctl_cmd;
+	unsigned long ioctl_arg;
 
 	struct dsp_endpoints *dmic_endpoints;
 	struct jz_dmic * cur_dmic;
@@ -79,10 +85,6 @@ struct dmic_device * dmic_get_private_data(struct snd_dev_data *ddata)
 struct snd_dev_data * dmic_get_ddata(struct platform_device *pdev) {
 	return pdev->dev.platform_data;
 }
-
-static int dmic_global_init(struct platform_device *pdev);
-bool dmic_is_incall(struct dmic_device * dmic_dev);
-
 
 
 /* -----------------register access ------------------*/
@@ -150,9 +152,6 @@ static void dump_dmic_reg(struct dmic_device *dmic_dev)
 /*######DMICTRIMMAX############################################################*\
  |* suspDMICTRINMAXand func
 \*##################################################################*/
-static int dmic_suspend(struct platform_device *, pm_message_t state);
-static int dmic_resume(struct platform_device *);
-static void dmic_shutdown(struct platform_device *);
 
 bool dmic_is_incall(struct dmic_device * dmic_dev)
 {
@@ -254,7 +253,7 @@ static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *
 	printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
-		 clk_enable(dmic_dev->clk);
+		clk_enable(dmic_dev->clk);
 		iflg |= DMICICR_TRIFLG;
 		imsk |= DMICIMR_MASK_ALL;
 		dmic_disable_irq(dmic_dev, imsk);
@@ -265,6 +264,7 @@ static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *
 
 		/* trigger config*/
 		dmic_write_part(dmic_dev, DMICTRICR, 2, DMICTRICR_TRI_MOD, REGS_BIT_WIDTH_4BIT);
+		dmic_write_part(dmic_dev, DMICTHRH, 40000, DMIC_THR_H, REGS_BIT_WIDTH_20BIT);
 		if(*THR != 0)
 			dmic_write_part(dmic_dev, DMICTHRL, *THR, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
 		else
@@ -351,7 +351,7 @@ static int dmic_set_rate(struct dmic_device * dmic_dev, unsigned long *rate,int 
 			dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_48K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
 		}
 		else
-			printk("DMIC: unsurpport samplerate: %ld\n", *rate);
+			printk("DMIC: unsurpport samplerate: %x\n", *rate);
 	}
 
 	return ret;
@@ -532,6 +532,65 @@ static long dmic_ioctl(struct snd_dev_data *ddata, unsigned int cmd, unsigned lo
 {
 	long ret = 0;
 	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
+
+	switch(cmd) {
+		case SND_DSP_GET_RECORD_FMT_CAP:
+			/* return the support record formats */
+			ret = 0;
+			ret = dmic_get_fmt_cap(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
+			break;
+
+		case SND_DSP_GET_RECORD_FMT:
+			ret = 0;
+			ret = dmic_get_fmt(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
+			/* get current record format */
+
+			break;
+		case SND_DSP_GET_REPLAY_RATE:
+			ret = -1;
+			printk("dmic not support replay!\n");
+			break;
+
+		case SND_DSP_GET_RECORD_RATE:
+			ret = 0;
+			break;
+		case SND_DSP_GET_REPLAY_CHANNELS:
+			printk("dmic not support record!\n");
+			ret = -1;
+			break;
+
+		case SND_DSP_GET_RECORD_CHANNELS:
+			ret = 0;
+			break;
+
+		case SND_DSP_GET_REPLAY_FMT_CAP:
+			ret = -1;
+			printk("dmic not support replay!\n");
+			/* return the support replay formats */
+			break;
+
+		case SND_DSP_GET_REPLAY_FMT:
+			/* get current replay format */
+			ret = -1;
+			printk("dmic not support replay!\n");
+			break;
+		case SND_DSP_FLUSH_SYNC:
+			flush_work_sync(&dmic_dev->dmic_work);
+			break;
+		default:
+			flush_work_sync(&dmic_dev->dmic_work);
+			dmic_dev->ioctl_cmd = cmd;
+			dmic_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg;
+			queue_work(dmic_dev->dmic_work_queue, &dmic_dev->dmic_work);
+			break;
+
+	}
+	return ret;
+}
+static long do_ioctl_work(struct dmic_device * dmic_dev, unsigned int cmd, unsigned long arg)
+{
+	long ret = 0;
+	//printk("####%s, cmd:(%d), arg(%x), arg_value:\n", __func__, cmd, arg);
 	switch (cmd) {
 	case SND_DSP_ENABLE_REPLAY:
 		/* enable dmic replay */
@@ -591,14 +650,6 @@ static long dmic_ioctl(struct snd_dev_data *ddata, unsigned int cmd, unsigned lo
 		ret = dmic_set_rate(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
 		break;
 
-	case SND_DSP_GET_REPLAY_RATE:
-		ret = -1;
-		printk("dmic not support replay!\n");
-		break;
-
-	case SND_DSP_GET_RECORD_RATE:
-		ret = 0;
-		break;
 
 
 	case SND_DSP_SET_REPLAY_CHANNELS:
@@ -613,44 +664,10 @@ static long dmic_ioctl(struct snd_dev_data *ddata, unsigned int cmd, unsigned lo
 		/* set record channels */
 		break;
 
-	case SND_DSP_GET_REPLAY_CHANNELS:
-		printk("dmic not support record!\n");
-		ret = -1;
-		break;
-
-	case SND_DSP_GET_RECORD_CHANNELS:
-		ret = 0;
-		break;
-
-	case SND_DSP_GET_REPLAY_FMT_CAP:
-		ret = -1;
-		printk("dmic not support replay!\n");
-		/* return the support replay formats */
-		break;
-
-	case SND_DSP_GET_REPLAY_FMT:
-		/* get current replay format */
-		ret = -1;
-		printk("dmic not support replay!\n");
-		break;
-
 	case SND_DSP_SET_REPLAY_FMT:
 		/* set replay format */
 		printk("dmic not support replay!\n");
 		ret = -1;
-		break;
-
-	case SND_DSP_GET_RECORD_FMT_CAP:
-		/* return the support record formats */
-		ret = 0;
-		ret = dmic_get_fmt_cap(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
-		break;
-
-	case SND_DSP_GET_RECORD_FMT:
-		ret = 0;
-		ret = dmic_get_fmt(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
-		/* get current record format */
-
 		break;
 
 	case SND_DSP_SET_RECORD_FMT:
@@ -693,9 +710,11 @@ static long dmic_ioctl(struct snd_dev_data *ddata, unsigned int cmd, unsigned lo
 		ret = 0;
 		ret = dmic_set_voice_trigger(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
 		break;
+	case SND_DSP_RESUME_PROCEDURE:
+		break;
 	default:
-		printk("SOUND_ERROR: %s(line:%d) unknown command!\n",
-				__func__, __LINE__);
+		printk("SOUND_ERROR: %s(line:%d) unknown command!:(%d)\n",
+				__func__, __LINE__, cmd);
 		ret = -EINVAL;
 	}
 
@@ -761,6 +780,14 @@ static int dmic_init_pipe_2(struct dsp_pipe *dp , enum dma_data_direction direct
 
 
 	return 0;
+}
+static void dmic_work_handler(struct work_struct *work)
+{
+	struct dmic_device *dmic_dev = (struct dmic_device *)container_of(work, struct dmic_device, dmic_work);
+	unsigned int cmd = dmic_dev->ioctl_cmd;
+	unsigned long arg = dmic_dev->ioctl_arg;
+
+	do_ioctl_work(dmic_dev, cmd, &arg);
 }
 
 static int dmic_global_init(struct platform_device *pdev)
@@ -848,6 +875,7 @@ static int dmic_global_init(struct platform_device *pdev)
 
 	spin_lock_init(&dmic_dev->dmic_irq_lock);
 	spin_lock_init(&dmic_dev->dmic_lock);
+	mutex_init(&dmic_dev->mutex);
 
 #ifdef DMIC_IRQ
 	/* request irq */
@@ -861,7 +889,19 @@ static int dmic_global_init(struct platform_device *pdev)
 #endif
 
 
+
+	/*dmic worker*/
+	dmic_dev->dmic_work_queue = create_singlethread_workqueue("dmic_work");
+	if(!dmic_dev->dmic_work_queue) {
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&dmic_dev->dmic_work, dmic_work_handler);
+	dmic_dev->ioctl_cmd = 0;
+	dmic_dev->ioctl_arg = 0;
+
 	dmic_set_private_data(&dmic_data, dmic_dev); /*dmic_data is global*/
+	dmic_set_private_data(&snd_mixer3_data, dmic_dev); /*dmic_data is global*/
 	dev_set_drvdata(&pdev->dev, dmic_dev);
 
 	printk("dmic init success.\n");
@@ -901,7 +941,6 @@ static void dmic_shutdown(struct platform_device *pdev)
 	struct dmic_device * dmic_dev;
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
-
 	dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_DMIC_EN, REGS_BIT_WIDTH_1BIT);
 
 	clk_disable(dmic_dev->clk);
@@ -915,10 +954,13 @@ static int dmic_suspend(struct platform_device *pdev, pm_message_t state)
 	unsigned long thr = 0;
 	struct snd_dev_data *tmp;
 	struct dmic_device * dmic_dev;
+
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
 
 	dmic_set_voice_trigger(dmic_dev, &thr, CODEC_RMODE);
+	/* make sure everything has done */
+	flush_work_sync(&dmic_dev->dmic_work);
 	return 0;
 }
 
@@ -928,8 +970,12 @@ static int dmic_resume(struct platform_device *pdev)
 	struct dmic_device * dmic_dev;
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
-
 	dmic_enable(dmic_dev, CODEC_RMODE);
+
+	/* no need to do work */
+	dmic_dev->ioctl_cmd = SND_DSP_RESUME_PROCEDURE;
+	dmic_dev->ioctl_arg = 0;
+	queue_work(dmic_dev->dmic_work_queue, &dmic_dev->dmic_work);
 	return 0;
 }
 
