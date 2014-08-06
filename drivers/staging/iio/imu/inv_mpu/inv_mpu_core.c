@@ -2176,6 +2176,9 @@ out_unreg_ring:
 	inv_mpu_unconfigure_ring(indio_dev);
 out_free:
 	iio_free_device(indio_dev);
+	if (st->plat_data.power_off) {
+		st->plat_data.power_off();
+	}
 out_no_free:
 	dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
 
