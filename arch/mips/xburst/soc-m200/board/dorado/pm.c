@@ -15,7 +15,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+12,	GSS_OUTPUT_LOW		},	/* SHUTDOWN_N */
 	{32*0+13,	GSS_INPUT_NOPULL	},	/* USB_ID */
 	{32*0+14,	GSS_INPUT_NOPULL	},	/* USB_DETE */
-	{32*0+15,	GSS_INPUT_PULL		},	/* SENSOR_INT */
+	{32*0+15,	GSS_INPUT_NOPULL	},	/* SENSOR_INT */
 	{32*0+18,	GSS_INPUT_PULL		},	/* MSC0_CLK */
 	{32*0+19,	GSS_INPUT_NOPULL	},	/* MSC0_CMD */
 	{32*0+20,	GSS_INPUT_NOPULL	},	/* MSC0_D0 */
@@ -53,10 +53,10 @@ __initdata int gpio_ss_table[][2] = {
 	{32*3+17,	GSS_INPUT_PULL		},	/* LCD_DISP_N */
 	{32*3+18,	GSS_INPUT_NOPULL	},	/* BOOT_SEL1 */
 	{32*3+19,	GSS_INPUT_PULL		},	/* LCD_RESET_N */
-	{32*3+26,	GSS_INPUT_NOPULL		},	/* UART1_TXD */
+	{32*3+26,	GSS_IGNORE		},	/* UART1_TXD */
 	{32*3+27,	GSS_INPUT_PULL		},	/* CIM_RST */
 	{32*3+28,	GSS_INPUT_NOPULL	},	/* SSI_CLK */
-	{32*3+29,	GSS_INPUT_NOPULL		},	/* UART1_RXD */
+	{32*3+29,	GSS_IGNORE		},	/* UART1_RXD */
 	{32*3+30,	GSS_INPUT_NOPULL	},	/* SMB0_SDA */
 	{32*3+31,	GSS_INPUT_NOPULL	},	/* SMB0_CLK */
 	{32*4+0,	GSS_INPUT_NOPULL	},	/* SSI_DO */
@@ -81,6 +81,6 @@ __initdata int gpio_ss_table[][2] = {
 	{32*5+12,	GSS_INPUT_PULL		},	/* BT_PCM_DO */
 	{32*5+13,	GSS_INPUT_PULL		},	/* BT_PCM_CLK */
 	{32*5+14,	GSS_INPUT_PULL		},	/* BT_PCM_SYN */
-	{32*5+15,	GSS_INPUT_PULL		},	/* BT_CPM_DO */
+	{32*5+15,	GSS_INPUT_PULL		},	/* BT_PCM_DI */
 	{GSS_TABLET_END	,GSS_TABLET_END	}
 };
