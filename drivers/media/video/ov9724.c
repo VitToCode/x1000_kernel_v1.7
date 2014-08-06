@@ -106,7 +106,7 @@ static struct ov9724_format_struct {
 	{
 		/*RAW10 FORMAT, 10 bit per pixel*/
 		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
-		.colorspace	= V4L2_COLORSPACE_SGRBG,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
 	},
 	/*add other format supported*/
 };
@@ -124,7 +124,7 @@ static struct ov9724_win_setting {
 		.width		= 1280,
 		.height		= 720,
 		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
-		.colorspace	= V4L2_COLORSPACE_SGRBG,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.regs 		= ov9724_init_720p_raw10_regs,
 	}
 };
@@ -309,6 +309,8 @@ static int ov9724_detect(struct v4l2_subdev *sd)
 	return 0;
 }
 
+#define N_OV9724_FMTS ARRAY_SIZE(ov9724_formats)
+
 static int ov9724_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned index,
 					enum v4l2_mbus_pixelcode *code)
 {
@@ -393,7 +395,7 @@ static int ov9724_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0;
 	printk("--------%s: %d enable:%d\n", __func__, __LINE__, enable);
 	if (enable) {
-		ret = ov9724_write_array(sd, ov9724_init_regs);
+		ret = ov9724_write_array(sd, ov9724_init_720p_raw10_regs);
 		printk("ov9724 stream on\n");
 	}
 	else {
