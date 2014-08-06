@@ -214,6 +214,7 @@ static struct ft5336_platform_data ft5336_tsc_pdata = {
 static struct regulator *inv_mpu_power_vdd = NULL;
 static struct regulator *inv_mpu_power_vio = NULL;
 static atomic_t inv_mpu_powered = ATOMIC_INIT(0);
+#define USE_INV_MPU_POWE_VIO_CTRL 0
 static int inv_mpu_early_init(struct device *dev)
 {
 	int res;
@@ -240,7 +241,7 @@ static int inv_mpu_early_init(struct device *dev)
 		}
 	}
 
-	if (!inv_mpu_power_vio) {
+	if (USE_INV_MPU_POWE_VIO_CTRL && !inv_mpu_power_vio) {
 		inv_mpu_power_vio = regulator_get(dev, "vcc_sensor1v8");
 		if (IS_ERR(inv_mpu_power_vio)) {
 			pr_err("%s -> get regulator VIO failed\n",__func__);
@@ -287,9 +288,9 @@ static int inv_mpu_power_on(void)
 			goto err_vdd;
 		}
 
-		if (!IS_ERR(inv_mpu_power_vio)) {
+		if (inv_mpu_power_vio && !IS_ERR(inv_mpu_power_vio)) {
 			regulator_enable(inv_mpu_power_vio);
-		} else {
+		} else if(USE_INV_MPU_POWE_VIO_CTRL){
 			pr_err("inv mpu VIO power unavailable!\n");
 			res = -ENODEV;
 			goto err_vio;
@@ -308,9 +309,9 @@ static int inv_mpu_power_off(void)
 {
 	int res;
 	if (atomic_read(&inv_mpu_powered)) {
-		if (!IS_ERR(inv_mpu_power_vio)) {
+		if (inv_mpu_power_vio && !IS_ERR(inv_mpu_power_vio)) {
 			regulator_disable(inv_mpu_power_vio);
-		} else {
+		} else if(USE_INV_MPU_POWE_VIO_CTRL){
 			pr_err("inv mpu VIO power unavailable!\n");
 			res = -ENODEV;
 			goto err_vio;
