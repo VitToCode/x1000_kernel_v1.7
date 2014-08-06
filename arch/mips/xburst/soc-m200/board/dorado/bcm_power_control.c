@@ -129,6 +129,18 @@ struct platform_device bluesleep_device = {
 	},
 
 };
+
+#ifdef CONFIG_BT_BLUEDROID_SUPPORT
+int bluesleep_tty_strcmp(const char* name)
+{
+	if(!strcmp(name,BLUETOOTH_UPORT_NAME)){
+		return 0;
+	} else {
+		return -1;
+	}
+}
+EXPORT_SYMBOL(bluesleep_tty_strcmp);
+#endif
 #endif /* CONFIG_BROADCOM_RFKILL */
 
 /*For NFC*/

@@ -55,6 +55,18 @@ static struct lock_class_key port_lock_key;
 #define uart_console(port)	(0)
 #endif
 
+//#define BT_BLUEDROID_SUPPORT
+
+//Add policy for broadcom bluetooth bluesleep by android4.3 begin
+#ifdef CONFIG_BT_BLUEDROID_SUPPORT
+extern void bluesleep_outgoing_data(void);
+extern void bluesleep_uart_open(struct uart_port *uport);
+extern void bluesleep_uart_close(struct uart_port *uport);
+extern int 	bluesleep_tty_strcmp(const char*);
+#endif
+//Add policy for broadcom bluetooth bluesleep by android4.3 end
+
+
 static void uart_change_speed(struct tty_struct *tty, struct uart_state *state,
 					struct ktermios *old_termios);
 static void __uart_wait_until_sent(struct uart_port *port, int timeout);
@@ -513,6 +525,14 @@ static int uart_write(struct tty_struct *tty,
 		WARN_ON(1);
 		return -EL3HLT;
 	}
+
+//Add policy for broadcom bluetooth bluesleep by android4.3 begin
+#ifdef CONFIG_BT_BLUEDROID_SUPPORT
+	if(!bluesleep_tty_strcmp(tty->name))
+		bluesleep_outgoing_data();
+#endif
+//Add policy for broadcom bluetooth bluesleep by android4.3 end
+
 
 	port = state->uart_port;
 	circ = &state->xmit;
@@ -1269,6 +1289,14 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 
 	pr_debug("uart_close(%d) called\n", uport->line);
 
+//Add policy for broadcom bluetooth bluesleep by android4.3 begin
+#ifdef CONFIG_BT_BLUEDROID_SUPPORT
+	if(!bluesleep_tty_strcmp(tty->name))
+		bluesleep_uart_close(state->uart_port);
+#endif
+//Add policy for broadcom bluetooth bluesleep by android4.3 end
+
+
 	mutex_lock(&port->mutex);
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -1584,6 +1612,15 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 	mutex_unlock(&port->mutex);
 	if (retval == 0)
 		retval = tty_port_block_til_ready(port, tty, filp);
+
+//Add policy for broadcom bluetooth bluesleep by android4.3 begin
+#ifdef CONFIG_BT_BLUEDROID_SUPPORT
+	if(!bluesleep_tty_strcmp(tty->name)){
+		bluesleep_uart_open(state->uart_port);
+	}
+#endif
+//Add policy for broadcom bluetooth bluesleep by android4.3 end
+
 
 fail:
 	return retval;
