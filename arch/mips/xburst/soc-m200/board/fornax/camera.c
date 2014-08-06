@@ -3,10 +3,14 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 
+#if 0
 #define CAMERA_RST			GPIO_PD(27)
 #define CAMERA_PWDN_N		GPIO_PA(13) /* pin conflict with USB_ID */
 #define CAMERA_MCLK			GPIO_PE(2) /* no use */
-
+#else
+#define CAMERA_RST			GPIO_PA(1)
+#define CAMERA_PWDN_N		GPIO_PA(13) /* pin conflict with USB_ID */
+#endif
 
 
 #if defined(CONFIG_VIDEO_OVISP)
@@ -15,9 +19,18 @@ int temp = 1;
 #if defined(CONFIG_VIDEO_OV9724)
 static int ov9724_power(int onoff)
 {
+	int ret = 0;
 	if(temp) {
-	gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-	gpio_request(CAMERA_RST, "CAMERA_RST");
+		ret = gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, CAMERA_PWDN_N);
+			return ret;
+		}
+		ret = gpio_request(CAMERA_RST, "CAMERA_RST");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, CAMERA_RST);
+			return ret;
+		}
 		temp = 0;
 	}
 	if (onoff) { /* conflict with USB_ID pin */
@@ -59,15 +72,26 @@ static struct i2c_board_info ov9724_board_info = {
 #if defined(CONFIG_VIDEO_OV5645)
 static int ov5645_power(int onoff)
 {
+	int ret = 0;
 	if(temp) {
-//		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-		gpio_request(CAMERA_RST, "CAMERA_RST");
+		ret = gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, CAMERA_PWDN_N);
+			return ret;
+		}
+		ret = gpio_request(CAMERA_RST, "CAMERA_RST");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, CAMERA_RST);
+			return ret;
+		}
 		temp = 0;
 	}
 	if (onoff) {
-		printk("[board camera]:%s, power on\n", __func__);
+		printk("[board camera]:%s, (%d)power on\n", __func__, CAMERA_PWDN_N);
+		gpio_direction_output(CAMERA_PWDN_N, 0);   /*PWM0 */
 		mdelay(10);
-		//gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+//		gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		gpio_direction_output(CAMERA_PWDN_N, 1);   /*PWM0 */
 		;
 	} else {
 		printk("[board camera]:%s, power off\n", __func__);
@@ -103,9 +127,14 @@ static struct i2c_board_info ov5645_board_info = {
 #if defined(CONFIG_VIDEO_OV8858)
 static int ov8858_power(int onoff)
 {
+	int ret = 0;
 	if(temp) {
 	//gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-	gpio_request(CAMERA_RST, "CAMERA_RST");
+	ret = gpio_request(CAMERA_RST, "CAMERA_RST");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, CAMERA_RST);
+			return ret;
+		}
 		temp = 0;
 	}
 	if (onoff) {
@@ -147,23 +176,33 @@ static struct i2c_board_info ov8858_board_info = {
 
 #if defined(CONFIG_DVP_OV9712)
 /* OV9712 PIN */
-#define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
-#define OV9712_RST		GPIO_PA(11)
-#define OV9712_PWDN_EN		GPIO_PD(28)
+//#define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
+#define OV9712_RST		GPIO_PA(1)
+#define OV9712_PWDN_EN		GPIO_PA(13)
 static int ov9712_power(int onoff)
 {
+	int ret = 0;
 	if(temp) {
-	gpio_request(OV9712_POWER, "OV9712_POWER");
-	gpio_request(OV9712_PWDN_EN, "OV9712_PWDN_EN");
-	gpio_request(OV9712_RST, "OV9712_RST");
-	temp = 0;
+		//	gpio_request(OV9712_POWER, "OV9712_POWER");
+		ret = gpio_request(OV9712_PWDN_EN, "OV9712_PWDN_EN");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, OV9712_PWDN_EN);
+			return ret;
+		}
+		ret = gpio_request(OV9712_RST, "OV9712_RST");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, OV9712_RST);
+			return ret;
+		}
+		temp = 0;
 	}
 	if (onoff) { /* conflict with USB_ID pin */
 		printk("##### power on######### %s\n", __func__);
+		mdelay(50); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 1);
 //		gpio_direction_output(OV9712_RST, 1);
-		mdelay(1); /* this is necesary */
-		gpio_direction_output(OV9712_POWER, 1);
+//		mdelay(1); /* this is necesary */
+//		gpio_direction_output(OV9712_POWER, 1);
 		mdelay(100); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 0);
 		mdelay(50); /* this is necesary */

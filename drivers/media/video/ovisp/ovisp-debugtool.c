@@ -81,8 +81,8 @@ void ovisp_debugtool_save_yuv_file(struct ovisp_camera_dev* camdev)
 	memset(yuvfilename, 0, sizeof(yuvfilename));
 
 	vaddr = vb2_plane_vaddr(&capture->last->vb, 0);
-	width = frame->width;
-	height = frame->height;
+	width = frame->ifmt.vfmt.width;
+	height = frame->ifmt.vfmt.height;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
@@ -262,8 +262,8 @@ void ovisp_debugtool_save_raw_file(struct ovisp_camera_dev* camdev)
 	memset(yuvfilename, 0, sizeof(yuvfilename));
 
 	vaddr = vb2_plane_vaddr(&capture->last->vb, 0);
-	width = frame->width;
-	height = frame->height;
+	width = frame->ifmt.vfmt.width;
+	height = frame->ifmt.vfmt.height;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);

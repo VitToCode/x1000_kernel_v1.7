@@ -36,7 +36,7 @@ struct ov5645_format_struct;
 struct ov5645_info {
 	struct v4l2_subdev sd;
 	struct ov5645_format_struct *fmt;
-	struct ov5645_win_size *win;
+	struct ov5645_win_setting *win;
 };
 
 struct regval_list {
@@ -696,156 +696,7 @@ static struct regval_list ov5645_init_regs_672Mbps_1080p[] = {
 
 };
 
-
-static struct regval_list ov5645_init_regs_420Mbps_5M[] = {
-	/*
-	 *	RAW10, 15fps, 5M
-	 *	420Mbps
-	 * */
-
-	{0x3103, 0x11},
-	{0x3008, 0x82},
-
-	{0x4202, 0x0f},
-	{0x3008, 0x42},
-	{0x3103, 0x03},
-	{0x3503, 0x07},
-	{0x3002, 0x1c},
-	{0x3006, 0xc3},
-	{0x300e, 0x45},
-	{0x3017, 0x40},
-	{0x3018, 0x00},
-	{0x302e, 0x0b},
-	{0x3037, 0x13},
-	{0x3108, 0x01},
-	{0x3611, 0x06},
-	{0x3612, 0xab},
-	{0x3614, 0x50},
-	{0x3618, 0x04},
-	{0x3034, 0x1a},
-	{0x3035, 0x12},
-	{0x3036, 0x69},
-	{0x3500, 0x00},
-	{0x3501, 0x01},
-	{0x3502, 0x00},
-	{0x350a, 0x00},
-	{0x350b, 0x3f},
-	{0x3600, 0x08},
-	{0x3601, 0x33},
-	{0x3620, 0x33},
-	{0x3621, 0xe0},
-	{0x3622, 0x01},
-	{0x3630, 0x2d},
-	{0x3631, 0x00},
-	{0x3632, 0x32},
-	{0x3633, 0x52},
-	{0x3634, 0x70},
-	{0x3635, 0x13},
-	{0x3636, 0x03},
-	{0x3702, 0x6e},
-	{0x3703, 0x52},
-	{0x3704, 0xa0},
-	{0x3705, 0x33},
-	{0x3708, 0x63},
-	{0x3709, 0x12},
-	{0x370b, 0x61},
-	{0x370c, 0xc0},
-	{0x370f, 0x10},
-	{0x3715, 0x08},
-	{0x3717, 0x01},
-	{0x371b, 0x20},
-	{0x3731, 0x22},
-	{0x3739, 0x70},
-	{0x3901, 0x0a},
-	{0x3905, 0x02},
-	{0x3906, 0x10},
-	{0x3719, 0x86},
-	{0x3800, 0x00},
-	{0x3801, 0x00},
-	{0x3802, 0x00},
-	{0x3803, 0x00},
-	{0x3804, 0x0a},
-	{0x3805, 0x3f},
-	{0x3806, 0x07},
-	{0x3807, 0x9f},
-	{0x3808, 0x0a},
-	{0x3809, 0x20},
-	{0x380a, 0x07},
-	{0x380b, 0x98},
-	{0x380c, 0x0b},
-	{0x380d, 0x1c},
-	{0x380e, 0x07},
-	{0x380f, 0xb0},
-	{0x3810, 0x00},
-	{0x3811, 0x10},
-	{0x3812, 0x00},
-	{0x3813, 0x06},
-	{0x3814, 0x11},
-	{0x3815, 0x11},
-	{0x3820, 0x40},
-	{0x3821, 0x06},
-	{0x3824, 0x01},
-	{0x3826, 0x03},
-	{0x3828, 0x08},
-	{0x3a02, 0x07},
-	{0x3a03, 0xb0},
-	{0x3a08, 0x01},
-	{0x3a09, 0x27},
-	{0x3a0a, 0x00},
-	{0x3a0b, 0xf6},
-	{0x3a0e, 0x06},
-	{0x3a0d, 0x08},
-	{0x3a14, 0x07},
-	{0x3a15, 0xb0},
-	{0x3a18, 0x00},
-	{0x3a19, 0xf8},
-	{0x3c01, 0x34},
-	{0x3c04, 0x28},
-	{0x3c05, 0x98},
-	{0x3c07, 0x07},
-	{0x3c09, 0xc2},
-	{0x3c0a, 0x9c},
-	{0x3c0b, 0x40},
-	{0x3c01, 0x34},
-	{0x4001, 0x02},
-	{0x4004, 0x06},
-	{0x4005, 0x18},
-	{0x4050, 0x6e},
-	{0x4051, 0x8f},
-	{0x4300, 0xf8},
-	{0x4514, 0x00},
-	{0x4520, 0xb0},
-	{0x460b, 0x37},
-	{0x460c, 0x20},
-	{0x4818, 0x01},
-	{0x481d, 0xf0},
-	{0x481f, 0x50},
-	{0x4823, 0x70},
-	{0x4831, 0x14},
-	{0x4837, 0x16},
-	{0x5000, 0x06},
-	{0x5001, 0x00},
-	{0x501d, 0x00},
-	{0x501f, 0x03},
-	{0x503d, 0x00},
-	{0x505c, 0x30},
-	{0x5181, 0x59},
-	{0x5183, 0x00},
-	{0x5191, 0xf0},
-	{0x5192, 0x03},
-	{0x5684, 0x10},
-	{0x5685, 0xa0},
-	{0x5686, 0x0c},
-	{0x5687, 0x78},
-	{0x5a00, 0x08},
-	{0x5a21, 0x00},
-	{0x5a24, 0x00},
-	{0x3008, 0x02},
-	{0x3503, 0x00},
-
-	{OV5645_REG_END, 0x00},	/* END MARKER */
-};
-static struct regval_list ov5645_init_regs_raw10_720p[] = {
+static struct regval_list ov5645_init_regs_raw10[] = {
 
 	/* @@ MIPI_2lane_720P_RAW10_30fps */
 	/* 99 1280 720 */
@@ -854,7 +705,7 @@ static struct regval_list ov5645_init_regs_raw10_720p[] = {
 
        {0x3103, 0x11},
        {0x3008, 0x82},
-       {OV5645_REG_DELAY, 50},
+//       {OV5645_REG_DELAY, 50},
       // {0x4800,0x24},
        {0x4202,0x0f},// stream off, sensor enter LP11
 
@@ -1164,16 +1015,6 @@ static struct regval_list ov5645_init_regs_raw10_720p[] = {
 };
 
 
-static struct regval_list ov5645_init_regs_s56M[] = {
-
-	{OV5645_REG_END, 0x00},	/* END MARKER */
-};
-
-static struct regval_list ov5645_init_regs[] = {
-
-	{OV5645_REG_END, 0x00},	/* END MARKER */
-};
-
 static struct regval_list ov5645_stream_on[] = {
 	{0x4202, 0x00},
 
@@ -1344,23 +1185,43 @@ static int ov5645_init(struct v4l2_subdev *sd, u32 val)
 	int ret = 0;
 	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 
-	info->fmt = NULL;
 	info->win = NULL;
 
-
-	//ret = ov5645_write_array(sd, ov5645_init_regs);
-	//ret = ov5645_write_array(sd, ov5645_init_regs_s56M);
-	//ret = ov5645_write_array(sd, ov5645_init_regs_420Mbps_5M);
+	//ret = ov5645_write_array(sd, ov5645_init_regs_raw10);
 	//ret = ov5645_write_array(sd, ov5645_init_regs_672Mbps_1080p);
 	//ret = ov5645_write_array(sd, ov5645_init_regs_672Mbps_5M);
-	ret = ov5645_write_array(sd, ov5645_init_regs_raw10_720p);
 	if (ret < 0)
 		return ret;
-	//ov5645_read_array(sd, ov5645_init_regs);
 
 	return 0;
 }
+static int ov5645_get_sensor_vts(struct v4l2_subdev *sd, unsigned short *value)
+{
+	unsigned char h,l;
+	int ret = 0;
+	ret = ov5645_read(sd, 0x380e, &h);
+	if (ret < 0)
+		return ret;
+	ret = ov5645_read(sd, 0x380f, &l);
+	if (ret < 0)
+		return ret;
+	*value = h;
+	*value = (*value << 8) | l;
+	return ret;
+}
 
+static int ov5645_get_sensor_lans(struct v4l2_subdev *sd, unsigned char *value)
+{
+	int ret = 0;
+	unsigned char v = 0;
+	ret = ov5645_read(sd, 0x300e, &v);
+	if (ret < 0)
+		return ret;
+	*value = v >> 5;
+	if(*value > 2 || *value < 1)
+		ret = -EINVAL;
+	return ret;
+}
 static int ov5645_detect(struct v4l2_subdev *sd)
 {
 	unsigned char v;
@@ -1373,11 +1234,12 @@ static int ov5645_detect(struct v4l2_subdev *sd)
 		printk("0x10010420:%x\n", *((volatile unsigned int *)0xb0010420));
 		printk("0x10010430:%x\n", *((volatile unsigned int *)0xb0010430));
 		printk("0x10010440:%x\n", *((volatile unsigned int *)0xb0010440));
-
+		printk("0x10010010:%x\n", *((volatile unsigned int *)0xb0010010));
+		printk("0x10010020:%x\n", *((volatile unsigned int *)0xb0010020));
+		printk("0x10010030:%x\n", *((volatile unsigned int *)0xb0010030));
+		printk("0x10010040:%x\n", *((volatile unsigned int *)0xb0010040));
 	}
 #endif
-
-
 
 	ret = ov5645_read(sd, 0x300a, &v);
 	printk("-----%s: %d ret = %d\n", __func__, __LINE__, ret);
@@ -1399,82 +1261,64 @@ static int ov5645_detect(struct v4l2_subdev *sd)
 static struct ov5645_format_struct {
 	enum v4l2_mbus_pixelcode mbus_code;
 	enum v4l2_colorspace colorspace;
-	struct regval_list *regs;
 } ov5645_formats[] = {
 	{
 		/*RAW8 FORMAT, 8 bit per pixel*/
 		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.regs 		= NULL,
 	},
 	{
 		/*RAW10 FORMAT, 10 bit per pixel*/
 		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.regs 		= NULL,
 	},
 	{
 		.mbus_code = V4L2_MBUS_FMT_YUYV8_2X8,
 		.colorspace	 = V4L2_COLORSPACE_BT878,/*don't know*/
-		.regs = NULL,
 
 	}
 	/*add other format supported*/
 };
 #define N_OV5645_FMTS ARRAY_SIZE(ov5645_formats)
 
-static struct ov5645_win_size {
+static struct ov5645_win_setting {
 	int	width;
 	int	height;
-	int	vts;
+	enum v4l2_mbus_pixelcode mbus_code;
+	enum v4l2_colorspace colorspace;
 	struct regval_list *regs; /* Regs to tweak */
 } ov5645_win_sizes[] = {
 	/* 2592*1944 */
 	{
 		.width		= MAX_WIDTH,
 		.height		= MAX_HEIGHT,
-		.vts		= 0x7b6,
-		.regs 		= ov5645_win_5m,
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= ov5645_init_regs_672Mbps_5M,
 	},
+	/* 1920*1080 */
+	{
+		.width		= 1920,
+		.height		= 1080,
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= ov5645_init_regs_672Mbps_1080p,
+	},
+#if 0
 	/* SXGA */
 	{
-		.width		= SXGA_WIDTH, /*1280*/
-		.height		= SXGA_HEIGHT, /*960*/
-		.vts		= 0x3d8,
-		.regs 		= ov5645_win_sxga,
+		.width		= SXGA_WIDTH,
+		.height		= SXGA_HEIGHT,
+		.regs 		= NULL,
 	},
+#endif
 	/* 1280*720 */
 	{
 		.width		= 1280,
 		.height		= 720,
-		.vts		= 0x2e4,
-		.regs 		= ov5645_win_720p,
-	},
-	{
-		.width		= 720,
-		.height		= 640,
-		.vts		= 0x01e0,
-		.regs		= ov5645_win_vga,
-	},
-
-	/* VGA */
-	{
-		.width		= VGA_WIDTH,
-		.height		= VGA_HEIGHT,
-		.vts		= 0x01e0,//0x740,
-		.regs		= ov5645_win_vga,
-	},
-	{
-		.width		= 320,
-		.height		= 480,
-		.vts		= 0x300,
-		.regs		= ov5645_win_vga,
-	},
-	{
-		.width		= 320,
-		.height		= 240,
-		.vts		= 0x300,
-		.regs		= ov5645_win_vga,
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= ov5645_init_regs_raw10,
 	}
 };
 #define N_WIN_SIZES (ARRAY_SIZE(ov5645_win_sizes))
@@ -1492,28 +1336,12 @@ static int ov5645_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned index,
 
 static int ov5645_try_fmt_internal(struct v4l2_subdev *sd,
 		struct v4l2_mbus_framefmt *fmt,
-		struct ov5645_format_struct **ret_fmt,
-		struct ov5645_win_size **ret_wsize)
+		struct ov5645_win_setting **ret_wsize)
 {
-	int index;
-	struct ov5645_win_size *wsize;
+	struct ov5645_win_setting *wsize;
 
-	printk("[ov5645], %s,%d :fmt->code:%0x\n", __func__, __LINE__, fmt->code);
-
-	for (index = 0; index < N_OV5645_FMTS; index++)
-		if (ov5645_formats[index].mbus_code == fmt->code)
-			break;
-	if (index >= N_OV5645_FMTS) {
-		/* default to first format */
-		printk("[OV5645] default to first format\n");
-		index = 0;
-		fmt->code = ov5645_formats[0].mbus_code;
-	}
-	if (ret_fmt != NULL)
-		*ret_fmt = ov5645_formats + index;
-
-	fmt->field = V4L2_FIELD_NONE;
-
+	if(fmt->width > MAX_WIDTH || fmt->height > MAX_HEIGHT)
+		return -EINVAL;
 	for (wsize = ov5645_win_sizes; wsize < ov5645_win_sizes + N_WIN_SIZES;
 	     wsize++)
 		if (fmt->width >= wsize->width && fmt->height >= wsize->height)
@@ -1524,7 +1352,9 @@ static int ov5645_try_fmt_internal(struct v4l2_subdev *sd,
 		*ret_wsize = wsize;
 	fmt->width = wsize->width;
 	fmt->height = wsize->height;
-	fmt->colorspace = ov5645_formats[index].colorspace;
+	fmt->code = wsize->mbus_code;
+	fmt->field = V4L2_FIELD_NONE;
+	fmt->colorspace = wsize->colorspace;
 	printk("%s:------->%d fmt->code,%08X , fmt->width%d fmt->height%d\n", __func__, __LINE__, fmt->code, fmt->width, fmt->height);
 	return 0;
 }
@@ -1533,7 +1363,7 @@ static int ov5645_try_mbus_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_mbus_framefmt *fmt)
 {
 	printk("%s:------->%d\n", __func__, __LINE__);
-	return ov5645_try_fmt_internal(sd, fmt, NULL, NULL);
+	return ov5645_try_fmt_internal(sd, fmt, NULL);
 }
 
 static int ov5645_s_mbus_fmt(struct v4l2_subdev *sd,
@@ -1541,56 +1371,33 @@ static int ov5645_s_mbus_fmt(struct v4l2_subdev *sd,
 {
 
 	struct ov5645_info *info = container_of(sd, struct ov5645_info, sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct v4l2_fmt_data *data = v4l2_get_fmt_data(fmt);
-	struct ov5645_format_struct *fmt_s;
-	struct ov5645_win_size *wsize;
+	struct ov5645_win_setting *wsize;
 	int ret;
 
 
 	printk("[ov5645], problem function:%s, line:%d\n", __func__, __LINE__);
-	ret = ov5645_try_fmt_internal(sd, fmt, &fmt_s, &wsize);
+	ret = ov5645_try_fmt_internal(sd, fmt, &wsize);
 	if (ret)
 		return ret;
-	data->vts = wsize->vts;
-	data->mipi_clk = 282;
-	if ((info->fmt != fmt_s) && fmt_s->regs) {
-		printk("pay attention : ov5645, %s:LINE:%d\n", __func__, __LINE__);
-		ret = ov5645_write_array(sd, fmt_s->regs);
+	if ((info->win != wsize) && wsize->regs) {
+		printk("pay attention : ov5645, %s:LINE:%d  size = %d\n", __func__, __LINE__, sizeof(*wsize->regs));
+		ret = ov5645_write_array(sd, wsize->regs);
 		if (ret)
 			return ret;
 	}
-
-#if 0
-	if ((info->win != wsize) && wsize->regs) {
-
-		printk("pay attention : ov5645, %s:LINE:%d\n", __func__, __LINE__);
-		memset(data, 0, sizeof(*data));
-		data->vts = wsize->vts;
-		data->mipi_clk = 282; /* Mbps. */
-		if ((wsize->width == MAX_WIDTH)
-			&& (wsize->height == MAX_HEIGHT)) {
-			data->flags = V4L2_I2C_ADDR_16BIT;
-			data->slave_addr = client->addr;
-			data->reg_num = 1;
-			data->reg[0].addr = 0x3208;
-			data->reg[0].data = 0xa2;
-		} else if ((wsize->width == SXGA_WIDTH)
-			&& (wsize->height == SXGA_HEIGHT)) {
-			data->flags = V4L2_I2C_ADDR_16BIT;
-			data->slave_addr = client->addr;
-			data->reg_num = 1;
-			data->reg[0].addr = 0x3208;
-			data->reg[0].data = 0xa1;
-		}
+	data->i2cflags = V4L2_I2C_ADDR_16BIT;
+	data->mipi_clk = 282;
+	ret = ov5645_get_sensor_vts(sd, &(data->vts));
+	if(ret < 0){
+		printk("[ov5645], problem function:%s, line:%d\n", __func__, __LINE__);
+		return ret;
 	}
-#endif
-	/*set yuv422, test pattern here?????????*/
-	/* fmt_s should be raw8,
-	 * wsize should be VGA 640 * 480,
-	 *
-	 * */
-	info->fmt = fmt_s;
+	ret = ov5645_get_sensor_lans(sd, &(data->lans));
+	if(ret < 0){
+		printk("[ov5645], problem function:%s, line:%d\n", __func__, __LINE__);
+		return ret;
+	}
 	info->win = wsize;
 
 	return 0;
@@ -1677,7 +1484,7 @@ static int ov5645_enum_framesizes(struct v4l2_subdev *sd,
 	 * windows that fall outside that.
 	 */
 	for (i = 0; i < N_WIN_SIZES; i++) {
-		struct ov5645_win_size *win = &ov5645_win_sizes[index];
+		struct ov5645_win_setting *win = &ov5645_win_sizes[index];
 		if (index == ++num_valid) {
 			fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 			fsize->discrete.width = win->width;

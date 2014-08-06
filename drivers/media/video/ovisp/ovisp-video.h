@@ -27,6 +27,7 @@
 struct ovisp_camera_buffer {
 	struct vb2_buffer vb;
 	struct list_head list;
+	unsigned char priv[ISP_OUTPUT_INFO_LENS];
 };
 
 struct ovisp_camera_format {
@@ -35,13 +36,9 @@ struct ovisp_camera_format {
 	unsigned int fourcc;
 	unsigned int depth;
 };
-
 struct ovisp_camera_frame {
-	unsigned int width;
-	unsigned int height;
 	enum v4l2_field field;
-	struct ovisp_camera_format *fmt;
-	struct v4l2_mbus_framefmt vmfmt;
+	struct ovisp_camera_devfmt cfmt;
 	struct isp_format ifmt;
 };
 

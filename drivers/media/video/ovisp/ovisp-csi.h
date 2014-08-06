@@ -42,7 +42,7 @@ typedef enum
 /* function */
 extern int csi_phy_init(void);
 extern int csi_phy_release(void);
-extern int csi_phy_start(unsigned int id, unsigned int freq);
+extern int csi_phy_start(unsigned int id, unsigned int freq, unsigned int lans);
 extern int csi_phy_stop(unsigned int id);
 
 extern void dump_csi_reg(void);

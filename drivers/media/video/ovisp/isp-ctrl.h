@@ -3,6 +3,7 @@
 
 #include "ovisp-isp.h"
 
+void isp_set_exposure_init(struct isp_device *isp);
 extern int isp_set_exposure(struct isp_device *isp, int val);
 extern int isp_set_exposure_manual(struct isp_device *isp);
 extern int isp_set_gain(struct isp_device *isp, int val);

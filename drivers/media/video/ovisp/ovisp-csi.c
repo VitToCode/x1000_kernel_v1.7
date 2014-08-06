@@ -160,17 +160,13 @@ int csi_phy_release(void)
 	return 0;
 }
 
-int csi_phy_start(unsigned int id, unsigned int freq)
+int csi_phy_start(unsigned int id, unsigned int freq, unsigned int lans)
 {
 	int retries = 30;
 	int i;
 
-#if defined(CONFIG_VIDEO_OV9724)
-	csi_set_on_lanes(1);
-
-#else
-	csi_set_on_lanes(2); /*two lane*/
-#endif
+	ISP_PRINT(ISP_INFO,"csi_phy_start being called\n");
+	csi_set_on_lanes(lans);
 
 	/*reset phy*/
 	csi_core_write_part(PHY_SHUTDOWNZ, 0, 0, 1);

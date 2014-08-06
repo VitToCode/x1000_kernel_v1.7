@@ -25,42 +25,35 @@
 
 #include "ovisp-csi.h"
 #include "../ov5645.h"
-static struct ovisp_camera_format formats[] = {
-#if 0
+static struct ovisp_camera_format isp_oformats[] = {
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
-		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc   = V4L2_PIX_FMT_YUYV,
 		.depth    = 16,
 	},
-#endif
 	{
-		.name     = "YUV 4:2:2 packed, YCbYCr",
-		.code	  =  V4L2_MBUS_FMT_SBGGR10_1X10,
-		.fourcc   = V4L2_PIX_FMT_YUYV,
-		.depth    = 16,
+		.name     = "YUV 4:2:0 packed",
+		.fourcc   = V4L2_PIX_FMT_YUV420,
+		.depth    = 12,
 	},
 	{
 		.name     = "YUV 4:2:0 semi planar, Y/CbCr",
-		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc   = V4L2_PIX_FMT_NV12,
 		.depth    = 12,
 	},
 	{
-		.name     = "YUV 4:2:0 semi planar, Y/CbCr",
-		.code	  = V4L2_MBUS_FMT_SBGGR10_1X10,
-		.fourcc   = V4L2_PIX_FMT_NV12YUV422,
-		.depth    = 12,
-	},
-	{
 		.name	  ="RAW8",
-		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc	  = V4L2_PIX_FMT_SBGGR8,
 		.depth	  = 8,
+	},
+	{
+		.name	  ="RAW10",
+		.fourcc	  = V4L2_PIX_FMT_SBGGR10,
+		.depth	  = 16,
 	}
 };
 
-static struct ovisp_camera_format bypass_formats[] = {
+static struct ovisp_camera_format sensor_oformats[] = {
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
 		.code	  = V4L2_MBUS_FMT_YUYV8_2X8,
@@ -68,10 +61,22 @@ static struct ovisp_camera_format bypass_formats[] = {
 		.depth    = 16,
 	},
 	{
-		.name	  ="RAW8",
+		.name	  ="RAW8 (BGGR)",
 		.code	  = V4L2_MBUS_FMT_SBGGR8_1X8,
 		.fourcc	  = V4L2_PIX_FMT_SBGGR8,
 		.depth	  = 8,
+	},
+	{
+		.name	  ="RAW10 (BGGR)",
+		.code	  = V4L2_MBUS_FMT_SBGGR10_1X10,
+		.fourcc	  = V4L2_PIX_FMT_SBGGR10,
+		.depth	  = 16,
+	},
+	{
+		.name	  ="RAW10 (GRBG)",
+		.code	  = V4L2_MBUS_FMT_SGRBG10_1X10,
+		.fourcc	  = V4L2_PIX_FMT_SGRBG10,
+		.depth	  = 16,
 	}
 };
 
@@ -209,28 +214,33 @@ static int ovisp_subdev_power_off(struct ovisp_camera_dev *camdev,
 	return 0;
 }
 
-struct ovisp_camera_format *ovisp_camera_find_format(
-					struct ovisp_camera_dev *camdev,
-					struct v4l2_format *f)
+struct ovisp_camera_format *ovisp_camera_find_format(struct v4l2_mbus_framefmt *mbus,
+				struct v4l2_format *f, int index)
 {
-	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
-	struct ovisp_camera_format *fmt;
+	struct ovisp_camera_format *fmt = NULL;
 	unsigned int num;
-	unsigned int i;
+	int i;
 
-	if (csd->bypass) {
-		fmt = bypass_formats;
-		num = ARRAY_SIZE(bypass_formats);
-	} else {
-		fmt = formats;
-		num = ARRAY_SIZE(formats);
+	if(mbus){
+		fmt = sensor_oformats;
+		num = ARRAY_SIZE(sensor_oformats);
+		for (i = 0; i < num; i++) {
+			if (fmt->code == mbus->code)
+				break;
+			fmt++;
+		}
+	}else{
+		fmt = isp_oformats;
+		num = ARRAY_SIZE(isp_oformats);
+		for (i = 0; i < num; i++) {
+			if (f && fmt->fourcc == f->fmt.pix.pixelformat)
+				break;
+			if(i == index)
+				break;
+			fmt++;
+		}
 	}
 
-	for (i = 0; i < num; i++) {
-		if (fmt->fourcc == f->fmt.pix.pixelformat)
-			break;
-		fmt++;
-	}
 	if (i == num)
 		return NULL;
 
@@ -539,37 +549,34 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
 	struct ovisp_camera_capture *capture = &camdev->capture;
 	struct ovisp_camera_frame *frame = &camdev->frame;
+	struct ovisp_camera_devfmt *cfmt = &frame->cfmt;
+	struct isp_format *ifmt = &frame->ifmt;
 	int ret;
 
 	capture->running = 0;
 	capture->active[0] = NULL;
 	capture->active[1] = NULL;
 
-	if (!camdev->snapshot && !csd->bypass) {
-		if (csd->client->max_video_width
-				&& csd->client->max_video_height) {
-			frame->ifmt.dev_width = csd->client->max_video_width;
-			frame->ifmt.dev_height = csd->client->max_video_height;
-			frame->vmfmt.width = frame->ifmt.dev_width;
-			frame->vmfmt.height = frame->ifmt.dev_height;
-		}
+	ISP_PRINT(ISP_WARNING,"Set format(%s).\n", camdev->snapshot ? "snapshot" : "preview");
+	/*1. get camera's format */
+	ret = isp_dev_call(camdev->isp, g_devfmt, ifmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		ISP_PRINT(ISP_ERROR,"Failed to set isp format\n");
+		return -EINVAL;
 	}
+	cfmt->vmfmt.width = ifmt->vfmt.dev_width;
+	cfmt->vmfmt.height = ifmt->vfmt.dev_height;
+	ifmt->fmt_data = &cfmt->fmt_data;
+	memset(ifmt->fmt_data, 0, sizeof(*ifmt->fmt_data));
 
-	ISP_PRINT(ISP_WARNING,"Set format(%s). ISP %dx%d,%x/%x. device %dx%d,%x\n",
-			camdev->snapshot ? "snapshot" : "preview",
-			frame->ifmt.width, frame->ifmt.height,
-			frame->ifmt.code, frame->ifmt.fourcc,
-			frame->vmfmt.width, frame->vmfmt.height,
-			frame->ifmt.code);
-
-	ret = v4l2_subdev_call(csd->sd, video, s_mbus_fmt, &frame->vmfmt);
+	ret = v4l2_subdev_call(csd->sd, video, s_mbus_fmt, &cfmt->vmfmt);
 	if (ret && ret != -ENOIOCTLCMD) {
 		ISP_PRINT(ISP_ERROR,"Failed to set device format\n");
 		return -EINVAL;
 	}
 
-	/*1. csi phy start here*/
-	ret = isp_dev_call(camdev->isp, pre_fmt, &frame->ifmt);
+	/*2. csi phy start here*/
+	ret = isp_dev_call(camdev->isp, pre_fmt, ifmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		ISP_PRINT(ISP_ERROR,"Failed to set isp format\n");
 		return -EINVAL;
@@ -587,91 +594,93 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 			return -EINVAL;
 		}
 
-	/*set isp format */
-	ret = isp_dev_call(camdev->isp, s_fmt, &frame->ifmt);
-	if (ret < 0 && ret != -ENOIOCTLCMD) {
-		ISP_PRINT(ISP_ERROR,"Failed to set isp format\n");
-		return -EINVAL;
-	}
+
 	/*now start capture,
 	 * in this procedure, we will use firmware to set set format
 	 *
 	 * */
 	ISP_PRINT(ISP_INFO,"the main procedure ended ........., now start capture ......\n");
-//	return ovisp_camera_start_capture(camdev);
 	return 0;
 }
 
 static int ovisp_camera_stop_streaming(struct ovisp_camera_dev *camdev)
 {
-	//	int ret;
+	int ret = 0;
+	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
 	int status;
 
 	if (!ovisp_camera_active(camdev))
 		return 0;
 
 	status = ovisp_camera_stop_capture(camdev);
-
-	//	if (ret && ret != -ENOIOCTLCMD)
-	//		return ret;
+	if(camdev->first_init == 0) {
+		ret = v4l2_subdev_call(csd->sd, video, s_stream, 0);
+		if (ret && ret != -ENOIOCTLCMD)
+			return ret;
+	}
 
 	return status;
 }
 
-static int ovisp_camera_try_format(struct ovisp_camera_dev *camdev)
+static int ovisp_camera_try_format(struct ovisp_camera_dev *camdev, struct v4l2_format *f)
 {
 	struct ovisp_camera_frame *frame = &camdev->frame;
 	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
+	struct ovisp_camera_devfmt *cfmt = &frame->cfmt;
+	struct isp_format *ifmt = &frame->ifmt;
+	struct ovisp_camera_format *in_fmt = NULL;
+	struct ovisp_camera_format *out_fmt = NULL;
 	int ret;
 
 	ISP_PRINT(ISP_INFO,"--%s:%d  %d\n", __func__, __LINE__, camdev->input);
 
-	frame->ifmt.width = frame->width;
-	frame->ifmt.height = frame->height;
-	if (csd->bypass) {
-		ISP_PRINT(ISP_INFO,"%s:%d %d\n", __func__, __LINE__, frame->width);
-		frame->ifmt.dev_width = frame->width;
-		frame->ifmt.dev_height = frame->height;
-	} else {
-		ISP_PRINT(ISP_INFO,"%s:%d %d\n", __func__, __LINE__, csd->max_width);
-		//frame->ifmt.dev_width = csd->max_width;
-		//frame->ifmt.dev_height = csd->max_height;
-		frame->ifmt.dev_width = frame->width; //modify by xhshen
-		frame->ifmt.dev_height = frame->height;
+	cfmt->vmfmt.width = f->fmt.pix.width;
+	cfmt->vmfmt.height = f->fmt.pix.height;
+
+	/*to match the sensor supported format*/
+	ret = v4l2_subdev_call(csd->sd, video, try_mbus_fmt, &cfmt->vmfmt);
+	if (ret && ret != -ENOIOCTLCMD)
+		return -EINVAL;
+
+	in_fmt = ovisp_camera_find_format(&cfmt->vmfmt, NULL, -1);
+	if (!in_fmt) {
+		ISP_PRINT(ISP_ERROR,"Sensor output format (0x%08x) invalid\n",
+				in_fmt->fourcc);
+		return -EINVAL;
 	}
-	frame->ifmt.code = frame->fmt->code;
-	frame->ifmt.fourcc = frame->fmt->fourcc;
-	frame->ifmt.depth = frame->fmt->depth;
-	frame->ifmt.fmt_data = v4l2_get_fmt_data(&frame->vmfmt);
-	memset(frame->ifmt.fmt_data, 0, sizeof(*frame->ifmt.fmt_data));
+
+	out_fmt = ovisp_camera_find_format(NULL, f, -1);
+	if (!in_fmt) {
+		ISP_PRINT(ISP_ERROR,"Fourcc format (0x%08x) invalid\n",
+				f->fmt.pix.pixelformat);
+		return -EINVAL;
+	}
+	ifmt->vfmt.dev_width = cfmt->vmfmt.width;
+	ifmt->vfmt.dev_height = cfmt->vmfmt.height;
+	ifmt->vfmt.dev_fourcc = in_fmt->fourcc;
+	ifmt->vfmt.colorspace = cfmt->vmfmt.colorspace;
+	ifmt->vfmt.field = cfmt->vmfmt.field;
+	ifmt->vfmt.width = f->fmt.pix.width;
+	ifmt->vfmt.height = f->fmt.pix.height;
+	ifmt->vfmt.fourcc = f->fmt.pix.pixelformat;
+	ifmt->vfmt.depth = out_fmt->depth;
 
 	/*to match the format we supported*/
-	ret = isp_dev_call(camdev->isp, try_fmt, &frame->ifmt);
+	ret = isp_dev_call(camdev->isp, try_fmt, ifmt);
 
 	ISP_PRINT(ISP_INFO,"%s:%d\n", __func__, __LINE__);
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		return -EINVAL;
 
-	ISP_PRINT(ISP_INFO,"%s:%d\n", __func__, __LINE__);
-	frame->vmfmt.width = frame->ifmt.dev_width;
-	frame->vmfmt.height = frame->ifmt.dev_height;
-	frame->vmfmt.code = frame->ifmt.code;
-	/*to match the sensor supported format*/
-	ret = v4l2_subdev_call(csd->sd, video, try_mbus_fmt, &frame->vmfmt);
-	if (ret && ret != -ENOIOCTLCMD)
-		return -EINVAL;
+	f->fmt.pix.bytesperline =
+		(f->fmt.pix.width * out_fmt->depth) >> 3;
+	f->fmt.pix.sizeimage =
+		f->fmt.pix.height * f->fmt.pix.bytesperline;
 
-	ISP_PRINT(ISP_INFO,"%s:%d %d %d\n", __func__, __LINE__, frame->vmfmt.width, frame->ifmt.dev_width);
-	ISP_PRINT(ISP_INFO,"%s:%d %d %d\n", __func__, __LINE__, frame->vmfmt.height, frame->ifmt.dev_height);
-	ISP_PRINT(ISP_INFO,"%s:%d %08X %08X\n", __func__, __LINE__, frame->vmfmt.code, frame->ifmt.code);
+	ISP_PRINT(ISP_INFO,"%s:%d dev_width %d out_width %d\n", __func__, __LINE__, ifmt->vfmt.dev_width, f->fmt.pix.width);
+	ISP_PRINT(ISP_INFO,"%s:%d dev_height %d out_height %d\n", __func__, __LINE__, ifmt->vfmt.dev_height, f->fmt.pix.height);
+	ISP_PRINT(ISP_INFO,"%s:%d mbus %08X format %08X\n", __func__, __LINE__, ifmt->vfmt.dev_fourcc, f->fmt.pix.pixelformat);
 
-#if 1
-	if ((frame->vmfmt.width != frame->ifmt.dev_width)
-			|| (frame->vmfmt.height != frame->ifmt.dev_height)
-			|| (frame->vmfmt.code != frame->ifmt.code))
-		return -EINVAL;
-#endif
-	ISP_PRINT(ISP_INFO,"%s:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -701,7 +710,8 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 				buf->vb.v4l2_buf.field = frame->field;
 			buf->vb.v4l2_buf.sequence = capture->out_frames++;
 			do_gettimeofday(&buf->vb.v4l2_buf.timestamp);
-
+			isp_dev_call(camdev->isp, g_outinfo, buf->priv);
+			capture->last = buf;
 			vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
 		}else
 			capture->lose_frames++;
@@ -762,23 +772,27 @@ static int ovisp_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 		unsigned int *nplanes, unsigned long sizes[],
 		void *alloc_ctxs[])
 {
+	int ret = 0;
 	struct ovisp_camera_dev *camdev = vb2_get_drv_priv(vq);
 	struct ovisp_camera_capture *capture = &camdev->capture;
-	struct ovisp_camera_frame *frame = &camdev->frame;
 	unsigned long size;
 
-	size = (frame->width * frame->height * frame->fmt->depth) >> 3;
+	ret = isp_dev_call(camdev->isp, g_size, &size);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		ISP_PRINT(ISP_ERROR,"Failed to get buffer's size\n");
+		return -EINVAL;
+	}
+
 	if (0 == *nbuffers)
 		*nbuffers = 32;
 
-	while (size * *nbuffers > OVISP_CAMERA_BUFFER_MAX)
-		(*nbuffers)--;
+	if(vq->memory == V4L2_MEMORY_MMAP){
+		while (size * *nbuffers > OVISP_CAMERA_BUFFER_MAX)
+			(*nbuffers)--;
+	}
 
 	*nplanes = 1;
-	if(frame->ifmt.fourcc == V4L2_PIX_FMT_NV12YUV422)
-		sizes[0] = size + 640*360*2;
-	else
-		sizes[0] = size;
+	sizes[0] = size;
 	alloc_ctxs[0] = camdev->alloc_ctx;
 	ISP_PRINT(ISP_INFO,"*nbuffers = %d\n",*nbuffers);
 	if (*nbuffers == 1)
@@ -811,22 +825,14 @@ static int ovisp_vb2_buffer_prepare(struct vb2_buffer *vb)
 	struct ovisp_camera_buffer *buf =
 		container_of(vb, struct ovisp_camera_buffer, vb);
 	struct ovisp_camera_dev *camdev = vb2_get_drv_priv(vb->vb2_queue);
-	struct ovisp_camera_frame *frame = &camdev->frame;
+	int ret = 0;
 	unsigned long size;
 
-	if (NULL == frame->fmt) {
-		ISP_PRINT(ISP_ERROR,"Format not set\n");
+	ret = isp_dev_call(camdev->isp, g_size, &size);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		ISP_PRINT(ISP_ERROR,"Failed to get buffer's size\n");
 		return -EINVAL;
 	}
-
-	if (frame->width  < 48 || frame->width  > OVISP_CAMERA_WIDTH_MAX ||
-			frame->height < 32 || frame->height > OVISP_CAMERA_HEIGHT_MAX) {
-		ISP_PRINT(ISP_ERROR,"Invalid format (%dx%d)\n",
-				frame->width, frame->height);
-		return -EINVAL;
-	}
-
-	size = (frame->width * frame->height * frame->fmt->depth) >> 3;
 	if (vb2_plane_size(vb, 0) < size) {
 		ISP_PRINT(ISP_ERROR,"Data will not fit into plane (%lu < %lu)\n",
 				vb2_plane_size(vb, 0), size);
@@ -955,29 +961,23 @@ static int ovisp_vidioc_enum_fmt_vid_cap(struct file *file, void  *priv,
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
-	struct ovisp_camera_frame *frame = &camdev->frame;
 	struct ovisp_camera_format *fmt;
+	enum v4l2_mbus_pixelcode code;
 	int ret;
 
 	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
 	if (csd->bypass) {
-		if (f->index >= ARRAY_SIZE(bypass_formats))
+		ret = v4l2_subdev_call(csd->sd, video, enum_mbus_fmt, f->index, &code);
+		if (ret && ret != -ENOIOCTLCMD)
 			return -EINVAL;
-
-		fmt = &bypass_formats[f->index];
+		fmt = ovisp_camera_find_format(&code, NULL, -1);
 	} else {
-		if (f->index >= ARRAY_SIZE(formats))
-			return -EINVAL;
-
-		fmt = &formats[f->index];
-
-		memset(&frame->ifmt, 0, sizeof(frame->ifmt));
-		frame->ifmt.fourcc = fmt->fourcc;
-		ret = isp_dev_call(camdev->isp, check_fmt, &frame->ifmt);
-		if (ret < 0 && ret != -ENOIOCTLCMD)
-			return -EINVAL;
+		fmt = ovisp_camera_find_format(NULL, NULL, f->index);
 	}
 
+	if (!fmt) {
+		return -EINVAL;
+	}
 	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
 	return 0;
@@ -987,17 +987,12 @@ static int ovisp_vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 		struct v4l2_format *f)
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
-	struct ovisp_camera_frame *frame = &camdev->frame;
-	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
-
-	f->fmt.pix.width        = frame->width;
-	f->fmt.pix.height       = frame->height;
-	f->fmt.pix.field        = frame->field;
-	f->fmt.pix.pixelformat  = frame->fmt->fourcc;
-	f->fmt.pix.bytesperline =
-		(f->fmt.pix.width * frame->fmt->depth) >> 3;
-	f->fmt.pix.sizeimage =
-		f->fmt.pix.height * f->fmt.pix.bytesperline;
+	int ret = 0;
+	ret = isp_dev_call(camdev->isp, g_fmt, f);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		ISP_PRINT(ISP_ERROR,"Failed to get isp format\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -1016,34 +1011,26 @@ static int ovisp_vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	else if (V4L2_FIELD_INTERLACED != f->fmt.pix.field)
 		return -EINVAL;
 
-
-	frame->fmt = ovisp_camera_find_format(camdev, f);
-	if (!frame->fmt) {
-		ISP_PRINT(ISP_ERROR,"Fourcc format (0x%08x) invalid\n",
-				f->fmt.pix.pixelformat);
-		return -EINVAL;
-	}
-
 	v4l_bound_align_image(&f->fmt.pix.width,
 			48, OVISP_CAMERA_WIDTH_MAX, 2,
 			&f->fmt.pix.height,
 			32, OVISP_CAMERA_HEIGHT_MAX, 0, 0);
-	f->fmt.pix.bytesperline =
-		(f->fmt.pix.width * frame->fmt->depth) >> 3;
-	f->fmt.pix.sizeimage =
-		f->fmt.pix.height * f->fmt.pix.bytesperline;
 
-	frame->width = f->fmt.pix.width;
-	frame->height = f->fmt.pix.height;
-	frame->field = f->fmt.pix.field;
+	if (f->fmt.pix.width  < 48 || f->fmt.pix.width  > OVISP_CAMERA_WIDTH_MAX ||
+			f->fmt.pix.height < 32 || f->fmt.pix.height > OVISP_CAMERA_HEIGHT_MAX) {
+		ISP_PRINT(ISP_ERROR,"Invalid format (%dx%d)\n",
+				f->fmt.pix.width, f->fmt.pix.height);
+		return -EINVAL;
+	}
 
-	ret = ovisp_camera_try_format(camdev);
+
+	ret = ovisp_camera_try_format(camdev, f);
 	if (ret) {
 		ISP_PRINT(ISP_ERROR,"Format(%dx%d,%x/%x) is unsupported\n",
 				f->fmt.pix.width,
 				f->fmt.pix.height,
-				frame->fmt->code,
-				frame->fmt->fourcc);
+				frame->ifmt.vfmt.dev_fourcc,
+				frame->ifmt.vfmt.fourcc);
 		return ret;
 	}
 
@@ -1054,6 +1041,7 @@ static int ovisp_vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		struct v4l2_format *f)
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
+	struct ovisp_camera_frame *frame = &camdev->frame;
 	struct vb2_queue *q = &camdev->vbq;
 	struct ovisp_fh *fh = priv;
 	int ret;
@@ -1068,7 +1056,12 @@ static int ovisp_vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	ret = ovisp_vidioc_try_fmt_vid_cap(file, priv, f);
 	if (ret < 0)
 		return ret;
-
+	/*set isp format */
+	ret = isp_dev_call(camdev->isp, s_fmt, &frame->ifmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		ISP_PRINT(ISP_ERROR,"Failed to set isp format\n");
+		return -EINVAL;
+	}
 	if (vb2_is_streaming(q))
 		return -EBUSY;
 
@@ -1115,7 +1108,6 @@ static int ovisp_vidioc_qbuf(struct file *file, void *priv,
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
 	if(p->memory == V4L2_MEMORY_USERPTR){
-//		dma_cache_wback_inv(0x80000000,4*1024*1024);
 		dma_cache_sync(NULL,(void *)(p->m.userptr),p->length, DMA_FROM_DEVICE);
 		ret = isp_dev_call(camdev->isp, tlb_map_one_vaddr,p->m.userptr,p->length);
 		if(ret < 0){
@@ -1246,7 +1238,72 @@ err:
 	camdev->input = -1;
 	return ret;
 }
+static int ovisp_flush_cache(struct ovisp_camera_dev *camdev, unsigned int addr,
+				unsigned int len, enum v4l2_memory memory, enum dma_data_direction direction)
+{
+	int ret = 0;
+	if(memory == V4L2_MEMORY_USERPTR){
+		dma_cache_sync(NULL, (void *)addr, len, direction);
+		ret = isp_dev_call(camdev->isp, tlb_map_one_vaddr, addr, len);
+		if(ret < 0){
+			ISP_PRINT(ISP_ERROR,"%s[%d] tlb operator failed!\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+	}else if(memory == V4L2_MEMORY_MMAP){
+		dma_cache_wback_inv(addr,len);
+	}else{
+		ISP_PRINT(ISP_ERROR,"%s[%d] memory is invalid!\n", __func__, __LINE__);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+static int ovisp_acquire_photo(struct ovisp_camera_dev *camdev, struct v4l2_control *ctrl)
+{
+	struct isp_format ifmt;
+	struct v4l2_acquire_photo_parm parm;
+	struct ovisp_camera_buffer *buf = NULL;
+	struct vb2_buffer *vb = NULL;
+	struct v4l2_format *fmt;
+	unsigned long irqsave;
+	int ret = 0, i = 0;;
 
+	ret = copy_from_user(&parm, (void __user *)(ctrl->value), sizeof(parm));
+	if(ret){
+		ISP_PRINT(ISP_ERROR,"Failed to copy_from_user!\n");
+		return -EFAULT;
+	}
+	/* flush cache */
+	ret = ovisp_flush_cache(camdev, parm.src.addr, parm.src.lenght, parm.src.memory, DMA_TO_DEVICE);
+	if(ret){
+		ISP_PRINT(ISP_ERROR,"Failed to flush cache!\n");
+		return -EFAULT;
+	}
+	ret = ovisp_flush_cache(camdev, parm.dst.addr, parm.dst.lenght, parm.dst.memory, DMA_FROM_DEVICE);
+	if(ret){
+		ISP_PRINT(ISP_ERROR,"Failed to flush cache!\n");
+		return -EFAULT;
+	}
+#if 0
+	ifmt.vfmt.dev_width = parm.width;
+	ifmt.vfmt.dev_height = parm.height;
+	ifmt.vfmt.dev_fourcc = parm.src.fourcc;
+	ifmt.vfmt.width = parm.width;
+	ifmt.vfmt.height = parm.height;
+	ifmt.vfmt.fourcc = parm.dst.fourcc;
+	ifmt.vfmt.field = camdev->frame.field;
+#endif
+	if(parm.flags & V4L2_ACQUIRE_DELAY_PHOTO){
+		spin_lock_irqsave(&camdev->slock, irqsave);
+		buf = camdev->capture.last;
+		spin_unlock_irqrestore(&camdev->slock, irqsave);
+	}
+	if(parm.flags & V4L2_ACQUIRE_LIVING_PHOTO){
+		vb = camdev->vbq.bufs[parm.index];
+		buf = container_of(vb, struct ovisp_camera_buffer, vb);
+		ret = isp_dev_call(camdev->isp, process_raw, &parm, buf->priv);
+	}
+	return ret;
+}
 static int ovisp_vidioc_s_ctrl(struct file *file, void *priv,
 		struct v4l2_control *ctrl)
 {
@@ -1254,11 +1311,17 @@ static int ovisp_vidioc_s_ctrl(struct file *file, void *priv,
 	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
 	int ret = 0;
 	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
-
-	if (csd->bypass)
-		ret = v4l2_subdev_call(csd->sd, core, s_ctrl, ctrl);
-	else
-		ret = isp_dev_call(camdev->isp, s_ctrl, ctrl);
+	switch(ctrl->id){
+		case V4L2_CID_ACQUIRE_PHOTO:
+			ret = ovisp_acquire_photo(camdev, ctrl);
+			break;
+		default:
+			if (csd->bypass)
+				ret = v4l2_subdev_call(csd->sd, core, s_ctrl, ctrl);
+			else
+				ret = isp_dev_call(camdev->isp, s_ctrl, ctrl);
+		break;
+	}
 
 	return ret;
 }
@@ -1487,7 +1550,7 @@ static ssize_t debug_mipi_csi_init(struct device *dev,
 	}
 	clk_enable(debug_csi_clk);
 
-	csi_phy_start(0, 24000000);
+	csi_phy_start(0, 24000000, 2);
 	return 0;
 }
 static ssize_t debug_mipi_csi_dump_regs(struct device *dev,
@@ -1508,9 +1571,9 @@ static ssize_t debug_set_mipi_lanes(struct device *dev,
 	if (rc)
 		return rc;
 
-		printk("====[debug] set mipi lanes: %d\n", lanes);
+		printk("====[debug] set mipi lanes: %ld\n", lanes);
 	if(lanes ==1 || lanes == 2) {
-		printk("====[debug] set mipi lanes: %d\n", lanes);
+		printk("====[debug] set mipi lanes: %ld\n", lanes);
 	} else {
 		printk("unsupported lanes set\n");
 		csi_set_on_lanes(lanes);
@@ -1629,23 +1692,12 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	camdev->pdata = pdata;
 	camdev->input = -1;
 	camdev->refcnt = 0;
-	camdev->frame.fmt = &formats[0];
-	camdev->frame.width = 0;
-	camdev->frame.height = 0;
 	camdev->frame.field = V4L2_FIELD_INTERLACED;
 	camdev->first_init = 1;
 
 	camdev->camera_power = regulator_get(camdev->dev, "cpu_avdd");
 	if(IS_ERR(camdev->camera_power)) {
 		dev_warn(camdev->dev, "camera regulator missing\n");
-	}
-
-
-	if (sizeof(camdev->frame.vmfmt.reserved)
-			< sizeof(*camdev->frame.ifmt.fmt_data)) {
-		ISP_PRINT(ISP_ERROR,"V4l2 format info struct is too large\n");
-		ret = -EINVAL;
-		goto unreg_v4l2_dev;
 	}
 
 #if 1

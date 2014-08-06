@@ -599,6 +599,295 @@ static void isp_writeb_array(struct isp_device *isp,
 		isp_reg_writeb(isp, vals[i].value, vals[i].reg);
 }
 
+
+/* tunning ops */
+#if 0
+static int isp_calc_zoom(struct isp_device *isp)
+{
+	int crop_w = 0;
+	int crop_h = 0;
+	int crop_x = 0;
+	int crop_y = 0;
+	int downscale_w;
+	int downscale_h;
+	int dcw_w;
+	int dcw_h;
+	int Wi;
+	int Wo;
+	int Hi;
+	int Ho;
+	int ratio_h;
+	int ratio_w;
+	int ratio_gross;
+	int ratio;
+	int ratio_dcw = 0;
+	int dratio = 0;
+	int ratio_d = 0;
+	int ratio_up = 0;
+	int dcwFlag =0;
+	int downscaleFlag=0;
+	int w_dcw;
+	int h_dcw;
+	int i;
+	int j;
+	int zoom_0;
+	int zoom_ratio;
+	int crop_width;
+	int crop_height;
+	int in_width;
+	int in_height;
+	int out_height;
+	int out_width;
+	int final_crop_width;
+	int final_crop_height;
+	int crop_x0 = 0;
+	int crop_y0 = 0;
+	int ret = 1;
+	int t1;
+	int t2;
+
+	out_width = isp->parm.out_width;
+	out_height = isp->parm.out_height;
+	in_width = isp->parm.in_width;
+	in_height = isp->parm.in_height;
+
+	zoom_0 = isp_get_zoom_ratio(isp, ZOOM_LEVEL_0);
+	zoom_ratio = isp_get_zoom_ratio(isp, isp->parm.zoom);
+
+	crop_width = (zoom_0 * in_width)/zoom_ratio;
+	crop_height = (zoom_0 * in_height)/zoom_ratio;
+
+	if(((crop_width*1000)/crop_height) <= ((out_width*1000)/out_height)){
+		final_crop_width = crop_width;
+		final_crop_width = final_crop_width&0xfffe;
+		final_crop_height = (final_crop_width * out_height)/out_width;
+		final_crop_height = final_crop_height&0xfffe;
+	}else{
+		final_crop_height = crop_height;
+		final_crop_height = final_crop_height&0xfffe;
+		final_crop_width = (final_crop_height * out_width)/out_height;
+		final_crop_width = final_crop_width&0xfffe;
+	}
+	crop_x0 = (in_width - final_crop_width)/2;
+	crop_y0 = (in_height - final_crop_height)/2;
+
+	Wo = isp->parm.out_width;
+	Ho = isp->parm.out_height;
+	Wi = final_crop_width;
+	Hi = final_crop_height;
+	ISP_PRINT(ISP_INFO, "Wo %d;Ho %d;Wi %d;Hi %d\n",Wo,Ho,Wi,Hi);
+
+	if(final_crop_width> isp->parm.out_width) {
+		crop_w =crop_h =crop_x =crop_y =downscale_w =downscale_h =dcw_w =dcw_h = 0;
+		ratio_h = (Hi*1000/Ho);
+		ratio_w = (Wi*1000/Wo);
+		ratio_gross = (ratio_h>= ratio_w) ? ratio_w:ratio_h;
+		ratio = ratio_gross/1000;
+		for (i=0;i<4;i++)
+			if((1<<i)<=ratio && (1<<(i+1))>ratio)
+				break;
+		if(i==4) i--;
+		dcw_w = dcw_h = i;
+		ratio_dcw = i;
+		if(dcw_w == 0)
+			dcwFlag = 0;
+		else
+			dcwFlag = 1;
+
+
+		h_dcw = (1<<i)*Ho;
+		w_dcw = (1<<i)*Wo;
+
+		downscale_w = (256*w_dcw + Wi)/(2*Wi);
+		downscale_h = (256*h_dcw + Hi)/(2*Hi);
+		dratio = (downscale_w>=downscale_h)?downscale_w:downscale_h;
+		if(dratio == 128)
+			downscaleFlag = 0;
+		else {
+			downscaleFlag = 1;
+			dratio += 1;
+		}
+
+		crop_w = (256*w_dcw + dratio)/(2*dratio);
+		crop_h = (256*h_dcw + dratio)/(2*dratio);
+		crop_w = crop_w&0xfffe;
+		crop_h = crop_h&0xfffe;
+
+		//update by wayne
+		for(j=-3;j<=3;j++) {
+			crop_w = (256*w_dcw + (dratio+j))/(2*(dratio+j));
+			crop_h = (256*h_dcw + (dratio+j))/(2*(dratio+j));
+			crop_w = crop_w&0xfffe;
+			crop_h = crop_h&0xfffe;
+
+			for(i=0;i<=4;i+=2) {
+				t1 = (crop_w+i)*(dratio+j)/128;
+				t2 = (crop_h+i)*(dratio+j)/128;
+				if((t1&0xfffe) == t1 && t1 >= w_dcw && (t2&0xfffe) == t2 && t2 >= h_dcw && (dratio+j)>=64 &&(dratio+j)<=128 && (crop_w +i)<= Wi && (crop_h+i)<= Hi)
+				{
+					ret = 0;
+					break;
+				}
+
+			}
+			if(ret == 0)
+				break;
+
+		}
+		if(j==4) j--;
+		if(i==6) i = i-2;
+		ISP_PRINT(ISP_INFO, "i = %d,j = %d\n",i,j);
+		crop_w += i;
+		crop_h += i;
+		dratio += j;
+		//end
+		crop_x = (Wi-crop_w)/2;
+		crop_y = (Hi-crop_h)/2;
+
+		ratio_d = dratio;
+	}
+	else {
+		ratio_up= ((final_crop_height* 0x100)/isp->parm.out_height);
+		crop_w =  final_crop_width;
+		crop_h = final_crop_height;
+	}
+
+	isp->parm.ratio_up = ratio_up;
+	isp->parm.ratio_d = ratio_d;
+	isp->parm.ratio_dcw = ratio_dcw;
+	isp->parm.crop_width = crop_w;
+	isp->parm.crop_height = crop_h;
+
+	isp->parm.crop_x = crop_x + crop_x0;
+	isp->parm.crop_y = crop_y + crop_y0;
+	isp->parm.dcwFlag = dcwFlag;
+	isp->parm.dowscaleFlag = downscaleFlag;
+
+	/*isp_dump_cal_zoom(isp);*/
+
+	return 0;
+}
+#endif
+
+void isp_set_exposure_init(struct isp_device *isp)
+{
+	isp_reg_writeb(isp, 0x3f, 0x65000);
+	isp_reg_writeb(isp, 0xef, 0x65001);
+	isp_reg_writeb(isp, 0x25, 0x65002);
+	isp_reg_writeb(isp, 0xff, 0x65003);
+	isp_reg_writeb(isp, 0x30, 0x65004);
+	isp_reg_writeb(isp, 0x14, 0x65005);
+	isp_reg_writeb(isp, 0xc0, 0x6502f);
+
+	isp_firmware_writeb(isp, 0x01, 0x1e010);
+	isp_firmware_writeb(isp, 0x02, 0x1e012);
+	isp_firmware_writeb(isp, 0x30, 0x1e014);
+	isp_firmware_writeb(isp, 0x35, 0x1e015);
+	isp_firmware_writeb(isp, 0x0a, 0x1e01a);
+	isp_firmware_writeb(isp, 0x08, 0x1e01b);
+	isp_firmware_writeb(isp, 0x00, 0x1e024);
+	isp_firmware_writeb(isp, 0xff, 0x1e025);
+	isp_firmware_writeb(isp, 0x00, 0x1e026);
+	isp_firmware_writeb(isp, 0x10, 0x1e027);
+	isp_firmware_writeb(isp, 0x00, 0x1e028);
+	isp_firmware_writeb(isp, 0x00, 0x1e029);
+	isp_firmware_writeb(isp, 0x03, 0x1e02a);
+	isp_firmware_writeb(isp, 0xd8, 0x1e02b);
+	isp_firmware_writeb(isp, 0x00, 0x1e02c);
+	isp_firmware_writeb(isp, 0x00, 0x1e02d);
+	isp_firmware_writeb(isp, 0x00, 0x1e02e);
+	isp_firmware_writeb(isp, 0x10, 0x1e02f);
+	isp_firmware_writeb(isp, 0x00, 0x1e048);
+	isp_firmware_writeb(isp, 0x01, 0x1e049);
+	isp_firmware_writeb(isp, 0x01, 0x1e04a);
+	isp_firmware_writeb(isp, 0xe8, 0x1e04f);
+	isp_firmware_writeb(isp, 0x18, 0x1e050);
+	isp_firmware_writeb(isp, 0x1e, 0x1e051);
+	isp_firmware_writeb(isp, 0x03, 0x1e04c);
+	isp_firmware_writeb(isp, 0xd8, 0x1e04d);
+	isp_firmware_writeb(isp, 0x08, 0x1e013);
+
+	isp_firmware_writeb(isp, 0x78, 0x1e056);
+
+	isp_firmware_writeb(isp, 0x09, 0x1e057);
+	isp_firmware_writeb(isp, 0x35, 0x1e058);
+	isp_firmware_writeb(isp, 0x00, 0x1e059);
+	isp_firmware_writeb(isp, 0x35, 0x1e05a);
+	isp_firmware_writeb(isp, 0x01, 0x1e05b);
+	isp_firmware_writeb(isp, 0x35, 0x1e05c);
+	isp_firmware_writeb(isp, 0x02, 0x1e05d);
+	isp_firmware_writeb(isp, 0x00, 0x1e05e);
+	isp_firmware_writeb(isp, 0x00, 0x1e05f);
+	isp_firmware_writeb(isp, 0x00, 0x1e060);
+	isp_firmware_writeb(isp, 0x00, 0x1e061);
+	isp_firmware_writeb(isp, 0x00, 0x1e062);
+	isp_firmware_writeb(isp, 0x00, 0x1e063);
+	isp_firmware_writeb(isp, 0x35, 0x1e064);
+	isp_firmware_writeb(isp, 0x0a, 0x1e065);
+	isp_firmware_writeb(isp, 0x35, 0x1e066);
+	isp_firmware_writeb(isp, 0x0b, 0x1e067);
+	isp_firmware_writeb(isp, 0xff, 0x1e070);
+	isp_firmware_writeb(isp, 0xff, 0x1e071);
+	isp_firmware_writeb(isp, 0xff, 0x1e072);
+	isp_firmware_writeb(isp, 0x00, 0x1e073);
+	isp_firmware_writeb(isp, 0x00, 0x1e074);
+	isp_firmware_writeb(isp, 0x00, 0x1e075);
+	isp_firmware_writeb(isp, 0xff, 0x1e076);
+	isp_firmware_writeb(isp, 0xff, 0x1e077);
+
+	isp_reg_writeb(isp, 0x00, 0x66501);
+	isp_reg_writeb(isp, 0x00, 0x66502);
+	isp_reg_writeb(isp, 0x00, 0x66503);
+	isp_reg_writeb(isp, 0x00, 0x66504);
+	isp_reg_writeb(isp, 0x00, 0x66505);
+	isp_reg_writeb(isp, 0x00, 0x66506);
+	isp_reg_writeb(isp, 0x00, 0x66507);
+	isp_reg_writeb(isp, 0x80, 0x66508);
+	isp_reg_writeb(isp, 0x00, 0x66509);
+	isp_reg_writeb(isp, 0xc8, 0x6650a);
+	isp_reg_writeb(isp, 0x00, 0x6650b);
+	isp_reg_writeb(isp, 0x96, 0x6650c);
+	isp_reg_writeb(isp, 0x04, 0x6650d);
+	isp_reg_writeb(isp, 0xb0, 0x6650e);
+	isp_reg_writeb(isp, 0x01, 0x6650f);
+	isp_reg_writeb(isp, 0x00, 0x66510);
+	isp_reg_writeb(isp, 0x01, 0x6651c);
+	isp_reg_writeb(isp, 0x01, 0x6651d);
+	isp_reg_writeb(isp, 0x01, 0x6651e);
+	isp_reg_writeb(isp, 0x01, 0x6651f);
+	isp_reg_writeb(isp, 0x02, 0x66520);
+	isp_reg_writeb(isp, 0x02, 0x66521);
+	isp_reg_writeb(isp, 0x02, 0x66522);
+	isp_reg_writeb(isp, 0x02, 0x66523);
+	isp_reg_writeb(isp, 0x04, 0x66524);
+	isp_reg_writeb(isp, 0x02, 0x66525);
+	isp_reg_writeb(isp, 0x02, 0x66526);
+	isp_reg_writeb(isp, 0x02, 0x66527);
+	isp_reg_writeb(isp, 0x02, 0x66528);
+	isp_reg_writeb(isp, 0x04, 0x66529);
+	isp_reg_writeb(isp, 0xf0, 0x6652a);
+	isp_reg_writeb(isp, 0x2b, 0x6652c);
+
+	isp_reg_writeb(isp, 0x2b, 0x6652c);
+
+	isp_reg_writeb(isp, 0x2c, 0x6652d);
+	isp_reg_writeb(isp, 0x2d, 0x6652e);
+	isp_reg_writeb(isp, 0x2e, 0x6652f);
+	isp_reg_writeb(isp, 0x2f, 0x66530);
+	isp_reg_writeb(isp, 0x0a, 0x66531);
+	isp_reg_writeb(isp, 0x14, 0x66532);
+	isp_reg_writeb(isp, 0x14, 0x66533);
+
+	isp_firmware_writeb(isp, 0x00, 0x1e022);
+	isp_firmware_writeb(isp, 0x00, 0x1e030);
+	isp_firmware_writeb(isp, 0x00, 0x1e031);
+	isp_firmware_writeb(isp, 0x34, 0x1e032);
+	isp_firmware_writeb(isp, 0x60, 0x1e033);
+	isp_firmware_writeb(isp, 0x00, 0x1e034);
+	isp_firmware_writeb(isp, 0x40, 0x1e035);
+
+}
+
 int isp_set_exposure_manual(struct isp_device *isp)
 {
 	unsigned char value = 0;

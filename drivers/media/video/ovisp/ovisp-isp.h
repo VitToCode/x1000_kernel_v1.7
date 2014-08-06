@@ -35,23 +35,31 @@
 
 /* ISP clock number. */
 #define ISP_CLK_NUM				(5)
-
-/*  Vendor-specific formats   */
-#define V4L2_PIX_FMT_NV12YUV422	v4l2_fourcc('N', 'Y', '2', 'V') /* output 2 videos, one video is nv12, other is yuv422 */
+#define ISP_MAX_OUTPUT_VIDEOS			(2)
+#define ISP_OUTPUT_INFO_LENS			(30)
 struct isp_device;
 
+struct isp_reg_t {
+	unsigned int reg;
+	unsigned char value;
+};
 struct isp_buffer {
 	unsigned long addr;
 };
 
-struct isp_format {
+struct ovisp_video_format {
 	unsigned int width;
 	unsigned int height;
+	unsigned int fourcc;
 	unsigned int dev_width;
 	unsigned int dev_height;
-	unsigned int code;
-	unsigned int fourcc;
+	unsigned int dev_fourcc;
+	enum v4l2_field field;
+	enum v4l2_colorspace colorspace;
 	unsigned int depth;
+};
+struct isp_format {
+	struct ovisp_video_format vfmt;
 	struct v4l2_fmt_data *fmt_data;
 };
 
@@ -65,13 +73,28 @@ struct isp_prop {
 	int index;
 	int bypass;
 };
-struct isp_flow_parm{
+struct isp_input_parm {
 	unsigned int width;
 	unsigned int height;
+	unsigned int idi_width;
+	unsigned int idi_height;
 	unsigned int format;
+	unsigned int sequence;
 	unsigned int addrnums;
 	unsigned int addroff[3];
-	unsigned int imagesize;
+};
+struct isp_output_parm{
+	unsigned int		width;
+	unsigned int		height;
+	unsigned int 		format;
+	unsigned int 		fourcc;
+	enum v4l2_field		field;
+	unsigned int 		depth;
+	unsigned int		bytesperline;	/* for padding, zero if unused */
+	unsigned int		sizeimage;
+	enum v4l2_colorspace	colorspace;
+	unsigned int		addrnums;
+	unsigned int		addroff[3];
 };
 struct isp_parm {
 	int contrast;
@@ -93,9 +116,6 @@ struct isp_parm {
 	int hflip;
 	int vflip;
 	int frame_rate;
-	struct isp_flow_parm input;
-	int out_videos;
-	struct isp_flow_parm output[2];
 	int crop_x;
 	int crop_y;
 	int crop_width;
@@ -105,6 +125,11 @@ struct isp_parm {
 	int ratio_up;
 	int dowscaleFlag;
 	int dcwFlag;
+	int vts;
+	struct isp_input_parm input;
+	int out_videos;
+	int c_video;
+	struct isp_output_parm output[2];
 };
 
 struct isp_ops {
@@ -127,10 +152,16 @@ struct isp_ops {
 	int (*try_fmt)(struct isp_device *, struct isp_format *);
 	int (*pre_fmt)(struct isp_device *, struct isp_format *);
 	int (*s_fmt)(struct isp_device *, struct isp_format *);
+	int (*g_fmt)(struct isp_device *, struct v4l2_format *f);
+	int (*g_size)(struct isp_device *, unsigned long *);
+	int (*g_devfmt)(struct isp_device *, struct isp_format *f);
+	int (*g_outinfo)(struct isp_device *, unsigned char *);
 	int (*s_ctrl)(struct isp_device *, struct v4l2_control *);
 	int (*g_ctrl)(struct isp_device *, struct v4l2_control *);
 	int (*s_parm)(struct isp_device *, struct v4l2_streamparm *);
 	int (*g_parm)(struct isp_device *, struct v4l2_streamparm *);
+	int (*process_raw)(struct isp_device *, struct v4l2_acquire_photo_parm*, unsigned char *);
+	int (*bypass_capture)(struct isp_device *, struct v4l2_acquire_photo_parm*);
 	int (*tlb_init)(struct isp_device *);
 	int (*tlb_deinit)(struct isp_device *);
 	int (*tlb_map_one_vaddr)(struct isp_device *, unsigned int, unsigned int);
@@ -156,6 +187,16 @@ struct isp_debug{
 	int status;
 };
 
+typedef union isp_intc_register {
+	struct isp_intc_bits{
+		unsigned int	c0:8;
+		unsigned int	c1:8;
+		unsigned int	c2:8;
+		unsigned int	c3:8;
+	} bits;
+	unsigned int intc;
+} isp_intc_regs_t;
+
 struct isp_tlb_vaddrmanager{
 	struct list_head vaddr_entry;
 	unsigned int vaddr;
@@ -176,8 +217,12 @@ struct isp_device {
 	struct isp_ops *ops;
 	struct isp_i2c i2c;
 	struct isp_parm parm;
+	struct isp_reg_t preview[100];
+	struct isp_reg_t captureraw[100];
+	struct isp_reg_t capture[100];
 	struct completion completion;
 	struct completion bracket_capture;
+	struct completion frame_eof;
 	int clk_enable[ISP_CLK_NUM];
 	struct clk *clk[ISP_CLK_NUM];
 	struct v4l2_fmt_data fmt_data;
@@ -186,10 +231,8 @@ struct isp_device {
 	int (*irq_notify)(unsigned int, void *);
 	void *data;
 	spinlock_t lock;
-	unsigned char intr_l;
-	unsigned char intr_h;
-	unsigned char mac_intr_l;
-	unsigned char mac_intr_h;
+	isp_intc_regs_t intr;
+	isp_intc_regs_t mac_intr;
 	int format_active;
 	int snapshot;
 	int running;
@@ -201,9 +244,10 @@ struct isp_device {
 	int boot;
 	int input;
 	int irq;
-	bool pp_buf;
+	bool first_init;
+	bool wait_eof;
+//	bool pp_buf;
 	struct isp_buffer buf_start;
-	int first_init;
 	struct isp_debug debug;
 	unsigned char bracket_end;
 	int hdr_mode;

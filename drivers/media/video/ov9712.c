@@ -30,7 +30,7 @@ struct ov9712_format_struct;
 struct ov9712_info {
 	struct v4l2_subdev sd;
 	struct ov9712_format_struct *fmt;
-	struct ov9712_win_size *win;
+	struct ov9712_win_setting *win;
 };
 
 struct regval_list {
@@ -53,69 +53,6 @@ static struct regval_list ov9712_stream_off[] = {
 static struct regval_list ov9712_win_720p[] = {
 	{OV9712_REG_END, 0x00},	/* END MARKER */
 };
-static struct regval_list ov9712_win_max[] = {
-	{OV9712_REG_END, 0x00},	/* END MARKER */
-};
-static struct regval_list ov9712_win_vga[] = {
-	{OV9712_REG_END, 0x00},	/* END MARKER */
-};
-
-static struct regval_list ov9712_win_qvga[] = {
-	{OV9712_REG_END, 0x00},	/* END MARKER */
-};
-static struct ov9712_format_struct {
-	enum v4l2_mbus_pixelcode mbus_code;
-	enum v4l2_colorspace colorspace;
-	struct regval_list *regs;
-} ov9712_formats[] = {
-	{
-		/*RAW10 FORMAT, 10 bit per pixel*/
-		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.regs 		= NULL,
-	},
-	/*add other format supported*/
-};
-#define N_OV9712_FMTS ARRAY_SIZE(ov9712_formats)
-
-static struct ov9712_win_size {
-	int	width;
-	int	height;
-	int	vts;
-	struct regval_list *regs; /* Regs to tweak */
-} ov9712_win_sizes[] = {
-	/* 1280*800 */
-	{
-		.width		= 1280,
-		.height		= 800,
-		.vts		= 0x3d8,
-		.regs 		= ov9712_win_max,
-	},
-	/* 1280*720 */
-	{
-		.width		= 1280,
-		.height		= 720,
-		.vts		= 0x2e4,
-		.regs 		= ov9712_win_720p,
-	},
-	/* VGA */
-	{
-		.width		= VGA_WIDTH,
-		.height		= VGA_HEIGHT,
-		.vts		= 0x01e0,
-		.regs		= ov9712_win_vga,
-	},
-	{
-		.width		= 320,
-		.height		= 240,
-		.vts		= 0x1e0,
-		.regs		= ov9712_win_qvga,
-	}
-};
-#define N_WIN_SIZES (ARRAY_SIZE(ov9712_win_sizes))
-
-
-
 static struct regval_list ov9712_init_regs_1280_800[] = {
 /*
 	@@ DVP interface 1280*800 30fps
@@ -165,8 +102,8 @@ static struct regval_list ov9712_init_regs_1280_800[] = {
        {0x5c, 0x52},
        {0x5d, 0x00},
        {0x11, 0x01},
-       {0x2a, 0x98},
-       {0x2b, 0x06},
+       {0x2a, 0x8e},
+       {0x2b, 0x07},
        {0x2d, 0x00},
        {0x2e, 0x00},
        {0x13, 0xa5},
@@ -175,8 +112,41 @@ static struct regval_list ov9712_init_regs_1280_800[] = {
        {0x49, 0xce},
        {0x22, 0x03},
        {0x09, 0x00},
+  //     {0x97, 0xf8},
        {OV9712_REG_END, 0x00},	/* END MARKER */
 };
+
+static struct ov9712_format_struct {
+	enum v4l2_mbus_pixelcode mbus_code;
+	enum v4l2_colorspace colorspace;
+} ov9712_formats[] = {
+	{
+		/*RAW10 FORMAT, 10 bit per pixel*/
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+	},
+	/*add other format supported*/
+};
+#define N_OV9712_FMTS ARRAY_SIZE(ov9712_formats)
+
+static struct ov9712_win_setting {
+	int	width;
+	int	height;
+	enum v4l2_mbus_pixelcode mbus_code;
+	enum v4l2_colorspace colorspace;
+	struct regval_list *regs; /* Regs to tweak */
+} ov9712_win_sizes[] = {
+	/* 1280*800 */
+	{
+		.width		= 1280,
+		.height		= 800,
+		.mbus_code	= V4L2_MBUS_FMT_SBGGR10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= ov9712_init_regs_1280_800,
+	}
+};
+#define N_WIN_SIZES (ARRAY_SIZE(ov9712_win_sizes))
+
 int ov9712_read(struct v4l2_subdev *sd, unsigned char reg,
 		unsigned char *value)
 {
@@ -322,14 +292,32 @@ static int ov9712_init(struct v4l2_subdev *sd, u32 val)
 	info->fmt = NULL;
 	info->win = NULL;
 
-	ret = ov9712_write_array(sd, ov9712_init_regs_1280_800);
+//	ret = ov9712_write_array(sd, ov9712_init_regs_1280_800);
 	if (ret < 0)
 		return ret;
-	ov9712_read_array(sd, ov9712_init_regs_1280_800);
+//	ov9712_read_array(sd, ov9712_init_regs_1280_800);
 
 	return 0;
 }
+static int ov9712_get_sensor_vts(struct v4l2_subdev *sd, unsigned short *value)
+{
+	unsigned char h,l;
+	int ret = 0;
+	ret = ov9712_read(sd, 0x1a, &h);
+	if (ret < 0)
+		return ret;
+	ret = ov9712_read(sd, 0x03, &l);
+	if (ret < 0)
+		return ret;
+	*value = h;
+	*value = (*value << 2) | ((l >> 2) & 0x3);
+	return ret;
+}
 
+static int ov9712_get_sensor_lans(struct v4l2_subdev *sd, unsigned char *value)
+{
+	return 0;
+}
 static int ov9712_detect(struct v4l2_subdev *sd)
 {
 	unsigned char v;
@@ -342,13 +330,13 @@ static int ov9712_detect(struct v4l2_subdev *sd)
 		printk("0x10010220:%x\n", *((volatile unsigned int *)0xb0010220));
 		printk("0x10010230:%x\n", *((volatile unsigned int *)0xb0010230));
 		printk("0x10010240:%x\n", *((volatile unsigned int *)0xb0010240));
+		printk("0x10010010:%x\n", *((volatile unsigned int *)0xb0010010));
+		printk("0x10010020:%x\n", *((volatile unsigned int *)0xb0010020));
+		printk("0x10010030:%x\n", *((volatile unsigned int *)0xb0010030));
+		printk("0x10010040:%x\n", *((volatile unsigned int *)0xb0010040));
 
 	}
 #endif
-//	v = 0x80;
-//	ret = ov9712_write(sd, 0x12, &v);
-//	udelay(20000);
-//	v = ov9712_read_reg(sd, 0x0a);
 	ret = ov9712_read(sd, 0x0a, &v);
 	printk("-----%s: %d ret = %d, v = 0x%02x\n", __func__, __LINE__, ret,v);
 	if (ret < 0)
@@ -356,7 +344,6 @@ static int ov9712_detect(struct v4l2_subdev *sd)
 	printk("-----%s: %d v = %08X\n", __func__, __LINE__, v);
 	if (v != OV9712_CHIP_ID_H)
 		return -ENODEV;
-//	v = ov9712_read_reg(sd, 0x0b);
 	ret = ov9712_read(sd, 0x0b, &v);
 	printk("-----%s: %d ret = %d\n", __func__, __LINE__, ret);
 	if (ret < 0)
@@ -380,28 +367,12 @@ static int ov9712_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned index,
 
 static int ov9712_try_fmt_internal(struct v4l2_subdev *sd,
 		struct v4l2_mbus_framefmt *fmt,
-		struct ov9712_format_struct **ret_fmt,
-		struct ov9712_win_size **ret_wsize)
+		struct ov9712_win_setting **ret_wsize)
 {
-	int index;
-	struct ov9712_win_size *wsize;
+	struct ov9712_win_setting *wsize;
 
-	printk("[ov9712], %s,%d :fmt->code:%0x\n", __func__, __LINE__, fmt->code);
-
-	for (index = 0; index < N_OV9712_FMTS; index++)
-		if (ov9712_formats[index].mbus_code == fmt->code)
-			break;
-	if (index >= N_OV9712_FMTS) {
-		/* default to first format */
-		printk("[OV9712] default to first format\n");
-		index = 0;
-		fmt->code = ov9712_formats[0].mbus_code;
-	}
-	if (ret_fmt != NULL)
-		*ret_fmt = ov9712_formats + index;
-
-	fmt->field = V4L2_FIELD_NONE;
-
+	if(fmt->width > MAX_WIDTH || fmt->height > MAX_HEIGHT)
+		return -EINVAL;
 	for (wsize = ov9712_win_sizes; wsize < ov9712_win_sizes + N_WIN_SIZES;
 	     wsize++)
 		if (fmt->width >= wsize->width && fmt->height >= wsize->height)
@@ -412,7 +383,9 @@ static int ov9712_try_fmt_internal(struct v4l2_subdev *sd,
 		*ret_wsize = wsize;
 	fmt->width = wsize->width;
 	fmt->height = wsize->height;
-	fmt->colorspace = ov9712_formats[index].colorspace;
+	fmt->code = wsize->mbus_code;
+	fmt->field = V4L2_FIELD_NONE;
+	fmt->colorspace = wsize->colorspace;
 	printk("%s:------->%d fmt->code,%08X , fmt->width%d fmt->height%d\n", __func__, __LINE__, fmt->code, fmt->width, fmt->height);
 	return 0;
 }
@@ -421,7 +394,7 @@ static int ov9712_try_mbus_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_mbus_framefmt *fmt)
 {
 	printk("%s:------->%d\n", __func__, __LINE__);
-	return ov9712_try_fmt_internal(sd, fmt, NULL, NULL);
+	return ov9712_try_fmt_internal(sd, fmt, NULL);
 }
 
 static int ov9712_s_mbus_fmt(struct v4l2_subdev *sd,
@@ -429,56 +402,33 @@ static int ov9712_s_mbus_fmt(struct v4l2_subdev *sd,
 {
 
 	struct ov9712_info *info = container_of(sd, struct ov9712_info, sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct v4l2_fmt_data *data = v4l2_get_fmt_data(fmt);
-	struct ov9712_format_struct *fmt_s;
-	struct ov9712_win_size *wsize;
+	struct ov9712_win_setting *wsize;
 	int ret;
 
 
 	printk("[ov9712], problem function:%s, line:%d\n", __func__, __LINE__);
-	ret = ov9712_try_fmt_internal(sd, fmt, &fmt_s, &wsize);
+	ret = ov9712_try_fmt_internal(sd, fmt, &wsize);
 	if (ret)
 		return ret;
-	data->vts = wsize->vts;
-	data->mipi_clk = 282;
-	if ((info->fmt != fmt_s) && fmt_s->regs) {
-		printk("pay attention : ov9712, %s:LINE:%d\n", __func__, __LINE__);
-		ret = ov9712_write_array(sd, fmt_s->regs);
+	if ((info->win != wsize) && wsize->regs) {
+		printk("pay attention : ov9712, %s:LINE:%d  size = %d\n", __func__, __LINE__, sizeof(*wsize->regs));
+		ret = ov9712_write_array(sd, wsize->regs);
 		if (ret)
 			return ret;
 	}
-
-#if 0
-	if ((info->win != wsize) && wsize->regs) {
-
-		printk("pay attention : ov9712, %s:LINE:%d\n", __func__, __LINE__);
-		memset(data, 0, sizeof(*data));
-		data->vts = wsize->vts;
-		data->mipi_clk = 282; /* Mbps. */
-		if ((wsize->width == MAX_WIDTH)
-			&& (wsize->height == MAX_HEIGHT)) {
-			data->flags = V4L2_I2C_ADDR_16BIT;
-			data->slave_addr = client->addr;
-			data->reg_num = 1;
-			data->reg[0].addr = 0x3208;
-			data->reg[0].data = 0xa2;
-		} else if ((wsize->width == SXGA_WIDTH)
-			&& (wsize->height == SXGA_HEIGHT)) {
-			data->flags = V4L2_I2C_ADDR_16BIT;
-			data->slave_addr = client->addr;
-			data->reg_num = 1;
-			data->reg[0].addr = 0x3208;
-			data->reg[0].data = 0xa1;
-		}
+	data->i2cflags = 0;
+	data->mipi_clk = 282;
+	ret = ov9712_get_sensor_vts(sd, &(data->vts));
+	if(ret < 0){
+		printk("[ov9712], problem function:%s, line:%d\n", __func__, __LINE__);
+		return ret;
 	}
-#endif
-	/*set yuv422, test pattern here?????????*/
-	/* fmt_s should be raw8,
-	 * wsize should be VGA 640 * 480,
-	 *
-	 * */
-	info->fmt = fmt_s;
+	ret = ov9712_get_sensor_lans(sd, &(data->lans));
+	if(ret < 0){
+		printk("[ov9712], problem function:%s, line:%d\n", __func__, __LINE__);
+		return ret;
+	}
 	info->win = wsize;
 
 	return 0;
@@ -565,7 +515,7 @@ static int ov9712_enum_framesizes(struct v4l2_subdev *sd,
 	 * windows that fall outside that.
 	 */
 	for (i = 0; i < N_WIN_SIZES; i++) {
-		struct ov9712_win_size *win = &ov9712_win_sizes[index];
+		struct ov9712_win_setting *win = &ov9712_win_sizes[index];
 		if (index == ++num_valid) {
 			fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 			fsize->discrete.width = win->width;

@@ -9,8 +9,8 @@
  * DEBUG_TIME_WRITE/READ
  **/
 //#define OVISP_CSI_TEST
-#define PRINT_LEVEL		ISP_WARNING
-/*#define PRINT_LEVEL		ISP_INFO*/
+//#define PRINT_LEVEL		ISP_WARNING
+#define PRINT_LEVEL		ISP_INFO
 /* =================== print tools ================== */
 
 #define ISP_INFO		0x0
