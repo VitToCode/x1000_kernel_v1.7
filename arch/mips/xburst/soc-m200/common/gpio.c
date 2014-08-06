@@ -636,6 +636,9 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 
 	//printk("aa grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n",
 	//       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen);
+	/* printk("grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x,d:0x%08x\n", */
+	/*       grp,jz->sleep_state.pxint,jz->sleep_state.pxmsk,jz->sleep_state.pxpat1,jz->sleep_state.pxpat0, */
+	/*        jz->sleep_state.pxpen,d); */
 
 	pxint |= (jz->sleep_state.pxint & (~d));
 	pxmsk |= (jz->sleep_state.pxmsk & (~d));
@@ -646,35 +649,11 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 	/* printk("grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n", */
 	/*       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen); */
         //set set reg
-	writel(pxint,jz->shadow_reg + PXINTS);
-	writel(pxmsk,jz->shadow_reg + PXMSKS);
-	writel(pxpat1,jz->shadow_reg + PXPAT1S);
-	writel(pxpat0,jz->shadow_reg + PXPAT0S);
-	writel(pxpen,jz->shadow_reg + PXPENS);
-	//set clear reg
-	writel(~pxint,jz->shadow_reg + PXINTC);
-	writel(~pxmsk,jz->shadow_reg + PXMSKC);
-	writel(~pxpat1,jz->shadow_reg + PXPAT1C);
-	writel(~pxpat0,jz->shadow_reg + PXPAT0C);
-	writel(~pxpen,jz->shadow_reg + PXPENC);
-
-//	printk("grp %d:\n",grp);
-/* #define output_str(x) \ */
-/* 	printk("\t "#x " 0x%08x\n",readl(jz->shadow_reg + x)); */
-
-/* 	output_str(PXINT); */
-/* 	output_str(PXMSK); */
-/* 	output_str(PXPAT1); */
-/* 	output_str(PXPAT0); */
-/* 	output_str(PXPEN); */
-/* #undef output_str */
-
-	/* writel(pxint,jz->reg + PXINT); */
-	/* writel(pxmsk,jz->reg + PXMSK); */
-	/* writel(pxpat1,jz->reg + PXPAT1); */
-	/* writel(pxpat0,jz->reg + PXPAT0); */
-	/* writel(pxpen,jz->reg + PXPEN); */
-	writel(grp & 0x7, jz->shadow_reg + PZGID2LD);
+	writel(pxint,jz->reg + PXINT);
+	writel(pxmsk,jz->reg + PXMSK);
+	writel(pxpat1,jz->reg + PXPAT1);
+	writel(pxpat0,jz->reg + PXPAT0);
+	writel(pxpen,jz->reg + PXPEN);
 
 /* #define output_str(x) \ */
 /* 	printk("\t " #x " 0x%08x\n",readl(jz->reg + x)); */
@@ -708,7 +687,6 @@ int gpio_suspend(void)
 	}
 	return 0;
 }
-
 void gpio_resume(void)
 {
 	int i;
@@ -716,19 +694,11 @@ void gpio_resume(void)
 
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
 		jz = &jz_gpio_chips[i];
-		writel(jz->save[0], jz->shadow_reg + PXINTS);
-		writel(jz->save[1], jz->shadow_reg + PXMSKS);
-		writel(jz->save[2], jz->shadow_reg + PXPAT1S);
-		writel(jz->save[3], jz->shadow_reg + PXPAT0S);
-		writel(jz->save[4], jz->shadow_reg + PXPENS);
-
-		writel(~jz->save[0], jz->shadow_reg + PXINTC);
-		writel(~jz->save[1], jz->shadow_reg + PXMSKC);
-		writel(~jz->save[2], jz->shadow_reg + PXPAT1C);
-		writel(~jz->save[3], jz->shadow_reg + PXPAT0C);
-		writel(~jz->save[4], jz->shadow_reg + PXPENC);
-
-		writel(i & 0x7, jz->shadow_reg + PZGID2LD);
+		writel(jz->save[0], jz->reg + PXINT);
+		writel(jz->save[1], jz->reg + PXMSK);
+		writel(jz->save[2], jz->reg + PXPAT1);
+		writel(jz->save[3], jz->reg + PXPAT0);
+		writel(jz->save[4], jz->reg + PXPEN);
 	}
 }
 
@@ -741,7 +711,7 @@ int __init gpio_ss_check(void)
 {
 	unsigned int i,state,group,index;
 	unsigned int panic_flags[GPIO_NR_PORTS] = {0};
-	const unsigned int default_type = GPIO_INPUT_PULL;
+	const unsigned int default_type = GPIO_INPUT;
 	enum gpio_function gpio_type = default_type;
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].sleep_state.pxpen = default_type & 0x10 ? 0xffffffff : 0;
@@ -749,7 +719,8 @@ int __init gpio_ss_check(void)
 		jz_gpio_chips[i].sleep_state.pxmsk = default_type & 0x4 ? 0xffffffff : 0;
 		jz_gpio_chips[i].sleep_state.pxpat1 = default_type & 0x2 ? 0xffffffff : 0;
 		jz_gpio_chips[i].sleep_state.pxpat0 = default_type & 0x1 ? 0xffffffff : 0;
-		jz_gpio_chips[i].sleep_state.pxignore = 0xffffffff;
+		jz_gpio_chips[i].sleep_state.pxignore = 0;
+		//jz_gpio_chips[i].sleep_state.pxignore = 0xffffffff;
 	}
 	for(i = 0; gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
 		group = gpio_ss_table[i][0] / 32;
