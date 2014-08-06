@@ -44,7 +44,7 @@ void __init setup_priority(unsigned int base, unsigned int target, unsigned int 
 void __init cpm_reset(void)
 {
 #ifndef CONFIG_FPGA_TEST
-	cpm_outl(0x5eff7ffc & (~(1 << 21)), CPM_CLKGR);
+	cpm_outl(0x5eff7fff & (~(1 << 21)), CPM_CLKGR);
 	cpm_outl(0x29ff, CPM_CLKGR1);
 	cpm_outl(0x08000000, CPM_USBCDR);
         /* warn:when switch cpu freq ,the 23(sclka mux) bit should be set */

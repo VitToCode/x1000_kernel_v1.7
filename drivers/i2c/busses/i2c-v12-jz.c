@@ -477,7 +477,7 @@ static inline int xfer_read(struct i2c_jz *i2c, unsigned char *buf, int len, int
 		else
 			ret = -EIO;
 		// ABRT_GCALL_READ
-		if(tmp & (1 << 5)) {
+		if(tmp & (1 << 5) || tmp & 1) {
 			ret = -EAGAIN;
 		}
 		i2c_readl(i2c,I2C_CTXABRT);
@@ -547,7 +547,7 @@ static inline int xfer_write(struct i2c_jz *i2c, unsigned char *buf, int len, in
 		else
 			ret = -EIO;
 //after I2C_TXABRT_ABRT_XDATA_NOACK error,this required core to resend
-		if(tmp & 8) {
+		if(tmp & 8 || tmp & 1) {
                         ret = -EAGAIN;
                 }
 		i2c_readl(i2c,I2C_CTXABRT);
