@@ -720,7 +720,7 @@ CONFIG_MISC_DEVICES=y
 # CONFIG_DS1682 is not set
 # CONFIG_UID_STAT is not set
 # CONFIG_BMP085 is not set
-CONFIG_BCM_PM_CORE=y
+# CONFIG_BCM_PM_CORE is not set
 # CONFIG_APANIC is not set
 # CONFIG_JZ_X2D is not set
 # CONFIG_JZ_VPU is not set
