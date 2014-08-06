@@ -129,6 +129,12 @@ extern struct jzmmc_platform_data sdio_pdata;
 #define BT_WAKE_HOST	GPIO_PA(0)
 #define BT_REG_EN	GPIO_PA(2)
 #define BT_UART_RTS	GPIO_PF(2)
+#define BLUETOOTH_UPORT_NAME  "ttyS0"
+#if 0
+#define BLUETOOTH_UPORT_NAME  "ttyS1"
+#define BLUETOOTH_UPORT_NAME  "ttyS2"
+#define BLUETOOTH_UPORT_NAME  "ttyS3"
+#endif
 #if 0
 #define GPIO_BT_REG_ON      GPIO_PB(30)
 #define GPIO_BT_WAKE        GPIO_PB(20)
