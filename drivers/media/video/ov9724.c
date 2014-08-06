@@ -110,7 +110,7 @@ static struct ov9724_format_struct {
 	},
 	/*add other format supported*/
 };
-#define N_OV9712_FMTS ARRAY_SIZE(ov9724_formats)
+#define N_OV9724_FMTS ARRAY_SIZE(ov9724_formats)
 
 static struct ov9724_win_setting {
 	int	width;
@@ -274,7 +274,8 @@ static int ov9724_get_sensor_vts(struct v4l2_subdev *sd, unsigned short *value)
 
 static int ov9724_get_sensor_lans(struct v4l2_subdev *sd, unsigned char *value)
 {
-	return 1;
+	*value = 1;
+	return 0;
 }
 static int ov9724_detect(struct v4l2_subdev *sd)
 {
@@ -308,8 +309,6 @@ static int ov9724_detect(struct v4l2_subdev *sd)
 		return -ENODEV;
 	return 0;
 }
-
-#define N_OV9724_FMTS ARRAY_SIZE(ov9724_formats)
 
 static int ov9724_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned index,
 					enum v4l2_mbus_pixelcode *code)
@@ -395,7 +394,7 @@ static int ov9724_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0;
 	printk("--------%s: %d enable:%d\n", __func__, __LINE__, enable);
 	if (enable) {
-		ret = ov9724_write_array(sd, ov9724_init_720p_raw10_regs);
+		ret = ov9724_write_array(sd, ov9724_stream_on);
 		printk("ov9724 stream on\n");
 	}
 	else {
