@@ -576,7 +576,7 @@ enum codec_mode {
 	CODEC_SLAVE,
 };
 
-void i2s_replay_zero_for_flush_codec(void);
+/*void i2s_replay_zero_for_flush_codec(void);*/
 
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC)

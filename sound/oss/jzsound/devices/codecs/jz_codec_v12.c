@@ -2450,7 +2450,7 @@ static int codec_anti_pop_start(int mode)
 	case CODEC_WMODE:
 		__codec_switch_sb_dac(POWER_ON);
 		udelay(500);
-		i2s_replay_zero_for_flush_codec();
+		//i2s_replay_zero_for_flush_codec(); /* to be modify */
 		break;
 	}
 	return 0;

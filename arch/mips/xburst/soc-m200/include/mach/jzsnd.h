@@ -226,7 +226,9 @@ struct snd_dev_data {
 	struct list_head list;
 	struct device *dev;
 	void *ext_data;
+	/*********for update*********/
 	void *priv_data;
+	/*********for update*********/
 	int minor;
 	bool is_suspend;
 	long (*dev_ioctl) (unsigned int cmd, unsigned long arg);

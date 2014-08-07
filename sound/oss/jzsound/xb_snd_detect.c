@@ -93,8 +93,14 @@ static void snd_switch_work(struct work_struct *hp_work)
 	}
 
 	/* if codec internal hpsense */
-	if (switch_data->type == SND_SWITCH_TYPE_CODEC)
-		state = switch_data->codec_get_sate();
+	if (switch_data->type == SND_SWITCH_TYPE_CODEC) {
+		if(switch_data->codec_get_sate) {
+			state = switch_data->codec_get_sate();
+		} else if(switch_data->codec_get_state_2) {
+			state = switch_data->codec_get_state_2(switch_data);
+		}
+
+	}
 
 	if (state == 1 && switch_data->mic_detect_en_gpio != -1){
 		gpio_direction_output(switch_data->mic_detect_en_gpio, switch_data->mic_detect_en_level);
@@ -135,21 +141,33 @@ static void snd_switch_work(struct work_struct *hp_work)
 #ifndef CONFIG_ANDROID
 	if (state == 1) {
 		device = SND_DEVICE_HEADSET;
-		ret = switch_data->set_device((unsigned long)&device);
+		if(switch_data->set_device) {
+			ret = switch_data->set_device((unsigned long)&device);
+		} else if(switch_data->set_device_2) {
+			ret = switch_data->set_device_2(switch_data, (unsigned long)&device);
+		}
 		if (ret == -1)
 			printk("hp inser but dsp not open\n");
 		else if (ret < -1)
 			printk(" set_device failed in the hp changed!\n");
 	} else if (state == 2) {
 		device = SND_DEVICE_HEADPHONE;
-		ret = switch_data->set_device((unsigned long)&device);
+		if(switch_data->set_device) {
+			ret = switch_data->set_device((unsigned long)&device);
+		} else if(switch_data->set_device_2) {
+			ret = switch_data->set_device_2(switch_data, (unsigned long)&device);
+		}
 		if (ret == -1)
 			printk("hp inser but dsp not open\n");
 		else if (ret < -1)
 			printk(" set_device failed in the hp changed!\n");
 	} else {
 		device = SND_DEVICE_DEFAULT;
-		ret = switch_data->set_device((unsigned long)&device);
+		if(switch_data->set_device) {
+			ret = switch_data->set_device((unsigned long)&device);
+		} else if(switch_data->set_device_2) {
+			ret = switch_data->set_device_2(switch_data, (unsigned long)&device);
+		}
 		if (ret == -1)
 			printk("hp remove but dsp not open\n");
 		else if (ret < -1)

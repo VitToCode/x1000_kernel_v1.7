@@ -121,7 +121,7 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			if(ddata->dev_ioctl) {
 				ddata->dev_ioctl(SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt_in);
 				ddata->dev_ioctl(SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt_out);
-			} else if(ddata->dev_ioctl) {
+			} else if(ddata->dev_ioctl_2) {
 				ddata->dev_ioctl_2(ddata, SND_DSP_GET_RECORD_FMT, (unsigned long)&fmt_in);
 				ddata->dev_ioctl_2(ddata, SND_DSP_GET_REPLAY_FMT, (unsigned long)&fmt_out);
 			}

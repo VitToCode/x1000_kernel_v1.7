@@ -65,6 +65,11 @@ struct snd_switch_data {
 	atomic_t flag;
 	int hook_pressed;
 	int hp_state;
+	/* *********for update******** */
+	void *priv_data;
+	int (*codec_get_state_2)(struct snd_switch_data * switch_data);
+	int (*set_device_2)(struct snd_switch_data *switch_data, unsigned long device);
+	/* ********for updtate end*****/
 };
 
 #endif /*__XB_SND_DETECT_H__*/

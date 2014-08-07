@@ -31,32 +31,20 @@
 #include <soc/base.h>
 #include "xb47xx_i2s_v12.h"
 #include "codecs/jz_codec_v12.h"
-/**
- * global variable
- **/
 
 #define AFMT_S24_LE			0x00000800
 
-static struct clk * g_i2s_clk;
-
+/* to be modify */
 void volatile __iomem *volatile i2s_iomem;
-static LIST_HEAD(codecs_head);
-static spinlock_t i2s_irq_lock;
-struct snd_switch_data switch_data;
-static volatile int jz_switch_state = 0;
-static struct dsp_endpoints i2s_endpoints;
-static struct clk *codec_sysclk = NULL;
-static volatile bool i2s_is_incall_state = false;
-bool i2s_is_incall(void);
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
-static struct workqueue_struct *i2s_work_queue;
-static struct work_struct	i2s_codec_work;
-#endif
-static int jz_get_hp_switch_state(void);
+/* head phone detect */
+static LIST_HEAD(codecs_head);
+struct snd_switch_data switch_data;
+static struct platform_device xb47xx_i2s_switch;
+
 
 extern void codec_irq_set_mask(void);
-static struct codec_info {
+struct codec_info {
 	struct list_head list;
 	char *name;
 	unsigned long record_rate;
@@ -69,8 +57,65 @@ static struct codec_info {
 	unsigned long codec_clk;
 	int (*codec_ctl)(unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints *dsp_endpoints;
-} *cur_codec;
+};
 
+struct codec_info *global_cur_codec;
+
+struct i2s_device {
+	int i2s_irq;
+	spinlock_t i2s_irq_lock;
+	spinlock_t i2s_lock;
+	char name[20];
+
+	struct resource *res;
+	struct clk * i2s_clk;
+	struct clk * aic_clk;
+	void __iomem * i2s_iomem;
+	bool i2s_is_incall_state;
+
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
+	struct workqueue_struct *i2s_work_queue;
+	struct work_struct	i2s_codec_work;
+#endif
+
+	struct workqueue_struct *i2s_work_queue_1;
+	struct work_struct i2s_work;
+	unsigned int ioctl_cmd;
+	unsigned long ioctl_arg;
+
+	struct dsp_endpoints *i2s_endpoints;
+	struct codec_info *cur_codec;
+};
+
+static int jz_get_hp_switch_state(struct i2s_device * i2s_dev);
+
+
+/* for interface/dsp and interface/mixer */
+static int i2s_set_private_data(struct snd_dev_data *ddata, struct i2s_device * i2s_dev)
+{
+	ddata->priv_data = (void *)i2s_dev;
+	return 0;
+}
+static struct i2s_device * i2s_get_private_data(struct snd_dev_data *ddata)
+{
+	return (struct i2s_device *)ddata->priv_data;
+}
+
+static struct snd_dev_data *i2s_get_ddata(struct platform_device * pdev)
+{
+	return pdev->dev.platform_data;
+}
+/* for hp detect */
+static int i2s_set_switch_data(struct snd_switch_data *switch_data, struct i2s_device *i2s_dev)
+{
+
+	switch_data->priv_data = (void *)i2s_dev;
+	return 0;
+}
+static struct i2s_device *i2s_get_switch_data(struct snd_switch_data *switch_data)
+{
+	return (struct i2s_device *)switch_data->priv_data;
+}
 /*##################################################################*\
  | dump
 \*##################################################################*/
@@ -103,15 +148,15 @@ static void i2s_shutdown(struct platform_device *);
  **/
 
 int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode)
-{
+{	/*to be modify*/
 	struct codec_info *tmp = vmalloc(sizeof(struct codec_info));
 	if ((name != NULL) && (codec_ctl != NULL)) {
 		tmp->name = name;
 		tmp->codec_ctl = codec_ctl;
 		tmp->codec_clk = codec_clk;
 		tmp->codec_mode = mode;
-		tmp->dsp_endpoints = &i2s_endpoints;
 		list_add_tail(&tmp->list, &codecs_head);
+		printk("i2s register ,codec is :%p\n", tmp);
 		return 0;
 	} else {
 		return -1;
@@ -119,7 +164,7 @@ int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum 
 }
 EXPORT_SYMBOL(i2s_register_codec);
 
-static void i2s_match_codec(char *name)
+static void i2s_match_codec(struct i2s_device *i2s_dev, char *name)
 {
 	struct codec_info *codec_info;
 	struct list_head  *list,*tmp;
@@ -127,23 +172,26 @@ static void i2s_match_codec(char *name)
 	list_for_each_safe(list,tmp,&codecs_head) {
 		codec_info = container_of(list,struct codec_info,list);
 		if (!strcmp(codec_info->name,name)) {
-			cur_codec = codec_info;
+			codec_info->dsp_endpoints = i2s_dev->i2s_endpoints;
+			i2s_dev->cur_codec = codec_info;
+			printk("current codec is :%p\n", codec_info);
 			return;
 		}
 	}
 }
 
-bool i2s_is_incall(void)
+bool i2s_is_incall_1(struct i2s_device *i2s_dev)
 {
-	return i2s_is_incall_state;
+	return i2s_dev->i2s_is_incall_state;
 }
 
 /*##################################################################*\
 |* filter opt
 \*##################################################################*/
-static void i2s_set_filter(int mode , uint32_t channels)
+static void i2s_set_filter(struct i2s_device *i2s_dev, int mode , uint32_t channels)
 {
 	struct dsp_pipe *dp = NULL;
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 
 	if (mode & CODEC_RMODE)
 		dp = cur_codec->dsp_endpoints->in_endpoint;
@@ -175,13 +223,8 @@ static void i2s_set_filter(int mode , uint32_t channels)
 		case AFMT_U16_LE:
 		case AFMT_S16_LE:
 			if (channels == 1) {
-#if 0
-				dp->filter = convert_16bits_stereomix2mono;
-				printk("dp->filter convert_16bits_stereomix2mono\n");
-#else
 				dp->filter = convert_16bits_stereo2mono;
 				printk("dp->filter convert_16bits_stereo2mono\n");
-#endif
 			}
 			else {
 				dp->filter = NULL;
@@ -208,12 +251,12 @@ static void i2s_set_filter(int mode , uint32_t channels)
 /*##################################################################*\
 |* dev_ioctl
 \*##################################################################*/
-static int i2s_set_fmt(unsigned long *format,int mode)
+static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mode)
 {
 	int ret = 0;
 	int data_width = 0;
 	struct dsp_pipe *dp = NULL;
-
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
     /*
 	 * The value of format reference to soundcard.
 	 * AFMT_MU_LAW      0x00000001
@@ -326,7 +369,7 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 
 	//	__i2s_enable_24bitmsb();
 		__i2s_disable_signadj();
-		dump_i2s_reg();
+		//dump_i2s_reg();
 		printk("come here \n");
 		break;
 	default :
@@ -380,12 +423,13 @@ static int i2s_set_fmt(unsigned long *format,int mode)
 	return ret;
 }
 
-static int i2s_set_channel(int* channel,int mode)
+static int i2s_set_channel(struct i2s_device * i2s_dev, int* channel,int mode)
 {
 	int ret = 0;
 #ifdef CONFIG_ANDROID
 	int channel_save = 0;
 #endif
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("channel = %d",*channel);
@@ -457,7 +501,7 @@ static int i2s_set_channel(int* channel,int mode)
  *  If using internal codec, EPLL should be 204MHz to divide 12MHz SYSCLK
  *  If using external codec and AIC support BITCLK, EPLL should be 270MHz to divide exact sample rate
 \***************************************************************/
-static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
+static unsigned long calculate_cgu_aic_rate(struct i2s_device * i2s_dev, unsigned long *rate)
 {
 	int i;
 #if 1
@@ -495,10 +539,12 @@ static unsigned long calculate_cgu_aic_rate(unsigned long *rate)
 	return mcguclk[i];
 }
 
-static int i2s_set_rate(unsigned long *rate,int mode)
+static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mode)
 {
 	int ret = 0;
 	unsigned long cgu_aic_clk = 0;
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
+
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
@@ -511,16 +557,16 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 			|* not be output to external codec                           *|
 			\*************************************************************/
 			if (strcmp(cur_codec->name,"hdmi"))
-				cgu_aic_clk = calculate_cgu_aic_rate(rate);
+				cgu_aic_clk = calculate_cgu_aic_rate(i2s_dev, rate);
 			else
 				cgu_aic_clk = cur_codec->codec_clk;
 			__i2s_stop_bitclk();
 			if (cur_codec->codec_clk != cgu_aic_clk || !strcmp(cur_codec->name,"hdmi")) {
 				cur_codec->codec_clk = cgu_aic_clk;
-				if (codec_sysclk == NULL)
+				if (i2s_dev->i2s_clk == NULL)
 					return -1;
-				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+				clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
+				if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
 					printk("external codec set rate fail.\n");
 				}
 			}
@@ -532,17 +578,17 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 	}
 	if (mode & CODEC_RMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
-			cgu_aic_clk = calculate_cgu_aic_rate(rate);
+			cgu_aic_clk = calculate_cgu_aic_rate(i2s_dev, rate);
 			if (strcmp(cur_codec->name,"hdmi"))
 				return 0;
 			printk("------ come to %s %d\n", __func__, __LINE__);
 			__i2s_stop_ibitclk();
 			if (cur_codec->codec_clk != cgu_aic_clk) {
 				cur_codec->codec_clk = cgu_aic_clk;
-				if (codec_sysclk == NULL)
+				if (i2s_dev->i2s_clk == NULL)
 					return -1;
-				clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-				if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+				clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
+				if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
 					printk("external codec set rate fail.\n");
 				}
 			}
@@ -557,7 +603,7 @@ static int i2s_set_rate(unsigned long *rate,int mode)
 #define I2S_TX_FIFO_DEPTH		64
 #define I2S_RX_FIFO_DEPTH		32
 
-static int get_burst_length(unsigned long val)
+static int get_burst_length(struct i2s_device *i2s_dev, unsigned long val)
 {
 	/* burst bytes for 1,2,4,8,16,32,64 bytes */
 	int ord;
@@ -572,12 +618,12 @@ static int get_burst_length(unsigned long val)
 	return (ord == 3 ? 4 : 1 << ord)*8;
 }
 
-static void i2s_set_trigger(int mode)
+static void i2s_set_trigger(struct i2s_device * i2s_dev, int mode)
 {
 	int data_width = 0;
 	struct dsp_pipe *dp = NULL;
 	int burst_length = 0;
-
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 		return;
 
@@ -600,7 +646,7 @@ static void i2s_set_trigger(int mode)
 			break;
 		}
 		dp = cur_codec->dsp_endpoints->out_endpoint;
-		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
+		burst_length = get_burst_length(i2s_dev, (int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
 		if (I2S_TX_FIFO_DEPTH - burst_length/data_width >= 60)
 			__i2s_set_transmit_trigger(30);
@@ -625,7 +671,7 @@ static void i2s_set_trigger(int mode)
 			break;
 		}
 		dp = cur_codec->dsp_endpoints->in_endpoint;
-		burst_length = get_burst_length((int)dp->paddr|(int)dp->fragsize|
+		burst_length = get_burst_length(i2s_dev, (int)dp->paddr|(int)dp->fragsize|
 				dp->dma_config.src_maxburst|dp->dma_config.dst_maxburst);
 		if (I2S_RX_FIFO_DEPTH <= burst_length/data_width)
 			__i2s_set_receive_trigger(((burst_length/data_width +1) >> 1) - 1);
@@ -636,7 +682,7 @@ static void i2s_set_trigger(int mode)
 	return;
 }
 
-static int i2s_enable(int mode)
+static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 {
 	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
 	unsigned long record_rate = DEFAULT_RECORD_SAMPLERATE;
@@ -645,25 +691,25 @@ static int i2s_enable(int mode)
 	int replay_channel = DEFAULT_REPLAY_CHANNEL;
 	int record_channel = DEFAULT_RECORD_CHANNEL;
 	struct dsp_pipe *dp_other = NULL;
-
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return -ENODEV;
 
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec->dsp_endpoints->in_endpoint;
-		i2s_set_fmt(&replay_format,mode);
-		i2s_set_channel(&replay_channel,mode);
-		i2s_set_rate(&replay_rate,mode);
+		i2s_set_fmt(i2s_dev, &replay_format,mode);
+		i2s_set_channel(i2s_dev, &replay_channel,mode);
+		i2s_set_rate(i2s_dev, &replay_rate,mode);
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
-		i2s_set_fmt(&record_format,mode);
-		i2s_set_channel(&record_channel,mode);
+		i2s_set_fmt(i2s_dev, &record_format,mode);
+		i2s_set_channel(i2s_dev, &record_channel,mode);
 		printk("------ come to %s \n", __func__);
-		i2s_set_rate(&record_rate,mode);
-		i2s_set_filter(mode,record_channel);
+		i2s_set_rate(i2s_dev, &record_rate,mode);
+		i2s_set_filter(i2s_dev, mode,record_channel);
 	}
-	i2s_set_trigger(mode);
+	i2s_set_trigger(i2s_dev, mode);
 
 	if (!dp_other->is_used) {
 		__i2s_select_i2s();
@@ -672,12 +718,12 @@ static int i2s_enable(int mode)
 
 	cur_codec->codec_ctl(CODEC_ANTI_POP,mode);
 
-	i2s_is_incall_state = false;
+	i2s_dev->i2s_is_incall_state = false;
 
 	return 0;
 }
 
-void i2s_replay_zero_for_flush_codec()
+void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 {
 	__i2s_write_tfifo(0);	//avoid pop
 	__i2s_write_tfifo(0);
@@ -689,13 +735,14 @@ void i2s_replay_zero_for_flush_codec()
 }
 
 
-static int i2s_disable_channel(int mode)
+static int i2s_disable_channel(struct i2s_device *i2s_dev, int mode)
 {
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (cur_codec)
 		cur_codec->codec_ctl(CODEC_TURN_OFF,mode);
 
 	if (mode & CODEC_WMODE) {
-		i2s_replay_zero_for_flush_codec();
+		i2s_replay_zero_for_flush_codec(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_record();
@@ -704,9 +751,10 @@ static int i2s_disable_channel(int mode)
 }
 
 
-static int i2s_dma_enable(int mode)		//CHECK
+static int i2s_dma_enable(struct i2s_device * i2s_dev, int mode)		//CHECK
 {
 	int val;
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
@@ -727,8 +775,9 @@ static int i2s_dma_enable(int mode)		//CHECK
 	return 0;
 }
 
-static int i2s_dma_disable(int mode)		//CHECK seq dma and func
+static int i2s_dma_disable(struct i2s_device *i2s_dev, int mode)		//CHECK seq dma and func
 {
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
@@ -736,15 +785,16 @@ static int i2s_dma_disable(int mode)		//CHECK seq dma and func
 		__i2s_disable_replay();
 	}
 	if (mode & CODEC_RMODE) {
-		__i2s_disable_receive_dma();
 		__i2s_disable_record();
+		__i2s_disable_receive_dma();
 	}
 	return 0;
 }
 
-static int i2s_get_fmt_cap(unsigned long *fmt_cap,int mode)
+static int i2s_get_fmt_cap(struct i2s_device *i2s_dev, unsigned long *fmt_cap,int mode)
 {
 	unsigned long i2s_fmt_cap = 0;
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
@@ -766,8 +816,9 @@ static int i2s_get_fmt_cap(unsigned long *fmt_cap,int mode)
 }
 
 
-static int i2s_get_fmt(unsigned long *fmt, int mode)
+static int i2s_get_fmt(struct i2s_device *i2s_dev, unsigned long *fmt, int mode)
 {
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return -ENODEV;
 
@@ -779,10 +830,11 @@ static int i2s_get_fmt(unsigned long *fmt, int mode)
 	return 0;
 }
 
-static void i2s_dma_need_reconfig(int mode)
+static void i2s_dma_need_reconfig(struct i2s_device *i2s_dev, int mode)
 {
 	struct dsp_pipe	*dp = NULL;
 
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 			return;
 	if (mode & CODEC_WMODE) {
@@ -797,14 +849,16 @@ static void i2s_dma_need_reconfig(int mode)
 }
 
 
-static int i2s_set_device(unsigned long device)
+static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 {
 	unsigned long tmp_rate = 44100;
   	int ret = 0;
 	struct dsp_endpoints *endpoints = NULL;
 	struct dsp_pipe *dp = NULL;
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 
-	endpoints = (struct dsp_endpoints *)((&i2s_data)->ext_data);
+	endpoints = i2s_dev->i2s_endpoints;
+
 	dp = endpoints->out_endpoint;
 
 	if (!cur_codec)
@@ -813,14 +867,14 @@ static int i2s_set_device(unsigned long device)
 	/*call state operation*/
 	if (*(enum snd_device_t *)device >= SND_DEVICE_CALL_START &&
             *(enum snd_device_t *)device <= SND_DEVICE_CALL_END)
-		i2s_is_incall_state = true;
+		i2s_dev->i2s_is_incall_state = true;
 	else
-		i2s_is_incall_state = false;
+		i2s_dev->i2s_is_incall_state = false;
 
 	if (*(enum snd_device_t *)device == SND_DEVICE_LOOP_TEST) {
 		cur_codec->codec_ctl(CODEC_ADC_MUTE,0);
 		cur_codec->codec_ctl(CODEC_DAC_MUTE,0);
-		i2s_set_rate(&tmp_rate,CODEC_RWMODE);
+		i2s_set_rate(i2s_dev, &tmp_rate, CODEC_RWMODE);
 	}
 
 	/*hdmi operation*/
@@ -828,21 +882,21 @@ static int i2s_set_device(unsigned long device)
 		tmp_rate = 44100;
 	if ((*(enum snd_device_t *)device) == SND_DEVICE_HDMI) {
 		if (strcmp(cur_codec->name,"hdmi")) {
-			i2s_match_codec("hdmi");
+			i2s_match_codec(i2s_dev, "hdmi");
 			cur_codec->codec_clk = 0;
 			__i2s_stop_bitclk();
 			__i2s_external_codec();
 			__i2s_master_clkset();
 			__i2s_start_bitclk();
-			i2s_set_rate(&tmp_rate,CODEC_WMODE);
+			i2s_set_rate(i2s_dev, &tmp_rate,CODEC_WMODE);
 		}
 	} else {
 		/*restore old device*/
 		if (!strcmp(cur_codec->name,"hdmi")) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
-			i2s_match_codec("internal_codec");
+			i2s_match_codec(i2s_dev, "internal_codec");
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
-			i2s_match_codec("external_codec");
+			i2s_match_codec(i2s_dev, "external_codec");
 #endif
 			__i2s_stop_bitclk();
 #if defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
@@ -873,8 +927,8 @@ static int i2s_set_device(unsigned long device)
 				}
 			}
 
-			clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-			if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
+			clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
+			if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
 				printk("codec codec set rate fail.\n");
 			}
 			__i2s_start_bitclk();
@@ -890,158 +944,170 @@ static int i2s_set_device(unsigned long device)
 /********************************************************\
  * dev_ioctl
 \********************************************************/
-static long i2s_ioctl(unsigned int cmd, unsigned long arg)
+static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	struct i2s_device *i2s_dev = i2s_get_private_data(ddata);
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
+	//printk("[i2s debug]%s:%d, ddata:%p, cmd:%d, arg:%x\n", __func__, __LINE__, ddata, cmd, arg? *(unsigned int *)arg : arg);
+	switch(cmd) {
+		case SND_DSP_GET_REPLAY_RATE:
+			if (cur_codec && cur_codec->replay_rate)
+				*(unsigned long *)arg = cur_codec->replay_rate;
+			ret = 0;
+			break;
+		case SND_DSP_GET_RECORD_RATE:
+			if (cur_codec && cur_codec->record_rate)
+				*(unsigned long *)arg = cur_codec->record_rate;
+			ret = 0;
+			break;
+
+		case SND_DSP_GET_REPLAY_CHANNELS:
+			if (cur_codec && cur_codec->replay_codec_channel)
+				*(unsigned long *)arg = cur_codec->replay_codec_channel;
+			ret = 0;
+			break;
+
+		case SND_DSP_GET_RECORD_CHANNELS:
+			if (cur_codec && cur_codec->record_codec_channel)
+				*(unsigned long *)arg = cur_codec->record_codec_channel;
+			ret = 0;
+			break;
+
+		case SND_DSP_GET_REPLAY_FMT_CAP:
+			/* return the support replay formats */
+			ret = i2s_get_fmt_cap(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
+			break;
+
+		case SND_DSP_GET_REPLAY_FMT:
+			/* get current replay format */
+			i2s_get_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
+			break;
+		case SND_DSP_GET_HP_DETECT:
+			*(int*)arg = jz_get_hp_switch_state(i2s_dev);
+			ret = 0;
+			break;
+		case SND_DSP_ENABLE_DMA_RX:
+			ret = i2s_dma_enable(i2s_dev, CODEC_RMODE);
+			break;
+
+		case SND_DSP_DISABLE_DMA_RX:
+			ret = i2s_dma_disable(i2s_dev, CODEC_RMODE);
+			break;
+
+		case SND_DSP_ENABLE_DMA_TX:
+			ret = i2s_dma_enable(i2s_dev, CODEC_WMODE);
+			break;
+
+		case SND_DSP_DISABLE_DMA_TX:
+			ret = i2s_dma_disable(i2s_dev, CODEC_WMODE);
+			break;
+		case SND_DSP_FLUSH_SYNC:
+			flush_work_sync(&i2s_dev->i2s_work);
+			break;
+		default:
+			flush_work_sync(&i2s_dev->i2s_work);
+			i2s_dev->ioctl_cmd = cmd;
+			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg;
+			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
+			break;
+
+
+	}
+	return ret;
+}
+
+static long do_ioctl_work(struct i2s_device *i2s_dev, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
 
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	switch (cmd) {
 	case SND_DSP_ENABLE_REPLAY:
 		/* enable i2s record */
 		/* set i2s default record format, channels, rate */
 		/* set default replay route */
-		ret = i2s_enable(CODEC_WMODE);
+		ret = i2s_enable(i2s_dev, CODEC_WMODE);
 		break;
 
 	case SND_DSP_DISABLE_REPLAY:
 		/* disable i2s replay */
-		ret = i2s_disable_channel(CODEC_WMODE);
+		ret = i2s_disable_channel(i2s_dev, CODEC_WMODE);
 		break;
 
 	case SND_DSP_ENABLE_RECORD:
 		/* enable i2s record */
 		/* set i2s default record format, channels, rate */
 		/* set default record route */
-		ret = i2s_enable(CODEC_RMODE);
+		ret = i2s_enable(i2s_dev, CODEC_RMODE);
 		break;
 
 	case SND_DSP_DISABLE_RECORD:
 		/* disable i2s record */
-		ret = i2s_disable_channel(CODEC_RMODE);
-		break;
-
-	case SND_DSP_ENABLE_DMA_RX:
-		ret = i2s_dma_enable(CODEC_RMODE);
-		break;
-
-	case SND_DSP_DISABLE_DMA_RX:
-		ret = i2s_dma_disable(CODEC_RMODE);
-		break;
-
-	case SND_DSP_ENABLE_DMA_TX:
-		ret = i2s_dma_enable(CODEC_WMODE);
-		break;
-
-	case SND_DSP_DISABLE_DMA_TX:
-		ret = i2s_dma_disable(CODEC_WMODE);
+		ret = i2s_disable_channel(i2s_dev, CODEC_RMODE);
 		break;
 
 	case SND_DSP_SET_REPLAY_RATE:
-		ret = i2s_set_rate((unsigned long *)arg,CODEC_WMODE);
+		ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 		break;
 
 	case SND_DSP_SET_RECORD_RATE:
-		ret = i2s_set_rate((unsigned long *)arg,CODEC_RMODE);
+		ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
 		break;
-
-	case SND_DSP_GET_REPLAY_RATE:
-		if (cur_codec && cur_codec->replay_rate)
-			*(unsigned long *)arg = cur_codec->replay_rate;
-		ret = 0;
-		break;
-
-	case SND_DSP_GET_RECORD_RATE:
-		if (cur_codec && cur_codec->record_rate)
-			*(unsigned long *)arg = cur_codec->record_rate;
-		ret = 0;
-		break;
-
 
 	case SND_DSP_SET_REPLAY_CHANNELS:
 		/* set replay channels */
-		ret = i2s_set_channel((int *)arg,CODEC_WMODE);
+		ret = i2s_set_channel(i2s_dev, (int *)arg,CODEC_WMODE);
 		if (ret < 0)
 			break;
 		//if (ret & NEED_RECONF_FILTER)
-		//	i2s_set_filter(CODEC_WMODE,cur_codec->replay_codec_channel);
+		//	i2s_set_filter(i2s_dev, CODEC_WMODE,cur_codec->replay_codec_channel);
 		ret = 0;
 		break;
 
 	case SND_DSP_SET_RECORD_CHANNELS:
 		/* set record channels */
-		ret = i2s_set_channel((int*)arg,CODEC_RMODE);
+		ret = i2s_set_channel(i2s_dev, (int*)arg,CODEC_RMODE);
 		if (ret < 0)
 			break;
 		if (ret & NEED_RECONF_FILTER)
-			i2s_set_filter(CODEC_RMODE,cur_codec->record_codec_channel);
+			i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
 		ret = 0;
-		break;
-
-	case SND_DSP_GET_REPLAY_CHANNELS:
-		if (cur_codec && cur_codec->replay_codec_channel)
-			*(unsigned long *)arg = cur_codec->replay_codec_channel;
-		ret = 0;
-		break;
-
-	case SND_DSP_GET_RECORD_CHANNELS:
-		if (cur_codec && cur_codec->record_codec_channel)
-			*(unsigned long *)arg = cur_codec->record_codec_channel;
-		ret = 0;
-		break;
-
-	case SND_DSP_GET_REPLAY_FMT_CAP:
-		/* return the support replay formats */
-		ret = i2s_get_fmt_cap((unsigned long *)arg,CODEC_WMODE);
-		break;
-
-	case SND_DSP_GET_REPLAY_FMT:
-		/* get current replay format */
-		i2s_get_fmt((unsigned long *)arg,CODEC_WMODE);
 		break;
 
 	case SND_DSP_SET_REPLAY_FMT:
 		/* set replay format */
-		ret = i2s_set_fmt((unsigned long *)arg,CODEC_WMODE);
+		ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 		if (ret < 0)
 			break;
 		/* if need reconfig the trigger, reconfig it */
 		if (ret & NEED_RECONF_TRIGGER)
-			i2s_set_trigger(CODEC_WMODE);
+			i2s_set_trigger(i2s_dev, CODEC_WMODE);
 		/* if need reconfig the dma_slave.max_tsz, reconfig it and
 		   set the dp->need_reconfig_dma as true */
 		if (ret & NEED_RECONF_DMA)
-			i2s_dma_need_reconfig(CODEC_WMODE);
+			i2s_dma_need_reconfig(i2s_dev, CODEC_WMODE);
 		/* if need reconfig the filter, reconfig it */
 		//if (ret & NEED_RECONF_FILTER)
-		//	i2s_set_filter(CODEC_RMODE,cur_codec->replay_codec_channel);
+		//	i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->replay_codec_channel);
 		ret = 0;
-		break;
-
-	case SND_DSP_GET_RECORD_FMT_CAP:
-		/* return the support record formats */
-		ret = i2s_get_fmt_cap((unsigned long *)arg,CODEC_RMODE);
-		break;
-
-	case SND_DSP_GET_RECORD_FMT:
-		/* get current record format */
-		i2s_get_fmt((unsigned long *)arg,CODEC_RMODE);
-
 		break;
 
 	case SND_DSP_SET_RECORD_FMT:
 		/* set record format */
-		ret = i2s_set_fmt((unsigned long *)arg,CODEC_RMODE);
+		ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
 		if (ret < 0)
 			break;
 		/* if need reconfig the trigger, reconfig it */
 		if (ret & NEED_RECONF_TRIGGER)
-			i2s_set_trigger(CODEC_RMODE);
+			i2s_set_trigger(i2s_dev, CODEC_RMODE);
 		/* if need reconfig the dma_slave.max_tsz, reconfig it and
 		   set the dp->need_reconfig_dma as true */
 		if (ret & NEED_RECONF_DMA)
-			i2s_dma_need_reconfig(CODEC_RMODE);
+			i2s_dma_need_reconfig(i2s_dev, CODEC_RMODE);
 		/* if need reconfig the filter, reconfig it */
 		if (ret & NEED_RECONF_FILTER)
-			i2s_set_filter(CODEC_RMODE,cur_codec->record_codec_channel);
+			i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
 		ret = 0;
 		break;
 
@@ -1061,11 +1127,7 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 
 	case SND_DSP_SET_DEVICE:
-		ret = i2s_set_device(arg);
-		break;
-	case SND_DSP_GET_HP_DETECT:
-		*(int*)arg = jz_get_hp_switch_state();
-		ret = 0;
+		ret = i2s_set_device(i2s_dev, arg);
 		break;
 	case SND_DSP_SET_RECORD_VOL:
 		if (cur_codec)
@@ -1087,6 +1149,10 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 		if (cur_codec)
 			ret = cur_codec->codec_ctl(CODEC_DEBUG,arg);
 		break;
+	case SND_DSP_RESUME_PROCEDURE:
+		if (cur_codec && !i2s_is_incall_1(i2s_dev))
+			cur_codec->codec_ctl(CODEC_RESUME,0);
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
@@ -1096,6 +1162,15 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+static void i2s_work_handler(struct work_struct *work)
+{
+	struct i2s_device *i2s_dev = (struct i2s_device *)container_of(work, struct i2s_device, i2s_work);
+	unsigned int cmd = i2s_dev->ioctl_cmd;
+	unsigned long arg = i2s_dev->ioctl_arg;
+	//printk("%s:%d, i2s_dev:%p, cmd:%d, arg:%x\n", __func__, __LINE__, i2s_dev, cmd, arg);
+	do_ioctl_work(i2s_dev, cmd, (unsigned long)&arg);
+}
+
 /*##################################################################*\
 |* functions
 \*##################################################################*/
@@ -1103,6 +1178,8 @@ static long i2s_ioctl(unsigned int cmd, unsigned long arg)
 #ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 static void i2s_codec_work_handler(struct work_struct *work)
 {
+	struct i2s_device *i2s_dev = (struct i2s_device *)container_of(work, struct i2s_device, i2s_codec_work);
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	wait_event_interruptible(switch_data.wq,switch_data.hp_work.entry.next != NULL);
 	cur_codec->codec_ctl(CODEC_IRQ_HANDLE,(unsigned long)(&(switch_data.hp_work)));
 }
@@ -1110,27 +1187,54 @@ static void i2s_codec_work_handler(struct work_struct *work)
 
 static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 {
-	unsigned long flags;
 	irqreturn_t ret = IRQ_HANDLED;
-	spin_lock_irqsave(&i2s_irq_lock,flags);
+
+	struct i2s_device * i2s_dev = (struct i2s_device *)dev_id;
 	/* check the irq source */
 	/* if irq source is codec, call codec irq handler */
 #ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	if (read_inter_codec_irq()){
 		codec_irq_set_mask();
-		if(!work_pending(&i2s_codec_work))
-			queue_work(i2s_work_queue, &i2s_codec_work);
+		if(!work_pending(&i2s_dev->i2s_codec_work))
+			queue_work(i2s_dev->i2s_work_queue, &i2s_dev->i2s_codec_work);
 	}
 #endif
 	/* if irq source is aic, process it here */
 
 	/*noting to do*/
 
-	spin_unlock_irqrestore(&i2s_irq_lock,flags);
 
 	return ret;
 }
 
+static int i2s_init_pipe_2(struct dsp_pipe *dp, enum dma_data_direction direction, unsigned long iobase)
+{
+	if(dp == NULL) {
+		printk("%s dp is null !! \n", __func__);
+		return -EINVAL;
+	}
+	dp->dma_config.direction = direction;
+	dp->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	dp->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	dp->dma_type = JZDMA_REQ_I2S0;
+	dp->fragsize = FRAGSIZE_M;
+	dp->fragcnt = FRAGCNT_L;
+
+	if (direction == DMA_TO_DEVICE) {
+		dp->dma_config.src_maxburst = 64;
+		dp->dma_config.dst_maxburst = 64;
+		dp->dma_config.dst_addr = iobase + AICDR;
+		dp->dma_config.src_addr = 0;
+	} else if (direction == DMA_FROM_DEVICE) {
+		dp->dma_config.src_maxburst = 32;
+		dp->dma_config.dst_maxburst = 32;
+		dp->dma_config.src_addr = iobase + AICDR;
+		dp->dma_config.dst_addr = 0;
+	} else
+		return -1;
+
+	return 0;
+}
 static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsigned long iobase)
 {
 	if (*dp != NULL || dp == NULL)
@@ -1164,86 +1268,130 @@ static int i2s_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 	return 0;
 }
 
-static int i2s_global_init(struct platform_device *pdev)
+static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data *switch_data)
 {
 	int ret = 0;
-	struct resource *i2s_resource = NULL;
 	struct dsp_pipe *i2s_pipe_out = NULL;
 	struct dsp_pipe *i2s_pipe_in = NULL;
-	static struct clk *i2s_clk = NULL;
+	struct i2s_device * i2s_dev;
 
-	i2s_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
-	if (i2s_resource == NULL) {
-		printk(" platform_get_resource failed %d \n", __LINE__);
-		return -1;
-	}
+	printk("i2s global init !~~~\n");
 
-	/* map io address */
-	printk("----- start i2s init!\n");
-	if (!request_mem_region(i2s_resource->start, resource_size(i2s_resource), pdev->name)) {
-		printk(" mem_region failed %d \n", __LINE__);
-		return -EBUSY;
+	i2s_dev = (struct i2s_device *)kzalloc(sizeof(struct i2s_device), GFP_KERNEL);
+	if(!i2s_dev) {
+		dev_err(&pdev->dev, "failed to alloc i2s dev\n");
+		return -ENOMEM;
 	}
-	i2s_iomem = ioremap(i2s_resource->start, resource_size(i2s_resource));
-	if (!i2s_iomem) {
-		printk(" ioremap failed %d \n", __LINE__);
-		ret =  -ENOMEM;
-		goto __err_ioremap;
+	i2s_dev->cur_codec = (struct codec_info *)kmalloc(sizeof(struct codec_info), GFP_KERNEL);
+	if(!i2s_dev->cur_codec) {
+		dev_err(&pdev->dev, "failed to alloc cur codec\n");
+		goto err_alloc_codec;
 	}
 
-	ret = i2s_init_pipe(&i2s_pipe_out,DMA_TO_DEVICE,i2s_resource->start);
-	if (ret < 0) {
-		printk(" i2s_init_pipe failed %d \n", __LINE__);
-		goto __err_init_pipeout;
-	}
-	ret = i2s_init_pipe(&i2s_pipe_in,DMA_FROM_DEVICE,i2s_resource->start);
-	if (ret < 0) {
-		printk(" i2s_init_pipe failed %d \n", __LINE__);
-		goto __err_init_pipein;
+
+	i2s_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if(i2s_dev->res == NULL) {
+		printk("%s i2s resource get failed\n", __func__);
+		goto err_get_resource;
 	}
 
-	i2s_endpoints.out_endpoint = i2s_pipe_out;
-	i2s_endpoints.in_endpoint = i2s_pipe_in;
-
-	/* request aic clk */
-	i2s_clk = clk_get(&pdev->dev, "aic");
-	if (IS_ERR(i2s_clk)) {
-		dev_err(&pdev->dev, "aic clk_get failed\n");
-		goto __err_aic_clk;
+	if(!request_mem_region(i2s_dev->res->start, resource_size(i2s_dev->res), pdev->name)) {
+		printk("%s: request mem region failed\n", __func__);
+		goto err_req_mem_region;
 	}
-	g_i2s_clk = i2s_clk;
-	clk_enable(i2s_clk);
-	spin_lock_init(&i2s_irq_lock);
+
+	i2s_dev->i2s_iomem = ioremap(i2s_dev->res->start, resource_size(i2s_dev->res));
+	if(!i2s_dev->i2s_iomem) {
+		printk("%s, ioremap failed!\n", __func__);
+		goto err_ioremap;
+	}
+
+	i2s_iomem = i2s_dev->i2s_iomem;/*modify later*/
+
+
+	i2s_pipe_out = kmalloc(sizeof(struct dsp_pipe), GFP_KERNEL);
+	ret = i2s_init_pipe_2(i2s_pipe_out, DMA_TO_DEVICE, i2s_dev->res->start);
+	if(ret < 0) {
+		printk("%s: init write pipe failed!\n", __func__);
+		goto err_init_pipeout;
+	}
+
+	i2s_pipe_in = kmalloc(sizeof(struct dsp_pipe), GFP_KERNEL);
+	ret = i2s_init_pipe_2(i2s_pipe_in, DMA_FROM_DEVICE, i2s_dev->res->start);
+	if(ret < 0) {
+		printk("%s: init read pipe failed!\n", __func__);
+		goto err_init_pipein;
+	}
+
+	i2s_dev->i2s_endpoints = kmalloc(sizeof(struct dsp_endpoints), GFP_KERNEL);
+	if(!i2s_dev->i2s_endpoints) {
+		printk("%s, unable to malloc dsp endpoints!\n", __func__);
+		goto err_init_endpoints;
+	}
+	i2s_dev->i2s_endpoints->out_endpoint = i2s_pipe_out;
+	i2s_dev->i2s_endpoints->in_endpoint = i2s_pipe_in;
+
+	i2s_dev->i2s_clk = clk_get(&pdev->dev, "cgu_i2s");
+	if(IS_ERR(i2s_dev->i2s_clk)) {
+		dev_err(&pdev->dev, "cgu i2s clk get failed!\n");
+		goto err_get_i2s_clk;
+	}
+	i2s_dev->aic_clk = clk_get(&pdev->dev, "aic");
+	if(IS_ERR(i2s_dev->aic_clk)) {
+		dev_err(&pdev->dev, "aic clk get failed!\n");
+		goto err_get_aic_clk;
+	}
+
+	spin_lock_init(&i2s_dev->i2s_irq_lock);
+	spin_lock_init(&i2s_dev->i2s_lock);
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
-	i2s_match_codec("internal_codec");
+	i2s_match_codec(i2s_dev, "internal_codec");
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
-	i2s_match_codec("i2s_external_codec");
+	i2s_match_codec(i2s_dev, "i2s_external_codec");
 #else
 //	dev_info("WARNING: unless one codec must be select for i2s.\n");
 #endif
-	if (cur_codec == NULL) {
-		ret = 0;
-		printk("------match codec failed~\n");
-		goto __err_match_codec;
+
+	global_cur_codec = i2s_dev->cur_codec;
+	if(!i2s_dev->cur_codec) {
+		printk("err: no codec matched!\n");
+		goto err_codec_found;
+	}
+	i2s_dev->i2s_irq = platform_get_irq(pdev, 0);
+	ret = request_irq(i2s_dev->i2s_irq, i2s_irq_handler, IRQF_DISABLED, "i2s_irq", i2s_dev);
+	if(ret < 0) {
+		printk("request i2s irq error!\n");
+		goto err_irq;
 	}
 
-	/* request irq */
-	i2s_resource = platform_get_resource(pdev,IORESOURCE_IRQ,0);
-	if (i2s_resource == NULL) {
-		printk(" platform_get_resource failed %d \n", __LINE__);
-		ret = -1;
-		goto __err_irq;
+	i2s_dev->i2s_work_queue_1 = create_singlethread_workqueue("i2s_work_1");
+	if(!i2s_dev->i2s_work_queue_1) {
+		return -ENOMEM;
 	}
 
-	ret = request_irq(i2s_resource->start, i2s_irq_handler,
-					  IRQF_DISABLED, "aic_irq", NULL);
-	if (ret < 0) {
-		printk(" platform_get_resource failed %d \n", __LINE__);
-		goto __err_irq;
+	INIT_WORK(&i2s_dev->i2s_work, i2s_work_handler);
+	i2s_dev->ioctl_arg = -1;
+	i2s_dev->ioctl_cmd = -1;
+
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
+	INIT_WORK(&i2s_dev->i2s_codec_work, i2s_codec_work_handler);
+	i2s_dev->i2s_work_queue = create_singlethread_workqueue("i2s_codec_irq_wq");
+
+	if (!i2s_dev->i2s_work_queue) {
+		// this can not happen, if happen, we die!
+		BUG();
 	}
+#endif
+
+	/* set data */
+	i2s_set_private_data(&i2s_data, i2s_dev);
+	i2s_set_private_data(&snd_mixer0_data, i2s_dev);
+	dev_set_drvdata(&pdev->dev, i2s_dev);
+	i2s_set_switch_data(switch_data, i2s_dev);
 
 
+	clk_enable(i2s_dev->aic_clk);
 	__i2s_disable();
 	schedule_timeout(5);
 	__i2s_disable();
@@ -1253,19 +1401,19 @@ static int i2s_global_init(struct platform_device *pdev)
 	__aic_select_i2s();
 	__i2s_select_i2s();
 
-
 #if defined(CONFIG_JZ_EXTERNAL_CODEC_V12)
 	__i2s_external_codec();
 #endif
 
-	if (cur_codec->codec_mode == CODEC_MASTER) {
+	if(i2s_dev->cur_codec->codec_mode == CODEC_MASTER) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 		__i2s_internal_codec_master();
 #endif
 		__i2s_slave_clkset();
 		/*sysclk output*/
 		__i2s_enable_sysclk_output();
-	} else if (cur_codec->codec_mode == CODEC_SLAVE) {
+
+	} else if(i2s_dev->cur_codec->codec_mode == CODEC_SLAVE) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
 		__i2s_internal_codec_slave();
 #endif
@@ -1273,20 +1421,14 @@ static int i2s_global_init(struct platform_device *pdev)
 		__i2s_disable_sysclk_output();
 	}
 
-	/*set sysclk output for codec*/
-	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
-	if (IS_ERR(codec_sysclk)) {
-		dev_dbg(&pdev->dev, "cgu_aic clk_get failed\n");
-		goto __err_codec_clk;
-	}
-	/*set sysclk output for codec*/
-	clk_set_rate(codec_sysclk,cur_codec->codec_clk);
-	if (clk_get_rate(codec_sysclk) > cur_codec->codec_clk) {
-		printk("codec interface set rate fail.\n");
-		goto __err_codec_clk;
-	}
-	clk_enable(codec_sysclk);
 
+
+	clk_set_rate(i2s_dev->i2s_clk, i2s_dev->cur_codec->codec_clk);
+	if(clk_get_rate(i2s_dev->i2s_clk) > i2s_dev->cur_codec->codec_clk) {
+		printk("i2s clk rate set failed\n");
+		goto err_clk;
+	}
+	clk_enable(i2s_dev->i2s_clk);
 
 	__i2s_start_bitclk();
 	__i2s_start_ibitclk();
@@ -1313,24 +1455,34 @@ static int i2s_global_init(struct platform_device *pdev)
 
 	printk("i2s init success.\n");
 	printk("i2s set device success.\n");
-	cur_codec->codec_ctl(CODEC_INIT,0);
+	i2s_dev->cur_codec->codec_ctl(CODEC_INIT,0);
+
 
 	return 0;
 
-__err_codec_clk:
-	clk_put(codec_sysclk);
-__err_irq:
-	clk_disable(i2s_clk);
-	clk_put(i2s_clk);
-__err_aic_clk:
-__err_match_codec:
+err_clk:
+
+err_irq:
+
+err_codec_found:
+
+err_get_aic_clk:
+	clk_put(i2s_dev->i2s_clk);
+err_get_i2s_clk:
+	kfree(i2s_dev->i2s_endpoints);
+err_init_endpoints:
 	kfree(i2s_pipe_in);
-__err_init_pipein:
+err_init_pipein:
 	kfree(i2s_pipe_out);
-__err_init_pipeout:
-	iounmap(i2s_iomem);
-__err_ioremap:
-	release_mem_region(i2s_resource->start,resource_size(i2s_resource));
+err_init_pipeout:
+	iounmap(i2s_dev->i2s_iomem);
+err_ioremap:
+
+err_req_mem_region:
+err_get_resource:
+	kfree(i2s_dev->cur_codec);
+err_alloc_codec:
+	kfree(i2s_dev);
 	return ret;
 }
 
@@ -1338,53 +1490,92 @@ static int i2s_init(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
-	ret = i2s_global_init(pdev);
+	init_waitqueue_head(&switch_data.wq);
+
+	ret = i2s_global_init(pdev, &switch_data);
+
+	ret =  platform_device_register(&xb47xx_i2s_switch);
 
 	return ret;
-//	return 0;
 }
 
 static void i2s_shutdown(struct platform_device *pdev)
 {
 	/* close i2s and current codec */
+	struct snd_dev_data *tmp_ddata = i2s_get_ddata(pdev);
+	struct i2s_device *i2s_dev = i2s_get_private_data(tmp_ddata);
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
 
-	free_irq(IRQ_AIC0,NULL);
+	free_irq(i2s_dev->i2s_irq, NULL);
 	if (cur_codec) {
 		cur_codec->codec_ctl(CODEC_TURN_OFF,CODEC_RWMODE);
 		cur_codec->codec_ctl(CODEC_SHUTDOWN,0);
 	}
 	__i2s_disable();
+
 	return;
 }
 
 static int i2s_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	if (cur_codec && !i2s_is_incall())
+	struct snd_dev_data *tmp_ddata = i2s_get_ddata(pdev);
+	struct i2s_device *i2s_dev = i2s_get_private_data(tmp_ddata);
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
+
+	if (cur_codec && !i2s_is_incall_1(i2s_dev))
 		cur_codec->codec_ctl(CODEC_SUSPEND,0);
 	__i2s_disable();
-	if(clk_is_enabled(g_i2s_clk)) {
-		clk_disable(g_i2s_clk);
+	if(clk_is_enabled(i2s_dev->aic_clk)) {
+		clk_disable(i2s_dev->aic_clk);
 	}
+	flush_work_sync(&i2s_dev->i2s_work);
 	return 0;
 }
 
 static int i2s_resume(struct platform_device *pdev)
 {
-	if(!clk_is_enabled(g_i2s_clk)) {
-		clk_enable(g_i2s_clk);
+	struct snd_dev_data *tmp_ddata = i2s_get_ddata(pdev);
+	struct i2s_device *i2s_dev = i2s_get_private_data(tmp_ddata);
+	struct codec_info *cur_codec = i2s_dev->cur_codec;
+	if(!clk_is_enabled(i2s_dev->aic_clk)) {
+		clk_enable(i2s_dev->aic_clk);
 	}
 	__i2s_enable();
-	if (cur_codec && !i2s_is_incall())
-		cur_codec->codec_ctl(CODEC_RESUME,0);
+
+	i2s_dev->ioctl_cmd = SND_DSP_RESUME_PROCEDURE;
+	i2s_dev->ioctl_arg = 0;
+	queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
 	return 0;
+}
+struct dsp_endpoints * i2s_get_endpoints(struct snd_dev_data *ddata)
+{
+	struct i2s_device *i2s_dev = i2s_get_private_data(ddata);
+
+	return i2s_dev->i2s_endpoints;
 }
 
 /*
  * headphone detect switch function
  *
  */
-static int jz_get_hp_switch_state(void)
+static int jz_get_hp_switch_state(struct i2s_device * i2s_dev)
 {
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
+	int value = 0;
+	int ret = 0;
+    if (cur_codec && cur_codec->codec_ctl) {
+        ret = cur_codec->codec_ctl(CODEC_GET_HP_STATE, (unsigned long)&value);
+        if (ret < 0) {
+            return 0;
+        }
+    }
+	return value;
+}
+static int jz_get_hp_switch_state_2(struct snd_switch_data *switch_data)
+{
+	struct i2s_device *i2s_dev = i2s_get_switch_data(switch_data);
+	struct codec_info * cur_codec = i2s_dev->cur_codec;
+
 	int value = 0;
 	int ret = 0;
     if (cur_codec && cur_codec->codec_ctl) {
@@ -1430,10 +1621,18 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 	} else {
 		switch_data.mic_select_gpio = -1;
 	}
-
 	return (&switch_data.hp_work);
 }
 
+static int i2s_set_device_2(struct snd_switch_data *switch_data, unsigned long device)
+{
+	struct i2s_device *i2s_dev = i2s_get_switch_data(switch_data);
+	int ret;
+
+	ret = i2s_set_device(i2s_dev, device);
+
+	return ret;
+}
 struct snd_switch_data switch_data = {
 	.sdev = {
 		.name = "h2w",
@@ -1441,22 +1640,26 @@ struct snd_switch_data switch_data = {
 	.state_headset_on	=	"1",
 	.state_headphone_on =   "2",
 	.state_off	=	"0",
-	.codec_get_sate	=	jz_get_hp_switch_state,
-	.set_device	= i2s_set_device,
+	.codec_get_sate	= NULL,
+	.set_device	= NULL,
+	.codec_get_state_2 = jz_get_hp_switch_state_2,
+	.set_device_2 = i2s_set_device_2,
 	.type	=	SND_SWITCH_TYPE_CODEC,
 };
 
 static struct platform_device xb47xx_i2s_switch = {
+#if 1
 	.name	= DEV_DSP_HP_DET_NAME,
 	.id		= SND_DEV_DETECT0_ID,
 	.dev	= {
 		.platform_data	= &switch_data,
 	},
+#endif
 };
 
 struct snd_dev_data i2s_data = {
-	.dev_ioctl	   	= i2s_ioctl,
-	.ext_data		= &i2s_endpoints,
+	.dev_ioctl_2	= i2s_ioctl_2,
+	.get_endpoints	= i2s_get_endpoints,
 	.minor			= SND_DEV_DSP0,
 	.init			= i2s_init,
 	.shutdown		= i2s_shutdown,
@@ -1465,23 +1668,12 @@ struct snd_dev_data i2s_data = {
 };
 
 struct snd_dev_data snd_mixer0_data = {
-	.dev_ioctl	   	= i2s_ioctl,
+	.dev_ioctl_2	= i2s_ioctl_2,
 	.minor			= SND_DEV_MIXER0,
 };
 
 static int __init init_i2s(void)
 {
-	init_waitqueue_head(&switch_data.wq);
-
-#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)
-	INIT_WORK(&i2s_codec_work, i2s_codec_work_handler);
-	i2s_work_queue = create_singlethread_workqueue("i2s_codec_irq_wq");
-
-	if (!i2s_work_queue) {
-		// this can not happen, if happen, we die!
-		BUG();
-	}
-#endif
-	return platform_device_register(&xb47xx_i2s_switch);
+	return 0;
 }
 module_init(init_i2s);

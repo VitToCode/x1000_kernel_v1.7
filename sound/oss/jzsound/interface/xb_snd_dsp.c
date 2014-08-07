@@ -633,7 +633,6 @@ static void snd_dma_callback(void *arg)
 	struct dsp_pipe *dp = (struct dsp_pipe *)arg;
 	int available_node = 0;
 	int ret = 0;
-
 	atomic_set(&dp->watchdog_avail,1);
 
 
