@@ -6,8 +6,10 @@
 /* Hibernation and suspend events
 */
 
-enum jz_notif_cmd{
+enum jz_notif_cmd {
 	JZ_CMD_START = 0,
+	JZ_CLK_PRECHANGE,
+	JZ_CLK_CHANGED,
 	JZ_POST_HIBERNATION, /* Hibernation finished */
 	JZ_CMD_END
 };
@@ -21,7 +23,7 @@ enum {
 
 struct jz_notifier {
 	struct notifier_block nb;
-	int (*jz_notify)(struct jz_notifier *notify);
+	int (*jz_notify)(struct jz_notifier *notify,void *d);
 	int level;
 	enum jz_notif_cmd msg;
 };

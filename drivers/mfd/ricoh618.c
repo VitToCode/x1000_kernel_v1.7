@@ -426,7 +426,7 @@ static int ricoh618_unregister_reset_notifier(struct jz_notifier *nb)
 {
 	return jz_notifier_unregister(nb);
 }
-static int ricoh618_reset_notifier_handler(struct jz_notifier *nb)
+static int ricoh618_reset_notifier_handler(struct jz_notifier *nb,void *d)
 {
 	int ret;
 	printk("WARNNING:system will power!\n");

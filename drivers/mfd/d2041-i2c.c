@@ -37,7 +37,7 @@ static int d2041_unregister_reset_notifier(struct jz_notifier *nb)
 {
 	return jz_notifier_unregister(nb);
 }
-static int d2041_reset_notifier_handler(struct jz_notifier *nb)
+static int d2041_reset_notifier_handler(struct jz_notifier *nb,void *d)
 {
 	printk("WARNNING:system will power!\n");
 	d2041_system_poweroff();

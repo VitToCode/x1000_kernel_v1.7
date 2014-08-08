@@ -5,13 +5,11 @@ static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain);
 static int jz_notifier(struct notifier_block *nb, unsigned long cmd, void *data)
 {
 	struct jz_notifier *jz_nb = container_of(nb,struct jz_notifier,nb);
+	int ret = 0;
 	if(jz_nb->msg == cmd) {
-		if(data)
-			*(int *)data = jz_nb->jz_notify(jz_nb);
-		else
-			jz_nb->jz_notify(jz_nb);
+		ret = jz_nb->jz_notify(jz_nb,data);
 	}
-	return 0;
+	return ret;
 }
 
 int jz_notifier_register(struct jz_notifier *notify)
