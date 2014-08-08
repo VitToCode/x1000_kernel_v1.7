@@ -9,6 +9,7 @@
 enum jz_notif_cmd {
 	JZ_CMD_START = 0,
 	JZ_CLK_PRECHANGE,
+	JZ_CLK_CHANGING,
 	JZ_CLK_CHANGED,
 	JZ_POST_HIBERNATION, /* Hibernation finished */
 	JZ_CMD_END
@@ -19,6 +20,12 @@ enum {
 	NOTEFY_PROI_NORMAL,
 	NOTEFY_PROI_LOW,
 	NOTEFY_PROI_END
+};
+
+struct clk_notify_data
+{
+	unsigned long current_rate;
+	unsigned long target_rate;
 };
 
 struct jz_notifier {

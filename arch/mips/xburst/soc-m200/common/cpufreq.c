@@ -46,7 +46,7 @@ static unsigned long set_cpu_freqs[] = {
 	792000,1008000,1200000,
 	CPUFREQ_TABLE_END
 };
-#define SUSPEMD_FREQ_INDEX 3
+#define SUSPEMD_FREQ_INDEX 0
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
 	return cpufreq_frequency_table_verify(policy, jz_cpufreq->freq_table);
