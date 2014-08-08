@@ -3,30 +3,31 @@
 
 #include <linux/notifier.h>
 
-/* Hibernation and suspend events */
-#define JZ_HIBERNATION_PREPARE	0x0001 /* Going to hibernate */
-#define JZ_POST_HIBERNATION	0x0002 /* Hibernation finished */
-#define JZ_SUSPEND_PREPARE	0x0003 /* Going to suspend the system */
-#define JZ_POST_SUSPEND		0x0004 /* Suspend finished */
-#define JZ_RESTORE_PREPARE	0x0005 /* Going to restore a saved image */
-#define JZ_POST_RESTORE		0x0006 /* Restore failed */
+/* Hibernation and suspend events
+*/
 
-/**
- *	reset_notifier_client_register - register a client notifier
- *	@nb: notifier block to callback on events
- */
-int reset_notifier_client_register(struct notifier_block *nb);
+enum jz_notif_cmd{
+	JZ_CMD_START = 0,
+	JZ_POST_HIBERNATION, /* Hibernation finished */
+	JZ_CMD_END
+};
+enum {
+	NOTEFY_PROI_START=1,
+	NOTEFY_PROI_HIGH,
+	NOTEFY_PROI_NORMAL,
+	NOTEFY_PROI_LOW,
+	NOTEFY_PROI_END
+};
 
-/**
- *	reset_notifier_client_unregister - unregister a client notifier
- *	@nb: notifier block to callback on events
- */
-int reset_notifier_client_unregister(struct notifier_block *nb);
+struct jz_notifier {
+	struct notifier_block nb;
+	int (*jz_notify)(struct jz_notifier *notify);
+	int level;
+	enum jz_notif_cmd msg;
+};
 
-/**
- * reset_notifier_call_chain - notify clients of reset_events
- *
- */
-int reset_notifier_call_chain(unsigned long val, void *v);
+int jz_notifier_register(struct jz_notifier *notify);
+int jz_notifier_unregister(struct jz_notifier *notify);
+int jz_notifier_call(unsigned long val, void *v);
 
 #endif /* _JZ_NOTIFIER_H_ */

@@ -32,6 +32,7 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/notifier.h>
+#include <jz_notifier.h>
 #include <irq.h>
 
 /* Maximum number of main interrupts */
@@ -258,7 +259,7 @@ struct ricoh618 {
 	struct device		*dev;
 	struct i2c_client	*client;
 	struct mutex		io_lock;
-	struct notifier_block ricoh618_notifier;
+	struct jz_notifier      ricoh618_notifier;
 	int			gpio_base;
 	struct gpio_chip	gpio_chip;
 	int			irq_base;

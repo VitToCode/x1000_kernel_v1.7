@@ -28,26 +28,20 @@
 #define MCTL_SLEEP    0x02
 extern struct d2041 *d2041_regl_info;
 
-static int d2041_register_reset_notifier(struct notifier_block *nb)
+static int d2041_register_reset_notifier(struct jz_notifier *nb)
 {
-	return reset_notifier_client_register(nb);
+	return jz_notifier_register(nb);
 }
 
-static int d2041_unregister_reset_notifier(struct notifier_block *nb)
+static int d2041_unregister_reset_notifier(struct jz_notifier *nb)
 {
-	return reset_notifier_client_unregister(nb);
+	return jz_notifier_unregister(nb);
 }
-
-static int d2041_reset_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+static int d2041_reset_notifier_handler(struct jz_notifier *nb)
 {
-	if (event == JZ_POST_HIBERNATION) {
-		d2041_system_poweroff();
-                return 0;
-	} else {
-		printk("\n%s event not match\n", __func__);
-                return EINVAL;
-        }
-
+	printk("WARNNING:system will power!\n");
+	d2041_system_poweroff();
+        return 0;
 }
 
 static int d2041_i2c_read_device(struct d2041 * const d2041, char const reg,
@@ -128,7 +122,9 @@ static int d2041_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *i
 	d2041->i2c_client = i2c;
 	d2041->read_dev = d2041_i2c_read_device;
 	d2041->write_dev = d2041_i2c_write_device;
-        d2041->d2041_notifier.notifier_call = d2041_reset_notifier_handler;
+        d2041->d2041_notifier.jz_notify = d2041_reset_notifier_handler;
+	d2041->d2041_notifier.level = NOTEFY_PROI_NORMAL;
+	d2041->d2041_notifier.msg = JZ_POST_HIBERNATION;
 
         ret = d2041_register_reset_notifier(&(d2041->d2041_notifier));
 	if (ret) {
