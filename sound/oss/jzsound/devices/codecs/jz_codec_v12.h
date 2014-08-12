@@ -11,6 +11,29 @@
 #include "../xb47xx_i2s_v12.h"
 #include <linux/bitops.h>
 
+static int inline __write_codec_reg(struct codec_info *codec_dev, int addr, int data)
+{
+	struct i2s_device * i2s_dev = codec_dev->codec_parent;
+	return write_inter_codec_reg(i2s_dev, addr, data);
+}
+static int inline __read_codec_reg(struct codec_info *codec_dev, int addr)
+{
+	struct i2s_device * i2s_dev = codec_dev->codec_parent;
+	return read_inter_codec_reg(i2s_dev, addr);
+}
+static int inline __write_codec_reg_bit(struct codec_info *codec_dev, int addr, int bitval, int offset)
+{
+	struct i2s_device * i2s_dev = codec_dev->codec_parent;
+	write_inter_codec_reg_bit(i2s_dev, addr, bitval, offset);
+	return 0;
+}
+static int inline __write_codec_reg_mask(struct codec_info *codec_dev, int addr, int val, int mask, int offset)
+{
+	struct i2s_device * i2s_dev = codec_dev->codec_parent;
+	write_inter_codec_reg_mask(i2s_dev, addr, val, mask, offset);
+	return 0;
+}
+
 /* Standby */
 #define STANDBY 		1
 
@@ -475,8 +498,8 @@
 #define CODEC_DAC_LOCKED_MASK	BIT(SR_DAC_LOCKED)
 #define CODEC_DAC_UNKOWN_FS_MASK	BIT(SR2_DAC_UNKOWN_FS)
 
-#define __codec_get_sr()	read_inter_codec_reg(CODEC_REG_SR)
-#define __codec_get_sr2()	read_inter_codec_reg(CODEC_REG_SR2)
+#define __codec_get_sr(codec_dev)	__read_codec_reg(codec_dev, CODEC_REG_SR)
+#define __codec_get_sr2(codec_dev)	__read_codec_reg(codec_dev, CODEC_REG_SR2)
 /* ops */
 /* misc ops*/
 
@@ -486,13 +509,13 @@
 #define CODEC_SLAVE_MODE	1
 #define CODEC_MASTER_MODE	0
 
-#define __codec_select_slave_mode()	\
+#define __codec_select_slave_mode(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_SLAVE_MODE ,AICR_DAC_MODE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_DAC,CODEC_SLAVE_MODE ,AICR_DAC_MODE);	\
 } while (0)
-#define __codec_select_master_mode()	\
+#define __codec_select_master_mode(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC,CODEC_MASTER_MODE ,AICR_DAC_MODE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_DAC,CODEC_MASTER_MODE ,AICR_DAC_MODE);	\
 } while (0)
 
 
@@ -501,49 +524,49 @@ do {	\
 #define CODEC_LEFTJUSTIFIED_INTERFACE	1
 #define CODEC_DSP_INTERFACE				2
 #define CODEC_I2S_INTERFACE				3
-#define __codec_select_adc_digital_interface(mode)	\
+#define __codec_select_adc_digital_interface(codec_dev, mode)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_AICR_ADC, mode,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_AICR_ADC, mode,	\
 				AICR_ADC_AUDIOIF_MASK,AICR_ADC_AUDIOIF);	\
 } while (0)
 
-#define __codec_get_adc_digital_interface()	\
-	((read_inter_codec_reg(CODEC_REG_AICR_ADC) & AICR_ADC_AUDIOIF_MASK) >> AICR_ADC_AUDIOIF)
+#define __codec_get_adc_digital_interface(codec_dev)	\
+	((__read_codec_reg(codec_dev, CODEC_REG_AICR_ADC) & AICR_ADC_AUDIOIF_MASK) >> AICR_ADC_AUDIOIF)
 
-#define __codec_select_dac_digital_interface(mode)				\
+#define __codec_select_dac_digital_interface(codec_dev, mode)				\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_AICR_DAC, mode,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_AICR_DAC, mode,	\
 	            AICR_DAC_AUDIOIF_MASK,AICR_DAC_AUDIOIF);	\
 } while (0)
 
-#define __codec_get_dac_digital_interface()	\
-	((read_inter_codec_reg(CODEC_REG_AICR_DAC) & AICR_DAC_AUDIOIF_MASK) >> AICR_DAC_AUDIOIF)
+#define __codec_get_dac_digital_interface(codec_dev)	\
+	((__read_codec_reg(codec_dev, CODEC_REG_AICR_DAC) & AICR_DAC_AUDIOIF_MASK) >> AICR_DAC_AUDIOIF)
 
 
-#define __codec_enable_adc_interface()	\
+#define __codec_enable_adc_interface(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_ADC, POWER_ON, AICR_ADC_SB);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_ADC, POWER_ON, AICR_ADC_SB);	\
 } while (0)
 
-#define __codec_get_adc_interface_state()	\
-	((read_inter_codec_reg(CODEC_REG_AICR_ADC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
+#define __codec_get_adc_interface_state(codec_dev)	\
+	((__read_codec_reg(codec_dev, CODEC_REG_AICR_ADC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
 
-#define __codec_get_dac_interface_state()	\
-	((read_inter_codec_reg(CODEC_REG_AICR_DAC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
+#define __codec_get_dac_interface_state(codec_dev)	\
+	((__read_codec_reg(codec_dev, CODEC_REG_AICR_DAC) & (1 << AICR_DAC_SB)) >> AICR_DAC_SB)
 
-#define __codec_disable_adc_interface()	\
+#define __codec_disable_adc_interface(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_ADC, POWER_OFF, AICR_ADC_SB);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_ADC, POWER_OFF, AICR_ADC_SB);	\
 } while (0)
 
-#define __codec_enable_dac_interface()	\
+#define __codec_enable_dac_interface(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC, POWER_ON, AICR_DAC_SB);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_DAC, POWER_ON, AICR_DAC_SB);	\
 } while (0)
 
-#define __codec_disable_dac_interface()	\
+#define __codec_disable_dac_interface(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_AICR_DAC, POWER_OFF, AICR_DAC_SB);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_AICR_DAC, POWER_OFF, AICR_DAC_SB);	\
 } while (0)
 
 #define CODEC_ADC_16BIT_SAMPLE  0
@@ -551,195 +574,195 @@ do {	\
 #define CODEC_ADC_20BIT_SAMPLE  2
 #define CODEC_ADC_24BIT_SAMPLE  3
 
-#define __codec_select_adc_word_length(width)	\
+#define __codec_select_adc_word_length(codec_dev, width)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_AICR_ADC,width,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_AICR_ADC,width,	\
                           AICR_ADC_ADWL_MASK, AICR_ADC_ADWL);	\
 } while (0)
 
-#define __codec_get_adc_word_length()   ((read_inter_codec_reg(CODEC_REG_AICR_ADC) &    \
+#define __codec_get_adc_word_length(codec_dev)   ((__read_codec_reg(codec_dev, CODEC_REG_AICR_ADC) &    \
                                                AICR_ADC_ADWL_MASK) >> AICR_ADC_ADWL)    \
 
-#define __codec_select_dac_word_length(width)		\
+#define __codec_select_dac_word_length(codec_dev, width)		\
 do {								\
-	write_inter_codec_reg_mask(CODEC_REG_AICR_DAC,width,         \
+	__write_codec_reg_mask(codec_dev, CODEC_REG_AICR_DAC,width,         \
                          AICR_DAC_ADWL_MASK , AICR_DAC_ADWL);	\
 } while (0)
 
-#define __codec_get_dac_word_length()   ((read_inter_codec_reg(CODEC_REG_AICR_DAC) &    \
+#define __codec_get_dac_word_length(codec_dev)   ((__read_codec_reg(codec_dev, CODEC_REG_AICR_DAC) &    \
                                                AICR_DAC_ADWL_MASK) >> AICR_DAC_ADWL)    \
 /* FCR_XXX :ADC DAC feq */
-#define __codec_select_adc_samp_rate(val)	\
+#define __codec_select_adc_samp_rate(codec_dev, val)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_FCR_ADC,val,FCR_ADC_FREQ_MASK,FCR_ADC_FREQ);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_FCR_ADC,val,FCR_ADC_FREQ_MASK,FCR_ADC_FREQ);	\
 } while (0)
 
-#define __codec_get_adc_samp_rate()     (read_inter_codec_reg(CODEC_REG_FCR_ADC) & \
+#define __codec_get_adc_samp_rate(codec_dev)     (__read_codec_reg(codec_dev, CODEC_REG_FCR_ADC) & \
                                         FCR_ADC_FREQ_MASK)	\
 
-#define __codec_select_dac_samp_rate(val)	\
+#define __codec_select_dac_samp_rate(codec_dev, val)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_FCR_DAC,val,FCR_DAC_FREQ_MASK,FCR_DAC_FREQ);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_FCR_DAC,val,FCR_DAC_FREQ_MASK,FCR_DAC_FREQ);	\
 } while (0)
 
-#define __codec_get_dac_samp_rate()     (read_inter_codec_reg(CODEC_REG_FCR_DAC) &     \
+#define __codec_get_dac_samp_rate(codec_dev)     (__read_codec_reg(codec_dev, CODEC_REG_FCR_DAC) &     \
                                         FCR_DAC_FREQ_MASK)            \
 
 /*========================= SB switch =================================*/
 /*CR_XXX : power off*/
-#define __codec_get_sb()	((read_inter_codec_reg(CODEC_REG_CR_VIC) &	\
+#define __codec_get_sb(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_VIC) &	\
                                 (1 << CR_VIC_SB)) ?				\
                                 POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb(pwrstat)							\
+#define __codec_switch_sb(codec_dev, pwrstat)							\
 do {															\
-	if (__codec_get_sb() != pwrstat) {							\
-		write_inter_codec_reg_bit(CODEC_REG_CR_VIC, pwrstat,	\
+	if (__codec_get_sb(codec_dev) != pwrstat) {							\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_VIC, pwrstat,	\
 								  CR_VIC_SB);				    \
 		}														\
 																\
 } while (0)
 
-#define __codec_get_sb_sleep()		((read_inter_codec_reg(CODEC_REG_CR_VIC) &	\
+#define __codec_get_sb_sleep(codec_dev)		((__read_codec_reg(codec_dev, CODEC_REG_CR_VIC) &	\
 									(1 << CR_VIC_SB_SLEEP)) ?					\
 									POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_sleep(pwrstat)					\
+#define __codec_switch_sb_sleep(codec_dev, pwrstat)					\
 do {															\
-	if (__codec_get_sb_sleep() != pwrstat) {					\
-		write_inter_codec_reg_bit(CODEC_REG_CR_VIC, pwrstat,	\
+	if (__codec_get_sb_sleep(codec_dev) != pwrstat) {					\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_VIC, pwrstat,	\
 				CR_VIC_SB_SLEEP);								\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_dac()		((read_inter_codec_reg(CODEC_REG_CR_DAC) &	\
+#define __codec_get_sb_dac(codec_dev)		((__read_codec_reg(codec_dev, CODEC_REG_CR_DAC) &	\
 									(1 << CR_SB_DAC)) ?							\
 									POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_dac(pwrstat)						\
+#define __codec_switch_sb_dac(codec_dev, pwrstat)						\
 do {													        \
-	if (__codec_get_sb_dac() != pwrstat) {				        \
-		write_inter_codec_reg_bit(CODEC_REG_CR_DAC, pwrstat,	\
+	if (__codec_get_sb_dac(codec_dev) != pwrstat) {				        \
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DAC, pwrstat,	\
 				CR_SB_DAC);										\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_line_out()	((read_inter_codec_reg(CODEC_REG_CR_LO) &	\
+#define __codec_get_sb_line_out(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_LO) &	\
 									(1 << CR_SB_LO)) ?		                    \
 									POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_line_out(pwrstat)					\
+#define __codec_switch_sb_line_out(codec_dev, pwrstat)					\
 do {															\
-	if (__codec_get_sb_line_out() != pwrstat) {					\
-		write_inter_codec_reg_bit(CODEC_REG_CR_LO, pwrstat,		\
+	if (__codec_get_sb_line_out(codec_dev) != pwrstat) {					\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LO, pwrstat,		\
 				CR_SB_LO);										\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_hp()		((read_inter_codec_reg(CODEC_REG_CR_HP) &	\
+#define __codec_get_sb_hp(codec_dev)		((__read_codec_reg(codec_dev, CODEC_REG_CR_HP) &	\
 								(1 << CR_SB_HP)) ?							\
 								POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_hp(pwrstat)						\
+#define __codec_switch_sb_hp(codec_dev, pwrstat)						\
 do {															\
-	if (__codec_get_sb_hp() != pwrstat) {		        		\
-		write_inter_codec_reg_bit(CODEC_REG_CR_HP, pwrstat,		\
+	if (__codec_get_sb_hp(codec_dev) != pwrstat) {		        		\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_HP, pwrstat,		\
 				CR_SB_HP);										\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_adc()	((read_inter_codec_reg(CODEC_REG_CR_ADC) &	\
+#define __codec_get_sb_adc(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_ADC) &	\
 								(1 << CR_SB_ADC)) ?							\
 								POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_adc(pwrstat)						\
+#define __codec_switch_sb_adc(codec_dev, pwrstat)						\
 do {															\
-	if (__codec_get_sb_adc() != pwrstat) {						\
-		write_inter_codec_reg_bit(CODEC_REG_CR_ADC, pwrstat,	\
+	if (__codec_get_sb_adc(codec_dev) != pwrstat) {						\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_ADC, pwrstat,	\
 								  CR_SB_ADC);					\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_mic1()	((read_inter_codec_reg(CODEC_REG_CR_MIC1) &	\
+#define __codec_get_sb_mic1(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_MIC1) &	\
 								(1 << CR_SB_MIC1)) ?						\
 								POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_mic1(pwrstat)						\
+#define __codec_switch_sb_mic1(codec_dev, pwrstat)						\
 do {															\
-	if (__codec_get_sb_mic1() != pwrstat) {		        		\
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, pwrstat,	\
+	if (__codec_get_sb_mic1(codec_dev) != pwrstat) {		        		\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, pwrstat,	\
 				CR_SB_MIC1);									\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_mic2()	((read_inter_codec_reg(CODEC_REG_CR_MIC2) &	\
+#define __codec_get_sb_mic2(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_MIC2) &	\
 								(1 << CR_SB_MIC2)) ?						\
 								POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_mic2(pwrstat)						\
+#define __codec_switch_sb_mic2(codec_dev, pwrstat)						\
 do {															\
-	if (__codec_get_sb_mic2() != pwrstat) {				        \
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIC2, pwrstat,	\
+	if (__codec_get_sb_mic2(codec_dev) != pwrstat) {				        \
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC2, pwrstat,	\
 								  CR_SB_MIC2);					\
 	}															\
 																\
 } while (0)
 
 
-#define __codec_get_sb_micbias1()	((read_inter_codec_reg(CODEC_REG_CR_MIC1) &	\
+#define __codec_get_sb_micbias1(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_MIC1) &	\
 									(1 << CR_SB_MICBIAS1)) ?              		\
 									POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_micbias1(pwrstat)					\
+#define __codec_switch_sb_micbias1(codec_dev, pwrstat)					\
 do {															\
-	if (__codec_get_sb_micbias1() != pwrstat) {			        \
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, pwrstat,	\
+	if (__codec_get_sb_micbias1(codec_dev) != pwrstat) {			        \
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, pwrstat,	\
 								  CR_SB_MICBIAS1);				\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_micbias2()	((read_inter_codec_reg(CODEC_REG_CR_MIC2) &	\
+#define __codec_get_sb_micbias2(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_MIC2) &	\
 									(1 << CR_SB_MICBIAS2)) ?              		\
 									POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_micbias2(pwrstat)					\
+#define __codec_switch_sb_micbias2(codec_dev, pwrstat)					\
 do {															\
-	if (__codec_get_sb_micbias2() != pwrstat) {					\
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIC2, pwrstat,	\
+	if (__codec_get_sb_micbias2(codec_dev) != pwrstat) {					\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC2, pwrstat,	\
 				CR_SB_MICBIAS2);								\
 	}															\
 																\
 } while (0)
 
 
-#define __codec_get_sb_linein1_bypass()		((read_inter_codec_reg(CODEC_REG_CR_LI1) &	\
+#define __codec_get_sb_linein1_bypass(codec_dev)		((__read_codec_reg(codec_dev, CODEC_REG_CR_LI1) &	\
 											(1 << CR_SB_LIBY1)) ?		                \
 		POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_linein1_bypass(pwrstat)			\
+#define __codec_switch_sb_linein1_bypass(codec_dev, pwrstat)			\
 do {															\
-	if (__codec_get_sb_linein1_bypass() != pwrstat) {			\
-		write_inter_codec_reg_bit(CODEC_REG_CR_LI1, pwrstat,	\
+	if (__codec_get_sb_linein1_bypass(codec_dev) != pwrstat) {			\
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI1, pwrstat,	\
 				CR_SB_LIBY1);									\
 	}															\
 																\
 } while (0)
 
-#define __codec_get_sb_linein2_bypass()		((read_inter_codec_reg(CODEC_REG_CR_LI2) &	\
+#define __codec_get_sb_linein2_bypass(codec_dev)		((__read_codec_reg(codec_dev, CODEC_REG_CR_LI2) &	\
 											(1 << CR_SB_LIBY2))	?			            \
 		POWER_OFF : POWER_ON)
 
-#define __codec_switch_sb_linein2_bypass(pwrstat)			\
+#define __codec_switch_sb_linein2_bypass(codec_dev, pwrstat)			\
 do {															\
-	if (__codec_get_sb_linein2_bypass() != pwrstat) {	        \
-		write_inter_codec_reg_bit(CODEC_REG_CR_LI2, pwrstat,	\
+	if (__codec_get_sb_linein2_bypass(codec_dev) != pwrstat) {	        \
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI2, pwrstat,	\
 				CR_SB_LIBY2);									\
 	}															\
 																\
@@ -772,46 +795,46 @@ do {															\
 #define REG_IMR_MASK            (0xff)
 #define REG_IMR_MASK2           (0xff)
 
-#define __codec_set_int_form(opt)												\
+#define __codec_set_int_form(codec_dev, opt)												\
 do {																				\
-	write_inter_codec_reg_mask(CODEC_REG_ICR, opt,ICR_INT_FORM_MASK,ICR_INT_FORM); 	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_ICR, opt,ICR_INT_FORM_MASK,ICR_INT_FORM); 	\
 																					\
 } while (0)
 
 
 
-#define __codec_set_irq_mask(mask)				\
+#define __codec_set_irq_mask(codec_dev, mask)				\
 do {												\
-	write_inter_codec_reg(CODEC_REG_IMR, mask);     \
+	__write_codec_reg(codec_dev, CODEC_REG_IMR, mask);     \
 													\
 } while (0)
 
-#define __codec_set_irq_mask2(mask)				\
+#define __codec_set_irq_mask2(codec_dev, mask)				\
 do {												\
-	write_inter_codec_reg(CODEC_REG_IMR2, mask);	\
+	__write_codec_reg(codec_dev, CODEC_REG_IMR2, mask);	\
 													\
 } while (0)
-#define __codec_set_irq_flag(flag)				\
+#define __codec_set_irq_flag(codec_dev, flag)				\
 do {												\
-	write_inter_codec_reg(CODEC_REG_IFR, flag);		\
+	__write_codec_reg(codec_dev, CODEC_REG_IFR, flag);		\
 													\
 } while (0)
 
-#define __codec_set_irq_flag2(flag)				\
+#define __codec_set_irq_flag2(codec_dev, flag)				\
 do {												\
-	write_inter_codec_reg(CODEC_REG_IFR2, flag);	\
+	__write_codec_reg(codec_dev, CODEC_REG_IFR2, flag);	\
 													\
 } while (0)
-#define __codec_get_irq_flag()		(read_inter_codec_reg(CODEC_REG_IFR) &	\
+#define __codec_get_irq_flag(codec_dev)		(__read_codec_reg(codec_dev, CODEC_REG_IFR) &	\
 					 REG_IFR_MASK)
 
-#define __codec_get_irq_mask()		(read_inter_codec_reg(CODEC_REG_IMR) &	\
+#define __codec_get_irq_mask(codec_dev)		(__read_codec_reg(codec_dev, CODEC_REG_IMR) &	\
 					 REG_IMR_MASK)
 
-#define __codec_get_irq_flag2()		(read_inter_codec_reg(CODEC_REG_IFR2) &	\
+#define __codec_get_irq_flag2(codec_dev)		(__read_codec_reg(codec_dev, CODEC_REG_IFR2) &	\
 					 REG_IFR_MASK2)
 
-#define __codec_get_irq_mask2()		(read_inter_codec_reg(CODEC_REG_IMR2) &	\
+#define __codec_get_irq_mask2(codec_dev)		(__read_codec_reg(codec_dev, CODEC_REG_IMR2) &	\
 					 REG_IMR_MASK2)
 
 /*MR :mode off irq*/
@@ -822,15 +845,15 @@ do {												\
 #define CODEC_BEING_MUTE        1
 #define CODEC_NOT_MUTE          0
 
-#define __codec_test_adc_udp()          ((read_inter_codec_reg(CODEC_REG_MR) &  \
+#define __codec_test_adc_udp(codec_dev)          ((__read_codec_reg(codec_dev, CODEC_REG_MR) &  \
                                         (1 << MR_ADC_MODE_UPD)) ?	\
                                         CODEC_OPERATION_MODE :CODEC_PROGRAME_MODE)
-#define __codec_test_dac_udp()          ((read_inter_codec_reg(CODEC_REG_MR) &  \
+#define __codec_test_dac_udp(codec_dev)          ((__read_codec_reg(codec_dev, CODEC_REG_MR) &  \
                                         (1 << MR_DAC_MODE_UPD)) ?	\
                                         CODEC_OPERATION_MODE :CODEC_PROGRAME_MODE)
-#define __codec_test_jadc_mute_state()  (read_inter_codec_reg(CODEC_REG_MR) &   \
+#define __codec_test_jadc_mute_state(codec_dev)  (__read_codec_reg(codec_dev, CODEC_REG_MR) &   \
                                         MR_JADC_MUTE_STATE_MASK) >> MR_JADC_MUTE_STATE
-#define __codec_test_dac_mute_state()   (read_inter_codec_reg(CODEC_REG_MR) &   \
+#define __codec_test_dac_mute_state(codec_dev)   (__read_codec_reg(codec_dev, CODEC_REG_MR) &   \
                                         MR_DAC_MUTE_STATE_MASK) >> MR_DAC_MUTE_STATE
 
 /*============================== MUTE =================================*/
@@ -838,60 +861,60 @@ do {												\
 #define CODEC_MUTE_ENABLE		1
 #define CODEC_MUTE_DISABLE		0
 
-#define __codec_get_hp_mute()	((read_inter_codec_reg(CODEC_REG_CR_HP) &	\
+#define __codec_get_hp_mute(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_HP) &	\
 								(1 << CR_HP_MUTE)) ?	\
 								CODEC_MUTE_ENABLE : CODEC_MUTE_DISABLE)
 
-#define __codec_enable_hp_mute()	\
+#define __codec_enable_hp_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_HP, CODEC_MUTE_ENABLE, CR_HP_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_HP, CODEC_MUTE_ENABLE, CR_HP_MUTE);	\
 } while (0)
 
-#define __codec_disable_hp_mute()	\
+#define __codec_disable_hp_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_HP, CODEC_MUTE_DISABLE, CR_HP_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_HP, CODEC_MUTE_DISABLE, CR_HP_MUTE);	\
 } while (0)
 
-#define __codec_get_lineout_mute()  ((read_inter_codec_reg(CODEC_REG_CR_LO) &	\
+#define __codec_get_lineout_mute(codec_dev)  ((__read_codec_reg(codec_dev, CODEC_REG_CR_LO) &	\
 									(1 << CR_LO_MUTE)) ?	\
 									CODEC_MUTE_ENABLE : CODEC_MUTE_DISABLE)
 
-#define __codec_enable_lineout_mute()	\
+#define __codec_enable_lineout_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LO, CODEC_MUTE_ENABLE, CR_LO_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LO, CODEC_MUTE_ENABLE, CR_LO_MUTE);	\
 } while (0)
 
-#define __codec_disable_lineout_mute()	\
+#define __codec_disable_lineout_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LO, CODEC_MUTE_DISABLE, CR_LO_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LO, CODEC_MUTE_DISABLE, CR_LO_MUTE);	\
 } while (0)
 
-#define __codec_get_dac_mute()      ((read_inter_codec_reg(CODEC_REG_CR_DAC) &	\
+#define __codec_get_dac_mute(codec_dev)      ((__read_codec_reg(codec_dev, CODEC_REG_CR_DAC) &	\
 									(1 << CR_DAC_MUTE)) ?	\
 									CODEC_MUTE_ENABLE : CODEC_MUTE_DISABLE)
 
-#define __codec_enable_dac_mute()	\
+#define __codec_enable_dac_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_DAC, CODEC_MUTE_ENABLE, CR_DAC_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DAC, CODEC_MUTE_ENABLE, CR_DAC_MUTE);	\
 } while (0)
 
-#define __codec_disable_dac_mute()	\
+#define __codec_disable_dac_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_DAC, CODEC_MUTE_DISABLE, CR_DAC_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DAC, CODEC_MUTE_DISABLE, CR_DAC_MUTE);	\
 } while (0)
 
-#define __codec_get_adc_mute()      ((read_inter_codec_reg(CODEC_REG_CR_ADC) &	\
+#define __codec_get_adc_mute(codec_dev)      ((__read_codec_reg(codec_dev, CODEC_REG_CR_ADC) &	\
 									(1 << CR_ADC_MUTE)) ?	\
 									CODEC_MUTE_ENABLE : CODEC_MUTE_DISABLE)
 
-#define __codec_enable_adc_mute()	\
+#define __codec_enable_adc_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_ADC, CODEC_MUTE_ENABLE, CR_ADC_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_ADC, CODEC_MUTE_ENABLE, CR_ADC_MUTE);	\
 } while (0)
 
-#define __codec_disable_adc_mute()	\
+#define __codec_disable_adc_mute(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_ADC, CODEC_MUTE_DISABLE, CR_ADC_MUTE);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_ADC, CODEC_MUTE_DISABLE, CR_ADC_MUTE);	\
 } while (0)
 
 
@@ -905,9 +928,9 @@ do {	\
 #define CODEC_INPUTL_TO_HP		3
 #define CODEC_INPUTR_TO_HP		4
 
-#define __codec_set_hp_mux(opt)	\
+#define __codec_set_hp_mux(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_CR_HP,opt,CR_HP_SEL_MASK,CR_HP_SEL);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_CR_HP,opt,CR_HP_SEL_MASK,CR_HP_SEL);	\
 } while (0)
 /*CR_LO : line out ops*/
 /*line out mux option*/
@@ -917,9 +940,9 @@ do {	\
 #define CODEC_INPUTL_TO_LO		4
 #define CODEC_INPUTR_TO_LO		5
 #define	CODEC_INPUTLR_TO_LO		6
-#define __codec_set_lineout_mux(opt)	\
+#define __codec_set_lineout_mux(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_CR_LO,opt,CR_LO_SEL_MASK,CR_LO_SEL);	\
 } while (0)
 
 /*CR_DAC :dac ops*/
@@ -927,12 +950,12 @@ do {	\
 #define CODEC_DAC_STEREO		0
 #define CODEC_DAC_LEFT_ONLY		1
 
-#define __codec_get_dac_mode()	\
-	((read_inter_codec_reg(CODEC_REG_CR_DAC) & (1<<CR_DAC_LEFT_ONLY))>> CR_DAC_LEFT_ONLY)
+#define __codec_get_dac_mode(codec_dev)	\
+	((__read_codec_reg(codec_dev, CODEC_REG_CR_DAC) & (1<<CR_DAC_LEFT_ONLY))>> CR_DAC_LEFT_ONLY)
 
-#define __codec_set_dac_mode(opt)	\
+#define __codec_set_dac_mode(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_DAC, opt, CR_DAC_LEFT_ONLY);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DAC, opt, CR_DAC_LEFT_ONLY);	\
 } while (0)
 
 /*CR_ADC : adc ops*/
@@ -942,77 +965,77 @@ do {	\
 #define CODEC_INPUTLR_NORMAL		0
 #define CODEC_INPUTLR_SWAP			1
 
-#define __codec_set_adc_mux(opt)	\
+#define __codec_set_adc_mux(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_CR_ADC,opt,CR_ADC_IN_SEL_MASK,CR_ADC_IN_SEL);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_CR_ADC,opt,CR_ADC_IN_SEL_MASK,CR_ADC_IN_SEL);	\
 } while (0)
 
 #define CODEC_DMIC_SEL_ADC			0
 #define CODEC_DMIC_SEL_DIGITAL_MIC	1
 
-#define __codec_set_dmic_mux(opt)	\
+#define __codec_set_dmic_mux(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_ADC, opt, CR_ADC_DMIC_SEL);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_ADC, opt, CR_ADC_DMIC_SEL);	\
 } while (0)
 /*adc mode option*/
 #define CODEC_ADC_STEREO		0
 #define CODEC_ADC_LEFT_ONLY		1
 
 
-#define __codec_set_adc_mode(opt)	\
+#define __codec_set_adc_mode(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_ADC, opt, CR_ADC_LEFT_ONLY);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_ADC, opt, CR_ADC_LEFT_ONLY);	\
 } while (0)
 
 /*CK_DMIC :digtail mic opt*/
 #define CODEC_DMIC_CLK_OFF		0
 #define CODEC_DMIC_CLK_ON		1
 
-#define __codec_enable_dmic_clk()	\
+#define __codec_enable_dmic_clk(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_DMIC,CODEC_DMIC_CLK_ON,CR_DMIC_CLKON);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DMIC,CODEC_DMIC_CLK_ON,CR_DMIC_CLKON);	\
 } while (0)
 
-#define __codec_disable_dmic_clk()	\
+#define __codec_disable_dmic_clk(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_DMIC,CODEC_DMIC_CLK_OFF,CR_DMIC_CLKON);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_DMIC,CODEC_DMIC_CLK_OFF,CR_DMIC_CLKON);	\
 } while (0)
 
 /* CR_ADC,MIC1,MIC2: mic opt*/
 #define CODEC_MIC_STEREO	1
 #define CODEC_MIC_MONO		0
 
-#define __codec_set_mic_stereo()	\
+#define __codec_set_mic_stereo(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, CODEC_MIC_STEREO, CR_MIC1_MICSTEREO);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, CODEC_MIC_STEREO, CR_MIC1_MICSTEREO);	\
 } while (0)
 
-#define __codec_set_mic_mono()	\
+#define __codec_set_mic_mono(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, CODEC_MIC_MONO, CR_MIC1_MICSTEREO);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, CODEC_MIC_MONO, CR_MIC1_MICSTEREO);	\
 } while (0)
 
 #define CODEC_MIC_DIFF		1
 #define CODEC_MIC_SING		0
 
-#define __codec_enable_mic1_diff()	\
+#define __codec_enable_mic1_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, CODEC_MIC_DIFF, CR_MIC1_MIC1DFF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, CODEC_MIC_DIFF, CR_MIC1_MIC1DFF);	\
 } while (0)
 
-#define __codec_disable_mic1_diff()	\
+#define __codec_disable_mic1_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIC1, CODEC_MIC_SING, CR_MIC1_MIC1DFF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1, CODEC_MIC_SING, CR_MIC1_MIC1DFF);	\
 } while (0)
 
-#define __codec_enable_mic2_diff()	\
+#define __codec_enable_mic2_diff(codec_dev)	\
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_CR_MIC2,CODEC_MIC_DIFF,CR_MIC2_MIC2DFF);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC2,CODEC_MIC_DIFF,CR_MIC2_MIC2DFF);	\
 } while (0)
 
-#define __codec_disable_mic2_diff()	\
+#define __codec_disable_mic2_diff(codec_dev)	\
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_CR_MIC2,CODEC_MIC_SING,CR_MIC2_MIC2DFF);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC2,CODEC_MIC_SING,CR_MIC2_MIC2DFF);	\
 } while (0)
 
 /*mic mux option*/
@@ -1021,16 +1044,16 @@ do {	\
 #define CODEC_MIC1_AN2              1
 #define CODEC_MIC1_AN1              0
 
-#define __codec_select_mic1_input(opt)							\
+#define __codec_select_mic1_input(codec_dev, opt)							\
 do {																\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIC1,opt,CR_MIC1_SEL);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC1,opt,CR_MIC1_SEL);	\
 																	\
 } while (0)
 
 
-#define __codec_select_mic2_input(opt)							\
+#define __codec_select_mic2_input(codec_dev, opt)							\
 do {																\
-    write_inter_codec_reg_bit(CODEC_REG_CR_MIC2,opt,CR_MIC2_SEL);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIC2,opt,CR_MIC2_SEL);	\
 																	\
 } while (0)
 
@@ -1038,24 +1061,24 @@ do {																\
 #define CODEC_LINEIN_DIFF			1
 #define CODEC_LINEIN_SING			0
 
-#define __codec_enable_linein1_diff()	\
+#define __codec_enable_linein1_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI1,CODEC_LINEIN_DIFF,CR_LI1_LIN1DIF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI1,CODEC_LINEIN_DIFF,CR_LI1_LIN1DIF);	\
 } while (0)
 
-#define __codec_disable_linein1_diff()	\
+#define __codec_disable_linein1_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI1,CODEC_LINEIN_SING,CR_LI1_LIN1DIF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI1,CODEC_LINEIN_SING,CR_LI1_LIN1DIF);	\
 } while (0)
 
-#define __codec_enable_linein2_diff()	\
+#define __codec_enable_linein2_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_DIFF,CR_LI2_LIN2DIF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI2,CODEC_LINEIN_DIFF,CR_LI2_LIN2DIF);	\
 } while (0)
 
-#define __codec_disable_linein2_diff()	\
+#define __codec_disable_linein2_diff(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,CODEC_LINEIN_SING,CR_LI2_LIN2DIF);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI2,CODEC_LINEIN_SING,CR_LI2_LIN2DIF);	\
 } while (0)
 
 /*line in mux option*/
@@ -1064,28 +1087,28 @@ do {	\
 #define CODEC_LINEIN1_AN2			1
 #define CODEC_LINEIN1_AN1			0
 
-#define __codec_select_linein1_input(opt)	\
+#define __codec_select_linein1_input(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI1,opt,CR_LI1_SEL);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI1,opt,CR_LI1_SEL);	\
 } while (0)
 
-#define __codec_select_linein2_input(opt)	\
+#define __codec_select_linein2_input(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_LI2,opt,CR_LI2_SEL);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_LI2,opt,CR_LI2_SEL);	\
 } while (0)
 
 /*FCR_ADC : record filter */
 #define CODEC_ADC_HPF_ENABLE        1
 #define CODEC_ADC_HPF_DISABLE		0
 
-#define __codec_enable_adc_high_pass()	\
+#define __codec_enable_adc_high_pass(codec_dev)	\
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_FCR_ADC, CODEC_ADC_HPF_ENABLE,FCR_ADC_HPF); \
+    __write_codec_reg_bit(codec_dev, CODEC_REG_FCR_ADC, CODEC_ADC_HPF_ENABLE,FCR_ADC_HPF); \
 } while (0)
 
-#define __codec_disable_adc_high_pass()	\
+#define __codec_disable_adc_high_pass(codec_dev)	\
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_FCR_ADC, CODEC_ADC_HPF_DISABLE, FCR_ADC_HPF);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_FCR_ADC, CODEC_ADC_HPF_DISABLE, FCR_ADC_HPF);	\
 } while (0)
 /*wind filter option*/
 #define CODEC_WIND_FILTER_MODE3     3
@@ -1093,17 +1116,17 @@ do {	\
 #define CODEC_WIND_FILTER_MODE1		1
 #define CODEC_WIND_FILTER_DISABLE	0
 
-#define __codec_set_wind_filter_mode(opt)	\
+#define __codec_set_wind_filter_mode(codec_dev, opt)	\
 do {	\
-    write_inter_codec_reg_mask(CODEC_REG_FCR_ADC,opt,FCR_ADC_WNF_MASK,FCR_ADC_WNF);	\
+    __write_codec_reg_mask(codec_dev, CODEC_REG_FCR_ADC,opt,FCR_ADC_WNF_MASK,FCR_ADC_WNF);	\
 } while (0)
 /*CR_AGC,DR_AGC :agc opts	FIXME*/
 
-#define __codec_enable_agc()	\
+#define __codec_enable_agc(codec_dev)	\
 do {	\
 } while (0)
 
-#define __codec_disable_agc()	\
+#define __codec_disable_agc(codec_dev)	\
 do {	\
 } while (0)
 
@@ -1113,63 +1136,63 @@ do {	\
 #define CODEC_SYS_CLK_12M		0X00
 #define CODEC_SYS_CLK_13M		0X10
 
-#define __codec_set_crystal(opt)	\
+#define __codec_set_crystal(codec_dev, opt)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_CR_CK, (read_inter_codec_reg(CODEC_REG_CR_CK) &	\
+	__write_codec_reg(codec_dev, CODEC_REG_CR_CK, (__read_codec_reg(codec_dev, CODEC_REG_CR_CK) &	\
                         ~CR_CK_CRYSTAL_MASK) | 	\
 						(opt & CR_CK_CRYSTAL_MASK));	\
 } while (0)
 
-#define __codec_set_shutdown_clk(opt)	\
+#define __codec_set_shutdown_clk(codec_dev, opt)	\
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_CR_CK, opt ,CR_CK_SHUTDOWN_CLOCK);  \
+    __write_codec_reg_bit(codec_dev, CODEC_REG_CR_CK, opt ,CR_CK_SHUTDOWN_CLOCK);  \
 } while (0)
 
 /*=============================== MIXER ===============================*/
 
 /*CR_MIX , DR_MIXER :mixer ops*/
-#define __codec_mix_enable()	\
+#define __codec_mix_enable(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,1,CR_MIX_EN);	\
 } while (0)
-#define __codec_mix_disable()	\
+#define __codec_mix_disable(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,0,CR_MIX_EN);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,0,CR_MIX_EN);	\
 } while (0)
 
-#define ___codec_mix_is_enable()	((read_inter_codec_reg(CODEC_REG_CR_MIX) &	\
+#define ___codec_mix_is_enable(codec_dev)	((__read_codec_reg(codec_dev, CODEC_REG_CR_MIX) &	\
 									(1 << CR_MIX_EN))?	\
 									1 : 0)
 
-static int inline __codec_mix_read_reg(int mix_num)
+static int inline __codec_mix_read_reg(struct codec_info *codec_dev, int mix_num)
 {
-	if (!___codec_mix_is_enable())
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);
+	if (!___codec_mix_is_enable(codec_dev))
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,1,CR_MIX_EN);
 
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,0,CR_MIX_LOAD);
-	write_inter_codec_reg_mask(CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,0,CR_MIX_LOAD);
+	__write_codec_reg_mask(codec_dev, CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
 
-	return (read_inter_codec_reg(CODEC_REG_DR_MIX) & DR_MIX_DATA_MASK);
+	return (__read_codec_reg(codec_dev, CODEC_REG_DR_MIX) & DR_MIX_DATA_MASK);
 }
 
-static void inline __codec_mix_write_reg(int mix_num,unsigned int data)
+static void inline __codec_mix_write_reg(struct codec_info *codec_dev, int mix_num,unsigned int data)
 {
-	if (!___codec_mix_is_enable())
-		write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_EN);
+	if (!___codec_mix_is_enable(codec_dev))
+		__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,1,CR_MIX_EN);
 
-	write_inter_codec_reg_bit(CODEC_REG_CR_MIX,1,CR_MIX_LOAD);
-	write_inter_codec_reg_mask(CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
+	__write_codec_reg_bit(codec_dev, CODEC_REG_CR_MIX,1,CR_MIX_LOAD);
+	__write_codec_reg_mask(codec_dev, CODEC_REG_CR_MIX,mix_num,CR_MIX_ADD_MASK,CR_MIX_ADD);
 
-	write_inter_codec_reg_mask(CODEC_REG_DR_MIX,data ,DR_MIX_DATA_MASK, DR_MIX_DATA);
+	__write_codec_reg_mask(codec_dev, CODEC_REG_DR_MIX,data ,DR_MIX_DATA_MASK, DR_MIX_DATA);
 }
 
 #define CODEC_RECORD_MIX_INPUT_ONLY     0
 #define CODEC_RECORD_MIX_INPUT_AND_DAC  1
 
-#define __codec_set_rec_mix_mode(mode)	\
+#define __codec_set_rec_mix_mode(codec_dev, mode)	\
 do {	\
-	__codec_mix_write_reg(CR_MIX2,	\
-						  ((__codec_mix_read_reg(CR_MIX2) & (~1)) | mode)	\
+	__codec_mix_write_reg(codec_dev, CR_MIX2,	\
+						  ((__codec_mix_read_reg(codec_dev, CR_MIX2) & (~1)) | mode)	\
 						 );	\
 } while (0)
 
@@ -1177,10 +1200,10 @@ do {	\
 #define CODEC_PLAYBACK_MIX_DAC_ONLY     0
 #define CODEC_PLAYBACK_MIX_DAC_AND_ADC  1
 
-#define __codec_set_rep_mix_mode(mode)	\
+#define __codec_set_rep_mix_mode(codec_dev, mode)	\
 do {	\
-	__codec_mix_write_reg(CR_MIX0,	\
-						  ((__codec_mix_read_reg(CR_MIX0) & (~1)) | mode)	\
+	__codec_mix_write_reg(codec_dev, CR_MIX0,	\
+						  ((__codec_mix_read_reg(codec_dev, CR_MIX0) & (~1)) | mode)	\
 						 );	\
 } while (0)
 
@@ -1189,215 +1212,216 @@ do {	\
 #define CODEC_MIX_FUNC_MIXED		0x02
 #define CODEC_MIX_FUNC_NOINPUT		0x03
 
-#define __codec_set_mix(mix_num,funcl,funcr)	\
+#define __codec_set_mix(codec_dev, mix_num,funcl,funcr)	\
 do {	\
 	int func = 0;	\
 	func = (funcl << MIX_L_SEL) & MIX_L_SEL_MASK;	\
 	func |= ((funcr << MIX_R_SEL) & MIX_R_SEL_MASK);	\
 	if (mix_num == CR_MIX0 || mix_num == CR_MIX2)	\
-		func |= (__codec_mix_read_reg(mix_num) & (1 << MIX_MODE_SEL));	\
-	__codec_mix_write_reg(mix_num,func);	\
+		func |= (__codec_mix_read_reg(codec_dev, mix_num) & (1 << MIX_MODE_SEL));	\
+	__codec_mix_write_reg(codec_dev, mix_num,func);	\
 } while (0)
 
 /*============================== GAIN =================================*/
 
 /*GCR_MIC :gain of input*/
 
-#define __codec_set_gm1(value)	\
+#define __codec_set_gm1(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_MIC1,(value&GCR_MIC1_GIM1_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_MIC1,(value&GCR_MIC1_GIM1_MASK));	\
 } while (0)
 
-#define __codec_get_gm1()	( read_inter_codec_reg(CODEC_REG_GCR_MIC1) &  GCR_MIC1_GIM1_MASK )
+#define __codec_get_gm1(codec_dev)	( __read_codec_reg(codec_dev, CODEC_REG_GCR_MIC1) &  GCR_MIC1_GIM1_MASK )
 
-#define __codec_set_gm2(value)	\
+#define __codec_set_gm2(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_MIC2, (value & GCR_MIC2_GIM2_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_MIC2, (value & GCR_MIC2_GIM2_MASK));	\
 } while (0)
 
-#define __codec_get_gm2()	( read_inter_codec_reg(CODEC_REG_GCR_MIC2) &  GCR_MIC2_GIM2_MASK )
+#define __codec_get_gm2(codec_dev)	( __read_codec_reg(codec_dev, CODEC_REG_GCR_MIC2) &  GCR_MIC2_GIM2_MASK )
 /*GCR_LBYS:gain of bypass*/
 
-#define __codec_set_gil(value)	\
+#define __codec_set_gil(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_LIBYL,value,GCR_LIBYL_GIL_MASK,GCR_LIBYL_GIL);	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_LIBYL,value,GCR_LIBYL_GIL_MASK,GCR_LIBYL_GIL);	\
 } while (0)
 
-#define __codec_get_gil() ( read_inter_codec_reg(CODEC_REG_GCR_LIBYL) &  GCR_LIBYL_GIL_MASK )
+#define __codec_get_gil(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_LIBYL) &  GCR_LIBYL_GIL_MASK )
 
-#define __codec_set_gir(value)	\
+#define __codec_set_gir(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_LIBYR, (value & GCR_LIBYR_GIR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_LIBYR, (value & GCR_LIBYR_GIR_MASK));	\
 } while (0)
 
-#define __codec_get_gir() ( read_inter_codec_reg(CODEC_REG_GCR_LIBYR) &  GCR_LIBYR_GIR_MASK )
+#define __codec_get_gir(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_LIBYR) &  GCR_LIBYR_GIR_MASK )
 
 
 #define CODEC_BYPASS_SYNC_GAIN_ENABLR	1
 #define CODEC_BYPASS_SYNC_GAIN_DISABLE	0
 
-#define __codec_enable_input_bypass_sync_gain()	\
+#define __codec_enable_input_bypass_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_LIBYL,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_LIBYL,	\
 							  CODEC_BYPASS_SYNC_GAIN_ENABLR,	\
 							  GCR_LIBYL_LRGI);	\
 }
 
-#define __codec_disable_input_bypass_sync_gain()	\
+#define __codec_disable_input_bypass_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_LIBYL,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_LIBYL,	\
 							  CODEC_BYPASS_SYNC_GAIN_DISABLR,	\
 							  GCR_LIBYL_LRGI);	\
 }
 
 /*GCR_HP :gain of hp*/
 
-#define __codec_set_gol(value)	\
+#define __codec_set_gol(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_HPL, value ,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_HPL, value ,	\
 							   GCR_HPL_GOL_MASK,GCR_HPL_GOL);	\
 } while (0)
 
-#define __codec_get_gol() ( read_inter_codec_reg(CODEC_REG_GCR_HPL) &  GCR_HPL_GOL_MASK )
+#define __codec_get_gol(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_HPL) &  GCR_HPL_GOL_MASK )
 
-#define __codec_set_gor(value)	\
+#define __codec_set_gor(codec_dev, value)	\
 do{	\
-	write_inter_codec_reg(CODEC_REG_GCR_HPR, (value & GCR_HPR_GOR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_HPR, (value & GCR_HPR_GOR_MASK));	\
 } while (0)
 
-#define __codec_get_gor() ( read_inter_codec_reg(CODEC_REG_GCR_HPR) &  GCR_HPR_GOR_MASK )
+#define __codec_get_gor(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_HPR) &  GCR_HPR_GOR_MASK )
 
 #define CODEC_HP_SYNC_GAIN_ENABLE	1
 #define CODEC_HP_SYNC_GAIN_DISABLE	0
 
-#define __codec_enable_hp_sync_gain()   \
+#define __codec_enable_hp_sync_gain(codec_dev)   \
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_GCR_HPL,CODEC_HP_SYNC_GAIN_ENABLE,GCR_HPL_LRGO);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_GCR_HPL,CODEC_HP_SYNC_GAIN_ENABLE,GCR_HPL_LRGO);	\
 } while (0)
 
-#define __codec_disable_hp_sync_gain()   \
+#define __codec_disable_hp_sync_gain(codec_dev)   \
 do {	\
-    write_inter_codec_reg_bit(CODEC_REG_GCR_HPL,CODEC_HP_SYNC_GAIN_DISABLE,GCR_HPL_LRGO);	\
+    __write_codec_reg_bit(codec_dev, CODEC_REG_GCR_HPL,CODEC_HP_SYNC_GAIN_DISABLE,GCR_HPL_LRGO);	\
 } while (0)
 
 /*GCR_ADC :gain of adc*/
 
-#define __codec_set_gidl(value)	\
+#define __codec_set_gidl(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_ADCL, value,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_ADCL, value,	\
 							  GCR_ADCL_GIDL_MASK,GCR_ADCL_GIDL);	\
 } while (0)
 
-#define __codec_get_gidl() ( read_inter_codec_reg(CODEC_REG_GCR_ADCL) &  GCR_ADCL_GIDL_MASK)
+#define __codec_get_gidl(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_ADCL) &  GCR_ADCL_GIDL_MASK)
 
-#define __codec_set_gidr(value)	\
+#define __codec_set_gidr(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_ADCR, (value & GCR_ADCR_GIDR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_ADCR, (value & GCR_ADCR_GIDR_MASK));	\
 } while (0)
 
-#define __codec_get_gidr() ( read_inter_codec_reg(CODEC_REG_GCR_ADCR) &  GCR_ADCR_GIDR_MASK )
+#define __codec_get_gidr(codec_dev) ( __read_codec_reg(codec_dev, CODEC_REG_GCR_ADCR) &  GCR_ADCR_GIDR_MASK )
 
 #define CODEC_ADC_SYNC_GAIN_ENABLE		1
 #define CODEC_ADC_SYNC_GAIN_DISABLE		0
 
-#define __codec_enable_adc_sync_gain()	\
+#define __codec_enable_adc_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_ADCL,CODEC_ADC_SYNC_GAIN_ENABLE,GCR_ADCL_LRGID);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_ADCL,CODEC_ADC_SYNC_GAIN_ENABLE,GCR_ADCL_LRGID);	\
 } while (0)
 
-#define __codec_disable_adc_sync_gain()	\
+#define __codec_disable_adc_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_ADCL,CODEC_ADC_SYNC_GAIN_DISABLE,GCR_ADCL_LRGID);	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_ADCL,CODEC_ADC_SYNC_GAIN_DISABLE,GCR_ADCL_LRGID);	\
 } while (0)
 
 /*GCR_DAC :gain of dac*/
 
-#define __codec_set_godl(value)					\
+#define __codec_set_godl(codec_dev, value)					\
 do {									\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_DACL, value,           \
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_DACL, value,           \
                              GCR_DACL_GODL_MASK,GCR_DACL_GODL);	        \
 									\
 } while (0)
 
-#define __codec_get_godl() (read_inter_codec_reg(CODEC_REG_GCR_DACL) &  GCR_DACL_GODL_MASK)
+#define __codec_get_godl(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_DACL) &  GCR_DACL_GODL_MASK)
 
-#define __codec_set_godr(value)							\
+#define __codec_set_godr(codec_dev, value)							\
 do {		                							\
-	write_inter_codec_reg(CODEC_REG_GCR_DACR, (value & GCR_DACR_GODR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_DACR, (value & GCR_DACR_GODR_MASK));	\
 } while (0)
-#define __codec_get_godr() (read_inter_codec_reg(CODEC_REG_GCR_DACR) &  GCR_DACR_GODR_MASK)
+#define __codec_get_godr(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_DACR) &  GCR_DACR_GODR_MASK)
 
 #define DAC_LR_SYNC_GAIN        1
 #define DAC_LR_ASYNC_GAIN       0
 
-#define __codec_set_dac_rlsync_gain(opt)                                \
+#define __codec_set_dac_rlsync_gain(codec_dev, opt)                                \
 do {                                                                            \
-        write_inter_codec_reg_bit(CODEC_REG_GCR_DACL,opt GCR_DACL_RLGOD);       \
+        __write_codec_reg_bit(codec_dev, CODEC_REG_GCR_DACL,opt GCR_DACL_RLGOD);       \
                                                                                 \
 } while (0)
 
 /*GCR_MIXADCx : mixin gain*/
-#define __codec_set_gimixl(value)	\
+#define __codec_set_gimixl(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_MIXADCL, value ,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_MIXADCL, value ,	\
 							   GCR_MIXADC_GIMIXL_MASK, GCR_MIXADC_GIMIXL);	\
 } while (0)
 
-#define __codec_get_gimixl() (read_inter_codec_reg(CODEC_REG_GCR_MIXADCL) & GCR_MIXADC_GIMIXL_MASK)
+#define __codec_get_gimixl(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXADCL) & GCR_MIXADC_GIMIXL_MASK)
 
 #define __codec_set_gimixr(value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_MIXADCR, (value & GCR_MIXADC_GIMIXR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_MIXADCR, (value & GCR_MIXADC_GIMIXR_MASK));	\
 } while (0)
 
-#define __codec_get_gimixr() (read_inter_codec_reg(CODEC_REG_GCR_MIXADCR) & GCR_MIXADC_GIMIXR_MASK)
+#define __codec_get_gimixr(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXADCR) & GCR_MIXADC_GIMIXR_MASK)
 
 #define CODEC_MIX_SYNC_GAIN_ENABLE		1
 #define CODEC_MIX_SYNC_GAIN_DISABLE		0
 
-#define __test_mixin_is_sync_gain()	(read_inter_codec_reg(CODEC_REG_GCR_MIXADCL) & BIT(GCR_MIXADC_LRGIMIX))
+#define __test_mixin_is_sync_gain(codec_dev)	(__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXADCL) & BIT(GCR_MIXADC_LRGIMIX))
 
-#define __codec_enable_mixin_sync_gain()	\
+#define __codec_enable_mixin_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
 							  GCR_MIXADC_LRGIMIX);	\
 } while (0)
 
-#define __codec_disable_mixin_sync_gain()	\
+#define __codec_disable_mixin_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_MIXADCL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
 							  GCR_MIXADC_LRGIMIX);	\
 } while (0)
 
 /*GCR_MIXDACx : mixout gain*/
 
-#define __codec_set_gomixl(value)	\
+#define __codec_set_gomixl(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg_mask(CODEC_REG_GCR_MIXDACL, value ,	\
+	__write_codec_reg_mask(codec_dev, CODEC_REG_GCR_MIXDACL, value ,	\
 							   GCR_MIXDAC_GOMIXL_MASK,GCR_MIXDAC_GOMIXL);	\
 } while (0)
 
-#define __codec_get_gomixl() (read_inter_codec_reg(CODEC_REG_GCR_MIXDACL) & GCR_MIXDAC_GOMIXL_MASK)
+#define __codec_get_gomixl(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXDACL) & GCR_MIXDAC_GOMIXL_MASK)
 
-#define __codec_set_gomixr(value)	\
+#define __codec_set_gomixr(codec_dev, value)	\
 do {	\
-	write_inter_codec_reg(CODEC_REG_GCR_MIXDACR, (value & GCR_MIXDAC_GOMIXR_MASK));	\
+	__write_codec_reg(codec_dev, CODEC_REG_GCR_MIXDACR, (value & GCR_MIXDAC_GOMIXR_MASK));	\
 } while (0)
 
-#define __codec_get_gomixr() (read_inter_codec_reg(CODEC_REG_GCR_MIXDACR) & GCR_MIXDAC_GOMIXR_MASK)
+#define __codec_get_gomixr(codec_dev) (__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXDACR) & GCR_MIXDAC_GOMIXR_MASK)
 
-#define __test_mixout_is_sync_gain()	(read_inter_codec_reg(CODEC_REG_GCR_MIXDACL) & BIT(GCR_MIXDAC_LRGOMIX))
+#define __test_mixout_is_sync_gain(codec_dev)	(__read_codec_reg(codec_dev, CODEC_REG_GCR_MIXDACL) & BIT(GCR_MIXDAC_LRGOMIX))
 
-#define __codec_enable_mixout_sync_gain()	\
+#define __codec_enable_mixout_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_ENABLE,	\
 							  GCR_MIXDAC_LRGOMIX);	\
 } while (0)
 
-#define __codec_disable_mixout_sync_gain()	\
+#define __codec_disable_mixout_sync_gain(codec_dev)	\
 do {	\
-	write_inter_codec_reg_bit(CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
+	__write_codec_reg_bit(codec_dev, CODEC_REG_GCR_MIXDACL,CODEC_MIX_SYNC_GAIN_DISABLE,	\
 							  GCR_MIXDAC_LRGOMIX);	\
 } while (0)
+
 
 #endif /*__JZ4780_CODEC_H__*/
