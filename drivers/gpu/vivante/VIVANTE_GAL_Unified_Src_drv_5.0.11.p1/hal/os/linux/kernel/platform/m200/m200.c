@@ -93,9 +93,8 @@ _getPower(
 #else
 		struct clk * clk_gpu;
 		struct clk * clk_cgu_gpu;
-		clk_gpu = clk_get(NULL, "gpu");
-		clk_enable(clk_gpu);
 
+                /* Note: Must set M200 cgu_gpu before enable gpu gate clock! */
 		clk_cgu_gpu = clk_get(NULL, "cgu_gpu");
 
 		if (IS_ERR(clk_cgu_gpu))
@@ -126,6 +125,10 @@ _getPower(
 		}
 		clk_enable(clk_cgu_gpu);
 		//clk_put(clk);
+
+                /* Note: enable gpu gate clock after set cgu_gpu. */
+		clk_gpu = clk_get(NULL, "gpu");
+		clk_enable(clk_gpu);
 
 #endif//ENABLE_GPU_CLOCK_BY_DRIVER
 	}

@@ -625,6 +625,7 @@ gckGALDEVICE_Construct(
             printk("gpu clock get error: device->clk_cgu_gpu\n");
         }
 
+        /* Note: Must set M200 cgu_gpu before enable gpu gate clock! */
         extern unsigned long coreClock;
         /* set gpu clock rate */
         if (clk_set_rate(device->clk_cgu_gpu, coreClock * 2))

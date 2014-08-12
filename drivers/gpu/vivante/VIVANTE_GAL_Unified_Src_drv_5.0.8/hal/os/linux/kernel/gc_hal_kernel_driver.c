@@ -808,10 +808,7 @@ static int drv_init(void)
     {
         struct clk * clk;
 
-        clk = clk_get(NULL, "gpu");
-        clk_enable(clk);
-        clk_put(clk);
-
+        /* Note: Must set M200 cgu_gpu before enable gpu gate clock! */
         clk = clk_get(NULL, "cgu_gpu");
 
         if (IS_ERR(clk))
@@ -844,7 +841,13 @@ static int drv_init(void)
         }
 
         clk_enable(clk);
-        clk_put(clk);
+        //clk_put(clk);
+
+
+        /* Note: enable gpu gate clock after set cgu_gpu. */
+        clk = clk_get(NULL, "gpu");
+        clk_enable(clk);
+        //clk_put(clk);
 
 #if defined(CONFIG_PXA_DVFM) && (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,29))
         gc_pwr(1);
