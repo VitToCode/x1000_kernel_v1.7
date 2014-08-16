@@ -77,8 +77,14 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 	struct clk *parentclk = NULL;
 	unsigned long flags;
 	unsigned long prate = clk_get_rate(get_clk_from_id(CLK_ID_EXT1));
+	if(clkid == CDIV)
+	{
+		struct clk_notify_data dn;
+		dn.current_rate = clk->rate;
+		dn.target_rate = rate;
+		jz_notifier_call(JZ_CLK_PRECHANGE,&dn);
+	}
 	spin_lock_irqsave(&cpm_cpccr_lock,flags);
-
 	switch(clkid) {
 	case SCLKA:
 	{

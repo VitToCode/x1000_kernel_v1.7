@@ -64,7 +64,7 @@ static int reset_core(int cpuid)
 	 */
 	ctrl = get_smp_ctrl();
 	ctrl |= (1 << cpuid);
-	printk("ctrl0 = %x\n",ctrl);
+	//printk("ctrl0 = %x\n",ctrl);
 	set_smp_ctrl(ctrl);
 
 	/*
@@ -73,9 +73,9 @@ static int reset_core(int cpuid)
 	 */
 	ctrl = get_smp_ctrl();
 	ctrl &= ~(1 << cpuid);
-	printk("ctrl0 = %x\n",ctrl);
+	//printk("ctrl0 = %x\n",ctrl);
 	set_smp_ctrl(ctrl);
-	printk("status 0x%08x\n",get_smp_status());
+	//printk("status 0x%08x\n",get_smp_status());
 	return 0;
 }
 
@@ -95,11 +95,7 @@ static void core_interrupt(int cpuid,int mask)
 	else
 		tmp |= 1 << (cpuid + 8);
 	set_smp_reim(tmp);
-	printk("reim = %x\n",get_smp_reim());
-
-}
-void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate)
-{
+	//printk("reim = %x\n",get_smp_reim());
 
 }
 static void switch_core_work(struct work_struct *work)
@@ -122,13 +118,13 @@ static void switch_core_work(struct work_struct *work)
 		core_clk_disable(core->clk,core->coreid);
 		core_interrupt(core->target_coreid,0);
 		core->coreid = core->target_coreid;
-		printk("convert to id %d\n",core->target_coreid);
+		//printk("convert to id %d\n",core->target_coreid);
 	}else {
 		printk("convert core fail!\n");
 		BUG_ON(1);
 	}
-	printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
-	printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
+	//printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
+	//printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
 
 }
 
@@ -139,7 +135,7 @@ static int clk_changing_notify(struct jz_notifier *notify,void *v)
 	unsigned long target_rate = clk_data->target_rate;
 	unsigned long cur_rate = clk_data->current_rate;
 	core->target_coreid = -1;
-	printk("cur_coreid = %d\n", core->coreid);
+	//printk("cur_coreid = %d\n", core->coreid);
 	if(core->used_sw_core){
 		if(core->coreid == 1){
 			if(target_rate > core->up_limit && cur_rate <= core->up_limit) {

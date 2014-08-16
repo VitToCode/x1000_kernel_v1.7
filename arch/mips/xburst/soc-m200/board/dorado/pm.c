@@ -70,8 +70,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*4+23,	GSS_INPUT_PULL		},	/* SDIO_D3_WIFI */
 	{32*4+28,	GSS_INPUT_PULL		},	/* SDIO_CLK_WIFI */
 	{32*4+29,	GSS_INPUT_PULL		},	/* SDIO_CMD_WIFI */
-	{32*4+30,	GSS_INPUT_NOPULL		},	/* SMB1_SDA */
-	{32*4+31,	GSS_INPUT_NOPULL		},	/* SMB1_SCK */
+	{32*4+30,	GSS_IGNORE		},	/* SMB1_SDA */
+	{32*4+31,	GSS_IGNORE		},	/* SMB1_SCK */
 	{32*5+0,	GSS_INPUT_PULL		},	/* BT_UART0_RXD */
 	{32*5+1,	GSS_INPUT_PULL		},	/* BT_UART0_CTS */
 	{32*5+2,	GSS_INPUT_PULL		},	/* BT_UART0_RTS */

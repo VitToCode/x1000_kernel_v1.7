@@ -32,9 +32,6 @@
 static struct jz_cpufreq {
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
-	//for suspend
-	unsigned long suspend_rate;
-	unsigned long suspend_save_rate;
 } *jz_cpufreq;
 /*
  *  unit: kHz
@@ -86,7 +83,7 @@ static int m200_target(struct cpufreq_policy *policy,
 		return ret;
 
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-	printk("set speed = %d\n",freqs.new);
+	//printk("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
 	freqs.new = m200_getspeed(policy->cpu);
@@ -130,10 +127,10 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
 	cpufreq_frequency_table_get_attr(jz_cpufreq->freq_table, policy->cpu);
-#ifdef SUSPEMD_FREQ_INDEX
-	if(SUSPEMD_FREQ_INDEX < ARRAY_SIZE(set_cpu_freqs))
-		jz_cpufreq->suspend_rate = set_cpu_freqs[SUSPEMD_FREQ_INDEX];
-#endif
+/* #ifdef SUSPEMD_FREQ_INDEX */
+/* 	if(SUSPEMD_FREQ_INDEX < ARRAY_SIZE(set_cpu_freqs)) */
+/* 		jz_cpufreq->suspend_rate = set_cpu_freqs[SUSPEMD_FREQ_INDEX]; */
+/* #endif */
 	policy->min = policy->cpuinfo.min_freq;
 	policy->max = policy->cpuinfo.max_freq;
 	policy->cur = m200_getspeed(policy->cpu);
@@ -158,22 +155,22 @@ cpu_clk_err:
 	return -1;
 }
 
-static int m200_cpu_suspend(struct cpufreq_policy *policy)
-{
-	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) {
-		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk);
-		clk_set_rate(jz_cpufreq->cpu_clk,jz_cpufreq->suspend_rate * 1000);
-	}
-	return 0;
-}
+/* static int m200_cpu_suspend(struct cpufreq_policy *policy) */
+/* { */
+/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) { */
+/* 		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk); */
+/* 		clk_set_rate(jz_cpufreq->cpu_clk,jz_cpufreq->suspend_rate * 1000); */
+/* 	} */
+/* 	return 0; */
+/* } */
 
-int m200_cpu_resume(struct cpufreq_policy *policy)
-{
-	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) {
-		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate);
-	}
-	return 0;
-}
+/* int m200_cpu_resume(struct cpufreq_policy *policy) */
+/* { */
+/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) { */
+/* 		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate); */
+/* 	} */
+/* 	return 0; */
+/* } */
 
 static struct freq_attr *m200_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
@@ -187,8 +184,8 @@ static struct cpufreq_driver m200_driver = {
 	.target		= m200_target,
 	.get		= m200_getspeed,
 	.init		= m200_cpu_init,
-	.suspend	= m200_cpu_suspend,
-	.resume		= m200_cpu_resume,
+	/* .suspend	= m200_cpu_suspend, */
+	/* .resume		= m200_cpu_resume, */
 	.attr		= m200_cpufreq_attr,
 };
 

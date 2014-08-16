@@ -11,6 +11,7 @@ enum jz_notif_cmd {
 	JZ_CLK_PRECHANGE,
 	JZ_CLK_CHANGING,
 	JZ_CLK_CHANGED,
+	JZ_CLKGATE_CHANGE,
 	JZ_POST_HIBERNATION, /* Hibernation finished */
 	JZ_CMD_END
 };

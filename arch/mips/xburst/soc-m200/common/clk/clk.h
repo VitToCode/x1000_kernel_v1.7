@@ -38,6 +38,7 @@ struct clk {
 	int init_state;
 	struct clk *source;
 	struct clk *child;
+	unsigned int CLK_ID;
 };
 
 enum {
