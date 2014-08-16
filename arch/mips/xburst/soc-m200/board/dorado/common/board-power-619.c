@@ -222,6 +222,7 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	.multiple	= 100, //100%
 	.monitor_time 	= 60,
 		/* some parameter is depend of battery type */
+	/*the battery fof 4000mA 2000mA*/
 	.type[0] = {
 		.ch_vfchg 	= 0x02,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
 		.ch_vrchg 	= 0x4,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
@@ -242,8 +243,30 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 		.jt_ichg_h 	= 0x0D,	/* VFCHG Low  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
 		.jt_ichg_l 	= 0x09,	/* ICHG Low   	= 0 - 0x1D (100mA - 3000mA) */
 	},
-	/*
+	/*the battery for 260mA 500mA*/
 	.type[1] = {
+		.ch_vfchg 	= 0x03,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+		.ch_vrchg 	= 0x01,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
+		.ch_vbatovset 	= 0x0,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
+		.ch_ichg 	= 0x03,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
+		.ch_ilim_adp 	= 0x0e,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_ilim_usb 	= 0x04,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_icchg 	= 0x00,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
+		.fg_target_vsys = 3000,	/* This value is the target one to DSOC=0% */
+		.fg_target_ibat = 100, /* This value is the target one to DSOC=0% */
+		.fg_poff_vbat 	= 0, 	/* setting value of 0 per Vbat */
+		.fg_rsense_val	= 100,	/* setting value of R Sense */
+		.jt_en 		= 0,	/* JEITA Enable	  = 0 or 1 (1:enable, 0:disable) */
+		.jt_hw_sw 	= 1,	/* JEITA HW or SW = 0 or 1 (1:HardWare, 0:SoftWare) */
+		.jt_temp_h 	= 50,	/* degree C */
+		.jt_temp_l 	= 12,	/* degree C */
+		.jt_vfchg_h 	= 0x03,	/* VFCHG High  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+		.jt_vfchg_l 	= 0,	/* VFCHG High  	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
+		.jt_ichg_h 	= 0x04,	/* ICHG Hi   	= 0 - 0x1D (100mA - 3000mA) */
+		.jt_ichg_l 	= 0x01,	/* ICHG Low   	= 0 - 0x1D (100mA - 3000mA) */
+	},
+	/*
+	.type[2] = {
 		.ch_vfchg = 0x0,
 		.ch_vrchg = 0x0,
 		.ch_vbatovset = 0x0,
