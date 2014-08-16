@@ -18,7 +18,7 @@
 
 #include <mach/jzepd.h>
 
-#include "board.h"
+#include "board_base.h"
 
 static struct jz_epd_power_pin power_pin[] = {
 #if 0
@@ -30,8 +30,8 @@ static struct jz_epd_power_pin power_pin[] = {
 	{ "epd pwr4",   1, GPIO_EPD_PWR4,    1000, 0 }
 #endif
 #if 1
-	{ "EN",           1, GPIO_PC(23),         0, 0 },
-	{ "ENOP",         1, GPIO_PC(24),         0, 0 },
+	{ "EN",           1, GPIO_EPD_EN,         0, 0 },
+	{ "ENOP",         1, GPIO_EPD_ENOP,         0, 0 },
 #endif
 };
 
@@ -101,4 +101,3 @@ struct jz_epd_platform_data jz_epd_pdata = {
 	.epd_power_ctrl.epd_suspend_power_off = mensa_epd_suspend_power_off,
 #endif
 };
-

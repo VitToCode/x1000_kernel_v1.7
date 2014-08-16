@@ -1,20 +1,28 @@
 choice
-	prompt "Board type"
+	prompt "PRODUCT type"
 	depends on SOC_M200
-	default BOARD_DORADO
+	default PRODUCT_DEVELOP
 
 config BOARD_4785_FPGA
        bool "FPGA"
 
-config BOARD_DORADO
-       bool "DORADO"
+config PRODUCT_DEVELOP
+       bool "DEVELOP"
+
+config BOARD_DORADO_V20
+       bool "board dorado v20"
+       depends on PRODUCT_DEVELOP
 
 config BOARD_FORNAX
        bool "FORNAX"
 endchoice
 
-config BOARD_NAME
+config PRODUCT_NAME
 	string
 	default "fpga" if BOARD_4785_FPGA
-	default "dorado" if BOARD_DORADO
+	default "dorado" if PRODUCT_DEVELOP
 	default "fornax" if BOARD_FORNAX
+
+config BOARD_NAME
+	string
+	default "dorado_v20" if BOARD_DORADO_V20

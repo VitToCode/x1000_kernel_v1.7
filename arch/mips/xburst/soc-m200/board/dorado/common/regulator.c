@@ -17,7 +17,7 @@
 #include <gpio.h>
 #include <linux/d2041/d2041_pmic.h>
 #include <linux/d2041/d2041_core.h>
-#include "board.h"
+#include "board_base.h"
 
 #define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, EB, DELAY, SREG, SUPPLY, DEV_NAME)\
 static struct regulator_consumer_supply NAME##_regulator_consumer =			\

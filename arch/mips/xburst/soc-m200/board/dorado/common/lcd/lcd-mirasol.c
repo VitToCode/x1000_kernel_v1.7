@@ -20,19 +20,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/jzfb.h>
-#include "board.h"
-
-#undef  GPIO_LCD_RST
-#undef  GPIO_LCD_RD
-#undef  SLCD_NBUSY_PIN
-
-
-#define GPIO_LCD_BLK		GPIO_PC(17)
-#define GPIO_LCD_RST        GPIO_PA(12)
-#define GPIO_LCD_NRD_E		GPIO_PC(8)
-#define GPIO_LCD_NWR_SCL	GPIO_PC(25)
-#define GPIO_LCD_DNC		GPIO_PC(26)
-#define SLCD_NBUSY_PIN		GPIO_PA(11)
+#include "../board_base.h"
 
 struct cv90_m5377_p30_power{
 	struct regulator *vlcdio;
@@ -50,7 +38,6 @@ int cv90_m5377_p30_power_init(struct lcd_device *ld)
 {
 	int ret ;
 
-	printk("======cv90_m5377_p30_power_init==============\n");
 
 	ret = gpio_request(GPIO_LCD_RST, "lcd rst");
 	if (ret) {
@@ -93,7 +80,6 @@ int cv90_m5377_p30_power_init(struct lcd_device *ld)
 
 int cv90_m5377_p30_power_reset(struct lcd_device *ld)
 {
-	printk("cv90_m5377_p30_power_reset==============\n");
 	if (!lcd_power.inited)
 		return -EFAULT;
 	gpio_direction_output(GPIO_LCD_RST, 0);  //reset active low
@@ -105,27 +91,24 @@ int cv90_m5377_p30_power_reset(struct lcd_device *ld)
 
 static int slcd_cv90_m5377_p30_p1_waiting_NBUSY_rising_high(void)
 {
+	int count = 0;
+	int ret = 0;
 
-		int count = 0;
-		int ret = 0;
-		while ( count++ < 100 ) {
-			ret = gpio_get_value_cansleep(SLCD_NBUSY_PIN);
-			if (ret)
-				return 1;
-			else
-				printk(KERN_ERR "%s -> gpio_get_value_cansleep() return val= %d\n",__func__, ret);
+	while ( count++ < 100 ) {
+		ret = gpio_get_value_cansleep(SLCD_NBUSY_PIN);
+		if (ret)
+			return 1;
+		else
+			printk(KERN_ERR "%s -> gpio_get_value_cansleep() return val= %d\n",__func__, ret);
+		mdelay(1);
+	}
 
-			mdelay(1);
-		}
-		printk(KERN_ERR "%s wait the <NBUSY> timeout count=%d\n", __func__, count);
-
-		return 0;
+	return 0;
 }
 
 
 int cv90_m5377_p30_power_on(struct lcd_device *ld, int enable)
 {
-	printk("======cv90_m5377_p30_power_on ======\n");
 	if (!lcd_power.inited && cv90_m5377_p30_power_init(ld))
 		return -EFAULT;
 
@@ -134,11 +117,11 @@ int cv90_m5377_p30_power_on(struct lcd_device *ld, int enable)
 	/*NRD_E, must be high, either setting gpio or setting high on your board.*/
 	//gpio_direction_output(GPIO_LCD_NRD_E, 1);
 	/*reset your panel*/
-    cv90_m5377_p30_power_reset(ld);
+	cv90_m5377_p30_power_reset(ld);
 
 #ifdef  GPIO_DEBUG
 	printk("start important gpio test!\n");
-	while(1){
+	while(1) {
 		gpio_direction_output(GPIO_LCD_DNC, 1);
 		gpio_direction_output(GPIO_LCD_NWR_SCL, 0);
 		mdelay(10);
@@ -148,7 +131,7 @@ int cv90_m5377_p30_power_on(struct lcd_device *ld, int enable)
 	}
 #endif
 
-
+#if 0
 	if (enable) {
 		/*fixed*/
 		printk("======cv90_m5377_p30_power_on ==enable==\n");
@@ -156,6 +139,7 @@ int cv90_m5377_p30_power_on(struct lcd_device *ld, int enable)
 		/*fixed*/
 		printk("======cv90_m5377_p30_power_on ====disable==\n");
 	}
+#endif
 	return 0;
 }
 
@@ -175,51 +159,51 @@ struct platform_device cv90_m5377_p30_device = {
 static struct smart_lcd_data_table cv90_m5377_p30_data_table[] = {
 
 	/* Extended CMD enable CMD */
-         {0, 0xB9},
+	{0, 0xB9},
 
-         {1, 0xff},
-         {1, 0x52},
-         {1, 0x52},
+	{1, 0xff},
+	{1, 0x52},
+	{1, 0x52},
 
-         /* sleep out command, and wait > 35ms */
-         {0, 0x11},
-         {2, 200000},
+	/* sleep out command, and wait > 35ms */
+	{0, 0x11},
+	{2, 200000},
 
-	 /* Set Pixel Format Cmd */
-         {0, 0x3a},
-         //{1, 0x01},	/* 6bit */
-      //   {1, 0x05},	/* 16bit */
-         {1, 0x06},	/* 24bit? */
+	/* Set Pixel Format Cmd */
+	{0, 0x3a},
+	//{1, 0x01},	/* 6bit */
+	//   {1, 0x05},	/* 16bit */
+	{1, 0x06},	/* 24bit? */
 
-	 /* Pixel Format = 6bit? */
+	/* Pixel Format = 6bit? */
 
 #if 1
 	/* Enable CP */
-         {0, 0xF4},
-         {1, 0x01},	/* Enable CP */
-         {1, 0x01},	/* Photo Mode */
-         {1, 0x02},	/* Floyd Steinberg */
+	{0, 0xF4},
+	{1, 0x01},	/* Enable CP */
+	{1, 0x01},	/* Photo Mode */
+	{1, 0x02},	/* Floyd Steinberg */
 #else
 	/* Disable CP*/
-         {0, 0xF4},
-         {1, 0x00},	/* Disable CP */
-         {1, 0x00},	/* Photo Mode */
-         {1, 0x00},	/* Floyd Steinberg */
+	{0, 0xF4},
+	{1, 0x00},	/* Disable CP */
+	{1, 0x00},	/* Photo Mode */
+	{1, 0x00},	/* Floyd Steinberg */
 #endif
 
-	 /* RAM Comma*/
-         {1, 0xbd},
-         {1, 0x00},
+	/* RAM Comma*/
+	{1, 0xbd},
+	{1, 0x00},
 
 
-	 /* Display On */
-         {0, 0x29},
+	/* Display On */
+	{0, 0x29},
 
 
 
-	 /* polling NBUSY, proceed on the rising edge. */
-         //{0, 0xcd},
-         //{2, 50000},
+	/* polling NBUSY, proceed on the rising edge. */
+	//{0, 0xcd},
+	//{2, 50000},
         // {0, 0x2c},
 
 
@@ -262,8 +246,8 @@ struct fb_videomode jzfb_videomode = {
 };
 
 struct jzfb_platform_data jzfb_pdata = {
-		.num_modes = 1,
-		.modes = &jzfb_videomode,
+	.num_modes = 1,
+	.modes = &jzfb_videomode,
 
         .lcd_type = LCD_TYPE_SLCD,
         .bpp = 24,
@@ -272,17 +256,17 @@ struct jzfb_platform_data jzfb_pdata = {
         .smart_config.clkply_active_rising = 0,
         .smart_config.rsply_cmd_high = 0,
         .smart_config.csply_active_high = 0,
-		/* write graphic ram command, in word, for example 8-bit bus, write_gram_cmd=C3C2C1C0. */
-		.smart_config.write_gram_cmd = cv90_m5377_p30_cmd_buf,
-		.smart_config.length_cmd = ARRAY_SIZE(cv90_m5377_p30_cmd_buf),
+	/* write graphic ram command, in word, for example 8-bit bus, write_gram_cmd=C3C2C1C0. */
+	.smart_config.write_gram_cmd = cv90_m5377_p30_cmd_buf,
+	.smart_config.length_cmd = ARRAY_SIZE(cv90_m5377_p30_cmd_buf),
 
         .smart_config.bus_width = 8,  //due to panel bus width
-		.smart_config.length_data_table = ARRAY_SIZE(cv90_m5377_p30_data_table),
+	.smart_config.length_data_table = ARRAY_SIZE(cv90_m5377_p30_data_table),
         .smart_config.data_table = cv90_m5377_p30_data_table,
-		.smart_config.init = 0,//cv90_m5377_p30_init,
+	.smart_config.init = 0,//cv90_m5377_p30_init,
 
-		.lcd_callback_ops.dma_transfer_begin = cv90_m5377_p30_dma_transfer_begin_callback,
-		.lcd_callback_ops.dma_transfer_end = cv90_m5377_p30_dma_transfer_end_callback,
+	.lcd_callback_ops.dma_transfer_begin = cv90_m5377_p30_dma_transfer_begin_callback,
+	.lcd_callback_ops.dma_transfer_end = cv90_m5377_p30_dma_transfer_end_callback,
 };
 
 /**************************************************************************************************/

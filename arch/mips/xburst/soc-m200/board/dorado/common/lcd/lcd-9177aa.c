@@ -19,63 +19,62 @@
 #include <linux/lcd.h>
 
 #include <mach/jzfb.h>
-#include "board.h"
+#include "board_base.h"
 
-#define MIPI_RST_N GPIO_PA(12)
-#define MIPI_PWR GPIO_PC(17)
-int truly_tdo_hd0499k_reset(struct lcd_device *lcd)
+int byd_9177aa_reset(struct lcd_device *lcd)
 {
-	int ret=0;
-	printk("==============%s, %d\n", __func__, __LINE__);
-	ret = gpio_request(MIPI_RST_N, "lcd mipi panel rst");
+	int ret = 0;
+
+	gpio_free(GPIO_MIPI_RST_N);
+	ret = gpio_request(GPIO_MIPI_RST_N, "lcd mipi panel rst");
 	if (ret) {
 		printk(KERN_ERR "can's request lcd panel rst\n");
 		return ret;
 	}
-	gpio_direction_output(MIPI_RST_N, 0);
+	gpio_direction_output(GPIO_MIPI_RST_N, 0);
 	msleep(3);
-	gpio_direction_output(MIPI_RST_N, 1);
+	gpio_direction_output(GPIO_MIPI_RST_N, 1);
 	msleep(8);
 	return 0;
 }
 
-int truly_tdo_hd0499k_power_on(struct lcd_device *lcd, int enable)
+int byd_9177aa_power_on(struct lcd_device *lcd, int enable)
 {
-	int ret=0;
-	printk("==============%s, %d\n", __func__, __LINE__);
-	ret = gpio_request(MIPI_PWR, "lcd mipi panel avcc");
+	int ret = 0;
+
+	gpio_free(GPIO_MIPI_PWR);
+	ret = gpio_request(GPIO_MIPI_PWR, "lcd mipi panel avcc");
 	if (ret) {
 		printk(KERN_ERR "can's request lcd panel avcc\n");
 		return ret;
 	}
-	//gpio_direction_output(MIPI_PWR, !enable); /* 2.8v en*/
-	gpio_direction_output(MIPI_PWR, 0); /* 2.8v en*/
+	gpio_direction_output(GPIO_MIPI_PWR, enable); /* 2.8v en*/
 	msleep(2);
 	return 0;
 }
-struct lcd_platform_data truly_tdo_hd0499k_data = {
-	.reset = truly_tdo_hd0499k_reset,
-	.power_on= truly_tdo_hd0499k_power_on,
+struct lcd_platform_data byd_9177aa_data = {
+	.reset = byd_9177aa_reset,
+	.power_on= byd_9177aa_power_on,
 };
 
-struct mipi_dsim_lcd_device	truly_tdo_hd0499k_device={
-	.name		= "truly_tdo_hd0499k-lcd",
+struct mipi_dsim_lcd_device byd_9177aa_device={
+	.name		= "byd_9177aa-lcd",
 	.id = 0,
-	.platform_data = &truly_tdo_hd0499k_data,
+	.platform_data = &byd_9177aa_data,
 };
 
 struct fb_videomode jzfb_videomode = {
-	.name = "truly_tdo_hd0499k-lcd",
+	.name = "byd_9177aa-lcd",
 	.refresh = 60,
-	.xres = 720,
-	.yres = 1280,
+	.xres = 540,
+	.yres = 960,
 	.pixclock = KHZ2PICOS(25000),
-	.left_margin = 18,
-	.right_margin = 12,
-	.upper_margin = 18,
-	.lower_margin = 2,
-	.hsync_len = 18,
-	.vsync_len = 1,
+	.left_margin = 48,
+	.right_margin = 48,
+	.upper_margin = 9,
+	.lower_margin = 13,
+	.hsync_len = 48,
+	.vsync_len = 2,
 	.sync = FB_SYNC_HOR_HIGH_ACT & FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
@@ -86,7 +85,7 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.video_config.no_of_lanes = 2,
 	.video_config.virtual_channel = 0,
 	.video_config.color_coding = COLOR_CODE_24BIT,
-	.video_config.byte_clock = DEFAULT_DATALANE_BPS / 8,	/* KHz  */
+	.video_config.byte_clock =  DEFAULT_DATALANE_BPS / 8,	/* KHz  */
 	.video_config.video_mode = VIDEO_BURST_WITH_SYNC_PULSES,
 	.video_config.receive_ack_packets = 0,	/* enable receiving of ack packets */
 	/*loosely: R0R1R2R3R4R5__G0G1G2G3G4G5G6__B0B1B2B3B4B5B6,
@@ -94,7 +93,7 @@ struct jzdsi_platform_data jzdsi_pdata = {
 	.video_config.is_18_loosely = 0,
 	.video_config.data_en_polarity = 1,
 
-	.dsi_config.max_lanes = 2,
+	.dsi_config.max_lanes = 4,
 	.dsi_config.max_hs_to_lp_cycles = 100,
 	.dsi_config.max_lp_to_hs_cycles = 40,
 	.dsi_config.max_bta_cycles = 4095,
@@ -127,6 +126,8 @@ static int backlight_init(struct device *dev)
 		printk(KERN_ERR "failed to request GPF for PWM-OUT1\n");
 		return ret;
 	}
+
+//	gpio_direction_output(GPIO_BL_PWR_EN, 1);
 
 	return 0;
 }

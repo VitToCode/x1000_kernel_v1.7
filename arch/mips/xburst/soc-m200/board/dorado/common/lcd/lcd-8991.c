@@ -5,21 +5,21 @@
 #include <linux/digital_pulse_backlight.h>
 #include <mach/jzfb.h>
 
-#include "board.h"
+#include "../board_base.h"
 
 #ifdef CONFIG_LCD_BYD_8991FTGF
 #include <linux/byd_8991.h>
 static struct platform_byd_8991_data byd_8991_pdata= {
-	.gpio_lcd_disp  = GPIO_PE(10),
-	.gpio_lcd_de    = 0,		//GPIO_PC(9),	/* chose sync mode */
-	.gpio_lcd_vsync = 0,		//GPIO_PC(19),
-	.gpio_lcd_hsync = 0,		//GPIO_PC(18),
+	.gpio_lcd_disp  = GPIO_LCD_DISP,
+	.gpio_lcd_de    = GPIO_LCD_DE,		//GPIO_PC(9),	/* chose sync mode */
+	.gpio_lcd_vsync = GPIO_LCD_VSYNC,	//GPIO_PC(19),
+	.gpio_lcd_hsync = GPIO_LCD_HSYNC,	//GPIO_PC(18),
 	/* spi interface */
-	.gpio_lcd_cs  = GPIO_PA(11),
-	.gpio_lcd_clk = GPIO_PD(28),
-	.gpio_lcd_sdo = GPIO_PE(3),
-	.gpio_lcd_sdi = GPIO_PE(0),
-	.gpio_lcd_back_sel = GPIO_PC(20),
+	.gpio_lcd_cs  = GPIO_LCD_CS,
+	.gpio_lcd_clk = GPIO_LCD_CLK,
+	.gpio_lcd_sdo = GPIO_LCD_SDO,
+	.gpio_lcd_sdi = GPIO_LCD_SDI,
+	.gpio_lcd_back_sel = GPIO_LCD_BACK_SEL,
 };
 
 /* LCD device */
@@ -51,7 +51,6 @@ struct fb_videomode jzfb_8991_videomode = {
 struct jzfb_platform_data jzfb_pdata = {
 	.num_modes = 1,
 	.modes = &jzfb_8991_videomode,
-
 	.lcd_type = LCD_TYPE_GENERIC_24_BIT,
 	.bpp = 24,
 	.width = 45,
@@ -105,7 +104,6 @@ struct platform_device backlight_device = {
 
 #endif
 
-
 /***********************************************************************************************/
 #ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
 static int init_backlight(struct device *dev)
@@ -118,7 +116,7 @@ static void exit_backlight(struct device *dev)
 }
 
 struct platform_digital_pulse_backlight_data bl_data = {
-	.digital_pulse_gpio = GPIO_PE(1),
+	.digital_pulse_gpio = GPIO_GIGITAL_PULSE,
 	.max_brightness = 255,
 	.dft_brightness = 120,
 	.max_brightness_step = 16,

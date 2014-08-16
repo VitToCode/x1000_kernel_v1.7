@@ -4,7 +4,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <mach/platform.h>
-#include "board.h"
+#include "board_base.h"
 
 static struct regulator *touch_power_vdd = NULL, *touch_power_vio = NULL;
 static atomic_t touch_powered = ATOMIC_INIT(0);

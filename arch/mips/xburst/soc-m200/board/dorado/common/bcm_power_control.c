@@ -4,7 +4,7 @@
 #include <linux/bcm_pm_core.h>
 #include <linux/delay.h>
 
-#include "board.h"
+#include "board_base.h"
 
 #ifdef CONFIG_BCM_PM_CORE
 static void enable_clk32k(void)
@@ -27,7 +27,6 @@ struct platform_device	bcm_power_platform_device = {
 	.name = "bcm_power",
 	.id = -1,
 	.num_resources = 0,
-
 	.dev = {
 		.platform_data = &bcm_power_platform_data,
 	},
@@ -92,7 +91,6 @@ static void restore_pin_status(int bt_power_state)
 }
 
 static struct bt_rfkill_platform_data  bt_gpio_data = {
-
 	.gpio = {
 		.bt_rst_n = -1,
 		.bt_reg_on = BT_REG_EN,
@@ -170,7 +168,6 @@ struct wifi_data {
 	int                             wifi_reset;
 };
 static struct wifi_data bcm_data;
-
 
 /*The function should be called iw8103,but do not modify because of compatibility */
 static void wifi_le_set_io(void)
@@ -254,7 +251,6 @@ start:
 
 	msleep(200);
 
-	printk("$$$$$$$$$$$$$$ %s %d flag is %d\n",__func__, __LINE__, flag);
 	switch(flag) {
 		case RESET:
 			jzmmc_clk_ctrl(1, 1);
@@ -281,9 +277,7 @@ start:
 
 			break;
 	}
-
 	//	wake_lock(wifi_wake_lock);
-
 	return 0;
 }
 EXPORT_SYMBOL(bcm_wlan_power_on);

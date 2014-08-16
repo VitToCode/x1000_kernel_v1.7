@@ -1,8 +1,8 @@
 
 #include <mach/jzsnd.h>
-#include "board.h"
+#include "board_base.h"
 
-struct snd_codec_data codec_data = {
+struct snd_codec_data __attribute__((weak)) codec_data = {
 	.codec_sys_clk = 0 ,
 	.codec_dmic_clk = 0,
 	/* volume */
