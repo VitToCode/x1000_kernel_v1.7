@@ -91,6 +91,12 @@ static struct regulator_consumer_supply ricoh619_ldo7_supply_0[] = {
 static struct regulator_consumer_supply ricoh619_ldo8_supply_0[] = {
 	REGULATOR_SUPPLY(LDO8_NAME, NULL),
 };
+static struct regulator_consumer_supply ricoh619_ldo9_supply_0[] = {
+	REGULATOR_SUPPLY(LDO9_NAME, NULL),
+};
+static struct regulator_consumer_supply ricoh619_ldo10_supply_0[] = {
+	REGULATOR_SUPPLY(LDO10_NAME, NULL),
+};
 static struct regulator_consumer_supply ricoh619_ldortc1_supply_0[] = {
 	REGULATOR_SUPPLY(LDORTC1_NAME, NULL),
 };
@@ -158,6 +164,10 @@ RICOH_PDATA_INIT(ldo7, 0,	900,   3500, 0, 0, 0, 1, LDO7_INIT_UV,
 		 LDO7_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo8, 0,	900,   3500, 0, 0, 0, 1, LDO8_INIT_UV,
 		 LDO8_INIT_ENABLE, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo9, 0,	900,   3500, 0, 0, 0, 1, LDO9_INIT_UV,
+		 LDO9_INIT_ENABLE, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo10, 0,	900,   3500, 0, 0, 0, 1, LDO10_INIT_UV,
+		 LDO10_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldortc1, 0,	1700,  3500, 0, 1, 1, 1, LDORTC1_INIT_UV,
 		 LDORTC1_INIT_ENABLE, 1, -1, -1, -1);
 RICOH_PDATA_INIT(ldortc2, 0,	900,   3500, 0, 1, 1, 1, LDORTC2_INIT_UV,
@@ -323,6 +333,8 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	RICOH_REG(LDO6, ldo6, 0),	\
 	RICOH_REG(LDO7, ldo7, 0),	\
 	RICOH_REG(LDO8, ldo8, 0),	\
+	RICOH_REG(LDO9, ldo9, 0),	\
+	RICOH_REG(LDO10, ldo10, 0),	\
 	RICOH_REG(LDORTC1, ldortc1, 0),	\
 	RICOH_REG(LDORTC2, ldortc2, 0)
 

@@ -8,7 +8,7 @@
 
 /* ****************************GPIO LCD START******************************** */
 #ifdef CONFIG_LCD_BYD_8991FTGF
-#define GPIO_LCD_DISP		GPIO_PE(10)
+#define GPIO_LCD_DISP		GPIO_PB(0)
 #define GPIO_LCD_DE		0
 #define GPIO_LCD_VSYNC		0
 #define GPIO_LCD_HSYNC		0
@@ -60,16 +60,16 @@
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
 #ifndef CONFIG_I2C1_V12_JZ
-#define GPIO_I2C1_SDA GPIO_PE(30)
-#define GPIO_I2C1_SCK GPIO_PE(31)
+#define GPIO_I2C1_SDA GPIO_PA(12)
+#define GPIO_I2C1_SCK GPIO_PA(13)
 #endif
 #ifndef CONFIG_I2C2_V12_JZ
-#define GPIO_I2C2_SDA GPIO_PF(16)
-#define GPIO_I2C2_SCK GPIO_PF(17)
+#define GPIO_I2C2_SDA GPIO_PE(00)
+#define GPIO_I2C2_SCK GPIO_PE(03)
 #endif
 #ifndef CONFIG_I2C3_V12_JZ
-#define GPIO_I2C3_SDA GPIO_PC(23)
-#define GPIO_I2C3_SCK GPIO_PC(22)
+#define GPIO_I2C3_SDA GPIO_PB(7)
+#define GPIO_I2C3_SCK GPIO_PB(8)
 #endif
 /* ****************************GPIO I2C END********************************** */
 
@@ -91,8 +91,8 @@
 #define GPIO_TP_WAKE		GPIO_PE(10)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
-#define GPIO_TP_INT		GPIO_PB(0)
-#define GPIO_TP_RESET		GPIO_PA(12)
+#define GPIO_TP_INT		GPIO_PD(17)
+#define GPIO_TP_RESET		GPIO_PD(27)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5336
 #define GPIO_TP_INT		GPIO_PB(0)

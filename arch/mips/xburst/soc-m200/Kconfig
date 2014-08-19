@@ -13,6 +13,10 @@ config BOARD_DORADO_V20
        bool "board dorado v20"
        depends on PRODUCT_DEVELOP
 
+config BOARD_DORADO_V21
+       bool "board dorado v21"
+       depends on PRODUCT_DEVELOP
+
 config BOARD_FORNAX
        bool "FORNAX"
 endchoice
@@ -26,3 +30,7 @@ config PRODUCT_NAME
 config BOARD_NAME
 	string
 	default "dorado_v20" if BOARD_DORADO_V20
+
+config BOARD_NAME
+	string
+	default "dorado_v21" if BOARD_DORADO_V21

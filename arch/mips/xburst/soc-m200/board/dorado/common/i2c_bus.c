@@ -109,20 +109,8 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #endif /*CONFIG_INV_MPU_IIO*/
 };
 #endif
-
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ))
-#ifdef CONFIG_WM8594_CODEC_V1_2
-static struct snd_codec_data wm8594_codec_pdata = {
-	.codec_sys_clk = 12000000,
-};
-#endif
 struct i2c_board_info jz_i2c1_devs[] __initdata = {
-#ifdef CONFIG_WM8594_CODEC_V1_2
-	{
-		I2C_BOARD_INFO("wm8594", 0x1a),
-		.platform_data = &wm8594_codec_pdata,
-	},
-#endif
 };
 #endif  /*I2C1*/
 
