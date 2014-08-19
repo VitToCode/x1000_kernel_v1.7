@@ -240,9 +240,9 @@ static int BatteryTableFlageDef=0;
 static int BatteryTypeDef=0;
 static int Battery_Type(void)
 {
-#ifdef CONFIG_Large_Capacity_Battery
+#ifdef CONFIG_LARGE_CAPACITY_BATTERY
 	BatteryTypeDef = 0;
-#elif CONFIG_Small_Capacity_Battery
+#elif CONFIG_SMALL_CAPACITY_BATTERY
 	BatteryTypeDef = 1;
 #endif
 	return BatteryTypeDef;
