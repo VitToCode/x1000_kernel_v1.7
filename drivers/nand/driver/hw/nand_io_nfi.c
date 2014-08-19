@@ -116,18 +116,14 @@ static void nand_nfi_disable(nfi_base *base)
 static void set_nand_timing_default(nfi_base *base)
 {
 	//ndd_debug("##### base->writel = %p, base->iomem = 0x%08x\n",base->writel,(unsigned int)base->iomem);
-	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x0) | NAND_NFIT0_WWE(0x3)));
-	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x0) | NAND_NFIT1_SRE(0x0)));
-	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x3) | NAND_NFIT2_HRE(0x0)));
+	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x3) | NAND_NFIT0_WWE(0x9)));
+	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x3) | NAND_NFIT1_SRE(0x3)));
+	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x9) | NAND_NFIT2_HRE(0x3)));
 	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0x2) | NAND_NFIT3_WCS(0x1)));
 	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(0xf) | NAND_NFIT4_EDO(0xf)));
 }
 static void set_nand_timing_optimize(nfi_base *base, nfi_nand_timing *timing)
 {
-
-
-
-	//dsqiu ---------------------
 
 	unsigned long cycle = base->cycle;  //unit: ps
 	unsigned int lbit,hbit;
@@ -150,13 +146,18 @@ static void set_nand_timing_optimize(nfi_base *base, nfi_nand_timing *timing)
 	hbit = ((timing->tRR) * 1000 + cycle - 1) / cycle;
 	lbit = (1 * 1000 + cycle - 1) / cycle ;
 	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(hbit) | NAND_NFIT4_EDO(lbit)));
-/*
-	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x0) | NAND_NFIT0_WWE(0x2)));
-	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x0) | NAND_NFIT1_SRE(0x0)));
-	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x3) | NAND_NFIT2_HRE(0x0)));
-	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0x7) | NAND_NFIT3_WCS(0x7)));
-	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(0xf) | NAND_NFIT4_EDO(0xf)));
-*/
+
+//	base->writel(NAND_NFIT0, (NAND_NFIT0_SWE(0x1) | NAND_NFIT0_WWE(0x4)));
+//	base->writel(NAND_NFIT1, (NAND_NFIT1_HWE(0x1) | NAND_NFIT1_SRE(0x1)));
+//	base->writel(NAND_NFIT2, (NAND_NFIT2_WRE(0x5) | NAND_NFIT2_HRE(0x1)));
+//	base->writel(NAND_NFIT3, (NAND_NFIT3_SCS(0x2) | NAND_NFIT3_WCS(0x1)));
+//	base->writel(NAND_NFIT4, (NAND_NFIT4_BUSY(0x4) | NAND_NFIT4_EDO(0x1)));
+//
+//	ndd_print(NDD_DEBUG,"NNNNNNNNNNNN******** T0 = %08x\n",base->readl(NAND_NFIT0));
+//	ndd_print(NDD_DEBUG,"NNNNNNNNNNNN******** T1 = %08x\n",base->readl(NAND_NFIT1));
+//	ndd_print(NDD_DEBUG,"NNNNNNNNNNNN******** T2 = %08x\n",base->readl(NAND_NFIT2));
+//	ndd_print(NDD_DEBUG,"NNNNNNNNNNNN******** T3 = %08x\n",base->readl(NAND_NFIT3));
+//	ndd_print(NDD_DEBUG,"NNNNNNNNNNNN******** T4 = %08x\n",base->readl(NAND_NFIT4));
 }
 static void recalc_writecycle(nfi_base *base,chip_info *cinfo)
 {
@@ -666,7 +667,27 @@ static void convert2opstiming(nand_ops_timing *ops_timing, const nand_timing *na
 	ops_timing->tCLH = timing->tCH;
 	ops_timing->io_timing = (void *)timing;
 }
+static void kyhe_add_fill_nfi_timing(const nand_timing *nandtiming)
+{
+	nfi_nand_timing *timing = &nandtiming->nfi;
+#define assign(member,val) timing->member = val
+	assign(tWH,10);
+	assign(tCH,5);
+	assign(tRP,25);
+	assign(tWP,15);
+	assign(tDH,5);
+	assign(tWHR,80);
+	assign(tWHR2,200);
+	assign(tRR,20);
+	assign(tWB,80);
+	assign(tADL,100);
+	assign(tCWAW,0);
+	assign(tCS,25);
+	assign(tREH,10);
+#undef assign
+}
 void nand_controll_adpt(chip_info *cinfo, const nand_flash *ndflash) {
+	//kyhe_add_fill_nfi_timing(&ndflash->timing);//kyhe add test
 	convert2opstiming(&cinfo->ops_timing, &ndflash->timing);
 	cinfo->ops_timing.io_etiming = &ndflash->nand_extra;
 }

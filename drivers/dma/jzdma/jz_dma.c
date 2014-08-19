@@ -38,9 +38,15 @@
 #endif	//MCU_TEST_INTER_DMA
 #ifdef CONFIG_NAND
 
+#ifdef CONFI_NAND_NEMC
 __initdata static int firmware[] = {
-#include "firmware.hex"
+#include "firmware_nemc.hex"
 };
+#else
+__initdata static int firmware[] = {
+#include "firmware_nfi.hex"
+};
+#endif //CONFIG_NAND_NEMC
 
 struct s_mailbox {
 	unsigned short msg;

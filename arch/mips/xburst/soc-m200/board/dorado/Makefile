@@ -4,3 +4,4 @@ CFLAGS_KERNEL	+= -I$(srctree)/arch/mips/xburst/soc-m200/board/$(CONFIG_PRODUCT_N
 obj-y		+= common/
 obj-$(CONFIG_BOARD_DORADO_V20)		+= $(CONFIG_BOARD_NAME)/
 obj-$(CONFIG_BOARD_DORADO_V21)		+= $(CONFIG_BOARD_NAME)/
+obj-$(CONFIG_BOARD_DORADO_V30)		+= $(CONFIG_BOARD_NAME)/

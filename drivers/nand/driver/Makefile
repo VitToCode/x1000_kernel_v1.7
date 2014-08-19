@@ -7,7 +7,13 @@ KBUILD_CFLAGS	+= -I$/drivers/nand/driver/inc/ \
 
 obj-$(CONFIG_NAND)	+= hw/transadaptor/cpu_trans.o \
 			hw/transadaptor/dma_trans.o \
-			hw/nand_bch.o hw/nand_io_emc.o
+			hw/nand_bch.o
+
+ifdef CONFIG_NAND_NEMC
+obj-$(CONFIG_NAND) += hw/nand_io_emc.o
+else
+obj-$(CONFIG_NAND) += hw/nand_io_nfi.o
+endif
 
 obj-$(CONFIG_NAND)	+= ops/
 

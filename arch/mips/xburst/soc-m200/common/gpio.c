@@ -85,6 +85,7 @@ struct jzgpio_chip {
 	unsigned int wake_map;
 	struct jzgpio_state sleep_state;
 	unsigned int save[5];
+	unsigned int *mcu_gpio_reg;
 };
 
 static struct jzgpio_chip jz_gpio_chips[];
@@ -588,6 +589,36 @@ static irqreturn_t gpio_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t mcu_gpio_handler(int irq, void *data)
+{
+	struct jzgpio_chip *jz = data;
+	unsigned long pend = *(jz->mcu_gpio_reg);
+	int i;
+
+	for(i = 0;i < 32;i++)
+	{
+		if((pend >> i) & 1)
+			generic_handle_irq(i + jz->irq_base);
+	}
+	return IRQ_HANDLED;
+}
+
+
+int mcu_gpio_register(unsigned int reg) {
+	int i;
+	int ret = -1;
+	for(i = 0;i < ARRAY_SIZE(jz_gpio_chips); i++) {
+		jz_gpio_chips[i].mcu_gpio_reg =(unsigned int *)reg + i;
+
+		ret = request_irq(IRQ_MCU_GPIO_PORT(i), mcu_gpio_handler, IRQF_DISABLED,"mcu gpio irq",
+				(void*)&jz_gpio_chips[i]);
+		if (ret) {
+			pr_err("mcu irq[%d] register error!\n",i);
+			break;
+		}
+	}
+	return ret;
+}
 static int __init setup_gpio_irq(void)
 {
 	int i, j;

@@ -26,6 +26,7 @@
 /* global */
 nand_data *nddata = NULL;
 extern int nd_raw_boundary;
+extern int g_have_wp;
 
 void (*__clear_rb_state)(rb_item *);
 int (*__wait_rb_timeout) (rb_item *, int);
@@ -1126,8 +1127,10 @@ int nand_api_init(struct nand_api_osdependent *osdep)
 
 		ndd_debug("\ninit wp gpio:\n");
 		ret = __ndd_gpio_request(nddata->gpio_wp, "nand_wp");
-		if(ret < 0)
-			GOTO_ERR(request_wp);
+		if(ret < 0){
+			g_have_wp = 0;
+			ndd_print(NDD_DEBUG,"\n%s [line:%d] nand_wp request error, can't use write protect !!!\n",__func__,__LINE__);
+		}
 
 		ndd_debug("\ninit irq of rb:\n");
 		totalrbs = nddata->rbinfo->totalrbs;
@@ -1176,7 +1179,6 @@ ERR_LABLE(get_ppainfo):
 ERR_LABLE(get_csinfo):
 ERR_LABLE(fill_cinfo):
 ERR_LABLE(request_rb_irq):
-ERR_LABLE(request_wp):
 ERR_LABLE(get_platinfo):
 	free_platdep_memory(&(nddata->platdep));
 ERR_LABLE(alloc_platdep_memory):

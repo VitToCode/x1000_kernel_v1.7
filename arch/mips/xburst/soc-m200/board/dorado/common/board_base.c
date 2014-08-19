@@ -171,6 +171,12 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_mixer3_device, &snd_mixer3_data, sizeof(struct snd_dev_data)),
 #endif
 
+	/* nand */
+#ifdef CONFIG_NAND_DRIVER
+	DEF_DEVICE(&jz_nand_device, NULL,0),
+#endif
+
+
 #ifdef CONFIG_SOUND_JZ_PCM_V12
 	DEF_DEVICE(&jz_pcm_device, &pcm_data, sizeof(struct snd_dev_data)),
 	DEF_DEVICE(&jz_mixer1_device, &snd_mixer1_data, sizeof(struct snd_dev_data)),

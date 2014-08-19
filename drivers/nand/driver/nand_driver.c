@@ -22,6 +22,7 @@
 
 #define USE_EDGE_IRQ
 
+int g_have_wp = 1;//use the wp gpio can't request
 struct nand_api_osdependent ndd_private;
 nand_sharing_params share_parms;
 
@@ -130,12 +131,14 @@ static unsigned long long ndd_get_time_nsecs(void)
 \* ############################################################################################ */
 static void ndd_wp_enable(int gpio)
 {
-	wp_enable(gpio);
+	if(g_have_wp)
+		wp_enable(gpio);
 }
 
 static void ndd_wp_disable(int gpio)
 {
-	wp_disable(gpio);
+	if(g_have_wp)
+		wp_disable(gpio);
 }
 
 static void ndd_clear_rb_state(rb_item *rbitem)
@@ -668,6 +671,7 @@ static int nand_probe(struct platform_device *pdev)
 		goto err_fill_base;
 
 	/* fill fun points */
+	g_have_wp = 1;
 	ndd_private.wp_enable = ndd_wp_enable;
 	ndd_private.wp_disable = ndd_wp_disable;
 	ndd_private.clear_rb_state = ndd_clear_rb_state;
