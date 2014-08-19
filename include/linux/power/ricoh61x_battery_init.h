@@ -34,7 +34,7 @@ uint8_t battery_init_para[][32] = {
 };
 #endif
 
-#ifdef CONFIG_Small_Capacity_Battery
+#ifdef CONFIG_SMALL_CAPACITY_BATTERY
 /*for <=260A*/
 uint8_t battery_init_para[][32] = {
     {
@@ -46,7 +46,7 @@ uint8_t battery_init_para[][32] = {
 };
 #endif
 
-#ifdef CONFIG_Large_Capacity_Battery
+#ifdef CONFIG_LARGE_CAPACITY_BATTERY
 /*for 4000mA*/
 uint8_t battery_init_para[][32] = {
     {

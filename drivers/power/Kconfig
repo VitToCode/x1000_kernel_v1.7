@@ -67,12 +67,12 @@ menuconfig BATTERY_RICOH619
 	  Power Management device.
 if BATTERY_RICOH619
 
-config Large_Capacity_Battery
+config LARGE_CAPACITY_BATTERY
 	  bool "Large capacity battery for 2000mA 4000mA"
 	  help
 	  Say "Y" to enable large capacity battery.
 
-config Small_Capacity_Battery
+config SMALL_CAPACITY_BATTERY
 	  bool "Small capacity battery for 260mA 500mA"
 	  help
 	  Say "Y" to enable small capacity battery.
