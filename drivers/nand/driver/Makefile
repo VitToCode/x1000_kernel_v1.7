@@ -9,11 +9,8 @@ obj-$(CONFIG_NAND)	+= hw/transadaptor/cpu_trans.o \
 			hw/transadaptor/dma_trans.o \
 			hw/nand_bch.o
 
-ifdef CONFIG_NAND_NEMC
-obj-$(CONFIG_NAND) += hw/nand_io_emc.o
-else
-obj-$(CONFIG_NAND) += hw/nand_io_nfi.o
-endif
+obj-$(CONFIG_NAND_NEMC) += hw/nand_io_emc.o
+obj-$(CONFIG_NAND_NFI) += hw/nand_io_nfi.o
 
 obj-$(CONFIG_NAND)	+= ops/
 

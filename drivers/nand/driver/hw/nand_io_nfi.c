@@ -667,7 +667,7 @@ static void convert2opstiming(nand_ops_timing *ops_timing, const nand_timing *na
 	ops_timing->tCLH = timing->tCH;
 	ops_timing->io_timing = (void *)timing;
 }
-static void kyhe_add_fill_nfi_timing(const nand_timing *nandtiming)
+static void test_add_fill_nfi_timing(const nand_timing *nandtiming)
 {
 	nfi_nand_timing *timing = &nandtiming->nfi;
 #define assign(member,val) timing->member = val
@@ -687,7 +687,7 @@ static void kyhe_add_fill_nfi_timing(const nand_timing *nandtiming)
 #undef assign
 }
 void nand_controll_adpt(chip_info *cinfo, const nand_flash *ndflash) {
-	//kyhe_add_fill_nfi_timing(&ndflash->timing);//kyhe add test
+	//test_add_fill_nfi_timing(&ndflash->timing);//kyhe add test
 	convert2opstiming(&cinfo->ops_timing, &ndflash->timing);
 	cinfo->ops_timing.io_etiming = &ndflash->nand_extra;
 }
