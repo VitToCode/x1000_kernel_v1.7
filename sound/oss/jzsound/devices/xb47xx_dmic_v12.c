@@ -72,6 +72,8 @@ struct dmic_device {
 	struct jz_dmic * cur_dmic;
 };
 
+static struct dmic_device *g_dmic_dev;
+
 static int dmic_set_private_data(struct snd_dev_data *ddata, struct dmic_device * dmic_dev)
 {
 	ddata->priv_data = (void *)dmic_dev;
@@ -795,7 +797,6 @@ static int dmic_global_init(struct platform_device *pdev)
 	int ret = 0;
 	struct dsp_pipe *dmic_pipe_out = NULL;
 	struct dsp_pipe *dmic_pipe_in = NULL;
-
 	struct dmic_device * dmic_dev;
 
 	printk("----> start %s\n", __func__);
@@ -900,9 +901,7 @@ static int dmic_global_init(struct platform_device *pdev)
 	dmic_dev->ioctl_cmd = 0;
 	dmic_dev->ioctl_arg = 0;
 
-	dmic_set_private_data(&dmic_data, dmic_dev); /*dmic_data is global*/
-	dmic_set_private_data(&snd_mixer3_data, dmic_dev); /*dmic_data is global*/
-	dev_set_drvdata(&pdev->dev, dmic_dev);
+	g_dmic_dev = dmic_dev;
 
 	printk("dmic init success.\n");
 	clk_disable(dmic_dev->clk);
@@ -926,11 +925,14 @@ __err_ioremap:
 static int dmic_init(struct platform_device *pdev)
 {
 	int ret = 0;
-
-	ret = dmic_global_init(pdev);
-	if (ret)
-		printk("dmic init error!\n");
-
+	struct snd_dev_data *tmp;
+	tmp = dmic_get_ddata(pdev);
+	if(!g_dmic_dev) {
+		ret = dmic_global_init(pdev);
+		if (ret)
+			printk("dmic init error!\n");
+	}
+	dmic_set_private_data(tmp, g_dmic_dev);/*mixer*/
 	return ret;
 }
 
@@ -999,6 +1001,7 @@ struct snd_dev_data dmic_data = {
 struct snd_dev_data snd_mixer3_data = {
 	.dev_ioctl_2	= dmic_ioctl,
 	.minor			= SND_DEV_MIXER3,
+	.init			= dmic_init,
 };
 
 static int __init init_dmic(void)
