@@ -43,6 +43,8 @@ struct snd_switch_data switch_data;
 static struct platform_device xb47xx_i2s_switch;
 
 
+static struct i2s_device * g_i2s_dev;
+
 extern void codec_irq_set_mask(struct codec_info *codec_dev);
 
 static int jz_get_hp_switch_state(struct i2s_device * i2s_dev);
@@ -1215,6 +1217,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	struct dsp_pipe *i2s_pipe_out = NULL;
 	struct dsp_pipe *i2s_pipe_in = NULL;
 	struct i2s_device * i2s_dev;
+	struct snd_dev_data *tmp_ddata = i2s_get_ddata(pdev);
 
 	printk("i2s global init !~~~\n");
 
@@ -1324,10 +1327,8 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	}
 #endif
 
-	/* set data */
-	i2s_set_private_data(&i2s_data, i2s_dev);
-	i2s_set_private_data(&snd_mixer0_data, i2s_dev);
-	dev_set_drvdata(&pdev->dev, i2s_dev);
+	g_i2s_dev = i2s_dev;
+
 	i2s_set_switch_data(switch_data, i2s_dev);
 
 
@@ -1428,12 +1429,17 @@ err_alloc_codec:
 static int i2s_init(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
+	struct snd_dev_data *tmp;
 
-	init_waitqueue_head(&switch_data.wq);
+	tmp = i2s_get_ddata(pdev);
 
-	ret = i2s_global_init(pdev, &switch_data);
+	if(!g_i2s_dev) {
+		init_waitqueue_head(&switch_data.wq);
+		ret = i2s_global_init(pdev, &switch_data);
+		ret =  platform_device_register(&xb47xx_i2s_switch);
 
-	ret =  platform_device_register(&xb47xx_i2s_switch);
+	}
+	i2s_set_private_data(tmp, g_i2s_dev);
 
 	return ret;
 }
@@ -1502,7 +1508,7 @@ static int jz_get_hp_switch_state(struct i2s_device * i2s_dev)
 	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	int value = 0;
 	int ret = 0;
-    if (cur_codec && cur_codec->codec_ctl) {
+    if (cur_codec && cur_codec->codec_ctl_2) {
         ret = cur_codec->codec_ctl_2(cur_codec, CODEC_GET_HP_STATE, (unsigned long)&value);
         if (ret < 0) {
             return 0;
@@ -1609,6 +1615,7 @@ struct snd_dev_data i2s_data = {
 struct snd_dev_data snd_mixer0_data = {
 	.dev_ioctl_2	= i2s_ioctl_2,
 	.minor			= SND_DEV_MIXER0,
+	.init			= i2s_init,
 };
 
 static int __init init_i2s(void)
