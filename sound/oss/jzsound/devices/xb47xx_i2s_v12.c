@@ -1428,7 +1428,7 @@ err_alloc_codec:
 
 static int i2s_init(struct platform_device *pdev)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	struct snd_dev_data *tmp;
 
 	tmp = i2s_get_ddata(pdev);
@@ -1451,7 +1451,6 @@ static void i2s_shutdown(struct platform_device *pdev)
 	struct i2s_device *i2s_dev = i2s_get_private_data(tmp_ddata);
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
 
-	free_irq(i2s_dev->i2s_irq, NULL);
 	if (cur_codec) {
 		cur_codec->codec_ctl_2(cur_codec, CODEC_TURN_OFF,CODEC_RWMODE);
 		cur_codec->codec_ctl_2(cur_codec, CODEC_SHUTDOWN,0);
