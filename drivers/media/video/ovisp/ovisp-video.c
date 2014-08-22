@@ -339,12 +339,10 @@ static int ovisp_camera_init_client(struct ovisp_camera_dev *camdev,
 		err = -ENODEV;
 		goto subdev_power_off;
 	}
-	ISP_PRINT(ISP_INFO,"i2c...........................1111111\n");
 	csd->sd = v4l2_i2c_new_subdev_board(&camdev->v4l2_dev,
 		csd->i2c_adap,
 		client->board_info,
 		NULL);
-	ISP_PRINT(ISP_INFO,"i2c...........................222222222\n");
 	if (!csd->sd) {
 		ISP_PRINT(ISP_ERROR,"Cannot get subdev(%s)\n",
 			client->board_info->type);
@@ -1871,4 +1869,3 @@ module_exit(ovisp_camera_exit);
 
 MODULE_DESCRIPTION("OVISP camera driver");
 MODULE_LICENSE("GPL");
-

@@ -706,7 +706,7 @@ static int suspend_prepare(struct regulator_dev *rdev, suspend_state_t state)
 		return -EINVAL;
 	}
 }
-
+#ifdef DEBUG
 static void print_constraints(struct regulator_dev *rdev)
 {
 	struct regulation_constraints *constraints = rdev->constraints;
@@ -763,7 +763,7 @@ static void print_constraints(struct regulator_dev *rdev)
 
 	rdev_info(rdev, "%s\n", buf);
 }
-
+#endif
 static int machine_constraints_voltage(struct regulator_dev *rdev,
 	struct regulation_constraints *constraints)
 {
@@ -913,8 +913,9 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 			goto out;
 		}
 	}
-
+#ifdef DEBUG
 	print_constraints(rdev);
+#endif
 out:
 	return ret;
 }

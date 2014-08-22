@@ -238,7 +238,6 @@ static int ov9724_update_awb_gain(struct v4l2_subdev *sd,
 
 static int ov9724_reset(struct v4l2_subdev *sd, u32 val)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -247,7 +246,6 @@ static int ov9724_init(struct v4l2_subdev *sd, u32 val)
 {
 	struct ov9724_info *info = container_of(sd, struct ov9724_info, sd);
 	int ret = 0;
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 
 	info->fmt = NULL;
 	info->win = NULL;
@@ -281,30 +279,16 @@ static int ov9724_detect(struct v4l2_subdev *sd)
 {
 	unsigned char v;
 	int ret;
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
-#if 1
-	/*test gpio e*/
-	{
-		printk("0x10010410:%x\n", *((volatile unsigned int *)0xb0010410));
-		printk("0x10010420:%x\n", *((volatile unsigned int *)0xb0010420));
-		printk("0x10010430:%x\n", *((volatile unsigned int *)0xb0010430));
-		printk("0x10010440:%x\n", *((volatile unsigned int *)0xb0010440));
-
-	}
-#endif
 
 	ret = ov9724_read(sd, 0x0000, &v);
-	printk("-----%s: %d ret = %d\n", __func__, __LINE__, ret);
 	if (ret < 0)
 		return ret;
-	printk("-----%s: %d v = %08X\n", __func__, __LINE__, v);
+
 	if (v != OV9724_CHIP_ID_H)
 		return -ENODEV;
 	ret = ov9724_read(sd, 0x0001, &v);
-	printk("-----%s: %d ret = %d\n", __func__, __LINE__, ret);
 	if (ret < 0)
 		return ret;
-	printk("-----%s: %d v = %08X\n", __func__, __LINE__, v);
 	if (v != OV9724_CHIP_ID_L)
 		return -ENODEV;
 	return 0;
@@ -313,7 +297,6 @@ static int ov9724_detect(struct v4l2_subdev *sd)
 static int ov9724_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned index,
 					enum v4l2_mbus_pixelcode *code)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	if (index >= N_OV9724_FMTS)
 		return -EINVAL;
 
@@ -342,14 +325,12 @@ static int ov9724_try_fmt_internal(struct v4l2_subdev *sd,
 	fmt->code = wsize->mbus_code;
 	fmt->field = V4L2_FIELD_NONE;
 	fmt->colorspace = wsize->colorspace;
-	printk("%s:------->%d fmt->code,%08X , fmt->width%d fmt->height%d\n", __func__, __LINE__, fmt->code, fmt->width, fmt->height);
 	return 0;
 }
 
 static int ov9724_try_mbus_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_mbus_framefmt *fmt)
 {
-	printk("%s:------->%d\n", __func__, __LINE__);
 	return ov9724_try_fmt_internal(sd, fmt, NULL);
 }
 
@@ -361,13 +342,10 @@ static int ov9724_s_mbus_fmt(struct v4l2_subdev *sd,
 	struct ov9724_win_setting *wsize;
 	int ret;
 
-
-	printk("[ov9724], problem function:%s, line:%d\n", __func__, __LINE__);
 	ret = ov9724_try_fmt_internal(sd, fmt, &wsize);
 	if (ret)
 		return ret;
 	if ((info->win != wsize) && wsize->regs) {
-		printk("pay attention : ov9724, %s:LINE:%d  size = %d\n", __func__, __LINE__, sizeof(*wsize->regs));
 		ret = ov9724_write_array(sd, wsize->regs);
 		if (ret)
 			return ret;
@@ -375,15 +353,13 @@ static int ov9724_s_mbus_fmt(struct v4l2_subdev *sd,
 	data->i2cflags = 0;
 	data->mipi_clk = 282;
 	ret = ov9724_get_sensor_vts(sd, &(data->vts));
-	if(ret < 0){
-		printk("[ov9724], problem function:%s, line:%d\n", __func__, __LINE__);
+	if(ret < 0)
 		return ret;
-	}
+
 	ret = ov9724_get_sensor_lans(sd, &(data->lans));
-	if(ret < 0){
-		printk("[ov9724], problem function:%s, line:%d\n", __func__, __LINE__);
+	if(ret < 0)
 		return ret;
-	}
+
 	info->win = wsize;
 
 	return 0;
@@ -392,7 +368,7 @@ static int ov9724_s_mbus_fmt(struct v4l2_subdev *sd,
 static int ov9724_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	int ret = 0;
-	printk("--------%s: %d enable:%d\n", __func__, __LINE__, enable);
+
 	if (enable) {
 		ret = ov9724_write_array(sd, ov9724_stream_on);
 		printk("ov9724 stream on\n");
@@ -406,7 +382,6 @@ static int ov9724_s_stream(struct v4l2_subdev *sd, int enable)
 
 static int ov9724_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	a->c.left	= 0;
 	a->c.top	= 0;
 	a->c.width	= MAX_WIDTH;
@@ -418,7 +393,6 @@ static int ov9724_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 
 static int ov9724_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
 	a->bounds.width			= MAX_WIDTH;
@@ -433,13 +407,11 @@ static int ov9724_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 
 static int ov9724_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parms)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
 static int ov9724_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parms)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -448,7 +420,6 @@ static int ov9724_frame_rates[] = { 30, 15, 10, 5, 1 };
 static int ov9724_enum_frameintervals(struct v4l2_subdev *sd,
 		struct v4l2_frmivalenum *interval)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	if (interval->index >= ARRAY_SIZE(ov9724_frame_rates))
 		return -EINVAL;
 	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
@@ -464,7 +435,6 @@ static int ov9724_enum_framesizes(struct v4l2_subdev *sd,
 	int num_valid = -1;
 	__u32 index = fsize->index;
 
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	/*
 	 * If a minimum width/height was requested, filter out the capture
 	 * windows that fall outside that.
@@ -485,19 +455,16 @@ static int ov9724_enum_framesizes(struct v4l2_subdev *sd,
 static int ov9724_queryctrl(struct v4l2_subdev *sd,
 		struct v4l2_queryctrl *qc)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
 static int ov9724_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
 static int ov9724_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -505,7 +472,6 @@ static int ov9724_g_chip_ident(struct v4l2_subdev *sd,
 		struct v4l2_dbg_chip_ident *chip)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 
 //	return v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_OV9724, 0);
 	return v4l2_chip_ident_i2c_client(client, chip, 123, 0);
@@ -543,7 +509,6 @@ static int ov9724_s_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *r
 
 static int ov9724_s_power(struct v4l2_subdev *sd, int on)
 {
-		printk("--%s:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -582,7 +547,6 @@ static const struct v4l2_subdev_ops ov9724_ops = {
 static ssize_t ov9724_rg_ratio_typical_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return sprintf(buf, "%d", rg_ratio_typical);
 }
 
@@ -591,7 +555,6 @@ static ssize_t ov9724_rg_ratio_typical_store(struct device *dev,
 {
 	char *endp;
 	int value;
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 
 	value = simple_strtoul(buf, &endp, 0);
 	if (buf == endp)
@@ -605,7 +568,6 @@ static ssize_t ov9724_rg_ratio_typical_store(struct device *dev,
 static ssize_t ov9724_bg_ratio_typical_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	return sprintf(buf, "%d", bg_ratio_typical);
 }
 
@@ -615,7 +577,6 @@ static ssize_t ov9724_bg_ratio_typical_store(struct device *dev,
 	char *endp;
 	int value;
 
-	printk("functiong:%s, line:%d\n", __func__, __LINE__);
 	value = simple_strtoul(buf, &endp, 0);
 	if (buf == endp)
 		return -EINVAL;
@@ -708,7 +669,6 @@ static struct i2c_driver ov9724_driver = {
 
 static __init int init_ov9724(void)
 {
-	printk("init_ov9724 #########\n");
 	return i2c_add_driver(&ov9724_driver);
 }
 

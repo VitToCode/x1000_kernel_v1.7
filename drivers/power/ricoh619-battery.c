@@ -258,7 +258,6 @@ static void ricoh61x_battery_work(struct work_struct *work)
 	struct ricoh61x_battery_info *info = container_of(work,
 		struct ricoh61x_battery_info, monitor_work.work);
 
-	pr_info("PMU: %s\n", __func__);
 	power_supply_changed(&info->battery);
 	queue_delayed_work(info->monitor_wqueue, &info->monitor_work,
 			   info->monitor_time);
@@ -2162,7 +2161,6 @@ static void ricoh61x_changed_work(struct work_struct *work)
 	struct ricoh61x_battery_info *info = container_of(work,
 		struct ricoh61x_battery_info, changed_work.work);
 
-	pr_info("PMU: %s\n", __func__);
 	power_supply_changed(&info->battery);
 
 	return;
@@ -2558,13 +2556,11 @@ static void ricoh61x_scaling_OCV_table(struct ricoh61x_battery_info *info, int c
 			}
 		}
 	}
-	pr_info("PMU : %s : new table\n",__func__);
 	for (i = 0; i <= 10; i = i+1) {
 		temp = (battery_init_para[info->num][i*2]<<8)
 			 | (battery_init_para[info->num][i*2+1]);
 		/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
 		temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
-		pr_info("PMU : %s : ocv_table %d is %d v\n",__func__, i, temp);
 	}
 
 }
@@ -2590,8 +2586,8 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 	//get ocv table
 	for (i = 0; i <= 10; i = i+1) {
 		info->soca->ocv_table_def[i] = get_OCV_voltage(info, i);
-		pr_info("PMU: %s : %d0%% voltage = %d uV\n",
-			 __func__, i, info->soca->ocv_table_def[i]);
+	/*	pr_info("PMU: %s : %d0%% voltage = %d uV\n",
+			 __func__, i, info->soca->ocv_table_def[i]);*/
 	}
 
 	temp =  (battery_init_para[info->num][24]<<8) | (battery_init_para[info->num][25]);
@@ -2626,7 +2622,7 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 	}
 
 	//for debug
-	pr_info("PMU : %s : target_vsys is %d target_ibat is %d\n",__func__,info->soca->target_vsys,info->soca->target_ibat * 20 / info->fg_rsense_val);
+	//pr_info("PMU : %s : target_vsys is %d target_ibat is %d\n",__func__,info->soca->target_vsys,info->soca->target_ibat * 20 / info->fg_rsense_val);
 
 	if ((info->soca->target_ibat == 0) || (info->soca->target_vsys == 0)) {	/* normal version */
 	} else {	/*Slice cutoff voltage version. */
@@ -2659,8 +2655,6 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 		goto err;
 	}
 	/////////////////////////////////
-
-
 	ret = ricoh61x_read_bank1(info->dev->parent, 0xDC, &val);
 	if (ret < 0) {
 		dev_err(info->dev, "batterry initialize error\n");
@@ -2714,7 +2708,6 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 		available_cap_ori = val2 + (val << 8);
 		available_cap = battery_init_para[info->num][23]
 						+ (battery_init_para[info->num][22] << 8);
-
 
 		if (available_cap_ori == available_cap) {
 			ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
@@ -2983,11 +2976,11 @@ static int ricoh61x_init_charger(struct ricoh61x_battery_info *info)
 	}
 		//debug messeage
 	err = ricoh61x_read(info->dev->parent, BATSET1_REG,&val);
-	pr_info("PMU : %s : after BATSET1_REG (0x%x) is 0x%x info->ch_vbatovset is 0x%x\n",__func__,BATSET1_REG,val,info->ch_vbatovset);
+	//pr_info("PMU : %s : after BATSET1_REG (0x%x) is 0x%x info->ch_vbatovset is 0x%x\n",__func__,BATSET1_REG,val,info->ch_vbatovset);
 
 		//debug messeage
 	err = ricoh61x_read(info->dev->parent, BATSET2_REG,&val);
-	pr_info("PMU : %s : before BATSET2_REG (0x%x) is 0x%x info->ch_vrchg is 0x%x info->ch_vfchg is 0x%x \n",__func__,BATSET2_REG,val,info->ch_vrchg,info->ch_vfchg);
+	//pr_info("PMU : %s : before BATSET2_REG (0x%x) is 0x%x info->ch_vrchg is 0x%x info->ch_vfchg is 0x%x \n",__func__,BATSET2_REG,val,info->ch_vrchg,info->ch_vfchg);
 
 
 	/* BATSET2_REG(0xBB) setting */
@@ -3101,7 +3094,7 @@ static int ricoh61x_init_charger(struct ricoh61x_battery_info *info)
 	} else {
 		vfchg_val = 4350;
 	}
-	pr_info("PMU : %s : test test val %d, val2 %d vfchg %d\n", __func__, val, val2, vfchg_val);
+	//pr_info("PMU : %s : test test val %d, val2 %d vfchg %d\n", __func__, val, val2, vfchg_val);
 
 	/* get  value */
 	err = ricoh61x_read(info->dev->parent, CHGISET_REG, &val);
@@ -3112,13 +3105,13 @@ static int ricoh61x_init_charger(struct ricoh61x_battery_info *info)
 	val &= 0xC0;
 	val2 = val >> 6;
 	icchg_val = 50 + val2 * 50;
-	pr_info("PMU : %s : test test val %d, val2 %d icchg %d\n", __func__, val, val2, icchg_val);
+	//pr_info("PMU : %s : test test val %d, val2 %d icchg %d\n", __func__, val, val2, icchg_val);
 
 	info->soca->OCV100_min = ( vfchg_val * 99 / 100 - (icchg_val * (rbat +20))/1000 - 20 ) * 1000;
 	info->soca->OCV100_max = ( vfchg_val * 101 / 100 - (icchg_val * (rbat +20))/1000 + 20 ) * 1000;
 
-	pr_info("PMU : %s : 100 min %d, 100 max %d vfchg %d icchg %d rbat %d\n",__func__,
-	info->soca->OCV100_min,info->soca->OCV100_max,vfchg_val,icchg_val,rbat);
+//	pr_info("PMU : %s : 100 min %d, 100 max %d vfchg %d icchg %d rbat %d\n",__func__,
+//	info->soca->OCV100_min,info->soca->OCV100_max,vfchg_val,icchg_val,rbat);
 
 #ifdef ENABLE_LOW_BATTERY_DETECTION
 	/* Set ADRQ=00 to stop ADC */
@@ -3286,8 +3279,6 @@ static void charger_irq_work(struct work_struct *work)
 	//uint8_t adp_current_val = 0x0E;
 	//uint8_t usb_current_val = 0x04;
 
-	pr_info("PMU:%s In\n", __func__);
-
 	power_supply_changed(&info->battery);
 
 	mutex_lock(&info->lock);
@@ -3352,7 +3343,6 @@ static void charger_irq_work(struct work_struct *work)
 	}
 
 	mutex_unlock(&info->lock);
-	pr_info("PMU:%s Out\n", __func__);
 }
 
 #ifdef ENABLE_LOW_BATTERY_DETECTION
@@ -3362,8 +3352,6 @@ static void low_battery_irq_work(struct work_struct *work)
 		 struct ricoh61x_battery_info, low_battery_work.work);
 
 	int ret = 0;
-
-	pr_info("PMU:%s In\n", __func__);
 
 	power_supply_changed(&info->battery);
 
@@ -3379,7 +3367,6 @@ static void low_battery_irq_work(struct work_struct *work)
 static irqreturn_t charger_in_isr(int irq, void *battery_info)
 {
 	struct ricoh61x_battery_info *info = battery_info;
-	pr_info("PMU:%s\n", __func__);
 
 	info->chg_stat1 |= 0x01;
 	queue_work(info->workqueue, &info->irq_work);
@@ -3389,7 +3376,6 @@ static irqreturn_t charger_in_isr(int irq, void *battery_info)
 static irqreturn_t charger_complete_isr(int irq, void *battery_info)
 {
 	struct ricoh61x_battery_info *info = battery_info;
-	pr_info("PMU:%s\n", __func__);
 
 	info->chg_stat1 |= 0x02;
 	queue_work(info->workqueue, &info->irq_work);
@@ -3400,7 +3386,6 @@ static irqreturn_t charger_complete_isr(int irq, void *battery_info)
 static irqreturn_t charger_usb_isr(int irq, void *battery_info)
 {
 	struct ricoh61x_battery_info *info = battery_info;
-	pr_info("PMU:%s\n", __func__);
 
 	info->chg_ctr |= 0x02;
 
@@ -3418,7 +3403,6 @@ static irqreturn_t charger_usb_isr(int irq, void *battery_info)
 static irqreturn_t charger_adp_isr(int irq, void *battery_info)
 {
 	struct ricoh61x_battery_info *info = battery_info;
-	pr_info("PMU:%s\n", __func__);
 
 	info->chg_ctr |= 0x01;
 	queue_work(info->workqueue, &info->irq_work);
@@ -3442,8 +3426,6 @@ static irqreturn_t adc_vsysl_isr(int irq, void *battery_info)
 {
 
 	struct ricoh61x_battery_info *info = battery_info;
-
-	pr_info("PMU:%s\n", __func__);
 
 	queue_delayed_work(info->monitor_wqueue, &info->low_battery_work,
 					LOW_BATTERY_DETECTION_TIME*HZ);
@@ -4174,8 +4156,6 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 	int type_n;
 	int ret, temp;
 
-	printk("=================jwsun %s %d\n",__func__,__LINE__);
-
 	pr_info("PMU: %s : version is %s\n", __func__,RICOH61x_BATTERY_VERSION);
 
 	info = kzalloc(sizeof(struct ricoh61x_battery_info), GFP_KERNEL);
@@ -4193,7 +4173,7 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 
 	/* check rage of b,.attery type */
 	type_n = Battery_Type();
-	printk("the Battery_Type is type[%d]\n",type_n);
+//	printk("the Battery_Type is type[%d]\n",type_n);
 	temp = sizeof(pdata->type)/(sizeof(struct ricoh619_battery_type_data));
 	if(type_n  >= temp)
 	{
@@ -4779,7 +4759,6 @@ static struct platform_driver ricoh61x_battery_driver = {
 
 static int __init ricoh61x_battery_init(void)
 {
-	pr_info("PMU: %s\n", __func__);
 	return platform_driver_register(&ricoh61x_battery_driver);
 }
 module_init(ricoh61x_battery_init);

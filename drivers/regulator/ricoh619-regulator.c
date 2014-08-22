@@ -437,7 +437,6 @@ static int __devinit ricoh61x_regulator_probe(struct platform_device *pdev)
 	int id = pdev->id;
 	int err;
 
-	printk(KERN_INFO "PMU: %s\n", __func__);
 	ri = find_regulator_info(id);
 	if (ri == NULL) {
 		dev_err(&pdev->dev, "invalid regulator ID specified\n");
@@ -494,7 +493,6 @@ static struct platform_driver ricoh61x_regulator_driver = {
 
 static int __init ricoh61x_regulator_init(void)
 {
-	printk(KERN_INFO "PMU: %s\n", __func__);
 	return platform_driver_register(&ricoh61x_regulator_driver);
 }
 subsys_initcall(ricoh61x_regulator_init);
