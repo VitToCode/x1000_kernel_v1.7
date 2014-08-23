@@ -18,7 +18,7 @@
 #include <linux/d2041/d2041_pmic.h>
 #include <linux/d2041/d2041_core.h>
 #include "board.h"
-
+#include <linux/delay.h>
 #define FIXED_REGULATOR_DEF(NAME, SNAME, MV, GPIO, EH, EB, DELAY, SREG, SUPPLY, DEV_NAME)\
 static struct regulator_consumer_supply NAME##_regulator_consumer =			\
 	REGULATOR_SUPPLY(SUPPLY, DEV_NAME);						\
@@ -414,6 +414,23 @@ static int __init pmu_dev_init(void)
 		return -1;
 	}
 
+#if 0
+	if(gpio_request(MOTOR_DRV_P, "MOTOR_DRV_P")&&gpio_request(MOTOR_DRV_N, "MOTOR_DRV_N")){
+		printk("request gpio motor err\n");
+}
+	while(1){
+		mdelay(5000);
+	gpio_direction_output(MOTOR_DRV_N,1);
+	gpio_direction_output(MOTOR_DRV_P,0);
+	printk("2222222222222222222222\n");
+		mdelay(5000);
+	gpio_direction_output(MOTOR_DRV_N,0);
+	gpio_direction_output(MOTOR_DRV_P,1);
+	printk("sssssssssssssssssssssssssss\n");
+
+	}
+
+#endif
 	i2c_put_adapter(adap);
 
 	for (i = 0; i < ARRAY_SIZE(fixed_regulator_devices); i++)

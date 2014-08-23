@@ -1,0 +1,13 @@
+choice
+	prompt "BOARD type"
+	depends on PRODUCT_RVMS
+	default BOARD_FORNAX
+
+config BOARD_FORNAX
+       bool "board fornax"
+       depends on PRODUCT_RVMS
+endchoice
+
+config BOARD_NAME
+	string
+	default "fornax" if BOARD_FORNAX

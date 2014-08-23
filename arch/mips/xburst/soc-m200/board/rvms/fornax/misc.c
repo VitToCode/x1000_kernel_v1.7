@@ -19,7 +19,7 @@
 #include <gpio.h>
 #include "board.h"
 #include <mach/jz_dsim.h>
-
+#include <linux/platform_data/common_pdata.h>
 #if defined(CONFIG_INV_MPU_IIO)
 #include <linux/inv_mpu.h>
 #endif
@@ -140,74 +140,88 @@ static struct platform_device jz_li_ion_charger_device = {
 };
 #endif
 
-/*touchscreen*/
-#ifdef CONFIG_M200_SUPPORT_TSC
+#if defined(CONFIG_SENSORS_MVH3000D)
+static struct regulator *mvh3000d_power_vio = NULL;
+static atomic_t mvh3000d_powered = ATOMIC_INIT(0);
 
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-static struct jztsc_pin fpga_tsc_gpio[] = {
-	[0] = {GPIO_TP_INT, LOW_ENABLE},
-	[1] = {GPIO_TP_WAKE, HIGH_ENABLE},
+static int mvh3000d_init(struct device *dev)
+{
+	int res;
+
+	pr_info("mvh3000d_init ...\n");
+	if (!mvh3000d_power_vio) {
+		mvh3000d_power_vio = regulator_get(dev, "cpu_vddio");
+		if (IS_ERR(mvh3000d_power_vio)) {
+			pr_err("%s -> get regulator VIO failed\n",__func__);
+			res = -ENODEV;
+			goto err_vio;
+		}
+	}
+
+	return 0;
+err_vio:
+	mvh3000d_power_vio = NULL;
+	return res;
+}
+
+static int mvh3000d_exit(void)
+{
+	if (mvh3000d_power_vio != NULL && !IS_ERR(mvh3000d_power_vio)) {
+		regulator_put(mvh3000d_power_vio);
+	}
+
+	atomic_set(&mvh3000d_powered, 0);
+
+	return 0;
+}
+
+static int mvh3000d_power_on(void)
+{
+	int res;
+	if (!atomic_read(&mvh3000d_powered)) {
+		if (!IS_ERR(mvh3000d_power_vio)) {
+			regulator_enable(mvh3000d_power_vio);
+		} else {
+			pr_err("mvh3000d VIO power unavailable!\n");
+			res = -ENODEV;
+			goto err_vio;
+		}
+
+		atomic_set(&mvh3000d_powered, 1);
+	}
+	return 0;
+err_vio:
+	return res;
+}
+
+static int mvh3000d_power_off(void)
+{
+	int res;
+	if (atomic_read(&mvh3000d_powered)) {
+		if (!IS_ERR(mvh3000d_power_vio)) {
+			regulator_disable(mvh3000d_power_vio);
+		} else {
+			pr_err("mvh3000d VIO power unavailable!\n");
+			res = -ENODEV;
+			goto err_vio;
+		}
+
+		atomic_set(&mvh3000d_powered, 0);
+	}
+
+	return 0;
+err_vio:
+	return res;
+}
+
+static struct common_platform_data mvh3000d_pdata = {
+	.poll_interval = 5000,
+	.min_interval = 100,
+	.board_init = mvh3000d_init,
+	.board_exit = mvh3000d_exit,
+	.power_on = mvh3000d_power_on,
+	.power_off = mvh3000d_power_off,
 };
-
-static struct jztsc_platform_data fpga_tsc_pdata = {
-	.gpio = fpga_tsc_gpio,
-	.x_max = 800,
-	.y_max = 480,
-};
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_FT6X0X
-#include <linux/i2c/ft6x0x_ts.h>
-extern int touch_power_init(struct device *dev);
-extern int touch_power_on(struct device *dev);
-extern int touch_power_off(struct device *dev);
-
-static struct jztsc_pin ft6x0x_tsc_gpio[] = {
-	 [0] = {GPIO_TP_INT,         LOW_ENABLE},
-	 [1] = {GPIO_TP_WAKE,        LOW_ENABLE},
-};
-
-static struct ft6x0x_platform_data ft6x0x_tsc_pdata = {
-	.gpio           = ft6x0x_tsc_gpio,
-	.x_max          = 240,
-	.y_max          = 240,
-	.fw_ver         = 0x21,
-#ifdef CONFIG_KEY_SPECIAL_POWER_KEY
-	.blight_off_timer = 3000,   //3s
-#endif
-	.power_init     = touch_power_init,
-	.power_on       = touch_power_on,
-	.power_off      = touch_power_off,
-};
-
-#endif
-
-
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
-#include <linux/i2c/ft6x06_ts.h>
-static struct ft6x06_platform_data ft6x06_tsc_pdata = {
-	.x_max          = 300,
-	.y_max          = 540,
-	.va_x_max		= 300,
-	.va_y_max		= 480,
-	.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
-	.irq = (32 * 1 + 0),
-	.reset = (32 * 0 + 12),
-};
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_FT5336
-#include <linux/i2c/ft5336_ts.h>
-static struct ft5336_platform_data ft5336_tsc_pdata = {
-		.x_max          = 540,
-		.y_max          = 1020,
-		.va_x_max		= 540,
-		.va_y_max		= 960,
-		.irqflags = IRQF_TRIGGER_FALLING|IRQF_DISABLED,
-		.irq = GPIO_PB(0),
-		.reset = GPIO_PA(12),
-};
-#endif
 #endif
 
 #if defined(CONFIG_INV_MPU_IIO)
@@ -362,36 +376,6 @@ static struct mpu_platform_data mpu9250_platform_data = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V12))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
-
-#ifdef CONFIG_M200_SUPPORT_TSC
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-	{
-	 I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-	 .platform_data = &fpga_tsc_pdata,
-	},
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
-	{
-		I2C_BOARD_INFO("ft6x06_ts", 0x38),
-		.platform_data = &ft6x06_tsc_pdata,
-	},
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_FT6X0X
-	{
-		I2C_BOARD_INFO("ft6x0x_tsc", 0x38),
-		.platform_data = &ft6x0x_tsc_pdata,
-	},
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_FT5336
-	{
-		I2C_BOARD_INFO("ft5336_ts", 0x38),
-		.platform_data = &ft5336_tsc_pdata,
-	},
-#endif
-#endif /*CONFIG_M200_SUPPORT_TSC*/
 #if defined(CONFIG_INV_MPU_IIO)
 	{
 		I2C_BOARD_INFO("mpu6500", 0x68),
@@ -424,6 +408,14 @@ static struct i2c_board_info jz_i2c1_devs[] __initdata = {
 	 * define gpio i2c,if you use gpio i2c,
 	 * please enable gpio i2c and disable i2c controller
 	 */
+static struct i2c_board_info jz_i2c4_devs[] __initdata = {
+#if defined(CONFIG_SENSORS_MVH3000D)
+	{
+		I2C_BOARD_INFO("mvh3000d", 0x44),
+		.platform_data = &mvh3000d_pdata,
+	},
+#endif
+};
 #ifdef CONFIG_I2C_GPIO
 #define DEF_GPIO_I2C(NO,GPIO_I2C_SDA,GPIO_I2C_SCK)			\
 	static struct i2c_gpio_platform_data i2c##NO##_gpio_data = {	\
@@ -448,10 +440,11 @@ DEF_GPIO_I2C(2,GPIO_PF(16),GPIO_PF(17));
 #ifndef CONFIG_I2C3_V12_JZ
 DEF_GPIO_I2C(3,GPIO_PC(23),GPIO_PC(22));
 #endif
+DEF_GPIO_I2C(4,GPIO_PC(5),GPIO_PC(4));
 #endif /*CONFIG_I2C_GPIO*/
 
 
-#ifdef CONFIG_JZ_BATTERY
+//#ifdef CONFIG_JZ_BATTERY
 
 static struct jz_battery_info  battery_info = {
 	.max_vol        = 4050,
@@ -466,7 +459,7 @@ static struct jz_battery_info  battery_info = {
 };
 
 static struct jz_adc_platform_data adc_platform_data;
-#endif
+//#endif
 
 #ifdef CONFIG_SPI_JZ_V1_2
 #include <mach/jzssi_v1_2.h>
@@ -536,10 +529,10 @@ static int __init board_init(void)
 {
 
 	/* ADC */
-#ifdef CONFIG_JZ_BATTERY
+//#ifdef CONFIG_JZ_BATTERY
 	adc_platform_data.battery_info = battery_info;
 	jz_device_register(&jz_adc_device,&adc_platform_data);
-#endif
+//#endif
 	/* li-ion charger */
 #ifdef CONFIG_CHARGER_LI_ION
 	platform_device_register(&jz_li_ion_charger_device);
@@ -590,6 +583,7 @@ static int __init board_init(void)
 #ifndef CONFIG_I2C3_V12_JZ
 	platform_device_register(&i2c3_gpio_device);
 #endif
+	platform_device_register(&i2c4_gpio_device);
 #endif	/* CONFIG_I2C_GPIO */
 
 #ifdef CONFIG_I2C0_V12_JZ
@@ -615,7 +609,9 @@ static int __init board_init(void)
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ) || defined(CONFIG_I2C1_DMA_V12))
 	i2c_register_board_info(1, jz_i2c1_devs, ARRAY_SIZE(jz_i2c1_devs));
 #endif
-
+#if defined(CONFIG_I2C_GPIO)
+	i2c_register_board_info(4, jz_i2c4_devs, ARRAY_SIZE(jz_i2c4_devs));
+#endif
 /*dma*/
 #ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
