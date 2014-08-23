@@ -19,7 +19,6 @@
 #include <gpio.h>
 #include "board.h"
 #include <mach/jz_dsim.h>
-#include <linux/platform_data/common_pdata.h>
 #if defined(CONFIG_INV_MPU_IIO)
 #include <linux/inv_mpu.h>
 #endif
