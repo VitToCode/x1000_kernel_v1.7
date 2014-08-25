@@ -825,8 +825,6 @@ static int spdif_global_init(struct platform_device *pdev)
 	struct dsp_pipe *spdif_pipe_in = NULL;
 	struct clk *spdif_clk = NULL;
 
-	printk("----> start %s\n", __func__);
-
 	spdif_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (spdif_resource == NULL) {
 		printk("%s spdif_resource get failed!\n", __func__);
@@ -980,8 +978,6 @@ struct snd_dev_data snd_mixer2_data = {
 
 static int __init init_spdif(void)
 {
-	printk("-----> come to this %s\n", __func__);
-
 	return 0;
 }
 module_init(init_spdif);
