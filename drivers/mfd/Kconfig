@@ -121,6 +121,9 @@ config MFD_JZ_SADC_V12
 	  Say yes here if you want support for the SADC unit in the M200 SoC.
 	  This driver is necessary for jz_battery driver.
 
+config MFD_SADC_BH1680FVC
+	tristate "Support for the SADC BH1680FVC core"
+	select MFD_CORE
 
 config MFD_88PM860X
 	bool "Support Marvell 88PM8606/88PM8607"

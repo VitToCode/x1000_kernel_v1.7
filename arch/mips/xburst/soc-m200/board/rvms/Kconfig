@@ -6,8 +6,12 @@ choice
 config BOARD_FORNAX
        bool "board fornax"
        depends on PRODUCT_RVMS
+config BOARD_PAWSCAN
+       bool "board pawscan"
+       depends on PRODUCT_RVMS
 endchoice
 
 config BOARD_NAME
 	string
 	default "fornax" if BOARD_FORNAX
+	default "pawscan" if BOARD_PAWSCAN
