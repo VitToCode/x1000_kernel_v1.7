@@ -17,7 +17,7 @@
 #include <linux/gpio.h>
 #include <linux/pwm_backlight.h>
 #include <mach/jzfb.h>
-#include "board_base.h"
+#include "../board_base.h"
 #include <linux/otm8012a_init_mipi.h>
 
 struct fb_videomode jzfb_videomode = {

@@ -19,7 +19,7 @@
 #include <linux/lcd.h>
 
 #include <mach/jzfb.h>
-#include "board_base.h"
+#include "../board_base.h"
 
 struct fb_videomode jzfb_videomode = {
 	.name = "lh155-lcd",
@@ -76,7 +76,7 @@ unsigned long lh155_cmd_buf[]= {
 	0x2C2C2C2C,
 };
 
-struct jzdsi_platform_data jzdsi_pdata = {
+struct jzdsi_data jzdsi_pdata = {
 	.modes = &jzfb_videomode,
 	.video_config.no_of_lanes = 1,
 	.video_config.virtual_channel = 0,

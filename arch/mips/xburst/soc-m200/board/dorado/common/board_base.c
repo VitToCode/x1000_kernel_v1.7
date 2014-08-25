@@ -140,9 +140,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_FB_JZ_V12
 	DEF_DEVICE(&jz_fb_device, &jzfb_pdata, sizeof(struct jzfb_platform_data)),
 #endif
-#ifdef CONFIG_JZ_MIPI_DSI
-	DEF_DEVICE(&jz_dsi_device, &jzdsi_pdata, sizeof(struct jzdsi_platform_data));
-#endif
 #ifdef CONFIG_JZ_EPD_V12
 	DEF_DEVICE(&jz_epd_device, &jz_epd_pdata, sizeof(struct jz_epd_platform_data));
 #endif
