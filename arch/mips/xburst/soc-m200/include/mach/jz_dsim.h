@@ -131,14 +131,9 @@ struct video_config {
 
 
 struct dsi_device {
-	struct device *dev;
-	int id;
-	struct resource *res;
-	struct clk *clock;
-	unsigned int irq;
 	unsigned int __iomem address;
 	struct mutex lock;
-
+	struct clk *clk;
 	struct dsi_config *dsi_config;
 	struct dsi_phy *dsi_phy;
 	struct video_config *video_config;
@@ -248,7 +243,7 @@ struct dsi_master_ops {
 	int (*set_blank_mode)(struct dsi_device *dsi, int power);
 };
 
-extern struct jzdsi_platform_data jzdsi_pdata;
+extern struct jzdsi_data jzdsi_pdata;
 int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device
 		                        *lcd_dev);
 /**

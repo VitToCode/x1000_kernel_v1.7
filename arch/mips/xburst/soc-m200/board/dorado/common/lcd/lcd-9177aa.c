@@ -19,7 +19,7 @@
 #include <linux/lcd.h>
 
 #include <mach/jzfb.h>
-#include "board_base.h"
+#include "../board_base.h"
 
 int byd_9177aa_reset(struct lcd_device *lcd)
 {
@@ -80,7 +80,7 @@ struct fb_videomode jzfb_videomode = {
 	.flag = 0,
 };
 
-struct jzdsi_platform_data jzdsi_pdata = {
+struct jzdsi_data jzdsi_pdata = {
 	.modes = &jzfb_videomode,
 	.video_config.no_of_lanes = 2,
 	.video_config.virtual_channel = 0,

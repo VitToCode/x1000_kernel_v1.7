@@ -94,8 +94,6 @@ struct jzfb {
 	struct resource *mem;
 #ifdef CONFIG_JZ_MIPI_DSI
 	struct dsi_device *dsi;
-	struct platform_driver *jz_dsi_driver;
-	struct platform_device *jz_dsi_device;
 #endif
 
 

@@ -41,13 +41,13 @@
 #ifdef CONFIG_JZ_MIPI_DSI
 #include "./jz_mipi_dsi/jz_mipi_dsih_hal.h"
 #include "./jz_mipi_dsi/jz_mipi_dsi_regs.h"
+extern struct dsi_device * jzdsi_init(struct jzdsi_data *pdata);
+extern void jzdsi_remove(struct dsi_device *dsi);
+extern void dump_dsi_reg(struct dsi_device *dsi);
 #endif
 
 #include "jz_fb.h"
 #include "regs.h"
-
-extern void dump_dsi_reg(struct dsi_device *dsi);
-extern struct platform_driver jz_dsi_driver;
 
 static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
@@ -579,12 +579,6 @@ static void slcd_send_mcu_data(struct jzfb *jzfb, unsigned long data)
 	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | data);
 }
 
-static void
-slcd_set_mcu_register(struct jzfb *jzfb, unsigned long cmd, unsigned long data)
-{
-	slcd_send_mcu_command(jzfb, cmd);
-	slcd_send_mcu_data(jzfb, data);
-}
 static void jzfb_slcd_mcu_init(struct fb_info *info)
 {
 	unsigned int is_lcd_en, i;
@@ -1023,7 +1017,6 @@ static int jzfb_set_par(struct fb_info *info)
 		reg_write(jzfb, LCDC_CFG, cfg);
 		jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
 	}
-
 #endif
 
 	if (is_lcd_en) {
@@ -2398,13 +2391,13 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get register memory resource\n");
 		return -ENXIO;
 	}
-
 	mem = request_mem_region(mem->start, resource_size(mem), pdev->name);
 	if (!mem) {
 		dev_err(&pdev->dev,
 			"Failed to request register memory region\n");
 		return -EBUSY;
 	}
+
 
 	fb = framebuffer_alloc(sizeof(struct jzfb), &pdev->dev);
 	if (!fb) {
@@ -2421,16 +2414,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->dev = &pdev->dev;
 	jzfb->pdata = pdata;
 	jzfb->mem = mem;
-#ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->jz_dsi_driver = &jz_dsi_driver;
-	jzfb->jz_dsi_device = &jz_dsi_device;
-	if(jzfb->jz_dsi_driver->probe)
-		jzfb->jz_dsi_driver->probe(jzfb->jz_dsi_device);
-	jzfb->dsi = container_of(pdata->dsi_pdata->dsi_state, struct dsi_device, state);
-	if (!jzfb->dsi) {
-		goto err_get_dsi;
-	}
-#endif
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_SLCD) {
@@ -2457,6 +2440,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 
+
 	jzfb->base = ioremap(mem->start, resource_size(mem));
 	if (!jzfb->base) {
 		dev_err(&pdev->dev,
@@ -2464,6 +2448,12 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		ret = -EBUSY;
 		goto err_put_clk;
 	}
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi = jzdsi_init(pdata->dsi_pdata);
+	if (!jzfb->dsi) {
+		goto err_iounmap;
+	}
+#endif
 
 	platform_set_drvdata(pdev, jzfb);
 
@@ -2584,10 +2574,6 @@ err_put_clk:
 		clk_put(jzfb->pwcl);
 err_framebuffer_release:
 	framebuffer_release(fb);
-#ifdef CONFIG_JZ_MIPI_DSI
-err_get_dsi:
-	dev_err(&pdev->dev, "get dsi device error\n");
-#endif
 err_release_mem_region:
 	release_mem_region(mem->start, resource_size(mem));
 	return ret;
@@ -2600,7 +2586,9 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
-
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzdsi_remove(jzfb->dsi);
+#endif
 	clk_put(jzfb->pclk);
 	clk_put(jzfb->clk);
 	clk_put(jzfb->pwcl);
