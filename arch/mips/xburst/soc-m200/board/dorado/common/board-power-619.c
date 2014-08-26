@@ -31,7 +31,6 @@
 #include <linux/rtc.h>
 #include "board_base.h"
 
-#define PMU_I2C_BUSNUM	1
 #define PMIC_IRQ	0
 
 /* If don't use the GPIO function, Set this macro to -1 */

@@ -1,6 +1,9 @@
 #ifndef __PMU_H__
 #define __PMU_H__
 #ifdef CONFIG_REGULATOR_RICOH619
+
+#define PMU_I2C_BUSNUM  2
+
 /* ****************************PMU DC/LDO NAME******************************* */
 #define DC1_NAME "cpu_core"
 #define DC2_NAME "cpu_vmema"

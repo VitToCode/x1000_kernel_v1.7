@@ -10,6 +10,10 @@ struct pca953x_platform_data {
 	/* number of the first GPIO */
 	unsigned	gpio_base;
 
+	/*reset pin */
+	unsigned    reset_n;
+	/*irq pin */
+	unsigned    irq_n;
 	/* initial polarity inversion setting */
 	uint16_t	invert;
 

@@ -60,12 +60,14 @@
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
 #ifndef CONFIG_I2C1_V12_JZ
-#define GPIO_I2C1_SDA GPIO_PA(12)
-#define GPIO_I2C1_SCK GPIO_PA(13)
+#define GPIO_I2C1_SDA GPIO_PE(30)
+#define GPIO_I2C1_SCK GPIO_PE(31)
 #endif
 #ifndef CONFIG_I2C2_V12_JZ
-#define GPIO_I2C2_SDA GPIO_PE(00)
-#define GPIO_I2C2_SCK GPIO_PE(03)
+#define GPIO_I2C2_SDA GPIO_PA(12)
+#define GPIO_I2C2_SCK GPIO_PA(13)
+//#define GPIO_I2C2_SDA GPIO_PE(00)
+//#define GPIO_I2C2_SCK GPIO_PE(03)
 #endif
 #ifndef CONFIG_I2C3_V12_JZ
 #define GPIO_I2C3_SDA GPIO_PB(7)
@@ -122,6 +124,16 @@
 #define GPIO_PMU_IRQ		GPIO_PA(3)
 /* ****************************GPIO PMU END********************************** */
 
+/******************************GPIO PCA9539 START***********************************/
+/*GPIO PCA9593*/
+#ifdef CONFIG_GPIO_PCA953X
+#define PCA9539_IRQ_N       GPIO_PD(19)
+#define PCA9539_RST_N       GPIO_PA(14)
+#define PCA9539_GPIO_BASE   177
+#define PCA9539_EXT_GPIO(x)   (PCA9539_GPIO_BASE + (x))
+#endif /* CONFIG_PCA9539 */
+/* ****************************GPIO PCA9539 END********************************** */
+
 /* ****************************GPIO GSENSOR START**************************** */
 #define GPIO_GSENSOR_INT     GPIO_PA(15)
 /* ****************************GPIO GSENSOR END****************************** */
@@ -137,9 +149,9 @@
 /* ****************************GPIO LI ION END******************************* */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID				PCA9539_EXT_GPIO(7)/*GPIO_PA(13)*/
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
-#define GPIO_USB_DETE			GPIO_PA(14)
+#define GPIO_USB_DETE			PCA9539_EXT_GPIO(8) /*GPIO_PA(14)*/
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
 #define GPIO_USB_DRVVBUS		GPIO_PE(10)
 #define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
@@ -160,7 +172,7 @@
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL	-1	/*vaild level*/
 
-#define GPIO_SPEAKER_EN		-1      /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN	   -1	      /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL	-1
 
 #define GPIO_HANDSET_EN		-1	/*handset enable gpio*/
