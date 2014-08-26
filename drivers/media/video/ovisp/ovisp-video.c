@@ -21,10 +21,10 @@
 #include "ovisp-video.h"
 #include "ovisp-videobuf.h"
 #include "ovisp-debugtool.h"
+#include "ovisp-base.h"
 #include "isp-debug.h"
 
 #include "ovisp-csi.h"
-#include "../ov5645.h"
 static struct ovisp_camera_format isp_oformats[] = {
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
@@ -648,7 +648,7 @@ static int ovisp_camera_try_format(struct ovisp_camera_dev *camdev, struct v4l2_
 	}
 
 	out_fmt = ovisp_camera_find_format(NULL, f, -1);
-	if (!in_fmt) {
+	if (!out_fmt) {
 		ISP_PRINT(ISP_ERROR,"Fourcc format (0x%08x) invalid\n",
 				f->fmt.pix.pixelformat);
 		return -EINVAL;
@@ -691,7 +691,8 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	unsigned long flags;
 	if (!capture->running)
 		return 0;
-
+//	if(status & ISP_NOTIFY_RESTARTING){
+//	}
 	if (status & ISP_NOTIFY_DATA_DONE) {
 		buf = NULL;
 		spin_lock_irqsave(&camdev->slock, flags);
@@ -715,6 +716,8 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 			capture->lose_frames++;
 
 	}
+	if(!(status & ISP_NOTIFY_UPDATE_BUF))
+		return 0;
 	if (status & ISP_NOTIFY_DATA_START){
 		buf = NULL;
 		capture->in_frames++;
@@ -960,15 +963,15 @@ static int ovisp_vidioc_enum_fmt_vid_cap(struct file *file, void  *priv,
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
 	struct ovisp_camera_format *fmt;
-	enum v4l2_mbus_pixelcode code;
+	struct v4l2_mbus_framefmt mbus;
 	int ret;
 
 	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
 	if (csd->bypass) {
-		ret = v4l2_subdev_call(csd->sd, video, enum_mbus_fmt, f->index, &code);
+		ret = v4l2_subdev_call(csd->sd, video, enum_mbus_fmt, f->index, &mbus.code);
 		if (ret && ret != -ENOIOCTLCMD)
 			return -EINVAL;
-		fmt = ovisp_camera_find_format(&code, NULL, -1);
+		fmt = ovisp_camera_find_format(&mbus, NULL, -1);
 	} else {
 		fmt = ovisp_camera_find_format(NULL, NULL, f->index);
 	}
@@ -1257,13 +1260,16 @@ static int ovisp_flush_cache(struct ovisp_camera_dev *camdev, unsigned int addr,
 }
 static int ovisp_acquire_photo(struct ovisp_camera_dev *camdev, struct v4l2_control *ctrl)
 {
-	struct isp_format ifmt;
+	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
+	struct isp_format tmp_ifmt;
+	struct isp_format save_ifmt;
+	struct ovisp_camera_devfmt cfmt;
 	struct v4l2_acquire_photo_parm parm;
 	struct ovisp_camera_buffer *buf = NULL;
+	struct ovisp_camera_format *fmt;
 	struct vb2_buffer *vb = NULL;
-	struct v4l2_format *fmt;
 	unsigned long irqsave;
-	int ret = 0, i = 0;;
+	int ret = 0;
 
 	ret = copy_from_user(&parm, (void __user *)(ctrl->value), sizeof(parm));
 	if(ret){
@@ -1281,24 +1287,94 @@ static int ovisp_acquire_photo(struct ovisp_camera_dev *camdev, struct v4l2_cont
 		ISP_PRINT(ISP_ERROR,"Failed to flush cache!\n");
 		return -EFAULT;
 	}
-#if 0
-	ifmt.vfmt.dev_width = parm.width;
-	ifmt.vfmt.dev_height = parm.height;
-	ifmt.vfmt.dev_fourcc = parm.src.fourcc;
-	ifmt.vfmt.width = parm.width;
-	ifmt.vfmt.height = parm.height;
-	ifmt.vfmt.fourcc = parm.dst.fourcc;
-	ifmt.vfmt.field = camdev->frame.field;
-#endif
+
 	if(parm.flags & V4L2_ACQUIRE_DELAY_PHOTO){
+		ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+		/*to match the sensor supported format*/
+		cfmt.vmfmt.width = parm.width;
+		cfmt.vmfmt.height = parm.height;
+		ret = v4l2_subdev_call(csd->sd, video, try_mbus_fmt, &cfmt.vmfmt);
+		if (ret && ret != -ENOIOCTLCMD)
+			return -EINVAL;
+
+		fmt = ovisp_camera_find_format(&cfmt.vmfmt, NULL, -1);
+		if (!fmt) {
+			ISP_PRINT(ISP_ERROR,"Sensor output format (0x%08x) invalid\n",
+					cfmt.vmfmt.code);
+			return -EINVAL;
+		}
+		memset(&cfmt.fmt_data, 0, sizeof(cfmt.fmt_data));
+		tmp_ifmt.vfmt.width = parm.width;
+		tmp_ifmt.vfmt.height = parm.height;
+		tmp_ifmt.vfmt.fourcc = parm.src.fourcc;
+		tmp_ifmt.vfmt.dev_width = cfmt.vmfmt.width;
+		tmp_ifmt.vfmt.dev_height = cfmt.vmfmt.height;
+		tmp_ifmt.vfmt.dev_fourcc = fmt->fourcc;
+		tmp_ifmt.fmt_data = &cfmt.fmt_data;
+		/* save all flags of isp */
+		ret = isp_dev_call(camdev->isp, save_flags, &save_ifmt);
+		if (ret) {
+			ISP_PRINT(ISP_ERROR,"%s[%d] save_flags failed!\n",__func__, __LINE__);
+			return -EINVAL;
+		}
+		if(cfmt.vmfmt.width != save_ifmt.vfmt.dev_width
+				|| cfmt.vmfmt.height != save_ifmt.vfmt.dev_height)
+		{
+			ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+			/* modify sensor output imagesize */
+			ret = v4l2_subdev_call(csd->sd, video, s_stream, 0);
+			ret = v4l2_subdev_call(csd->sd, video, s_mbus_fmt, &cfmt.vmfmt);
+			if (ret && ret != -ENOIOCTLCMD)
+				return -EINVAL;
+			ret = v4l2_subdev_call(csd->sd, video, s_stream, 1);
+		}
+		ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
 		spin_lock_irqsave(&camdev->slock, irqsave);
 		buf = camdev->capture.last;
 		spin_unlock_irqrestore(&camdev->slock, irqsave);
+		ret = isp_dev_call(camdev->isp, bypass_capture, &tmp_ifmt, parm.src.addr);
+		if (ret) {
+			ISP_PRINT(ISP_ERROR,"%s[%d] bypass_capture failed!\n",__func__, __LINE__);
+			return -EINVAL;
+		}
+		tmp_ifmt.vfmt.dev_width = parm.width;
+		tmp_ifmt.vfmt.dev_height = parm.height;
+		tmp_ifmt.vfmt.dev_fourcc = parm.src.fourcc;
+		tmp_ifmt.vfmt.width = parm.width;
+		tmp_ifmt.vfmt.height = parm.height;
+		tmp_ifmt.vfmt.fourcc = parm.dst.fourcc;
+		tmp_ifmt.vfmt.field = camdev->frame.field;
+		ret = isp_dev_call(camdev->isp, process_raw, &tmp_ifmt, parm.src.addr, parm.dst.addr, buf->priv);
+		if(cfmt.vmfmt.width != save_ifmt.vfmt.dev_width
+				|| cfmt.vmfmt.height != save_ifmt.vfmt.dev_height)
+		{
+			cfmt.vmfmt.width = save_ifmt.vfmt.dev_width;
+			cfmt.vmfmt.height = save_ifmt.vfmt.dev_height;
+			/* modify sensor output imagesize */
+			ret = v4l2_subdev_call(csd->sd, video, s_stream, 0);
+			ret = v4l2_subdev_call(csd->sd, video, s_mbus_fmt, &cfmt.vmfmt);
+			if (ret && ret != -ENOIOCTLCMD)
+				return -EINVAL;
+			ret = v4l2_subdev_call(csd->sd, video, s_stream, 1);
+		}
+		/* save all flags of isp */
+		ret = isp_dev_call(camdev->isp, restore_flags, &save_ifmt);
+		if (ret) {
+			ISP_PRINT(ISP_ERROR,"%s[%d] save_flags failed!\n",__func__, __LINE__);
+			return -EINVAL;
+		}
 	}
 	if(parm.flags & V4L2_ACQUIRE_LIVING_PHOTO){
+		tmp_ifmt.vfmt.dev_width = parm.width;
+		tmp_ifmt.vfmt.dev_height = parm.height;
+		tmp_ifmt.vfmt.dev_fourcc = parm.src.fourcc;
+		tmp_ifmt.vfmt.width = parm.width;
+		tmp_ifmt.vfmt.height = parm.height;
+		tmp_ifmt.vfmt.fourcc = parm.dst.fourcc;
+		tmp_ifmt.vfmt.field = camdev->frame.field;
 		vb = camdev->vbq.bufs[parm.index];
 		buf = container_of(vb, struct ovisp_camera_buffer, vb);
-		ret = isp_dev_call(camdev->isp, process_raw, &parm, buf->priv);
+		ret = isp_dev_call(camdev->isp, process_raw, &tmp_ifmt, parm.src.addr, parm.dst.addr, buf->priv);
 	}
 	return ret;
 }
@@ -1775,8 +1851,11 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	/* init v4l2_priority */
 	v4l2_prio_init(&camdev->prio);
 
+	ret = isp_debug_init();
+	if(ret)
+		goto fail_debug;
 	return 0;
-
+fail_debug:
 free_video_device:
 	video_device_release(vfd);
 free_i2c:
@@ -1811,6 +1890,7 @@ static int __exit ovisp_camera_remove(struct platform_device *pdev)
 	ovisp_vb2_cleanup_ctx(camdev->alloc_ctx);
 	ovisp_camera_free_subdev(camdev);
 	isp_device_release(camdev->isp);
+	isp_debug_deinit();
 	kfree(camdev->isp);
 	kfree(camdev);
 

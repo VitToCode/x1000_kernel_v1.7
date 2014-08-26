@@ -1,8 +1,59 @@
+#include <linux/debugfs.h>
 #include "ovisp-isp.h"
 #include "isp-debug.h"
 #include "ovisp-csi.h"
-#include "../ov5645.h"
+#include "ovisp-base.h"
 
+/* -------------------debugfs interface------------------- */
+static struct dentry *isp_debug_dir;
+static struct dentry *isp_debug_print;
+unsigned int isp_print_level = PRINT_LEVEL;
+
+int isp_printf(unsigned int level, unsigned char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+	int r = 0;
+
+	if(level >= isp_print_level){
+		va_start(args, fmt);
+
+		vaf.fmt = fmt;
+		vaf.va = &args;
+
+		r = printk("%pV",&vaf);
+		va_end(args);
+		if(level >= ISP_ERROR)
+			dump_stack();
+	}
+	return r;
+}
+int isp_debug_init(void)
+{
+	int ret = 0;
+	isp_debug_dir = debugfs_create_dir("isp_debug" , NULL);
+	if (!isp_debug_dir) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+	isp_debug_print = debugfs_create_u32("isp_print", S_IWUSR | S_IRUSR, isp_debug_dir, &isp_print_level);
+	if (!isp_debug_print) {
+		ret = -ENOMEM;
+		goto fail_u8;
+	}
+	return ret;
+fail_u8:
+	debugfs_remove(isp_debug_dir);
+fail:
+	return ret;
+}
+int isp_debug_deinit(void)
+{
+	debugfs_remove(isp_debug_print);
+	debugfs_remove(isp_debug_dir);
+	return 0;
+}
+/* -------------------end debugfs interface--------------- */
 void dump_isp_set_para(struct isp_device *isp, struct isp_parm *iparm, unsigned short iformat, unsigned short oformat)
 {
 	ISP_PRINT(ISP_INFO,"-----------------------------  dump set parameter ----------------------------------\n");
@@ -58,21 +109,21 @@ void __dump_isp_regs(struct isp_device * isp, int base, int end)
 void dump_csi_reg(void)
 {
 
-	printk("****>>>>> dump csi reg <<<<<******\n");
-	printk("**********VERSION =%08x\n", csi_core_read(VERSION));
-	printk("**********N_LANES =%08x\n", csi_core_read(N_LANES));
-	printk("**********PHY_SHUTDOWNZ = %08x\n", csi_core_read(PHY_SHUTDOWNZ));
-	printk("**********DPHY_RSTZ = %08x\n", csi_core_read(DPHY_RSTZ));
-	printk("**********CSI2_RESETN =%08x\n", csi_core_read(CSI2_RESETN));
-	printk("**********PHY_STATE = %08x\n", csi_core_read(PHY_STATE));
-	printk("**********DATA_IDS_1 = %08x\n", csi_core_read(DATA_IDS_1));
-	printk("**********DATA_IDS_2 = %08x\n", csi_core_read(DATA_IDS_2));
-	printk("**********ERR1 = %08x\n", csi_core_read(ERR1));
-	printk("**********ERR2 = %08x\n", csi_core_read(ERR2));
-	printk("**********MASK1 =%08x\n", csi_core_read(MASK1));
-	printk("**********MASK2 =%08x\n", csi_core_read(MASK2));
-	printk("**********PHY_TST_CTRL0 = %08x\n", csi_core_read(PHY_TST_CTRL0));
-	printk("**********PHY_TST_CTRL1 = %08x\n", csi_core_read(PHY_TST_CTRL1));
+	ISP_PRINT(ISP_INFO,"****>>>>> dump csi reg <<<<<******\n");
+	ISP_PRINT(ISP_INFO,"**********VERSION =%08x\n", csi_core_read(VERSION));
+	ISP_PRINT(ISP_INFO,"**********N_LANES =%08x\n", csi_core_read(N_LANES));
+	ISP_PRINT(ISP_INFO,"**********PHY_SHUTDOWNZ = %08x\n", csi_core_read(PHY_SHUTDOWNZ));
+	ISP_PRINT(ISP_INFO,"**********DPHY_RSTZ = %08x\n", csi_core_read(DPHY_RSTZ));
+	ISP_PRINT(ISP_INFO,"**********CSI2_RESETN =%08x\n", csi_core_read(CSI2_RESETN));
+	ISP_PRINT(ISP_INFO,"**********PHY_STATE = %08x\n", csi_core_read(PHY_STATE));
+	ISP_PRINT(ISP_INFO,"**********DATA_IDS_1 = %08x\n", csi_core_read(DATA_IDS_1));
+	ISP_PRINT(ISP_INFO,"**********DATA_IDS_2 = %08x\n", csi_core_read(DATA_IDS_2));
+	ISP_PRINT(ISP_INFO,"**********ERR1 = %08x\n", csi_core_read(ERR1));
+	ISP_PRINT(ISP_INFO,"**********ERR2 = %08x\n", csi_core_read(ERR2));
+	ISP_PRINT(ISP_INFO,"**********MASK1 =%08x\n", csi_core_read(MASK1));
+	ISP_PRINT(ISP_INFO,"**********MASK2 =%08x\n", csi_core_read(MASK2));
+	ISP_PRINT(ISP_INFO,"**********PHY_TST_CTRL0 = %08x\n", csi_core_read(PHY_TST_CTRL0));
+	ISP_PRINT(ISP_INFO,"**********PHY_TST_CTRL1 = %08x\n", csi_core_read(PHY_TST_CTRL1));
 }
 
 void dump_isp_configuration(struct isp_device * isp)
@@ -86,6 +137,10 @@ void dump_isp_configuration(struct isp_device * isp)
 	ISP_PRINT(ISP_INFO,"output configuration\n");
 	for(i = 0; i < 0x13; i++) {
 		ISP_PRINT(ISP_INFO,"0%x:==>0x%x\n", 0x1f022 + i,isp_firmware_readb(isp, 0x1f022 + i));
+	}
+	ISP_PRINT(ISP_INFO,"ISP configuration\n");
+	for(i = 0; i < 0x16; i++) {
+		ISP_PRINT(ISP_INFO,"0%x:==>0x%x\n", 0x1f070 + i,isp_firmware_readb(isp, 0x1f070 + i));
 	}
 }
 
@@ -258,13 +313,13 @@ void dump_isp_debug_regs(struct isp_device * isp)
 	ISP_PRINT(ISP_INFO,"pcnt_crop_64:			0x%02x%02x\n", isp_reg_readb(isp, 0x63c46), isp_reg_readb(isp, 0x63c47));
 	ISP_PRINT(ISP_INFO,"lcnt_crop_64:			0x%02x%02x\n", isp_reg_readb(isp, 0x63c48), isp_reg_readb(isp, 0x63c49));
 	ISP_PRINT(ISP_INFO,"================================================================================\n");
-	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1)] settings\n");
+	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1)] settings(0x65010~0x65013)\n");
 	ISP_PRINT(ISP_INFO,"input width:			0x%02x%02x\n", isp_reg_readb(isp, 0x65010), isp_reg_readb(isp, 0x65011));
 	ISP_PRINT(ISP_INFO,"input height:			0x%02x%02x\n", isp_reg_readb(isp, 0x65012), isp_reg_readb(isp, 0x65013));
-	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1)] counter\n");
+	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1)] counter(0x65037~0x6503a)\n");
 	ISP_PRINT(ISP_INFO,"input pix cnt:			0x%02x%02x\n", isp_reg_readb(isp, 0x65037), isp_reg_readb(isp, 0x65038));
 	ISP_PRINT(ISP_INFO,"input line cnt:			0x%02x%02x\n", isp_reg_readb(isp, 0x65039), isp_reg_readb(isp, 0x6503a));
-	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1) YUV Crop registers  for channel 1(scale1)\n");
+	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1) YUV Crop registers  for channel 1(scale1)(0x650f0~0x65f5)\n");
 	ISP_PRINT(ISP_INFO,"crop_left:			0x%02x%02x\n", isp_reg_readb(isp, 0x650f0), isp_reg_readb(isp, 0x650f1));
 	ISP_PRINT(ISP_INFO,"crop_top:			0x%02x%02x\n", isp_reg_readb(isp, 0x650f2), isp_reg_readb(isp, 0x650f3));
 	ISP_PRINT(ISP_INFO,"crop_width:			0x%02x%02x\n", isp_reg_readb(isp, 0x650f4), isp_reg_readb(isp, 0x650f5));
@@ -272,7 +327,7 @@ void dump_isp_debug_regs(struct isp_device * isp)
 	ISP_PRINT(ISP_INFO,"counter:\n");
 	ISP_PRINT(ISP_INFO,"Oput P cnt s1:			0x%02x%02x\n", isp_reg_readb(isp, 0x650f8), isp_reg_readb(isp, 0x650f9));
 	ISP_PRINT(ISP_INFO,"Oput L cnt s1:			0x%02x%02x\n", isp_reg_readb(isp, 0x650fa), isp_reg_readb(isp, 0x650fb));
-	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1) YUV Crop registers  for channel 2(scale2)\n");
+	ISP_PRINT(ISP_INFO,"[ISP1(Pipeline1) YUV Crop registers  for channel 2(scale2)(0x66200~0x6620b)\n");
 	ISP_PRINT(ISP_INFO,"crop_left:			0x%02x%02x\n", isp_reg_readb(isp, 0x66200), isp_reg_readb(isp, 0x66201));
 	ISP_PRINT(ISP_INFO,"crop_top:			0x%02x%02x\n", isp_reg_readb(isp, 0x66202), isp_reg_readb(isp, 0x66203));
 	ISP_PRINT(ISP_INFO,"crop_width:			0x%02x%02x\n", isp_reg_readb(isp, 0x66204), isp_reg_readb(isp, 0x66205));

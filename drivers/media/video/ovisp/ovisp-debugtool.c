@@ -1,4 +1,3 @@
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -20,6 +19,7 @@
 #include "ovisp-video.h"
 #include "ovisp-videobuf.h"
 #include "ovisp-debugtool.h"
+#include "ovisp-base.h"
 #include "isp-debug.h"
 
 #define STATE_LINE_BEGIN 0

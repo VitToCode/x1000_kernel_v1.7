@@ -16,12 +16,19 @@
 #define ISP_INFO		0x0
 #define ISP_WARNING		0x1
 #define ISP_ERROR		0x2
-
+#if 0
 #define ISP_PRINT(level, ...) do { if (level >= PRINT_LEVEL) printk("[ISP] "__VA_ARGS__); \
 	if(level >= ISP_ERROR) dump_stack();} while (0)
-
+#else
+#define ISP_PRINT(level, format, ...)		\
+	isp_printf(level, format, ##__VA_ARGS__)
+#endif
 #define ISP_DEBUG(...) ISP_PRINT(ISP_INFO, __VA_ARGS__)
 
+//extern unsigned int isp_print_level;
+int isp_debug_init(void);
+int isp_debug_deinit(void);
+int isp_printf(unsigned int level, unsigned char *fmt, ...);
 /* =================== debug isp interfaces ================== */
 void dump_isp_top_register(struct isp_device * isp);
 void dump_mac(struct isp_device * isp);

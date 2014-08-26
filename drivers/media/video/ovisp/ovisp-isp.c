@@ -13,9 +13,9 @@
 #include "isp-firmware_array.h"
 #include "ovisp-video.h"
 #include "ovisp-debugtool.h"
+#include "ovisp-base.h"
 #include "mipi_test_bypass.h"
 #include "isp-debug.h"
-#include "../ov5645.h"
 
 /* Timeouts. */
 #define ISP_BOOT_TIMEOUT	(3000) /* ms. */
@@ -34,6 +34,7 @@
 
 /* CCLK divider. */
 #define ISP_CCLK_DIVIDER	(0x04)
+extern void isp_setting_init(struct isp_device *isp);
 static int isp_s_tlb_base(struct isp_device *isp, unsigned int *tlb_base);
 static int isp_mipi_init(struct isp_device *isp);
 
@@ -56,6 +57,7 @@ static struct isp_clk_info isp_clks[ISP_CLK_NUM] = {
 	{"csi", DUMMY_CLOCK_RATE,	ISP_CLK_GATE_CSI},
 };
 
+static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, unsigned int size);
 static int isp_intc_disable(struct isp_device *isp, unsigned int mask)
 {
 
@@ -192,13 +194,16 @@ static int isp_wait_cmd_done(struct isp_device *isp, unsigned long timeout)
 }
 static int isp_wait_frame_eof(struct isp_device *isp)
 {
-	unsigned long tm;
+	unsigned long tm, flags;
 	int ret = 0;
 	INIT_COMPLETION(isp->frame_eof);
-	isp_intc_enable(isp, MASK_INT_EOF);
+	spin_lock_irqsave(&isp->lock, flags);
+	isp->wait_eof = true;
+	spin_unlock_irqrestore(&isp->lock, flags);
+//	isp_intc_enable(isp, MASK_INT_EOF);
 	tm = wait_for_completion_timeout(&isp->frame_eof,
 			msecs_to_jiffies(500));
-	isp_intc_disable(isp, MASK_INT_EOF);
+//	isp_intc_disable(isp, MASK_INT_EOF);
 	if (!tm && !isp->frame_eof.done) {
 		ret = -ETIMEDOUT;
 	}
@@ -215,12 +220,12 @@ static int isp_send_cmd(struct isp_device *isp, unsigned char id,
 
 	INIT_COMPLETION(isp->completion);
 
-	isp_intc_enable(isp, MASK_INT_CMDSET);
+//	isp_intc_enable(isp, MASK_INT_CMDSET);
 	isp_reg_writeb(isp, id, COMMAND_REG0);
 
 	/* Wait for command set done interrupt. */
 	ret = isp_wait_cmd_done(isp, timeout);
-	isp_intc_disable(isp, MASK_INT_CMDSET);
+//	isp_intc_disable(isp, MASK_INT_CMDSET);
 	/* determine whether setting cammand successfully */
 	if ((CMD_SET_SUCCESS != isp_reg_readb(isp, COMMAND_RESULT))
 			|| (id != get_current_finish_cmd(isp))) {
@@ -319,7 +324,6 @@ struct isp_idi_parm {
 	{1000, -1}
 };
 #define IDI_ARRAY_SIZES (ARRAY_SIZE(idi_array))
-#if 1
 static inline unsigned int isp_calc_idi_scale(struct isp_input_parm *input, struct isp_output_parm *output)
 {
 	unsigned int ret = 0;
@@ -340,23 +344,11 @@ static inline unsigned int isp_calc_idi_scale(struct isp_input_parm *input, stru
 		ret = idi_array[i].reg | 0x08;
 		input->idi_width = (in_width * 1000 / idi_array[i].scale);
 		input->idi_height = (in_height * 1000 / idi_array[i].scale);
-		v4l_bound_align_image(&input->idi_width,
-				48, OVISP_CAMERA_WIDTH_MAX, 4,
-				&input->idi_height,
-				32, OVISP_CAMERA_HEIGHT_MAX, 0, 0);
-
+		input->idi_width = input->idi_width & (~0xf);
+		input->idi_height = input->idi_height & (~0xf);
 	}
 	return ret;
 }
-#endif
-#if 0
-#define	isp_set_reg_t(dst, v, reg)	\
-({					\
-	(dst)->reg = (reg);			\
-	(dst)->value = (v);			\
-	(dst)++;				\
-})
-#endif
 static inline void isp_set_reg_t(struct isp_reg_t *dst, unsigned char value, unsigned int reg)
 {
 	static int index = 0;
@@ -483,7 +475,6 @@ static int isp_set_preview_parameters(struct isp_device *isp, unsigned int video
 
 	isp_set_reg_t(preview, 0x06, 0x1fff9);
 	isp_set_reg_t(preview, 0, 0); //end flag
-	printk("&&&&&&&& %s &&&&&&&&&\n",__func__);
 	return 0;
 }
 static int isp_set_capture_raw_parameters(struct isp_device *isp, unsigned int videos)
@@ -583,8 +574,6 @@ static int isp_i2c_config(struct isp_device *isp)
 static int isp_i2c_xfer_cmd_sccb(struct isp_device * isp, struct isp_i2c_cmd * cmd)
 {
 	unsigned char sccb_cmd = 0;
-
-
 	isp_reg_writeb(isp, cmd->addr, 0x63601);
 
 	/*sensore reg*/
@@ -609,8 +598,6 @@ static int isp_i2c_xfer_cmd_sccb(struct isp_device * isp, struct isp_i2c_cmd * c
 
 		isp_reg_writeb(isp, 0x37, 0x63609);
 	}
-
-
 	if (cmd->flags & I2C_CMD_READ) {
 
 		isp_reg_writeb(isp, 0x33, 0x63609);
@@ -624,7 +611,6 @@ static int isp_i2c_xfer_cmd_sccb(struct isp_device * isp, struct isp_i2c_cmd * c
 			cmd->data = isp_reg_readb(isp, 0x63608); /*read data*/
 		}
 	}
-	//mdelay(100);
 	mdelay(2);
 	//dump_i2c_regs(isp);
 	return 0;
@@ -635,7 +621,6 @@ struct v4l2_fmt_data gdata;
 static int reg_num = 0;
 static int isp_i2c_xfer_cmd_grp(struct isp_device * isp , struct isp_i2c_cmd * cmd)
 {
-
 	unsigned char val = 0;
 	unsigned char i;
 	if (cmd->flags & I2C_CMD_READ) {
@@ -736,8 +721,6 @@ static int isp_i2c_xfer_cmd(struct isp_device *isp, struct isp_i2c_cmd *cmd)
 	}
 
 	//dump_i2c_regs(isp);
-	//mdelay(150);
-
 	return 0;
 }
 
@@ -786,15 +769,13 @@ static int isp_i2c_fill_buffer(struct isp_device *isp)
 static int isp_set_format(struct isp_device *isp, unsigned int videos)
 {
 	int ret = 0;
-//	mdelay(15);
 	ret = isp_fill_parm_registers(isp, isp->preview);
 	if(ret){
 		ISP_PRINT(ISP_ERROR, KERN_ERR "fill preview registers faild!\n");
 		return -EINVAL;
 	}
 
-	dump_isp_configuration(isp);
-	isp_i2c_fill_buffer(isp);
+	//isp_i2c_fill_buffer(isp);
 	/*dump_isp_configuration(isp);*/
 	isp_reg_writeb(isp, ISP_CCLK_DIVIDER, COMMAND_REG4);
 	if(isp->first_init){
@@ -846,7 +827,7 @@ static int isp_set_capture_raw(struct isp_device *isp)
 		return -EINVAL;
 	}
 	isp_i2c_fill_buffer(isp);
-	dump_isp_configuration(isp);
+//	dump_isp_configuration(isp);
 	/* set cmd register */
 	isp_reg_writeb(isp, 0x01, COMMAND_REG1);
 	/* Wait for command set successfully. */
@@ -854,7 +835,7 @@ static int isp_set_capture_raw(struct isp_device *isp)
 		ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait capture set done!\n");
 		return -EINVAL;
 	}
-
+	isp->capture_raw_enable = true;
 	return 0;
 }
 static int isp_set_capture(struct isp_device *isp)
@@ -959,17 +940,17 @@ static int isp_boot(struct isp_device *isp)
 
 	/* Reset ISP.  */
 	isp_reg_writeb(isp, DO_SOFT_RST, REG_ISP_SOFT_RST);
-	printk("REG_ISP_SOFT_RST:%x\n", isp_reg_readb(isp, REG_ISP_SOFT_RST));
+	ISP_PRINT(ISP_INFO,"REG_ISP_SOFT_RST:%x\n", isp_reg_readb(isp, REG_ISP_SOFT_RST));
 
 	/* Enable interrupt (only set_cmd_done interrupt). */
 	isp_intc_enable(isp, MASK_INT_CMDSET);
 
 	isp_reg_writeb(isp, DO_SOFTWARE_STAND_BY, REG_ISP_SOFT_STANDBY);
 
-	printk("REG_ISP_SOFT_STANDBY:%x\n", isp_reg_readb(isp, REG_ISP_SOFT_STANDBY));
+	ISP_PRINT(ISP_INFO,"REG_ISP_SOFT_STANDBY:%x\n", isp_reg_readb(isp, REG_ISP_SOFT_STANDBY));
 	/* Enable the clk used by mcu. */
 	isp_reg_writeb(isp, 0xf1, REG_ISP_CLK_USED_BY_MCU);
-	printk("REG_ISP_CLK_USED_BY_MCU:%x\n", isp_reg_readb(isp, REG_ISP_CLK_USED_BY_MCU));
+	ISP_PRINT(ISP_INFO,"REG_ISP_CLK_USED_BY_MCU:%x\n", isp_reg_readb(isp, REG_ISP_CLK_USED_BY_MCU));
 	/* Download firmware to ram of mcu. */
 #ifdef OVISP_DEBUGTOOL_ENABLE
 	ovisp_debugtool_load_firmware(OVISP_DEBUGTOOL_FIRMWARE_FILENAME, (u8*)(isp->base + FIRMWARE_BASE), (u8*)isp_firmware, ARRAY_SIZE(isp_firmware));
@@ -981,7 +962,7 @@ static int isp_boot(struct isp_device *isp)
 	/* MCU initialize. */
 	isp_reg_writeb(isp, 0xf0, REG_ISP_CLK_USED_BY_MCU);
 
-	printk("REG_ISP_CLK_USED_BY_MCU:%x\n", isp_reg_readb(isp, REG_ISP_CLK_USED_BY_MCU));
+	ISP_PRINT(ISP_INFO,"REG_ISP_CLK_USED_BY_MCU:%x\n", isp_reg_readb(isp, REG_ISP_CLK_USED_BY_MCU));
 
 	/* Wait for command set done interrupt. */
 	if (isp_wait_cmd_done(isp, ISP_BOOT_TIMEOUT)) {
@@ -1015,8 +996,8 @@ static int isp_irq_notify(struct isp_device *isp, unsigned int status)
 
 	return ret;
 }
-static unsigned long long start_time;
-static unsigned long long end_time;
+//static unsigned long long start_time;
+//static unsigned long long end_time;
 static irqreturn_t isp_irq(int this_irq, void *dev_id)
 {
 	struct isp_device *isp = dev_id;
@@ -1024,28 +1005,42 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	unsigned short mac_irq_status = 0;
 	unsigned int notify = 0;
 	unsigned char cmd;
+	static volatile unsigned int flags = 1;
 	//start_time = sched_clock();
 	irq_status = isp_intc_state(isp);
 	mac_irq_status = isp_mac_int_state(isp);
 	cmd = isp_reg_readb(isp, COMMAND_REG0);
-//	ISP_PRINT(ISP_INFO,"-------------- command[0x%02x] done !!\n", cmd);
 	/* Command set done interrupt. */
 	if (irq_status & MASK_INT_CMDSET) {
 		complete(&isp->completion);
 		ISP_PRINT(ISP_INFO,"command[0x%02x] done !!\n", cmd);
+		if(cmd == 0x02 || (cmd == 0x05 && isp_reg_readb(isp, COMMAND_REG1)))
+			flags = ISP_NOTIFY_UPDATE_BUF;
+		else
+			flags = 0;
 	}
+	if(cmd == 0x06)
+		flags = 0;
 	if(isp->wait_eof && (irq_status & MASK_INT_EOF)){
 		complete(&isp->frame_eof);
+		isp->wait_eof = false;
 		ISP_PRINT(ISP_INFO,"[0x%02x] frame_eof[0x%02x]!!\n", cmd, isp_reg_readb(isp, REG_ISP_INT_EN_C1));
 	}
+#if 0
+	if(irq_status & (1<<4)){
+		printk("^^^ Vsync time = 0x%02x%02x%02x%02x\n",isp_firmware_readb(isp, 0x1e778),
+				isp_firmware_readb(isp, 0x1e779),isp_firmware_readb(isp, 0x1e77a),isp_firmware_readb(isp, 0x1e77b));
+		printk("^^^ EOF time = 0x%02x%02x%02x%02x\n",isp_firmware_readb(isp, 0x1e780),
+				isp_firmware_readb(isp, 0x1e781),isp_firmware_readb(isp, 0x1e782),isp_firmware_readb(isp, 0x1e783));
+	}
+#endif
 	if (irq_status & MASK_INT_MAC) {
 		/* Drop. */
 		if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
 			if(mac_irq_status & MASK_INT_DROP0){
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME0;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 0 !!\n", cmd);
-			}
-			if(mac_irq_status & MASK_INT_DROP1){
+			}else{
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME1;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 1 !!\n", cmd);
 			}
@@ -1055,44 +1050,43 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 			if (mac_irq_status & MASK_INT_WRITE_DONE0) {
 				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE0;
 				ISP_PRINT(ISP_INFO,"[0x%02x] done - 0!\n", cmd);
-			}
-			else if (mac_irq_status & MASK_INT_WRITE_DONE1) {
+			}else{
 				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE1;
 				ISP_PRINT(ISP_INFO,"[0x%02x] done - 1!\n", cmd);
 			}
+		//	dump_firmware_reg(isp, 0x1e768, 48);
 		}
 		/* FIFO overflow */
 		if (mac_irq_status & (MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1)) {
-			ISP_PRINT(ISP_WARNING,"[0x%02x] overflow\n",cmd);
+			if(mac_irq_status & MASK_INT_OVERFLOW0)
+				ISP_PRINT(ISP_WARNING,"[0x%02x] overflow-0\n",cmd);
+			else
+				ISP_PRINT(ISP_WARNING,"[0x%02x] overflow-1\n",cmd);
 			notify |= ISP_NOTIFY_OVERFLOW;
 
 		}
-
-		if(mac_irq_status & MASK_INT_WRITE_START0) {
-			ISP_PRINT(ISP_INFO,"[0x%02x] start 0\n", cmd);
-			notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START0;
-			/*dump_firmware_reg(isp, 0x1ee90, 12);*/
-		}
-		if(mac_irq_status & MASK_INT_WRITE_START1) {
-			ISP_PRINT(ISP_INFO,"[0x%02x] start 1\n", cmd);
-			notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START1;
-			/*dump_firmware_reg(isp, 0x1ee90, 12);*/
+		/* Start */
+		if(mac_irq_status & (MASK_INT_WRITE_START0 | MASK_INT_WRITE_START1)){
+			if(mac_irq_status & MASK_INT_WRITE_START0) {
+				ISP_PRINT(ISP_INFO,"[0x%02x] start 0\n", cmd);
+				notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START0;
+				/*dump_firmware_reg(isp, 0x1ee90, 12);*/
+			}else{
+				ISP_PRINT(ISP_INFO,"[0x%02x] start 1\n", cmd);
+				notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START1;
+				/*dump_firmware_reg(isp, 0x1ee90, 12);*/
+			}
 		}
 	}
-//	end_time = sched_clock();
-//	printk("()time0 = %lldns\n", (end_time - start_time));
-//	start_time = sched_clock();
+	notify |= flags;
 	isp_irq_notify(isp, notify);
-//	end_time = sched_clock();
-//	printk("()time1 = %lldns\n", (end_time - start_time));
-	//printk("^^*^^\n");
+//	printk("^^ notify = 0x%08x ^^\n", notify);
 	return IRQ_HANDLED;
 }
 
 static int isp_mipi_init(struct isp_device *isp)
 {
 	unsigned int i;
-
 	for (i = 0; i < ARRAY_SIZE(isp_mipi_regs_init); i++) {
 		isp_reg_writeb(isp, isp_mipi_regs_init[i].value,
 				isp_mipi_regs_init[i].reg);
@@ -1245,12 +1239,154 @@ static int isp_powerup(struct isp_device * isp)
 {
 	return 0;
 }
-
-static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *input,
-	struct isp_output_parm *output, struct v4l2_acquire_photo_parm *parm, unsigned char *info)
+static int isp_normal_capture( struct isp_device * isp, struct isp_input_parm *input,
+	struct isp_output_parm *output, unsigned int out_addr, unsigned int vts)
 {
-	unsigned int in_addr = parm->src.addr;
-	unsigned int out_addr = parm->dst.addr;
+	struct ovisp_camera_client *client = isp->client;
+	unsigned int addrw, regw;
+
+	isp_firmware_writeb(isp, 0x01, 0x1fff9);
+	/*input type, bypass */
+	if (client->flags & CAMERA_CLIENT_IF_MIPI)
+		input->format |= SENSOR_PRIMARY_MIPI;
+	isp_firmware_writeb(isp, (input->format >> 8) & 0xff, ISP_INPUT_FORMAT);
+	isp_firmware_writeb(isp, input->format & 0xff, ISP_INPUT_FORMAT + 1);
+	isp_firmware_writeb(isp, (input->width >> 8) & 0xff,
+			SENSOR_OUTPUT_WIDTH);
+	isp_firmware_writeb(isp, input->width & 0xff,
+			SENSOR_OUTPUT_WIDTH + 1);
+
+	isp_firmware_writeb(isp, (input->height >> 8) & 0xff,
+			SENSOR_OUTPUT_HEIGHT);
+	isp_firmware_writeb(isp, input->height & 0xff,
+			SENSOR_OUTPUT_HEIGHT + 1);
+	isp_firmware_writeb(isp, 0x00, 0x1f006);
+	isp_firmware_writeb(isp, 0x00, 0x1f007);
+	isp_firmware_writeb(isp, (input->width >> 8) & 0xff,
+			ISP_IDI_OUTPUT_WIDTH);
+	isp_firmware_writeb(isp, input->width & 0xff,
+			ISP_IDI_OUTPUT_WIDTH + 1);
+
+	isp_firmware_writeb(isp, (input->height >> 8) & 0xff,
+			ISP_IDI_OUTPUT_HEIGHT);
+	isp_firmware_writeb(isp, input->height & 0xff,
+			ISP_IDI_OUTPUT_HEIGHT + 1);
+	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_H_START);
+	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_H_START + 1);
+	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_V_START);
+	isp_firmware_writeb(isp, 0x00, ISP_IDI_OUTPUT_V_START + 1);
+	/*output config*/
+	isp_firmware_writeb(isp, (output->format >> 8) & 0xff, 0x1f022);
+	isp_firmware_writeb(isp, (output->format & 0xff), 0x1f023);
+	/* iamge output */
+	/* 640*480 */
+	isp_firmware_writeb(isp, (output->width >> 8) & 0xff, 0x1f024);
+	isp_firmware_writeb(isp, output->width & 0xff, 0x1f025);
+	isp_firmware_writeb(isp, (output->height >> 8) & 0xff, 0x1f026);
+	isp_firmware_writeb(isp, output->height & 0xff, 0x1f027);/*w:h*/
+
+	/* memory width */
+	isp_firmware_writeb(isp, (output->width >> 8) & 0xff, 0x1f028);
+	isp_firmware_writeb(isp, output->width & 0xff, 0x1f029);/*m_y*/
+	isp_firmware_writeb(isp, (output->width >> 8) & 0xff, 0x1f02a);
+	isp_firmware_writeb(isp, output->width & 0xff, 0x1f02b);/*m_uv*/
+	/* 3. ISP CONFIGURATION */
+	//isp config
+	isp_firmware_writeb(isp, 0x01, ISP_EXPOSURE_RATIO);
+	isp_firmware_writeb(isp, 0x00, ISP_EXPOSURE_RATIO + 1);
+	isp_firmware_writeb(isp, ((vts - 0x10) >> 8) & 0xff,
+						ISP_MAX_EXPOSURE);
+	isp_firmware_writeb(isp, (vts - 0x10) & 0xff,
+						ISP_MAX_EXPOSURE + 1);
+
+	isp_firmware_writeb(isp, 0x00, ISP_MIN_EXPOSURE);
+	isp_firmware_writeb(isp, 0x10, ISP_MIN_EXPOSURE + 1);
+	isp_firmware_writeb(isp, 0x00, ISP_MAX_GAIN);
+	isp_firmware_writeb(isp, 0xff, ISP_MAX_GAIN + 1);
+
+	isp_firmware_writeb(isp, 0x00, ISP_MIN_GAIN);
+	isp_firmware_writeb(isp, 0x10, ISP_MIN_GAIN + 1);
+	isp_firmware_writeb(isp, (vts >> 8) & 0xff, ISP_VTS);
+	isp_firmware_writeb(isp, vts & 0xff, ISP_VTS + 1);
+	/*zoom in*/
+	isp_firmware_writeb(isp, 0x01, 0x1f084);
+	isp_firmware_writeb(isp, 0x00, 0x1f085);
+
+	/*address config*/
+	/*output address*/
+	switch(output->addrnums){
+		case 3:
+			addrw = out_addr + output->addroff[2];
+			regw = 0x1f0a8;
+			isp_firmware_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_firmware_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_firmware_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_firmware_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+		case 2:
+			addrw = out_addr + output->addroff[1];
+			regw = 0x1f0a4;
+			isp_firmware_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_firmware_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_firmware_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_firmware_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+		case 1:
+			addrw = out_addr;
+			regw = 0x1f0a0;
+			isp_firmware_writeb(isp, (addrw >> 24) & 0xff, regw);
+			isp_firmware_writeb(isp, (addrw >> 16) & 0xff, regw + 1);
+			isp_firmware_writeb(isp, (addrw >> 8) & 0xff, regw + 2);
+			isp_firmware_writeb(isp, (addrw >> 0) & 0xff, regw + 3);
+			break;
+		default:
+			ISP_PRINT(ISP_ERROR, "%s[%d] addrnums is wrong; it should be 1 ~ 3,but it is %d",
+					__func__,__LINE__,output->addrnums);
+			break;
+	}
+	isp_firmware_writeb(isp, 0x06, 0x1fff9);
+
+//	dump_isp_configuration(isp);
+//	mdelay(160);
+	isp_reg_writeb(isp, 0x00, COMMAND_REG1);
+	isp_reg_writeb(isp, 0x00, COMMAND_REG2);
+	isp_reg_writeb(isp, 0x00, COMMAND_REG3);
+//	isp_i2c_fill_buffer(isp);
+	isp_reg_writeb(isp, 0x00, COMMAND_REG5);
+//	isp_reg_writeb(isp, 0x80, COMMAND_REG8);
+	/* Wait for command set successfully. */
+	if (isp_send_cmd(isp, 0x04, ISP_FORMAT_TIMEOUT)) {
+		ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait normal capture set done!\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+static int isp_set_format_stop(struct isp_device * isp)
+{
+//	if(isp->capture_raw_enable){
+		isp_reg_writeb(isp, 0x00, COMMAND_REG7);
+		if (isp_send_cmd(isp, 0x02, ISP_FORMAT_TIMEOUT)) {
+			ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait capture raw done!\n");
+			return -EINVAL;
+		}
+//		isp->capture_raw_enable = false;
+//	}
+	return 0;
+}
+static int isp_capture_raw_stop(struct isp_device * isp)
+{
+	if(isp->capture_raw_enable){
+		isp_reg_writeb(isp, 0x00, COMMAND_REG1);
+		if (isp_send_cmd(isp, 0x05, ISP_FORMAT_TIMEOUT)) {
+			ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait capture raw done!\n");
+			return -EINVAL;
+		}
+		isp->capture_raw_enable = false;
+	}
+	return 0;
+}
+static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *input,
+	struct isp_output_parm *output, unsigned int in_addr, unsigned int out_addr, unsigned char *info)
+{
 	unsigned int addrw, regw, i = 0;
 
 	isp_firmware_writeb(isp, 0x01, 0x1fff9);
@@ -1331,24 +1467,12 @@ static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *
 	isp_firmware_writeb(isp, 0x06, 0x1fff9);
 
 //	dump_isp_configuration(isp);
-	for(i = 0; i < ISP_OUTPUT_INFO_LENS; i++)
-		printk("0x%x [0x%02x]\n", 0x1f300 + i, isp_reg_readb(isp, 0x1f300 + i));
+//	for(i = 0; i < ISP_OUTPUT_INFO_LENS; i++)
+//		printk("0x%x [0x%02x]\n", 0x1f300 + i, isp_reg_readb(isp, 0x1f300 + i));
 
 	isp_i2c_fill_buffer(isp);
+//	isp_reg_writeb(isp, 0x20, 0x65007);
 	isp_reg_writeb(isp, 0x01, COMMAND_REG2);
-//	isp_reg_writeb(isp, 0x80, COMMAND_REG5);
-//	isp_reg_writeb(isp, 0x80, COMMAND_REG8);
-#if 0
-	/*mask all interrupt*/
-	isp_intc_disable(isp, 0xffff);
-	isp_mac_int_mask(isp, 0xffff);
-	/*read to clear interrupt*/
-	isp_intc_state(isp);
-	isp_mac_int_state(isp);
-
-	isp_intc_enable(isp, MASK_INT_MAC);
-	isp_mac_int_unmask(isp, 0xffff);
-#endif
 	/* Wait for command set successfully. */
 	if (isp_send_cmd(isp, 0x06, ISP_FORMAT_TIMEOUT)) {
 		ISP_PRINT(ISP_ERROR, KERN_ERR "Failed to wait process raw set done!\n");
@@ -1357,7 +1481,6 @@ static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *
 
 	return 0;
 }
-
 /*
 * isp ops
 */
@@ -1403,8 +1526,8 @@ static int isp_open(struct isp_device *isp, struct isp_prop *prop)
 	isp_clk_enable(isp, ISP_CLK_CGU_ISP | ISP_CLK_GATE_ISP);
 
 	/*check if clk ok!*/
-	printk("cpm cpccr:%x\n", *((volatile unsigned int *)0xB0000000));
-	printk("isp cpm regs:%08x\n", *((volatile unsigned int *)0xB0000080));
+	ISP_PRINT(ISP_INFO,"cpm cpccr:%x\n", *((volatile unsigned int *)0xB0000000));
+	ISP_PRINT(ISP_INFO,"isp cpm regs:%08x\n", *((volatile unsigned int *)0xB0000080));
 
 	if (!isp->boot) {
 		ret = isp_boot(isp);
@@ -1430,6 +1553,7 @@ static int isp_open(struct isp_device *isp, struct isp_prop *prop)
 	isp->first_init = true;
 	spin_lock_irqsave(&isp->lock, flags);
 	isp->wait_eof = false;
+	isp->capture_raw_enable = false;
 	spin_unlock_irqrestore(&isp->lock, flags);
 
 	//isp_dump_firmware(isp);
@@ -1453,8 +1577,6 @@ static int isp_close(struct isp_device *isp, struct isp_prop *prop)
 		csi_phy_stop(prop->index);
 		isp_clk_disable(isp, ISP_CLK_GATE_CSI);
 	}
-
-
 	/*disable interrupt*/
 	isp_reg_writeb(isp, 0x00, REG_ISP_INT_EN_C3);
 	isp_reg_writeb(isp, 0x00, REG_ISP_INT_EN_C2);
@@ -1545,11 +1667,10 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	camera_dev = (struct ovisp_camera_dev *)(isp->data);
 	isp->snapshot = cap->snapshot;
 	isp->client = cap->client;
-
 	if (isp->format_active) {
 		isp_set_parameters(isp);
 		if (!isp->snapshot) {
-			isp_set_exposure_init(isp);
+			isp_setting_init(isp);
 			ret = isp_send_start_capture_cmd(isp);
 		} else {
 			ret = isp_set_capture(isp);
@@ -1579,6 +1700,9 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	isp_mac_int_state(isp);
 
 	isp_intc_enable(isp, MASK_INT_MAC);
+	isp_intc_enable(isp, MASK_INT_CMDSET);
+	isp_intc_enable(isp, MASK_INT_EOF);
+//	isp_intc_enable(isp, (1<<4));
 	isp_mac_int_unmask(isp,
 			MASK_INT_WRITE_DONE0 | MASK_INT_WRITE_DONE1 |
 			MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1 |
@@ -1691,7 +1815,6 @@ static int isp_check_input_format(struct isp_device *isp, struct ovisp_video_for
 static int isp_set_output_parm(struct isp_device *isp, struct ovisp_video_format *vfmt, struct isp_output_parm *output)
 {
 	int ret = 0;
-	ret = isp_check_output_fmt(isp, vfmt);
 	if (ret)
 		return ret;
 	switch (vfmt->fourcc) {
@@ -1745,8 +1868,6 @@ static int isp_set_output_parm(struct isp_device *isp, struct ovisp_video_format
 static int isp_set_input_parm(struct isp_device *isp, struct ovisp_video_format *vfmt, struct isp_input_parm *input)
 {
 	int ret = 0;
-//	struct isp_input_parm *input = &(isp->parm.input);
-
 	ret = isp_check_input_format(isp, vfmt);
 	if (ret)
 		return ret;
@@ -1845,7 +1966,7 @@ static int isp_pre_fmt(struct isp_device *isp, struct isp_format *f)
 	int ret = 0;
 
 	if (client->flags & CAMERA_CLIENT_IF_MIPI) {
-		if (!isp->bypass && (isp->fmt_data.mipi_clk != f->fmt_data->mipi_clk)) {
+		if ((isp->fmt_data.mipi_clk != f->fmt_data->mipi_clk)) {
 			csi_phy_init();
 			ISP_PRINT(ISP_INFO,"isp pre fmt restart phy!!!\n");
 			ISP_PRINT(ISP_INFO,"f->fmt_data->mipi_clk = %d\n",f->fmt_data->mipi_clk);
@@ -1856,7 +1977,8 @@ static int isp_pre_fmt(struct isp_device *isp, struct isp_format *f)
 	}
 	isp->parm.vts = f->fmt_data->vts;
 	memcpy(&(isp->fmt_data), f->fmt_data, sizeof(*f->fmt_data));
-	ISP_PRINT(ISP_INFO,"[%s]isp->fmt_data.vts = %x;isp->fmt_data.mipi_clk = %d\n",__func__,isp->fmt_data.vts,isp->fmt_data.mipi_clk);
+	ISP_PRINT(ISP_INFO,"[%s]isp->fmt_data.vts = %x;isp->fmt_data.mipi_clk = %d\n",
+						__func__,isp->fmt_data.vts,isp->fmt_data.mipi_clk);
 	return ret;
 }
 
@@ -1908,7 +2030,7 @@ static int isp_g_outinfo(struct isp_device *isp, unsigned char *priv)
 {
 	int i = 0;
 	for(i = 0; i < ISP_OUTPUT_INFO_LENS; i++){
-		priv[i] = isp_reg_readb(isp, 0x1f200 + i);
+		priv[i] = isp_firmware_readb(isp, 0x1f200 + i);
 	}
 	return 0;
 }
@@ -2160,74 +2282,81 @@ static int isp_g_parm(struct isp_device *isp, struct v4l2_streamparm *parm)
 {
 	return 0;
 }
-static int isp_save_flags(struct isp_device*isp)
-{
-	return 0;
-}
-static int isp_restore_flags(struct isp_device*isp)
-{
-	return 0;
-}
-static int isp_process_raw(struct isp_device *isp, struct v4l2_acquire_photo_parm *parm, unsigned char *info)
+static int isp_save_flags(struct isp_device *isp, struct isp_format *ifmt)
 {
 	int ret = 0;
-	struct ovisp_video_format vfmt = {0};
-	struct isp_input_parm input = {0};
-	struct isp_output_parm output = {0};
+	struct isp_parm *iparm = &isp->parm;
 
-	vfmt.width = parm->width;
-	vfmt.height = parm->height;
-	vfmt.dev_width = parm->width;
-	vfmt.dev_height = parm->height;
-	vfmt.dev_fourcc = parm->src.fourcc;
-	vfmt.fourcc = parm->dst.fourcc;
-	printk("@@@@@ width=%d height=%d dev_fourcc=0x%08x fourcc=0x%08x\n",vfmt.width,vfmt.height,vfmt.dev_fourcc,vfmt.fourcc);
-	ret = isp_set_input_parm(isp, &vfmt, &input);
-	if(ret)
-		return ret;
-	ret = isp_set_output_parm(isp, &vfmt, &output);
-	if(ret)
-		return ret;
-	printk("@@@@@ inwidth=%d inheight=%d informat=0x%08x outformat=0x%08x\n",
-			input.width, input.height, input.format, output.format);
-	printk("@@@@@ srcaddr=0x%08x addrnum=%d dstaddr=0x%08x addr[0]=0x%08x addr[1]=0x%08x\n",
-			parm->src.addr, output.addrnums, parm->dst.addr, output.addroff[0], output.addroff[1]);
-	ret = isp_offline_process(isp, &input, &output, parm, info);
+	ifmt->vfmt.dev_width = iparm->input.width;
+	ifmt->vfmt.dev_height = iparm->input.height;
+	ret = isp_wait_frame_eof(isp);
 	if(ret)
 		ISP_PRINT(ISP_ERROR,"%s[%d]\n", __func__, __LINE__);
-	isp->first_init = true;
-	ret = isp_send_start_capture_cmd(isp);
+//	ret = isp_set_format_stop(isp);
 	return ret;
 }
-static int isp_bypass_capture(struct isp_device *isp, struct v4l2_acquire_photo_parm *parm, unsigned char *info)
+static int isp_restore_flags(struct isp_device *isp, struct isp_format *ifmt)
 {
 	int ret = 0;
-	struct ovisp_video_format vfmt = {0};
+//	isp->first_init = true;
+//	ret = isp_send_start_capture_cmd(isp);
+	return ret;
+}
+static int isp_process_raw(struct isp_device *isp, struct isp_format *ifmt,
+				unsigned int src_addr, unsigned int dst_addr, unsigned char *info)
+{
+	int ret = 0;
 	struct isp_input_parm input = {0};
 	struct isp_output_parm output = {0};
 
-	vfmt.width = parm->width;
-	vfmt.height = parm->height;
-	vfmt.dev_width = parm->width;
-	vfmt.dev_height = parm->height;
-	vfmt.dev_fourcc = parm->src.fourcc;
-	vfmt.fourcc = parm->dst.fourcc;
-	printk("@@@@@ width=%d height=%d dev_fourcc=0x%08x fourcc=0x%08x\n",vfmt.width,vfmt.height,vfmt.dev_fourcc,vfmt.fourcc);
-	ret = isp_set_input_parm(isp, &vfmt, &input);
+//	printk("@@@@@ width=%d height=%d dev_fourcc=0x%08x fourcc=0x%08x\n",
+//				ifmt->vfmt.width,ifmt->vfmt.height,ifmt->vfmt.dev_fourcc,ifmt->vfmt.fourcc);
+	ret = isp_set_input_parm(isp, &ifmt->vfmt, &input);
 	if(ret)
 		return ret;
-	ret = isp_set_output_parm(isp, &vfmt, &output);
+	ret = isp_set_output_parm(isp, &ifmt->vfmt, &output);
 	if(ret)
 		return ret;
-	printk("@@@@@ inwidth=%d inheight=%d informat=0x%08x outformat=0x%08x\n",
-			input.width, input.height, input.format, output.format);
-	printk("@@@@@ srcaddr=0x%08x addrnum=%d dstaddr=0x%08x addr[0]=0x%08x addr[1]=0x%08x\n",
-			parm->src.addr, output.addrnums, parm->dst.addr, output.addroff[0], output.addroff[1]);
-	ret = isp_offline_process(isp, &input, &output, parm, info);
+//	printk("@@@@@ inwidth=%d inheight=%d informat=0x%08x outformat=0x%08x\n",
+//			input.width, input.height, input.format, output.format);
+//	printk("@@@@@ srcaddr=0x%08x addrnum=%d dstaddr=0x%08x addr[0]=0x%08x addr[1]=0x%08x\n",
+//			src_addr, output.addrnums, dst_addr, output.addroff[0], output.addroff[1]);
+	ret = isp_capture_raw_stop(isp);
+	if(ret)
+		ISP_PRINT(ISP_ERROR,"%s[%d]\n", __func__, __LINE__);
+	ret = isp_wait_frame_eof(isp);
+	if(ret)
+		ISP_PRINT(ISP_ERROR,"%s[%d]\n", __func__, __LINE__);
+	ret = isp_offline_process(isp, &input, &output, src_addr, dst_addr, info);
 	if(ret)
 		ISP_PRINT(ISP_ERROR,"%s[%d]\n", __func__, __LINE__);
 	isp->first_init = true;
 	ret = isp_send_start_capture_cmd(isp);
+//	printk("&&&&&&&&&&& %s %d &&&&&&&&&&&&&\n",__func__,__LINE__);
+	return ret;
+}
+static int isp_bypass_capture(struct isp_device *isp, struct isp_format *ifmt, unsigned int dst_addr)
+{
+	int ret = 0;
+	struct isp_input_parm input = {0};
+	struct isp_output_parm output = {0};
+
+//	printk("@@@@@ width=%d height=%d dev_fourcc=0x%08x fourcc=0x%08x\n",
+//				ifmt->vfmt.width,ifmt->vfmt.height,ifmt->vfmt.dev_fourcc,ifmt->vfmt.fourcc);
+	ret = isp_set_input_parm(isp, &ifmt->vfmt, &input);
+	if(ret)
+		return ret;
+	ret = isp_set_output_parm(isp, &ifmt->vfmt, &output);
+	if(ret)
+		return ret;
+//	printk("@@@@@ inwidth=%d inheight=%d informat=0x%08x outformat=0x%08x\n",
+//			input.width, input.height, input.format, output.format);
+//	printk("@@@@@ addrnum=%d dstaddr=0x%08x addr[0]=0x%08x addr[1]=0x%08x\n",
+//			output.addrnums, dst_addr, output.addroff[0], output.addroff[1]);
+	ret = isp_normal_capture(isp, &input, &output, dst_addr, ifmt->fmt_data->vts);
+	if(ret)
+		ISP_PRINT(ISP_ERROR,"%s[%d]\n", __func__, __LINE__);
+//	printk("&&&&&&&&&&& %s %d &&&&&&&&&&&&&\n",__func__,__LINE__);
 	return ret;
 }
 static int isp_s_tlb_base(struct isp_device *isp, unsigned int *tlb_base)
@@ -2513,9 +2642,10 @@ static struct isp_ops isp_ops = {
 	.g_ctrl = isp_g_ctrl,
 	.s_parm = isp_s_parm,
 	.g_parm = isp_g_parm,
-//	.save_flags = isp_save_flags,
-//	.restore_flags = isp_restore_flags,
+	.save_flags = isp_save_flags,
+	.restore_flags = isp_restore_flags,
 	.process_raw = isp_process_raw,
+	.bypass_capture = isp_bypass_capture,
 	.tlb_init = isp_tlb_init,
 	.tlb_deinit = isp_tlb_deinit,
 	.tlb_map_one_vaddr = isp_tlb_map_one_vaddr,
