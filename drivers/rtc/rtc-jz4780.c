@@ -186,9 +186,9 @@ static int jz4780_rtc_open(struct device *dev)
 
 static void jz4780_rtc_release(struct device *dev)
 {
-	struct jz_rtc *rtc = dev_get_drvdata(dev);
+	/* struct jz_rtc *rtc = dev_get_drvdata(dev); */
 
-	free_irq(rtc->irq, rtc);
+	/* free_irq(rtc->irq, rtc); */
 }
 
 static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,

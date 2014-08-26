@@ -147,6 +147,15 @@ config RTC_DRV_JZ4775
 	  To compile this driver as a module, choose M here: the
 	  module will be called rtc-jz4775.
 
+config RTC_DRV_JZ
+        tristate "jz rtc"
+	help
+	If you say Y here you will get access to the real time clock
+	  built into your JZ CPU.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rtc-jz.
+
 comment "I2C RTC drivers"
 	depends on I2C
 
@@ -180,11 +189,11 @@ config RTC_DRV_DS1307
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-ds1307.
 
-config RTC_DRV_JZ4780                                                    
+config RTC_DRV_JZ4780
 	tristate "JZ4780"
-	help          
+	help
 	  If you say Y here you will get access to the real time clock
-	  built into your JZ4780 CPU. 
+	  built into your JZ4780 CPU.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called rtc-jz4780.

@@ -1,6 +1,6 @@
 /*
- * Real Time Clock interface for Jz4775.
- * Based on JZ4780 RTC driver.
+ * Real Time Clock interface for Jz cpu.
+ * Based on JZ CPU RTC driver.
  *
  * Copyright (C) 2013, Ingenic Semiconductor Inc.
  *
@@ -25,7 +25,7 @@
 #include <linux/bitops.h>
 #include <linux/pm.h>
 
-#include "rtc-jz4775.h"
+#include "rtc-jz.h"
 
 /* Default time for the first-time power on */
 static struct rtc_time default_tm = {
@@ -50,9 +50,11 @@ static inline int rtc_periodic_alarm(struct rtc_time *tm)
 static unsigned int jzrtc_readl(struct jz_rtc *dev,int offset)
 {
 	unsigned int data, timeout = 0x100000;
+
 	do {
 		data = readl(dev->iomem + offset);
 	} while (readl(dev->iomem + offset) != data && timeout--);
+
 	if (timeout <= 0)
 		pr_info("RTC : rtc_read_reg timeout!\n");
 	return data;
@@ -61,6 +63,7 @@ static unsigned int jzrtc_readl(struct jz_rtc *dev,int offset)
 static inline void wait_write_ready(struct jz_rtc *dev)
 {
 	int timeout = 0x100000;
+
 	while (!(jzrtc_readl(dev,RTC_RTCCR) & RTCCR_WRDY) && timeout--);
 	if (timeout <= 0)
 		pr_info("RTC : %s timeout!\n",__func__);
@@ -68,14 +71,16 @@ static inline void wait_write_ready(struct jz_rtc *dev)
 
 static void jzrtc_writel(struct jz_rtc *dev,int offset, unsigned int value)
 {
-
 	int timeout = 0x100000;
+
 //	wait_write_ready(dev);
 	writel(WENR_WENPAT_WRITABLE, dev->iomem + RTC_WENR);
 	wait_write_ready(dev);
+
 	while (!(jzrtc_readl(dev,RTC_WENR) & WENR_WEN) && timeout--);
 	if (timeout <= 0)
 		pr_info("RTC :  wait_writable timeout!\n");
+
 	wait_write_ready(dev);
 	writel(value,dev->iomem + offset);
 	wait_write_ready(dev);
@@ -94,25 +99,25 @@ static inline void jzrtc_setl(struct jz_rtc *dev,int offset, unsigned int value)
 #define IS_RTC_IRQ(x,y)  (((x) & (y)) == (y))
 
 #ifdef RTC_DEBUG_DUMP
-static void jz4775_rtc_dump(struct jz_rtc *dev)
+static void jz_rtc_dump(struct jz_rtc *dev)
 {
 
 	pr_info ("*******************************************************************\n");
-	pr_info ("******************************jz4775_rtc_dump**********************\n\n");
-	pr_info ("jz4775_rtc_dump-----RTC_RTCCR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCCR));
-	pr_info ("jz4775_rtc_dump-----RTC_RTCSR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCSR));
-	pr_info ("jz4775_rtc_dump-----RTC_RTCSAR is --0X%X--\n",jzrtc_readl(dev,RTC_RTCSAR));
-	pr_info ("jz4775_rtc_dump-----RTC_RTCGR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCGR));
-	pr_info ("jz4775_rtc_dump-----RTC_HCR is --0X%X--\n",jzrtc_readl(dev, RTC_HCR));
-	pr_info ("jz4775_rtc_dump-----RTC_HWFCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWFCR));
-	pr_info ("jz4775_rtc_dump-----RTC_HRCR is --0X%X--\n",jzrtc_readl(dev, RTC_HRCR));
-	pr_info ("jz4775_rtc_dump-----RTC_HWCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWCR));
-	pr_info ("jz4775_rtc_dump-----RTC_HWRSR is --0X%X--\n",jzrtc_readl(dev,RTC_HWRSR));
-	pr_info ("jz4775_rtc_dump-----RTC_HSPR is --0X%X--\n",jzrtc_readl(dev, RTC_HSPR));
-	pr_info ("jz4775_rtc_dump-----RTC_WENR is --0X%X--\n",jzrtc_readl(dev, RTC_WENR));
-	pr_info ("jz4775_rtc_dump-----RTC_CKPCR is --0X%X--\n",jzrtc_readl(dev,RTC_CKPCR));
-	pr_info ("jz4775_rtc_dump-----RTC_PWRONCR is -0X%X-\n",jzrtc_readl(dev,RTC_PWRONCR));
-	pr_info ("***************************jz4775_rtc_dump***************************\n");
+	pr_info ("******************************jz_rtc_dump**********************\n\n");
+	pr_info ("jz_rtc_dump-----RTC_RTCCR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCCR));
+	pr_info ("jz_rtc_dump-----RTC_RTCSR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCSR));
+	pr_info ("jz_rtc_dump-----RTC_RTCSAR is --0X%X--\n",jzrtc_readl(dev,RTC_RTCSAR));
+	pr_info ("jz_rtc_dump-----RTC_RTCGR is --0X%X--\n",jzrtc_readl(dev, RTC_RTCGR));
+	pr_info ("jz_rtc_dump-----RTC_HCR is --0X%X--\n",jzrtc_readl(dev, RTC_HCR));
+	pr_info ("jz_rtc_dump-----RTC_HWFCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWFCR));
+	pr_info ("jz_rtc_dump-----RTC_HRCR is --0X%X--\n",jzrtc_readl(dev, RTC_HRCR));
+	pr_info ("jz_rtc_dump-----RTC_HWCR is --0X%X--\n",jzrtc_readl(dev, RTC_HWCR));
+	pr_info ("jz_rtc_dump-----RTC_HWRSR is --0X%X--\n",jzrtc_readl(dev,RTC_HWRSR));
+	pr_info ("jz_rtc_dump-----RTC_HSPR is --0X%X--\n",jzrtc_readl(dev, RTC_HSPR));
+	pr_info ("jz_rtc_dump-----RTC_WENR is --0X%X--\n",jzrtc_readl(dev, RTC_WENR));
+	pr_info ("jz_rtc_dump-----RTC_CKPCR is --0X%X--\n",jzrtc_readl(dev,RTC_CKPCR));
+	pr_info ("jz_rtc_dump-----RTC_PWRONCR is -0X%X-\n",jzrtc_readl(dev,RTC_PWRONCR));
+	pr_info ("***************************jz_rtc_dump***************************\n");
 	pr_info ("*******************************************************************\n\n");
 
 	return;
@@ -155,7 +160,7 @@ static void jzrtc_irq_tasklet(unsigned long data)
 	return;
 }
 
-static irqreturn_t jz4775_rtc_interrupt(int irq, void *dev_id)
+static irqreturn_t jz_rtc_interrupt(int irq, void *dev_id)
 {
 	struct jz_rtc *rtc = (struct jz_rtc *) (dev_id);
 
@@ -165,7 +170,7 @@ static irqreturn_t jz4775_rtc_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int jz4775_rtc_open(struct device *dev)
+static int jz_rtc_open(struct device *dev)
 {
 //	int ret;
 //	struct jz_rtc *rtc = dev_get_drvdata(dev);
@@ -173,19 +178,20 @@ static int jz4775_rtc_open(struct device *dev)
 	return 0;
 }
 
-static void jz4775_rtc_release(struct device *dev)
+static void jz_rtc_release(struct device *dev)
 {
 	/* struct jz_rtc *rtc = dev_get_drvdata(dev); */
 
 	/* free_irq(rtc->irq, rtc); */
 }
 
-static int jz4775_rtc_ioctl(struct device *dev, unsigned int cmd,
+static int jz_rtc_ioctl(struct device *dev, unsigned int cmd,
 		unsigned long arg)
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 	unsigned int tmp;
 	unsigned long flags;
+
 	switch (cmd) {
 		case RTC_AIE_OFF:
 			spin_lock_irqsave(&rtc->lock,flags);
@@ -223,7 +229,7 @@ static int jz4775_rtc_ioctl(struct device *dev, unsigned int cmd,
 	return -ENOIOCTLCMD;
 }
 
-static int jz4775_rtc_set_time(struct device *dev, struct rtc_time *tm)
+static int jz_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 
 	struct jz_rtc *rtc = NULL;
@@ -242,7 +248,7 @@ static int jz4775_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	return ret;
 }
 
-static int jz4775_rtc_read_time(struct device *dev, struct rtc_time *tm)
+static int jz_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	unsigned int tmp;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
@@ -252,14 +258,14 @@ static int jz4775_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 	if (rtc_valid_tm(tm) < 0) {
 		/* Set the default time */
-		jz4775_rtc_set_time(dev, &default_tm);
+		jz_rtc_set_time(dev, &default_tm);
 		tmp = jzrtc_readl(rtc, RTC_RTCSR);
 		rtc_time_to_tm(tmp, tm);
 	}
 	return 0;
 }
 
-static int jz4775_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
+static int jz_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	unsigned int rtc_rcr,tmp;
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
@@ -276,7 +282,7 @@ static int jz4775_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	return 0;
 }
 
-static int jz4775_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
+static int jz_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	int ret = 0;
 	unsigned long time;
@@ -300,7 +306,7 @@ static int jz4775_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	return ret;
 }
 
-static int jz4775_rtc_proc(struct device *dev, struct seq_file *seq)
+static int jz_rtc_proc(struct device *dev, struct seq_file *seq)
 {
 	struct jz_rtc *rtc = dev_get_drvdata(dev);
 	seq_printf(seq, "RTC regulator\t: 0x%08x\n",
@@ -311,18 +317,18 @@ static int jz4775_rtc_proc(struct device *dev, struct seq_file *seq)
 	return 0;
 }
 
-static const struct rtc_class_ops jz4775_rtc_ops = {
-	.open       = jz4775_rtc_open,
-	.release    = jz4775_rtc_release,
-	.ioctl      = jz4775_rtc_ioctl,
-	.read_time  = jz4775_rtc_read_time,
-	.set_time   = jz4775_rtc_set_time,
-	.read_alarm = jz4775_rtc_read_alarm,
-	.set_alarm  = jz4775_rtc_set_alarm,
-	.proc       = jz4775_rtc_proc,
+static const struct rtc_class_ops jz_rtc_ops = {
+	.open       = jz_rtc_open,
+	.release    = jz_rtc_release,
+	.ioctl      = jz_rtc_ioctl,
+	.read_time  = jz_rtc_read_time,
+	.set_time   = jz_rtc_set_time,
+	.read_alarm = jz_rtc_read_alarm,
+	.set_alarm  = jz_rtc_set_alarm,
+	.proc       = jz_rtc_proc,
 };
 
-static void jz4775_rtc_enable(struct jz_rtc *rtc)
+static void jz_rtc_enable(struct jz_rtc *rtc)
 {
 
 	unsigned int cfc,hspr,rgr_1hz;
@@ -342,7 +348,7 @@ static void jz4775_rtc_enable(struct jz_rtc *rtc)
 	if ((hspr != cfc) || (rgr_1hz != RTC_FREQ_DIVIDER)) {
 		/* We are powered on for the first time !!! */
 
-		pr_info("jz4775-rtc: rtc power on reset !\n");
+		pr_info("jz-rtc: rtc power on reset !\n");
 
 		/* Set 32768 rtc clocks per seconds */
 		jzrtc_writel(rtc, RTC_RTCGR, RTC_FREQ_DIVIDER);
@@ -374,13 +380,10 @@ static void jz4775_rtc_enable(struct jz_rtc *rtc)
 
 }
 
-
-static int jz4775_rtc_probe(struct platform_device *pdev)
+static int jz_rtc_probe(struct platform_device *pdev)
 {
 	struct jz_rtc *rtc;
 	int ret;
-
-	pr_debug("%s: probe=%p\n", __func__, pdev);
 
 	rtc = kzalloc(sizeof(*rtc), GFP_KERNEL);//
 	if (!rtc)
@@ -391,7 +394,6 @@ static int jz4775_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no irq for rtc tick\n");
 		return -ENOENT;
 	}
-	pr_debug("jz4775_rtc: tick irq %d\n",  rtc->irq);
 
 	rtc->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (rtc->res == NULL) {
@@ -418,7 +420,7 @@ static int jz4775_rtc_probe(struct platform_device *pdev)
 	spin_lock_init(&rtc->lock);
 	platform_set_drvdata(pdev, rtc);
 	device_init_wakeup(&pdev->dev, 1);
-	rtc->rtc = rtc_device_register(pdev->name, &pdev->dev, &jz4775_rtc_ops, THIS_MODULE);
+	rtc->rtc = rtc_device_register(pdev->name, &pdev->dev, &jz_rtc_ops, THIS_MODULE);
 
 	if (IS_ERR(rtc->rtc)) {
 		ret = PTR_ERR(rtc->rtc);
@@ -426,7 +428,7 @@ static int jz4775_rtc_probe(struct platform_device *pdev)
 		goto err_unregister_rtc;
 	}
 
-	ret = request_irq(rtc->irq, jz4775_rtc_interrupt, IRQF_TRIGGER_LOW | IRQF_DISABLED,
+	ret = request_irq(rtc->irq, jz_rtc_interrupt, IRQF_TRIGGER_LOW | IRQF_DISABLED,
 			"rtc 1Hz and alarm", rtc);
 	if (ret) {
 		pr_debug("IRQ %d already in use.\n", rtc->irq);
@@ -435,7 +437,7 @@ static int jz4775_rtc_probe(struct platform_device *pdev)
 
 	tasklet_init(&rtc->tasklet, jzrtc_irq_tasklet,(unsigned long)rtc);
 
-	jz4775_rtc_enable(rtc);
+	jz_rtc_enable(rtc);
 
 	return 0;
 
@@ -454,7 +456,7 @@ err_nores:
 
 }
 
-static int jz4775_rtc_remove(struct platform_device *pdev)
+static int jz_rtc_remove(struct platform_device *pdev)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
 
@@ -474,7 +476,7 @@ static int jz4775_rtc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int jz4775_rtc_suspend(struct platform_device *pdev, pm_message_t state)
+static int jz_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
 
@@ -499,7 +501,7 @@ static int jz4775_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int jz4775_rtc_resume(struct platform_device *pdev)
+static int jz_rtc_resume(struct platform_device *pdev)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
 
@@ -511,34 +513,34 @@ static int jz4775_rtc_resume(struct platform_device *pdev)
 }
 
 #else
-#define jz4775_rtc_suspend	NULL
-#define jz4775_rtc_resume	NULL
+#define jz_rtc_suspend	NULL
+#define jz_rtc_resume	NULL
 #endif
 
-static struct platform_driver jz4775_rtc_driver = {
-	.probe		= jz4775_rtc_probe,
-	.remove		= jz4775_rtc_remove,
-	.suspend	= jz4775_rtc_suspend,
-	.resume		= jz4775_rtc_resume,
+static struct platform_driver jz_rtc_driver = {
+	.probe		= jz_rtc_probe,
+	.remove		= jz_rtc_remove,
+	.suspend	= jz_rtc_suspend,
+	.resume		= jz_rtc_resume,
 	.driver		= {
 	.name		= "jz-rtc",
 	},
 };
 
-static int __init jz4775_rtc_init(void)
+static int __init jz_rtc_init(void)
 {
-	return platform_driver_register(&jz4775_rtc_driver);
+	return platform_driver_register(&jz_rtc_driver);
 }
 
-static void __exit jz4775_rtc_exit(void)
+static void __exit jz_rtc_exit(void)
 {
-	platform_driver_unregister(&jz4775_rtc_driver);
+	platform_driver_unregister(&jz_rtc_driver);
 }
 
-module_init(jz4775_rtc_init);
-module_exit(jz4775_rtc_exit);
+module_init(jz_rtc_init);
+module_exit(jz_rtc_exit);
 
 MODULE_AUTHOR("Aaron <hfwang@ingenic.cn>");
-MODULE_DESCRIPTION("JZ4775 Realtime Clock Driver (RTC)");
+MODULE_DESCRIPTION("JZ Realtime Clock Driver (RTC)");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:jz4775-rtc");
+MODULE_ALIAS("platform:jz-rtc");
