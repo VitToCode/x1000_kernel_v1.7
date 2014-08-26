@@ -26,6 +26,7 @@
 #define ISP_NOTIFY_DROP_FRAME0			(0x00000100)
 #define ISP_NOTIFY_DROP_FRAME1			(0x00000200)
 #define ISP_NOTIFY_OVERFLOW			(0x00080000)
+#define ISP_NOTIFY_UPDATE_BUF			(0x80000000)
 
 /*ISP group write config*/
 #define I2C_CMD_READ		0x0001
@@ -160,8 +161,10 @@ struct isp_ops {
 	int (*g_ctrl)(struct isp_device *, struct v4l2_control *);
 	int (*s_parm)(struct isp_device *, struct v4l2_streamparm *);
 	int (*g_parm)(struct isp_device *, struct v4l2_streamparm *);
-	int (*process_raw)(struct isp_device *, struct v4l2_acquire_photo_parm*, unsigned char *);
-	int (*bypass_capture)(struct isp_device *, struct v4l2_acquire_photo_parm*);
+	int (*save_flags)(struct isp_device *, struct isp_format *f);
+	int (*restore_flags)(struct isp_device *, struct isp_format *f);
+	int (*process_raw)(struct isp_device *, struct isp_format *, unsigned int, unsigned int, unsigned char *);
+	int (*bypass_capture)(struct isp_device *, struct isp_format *, unsigned int);
 	int (*tlb_init)(struct isp_device *);
 	int (*tlb_deinit)(struct isp_device *);
 	int (*tlb_map_one_vaddr)(struct isp_device *, unsigned int, unsigned int);
@@ -246,6 +249,7 @@ struct isp_device {
 	int irq;
 	bool first_init;
 	bool wait_eof;
+	bool capture_raw_enable;
 //	bool pp_buf;
 	struct isp_buffer buf_start;
 	struct isp_debug debug;
@@ -257,79 +261,16 @@ struct isp_device {
 	struct list_head tlb_list;
 };
 
-#define isp_dev_call(isp, f, args...)				\
-	(!(isp) ? -ENODEV : (((isp)->ops && (isp)->ops->f) ?	\
-						 (isp)->ops->f((isp) , ##args) : -ENOIOCTLCMD))
 
-static inline unsigned int isp_reg_readl(struct isp_device *isp,
-		unsigned int offset)
-{
-#define pp 3
-#if (pp == 0)
-	return (((unsigned int)readb(isp->base + offset) << 24)
-			| ((unsigned int)readb(isp->base + offset + 1) << 16)
-			| ((unsigned int)readb(isp->base + offset + 2) << 8)
-			| (unsigned int)readb(isp->base + offset + 3));
-#elif (pp == 1)
-	return (((unsigned int)readb(isp->base + offset))
-			| ((unsigned int)readb(isp->base + offset + 1) << 8)
-			| ((unsigned int)readb(isp->base + offset + 2) << 16)
-			| (unsigned int)readb(isp->base + offset + 3) << 24);
-#elif (pp == 3)
-	return readl(isp->base + offset);
-#endif
-}
+int isp_device_init(struct isp_device* isp);
+int isp_device_release(struct isp_device* isp);
 
-static inline unsigned short isp_reg_readw(struct isp_device *isp,
-		unsigned int offset)
-{
-#if 0
-	return (((unsigned short)readb(isp->base + offset) << 8)
-			| (unsigned short)readb(isp->base + offset + 1));
-#else
-	return readw(isp->base + offset);
-#endif
-}
+/* add settting of isp's function by wqyan */
+typedef struct __isp_setting {
+	unsigned int offset;
+	unsigned char val;
+} OV_CALIBRATION_SETTING;
 
-static inline unsigned char isp_reg_readb(struct isp_device *isp,
-		unsigned int offset)
-{
-	return readb(isp->base + offset);
-}
-
-static inline void isp_reg_writel(struct isp_device *isp,
-		unsigned int value, unsigned int offset)
-{
-	writel(value, isp->base + offset);
-}
-
-static inline void isp_reg_writew(struct isp_device *isp,
-		unsigned short value, unsigned int offset)
-{
-	writew(value, isp->base + offset);
-}
-
-static inline void isp_reg_writeb(struct isp_device *isp,
-		unsigned char value, unsigned int offset)
-{
-	writeb(value, isp->base + offset);
-}
-
-static void isp_firmware_writeb(struct isp_device * isp,
-		unsigned char value, unsigned int offset)
-{
-	int pos = offset % 4;
-	isp_reg_writeb(isp, value, offset - pos + (3 - pos));
-}
-static unsigned char isp_firmware_readb(struct isp_device * isp,
-		unsigned int offset)
-{
-	int pos = offset % 4;
-	return isp_reg_readb(isp, offset - pos + (3 -  pos));
-}
-extern int isp_device_init(struct isp_device* isp);
-extern int isp_device_release(struct isp_device* isp);
-extern unsigned char isp_firmware_readb(struct isp_device * isp,unsigned int offset);
-
+#define OV_CALIBRATION_SETTING_END 0xffff
 
 #endif/*__OVISP_ISP_H__*/

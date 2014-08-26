@@ -259,10 +259,10 @@ static int ov9724_get_sensor_vts(struct v4l2_subdev *sd, unsigned short *value)
 {
 	unsigned char h,l;
 	int ret = 0;
-	ret = ov9724_read(sd, 0x0342, &h);
+	ret = ov9724_read(sd, 0x0340, &h);
 	if (ret < 0)
 		return ret;
-	ret = ov9724_read(sd, 0x0343, &l);
+	ret = ov9724_read(sd, 0x0341, &l);
 	if (ret < 0)
 		return ret;
 	*value = h;

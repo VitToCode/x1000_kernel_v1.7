@@ -292,6 +292,7 @@
 #define MASK_INT_MAC1				(1 << 22)
 #define MASK_INT_MAC				(1 << 21)
 #define MASK_INT_EOF				(1 << 8)
+#define MASK_INT_VSYNC				(1 << 4)
 #define MASK_INT_CMDINTR			(1 << 2)
 #define MASK_INT_GYIO				(1 << 1)
 #define MASK_INT_GPIO				(1 << 0)
