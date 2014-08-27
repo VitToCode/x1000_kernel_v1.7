@@ -37,6 +37,11 @@ struct card_gpio {
 	struct jzmmc_pin 		cd;
 	struct jzmmc_pin 		pwr;
 };
+struct wifi_data {
+	struct wake_lock		wifi_wake_lock;
+	struct regulator		*wifi_power;
+	int				wifi_reset;
+};
 
 /**
  * struct jzmmc_platform_data is a struct which defines board MSC informations

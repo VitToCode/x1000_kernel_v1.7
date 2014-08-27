@@ -73,7 +73,6 @@ static struct regulator_consumer_supply ricoh619_ldo2_supply_0[] = {
 static struct regulator_consumer_supply ricoh619_ldo3_supply_0[] = {
 	REGULATOR_SUPPLY("cam_avdd_2v8", NULL),
 };
-
 static struct regulator_consumer_supply ricoh619_ldo4_supply_0[] = {
 	REGULATOR_SUPPLY("cpu_vddio2_1v8", NULL),
 };
@@ -100,7 +99,6 @@ static struct regulator_consumer_supply ricoh619_ldortc1_supply_0[] = {
 static struct regulator_consumer_supply ricoh619_ldortc2_supply_0[] = {
 	REGULATOR_SUPPLY("rtc_1.1V", NULL),
 };
-
 #define RICOH_PDATA_INIT(_name, _sname, _minmv, _maxmv, _supply_reg, _always_on, \
 	_boot_on, _apply_uv, _init_uV, _init_enable, _init_apply, _flags, \
 	_ext_contol, _ds_slots) \
@@ -141,22 +139,21 @@ RICOH_PDATA_INIT(dc1, 0,	600,   3500, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc2, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
 //RICOH_PDATA_INIT(dc3, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
 #ifdef CONFIG_JZ_EPD_V12
-RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);
+RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, 1, 1, 1, 1800, 1, 1, 0, 0, 0);
 #else
 RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, 1, 1, 1, 1800, 1, 1, 0, 0, 0);
 #endif
-RICOH_PDATA_INIT(ldo1, 0,	900,   3500, 0, 1, 1, 1, 1800, 1, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo1, 0,	900,   3500, 0, 0, 0, 0, 3300, 0, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo2, 0,	900,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);
-RICOH_PDATA_INIT(ldo3, 0,	900,   3500, 0, 1, 1, 1, 2800, 1, 1, 0, 0, 0);
-RICOH_PDATA_INIT(ldo4, 0,	900,   3500, 0, 0, 0, 1, 1800, 0, 1, 0, 0, 0);
-RICOH_PDATA_INIT(ldo5, 0,	600,   3500, 0, 0, 0, 1, 2500, 0, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo3, 0,	900,   3500, 0, 0, 0, 1, 2800, 0, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo4, 0,	900,   3500, 0, 1, 1, 1, 1800, 0, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo5, 0,	600,   3500, 0, 1, 1, 1, 2500, 0, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo6, 0,	600,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo7, 0,	900,   3500, 0, 0, 0, 1, 1800, 0, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo8, 0,	900,   3500, 0, 0, 0, 1, 3300, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo9, 0,	900,   3500, 0, 0, 0, 1, 1800, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldortc1, 0,	1700,  3500, 0, 1, 1, 1, 1800, 1, 1, -1, -1, -1);
 RICOH_PDATA_INIT(ldortc2, 0,	900,   3500, 0, 1, 1, 1, 1100, 1, 1, -1, -1, -1);
-
 /*-------- if Ricoh RTC exists -----------*/
 #ifdef CONFIG_RTC_DRV_R5T619
 static struct ricoh_rtc_platform_data rtc_data = {
@@ -187,10 +184,10 @@ static struct ricoh_rtc_platform_data rtc_data = {
 	.platform_data	= &pdata_##_name##_##_sname,		\
 }
 
-#define RICOH619_BATTERY_REG    				\
+#define RICOH619_BATTERY_REG					\
 {								\
-    .id			= -1,    				\
-    .name		= "ricoh619-battery",     		\
+    .id			= -1,	 				\
+    .name		= "ricoh619-battery",	  		\
     .platform_data	= &ricoh619_battery_data,    		\
 }
 
@@ -287,9 +284,9 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	RICOH_REG(DC2, dc2, 0),		\
 	RICOH_REG(DC4, dc4, 0),		\
 	RICOH_REG(LDO1, ldo1, 0),	\
-	RICOH_REG(LDO2, ldo2, 0),	\
-	RICOH_REG(LDO3, ldo3, 0),	\
-	RICOH_REG(LDO4, ldo4, 0),	\
+	RICOH_REG(LDO2, ldo2, 0),       \
+	RICOH_REG(LDO3, ldo3, 0),       \
+	RICOH_REG(LDO4, ldo4, 0),       \
 	RICOH_REG(LDO5, ldo5, 0),	\
 	RICOH_REG(LDO6, ldo6, 0),	\
 	RICOH_REG(LDO7, ldo7, 0),	\
@@ -297,7 +294,6 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	RICOH_REG(LDO9, ldo9, 0),	\
 	RICOH_REG(LDORTC1, ldortc1, 0),	\
 	RICOH_REG(LDORTC2, ldortc2, 0)
-
 static struct ricoh619_subdev_info ricoh_devs_dcdc[] = {
 	RICOH619_DEV_REG,
 	RICOH619_BATTERY_REG,

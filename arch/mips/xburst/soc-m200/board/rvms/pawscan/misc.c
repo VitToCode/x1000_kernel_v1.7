@@ -98,13 +98,7 @@ static struct i2c_board_info jz_i2c1_devs[] __initdata = {
 DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
 #endif
 #ifndef CONFIG_I2C1_V12_JZ
-DEF_GPIO_I2C(1,GPIO_PE(30),GPIO_PE(31));
-#endif
-#ifndef CONFIG_I2C2_V12_JZ
-DEF_GPIO_I2C(2,GPIO_PF(16),GPIO_PF(17));
-#endif
-#ifndef CONFIG_I2C3_V12_JZ
-DEF_GPIO_I2C(3,GPIO_PC(23),GPIO_PC(22));
+DEF_GPIO_I2C(1,GPIO_PA(12),GPIO_PA(13));
 #endif
 #endif /*CONFIG_I2C_GPIO*/
 
@@ -154,12 +148,6 @@ static int __init board_init(void)
 	platform_device_register(&i2c1_gpio_device);
 #endif
 
-#ifndef CONFIG_I2C2_V12_JZ
-	platform_device_register(&i2c2_gpio_device);
-#endif
-#ifndef CONFIG_I2C3_V12_JZ
-	platform_device_register(&i2c3_gpio_device);
-#endif
 #endif	/* CONFIG_I2C_GPIO */
 
 #ifdef CONFIG_I2C0_V12_JZ

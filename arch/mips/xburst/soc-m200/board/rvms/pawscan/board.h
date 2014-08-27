@@ -10,7 +10,6 @@
 #endif /* CONFIG_REGULATOR_RICOH619 */
 
 /* pmu d2041 or 9024 gpio def*/
-#define GPIO_PMU_IRQ		GPIO_PA(3)
 #define GPIO_GSENSOR_INT1       GPIO_PA(15)
 
 #ifndef CONFIG_BOARD_NAME
@@ -39,33 +38,17 @@ extern struct jzmmc_platform_data sdio_pdata;
 #define GPIO_MIC_DETECT_EN		-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL	-1 /*mic detect enable gpio*/
 
-/*
- * For BCM2079X NFC
- */
-#define NFC_REQ		GPIO_PC(26)
-#define NFC_REG_PU	GPIO_PC(27)
-#define HOST_WAKE_NFC   GPIO_PA(11)
-
 /* wifi gpio */
 #define HOST_WAKE_WL	GPIO_PA(10)
 #define WL_WAKE_HOST	GPIO_PA(9)
-#define WL_REG_EN	GPIO_PA(8)
-#if 0
-#define GPIO_WLAN_REG_ON	GPIO_PG(7)
-#define GPIO_WLAN_INT	        GPIO_PG(8)
-#define GPIO_WLAN_WAKE	        GPIO_PB(28)
-//#define GPIO_WIFI_RST_N     GPIO_PB(20)
-#endif
-
-#define WLAN_PWR_EN	(-1)
-//#define WLAN_PWR_EN	GPIO_PE(3)
+#define GPIO_WIFI_RST_N	GPIO_PA(8)
 
 /**
  * USB detect pin
  **/
-#define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID			GPIO_PA(14)
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
-#define GPIO_USB_DETE			GPIO_PA(14)
+#define GPIO_USB_DETE			GPIO_PE(31)
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
 #define GPIO_USB_DRVVBUS		GPIO_PE(10)
 #define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
