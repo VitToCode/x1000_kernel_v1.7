@@ -84,9 +84,25 @@ static uint32_t efuse_readl(uint32_t reg_off)
 	return readl(efuse->iomem + reg_off);
 }
 
+
 static void efuse_writel(uint32_t val, uint32_t reg_off)
 {
 	writel(val, efuse->iomem + reg_off);
+}
+
+static void nemc_off(void)
+{
+	unsigned int regtmp ;
+	regtmp = readl((volatile unsigned int *)0xb0000020);
+	regtmp |= 2;
+	writel(regtmp,(volatile unsigned int *)0xb0000020);
+}
+static void nemc_on(void)
+{
+	unsigned int regtmp ;
+	regtmp = readl((volatile unsigned int *)0xb0000020);
+	regtmp &= ~2;
+	writel(regtmp,(volatile unsigned int *)0xb0000020);
 }
 
 static void efuse_vddq_set(unsigned long is_on)
@@ -114,8 +130,8 @@ int jz_efuse_read(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	int bit_num, word_num;
 	unsigned long flags;
 	unsigned int val, addr = 0;
-
 	bit_num = data_length * 8;
+	nemc_on();
 	if(seg_id <= USER_ID) {
 		if(bit_num > 128) {
 			dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
@@ -166,7 +182,7 @@ int jz_efuse_read(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	/* clear read done staus */
 	efuse_writel(0, EFUSE_STATE);
 	spin_unlock_irqrestore(&efuse->lock, flags);
-
+	nemc_off();
 	return word_num;
 }
 EXPORT_SYMBOL_GPL(jz_efuse_read);
@@ -177,6 +193,7 @@ static int jz_efuse_write(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	unsigned long flags;
 	unsigned int val, bit_num, addr, word_num;
 
+	nemc_on();
 	bit_num = data_length * 8;
 	if(seg_id <= USER_ID) {
 		if(bit_num > 128) {
@@ -243,6 +260,7 @@ static int jz_efuse_write(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	efuse_writel(0, EFUSE_CTRL);
 	spin_unlock_irqrestore(&efuse->lock, flags);
 
+	nemc_off();
 	return word_num;
 }
 
@@ -282,7 +300,7 @@ static int efuse_read_chip_id_proc(char *page, char **start, off_t off,
 	int len = 0;
 	uint32_t buf[4];
 	jz_efuse_read(0, 16, buf);
-	len = sprintf(page,"chip id: %d%d%d%d\n",buf[0],buf[1],buf[2],buf[3]);
+	len = sprintf(page,"--------> chip id: %x-%x-%x-%x\n",buf[0],buf[1],buf[2],buf[3]);
 	return len;
 }
 
@@ -292,7 +310,7 @@ static int efuse_read_user_id_proc(char *page, char **start, off_t off,
 	int len = 0;
 	uint32_t buf[4];
 	jz_efuse_read(2, 16,buf);
-	len = sprintf(page,"user id: %d%d%d%d\n",buf[0],buf[1],buf[2],buf[3]);
+	len = sprintf(page,"--------> user id: %x-%x-%x-%x\n",buf[0],buf[1],buf[2],buf[3]);
 
 	return len;
 }
@@ -401,7 +419,7 @@ static int jz_efuse_probe(struct platform_device *pdev)
 	}
 	rd_strobe = i;
 
-	for(i = 1000; i < 11000; i += 100) {
+	for(i = 1; i < 11000; i += 100) {
 		val = (wr_adj + i + 1666) * ns;
 		if( val > 9 * 1000 && val < 11 *1000)
 			break;

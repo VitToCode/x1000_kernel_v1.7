@@ -19,8 +19,8 @@
 #include <mach/jzmmc.h>
 #include <mach/camera.h>
 #include <gpio.h>
-#include "board_base.h"
 #include <mach/jz_dsim.h>
+#include "board_base.h"
 
 struct jz_platform_device
 {
@@ -184,9 +184,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_VIDEO_OVISP
 	DEF_DEVICE(&ovisp_device_camera, &ovisp_camera_info, sizeof(struct ovisp_camera_platform_data)),
 #endif
+
 #ifdef CONFIG_JZ_EFUSE_V12
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
+
 #ifdef CONFIG_JZ_BATTERY
 	DEF_DEVICE(&jz_adc_device, &adc_platform_data, sizeof(struct jz_adc_platform_data));
 #endif
