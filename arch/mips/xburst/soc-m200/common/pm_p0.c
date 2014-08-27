@@ -401,12 +401,13 @@ static struct m200_early_sleep_t {
 
 }m200_early_sleep;
 const unsigned int sleep_rate_hz = 24*1000*1000;
-const unsigned int sleep_vol_uv = 1025 * 1000;
+const unsigned int sleep_vol_uv = 950 * 1000;
 static int m200_prepare(void)
 {
 	m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core");
 	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
+
 	if(!IS_ERR(m200_early_sleep.core_vcc))
 	{
 		m200_early_sleep.vol_uv = regulator_get_voltage(m200_early_sleep.core_vcc);

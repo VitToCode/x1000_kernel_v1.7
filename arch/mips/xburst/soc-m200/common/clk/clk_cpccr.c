@@ -27,7 +27,11 @@ static struct cpccr_clk cpccr_clks[] = {
 	CPCCR_CLK(SCLKA,-1, -1,30),
 #undef CPCCR_CLK
 };
-#define l2div_policy(rate,div) (rate > 200 * 1000 * 1000 ? div * 3 - 1 : div - 1)
+static unsigned int cpccr_selector[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,0};
+
+#define AHB_MIN   (100 * 1000 * 1000)
+#define l2div_policy(rate,div) (rate > 200 * 1000 * 1000 ? div * 3 - 1 : div * 2 - 1)
+
 static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *parentclk,unsigned int cpccr) {
 	unsigned int parent_rate;
 	unsigned int target_rate;
@@ -69,8 +73,90 @@ LAB5:
 SET_CPCCR_RATE_ERR:
 	return ret;
 }
+static int get_cpccr_div(unsigned int prate,unsigned int rate)
+{
+	unsigned int div = prate / rate;
+	if((prate % rate) && (div > 1))
+		div--;
+	if(div >= 15)
+		div = 15;
+	return div;
+}
+static inline void set_cpccr_h0div(struct clk *clk,unsigned int rate)
+{
+	unsigned int cpccr = cpm_inl(CPM_CPCCR);
+	int sel=(cpccr >> cpccr_clks[H0DIV].sel) & 3;
+      	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
+	unsigned int hdiv;
+	unsigned int pclk_rate = clk_get_rate(parentclk);
+	hdiv = get_cpccr_div(pclk_rate,rate) - 1;
+	if(clk->rate != pclk_rate / hdiv){
+		cpccr &= ~(0xf << cpccr_clks[H0DIV].off);
+		cpccr |= (hdiv << cpccr_clks[H0DIV].off);
+		cpccr |= (1 << cpccr_clks[H0DIV].ce);
+		cpm_outl(cpccr,CPM_CPCCR);
+		/* wait not busy */
+		while(cpm_inl(CPM_CPCSR) & 2);
+
+		cpccr &= ~(1 << cpccr_clks[H0DIV].ce);
+		cpm_outl(cpccr,CPM_CPCCR);
+		clk->rate = pclk_rate / hdiv;
+	}
+}
+//#define APB_RATE_MAX   (150 * 1000 * 1000)
+//#define APB_RATE_MIN   (96 * 1000 * 1000)
+static inline void set_cpccr_h2div(struct clk *clk,unsigned int rate)
+{
+	unsigned int cpccr = cpm_inl(CPM_CPCCR);
+	int sel=(cpccr >> cpccr_clks[H2DIV].sel) & 3;
+      	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
+	unsigned int hdiv,pdiv;
+	unsigned int pclk_rate = clk_get_rate(parentclk);
+	struct clk *relativeclk = get_clk_from_id(CLK_ID_PCLK);
+	hdiv = get_cpccr_div(pclk_rate,rate);
+	pdiv = hdiv * 2;
+	if(pdiv >= 15)
+		pdiv = hdiv;
+	hdiv--;
+	pdiv--;
+	if(clk->rate != pclk_rate / hdiv){
+		cpccr &= ~((0xf << cpccr_clks[H2DIV].off) | (0xf << cpccr_clks[PDIV].off));
+		cpccr |= (hdiv << cpccr_clks[H2DIV].off) | (pdiv << cpccr_clks[PDIV].off);
+		cpccr |= (1 << cpccr_clks[H2DIV].ce);
+		udelay(1000);
+		cpm_outl(cpccr,CPM_CPCCR);
+		/* wait not busy */
+		while(cpm_inl(CPM_CPCSR) & 4);
+		cpccr &= ~(1 << cpccr_clks[H2DIV].ce);
+		cpm_outl(cpccr,CPM_CPCCR);
+		clk->rate = pclk_rate / hdiv;
+		relativeclk->rate = pclk_rate / pdiv;
+	}
+}
+static inline void sw_ahb_from_l2cache(void)
+{
+	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
+	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
+	unsigned int rate = get_clk_from_id(CLK_ID_L2CLK)->rate;
+	if(rate >= 300*1000*1000)
+	{
+		set_cpccr_h0div(ahb0,200*1000*1000);
+		set_cpccr_h2div(ahb2,200*1000*1000);
+	}else if(rate >= 150*1000*1000){
+		set_cpccr_h0div(ahb0,150*1000*1000);
+		set_cpccr_h2div(ahb2,150*1000*1000);
+	}else if(rate >= 50*1000*1000)
+	{
+		set_cpccr_h0div(ahb0,100*1000*1000);
+		set_cpccr_h2div(ahb2,100*1000*1000);
+	}else{
+		set_cpccr_h0div(ahb0,60*1000*1000);
+		set_cpccr_h2div(ahb2,60*1000*1000);
+	}
+
+}
 static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
-	int sel,select[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,0};
+	int sel;
 	unsigned int cpccr = cpm_inl(CPM_CPCCR);
 	int clkid = &cpccr_clks[CLK_CPCCR_NO(clk->flags)] - &cpccr_clks[0];
 	int ret = -1;
@@ -115,7 +201,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 	}
 	case CDIV:
 		sel=(cpccr >> cpccr_clks[clkid].sel) & 3;
-		parentclk = get_clk_from_id(select[sel]);
+		parentclk = get_clk_from_id(cpccr_selector[sel]);
 #ifdef USE_PLL
 		{
 			unsigned int ddrcgu = cpm_inl(CPM_DDRCDR);
@@ -179,11 +265,12 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				cpccr_temp = cpm_inl(CPM_CPCCR);
 				cpccr_temp &= ~(3 << 28);
 				cpccr_temp |= csel << 28;
-				parentclk = get_clk_from_id(select[sel]);
+				parentclk = get_clk_from_id(cpccr_selector[sel]);
 				ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr_temp);
 				if(ret) {
 					printk("cpccr set rate fail!\n");
 				}else{
+					sw_ahb_from_l2cache();
 					break;
 				}
 			}else {
@@ -202,9 +289,10 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				cpccr_temp  &=  ~((1 << cpccr_clks[CDIV].ce) | (1 << cpccr_clks[L2CDIV].ce));
 				cpm_outl(cpccr_temp,CPM_CPCCR);
 				while(cpm_inl(CPM_CPCSR) & 1);
-
 				clk->rate = parentclk->rate;
 				get_clk_from_id(CLK_ID_L2CLK)->rate = parentclk->rate / (l2div + 1);
+				sw_ahb_from_l2cache();
+
 			}
 
 		}
@@ -215,14 +303,19 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			dn.current_rate = prev_rate;
 			dn.target_rate = rate;
 			ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr);
+			sw_ahb_from_l2cache();
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
-
 			jz_notifier_call(JZ_CLK_CHANGING,&dn);
 			jz_notifier_call(JZ_CLK_CHANGED,NULL);
-
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 		}
 #endif
+		break;
+	case H0DIV:
+		set_cpccr_h0div(clk,rate);
+		break;
+	case H2DIV:
+		set_cpccr_h2div(clk,rate);
 		break;
 	default:
 		printk("no support set %s clk!\n",clk->name);
@@ -233,7 +326,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 }
 static unsigned long cpccr_get_rate(struct clk *clk)
 {
-	int sel,select[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,0};
+	int sel;
 	unsigned long cpccr = cpm_inl(CPM_CPCCR);
 	unsigned int rate;
 	int v;
@@ -254,7 +347,7 @@ static unsigned long cpccr_get_rate(struct clk *clk)
 
 		v = (cpccr >> cpccr_clks[CLK_CPCCR_NO(clk->flags)].off) & 0xf;
 		sel = (cpccr >> (cpccr_clks[CLK_CPCCR_NO(clk->flags)].sel)) & 0x3;
-		rate = get_clk_from_id(select[sel])->rate;
+		rate = get_clk_from_id(cpccr_selector[sel])->rate;
 		rate = rate / (v + 1);
 	}
 	return rate;
@@ -266,12 +359,12 @@ static struct clk_ops clk_cpccr_ops = {
 
 void __init init_cpccr_clk(struct clk *clk)
 {
-	int sel,selector[4] = {0,CLK_ID_SCLKA,CLK_ID_MPLL,0};	//check
+	int sel;	//check
 	unsigned long cpccr = cpm_inl(CPM_CPCCR);
 	if(CLK_CPCCR_NO(clk->flags) != SCLKA) {
 		sel = (cpccr >> cpccr_clks[CLK_CPCCR_NO(clk->flags)].sel) & 0x3;
-		if(selector[sel] != 0) {
-			clk->parent = get_clk_from_id(selector[sel]);
+		if(cpccr_selector[sel] != 0) {
+			clk->parent = get_clk_from_id(cpccr_selector[sel]);
 			clk->flags |= CLK_FLG_ENABLE;
 		}else {
 			clk->parent = NULL;
