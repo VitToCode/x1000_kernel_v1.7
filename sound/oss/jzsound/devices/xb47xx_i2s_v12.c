@@ -1522,7 +1522,7 @@ static int jz_get_hp_switch_state_2(struct snd_switch_data *switch_data)
 
 	int value = 0;
 	int ret = 0;
-    if (cur_codec && cur_codec->codec_ctl) {
+    if (cur_codec && cur_codec->codec_ctl_2) {
         ret = cur_codec->codec_ctl_2(cur_codec, CODEC_GET_HP_STATE, (unsigned long)&value);
         if (ret < 0) {
             return 0;
