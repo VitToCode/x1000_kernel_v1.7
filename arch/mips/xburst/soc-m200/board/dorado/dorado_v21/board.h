@@ -55,21 +55,21 @@
 /* ****************************GPIO LCD END********************************** */
 
 /* ****************************GPIO I2C START******************************** */
-#ifndef CONFIG_I2C0_V12_JZ
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 #define GPIO_I2C0_SDA GPIO_PD(30)
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
-#ifndef CONFIG_I2C1_V12_JZ
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
 #define GPIO_I2C1_SDA GPIO_PE(30)
 #define GPIO_I2C1_SCK GPIO_PE(31)
 #endif
-#ifndef CONFIG_I2C2_V12_JZ
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
 #define GPIO_I2C2_SDA GPIO_PA(12)
 #define GPIO_I2C2_SCK GPIO_PA(13)
 //#define GPIO_I2C2_SDA GPIO_PE(00)
 //#define GPIO_I2C2_SCK GPIO_PE(03)
 #endif
-#ifndef CONFIG_I2C3_V12_JZ
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 #define GPIO_I2C3_SDA GPIO_PB(7)
 #define GPIO_I2C3_SCK GPIO_PB(8)
 #endif
@@ -121,7 +121,9 @@
 #endif /* CONFIG_REGULATOR_RICOH619 */
 
 /* pmu d2041 or 9024 gpio def*/
+#ifdef CONFIG_REGULATOR_DA9024
 #define GPIO_PMU_IRQ		GPIO_PA(3)
+#endif
 /* ****************************GPIO PMU END********************************** */
 
 /******************************GPIO PCA9539 START***********************************/
@@ -158,8 +160,8 @@
 /* ****************************GPIO USB END********************************** */
 
 /* ****************************GPIO CAMERA START***************************** */
-#define CAMERA_RST		GPIO_PD(27)
-#define CAMERA_PWDN_N           GPIO_PA(13) /* pin conflict with USB_ID */
+#define CAMERA_RST		       PCA9539_EXT_GPIO(4)
+#define CAMERA_PWDN_N           PCA9539_EXT_GPIO(3)//GPIO_PA(13) /* pin conflict with USB_ID */
 #define CAMERA_MCLK		GPIO_PE(2) /* no use */
 #ifdef CONFIG_DVP_OV9712
 #define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
@@ -207,9 +209,9 @@
 /*
  * For BCM2079X NFC
  */
-#define NFC_REQ		GPIO_PC(26)
-#define NFC_REG_PU	GPIO_PC(27)
-#define HOST_WAKE_NFC   GPIO_PA(11)
+#define NFC_REQ		PCA9539_EXT_GPIO(1)//GPIO_PC(26)
+#define NFC_REG_PU	PCA9539_EXT_GPIO(0)//GPIO_PC(27)
+#define HOST_WAKE_NFC   PCA9539_EXT_GPIO(2)//GPIO_PA(11)
 /* ****************************GPIO NFC END********************************** */
 
 /* ****************************GPIO BLUETOOTH START************************** */
