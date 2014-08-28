@@ -439,8 +439,8 @@ static int set_cc_sum_back(struct ricoh61x_battery_info *info, int *val)
 				cc_sum = cc_sum -0x01;
 				cc_sum = cc_sum^0xffffffff;
 			}
-	pr_info("Ross's CC_SUM is %d \n",cc_sum);
-	pr_info("VALis %d \n",value);
+	pr_debug("Ross's CC_SUM is %d \n",cc_sum);
+	pr_debug("VALis %d \n",value);
 
 	cc_sum_reg[3]= cc_sum & 0xff;
 	cc_sum_reg[2]= (cc_sum & 0xff00)>> 8;
@@ -767,7 +767,7 @@ static int calc_capacity_in_period(struct ricoh61x_battery_info *info,
 
 	cc_cap_res = cc_cap_temp % 100;
 
-	pr_info("PMU: cc_sum = %d: cc_cap_res= %d: \n", cc_sum, cc_cap_res);
+	pr_debug("PMU: cc_sum = %d: cc_cap_res= %d: \n", cc_sum, cc_cap_res);
 
 
 	if(*is_charging) {
@@ -783,7 +783,7 @@ static int calc_capacity_in_period(struct ricoh61x_battery_info *info,
 			info->soca->cc_cap_offset %= 100;
 		}
 	}
-	pr_info("PMU: cc_cap_offset= %d: \n", info->soca->cc_cap_offset);
+	pr_debug("PMU: cc_cap_offset= %d: \n", info->soca->cc_cap_offset);
 
 	//////////////////////////////////////////////////////////////////
 	return 0;
@@ -977,7 +977,6 @@ static int calib_ocvTable(struct ricoh61x_battery_info *info, int vbat_ocv)
 		goto err;
 	}
 
-	pr_info("PMU: %s Exit \n", __func__);
 	return 0;
 err:
 	return ret;
@@ -1703,7 +1702,7 @@ end_flow:
 				}
 	}
 
-	pr_info("PMU:STATUS= %d: IBAT= %d: VSYS= %d: VBAT= %d: DSOC= %d: RSOC= %d:\n",
+	pr_debug("PMU:STATUS= %d: IBAT= %d: VSYS= %d: VBAT= %d: DSOC= %d: RSOC= %d:\n",
 	       info->soca->status, info->soca->Ibat_ave*20/info->fg_rsense_val, info->soca->Vsys_ave, info->soca->Vbat_ave,
 		info->soca->displayed_soc, info->soca->soc);
 	/*
@@ -3533,7 +3532,8 @@ static int calc_capacity(struct ricoh61x_battery_info *info)
 		ret = calc_capacity_in_period(info, &cc_cap, &is_charging, false);
 		cc_delta = (is_charging == true) ? cc_cap : -cc_cap;
 		capacity_l = (info->soca->init_pswr * 100 + cc_delta) / 100;
-		pr_info("PMU FG_RESET : %s : capacity %d pswr %d cc_delta %d\n",__func__,	capacity_l, info->soca->init_pswr, cc_delta);
+		pr_debug("PMU FG_RESET : %s : capacity %d pswr %d cc_delta %d\n",
+			__func__, capacity_l, info->soca->init_pswr, cc_delta);
 	}
 
 	temperature = get_battery_temp_2(info) / 10; /* unit 0.1 degree -> 1 degree */
@@ -3590,7 +3590,8 @@ static int calc_capacity_2(struct ricoh61x_battery_info *info)
 		ret = calc_capacity_in_period(info, &cc_cap, &is_charging, false);
 		cc_delta = (is_charging == true) ? cc_cap : -cc_cap;
 		capacity = info->soca->init_pswr * 100 + cc_delta;
-		pr_info("PMU FG_RESET : %s : capacity %d pswr %d cc_delta %d\n",__func__,	(int)capacity, info->soca->init_pswr, cc_delta);
+		pr_debug("PMU FG_RESET : %s : capacity %d pswr %d cc_delta %d\n",__func__,
+			(int)capacity, info->soca->init_pswr, cc_delta);
 	}
 
 	temperature = get_battery_temp_2(info) / 10; /* unit 0.1 degree -> 1 degree */
