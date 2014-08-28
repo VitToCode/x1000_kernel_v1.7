@@ -41,6 +41,10 @@
 #define HMODE      10000
 #define MMODE      100000
 
+#ifndef BITS_H2L
+#define BITS_H2L(msb, lsb)  ((0xFFFFFFFF >> (32-((msb)-(lsb)+1))) << (lsb))
+#endif
+
 struct bh1680fvc {
 	struct platform_device *pdev;
 
@@ -66,6 +70,7 @@ struct bh1680fvc_dev {
 };
 
 struct bh1680fvc_dev *bh1680fvc_dev;
+extern int jz_adc_set_config(struct device *dev, uint32_t mask, uint32_t val);
 
 static irqreturn_t jz_bh1680fvc_irq_handler(int irq, void *devid)
 {
@@ -263,7 +268,7 @@ static struct platform_driver bh1680fvc_driver = {
 	.probe	= bh1680fvc_probe,
 	.remove	= __devexit_p(bh1680fvc_remove),
 	.driver = {
-		.name	= "jz4775-bh1680fvc",
+		.name	= "jz-hwmon",
 		.owner	= THIS_MODULE,
 	},
 	.suspend	= bh1680fvc_suspend,
@@ -285,4 +290,7 @@ static void __exit bh1680fvc_exit(void)
 module_init(bh1680fvc_init);
 module_exit(bh1680fvc_exit);
 
+MODULE_ALIAS("platform: JZ bh1680fvc");
+MODULE_AUTHOR("Liu Yanbin<ybliu_hf@ingenic.cn>");
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("JZ adc aux sample driver");

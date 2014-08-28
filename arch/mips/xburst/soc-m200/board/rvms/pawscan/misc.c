@@ -79,8 +79,8 @@ DEF_GPIO_I2C(1,GPIO_PA(12),GPIO_PA(13));
 #endif /*CONFIG_I2C_GPIO*/
 
 
+#ifdef CONFIG_MFD_JZ_SADC_V12
 #ifdef CONFIG_JZ_BATTERY
-
 static struct jz_battery_info  dorado_battery_info = {
 	.max_vol        = 4050,
 	.min_vol        = 3600,
@@ -92,17 +92,20 @@ static struct jz_battery_info  dorado_battery_info = {
 	.ac_chg_current = 800,
 	.usb_chg_current = 400,
 };
-
-static struct jz_adc_platform_data adc_platform_data;
 #endif
+static struct jz_adc_platform_data adc_platform_data;
+#endif //CONFIG_MFD_JZ_SADC_V12
 
 static int __init board_init(void)
 {
 	/* ADC */
+#ifdef CONFIG_MFD_JZ_SADC_V12
 #ifdef CONFIG_JZ_BATTERY
 	adc_platform_data.battery_info = dorado_battery_info;
-	jz_device_register(&jz_adc_device,&adc_platform_data);
 #endif
+	jz_device_register(&jz_adc_device,&adc_platform_data);
+#endif //CONFIG_MFD_JZ_SADC_V12
+
 	/* li-ion charger */
 #ifdef CONFIG_CHARGER_LI_ION
 	platform_device_register(&jz_li_ion_charger_device);
