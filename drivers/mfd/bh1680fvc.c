@@ -285,7 +285,4 @@ static void __exit bh1680fvc_exit(void)
 module_init(bh1680fvc_init);
 module_exit(bh1680fvc_exit);
 
-MODULE_ALIAS("platform:jz4775-bh1680fvc");
-MODULE_AUTHOR("Liu Yanbin<ybliu_hf@ingenic.cn>");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("JZ4775 adc aux sample driver");

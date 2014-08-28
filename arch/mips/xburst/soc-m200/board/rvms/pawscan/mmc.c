@@ -12,6 +12,12 @@
 extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 
+struct wifi_data {
+	struct wake_lock		wifi_wake_lock;
+	struct regulator		*wifi_power;
+	int				wifi_reset;
+};
+
 static struct wifi_data			iw8101_data;
 
 int iw8101_wlan_init(void);
