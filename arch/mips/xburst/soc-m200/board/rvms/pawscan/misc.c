@@ -20,14 +20,6 @@
 #include "board.h"
 #include <mach/jz_dsim.h>
 
-/* efuse */
-#ifdef CONFIG_JZ_EFUSE_V12
-static struct jz_efuse_platform_data jz_efuse_pdata = {
-       /* supply 2.5V to VDDQ */
-	.gpio_vddq_en_n = GPIO_PA(12),
-};
-#endif
-
 #if defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)
 #if defined(GPIO_USB_ID) && defined(GPIO_USB_ID_LEVEL)
 struct jzdwc_pin dwc2_id_pin = {
@@ -50,22 +42,6 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 };
 #endif
 #endif /*CONFIG_USB_DWC2 || CONFIG_USB_DWC_OTG*/
-
-#ifdef CONFIG_CHARGER_LI_ION
-/* li-ion charger */
-static struct li_ion_charger_platform_data jz_li_ion_charger_pdata = {
-	.gpio_charge = GPIO_PB(1),
-	.gpio_ac = GPIO_PA(13),
-	.gpio_active_low = 1,
-};
-
-static struct platform_device jz_li_ion_charger_device = {
-	.name = "li-ion-charger",
-	.dev = {
-		.platform_data = &jz_li_ion_charger_pdata,
-	},
-};
-#endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V12))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
@@ -251,7 +227,7 @@ static int __init board_init(void)
 #ifdef CONFIG_VIDEO_OVISP
        jz_device_register(&ovisp_device_camera, &ovisp_camera_info);
 #endif
-#ifdef CONFIG_RTC_DRV_JZ4775
+#ifdef CONFIG_RTC_DRV_JZ
 	platform_device_register(&jz_rtc_device);
 #endif
 

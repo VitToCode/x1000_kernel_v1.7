@@ -740,7 +740,7 @@ static int __init board_init(void)
 #ifdef CONFIG_VIDEO_OVISP
        jz_device_register(&ovisp_device_camera, &ovisp_camera_info);
 #endif
-#ifdef CONFIG_RTC_DRV_JZ4775
+#ifdef CONFIG_RTC_DRV_JZ
 	platform_device_register(&jz_rtc_device);
 #endif
 /* efuse */
