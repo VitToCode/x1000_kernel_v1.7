@@ -37,6 +37,14 @@
 #include <linux/delay.h>
 #include <jz_notifier.h>
 
+#ifndef CONFIG_BATTERY_RICOH619
+/*
+ * Really ugly when CONFIG_BATTERY_RICOH619 is not selected.
+ */
+int g_soc;
+int g_fg_on_mode;
+#endif
+
 #if 0
 struct sleep_control_data {
 	u8 reg_add;

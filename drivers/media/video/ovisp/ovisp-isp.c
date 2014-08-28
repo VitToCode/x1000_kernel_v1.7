@@ -34,7 +34,7 @@
 
 /* CCLK divider. */
 #define ISP_CCLK_DIVIDER	(0x04)
-extern void isp_setting_init(struct isp_device *isp);
+void isp_setting_init(struct isp_device *isp);
 static int isp_s_tlb_base(struct isp_device *isp, unsigned int *tlb_base);
 static int isp_mipi_init(struct isp_device *isp);
 
@@ -56,6 +56,10 @@ static struct isp_clk_info isp_clks[ISP_CLK_NUM] = {
 	{"isp", DUMMY_CLOCK_RATE,	ISP_CLK_GATE_ISP},
 	{"csi", DUMMY_CLOCK_RATE,	ISP_CLK_GATE_CSI},
 };
+
+void __attribute__((weak)) isp_setting_init(struct isp_device *isp)
+{
+}
 
 static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, unsigned int size);
 static int isp_intc_disable(struct isp_device *isp, unsigned int mask)
