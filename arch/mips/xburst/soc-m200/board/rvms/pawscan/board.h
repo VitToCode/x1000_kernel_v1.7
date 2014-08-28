@@ -20,6 +20,11 @@ extern struct jzmmc_platform_data inand_pdata;
 extern struct jzmmc_platform_data tf_pdata;
 extern struct jzmmc_platform_data sdio_pdata;
 
+/*KEY gpio*/
+#define GPIO_FUNCTION            GPIO_PA(30)
+#define ACTIVE_LOW_FUNCTION      1
+
+
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL		-1		/*vaild level*/
 

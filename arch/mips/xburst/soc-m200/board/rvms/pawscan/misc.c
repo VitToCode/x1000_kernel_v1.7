@@ -20,6 +20,34 @@
 #include "board.h"
 #include <mach/jz_dsim.h>
 
+#ifdef CONFIG_KEYBOARD_GPIO
+static struct gpio_keys_button board_buttons[] = {
+#ifdef GPIO_FUNCTION
+	{
+		.gpio           = GPIO_FUNCTION,
+		.code           = KEY_POWER,
+		.desc           = "end call key",
+		.active_low     = ACTIVE_LOW_FUNCTION,
+		.wakeup         = 1,
+	}
+#endif
+};
+
+static struct gpio_keys_platform_data board_button_data = {
+		.buttons		=board_buttons,
+		.nbuttons		= ARRAY_SIZE(board_buttons),
+};
+
+static struct platform_device jz_button_device = {
+	.name				= "gpio-keys",
+	.id					= -1,
+	.num_resources		= 0,
+	.dev				= {
+		.platform_data  = &board_button_data,
+	}
+};
+#endif
+
 #if defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)
 #if defined(GPIO_USB_ID) && defined(GPIO_USB_ID_LEVEL)
 struct jzdwc_pin dwc2_id_pin = {
@@ -117,7 +145,9 @@ static int __init board_init(void)
 #ifdef CONFIG_BCM_PM_CORE
 	platform_device_register(&bcm_power_platform_device);
 #endif
-
+#ifdef CONFIG_KEYBOARD_GPIO
+	platform_device_register(&jz_button_device);
+#endif
 /*i2c*/
 #ifdef CONFIG_I2C_GPIO
 #ifndef CONFIG_I2C0_V12_JZ
