@@ -21,38 +21,30 @@
 #include <mach/jzfb.h>
 #include "../board_base.h"
 
-struct fb_videomode jzfb_videomode = {
-	.name = "lh155-lcd",
-	.refresh = 60,
-	.xres = 240,
-	.yres = 240,
-	.pixclock = KHZ2PICOS(30000),
-	.left_margin = 0,
-	.right_margin = 0,
-	.upper_margin = 0,
-	.lower_margin = 0,
-	.hsync_len = 0,
-	.vsync_len = 0,
-	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-};
+int lh155_init(struct lcd_device *lcd)
+{
+    int ret = 0;
+    if(GPIO_LCD_RST > 0){
+        ret = gpio_request(GPIO_LCD_RST, "lcd rst");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rst\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_BLK > 0){
+        ret = gpio_request(GPIO_LCD_BLK, "lcd blk");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rst\n");
+            return ret;
+        }
+    }
+    return 0;
+}
 
 int lh155_reset(struct lcd_device *lcd)
 {
-	int ret = 0;
-
-	ret = gpio_request(GPIO_LCD_RST, "lcd rst");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rst\n");
-		return ret;
-	}
-	ret = gpio_request(GPIO_LCD_BLK, "lcd blk");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rst\n");
-		return ret;
-	}
-
+    if(lh155_init(lcd))
+        return -EFAULT;
 	gpio_direction_output(GPIO_LCD_BLK, 1);
 	gpio_direction_output(GPIO_LCD_RST, 1);
 	mdelay(300);
@@ -74,6 +66,23 @@ struct mipi_dsim_lcd_device lh155_device={
 
 unsigned long lh155_cmd_buf[]= {
 	0x2C2C2C2C,
+};
+
+struct fb_videomode jzfb_videomode = {
+	.name = "lh155-lcd",
+	.refresh = 60,
+	.xres = 240,
+	.yres = 240,
+	.pixclock = KHZ2PICOS(30000),
+	.left_margin = 0,
+	.right_margin = 0,
+	.upper_margin = 0,
+	.lower_margin = 0,
+	.hsync_len = 0,
+	.vsync_len = 0,
+	.sync = ~FB_SYNC_HOR_HIGH_ACT & ~FB_SYNC_VERT_HIGH_ACT,
+	.vmode = FB_VMODE_NONINTERLACED,
+	.flag = 0,
 };
 
 struct jzdsi_data jzdsi_pdata = {

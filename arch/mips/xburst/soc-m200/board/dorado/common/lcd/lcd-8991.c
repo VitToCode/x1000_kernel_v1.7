@@ -35,7 +35,6 @@ struct fb_videomode jzfb_8991_videomode = {
 	.refresh = 60,
 	.xres = 480,
 	.yres = 800,
-	// .pixclock = KHZ2PICOS(30000),
 	.pixclock = KHZ2PICOS(30000),
 	.left_margin = 70,
 	.right_margin = 70,

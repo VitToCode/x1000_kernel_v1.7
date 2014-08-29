@@ -36,46 +36,55 @@ static struct cv90_m5377_p30_power lcd_power = {
 
 int cv90_m5377_p30_power_init(struct lcd_device *ld)
 {
-	int ret ;
+    int ret ;
 
-
-	ret = gpio_request(GPIO_LCD_RST, "lcd rst");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rst\n");
-		return ret;
-	}
-	ret = gpio_request(GPIO_LCD_BLK, "lcd blk");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rst\n");
-		return ret;
-	}
-
-	ret = gpio_request(SLCD_NBUSY_PIN, "lcd nbusy pin");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd nbusy pin\n");
-		return ret;
-	}
+    if(GPIO_LCD_RST > 0){
+        ret = gpio_request(GPIO_LCD_RST, "lcd rst");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rst\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_BLK > 0){
+        ret = gpio_request(GPIO_LCD_BLK, "lcd blk");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rst\n");
+            return ret;
+        }
+    }
+    if(SLCD_NBUSY_PIN > 0){
+        ret = gpio_request(SLCD_NBUSY_PIN, "lcd nbusy pin");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd nbusy pin\n");
+            return ret;
+        }
+    }
 
 #ifdef GPIO_DEBUG
-	ret = gpio_request(GPIO_LCD_NRD_E, "lcd nrd_e");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd nrd_e\n");
-		return ret;
-	}
-
-	ret = gpio_request(GPIO_LCD_DNC, "lcd dnc");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd dnc\n");
-		return ret;
-	}
-	ret = gpio_request(GPIO_LCD_NWR_SCL, "lcd dwr_scl");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd dwr_scl\n");
-		return ret;
-	}
+    if(GPIO_LCD_NRD_E > 0){
+        ret = gpio_request(GPIO_LCD_NRD_E, "lcd nrd_e");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd nrd_e\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_DNC > 0){
+        ret = gpio_request(GPIO_LCD_DNC, "lcd dnc");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd dnc\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_NWR_SCL > 0){
+        ret = gpio_request(GPIO_LCD_NWR_SCL, "lcd dwr_scl");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd dwr_scl\n");
+            return ret;
+        }
+    }
 #endif
-	lcd_power.inited = 1;
-	return 0;
+    lcd_power.inited = 1;
+    return 0;
 }
 
 int cv90_m5377_p30_power_reset(struct lcd_device *ld)

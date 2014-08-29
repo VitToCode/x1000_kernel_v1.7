@@ -44,6 +44,12 @@
 #define GPIO_LCD_DNC		GPIO_PC(26)
 #define SLCD_NBUSY_PIN		GPIO_PA(11)
 #endif
+#ifdef CONFIG_LCD_TRULY_TFT240240_2_E
+#define GPIO_LCD_CS            GPIO_PC(14)
+#define GPIO_LCD_RD            GPIO_PC(17)
+#define GPIO_LCD_RST           GPIO_PA(12)
+#define GPIO_BL_PWR_EN         GPIO_PC(18)
+#endif
 #ifdef CONFIG_JZ_EPD_V12
 #define GPIO_EPD_PWR0           GPIO_PC(22)
 #define GPIO_EPD_PWR1           GPIO_PC(23)

@@ -37,7 +37,7 @@ struct fb_videomode jzfb_videomode = {
 	.flag = 0,
 };
 
-struct jzdsi_platform_data jzdsi_pdata = {
+struct jzdsi_data jzdsi_pdata = {
 	.video_config.no_of_lanes = 2,
 	.video_config.virtual_channel = 0,
 	.video_config.color_coding = COLOR_CODE_24BIT,

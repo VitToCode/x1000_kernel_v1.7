@@ -22,16 +22,6 @@
 
 #include "../board_base.h"
 
-/******GPIO PIN************/
-#undef GPIO_LCD_CS
-#undef GPIO_LCD_RD
-#undef GPIO_BL_PWR_EN
-
-#define GPIO_LCD_CS            GPIO_PC(14)
-#define GPIO_LCD_RD            GPIO_PC(17)
-#define GPIO_BL_PWR_EN         GPIO_PC(18)
-#define GPIO_LCD_RST           GPIO_PA(12)
-
 /*ifdef is 18bit,6-6-6 ,ifndef default 5-6-6*/
 //#define CONFIG_SLCD_TRULY_18BIT
 
@@ -49,36 +39,38 @@ struct truly_tft240240_power{
 
 static struct truly_tft240240_power lcd_power = {
 	NULL,
-	NULL,
-	0
+    NULL,
+    0
 };
 
 int truly_tft240240_power_init(struct lcd_device *ld)
 {
-	int ret ;
-	printk("======truly_tft240240_power_init==============\n");
-
-	ret = gpio_request(GPIO_LCD_RST, "lcd rst");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rst\n");
-		return ret;
-	}
-
-	ret = gpio_request(GPIO_LCD_CS, "lcd cs");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd cs\n");
-		return ret;
-	}
-
-	ret = gpio_request(GPIO_LCD_RD, "lcd rd");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd rd\n");
-		return ret;
-	}
-
-	printk("set lcd_power.inited  =======1 \n");
-	lcd_power.inited = 1;
-	return 0;
+    int ret ;
+    printk("======truly_tft240240_power_init==============\n");
+    if(GPIO_LCD_RST > 0){
+        ret = gpio_request(GPIO_LCD_RST, "lcd rst");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rst\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_CS > 0){
+        ret = gpio_request(GPIO_LCD_CS, "lcd cs");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd cs\n");
+            return ret;
+        }
+    }
+    if(GPIO_LCD_RD > 0){
+        ret = gpio_request(GPIO_LCD_RD, "lcd rd");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd rd\n");
+            return ret;
+        }
+    }
+    printk("set lcd_power.inited  =======1 \n");
+    lcd_power.inited = 1;
+    return 0;
 }
 
 int truly_tft240240_power_reset(struct lcd_device *ld)
@@ -108,7 +100,6 @@ int truly_tft240240_power_on(struct lcd_device *ld, int enable)
 		gpio_direction_output(GPIO_LCD_CS, 0);
 
 	} else {
-		gpio_direction_output(GPIO_BL_PWR_EN, 0);
 		mdelay(5);
 		gpio_direction_output(GPIO_LCD_CS, 0);
 		gpio_direction_output(GPIO_LCD_RD, 0);

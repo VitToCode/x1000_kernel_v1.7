@@ -21,16 +21,31 @@
 #include <mach/jzfb.h>
 #include "../board_base.h"
 
+int byd_9177aa_init(struct lcd_device *lcd)
+{
+    int ret = 0;
+    if(GPIO_MIPI_RST_N > 0){
+        gpio_free(GPIO_MIPI_RST_N);
+        ret = gpio_request(GPIO_MIPI_RST_N, "lcd mipi panel rst");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd panel rst\n");
+            return ret;
+        }
+    }
+
+    if(GPIO_MIPI_PWR > 0){
+        gpio_free(GPIO_MIPI_PWR);
+        ret = gpio_request(GPIO_MIPI_PWR, "lcd mipi panel avcc");
+        if (ret) {
+            printk(KERN_ERR "can's request lcd panel avcc\n");
+            return ret;
+        }
+    }
+    return 0;
+}
+
 int byd_9177aa_reset(struct lcd_device *lcd)
 {
-	int ret = 0;
-
-	gpio_free(GPIO_MIPI_RST_N);
-	ret = gpio_request(GPIO_MIPI_RST_N, "lcd mipi panel rst");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd panel rst\n");
-		return ret;
-	}
 	gpio_direction_output(GPIO_MIPI_RST_N, 0);
 	msleep(3);
 	gpio_direction_output(GPIO_MIPI_RST_N, 1);
@@ -40,14 +55,8 @@ int byd_9177aa_reset(struct lcd_device *lcd)
 
 int byd_9177aa_power_on(struct lcd_device *lcd, int enable)
 {
-	int ret = 0;
-
-	gpio_free(GPIO_MIPI_PWR);
-	ret = gpio_request(GPIO_MIPI_PWR, "lcd mipi panel avcc");
-	if (ret) {
-		printk(KERN_ERR "can's request lcd panel avcc\n");
-		return ret;
-	}
+    if(byd_9177aa_init(lcd))
+        return -EFAULT;
 	gpio_direction_output(GPIO_MIPI_PWR, enable); /* 2.8v en*/
 	msleep(2);
 	return 0;
