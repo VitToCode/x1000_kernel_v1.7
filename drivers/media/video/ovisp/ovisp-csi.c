@@ -106,6 +106,8 @@ static void csi_phy_configure(void)
 {
 	unsigned char data[4];
 
+	csi_core_write_part(PHY_TST_CTRL0, 1, 0, 1);
+	mdelay(5);
 	csi_core_write_part(PHY_TST_CTRL0, 0, 0, 1);
 
 	mipi_csih_dphy_test_data_in(0);
