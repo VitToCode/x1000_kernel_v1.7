@@ -20,6 +20,17 @@
 #include "board.h"
 #include <mach/jz_dsim.h>
 
+/* efuse */
+#ifdef CONFIG_JZ_EFUSE_V12
+static struct jz_efuse_platform_data jz_efuse_pdata = {
+	/**
+	 * if only used for read, AVDEFUSE need not power on,
+	 * PA16 not been used by any devices
+	 **/
+	.gpio_vddq_en_n = GPIO_PA(16),
+};
+#endif
+
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button board_buttons[] = {
 #ifdef GPIO_FUNCTION
@@ -109,7 +120,7 @@ DEF_GPIO_I2C(1,GPIO_PA(12),GPIO_PA(13));
 
 #ifdef CONFIG_MFD_JZ_SADC_V12
 #ifdef CONFIG_JZ_BATTERY
-static struct jz_battery_info  dorado_battery_info = {
+static struct jz_battery_info  battery_info = {
 	.max_vol        = 4050,
 	.min_vol        = 3600,
 	.usb_max_vol    = 4100,
@@ -129,22 +140,16 @@ static int __init board_init(void)
 	/* ADC */
 #ifdef CONFIG_MFD_JZ_SADC_V12
 #ifdef CONFIG_JZ_BATTERY
-	adc_platform_data.battery_info = dorado_battery_info;
+	adc_platform_data.battery_info = battery_info;
 #endif
 	jz_device_register(&jz_adc_device,&adc_platform_data);
-#endif //CONFIG_MFD_JZ_SADC_V12
+#endif /* CONFIG_MFD_JZ_SADC_V12 */
 
-	/* li-ion charger */
-#ifdef CONFIG_CHARGER_LI_ION
-	platform_device_register(&jz_li_ion_charger_device);
-#endif
 	/* VPU */
 #ifdef CONFIG_JZ_VPU_V12
 	platform_device_register(&jz_vpu_device);
 #endif
-#ifdef CONFIG_BCM_PM_CORE
-	platform_device_register(&bcm_power_platform_device);
-#endif
+
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
@@ -228,29 +233,10 @@ static int __init board_init(void)
 #endif
 #endif
 
-/* ethnet */
-#ifdef CONFIG_JZ4775_MAC
-	platform_device_register(&jz4775_mii_bus);
-	platform_device_register(&jz4775_mac_device);
-#endif
-
 /* audio */
 #ifdef CONFIG_SOUND_JZ_I2S_V12
 	jz_device_register(&jz_i2s_device,&i2s_data);
 	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
-#endif
-#ifdef CONFIG_SOUND_JZ_SPDIF_V12
-	jz_device_register(&jz_spdif_device,&spdif_data);
-	jz_device_register(&jz_mixer2_device,&snd_mixer2_data);
-#endif
-#ifdef CONFIG_SOUND_JZ_DMIC_V12
-	jz_device_register(&jz_dmic_device,&dmic_data);
-	jz_device_register(&jz_mixer3_device,&snd_mixer3_data);
-#endif
-
-#ifdef CONFIG_SOUND_JZ_PCM_V12
-	jz_device_register(&jz_pcm_device,&pcm_data);
-	jz_device_register(&jz_mixer1_device,&snd_mixer1_data);
 #endif
 #ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	jz_device_register(&jz_codec_device, &codec_data);
@@ -266,8 +252,9 @@ static int __init board_init(void)
 
 /* efuse */
 #ifdef CONFIG_JZ_EFUSE_V12
-       jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
+
 	return 0;
 }
 
