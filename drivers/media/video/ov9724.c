@@ -596,6 +596,7 @@ static int ov9724_probe(struct i2c_client *client,
 	struct ov9724_info *info;
 	int ret;
 
+	printk("---- in the ov9724 init ----\n");
 	info = kzalloc(sizeof(struct ov9724_info), GFP_KERNEL);
 	if (info == NULL)
 		return -ENOMEM;
