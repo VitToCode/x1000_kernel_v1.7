@@ -750,13 +750,30 @@ static int __init board_init(void)
 	return 0;
 }
 
-/**
+/*
  * Called by arch/mips/kernel/proc.c when 'cat /proc/cpuinfo'.
  * Android requires the 'Hardware:' field in cpuinfo to setup the init.%hardware%.rc.
  */
 const char *get_board_type(void)
 {
 	return CONFIG_BOARD_NAME;
+}
+
+/*
+ * Called by arch/mips/xburst/$SOC/common/pm_p0.c when deep sleep.
+ * high 16bit = gpio output type
+ * low  16bit = regulator sleep gpio pin
+ */
+unsigned int get_pmu_slp_gpio_info(void)
+{
+	unsigned int pmu_slp_gpio_info = -1;
+#ifdef GPIO_REGULATOR_SLP
+	pmu_slp_gpio_info = GPIO_REGULATOR_SLP;
+#endif
+#ifdef GPIO_OUTPUT_TYPE
+	pmu_slp_gpio_info |= GPIO_OUTPUT_TYPE << 16;
+#endif
+	return pmu_slp_gpio_info;
 }
 
 arch_initcall(board_init);

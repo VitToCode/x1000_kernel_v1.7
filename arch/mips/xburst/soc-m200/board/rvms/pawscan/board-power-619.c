@@ -45,11 +45,13 @@
 #define RICOH619_IRQ_BASE	INT_PMIC_BASE
 #define RICOH619_GPIO_BASE  	PLATFORM_RICOH_GPIO_BASE
 #define RICOH619_GPIO_IRQ   	(RICOH619_GPIO_BASE + 8)
-/*
+
 static struct regulator_consumer_supply ricoh619_dc1_supply_0[] = {
 	REGULATOR_SUPPLY("cpu_core", NULL),
 };
-*/
+static struct regulator_consumer_supply ricoh619_dc1_slp_supply_0[] = {
+	REGULATOR_SUPPLY("cpu_core_slp", NULL),
+};
 static struct regulator_consumer_supply ricoh619_dc2_supply_0[] = {
 	REGULATOR_SUPPLY("cpu_vmema", NULL),
 };
@@ -135,7 +137,8 @@ static struct regulator_consumer_supply ricoh619_ldortc2_supply_0[] = {
   to RC5T619 specification. */
 /*_name,_sname,_minmv,_maxmv,_supply_reg,_always_on,_boot_on,_apply_uv,_init_uV,_init_enable,_init_apply,
  * _flags,_ext_contol,_ds_slots) */
-//RICOH_PDATA_INIT(dc1, 0,	600,   3500, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
+RICOH_PDATA_INIT(dc1, 0,	600,   1200, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
+RICOH_PDATA_INIT(dc1_slp, 0,	600,   1200, 0, 1, 1, 1, 1100, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc2, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
 //RICOH_PDATA_INIT(dc3, 0,	600,   3500, 0, 1, 1, 1, 1200, 1, 1, 0, 0, 0);
 #ifdef CONFIG_JZ_EPD_V12
@@ -279,9 +282,11 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 
 
 	//RICOH_REG(DC3, dc3, 0),
-	//RICOH_REG(DC1, dc1, 0),
+	//
 #define RICOH619_DEV_REG 		\
-	RICOH_REG(DC2, dc2, 0),		\
+	RICOH_REG(DC1, dc1, 0),		\
+	RICOH_REG(DC1_SLP, dc1_slp, 0),	\
+        RICOH_REG(DC2, dc2, 0),	\
 	RICOH_REG(DC4, dc4, 0),		\
 	RICOH_REG(LDO1, ldo1, 0),	\
 	RICOH_REG(LDO2, ldo2, 0),       \

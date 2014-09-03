@@ -1064,7 +1064,7 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 				ctrl &= ~LCDC_STATE_LDD;
 				reg_write(jzfb, LCDC_STATE, ctrl);
 			} else {
-				dev_err(jzfb->dev, "LCDC disable state wrong");
+				dev_err(jzfb->dev, "LCDC disable state wrong\n");
 			}
 		} else {
 			ctrl = reg_read(jzfb, LCDC_CTRL);
