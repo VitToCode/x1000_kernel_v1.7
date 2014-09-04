@@ -8,7 +8,7 @@
 
 /* ****************************GPIO SLEEP START******************************* */
 #define GPIO_REGULATOR_SLP	GPIO_PB(1)
-#define GPIO_OUTPUT_TYPE	5
+#define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
 /* ****************************GPIO SLEEP END******************************** */
 
 /* ****************************GPIO LCD START******************************** */

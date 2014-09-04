@@ -740,26 +740,32 @@ static void ricoh61x_set_dcdc_ldo_in_psm_eco(struct i2c_client *client)
 	reg_val = 0;
 	ret = __ricoh61x_read(client, RICOH61x_DC1_CTL, &reg_val);
 	reg_val &= 0xbf;
-	reg_val |= (0x1 << 7 | 0x1);
+	reg_val |= 0x1 << 7;
 	__ricoh61x_write(client, RICOH61x_DC1_CTL, reg_val);
 //	ret = ricoh61x_read(client, RICOH61x_DC1_CTL, &read_back);
 
 	ret = __ricoh61x_read(client, RICOH61x_DC2_CTL, &reg_val);
 	reg_val &= 0xbf;
-	reg_val |= (0x1 << 7 | 0x1);
+	reg_val |= 0x1 << 7;
 	__ricoh61x_write(client, RICOH61x_DC2_CTL, reg_val);
 //	ret = ricoh61x_read(client, RICOH61x_DC2_CTL, &read_back);
 
 	ret = __ricoh61x_read(client, RICOH61x_DC3_CTL, &reg_val);
 	reg_val &= 0xbf;
-	reg_val |= (0x1 << 7 | 0x1);
+	reg_val |= 0x1 << 7;
 	__ricoh61x_write(client, RICOH61x_DC3_CTL, reg_val);
 //	ret = ricoh61x_read(client, RICOH61x_DC3_CTL, &read_back);
 
 	ret = __ricoh61x_read(client, RICOH61x_DC4_CTL, &reg_val);
 	reg_val &= 0xbf;
-	reg_val |= (0x1 << 7 | 0x1);
+	reg_val |= 0x1 << 7;
 	__ricoh61x_write(client, RICOH61x_DC4_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC4_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_DC5_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC5_CTL, reg_val);
 //	ret = ricoh61x_read(client, RICOH61x_DC4_CTL, &read_back);
 
 	ret = __ricoh61x_read(client, RICOH61x_LDOECO_SLP, &reg_val);

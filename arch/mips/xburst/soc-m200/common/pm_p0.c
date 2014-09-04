@@ -39,6 +39,7 @@
 #include <asm/r4kcache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <soc/gpio.h>
 #include <soc/ddr.h>
 #include <tcsm.h>
 #include <smp_cp0.h>
@@ -220,15 +221,17 @@ static noinline void cpu_sleep(void)
 	if(pmu_slp_gpio_info != -1) {
 		save_slp = pmu_slp_gpio_info & 0xffff;
 		func = pmu_slp_gpio_info >> 16;
-		if(func == 5) {
-			save_slp |= 4 << 16;
-		} else if(func == 4) {
-			save_slp |= 5 << 16;
+		if(func == GPIO_OUTPUT1) {
+			save_slp |= GPIO_OUTPUT0 << 16;
+		} else if(func == GPIO_OUTPUT0) {
+			save_slp |= GPIO_OUTPUT1 << 16;
 		} else {
 			printk("regulator sleep gpio set output type error!\n");
 			return;
 		}
 		REG32(SLEEP_TSCM_DATA + 8) = save_slp;
+	} else {
+		REG32(SLEEP_TSCM_DATA + 8) = pmu_slp_gpio_info;
 	}
 	config_powerdown_core((unsigned int *)SLEEP_TSCM_TEXT);
 	__asm__ volatile(".set mips32\n\t"
