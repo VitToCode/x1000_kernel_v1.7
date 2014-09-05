@@ -64,12 +64,10 @@ struct bh1680fvc {
 
 struct bh1680fvc *bh1680fvc = NULL;
 
-struct bh1680fvc_dev {
-	int global_var;
-	struct cdev cdev;
+enum aux_ch {
+	SADC_AUX1 = 1,
+	SADC_AUX2,
 };
-
-struct bh1680fvc_dev *bh1680fvc_dev;
 extern int jz_adc_set_config(struct device *dev, uint32_t mask, uint32_t val);
 
 static irqreturn_t jz_bh1680fvc_irq_handler(int irq, void *devid)
@@ -112,38 +110,47 @@ unsigned int bh1680fvc_read_value(struct bh1680fvc *bh1680fvc, uint8_t config)
 		value = tmp ? tmp : -ETIMEDOUT;
 	}
 
+	if (value < 0) {
+		printk("bh1680fvc read value error!!\n");
+		return -EIO;
+	}
+
 	disable_irq(bh1680fvc->irq);
 	bh1680fvc->cell->disable(bh1680fvc->pdev);
 
 	return value;
 }
 
-int bh1680fvc_sample_volt(int a)
+int bh1680fvc_sample_volt(enum aux_ch channels)
 {
-	unsigned int value = 0, voltage = 0;
 	uint8_t config = 0;
+	int i = 0, sadc_volt = 0,sadc_volt_max = 0, sadc_volt_min = 0, sadc_volt_sum = 0;
 
 	if (!bh1680fvc) {
 		printk("bh1680fvc is null ! return\n");
 		return -EINVAL;
 	}
 
-	config = ADCFG_CMD_AUX(1);
-	value = bh1680fvc_read_value(bh1680fvc, config);
-	voltage = value * AVDD33 / AUXCONST;
+	config = ADCFG_CMD_AUX(channels);
+	for (i= 0; i < 5; i ++) {
+		if (!i) {
+			sadc_volt = sadc_volt_min = sadc_volt_max = bh1680fvc_read_value(bh1680fvc, config);
+		} else {
+			sadc_volt = bh1680fvc_read_value(bh1680fvc, config);
+			sadc_volt_min = min(sadc_volt, sadc_volt_min);
+			sadc_volt_max = max(sadc_volt, sadc_volt_max);
+		}
+		sadc_volt_sum += sadc_volt;
+	}
+	sadc_volt = (sadc_volt_sum - sadc_volt_min - sadc_volt_max) / 3;
+	sadc_volt = sadc_volt * AVDD33 / AUXCONST;
 
-	return voltage;
+	return sadc_volt;
 }
 
 
 int bh1680fvc_open(struct inode *inode, struct file *filp)
 {
-	struct bh1680fvc_dev *dev;
-
-	dev = container_of(inode->i_cdev, struct bh1680fvc_dev, cdev);
-
-	filp->private_data = dev;
-
 	return 0;
 }
 
@@ -154,12 +161,21 @@ int bh1680fvc_release(struct inode *inode, struct file *filp)
 
 ssize_t bh1680fvc_read(struct file *filp, char *buf, size_t len, loff_t *off)
 {
-	struct bh1680fvc_dev *dev = filp->private_data;
+	int sadc_val = 0;
 
-	dev->global_var = bh1680fvc_sample_volt(1);
-	dev->global_var = dev->global_var * MMODE / ( OUTPUTR5 * MODEPRM );
+	if (len < sizeof(int)) {
+		printk("Parameters of 'len' must be sizeof(int)\n");
+		return -EINVAL;
+	}
 
-	if(copy_to_user(buf, &dev->global_var, sizeof(int))) {
+	sadc_val = bh1680fvc_sample_volt(SADC_AUX1);
+	if (sadc_val < 0) {
+		printk("bh1680fvc read value error !!\n");
+		return -EINVAL;
+	}
+	sadc_val = sadc_val * MMODE / ( OUTPUTR5 * MODEPRM );
+
+	if(copy_to_user(buf, &sadc_val, sizeof(int))) {
 		return -EFAULT;
 	}
 
