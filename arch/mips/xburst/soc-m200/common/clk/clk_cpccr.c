@@ -3,6 +3,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/cpufreq.h>
 
 #include <asm/cacheops.h>
 #include <soc/cpm.h>
@@ -155,6 +156,36 @@ static inline void sw_ahb_from_l2cache(void)
 	}
 
 }
+
+/*
+ * Note that loops_per_jiffy is not updated on SMP systems in
+ * cpufreq driver. So, update the per-CPU loops_per_jiffy value
+ * on frequency transition. We need to update all dependent CPUs.
+ */
+#define before_change_udelay_hz(lock, freqs_old, freqs_new) do {	\
+		if (freqs_old < freqs_new) {				\
+			if (!lock) {					\
+				cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
+								       freqs_old, freqs_new); \
+				loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new);	\
+			} else {					\
+				spin_lock_irqsave(&cpm_cpccr_lock,flags); \
+				cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
+								       freqs_old, freqs_new); \
+				loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new);	\
+				spin_unlock_irqrestore(&cpm_cpccr_lock,flags); \
+			}						\
+		}							\
+	}while(0)
+
+#define after_change_udelay_hz(freqs_old, freqs_new) do {		\
+		 if (freqs_new < freqs_old) {				\
+			 cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
+								freqs_old, freqs_new); \
+			 loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new); \
+		 }							\
+	 }while(0)
+
 static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 	int sel;
 	unsigned int cpccr = cpm_inl(CPM_CPCCR);
@@ -234,6 +265,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			/*
 			 *    1. switch to ddrsel & switch to 200M cclk
 			 */
+			before_change_udelay_hz(0, clk->rate / 1000, 200000);
 			cache_prefetch(LAB1,64);
 			fast_iob();
 		LAB1:
@@ -245,6 +277,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			cpm_outl(cpccr_temp,CPM_CPCCR);
 			while(cpm_inl(CPM_CPCSR) & 1);
 			//cpm_inl(CPM_CPCCR);
+			after_change_udelay_hz(clk->rate / 1000, 200000);
 
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
 			{
@@ -254,6 +287,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				jz_notifier_call(JZ_CLK_CHANGING,&dn);
 			}
 			// 2. set pll freq
+			before_change_udelay_hz(1, 200000, rate/1000);
 			ret = clk_set_rate(parentclk,rate);
 			jz_notifier_call(JZ_CLK_CHANGED,NULL);
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
@@ -267,6 +301,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				cpccr_temp |= csel << 28;
 				parentclk = get_clk_from_id(cpccr_selector[sel]);
 				ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr_temp);
+				after_change_udelay_hz(200000, rate/1000);
 				if(ret) {
 					printk("cpccr set rate fail!\n");
 				}else{
@@ -277,6 +312,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				/*
 				 *  3. switch to csel
 				 */
+				after_change_udelay_hz(200000, rate/1000);
 				cache_prefetch(LAB3,64);
 				fast_iob();
 			LAB3:
