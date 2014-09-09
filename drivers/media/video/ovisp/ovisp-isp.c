@@ -1493,7 +1493,7 @@ static int isp_init(struct isp_device *isp, void *data)
 //	isp->boot = 0;
 	isp->poweron = 1;
 	isp->snapshot = 0;
-	isp->bypass = 0;
+	isp->bypass = false;
 	isp->running = 0;
 	isp->format_active = 0;
 	isp->bracket_end = 0;
@@ -1511,7 +1511,7 @@ static int isp_release(struct isp_device *isp, void *data)
 	isp->boot = 0;
 	isp->poweron = 0;
 	isp->snapshot = 0;
-	isp->bypass = 0;
+	isp->bypass = false;
 	isp->running = 0;
 	isp->format_active = 0;
 
@@ -1763,13 +1763,11 @@ static int isp_check_output_fmt(struct isp_device *isp, struct ovisp_video_forma
 			case V4L2_PIX_FMT_YUYV:
 			case V4L2_PIX_FMT_NV12:
 			case V4L2_PIX_FMT_YUV420:
-				isp->bypass = 0;
 				if(vfmt->width > 1792)
 					ret = -EINVAL;
 				break;
 			case V4L2_PIX_FMT_SBGGR8:
 			case V4L2_PIX_FMT_SBGGR10:
-				isp->bypass = 1;
 				break;
 			default:
 				ret = -EINVAL;
@@ -1810,6 +1808,7 @@ static int isp_check_input_format(struct isp_device *isp, struct ovisp_video_for
 		case V4L2_PIX_FMT_SGBRG12:
 		case V4L2_PIX_FMT_SGRBG12:
 		case V4L2_PIX_FMT_SRGGB12:
+		case V4L2_PIX_FMT_YUYV:
 			break;
 		default:
 			return -EINVAL;
@@ -1939,6 +1938,11 @@ static int isp_set_input_parm(struct isp_device *isp, struct ovisp_video_format 
 			input->sequence = IFORMAT_RGGB;
 			input->addrnums = 1;
 			break;
+		case V4L2_PIX_FMT_YUYV:
+			input->format = IFORMAT_YUV422;
+			input->sequence = IFORMAT_RGGB;
+			input->addrnums = 1;
+			break;
 		default:
 			return -EINVAL;
 	}
@@ -1996,6 +2000,12 @@ static int isp_s_fmt(struct isp_device *isp, struct isp_format *f)
 	ret = isp_set_output_parm(isp, &(f->vfmt), &(isp->parm.output[isp->parm.c_video]));
 	if(ret)
 		return ret;
+	if(isp->parm.c_video == 0){
+		if(f->vfmt.dev_fourcc == f->vfmt.fourcc)
+			isp->bypass = true;
+		else
+			isp->bypass = false;
+	}
 	isp->format_active = 1;
 	return 0;
 }

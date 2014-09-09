@@ -239,7 +239,6 @@ struct isp_device {
 	int format_active;
 	int snapshot;
 	int running;
-	int bypass;
 	int poweron;
 
 	/*csi power*/
@@ -247,6 +246,7 @@ struct isp_device {
 	int boot;
 	int input;
 	int irq;
+	bool bypass;
 	bool first_init;
 	bool wait_eof;
 	bool capture_raw_enable;

@@ -77,6 +77,12 @@ static struct ovisp_camera_format sensor_oformats[] = {
 		.code	  = V4L2_MBUS_FMT_SGRBG10_1X10,
 		.fourcc	  = V4L2_PIX_FMT_SGRBG10,
 		.depth	  = 16,
+	},
+	{
+		.name	  ="YUV422",
+		.code	  = V4L2_MBUS_FMT_YUYV8_1X16,
+		.fourcc	  = V4L2_PIX_FMT_YUYV,
+		.depth	  = 16,
 	}
 };
 
@@ -125,8 +131,10 @@ static int ovisp_subdev_power_on(struct ovisp_camera_dev *camdev,
 		return ret;
 
 	/* first camera work power on */
+#ifndef CONFIG_VIDEO_AW6120
 	if(!regulator_is_enabled(camdev->camera_power))
 	    regulator_enable(camdev->camera_power);
+#endif
 
 	if (client->power) {
 		ret = client->power(1);
@@ -206,8 +214,10 @@ static int ovisp_subdev_power_off(struct ovisp_camera_dev *camdev,
 	}
 	/*cpu_xxx power should not be power on or off*/
 	/*analog power off*/
+#ifndef CONFIG_VIDEO_AW6120
 	if(regulator_is_enabled(camdev->camera_power))
 		        regulator_disable(camdev->camera_power);
+#endif
 
 	ovisp_subdev_mclk_off(camdev, index);
 
@@ -1769,10 +1779,12 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	camdev->frame.field = V4L2_FIELD_INTERLACED;
 	camdev->first_init = 1;
 
+#ifndef CONFIG_VIDEO_AW6120
 	camdev->camera_power = regulator_get(camdev->dev, "cpu_avdd");
 	if(IS_ERR(camdev->camera_power)) {
 		dev_warn(camdev->dev, "camera regulator missing\n");
 	}
+#endif
 
 #if 1
 	/* Initialize contiguous memory allocator */
@@ -1880,7 +1892,9 @@ static int __exit ovisp_camera_remove(struct platform_device *pdev)
 {
 	struct ovisp_camera_dev *camdev = platform_get_drvdata(pdev);
 
+#ifndef CONFIG_VIDEO_AW6120
 	regulator_put(camdev->camera_power);
+#endif
 	video_device_release(camdev->vfd);
 	v4l2_device_unregister(&camdev->v4l2_dev);
 	platform_set_drvdata(pdev, NULL);

@@ -2,6 +2,8 @@
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/regulator/consumer.h>
 
 #define CAMERA_RST			GPIO_PD(27)
 #define CAMERA_PWDN_N		GPIO_PA(13) /* pin conflict with USB_ID */
@@ -12,6 +14,7 @@
 #if defined(CONFIG_VIDEO_OVISP)
 
 int temp = 1;
+/******************************** ov9724 start ************************************************/
 #if defined(CONFIG_VIDEO_OV9724)
 static int ov9724_power(int onoff)
 {
@@ -56,6 +59,8 @@ static struct i2c_board_info ov9724_board_info = {
 	.addr = 0x10,
 };
 #endif /* CONFIG_VIDEO_OV9724 */
+/******************************** ov9724 end   ************************************************/
+/******************************** ov5645 start ************************************************/
 #if defined(CONFIG_VIDEO_OV5645)
 static int ov5645_power(int onoff)
 {
@@ -99,7 +104,8 @@ static struct i2c_board_info ov5645_board_info = {
 	.addr = 0x3c,
 };
 #endif /* CONFIG_VIDEO_OV5645 */
-
+/******************************** ov5645 end   ************************************************/
+/******************************** ov8858 start ************************************************/
 #if defined(CONFIG_VIDEO_OV8858)
 static int ov8858_power(int onoff)
 {
@@ -144,7 +150,60 @@ static struct i2c_board_info ov8858_board_info = {
 	/* .addr = 0x36, */
 };
 #endif /* CONFIG_VIDEO_OV8858 */
+/******************************** ov8858 end   ************************************************/
+/******************************** aw6120 start ************************************************/
 
+#if defined(CONFIG_VIDEO_AW6120)
+#define AW6120_RST		GPIO_PF(3)
+#define AW6120_PWDN_EN		GPIO_PF(7)
+static struct regulator *regulator_aw6120 = NULL;
+static int aw6120_power(int onoff)
+{
+	if(temp) {
+		gpio_request(AW6120_PWDN_EN, "AW6120_PWDN_EN");
+		gpio_request(AW6120_RST, "AW6120_RST");
+		regulator_aw6120 = regulator_get(NULL, "cam_avdd_2v8");
+		if (IS_ERR(regulator_aw6120)) {
+			printk("failed to get regulator aw6120\n");
+			return -1;
+		}
+		regulator_enable(regulator_aw6120);
+		temp = 0;
+	}
+	if (onoff) {
+		gpio_direction_output(AW6120_PWDN_EN, 1);
+		gpio_direction_output(AW6120_RST, 0);
+		/*regulator_enable(regulator_aw6120);*/
+		mdelay(10);
+		gpio_direction_output(AW6120_PWDN_EN, 0);
+		gpio_direction_output(AW6120_RST, 1);
+	} else {
+		gpio_direction_output(AW6120_RST, 0);
+		mdelay(10);
+		//regulator_disable(regulator_aw6120);
+	}
+	return 0;
+}
+
+static int aw6120_reset(void)
+{
+	/*reset*/
+	gpio_direction_output(AW6120_RST, 0);
+	mdelay(10);
+	gpio_direction_output(AW6120_RST, 1);
+	mdelay(10);
+
+	return 0;
+}
+
+static struct i2c_board_info aw6120_board_info = {
+	.type = "aw6120",
+	.addr = 0x1b,
+};
+#endif /* CONFIG_VIDEO_AW6120 */
+/******************************** aw6120 end   ************************************************/
+
+/******************************** ov9712 start ************************************************/
 #if defined(CONFIG_DVP_OV9712)
 /* OV9712 PIN */
 #define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
@@ -199,6 +258,7 @@ static struct i2c_board_info ov9712_board_info = {
 	.addr = 0x30,
 };
 #endif /* CONFIG_DVP_OV9712 */
+/******************************** ov9712 end   ************************************************/
 
 
 static struct ovisp_camera_client ovisp_camera_clients[] = {
@@ -251,6 +311,22 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 		.reset = ov8858_reset,
 	},
 #endif /* CONFIG_VIDEO_OV8858 */
+
+#if defined(CONFIG_VIDEO_AW6120)
+	{
+		.board_info = &aw6120_board_info,
+#if 1
+		.flags = CAMERA_CLIENT_IF_MIPI
+				| CAMERA_CLIENT_CLK_EXT
+				| CAMERA_CLIENT_ISP_BYPASS,
+#else
+		.flags = CAMERA_CLIENT_IF_MIPI,
+#endif
+		.mclk_rate = 24000000,
+		.power = aw6120_power,
+		.reset = aw6120_reset,
+	},
+#endif /* CONFIG_VIDEO_AW6120 */
 
 #if defined(CONFIG_DVP_OV9712)
 	{

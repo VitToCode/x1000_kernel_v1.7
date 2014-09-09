@@ -509,6 +509,12 @@ config VIDEO_OV8858
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
 	  OV8858 camera.
 
+config VIDEO_AW6120
+	  tristate "AWINIC aw6120 isp support"
+	  depends on I2C && VIDEO_V4L2
+	  ---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  AW6120 isp.
 
 comment "Video improvement chips"
 
