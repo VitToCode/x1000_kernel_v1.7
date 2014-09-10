@@ -153,7 +153,7 @@ struct bma250_registers {
  * @setup: optional callback to activate the driver.
  * @teardown: optional callback to invalidate the driver.
  *
-**/
+ **/
 
 struct bma250_platform_data {
 	int (*setup)(struct device *);
@@ -163,6 +163,7 @@ struct bma250_platform_data {
 	void (*power_mode)(int enable);
 	unsigned int rate;
 	int (*gpio_cfg)( struct device *);
+	int	gpio;
 };
 
 #endif /* LINUX_BMA280_MODULE_H */

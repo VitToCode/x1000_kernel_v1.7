@@ -1,0 +1,745 @@
+/* drivers/misc/bma250e.c
+ *
+ * Copyright (c) 2014  Ingenic Semiconductor Co., Ltd.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#include <linux/errno.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/miscdevice.h>
+#include <linux/spinlock.h>
+#include <linux/wakelock.h>
+#include <linux/clk.h>
+#include <linux/syscalls.h>
+#include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+#include <linux/dma-mapping.h>
+#include <linux/kthread.h>
+#include <linux/gpio.h>
+#include <linux/i2c.h>
+#include <linux/time.h>
+#include <linux/rtc.h>
+#include <asm/div64.h>
+#include <linux/linux_sensors.h>
+#include <linux/i2c/bma250e.h>
+
+#define DATA_BUF_SIZE	(16 * 1024 * 1024)
+
+struct bma250e_dev {
+	struct device		*dev;
+	int			irq;
+	struct i2c_client	*client;
+	struct miscdevice	mdev;
+	atomic_t		in_use;
+	struct completion	done;
+	spinlock_t		lock;
+	struct regulator 	*power;
+	int			gpio;
+	unsigned int		*data_buf;
+	unsigned int		*data_buf_copy;
+	unsigned int		*cur_producer_p;
+	unsigned int		*cur_consumer_p;
+	unsigned int		*data_buf_base;
+	unsigned int		*data_buf_top;
+	unsigned int		*data_buf_copy_base;
+	unsigned int		*data_buf_copy_link;
+	u32			cur_timestamp;
+	u32			rtc_base;
+	u64			time_base;
+};
+
+typedef union bma250_accel_data {
+	/** raw register data */
+	uint32_t d32;
+	/** register bits */
+	struct {
+		unsigned accel_z:10;
+		unsigned accel_y:10;
+		unsigned accel_x:10;
+		unsigned flag:2;
+	} single;
+} bma250_accel_data_t;
+
+
+#define BMA250_I2C_RETRYS	5
+
+static inline u32 get_time(struct bma250e_dev *b)
+{
+	unsigned long long t = sched_clock();
+	do_div(t, 1000);
+	return (u32)(t - b->time_base);
+}
+
+int bma250_ic_read(struct i2c_client *ic_dev, u8 reg, u8 *buf, int len)
+{
+        int rc;
+	int i;
+
+	for (i = 0; i < BMA250_I2C_RETRYS; i++) {
+		rc = i2c_smbus_read_i2c_block_data(ic_dev, reg, len, buf);
+//		printk( "%s: buf %d,len%d\n",__func__,buf[1],len);
+		if (rc > 0)
+			return 0;
+	}
+
+        return rc;
+}
+
+static u32 __get_rtc_time(void)
+{
+	const char* rtc_patch = "/dev/rtc0";
+	static int rtc_fd = -1;
+	struct rtc_time time_rtc;
+
+	if (rtc_fd < 0)
+		rtc_fd = sys_open(rtc_patch, O_RDONLY, 0);
+
+	if (rtc_fd < 0) {
+//		printk("Error when open /dev/rtc0, is RTC in kernel enabled? ");
+		return 0;
+	}
+
+	sys_ioctl(rtc_fd, (unsigned int)RTC_RD_TIME, (unsigned long)&time_rtc);
+
+	return mktime(time_rtc.tm_year, time_rtc.tm_mon, time_rtc.tm_mday,
+		      time_rtc.tm_hour, time_rtc.tm_min, time_rtc.tm_sec);
+}
+
+static void set_rtc_base(struct bma250e_dev *bma250e)
+{
+	bma250e->rtc_base = __get_rtc_time();
+}
+
+static u32 get_rtc_time(struct bma250e_dev *bma250e)
+{
+	return __get_rtc_time() - bma250e->rtc_base;
+}
+
+#if 0
+#define NEW_BMA250_ACCEL_DATA(D)		\
+	bma250_accel_data_t D##;		\
+	D##.d32 = 0;				\
+	D##.flag = 1
+#endif
+
+static int bma250e_read_continue(  struct bma250e_dev *bma250e)
+{
+	int rc = 0;
+	u8  rx_buf[6];
+	bma250_accel_data_t data;
+	data.d32 = 0;
+	data.single.flag = 1;
+	rc = bma250_ic_read(bma250e->client, BMA250_X_AXIS_LSB_REG, rx_buf, 6);
+        if (rc)
+                goto get_data_error;
+        /* 10bit signed to 16bit signed  */
+#if 0
+        data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0] & 0xc0)) >> 6;
+        data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2] & 0xc0)) >> 6;
+        data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4] & 0xc0)) >> 6;
+#else
+	data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
+        data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
+        data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
+#endif
+//        printk( "%s no_add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+
+	if ( bma250e->cur_producer_p == bma250e->cur_consumer_p ) {
+		spin_lock(&bma250e->lock);
+		bma250e->cur_producer_p++;
+		spin_unlock(&bma250e->lock);
+		goto data_write;
+	}
+	if ( (bma250e->cur_producer_p > bma250e->cur_consumer_p) ) {
+		if ( bma250e->cur_producer_p == bma250e->data_buf_top ) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p = bma250e->data_buf_base;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		} else {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		}
+	}
+
+	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
+		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		} else {
+			return 0 ;
+		}
+	}
+
+data_write :
+	*bma250e->cur_producer_p = (1<<30) | (data.single.accel_x <<20) | (data.single.accel_y <<10) | data.single.accel_z;
+
+get_data_error:
+
+	return rc;
+}
+
+
+static int bma250e_read_continue_time(struct bma250e_dev *bma250e,  u32 time)
+{
+	//int i;
+	int rc = 0;
+	u8  rx_buf[6];
+	bma250_accel_data_t data;
+	data.d32 = 0;
+	data.single.flag = 1;
+
+	rc = bma250_ic_read(bma250e->client, BMA250_X_AXIS_LSB_REG, rx_buf, 6);
+        if (rc)
+                goto report_error;
+
+        /* 10bit signed to 16bit signed  */
+#if 0
+        data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0] & 0xc0)) >> 6;
+        data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2] & 0xc0)) >> 6;
+        data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4] & 0xc0)) >> 6;
+#else
+	data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
+        data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
+        data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
+#endif
+//	printk( "%s add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+
+	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
+		spin_lock(&bma250e->lock);
+		bma250e->cur_producer_p++;
+		spin_unlock(&bma250e->lock);
+		goto time_write;
+	}
+
+	if ((bma250e->cur_producer_p > bma250e->cur_consumer_p)) {
+		if ( bma250e->cur_producer_p == bma250e->data_buf_top ) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p = bma250e->data_buf_base;
+			spin_unlock(&bma250e->lock);
+			goto time_write;
+		} else {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto time_write;
+		}
+	}
+
+	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
+		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto time_write;
+		} else {
+			return 0 ;
+		}
+	}
+time_write :
+	*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
+
+	if ( bma250e->cur_producer_p == bma250e->cur_consumer_p ) {
+		spin_lock(&bma250e->lock);
+		bma250e->cur_producer_p++;
+		spin_unlock(&bma250e->lock);
+		goto data_write;
+	}
+	if ( (bma250e->cur_producer_p > bma250e->cur_consumer_p) ) {
+		if ( bma250e->cur_producer_p == bma250e->data_buf_top ) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p = bma250e->data_buf_base;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		} else {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		}
+	}
+
+	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
+		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+			spin_lock(&bma250e->lock);
+			bma250e->cur_producer_p++;
+			spin_unlock(&bma250e->lock);
+			goto data_write;
+		} else {
+			return 0 ;
+		}
+	}
+
+data_write :
+	*bma250e->cur_producer_p = (1<<30) | (data.single.accel_x <<20) | (data.single.accel_y <<10) | data.single.accel_z;
+
+report_error:
+	return rc;
+}
+
+#if 0
+
+static int bma250e_write_byte(struct i2c_client *client, u8 reg, u8 value)
+{
+	return 0;
+}
+
+static int bma250e_write_continue(struct i2c_client *client, u8 reg, u32 *buf, int len)
+{
+	return 0;
+}
+#endif
+
+static irqreturn_t bma250e_interrupt(int irq, void *dev)
+{
+	struct bma250e_dev *bma250e = dev;
+
+	complete(&bma250e->done);
+	return IRQ_HANDLED;
+}
+
+static int bma250e_daemon(void *d)
+{
+	struct bma250e_dev *bma250e = d;
+//	int index;
+	u32 time_base =0;
+	u32 time_delay = 600000;
+	u32 tmp;
+
+	while (!kthread_should_stop()) {
+		wait_for_completion_interruptible(&bma250e->done);
+
+		tmp = get_time(bma250e);
+//		printk("gettime %s:%d\n", __func__, tmp);
+//		printk("===>enter %s:%d\n", __func__, __LINE__);
+ 		if ( (tmp-time_base) >= time_delay) {
+//		printk("time_cha %s:%d\n", __func__, (tmp - time_base));
+//		printk("time_delay %s:%d\n", __func__, time_delay);
+//		printk("time_base %s:%d\n", __func__, time_base);
+			time_base = tmp;
+	 		bma250e_read_continue_time(bma250e,  time_base);
+		} else {
+ 			bma250e_read_continue(bma250e);
+		}
+
+		//	spin_lock(&bma250e->lock);
+		//	bma250e->cur_producer_p += 4;
+		//	spin_unlock(&bma250e->lock);
+#if 0
+		index = buf_index(bma250e, bma250e->cur_producer_p);
+		if (bma250e->cur_producer_p)
+			;
+#endif
+		/* Do read to data_buf*/
+	}
+
+	return 0;
+}
+
+static int  bma250e_set( struct i2c_client *client )
+{
+        int rc;
+
+	rc = i2c_smbus_write_byte_data(client, BMA250_BW_SEL_REG, 8);
+	if(rc)
+		goto config_exit;
+	/*set_range*/
+	rc = i2c_smbus_write_byte_data(client, BMA250_RANGE_REG, 0x03);
+	if(rc)
+		goto config_exit;
+	/* maps interrupt to INT1 pin */
+	rc = i2c_smbus_write_byte_data(client, 0x19, 0x04);
+	if(rc)
+		goto config_exit;
+
+	/*set_int_mode*/
+	rc = i2c_smbus_write_byte_data(client, 0x21, 0);
+	if(rc)
+		goto config_exit;
+	/* threshold definition for the slope int, g-range dependant */
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 20);
+	if(rc)
+		goto config_exit;
+	/* number of samples (n + 1) to be evaluted for slope int */
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_DUR, 1);
+	if(rc)
+		goto config_exit;
+	/*set_int_x_y_z_canuse*/
+	rc = i2c_smbus_write_byte_data(client, 0x16, 0x07);
+	if(rc)
+		goto config_exit;
+
+config_exit:
+        return rc;
+}
+
+static int bma250e_open(struct inode *inode, struct file *filp)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct bma250e_dev *bma250e = container_of(dev, struct bma250e_dev, mdev);
+
+	/*
+	 * Make sure fd be opened only onece.
+	 */
+	if (atomic_read(&bma250e->in_use) > 0) {
+		dev_err(bma250e->dev, "Should only be opened onece\n");
+		return -EBUSY;
+	} else {
+		atomic_inc(&bma250e->in_use);
+	}
+
+	return 0;
+}
+
+static int bma250e_release(struct inode *inode, struct file *filp)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct bma250e_dev *bma250e = container_of(dev, struct bma250e_dev, mdev);
+
+	atomic_dec(&bma250e->in_use);
+
+	return 0;
+}
+
+static ssize_t bma250e_read(struct file *filp, char *buf, size_t size, loff_t *l)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct bma250e_dev *bma250e = container_of(dev, struct bma250e_dev, mdev);
+	int valid_data_len,size_move = 0;
+	int len_to_read;
+	int len_cannot_read;
+	int size_before, size_after;
+
+	size_move = size/4;
+
+	if (bma250e->cur_producer_p == bma250e->cur_consumer_p)
+		return 0;
+
+	if (bma250e->cur_producer_p > bma250e->cur_consumer_p) {
+		valid_data_len = (int)(bma250e->cur_producer_p - bma250e->cur_consumer_p);
+		if (size_move > valid_data_len)
+			len_to_read = valid_data_len;
+		else
+			len_to_read = size_move;
+		copy_to_user(buf, bma250e->cur_consumer_p, len_to_read*4);
+
+		spin_lock(&bma250e->lock);
+		bma250e->cur_consumer_p += len_to_read;
+		if (len_to_read == valid_data_len) {
+			bma250e->cur_consumer_p = bma250e->data_buf_base;
+			bma250e->cur_producer_p = bma250e->data_buf_base;
+		}
+		spin_unlock(&bma250e->lock);
+
+		return size_move;
+	}
+
+	if (bma250e->cur_producer_p > bma250e->cur_consumer_p) {
+		len_cannot_read =	(int)(bma250e->cur_producer_p - bma250e->cur_consumer_p);
+		if (size_move <= (bma250e->data_buf_top - bma250e->cur_consumer_p)) {
+			len_to_read = size_move;
+			copy_to_user(buf, bma250e->cur_consumer_p, len_to_read*4);
+
+			spin_lock(&bma250e->lock);
+			bma250e->cur_consumer_p += len_to_read;
+			if (len_to_read == (bma250e->data_buf_top - bma250e->cur_consumer_p))
+				bma250e->cur_consumer_p = bma250e->data_buf_base;
+			spin_unlock(&bma250e->lock);
+
+			return size_move;
+		}
+		if (size_move > (bma250e->data_buf_top - bma250e->cur_consumer_p)&&(size_move <= ( DATA_BUF_SIZE - len_cannot_read )))
+		{
+			size_before = bma250e->data_buf_top - bma250e->cur_consumer_p ;
+			size_after = size_move - size_before;
+			memcpy(	bma250e->data_buf_copy_base, bma250e->cur_consumer_p, size_before*4);
+			bma250e->data_buf_copy_link = bma250e->data_buf_copy_base + size_before ;
+			memcpy(	bma250e->data_buf_copy_link, bma250e->data_buf_base, size_after*4);
+			copy_to_user(buf, bma250e->data_buf_copy_base, size_move);
+
+			spin_lock(&bma250e->lock);
+			bma250e->cur_consumer_p += size_after;
+			if (size_after == (bma250e->cur_producer_p - bma250e->data_buf_base)) {
+				bma250e->cur_consumer_p = bma250e->data_buf_base;
+				bma250e->cur_producer_p = bma250e->data_buf_base;
+			}
+			spin_unlock(&bma250e->lock);
+
+			return size_move;
+
+		}
+
+		if (size_move > (bma250e->data_buf_top - bma250e->cur_consumer_p)&&(size_move > ( DATA_BUF_SIZE - len_cannot_read ))) {
+			size_move = DATA_BUF_SIZE - len_cannot_read ;
+			size_before = bma250e->data_buf_top - bma250e->cur_consumer_p ;
+			size_after = size_move - size_before;
+			memcpy(	bma250e->data_buf_copy_base, bma250e->cur_consumer_p, size_before*4);
+			bma250e->data_buf_copy_link = bma250e->data_buf_copy_base + size_before ;
+			memcpy(	bma250e->data_buf_copy_link, bma250e->data_buf_base, size_before*4);
+			copy_to_user(buf, bma250e->data_buf_copy_base, size_move);
+
+			spin_lock(&bma250e->lock);
+			bma250e->cur_consumer_p = bma250e->data_buf_base;
+			bma250e->cur_producer_p = bma250e->data_buf_base;
+			spin_unlock(&bma250e->lock);
+
+			return size_move;
+		}
+	}
+	return size_move;
+}
+
+static ssize_t bma250e_write(struct file *filp, const char *buf, size_t size, loff_t *l)
+{
+	return 0;
+}
+
+static long bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct bma250e_dev *bma250e = container_of(dev, struct bma250e_dev, mdev);
+	int rc;
+	// printk("===>enter %s:%d cmd = %u\n", __func__, __LINE__, cmd);
+
+	switch (cmd) {
+	case SENSOR_IOCTL_GET_DELAY:
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_BW_SEL_REG, arg);
+		if(rc)
+			goto config_exit;
+		break;
+	case SENSOR_IOCTL_SET_DELAY:
+		/* maps interrupt to INT1 pin */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, arg);
+		if(rc)
+			goto config_exit;
+		break;
+	case SENSOR_IOCTL_SET_ACTIVE:
+		/*set_int_mode*/
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, arg);
+		if(rc)
+			goto config_exit;
+		break;
+
+	case SENSOR_IOCTL_GET_ACTIVE:
+		/*set_int_x_y_z_canuse*/
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x16, arg);
+		if(rc)
+			goto config_exit;
+		break;
+
+	case SENSOR_IOCTL_GET_DATA:
+		/*set_range*/
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_RANGE_REG, arg);
+		if(rc)
+			goto config_exit;
+		break;
+
+	case SENSOR_IOCTL_WAKE:
+		/* threshold definition for the slope int, g-range dependant */
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_SLOPE_THR, arg);
+		if(rc)
+			goto config_exit;
+		break;
+	case SENSOR_IOCTL_GET_DATA_RESOLUTION:
+		/* number of samples (n + 1) to be evaluted for slope int */
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_SLOPE_DUR, arg);
+		if(rc)
+			goto config_exit;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+config_exit :
+	return rc;
+
+}
+
+static struct file_operations bma250e_misc_fops = {
+	.open		= bma250e_open,
+	.release	= bma250e_release,
+	.read		= bma250e_read,
+//.write		= bma250e_write,
+	.unlocked_ioctl	= bma250e_ioctl,
+};
+
+static int bma250e_probe(struct i2c_client *client,
+			 const struct i2c_device_id *id)
+{
+	int ret;
+	u32 time_base ,rc;
+	struct bma250e_dev *bma250e;
+	struct bma250_platform_data *pdata =
+		(struct bma250_platform_data *)client->dev.platform_data;
+	struct task_struct *kthread;
+
+	u8 rx_buf[2];
+
+	bma250e = kzalloc(sizeof(struct bma250e_dev), GFP_KERNEL);
+	if (!bma250e){
+//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	bma250e->dev = &client->dev;
+	bma250e->gpio = pdata->gpio;
+	if (gpio_request_one(bma250e->gpio,
+			     GPIOF_DIR_IN, "bma250e_irq")) {
+		dev_err(bma250e->dev, "no irq pin available\n");
+		ret = -EBUSY;
+		goto err_request_gpio;
+	}
+
+	init_completion(&bma250e->done);
+	spin_lock_init(&bma250e->lock);
+	atomic_set(&bma250e->in_use, 0);
+	bma250e->time_base = sched_clock();
+	do_div(bma250e->time_base, 1000);
+
+	bma250e->data_buf = (unsigned int	*) __get_free_pages(GFP_KERNEL, get_order(DATA_BUF_SIZE));
+	if (bma250e->data_buf == NULL) {
+//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		ret = -ENOMEM;
+		goto err_request_buffer;
+	}
+
+	bma250e->data_buf_copy = (unsigned int	*) __get_free_pages(GFP_KERNEL, get_order(DATA_BUF_SIZE));
+	if (bma250e->data_buf_copy == NULL) {
+//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		ret = -ENOMEM;
+		goto err_request_buffer;
+	}
+
+	bma250e->data_buf_base = bma250e->data_buf;
+	bma250e->data_buf_top = bma250e->data_buf + DATA_BUF_SIZE;
+	bma250e->cur_producer_p = bma250e->data_buf;
+	bma250e->cur_consumer_p = bma250e->data_buf;
+
+	bma250e->data_buf_copy_base = bma250e->data_buf_copy ;
+
+	kthread = kthread_run(bma250e_daemon, bma250e, "bma250e_daemon");
+	if (IS_ERR(kthread)) {
+		ret = -1;
+		goto err_irq_request_failed;
+	}
+
+	client->irq = gpio_to_irq(bma250e->gpio);
+	ret = request_irq(client->irq, bma250e_interrupt,
+			  IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_DISABLED,
+			  "bma250e", bma250e);
+	if (ret < 0) {
+		dev_err(bma250e->dev, "%s: request irq failed\n", __func__);
+		goto err_irq_request_failed;
+	}
+
+	bma250e->irq = client->irq;
+	bma250e->client = client;
+
+	i2c_set_clientdata(client, bma250e);
+
+	bma250e->power = regulator_get(bma250e->dev, "vcc_sensor1v8");
+	if (!IS_ERR(bma250e->power)) {
+		regulator_enable(bma250e->power);
+	}
+	if (IS_ERR(bma250e->power)) {
+		dev_warn(bma250e->dev, "get regulator failed\n");
+	}
+
+	msleep(200);
+	rc = bma250_ic_read(client, BMA250_CHIP_ID_REG, rx_buf, 2);
+//	printk(KERN_INFO "bma250: detected chip id %x, rev 0x%X\n", rx_buf[0], rx_buf[1]);
+	if(rc)
+		goto err_irq_request_failed;
+	bma250e_set( client );
+//	printk("===>enter %s:%d\n", __func__, __LINE__);
+	//time_base=set_rtc_base(bma250e);
+
+	bma250e->mdev.minor = MISC_DYNAMIC_MINOR;
+	bma250e->mdev.name =  "bma250e";
+	bma250e->mdev.fops = &bma250e_misc_fops;
+
+	ret = misc_register(&bma250e->mdev);
+	if (ret < 0) {
+		dev_err(bma250e->dev, "misc_register failed\n");
+		goto err_register_misc;
+	}
+
+//	printk("===>enter %s:%d\n", __func__, __LINE__);
+
+	return 0;
+err_request_buffer:
+	misc_deregister(&bma250e->mdev);
+err_register_misc:
+	regulator_put(bma250e->power);
+	free_irq(bma250e->irq, bma250e);
+err_irq_request_failed:
+	gpio_free(bma250e->gpio);
+err_request_gpio:
+	kfree(bma250e);
+
+	return ret;
+}
+
+static int __devexit bma250e_remove(struct i2c_client *client)
+{
+	struct bma250e_dev *bma250e = i2c_get_clientdata(client);
+
+	misc_deregister(&bma250e->mdev);
+	regulator_put(bma250e->power);
+	free_irq(bma250e->irq, bma250e);
+	gpio_free(bma250e->gpio);
+	i2c_set_clientdata(client, NULL);
+	kfree(bma250e->data_buf);
+	kfree(bma250e);
+
+	return 0;
+}
+
+static const struct i2c_device_id bma250e_id[] = {
+	{"bma250e-misc", 0},
+	{}
+};
+
+MODULE_DEVICE_TABLE(i2c, bma250e_id);
+
+static struct i2c_driver bma250e_driver = {
+	.probe = bma250e_probe,
+	.remove = __devexit_p(bma250e_remove),
+	.id_table = bma250e_id,
+	.driver = {
+		.name = "bma250e-misc",
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init bma250e_init(void)
+{
+	return i2c_add_driver(&bma250e_driver);
+}
+
+static void __exit bma250e_exit(void)
+{
+	i2c_del_driver(&bma250e_driver);
+}
+
+module_init(bma250e_init);
+module_exit(bma250e_exit);
+
+MODULE_DESCRIPTION("bma250e misc driver");
+MODULE_LICENSE("GPL");
