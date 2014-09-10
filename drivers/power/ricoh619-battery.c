@@ -242,7 +242,7 @@ static int Battery_Type(void)
 {
 #ifdef CONFIG_LARGE_CAPACITY_BATTERY
 	BatteryTypeDef = 0;
-#elif CONFIG_SMALL_CAPACITY_BATTERY
+#elif defined(CONFIG_SMALL_CAPACITY_BATTERY)
 	BatteryTypeDef = 1;
 #endif
 	return BatteryTypeDef;

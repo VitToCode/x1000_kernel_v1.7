@@ -1767,7 +1767,7 @@ err_pri_init:
 err_dma_init:
 	iounmap(host->iomem);
 err_ioremap:
-	kfree(mmc);
+	mmc_free_host(mmc);
 err_clk_get_rate:
 	clk_put(host->clk);
 	clk_put(host->clk_gate);
