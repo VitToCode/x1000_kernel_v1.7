@@ -108,6 +108,12 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		.platform_data = &mpu9250_platform_data,
 	},
 #endif /*CONFIG_INV_MPU_IIO*/
+#if defined(CONFIG_BCM2079X_NFC)
+	{
+		I2C_BOARD_INFO("bcm2079x-i2c", 0x77),
+		.platform_data = &bcm2079x_pdata,
+	},
+#endif /*CONFIG_BCM2079X_NFC*/
 };
 #endif
 
