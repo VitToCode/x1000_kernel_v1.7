@@ -774,9 +774,6 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
 		dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
 
-	/*select mipi dsi */
-	*((volatile unsigned int *)0xb30500a4) = 1 << 7;	//MCTRL
-
 	ret = jz_dsi_phy_open(dsi);
 	if (ret) {
 		goto err_phy_open;
@@ -811,8 +808,6 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	if (!retry)
 		goto err_phy_state;
 
-	dsi->state = INITIALIZED;
-
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
 				     0xffffff0);
 
@@ -827,6 +822,7 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
 
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
+	dsi->state = INITIALIZED;
 	dsi->suspended = false;
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */

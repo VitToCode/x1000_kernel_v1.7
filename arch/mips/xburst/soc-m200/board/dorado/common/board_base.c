@@ -204,6 +204,16 @@ static int __init board_base_init(void)
 {
 	int pdevices_array_size, i;
 
+#ifdef CONFIG_LCD_LH155
+	mipi_dsi_register_lcd_device(&lh155_device);
+#endif
+#ifdef CONFIG_LCD_BYD_9177AA
+	mipi_dsi_register_lcd_device(&byd_9177aa_device);
+#endif
+#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
+	mipi_dsi_register_lcd_device(&truly_tdo_hd0499k_device);
+#endif
+
 	pdevices_array_size = ARRAY_SIZE(platform_devices_array);
 	for(i = 0; i < pdevices_array_size; i++) {
 		if(platform_devices_array[i].size)
@@ -229,15 +239,6 @@ static int __init board_base_init(void)
 #endif
 #endif
 
-#ifdef CONFIG_LCD_BYD_9177AA
-	mipi_dsi_register_lcd_device(&byd_9177aa_device);
-#endif
-#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
-	mipi_dsi_register_lcd_device(&truly_tdo_hd0499k_device);
-#endif
-#ifdef CONFIG_LCD_LH155
-	mipi_dsi_register_lcd_device(&lh155_device);
-#endif
 	return 0;
 }
 
