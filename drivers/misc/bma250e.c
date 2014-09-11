@@ -647,8 +647,10 @@ static int bma250e_probe(struct i2c_client *client,
 		dev_err(bma250e->dev, "%s: request irq failed\n", __func__);
 		goto err_irq_request_failed;
 	}
-
 	bma250e->irq = client->irq;
+	enable_irq_wake(bma250e->irq);
+	device_init_wakeup(bma250e->dev, 1);
+
 	bma250e->client = client;
 
 	i2c_set_clientdata(client, bma250e);
