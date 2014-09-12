@@ -168,12 +168,12 @@ ssize_t bh1680fvc_read(struct file *filp, char *buf, size_t len, loff_t *off)
 		return -EINVAL;
 	}
 
-	sadc_val = bh1680fvc_sample_volt(SADC_AUX1);
+	sadc_val = bh1680fvc_sample_volt(SADC_AUX2);
 	if (sadc_val < 0) {
 		printk("bh1680fvc read value error !!\n");
 		return -EINVAL;
 	}
-	sadc_val = sadc_val * MMODE / ( OUTPUTR5 * MODEPRM );
+	sadc_val = sadc_val * HMODE / ( OUTPUTR6 * MODEPRM );
 
 	if(copy_to_user(buf, &sadc_val, sizeof(int))) {
 		return -EFAULT;
