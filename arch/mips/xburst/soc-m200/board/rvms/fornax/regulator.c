@@ -168,8 +168,8 @@ static struct regulator_init_data d2041_reg_init_data[D2041_NUMBER_OF_REGULATORS
 	[D2041_LDO_4] = {
 		.constraints = {
 			.name = "LDO_4",
-			.min_uV = 2800 * 1000,
-			.max_uV = 2800 * 1000,
+			.min_uV = 3300 * 1000,
+			.max_uV = 3300 * 1000,
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 			.valid_modes_mask = REGULATOR_MODE_NORMAL,
 			.always_on = 1,
