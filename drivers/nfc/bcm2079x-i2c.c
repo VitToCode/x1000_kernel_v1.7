@@ -90,7 +90,6 @@ static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
 static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
 {
 	unsigned long flags;
-//	printk("============%s %d\n",__func__,__LINE__);
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	if (bcm2079x_dev->irq_enabled) {
 		disable_irq_nosync(bcm2079x_dev->client->irq);
@@ -102,7 +101,6 @@ static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
 static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
 {
 	unsigned long flags;
-//	printk("============%s %d\n",__func__,__LINE__);
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	if (!bcm2079x_dev->irq_enabled) {
 		bcm2079x_dev->irq_enabled = true;
@@ -128,13 +126,12 @@ static void set_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	struct i2c_client *client = bcm2079x_dev->client;
 	client->addr = addr;
 
-//	printk("============%s %d\n",__func__,__LINE__);
 	if (addr > 0x7F)
 		client->flags |= I2C_CLIENT_TEN;
 	else
 		client->flags &= ~I2C_CLIENT_TEN;
 
-	dev_err(&client->dev,
+	dev_dbg(&client->dev,
 		 "Set client device changed to (0x%04X) flag = %04x\n",
 		 client->addr, client->flags);
 }
@@ -148,7 +145,6 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	char addr_data[] = {
 		0xFA, 0xF2, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x2A
 	};
-//	printk("============%s %d\n",__func__,__LINE__);
 
 	client = bcm2079x_dev->client;
 	if ((client->flags & I2C_CLIENT_TEN) == I2C_CLIENT_TEN) {
@@ -162,7 +158,7 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	for (i = 1; i < sizeof(addr_data) - 1; ++i)
 		ret += addr_data[i];
 	addr_data[sizeof(addr_data) - 1] = (ret & 0xFF);
-	dev_err(&client->dev,
+	dev_dbg(&client->dev,
 		 "Change client device from (0x%04X) flag = "
 		 "%04x, addr_data[%d] = %02x\n",
 		 client->addr, client->flags, sizeof(addr_data) - 1,
@@ -172,7 +168,7 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	if (ret != sizeof(addr_data) - offset) {
 		client->addr = ALIAS_ADDRESS;
 		client->flags &= ~I2C_CLIENT_TEN;
-		dev_err(&client->dev,
+		dev_dbg(&client->dev,
 			 "Change client device from (0x%04X) flag = "
 			 "%04x, addr_data[%d] = %02x\n",
 			 client->addr, client->flags, sizeof(addr_data) - 1,
@@ -181,7 +177,7 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	}
 	client->addr = addr_data[5];
 
-	dev_err(&client->dev,
+	dev_dbg(&client->dev,
 		 "Change client device changed to (0x%04X) flag = %04x, ret = %d\n",
 		 client->addr, client->flags, ret);
 }
@@ -191,7 +187,6 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
 	struct bcm2079x_dev *bcm2079x_dev = dev_id;
 	unsigned long flags;
 
-//	printk("============%s %d\n",__func__,__LINE__);
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	bcm2079x_dev->count_irq++;
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
@@ -208,7 +203,6 @@ static unsigned int bcm2079x_dev_poll(struct file *filp, poll_table * wait)
 
 	poll_wait(filp, &bcm2079x_dev->read_wq, wait);
 
-//	printk("============%s %d\n",__func__,__LINE__);
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	if (bcm2079x_dev->count_irq > 0)
 		mask |= POLLIN | POLLRDNORM;
@@ -224,7 +218,6 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user * buf,
 	unsigned char tmp[MAX_BUFFER_SIZE];
 	int total, len, ret;
 
-//	printk("============%s %d\n",__func__,__LINE__);
 	total = 0;
 	len = 0;
 	if (bcm2079x_dev->count_irq > 0)
@@ -280,7 +273,7 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user * buf,
 	//mdelay(CON_DELAY);
 
 	if (total > count || copy_to_user(buf, tmp, total)) {
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			"failed to copy to user space, total = %d\n", total);
 		total = -EFAULT;
 		bcm2079x_dev->error_read++;
@@ -295,17 +288,14 @@ static ssize_t bcm2079x_dev_write(struct file *filp, const char __user * buf,
 	struct bcm2079x_dev *bcm2079x_dev = filp->private_data;
 	char tmp[MAX_BUFFER_SIZE];
 	int ret;
-//	printk("============%s %d\n",__func__,__LINE__);
 
 	if (count > MAX_BUFFER_SIZE) {
-//		printk(KERN_ERR "%s: error 1\n", __FUNCTION__);
-		dev_err(&bcm2079x_dev->client->dev, "out of memory\n");
+		dev_dbg(&bcm2079x_dev->client->dev, "out of memory\n");
 		return -ENOMEM;
 	}
 
 	if (copy_from_user(tmp, buf, count)) {
-//		printk(KERN_ERR "%s: error 2\n", __FUNCTION__);
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			"failed to copy from user space\n");
 		return -EFAULT;
 	}
@@ -326,7 +316,7 @@ static ssize_t bcm2079x_dev_write(struct file *filp, const char __user * buf,
 				bcm2079x_dev->error_write++;
 		} else {
 			*/
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 				"failed to write %d\n", ret);
 		ret = -EIO;
 		bcm2079x_dev->error_write++;
@@ -347,11 +337,10 @@ static int bcm2079x_dev_open(struct inode *inode, struct file *filp)
 	struct bcm2079x_dev *bcm2079x_dev = container_of(filp->private_data,
 							 struct bcm2079x_dev,
 							 bcm2079x_device);
-//	printk("============%s %d\n",__func__,__LINE__);
 	filp->private_data = bcm2079x_dev;
 	bcm2079x_init_stat(bcm2079x_dev);
 	bcm2079x_enable_irq(bcm2079x_dev);
-	dev_err(&bcm2079x_dev->client->dev,
+	dev_dbg(&bcm2079x_dev->client->dev,
 		 "device node major=%d, minor=%d, flags=%x, address=%x\n",
 		 imajor(inode), iminor(inode),
 		 bcm2079x_dev->client->flags, bcm2079x_dev->client->addr);
@@ -371,7 +360,6 @@ static long bcm2079x_dev_unlocked_ioctl(struct file *filp,
 {
 	struct bcm2079x_dev *bcm2079x_dev = filp->private_data;
 	int ret = 0;
-//	printk("============%s %d\n",__func__,__LINE__);
 
 	switch (cmd) {
 	case BCMNFC_READ_FULL_PACKET:
@@ -379,13 +367,13 @@ static long bcm2079x_dev_unlocked_ioctl(struct file *filp,
 	case BCMNFC_READ_MULTI_PACKETS:
 		break;
 	case BCMNFC_CHANGE_ADDR:
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			 "%s, BCMNFC_CHANGE_ADDR (%x, %lx):\n", __func__, cmd,
 			 arg);
 		change_client_addr(bcm2079x_dev, arg);
 		break;
 	case BCMNFC_POWER_CTL:
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			 "%s, BCMNFC_POWER_CTL (%x, %lx):\n", __func__, cmd,
 			 arg);
 		if (arg == 1) {
@@ -412,13 +400,13 @@ static long bcm2079x_dev_unlocked_ioctl(struct file *filp,
 		}
 		break;
 	case BCMNFC_WAKE_CTL:
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			 "%s, BCMNFC_WAKE_CTL (%x, %lx):\n", __func__, cmd,
 			 arg);
 		gpio_set_value(bcm2079x_dev->wake_gpio, arg);
 		break;
 	default:
-		dev_err(&bcm2079x_dev->client->dev,
+		dev_dbg(&bcm2079x_dev->client->dev,
 			"%s, unknown cmd (%x, %lx)\n", __func__, cmd, arg);
 
 //              gpio_set_value(bcm2079x_dev->en_gpio, arg);
@@ -447,40 +435,34 @@ static int bcm2079x_probe(struct i2c_client *client,
 
 	platform_data = client->dev.platform_data;
 
-	dev_err(&client->dev,
+	dev_dbg(&client->dev,
 		 "%s, probing bcm2079x driver flags = %x, name= %s, address=%x\n",
 		 __func__, client->flags, client->name, client->addr);
 
-	dev_err(&client->dev, "CON_DELAY=%d\n", CON_DELAY);
+	dev_dbg(&client->dev, "CON_DELAY=%d\n", CON_DELAY);
 
 	if (platform_data == NULL) {
-		dev_err(&client->dev, "nfc probe fail\n");
+		dev_dbg(&client->dev, "nfc probe fail\n");
 		return -ENODEV;
 	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		dev_err(&client->dev, "need I2C_FUNC_I2C\n");
+		dev_dbg(&client->dev, "need I2C_FUNC_I2C\n");
 		return -ENODEV;
 	}
 
 	ret = gpio_request(platform_data->irq_gpio, "bcm2079x_nfc_int");
 	if (ret) {
-//		printk(KERN_ERR "%s: gpio_request(nfc_int) fail %d\n",
-//		       __FUNCTION__, platform_data->irq_gpio);
 		return -ENODEV;
 	}
 
 	ret = gpio_request(platform_data->en_gpio, "nfc_ven");
 	if (ret) {
-//		printk(KERN_ERR "%s: gpio_request(nfc_ven) fail\n",
-//		       __FUNCTION__);
 		goto err_en;
 	}
 
 	ret = gpio_request(platform_data->wake_gpio, "nfc_firm");
 	if (ret) {
-//		printk(KERN_ERR "%s: gpio_request(nfc_firm) fail\n",
-//		       __FUNCTION__);
 		goto err_firm;
 
 	}
@@ -492,7 +474,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 
 	bcm2079x_dev = kzalloc(sizeof(*bcm2079x_dev), GFP_KERNEL);
 	if (bcm2079x_dev == NULL) {
-		dev_err(&client->dev,
+		dev_dbg(&client->dev,
 			"failed to allocate memory for module data\n");
 		ret = -ENOMEM;
 		goto err_exit;
@@ -542,7 +524,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 
 	ret = misc_register(&bcm2079x_dev->bcm2079x_device);
 	if (ret) {
-		dev_err(&client->dev, "misc_register failed\n");
+		dev_dbg(&client->dev, "misc_register failed\n");
 		goto err_misc_register;
 	}
 
@@ -550,7 +532,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 	 * for reading.  it is cleared when all data has been read.
 	 */
 
-	dev_err(&client->dev, "requesting IRQ %d with IRQF_NO_SUSPEND\n",
+	dev_dbg(&client->dev, "requesting IRQ %d with IRQF_NO_SUSPEND\n",
 		 client->irq);
 	bcm2079x_dev->irq_enabled = true;
 
@@ -563,13 +545,13 @@ static int bcm2079x_probe(struct i2c_client *client,
 #endif
 
 	if (ret) {
-		dev_err(&client->dev, "request_irq failed %d\n", ret);
+		dev_dbg(&client->dev, "request_irq failed %d\n", ret);
 		goto err_request_irq_failed;
 	}
 	bcm2079x_disable_irq(bcm2079x_dev);
 
 	i2c_set_clientdata(client, bcm2079x_dev);
-	dev_err(&client->dev,
+	dev_dbg(&client->dev,
 		 "%s, probing bcm2079x driver exited successfully\n", __func__);
 
 	return 0;
