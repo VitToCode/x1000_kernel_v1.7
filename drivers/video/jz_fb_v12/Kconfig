@@ -26,7 +26,7 @@ config DSI_DPI_DEBUG
 	default n
 
 choice
-	depends on FB_JZ_V12
+	depends on FB_JZ_V12 && (!JZ_MIPI_DSI)
 	prompt "set lcd gpio"
 	default LCD_GPIO_FUNC0_24BIT
 
