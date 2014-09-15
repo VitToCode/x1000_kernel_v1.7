@@ -35,6 +35,7 @@
 #include <linux/i2c/bma250e.h>
 
 #define DATA_BUF_SIZE	(16 * 1024 * 1024)
+#define BMA250e_BW_7_81_sel	64
 
 struct bma250e_dev {
 	struct device		*dev;
@@ -46,6 +47,7 @@ struct bma250e_dev {
 	spinlock_t		lock;
 	struct regulator 	*power;
 	int			gpio;
+	int			suspend_t;
 	unsigned int		*data_buf;
 	unsigned int		*data_buf_copy;
 	unsigned int		*cur_producer_p;
@@ -77,18 +79,17 @@ typedef union bma250_accel_data {
 static inline u32 get_time(struct bma250e_dev *b)
 {
 	unsigned long long t = sched_clock();
-	do_div(t, 1000);
+	do_div(t, 1000000);
 	return (u32)(t - b->time_base);
 }
 
 int bma250_ic_read(struct i2c_client *ic_dev, u8 reg, u8 *buf, int len)
 {
-        int rc;
+    int rc;
 	int i;
 
 	for (i = 0; i < BMA250_I2C_RETRYS; i++) {
 		rc = i2c_smbus_read_i2c_block_data(ic_dev, reg, len, buf);
-//		printk( "%s: buf %d,len%d\n",__func__,buf[1],len);
 		if (rc > 0)
 			return 0;
 	}
@@ -106,7 +107,7 @@ static u32 __get_rtc_time(void)
 		rtc_fd = sys_open(rtc_patch, O_RDONLY, 0);
 
 	if (rtc_fd < 0) {
-//		printk("Error when open /dev/rtc0, is RTC in kernel enabled? ");
+		printk("Error when open /dev/rtc0, is RTC in kernel enabled? ");
 		return 0;
 	}
 
@@ -292,18 +293,6 @@ report_error:
 	return rc;
 }
 
-#if 0
-
-static int bma250e_write_byte(struct i2c_client *client, u8 reg, u8 value)
-{
-	return 0;
-}
-
-static int bma250e_write_continue(struct i2c_client *client, u8 reg, u32 *buf, int len)
-{
-	return 0;
-}
-#endif
 
 static irqreturn_t bma250e_interrupt(int irq, void *dev)
 {
@@ -316,44 +305,49 @@ static irqreturn_t bma250e_interrupt(int irq, void *dev)
 static int bma250e_daemon(void *d)
 {
 	struct bma250e_dev *bma250e = d;
-//	int index;
-	u32 time_base =0;
-	u32 time_delay = 600000;
-	u32 tmp;
+	u32 time_base = 0, time_now = 0;
+	u32 time_delay = 0;
+	u32 tmp = 0,tmp2 = 0;
+
+	time_delay = BMA250e_BW_7_81_sel*2 - 15;
+	if(bma250e->suspend_t == 1) {
+//		tmp2 = 0;
+		bma250e->suspend_t = 0;
+	}
 
 	while (!kthread_should_stop()) {
 		wait_for_completion_interruptible(&bma250e->done);
-
+		if (bma250e->rtc_base == 0) {
+			set_rtc_base(bma250e);
+		}
+		if (tmp2 == 0) {
+			tmp2 = get_time(bma250e);
+//			printk("time_tmp2 %d:%d\n", __LINE__,tmp2);
+		}
 		tmp = get_time(bma250e);
-//		printk("gettime %s:%d\n", __func__, tmp);
 //		printk("===>enter %s:%d\n", __func__, __LINE__);
- 		if ( (tmp-time_base) >= time_delay) {
-//		printk("time_cha %s:%d\n", __func__, (tmp - time_base));
-//		printk("time_delay %s:%d\n", __func__, time_delay);
-//		printk("time_base %s:%d\n", __func__, time_base);
+ 		if (((tmp-time_base) >= time_delay) && (tmp > time_base)) {
+//			printk("time_cha %s:%u\n", __func__, (tmp - time_base));
+			time_now = get_rtc_time(bma250e)*1000;
 			time_base = tmp;
-	 		bma250e_read_continue_time(bma250e,  time_base);
+	 		bma250e_read_continue_time(bma250e,  time_now + tmp - tmp2);
+//			printk("time_now %s:%d\n", __func__,time_now + tmp - tmp2);
 		} else {
- 			bma250e_read_continue(bma250e);
+ 			time_base = time_base + time_delay;
+//			printk("time_noadd %d:%u\n", __LINE__, time_base);
+			bma250e_read_continue(bma250e);
 		}
 
-		//	spin_lock(&bma250e->lock);
-		//	bma250e->cur_producer_p += 4;
-		//	spin_unlock(&bma250e->lock);
-#if 0
-		index = buf_index(bma250e, bma250e->cur_producer_p);
-		if (bma250e->cur_producer_p)
-			;
-#endif
 		/* Do read to data_buf*/
 	}
+
 
 	return 0;
 }
 
 static int  bma250e_set( struct i2c_client *client )
 {
-        int rc;
+    int rc;
 
 	rc = i2c_smbus_write_byte_data(client, BMA250_BW_SEL_REG, 8);
 	if(rc)
@@ -371,12 +365,24 @@ static int  bma250e_set( struct i2c_client *client )
 	rc = i2c_smbus_write_byte_data(client, 0x21, 0);
 	if(rc)
 		goto config_exit;
+	/*set_int_mode_active*/
+	rc = i2c_smbus_write_byte_data(client, 0x20, 0x01);
+	if(rc)
+		goto config_exit;
+	/*set_int_filter_ slope_triger*/
+	rc = i2c_smbus_write_byte_data(client, 0x01E, 0x04);
+	if(rc)
+		goto config_exit;
+	/*set_get_accd_register*/
+	rc = i2c_smbus_write_byte_data(client, 0x013, 0x80);
+	if(rc)
+		goto config_exit;
 	/* threshold definition for the slope int, g-range dependant */
-	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 20);
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 10);
 	if(rc)
 		goto config_exit;
 	/* number of samples (n + 1) to be evaluted for slope int */
-	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_DUR, 1);
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_DUR, 0x01);
 	if(rc)
 		goto config_exit;
 	/*set_int_x_y_z_canuse*/
@@ -504,10 +510,12 @@ static ssize_t bma250e_read(struct file *filp, char *buf, size_t size, loff_t *l
 	return size_move;
 }
 
+#if 0
 static ssize_t bma250e_write(struct file *filp, const char *buf, size_t size, loff_t *l)
 {
 	return 0;
 }
+#endif
 
 static long bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -575,7 +583,6 @@ static struct file_operations bma250e_misc_fops = {
 	.open		= bma250e_open,
 	.release	= bma250e_release,
 	.read		= bma250e_read,
-//.write		= bma250e_write,
 	.unlocked_ioctl	= bma250e_ioctl,
 };
 
@@ -583,7 +590,7 @@ static int bma250e_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	int ret;
-	u32 time_base ,rc;
+	u32 rc;
 	struct bma250e_dev *bma250e;
 	struct bma250_platform_data *pdata =
 		(struct bma250_platform_data *)client->dev.platform_data;
@@ -641,16 +648,14 @@ static int bma250e_probe(struct i2c_client *client,
 
 	client->irq = gpio_to_irq(bma250e->gpio);
 	ret = request_irq(client->irq, bma250e_interrupt,
-			  IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_DISABLED,
+				IRQF_TRIGGER_RISING | IRQF_DISABLED,
 			  "bma250e", bma250e);
 	if (ret < 0) {
 		dev_err(bma250e->dev, "%s: request irq failed\n", __func__);
 		goto err_irq_request_failed;
 	}
-	bma250e->irq = client->irq;
-	enable_irq_wake(bma250e->irq);
-	device_init_wakeup(bma250e->dev, 1);
 
+	bma250e->irq = client->irq;
 	bma250e->client = client;
 
 	i2c_set_clientdata(client, bma250e);
@@ -670,7 +675,8 @@ static int bma250e_probe(struct i2c_client *client,
 		goto err_irq_request_failed;
 	bma250e_set( client );
 //	printk("===>enter %s:%d\n", __func__, __LINE__);
-	//time_base=set_rtc_base(bma250e);
+//	set_rtc_base(bma250e);
+
 
 	bma250e->mdev.minor = MISC_DYNAMIC_MINOR;
 	bma250e->mdev.name =  "bma250e";
@@ -713,6 +719,20 @@ static int __devexit bma250e_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int bma250e_suspend(struct i2c_client *client, pm_message_t state)
+{
+//	struct bma250e_dev *bma250e = i2c_get_clientdata(client);
+
+	return 0;
+}
+
+static int bma250e_resume(struct i2c_client *client)
+{
+	struct bma250e_dev *bma250e = i2c_get_clientdata(client);
+	bma250e->suspend_t = 1;
+	return 0;
+}
+
 static const struct i2c_device_id bma250e_id[] = {
 	{"bma250e-misc", 0},
 	{}
@@ -728,6 +748,8 @@ static struct i2c_driver bma250e_driver = {
 		.name = "bma250e-misc",
 		.owner = THIS_MODULE,
 	},
+	.suspend    = bma250e_suspend,
+	.resume     = bma250e_resume,
 };
 
 static int __init bma250e_init(void)
