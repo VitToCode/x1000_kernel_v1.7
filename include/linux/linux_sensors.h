@@ -46,7 +46,7 @@ struct linux_sensor_t {
     	/* version of the hardware part + driver. The value of this field is
      	* left to the implementation and doesn't have to be monotonicaly
      	* increasing.
-     	*/    
+     	*/
     	int             version;
     	/* maximaum range of this sensor's value in SI units */
     	int           maxRange;
@@ -93,6 +93,9 @@ struct sensors_platform_data {
 #define	SENSOR_IOCTL_GET_DATA_VERSION		_IOR(SENSORIO, 0x21, short)
 #define	SENSOR_IOCTL_WAKE			_IOR(SENSORIO, 0x99, short)
 
+#define	SENSOR_IOCTL_SET_THRESHOLD		_IOW(SENSORIO, 0x28, short)
+#define	SENSOR_IOCTL_SET_FREQUENCY		_IOW(SENSORIO, 0x10, short)
+#define	SENSOR_IOCTL_SET_RANGES			_IOW(SENSORIO, 0x0F, short)
 
 #endif /* _LINUX_LIS35DE_H */
 

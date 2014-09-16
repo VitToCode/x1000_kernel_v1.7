@@ -314,7 +314,7 @@ static int bma250e_daemon(void *d)
 	u32 time_delay = 0;
 	u32 tmp = 0,tmp2 = 0;
 
-	time_delay = BMA250e_BW_7_81_sel*2 + 10;
+	time_delay = BMA250e_BW_7_81_sel*2 - 15;
 	if(bma250e->suspend_t == 1) {
 //		tmp2 = 0;
 		bma250e->suspend_t = 0;
@@ -524,20 +524,50 @@ static long bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 	// printk("===>enter %s:%d cmd = %u\n", __func__, __LINE__, cmd);
 
 	switch (cmd) {
-	case SENSOR_IOCTL_GET_DELAY:
-		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_BW_SEL_REG, arg);
+	case SENSOR_IOCTL_SET_THRESHOLD:
+		if(arg == 2){
+			arg = 0x03;
+		}else if(arg == 4){
+			arg = 0x05;
+		}else if(arg == 8){
+			arg = 0x08;
+		}else if(arg == 16){
+			arg = 0x0c;
+		}else{
+			arg = 0x03;
+		}
+
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_SLOPE_THR, arg);
 		if(rc)
 			goto config_exit;
 		break;
-	case SENSOR_IOCTL_SET_DELAY:
+	case SENSOR_IOCTL_SET_FREQUENCY:
+		if(arg == 8){
+			arg = 0x08;
+		}else if(arg == 16){
+			arg = 0x09;
+		}else if(arg == 32){
+			arg = 0x0A;
+		}else if(arg == 63){
+			arg = 0x0B;
+		}else if(arg == 125){
+			arg = 0x0C;
+		}else if(arg == 250){
+			arg = 0x0D;
+		}else if(arg == 500){
+			arg = 0x0E;
+		}else if(arg == 1000){
+			arg = 0x0F;
+		}
 		/* maps interrupt to INT1 pin */
-		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, arg);
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10, arg);
 		if(rc)
 			goto config_exit;
 		break;
-	case SENSOR_IOCTL_SET_ACTIVE:
+	case SENSOR_IOCTL_SET_RANGES:
+		arg = arg * 4;
 		/*set_int_mode*/
-		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, arg);
+		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_RANGE_REG, arg);
 		if(rc)
 			goto config_exit;
 		break;
