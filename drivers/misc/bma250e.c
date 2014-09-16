@@ -150,11 +150,11 @@ static int bma250e_read_continue(  struct bma250e_dev *bma250e)
         data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2] & 0xc0)) >> 6;
         data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4] & 0xc0)) >> 6;
 #else
-	data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
+		data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
         data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
         data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//        printk( "%s no_add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+//		 printk( "%s no_add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
 
 	if ( bma250e->cur_producer_p == bma250e->cur_consumer_p ) {
 		*bma250e->cur_producer_p = (1<<30) | (data.single.accel_x <<20) | (data.single.accel_y <<10) | data.single.accel_z;
@@ -180,7 +180,7 @@ static int bma250e_read_continue(  struct bma250e_dev *bma250e)
 	}
 
 	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
-		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+		if ((bma250e->cur_consumer_p - bma250e->cur_producer_p) > 2) {
 			*bma250e->cur_producer_p = (1<<30) | (data.single.accel_x <<20) | (data.single.accel_y <<10) | data.single.accel_z;
 			spin_lock(&bma250e->lock);
 			bma250e->cur_producer_p++;
@@ -216,11 +216,11 @@ static int bma250e_read_continue_time(struct bma250e_dev *bma250e,  u32 time)
         data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2] & 0xc0)) >> 6;
         data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4] & 0xc0)) >> 6;
 #else
-	data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
+		data.single.accel_x = ((rx_buf[1] << 8) | (rx_buf[0])) >> 6;
         data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
         data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-	printk( "%s add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+//		printk( "%s add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
@@ -247,7 +247,7 @@ static int bma250e_read_continue_time(struct bma250e_dev *bma250e,  u32 time)
 	}
 
 	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
-		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+		if ((bma250e->cur_consumer_p - bma250e->cur_producer_p) > 2) {
 			*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
 			spin_lock(&bma250e->lock);
 			bma250e->cur_producer_p++;
@@ -283,7 +283,7 @@ data__write :
 	}
 
 	if (bma250e->cur_producer_p < bma250e->cur_consumer_p) {
-		if ((bma250e->cur_producer_p - bma250e->cur_consumer_p) > 2) {
+		if ((bma250e->cur_consumer_p - bma250e->cur_producer_p) > 2) {
 			*bma250e->cur_producer_p = (1<<30) | (data.single.accel_x <<20) | (data.single.accel_y <<10) | data.single.accel_z;
 			spin_lock(&bma250e->lock);
 			bma250e->cur_producer_p++;
@@ -327,19 +327,14 @@ static int bma250e_daemon(void *d)
 		}
 		if (tmp2 == 0) {
 			tmp2 = get_time(bma250e);
-//			printk("time_tmp2 %d:%d\n", __LINE__,tmp2);
 		}
 		tmp = get_time(bma250e);
-//		printk("===>enter %s:%d\n", __func__, __LINE__);
  		if (((tmp-time_base) >= time_delay) && (tmp > time_base)) {
-//			printk("time_cha %s:%u\n", __func__, (tmp - time_base));
 			time_now = get_rtc_time(bma250e)*1000;
 			time_base = tmp;
 	 		bma250e_read_continue_time(bma250e,  time_now + tmp - tmp2);
-//			printk("time_now %s:%d\n", __func__,time_now + tmp - tmp2);
 		} else {
  			time_base = time_base + time_delay;
-//			printk("time_noadd %d:%u\n", __LINE__, time_base);
 			bma250e_read_continue(bma250e);
 		}
 
@@ -438,10 +433,10 @@ static ssize_t bma250e_read(struct file *filp, char *buf, size_t size, loff_t *l
 
 	size_move = size/4;
 
-	if (bma250e->cur_producer_p > bma250e->cur_consumer_p) {
+	if (bma250e->cur_producer_p >= bma250e->cur_consumer_p) {
 		valid_data_len = (int)(bma250e->cur_producer_p - bma250e->cur_consumer_p);
 		if (valid_data_len == 0)
-			valid_data_len = 1;
+			return 0;
 		if (size_move > valid_data_len)
 			len_to_read = valid_data_len;
 		else
