@@ -27,7 +27,7 @@ const struct isp_reg_t isp_mipi_regs_init[] = {
 
 #endif
 #ifdef CONFIG_ANDROID
-	{0x63b35, 0x04},
+	{0x63b35, 0x00},
 #endif
 	//{0x63022, 0x81},
 	//{0x65007, 0x20},
