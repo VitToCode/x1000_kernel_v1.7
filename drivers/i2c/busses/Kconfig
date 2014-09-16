@@ -869,7 +869,7 @@ config I2C_DEBUG_INFO
 
 config I2C0_V12_JZ
         tristate "JZ_v12 i2c controler 0 Interface support"
-	depends on I2C_V12_JZ
+	depends on I2C_V12_JZ && !SOFT_I2C0_GPIO_V12_JZ
 	default n
 
 config SOFT_I2C0_GPIO_V12_JZ
@@ -880,11 +880,11 @@ config I2C0_SPEED
         int "Jz_v12 i2c0 speed in KHZ"
         range 100 400
         default 400
-        depends on I2C0_V12_JZ
+        depends on I2C0_V12_JZ || SOFT_I2C0_GPIO_V12_JZ
 
 config I2C1_V12_JZ
         tristate "JZ_v12 i2c controler 1 Interface support"
-	depends on I2C_V12_JZ
+	depends on I2C_V12_JZ && !SOFT_I2C1_GPIO_V12_JZ
 	default n
 
 config SOFT_I2C1_GPIO_V12_JZ
@@ -895,11 +895,11 @@ config I2C1_SPEED
 		int "Jz_v12 i2c1 speed in KHZ"
 		range 10 400
 		default 400
-		depends on I2C1_V12_JZ
+		depends on I2C1_V12_JZ || SOFT_I2C1_GPIO_V12_JZ
 
 config I2C2_V12_JZ
         tristate "JZ_v12 i2c controler 2 Interface support"
-	depends on I2C_V12_JZ
+	depends on I2C_V12_JZ && !SOFT_I2C2_GPIO_V12_JZ
 	default n
 
 choice
@@ -920,11 +920,12 @@ config I2C2_SPEED
         int "Jz_v12 i2c2 speed in KHZ"
         range 100 400
         default 100
-	depends on I2C2_V12_JZ
+	depends on I2C2_V12_JZ || SOFT_I2C2_GPIO_V12_JZ
+
 
 config I2C3_V12_JZ
         tristate "JZ_v12 i2c controler 3 Interface support"
-	depends on I2C_V12_JZ
+	depends on I2C_V12_JZ && !SOFT_I2C3_GPIO_V12_JZ
 	default n
 
 choice
@@ -945,7 +946,8 @@ config I2C3_SPEED
         int "Jz_v12 i2c3 speed in KHZ"
         range 100 400
         default 100
-        depends on I2C3_V12_JZ
+        depends on I2C3_V12_JZ || SOFT_I2C3_GPIO_V12_JZ
+
 
 config I2C_JZV10_WAIT_MS
         int "JZ_v10 i2c bus wait time in ms"
