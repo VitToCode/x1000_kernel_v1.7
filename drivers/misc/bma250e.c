@@ -93,7 +93,7 @@ int bma250_ic_read(struct i2c_client *ic_dev, u8 reg, u8 *buf, int len)
 		if (rc > 0)
 			return 0;
 	}
-
+		printk("read error %d, %d \n", __LINE__, rc);
         return rc;
 }
 
@@ -521,20 +521,24 @@ static long bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 	struct miscdevice *dev = filp->private_data;
 	struct bma250e_dev *bma250e = container_of(dev, struct bma250e_dev, mdev);
 	int rc;
-	// printk("===>enter %s:%d cmd = %u\n", __func__, __LINE__, cmd);
 
 	switch (cmd) {
 	case SENSOR_IOCTL_SET_THRESHOLD:
-		if(arg == 2){
-			arg = 0x03;
-		}else if(arg == 4){
-			arg = 0x05;
-		}else if(arg == 8){
-			arg = 0x08;
-		}else if(arg == 16){
-			arg = 0x0c;
-		}else{
-			arg = 0x03;
+		switch (arg) {
+			case  2:
+			 arg = 0x03;
+		    break;
+			case  4:
+			 arg = 0x05;
+			break;
+			case  8:
+			 arg = 0x08;
+			 break;
+			case  16:
+			 arg = 0x0c;
+			 break;
+			default:
+			 arg = 0x03;
 		}
 
 		rc = i2c_smbus_write_byte_data(bma250e->client, BMA250_SLOPE_THR, arg);
@@ -542,22 +546,25 @@ static long bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 			goto config_exit;
 		break;
 	case SENSOR_IOCTL_SET_FREQUENCY:
-		if(arg == 8){
+		if(arg > 0 && arg <= 8){
 			arg = 0x08;
-		}else if(arg == 16){
+		}else if(arg <= 16){
 			arg = 0x09;
-		}else if(arg == 32){
+		}else if(arg <= 32){
 			arg = 0x0A;
-		}else if(arg == 63){
+		}else if(arg <= 63){
 			arg = 0x0B;
-		}else if(arg == 125){
+		}else if(arg <= 125){
 			arg = 0x0C;
-		}else if(arg == 250){
+		}else if(arg <= 250){
 			arg = 0x0D;
-		}else if(arg == 500){
+		}else if(arg <= 500){
 			arg = 0x0E;
-		}else if(arg == 1000){
+		}else if(arg > 500){
 			arg = 0x0F;
+		}else{
+		printk("FREQUENCY cannot Less than zero");
+		return -1;
 		}
 		/* maps interrupt to INT1 pin */
 		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10, arg);
@@ -629,7 +636,7 @@ static int bma250e_probe(struct i2c_client *client,
 
 	bma250e = kzalloc(sizeof(struct bma250e_dev), GFP_KERNEL);
 	if (!bma250e){
-//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		printk("===>enter %s:%d\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -650,14 +657,14 @@ static int bma250e_probe(struct i2c_client *client,
 
 	bma250e->data_buf = (unsigned int	*) __get_free_pages(GFP_KERNEL, get_order(DATA_BUF_SIZE));
 	if (bma250e->data_buf == NULL) {
-//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		printk("===>enter %s:%d\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		goto err_request_buffer;
 	}
 
 	bma250e->data_buf_copy = (unsigned int	*) __get_free_pages(GFP_KERNEL, get_order(DATA_BUF_SIZE));
 	if (bma250e->data_buf_copy == NULL) {
-//		printk("===>enter %s:%d\n", __func__, __LINE__);
+		printk("===>enter %s:%d\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		goto err_request_buffer;
 	}
@@ -699,13 +706,12 @@ static int bma250e_probe(struct i2c_client *client,
 
 	msleep(200);
 	rc = bma250_ic_read(client, BMA250_CHIP_ID_REG, rx_buf, 2);
-//	printk(KERN_INFO "bma250: detected chip id %x, rev 0x%X\n", rx_buf[0], rx_buf[1]);
-	if(rc)
+	printk(KERN_INFO "bma250: detected chip id %x, rev 0x%X\n", rx_buf[0], rx_buf[1]);
+	if(rc) {
+	printk("bma250e register error\n");
 		goto err_irq_request_failed;
+	}
 	bma250e_set( client );
-//	printk("===>enter %s:%d\n", __func__, __LINE__);
-//	set_rtc_base(bma250e);
-
 
 	bma250e->mdev.minor = MISC_DYNAMIC_MINOR;
 	bma250e->mdev.name =  "bma250e";
@@ -716,8 +722,6 @@ static int bma250e_probe(struct i2c_client *client,
 		dev_err(bma250e->dev, "misc_register failed\n");
 		goto err_register_misc;
 	}
-
-//	printk("===>enter %s:%d\n", __func__, __LINE__);
 
 	return 0;
 err_request_buffer:
