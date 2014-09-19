@@ -1786,7 +1786,7 @@ static void jzfb_early_suspend(struct early_suspend *h)
 	/*disable clock*/
 	jzfb_clk_disable(jzfb);
 	clk_disable(jzfb->pclk);
-//	clk_disable(jzfb->pwcl);
+	clk_disable(jzfb->pwcl);
 #if 0
 	printk("----lcd early suspend:\n");
 	dump_cpm_reg();
@@ -1801,7 +1801,7 @@ static void jzfb_late_resume(struct early_suspend *h)
 	jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
 #endif
 	fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
-//	clk_enable(jzfb->pwcl);
+	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 	jzfb_set_par(jzfb->fb);
 	jzfb_disable(jzfb->fb);
@@ -2437,7 +2437,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_framebuffer_release;
 	}
 	/* Don't read or write lcdc registers until here. */
-//	clk_enable(jzfb->pwcl);
+	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 
 
