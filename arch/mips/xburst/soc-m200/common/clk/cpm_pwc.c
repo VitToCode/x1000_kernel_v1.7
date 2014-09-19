@@ -166,8 +166,12 @@ void __init init_pwc_clk(struct clk *clk)
 		clk->parent = clk;
 		if(p->flags & CLK_FLG_ENABLE)
 			cpm_pwc_enable(clk,1);
-		else
+		else{
 			cpm_pwc_enable(clk,0);
+            if(strcmp(p->name, "lcd") == 0){
+			      cpm_pwc_enable(clk,1);
+            }
+        }
 
 	}
 	clk->parent = NULL;

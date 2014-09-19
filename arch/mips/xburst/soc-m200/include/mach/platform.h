@@ -105,6 +105,8 @@
 
 #define SLCDC_PORTC							\
 	{ .name = "slcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 0x0e0ff3fc, }
+#define SLCDC_PORTC_8BIT					\
+	{ .name = "slcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 0x0e0003fc, }
 
 #define EPD_PORTC							\
 	{ .name = "epd-24bit", .port = GPIO_PORT_C, .func = GPIO_FUNC_3, .pins = 0x0e4ff3fc, }

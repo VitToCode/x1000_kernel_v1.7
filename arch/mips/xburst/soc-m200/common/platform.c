@@ -153,6 +153,10 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	SLCDC_PORTC,
 #endif
 
+#ifdef CONFIG_LCD_GPIO_FUNC2_SLCD_8BIT
+	SLCDC_PORTC_8BIT,
+#endif
+
 #ifdef CONFIG_JZ_EPD_GPIO_FUNCTION
 	EPD_PORTC,
 #endif
