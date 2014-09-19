@@ -318,7 +318,7 @@ static int bma250e_daemon(void *d)
 	u32 time_delay = 0;
 	u32 tmp = 0, tmp2 = 0;
 
-	time_delay = BMA250e_BW_7_81_sel * 2 - 15;
+	time_delay = BMA250e_BW_7_81_sel * 2 - 5;
 	if (bma250e->suspend_t == 1) {
 //              tmp2 = 0;
 		bma250e->suspend_t = 0;
@@ -374,7 +374,7 @@ static int bma250e_set(struct i2c_client *client)
 	if (rc)
 		goto config_exit;
 	/*set_int_filter_ slope_triger */
-	rc = i2c_smbus_write_byte_data(client, 0x1E, 0x04);
+	rc = i2c_smbus_write_byte_data(client, 0x1E, 0);
 	if (rc)
 		goto config_exit;
 	/*set_get_accd_register */
@@ -382,7 +382,7 @@ static int bma250e_set(struct i2c_client *client)
 	if (rc)
 		goto config_exit;
 	/* threshold definition for the slope int, g-range dependant */
-	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 20);
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 5);
 	if (rc)
 		goto config_exit;
 	/* number of samples (n + 1) to be evaluted for slope int */
