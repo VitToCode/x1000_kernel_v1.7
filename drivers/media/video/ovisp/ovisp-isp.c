@@ -1099,6 +1099,8 @@ static int isp_mipi_init(struct isp_device *isp)
 	ovisp_debugtool_load_isp_setting(isp, OVISP_DEBUGTOOL_ISPSETTING_FILENAME);
 #endif
 
+	/*Necessary delay, at least 2ms. for aw6120 isp.*/
+	mdelay(10);
 	return 0;
 }
 

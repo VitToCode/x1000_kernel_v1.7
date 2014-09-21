@@ -177,6 +177,7 @@ static int aw6120_power(int onoff)
 		mdelay(10);
 		gpio_direction_output(AW6120_PWDN_EN, 0);
 		gpio_direction_output(AW6120_RST, 1);
+		mdelay(10);
 	} else {
 		gpio_direction_output(AW6120_RST, 0);
 		mdelay(10);
