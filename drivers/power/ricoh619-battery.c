@@ -228,7 +228,9 @@ struct ricoh61x_battery_info {
 	uint8_t 	usb_current_val;
 
 	int 		num;
-	};
+	uint8_t (*battery_init_para)[32];
+	uint8_t (*impe_init_para)[20];
+};
 
 int g_full_flag;
 int charger_irq;
@@ -357,13 +359,13 @@ static int Set_back_ocv_table(struct ricoh61x_battery_info *info)
 	if (0 != info->soca->ocv_table_low[0])
 	{
 		for (i = 0 ; i < 11; i++){
-			battery_init_para[info->num][i*2 + 1] = info->soca->ocv_table_low[i];
-			battery_init_para[info->num][i*2] = info->soca->ocv_table_low[i] >> 8;
+			info->battery_init_para[info->num][i*2 + 1] = info->soca->ocv_table_low[i];
+			info->battery_init_para[info->num][i*2] = info->soca->ocv_table_low[i] >> 8;
 		}
 		err = ricoh61x_clr_bits(info->dev->parent, FG_CTRL_REG, 0x01);
 
 		err = ricoh61x_bulk_writes_bank1(info->dev->parent,
-			BAT_INIT_TOP_REG, 22, battery_init_para[info->num]);
+			BAT_INIT_TOP_REG, 22, info->battery_init_para[info->num]);
 
 		err = ricoh61x_set_bits(info->dev->parent, FG_CTRL_REG, 0x01);
 
@@ -512,7 +514,7 @@ static int ricoh61x_Check_OCV_Offset(struct ricoh61x_battery_info *info)
 		{
 			if(0 == info->soca->ocv_table_low[0]){
 				for (i = 0 ; i < 11; i++){
-				ocv_table[i] = (battery_init_para[info->num][i*2]<<8) | (battery_init_para[info->num][i*2+1]);
+				ocv_table[i] = (info->battery_init_para[info->num][i*2]<<8) | (info->battery_init_para[info->num][i*2+1]);
 				pr_info("PMU : %s : OCV table %d 0x%x\n",__func__,i * 10, ocv_table[i]);
 				info->soca->ocv_table_low[i] = ocv_table[i];
 				}
@@ -520,13 +522,13 @@ static int ricoh61x_Check_OCV_Offset(struct ricoh61x_battery_info *info)
 				for (i = 0 ; i < 11; i++){
 					temp = ocv_table[i] * (100 + RICOH61x_OCV_OFFSET_RATIO) / 100;
 
-					battery_init_para[info->num][i*2 + 1] = temp;
-					battery_init_para[info->num][i*2] = temp >> 8;
+					info->battery_init_para[info->num][i*2 + 1] = temp;
+					info->battery_init_para[info->num][i*2] = temp >> 8;
 				}
 				ret = ricoh61x_clr_bits(info->dev->parent, FG_CTRL_REG, 0x01);
 
 				ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
-					BAT_INIT_TOP_REG, 22, battery_init_para[info->num]);
+					BAT_INIT_TOP_REG, 22, info->battery_init_para[info->num]);
 
 				ret = ricoh61x_set_bits(info->dev->parent, FG_CTRL_REG, 0x01);
 
@@ -830,8 +832,8 @@ static int get_target_use_cap(struct ricoh61x_battery_info *info)
 
 	/* get OCV table % */
 	for (i = 0; i <= 10; i = i+1) {
-		temp = (battery_init_para[info->num][i*2]<<8)
-			 | (battery_init_para[info->num][i*2+1]);
+		temp = (info->battery_init_para[info->num][i*2]<<8)
+			 | (info->battery_init_para[info->num][i*2+1]);
 		/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
 		temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
 		ocv_table[i] = temp;
@@ -950,7 +952,7 @@ static int calib_ocvTable(struct ricoh61x_battery_info *info, int vbat_ocv)
 	}
 
 
-	//cutoff_ocv = (battery_init_para[info->num][0]<<8) | (battery_init_para[info->num][1]);
+	//cutoff_ocv = (info->battery_init_para[info->num][0]<<8) | (info->battery_init_para[info->num][1]);
 	cutoff_ocv = get_OCV_voltage(info, 0);
 
 	info->soca->ocv_table_def[10] = info->soca->OCV100_max;
@@ -958,7 +960,7 @@ static int calib_ocvTable(struct ricoh61x_battery_info *info, int vbat_ocv)
 	ricoh61x_scaling_OCV_table(info, cutoff_ocv/1000, ocv100_new/1000, &start_per, &end_per);
 
 	ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
-				BAT_INIT_TOP_REG, 22, battery_init_para[info->num]);
+				BAT_INIT_TOP_REG, 22, info->battery_init_para[info->num]);
 	if (ret < 0) {
 		dev_err(info->dev, "batterry initialize error\n");
 		goto err;
@@ -2548,16 +2550,16 @@ static void ricoh61x_scaling_OCV_table(struct ricoh61x_battery_info *info, int c
 
 				temp = ( (temp/1000) * 4095 ) / 5000;
 
-				battery_init_para[info->num][i*2 + 1] = temp;
-				battery_init_para[info->num][i*2] = temp >> 8;
+				info->battery_init_para[info->num][i*2 + 1] = temp;
+				info->battery_init_para[info->num][i*2] = temp >> 8;
 
 				break;
 			}
 		}
 	}
 	for (i = 0; i <= 10; i = i+1) {
-		temp = (battery_init_para[info->num][i*2]<<8)
-			 | (battery_init_para[info->num][i*2+1]);
+		temp = (info->battery_init_para[info->num][i*2]<<8)
+			 | (info->battery_init_para[info->num][i*2+1]);
 		/* conversion unit 1 Unit is 1.22mv (5000/4095 mv) */
 		temp = ((temp * 50000 * 10 / 4095) + 5) / 10;
 	}
@@ -2589,18 +2591,18 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 			 __func__, i, info->soca->ocv_table_def[i]);*/
 	}
 
-	temp =  (battery_init_para[info->num][24]<<8) | (battery_init_para[info->num][25]);
+	temp =  (info->battery_init_para[info->num][24]<<8) | (info->battery_init_para[info->num][25]);
 	Rbat = temp * 1000 / 512 * 5000 / 4095;
 	info->soca->Rsys = Rbat + 55;
 
 	if ((info->fg_target_ibat == 0) || (info->fg_target_vsys == 0)) {	/* normal version */
 
-		temp =  (battery_init_para[info->num][22]<<8) | (battery_init_para[info->num][23]);
+		temp =  (info->battery_init_para[info->num][22]<<8) | (info->battery_init_para[info->num][23]);
 		//fa_cap = get_check_fuel_gauge_reg(info, FA_CAP_H_REG, FA_CAP_L_REG,
 		//				0x7fff);
 
 		info->soca->target_ibat = temp*2/10; /* calc 0.2C*/
-		temp1 =  (battery_init_para[info->num][0]<<8) | (battery_init_para[info->num][1]);
+		temp1 =  (info->battery_init_para[info->num][0]<<8) | (info->battery_init_para[info->num][1]);
 //		temp = get_OCV_voltage(info, 0) / 1000; /* unit is 1mv*/
 //		info->soca->cutoff_ocv = info->soca->target_vsys - Ibat_min * info->soca->Rsys / 1000;
 
@@ -2610,7 +2612,7 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 	} else {
 		info->soca->target_ibat = info->fg_target_ibat;
 		/* calc min vsys value */
-		temp1 =  (battery_init_para[info->num][0]<<8) | (battery_init_para[info->num][1]);
+		temp1 =  (info->battery_init_para[info->num][0]<<8) | (info->battery_init_para[info->num][1]);
 		temp = temp1 + ( info->soca->target_ibat * info->soca->Rsys ) / 1000;
 		if( temp < info->fg_target_vsys) {
 			info->soca->target_vsys = info->fg_target_vsys;
@@ -2629,7 +2631,7 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 		Ibat_min = -1 * info->soca->target_ibat;
 		info->soca->cutoff_ocv = info->soca->target_vsys - Ibat_min * info->soca->Rsys / 1000;
 
-		full_ocv = (battery_init_para[info->num][20]<<8) | (battery_init_para[info->num][21]);
+		full_ocv = (info->battery_init_para[info->num][20]<<8) | (info->battery_init_para[info->num][21]);
 		full_ocv = full_ocv * 5000 / 4095;
 
 		ricoh61x_scaling_OCV_table(info, info->soca->cutoff_ocv, full_ocv, &start_per, &end_per);
@@ -2637,15 +2639,15 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 		/* calc available capacity */
 		/* get avilable capacity */
 		/* battery_init_para23-24 is designe capacity */
-		available_cap = (battery_init_para[info->num][22]<<8)
-					 | (battery_init_para[info->num][23]);
+		available_cap = (info->battery_init_para[info->num][22]<<8)
+					 | (info->battery_init_para[info->num][23]);
 
 		available_cap = available_cap
 			 * ((10000 - start_per) / 100) / 100 ;
 
 
-		battery_init_para[info->num][23] =  available_cap;
-		battery_init_para[info->num][22] =  available_cap >> 8;
+		info->battery_init_para[info->num][23] =  available_cap;
+		info->battery_init_para[info->num][22] =  available_cap >> 8;
 
 	}
 	ret = ricoh61x_clr_bits(info->dev->parent, FG_CTRL_REG, 0x01);
@@ -2686,7 +2688,7 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 
 	if (val != val2) {
 		ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
-				BAT_INIT_TOP_REG, 30, battery_init_para[info->num]);
+				BAT_INIT_TOP_REG, 30, info->battery_init_para[info->num]);
 		if (ret < 0) {
 			dev_err(info->dev, "batterry initialize error\n");
 			goto err;
@@ -2705,19 +2707,19 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 		}
 
 		available_cap_ori = val2 + (val << 8);
-		available_cap = battery_init_para[info->num][23]
-						+ (battery_init_para[info->num][22] << 8);
+		available_cap = info->battery_init_para[info->num][23]
+						+ (info->battery_init_para[info->num][22] << 8);
 
 		if (available_cap_ori == available_cap) {
 			ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
-				BAT_INIT_TOP_REG, 22, battery_init_para[info->num]);
+				BAT_INIT_TOP_REG, 22, info->battery_init_para[info->num]);
 			if (ret < 0) {
 				dev_err(info->dev, "batterry initialize error\n");
 				return ret;
 			}
 
 			for (i = 0; i < 6; i++) {
-				ret = ricoh61x_write_bank1(info->dev->parent, 0xD4+i, battery_init_para[info->num][24+i]);
+				ret = ricoh61x_write_bank1(info->dev->parent, 0xD4+i, info->battery_init_para[info->num][24+i]);
 				if (ret < 0) {
 					dev_err(info->dev, "batterry initialize error\n");
 					return ret;
@@ -2725,7 +2727,7 @@ static int ricoh61x_set_OCV_table(struct ricoh61x_battery_info *info)
 			}
 		} else {
 			ret = ricoh61x_bulk_writes_bank1(info->dev->parent,
-				BAT_INIT_TOP_REG, 30, battery_init_para[info->num]);
+				BAT_INIT_TOP_REG, 30, info->battery_init_para[info->num]);
 			if (ret < 0) {
 				dev_err(info->dev, "batterry initialize error\n");
 				goto err;
@@ -3077,7 +3079,7 @@ static int ricoh61x_init_charger(struct ricoh61x_battery_info *info)
 		}
 	}
 	/* get OCV100_min, OCV100_min*/
-	temp = (battery_init_para[info->num][24]<<8) | (battery_init_para[info->num][25]);
+	temp = (info->battery_init_para[info->num][24]<<8) | (info->battery_init_para[info->num][25]);
 	rbat = temp * 1000 / 512 * 5000 / 4095;
 
 	/* get vfchg value */
@@ -3855,7 +3857,7 @@ static int measure_Ibatt_FG(struct ricoh61x_battery_info *info, int *data)
 static int get_OCV_init_Data(struct ricoh61x_battery_info *info, int index)
 {
 	int ret = 0;
-	ret =  (battery_init_para[info->num][index*2]<<8) | (battery_init_para[info->num][index*2+1]);
+	ret =  (info->battery_init_para[info->num][index*2]<<8) | (info->battery_init_para[info->num][index*2+1]);
 	return ret;
 }
 
@@ -4153,7 +4155,7 @@ struct power_supply	powerusb = {
 static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 {
 	struct ricoh61x_battery_info *info;
-	struct ricoh619_battery_platform_data *pdata;
+	struct ricoh619_battery_platform_data *pdata = dev_get_platdata(pdev->dev.parent);
 	int type_n;
 	int ret, temp;
 
@@ -4171,6 +4173,13 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 	pdata = pdev->dev.platform_data;
 	info->monitor_time = pdata->monitor_time * HZ;
 	info->alarm_vol_mv = pdata->alarm_vol_mv;
+	if((pdata->battery_init_data != NULL) || (pdata->impe_init_data != NULL)){
+		info->battery_init_para = pdata->battery_init_data;
+		info->impe_init_para = pdata->impe_init_data;
+	}else{
+		info->battery_init_para = battery_init_para;
+		info->impe_init_para = impe_init_para;
+	}
 
 	/* check rage of b,.attery type */
 	type_n = Battery_Type();
@@ -4185,8 +4194,8 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 
 	/* check rage of battery num */
 	info->num = Battery_Table();
-	temp = sizeof(battery_init_para)/(sizeof(uint8_t)*32);
-	if(info->num >= (sizeof(battery_init_para)/(sizeof(uint8_t)*32)))
+	temp = sizeof(info->battery_init_para)/(sizeof(uint8_t)*32);
+	if(info->num >= (sizeof(info->battery_init_para)/(sizeof(uint8_t)*32)))
 	{
 		pr_info("%s : Battery num is out of range\n", __func__);
 		info->num = 0;
@@ -4217,11 +4226,11 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 	info->jt_ichg_l = pdata->type[type_n].jt_ichg_l;
 
 	temp = get_OCV_init_Data(info, 11) * info->fg_rsense_val / 20;
-	battery_init_para[info->num][22] = (temp >> 8);
-	battery_init_para[info->num][23] = (temp & 0xff);
+	info->battery_init_para[info->num][22] = (temp >> 8);
+	info->battery_init_para[info->num][23] = (temp & 0xff);
 	temp = get_OCV_init_Data(info, 12) * 20 / info->fg_rsense_val;
-	battery_init_para[info->num][24] = (temp >> 8);
-	battery_init_para[info->num][25] = (temp & 0xff);
+	info->battery_init_para[info->num][24] = (temp >> 8);
+	info->battery_init_para[info->num][25] = (temp & 0xff);
 
 	/*
 	pr_info("%s setting value\n", __func__);
