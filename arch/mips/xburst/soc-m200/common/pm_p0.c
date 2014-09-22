@@ -249,7 +249,8 @@ static noinline void cpu_sleep(void)
 	/* printk("CPM_DDRCDR:0x%08x\n",cpm_inl(CPM_DDRCDR)); */
 	/* printk("DDRC_AUTOSR_EN: %x\n",ddr_readl(DDRC_AUTOSR_EN)); */
 	/* printk("DDRC_DLP: %x\n",ddr_readl(DDRC_DLP)); */
-
+	/* printk("ddr cs %x\n",ddr_readl(DDRP_DX0GSR)); */
+	REG32(SLEEP_TSCM_DATA + 12) = ddr_readl(DDRP_DX0GSR) & 3;
 	cache_prefetch(LABLE1,200);
 LABLE1:
 	val = ddr_readl(DDRC_AUTOSR_EN);
@@ -306,7 +307,9 @@ static noinline void cpu_resume(void)
 		val = DDRP_PIR_INIT | DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ITMSRST;
 	RETRY_LABLE:
 		ddr_writel(val, DDRP_PIR);
-		while((ddr_readl(DDRP_DX0GSR) & 0x3) != 3);
+		val = REG32(SLEEP_TSCM_DATA + 12);
+		while((ddr_readl(DDRP_DX0GSR) & val) != val);
+
 		while (ddr_readl(DDRP_PGSR) != (DDRP_PGSR_IDONE | DDRP_PGSR_DLDONE | DDRP_PGSR_ZCDONE
 						| DDRP_PGSR_DIDONE | DDRP_PGSR_DTDONE)) {
 
