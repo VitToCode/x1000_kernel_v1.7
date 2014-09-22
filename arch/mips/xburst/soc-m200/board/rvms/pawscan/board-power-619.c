@@ -46,6 +46,20 @@
 #define RICOH619_GPIO_BASE  	PLATFORM_RICOH_GPIO_BASE
 #define RICOH619_GPIO_IRQ   	(RICOH619_GPIO_BASE + 8)
 
+uint8_t pawscan_battery_init_para[][32] = {
+	{
+		0x09, 0xDD, 0x0B, 0xC5, 0x0B, 0xE7, 0x0C, 0x09,
+		0x0C, 0x19, 0x0C, 0x2F, 0x0C, 0x54, 0x0C, 0x90,
+		0x0C, 0xC4, 0x0D, 0x07, 0x0D, 0x5C, 0x02, 0x02,
+		0x00, 0x9E, 0x0F, 0xC8, 0x05, 0x2C, 0x22, 0x56
+	},
+};
+uint8_t pawscan_impe_init_para[][20] = {
+	{
+        0x01, 0x7D, 0x00, 0xAB, 0x00, 0x96, 0x00, 0x9B, 0x00, 0x96,
+        0x00, 0x92, 0x00, 0x9F, 0x00, 0xB4, 0x00, 0x9F, 0x00, 0x92
+    },
+};
 static struct regulator_consumer_supply ricoh619_dc1_supply_0[] = {
 	REGULATOR_SUPPLY("cpu_core", NULL),
 };
@@ -215,6 +229,8 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	// .adc_channel = RICOH619_ADC_CHANNEL_VBAT,
 	.multiple	= 100, //100%
 	.monitor_time 	= 60,
+	.battery_init_data = pawscan_battery_init_para,
+	.impe_init_data = pawscan_impe_init_para,
 		/* some parameter is depend of battery type */
 	.type[0] = {
 		.ch_vfchg 	= 0x02,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */

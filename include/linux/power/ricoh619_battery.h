@@ -141,6 +141,8 @@ struct ricoh619_battery_platform_data {
 	int	alarm_vol_mv;
 	int	multiple;
 	unsigned long	monitor_time;
+	uint8_t (*battery_init_data)[32];
+	uint8_t (*impe_init_data)[20];
 	struct ricoh619_battery_type_data type[BATTERY_TYPE_NUM];
 };
 #endif
