@@ -34,13 +34,13 @@ static struct jz_cpufreq {
 	struct cpufreq_frequency_table *freq_table;
 } *jz_cpufreq;
 /*
- *  unit: kHz
+ *  unit: kHz 1008000,1200000
  */
 static unsigned long set_cpu_freqs[] = {
 	12000,
 	24000  ,60000 ,120000,
 	200000 ,300000 ,600000,
-	792000,1008000,1200000,
+	792000,
 	CPUFREQ_TABLE_END
 };
 #define SUSPEMD_FREQ_INDEX 0
