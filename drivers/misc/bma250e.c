@@ -320,7 +320,7 @@ static int bma250e_daemon(void *d)
 	u32 time_delay = 0;
 	u32 tmp = 0, tmp2 = 0;
 
-	time_delay = BMA250e_BW_7_81_sel * 3 + 10;
+	time_delay = BMA250e_BW_7_81_sel * 2 + 20;
 	if (bma250e->suspend_t == 1) {
 //              tmp2 = 0;
 		bma250e->suspend_t = 0;
@@ -576,6 +576,8 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
+		bma250e->cur_producer_p = 0;
+		bma250e->cur_consumer_p = 0;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_BW_SEL_REG, 8);
 		if (rc)
@@ -648,6 +650,8 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
+		bma250e->cur_producer_p = 0;
+		bma250e->cur_consumer_p = 0;
 		/* set frequency */
 		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10, arg);
 		if (rc)
@@ -718,6 +722,8 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
+		bma250e->cur_producer_p = 0;
+		bma250e->cur_consumer_p = 0;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_BW_SEL_REG, 8);
 		if (rc)
