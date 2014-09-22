@@ -160,7 +160,8 @@ static int bma250e_read_continue(struct bma250e_dev *bma250e)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//               printk( "%s no_add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+//      printk("%s no_add_time_report: %d, %d, %d\n", __func__,
+	//data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = BMA250e_GET_DATA;
@@ -225,7 +226,8 @@ static int bma250e_read_continue_time(struct bma250e_dev *bma250e, u32 time)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//              printk( "%s add_time_report: %d, %d, %d\n", __func__,  data.single.accel_x ,  data.single.accel_y,  data.single.accel_z);
+//      printk("%s add_time_report: %d, %d, %d\n", __func__,
+	//data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
@@ -318,13 +320,16 @@ static int bma250e_daemon(void *d)
 	u32 time_delay = 0;
 	u32 tmp = 0, tmp2 = 0;
 
-	time_delay = BMA250e_BW_7_81_sel * 2 - 5;
+	time_delay = BMA250e_BW_7_81_sel * 3 + 10;
 	if (bma250e->suspend_t == 1) {
 //              tmp2 = 0;
 		bma250e->suspend_t = 0;
 	}
 
 	while (!kthread_should_stop()) {
+		if (get_time(bma250e) > 0xFFFFF000) {
+			time_base = 0;
+		}
 		wait_for_completion_interruptible(&bma250e->done);
 		if (bma250e->rtc_base == 0) {
 			set_rtc_base(bma250e);
@@ -343,9 +348,9 @@ static int bma250e_daemon(void *d)
 			bma250e_read_continue(bma250e);
 		}
 
-		/* Do read to data_buf */
+		if (tmp < tmp2)
+			tmp2 = tmp;
 	}
-
 	return 0;
 }
 
@@ -353,6 +358,11 @@ static int bma250e_set(struct i2c_client *client)
 {
 	int rc;
 
+	/*bma250e_reset */
+	rc = i2c_smbus_write_byte_data(client, BMA250_RESET_REG, BMA250_RESET);
+	if (rc)
+		goto config_exit;
+	msleep(200);
 	rc = i2c_smbus_write_byte_data(client, BMA250_BW_SEL_REG, 8);
 	if (rc)
 		goto config_exit;
@@ -360,6 +370,28 @@ static int bma250e_set(struct i2c_client *client)
 	rc = i2c_smbus_write_byte_data(client, BMA250_RANGE_REG, 0x03);
 	if (rc)
 		goto config_exit;
+
+	/*set_int_filter_ slope_triger */
+	rc = i2c_smbus_write_byte_data(client, 0x1E, 0);
+	if (rc)
+		goto config_exit;
+	/*set_get_accd_register */
+	rc = i2c_smbus_write_byte_data(client, 0x13, 0x40);
+	if (rc)
+		goto config_exit;
+	/* threshold definition for the slope int, g-range dependant */
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 10);
+	if (rc)
+		goto config_exit;
+	/* number of samples (n + 1) to be evaluted for slope int */
+	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_DUR, 0x01);
+	if (rc)
+		goto config_exit;
+	/*set_int_x_y_z_canuse */
+	rc = i2c_smbus_write_byte_data(client, 0x16, 0x07);
+	if (rc)
+		goto config_exit;
+
 	/* maps interrupt to INT1 pin */
 	rc = i2c_smbus_write_byte_data(client, 0x19, 0x04);
 	if (rc)
@@ -371,26 +403,6 @@ static int bma250e_set(struct i2c_client *client)
 		goto config_exit;
 	/*set_int_mode_active */
 	rc = i2c_smbus_write_byte_data(client, 0x20, 0x01);
-	if (rc)
-		goto config_exit;
-	/*set_int_filter_ slope_triger */
-	rc = i2c_smbus_write_byte_data(client, 0x1E, 0);
-	if (rc)
-		goto config_exit;
-	/*set_get_accd_register */
-	rc = i2c_smbus_write_byte_data(client, 0x13, 0x40);
-	if (rc)
-		goto config_exit;
-	/* threshold definition for the slope int, g-range dependant */
-	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_THR, 5);
-	if (rc)
-		goto config_exit;
-	/* number of samples (n + 1) to be evaluted for slope int */
-	rc = i2c_smbus_write_byte_data(client, BMA250_SLOPE_DUR, 0x01);
-	if (rc)
-		goto config_exit;
-	/*set_int_x_y_z_canuse */
-	rc = i2c_smbus_write_byte_data(client, 0x16, 0x07);
 	if (rc)
 		goto config_exit;
 
@@ -558,25 +570,53 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case SENSOR_IOCTL_SET_THRESHOLD:
-		switch (arg) {
-		case 2:
-			arg = 0x03;
-			break;
-		case 4:
-			arg = 0x05;
-			break;
-		case 8:
-			arg = 0x08;
-			break;
-		case 16:
-			arg = 0x0c;
-			break;
-		default:
-			arg = 0x03;
-		}
-
+		/*bma250e_reset */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RESET_REG, BMA250_RESET);
+		if (rc)
+			goto config_exit;
+		msleep(200);
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_BW_SEL_REG, 8);
+		if (rc)
+			goto config_exit;
+		/*set_range */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RANGE_REG, 0x03);
+		if (rc)
+			goto config_exit;
+		/*set_int_filter_ slope_triger */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x01E, 0);
+		if (rc)
+			goto config_exit;
+		/*set_get_accd_register */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x13, 0x40);
+		if (rc)
+			goto config_exit;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_SLOPE_THR, arg);
+		if (rc)
+			goto config_exit;
+		/* number of samples (n + 1) to be evaluted for slope int */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_DUR, 0x01);
+		if (rc)
+			goto config_exit;
+		/*set_int_x_y_z_canuse */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x16, 0x07);
+		if (rc)
+			goto config_exit;
+		/* maps interrupt to INT1 pin */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, 0x04);
+		if (rc)
+			goto config_exit;
+
+		/*set_int_mode */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, 0);
+		if (rc)
+			goto config_exit;
+		/*set_int_mode_active */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x20, 0x01);
 		if (rc)
 			goto config_exit;
 		break;
@@ -601,16 +641,124 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			printk("FREQUENCY cannot Less than zero");
 			return -1;
 		}
+
+		/*bma250e_reset */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RESET_REG, BMA250_RESET);
+		if (rc)
+			goto config_exit;
+		msleep(200);
 		/* set frequency */
 		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10, arg);
 		if (rc)
 			goto config_exit;
+		/*set_range */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RANGE_REG, 0x03);
+		if (rc)
+			goto config_exit;
+
+		/*set_int_filter_ slope_triger */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x01E, 0);
+		if (rc)
+			goto config_exit;
+		/*set_get_accd_register */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x13, 0x40);
+		if (rc)
+			goto config_exit;
+		/* threshold definition for the slope int, g-range dependant */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_THR, 5);
+		if (rc)
+			goto config_exit;
+		/* number of samples (n + 1) to be evaluted for slope int */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_DUR, 0x01);
+		if (rc)
+			goto config_exit;
+		/*set_int_x_y_z_canuse */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x16, 0x07);
+		if (rc)
+			goto config_exit;
+		/* maps interrupt to INT1 pin */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, 0x04);
+		if (rc)
+			goto config_exit;
+
+		/*set_int_mode */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, 0);
+		if (rc)
+			goto config_exit;
+		/*set_int_mode_active */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x20, 0x01);
+		if (rc)
+			goto config_exit;
 		break;
 	case SENSOR_IOCTL_SET_RANGES:
-		arg = arg * 4;
+		switch (arg) {
+		case 2:
+			arg = 0x03;
+			break;
+		case 4:
+			arg = 0x05;
+			break;
+		case 8:
+			arg = 0x08;
+			break;
+		case 16:
+			arg = 0x0c;
+			break;
+		default:
+			arg = 0x03;
+		}
+
+		/*bma250e_reset */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RESET_REG, BMA250_RESET);
+		if (rc)
+			goto config_exit;
+		msleep(200);
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_BW_SEL_REG, 8);
+		if (rc)
+			goto config_exit;
 		/*set_sensor_ranges */
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_RANGE_REG, arg);
+		if (rc)
+			goto config_exit;
+		/*set_int_filter_ slope_triger */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x01E, 0);
+		if (rc)
+			goto config_exit;
+		/*set_get_accd_register */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x13, 0x40);
+		if (rc)
+			goto config_exit;
+		/* threshold definition for the slope int, g-range dependant */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_THR, 5);
+		if (rc)
+			goto config_exit;
+		/* number of samples (n + 1) to be evaluted for slope int */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_DUR, 0x01);
+		if (rc)
+			goto config_exit;
+		/*set_int_x_y_z_canuse */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x16, 0x07);
+		if (rc)
+			goto config_exit;
+		/* maps interrupt to INT1 pin */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, 0x04);
+		if (rc)
+			goto config_exit;
+		/*set_int_mode */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, 0);
+		if (rc)
+			goto config_exit;
+		/*set_int_mode_active */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x20, 0x01);
 		if (rc)
 			goto config_exit;
 		break;
@@ -748,8 +896,8 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (IS_ERR(bma250e->power)) {
 		dev_warn(bma250e->dev, "get regulator failed\n");
 	}
-
-	msleep(200);
+//      rc = i2c_smbus_write_byte_data(client, BMA250_RESET_REG, BMA250_RESET);
+//      msleep(200);
 	rc = bma250_ic_read(client, BMA250_CHIP_ID_REG, rx_buf, 2);
 	printk(KERN_INFO "bma250: detected chip id %x, rev 0x%X\n", rx_buf[0],
 	       rx_buf[1]);
