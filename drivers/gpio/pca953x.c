@@ -379,6 +379,11 @@ static int pca953x_irq_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
+static int pca953x_irq_set_wake(struct irq_data *d, unsigned int type)
+{
+	return 0;
+}
+
 static struct irq_chip pca953x_irq_chip = {
 	.name			= "pca953x",
 	.irq_mask		= pca953x_irq_mask,
@@ -386,6 +391,7 @@ static struct irq_chip pca953x_irq_chip = {
 	.irq_bus_lock		= pca953x_irq_bus_lock,
 	.irq_bus_sync_unlock	= pca953x_irq_bus_sync_unlock,
 	.irq_set_type		= pca953x_irq_set_type,
+	.irq_set_wake      = pca953x_irq_set_wake,
 };
 
 static uint16_t pca953x_irq_pending(struct pca953x_chip *chip)
