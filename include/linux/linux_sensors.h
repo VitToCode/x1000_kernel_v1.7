@@ -96,6 +96,7 @@ struct sensors_platform_data {
 #define	SENSOR_IOCTL_SET_THRESHOLD		_IOW(SENSORIO, 0x28, short)
 #define	SENSOR_IOCTL_SET_FREQUENCY		_IOW(SENSORIO, 0x10, short)
 #define	SENSOR_IOCTL_SET_RANGES			_IOW(SENSORIO, 0x0F, short)
+#define	SENSOR_IOCTL_SET			_IOW(SENSORIO, 0x8F, short)
 
 #endif /* _LINUX_LIS35DE_H */
 

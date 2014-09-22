@@ -80,13 +80,19 @@ typedef union bma250_accel_data {
 	} single;
 } bma250_accel_data_t;
 
+typedef struct accel_info_t {
+	int threshold;
+	int frequency;
+	int ranges;
+} *accel_info_ptr;
+
 #define BMA250_I2C_RETRYS	5
 
 static inline u32 get_time(struct bma250e_dev *b)
 {
 	unsigned long long t = sched_clock();
 	do_div(t, 1000000);
-	return (u32) (t - b->time_base);
+	return (u32) t;
 }
 
 int bma250_ic_read(struct i2c_client *ic_dev, u8 reg, u8 * buf, int len)
@@ -160,8 +166,8 @@ static int bma250e_read_continue(struct bma250e_dev *bma250e)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//      printk("%s no_add_time_report: %d, %d, %d\n", __func__,
-	//data.single.accel_x, data.single.accel_y, data.single.accel_z);
+//	printk("%s no_add_time_report: %d, %d, %d\n", __func__,
+//	       data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = BMA250e_GET_DATA;
@@ -226,8 +232,8 @@ static int bma250e_read_continue_time(struct bma250e_dev *bma250e, u32 time)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//      printk("%s add_time_report: %d, %d, %d\n", __func__,
-	//data.single.accel_x, data.single.accel_y, data.single.accel_z);
+//	printk("%s add_time_report: %d, %d, %d\n", __func__,
+//	       data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
@@ -318,38 +324,42 @@ static int bma250e_daemon(void *d)
 	struct bma250e_dev *bma250e = d;
 	u32 time_base = 0, time_now = 0;
 	u32 time_delay = 0;
-	u32 tmp = 0, tmp2 = 0;
+	u32 tmp = 0, time_base_ms = 0;
 
 	time_delay = BMA250e_BW_7_81_sel * 2 + 20;
+
 	if (bma250e->suspend_t == 1) {
-//              tmp2 = 0;
+		time_base_ms = get_time(bma250e);
 		bma250e->suspend_t = 0;
 	}
 
 	while (!kthread_should_stop()) {
-		if (get_time(bma250e) > 0xFFFFF000) {
+		if (get_time(bma250e) > 0xFFFF0000) {
 			time_base = 0;
 		}
 		wait_for_completion_interruptible(&bma250e->done);
 		if (bma250e->rtc_base == 0) {
 			set_rtc_base(bma250e);
 		}
-		if (tmp2 == 0) {
-			tmp2 = get_time(bma250e);
+		if (time_base_ms == 0) {
+			time_base_ms = get_time(bma250e);
 		}
 		tmp = get_time(bma250e);
 		if (((tmp - time_base) >= time_delay) && (tmp > time_base)) {
 			time_now = get_rtc_time(bma250e) * 1000;
 			time_base = tmp;
-			bma250e_read_continue_time(bma250e,
-						   time_now + tmp - tmp2);
+			if (tmp > time_base_ms) {
+				bma250e_read_continue_time(bma250e,
+							   time_now + tmp -
+							   time_base_ms);
+			} else {
+				bma250e_read_continue_time(bma250e, time_now);
+
+			}
 		} else {
 			time_base = time_base + time_delay;
 			bma250e_read_continue(bma250e);
 		}
-
-		if (tmp < tmp2)
-			tmp2 = tmp;
 	}
 	return 0;
 }
@@ -566,9 +576,110 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct miscdevice *dev = filp->private_data;
 	struct bma250e_dev *bma250e =
 	    container_of(dev, struct bma250e_dev, mdev);
+	accel_info_ptr accel_info;
 	int rc;
 
+	accel_info = kzalloc(sizeof(*accel_info), GFP_KERNEL);
+	if (copy_from_user
+	    (accel_info, (accel_info_ptr) arg, sizeof(*accel_info))) {
+		printk("copy_from_user failed\n");
+		return -EFAULT;
+	}
+
 	switch (cmd) {
+	case SENSOR_IOCTL_SET:
+		if (accel_info->frequency > 0 && accel_info->frequency <= 8) {
+			accel_info->frequency = 0x08;
+		} else if (accel_info->frequency <= 16) {
+			accel_info->frequency = 0x09;
+		} else if (accel_info->frequency <= 32) {
+			accel_info->frequency = 0x0A;
+		} else if (accel_info->frequency <= 63) {
+			accel_info->frequency = 0x0B;
+		} else if (accel_info->frequency <= 125) {
+			accel_info->frequency = 0x0C;
+		} else if (accel_info->frequency <= 250) {
+			accel_info->frequency = 0x0D;
+		} else if (accel_info->frequency <= 500) {
+			accel_info->frequency = 0x0E;
+		} else if (accel_info->frequency > 500) {
+			accel_info->frequency = 0x0F;
+		} else {
+			printk("FREQUENCY cannot Less than zero");
+			return -1;
+		}
+
+		switch (accel_info->ranges) {
+		case 2:
+			accel_info->ranges = 0x03;
+			break;
+		case 4:
+			accel_info->ranges = 0x05;
+			break;
+		case 8:
+			accel_info->ranges = 0x08;
+			break;
+		case 16:
+			accel_info->ranges = 0x0c;
+			break;
+		default:
+			accel_info->ranges = 0x03;
+		}
+		/*bma250e_reset */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RESET_REG, BMA250_RESET);
+		if (rc)
+			goto config_exit;
+		msleep(200);
+		bma250e->cur_producer_p = bma250e->data_buf_base;
+		bma250e->cur_consumer_p = bma250e->data_buf_base;
+		/* set frequency */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10,
+					       accel_info->frequency);
+		if (rc)
+			goto config_exit;
+		/*set_sensor_ranges */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_RANGE_REG,
+					       accel_info->ranges);
+		if (rc)
+			goto config_exit;
+		/*set_int_filter_ slope_triger */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x01E, 0);
+		if (rc)
+			goto config_exit;
+		/*set_get_accd_register */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x13, 0x40);
+		if (rc)
+			goto config_exit;
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_THR,
+					       accel_info->threshold);
+		if (rc)
+			goto config_exit;
+		/* number of samples (n + 1) to be evaluted for slope int */
+		rc = i2c_smbus_write_byte_data(bma250e->client,
+					       BMA250_SLOPE_DUR, 0x01);
+		if (rc)
+			goto config_exit;
+		/*set_int_x_y_z_canuse */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x16, 0x07);
+		if (rc)
+			goto config_exit;
+		/* maps interrupt to INT1 pin */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x19, 0x04);
+		if (rc)
+			goto config_exit;
+
+		/*set_int_mode */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x21, 0);
+		if (rc)
+			goto config_exit;
+		/*set_int_mode_active */
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x20, 0x01);
+		if (rc)
+			goto config_exit;
+		break;
 	case SENSOR_IOCTL_SET_THRESHOLD:
 		/*bma250e_reset */
 		rc = i2c_smbus_write_byte_data(bma250e->client,
@@ -576,8 +687,8 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
-		bma250e->cur_producer_p = 0;
-		bma250e->cur_consumer_p = 0;
+		bma250e->cur_producer_p = bma250e->data_buf_base;
+		bma250e->cur_consumer_p = bma250e->data_buf_base;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_BW_SEL_REG, 8);
 		if (rc)
@@ -596,7 +707,8 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
-					       BMA250_SLOPE_THR, arg);
+					       BMA250_SLOPE_THR,
+					       accel_info->threshold);
 		if (rc)
 			goto config_exit;
 		/* number of samples (n + 1) to be evaluted for slope int */
@@ -623,22 +735,22 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto config_exit;
 		break;
 	case SENSOR_IOCTL_SET_FREQUENCY:
-		if (arg > 0 && arg <= 8) {
-			arg = 0x08;
-		} else if (arg <= 16) {
-			arg = 0x09;
-		} else if (arg <= 32) {
-			arg = 0x0A;
-		} else if (arg <= 63) {
-			arg = 0x0B;
-		} else if (arg <= 125) {
-			arg = 0x0C;
-		} else if (arg <= 250) {
-			arg = 0x0D;
-		} else if (arg <= 500) {
-			arg = 0x0E;
-		} else if (arg > 500) {
-			arg = 0x0F;
+		if (accel_info->frequency > 0 && accel_info->frequency <= 8) {
+			accel_info->frequency = 0x08;
+		} else if (accel_info->frequency <= 16) {
+			accel_info->frequency = 0x09;
+		} else if (accel_info->frequency <= 32) {
+			accel_info->frequency = 0x0A;
+		} else if (accel_info->frequency <= 63) {
+			accel_info->frequency = 0x0B;
+		} else if (accel_info->frequency <= 125) {
+			accel_info->frequency = 0x0C;
+		} else if (accel_info->frequency <= 250) {
+			accel_info->frequency = 0x0D;
+		} else if (accel_info->frequency <= 500) {
+			accel_info->frequency = 0x0E;
+		} else if (accel_info->frequency > 500) {
+			accel_info->frequency = 0x0F;
 		} else {
 			printk("FREQUENCY cannot Less than zero");
 			return -1;
@@ -650,10 +762,11 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
-		bma250e->cur_producer_p = 0;
-		bma250e->cur_consumer_p = 0;
+		bma250e->cur_producer_p = bma250e->data_buf_base;
+		bma250e->cur_consumer_p = bma250e->data_buf_base;
 		/* set frequency */
-		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10, arg);
+		rc = i2c_smbus_write_byte_data(bma250e->client, 0x10,
+					       accel_info->frequency);
 		if (rc)
 			goto config_exit;
 		/*set_range */
@@ -699,21 +812,21 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto config_exit;
 		break;
 	case SENSOR_IOCTL_SET_RANGES:
-		switch (arg) {
+		switch (accel_info->ranges) {
 		case 2:
-			arg = 0x03;
+			accel_info->ranges = 0x03;
 			break;
 		case 4:
-			arg = 0x05;
+			accel_info->ranges = 0x05;
 			break;
 		case 8:
-			arg = 0x08;
+			accel_info->ranges = 0x08;
 			break;
 		case 16:
-			arg = 0x0c;
+			accel_info->ranges = 0x0c;
 			break;
 		default:
-			arg = 0x03;
+			accel_info->ranges = 0x03;
 		}
 
 		/*bma250e_reset */
@@ -722,15 +835,16 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (rc)
 			goto config_exit;
 		msleep(200);
-		bma250e->cur_producer_p = 0;
-		bma250e->cur_consumer_p = 0;
+		bma250e->cur_producer_p = bma250e->data_buf_base;
+		bma250e->cur_consumer_p = bma250e->data_buf_base;
 		rc = i2c_smbus_write_byte_data(bma250e->client,
 					       BMA250_BW_SEL_REG, 8);
 		if (rc)
 			goto config_exit;
 		/*set_sensor_ranges */
 		rc = i2c_smbus_write_byte_data(bma250e->client,
-					       BMA250_RANGE_REG, arg);
+					       BMA250_RANGE_REG,
+					       accel_info->ranges);
 		if (rc)
 			goto config_exit;
 		/*set_int_filter_ slope_triger */
@@ -845,8 +959,6 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	init_completion(&bma250e->done);
 	spin_lock_init(&bma250e->lock);
 	atomic_set(&bma250e->in_use, 0);
-	bma250e->time_base = sched_clock();
-	do_div(bma250e->time_base, 1000);
 
 	bma250e->data_buf =
 	    (unsigned int *)__get_free_pages(GFP_KERNEL,
@@ -902,8 +1014,7 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (IS_ERR(bma250e->power)) {
 		dev_warn(bma250e->dev, "get regulator failed\n");
 	}
-//      rc = i2c_smbus_write_byte_data(client, BMA250_RESET_REG, BMA250_RESET);
-//      msleep(200);
+	msleep(200);
 	rc = bma250_ic_read(client, BMA250_CHIP_ID_REG, rx_buf, 2);
 	printk(KERN_INFO "bma250: detected chip id %x, rev 0x%X\n", rx_buf[0],
 	       rx_buf[1]);
