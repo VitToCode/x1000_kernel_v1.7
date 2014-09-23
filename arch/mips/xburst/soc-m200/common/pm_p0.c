@@ -33,6 +33,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
+#include <linux/notifier.h>
+#include <linux/cpufreq.h>
 
 #include <asm/cacheops.h>
 #include <soc/cache.h>
@@ -448,7 +450,6 @@ static int m200_prepare(void)
 	}
 	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
-
 	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		m200_early_sleep.vol_uv = regulator_get_voltage(m200_early_sleep.core_vcc);
 		regulator_set_voltage(m200_early_sleep.core_vcc,sleep_vol_uv,sleep_vol_uv);
