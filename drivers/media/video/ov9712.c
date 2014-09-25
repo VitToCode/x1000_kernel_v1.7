@@ -8,7 +8,7 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-mediabus.h>
 #include <mach/ovisp-v4l2.h>
-
+#include "ov9712.h"
 
 #define OV9712_CHIP_ID_H	(0x97)
 #define OV9712_CHIP_ID_L	(0x11)
@@ -69,7 +69,7 @@ static struct regval_list ov9712_init_regs_1280_800[] = {
        {0xc1, 0x80},
        {0x0c, 0x30},
        {0x6d, 0x02},
-       {0x96, 0xf1}, //DSP options enable
+       {0x96, 0x01}, //DSP options enable AWB Enable ok
        {0xbc, 0x68},
        {0x12, 0x00},
        {0x3b, 0x00}, //DSP Downsample
@@ -88,10 +88,11 @@ static struct regval_list ov9712_init_regs_1280_800[] = {
        {0x59, 0xa0},
        {0x4c, 0x13},
        {0x4b, 0x36},
-       {0x3d, 0x3c},
+       {0x3d, 0xe3},
        {0x3e, 0x03},
        {0xbd, 0xa0},
        {0xbe, 0xc8},
+       {0x41, 0x82}, //AVERAGE
        {0x4e, 0x55}, //AVERAGE
        {0x4f, 0x55},
        {0x50, 0x55},
@@ -102,17 +103,17 @@ static struct regval_list ov9712_init_regs_1280_800[] = {
        {0x5c, 0x52},
        {0x5d, 0x00},
        {0x11, 0x01},
-       {0x2a, 0xed},
-       {0x2b, 0x07},
+       {0x2a, 0x98},
+       {0x2b, 0x06},
        {0x2d, 0x00},
        {0x2e, 0x00},
-       {0x13, 0xa5},
+       {0x13, 0xa0},//manual exposure & gain ok
        {0x14, 0x40}, //gain ceiling 8X
-       {0x4a, 0x00},
+       {0x4a, 0x00},/* banding step remove for isp calibration */
        {0x49, 0xce},
        {0x22, 0x03},
        {0x09, 0x00},
-  //     {0x97, 0xf8},
+       {0x60, 0x9d},
        {OV9712_REG_END, 0x00},	/* END MARKER */
 };
 
@@ -175,7 +176,7 @@ int ov9712_read(struct v4l2_subdev *sd, unsigned char reg,
 }
 
 
-static int ov9712_write(struct v4l2_subdev *sd, unsigned char reg,
+ int ov9712_write(struct v4l2_subdev *sd, unsigned char reg,
 		unsigned char value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -187,7 +188,6 @@ static int ov9712_write(struct v4l2_subdev *sd, unsigned char reg,
 		.buf	= buf,
 	};
 	int ret;
-
 	ret = i2c_transfer(client->adapter, &msg, 1);
 	if (ret > 0)
 		ret = 0;
@@ -303,14 +303,14 @@ static int ov9712_get_sensor_vts(struct v4l2_subdev *sd, unsigned short *value)
 {
 	unsigned char h,l;
 	int ret = 0;
-	ret = ov9712_read(sd, 0x1a, &h);
+	ret = ov9712_read(sd, 0x3e, &h);
 	if (ret < 0)
 		return ret;
-	ret = ov9712_read(sd, 0x03, &l);
+	ret = ov9712_read(sd, 0x3d, &l);
 	if (ret < 0)
 		return ret;
 	*value = h;
-	*value = (*value << 2) | ((l >> 2) & 0x3);
+	*value = (*value << 8) | (l & 0xff);
 	return ret;
 }
 

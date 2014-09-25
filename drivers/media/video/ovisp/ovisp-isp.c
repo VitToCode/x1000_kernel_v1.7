@@ -17,6 +17,9 @@
 #include "mipi_test_bypass.h"
 #include "isp-debug.h"
 
+#ifdef CONFIG_DVP_OV9712
+#include "../ov9712.h"
+#endif
 /* Timeouts. */
 #define ISP_BOOT_TIMEOUT	(3000) /* ms. */
 #define ISP_I2C_TIMEOUT		(3000) /* ms. */
@@ -463,7 +466,7 @@ static int isp_set_preview_parameters(struct isp_device *isp, unsigned int video
 						ISP_MAX_EXPOSURE + 1);
 
 	isp_set_reg_t(preview, 0x00, ISP_MIN_EXPOSURE);
-	isp_set_reg_t(preview, 0x10, ISP_MIN_EXPOSURE + 1);
+	isp_set_reg_t(preview, 0x02, ISP_MIN_EXPOSURE + 1);
 	isp_set_reg_t(preview, 0x00, ISP_MAX_GAIN);
 	isp_set_reg_t(preview, 0xff, ISP_MAX_GAIN + 1);
 
@@ -660,7 +663,7 @@ static int isp_i2c_xfer_cmd_grp(struct isp_device * isp , struct isp_i2c_cmd * c
 			isp_reg_writeb(isp, gdata.reg_num, COMMAND_REG3);
 		}
 
-		__dump_isp_regs(isp, 0x63900, 0x63911);
+		/* __dump_isp_regs(isp, 0x63900, 0x63911); */
 
 		/* Wait for command set successfully. */
 		if (isp_send_cmd(isp, CMD_I2C_GRP_WR, ISP_I2C_TIMEOUT)) {
@@ -779,8 +782,8 @@ static int isp_set_format(struct isp_device *isp, unsigned int videos)
 		return -EINVAL;
 	}
 
-	//isp_i2c_fill_buffer(isp);
-	/*dump_isp_configuration(isp);*/
+	isp_i2c_fill_buffer(isp);
+	//dump_isp_configuration(isp);
 	isp_reg_writeb(isp, ISP_CCLK_DIVIDER, COMMAND_REG4);
 	if(isp->first_init){
 		isp->first_init = false;
@@ -830,8 +833,7 @@ static int isp_set_capture_raw(struct isp_device *isp)
 		ISP_PRINT(ISP_ERROR, KERN_ERR "fill capture registers faild!\n");
 		return -EINVAL;
 	}
-	isp_i2c_fill_buffer(isp);
-//	dump_isp_configuration(isp);
+	/* dump_isp_configuration(isp); */
 	/* set cmd register */
 	isp_reg_writeb(isp, 0x01, COMMAND_REG1);
 	/* Wait for command set successfully. */
@@ -967,6 +969,7 @@ static int isp_boot(struct isp_device *isp)
 	isp_reg_writeb(isp, 0xf0, REG_ISP_CLK_USED_BY_MCU);
 
 	ISP_PRINT(ISP_INFO,"REG_ISP_CLK_USED_BY_MCU:%x\n", isp_reg_readb(isp, REG_ISP_CLK_USED_BY_MCU));
+	udelay(1000);
 
 	/* Wait for command set done interrupt. */
 	if (isp_wait_cmd_done(isp, ISP_BOOT_TIMEOUT)) {
@@ -1002,6 +1005,68 @@ static int isp_irq_notify(struct isp_device *isp, unsigned int status)
 }
 //static unsigned long long start_time;
 //static unsigned long long end_time;
+#ifdef CONFIG_DVP_OV9712
+static unsigned int soc_for_aec_test(struct isp_device* isp)
+{
+	unsigned int expo = 0;
+	unsigned short gain = 0;
+	void* data = isp->data;
+	struct ovisp_camera_dev *camdev = (struct ovisp_camera_dev *)data;
+	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
+	switch(isp_reg_readb(isp, 0x63910)){
+	case 0xf2:
+		expo = (unsigned int)(isp_firmware_readb(isp,0x1c070)<<24) | (isp_firmware_readb(isp,0x1c071) <<16) | (isp_firmware_readb(isp,0x1c072) << 8) | isp_firmware_readb(isp,0x1c073);
+		expo = expo >> 4;
+		ov9712_write(csd->sd, 0x10, (unsigned char)(expo & 0xff));
+		ov9712_write(csd->sd, 0x16, (unsigned char)((expo >> 8) & 0xff));
+		break;
+	case 0xf3:
+		gain = (unsigned int)(isp_firmware_readb(isp,0x1c06e)<<8) | isp_firmware_readb(isp,0x1c06f);
+		ov9712_write(csd->sd, 0x00, (unsigned char)(gain & 0xff));
+		break;
+	case 0xf1:
+		expo = (unsigned int)(isp_firmware_readb(isp,0x1c070)<<24) | (isp_firmware_readb(isp,0x1c071) <<16) | (isp_firmware_readb(isp,0x1c072) << 8) | isp_firmware_readb(isp,0x1c073);
+		expo = expo >> 4;
+		gain = (unsigned int)(isp_firmware_readb(isp,0x1c06e)<<8) | isp_firmware_readb(isp,0x1c06f);
+		ov9712_write(csd->sd, 0x10, (unsigned char)(expo & 0xff));
+		ov9712_write(csd->sd, 0x16, (unsigned char)((expo >> 8) & 0xff));
+		ov9712_write(csd->sd, 0x00, (unsigned char)(gain & 0xff));
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+
+static struct reg_list{
+	unsigned char reg;
+	unsigned char val;
+};
+
+static int i2c_read_for_test(struct isp_device* isp)
+{
+	char i;
+	unsigned char tmp;
+	void* data = isp->data;
+	struct ovisp_camera_dev *camdev = (struct ovisp_camera_dev *)data;
+	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
+	struct reg_list* array_tmp;
+	struct reg_list i2c_4read[] = {
+		{0x3d, 0x00},
+		{0x3e, 0x00},
+		{0xff, 0x00},
+	};
+	array_tmp = i2c_4read;
+
+	while(array_tmp->reg != 0xff){
+		ov9712_read(csd->sd, array_tmp->reg, &tmp);
+		pr_debug("i2c sensor %#x valua is %#x\n",array_tmp[i].reg, tmp);
+		array_tmp++;
+	}
+	return 0;
+}
+#endif
 static irqreturn_t isp_irq(int this_irq, void *dev_id)
 {
 	struct isp_device *isp = dev_id;
@@ -1018,10 +1083,14 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	if (irq_status & MASK_INT_CMDSET) {
 		complete(&isp->completion);
 		ISP_PRINT(ISP_INFO,"command[0x%02x] done !!\n", cmd);
-		if(cmd == 0x02 || (cmd == 0x05 && isp_reg_readb(isp, COMMAND_REG1)))
+		if(cmd == 0x02 || (cmd == 0x05 && isp_reg_readb(isp, COMMAND_REG1))){
 			flags = ISP_NOTIFY_UPDATE_BUF;
-		else
+#ifdef CONFIG_DVP_OV9712
+		soc_for_aec_test(isp);
+#endif
+		}else{
 			flags = 0;
+		}
 	}
 	if(cmd == 0x06)
 		flags = 0;
@@ -1030,14 +1099,6 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 		isp->wait_eof = false;
 		ISP_PRINT(ISP_INFO,"[0x%02x] frame_eof[0x%02x]!!\n", cmd, isp_reg_readb(isp, REG_ISP_INT_EN_C1));
 	}
-#if 0
-	if(irq_status & (1<<4)){
-		printk("^^^ Vsync time = 0x%02x%02x%02x%02x\n",isp_firmware_readb(isp, 0x1e778),
-				isp_firmware_readb(isp, 0x1e779),isp_firmware_readb(isp, 0x1e77a),isp_firmware_readb(isp, 0x1e77b));
-		printk("^^^ EOF time = 0x%02x%02x%02x%02x\n",isp_firmware_readb(isp, 0x1e780),
-				isp_firmware_readb(isp, 0x1e781),isp_firmware_readb(isp, 0x1e782),isp_firmware_readb(isp, 0x1e783));
-	}
-#endif
 	if (irq_status & MASK_INT_MAC) {
 		/* Drop. */
 		if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
@@ -1058,7 +1119,7 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 				notify |= ISP_NOTIFY_DATA_DONE | ISP_NOTIFY_DATA_DONE1;
 				ISP_PRINT(ISP_INFO,"[0x%02x] done - 1!\n", cmd);
 			}
-		//	dump_firmware_reg(isp, 0x1e768, 48);
+
 		}
 		/* FIFO overflow */
 		if (mac_irq_status & (MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1)) {
@@ -1074,17 +1135,14 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 			if(mac_irq_status & MASK_INT_WRITE_START0) {
 				ISP_PRINT(ISP_INFO,"[0x%02x] start 0\n", cmd);
 				notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START0;
-				/*dump_firmware_reg(isp, 0x1ee90, 12);*/
 			}else{
 				ISP_PRINT(ISP_INFO,"[0x%02x] start 1\n", cmd);
 				notify |= ISP_NOTIFY_DATA_START | ISP_NOTIFY_DATA_START1;
-				/*dump_firmware_reg(isp, 0x1ee90, 12);*/
 			}
 		}
 	}
 	notify |= flags;
 	isp_irq_notify(isp, notify);
-//	printk("^^ notify = 0x%08x ^^\n", notify);
 	return IRQ_HANDLED;
 }
 
@@ -1477,7 +1535,6 @@ static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *
 //		printk("0x%x [0x%02x]\n", 0x1f300 + i, isp_reg_readb(isp, 0x1f300 + i));
 
 	isp_i2c_fill_buffer(isp);
-//	isp_reg_writeb(isp, 0x20, 0x65007);
 	isp_reg_writeb(isp, 0x01, COMMAND_REG2);
 	/* Wait for command set successfully. */
 	if (isp_send_cmd(isp, 0x06, ISP_FORMAT_TIMEOUT)) {
@@ -1492,7 +1549,7 @@ static int isp_offline_process( struct isp_device * isp, struct isp_input_parm *
 */
 static int isp_init(struct isp_device *isp, void *data)
 {
-//	isp->boot = 0;
+	isp->boot = 0;
 	isp->poweron = 1;
 	isp->snapshot = 0;
 	isp->bypass = false;
@@ -1669,7 +1726,6 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 {
 	int ret = 0;
 	struct ovisp_camera_dev *camera_dev;
-
 	camera_dev = (struct ovisp_camera_dev *)(isp->data);
 	isp->snapshot = cap->snapshot;
 	isp->client = cap->client;
@@ -1708,7 +1764,10 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	isp_intc_enable(isp, MASK_INT_MAC);
 	isp_intc_enable(isp, MASK_INT_CMDSET);
 	isp_intc_enable(isp, MASK_INT_EOF);
-//	isp_intc_enable(isp, (1<<4));
+	isp_intc_enable(isp, 1 << 9);
+	isp_intc_enable(isp, 1 << 11);
+	isp_intc_enable(isp, 1 << 3);
+	isp_intc_enable(isp, 1 << 14);
 	isp_mac_int_unmask(isp,
 			MASK_INT_WRITE_DONE0 | MASK_INT_WRITE_DONE1 |
 			MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1 |

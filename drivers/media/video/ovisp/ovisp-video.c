@@ -453,7 +453,7 @@ static int ovisp_camera_update_buffer(struct ovisp_camera_dev *camdev, int index
 		ISP_PRINT(ISP_ERROR,"the type of memory isn't supported!\n");
 		return -EINVAL;
 	}
-	ISP_PRINT(ISP_INFO,"%s:buf.addr:0x%lx  index = %d\n", __func__, buf.addr, index);
+//	ISP_PRINT(ISP_INFO,"%s:buf.addr:0x%lx  index = %d\n", __func__, buf.addr, index);
 	ret = isp_dev_call(camdev->isp, update_buffer, &buf, index);
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		return -EINVAL;
@@ -701,8 +701,7 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	unsigned long flags;
 	if (!capture->running)
 		return 0;
-//	if(status & ISP_NOTIFY_RESTARTING){
-//	}
+
 	if (status & ISP_NOTIFY_DATA_DONE) {
 		buf = NULL;
 		spin_lock_irqsave(&camdev->slock, flags);
@@ -1117,7 +1116,7 @@ static int ovisp_vidioc_qbuf(struct file *file, void *priv,
 {
 	int ret = 0;
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
-	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+	/* ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__); */
 	if(p->memory == V4L2_MEMORY_USERPTR){
 		dma_cache_sync(NULL,(void *)(p->m.userptr),p->length, DMA_FROM_DEVICE);
 		ret = isp_dev_call(camdev->isp, tlb_map_one_vaddr,p->m.userptr,p->length);
@@ -1134,7 +1133,7 @@ static int ovisp_vidioc_dqbuf(struct file *file, void *priv,
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	int status;
-	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+	/* ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__); */
 	status = vb2_dqbuf(&camdev->vbq, p, file->f_flags & O_NONBLOCK);
 	return status;
 }
