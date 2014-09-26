@@ -46,6 +46,7 @@ struct bma250e_dev {
 	struct device *dev;
 	int irq;
 	struct i2c_client *client;
+	struct task_struct *kthread;
 	struct miscdevice mdev;
 	atomic_t in_use;
 	struct completion done;
@@ -124,7 +125,7 @@ static u32 __get_rtc_time(void)
 	}
 
 	sys_ioctl(rtc_fd, (unsigned int)RTC_RD_TIME, (unsigned long)&time_rtc);
-
+	sys_close(rtc_fd);
 	return mktime(time_rtc.tm_year, time_rtc.tm_mon, time_rtc.tm_mday,
 		      time_rtc.tm_hour, time_rtc.tm_min, time_rtc.tm_sec);
 }
@@ -166,8 +167,8 @@ static int bma250e_read_continue(struct bma250e_dev *bma250e)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//	printk("%s no_add_time_report: %d, %d, %d\n", __func__,
-//	       data.single.accel_x, data.single.accel_y, data.single.accel_z);
+//      printk("%s no_add_time_report: %d, %d, %d\n", __func__,
+//             data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = BMA250e_GET_DATA;
@@ -232,8 +233,8 @@ static int bma250e_read_continue_time(struct bma250e_dev *bma250e, u32 time)
 	data.single.accel_y = ((rx_buf[3] << 8) | (rx_buf[2])) >> 6;
 	data.single.accel_z = ((rx_buf[5] << 8) | (rx_buf[4])) >> 6;
 #endif
-//	printk("%s add_time_report: %d, %d, %d\n", __func__,
-//	       data.single.accel_x, data.single.accel_y, data.single.accel_z);
+//      printk("%s add_time_report: %d, %d, %d\n", __func__,
+//             data.single.accel_x, data.single.accel_y, data.single.accel_z);
 
 	if (bma250e->cur_producer_p == bma250e->cur_consumer_p) {
 		*bma250e->cur_producer_p = ((2 << 30) | (time >> 2));
@@ -426,6 +427,7 @@ static int bma250e_open(struct inode *inode, struct file *filp)
 	struct bma250e_dev *bma250e =
 	    container_of(dev, struct bma250e_dev, mdev);
 
+	wake_up_process(bma250e->kthread);
 	/*
 	 * Make sure fd be opened only onece.
 	 */
@@ -937,7 +939,6 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct bma250e_dev *bma250e;
 	struct bma250_platform_data *pdata =
 	    (struct bma250_platform_data *)client->dev.platform_data;
-	struct task_struct *kthread;
 
 	u8 rx_buf[2];
 
@@ -987,8 +988,9 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	bma250e->data_buf_copy_base = bma250e->data_buf_copy;
 
-	kthread = kthread_run(bma250e_daemon, bma250e, "bma250e_daemon");
-	if (IS_ERR(kthread)) {
+	bma250e->kthread =
+	    kthread_create(bma250e_daemon, bma250e, "bma250e_daemon");
+	if (IS_ERR(bma250e->kthread)) {
 		ret = -1;
 		goto err_irq_request_failed;
 	}
