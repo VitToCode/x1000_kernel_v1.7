@@ -136,6 +136,7 @@ static inline void set_cpccr_h2div(struct clk *clk,unsigned int rate)
 }
 static inline void sw_ahb_from_l2cache(void)
 {
+#if 0
 	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
 	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
 	unsigned int rate = get_clk_from_id(CLK_ID_L2CLK)->rate;
@@ -154,7 +155,7 @@ static inline void sw_ahb_from_l2cache(void)
 		set_cpccr_h0div(ahb0,60*1000*1000);
 		set_cpccr_h2div(ahb2,60*1000*1000);
 	}
-
+#endif
 }
 
 /*
