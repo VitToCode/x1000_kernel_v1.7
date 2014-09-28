@@ -198,18 +198,18 @@ static int ov9712_power(int onoff)
 	}
 	if (onoff) { /* conflict with USB_ID pin */
 		printk("##### power on######### %s\n", __func__);
-		mdelay(50); /* this is necesary */
+		msleep(5); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 1);
 //		gpio_direction_output(OV9712_RST, 1);
 //		mdelay(1); /* this is necesary */
 //		gpio_direction_output(OV9712_POWER, 1);
-		mdelay(100); /* this is necesary */
+		msleep(5); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 0);
-		mdelay(50); /* this is necesary */
+		msleep(5); /* this is necesary */
 		gpio_direction_output(OV9712_RST, 0);
-		mdelay(150); /* this is necesary */
+		msleep(1); /* this is necesary */
 		gpio_direction_output(OV9712_RST, 1);
-		mdelay(150); /* this is necesary */
+		msleep(20); /* this is necesary */
 	} else {
 		//printk("##### power off ######### %s\n", __func__);
 		//gpio_direction_output(OV9712_PWDN_EN, 1);

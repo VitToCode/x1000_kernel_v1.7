@@ -526,7 +526,19 @@ static struct spi_board_info jz_spi0_board_info[] = {
 
 static int __init board_init(void)
 {
-
+/* msc */
+#ifndef CONFIG_NAND
+#ifdef CONFIG_JZMMC_V12_MMC0
+	jz_device_register(&jz_msc0_device, &inand_pdata);
+#endif
+#ifdef CONFIG_JZMMC_V12_MMC1
+	jz_device_register(&jz_msc1_device, &tf_pdata);
+#endif
+#else
+#ifdef CONFIG_JZMMC_V12_MMC0
+	jz_device_register(&jz_msc0_device, &sdio_pdata);
+#endif
+#endif
 	/* ADC */
 //#ifdef CONFIG_JZ_BATTERY
 	adc_platform_data.battery_info = battery_info;
@@ -695,19 +707,6 @@ static int __init board_init(void)
 #endif
 #ifdef CONFIG_USB_DWC2
 	platform_device_register(&jz_dwc_otg_device);
-#endif
-/* msc */
-#ifndef CONFIG_NAND
-#ifdef CONFIG_JZMMC_V12_MMC0
-	jz_device_register(&jz_msc0_device, &inand_pdata);
-#endif
-#ifdef CONFIG_JZMMC_V12_MMC1
-	jz_device_register(&jz_msc1_device, &tf_pdata);
-#endif
-#else
-#ifdef CONFIG_JZMMC_V12_MMC0
-	jz_device_register(&jz_msc0_device, &sdio_pdata);
-#endif
 #endif
 /* ethnet */
 #ifdef CONFIG_JZ4775_MAC
