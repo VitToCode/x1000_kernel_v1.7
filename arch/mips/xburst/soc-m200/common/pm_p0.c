@@ -437,43 +437,13 @@ static int m200_pm_enter(suspend_state_t state)
 static struct m200_early_sleep_t {
 	struct regulator*  core_vcc;
 	struct clk *cpu_clk;
-	struct clk *mpll;
-	unsigned int cpccr_val;
 	unsigned int rate_hz;
+	unsigned int real_hz;
 	unsigned int vol_uv;
 
 }m200_early_sleep;
 const unsigned int sleep_rate_hz = 30*1000*1000;
-const unsigned int hpb_rate_hz = 100*1000*1000;
 const unsigned int sleep_vol_uv = 975 * 1000;
-static void set_cpccr_hpdiv(unsigned int cpccr)
-{
-	unsigned int h0div, h2div, pdiv;
-
-	if(!cpccr) {
-		unsigned int mpll_rate_hz;
-		mpll_rate_hz = clk_get_rate(m200_early_sleep.mpll);
-		m200_early_sleep.cpccr_val = cpm_inl(CPM_CPCCR);
-		cpccr = m200_early_sleep.cpccr_val;
-		h0div = mpll_rate_hz / hpb_rate_hz - 1;
-		h2div = h0div;
-		pdiv = h0div;
-	} else {
-		h0div = (cpccr & 0xf00) >> 8;
-		h2div = (cpccr & 0xf000) >> 12;
-		pdiv = (cpccr & 0xf0000) >> 16;
-	}
-
-	cpccr &= ~(0xfff << 8);
-	cpccr |= (h0div << 8 | h2div << 12 | pdiv << 16);
-	cpccr |= (3 << 20);
-	cpm_outl(cpccr,CPM_CPCCR);
-		/* wait not busy */
-	while(cpm_inl(CPM_CPCSR) & 6);
-
-	cpccr &= ~(3 << 20);
-	cpm_outl(cpccr,CPM_CPCCR);
-}
 static int m200_prepare(void)
 {
 	if(m200_early_sleep.core_vcc == NULL) {
@@ -481,7 +451,7 @@ static int m200_prepare(void)
 	}
 	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
-	set_cpccr_hpdiv(0);
+	m200_early_sleep.real_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		m200_early_sleep.vol_uv = regulator_get_voltage(m200_early_sleep.core_vcc);
 		regulator_set_voltage(m200_early_sleep.core_vcc,sleep_vol_uv,sleep_vol_uv);
@@ -490,10 +460,13 @@ static int m200_prepare(void)
 }
 static void m200_finish(void)
 {
+	unsigned int rate;
+	rate = clk_get_rate(m200_early_sleep.cpu_clk);
+	if(rate != m200_early_sleep.real_hz)
+		printk("warn! current cpu clk is not deep sleep set cpu clk!\n");
 	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		regulator_set_voltage(m200_early_sleep.core_vcc,m200_early_sleep.vol_uv,m200_early_sleep.vol_uv);
 	}
-	set_cpccr_hpdiv(m200_early_sleep.cpccr_val);
 	clk_set_rate(m200_early_sleep.cpu_clk,m200_early_sleep.rate_hz);
 }
 /*
@@ -502,8 +475,8 @@ static void m200_finish(void)
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = m200_pm_enter,
-	.prepare = m200_prepare,
-	.finish = m200_finish,
+	.prepare_late = m200_prepare,
+	.wake = m200_finish,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);
@@ -527,13 +500,6 @@ int __init m200_pm_init(void)
 	m200_early_sleep.cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(m200_early_sleep.cpu_clk)) {
 		printk("ERROR:cclk request fail!\n");
-		suspend_set_ops(NULL);
-		return -1;
-	}
-	m200_early_sleep.mpll = clk_get(NULL, "mpll");
-	if (IS_ERR(m200_early_sleep.mpll)) {
-		printk("ERROR:mpll request fail!\n");
-		clk_put(m200_early_sleep.cpu_clk);
 		suspend_set_ops(NULL);
 		return -1;
 	}

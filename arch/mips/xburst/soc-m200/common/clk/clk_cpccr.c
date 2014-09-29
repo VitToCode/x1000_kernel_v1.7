@@ -136,10 +136,13 @@ static inline void set_cpccr_h2div(struct clk *clk,unsigned int rate)
 }
 static inline void sw_ahb_from_l2cache(void)
 {
-#if 0
 	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
 	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
 	unsigned int rate = get_clk_from_id(CLK_ID_L2CLK)->rate;
+	struct clk *msc_mux = get_clk_from_id(CLK_ID_CGU_MSC_MUX);
+
+	if(clk_is_enabled(msc_mux))
+		return;
 	if(rate >= 300*1000*1000)
 	{
 		set_cpccr_h0div(ahb0,200*1000*1000);
@@ -155,9 +158,26 @@ static inline void sw_ahb_from_l2cache(void)
 		set_cpccr_h0div(ahb0,60*1000*1000);
 		set_cpccr_h2div(ahb2,60*1000*1000);
 	}
-#endif
 }
+static int ahb_change_notify(struct jz_notifier *notify,void *v)
+{
+	unsigned int val = (unsigned int)v;
+	unsigned int on = val & 0x80000000;
+	unsigned int clk_id = val & (~0x80000000);
+	unsigned long flags;
+	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
+	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
 
+	if(on && (clk_id == CLK_ID_CGU_MSC_MUX)) {
+		if(clk_get_rate(ahb2) == 200000000)
+			return NOTIFY_OK;
+		spin_lock_irqsave(&cpm_cpccr_lock,flags);
+		set_cpccr_h0div(ahb0,200*1000*1000);
+		set_cpccr_h2div(ahb2,200*1000*1000);
+		spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
+	}
+	return NOTIFY_OK;
+}
 /*
  * Note that loops_per_jiffy is not updated on SMP systems in
  * cpufreq driver. So, update the per-CPU loops_per_jiffy value
@@ -393,7 +413,7 @@ static struct clk_ops clk_cpccr_ops = {
 	.get_rate = cpccr_get_rate,
 	.set_rate = cpccr_set_rate,
 };
-
+static struct jz_notifier ahb_change;
 void __init init_cpccr_clk(struct clk *clk)
 {
 	int sel;	//check
@@ -410,4 +430,10 @@ void __init init_cpccr_clk(struct clk *clk)
 	}
 	clk->rate = cpccr_get_rate(clk);
 	clk->ops = &clk_cpccr_ops;
+	if(ahb_change.jz_notify == NULL) {
+		ahb_change.jz_notify = ahb_change_notify;
+		ahb_change.level = NOTEFY_PROI_NORMAL;
+		ahb_change.msg = JZ_CLKGATE_CHANGE;
+		jz_notifier_register(&ahb_change);
+	}
 }

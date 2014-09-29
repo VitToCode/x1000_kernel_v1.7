@@ -282,7 +282,20 @@ static inline int request_need_stop(struct mmc_request *mrq)
 {
 	return mrq->stop ? 1 : 0;
 }
-
+static inline void jzmmc_clk_autoctrl(struct jzmmc_host *host, unsigned int on)
+{
+	if(on) {
+		if(clk_is_enabled(host->clk))
+			return;
+		clk_enable(host->clk);
+		clk_enable(host->clk_gate);
+	} else {
+		if(!clk_is_enabled(host->clk))
+			return;
+		clk_disable(host->clk);
+		clk_disable(host->clk_gate);
+	}
+}
 static inline int check_error_status(struct jzmmc_host *host, unsigned int status)
 {
 	if (status & ERROR_STAT) {
@@ -333,7 +346,6 @@ static void send_stop_command(struct jzmmc_host *host)
 	if (jzmmc_polling_status(host, STAT_END_CMD_RES))
 		stop_cmd->error = -EIO;
 }
-
 static void jzmmc_command_done(struct jzmmc_host *host, struct mmc_command *cmd)
 {
 	unsigned long res;
@@ -914,7 +926,6 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct jzmmc_host *host = mmc_priv(mmc);
-
 	if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 		dev_vdbg(host->dev, "No card present\n");
 		mrq->cmd->error = -ENOMEDIUM;
@@ -1210,6 +1221,7 @@ int jzmmc_clk_ctrl(int index, int on)
 }
 EXPORT_SYMBOL(jzmmc_clk_ctrl);
 
+
 /*-------------------End card insert and remove handler--------------------*/
 
 /*
@@ -1299,7 +1311,7 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		unsigned int clk_want = ios->clock;
 		unsigned int lpm = 0;
 
-
+		jzmmc_clk_autoctrl(host, 1);
 		if (clk_want > 3000000) {
 			clk_set_rate(host->clk, ios->clock);
 		} else {
@@ -1346,6 +1358,8 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			lpm |= LPM_LPM;
 			msc_writel(host, LPM, lpm);
 		}
+	} else {
+		jzmmc_clk_autoctrl(host, 0);
 	}
 	switch (ios->power_mode) {
 	case MMC_POWER_ON:
@@ -1360,7 +1374,6 @@ static void jzmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	default:
 		break;
 	}
-
 }
 
 static void jzmmc_enable_sdio_irq(struct mmc_host *mmc, int enable)
@@ -1755,6 +1768,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_sysfs_create;
 
+	jzmmc_clk_autoctrl(host, 0);
 	return 0;
 
 err_sysfs_create:
