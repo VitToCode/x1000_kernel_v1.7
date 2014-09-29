@@ -985,12 +985,10 @@ int d2041_shutdown(struct d2041 *d2041)
 
 	d2041_clear_bits(d2041,D2041_POWERCONT_REG,D2041_POWERCONT_MCTRLEN); //mctl disable
 
-	d2041_reg_write(d2041, D2041_BUCK1_REG, 0x5c); //buck1 1.2 V 0x1c 1.5V 0x28
-
 	// 20120221 LDO13 issue
 	dst = 0x0;
 	d2041->write_dev(d2041, D2041_IRQMASKB_REG, 1, &dst); //onkey mask clear
-
+#if 0
 	d2041_clear_bits(d2041, D2041_LDO5_REG,    D2041_REGULATOR_EN); //LDO 5 disable
 	d2041_clear_bits(d2041, D2041_LDO6_REG,    D2041_REGULATOR_EN); //LDO 6 disable
 	d2041_clear_bits(d2041, D2041_LDO7_REG,    D2041_REGULATOR_EN); //LDO 7 disable
@@ -1007,10 +1005,10 @@ int d2041_shutdown(struct d2041 *d2041)
 	d2041_clear_bits(d2041, D2041_LDO18_REG,   D2041_REGULATOR_EN); //LDO 18 disable
 	d2041_clear_bits(d2041, D2041_LDO19_REG,   D2041_REGULATOR_EN); //LDO 19 disable
 	d2041_clear_bits(d2041, D2041_LDO20_REG,   D2041_REGULATOR_EN); //LDO 20 disable
-	d2041_clear_bits(d2041, D2041_LDO_AUD_REG, D2041_REGULATOR_EN); //LDO_AUD disable
-
+#endif
 #if 0
 	dst = 0x0;
+	d2041_reg_write(d2041, D2041_BUCK1_REG, 0x5c); //buck1 1.2 V 0x1c 1.5V 0x28
 	d2041->write_dev(d2041, D2041_BUCK4_REG, 1, &dst); //BUCK 4
 #endif
 
@@ -1020,6 +1018,7 @@ int d2041_shutdown(struct d2041 *d2041)
 //	dst = 0x0E;
 //	d2041->write_dev(d2041, D2041_POWERCONT_REG, 1, &dst);
 
+	d2041_clear_bits(d2041, D2041_LDO_AUD_REG, D2041_REGULATOR_EN); //LDO_AUD disable
 	dst = 0xEF;
 	d2041->write_dev(d2041, D2041_PDDIS_REG, 1, &dst);
 
