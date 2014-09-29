@@ -808,6 +808,7 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	if (!retry)
 		goto err_phy_state;
 
+	dsi->state = INITIALIZED; /*must be here for set_sequence function*/
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
 				     0xffffff0);
 
@@ -822,7 +823,6 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
 
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
-	dsi->state = INITIALIZED;
 	dsi->suspended = false;
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
