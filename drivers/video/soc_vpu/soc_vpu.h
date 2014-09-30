@@ -87,8 +87,8 @@ struct vpu_ops {
 	long (*start_vpu)(struct device *dev, const struct channel_node * const cnode);
 	long (*wait_complete)(struct device *dev, struct channel_node * const cnode);
 	long (*reset)(struct device *dev);
-	long (*suspend)(struct device *dev, pm_message_t state, const int use_count);
-	long (*resume)(struct device *dev, const int use_count);
+	long (*suspend)(struct device *dev);
+	long (*resume)(struct device *dev);
 };
 
 struct vpu {

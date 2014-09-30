@@ -912,6 +912,77 @@ err_copy_from_user:
 	return ret;
 }
 
+static long soc_channel_vpu_suspend(struct soc_channel *sc, long usr_arg)
+{
+	long ret = 0;
+	struct list_head *vpu_list = NULL;
+	struct vpu_list *vlist = NULL;
+	struct vpu *vpu = NULL;
+
+	if (copy_from_user(&vpu_list, (void *)usr_arg, sizeof(vpu_list))) {
+		ret = -EINVAL;
+		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] copy_from_user failed\n", __func__, __LINE__);
+		goto err_copy_from_user;
+	}
+
+	vlist = list_entry(vpu_list, struct vpu_list, list);
+	vpu = list_entry(vlist->vlist, struct vpu, vlist);
+	if (vpu->dev && vpu->ops && vpu->ops->suspend) {
+		ret = vpu->ops->suspend(vpu->dev);
+		if (ret < 0) {
+			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] vpu suspend failed\n", __func__, __LINE__);
+			goto err_vpu_suspend_failed;
+		}
+	} else {
+		ret = -ENODEV;
+		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] no vpu suspend device failed\n", __func__, __LINE__);
+		goto err_vpu_suspend_nodev;
+	}
+
+	return 0;
+
+err_vpu_suspend_nodev:
+err_vpu_suspend_failed:
+err_copy_from_user:
+	return ret;
+}
+
+static long soc_channel_vpu_resume(struct soc_channel *sc, long usr_arg)
+{
+	long ret = 0;
+	struct list_head *vpu_list = NULL;
+	struct vpu_list *vlist = NULL;
+	struct vpu *vpu = NULL;
+
+	if (copy_from_user(&vpu_list, (void *)usr_arg, sizeof(vpu_list))) {
+		ret = -EINVAL;
+		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] copy_from_user failed\n", __func__, __LINE__);
+		goto err_copy_from_user;
+	}
+
+	vlist = list_entry(vpu_list, struct vpu_list, list);
+	vpu = list_entry(vlist->vlist, struct vpu, vlist);
+	if (vpu->dev && vpu->ops && vpu->ops->suspend) {
+		ret = vpu->ops->resume(vpu->dev);
+		if (ret < 0) {
+			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] vpu resume failed\n", __func__, __LINE__);
+			goto err_vpu_resume_failed;
+		}
+	} else {
+		ret = -ENODEV;
+		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] no resume vpu device failed\n", __func__, __LINE__);
+		goto err_vpu_suspend_nodev;
+	}
+
+	return 0;
+
+err_vpu_suspend_nodev:
+err_vpu_resume_failed:
+err_copy_from_user:
+	return ret;
+	return 0;
+}
+
 static int soc_channel_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
@@ -1025,6 +1096,10 @@ static long soc_channel_ioctl(struct file *file, unsigned int cmd, unsigned long
 	case IOCTL_CHANNEL_WOR_VPU_REG:
 		ret = soc_channel_write_read_reg(sc, arg);
 		break;
+	case IOCTL_CHANNEL_VPU_SUSPEND:
+		ret = soc_channel_vpu_suspend(sc, arg);
+	case IOCTL_CHANNEL_VPU_RESUME:
+		ret = soc_channel_vpu_resume(sc, arg);
 	default:
 		ret = -1;
 	}

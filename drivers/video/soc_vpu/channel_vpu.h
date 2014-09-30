@@ -78,5 +78,7 @@ struct reg_info {
 #define IOCTL_CHANNEL_FLUSH_CACHE	_IOWR(SOC_VPU_MAGIC, 5, struct channel_node)
 #define IOCTL_CHANNEL_BUF_INIT		_IOWR(SOC_VPU_MAGIC, 6, struct channel_node)
 #define IOCTL_CHANNEL_WOR_VPU_REG	_IOWR(SOC_VPU_MAGIC, 7, struct channel_node)
+#define IOCTL_CHANNEL_VPU_SUSPEND	_IOWR(SOC_VPU_MAGIC, 8, struct channel_node)
+#define IOCTL_CHANNEL_VPU_RESUME	_IOWR(SOC_VPU_MAGIC, 9, struct channel_node)
 
 #endif	//__CHANNEL_VPU_H__

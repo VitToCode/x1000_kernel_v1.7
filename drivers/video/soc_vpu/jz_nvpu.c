@@ -218,7 +218,7 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 	return ret;
 }
 
-static long vpu_suspend(struct device *dev, pm_message_t state, int use_count)
+static long vpu_suspend(struct device *dev)
 {
 	struct jz_vpu *vpu = dev_get_drvdata(dev);
 	int timeout = 0xffff;
@@ -239,7 +239,7 @@ static long vpu_suspend(struct device *dev, pm_message_t state, int use_count)
 	return 0;
 }
 
-static long vpu_resume(struct device *dev, int use_count)
+static long vpu_resume(struct device *dev)
 {
 	struct jz_vpu *vpu = dev_get_drvdata(dev);
 
@@ -439,12 +439,28 @@ static int vpu_remove(struct platform_device *dev)
 	return 0;
 }
 
+int vpu_suspend_platform(struct platform_device *dev, pm_message_t state)
+{
+	struct jz_vpu *vpu = platform_get_drvdata(dev);
+
+	return vpu_suspend(vpu->vpu.dev);
+}
+
+int vpu_resume_platform(struct platform_device *dev)
+{
+	struct jz_vpu *vpu = platform_get_drvdata(dev);
+
+	return vpu_resume(vpu->vpu.dev);
+}
+
 static struct platform_driver jz_vpu_driver = {
 	.probe		= vpu_probe,
 	.remove		= vpu_remove,
 	.driver		= {
 		.name	= "jz-vpu",
 	},
+	.suspend	= vpu_suspend_platform,
+	.resume		= vpu_resume_platform,
 };
 
 static int __init vpu_init(void)
