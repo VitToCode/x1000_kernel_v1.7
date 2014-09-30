@@ -446,6 +446,13 @@ const unsigned int sleep_rate_hz = 30*1000*1000;
 const unsigned int sleep_vol_uv = 975 * 1000;
 static int m200_prepare(void)
 {
+	struct cpufreq_policy *policy;
+
+	policy = cpufreq_cpu_get(0);
+	if(policy) {
+		policy->governor->governor(policy, CPUFREQ_GOV_STOP);
+		cpufreq_cpu_put(policy);
+	}
 	if(m200_early_sleep.core_vcc == NULL) {
 		m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core_slp");
 	}
@@ -460,14 +467,23 @@ static int m200_prepare(void)
 }
 static void m200_finish(void)
 {
+	struct cpufreq_policy *policy;
 	unsigned int rate;
 	rate = clk_get_rate(m200_early_sleep.cpu_clk);
-	if(rate != m200_early_sleep.real_hz)
-		printk("warn! current cpu clk is not deep sleep set cpu clk!\n");
+	if(rate != m200_early_sleep.real_hz) {
+		printk("warn! current cpu clk %d is not deep sleep set cpu clk %d!\n",
+		       rate, m200_early_sleep.real_hz);
+	}
 	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		regulator_set_voltage(m200_early_sleep.core_vcc,m200_early_sleep.vol_uv,m200_early_sleep.vol_uv);
 	}
 	clk_set_rate(m200_early_sleep.cpu_clk,m200_early_sleep.rate_hz);
+
+	policy = cpufreq_cpu_get(0);
+	if(policy) {
+		policy->governor->governor(policy, CPUFREQ_GOV_START);
+		cpufreq_cpu_put(policy);
+	}
 }
 /*
  * Initialize power interface
