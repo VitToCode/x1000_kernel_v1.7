@@ -164,6 +164,7 @@ obj-$(CONFIG_JZ_EPD_V12)	+= jz_epd_v12/
 obj-$(CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH) += lcd_suspend_update/
 obj-$(CONFIG_HDMI_JZ4780)	  += jz4780-hdmi/
 obj-$(CONFIG_JZ_IPU)          += jz_ipu/
+obj-$(CONFIG_SOC_VPU)          += soc_vpu/
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o

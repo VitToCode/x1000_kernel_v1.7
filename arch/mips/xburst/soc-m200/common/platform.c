@@ -379,6 +379,38 @@ struct platform_device jz_fb_device = {
 };
 
 /*vpu*/
+#if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
+static u64 jz_vpu_dmamask = ~(u64)0;
+#define VPU0_IOBASE	SCH_IOBASE
+#define VPU0_IRQ	IRQ_VPU
+
+#define DEF_VPU(NO)								\
+	static struct resource jz_vpu##NO##_resources[] = {			\
+		[0] = {								\
+			.start          = VPU##NO##_IOBASE,			\
+			.end            = VPU##NO##_IOBASE+ 0xF0000 - 1,	\
+			.flags          = IORESOURCE_MEM,			\
+		},								\
+		[1] = {								\
+			.start          = VPU##NO##_IRQ,				\
+			.end            = VPU##NO##_IRQ,				\
+			.flags          = IORESOURCE_IRQ,			\
+		},								\
+	};									\
+struct platform_device jz_vpu##NO##_device = {					\
+	.name = "jz-vpu",							\
+	.id = NO,								\
+	.dev = {								\
+		.dma_mask               = &jz_vpu_dmamask,			\
+		.coherent_dma_mask      = 0xffffffff,				\
+	},									\
+	.num_resources  = ARRAY_SIZE(jz_vpu##NO##_resources),			\
+	.resource       = jz_vpu##NO##_resources,				\
+};
+
+DEF_VPU(0);
+#else
+#ifdef CONFIG_JZ_VPU
 static struct resource jz_vpu_resource[] = {
 	[0] = {
 		.start = SCH_IOBASE,
@@ -398,6 +430,8 @@ struct platform_device jz_vpu_device = {
 	.num_resources    = ARRAY_SIZE(jz_vpu_resource),
 	.resource         = jz_vpu_resource,
 };
+#endif
+#endif
 
 /* ipu */
 static u64 jz_ipu_dmamask = ~(u64) 0;

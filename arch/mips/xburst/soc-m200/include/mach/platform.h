@@ -161,7 +161,13 @@
 
 /* JZ SoC on Chip devices list */
 extern struct platform_device jz_adc_device;
+#if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
+extern struct platform_device jz_vpu0_device;
+#else
+#ifdef CONFIG_JZ_VPU
 extern struct platform_device jz_vpu_device;
+#endif
+#endif
 
 extern struct platform_device jz_uart0_device;
 extern struct platform_device jz_uart1_device;

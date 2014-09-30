@@ -549,9 +549,14 @@ static int __init board_init(void)
 	platform_device_register(&jz_li_ion_charger_device);
 #endif
 	/* VPU */
+#if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
+	platform_device_register(&jz_vpu0_device);
+#else
 #ifdef CONFIG_JZ_VPU_V12
 	platform_device_register(&jz_vpu_device);
 #endif
+#endif
+
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
