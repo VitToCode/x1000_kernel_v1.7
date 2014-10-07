@@ -410,7 +410,7 @@ struct platform_device jz_vpu##NO##_device = {					\
 
 DEF_VPU(0);
 #else
-#ifdef CONFIG_JZ_VPU
+#ifdef CONFIG_JZ_VPU_V12
 static struct resource jz_vpu_resource[] = {
 	[0] = {
 		.start = SCH_IOBASE,

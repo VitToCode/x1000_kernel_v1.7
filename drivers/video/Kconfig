@@ -2583,7 +2583,7 @@ config SOC_VPU
 config CHANNEL_NODE_NUM
 	depends on SOC_VPU
 	int "channel node number"
-	default 1
+	default 2
 
 config VPU_NODE_NUM
 	depends on SOC_VPU

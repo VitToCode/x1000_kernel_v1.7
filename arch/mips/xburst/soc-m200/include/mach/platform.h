@@ -164,7 +164,7 @@ extern struct platform_device jz_adc_device;
 #if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
 extern struct platform_device jz_vpu0_device;
 #else
-#ifdef CONFIG_JZ_VPU
+#ifdef CONFIG_JZ_VPU_V12
 extern struct platform_device jz_vpu_device;
 #endif
 #endif
