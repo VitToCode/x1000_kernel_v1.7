@@ -1043,29 +1043,6 @@ static struct reg_list{
 	unsigned char reg;
 	unsigned char val;
 };
-
-static int i2c_read_for_test(struct isp_device* isp)
-{
-	char i;
-	unsigned char tmp;
-	void* data = isp->data;
-	struct ovisp_camera_dev *camdev = (struct ovisp_camera_dev *)data;
-	struct ovisp_camera_subdev *csd = &camdev->csd[camdev->input];
-	struct reg_list* array_tmp;
-	struct reg_list i2c_4read[] = {
-		{0x3d, 0x00},
-		{0x3e, 0x00},
-		{0xff, 0x00},
-	};
-	array_tmp = i2c_4read;
-
-	while(array_tmp->reg != 0xff){
-		ov9712_read(csd->sd, array_tmp->reg, &tmp);
-		pr_debug("i2c sensor %#x valua is %#x\n",array_tmp[i].reg, tmp);
-		array_tmp++;
-	}
-	return 0;
-}
 #endif
 static irqreturn_t isp_irq(int this_irq, void *dev_id)
 {
@@ -1094,7 +1071,7 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	}
 	if(cmd == 0x06)
 		flags = 0;
-	if(isp->wait_eof && (irq_status & MASK_INT_EOF)){
+	if(isp->wait_eof && (irq_status & MASK_ISP_INT_EOF)){
 		complete(&isp->frame_eof);
 		isp->wait_eof = false;
 		ISP_PRINT(ISP_INFO,"[0x%02x] frame_eof[0x%02x]!!\n", cmd, isp_reg_readb(isp, REG_ISP_INT_EN_C1));
@@ -1102,10 +1079,15 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	if (irq_status & MASK_INT_MAC) {
 		/* Drop. */
 		if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
+			unsigned char ready_status = isp_reg_readb(isp, REG_BASE_ADDR_READY);
 			if(mac_irq_status & MASK_INT_DROP0){
+				ready_status |= 0x01;
+				isp_reg_writeb(isp, ready_status, REG_BASE_ADDR_READY);
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME0;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 0 !!\n", cmd);
 			}else{
+				ready_status |= 0x02;
+				isp_reg_writeb(isp, ready_status, REG_BASE_ADDR_READY);
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME1;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 1 !!\n", cmd);
 			}
@@ -1123,12 +1105,13 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 		}
 		/* FIFO overflow */
 		if (mac_irq_status & (MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1)) {
-			if(mac_irq_status & MASK_INT_OVERFLOW0)
+			if(mac_irq_status & MASK_INT_OVERFLOW0){
 				ISP_PRINT(ISP_WARNING,"[0x%02x] overflow-0\n",cmd);
-			else
+				notify |= ISP_NOTIFY_OVERFLOW | ISP_NOTIFY_DROP_FRAME0;
+			}else{
 				ISP_PRINT(ISP_WARNING,"[0x%02x] overflow-1\n",cmd);
-			notify |= ISP_NOTIFY_OVERFLOW;
-
+				notify |= ISP_NOTIFY_OVERFLOW | ISP_NOTIFY_DROP_FRAME1;
+			}
 		}
 		/* Start */
 		if(mac_irq_status & (MASK_INT_WRITE_START0 | MASK_INT_WRITE_START1)){
@@ -1763,7 +1746,7 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 
 	isp_intc_enable(isp, MASK_INT_MAC);
 	isp_intc_enable(isp, MASK_INT_CMDSET);
-	isp_intc_enable(isp, MASK_INT_EOF);
+	isp_intc_enable(isp, MASK_ISP_INT_EOF);
 	isp_intc_enable(isp, 1 << 9);
 	isp_intc_enable(isp, 1 << 11);
 	isp_intc_enable(isp, 1 << 3);
@@ -2444,7 +2427,6 @@ static int isp_s_tlb_base(struct isp_device *isp, unsigned int *tlb_base)
 	int tlb_cnm = DMMU_PTE_CHECK_PAGE_VALID;
 	int tlb_ridx = 0;  /*6 bits TLB entry read-index*/
 	unsigned int _tlb_base  = *tlb_base;
-
 	ISP_PRINT(ISP_INFO," Read ISP TLB CTRL : 0x%x\n", isp_reg_readl(isp, 0xF0004));
 	ISP_PRINT(ISP_INFO,"Read ISP TLB BASE : 0x%x\n", isp_reg_readl(isp, 0xF0008));
 
