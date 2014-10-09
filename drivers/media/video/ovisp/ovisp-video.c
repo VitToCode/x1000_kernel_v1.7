@@ -727,6 +727,17 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	}
 	if(!(status & ISP_NOTIFY_UPDATE_BUF))
 		return 0;
+	if (status & ISP_NOTIFY_OVERFLOW){
+		capture->error_frames++;
+		if((status & ISP_NOTIFY_DROP_FRAME0)){
+			buf = capture->active[0];
+			capture->active[0] = NULL;
+		}else{
+			buf = capture->active[1];
+			capture->active[1] = NULL;
+		}
+		list_add_tail(&(buf->list),&(capture->list));
+	}
 	if (status & ISP_NOTIFY_DATA_START){
 		buf = NULL;
 		capture->in_frames++;
@@ -747,9 +758,6 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 			}
 		}
 	}
-
-	if (status & ISP_NOTIFY_OVERFLOW)
-		capture->error_frames++;
 
 	if (status & ISP_NOTIFY_DROP_FRAME){
 		buf = NULL;
