@@ -100,6 +100,7 @@ static LIST_HEAD(manual_list);
  * @double_enter: Prevent state machine reenter.
  * @timeout_cnt: The count of timeout second.
  */
+
 struct jzmmc_host {
 	struct jzmmc_platform_data *pdata;
 	struct device		*dev;
@@ -1608,6 +1609,12 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 			card_gpio->wp.num = -EBUSY;
 		}
 
+		if (gpio_request_one(card_gpio->rst.num,
+				     GPIOF_DIR_OUT, "mmc_rst")) {
+			dev_vdbg(host->dev, "no RST pin available\n");
+			card_gpio->rst.num = -EBUSY;
+		}
+
 		if (gpio_request(card_gpio->pwr.num, "mmc_power")) {
 			dev_vdbg(host->dev, "no PWR pin available\n");
 			card_gpio->pwr.num = -EBUSY;
@@ -1675,6 +1682,7 @@ static void jzmmc_gpio_deinit(struct jzmmc_host *host)
 		gpio_free(card_gpio->cd.num);
 		gpio_free(card_gpio->wp.num);
 		gpio_free(card_gpio->pwr.num);
+		gpio_free(card_gpio->rst.num);
 	}
 }
 
@@ -1793,6 +1801,7 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(pdev);
 
+
 	mmc_set_drvdata(pdev, NULL);
 	mmc_remove_host(host->mmc);
 	mmc_free_host(host->mmc);
@@ -1853,15 +1862,23 @@ static int jzmmc_resume(struct platform_device *dev)
 static void jzmmc_shutdown(struct platform_device *pdev)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(pdev);
+	struct card_gpio *card_gpio = host->pdata->gpio;
 
 	/*
 	 * Remove host when shutdown to avoid illegal request,
 	 * but don't remove sdio_host in case of the SDIO device driver
 	 * can't handle bus remove correctly.
 	 */
+
 	dev_vdbg(host->dev, "shutdown\n");
-	if(host->mmc->card && !mmc_card_sdio(host->mmc->card))
-	   mmc_remove_host(host->mmc);
+	if(host->mmc->card && !mmc_card_sdio(host->mmc->card)){
+		if(host->pdata->removal == NONREMOVABLE){
+			gpio_direction_output(card_gpio->rst.num, 0);
+		}
+		else
+			mmc_remove_host(host->mmc);
+	}
+
 }
 
 static struct platform_driver jzmmc_driver = {

@@ -157,6 +157,11 @@
 #define GPIO_ACTIVE_LOW      1
 /* ****************************GPIO LI ION END******************************* */
 
+/* ****************************GPIO MMC START******************************** */
+#define GPIO_MMC_RST_N			GPIO_PA(29)
+#define GPIO_MMC_RST_N_LEVEL	LOW_ENABLE
+/* ****************************GPIO MMC END******************************** */
+
 /* ****************************GPIO USB START******************************** */
 #define GPIO_USB_ID				PCA9539_EXT_GPIO(7)/*GPIO_PA(13)*/
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE

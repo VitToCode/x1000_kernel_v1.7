@@ -36,6 +36,7 @@ struct card_gpio {
 	struct jzmmc_pin 		wp;
 	struct jzmmc_pin 		cd;
 	struct jzmmc_pin 		pwr;
+	struct jzmmc_pin 		rst;
 };
 
 /**
