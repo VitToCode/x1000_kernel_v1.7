@@ -195,13 +195,11 @@ static void byd_9177aa_power_on(struct mipi_dsim_lcd_device *dsim_dev, int power
 	struct byd_9177aa *lcd = dev_get_drvdata(&dsim_dev->dev);
 
 	/* lcd power on */
-#if 0
 	if (power)
 		byd_9177aa_regulator_enable(lcd);
 	else
 		byd_9177aa_regulator_disable(lcd);
 
-#endif
 	if (lcd->ddi_pd->power_on)
 		lcd->ddi_pd->power_on(lcd->ld, power);
 	/* lcd reset */
@@ -234,13 +232,12 @@ static int byd_9177aa_probe(struct mipi_dsim_lcd_device *dsim_dev)
 	lcd->dev = &dsim_dev->dev;
 
 	mutex_init(&lcd->lock);
-#if 0
-	lcd->lcd_vcc_reg = regulator_get(NULL, "vlcd");
+
+	lcd->lcd_vcc_reg = regulator_get(NULL, "lcd_1v8");
 	if (IS_ERR(lcd->lcd_vcc_reg)) {
-		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
+		dev_err(lcd->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(lcd->lcd_vcc_reg);
 	}
-#endif
 
 	lcd->ld = lcd_device_register("byd_9177aa", lcd->dev, lcd,
 			&byd_9177aa_lcd_ops);
@@ -264,7 +261,7 @@ static int byd_9177aa_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 	msleep(lcd->ddi_pd->power_off_delay);
 	byd_9177aa_display_off(lcd);
 
-	//byd_9177aa_regulator_disable(lcd);
+	byd_9177aa_regulator_disable(lcd);
 
 	return 0;
 }
@@ -276,7 +273,7 @@ static int byd_9177aa_resume(struct mipi_dsim_lcd_device *dsim_dev)
 	byd_9177aa_sleep_out(lcd);
 	msleep(lcd->ddi_pd->power_on_delay);
 
-	//byd_9177aa_regulator_enable(lcd);
+	byd_9177aa_regulator_enable(lcd);
 	byd_9177aa_set_sequence(dsim_dev);
 
 	return 0;

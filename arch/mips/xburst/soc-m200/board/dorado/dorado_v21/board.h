@@ -34,6 +34,8 @@
 #ifdef CONFIG_LCD_BYD_9177AA
 #define GPIO_MIPI_RST_N         GPIO_PC(3)
 #define GPIO_MIPI_PWR           GPIO_PC(2)
+#define GPIO_MIPI_ID			GPIO_PC(5)
+#define GPIO_MIPI_TE			GPIO_PC(4)
 #endif
 #ifdef CONFIG_BACKLIGHT_PWM
 #define GPIO_LCD_PWM		GPIO_PE(1)
@@ -102,8 +104,8 @@
 #define GPIO_TP_RESET		GPIO_PD(27)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5336
-#define GPIO_TP_INT		GPIO_PB(0)
-#define GPIO_TP_RESET		GPIO_PA(12)
+#define GPIO_TP_INT		GPIO_PD(17)
+#define GPIO_TP_RESET		GPIO_PD(27)
 #endif
 /* ****************************GPIO TOUCHSCREEN END************************** */
 

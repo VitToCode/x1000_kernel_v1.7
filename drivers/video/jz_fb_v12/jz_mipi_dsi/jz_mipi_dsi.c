@@ -809,6 +809,7 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 		goto err_phy_state;
 
 	dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+
 	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
 				     0xffffff0);
 
