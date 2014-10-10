@@ -25,7 +25,7 @@ static unsigned long scache_size __read_mostly;
 static void mips_sc_wback_inv(unsigned long addr, unsigned long size)
 {
 	__sync();
-	if (size >= scache_size * 4)
+	if (size >= scache_size)
 		blast_scache32();
 	else
 		blast_scache_range(addr, addr + size);
@@ -43,7 +43,7 @@ static void mips_sc_inv(unsigned long addr, unsigned long size)
 	unsigned long lsize = cpu_scache_line_size();
 	unsigned long almask = ~(lsize - 1);
 
-	if (size >= scache_size * 4) {
+	if (size >= scache_size) {
 		blast_scache32();
 	} else {
 		cache_op(Hit_Writeback_Inv_SD, addr & almask);
