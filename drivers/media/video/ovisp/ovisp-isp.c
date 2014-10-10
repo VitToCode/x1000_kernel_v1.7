@@ -1079,15 +1079,10 @@ static irqreturn_t isp_irq(int this_irq, void *dev_id)
 	if (irq_status & MASK_INT_MAC) {
 		/* Drop. */
 		if (mac_irq_status & (MASK_INT_DROP0 | MASK_INT_DROP1)){
-			unsigned char ready_status = isp_reg_readb(isp, REG_BASE_ADDR_READY);
 			if(mac_irq_status & MASK_INT_DROP0){
-				ready_status |= 0x01;
-				isp_reg_writeb(isp, ready_status, REG_BASE_ADDR_READY);
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME0;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 0 !!\n", cmd);
 			}else{
-				ready_status |= 0x02;
-				isp_reg_writeb(isp, ready_status, REG_BASE_ADDR_READY);
 				notify |= ISP_NOTIFY_DROP_FRAME | ISP_NOTIFY_DROP_FRAME1;
 				ISP_PRINT(ISP_INFO,"[0x%02x] drop 1 !!\n", cmd);
 			}
