@@ -68,7 +68,7 @@ IR-CUT
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
 #define GPIO_USB_DETE			GPIO_PA(14)
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
-//#define GPIO_USB_DRVVBUS		GPIO_PE(10)
+#define GPIO_USB_DRVVBUS		GPIO_PE(10)
 #define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
 
 extern struct ovisp_camera_platform_data ovisp_camera_info;

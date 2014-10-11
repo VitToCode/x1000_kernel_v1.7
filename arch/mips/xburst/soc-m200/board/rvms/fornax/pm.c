@@ -131,8 +131,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32 * 5 +  3,	GSS_OUTPUT_LOW}, /* UART0_TXD */
 	{32 * 5 +  4,	GSS_OUTPUT_LOW}, /* GMAC_TXD0/UART2_TXD*/
 	{32 * 5 +  5,	GSS_OUTPUT_LOW}, /* GMAC_TXD1/UART2_RXD*/
-	{32 * 5 +  6,	GSS_OUTPUT_LOW}, /* GMAC_TXCLK */
-	{32 * 5 +  7,	GSS_OUTPUT_LOW}, /* GMAC_RXCLK */
+	{32 * 5 +  6,	GSS_IGNORE}, /* GMAC_TXCLK */
+	{32 * 5 +  7,	GSS_IGNORE}, /* GMAC_RXCLK */
 	{32 * 5 +  8,	GSS_OUTPUT_LOW}, /* GMAC_RXER/EPD_PWR4 */
 	{32 * 5 +  9,	GSS_OUTPUT_LOW}, /* GMAC_RXDV/EPD_PWR5 */
 	{32 * 5 + 10,	GSS_OUTPUT_LOW}, /* GMAC_RXD0/DMIC_CLK/EPD_PWR6 */
