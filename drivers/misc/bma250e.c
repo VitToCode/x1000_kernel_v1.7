@@ -81,11 +81,11 @@ typedef union bma250_accel_data {
 	} single;
 } bma250_accel_data_t;
 
-typedef struct accel_info_t {
+typedef struct accel_info_ptr_t {
 	int threshold;
 	int frequency;
 	int ranges;
-} *accel_info_ptr;
+} accel_info_ptr;
 
 #define BMA250_I2C_RETRYS	5
 
@@ -578,12 +578,12 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct miscdevice *dev = filp->private_data;
 	struct bma250e_dev *bma250e =
 	    container_of(dev, struct bma250e_dev, mdev);
-	accel_info_ptr accel_info;
+	accel_info_ptr *accel_info = NULL;
 	int rc;
 
 	accel_info = kzalloc(sizeof(*accel_info), GFP_KERNEL);
 	if (copy_from_user
-	    (accel_info, (accel_info_ptr) arg, sizeof(*accel_info))) {
+	    (accel_info, (accel_info_ptr*) arg, sizeof(*accel_info))) {
 		printk("copy_from_user failed\n");
 		return -EFAULT;
 	}
@@ -920,6 +920,7 @@ bma250e_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	return 0;
       config_exit:
+	kfree(accel_info);
 	return rc;
 
 }
@@ -1060,6 +1061,7 @@ static int __devexit bma250e_remove(struct i2c_client *client)
 	gpio_free(bma250e->gpio);
 	i2c_set_clientdata(client, NULL);
 	kfree(bma250e->data_buf);
+	kfree(bma250e->data_buf_copy);
 	kfree(bma250e);
 
 	return 0;
