@@ -87,7 +87,8 @@ typedef enum {
 	NOT_INITIALIZED = 0,
 	INITIALIZED,
 	ON,
-	OFF
+	OFF,
+	UBOOT_INITIALIZED
 } dsih_state_t;
 
 typedef enum {

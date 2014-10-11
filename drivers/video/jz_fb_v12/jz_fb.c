@@ -1800,8 +1800,8 @@ static void jzfb_late_resume(struct early_suspend *h)
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 	jzfb_set_par(jzfb->fb);
-	jzfb_disable(jzfb->fb);
-	jzfb_enable(jzfb->fb);
+	//jzfb_disable(jzfb->fb);
+	//jzfb_enable(jzfb->fb);
 
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
@@ -1874,16 +1874,16 @@ static int jzfb_copy_logo(struct fb_info *info)
 	int i = 0, j = 0;
 	struct jzfb *jzfb = info->par;
 
-	return -1;
-
 	/* get buffer physical address */
 	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
 	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {
 		/* u-boot is not display logo */
+		printk("uboot lcd is not enabled!!!\n");
 		return -ENOMEM;
 	}
 
-	/* jzfb->is_lcd_en = 1; */
+	printk("uboot lcd is enabled!!\n");
+	jzfb->is_lcd_en = 1;
 
 	if (src_addr) {
 		src_addr = (unsigned long)phys_to_virt(src_addr);
@@ -2340,8 +2340,9 @@ void test_pattern(struct jzfb *jzfb)
 {
 	int count = 5;
 	int next_frm = 0;
-
+	dump_lcdc_registers(jzfb);
 	jzfb_set_par(jzfb->fb);
+	dump_lcdc_registers(jzfb);
 	jzfb_display_v_color_bar(jzfb->fb);
 	jzfb_enable(jzfb->fb);
 
@@ -2436,7 +2437,6 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);
 
-
 	jzfb->base = ioremap(mem->start, resource_size(mem));
 	if (!jzfb->base) {
 		dev_err(&pdev->dev,
@@ -2444,6 +2444,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		ret = -EBUSY;
 		goto err_put_clk;
 	}
+
 #ifdef CONFIG_JZ_MIPI_DSI
 	jzfb->dsi = jzdsi_init(pdata->dsi_pdata);
 	if (!jzfb->dsi) {
@@ -2538,12 +2539,13 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	}
 
 	if (jzfb->vidmem_phys) {
-#ifdef CONFIG_FB_JZ_DEBUG
-		test_pattern(jzfb);
-#endif
 		if (!jzfb_copy_logo(jzfb->fb)) {
 			jzfb_change_dma_desc(jzfb->fb);
 		}
+#ifdef CONFIG_FB_JZ_DEBUG
+		test_pattern(jzfb);
+#endif
+
 	}else{
 		clk_disable(jzfb->pclk);
 		jzfb_clk_disable(jzfb);

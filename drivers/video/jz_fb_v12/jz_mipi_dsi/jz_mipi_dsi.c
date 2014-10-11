@@ -70,6 +70,11 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 	if ((dsi == NULL) || (video_config == NULL)) {
 		return ERR_DSI_INVALID_INSTANCE;
 	}
+	if(dsi->state == UBOOT_INITIALIZED) {
+		/*no need to reconfig, just return*/
+		printk("dsi has already been initialized by uboot!!\n");
+		return OK;
+	}
 	if (dsi->state != INITIALIZED) {
 		return ERR_DSI_INVALID_INSTANCE;
 	}
@@ -241,7 +246,8 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 	jz_dsih_dphy_no_of_lanes(dsi, video_config->no_of_lanes);
 	/* enable high speed clock */
 	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-	pr_debug("video configure is ok!\n");
+	pr_info("video configure is ok!\n");
+
 	return err_code;
 
 }
@@ -509,13 +515,13 @@ static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
 		if (client_drv && client_drv->suspend)
 			client_drv->suspend(client_dev);
 
+
 		jz_dsih_dphy_clock_en(dsi, 0);
 		jz_dsih_dphy_shutdown(dsi, 0);
-		clk_disable(dsi->clk);
 		mipi_dsih_hal_power(dsi, 0);
+		clk_disable(dsi->clk);
 
 		dsi->suspended = true;
-
 		break;
 	default:
 		break;
@@ -533,12 +539,14 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 	case FB_BLANK_UNBLANK:
 		if (!dsi->suspended)
 			return 0;
-
 		clk_enable(dsi->clk);
-		jz_mipi_update_cfg(dsi);
+
+		//dump_dsi_reg(dsi);
 		/* lcd panel power on. */
 		if (client_drv && client_drv->power_on)
 			client_drv->power_on(client_dev, 1);
+
+		jz_mipi_update_cfg(dsi);
 
 		/* set lcd panel sequence commands. */
 		if (client_drv && client_drv->set_sequence)
@@ -550,6 +558,8 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 		mipi_dsih_hal_power(dsi, 1);
 		dsi->suspended = false;
+
+		//dump_dsi_reg(dsi);
 
 		break;
 	case FB_BLANK_NORMAL:
@@ -760,7 +770,6 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	}
 
 	mutex_init(&dsi->lock);
-
 	dsim_ddi = mipi_dsi_bind_lcd_ddi(dsi, pdata->modes->name);
 	if (!dsim_ddi) {
 		pr_err("dsi->dev: mipi_dsim_ddi object not found.\n");
@@ -770,60 +779,71 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 
 	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->probe)
 		dsim_ddi->dsim_lcd_drv->probe(dsim_ddi->dsim_lcd_dev);
-
-	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
-		dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
-
-	ret = jz_dsi_phy_open(dsi);
-	if (ret) {
-		goto err_phy_open;
+	if (mipi_dsih_read_word(dsi, R_DSI_HOST_PWR_UP) & 0x1) {
+		dsi->state = UBOOT_INITIALIZED;
 	}
 
-	/*set command mode */
-	mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
-	/*set this register for cmd size, default 0x6 */
-	mipi_dsih_write_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE, 0x6);
+	if(dsi->state == UBOOT_INITIALIZED) {
 
-	/*
-	 * jz_dsi_phy_cfg:
-	 * PLL programming, config the output freq to DEFAULT_DATALANE_BPS.
-	 * */
-	ret = jz_dsi_phy_cfg(dsi);
-	if (ret) {
-		goto err_phy_cfg;
-	}
+		dsi->dsi_phy->status = INITIALIZED;
+		//dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+	} else {
 
-	pr_debug("wait for phy config ready\n");
-	if (dsi->video_config->no_of_lanes == 2)
-		st_mask = 0x95;
-	else
-		st_mask = 0x15;
+		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
+			dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
 
-	/*checkout phy clk lock and  clklane, datalane stopstate  */
-	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
-	       st_mask && retry--) {
+		ret = jz_dsi_phy_open(dsi);
+		if (ret) {
+			goto err_phy_open;
+		}
+
+		/*set command mode */
+		mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
+		/*set this register for cmd size, default 0x6 */
+		mipi_dsih_write_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE, 0x6);
+
+		/*
+		 * jz_dsi_phy_cfg:
+		 * PLL programming, config the output freq to DEFAULT_DATALANE_BPS.
+		 * */
+		ret = jz_dsi_phy_cfg(dsi);
+		if (ret) {
+			goto err_phy_cfg;
+		}
+
+		pr_debug("wait for phy config ready\n");
+		if (dsi->video_config->no_of_lanes == 2)
+			st_mask = 0x95;
+		else
+			st_mask = 0x15;
+
+		/*checkout phy clk lock and  clklane, datalane stopstate  */
+		while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
+				st_mask && retry--) {
 			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
+		}
+
+		if (!retry)
+			goto err_phy_state;
+
+		dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				0xffffff0);
+
+		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
+			dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
+		}else{
+			pr_err("lcd mipi panel init failed!\n");
+			goto err_panel_init;
+		}
+
+		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	}
 
-	if (!retry)
-		goto err_phy_state;
-
-	dsi->state = INITIALIZED; /*must be here for set_sequence function*/
-
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
-				     0xffffff0);
-
-	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
-		dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
-	}else{
-		pr_err("lcd mipi panel init failed!\n");
-		goto err_panel_init;
-	}
-
-	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
-
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	dsi->suspended = false;
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
