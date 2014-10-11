@@ -27,6 +27,7 @@ struct jz_vpu {
 	struct mutex		mutex;
 	pid_t			owner_pid;
 	unsigned int		status;
+	unsigned int		bslen;
 	void*                   cpm_pwc;
 };
 
@@ -200,7 +201,6 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 
 	ret = wait_for_completion_interruptible_timeout(&vpu->done, msecs_to_jiffies(cnode->mdelay));
 	if (ret > 0) {
-		cnode->output_len = vpu_readl(vpu, REG_VPU_ENC_LEN);
 		ret = 0;
 		dev_dbg(vpu->vpu.dev, "[%d:%d] wait complete\n", current->tgid, current->pid);
 	} else {
@@ -208,9 +208,9 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 		if (vpu_reset(dev) < 0) {
 			dev_warn(dev, "vpu reset failed\n");
 		}
-		cnode->output_len = 0;
 		ret = -1;
 	}
+	cnode->output_len = vpu->bslen;
 	cnode->status = vpu->status;
 
 	//dev_info(dev, "[file:%s,fun:%s,line:%d] ret = %ld, status = %x, bslen = %d\n", __FILE__, __func__, __LINE__, ret, cnode->status, cnode->output_len);
@@ -288,9 +288,11 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 		if(vpu_stat & VPU_STAT_ENDF) {
 			if(vpu_stat & VPU_STAT_JPGEND) {
 				dev_dbg(vpu->vpu.dev, "JPG successfully done!\n");
+				vpu->bslen = vpu_readl(vpu, REG_VPU_JPGC_STAT) & 0xffffff;
 				CLEAR_VPU_BIT(vpu,REG_VPU_JPGC_STAT,JPGC_STAT_ENDF);
 			} else {
 				dev_dbg(vpu->vpu.dev, "SCH successfully done!\n");
+				vpu->bslen = vpu_readl(vpu, REG_VPU_ENC_LEN);
 				CLEAR_VPU_BIT(vpu,REG_VPU_SDE_STAT,SDE_STAT_BSEND);
 				CLEAR_VPU_BIT(vpu,REG_VPU_DBLK_STAT,DBLK_STAT_DOEND);
 			}
@@ -309,6 +311,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 				       VPU_INTE_BSERR |
 				       VPU_INTE_ENDF
 					      ));
+			vpu->bslen = 0;
 			vpu->status = vpu_stat;
 		}
 	} else {
