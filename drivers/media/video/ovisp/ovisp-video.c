@@ -1107,6 +1107,9 @@ static int ovisp_vidioc_reqbufs(struct file *file, void *priv,
 			ISP_PRINT(ISP_ERROR,"%s[%d] tlb operator failed!\n", __func__, __LINE__);
 			return -EINVAL;
 		}
+	}else{
+		ISP_PRINT(ISP_WARNING,"%s[%d] sorry, ISP driver cann't support V4L2_MEMORY_MMAP now!\n", __func__, __LINE__);
+		return -EPERM;
 	}
 	return vb2_reqbufs(&camdev->vbq, p);
 }

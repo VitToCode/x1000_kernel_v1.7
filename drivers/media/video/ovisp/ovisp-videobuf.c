@@ -155,7 +155,7 @@ EXPORT_SYMBOL_GPL(ovisp_vb2_memops);
 void *ovisp_vb2_init_ctx(struct device *dev)
 {
 	struct vb2_dc_conf *conf;
-
+	return NULL;
 	conf = kzalloc(sizeof *conf, GFP_KERNEL);
 	if (!conf)
 		return ERR_PTR(-ENOMEM);
@@ -186,6 +186,10 @@ EXPORT_SYMBOL_GPL(ovisp_vb2_init_ctx);
 
 void ovisp_vb2_cleanup_ctx(void *alloc_ctx)
 {
+	struct vb2_dc_conf *conf = (struct vb2_dc_conf *)alloc_ctx;
+	if(conf && conf->vaddr)
+		dma_free_coherent(conf->dev, conf->size, conf->vaddr,conf->paddr);
+
 	kfree(alloc_ctx);
 }
 EXPORT_SYMBOL_GPL(ovisp_vb2_cleanup_ctx);
