@@ -1195,7 +1195,6 @@ static int isp_i2c_release(struct isp_device *isp)
 	if (isp->pdata->flags & CAMERA_USE_ISP_I2C) {
 		isp_i2c_unregister(isp);
 	} else {
-		platform_device_register(to_platform_device(isp->dev));
 		kfree(isp->i2c.pdata);
 	}
 

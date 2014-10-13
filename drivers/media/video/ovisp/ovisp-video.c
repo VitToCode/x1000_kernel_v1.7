@@ -1790,6 +1790,8 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	camdev->camera_power = regulator_get(camdev->dev, "cpu_avdd");
 	if(IS_ERR(camdev->camera_power)) {
 		dev_warn(camdev->dev, "camera regulator missing\n");
+		ret = -ENXIO;
+		goto regulator_error;
 	}
 #endif
 
@@ -1881,6 +1883,10 @@ free_i2c:
 	ovisp_camera_free_subdev(camdev);
 cleanup_ctx:
 	ovisp_vb2_cleanup_ctx(camdev->alloc_ctx);
+#ifndef CONFIG_VIDEO_AW6120
+regulator_error:
+	regulator_put(camdev->camera_power);
+#endif
 unreg_v4l2_dev:
 	v4l2_device_unregister(&camdev->v4l2_dev);
 release_isp_dev:
