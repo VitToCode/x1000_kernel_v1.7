@@ -1435,6 +1435,10 @@ ssize_t xb_snd_dsp_read(struct file *file,
 
 	if (ddata == NULL)
 		return -ENODEV;
+	if(ddata->read) {
+		ret = ddata->read(ddata, buffer, count, ppos);
+		return ret;
+	}
 	if(ddata->priv_data) {
 		endpoints = xb_dsp_get_endpoints(ddata);
 	} else {
@@ -2758,6 +2762,10 @@ int xb_snd_dsp_open(struct inode *inode,
 		while(1);
 		return -ENODEV;
 	}
+	/*add for dmic*/
+	if(ddata->open) {
+		return ddata->open(ddata, file);
+	}
 
 	if(ddata->priv_data) {
 		endpoints = xb_dsp_get_endpoints(ddata);
@@ -2952,6 +2960,10 @@ int xb_snd_dsp_release(struct inode *inode,
 	if (ddata == NULL)
 		return -1;
 
+	if(ddata->release) {
+		return ddata->release(ddata, file);
+	}
+
 	if (file->f_mode & FMODE_READ && file->f_mode & FMODE_WRITE)
 		return 0;
 
@@ -3080,7 +3092,8 @@ int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 {
 	if (ddata){
 		struct dsp_endpoints * endpoints = NULL;
-		bool out_trans,in_trans;
+		bool out_trans = false;
+		bool in_trans = false;
 
 		if(ddata->priv_data) {
 			endpoints = xb_dsp_get_endpoints(ddata);

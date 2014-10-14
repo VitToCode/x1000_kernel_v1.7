@@ -61,9 +61,10 @@ static void snd_switch_work(struct work_struct *hp_work)
 	int state = 0;
 	int tmp_state =0;
 	int i = 0;
+#ifndef CONFIG_ANDROID
 	int ret = 0;
-	int device;
-
+	int device = 0;
+#endif
 	struct snd_switch_data *switch_data =
 		container_of(hp_work, struct snd_switch_data, hp_work);
 

@@ -894,7 +894,7 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 			}
 
 			if (dp->is_trans == true) {
-				if (dp->pddata && dp->pddata->dev_ioctl) {
+				if (dp->pddata && dp->pddata->dev_ioctl_2) {
 					 if (dp->dma_config.direction == DMA_TO_DEVICE) {
 						cur_codec->codec_ctl_2(cur_codec, CODEC_DAC_MUTE,0);
 					}
@@ -1217,7 +1217,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	struct dsp_pipe *i2s_pipe_out = NULL;
 	struct dsp_pipe *i2s_pipe_in = NULL;
 	struct i2s_device * i2s_dev;
-	struct snd_dev_data *tmp_ddata = i2s_get_ddata(pdev);
 
 	printk("i2s global init !~~~\n");
 

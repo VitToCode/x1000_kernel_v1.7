@@ -76,8 +76,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*5+1,	GSS_INPUT_PULL		},	/* BT_UART0_CTS */
 	{32*5+2,	GSS_INPUT_PULL		},	/* BT_UART0_RTS */
 	{32*5+3,	GSS_INPUT_PULL		},	/* BT_UART0_TXD */
-	{32*5+6,	GSS_INPUT_PULL		},	/* DMIC_CLK */
-	{32*5+7,	GSS_INPUT_PULL		},	/* DMIC_DOUT1 */
+	{32*5+6,	GSS_IGNORE			},	/* DMIC_CLK */
+	{32*5+7,	GSS_IGNORE			},	/* DMIC_DOUT1 */
 	{32*5+12,	GSS_INPUT_PULL		},	/* BT_PCM_DO */
 	{32*5+13,	GSS_INPUT_PULL		},	/* BT_PCM_CLK */
 	{32*5+14,	GSS_INPUT_PULL		},	/* BT_PCM_SYN */

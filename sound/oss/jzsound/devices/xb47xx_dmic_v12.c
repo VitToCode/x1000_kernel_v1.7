@@ -33,19 +33,33 @@
 #include "xb47xx_i2s_v12.h"
 #include <linux/delay.h>
 #include <soc/cpm.h>
+
+
+#include "wakeup/wakeup_ops.h"
+#include "wakeup/timer.h"
+
+
 /**
  * global variable
  **/
 static LIST_HEAD(codecs_head);
 
-
-#define FIFO_THR_VALE	(65)
 #define DMIC_IRQ
 
 struct jz_dmic {
 	unsigned long  rate_type;
+	int thr_l;
+	int thr_h;
 };
 
+enum dmic_status {
+	DMIC_STATUS_NONE,
+	DMIC_WAIT_WAKEUP,
+	DMIC_WAKEUP_TIMEOUT,
+	DMIC_WAKEUP_OK,
+	DMIC_ENABLED,
+	DMIC_DISABLE,
+};
 struct dmic_device {
 
 	int dmic_irq;
@@ -70,6 +84,11 @@ struct dmic_device {
 
 	struct dsp_endpoints *dmic_endpoints;
 	struct jz_dmic * cur_dmic;
+
+	int dmic_status;
+	struct wakeup_module *wakeup;
+	unsigned long time_tick; /*ms*/
+	unsigned long expire_count; /*count*/
 };
 
 static struct dmic_device *g_dmic_dev;
@@ -246,17 +265,39 @@ static int dmic_set_trigger(struct dmic_device * dmic_dev, int mode)
 
 	return 0;
 }
+static int dmic_wakeup_init(struct dmic_device *dmic_dev)
+{
 
-static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *THR ,int mode)
+	struct wakeup_module *wakeup;
+	//if(!dmic_dev->wakeup) {
+	wakeup = kmalloc(sizeof(struct wakeup_module) , GFP_KERNEL);
+	//}
+	wakeup->dma_config.direction = DMA_FROM_DEVICE;
+	wakeup->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	wakeup->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	wakeup->dma_type = JZDMA_REQ_I2S1;
+
+	wakeup->dma_config.src_maxburst = 32;
+	wakeup->dma_config.dst_maxburst = 32;
+	wakeup->dma_config.src_addr = dmic_dev->res->start + DMICDR;
+	wakeup->dma_config.dst_addr = 0;
+
+	dmic_dev->wakeup = wakeup;
+
+	voice_wakeup_init(dmic_dev->wakeup);
+
+	return 0;
+}
+
+static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, int *THR ,int mode)
 {
 	int ret = 0;
 	unsigned int iflg = 0;
 	unsigned int imsk = 0;
-	printk("THR = %ld\n",*THR);
 	 if(mode & CODEC_RMODE) {
 
 		clk_enable(dmic_dev->clk);
-		iflg |= DMICICR_TRIFLG;
+		iflg |= DMICICR_MASK_ALL;
 		imsk |= DMICIMR_MASK_ALL;
 		dmic_disable_irq(dmic_dev, imsk);
 		dmic_clear_irq(dmic_dev, iflg);
@@ -267,18 +308,10 @@ static int dmic_set_voice_trigger(struct dmic_device * dmic_dev, unsigned long *
 		/* trigger config*/
 		dmic_write_part(dmic_dev, DMICTRICR, 2, DMICTRICR_TRI_MOD, REGS_BIT_WIDTH_4BIT);
 		dmic_write_part(dmic_dev, DMICTHRH, 40000, DMIC_THR_H, REGS_BIT_WIDTH_20BIT);
-		if(*THR != 0)
-			dmic_write_part(dmic_dev, DMICTHRL, *THR, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
-		else
-			dmic_write_part(dmic_dev, DMICTHRL, 5000, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
 
 		dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_HPF2_EN, REGS_BIT_WIDTH_1BIT);
 		/*clear tri module*/
 		dmic_write_part(dmic_dev, DMICTRICR, 1 , DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
-
-		/*reset dmic*/
-		dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_RESET, REGS_BIT_WIDTH_1BIT);
-		while(dmic_readl(dmic_dev, DMICCR0) & (1 << DMICCR0_RESET));
 
 		dmic_write_part(dmic_dev, DMICFCR, 1, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
 
@@ -353,7 +386,7 @@ static int dmic_set_rate(struct dmic_device * dmic_dev, unsigned long *rate,int 
 			dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_48K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
 		}
 		else
-			printk("DMIC: unsurpport samplerate: %x\n", *rate);
+			printk("DMIC: unsurpport samplerate: %ld\n", *rate);
 	}
 
 	return ret;
@@ -396,7 +429,7 @@ static int dmic_record_init(struct dmic_device * dmic_dev, int mode)
 static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 {
 	struct dsp_endpoints * dmic_endpoints = dmic_dev->dmic_endpoints;
-	unsigned long record_rate = 8000;
+	unsigned long record_rate = 16000; /*default*/
 	unsigned long record_format = 16;
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
 	struct dsp_pipe *dp_other = NULL;
@@ -411,7 +444,6 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 		return -1;
 
 	if (mode & CODEC_RMODE) {
-		printk("come to %s %d set dp_other\n", __func__, __LINE__);
 		dp_other = dmic_endpoints->in_endpoint;
 		dmic_set_fmt(dmic_dev, &record_format,mode);
 		dmic_set_rate(dmic_dev, &record_rate,mode);
@@ -435,8 +467,6 @@ static int dmic_enable(struct dmic_device * dmic_dev, int mode)
 #endif
 	dmic_write_part(dmic_dev, DMICCR0, 1, DMICCR0_DMIC_EN, REGS_BIT_WIDTH_1BIT);
 
-	dmic_dev->dmic_is_incall_state = false;
-
 	return 0;
 }
 
@@ -450,17 +480,6 @@ static int dmic_disable(struct dmic_device * dmic_dev, int mode)
 
 static int dmic_dma_enable(struct dmic_device * dmic_dev, int mode)		//CHECK
 {
-	if (mode & CODEC_RMODE) {
-		dmic_write_part(dmic_dev, DMICFCR, 65, DMICFCR_THR, REGS_BIT_WIDTH_7BIT);
-		dmic_write_part(dmic_dev, DMICFCR, 1, DMICFCR_RDMS, REGS_BIT_WIDTH_1BIT);
-
-		dmic_write_part(dmic_dev, DMICTRICR, 1, DMICTRICR_TRI_CLR, REGS_BIT_WIDTH_1BIT);
-		dmic_clear_irq(dmic_dev, DMICICR_MASK_ALL);
-	}
-	if (mode & CODEC_WMODE) {
-		printk("DMIC: dmic unsurpport replay\n");
-		return -1;
-	}
 
 	return 0;
 }
@@ -520,7 +539,6 @@ static void dmic_dma_need_reconfig(struct dmic_device * dmic_dev, int mode)
 
 	return;
 }
-
 
 static int dmic_set_device(struct dmic_device * dmic_dev, unsigned long device)
 {
@@ -710,7 +728,7 @@ static long do_ioctl_work(struct dmic_device * dmic_dev, unsigned int cmd, unsig
 		break;
 	case SND_DSP_SET_VOICE_TRIGGER:
 		ret = 0;
-		ret = dmic_set_voice_trigger(dmic_dev, (unsigned long *)arg,CODEC_RMODE);
+		ret = dmic_set_voice_trigger(dmic_dev, (int *)arg,CODEC_RMODE);
 		break;
 	case SND_DSP_RESUME_PROCEDURE:
 		break;
@@ -736,12 +754,13 @@ static irqreturn_t dmic_irq_handler(int irq, void *dev_id)
 	if((dmic_stat & DMICICR_TRIFLG) || \
 			(dmic_stat & DMICICR_WAKEUP)) {
 		/*trigger part*/
-		printk("AUDIO TRIGGER!\n");
 		dmic_disable_irq(dmic_dev, DMICIMR_TRI_MASK | DMICIMR_WAKE_MASK);
 		dmic_clear_irq(dmic_dev, DMICICR_TRIFLG | DMICICR_WAKEUP);
 
 		clk_enable(dmic_dev->clk);
 		dmic_write_part(dmic_dev, DMICCR0, dmic_dev->cur_dmic->rate_type, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
+
+		wakeup_module_call(dmic_dev->wakeup, start_dma_3);
 
 		/*disable trigger*/
 		dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_TRI_EN, REGS_BIT_WIDTH_1BIT);
@@ -789,8 +808,60 @@ static void dmic_work_handler(struct work_struct *work)
 	unsigned int cmd = dmic_dev->ioctl_cmd;
 	unsigned long arg = dmic_dev->ioctl_arg;
 
-	do_ioctl_work(dmic_dev, cmd, &arg);
+	do_ioctl_work(dmic_dev, cmd, (unsigned long)&arg);
 }
+
+/***************sys fs interface*****************/
+
+static ssize_t dmic_wakeup_set_res(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dmic_device *dmic_dev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = wakeup_module_call(dmic_dev->wakeup, wakeup_set_res, buf, count);
+
+	return ret;
+}
+static ssize_t dmic_wakeup_ctl(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dmic_device *dmic_dev = dev_get_drvdata(dev);
+	int ret;
+	ret = wakeup_module_call(dmic_dev->wakeup, wakeup_ctl, buf, count);
+	return ret;
+}
+static ssize_t dmic_wakeup(struct device *dev,
+		        struct device_attribute *attr,
+				        char *buf)
+{
+	struct dmic_device *dmic_dev = dev_get_drvdata(dev);
+	int ret = 0;
+
+	wakeup_module_call(dmic_dev->wakeup, init_dma);
+
+	wakeup_module_call(dmic_dev->wakeup, start_dma_3);
+
+	ret = wakeup_module_call(dmic_dev->wakeup, wakeup_wait_for_complete);
+
+	return ret;
+}
+
+static DEVICE_ATTR(dmic_wakeup_set_res, 0666, NULL, dmic_wakeup_set_res);
+static DEVICE_ATTR(dmic_wakeup_ctl, 0666, dmic_wakeup, dmic_wakeup_ctl);
+
+static struct attribute *dmic_wakeup_attributes[] = {
+	&dev_attr_dmic_wakeup_set_res.attr,
+	&dev_attr_dmic_wakeup_ctl.attr,
+	NULL
+};
+static const struct attribute_group dmic_wakeup_attr_group = {
+	.attrs = dmic_wakeup_attributes,
+};
+
+/****************end sysfs interface*************/
 
 static int dmic_global_init(struct platform_device *pdev)
 {
@@ -889,8 +960,6 @@ static int dmic_global_init(struct platform_device *pdev)
 	}
 #endif
 
-
-
 	/*dmic worker*/
 	dmic_dev->dmic_work_queue = create_singlethread_workqueue("dmic_work");
 	if(!dmic_dev->dmic_work_queue) {
@@ -903,9 +972,23 @@ static int dmic_global_init(struct platform_device *pdev)
 
 	g_dmic_dev = dmic_dev;
 
+	dev_set_drvdata(&pdev->dev, dmic_dev);
+
 	printk("dmic init success.\n");
 	clk_disable(dmic_dev->clk);
 
+	dmic_wakeup_init(dmic_dev);
+
+	ret = sysfs_create_group(&pdev->dev.kobj, &dmic_wakeup_attr_group);
+	if (ret < 0) {
+		printk("cannot create sysfs interface\n");
+	}
+
+	g_dmic_dev = dmic_dev;
+
+	dmic_dev->cur_dmic->thr_l = 1000;
+
+	dmic_dev->dmic_status = DMIC_DISABLE;
 	return  0;
 __err_dmic_clk:
 __err_irq:
@@ -919,6 +1002,37 @@ __err_init_pipeout:
 	iounmap(dmic_dev->dmic_iomem);
 __err_ioremap:
 	release_mem_region(dmic_dev->res->start,resource_size(dmic_dev->res));
+	return ret;
+}
+
+int dmic_open(struct snd_dev_data *ddata, struct file *file)
+{
+	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
+	int ret = 0;
+
+	ret = dmic_enable(dmic_dev, CODEC_RMODE);
+	/*2.other open ops*/
+	ret = wakeup_module_call(dmic_dev->wakeup, open);
+	return ret;
+}
+ssize_t dmic_read(struct snd_dev_data *ddata,
+		char __user *buffer, size_t count, loff_t *ppos)
+{
+	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
+	size_t ret;
+
+	ret = wakeup_module_call(dmic_dev->wakeup, read, buffer, count, ppos);
+	return ret;
+}
+int dmic_release(struct snd_dev_data *ddata, struct file *file)
+{
+	struct dmic_device * dmic_dev = dmic_get_private_data(ddata);
+	int ret = 0;
+	/*1.other release*/
+	ret = dmic_disable(dmic_dev, CODEC_RMODE);
+
+	ret = wakeup_module_call(dmic_dev->wakeup, close);
+
 	return ret;
 }
 
@@ -953,14 +1067,13 @@ static void dmic_shutdown(struct platform_device *pdev)
 
 static int dmic_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	unsigned long thr = 0;
 	struct snd_dev_data *tmp;
 	struct dmic_device * dmic_dev;
 
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
 
-	dmic_set_voice_trigger(dmic_dev, &thr, CODEC_RMODE);
+	dmic_dev->expire_count = 0;
 	/* make sure everything has done */
 	flush_work_sync(&dmic_dev->dmic_work);
 	return 0;
@@ -972,7 +1085,6 @@ static int dmic_resume(struct platform_device *pdev)
 	struct dmic_device * dmic_dev;
 	tmp = dmic_get_ddata(pdev);
 	dmic_dev = dmic_get_private_data(tmp);
-	dmic_enable(dmic_dev, CODEC_RMODE);
 
 	/* no need to do work */
 	dmic_dev->ioctl_cmd = SND_DSP_RESUME_PROCEDURE;
@@ -992,6 +1104,9 @@ struct snd_dev_data dmic_data = {
 	.dev_ioctl_2	= dmic_ioctl,
 	.get_endpoints	= dmic_get_endpoints,
 	.minor			= SND_DEV_DSP3,
+	.open			= dmic_open,
+	.read			= dmic_read,
+	.release		= dmic_release,
 	.init			= dmic_init,
 	.shutdown		= dmic_shutdown,
 	.suspend		= dmic_suspend,
@@ -1003,6 +1118,138 @@ struct snd_dev_data snd_mixer3_data = {
 	.minor			= SND_DEV_MIXER3,
 	.init			= dmic_init,
 };
+
+/* sleep wakeup */
+
+int dmic_sleep_prepare(void)
+{
+	struct dmic_device *dmic_dev = g_dmic_dev;
+	int thr = 5000;
+	int channel = 1;
+
+	thr = dmic_dev->cur_dmic->thr_l;
+
+	printk("dmic sleep prepare!!!!!!!!\n");
+	dmic_enable(dmic_dev, CODEC_RMODE);
+
+	dmic_set_channel(dmic_dev, &channel, CODEC_RMODE);
+
+	dmic_set_voice_trigger(dmic_dev, &thr, CODEC_RMODE);
+
+	dmic_dev->time_tick = 15000; /*15ms*/
+
+	/*start timer*/
+	//reset_timer(ms_to_count(dmic_dev->time_tick) - dmic_dev->expire_count);
+	//printk("dmic_dev->expire_count:%x, ms_to_count(time_tick):%x\n", dmic_dev->expire_count, ms_to_count(15000));
+	if(ms_to_count(dmic_dev->time_tick) >= dmic_dev->expire_count) {
+		wakeup_module_call(dmic_dev->wakeup, mod_timer, ms_to_count(dmic_dev->time_tick) - dmic_dev->expire_count);
+	} else {
+		/* wait 1min_tick int */
+	}
+	return 0;
+}
+
+int dmic_wakeup_int_handler(void)
+{
+
+	unsigned long ret = 0;
+	struct dmic_device * dmic_dev = g_dmic_dev;
+	unsigned int dmic_stat = dmic_readl(dmic_dev, DMICICR);
+	if((dmic_stat & DMICICR_TRIFLG) || \
+			(dmic_stat & DMICICR_WAKEUP)) {
+		/*trigger part*/
+		dmic_disable_irq(dmic_dev, DMICIMR_TRI_MASK | DMICIMR_WAKE_MASK);
+		dmic_clear_irq(dmic_dev, DMICICR_TRIFLG | DMICICR_WAKEUP);
+		dmic_write_part(dmic_dev, DMICCR0, SAMPLE_RATE_16K, DMICCR0_SR, REGS_BIT_WIDTH_2BIT);
+		/*disable trigger*/
+		dmic_write_part(dmic_dev, DMICCR0, 0, DMICCR0_TRI_EN, REGS_BIT_WIDTH_1BIT);
+
+		ret = wakeup_module_call(dmic_dev->wakeup, start_dma);
+		dmic_dev->dmic_status = DMIC_WAIT_WAKEUP;
+		dmic_dev->expire_count += ret;
+
+		//printk("expire_count:%ld\n", dmic_dev->expire_count);
+	} else if (dmic_stat & DMICICR_PREREAD){
+		/*ignore other irqs*/
+		dump_dmic_reg(dmic_dev);
+		dmic_clear_irq(dmic_dev, DMICICR_PREREAD);
+	}
+
+	return ret;
+}
+
+
+int thr_table[2] = {1000, 5000};
+int tri_cnt[2] = {2, 6};
+
+int quantity_thr(int thr)
+{
+	int i;
+	for(i = 0; i < 2; i++) {
+		if(thr_table[i] == thr)
+			break;
+	}
+	return i;
+}
+int quantity_tri(int times)
+{
+	if(times < 2) {
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+int adjust_thr_value(int times, int thr)
+{
+	int result;
+	int fix_times = quantity_tri(times);
+	int fix_thr	  = quantity_thr(thr);
+	int fix_result;
+
+	fix_result = fix_times;
+
+	//result = thr + (5000 - 1000) * fix_result;
+	result = fix_times - fix_thr > 0 ? 1000 * (fix_times - fix_thr) : thr;
+
+	printk("[input],fix_times:%d, fix_thr:%d,[output],result:%d\n", fix_times, fix_thr, result);
+	return result;
+}
+
+static int trigger_cnt;
+int tcu_chan1_wakeuptimer_handler(void)
+{
+	struct dmic_device *dmic_dev = g_dmic_dev;
+	int ret = 0;
+	int thr_l;
+
+	if(dmic_dev->dmic_status == DMIC_WAIT_WAKEUP) {
+
+		dmic_dev->expire_count += ms_to_count(30);
+
+		ret = wakeup_module_call(dmic_dev->wakeup, idle_tcu_int);
+		if(ret == SYS_WAKEUP) {
+			dmic_dev->dmic_status = DMIC_WAKEUP_OK;
+		} else if(ret == SYS_WAKEUP_TIMEOUT) {
+			dmic_dev->dmic_status = DMIC_WAKEUP_TIMEOUT;
+			trigger_cnt++;
+			if(dmic_dev->expire_count >= ms_to_count(dmic_dev->time_tick)) {
+				dmic_dev->expire_count = 0;
+				wakeup_module_call(dmic_dev->wakeup, mod_timer, ms_to_count(dmic_dev->time_tick));
+			}
+		}
+	} else {
+		//printk("15s start, dmic_dev->expire_count:%x, trigger_cnt:%x\n", dmic_dev->expire_count, trigger_cnt);
+		wakeup_module_call(dmic_dev->wakeup, mod_timer, ms_to_count(dmic_dev->time_tick));
+		thr_l = adjust_thr_value(trigger_cnt, dmic_dev->cur_dmic->thr_l);
+
+		dmic_write_part(dmic_dev, DMICTHRL, thr_l, DMIC_THR_L, REGS_BIT_WIDTH_20BIT);
+		dmic_dev->expire_count = 0;
+		trigger_cnt = 0;
+	}
+
+	return ret;
+}
 
 static int __init init_dmic(void)
 {

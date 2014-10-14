@@ -236,6 +236,11 @@ struct snd_dev_data {
 	long (*dev_ioctl_2)(struct snd_dev_data *dev_data, unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints * (*get_endpoints)(struct snd_dev_data *dev_data);
 
+	int (*open)(struct snd_dev_data *ddata, struct file *file);
+	ssize_t (*read)(struct snd_dev_data *ddata,
+			char __user *buffer, size_t count, loff_t *ppos);
+	int (*release)(struct snd_dev_data *ddata, struct file *file);
+
 	/************end**************/
 	int (*init)(struct platform_device *pdev);
 	void (*shutdown)(struct platform_device *pdev);

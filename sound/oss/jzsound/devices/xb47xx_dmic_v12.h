@@ -145,5 +145,7 @@ enum {
 /*DMICFSR*/
 
 /*DMICCGDIS */
+extern int dmic_sleep_prepare(void);
+extern int dmic_wakeup_int_handler(void);
 
 #endif
