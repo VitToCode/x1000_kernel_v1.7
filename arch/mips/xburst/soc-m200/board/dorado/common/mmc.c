@@ -27,6 +27,7 @@ struct jzmmc_platform_data inand_pdata = {
 	.pm_flags			= 0,
 	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 	.gpio				= &mmc_card_gpio,
+	.type               = NONREMOVABLE,
 #ifdef CONFIG_MMC0_PIO_MODE
 	.pio_mode			= 1,
 #else

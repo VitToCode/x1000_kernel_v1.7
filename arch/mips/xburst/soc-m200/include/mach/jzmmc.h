@@ -4,6 +4,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/wakelock.h>
 
+#define MMC_BOOT_AREA_PROTECTED (0x1234)    /* Can not modified the area*/
+
 enum {
 	DONTCARE = 0,
 	NONREMOVABLE,
@@ -15,7 +17,7 @@ struct mmc_partition_info {
 	char				name[32];
 	unsigned int			saddr;
 	unsigned int			len;
-	int				type;
+	int				    type;
 };
 
 struct mmc_recovery_info {
@@ -64,6 +66,7 @@ struct jzmmc_platform_data {
 	struct card_gpio		*gpio;
 	unsigned int			pio_mode;
 	int				(*private_init)(void);
+	unsigned int type;
 };
 
 #define ENABLE_CLK32K     0x00000006
