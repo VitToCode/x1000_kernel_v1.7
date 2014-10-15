@@ -243,6 +243,7 @@ static void ax88796c_set_multicast (struct net_device *ndev)
 #endif
 
 	spin_lock_irqsave (&ax_local->isr_lock, flags);
+	spin_lock (&ax_local->tx_busy_q.lock);
 
 	power = ax88796c_check_power_state (ndev);
 
@@ -294,6 +295,7 @@ static void ax88796c_set_multicast (struct net_device *ndev)
 	if (power)
 		ax88796c_set_power_saving (ax_local->ndev, ax_local->ps_level);
 
+	spin_unlock (&ax_local->tx_busy_q.lock);
 	spin_unlock_irqrestore (&ax_local->isr_lock, flags);
 }
 

@@ -93,6 +93,7 @@ int ax88796c_mdio_read_phy (struct net_device *ndev, int phy_id, int loc)
 	void __iomem *ax_base = ax_local->membase;
 	u16 val;
 
+	spin_lock (&ax_local->tx_busy_q.lock);
 	AX_SELECT_PAGE (PAGE2, ax_base + PG_PSR);
 
 	AX_WRITE (MDIOCR_RADDR (loc) | MDIOCR_FADDR (phy_id) | MDIOCR_READ,
@@ -108,6 +109,7 @@ int ax88796c_mdio_read_phy (struct net_device *ndev, int phy_id, int loc)
 	val = AX_READ (P2_MDIODR + ax_base);
 
 	AX_SELECT_PAGE (PAGE0, ax_base + PG_PSR);
+	spin_unlock (&ax_local->tx_busy_q.lock);
 
 	return val;
 }
@@ -152,6 +154,8 @@ ax88796c_mdio_write_phy (struct net_device *ndev, int phy_id, int loc, int val)
 	void __iomem *ax_base = ax_local->membase;
 	unsigned long start_time;
 
+	spin_lock (&ax_local->tx_busy_q.lock);
+	
 	AX_SELECT_PAGE(PAGE2, ax_base + PG_PSR);
 
 	AX_WRITE (val, P2_MDIODR + ax_base);
@@ -181,6 +185,8 @@ ax88796c_mdio_write_phy (struct net_device *ndev, int phy_id, int loc, int val)
 	}
 
 	AX_SELECT_PAGE (PAGE0, ax_base + PG_PSR);
+
+	spin_unlock(&ax_local->tx_busy_q.lock);
 }
 
 /*
