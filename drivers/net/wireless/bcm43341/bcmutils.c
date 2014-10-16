@@ -1,26 +1,8 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c 380908 2013-01-24 12:26:18Z $
+ * $Copyright Open Broadcom Corporation$
+ * $Id: bcmutils.c 427979 2013-10-07 08:35:57Z $
  */
 
 #include <bcm_cfg.h>
@@ -1025,6 +1007,21 @@ bcm_ether_atoe(const char *p, struct ether_addr *ea)
 
 	return (i == 6);
 }
+
+int
+bcm_atoipv4(const char *p, struct ipv4_addr *ip)
+{
+
+	int i = 0;
+	char *c;
+	for (;;) {
+		ip->addr[i++] = (uint8)bcm_strtoul(p, &c, 0);
+		if (*c++ != '.' || i == IPV4_ADDR_LEN)
+			break;
+		p = c;
+	}
+	return (i == IPV4_ADDR_LEN);
+}
 #endif	/* !BCMROMOFFLOAD_EXCLUDE_BCMUTILS_FUNCS */
 
 
@@ -1176,7 +1173,29 @@ pktsetprio(void *pkt, bool update_vtag)
 	} else if (eh->ether_type == hton16(ETHER_TYPE_IP)) {
 		uint8 *ip_body = pktdata + sizeof(struct ether_header);
 		uint8 tos_tc = IP_TOS46(ip_body);
-		priority = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
+		uint8 dscp = tos_tc >> IPV4_TOS_DSCP_SHIFT;
+		switch (dscp) {
+		case DSCP_EF:
+			priority = PRIO_8021D_VO;
+			break;
+		case DSCP_AF31:
+		case DSCP_AF32:
+		case DSCP_AF33:
+			priority = PRIO_8021D_CL;
+			break;
+		case DSCP_AF21:
+		case DSCP_AF22:
+		case DSCP_AF23:
+		case DSCP_AF11:
+		case DSCP_AF12:
+		case DSCP_AF13:
+			priority = PRIO_8021D_EE;
+			break;
+		default:
+			priority = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
+			break;
+		}
+
 		rc |= PKTPRIO_DSCP;
 	}
 

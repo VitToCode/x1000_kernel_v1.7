@@ -659,11 +659,9 @@ static int bluesleep_write_proc_proto(struct file *file, const char *buffer,
 
 int bluesleep_suspend(struct platform_device *pdev, pm_message_t state)
 {
-
 	if (1 == bt_power_state) {
 		gpio_direction_output(bt_uart_rts, 1);
 	}
-
 	return 0;
 }
 
@@ -676,7 +674,6 @@ int bluesleep_resume(struct platform_device *pdev)
 #endif
 		schedule_delayed_work(&restore_work, HZ * 2);
 	}
-
 	return 0;
 }
 

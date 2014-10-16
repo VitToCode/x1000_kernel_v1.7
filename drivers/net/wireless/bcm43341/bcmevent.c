@@ -1,26 +1,8 @@
 /*
  * bcmevent read-only data shared by kernel or app layers
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 386716 2013-02-21 18:16:10Z $
+ * $Copyright Open Broadcom Corporation$
+ * $Id: bcmevent.c 431563 2013-10-24 01:50:16Z $
  */
 
 #include <typedefs.h>
@@ -29,7 +11,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 125
+#if WLC_E_LAST != 130
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -156,7 +138,7 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_GAS_FRAGMENT_RX, "GAS_FRAGMENT_RX" },
 	{ WLC_E_GAS_COMPLETE, "GAS_COMPLETE" },
 	{ WLC_E_P2PO_ADD_DEVICE, "P2PO_DEV_FOUND" },
-	{ WLC_E_P2PO_DEL_DEVICE, "P2PO_DEV_FOUND" },
+	{ WLC_E_P2PO_DEL_DEVICE, "P2PO_DEV_LOST" },
 #ifdef WLWNM
 	{ WLC_E_WNM_STA_SLEEP, "WMM_STA_SLEEP" },
 #endif /* WLWNM */
@@ -164,6 +146,10 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_PROXD, "WLC_E_PROXD" },
 #endif
 	{ WLC_E_CCA_CHAN_QUAL, "CCA_BASED_CHANNEL_QUALITY" },
+#ifdef SUPPORT_AIBSS
+	{ WLC_E_AIBSS_TXFAIL, "WLC_E_AIBSS_TXFAIL"},
+#endif /* SUPPORT_AIBSS */
+	{ WLC_E_CCX_S69_RESP_RX, "CCX_S69_RESPONSE"},
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

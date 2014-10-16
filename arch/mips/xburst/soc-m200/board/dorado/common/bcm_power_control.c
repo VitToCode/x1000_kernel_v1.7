@@ -82,12 +82,12 @@ static void restore_pin_status(int bt_power_state)
 				1 << (GPIO_BT_INT % 32));
 	}
 
+#endif
 	/*set UART0_RXD, UART0_CTS_N, UART0_RTS_N, UART0_TXD to FUNC*/
-	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0xF);
+	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_2, 0xF);
 
 	/*set PCM0_DO ,PCM0_CLK, PCM0_SYN ,PCM0_DI 4 pins to FUNC*/
-	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_1, 0xF << 12);
-#endif
+	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0xF << 12);
 }
 
 static struct bt_rfkill_platform_data  bt_gpio_data = {
@@ -162,6 +162,26 @@ extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 extern int bcm_power_on(void);
 extern int bcm_power_down(void);
+
+#ifdef CONFIG_BCM43341
+static struct resource wlan_resources[] = {
+	[0] = {
+		.start = WL_WAKE_HOST,
+		.end = WL_WAKE_HOST,
+		.name = "bcmdhd_wlan_irq",
+		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+	},
+};
+struct platform_device wlan_device = {
+	.name   = "bcmdhd_wlan",
+	.id     = 1,
+	.dev    = {
+		.platform_data = NULL,
+	},
+	.resource       = wlan_resources,
+	.num_resources  = ARRAY_SIZE(wlan_resources),
+};
+#endif /* CONFIG_BCM43341 */
 
 struct wifi_data {
 	struct wake_lock                wifi_wake_lock;
@@ -253,6 +273,10 @@ start:
 
 	switch(flag) {
 		case RESET:
+#ifdef WL_REG_EN
+			gpio_direction_output(wl_reg_on, 1);
+			msleep(200);
+#endif
 			jzmmc_clk_ctrl(1, 1);
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
@@ -307,6 +331,10 @@ start:
 		case RESET:
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
+#endif
+#ifdef WL_REG_EN
+			udelay(65);
+			gpio_direction_output(wl_reg_on,0);
 #endif
 			jzmmc_clk_ctrl(1, 0);
 			break;

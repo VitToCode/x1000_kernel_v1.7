@@ -188,7 +188,7 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 static inline void set_gpio_func(int gpio, int type) {
 	int i;
 	int port = gpio / 32;
-	int pin = BIT(gpio & 0x1f);
+	int pin = gpio & 0x1f;
 	int addr = 0xb0010010 + port * 0x100;
 
 	for(i = 0;i < 4;i++){

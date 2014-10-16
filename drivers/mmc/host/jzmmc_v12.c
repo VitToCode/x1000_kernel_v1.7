@@ -286,15 +286,15 @@ static inline int request_need_stop(struct mmc_request *mrq)
 static inline void jzmmc_clk_autoctrl(struct jzmmc_host *host, unsigned int on)
 {
 	if(on) {
-		if(clk_is_enabled(host->clk))
-			return;
-		clk_enable(host->clk);
-		clk_enable(host->clk_gate);
-	} else {
 		if(!clk_is_enabled(host->clk))
-			return;
-		clk_disable(host->clk);
-		clk_disable(host->clk_gate);
+			clk_enable(host->clk);
+		if(!clk_is_enabled(host->clk_gate))
+			clk_enable(host->clk_gate);
+	} else {
+		if(clk_is_enabled(host->clk_gate))
+			clk_disable(host->clk_gate);
+		if(clk_is_enabled(host->clk))
+			clk_disable(host->clk);
 	}
 }
 static inline int check_error_status(struct jzmmc_host *host, unsigned int status)
@@ -1120,15 +1120,13 @@ static void jzmmc_detect_change(unsigned long data)
 			 * spin_lock() here may case recursion,
 			 * so discard the clk operation.
 			 */
-			clk_enable(host->clk);
-			clk_enable(host->clk_gate);
+			jzmmc_clk_autoctrl(host, 1)
 #endif
 			mmc_detect_change(host->mmc, msecs_to_jiffies(1000));
 		}
 
 		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
-			clk_disable(host->clk_gate);
-			clk_disable(host->clk);
+			jzmmc_clk_autoctrl(host, 0);
 		}
 	}
 
@@ -1165,8 +1163,7 @@ int jzmmc_manual_detect(int index, int on)
 		dev_vdbg(host->dev, "card insert manually\n");
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 #ifdef CLK_CTRL
-		clk_enable(host->clk);
-		clk_enable(host->clk_gate);
+		jzmmc_clk_autoctrl(host, 1);
 #endif
 		mmc_detect_change(host->mmc, 0);
 
@@ -1175,8 +1172,7 @@ int jzmmc_manual_detect(int index, int on)
 		clear_bit(JZMMC_CARD_PRESENT, &host->flags);
 		mmc_detect_change(host->mmc, 0);
 #ifdef CLK_CTRL
-		clk_disable(host->clk_gate);
-		clk_disable(host->clk);
+		jzmmc_clk_autoctrl(host, 0);
 #endif
 	}
 
@@ -1207,16 +1203,7 @@ int jzmmc_clk_ctrl(int index, int on)
 		dev_err(host->dev, "no manual card detect\n");
 		return -1;
 	}
-
-	if (on) {
-		dev_vdbg(host->dev, "clk enable\n");
-		clk_enable(host->clk);
-		clk_enable(host->clk_gate);
-	} else {
-		dev_vdbg(host->dev, "clk disable\n");
-		clk_disable(host->clk_gate);
-		clk_disable(host->clk);
-	}
+	jzmmc_clk_autoctrl(host, on);
 #endif
 	return 0;
 }
@@ -1574,12 +1561,10 @@ static int __init jzmmc_dma_init(struct jzmmc_host *host)
 static int __init jzmmc_msc_init(struct jzmmc_host *host)
 {
 	int ret = 0;
-	clk_enable(host->clk);
-	clk_enable(host->clk_gate);
+	jzmmc_clk_autoctrl(host, 1);
 	jzmmc_reset(host);
 #ifdef CLK_CTRL
-	clk_disable(host->clk_gate);
-	clk_disable(host->clk);
+	jzmmc_clk_autoctrl(host, 0);
 #endif
 	host->cmdat_def = CMDAT_RTRG_EQUALT_16 |	\
 		CMDAT_TTRG_LESS_16 |			\
@@ -1645,8 +1630,7 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 				break;
 			}
 			tasklet_disable(&host->tasklet);
-			clk_enable(host->clk);
-			clk_enable(host->clk_gate);
+			jzmmc_clk_autoctrl(host, 1);
 			if(!timer_pending(&host->detect_timer)){
 				disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 				mod_timer(&host->detect_timer, jiffies);
@@ -1665,8 +1649,7 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		break;
 
 	default:
-		clk_enable(host->clk);
-		clk_enable(host->clk_gate);
+		jzmmc_clk_autoctrl(host, 1);
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 		break;
 	}
@@ -1730,6 +1713,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk)) {
 		return PTR_ERR(host->clk);
 	}
+//	jzmmc_clk_autoctrl(host, 1);
 	clk_set_rate(host->clk, 24000000);
 	if (clk_get_rate(host->clk) > 24000000)
 		goto err_clk_get_rate;
@@ -1776,7 +1760,8 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_sysfs_create;
 
-	jzmmc_clk_autoctrl(host, 0);
+	dev_info(host->dev, "register success!\n");
+	jzmmc_clk_autoctrl(host, 1);
 	return 0;
 
 err_sysfs_create:
@@ -1815,8 +1800,7 @@ static int __exit jzmmc_remove(struct platform_device *pdev)
 	jzmmc_gpio_deinit(host);
 	iounmap(host->decshds[0].dma_desc);
 	regulator_put(host->power);
-	clk_disable(host->clk);
-	clk_disable(host->clk_gate);
+	jzmmc_clk_autoctrl(host, 0);
 
 	clk_put(host->clk);
 	clk_put(host->clk_gate);
@@ -1834,10 +1818,10 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 		ret = mmc_suspend_host(host->mmc);
 
-		if(clk_is_enabled(host->clk)) {
-			clk_disable(host->clk);
-			clk_disable(host->clk_gate);
-		}
+		/* if(clk_is_enabled(host->clk)) { */
+		/* 	clk_disable(host->clk); */
+		/* 	clk_disable(host->clk_gate); */
+		/* } */
 	}
 	return ret;
 }
@@ -1849,11 +1833,11 @@ static int jzmmc_resume(struct platform_device *dev)
 
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 
-		if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
-			clk_enable(host->clk);
-			clk_enable(host->clk_gate);
-			jzmmc_reset(host);
-		}
+		/* if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) { */
+		/* 	clk_enable(host->clk); */
+		/* 	clk_enable(host->clk_gate); */
+		/* 	jzmmc_reset(host); */
+		/* } */
 		ret = mmc_resume_host(host->mmc);
 	}
 	return ret;
