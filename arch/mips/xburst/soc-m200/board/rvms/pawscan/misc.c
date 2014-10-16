@@ -20,6 +20,10 @@
 #include "board.h"
 #include <mach/jz_dsim.h>
 
+#ifdef CONFIG_SENSORS_EM7180
+#define EM7180_NAME	"em7180"
+#endif
+
 #ifdef CONFIG_MISC_BMA250E
 #include <linux/i2c/bma250e.h>
 #endif
@@ -120,6 +124,12 @@ struct bma250_platform_data bma250e_pdata = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V12))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
+#ifdef CONFIG_SENSORS_EM7180
+	{
+		I2C_BOARD_INFO(EM7180_NAME, 0x28),
+	},
+#endif
+
 #ifdef CONFIG_MISC_BMA250E
 	{
 		I2C_BOARD_INFO("bma250e-misc", 0x19),

@@ -40,6 +40,10 @@ config SENSORS_BMA250E
 	depends on GSENSOR
 	help
 
+config SENSORS_EM7180
+	bool "EM7180 sensor"
+	depends on GSENSOR
+	help
 
 config SENSORS_ORI
 	tristate "g_sensor orientation driver"
