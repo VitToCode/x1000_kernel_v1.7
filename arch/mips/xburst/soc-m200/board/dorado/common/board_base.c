@@ -96,8 +96,12 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_CHARGER_LI_ION
 	DEF_DEVICE(&jz_li_ion_charger_device, 0, 0),
 #endif
+#if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
+	DEF_DEVICE(&jz_vpu0_device, 0, 0),
+#else
 #ifdef CONFIG_JZ_VPU_V12
 	DEF_DEVICE(&jz_vpu_device, 0, 0),
+#endif
 #endif
 #ifdef CONFIG_BCM_PM_CORE
 	DEF_DEVICE(&bcm_power_platform_device, 0, 0),

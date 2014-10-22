@@ -499,7 +499,7 @@ static long soc_vpu_release(struct soc_channel *sc, struct channel_node *cnode)
 		vlist = list_entry(cnode->vlist, struct vpu_list, list);
 		vpu = list_entry(vlist->vlist, struct vpu, vlist);
 		soc_vpu_release_internal(sc, vlist);
-		if ((cnode->workphase == CLOSE) && (--vlist->user_cnt == 0)) {
+		if ((cnode->workphase == CLOSE) && ((vlist->user_cnt > 0) && (--vlist->user_cnt == 0))) {
 			if (vpu->ops->release) {
 				vpu->ops->release(vpu->dev);
 			}
@@ -1015,26 +1015,27 @@ static int soc_channel_vpu_release(struct inode *inode, struct file *file)
 	bool last_release = false;
 	int i = 0;
 
+	spin_lock_irqsave(&sc->cnt_slock, scflag);
+	if (--sc->user_cnt  == 0) {
+		last_release = true;
+	}
+	spin_unlock_irqrestore(&sc->cnt_slock, scflag);
+
 	for (i = 0; i < vpu_node_num; i++) {
-		if ((vpu_list[i].task == current) && (vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) {
+		if (((vpu_list[i].task == current) && (vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) || (last_release == true)) {
 			struct vpu *vpu = list_entry(vpu_list[i].vlist, struct vpu, vlist);
 			soc_vpu_release_internal(sc, &vpu_list[i]);
-			if (vpu->ops->release) {
+			if (((vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) && (vpu->ops->release)) {
 				vpu->ops->release(vpu->dev);
 			}
 		}
 	}
 
 	for (i = 0; i < CONFIG_CHANNEL_NODE_NUM; i++) {
-		if (channel_list[i].task == current) {
+		if ((channel_list[i].task == current) || (last_release == true)) {
 			soc_channel_release_internal(sc, &channel_list[i]);
 		}
 	}
-	spin_lock_irqsave(&sc->cnt_slock, scflag);
-	if (--sc->user_cnt  == 0) {
-		last_release = true;
-	}
-	spin_unlock_irqrestore(&sc->cnt_slock, scflag);
 
 	if (last_release == true) {
 		// todo
