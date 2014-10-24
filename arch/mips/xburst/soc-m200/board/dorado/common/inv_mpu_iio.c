@@ -2,6 +2,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
 #include <linux/inv_mpu.h>
+#include <linux/delay.h>
 #include "board_base.h"
 
 static struct regulator *inv_mpu_power_vdd = NULL;
