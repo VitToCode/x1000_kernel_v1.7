@@ -88,7 +88,9 @@ static int inv_mpu_power_on(void)
 			res = -ENODEV;
 			goto err_vio;
 		}
-
+#ifdef CONFIG_GPIO_PCA953X
+		msleep(200);
+#endif
 		atomic_set(&inv_mpu_powered, 1);
 	}
 	return 0;
