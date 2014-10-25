@@ -9,9 +9,13 @@ config BOARD_FORNAX
 config BOARD_PAWSCAN
        bool "board pawscan"
        depends on PRODUCT_RVMS
+config BOARD_DOORBELL
+       bool "board doorbell"
+       depends on PRODUCT_RVMS
 endchoice
 
 config BOARD_NAME
 	string
 	default "fornax" if BOARD_FORNAX
 	default "pawscan" if BOARD_PAWSCAN
+	default "doorbell" if BOARD_DOORBELL
