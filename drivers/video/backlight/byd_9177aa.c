@@ -70,12 +70,8 @@ static void byd_9177aa_regulator_enable(struct byd_9177aa *lcd)
 
 	pd = lcd->ddi_pd;
 	mutex_lock(&lcd->lock);
-	if (!lcd->enabled) {
-		regulator_enable(lcd->lcd_vcc_reg);
-		if (ret)
-			goto out;
-
-		lcd->enabled = true;
+	if(!regulator_is_enabled(lcd->lcd_vcc_reg)) {
+		//regulator_enable(lcd->lcd_vcc_reg);
 	}
 	msleep(pd->power_on_delay);
 out:
@@ -87,12 +83,8 @@ static void byd_9177aa_regulator_disable(struct byd_9177aa *lcd)
 	int ret = 0;
 
 	mutex_lock(&lcd->lock);
-	if (lcd->enabled) {
-		regulator_disable(lcd->lcd_vcc_reg);
-		if (ret)
-			goto out;
-
-		lcd->enabled = false;
+	if(regulator_is_enabled(lcd->lcd_vcc_reg)) {
+		//regulator_disable(lcd->lcd_vcc_reg);
 	}
 out:
 	mutex_unlock(&lcd->lock);
@@ -260,6 +252,9 @@ static int byd_9177aa_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 	byd_9177aa_sleep_in(lcd);
 	msleep(lcd->ddi_pd->power_off_delay);
 	byd_9177aa_display_off(lcd);
+
+	if (lcd->ddi_pd->power_on)
+		lcd->ddi_pd->power_on(lcd->ld, 0);
 
 	byd_9177aa_regulator_disable(lcd);
 
