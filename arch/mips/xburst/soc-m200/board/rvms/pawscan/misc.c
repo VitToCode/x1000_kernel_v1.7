@@ -21,7 +21,7 @@
 #include <mach/jz_dsim.h>
 
 #ifdef CONFIG_SENSORS_EM7180
-#define EM7180_NAME	"em7180"
+#include <linux/i2c/em7180.h>
 #endif
 
 #ifdef CONFIG_MISC_BMA250E
@@ -155,7 +155,7 @@ static struct i2c_board_info jz_i2c1_devs[] __initdata = {
 		.sda_pin	= GPIO_I2C_SDA,				\
 		.scl_pin	= GPIO_I2C_SCK,				\
 	};								\
-	static struct platform_device i2c##NO##_gpio_device = {     	\
+	static struct platform_device i2c##NO##_gpio_device = {	    	\
 		.name	= "i2c-gpio",					\
 		.id	= NO,						\
 		.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
