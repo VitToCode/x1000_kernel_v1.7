@@ -15,6 +15,7 @@ struct channel_node {
 	struct list_head	*clist;	/* channel list node */
 	struct list_head	*vlist;	/* vpu list node */
 	unsigned int		mdelay;	/* delay num ms when request channel or vpu */
+	unsigned int		channel_id; /* requested channel id which is used to set thread id */
 	unsigned int		vpu_id; /* request vpu id */
 	enum workphase		workphase; /* need be set accoding to you work */
 	unsigned int		status;	/* vpu finish status */

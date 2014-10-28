@@ -348,6 +348,7 @@ static long soc_channel_request(struct soc_channel *sc, long usr_arg)
 		clist->tlb_pidmanager = NULL;
 		clist->phase = REQUEST_CHANNEL;
 		clist->task = current;
+		cnode.channel_id = clist->id;
 		spin_unlock_irqrestore(&clist->slock, clflag);
 
 		if (copy_to_user((void *)usr_arg, &cnode, sizeof(struct channel_node))) {
@@ -1165,6 +1166,7 @@ static int __init soc_channel_init(void)
 	for (i = 0; i < CONFIG_CHANNEL_NODE_NUM; i++) {
 		list_add_tail(&channel_list[i].list, &fclist->fclist_head);
 		complete(&fclist->cdone);
+		channel_list[i].id = i;
 		channel_list[i].phase = INIT_CHANNEL;
 		channel_list[i].task = NULL;
 		spin_lock_init(&channel_list[i].slock);

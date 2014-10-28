@@ -11,7 +11,7 @@
 
 #include "soc_vpu.h"
 #include "jz_nvpu.h"
-#include "jz4785_vpu.h"
+#include "jzm_vpu.h"
 
 #define MAX_LOCK_DEPTH		999
 

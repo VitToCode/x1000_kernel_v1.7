@@ -6,15 +6,14 @@
 /****************************************************************
   VPU register map
 *****************************************************************/
-
 #ifdef JZM_HUNT_SIM
-# include "hunt.h"
+#include "hunt.h"
 #else
-# define __place_k0_data__
-# define __place_k0_text__
+#define __place_k0_data__
+#define __place_k0_text__
 #endif
 
-//#define VPU_BASE             0x13200000
+#define VPU_BASE             0x13200000
 
 #define	HID_SCH	             0x0
 #define	HID_VDMA	     0x1
@@ -33,30 +32,20 @@
 //#define MSCOPE_START(mbnum)  write_reg(VPU_BASE+0x24, mbnum)
 //#define MSCOPE_STOP()        write_reg(VPU_BASE+0x28, 0)
 
-#define CPM_VPU_SWRST    (cpm_base + 0xC4)
-#define CPM_VPU_SR     	 (0x1<<31)
-#define CPM_VPU_STP    	 (0x1<<30)
-#define CPM_VPU_ACK    	 (0x1<<29)
-
-#define write_cpm_reg(a)    (*(volatile unsigned int *)(CPM_VPU_SWRST) = a)
-#define read_cpm_reg()      (*(volatile unsigned int *)(CPM_VPU_SWRST))
-
-#define RST_VPU()            \
-{\
-     write_cpm_reg(read_cpm_reg() | CPM_VPU_STP); \
-     while( !(read_cpm_reg() & CPM_VPU_ACK) );  \
-     write_cpm_reg( (read_cpm_reg() | CPM_VPU_SR) & (~CPM_VPU_STP) ); \
-     write_cpm_reg( read_cpm_reg() & (~CPM_VPU_SR) & (~CPM_VPU_STP) ); \
-}
-
 /********************************************
   SCH (Scheduler)
 *********************************************/
 #define TCSM_FLUSH           0xc0000
 #define REG_SCH_GLBC         0x00000
 #define SCH_GLBC_SLDE        (0x1<<31)
-#define SCH_GLBC_TLBE        (0x1<<30)
-#define SCH_GLBC_TLBINV      (0x1<<29)
+#define SCH_TLBE_JPGC       (0x1<<26)
+#define SCH_TLBE_DBLK       (0x1<<25)
+#define SCH_TLBE_SDE        (0x1<<24)
+#define SCH_TLBE_EFE        (0x1<<23)
+#define SCH_TLBE_VDMA       (0x1<<22)
+#define SCH_TLBE_MCE        (0x1<<21)
+#define SCH_GLBC_TLBE       (0x1<<30)
+#define SCH_GLBC_TLBINV     (0x1<<29)
 #define SCH_INTE_ACFGERR     (0x1<<20)
 #define SCH_INTE_TLBERR      (0x1<<18)
 #define SCH_INTE_BSERR       (0x1<<17)
@@ -67,8 +56,21 @@
 #define SCH_GLBC_EPRI1       (0x1<<7)
 #define SCH_GLBC_EPRI2       (0x2<<7)
 #define SCH_GLBC_EPRI3       (0x3<<7)
+#define SCH_INTE_MASK	     (0x1f << 16)
 
 #define REG_SCH_TLBA         0x00030
+
+#define REG_SCH_TLBC        0x00050
+#define SCH_TLBC_VPN        (0xFFFFF000)
+#define SCH_TLBC_RIDX(idx)  (((idx) & 0xFF)<<4)
+#define SCH_TLBC_INVLD      (0x1<<1)
+#define SCH_TLBC_RETRY      (0x1<<0)
+
+#define REG_SCH_TLBV        0x00054
+#define SCH_TLBV_CNM(cnm)   (((cnm) & 0xFFF)<<16)
+#define SCH_TLBV_GCN(gcn)   (((gcn) & 0xFFF)<<0)
+#define SCH_TLBV_RCI_MC     (0x1<<30)
+#define SCH_TLBV_RCI_EFE    (0x1<<31)
 
 #define REG_SCH_STAT         0x00034
 
@@ -120,10 +122,10 @@
 #define REG_SCH_SCHE3        0x00078
 #define REG_SCH_SCHE4        0x0007C
 
-#define DSA_SCH_CH1          (/*VPU_BASE | */REG_SCH_SCHE1)
-#define DSA_SCH_CH2          (/*VPU_BASE | */REG_SCH_SCHE2)
-#define DSA_SCH_CH3          (/*VPU_BASE | */REG_SCH_SCHE3)
-#define DSA_SCH_CH4          (/*VPU_BASE | */REG_SCH_SCHE4)
+#define DSA_SCH_CH1          (VPU_BASE | REG_SCH_SCHE1)
+#define DSA_SCH_CH2          (VPU_BASE | REG_SCH_SCHE2)
+#define DSA_SCH_CH3          (VPU_BASE | REG_SCH_SCHE3)
+#define DSA_SCH_CH4          (VPU_BASE | REG_SCH_SCHE4)
 
 /********************************************
   VDMA (VPU general-purpose DMA)
@@ -162,12 +164,21 @@
   EFE (Encoder Front End)
 *********************************************/
 #define REG_EFE_CTRL         0x40000
-#define EFE_BP_MBY(mb)       (((mb) & 0xFF)<<24)
-#define EFE_BP_MBX(mb)       (((mb) & 0xFF)<<16)
+#define EFE_TSE(en)          (((en) & 0x1)<<31)
+#define EFE_FMVP(en)         (((en) & 0x1)<<30)
+#define EFE_ID_X264          (0x0<<14)
+#define EFE_ID_JPEG          (0x1<<14)
+#define EFE_ID_VP8           (0x2<<14)
 #define EFE_X264_QP(qp)      (((qp) & 0x3F)<<8)
+#define EFE_VP8_QTB(qtb)     (((qtb) & 0x7f)<<22)
+#define EFE_VP8_QIDX(qp)     (((qp) & 0x3F)<<8)
+#define EFE_VP8_LF(lf)       ((lf & 0x3F)<<16)
 #define EFE_DBLK_EN          (0x1<<5)
 #define EFE_SLICE_TYPE(a)    (((a) & 0x1)<<4)
-#define EFE_DEBUG_EN         (0x1<<2)
+#define EFE_PLANE_TILE       (0x0<<2)
+#define EFE_PLANE_420P       (0x1<<2)
+#define EFE_PLANE_NV12       (0x2<<2)
+#define EFE_PLANE_NV21       (0x3<<2)
 #define EFE_EN               (0x1<<1)
 #define EFE_RUN              (0x1<<0)
 
@@ -176,10 +187,13 @@
 #define EFE_FST_MBX(mb)      (((0/*FIXME*/) & 0xFF)<<16)
 #define EFE_LST_MBY(mb)      (((mb) & 0xFF)<<8)
 #define EFE_LST_MBX(mb)      (((mb) & 0xFF)<<0)
+#define EFE_JPGC_LST_MBY(mb) (((mb) & 0xFFFF)<<16)
+#define EFE_JPGC_LST_MBX(mb) ((mb) & 0xFFFF)
 
 #define REG_EFE_COEF_BA      0x4000C
 #define REG_EFE_RAWY_SBA     0x40010
 #define REG_EFE_RAWC_SBA     0x40014
+#define REG_EFE_RAWU_SBA     0x40014
 #define REG_EFE_TOPMV_BA     0x40018
 #define REG_EFE_TOPPA_BA     0x4001C
 #define REG_EFE_MECHN_BA     0x40020
@@ -187,7 +201,35 @@
 #define REG_EFE_DBLKCHN_BA   0x40028
 #define REG_EFE_SDECHN_BA    0x4002C
 #define REG_EFE_RAW_DBA      0x40030
+#define REG_EFE_RAWV_SBA     0x40034
+
+#define REG_EFE_ROI_MAX_QP       0x40040
+#define REG_EFE_ROI_BASE_INFO0   0x40044
+#define REG_EFE_ROI_BASE_INFO1   0x40048
+#define REG_EFE_ROI_POS_INFO0    0x4004C
+#define REG_EFE_ROI_POS_INFO1    0x40050
+#define REG_EFE_ROI_POS_INFO2    0x40054
+#define REG_EFE_ROI_POS_INFO3    0x40058
+#define REG_EFE_ROI_POS_INFO4    0x4005C
+#define REG_EFE_ROI_POS_INFO5    0x40060
+#define REG_EFE_ROI_POS_INFO6    0x40064
+#define REG_EFE_ROI_POS_INFO7    0x40068
+#define REG_EFE_RAW_STRD     0x40038
+#define EFE_RAW_STRDY(y)     (((y) & 0xFFFF)<<16)
+#define EFE_RAW_STRDC(c)     (((c) & 0xFFFF)<<0)
+
+#define REG_EFE_DBG_INFO     0x4003C
+#define EFE_DBG_EN           (0x1<<31)
+#define EFE_DBG_BP_MBX(x)    (((x) & 0xFFF)<<0)
+#define EFE_DBG_BP_MBY(y)    (((y) & 0xFFF)<<16)
+
 #define REG_EFE_MVRP         0x40100
+#define REG_EFE_SSAD         0x40108
+#define REG_EFE_DCS          0x4010C
+#define EFE_DCS_CLR(th)      (0x1<<(th & 0xF))
+#define EFE_DCS_EN(en)       (((en) & 0x1)<<16)
+#define EFE_DCS_RT(rt)       (((rt) & 0xF)<<20)
+#define EFE_DCS_OTH(oth)     (((oth) & 0xF)<<24)
 #define REG_EFE_STAT         0x40110
 
 /********************************************
@@ -201,6 +243,7 @@
 #define MCE_ESTI_HPEL        (0x2<<20)
 #define MCE_ESTI_QPEL        (0x3<<20)
 #define MCE_ESTI_PUT_MET     (0x1<<19)
+#define MCE_ESTI_RDO_EN      (0x1<<18)
 #define MCE_COMP_AUTO_EXPD   (0x1<<17)
 #define MCE_CH2_EN           (0x1<<11)
 #define MCE_CLKG_EN          (0x1<<8)
@@ -218,6 +261,13 @@
 
 #define REG_MCE_MVPA         0x5000C
 #define REG_MCE_IWTA         0x5000C
+
+#define REG_MCE_RAWA         0x50010
+
+#define REG_MCE_MVINFO       0x50014
+
+#define REG_MCE_CH1_DSTA     0x5001C
+#define REG_MCE_CH2_DSTA     0x5081C
 
 #define REG_MCE_CH1_PINFO    0x50020
 #define REG_MCE_CH2_PINFO    0x50820
@@ -328,6 +378,9 @@
   ((fsce) & 0x1)<<1 |                                    \
   ((fsse) & 0x1)<<0                                      \
 )
+#define MCE_TSE(en)          (((en) & 0x1)<<2)
+
+#define REG_MCE_ECOST        0x5007C
 
 #define REG_MCE_CH1_RLUT     0x50300
 #define REG_MCE_CH2_RLUT     0x50B00
@@ -455,6 +508,7 @@
 #define VMAU_FMT_VP8         0x6
 #define VMAU_MODE_DEC        (0x0<<11)
 #define VMAU_MODE_ENC        (0x1<<11)
+#define VMAU_TSE(en)         (((en) & 0x1)<<31)
 
 #define REG_VMAU_Y_GS        0x80054
 
@@ -473,6 +527,7 @@
 #define REG_VMAU_DEC_VADDR   0x80070
 
 #define REG_VMAU_DEC_STR     0x80074
+#define REG_VMAU_DEADZONE    0x80078
 
 #define REG_VMAU_MEML        0x84000
 #define REG_VMAU_QT          0x88000
@@ -585,6 +640,7 @@
 #define SDE_FMT_VP8_DEC      (0x1<<2)
 #define SDE_FMT_VC1_DEC      (0x1<<3)
 #define SDE_FMT_MPEG2_DEC    (0x1<<4)
+#define SDE_FMT_VP8_ENC      (0x1<<5)
 
 #define REG_SDE_CFG0         0x90014
 #define REG_SDE_CFG1         0x90018
@@ -609,8 +665,6 @@
 /****************************************************************
   JPGC (jpeg codec)
 *****************************************************************/
-#define REG_JPGC_V_BASE      0xE0000
-
 #define REG_JPGC_TRIG        0xE0000
 #define REG_JPGC_GLBI        0xE0004
 #define REG_JPGC_STAT        0xE0008
@@ -638,10 +692,15 @@
 #define JPGC_BS_TRIG        (0x1<<1)
 #define JPGC_PP_TRIG        (0x1<<2)
 #define JPGC_TERM           (0x1<<3)
+#define JPGC_RSTER_MD       (0x1<<8)
 
 /****************************************************************
-  MC Interpolation defines
+  VPU tables
 *****************************************************************/
+
+/********************************************
+  Motion interpolation programable table
+*********************************************/
 #define IS_SKIRT  0
 #define IS_MIRROR 1
 
@@ -665,21 +724,6 @@
 
 #define INTP_HDIR  0
 #define INTP_VDIR  1
-
-typedef struct IntpFMT_t{
-  char tap;
-  char intp_pkg[2];
-  char hldgl;
-  char avsdgl;
-  char intp[2];
-  char intp_dir[2];
-  char intp_coef[2][8];
-  char intp_rnd[2];
-  char intp_sft[2];
-  char intp_sintp[2];
-  char intp_srnd[2];
-  char intp_sbias[2];
-}IntpFMT_t;
 
 enum IntpID {
   MPEG_HPEL = 0,
@@ -731,8 +775,19 @@ enum SPelSFT {
   EPEL,
 };
 
-extern char AryFMT[];
-extern char SubPel[];
-extern IntpFMT_t IntpFMT[][16];
+typedef struct IntpFMT_t{
+  char tap;
+  char intp_pkg[2];
+  char hldgl;
+  char avsdgl;
+  char intp[2];
+  char intp_dir[2];
+  char intp_coef[2][8];
+  char intp_rnd[2];
+  char intp_sft[2];
+  char intp_sintp[2];
+  char intp_srnd[2];
+  char intp_sbias[2];
+}IntpFMT_t;
 
 #endif /*__JZM_VPU_H__*/

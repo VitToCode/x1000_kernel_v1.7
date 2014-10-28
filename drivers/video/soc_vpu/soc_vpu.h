@@ -35,6 +35,7 @@ struct channel_tlb_pidmanager {
 
 struct channel_list {
 	struct list_head		list;
+	int				id;
 	enum channel_phase		phase;
 	spinlock_t			slock;
 	struct task_struct		*task;		/* current task structure */
