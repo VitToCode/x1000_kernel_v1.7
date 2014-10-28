@@ -47,8 +47,13 @@ static struct ovisp_camera_format isp_oformats[] = {
 		.depth	  = 8,
 	},
 	{
-		.name	  ="RAW10",
+		.name	  ="RAW10 (BGGR)",
 		.fourcc	  = V4L2_PIX_FMT_SBGGR10,
+		.depth	  = 16,
+	},
+	{
+		.name	  ="RAW10 (GRBG)",
+		.fourcc	  = V4L2_PIX_FMT_SGRBG10,
 		.depth	  = 16,
 	}
 };

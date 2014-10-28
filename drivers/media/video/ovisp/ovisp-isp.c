@@ -1759,10 +1759,6 @@ static int isp_start_capture(struct isp_device *isp, struct isp_capture *cap)
 	isp_intc_enable(isp, MASK_INT_MAC);
 	isp_intc_enable(isp, MASK_INT_CMDSET);
 	isp_intc_enable(isp, MASK_ISP_INT_EOF);
-	isp_intc_enable(isp, 1 << 9);
-	isp_intc_enable(isp, 1 << 11);
-	isp_intc_enable(isp, 1 << 3);
-	isp_intc_enable(isp, 1 << 14);
 	isp_mac_int_unmask(isp,
 			MASK_INT_WRITE_DONE0 | MASK_INT_WRITE_DONE1 |
 			MASK_INT_OVERFLOW0 | MASK_INT_OVERFLOW1 |
