@@ -9,6 +9,11 @@ enum workphase {
 	CLOSE,
 };
 
+enum codecdir {
+	ENCODER_DIR = 0,
+	DECODER_DIR,
+};
+
 #define RANDOM_ID	(-1)
 
 struct channel_node {
@@ -17,6 +22,7 @@ struct channel_node {
 	unsigned int		mdelay;	/* delay num ms when request channel or vpu */
 	unsigned int		channel_id; /* requested channel id which is used to set thread id */
 	unsigned int		vpu_id; /* request vpu id */
+	unsigned int		codecdir; /* encoder(jpeg or h264 compress) or decoder request */
 	enum workphase		workphase; /* need be set accoding to you work */
 	unsigned int		status;	/* vpu finish status */
 	unsigned int		output_len; /* vpu finish status */

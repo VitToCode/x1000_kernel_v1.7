@@ -15,6 +15,18 @@
 
 #define MAX_LOCK_DEPTH		999
 
+#define CLEAR_VPU_BIT(vpu,offset,bm)				\
+	do {							\
+		unsigned int stat;				\
+		stat = vpu_readl(vpu,offset);			\
+		vpu_writel(vpu,offset,stat & ~(bm));		\
+	} while(0)
+
+#define check_vpu_status(STAT, fmt, args...) do {		\
+		if(vpu_stat & STAT)				\
+			dev_err(vpu->vpu.dev, fmt, ##args);	\
+	}while(0)
+
 struct jz_vpu {
 	struct vpu		vpu;
 	char			name[16];
@@ -170,17 +182,16 @@ static long vpu_start_vpu(struct device *dev, const struct channel_node * const 
 				| SCH_TLBE_SDE | SCH_TLBE_EFE | SCH_TLBE_VDMA | SCH_TLBE_MCE
 				| SCH_INTE_ACFGERR | SCH_INTE_TLBERR | SCH_INTE_BSERR
 				| SCH_INTE_ENDF);
-		vpu_writel(vpu, REG_SCH_TLBC, SCH_TLBC_INVLD);
-		vpu_writel(vpu, REG_SCH_TLBV, SCH_TLBV_CNM(0x00) | SCH_TLBV_GCN(0x00));
+		vpu_writel(vpu, REG_SCH_TLBC, SCH_TLBC_INVLD | SCH_TLBC_RETRY);
+		vpu_writel(vpu, REG_SCH_TLBV, SCH_TLBV_RCI_MC | SCH_TLBV_RCI_EFE |
+				SCH_TLBV_CNM(0x00) | SCH_TLBV_GCN(0x00));
 		vpu_writel(vpu, REG_SCH_TLBA, clist->tlb_pidmanager->tlbbase);
-		vpu_writel(vpu, REG_VDMA_TASKRG, VDMA_ACFG_DHA(cnode->dma_addr)
-				| VDMA_ACFG_RUN);
 	} else {
 		vpu_writel(vpu, REG_SCH_GLBC, SCH_GLBC_HIAXI | SCH_INTE_ACFGERR
 				| SCH_INTE_BSERR | SCH_INTE_ENDF);
-		vpu_writel(vpu, REG_VDMA_TASKRG, VDMA_ACFG_DHA(cnode->dma_addr)
-				| VDMA_ACFG_RUN);
 	}
+	vpu_writel(vpu, REG_VDMA_TASKRG, VDMA_ACFG_DHA(cnode->dma_addr)
+			| VDMA_ACFG_RUN);
 
 	//printk("cnode->dma_addr = %x, vpu->iomem = %p, clist->tlb_flag = %d\n", cnode->dma_addr, vpu->iomem, clist->tlb_flag);
 #ifdef DUMP_VPU_REG
@@ -202,6 +213,10 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 	ret = wait_for_completion_interruptible_timeout(&vpu->done, msecs_to_jiffies(cnode->mdelay));
 	if (ret > 0) {
 		ret = 0;
+		if (cnode->codecdir == ENCODER_DIR) {
+			CLEAR_VPU_BIT(vpu, REG_VPU_SDE_STAT, SDE_STAT_BSEND);
+			CLEAR_VPU_BIT(vpu, REG_VPU_DBLK_STAT, DBLK_STAT_DOEND);
+		}
 		dev_dbg(vpu->vpu.dev, "[%d:%d] wait complete\n", current->tgid, current->pid);
 	} else {
 		dev_warn(dev, "[%d:%d] wait_for_completion timeout\n", current->tgid, current->pid);
@@ -268,19 +283,6 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 	unsigned long vflag = 0;
 
 	vpu_stat = vpu_readl(vpu,REG_VPU_STAT);
-
-#define CLEAR_VPU_BIT(vpu,offset,bm)				\
-	do {							\
-		unsigned int stat;				\
-		stat = vpu_readl(vpu,offset);			\
-		vpu_writel(vpu,offset,stat & ~(bm));		\
-	} while(0)
-
-#define check_vpu_status(STAT, fmt, args...) do {	\
-		if(vpu_stat & STAT)			\
-			dev_err(vpu->vpu.dev, fmt, ##args);	\
-	}while(0)
-
 
 	spin_lock_irqsave(&vpu->slock, vflag);
 	CLEAR_VPU_BIT(vpu, REG_SCH_GLBC, SCH_INTE_MASK);
