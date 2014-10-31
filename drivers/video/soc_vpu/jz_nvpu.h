@@ -74,19 +74,37 @@ typedef struct _H264E_SliceInfo {
 #define REG_VPU_AUX_STAT  0xA0010
 #define AUX_STAT_MIRQP   (0x1<<0)
 
+#define REG_VPU_LOCK		(0x9004c)
+#define VPU_LOCK_END_FLAG	(1<<31)
+#define VPU_LOCK_WAIT_OK	(1<<30)
+#define VPU_LOCK_END		(1<<0)
+
 #define vpu_readl(vpu, offset)		__raw_readl((vpu)->iomem + offset)
 #define vpu_writel(vpu, offset, value)	__raw_writel((value), (vpu)->iomem + offset)
 
-/* we add them to wait for vpu end before suspend */
-#define VPU_NEED_WAIT_END_FLAG 0x80000000
-#define VPU_WAIT_OK 0x40000000
-#define VPU_END 0x1
+#define CPM_VPU_SR(ID)		(31-3*(ID))
+#define CPM_VPU_STP(ID)		(30-3*(ID))
+#define CPM_VPU_ACK(ID)		(29-3*(ID))
 
-#define REG_VPU_STATUS ( *(volatile unsigned int*)0xb3200034 )
-#define REG_VPU_LOCK ( *(volatile unsigned int*)0xb329004c )
-#define REG_VPUCDR ( *(volatile unsigned int*)0xb0000030 )
-#define REG_CPM_VPU_SWRST ( *(volatile unsigned int*)0xb00000c4 )
-#define CPM_VPU_SR           (0x1<<31)
-#define CPM_VPU_STP          (0x1<<30)
-#define CPM_VPU_ACK          (0x1<<29)
+#define MAX_LOCK_DEPTH		999
+
+#define CLEAR_VPU_BIT(vpu,offset,bm)				\
+	do {							\
+		unsigned int stat;				\
+		stat = vpu_readl(vpu,offset);			\
+		vpu_writel(vpu,offset,stat & ~(bm));		\
+	} while(0)
+
+#define SET_VPU_BIT(vpu,offset,bm)				\
+	do {							\
+		unsigned int stat;				\
+		stat = vpu_readl(vpu,offset);			\
+		vpu_writel(vpu,offset,stat | (bm));		\
+	} while(0)
+
+#define check_vpu_status(STAT, fmt, args...) do {		\
+		if(vpu_stat & STAT)				\
+			dev_err(vpu->vpu.dev, fmt, ##args);	\
+	}while(0)
+
 #endif	/* __JZ_VPU_H__ */

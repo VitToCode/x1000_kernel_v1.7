@@ -13,20 +13,6 @@
 #include "jz_nvpu.h"
 #include "jzm_vpu.h"
 
-#define MAX_LOCK_DEPTH		999
-
-#define CLEAR_VPU_BIT(vpu,offset,bm)				\
-	do {							\
-		unsigned int stat;				\
-		stat = vpu_readl(vpu,offset);			\
-		vpu_writel(vpu,offset,stat & ~(bm));		\
-	} while(0)
-
-#define check_vpu_status(STAT, fmt, args...) do {		\
-		if(vpu_stat & STAT)				\
-			dev_err(vpu->vpu.dev, fmt, ##args);	\
-	}while(0)
-
 struct jz_vpu {
 	struct vpu		vpu;
 	char			name[16];
@@ -49,8 +35,13 @@ static long vpu_reset(struct device *dev)
 	int timeout = 0xffffff;
 	unsigned int srbc = cpm_inl(CPM_SRBC);
 
-	cpm_set_bit(30, CPM_SRBC);
-	while (!(cpm_inl(CPM_SRBC) & (1 << 29)) && --timeout);
+	cpm_set_bit(CPM_VPU_STP(vpu->vpu.id), CPM_SRBC);
+#ifdef CONFIG_BOARD_T10_FPGA
+	timeout = 0x7fffffff;
+	while (!(cpm_inl(CPM_SRBC) & (1 << CPM_VPU_ACK(vpu->vpu.id))));
+#else
+	while (!(cpm_inl(CPM_SRBC) & (1 << CPM_VPU_ACK(vpu->vpu.id))) && --timeout);
+#endif
 
 	if (timeout == 0) {
 		dev_warn(vpu->vpu.dev, "[%d:%d] wait stop ack timeout\n",
@@ -58,7 +49,7 @@ static long vpu_reset(struct device *dev)
 		cpm_outl(srbc, CPM_SRBC);
 		return -1;
 	} else {
-		cpm_outl(srbc | (1 << 31), CPM_SRBC);
+		cpm_outl(srbc | (1 << CPM_VPU_SR(vpu->vpu.id)), CPM_SRBC);
 		cpm_outl(srbc, CPM_SRBC);
 	}
 
@@ -108,7 +99,7 @@ static long vpu_release(struct device *dev)
 			"mtc0  $2, $16,  7  \n\t"
 			"nop                  \n\t");
 
-	cpm_clear_bit(31,CPM_OPCR);
+	cpm_clear_bit(CPM_VPU_SR(vpu->vpu.id),CPM_OPCR);
 	clk_disable(vpu->clk);
 	clk_disable(vpu->clk_gate);
 	//cpm_pwc_disable(vpu->cpm_pwc);
@@ -236,16 +227,18 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 static long vpu_suspend(struct device *dev)
 {
 	struct jz_vpu *vpu = dev_get_drvdata(dev);
-	int timeout = 0xffff;
+	int timeout = 0xffffff;
+	volatile unsigned int vpulock = vpu_readl(vpu, REG_VPU_LOCK);
+		//vpu_writel(vpu, REG_SCH_TLBA, clist->tlb_pidmanager->tlbbase);
 
-	if ( REG_VPU_LOCK & VPU_NEED_WAIT_END_FLAG) {
-		while(!( REG_VPU_STATUS & (0x1) ) && timeout--);
+	if ( vpulock & VPU_LOCK_END_FLAG) {
+		while(!(vpu_readl(vpu, REG_VPU_STAT) & VPU_STAT_ENDF) && timeout--);
 		if (!timeout) {
 			dev_warn(dev, "vpu suspend timeout\n");
-			return 0;
+			return -1;
 		}
-		REG_VPU_LOCK |= VPU_WAIT_OK;
-		REG_VPU_LOCK &= ~VPU_NEED_WAIT_END_FLAG;
+		SET_VPU_BIT(vpu, REG_VPU_LOCK, VPU_LOCK_WAIT_OK);
+		CLEAR_VPU_BIT(vpu, REG_VPU_LOCK, VPU_LOCK_END_FLAG);
 	}
 
 	clk_disable(vpu->clk);
@@ -385,7 +378,7 @@ static int vpu_probe(struct platform_device *pdev)
 	mutex_init(&vpu->mutex);
 	init_completion(&vpu->done);
 
-	ret = request_irq(vpu->irq, vpu_interrupt, IRQF_DISABLED, "vpu", vpu);
+	ret = request_irq(vpu->irq, vpu_interrupt, IRQF_DISABLED, vpu->name, vpu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq failed\n");
 		goto err_vpu_request_irq;
