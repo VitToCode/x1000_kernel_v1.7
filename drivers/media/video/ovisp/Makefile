@@ -9,4 +9,5 @@ obj-$(CONFIG_VIDEO_OV5645) += isp-sensor-ov5645-setting.o
 obj-$(CONFIG_VIDEO_OV9724) += isp-sensor-ov9724-setting.o
 obj-$(CONFIG_VIDEO_OV8858) += isp-sensor-ov8858-setting.o
 obj-$(CONFIG_DVP_OV9712) += isp-sensor-ov9712-setting.o
+obj-$(CONFIG_DVP_BF3116) += isp-sensor-bf3116-setting.o
 endif

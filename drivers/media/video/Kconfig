@@ -824,6 +824,12 @@ config MIPI_CAMERA
 	  ---help---
 	  USE a camera of mipi interface.
 
+config DVP_BF3116
+	tristate "BF3116 camera support"
+	depends on DVP_CAMERA0 && I2C
+	help
+	  This is a bf3116 camera driver
+
 config DVP_OV9712
 	tristate "ov9712 camera support"
 	depends on DVP_CAMERA0 && I2C

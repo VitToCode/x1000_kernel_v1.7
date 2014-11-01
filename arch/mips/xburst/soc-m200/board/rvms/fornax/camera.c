@@ -239,6 +239,67 @@ static struct i2c_board_info ov9712_board_info = {
 };
 #endif /* CONFIG_DVP_OV9712 */
 
+#ifdef CONFIG_DVP_BF3116
+/* BF3116 PIN */
+#define BF3116_RST		GPIO_PA(1)
+#define BF3116_PWDN_EN		GPIO_PA(13)
+static int bf3116_power(int onoff)
+{
+#if 1
+	int ret = 0;
+	if(temp) {
+		//	gpio_request(BF3116_POWER, "BF3116_POWER");
+		ret = gpio_request(BF3116_PWDN_EN, "BF3116_PWDN_EN");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, BF3116_PWDN_EN);
+			return ret;
+		}
+		ret = gpio_request(BF3116_RST, "BF3116_RST");
+		if(ret){
+			printk("%s[%d] gpio_request failed, gpio=%d\n",__func__,__LINE__, BF3116_RST);
+			return ret;
+		}
+		temp = 0;
+	}
+	if (onoff) { /* conflict with USB_ID pin */
+		printk("##### power on######### %s\n", __func__);
+		msleep(5); /* this is necesary */
+		gpio_direction_output(BF3116_PWDN_EN, 1);
+		msleep(5); /* this is necesary */
+		gpio_direction_output(BF3116_PWDN_EN, 0);
+		msleep(5); /* this is necesary */
+		gpio_direction_output(BF3116_RST, 0);
+		msleep(1); /* this is necesary */
+		gpio_direction_output(BF3116_RST, 1);
+		msleep(20); /* this is necesary */
+	} else {
+		//printk("##### power off ######### %s\n", __func__);
+		//gpio_direction_output(BF3116_PWDN_EN, 1);
+		//gpio_direction_output(BF3116_POWER, 0);
+	}
+#endif
+	return 0;
+}
+
+static int bf3116_reset(void)
+{
+	printk("############## %s\n", __func__);
+
+#if 1
+	/*reset*/
+	gpio_direction_output(BF3116_RST, 0);	/*PWM0*/
+	mdelay(150);
+	gpio_direction_output(BF3116_RST, 1);	/*PWM0*/
+	mdelay(150);
+#endif
+	return 0;
+}
+
+static struct i2c_board_info bf3116_board_info = {
+	.type = "bf3116",
+	.addr = 0x6e,
+};
+#endif /* CONFIG_DVP_BF3116 */
 
 static struct ovisp_camera_client ovisp_camera_clients[] = {
 #if defined(CONFIG_VIDEO_OV5645)
@@ -290,6 +351,26 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 		.reset = ov8858_reset,
 	},
 #endif /* CONFIG_VIDEO_OV8858 */
+
+#if defined(CONFIG_DVP_BF3116)
+	{
+		.board_info = &bf3116_board_info,
+#if 0
+		.flags = CAMERA_CLIENT_IF_DVP
+		| CAMERA_CLIENT_CLK_EXT
+		| CAMERA_CLIENT_ISP_BYPASS,
+#else
+		.flags = CAMERA_CLIENT_IF_DVP | CAMERA_CLIENT_CLK_EXT,
+//		.flags = CAMERA_CLIENT_IF_DVP,
+#endif
+		.mclk_name = "cgu_cim",
+		.mclk_rate = 27000000,
+		.max_video_width = 1280,
+		.max_video_height = 720,
+		.power = bf3116_power,
+		.reset = bf3116_reset,
+	},
+#endif /* CONFIG_DVP_BF3116 */
 
 #if defined(CONFIG_DVP_OV9712)
 	{
