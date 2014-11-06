@@ -167,13 +167,13 @@ static int aw6120_power(int onoff)
 			printk("failed to get regulator aw6120\n");
 			return -1;
 		}
-		regulator_enable(regulator_aw6120);
 		temp = 0;
 	}
 	if (onoff) {
+		if(!regulator_is_enabled(regulator_aw6120))
+			regulator_enable(regulator_aw6120);
 		gpio_direction_output(AW6120_PWDN_EN, 1);
 		gpio_direction_output(AW6120_RST, 0);
-		/*regulator_enable(regulator_aw6120);*/
 		mdelay(10);
 		gpio_direction_output(AW6120_PWDN_EN, 0);
 		gpio_direction_output(AW6120_RST, 1);
@@ -181,7 +181,8 @@ static int aw6120_power(int onoff)
 	} else {
 		gpio_direction_output(AW6120_RST, 0);
 		mdelay(10);
-		//regulator_disable(regulator_aw6120);
+		if(regulator_is_enabled(regulator_aw6120))
+			regulator_disable(regulator_aw6120);
 	}
 	return 0;
 }
