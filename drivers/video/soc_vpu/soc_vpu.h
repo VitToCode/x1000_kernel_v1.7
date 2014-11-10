@@ -51,12 +51,14 @@ struct free_channel_list {
 
 enum vpu_phase {
 	INIT_VPU = -1,
-	REQUEST_VPU = 0,
-	SET_VPU_PARAM,
+	OPEN_VPU = 0,
+	REQUEST_VPU,
 	RUN_VPU,
+	COMPLETE_VPU,
 	RELASE_VPU,
-	VPU_FINISHED,
 };
+
+#define FIND_VPU_TRY_TIME_THRESHOLD (10)
 
 struct vpu_list {
 	struct list_head	list;		/* the list of this struct list */

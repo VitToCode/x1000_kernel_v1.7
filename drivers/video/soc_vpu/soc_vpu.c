@@ -7,6 +7,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/syscalls.h>
 #include <mach/jz_libdmmu.h>
+#include <asm/delay.h>
 
 #include "soc_vpu.h"
 
@@ -387,13 +388,18 @@ static long soc_vpu_request(struct soc_channel *sc, struct channel_node *cnode)
 	unsigned long fvflag = 0, vlflag = 0;
 	struct free_vpu_list *fvlist = NULL;
 	struct vpu_list *vlist = NULL;
+	volatile int find_vpu_try_times = 0;
 
 	fvlist = list_entry(sc->fvlist_head, struct free_vpu_list, fvlist_head);
+
+find_vpu_try_point:
 	ret = wait_for_completion_interruptible_timeout(&fvlist->vdone, msecs_to_jiffies(cnode->mdelay));
 	if (ret > 0) {
 		struct vpu *vpu = NULL;
 		spin_lock_irqsave(&fvlist->slock, fvflag);
+		/* the empty fvlist->fvlist_head represent the done flag is zero */
 		if (list_empty(&fvlist->fvlist_head)) {
+			fvlist->vdone.done = 0;
 			spin_unlock_irqrestore(&fvlist->slock, fvflag);
 			ret = -EBUSY;
 			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] fvlist err empty\n", __func__, __LINE__);
@@ -415,8 +421,17 @@ static long soc_vpu_request(struct soc_channel *sc, struct channel_node *cnode)
 				vlist = vlist_ptr;
 				vpu = vpu_ptr;
 			} else {
-				ret = -EBUSY;
-				goto err_not_find_request_vpu;
+				if (find_vpu_try_times++ < FIND_VPU_TRY_TIME_THRESHOLD) {
+					complete(&fvlist->vdone);
+					spin_unlock_irqrestore(&fvlist->slock, fvflag);
+					udelay(cnode->mdelay * 1000 / 5);
+					goto find_vpu_try_point;
+				} else {
+					spin_unlock_irqrestore(&fvlist->slock, fvflag);
+					ret = -EBUSY;
+					dev_err(sc->mdev.this_device, "[fun:%s,line:%d] can't find cnode->vpu_id = %d\n", __func__, __LINE__, cnode->vpu_id);
+					goto err_not_find_request_vpu;
+				}
 			}
 		} else {
 			cnode->vlist = fvlist->fvlist_head.next;
@@ -428,8 +443,9 @@ static long soc_vpu_request(struct soc_channel *sc, struct channel_node *cnode)
 
 		spin_lock_irqsave(&vlist->slock, vlflag);
 		if (vlist->user_cnt == 0) {
-			if ((cnode->workphase == OPEN) && (vpu->ops->open)
+			if ((vlist->phase == INIT_VPU) && (vpu->ops->open)
 					&& ((ret = vpu->ops->open(vpu->dev)) >= 0)) {
+				vlist->phase = OPEN_VPU;
 				dev_dbg(sc->mdev.this_device, "[fun:%s,line:%d] vpu_open success\n", __func__, __LINE__);
 				vlist->user_cnt++;
 			} else {
@@ -454,10 +470,10 @@ static long soc_vpu_request(struct soc_channel *sc, struct channel_node *cnode)
 	return 0;
 
 err_vpu_open:
-	spin_lock_irqsave(&vlist->slock, vlflag);
+	spin_lock_irqsave(&fvlist->slock, fvflag);
 	list_add_tail(cnode->vlist, &fvlist->fvlist_head);
 	complete(&fvlist->vdone);
-	spin_unlock_irqrestore(&vlist->slock, vlflag);
+	spin_unlock_irqrestore(&fvlist->slock, fvflag);
 	cnode->vlist = NULL;
 err_not_find_request_vpu:
 err_fvlist_empty:
@@ -466,7 +482,7 @@ err_fvlist_empty:
 
 static long soc_vpu_release_internal(struct soc_channel *sc, struct vpu_list *vlist)
 {
-	unsigned long fvflag, vlflag;
+	unsigned long fvflag = 0, vlflag = 0;
 	struct vpu *vpu = NULL;
 	struct free_vpu_list *fvlist = NULL;
 
@@ -474,18 +490,16 @@ static long soc_vpu_release_internal(struct soc_channel *sc, struct vpu_list *vl
 		vpu = list_entry(vlist->vlist, struct vpu, vlist);
 		fvlist = list_entry(sc->fvlist_head, struct free_vpu_list, fvlist_head);
 		spin_lock_irqsave(&vlist->slock, vlflag);
-		if (vlist->phase >= REQUEST_VPU) {
-			vlist->phase = INIT_VPU;
-			vlist->task = NULL;
-			spin_unlock_irqrestore(&vlist->slock, vlflag);
-
-			spin_lock_irqsave(&fvlist->slock, fvflag);
-			list_add_tail(&vlist->list, &fvlist->fvlist_head);
-			complete(&fvlist->vdone);
-			spin_unlock_irqrestore(&fvlist->slock, fvflag);
-		} else {
-			spin_unlock_irqrestore(&vlist->slock, vlflag);
+		if (vlist->phase >= OPEN_VPU) {
+			if (vlist->phase < RELASE_VPU) {
+				spin_lock_irqsave(&fvlist->slock, fvflag);
+				list_add_tail(&vlist->list, &fvlist->fvlist_head);
+				complete(&fvlist->vdone);
+				vlist->phase = RELASE_VPU;
+				spin_unlock_irqrestore(&fvlist->slock, fvflag);
+			}
 		}
+		spin_unlock_irqrestore(&vlist->slock, vlflag);
 	}
 
 	return 0;
@@ -495,16 +509,21 @@ static long soc_vpu_release(struct soc_channel *sc, struct channel_node *cnode)
 {
 	struct vpu_list *vlist = NULL;
 	struct vpu *vpu = NULL;
+	unsigned long vlflag;
 
 	if (cnode->vlist) {
 		vlist = list_entry(cnode->vlist, struct vpu_list, list);
 		vpu = list_entry(vlist->vlist, struct vpu, vlist);
 		soc_vpu_release_internal(sc, vlist);
+		spin_lock_irqsave(&vlist->slock, vlflag);
 		if ((cnode->workphase == CLOSE) && ((vlist->user_cnt > 0) && (--vlist->user_cnt == 0))) {
 			if (vpu->ops->release) {
 				vpu->ops->release(vpu->dev);
+				vlist->phase = INIT_VPU;
+				vlist->task = NULL;
 			}
 		}
+		spin_unlock_irqrestore(&vlist->slock, vlflag);
 		cnode->vlist = NULL;
 	}
 
@@ -611,11 +630,15 @@ static long soc_vpu_start(struct soc_channel *sc, struct channel_node *cnode)
 	struct vpu *vpu = list_entry(vlist->vlist, struct vpu, vlist);
 
 	if (vpu->dev && vpu->ops && vpu->ops->start_vpu) {
+		unsigned long vlflag;
 		ret = vpu->ops->start_vpu(vpu->dev, cnode);
 		if (ret < 0) {
 			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] set vpu param failed\n", __func__, __LINE__);
 			goto err_start_vpu;
 		}
+		spin_lock_irqsave(&vlist->slock, vlflag);
+		vlist->phase = RUN_VPU;
+		spin_unlock_irqrestore(&vlist->slock, vlflag);
 		if (vpu->ops->wait_complete) {
 			ret = vpu->ops->wait_complete(vpu->dev, cnode);
 			if (ret < 0) {
@@ -624,6 +647,9 @@ static long soc_vpu_start(struct soc_channel *sc, struct channel_node *cnode)
 				goto err_wait_complete;
 			}
 		}
+		spin_lock_irqsave(&vlist->slock, vlflag);
+		vlist->phase = COMPLETE_VPU;
+		spin_unlock_irqrestore(&vlist->slock, vlflag);
 	} else {
 		ret = -ENODEV;
 		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] no vpu device failed\n", __func__, __LINE__);
@@ -641,11 +667,16 @@ static long soc_vpu_start_on(struct soc_channel *sc, struct channel_node *cnode)
 	struct vpu *vpu = list_entry(vlist->vlist, struct vpu, vlist);
 
 	if (vpu->dev && vpu->ops && vpu->ops->start_vpu) {
+		unsigned long vlflag;
+		spin_lock_irqsave(&vlist->slock, vlflag);
 		ret = vpu->ops->start_vpu(vpu->dev, cnode);
 		if (ret < 0) {
+			spin_unlock_irqrestore(&vlist->slock, vlflag);
 			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] set vpu param failed\n", __func__, __LINE__);
 			goto err_start_vpu;
 		}
+		vlist->phase = RUN_VPU;
+		spin_unlock_irqrestore(&vlist->slock, vlflag);
 	} else {
 		ret = -ENODEV;
 		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] no vpu device failed\n", __func__, __LINE__);
@@ -668,6 +699,7 @@ static long soc_vpu_wait_complete(struct soc_channel *sc, struct channel_node *c
 			dev_err(sc->mdev.this_device, "[fun:%s,line:%d] wait timeout\n", __func__, __LINE__);
 			goto err_wait_complete;
 		}
+		vlist->phase = COMPLETE_VPU;
 	} else {
 		ret = -ENODEV;
 		dev_err(sc->mdev.this_device, "[fun:%s,line:%d] no vpu device failed\n", __func__, __LINE__);
@@ -1023,11 +1055,17 @@ static int soc_channel_vpu_release(struct inode *inode, struct file *file)
 	spin_unlock_irqrestore(&sc->cnt_slock, scflag);
 
 	for (i = 0; i < vpu_node_num; i++) {
-		if (((vpu_list[i].task == current) && (vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) || (last_release == true)) {
+		if (((vpu_list[i].task == current) || (last_release == true)) && (vpu_list[i].user_cnt > 0)) {
 			struct vpu *vpu = list_entry(vpu_list[i].vlist, struct vpu, vlist);
 			soc_vpu_release_internal(sc, &vpu_list[i]);
-			if (((vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) && (vpu->ops->release)) {
+			if ((((vpu_list[i].user_cnt > 0) && (--vpu_list[i].user_cnt == 0)) || (last_release == true)) && (vpu->ops->release)) {
+				unsigned long vlflag;
+				spin_lock_irqsave(&vpu_list[i].slock, vlflag);
 				vpu->ops->release(vpu->dev);
+				vpu_list[i].phase = INIT_VPU;
+				vpu_list[i].user_cnt = 0;
+				vpu_list[i].task = NULL;
+				spin_unlock_irqrestore(&vpu_list[i].slock, vlflag);
 			}
 		}
 	}

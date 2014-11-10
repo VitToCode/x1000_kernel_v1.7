@@ -29,6 +29,16 @@ struct jz_vpu {
 	void*                   cpm_pwc;
 };
 
+#ifdef CONFIG_BOARD_T10_FPGA
+#define CPM_CLKGR1_VPU_BASE       (0)
+#define CPM_CLKGR1_VPU(ID)	  (13 * (ID))
+int vpu_clk_gate_enable(int id)
+{
+	cpm_clear_bit(CPM_CLKGR1_VPU(id), CPM_CLKGR1);
+	return 0;
+}
+#endif
+
 static long vpu_reset(struct device *dev)
 {
 	struct jz_vpu *vpu = dev_get_drvdata(dev);
@@ -66,7 +76,11 @@ static long vpu_open(struct device *dev)
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
 		return -EBUSY;
 	clk_enable(vpu->clk);
+#ifdef CONFIG_BOARD_T10_FPGA
+	vpu_clk_gate_enable(vpu->vpu.id);
+#else
 	clk_enable(vpu->clk_gate);
+#endif
 	//cpm_pwc_enable(vpu->cpm_pwc);
 
 	__asm__ __volatile__ (
@@ -161,9 +175,9 @@ static long vpu_start_vpu(struct device *dev, const struct channel_node * const 
 	struct channel_list *clist = list_entry(cnode->clist, struct channel_list, list);
 
 #ifdef DUMP_VPU_REG
-	printk("----------------------0000-----------------------\n");
+	dev_info(vpu->vpu.dev, "-------------------dump start------------\n");
 	dump_vpu_registers(vpu);
-	printk("---------------------------------------------\n");
+	dev_info(vpu->vpu.dev, "-------------------dump end------------\n");
 #endif
 	if (clist->tlb_flag == true) {
 #ifdef DUMP_VPU_TLB
@@ -186,9 +200,9 @@ static long vpu_start_vpu(struct device *dev, const struct channel_node * const 
 
 	//printk("cnode->dma_addr = %x, vpu->iomem = %p, clist->tlb_flag = %d\n", cnode->dma_addr, vpu->iomem, clist->tlb_flag);
 #ifdef DUMP_VPU_REG
-	printk("----------------------1111-----------------------\n");
+	dev_info(vpu->vpu.dev, "-------------------dump start------------\n");
 	dump_vpu_registers(vpu);
-	printk("---------------------------------------------\n");
+	dev_info(vpu->vpu.dev, "--------------------dump end-------------\n");
 #endif
 	dev_dbg(vpu->vpu.dev, "[%d:%d] start vpu\n", current->tgid, current->pid);
 #endif
@@ -211,6 +225,8 @@ static long vpu_wait_complete(struct device *dev, struct channel_node * const cn
 		dev_dbg(vpu->vpu.dev, "[%d:%d] wait complete\n", current->tgid, current->pid);
 	} else {
 		dev_warn(dev, "[%d:%d] wait_for_completion timeout\n", current->tgid, current->pid);
+		dev_warn(dev, "vpu_stat = %x\n", vpu_readl(vpu,REG_VPU_STAT));
+		dev_warn(dev, "aux_stat = %x\n", vpu_readl(vpu,REG_VPU_AUX_STAT));
 		if (vpu_reset(dev) < 0) {
 			dev_warn(dev, "vpu reset failed\n");
 		}
@@ -253,7 +269,11 @@ static long vpu_resume(struct device *dev)
 
 	clk_set_rate(vpu->clk,300000000);
 	clk_enable(vpu->clk);
+#ifdef CONFIG_BOARD_T10_FPGA
+	vpu_clk_gate_enable(vpu->vpu.id);
+#else
 	clk_enable(vpu->clk_gate);
+#endif
 
 	return 0;
 }
@@ -360,19 +380,21 @@ static int vpu_probe(struct platform_device *pdev)
 		goto err_get_vpu_iomem;
 	}
 
-	vpu->clk_gate = clk_get(&pdev->dev, "vpu");
+	vpu->clk_gate = clk_get(&pdev->dev, vpu->name);
 	if (IS_ERR(vpu->clk_gate)) {
 		ret = PTR_ERR(vpu->clk_gate);
 		goto err_get_vpu_clk_gate;
 	}
 
-	vpu->clk = clk_get(&pdev->dev,"cgu_vpu");
-	if (IS_ERR(vpu->clk)) {
-		ret = PTR_ERR(vpu->clk);
-		goto err_get_vpu_clk_cgu;
+	if (pdev->id == 0) {
+		vpu->clk = clk_get(&pdev->dev,"cgu_vpu");
+		if (IS_ERR(vpu->clk)) {
+			ret = PTR_ERR(vpu->clk);
+			goto err_get_vpu_clk_cgu;
+		}
+		clk_set_rate(vpu->clk,300000000);
 	}
 
-	clk_set_rate(vpu->clk,300000000);
 
 	spin_lock_init(&vpu->slock);
 	mutex_init(&vpu->mutex);
