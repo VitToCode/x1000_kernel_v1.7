@@ -207,30 +207,57 @@ static struct i2c_board_info aw6120_board_info = {
 /******************************** ov9712 start ************************************************/
 #if defined(CONFIG_DVP_OV9712)
 /* OV9712 PIN */
-#define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
-#define OV9712_RST		GPIO_PA(11)
-#define OV9712_PWDN_EN		GPIO_PD(28)
+//#define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
+#define OV9712_RST		GPIO_PF(3)
+#define OV9712_PWDN_EN		GPIO_PC(4)
+#define OV9712_LED	 	GPIO_PD(27) //the led of camera board
+#define LED_RED_EN	 	GPIO_PF(1)
+#define LED_GREEN_EN	 	GPIO_PF(2)
 static int ov9712_power(int onoff)
 {
 	if(temp) {
-	gpio_request(OV9712_POWER, "OV9712_POWER");
+//	gpio_request(OV9712_POWER, "OV9712_POWER");
 	gpio_request(OV9712_PWDN_EN, "OV9712_PWDN_EN");
 	gpio_request(OV9712_RST, "OV9712_RST");
+	gpio_request(OV9712_LED, "OV9712_LED");
+	gpio_request(LED_RED_EN, "LED_RED_EN");
+	gpio_request(LED_GREEN_EN, "LED_GREEN_EN");
 	temp = 0;
 	}
 	if (onoff) { /* conflict with USB_ID pin */
 		printk("##### power on######### %s\n", __func__);
+		msleep(5); /* this is necesary */
+		gpio_direction_output(OV9712_LED, 1);
+		printk("##### ov9712 led on######### %s\n", __func__);
+		gpio_direction_output(LED_GREEN_EN, 1);
+		printk("##### LED_GREEN_EN on######### %s\n", __func__);
+		gpio_direction_output(LED_RED_EN, 1);
+
+		printk("##### power on######### %s\n", __func__);
+		msleep(150); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 1);
 //		gpio_direction_output(OV9712_RST, 1);
-		mdelay(1); /* this is necesary */
-		gpio_direction_output(OV9712_POWER, 1);
-		mdelay(100); /* this is necesary */
+//		mdelay(1); /* this is necesary */
+//		gpio_direction_output(OV9712_POWER, 1);
+		msleep(150); /* this is necesary */
 		gpio_direction_output(OV9712_PWDN_EN, 0);
+		msleep(5); /* this is necesary */
+		gpio_direction_output(OV9712_RST, 0);
+		msleep(1); /* this is necesary */
+		gpio_direction_output(OV9712_RST, 1);
+		msleep(20); /* this is necesary */
+
+#if 0
+		printk("##### LED_RED_EN on######### %s\n", __func__);
+		gpio_direction_output(OV9712_PWDN_EN, 1);
 		mdelay(50); /* this is necesary */
+		gpio_direction_output(OV9712_PWDN_EN, 0);
+		mdelay(150); /* this is necesary */
 		gpio_direction_output(OV9712_RST, 0);
 		mdelay(150); /* this is necesary */
 		gpio_direction_output(OV9712_RST, 1);
 		mdelay(150); /* this is necesary */
+#endif
 	} else {
 		//printk("##### power off ######### %s\n", __func__);
 		//gpio_direction_output(OV9712_PWDN_EN, 1);
@@ -356,7 +383,7 @@ struct ovisp_camera_platform_data ovisp_camera_info = {
 	.flags = CAMERA_USE_ISP_I2C | CAMERA_USE_HIGH_BYTE
 			| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
 #else
-	.i2c_adapter_id = 3, /* use cpu's i2c adapter */
+	.i2c_adapter_id = 0, /* use cpu's i2c adapter */
 	.flags = CAMERA_USE_HIGH_BYTE
 			| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
 #endif
