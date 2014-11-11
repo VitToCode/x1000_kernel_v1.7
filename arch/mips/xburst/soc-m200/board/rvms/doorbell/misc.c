@@ -162,7 +162,7 @@ static struct i2c_board_info jz_i2c1_devs[] __initdata = {
 	};
 
 #ifndef CONFIG_I2C0_V12_JZ
-DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
+DEF_GPIO_I2C(0,GPIO_PB(7),GPIO_PB(8));
 #endif
 #ifndef CONFIG_I2C1_V12_JZ
 DEF_GPIO_I2C(1,GPIO_PA(12),GPIO_PA(13));
