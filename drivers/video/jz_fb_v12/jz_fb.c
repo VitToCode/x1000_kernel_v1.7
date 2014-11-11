@@ -1166,7 +1166,21 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 	}
 }
 
-#define SPEC_TIME_IN_NS (1000*1000000)  /* 1s */
+static inline int timeval_sub_to_us(struct timeval lhs,
+						struct timeval rhs)
+{
+	int sec, usec;
+	sec = lhs.tv_sec - rhs.tv_sec;
+	usec = lhs.tv_usec - rhs.tv_usec;
+
+	return (sec*1000000 + usec);
+}
+
+static inline int time_us2ms(int us)
+{
+	return (us/1000);
+}
+
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	int next_frm;
@@ -1174,37 +1188,35 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 
 	{/*debug*/
-		static struct timespec time_now, time_last;
-		struct timespec time_interval;
-		long long  interval_in_ns;
+		static struct timeval time_now, time_last;
+		unsigned int interval_in_us;
 		unsigned int interval_in_ms;
 		static unsigned int fpsCount = 0;
 
 		jzfb->pan_display_count++;
-		if(showFPS){
+		if(showFPS) {
 			switch(showFPS){
 				case 1:
 					fpsCount++;
-					time_now = current_kernel_time();
-					time_interval = timespec_sub(time_now, time_last);
-					interval_in_ns = timespec_to_ns(&time_interval);
-					if ( interval_in_ns > SPEC_TIME_IN_NS ) {
+					do_gettimeofday(&time_now);
+					interval_in_us = timeval_sub_to_us(time_now, time_last);
+					if ( interval_in_us > (USEC_PER_SEC) ) { /* 1 second = 1000000 us. */
 						printk(KERN_DEBUG " Pan display FPS: %d\n",fpsCount);
 						fpsCount = 0;
 						time_last = time_now;
 					}
 					break;
 				case 2:
-					time_now = current_kernel_time();
-					time_interval = timespec_sub(time_now, time_last);
-					interval_in_ns = timespec_to_ns(&time_interval);
-					interval_in_ms = (unsigned long)interval_in_ns/1000000;
-					printk(KERN_DEBUG " Pan display interval: %d\n",interval_in_ms);
+					do_gettimeofday(&time_now);
+					interval_in_us = timeval_sub_to_us(time_now, time_last);
+					interval_in_ms = time_us2ms(interval_in_us);
+					printk(KERN_DEBUG " Pan display interval ms: %d\n",interval_in_ms);
 					time_last = time_now;
 					break;
 				default:
 					break;
 			}
+			//printk(KERN_DEBUG " time_now: %d.%06d, interval_in_us=%d\n", time_now.tv_sec, time_now.tv_usec, interval_in_us);
 		}
 	}/*end debug*/
 	if (var->xoffset - info->var.xoffset) {
