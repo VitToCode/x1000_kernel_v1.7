@@ -87,7 +87,7 @@ static struct regulator_consumer_supply ricoh619_ldo2_supply_0[] = {
 };
 
 static struct regulator_consumer_supply ricoh619_ldo3_supply_0[] = {
-	REGULATOR_SUPPLY("cam_avdd_2v8", NULL),
+	REGULATOR_SUPPLY("cpu_avdd", NULL),
 };
 static struct regulator_consumer_supply ricoh619_ldo4_supply_0[] = {
 	REGULATOR_SUPPLY("cpu_vddio2_1v8", NULL),
@@ -167,7 +167,7 @@ RICOH_PDATA_INIT(ldo4, 0,	900,   3500, 0, 1, 1, 1, 1800, 0, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo5, 0,	600,   3500, 0, 1, 1, 1, 2500, 0, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo6, 0,	600,   3500, 0, 1, 1, 1, 3300, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo7, 0,	900,   3500, 0, 0, 0, 1, 1800, 0, 1, 0, 0, 0);
-RICOH_PDATA_INIT(ldo8, 0,	900,   3500, 0, 0, 0, 1, 3300, 1, 1, 0, 0, 0);
+RICOH_PDATA_INIT(ldo8, 0,	900,   3500, 0, 0, 0, 1, 1500, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo9, 0,	900,   3500, 0, 0, 0, 1, 1800, 1, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldortc1, 0,	1700,  3500, 0, 1, 1, 1, 1800, 1, 1, -1, -1, -1);
 RICOH_PDATA_INIT(ldortc2, 0,	900,   3500, 0, 1, 1, 1, 1100, 1, 1, -1, -1, -1);
