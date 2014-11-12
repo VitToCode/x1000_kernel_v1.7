@@ -93,26 +93,15 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
 #endif
-#ifdef CONFIG_NAND_COMMON
+#ifdef CONFIG_NAND_DRIVER
 	NAND_PORTAB_COMMON,
+	NAND_PORTA_CS1,
+	NAND_PORTA_CS2,
+	NAND_PORTA_CS3,
+	NAND_PORTA_CS4,
 #endif
 #ifdef CONFIG_NAND_BUS_WIDTH_16
 	NAND_PORTA_BUS16,
-#endif
-#ifdef CONFIG_NAND_CS1
-	NAND_PORTA_CS1,
-#endif
-#ifdef CONFIG_NAND_CS2
-	NAND_PORTA_CS2,
-#endif
-#ifdef CONFIG_NAND_CS3
-	NAND_PORTA_CS3,
-#endif
-#ifdef CONFIG_NAND_CS4
-#endif
-#ifdef CONFIG_NAND_CS5
-#endif
-#ifdef CONFIG_NAND_CS6
 #endif
 
 #ifdef	CONFIG_SOUND_JZ_I2S_V12
@@ -990,7 +979,7 @@ static struct resource jz_nand_res[] ={
 		.start = NEMC_CS2_IOBASE,
 		.end = NEMC_CS2_IOBASE + 0x1000000 -1,
 	},
-	/*
+
 	[8] = {
 		.flags = IORESOURCE_MEM,
 		.start = NEMC_CS3_IOBASE,
@@ -1000,7 +989,7 @@ static struct resource jz_nand_res[] ={
 		.flags = IORESOURCE_MEM,
 		.start = NEMC_CS4_IOBASE,
 		.end = NEMC_CS4_IOBASE + 0x1000000 -1,
-	},*/
+	},
 };
 
 struct platform_device jz_nand_device = {

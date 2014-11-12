@@ -1447,7 +1447,7 @@ int get_errpt_ppainfo(nand_data *nddata, struct nand_api_platdependent *platdep)
 				if(ret < 0){
 					ndd_print(NDD_WARNING,"%s %d read_partition_info pagid[%d]failed! try again!\n",
 						  __func__,__LINE__,pageid);
-					ndd_memset(ptinfo, 0xff, sizeof(plat_ptinfo));
+					//ndd_memset(ptinfo, 0xff, sizeof(plat_ptinfo));
 					break;
 				}
 				fill_partition_info(ptinfo, databuf, pt_index);
