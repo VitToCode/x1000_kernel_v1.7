@@ -277,12 +277,8 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 		return 0;
 
 	reg = &st->reg;
-	if (power_on) {
+	if (power_on)
 		data = 0;
-		if (st->plat_data.power_on) {
-			st->plat_data.power_on();
-		}
-	}
 	else
 		data = BIT_SLEEP;
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, data);
@@ -302,10 +298,6 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 		result = inv_lpa_freq(st, st->chip_config.lpa_freq);
 		if (result)
 			return result;
-	} else {
-		if (st->plat_data.power_off) {
-			st->plat_data.power_off();
-		}
 	}
 	st->chip_config.is_asleep = !power_on;
 
