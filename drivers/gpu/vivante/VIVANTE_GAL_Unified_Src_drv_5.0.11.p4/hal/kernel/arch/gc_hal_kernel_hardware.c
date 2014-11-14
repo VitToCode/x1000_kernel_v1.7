@@ -1952,8 +1952,31 @@ gckHARDWARE_Execute(
     gceSTATUS status;
     gctUINT32 control;
 
+#if INGENIC_MEMORY_CACHEABLE_TRACE
+    static gctUINT32 call_count = 0;
+#endif
+
     gcmkHEADER_ARG("Hardware=0x%x Address=0x%x Bytes=%lu",
                    Hardware, Address, Bytes);
+
+    /* printk(KERN_DEBUG "Hardware=0x%x Address=0x%x Bytes=%lu, call_count=%ul\n", */
+    /* 	   Hardware, Address, Bytes, call_count); */
+#if INGENIC_MEMORY_CACHEABLE_TRACE
+/* #if INGENIC_MEMORY_CACHEABLE_TRACE && gcdPAGED_MEMORY_CACHEABLE && gcdNONPAGED_MEMORY_CACHEABLE */
+
+    /* Flush the cache all. */
+    if ( call_count == 0 ) {
+	    call_count++;
+	    gcmkONERROR(gckOS_CacheFlush(
+				Hardware->os,
+				0,
+				gcvNULL,
+				Address,
+				(void*)0x80000000,
+				0x40000		/* Flush 256 KB */
+				));
+    }
+#endif
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
