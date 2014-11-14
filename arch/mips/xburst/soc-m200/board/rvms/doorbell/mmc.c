@@ -51,7 +51,7 @@ struct jzmmc_platform_data sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
 	.ocr_avail			= MMC_VDD_29_30 | MMC_VDD_30_31,//|MMC_VDD_165_195,
-	.capacity  			= MMC_CAP_4_BIT_DATA,
+	.capacity  			= MMC_CAP_4_BIT_DATA | MMC_CAP_SDIO_IRQ| MMC_CAP_NONREMOVABLE,
 	.pm_flags			= MMC_PM_IGNORE_PM_NOTIFY,
 	.max_freq			= CONFIG_MMC1_MAX_FREQ,
 	.recovery_info			= NULL,
@@ -144,7 +144,7 @@ start:
 
 			break;
 	}
-	wake_lock(wifi_wake_lock);
+//	wake_lock(wifi_wake_lock);
 
 	return 0;
 }
@@ -184,7 +184,7 @@ start:
 			break;
 	}
 
-	wake_unlock(wifi_wake_lock);
+//	wake_unlock(wifi_wake_lock);
 
 	jzrtc_disable_clk32k();
 
