@@ -57,6 +57,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #if	(defined(CONFIG_I2C2_JZ4775) || defined(CONFIG_I2C2_DMA_JZ4775))
 	I2C2_PORTE,
 #endif
+#ifdef CONFIG_SND_JZ_SOC_SPDIF
+	SPDIF_PORTF,
+#endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
 	UART0_PORTF,
 #endif
@@ -169,6 +172,31 @@ int jz_device_register(struct platform_device *pdev,void *pdata)
 
 	return platform_device_register(pdev);
 }
+
+static u64 jz_aic_dmamask =  ~(u32)0;
+static struct resource jz_aic_resources[] = {
+	[0] = {
+		.start          = AIC0_IOBASE,
+		.end            = PCM0_IOBASE + 0xA0 -1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start		= IRQ_AIC0,
+		.end		= IRQ_AIC0,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device jz_aic_device = {
+	.name		= "jz-aic",
+	.id		= -1,
+	.dev = {
+		.dma_mask               = &jz_aic_dmamask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+	.resource       = jz_aic_resources,
+	.num_resources  = ARRAY_SIZE(jz_aic_resources),
+};
 
 static struct resource jz_pdma_res[] = {
 	[0] = {

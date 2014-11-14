@@ -10,6 +10,15 @@
 #define __SOC_4775_H__
 
 /* devio define list */
+#define I2S_PORTEF                                                      \
+        { .name = "i2s-sysclk",         .port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x1<<3, },    \
+        { .name = "i2s-bitclk",         .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<0,},    \
+        { .name = "i2s-sync",           .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<1,},    \
+        { .name = "i2s-data-in",        .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<2, },   \
+        { .name = "i2s-data-out",       .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<3, }
+
+#define SPDIF_PORTF		                                           \
+        { .name = "spdif-data-out",     .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<3,}
 
 #define PCM_PORTF							\
 	{ .name = "pcm",			.port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf << 12}
@@ -157,6 +166,7 @@ extern struct platform_device jz_ehci_device;
 extern struct platform_device jz_nand_device;
 
 extern struct platform_device jz_adc_device;
+extern struct platform_device jz_aic_device;
 
 extern struct platform_device jz_hdmi;
 extern struct platform_device jz_rtc_device;
