@@ -147,7 +147,7 @@ static int clkgate_change_notify(struct jz_notifier *notify,void *v)
 		}
 		mutex_unlock(&pcore->mutex);
 		break;
-	case CLK_ID_CGU_MSC_MUX:
+	case CLK_ID_MSC:
 		mutex_lock(&pcore->mutex);
 		pcore->msc_adj = on ? 100000:0;
 		target_vol = get_vol_from_freq(pcore,pcore->current_rate / 1000);
