@@ -467,13 +467,12 @@ static struct m200_early_sleep_t {
 	unsigned int vol_uv;
 
 }m200_early_sleep;
-const unsigned int sleep_rate_hz = 30*1000*1000;
+const unsigned int sleep_rate_hz = 120*1000*1000;
 const unsigned int sleep_vol_uv = 975 * 1000;
 static int m200_prepare(void)
 {
 #ifdef CONFIG_CPU_FREQ
 	struct cpufreq_policy *policy;
-
 	policy = cpufreq_cpu_get(0);
 	if(policy) {
 		policy->governor->governor(policy, CPUFREQ_GOV_STOP);
@@ -521,8 +520,8 @@ static void m200_finish(void)
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = m200_pm_enter,
-	.prepare_late = m200_prepare,
-	.wake = m200_finish,
+	.prepare = m200_prepare,
+	.finish = m200_finish,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);
