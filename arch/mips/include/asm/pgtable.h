@@ -348,6 +348,8 @@ static inline pgprot_t pgprot_noncached_wa(pgprot_t _prot)
 	return __pgprot(prot);
 }
 
+#define pgprot_writecombine pgprot_noncached_wa
+
 /*
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.

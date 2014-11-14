@@ -2648,7 +2648,11 @@ gckOS_MapPhysical(
         {
             /* Map memory as cached memory. */
             request_mem_region(physical, Bytes, "MapRegion");
+#if INGENIC_MEMORY_CACHEABLE_TRACE
+            logical = (gctPOINTER) ioremap_cached(physical, Bytes);
+#else
             logical = (gctPOINTER) ioremap_nocache(physical, Bytes);
+#endif //INGENIC_MEMORY_CACHEABLE_TRACE
 
             if (logical == gcvNULL)
             {
@@ -4109,7 +4113,7 @@ gckOS_MapPagesEx(
         Os,
         _GetProcessID(),
         gcvNULL,
-        pageTablePhysical,
+        (unsigned long)pageTablePhysical,
         PageTable,
         bytes
         ));

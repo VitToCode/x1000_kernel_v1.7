@@ -1492,8 +1492,14 @@ gckGALDEVICE_Construct(
         else
         {
             /* Map internal memory. */
+#if INGENIC_MEMORY_CACHEABLE_TRACE
+            device->internalLogical
+                = (gctPOINTER) ioremap_cached(physical, device->internalSize);
+#else
             device->internalLogical
                 = (gctPOINTER) ioremap_nocache(physical, device->internalSize);
+#endif // INGENIC_MEMORY_CACHEABLE_TRACE
+
 
             if (device->internalLogical == gcvNULL)
             {
@@ -1523,8 +1529,13 @@ gckGALDEVICE_Construct(
         else
         {
             /* Map external memory. */
+#if INGENIC_MEMORY_CACHEABLE_TRACE
+            device->externalLogical
+                = (gctPOINTER) ioremap_cached(physical, device->externalSize);
+#else
             device->externalLogical
                 = (gctPOINTER) ioremap_nocache(physical, device->externalSize);
+#endif // INGENIC_MEMORY_CACHEABLE_TRACE
 
             if (device->externalLogical == gcvNULL)
             {

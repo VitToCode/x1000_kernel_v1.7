@@ -88,6 +88,24 @@
 #define gcdVM_FLAGS (VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED)
 #endif
 
+#if INGENIC_MEMORY_CACHEABLE_TRACE && gcdPAGED_MEMORY_CACHEABLE && gcdNONPAGED_MEMORY_CACHEABLE
+static inline pgprot_t pgprot_cacheable(pgprot_t _prot)
+{
+	unsigned long prot = pgprot_val(_prot);
+
+	//prot = (prot & ~_CACHE_MASK) | _CACHE_CACHABLE_NO_WA; /* xburst, cacheable write through no-allocate */
+	prot = (prot & ~_CACHE_MASK) | _CACHE_CACHABLE_NONCOHERENT;  /* xburst, cacheable write back write-allocate */
+
+	return __pgprot(prot);
+}
+
+//#define gcmkNONPAGED_MEMROY_PROT(x) pgprot_noncached_wa(x)
+
+#define gcmkPAGED_MEMROY_PROT(x)    pgprot_cacheable(x)
+#define gcmkNONPAGED_MEMROY_PROT(x) pgprot_cacheable(x)
+
+#else //INGENIC_MEMORY_CACHEABLE_TRACE
+
 /* Protection bit when mapping memroy to user sapce */
 #define gcmkPAGED_MEMROY_PROT(x)    pgprot_noncached_wa(x)
 
@@ -98,6 +116,8 @@
 #define gcmkIOREMAP                 ioremap_nocache
 #define gcmkNONPAGED_MEMROY_PROT(x) pgprot_noncached(x)
 #endif
+
+#endif	/* INGENIC_MEMORY_CACHEABLE_TRACE gcdNONPAGED_MEMORY_CACHEABLE */
 
 #define gcdSUPPRESS_OOM_MESSAGE 1
 
