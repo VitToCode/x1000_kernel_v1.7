@@ -125,7 +125,7 @@ static inline void set_cpccr_h2div(struct clk *clk,unsigned int rate)
 		cpccr &= ~((0xf << cpccr_clks[H2DIV].off) | (0xf << cpccr_clks[PDIV].off));
 		cpccr |= (hdiv << cpccr_clks[H2DIV].off) | (pdiv << cpccr_clks[PDIV].off);
 		cpccr |= (1 << cpccr_clks[H2DIV].ce);
-		udelay(1000);
+//		udelay(1000);
 		cpm_outl(cpccr,CPM_CPCCR);
 		/* wait not busy */
 		while(cpm_inl(CPM_CPCSR) & 4);
