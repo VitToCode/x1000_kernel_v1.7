@@ -1179,21 +1179,30 @@ static int __init soc_channel_init(void)
 	struct free_channel_list *fclist = NULL;
 	struct free_vpu_list *fvlist = NULL;
 
+	if (vpu_node_num <= 0) {
+		printk("Error[%s]failed:vpu_node_num is %d\n", __func__, vpu_node_num);
+		ret = -EINVAL;
+		goto err_vpu_node_num_is_invalid;
+	}
+
 	/* 1. alloc free_channel_list, free_vpu_list and soc_channel space */
 	fclist = kzalloc(sizeof(*fclist), GFP_KERNEL);
 	if (fclist == NULL) {
+		printk("%s:kzalloc fclist failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_alloc_fclist;
 	}
 
 	fvlist = kzalloc(sizeof(*fvlist), GFP_KERNEL);
 	if (fvlist == NULL) {
+		printk("%s:kzalloc fvlist failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_alloc_fvlist;
 	}
 
 	soc_channel = kzalloc(sizeof(*soc_channel), GFP_KERNEL);
 	if (soc_channel == NULL) {
+		printk("%s:kzalloc soc_channel failed\n", __func__);
 		ret = -ENOMEM;
 		goto err_alloc_soc_channel;
 	}
@@ -1231,6 +1240,7 @@ static int __init soc_channel_init(void)
 	soc_channel->mdev.fops = &soc_channel_fops;
 
 	if ((ret = misc_register(&soc_channel->mdev)) < 0) {
+		printk("%s:misc_register failed\n", __func__);
 		goto err_register_soc_channel;
 	}
 
@@ -1243,6 +1253,7 @@ err_alloc_soc_channel:
 err_alloc_fvlist:
 	kfree(fclist);
 err_alloc_fclist:
+err_vpu_node_num_is_invalid:
 	return ret;
 }
 

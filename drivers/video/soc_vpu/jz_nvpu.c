@@ -382,6 +382,7 @@ static int vpu_probe(struct platform_device *pdev)
 
 	vpu->clk_gate = clk_get(&pdev->dev, vpu->name);
 	if (IS_ERR(vpu->clk_gate)) {
+		dev_err(&pdev->dev, "clk_gate get failed\n");
 		ret = PTR_ERR(vpu->clk_gate);
 		goto err_get_vpu_clk_gate;
 	}
@@ -389,6 +390,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (pdev->id == 0) {
 		vpu->clk = clk_get(&pdev->dev,"cgu_vpu");
 		if (IS_ERR(vpu->clk)) {
+			dev_err(&pdev->dev, "clk get failed\n");
 			ret = PTR_ERR(vpu->clk);
 			goto err_get_vpu_clk_cgu;
 		}
@@ -418,6 +420,7 @@ static int vpu_probe(struct platform_device *pdev)
 	vpu->vpu.ops = &vpu_ops;
 
 	if ((ret = vpu_register(&vpu->vpu.vlist)) < 0) {
+		dev_err(&pdev->dev, "vpu_register failed\n");
 		goto err_vpu_register;
 	}
 	platform_set_drvdata(pdev, vpu);

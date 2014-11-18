@@ -209,7 +209,7 @@ enum {
 	CLK_ID_GPU,
 #define CLK_NAME_GPU	        "gpu"
 	CLK_ID_VPU,
-#define CLK_NAME_VPU	        "vpu"
+#define CLK_NAME_VPU	        "vpu0"
 	CLK_ID_PWC,
 	CLK_ID_PWC_P0,
 #define CLK_NAME_PWC_P0	         "pwc_p0"

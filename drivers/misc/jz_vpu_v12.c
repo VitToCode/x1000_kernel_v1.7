@@ -424,7 +424,7 @@ static int vpu_probe(struct platform_device *pdev)
 		goto err_get_mem;
 	}
 
-	vpu->clk_gate = clk_get(&pdev->dev, "vpu");
+	vpu->clk_gate = clk_get(&pdev->dev, "vpu0");
 	if (IS_ERR(vpu->clk_gate)) {
 		ret = PTR_ERR(vpu->clk_gate);
 		goto err_get_clk_gate;
