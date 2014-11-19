@@ -48,6 +48,7 @@ static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *pa
 	}
 	if(div >= 15){
 		printk("%s don't find the rate[%ld]\n",clk->name,rate);
+		dump_stack();
 		goto SET_CPCCR_RATE_ERR;
 	}
 	cdiv = div - 1;
@@ -185,7 +186,6 @@ static int ahb_change_notify(struct jz_notifier *notify,void *v)
  * on frequency transition. We need to update all dependent CPUs.
  */
 extern struct  freq_udelay_jiffy *freq_udelay_jiffys;
-extern unsigned int SUPPORT_CPUFREQ_NUM;
 static int cpufreq_setting_cmp(const void *key,const void *elt) {
 	unsigned int *d = (unsigned int*)key;
 	struct freq_udelay_jiffy *p = (struct freq_udelay_jiffy *)elt;
@@ -197,12 +197,14 @@ static int cpufreq_setting_cmp(const void *key,const void *elt) {
 }
 static struct freq_udelay_jiffy* search_cpufrq_setting(unsigned int rate) {
 	struct freq_udelay_jiffy *p = NULL;
+	unsigned int num;
 
+	num = freq_udelay_jiffys[0].max_num;
 	p = (struct freq_udelay_jiffy *)bsearch((const void*)&rate,(const void*)freq_udelay_jiffys,
-						SUPPORT_CPUFREQ_NUM - 1,
-						sizeof(struct freq_udelay_jiffy),cpufreq_setting_cmp);
+						num, sizeof(struct freq_udelay_jiffy),cpufreq_setting_cmp);
 	if(!p) {
 		printk("warning!!!, new %d freq not found\n", rate);
+		dump_stack();
 		while(1);
 	}
 	return p;
