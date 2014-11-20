@@ -29,7 +29,7 @@
 #define DC1_INIT_UV     1100
 #define DC2_INIT_UV     1200
 #define DC3_INIT_UV     1200
-#ifdef CONFIG_JZ_EPD_V12
+#if defined(CONFIG_JZ_EPD_V12) || defined(CONFIG_LCD_BYD_BM8766U)
 #define DC4_INIT_UV     3300
 #else
 #define DC4_INIT_UV     1800
@@ -43,7 +43,11 @@
 #define LDO6_INIT_UV    3300
 #define LDO7_INIT_UV    1800
 #define LDO8_INIT_UV    3300
+#ifdef CONFIG_LCD_BYD_BM8766U
+#define LDO9_INIT_UV    3300
+#else
 #define LDO9_INIT_UV    1800
+#endif
 #define LDO10_INIT_UV   1800
 #define LDORTC1_INIT_UV 1800
 #define LDORTC2_INIT_UV 1100

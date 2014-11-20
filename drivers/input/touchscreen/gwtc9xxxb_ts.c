@@ -27,6 +27,7 @@
 
 #include "gwtc9xxxb_ts.h"
 
+#define DEBUG_LCD_VCC_ALWAYS_ON
 #define PENUP_TIMEOUT_TIMER 1
 #define P2_PACKET_LEN 11
 #define P1_PACKET_LEN 5
@@ -327,18 +328,22 @@ static void gwtc9xxxb_ts_resume(struct early_suspend *handler)
 
 static int gwtc9xxxb_ts_power_off(struct gwtc9xxxb_ts_data *ts)
 {
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	if (!IS_ERR(ts->power)) {
 		if (regulator_is_enabled(ts->power))
 			return regulator_disable(ts->power);
 	}
+#endif
 	return 0;
 }
 
 static int gwtc9xxxb_ts_power_on(struct gwtc9xxxb_ts_data *ts)
 {
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	if (!IS_ERR(ts->power)) {
 			return  regulator_enable(ts->power);
 	}
+#endif
 	return 0;
 }
 
@@ -402,7 +407,7 @@ static int gwtc9xxxb_ts_probe(struct i2c_client *client, const struct i2c_device
 
 	gwtc9xxxb_gpio_init(gwtc9xxxb_ts);
 
-#if 1
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
 	gwtc9xxxb_ts->power = regulator_get(NULL, "vlcd");
 	if (IS_ERR(gwtc9xxxb_ts->power)) {
 		dev_warn(&client->dev, "get regulator power failed\n");

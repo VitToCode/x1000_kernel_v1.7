@@ -23,6 +23,9 @@
 #define GPIO_LCD_SDI		GPIO_PE(0)
 #define GPIO_LCD_BACK_SEL	GPIO_PC(20)
 #endif
+#ifdef CONFIG_LCD_BYD_BM8766U
+#define GPIO_LCD_DISP		GPIO_PB(0)
+#endif
 #ifdef CONFIG_LCD_LH155
 #define GPIO_LCD_BLK            GPIO_PC(17)
 #define GPIO_LCD_RST            GPIO_PA(12)
@@ -92,8 +95,13 @@
 
 /* ****************************GPIO TOUCHSCREEN START************************ */
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
+#ifdef CONFIG_FPGA_TEST
 #define GPIO_TP_INT		GPIO_PB(0)
 #define GPIO_TP_WAKE		GPIO_PE(10)
+#else
+#define GPIO_TP_INT		GPIO_PD(17)
+#define GPIO_TP_WAKE		GPIO_PD(27)
+#endif
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT6X0X
 #define GPIO_TP_INT		GPIO_PB(0)

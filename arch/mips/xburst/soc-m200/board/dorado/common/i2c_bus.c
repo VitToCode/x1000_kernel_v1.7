@@ -7,13 +7,14 @@
 
 /* *****************************touchscreen******************************* */
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
-static struct jztsc_pin fpga_tsc_gpio[] = {
+#include <linux/tsc.h>
+static struct jztsc_pin gwtc9xxb_tsc_gpio[] = {
 	[0] = {GPIO_TP_INT, LOW_ENABLE},
 	[1] = {GPIO_TP_WAKE, HIGH_ENABLE},
 };
 
-static struct jztsc_platform_data fpga_tsc_pdata = {
-	.gpio = fpga_tsc_gpio,
+struct jztsc_platform_data gwtc9xxb_tsc_pdata = {
+	.gpio = gwtc9xxb_tsc_gpio,
 	.x_max = 800,
 	.y_max = 480,
 };
@@ -77,7 +78,7 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 	{
 		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
-		.platform_data = &fpga_tsc_pdata,
+		.platform_data = &gwtc9xxb_tsc_pdata,
 	},
 #endif
 

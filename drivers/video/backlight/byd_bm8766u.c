@@ -102,7 +102,7 @@ static int byd_bm8766u_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, dev);
 
-	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
+	dev->lcd_vcc_reg = regulator_get(NULL, "lcd_1v8");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);

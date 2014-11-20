@@ -250,7 +250,7 @@ config FT5X0X_DEBUG
 
 config TOUCHSCREEN_GWTC9XXXB
 	tristate "Touchscreen GWTC9XXXB"
-	depends on I2C && (JZ4780_SUPPORT_TSC || JZ4775_SUPPORT_TSC)
+	depends on I2C && (JZ4780_SUPPORT_TSC || JZ4775_SUPPORT_TSC||M200_SUPPORT_TSC) && I2C0_V12_JZ
 	help
 	  gwtc9xxxb a CTP controller
 
