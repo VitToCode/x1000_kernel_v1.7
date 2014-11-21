@@ -6,6 +6,13 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
+config JZ_DMIC_V12
+	bool "Ingenic Dmic Driver"
+	default n
+	help
+		Say Y here if you want to support DMIC on your board. The Dmic Driver
+		support record and wakeup function. When in doubt, Say N here.
+
 config JZ_VP
 	bool "Virtual Privilege device driver"
 	default n

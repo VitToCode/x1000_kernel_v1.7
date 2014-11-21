@@ -1,0 +1,36 @@
+#ifndef __DMIC_OPS_H_
+#define __DMIC_OPS_H_
+
+enum dmic_status {
+	WAITING_TRIGGER,
+	WAITING_DATA,
+};
+
+extern int dmic_current_state;
+extern int thr_need_reconfig;
+extern unsigned int cur_thr_value;
+extern unsigned int wakeup_failed_times;
+
+void dump_dmic_regs(void);
+
+
+extern int dmic_config(void);
+extern void dmic_init(void);
+extern int dmic_enable(void);
+extern int dmic_disable(void);
+extern int dmic_handler(void);
+extern void reconfig_thr_value( unsigned int thr_val);
+
+extern int dmic_init_deep_sleep(void);
+
+extern int dmic_init_record(void);
+
+extern int dmic_init_mode(int mode);
+
+
+extern int dmic_ioctl(int, unsigned long);
+#endif
+
+
+
+

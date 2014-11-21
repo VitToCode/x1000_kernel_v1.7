@@ -231,7 +231,7 @@ static struct jzdma_platform_data jzdma_pdata = {
 		JZDMA_REQ_NAND2,
 		JZDMA_REQ_NAND3,
 		JZDMA_REQ_NAND4,
-		JZDMA_REQ_I2S1,
+		//JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S0,
 		JZDMA_REQ_I2S0,
 #ifdef CONFIG_SERIAL_JZ47XX_UART3_DMA
