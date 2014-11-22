@@ -33,9 +33,8 @@
 static struct jz_cpufreq {
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
-} *jz_cpufreq;
-
-static struct cpufreq_freqs freqs;
+	struct mutex mutex;
+}*jz_cpufreq;
 #define SUSPEMD_FREQ_INDEX 0
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
@@ -55,6 +54,7 @@ static int m200_target(struct cpufreq_policy *policy,
 {
 	int index;
 	int ret = 0;
+	struct cpufreq_freqs freqs;
 	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table, target_freq, relation, &index);
 	if (ret) {
 		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
@@ -62,24 +62,24 @@ static int m200_target(struct cpufreq_policy *policy,
 		return ret;
 	}
 	freqs.new = jz_cpufreq->freq_table[index].frequency;
-	if (!freqs.new) {
-		printk("%s: cpu%d: no match for freq %d\n", __func__,
-		       policy->cpu, target_freq);
-		return -EINVAL;
-	}
-
 	freqs.old = m200_getspeed(policy->cpu);
 	freqs.cpu = policy->cpu;
 
-	if (freqs.old == freqs.new && policy->cur == freqs.new)
+	if (freqs.old == freqs.new && policy->cur == freqs.new) {
 		return ret;
-
+	}
+	mutex_lock(&jz_cpufreq->mutex);
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 //	printk("------set speed = %d\n",freqs.new);
+	if (!freqs.new) {
+		printk("%s: cpu%d: no match for freq %d\n", __func__,
+		       policy->cpu, target_freq);
+		while(1);
+	}
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
-
 	/* notifiers */
 	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+	mutex_unlock(&jz_cpufreq->mutex);
 	return ret;
 }
 #define CPUFRQ_MIN  12000
@@ -133,6 +133,7 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	cpumask_setall(policy->cpus);
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
+	mutex_init(&jz_cpufreq->mutex);
 	printk("cpu freq init ok!\n");
 	return 0;
 freq_table_err:
