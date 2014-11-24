@@ -13,7 +13,7 @@
 #define GPIO_GSENSOR_INT1       GPIO_PA(15)
 
 #ifndef CONFIG_BOARD_NAME
-#define CONFIG_BOARD_NAME "pawscan"
+#define CONFIG_BOARD_NAME "NP_PawsCam01m_AB"
 #endif
 
 extern struct jzmmc_platform_data inand_pdata;

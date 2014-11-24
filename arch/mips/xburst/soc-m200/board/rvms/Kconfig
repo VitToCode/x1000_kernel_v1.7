@@ -17,5 +17,5 @@ endchoice
 config BOARD_NAME
 	string
 	default "fornax" if BOARD_FORNAX
-	default "pawscan" if BOARD_PAWSCAN
+	default "NP_PawScam01m_AB" if BOARD_PAWSCAN
 	default "doorbell" if BOARD_DOORBELL
