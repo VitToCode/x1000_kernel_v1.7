@@ -132,7 +132,7 @@ static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 
 #ifdef CONFIG_MISC_BMA250E
 	{
-		I2C_BOARD_INFO("bma250e-misc", 0x19),
+		I2C_BOARD_INFO("bma250e-misc", 0x18),
 		.platform_data = &bma250e_pdata,
 	},
 #endif
