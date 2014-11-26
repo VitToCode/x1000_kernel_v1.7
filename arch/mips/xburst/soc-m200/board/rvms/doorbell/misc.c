@@ -198,8 +198,12 @@ static int __init board_init(void)
 #endif /* CONFIG_MFD_JZ_SADC_V12 */
 
 	/* VPU */
+#if defined(CONFIG_SOC_VPU) && defined(CONFIG_JZ_NVPU)
+	platform_device_register(&jz_vpu0_device);
+#else
 #ifdef CONFIG_JZ_VPU_V12
 	platform_device_register(&jz_vpu_device);
+#endif
 #endif
 
 #ifdef CONFIG_KEYBOARD_GPIO
