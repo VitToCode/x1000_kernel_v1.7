@@ -37,9 +37,15 @@
 #define OUTPUTR4   4700
 #define OUTPUTR5   5400
 #define OUTPUTR6   6800
-#define MODEPRM    61
-#define HMODE      10000
-#define MMODE      100000
+#define DEFAULT_OUTPUT	OUTPUTR5
+
+#define MODEPRM_1680    61
+#define MODEPRM_1620    57
+#define DEFAULT_MODEPRM	MODEPRM_1620
+
+#define HMODE      10000	// 100 lux
+#define MMODE      100000	// 1000 lux
+#define DEFAULT_MODE	MMODE
 
 #ifndef BITS_H2L
 #define BITS_H2L(msb, lsb)  ((0xFFFFFFFF >> (32-((msb)-(lsb)+1))) << (lsb))
@@ -173,7 +179,7 @@ ssize_t bh1680fvc_read(struct file *filp, char *buf, size_t len, loff_t *off)
 		printk("bh1680fvc read value error !!\n");
 		return -EINVAL;
 	}
-	sadc_val = sadc_val * HMODE / ( OUTPUTR6 * MODEPRM );
+	sadc_val = sadc_val * DEFAULT_MODE / ( DEFAULT_OUTPUT * DEFAULT_MODEPRM );
 
 	if(copy_to_user(buf, &sadc_val, sizeof(int))) {
 		return -EFAULT;
