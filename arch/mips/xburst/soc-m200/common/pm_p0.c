@@ -89,6 +89,7 @@ static inline void serial_put_hex(unsigned int x) {
 		TCSM_PCHAR(d);
 	}
 }
+/* #define DDR_MEM_TEST */
 #ifdef DDR_MEM_TEST
 #define MEM_TEST_SIZE   0x100000
 static unsigned int test_mem_space[MEM_TEST_SIZE / 4];
@@ -205,6 +206,7 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 
 	printk("opcr = %x\n",cpm_inl(CPM_OPCR));
 	printk("lcr = %x\n",cpm_inl(CPM_LCR));
+	printk("cpccr = %x\n",cpm_inl(CPM_CPCCR));
 
 	// set resume pc
 	cpm_outl((unsigned int)resume_pc,CPM_SLPC);
@@ -310,7 +312,7 @@ static noinline void cpu_sleep(void)
 	REG32(SLEEP_TCSM_RESUME_DATA + 12) = ddr_readl(DDRP_DX0GSR) & 3;
 	REG32(SLEEP_TCSM_RESUME_DATA + 16) = read_c0_config();
 	REG32(SLEEP_TCSM_RESUME_DATA + 20) = read_c0_status();
-
+	REG32(SLEEP_TCSM_RESUME_DATA + 24) = REG32(0xb0000000);
 
 	blast_dcache32();
 	blast_icache32();
@@ -347,6 +349,15 @@ LABLE1:
 	val = ddr_readl(DDRC_CTRL);
 	val |= (1 << 17);   // enter to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
+
+	/*
+	 * (1) SCL_SRC source clock changes APLL to EXCLK
+	 * (2) AH0/2 source clock changes MPLL to EXCLK
+	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
+	 */
+	REG32(0xb0000000) = 0x95800000;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
 
 	if(pmu_slp_gpio_info != -1) {
 		set_gpio_func(pmu_slp_gpio_info & 0xffff,
@@ -432,7 +443,14 @@ static noinline void cpu_resume(void)
 {
 	int val = 0;
 	int bypassmode = 0;
-	unsigned int save_slp;
+
+	/* restore  CPM CPCCR */
+	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
+	val |= (7 << 20);
+	REG32(0xb0000000) = val;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
+
 #ifdef CONFIG_JZ_DMIC_WAKEUP
 	int (*volatile func)(int);
 	int temp;
@@ -446,9 +464,9 @@ static noinline void cpu_resume(void)
 	func = (int (*)(int))temp;
 	val = func(1);
 #endif
-	save_slp = REG32(SLEEP_TCSM_RESUME_DATA + 8);
-	if(save_slp != -1)
-		set_gpio_func(save_slp & 0xffff, save_slp >> 16);
+	val = REG32(SLEEP_TCSM_RESUME_DATA + 8);
+	if(val != -1)
+		set_gpio_func(val & 0xffff, val >> 16);
 
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	if(!bypassmode) {
