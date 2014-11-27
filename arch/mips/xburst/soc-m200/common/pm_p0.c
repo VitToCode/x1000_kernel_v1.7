@@ -443,6 +443,10 @@ static noinline void cpu_resume(void)
 {
 	int val = 0;
 	int bypassmode = 0;
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	int (*volatile func)(int);
+	int temp;
+#endif
 
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
@@ -450,11 +454,6 @@ static noinline void cpu_resume(void)
 	REG32(0xb0000000) = val;
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
-
-#ifdef CONFIG_JZ_DMIC_WAKEUP
-	int (*volatile func)(int);
-	int temp;
-#endif
 
 	write_c0_config(REG32(SLEEP_TCSM_RESUME_DATA + 16));  // restore cachable
 	write_c0_status(REG32(SLEEP_TCSM_RESUME_DATA + 20));  // restore cp0 statue
