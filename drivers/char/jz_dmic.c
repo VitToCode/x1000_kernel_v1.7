@@ -21,6 +21,7 @@
 #include <linux/syscalls.h>
 #include <linux/circ_buf.h>
 #include <linux/timer.h>
+#include <linux/syscore_ops.h>
 
 
 #include <asm/system.h>
@@ -103,6 +104,7 @@ struct jzdmic_dev {
 
 	struct class *class;
 	struct cdev cdev;
+	struct device *dev;
 };
 
 
@@ -118,13 +120,12 @@ static int jzdmic_open(struct inode *inode, struct file *filp)
 	struct dma_fifo *record_fifo = jzdmic->record_fifo;
 	struct circ_buf *xfer = &record_fifo->xfer;
 
+	wakeup_module_open(NORMAL_RECORD);
 	filp->private_data = jzdmic;
 	record_fifo->n_size	= TCSM_BUFFER_SIZE; /* dead size, don't change */
-	xfer->head = 0;
-	xfer->tail = 0;
 	xfer->buf = (char *)TCSM_BANK5_V;
-
-	wakeup_module_open(NORMAL_RECORD);
+	xfer->head = (char *)KSEG1ADDR(wakeup_module_get_dma_address()) - xfer->buf;;
+	xfer->tail = xfer->head;
 
 	mod_timer(&jzdmic->record_timer, jiffies + msecs_to_jiffies(20));
 
@@ -350,7 +351,9 @@ static int __init jzdmic_init(void)
 		goto __err_record;
 	}
 
-	device_create(jzdmic->class, NULL, dev_no, NULL, "jz-dmic");
+	jzdmic->dev = device_create(jzdmic->class, NULL, dev_no, NULL, "jz-dmic");
+
+
 	return 0;
 
 __err_record:

@@ -29,6 +29,10 @@ extern int dmic_init_mode(int mode);
 
 
 extern int dmic_ioctl(int, unsigned long);
+
+extern int cpu_should_sleep(void);
+
+extern int dmic_disable_tri(void);
 #endif
 
 

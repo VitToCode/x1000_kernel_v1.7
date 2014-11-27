@@ -7,7 +7,7 @@ OBJDUMP	= mips-linux-gnu-objdump
 drop-sections := .reginfo .mdebug .oomment .note .pdr .options .MIPS.options
 strip-flags   := $(addprefix --remove-section=,$(drop-sections))
 
-CFLAGS += -I$(TOPDIR)/include 
+CFLAGS += -I$(TOPDIR)/include
 CFLAGS += -nostdinc -Wall -Wundef -Werror-implicit-function-declaration \
 	 -fno-common -EL -Os -march=mips32 -mabi=32 -G 0 -mno-abicalls -fno-pic\
 	 -msoft-float
@@ -25,6 +25,7 @@ OBJS := $(TOPDIR)/src/start.o		\
 	$(TOPDIR)/src/voice_wakeup.o		\
 	$(TOPDIR)/lib/libivw3_6.a
 
+
 all: $(TOPDIR)/firmware.bin
 	@hexdump -v -e '"0x" 1/4 "%08x" "," "\n"' $< > $(TOPDIR)/firmware.hex
 
@@ -33,6 +34,9 @@ $(TOPDIR)/firmware.bin:$(TOPDIR)/firmware.o
 	@$(OBJCOPY) $(strip-flags) $(OBJCOPY_ARGS) -O binary $(TOPDIR)/tmp.elf $@
 	@$(OBJDUMP) $(TOPDIR)/tmp.elf -D > tmp.dump
 $(TOPDIR)/firmware.o:$(OBJS)
+
+$(TOPDIR)/lib/libivw3_6.a:$(TOPDIR)/lib/libivw3_6.hex
+	cp $(TOPDIR)/lib/libivw3_6.hex $(TOPDIR)/lib/libivw3_6.a
 
 %.o:%.c
 	$(CC) $(CFLAGS) -o $@ -c $^
@@ -43,8 +47,4 @@ $(TOPDIR)/firmware.o:$(OBJS)
 clean:
 	find . -name "*.o" | xargs rm -vf
 	find . -name "*.o.cmd" | xargs rm -vf
-	find . -name "*.hex" | xargs rm -vf
-	find . -name "*.bin" | xargs rm -vf
-	find . -name "*.map" | xargs rm -vf
-	find . -name "*.elf" | xargs rm -vf
-	find . -name "*.dump" | xargs rm -vf
+

@@ -117,11 +117,10 @@ static int rtc_save(void)
 		//rtc_config.alarm_enabled = 1;
 	//}
 	rtc_config.alarm_enabled = 1;
-	return 0;
 }
 static int rtc_restore(void)
 {
-	return 0;
+
 }
 int rtc_set_alarm(unsigned long alarm_seconds)
 {
@@ -136,6 +135,7 @@ int rtc_set_alarm(unsigned long alarm_seconds)
 }
 int rtc_init(void)
 {
+	unsigned int temp;
 
 	old_config.alarm_val = 0;
 	rtc_save();

@@ -42,7 +42,11 @@ struct wakeup_module_ops {
 	int (*set_handler)(void *);
 	dma_addr_t (*get_dma_address)(void);
 	int (*ioctl)(int cmd, unsigned long args);
-
+	unsigned char (*get_resource_addr)(void);
+	int (*process_data)(void);
+	int (*is_cpu_wakeup_by_dmic)(void);
+	int (*set_sleep_buffer)(unsigned char *, unsigned long);
+	int (*get_sleep_process)(void);
 };
 
 struct wakeup_module_ops *m_ops;
@@ -122,6 +126,36 @@ int wakeup_module_ioctl(int cmd, unsigned long args)
 	return m_ops->ioctl(cmd, args);
 }
 EXPORT_SYMBOL(wakeup_module_ioctl);
+
+unsigned char wakeup_module_get_resource_addr(void)
+{
+	return m_ops->get_resource_addr();
+}
+int wakeup_module_process_data(void)
+{
+	return m_ops->process_data();
+}
+EXPORT_SYMBOL(wakeup_module_process_data);
+
+int wakeup_module_is_cpu_wakeup_by_dmic(void)
+{
+	return m_ops->is_cpu_wakeup_by_dmic();
+}
+EXPORT_SYMBOL(wakeup_module_is_cpu_wakeup_by_dmic);
+
+int wakeup_module_set_sleep_buffer(unsigned char *buffer, unsigned long len)
+{
+
+	return m_ops->set_sleep_buffer(buffer, len);
+}
+EXPORT_SYMBOL(wakeup_module_set_sleep_buffer);
+
+int wakeup_module_get_sleep_process(void)
+{
+	return m_ops->get_sleep_process();
+}
+EXPORT_SYMBOL(wakeup_module_get_sleep_process);
+
 
 static int __init wakeup_module_init(void)
 {

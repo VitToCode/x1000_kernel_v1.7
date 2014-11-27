@@ -24,17 +24,6 @@ int quantity_tri(int times)
 	} else {
 		return 1; /* DOWN */
 	}
-	//int i;
-	//for(i=0; i< TRIGGER_CNTS; i++) {
-		//if((tri_cnt[i] & times) < times) {
-			 ///**/
-			//return tri_cnt[i+1]; /* trigger fast, next level*/
-			////break;
-		//} else if((tri_cnt[i] & times) > times) {
-			//return tri_cnt[]
-		//}
-	//}
-	//return tri_cnt[i];
 }
 
 /*

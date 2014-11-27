@@ -15,7 +15,8 @@ extern int (*h_handler)(const char *fmt, ...);
 enum open_mode {
 	EARLY_SLEEP = 1,
 	DEEP_SLEEP,
-	NORMAL_RECORD
+	NORMAL_RECORD,
+	NORMAL_WAKEUP
 };
 
 

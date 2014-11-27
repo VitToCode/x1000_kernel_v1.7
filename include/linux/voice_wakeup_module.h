@@ -5,7 +5,8 @@
 enum open_mode {
 	EARLY_SLEEP = 1,
 	DEEP_SLEEP,
-	NORMAL_RECORD
+	NORMAL_RECORD,
+	NORMAL_WAKEUP
 };
 
 
@@ -28,5 +29,18 @@ int wakeup_module_handler(int par);
 
 dma_addr_t wakeup_module_get_dma_address(void);
 
+unsigned char wakeup_module_get_resource_addr(void);
+
 int wakeup_module_ioctl(int cmd, unsigned long args);
+
+
+int wakeup_module_process_data(void);
+
+int wakeup_module_is_cpu_wakeup_by_dmic(void);
+
+
+int wakeup_module_set_sleep_buffer(unsigned char *, unsigned long);
+
+int wakeup_module_get_sleep_process(void);
+
 #endif

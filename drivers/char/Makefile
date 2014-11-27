@@ -69,3 +69,4 @@ js-rtc-y = rtc.o
 
 obj-$(CONFIG_JZ_DMIC_V12)	+= voice_wakeup/
 obj-$(CONFIG_JZ_DMIC_V12)	+= jz_dmic.o
+obj-$(CONFIG_JZ_DMIC_WAKEUP) += jz_wakeup.o

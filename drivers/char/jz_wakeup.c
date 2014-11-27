@@ -1,0 +1,361 @@
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/init.h>
+
+#include <linux/kernel.h>
+#include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/errno.h>
+#include <linux/types.h>
+#include <linux/proc_fs.h>
+#include <linux/fcntl.h>
+#include <linux/seq_file.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/sched.h>
+#include <linux/io.h>
+#include <linux/memory.h>
+#include <linux/mm.h>
+#include <asm/cacheops.h>
+#include <linux/dma-mapping.h>
+#include <linux/syscalls.h>
+#include <linux/circ_buf.h>
+#include <linux/timer.h>
+#include <linux/syscore_ops.h>
+#include <linux/delay.h>
+
+#include <asm/system.h>
+#include <asm/uaccess.h>
+
+#include <linux/voice_wakeup_module.h>
+#include <linux/wait.h>
+
+/*
+ * global define, don't change.
+ * */
+
+struct wakeup_dev {
+	int major;
+	int minor;
+	int nr_devs;
+	unsigned char *resource_buf;
+
+	struct completion wakeup_completion;
+	struct timer_list wakeup_timer;
+
+	wait_queue_head_t wakeup_wq;
+
+	unsigned int wakeup_pending;
+	spinlock_t wakeup_lock;
+
+	unsigned char *sleep_buffer;
+	unsigned long sleep_buffer_len;
+
+	struct class *class;
+	struct cdev cdev;
+	struct device *dev;
+};
+
+static struct wakeup_dev *g_wakeup;
+
+
+static int wakeup_open(struct inode *inode, struct file *filp)
+{
+	/* open dmic by wakeup module,
+	 * default par: 16KsampleRate, 1Channel.
+	 * default status: dmic enabled. data path on.
+	 * */
+
+	/* if you need to change voice resource file.
+	 * you should reopen wakeup driver. and then call write ops.
+	 * */
+	struct cdev *cdev = inode->i_cdev;
+	struct wakeup_dev *wakeup = container_of(cdev, struct wakeup_dev, cdev);
+
+	printk("wakeup open:!\n");
+	filp->private_data = wakeup;
+
+	wakeup->resource_buf = KSEG1ADDR(wakeup_module_get_resource_addr());
+
+	printk("resource_buf:%08x\n", wakeup->resource_buf);
+
+	return 0;
+}
+static int wakeup_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
+{
+	struct wakeup_dev *wakeup = filp->private_data;
+
+	return 0;
+}
+static int wakeup_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos)
+{
+	struct wakeup_dev *wakeup = filp->private_data;
+
+	if(copy_from_user(wakeup->resource_buf, buf, count)) {
+		printk("copy_from_user failed.\n");
+		return -EFAULT;
+	}
+	wakeup->resource_buf += count;
+
+	return count;
+}
+static int wakeup_close(struct inode *inode, struct file *filp)
+{
+	struct wakeup_dev *wakeup = filp->private_data;
+	return 0;
+}
+
+
+static long wakeup_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
+{
+	struct wakeup_dev *wakeup = filp->private_data;
+	void __user *argp = (void __user *)args;
+
+	return 0;
+}
+
+
+static struct file_operations wakeup_ops = {
+	.owner = THIS_MODULE,
+	.write = wakeup_write,
+	.read = wakeup_read,
+	.open = wakeup_open,
+	.release = wakeup_close,
+	.unlocked_ioctl = wakeup_ioctl,
+};
+
+
+static void wakeup_timer_handler(unsigned long data)
+{
+	struct wakeup_dev *wakeup = (struct wakeup_dev *)data;
+	unsigned long flags;
+	if(wakeup_module_process_data() == SYS_WAKEUP_OK) {
+		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+		if(wakeup->wakeup_pending == 1) {
+			wake_up(&wakeup->wakeup_wq);
+			wakeup->wakeup_pending = 0;
+		}
+		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+	}
+	mod_timer(&wakeup->wakeup_timer, jiffies + msecs_to_jiffies(30));
+}
+
+/************************* sysfs for wakeup *****************************/
+static ssize_t resource_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	/* set wakeup resource */
+	printk("set up resource file!\n");
+	return count;
+}
+static ssize_t resource_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	printk("resource file information\n");
+	return 0;
+}
+
+
+
+static ssize_t wakeup_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long flags;
+	unsigned long ctl;
+	int rc;
+
+	struct wakeup_dev *wakeup = dev_get_drvdata(dev);
+	/* write: 1 enable wakeup, 0: disable wakeup */
+	printk("wakeup store. :\n");
+
+	rc = strict_strtoul(buf, 0, &ctl);
+	if(rc)
+		return rc;
+	if(ctl == 1) {
+		printk("enable wakeup function\n");
+		wakeup_module_open(NORMAL_WAKEUP);
+		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+		wakeup->wakeup_pending = 1;
+		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+
+		mod_timer(&wakeup->wakeup_timer, jiffies + msecs_to_jiffies(20));
+	} else if (ctl == 0) {
+		printk("disable wakeup function\n");
+		wakeup_module_close(NORMAL_WAKEUP);
+
+		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+		if(wakeup->wakeup_pending == 1) {
+			wakeup->wakeup_pending = 0;
+			wake_up(&wakeup->wakeup_wq);
+		}
+		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+
+		del_timer_sync(&wakeup->wakeup_timer);
+	}
+	return count;
+}
+static ssize_t wakeup_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct wakeup_dev *wakeup = dev_get_drvdata(dev);
+	int ret;
+	char *t = buf;
+	unsigned long flags;
+
+	printk("[Voice Wakeup]wait wakeup.:wakeup :%08x\n", wakeup);
+
+	ret = wait_event_interruptible(wakeup->wakeup_wq, wakeup->wakeup_pending == 0);
+	if(ret && wakeup->wakeup_pending == 1) {
+		/* interrupted by signal , just return .*/
+		printk("[Voice Wakeup] wakeup by signal.\n");
+		return ret;
+	} else {
+		/* wakeup by event .*/
+		t += sprintf(buf, "wakeup_ok");
+		printk("[Voice Wakeup] wakeup by voice. \n");
+
+		/*
+		 * when called this functio. means wakeup is pending now.
+		 * set wakeup_pending before another reading.
+		 * */
+		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+		wakeup->wakeup_pending = 1;
+		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+
+	}
+	return t-buf;
+}
+
+static DEVICE_ATTR(set_key, 0666, resource_show, resource_store);
+static DEVICE_ATTR(wakeup, 0666, wakeup_show, wakeup_store);
+
+static struct attribute *wakeup_attributes[] = {
+	&dev_attr_set_key.attr,
+	&dev_attr_wakeup.attr,
+	NULL
+};
+static const struct attribute_group wakeup_attr_group = {
+	.attrs = wakeup_attributes,
+};
+
+
+/* PM */
+static int wakeup_suspend(void)
+{
+	/* alloc dma buffer. and build dma desc, wakeup_module_set_desc */
+	//printk("########wakeup_suspend!!!\n");
+	//struct wakeup_dev * wakeup = g_wakeup;
+
+
+	//wakeup->sleep_buffer_len = 32 * 1024;
+	//wakeup->sleep_buffer = kmalloc(wakeup->sleep_buffer_len, GFP_KERNEL);
+	//if(!wakeup->sleep_buffer) {
+		//printk("alloc sleep buffer failed.!\n");
+	//}
+	//wakeup_module_set_sleep_buffer(wakeup->sleep_buffer, wakeup->sleep_buffer_len);
+
+	///*auto close*/
+	////wakeup_module_open(EARLY_SLEEP);
+
+	return 0;
+}
+static void wakeup_resume(void)
+{
+	struct wakeup_dev * wakeup = g_wakeup;
+	unsigned long flags;
+
+	printk("@@@@@@@@wakeup resume:::::::::%d\n", wakeup_module_is_cpu_wakeup_by_dmic());
+	if(wakeup_module_is_cpu_wakeup_by_dmic()) {
+		printk("#############################@@@@@@@@@@@@ complet wakeup !!!\n");
+
+		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+		if(wakeup->wakeup_pending == 1) {
+			wakeup->wakeup_pending = 0;
+			wake_up(&wakeup->wakeup_wq);
+		}
+		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+	}
+	printk("########wakeup resume!!!!\n");
+}
+struct syscore_ops wakeup_pm_ops = {
+	.suspend = wakeup_suspend,
+	.resume = wakeup_resume,
+};
+
+
+/************************** sysfs end  **********************************/
+static int __init wakeup_init(void)
+{
+	dev_t dev = 0;
+	int ret, dev_no;
+	struct wakeup_dev *wakeup;
+
+	wakeup = kmalloc(sizeof(struct wakeup_dev), GFP_KERNEL);
+	if(!wakeup) {
+		printk("voice dev alloc failed\n");
+		goto __err_wakeup;
+	}
+	wakeup->class = class_create(THIS_MODULE, "jz-wakeup");
+	wakeup->minor = 0;
+	wakeup->nr_devs = 1;
+	ret = alloc_chrdev_region(&dev, wakeup->minor, wakeup->nr_devs, "jz-wakeup");
+	if(ret) {
+		printk("alloc chrdev failed\n");
+		goto __err_chrdev;
+	}
+	wakeup->major = MAJOR(dev);
+
+	dev_no = MKDEV(wakeup->major, wakeup->minor);
+	cdev_init(&wakeup->cdev, &wakeup_ops);
+	wakeup->cdev.owner = THIS_MODULE;
+	cdev_add(&wakeup->cdev, dev_no, 1);
+
+	init_timer(&wakeup->wakeup_timer);
+	wakeup->wakeup_timer.function = wakeup_timer_handler;
+	wakeup->wakeup_timer.data	= (unsigned long)wakeup;
+
+	init_completion(&wakeup->wakeup_completion);
+
+
+	wakeup->dev = device_create(wakeup->class, NULL, dev_no, NULL, "jz-wakeup");
+
+	register_syscore_ops(&wakeup_pm_ops);
+
+	ret = sysfs_create_group(&wakeup->dev->kobj, &wakeup_attr_group);
+	if (ret < 0) {
+		    printk("cannot create sysfs interface\n");
+	}
+
+	init_waitqueue_head(&wakeup->wakeup_wq);
+	wakeup->wakeup_pending = 0;
+
+	spin_lock_init(&wakeup->wakeup_lock);
+
+	dev_set_drvdata(wakeup->dev, wakeup);
+	g_wakeup = wakeup;
+	printk("wakeup :%08x\n", wakeup);
+
+	return 0;
+
+__err_wakeup:
+__err_chrdev:
+	kfree(wakeup);
+
+	return -EFAULT;
+}
+static void __exit wakeup_exit(void)
+{
+
+}
+
+module_init(wakeup_init);
+module_exit(wakeup_exit);
+
+
+MODULE_AUTHOR("qipengzhen<aric.pzqi@ingenic.com>");
+MODULE_DESCRIPTION("wakeup driver using dmic");
+MODULE_LICENSE("GPL");

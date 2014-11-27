@@ -9,7 +9,7 @@
 #endif
 
 #ifndef __section
-# define __section(S) __attribute__ ((__section__(#S)))
+# define __section(S) __attribute__((__section__(#S)))
 #endif
 
 

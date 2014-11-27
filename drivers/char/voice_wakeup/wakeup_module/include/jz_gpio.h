@@ -1,5 +1,5 @@
-#ifndef __JZ_GPIO_H__
-#define __JZ_GPIO_H__
+#ifndef __JZ4785_GPIO_H__
+#define __JZ4785_GPIO_H__
 
 #define	GPIO_BASE	0xB0010000
 

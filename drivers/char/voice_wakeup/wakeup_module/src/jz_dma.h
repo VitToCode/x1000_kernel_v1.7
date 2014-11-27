@@ -95,6 +95,8 @@ struct dma_config{
 	int sd;
 	int link;
 	unsigned long desc;
+
+	unsigned int burst_len; /*Bytes*/
 };
 
 

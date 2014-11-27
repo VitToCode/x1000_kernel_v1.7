@@ -17,7 +17,7 @@ int wakeup_close(void);
 
 int process_dma_data(void);
 int process_dma_data_2(void);
-
+int process_buffer_data(unsigned char *buffer, unsigned long len);
 
 
 #define SYS_WAKEUP_OK	0x1
@@ -25,6 +25,7 @@ int process_dma_data_2(void);
 #define SYS_NEED_DATA	0x3
 
 
+extern unsigned int wakeup_res[];
 
 #endif
 

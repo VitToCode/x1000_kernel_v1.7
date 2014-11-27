@@ -17,6 +17,9 @@ unsigned int wakeup_failed_times;
 
 
 
+//#define DMIC_FIFO_THR	(48) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
+#define DMIC_FIFO_THR	(64) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
+//#define DMIC_FIFO_THR	(128)
 
 
 #define __dmic_reset()									\
@@ -119,6 +122,10 @@ void dmic_init(void)
 
 }
 
+int cpu_should_sleep(void)
+{
+	return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20) ? 1 : 0;
+}
 
 int dmic_config(void)
 {
@@ -182,7 +189,7 @@ int dmic_init_mode(int mode)
 			REG_DMIC_CR0 |= 1<<8 | 1 << 12;
 			//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
 
-			REG_DMIC_FCR |= 1 << 31 | 64;
+			REG_DMIC_FCR |= 1 << 31 | DMIC_FIFO_THR;
 			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x1f; /*mask all ints*/
 			REG_DMIC_GCR = 9;
@@ -230,19 +237,7 @@ int dmic_init_mode(int mode)
 			break;
 
 	}
-	return 0;
 }
-//int dmic_init_deep_sleep(void)
-//{
-	//dmic_init();
-	//dmic_config();
-	//dmic_current_state = WAITING_TRIGGER;
-	//wakeup_failed_times = 0;
-
-	//thr_need_reconfig = 0;
-	////cur_thr_value = thr_table[TRIGGER_CNTS/2];
-	//cur_thr_value = 5000;
-//}
 
 int dmic_enable(void)
 {
@@ -252,14 +247,20 @@ int dmic_enable(void)
 	return 0;
 }
 
+int dmic_disable_tri(void)
+{
+	REG_DMIC_CR0 &= ~(1<<1);
+	REG_DMIC_ICR |= 0x1f;
+	REG_DMIC_IMR |= 0x1f;
+}
 int dmic_disable(void)
 {
 	/*controller disable*/
-	REG_DMIC_CR0 &= ~(1<<1); /*DISABLE DMIC tri*/
+	//REG_DMIC_CR0 &= ~(1<<1); /*DISABLE DMIC tri*/
 	REG_DMIC_CR0 &= ~(1 << 0); /*DISABLE DMIC*/
 	/*clear ints*/
-	REG_DMIC_ICR |= 0x1f;
-	REG_DMIC_IMR |= 0x1f;
+	//REG_DMIC_ICR |= 0x1f;
+	//REG_DMIC_IMR |= 0x1f;
 	return 0;
 }
 
@@ -276,7 +277,7 @@ void reconfig_thr_value(unsigned int thr_val)
 	//}
 
 	REG_DMIC_THRL = cur_thr_value;
-	serial_put_hex(REG_DMIC_THRL);
+	//serial_put_hex(REG_DMIC_THRL);
 }
 
 int dmic_set_samplerate(unsigned long rate)
@@ -315,7 +316,7 @@ int dmic_handler(void)
 	volatile int ret;
 	/* we only handle wakeup and trigger ints */
 	//REG_DMIC_CR0 |= 1<<6; /* set sample rate 16K*/
-	REG_DMIC_CR0 &= ~(1<<7); /* set sample rate 16K*/
+	//REG_DMIC_CR0 &= ~(1<<7); /* set sample rate 16K*/
 	REG_DMIC_ICR |= 0x1f; /* CLEAR ALL INTS*/
 	REG_DMIC_IMR |= 1<<0 | 1<<4; /* MASK TRIGGER, wakeup */
 
@@ -328,7 +329,6 @@ int dmic_handler(void)
 	}
 
 	ret = process_dma_data_2();
-	//ret = process_dma_data();
 
 	if(ret == SYS_WAKEUP_OK) {
 		return SYS_WAKEUP_OK;
@@ -350,7 +350,6 @@ int dmic_handler(void)
 		 * */
 
 		/*reconfig dmic*/
-		//REG_DMIC_THRL = 5000;
 		reconfig_thr_value(cur_thr_value);
 
 		//REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
@@ -361,6 +360,7 @@ int dmic_handler(void)
 
 		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
 		//REG_DMIC_CR0 &= ~(3<<6); /* disable data path*/
+
 		REG_DMIC_ICR |= 0x1f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 

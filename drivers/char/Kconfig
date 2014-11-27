@@ -12,6 +12,13 @@ config JZ_DMIC_V12
 	help
 		Say Y here if you want to support DMIC on your board. The Dmic Driver
 		support record and wakeup function. When in doubt, Say N here.
+config JZ_DMIC_WAKEUP
+	bool "Ingenic Voice Wakeup Driver"
+	depends on JZ_DMIC_V12
+	default n
+	help
+		Say Y here if you want to use voice wakeup function. The Voice Wakeup
+		Driver support voice wakeup. when in doubt , Say N here.
 
 config JZ_VP
 	bool "Virtual Privilege device driver"

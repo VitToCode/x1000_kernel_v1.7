@@ -9,8 +9,11 @@
 #include "dmic_config.h"
 #include "interface.h"
 #include "voice_wakeup.h"
+#include <common.h>
 
-int wakeup_res[] = {
+#define VOICE_RES_MEM_START	(0x8ff28000)
+
+unsigned int __res_mem wakeup_res[] = {
 #include "ivModel_v21.data"
 };
 
@@ -128,11 +131,8 @@ int wakeup_open(void)
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
 	//xfer->buf = (char *)0xb3427000;
 	xfer->buf = (char *)TCSM_BANK_5;
-	printf("#### 1\n");
 	xfer->head = (char *)(pdma_trans_addr(DMA_CHANNEL, 2) | 0xA0000000) - xfer->buf;
-	printf("#### 2\n");
 	xfer->tail = xfer->head;
-	printf("#### 2\n");
 
 	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
 	return 0;
@@ -163,7 +163,7 @@ int process_dma_data_2(void)
 	xfer = &rx_fifo->xfer;
 	xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 
-	serial_put_hex(dma_addr);
+	//serial_put_hex(dma_addr);
 	if(0) {
 		printf("current dma transaddr :%x, xfer->head:%x, xfer->tail:%x, xfer->buf:%x\n",
 				dma_addr, xfer->head, xfer->tail, xfer->buf);
@@ -210,6 +210,7 @@ int process_dma_data_2(void)
 	//printk("total_process_len:%d\n", total_process_len);
 	return SYS_WAKEUP_FAILED;
 }
+
 int process_dma_data(void)
 {
 
@@ -217,53 +218,55 @@ int process_dma_data(void)
 	int nbytes;
 	int ret;
 	struct circ_buf *xfer;
-	//printk("MAX_PROCESS_LEN:%08x\n", MAX_PROCESS_LEN);
-	total_process_len = 0;
-	while(total_process_len < MAX_PROCESS_LEN) {
 
-		dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
-		xfer = &rx_fifo->xfer;
-		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
+	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	xfer = &rx_fifo->xfer;
+	xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 
-		serial_put_hex(dma_addr);
-		if(0) {
-			printf("current dma transaddr :%x, xfer->head:%x, xfer->tail:%x, xfer->buf:%x\n",
-					dma_addr, xfer->head, xfer->tail, xfer->buf);
-		}
-		nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
-		if(0) {
-			printf("nbytes:%d, xfer->head:%d, xfer->tail:%d,dma_addr:%x\n", nbytes, xfer->head, xfer->tail, dma_addr);
-			xfer->tail += nbytes;
+	//serial_put_hex(dma_addr);
+	if(0) {
+		printf("current dma transaddr :%x, xfer->head:%x, xfer->tail:%x, xfer->buf:%x\n",
+				dma_addr, xfer->head, xfer->tail, xfer->buf);
+	}
+	nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
+	if(0) {
+		printf("nbytes:%d, xfer->head:%d, xfer->tail:%d,dma_addr:%x\n", nbytes, xfer->head, xfer->tail, dma_addr);
+		xfer->tail += nbytes;
+		xfer->tail %= rx_fifo->n_size;
+	}
+	if(nbytes > 220) {
+		//printf("process 512 bytes!!!\n");
+		/*process data every 512 bytes.*/
+		while(1) {
+			int nread;
+			nread = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
+			if(nread > CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size)) {
+				nread = CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size);
+			} else if(nread == 0) {
+				break;
+			}
+			ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
+			if(ret == IvwErr_WakeUp) {
+				printf("####system wakeup ok!!!\n");
+				return SYS_WAKEUP_OK;
+			}
+
+			xfer->tail += nread;
 			xfer->tail %= rx_fifo->n_size;
 		}
-		if(nbytes > 220) {
-			//printf("process 512 bytes!!!\n");
-			/*process data every 512 bytes.*/
-			while(1) {
-				int nread;
-				nread = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
-				if(nread > CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size)) {
-					nread = CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size);
-				} else if(nread == 0) {
-					break;
-				}
-				ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
-				if(ret == IvwErr_WakeUp) {
-					//printf("####system wakeup ok!!!\n");
-					return SYS_WAKEUP_OK;
-				}
-
-				xfer->tail += nread;
-				xfer->tail %= rx_fifo->n_size;
-			}
-		} else {
-			/*need more data*/
-
-			//return SYS_WAKEUP_FAILED;
-		}
-
-		total_process_len += nbytes;
+	} else {
+		/*need more data*/
+		//return SYS_WAKEUP_FAILED;
 	}
-	//printk("total_process_len:%d\n", total_process_len);
+	return SYS_WAKEUP_FAILED;
+}
+
+int process_buffer_data(unsigned char *buf, unsigned long len)
+{
+	int ret;
+	ret = send_data_to_process(pIvwObj, buf, len);
+	if(ret == IvwErr_WakeUp) {
+		return SYS_WAKEUP_OK;
+	}
 	return SYS_WAKEUP_FAILED;
 }

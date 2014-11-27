@@ -1,15 +1,12 @@
 OUTPUT_ARCH(mips)
 ENTRY(start)
 MEMORY{
-	/*
-	 * 256Kbytes
-	 *	
-	 * */
-	voice_mem(rw): ORIGIN = 0x8FF00000, LENGTH = 0x40000
-	/* 
-	 * last 80Kbytes store resource file.
-	 * */
-	voice_res(rw): ORIGIN = 0x8FF2c000, LENGTH = 0x14000
+	/* TOTAL MEM :256KBytes */
+
+	/*160Kbytes, .text, .data.*/
+	voice_mem(rw): ORIGIN = 0x8FF00000, LENGTH = 0x28000
+	/*96Kbytes: .resource.*/
+	voice_res(rw): ORIGIN = 0x8FF28000, LENGTH = 0x18000
 }
 
 SECTIONS
@@ -18,7 +15,7 @@ SECTIONS
 		. = ALIGN(4);
 			*(.text)
 			/**(.data)*/
-			
+
 			/**(.bss)*/
 	} > voice_mem
 

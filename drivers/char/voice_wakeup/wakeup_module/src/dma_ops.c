@@ -13,6 +13,32 @@ int *dst_buf;
 struct dma_config config;
 struct dma_desc *desc;
 
+
+void build_circ_n_desc(int desc_num, unsigned long buffer_len)
+{
+	int i;
+	struct dma_desc *cur;
+	struct dma_desc *next;
+	for(i=0; i< desc_num; i++) {
+		config.src = V_TO_P(src_buf);
+		config.dst = V_TO_P(dst_buf + ((buffer_len/desc_num/sizeof(dst_buf)) * i));
+		config.count = BUF_SIZE/NR_DESC/config.burst_len; /*count of data unit*/
+		config.link = 1;
+		cur = &desc[i];
+		if(i == NR_DESC -1) {
+			next = &desc[0];
+		} else {
+			next = &desc[i+1];
+		}
+		if(0) {
+			printf("cur_desc:%x, next_desc:%x\n", cur, next);
+		}
+		build_one_desc(&config, cur, next);
+	}
+
+}
+
+
 void build_circ_descs(void)
 {
 	int i;
@@ -21,7 +47,7 @@ void build_circ_descs(void)
 	for(i=0; i< NR_DESC; i++) {
 		config.src = V_TO_P(src_buf);
 		config.dst = V_TO_P(dst_buf + ((BUF_SIZE/NR_DESC/sizeof(dst_buf)) * i));
-		config.count = BUF_SIZE/NR_DESC/4; /*count of data unit*/
+		config.count = BUF_SIZE/NR_DESC/config.burst_len; /*count of data unit*/
 		config.link = 1;
 		cur = &desc[i];
 		if(i == NR_DESC -1) {
@@ -152,25 +178,59 @@ void dma_open(void)
 	config.channel = DMA_CHANNEL;
 	/*...*/
 	config.increment = 1; /*src no inc, dst inc*/
-	config.rdil = 0;
+	//config.rdil = 0;
+	config.rdil = 64;
 	config.sp_dp = 0x00; /*32bit*/
 	config.stde = 0;
 	config.descriptor = 1;
 	config.des8 = 1;
 	config.sd = 0;
-	config.tsz	 = 0;
+	//config.tsz	 = 0;
+	config.tsz	 = 6;
+	config.burst_len = 128;
+
 	config.desc = V_TO_P(desc);
 	config.tie = 1;
 
 	build_circ_descs();
-
 	pdma_config(&config);
-	dump_descs();
+	//dump_descs();
 	pdma_start(DMA_CHANNEL);
 	//dump_dma_register(DMA_CHANNEL);
 
 }
 
+struct dma_desc sleep_desc[4];
+void early_sleep_dma_config(unsigned char *buffer, unsigned long len)
+{
+	printf("########%s,------- %d-------len:%d\n", __func__, __LINE__, len);
+
+	desc = (struct dma_desc *)(DMA_DESC_ADDR);
+	src_buf = (int *)DMIC_RX_FIFO;
+	dst_buf = V_TO_P(buffer);
+
+	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
+	config.channel = DMA_CHANNEL;
+	/*...*/
+	config.increment = 1; /*src no inc, dst inc*/
+	config.rdil = 64;
+	config.sp_dp = 0x00; /*32bit*/
+	config.stde = 0;
+	config.descriptor = 1;
+	config.des8 = 1;
+	config.sd = 0;
+	config.tsz   = 6;
+	config.burst_len = 128;
+
+	config.desc = V_TO_P(sleep_desc);
+	config.tie = 1;
+
+	build_circ_n_desc(4, len);
+
+	pdma_config(&config);
+
+	pdma_start(DMA_CHANNEL);
+}
 void dma_close(void)
 {
 	/*disable dma*/
