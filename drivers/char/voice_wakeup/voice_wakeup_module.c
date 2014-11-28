@@ -18,6 +18,7 @@
 #include <linux/mm.h>
 #include <asm/cacheops.h>
 #include <linux/dma-mapping.h>
+#include <mach/jzdma.h>
 
 #include <linux/voice_wakeup_module.h>
 
@@ -45,8 +46,9 @@ struct wakeup_module_ops {
 	unsigned char (*get_resource_addr)(void);
 	int (*process_data)(void);
 	int (*is_cpu_wakeup_by_dmic)(void);
-	int (*set_sleep_buffer)(unsigned char *, unsigned long);
+	int (*set_sleep_buffer)(struct sleep_buffer *);
 	int (*get_sleep_process)(void);
+	int (*set_dma_channel)(int);
 };
 
 struct wakeup_module_ops *m_ops;
@@ -143,10 +145,10 @@ int wakeup_module_is_cpu_wakeup_by_dmic(void)
 }
 EXPORT_SYMBOL(wakeup_module_is_cpu_wakeup_by_dmic);
 
-int wakeup_module_set_sleep_buffer(unsigned char *buffer, unsigned long len)
+int wakeup_module_set_sleep_buffer(struct sleep_buffer * sleep_buffer)
 {
 
-	return m_ops->set_sleep_buffer(buffer, len);
+	return m_ops->set_sleep_buffer(sleep_buffer);
 }
 EXPORT_SYMBOL(wakeup_module_set_sleep_buffer);
 
@@ -156,12 +158,19 @@ int wakeup_module_get_sleep_process(void)
 }
 EXPORT_SYMBOL(wakeup_module_get_sleep_process);
 
+int wakeup_module_set_dma_channel(int channel)
+{
+
+}
+EXPORT_SYMBOL(wakeup_module_set_dma_channel);
 
 static int __init wakeup_module_init(void)
 {
 	/* load voice wakeup firmware */
 	memcpy(FIRMWARE_LOAD_ADDRESS, wakeup_firmware, sizeof(wakeup_firmware));
 	setup_ops();
+
+	m_ops->set_dma_channel(JZDMA_REQ_I2S1 + 1);  /* dma phy id 5 */
 	return 0;
 }
 static void __exit wakeup_module_exit(void)

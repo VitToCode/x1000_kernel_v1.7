@@ -11,6 +11,16 @@ enum open_mode {
 
 
 
+#define		SLEEP_BUFFER_SIZE	(32 * 1024)
+#define		NR_BUFFERS			(8)
+
+struct sleep_buffer {
+	unsigned char *buffer[NR_BUFFERS];
+	unsigned int nr_buffers;
+	unsigned long total_len;
+};
+
+
 #define DMIC_IOCTL_SET_SAMPLERATE	0x200
 
 
@@ -39,7 +49,7 @@ int wakeup_module_process_data(void);
 int wakeup_module_is_cpu_wakeup_by_dmic(void);
 
 
-int wakeup_module_set_sleep_buffer(unsigned char *, unsigned long);
+int wakeup_module_set_sleep_buffer(struct sleep_buffer *);
 
 int wakeup_module_get_sleep_process(void);
 

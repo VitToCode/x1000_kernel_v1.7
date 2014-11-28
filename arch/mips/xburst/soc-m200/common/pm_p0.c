@@ -447,7 +447,7 @@ static noinline void cpu_resume(void)
 	int (*volatile func)(int);
 	int temp;
 #endif
-
+	TCSM_PCHAR('O');
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
 	val |= (7 << 20);
@@ -567,7 +567,14 @@ static int m200_pm_enter(suspend_state_t state)
 	unsigned int i;
 	unsigned int scpu_start_addr;
 
-
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	/* if voice identified before deep sleep. just return to wakeup system. */
+	int ret;
+	ret = wakeup_module_get_sleep_process();
+	if(ret == SYS_WAKEUP_OK) {
+		return 0;
+	}
+#endif
 	disable_fpu();
 #ifdef DDR_MEM_TEST
 	test_ddr_data_init();

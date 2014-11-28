@@ -1,7 +1,8 @@
 #include "interface.h"
 #include "jz_dma.h"
 
-void build_one_desc(struct dma_config* dma, struct dma_desc* desc, struct dma_desc* next_desc){
+void build_one_desc(struct dma_config* dma, struct dma_desc* _desc, struct dma_desc* next_desc){
+	struct dma_desc *desc = (struct dma_desc *)((unsigned int)_desc | 0xA0000000);
 	desc->dsa = dma->src;
 	desc->dta = dma->dst;
 	desc->dtc = (dma->count&0xffffff) | ( ((unsigned long)(next_desc) >> 4) << 24);

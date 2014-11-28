@@ -101,7 +101,14 @@ struct fifo {
 	u32	n_size;
 };
 struct fifo rx_fifo[0];
-//#define DMA_CHANNEL		(5)
+
+void wakeup_reset_fifo()
+{
+	struct circ_buf * xfer = &rx_fifo->xfer;
+
+	xfer->head = 0;
+	xfer->tail = 0;
+}
 
 int wakeup_open(void)
 {
@@ -121,15 +128,13 @@ int wakeup_open(void)
 		printf("IvwVreate Error: %d\n", iStatus);
 		return ivFalse;
 	}
-	printf("pIvwObj create ok!!!!!\n");
+	printf("[voice wakeup] OBJECT create ok\n");
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 10, 0 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 1 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 15, 2 ,0);
-	printf("###ivw param set ok!!!!\n");
 	/* code that need rewrite */
 	struct circ_buf *xfer = &rx_fifo->xfer;
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
-	//xfer->buf = (char *)0xb3427000;
 	xfer->buf = (char *)TCSM_BANK_5;
 	xfer->head = (char *)(pdma_trans_addr(DMA_CHANNEL, 2) | 0xA0000000) - xfer->buf;
 	xfer->tail = xfer->head;
@@ -247,7 +252,7 @@ int process_dma_data(void)
 			}
 			ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
 			if(ret == IvwErr_WakeUp) {
-				printf("####system wakeup ok!!!\n");
+				printf("####[%s]system wakeup ok!!!\n", __func__);
 				return SYS_WAKEUP_OK;
 			}
 
@@ -264,7 +269,9 @@ int process_dma_data(void)
 int process_buffer_data(unsigned char *buf, unsigned long len)
 {
 	int ret;
-	ret = send_data_to_process(pIvwObj, buf, len);
+	printf("pIvwObj:%x####\n", pIvwObj);
+	unsigned char *a_buf = (unsigned char *)((unsigned int)buf | 0xA0000000);
+	ret = send_data_to_process(pIvwObj, a_buf, len);
 	if(ret == IvwErr_WakeUp) {
 		return SYS_WAKEUP_OK;
 	}

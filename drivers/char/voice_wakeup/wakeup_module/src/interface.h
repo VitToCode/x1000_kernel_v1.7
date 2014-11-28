@@ -1,15 +1,10 @@
 #ifndef __INTERFACE_H__
 #define __INTERFACE_H__
 
-/*extern unsigned __res_mem char *res_buf;*/
-/*extern struct host_handler *h_handler;*/
-
-
 
 extern int (*h_handler)(const char *fmt, ...);
 #define printk	h_handler
 #define printf printk
-
 
 
 enum open_mode {
@@ -23,8 +18,19 @@ enum open_mode {
 #define DMIC_IOCTL_SET_SAMPLERATE	0x200
 
 
+/* same define as kernel */
+#define		SLEEP_BUFFER_SIZE	(32 * 1024)
+#define		NR_BUFFERS			(8)
+
+struct sleep_buffer {
+	unsigned char *buffer[NR_BUFFERS];
+	unsigned int nr_buffers;
+	unsigned long total_len;
+};
 
 
+#define LOAD_ADDR	0x8ff00000
+#define LOAD_SIZE	(256 * 1024)
 
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)
@@ -33,15 +39,11 @@ enum open_mode {
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
 
-
-
-
 #define UART1_IOBASE    0x10031000
 #define U1_IOBASE (UART1_IOBASE + 0xa0000000)
 #define TCSM_PCHAR(x)                           \
 	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;     \
 while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
-
 
 static inline void serial_put_hex(unsigned int x) {
 	int i;

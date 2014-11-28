@@ -1,8 +1,8 @@
 /*
  * start.S
  *
- * Entry point of the firmware.
- * The firmware code are executed in the ICache.
+ * Entry point of the Voice Wakeup Module.
+ * The firmware code are executed in the L2Cache.
  *
  * Copyright (C) 2006 Ingenic Semiconductor Inc.
  *
@@ -25,6 +25,7 @@
 	.extern is_cpu_wakeup_by_dmic
 	.extern set_sleep_buffer
 	.extern get_sleep_process
+	.extern set_dma_channel
 start:
 	.word open
 	.word handler
@@ -38,3 +39,4 @@ start:
 	.word is_cpu_wakeup_by_dmic
 	.word set_sleep_buffer
 	.word get_sleep_process
+	.word set_dma_channel

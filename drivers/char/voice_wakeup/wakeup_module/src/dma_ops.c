@@ -9,37 +9,13 @@
 int *src_buf;
 int *dst_buf;
 
-
 struct dma_config config;
-struct dma_desc *desc;
+struct dma_desc *desc;  /* pointer to desc in tcsm */
+struct dma_desc sleep_desc[NR_BUFFERS]; /* pointer to desc in ddr, when suspend to deep sleep */
 
+int dma_channel = 5; /* default channel 5, but this should be set by kernel */
 
-void build_circ_n_desc(int desc_num, unsigned long buffer_len)
-{
-	int i;
-	struct dma_desc *cur;
-	struct dma_desc *next;
-	for(i=0; i< desc_num; i++) {
-		config.src = V_TO_P(src_buf);
-		config.dst = V_TO_P(dst_buf + ((buffer_len/desc_num/sizeof(dst_buf)) * i));
-		config.count = BUF_SIZE/NR_DESC/config.burst_len; /*count of data unit*/
-		config.link = 1;
-		cur = &desc[i];
-		if(i == NR_DESC -1) {
-			next = &desc[0];
-		} else {
-			next = &desc[i+1];
-		}
-		if(0) {
-			printf("cur_desc:%x, next_desc:%x\n", cur, next);
-		}
-		build_one_desc(&config, cur, next);
-	}
-
-}
-
-
-void build_circ_descs(void)
+void build_circ_descs(struct dma_desc *desc)
 {
 	int i;
 	struct dma_desc *cur;
@@ -63,7 +39,7 @@ void build_circ_descs(void)
 
 }
 
-void dump_descs(void)
+void dump_descs(struct dma_desc *desc)
 {
 	int i;
 	struct dma_desc *temp;
@@ -162,8 +138,12 @@ void dump_dma_register(int chn)
 	printf("INT_ICSR0:0x%08X\n",*(int volatile*)0xB0001000);
 	printf("\n");
 }
-
-void dma_open(void)
+void dma_set_channel(int channel)
+{
+	printf("%s: set channel:%d\n", __func__, channel);
+	dma_channel = channel;
+}
+void dma_config_normal(void)
 {
 	//dump_dma_register(DMA_CHANNEL);
 	/*config and enable*/
@@ -175,7 +155,8 @@ void dma_open(void)
 	dst_buf = (int *)TCSM_BANK_5;
 
 	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
-	config.channel = DMA_CHANNEL;
+	//config.channel = DMA_CHANNEL;
+	config.channel = dma_channel;
 	/*...*/
 	config.increment = 1; /*src no inc, dst inc*/
 	//config.rdil = 0;
@@ -185,55 +166,62 @@ void dma_open(void)
 	config.descriptor = 1;
 	config.des8 = 1;
 	config.sd = 0;
-	//config.tsz	 = 0;
 	config.tsz	 = 6;
 	config.burst_len = 128;
 
 	config.desc = V_TO_P(desc);
 	config.tie = 1;
 
-	build_circ_descs();
+	build_circ_descs(desc);
 	pdma_config(&config);
 	//dump_descs();
-	pdma_start(DMA_CHANNEL);
+	//pdma_start(DMA_CHANNEL);
 	//dump_dma_register(DMA_CHANNEL);
 
 }
 
-struct dma_desc sleep_desc[4];
-void early_sleep_dma_config(unsigned char *buffer, unsigned long len)
+void dma_config_early_sleep(struct sleep_buffer *sleep_buffer)
 {
-	printf("########%s,------- %d-------len:%d\n", __func__, __LINE__, len);
+	int i;
+	struct dma_desc *cur;
+	struct dma_desc *next;
 
-	desc = (struct dma_desc *)(DMA_DESC_ADDR);
-	src_buf = (int *)DMIC_RX_FIFO;
-	dst_buf = V_TO_P(buffer);
+	for(i = 0; i<sleep_buffer->nr_buffers; i++) {
 
-	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
-	config.channel = DMA_CHANNEL;
-	/*...*/
-	config.increment = 1; /*src no inc, dst inc*/
-	config.rdil = 64;
-	config.sp_dp = 0x00; /*32bit*/
-	config.stde = 0;
-	config.descriptor = 1;
-	config.des8 = 1;
-	config.sd = 0;
-	config.tsz   = 6;
-	config.burst_len = 128;
-
-	config.desc = V_TO_P(sleep_desc);
-	config.tie = 1;
-
-	build_circ_n_desc(4, len);
-
+		config.src = V_TO_P(src_buf);
+		config.dst = V_TO_P(sleep_buffer->buffer[i]);
+		config.count = sleep_buffer->total_len/sleep_buffer->nr_buffers/config.burst_len; /*count of data unit*/
+		config.link = 1;
+		cur = &sleep_desc[i];
+		if(i == sleep_buffer->nr_buffers -1) {
+			next = &sleep_desc[0];
+		} else {
+			next = &sleep_desc[i+1];
+		}
+		if(0) {
+			printf("cur_desc:%x, next_desc:%x\n", cur, next);
+		}
+		build_one_desc(&config, cur, next);
+	}
+	/* now sleep_desc stores the desc , we make a new pdma_config, other configs remains
+	 * what it is when open dma.
+	 * */
 	pdma_config(&config);
-
-	pdma_start(DMA_CHANNEL);
 }
+
 void dma_close(void)
 {
 	/*disable dma*/
-	pdma_end(DMA_CHANNEL);
+	//pdma_end(DMA_CHANNEL);
+	pdma_end(dma_channel);
 	//dump_dma_register(DMA_CHANNEL);
+}
+
+void dma_start(int channel)
+{
+	pdma_start(channel);
+}
+void dma_stop(int channel)
+{
+	pdma_end(channel);
 }

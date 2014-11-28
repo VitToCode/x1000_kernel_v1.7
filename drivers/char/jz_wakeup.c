@@ -34,13 +34,24 @@
  * global define, don't change.
  * */
 
+/* we assume that. the time between suspend to cpu sleep is 1 second.
+ * that is 16KSamples = 32Kbytes.
+ * to ensure memory allocated successfully. we allocate 4Kbytes a time.
+ * */
+
+/*
+struct sleep_buffer {
+	unsigned char *buffer[NR_BUFFERS];
+	unsigned int nr_buffers;
+	unsigned long total_len;
+};
+*/
 struct wakeup_dev {
 	int major;
 	int minor;
 	int nr_devs;
 	unsigned char *resource_buf;
 
-	struct completion wakeup_completion;
 	struct timer_list wakeup_timer;
 
 	wait_queue_head_t wakeup_wq;
@@ -48,8 +59,7 @@ struct wakeup_dev {
 	unsigned int wakeup_pending;
 	spinlock_t wakeup_lock;
 
-	unsigned char *sleep_buffer;
-	unsigned long sleep_buffer_len;
+	struct sleep_buffer sleep_buffer; /* buffer used to store data during suspend to cpu sleep */
 
 	struct class *class;
 	struct cdev cdev;
@@ -130,6 +140,7 @@ static void wakeup_timer_handler(unsigned long data)
 	struct wakeup_dev *wakeup = (struct wakeup_dev *)data;
 	unsigned long flags;
 	if(wakeup_module_process_data() == SYS_WAKEUP_OK) {
+		printk("########[Kernel: %s], ------------%d\n", __func__, __LINE__);
 		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
 		if(wakeup->wakeup_pending == 1) {
 			wake_up(&wakeup->wakeup_wq);
@@ -247,26 +258,44 @@ static const struct attribute_group wakeup_attr_group = {
 static int wakeup_suspend(void)
 {
 	/* alloc dma buffer. and build dma desc, wakeup_module_set_desc */
-	//printk("########wakeup_suspend!!!\n");
-	//struct wakeup_dev * wakeup = g_wakeup;
+	struct wakeup_dev * wakeup = g_wakeup;
+	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
+	int i;
+	sleep_buffer->nr_buffers = NR_BUFFERS;
+	sleep_buffer->total_len	 = SLEEP_BUFFER_SIZE;
+	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
+		sleep_buffer->buffer[i] = kmalloc(sleep_buffer->total_len/sleep_buffer->nr_buffers, GFP_KERNEL);
+		if(sleep_buffer->buffer[i] == NULL) {
+			printk("failed to allocate buffer for sleep!!\n");
+			goto _allocate_failed;
+		}
+		printk("sleep_buffer[%d]:----addr:%p\n", i, sleep_buffer->buffer[i]);
+	}
+	wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
 
+	return 0;
 
-	//wakeup->sleep_buffer_len = 32 * 1024;
-	//wakeup->sleep_buffer = kmalloc(wakeup->sleep_buffer_len, GFP_KERNEL);
-	//if(!wakeup->sleep_buffer) {
-		//printk("alloc sleep buffer failed.!\n");
-	//}
-	//wakeup_module_set_sleep_buffer(wakeup->sleep_buffer, wakeup->sleep_buffer_len);
-
-	///*auto close*/
-	////wakeup_module_open(EARLY_SLEEP);
+_allocate_failed:
+	for(i = i-1; i>0; i--) {
+		kfree(sleep_buffer->buffer[i]);
+		sleep_buffer->buffer[i] = NULL;
+	}
 
 	return 0;
 }
 static void wakeup_resume(void)
 {
 	struct wakeup_dev * wakeup = g_wakeup;
+	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
 	unsigned long flags;
+	int i;
+	/* release buffer */
+	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
+		if(sleep_buffer->buffer[i] != NULL) {
+			kfree(sleep_buffer->buffer[i]);
+			sleep_buffer->buffer[i] = NULL;
+		}
+	}
 
 	printk("@@@@@@@@wakeup resume:::::::::%d\n", wakeup_module_is_cpu_wakeup_by_dmic());
 	if(wakeup_module_is_cpu_wakeup_by_dmic()) {
@@ -318,7 +347,6 @@ static int __init wakeup_init(void)
 	wakeup->wakeup_timer.function = wakeup_timer_handler;
 	wakeup->wakeup_timer.data	= (unsigned long)wakeup;
 
-	init_completion(&wakeup->wakeup_completion);
 
 
 	wakeup->dev = device_create(wakeup->class, NULL, dev_no, NULL, "jz-wakeup");
