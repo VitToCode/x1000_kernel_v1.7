@@ -1635,6 +1635,14 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
 		}
 		break;
+	case JZFB_GET_LCDTYPE:
+		wmb();
+		if(copy_to_user(argp, &(jzfb->pdata->lcd_type), sizeof(int))){
+			dev_info(info->dev, "copy lcd_type to user failed\n");
+			return -EFAULT;
+		}
+		break;
+
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);
 		break;
@@ -1716,7 +1724,6 @@ static int jzfb_wait_for_vsync_thread(void *data)
                     jzfb->timestamp_irq_pos = jzfb->timestamp_thread_pos = 0;
                 spin_unlock_irqrestore(&jzfb->vsync_lock, flags);
 	}
-
 	return 0;
 }
 
@@ -1726,15 +1733,15 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	struct jzfb *jzfb = (struct jzfb *)data;
 
 	state = reg_read(jzfb, LCDC_STATE);
-
-	if (state & LCDC_STATE_EOF) {
-		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
-		wmb();
-                jzfb->timestamp_array[jzfb->timestamp_irq_pos&(0xf)] = ktime_get();
-                jzfb->timestamp_irq_pos++;
-                complete(&jzfb->vsync_wq);
+	if(jzfb->pdata->lcd_type != LCD_TYPE_SLCD){
+		if (state & LCDC_STATE_EOF) {
+			reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
+			wmb();
+			jzfb->timestamp_array[jzfb->timestamp_irq_pos&(0xf)] = ktime_get();
+			jzfb->timestamp_irq_pos++;
+			complete(&jzfb->vsync_wq);
+		}
 	}
-
 	if (state & LCDC_STATE_OFU) {
 		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_OFU);
 		if (jzfb->irq_cnt++ > 100) {
@@ -2532,17 +2539,18 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 
 	vsync_skip_set(jzfb, CONFIG_FB_VSYNC_SKIP);
 
-        init_completion(&jzfb->vsync_wq);
-        jzfb->timestamp_irq_pos = 0;
-        jzfb->timestamp_thread_pos = 0;
-        spin_lock_init(&jzfb->vsync_lock);
-	jzfb->vsync_thread = kthread_run(jzfb_wait_for_vsync_thread,
-					 jzfb, "jzfb-vsync");
-	if (jzfb->vsync_thread == ERR_PTR(-ENOMEM)) {
-		dev_err(&pdev->dev, "Failed to run vsync thread");
-		goto err_free_file;
+	if(jzfb->pdata->lcd_type != LCD_TYPE_SLCD){
+		init_completion(&jzfb->vsync_wq);
+		jzfb->timestamp_irq_pos = 0;
+		jzfb->timestamp_thread_pos = 0;
+		spin_lock_init(&jzfb->vsync_lock);
+		jzfb->vsync_thread = kthread_run(jzfb_wait_for_vsync_thread,
+				jzfb, "jzfb-vsync");
+		if (jzfb->vsync_thread == ERR_PTR(-ENOMEM)) {
+			dev_err(&pdev->dev, "Failed to run vsync thread");
+			goto err_free_file;
+		}
 	}
-
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n",
