@@ -57,7 +57,7 @@ static inline void jzrtc_setl(int offset, unsigned int value)
 	jzrtc_writel(offset,jzrtc_readl(offset) | (value));
 }
 
-int dump_rtc_regs(void)
+static void dump_rtc_regs(void)
 {
 	 printk("*******************************************************************\n");
 	 printk("******************************jz_rtc_dump**********************\n\n");
@@ -86,6 +86,7 @@ struct rtc_config {
 	unsigned int alarm_enabled;
 	unsigned int alarm_pending;
 	unsigned int alarm_int_en;
+	unsigned int systimer_configed;
 };
 
 static struct rtc_config old_config;
@@ -101,26 +102,25 @@ static int rtc_save(void)
 	unsigned int rtc_rcr;
 	if(jzrtc_readl(RTC_RTCSAR) < jzrtc_readl(RTC_RTCSR)) {
 		/* alarm value < current second, then systimer not set.*/
-		old_config.alarm_val = 0;
+		//old_config.alarm_val = 0;
+		old_config.systimer_configed = 0;
 	} else {
-		old_config.alarm_val = jzrtc_readl(RTC_RTCSAR);
+		//old_config.alarm_val = jzrtc_readl(RTC_RTCSAR);
+		old_config.systimer_configed = 1;
 	}
+	old_config.alarm_val = jzrtc_readl(RTC_RTCSAR);
 	rtc_rcr = jzrtc_readl(RTC_RTCCR);
 	old_config.alarm_enabled  = (rtc_rcr & RTCCR_AIE) ? 1 : 0;
 	old_config.alarm_pending = (rtc_rcr & RTCCR_AF) ? 1 : 0;
 	old_config.alarm_int_en = (rtc_rcr & RTCCR_AIE) ? 1 : 0;
 
-
-	//if(old_config.alarm_enabled) {
-		//rtc_config.alarm_enabled = old_config.alarm_enabled;
-	//} else {
-		//rtc_config.alarm_enabled = 1;
-	//}
 	rtc_config.alarm_enabled = 1;
+	return 0;
 }
 static int rtc_restore(void)
 {
-
+	jzrtc_writel(RTC_RTCSAR, old_config.alarm_val);
+	return 0;
 }
 int rtc_set_alarm(unsigned long alarm_seconds)
 {
@@ -135,7 +135,6 @@ int rtc_set_alarm(unsigned long alarm_seconds)
 }
 int rtc_init(void)
 {
-	unsigned int temp;
 
 	old_config.alarm_val = 0;
 	rtc_save();
@@ -143,7 +142,6 @@ int rtc_init(void)
 	rtc_set_alarm(ALARM_VALUE);
 
 	jzrtc_setl(RTC_HWCR, 1);
-
 
 	dump_rtc_regs();
 	return 0;
@@ -159,25 +157,14 @@ int rtc_exit(void)
 
 void process_dmic_timer()
 {
-
-	serial_put_hex(wakeup_failed_times);
-	//if(dmic_current_state == WAITING_TRIGGER) {
-		///* change dmic thr directly .*/
-		//reconfig_thr_value(adjust_trigger_value(wakeup_failed_times, cur_thr_value));
-	//} else if(dmic_current_state == WAITING_DATA) {
-		///* dmic now is working ,don't change thr, led dmic do this.
-		 //* after dmic complete operations.
-		 //* */
-		//cur_thr_value = adjust_trigger_value(wakeup_failed_times + 1, cur_thr_value);
-		//thr_need_reconfig = 1;
-	//}
-	wakeup_failed_times = 0;
+	reconfig_thr_value();
 }
 
 
 int rtc_int_handler(void)
 {
-	if(((jzrtc_readl(RTC_RTCSR)+ALARM_VALUE) >= old_config.alarm_val) && (old_config.alarm_val != 0)) {
+	//if(((jzrtc_readl(RTC_RTCSR)+ALARM_VALUE) >= old_config.alarm_val) && (old_config.alarm_val != 0)) {
+	if(((jzrtc_readl(RTC_RTCSR)+ALARM_VALUE) >= old_config.alarm_val) && (old_config.systimer_configed == 1)) {
 		/* kernel alarm arrived, priority higher. wakeup OS, imediatly */
 		TCSM_PCHAR('S');
 		TCSM_PCHAR('Y');

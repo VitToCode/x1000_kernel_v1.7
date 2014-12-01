@@ -74,6 +74,41 @@ int open(int mode)
 	return 0;
 }
 
+
+
+static inline void powerdown_wait(void)
+{
+	unsigned int opcr;
+	opcr = REG32(0xb0000000 + CPM_OPCR);
+	opcr &= ~(3<<25);
+	opcr |= 3 << 25; /* both big and small core power down*/
+	opcr |= 1 << 30;
+	REG32(0xb0000000 + CPM_OPCR) = opcr;
+	//serial_put_hex(opcr);
+	TCSM_PCHAR('e');
+	__asm__ volatile(".set mips32\n\t"
+			"wait\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			".set mips32 \n\t");
+	TCSM_PCHAR('Q');
+}
+static inline void sleep_wait(void)
+{
+	unsigned int opcr;
+	opcr = REG32(0xb0000000 + CPM_OPCR);
+	opcr &= ~(3<<25);	/* keep cpu poweron */
+	opcr |= 1 << 30;	/* int mask */
+	REG32(0xb0000000 + CPM_OPCR) = opcr;
+	__asm__ volatile(".set mips32\n\t"
+			"wait\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			".set mips32 \n\t");
+}
+
 /* mask ints that we don't care */
 #define INTC0_MASK	0xfffffffe
 #define INTC1_MASK	0xfffffffe
@@ -84,20 +119,9 @@ int open(int mode)
  * */
 int handler(int par)
 {
-	int ret;
-
-	/*if wakeup source is none of business with dmic, just return SYS_WAKEUP_OK*/
-	unsigned int opcr;
-	opcr = REG32(0xb0000000 + CPM_OPCR);
-	opcr &= ~(3<<25);
-	opcr |= 1 << 30;
-	REG32(0xb0000000 + CPM_OPCR) = opcr;
+	volatile int ret;
 
 	while(1) {
-		opcr = REG32(0xb0000000 + CPM_OPCR);
-		opcr &= ~(3<<25);
-		opcr |= 1 << 30;
-		REG32(0xb0000000 + CPM_OPCR) = opcr;
 		if((REG32(0xb0001010) & INTC0_MASK) || (REG32(0xb0001030) & INTC1_MASK)) {
 			serial_put_hex(REG32(0xb0001010));
 			serial_put_hex(REG32(0xb0001030));
@@ -123,29 +147,31 @@ int handler(int par)
 			}
 		}
 		/* DMIC interrupt pending */
-		if(dmic_handler() == SYS_WAKEUP_OK) {
-			ret = SYS_WAKEUP_OK;
+		ret = dmic_handler();
+	/*----DMIC MAY TRIGGER AFTER ------------*/
+		if(ret == SYS_WAKEUP_OK) {
+			//ret = SYS_WAKEUP_OK;
 			cpu_wakeup_by = WAKEUP_BY_DMIC;
 			break;
-		} else {
-			ret = SYS_WAKEUP_FAILED;
-		}
-		if(ret == SYS_WAKEUP_FAILED) {
-			/* checkout dmic fifo, if we should go to sleep */
+		} else if(ret == SYS_NEED_DATA){
+	/*------DMIC MAY REQEUST DMA TRANSFER----*/
 			if(cpu_should_sleep()) {
-
-				__asm__ volatile(".set mips32\n\t"
-						"wait\n\t"
-						"nop\n\t"
-						"nop\n\t"
-						"nop\n\t"
-						);
+				sleep_wait();
 				TCSM_PCHAR('S');
 			}
+		} else if(ret == SYS_WAKEUP_FAILED) {
+			/* deep sleep */
+			powerdown_wait();
+			TCSM_PCHAR('X');
 		}
+
 	}
 	serial_put_hex(cpu_wakeup_by);
-	serial_put_hex(&cpu_wakeup_by);
+	serial_put_hex((unsigned int)&cpu_wakeup_by);
+
+	if(ret == SYS_WAKEUP_OK) {
+		rtc_exit();
+	}
 	return ret;
 }
 int close(int mode)
@@ -249,6 +275,7 @@ int set_sleep_buffer(struct sleep_buffer *sleep_buffer)
 		printk("[vw - up]:sleep_buffer[%d]: %p\n", i, sleep_buffer->buffer[i]);
 		printk("[vw - up]:g_sleep_buffer[%d]: %p\n", i, g_sleep_buffer->buffer[i]);
 	}
+	return 0;
 }
 
 /* used by cpu eary sleep.
@@ -290,4 +317,5 @@ int set_dma_channel(int channel)
 {
 	_dma_channel = channel;
 	dma_set_channel(channel);
+	return 0;
 }

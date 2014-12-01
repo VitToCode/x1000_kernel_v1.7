@@ -14,6 +14,7 @@
 int rtc_init(void);
 int rtc_set_alarm(unsigned long alarm_seconds);
 int rtc_int_handler(void);
+int rtc_exit(void);
 
 
 #define SYS_TIMER	0x2

@@ -19,7 +19,7 @@ extern void dmic_init(void);
 extern int dmic_enable(void);
 extern int dmic_disable(void);
 extern int dmic_handler(void);
-extern void reconfig_thr_value( unsigned int thr_val);
+extern void reconfig_thr_value();
 
 extern int dmic_init_deep_sleep(void);
 

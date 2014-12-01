@@ -14,8 +14,7 @@ int dmic_current_state;
 int thr_need_reconfig;
 unsigned int cur_thr_value;
 unsigned int wakeup_failed_times;
-
-
+unsigned int dmic_recommend_thr;
 
 //#define DMIC_FIFO_THR	(48) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
 #define DMIC_FIFO_THR	(64) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
@@ -125,6 +124,8 @@ void dmic_init(void)
 int cpu_should_sleep(void)
 {
 	return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20) ? 1 : 0;
+	//return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR/2) ? 1 : 0;
+	//return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 30) ? 1 : 0;
 }
 
 int dmic_config(void)
@@ -163,11 +164,6 @@ int dmic_config(void)
 	return 0;
 }
 
-//int dmic_init_early_sleep(void)
-//{
-
-//}
-//
 int dmic_init_mode(int mode)
 {
 	dmic_init();
@@ -180,7 +176,9 @@ int dmic_init_mode(int mode)
 			wakeup_failed_times = 0;
 
 			thr_need_reconfig = 0;
-			cur_thr_value = 0;
+			//cur_thr_value = 0;
+			cur_thr_value = thr_table[0];
+			dmic_recommend_thr = 0;
 
 			REG_DMIC_CR0 |= 3<<6;
 			//REG_DMIC_CR0 &= ~(3<<6);
@@ -237,6 +235,7 @@ int dmic_init_mode(int mode)
 			break;
 
 	}
+	return 0;
 }
 
 int dmic_enable(void)
@@ -252,6 +251,8 @@ int dmic_disable_tri(void)
 	REG_DMIC_CR0 &= ~(1<<1);
 	REG_DMIC_ICR |= 0x1f;
 	REG_DMIC_IMR |= 0x1f;
+
+	return 0;
 }
 int dmic_disable(void)
 {
@@ -266,17 +267,23 @@ int dmic_disable(void)
 
 
 
-void reconfig_thr_value(unsigned int thr_val)
+void reconfig_thr_value()
 {
-	//if(thr_need_reconfig == 1) {
-		//thr_need_reconfig  = 0;
-		//REG_DMIC_THRL = cur_thr_value;
-	//} else {
-		//REG_DMIC_THRL = thr_val;
-		//cur_thr_value = thr_val;
-	//}
-
-	REG_DMIC_THRL = cur_thr_value;
+	if(dmic_current_state == WAITING_TRIGGER) {
+		/* calle by rtc timer, or last wakeup failed .*/
+		if(dmic_recommend_thr != 0) {
+			REG_DMIC_THRL = dmic_recommend_thr;
+			dmic_recommend_thr = 0;
+		} else {
+			REG_DMIC_THRL = adjust_trigger_value(wakeup_failed_times, cur_thr_value);
+		}
+	} else if(dmic_current_state == WAITING_DATA) {
+		/* called only by rtc timer, we can not change thr here.
+		 * should wait dmic waiting trigger state.
+		 * */
+		dmic_recommend_thr = adjust_trigger_value(wakeup_failed_times+1, cur_thr_value);
+	}
+	wakeup_failed_times = 0;
 	//serial_put_hex(REG_DMIC_THRL);
 }
 
@@ -329,7 +336,7 @@ int dmic_handler(void)
 	}
 
 	ret = process_dma_data_2();
-
+	//serial_put_hex(ret);
 	if(ret == SYS_WAKEUP_OK) {
 		return SYS_WAKEUP_OK;
 		/*just ok*/
@@ -340,31 +347,25 @@ int dmic_handler(void)
 		 * trigger logic.
 		 * */
 		//REG_DMIC_CR0 &= ~(3<<6); /**/
+		REG_DMIC_CR0 |= 3 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
 
-		return SYS_WAKEUP_FAILED;
+		//return SYS_WAKEUP_FAILED;
+		return SYS_NEED_DATA;
 	} else if(ret == SYS_WAKEUP_FAILED) {
 		/*
 		 * if current wakeup operation failed. we need reconfig dmic
 		 * to work at appropriate mode.
 		 * */
+		dmic_current_state = WAITING_TRIGGER;
 
-		/*reconfig dmic*/
-		reconfig_thr_value(cur_thr_value);
-
-		//REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
-		//REG_DMIC_TRINMAX = 3;
-		//REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
-		//REG_DMIC_ICR |= 0x1f; /*clear all ints*/
-		serial_put_hex(REG_DMIC_THRL);
+		reconfig_thr_value();
 
 		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
-		//REG_DMIC_CR0 &= ~(3<<6); /* disable data path*/
 
 		REG_DMIC_ICR |= 0x1f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 
-		dmic_current_state = WAITING_TRIGGER;
 
 		return SYS_WAKEUP_FAILED;
 	}

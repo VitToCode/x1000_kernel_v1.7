@@ -5,7 +5,9 @@
 #include "trigger_value_adjust.h"
 
 
-int thr_table[TRIGGER_CNTS] = {3000,  5000};
+//int thr_table[TRIGGER_CNTS] = {3000,  5000};
+//int thr_table[TRIGGER_CNTS] = {0, 0};
+int thr_table[TRIGGER_CNTS] = {3000, 3000};
 int tri_cnt[TRIGGER_CNTS] = {2, 6};
 
 int quantity_thr(int thr)
@@ -38,10 +40,16 @@ int adjust_trigger_value(int times_per_unit, int cur_thr)
 
 	//fix_result = fix_times;
 
-	result = fix_times - fix_thr > 0 ? 1000 * (fix_times - fix_thr) : cur_thr;
+	//result = fix_times - fix_thr > 0 ? 1000 * (fix_times - fix_thr) : cur_thr;
 
-	serial_put_hex(result);
-	return result;
+	if(cur_thr == thr_table[0]) {
+		return thr_table[1];
+	} else {
+		return thr_table[0];
+	}
+
+	//serial_put_hex(result);
+	//return result;
 }
 
 
