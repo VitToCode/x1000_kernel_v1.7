@@ -51,7 +51,7 @@ struct wakeup_module_ops {
 	int (*set_dma_channel)(int);
 };
 
-struct wakeup_module_ops *m_ops;
+static struct wakeup_module_ops *m_ops;
 
 
 static void dump_firmware(void)

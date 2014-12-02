@@ -15,6 +15,7 @@ int thr_need_reconfig;
 unsigned int cur_thr_value;
 unsigned int wakeup_failed_times;
 unsigned int dmic_recommend_thr;
+unsigned int last_dma_count;
 
 //#define DMIC_FIFO_THR	(48) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
 #define DMIC_FIFO_THR	(64) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
@@ -123,45 +124,8 @@ void dmic_init(void)
 
 int cpu_should_sleep(void)
 {
-	return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20) ? 1 : 0;
-	//return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR/2) ? 1 : 0;
-	//return (REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 30) ? 1 : 0;
-}
-
-int dmic_config(void)
-{
-	//int i = 0;
-	//dump_dmic_regs();
-	///* 16KSamplerate, 1 channel,*/
-	REG_DMIC_CR0 |= 3<<6;
-	//REG_DMIC_CR0 &= ~(3<<6);
-
-	/*packen ,unpack disable*/
-	REG_DMIC_CR0 |= 1<<8 | 1 << 12;
-	//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
-
-	REG_DMIC_FCR |= 1 << 31 | 64;
-	//REG_DMIC_IMR &= ~(0x1f);
-	REG_DMIC_IMR |= 0x1f; /*mask all ints*/
-	REG_DMIC_GCR = 9;
-
-	REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
-
-	REG_DMIC_THRL = cur_thr_value; /*SET A MIDDLE THR_VALUE, AS INIT */
-	REG_DMIC_TRICR &= ~(0xf << 16);
-	REG_DMIC_TRICR |= 0 << 16; /*trigger mode*/
-	REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
-	REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
-
-	//REG_DMIC_TRINMAX = 2;
-	REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
-
-	REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
-	REG_DMIC_ICR |= 0x1f; /*clear all ints*/
-	REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
-	REG_DMIC_IMR &= ~(1 << 4);/*enable tri int*/
-
-	return 0;
+	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != DMADTC(5)) ? 1 : 0;
+	//return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) ? 1 : 0;
 }
 
 int dmic_init_mode(int mode)
@@ -174,7 +138,6 @@ int dmic_init_mode(int mode)
 		case DEEP_SLEEP:
 			dmic_current_state = WAITING_TRIGGER;
 			wakeup_failed_times = 0;
-
 			thr_need_reconfig = 0;
 			//cur_thr_value = 0;
 			cur_thr_value = thr_table[0];
@@ -191,17 +154,17 @@ int dmic_init_mode(int mode)
 			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x1f; /*mask all ints*/
 			REG_DMIC_GCR = 9;
-
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
-
 			REG_DMIC_THRL = cur_thr_value; /*SET A MIDDLE THR_VALUE, AS INIT */
-			REG_DMIC_TRICR &= ~(0xf << 16);
-			REG_DMIC_TRICR |= 0 << 16; /*trigger mode*/
+
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
 
-			//REG_DMIC_TRINMAX = 2;
-			REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
+			/* trigger mode config */
+			REG_DMIC_TRICR &= ~(0xf << 16); /* tri mode: larger than thr trigger.*/
+			//REG_DMIC_TRICR |= 2 << 16; /* > N times of thrl. */
+			//REG_DMIC_TRINMAX = 30;
+			//REG_DMIC_TRINMAX = 5;
 
 			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
 			REG_DMIC_ICR |= 0x1f; /*clear all ints*/
@@ -260,8 +223,6 @@ int dmic_disable(void)
 	//REG_DMIC_CR0 &= ~(1<<1); /*DISABLE DMIC tri*/
 	REG_DMIC_CR0 &= ~(1 << 0); /*DISABLE DMIC*/
 	/*clear ints*/
-	//REG_DMIC_ICR |= 0x1f;
-	//REG_DMIC_IMR |= 0x1f;
 	return 0;
 }
 
@@ -327,6 +288,8 @@ int dmic_handler(void)
 	REG_DMIC_ICR |= 0x1f; /* CLEAR ALL INTS*/
 	REG_DMIC_IMR |= 1<<0 | 1<<4; /* MASK TRIGGER, wakeup */
 
+	last_dma_count = DMADTC(5);
+
 	if(dmic_current_state == WAITING_TRIGGER) {
 		dmic_current_state = WAITING_DATA;
 		/*change trigger value to 0, make dmic wakeup cpu all the time*/
@@ -346,11 +309,11 @@ int dmic_handler(void)
 		 * then, we keep dmic data path on, and also open dmic
 		 * trigger logic.
 		 * */
-		//REG_DMIC_CR0 &= ~(3<<6); /**/
+
 		REG_DMIC_CR0 |= 3 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
 
-		//return SYS_WAKEUP_FAILED;
+		last_dma_count = DMADTC(5);
 		return SYS_NEED_DATA;
 	} else if(ret == SYS_WAKEUP_FAILED) {
 		/*
@@ -361,11 +324,14 @@ int dmic_handler(void)
 
 		reconfig_thr_value();
 
+		/* change trigger mode to > N times*/
+		//REG_DMIC_TRICR |= 2 << 16;
+		REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
+
 		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
 
 		REG_DMIC_ICR |= 0x1f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
-
 
 		return SYS_WAKEUP_FAILED;
 	}

@@ -47,7 +47,7 @@ int open(int mode)
 			rtc_init();
 			dmic_init_mode(DEEP_SLEEP);
 			wakeup_open();
-			///* UNMASK INTC */
+			/* UNMASK INTC */
 			REG32(0xB000100C) = 1<<0; /*dmic int en*/
 			REG32(0xB000102C) = 1<<0; /*rtc int en*/
 			break;
@@ -74,19 +74,32 @@ int open(int mode)
 	return 0;
 }
 
+static inline void flush_dcache_all()
+{
+	u32 addr;
 
+	for (addr = 0x80000000; addr < 0x80000000 + CONFIG_SYS_DCACHE_SIZE; addr += CONFIG_SYS_CACHELINE_SIZE) {
+		cache_op(0x01, addr); /*Index Invalid. */
+	}
+}
 
 static inline void powerdown_wait(void)
 {
 	unsigned int opcr;
+	unsigned int cpu_no;
+	volatile unsigned int temp;
+	cpu_no = get_cp0_ebase();
+
 	opcr = REG32(0xb0000000 + CPM_OPCR);
 	opcr &= ~(3<<25);
-	opcr |= 3 << 25; /* both big and small core power down*/
+	opcr |= (cpu_no + 1) << 25; /* both big and small core power down*/
+
 	opcr |= 1 << 30;
 	REG32(0xb0000000 + CPM_OPCR) = opcr;
-	//serial_put_hex(opcr);
-	TCSM_PCHAR('e');
+	temp = REG32(0xb0000000 + CPM_OPCR);
 	__asm__ volatile(".set mips32\n\t"
+			"nop\n\t"
+			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
@@ -94,11 +107,14 @@ static inline void powerdown_wait(void)
 			".set mips32 \n\t");
 	TCSM_PCHAR('Q');
 }
+
 static inline void sleep_wait(void)
 {
 	unsigned int opcr;
+
 	opcr = REG32(0xb0000000 + CPM_OPCR);
 	opcr &= ~(3<<25);	/* keep cpu poweron */
+
 	opcr |= 1 << 30;	/* int mask */
 	REG32(0xb0000000 + CPM_OPCR) = opcr;
 	__asm__ volatile(".set mips32\n\t"
@@ -120,7 +136,6 @@ static inline void sleep_wait(void)
 int handler(int par)
 {
 	volatile int ret;
-
 	while(1) {
 		if((REG32(0xb0001010) & INTC0_MASK) || (REG32(0xb0001030) & INTC1_MASK)) {
 			serial_put_hex(REG32(0xb0001010));
@@ -156,18 +171,20 @@ int handler(int par)
 		} else if(ret == SYS_NEED_DATA){
 	/*------DMIC MAY REQEUST DMA TRANSFER----*/
 			if(cpu_should_sleep()) {
-				sleep_wait();
+				//sleep_wait();
+				flush_dcache_all();
+				__asm__ __volatile__("sync");
+				powerdown_wait();
 				TCSM_PCHAR('S');
 			}
 		} else if(ret == SYS_WAKEUP_FAILED) {
 			/* deep sleep */
+			flush_dcache_all();
+			__asm__ __volatile__("sync");
 			powerdown_wait();
-			TCSM_PCHAR('X');
 		}
 
 	}
-	serial_put_hex(cpu_wakeup_by);
-	serial_put_hex((unsigned int)&cpu_wakeup_by);
 
 	if(ret == SYS_WAKEUP_OK) {
 		rtc_exit();
