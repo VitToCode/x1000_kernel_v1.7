@@ -1214,6 +1214,19 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 					time_last = time_now;
 					break;
 				default:
+					if (showFPS > 3) {
+						int d, f;
+						fpsCount++;
+						do_gettimeofday(&time_now);
+						interval_in_us = timeval_sub_to_us(time_now, time_last);
+						if (interval_in_us > USEC_PER_SEC * showFPS ) { /* 1 second = 1000000 us. */
+							d = fpsCount / showFPS;
+							f = (fpsCount * 10) / showFPS - d * 10;
+							printk(KERN_DEBUG " Pan display FPS: %d.%01d\n", d, f);
+							fpsCount = 0;
+							time_last = time_now;
+						}
+					}
 					break;
 			}
 			//printk(KERN_DEBUG " time_now: %d.%06d, interval_in_us=%d\n", time_now.tv_sec, time_now.tv_usec, interval_in_us);
@@ -2323,7 +2336,7 @@ static ssize_t fps_store(struct device *dev,
 {
 	int num = 0;
 	num = simple_strtoul(buf, NULL, 0);
-	if(num < 0 || num > 3){
+	if(num < 0){
 		printk("\n--please 'cat show_fps' to view using the method\n\n");
 		return n;
 	}
