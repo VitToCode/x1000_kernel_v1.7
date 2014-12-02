@@ -53,6 +53,7 @@ struct bma250e_dev {
 	spinlock_t lock;
 	struct regulator *power;
 	int gpio;
+	int wakeup;
 	int suspend_t;
 	unsigned int *data_buf;
 	unsigned int *data_buf_copy;
@@ -952,6 +953,7 @@ bma250e_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	bma250e->dev = &client->dev;
 	bma250e->gpio = pdata->gpio;
+	bma250e->wakeup = pdata->wakeup;
 	if (gpio_request_one(bma250e->gpio, GPIOF_DIR_IN, "bma250e_irq")) {
 		dev_err(bma250e->dev, "no irq pin available\n");
 		ret = -EBUSY;
@@ -1069,7 +1071,10 @@ static int __devexit bma250e_remove(struct i2c_client *client)
 
 static int bma250e_suspend(struct i2c_client *client, pm_message_t state)
 {
-//      struct bma250e_dev *bma250e = i2c_get_clientdata(client);
+	struct bma250e_dev *bma250e = i2c_get_clientdata(client);
+
+	if (bma250e->wakeup)
+		enable_irq_wake(bma250e->irq);
 
 	return 0;
 }

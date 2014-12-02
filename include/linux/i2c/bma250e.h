@@ -164,6 +164,7 @@ struct bma250_platform_data {
 	unsigned int rate;
 	int (*gpio_cfg)( struct device *);
 	int	gpio;
+	int	wakeup;
 };
 
 #endif /* LINUX_BMA280_MODULE_H */

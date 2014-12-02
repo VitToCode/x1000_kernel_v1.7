@@ -119,6 +119,7 @@ struct bma250_platform_data bma250e_pdata = {
 	.reg = &bma250_reg,
 	.rate = 200,	      /* ms */
 	.gpio = GPIO_PA(9),
+	.wakeup = 1,
 };
 #endif
 
