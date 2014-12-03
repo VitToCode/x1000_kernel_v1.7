@@ -1,5 +1,6 @@
 #include <linux/fb.h>
 #include <linux/earlysuspend.h>
+#include <linux/semaphore.h>
 
 #ifdef CONFIG_TWO_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
@@ -110,10 +111,16 @@ struct jzfb {
 	struct jzfb_framedesc *fg1_framedesc;	/* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
 
-	struct completion vsync_wq;
-	struct task_struct *vsync_thread;
+	wait_queue_head_t vsync_wq;
 	unsigned int vsync_skip_map;	/* 10 bits width */
 	int vsync_skip_ratio;
+
+#define TIMESTAMP_CAP	16
+	struct {
+		volatile int wp; /* write position */
+		int rp;	/* read position */
+		u64 value[TIMESTAMP_CAP];
+	} timestamp;
 
 	struct mutex lock;
 	struct mutex suspend_lock;
@@ -130,15 +137,6 @@ struct jzfb {
 #endif
 	int is_suspend;
 	unsigned int pan_display_count;
-
-        char eventbuf[64];
-        int is_vsync;
-
-        /* long long timestamp_array[16]; */
-        ktime_t timestamp_array[16];
-        int timestamp_irq_pos;
-        int timestamp_thread_pos;
-        spinlock_t vsync_lock;
 };
 
 void jzfb_clk_enable(struct jzfb *jzfb);
