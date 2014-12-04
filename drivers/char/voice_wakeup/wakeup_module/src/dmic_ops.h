@@ -18,7 +18,9 @@ extern int dmic_config(void);
 extern void dmic_init(void);
 extern int dmic_enable(void);
 extern int dmic_disable(void);
-extern int dmic_handler(void);
+
+extern int dmic_handler(int);
+
 extern void reconfig_thr_value();
 
 extern int dmic_init_deep_sleep(void);

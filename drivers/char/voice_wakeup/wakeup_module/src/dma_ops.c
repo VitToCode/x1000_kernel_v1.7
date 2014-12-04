@@ -72,68 +72,68 @@ void dump_tcsm()
 void dump_dma_register(int chn)
 {
 	printf("=============== dma dump register ===============\n");
-	printf("DMAC   : 0x%08X\n", DMADMAC);
-	printf("DIRQP  : 0x%08X\n", DMADIRQP);
-	printf("DDB    : 0x%08X\n", DMADDB);
-	printf("DDS    : 0x%08X\n", DMADDS);
-	printf("DMACP  : 0x%08X\n", DMADMACP);
-	printf("DSIRQP : 0x%08X\n", DMADSIRQP);
-	printf("DSIRQM : 0x%08X\n", DMADSIRQM);
-	printf("DCIRQP : 0x%08X\n", DMADCIRQP);
-	printf("DCIRQM : 0x%08X\n", DMADCIRQM);
-	printf("DMCS   : 0x%08X\n", DMADMCS);
-	printf("DMNMB  : 0x%08X\n", DMADMNMB);
-	printf("DMSMB  : 0x%08X\n", DMADMSMB);
-	printf("DMINT  : 0x%08X\n", DMADMINT);
+	printf("DMAC   : 0x%08X\n", REG_DMADMAC);
+	printf("DIRQP  : 0x%08X\n", REG_DMADIRQP);
+	printf("DDB    : 0x%08X\n", REG_DMADDB);
+	printf("DDS    : 0x%08X\n", REG_DMADDS);
+	printf("DMACP  : 0x%08X\n", REG_DMADMACP);
+	printf("DSIRQP : 0x%08X\n", REG_DMADSIRQP);
+	printf("DSIRQM : 0x%08X\n", REG_DMADSIRQM);
+	printf("DCIRQP : 0x%08X\n", REG_DMADCIRQP);
+	printf("DCIRQM : 0x%08X\n", REG_DMADCIRQM);
+	printf("DMCS   : 0x%08X\n", REG_DMADMCS);
+	printf("DMNMB  : 0x%08X\n", REG_DMADMNMB);
+	printf("DMSMB  : 0x%08X\n", REG_DMADMSMB);
+	printf("DMINT  : 0x%08X\n", REG_DMADMINT);
 
-	printf("* DMAC.FMSC = 0x%d\n", DMA_READBIT(DMADMAC, 31, 1));
-	printf("* DMAC.FSSI = 0x%d\n", DMA_READBIT(DMADMAC, 30, 1));
-	printf("* DMAC.FTSSI= 0x%d\n", DMA_READBIT(DMADMAC, 29, 1));
-	printf("* DMAC.FUART= 0x%d\n", DMA_READBIT(DMADMAC, 28, 1));
-	printf("* DMAC.FAIC = 0x%d\n", DMA_READBIT(DMADMAC, 27, 1));
-	printf("* DMAC.INTCC= 0x%d\n", DMA_READBIT(DMADMAC, 17, 5));
-	printf("* DMAC.INTCE= 0x%d\n", DMA_READBIT(DMADMAC, 16, 1));
-	printf("* DMAC.HLT  = 0x%d\n", DMA_READBIT(DMADMAC,  3, 1));
-	printf("* DMAC.AR   = 0x%d\n", DMA_READBIT(DMADMAC,  2, 1));
-	printf("* DMAC.CH01 = 0x%d\n", DMA_READBIT(DMADMAC,  1, 1));
-	printf("* DMAC.DMAE = 0x%d\n", DMA_READBIT(DMADMAC,  0, 1));
+	printf("* DMAC.FMSC = 0x%d\n", DMA_READBIT(REG_DMADMAC, 31, 1));
+	printf("* DMAC.FSSI = 0x%d\n", DMA_READBIT(REG_DMADMAC, 30, 1));
+	printf("* DMAC.FTSSI= 0x%d\n", DMA_READBIT(REG_DMADMAC, 29, 1));
+	printf("* DMAC.FUART= 0x%d\n", DMA_READBIT(REG_DMADMAC, 28, 1));
+	printf("* DMAC.FAIC = 0x%d\n", DMA_READBIT(REG_DMADMAC, 27, 1));
+	printf("* DMAC.INTCC= 0x%d\n", DMA_READBIT(REG_DMADMAC, 17, 5));
+	printf("* DMAC.INTCE= 0x%d\n", DMA_READBIT(REG_DMADMAC, 16, 1));
+	printf("* DMAC.HLT  = 0x%d\n", DMA_READBIT(REG_DMADMAC,  3, 1));
+	printf("* DMAC.AR   = 0x%d\n", DMA_READBIT(REG_DMADMAC,  2, 1));
+	printf("* DMAC.CH01 = 0x%d\n", DMA_READBIT(REG_DMADMAC,  1, 1));
+	printf("* DMAC.DMAE = 0x%d\n", DMA_READBIT(REG_DMADMAC,  0, 1));
 
 	if(chn>=0 && chn<=31){
 		printf("");
-		printf("DSA(%02d) : 0x%08X\n", chn, DMADSA(chn));
-		printf("DTA(%02d) : 0x%08X\n", chn, DMADTA(chn));
-		printf("DTC(%02d) : 0x%08X\n", chn, DMADTC(chn));
-		printf("DRT(%02d) : 0x%08X\n", chn, DMADRT(chn));
-		printf("DCS(%02d) : 0x%08X\n", chn, DMADCS(chn));
-		printf("DCM(%02d) : 0x%08X\n", chn, DMADCM(chn));
-		printf("DDA(%02d) : 0x%08X\n", chn, DMADDA(chn));
-		printf("DSD(%02d) : 0x%08X\n", chn, DMADSD(chn));
+		printf("DSA(%02d) : 0x%08X\n", chn, REG_DMADSA(chn));
+		printf("DTA(%02d) : 0x%08X\n", chn, REG_DMADTA(chn));
+		printf("DTC(%02d) : 0x%08X\n", chn, REG_DMADTC(chn));
+		printf("DRT(%02d) : 0x%08X\n", chn, REG_DMADRT(chn));
+		printf("DCS(%02d) : 0x%08X\n", chn, REG_DMADCS(chn));
+		printf("DCM(%02d) : 0x%08X\n", chn, REG_DMADCM(chn));
+		printf("DDA(%02d) : 0x%08X\n", chn, REG_DMADDA(chn));
+		printf("DSD(%02d) : 0x%08X\n", chn, REG_DMADSD(chn));
 
-		printf("* DCS(%02d).NDES = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 31, 1));
-		printf("* DCS(%02d).DES8 = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 30, 1));
-		printf("* DCS(%02d).CDOA = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 8, 8));
-		printf("* DCS(%02d).AR   = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 4, 1));
-		printf("* DCS(%02d).TT   = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 3, 1));
-		printf("* DCS(%02d).HLT  = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 2, 1));
-		printf("* DCS(%02d).CTE  = 0x%d\n", chn, DMA_READBIT(DMADCS(chn), 0, 1));
+		printf("* DCS(%02d).NDES = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 31, 1));
+		printf("* DCS(%02d).DES8 = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 30, 1));
+		printf("* DCS(%02d).CDOA = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 8, 8));
+		printf("* DCS(%02d).AR   = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 4, 1));
+		printf("* DCS(%02d).TT   = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 3, 1));
+		printf("* DCS(%02d).HLT  = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 2, 1));
+		printf("* DCS(%02d).CTE  = 0x%d\n", chn, DMA_READBIT(REG_DMADCS(chn), 0, 1));
 
-		printf("* DCM(%02d).SDI  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 26, 2));
-		printf("* DCM(%02d).DID  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 24, 2));
-		printf("* DCM(%02d).SAI  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 23, 1));
-		printf("* DCM(%02d).DAI  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 22, 1));
-		printf("* DCM(%02d).RDIL = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 16, 4));
-		printf("* DCM(%02d).SP   = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 14, 2));
-		printf("* DCM(%02d).DP   = 0x%d\n", chn, DMA_READBIT(DMADCM(chn), 12, 2));
-		printf("* DCM(%02d).TSZ  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn),  8, 3));
-		printf("* DCM(%02d).STDE = 0x%d\n", chn, DMA_READBIT(DMADCM(chn),  2, 1));
-		printf("* DCM(%02d).TIE  = 0x%d\n", chn, DMA_READBIT(DMADCM(chn),  1, 1));
-		printf("* DCM(%02d).LINK = 0x%d\n", chn, DMA_READBIT(DMADCM(chn),  0, 1));
+		printf("* DCM(%02d).SDI  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 26, 2));
+		printf("* DCM(%02d).DID  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 24, 2));
+		printf("* DCM(%02d).SAI  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 23, 1));
+		printf("* DCM(%02d).DAI  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 22, 1));
+		printf("* DCM(%02d).RDIL = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 16, 4));
+		printf("* DCM(%02d).SP   = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 14, 2));
+		printf("* DCM(%02d).DP   = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn), 12, 2));
+		printf("* DCM(%02d).TSZ  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn),  8, 3));
+		printf("* DCM(%02d).STDE = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn),  2, 1));
+		printf("* DCM(%02d).TIE  = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn),  1, 1));
+		printf("* DCM(%02d).LINK = 0x%d\n", chn, DMA_READBIT(REG_DMADCM(chn),  0, 1));
 
-		printf("* DDA(%02d).DBA = 0x%08X\n", chn, DMA_READBIT(DMADDA(chn),  12, 20));
-		printf("* DDA(%02d).DOA = 0x%08X\n", chn, DMA_READBIT(DMADDA(chn),  4, 8));
+		printf("* DDA(%02d).DBA = 0x%08X\n", chn, DMA_READBIT(REG_DMADDA(chn),  12, 20));
+		printf("* DDA(%02d).DOA = 0x%08X\n", chn, DMA_READBIT(REG_DMADDA(chn),  4, 8));
 
-		printf("* DSD(%02d).TSD = 0x%08X\n", chn, DMA_READBIT(DMADSD(chn),  16, 16));
-		printf("* DSD(%02d).SSD = 0x%08X\n", chn, DMA_READBIT(DMADSD(chn),   0, 16));
+		printf("* DSD(%02d).TSD = 0x%08X\n", chn, DMA_READBIT(REG_DMADSD(chn),  16, 16));
+		printf("* DSD(%02d).SSD = 0x%08X\n", chn, DMA_READBIT(REG_DMADSD(chn),   0, 16));
 	}
 	printf("INT_ICSR0:0x%08X\n",*(int volatile*)0xB0001000);
 	printf("\n");
@@ -145,21 +145,15 @@ void dma_set_channel(int channel)
 }
 void dma_config_normal(void)
 {
-	//dump_dma_register(DMA_CHANNEL);
-	/*config and enable*/
 	REG32(CPM_IOBASE + CPM_CLKGR0) &= ~(1 << 21);
 
-	//desc =(struct dma_desc *)((unsigned int)_desc | 0xA0000000);
 	desc = (struct dma_desc *)(DMA_DESC_ADDR);
 	src_buf = (int *)DMIC_RX_FIFO;
 	dst_buf = (int *)TCSM_BANK_5;
 
 	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
-	//config.channel = DMA_CHANNEL;
 	config.channel = dma_channel;
-	/*...*/
 	config.increment = 1; /*src no inc, dst inc*/
-	//config.rdil = 0;
 	config.rdil = 64;
 	config.sp_dp = 0x00; /*32bit*/
 	config.stde = 0;
@@ -175,8 +169,6 @@ void dma_config_normal(void)
 	build_circ_descs(desc);
 	pdma_config(&config);
 	//dump_descs();
-	//pdma_start(DMA_CHANNEL);
-	//dump_dma_register(DMA_CHANNEL);
 
 }
 

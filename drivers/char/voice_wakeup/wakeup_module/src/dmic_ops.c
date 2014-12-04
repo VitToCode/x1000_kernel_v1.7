@@ -8,6 +8,7 @@
 #include "interface.h"
 #include "common.h"
 #include "trigger_value_adjust.h"
+#include "tcu_timer.h"
 
 
 int dmic_current_state;
@@ -124,7 +125,7 @@ void dmic_init(void)
 
 int cpu_should_sleep(void)
 {
-	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != DMADTC(5)) ? 1 : 0;
+	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
 	//return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) ? 1 : 0;
 }
 
@@ -139,12 +140,10 @@ int dmic_init_mode(int mode)
 			dmic_current_state = WAITING_TRIGGER;
 			wakeup_failed_times = 0;
 			thr_need_reconfig = 0;
-			//cur_thr_value = 0;
 			cur_thr_value = thr_table[0];
 			dmic_recommend_thr = 0;
 
 			REG_DMIC_CR0 |= 3<<6;
-			//REG_DMIC_CR0 &= ~(3<<6);
 
 			/*packen ,unpack disable*/
 			REG_DMIC_CR0 |= 1<<8 | 1 << 12;
@@ -163,7 +162,6 @@ int dmic_init_mode(int mode)
 			/* trigger mode config */
 			REG_DMIC_TRICR &= ~(0xf << 16); /* tri mode: larger than thr trigger.*/
 			//REG_DMIC_TRICR |= 2 << 16; /* > N times of thrl. */
-			//REG_DMIC_TRINMAX = 30;
 			//REG_DMIC_TRINMAX = 5;
 
 			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
@@ -219,10 +217,7 @@ int dmic_disable_tri(void)
 }
 int dmic_disable(void)
 {
-	/*controller disable*/
-	//REG_DMIC_CR0 &= ~(1<<1); /*DISABLE DMIC tri*/
 	REG_DMIC_CR0 &= ~(1 << 0); /*DISABLE DMIC*/
-	/*clear ints*/
 	return 0;
 }
 
@@ -231,21 +226,22 @@ int dmic_disable(void)
 void reconfig_thr_value()
 {
 	if(dmic_current_state == WAITING_TRIGGER) {
-		/* calle by rtc timer, or last wakeup failed .*/
+		/* called by rtc timer, or last wakeup failed .*/
 		if(dmic_recommend_thr != 0) {
-			REG_DMIC_THRL = dmic_recommend_thr;
+			cur_thr_value = dmic_recommend_thr;
+			REG_DMIC_THRL = cur_thr_value;
 			dmic_recommend_thr = 0;
 		} else {
-			REG_DMIC_THRL = adjust_trigger_value(wakeup_failed_times, cur_thr_value);
+			REG_DMIC_THRL = cur_thr_value;
 		}
 	} else if(dmic_current_state == WAITING_DATA) {
 		/* called only by rtc timer, we can not change thr here.
 		 * should wait dmic waiting trigger state.
 		 * */
 		dmic_recommend_thr = adjust_trigger_value(wakeup_failed_times+1, cur_thr_value);
+
+		wakeup_failed_times = 0;
 	}
-	wakeup_failed_times = 0;
-	//serial_put_hex(REG_DMIC_THRL);
 }
 
 int dmic_set_samplerate(unsigned long rate)
@@ -279,41 +275,51 @@ int dmic_ioctl(int cmd, unsigned long args)
 	return 0;
 }
 
-int dmic_handler(void)
+#define is_int_rtc(in)		(in & (1 << 0))
+
+int dmic_handler(int pre_ints)
 {
 	volatile int ret;
-	/* we only handle wakeup and trigger ints */
-	//REG_DMIC_CR0 |= 1<<6; /* set sample rate 16K*/
-	//REG_DMIC_CR0 &= ~(1<<7); /* set sample rate 16K*/
-	REG_DMIC_ICR |= 0x1f; /* CLEAR ALL INTS*/
-	REG_DMIC_IMR |= 1<<0 | 1<<4; /* MASK TRIGGER, wakeup */
+	REG_DMIC_ICR |= 0x1f;
+	REG_DMIC_IMR |= 1<<0 | 1<<4;
 
-	last_dma_count = DMADTC(5);
+	last_dma_count = REG_DMADTC(5);
 
 	if(dmic_current_state == WAITING_TRIGGER) {
+		if(is_int_rtc(pre_ints)) {
+			TCSM_PCHAR('F');
+			REG_DMIC_ICR |= 0x1f;
+			REG_DMIC_IMR &= ~(1<<0 | 1<<4);
+			return SYS_WAKEUP_FAILED;
+		}
+
 		dmic_current_state = WAITING_DATA;
 		/*change trigger value to 0, make dmic wakeup cpu all the time*/
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		tcu_timer_mod(ms_to_count(30)); /* start a timer */
+#else
 		REG_DMIC_THRL = 0;
+#endif
 	} else if (dmic_current_state == WAITING_DATA){
 
 	}
 
 	ret = process_dma_data_2();
-	//serial_put_hex(ret);
+
 	if(ret == SYS_WAKEUP_OK) {
+
 		return SYS_WAKEUP_OK;
-		/*just ok*/
 	} else if(ret == SYS_NEED_DATA) {
-		/*
-		 * if voice process module need more data to anaylize,
-		 * then, we keep dmic data path on, and also open dmic
-		 * trigger logic.
-		 * */
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		/* do nothing */
+#else
+
+		REG_DMIC_TRINMAX = 30;
 
 		REG_DMIC_CR0 |= 3 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
-
-		last_dma_count = DMADTC(5);
+#endif
+		last_dma_count = REG_DMADTC(5);
 		return SYS_NEED_DATA;
 	} else if(ret == SYS_WAKEUP_FAILED) {
 		/*
@@ -321,12 +327,18 @@ int dmic_handler(void)
 		 * to work at appropriate mode.
 		 * */
 		dmic_current_state = WAITING_TRIGGER;
-
+		wakeup_failed_times++;
 		reconfig_thr_value();
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		/* del a timer, when dmic trigger. it will re start a timer */
+		tcu_timer_del();
+#endif
 
 		/* change trigger mode to > N times*/
 		//REG_DMIC_TRICR |= 2 << 16;
+		REG_DMIC_TRINMAX = 5;
 		REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
+
 
 		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
 
@@ -335,6 +347,5 @@ int dmic_handler(void)
 
 		return SYS_WAKEUP_FAILED;
 	}
-
 	return SYS_WAKEUP_FAILED;
 }

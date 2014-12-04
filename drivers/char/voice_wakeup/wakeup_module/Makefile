@@ -23,6 +23,7 @@ OBJS := $(TOPDIR)/src/start.o		\
 	$(TOPDIR)/src/jz_dma.o		\
 	$(TOPDIR)/src/trigger_value_adjust.o		\
 	$(TOPDIR)/src/voice_wakeup.o		\
+	$(TOPDIR)/src/tcu_timer.o		\
 	$(TOPDIR)/lib/libivw3_6.a
 
 

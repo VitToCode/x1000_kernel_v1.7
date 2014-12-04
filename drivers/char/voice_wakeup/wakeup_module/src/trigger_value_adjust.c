@@ -1,18 +1,16 @@
-
 #include <common.h>
 #include "interface.h"
 #include "dmic_config.h"
 #include "trigger_value_adjust.h"
 
-
-//int thr_table[TRIGGER_CNTS] = {3000,  5000};
-//int thr_table[TRIGGER_CNTS] = {0, 0};
-int thr_table[TRIGGER_CNTS] = {3000, 3000};
+int thr_table[TRIGGER_CNTS] = {1000, 5000};
+//int thr_table[TRIGGER_CNTS] = {0, 2000};
 int tri_cnt[TRIGGER_CNTS] = {2, 6};
 
-int quantity_thr(int thr)
+static int quantity_thr(int thr)
 {
 	int i;
+	/* find the place thr value is in thr_table */
 	for(i = 0; i < TRIGGER_CNTS; i++) {
 		if(thr_table[i] == thr)
 			break;
@@ -21,7 +19,7 @@ int quantity_thr(int thr)
 }
 int quantity_tri(int times)
 {
-	if(times < 4) {
+	if(times < 2) {
 		return 0; /* UP */
 	} else {
 		return 1; /* DOWN */
@@ -36,20 +34,15 @@ int adjust_trigger_value(int times_per_unit, int cur_thr)
 	int result;
 	int fix_times = quantity_tri(times_per_unit);
 	int fix_thr   = quantity_thr(cur_thr);
-	//int fix_result;
+	int fix_result;
 
-	//fix_result = fix_times;
+	fix_result = fix_times;
 
+	result = cur_thr + (5000 - 1000) * fix_result;
 	//result = fix_times - fix_thr > 0 ? 1000 * (fix_times - fix_thr) : cur_thr;
 
-	if(cur_thr == thr_table[0]) {
-		return thr_table[1];
-	} else {
-		return thr_table[0];
-	}
 
-	//serial_put_hex(result);
-	//return result;
+	return result;
 }
 
 

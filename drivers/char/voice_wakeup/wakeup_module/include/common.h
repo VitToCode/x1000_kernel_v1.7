@@ -69,4 +69,19 @@ typedef unsigned int	u32;
 			: "memory"                  \
 			)
 
+
+
+
+
+
+
+
+
+#define CONFIG_CPU_IDLE_SLEEP
+
+
+
+
+
+
 #endif /* __COMMON_H__ */

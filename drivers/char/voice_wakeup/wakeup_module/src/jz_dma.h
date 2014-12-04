@@ -19,14 +19,14 @@ typedef unsigned int u32;
 #define DMA_DDAn	0x18
 #define DMA_DSDn	0x1C
 
-#define DMADSA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DSAn)+(chn)*0x20))
-#define DMADTA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DTAn)+(chn)*0x20))
-#define DMADTC(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DTCn)+(chn)*0x20))
-#define DMADRT(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DRTn)+(chn)*0x20))
-#define DMADCS(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCSn)+(chn)*0x20))
-#define DMADCM(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCMn)+(chn)*0x20))
-#define DMADDA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDAn)+(chn)*0x20))
-#define DMADSD(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DSDn)+(chn)*0x20))
+#define REG_DMADSA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DSAn)+(chn)*0x20))
+#define REG_DMADTA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DTAn)+(chn)*0x20))
+#define REG_DMADTC(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DTCn)+(chn)*0x20))
+#define REG_DMADRT(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DRTn)+(chn)*0x20))
+#define REG_DMADCS(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCSn)+(chn)*0x20))
+#define REG_DMADCM(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCMn)+(chn)*0x20))
+#define REG_DMADDA(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDAn)+(chn)*0x20))
+#define REG_DMADSD(chn)		(*(volatile u32*)((PDMAC_BASE)+(DMA_DSDn)+(chn)*0x20))
 
 #define DMA_DMAC	 0x1000
 #define DMA_DIRQP	 0x1004
@@ -46,22 +46,22 @@ typedef unsigned int u32;
 #define DMA_DMINT	 0x103C
 
 
-#define DMADMAC		(*(volatile u32*)((PDMAC_BASE)+(DMA_DMAC)))
-#define DMADIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DIRQP)))
-#define DMADDB		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDB)))
-#define DMADDS		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDS)))
-#define DMADCKE		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKE)))
-#define DMADCKES	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKES)))
-#define DMADCKEC	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKEC)))
-#define DMADMACP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMACP)))
-#define DMADSIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DSIRQP)))
-#define DMADSIRQM	(*(volatile u32*)((PDMAC_BASE)+(DMA_DSIRQM)))
-#define DMADCIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCIRQP)))
-#define DMADCIRQM	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCIRQM)))
-#define DMADMCS		(*(volatile u32*)((PDMAC_BASE)+(DMA_DMCS)))
-#define DMADMNMB	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMNMB)))
-#define DMADMSMB	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMSMB)))
-#define DMADMINT	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMINT)))
+#define REG_DMADMAC		(*(volatile u32*)((PDMAC_BASE)+(DMA_DMAC)))
+#define REG_DMADIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DIRQP)))
+#define REG_DMADDB		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDB)))
+#define REG_DMADDS		(*(volatile u32*)((PDMAC_BASE)+(DMA_DDS)))
+#define REG_DMADCKE		(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKE)))
+#define REG_DMADCKES	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKES)))
+#define REG_DMADCKEC	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCKEC)))
+#define REG_DMADMACP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMACP)))
+#define REG_DMADSIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DSIRQP)))
+#define REG_DMADSIRQM	(*(volatile u32*)((PDMAC_BASE)+(DMA_DSIRQM)))
+#define REG_DMADCIRQP	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCIRQP)))
+#define REG_DMADCIRQM	(*(volatile u32*)((PDMAC_BASE)+(DMA_DCIRQM)))
+#define REG_DMADMCS		(*(volatile u32*)((PDMAC_BASE)+(DMA_DMCS)))
+#define REG_DMADMNMB	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMNMB)))
+#define REG_DMADMSMB	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMSMB)))
+#define REG_DMADMINT	(*(volatile u32*)((PDMAC_BASE)+(DMA_DMINT)))
 
 #define DMA_READBIT(reg, bit, width)		(((reg)>>(bit))&(~((~0)<<(width))))
 #define V_TO_P(n) (((unsigned long)(n))&(0x1fffffff))

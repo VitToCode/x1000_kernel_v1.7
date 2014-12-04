@@ -18,8 +18,7 @@
 #include "rtc_ops.h"
 #include "dmic_config.h"
 #include "jz_dma.h"
-
-#include <archdefs.h>
+#include "tcu_timer.h"
 
 #define TAG	"[voice_wakeup]"
 
@@ -31,10 +30,13 @@ enum wakeup_source {
 	WAKEUP_BY_DMIC
 };
 
+/* global config: default value */
+unsigned int _dma_channel = 5;
+static unsigned int tcu_channel = 5;
+
 unsigned int cpu_wakeup_by = 0;
 unsigned int open_cnt = 0;
 unsigned int current_mode = 0;
-unsigned int _dma_channel = 5;  /*--*/
 struct sleep_buffer *g_sleep_buffer;
 
 int open(int mode)
@@ -47,8 +49,12 @@ int open(int mode)
 			rtc_init();
 			dmic_init_mode(DEEP_SLEEP);
 			wakeup_open();
-			/* UNMASK INTC */
+#ifdef CONFIG_CPU_IDLE_SLEEP
+			tcu_timer_request(tcu_channel);
+#endif
+			/* UNMASK INTC we used */
 			REG32(0xB000100C) = 1<<0; /*dmic int en*/
+			REG32(0xB000100C) = 1<<26; /*tcu1 int en*/
 			REG32(0xB000102C) = 1<<0; /*rtc int en*/
 			break;
 		case NORMAL_RECORD:
@@ -60,12 +66,9 @@ int open(int mode)
 		default:
 			printk("%s:bad open mode\n", TAG);
 			break;
-
-
 	}
 
 	if(open_cnt == 0) {
-		//dma_open();
 		dma_config_normal();
 		dma_start(_dma_channel);
 		dmic_enable();
@@ -87,16 +90,24 @@ static inline void powerdown_wait(void)
 {
 	unsigned int opcr;
 	unsigned int cpu_no;
-	volatile unsigned int temp;
-	cpu_no = get_cp0_ebase();
+	unsigned int lcr;
 
-	opcr = REG32(0xb0000000 + CPM_OPCR);
+	volatile unsigned int temp;
+	/* cpu enter sleep */
+	lcr = REG32(CPM_IOBASE + CPM_LCR);
+	lcr &= ~3;
+	lcr |= 1;
+	REG32(CPM_IOBASE + CPM_LCR) = lcr;
+
+	cpu_no = get_cp0_ebase();
+	opcr = REG32(CPM_IOBASE + CPM_OPCR);
 	opcr &= ~(3<<25);
-	opcr |= (cpu_no + 1) << 25; /* both big and small core power down*/
+	opcr |= (cpu_no + 1) << 25;
 
 	opcr |= 1 << 30;
-	REG32(0xb0000000 + CPM_OPCR) = opcr;
-	temp = REG32(0xb0000000 + CPM_OPCR);
+	REG32(CPM_IOBASE + CPM_OPCR) = opcr;
+	temp = REG32(CPM_IOBASE + CPM_OPCR);
+	serial_put_hex(REG32(CPM_IOBASE + CPM_OPCR));
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
 			"nop\n\t"
@@ -111,22 +122,60 @@ static inline void powerdown_wait(void)
 static inline void sleep_wait(void)
 {
 	unsigned int opcr;
+	unsigned int lcr;
+	unsigned int temp;
+	/* cpu enter sleep */
+	lcr = REG32(CPM_IOBASE + CPM_LCR);
+	lcr &= ~3;
+	lcr |= 1;
+	REG32(CPM_IOBASE + CPM_LCR) = lcr;
 
-	opcr = REG32(0xb0000000 + CPM_OPCR);
+	opcr = REG32(CPM_IOBASE + CPM_OPCR);
 	opcr &= ~(3<<25);	/* keep cpu poweron */
 
 	opcr |= 1 << 30;	/* int mask */
-	REG32(0xb0000000 + CPM_OPCR) = opcr;
+	REG32(CPM_IOBASE + CPM_OPCR) = opcr;
+	temp = REG32(CPM_IOBASE + CPM_OPCR);
+
 	__asm__ volatile(".set mips32\n\t"
+			"nop\n\t"
+			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32 \n\t");
+
+	TCSM_PCHAR('s');
 }
 
-/* mask ints that we don't care */
-#define INTC0_MASK	0xfffffffe
+#ifdef CONFIG_CPU_IDLE_SLEEP
+static inline void idle_wait(void)
+{
+	unsigned int opcr;
+	unsigned int lcr;
+	/* cpu enter idle */
+	lcr = REG32(CPM_IOBASE + CPM_LCR);
+	lcr &= ~3;
+	REG32(CPM_IOBASE + CPM_LCR) = lcr;
+
+	TCSM_PCHAR('I');
+	__asm__ volatile(".set mips32\n\t"
+			"wait\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			".set mips32\n\t");
+	TCSM_PCHAR('i');
+}
+#endif
+
+/*	int mask that we care about.
+ *	DMIC INTS: used to wakeup cpu.
+ *	RTC	 INTS: used to sum wakeup failed times. and adjust thr value.
+ *	TCU	 INTS: used for cpu to process data.
+ * */
+#define INTC0_MASK	0xfBfffffe
 #define INTC1_MASK	0xfffffffe
 
 /* desc: this function is only called when cpu is in deep sleep
@@ -136,7 +185,14 @@ static inline void sleep_wait(void)
 int handler(int par)
 {
 	volatile int ret;
+	volatile unsigned int int0;
+	volatile unsigned int int1;
+
 	while(1) {
+
+		int0 = REG32(0xb0001010);
+		int1 = REG32(0xb0001030);
+
 		if((REG32(0xb0001010) & INTC0_MASK) || (REG32(0xb0001030) & INTC1_MASK)) {
 			serial_put_hex(REG32(0xb0001010));
 			serial_put_hex(REG32(0xb0001030));
@@ -161,22 +217,31 @@ int handler(int par)
 
 			}
 		}
-		/* DMIC interrupt pending */
-		ret = dmic_handler();
-	/*----DMIC MAY TRIGGER AFTER ------------*/
+
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		if(REG32(0xb0001010) & (1 << 27)) {
+			tcu_timer_handler();
+		} else if(REG32(0xb0001010) & (1 << 26)) {
+			tcu_timer_handler();
+		} else if(REG32(0xb0001010) & (1 << 25)) {
+			tcu_timer_handler();
+		}
+#endif
+		ret = dmic_handler(int1);
 		if(ret == SYS_WAKEUP_OK) {
-			//ret = SYS_WAKEUP_OK;
 			cpu_wakeup_by = WAKEUP_BY_DMIC;
 			break;
 		} else if(ret == SYS_NEED_DATA){
-	/*------DMIC MAY REQEUST DMA TRANSFER----*/
+#ifdef CONFIG_CPU_IDLE_SLEEP
+			idle_wait();
+#else
 			if(cpu_should_sleep()) {
-				//sleep_wait();
 				flush_dcache_all();
 				__asm__ __volatile__("sync");
 				powerdown_wait();
 				TCSM_PCHAR('S');
 			}
+#endif
 		} else if(ret == SYS_WAKEUP_FAILED) {
 			/* deep sleep */
 			flush_dcache_all();
@@ -188,6 +253,9 @@ int handler(int par)
 
 	if(ret == SYS_WAKEUP_OK) {
 		rtc_exit();
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		tcu_timer_release(tcu_channel);
+#endif
 	}
 	return ret;
 }
@@ -197,12 +265,13 @@ int close(int mode)
 	/* MASK INTC*/
 	if(mode == DEEP_SLEEP) {
 		REG32(0xB0001008) |= 1<< 0;
+		//REG32(0xB0001008) |= 1<< 26;
 		REG32(0xB0001028) |= 1<< 0;
 		dmic_disable_tri();
 		wakeup_close();
 	}
 	if((--open_cnt) == 0) {
-		printk("[voice wakeup] wakeup module closed for real\n");
+		printk("[voice wakeup] wakeup module closed for real. \n");
 		dmic_disable();
 		dma_close();
 	}
@@ -222,7 +291,6 @@ int set_handler(void *handler)
  * */
 unsigned int get_dma_address(void)
 {
-	//return pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
 	return pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 }
 
@@ -240,7 +308,6 @@ int ioctl(int cmd, unsigned long args)
  * */
 void cache_prefetch(void)
 {
-	//printf("####cache prefetch!!:size:(%d * 1024)Bytes\n", (LOAD_SIZE/1024));
 	int i;
 	volatile unsigned int *addr = (unsigned int *)0x8ff00000;
 	volatile unsigned int a;
@@ -248,6 +315,7 @@ void cache_prefetch(void)
 		a = *(addr + i * 8);
 	}
 }
+
 
 /* @fn: used by wakeup driver to get voice_resrouce buffer address.
  *
@@ -278,39 +346,25 @@ int set_sleep_buffer(struct sleep_buffer *sleep_buffer)
 	int i;
 	g_sleep_buffer = sleep_buffer;
 
-	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
-		printk("[vw - up]:sleep_buffer[%d]: %p\n", i, sleep_buffer->buffer[i]);
-		printk("[vw - up]:g_sleep_buffer[%d]: %p\n", i, g_sleep_buffer->buffer[i]);
-	}
-	/* 1.stop dma */
 	dma_stop(_dma_channel);
-	/* 2.switch dma desc to sleep */
+
+	/* switch to early sleep */
 	dma_config_early_sleep(sleep_buffer);
-	/* 3.start dma */
+
 	dma_start(_dma_channel);
-	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
-		printk("[vw - up]:sleep_buffer[%d]: %p\n", i, sleep_buffer->buffer[i]);
-		printk("[vw - up]:g_sleep_buffer[%d]: %p\n", i, g_sleep_buffer->buffer[i]);
-	}
+
 	return 0;
 }
 
 /* used by cpu eary sleep.
  * @return SYS_WAKEUP_OK, SYS_WAKEUP_FAILED.
  * */
-int get_sleep_process()
+int get_sleep_process(void)
 {
-	//return 0;
 	struct sleep_buffer *sleep_buffer = g_sleep_buffer;
-	/* 1.process data in sleep buffer, no need to change circ_buffer */
 	int i, ret = SYS_WAKEUP_FAILED;
-	printk("[vw  %s]:%d\n", __func__, __LINE__);
-	for(i = 0; i < g_sleep_buffer->nr_buffers; i++) {
-		printk("g_sleep_buffer[%d]: ---addr:%p\n", i, g_sleep_buffer->buffer[i]);
-	}
 
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
-		printk("[vw - up]:sleep_buffer[%d]: %p, sleep_buffer->nr_buffers:%d\n", i, sleep_buffer->buffer[i], sleep_buffer->nr_buffers);
 		if(process_buffer_data(sleep_buffer->buffer[i], sleep_buffer->total_len/sleep_buffer->nr_buffers) == SYS_WAKEUP_OK) {
 			cpu_wakeup_by = WAKEUP_BY_DMIC;
 			ret = SYS_WAKEUP_OK;
@@ -318,14 +372,12 @@ int get_sleep_process()
 		}
 	}
 
-	/* 2.stop dma */
 	dma_stop(_dma_channel);
-	/* 3.switch dma desc to as what it is before, that is tcsm,
-	 * change circ_buffer info at the same time. reset_fifo.
-	 * */
+	/* switch to dmic normal config */
 	dma_config_normal();
+
 	wakeup_reset_fifo();
-	/* 4.start dma */
+
 	dma_start(_dma_channel);
 	return ret;
 }
