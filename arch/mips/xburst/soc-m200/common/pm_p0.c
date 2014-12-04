@@ -696,8 +696,8 @@ static void m200_finish(void)
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = m200_pm_enter,
-	.prepare_late = m200_prepare,
-	.wake = m200_finish,
+	.prepare = m200_prepare,
+	.finish = m200_finish,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);
