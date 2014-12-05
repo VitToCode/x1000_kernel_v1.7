@@ -28,6 +28,8 @@ struct em7180_dev {
 
 	u32 irq_pin;
 	int irq;
+	int irq_flag;
+	int wakeup;
 
 	struct completion done;
 	struct miscdevice misc_device;
@@ -62,7 +64,7 @@ static void em7180_write_buff(struct em7180_dev *em7180, int size)
 					  byteNum_Hi);
 
 #ifdef EM7180_DEBUG
-		if(byteNum % 14000 == 0)
+		if(0 == byteNum % 14000)
 			dbg("byteNum = %d", byteNum);
 #endif
 
@@ -74,7 +76,7 @@ static void em7180_write_buff(struct em7180_dev *em7180, int size)
 							  REG_BYTEREQRESP_HI);
 		byteReqResp = (byteReqResp_Hi << 8) | byteReqResp_Lo;
 
-		if (byteReqResp == byteNum) {
+		if (byteNum == byteReqResp) {
 			i2c_smbus_read_i2c_block_data(em7180->i2c_dev,
 						      REG_BATCHBASE0,
 						      BATCHBLOCKSIZE,
@@ -89,6 +91,68 @@ static void em7180_write_buff(struct em7180_dev *em7180, int size)
 	    em7180->producer, em7180->consumer);
 }
 
+static int em7180_clear_irq(struct em7180_dev *em7180)
+{
+	int tmp = 10, ret = 0, status = 0;
+
+	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_MODE_REQ,
+				  UPDATE_MODE_VALUE);
+	while (tmp--) {
+		mdelay(5);
+		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
+						  REG_CURR_MODE);
+		if (UPDATE_MODE_VALUE == status) {
+			ret = 1;
+			dbg("Success to switch to StreamMode");
+			break;
+		}
+	}
+	if (0 == ret) {
+		dbg("Fail to switch to StreamMode");
+		return ret;
+	}
+
+	tmp = 10;
+	ret = 0;
+
+	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_RESET_DATA,
+				  RESET_DATA_VALUE);
+	while (tmp--) {
+		mdelay(5);
+		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
+						  REG_CURR_RESET);
+		if (RESET_DATA_VALUE == status) {
+			ret = 1;
+			dbg("Success to clear");
+			break;
+		}
+	}
+	if (0 == ret) {
+		dbg("Fail to clear");
+		return ret;
+	}
+
+	tmp = 10;
+	ret = 0;
+
+	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_RESET_DATA,
+				  PREP_RESET_VALUE);
+	while (tmp--) {
+		mdelay(5);
+		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
+						  REG_CURR_RESET);
+		if (PREP_RESET_VALUE == status) {
+			ret = 1;
+			dbg("Success to reset");
+			break;
+		}
+	}
+	if (0 == ret) {
+		dbg("Fail to reset");
+	}
+	return ret;
+}
+
 static int em7180_read_buff(struct em7180_dev *em7180)
 {
 	int tmp = 10, ret = 0, status = 0;
@@ -100,22 +164,23 @@ static int em7180_read_buff(struct em7180_dev *em7180)
 		mdelay(5);
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_MODE);
-		if (status == BATCH_MODE_VALUE) {
+		if (BATCH_MODE_VALUE == status) {
 			ret = 1;
 			break;
 		}
 	}
-	if (ret == 0) {
+	if (0 == ret) {
 		dbg("Fail to switch to BatchMode");
 		return ret;
 	}
 
+	/* Read data from em7180 */
 	if (em7180->buf_len < DATA_BUF_SIZE) {
 		if (em7180->producer >= em7180->consumer) {
 			dbg("+++++++++++++++++++++++++++++++++++++++++++test0");
 
 			em7180_write_buff(em7180, READ_BUF_SIZE);
-			if (em7180->producer == em7180->buf_top)
+			if (em7180->buf_top == em7180->producer)
 				em7180->producer = em7180->buf_base;
 
 			em7180->buf_len += READ_BUF_SIZE;
@@ -125,7 +190,7 @@ static int em7180_read_buff(struct em7180_dev *em7180)
 				dbg("-----------------------------------test1");
 
 				em7180_write_buff(em7180, READ_BUF_SIZE);
-				if (em7180->producer == em7180->buf_top)
+				if (em7180->buf_top == em7180->producer)
 					em7180->producer = em7180->buf_base;
 
 				em7180->consumer = em7180->producer;
@@ -142,76 +207,16 @@ static int em7180_read_buff(struct em7180_dev *em7180)
 		dbg("///////////////////////////////////////////////////test3");
 
 		em7180_write_buff(em7180, READ_BUF_SIZE);
-		if (em7180->producer == em7180->buf_top)
+		if (em7180->buf_top == em7180->producer)
 			em7180->producer = em7180->buf_base;
 
 		em7180->consumer = em7180->producer;
 		em7180->buf_len = DATA_BUF_SIZE;
 	}
 
-#if 1
-	tmp = 10;
-	ret = 0;
+	ret = em7180_clear_irq(em7180);
 
-	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_MODE_REQ,
-				  UPDATE_MODE_VALUE);
-	while (tmp--) {
-		mdelay(5);
-		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
-						  REG_CURR_MODE);
-		if (status == UPDATE_MODE_VALUE) {
-			ret = 1;
-			dbg("Success to switch to StreamMode");
-			break;
-		}
-	}
-	if (ret == 0) {
-		dbg("Fail to switch to StreamMode");
-		return ret;
-	}
-
-	tmp = 10;
-	ret = 0;
-
-	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_RESET_DATA,
-				  RESET_DATA_VALUE);
-	while (tmp--) {
-		mdelay(5);
-		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
-						  REG_CURR_RESET);
-		if (status == RESET_DATA_VALUE) {
-			ret = 1;
-			dbg("Success to clear");
-			break;
-		}
-	}
-	if (ret == 0) {
-		dbg("Fail to clear");
-		return ret;
-	}
-
-	tmp = 10;
-	ret = 0;
-
-	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_RESET_DATA,
-				  PREP_RESET_VALUE);
-	while (tmp--) {
-		mdelay(5);
-		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
-						  REG_CURR_RESET);
-		if (status == PREP_RESET_VALUE) {
-			ret = 1;
-			dbg("Success to reset");
-			break;
-		}
-	}
-	if (ret == 0) {
-		dbg("Fail to reset");
-		return ret;
-	}
-#endif
-
-	return 1;
+	return ret;
 }
 
 static int em7180_open(struct inode *inode, struct file *filp)
@@ -221,11 +226,12 @@ static int em7180_open(struct inode *inode, struct file *filp)
 	struct em7180_dev *em7180 =
 		container_of(dev, struct em7180_dev, misc_device);
 
-	u8 D0_Low = 0, D0_High = 0;
+	u8 D0_Low = 0, D0_High = 0, D0_tmp = 0;
 	D0_Low = i2c_smbus_read_byte_data(em7180->i2c_dev, REG_LEN_LOW);
 	D0_High = i2c_smbus_read_byte_data(em7180->i2c_dev, REG_LEN_HIGH);
-	dbg("D0_High = %x D0_Low = %x em7180->buf_len = %d",
-	    D0_High, D0_Low, em7180->buf_len);
+	D0_tmp = i2c_smbus_read_byte_data(em7180->i2c_dev, 0x3c);
+	dbg("D0_High = %x D0_Low = %x D0_tmp = %x em7180->buf_len = %d",
+	    D0_High, D0_Low, D0_tmp, em7180->buf_len);
 #endif
 
 	return 0;
@@ -247,18 +253,20 @@ em7180_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 	int len = 0, len_t = 0, ret = 0;
 
 #ifdef EM7180_DEBUG
+
 	u8 D0_Low = 0, D0_High = 0;
 	D0_Low = i2c_smbus_read_byte_data(em7180->i2c_dev, REG_LEN_LOW);
 	D0_High = i2c_smbus_read_byte_data(em7180->i2c_dev, REG_LEN_HIGH);
-	dbg("D0_High = %x D0_Low = %x em7180->buf_len = %d",
-	    D0_High, D0_Low, em7180->buf_len);
+
+	dbg("D0_High = %x D0_Low = %x  em7180->buf_len = %d irq_flag = %d",
+	    D0_High, D0_Low, em7180->buf_len, em7180->irq_flag);
 #endif
 
-	if (buf == NULL || count <= 0) {
+	if (NULL == buf || count <= 0) {
 		dbg("Invalid argument");
 		return -EINVAL;
 	}
-	if (em7180->buf_len == 0) {
+	if (0 == em7180->buf_len) {
 		return 0;
 	}
 
@@ -317,7 +325,7 @@ errorcopy:
 static int
 em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 {
-	int tmp = 10,ret = 0, status = 0, frequency_t = 0;
+	int tmp = 10, ret = 1, status = 0, frequency_t = 0;
 
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_ALGORITHM_CONTROL,
@@ -369,20 +377,19 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		return ret;
 
 	tmp = 10;
-	ret = 0;
 
 	while (tmp--) {
 		msleep(5);
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_ACCEL);
-		if (status == frequency_t) {
+		if (frequency_t == status) {
 			dbg("Set accel value success! accel value = %d",status);
 			accel_info.frequency = status;
 			ret = 1;
 			break;
 		}
 	}
-	if (ret == 0) {
+	if (0 == ret) {
 		dbg("Set accel value failed! accel value = %d",status);
 		return -EINVAL;
 	}
@@ -395,20 +402,19 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		return ret;
 
 	tmp = 10;
-	ret = 0;
 
 	while (tmp--) {
 		msleep(5);
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_RANGE);
-		if (status == accel_info.ranges) {
+		if (accel_info.ranges == status) {
 			dbg("Set ranges value success! ranges value = %x",
 			    status);
 			ret = 1;
 			break;
 		}
 	}
-	if (ret == 0) {
+	if (0 == ret) {
 		dbg("Set ranges value failed! ranges value = %x",status);
 			return -EINVAL;
 	}
@@ -426,11 +432,11 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		msleep(5);
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_THRESHOLD);
-		if (status == accel_info.threshold) {
+		if (accel_info.threshold == status) {
 			dbg("Set threshold value success! threshold value = %d",
 			    status);
 			wake_up_process(em7180->kthread);
-			return 0;
+			return ret;
 		}
 	}
 
@@ -473,55 +479,59 @@ static int em7180_daemon(void *d)
 {
 	struct em7180_dev *em7180 = d;
 	int ret = 0;
-
-#ifdef EM7180_DEBUG
 	u8 D0_Low = 0, D0_High = 0;
-#endif
+	u16 D0_All = 0;
 
 	while (!kthread_should_stop()) {
 		dbg("----------------------------->start thread");
 
-#ifdef EM7180_DEBUG
-		mdelay(80000);
+		/* enable irq,To prevent the interruption of abnormal */
+		enable_irq(em7180->irq);
+		wait_for_completion_interruptible(&em7180->done);
 
-		while(ret == 0) {
-#endif
-
-			/* enable irq,To prevent the interruption of abnormal */
-			enable_irq(em7180->irq);
-			wait_for_completion_interruptible(&em7180->done);
-
-#ifdef EM7180_DEBUG
-			ret = 1;
-		}
-#endif
-
-		dbg("----------------------------->start irq");
-		mutex_lock(&em7180->lock);
-		ret = em7180_read_buff(em7180);
-		mutex_unlock(&em7180->lock);
-
-		if (!ret) {
-			i2c_smbus_write_byte_data(em7180->i2c_dev,
-						  REG_RESET,
-						  RESET_VALUE);
-
-			pni_sentral_download_firmware_to_ram(em7180->i2c_dev);
-
-			em7180_set_parameters(em7180, em7180->accel_info);
-		}
-
-#ifdef EM7180_DEBUG
+		/* When em7180->irq_flag == 1 and
+		   buff is not full clear the first interrupt */
 		D0_Low = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_LEN_LOW);
 		D0_High = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						   REG_LEN_HIGH);
-		dbg("D0_High = %x D0_Low = %x em7180->buf_len = %d",
-		    D0_High, D0_Low, em7180->buf_len);
+		D0_All = (D0_High << 8) | D0_Low;
+		dbg("D0_High = %x D0_Low = %x D0_All = %d em7180->buf_len = %d",
+		    D0_High, D0_Low, D0_All, em7180->buf_len);
+
+		if (1 == em7180->irq_flag && D0_All != READ_BUF_SIZE) {
+			em7180_clear_irq(em7180);
+		} else {
+			dbg("----------------------------->start irq");
+			mutex_lock(&em7180->lock);
+			ret = em7180_read_buff(em7180);
+			mutex_unlock(&em7180->lock);
+
+			if (!ret) {
+				i2c_smbus_write_byte_data(em7180->i2c_dev,
+							  REG_RESET,
+							  RESET_VALUE);
+
+				pni_sentral_download_firmware_to_ram(em7180->i2c_dev);
+
+				em7180_set_parameters(em7180,
+						      em7180->accel_info);
+			}
+
+#ifdef EM7180_DEBUG
+			D0_Low = i2c_smbus_read_byte_data(em7180->i2c_dev,
+							  REG_LEN_LOW);
+			D0_High = i2c_smbus_read_byte_data(em7180->i2c_dev,
+							   REG_LEN_HIGH);
+			dbg("D0_High = %x D0_Low = %x em7180->buf_len = %d",
+			    D0_High, D0_Low, em7180->buf_len);
 #endif
 
-		dbg("em7180->producer = %p consumer = %p buf_len = %d",
-		    em7180->producer, em7180->consumer, em7180->buf_len);
+			dbg("em7180->producer = %p consumer = %p buf_len = %d",
+			    em7180->producer, em7180->consumer,
+			    em7180->buf_len);
+		}
+		em7180->irq_flag = 0;
 	}
 
 	return 0;
@@ -551,8 +561,10 @@ struct file_operations em7180_fops = {
 static int
 em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 {
-	struct em7180_dev *em7180 = NULL;
 	int ret = 0;
+	struct em7180_dev *em7180 = NULL;
+	struct em7180_platform_data *pdata =
+	    (struct em7180_platform_data *)i2c_dev->dev.platform_data;
 
 	em7180 = kzalloc(sizeof(struct em7180_dev), GFP_KERNEL);
 	if (!em7180) {
@@ -571,6 +583,10 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 	}
 
 	em7180->irq_pin = GPIO_PA(15);
+	em7180->wakeup = pdata->wakeup;;
+
+	/* In order to clear the first interrupt */
+	em7180->irq_flag = 1;
 
 	ret = gpio_request(em7180->irq_pin, "em7180_irq_pin");
 	if (ret) {
@@ -591,6 +607,9 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 		goto err_gpio;
 	}
 
+	em7180->i2c_dev = i2c_dev;
+	pni_sentral_download_firmware_to_ram(em7180->i2c_dev);
+
 	mutex_init(&em7180->lock);
 	init_completion(&em7180->done);
 
@@ -600,11 +619,11 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 		dev_err(&i2c_dev->dev, "cannot claim IRQ %d", em7180->irq);
 		goto err_irq;
 	}
-	disable_irq(em7180->irq);
+	disable_irq_nosync(em7180->irq);
 
 	em7180->data_buf = (u8 *)__get_free_pages(GFP_KERNEL,
 						  get_order(DATA_BUF_SIZE));
-	if (em7180->data_buf == NULL) {
+	if (NULL == em7180->data_buf) {
 		dev_err(&i2c_dev->dev, "malloc em7180 data buf error");
 		ret = -ENOMEM;
 		goto err_buf;
@@ -618,15 +637,17 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 	dbg("buf_base = %p buf_top = %p producer = %p consumer = %p ",
 	    em7180->buf_base, em7180->buf_top,
 	    em7180->producer, em7180->consumer);
+	dbg();
 
 	em7180->kthread = kthread_create(em7180_daemon, em7180,
 					 "em7180_daemon");
+	dbg();
+
 	if (IS_ERR(em7180->kthread)) {
 		ret = -ENOMEM;
 		goto err_buf;
 	}
 
-	em7180->i2c_dev = i2c_dev;
 	em7180->misc_device.minor = MISC_DYNAMIC_MINOR;
 	em7180->misc_device.name = EM7180_NAME;
 	em7180->misc_device.fops = &em7180_fops;
@@ -636,8 +657,6 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 		dev_err(&i2c_dev->dev, "misc_register failed");
 		goto err_register_misc;
 	}
-
-	pni_sentral_download_firmware_to_ram(em7180->i2c_dev);
 
 	i2c_set_clientdata(i2c_dev, em7180);
 
@@ -673,6 +692,21 @@ static int __devexit em7180_remove(struct i2c_client *i2c_dev)
 	return 0;
 }
 
+static int em7180_suspend(struct i2c_client *i2c_dev, pm_message_t state)
+{
+	struct em7180_dev *em7180 = i2c_get_clientdata(i2c_dev);
+
+	if (em7180->wakeup)
+		enable_irq_wake(em7180->irq);
+
+	return 0;
+}
+
+static int em7180_resume(struct i2c_client *client)
+{
+	return 0;
+}
+
 static const struct i2c_device_id em7180_i2c_id[] = {
 	{EM7180_NAME, 0},
 	{}
@@ -683,9 +717,11 @@ static struct i2c_driver em7180_driver = {
 		.name  = EM7180_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe	       = em7180_probe,
-	.remove        = __devexit_p(em7180_remove),
-	.id_table      = em7180_i2c_id,
+	.probe		= em7180_probe,
+	.remove	= __devexit_p(em7180_remove),
+	.id_table	= em7180_i2c_id,
+	.suspend	= em7180_suspend,
+	.resume	= em7180_resume,
 };
 
 static int __init em7180_init(void)

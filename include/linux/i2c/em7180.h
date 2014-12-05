@@ -2,11 +2,13 @@
 #ifndef LINUX_EM7180_MODULE_H
 #define LINUX_EM7180_MODULE_H
 
-#define EM7180_DEBUG
+//#define EM7180_DEBUG
 
 /* Register for start */
 #define REG_ALGORITHM_CONTROL	0x54
+#define ALGORITHM_CONTROL_VALUE 0x02
 #define REG_HOST_CONTROL	0x34
+#define HOST_CONTROL_VALUE	0x01
 
 /* Register for set parameters */
 #define REG_ACCEL_RATE		0x56
@@ -28,15 +30,12 @@
 #define REG_BATCHBASE0		0x3C
 #define REG_RESET_DATA		0x5F
 #define REG_CURR_RESET		0x4E
-
 #define REG_RESET		0x9B
 
 /* A multiple of READ_BUF_SIZE  */
 #define DATA_BUF_SIZE		(28 * 1024)
 #define READ_BUF_SIZE		(14 * 1024)
 #define BATCHBLOCKSIZE		8
-#define ALGORITHM_CONTROL_VALUE 0x02
-#define HOST_CONTROL_VALUE	0x01
 #define BATCH_MODE_VALUE	1
 #define UPDATE_MODE_VALUE	0
 #define RESET_DATA_VALUE	1
@@ -63,6 +62,10 @@ struct accel_info_t {
 	int threshold;
 	int frequency;
 	int ranges;
+};
+
+struct em7180_platform_data {
+	int wakeup;
 };
 
 #endif/* LINUX_EM7180_MODULE_H */

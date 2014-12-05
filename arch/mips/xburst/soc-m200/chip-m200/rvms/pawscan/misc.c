@@ -123,11 +123,18 @@ struct bma250_platform_data bma250e_pdata = {
 };
 #endif
 
+#ifdef CONFIG_SENSORS_EM7180
+struct em7180_platform_data em7180_pdata = {
+	.wakeup = 1,
+};
+#endif
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C0_DMA_V12))
 static struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_EM7180
 	{
 		I2C_BOARD_INFO(EM7180_NAME, 0x28),
+		.platform_data = &em7180_pdata,
 	},
 #endif
 
