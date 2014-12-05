@@ -12,6 +12,27 @@ shell@dorado:/data/data/com.antutu.ABenchMark/lib #
 CPU:800MHz, DDRC:200MHz, GPU:300MHz
 no SystemUI.apk, no ImageWallPaper.
 
+GC1000 Driver: VIVANTE_GAL_Unified_Src_drv_5.0.11.p4
+
+$ git log --stat drivers/gpu/vivante/
+commit 8b9d809077e7c8198f3a15aef10ead98d6310763
+Author: lgwang <lgwang@ingenic.cn>
+Date:   Fri Nov 14 16:21:48 2014 +0800
+
+    Add M200 GPU driver memory cache property debug option.
+    EXTRA_CFLAGS += -DINGENIC_MEMORY_CACHEABLE_TRACE=1
+    
+    Change-Id: Icdae7197395b597df9f956ccd5843f2230d35473
+
+ .../Antutu_Benchmark_2.9.2.txt                     |  198 ++++++++++++++++++++
+ .../VIVANTE_GAL_Unified_Src_drv_5.0.11.p4/Makefile |    5 +
+ .../hal/kernel/arch/gc_hal_kernel_hardware.c       |   23 +++
+ .../hal/os/linux/kernel/gc_hal_kernel_device.c     |   11 ++
+ .../hal/os/linux/kernel/gc_hal_kernel_linux.h      |   20 ++
+ .../hal/os/linux/kernel/gc_hal_kernel_os.c         |    6 +-
+ .../hal/os/linux/kernel/platform/m200/m200.c       |   15 ++
+ 7 files changed, 277 insertions(+), 1 deletion(-)
+
 
 
 
