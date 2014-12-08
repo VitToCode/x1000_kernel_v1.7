@@ -60,7 +60,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*3+30,	GSS_INPUT_NOPULL	},	/* SMB0_SDA */
 	{32*3+31,	GSS_INPUT_NOPULL	},	/* SMB0_CLK */
 	{32*4+0,	GSS_INPUT_NOPULL	},	/* SSI_DO */
-	{32*4+1,	GSS_INPUT_NOPULL	},	/* LCD_PWM */
+	{32*4+1,	GSS_IGNORE	},	/* LCD_PWM */
 	{32*4+2,	GSS_INPUT_NOPULL	},	/* CIM_MCLK */
 	{32*4+3,	GSS_INPUT_NOPULL	},	/* SSI_DI */
 	{32*4+10,	GSS_OUTPUT_LOW		},	/* DRVVBUS */
