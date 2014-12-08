@@ -271,6 +271,7 @@ static int wakeup_suspend(void)
 		}
 		printk("sleep_buffer[%d]:----addr:%p\n", i, sleep_buffer->buffer[i]);
 	}
+	dma_cache_wback_inv(&sleep_buffer->buffer[0], sleep_buffer->total_len);
 	wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
 
 	return 0;
