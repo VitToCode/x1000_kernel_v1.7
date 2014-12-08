@@ -141,6 +141,7 @@ int wakeup_open(void)
 	ivUInt16 nResidentRAMSize = 38;
 	pResidentRAM = (ivPointer)nReisdentBuf;
 	unsigned char __attribute__((aligned(32))) *pResKey = (unsigned char *)wakeup_res;
+	unsigned int dma_addr;
 
 	ivUInt16 nWakeupNetworkID = 0;
 
@@ -160,10 +161,15 @@ int wakeup_open(void)
 	struct circ_buf *xfer = &rx_fifo->xfer;
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
 	xfer->buf = (char *)TCSM_BANK_5;
-	xfer->head = (char *)(pdma_trans_addr(DMA_CHANNEL, 2) | 0xA0000000) - xfer->buf;
+	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
+	if((dma_addr >= (TCSM_BANK_5 & 0x1fffffff)) && (dma_addr <= ((TCSM_BANK_5 + BUF_SIZE)& 0x1fffffff))) {
+		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
+	} else {
+		xfer->head = 0;
+	}
 	xfer->tail = xfer->head;
 
-	//printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
+	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
 	return 0;
 }
 

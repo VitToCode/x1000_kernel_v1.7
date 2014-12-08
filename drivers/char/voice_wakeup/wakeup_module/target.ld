@@ -22,6 +22,7 @@ SECTIONS
 	.voice_res : {
 
 	} > voice_res
+
 	/DISCARD/ : {
 		*(COMMON)
 		*(.pdri)
