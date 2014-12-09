@@ -25,6 +25,7 @@ struct sleep_buffer {
 
 
 
+#define WAKEUP_HANDLER_ADDR	(0x8ff00004)
 #define SYS_WAKEUP_OK		(0x1)
 #define SYS_WAKEUP_FAILED	(0x2)
 #define SYS_NEED_DATA		(0x3)
@@ -52,5 +53,12 @@ int wakeup_module_is_cpu_wakeup_by_dmic(void);
 int wakeup_module_set_sleep_buffer(struct sleep_buffer *);
 
 int wakeup_module_get_sleep_process(void);
+
+int wakeup_module_wakeup_enable(int enable);
+
+int wakeup_module_is_wakeup_enabled(void);
+
+
+
 
 #endif

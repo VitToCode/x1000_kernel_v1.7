@@ -26,6 +26,8 @@
 	.extern set_sleep_buffer
 	.extern get_sleep_process
 	.extern set_dma_channel
+	.extern voice_wakeup_enable
+	.extern is_voice_wakeup_enabled
 start:
 	.word open
 	.word handler
@@ -40,3 +42,6 @@ start:
 	.word set_sleep_buffer
 	.word get_sleep_process
 	.word set_dma_channel
+	.word voice_wakeup_enable
+	.word is_voice_wakeup_enabled
+

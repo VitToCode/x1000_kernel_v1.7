@@ -240,6 +240,7 @@ int process_dma_data(void)
 
 	nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
 
+	//printk("xfer->head:%d, xfer->tail:%d, nbyts:%d\n", xfer->head, xfer->tail, nbytes);
 	if(nbytes > 220) {
 		while(1) {
 			int nread;

@@ -57,6 +57,7 @@ struct wakeup_dev {
 	wait_queue_head_t wakeup_wq;
 
 	unsigned int wakeup_pending;
+	unsigned int wakeup_enable;
 	spinlock_t wakeup_lock;
 
 	struct sleep_buffer sleep_buffer; /* buffer used to store data during suspend to cpu sleep */
@@ -85,22 +86,21 @@ static int wakeup_open(struct inode *inode, struct file *filp)
 	printk("wakeup open:!\n");
 	filp->private_data = wakeup;
 
-	wakeup->resource_buf = KSEG1ADDR(wakeup_module_get_resource_addr());
+	wakeup->resource_buf = (unsigned char *)KSEG1ADDR(wakeup_module_get_resource_addr());
 
-	printk("resource_buf:%08x\n", wakeup->resource_buf);
+	printk("resource_buf:%08x\n", (unsigned int)wakeup->resource_buf);
 
 	return 0;
 }
 static int wakeup_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
-	struct wakeup_dev *wakeup = filp->private_data;
+	//struct wakeup_dev *wakeup = filp->private_data;
 
 	return 0;
 }
 static int wakeup_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos)
 {
 	struct wakeup_dev *wakeup = filp->private_data;
-
 	if(copy_from_user(wakeup->resource_buf, buf, count)) {
 		printk("copy_from_user failed.\n");
 		return -EFAULT;
@@ -111,15 +111,16 @@ static int wakeup_write(struct file *filp, const char *buf, size_t count, loff_t
 }
 static int wakeup_close(struct inode *inode, struct file *filp)
 {
-	struct wakeup_dev *wakeup = filp->private_data;
+	//struct wakeup_dev *wakeup = filp->private_data;
+
 	return 0;
 }
 
 
 static long wakeup_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 {
-	struct wakeup_dev *wakeup = filp->private_data;
-	void __user *argp = (void __user *)args;
+	//struct wakeup_dev *wakeup = filp->private_data;
+	//void __user *argp = (void __user *)args;
 
 	return 0;
 }
@@ -190,8 +191,9 @@ static ssize_t wakeup_store(struct device *dev,
 		wakeup_module_open(NORMAL_WAKEUP);
 		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
 		wakeup->wakeup_pending = 1;
+		wakeup->wakeup_enable = 1;
 		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
-
+		wakeup_module_wakeup_enable(1);
 		mod_timer(&wakeup->wakeup_timer, jiffies + msecs_to_jiffies(20));
 	} else if (ctl == 0) {
 		printk("disable wakeup function\n");
@@ -200,10 +202,12 @@ static ssize_t wakeup_store(struct device *dev,
 		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
 		if(wakeup->wakeup_pending == 1) {
 			wakeup->wakeup_pending = 0;
+			wakeup->wakeup_enable = 0;
 			wake_up(&wakeup->wakeup_wq);
 		}
 		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
 
+		wakeup_module_wakeup_enable(0);
 		del_timer_sync(&wakeup->wakeup_timer);
 	}
 	return count;
@@ -217,7 +221,7 @@ static ssize_t wakeup_show(struct device *dev,
 	char *t = buf;
 	unsigned long flags;
 
-	printk("[Voice Wakeup]wait wakeup.:wakeup :%08x\n", wakeup);
+	printk("[Voice Wakeup]wait wakeup.:wakeup :%08x\n", (unsigned int)wakeup);
 
 	ret = wait_event_interruptible(wakeup->wakeup_wq, wakeup->wakeup_pending == 0);
 	if(ret && wakeup->wakeup_pending == 1) {
@@ -261,6 +265,11 @@ static int wakeup_suspend(void)
 	struct wakeup_dev * wakeup = g_wakeup;
 	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
 	int i;
+
+	if(wakeup->wakeup_enable == 0) {
+		return 0;
+	}
+
 	sleep_buffer->nr_buffers = NR_BUFFERS;
 	sleep_buffer->total_len	 = SLEEP_BUFFER_SIZE;
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
@@ -366,7 +375,7 @@ static int __init wakeup_init(void)
 
 	dev_set_drvdata(wakeup->dev, wakeup);
 	g_wakeup = wakeup;
-	printk("wakeup :%08x\n", wakeup);
+	printk("wakeup :%08x\n", (unsigned int)wakeup);
 
 	return 0;
 

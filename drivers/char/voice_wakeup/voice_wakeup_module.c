@@ -49,6 +49,8 @@ struct wakeup_module_ops {
 	int (*set_sleep_buffer)(struct sleep_buffer *);
 	int (*get_sleep_process)(void);
 	int (*set_dma_channel)(int);
+	int (*voice_wakeup_enable)(int);
+	int (*is_voice_wakeup_enabled)(void);
 };
 
 static struct wakeup_module_ops *m_ops;
@@ -160,9 +162,20 @@ EXPORT_SYMBOL(wakeup_module_get_sleep_process);
 
 int wakeup_module_set_dma_channel(int channel)
 {
-
+	return m_ops->set_dma_channel(channel);
 }
 EXPORT_SYMBOL(wakeup_module_set_dma_channel);
+
+int wakeup_module_wakeup_enable(int enable)
+{
+	return m_ops->voice_wakeup_enable(enable);
+}
+EXPORT_SYMBOL(wakeup_module_wakeup_enable);
+int wakeup_module_is_wakeup_enabled(void)
+{
+	return m_ops->is_voice_wakeup_enabled();
+}
+EXPORT_SYMBOL(wakeup_module_is_wakeup_enabled);
 
 static int __init wakeup_module_init(void)
 {

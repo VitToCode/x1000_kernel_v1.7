@@ -38,6 +38,8 @@ unsigned int cpu_wakeup_by = 0;
 unsigned int open_cnt = 0;
 unsigned int current_mode = 0;
 struct sleep_buffer *g_sleep_buffer;
+static int voice_wakeup_enabled = 0;
+static int dmic_record_enabled = 0;
 
 int open(int mode)
 {
@@ -46,6 +48,9 @@ int open(int mode)
 			break;
 		case DEEP_SLEEP:
 			printk("deep sleep open\n");
+			if(!voice_wakeup_enabled) {
+				return;
+			}
 			rtc_init();
 			dmic_init_mode(DEEP_SLEEP);
 			wakeup_open();
@@ -59,6 +64,7 @@ int open(int mode)
 			break;
 		case NORMAL_RECORD:
 			dmic_init_mode(NORMAL_RECORD);
+			dmic_record_enabled = 1;
 		case NORMAL_WAKEUP:
 			wakeup_open();
 			dmic_init_mode(NORMAL_RECORD);
@@ -68,11 +74,10 @@ int open(int mode)
 			break;
 	}
 
-	if(open_cnt == 0) {
-		dma_config_normal();
-		dma_start(_dma_channel);
-		dmic_enable();
-	}
+	dma_config_normal();
+	dma_start(_dma_channel);
+	dmic_enable();
+
 	open_cnt++;
 	return 0;
 }
@@ -264,12 +269,20 @@ int close(int mode)
 	printk("module close\n");
 	/* MASK INTC*/
 	if(mode == DEEP_SLEEP) {
-		REG32(0xB0001008) |= 1<< 0;
-		//REG32(0xB0001008) |= 1<< 26;
-		REG32(0xB0001028) |= 1<< 0;
-		dmic_disable_tri();
-		wakeup_close();
+		if(voice_wakeup_enabled) {
+			REG32(0xB0001008) |= 1<< 0;
+			//REG32(0xB0001008) |= 1<< 26;
+			REG32(0xB0001028) |= 1<< 0;
+			dmic_disable_tri();
+			wakeup_close();
+		}
+		return 0;
+	} else if(mode == NORMAL_RECORD) {
+		dmic_record_enabled = 0;
 	}
+
+
+
 	if((--open_cnt) == 0) {
 		printk("[voice wakeup] wakeup module closed for real. \n");
 		dmic_disable();
@@ -364,6 +377,10 @@ int get_sleep_process(void)
 	struct sleep_buffer *sleep_buffer = g_sleep_buffer;
 	int i, ret = SYS_WAKEUP_FAILED;
 
+	if(!voice_wakeup_enabled) {
+		return SYS_WAKEUP_FAILED;
+	}
+
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
 		if(process_buffer_data(sleep_buffer->buffer[i], sleep_buffer->total_len/sleep_buffer->nr_buffers) == SYS_WAKEUP_OK) {
 			cpu_wakeup_by = WAKEUP_BY_DMIC;
@@ -387,4 +404,12 @@ int set_dma_channel(int channel)
 	_dma_channel = channel;
 	dma_set_channel(channel);
 	return 0;
+}
+int voice_wakeup_enable(int enable)
+{
+	voice_wakeup_enabled = enable;
+}
+int is_voice_wakeup_enabled(void)
+{
+	return voice_wakeup_enabled;
 }

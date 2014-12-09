@@ -4,7 +4,7 @@ SRCFILES=wakeup.c
 all: clean wakeup
 
 wakeup: $(SRCFILES)
-	mipsel-linux-android-gcc -o $@ $(SRCFILES)
+	mips-linux-gnu-gcc -o $@ $(SRCFILES) --static
 
 clean:
 	rm -rf wakeup

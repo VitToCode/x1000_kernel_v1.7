@@ -407,6 +407,7 @@ static noinline void cpu_sleep(void)
 
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP
+	REG32(SLEEP_TCSM_RESUME_DATA + 28) = wakeup_module_is_wakeup_enabled();
 	wakeup_module_cache_prefetch();
 #endif
 	if(0) {
@@ -560,9 +561,12 @@ static noinline void cpu_resume(void)
 	write_c0_status(REG32(SLEEP_TCSM_RESUME_DATA + 20));  // restore cp0 statue
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP
-	temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
-	func = (int (*)(int))temp;
-	val = func(1);
+	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
+		/* wakeup module is enabled */
+		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
+		func = (int (*)(int))temp;
+		val = func(1);
+	}
 	//serial_put_hex(val);
 #endif
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 8);
@@ -678,12 +682,67 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 	}
 }
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+static void cpm_config_for_dmic(void)
+{
+	unsigned int  opcr_tmp;
+	unsigned int gate,spcr0;
+
+	opcr_tmp = read_save_reg_add(CPM_IOBASE + CPM_OPCR);
+	opcr_tmp &= ~((1 << 7) | (1 << 6) | (1 << 4));
+	opcr_tmp |= (0xff << 8) | (1<<30) | (1 << 2) |  (1 << 23);
+	cpm_outl(opcr_tmp,CPM_OPCR);
+	printk("#####opcr  2222:%08x\n", *(volatile unsigned int *)0xb0000024);
+	/*
+	 * set sram pdma_ds & open nfi
+	 */
+	spcr0 = read_save_reg_add(CPM_IOBASE + CPM_SPCR0);
+	spcr0 |= (1 << 31);
+	spcr0 &= ~((1 << 27) | (1 << 2) | (1 << 15) | (1 << 31));
+	cpm_outl(spcr0,CPM_SPCR0);
+
+	/*
+	 * set clk gate nfi nemc enable pdma
+	 */
+	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
+	//	gate &= ~(3  | (1 << 21));
+	gate &= ~(1 << 21);
+	cpm_outl(gate,CPM_CLKGR);
+
+}
+#endif
+static void cpm_config_for_normal(void)
+{
+	unsigned int opcr_tmp;
+	unsigned int gate, spcr0;
+	/* set Oscillator Stabilize Time bit8*/
+	/* disable externel clock Oscillator in sleep mode bit4*/
+	/* select 32K crystal as RTC clock in sleep mode bit2*/
+	opcr_tmp = read_save_reg_add(CPM_IOBASE + CPM_OPCR);
+	opcr_tmp &= ~((1 << 7) | (1 << 6) | (1 << 4));
+	opcr_tmp |= (0xff << 8) | (1<<30) | (1 << 2) | (1 << 27) | (1 << 23);
+	cpm_outl(opcr_tmp,CPM_OPCR);
+	/*
+	 *                                                                         * set sram pdma_ds & open nfi
+	 *                                                                          */
+	spcr0 = read_save_reg_add(CPM_IOBASE + CPM_SPCR0);
+	spcr0 |= (1 << 31);
+	spcr0 &= ~((1 << 27) | (1 << 2) | (1 << 15) | (1 << 31));
+	cpm_outl(spcr0,CPM_SPCR0);
+
+	/*
+	 *                                                                         * set clk gate nfi nemc enable pdma
+	 *                                                                          */
+	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
+	gate &= ~(3  | (1 << 21));
+	cpm_outl(gate,CPM_CLKGR);
+
+
+}
 static int m200_pm_enter(suspend_state_t state)
 {
 
 	unsigned int  lcr_tmp;
-	unsigned int  opcr_tmp;
-	unsigned int gate,spcr0;
 	unsigned int core_ctrl;
 	unsigned int i;
 	unsigned int scpu_start_addr;
@@ -715,27 +774,16 @@ static int m200_pm_enter(suspend_state_t state)
 	/* disable externel clock Oscillator in sleep mode bit4*/
 	/* select 32K crystal as RTC clock in sleep mode bit2*/
 	printk("#####opcr:%08x\n", *(volatile unsigned int *)0xb0000024);
-	opcr_tmp = read_save_reg_add(CPM_IOBASE + CPM_OPCR);
-	opcr_tmp &= ~((1 << 7) | (1 << 6) | (1 << 4));
-	opcr_tmp |= (0xff << 8) | (1<<30) | (1 << 2) |  (1 << 23);
-	cpm_outl(opcr_tmp,CPM_OPCR);
-	printk("#####opcr  2222:%08x\n", *(volatile unsigned int *)0xb0000024);
-	/*
-	 * set sram pdma_ds & open nfi
-	 */
-	spcr0 = read_save_reg_add(CPM_IOBASE + CPM_SPCR0);
-	spcr0 |= (1 << 31);
-	spcr0 &= ~((1 << 27) | (1 << 2) | (1 << 15) | (1 << 31));
-	cpm_outl(spcr0,CPM_SPCR0);
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	if(wakeup_module_is_wakeup_enabled()) {
+		cpm_config_for_dmic();
+	} else {
+		cpm_config_for_normal();
+	}
+#else
 
-	/*
-	 * set clk gate nfi nemc enable pdma
-	 */
-	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
-	//	gate &= ~(3  | (1 << 21));
-	gate &= ~(1 << 21);
-	cpm_outl(gate,CPM_CLKGR);
-
+	cpm_config_for_normal();
+#endif
 	core_ctrl = get_smp_ctrl();
 	set_smp_ctrl(core_ctrl & ~(3 << 8));
 	scpu_start_addr = get_smp_reim();
