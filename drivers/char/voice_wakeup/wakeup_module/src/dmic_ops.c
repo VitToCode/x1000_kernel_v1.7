@@ -94,6 +94,8 @@ void dmic_clk_config(void)
 
 	/*3.extern clk sleep mode enable*/
 	REG32(CPM_IOBASE + CPM_OPCR) |= 1 << 4;
+	/*4. l2 cache power on */
+	REG32(CPM_IOBASE + CPM_OPCR) &= ~(1 << 27);
 
 	dump_cpm_reg();
 }
