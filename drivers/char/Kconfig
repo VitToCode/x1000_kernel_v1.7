@@ -19,6 +19,12 @@ config JZ_DMIC_WAKEUP
 	help
 		Say Y here if you want to use voice wakeup function. The Voice Wakeup
 		Driver support voice wakeup. when in doubt , Say N here.
+config TEST_SECOND_REFRESH
+	bool "Ingenic Test second refresh for watch(test driver.)"
+	default n
+	help
+		This is a test driver for second refresh, this will remap tlb when system sleep.
+		do not choose this unless you know what you are doing.
 
 config JZ_VP
 	bool "Virtual Privilege device driver"

@@ -51,9 +51,15 @@
 #ifdef CONFIG_JZ_DMIC_WAKEUP
 #include <linux/voice_wakeup_module.h>
 #endif
+
+#ifdef CONFIG_TEST_SECOND_REFRESH
+#include <linux/second_refresh.h>
+#endif
+
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
 extern unsigned int get_pmu_slp_gpio_info(void);
+
 
 #define get_cp0_ebase()	__read_32bit_c0_register($15, 1)
 
@@ -89,6 +95,8 @@ static inline void serial_put_hex(unsigned int x) {
 		TCSM_PCHAR(d);
 	}
 }
+
+static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsigned int size);
 /* #define DDR_MEM_TEST */
 #ifdef DDR_MEM_TEST
 #define MEM_TEST_SIZE   0x100000
@@ -275,6 +283,69 @@ static int __attribute__((aligned(256))) test_l2cache_handle(int val)
 	return val;
 }
 
+#ifdef CONFIG_TEST_SECOND_REFRESH
+
+#define SECOND_REFRESH_MAP_ADDR_TO			(0x20000000)
+#define SECOND_REFRESH_MAP_ADDR_FR_0		(0x2f900000)	/* 249MByte: */
+#define SECOND_REFRESH_MAP_ADDR_FR_1		(0x2fa00000)	/* 249MByte: */
+#define MAP_PAGE_MASK						(0x001fe000)  /*1MBytes*/
+
+static inline void _setup_tlb(void)
+{
+
+	unsigned int pagemask = MAP_PAGE_MASK;    /* 1MB */
+	/*                              cached  D:allow-W   V:valid    G */
+	unsigned int entrylo0 = (SECOND_REFRESH_MAP_ADDR_FR_0 >> 6) | ((6 << 3) + (1 << 2) + (1 << 1) + 1); /*Data Entry*/
+	unsigned int entrylo1 = (SECOND_REFRESH_MAP_ADDR_FR_1 >> 6) | ((6 << 3) + (1 << 2) + (1 << 1) + 1);
+	unsigned int entryhi =  SECOND_REFRESH_MAP_ADDR_TO; /* Tag Entry */
+	volatile int i;
+	volatile unsigned int temp;
+
+	temp = __read_32bit_c0_register($12, 0);
+	temp &= ~(1<<2);
+	__write_32bit_c0_register($12, 0, temp);
+
+	write_c0_pagemask(pagemask);
+	write_c0_wired(0);
+
+	/* 6M Byte*/
+	for(i = 0; i < 6; i++)
+	{
+		asm (
+				"mtc0 %0, $0\n\t"    /* write Index */
+
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"mtc0 %1, $5\n\t"    /* write PageMask */
+				"mtc0 %2, $10\n\t"    /* write EntryHi */
+				"mtc0 %3, $2\n\t"    /* write EntryLo0 */
+				"mtc0 %4, $3\n\t"    /* write EntryLo1 */
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"ssnop\n\t"
+				"tlbwi    \n\t"        /* TLB indexed write */
+				: : "Jr" (i), "r" (pagemask), "r" (entryhi),
+				"r" (entrylo0), "r" (entrylo1)
+			);
+
+		entryhi +=  0x00200000;    /* 1MB */
+		entrylo0 += (0x00100000 >> 6);
+		entrylo1 += (0x00100000 >> 6);
+	}
+}
+#endif
+
 static noinline void cpu_sleep(void)
 {
 	register unsigned int val;
@@ -314,9 +385,27 @@ static noinline void cpu_sleep(void)
 	REG32(SLEEP_TCSM_RESUME_DATA + 20) = read_c0_status();
 	REG32(SLEEP_TCSM_RESUME_DATA + 24) = REG32(0xb0000000);
 
+#ifdef CONFIG_TEST_SECOND_REFRESH
+	printk("test _tlb ...3 \n");
+	_setup_tlb();
+
+	second_refresh_open(1);
+
 	blast_dcache32();
 	blast_icache32();
 	blast_scache32();
+
+	second_refresh_cache_prefetch();
+#else
+
+	blast_dcache32();
+	blast_icache32();
+	blast_scache32();
+
+#endif
+
+
+
 #ifdef CONFIG_JZ_DMIC_WAKEUP
 	wakeup_module_cache_prefetch();
 #endif
@@ -379,7 +468,15 @@ static inline void powerdown_wait(void)
 {
 	unsigned int opcr;
 	unsigned int cpu_no;
+	unsigned int lcr;
 	__asm__ volatile("ssnop");
+
+	lcr = REG32(0xb0000000 + CPM_LCR);
+	lcr &= ~3;
+	lcr |= 1;
+	REG32(0xb0000000 + CPM_LCR) = lcr;
+
+
 	cpu_no = get_cp0_ebase() & 1;
 	opcr = REG32(0xb0000000 + CPM_OPCR);
 	opcr &= ~(3<<25);
@@ -447,6 +544,10 @@ static noinline void cpu_resume(void)
 	int (*volatile func)(int);
 	int temp;
 #endif
+#ifdef CONFIG_TEST_SECOND_REFRESH
+	int (*volatile s_func)(int);
+	int s_temp;
+#endif
 	TCSM_PCHAR('O');
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
@@ -459,9 +560,10 @@ static noinline void cpu_resume(void)
 	write_c0_status(REG32(SLEEP_TCSM_RESUME_DATA + 20));  // restore cp0 statue
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP
-	temp = *(unsigned int *)0x8ff00004;
+	temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
 	func = (int (*)(int))temp;
 	val = func(1);
+	//serial_put_hex(val);
 #endif
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 8);
 	if(val != -1)
@@ -529,8 +631,26 @@ static noinline void cpu_resume(void)
 #ifdef DDR_MEM_TEST
 	check_ddr_data();
 #endif
+
+#ifdef CONFIG_TEST_SECOND_REFRESH
+	TCSM_PCHAR('s');
+	TCSM_PCHAR('e');
+	TCSM_PCHAR('c');
+	TCSM_PCHAR('o');
+	TCSM_PCHAR('n');
+	TCSM_PCHAR('d');
+	_setup_tlb();
+	TCSM_PCHAR('D');
+	s_temp = *(unsigned int *)(SECOND_REFRESH_MAP_ADDR_TO + 4);
+	serial_put_hex(s_temp);
+	s_func = (int(*)(int)) s_temp;
+	s_func(1);
+
+	powerdown_wait();
+#endif
 	write_c0_ecc(0x0);
 	__jz_cache_init();
+
 	TCSM_PCHAR('r');
 	__asm__ volatile(".set mips32\n\t"
 			 "jr %0\n\t"
@@ -557,6 +677,7 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 		tcsm_addr[i] = instr;
 	}
 }
+
 static int m200_pm_enter(suspend_state_t state)
 {
 
@@ -611,7 +732,7 @@ static int m200_pm_enter(suspend_state_t state)
 	 * set clk gate nfi nemc enable pdma
 	 */
 	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
-//	gate &= ~(3  | (1 << 21));
+	//	gate &= ~(3  | (1 << 21));
 	gate &= ~(1 << 21);
 	cpm_outl(gate,CPM_CLKGR);
 
