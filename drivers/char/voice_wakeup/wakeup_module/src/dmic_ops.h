@@ -2,12 +2,11 @@
 #define __DMIC_OPS_H_
 
 enum dmic_status {
-	WAITING_TRIGGER,
+	WAITING_TRIGGER = 1,
 	WAITING_DATA,
 };
 
 extern int dmic_current_state;
-extern int thr_need_reconfig;
 extern unsigned int cur_thr_value;
 extern unsigned int wakeup_failed_times;
 

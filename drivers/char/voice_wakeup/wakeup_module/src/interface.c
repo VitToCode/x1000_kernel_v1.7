@@ -41,6 +41,22 @@ struct sleep_buffer *g_sleep_buffer;
 static int voice_wakeup_enabled = 0;
 static int dmic_record_enabled = 0;
 
+
+
+void dump_voice_wakeup(void)
+{
+	printk("###########dump voice wakeup status#######\n");
+	printk("cpu_wakeup_by:			%d\n", cpu_wakeup_by);
+	printk("open_cnt:				%d\n", open_cnt);
+	printk("voice_wakeup_enabled:	%d\n", voice_wakeup_enabled);
+	printk("dmic_record_enabled:	%d\n", dmic_record_enabled);
+
+	printk("wakeup_failed_times:	%d\n", wakeup_failed_times);
+	printk("dmic_current_state:	%d\n", dmic_current_state);
+
+	printk("###########dump voice wakeup status#######\n");
+
+}
 int open(int mode)
 {
 	switch (mode) {
@@ -49,7 +65,7 @@ int open(int mode)
 		case DEEP_SLEEP:
 			printk("deep sleep open\n");
 			if(!voice_wakeup_enabled) {
-				return;
+				return 0;
 			}
 			rtc_init();
 			dmic_init_mode(DEEP_SLEEP);
@@ -61,6 +77,9 @@ int open(int mode)
 			REG32(0xB000100C) = 1<<0; /*dmic int en*/
 			REG32(0xB000100C) = 1<<26; /*tcu1 int en*/
 			REG32(0xB000102C) = 1<<0; /*rtc int en*/
+#ifdef CONFIG_SLEEP_DEBUG
+			dump_voice_wakeup();
+#endif
 			break;
 		case NORMAL_RECORD:
 			dmic_init_mode(NORMAL_RECORD);
@@ -112,8 +131,8 @@ static inline void powerdown_wait(void)
 	opcr |= 1 << 30;
 	REG32(CPM_IOBASE + CPM_OPCR) = opcr;
 	temp = REG32(CPM_IOBASE + CPM_OPCR);
-	serial_put_hex(REG32(CPM_IOBASE + CPM_OPCR));
 	__asm__ volatile(".set mips32\n\t"
+			"nop\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			"wait\n\t"
@@ -145,6 +164,7 @@ static inline void sleep_wait(void)
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
 			"nop\n\t"
+			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
@@ -159,19 +179,22 @@ static inline void idle_wait(void)
 {
 	unsigned int opcr;
 	unsigned int lcr;
+	unsigned int temp;
 	/* cpu enter idle */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
 	lcr &= ~3;
 	REG32(CPM_IOBASE + CPM_LCR) = lcr;
+	temp = REG32(CPM_IOBASE + CPM_LCR);
 
-	TCSM_PCHAR('I');
 	__asm__ volatile(".set mips32\n\t"
+			"nop\n\t"
+			"nop\n\t"
+			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			".set mips32\n\t");
-	TCSM_PCHAR('i');
 }
 #endif
 
@@ -197,7 +220,6 @@ int handler(int par)
 
 		int0 = REG32(0xb0001010);
 		int1 = REG32(0xb0001030);
-
 		if((REG32(0xb0001010) & INTC0_MASK) || (REG32(0xb0001030) & INTC1_MASK)) {
 			serial_put_hex(REG32(0xb0001010));
 			serial_put_hex(REG32(0xb0001030));
@@ -208,9 +230,11 @@ int handler(int par)
 
 		/* RTC interrupt pending */
 		if(REG32(0xb0001030) & (1<<0)) {
+#ifdef CONFIG_SLEEP_DEBUG
 			TCSM_PCHAR('R');
 			TCSM_PCHAR('T');
 			TCSM_PCHAR('C');
+#endif
 			ret = rtc_int_handler();
 			if(ret == SYS_TIMER) {
 				serial_put_hex(REG32(0xb0001010));
@@ -257,6 +281,7 @@ int handler(int par)
 	}
 
 	if(ret == SYS_WAKEUP_OK) {
+		flush_dcache_all();
 		rtc_exit();
 #ifdef CONFIG_CPU_IDLE_SLEEP
 		tcu_timer_release(tcu_channel);
@@ -275,6 +300,7 @@ int close(int mode)
 			REG32(0xB0001028) |= 1<< 0;
 			dmic_disable_tri();
 			wakeup_close();
+			dump_voice_wakeup();
 		}
 		return 0;
 	} else if(mode == NORMAL_RECORD) {

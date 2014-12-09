@@ -78,6 +78,7 @@ typedef unsigned int	u32;
 
 
 #define CONFIG_CPU_IDLE_SLEEP
+#define CONFIG_SLEEP_DEBUG
 
 
 

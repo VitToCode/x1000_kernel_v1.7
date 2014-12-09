@@ -270,7 +270,7 @@ static inline void set_gpio_func(int gpio, int type) {
 #define SLEEP_TCSM_RESUME_TEXT     (SLEEP_TCSM_BOOT_TEXT + SLEEP_TCSM_BOOT_LEN)
 #define SLEEP_TCSM_RESUME_DATA     (SLEEP_TCSM_RESUME_TEXT + SLEEP_TCSM_RESUME_LEN)
 
-#define CPU_RESMUE_SP				0xb3426000	/* BANK3~BANK2 */
+#define CPU_RESMUE_SP				0xb3425FFC	/* BANK3~BANK2 */
 
 static int __attribute__((aligned(256))) test_l2cache_handle(int val)
 {
@@ -450,6 +450,8 @@ LABLE1:
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
 
+	/* set pdma deep sleep */
+	REG32(0xb00000b8) |= (1<<31);
 	if(pmu_slp_gpio_info != -1) {
 		set_gpio_func(pmu_slp_gpio_info & 0xffff,
 				pmu_slp_gpio_info >> 16);
@@ -732,7 +734,6 @@ static int m200_pm_enter(suspend_state_t state)
 	 * set sram pdma_ds & open nfi
 	 */
 	spcr0 = read_save_reg_add(CPM_IOBASE + CPM_SPCR0);
-	spcr0 |= (1 << 31);
 	spcr0 &= ~((1 << 27) | (1 << 2) | (1 << 15) | (1 << 31));
 	cpm_outl(spcr0,CPM_SPCR0);
 
@@ -740,7 +741,7 @@ static int m200_pm_enter(suspend_state_t state)
 	 * set clk gate nfi nemc enable pdma
 	 */
 	gate = read_save_reg_add(CPM_IOBASE + CPM_CLKGR);
-	gate &= ~(3  | (1 << 21));
+	gate &= ~(1 << 21);
 	cpm_outl(gate,CPM_CLKGR);
 
 	core_ctrl = get_smp_ctrl();

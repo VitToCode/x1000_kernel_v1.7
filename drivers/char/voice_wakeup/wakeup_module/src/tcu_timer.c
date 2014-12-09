@@ -6,6 +6,11 @@
 
 static int tcu_channel = 2; /*default 2*/
 unsigned int clk_enabled;
+#ifdef CONFIG_SLEEP_DEBUG
+unsigned long time = 0;
+#endif
+
+#define TIME_1S		(1000)
 
 #define CLK_DIV         64
 #define CSRDIV(x)      ({int n = 0;int d = x; while(d){ d >>= 2;n++;};(n-1) << 3;})
@@ -79,6 +84,9 @@ void tcu_timer_del(void)
 {
 	tcu_writel(TCU_TMSR , (1 << tcu_channel));
 	stop_timer();
+#ifdef CONFIG_SLEEP_DEBUG
+	time = 0;
+#endif
 }
 
 
@@ -109,6 +117,13 @@ unsigned int tcu_timer_mod(unsigned long timer_cnt)
 
 	reset_timer(count);
 
+#ifdef CONFIG_SLEEP_DEBUG
+	if(time >= TIME_1S) {
+		time = 0;
+		TCSM_PCHAR('.');
+	}
+	time += TCU_TIMER_MS;
+#endif
 	return current_count;
 }
 
@@ -121,8 +136,9 @@ void tcu_timer_request(int tcu_chan)
 {
 	tcu_channel = tcu_chan;
 	REG32(CPM_IOBASE + CPM_CLKGR0) &= ~(1<<30);
+#ifdef CONFIG_SLEEP_DEBUG
 	tcu_dump_reg();
-
+#endif
 	tcu_save();
 	/* stop clear */
 	tcu_writel(TCU_TSCR,(1 << tcu_channel));
@@ -141,8 +157,9 @@ void tcu_timer_request(int tcu_chan)
 	 * TCOUNT:  1: 1.953125ms
 	 * */
 	tcu_writel(CH_TCSR(tcu_channel),CSRDIV(CLK_DIV) | CSR_RTC_EN);
-
+#ifdef CONFIG_SLEEP_DEBUG
 	tcu_dump_reg();
+#endif
 }
 
 /*
@@ -170,7 +187,7 @@ void tcu_timer_handler(void)
 	if(tcu_readl(TCU_TFR) & ctrlbit) {
 		/* CLEAR INT */
 		tcu_writel(TCU_TFCR,ctrlbit);
-		tcu_timer_mod(ms_to_count(30));
+		tcu_timer_mod(ms_to_count(TCU_TIMER_MS));
 	}
 }
 

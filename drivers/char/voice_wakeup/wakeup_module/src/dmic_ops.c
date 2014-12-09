@@ -12,7 +12,6 @@
 
 
 int dmic_current_state;
-int thr_need_reconfig;
 unsigned int cur_thr_value;
 unsigned int wakeup_failed_times;
 unsigned int dmic_recommend_thr;
@@ -82,8 +81,6 @@ void dmic_clk_config(void)
 
 	while(REG32(CPM_IOBASE + CPM_I2SCDR) &(1<<28));
 
-	printf("####### dmic clk config ok!!!\n");
-
 	REG32(CPM_IOBASE + CPM_I2SCDR) &= ~(1 << 27);
 
 	REG32(CPM_IOBASE + CPM_I2SCDR) &= ~(1 << 29); /*CE*/
@@ -96,8 +93,9 @@ void dmic_clk_config(void)
 	REG32(CPM_IOBASE + CPM_OPCR) |= 1 << 4;
 	/*4. l2 cache power on */
 	REG32(CPM_IOBASE + CPM_OPCR) &= ~(1 << 27);
-
+#ifdef CONFIG_SLEEP_DEBUG
 	dump_cpm_reg();
+#endif
 }
 void gpio_as_dmic(void)
 {
@@ -112,7 +110,9 @@ void gpio_as_dmic(void)
 	REG_GPIO_PXMASKC(5) |= 3 << 10;
 	REG_GPIO_PXPAT1C(5) |= 3 << 10;
 	REG_GPIO_PXPAT0S(5) |= 3 << 10;
+#ifdef CONFIG_SLEEP_DEBUG
 	dump_gpio();
+#endif
 }
 
 void dmic_init(void)
@@ -128,7 +128,6 @@ void dmic_init(void)
 int cpu_should_sleep(void)
 {
 	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
-	//return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) ? 1 : 0;
 }
 
 int dmic_init_mode(int mode)
@@ -141,7 +140,6 @@ int dmic_init_mode(int mode)
 		case DEEP_SLEEP:
 			dmic_current_state = WAITING_TRIGGER;
 			wakeup_failed_times = 0;
-			thr_need_reconfig = 0;
 			cur_thr_value = thr_table[0];
 			dmic_recommend_thr = 0;
 
@@ -152,7 +150,6 @@ int dmic_init_mode(int mode)
 			//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
 
 			REG_DMIC_FCR |= 1 << 31 | DMIC_FIFO_THR;
-			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x1f; /*mask all ints*/
 			REG_DMIC_GCR = 9;
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
@@ -163,8 +160,6 @@ int dmic_init_mode(int mode)
 
 			/* trigger mode config */
 			REG_DMIC_TRICR &= ~(0xf << 16); /* tri mode: larger than thr trigger.*/
-			//REG_DMIC_TRICR |= 2 << 16; /* > N times of thrl. */
-			//REG_DMIC_TRINMAX = 5;
 
 			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
 			REG_DMIC_ICR |= 0x1f; /*clear all ints*/
@@ -204,8 +199,9 @@ int dmic_init_mode(int mode)
 int dmic_enable(void)
 {
 	REG_DMIC_CR0 |= 1 << 0; /*ENABLE DMIC*/
-
+#ifdef CONFIG_SLEEP_DEBUG
 	dump_dmic_regs();
+#endif
 	return 0;
 }
 
@@ -289,7 +285,9 @@ int dmic_handler(int pre_ints)
 
 	if(dmic_current_state == WAITING_TRIGGER) {
 		if(is_int_rtc(pre_ints)) {
+#ifdef CONFIG_SLEEP_DEBUG
 			TCSM_PCHAR('F');
+#endif
 			REG_DMIC_ICR |= 0x1f;
 			REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 			return SYS_WAKEUP_FAILED;
@@ -298,7 +296,7 @@ int dmic_handler(int pre_ints)
 		dmic_current_state = WAITING_DATA;
 		/*change trigger value to 0, make dmic wakeup cpu all the time*/
 #ifdef CONFIG_CPU_IDLE_SLEEP
-		tcu_timer_mod(ms_to_count(30)); /* start a timer */
+		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
 #else
 		REG_DMIC_THRL = 0;
 #endif
@@ -330,6 +328,14 @@ int dmic_handler(int pre_ints)
 		 * */
 		dmic_current_state = WAITING_TRIGGER;
 		wakeup_failed_times++;
+#ifdef CONFIG_SLEEP_DEBUG
+		TCSM_PCHAR('F');
+		TCSM_PCHAR('A');
+		TCSM_PCHAR('I');
+		TCSM_PCHAR('L');
+		TCSM_PCHAR('E');
+		TCSM_PCHAR('D');
+#endif
 		reconfig_thr_value();
 #ifdef CONFIG_CPU_IDLE_SLEEP
 		/* del a timer, when dmic trigger. it will re start a timer */
