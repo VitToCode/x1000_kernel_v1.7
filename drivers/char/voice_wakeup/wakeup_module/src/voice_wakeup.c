@@ -160,9 +160,9 @@ int wakeup_open(void)
 	/* code that need rewrite */
 	struct circ_buf *xfer = &rx_fifo->xfer;
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
-	xfer->buf = (char *)TCSM_BANK_5;
+	xfer->buf = (char *)TCSM_DATA_BUFFER_ADDR;
 	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
-	if((dma_addr >= (TCSM_BANK_5 & 0x1fffffff)) && (dma_addr <= ((TCSM_BANK_5 + BUF_SIZE)& 0x1fffffff))) {
+	if((dma_addr >= (TCSM_DATA_BUFFER_ADDR & 0x1fffffff)) && (dma_addr <= ((TCSM_DATA_BUFFER_ADDR + BUF_SIZE)& 0x1fffffff))) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
 		xfer->head = 0;
@@ -217,6 +217,8 @@ int process_dma_data_2(void)
 
 	total_process_len += nbytes;
 	if(total_process_len >= MAX_PROCESS_LEN) {
+		TCSM_PCHAR('F');
+		serial_put_hex(total_process_len);
 		total_process_len = 0;
 		return SYS_WAKEUP_FAILED;
 	} else {

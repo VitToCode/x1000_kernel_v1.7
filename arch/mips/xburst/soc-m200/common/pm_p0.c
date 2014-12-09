@@ -260,7 +260,7 @@ static inline void set_gpio_func(int gpio, int type) {
  */
 
 #define SLEEP_TCSM_SPACE           0xb3423000
-#define SLEEP_TCSM_LEN             8192
+#define SLEEP_TCSM_LEN             4096
 
 #define SLEEP_TCSM_BOOT_LEN        256
 #define SLEEP_TCSM_DATA_LEN        32
@@ -270,6 +270,7 @@ static inline void set_gpio_func(int gpio, int type) {
 #define SLEEP_TCSM_RESUME_TEXT     (SLEEP_TCSM_BOOT_TEXT + SLEEP_TCSM_BOOT_LEN)
 #define SLEEP_TCSM_RESUME_DATA     (SLEEP_TCSM_RESUME_TEXT + SLEEP_TCSM_RESUME_LEN)
 
+#define CPU_RESMUE_SP				0xb3426000	/* BANK3~BANK2 */
 
 static int __attribute__((aligned(256))) test_l2cache_handle(int val)
 {
@@ -528,7 +529,7 @@ static noinline void cpu_resume_boot(void)
 		"move $29, %0\n\t"
 		".set mips32\n\t"
 		:
-		:"r" (0xb342a000)
+		:"r" (CPU_RESMUE_SP)
 		:
 		);
 	__asm__ volatile(".set mips32\n\t"

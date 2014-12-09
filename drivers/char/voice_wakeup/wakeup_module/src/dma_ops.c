@@ -63,7 +63,7 @@ void dump_descs(struct dma_desc *desc)
 void dump_tcsm()
 {
 	int i;
-	unsigned int *t = (unsigned int *)TCSM_BANK_5;
+	unsigned int *t = (unsigned int *)TCSM_DATA_BUFFER_ADDR;
 	for(i = 0; i< 256; i++) {
 		printf("t[%d]:%x\n", i, *(t+i));
 	}
@@ -149,7 +149,7 @@ void dma_config_normal(void)
 
 	desc = (struct dma_desc *)(DMA_DESC_ADDR);
 	src_buf = (int *)DMIC_RX_FIFO;
-	dst_buf = (int *)TCSM_BANK_5;
+	dst_buf = (int *)TCSM_DATA_BUFFER_ADDR;
 
 	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
 	config.channel = dma_channel;

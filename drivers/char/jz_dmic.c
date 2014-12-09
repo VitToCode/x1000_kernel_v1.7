@@ -77,8 +77,6 @@ enum snd_device_t {
  * global define, don't change.
  * */
 
-#define TCSM_BANK5_V		(0xb3427000)
-#define TCSM_BUFFER_SIZE	(4096)
 
 struct dma_fifo {
 	struct circ_buf xfer;
@@ -122,8 +120,8 @@ static int jzdmic_open(struct inode *inode, struct file *filp)
 
 	wakeup_module_open(NORMAL_RECORD);
 	filp->private_data = jzdmic;
-	record_fifo->n_size	= TCSM_BUFFER_SIZE; /* dead size, don't change */
-	xfer->buf = (char *)TCSM_BANK5_V;
+	record_fifo->n_size	= TCSM_DATA_BUFFER_SIZE; /* dead size, don't change */
+	xfer->buf = (char *)TCSM_DATA_BUFFER_ADDR;
 	xfer->head = (char *)KSEG1ADDR(wakeup_module_get_dma_address()) - xfer->buf;;
 	xfer->tail = xfer->head;
 
