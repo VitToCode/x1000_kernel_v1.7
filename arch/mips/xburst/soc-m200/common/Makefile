@@ -8,6 +8,7 @@ obj-y += serial.o
 obj-y += tcu.o
 
 obj-y += gpio.o
+obj-y += ddr.o
 # only for debug
 #obj-y += pmmon.o
 obj-y += irq.o
