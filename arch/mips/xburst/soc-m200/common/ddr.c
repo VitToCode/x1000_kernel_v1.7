@@ -28,6 +28,11 @@
 /*
  *  unit: kHz
  */
+static struct timer_list timer;
+static void timercount1(unsigned long data);
+static void timercount2(unsigned long data);
+static void timercount3(unsigned long data);
+static int  timer_flag = 0;
 
 typedef int (*DUMP_CALLBACK)(char *, const char *, ...);
 
@@ -89,6 +94,182 @@ static int ddr_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
+static int ddr_mon1_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	printk("\nSimple MODE to collect DDR rate \n\n");
+	printk("Usage: For Example\n");
+	printk("********************************************\n");
+	printk("Start: echo 1 > /proc/jz/ddr/ddr_monitor1\n");
+	printk("Stop : echo 0 > /proc/jz/ddr/ddr_monitor1\n");
+	printk("********************************************\n");
+	return 0;
+}
+
+static int ddr_mon1_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	int i;
+	i = simple_strtoul(buffer,NULL,0);
+
+	if(i == 0){
+		printk("***********DDR Monitor1 CLOSED *************\n");
+		del_timer_sync(&timer);
+	}
+	if(i == 1){
+		printk("***********DDR Monitor1 START **************\n");
+		*((volatile unsigned int *)0xb34f030c) = (0x10000000 | 0x3ff);
+		msleep(1000);
+
+		setup_timer(&timer, timercount1, (unsigned long)NULL);
+		mod_timer(&timer, jiffies+10);
+	}
+	return count;
+}
+
+static void timercount1(unsigned long data)
+{
+	unsigned int i = 0;
+
+	i = *((volatile unsigned int *)0xb34f0310);
+	printk(KERN_DEBUG "total_cycles = %d,valid_cycles = %d\n", 1023, i);
+	printk(KERN_DEBUG "rate = %%%d\n",i * 100 / 1023);
+	mod_timer(&timer,jiffies + msecs_to_jiffies(1000));
+}
+
+static int ddr_mon2_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	printk("\n\nMODE2 to collect DDR's  [ Using && IDLE ] rate \n\n");
+	printk("Usage: For Example\n");
+	printk("********************************************\n");
+	printk("Start: echo 1 > /proc/jz/ddr/ddr_monitor2\n");
+	printk("Stop : echo 0 > /proc/jz/ddr/ddr_monitor2\n");
+	printk("********************************************\n");
+
+	return 0;
+}
+
+static int ddr_mon2_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	int i;
+
+	i = *((volatile unsigned int *)0xb00000d0);
+	i |= (1<<6);
+	*((volatile unsigned int *)0xb00000d0) = i;
+	printk("ddr_drcg = 0x%x\n",*((volatile unsigned int *)0xb00000d0));
+
+	i = simple_strtoul(buffer,NULL,0);
+
+	if(i == 0){
+		printk("***********DDR Monitor2 CLOSED *************\n");
+		del_timer_sync(&timer);
+	}
+	if(i == 1){
+		printk("***********DDR Monitor2 START **************\n");
+		setup_timer(&timer, timercount2, (unsigned long)NULL);
+		mod_timer(&timer, jiffies+10);
+	}
+
+	return count;
+}
+
+static void timercount2(unsigned long data)
+{
+	unsigned int i,j,k;
+	i = 0;
+	j = 0;
+	k = 0;
+	if(!timer_flag) {
+		*((volatile unsigned int *)0xb34f00d4) = 0;
+		*((volatile unsigned int *)0xb34f00d8) = 0;
+		*((volatile unsigned int *)0xb34f00dc) = 0;
+		*((volatile unsigned int *)0xb34f00e4) = 3;
+		mod_timer(&timer,jiffies + msecs_to_jiffies(1));
+		timer_flag = 1;
+	} else {
+		*((volatile unsigned int *)0xb34f00e4) = 2;
+		i = *((volatile unsigned int *)0xb34f00d4);
+		j = *((volatile unsigned int *)0xb34f00d8);
+		k = *((volatile unsigned int *)0xb34f00dc);
+
+		printk(KERN_DEBUG "total_cycle = %d,valid_cycle = %d\n",i,j);
+		printk(KERN_DEBUG "rate      = %%%d\n",j * 100 / i);
+		printk(KERN_DEBUG "idle_rate = %%%d\n\n",k * 100 / i);
+		mod_timer(&timer,jiffies + msecs_to_jiffies(999));
+		timer_flag = 0;
+	}
+}
+
+static int ddr_mon3_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	printk("\n\nMODE3 to collect DDR's [ Change_bank && Change_rw && Miss_page ] rate \n\n");
+	printk("Usage: For Example\n");
+	printk("********************************************\n");
+	printk("Start: echo 1 > /proc/jz/ddr/ddr_monitor3\n");
+	printk("Stop : echo 0 > /proc/jz/ddr/ddr_monitor3\n");
+	printk("********************************************\n");
+
+	return 0;
+}
+
+static int ddr_mon3_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	int i;
+
+	i = *((volatile unsigned int *)0xb00000d0);
+	i |= (1<<6);
+	*((volatile unsigned int *)0xb00000d0) = i;
+	printk("ddr_drcg = 0x%x\n",*((volatile unsigned int *)0xb00000d0));
+
+	i = simple_strtoul(buffer,NULL,0);
+
+	if(i == 0){
+		printk("***********DDR Monitor3 CLOSED *************\n");
+		del_timer_sync(&timer);
+	}
+	if(i == 1){
+		printk("***********DDR Monitor3 START **************\n");
+		setup_timer(&timer, timercount3, (unsigned long)NULL);
+		mod_timer(&timer, jiffies+10);
+	}
+
+	return count;
+}
+
+static void timercount3(unsigned long data)
+{
+	unsigned int i,j,k,l;
+	i = 0;
+	j = 0;
+	k = 0;
+	l = 0;
+	if(!timer_flag) {
+		*((volatile unsigned int *)0xb34f00d4) = 0;
+		*((volatile unsigned int *)0xb34f00d8) = 0;
+		*((volatile unsigned int *)0xb34f00dc) = 0;
+		*((volatile unsigned int *)0xb34f00e0) = 0;
+		*((volatile unsigned int *)0xb34f00e4) = 1;
+		mod_timer(&timer,jiffies + msecs_to_jiffies(1));
+		timer_flag = 1;
+	} else {
+		*((volatile unsigned int *)0xb34f00e4) = 0;
+		i = *((volatile unsigned int *)0xb34f00d4);
+		j = *((volatile unsigned int *)0xb34f00d8);
+		k = *((volatile unsigned int *)0xb34f00dc);
+		l = *((volatile unsigned int *)0xb34f00e0);
+		printk(KERN_DEBUG "change_bank = %%%d\n",j * 100 / i);
+		printk(KERN_DEBUG "change_rw   = %%%d\n",k * 100 / i);
+		printk(KERN_DEBUG "miss page   = %%%d\n\n",l * 100 / i);
+
+		mod_timer(&timer,jiffies + msecs_to_jiffies(999));
+		timer_flag = 0;
+	}
+}
+
 static int __init init_ddr_proc(void)
 {
 	struct proc_dir_entry *res,*p;
@@ -130,6 +311,26 @@ static int __init init_ddr_proc(void)
 		res->data = NULL;
 	}
 
+	res = create_proc_entry("ddr_monitor1", 0444, p);
+	if (res) {
+		res->read_proc = ddr_mon1_read;
+		res->write_proc = ddr_mon1_write;
+		res->data = (void *) p;
+	}
+
+	res = create_proc_entry("ddr_monitor2", 0444, p);
+	if (res) {
+		res->read_proc = ddr_mon2_read;
+		res->write_proc = ddr_mon2_write;
+		res->data = (void *) p;
+	}
+
+	res = create_proc_entry("ddr_monitor3", 0444, p);
+	if (res) {
+		res->read_proc = ddr_mon3_read;
+		res->write_proc = ddr_mon3_write;
+		res->data = (void *) p;
+	}
 	return 0;
 }
 
