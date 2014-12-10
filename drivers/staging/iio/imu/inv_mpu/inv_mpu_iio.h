@@ -299,7 +299,7 @@ struct inv_mpu_slave;
  *  @last_isr_time:     last isr time.
  *  @mpu6500_last_motion_time: MPU6500 last real motion interrupt time.
  *  @name: name for distiguish MPU6050 and MPU6500 in MPU6XXX.
- *  @dmp_enabled: set when DMP is turned on 
+ *  @dmp_enabled: set when DMP is turned on
  */
 struct inv_mpu_iio_s {
 #define TIMESTAMP_FIFO_SIZE 16
@@ -310,6 +310,9 @@ struct inv_mpu_iio_s {
 	struct inv_tap_s   tap;
 	struct inv_reg_map_s reg;
 	struct self_test_setting self_test;
+#ifdef CONFIG_PM
+	struct work_struct resume_work;
+#endif
 	const struct inv_hw_s *hw;
 	enum   inv_devices chip_type;
 	spinlock_t time_stamp_lock;
@@ -620,7 +623,7 @@ struct inv_mpu_slave {
 #define INIT_TAP_TIME            100
 #define INIT_TAP_MIN_COUNT       2
 #define INIT_TAP_AXIS					INV_TAP_ALL_DIRECTIONS
-#define INIT_TAP_MULTI_TAP_TIME			500	
+#define INIT_TAP_MULTI_TAP_TIME			500
 #define INIT_TAP_SHAKE_REJECT_THRESH	100
 #define INIT_TAP_SHAKE_REJECT_TIME		10
 #define INIT_TAP_SHAKE_REJECT_TIMEOUT	10
@@ -894,4 +897,3 @@ char *wr_pr_debug_end(char *string);
 		reg, data)
 
 #endif  /* #ifndef _INV_MPU_IIO_H_ */
-

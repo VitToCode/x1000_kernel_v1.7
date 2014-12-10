@@ -87,6 +87,7 @@ struct ft5336_ts_data {
 	struct regulator *power;
 	struct early_suspend early_suspend;
 	struct work_struct  work;
+	struct work_struct  resume_work;
 	struct workqueue_struct *workqueue;
 };
 
@@ -113,9 +114,9 @@ int ft5336_i2c_Read(struct i2c_client *client, char *writebuf,
 		    int writelen, char *readbuf, int readlen)
 {
 	int ret;
-
 	struct ft5336_ts_data *ft5336_ts = i2c_get_clientdata(client);
 	int i = 0;
+
 	while(0){
 		struct i2c_msg msgs[] = {
 			{
@@ -188,7 +189,6 @@ int ft5336_i2c_Read(struct i2c_client *client, char *writebuf,
 int ft5336_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret;
-
 	struct ft5336_ts_data *ft5336_ts = i2c_get_clientdata(client);
 	struct i2c_msg msg[] = {
 		{
@@ -198,6 +198,7 @@ int ft5336_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 		 .buf = writebuf,
 		 },
 	};
+
 	ret = i2c_transfer(client->adapter, msg, 1);
 	if (ret < 0){
 		dev_err(&client->dev, "%s i2c write error.\n", __func__);
@@ -389,6 +390,22 @@ static int ft5336_report_value(struct ft5336_ts_data *data)
 	return 0;
 
 }
+
+static int ft5336_ts_enable(struct ft5336_ts_data *ts)
+{
+#ifndef DEBUG_LCD_VCC_ALWAYS_ON
+	int ret = 0;
+	ret = ft5336_ts_power_on(ts);
+	if (ret < 0) {
+		printk("^^^^^^^^^^TSC ENABLE ERROR!\n");
+		return ret;
+	}
+	mdelay(5);
+#endif
+
+	return 0;
+}
+
 static void ft5336_work_handler(struct work_struct *work)
 {
 	struct ft5336_ts_data *ft5336_ts = container_of(work, struct ft5336_ts_data,work);
@@ -398,6 +415,23 @@ static void ft5336_work_handler(struct work_struct *work)
 		ft5336_report_value(ft5336_ts);
 	enable_irq(ft5336_ts->client->irq);
 }
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void ft5336_resume_work_handler(struct work_struct *work)
+{
+	struct ft5336_ts_data *ts = container_of(work, struct ft5336_ts_data, resume_work);
+	int ret = 0;
+
+	mutex_lock(&ts->lock);
+	ft5336_ts_reset(ts);
+	ret = ft5336_ts_enable(ts);
+	if (ret < 0)
+		printk("-------tsc resume failed!------\n");
+	ts->is_suspend = 0;
+	mutex_unlock(&ts->lock);
+
+	enable_irq(ts->client->irq);
+}
+#endif
 /*The ft5336 device will signal the host about TRIGGER_FALLING.
 *Processed when the interrupt is asserted.
 */
@@ -470,7 +504,6 @@ static int ft5336_ts_power_off(struct ft5336_ts_data *ts)
 #endif
 static void ft5336_ts_reset(struct ft5336_ts_data *ts)
 {
-	printk("in ft5336_ts_reset func \n");
 	gpio_direction_output(ts->gpio.wake, 1);
 	msleep(5);
 	gpio_direction_output(ts->gpio.wake, 0);
@@ -507,22 +540,6 @@ static int ft5336_ts_disable(struct ft5336_ts_data *ts)
 #endif
 	return 0;
 }
-
-static int ft5336_ts_enable(struct ft5336_ts_data *ts)
-{
-#ifndef DEBUG_LCD_VCC_ALWAYS_ON
-	int ret = 0;
-	ret = ft5336_ts_power_on(ts);
-	if (ret < 0) {
-		printk("^^^^^^^^^^TSC ENABLE ERROR!\n");
-		return ret;
-	}
-	mdelay(5);
-#endif
-
-	return 0;
-}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5336_ts_resume(struct early_suspend *handler);
 static void ft5336_ts_suspend(struct early_suspend *handler);
@@ -639,6 +656,9 @@ static int ft5336_ts_probe(struct i2c_client *client,
 #endif
 
 	INIT_WORK(&ft5336_ts->work, ft5336_work_handler);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	INIT_WORK(&ft5336_ts->resume_work, ft5336_resume_work_handler);
+#endif
 	ft5336_ts->workqueue = create_singlethread_workqueue("ft5336_tsc");
 
 	ft5336_ts->irq = gpio_to_irq(pdata->irq);
@@ -796,6 +816,7 @@ static void ft5336_ts_suspend(struct early_suspend *handler)
 	struct ft5336_ts_data *ts;
 	ts = container_of(handler, struct ft5336_ts_data,
 						early_suspend);
+	flush_work_sync(&ts->resume_work);
 	mutex_lock(&ts->lock);
 	ts->is_suspend = 1;
 	disable_irq_nosync(ts->client->irq);
@@ -809,18 +830,9 @@ static void ft5336_ts_suspend(struct early_suspend *handler)
 
 static void ft5336_ts_resume(struct early_suspend *handler)
 {
-	int ret = 0;
 	struct ft5336_ts_data *ts = container_of(handler, struct ft5336_ts_data,
 						early_suspend);
-	mutex_lock(&ts->lock);
-	ft5336_ts_reset(ts);
-	ret = ft5336_ts_enable(ts);
-	if (ret < 0)
-		printk("-------tsc resume failed!------\n");
-	ts->is_suspend = 0;
-	mutex_unlock(&ts->lock);
-
-	enable_irq(ts->client->irq);
+	schedule_work(&ts->resume_work);
 }
 #endif
 

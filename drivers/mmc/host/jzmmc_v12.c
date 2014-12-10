@@ -1814,7 +1814,9 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
-
+	jzmmc_clk_autoctrl(host, 0);
+	return ret;
+#if 0
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 		ret = mmc_suspend_host(host->mmc);
 
@@ -1824,13 +1826,16 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 		/* } */
 	}
 	return ret;
+#endif
 }
 
 static int jzmmc_resume(struct platform_device *dev)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
-
+	jzmmc_clk_autoctrl(host, 1);
+	return ret;
+#if 0
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 
 		/* if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) { */
@@ -1841,6 +1846,7 @@ static int jzmmc_resume(struct platform_device *dev)
 		ret = mmc_resume_host(host->mmc);
 	}
 	return ret;
+#endif
 }
 #endif
 static void jzmmc_shutdown(struct platform_device *pdev)

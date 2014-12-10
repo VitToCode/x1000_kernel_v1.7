@@ -39,6 +39,7 @@
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 #include "inv_mpu_iio.h"
 #include "sysfs.h"
@@ -59,7 +60,9 @@ static const short AKM8972_ST_Upper[3] = {50, 50, -100};
 
 static const short AKM8963_ST_Lower[3] = {-200, -200, -3200};
 static const short AKM8963_ST_Upper[3] = {200, 200, -800};
-
+#ifdef CONFIG_PM
+static void resume_work(struct work_struct *work);
+#endif
 static const struct inv_hw_s hw_info[INV_NUM_PARTS] = {
 	{119, "ITG3500"},
 	{ 63, "MPU3050"},
@@ -2153,6 +2156,9 @@ static int inv_mpu_probe(struct i2c_client *client,
 
 	INIT_KFIFO(st->timestamps);
 	spin_lock_init(&st->time_stamp_lock);
+#ifdef CONFIG_PM
+	INIT_WORK(&st->resume_work, resume_work);
+#endif
 	dev_info(&client->adapter->dev, "%s is ready to go!\n",
 					indio_dev->name);
 
@@ -2219,14 +2225,23 @@ static int inv_mpu_remove(struct i2c_client *client)
 
 	return 0;
 }
-
 #ifdef CONFIG_PM
+static void resume_work(struct work_struct *work)
+{
+	struct inv_mpu_iio_s *st =
+		(struct inv_mpu_iio_s *)container_of(work,struct inv_mpu_iio_s, resume_work);
+	st->set_power_state(st, true);
+}
+
 static int inv_mpu_resume(struct device *dev)
 {
 	struct inv_mpu_iio_s *st =
-			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
-	pr_debug("%s inv_mpu_resume\n", st->hw->name);
-	return st->set_power_state(st, true);
+		iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
+
+	/* pr_debug("%s inv_mpu_resume\n", st->hw->name); */
+	/* return st->set_power_state(st, true); */
+	schedule_work(&st->resume_work);
+	return 0;
 }
 
 static int inv_mpu_suspend(struct device *dev)
@@ -2234,6 +2249,7 @@ static int inv_mpu_suspend(struct device *dev)
 	struct inv_mpu_iio_s *st =
 			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
 	pr_debug("%s inv_mpu_suspend\n", st->hw->name);
+	flush_work_sync(&st->resume_work);
 	return st->set_power_state(st, false);
 }
 static const struct dev_pm_ops inv_mpu_pmops = {
