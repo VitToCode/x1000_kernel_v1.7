@@ -112,6 +112,8 @@ unsigned int tcu_timer_mod(unsigned long timer_cnt)
 	count = timer_cnt;
 	current_count = tcu_readl(CH_TCNT(tcu_channel));
 
+	tcu_writel(CH_TCNT(tcu_channel), 0);
+
 	tcu_writel(TCU_TSCR , (1 << tcu_channel));
 	tcu_writel(TCU_TECR,(1 << tcu_channel));
 
