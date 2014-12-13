@@ -700,7 +700,7 @@ static void jzfb_disable(struct fb_info *info)
 {
 	uint32_t ctrl;
 	struct jzfb *jzfb = info->par;
-	int count = 10000;
+	int count = 20000;
 
 	mutex_lock(&jzfb->lock);
 	if (!jzfb->is_lcd_en) {
@@ -709,19 +709,21 @@ static void jzfb_disable(struct fb_info *info)
 	}
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_SLCD) {
-		ctrl = reg_read(jzfb, LCDC_CTRL);
-		ctrl |= LCDC_CTRL_DIS;
-		reg_write(jzfb, LCDC_CTRL, ctrl);
-		while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
-		       && count--) {
-			udelay(10);
-		}
-		if (count >= 0) {
-			ctrl = reg_read(jzfb, LCDC_STATE);
-			ctrl &= ~LCDC_STATE_LDD;
-			reg_write(jzfb, LCDC_STATE, ctrl);
-		} else {
-			dev_err(jzfb->dev, "LCDC normal disable state wrong");
+		if(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA) {
+			ctrl = reg_read(jzfb, LCDC_CTRL);
+			ctrl |= LCDC_CTRL_DIS;
+			reg_write(jzfb, LCDC_CTRL, ctrl);
+			while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
+					&& count--) {
+				udelay(5);
+			}
+			if (count >= 0) {
+				ctrl = reg_read(jzfb, LCDC_STATE);
+				ctrl &= ~LCDC_STATE_LDD;
+				reg_write(jzfb, LCDC_STATE, ctrl);
+			} else {
+				dev_err(jzfb->dev, "LCDC normal disable state wrong %d\n",__LINE__);
+			}
 		}
 	} else {
 		/* SLCD and TVE only support quick disable */
@@ -1029,10 +1031,11 @@ static int jzfb_set_par(struct fb_info *info)
 
 static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
-	int count = 10000;
+	int count = 50000;
 	unsigned long ctrl;
 	struct jzfb *jzfb = info->par;
 
+//	printk("entry function :%s\n", __func__);
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		reg_write(jzfb, LCDC_STATE, 0);
@@ -1056,16 +1059,17 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 			ctrl = reg_read(jzfb, LCDC_CTRL);
 			ctrl |= LCDC_CTRL_DIS;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
+			udelay(10);
 			while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
 			       && count--) {
-				udelay(10);
+				udelay(2);
 			}
 			if (count >= 0) {
 				ctrl = reg_read(jzfb, LCDC_STATE);
 				ctrl &= ~LCDC_STATE_LDD;
 				reg_write(jzfb, LCDC_STATE, ctrl);
 			} else {
-				dev_err(jzfb->dev, "LCDC disable state wrong\n");
+				dev_err(jzfb->dev, "LCDC disable state wrong %d\n",__LINE__);
 			}
 		} else {
 			ctrl = reg_read(jzfb, LCDC_CTRL);
@@ -2631,7 +2635,7 @@ static int jzfb_suspend(struct device *dev)
 	/* struct jzfb *jzfb = platform_get_drvdata(pdev); */
 	/* clk_disable(jzfb->clk); */
 	/* clk_disable(jzfb->pclk); */
-	printk("++++++%s\n",__func__);
+//	printk("++++++%s\n",__func__);
 
 	return 0;
 }
@@ -2642,7 +2646,7 @@ static int jzfb_resume(struct device *dev)
 	/* struct jzfb *jzfb = platform_get_drvdata(pdev); */
 	/* clk_enable(jzfb->pclk); */
 	/* jzfb_clk_enable(jzfb); */
-	printk("++++++%s\n",__func__);
+//	printk("++++++%s\n",__func__);
 
 	return 0;
 }

@@ -81,7 +81,7 @@ int jz_dsi_init_config(struct dsi_device *dsi)
 
 	dsi_config = dsi->dsi_config;
 
-	pr_info("jz_dsi_init_config\n");
+//	pr_info("jz_dsi_init_config\n");
 	mipi_dsih_hal_dpi_color_mode_pol(dsi, !dsi_config->color_mode_polarity);
 	mipi_dsih_hal_dpi_shut_down_pol(dsi, !dsi_config->shut_down_polarity);
 
@@ -188,8 +188,8 @@ int jz_dsi_video_coding(struct dsi_device *dsi,
 		break;
 	}
 	if (err_code == OK) {
-		printk("******&&&&&&&&---video_config->color_coding:%d\n",
-		       video_config->color_coding);
+//		printk("******&&&&&&&&---video_config->color_coding:%d\n",
+//		       video_config->color_coding);
 		err_code =
 		    mipi_dsih_hal_dpi_color_coding(dsi,
 						   video_config->color_coding);
@@ -209,8 +209,8 @@ void jz_dsi_dpi_cfg(struct dsi_device *dsi, unsigned int *ratio_clock_xPF,
 	int counter = 0;
 
 	video_config = dsi->video_config;
-	printk("ratio_clock_xPF------------------------->%d\n",
-	       *ratio_clock_xPF);
+//	printk("ratio_clock_xPF------------------------->%d\n",
+//	       *ratio_clock_xPF);
 	mipi_dsih_hal_dpi_video_mode_type(dsi, video_config->video_mode);
 
 	/*HSA+HBP+HACT+HFP * 1 */
@@ -233,6 +233,8 @@ void jz_dsi_dpi_cfg(struct dsi_device *dsi, unsigned int *ratio_clock_xPF,
 			       video_config->v_active_lines));
 	mipi_dsih_hal_dpi_vbp(dsi, video_config->v_back_porch_lines);
 	mipi_dsih_hal_dpi_vsync(dsi, video_config->v_sync_lines);
+
+#ifdef CONFIG_DSI_DPI_DEBUG
 	printk("hline:%d\n",
 	       (unsigned
 		short)((video_config->h_total_pixels * (*ratio_clock_xPF)) /
@@ -250,6 +252,7 @@ void jz_dsi_dpi_cfg(struct dsi_device *dsi, unsigned int *ratio_clock_xPF,
 					      video_config->v_active_lines));
 	printk("vbp:%d\n", video_config->v_back_porch_lines);
 	printk("vsync:%d\n", video_config->v_sync_lines);
+#endif
 
 	mipi_dsih_hal_dpi_hsync_pol(dsi, !video_config->h_polarity);	//active low
 	mipi_dsih_hal_dpi_vsync_pol(dsi, !video_config->v_polarity);	//active low
@@ -295,7 +298,7 @@ dsih_error_t jz_dsih_dphy_configure(struct dsi_device *dsi,
 	int flag = 0;
 	struct dsi_phy *phy;
 	phy = dsi->dsi_phy;
-	printk("entry function :%s\n", __func__);
+//	printk("entry function :%s\n", __func__);
 	if (phy == NULL) {
 		return ERR_DSI_INVALID_INSTANCE;
 	}
@@ -415,7 +418,7 @@ dsih_error_t jz_dsih_dphy_configure(struct dsi_device *dsi,
 	jz_dsih_dphy_clock_en(dsi, 1);
 	jz_dsih_dphy_shutdown(dsi, 1);
 	jz_dsih_dphy_reset(dsi, 1);
-	pr_info("configure master-phy is ok\n");
+//	pr_info("configure master-phy is ok\n");
 	return OK;
 }
 

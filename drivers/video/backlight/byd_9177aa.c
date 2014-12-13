@@ -204,9 +204,10 @@ static void byd_9177aa_set_sequence(struct mipi_dsim_lcd_device *dsim_dev)
 	struct byd_9177aa *lcd = dev_get_drvdata(&dsim_dev->dev);
 	byd_9177aa_panel_init(lcd);
 	byd_9177aa_sleep_out(lcd);
-	mdelay(120);
+//	mdelay(120);
+	mdelay(1);
 	byd_9177aa_display_on(lcd);
-	mdelay(10);
+//	mdelay(10);
 	lcd->power = FB_BLANK_UNBLANK;
 }
 

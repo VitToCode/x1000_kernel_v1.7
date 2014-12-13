@@ -47,9 +47,11 @@ int byd_9177aa_init(struct lcd_device *lcd)
 int byd_9177aa_reset(struct lcd_device *lcd)
 {
 	gpio_direction_output(GPIO_MIPI_RST_N, 0);
-	msleep(3);
+//	msleep(3);
+	mdelay(2);
 	gpio_direction_output(GPIO_MIPI_RST_N, 1);
-	msleep(8);
+//	msleep(8);
+	mdelay(2);
 	return 0;
 }
 
@@ -58,7 +60,8 @@ int byd_9177aa_power_on(struct lcd_device *lcd, int enable)
     if(byd_9177aa_init(lcd))
         return -EFAULT;
 	gpio_direction_output(GPIO_MIPI_PWR, enable); /* 2.8v en*/
-	msleep(2);
+//	msleep(2);
+	mdelay(2);
 	return 0;
 }
 struct lcd_platform_data byd_9177aa_data = {

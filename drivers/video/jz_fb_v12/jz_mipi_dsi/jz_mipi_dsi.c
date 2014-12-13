@@ -246,7 +246,9 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 	jz_dsih_dphy_no_of_lanes(dsi, video_config->no_of_lanes);
 	/* enable high speed clock */
 	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+#ifdef  CONFIG_DSI_DPI_DEBUG
 	pr_info("video configure is ok!\n");
+#endif
 
 	return err_code;
 
@@ -486,6 +488,7 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 		st_mask = 0x15;
 
 	/*checkout phy clk lock and  clklane, datalane stopstate  */
+	udelay(10);
 	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
 	       st_mask && retry--) {
 			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
