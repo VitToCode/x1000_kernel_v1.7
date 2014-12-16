@@ -21,6 +21,12 @@ unsigned int __res_mem wakeup_res[] = {
 //#define MAX_PROCESS_LEN		(64 * 1024)
 //#define MAX_PROCESS_LEN		(32 * 1024)
 //#define MAX_PROCESS_LEN		(16 * 1024)
+
+//#define PROCESS_BYTES_PER_TIME	(2048)
+#define PROCESS_BYTES_PER_TIME	(1024)
+//#define PROCESS_BYTES_PER_TIME	(512)
+//#define PROCESS_BYTES_PER_TIME	(128)
+
 int total_process_len = 0;
 
 unsigned char __attribute__((aligned(32))) pIvwObjBuf[20*1024];
@@ -179,11 +185,73 @@ int wakeup_close(void)
 	return 0;
 }
 
+#ifdef CONFIG_CPU_SWITCH_FREQUENCY
+int get_valid_bytes()
+{
+	unsigned int dma_addr;
+	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	int nbytes;
+	struct circ_buf *xfer;
+	xfer = &rx_fifo->xfer;
+	xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 
+	nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
 
+	return nbytes;
+}
+int process_nbytes(int nbytes)
+{
+	struct circ_buf * xfer;
+	int ret;
+	xfer = &rx_fifo->xfer;
 
-//#define MAX_PROCESS_LEN		(16*2 * 1000 * 5)
+	while(1) {
+		int nread;
+		nread = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
+		if(nread > CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size)) {
+			nread = CIRC_CNT_TO_END(xfer->head, xfer->tail, rx_fifo->n_size);
+		} else if(nread == 0) {
+			break;
+		}
+		ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
+		if(ret == IvwErr_WakeUp) {
+			return SYS_WAKEUP_OK;
+		}
 
+		xfer->tail += nread;
+		xfer->tail %= rx_fifo->n_size;
+	}
+
+	total_process_len += nbytes;
+	if(total_process_len >= MAX_PROCESS_LEN) {
+		TCSM_PCHAR('F');
+		serial_put_hex(total_process_len);
+		total_process_len = 0;
+		return SYS_WAKEUP_FAILED;
+	} else {
+		return SYS_NEED_DATA;
+	}
+
+	return SYS_WAKEUP_FAILED;
+}
+
+int process_dma_data_3(void)
+{
+	int ret;
+	int nbytes;
+
+	nbytes = get_valid_bytes();
+	if(nbytes >= PROCESS_BYTES_PER_TIME) {
+		_cpu_switch_restore(); /*switch to the sleep freq setted in kernel to process data.120MHZ*/
+		ret = process_nbytes(nbytes);
+		_cpu_switch_24MHZ();	/*switch to 24MHZ. */
+	} else {
+		ret = SYS_NEED_DATA;
+	}
+
+	return ret;
+}
+#endif
 int process_dma_data_2(void)
 {
 

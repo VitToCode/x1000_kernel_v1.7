@@ -553,12 +553,6 @@ static noinline void cpu_resume(void)
 	int s_temp;
 #endif
 	TCSM_PCHAR('O');
-	/* restore  CPM CPCCR */
-	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
-	val |= (7 << 20);
-	REG32(0xb0000000) = val;
-	while((REG32(0xB00000D4) & 7))
-		TCSM_PCHAR('w');
 
 	write_c0_config(REG32(SLEEP_TCSM_RESUME_DATA + 16));  // restore cachable
 	write_c0_status(REG32(SLEEP_TCSM_RESUME_DATA + 20));  // restore cp0 statue
@@ -572,6 +566,14 @@ static noinline void cpu_resume(void)
 	}
 	//serial_put_hex(val);
 #endif
+
+	/* restore  CPM CPCCR */
+	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
+	val |= (7 << 20);
+	REG32(0xb0000000) = val;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
+
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 8);
 	if(val != -1)
 		set_gpio_func(val & 0xffff, val >> 16);

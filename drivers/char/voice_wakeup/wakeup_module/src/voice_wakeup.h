@@ -19,6 +19,8 @@ int process_dma_data(void);
 int process_dma_data_2(void);
 int process_buffer_data(unsigned char *buffer, unsigned long len);
 
+int process_dma_data_3(void);
+
 void wakeup_reset_fifo(void);
 
 #define SYS_WAKEUP_OK	0x1

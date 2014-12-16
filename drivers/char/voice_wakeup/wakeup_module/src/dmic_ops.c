@@ -158,9 +158,14 @@ int dmic_init_mode(int mode)
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
 
+#ifdef CONFIG_CPU_IDLE_SLEEP
 			/* trigger mode config */
 			REG_DMIC_TRICR &= ~(0xf << 16); /* tri mode: larger than thr trigger.*/
-
+#else
+			REG_DMIC_TRICR &= ~(0xf << 16);
+			REG_DMIC_TRICR |= 2<<16;
+			REG_DMIC_TRINMAX = 5;
+#endif
 			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
 			REG_DMIC_ICR |= 0x1f; /*clear all ints*/
 			REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
@@ -304,8 +309,11 @@ int dmic_handler(int pre_ints)
 
 	}
 
+#ifdef CONFIG_CPU_SWITCH_FREQUENCY
+	ret = process_dma_data_3();
+#else
 	ret = process_dma_data_2();
-
+#endif
 	if(ret == SYS_WAKEUP_OK) {
 
 		return SYS_WAKEUP_OK;
@@ -314,7 +322,7 @@ int dmic_handler(int pre_ints)
 		/* do nothing */
 #else
 
-		REG_DMIC_TRINMAX = 30;
+		REG_DMIC_TRINMAX = 5;
 
 		REG_DMIC_CR0 |= 3 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);

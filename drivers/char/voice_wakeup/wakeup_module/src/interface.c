@@ -174,7 +174,6 @@ static inline void sleep_wait(void)
 	TCSM_PCHAR('s');
 }
 
-#ifdef CONFIG_CPU_IDLE_SLEEP
 static inline void idle_wait(void)
 {
 	unsigned int opcr;
@@ -196,7 +195,6 @@ static inline void idle_wait(void)
 			"nop\n\t"
 			".set mips32\n\t");
 }
-#endif
 
 /*	int mask that we care about.
  *	DMIC INTS: used to wakeup cpu.
@@ -268,7 +266,8 @@ int handler(int par)
 				flush_dcache_all();
 				__asm__ __volatile__("sync");
 				powerdown_wait();
-				TCSM_PCHAR('S');
+			} else {
+				idle_wait();
 			}
 #endif
 		} else if(ret == SYS_WAKEUP_FAILED) {
