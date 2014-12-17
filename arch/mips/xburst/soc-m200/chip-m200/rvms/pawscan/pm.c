@@ -65,7 +65,7 @@ __initdata int gpio_ss_table[][2] = {
 {32 * 2 +  9,	GSS_INPUT_PULL	}, /* NC */
 {32 * 2 + 10,	GSS_INPUT_PULL	}, /* NC */
 {32 * 2 + 11,	GSS_INPUT_PULL	}, /* NC */
-{32 * 2 + 12,	GSS_INPUT_PULL	}, /* NC */
+{32 * 2 + 12,	GSS_INPUT_PULL	}, /* RED LED */
 {32 * 2 + 13,	GSS_INPUT_PULL	}, /* NC */
 {32 * 2 + 14,	GSS_INPUT_PULL	}, /* NC */
 {32 * 2 + 15,	GSS_INPUT_PULL	}, /* NC */
@@ -108,7 +108,7 @@ __initdata int gpio_ss_table[][2] = {
 {32 * 3 + 24,	GSS_INPUT_PULL}, /* NC */
 {32 * 3 + 25,	GSS_INPUT_PULL}, /* NC */
 {32 * 3 + 26,	GSS_IGNORE}, /* UART1 RXD */
-{32 * 3 + 27,	GSS_OUTPUT_LOW}, /* WIFI IND LED */
+{32 * 3 + 27,	GSS_INPUT_PULL}, /* GREEN LED */
 {32 * 3 + 28,	GSS_INPUT_PULL}, /* SSI CLK NC */
 {32 * 3 + 29,	GSS_IGNORE}, /*UART1 TXD */
 {32 * 3 + 30,	GSS_INPUT_NOPULL}, /* I2C0_SDA */
