@@ -333,7 +333,7 @@ static int __init wakeup_init(void)
 	int ret, dev_no;
 	struct wakeup_dev *wakeup;
 
-	wakeup = kmalloc(sizeof(struct wakeup_dev), GFP_KERNEL);
+	wakeup = kzalloc(sizeof(struct wakeup_dev), GFP_KERNEL);
 	if(!wakeup) {
 		printk("voice dev alloc failed\n");
 		goto __err_wakeup;
