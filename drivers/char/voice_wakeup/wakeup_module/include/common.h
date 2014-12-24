@@ -88,7 +88,7 @@ typedef unsigned int	u32;
 #define SLEEP_TCSM_LEN             4096
 
 #define SLEEP_TCSM_BOOT_LEN        256
-#define SLEEP_TCSM_DATA_LEN        32
+#define SLEEP_TCSM_DATA_LEN        64
 #define SLEEP_TCSM_RESUME_LEN      (SLEEP_TCSM_LEN - SLEEP_TCSM_BOOT_LEN - SLEEP_TCSM_DATA_LEN)
 
 #define SLEEP_TCSM_BOOT_TEXT       (SLEEP_TCSM_SPACE)
