@@ -19,6 +19,8 @@ obj-y += clk/
 
 obj-y += pm_p0.o
 
+obj-y += libdmmu.o
+
 obj-$(CONFIG_USB_SUPPORT) += cpm_usb.o
 
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
