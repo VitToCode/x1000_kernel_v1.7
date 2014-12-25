@@ -198,9 +198,10 @@ static int write_bch(struct Spl *spl, int pageid)
         int ret = SUCCESS;
 
         nand_write_start(spl, pageid, 0);
-	pn_enable(spl->io_context);
+		pn_enable(spl->io_context);
         nand_write_data(spl, spl->bchbuf, spl->bchsize);
-	pn_disable(spl->io_context);
+		nand_io_send_waitcomplete(spl->io_context,spl->cinfo);
+    	pn_disable(spl->io_context);
         ret = nand_write_finish(spl);
 
         return ret;
