@@ -30,6 +30,7 @@ struct em7180_dev {
 	int irq;
 	int irq_flag;
 	int wakeup;
+	int interrupt_handled;
 
 	struct completion done;
 	struct miscdevice misc_device;
@@ -390,7 +391,7 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		}
 	}
 	if (0 == ret) {
-		dbg("Set accel value failed! accel value = %d",status);
+		printk("ERROR: Set accel value failed! accel value = %d", status);
 		return -EINVAL;
 	}
 
@@ -415,8 +416,8 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		}
 	}
 	if (0 == ret) {
-		dbg("Set ranges value failed! ranges value = %x",status);
-			return -EINVAL;
+		printk("ERROR: Set ranges value failed! ranges value = %x\n",status);
+		return -EINVAL;
 	}
 
 	/*set_threshold*/
@@ -440,32 +441,35 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		}
 	}
 
-	dbg("Set threshold value failed! threshold value = %d",status);
+	printk("ERROR: Set threshold value failed! threshold value = %d\n",status);
 	return -EINVAL;
 }
 
 static long
 em7180_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct miscdevice *dev = filp->private_data;
-	struct em7180_dev *em7180 =
-		container_of(dev, struct em7180_dev, misc_device);
-
 	int ret = 0;
-
-	if (copy_from_user(&(em7180->accel_info),
-			   (void __user *)arg,
-			   sizeof(struct accel_info_t))) {
-		dbg("Copy_from_user failed");
-		return -EFAULT;
-	}
+	struct miscdevice *dev = filp->private_data;
+	struct em7180_dev *em7180 = container_of(dev, struct em7180_dev, misc_device);
 
 	switch (cmd) {
 	case SENSOR_IOCTL_SET:
+		if (copy_from_user(&(em7180->accel_info),
+				   (void __user *)arg,
+				   sizeof(struct accel_info_t))) {
+			printk("ERROR: em7180_ioctl argument error!\n");
+			return -EFAULT;
+		}
+
 		dbg("accel_info : frequency = %p ranges = %p threshold = %p",
 		    &em7180->accel_info.frequency, &em7180->accel_info.ranges,
 		    &em7180->accel_info.threshold);
+
 		ret = em7180_set_parameters(em7180, em7180->accel_info);
+
+		break;
+	case SENSOR_IOCTL_WAKE:
+		ret = em7180->interrupt_handled;
 		break;
 	default:
 		ret = -EINVAL;
@@ -542,6 +546,9 @@ static irqreturn_t em7180_irq_handler(int irq, void *devid)
 	struct em7180_dev *em7180 = (struct em7180_dev *)devid;
 
 	dbg("****************************************************************");
+
+	em7180->interrupt_handled = 1;
+
 	/* disable irq,To prevent the interruption of abnormal */
 	disable_irq_nosync(em7180->irq);
 
@@ -583,7 +590,8 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 	}
 
 	em7180->irq_pin = GPIO_PA(15);
-	em7180->wakeup = pdata->wakeup;;
+	em7180->wakeup = pdata->wakeup;
+	em7180->interrupt_handled = 0;
 
 	/* In order to clear the first interrupt */
 	em7180->irq_flag = 1;
@@ -698,6 +706,8 @@ static int em7180_suspend(struct i2c_client *i2c_dev, pm_message_t state)
 
 	if (em7180->wakeup)
 		enable_irq_wake(em7180->irq);
+
+	em7180->interrupt_handled = 0;
 
 	return 0;
 }

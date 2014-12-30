@@ -2,7 +2,7 @@
 #ifndef LINUX_EM7180_MODULE_H
 #define LINUX_EM7180_MODULE_H
 
-//#define EM7180_DEBUG
+#define EM7180_DEBUG
 
 /* Register for start */
 #define REG_ALGORITHM_CONTROL	0x54
