@@ -39,13 +39,28 @@ struct em7180_dev {
 	struct mutex lock;
 	struct accel_info_t accel_info;
 
-	u8 *data_buf;
-	u8 *producer;
-	u8 *consumer;
-	u8 *buf_base;
-	u8 *buf_top;
-	u32 buf_len;
+	u8 	*data_buf;
+	u8 	*data_copy;
+	u8 	*data_copy_base;
+	u32 	*producer;
+	u8 	*consumer;
+	u8 	*buf_base;
+	u8 	*buf_top;
+	u8 	*buf_copy_base;
+	u8 	*buf_copy_top;
+	u32 	buf_len;
+	u64 	time_now_ms;
 };
+
+static void em7180_get_currenttime(struct em7180_dev *em7180)
+{
+	static struct timeval time_now;
+
+	do_gettimeofday(&time_now);
+	em7180->time_now_ms = (u64)time_now.tv_sec * 1000000 + time_now.tv_usec;
+	do_div(em7180->time_now_ms, 1000);
+	dbg("TIME: [%lld] ms", em7180->time_now_ms);
+}
 
 static void em7180_write_buff(struct em7180_dev *em7180, int size)
 {
@@ -54,6 +69,7 @@ static void em7180_write_buff(struct em7180_dev *em7180, int size)
 		byteReqResp_Lo = 0, byteReqResp_Hi = 0;
 
 	dbg("size = %d", size);
+
 	while (size > byteNum) {
 		byteNum_Lo = byteNum & 0xFF;
 		byteNum_Hi = (byteNum & 0xFF00) >> 8;
@@ -81,15 +97,13 @@ static void em7180_write_buff(struct em7180_dev *em7180, int size)
 			i2c_smbus_read_i2c_block_data(em7180->i2c_dev,
 						      REG_BATCHBASE0,
 						      BATCHBLOCKSIZE,
-						      em7180->producer);
+						      em7180->data_copy);
 			byteNum += BATCHBLOCKSIZE;
-			em7180->producer = em7180->producer + BATCHBLOCKSIZE;
+			em7180->data_copy = em7180->data_copy + BATCHBLOCKSIZE;
 		} else {
 			dbg("Batch Data Error, wait longer please");
 		}
 	}
-	dbg("em7180->producer = %p em7180->consumer = %p",
-	    em7180->producer, em7180->consumer);
 }
 
 static int em7180_clear_irq(struct em7180_dev *em7180)
@@ -110,7 +124,7 @@ static int em7180_clear_irq(struct em7180_dev *em7180)
 	}
 	if (0 == ret) {
 		dbg("Fail to switch to StreamMode");
-		return ret;
+		goto error;
 	}
 
 	tmp = 10;
@@ -130,7 +144,7 @@ static int em7180_clear_irq(struct em7180_dev *em7180)
 	}
 	if (0 == ret) {
 		dbg("Fail to clear");
-		return ret;
+		goto error;
 	}
 
 	tmp = 10;
@@ -151,12 +165,73 @@ static int em7180_clear_irq(struct em7180_dev *em7180)
 	if (0 == ret) {
 		dbg("Fail to reset");
 	}
+
+	em7180_get_currenttime(em7180);
+
+error :
 	return ret;
 }
 
-static int em7180_read_buff(struct em7180_dev *em7180)
+static int em7180_add_stamptime(struct em7180_dev *em7180, u16 data_num)
 {
-	int tmp = 10, ret = 0, status = 0;
+	int i = 0, tmp_num = 0;
+	u32 *tmp_p;
+	u64 tmp_time;
+	dbg("em7180->data_copy_base = %x em7180->data_copy_base = %p",
+	*em7180->data_copy_base, em7180->data_copy_base);
+	tmp_p = (u32 *)em7180->data_copy_base;
+	for (i = 0; i < data_num / 4; i++) {
+//		dbg("i = %d tmp_p = %x tmp_p = %p", i, *tmp_p, tmp_p);
+		tmp_time = em7180->time_now_ms;
+		if (*tmp_p & (2 << 30)) {
+			/*
+			 * In order to avoid the last data
+			 * of each data block is the time stamp
+			 */
+			if (i == data_num / 4 - 1) {
+				em7180->producer--;
+			} else {
+//			dbg("i = %d TIME: [%lld] ms [%9d] ms p %x",
+//			    i, tmp_time, *tmp_p & ~(2 << 30), *tmp_p);
+				tmp_time += (*tmp_p & ~(2 << 30));
+//			dbg("i = %d TIME: [%lld] ms [%9d] ms p",
+//			    i, tmp_time, *tmp_p & ~(2 << 30));
+				*em7180->producer =
+					(tmp_time >> 32) | (2 << 30);
+//			dbg("em7180->producer = %x", *em7180->producer);
+				em7180->producer++;
+				if ((u8 *)em7180->producer >= em7180->buf_top) {
+					em7180->producer =
+						(u32 *)em7180->buf_base;
+				}
+				*em7180->producer = tmp_time & 0xffffffff;
+//			dbg("em7180->producer = %x", *em7180->producer);
+				tmp_num += 8;
+			}
+		} else {
+			if (0 == i) {
+				dbg("It is an error.The first data"
+				    "is not a time stamp");
+				goto error;
+			}
+			*em7180->producer = *tmp_p;
+			tmp_num += 4;
+//			dbg("em7180->producer = %x", *em7180->producer);
+		}
+		em7180->producer++;
+		if (em7180->producer >= (u32 *)em7180->buf_top)
+			em7180->producer = (u32 *)em7180->buf_base;
+
+		tmp_p++;
+	}
+
+error :
+	return tmp_num;
+}
+
+static int em7180_read_buff(struct em7180_dev *em7180, u16 data_num)
+{
+	int tmp = 10, tmp_num = 0, ret = 0, status = 0;
 
 	dbg("start read buff");
 	i2c_smbus_write_byte_data(em7180->i2c_dev, REG_MODE_REQ,
@@ -172,51 +247,30 @@ static int em7180_read_buff(struct em7180_dev *em7180)
 	}
 	if (0 == ret) {
 		dbg("Fail to switch to BatchMode");
-		return ret;
+		goto error;
 	}
 
 	/* Read data from em7180 */
-	if (em7180->buf_len < DATA_BUF_SIZE) {
-		if (em7180->producer >= em7180->consumer) {
-			dbg("+++++++++++++++++++++++++++++++++++++++++++test0");
-
-			em7180_write_buff(em7180, READ_BUF_SIZE);
-			if (em7180->buf_top == em7180->producer)
-				em7180->producer = em7180->buf_base;
-
-			em7180->buf_len += READ_BUF_SIZE;
-		} else {
-			if ((int)(em7180->consumer - em7180->producer)
-			    <= READ_BUF_SIZE) {
-				dbg("-----------------------------------test1");
-
-				em7180_write_buff(em7180, READ_BUF_SIZE);
-				if (em7180->buf_top == em7180->producer)
-					em7180->producer = em7180->buf_base;
-
-				em7180->consumer = em7180->producer;
-				em7180->buf_len = DATA_BUF_SIZE;
-			} else {
-				dbg("***********************************test2");
-
-				em7180_write_buff(em7180, READ_BUF_SIZE);
-
-				em7180->buf_len += READ_BUF_SIZE;
-			}
-		}
-	} else {
-		dbg("///////////////////////////////////////////////////test3");
-
-		em7180_write_buff(em7180, READ_BUF_SIZE);
-		if (em7180->buf_top == em7180->producer)
-			em7180->producer = em7180->buf_base;
-
-		em7180->consumer = em7180->producer;
+	dbg("data_copy = %p num = %d", em7180->data_copy, data_num);
+	em7180_write_buff(em7180, data_num);
+	dbg("em7180->data_copy = %p producer = %p",
+	    em7180->data_copy, em7180->producer);
+	tmp_num = em7180_add_stamptime(em7180, data_num);
+	if (DATA_BUF_SIZE <= em7180->buf_len + tmp_num) {
 		em7180->buf_len = DATA_BUF_SIZE;
+		em7180->consumer = (u8 *)em7180->producer;
+	} else {
+		em7180->buf_len += tmp_num;
 	}
+
+	dbg("producer = %p consumer = %p",
+	    em7180->producer, em7180->consumer);
+
+	em7180->data_copy = em7180->data_copy_base;
 
 	ret = em7180_clear_irq(em7180);
 
+error :
 	return ret;
 }
 
@@ -263,15 +317,19 @@ em7180_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 	    D0_High, D0_Low, em7180->buf_len, em7180->irq_flag);
 #endif
 
+	mutex_lock(&em7180->lock);
+
 	if (NULL == buf || count <= 0) {
 		dbg("Invalid argument");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error;
 	}
 	if (0 == em7180->buf_len) {
-		return 0;
+		ret = 0;
+		goto error;
 	}
 
-	mutex_lock(&em7180->lock);
+
 	dbg("em7180->producer = %p em7180->consumer = %p em7180->buf_len = %d",
 	    em7180->producer, em7180->consumer, em7180->buf_len);
 	if (count > em7180->buf_len) {
@@ -289,7 +347,7 @@ em7180_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 		if (copy_to_user(buf, em7180->consumer,
 				 (int)(em7180->buf_top - em7180->consumer))) {
 			ret = -EFAULT;
-			goto errorcopy;
+			goto error;
 		}
 
 		dst_buf = buf + (em7180->buf_top - em7180->consumer);
@@ -300,7 +358,7 @@ em7180_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 		    em7180->buf_top - em7180->consumer);
 		if (copy_to_user(dst_buf, em7180->buf_base, len)) {
 			ret = -EFAULT;
-			goto errorcopy;
+			goto error;
 		}
 		em7180->consumer = em7180->buf_base + len;
 		dbg("em7180->producer = %p em7180->consumer = %p "
@@ -309,15 +367,20 @@ em7180_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 	} else {
 		if (copy_to_user(buf, em7180->consumer, len_t)) {
 			ret = -EFAULT;
-			goto errorcopy;
+			goto error;
 		}
 		em7180->consumer += len_t;
 		dbg("em7180->producer = %p em7180->consumer = %p "
 		    "em7180->buf_len = %d len_t = %d",
 		    em7180->producer, em7180->consumer, em7180->buf_len,len_t);
 	}
+#ifdef EM7180_DEBUG
+	if(em7180->producer != (u32 *)em7180->consumer){
+		dbg("It is a error.");
+	}
+#endif
 
-errorcopy:
+error :
 	mutex_unlock(&em7180->lock);
 
 	return ret;
@@ -331,14 +394,16 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_ALGORITHM_CONTROL,
 					ALGORITHM_CONTROL_VALUE);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto error;
+	}
 
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_HOST_CONTROL,
 					HOST_CONTROL_VALUE);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto error;
+	}
 
 	if (accel_info.frequency < 32) {
 		accel_info.frequency = 1;
@@ -351,11 +416,12 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		frequency_t = 8;
 	}
 
-	if (accel_info.ranges < 4) {
+	/* The application is set to 4G (equivalent to +-2G), 2G should be set to em7180 */
+	if (accel_info.ranges < 8) {
 		accel_info.ranges = 2;
-	} else if (accel_info.ranges < 8) {
-		accel_info.ranges = 4;
 	} else if (accel_info.ranges < 16) {
+		accel_info.ranges = 4;
+	} else if (accel_info.ranges < 32) {
 		accel_info.ranges = 8;
 	} else {
 		accel_info.ranges = 16;
@@ -363,8 +429,16 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 
 	if (accel_info.threshold < 0) {
 		accel_info.threshold = 0;
-	} else if(accel_info.threshold > 512) {
-		accel_info.threshold = 20;
+	} else if(accel_info.threshold > accel_info.ranges / 2 * 1000) {
+		/* The maximum threshold is only half of the range */
+		accel_info.threshold = accel_info.ranges / 2 * 1000 ;
+	} else {
+		/*
+		 * threshold unit :  3.91 mg (2-g range)  7.81 mg ( 4-g range)
+		 *		    15.63 mg (8-g range) 31.25 mg (16-g range)
+		 */
+		accel_info.threshold = accel_info.threshold * 100 /
+			(accel_info.ranges * THRESHOLD_CONSTANT);
 	}
 
 	dbg("accel_info : frequency = %d ranges = %d threshold = %d",
@@ -374,8 +448,9 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_ACCEL_RATE,
 					accel_info.frequency);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto error;
+	}
 
 	tmp = 10;
 
@@ -384,23 +459,25 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_ACCEL);
 		if (frequency_t == status) {
-			dbg("Set accel value success! accel value = %d",status);
+			dbg("Set frequency success! frequency = %d",status);
 			accel_info.frequency = status;
 			ret = 1;
 			break;
 		}
 	}
 	if (0 == ret) {
-		printk("ERROR: Set accel value failed! accel value = %d", status);
-		return -EINVAL;
+		printk("ERROR: Set frequency failed! frequency = %d",status);
+		ret = -EINVAL;
+		goto error;
 	}
 
 	/*set_ranges*/
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_RANGE,
 					accel_info.ranges);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto error;
+	}
 
 	tmp = 10;
 
@@ -409,23 +486,25 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_RANGE);
 		if (accel_info.ranges == status) {
-			dbg("Set ranges value success! ranges value = %x",
+			dbg("Set ranges success! ranges = %x",
 			    status);
 			ret = 1;
 			break;
 		}
 	}
 	if (0 == ret) {
-		printk("ERROR: Set ranges value failed! ranges value = %x\n",status);
-		return -EINVAL;
+		printk("ERROR: Set ranges failed! ranges = %x",status);
+		ret = -EINVAL;
+		goto error;
 	}
 
 	/*set_threshold*/
 	ret = i2c_smbus_write_byte_data(em7180->i2c_dev,
 					REG_THRESHOLD_VALUE,
 					accel_info.threshold);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto error;
+	}
 
 	tmp = 10;
 
@@ -434,15 +513,18 @@ em7180_set_parameters(struct em7180_dev *em7180, struct accel_info_t accel_info)
 		status = i2c_smbus_read_byte_data(em7180->i2c_dev,
 						  REG_CURR_THRESHOLD);
 		if (accel_info.threshold == status) {
-			dbg("Set threshold value success! threshold value = %d",
+			dbg("Set threshold success! threshold = %d",
 			    status);
 			wake_up_process(em7180->kthread);
-			return ret;
+			goto error;
 		}
 	}
 
-	printk("ERROR: Set threshold value failed! threshold value = %d\n",status);
-	return -EINVAL;
+	printk("ERROR: Set threshold failed! threshold = %d",status);
+	ret = -EINVAL;
+
+error :
+	return ret;
 }
 
 static long
@@ -450,7 +532,10 @@ em7180_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	struct miscdevice *dev = filp->private_data;
-	struct em7180_dev *em7180 = container_of(dev, struct em7180_dev, misc_device);
+	struct em7180_dev *em7180 =
+		container_of(dev, struct em7180_dev, misc_device);
+
+
 
 	switch (cmd) {
 	case SENSOR_IOCTL_SET:
@@ -486,6 +571,7 @@ static int em7180_daemon(void *d)
 	u8 D0_Low = 0, D0_High = 0;
 	u16 D0_All = 0;
 
+	em7180_get_currenttime(em7180);
 	while (!kthread_should_stop()) {
 		dbg("----------------------------->start thread");
 
@@ -503,12 +589,19 @@ static int em7180_daemon(void *d)
 		dbg("D0_High = %x D0_Low = %x D0_All = %d em7180->buf_len = %d",
 		    D0_High, D0_Low, D0_All, em7180->buf_len);
 
-		if (1 == em7180->irq_flag && D0_All != READ_BUF_SIZE) {
+		if(0 != D0_All % 8) {
+			dbg("******error data_num = %d*******", D0_All);
+			D0_All = D0_All - D0_All % 8;
+			dbg("******right data_num = %d*******", D0_All);
+		}
+
+		if (1 == em7180->irq_flag && 0 == D0_All) {
+			dbg();
 			em7180_clear_irq(em7180);
 		} else {
 			dbg("----------------------------->start irq");
 			mutex_lock(&em7180->lock);
-			ret = em7180_read_buff(em7180);
+			ret = em7180_read_buff(em7180, D0_All);
 			mutex_unlock(&em7180->lock);
 
 			if (!ret) {
@@ -637,14 +730,26 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 		goto err_buf;
 	}
 
+	em7180->data_copy = (u8 *)__get_free_pages(GFP_KERNEL,
+						   get_order(COPY_BUF_SIZE));
+	if (NULL == em7180->data_copy) {
+		dev_err(&i2c_dev->dev, "malloc em7180 data copy buf error");
+		ret = -ENOMEM;
+		goto err_buf_copy;
+	}
+
 	em7180->buf_base = em7180->data_buf;
 	em7180->buf_top = em7180->data_buf + DATA_BUF_SIZE;
-	em7180->producer = em7180->data_buf;
+	em7180->producer = (u32 *)em7180->data_buf;
 	em7180->consumer = em7180->data_buf;
 	em7180->buf_len = 0;
-	dbg("buf_base = %p buf_top = %p producer = %p consumer = %p ",
+	em7180->data_copy_base = em7180->data_copy;
+
+	dbg("buf_base = %p buf_top = %p producer = %p consumer = %p "
+	    "buf_copy_base = %p",
 	    em7180->buf_base, em7180->buf_top,
-	    em7180->producer, em7180->consumer);
+	    em7180->producer, em7180->consumer,
+	    em7180->data_copy_base);
 	dbg();
 
 	em7180->kthread = kthread_create(em7180_daemon, em7180,
@@ -653,7 +758,7 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 
 	if (IS_ERR(em7180->kthread)) {
 		ret = -ENOMEM;
-		goto err_buf;
+		goto err_buf_copy;
 	}
 
 	em7180->misc_device.minor = MISC_DYNAMIC_MINOR;
@@ -668,10 +773,13 @@ em7180_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
 
 	i2c_set_clientdata(i2c_dev, em7180);
 
-	return 0;
+	ret = 0;
+	goto end;
 
-err_register_misc:
+err_register_misc :
 	misc_deregister(&em7180->misc_device);
+err_buf_copy :
+	kfree(em7180->data_copy);
 err_buf :
 	kfree(em7180->data_buf);
 err_irq :
@@ -682,7 +790,7 @@ err_regulator :
 	regulator_put(em7180->power);
 err_free :
 	kfree(i2c_dev);
-
+end :
 	return ret;
 }
 
@@ -691,6 +799,7 @@ static int __devexit em7180_remove(struct i2c_client *i2c_dev)
 	struct em7180_dev *em7180 = i2c_get_clientdata(i2c_dev);
 
 	misc_deregister(&em7180->misc_device);
+	kfree(em7180->data_copy);
 	kfree(em7180->data_buf);
 	free_irq(em7180->irq, em7180);
 	gpio_free(em7180->irq_pin);

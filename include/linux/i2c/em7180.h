@@ -2,7 +2,7 @@
 #ifndef LINUX_EM7180_MODULE_H
 #define LINUX_EM7180_MODULE_H
 
-#define EM7180_DEBUG
+//#define EM7180_DEBUG
 
 /* Register for start */
 #define REG_ALGORITHM_CONTROL	0x54
@@ -32,15 +32,17 @@
 #define REG_CURR_RESET		0x4E
 #define REG_RESET		0x9B
 
-/* A multiple of READ_BUF_SIZE  */
-#define DATA_BUF_SIZE		(28 * 1024)
-#define READ_BUF_SIZE		(14 * 1024)
+/*  COPY_BUF_SIZE must be larger than the em7180 buffer  */
+#define DATA_BUF_SIZE		(16 * 1024 * 1024)
+#define COPY_BUF_SIZE		(50 * 1024)
 #define BATCHBLOCKSIZE		8
 #define BATCH_MODE_VALUE	1
 #define UPDATE_MODE_VALUE	0
 #define RESET_DATA_VALUE	1
 #define PREP_RESET_VALUE	0
 #define RESET_VALUE		1
+
+#define THRESHOLD_CONSTANT	195
 
 #define EM7180_NAME	"em7180"
 
