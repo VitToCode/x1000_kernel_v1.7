@@ -3072,10 +3072,10 @@ static int AW6120_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0;
 
 	if (enable) {
-		ret = AW6120_write_array(sd, AW6120_pre_and_gc1004_regs);
+		ret = AW6120_write_array(sd, AW6120_pre);
 		if (ret < 0)
 			return ret;
-		ret = AW6120_write_array(sd, AW6120_pre);
+		ret = AW6120_write_array(sd, AW6120_pre_and_gc1004_regs);
 		if (ret < 0)
 			return ret;
 
