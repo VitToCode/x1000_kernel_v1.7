@@ -16,12 +16,12 @@
 #include <linux/syscore_ops.h>
 #include <linux/delay.h>
 #include <irq.h>
-
+#include <linux/seq_file.h>
 #include <soc/base.h>
 #include <soc/gpio.h>
 #include <soc/irq.h>
 
-#if !defined CONFIG_GPIOLIB || !defined CONFIG_GENERIC_GPIO
+#if !defined CONFIG_GPIOLIB
 #error  "Need GPIOLIB !!!"
 #endif
 
@@ -464,9 +464,9 @@ static int gpio_set_type(struct irq_data *data, unsigned int flow_type)
 	case IRQ_TYPE_EDGE_FALLING:	func = GPIO_INT_FE;	break;
 	case IRQ_TYPE_EDGE_BOTH:
 		if (gpio_pin_level(jz, pin))
-			func = GPIO_INT_LO;
+			func = GPIO_INT_FE;
 		else
-			func = GPIO_INT_HI;
+			func = GPIO_INT_RE;
 		break;
 	default:
 		return -EINVAL;

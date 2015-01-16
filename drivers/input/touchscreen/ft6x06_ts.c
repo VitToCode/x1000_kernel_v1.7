@@ -38,6 +38,7 @@
 #include <linux/timer.h>
 #include <linux/regulator/consumer.h>
 // #include <linux/tsc.h>
+#include <jz_notifier.h>
 
 //#define FTS_CTL_IIC
 //#define SYSFS_DEBUG
@@ -347,7 +348,8 @@ static void ft6x06_work_handler(struct work_struct *work)
 static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
-	//printk("in ts_interrupt\n");
+
+	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0
@@ -509,6 +511,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 			dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
+
 	/*make sure CTP already finish startup process */
 	ft6x06_ts_reset(ft6x06_ts);
 	msleep(150);

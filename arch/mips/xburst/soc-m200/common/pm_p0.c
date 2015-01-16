@@ -70,10 +70,16 @@ extern unsigned int get_pmu_slp_gpio_info(void);
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
 
-#define U1_IOBASE (UART1_IOBASE + 0xa0000000)
+//#define PRINT_DEBUG
+
+#ifdef PRINT_DEBUG
+#define U_IOBASE (UART1_IOBASE + 0xa0000000)
 #define TCSM_PCHAR(x)							\
-	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;		\
-	while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+	*((volatile unsigned int*)(U_IOBASE+OFF_TDR)) = x;		\
+	while ((*((volatile unsigned int*)(U_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+#else
+#define TCSM_PCHAR(x)
+#endif
 
 #define TCSM_DELAY(x)					\
 	do{							\
@@ -594,10 +600,16 @@ static noinline void cpu_resume(void)
 	if(!bypassmode) {
 		/**
 		 * reset dll of ddr.
+		 * WARNING: 2015-01-08
+		 * 	DDR CLK GATE(CPM_DRCG 0xB00000D0), BIT6 must set to 1 (or 0x40).
+		 * 	If clear BIT6, chip memory will not stable, gpu hang occur.
 		 */
-		*(volatile unsigned int *)0xB00000D0 = 0x13;
+
+#define CPM_DRCG			(0xB00000D0)
+
+		*(volatile unsigned int *)CPM_DRCG = 0x13 | (1<<6);
 		TCSM_DELAY(0x1ff);
-		*(volatile unsigned int *)0xB00000D0 = 0x11;
+		*(volatile unsigned int *)CPM_DRCG = 0x11 | (1<<6);
 		TCSM_DELAY(0x1ff);
 		/**
 		 * for disabled ddr enter power down.
@@ -608,9 +620,9 @@ static noinline void cpu_resume(void)
 		/**
 		 * reset dll of ddr too.
 		 */
-		*(volatile unsigned int *)0xB00000D0 = 0x13;
+		*(volatile unsigned int *)CPM_DRCG = 0x13 | (1<<6);
 		TCSM_DELAY(0x1ff);
-		*(volatile unsigned int *)0xB00000D0 = 0x11;
+		*(volatile unsigned int *)CPM_DRCG = 0x11 | (1<<6);
 		TCSM_DELAY(0x1ff);
                 /**
 		 * dll reset item & dll locked.

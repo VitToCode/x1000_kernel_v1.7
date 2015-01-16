@@ -47,8 +47,8 @@ static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *pa
 			break;
 	}
 	if(div >= 15){
-		printk("%s don't find the rate[%ld]\n",clk->name,rate);
 		dump_stack();
+		printk("%s don't find the rate[%ld]\n",clk->name,rate);
 		goto SET_CPCCR_RATE_ERR;
 	}
 	cdiv = div - 1;
@@ -89,7 +89,7 @@ static inline void set_cpccr_h0div(struct clk *clk,unsigned int rate)
 {
 	unsigned int cpccr = cpm_inl(CPM_CPCCR);
 	int sel=(cpccr >> cpccr_clks[H0DIV].sel) & 3;
-      	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
+	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
 	unsigned int hdiv;
 	unsigned int pclk_rate = clk_get_rate(parentclk);
 	hdiv = get_cpccr_div(pclk_rate,rate) - 1;
@@ -112,7 +112,7 @@ static inline void set_cpccr_h2div(struct clk *clk,unsigned int rate)
 {
 	unsigned int cpccr = cpm_inl(CPM_CPCCR);
 	int sel=(cpccr >> cpccr_clks[H2DIV].sel) & 3;
-      	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
+	struct clk *parentclk = get_clk_from_id(cpccr_selector[sel]);
 	unsigned int hdiv,pdiv;
 	unsigned int pclk_rate = clk_get_rate(parentclk);
 	struct clk *relativeclk = get_clk_from_id(CLK_ID_PCLK);
@@ -203,8 +203,8 @@ static struct freq_udelay_jiffy* search_cpufrq_setting(unsigned int rate) {
 	p = (struct freq_udelay_jiffy *)bsearch((const void*)&rate,(const void*)freq_udelay_jiffys,
 						num, sizeof(struct freq_udelay_jiffy),cpufreq_setting_cmp);
 	if(!p) {
-		printk("warning!!!, new %d freq not found\n", rate);
 		dump_stack();
+		printk("warning!!!, new %d freq not found\n", rate);
 		while(1);
 	}
 	return p;
@@ -250,7 +250,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 		struct clk_notify_data dn;
 		dn.current_rate = clk->rate;
 		dn.target_rate = rate;
-		jz_notifier_call(JZ_CLK_PRECHANGE,&dn);
+		jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_PRECHANGE,&dn);
 	}
 	spin_lock_irqsave(&cpm_cpccr_lock,flags);
 	switch(clkid) {
@@ -335,12 +335,12 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				struct clk_notify_data dn;
 				dn.current_rate = clk->rate;
 				dn.target_rate = rate;
-				jz_notifier_call(JZ_CLK_CHANGING,&dn);
+				jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGING,&dn);
 			}
 			// 2. set pll freq
 			before_change_udelay_hz(1, 200000, rate/1000);
 			ret = clk_set_rate(parentclk,rate);
-			jz_notifier_call(JZ_CLK_CHANGED,NULL);
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGED,NULL);
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 
 			if(ret != 0) {
@@ -379,7 +379,6 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				clk->rate = parentclk->rate;
 				get_clk_from_id(CLK_ID_L2CLK)->rate = parentclk->rate / (l2div + 1);
 				sw_ahb_from_l2cache();
-
 			}
 
 		}
@@ -392,8 +391,10 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr);
 			sw_ahb_from_l2cache();
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
-			jz_notifier_call(JZ_CLK_CHANGING,&dn);
-			jz_notifier_call(JZ_CLK_CHANGED,NULL);
+
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGING,&dn);
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGED,NULL);
+
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 		}
 #endif
@@ -464,6 +465,6 @@ void __init init_cpccr_clk(struct clk *clk)
 		ahb_change.jz_notify = ahb_change_notify;
 		ahb_change.level = NOTEFY_PROI_NORMAL;
 		ahb_change.msg = JZ_CLKGATE_CHANGE;
-		jz_notifier_register(&ahb_change);
+		jz_notifier_register(&ahb_change, NOTEFY_PROI_HIGH);
 	}
 }

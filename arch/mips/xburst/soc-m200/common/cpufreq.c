@@ -27,15 +27,19 @@
 #include <linux/syscalls.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <mach/platform.h>
+#include <jz_notifier.h>
 
 
 static struct jz_cpufreq {
+	unsigned int second_rate;
+	unsigned int set_rate;
+	struct mutex mutex;
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
-	struct mutex mutex;
-}*jz_cpufreq;
-#define SUSPEMD_FREQ_INDEX 0
+	struct jz_notifier freq_up_change;
+	struct delayed_work freq_up_work;
+} *jz_cpufreq;
+
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
 	return cpufreq_frequency_table_verify(policy, jz_cpufreq->freq_table);
@@ -47,7 +51,16 @@ static unsigned int m200_getspeed(unsigned int cpu)
 		return 0;
 	return clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
 }
-
+static unsigned int m200_getavg(struct cpufreq_policy *policy,
+			   unsigned int cpu)
+{
+	if (cpu >= NR_CPUS)
+		return 0;
+	if(jz_cpufreq->set_rate)
+		return policy->max;
+	else
+		return policy->cur;
+}
 static int m200_target(struct cpufreq_policy *policy,
 			 unsigned int target_freq,
 			 unsigned int relation)
@@ -70,7 +83,6 @@ static int m200_target(struct cpufreq_policy *policy,
 	}
 	mutex_lock(&jz_cpufreq->mutex);
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-//	printk("------set speed = %d\n",freqs.new);
 	if (!freqs.new) {
 		printk("%s: cpu%d: no match for freq %d\n", __func__,
 		       policy->cpu, target_freq);
@@ -85,6 +97,21 @@ static int m200_target(struct cpufreq_policy *policy,
 #define CPUFRQ_MIN  12000
 extern struct cpufreq_frequency_table *init_freq_table(unsigned int max_freq,
 						       unsigned int min_freq);
+static void freq_up_irq_work(struct work_struct *work)
+{
+	jz_cpufreq->set_rate = 0;
+}
+static int freq_up_change_notify(struct jz_notifier *notify,void *v)
+{
+	unsigned int current_rate;
+	current_rate = clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
+	if(current_rate >= jz_cpufreq->second_rate)
+		return NOTIFY_OK;
+	cancel_delayed_work(&jz_cpufreq->freq_up_work);
+	jz_cpufreq->set_rate = 1;
+	schedule_delayed_work(&jz_cpufreq->freq_up_work, msecs_to_jiffies(2000));
+	return NOTIFY_OK;
+}
 static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int i, max_freq;
@@ -112,16 +139,15 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	for(i = 0; jz_cpufreq->freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
 		printk(" %d", jz_cpufreq->freq_table[i].frequency);
 	printk("\n");
-
+	jz_cpufreq->second_rate = jz_cpufreq->freq_table[i-2].frequency;
+	jz_cpufreq->set_rate = 0;
+	printk("jz_cpufreq->second_rate = %d\n", jz_cpufreq->second_rate);
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
 	cpufreq_frequency_table_get_attr(jz_cpufreq->freq_table, policy->cpu);
-/* #ifdef SUSPEMD_FREQ_INDEX */
-/* 	if(SUSPEMD_FREQ_INDEX < ARRAY_SIZE(set_cpu_freqs)) */
-/* 		jz_cpufreq->suspend_rate = set_cpu_freqs[SUSPEMD_FREQ_INDEX]; */
-/* #endif */
 	policy->min = policy->cpuinfo.min_freq;
 	policy->max = policy->cpuinfo.max_freq;
+	printk("policy min %d max %d\n",policy->min, policy->max);
 	policy->cur = m200_getspeed(policy->cpu);
 	/*
 	 * On JZ47XX SMP configuartion, both processors share the voltage
@@ -132,8 +158,16 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
 	cpumask_setall(policy->cpus);
 	/* 300us for latency. FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 500 * 1000;
+	policy->cpuinfo.transition_latency = 100 * 1000;
+
 	mutex_init(&jz_cpufreq->mutex);
+	INIT_DELAYED_WORK(&jz_cpufreq->freq_up_work, freq_up_irq_work);
+
+	jz_cpufreq->freq_up_change.jz_notify = freq_up_change_notify;
+	jz_cpufreq->freq_up_change.level = NOTEFY_PROI_NORMAL;
+	jz_cpufreq->freq_up_change.msg = JZ_CLK_CHANGING;
+	jz_notifier_register(&jz_cpufreq->freq_up_change, NOTEFY_PROI_NORMAL);
+
 	printk("cpu freq init ok!\n");
 	return 0;
 freq_table_err:
@@ -160,12 +194,12 @@ static struct freq_attr *m200_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
 };
-
 static struct cpufreq_driver m200_driver = {
 	.name		= "m200",
 	.flags		= CPUFREQ_STICKY,
 	.verify		= m200_verify_speed,
 	.target		= m200_target,
+	.getavg         = m200_getavg,
 	.get		= m200_getspeed,
 	.init		= m200_cpu_init,
 	.suspend	= m200_cpu_suspend,
