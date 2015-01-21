@@ -632,6 +632,12 @@ config JZ_PWM_GPIO_D11
 	depends on JZ_PWM
 	default n
 
+config JZ_LED_RGB
+	tristate "Support Led_RGB on board Halley"
+	default n
+	help
+	  Support Led RGB on board Halley.
+
 config JZ_MODEM
         tristate "Support modem power control function"
         depends on JZRISC

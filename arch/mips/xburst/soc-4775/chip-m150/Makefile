@@ -1,3 +1,3 @@
 
 
-obj-$(CONFIG_BOARD_M150_HALLEY)		+= halley/
+obj-$(CONFIG_PRODUCT_DEVELOP)		+= halley/
