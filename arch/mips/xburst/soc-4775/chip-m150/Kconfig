@@ -6,7 +6,7 @@ choice
 	default BOARD_M150_HALLEY
 
 config BOARD_M150_HALLEY
-        bool "HALLEY"
+       bool "HALLEY"
 
 endchoice
 
