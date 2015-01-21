@@ -3,13 +3,19 @@
 choice
 	prompt "Board type"
 	depends on SOC_4775
-	default BOARD_M150_HALLEY
+	default PRODUCT_DEVELOP
 
-config BOARD_M150_HALLEY
-       bool "HALLEY"
+config PRODUCT_DEVELOP
+    bool "DEVELOP"
 
 endchoice
 
-config BOARD_NAME
-	string
-	default "halley" if BOARD_M150_HALLEY
+config PRODUCT_NAME
+string
+	default "halley" if PRODUCT_DEVELOP
+
+
+if PRODUCT_DEVELOP
+source "arch/mips/xburst/soc-4775/chip-m150/halley/Kconfig"
+endif
+
