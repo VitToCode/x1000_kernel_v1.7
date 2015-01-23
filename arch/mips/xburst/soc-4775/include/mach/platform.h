@@ -30,7 +30,7 @@
 #define UART2_PORTC							\
 	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, }
 #define UART3_PORTA							\
-	{ .name = "uart3", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0xc0000000, }
+	{ .name = "uart3", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1 << 31, }
 /*******************************************************************************************************************/
 
 #define MSC0_PORTA_4BIT							\
