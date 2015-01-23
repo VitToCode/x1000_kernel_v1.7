@@ -1,6 +1,6 @@
 /* include/linux/bma250.h
  *
- * Bosh BMA 250. Digital, triaxial acceleration sensor.
+ * Bosh BMA250E. Digital, triaxial acceleration sensor.
  *
  * Copyright (C) 2010 Sony Ericsson Mobile Communications AB.
  * Copyright (C) 2012 Sony Mobile Communications AB.
@@ -40,14 +40,16 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef LINUX_BMA280_MODULE_H
-#define LINUX_BMA280_MODULE_H
+#ifndef __BMA250E_H
+#define __BMA250E_H
 
 #define BMA250_NAME	"bma250e"
 
 #define BMA250_CHIP_ID_REG               0x00
 #define BMA250_VERSION_REG               0x01
 #define BMA250_X_AXIS_LSB_REG            0x02
+
+#define BMA250_ACCD_TEMP				 0x08
 
 #define BMA250_RANGE_REG                 0x0F
 #define BMA250_RANGE_MASK                0x0F
@@ -83,6 +85,8 @@
 
 //0x12 only bma280
 //PMU_LOW_NOISE
+#define BMA250_ACCD_HBW					 0x13
+#define BMA250_SHADOW_DIS				 0x40
 
 #define BMA250_RESET_REG                 0x14
 #define BMA250_RESET                     0xB6
@@ -92,6 +96,7 @@
 #define BMA250_INT_ORIENT                0x40
 #define BMA250_INT_S_TAP                 0x20
 #define BMA250_INT_D_TAP                 0x10
+#define BMA250_INT_SLOPE_XYZ			 0x07
 #define BMA250_INT_SLOPE_Z               0x04
 #define BMA250_INT_SLOPE_Y               0x02
 #define BMA250_INT_SLOPE_X               0x01
@@ -132,11 +137,28 @@
 #define BMA250_INT_PIN2_HIGH_G           0x02
 #define BMA250_INT_PIN2_LOW_G            0x01
 
+#define BMA250_INT_SRC					 0x1E
+#define BMA250_INT_FILTER				 0x00
+
+#define BMA250_INT_OUT_CTRL				 0x20
+#define BMA250_INT1_LVL					 0x01
+
 #define BMA250_INT_CTRL_REG              0x21
 #define BMA250_INT_RESET                 0x80
 
 #define BMA250_SLOPE_DUR                 0x27
+#define BMA250_SLOPE_DUR_VALUE			 0x01
+
+/*
+ * [per unit]    [ranges]
+ *   3.91mg  ---> 2g range
+ *   7.81mg  ---> 4g range
+ *  15.63mg ----> 8g range
+ *  31.25mg ----> 16g range
+ *
+ */
 #define BMA250_SLOPE_THR                 0x28
+#define BMA250_SLOPE_TH_4				 0x10
 
 #define BMA250_INTERRUPT_RESOLUTION   0
 #define BMA250_TIMER_RESOLUTION       1
