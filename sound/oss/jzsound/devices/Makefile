@@ -10,5 +10,3 @@ obj-$(CONFIG_SOUND_JZ_I2S_V12) 	+= xb47xx_i2s_v12.o
 obj-$(CONFIG_SOUND_JZ_SPDIF_V12) 	+= xb47xx_spdif_v12.o
 
 obj-$(CONFIG_SOUND_JZ_PCM_V12) 	+= xb47xx_pcm_v12.o
-
-#obj-$(CONFIG_SOUND_JZ_DMIC_V12) 	+= xb47xx_dmic_v12.o wakeup/
