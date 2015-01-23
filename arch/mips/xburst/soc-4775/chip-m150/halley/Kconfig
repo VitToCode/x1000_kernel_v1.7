@@ -1,11 +1,11 @@
 choice
-prompt "BOARD type"
-depends on PRODUCT_DEVELOP
+prompt "BOARD version"
+depends on PRODUCT_HALLEY
 default BOARD_HALLEY_V10
 
 config BOARD_HALLEY_V10
 bool "board halley v10"
-depends on PRODUCT_DEVELOP
+depends on PRODUCT_HALLEY
 
 endchoice
 
