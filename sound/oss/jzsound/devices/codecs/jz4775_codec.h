@@ -23,6 +23,12 @@
 #define REPLAY			1
 #define RECORD			2
 
+/*CRYSTAL
+ Selection of the SYS_CLK frequency.
+*/
+#define CRYSTAL_12_MHz    0
+#define CRYSTAL_13_MHz    1
+
 /* Channels */
 #define LEFT_CHANNEL		1
 #define RIGHT_CHANNEL		2
@@ -825,13 +831,15 @@ do {								\
 
 #define __codec_set_crystal(opt)									\
 	do {											\
-		codec_write_reg(CODEC_REG_CCR, (codec_read_reg(CODEC_REG_CCR) & ~CRYSTAL_MASK) |	\
+		codec_write_reg(CODEC_REG_CCR, 0x80 | (codec_read_reg(CODEC_REG_CCR) & ~CRYSTAL_MASK) |	\
 				(opt & CRYSTAL_MASK));						\
 												\
 	  } while (0)
 
 #define DMIC_CLK_ON		1
 #define DMIC_CLK_OFF		0
+
+#define __codec_get_dmic_clock() codec_read_reg(CODEC_REG_CCR)
 
 #define __codec_set_dmic_clock(opt)					\
 	do {								\

@@ -515,6 +515,7 @@ static void inline write_inter_codec_reg_mask(int addr,int val, int mask,int off
  **/
 enum codec_ioctl_cmd_t {
 	CODEC_INIT,
+	CODEC_TURN_ON,
 	CODEC_TURN_OFF,
 	CODEC_SHUTDOWN,
 	CODEC_RESET,

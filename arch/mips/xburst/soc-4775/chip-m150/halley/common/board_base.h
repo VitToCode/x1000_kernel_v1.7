@@ -8,7 +8,9 @@
 extern struct platform_device jz_led_RGB;
 #endif
 
-
+#ifdef CONFIG_JZ4775_INTERNAL_CODEC
+extern struct snd_codec_data codec_data;
+#endif
 
 
 

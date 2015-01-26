@@ -59,6 +59,7 @@ static int user_record_volume = 100;
 
 extern int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode);
 
+
 #define MIXER_RECORD  0x1
 #define	MIXER_REPLAY  0x2
 
@@ -107,7 +108,8 @@ static void codec_print_ioc_cmd(int cmd)
 	int i;
 
 	int cmd_arr[] = {
-		CODEC_INIT,					CODEC_TURN_OFF,
+		CODEC_INIT,
+		CODEC_TURN_ON,				CODEC_TURN_OFF,
 		CODEC_SHUTDOWN,				CODEC_RESET,
 		CODEC_SUSPEND,				CODEC_RESUME,
 		CODEC_ANTI_POP,				CODEC_SET_DEFROUTE,
@@ -124,7 +126,8 @@ static void codec_print_ioc_cmd(int cmd)
 	};
 
 	char *cmd_str[] = {
-		"CODEC_INIT", 			"CODEC_TURN_OFF",
+		"CODEC_INIT",
+		"CODEC_TURN_ON",		"CODEC_TURN_OFF",
 		"CODEC_SHUTDOWN", 		"CODEC_RESET",
 		"CODEC_SUSPEND",		"CODEC_RESUME",
 		"CODEC_ANTI_POP",		"CODEC_SET_DEFROUTE",
@@ -148,7 +151,7 @@ static void codec_print_ioc_cmd(int cmd)
 	}
 
 	if (i == sizeof(cmd_arr) / sizeof(int)) {
-		printk("CODEC IOC: command is not under control\n");
+		printk("CODEC IOC: command[%d], i[%d] is not under control\n", cmd, i);
 	}
 }
 #endif //CODEC_DUMP_IOC_CMD
@@ -164,6 +167,7 @@ static void codec_print_route_name(int route)
 		ROUTE_RECORD_CLEAR,
 		RECORD_MIC1_MONO_DIFF_WITH_BIAS,
 		RECORD_MIC2_MONO_DIFF_WITH_BIAS,
+		RECORD_DMIC,
 		REPLAY_HP_STEREO_CAP_LESS,
 		REPLAY_HP_STEREO_WITH_CAP,
 		REPLAY_HP_STEREO_CAP_LESS_AND_LINEOUT,
@@ -173,10 +177,14 @@ static void codec_print_route_name(int route)
 		BYPASS_MIC1_DIFF_WITH_BIAS_TO_LINEOUT,
 		BYPASS_MIC2_DIFF_WITH_BIAS_TO_HP_CAP_LESS,
 		BYPASS_MIC2_DIFF_WITH_BIAS_TO_LINEOUT,
-		BYPASS_LINEIN_TO_HP_CAP_LESS,
+		BYPASS_LINEIN_TO_HP_WITH_CAP,
 		BYPASS_LINEIN_TO_LINEOUT,
 		RECORD_STEREO_MIC_DIFF_WITH_BIAS_BYPASS_MIXER_MIC2_TO_HP_CAP_LESS,
 		RECORD_STEREO_MIC_DIFF_WITH_BIAS_BYPASS_MIXER_MIC2_TO_LINEOUT,
+
+		SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO,
+		SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_HP,
+		SND_ROUTE_DMIC_TO_AD_AND_DA_TO_LO,
 	};
 
 	char *route_str[] = {
@@ -185,6 +193,7 @@ static void codec_print_route_name(int route)
 		"ROUTE_RECORD_CLEAR",
 		"RECORD_MIC1_MONO_DIFF_WITH_BIAS",
 		"RECORD_MIC2_MONO_DIFF_WITH_BIAS",
+		"RECORD_DMIC",
 		"REPLAY_HP_STEREO_CAP_LESS",
 		"REPLAY_HP_STEREO_WITH_CAP",
 		"REPLAY_HP_STEREO_CAP_LESS_AND_LINEOUT",
@@ -194,10 +203,15 @@ static void codec_print_route_name(int route)
 		"BYPASS_MIC1_DIFF_WITH_BIAS_TO_LINEOUT",
 		"BYPASS_MIC2_DIFF_WITH_BIAS_TO_HP_CAP_LESS",
 		"BYPASS_MIC2_DIFF_WITH_BIAS_TO_LINEOUT",
-		"BYPASS_LINEIN_TO_HP_CAP_LESS",
+		"BYPASS_LINEIN_TO_HP_WITH_CAP",
 		"BYPASS_LINEIN_TO_LINEOUT",
 		"RECORD_STEREO_MIC_DIFF_WITH_BIAS_BYPASS_MIXER_MIC2_TO_HP_CAP_LESS",
 		"RECORD_STEREO_MIC_DIFF_WITH_BIAS_BYPASS_MIXER_MIC2_TO_LINEOUT",
+
+
+		"SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_LO",
+		"SND_ROUTE_MIC2_AN3_TO_AD_AND_DA_TO_HP",
+		"SND_ROUTE_DMIC_TO_AD_AND_DA_TO_LO"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -389,7 +403,7 @@ static void codec_early_suspend(struct early_suspend *handler)
 }
 static void codec_late_resume(struct early_suspend *handler)
 {
-	__codec_switch_sb_micbias(POWER_ON);
+     __codec_switch_sb_micbias(POWER_ON);
 }
 #endif
 
@@ -570,6 +584,75 @@ static void codec_set_mic2(int mode)
 
 	DUMP_ROUTE_PART_REGS("leave");
 }
+
+static void codec_set_dmic(int mode)
+{
+	int test_dmic_clock = 10;
+	DUMP_ROUTE_PART_REGS("enter");
+
+	switch(mode){
+
+	case DMIC_DIFF_WITH_HIGH_RATE:
+		printk("itang in JZ_CODEC: line: %d, dmic high rate set begin!\n", __LINE__);
+		__codec_set_dmic_insel(DMIC_SEL_DIGITAL_MIC); //select Digital microphone
+		__codec_set_crystal(CRYSTAL_13_MHz);
+		__codec_set_dmic_clock(DMIC_CLK_ON);    //DMIC_CLK  ON
+
+		//__codec_enable_mic_diff(); fix
+		printk("itang in JZ_CODEC: line: %d, dmic high rate set end!\n", __LINE__);
+		break;
+
+	case DMIC_DIFF_WITH_LOW_RATE:
+		printk("itang in JZ_CODEC: line: %d, dmic low rate set begin!\n", __LINE__);
+		//jzgpio_set_func(GPIO_PORT_F,GPIO_FUNC_1 , 3 << 10);  //设置GPIO_PORT_F的10和11位为功能1.即dmic的clk和in口
+		__codec_set_dmic_insel(DMIC_SEL_DIGITAL_MIC); //select Digital microphone
+
+		do{
+			__codec_switch_sb_adc(POWER_ON);
+			test_dmic_clock--;
+			if (!test_dmic_clock) {
+				printk("--------------set adc power on failed\n");
+				break;
+			}
+			printk("--------------set adc power on 0x%d\n",__codec_get_sb_adc());
+		} while(__codec_get_sb_adc());
+		test_dmic_clock = 10;
+		__codec_set_crystal(CRYSTAL_12_MHz);
+		if (!(0x80 & __codec_get_dmic_clock()))
+		do {
+			if(test_dmic_clock == 10)
+			printk("-------test 10 times start 0x%x\n", __codec_get_dmic_clock());
+			__codec_set_dmic_clock(DMIC_CLK_ON);    //DMIC_CLK  ON
+			printk("-------test 10 times start 0x%x\n", __codec_get_dmic_clock());
+			if ((__codec_get_dmic_clock()) & 0x80) {
+				printk("----------- set dmic clk successful 0x%x\n", __codec_get_dmic_clock());
+				break;
+			}
+			test_dmic_clock--;
+			if(test_dmic_clock == 0) {
+				printk("-------test 10 times failed reg 0x%x\n",__codec_get_dmic_clock());
+			}
+		} while(test_dmic_clock);
+		else
+			printk("----------clk on succussful\n");
+			__codec_switch_sb_micbias(POWER_ON);//hwang
+		printk("itang in JZ_CODEC: line: %d, dmic low rate set end!\n", __LINE__);
+		//__codec_enable_mic_diff();
+		break;
+
+	case DMIC_DISABLE:
+		printk("itang in JZ_CODEC: line: %d, dmic low rate set disable\n", __LINE__);
+		//jzgpio_set_func(GPIO_PORT_F,GPIO_FUNC_1 , 3 << 10);  //设置GPIO_PORT_F的10和11位为功能1.即dmic的clk和in口
+		__codec_set_dmic_clock(DMIC_CLK_OFF);    //DMIC_CLK  off
+		break;
+
+	default:
+		printk("JZ_CODEC: line: %d, dmic mode error!\n", __LINE__);
+	}
+
+	DUMP_ROUTE_PART_REGS("leave");
+}
+
 
 static void codec_set_linein_to_adc(int mode)
 {
@@ -1584,6 +1667,9 @@ static void codec_set_route_base(const void *arg)
 	if (conf->route_mic2_mode)
 		codec_set_mic2(conf->route_mic2_mode);
 
+	if (conf->route_dmic_mode) //hwang
+		codec_set_dmic(conf->route_dmic_mode);
+
 	if (conf->route_linein_to_adc_mode)
 		codec_set_linein_to_adc(conf->route_linein_to_adc_mode);
 
@@ -1923,7 +2009,6 @@ static int codec_set_board_route(struct snd_board_route *broute)
 	int resave_hp_mute = -1;
 	int resave_spk_en = -1;
 	int resave_handset_en = -1;
-
 	if (broute == NULL)
 		return 0;
 
@@ -1949,12 +2034,27 @@ static int codec_set_board_route(struct snd_board_route *broute)
 		}
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
-
-	{
-		keep_old_route = cur_route;
+	if (broute->route != ROUTE_RECORD_CLEAR) {
+		/* keep_old_route is used in resume part and record release */
+		if (cur_route == NULL || cur_route->route == ROUTE_ALL_CLEAR) {
+			keep_old_route = broute;
+			//keep_old_route = &codec_platform_data->replay_def_route;
+		}
+		else if (cur_route->route >= ROUTE_RECORD_ROUTE_START &&
+			 cur_route->route <= ROUTE_RECORD_ROUTE_END && keep_old_route != NULL) {
+			/*DO NOTHING IN THIS CASE*/
+		} else
+			keep_old_route = cur_route;
+		/* change cur_route */
 		cur_route = broute;
+	} else {
+		if (cur_route != NULL) {
+			if (cur_route->route >= ROUTE_RECORD_ROUTE_START &&
+			    cur_route->route <= ROUTE_RECORD_ROUTE_END) {
+				cur_route = keep_old_route;
+			}
+		}
 	}
-
 
 	/*set board gain*/
 	codec_set_gain_base(broute);
@@ -1981,10 +2081,15 @@ static int codec_set_board_route(struct snd_board_route *broute)
 		 (resave_spk_en == 0 && broute->gpio_spk_en_stat == KEEP_OR_IGNORE))
 		gpio_disable_spk_en();
 
-	if (broute->gpio_buildin_mic_en_stat == STATE_DISABLE)
+	if (broute->gpio_buildin_mic_en_stat == STATE_DISABLE){
 		gpio_select_headset_mic();
-	else if (broute->gpio_buildin_mic_en_stat == STATE_ENABLE)
+		if (codec_platform_data->board_dmic_control)//add xyfu
+			codec_platform_data->board_dmic_control(false);
+    }else if (broute->gpio_buildin_mic_en_stat == STATE_ENABLE){
 		gpio_select_buildin_mic();
+		if (codec_platform_data->board_dmic_control)//add xyfu
+			codec_platform_data->board_dmic_control(true);
+    }
 
 	DUMP_ROUTE_REGS("leave");
 
@@ -1998,7 +2103,7 @@ static int codec_set_default_route(int mode)
 	int ret = 0;
 	if (codec_platform_data) {
 		if (codec_platform_data->replay_def_route.route == SND_ROUTE_NONE){
-			codec_platform_data->replay_def_route.route = REPLAY_HP_STEREO_CAP_LESS;
+			codec_platform_data->replay_def_route.route = REPLAY_LINEOUT;
 		}
 
 		if (codec_platform_data->record_def_route.route == SND_ROUTE_NONE) {
@@ -2024,7 +2129,7 @@ static int codec_set_route(enum snd_codec_route_t route)
 	tmp_broute.gpio_handset_en_stat = KEEP_OR_IGNORE;
 	tmp_broute.gpio_spk_en_stat = KEEP_OR_IGNORE;
 	tmp_broute.gpio_hp_mute_stat = KEEP_OR_IGNORE;
-	tmp_broute.gpio_buildin_mic_en_stat = KEEP_OR_IGNORE;
+	tmp_broute.gpio_buildin_mic_en_stat = STATE_DISABLE;//KEEP_OR_IGNORE add by xyfu;
 	return codec_set_board_route(&tmp_broute);
 }
 
@@ -2044,7 +2149,7 @@ static int codec_init(void)
 	__codec_set_crystal(codec_platform_data->codec_sys_clk);
 
 	/* enable DMIC_CLK */
-	__codec_set_dmic_clock(codec_platform_data->codec_dmic_clk);
+	__codec_set_dmic_clock(DMIC_CLK_ON);
 
 	/* disable ADC/DAC LRSWP */
 	__codec_set_adc_lrswap(LRSWAP_DISABLE);
@@ -2087,6 +2192,17 @@ static int codec_init(void)
 	return 0;
 }
 
+/****** codec_turn_on ********/
+static int codec_turn_on(int mode)
+{
+	if (mode == CODEC_RWMODE) {
+	} else if (mode & CODEC_WMODE) {
+		gpio_enable_spk_en();
+	} else if (mode & CODEC_RMODE) {
+	}
+
+	return 0;
+}
 /****** codec_turn_off ********/
 static int codec_turn_off(int mode)
 {
@@ -2114,6 +2230,7 @@ static int codec_turn_off(int mode)
 #endif
 	} else if (mode & CODEC_WMODE) {
 		printk("JZ CODEC: Close REPLAY\n");
+		gpio_disable_spk_en();
 	} else if (mode & CODEC_RMODE) {
 		printk("JZ CODEC: Close RECORD\n");
 		ret = codec_set_route(ROUTE_RECORD_CLEAR);
@@ -2167,7 +2284,7 @@ static int codec_anti_pop(int mode)
 	case CODEC_WMODE:
 		__codec_switch_sb_dac(POWER_ON);
 		udelay(500);
-		i2s_replay_zero_for_flush_codec();
+		//i2s_replay_zero_for_flush_codec();
 		break;
 	}
 	return 0;
@@ -2233,6 +2350,7 @@ static int codec_set_device(enum snd_device_t device)
 {
 	int ret = 0;
 	int iserror = 0;
+
 
 	printk("codec_set_device %d \n",device);
 	switch (device) {
@@ -2788,6 +2906,10 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			ret = codec_init();
 			break;
 
+		case CODEC_TURN_ON:
+			ret = codec_turn_on(arg);
+			break;
+
 		case CODEC_TURN_OFF:
 			ret = codec_turn_off(arg);
 			break;
@@ -2918,7 +3040,6 @@ static int jz_codec_probe(struct platform_device *pdev)
 	codec_platform_data = pdev->dev.platform_data;
 
 	codec_platform_data->codec_sys_clk = SYS_CLK_12M;
-	codec_platform_data->codec_dmic_clk = DMIC_CLK_OFF;
 
 #if defined(CONFIG_JZ_HP_DETECT_CODEC)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
@@ -2992,7 +3113,7 @@ static struct platform_driver jz_codec_driver = {
 	},
 };
 
-void codec_irq_set_mask()
+void codec_irq_set_mask(void)
 {
 	__codec_set_irq_mask(ICR_ALL_MASK);
 	//__codec_set_irq_mask2(ICR_ALL_MASK2);

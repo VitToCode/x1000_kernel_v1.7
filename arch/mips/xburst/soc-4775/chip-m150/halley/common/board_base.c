@@ -50,6 +50,23 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_uart3_device, 0, 0),
 #endif
 
+#ifdef CONFIG_SOUND_JZ_PCM_V12
+	DEF_DEVICE(&jz_pcm_device, &pcm_data, sizeof(struct snd_dev_data)),
+	DEF_DEVICE(&jz_mixer1_device, &snd_mixer1_data, sizeof(struct snd_dev_data)),
+#endif
+#ifdef CONFIG_JZ4775_INTERNAL_CODEC
+	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
+#endif
+
+#ifdef CONFIG_SOUND_JZ_I2S_V12
+	DEF_DEVICE(&jz_i2s_device, &i2s_data, sizeof(struct snd_dev_data)),
+	DEF_DEVICE(&jz_mixer0_device, &snd_mixer0_data, sizeof(struct snd_dev_data)),
+#endif
+
+#ifdef CONFIG_XBURST_DMAC
+	DEF_DEVICE(&jz_pdma_device, 0, 0),
+#endif
+
 
 };
 

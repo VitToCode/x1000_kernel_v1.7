@@ -19,6 +19,7 @@ typedef struct __route_conf_base {
 	//record//
 	int route_mic1_mode;
 	int route_mic2_mode;
+	int route_dmic_mode;
 	int route_linein_to_adc_mode; //new
 	int route_linein_to_bypass_mode; //new
 	int route_record_mux_mode;
@@ -63,6 +64,7 @@ struct __codec_route_info {
 #define ROUTE_READY_FOR_ADC				1
 #define ROUTE_READY_FOR_DAC				2
 #define ROUTE_READY_FOR_ADC_DAC				3
+#define ROUTE_READY_FOR_DMIC				4
 
 #define MIC1_DIFF_WITH_MICBIAS				1
 #define MIC1_DIFF_WITHOUT_MICBIAS			2
@@ -75,6 +77,10 @@ struct __codec_route_info {
 #define MIC2_SING_WITH_MICBIAS				3
 #define MIC2_SING_WITHOUT_MICBIAS			4
 #define MIC2_DISABLE					DISABLE
+
+#define DMIC_DIFF_WITH_HIGH_RATE			1
+#define DMIC_DIFF_WITH_LOW_RATE	 		    2
+#define DMIC_DISABLE					DISABLE
 
 #define LINEIN_TO_ADC_ENABLE 				1
 #define LINEIN_TO_ADC_DISABLE				DISABLE

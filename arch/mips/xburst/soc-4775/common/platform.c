@@ -94,6 +94,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifndef CONFIG_JZ_INTERNAL_CODEC
 #endif
 #endif
+#ifdef CONFIG_JZ4775_INTERNAL_CODEC
+	DMIC_PORTF,
+#endif
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	PCM_PORTD,
 #endif
@@ -425,6 +428,7 @@ DEF_GPIO_I2C(0,GPIO_PD(30),GPIO_PD(31));
  * sound devices, include i2s,pcm, mixer0 - 1(mixer is used for debug) and an internal codec
  * note, the internal codec can only access by i2s0
  **/
+#ifdef CONFIG_SOUND_JZ_I2S_V12
 static u64 jz_i2s_dmamask =  ~(u32)0;
 static struct resource jz_i2s_resources[] = {
 	[0] = {
@@ -448,7 +452,8 @@ struct platform_device jz_i2s_device = {
 	.resource       = jz_i2s_resources,
 	.num_resources  = ARRAY_SIZE(jz_i2s_resources),
 };
-
+#endif
+#ifdef CONFIG_SOUND_JZ_PCM_V12
 static u64 jz_pcm_dmamask =  ~(u32)0;
 static struct resource jz_pcm_resources[] = {
 	[0] = {
@@ -472,18 +477,24 @@ struct platform_device jz_pcm_device = {
 	.resource       = jz_pcm_resources,
 	.num_resources  = ARRAY_SIZE(jz_pcm_resources),
 };
-
+#endif
 #define DEF_MIXER(NO)				\
 struct platform_device jz_mixer##NO##_device = {		\
 	.name	= DEV_MIXER_NAME,			\
 	.id		= minor2index(SND_DEV_MIXER##NO),	\
 };
+#ifdef CONFIG_SOUND_JZ_I2S_V12
 DEF_MIXER(0);
+#endif
+#ifdef CONFIG_SOUND_JZ_PCM_V12
 DEF_MIXER(1);
+#endif
 
+#if defined(CONFIG_SOUND_JZ_PCM_V12) || defined(CONFIG_SOUND_JZ_I2S_V12)
 struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };
+#endif
 
 /* only for ALSA platform devices */
 struct platform_device jz4775_codec_device = {

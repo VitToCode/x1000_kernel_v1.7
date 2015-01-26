@@ -19,7 +19,8 @@
 
 #define SPDIF_PORTF		                                           \
         { .name = "spdif-data-out",     .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<3,}
-
+#define DMIC_PORTF							\
+	{ .name = "dmic",			.port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x3 << 10}
 #define PCM_PORTF							\
 	{ .name = "pcm",			.port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf << 12}
 /*******************************************************************************************************************/
