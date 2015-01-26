@@ -8,6 +8,7 @@ obj-y += timer.o
 #maintimer.o cpu0timer.o cpu1timer.o 
 obj-y += serial.o 
 obj-y += tcu.o
+obj-y += cpm_usb.o
 obj-y += jzcpm_pwc.o
 
 ifeq ($(CONFIG_FPGA_TEST),y)

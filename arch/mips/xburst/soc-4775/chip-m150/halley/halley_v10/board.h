@@ -11,6 +11,27 @@
 #define GPIO_JZ_LED_RGB_B    GPIO_PC(13)
 #endif
 
+#ifdef  CONFIG_BROADCOM_RFKILL
+#define BLUETOOTH_UART_GPIO_PORT        GPIO_PORT_D
+#define BLUETOOTH_UART_GPIO_FUNC        GPIO_FUNC_2
+#define BLUETOOTH_UART_FUNC_SHIFT       0x4
+#define HOST_WAKE_BT    GPIO_PG(6)
+#define BT_WAKE_HOST    GPIO_PF(7)
+#define BT_REG_EN       GPIO_PG(9)
+#define BT_UART_RTS     GPIO_PD(29)
+#define BT_PWR_EN   -1
+#define HOST_BT_RST    -1
+#define GPIO_PB_FLGREG      (0x10010158)
+#define GPIO_BT_INT_BIT     (1 << (GPIO_BT_INT % 32))
+#define BLUETOOTH_UPORT_NAME  "ttyS1"
+#endif
+
+
+/*wifi*/
+#define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)
+#define WL_WAKE_HOST        GPIO_PG(7)
+#define WL_REG_EN       GPIO_PG(8)
+
 /* ****************************GPIO AUDIO START****************************** */
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/

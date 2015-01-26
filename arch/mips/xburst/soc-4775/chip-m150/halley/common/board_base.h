@@ -12,8 +12,18 @@ extern struct platform_device jz_led_RGB;
 extern struct snd_codec_data codec_data;
 #endif
 
+#ifdef CONFIG_MMC2_JZ4775
+extern struct jzmmc_platform_data sdio_pdata;
+#endif
 
+#ifdef CONFIG_BROADCOM_RFKILL
+extern struct platform_device	bt_power_device;
+extern struct platform_device	bluesleep_device;
+#endif
 
+#ifdef CONFIG_USB_DWC2
+extern struct platform_device   jz_dwc_otg_device;
+#endif
 
 
 

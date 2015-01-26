@@ -49,13 +49,25 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	DEF_DEVICE(&jz_uart3_device, 0, 0),
 #endif
-
+#ifdef CONFIG_MMC2_JZ4775
+	DEF_DEVICE(&jz_msc2_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
+#endif
 #ifdef CONFIG_SOUND_JZ_PCM_V12
 	DEF_DEVICE(&jz_pcm_device, &pcm_data, sizeof(struct snd_dev_data)),
 	DEF_DEVICE(&jz_mixer1_device, &snd_mixer1_data, sizeof(struct snd_dev_data)),
 #endif
+
+#ifdef CONFIG_BROADCOM_RFKILL
+	DEF_DEVICE(&bt_power_device,0,0),
+	DEF_DEVICE(&bluesleep_device,0,0),
+#endif
+
 #ifdef CONFIG_JZ4775_INTERNAL_CODEC
 	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
+#endif
+
+#ifdef CONFIG_USB_DWC2
+	DEF_DEVICE(&jz_dwc_otg_device,0,0),
 #endif
 
 #ifdef CONFIG_SOUND_JZ_I2S_V12

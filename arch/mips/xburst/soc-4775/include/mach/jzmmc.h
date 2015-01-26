@@ -96,6 +96,7 @@ static void inline rtc_write_reg(int reg,int value)
 }
 #define jzrtc_enable_clk32k()  rtc_write_reg(RTC_CKPCR,ENABLE_CLK32K)
 #define jzrtc_disable_clk32k() rtc_write_reg(RTC_CKPCR,DISABLE_CLK32K)
+
 extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 
