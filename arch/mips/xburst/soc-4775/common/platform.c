@@ -1041,7 +1041,7 @@ static struct resource jz_dwc_otg_resources[] = {
 };
 
 struct platform_device  jz_dwc_otg_device = {
-	.name = "jz4780-dwc2",
+	.name = "jz-dwc2",
 	.id = -1,
 	.num_resources	= ARRAY_SIZE(jz_dwc_otg_resources),
 	.resource	= jz_dwc_otg_resources,
