@@ -47,13 +47,13 @@ modules.builtin
 /Module.markers
 /Module.symvers
 drivers/dma/jzdma/firmware.hex
-
 #
 # git files that we don't want to ignore even it they are dot-files
 #
 !.gitignore
 !.mailmap
 
+!arch/mips/xburst/soc-4775/chip-m150/halley/common/rootfs.cpio.gz
 #
 # Generated include files
 #
