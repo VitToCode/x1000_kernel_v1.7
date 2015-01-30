@@ -10,7 +10,7 @@ static struct wifi_platform_data bcmdhd_wlan_pdata;
 //#define IMPORT_FWPATH_BY_SELF
 
 #ifdef IMPORT_WIFIMAC_BY_SELF
-#define WIFIMAC_ADDR_PATH "/data/misc/wifi/wifimac.txt"
+#define WIFIMAC_ADDR_PATH "/firmware/wifimac.txt"
 
 static int get_wifi_mac_addr(unsigned char* buf)
 {
