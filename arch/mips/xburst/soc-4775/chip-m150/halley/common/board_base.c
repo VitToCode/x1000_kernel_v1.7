@@ -79,7 +79,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_pdma_device, 0, 0),
 #endif
 
-
+#ifdef CONFIG_USB_OHCI_HCD
+	DEF_DEVICE(&jz_ohci_device,0,0),
+#endif
 };
 
 static int __init board_base_init(void)

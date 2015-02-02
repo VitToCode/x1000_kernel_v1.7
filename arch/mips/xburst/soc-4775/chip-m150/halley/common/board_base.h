@@ -24,8 +24,9 @@ extern struct platform_device	bluesleep_device;
 #ifdef CONFIG_USB_DWC2
 extern struct platform_device   jz_dwc_otg_device;
 #endif
-
-
+#ifdef CONFIG_USB_OHCI_HCD
+extern struct platform_device jz_ohci_device;
+#endif
 
 
 
