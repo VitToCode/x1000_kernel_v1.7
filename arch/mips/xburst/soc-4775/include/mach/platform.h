@@ -27,7 +27,7 @@
 #define UART0_PORTF							\
 	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x09, }
 #define UART1_PORTD							\
-	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xc<<26, }
+	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0x5 <<26, }
 #define UART2_PORTC							\
 	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, }
 #define UART2_PORTF							\
