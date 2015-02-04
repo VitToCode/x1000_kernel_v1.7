@@ -25,11 +25,13 @@
 	{ .name = "pcm",			.port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0xf << 12}
 /*******************************************************************************************************************/
 #define UART0_PORTF							\
-	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x0f, }
+	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_0, .pins = 0x09, }
 #define UART1_PORTD							\
-	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xf<<26, }
+	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xc<<26, }
 #define UART2_PORTC							\
 	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, }
+#define UART2_PORTF							\
+	{ .name = "uart2", .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x3 << 3, }
 #define UART3_PORTA							\
 	{ .name = "uart3", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 1 << 31, }
 /*******************************************************************************************************************/
