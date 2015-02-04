@@ -32,6 +32,13 @@
 #define WL_WAKE_HOST        GPIO_PG(7)
 #define WL_REG_EN       GPIO_PG(8)
 
+
+#ifdef CONFIG_SPI_GPIO
+#define GPIO_SPI_SCK  GPIO_PA(18)
+#define GPIO_SPI_MOSI GPIO_PA(19)
+#define GPIO_SPI_MISO GPIO_PA(20)
+#endif
+
 /* ****************************GPIO AUDIO START****************************** */
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/

@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/resource.h>
 #include <linux/i2c-gpio.h>
+#include <linux/spi/spi_gpio.h>
 
 #include <gpio.h>
 
@@ -24,6 +25,7 @@
 #include <mach/platform.h>
 #include <mach/jzdma.h>
 #include <mach/jzsnd.h>
+#include <mach/jzssi.h>
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
@@ -150,22 +152,22 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	CIM1_PORTG,
 #endif
 
-#ifdef CONFIG_SPI0_JZ4780_PA
+#ifdef CONFIG_SPI0_JZ47XX_PA
        SSI0_PORTA,
 #endif
-#ifdef CONFIG_SPI0_JZ4780_PB
+#ifdef CONFIG_SPI0_JZ47XX_PB
 #endif
-#ifdef CONFIG_SPI0_JZ4780_PD
+#ifdef CONFIG_SPI0_JZ47XX_PD
        SSI0_PORTD,
 #endif
-#ifdef CONFIG_SPI0_JZ4780_PE
+#ifdef CONFIG_SPI0_JZ47XX_PE
 #endif
 
-#ifdef CONFIG_SPI1_JZ4780_PB
+#ifdef CONFIG_SPI1_JZ47XX_PB
 #endif
-#ifdef CONFIG_SPI1_JZ4780_PD
+#ifdef CONFIG_SPI1_JZ47XX_PD
 #endif
-#ifdef CONFIG_SPI1_JZ4780_PE
+#ifdef CONFIG_SPI1_JZ47XX_PE
 #endif
 
 };

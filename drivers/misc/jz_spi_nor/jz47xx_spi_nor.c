@@ -439,10 +439,9 @@ static int __devinit jz_nor_probe(struct spi_device *spi)
 {
 	struct jz_nor_local *flash;
 	struct spi_nor_platform_data *pdata = spi->dev.platform_data;
-	u8 id_buf[4];
+	u8 id_buf[4] = {0};
 	int err;
 	int ret;
-
 	dev_info(&spi->dev, "max_speed_hz: %dkHz\n", spi->max_speed_hz / 1000);
 	dev_info(&spi->dev, "bits_per_word: %dbit\n", spi->bits_per_word);
 
@@ -488,10 +487,10 @@ static int __devinit jz_nor_probe(struct spi_device *spi)
 	//mutex_init(&flash->lock);
 
 	ret = jz_nor_read_id(flash, id_buf);
-	dev_info(&spi->dev, "spi-nor id: 0x%08x, status: %d\n", *((u32 *)id_buf), ret);
+	dev_info(&spi->dev, "spi-nor id: 0x%08x, status: %d\n", *((u8 *)id_buf), ret);
 	*((u32 *)id_buf) = 0;
 	ret = jz_nor_read_id(flash, id_buf);
-	dev_info(&spi->dev, "spi-nor id: 0x%08x, status: %d\n", *((u32 *)id_buf), ret);
+	dev_info(&spi->dev, "spi-nor id: 0x%08x, status: %d\n", *((u8 *)id_buf), ret);
 
 #if 0
 	flash->start.cmd = 0x00;

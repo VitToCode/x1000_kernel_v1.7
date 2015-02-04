@@ -2,7 +2,7 @@
 #define __BOARD_BASE_H__
 
 #include <board.h>
-
+#include <linux/spi/spi.h>
 
 #ifdef CONFIG_JZ_LED_RGB
 extern struct platform_device jz_led_RGB;
@@ -28,10 +28,15 @@ extern struct platform_device   jz_dwc_otg_device;
 extern struct platform_device jz_ohci_device;
 #endif
 
-
-
-
-
-
+#ifdef CONFIG_SPI0_JZ47XX
+extern struct jz47xx_spi_info spi0_info_cfg;
+#endif
+#ifdef CONFIG_JZ_SPI_NOR
+extern struct spi_board_info jz_spi0_board_info[];
+extern int jz_spi0_devs_size;
+#endif
+#ifdef CONFIG_SPI_GPIO
+extern struct platform_device jz47xx_spi_gpio_device;
+#endif
 
 #endif

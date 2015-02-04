@@ -61,6 +61,13 @@ config AD525X_DPOT_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad525x_dpot-spi.
 
+config JZ_SPI_NOR
+	tristate "Support SPI NOR at Ingenic"
+	depends on JZRISC
+	default n
+	help
+		Support SPI NOR Flash to JZ SOC.
+
 config ANDROID_PMEM
 	bool "Android pmem allocator"
 	default y
@@ -643,12 +650,6 @@ config JZ_MODEM
         depends on JZRISC
         help
           Support the modem(s) connected to JZ SOC.
-
-config JZ_SPI_NOR
-        tristate "Support SPI NOR at Ingenic"
-        depends on JZRISC
-        help
-                Support SPI NOR Flash to JZ SOC.
 
 config GSM_RDA8851CL
         bool "Use GSM modem RDA8851CL"

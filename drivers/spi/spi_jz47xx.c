@@ -1061,9 +1061,9 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	int err = 0;
 	int num_cs_got = 0;
 	char clkname[16];
+	int i;
 
 #ifdef CONFIG_JZ_SPI_BOARD_INFO_REGISTER
-	int i;
 	struct spi_board_info *bi;
 #endif
 

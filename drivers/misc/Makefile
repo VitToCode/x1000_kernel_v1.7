@@ -75,3 +75,4 @@ obj-$(CONFIG_MISC_BMA250E)	+= bma250e.o
 obj-$(CONFIG_JZ_LED_RGB)           += jz_ledrgb.o
 
 obj-$(CONFIG_TD_SC8800S)        += sc8800s.o
+obj-$(CONFIG_JZ_SPI_NOR)        += jz_spi_nor/

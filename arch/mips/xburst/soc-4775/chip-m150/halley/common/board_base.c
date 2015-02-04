@@ -16,6 +16,7 @@
 #include <mach/platform.h>
 #include <mach/jzfb.h>
 #include <mach/jzmmc.h>
+#include <mach/jzssi.h>
 #include <gpio.h>
 #include "board_base.h"
 
@@ -82,6 +83,15 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_USB_OHCI_HCD
 	DEF_DEVICE(&jz_ohci_device,0,0),
 #endif
+
+#ifdef CONFIG_SPI_GPIO
+	DEF_DEVICE(&jz47xx_spi_gpio_device, 0,0),
+#endif
+
+#ifdef CONFIG_SPI0_JZ47XX
+	DEF_DEVICE(&jz_ssi0_device, &spi0_info_cfg, sizeof(struct jz47xx_spi_info)),
+#endif
+
 };
 
 static int __init board_base_init(void)
@@ -96,7 +106,9 @@ static int __init board_base_init(void)
 					platform_devices_array[i].pdata, platform_devices_array[i].size);
 		platform_device_register(platform_devices_array[i].pdevices);
 	}
-
+#if defined(CONFIG_SPI0_JZ47XX) | defined(CONFIG_SPI_GPIO)
+	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
+#endif
 	return 0;
 }
 
