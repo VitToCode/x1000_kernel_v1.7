@@ -1055,6 +1055,6 @@ struct platform_device  jz_dwc_otg_device = {
 #ifdef CONFIG_JZ4775_EFUSE
 /* efuse */
 struct platform_device jz_efuse_device = {
-       .name = "jz4780-efuse",
+       .name = "jz-efuse",
 };
 #endif

@@ -19,3 +19,10 @@
 #include <sound/jz-aic.h>
 #include "board_base.h"
 #include <board.h>
+
+#ifdef CONFIG_JZ4775_EFUSE
+struct jz_efuse_platform_data jz_efuse_pdata = {
+	    /* supply 2.5V to VDDQ */
+	    .gpio_vddq_en_n = GPIO_EFUSE_VDDQ,
+};
+#endif

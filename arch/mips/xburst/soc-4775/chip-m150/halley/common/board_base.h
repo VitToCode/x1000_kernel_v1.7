@@ -39,4 +39,8 @@ extern int jz_spi0_devs_size;
 extern struct platform_device jz47xx_spi_gpio_device;
 #endif
 
+#ifdef CONFIG_JZ4775_EFUSE
+extern struct jz_efuse_platform_data jz_efuse_pdata;
+#endif
+
 #endif

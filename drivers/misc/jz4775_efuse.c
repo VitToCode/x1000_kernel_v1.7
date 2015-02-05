@@ -1,5 +1,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
@@ -9,286 +10,315 @@
 #include <linux/fs.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
-
+#include <linux/proc_fs.h>
 #include <soc/base.h>
 #include <mach/jz4780_efuse.h>
+#include <jz_proc.h>
 
-#define JZ_REG_EFUSE_CTRL		0xC
-//#define JZ_REG_EFUSE_CFG		0x4
-//#define JZ_REG_EFUSE_STATE		0x8
-#define JZ_REG_EFUSE_DATA(n)		(0x10 + (n)*4)
+#define EFUSE_IOBASE	0x134100d0
+#define DRV_NAME		"jz-efuse"
 
-/* EFUSE Status Register  (OTP_STATE) */
-/*
-#define JZ_EFUSE_STATE_GLOBAL_PRT	(1 << 15)
-#define JZ_EFUSE_STATE_CHIPID_PRT	(1 << 14)
-#define JZ_EFUSE_STATE_CUSTID_PRT	(1 << 13)
-#define JZ_EFUSE_STATE_SECWR_EN		(1 << 12)
-#define JZ_EFUSE_STATE_PC_PRT		(1 << 11)
-#define JZ_EFUSE_STATE_HDMIKEY_PRT	(1 << 10)
-#define JZ_EFUSE_STATE_SECKEY_PRT	(1 << 9)
-#define JZ_EFUSE_STATE_SECBOOT_EN	(1 << 8)
-#define JZ_EFUSE_STATE_HDMI_BUSY	(1 << 2)
-#define JZ_EFUSE_STATE_WR_DONE		(1 << 1)
-#define JZ_EFUSE_STATE_RD_DONE		(1 << 0)
-//EFUSE PROTECT BIT
-#define JZ_EFUSE_MASK_GLOBAL_PRT	(1 << 7)
-#define JZ_EFUSE_MASK_CHIPID_PRT        (1 << 6)
-#define JZ_EFUSE_MASK_CUSTID_PRT        (1 << 5)
-#define JZ_EFUSE_MASK_SECWR_EN		(1 << 4)
-#define JZ_EFUSE_MASK_PC_PRT		(1 << 3)
-#define JZ_EFUSE_MASK_HDMIKEY_PRT	(1 << 2)
-#define JZ_EFUSE_MASK_SECKEY_PRT	(1 << 1)
-#define JZ_EFUSE_MASK_SECBOOT_EN	(1 << 0)
-*/
-static void __iomem *jz_efuse_base;
-static spinlock_t jz_efuse_lock;
-static int gpio_vddq_en_n;
-struct timer_list vddq_protect_timer;
+#define EFUSE_CTRL				0xc
 
-static uint32_t jz_efuse_reg_read(int reg)
-{
-	return readl(jz_efuse_base + reg);
-}
+#define CMD_READ		100
+#define CMD_WRITE		101
 
-static void jz_efuse_reg_write(int reg, uint32_t val)
-{
-	writel(val, jz_efuse_base + reg);
-}
+#define CHIP_ID_ADDR	(0x10)
+#define USER_ID_ADDR	(0x20)
 
-/*
-static void jz_efuse_reg_write_mask(int reg, uint32_t val, uint32_t mask)
-{
-	uint32_t val2;
-
-	val2 = readl(jz_efuse_base + reg);
-	val2 &= ~mask;
-	val2 |= val;
-	writel(val2, jz_efuse_base + reg);
-}
-*/
-
-static void jz_efuse_reg_set_bits(int reg, uint32_t mask)
-{
-	uint32_t val;
-
-	val = readl(jz_efuse_base + reg);
-	val |= mask;
-	writel(val, jz_efuse_base + reg);
-}
-
-static void jz_efuse_reg_clear_bits(int reg, uint32_t mask)
-{
-	uint32_t val;
-
-	val = readl(jz_efuse_base + reg);
-	val &= ~mask;
-	writel(val, jz_efuse_base + reg);
-}
-
-static void jz_efuse_vddq_set(unsigned long is_on)
-{
-	printk("JZ4780-EFUSE: vddq_set %d\n", (int)is_on);
-	if (gpio_vddq_en_n == -ENODEV) {
-		printk("JZ4780-EFUSE: The VDDQ can't be opened by software!\n");
-		return;
-	}
-	if (is_on) {
-		mod_timer(&vddq_protect_timer, jiffies + HZ);
-	}
-	gpio_set_value(gpio_vddq_en_n, !is_on);
-}
-
-void jz_efuse_id_read(int is_chip_id, uint32_t *buf)
-{
-	int i;
-
-printk("1--jz_efuse_id_read\n");
-	spin_lock(&jz_efuse_lock);
-
-	if (is_chip_id ) {
-		/*jz_efuse_reg_write(JZ_REG_EFUSE_CTRL,  0x1 << 0 );
-		while (!(jz_efuse_reg_read(JZ_REG_EFUSE_CTRL) & (0x1 << 0)));
-		*/
-		for (i = 0; i < 4; i++)
-			*(buf + i) = jz_efuse_reg_read(JZ_REG_EFUSE_DATA(i));
-	} else {
-		/*jz_efuse_reg_write(JZ_REG_EFUSE_CTRL,  0x1 << 1 );
-		while (!(jz_efuse_reg_read(JZ_REG_EFUSE_CTRL) & (0x1 << 1)));
-		*/
-		for (i = 0; i < 4; i++)
-			*(buf + i) = jz_efuse_reg_read(JZ_REG_EFUSE_DATA(i+4));
-	}
-
-	spin_unlock(&jz_efuse_lock);
-}
-EXPORT_SYMBOL_GPL(jz_efuse_id_read);
-
-static void jz_efuse_id_write(int is_chip_id, uint32_t *buf)
-{
-	int i;
-
-printk("1--jz_efuse_id_write\n");
-	if (gpio_vddq_en_n == -ENODEV) {
-		printk("JZ4780-EFUSE: The VDDQ can't be opened by software!\n");
-		return;
-	}
-
-	spin_lock(&jz_efuse_lock);
-
-//Config AHB2 freq to 166Mhz
-//
-//
-//////////////////////////
-
-	jz_efuse_vddq_set(1);
-
-	if (is_chip_id ) {
-		for (i = 0; i < 4; i++)
-			jz_efuse_reg_write(JZ_REG_EFUSE_DATA(i), *(buf + i));
-
-		jz_efuse_reg_write(JZ_REG_EFUSE_CTRL,  0x1 << 0 );
-		while (!(jz_efuse_reg_read(JZ_REG_EFUSE_CTRL) & (0x1 << 0)));
-	} else {
-		for (i = 0; i < 4; i++)
-			jz_efuse_reg_write(JZ_REG_EFUSE_DATA(i+4), *(buf + i));
-
-		jz_efuse_reg_write(JZ_REG_EFUSE_CTRL,  0x1 << 1 );
-		while (!(jz_efuse_reg_read(JZ_REG_EFUSE_CTRL) & (0x1 << 1)));
-	}
-	jz_efuse_vddq_set(0);
-
-	spin_unlock(&jz_efuse_lock);
-}
-
-static ssize_t jz_efuse_chip_id_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	uint32_t data[4];
-printk("1--jz_efuse_chip_id_show\n");
-
-	jz_efuse_id_read(1, data);
-	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\0", data[0], data[1], data[2], data[3]);
-}
-
-static ssize_t jz_efuse_user_id_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-printk("1--jz_efuse_user_id_show\n");
-	uint32_t data[4];
-
-	jz_efuse_id_read(0, data);
-	return snprintf(buf, PAGE_SIZE, "%08x %08x %08x %08x\0", data[0], data[1], data[2], data[3]);
-}
-
-static ssize_t jz_efuse_chip_id_store(struct device *dev,
-				      struct device_attribute *attr, const char *buf, size_t count)
-{
-	uint32_t data[4];
-
-printk("1--jz_efuse_chip_id_store\n");
-	sscanf (buf, "%08x %08x %08x %08x", &data[0], &data[1], &data[2], &data[3]);
-	dev_info(dev, "chip id store: %08x %08x %08x %08x\n", data[0], data[1], data[2], data[3]);
-	jz_efuse_id_write(1, data);
-	return strnlen(buf, PAGE_SIZE);
-}
-
-static ssize_t jz_efuse_user_id_store(struct device *dev,
-				      struct device_attribute *attr, const char *buf, size_t count)
-{
-	uint32_t data[4];
-printk("1--jz_efuse_user_id_store\n");
-
-	sscanf (buf, "%08x %08x %08x %08x", &data[0], &data[1], &data[2], &data[3]);
-	dev_info(dev, "user id store: %08x %08x %08x %08x\n", data[0], data[1], data[2], data[3]);
-	jz_efuse_id_write(0, data);
-	return strnlen(buf, PAGE_SIZE);
-}
-
-static struct device_attribute jz_efuse_sysfs_attrs[] = {
-    __ATTR(chip_id, S_IRUGO | S_IWUSR, jz_efuse_chip_id_show, jz_efuse_chip_id_store),
-    __ATTR(user_id, S_IRUGO | S_IWUSR, jz_efuse_user_id_show, jz_efuse_user_id_store),
+struct efuse_wr_info {
+	uint32_t seg_id;
+	uint32_t data_length;	/* no use */
+	uint32_t *buf;
 };
 
-static int efuse_probe(struct platform_device *pdev)
+struct jz_efuse {
+	struct jz_efuse_platform_data *pdata;
+	struct device *dev;
+	struct miscdevice mdev;
+	struct efuse_wr_info *wr_info;
+	spinlock_t lock;
+	void __iomem *iomem;
+	int gpio_vddq_en_n;
+	struct timer_list vddq_protect_timer;
+};
+
+struct jz_efuse *efuse;
+
+static uint32_t efuse_readl(uint32_t reg_off)
 {
-	int ret;
-	struct jz4780_efuse_platform_data *pdata;
+	return readl(efuse->iomem + reg_off);
+}
 
-	pdata = pdev->dev.platform_data;
+static void efuse_writel(uint32_t val, uint32_t reg_off)
+{
+	writel(val, efuse->iomem + reg_off);
+}
 
-        gpio_vddq_en_n = -ENODEV;
-printk("1--efuse_probe\n");
-	if (!pdata)
-		dev_err(&pdev->dev, "No platform data\n");
-	else
-		gpio_vddq_en_n = pdata->gpio_vddq_en_n;
-
-	jz_efuse_base = ioremap(NEMC_IOBASE + 0xd0, 0x2c);
-	if (!jz_efuse_base) {
-		dev_err(&pdev->dev, "ioremap failed!\n");
-		return -EBUSY;
-	}
-
-	if (gpio_vddq_en_n != -ENODEV) {
-		ret = gpio_request(gpio_vddq_en_n, dev_name(&pdev->dev));
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to request gpio pin: %d\n", ret);
-			goto err_free_io;
-		}
-
-		ret = gpio_direction_output(gpio_vddq_en_n, 1); /* power off by default */
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to set gpio as output: %d\n", ret);
-			goto err_free_gpio;
-		}
-	}
-
-printk("2--efuse_probe\n");
-	spin_lock_init(&jz_efuse_lock);
-
-	if (gpio_vddq_en_n != -ENODEV) {
-		printk("JZ4780-EFUSE: setup vddq_protect_timer!\n");
-		setup_timer(&vddq_protect_timer, jz_efuse_vddq_set, 0);
-		add_timer(&vddq_protect_timer);
-	}
-	{
-	    int i;
-	    for (i = 0; i < ARRAY_SIZE(jz_efuse_sysfs_attrs); i++) {
-		ret = device_create_file(&pdev->dev, &jz_efuse_sysfs_attrs[i]);
-		if (ret)
-		    break;
-	    }
-	}
-
-	dev_info(&pdev->dev,"ingenic efuse interface module registered.\n");
-
-printk("3--efuse_probe\n");
+static int efuse_open(struct inode *inode, struct file *filp)
+{
 	return 0;
+}
 
-err_free_gpio:
-	gpio_free(gpio_vddq_en_n);
-err_free_io:
-	iounmap(jz_efuse_base);
+static int efuse_release(struct inode *inode, struct file *filp)
+{
+	/*clear configer register */
+	/*efuse_writel(0, EFUSE_CFG); */
+	return 0;
+}
+
+static void efuse_vddq_set(unsigned long is_on)
+{
+	printk("JZ4780-EFUSE: vddq_set %d\n", (int)is_on);
+	if (is_on) {
+		mod_timer(&efuse->vddq_protect_timer, jiffies + HZ);
+	}
+
+	if (efuse->gpio_vddq_en_n != -ENODEV) {
+		gpio_set_value(efuse->gpio_vddq_en_n, !is_on);
+	}
+}
+
+static void jz_efuse_read(int seg_id, uint32_t * buf)
+{
+	int i;
+
+	printk("1--jz_efuse_read\n");
+	spin_lock(&efuse->lock);
+
+	if (seg_id == CHIP_ID_ADDR) {
+		/*efuse_writel(EFUSE_CTRL,  0x1 << 0 );
+		   while (!(efuse_readl(EFUSE_CTRL) & (0x1 << 0)));
+		 */
+		for (i = 0; i < 4; i++)
+			*(buf + i) = efuse_readl(CHIP_ID_ADDR + i * 4);
+	} else if (seg_id == USER_ID_ADDR) {
+		/*efuse_writel(EFUSE_CTRL,  0x1 << 1 );
+		   while (!(efuse_readl(EFUSE_CTRL) & (0x1 << 1)));
+		 */
+		for (i = 0; i < 4; i++)
+			*(buf + i) = efuse_readl(USER_ID_ADDR + i * 4);
+	}
+
+	spin_unlock(&efuse->lock);
+}
+
+void jz_efuse_id_read(int is_chip_id, uint32_t * buf)
+{
+	if (is_chip_id) {
+		jz_efuse_read(CHIP_ID_ADDR, buf);
+	} else {
+		jz_efuse_read(USER_ID_ADDR, buf);
+	}
+}
+
+EXPORT_SYMBOL_GPL(jz_efuse_id_rad);
+
+static void jz_efuse_write(int seg_id, uint32_t * buf)
+{
+	int i;
+
+	printk("1--jz_efuse_write\n");
+	if (efuse->gpio_vddq_en_n == -ENODEV) {
+		printk("JZ4780-EFUSE: The VDDQ can't be opened by software!\n");
+		return;
+	}
+
+	spin_lock(&efuse->lock);
+
+	efuse_vddq_set(1);
+
+	if (seg_id == CHIP_ID_ADDR) {
+		for (i = 0; i < 4; i++)
+			efuse_writel(CHIP_ID_ADDR + i * 4, *(buf + i));
+
+		efuse_writel(EFUSE_CTRL, 0x1 << 0);
+		while (!(efuse_readl(EFUSE_CTRL) & (0x1 << 0))) ;
+	} else if (seg_id == USER_ID_ADDR) {
+		for (i = 0; i < 4; i++)
+			efuse_writel(USER_ID_ADDR + i * 4, *(buf + i));
+
+		efuse_writel(EFUSE_CTRL, 0x1 << 1);
+		while (!(efuse_readl(EFUSE_CTRL) & (0x1 << 1))) ;
+	}
+	efuse_vddq_set(0);
+
+	spin_unlock(&efuse->lock);
+}
+
+static long efuse_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct jz_efuse *efuse = container_of(dev, struct jz_efuse, mdev);
+	unsigned int *arg_r;
+	int ret = 0;
+
+	arg_r = (unsigned int *)arg;
+	efuse->wr_info = (struct efuse_wr_info *)arg_r;
+	switch (cmd) {
+	case CMD_READ:
+		jz_efuse_read(efuse->wr_info->seg_id, efuse->wr_info->buf);
+		break;
+	case CMD_WRITE:
+		jz_efuse_write(efuse->wr_info->seg_id, efuse->wr_info->buf);
+		break;
+	default:
+		ret = -1;
+		printk("no support other cmd\n");
+	}
 	return ret;
 }
 
-static int __devexit efuse_remove(struct platform_device *pdev)
+static struct file_operations efuse_misc_fops = {
+	.open = efuse_open,
+	.release = efuse_release,
+	.unlocked_ioctl = efuse_ioctl,
+};
+
+static int efuse_read_chip_id_proc(char *page, char **start, off_t off,
+				   int count, int *eof, void *data)
 {
-	if (gpio_vddq_en_n != -ENODEV) {
-		gpio_free(gpio_vddq_en_n);
+	int len = 0;
+	uint32_t buf[4];
+	jz_efuse_read(CHIP_ID_ADDR, buf);
+	len =
+	    sprintf(page, "--------> chip id: %x-%x-%x-%x\n", buf[0], buf[1],
+		    buf[2], buf[3]);
+	return len;
+}
+
+static int efuse_read_user_id_proc(char *page, char **start, off_t off,
+				   int count, int *eof, void *data)
+{
+	int len = 0;
+	uint32_t buf[4];
+	jz_efuse_read(USER_ID_ADDR, buf);
+	len =
+	    sprintf(page, "--------> user id: %x-%x-%x-%x\n", buf[0], buf[1],
+		    buf[2], buf[3]);
+
+	return len;
+}
+
+static int efuse_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	unsigned long rate;
+	uint32_t val, ns;
+	struct proc_dir_entry *res, *p;
+
+	efuse = kzalloc(sizeof(struct jz_efuse), GFP_KERNEL);
+	if (!efuse) {
+		printk("efuse:malloc faile\n");
+		return -ENOMEM;
 	}
-	iounmap(jz_efuse_base);
-	if (gpio_vddq_en_n != -ENODEV) {
-		printk("JZ4780-EFUSE: del vddq_protect_timer!\n");
-		del_timer(&vddq_protect_timer);
+
+	efuse->pdata = pdev->dev.platform_data;
+	if (!efuse->pdata) {
+		dev_err(&pdev->dev, "No platform data\n");
+		ret = -1;
+		goto fail_free_efuse;
 	}
+
+	efuse->dev = &pdev->dev;
+
+	efuse->gpio_vddq_en_n = efuse->pdata->gpio_vddq_en_n;
+
+	efuse->iomem = ioremap(EFUSE_IOBASE, 0x100);
+	if (!efuse->iomem) {
+		dev_err(efuse->dev, "ioremap failed!\n");
+		ret = -EBUSY;
+		goto fail_free_efuse;
+	}
+
+	if (efuse->gpio_vddq_en_n != -ENODEV) {
+		ret = gpio_request(efuse->gpio_vddq_en_n, dev_name(efuse->dev));
+		if (ret) {
+			dev_err(efuse->dev, "Failed to request gpio pin: %d\n",
+				ret);
+			goto fail_free_io;
+		}
+		ret = gpio_direction_output(efuse->gpio_vddq_en_n, 1);	/* power off by default */
+		if (ret) {
+			dev_err(efuse->dev,
+				"Failed to set gpio as output: %d\n", ret);
+			goto fail_free_gpio;
+		}
+	}
+
+	dev_info(efuse->dev, "setup vddq_protect_timer!\n");
+	setup_timer(&efuse->vddq_protect_timer, efuse_vddq_set, 0);
+	add_timer(&efuse->vddq_protect_timer);
+
+	spin_lock_init(&efuse->lock);
+
+	efuse->mdev.minor = MISC_DYNAMIC_MINOR;
+	efuse->mdev.name = DRV_NAME;
+	efuse->mdev.fops = &efuse_misc_fops;
+
+	spin_lock_init(&efuse->lock);
+
+	ret = misc_register(&efuse->mdev);
+	if (ret < 0) {
+		dev_err(efuse->dev, "misc_register failed\n");
+		goto fail_free_gpio;
+	}
+	platform_set_drvdata(pdev, efuse);
+
+	efuse->wr_info = NULL;
+
+	p = jz_proc_mkdir("efuse");
+	if (!p) {
+		pr_warning("create_proc_entry for common efuse failed.\n");
+		return -ENODEV;
+	}
+	res = create_proc_entry("efuse_chip_id", 0444, p);
+	if (res) {
+		res->read_proc = efuse_read_chip_id_proc;
+		res->write_proc = NULL;
+		res->data = NULL;
+	}
+	res = create_proc_entry("efuse_user_id", 0444, p);
+	if (res) {
+		res->read_proc = efuse_read_user_id_proc;
+		res->write_proc = NULL;
+		res->data = NULL;
+	}
+
+	dev_info(efuse->dev,
+		 "ingenic efuse interface module registered success.\n");
+	return 0;
+fail_free_efuse:
+	kfree(efuse);
+fail_free_gpio:
+	gpio_free(efuse->gpio_vddq_en_n);
+fail_free_io:
+	iounmap(efuse->iomem);
+
+	return ret;
+}
+
+static int __devexit efuse_remove(struct platform_device *dev)
+{
+	struct jz_efuse *efuse = platform_get_drvdata(dev);
+
+	misc_deregister(&efuse->mdev);
+	if (efuse->gpio_vddq_en_n != -ENODEV) {
+		gpio_free(efuse->gpio_vddq_en_n);
+		dev_info(efuse->dev, "del vddq_protect_timer!\n");
+		del_timer(&efuse->vddq_protect_timer);
+	}
+	iounmap(efuse->iomem);
+	kfree(efuse);
+
 	return 0;
 }
 
 static struct platform_driver efuse_driver = {
-	.driver.name	= "jz4780-efuse",
-	.driver.owner	= THIS_MODULE,
-	.probe		= efuse_probe,
-	.remove		= efuse_remove,
+	.driver.name = "jz-efuse",
+	.driver.owner = THIS_MODULE,
+	.probe = efuse_probe,
+	.remove = efuse_remove,
 };
 
 static int __init efuse_init(void)

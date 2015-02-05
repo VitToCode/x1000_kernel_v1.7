@@ -63,4 +63,6 @@
 /* ****************************GPIO AUDIO END******************************** */
 
 
+#define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
+
 #endif /* __BOARD_H__ */

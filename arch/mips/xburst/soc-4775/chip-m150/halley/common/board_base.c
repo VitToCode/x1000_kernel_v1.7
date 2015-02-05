@@ -18,6 +18,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
+#include <mach/jz4780_efuse.h>
 #include "board_base.h"
 
 
@@ -94,7 +95,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_RTC_DRV_JZ
 	DEF_DEVICE(&jz_rtc_device, 0, 0),
 #endif
-
+#ifdef CONFIG_JZ4775_EFUSE
+	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
+#endif
 };
 
 static int __init board_base_init(void)
