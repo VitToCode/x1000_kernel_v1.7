@@ -125,10 +125,10 @@ config SERIAL_JZ47XX_UART2_DMA
 choice
 	prompt "JZ SERIAL GPIO function pins select"
 	depends on SERIAL_JZ47XX_UART2
-	default SERIAL_JZ47XX_UART4_PC
-config SERIAL_JZ47XX_UART4_PC
+	default SERIAL_JZ47XX_UART2_PC
+config SERIAL_JZ47XX_UART2_PC
 	bool "GPIO C"
-config SERIAL_JZ47XX_UART4_PF
+config SERIAL_JZ47XX_UART2_PF
 	bool "GPIO F"
 endchoice
 
