@@ -63,7 +63,8 @@ struct dsi_config {
 	unsigned short max_bta_cycles;
 	int color_mode_polarity;
 	int shut_down_polarity;
-
+	int te_gpio;
+	int te_irq_level;
 };
 
 typedef enum {
@@ -171,12 +172,21 @@ struct mipi_dsim_lcd_device {
 	void            *platform_data;
 };
 
+enum {
+    POWER_ON_LCD = 1,
+    POWER_ON_BL,
+};
+enum {
+    CMD_MIPI_DISPLAY_ON = 1,
+    CMD_MIPI_END,
+};
 struct mipi_dsim_lcd_driver {
 	char            *name;
 	int         id;
 
-	void    (*power_on)(struct mipi_dsim_lcd_device *dsim_dev, int enable);
+	void    (*power_on)(struct mipi_dsim_lcd_device *dsim_dev, int mode);
 	void    (*set_sequence)(struct mipi_dsim_lcd_device *dsim_dev);
+	int    (*ioctl)(struct mipi_dsim_lcd_device *dsim_dev, int cmd);
 	int (*probe)(struct mipi_dsim_lcd_device *dsim_dev);
 	int (*remove)(struct mipi_dsim_lcd_device *dsim_dev);
 	void    (*shutdown)(struct mipi_dsim_lcd_device *dsim_dev);
@@ -228,9 +238,7 @@ struct loop_band {
  * @get_fb_frame_done: get frame done status of display controller.
  * @trigger: trigger display controller.
  *	- this one would be used only in case of CPU mode.
- *  @set_early_blank_mode: set framebuffer blank mode.
- *	- this callback should be called prior to fb_blank() by a client driver
- *	only if needing.
+ *  @ioctl: mipi_dsi ioctl callback.
  *  @set_blank_mode: set framebuffer blank mode.
  *	- this callback should be called after fb_blank() by a client driver
  *	only if needing.
@@ -240,7 +248,7 @@ struct dsi_master_ops {
 	int (*cmd_write) (struct dsi_device * dsi, struct dsi_cmd_packet cmd_data);
 	int (*cmd_read) (struct dsi_device * dsi, u8 * rx_buf);
 	int (*video_cfg) (struct dsi_device * dsi);
-	int (*set_early_blank_mode)(struct dsi_device *dsi, int power);
+	int (*ioctl)(struct dsi_device *dsi, int cmd);
 	int (*set_blank_mode)(struct dsi_device *dsi, int power);
 };
 

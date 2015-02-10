@@ -504,14 +504,15 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 				     0xffffff0);
 
 }
-static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
-		int power)
+
+
+static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 {
 	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
 	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
 
-	switch (power) {
-	case FB_BLANK_POWERDOWN:
+    switch (power) {
+    case FB_BLANK_POWERDOWN:
 		if (dsi->suspended)
 			return 0;
 
@@ -526,19 +527,6 @@ static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
 
 		dsi->suspended = true;
 		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
-{
-	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
-	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
-
-	switch (power) {
 	case FB_BLANK_UNBLANK:
 		if (!dsi->suspended)
 			return 0;
@@ -565,23 +553,36 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 		//dump_dsi_reg(dsi);
 
 		break;
-	case FB_BLANK_NORMAL:
-		/* TODO. */
-		break;
-	default:
-		break;
-	}
+    case FB_BLANK_NORMAL:
+        /* TODO. */
+        break;
 
-	return 0;
+       default:
+        break;
+    }
+
+    return 0;
 }
+
+static int jz_mipi_dsi_ioctl(struct dsi_device *dsi, int cmd)
+{
+    struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
+    struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
+
+    if (client_drv && client_drv->ioctl)
+        client_drv->ioctl(client_dev, cmd);
+
+    return 0;
+}
+
 
 /* define MIPI-DSI Master operations. */
 static struct dsi_master_ops jz_master_ops = {
-	.video_cfg = jz_dsi_video_cfg,
-	.cmd_write = write_command,	/*jz_dsi_wr_data, */
-	.cmd_read = NULL,	/*jz_dsi_rd_data, */
-	.set_early_blank_mode   = jz_mipi_dsi_early_blank_mode,
-	.set_blank_mode         = jz_mipi_dsi_blank_mode,
+    .video_cfg      = jz_dsi_video_cfg,
+    .cmd_write      = write_command,	/*jz_dsi_wr_data, */
+    .cmd_read       = NULL,	/*jz_dsi_rd_data, */
+    .ioctl          = jz_mipi_dsi_ioctl,
+    .set_blank_mode = jz_mipi_dsi_blank_mode,
 };
 
 int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device *lcd_dev)
@@ -773,6 +774,7 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	}
 
 	mutex_init(&dsi->lock);
+
 	dsim_ddi = mipi_dsi_bind_lcd_ddi(dsi, pdata->modes->name);
 	if (!dsim_ddi) {
 		pr_err("dsi->dev: mipi_dsim_ddi object not found.\n");
@@ -824,27 +826,27 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 		while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
 				st_mask && retry--) {
 			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
-		}
+	}
 
-		if (!retry)
-			goto err_phy_state;
+	if (!retry)
+		goto err_phy_state;
 
-		dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+	dsi->state = INITIALIZED;
 
-		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
-				0xffffff0);
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				     0xffffff0);
 
-		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
-			dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
-		}else{
-			pr_err("lcd mipi panel init failed!\n");
-			goto err_panel_init;
-		}
+	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
+		dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
+	}else{
+		pr_err("lcd mipi panel init failed!\n");
+		goto err_panel_init;
+	}
 
-		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
 
-		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	}
 
 	dsi->suspended = false;

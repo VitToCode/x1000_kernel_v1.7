@@ -1283,6 +1283,6 @@ int write_command(struct dsi_device * dsi, struct dsi_cmd_packet cmd_data)
 	if(ret < 0) {
 		printk("gen_wr_packet failed. ret:%d\n", ret);
 	}
-
+	mdelay(1);
 	return 0;
 }

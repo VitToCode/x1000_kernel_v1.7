@@ -112,6 +112,7 @@ struct jzfb {
 	dma_addr_t framedesc_phys;
 
 	wait_queue_head_t vsync_wq;
+	ktime_t vsync_timestamp;
 	unsigned int vsync_skip_map;	/* 10 bits width */
 	int vsync_skip_ratio;
 
@@ -124,6 +125,7 @@ struct jzfb {
 
 	struct mutex lock;
 	struct mutex suspend_lock;
+	struct list_head link;
 
 	enum jzfb_format_order fmt_order;	/* frame buffer pixel format order */
 	struct jzfb_osd_t osd;	/* osd's config information */
