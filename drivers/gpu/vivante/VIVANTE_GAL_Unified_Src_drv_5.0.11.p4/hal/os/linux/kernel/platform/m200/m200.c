@@ -269,24 +269,29 @@ _cache(
         IN gceCACHEOPERATION Operation
         )
 {
-
-	//return gcvSTATUS_OK;
-
 	/* KERN_DEBUG */
 	/* printk(KERN_DEBUG "Platform=0x%X ProcessID=%d Logical=0x%X Bytes=%lu, Operation=%d\n", */
 	/*        (unsigned int)Platform, (unsigned int)ProcessID, (unsigned int)Logical, (long unsigned int)Bytes, (unsigned int)Operation); */
 
-#if gcdPAGED_MEMORY_CACHEABLE || gcdNONPAGED_MEMORY_CACHEABLE
 	if(!Platform){
 		printk("Error! No platform! Can't [handle cache] \nIN %s:%d \n",__FILE__,__LINE__);
 		return gcvSTATUS_INVALID_ARGUMENT;
 	}
-
-	/* flush Logical address, kernel/include/asm-generic/dma-mapping-broken.h */
-	dma_cache_sync(NULL, Logical, Bytes, DMA_BIDIRECTIONAL);
-	//dma_cache_sync(NULL, (void *)0x80000000, 0x100000, DMA_BIDIRECTIONAL);
-
-#endif /* gcdPAGED_MEMORY_CACHEABLE || gcdNONPAGED_MEMORY_CACHEABLE */
+	switch(Operation)
+	{
+		case gcvCACHE_CLEAN:
+			dma_cache_sync(NULL,Logical,Bytes,DMA_BIDIRECTIONAL);
+			break;
+		case gcvCACHE_INVALIDATE:
+			dma_cache_sync(NULL,Logical,Bytes,DMA_FROM_DEVICE);
+			break;
+		case gcvCACHE_FLUSH:
+			dma_cache_sync(NULL, Logical, Bytes,DMA_TO_DEVICE);
+			break;
+		case gcvCACHE_MEMORY_BARRIER:
+			fast_iob();
+			break;
+	}
 
 	return gcvSTATUS_OK;
 }
