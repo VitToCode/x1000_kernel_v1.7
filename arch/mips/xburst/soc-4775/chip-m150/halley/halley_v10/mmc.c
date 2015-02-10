@@ -71,7 +71,7 @@ struct jzmmc_platform_data tf_pdata = {
 	.sdio_clk			= 0,
 	.ocr_avail			= MMC_VDD_29_30 | MMC_VDD_30_31,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED, //| MMC_CAP_4_BIT_DATA,
-	.recovery_info			= NULL,
+	.recovery_info		= NULL,
 	.gpio				= NULL,
 	.max_freq                       = CONFIG_MMC1_MAX_FREQ,
 #ifdef CONFIG_MMC2_PIO_MODE
