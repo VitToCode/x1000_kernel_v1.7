@@ -114,9 +114,9 @@ config MFD_JZ4780_SADC
 	  This driver is necessary for jz4780-battery driver.
 
 config MFD_JZ_SADC_V12
-	tristate "Support for the M200 SADC core"
+	tristate "Support for the JZ_V12 SADC core"
 	select MFD_CORE
-	depends on SOC_M200
+	depends on SOC_M200 || SOC_4775
 	help
 	  Say yes here if you want support for the SADC unit in the M200 SoC.
 	  This driver is necessary for jz_battery driver.

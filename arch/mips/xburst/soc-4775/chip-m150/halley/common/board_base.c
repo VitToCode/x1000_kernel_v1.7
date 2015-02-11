@@ -101,6 +101,15 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ4775_EFUSE
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
+#ifdef	CONFIG_I2C1_JZ4775
+	DEF_DEVICE(&jz_i2c1_device,0,0),
+#endif
+#ifdef	CONFIG_I2C2_JZ4775
+	DEF_DEVICE(&jz_i2c2_device,0,0),
+#endif
+#ifdef	CONFIG_MFD_JZ_SADC_V12
+	DEF_DEVICE(&jz_adc_device, 0, 0),
+#endif
 };
 
 static int __init board_base_init(void)

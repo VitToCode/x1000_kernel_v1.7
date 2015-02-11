@@ -46,4 +46,19 @@ extern struct platform_device jz47xx_spi_gpio_device;
 extern struct jz_efuse_platform_data jz_efuse_pdata;
 #endif
 
+#ifdef CONFIG_I2C0_JZ4775
+extern struct platform_device jz_i2c0_device;
+#endif
+#ifdef CONFIG_I2C1_JZ4775
+extern struct platform_device jz_i2c1_device;
+#endif
+#ifdef CONFIG_I2C2_JZ4775
+extern struct platform_device jz_i2c2_device;
+#endif
+#ifdef CONFIG_I2C3_JZ4775
+extern struct platform_device jz_i2c3_device;
+#endif
+#ifdef CONFIG_MFD_JZ_SADC_V12
+extern struct platform_device jz_adc_device;
+#endif
 #endif
