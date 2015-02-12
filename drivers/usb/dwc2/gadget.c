@@ -2430,13 +2430,14 @@ void dwc2_gadget_plug_change(int plugin)  {
 
 	if (!dwc)
 		return;
-	dwc2_spin_lock_irqsave(dwc, flags);
-	dwc->plugin = !!plugin;
 
 #ifdef DWC2_HOST_MODE_ENABLE
 	if (!!dwc2_host_vbus_is_extern(dwc))
 		goto out;
 #endif
+	dwc2_spin_lock_irqsave(dwc, flags);
+
+	dwc->plugin = !!plugin;
 	if (!plugin) {
 		if (!dwc2_clk_is_enabled(dwc))
 			goto out;
