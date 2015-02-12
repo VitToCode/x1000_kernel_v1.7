@@ -1110,7 +1110,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 #ifdef CONFIG_JZ_SPI_PIO_CE
 	for (i = 0; i < hw->pdata->num_chipselect; i++, num_cs_got = i) {
 		err = gpio_request(hw->pdata->chipselect[i], "JZ47XX_SPI_CS");
-		if(err) {
+		if(err && (!hw->pdata->allow_cs_same)) {
 			dev_err(&pdev->dev, "Request cs_gpio: %d is occupied\n",
 							hw->pdata->chipselect[i]);
 			goto err_cs_gpio;

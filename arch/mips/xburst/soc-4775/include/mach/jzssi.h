@@ -13,7 +13,8 @@ struct spi_nor_platform_data {
 	u32 pagesize;
 	u32 sectorsize;
 	u32 chipsize;
-
+	u32 erasesize;
+	int id;
 	/* Some NOR flash has different blocksize and block erase command,
 	 *          * One command with One blocksize. */
 	struct spi_nor_block_info *block_info;
@@ -31,6 +32,8 @@ struct spi_nor_platform_data {
 
 	/* Flash status register num, Max support 3 register */
 	int st_regnum;
+	struct mtd_partition *mtd_partition;
+	int num_partition_info;
 };
 
 struct jz47xx_spi_info {
@@ -41,6 +44,7 @@ struct jz47xx_spi_info {
 	unsigned long	board_size;		/* spi_master.num_chipselect */
 	struct spi_board_info	*board_info; 	/* link to spi devices info */
 	u32	 num_chipselect;
+	u32	 allow_cs_same;
 	unsigned int chipselect[2];
 
 	void (*set_cs)(struct jz47xx_spi_info *spi, u8 cs,unsigned int pol); /* be defined by spi devices driver user */
