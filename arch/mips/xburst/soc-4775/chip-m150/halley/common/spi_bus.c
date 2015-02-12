@@ -61,7 +61,7 @@ struct spi_nor_platform_data spi_nor_pdata = {
 	.pagesize       = 256,
 	.sectorsize     = 4 * 1024,
 	.chipsize       = 8192 * 1024,
-	.erasesize      = 32 * 1024,
+	.erasesize      = 4 * 1024,
 	.id             = 0xc86017,
 
 	.block_info     = flash_block_info,
