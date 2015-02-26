@@ -1,12 +1,12 @@
 /*
- * sound/soc/ingenic/icodec/dlv4780.c
- * ALSA SoC Audio driver -- ingenic internal codec (dlv4780) driver
+ * sound/soc/ingenic/icodec/icdc_d1.c
+ * ALSA SoC Audio driver -- ingenic internal codec (icdc_d1) driver
 
  * Copyright 2014 Ingenic Semiconductor Co.,Ltd
  *	cli <chen.li@ingenic.com>
  *
- * Note: dlv4780 is an internal codec for jz SOC
- *	 used for dlv4780 m200 and so on
+ * Note: icdc_d1 is an internal codec for jz SOC
+ *	 used for icdc_d1 m200 and so on
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,17 +34,17 @@
 #include <asm/div64.h>
 #include <sound/soc-dai.h>
 #include <soc/irq.h>
-#include "dlv4780.h"
+#include "icdc_d1.h"
 
-static int dlv4780_debug = 0;
-module_param(dlv4780_debug, int, 0644);
+static int icdc_d1_debug = 0;
+module_param(icdc_d1_debug, int, 0644);
 #define DEBUG_MSG(msg...)			\
 	do {					\
-		if (dlv4780_debug)		\
+		if (icdc_d1_debug)		\
 			printk(KERN_DEBUG"ICDC: " msg);	\
 	} while(0)
 
-static u8 dlv4780_reg_defcache[DLV_MAX_REG_NUM] = {
+static u8 icdc_d1_reg_defcache[DLV_MAX_REG_NUM] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0xd3, 0xd3, 0x00, 0x90, 0x00, 0xb0, 0x00, 0x00,
 	0x00, 0xb0, 0x30, 0x10, 0x10, 0x00, 0x00, 0x90,
@@ -59,7 +59,7 @@ static u8 dlv4780_reg_defcache[DLV_MAX_REG_NUM] = {
 	0x34, 0x34, 0x34, 0x34, 0x00,
 };
 
-static int dlv4780_volatile(struct snd_soc_codec *codec, unsigned int reg)
+static int icdc_d1_volatile(struct snd_soc_codec *codec, unsigned int reg)
 {
 	if (reg > DLV_MAX_REG_NUM)
 		return 1;
@@ -76,7 +76,7 @@ static int dlv4780_volatile(struct snd_soc_codec *codec, unsigned int reg)
 	}
 }
 
-static int dlv4780_writable(struct snd_soc_codec *codec, unsigned int reg)
+static int icdc_d1_writable(struct snd_soc_codec *codec, unsigned int reg)
 {
 	if (reg > DLV_MAX_REG_NUM)
 		return 0;
@@ -106,7 +106,7 @@ static int dlv4780_writable(struct snd_soc_codec *codec, unsigned int reg)
 	}
 }
 
-static int dlv4780_readable(struct snd_soc_codec *codec, unsigned int reg)
+static int icdc_d1_readable(struct snd_soc_codec *codec, unsigned int reg)
 {
 	if (reg > DLV_MAX_REG_NUM)
 		return 0;
@@ -133,51 +133,51 @@ static int dlv4780_readable(struct snd_soc_codec *codec, unsigned int reg)
 	}
 }
 
-static void dump_registers_hazard(struct dlv4780 *dlv4780)
+static void dump_registers_hazard(struct icdc_d1 *icdc_d1)
 {
 	int reg = 0;
-	dev_info(dlv4780->dev, "-------------------register:");
+	dev_info(icdc_d1->dev, "-------------------register:");
 	for ( ; reg < DLV_MAX_REG_NUM; reg++) {
 		if (reg % 8 == 0)
 			printk("\n");
-		if (dlv4780_readable(dlv4780->codec, reg))
-			printk(" 0x%02x:0x%02x,", reg, dlv4780_hw_read(dlv4780, reg));
+		if (icdc_d1_readable(icdc_d1->codec, reg))
+			printk(" 0x%02x:0x%02x,", reg, icdc_d1_hw_read(icdc_d1, reg));
 		else
 			printk(" 0x%02x:0x%02x,", reg, 0x0);
 	}
 	printk("\n");
-	dev_info(dlv4780->dev, "----------------------------\n");
+	dev_info(icdc_d1->dev, "----------------------------\n");
 	return;
 }
 
-static int dlv4780_write(struct snd_soc_codec *codec, unsigned int reg,
+static int icdc_d1_write(struct snd_soc_codec *codec, unsigned int reg,
 			unsigned int value)
 {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 	BUG_ON(reg > DLV_MAX_REG_NUM);
 
-	if (dlv4780_writable(codec, reg)) {
-		if (!dlv4780_volatile(codec,reg)) {
+	if (icdc_d1_writable(codec, reg)) {
+		if (!icdc_d1_volatile(codec,reg)) {
 			ret = snd_soc_cache_write(codec, reg, value);
 			if (ret != 0)
 				dev_err(codec->dev, "Cache write to %x failed: %d\n",
 						reg, ret);
 		}
-		return dlv4780_hw_write(dlv4780, reg, value);
+		return icdc_d1_hw_write(icdc_d1, reg, value);
 	}
 
 	return 0;
 }
 
-static unsigned int dlv4780_read(struct snd_soc_codec *codec, unsigned int reg)
+static unsigned int icdc_d1_read(struct snd_soc_codec *codec, unsigned int reg)
 {
 
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int val = 0, ret = 0;
 	BUG_ON(reg > DLV_MAX_REG_NUM);
 
-	if (!dlv4780_volatile(codec,reg)) {
+	if (!icdc_d1_volatile(codec,reg)) {
 		ret = snd_soc_cache_read(codec, reg, &val);
 		if (ret >= 0)
 			return val;
@@ -186,14 +186,14 @@ static unsigned int dlv4780_read(struct snd_soc_codec *codec, unsigned int reg)
 					reg, ret);
 	}
 
-	if (dlv4780_readable(codec, reg))
-		return dlv4780_hw_read(dlv4780, reg);
+	if (icdc_d1_readable(codec, reg))
+		return icdc_d1_hw_read(icdc_d1, reg);
 
 	return 0;
 }
 
 /* DLV4780 CODEC's gain controller init, it's a neccessary program */
-static void dlv4780_reset_gain(struct snd_soc_codec *codec)
+static void icdc_d1_reset_gain(struct snd_soc_codec *codec)
 {
 	int start = DLV_REG_GCR_HPL, end = DLV_REG_GCR_ADCR;
 	int i, reg_value;
@@ -205,7 +205,7 @@ static void dlv4780_reset_gain(struct snd_soc_codec *codec)
 	return;
 }
 
-static int dlv4780_set_bias_level(struct snd_soc_codec *codec,
+static int icdc_d1_set_bias_level(struct snd_soc_codec *codec,
 		enum snd_soc_bias_level level) {
 	DEBUG_MSG("%s enter set level %d\n", __func__, level);
 	switch (level) {
@@ -217,7 +217,7 @@ static int dlv4780_set_bias_level(struct snd_soc_codec *codec,
 			msleep(250);
 		if (snd_soc_update_bits(codec, DLV_REG_CR_VIC, DLV_CR_VIC_SB_SLEEP_MASK, 0)) {
 			msleep(400);
-			dlv4780_reset_gain(codec);
+			icdc_d1_reset_gain(codec);
 		}
 		break;
 	case SND_SOC_BIAS_OFF:
@@ -229,7 +229,7 @@ static int dlv4780_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int dlv4780_hw_params(struct snd_pcm_substream *substream,
+static int icdc_d1_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
@@ -276,7 +276,7 @@ static int dlv4780_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int dlv4780_adc_mute_unlock(struct snd_soc_codec *codec, int mute)
+static int icdc_d1_adc_mute_unlock(struct snd_soc_codec *codec, int mute)
 {
 	int timeout = 0;
 	int wait_mute_state =  mute ? DLV_MR_ADC_IN_MUTE : DLV_MR_DAC_NOT_MUTE;
@@ -310,15 +310,15 @@ static int dlv4780_adc_mute_unlock(struct snd_soc_codec *codec, int mute)
 	return 0;
 }
 
-static int dlv4780_digital_mute_unlocked(struct snd_soc_codec *codec,
+static int icdc_d1_digital_mute_unlocked(struct snd_soc_codec *codec,
 		int mute, bool usr)
 {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int wait_mute_state =  mute ? DLV_MR_DAC_IN_MUTE : DLV_MR_DAC_NOT_MUTE;
 	int timeout = 0;
 
 	if (usr)
-		dlv4780->dac_user_mute = mute;
+		icdc_d1->dac_user_mute = mute;
 
 	if (snd_soc_test_bits(codec, DLV_REG_CR_DAC, DLV_CR_DAC_SB_MASK, 0))
 		return 0;
@@ -361,32 +361,32 @@ out:
 	return 0;
 }
 
-static int dlv4780_digital_mute(struct snd_soc_dai *dai, int mute)
+static int icdc_d1_digital_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	int ret;
 
 	DEBUG_MSG("%s enter mute %d\n", __func__, mute);
-	ret = dlv4780_digital_mute_unlocked(codec, mute, true);
+	ret = icdc_d1_digital_mute_unlocked(codec, mute, true);
 	return ret;
 }
 
-static int dlv4780_trigger(struct snd_pcm_substream * stream, int cmd,
+static int icdc_d1_trigger(struct snd_pcm_substream * stream, int cmd,
 		struct snd_soc_dai *dai)
 {
 #ifdef DEBUG
 	struct snd_soc_codec *codec = dai->codec;
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		dump_registers_hazard(dlv4780);
+		dump_registers_hazard(icdc_d1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		dump_registers_hazard(dlv4780);
+		dump_registers_hazard(icdc_d1);
 		break;
 	}
 #endif
@@ -396,14 +396,14 @@ static int dlv4780_trigger(struct snd_pcm_substream * stream, int cmd,
 #define DLV4780_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S18_3LE | \
 			 SNDRV_PCM_FMTBIT_S20_3LE |SNDRV_PCM_FMTBIT_S24_LE)
 
-static struct snd_soc_dai_ops dlv4780_dai_ops = {
-	.hw_params	= dlv4780_hw_params,
-	.digital_mute	= dlv4780_digital_mute,
-	.trigger = dlv4780_trigger,
+static struct snd_soc_dai_ops icdc_d1_dai_ops = {
+	.hw_params	= icdc_d1_hw_params,
+	.digital_mute	= icdc_d1_digital_mute,
+	.trigger = icdc_d1_trigger,
 };
 
-static struct snd_soc_dai_driver  dlv4780_codec_dai = {
-	.name = "dlv4780-hifi",
+static struct snd_soc_dai_driver  icdc_d1_codec_dai = {
+	.name = "icdc-d1-hifi",
 	.playback = {
 		.stream_name = "Playback",
 		.channels_min = 2,
@@ -426,7 +426,7 @@ static struct snd_soc_dai_driver  dlv4780_codec_dai = {
 #endif
 		.formats = DLV4780_FORMATS,
 	},
-	.ops = &dlv4780_dai_ops,
+	.ops = &icdc_d1_dai_ops,
 };
 
 /* unit: 0.01dB */
@@ -437,32 +437,32 @@ static const DECLARE_TLV_DB_SCALE(bypassl_tlv, -2500, 100, 0);
 static const DECLARE_TLV_DB_SCALE(bypassr_tlv, -2500, 100, 0);
 static const DECLARE_TLV_DB_SCALE(mic1_tlv, 0, 400, 0);
 static const DECLARE_TLV_DB_SCALE(mic2_tlv, 0, 400, 0);
-static const char *dlv4780_ail_sel[] = {"AIPN1", "AIP2"};
-static const char *dlv4780_adc_sel[] = {"AIL/L", "AIR/R", "AIL/R", "AIR/L"};
-static const char *dlv4780_ailatt_sel[] = {"AIPN1", "AIP2"};
-static const char *dlv4780_aohp_sel[] = {"DACL/R", "DACL", "AIL/Ratt" ,"AILatt", "AIRatt"};
-static const char *dlv4780_aolo_sel[] = {"DACL", "DACR", "DACL/R", "AILatt", "AIRatt", "AIL/Ratt"};
-static const char *dlv4780_adc_wnf[] = {"Inactive", "Mode1", "Mode2", "Mode3"};
-static const char *dlv4780_aohp_vir_sel[] = { "HP-ON", "HP-OFF"};
-static const char *dlv4780_aolo_vir_sel[] = { "LO-ON", "LO-OFF"};
+static const char *icdc_d1_ail_sel[] = {"AIPN1", "AIP2"};
+static const char *icdc_d1_adc_sel[] = {"AIL/L", "AIR/R", "AIL/R", "AIR/L"};
+static const char *icdc_d1_ailatt_sel[] = {"AIPN1", "AIP2"};
+static const char *icdc_d1_aohp_sel[] = {"DACL/R", "DACL", "AIL/Ratt" ,"AILatt", "AIRatt"};
+static const char *icdc_d1_aolo_sel[] = {"DACL", "DACR", "DACL/R", "AILatt", "AIRatt", "AIL/Ratt"};
+static const char *icdc_d1_adc_wnf[] = {"Inactive", "Mode1", "Mode2", "Mode3"};
+static const char *icdc_d1_aohp_vir_sel[] = { "HP-ON", "HP-OFF"};
+static const char *icdc_d1_aolo_vir_sel[] = { "LO-ON", "LO-OFF"};
 
-static const unsigned int dlv4780_aolo_sel_value[] = {0x0, 0x1, 0x2, 0x4, 0x5, 0x6};
-static const unsigned int dlv4780_adc_sel_value[] = {0x0, 0x1, 0x0, 0x1};
+static const unsigned int icdc_d1_aolo_sel_value[] = {0x0, 0x1, 0x2, 0x4, 0x5, 0x6};
+static const unsigned int icdc_d1_adc_sel_value[] = {0x0, 0x1, 0x0, 0x1};
 
-static const struct soc_enum dlv4780_enum[] = {
-	SOC_ENUM_SINGLE(DLV_REG_CR_MIC1, 0, ARRAY_SIZE(dlv4780_ail_sel), dlv4780_ail_sel),
-	SOC_VALUE_ENUM_SINGLE(DLV_REG_CR_ADC, 0, 0x3,  ARRAY_SIZE(dlv4780_adc_sel),
-			dlv4780_adc_sel, dlv4780_adc_sel_value),
-	SOC_ENUM_SINGLE(DLV_REG_CR_LI1, 0, ARRAY_SIZE(dlv4780_ailatt_sel), dlv4780_ailatt_sel),
-	SOC_ENUM_SINGLE(DLV_REG_CR_HP, 0, ARRAY_SIZE(dlv4780_aohp_sel), dlv4780_aohp_sel),
-	SOC_VALUE_ENUM_SINGLE(DLV_REG_CR_LO, 0, 0x7, ARRAY_SIZE(dlv4780_aolo_sel),
-			dlv4780_aolo_sel, dlv4780_aolo_sel_value),
-	SOC_ENUM_SINGLE(DLV_REG_FCR_ADC, 4, ARRAY_SIZE(dlv4780_adc_wnf), dlv4780_adc_wnf),
-	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(dlv4780_aohp_vir_sel), dlv4780_aohp_vir_sel),
-	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(dlv4780_aolo_vir_sel), dlv4780_aolo_vir_sel),
+static const struct soc_enum icdc_d1_enum[] = {
+	SOC_ENUM_SINGLE(DLV_REG_CR_MIC1, 0, ARRAY_SIZE(icdc_d1_ail_sel), icdc_d1_ail_sel),
+	SOC_VALUE_ENUM_SINGLE(DLV_REG_CR_ADC, 0, 0x3,  ARRAY_SIZE(icdc_d1_adc_sel),
+			icdc_d1_adc_sel, icdc_d1_adc_sel_value),
+	SOC_ENUM_SINGLE(DLV_REG_CR_LI1, 0, ARRAY_SIZE(icdc_d1_ailatt_sel), icdc_d1_ailatt_sel),
+	SOC_ENUM_SINGLE(DLV_REG_CR_HP, 0, ARRAY_SIZE(icdc_d1_aohp_sel), icdc_d1_aohp_sel),
+	SOC_VALUE_ENUM_SINGLE(DLV_REG_CR_LO, 0, 0x7, ARRAY_SIZE(icdc_d1_aolo_sel),
+			icdc_d1_aolo_sel, icdc_d1_aolo_sel_value),
+	SOC_ENUM_SINGLE(DLV_REG_FCR_ADC, 4, ARRAY_SIZE(icdc_d1_adc_wnf), icdc_d1_adc_wnf),
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d1_aohp_vir_sel), icdc_d1_aohp_vir_sel),
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d1_aolo_vir_sel), icdc_d1_aolo_vir_sel),
 };
 
-static const struct snd_kcontrol_new dlv4780_snd_controls[] = {
+static const struct snd_kcontrol_new icdc_d1_snd_controls[] = {
 	/* playback gain control */
 	SOC_DOUBLE_R_TLV("Digital Playback Volume", DLV_REG_GCR_DACL, DLV_REG_GCR_DACR, 0, 31, 1, dac_tlv),
 	SOC_DOUBLE_R_TLV("Headphone Volume", DLV_REG_GCR_HPL, DLV_REG_GCR_HPR,
@@ -474,7 +474,7 @@ static const struct snd_kcontrol_new dlv4780_snd_controls[] = {
 	SOC_SINGLE_TLV("Bypass1 Volume", DLV_REG_GCR_LIBYL, 0, 31, 1, bypassl_tlv),
 	SOC_SINGLE_TLV("Bypass2 Volume", DLV_REG_GCR_LIBYR, 0, 31, 1, bypassr_tlv),
 	SOC_SINGLE("ADC High Pass Filter Switch", DLV_REG_FCR_ADC, 6, 1, 0),
-	SOC_ENUM("ADC Wind Noise Filter Switch", dlv4780_enum[5]),
+	SOC_ENUM("ADC Wind Noise Filter Switch", icdc_d1_enum[5]),
 	SOC_SINGLE("Mic1 Diff Switch", DLV_REG_CR_MIC1, 6, 1, 0),
 	SOC_SINGLE("Mic Stereo Switch", DLV_REG_CR_MIC1, 7, 1, 0),
 	SOC_SINGLE("Bypass1 Diff Switch", DLV_REG_CR_LI1, 6, 1, 0),
@@ -482,28 +482,28 @@ static const struct snd_kcontrol_new dlv4780_snd_controls[] = {
 	SOC_SINGLE("Mic2 Bias Switch", DLV_REG_CR_MIC2, 5, 1, 1),
 };
 
-static const struct snd_kcontrol_new dlv4780_ail_mux_controls =
-	SOC_DAPM_ENUM("Route", dlv4780_enum[0]);
+static const struct snd_kcontrol_new icdc_d1_ail_mux_controls =
+	SOC_DAPM_ENUM("Route", icdc_d1_enum[0]);
 
-static const struct snd_kcontrol_new dlv4780_adc_mux_controls =
-	SOC_DAPM_VALUE_ENUM("Route",  dlv4780_enum[1]);
+static const struct snd_kcontrol_new icdc_d1_adc_mux_controls =
+	SOC_DAPM_VALUE_ENUM("Route",  icdc_d1_enum[1]);
 
-static const struct snd_kcontrol_new dlv4780_ailatt_mux_controls =
-	SOC_DAPM_ENUM("Route", dlv4780_enum[2]);
+static const struct snd_kcontrol_new icdc_d1_ailatt_mux_controls =
+	SOC_DAPM_ENUM("Route", icdc_d1_enum[2]);
 
-static const struct snd_kcontrol_new dlv4780_aohp_mux_controls =
-	SOC_DAPM_ENUM("Route", dlv4780_enum[3]);
+static const struct snd_kcontrol_new icdc_d1_aohp_mux_controls =
+	SOC_DAPM_ENUM("Route", icdc_d1_enum[3]);
 
-static const struct snd_kcontrol_new dlv4780_aolo_mux_controls =
-	SOC_DAPM_VALUE_ENUM("Route", dlv4780_enum[4]);
+static const struct snd_kcontrol_new icdc_d1_aolo_mux_controls =
+	SOC_DAPM_VALUE_ENUM("Route", icdc_d1_enum[4]);
 
-static const struct snd_kcontrol_new dlv4780_aohp_vmux_controls =
-	SOC_DAPM_ENUM_VIRT("Route", dlv4780_enum[6]);
+static const struct snd_kcontrol_new icdc_d1_aohp_vmux_controls =
+	SOC_DAPM_ENUM_VIRT("Route", icdc_d1_enum[6]);
 
-static const struct snd_kcontrol_new dlv4780_aolo_vmux_controls =
-	SOC_DAPM_ENUM_VIRT("Route", dlv4780_enum[7]);
+static const struct snd_kcontrol_new icdc_d1_aolo_vmux_controls =
+	SOC_DAPM_ENUM_VIRT("Route", icdc_d1_enum[7]);
 
-static int dlv4780_wait_hp_mode_unlocked(struct snd_soc_codec *codec)
+static int icdc_d1_wait_hp_mode_unlocked(struct snd_soc_codec *codec)
 {
 	int timeout = 5;
 	DEBUG_MSG("%s enter\n", __func__);
@@ -529,27 +529,27 @@ static int dlv4780_wait_hp_mode_unlocked(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int dlv4780_aohp_anti_pop_event_sub(struct snd_soc_codec *codec,
+static int icdc_d1_aohp_anti_pop_event_sub(struct snd_soc_codec *codec,
 		int event) {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	DEBUG_MSG("%s enter %d\n", __func__ , event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (snd_soc_test_bits(codec, DLV_REG_CR_HP,
 					DLV_CR_HP_SB_MASK, 0)) {
-			dlv4780->aohp_in_pwsq = 1;
+			icdc_d1->aohp_in_pwsq = 1;
 			udelay(500);
 
 			/*dac mute*/
-			dlv4780_digital_mute_unlocked(codec, 1 , false);
+			icdc_d1_digital_mute_unlocked(codec, 1 , false);
 
 			/*hp unmute*/
 			snd_soc_update_bits(codec, DLV_REG_CR_HP, DLV_CR_HP_MUTE_MASK, 0);
 
 			/*hp wished to +6db*/
-			dlv4780->hpl_wished_gain =
+			icdc_d1->hpl_wished_gain =
 				snd_soc_read(codec, DLV_REG_GCR_HPL);
-			dlv4780->hpr_wished_gain =
+			icdc_d1->hpr_wished_gain =
 				snd_soc_read(codec, DLV_REG_GCR_HPR);
 			snd_soc_write(codec, DLV_REG_GCR_HPL, 0);
 			snd_soc_write(codec, DLV_REG_GCR_HPR, 0);
@@ -563,33 +563,33 @@ static int dlv4780_aohp_anti_pop_event_sub(struct snd_soc_codec *codec,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if (dlv4780->aohp_in_pwsq) {
+		if (icdc_d1->aohp_in_pwsq) {
 
 			/*wait aohp power on*/
-			dlv4780_wait_hp_mode_unlocked(codec);
+			icdc_d1_wait_hp_mode_unlocked(codec);
 
 			/*hp +6db to wished :ingnore hp gain set when aohp power up seq*/
-			snd_soc_write(codec, DLV_REG_GCR_HPL, dlv4780->hpl_wished_gain);
-			snd_soc_write(codec, DLV_REG_GCR_HPR, dlv4780->hpr_wished_gain);
+			snd_soc_write(codec, DLV_REG_GCR_HPL, icdc_d1->hpl_wished_gain);
+			snd_soc_write(codec, DLV_REG_GCR_HPR, icdc_d1->hpr_wished_gain);
 
 			/*user mute avail*/
-			dlv4780_digital_mute_unlocked(codec, dlv4780->dac_user_mute, false);
+			icdc_d1_digital_mute_unlocked(codec, icdc_d1->dac_user_mute, false);
 
-			dlv4780->aohp_in_pwsq = 0;
+			icdc_d1->aohp_in_pwsq = 0;
 		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		if (!snd_soc_test_bits(codec, DLV_REG_CR_HP,
 					DLV_CR_HP_SB_MASK, 0)) {
-			dlv4780->aohp_in_pwsq = 1;
+			icdc_d1->aohp_in_pwsq = 1;
 
 			/*dac mute*/
-			dlv4780_digital_mute_unlocked(codec, 1, false);
+			icdc_d1_digital_mute_unlocked(codec, 1, false);
 
 			/*hp wished to +6db*/
-			dlv4780->hpl_wished_gain =
+			icdc_d1->hpl_wished_gain =
 				snd_soc_read(codec, DLV_REG_GCR_HPL);
-			dlv4780->hpr_wished_gain =
+			icdc_d1->hpr_wished_gain =
 				snd_soc_read(codec, DLV_REG_GCR_HPR);
 			snd_soc_write(codec, DLV_REG_GCR_HPL, 0);
 			snd_soc_write(codec, DLV_REG_GCR_HPR, 0);
@@ -602,20 +602,20 @@ static int dlv4780_aohp_anti_pop_event_sub(struct snd_soc_codec *codec,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (dlv4780->aohp_in_pwsq) {
+		if (icdc_d1->aohp_in_pwsq) {
 			/*wait aohp power down*/
-			dlv4780_wait_hp_mode_unlocked(codec);
+			icdc_d1_wait_hp_mode_unlocked(codec);
 
 			/*hp mute*/
 			snd_soc_update_bits(codec, DLV_REG_CR_HP, 0, DLV_CR_HP_MUTE_MASK);
 
 			/*hp +6db to wished :ingnore hp gain set when aohp power up seq*/
-			snd_soc_write(codec, DLV_REG_GCR_HPL, dlv4780->hpl_wished_gain);
-			snd_soc_write(codec, DLV_REG_GCR_HPR, dlv4780->hpr_wished_gain);
+			snd_soc_write(codec, DLV_REG_GCR_HPL, icdc_d1->hpl_wished_gain);
+			snd_soc_write(codec, DLV_REG_GCR_HPR, icdc_d1->hpr_wished_gain);
 
 			/*user mute avail*/
-			dlv4780_digital_mute_unlocked(codec, dlv4780->dac_user_mute, false);
-			dlv4780->aohp_in_pwsq = 0;
+			icdc_d1_digital_mute_unlocked(codec, icdc_d1->dac_user_mute, false);
+			icdc_d1->aohp_in_pwsq = 0;
 		}
 		break;
 	}
@@ -623,14 +623,14 @@ static int dlv4780_aohp_anti_pop_event_sub(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int dlv4780_aohp_anti_pop_event(struct snd_soc_dapm_widget *w,
+static int icdc_d1_aohp_anti_pop_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event) {
 	struct snd_soc_codec *codec = w->codec;
-	dlv4780_aohp_anti_pop_event_sub(codec, event);
+	icdc_d1_aohp_anti_pop_event_sub(codec, event);
 	return 0;
 }
 
-static int dlv4780_adc_unmute_event(struct snd_soc_dapm_widget *w,
+static int icdc_d1_adc_unmute_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event) {
 
 	struct snd_soc_codec *codec = w->codec;
@@ -645,25 +645,25 @@ static int dlv4780_adc_unmute_event(struct snd_soc_dapm_widget *w,
 		default:
 			return 0;
 	}
-	return dlv4780_adc_mute_unlock(codec, mute);
+	return icdc_d1_adc_mute_unlock(codec, mute);
 }
 
-static const struct snd_soc_dapm_widget dlv4780_dapm_widgets[] = {
-	SND_SOC_DAPM_ADC_E("ADC", "Capture", DLV_REG_CR_ADC, 4, 1, dlv4780_adc_unmute_event,
+static const struct snd_soc_dapm_widget icdc_d1_dapm_widgets[] = {
+	SND_SOC_DAPM_ADC_E("ADC", "Capture", DLV_REG_CR_ADC, 4, 1, icdc_d1_adc_unmute_event,
 			SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_MUX("ADC Mux", SND_SOC_NOPM, 0, 0, &dlv4780_adc_mux_controls),
+	SND_SOC_DAPM_MUX("ADC Mux", SND_SOC_NOPM, 0, 0, &icdc_d1_adc_mux_controls),
 	SND_SOC_DAPM_DAC("DAC", "Playback", DLV_REG_CR_DAC, 4, 1),
 	SND_SOC_DAPM_PGA_E("AOHP", DLV_REG_CR_HP, 4, 1, NULL, 0,
-			dlv4780_aohp_anti_pop_event,
+			icdc_d1_aohp_anti_pop_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MUX("AOHP Mux", SND_SOC_NOPM, 0, 0, &dlv4780_aohp_mux_controls),
-	SND_SOC_DAPM_MUX("AOLO Mux", DLV_REG_CR_LO, 4, 1, &dlv4780_aolo_mux_controls),
-	SND_SOC_DAPM_VIRT_MUX("AOHP Vmux", SND_SOC_NOPM, 0, 0, &dlv4780_aohp_vmux_controls),
-	SND_SOC_DAPM_VIRT_MUX("AOLO Vmux", SND_SOC_NOPM, 0, 0, &dlv4780_aolo_vmux_controls),
-	SND_SOC_DAPM_MUX("AIL Mux", DLV_REG_CR_MIC1, 4, 1, &dlv4780_ail_mux_controls),
+	SND_SOC_DAPM_MUX("AOHP Mux", SND_SOC_NOPM, 0, 0, &icdc_d1_aohp_mux_controls),
+	SND_SOC_DAPM_MUX("AOLO Mux", DLV_REG_CR_LO, 4, 1, &icdc_d1_aolo_mux_controls),
+	SND_SOC_DAPM_VIRT_MUX("AOHP Vmux", SND_SOC_NOPM, 0, 0, &icdc_d1_aohp_vmux_controls),
+	SND_SOC_DAPM_VIRT_MUX("AOLO Vmux", SND_SOC_NOPM, 0, 0, &icdc_d1_aolo_vmux_controls),
+	SND_SOC_DAPM_MUX("AIL Mux", DLV_REG_CR_MIC1, 4, 1, &icdc_d1_ail_mux_controls),
 	SND_SOC_DAPM_PGA("AIR", DLV_REG_CR_MIC2, 4, 1, NULL, 0),
-	SND_SOC_DAPM_MUX("AILatt Mux", DLV_REG_CR_LI1, 4, 1, &dlv4780_ailatt_mux_controls),
+	SND_SOC_DAPM_MUX("AILatt Mux", DLV_REG_CR_LI1, 4, 1, &icdc_d1_ailatt_mux_controls),
 	SND_SOC_DAPM_PGA("AIRatt", DLV_REG_CR_LI2, 4, 1, NULL, 0),
 	SND_SOC_DAPM_MICBIAS("MICBIAS1", DLV_REG_CR_MIC1, 5, 1),
 	SND_SOC_DAPM_MICBIAS("MICBIAS2", DLV_REG_CR_MIC2, 5, 1),
@@ -740,12 +740,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{ "AOLON", NULL, "AOLO Vmux"}
 };
 
-static int dlv4780_suspend(struct snd_soc_codec *codec, pm_message_t state)
+static int icdc_d1_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
 	return 0;
 }
 
-static int dlv4780_resume(struct snd_soc_codec *codec)
+static int icdc_d1_resume(struct snd_soc_codec *codec)
 {
 	return 0;
 }
@@ -756,15 +756,15 @@ static int dlv4780_resume(struct snd_soc_codec *codec)
  * To protect CODEC, CODEC will be shutdown when short circut occured.
  * Then we have to restart it.
  */
-static inline void dlv4780_short_circut_handler(struct dlv4780 *dlv4780)
+static inline void icdc_d1_short_circut_handler(struct icdc_d1 *icdc_d1)
 {
-	struct snd_soc_codec *codec = dlv4780->codec;
+	struct snd_soc_codec *codec = icdc_d1->codec;
 	int hp_is_on;
 	int bias_level;
 
 	/*make sure hp power on/down seq was completed*/
 	while (1) {
-		if (!dlv4780->aohp_in_pwsq)
+		if (!icdc_d1->aohp_in_pwsq)
 			break;
 		msleep(10);
 	};
@@ -772,38 +772,38 @@ static inline void dlv4780_short_circut_handler(struct dlv4780 *dlv4780)
 	/*shut down codec seq*/
 	if (!(snd_soc_read(codec, DLV_REG_CR_HP) & DLV_CR_HP_SB_MASK)) {
 		hp_is_on = 1;
-		dlv4780_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMD);
+		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMD);
 		snd_soc_update_bits(codec, DLV_REG_CR_HP, 0, DLV_CR_HP_SB_MASK);
-		dlv4780_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMD);
+		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMD);
 	}
 
 	bias_level =  codec->dapm.bias_level;
 
-	dlv4780_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
 	msleep(10);
 
 	/*power on codec seq*/
-	dlv4780_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
-	dlv4780_set_bias_level(codec, bias_level);
+	icdc_d1_set_bias_level(codec, bias_level);
 
 	if (hp_is_on) {
-		dlv4780_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMU);
+		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMU);
 		snd_soc_update_bits(codec, DLV_REG_CR_HP, DLV_CR_HP_SB_MASK, 0);
-		dlv4780_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMU);
+		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMU);
 	}
 	return;
 }
 
-int dlv4780_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
+int icdc_d1_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 		int type)
 {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int report = 0;
 
-	dlv4780->jack = jack;
-	dlv4780->report_mask = type;
+	icdc_d1->jack = jack;
+	icdc_d1->report_mask = type;
 
 	if (jack) {
 		snd_soc_update_bits(codec, DLV_REG_IMR, DLV_IMR_JACK, 0);
@@ -813,33 +813,33 @@ int dlv4780_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 
 	/*initial headphone detect*/
 	if (!!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
-		report = dlv4780->report_mask;
+		report = icdc_d1->report_mask;
 		dev_info(codec->dev, "codec initial headphone detect --> headphone was inserted\n");
-		snd_soc_jack_report(dlv4780->jack, report, dlv4780->report_mask);
+		snd_soc_jack_report(icdc_d1->jack, report, icdc_d1->report_mask);
 	}
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(dlv4780_hp_detect);
+EXPORT_SYMBOL_GPL(icdc_d1_hp_detect);
 
 /*
  * CODEC work queue handler
  */
-static void dlv4780_irq_work_handler(struct work_struct *work)
+static void icdc_d1_irq_work_handler(struct work_struct *work)
 {
-	struct dlv4780 *dlv4780 = (struct dlv4780 *)container_of(work, struct dlv4780, irq_work);
-	struct snd_soc_codec *codec = dlv4780->codec;
-	unsigned int dlv4780_ifr, dlv4780_imr;
+	struct icdc_d1 *icdc_d1 = (struct icdc_d1 *)container_of(work, struct icdc_d1, irq_work);
+	struct snd_soc_codec *codec = icdc_d1->codec;
+	unsigned int icdc_d1_ifr, icdc_d1_imr;
 
-	dlv4780_imr = dlv4780->codec_imr;
-	dlv4780_ifr = snd_soc_read(codec, DLV_REG_IFR);
+	icdc_d1_imr = icdc_d1->codec_imr;
+	icdc_d1_ifr = snd_soc_read(codec, DLV_REG_IFR);
 
 	/*short protect interrupt*/
-	if ((dlv4780_ifr & (~dlv4780_imr)) & DLV_IFR_SCLR_MASK) {
+	if ((icdc_d1_ifr & (~icdc_d1_imr)) & DLV_IFR_SCLR_MASK) {
 		mutex_lock(&codec->mutex);
 		do {
 			dev_warn(codec->dev, "codec short circut protect !!!\n");
-			dlv4780_short_circut_handler(dlv4780);
+			icdc_d1_short_circut_handler(icdc_d1);
 			snd_soc_write(codec, DLV_REG_IFR, DLV_IFR_SCLR_MASK);
 		} while (snd_soc_read(codec, DLV_REG_IFR) & DLV_IFR_SCLR_MASK);
 		dev_warn(codec->dev, "codec short circut protect ok!!!\n");
@@ -847,20 +847,20 @@ static void dlv4780_irq_work_handler(struct work_struct *work)
 	}
 
 	/*hp detect interrupt*/
-	if ((dlv4780_ifr & (~dlv4780_imr)) & DLV_IFR_JACK_MASK) {
-		int dlv4780_jack = 0;
+	if ((icdc_d1_ifr & (~icdc_d1_imr)) & DLV_IFR_JACK_MASK) {
+		int icdc_d1_jack = 0;
 		int report = 0;
 		msleep(200);
-		dlv4780_jack = !!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
+		icdc_d1_jack = !!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
 		dev_info(codec->dev, "codec headphone detect %s\n",
-				dlv4780_jack ? "insert" : "desert");
+				icdc_d1_jack ? "insert" : "desert");
 		snd_soc_write(codec, DLV_REG_IFR, DLV_SR_JACK_MASK);
-		if (dlv4780_jack)
-			report = dlv4780->report_mask;
-		snd_soc_jack_report(dlv4780->jack, report,
-				dlv4780->report_mask);
+		if (icdc_d1_jack)
+			report = icdc_d1->report_mask;
+		snd_soc_jack_report(icdc_d1->jack, report,
+				icdc_d1->report_mask);
 	}
-	snd_soc_write(codec,DLV_REG_IMR, dlv4780_imr);
+	snd_soc_write(codec,DLV_REG_IMR, icdc_d1_imr);
 }
 
 /*
@@ -868,32 +868,32 @@ static void dlv4780_irq_work_handler(struct work_struct *work)
  */
 static irqreturn_t dlv_codec_irq(int irq, void *dev_id)
 {
-	struct dlv4780 *dlv4780 = (struct dlv4780 *)dev_id;
-	struct snd_soc_codec *codec = dlv4780->codec;
-	if (dlv4780_test_irq(dlv4780)) {
+	struct icdc_d1 *icdc_d1 = (struct icdc_d1 *)dev_id;
+	struct snd_soc_codec *codec = icdc_d1->codec;
+	if (icdc_d1_test_irq(icdc_d1)) {
 		/*disable interrupt*/
-		dlv4780->codec_imr = snd_soc_read(codec, DLV_REG_IMR);
+		icdc_d1->codec_imr = snd_soc_read(codec, DLV_REG_IMR);
 		snd_soc_write(codec, DLV_REG_IMR, ICR_IMR_MASK);
-		if(!work_pending(&dlv4780->irq_work))
-			schedule_work(&dlv4780->irq_work);
+		if(!work_pending(&icdc_d1->irq_work))
+			schedule_work(&icdc_d1->irq_work);
 		return IRQ_HANDLED;
 	}
 	return IRQ_NONE;
 }
 
-static int dlv4780_probe(struct snd_soc_codec *codec)
+static int icdc_d1_probe(struct snd_soc_codec *codec)
 {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	dev_info(codec->dev, "codec dlv4780 probe enter\n");
+	dev_info(codec->dev, "codec icdc-d1 probe enter\n");
 
 	/*power on codec*/
-	dlv4780_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
 #ifdef DEBUG
 	/*dump for debug*/
-	dump_registers_hazard(dlv4780);
+	dump_registers_hazard(icdc_d1);
 #endif
 	/* codec select enable 12M clock*/
 	snd_soc_update_bits(codec, DLV_REG_CR_CK, DLV_CR_CK_SEL_MASK,
@@ -931,80 +931,80 @@ static int dlv4780_probe(struct snd_soc_codec *codec)
 	/*unmute aolo*/
 	snd_soc_update_bits(codec, DLV_REG_CR_LO, (1 << 7), 0);
 
-	INIT_WORK(&dlv4780->irq_work, dlv4780_irq_work_handler);
-	ret = request_irq(dlv4780->irqno, dlv_codec_irq, dlv4780->irqflags,
-			"audio_codec_irq", (void *)dlv4780);
+	INIT_WORK(&icdc_d1->irq_work, icdc_d1_irq_work_handler);
+	ret = request_irq(icdc_d1->irqno, dlv_codec_irq, icdc_d1->irqflags,
+			"audio_codec_irq", (void *)icdc_d1);
 	if (ret)
-		dev_warn(codec->dev, "Failed to request aic codec irq %d\n", dlv4780->irqno);
+		dev_warn(codec->dev, "Failed to request aic codec irq %d\n", icdc_d1->irqno);
 
-	dlv4780->codec = codec;
+	icdc_d1->codec = codec;
 	return 0;
 }
 
-static int dlv4780_remove(struct snd_soc_codec *codec)
+static int icdc_d1_remove(struct snd_soc_codec *codec)
 {
-	struct dlv4780 *dlv4780 = snd_soc_codec_get_drvdata(codec);
-	dev_info(codec->dev, "codec dlv4780 remove enter\n");
-	if (dlv4780 && dlv4780->irqno != -1) {
-		free_irq(dlv4780->irqno, (void *)dlv4780);
+	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
+	dev_info(codec->dev, "codec icdc_d1 remove enter\n");
+	if (icdc_d1 && icdc_d1->irqno != -1) {
+		free_irq(icdc_d1->irqno, (void *)icdc_d1);
 	}
-	dlv4780_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	return 0;
 }
 
-static struct snd_soc_codec_driver soc_codec_dev_dlv4780_codec = {
-	.probe = 	dlv4780_probe,
-	.remove = 	dlv4780_remove,
-	.suspend =	dlv4780_suspend,
-	.resume =	dlv4780_resume,
+static struct snd_soc_codec_driver soc_codec_dev_icdc_d1_codec = {
+	.probe = 	icdc_d1_probe,
+	.remove = 	icdc_d1_remove,
+	.suspend =	icdc_d1_suspend,
+	.resume =	icdc_d1_resume,
 
-	.read = 	dlv4780_read,
-	.write = 	dlv4780_write,
-	.volatile_register = dlv4780_volatile,
-	.readable_register = dlv4780_readable,
-	.writable_register = dlv4780_writable,
-	.reg_cache_default = dlv4780_reg_defcache,
+	.read = 	icdc_d1_read,
+	.write = 	icdc_d1_write,
+	.volatile_register = icdc_d1_volatile,
+	.readable_register = icdc_d1_readable,
+	.writable_register = icdc_d1_writable,
+	.reg_cache_default = icdc_d1_reg_defcache,
 	.reg_word_size = sizeof(u8),
 	.reg_cache_step = 1,
 	.reg_cache_size = DLV_MAX_REG_NUM,
-	.set_bias_level = dlv4780_set_bias_level,
+	.set_bias_level = icdc_d1_set_bias_level,
 
-	.controls = 	dlv4780_snd_controls,
-	.num_controls = ARRAY_SIZE(dlv4780_snd_controls),
-	.dapm_widgets = dlv4780_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(dlv4780_dapm_widgets),
+	.controls = 	icdc_d1_snd_controls,
+	.num_controls = ARRAY_SIZE(icdc_d1_snd_controls),
+	.dapm_widgets = icdc_d1_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(icdc_d1_dapm_widgets),
 	.dapm_routes = intercon,
 	.num_dapm_routes = ARRAY_SIZE(intercon),
 };
 
 /*Just for debug*/
-static ssize_t dlv4780_regs_show(struct device *dev,
+static ssize_t icdc_d1_regs_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct dlv4780 *dlv4780 = dev_get_drvdata(dev);
-	struct snd_soc_codec *codec = dlv4780->codec;
+	struct icdc_d1 *icdc_d1 = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec = icdc_d1->codec;
 	if (!codec) {
-		dev_info(dev, "dlv4780 is not probe, can not use %s function\n", __func__);
+		dev_info(dev, "icdc_d1 is not probe, can not use %s function\n", __func__);
 		return 0;
 	}
 	mutex_lock(&codec->mutex);
-	dump_registers_hazard(dlv4780);
+	dump_registers_hazard(icdc_d1);
 	mutex_unlock(&codec->mutex);
 	return 0;
 }
 
-static ssize_t dlv4780_regs_store(struct device *dev,
+static ssize_t icdc_d1_regs_store(struct device *dev,
 		struct device_attribute *attr, const char *buf,
 		size_t count)
 {
-	struct dlv4780 *dlv4780 = dev_get_drvdata(dev);
-	struct snd_soc_codec *codec = dlv4780->codec;
+	struct icdc_d1 *icdc_d1 = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec = icdc_d1->codec;
 	const char *start = buf;
 	unsigned int reg, val;
 	int ret_count = 0;
 
 	if (!codec) {
-		dev_info(dev, "dlv4780 is not probe, can not use %s function\n", __func__);
+		dev_info(dev, "icdc_d1 is not probe, can not use %s function\n", __func__);
 		return count;
 	}
 
@@ -1021,22 +1021,22 @@ static ssize_t dlv4780_regs_store(struct device *dev,
 	}
 	val = simple_strtoul(start, (char **)&start, 16);
 	mutex_lock(&codec->mutex);
-	dlv4780_write(codec, reg, val);
+	icdc_d1_write(codec, reg, val);
 	mutex_unlock(&codec->mutex);
 	return count;
 }
 
-static struct device_attribute dlv4780_sysfs_attrs =
-	__ATTR(hw_regs, S_IRUGO|S_IWUGO, dlv4780_regs_show, dlv4780_regs_store);
+static struct device_attribute icdc_d1_sysfs_attrs =
+	__ATTR(hw_regs, S_IRUGO|S_IWUGO, icdc_d1_regs_show, icdc_d1_regs_store);
 
-static int dlv4780_platform_probe(struct platform_device *pdev)
+static int icdc_d1_platform_probe(struct platform_device *pdev)
 {
-	struct dlv4780 *dlv4780 = NULL;
+	struct icdc_d1 *icdc_d1 = NULL;
 	struct resource *res = NULL;
 	int ret = 0;
 
-	dlv4780 = (struct dlv4780*)kzalloc(sizeof(struct dlv4780), GFP_KERNEL);
-	if (!dlv4780)
+	icdc_d1 = (struct icdc_d1*)kzalloc(sizeof(struct icdc_d1), GFP_KERNEL);
+	if (!icdc_d1)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1053,11 +1053,11 @@ static int dlv4780_platform_probe(struct platform_device *pdev)
 		goto err_get_io_res_mem;
 	}
 
-	dlv4780->mapped_resstart = res->start;
-	dlv4780->mapped_ressize = resource_size(res);
-	dlv4780->mapped_base = ioremap_nocache(dlv4780->mapped_resstart,
-			dlv4780->mapped_ressize);
-	if (!dlv4780->mapped_base) {
+	icdc_d1->mapped_resstart = res->start;
+	icdc_d1->mapped_ressize = resource_size(res);
+	icdc_d1->mapped_base = ioremap_nocache(icdc_d1->mapped_resstart,
+			icdc_d1->mapped_ressize);
+	if (!icdc_d1->mapped_base) {
 		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
 		ret = -ENOMEM;
 		goto err_ioremap;
@@ -1070,79 +1070,79 @@ static int dlv4780_platform_probe(struct platform_device *pdev)
 		goto err_get_io_res_irq;
 	}
 
-	dlv4780->irqno = res->start;
-	dlv4780->irqflags = res->flags &
+	icdc_d1->irqno = res->start;
+	icdc_d1->irqflags = res->flags &
 		IORESOURCE_IRQ_SHAREABLE ? IRQF_SHARED : 0;
-	dlv4780->dev = &pdev->dev;
-	dlv4780->dac_user_mute = 1;
-	dlv4780->aohp_in_pwsq = 0;
-	dlv4780->hpl_wished_gain = 0;
-	dlv4780->hpr_wished_gain = 0;
-	spin_lock_init(&dlv4780->io_lock);
-	platform_set_drvdata(pdev, (void *)dlv4780);
+	icdc_d1->dev = &pdev->dev;
+	icdc_d1->dac_user_mute = 1;
+	icdc_d1->aohp_in_pwsq = 0;
+	icdc_d1->hpl_wished_gain = 0;
+	icdc_d1->hpr_wished_gain = 0;
+	spin_lock_init(&icdc_d1->io_lock);
+	platform_set_drvdata(pdev, (void *)icdc_d1);
 
 	ret = snd_soc_register_codec(&pdev->dev,
-			&soc_codec_dev_dlv4780_codec, &dlv4780_codec_dai, 1);
+			&soc_codec_dev_icdc_d1_codec, &icdc_d1_codec_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Faild to register codec\n");
 		goto err_register_codec;
 	}
 
-	ret = device_create_file(&pdev->dev, &dlv4780_sysfs_attrs);
+	ret = device_create_file(&pdev->dev, &icdc_d1_sysfs_attrs);
 	if (ret)
 		dev_warn(&pdev->dev,"attribute %s create failed %x",
-				attr_name(dlv4780_sysfs_attrs), ret);
-	dev_info(&pdev->dev, "codec dlv4780 platfrom probe success\n");
+				attr_name(icdc_d1_sysfs_attrs), ret);
+	dev_info(&pdev->dev, "codec icdc-d1 platfrom probe success\n");
 	return 0;
 
 err_register_codec:
 	platform_set_drvdata(pdev, NULL);
 err_get_io_res_irq:
-	iounmap(dlv4780->mapped_base);
+	iounmap(icdc_d1->mapped_base);
 err_ioremap:
-	release_mem_region(dlv4780->mapped_resstart, dlv4780->mapped_ressize);
+	release_mem_region(icdc_d1->mapped_resstart, icdc_d1->mapped_ressize);
 err_get_io_res_mem:
-	kfree(dlv4780);
+	kfree(icdc_d1);
 	return ret;
 }
 
-static int dlv4780_platform_remove(struct platform_device *pdev)
+static int icdc_d1_platform_remove(struct platform_device *pdev)
 {
-	struct dlv4780 *dlv4780 = platform_get_drvdata(pdev);
-	dev_info(&pdev->dev, "codec dlv4780 platform remove\n");
+	struct icdc_d1 *icdc_d1 = platform_get_drvdata(pdev);
+	dev_info(&pdev->dev, "codec icdc-d1 platform remove\n");
 
 	snd_soc_unregister_codec(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-	if (dlv4780) {
-		iounmap(dlv4780->mapped_base);
-		release_mem_region(dlv4780->mapped_resstart,
-				dlv4780->mapped_ressize);
-		kfree(dlv4780);
+	if (icdc_d1) {
+		iounmap(icdc_d1->mapped_base);
+		release_mem_region(icdc_d1->mapped_resstart,
+				icdc_d1->mapped_ressize);
+		kfree(icdc_d1);
 	}
 	return 0;
 }
 
-static struct platform_driver dlv4780_codec_driver = {
+static struct platform_driver icdc_d1_codec_driver = {
 	.driver = {
-		.name = "dlv4780",
+		.name = "icdc-d1",
 		.owner = THIS_MODULE,
 	},
-	.probe = dlv4780_platform_probe,
-	.remove = dlv4780_platform_remove,
+	.probe = icdc_d1_platform_probe,
+	.remove = icdc_d1_platform_remove,
 };
 
-static int dlv4780_modinit(void)
+static int icdc_d1_modinit(void)
 {
-	return platform_driver_register(&dlv4780_codec_driver);
+	return platform_driver_register(&icdc_d1_codec_driver);
 }
-module_init(dlv4780_modinit);
+module_init(icdc_d1_modinit);
 
-static void dlv4780_exit(void)
+static void icdc_d1_exit(void)
 {
-	platform_driver_unregister(&dlv4780_codec_driver);
+	platform_driver_unregister(&icdc_d1_codec_driver);
 }
-module_exit(dlv4780_exit);
+module_exit(icdc_d1_exit);
 
-MODULE_DESCRIPTION("Dlv4780 Codec Driver");
+MODULE_DESCRIPTION("iCdc D1 Codec Driver");
 MODULE_AUTHOR("cli<chen.li@ingenic.com>");
 MODULE_LICENSE("GPL");

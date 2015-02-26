@@ -208,7 +208,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
        DEF_DEVICE(&jz_aic_device, NULL, 0),
        DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_DLV4780
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
        DEF_DEVICE(&jz_icdc_device, NULL, 0),
 #endif
 };

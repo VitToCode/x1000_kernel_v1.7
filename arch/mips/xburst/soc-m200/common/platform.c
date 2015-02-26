@@ -1,5 +1,5 @@
 /*
- * Platform device support for Jz4780 SoC.
+ * Platform device support for M200 SoC.
  *
  * Copyright 2007, <zpzhong@ingenic.cn>
  *
@@ -894,7 +894,7 @@ struct platform_device jz_pcmc_dma_device = {
 };
 #endif*/
 
-#ifdef CONFIG_SND_ASOC_JZ_DLV4780
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
 static struct resource jz_icdc_resources[] = {
 	[0] = {
 		.start          = AIC0_IOBASE + 0xA0,
@@ -909,7 +909,7 @@ static struct resource jz_icdc_resources[] = {
 };
 
 struct platform_device jz_icdc_device = {	/*jz internal codec*/
-	.name		= "dlv4780",
+	.name		= "icdc-d1",
 	.id		= -1,
 	.resource	= jz_icdc_resources,
 	.num_resources	= ARRAY_SIZE(jz_icdc_resources),

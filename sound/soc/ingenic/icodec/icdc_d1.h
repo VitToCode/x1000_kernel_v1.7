@@ -1,12 +1,12 @@
 /*
- * sound/soc/ingenic/icodec/dlv4780.h
- * ALSA SoC Audio driver -- ingenic internal codec (dlv4780) driver
+ * sound/soc/ingenic/icodec/icdc_d1.h
+ * ALSA SoC Audio driver -- ingenic internal codec (icdc_d1) driver
 
  * Copyright 2014 Ingenic Semiconductor Co.,Ltd
  *	cli <chen.li@ingenic.com>
  *
- * Note: dlv4780 is an internal codec for jz SOC
- *	 used for dlv4780 m200 and so on
+ * Note: icdc_d1 is an internal codec for jz SOC
+ *	 used for icdc_d1 m200 and so on
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,14 +14,14 @@
  */
 
 
-#ifndef __DLV4780_REG_H__
-#define __DLV4780_REG_H__
+#ifndef __ICDC_D1_REG_H__
+#define __ICDC_D1_REG_H__
 
 #include <linux/spinlock.h>
 #include <sound/soc.h>
 #include "../asoc-aic.h"
 
-struct dlv4780 {
+struct icdc_d1 {
 	struct device		*dev;		/*aic device used to access register*/
 	struct snd_soc_codec	*codec;
 	spinlock_t       io_lock;		/*codec hw io lock,
@@ -46,14 +46,14 @@ struct dlv4780 {
 };
 
 /*
- * Note: dlv4780 codec just only support detect headphone jack
+ * Note: icdc_d1 codec just only support detect headphone jack
  * detected_type: detect event treat as detected_type
  *	 example: SND_JACK_HEADSET detect event treat as SND_JACK_HEADSET
  */
-int dlv4780_hp_detect(struct snd_soc_codec *codec,
+int icdc_d1_hp_detect(struct snd_soc_codec *codec,
 		struct snd_soc_jack *jack, int detected_type);
 
-/*  dlv4780 internal register space */
+/*  icdc_d1 internal register space */
 enum {
 	DLV_REG_SR		= 0x00,
 	DLV_REG_SR2		= 0x01,
@@ -138,7 +138,7 @@ static int inline register_is_extend(int reg)
 #define RGADW		(0x4)
 #define RGDATA		(0x8)
 
-static inline void dlv4780_mapped_reg_set(void __iomem * xreg, int xmask, int xval)
+static inline void icdc_d1_mapped_reg_set(void __iomem * xreg, int xmask, int xval)
 {
 	int val = readl(xreg);
 	val &= ~(xmask);
@@ -146,7 +146,7 @@ static inline void dlv4780_mapped_reg_set(void __iomem * xreg, int xmask, int xv
 	writel(val, xreg);
 }
 
-static inline int dlv4780_mapped_test_bits(void __iomem * xreg, int xmask, int xval)
+static inline int icdc_d1_mapped_test_bits(void __iomem * xreg, int xmask, int xval)
 {
 	int val = readl(xreg);
 	val &= xmask;
@@ -165,12 +165,12 @@ static inline int dlv4780_mapped_test_bits(void __iomem * xreg, int xmask, int x
 #define DLV_ICRST_BIT		(31)
 #define DLV_ICRST_MASK		(0x1 << DLV_ICRST_BIT)
 
-#define dlv4780_test_rw_inval(dlv4780)      \
-	dlv4780_mapped_test_bits((dlv4780->mapped_base + RGADW), DLV_RGWR_MASK, (1 << DLV_RGDIN_BIT))
-#define dlv4780_rst_begin(reg)	\
-	dlv4780_mapped_reg_set((dlv4780->mapped_base + RGADW), DLV_ICRST_MASK, (1 << DLV_ICRST_BIT))
-#define dlv4780_rst_end(reg)		\
-	dlv4780_mapped_reg_set((dlv4780->mapped_base + RGADW), DLV_ICRST_MASK, 0)
+#define icdc_d1_test_rw_inval(icdc_d1)      \
+	icdc_d1_mapped_test_bits((icdc_d1->mapped_base + RGADW), DLV_RGWR_MASK, (1 << DLV_RGDIN_BIT))
+#define icdc_d1_rst_begin(reg)	\
+	icdc_d1_mapped_reg_set((icdc_d1->mapped_base + RGADW), DLV_ICRST_MASK, (1 << DLV_ICRST_BIT))
+#define icdc_d1_rst_end(reg)		\
+	icdc_d1_mapped_reg_set((icdc_d1->mapped_base + RGADW), DLV_ICRST_MASK, 0)
 
 /*
  * RGDATA
@@ -180,25 +180,25 @@ static inline int dlv4780_mapped_test_bits(void __iomem * xreg, int xmask, int x
 #define DLV_IRQ_BIT		(8)
 #define DLV_IRQ_MASK		(0x1  << DLV_IRQ_BIT)
 
-#define dlv4780_test_irq(dlv4780)	\
-	dlv4780_mapped_test_bits((dlv4780->mapped_base + RGDATA),	\
+#define icdc_d1_test_irq(icdc_d1)	\
+	icdc_d1_mapped_test_bits((icdc_d1->mapped_base + RGDATA),	\
 			DLV_IRQ_MASK, (1 << DLV_IRQ_BIT))
 
-static inline u8 dlv4780_hw_read_normal(struct dlv4780 *dlv4780, u8 reg)
+static inline u8 icdc_d1_hw_read_normal(struct icdc_d1 *icdc_d1, u8 reg)
 {
-	void __iomem * mapped_base = dlv4780->mapped_base;
+	void __iomem * mapped_base = icdc_d1->mapped_base;
 	int reval;
 	int timeout = 0xfffff;
 	unsigned long flags;
 
-	spin_lock_irqsave(&dlv4780->io_lock, flags);
+	spin_lock_irqsave(&icdc_d1->io_lock, flags);
 
-	while(dlv4780_test_rw_inval(dlv4780)) {
+	while(icdc_d1_test_rw_inval(icdc_d1)) {
 		timeout--;
-		if (!timeout) pr_err("dlv4780 test_rw_inval timeout\n");
+		if (!timeout) pr_err("icdc_d1 test_rw_inval timeout\n");
 	}
 
-	dlv4780_mapped_reg_set((mapped_base + RGADW), DLV_RGADDR_MASK,
+	icdc_d1_mapped_reg_set((mapped_base + RGADW), DLV_RGADDR_MASK,
 			(reg << DLV_RGADDR_BIT));
 
 	reval = readl((mapped_base + RGDATA));
@@ -209,35 +209,35 @@ static inline u8 dlv4780_hw_read_normal(struct dlv4780 *dlv4780, u8 reg)
 	//printk("reg %x reval %x\n", reg, reval);
 	reval = ((reval & DLV_RGDOUT_MASK) >> DLV_RGDOUT_BIT);
 	//printk("reg %x reval %x\n", reg, reval);
-	spin_unlock_irqrestore(&dlv4780->io_lock, flags);
+	spin_unlock_irqrestore(&icdc_d1->io_lock, flags);
 	return (u8) reval;
 }
 
-static inline int dlv4780_hw_write_normal(struct dlv4780 *dlv4780, u8 reg, u8 data)
+static inline int icdc_d1_hw_write_normal(struct icdc_d1 *icdc_d1, u8 reg, u8 data)
 {
-	void __iomem * mapped_base = dlv4780->mapped_base;
+	void __iomem * mapped_base = icdc_d1->mapped_base;
 	int ret = 0;
 	int timeout = 0xfffff;
 	unsigned long flags;
 
-	spin_lock_irqsave(&dlv4780->io_lock, flags);
+	spin_lock_irqsave(&icdc_d1->io_lock, flags);
 
-	while(dlv4780_test_rw_inval(dlv4780)) {
+	while(icdc_d1_test_rw_inval(icdc_d1)) {
 		timeout--;
-		if (!timeout) pr_err("dlv4780 test_rw_inval timeout\n");
+		if (!timeout) pr_err("icdc_d1 test_rw_inval timeout\n");
 	}
 
-	dlv4780_mapped_reg_set((mapped_base + RGADW), DLV_RGADDR_MASK | DLV_RGDIN_MASK,
+	icdc_d1_mapped_reg_set((mapped_base + RGADW), DLV_RGADDR_MASK | DLV_RGDIN_MASK,
 			(1 << DLV_RGWR_BIT) | (reg << DLV_RGADDR_BIT) | (data << DLV_RGDIN_BIT));
 
-	spin_unlock_irqrestore(&dlv4780->io_lock, flags);
+	spin_unlock_irqrestore(&icdc_d1->io_lock, flags);
 
-	if (data != dlv4780_hw_read_normal(dlv4780, reg))
+	if (data != icdc_d1_hw_read_normal(icdc_d1, reg))
 		ret = -1;
 	return ret;
 }
 
-static inline int dlv4780_hw_write_extend(struct dlv4780 *dlv4780, u8 sreg, u8 sdata)
+static inline int icdc_d1_hw_write_extend(struct icdc_d1 *icdc_d1, u8 sreg, u8 sdata)
 {
 	u8 creg, cdata, dreg, ddata;
 	switch (sreg) {
@@ -256,16 +256,16 @@ static inline int dlv4780_hw_write_extend(struct dlv4780 *dlv4780, u8 sreg, u8 s
 	}
 	ddata = sdata;
 
-	dlv4780_hw_write_normal(dlv4780, dreg, ddata);
-	dlv4780_hw_write_normal(dlv4780, creg, (cdata | 1 << 6));
-	dlv4780_hw_write_normal(dlv4780, creg, cdata);
-	if (ddata != dlv4780_hw_read_normal(dlv4780, dreg)) {
+	icdc_d1_hw_write_normal(icdc_d1, dreg, ddata);
+	icdc_d1_hw_write_normal(icdc_d1, creg, (cdata | 1 << 6));
+	icdc_d1_hw_write_normal(icdc_d1, creg, cdata);
+	if (ddata != icdc_d1_hw_read_normal(icdc_d1, dreg)) {
 		return -1;
 	}
 	return 0;
 }
 
-static inline u8 dlv4780_hw_read_extend(struct dlv4780 *dlv4780, u8 sreg)
+static inline u8 icdc_d1_hw_read_extend(struct icdc_d1 *icdc_d1, u8 sreg)
 {
 	int creg, cdata, dreg, ddata;
 	switch (sreg) {
@@ -282,27 +282,27 @@ static inline u8 dlv4780_hw_read_extend(struct dlv4780 *dlv4780, u8 sreg)
 	default:
 		return 0;
 	}
-	dlv4780_hw_write_normal(dlv4780, creg, cdata);
-	ddata = dlv4780_hw_read_normal(dlv4780, dreg);
+	icdc_d1_hw_write_normal(icdc_d1, creg, cdata);
+	ddata = icdc_d1_hw_read_normal(icdc_d1, dreg);
 	return (u8) ddata;
 }
 
-static inline u8 dlv4780_hw_read(struct dlv4780 *dlv4780, int reg)
+static inline u8 icdc_d1_hw_read(struct icdc_d1 *icdc_d1, int reg)
 {
 	if (register_is_extend(reg))
-		return dlv4780_hw_read_extend(dlv4780, reg);
+		return icdc_d1_hw_read_extend(icdc_d1, reg);
 	else
-		return dlv4780_hw_read_normal(dlv4780, reg);
+		return icdc_d1_hw_read_normal(icdc_d1, reg);
 }
 
-static inline int dlv4780_hw_write(struct dlv4780 *dlv4780, int reg, int data)
+static inline int icdc_d1_hw_write(struct icdc_d1 *icdc_d1, int reg, int data)
 {
 	if (register_is_extend(reg)) {
-		return dlv4780_hw_write_extend(dlv4780, reg, data);
+		return icdc_d1_hw_write_extend(icdc_d1, reg, data);
 	} else {
 		if (reg == DLV_REG_DR_ADC_AGC || reg == DLV_REG_DR_MIX)
 			data &= ~(1 << 6);
-		return dlv4780_hw_write_normal(dlv4780, reg, data);
+		return icdc_d1_hw_write_normal(icdc_d1, reg, data);
 	}
 }
 /*SR*/
@@ -415,4 +415,4 @@ static inline int dlv4780_hw_write(struct dlv4780 *dlv4780, int reg, int data)
 #define ICR_IMR_COMMON_MSK	(ICR_IMR_MASK & (~(DLV_IMR_SCLR)))
 /*GCR HPL*/
 #define DLV_GCR_HPL_LRGO_SHIFT	7
-#endif	/* __DLV4780_REG_H__ */
+#endif	/* __ICDC_D1_REG_H__ */
