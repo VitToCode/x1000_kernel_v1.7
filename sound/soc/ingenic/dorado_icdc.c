@@ -25,7 +25,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/gpio.h>
-#include "icodec/dlv4780.h"
+#include "icodec/icdc_d1.h"
 
 static struct snd_soc_ops dorado_i2s_ops = {
 
@@ -69,8 +69,8 @@ static const struct snd_soc_dapm_widget dorado_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Mic Buildin", NULL),
 };
 
-static struct snd_soc_jack dorado_dlv4780_hp_jack;
-static struct snd_soc_jack_pin dorado_dlv4780_hp_jack_pins[] = {
+static struct snd_soc_jack dorado_icdc_d1_hp_jack;
+static struct snd_soc_jack_pin dorado_icdc_d1_hp_jack_pins[] = {
 	{
 		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
@@ -121,12 +121,12 @@ static int dorado_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	if (err)
 		return err;
 
-	snd_soc_jack_new(codec, "Headset Jack", SND_JACK_HEADSET, &dorado_dlv4780_hp_jack);
-	snd_soc_jack_add_pins(&dorado_dlv4780_hp_jack,
-			ARRAY_SIZE(dorado_dlv4780_hp_jack_pins),
-			dorado_dlv4780_hp_jack_pins);
+	snd_soc_jack_new(codec, "Headset Jack", SND_JACK_HEADSET, &dorado_icdc_d1_hp_jack);
+	snd_soc_jack_add_pins(&dorado_icdc_d1_hp_jack,
+			ARRAY_SIZE(dorado_icdc_d1_hp_jack_pins),
+			dorado_icdc_d1_hp_jack_pins);
 
-	dlv4780_hp_detect(codec, &dorado_dlv4780_hp_jack, SND_JACK_HEADSET);
+	icdc_d1_hp_detect(codec, &dorado_icdc_d1_hp_jack, SND_JACK_HEADSET);
 
 	snd_soc_dapm_force_enable_pin(dapm, "Speaker");
 	snd_soc_dapm_force_enable_pin(dapm, "Mic Buildin");
@@ -137,13 +137,13 @@ static int dorado_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 
 static struct snd_soc_dai_link dorado_dais[] = {
 	[0] = {
-		.name = "DORADO-DLV-4780",
+		.name = "DORADO ICDC",
 		.stream_name = "DORADO ICDC",
 		.platform_name = "jz-asoc-aic-dma",
 		.cpu_dai_name = "jz-asoc-aic-i2s",
 		.init = dorado_dlv_dai_link_init,
-		.codec_dai_name = "dlv4780-hifi",
-		.codec_name = "dlv4780",
+		.codec_dai_name = "icdc-d1-hifi",
+		.codec_name = "icdc-d1",
 		.ops = &dorado_i2s_ops,
 	},
 };

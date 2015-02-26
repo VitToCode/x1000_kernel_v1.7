@@ -335,8 +335,8 @@ static int jz_pcm_close(struct snd_pcm_substream *substream)
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 
 	DMA_DEBUG_MSG("%s enter\n", __func__);
-	kfree(prtd);
 	substream->runtime->private_data = NULL;
+	kfree(prtd);
 	return 0;
 }
 
