@@ -1,26 +1,43 @@
-config SND_JZ_SOC_AIC_DMA
-	tristate "SoC Audio (AIC DMA) for Ingenic xburst chip"
+menuconfig SND_ASOC_INGENIC
+	tristate "ASoC support for Ingenic"
 	depends on JZRISC && SND_SOC
-	select SND_JZ_SOC_AIC_CORE
 	help
-	  Say Y or M if you want to add support for codecs attached to
-	  the Jz47XX AC97, I2S controller.
+		Say 'Y' to enable Alsa drivers of xburst.
 
-config SND_JZ_SOC_SPDIF
-        tristate
+if SND_ASOC_INGENIC
 
-config SND_JZ_SOC_AIC_CORE
-        tristate
-
-config SUPPORT_AIC_MSB
+config SND_ASOC_JZ_AIC
 	tristate
-	depends on SOC_M200
 
-config SND_JZ_SOC_MENSA_SPDIF
-	tristate "SoC SPDIF Audio support for JZ4775 mensa reference board with internal codec"
-	depends on SND_JZ_SOC_AIC_DMA
-	depends on SOC_4775
-	select SND_JZ_SOC_SPDIF
-	select SND_SOC_SPDIF
+config SND_ASOC_JZ_AIC_SPDIF
+        tristate
+	select SND_ASOC_JZ_AIC
+
+config SND_ASOC_JZ_AIC_I2S
+	tristate
+	select SND_ASOC_JZ_AIC
+
+config SND_ASOC_JZ_DLV4780
+	tristate
+	select SND_ASOC_JZ_AIC
+
+config SND_ASOC_INGENIC_DORADO_DLV4780
+	tristate "Audio support for dorado"
+	depends on SOC_M200
+	select SND_ASOC_JZ_AIC_I2S
+	select SND_ASOC_JZ_DLV4780
 	help
-	  Say Y if you want to add audio support for JZ4775 Mensa reference board with internal codec.
+	  Say Y if you want to add audio support for M200 Dorado
+	  reference board with internal codec
+config JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
+	bool "JZ audio dma clear auto dirty memory"
+	help
+	  Say Y if you audio dma clear auto dirty memory, so you would not
+	  clear by slience_threshold set by user app
+config JZ_ASOC_STANDARD_CYCLIC_DMA
+	bool "JZ audio dma standard cyclic dma mode"
+	default y
+	help
+	  Say Y if you want suport sandard cyclic dma interface, Say N, that
+	  dma cyclic interface is not standard
+endif
