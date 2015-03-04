@@ -4,46 +4,7 @@
 #ifndef __JZ47XX_SPI_NOR_H__
 #define __JZ47XX_SPI_NOR_H__
 
-/**
- * struct spi_nor_block_info:
- */
-struct spi_nor_block_info {
-	/* the Most blocksize function is first */
-	u32 blocksize;
-	u8 cmd_blockerase;
-	/* MAX Busytime for block erase, unit: ms */
-	u32 be_maxbusy;
-};
-
-/**
- * struct spi_not_platform_data:
- * @pagesize:
- * @sectorsize:
- * @chipsize:
- */
-struct spi_nor_platform_data {
-	u32 pagesize;   
-	u32 sectorsize; 
-	u32 chipsize;
-
-	/* Some NOR flash has different blocksize and block erase command,
-	 * One command with One blocksize. */
-	struct spi_nor_block_info *block_info;
-	int num_block_info;
-
-	/* Flash Address size, unit: Bytes */
-	int addrsize;
-
-	/* MAX Busytime for page program, unit: ms */
-	u32 pp_maxbusy;
-	/* MAX Busytime for sector erase, unit: ms */
-	u32 se_maxbusy;
-	/* MAX Busytime for chip erase, unit: ms */
-	u32 ce_maxbusy;
-
-	/* Flash status register num, Max support 3 register */
-	int st_regnum;
-};
+#include <mach/jzssi.h>
 
 /* SPI Flash Instructions */
 #define CMD_WREN		0x06 /* Write Enable */
