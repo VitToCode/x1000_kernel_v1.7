@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
 #include <linux/suspend.h>
+#include "../jz_fb_v12/jz_fb.h"
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
@@ -280,7 +281,9 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
     mutex_init(&pb->pwm_lock);
 	bl->props.brightness = data->dft_brightness;
-	backlight_update_status(bl);
+	if ( ! lcd_display_inited_by_uboot() ) {
+		backlight_update_status(bl);
+	}
 
 	platform_set_drvdata(pdev, bl);
 

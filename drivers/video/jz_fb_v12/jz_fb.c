@@ -56,6 +56,7 @@ static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
 static int jzfb_set_par(struct fb_info *info);
 
+static int uboot_inited;
 static int showFPS = 0;
 static struct jzfb *jzfb;
 #if !defined(CONFIG_SLCDC_CONTINUA)
@@ -2554,6 +2555,17 @@ void test_pattern(struct jzfb *jzfb)
 
 	}
 }
+
+int lcd_display_inited_by_uboot( void )
+{
+	if (*(unsigned int*)(0xb3050000 + LCDC_CTRL) & LCDC_CTRL_ENA)
+		uboot_inited = 1;
+	else
+		uboot_inited = 0;
+	/* screen init will set this function first */
+	return uboot_inited;
+}
+
 static int __devinit jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2724,20 +2736,25 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		goto err_free_file;
 	}
 
-	if (jzfb->vidmem_phys) {
+	if (lcd_display_inited_by_uboot()) {
+		printk("#######lcd is enabled by uboot, keep par!!\n");
+		/* remain uboot logo, set blank state, keep clk
+		 * but what if uboot's par is different with kernel's.
+		 * */
+		if (jzfb->vidmem_phys) {
 #ifdef CONFIG_FB_JZ_DEBUG
-		test_pattern(jzfb);
+			test_pattern(jzfb);
 #endif
-		if (!jzfb_copy_logo(jzfb->fb)) {
-			jzfb_change_dma_desc(jzfb->fb);
+			if (!jzfb_copy_logo(jzfb->fb)) {
+				jzfb_change_dma_desc(jzfb->fb);
+			}
+		}else{
+			clk_disable(jzfb->pclk);
+			jzfb_clk_disable(jzfb);
+			clk_disable(jzfb->pwcl);
 		}
-	}else{
-		clk_disable(jzfb->pclk);
-		jzfb_clk_disable(jzfb);
-		clk_disable(jzfb->pwcl);
+		jzfb_ctrl_register(jzfb);
 	}
-
-	jzfb_ctrl_register(jzfb);
 
 	return 0;
 

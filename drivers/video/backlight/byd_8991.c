@@ -26,6 +26,7 @@
 #include <soc/gpio.h>
 
 #include <linux/byd_8991.h>
+#include "../jz_fb_v12/jz_fb.h"
 extern void Initial_IC(struct platform_byd_8991_data *pdata);
 
 struct byd_8991_data {
@@ -144,7 +145,9 @@ static int byd_8991_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_lcd_vsync)
 		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 #endif
-	byd_8991_on(dev);
+	if ( ! lcd_display_inited_by_uboot() ) {
+		byd_8991_on(dev);
+	}
 
 	dev->lcd = lcd_device_register("byd_8991-lcd", &pdev->dev,
 				       dev, &byd_8991_ops);
