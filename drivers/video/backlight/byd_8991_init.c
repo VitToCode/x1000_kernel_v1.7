@@ -41,20 +41,25 @@ struct platform_byd_8991_data *byd_8991_pdata = NULL;
 void SPI_3W_SET_CMD(unsigned char c)
 {
 	unsigned char i;
-
-	udelay(10);
+/*delete timedelays for increasing the start-up speed.                                   
+    Oscilloscope test shows that : without timedelays,the signal CKL's high level        
+    is able to keep 2.2us,and the low level can keep 4us,meeting with  the lcd's 
+    timing requirements(see details in the 8991F.PDF  page18).
+    if your 8991_lcd can't work normally becouse of the chang,try to recover those udelays,and connect with me.
+    */   
+//	udelay(10);             
 	SCK(0);
 	SDO(0);
-	udelay(10);
+//	udelay(10);
 	SCK(1);
-	udelay(20);
+//	udelay(20);
 	for(i=0;i<8;i++)
 	{
 		SCK(0);
 		SDO(((c&0x80)>>7));
-		udelay(10);
+//		udelay(10);
 		SCK(1);
-		udelay(20);
+//		udelay(20);
 		c=c<<1;
 	}
 }
@@ -63,19 +68,19 @@ void SPI_3W_SET_PAs(unsigned char d)
 {
 	unsigned char i;
 
-	udelay(10);
+//	udelay(10);
 	SCK(0);
 	SDO(1);
-	udelay(10);
+//	udelay(10);
 	SCK(1);
-	udelay(20);
+//	udelay(20);
 	for(i=0;i<8;i++)
 	{
 		SCK(0);
 		SDO(((d&0x80)>>7));
-		udelay(10);
+//		udelay(10);
 		SCK(1);
-		udelay(20);
+//		udelay(20);
 		d=d<<1;
 	}
 }
@@ -83,16 +88,15 @@ unsigned char SPI_GET_REG_VAL(void)
 {
 	unsigned char i;
 	unsigned char data = 0;
-
-	udelay(10);
+//	udelay(10);
 	for(i=0;i<8;i++)
 	{
 		SCK(0);
 		data <<= 1;
 		data |=SDI();
-		udelay(10);
+//		udelay(10);
 		SCK(1);
-		udelay(20);
+//		udelay(20);
 		printk("sdi= 0x%x\n",data);
 	}
 	return data;
@@ -103,7 +107,7 @@ void SPI_READ_REG(unsigned char reg)
 	int data = 0;
 
 	CS(0);
-	udelay(10);
+//	udelay(10);
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
 	SPI_3W_SET_PAs(0x83);
@@ -112,7 +116,7 @@ void SPI_READ_REG(unsigned char reg)
 	SPI_3W_SET_CMD(reg);
 	data = SPI_GET_REG_VAL();
 	CS(1);
-	udelay(10);
+//	udelay(10);
 	printk("reg(0x%x)=0x%x\n",reg,data);
 }
 
@@ -120,7 +124,7 @@ void SET_BRIGHT_CTRL(void)
 {
 	printk("This is the screen brightness ctrl!\n");
 	CS(0);
-	udelay(10);
+//	udelay(10);
 
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
@@ -140,7 +144,7 @@ void SET_BRIGHT_CTRL(void)
 	//SPI_3W_SET_PAs(0xf);
 
 	CS(1);
-	udelay(10);
+//	udelay(10);
 }
 void Initial_IC(struct platform_byd_8991_data *pdata)
 {
@@ -164,7 +168,7 @@ void Initial_IC(struct platform_byd_8991_data *pdata)
 #endif
 
 	CS(0);
-	udelay(10);
+//	udelay(10);
 
 	SPI_3W_SET_CMD(0xB9); //Set_EXTC
 	SPI_3W_SET_PAs(0xFF);
