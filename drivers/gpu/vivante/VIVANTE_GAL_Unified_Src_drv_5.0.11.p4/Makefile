@@ -43,6 +43,9 @@ obj-y += $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_debugfs.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_allocator.o \
 
+#        $(OS_KERNEL_DIR)/gc_hal_kernel_iommu.o \
+
+
 ifneq ($(PLATFORM),)
 obj-y += $(OS_KERNEL_DIR)/gc_hal_kernel_probe.o
 obj-y += $(OS_KERNEL_DIR)/platform/$(PLATFORM).o
