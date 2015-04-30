@@ -6,7 +6,7 @@
  *	cli <chen.li@ingenic.com>
  *
  * Note: icdc_d1 is an internal codec for jz SOC
- *	 used for icdc_d1 m200 and so on
+ *	 used for jz4780 m200 and so on
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -249,7 +249,7 @@ static inline int icdc_d1_hw_write_extend(struct icdc_d1 *icdc_d1, u8 sreg, u8 s
 	case DLV_EXREG_AGC0 ... DLV_EXREG_AGC4:
 		creg = DLV_REG_CR_ADC_AGC;
 		dreg = DLV_REG_DR_ADC_AGC;
-		cdata = (sreg - DLV_EXREG_AGC0) & 0x4;
+		cdata = (sreg - DLV_EXREG_AGC0) & 0x7;
 		break;
 	default:
 		return -1;

@@ -218,7 +218,10 @@ extern struct platform_device jz_rtc_device;
 extern struct platform_device jz_efuse_device;
 extern struct platform_device jz_aic_dma_device;
 extern struct platform_device jz_aic_device;
+extern struct platform_device jz_pcm_dma_device;
+extern struct platform_device jz_pcm_device;
 extern struct platform_device jz_icdc_device;
+extern struct platform_device jz_dump_cdc_device;
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #ifdef CONFIG_ANDROID_PMEM

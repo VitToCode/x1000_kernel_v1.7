@@ -6,7 +6,7 @@
  *	cli <chen.li@ingenic.com>
  *
  * Note: icdc_d1 is an internal codec for jz SOC
- *	 used for icdc_d1 m200 and so on
+ *	 used for jz4780 m200 and so on
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,6 +23,7 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/ctype.h>
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -477,6 +478,7 @@ static const struct snd_kcontrol_new icdc_d1_snd_controls[] = {
 	SOC_ENUM("ADC Wind Noise Filter Switch", icdc_d1_enum[5]),
 	SOC_SINGLE("Mic1 Diff Switch", DLV_REG_CR_MIC1, 6, 1, 0),
 	SOC_SINGLE("Mic Stereo Switch", DLV_REG_CR_MIC1, 7, 1, 0),
+	SOC_SINGLE("ADC Stereo Switch", DLV_REG_CR_ADC, 5, 1, 1),
 	SOC_SINGLE("Bypass1 Diff Switch", DLV_REG_CR_LI1, 6, 1, 0),
 	SOC_SINGLE("Mic1 Bias Switch", DLV_REG_CR_MIC1, 5, 1, 1),	/*some times we want open micbias first*/
 	SOC_SINGLE("Mic2 Bias Switch", DLV_REG_CR_MIC2, 5, 1, 1),
@@ -807,17 +809,15 @@ int icdc_d1_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 
 	if (jack) {
 		snd_soc_update_bits(codec, DLV_REG_IMR, DLV_IMR_JACK, 0);
+		/*initial headphone detect*/
+		if (!!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
+			report = icdc_d1->report_mask;
+			dev_info(codec->dev, "codec initial headphone detect --> headphone was inserted\n");
+			snd_soc_jack_report(icdc_d1->jack, report, icdc_d1->report_mask);
+		}
 	} else {
 		snd_soc_update_bits(codec, DLV_REG_IMR, 0, DLV_IMR_JACK);
 	}
-
-	/*initial headphone detect*/
-	if (!!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
-		report = icdc_d1->report_mask;
-		dev_info(codec->dev, "codec initial headphone detect --> headphone was inserted\n");
-		snd_soc_jack_report(icdc_d1->jack, report, icdc_d1->report_mask);
-	}
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(icdc_d1_hp_detect);
@@ -853,7 +853,7 @@ static void icdc_d1_irq_work_handler(struct work_struct *work)
 		msleep(200);
 		icdc_d1_jack = !!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
 		dev_info(codec->dev, "codec headphone detect %s\n",
-				icdc_d1_jack ? "insert" : "desert");
+				icdc_d1_jack ? "insert" : "pull out");
 		snd_soc_write(codec, DLV_REG_IFR, DLV_SR_JACK_MASK);
 		if (icdc_d1_jack)
 			report = icdc_d1->report_mask;
@@ -917,7 +917,7 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 
 	/*codec mixer in input normal default*/
 	snd_soc_write(codec, DLV_EXREG_MIX0, 0x50);	/*AIDACX_SEL should be configured to 01 in normal mode*/
-	snd_soc_write(codec, DLV_EXREG_MIX3, 0x50);	/*MIXADCX_SEL should be configured to 01 in normal mode*/
+	snd_soc_write(codec, DLV_EXREG_MIX2, 0x10);	/*MIXADCX_SEL should be configured to 01 in normal mode*/
 
 	/*codec generated IRQ is a high level */
 	snd_soc_update_bits(codec, DLV_REG_ICR, DLV_ICR_INT_FORM_MASK, 0);
@@ -1035,40 +1035,35 @@ static int icdc_d1_platform_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	int ret = 0;
 
-	icdc_d1 = (struct icdc_d1*)kzalloc(sizeof(struct icdc_d1), GFP_KERNEL);
+	icdc_d1 = (struct icdc_d1*)devm_kzalloc(&pdev->dev,
+			sizeof(struct icdc_d1), GFP_KERNEL);
 	if (!icdc_d1)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "Faild to get ioresource mem\n");
-		ret = -ENOENT;
-		goto err_get_io_res_mem;
+		return -ENOENT;
 	}
 
-	if (NULL == request_mem_region(res->start,
+	if (!devm_request_mem_region(&pdev->dev, res->start,
 				resource_size(res), pdev->name)) {
 		dev_err(&pdev->dev, "Failed to request mmio memory region\n");
-		ret = -EBUSY;
-		goto err_get_io_res_mem;
+		return -EBUSY;
 	}
-
 	icdc_d1->mapped_resstart = res->start;
 	icdc_d1->mapped_ressize = resource_size(res);
-	icdc_d1->mapped_base = ioremap_nocache(icdc_d1->mapped_resstart,
+	icdc_d1->mapped_base = devm_ioremap_nocache(&pdev->dev,
+			icdc_d1->mapped_resstart,
 			icdc_d1->mapped_ressize);
 	if (!icdc_d1->mapped_base) {
 		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
-		ret = -ENOMEM;
-		goto err_ioremap;
+		return -ENOMEM;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "Faild to get ioresource irq\n");
-		ret = -ENOENT;
-		goto err_get_io_res_irq;
-	}
+	if (!res)
+		return -ENOENT;
 
 	icdc_d1->irqno = res->start;
 	icdc_d1->irqflags = res->flags &
@@ -1085,7 +1080,8 @@ static int icdc_d1_platform_probe(struct platform_device *pdev)
 			&soc_codec_dev_icdc_d1_codec, &icdc_d1_codec_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Faild to register codec\n");
-		goto err_register_codec;
+		platform_set_drvdata(pdev, NULL);
+		return ret;
 	}
 
 	ret = device_create_file(&pdev->dev, &icdc_d1_sysfs_attrs);
@@ -1094,31 +1090,13 @@ static int icdc_d1_platform_probe(struct platform_device *pdev)
 				attr_name(icdc_d1_sysfs_attrs), ret);
 	dev_info(&pdev->dev, "codec icdc-d1 platfrom probe success\n");
 	return 0;
-
-err_register_codec:
-	platform_set_drvdata(pdev, NULL);
-err_get_io_res_irq:
-	iounmap(icdc_d1->mapped_base);
-err_ioremap:
-	release_mem_region(icdc_d1->mapped_resstart, icdc_d1->mapped_ressize);
-err_get_io_res_mem:
-	kfree(icdc_d1);
-	return ret;
 }
 
 static int icdc_d1_platform_remove(struct platform_device *pdev)
 {
-	struct icdc_d1 *icdc_d1 = platform_get_drvdata(pdev);
 	dev_info(&pdev->dev, "codec icdc-d1 platform remove\n");
-
 	snd_soc_unregister_codec(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-	if (icdc_d1) {
-		iounmap(icdc_d1->mapped_base);
-		release_mem_region(icdc_d1->mapped_resstart,
-				icdc_d1->mapped_ressize);
-		kfree(icdc_d1);
-	}
 	return 0;
 }
 

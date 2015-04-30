@@ -204,12 +204,21 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SPI1_V12_JZ
        DEF_DEVICE(&jz_spi1_device, &spi1_info_cfg, sizeof(struct jz_spi_info)),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_AIC
+#if defined(CONFIG_SND_ASOC_JZ_AIC)
        DEF_DEVICE(&jz_aic_device, NULL, 0),
        DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
+
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D1) && defined(CONFIG_SND_ASOC_JZ_AIC_I2S)
        DEF_DEVICE(&jz_icdc_device, NULL, 0),
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_PCM)
+       DEF_DEVICE(&jz_pcm_device, NULL, 0),
+       DEF_DEVICE(&jz_pcm_dma_device, NULL, 0),
+#endif
+#if defined(CONFIG_SND_ASOC_JZ_DUMP_CDC)
+       DEF_DEVICE(&jz_dump_cdc_device, NULL, 0),
 #endif
 };
 

@@ -1,6 +1,6 @@
 /*
  *  sound/soc/ingenic/asoc-aic.h
- *  ALSA Soc Audio Layer -- ingenic aic dma platform driver
+ *  ALSA Soc Audio Layer -- ingenic aic platform driver
  *
  *  Copyright 2014 Ingenic Semiconductor Co.,Ltd
  *	cli <chen.li@ingenic.com>
@@ -18,6 +18,7 @@
 #include <linux/clk.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include "asoc-dma.h"
 
 struct jz_aic_subdev_pdata {
 	dma_addr_t dma_base;
@@ -55,12 +56,6 @@ struct jz_aic {
 
 const char* aic_work_mode_str(enum aic_mode mode);
 enum aic_mode aic_set_work_mode(struct device *aic, enum aic_mode module_mode, bool enable);
-
-struct jz_pcm_dma_params {
-	dma_addr_t dma_addr;
-	enum dma_slave_buswidth buswidth;
-	int max_burst;
-};
 
 static void inline jz_aic_write_reg(struct device *dev, unsigned int reg,
 		unsigned int val)

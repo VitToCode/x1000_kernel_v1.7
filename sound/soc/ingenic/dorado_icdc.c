@@ -31,7 +31,7 @@ static struct snd_soc_ops dorado_i2s_ops = {
 
 };
 
-#if defined(CONFIG_BOARD_DORADO_V21) && defined(CONFIG_GPIO_PCA953X)
+#if (defined(CONFIG_BOARD_DORADO_V21) || defined(CONFIG_BOARD_DORADO_V22)) && defined(CONFIG_GPIO_PCA953X)
 #define DORADO_SPK_GPIO   (177 + 5)
 #define DORADO_SPK_EN	1
 #define DORADO_HAVE_SPK_EN
@@ -106,10 +106,6 @@ static int dorado_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int err;
 
-	err = gpio_request(DORADO_SPK_GPIO, "Speaker_en");
-	if (err)
-		return err;
-
 	err = snd_soc_dapm_new_controls(dapm, dorado_dapm_widgets,
 			ARRAY_SIZE(dorado_dapm_widgets));
 	if (err)
@@ -146,10 +142,19 @@ static struct snd_soc_dai_link dorado_dais[] = {
 		.codec_name = "icdc-d1",
 		.ops = &dorado_i2s_ops,
 	},
+	[1] = {
+		.name = "DORADO PCMBT",
+		.stream_name = "DORADO PCMBT",
+		.platform_name = "jz-asoc-pcm-dma",
+		.cpu_dai_name = "jz-asoc-pcm",
+		.codec_dai_name = "dump dai",
+		.codec_name = "dump",
+	},
 };
 
 static struct snd_soc_card dorado = {
 	.name = "dorado",
+	.owner = THIS_MODULE,
 	.dai_link = dorado_dais,
 	.num_links = ARRAY_SIZE(dorado_dais),
 };
@@ -160,22 +165,31 @@ static int dorado_init(void)
 {
 	/*struct jz_aic_gpio_func *gpio_info;*/
 	int ret;
+	ret = gpio_request(DORADO_SPK_GPIO, "Speaker_en");
+	if (ret)
+		return ret;
 
 	dorado_snd_device = platform_device_alloc("soc-audio", -1);
-	if (!dorado_snd_device)
+	if (!dorado_snd_device) {
+		gpio_free(DORADO_SPK_GPIO);
 		return -ENOMEM;
+	}
 
 	platform_set_drvdata(dorado_snd_device, &dorado);
 	ret = platform_device_add(dorado_snd_device);
-	if (ret)
+	if (ret) {
 		platform_device_put(dorado_snd_device);
+		gpio_free(DORADO_SPK_GPIO);
+	}
 
+	dev_info(&dorado_snd_device->dev, "Alsa sound card:dorado init ok!!!\n");
 	return ret;
 }
 
 static void dorado_exit(void)
 {
 	platform_device_unregister(dorado_snd_device);
+	gpio_free(DORADO_SPK_GPIO);
 }
 
 module_init(dorado_init);

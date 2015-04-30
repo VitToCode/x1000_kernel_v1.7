@@ -16,6 +16,12 @@ config SND_ASOC_JZ_AIC_SPDIF
 config SND_ASOC_JZ_AIC_I2S
 	tristate
 	select SND_ASOC_JZ_AIC
+config SND_ASOC_JZ_DUMP_CDC
+	tristate
+
+config SND_ASOC_JZ_PCM
+	tristate
+	select SND_ASOC_JZ_DUMP_CDC
 
 config SND_ASOC_JZ_ICDC_D1
 	tristate
@@ -26,6 +32,7 @@ config SND_ASOC_INGENIC_DORADO_ICDC
 	depends on SOC_M200
 	select SND_ASOC_JZ_AIC_I2S
 	select SND_ASOC_JZ_ICDC_D1
+	select SND_ASOC_JZ_PCM
 	help
 	  Say Y if you want to add audio support for M200 Dorado
 	  reference board with internal codec
@@ -34,9 +41,10 @@ config JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 	help
 	  Say Y if you audio dma clear auto dirty memory, so you would not
 	  clear by slience_threshold set by user app
-config JZ_ASOC_STANDARD_CYCLIC_DMA
-	bool "JZ audio dma standard cyclic dma mode"
-	default y
+config JZ_ASOC_DMA_HRTIMER_MODE
+	bool "JZ audio dma cyclic dma with hrtimer callback mode"
+	depends on HIGH_RES_TIMERS
+	default n
 	help
 	  Say Y if you want suport sandard cyclic dma interface, Say N, that
 	  dma cyclic interface is not standard

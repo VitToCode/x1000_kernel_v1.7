@@ -34,7 +34,9 @@ module_param(jz_i2s_debug, int, 0644);
 
 struct jz_i2s {
 	struct device *aic;
-	bool i2s_initialized;
+#define I2S_WRITE 0x1
+#define I2S_READ  0x2
+	int i2s_mode;
 	struct jz_pcm_dma_params tx_dma_data;
 	struct jz_pcm_dma_params rx_dma_data;
 };
@@ -78,7 +80,7 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 		return -EPERM;
 	}
 
-	if (!jz_i2s->i2s_initialized) {
+	if (!jz_i2s->i2s_mode) {
 		__aic_reset(aic);
 		__i2s_select_sysclk_output(aic);
 		__aic_select_internal_codec(aic);
@@ -99,12 +101,13 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 		__i2s_disable_transmit_dma(aic);
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
+		jz_i2s->i2s_mode |= I2S_WRITE;
 	} else {
 		__i2s_disable_receive_dma(aic);
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
+		jz_i2s->i2s_mode |= I2S_READ;
 	}
-	jz_i2s->i2s_initialized = true;
 	printk("start set AIC register....\n");
 	return 0;
 }
@@ -132,17 +135,7 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* channel */
-		if (channels == 1)
-			__i2s_m2s_enable(aic);
-		else
-			__i2s_m2s_disable(aic);
-
-		__i2s_channel(aic, 2);
-
-		/*if (fmt_width == 16)
-			__i2s_aic_packet16(aic);
-		else
-			__i2s_aic_unpacket16(aic);*/
+		__i2s_channel(aic, channels);
 
 		/* format */
 		if (fmt_width == 8)
@@ -225,7 +218,12 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_transmit_dma_is_enable(aic)) {
 			__i2s_disable_transmit_dma(aic);
 			__aic_clear_tur(aic);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+			/*hrtime mode: stop will be happen in any where, make sure there is
+			 *	no data transfer on ahb bus before stop dma
+			 */
 			while(!__aic_test_tur(aic));
+#endif
 		}
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
@@ -234,7 +232,9 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_receive_dma_is_enable(aic)) {
 			__i2s_disable_receive_dma(aic);
 			__aic_clear_ror(aic);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			while(!__aic_test_ror(aic));
+#endif
 		}
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
@@ -245,6 +245,9 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 
 static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+#endif
 	I2S_DEBUG_MSG("enter %s, substream = %s cmd = %d\n",
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
@@ -254,11 +257,21 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return -EPIPE;
+#endif
+		printk(KERN_DEBUG"i2s start\n");
 		jz_i2s_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return 0;
+#endif
+		printk(KERN_DEBUG"i2s stop\n");
 		jz_i2s_stop_substream(substream, dai);
 		break;
 	}
@@ -269,6 +282,7 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 static void jz_i2s_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai) {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
+	struct device *aic = jz_i2s->aic;
 	enum aic_mode work_mode = AIC_I2S_MODE;
 
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
@@ -276,7 +290,16 @@ static void jz_i2s_shutdown(struct snd_pcm_substream *substream,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
 	work_mode = aic_set_work_mode(jz_i2s->aic, work_mode, false);
 	BUG_ON((work_mode != AIC_NO_MODE));
+
 	jz_i2s_stop_substream(substream, dai);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		jz_i2s->i2s_mode &= ~I2S_WRITE;
+	else
+		jz_i2s->i2s_mode &= ~I2S_READ;
+
+	if (!jz_i2s->i2s_mode)
+		__aic_disable(aic);
 	return;
 }
 
@@ -340,20 +363,16 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 {
 	struct jz_aic_subdev_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct jz_i2s *jz_i2s;
-	int i = 0, ret, buswidth = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	int i = 0, ret;
 
-	jz_i2s = kzalloc(sizeof(struct jz_i2s), GFP_KERNEL);
+	jz_i2s = devm_kzalloc(&pdev->dev, sizeof(struct jz_i2s), GFP_KERNEL);
 	if (!jz_i2s)
 		return -ENOMEM;
 
 	jz_i2s->aic = pdev->dev.parent;
-	jz_i2s->i2s_initialized = false;
+	jz_i2s->i2s_mode = 0;
 	jz_i2s->tx_dma_data.dma_addr = pdata->dma_base + AICDR;
-	jz_i2s->tx_dma_data.buswidth = buswidth;
-	jz_i2s->tx_dma_data.max_burst = (I2S_TFIFO_DEPTH * buswidth)/2;	/*1/2 tx fifo depth*/
 	jz_i2s->rx_dma_data.dma_addr = pdata->dma_base + AICDR;
-	jz_i2s->rx_dma_data.buswidth = buswidth;
-	jz_i2s->tx_dma_data.max_burst = (I2S_RFIFO_DEPTH * buswidth)/2;	/*1/2 rx fifo depth*/
 	platform_set_drvdata(pdev, (void *)jz_i2s);
 
 	for (; i < ARRAY_SIZE(jz_i2s_sysfs_attrs); i++) {
@@ -370,12 +389,9 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 
 static int jz_i2s_platfom_remove(struct platform_device *pdev)
 {
-	struct jz_i2s *jz_i2s = platform_get_drvdata(pdev);
 	int i;
 	for (i = 0; i < ARRAY_SIZE(jz_i2s_sysfs_attrs); i++)
 		device_remove_file(&pdev->dev, &jz_i2s_sysfs_attrs[i]);
-	if (jz_i2s)
-		kfree(jz_i2s);
 	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_dai(&pdev->dev);
 	return 0;

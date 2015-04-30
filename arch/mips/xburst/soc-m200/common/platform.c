@@ -115,8 +115,8 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	NAND_PORTA_BUS16,
 #endif
 
-#ifdef	CONFIG_SOUND_JZ_I2S_V12
-#ifndef CONFIG_JZ_INTERNAL_CODEC_V12
+#if defined(CONFIG_SOUND_JZ_I2S_V12) || defined(CONFIG_SND_ASOC_JZ_AIC_I2S)
+#if !defined(CONFIG_JZ_INTERNAL_CODEC_V12) && !defined(CONFIG_SND_ASOC_JZ_ICDC_D1)
 	I2S_PORTDE,
 #endif
 #endif
@@ -125,7 +125,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	I2S_PORTDE,
 #endif
 #endif
-#ifdef CONFIG_SOUND_JZ_PCM_V12
+#if defined(CONFIG_SOUND_JZ_PCM_V12) || defined(CONFIG_SND_ASOC_JZ_PCM)
 	PCM_PORTF,
 #endif
 
@@ -874,27 +874,46 @@ struct platform_device jz_aic_device = {
 };
 #endif
 
-/*#if defined(CONFIG_SND_ASOC_JZ_PCMC)
-static struct resource jz_pcmc_dma_resources[] = {
+#if defined(CONFIG_SND_ASOC_JZ_PCM)
+static struct resource jz_pcm_dma_resources[] = {
 	[0] = {
-		.start          = JZDMA_REQ_PCM,
-		.end		= JZDMA_REQ_PCM,
+		.start          = JZDMA_REQ_PCM0,
+		.end		= JZDMA_REQ_PCM0,
 		.flags          = IORESOURCE_DMA,
 	},
 };
-struct platform_device jz_pcmc_dma_device = {
-	.name		= "jz-asoc-pcmc-dma",
+struct platform_device jz_pcm_dma_device = {
+	.name		= "jz-asoc-pcm-dma",
 	.id		= -1,
 	.dev = {
 		.dma_mask               = &jz_asoc_dmamask,
 		.coherent_dma_mask      = 0xffffffff,
 	},
-	.resource       = jz_pcmc_dma_resources,
-	.num_resources  = ARRAY_SIZE(jz_pcmc_dma_resources),
+	.resource       = jz_pcm_dma_resources,
+	.num_resources  = ARRAY_SIZE(jz_pcm_dma_resources),
 };
-#endif*/
 
-#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
+static struct resource jz_pcm_resources[] = {
+	[0] = {
+		.start          = PCM0_IOBASE,
+		.end            = PCM0_IOBASE + 0x18 -1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start          = IRQ_PCM0,
+		.end            = IRQ_PCM0,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+struct platform_device jz_pcm_device = {
+	.name           = "jz-asoc-pcm",
+	.id             = -1,
+	.resource       = jz_pcm_resources,
+	.num_resources  = ARRAY_SIZE(jz_pcm_resources),
+};
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D1)
 static struct resource jz_icdc_resources[] = {
 	[0] = {
 		.start          = AIC0_IOBASE + 0xA0,
@@ -913,6 +932,13 @@ struct platform_device jz_icdc_device = {	/*jz internal codec*/
 	.id		= -1,
 	.resource	= jz_icdc_resources,
 	.num_resources	= ARRAY_SIZE(jz_icdc_resources),
+};
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_DUMP_CDC)
+struct platform_device jz_dump_cdc_device = {   /*jz dump codec*/
+	.name           = "dump",
+	.id             = -1,
 };
 #endif
 #endif /* CONFIG_SND && CONFIG_SND_ASOC_INGENIC */
