@@ -775,7 +775,7 @@ static inline void icdc_d1_short_circut_handler(struct icdc_d1 *icdc_d1)
 	if (!(snd_soc_read(codec, DLV_REG_CR_HP) & DLV_CR_HP_SB_MASK)) {
 		hp_is_on = 1;
 		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMD);
-		snd_soc_update_bits(codec, DLV_REG_CR_HP, 0, DLV_CR_HP_SB_MASK);
+		snd_soc_update_bits(codec, DLV_REG_CR_HP, DLV_CR_HP_SB_MASK, 1);
 		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMD);
 	}
 
@@ -810,7 +810,11 @@ int icdc_d1_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 	if (jack) {
 		snd_soc_update_bits(codec, DLV_REG_IMR, DLV_IMR_JACK, 0);
 		/*initial headphone detect*/
+#ifdef CONFIG_JZ_ASOC_CODEC_HP_INSERT_REV
+		if (!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
+#else
 		if (!!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
+#endif
 			report = icdc_d1->report_mask;
 			dev_info(codec->dev, "codec initial headphone detect --> headphone was inserted\n");
 			snd_soc_jack_report(icdc_d1->jack, report, icdc_d1->report_mask);
@@ -851,7 +855,11 @@ static void icdc_d1_irq_work_handler(struct work_struct *work)
 		int icdc_d1_jack = 0;
 		int report = 0;
 		msleep(200);
+#ifdef CONFIG_JZ_ASOC_CODEC_HP_INSERT_REV
+		icdc_d1_jack = !(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
+#else
 		icdc_d1_jack = !!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
+#endif
 		dev_info(codec->dev, "codec headphone detect %s\n",
 				icdc_d1_jack ? "insert" : "pull out");
 		snd_soc_write(codec, DLV_REG_IFR, DLV_SR_JACK_MASK);
@@ -938,6 +946,7 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 		dev_warn(codec->dev, "Failed to request aic codec irq %d\n", icdc_d1->irqno);
 
 	icdc_d1->codec = codec;
+	dev_info(codec->dev, "codec icdc-d1 probe success!!!\n");
 	return 0;
 }
 

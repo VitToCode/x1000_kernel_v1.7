@@ -45,7 +45,7 @@ static ssize_t reg_read(struct file *file, char __user *buf,
 					 size_t count, loff_t *ppos)
 {
 	reg_prompt();
-	return 0;
+	return count;
 }
 
 static ssize_t reg_write(struct file * file, const char __user *buf,
