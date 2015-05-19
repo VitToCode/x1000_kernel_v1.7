@@ -197,7 +197,8 @@ int dmmu_free_pte(struct proc_page_tab_data *table, unsigned int pgd_index_start
 	unsigned int *pgd_vaddr, *pte_vaddr;
 	unsigned int pgd_index;
 
-	pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);
+	/*pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);*/
+	pgd_vaddr = (table->alloced_pgd_vaddr);
 	for (pgd_index=pgd_index_start; pgd_index<=pgd_index_end; pgd_index++) {
 		if (pgd_vaddr[pgd_index] == jz_dmmu.res_pte)
 			continue;
@@ -361,7 +362,8 @@ int mem_map_new_tlb(struct proc_page_tab_data *table,struct dmmu_mem_info *mem)
 	unsigned long vaddr_start, vaddr_end;
 	pgd_t *cpu_pgd_addr = current->mm->pgd;
 
-	pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);
+	/*pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);*/
+	pgd_vaddr = (table->alloced_pgd_vaddr);
 	for (pgd_index=PGD_INDEX(mem->vaddr);
 			pgd_index<=PGD_INDEX(mem->vaddr + mem->size - 1);
 			pgd_index++) {
@@ -371,19 +373,36 @@ int mem_map_new_tlb(struct proc_page_tab_data *table,struct dmmu_mem_info *mem)
 			pgd_vaddr[pgd_index] = virt_to_phys(pte_vaddr) | DMMU_PGD_VLD;
 			for (pte_index=0; pte_index<PTRS_PER_PTE; pte_index++)
 				pte_vaddr[pte_index] = jz_dmmu.res_page;
-			dma_cache_sync(NULL, pte_vaddr, PAGE_SIZE << PTE_ORDER, DMA_TO_DEVICE);
+			/*dma_cache_sync(NULL, pte_vaddr, PAGE_SIZE << PTE_ORDER, DMA_TO_DEVICE);*/
 		}
 		else {
 			pte_vaddr = phys_to_virt(pgd_vaddr[pgd_index] & PAGE_MASK);
 		}
 		cpu_pte_vaddr =(unsigned int *)((cpu_pgd_addr[pgd_index].pgd) & PAGE_MASK);
-		pte_vaddr = UNCACHE(pte_vaddr);
+		/*pte_vaddr = UNCACHE(pte_vaddr);*/
+		pte_vaddr = (pte_vaddr);
 		vaddr_start = max((unsigned long)pgd_index<<PGDIR_SHIFT, mem->vaddr);
 		vaddr_end = min(((unsigned long)(pgd_index<<PGDIR_SHIFT) | (PGD_SIZE - 1)),
 				mem->vaddr + mem->size - 1);
 		for(pte_index=PTE_INDEX(vaddr_start); pte_index<=PTE_INDEX(vaddr_end); pte_index++) {
-			pte_vaddr[pte_index] = cpu_pte_vaddr[pte_index] | DMMU_PTE_VLD;
+			unsigned int pte_tmp;
+			pte_tmp = cpu_pte_vaddr[pte_index];
+			if(pte_tmp & _PAGE_PRESENT) {
+				pte_vaddr[pte_index] = pte_tmp | DMMU_PTE_VLD;
+			} else {
+				printk("BUG ON!! Stop here in [%s,%d]\n",__func__,__LINE__);
+				printk("cpu_pte_vaddr[%d] = 0x%x, mem->vaddr  = 0x%x,\
+						mem->size = %d, vaddr_start = 0x%x,\
+						vaddr_end = 0x%x, pte_index = %d\n",
+						pte_index, cpu_pte_vaddr[pte_index],
+						(unsigned int)mem->vaddr, (unsigned int)mem->size,
+						(unsigned int)vaddr_start, (unsigned int)vaddr_end,
+						pte_index);
+				BUG_ON(1);
+			}
+
 		}
+		dma_cache_sync(NULL, pte_vaddr, PAGE_SIZE << PTE_ORDER, DMA_TO_DEVICE);
 	}
 	return 0;
 }
@@ -415,7 +434,8 @@ int _mem_unmap_new_tlb(struct proc_page_tab_data *table, unsigned long start, un
 	unsigned int *pte_vaddr, *pgd_vaddr;
 	unsigned int pte_index;
 
-	pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);
+	/*pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);*/
+	pgd_vaddr = (table->alloced_pgd_vaddr);
 	pte_vaddr = PTE_VADDR(table->alloced_pgd_vaddr, start);
 	for (pte_index=PTE_INDEX(start); pte_index<=PTE_INDEX(end); pte_index++)
 		pte_vaddr[pte_index] = jz_dmmu.res_page;
@@ -436,7 +456,8 @@ int mem_unmap_new_tlb(struct proc_page_tab_data *table, struct dmmu_mem_info *me
 	unsigned long thr1, thr2, end;
 
 	return 0;
-	pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);
+	/*pgd_vaddr = UNCACHE(table->alloced_pgd_vaddr);*/
+	pgd_vaddr = (table->alloced_pgd_vaddr);
 	end = (unsigned long)mem->vaddr + mem->size - 1;
 	thr1 = PGD_ALIGN(mem->vaddr);
 	thr2 = end & PGDIR_MASK;
