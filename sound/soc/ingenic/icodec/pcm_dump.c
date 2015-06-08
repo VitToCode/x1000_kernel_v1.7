@@ -25,7 +25,7 @@
 static struct snd_soc_codec_driver dump_codec;
 
 static struct snd_soc_dai_driver dump_codec_dai = {
-	.name = "dump dai",
+	.name = "pcm dump dai",
 	.playback = {
 		.channels_min = 1,
 		.channels_max = 1,
@@ -59,7 +59,7 @@ static int dump_platform_remove(struct platform_device *pdev)
 
 static struct platform_driver dlv4780_codec_driver = {
 	.driver = {
-		.name = "dump",
+		.name = "pcm dump",
 		.owner = THIS_MODULE,
 	},
 	.probe = dump_platform_probe,

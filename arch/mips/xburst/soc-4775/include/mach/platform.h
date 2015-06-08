@@ -179,6 +179,20 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
 
+
+/*alsa*/
+
+extern struct platform_device jz_aic_dma_device;
+extern struct platform_device jz_aic_device;
+extern struct platform_device jz_pcm_dma_device;
+extern struct platform_device jz_pcm_device;
+extern struct platform_device jz_icdc_device;
+extern struct platform_device jz_pcm_dump_cdc_device;
+extern struct platform_device jz_spdif_dump_cdc_device;
+
+
+
+
 #ifdef CONFIG_JZ4775_EFUSE
 extern struct platform_device jz_efuse_device;
 #endif

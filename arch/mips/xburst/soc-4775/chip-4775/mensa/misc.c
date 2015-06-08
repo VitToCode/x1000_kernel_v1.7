@@ -18,7 +18,6 @@
 #include <linux/power/jz4780-battery.h>
 #include <linux/i2c/ft6x06_ts.h>
 #include <linux/interrupt.h>
-#include <sound/jz-aic.h>
 #include "board.h"
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -660,25 +659,42 @@ static int __init board_init(void)
 	jz_device_register(&jz_i2s_device,&i2s_data);
 	jz_device_register(&jz_mixer0_device,&snd_mixer0_data);
 #endif
+#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+        jz_device_register(&jz_spdif_device,&spdif_data);
+        jz_device_register(&jz_mixer2_device,&snd_mixer2_data);
+#endif
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	jz_device_register(&jz_pcm_device,&pcm_data);
+	jz_device_register(&jz_mixer1_device,&snd_mixer1_data);
 #endif
 #ifdef CONFIG_JZ_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
 #endif
 
-#ifdef CONFIG_SND_SOC_JZ4775_ICDC
-	platform_device_register(&jz4775_codec_device);
+
+
+/* for JZ ALSA audio driver */
+
+#if defined(CONFIG_SND_ASOC_JZ_AIC)
+    platform_device_register(&jz_aic_device);
+    platform_device_register(&jz_aic_dma_device);
 #endif
 
-#ifdef CONFIG_SND_JZ47XX_SOC_I2S
-	platform_device_register(&jz47xx_i2s_device);
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D2) && defined(CONFIG_SND_ASOC_JZ_AIC_I2S)
+    platform_device_register(&jz_icdc_device);
+#endif
+#if defined(CONFIG_SND_ASOC_JZ_PCM)
+    platform_device_register(&jz_pcm_device);
+	platform_device_register(&jz_pcm_dma_device);
 #endif
 
-#ifdef CONFIG_SND_JZ47XX_SOC
-	platform_device_register(&jz47xx_pcm_device);
+#if defined(CONFIG_SND_ASOC_JZ_PCM_DUMP_CDC)
+    platform_device_register(&jz_pcm_dump_cdc_device);
 #endif
 
+#if defined(CONFIG_SND_ASOC_JZ_SPDIF_DUMP_CDC)
+    platform_device_register(&jz_spdif_dump_cdc_device);
+#endif
 
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
  	platform_device_register(&kd50g2_40nm_a2_device);

@@ -20,7 +20,6 @@ struct snd_codec_data codec_data = {
 	.record_def_route = {.route = RECORD_MIC1_MONO_DIFF_WITH_BIAS},
 	/* device <-> route map */
 	.record_buildin_mic_route = {.route = RECORD_MIC1_MONO_DIFF_WITH_BIAS},
-	.record_headset_mic_route = {.route = RECORD_LININL_AND_LININR},
 
 	.replay_headset_route = {.route = REPLAY_HP_STEREO_CAP_LESS,
 					.gpio_hp_mute_stat = STATE_DISABLE,

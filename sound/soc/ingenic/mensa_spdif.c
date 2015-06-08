@@ -1,9 +1,7 @@
-/* sound/soc/ingenic/mensa_spdif.c
- * mensa_spdif.c  --  S/PDIF audio driver for MENSA
- *
+ /*
  * Copyright (C) 2014 Ingenic Semiconductor Co., Ltd.
  *	http://www.ingenic.com
- * Author: Sun Jiwei <jwsun@ingenic.cn>
+ * Author: cli <chen.li@ingenic.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,82 +23,72 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <sound/soc.h>
+#include <sound/jack.h>
+#include <linux/gpio.h>
 
-static int mensa_hw_params(struct snd_pcm_substream *substream,
-		struct snd_pcm_hw_params *params)
-{
-	return 0;
-}
+static struct snd_soc_ops mensa_i2s_ops = {
 
-static struct snd_soc_ops mensa_spdif_ops = {
-	.hw_params = mensa_hw_params,
 };
 
-static struct snd_soc_dai_link mensa_dai = {
-	.name = "S/PDIF",
-	.stream_name = "S/PDIF PCM Playback",
-	.platform_name = "jz-audio-dma",
-	.cpu_dai_name = "jz-aic-spdif",
-	.codec_dai_name = "dit-hifi",
-	.codec_name = "spdif-dit",
-	.ops = &mensa_spdif_ops,
+#ifndef GPIO_PG
+#define GPIO_PG(n)      (5*32 + 23 + n)
+#endif
+
+static struct snd_soc_dai_link mensa_dais[] = {
+	[0] = {
+		.name = "MENSA ICDC",
+		.stream_name = "MENSA ICDC",
+		.platform_name = "jz-asoc-aic-dma",
+		.cpu_dai_name = "jz-asoc-aic-spdif",
+		.codec_dai_name = "spdif dump dai",
+		.codec_name = "spdif dump",
+		.ops = &mensa_i2s_ops,
+	},
+	[1] = {
+		.name = "MENSA PCMBT",
+		.stream_name = "MENSA PCMBT",
+		.platform_name = "jz-asoc-pcm-dma",
+		.cpu_dai_name = "jz-asoc-pcm",
+		.codec_dai_name = "pcm dump dai",
+		.codec_name = "pcm dump",
+	},
 };
 
 static struct snd_soc_card mensa = {
-	.name = "MENSA-S/PDIF",
-	.dai_link = &mensa_dai,
-	.num_links = 1,
+	.name = "mensa",
+	.owner = THIS_MODULE,
+	.dai_link = mensa_dais,
+	.num_links = ARRAY_SIZE(mensa_dais),
 };
 
-static struct platform_device *mensa_snd_spdif_dit_device;
-static struct platform_device *mensa_snd_spdif_device;
+static struct platform_device *mensa_snd_device;
 
-static int __init mensa_init(void)
+static int mensa_init(void)
 {
+	/*struct jz_aic_gpio_func *gpio_info;*/
 	int ret;
-
-	mensa_snd_spdif_dit_device = platform_device_alloc("spdif-dit", -1);
-	if (!mensa_snd_spdif_dit_device)
+	mensa_snd_device = platform_device_alloc("soc-audio", -1);
+	if (!mensa_snd_device)
 		return -ENOMEM;
 
-	ret = platform_device_add(mensa_snd_spdif_dit_device);
-	if (ret)
-		goto err1;
-
-	mensa_snd_spdif_device = platform_device_alloc("soc-audio", -1);
-	if (!mensa_snd_spdif_device) {
-		ret = -ENOMEM;
-		goto err2;
+	platform_set_drvdata(mensa_snd_device, &mensa);
+	ret = platform_device_add(mensa_snd_device);
+	if (ret) {
+		platform_device_put(mensa_snd_device);
 	}
 
-	platform_set_drvdata(mensa_snd_spdif_device, &mensa);
-
-	ret = platform_device_add(mensa_snd_spdif_device);
-	if (ret)
-		goto err3;
-
-	/* Set audio clock hierarchy manually */
-
-	return 0;
-
-err3:
-	platform_device_put(mensa_snd_spdif_device);
-err2:
-	platform_device_del(mensa_snd_spdif_dit_device);
-err1:
-	platform_device_put(mensa_snd_spdif_dit_device);
+	dev_info(&mensa_snd_device->dev, "Alsa sound card:mensa init ok!!!\n");
 	return ret;
 }
 
-static void __exit mensa_exit(void)
+static void mensa_exit(void)
 {
-	platform_device_unregister(mensa_snd_spdif_device);
-	platform_device_unregister(mensa_snd_spdif_dit_device);
+	platform_device_unregister(mensa_snd_device);
 }
 
 module_init(mensa_init);
 module_exit(mensa_exit);
 
-MODULE_AUTHOR("Sun Jiwei<jwsun@ingenic.cn>");
-MODULE_DESCRIPTION("ALSA SoC MENSA+S/PDIF");
+MODULE_AUTHOR("shicheng.cheng<shicheng.cheng@ingenic.com>");
+MODULE_DESCRIPTION("ALSA SoC mensa Snd Card");
 MODULE_LICENSE("GPL");

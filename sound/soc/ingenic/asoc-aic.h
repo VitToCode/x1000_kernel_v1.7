@@ -20,6 +20,8 @@
 #include <linux/types.h>
 #include "asoc-dma.h"
 
+extern unsigned long codec_sysclk;
+
 struct jz_aic_subdev_pdata {
 	dma_addr_t dma_base;
 };
@@ -38,6 +40,8 @@ struct jz_aic {
 	void __iomem	*vaddr_base;
 	struct clk	*clk;
 	struct clk	*clk_gate;
+	unsigned long sample_rate;
+	unsigned long sysclk;
 	/*for interrupt*/
 	int irqno;
 	int irqflags;
@@ -427,18 +431,24 @@ static unsigned int inline jz_aic_read_reg(struct device *dev, unsigned int reg)
 	jz_aic_write_reg(parent, AICDR, (n))
 
 /* For SPFIFO */
+#define __spdif_test_underrun(parent)     \
+	jz_aic_get_reg(parent, SPSTATE, SPSTATE_F_FFUR_MASK, SPSTATE_F_FFUR_BIT)
 #define __spdif_clear_underrun(parent)     \
 	jz_aic_set_reg(parent, SPSTATE, 0, SPSTATE_F_FFUR_MASK, SPSTATE_F_FFUR_BIT)
+#define __spdif_is_enable_transmit_dma(parent)    \
+	jz_aic_get_reg(parent, SPCTRL, SPCTRL_DMA_EN_MASK, SPCTRL_DMA_EN_BIT)
 #define __spdif_enable_transmit_dma(parent)    \
 	jz_aic_set_reg(parent, SPCTRL, 1, SPCTRL_DMA_EN_MASK, SPCTRL_DMA_EN_BIT)
 #define __spdif_disable_transmit_dma(parent)    \
 	jz_aic_set_reg(parent, SPCTRL, 0, SPCTRL_DMA_EN_MASK, SPCTRL_DMA_EN_BIT)
 #define __spdif_reset(parent)					\
 	jz_aic_set_reg(parent, SPCTRL, 1, SPCTRL_SFT_RST_MASK, SPCTRL_SFT_RST_BIT)
+#define __spdif_get_reset(parent)					\
+	jz_aic_get_reg(parent, SPCTRL,SPCTRL_SFT_RST_MASK, SPCTRL_SFT_RST_BIT)
 #define __spdif_enable(parent)					\
 	jz_aic_set_reg(parent, SPENA, 1, SPENA_SPEN_MASK, SPENA_SPEN_BIT)
 #define __spdif_disable(parent)					\
-	jz_aic_set_reg(parent, SPENA, 0, SPENA_SPEN_MASK, SPENA_SPEN_BIT
+	jz_aic_set_reg(parent, SPENA, 0, SPENA_SPEN_MASK, SPENA_SPEN_BIT)
 #define __spdif_set_dtype(parent, n)			\
 	jz_aic_set_reg(parent, SPCTRL, n, SPCTRL_D_TYPE_MASK, SPCTRL_D_TYPE_BIT)
 #define __spdif_set_trigger(parent, n)			\

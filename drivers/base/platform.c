@@ -628,7 +628,6 @@ static int platform_match(struct device *dev, struct device_driver *drv)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct platform_driver *pdrv = to_platform_driver(drv);
-
 	/* Attempt an OF style match first */
 	if (of_driver_match_device(dev, drv))
 		return 1;

@@ -9,29 +9,55 @@ if SND_ASOC_INGENIC
 config SND_ASOC_JZ_AIC
 	tristate
 
+config JZ_AIC_MASTER
+	tristate
+
+config SND_ASOC_JZ_INCODEC
+	tristate
+
 config SND_ASOC_JZ_AIC_SPDIF
-        tristate
+	tristate
 	select SND_ASOC_JZ_AIC
 
 config SND_ASOC_JZ_AIC_I2S
 	tristate
 	select SND_ASOC_JZ_AIC
-config SND_ASOC_JZ_DUMP_CDC
+
+config SND_ASOC_JZ_PCM_DUMP_CDC
 	tristate
 
 config SND_ASOC_JZ_PCM
 	tristate
-	select SND_ASOC_JZ_DUMP_CDC
+	select SND_ASOC_JZ_PCM_DUMP_CDC
+
+config SND_ASOC_JZ_SPDIF_DUMP_CDC
+	tristate
+
+config SND_ASOC_JZ_SPDIF
+	tristate
+	select SND_ASOC_JZ_SPDIF_DUMP_CDC
 
 config SND_ASOC_JZ_ICDC_D1
 	tristate
 	select SND_ASOC_JZ_AIC
-choice
-	prompt "Ingenic asoc sound card select"
+	select JZ_AIC_MASTER
+	select SND_ASOC_JZ_INCODEC
 
-config SND_ASOC_INGENIC_DORADO_ICDC
-	tristate "Audio support for dorado"
+config SND_ASOC_JZ_ICDC_D2
+	tristate
+	select SND_ASOC_JZ_AIC
+	select SND_ASOC_JZ_INCODEC
+
+config SND_ASOC_JZ_EXTCDC
+	tristate
+	select SND_ASOC_JZ_AIC
+
+menu "jz board type select"
+choice
+	prompt "soc 4775 codec type select"
 	depends on SOC_M200
+	config SND_ASOC_INGENIC_DORADO_ICDC
+	tristate "Audio support for dorado with internal codec"
 	select SND_ASOC_JZ_AIC_I2S
 	select SND_ASOC_JZ_ICDC_D1
 	select SND_ASOC_JZ_PCM
@@ -39,6 +65,27 @@ config SND_ASOC_INGENIC_DORADO_ICDC
 	  Say Y if you want to add audio support for M200 Dorado
 	  reference board with internal codec
 endchoice
+choice
+	prompt "soc 4775 codec type select"
+	depends on SOC_4775
+	config SND_ASOC_INGENIC_MENSA_ICDC
+	bool "Audio support for mensa with internal codec"
+	select SND_ASOC_JZ_AIC_I2S
+	select SND_ASOC_JZ_ICDC_D2
+	select SND_ASOC_JZ_PCM
+
+	config SND_ASOC_INGENIC_MENSA_SPDIF
+	bool "Audio support for mensa with spdif"
+	select SND_ASOC_JZ_AIC_SPDIF
+	select SND_ASOC_JZ_SPDIF
+	select SND_ASOC_JZ_PCM
+endchoice
+
+config SND_ASOC_INGENIC_DMIC
+	bool "Support DMIC for record"
+	depends on SND_ASOC_JZ_INCODEC
+endmenu
+
 config JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 	bool "JZ audio dma clear auto dirty memory"
 	help

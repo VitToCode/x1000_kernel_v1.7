@@ -21,6 +21,11 @@
 #include <soc/base.h>
 #include <soc/extal.h>
 
+#define REG32(n) (*(volatile unsigned int*)(n))
+#define AICFR 0xb0020000
+#define I2SCR 0xb0020010
+
+
 static DEFINE_SPINLOCK(clkgr_lock);
 
 struct clk;
@@ -532,13 +537,23 @@ static struct cgu_clk cgu_clks[] = {
 static int cgu_enable(struct clk *clk,int on)
 {
 	int no = CLK_CGU_NO(clk->flags);
-
+	unsigned int aictmp = 0;
+	unsigned int i2stmp = 0;
+	if(no == CGU_AIC){
+	/* for soc_4775 aic we should set regs before enable cgu_aic */
+		aictmp = REG32(AICFR);
+		i2stmp = REG32(I2SCR);
+		REG32(AICFR) &= ~(1<<5);
+		REG32(AICFR) |= (1<<4|1<<2);
+		REG32(I2SCR) |= (1<<4);
+	}
 	if(on) {
 		if(cgu_clks[no].cache) {
 			cpm_outl(cgu_clks[no].cache,cgu_clks[no].off);
 
 			while(cpm_test_bit(cgu_clks[no].busy,cgu_clks[no].off)) {
 				printk("wait stable.[%d][%s]\n",__LINE__,clk->name);
+				dump_stack();
 			}
 		} else {
 			printk("######################################\n");
@@ -549,6 +564,11 @@ static int cgu_enable(struct clk *clk,int on)
 	} else {
 		cpm_set_bit(cgu_clks[no].ce,cgu_clks[no].off);
 		cpm_set_bit(cgu_clks[no].stop,cgu_clks[no].off);
+	}
+
+	if(no == CGU_AIC){
+		REG32(AICFR) = aictmp;
+		REG32(AICFR) = i2stmp;
 	}
 
 	return 0;
@@ -630,9 +650,11 @@ static int cgu_set_parent(struct clk *clk, struct clk *parent)
 {
 	int i,cgu;
 	int no = CLK_CGU_NO(clk->flags);
-	int clksrc_off = parent - clk_srcs;
-
+	int clksrc_off = parent->source - clk_srcs;
+	if(no == CGU_AIC)
+		printk("clksrc_off  = %d!!! \n",clksrc_off);
 	for(i=0;i<8;i++) {
+		printk("cgu_clks[no].sel[i] =  %d CLK_ID_APLL = %d \n",cgu_clks[no].sel[i],CLK_ID_APLL);
 		if(cgu_clks[no].sel[i] == clksrc_off)
 			break;
 	}
