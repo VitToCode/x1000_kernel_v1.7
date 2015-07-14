@@ -1,0 +1,93 @@
+
+menuconfig UART1_GPIO
+	tristate "uart1 gpio"
+	depends on SOC_X1000
+	default n
+	help
+	  If you want use uart1, you should say Y here and
+	  also to your specific host gpio pin.
+
+if UART1_GPIO
+choice
+	prompt "uart1 gpio pa or pd"
+	depends on UART1_GPIO
+	default SERIAL_JZ47XX_UART1_PA
+
+config SERIAL_JZ47XX_UART1_PA
+	bool "uart1_pa"
+	select SERIAL_JZ47XX_UART1
+config SERIAL_JZ47XX_UART1_PD
+	bool "uart1_pd"
+	select SERIAL_JZ47XX_UART1
+endchoice
+endif
+
+menuconfig UART2_GPIO
+	tristate "uart2 gpio"
+	depends on SOC_X1000
+	default n
+	help
+	  If you want use uart2, you should say Y here and
+	  also to your specific host gpio pin.
+
+if UART2_GPIO
+choice
+	prompt "uart2 gpio pa or pc or pd"
+	depends on UART2_GPIO
+	default SERIAL_JZ47XX_UART2_PD
+
+config SERIAL_JZ47XX_UART2_PA
+	bool "uart2_pa"
+	select SERIAL_JZ47XX_UART2
+config SERIAL_JZ47XX_UART2_PC
+	bool "uart2_pc"
+	select SERIAL_JZ47XX_UART2
+config SERIAL_JZ47XX_UART2_PD
+	bool "uart2_pd"
+	select SERIAL_JZ47XX_UART2
+endchoice
+endif
+
+menuconfig SPI0_GPIO
+	tristate "spi0 gpio"
+	depends on SOC_X1000
+	default n
+	help
+	  If you want use SPI0, you should say Y here and
+	  also to your specific host gpio pin.
+
+if SPI0_GPIO
+choice
+	prompt "spi0 gpio pa or pd"
+	depends on SPI0_GPIO
+	default SPI0_JZ47XX_PA
+config SPI0_JZ47XX_PA
+	bool "spi0_pa"
+	select SPI0_JZ47XX
+config SPI0_JZ47XX_PD
+	bool "spi0_pd"
+	select SPI0_JZ47XX
+endchoice
+endif
+
+menuconfig I2C1_GPIO
+	tristate "i2c1 gpio"
+	depends on SOC_X1000
+	default n
+	help
+	  If you want use i2c1, you should say Y here and
+	  also to your specific host gpio pin.
+
+if I2C1_GPIO
+choice
+	prompt "i2c1 gpio pa or pd"
+	depends on I2C1_GPIO
+	default I2C1_V12_PA
+config I2C1_V12_PA
+	bool "i2c1_pa"
+	select I2C1_V12_JZ
+config I2C1_V12_PC
+	bool "i2c1_pc"
+	select I2C1_V12_JZ
+endchoice
+endif
