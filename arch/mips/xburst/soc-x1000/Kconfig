@@ -22,10 +22,6 @@ config TIMER_TCU
 	bool "tcu"
 endchoice
 
-#menu "modules gpios"
-#source "arch/mips/xburst/soc-x1000/common/Kconfig"
-#endmenu
-
 if CHIP_X1000
 source "arch/mips/xburst/soc-x1000/chip-x1000/Kconfig"
 endif
