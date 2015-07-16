@@ -23,7 +23,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
-#include "asoc-aic.h"
+#include "asoc-aic-v13.h"
 
 static int jz_i2s_debug = 0;
 module_param(jz_i2s_debug, int, 0644);
@@ -63,6 +63,8 @@ static void dump_registers(struct device *aic)
 	pr_info("AIC_SR\t\t%p : 0x%08x\n", (jz_aic->vaddr_base+AICSR),jz_aic_read_reg(aic, AICSR));
 	pr_info("AIC_I2SSR\t%p : 0x%08x\n",(jz_aic->vaddr_base+I2SSR),jz_aic_read_reg(aic, I2SSR));
 	pr_info("AIC_I2SDIV\t%p : 0x%08x\n",(jz_aic->vaddr_base+I2SDIV),jz_aic_read_reg(aic, I2SDIV));
+	pr_info("AIC_I2SCDR\ 0x%08x\n",*(volatile unsigned int*)0xb0000060);
+	pr_info("AICSR\ 0x%08x\n",*(volatile unsigned int*)0xb0020014);
 	pr_info("AIC_DR\t\t%p\n", (jz_aic->vaddr_base+AICDR));
 	return;
 }
@@ -374,12 +376,10 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_transmit_dma_is_enable(aic)) {
 			__i2s_disable_transmit_dma(aic);
 			__aic_clear_tur(aic);
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			/*hrtime mode: stop will be happen in any where, make sure there is
 			 *	no data transfer on ahb bus before stop dma
 			 */
 			while(!__aic_test_tur(aic));
-#endif
 		}
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
@@ -388,9 +388,7 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_receive_dma_is_enable(aic)) {
 			__i2s_disable_receive_dma(aic);
 			__aic_clear_ror(aic);
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			while(!__aic_test_ror(aic));
-#endif
 		}
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
@@ -401,9 +399,7 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 
 static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
-#endif
 	I2S_DEBUG_MSG("enter %s, substream = %s cmd = %d\n",
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
@@ -413,20 +409,16 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return -EPIPE;
-#endif
 		printk(KERN_DEBUG"i2s start\n");
 		jz_i2s_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return 0;
-#endif
 		printk(KERN_DEBUG"i2s stop\n");
 		jz_i2s_stop_substream(substream, dai);
 		break;

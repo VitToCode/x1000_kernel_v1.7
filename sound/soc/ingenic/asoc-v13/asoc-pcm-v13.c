@@ -24,7 +24,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
-#include "asoc-pcm.h"
+#include "asoc-pcm-v13.h"
 
 static int jz_pcm_debug = 0;
 module_param(jz_pcm_debug, int, 0644);
@@ -168,14 +168,12 @@ static void jz_pcm_stop_substream(struct snd_pcm_substream *substream,
 		if (__pcm_transmit_dma_is_enable(dev)) {
 			__pcm_disable_transmit_dma(dev);
 			__pcm_clear_tur(dev);
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			/* Hrtimer mode: stop will be happen in any where, make sure there is
 			 *	no data transfer on ahb bus before stop dma
 			 * Harzard:
 			 *	In pcm slave mode, the clk maybe stop before here, we will dead here
 			 */
 			while(!__pcm_test_tur(dev));
-#endif
 		}
 		__pcm_disable_replay(dev);
 		__pcm_clear_tur(dev);
@@ -183,9 +181,7 @@ static void jz_pcm_stop_substream(struct snd_pcm_substream *substream,
 		if (__pcm_receive_dma_is_enable(dev)) {
 			__pcm_disable_receive_dma(dev);
 			__pcm_clear_ror(dev);
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			while(!__pcm_test_ror(dev));
-#endif
 		}
 		__pcm_disable_record(dev);
 		__pcm_clear_ror(dev);
@@ -195,9 +191,7 @@ static void jz_pcm_stop_substream(struct snd_pcm_substream *substream,
 
 static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
-#endif
 	PCM_DEBUG_MSG("enter %s, substream = %s cmd = %d\n",
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
@@ -207,20 +201,16 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return -EPIPE;
-#endif
 		printk(KERN_DEBUG"pcm start\n");
 		jz_pcm_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return 0;
-#endif
 		printk(KERN_DEBUG"pcm stop\n");
 		jz_pcm_stop_substream(substream, dai);
 		break;

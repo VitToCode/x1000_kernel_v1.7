@@ -2,7 +2,7 @@
 #ifndef __ASOC_PCM_H__
 #define __ASOC_PCM_H__
 
-#include "asoc-dma.h"
+#include "asoc-dma-v12.h"
 
 #define PCMCTL		0x00
 #define PCMCFG		0x04

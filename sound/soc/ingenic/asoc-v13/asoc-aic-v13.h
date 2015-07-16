@@ -18,9 +18,18 @@
 #include <linux/clk.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include "asoc-dma.h"
+#include "asoc-dma-v13.h"
 
 extern unsigned long codec_sysclk;
+
+#ifdef CONFIG_PRODUCT_X1000_FPGA
+#define AUDIO_WRITE(n) (*(volatile unsigned int*)(n))
+#define audio_write(val,addr) AUDIO_WRITE(addr) = (val)
+#define I2SCDR_PRE 0xb0000060
+#define I2SDIV_PRE 0xb0020030
+#define PCMCDR_PRE 0xb0000084
+#define PCMDIV_PRE 0xb0071014
+#endif
 
 struct jz_aic_subdev_pdata {
 	dma_addr_t dma_base;

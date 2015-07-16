@@ -25,7 +25,7 @@
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
-#include "asoc-aic.h"
+#include "asoc-aic-v12.h"
 
 static const char *aic_no_mode = "no mode";
 static const char *aic_i2s_mode = "i2s mode";
@@ -149,9 +149,7 @@ static irqreturn_t jz_aic_irq_handler(int irq, void *dev_id)
 	struct jz_aic *jz_aic = (struct jz_aic *)dev_id;
 
 	jz_aic->mask = __aic_get_irq_enmask(jz_aic->dev);
-	if (jz_aic->mask &&
-			(jz_aic->mask &
-			 __aic_get_irq_flag(jz_aic->dev))) {
+	if (jz_aic->mask && (jz_aic->mask & __aic_get_irq_flag(jz_aic->dev))) {
 		/*Disable all aic interrupt*/
 		__aic_set_irq_enmask(jz_aic->dev, 0);
 		return IRQ_WAKE_THREAD;
@@ -184,6 +182,7 @@ static int jz_aic_probe(struct platform_device *pdev)
 	if (!jz_aic->vaddr_base)
 		return -ENOMEM;
 
+#ifndef CONFIG_PRODUCT_X1000_FPGA
 	jz_aic->clk_gate = clk_get(&pdev->dev, "aic");
 	if (IS_ERR_OR_NULL(jz_aic->clk_gate)) {
 		ret = PTR_ERR(jz_aic->clk_gate);
@@ -199,9 +198,10 @@ static int jz_aic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		goto err_clk_get;
 	}
-	clk_set_rate(jz_aic->clk, 12000000);		/*set default rate*/
+	clk_set_rate(jz_aic->clk, 24000000);		/*set default rate*/
 	clk_enable(jz_aic->clk);
-
+#endif
+	mdelay(1000);
 	spin_lock_init(&jz_aic->mode_lock);
 	jz_aic->irqno = -1;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);

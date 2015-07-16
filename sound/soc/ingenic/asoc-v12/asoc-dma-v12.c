@@ -29,7 +29,7 @@
 #include <sound/soc-dai.h>
 #include <sound/pcm_params.h>
 #include <mach/jzdma.h>
-#include "asoc-dma.h"
+#include "asoc-dma-v12.h"
 
 static int asoc_dma_debug = 0;
 module_param(asoc_dma_debug, int, 0644);
@@ -64,8 +64,7 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
-	struct jz_pcm_dma_params *dma_params =
-		snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	struct jz_pcm_dma_params *dma_params = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 	struct dma_slave_config slave_config;
 	int ret;
 
@@ -146,7 +145,6 @@ static void jz_asoc_dma_callback(void *data)
 
 	DMA_SUBSTREAM_MSG(substream,"%s enter stopped_pending == %d\n", __func__,
 			atomic_read(&prtd->stopped_pending));
-
 	if (!atomic_dec_if_positive(&prtd->stopped_pending)) {
 		struct snd_soc_pcm_runtime *rtd = substream->private_data;
 		struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
@@ -275,10 +273,12 @@ static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+
 #ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 #endif
+
 #ifdef CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 	size_t buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
 #endif
@@ -398,8 +398,7 @@ static int jz_pcm_open(struct snd_pcm_substream *substream)
 	if (ret)
 		return ret;
 
-	ret = snd_pcm_hw_constraint_integer(substream->runtime,
-			SNDRV_PCM_HW_PARAM_PERIODS);
+	ret = snd_pcm_hw_constraint_integer(substream->runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		return ret;
 

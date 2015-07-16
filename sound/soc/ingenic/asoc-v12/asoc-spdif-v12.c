@@ -23,7 +23,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
-#include "asoc-aic.h"
+#include "asoc-aic-v12.h"
 static int jz_spdif_debug = 0;
 module_param(jz_spdif_debug, int, 0644);
 #define spdif_DEBUG_MSG(msg...)			\
@@ -85,7 +85,7 @@ static int jz_spdif_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static unsigned long calculate_cgu_aic_rate(unsigned long parent_clk ,unsigned int *rate)
+static unsigned long calculate_cgu_aic_rate(unsigned long parent_clk ,unsigned long *rate)
 {
        unsigned long i2s_parent_clk;
        unsigned int i2s_dv = 0, i2scdr = 0, div_exp = 0, div_tmp = 0;
@@ -193,7 +193,8 @@ static int jz_spdif_set_rate(struct device *aic ,struct jz_aic* jz_aic, unsigned
 	unsigned long sysclk;
 	struct clk* cgu_aic_clk = jz_aic->clk;
 	__i2s_stop_bitclk(aic);
-	sysclk = calculate_cgu_aic_rate(clk_get_rate(cgu_aic_clk->parent),&sample_rate);
+#ifndef CONFIG_PRODUCT_X1000_FPGA
+	sysclk = calculate_cgu_aic_rate(clk_get_rate(cgu_aic_clk->parent), &sample_rate);
 	clk_set_rate(cgu_aic_clk, (sysclk*2));
 	jz_aic->sysclk = clk_get_rate(cgu_aic_clk);
 
@@ -203,6 +204,12 @@ static int jz_spdif_set_rate(struct device *aic ,struct jz_aic* jz_aic, unsigned
 	}
 
 	spdif_set_clk(jz_aic, jz_aic->sysclk/2, sample_rate);
+#else
+	audio_write((253<<13)|(4482),I2SCDR_PRE);
+	*(volatile unsigned int*)0xb0000070 = *(volatile unsigned int*)0xb0000070;
+	audio_write((253<<13)|(4482)|(1<<29),I2SCDR_PRE);
+	audio_write(0,I2SDIV_PRE);
+#endif
 	__i2s_start_bitclk(aic);
 	spdif_select_ori_sample_freq(aic,sample_rate);
 	spdif_select_sample_freq(aic,sample_rate);
@@ -383,7 +390,6 @@ static int jz_spdif_probe(struct snd_soc_dai *dai)
 {
 	struct jz_spdif *jz_spdif = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_spdif->aic;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	unsigned int reg_tmp;
 
 	spdif_DEBUG_MSG("enter %s\n", __func__);
@@ -473,7 +479,6 @@ static int jz_spdif_platfrom_probe(struct platform_device *pdev){
 	struct jz_aic_subdev_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct jz_spdif *jz_spdif;
 	int i = 0, ret;
-	struct device *aic = pdev->dev.parent;
 
 	jz_spdif = devm_kzalloc(&pdev->dev, sizeof(struct jz_spdif), GFP_KERNEL);
 	if (!jz_spdif)
