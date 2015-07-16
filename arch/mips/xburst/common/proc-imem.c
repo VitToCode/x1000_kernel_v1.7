@@ -30,7 +30,7 @@
 #include <jz_proc.h>
 //#define DEBUG 1
 #undef DEBUG
-
+#ifdef JZ_PROC_IMEM_1
 /* CP0 hazard avoidance. */
 static void ipu_del_wired_entry( void )
 {
@@ -44,7 +44,7 @@ static void ipu_del_wired_entry( void )
 	}
 	local_irq_restore(flags);
 }
-
+#endif
 /***********************************************************************
  * IPU memory management (used by mplayer and other apps)
  *
@@ -71,16 +71,22 @@ typedef struct imem_list {
 	struct imem_list *next;
 } imem_list_t;
 
-#define IMEM_MAX_ORDER 13		/* max 2^12 * 4096 = 16MB */
+#define JZ_PROC_IMEM
+//#define JZ_PROC_IMEM_1
+
+#ifdef JZ_PROC_IMEM
+#define IMEM_MAX_ORDER 10		/* max 2^11 * 4096 = 8MB */
 static unsigned int jz_imem_base;	/* physical base address of ipu memory */
 static unsigned int allocated_phys_addr = 0;
 static struct imem_list *imem_list_head = NULL; /* up sorted by phys_start */
+#endif
 
+#ifdef JZ_PROC_IMEM_1
 #define IMEM1_MAX_ORDER 12              /* max 2^11 * 4096 = 8MB */
 static unsigned int jz_imem1_base;      /* physical base address of ipu memory */
 static unsigned int allocated_phys_addr1 = 0;
 static struct imem_list *imem1_list_head = NULL; /* up sorted by phys_start */
-
+#endif
 
 #ifdef DEBUG_IMEM
 static void dump_imem_list(void)
@@ -90,19 +96,21 @@ static void dump_imem_list(void)
 	printk("*** dump_imem_list 0x%x ***\n", (u32)imem_list_head);
 	imem = imem_list_head;
 	while (imem) {
-		printk("imem=0x%x phys_start=0x%x phys_end=0x%x next=0x%x\n", (u32)imem, imem->phys_start, imem->phys_end, (u32)imem->next);
+		printk("imem=0x%x phys_start=0x%x phys_end=0x%x next=0x%x\n",
+		       (u32)imem, imem->phys_start, imem->phys_end, (u32)imem->next);
 		imem = imem->next;
 	}
 
         printk("*** dump_imem_list 0x%x ***\n", (u32)imem1_list_head);
         imem = imem1_list_head;
         while (imem) {
-                printk("imem=0x%x phys_start=0x%x phys_end=0x%x next=0x%x\n", (u32)imem, imem->phys_start, imem->phys_end, (u32)imem->next);
+                printk("imem=0x%x phys_start=0x%x phys_end=0x%x next=0x%x\n",
+		       (u32)imem, imem->phys_start, imem->phys_end, (u32)imem->next);
                 imem = imem->next;
         }
 }
 #endif
-
+#ifdef JZ_PROC_IMEM
 /* allocate 2^order pages inside the 16MB memory */
 static int imem_alloc(unsigned int order)
 {
@@ -176,7 +184,8 @@ static int imem_alloc(unsigned int order)
 #endif
 	return 0;
 }
-
+#endif
+#ifdef JZ_PROC_IMEM_1
 /* allocate 2^order pages inside the 8MB memory */
 static int imem1_alloc(unsigned int order)
 {
@@ -250,11 +259,12 @@ static int imem1_alloc(unsigned int order)
 #endif
 	return 0;
 }
+#endif
 
 static void imem_free(unsigned int phys_addr)
 {
 	struct imem_list *imem, *imemp;
-
+#ifdef JZ_PROC_IMEM
 	imem = imemp = imem_list_head;
 	while (imem) {
 		if (phys_addr == imem->phys_start) {
@@ -272,7 +282,8 @@ static void imem_free(unsigned int phys_addr)
 		imemp = imem;
 		imem = imem->next;
 	}
-
+#endif
+#ifdef JZ_PROC_IMEM_1
         imem = imemp = imem1_list_head;
         while (imem) {
                 if (phys_addr == imem->phys_start) {
@@ -290,7 +301,7 @@ static void imem_free(unsigned int phys_addr)
                 imemp = imem;
                 imem = imem->next;
         }
-
+#endif
 #ifdef DEBUG_IMEM
 	dump_imem_list();
 #endif
@@ -299,7 +310,7 @@ static void imem_free(unsigned int phys_addr)
 static void imem_free_all(void)
 {
 	struct imem_list *imem, *tmp;
-
+#ifdef JZ_PROC_IMEM
 	imem = imem_list_head;
 	while (imem) {
 		tmp = imem;
@@ -310,7 +321,8 @@ static void imem_free_all(void)
 	imem_list_head = NULL;
 
 	allocated_phys_addr = 0;
-
+#endif
+#ifdef JZ_PROC_IMEM_1
         imem = imem1_list_head;
         while (imem) {
 		tmp = imem;
@@ -322,6 +334,7 @@ static void imem_free_all(void)
 
         allocated_phys_addr1 = 0;
 
+#endif
 #ifdef DEBUG_IMEM
 	dump_imem_list();
 #endif
@@ -330,6 +343,7 @@ static void imem_free_all(void)
 /*
  * Return the allocated buffer address and the max order of free buffer
  */
+#ifdef JZ_PROC_IMEM
 static int imem_read_proc(char *page, char **start, off_t off,
 			  int count, int *eof, void *data)
 {
@@ -397,10 +411,11 @@ static int imem_write_proc(struct file *file, const char *buffer, unsigned long 
 
 	return count;
 }
-
+#endif
 /*
  * Return the allocated buffer address and the max order of free buffer
  */
+#ifdef JZ_PROC_IMEM_1
 static int imem1_read_proc(char *page, char **start, off_t off,
 			  int count, int *eof, void *data)
 {
@@ -467,7 +482,7 @@ static int imem1_write_proc(struct file *file, const char *buffer, unsigned long
 
 	return count;
 }
-
+#endif
 /*
  * /proc/jz/xxx entry
  *
@@ -485,6 +500,7 @@ static int __init jz_proc_init(void)
 	/*
 	 * Reserve a 16MB memory for IPU on JZ.
 	 */
+#ifdef JZ_PROC_IMEM
 	jz_imem_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM_MAX_ORDER);
 	if (jz_imem_base) {
 		/* imem (IPU memory management) */
@@ -507,10 +523,11 @@ static int __init jz_proc_init(void)
 
 		printk("Total %dMB memory at 0x%x was reserved for IPU\n",
 		       (unsigned int)((1 << IMEM_MAX_ORDER) * PAGE_SIZE)/1000000, jz_imem_base);
-	}
-        else
+	} else {
            printk("NOT enough memory for imem\n");
-
+	}
+#endif
+#ifdef JZ_PROC_IMEM_1
         jz_imem1_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM1_MAX_ORDER);
         if (jz_imem1_base) {
                 /* imem (IPU memory management) */
@@ -533,10 +550,10 @@ static int __init jz_proc_init(void)
 
                 printk("Total %dMB memory1 at 0x%x was reserved for IPU\n",
                        (unsigned int)((1 << IMEM1_MAX_ORDER) * PAGE_SIZE)/1000000, jz_imem1_base);
-        }
-        else
+        } else {
            printk("NOT enough memory for imem1\n");
-
+	}
+#endif
 	return 0;
 }
 

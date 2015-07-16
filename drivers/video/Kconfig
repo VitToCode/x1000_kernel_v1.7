@@ -2595,4 +2595,5 @@ config JZ_NVPU
 	depends on SOC_VPU
 	default y
 
+source "drivers/video/jz_vpu/Kconfig"
 endmenu

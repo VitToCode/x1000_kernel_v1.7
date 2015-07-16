@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 #include <linux/wakelock.h>
@@ -26,11 +27,8 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 #include <mach/jzcpm_pwc.h>
-#ifdef CONFIG_SOC_M200
-#include <mach/libdmmu.h>
-#endif
 
-#include "jz_vpu_v12.h"
+#include "jz_vpu_v13.h"
 
 #define MAX_LOCK_DEPTH		999
 #define CMD_VPU_CACHE 100
@@ -43,7 +41,7 @@
 #define CMD_VPU_DMMU_MAP 107
 #define CMD_VPU_DMMU_UNMAP 108
 #define CMD_VPU_DMMU_UNMAP_ALL 109
-
+#define CMD_WAIT_COMPLETE 110
 /* we add them to wait for vpu end before suspend */
 #define VPU_NEED_WAIT_END_FLAG 0x80000000
 #define VPU_WAIT_OK 0x40000000
@@ -55,7 +53,6 @@ struct jz_vpu {
 	int			irq;
 	void __iomem		*iomem;
 	struct miscdevice	mdev;
-	struct clk		*clk;
 	struct clk		*clk_gate;
 
 	struct wake_lock	wake_lock;
@@ -92,7 +89,6 @@ static int vpu_on(struct jz_vpu *vpu)
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
 		return -EBUSY;
 
-	clk_enable(vpu->clk);
 	clk_enable(vpu->clk_gate);
 	__asm__ __volatile__ (
 		"mfc0  $2, $16,  7   \n\t"
@@ -120,7 +116,6 @@ static long vpu_off(struct jz_vpu *vpu)
 
 	cpm_clear_bit(31,CPM_OPCR);
 	clk_disable(vpu->clk_gate);
-	clk_disable(vpu->clk);
 	/* Clear completion use_count here to avoid a unhandled irq after vpu off */
 	vpu->done.done = 0;
 	wake_unlock(&vpu->wake_lock);
@@ -205,7 +200,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	int i,num;
 
 	switch (cmd) {
-	case WAIT_COMPLETE:
+	case CMD_WAIT_COMPLETE:
 		ret = wait_for_completion_interruptible_timeout(
 			&vpu->done, msecs_to_jiffies(200));
 		if (ret > 0) {
@@ -307,31 +302,6 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			*(unsigned int *)(arg_r[i]) = arg_r[i+1];
 		local_irq_restore(flags);
 		break;
-#ifdef CONFIG_SOC_M200
-	case CMD_VPU_DMMU_MAP:
-		{
-			struct vpu_dmmu_map_info di;
-			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
-				ret = -EFAULT;
-				break;
-			}
-			return dmmu_map(di.addr,di.len);
-		}
-		break;
-	case CMD_VPU_DMMU_UNMAP:
-		{
-			struct vpu_dmmu_map_info di;
-			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
-				ret = -EFAULT;
-				break;
-			}
-			return dmmu_unmap(di.addr,di.len);
-		}
-		break;
-	case CMD_VPU_DMMU_UNMAP_ALL:
-		dmmu_unmap_all();
-		break;
-#endif
 	default:
 		break;
 	}
@@ -343,9 +313,11 @@ static int vpu_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	vma->vm_flags |= VM_IO;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	if( PFN_PHYS(vma->vm_pgoff) < 0x13200000 || PFN_PHYS(vma->vm_pgoff) >= 0x13300000){
-		printk("phy addr err ,range is 0x13200000 - 13300000");
-		return -EAGAIN;
+	if(PFN_PHYS(vma->vm_pgoff) < 0x13200000 || PFN_PHYS(vma->vm_pgoff) >= 0x13300000){
+		if(PFN_PHYS(vma->vm_pgoff) != 0x10000000) {
+			printk("phy addr err ,range is 0x13200000 - 13300000");
+			return -EAGAIN;
+		}
 	}
 	if (io_remap_pfn_range(vma,vma->vm_start,
 			       vma->vm_pgoff,
@@ -379,6 +351,7 @@ static irqreturn_t vpu_interrupt(int irq, void *dev)
 		if(vpu_stat & VPU_STAT_ENDF) {
 			if(vpu_stat & VPU_STAT_JPGEND) {
 				dev_dbg(vpu->dev, "JPG successfully done!\n");
+				vpu_stat = vpu_readl(vpu,REG_VPU_JPGC_STAT);
 				CLEAR_VPU_BIT(vpu,REG_VPU_JPGC_STAT,JPGC_STAT_ENDF);
 			} else {
 				dev_dbg(vpu->dev, "SCH successfully done!\n");
@@ -424,11 +397,12 @@ static struct file_operations vpu_misc_fops = {
 	.mmap		= vpu_mmap,
 //	.mmap       =  jz_tcsm_mmap,
 };
-struct jz_vpu *vpu;
+
 static int vpu_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource			*regs;
+	struct jz_vpu *vpu;
 
 	vpu = kzalloc(sizeof(struct jz_vpu), GFP_KERNEL);
 	if (!vpu)
@@ -455,27 +429,11 @@ static int vpu_probe(struct platform_device *pdev)
 		goto err_get_mem;
 	}
 
-	vpu->clk_gate = clk_get(&pdev->dev, "vpu0");
+	vpu->clk_gate = clk_get(&pdev->dev, "vpu");
 	if (IS_ERR(vpu->clk_gate)) {
 		ret = PTR_ERR(vpu->clk_gate);
 		goto err_get_clk_gate;
 	}
-
-	vpu->clk = clk_get(vpu->dev,"cgu_vpu");
-	if (IS_ERR(vpu->clk)) {
-		ret = PTR_ERR(vpu->clk);
-		goto err_get_clk_cgu;
-	}
-	/*
-	 * for jz4775, when vpu freq is set over 300M, the decode process
-	 * of vpu may be error some times which can led to graphic abnomal
-	 */
-
-#if defined(CONFIG_SOC_4775)
-	clk_set_rate(vpu->clk,250000000);
-#else
-	clk_set_rate(vpu->clk,300000000);
-#endif
 
 	vpu->dev = &pdev->dev;
 	vpu->mdev.minor = MISC_DYNAMIC_MINOR;
@@ -510,8 +468,6 @@ static int vpu_probe(struct platform_device *pdev)
 err_request_irq:
 	misc_deregister(&vpu->mdev);
 err_registe_misc:
-	clk_put(vpu->clk);
-err_get_clk_cgu:
 	clk_put(vpu->clk_gate);
 err_get_clk_gate:
 	iounmap(vpu->iomem);
@@ -526,7 +482,6 @@ static int vpu_remove(struct platform_device *dev)
 
 	misc_deregister(&vpu->mdev);
 	wake_lock_destroy(&vpu->wake_lock);
-	clk_put(vpu->clk);
 	clk_put(vpu->clk_gate);
 	free_irq(vpu->irq, vpu);
 	iounmap(vpu->iomem);
@@ -550,7 +505,6 @@ static int vpu_suspend(struct platform_device * pdev, pm_message_t state)
 			REG_VPU_LOCK |= VPU_WAIT_OK;
 			REG_VPU_LOCK &= ~VPU_NEED_WAIT_END_FLAG;
 		}
-		clk_disable(vpu->clk);
 		clk_disable(vpu->clk_gate);
 	}
 	return 0;
@@ -560,8 +514,6 @@ static int vpu_resume(struct platform_device * pdev)
 	struct jz_vpu *vpu = platform_get_drvdata(pdev);
 
 	if(vpu->use_count != 0) {
-		clk_set_rate(vpu->clk,300000000);
-		clk_enable(vpu->clk);
 		clk_enable(vpu->clk_gate);
 	}
 	return 0;
@@ -589,7 +541,7 @@ static void __exit vpu_exit(void)
 module_init(vpu_init);
 module_exit(vpu_exit);
 
-MODULE_DESCRIPTION("JZ M200 v12 VPU driver");
+MODULE_DESCRIPTION("JZ X1000 v13 VPU driver");
 MODULE_AUTHOR("Large Dipper <ykli@ingenic.cn>");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("20120925");

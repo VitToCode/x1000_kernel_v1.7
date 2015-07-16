@@ -180,11 +180,8 @@ obj-$(CONFIG_VIDEO_MX1)			+= mx1_camera.o
 obj-$(CONFIG_VIDEO_MX2)			+= mx2_camera.o
 obj-$(CONFIG_VIDEO_MX3)			+= mx3_camera.o
 obj-$(CONFIG_VIDEO_PXA27x)		+= pxa_camera.o
-ifeq ($(CONFIG_JZ4780_CAMERA_SG),y)
-obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)		+= jz4780_camera_sg.o
-else
-obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)		+= jz4780_camera.o
-endif
+obj-$(CONFIG_VIDEO_JZ_CIM)		+= jz_camera.o
+obj-$(CONFIG_VIDEO_JZ_CIM_V13)		+= jz_camera_v13.o
 obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2)	+= sh_mobile_csi2.o
 obj-$(CONFIG_VIDEO_SH_MOBILE_CEU)	+= sh_mobile_ceu_camera.o
 obj-$(CONFIG_VIDEO_OMAP1)		+= omap1_camera.o
