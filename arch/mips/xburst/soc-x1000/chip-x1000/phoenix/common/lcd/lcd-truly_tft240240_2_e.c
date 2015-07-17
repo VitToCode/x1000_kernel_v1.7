@@ -258,6 +258,10 @@ static struct smart_lcd_data_table truly_tft240240_data_table[] = {
     {SMART_CONFIG_DATA, (239>> 8) & 0xff},
     {SMART_CONFIG_DATA, 239 & 0xff},
 #endif
+    {SMART_CONFIG_CMD, 0x2C},
+    {SMART_CONFIG_CMD, 0x2C},
+    {SMART_CONFIG_CMD, 0x2C},
+    {SMART_CONFIG_CMD, 0x2C},
 };
 
 unsigned long truly_cmd_buf[]= {

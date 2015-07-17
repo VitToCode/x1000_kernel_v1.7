@@ -159,6 +159,7 @@ obj-$(CONFIG_FB_MXS)		  += mxsfb.o
 obj-$(CONFIG_FB_JZ4780_LCDC0)     += jz4780-fb/
 obj-$(CONFIG_FB_JZ4780_LCDC1)     += jz4780-fb/
 obj-$(CONFIG_FB_JZ_V12)     	  += jz_fb_v12/
+obj-$(CONFIG_FB_JZ_V13)     	  += jz_fb_v13/
 obj-$(CONFIG_FB_JZ4775_ANDROID_EPD)     += jz4775-epd/
 obj-$(CONFIG_JZ_EPD_V12)	+= jz_epd_v12/
 obj-$(CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH) += lcd_suspend_update/
