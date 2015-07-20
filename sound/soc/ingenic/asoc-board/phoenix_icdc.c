@@ -89,11 +89,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* mic is connected to AIP/N1 */
 	{"MICBIAS", NULL, "Mic Buildin"},
-/*	{"AIN", NULL, "Mic Buildin"},*/
-/*	{"AIP", NULL, "Mic Buildin"},*/
 	{"DMIC", NULL, "DMic"},
 
-	//{"Mic Buildin", NULL, "MICBIAS"},
 };
 
 static int phoenix_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)

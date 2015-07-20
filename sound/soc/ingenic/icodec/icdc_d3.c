@@ -123,7 +123,7 @@ static int icdc_d3_readable(struct snd_soc_codec *codec, unsigned int reg)
 {
 	if (reg > SCODA_MAX_REG_NUM)
 		return 0;
-	else 
+	else
 		return 1;
 }
 
@@ -139,6 +139,13 @@ static void dump_registers_hazard(struct icdc_d3 *icdc_d3)
 		else
 			printk(" 0x%02x:0x%02x,", reg, 0x0);
 	}
+	printk("\n");
+	printk("mix_0=%02x\n", icdc_d3_hw_read_extend(icdc_d3, SCODA_MIX_0));
+	printk("mix_1=%02x\n", icdc_d3_hw_read_extend(icdc_d3, SCODA_MIX_1));
+	printk("mix_2=%02x\n", icdc_d3_hw_read_extend(icdc_d3, SCODA_MIX_2));
+	printk("mix_3=%02x\n", icdc_d3_hw_read_extend(icdc_d3, SCODA_MIX_3));
+	printk("mix_4=%02x\n", icdc_d3_hw_read_extend(icdc_d3, SCODA_MIX_4));
+
 	printk("\n");
 	dev_info(icdc_d3->dev, "----------------------------\n");
 	return;
@@ -338,6 +345,7 @@ static const DECLARE_TLV_DB_SCALE(mic_tlv, 0, 100, 0);
 
 static const unsigned int icdc_d3_adc_mic_sel_value[] = {0x0, 0x1,};
 static const unsigned int icdc_d3_mixer_input_sel_value[] = {0x0, 0x5, 0xa, 0xf,};
+static const unsigned int icdc_d3_mixer_input_sel_value_double[] = {0x0, 0x1, 0x2, 0x3,};
 static const unsigned int icdc_d3_mixer_mode_sel_value[] = {0x0, 0x1,};
 
 static const char *icdc_d3_mixer_input_sel[] = { "Normal Inputs", "Cross Inputs", "Mixed Inputs", "Zero Inputs"};
@@ -348,17 +356,21 @@ static const char *icdc_d3_dac_mixer_mode_sel[] = { "PLAYBACK DAC", "PLAYBACK DA
 static const char *icdc_d3_adc_mixer_mode_sel[] = { "RECORD INPUT", "RECORD INPUT + DAC"};
 
 static const struct soc_enum icdc_d3_enum[] = {
-	SOC_VALUE_ENUM_SINGLE(SCODA_REG_CR_ADC, 6, 0x1,  ARRAY_SIZE(icdc_d3_adc_mic_sel),icdc_d3_adc_mic_sel, icdc_d3_adc_mic_sel_value),
-	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d3_mercury_vir_sel), icdc_d3_mercury_vir_sel),
-	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d3_titanium_vir_sel), icdc_d3_titanium_vir_sel),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_0, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_1, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_2, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_3, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_4, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_0, 0, 1,  ARRAY_SIZE(icdc_d3_dac_mixer_mode_sel),icdc_d3_dac_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_4, 0, 1,  ARRAY_SIZE(icdc_d3_dac_mixer_mode_sel),icdc_d3_dac_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),
-	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_2, 0, 1,  ARRAY_SIZE(icdc_d3_adc_mixer_mode_sel),icdc_d3_adc_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),
+	SOC_VALUE_ENUM_SINGLE(SCODA_REG_CR_ADC, 6, 0x1,  ARRAY_SIZE(icdc_d3_adc_mic_sel),icdc_d3_adc_mic_sel, icdc_d3_adc_mic_sel_value), /*0*/
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d3_mercury_vir_sel), icdc_d3_mercury_vir_sel), /*1*/
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(icdc_d3_titanium_vir_sel), icdc_d3_titanium_vir_sel), /*2*/
+
+	/*select input method*/
+	SOC_VALUE_ENUM_DOUBLE(SCODA_MIX_0, 6, 4, 0x3,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value_double), /*3*/
+	SOC_VALUE_ENUM_DOUBLE(SCODA_MIX_1, 6, 4, 0x3,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value_double), /*4*/
+	SOC_VALUE_ENUM_DOUBLE(SCODA_MIX_2, 6, 4, 0x3,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value_double),/*5*/
+	SOC_VALUE_ENUM_DOUBLE(SCODA_MIX_3, 6,4, 0x3,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value_double),/*6*/
+	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_4, 4, 0xf,  ARRAY_SIZE(icdc_d3_mixer_input_sel),icdc_d3_mixer_input_sel, icdc_d3_mixer_input_sel_value),/*7*/
+
+	/*select mix mode*/
+	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_0, 0, 1,  ARRAY_SIZE(icdc_d3_dac_mixer_mode_sel),icdc_d3_dac_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),/*8*/
+	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_4, 0, 1,  ARRAY_SIZE(icdc_d3_dac_mixer_mode_sel),icdc_d3_dac_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),/*9*/
+	SOC_VALUE_ENUM_SINGLE(SCODA_MIX_2, 0, 1,  ARRAY_SIZE(icdc_d3_adc_mixer_mode_sel),icdc_d3_adc_mixer_mode_sel, icdc_d3_mixer_mode_sel_value),/*10*/
 };
 
 
@@ -372,28 +384,28 @@ static const struct snd_kcontrol_new icdc_d3_titanium_vmux_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[2]);
 
 static const struct snd_kcontrol_new icdc_d3_mercury_aidac_input_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[3]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[3]);//SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
 
 static const struct snd_kcontrol_new icdc_d3_dac_input_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[4]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[4]); //SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
 
 static const struct snd_kcontrol_new icdc_d3_aiadc_input_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[5]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[5]);
 
 static const struct snd_kcontrol_new icdc_d3_adc_input_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[6]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[6]);
 
 static const struct snd_kcontrol_new icdc_d3_titanium_aidac_input_sel_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[7]);
 
 static const struct snd_kcontrol_new icdc_d3_mercury_mixer_mode_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[8]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[8]); //SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
 
 static const struct snd_kcontrol_new icdc_d3_titanium_mixer_mode_sel_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[9]);
 
 static const struct snd_kcontrol_new icdc_d3_aiadc_mixer_mode_sel_controls =
-	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[10]);
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[10]);
 
 
 
@@ -411,9 +423,8 @@ static const struct snd_kcontrol_new icdc_d3_snd_controls[] = {
 
 	/* mic private controls */
 	SOC_SINGLE("Digital Playback mute", SCODA_REG_CR_DAC, 7, 1, 0),
-	/* mixer controls */
-	SOC_SINGLE("Digital ADC mixer Enable", SCODA_REG_CR_MIX, 7, 1, 0),
-	SOC_SINGLE("Record input + DAC", SCODA_MIX_2, 0, 1, 0),
+	/* mixer enable controls */
+	SOC_SINGLE("mixer Enable", SCODA_REG_CR_MIX, 7, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget icdc_d3_dapm_widgets[] = {
@@ -434,19 +445,14 @@ static const struct snd_soc_dapm_widget icdc_d3_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("DAC_TITANIUM", SCODA_REG_CR_DAC2, 4, 1, NULL, 0),
 
 /* MIXER */
-	/* dac channel input sel */
+	SND_SOC_DAPM_MUX("MERCURY AIDAC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_dac_input_sel_controls),
+	SND_SOC_DAPM_MUX("DAC Mode Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_mercury_mixer_mode_sel_controls),
 	SND_SOC_DAPM_MUX("MERCURY AIDAC Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_mercury_aidac_input_sel_controls),
-	SND_SOC_DAPM_MUX("TITANIUM AIDAC Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_titanium_aidac_input_sel_controls),
-	SND_SOC_DAPM_MUX("DAC Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_dac_input_sel_controls),
-	/* dac mixer mode sel */
-	SND_SOC_DAPM_MUX("MERCURY AIDAC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_mercury_mixer_mode_sel_controls),
-	SND_SOC_DAPM_MUX("TITANIUM AIDAC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_titanium_mixer_mode_sel_controls),
 
-	/* adc mixer input sel */
+/* ADC */
+	SND_SOC_DAPM_MUX("ADC Mode Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_aiadc_mixer_mode_sel_controls),
 	SND_SOC_DAPM_MUX("AIADC Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_aiadc_input_sel_controls),
 	SND_SOC_DAPM_MUX("ADC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_adc_input_sel_controls),
-	/* adc mixer mode sel */
-	SND_SOC_DAPM_MUX("AIADC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_aiadc_mixer_mode_sel_controls),
 
 /* PINS */
 	SND_SOC_DAPM_INPUT("AIP"),
@@ -467,27 +473,44 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{ "ADC Mux", "AMIC ON", "AMIC" },
 	{ "ADC Mux", "DMIC ON", "DMIC IN" },
 
-	{ "AIADC Mux" , "Normal Inputs","ADC Mux"},
-	{ "AIADC Mux" , "Cross Inputs","ADC Mux"},
-	{ "AIADC Mux" , "Mixed Inputs","ADC Mux"},
-	{ "AIADC Mux" , "Zero Inputs","ADC Mux"},
+	{ "ADC Mode Mux" , "RECORD INPUT","ADC Mux"},
+	{ "ADC Mode Mux" , "RECORD INPUT + DAC","ADC Mux"},
 
-	{ "ADC MIXER Mux" , "Normal Inputs","AIADC Mux"},
-	{ "ADC MIXER Mux" , "Cross Inputs","AIADC Mux"},
-	{ "ADC MIXER Mux" , "Mixed Inputs","AIADC Mux"},
-	{ "ADC MIXER Mux" , "Zero Inputs","AIADC Mux"},
+	{ "AIADC Mux" , "Normal Inputs","ADC Mode Mux"},
+	{ "AIADC Mux" , "Cross Inputs","ADC Mode Mux"},
+	{ "AIADC Mux" , "Mixed Inputs","ADC Mode Mux"},
+	{ "AIADC Mux" , "Zero Inputs","ADC Mode Mux"},
 
-	{ "ADC", NULL, "ADC MIXER Mux" },
+	{ "ADC", NULL, "AIADC Mux" },
 
+	{ "ADC MIXER Mux" , "Normal Inputs","ADC Mux"},
+	{ "ADC MIXER Mux" , "Cross Inputs","ADC Mux"},
+	{ "ADC MIXER Mux" , "Mixed Inputs","ADC Mux"},
+	{ "ADC MIXER Mux" , "Zero Inputs","ADC Mux"},
+
+	{"DAC Mode Mux", NULL, "ADC MIXER Mux"},
 	/*output*/
 	{ "DAC_MERCURY"  , NULL, "DAC" },
-	{ "DAC_TITANIUM" , NULL, "DAC" },
-
 	{ "DAC_MERCURY VMux"  , "MERCURY ON"  , "DAC_MERCURY" },
-	{ "DAC_TITANIUM VMux" , "TITANIUM ON" , "DAC_TITANIUM" },
 
-	{ "DO_LO_PWM", NULL, "DAC_MERCURY VMux" },
-	{ "DO_BO_PWM", NULL, "DAC_TITANIUM VMux" },
+	/* select mixer inputs*/
+	{"MERCURY AIDAC MIXER Mux", "Normal Inputs", "DAC_MERCURY VMux"},
+	{"MERCURY AIDAC MIXER Mux", "Cross Inputs", "DAC_MERCURY VMux"},
+	{"MERCURY AIDAC MIXER Mux", "Mixed Inputs", "DAC_MERCURY VMux"},
+	{"MERCURY AIDAC MIXER Mux", "Zero Inputs", "DAC_MERCURY VMux"},
+
+	/*select mixer mode*/
+	{"DAC Mode Mux", "PLAYBACK DAC", "DAC_MERCURY VMux"},
+	{"DAC Mode Mux", "PLAYBACK DAC + ADC", "MERCURY AIDAC MIXER Mux"},
+
+/*	DAC_MERCURY Vmux->DAC Mux*/
+	/*select mixer output channels*/
+	{ "MERCURY AIDAC Mux"  , "Normal Inputs"  , "DAC Mode Mux" },
+	{ "MERCURY AIDAC Mux"  , "Cross Inputs"  , "DAC Mode Mux" },
+	{ "MERCURY AIDAC Mux"  , "Mixed Inputs"  , "DAC Mode Mux" },
+	{ "MERCURY AIDAC Mux"  , "Zero Inputs"  , "DAC Mode Mux" },
+
+	{ "DO_LO_PWM", NULL, "MERCURY AIDAC Mux" },
 };
 
 static int icdc_d3_suspend(struct snd_soc_codec *codec, pm_message_t state)
@@ -683,6 +706,8 @@ static int icdc_d3_platform_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev,"attribute %s create failed %x",
 				attr_name(icdc_d3_sysfs_attrs), ret);
 	dev_info(&pdev->dev, "codec icdc-d3 platfrom probe success\n");
+
+
 	return 0;
 }
 
