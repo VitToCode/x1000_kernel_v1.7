@@ -431,12 +431,17 @@ static  int jz_spi_norflash_match_device(struct spi_device *spi,int chip_id)
 
 	id = (recv_command[0] << 16) | (recv_command[1] << 8) | recv_command[2];
 
+
 	if(id == chip_id){
 		printk("the spi mtd chip id is %x\n",id);
+	}else if((id != 0)&&(id !=0xffffff)){
+		printk("the chip id %x\n",id);
+		//  return EINVAL;
 	}else{
-		printk("unknow chip id %x\n",id);
+		printk("unknow chip id %d\n",id);
 		return EINVAL;
 	}
+
 
 	return 0;
 }
@@ -451,7 +456,7 @@ static int jz_spi_norflash_probe(struct spi_device *spi)
 	int num_partition_info = 0;
 
 	jz_mtd_partition = pdata->mtd_partition;
-	num_partition_info = pdata->num_partition_info; 
+	num_partition_info = pdata->num_partition_info;
 	chip_id = pdata->id;
 	flash = kzalloc(sizeof(struct jz_spi_norflash), GFP_KERNEL);
 	if (!flash) {
