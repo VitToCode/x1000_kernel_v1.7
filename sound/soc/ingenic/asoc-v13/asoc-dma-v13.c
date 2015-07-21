@@ -252,7 +252,7 @@ struct jz_dma_pcm {
 	enum jzdma_type dma_type;
 };
 
-#define JZ_DMA_BUFFERSIZE (256 * 12 * PAGE_SIZE)
+#define JZ_DMA_BUFFERSIZE (32*1024)
 static const struct snd_pcm_hardware jz_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_MMAP |
 		SNDRV_PCM_INFO_PAUSE |
@@ -271,10 +271,10 @@ static const struct snd_pcm_hardware jz_pcm_hardware = {
 	.channels_min           = 1,
 	.channels_max           = 2,
 	.buffer_bytes_max       = JZ_DMA_BUFFERSIZE,
-	.period_bytes_min       = PAGE_SIZE/4,     /* 1K */
-	.period_bytes_max       = PAGE_SIZE * 16, /* 64K */
+	.period_bytes_min       = PAGE_SIZE / 4, /* 1K */
+	.period_bytes_max       = PAGE_SIZE * 2, /* 64K */
 	.periods_min            = 4,
-	.periods_max            = 256,
+	.periods_max            = 64,
 	.fifo_size              = 0,
 };
 
