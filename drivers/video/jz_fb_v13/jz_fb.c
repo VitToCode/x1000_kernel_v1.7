@@ -75,12 +75,12 @@ static int jzfb_open(struct fb_info *info, int user)
 	struct jzfb *jzfb = info->par;
 
 	dev_dbg(info->dev, "open count : %d\n", ++jzfb->open_cnt);
-/*
+
 	if (!jzfb->is_lcd_en && jzfb->vidmem_phys) {
 		jzfb_set_par(info);
 		jzfb_enable(info);
 	}
-*/
+
 	return 0;
 }
 
