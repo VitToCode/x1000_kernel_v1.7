@@ -20,6 +20,8 @@
 #define BLUETOOTH_UPORT_NAME  "ttyS1"
 #endif
 
+/* MSC GPIO Definition */
+#define GPIO_SD0_CD_N       GPIO_PC(21)
 
 /*wifi*/
 #define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)

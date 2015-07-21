@@ -29,5 +29,4 @@ endif
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
-obj-y += ahbm.o
 obj-y += rtc.o
