@@ -29,6 +29,10 @@ extern struct platform_device	bt_power_device;
 extern struct platform_device	bluesleep_device;
 #endif
 
+#ifdef CONFIG_BCM_AP6212_RFKILL
+extern struct platform_device   bt_power_device;
+#endif
+
 #ifdef CONFIG_USB_DWC2
 extern struct platform_device   jz_dwc_otg_device;
 #endif

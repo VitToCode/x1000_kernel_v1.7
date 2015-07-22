@@ -54,6 +54,7 @@ obj-$(CONFIG_AB8500_PWM)	+= ab8500-pwm.o
 obj-y				+= lis3lv02d/
 obj-y				+= carma/
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
+obj-$(CONFIG_BCM_AP6212_RFKILL) += bt-power_bluesleep.o
 obj-$(CONFIG_BCM4330_RFKILL) 	+= bt-power.o
 obj-$(CONFIG_BCM_PM_CORE) 	+= bcm-pm-core.o
 obj-$(CONFIG_BROADCOM_RFKILL)   += bt-power-bluesleep.o bluesleep.o
