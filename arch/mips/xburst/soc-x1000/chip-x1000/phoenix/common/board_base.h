@@ -5,6 +5,9 @@
 #include <linux/spi/spi.h>
 #include <linux/i2c.h>
 
+#ifdef CONFIG_KEYBOARD_GPIO
+extern struct platform_device jz_button_device;
+#endif
 #ifdef CONFIG_LEDS_GPIO
 extern struct platform_device jz_led_rgb;
 #endif

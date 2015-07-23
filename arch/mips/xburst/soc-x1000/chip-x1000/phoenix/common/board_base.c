@@ -24,12 +24,14 @@ struct jz_platform_device
 	int size;
 };
 
-
 static struct jz_platform_device platform_devices_array[] __initdata = {
 #define DEF_DEVICE(DEVICE, DATA, SIZE)  \
 	{ .pdevices = DEVICE,   \
 		.pdata = DATA, .size = SIZE,}
 
+#ifdef CONFIG_KEYBOARD_GPIO
+	DEF_DEVICE(&jz_button_device, 0, 0),
+#endif
 #ifdef CONFIG_LEDS_GPIO
 	DEF_DEVICE(&jz_led_rgb, 0, 0),
 #endif
