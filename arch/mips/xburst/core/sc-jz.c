@@ -19,6 +19,12 @@
  * MIPS32/MIPS64 L2 cache handling
  */
 static unsigned long scache_size __read_mostly;
+
+static void mips_bridge_sync_war(unsigned long addr, unsigned long size)
+{
+	fast_iob();
+}
+
 /*
  * Writeback and invalidate the secondary cache before DMA.
  */
@@ -124,7 +130,9 @@ static inline int __init mips_sc_probe(void)
 	switch(c->processor_id & PRID_CPU_FEATURE_MASK){
 	case PRID_IMP_JZ4775:
 	case PRID_IMP_JZ4780:
-		return 0;
+		mips_sc_ops.bc_wback_inv = mips_bridge_sync_war;
+		mips_sc_ops.bc_inv = mips_bridge_sync_war;
+		return 1;
 	case PRID_IMP_M200:
 		break;
 	default:
