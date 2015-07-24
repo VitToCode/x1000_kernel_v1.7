@@ -37,6 +37,16 @@
 #include "jz_sfc.h"
 
 //#define SFC_DEBUG
+#define GET_PHYADDR(a)                                          \
+({                                              \
+	 unsigned int v;                                        \
+	 if (unlikely((unsigned int)(a) & 0x40000000)) {                            \
+	 v = page_to_phys(vmalloc_to_page((const void *)(a))) | ((unsigned int)(a) & ~PAGE_MASK); \
+	 } else                                         \
+	 v = ((int)(a) & 0x1fffffff);                   \
+	 v;                                             \
+})
+
 
 
 #ifdef SFC_DEGUG
@@ -59,9 +69,9 @@
 #define JZ_NOR_REG   \
 	JZ_NOR_INIT(CMD_WREN,0,0,0,0,0), \
 	JZ_NOR_INIT(CMD_WRDI,0,0,0,0,0), \
-	JZ_NOR_INIT(CMD_RDSR,0,1,1,0,0),\
-	JZ_NOR_INIT(CMD_RDSR_1,0,1,1,0,0),\
-	JZ_NOR_INIT(CMD_RDSR_2,0,1,1,0,0),\
+	JZ_NOR_INIT(CMD_RDSR,0,1,0,0,0),\
+	JZ_NOR_INIT(CMD_RDSR_1,0,1,0,0,0),\
+	JZ_NOR_INIT(CMD_RDSR_2,0,1,0,0,0),\
 	JZ_NOR_INIT(CMD_WRSR,0,1,0,0,0),\
 	JZ_NOR_INIT(CMD_WRSR_1,0,1,0,0,0),\
 	JZ_NOR_INIT(CMD_WRSR_2,0,1,0,0,0),\
@@ -152,7 +162,7 @@ static unsigned int cpu_read_rxfifo(struct jz_sfc *flash)
 
 	if(len == flash->rlen){
 		print_dbg("recive ok\n");
-		sfc_flush_fifo(flash);
+	//	sfc_flush_fifo(flash);
 		flash->rlen = flash->len;
 		return flash->rlen;
 	}
@@ -282,7 +292,7 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 		sfc_dev_addr_dummy_bytes(flash,0,flash->nor_info->dummy_byte);
 		if((flash->use_dma ==1)&&(flash->nor_info->dma_mode)){
 			dma_cache_sync(NULL, (void *)flash->rx, flash->len, DMA_FROM_DEVICE);
-			sfc_set_mem_addr(flash, virt_to_phys(flash->rx));
+			sfc_set_mem_addr(flash, GET_PHYADDR(flash->rx));
 			sfc_transfer_mode(flash, DMA_MODE);
 		}else{
 			sfc_transfer_mode(flash, SLAVE_MODE);
@@ -302,7 +312,7 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 
 		if((flash->use_dma ==1)&&(flash->nor_info->dma_mode)){
 			dma_cache_sync(NULL,(void *)flash->tx1, flash->len, DMA_TO_DEVICE);
-			sfc_set_mem_addr(flash, virt_to_phys(flash->tx1));
+			sfc_set_mem_addr(flash, GET_PHYADDR(flash->tx1));
 			sfc_transfer_mode(flash, DMA_MODE);
 		}else{
 			sfc_transfer_mode(flash, SLAVE_MODE);
@@ -338,6 +348,7 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 
 	sfc_enable_all_intc(flash);
 
+	sfc_flush_fifo(flash);
 	sfc_start(flash);
 
 	return 0;
@@ -440,7 +451,7 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 	dump_sfc_reg(flash);
 #endif
 
-	err = wait_for_completion_interruptible_timeout(&flash->done,10*HZ);
+	err = wait_for_completion_timeout(&flash->done,10*HZ);
 	if (!err) {
 		dev_err(flash->dev, "Timeout for ACK from SFC device\n");
 		return -ETIMEDOUT;
@@ -522,8 +533,7 @@ static int jz_spi_norflash_status(struct jz_sfc *flash, int *status,int num)
 	transfer[0].len = sizeof(command_stage2);
 	ret = jz_sfc_pio_txrx(flash, transfer);
 	if(ret != transfer[0].len){
-		print_dbg("the ret = %d,the transfer[0].len = %d\n",ret,transfer[0].len);
-		//dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 	}
 	*status = command_stage2[0];
 
@@ -538,8 +548,10 @@ static int jz_spi_norflash_wait_till_ready(struct jz_sfc *flash)
 	deadline = jiffies + msecs_to_jiffies(MAX_READY_WAIT_TIME);
 	do {
 		ret = jz_spi_norflash_status(flash, &status,0);
-		if (ret)
+		if (ret){
+			printk("this will be an error\n");
 			return ret;
+		}
 
 		if (!(status & SR_WIP))
 			return 0;
@@ -568,31 +580,9 @@ static int jz_spi_norflash_write_enable(struct jz_sfc *flash)
 	if(ret != transfer[0].len)
 		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
-	command_stage1[0] = CMD_WRSR;
-	command_stage2[0] = 0;
-
-	transfer[0].tx_buf  = command_stage1;
-	transfer[0].tx_buf1 = command_stage2;
-	transfer[0].rx_buf =  NULL;
-	transfer[0].len = sizeof(command_stage2);
-	ret = jz_sfc_pio_txrx(flash, transfer);
-	if(ret != transfer[0].len)
-		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
-
 	ret = jz_spi_norflash_wait_till_ready(flash);
 	if (ret)
 		return ret;
-
-	command_stage1[0] = CMD_WREN;
-
-	transfer[0].tx_buf  = command_stage1;
-	transfer[0].tx_buf1 = NULL;
-	transfer[0].rx_buf =  NULL;
-	transfer[0].len = 0;
-	ret = jz_sfc_pio_txrx(flash, transfer);
-	if(ret != transfer[0].len)
-		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
-
 	return 0;
 }
 
@@ -604,15 +594,8 @@ static int jz_spi_norflash_set_quad_mode(struct jz_sfc *flash)
 	unsigned char command_stage2[1];
 	struct sfc_transfer transfer[1];
 
-	command_stage1[0] = CMD_WREN;
 
-	transfer[0].tx_buf  = command_stage1;
-	transfer[0].tx_buf1 = NULL;
-	transfer[0].rx_buf =  NULL;
-	transfer[0].len = 0;
-	ret = jz_sfc_pio_txrx(flash, transfer);
-	if(ret != transfer[0].len)
-		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+	jz_spi_norflash_write_enable(flash);
 
 	command_stage1[0] = CMD_WRSR_1;
 	command_stage2[0] = 0x2;
@@ -774,14 +757,14 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	transfer[0].len = len;
 
 	mutex_lock(&flash->lock);
-
-	ret = jz_spi_norflash_wait_till_ready(flash);
-	if (ret) {
-		printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
-		printk("spi wait timeout !\n");
-		mutex_unlock(&flash->lock);
-		return ret;
-	}
+//
+//	ret = jz_spi_norflash_wait_till_ready(flash);
+//	if (ret) {
+//		printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
+//		printk("spi wait timeout !\n");
+//		mutex_unlock(&flash->lock);
+//		return ret;
+//	}
 
 	ret = jz_sfc_pio_txrx(flash, transfer);
 	if(ret != transfer[0].len)
@@ -797,7 +780,7 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 			size_t *retlen, const unsigned char *buf)
 {
-	unsigned int i, j, ret;
+	unsigned int i, j, ret,err;
 	int ret_addr, actual_len, write_len;
 	unsigned char command_stage1[4];
 	unsigned char command_stage2[mtd->writesize];
@@ -818,13 +801,11 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 	else
 		actual_len = mtd->writesize - ret_addr;
 
-
 #ifdef CONFIG_SPI_QUAD
 	if(quad_mode == 0)
 		jz_spi_norflash_set_quad_mode(flash);
 #endif
 	/* less than mtd->writesize */
-	{
 		ret = jz_spi_norflash_write_enable(flash);
 		if (ret) {
 			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
@@ -851,21 +832,28 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 		transfer[0].rx_buf = NULL;
 		transfer[0].len = actual_len;
 
-		ret = jz_spi_norflash_wait_till_ready(flash);
-		if (ret) {
-			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
-			printk("wait timeout !\n");
-			mutex_unlock(&flash->lock);
-			return ret;
-		}
-
+//		ret = jz_spi_norflash_wait_till_ready(flash);
+//		if (ret) {
+//			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
+//			printk("wait timeout !\n");
+//			mutex_unlock(&flash->lock);
+//			return ret;
+//		}
+//
 		ret = jz_sfc_pio_txrx(flash, transfer);
 		if(ret != transfer[0].len)
 			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
+		err = jz_spi_norflash_wait_till_ready(flash);
+		if (err) {
+			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
+			printk("wait timeout !\n");
+			mutex_unlock(&flash->lock);
+			return err;
+		}
+
 
 		*retlen += ret;
-	}
 
 	for (i = actual_len; i < len; i += mtd->writesize) {
 		ret = jz_spi_norflash_write_enable(flash);
@@ -901,17 +889,23 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 		transfer[0].rx_buf = NULL;
 		transfer[0].len = write_len;
 
-		ret = jz_spi_norflash_wait_till_ready(flash);
-		if (ret) {
-			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
-			printk("wait timeout !\n");
-			mutex_unlock(&flash->lock);
-			return ret;
-		}
-
+//		ret = jz_spi_norflash_wait_till_ready(flash);
+//		if (ret) {
+//			printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
+//			printk("wait timeout !\n");
+//			mutex_unlock(&flash->lock);
+//			return ret;
+//		}
+//
 		ret = jz_sfc_pio_txrx(flash, transfer);
 		if(ret != transfer[0].len)
 			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+
+
+		err = jz_spi_norflash_wait_till_ready(flash);
+		if (err)
+			return err;
+
 
 		*retlen += ret;
 	}
