@@ -27,6 +27,8 @@
 
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/stat.h>
+#include <linux/module.h>
 #include "jzmmc_v12.h"
 
 /**
@@ -100,7 +102,6 @@ static LIST_HEAD(manual_list);
  * @double_enter: Prevent state machine reenter.
  * @timeout_cnt: The count of timeout second.
  */
-
 struct jzmmc_host {
 	struct jzmmc_platform_data *pdata;
 	struct device		*dev;
@@ -133,6 +134,7 @@ struct jzmmc_host {
 	spinlock_t		lock;
 	unsigned int		double_enter;
 	int 			timeout_cnt;
+	int                     clk_enabled;
 };
 
 #define ERROR_IFLG (				\
@@ -283,18 +285,31 @@ static inline int request_need_stop(struct mmc_request *mrq)
 {
 	return mrq->stop ? 1 : 0;
 }
+#define MMC_CLK_GATE_BIT 1
+#define MMC_CLK_CGU_BIT  2
 static inline void jzmmc_clk_autoctrl(struct jzmmc_host *host, unsigned int on)
 {
 	if(on) {
-		if(!clk_is_enabled(host->clk))
+		if(!(host->clk_enabled & MMC_CLK_CGU_BIT)) {
 			clk_enable(host->clk);
-		if(!clk_is_enabled(host->clk_gate))
+			host->clk_enabled |= MMC_CLK_CGU_BIT;
+		}
+		if(!(host->clk_enabled & MMC_CLK_GATE_BIT))
+		{
 			clk_enable(host->clk_gate);
+			host->clk_enabled |= MMC_CLK_GATE_BIT;
+		}
 	} else {
-		if(clk_is_enabled(host->clk_gate))
+		if(host->clk_enabled & MMC_CLK_GATE_BIT)
+		{
 			clk_disable(host->clk_gate);
-		if(clk_is_enabled(host->clk))
+			host->clk_enabled &= ~MMC_CLK_GATE_BIT;
+		}
+		if(host->clk_enabled & MMC_CLK_CGU_BIT)
+		{
 			clk_disable(host->clk);
+			host->clk_enabled &= ~MMC_CLK_CGU_BIT;
+		}
 	}
 }
 static inline int check_error_status(struct jzmmc_host *host, unsigned int status)
@@ -927,6 +942,7 @@ static void jzmmc_command_start(struct jzmmc_host *host, struct mmc_command *cmd
 static void jzmmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct jzmmc_host *host = mmc_priv(mmc);
+
 	if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
 		dev_vdbg(host->dev, "No card present\n");
 		mrq->cmd->error = -ENOMEDIUM;
@@ -1125,9 +1141,6 @@ static void jzmmc_detect_change(unsigned long data)
 			mmc_detect_change(host->mmc, msecs_to_jiffies(1000));
 		}
 
-		if (!test_bit(JZMMC_CARD_PRESENT, &host->flags)) {
-			jzmmc_clk_autoctrl(host, 0);
-		}
 	}
 
 	enable_irq(gpio_to_irq(host->pdata->gpio->cd.num));
@@ -1162,18 +1175,12 @@ int jzmmc_manual_detect(int index, int on)
 	if (on) {
 		dev_vdbg(host->dev, "card insert manually\n");
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
-#ifdef CLK_CTRL
-		jzmmc_clk_autoctrl(host, 1);
-#endif
 		mmc_detect_change(host->mmc, 0);
 
 	} else {
 		dev_vdbg(host->dev, "card remove manually\n");
 		clear_bit(JZMMC_CARD_PRESENT, &host->flags);
 		mmc_detect_change(host->mmc, 0);
-#ifdef CLK_CTRL
-		jzmmc_clk_autoctrl(host, 0);
-#endif
 	}
 
 	return 0;
@@ -1189,26 +1196,9 @@ int jzmmc_clk_ctrl(int index, int on)
 {
 	struct jzmmc_host *host;
 	struct list_head *pos;
-
-#ifdef CLK_CTRL
-	list_for_each(pos, &manual_list) {
-		host = list_entry(pos, struct jzmmc_host, list);
-		if (host->index == index)
-			break;
-		else
-			host = NULL;
-	}
-
-	if (!host) {
-		dev_err(host->dev, "no manual card detect\n");
-		return -1;
-	}
-	jzmmc_clk_autoctrl(host, on);
-#endif
-	return 0;
+return 0;
 }
 EXPORT_SYMBOL(jzmmc_clk_ctrl);
-
 
 /*-------------------End card insert and remove handler--------------------*/
 
@@ -1561,11 +1551,7 @@ static int __init jzmmc_dma_init(struct jzmmc_host *host)
 static int __init jzmmc_msc_init(struct jzmmc_host *host)
 {
 	int ret = 0;
-	jzmmc_clk_autoctrl(host, 1);
 	jzmmc_reset(host);
-#ifdef CLK_CTRL
-	jzmmc_clk_autoctrl(host, 0);
-#endif
 	host->cmdat_def = CMDAT_RTRG_EQUALT_16 |	\
 		CMDAT_TTRG_LESS_16 |			\
 		CMDAT_BUS_WIDTH_1BIT;
@@ -1630,7 +1616,6 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 				break;
 			}
 			tasklet_disable(&host->tasklet);
-			jzmmc_clk_autoctrl(host, 1);
 			if(!timer_pending(&host->detect_timer)){
 				disable_irq_nosync(gpio_to_irq(host->pdata->gpio->cd.num));
 				mod_timer(&host->detect_timer, jiffies);
@@ -1649,7 +1634,6 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 		break;
 
 	default:
-		jzmmc_clk_autoctrl(host, 1);
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 		break;
 	}
@@ -1713,11 +1697,14 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk)) {
 		return PTR_ERR(host->clk);
 	}
-//	jzmmc_clk_autoctrl(host, 1);
+	clk_enable(host->clk);
 	clk_set_rate(host->clk, 24000000);
 	if (clk_get_rate(host->clk) > 24000000)
 		goto err_clk_get_rate;
+	clk_enable(host->clk_gate);
 	tasklet_init(&host->tasklet, jzmmc_tasklet, (unsigned long)host);
+
+	host->clk_enabled = MMC_CLK_CGU_BIT | MMC_CLK_GATE_BIT;
 	host->irq = irq;
 	host->dev = &pdev->dev;
 	host->index = pdev->id;
@@ -1729,6 +1716,7 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 
 	sprintf(regulator_name, "vmmc.%d", pdev->id);
 	host->power = regulator_get(host->dev, regulator_name);
+
 	if (IS_ERR(host->power)) {
 		dev_warn(host->dev, "vmmc regulator missing\n");
 	}
@@ -1761,7 +1749,6 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		goto err_sysfs_create;
 
 	dev_info(host->dev, "register success!\n");
-	jzmmc_clk_autoctrl(host, 1);
 	return 0;
 
 err_sysfs_create:
@@ -1785,7 +1772,6 @@ err_clk_get_rate:
 static int __exit jzmmc_remove(struct platform_device *pdev)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(pdev);
-
 
 	mmc_set_drvdata(pdev, NULL);
 	mmc_remove_host(host->mmc);
@@ -1814,9 +1800,7 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
-	jzmmc_clk_autoctrl(host, 0);
-	return ret;
-#if 0
+
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 		ret = mmc_suspend_host(host->mmc);
 
@@ -1826,16 +1810,13 @@ static int jzmmc_suspend(struct platform_device *dev, pm_message_t state)
 		/* } */
 	}
 	return ret;
-#endif
 }
 
 static int jzmmc_resume(struct platform_device *dev)
 {
 	struct jzmmc_host *host = mmc_get_drvdata(dev);
 	int ret = 0;
-	jzmmc_clk_autoctrl(host, 1);
-	return ret;
-#if 0
+
 	if (host->mmc->card && host->mmc->card->type != MMC_TYPE_SDIO) {
 
 		/* if (test_bit(JZMMC_CARD_PRESENT, &host->flags)) { */
@@ -1846,7 +1827,6 @@ static int jzmmc_resume(struct platform_device *dev)
 		ret = mmc_resume_host(host->mmc);
 	}
 	return ret;
-#endif
 }
 #endif
 static void jzmmc_shutdown(struct platform_device *pdev)
@@ -1859,7 +1839,6 @@ static void jzmmc_shutdown(struct platform_device *pdev)
 	 * but don't remove sdio_host in case of the SDIO device driver
 	 * can't handle bus remove correctly.
 	 */
-
 	dev_vdbg(host->dev, "shutdown\n");
 	if(host->mmc->card && !mmc_card_sdio(host->mmc->card)){
 		if(host->pdata->type == NONREMOVABLE || host->pdata->removal == NONREMOVABLE ){
