@@ -18,7 +18,6 @@ static int cpm_gate_enable(struct clk *clk,int on){
 	int bit = CLK_GATE_BIT(clk->flags);
 	unsigned int clkgr[2] = {CPM_CLKGR};
 	unsigned long flags;
-
 	spin_lock_irqsave(&cpm_gate_lock,flags);
 	if(on) {
 		cpm_clear_bit(bit % 32, clkgr[bit / 32]);
@@ -50,10 +49,10 @@ void __init init_gate_clk(struct clk *clk)
 	clk->rate = clk_get_rate(clk->parent);
 	if(clkgr[bit / 32] & (1 << (bit % 32))) {
 		clk->flags &= ~(CLK_FLG_ENABLE);
-		cpm_gate_enable(clk,0);
+		//cpm_gate_enable(clk,0);
 	}else {
 		clk->flags |= CLK_FLG_ENABLE;
-		cpm_gate_enable(clk,1);
+		//cpm_gate_enable(clk,1);
 	}
 	clk->ops = &clk_gate_ops;
 }

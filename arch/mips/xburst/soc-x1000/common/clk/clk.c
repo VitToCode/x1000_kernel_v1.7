@@ -62,16 +62,16 @@ static void init_clk_parent(struct clk *p) {
 	if(!p)
 		return;
 	if(p->init_state) {
-		p->count = 1;
+		atomic_set(&p->count,1);
 		p->init_state = 0;
 		init = 1;
 	}
-	if(p->count == 0) {
+	if(atomic_read(&p->count) == 0) {
 		printk("%s clk should be opened!\n",p->name);
-		p->count = 1;
+		atomic_set(&p->count,1);
 	}
 	if(!init)
-		p->count++;
+		atomic_inc(&p->count);
 }
 
 void __init init_all_clk(void)
@@ -104,6 +104,7 @@ void __init init_all_clk(void)
 		if(clk_srcs[i].parent && clk_srcs[i].init_state)
 			init_clk_parent(clk_srcs[i].parent);
 	}
+
 	register_syscore_ops(&clk_pm_ops);
 	register_pm_notifier(&clk_sleep_pm_notifier);
 	printk("CCLK:%luMHz L2CLK:%luMhz H0CLK:%luMHz H2CLK:%luMhz PCLK:%luMhz\n",
@@ -127,13 +128,14 @@ struct clk *clk_get(struct device *dev, const char *id)
 			if(!retval)
 				return ERR_PTR(-ENODEV);
 			memcpy(retval,&clk_srcs[i],sizeof(struct clk));
+			retval->flags = 0;
 			retval->source = &clk_srcs[i];
 			if(CLK_FLG_RELATIVE & clk_srcs[i].flags)
 			{
 				parent_clk = get_clk_from_id(CLK_RELATIVE(clk_srcs[i].flags));
 				parent_clk->child = NULL;
 			}
-			retval->count = 0;
+			atomic_set(&retval->count,0);
 			return retval;
 		}
 	}
@@ -143,54 +145,78 @@ EXPORT_SYMBOL(clk_get);
 
 int clk_enable(struct clk *clk)
 {
+	int count;
 	if(!clk)
 		return -EINVAL;
+	/**
+	 * if it has parent clk,first it will control itself,then it will control parent.
+	 * if it hasn't parent clk,it will control itself.
+	 */
 	if(clk->source) {
-		clk->count = 1;
+		count = atomic_inc_return(&clk->count);
+		if(count != 1)
+			return 0;
+		clk->flags |= CLK_FLG_ENABLE;
 		clk = clk->source;
-
 		if(clk->init_state) {
-			clk->count = 1;
+			atomic_set(&clk->count,1);
 			clk->init_state = 0;
 			return 0;
 		}
 	}
-	if(clk->count == 0) {
+	count = atomic_inc_return(&clk->count);
+	if(count == 1) {
 		if(clk->parent)
+		{
 			clk_enable(clk->parent);
+		}
 		if(clk->ops && clk->ops->enable) {
 			clk->ops->enable(clk,1);
 		}
 		clk->flags |= CLK_FLG_ENABLE;
 	}
-	clk->count++;
 	return 0;
 }
 EXPORT_SYMBOL(clk_enable);
 
 int clk_is_enabled(struct clk *clk)
 {
-	if(clk->source)
-		clk = clk->source;
+	/* if(clk->source) */
+	/* 	clk = clk->source; */
 	return !!(clk->flags & CLK_FLG_ENABLE);
 }
 EXPORT_SYMBOL(clk_is_enabled);
 void clk_disable(struct clk *clk)
 {
+	int count;
 	if(!clk)
 		return;
-	if(clk->count == 0)
+        /**
+	 * if it has parent clk,first it will control itself,then it will control parent.
+	 * if it hasn't parent clk,it will control itself.
+	 */
+	if(clk->source)
+	{
+
+		count = atomic_dec_return(&clk->count);
+		if(count != 0){
+			if(count < 0)
+			{
+				atomic_set(&clk->count,0);
+				printk("%s isn't enabled!\n",clk->name);
+				dump_stack();
 		return;
-	if(clk->source) {
-		clk->count = 0;
+	}
+		}
+		clk->flags &= ~CLK_FLG_ENABLE;
 		clk = clk->source;
 	}
-	clk->count--;
-	if(clk->count > 0) {
+	count = atomic_dec_return(&clk->count);
+	if(count < 0){
+		atomic_inc(&clk->count);
 		return;
-	}else
-		clk->count = 0;
-	if(!clk->count) {
+	}
+	if(count == 0) {
 		if(clk->ops && clk->ops->enable)
 			clk->ops->enable(clk,0);
 		clk->flags &= ~CLK_FLG_ENABLE;
@@ -214,9 +240,8 @@ void clk_put(struct clk *clk)
 {
 	struct clk *parent_clk;
 	if(clk && !(clk->flags & CLK_FLG_NOALLOC)) {
-		if(clk->source && clk->count && clk->source->count > 0) {
-			clk->source->count--;
-			if(clk->source->count == 0)
+		if(clk->source && atomic_read(&clk->count) && atomic_read(&clk->source->count) > 0) {
+			if(atomic_dec_return(&clk->source->count) == 0)
 				clk->source->init_state = 1;
 
 		}

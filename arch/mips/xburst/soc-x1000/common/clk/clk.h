@@ -34,7 +34,7 @@ struct clk {
 #define CLK_FLG_PARENT	BIT(7)
 #define CLK_FLG_RELATIVE BIT(8)
 	struct clk_ops *ops;
-	int count;
+	atomic_t count;
 	int init_state;
 	struct clk *source;
 	struct clk *child;
