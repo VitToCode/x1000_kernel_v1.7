@@ -88,6 +88,11 @@ void __init init_all_clk(void)
 		if(clk_srcs[i].flags & CLK_FLG_CGU) {
 			init_cgu_clk(&clk_srcs[i]);
 		}
+
+		if(clk_srcs[i].flags & CLK_FLG_CGU_AUDIO){
+			init_cgu_audio_clk(&clk_srcs[i]);
+		}
+
 		if(clk_srcs[i].flags & CLK_FLG_PLL) {
 			init_ext_pll(&clk_srcs[i]);
 		}

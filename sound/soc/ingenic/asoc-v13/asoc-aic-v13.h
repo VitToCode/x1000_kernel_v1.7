@@ -110,6 +110,7 @@ static unsigned int inline jz_aic_read_reg(struct device *dev, unsigned int reg)
 #define SPCFG2		(0x90)
 #define SPFIFO		(0x94)
 
+#define I2S_CPM_VALID 0xb0000070
 /* For AICFR */
 #define AICFR_ENB_BIT		(0)
 #define AICFR_ENB_MASK		(1 << AICFR_ENB_BIT)

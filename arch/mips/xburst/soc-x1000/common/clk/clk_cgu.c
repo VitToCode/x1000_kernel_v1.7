@@ -93,7 +93,6 @@ struct cgu_clk {
 static struct cgu_clk cgu_clks[] = {
 	[CGU_DDR] = 	{ CPM_DDRCDR, 27, 1, 4, SELECTOR_A},
 	[CGU_MACPHY] = 	{ CPM_MACCDR, 27, 1, 8, SELECTOR_2},
-//	[CGU_I2S] = 	{ CPM_I2SCDR, 27, 1, 8, SELECTOR_3},
 	[CGU_LCD] = 	{ CPM_LPCDR, 26, 1, 8, SELECTOR_2},
 	[CGU_MSC_MUX]=	{ CPM_MSC0CDR, 27, 2, 0, SELECTOR_MSC_MUX},
 	[CGU_MSC0] = 	{ CPM_MSC0CDR, 27, 2, 8, SELECTOR_MSC_MUX},
@@ -101,7 +100,6 @@ static struct cgu_clk cgu_clks[] = {
 	[CGU_USB] = 	{ CPM_USBCDR, 27, 1, 8, SELECTOR_C},
 	[CGU_SFC] =     { CPM_SFCCDR, 27, 1, 8, SELECTOR_G},
 	[CGU_CIM] =     { CPM_CIMCDR, 27, 1, 8, SELECTOR_2},
-	[CGU_PCM] = 	{ CPM_PCMCDR, 26, 1, 8, SELECTOR_G},
 };
 
 static unsigned long cgu_get_rate(struct clk *clk)

@@ -27,8 +27,8 @@ struct clk {
 #define CLK_FLG_CGU	BIT(4)
 #define CLK_PLL_NO(flg) 	(((flg) >> 24) & 0xff)
 #define CLK_FLG_PLL	BIT(5)
-#define CLK_PWC_NO(flg) 	(((flg) >> 24) & 0xff)
-#define CLK_FLG_PWC	BIT(6)
+#define CLK_CGU_AUDIO_NO(flg) 	(((flg) >> 24) & 0xff)
+#define CLK_FLG_CGU_AUDIO	BIT(6)
 #define CLK_PARENT(flg) 	(((flg) >> 16) & 0xff)
 #define CLK_RELATIVE(flg) 	(((flg) >> 16) & 0xff)
 #define CLK_FLG_PARENT	BIT(7)
@@ -174,15 +174,23 @@ enum {
 
 
 enum {
-	CGU_PCM1, CGU_PCM, CGU_CIM,CGU_SFC,
+	CGU_PCM1,CGU_CIM,CGU_SFC,
 	CGU_USB,CGU_MSC1,CGU_MSC0,CGU_LCD,
-	CGU_I2S1,CGU_I2S,CGU_MACPHY,CGU_DDR,
+	CGU_MACPHY,CGU_DDR,
 	CGU_MSC_MUX
 };
 
 enum {
 	CDIV = 0,L2CDIV,H0DIV,H2DIV,PDIV,SCLKA,
 };
+
+enum {
+	CGU_AUDIO_I2S,CGU_AUDIO_I2S1,CGU_AUDIO_PCM,CGU_AUDIO_PCM1
+};
+
+#define I2S_PRI_DIV 0xb0020030
+#define PCM_PRI_DIV 0xb0030014
+
 
 int get_clk_sources_size(void);
 struct clk *get_clk_from_id(int clk_id);
@@ -192,6 +200,7 @@ int dump_out_clk(char *str,DUMP_CALLBACK dump_callback);
 void dump_clk(void);
 
 void __init init_cgu_clk(struct clk *clk);
+void __init init_cgu_audio_clk(struct clk *clk);
 void __init init_cpccr_clk(struct clk *clk);
 void __init init_ext_pll(struct clk *clk);
 void __init init_gate_clk(struct clk *clk);

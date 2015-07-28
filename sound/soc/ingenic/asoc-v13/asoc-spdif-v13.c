@@ -85,47 +85,6 @@ static int jz_spdif_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static unsigned long calculate_cgu_aic_rate(unsigned long parent_clk ,unsigned long *rate)
-{
-       unsigned long i2s_parent_clk;
-       unsigned int i2s_dv = 0, i2scdr = 0, div_exp = 0, div_tmp = 0;
-	   unsigned int i2s_dv_tmp = 512,i2scdr_tmp = 256;
-       i2s_parent_clk = parent_clk;
-       if (i2s_parent_clk < (*rate * 64)) {
-               pr_err("SPDIF:i2s parent clk rate is error, "
-                               "please chose right\n");
-               return i2s_parent_clk;
-       }
-
-	   div_exp = i2s_parent_clk/(*rate*64);
-	   div_tmp = div_exp;
-
-		for(i2scdr = 10 ; i2scdr <= 256;i2scdr++)
-			for(i2s_dv = 1; i2s_dv <= 512; i2s_dv++)
-				if(( abs((i2scdr*i2s_dv) - div_exp) ) < div_tmp){
-					div_tmp = i2scdr*i2s_dv - div_exp;
-					i2s_dv_tmp = i2s_dv;
-					i2scdr_tmp = i2scdr;
-				}
-
-       return i2s_parent_clk / (i2scdr_tmp) ;
-}
-
-
-static unsigned long  spdif_set_clk(struct jz_aic* jz_aic, unsigned long sys_clk, unsigned long sync){
-	unsigned long tmp_val;
-	int div = sys_clk/(64*sync);
-	if(sys_clk%(64*sync) >= (32*sync))
-		div++;
-
-	tmp_val = readl(jz_aic->vaddr_base + I2SDIV);
-	tmp_val &= ~I2SDIV_DV_MASK;
-	tmp_val |= (div-1);
-	writel(tmp_val,jz_aic->vaddr_base + I2SDIV);
-
-	return sys_clk/(64*div);
-}
-
 static unsigned long  spdif_select_ori_sample_freq(struct device *aic,unsigned long sync)
 {
 	int div = 0;
@@ -190,19 +149,10 @@ static unsigned long  spdif_select_sample_freq(struct device* aic,unsigned long 
 	return div;
 }
 static int jz_spdif_set_rate(struct device *aic ,struct jz_aic* jz_aic, unsigned long sample_rate){
-	unsigned long sysclk;
 	struct clk* cgu_aic_clk = jz_aic->clk;
 	__i2s_stop_bitclk(aic);
-	sysclk = calculate_cgu_aic_rate(clk_get_rate(cgu_aic_clk->parent), &sample_rate);
-	clk_set_rate(cgu_aic_clk, (sysclk*2));
-	jz_aic->sysclk = clk_get_rate(cgu_aic_clk);
-
-	if (jz_aic->sysclk > (sysclk*2)) {
-		printk("external codec set sysclk fail aic = %ld want is %ld .\n",jz_aic->sysclk,sysclk);
-		return -1;
-	}
-
-	spdif_set_clk(jz_aic, jz_aic->sysclk/2, sample_rate);
+	clk_set_rate(cgu_aic_clk, sample_rate);
+	writel(0xa,I2S_CPM_VALID);
 	__i2s_start_bitclk(aic);
 	spdif_select_ori_sample_freq(aic,sample_rate);
 	spdif_select_sample_freq(aic,sample_rate);
