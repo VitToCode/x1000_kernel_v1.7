@@ -2134,40 +2134,13 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 	struct clk *clk_gate = clk_get(NULL, "mac");
 	struct clk *clk_cgu = clk_get(NULL, "cgu_macphy");
 
-	clk_disable(clk_gate);
-	clk_disable(clk_cgu);
 
-	/* *(volatile unsigned int *)(0xb0000020) = 1 << 25; */
-
-	/* *(volatile unsigned int *)(0xb0000054) = 0xb800000B; */
-
-	/* while( (*(volatile unsigned int *)(0xb0000054) & 0x10000000)); */
-	/* mdelay(500); */
 
 	*(volatile unsigned int *)(0xb0010118) = (1 << 3);//c
 	*(volatile unsigned int *)(0xb0010124) = (1 << 3);//s
 	*(volatile unsigned int *)(0xb0010138) = (1 << 3);//c
 	*(volatile unsigned int *)(0xb0010148) = (1 << 3);//c
-	mdelay(500);
 
-	*(volatile unsigned int *)(0xb0010118) = (0x3ff << 6);//c
-	*(volatile unsigned int *)(0xb0010124) = (0x3ff << 6);//s
-	*(volatile unsigned int *)(0xb0010138) = (0x3ff << 6);//c
-	*(volatile unsigned int *)(0xb0010148) = (0x3ff << 6);//c
-	mdelay(500);
-
-	/* *(volatile unsigned int *)(0xb0000054) = 0xb000000B; */
-	/* while( (*(volatile unsigned int *)(0xb0000054) & 0x10000000)); */
-
-	/* *(volatile unsigned int *)(0xb0000020) = 0; */
-	/* mdelay(500); */
-
-	*(volatile unsigned int *)(0xb0010118) = (0x3ff << 6);//c
-	*(volatile unsigned int *)(0xb0010128) = (0x3ff << 6);//c
-	*(volatile unsigned int *)(0xb0010138) = (0x3ff << 6);//c
-	*(volatile unsigned int *)(0xb0010144) = (0x3ff << 6);//s
-	mdelay(500);
-	clk_set_rate(clk_cgu, 50000000);
 	if (clk_enable(clk_gate) < 0) {
 		printk("enable mac clk gate failed\n");
 		clk_put(clk_gate);
@@ -2179,12 +2152,14 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 		goto out_err_alloc;
 	}
 
+	clk_set_rate(clk_cgu, 50000000);
+	mdelay(50);
 	/* gpio_direction_output(32 * 1 + 3, 1); */
 	*(volatile unsigned int *)(0xb0010118) = (1 << 3);//c
 	*(volatile unsigned int *)(0xb0010124) = (1 << 3);//s
 	*(volatile unsigned int *)(0xb0010138) = (1 << 3);//c
 	*(volatile unsigned int *)(0xb0010144) = (1 << 3);//s
-	mdelay(500);
+	mdelay(50);
 	//	synopGMAC_multicast_enable(gmacdev);
 
 	//	clk_put(gmac_clk);
@@ -2193,13 +2168,12 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 	*(volatile unsigned int *)(0xb0010124) = (1 << 1);//s
 	*(volatile unsigned int *)(0xb0010138) = (1 << 1);//c
 	*(volatile unsigned int *)(0xb0010148) = (1 << 1);//c
-	mdelay(500);
+	mdelay(50);
 
 	*(volatile unsigned int *)(0xb0010118) = (1 << 1);//c
 	*(volatile unsigned int *)(0xb0010124) = (1 << 1);//s
 	*(volatile unsigned int *)(0xb0010138) = (1 << 1);//c
 	*(volatile unsigned int *)(0xb0010144) = (1 << 1);//s
-	mdelay(500);
 
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	gpio_phy_reset = dev_get_platdata(&pdev->dev);
