@@ -1532,9 +1532,9 @@ static int dwc2_probe(struct platform_device *pdev)
 
 	if (dwc->dma_enable) {
 		if (dwc->dma_desc_enable) {
-			dev_info(dwc->dev, "Using Descriptor DMA mode\n");
+			dev_dbg(dwc->dev, "Using Descriptor DMA mode\n");
 		} else {
-			dev_info(dwc->dev, "Using Buffer DMA mode\n");
+			dev_dbg(dwc->dev, "Using Buffer DMA mode\n");
 		}
 	} else {
 		dev_info(dwc->dev, "Using Slave mode\n");

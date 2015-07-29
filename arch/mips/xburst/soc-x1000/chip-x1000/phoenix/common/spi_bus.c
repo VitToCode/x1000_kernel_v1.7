@@ -115,7 +115,7 @@ struct jz_spi_info spi0_info_cfg = {
 struct jz_sfc_info sfc_info_cfg = {
 	.chnl = 0,
 	.bus_num = 0,
-	.max_clk = 70000000,
+	.max_clk = 100000000,
 	.num_chipselect = 1,
 	.board_info = &spi_nor_pdata,
 };

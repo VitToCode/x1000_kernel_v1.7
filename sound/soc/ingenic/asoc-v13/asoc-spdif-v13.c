@@ -432,7 +432,7 @@ static int jz_spdif_platfrom_probe(struct platform_device *pdev){
 	}
 	ret = snd_soc_register_dai(&pdev->dev, &jz_spdif_dai);
 	if (!ret)
-		dev_info(&pdev->dev, "spdif platform probe success\n");
+		dev_dbg(&pdev->dev, "spdif platform probe success\n");
 	return ret;
 }
 

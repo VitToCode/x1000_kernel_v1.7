@@ -460,13 +460,13 @@ static int jz_pcm_platform_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, NULL);
 		return ret;
 	}
-	dev_info(&pdev->dev, "Audio dma platfrom probe success\n");
+	dev_dbg(&pdev->dev, "Audio dma platfrom probe success\n");
 	return 0;
 }
 
 static int jz_pcm_platform_remove(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "Audio dma platfrom removed\n");
+	dev_dbg(&pdev->dev, "Audio dma platfrom removed\n");
 	snd_soc_unregister_platform(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
 	return 0;

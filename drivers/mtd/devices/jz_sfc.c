@@ -474,8 +474,6 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 static int jz_sfc_init_setup(struct jz_sfc *flash)
 {
 	print_dbg("function : %s, line : %d\n", __func__, __LINE__);
-	printk("%d,%s\n",__LINE__,__func__);
-
 
 	sfc_init(flash);
 

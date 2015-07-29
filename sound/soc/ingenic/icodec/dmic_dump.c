@@ -38,7 +38,7 @@ static int dmic_dump_platform_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	ret = snd_soc_register_codec(&pdev->dev, &dump_codec, &dump_codec_dai, 1);
-	dev_info(&pdev->dev, "dmic dump codec platfrom probe success\n");
+	dev_dbg(&pdev->dev, "dmic dump codec platfrom probe success\n");
 	return ret;
 }
 

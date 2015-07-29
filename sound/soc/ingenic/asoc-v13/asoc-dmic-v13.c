@@ -317,7 +317,7 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 	ret = snd_soc_register_dai(&pdev->dev, &jz_dmic_dai);
 	if (ret)
 		goto err_register_cpu_dai;
-	dev_info(&pdev->dev, "dmic platform probe success\n");
+	dev_dbg(&pdev->dev, "dmic platform probe success\n");
 	return ret;
 
 err_register_cpu_dai:
