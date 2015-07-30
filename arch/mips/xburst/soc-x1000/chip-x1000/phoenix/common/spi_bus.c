@@ -9,10 +9,10 @@
 
 #if defined(CONFIG_MTD_JZ_SPI_NORFLASH)|| defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 
-#define SIZE_BOOTLOADER     0x30000  /* 256k */
-#define SIZE_KERNEL     0x330000  /* 3.2M */
-#define SIZE_ROOTFS     0xa00000  /* 10M */
-#define SIZE_RECOVERY   0x100000  /* 1M */
+#define SIZE_BOOTLOADER	0x40000  /* 256k */
+#define SIZE_KERNEL	0x3C0000 /* 3.75M */
+#define SIZE_ROOTFS	0xB80000 /* 11.5M */
+#define SIZE_USRDATA	0x80000  /* 512K */
 
 struct mtd_partition jz_mtd_partition1[] = {
 	{
@@ -26,17 +26,15 @@ struct mtd_partition jz_mtd_partition1[] = {
 		.size =     SIZE_KERNEL,
 	},
 	{
-		.name =     "recovery",
+		.name =     "rootfs",
 		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER,
 		.size =     SIZE_ROOTFS,
 	},
-#if 0
 	{
-		.name =     "recovery",
+		.name =     "usrdata",
 		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER + SIZE_ROOTFS,
-		.size =     SIZE_RECOVERY,
+		.size =     SIZE_USRDATA,
 	},
-#endif
 };
 #endif
 #if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)

@@ -13409,6 +13409,7 @@ void get_primary_mac(struct bcm_cfg80211 *cfg, struct ether_addr *mac)
 }
 static bool check_dev_role_integrity(struct bcm_cfg80211 *cfg, u32 dev_role)
 {
+	return true;
 	dhd_pub_t *dhd = (dhd_pub_t *)(cfg->pub);
 	if (((dev_role == NL80211_IFTYPE_AP) &&
 		!(dhd->op_mode & DHD_FLAG_HOSTAP_MODE)) ||
