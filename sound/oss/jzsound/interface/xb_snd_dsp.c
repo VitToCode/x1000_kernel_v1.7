@@ -1819,11 +1819,14 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
-		//case SNDCTL_DSP_GETCAPS:
+        case SNDCTL_DSP_GETCAPS: {
+		int cap = 0;
+		cap |= DSP_CAP_BATCH;
 		/* OSS 4.x: Returns the capabilities of an audio device */
 		/* we do't support here */
-		//break;
-
+		ret = put_user(cap, (int *)arg);
+		break;
+	}
 		//case SNDCTL_DSP_GETCHANNELMASK:
 		/* OSS 4.x: Retruns the bindings supported by the device (obsolete) */
 		/* we do't support here */
@@ -2294,8 +2297,8 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = -ENOSYS;
 		break;
 
-		//case SNDCTL_DSP_RESET:
-		//break;
+	case SNDCTL_DSP_RESET:
+		break;
 
 		//case SNDCTL_DSP_SYNCSTART:
 		/* OSS 4.x: Starts all devices added to a synchronization group */
