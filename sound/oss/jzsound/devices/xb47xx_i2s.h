@@ -7,6 +7,10 @@
 #include "../interface/xb_snd_dsp.h"
 #include "../xb_snd_detect.h"
 
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#include "xb47xx_audio_pre.h"
+#endif
+
 extern unsigned int DEFAULT_REPLAY_ROUTE;
 extern unsigned int DEFAULT_RECORD_ROUTE;
 
@@ -399,18 +403,26 @@ do {	\
 
 static inline unsigned long  __i2s_set_sample_rate(unsigned long sys_clk, unsigned long sync)
 {
-	int div = sys_clk/(64*sync) - 1;
-	i2s_set_reg(I2SDIV,div,I2S_DV_MASK,I2S_DV_OFFSET);
+        int div = sys_clk/(64*sync);
+        if ((sys_clk - 64*sync*div) > (64*sync*(div+1) - sys_clk))
+                div = div + 1;
 
-	return sys_clk/(64*(div + 1));
+        i2s_set_reg(I2SDIV,(div - 1),I2S_DV_MASK,I2S_DV_OFFSET);
+
+        printk("replay sysclk = %d * sync\n", 64 * div);
+        return sys_clk/(64*div);
 }
 
 static inline unsigned long  __i2s_set_isample_rate(unsigned long sys_clk, unsigned long sync)
 {
-	int div = sys_clk/(64*sync) - 1;
-	i2s_set_reg(I2SDIV,div,I2S_IDV_MASK,I2S_IDV_OFFSET);
+        int div = sys_clk/(64*sync);
+        if ((sys_clk - 64*sync*div) > (64*sync*(div+1) - sys_clk))
+                div = div + 1;
 
-	return sys_clk/(64*(div + 1));
+        i2s_set_reg(I2SDIV,(div - 1),I2S_IDV_MASK,I2S_IDV_OFFSET);
+
+        printk("record sysclk = %d * sync\n", 64 * div);
+        return sys_clk/(64*div);
 }
 /*
  * CKCFG

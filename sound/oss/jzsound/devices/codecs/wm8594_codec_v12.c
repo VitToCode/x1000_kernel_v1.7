@@ -32,8 +32,8 @@
 #include <linux/input.h>
 #include <linux/earlysuspend.h>
 
-#include "../xb47xx_i2s_v1_2.h"
-#include "wm8594_codec_v1_2.h"
+#include "../xb47xx_i2s_v12.h"
+#include "wm8594_codec_v12.h"
 
 //#define WM8594_INMSTR_MODE
 #define CODEC_DUMP_IOC_CMD 0

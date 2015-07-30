@@ -30,12 +30,16 @@
 #include <soc/irq.h>
 #include <soc/base.h>
 #include "xb47xx_spdif_v12.h"
-#include "xb47xx_i2s_v12.h"
+#include "xb47xx_i2s.h"
 #include <linux/delay.h>
-#include "codecs/jz_codec_v12.h"
+//#include "codecs/jz_codec_v12.h"
+
+
 /**
  * global variable
  **/
+
+void volatile __iomem *volatile i2s_iomem ;
 void volatile __iomem *volatile spdif_iomem;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints spdif_endpoints;
@@ -51,7 +55,7 @@ static struct work_struct	spdif_codec_work;*/
 static int jz_spdif_get_hp_switch_state(void);
 static int spdif_global_init(struct platform_device *pdev);
 
-static struct codec_info {
+static struct codec_info_spdif {
 	struct list_head list;
 	char *name;
 	unsigned long record_rate;
@@ -99,7 +103,7 @@ static void spdif_shutdown(struct platform_device *);
 
 int spdif_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode)
 {
-	struct codec_info *tmp = vmalloc(sizeof(struct codec_info));
+	struct codec_info_spdif *tmp = vmalloc(sizeof(struct codec_info_spdif));
 	if ((name != NULL) && (codec_ctl != NULL)) {
 		tmp->name = name;
 		tmp->codec_ctl = codec_ctl;
@@ -116,13 +120,13 @@ EXPORT_SYMBOL(spdif_register_codec);
 
 static void spdif_match_codec(char *name)
 {
-	struct codec_info *codec_info;
+	struct codec_info_spdif *codec_info_spdif;
 	struct list_head  *list,*tmp;
 
 	list_for_each_safe(list,tmp,&codecs_head) {
-		codec_info = container_of(list,struct codec_info,list);
-		if (!strcmp(codec_info->name,name)) {
-			cur_codec_spdif = codec_info;
+		codec_info_spdif = container_of(list,struct codec_info_spdif,list);
+		if (!strcmp(codec_info_spdif->name,name)) {
+			cur_codec_spdif = codec_info_spdif;
 		}
 	}
 }
@@ -263,7 +267,14 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 			printk("external codec set rate fail.\n");
 		}
 		__i2s_stop_bitclk();
-		__i2s_set_sample_rate(cgu_spdif_clk, *rate);
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+			audio_write((253<<13)|(4482),I2SCDR_PRE);
+			*(volatile unsigned int*)0xb0000070 = *(volatile unsigned int*)0xb0000070;
+			audio_write((253<<13)|(4482)|(1<<29),I2SCDR_PRE);
+			audio_write(0,I2SDIV_PRE);
+#else
+			__i2s_set_sample_rate(cgu_spdif_clk, *rate);
+#endif
 		__i2s_start_bitclk();
 		ori_rate = __spdif_set_ori_sample_freq(ori_rate);
 		*rate = __spdif_set_sample_freq(*rate);
@@ -385,6 +396,7 @@ static int spdif_replay_init(int mode)
 	__spdif_enable_transmit_dma();
 	__spdif_clear_signn();
 	__spdif_reset();
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
 	while(__spdif_get_reset()) {
 		if (rst_test-- <= 0) {
 			printk("-----> rest spdif failed!\n");
@@ -392,6 +404,7 @@ static int spdif_replay_init(int mode)
 			break;
 		}
 	}
+#endif
 	__spdif_set_valid();
 	__spdif_mask_trig();
 	__spdif_disable_underrun_intr();
@@ -458,11 +471,11 @@ static int spdif_dma_enable(int mode)		//CHECK
 	if (!cur_codec_spdif)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-		__spdif_reset();
-		while(__spdif_get_reset());
+		//	__spdif_reset();
+		//	while(__spdif_get_reset());
 
 		__spdif_set_transmit_trigger(32);
-		__i2s_enable_transmit_dma();
+		//__i2s_enable_transmit_dma();
 		__spdif_enable_transmit_dma();
 		__i2s_enable_replay();
 		__i2s_enable();
@@ -836,6 +849,7 @@ static int spdif_global_init(struct platform_device *pdev)
 		printk("%s request mem region failed!\n", __func__);
 		return -EBUSY;
 	}
+	i2s_iomem = ioremap(0x10020000, 0x70);
 	spdif_iomem = ioremap(spdif_resource->start, resource_size(spdif_resource));
 	if (!spdif_iomem) {
 		printk("%s ioremap failed!\n", __func__);
@@ -891,7 +905,7 @@ static int spdif_global_init(struct platform_device *pdev)
 	schedule_timeout(5);
 	__spdif_disable();
 
-
+#ifndef CONFIG_PRODUCT_X1000_PHOENIX
 	/*set sysclk output for codec*/
 	codec_sysclk = clk_get(&pdev->dev,"cgu_aic");
 	if (IS_ERR(codec_sysclk)) {
@@ -901,7 +915,7 @@ static int spdif_global_init(struct platform_device *pdev)
 	/*set sysclk output for codec*/
 	spdif_sysclk = calculate_cgu_spdif_rate(&sample_rate);
 
-
+#endif
 	printk("spdif init success.\n");
 	return  0;
 

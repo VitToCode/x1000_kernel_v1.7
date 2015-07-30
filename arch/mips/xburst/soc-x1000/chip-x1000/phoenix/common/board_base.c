@@ -24,14 +24,12 @@ struct jz_platform_device
 	int size;
 };
 
+
 static struct jz_platform_device platform_devices_array[] __initdata = {
 #define DEF_DEVICE(DEVICE, DATA, SIZE)  \
 	{ .pdevices = DEVICE,   \
 		.pdata = DATA, .size = SIZE,}
 
-#ifdef CONFIG_KEYBOARD_GPIO
-	DEF_DEVICE(&jz_button_device, 0, 0),
-#endif
 #ifdef CONFIG_LEDS_GPIO
 	DEF_DEVICE(&jz_led_rgb, 0, 0),
 #endif
@@ -66,9 +64,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&bluesleep_device,0,0),
 #endif
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
-	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
-#endif
 #ifdef CONFIG_BCM_AP6212_RFKILL
 	DEF_DEVICE(&bt_power_device,0,0),
 #endif
@@ -110,7 +105,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_dwc_otg_device,0,0),
 #endif
 
-#ifdef CONFIG_SOUND_JZ_I2S_V12
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V12)||defined(CONFIG_JZ_INTERNAL_CODEC_V13)
+	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
+#endif
+
+#if defined(CONFIG_SOUND_JZ_I2S_V12)||defined(CONFIG_SOUND_JZ_I2S_V13)
 	DEF_DEVICE(&jz_i2s_device, &i2s_data, sizeof(struct snd_dev_data)),
 	DEF_DEVICE(&jz_mixer0_device, &snd_mixer0_data, sizeof(struct snd_dev_data)),
 #endif

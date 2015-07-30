@@ -69,7 +69,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	UART2_PORTC,
 #endif
 
-#if (defined(JZ_EXTERNAL_CODEC_V12) || (defined(CONFIG_SND_SOC_EXTERN_CODEC)))
+#if (defined(CONFIG_JZ_EXTERNAL_CODEC_V12) || (defined(CONFIG_SND_SOC_EXTERN_CODEC)))
 	I2S_PORTB,
 #endif
 
@@ -302,7 +302,7 @@ DEF_I2C(2);
  * sound devices, include i2s,pcm, mixer0 - 1(mixer is used for debug) and an internal codec
  * note, the internal codec can only access by i2s0
  **/
-#ifdef CONFIG_SOUND_JZ_I2S_V12
+#if defined(CONFIG_SOUND_JZ_I2S_V12)||defined(CONFIG_SOUND_JZ_I2S_V13)
 static u64 jz_i2s_dmamask =  ~(u32)0;
 static struct resource jz_i2s_resources[] = {
 	[0] = {
@@ -417,7 +417,7 @@ DEF_MIXER(2);
 DEF_MIXER(3);
 #endif
 
-#if defined(CONFIG_SOUND_JZ_PCM_V12) || defined(CONFIG_SOUND_JZ_I2S_V12)
+#if defined(CONFIG_SOUND_JZ_I2S_V12)||defined(CONFIG_SOUND_JZ_I2S_V13)
 struct platform_device jz_codec_device = {
 	.name		= "jz_codec",
 };

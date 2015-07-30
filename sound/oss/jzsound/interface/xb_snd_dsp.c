@@ -2783,6 +2783,7 @@ int xb_snd_dsp_open(struct inode *inode,
 				arg = SND_DEVICE_HEADSET;
 			else
 				arg = SND_DEVICE_SPEAKER;
+			arg = SND_DEVICE_SPEAKER;
 			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
 			if (arg < 0) {
 				return -EIO;

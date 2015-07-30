@@ -31,7 +31,7 @@
 #ifdef CONFIG_SOUND_I2S_JZ47XX
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 #endif
-#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+#ifdef CONFIG_SOUND_JZ_SPDIF_V12
 extern int spdif_register_codec(char*, void *,unsigned long,enum codec_mode);
 #endif
 
@@ -65,7 +65,8 @@ static int __init init_codec(void)
 		printk("hdmi audio is not support\n");
 	printk("hdmi audio codec register success\n");
 #endif
-#ifdef CONFIG_SOUND_SPDIF_JZ47XX
+
+#ifdef CONFIG_SOUND_JZ_SPDIF_V12
 	ret = spdif_register_codec("hdmi", (void *)jzcodec_ctl,HDMI_SMAPLE_RATE,CODEC_SLAVE);
 	if (ret < 0)
 		printk("hdmi audio is not support\n");

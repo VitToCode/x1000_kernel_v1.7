@@ -41,7 +41,7 @@ struct i2s_device {
 	void __iomem * i2s_iomem;
 	bool i2s_is_incall_state;
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V13
 	struct workqueue_struct *i2s_work_queue;
 	struct work_struct  i2s_codec_work;
 #endif
@@ -217,8 +217,6 @@ do {	\
 	do {                                            \
 		__i2s_bclk_input(i2s_dev);                    \
 		__i2s_sync_input(i2s_dev);                    \
-		__i2s_isync_input(i2s_dev);                   \
-		__i2s_ibclk_input(i2s_dev);                   \
 	}while(0)
 
 #define __i2s_master_clkset(i2s_dev)        \

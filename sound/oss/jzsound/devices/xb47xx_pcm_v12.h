@@ -5,6 +5,11 @@
 #include <asm/io.h>
 #include "../interface/xb_snd_dsp.h"
 
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#include "xb47xx_audio_pre.h"
+#endif
+
+
 /**
  * global variable
  **/

@@ -4,8 +4,14 @@
 
 #include <asm/io.h>
 #include <linux/delay.h>
-#include "../interface/xb_snd_dsp_v12.h"
-#include "../xb_snd_detect_v12.h"
+#include "../interface/xb_snd_dsp.h"
+#include "../xb_snd_detect.h"
+
+
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#include "xb47xx_audio_pre.h"
+#endif
+
 
 extern unsigned int DEFAULT_REPLAY_ROUTE;
 extern unsigned int DEFAULT_RECORD_ROUTE;

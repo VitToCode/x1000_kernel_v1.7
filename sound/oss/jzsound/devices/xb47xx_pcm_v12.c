@@ -37,7 +37,7 @@ struct pcm_conf_info pcm_conf_info = {
 		.pcm_clk	= 0,
 		.iss = 16,
 		.oss = 16,
-		.pcm_device_mode = PCM_SLAVE,
+		.pcm_device_mode = PCM_MASTER,
 		.pcm_imsb_pos = ONE_SHIFT_MODE,
 		.pcm_omsb_pos = ONE_SHIFT_MODE,
 		.pcm_sync_len = 1,
@@ -201,6 +201,12 @@ static int pcm_set_rate(unsigned long *rate)
 	}
 //	__pcm_set_syndiv(div);
 
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+	audio_write((2)|(31<<6),PCMDIV_PRE);
+	pcm_priv->rate = 8000;
+#else
+	__pcm_set_syndiv(div);
+#endif
 	return 0;
 }
 
@@ -517,6 +523,14 @@ static long pcm_ioctl(unsigned int cmd, unsigned long arg)
 	case SND_MIXER_DUMP_REG:
 		dump_pcm_reg();
 		break;
+	case SND_DSP_SET_REPLAY_VOL:
+		break;
+	case SND_DSP_GET_HP_DETECT:
+		break;
+	case SND_DSP_SET_DEVICE:
+		break;
+	case SND_DSP_SET_RECORD_VOL:
+		break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
@@ -536,7 +550,7 @@ static irqreturn_t pcm_irq_handler(int irq, void *dev_id)
 
 	spin_lock_irqsave(&pcm_irq_lock,flags);
 	if (__pcm_test_tur()) {
-		printk("UNDERRUN HAPPEN\n");
+		dev_dbg(dev_id,"PCM UNDERRUN HAPPEN\n");
 		__pcm_clear_tur();
 	}
 	spin_unlock_irqrestore(&pcm_irq_lock,flags);
@@ -701,10 +715,16 @@ static int pcm_clk_init(struct platform_device *pdev)
 
 	if (pcm_priv->pcm_device_mode == PCM_MASTER) {
 		__pcm_as_master();
+#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+		audio_write( (192<<13) | (3125),PCMCDR_PRE );
+		*(volatile unsigned int*)0xb00000e0 = *(volatile unsigned int*)0xb00000e0;
+		audio_write( (192<<13)|(3125)|(1<<29) ,PCMCDR_PRE );
+#else
 		pcm_set_pcmclk(pcm_priv->pcmclk);
 		if (pcm_priv->pcm_sync_len > (0x3f+1))
 			pcm_priv->pcm_sync_len = (0x3f+1);
 		__pcm_set_sync((pcm_priv->pcm_sync_len - 1) & 0x3f);
+#endif
 	} else
 		__pcm_as_slaver();
 
@@ -780,7 +800,7 @@ static int pcm_init(struct platform_device *pdev)
 	}
 	pcm_priv->irq = pcm_resource->start;
 	ret = request_irq(pcm_resource->start, pcm_irq_handler,
-			IRQF_DISABLED, "pcm_irq", NULL);
+			IRQF_DISABLED, "pcm_irq", &pdev->dev);
 	if (ret < 0) {
 		printk("pcm:request irq fail\n");
 		goto __err_irq;

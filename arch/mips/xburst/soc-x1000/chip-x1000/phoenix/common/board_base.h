@@ -8,9 +8,12 @@
 #ifdef CONFIG_KEYBOARD_GPIO
 extern struct platform_device jz_button_device;
 #endif
+
 #ifdef CONFIG_LEDS_GPIO
 extern struct platform_device jz_led_rgb;
 #endif
+
+extern struct snd_codec_data codec_data;
 
 #ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 extern struct snd_codec_data codec_data;

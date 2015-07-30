@@ -8,7 +8,7 @@
 #define __M200_CODEC_H__
 
 #include <mach/jzsnd.h>
-#include "../xb47xx_i2s_v12.h"
+#include "../xb47xx_i2s.h"
 #include <linux/bitops.h>
 
 static int inline __write_codec_reg(struct codec_info *codec_dev, int addr, int data)
