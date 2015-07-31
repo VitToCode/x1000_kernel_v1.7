@@ -26,8 +26,8 @@ route_conf_base const record_amic = {
 	.route_adc_mode = ADC_ENABLE_WITH_AMIC,
 	.route_mic_mode = MIC_ENABLE,
 
-	.route_output_mode = OUTPUT_FROM_DAC_DISABLE,
-	.route_dac_mode = DAC_DISABLE,
+//	.route_output_mode = OUTPUT_FROM_DAC_DISABLE,
+//	.route_dac_mode = DAC_DISABLE,
 };
 
 
@@ -35,10 +35,9 @@ route_conf_base const record_amic = {
 route_conf_base const replay_spk = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC,
 
-	.route_mic_mode = MIC_DISABLE,
-	.route_input_mode = INPUT_TO_ADC_DISABLE,
-	.route_adc_mode = ADC_DISABLE,
-
+//	.route_mic_mode = MIC_DISABLE,
+//	.route_input_mode = INPUT_TO_ADC_DISABLE,
+//	.route_adc_mode = ADC_DISABLE,
 	.route_replay_mux_mode = REPLAY_NORMAL_INPUT,
 	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
 	.route_dac_mode = DAC_ENABLE,
@@ -79,7 +78,7 @@ route_conf_base const route_replay_clear_conf = {
 };
 
 route_conf_base const route_record_clear_conf = {
-	.route_ready_mode = ROUTE_READY_FOR_DAC,
+	.route_ready_mode = ROUTE_READY_FOR_ADC,
 	.route_input_mode = INPUT_TO_ADC_DISABLE,
 	.route_adc_mode = ADC_DISABLE,
 	.route_mic_mode = MIC_DISABLE,
