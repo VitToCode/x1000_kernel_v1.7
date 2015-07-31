@@ -72,13 +72,13 @@ route_conf_base const route_all_clear_conf = {
 };
 
 route_conf_base const route_replay_clear_conf = {
-	.route_ready_mode = ROUTE_READY_FOR_DAC,
+	//.route_ready_mode = ROUTE_READY_FOR_DAC,
 	.route_output_mode = OUTPUT_FROM_DAC_DISABLE,
 	.route_dac_mode = DAC_DISABLE,
 };
 
 route_conf_base const route_record_clear_conf = {
-	.route_ready_mode = ROUTE_READY_FOR_ADC,
+	//.route_ready_mode = ROUTE_READY_FOR_ADC,
 	.route_input_mode = INPUT_TO_ADC_DISABLE,
 	.route_adc_mode = ADC_DISABLE,
 	.route_mic_mode = MIC_DISABLE,

@@ -385,6 +385,7 @@ static void codec_set_mic(struct codec_info *codec_dev, int mode)
 		tmpval &= ~(7<<3);
 		tmpval |= 1<<6;
 		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIC1,tmpval);
+		msleep(100);
 		break;
 
 	case MIC_DISABLE:
@@ -992,7 +993,6 @@ static int codec_turn_off(struct codec_info *codec_dev, int mode)
 		}
 	}
 
-	codec_set_micbais(codec_dev, 0);
 	return ret;
 }
 
