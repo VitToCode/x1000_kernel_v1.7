@@ -186,6 +186,13 @@ static void dump_gpio_state(struct codec_info *codec_dev)
 
 static void dump_codec_regs(struct codec_info *codec_dev)
 {
+	unsigned int i;
+        unsigned char data;
+        printk("codec register list:\n");
+        for (i = 0; i <= 0x39; i++) {
+		data = icdc_d3_hw_read(codec_dev, i);
+                printk("address = 0x%02x, data = 0x%02x\n", i, data);
+        }
 }
 
 #if CODEC_DUMP_ROUTE_PART_REGS
@@ -1123,13 +1130,16 @@ static int codec_set_record_data_width(struct codec_info *codec_dev, int width)
 {
 	int supported_width[4] = {16, 18, 20, 24};
 	int fixwidth,tmpval;
-	for(fixwidth=0; fixwidth<3;fixwidth++)
+	for(fixwidth=0; fixwidth<4; fixwidth++)
 		if(supported_width[fixwidth]==width)
 			break;
+	if(fixwidth == 4)
+		return -1;
+
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_AICR_ADC);
 	tmpval &= ~(3<<6);
 	icdc_d3_hw_write(codec_dev,SCODA_REG_AICR_ADC,tmpval|fixwidth<<6);
-	return width;
+	return 0;
 }
 
 static int codec_set_record_volume(struct codec_info *codec_dev, int *val)
@@ -1196,13 +1206,15 @@ static int codec_set_replay_data_width(struct codec_info *codec_dev, int width)
 {
 	int supported_width[4] = {16, 18, 20, 24};
 	int fixwidth,tmpval;
-	for(fixwidth=0; fixwidth<3;fixwidth++)
-		if(supported_width[fixwidth]==width)
+	for(fixwidth=0; fixwidth<4; fixwidth++)
+		if(supported_width[fixwidth]>=width)
 			break;
+	if(fixwidth == 4)
+		return -1;
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_AICR_DAC);
 	tmpval &= ~(3<<6);
 	icdc_d3_hw_write(codec_dev,SCODA_REG_AICR_DAC,tmpval|fixwidth<<6);
-	return width;
+	return 0;
 }
 
 static int codec_set_replay_volume(struct codec_info *codec_dev, int *val)

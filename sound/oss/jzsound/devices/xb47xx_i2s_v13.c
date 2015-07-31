@@ -349,7 +349,7 @@ static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mod
 	if (mode & CODEC_RMODE) {
 		dp = cur_codec->dsp_endpoints->in_endpoint;
 		ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_DATA_WIDTH, data_width);
-		if(ret != 0) {
+		if(ret < 0) {
 			printk("JZ I2S: CODEC ioctl error, command: CODEC_SET_RECORD_FORMAT");
 			return ret;
 		}

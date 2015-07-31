@@ -25,13 +25,11 @@ struct snd_codec_data codec_data = {
 
 	.record_def_route = {
 		.route = SND_ROUTE_RECORD_AMIC,
-		.gpio_spk_en_stat = STATE_DISABLE,
 		.record_volume_base = 50,
 	},
 
 	.record_buildin_mic_route = {
 		.route = SND_ROUTE_RECORD_AMIC,
-		.gpio_spk_en_stat = STATE_DISABLE,
 		.record_volume_base = 50,
 	},
 

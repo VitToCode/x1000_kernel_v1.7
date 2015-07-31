@@ -39,7 +39,6 @@ static mm_segment_t old_fs_record;
 #define DEBUG_REPLAYE_FILE "audio.pcm"
 #endif
 
-
 /*###########################################################*\
  * sub functions
  \*###########################################################*/
@@ -526,10 +525,9 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp ,
 	dp->is_trans = true;
 
 	dma_async_issue_pending(dp->dma_chan);
-	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer &&
-	    dp->samplerate == 44100) {
+	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer) {
 		mod_timer(&dp->transfer_watchdog,
-			  jiffies+msecs_to_jiffies(10));
+			  jiffies+msecs_to_jiffies(2));
 		atomic_set(&dp->watchdog_avail,0);
 	}
 }
@@ -560,8 +558,7 @@ static void replay_watch_function(unsigned long _dp)
 	int success = 0;
 	int unused_num = 0;
 
-	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail) ||
-	    dp->samplerate != 44100 /*FIXME NOW we just use 44100,other rate must be test*/)
+	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail))
 		return;
 
 	node = get_use_dsp_node_info(dp);
@@ -593,6 +590,7 @@ static void replay_watch_function(unsigned long _dp)
 	node_base = ((unsigned long)pdma_addr & (~(dp->fragsize - 1)));
 	delay = (dp->buffersize - node_offset -1) * 500/(dp->channels * dp->samplerate);
 	//FIXME node->end - node->start instead dp->buffersize
+#if 0
 	if (success <= 0) {
 		int delay_time = 0;
 		unused_num = get_unused_dma_node_num(dp,node_base,&total_count);
@@ -610,7 +608,8 @@ static void replay_watch_function(unsigned long _dp)
 			}
 		}
 	}
-	mod_timer(&dp->transfer_watchdog,jiffies+msecs_to_jiffies(10));		//10ms timer
+#endif
+	mod_timer(&dp->transfer_watchdog,jiffies+msecs_to_jiffies(2));		//10ms timer
 wait_interrupt:
 	if (put_used_dma_node_free(dp,node_base))
 		if (dp->is_non_block == false)
@@ -674,7 +673,6 @@ static void snd_dma_callback(void *arg)
 	}
 
 
-
 	if (!(ret = snd_prepare_dma_desc(dp))) {
 		snd_start_dma_transfer(dp ,dp->dma_config.direction);
 	} else {
@@ -695,7 +693,6 @@ static void snd_dma_callback(void *arg)
 				dp->pddata->dev_ioctl_2(dp->pddata, SND_DSP_DISABLE_DMA_TX,0);
 			}
 		}
-
 	}
 
 	return;
@@ -1564,6 +1561,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
 
+
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EPERM;
 
@@ -1820,13 +1818,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 	}
 
         case SNDCTL_DSP_GETCAPS: {
-		int cap = 0;
-		cap |= DSP_CAP_BATCH;
-		/* OSS 4.x: Returns the capabilities of an audio device */
-		/* we do't support here */
-		ret = put_user(cap, (int *)arg);
-		break;
-	}
+                int cap = 0;
+                cap |= DSP_CAP_BATCH;
+                /* OSS 4.x: Returns the capabilities of an audio device */
+                /* we do't support here */
+                ret = put_user(cap, (int *)arg);
+                break;
+        }
 		//case SNDCTL_DSP_GETCHANNELMASK:
 		/* OSS 4.x: Retruns the bindings supported by the device (obsolete) */
 		/* we do't support here */
@@ -2541,6 +2539,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 		ret = put_user(*(int *)arg, (int *)arg);
 		break;
 	}
+
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
 		       __func__, __LINE__, cmd);
