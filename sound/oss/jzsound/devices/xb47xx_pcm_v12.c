@@ -201,7 +201,7 @@ static int pcm_set_rate(unsigned long *rate)
 	}
 //	__pcm_set_syndiv(div);
 
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 	audio_write((2)|(31<<6),PCMDIV_PRE);
 	pcm_priv->rate = 8000;
 #else
@@ -715,7 +715,7 @@ static int pcm_clk_init(struct platform_device *pdev)
 
 	if (pcm_priv->pcm_device_mode == PCM_MASTER) {
 		__pcm_as_master();
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 		audio_write( (192<<13) | (3125),PCMCDR_PRE );
 		*(volatile unsigned int*)0xb00000e0 = *(volatile unsigned int*)0xb00000e0;
 		audio_write( (192<<13)|(3125)|(1<<29) ,PCMCDR_PRE );

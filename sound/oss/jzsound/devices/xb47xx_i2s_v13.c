@@ -511,7 +511,7 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 		}
 		ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_RATE,(unsigned long)rate);
 		cur_codec->replay_rate = *rate;
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX//44100
+#if 1
 	audio_write((1|1<<16),I2SDIV_PRE);
 	cur_codec->replay_rate = 44100;
 #endif
@@ -1325,7 +1325,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	}
 
 
-#ifndef CONFIG_PRODUCT_X1000_PHOENIX
+#if 0
 	clk_set_rate(i2s_dev->i2s_clk, i2s_dev->cur_codec->codec_clk);
 	if(clk_get_rate(i2s_dev->i2s_clk) > i2s_dev->cur_codec->codec_clk) {
 		printk("i2s clk rate set failed\n");

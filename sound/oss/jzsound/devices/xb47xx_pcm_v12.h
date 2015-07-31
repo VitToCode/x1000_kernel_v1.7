@@ -5,7 +5,7 @@
 #include <asm/io.h>
 #include "../interface/xb_snd_dsp.h"
 
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 #include "xb47xx_audio_pre.h"
 #endif
 

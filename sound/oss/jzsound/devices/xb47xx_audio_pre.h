@@ -1,5 +1,5 @@
 
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 #define AUDIO_WRITE(n) (*(volatile unsigned int*)(n))
 #define audio_write(val,addr) AUDIO_WRITE(addr) = (val)
 #define I2SCDR_PRE 0xb0000060

@@ -248,9 +248,8 @@ static int __init_or_module bt_power_probe(struct platform_device *pdev)
 	power = regulator_get(NULL, "vwifi");  /*vddio must be set*/
 	if (IS_ERR(power)) {
 		printk("bt regulator missing\n");
-		return -EINVAL;
+//		return -EINVAL;
 	}
-
 
 	/* Register wake up source as interrupt */
 #ifdef CONFIG_BT_HOST_WAKEUP

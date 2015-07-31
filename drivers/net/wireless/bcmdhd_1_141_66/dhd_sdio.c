@@ -702,7 +702,7 @@ dhdsdio_sr_cap(dhd_bus_t *bus)
 	uint32  core_capext, addr, data;
 
 
-	if (bus->sih->chip == BCM43430_CHIP_ID) {
+	if (bus->sih->chip == BCM43438_CHIP_ID) {
 		/* check if fw initialized sr engine */
 		addr = SI_ENUM_BASE + OFFSETOF(chipcregs_t, sr_control1);
 		if (bcmsdh_reg_read(bus->sdh, addr, 4) != 0)
@@ -2805,7 +2805,7 @@ dhdsdio_readshared(dhd_bus_t *bus, sdpcm_shared_t *sh)
 	int rv, i;
 	uint32 shaddr = 0;
 
-	if (CHIPID(bus->sih->chip) == BCM43430_CHIP_ID && !dhdsdio_sr_cap(bus))
+	if (CHIPID(bus->sih->chip) == BCM43438_CHIP_ID && !dhdsdio_sr_cap(bus))
 		bus->srmemsize = 0;
 
 	shaddr = bus->dongle_ram_base + bus->ramsize - 4;
@@ -3950,7 +3950,7 @@ dhdsdio_download_state(dhd_bus_t *bus, bool enter)
 			if (REMAP_ENAB(bus) && si_socdevram_remap_isenb(bus->sih))
 				dhdsdio_devram_remap(bus, FALSE);
 
-			if (CHIPID(bus->sih->chip) == BCM43430_CHIP_ID) {
+			if (CHIPID(bus->sih->chip) == BCM43438_CHIP_ID) {
 				/* Disabling Remap for SRAM_3 */
 				si_socram_set_bankpda(bus->sih, 0x3, 0x0);
 			}
@@ -6816,7 +6816,7 @@ dhdsdio_chipmatch(uint16 chipid)
 		return TRUE;
 	if (chipid == BCM4356_CHIP_ID)
 		return TRUE;
-	if (chipid == BCM43430_CHIP_ID)
+	if (chipid == BCM43438_CHIP_ID)
 		return TRUE;
 	return FALSE;
 }
@@ -7317,6 +7317,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 
 
 	/* Force PLL off until si_attach() programs PLL control regs */
+
 
 
 	bcmsdh_cfg_write(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_CHIPCLKCSR, DHD_INIT_CLKCTL1, &err);
@@ -8806,33 +8807,40 @@ static int concate_revision_bcm43341(dhd_bus_t *bus,
 }
 
 
-static int concate_revision_bcm43430(dhd_bus_t *bus,
+static int concate_revision_bcm43438(dhd_bus_t *bus,
         char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
 {
 	uint chipver;
 #if defined(SUPPORT_MULTIPLE_CHIPS)
-	char chipver_tag[10] = "_43430";
+	char chipver_tag[10] = "BCM43438"; //TODO
+
 #else
 	char chipver_tag[4] = {0, };
 #endif /* defined(SUPPORT_MULTIPLE_CHIPS) */
 
-	DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
-	if (bus->sih->chip != BCM43430_CHIP_ID) {
-		DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
+	DHD_TRACE(("%s: BCM43438 Multiple Revision Check\n", __FUNCTION__));
+	if (bus->sih->chip != BCM43438_CHIP_ID) {
+		DHD_ERROR(("%s:Chip is not BCM43438\n", __FUNCTION__));
 		return -1;
 	}
 	chipver = bus->sih->chiprev;
 	DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
 	if (chipver == 0x0) {
-		DHD_ERROR(("----- CHIP bcm43430_A0 -----\n"));
-		strcat(chipver_tag, "_a0");
+		DHD_ERROR(("----- CHIP BCM43438_A0 -----\n"));
+		strcat(chipver_tag, "_A0");
+	} else if(chipver == 0x1) {
+		DHD_ERROR(("----- CHIP BCM43438_A1 -----\n"));
+		strcat(chipver_tag, "_A1");
 	} else {
-		DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
+		DHD_ERROR(("----- CHIP BCM43438 unknown revision %d -----\n",
 			chipver));
 	}
 
 	strcat(fw_path, chipver_tag);
+	strcat(chipver_tag, ".cal");
 	strcat(nv_path, chipver_tag);
+	printk("fw_path = %s\n", fw_path);
+	printk("nv_path = %s\n", nv_path);
 	return 0;
 }
 
@@ -8887,9 +8895,9 @@ concate_revision(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, 
 	case BCM43341_CHIP_ID:
 		res = concate_revision_bcm43341(bus, fw_path, fw_path_len, nv_path, nv_path_len);
 		break;
-	case BCM43430_CHIP_ID:
-		DHD_ERROR(("concate_revision: BCM43430_CHIP_ID \n"));
-		res = concate_revision_bcm43430(bus, fw_path, fw_path_len, nv_path, nv_path_len);
+	case BCM43438_CHIP_ID:
+		DHD_ERROR(("concate_revision: BCM43438_CHIP_ID \n"));
+		res = concate_revision_bcm43438(bus, fw_path, fw_path_len, nv_path, nv_path_len);
 		break;
 
 

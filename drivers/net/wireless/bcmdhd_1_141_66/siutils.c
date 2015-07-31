@@ -365,6 +365,7 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 	sii->sdh = sdh;
 	sii->osh = osh;
 
+
 	/* check to see if we are a si core mimic'ing a pci core */
 	if ((bustype == PCI_BUS) &&
 	    (OSL_PCI_READ_CONFIG(sii->osh, PCI_SPROM_CONTROL, sizeof(uint32)) == 0xffffffff)) {
@@ -379,8 +380,8 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 		if (!GOODCOREADDR(savewin, SI_ENUM_BASE))
 			savewin = SI_ENUM_BASE;
 		OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN, 4, SI_ENUM_BASE);
-		if (!regs){
-			return NULL;}
+		if (!regs)
+			return NULL;
 		cc = (chipcregs_t *)regs;
 #ifdef BCMSDIO
 	} else if ((bustype == SDIO_BUS) || (bustype == SPI_BUS)) {
@@ -419,6 +420,7 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 	sih->chip = w & CID_ID_MASK;
 	sih->chiprev = (w & CID_REV_MASK) >> CID_REV_SHIFT;
 	sih->chippkg = (w & CID_PKG_MASK) >> CID_PKG_SHIFT;
+
 	if ((CHIPID(sih->chip) == BCM4329_CHIP_ID) && (sih->chiprev == 0) &&
 		(sih->chippkg != BCM4329_289PIN_PKG_ID)) {
 		sih->chippkg = BCM4329_182PIN_PKG_ID;
@@ -486,7 +488,7 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 	if (bustype == PCI_BUS) {
 
 	}
-#endif 
+#endif
 #ifdef BCM_SDRBL
 	/* 4360 rom bootloader in PCIE case, if the SDR is enabled, But preotection is
 	 * not turned on, then we want to hold arm in reset.
@@ -1304,7 +1306,7 @@ si_watchdog(si_t *sih, uint ticks)
 			si_core_disable(sih, 1);
 			si_setcore(sih, CC_CORE_ID, 0);
 		}
-#endif 
+#endif
 
 			nb = (sih->ccrev < 26) ? 16 : ((sih->ccrev >= 37) ? 32 : 24);
 		/* The mips compiler uses the sllv instruction,
@@ -2262,7 +2264,7 @@ si_socram_srmem_size(si_t *sih)
 		return (32 * 1024);
 	}
 
-	if (CHIPID(sih->chip) == BCM43430_CHIP_ID) {
+	if (CHIPID(sih->chip) == BCM43438_CHIP_ID) {
 		return (64 * 1024);
 	}
 
@@ -2486,7 +2488,7 @@ si_chipcontrl_epa4331_wowl(si_t *sih, bool enter_wowl)
 	}
 	si_setcoreidx(sih, origidx);
 }
-#endif 
+#endif
 
 uint
 si_pll_reset(si_t *sih)

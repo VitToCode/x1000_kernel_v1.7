@@ -267,7 +267,7 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 			printk("external codec set rate fail.\n");
 		}
 		__i2s_stop_bitclk();
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 			audio_write((253<<13)|(4482),I2SCDR_PRE);
 			*(volatile unsigned int*)0xb0000070 = *(volatile unsigned int*)0xb0000070;
 			audio_write((253<<13)|(4482)|(1<<29),I2SCDR_PRE);
@@ -396,7 +396,7 @@ static int spdif_replay_init(int mode)
 	__spdif_enable_transmit_dma();
 	__spdif_clear_signn();
 	__spdif_reset();
-#ifdef CONFIG_PRODUCT_X1000_PHOENIX
+#if 1
 	while(__spdif_get_reset()) {
 		if (rst_test-- <= 0) {
 			printk("-----> rest spdif failed!\n");
@@ -905,7 +905,7 @@ static int spdif_global_init(struct platform_device *pdev)
 	schedule_timeout(5);
 	__spdif_disable();
 
-#ifndef CONFIG_PRODUCT_X1000_PHOENIX
+#if 0
 	/*set sysclk output for codec*/
 	codec_sysclk = clk_get(&pdev->dev,"cgu_aic");
 	if (IS_ERR(codec_sysclk)) {
