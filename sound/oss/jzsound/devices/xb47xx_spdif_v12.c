@@ -809,7 +809,7 @@ static int spdif_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direct
 	(*dp)->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_I2S0;
-	(*dp)->fragsize = FRAGSIZE_M;
+	(*dp)->fragsize = FRAGSIZE_L;
 	(*dp)->fragcnt = FRAGCNT_L;
 
 	if (direction == DMA_TO_DEVICE) {

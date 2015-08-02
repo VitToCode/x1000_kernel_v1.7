@@ -645,7 +645,7 @@ int dmic_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsi
 	(*dp)->dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;//unpack_dis = 1
 	(*dp)->dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	(*dp)->dma_type = JZDMA_REQ_I2S1;
-	(*dp)->fragsize = FRAGSIZE_M;
+	(*dp)->fragsize = FRAGSIZE_L;
 	(*dp)->fragcnt = FRAGCNT_L;
 	/*(*dp)->fragcnt = FRAGCNT_B;*/
 
