@@ -1750,7 +1750,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_REPLAY_CHANNELS, (unsigned long)&channels);
 				mutex_unlock(&dp->mutex);
 			}
-			if (!ret)
+			if (ret < 0)
 				break;
 			dp->channels = channels;
 		} else if (file->f_mode & FMODE_READ) {
@@ -1764,7 +1764,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 				ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_RECORD_CHANNELS, (unsigned long)&channels);
 				mutex_unlock(&dp->mutex);
 			}
-			if (!ret)
+			if (ret < 0)
 				break;
 			dp->channels = channels;
 		} else{

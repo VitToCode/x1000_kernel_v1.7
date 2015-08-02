@@ -441,8 +441,8 @@ static void codec_set_record_mixer_mux(struct codec_info *codec_dev, int mode)
 
 		case RECORD_NORMAL_INPUT:
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
+			tmpval &= ~(0xf<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval|= 0x1<<4);
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
 			tmpval &= ~(0xf<<4);
 			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);

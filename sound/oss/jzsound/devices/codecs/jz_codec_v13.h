@@ -285,7 +285,7 @@ static inline int icdc_d3_hw_write_normal(struct codec_info *icdc_d3, int reg, i
 
 static int icdc_d3_hw_write_extend(struct codec_info *icdc_d3, u8 sreg, u8 sdata){
 
-	int creg, cdata, dreg, ddata;
+	int creg, cdata, dreg;
 	switch (sreg) {
 		case SCODA_MIX_0 ... SCODA_MIX_4:
 			creg = SCODA_REG_CR_MIX;
@@ -311,10 +311,10 @@ static int icdc_d3_hw_write_extend(struct codec_info *icdc_d3, u8 sreg, u8 sdata
 			return 0;
 	}
 	cdata = (icdc_d3_hw_read_normal(icdc_d3,creg)&(~0x3f))|(sreg&0x3f);
-	icdc_d3_hw_write_normal(icdc_d3, dreg, ddata);
+	icdc_d3_hw_write_normal(icdc_d3, dreg, sdata);
 	icdc_d3_hw_write_normal(icdc_d3, creg, cdata|0x40);
 	icdc_d3_hw_write_normal(icdc_d3, creg, cdata);
-	if(ddata!=icdc_d3_hw_read_normal(icdc_d3,dreg))
+	if(sdata!=icdc_d3_hw_read_normal(icdc_d3,dreg))
 		return -1;
 	return 0;
 }

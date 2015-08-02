@@ -1357,7 +1357,8 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__i2s_disable_underrun_intr(i2s_dev);
 	__i2s_disable_transmit_intr(i2s_dev);
 	__i2s_disable_receive_intr(i2s_dev);
-	__i2s_send_rfirst(i2s_dev);
+	__i2s_send_lfirst(i2s_dev);
+	//__i2s_send_rfirst(i2s_dev);
 
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample(i2s_dev);
