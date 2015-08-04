@@ -265,6 +265,14 @@ config KEYBOARD_GPIO_POLLED
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys_polled.
 
+config KEYBOARD_JZGPIO
+	tristate "JZ GPIO KEY"
+	depends on GENERIC_GPIO
+	help
+	  Xbutst GPIO Key with long/short press.It support one key return
+	  long or short key value.
+	  It conflict with 'KEYBOARD_GPIO'
+
 config KEYBOARD_TCA6416
 	tristate "TCA6416/TCA6408A Keypad Support"
 	depends on I2C

@@ -6,14 +6,11 @@
 
 
 /* ****************************GPIO KEY START******************************** */
-/* #define GPIO_HOME_KEY		GPIO_PD(18) */
-/* #define ACTIVE_LOW_HOME		1 */
+#define GPIO_HOME_KEY			GPIO_PB(28)
+#define ACTIVE_LOW_HOME			1
 
-/* #define GPIO_VOLUMEDOWN_KEY         GPIO_PD(18) */
-/* #define ACTIVE_LOW_VOLUMEDOWN	0 */
-
-#define GPIO_ENDCALL_KEY            GPIO_PB(31)
-#define ACTIVE_LOW_ENDCALL      0
+#define GPIO_ENDCALL_KEY		GPIO_PB(31)
+#define ACTIVE_LOW_ENDCALL		0
 
 /* ****************************GPIO KEY END********************************** */
 

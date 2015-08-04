@@ -9,6 +9,10 @@
 extern struct platform_device jz_button_device;
 #endif
 
+#ifdef CONFIG_KEYBOARD_JZGPIO
+extern struct platform_device jz_longbutton_device;
+#endif
+
 #ifdef CONFIG_LEDS_GPIO
 extern struct platform_device jz_led_rgb;
 #endif
