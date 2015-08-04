@@ -59,7 +59,7 @@ uImage: $(VMLINUX) vmlinux.bin
 		-a $(LOADADDR) -e $(shell sh ./$(obj)/tools/entry $(NM) $(VMLINUX) ) \
 		-n 'Linux-$(KERNELRELEASE)' \
 		-d $(obj)/vmlinux.bin.gz $(obj)/uImage
-xImage: $(obj)/zImage
+xImage: zImage
 	mkimage -A mips -O linux -T kernel -C none \
 		-a 0x80F00000 -e 0x80F00000 \
 		-n 'Linux-$(KERNELRELEASE)' \
