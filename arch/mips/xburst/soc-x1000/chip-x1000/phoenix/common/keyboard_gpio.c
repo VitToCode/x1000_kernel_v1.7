@@ -85,7 +85,7 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 		.gpio			= GPIO_HOME_KEY,
 		.code = {
 			.shortpress_code	= KEY_HOME,
-			.longpress_code		= KEY_HOME,
+			.longpress_code		= KEY_F1,
 		},
 		.desc			= "home key",
 		.active_low		= ACTIVE_LOW_HOME,
