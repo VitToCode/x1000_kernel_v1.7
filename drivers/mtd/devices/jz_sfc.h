@@ -207,7 +207,6 @@ struct jz_sfc {
 	int			clk_gate_flag;
 	int			status;
 	int			rlen;
-	spinlock_t		sp_lock;
 	int			len;
 	u8          use_dma;
 	unsigned int *rx;
@@ -216,13 +215,8 @@ struct jz_sfc {
 
 
 	/* temp buffers */
-	void            *buffer;
-	dma_addr_t      buffer_dma;
-	struct scatterlist      *sg_rx; /* I/O scatter list */
-	struct scatterlist      *sg_tx; /* I/O scatter list */
-
+	unsigned char   *swap_buf;
 	u8			rw_mode;
-	u8          bits_per_word;
 
 	unsigned int		rx_addr_plus;
 	unsigned int		tx_addr_plus;
