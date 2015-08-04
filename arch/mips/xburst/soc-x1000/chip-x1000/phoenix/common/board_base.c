@@ -214,8 +214,13 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_i2c2_dma_device, 0, 0),
 #endif
 
+#ifdef	CONFIG_KEYBOARD_GPIO
+	DEF_DEVICE(&jz_button_device, 0, 0),
+#endif
 
-
+#ifdef CONFIG_KEYBOARD_JZGPIO
+	DEF_DEVICE(&jz_longbutton_device, 0, 0),
+#endif
 };
 
 static int __init board_base_init(void)
