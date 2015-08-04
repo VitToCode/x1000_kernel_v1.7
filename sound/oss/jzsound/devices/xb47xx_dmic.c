@@ -156,7 +156,7 @@ static int dmic_set_fmt(unsigned long *format,int mode)
 	case AFMT_S16_BE:
 		break;
 	default :
-		printk("DMIC: dmic only support format 16bit 0x%x.\n",(unsigned int)*format);
+		printk("DMIC: dmic only support 16bit width, 0x%x.\n",(unsigned int)*format);
 		return -EINVAL;
 	}
 
@@ -226,7 +226,8 @@ int dmic_set_channel(int* channel,int mode)
 			__dmic_select_chnum(3);
 			break;
 		default:
-			printk("don't support more than 4 channels\n");
+			printk("Dmic don't support more than 4 channels.\n");
+			ret = -1;
 		}
 		return ret;
 	}
@@ -255,21 +256,24 @@ int dmic_set_rate(unsigned long *rate,int mode)
 	}
 	if (mode & CODEC_RMODE) {
 		if (*rate == 8000){
-			printk("select 8k mode\n");
+			printk("Dmic sample rate 8k\n");
 			__dmic_select_8k_mode();
 		}
 		else if (*rate == 16000){
-			printk("select 16k mode\n");
+			printk("Dmic sample rate 16k\n");
 			__dmic_select_16k_mode();
 		}
 		else if (*rate == 48000){
+			printk("Dmic sample rate 48k\n");
 			__dmic_select_48k_mode();
-			printk("select 48k mode \n");
 		}
-		else
-			printk("DMIC: unsurpport samplerate: %ld\n", *rate);
+		else{
+			printk("DMIC: unsupport sample rate: %ld, fix to 48000.\n", *rate);
+			__dmic_select_48k_mode();
+			*rate = 48000;
+			ret = -1;
+		}
 	}
-	printk("DMIC rate  = %ld\n",*rate);
 
 	return ret;
 }
@@ -509,7 +513,6 @@ long dmic_ioctl(unsigned int cmd, unsigned long arg)
 
 	case SND_DSP_SET_RECORD_CHANNELS:
 		dmic_set_channel((int *)arg, CODEC_RMODE);
-		ret = 0;
 		/* set record channels */
 		break;
 
