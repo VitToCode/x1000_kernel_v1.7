@@ -10,8 +10,8 @@
 #include <soc/ddr.h>
 #include "clk.h"
 
-static int audio_div_apll[45];
-static int audio_div_mpll[45];
+static int audio_div_apll[64];
+static int audio_div_mpll[64];
 static DEFINE_SPINLOCK(cpm_cgu_lock);
 struct clk_selectors {
 	unsigned int route[4];
