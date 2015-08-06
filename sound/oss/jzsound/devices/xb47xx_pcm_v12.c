@@ -33,11 +33,12 @@
  * global variable
  **/
 struct pcm_conf_info pcm_conf_info = {
-		.pcm_sync_clk = 0,
-		.pcm_clk	= 0,
-		.iss = 16,
-		.oss = 16,
-		.pcm_device_mode = PCM_MASTER,
+		.pcm_sync_clk	= 8000,
+		.pcm_clk	= 256000,
+		.pcm_sysclk	= 0,
+		.iss = AFMT_S16_LE,
+		.oss = AFMT_S16_LE,
+		.pcm_device_mode = PCM_SLAVE,
 		.pcm_imsb_pos = ONE_SHIFT_MODE,
 		.pcm_omsb_pos = ONE_SHIFT_MODE,
 		.pcm_sync_len = 1,
@@ -54,7 +55,7 @@ static struct dsp_endpoints pcm_endpoints;
 static struct pcm_board_info
 {
 	unsigned long rate;
-	unsigned long cpm_epll_clk;
+	unsigned long cpm_pll_clk;
 	unsigned long replay_format;
 	unsigned long record_format;
 	unsigned long pcmclk;
@@ -182,6 +183,10 @@ static int pcm_set_fmt(unsigned long *format,int mode)
 
 static int pcm_set_channel(int* channel,int mode)
 {
+        if(*channel >= 2){
+                printk("pcm don't support 2 channel now.\n");
+                return -1;
+        }
 	return 0;
 }
 
@@ -215,12 +220,15 @@ static int pcm_set_pcmclk(unsigned long pcmclk)
 	unsigned long div;
 	if (!pcm_priv)
 		return -ENODEV;
-	div = pcm_priv->pcm_sysclk/pcmclk - 1;
+        if((pcm_priv->pcm_sysclk % pcmclk) > (pcmclk / 2))
+                div = pcm_priv->pcm_sysclk/pcmclk;
+        else
+                div = pcm_priv->pcm_sysclk/pcmclk - 1;
+
 	if (div >= 0 && div < 64) {
 		__pcm_set_clkdiv(div);
 	} else
 		return -EINVAL;
-//	__pcm_set_clkdiv(div);
 	return 0;
 }
 
@@ -251,6 +259,7 @@ static void pcm_set_trigger(int mode)
 	if (mode & CODEC_WMODE) {
 		switch(pcm_priv->replay_format) {
 		case AFMT_U8:
+		case AFMT_S8:
 			data_width = 8;
 			break;
 		case AFMT_S16_LE:
@@ -265,6 +274,7 @@ static void pcm_set_trigger(int mode)
 	if (mode &CODEC_RMODE) {
 		switch(pcm_priv->record_format) {
 		case AFMT_U8:
+		case AFMT_S8:
 			data_width = 8;
 			break;
 		case AFMT_S16_LE:
@@ -282,8 +292,8 @@ static void pcm_set_trigger(int mode)
 static int pcm_enable(int mode)
 {
 	unsigned long rate = 8000;
-	unsigned long replay_format = 16;
-	unsigned long record_format = 16;
+	unsigned long replay_format = AFMT_S16_LE;
+	unsigned long record_format = AFMT_S16_LE;
 	int replay_channel = 1;
 	int record_channel = 1;
 	struct dsp_pipe *dp_other = NULL;
@@ -342,7 +352,7 @@ static int pcm_dma_enable(int mode)
 	if (!pcm_priv)
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
-		__pcm_enable_underrun_intr();
+		//__pcm_enable_underrun_intr();
 		__pcm_clear_tur();
 		__pcm_enable_transmit_dma();
 		__pcm_enable_replay();
@@ -615,7 +625,7 @@ static int calculate_pcm_clk(void)
 			switch (pcm_priv->pcmclk/pcm_priv->rate) {
 				case 64:
 				case 128:
-					if (pcm_priv->cpm_epll_clk != 768000000) {
+					if (pcm_priv->cpm_pll_clk != 768000000) {
 						printk(KERN_WARNING"epll is not 768000000,"
 								"pcmclk and pcmsync is error");
 						goto pcm_default;
@@ -642,11 +652,11 @@ pcm_default:
 	 */
 	if (pcm_priv->pcmclk)
 		return -EINVAL;
-	div_total = pcm_priv->cpm_epll_clk/pcm_priv->pcmclk;
+	div_total = pcm_priv->cpm_pll_clk/pcm_priv->pcmclk;
 	if (div_total == 0)
 		return -EINVAL;
-	if ((pcm_priv->cpm_epll_clk/div_total - pcm_priv->pcmclk) >
-			(pcm_priv->pcmclk - pcm_priv->cpm_epll_clk/(div_total+1)))
+	if ((pcm_priv->cpm_pll_clk/div_total - pcm_priv->pcmclk) >
+			(pcm_priv->pcmclk - pcm_priv->cpm_pll_clk/(div_total+1)))
 		div_total = div_total + 1;
 	if (div_total > 512) {
 		for (i = 2; i <= 512;i++) {
@@ -657,12 +667,12 @@ pcm_default:
 			} else {
 				pcm_clk_div_tmp = div_total/i;
 				sys_div_tmp = i;
-				if (pcm_priv->cpm_epll_clk/(sys_div_tmp*pcm_clk_div_tmp) - pcm_priv->pcmclk >
-						pcm_priv->pcmclk - pcm_priv->cpm_epll_clk/(sys_div_tmp*(pcm_clk_div_tmp+1))){
-					error_tmp = pcm_priv->pcmclk - pcm_priv->cpm_epll_clk/(sys_div_tmp*(pcm_clk_div_tmp+1));
+				if (pcm_priv->cpm_pll_clk/(sys_div_tmp*pcm_clk_div_tmp) - pcm_priv->pcmclk >
+						pcm_priv->pcmclk - pcm_priv->cpm_pll_clk/(sys_div_tmp*(pcm_clk_div_tmp+1))){
+					error_tmp = pcm_priv->pcmclk - pcm_priv->cpm_pll_clk/(sys_div_tmp*(pcm_clk_div_tmp+1));
 					pcm_clk_div_tmp = pcm_clk_div_tmp+1;
 				} else
-					error_tmp = pcm_priv->cpm_epll_clk/(sys_div_tmp*pcm_clk_div_tmp) - pcm_priv->pcmclk;
+					error_tmp = pcm_priv->cpm_pll_clk/(sys_div_tmp*pcm_clk_div_tmp) - pcm_priv->pcmclk;
 				if (error > error_tmp) {
 					sys_div = sys_div_tmp;
 					pcm_clk_div = pcm_clk_div_tmp;
@@ -670,25 +680,25 @@ pcm_default:
 				}
 			}
 		}
-		pcm_priv->pcm_sysclk = pcm_priv->cpm_epll_clk/sys_div;
+		pcm_priv->pcm_sysclk = pcm_priv->cpm_pll_clk/sys_div;
 	} else
-		pcm_priv->pcm_sysclk = pcm_priv->cpm_epll_clk/div_total;
+		pcm_priv->pcm_sysclk = pcm_priv->cpm_pll_clk/div_total;
 
 	return 0;
 }
 
 static int pcm_clk_init(struct platform_device *pdev)
 {
-	struct clk *epll_clk = NULL;
+	struct clk *pll_clk = NULL;
 	struct clk *pcm_sysclk = NULL;
 	struct clk *pcmclk = NULL;
 
-	epll_clk = clk_get(&pdev->dev,"mpll");
-	if (IS_ERR(epll_clk)) {
-		printk(KERN_ERR"pcm get epll_clk fail\n");
-		goto __err_epll_clk_get;
+	pll_clk = clk_get(&pdev->dev,"mpll");
+	if (IS_ERR(pll_clk)) {
+		printk(KERN_ERR"pcm get mpll_clk fail\n");
+		goto __err_pll_clk_get;
 	}
-	pcm_priv->cpm_epll_clk = clk_get_rate(epll_clk);
+	pcm_priv->cpm_pll_clk = clk_get_rate(pll_clk);
 	pcmclk = clk_get(&pdev->dev, "pcm");
 	if (IS_ERR(pcmclk)) {
 		dev_dbg(&pdev->dev, "pcm clk_get failed\n");
@@ -738,18 +748,18 @@ static int pcm_clk_init(struct platform_device *pdev)
 	else
 		__pcm_set_msb_normal_in();
 
-	if (pcm_priv->pcm_imsb_pos == ONE_SHIFT_MODE)
+	if (pcm_priv->pcm_omsb_pos == ONE_SHIFT_MODE)
 		__pcm_set_msb_one_shift_out();
 	else
-		__pcm_set_msb_normal_in();
+		__pcm_set_msb_normal_out();
 
 	return 0;
 
 __err_pcmclk:
 	clk_put(pcm_sysclk);
 __err_pcmsys_clk_get:
-	clk_put(epll_clk);
-__err_epll_clk_get:
+	clk_put(pll_clk);
+__err_pll_clk_get:
 	return -1;
 }
 
@@ -883,8 +893,8 @@ static int __init init_pcm(void)
 	pcm_priv->pcmclk = pcm_conf_info.pcm_clk;
 	pcm_priv->pcm_sysclk = pcm_conf_info.pcm_sysclk;
 	pcm_priv->pcm_device_mode = pcm_conf_info.pcm_device_mode;
-	pcm_priv->replay_format = pcm_conf_info.iss;
-	pcm_priv->record_format = pcm_conf_info.oss;
+	pcm_priv->replay_format = pcm_conf_info.oss;
+	pcm_priv->record_format = pcm_conf_info.iss;
 	pcm_priv->endpoint= &pcm_endpoints;
 	pcm_priv->pcm_sync_len = pcm_conf_info.pcm_sync_len;
 	pcm_priv->pcm_slot_num = pcm_conf_info.pcm_slot_num;
