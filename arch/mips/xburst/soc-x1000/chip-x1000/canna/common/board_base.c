@@ -43,62 +43,62 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_uart3_device, 0, 0),
 #endif
 #ifdef CONFIG_JZMMC_V11_MMC1
-	DEF_DEVICE(&jz_msc1_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
+	DEF_DEVICE(&jz_msc1_device, &tf_pdata, sizeof(struct jzmmc_platform_data)),
 #endif
 #ifdef CONFIG_JZMMC_V12_MMC0
-	DEF_DEVICE(&jz_msc0_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
+	DEF_DEVICE(&jz_msc0_device, &tf_pdata, sizeof(struct jzmmc_platform_data)),
 #endif
 #ifdef CONFIG_JZMMC_V12_MMC1
-	DEF_DEVICE(&jz_msc1_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
+	DEF_DEVICE(&jz_msc1_device, &sdio_pdata, sizeof(struct jzmmc_platform_data)),
 #endif
 #ifdef CONFIG_JZMMC_V11_MMC2
-	DEF_DEVICE(&jz_msc2_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
+	DEF_DEVICE(&jz_msc2_device, &sdio_pdata, sizeof(struct jzmmc_platform_data)),
 #endif
 
 #ifdef CONFIG_BROADCOM_RFKILL
-	DEF_DEVICE(&bt_power_device,0,0),
-	DEF_DEVICE(&bluesleep_device,0,0),
+	DEF_DEVICE(&bt_power_device, 0, 0),
+	DEF_DEVICE(&bluesleep_device, 0, 0),
 #endif
 
 #ifdef CONFIG_BCM_AP6212_RFKILL
-	DEF_DEVICE(&bt_power_device,0,0),
+	DEF_DEVICE(&bt_power_device, 0, 0),
 #endif
 /* JZ ALSA audio driver */
 
 #if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
-	DEF_DEVICE(&jz_aic_device,0,0),
-	DEF_DEVICE(&jz_aic_dma_device,0,0),
+	DEF_DEVICE(&jz_aic_device, 0, 0),
+	DEF_DEVICE(&jz_aic_dma_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_ICDC_D3) && defined(CONFIG_SND_ASOC_JZ_AIC_I2S_V13)
-	DEF_DEVICE(&jz_icdc_device,0,0),
+	DEF_DEVICE(&jz_icdc_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_PCM_V13)
-	DEF_DEVICE(&jz_pcm_device,0,0),
-	DEF_DEVICE(&jz_pcm_dma_device,0,0),
+	DEF_DEVICE(&jz_pcm_device, 0, 0),
+	DEF_DEVICE(&jz_pcm_dma_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_DMIC_V13)
-	DEF_DEVICE(&jz_dmic_device,0,0),
-	DEF_DEVICE(&jz_dmic_dma_device,0,0),
+	DEF_DEVICE(&jz_dmic_device, 0, 0),
+	DEF_DEVICE(&jz_dmic_dma_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_PCM_DUMP_CDC)
-	DEF_DEVICE(&jz_pcm_dump_cdc_device,0,0),
+	DEF_DEVICE(&jz_pcm_dump_cdc_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_SPDIF_DUMP_CDC)
-	DEF_DEVICE(&jz_spdif_dump_cdc_device,0,0),
+	DEF_DEVICE(&jz_spdif_dump_cdc_device, 0, 0),
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_DMIC_DUMP_CDC)
-	DEF_DEVICE(&jz_dmic_dump_cdc_device,0,0),
+	DEF_DEVICE(&jz_dmic_dump_cdc_device, 0, 0),
 #endif
 
 /* end of ALSA audio driver */
 #ifdef CONFIG_USB_DWC2
-	DEF_DEVICE(&jz_dwc_otg_device,0,0),
+	DEF_DEVICE(&jz_dwc_otg_device, 0, 0),
 #endif
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)||defined(CONFIG_JZ_INTERNAL_CODEC_V13)
@@ -146,7 +146,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #endif
 
 #ifdef	CONFIG_JZ_SFC
-	DEF_DEVICE(&jz_sfc_device,&sfc_info_cfg, sizeof(struct jz_sfc_info)),
+	DEF_DEVICE(&jz_sfc_device, &sfc_info_cfg, sizeof(struct jz_sfc_info)),
+#endif
+
+#ifdef CONFIG_KEYBOARD_MATRIX
+	DEF_DEVICE(&jz_matrix_kdb_device, 0, 0),
 #endif
 };
 
