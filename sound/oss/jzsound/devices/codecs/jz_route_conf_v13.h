@@ -18,11 +18,13 @@ typedef struct __route_conf_base {
 	int route_ready_mode;
 
 	int route_record_mux_mode;
+	int route_record_mixer_mode;
 	int route_input_mode;
 	int route_adc_mode;
 	int route_mic_mode;
 
 	int route_replay_mux_mode;
+	int route_replay_mixer_mode;
 	int route_output_mode;
 	int route_dac_mode;
 	/*--------attibute-------*/
@@ -58,21 +60,31 @@ struct __codec_route_info {
 #define ADC_ENABLE_WITH_DMIC 1
 #define ADC_DISABLE 3
 
-#define RECORD_MIXER_DISABLE 6
-#define RECORD_MIXER_ENABLE 7
-#define RECORD_NORMAL_INPUT 5
-#define RECORD_CROSS_INPUT 1
-#define RECORD_MIXER_NORMAL_INPUT 2
-#define RECORD_MIXER_INPUT_WITH_DAC 3
-#define RECORD_0_INPUTR 4
+#define RECORD_NORMAL_INPUT 1
+#define RECORD_CROSS_INPUT 2
+#define RECORD_INPUT_AND_MIXER_NORMAL 3
+#define RECORD_INPUT_AND_MIXER_CROSS 4	
 
-#define REPLAY_MIXER_DISABLE 6
-#define REPLAY_MIXER_ENABLE 7
-#define REPLAY_NORMAL_INPUT 5
-#define REPLAY_CROSS_INPUT 1
-#define REPLAY_MIXER_NORMAL_INPUT 2
-#define REPLAY_MIXER_INPUT_WITH_ADC 3
-#define REPLAY_0_INPUTR 4
+#define RECORD_MIXER_ENABLE 1
+#define RECORD_MIXER_DISABLE 2
+#define RECORD_MIXER_NORMAL_INPUT 3
+#define RECORD_MIXER_CROSS_INPUT 4
+#define RECORD_MIXER_L_MIX_R_0_INPUT 5
+#define RECORD_MIXER_L_0_R_MIX_INPUT 6
+#define RECORD_MIXER_L_0_R_0_INPUT 7
+
+#define REPLAY_NORMAL_INPUT 1
+#define REPLAY_CROSS_INPUT 2
+#define REPLAY_INPUT_AND_MIXER_NORMAL 3
+#define REPLAY_INPUT_AND_MIXER_CROSS 4	
+
+#define REPLAY_MIXER_ENABLE 1
+#define REPLAY_MIXER_DISABLE 2
+#define REPLAY_MIXER_NORMAL_INPUT 3
+#define REPLAY_MIXER_CROSS_INPUT 4
+#define REPLAY_MIXER_L_MIX_R_0_INPUT 5
+#define REPLAY_MIXER_L_0_R_MIX_INPUT 6
+#define REPLAY_MIXER_L_0_R_0_INPUT 7
 
 #define OUTPUT_FROM_DAC_ENABLE 2
 #define OUTPUT_FROM_DAC_DISABLE 1

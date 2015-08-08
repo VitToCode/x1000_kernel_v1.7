@@ -423,7 +423,49 @@ static void codec_set_aic_adc(struct codec_info *codec_dev, int mode)
 }
 
 /*adc mux*/
-static void codec_set_record_mixer_mux(struct codec_info *codec_dev, int mode)
+static void codec_set_record_mux_mode(struct codec_info *codec_dev, int mode)
+{
+	int tmpval;
+	DUMP_ROUTE_PART_REGS(codec_dev, "enter");
+
+	switch(mode){
+		case RECORD_NORMAL_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4 | 0x1);
+			tmpval |= 0x1<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2, tmpval);
+			break;
+
+		case RECORD_CROSS_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4 | 0x1);
+			tmpval |= 0x5<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2, tmpval);
+			break;
+
+		case RECORD_INPUT_AND_MIXER_NORMAL:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0x1;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2, tmpval);
+			break;
+
+		case RECORD_INPUT_AND_MIXER_CROSS:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4);
+			tmpval |= (0x5<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
+			break;
+
+		default:
+			printk("JZ_CODEC: line: %d, record mux mode error!\n", __LINE__);
+	}
+
+	DUMP_ROUTE_PART_REGS(codec_dev, "leave");
+}
+
+/*record mixer mux*/
+static void codec_set_record_mixer_mode(struct codec_info *codec_dev, int mode)
 {
 	int tmpval;
 	DUMP_ROUTE_PART_REGS(codec_dev, "enter");
@@ -439,52 +481,56 @@ static void codec_set_record_mixer_mux(struct codec_info *codec_dev, int mode)
 			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval&(~0x80));
 			break;
 
-		case RECORD_NORMAL_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval &= ~(0xf<<4 | 0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval|= 0x1<<4);
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
-			break;
-
-		case RECORD_CROSS_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval|=0x5<<4);
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval|=0x5<<4);
-			break;
-
 		case RECORD_MIXER_NORMAL_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval &= ~(0xf<<4|0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval|(0xa<<4));
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
 			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval|(0xa<<4));
-			break;
-
-		case RECORD_MIXER_INPUT_WITH_DAC:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval|=((0xa<<4)|1));
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval|=(0xa<<4));
-			break;
-
-		case RECORD_0_INPUTR:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
-			tmpval |= (0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
-			tmpval |= (0xf<<4);
 			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_CROSS_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0x5<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_L_MIX_R_0_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xb<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_L_0_R_MIX_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xe<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_L_0_R_0_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xf<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
 			break;
 		default:
-			printk("JZ_CODEC: line: %d, record mux mode error!\n", __LINE__);
+			printk("JZ_CODEC: line: %d, record mixer mode error!\n", __LINE__);
 	}
 
 	DUMP_ROUTE_PART_REGS(codec_dev, "leave");
@@ -523,7 +569,48 @@ static void codec_set_adc(struct codec_info *codec_dev, int mode)
 	DUMP_ROUTE_PART_REGS(codec_dev, "leave");
 }
 
-static void codec_set_replay_mixer_mux(struct codec_info *codec_dev, int mode)
+static void codec_set_replay_mux(struct codec_info *codec_dev, int mode)
+{
+	int tmpval;
+	DUMP_ROUTE_PART_REGS(codec_dev, "enter");
+
+	switch(mode){
+		case REPLAY_NORMAL_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+			tmpval &= ~(0xf<<4|0x1);
+			tmpval |= 0x5<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
+			break;
+
+		case REPLAY_CROSS_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+			tmpval &= ~(0xf<<4|0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
+			break;
+
+                case REPLAY_INPUT_AND_MIXER_NORMAL:
+                        tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+                        tmpval &= ~(0xf<<4);
+                        tmpval |= (0x5<<4 | 0x1);
+                        icdc_d3_hw_write(codec_dev,SCODA_MIX_0, tmpval);
+                        break;
+
+                case REPLAY_INPUT_AND_MIXER_CROSS:
+                        tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+                        tmpval &= ~(0xf<<4);
+                        tmpval |= 0x1; 
+                        icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
+                        break;
+
+		default:
+			printk("mode  = %d\n",mode);
+			printk("JZ_CODEC: line: %d, replay mux mode error!\n", __LINE__);
+	}
+
+	DUMP_ROUTE_PART_REGS(codec_dev, "leave");
+}
+
+static void codec_set_replay_mixer_mode(struct codec_info *codec_dev, int mode)
 {
 	int tmpval;
 	DUMP_ROUTE_PART_REGS(codec_dev, "enter");
@@ -539,51 +626,57 @@ static void codec_set_replay_mixer_mux(struct codec_info *codec_dev, int mode)
 			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval&(~0x80));
 			break;
 
-		case REPLAY_NORMAL_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval&(~(0xf<<4)));
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval&(~(0xf<<4)));
-			break;
-
-		case REPLAY_CROSS_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval|=0x5<<4);
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval|=0x5<<4);
-			break;
-
 		case REPLAY_MIXER_NORMAL_INPUT:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
-			tmpval &= ~(0xf<<4|0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval|=(0xa<<4));
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
-			tmpval &= ~(0xf<<4|0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval|=(0xa<<4));
-			break;
-
-		case REPLAY_MIXER_INPUT_WITH_ADC:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
-			tmpval &= ~(0xf<<4|0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval|=(0xa<<4|1));
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
-			tmpval &= ~(0xf<<4|0x1);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval|=(0xa<<4));
-			break;
-
-		case REPLAY_0_INPUTR:
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
-			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval|=0xf<<4);
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
 			tmpval &= ~(0xf<<4);
-			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval|=0xf<<4);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case REPLAY_MIXER_CROSS_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0x5<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case REPLAY_MIXER_L_MIX_R_0_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xb<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case REPLAY_MIXER_L_0_R_MIX_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xe<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case REPLAY_MIXER_L_0_R_0_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_1);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0xf<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_1,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
 			break;
 		default:
 			printk("mode  = %d\n",mode);
-			printk("JZ_CODEC: line: %d, replay mux mode error!\n", __LINE__);
+			printk("JZ_CODEC: line: %d, replay mixer mode error!\n", __LINE__);
 	}
 
 	DUMP_ROUTE_PART_REGS(codec_dev, "leave");
@@ -779,7 +872,10 @@ static void codec_set_route_base(struct codec_info *codec_dev, const void *arg)
 
 	/* record path */
 	if (conf->route_record_mux_mode)
-		codec_set_record_mixer_mux(codec_dev, conf->route_record_mux_mode);
+		codec_set_record_mux_mode(codec_dev, conf->route_record_mux_mode);
+
+	if (conf->route_record_mixer_mode)
+		codec_set_record_mixer_mode(codec_dev, conf->route_record_mixer_mode);
 
 	if (conf->route_mic_mode)
 		codec_set_mic(codec_dev, conf->route_mic_mode);
@@ -795,8 +891,11 @@ static void codec_set_route_base(struct codec_info *codec_dev, const void *arg)
 
 	/* replay path */
 	if (conf->route_replay_mux_mode){
-		codec_set_replay_mixer_mux(codec_dev, conf->route_replay_mux_mode);
+		codec_set_replay_mux(codec_dev, conf->route_replay_mux_mode);
 	}
+
+	if (conf->route_replay_mixer_mode)
+		codec_set_replay_mixer_mode(codec_dev, conf->route_replay_mixer_mode);
 
 	if (conf->route_output_mode){
 		codec_set_aic_dac(codec_dev, conf->route_output_mode);

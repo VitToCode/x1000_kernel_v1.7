@@ -696,12 +696,14 @@ static int i2s_dma_enable(struct i2s_device * i2s_dev, int mode)		//CHECK
 			return -ENODEV;
 	if (mode & CODEC_WMODE) {
 		__i2s_flush_tfifo(i2s_dev);
+		mdelay(1);
 		codec_ctrl(cur_codec, CODEC_DAC_MUTE,0);
 		__i2s_enable_transmit_dma(i2s_dev);
 		__i2s_enable_replay(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_flush_rfifo(i2s_dev);
+		mdelay(1);
 		codec_ctrl(cur_codec, CODEC_ADC_MUTE,0);
 		/* read the first sample and ignore it */
 		val = __i2s_read_rfifo(i2s_dev);
@@ -1357,8 +1359,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__i2s_disable_underrun_intr(i2s_dev);
 	__i2s_disable_transmit_intr(i2s_dev);
 	__i2s_disable_receive_intr(i2s_dev);
-	__i2s_send_lfirst(i2s_dev);
-	//__i2s_send_rfirst(i2s_dev);
+	__i2s_send_rfirst(i2s_dev);
 
 	/* play zero or last sample when underflow */
 	__i2s_play_lastsample(i2s_dev);
