@@ -19,6 +19,62 @@
 //#include <sound/jz-aic.h>
 #include "board_base.h"
 
+#ifdef CONFIG_LEDS_GPIO
+#include <linux/leds.h>
+#endif
+
+#ifdef CONFIG_LEDS_GPIO
+static struct gpio_led gpio_leds[] = {
+#ifndef CONFIG_LCD_CLASS_DEVICE
+        {
+                .name = "led-record",
+                .gpio = GPIO_PA(1),
+                .active_low = true,
+                .default_state = LEDS_GPIO_DEFSTATE_KEEP,
+                .retain_state_suspended = true,
+                .default_trigger = "default_on",
+        },
+        {
+                .name = "wireless_AP",
+                .gpio = GPIO_PA(0),
+                .active_low = false,
+                .default_state = LEDS_GPIO_DEFSTATE_KEEP,
+                .retain_state_suspended = true,
+                .default_trigger = "default_on",
+        },
+#endif
+        {
+                .name = "led-bt",
+                .gpio = GPIO_PA(3),
+                .active_low = false,
+                .default_state = LEDS_GPIO_DEFSTATE_ON,
+                .retain_state_suspended = true,
+                .default_trigger = NULL,
+        },
+        {
+                .name = "led-reserve",
+                .gpio = GPIO_PA(2),
+                .active_low = false,
+                .default_state = LEDS_GPIO_DEFSTATE_ON,
+                .retain_state_suspended = true,
+                .default_trigger = NULL,
+        },
+};
+
+static struct gpio_led_platform_data gpio_led_info = {
+        .leds = gpio_leds,
+        .num_leds = ARRAY_SIZE(gpio_leds),
+};
+
+struct platform_device jz_leds_gpio = {
+        .name = "leds-gpio",
+        .id = -1,
+        .dev = {
+                .platform_data  = &gpio_led_info,
+        },
+};
+#endif
+
 #ifdef CONFIG_JZ_EFUSE_V11
 struct jz_efuse_platform_data jz_efuse_pdata = {
             /* supply 2.5V to VDDQ */

@@ -60,4 +60,8 @@ extern struct jz_efuse_platform_data jz_efuse_pdata;
 #ifdef CONFIG_KEYBOARD_MATRIX
 extern struct platform_device jz_matrix_kdb_device;
 #endif
+
+#ifdef CONFIG_LEDS_GPIO
+extern struct platform_device jz_leds_gpio;
+#endif
 #endif
