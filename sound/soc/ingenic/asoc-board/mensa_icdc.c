@@ -79,13 +79,14 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* ext speaker connected to AOLOP/N  */
 	{"Speaker", NULL, "AOLOP"},
 	{"Speaker", NULL, "AOLON"},
-	/* mic is connected to AIP/N1 */
-	{"MICP1", NULL, "Mic Buildin"},
-	{"MICN1", NULL, "Mic Buildin"},
-	{"MICP2", NULL, "Mic Buildin"},
-	{"MICN2", NULL, "Mic Buildin"},
 
-	{"Mic Buildin", NULL, "MICBIAS"},
+
+	/* mic is connected to AIP/N1 */
+	{"MICP1", NULL, "MICBIAS"},
+	{"MICN1", NULL, "MICBIAS"},
+	{"MICP2", NULL, "MICBIAS"},
+	{"MICN2", NULL, "MICBIAS"},
+	{"MICBIAS", NULL, "Mic Buildin"},
 
 	/* line in is connected to AIR/L*/
 	{"AIR1", NULL, "Line In"},

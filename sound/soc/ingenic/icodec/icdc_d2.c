@@ -549,13 +549,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{ "MIC2",  NULL,  "MICN2" },
 	{ "MIC2",  NULL,  "MICP2" },
 
-	{ "AIL",	  NULL,  "AIL1" },
+	{ "AIL",      NULL,  "AIL1" },
 	{ "AILatt",   NULL,  "AIL1" },
 	{ "AIR",      NULL,  "AIR1" },
 	{ "AIRatt",   NULL,  "AIR1" },
-
-	{ "MICBIAS",  NULL,  "MIC1" },
-	{ "MICBIAS",  NULL,  "MIC2" },
 
 	/*input*/
 	{ "ADC Mux", "MIC1/LR", "MIC1"  },
