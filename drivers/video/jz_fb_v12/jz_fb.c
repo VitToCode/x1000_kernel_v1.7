@@ -294,7 +294,7 @@ jzfb_config_tft_lcd_dma(struct fb_info *info,
 	struct jzfb *jzfb = info->par;
 
 	framedesc->next = jzfb->framedesc_phys;
-	framedesc->databuf = jzfb->vidmem_phys;
+	framedesc->databuf = jzfb->vidmem_phys + jzfb->frm_size * jzfb->current_buffer;
 	framedesc->id = 0xda0;
 
 	framedesc->cmd = LCDC_CMD_EOFINT | LCDC_CMD_FRM_EN;
@@ -357,7 +357,7 @@ jzfb_config_smart_lcd_dma(struct fb_info *info,
 	framedesc->next =
 	    jzfb->framedesc_phys +
 	    sizeof(struct jzfb_framedesc) * (jzfb->desc_num - 2);
-	framedesc->databuf = jzfb->vidmem_phys;
+	framedesc->databuf = jzfb->vidmem_phys + jzfb->frm_size * jzfb->current_buffer;
 	framedesc->id = 0xda0da0;
 
 	framedesc->cmd = LCDC_CMD_EOFINT | LCDC_CMD_FRM_EN;
@@ -2607,6 +2607,7 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 	jzfb->dev = &pdev->dev;
 	jzfb->pdata = pdata;
 	jzfb->mem = mem;
+	jzfb->current_buffer = 0;
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_SLCD) {
