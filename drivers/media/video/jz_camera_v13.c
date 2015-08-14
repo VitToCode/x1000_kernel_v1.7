@@ -1093,6 +1093,9 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 		goto err_get_irq;
 	}
 
+	clk_enable(pcdev->mclk);
+	clk_enable(pcdev->clk);
+
 	/*get cim clk*/
 	pcdev->clk = clk_get(&pdev->dev, "cim");
 	if (IS_ERR(pcdev->clk)) {
@@ -1135,8 +1138,6 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 	} else {
 		clk_set_rate(pcdev->mclk, pcdev->mclk_freq);
 	}
-	clk_enable(pcdev->mclk);
-	clk_enable(pcdev->clk);
 
 
 	/* Request the regions. */
