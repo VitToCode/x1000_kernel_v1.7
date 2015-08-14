@@ -106,6 +106,9 @@
 #define GLB_BURST_MD_MSK		(0x3  << GLB_BURST_MD_OFFSET)
 
 /* For SFC_DEV_CONF */
+#define	DEV_CONF_ONE_AND_HALF_CYCLE_DELAY	(3 << DEV_CONF_SMP_DELAY_OFFSET)
+#define	DEV_CONF_ONE_CYCLE_DELAY	(2 << DEV_CONF_SMP_DELAY_OFFSET)
+#define	DEV_CONF_HALF_CYCLE_DELAY	(1 << DEV_CONF_SMP_DELAY_OFFSET)
 #define	DEV_CONF_SMP_DELAY_OFFSET	(16)
 #define	DEV_CONF_SMP_DELAY_MSK		(0x3 << DEV_CONF_SMP_DELAY_OFFSET)
 #define DEV_CONF_CMD_TYPE		(0x1 << 15)
@@ -224,8 +227,6 @@ struct jz_sfc {
 	spinlock_t		lock_rxtx;
 
 	unsigned long		phys;
-	int			transfer_unit_size;
-	int			fifodepthi;
 	struct jz_sfc_info *pdata;
 	irqreturn_t (*irq_callback)(struct jz_sfc *);
 	struct workqueue_struct *workqueue;

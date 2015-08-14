@@ -36,8 +36,7 @@
 
 #include "jz_sfc.h"
 
-
-#define SWAP_BUF_SIZE (8 * 1024)
+#define SWAP_BUF_SIZE (512)
 //#define SFC_DEBUG
 #define GET_PHYADDR(a)                                          \
 ({                                              \
@@ -48,8 +47,6 @@
 	 v = ((int)(a) & 0x1fffffff);                   \
 	 v;                                             \
 })
-
-
 
 #ifdef SFC_DEGUG
 #define  print_dbg(format,arg...)	printk(format,## arg)
@@ -281,6 +278,7 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 	print_dbg("!!!!!! flash->addr_len = %d,,flash->daten = %x,cmd = %x,cmd_flag = %x,flash->len = %x\n",flash->addr_len,flash->daten,flash->cmd,cmd_flag,flash->len);
 
 
+	sfc_flush_fifo(flash);
 	/*use one phase for transfer*/
 	if(flash->rw_mode & R_MODE) {
 		sfc_transfer_direction(flash, GLB_TRAN_DIR_READ);
@@ -350,7 +348,6 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 
 	sfc_enable_all_intc(flash);
 
-	sfc_flush_fifo(flash);
 	sfc_start(flash);
 
 	return 0;
@@ -452,9 +449,13 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 
 	err = wait_for_completion_timeout(&flash->done,10*HZ);
 	if (!err) {
+		dump_sfc_reg(flash);
 		dev_err(flash->dev, "Timeout for ACK from SFC device\n");
 		return -ETIMEDOUT;
 	}
+    /*fix the cache line problem,when use jffs2 filesystem must be flush cache twice*/
+	if(flash->rw_mode & R_MODE)
+		dma_cache_sync(NULL, (void *)flash->rx, flash->len, DMA_FROM_DEVICE);
 
 	if(flash->use_dma == 1)
 		return flash->len;
@@ -468,6 +469,7 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 			return EINVAL;
 
 	}
+
 	return flash->rlen;
 }
 
@@ -498,7 +500,7 @@ static int jz_sfc_init_setup(struct jz_sfc *flash)
 
 	sfc_transfer_mode(flash, SLAVE_MODE);
 
-	flash->swap_buf = kmalloc(SWAP_BUF_SIZE + PAGE_SIZE,GFP_KERNEL);
+	flash->swap_buf = kmalloc(SWAP_BUF_SIZE,GFP_KERNEL);
 	if(flash->swap_buf == NULL){
 		dev_err(flash->dev,"alloc mem error\n");
 		return ENOMEM;
@@ -738,11 +740,7 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	unsigned char command_stage1[4];
 	struct sfc_transfer transfer[1];
 	struct jz_sfc *flash;
-	unsigned int tmp_len = 0;
-	unsigned int rlen = 0;
-	unsigned char *swap_buf = NULL;
 	flash = to_jz_spi_norflash(mtd);
-	swap_buf = flash->swap_buf;
 
 	mutex_lock(&flash->lock);
 #ifdef CONFIG_SPI_QUAD
@@ -757,52 +755,19 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	command_stage1[0] = SPINOR_OP_READ;//SPINOR_OP_READ_FAST;
 #endif
 
-	if(len <= SWAP_BUF_SIZE){
+	command_stage1[1] = from >> 16;
+	command_stage1[2] = from >> 8;
+	command_stage1[3] = from;
+	transfer[0].tx_buf = command_stage1;
+	transfer[0].tx_buf1 = NULL;
+	transfer[0].rx_buf = buf;
+	transfer[0].len = len;
 
-		command_stage1[1] = from >> 16;
-		command_stage1[2] = from >> 8;
-		command_stage1[3] = from;
-		transfer[0].tx_buf = command_stage1;
-		transfer[0].tx_buf1 = NULL;
-		transfer[0].rx_buf = swap_buf;
-		transfer[0].len = len;
+	ret = jz_sfc_pio_txrx(flash, transfer);
+	if(ret != transfer[0].len)
+		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
-		ret = jz_sfc_pio_txrx(flash, transfer);
-		if(ret != transfer[0].len)
-			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
-
-		*retlen = ret;
-
-		memcpy(buf,swap_buf,len);
-	}else{
-		while(!(len  == tmp_len)){
-			if ((len - tmp_len) > SWAP_BUF_SIZE)
-				rlen = SWAP_BUF_SIZE;
-			else {
-				rlen = len - tmp_len;
-			}
-
-			command_stage1[1] = (from + tmp_len) >> 16;
-			command_stage1[2] = (from + tmp_len) >> 8;
-			command_stage1[3] = (from + tmp_len);
-
-			transfer[0].tx_buf = command_stage1;
-			transfer[0].tx_buf1 = NULL;
-			transfer[0].rx_buf = swap_buf;
-			transfer[0].len = rlen;
-
-			ret = jz_sfc_pio_txrx(flash, transfer);
-			if(ret != transfer[0].len)
-				dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
-
-			*retlen += ret;
-
-			memcpy(buf + tmp_len,swap_buf,rlen);
-
-			tmp_len += rlen;
-		}
-	}
-
+	*retlen = ret;
 	mutex_unlock(&flash->lock);
 
 	return 0;
@@ -844,7 +809,6 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 			mutex_unlock(&flash->lock);
 			return ret;
 		}
-
 
 #ifdef CONFIG_SPI_QUAD
 		command_stage1[0] = SPINOR_OP_QPP;

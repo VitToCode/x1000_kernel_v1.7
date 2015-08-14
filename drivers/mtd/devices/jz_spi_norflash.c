@@ -449,7 +449,7 @@ static  int jz_spi_norflash_match_device(struct spi_device *spi,int chip_id)
 static int jz_spi_norflash_probe(struct spi_device *spi)
 {
 	int ret;
-	const char *jz_probe_types[] = {"cmdlinepart"};
+	const char *jz_probe_types[] = {"cmdlinepart",NULL};
 	struct jz_spi_norflash *flash;
 	struct spi_nor_platform_data *pdata = spi->dev.platform_data;
 	int chip_id = 0;
