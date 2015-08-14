@@ -32,6 +32,14 @@ extern struct jzfb_platform_data jzfb1_pdata;
 extern struct platform_device kfm701a21_1a_device;
 #endif
 
+#ifdef CONFIG_MTD_NAND_JZ
+extern struct platform_device jz_mtd_nand_device;
+#ifdef CONFIG_MTD_NAND_JZ_NORMAL
+extern struct xburst_nand_chip_platform_data nand_chip_data;
+#endif
+#endif	/*CONFIG_MTD_NAND_JZ*/
+
+
 /**
  * lcd gpio
  **/
@@ -63,7 +71,7 @@ extern struct platform_device kfm701a21_1a_device;
 #define GPIO_HANDSET_EN_LEVEL -1
 
 #define	GPIO_HP_DETECT		GPIO_PA(17)	/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL    1	
+#define GPIO_HP_INSERT_LEVEL    1
 #define GPIO_MIC_SELECT		-1		/*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL	-1		/*builin mic select level*/
 #define GPIO_MIC_DETECT		-1

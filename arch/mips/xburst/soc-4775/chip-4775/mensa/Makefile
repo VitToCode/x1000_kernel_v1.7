@@ -16,3 +16,4 @@ else
 obj-y += pm.o
 endif
 obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)     += mensa-cim.o
+obj-$(CONFIG_MTD_NAND_MIRCON_ACA)	+= nand_aca.o

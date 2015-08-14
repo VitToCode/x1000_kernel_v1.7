@@ -49,7 +49,7 @@ void __init cpm_reset(void)
 	cpm_outl(clkgr & ~(1<<19|1<<23|1<<24|1<<25),CPM_CLKGR);
 	mdelay(1);
 	//cpm_outl(0x27f87ffe,CPM_CLKGR);
-#ifdef CONFIG_NAND_DRIVER
+#if defined(CONFIG_NAND_DRIVER) || defined(CONFIG_MTD_NAND_JZ)
 	cpm_outl(0x7de87ffe,CPM_CLKGR);
 #else
 	cpm_outl(0x7df87ffe,CPM_CLKGR);

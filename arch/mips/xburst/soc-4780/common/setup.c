@@ -51,7 +51,7 @@ void __init cpm_reset(void)
 	mdelay(1);
 	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
 	mdelay(1);
-#ifdef CONFIG_NAND_DRIVER
+#if defined(CONFIG_NAND_DRIVER) || defined(CONFIG_MTD_NAND_JZ)
 	cpm_outl(0x27d87ffe,CPM_CLKGR0);
 #else
 	cpm_outl(0x27f87ffe,CPM_CLKGR0);
