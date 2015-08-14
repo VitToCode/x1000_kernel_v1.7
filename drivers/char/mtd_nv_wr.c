@@ -32,6 +32,7 @@ static int nv_devs = 1;
 #define CMD_READ_URL_1  _IOR('N', 3, char)
 #define CMD_READ_URL_2  _IOR('N', 4, char)
 #define CMD_EARASE_ALL  _IOR('N', 5, int)
+#define CMD_GET_INFO    _IOR('N', 6, unsigned int)
 
 struct nv_devices {
 	struct mtd_info *mtd;
@@ -41,15 +42,22 @@ struct nv_devices {
 	unsigned int mtd_device_size;
 	unsigned int wr_base;
 	unsigned int wr_size;
+	unsigned int nv_map;
+	unsigned int nv_num;
+	unsigned int nv_count;
 	struct cdev cdev;	  /* Char device structure */
 };
 
-#define NV_MAX_SIZE (32 * 1024)
+
 #define MTD_DEVICES_ID 0
 #define MTD_DEVICES_SIZE (32 * 1024)
-#define MTD_EARASE_SIZE (32 * 1024)
-#define NV_AREA_START (256 * 1024)
+#define MTD_EARASE_SIZE MTD_DEVICES_SIZE
+#define NV_AREA_START (288 * 1024)
+#define NV_AREA_SIZE MTD_DEVICES_SIZE
 #define NV_AREA_END (384 * 1024)
+
+#define WRITE_FLAG 0
+#define READ_FLAG 1
 
 static struct nv_devices *nv_dev;
 static struct class *nv_class;
@@ -72,8 +80,11 @@ static int nv_open(struct inode *inode, struct file *filp)
 			err = -1;
 			goto open_fail;
 		}
+		nv_dev->nv_map = -1;
+		nv_dev->nv_count = 0;
+		nv_dev->nv_num = 0;
 		nv_dev->wr_base = NV_AREA_START;
-		nv_dev->wr_size = NV_MAX_SIZE;
+		nv_dev->wr_size = NV_AREA_SIZE;
 		if(nv_dev->wr_base & (nv_dev->wr_size - 1)) {
 			pr_err("error:  addr must 0x%x align\n", nv_dev->wr_size);
 			err = -1;
@@ -127,7 +138,7 @@ static int nv_read_area(char *buf, size_t count, loff_t offset)
 	int err;
 
 	addr = nv_dev->wr_base + offset;
-	printk("read addr == %x offset = 0x%x\n", addr, (unsigned int)offset);
+	/* printk("read addr == %x offset = 0x%x\n", addr, (unsigned int)offset); */
 
 	err = mtd_read(nv_dev->mtd, addr, count, &read, (u_char *)buf);
 	if (mtd_is_bitflip(err))
@@ -138,6 +149,47 @@ static int nv_read_area(char *buf, size_t count, loff_t offset)
 		if (!err)
 			err = -EINVAL;
 	}
+	return err;
+}
+static int nv_map_area(int flag)
+{
+	unsigned int buf[3][2];
+	unsigned int i;
+
+	if(nv_dev->nv_map == -1) {
+		for(i = 0; i < 3; i++) {
+			nv_dev->wr_base = NV_AREA_START + i * nv_dev->wr_size;
+			nv_read_area((char *)buf[i], 4, 0);
+			if(buf[i][0] == 0x5a5a5a5a) {
+				nv_read_area((char *)buf[i], 8, nv_dev->wr_size - 8);
+				if(buf[i][1] == 0xa5a5a5a5) {
+					if(nv_dev->nv_count < buf[i][0]) {
+						nv_dev->nv_count = buf[i][0];
+						nv_dev->nv_num = i;
+					}
+				}
+			}
+		}
+		nv_dev->nv_map = 1;
+	}
+
+	if(flag == READ_FLAG) {
+		nv_dev->wr_base = NV_AREA_START + nv_dev->nv_num * nv_dev->wr_size;
+	} else if(flag == WRITE_FLAG) {
+		nv_dev->nv_count++;
+		nv_dev->nv_num = (nv_dev->nv_num + 1) % 3;
+		nv_dev->wr_base = NV_AREA_START + nv_dev->nv_num * nv_dev->wr_size;
+	}
+
+	return nv_dev->nv_count;
+}
+static int nv_map_and_read_area(char *buf, size_t count, loff_t offset)
+{
+	int err;
+
+	nv_map_area(READ_FLAG);
+	err = nv_read_area(buf, count, offset);
+
 	return err;
 }
 static ssize_t nv_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
@@ -156,8 +208,9 @@ static ssize_t nv_read(struct file *filp, char *buf, size_t count, loff_t *f_pos
 		err = -EFAULT;
 		return err;
 	}
+
 	mutex_lock(&nv_dev->mutex);
-	err = nv_read_area(nv_dev->buf, count, *f_pos);
+	err = nv_map_and_read_area(nv_dev->buf, count, *f_pos);
 	if (copy_to_user((void *)buf, (void*)nv_dev->buf, count))
 		err = -EFAULT;
 	mutex_unlock(&nv_dev->mutex);
@@ -187,14 +240,19 @@ static int erase_eraseblock(unsigned int addr, unsigned int count)
 
 	return 0;
 }
-static int nv_write_area(const char *buf, size_t count, loff_t offset)
+static int nv_map_and_write_area(const char *buf, size_t count, loff_t offset)
 {
-	unsigned int addr;
+	unsigned int addr, nv_count;
 	size_t written;
 	int err;
 
+	nv_count = nv_map_area(WRITE_FLAG);
+	*(unsigned int *)(&buf[0]) = 0x5a5a5a5a;
+	*(unsigned int *)(&buf[nv_dev->wr_size - 8]) = nv_count;
+	*(unsigned int *)(&buf[nv_dev->wr_size - 4]) = 0xa5a5a5a5;
+
 	addr = nv_dev->wr_base + offset;
-	printk("write addr == %x f_pos = 0x%x\n", addr, (unsigned int)offset);
+
 	err = erase_eraseblock(addr, nv_dev->wr_size);
 	if (unlikely(err)) {
 		pr_err("error: erase failed at 0x%llx\n",
@@ -235,7 +293,7 @@ static ssize_t nv_write(struct file *filp, const char *buf, size_t count, loff_t
 		mutex_unlock(&nv_dev->mutex);
 		return err;
 	}
-	err = nv_write_area(nv_dev->buf, count, *f_pos);
+	err = nv_map_and_write_area(nv_dev->buf, count, *f_pos);
 	mutex_unlock(&nv_dev->mutex);
 
 	return err;
@@ -245,16 +303,12 @@ struct wr_info {
 	unsigned int size;
 	unsigned int offset;
 };
-
-static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static int get_wr_info(struct  wr_info *wr_info, unsigned long arg)
 {
-	int err = 0;
-	struct  wr_info *wr_info;
-	char *dst_buf;
 	unsigned int offset;
 	unsigned int size;
-	printk("cmd = %x\n", cmd);
-	if(cmd != CMD_EARASE_ALL) {
+
+	if(arg) {
 		wr_info = (struct  wr_info *)arg;
 		size = wr_info->size;
 		offset = wr_info->offset;
@@ -267,36 +321,47 @@ static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -1;
 		}
 	}
+	return 0;
+}
+static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int err = 0;
+	struct  wr_info *wr_info = NULL;
+	char *dst_buf;
+
 	switch (cmd) {
 	case CMD_WRITE_URL_1:
 	case CMD_WRITE_URL_2:
 	{
-
+		if(get_wr_info(wr_info, arg) < 0)
+			return -1;
 		mutex_lock(&nv_dev->mutex);
-		err = nv_read_area(nv_dev->buf, nv_dev->wr_size, 0);
+		err = nv_map_and_read_area(nv_dev->buf, nv_dev->wr_size, 0);
 		if(err < 0) {
 			pr_err("err: ioctl read err\n");
 			mutex_unlock(&nv_dev->mutex);
 			return -1;
 		}
-		dst_buf = nv_dev->buf + offset;
-		if (copy_from_user(dst_buf, (void *)wr_info->wr_buf, size))
+		dst_buf = nv_dev->buf + wr_info->offset;
+		if (copy_from_user(dst_buf, (void *)wr_info->wr_buf, wr_info->size))
 		{
 			pr_err("err: ioctl copy_from_user err\n");
 			mutex_unlock(&nv_dev->mutex);
 			return -1;
 		}
-		err = nv_write_area(nv_dev->buf, nv_dev->wr_size, 0);
+		err = nv_map_and_write_area(nv_dev->buf, nv_dev->wr_size, 0);
 		mutex_unlock(&nv_dev->mutex);
 		break;
 	}
 	case CMD_READ_URL_1:
 	case CMD_READ_URL_2:
 	{
+		if(get_wr_info(wr_info, arg) < 0)
+			return -1;
 		mutex_lock(&nv_dev->mutex);
-		dst_buf = nv_dev->buf + offset;
-		err = nv_read_area(dst_buf, nv_dev->wr_size, offset);
-		if (copy_to_user(wr_info->wr_buf, (void *)dst_buf, size))
+		dst_buf = nv_dev->buf + wr_info->offset;
+		err = nv_map_and_read_area(dst_buf, nv_dev->wr_size, wr_info->offset);
+		if (copy_to_user(wr_info->wr_buf, (void *)dst_buf, wr_info->size))
 		{
 			pr_err("err: ioctl copy_from_user err\n");
 			mutex_unlock(&nv_dev->mutex);
@@ -311,6 +376,14 @@ static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		err = erase_eraseblock(nv_dev->wr_base, nv_dev->wr_size);
 		mutex_unlock(&nv_dev->mutex);
 		break;
+	case CMD_GET_INFO:
+		mutex_unlock(&nv_dev->mutex);
+		*(unsigned int *)arg = nv_dev->wr_size;
+		mutex_unlock(&nv_dev->mutex);
+		break;
+	default:
+		pr_err("not support cmd %x\n", cmd);
+		err = -1;
 	}
 	return err;
 }
