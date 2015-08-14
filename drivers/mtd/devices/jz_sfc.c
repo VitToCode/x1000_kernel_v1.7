@@ -281,7 +281,6 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 	print_dbg("!!!!!! flash->addr_len = %d,,flash->daten = %x,cmd = %x,cmd_flag = %x,flash->len = %x\n",flash->addr_len,flash->daten,flash->cmd,cmd_flag,flash->len);
 
 
-	sfc_flush_fifo(flash);
 	/*use one phase for transfer*/
 	if(flash->rw_mode & R_MODE) {
 		sfc_transfer_direction(flash, GLB_TRAN_DIR_READ);
@@ -351,6 +350,7 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 
 	sfc_enable_all_intc(flash);
 
+	sfc_flush_fifo(flash);
 	sfc_start(flash);
 
 	return 0;
@@ -435,25 +435,23 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 	}else
 		dev_err(flash->dev,"the flash->tx can not be NULL\n");
 
-//	spin_lock_irqsave(&flash->lock_rxtx, flags);
+	spin_lock_irqsave(&flash->lock_rxtx, flags);
 	ret = sfc_pio_transfer(flash);
 	if (ret < 0) {
-		dump_sfc_reg(flash);
 		dev_err(flash->dev,"data transfer error!,please check the cmd,and the driver do not support spi nand flash\n");
 		sfc_mask_all_intc(flash);
 		sfc_clear_all_intc(flash);
-//		spin_unlock_irqrestore(&flash->lock_rxtx, flags);
+		spin_unlock_irqrestore(&flash->lock_rxtx, flags);
 		return ret;
 	}
-//	spin_unlock_irqrestore(&flash->lock_rxtx, flags);
+	spin_unlock_irqrestore(&flash->lock_rxtx, flags);
 
 #ifdef SFC_DEBUG
 	dump_sfc_reg(flash);
 #endif
 
-	err = wait_for_completion_timeout(&flash->done,60*HZ);
+	err = wait_for_completion_timeout(&flash->done,10*HZ);
 	if (!err) {
-		dump_sfc_reg(flash);
 		dev_err(flash->dev, "Timeout for ACK from SFC device\n");
 		return -ETIMEDOUT;
 	}
@@ -462,7 +460,7 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 		return flash->len;
 
 	if(flash->rlen != flash->len){
-		dump_sfc_reg(flash);
+	//	dump_sfc_reg(flash);
 		print_dbg("the length is not mach,flash->rlen = %d,flash->len = %d,return !\n",flash->rlen,flash->len);
 		if(flash->rlen < flash->len)
 			    flash->rlen = flash->len;
@@ -743,12 +741,10 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	unsigned int tmp_len = 0;
 	unsigned int rlen = 0;
 	unsigned char *swap_buf = NULL;
-
-	//mutex_lock(&flash->lock);
 	flash = to_jz_spi_norflash(mtd);
+	swap_buf = flash->swap_buf;
 
 	mutex_lock(&flash->lock);
-	swap_buf = flash->swap_buf;
 #ifdef CONFIG_SPI_QUAD
 	if(quad_mode == 0)
 		jz_spi_norflash_set_quad_mode(flash);
@@ -769,7 +765,6 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 		transfer[0].tx_buf = command_stage1;
 		transfer[0].tx_buf1 = NULL;
 		transfer[0].rx_buf = swap_buf;
-		//transfer[0].rx_buf = buf;
 		transfer[0].len = len;
 
 		ret = jz_sfc_pio_txrx(flash, transfer);
@@ -819,17 +814,14 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 	unsigned int i, ret,err;
 	int ret_addr, actual_len, write_len;
 	unsigned char command_stage1[4];
-	unsigned char command_stage2[256];
 	struct sfc_transfer transfer[1];
 	unsigned char * swap_buf= NULL;
 	struct jz_sfc *flash;
 
-
 	flash = to_jz_spi_norflash(mtd);
 
-	mutex_lock(&flash->lock);
 	swap_buf = flash->swap_buf;
-//	mutex_lock(&flash->lock);
+	mutex_lock(&flash->lock);
 	*retlen = 0;
 
 	ret_addr = (to & (mtd->writesize - 1));
@@ -913,7 +905,7 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 		memcpy(swap_buf,buf + i,write_len);
 
 		transfer[0].tx_buf = command_stage1;
-		transfer[0].tx_buf1 = swap_buf;//command_stage2;//swap_buf;
+		transfer[0].tx_buf1 = swap_buf;
 		transfer[0].rx_buf = NULL;
 		transfer[0].len = write_len;
 
@@ -1183,10 +1175,10 @@ static int jz_sfc_resume(struct platform_device *pdev)
 
 	clk_enable(flash->clk_gate);
 
-//	spin_lock_irqsave(&flash->lock_status, flags);
+	spin_lock_irqsave(&flash->lock_status, flags);
 	flash->status &= ~STATUS_SUSPND;
 	enable_irq(flash->irq);
-//	spin_unlock_irqrestore(&flash->lock_status, flags);
+	spin_unlock_irqrestore(&flash->lock_status, flags);
 
 	return 0;
 }
@@ -1196,10 +1188,10 @@ void jz_sfc_shutdown(struct platform_device *pdev)
 	unsigned long flags;
 	struct jz_sfc *flash = platform_get_drvdata(pdev);
 
-//	spin_lock_irqsave(&flash->lock_status, flags);
+	spin_lock_irqsave(&flash->lock_status, flags);
 	flash->status |= STATUS_SUSPND;
 	disable_irq(flash->irq);
-//	spin_unlock_irqrestore(&flash->lock_status, flags);
+	spin_unlock_irqrestore(&flash->lock_status, flags);
 
 	clk_disable(flash->clk_gate);
 
@@ -1236,4 +1228,3 @@ module_exit(jz_sfc_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("JZ SFC Driver");
-
