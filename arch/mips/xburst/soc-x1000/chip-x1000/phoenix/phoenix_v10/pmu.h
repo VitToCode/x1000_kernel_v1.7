@@ -5,10 +5,6 @@
 #define PMU_I2C_BUSNUM  1
 
 /* ****************************PMU DC/LDO NAME******************************* */
-#define DC1_NAME "cpu_core"
-#define DC2_NAME "cpu_3v3"
-#define DC3_NAME "cpu_vmem"
-#define DC4_NAME "wifi_vbat"
 #define LDO1_NAME "cpu_2v5"
 #define LDO2_NAME "wifi_vddio"
 #define LDO3_NAME "vcc_gensor"
@@ -17,10 +13,6 @@
 /* ****************************PMU DC/LDO NAME END*************************** */
 
 /* ****************************PMU DC/LDO DEFAULT V************************** */
-#define DC1_INIT_UV     1200
-#define DC2_INIT_UV     3300
-#define DC3_INIT_UV     1800
-#define DC4_INIT_UV     3500
 #define LDO1_INIT_UV    2500
 #define LDO2_INIT_UV    3300
 #define LDO3_INIT_UV    3300
@@ -28,10 +20,6 @@
 #define LDO5_INIT_UV    3300
 /* ****************************PMU DC/LDO DEFAULT V END********************** */
 /* ****************************PMU DC/LDO SLP DEFAULT V********************** */
-#define DC1_INIT_SLP_UV     975
-#define DC2_INIT_SLP_UV     1200
-#define DC3_INIT_SLP_UV     1200
-#define DC4_INIT_SLP_UV     1800
 #define LDO1_INIT_SLP_UV    1800
 #define LDO2_INIT_SLP_UV    3300
 #define LDO3_INIT_SLP_UV    2800
@@ -39,10 +27,6 @@
 #define LDO5_INIT_SLP_UV    2500
 /* ****************************PMU DC/LDO SLP DEFAULT V END****************** */
 /* ****************************PMU DC/LDO ALWAYS ON************************** */
-#define DC1_ALWAYS_ON     1
-#define DC2_ALWAYS_ON     1
-#define DC3_ALWAYS_ON     1
-#define DC4_ALWAYS_ON     0
 #define LDO1_ALWAYS_ON    1
 #define LDO2_ALWAYS_ON    0
 #define LDO3_ALWAYS_ON    0
@@ -51,10 +35,6 @@
 /* ****************************PMU DC/LDO ALWAYS ON END********************** */
 
 /* ****************************PMU DC/LDO BOOT ON**************************** */
-#define DC1_BOOT_ON     1
-#define DC2_BOOT_ON     1
-#define DC3_BOOT_ON     1
-#define DC4_BOOT_ON     0
 #define LDO1_BOOT_ON    1
 #define LDO2_BOOT_ON    0
 #define LDO3_BOOT_ON    1
@@ -63,10 +43,6 @@
 /* ****************************PMU DC/LDO BOOT ON END************************ */
 
 /* ****************************PMU DC/LDO INIT ENABLE************************ */
-#define DC1_INIT_ENABLE     DC1_BOOT_ON
-#define DC2_INIT_ENABLE     DC2_BOOT_ON
-#define DC3_INIT_ENABLE     DC3_BOOT_ON
-#define DC4_INIT_ENABLE     DC4_BOOT_ON
 #define LDO1_INIT_ENABLE    LDO1_BOOT_ON
 #define LDO2_INIT_ENABLE    LDO2_BOOT_ON
 #define LDO3_INIT_ENABLE    LDO3_BOOT_ON
