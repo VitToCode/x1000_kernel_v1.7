@@ -675,14 +675,14 @@ void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 static int i2s_disable_channel(struct i2s_device *i2s_dev, int mode)
 {
 	struct codec_info * cur_codec = i2s_dev->cur_codec;
-	if (cur_codec) {
-			codec_ctrl(cur_codec, CODEC_TURN_OFF,mode);
-	}
 	if (mode & CODEC_WMODE) {
 		i2s_replay_zero_for_flush_codec(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_record(i2s_dev);
+	}
+	if (cur_codec) {
+		codec_ctrl(cur_codec, CODEC_TURN_OFF,mode);
 	}
 	return 0;
 }
@@ -722,10 +722,12 @@ static int i2s_dma_disable(struct i2s_device *i2s_dev, int mode)		//CHECK seq dm
 	if (mode & CODEC_WMODE) {
 		__i2s_disable_transmit_dma(i2s_dev);
 		__i2s_disable_replay(i2s_dev);
+		codec_ctrl(cur_codec, CODEC_DAC_MUTE,1);
 	}
 	if (mode & CODEC_RMODE) {
 		__i2s_disable_record(i2s_dev);
 		__i2s_disable_receive_dma(i2s_dev);
+		codec_ctrl(cur_codec, CODEC_ADC_MUTE,1);
 	}
 	return 0;
 }

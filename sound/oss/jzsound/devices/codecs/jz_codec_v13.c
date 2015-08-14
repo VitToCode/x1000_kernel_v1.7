@@ -848,14 +848,6 @@ static int codec_set_gain_dac(struct codec_info *codec_dev, int gain)
 	tmpval &= ~63;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACR,tmpval|tmp_gain);
 
-	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_DACL2);
-	tmpval &= ~63;
-	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACL2,tmpval|tmp_gain);
-
-	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_DACR2);
-	tmpval &= ~63;
-	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACR2,tmpval|tmp_gain);
-
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");
 	return gain;
 }
@@ -939,11 +931,16 @@ static int codec_set_replay_volume(struct codec_info *codec_dev, int *val);
 
 static void gpio_enable_spk_en(struct codec_info *codec_dev)
 {
+	int val = -1;
 	if(codec_platform_data && (codec_platform_data->gpio_spk_en.gpio != -1)) {
-		if (codec_platform_data->gpio_spk_en.active_level) {
-			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
-		} else {
-			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
+		val = gpio_get_value(codec_platform_data->gpio_spk_en.gpio);
+
+		if (val != codec_platform_data->gpio_spk_en.active_level){
+			if (codec_platform_data->gpio_spk_en.active_level) {
+				gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
+			} else {
+				gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
+			}
 		}
 	}
 }
@@ -953,13 +950,17 @@ static void gpio_disable_spk_en(struct codec_info *codec_dev)
 	int val = -1;
 	if(codec_platform_data && (codec_platform_data->gpio_spk_en.gpio != -1)) {
 		val = gpio_get_value(codec_platform_data->gpio_spk_en.gpio);
-		if (codec_platform_data->gpio_spk_en.active_level) {
-			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
-		} else {
-			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
+
+		if (val == codec_platform_data->gpio_spk_en.active_level){
+			if (codec_platform_data->gpio_spk_en.active_level) {
+				gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 0);
+			} else {
+				gpio_direction_output(codec_platform_data->gpio_spk_en.gpio , 1);
+			}
+			/* Wait for analog amplifier shutdown */
+			codec_sleep(codec_dev, 80);
 		}
 	}
-	return;
 }
 
 
@@ -968,6 +969,7 @@ static void gpio_disable_spk_en(struct codec_info *codec_dev)
 static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_route *broute)
 {
 	int i = 0;
+
 	if (broute == NULL)
 		return 0;
 
@@ -976,6 +978,10 @@ static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_
 	if (broute && ((cur_route == NULL) || (cur_route->route != broute->route))) {
 		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++) {
 			if (broute->route == codec_route_info[i].route_name) {
+                                /* Shutdown analog amplifier, just for anti pop */
+                                if (broute->gpio_spk_en_stat != KEEP_OR_IGNORE){
+					gpio_disable_spk_en(codec_dev);
+				}
 				/* set route */
 				codec_set_route_base(codec_dev, codec_route_info[i].route_conf);
 				break;
@@ -987,6 +993,11 @@ static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_
 		}
 	} else
 		printk("SET_ROUTE: waring: route not be setted!\n");
+
+        {
+                keep_old_route = cur_route;
+                cur_route = broute;
+        }
 
 	/* set gpio after set route */
 
@@ -1034,6 +1045,8 @@ static int codec_set_route(struct codec_info *codec_dev, enum snd_codec_route_t 
 
 	if (route == SND_ROUTE_ALL_CLEAR || route == SND_ROUTE_REPLAY_CLEAR) {
 		tmp_broute.gpio_spk_en_stat = STATE_DISABLE;
+	}else{
+		tmp_broute.gpio_spk_en_stat = KEEP_OR_IGNORE;
 	}
 
 	return codec_set_board_route(codec_dev, &tmp_broute);
@@ -1116,13 +1129,56 @@ static int codec_anti_pop_start(struct codec_info *codec_dev, int mode)
 /******** codec_suspend ************/
 static int codec_suspend(struct codec_info *codec_dev)
 {
-	g_codec_sleep_mode = 0;
+        int ret = 10;
+	int tmpval;
+
+        g_codec_sleep_mode = 0;
+
+        ret = codec_set_route(codec_dev, SND_ROUTE_ALL_CLEAR);
+        if(ret != SND_ROUTE_ALL_CLEAR)
+        {
+                printk("JZ CODEC: codec_suspend_part error!\n");
+                return 0;
+        }
+
+	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_VIC);
+	tmpval |= 0x2;
+	icdc_d3_hw_write(codec_dev,SCODA_REG_CR_VIC,tmpval);
+        codec_sleep(codec_dev, 10);
+
+	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_VIC);
+	tmpval |= 0x1;
+	icdc_d3_hw_write(codec_dev,SCODA_REG_CR_VIC,tmpval);
 	return 0;
 }
 
 static int codec_resume(struct codec_info *codec_dev)
 {
+	int ret,tmp_route = 0;
+	int tmpval;
+
 	g_codec_sleep_mode = 1;
+	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_VIC);
+	tmpval &= (~0x1);
+	icdc_d3_hw_write(codec_dev,SCODA_REG_CR_VIC,tmpval);
+
+	codec_sleep(codec_dev, 250);
+
+	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_VIC);
+	tmpval &= (~0x2);
+	icdc_d3_hw_write(codec_dev,SCODA_REG_CR_VIC,tmpval);
+	/*
+	 * codec_sleep(400);
+	 * this time we ignored becase other device resume waste time
+	 */
+	if (keep_old_route) {
+		tmp_route = keep_old_route->route;
+		ret = codec_set_board_route(codec_dev, keep_old_route);
+		if(ret != tmp_route) {
+			printk("JZ CODEC: codec_resume_part error!\n");
+			return 0;
+		}
+	}
 	return 0;
 }
 
@@ -1241,14 +1297,55 @@ static int codec_set_record_data_width(struct codec_info *codec_dev, int width)
 	return 0;
 }
 
+/*---------------------------------------*/
+/**
+ * CODEC set mute
+ *
+ * set dac mute used for anti pop
+ *
+ */
+static int codec_mute(struct codec_info *codec_dev, int val,int mode)
+{
+	int tmpval;
+	if (mode & CODEC_WMODE) {
+		if (val) {
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DAC);
+			tmpval |= 0x80;
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DAC,tmpval);
+		} else {
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DAC);
+			tmpval &= ~0x80;
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DAC,tmpval);
+		}
+	}
+	if (mode & CODEC_RMODE) {
+		if (val) {
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
+			tmpval |= 0x80;
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_ADC,tmpval);
+		} else {
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
+			tmpval &= ~0x80;
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_ADC,tmpval);
+		}
+	}
+	return 0;
+}
+
 static int codec_set_record_volume(struct codec_info *codec_dev, int *val)
 {
 	if (*val >100 || *val < 0) {
 		*val = user_record_volume;
-		printk("out of range [ 0 ~ 100 ]\n");
+		printk("Record volume out of range [ 0 ~ 100 ].\n");
 	}
 
-	*val = codec_set_gain_adc(codec_dev, *val);
+	codec_set_gain_adc(codec_dev, *val);
+
+        if (*val == 0)
+                codec_mute(codec_dev, 1, (int)CODEC_RMODE);
+        else
+                codec_mute(codec_dev, 0, (int)CODEC_RMODE);
+
 	user_record_volume = *val;
 	return *val;
 }
@@ -1320,9 +1417,15 @@ static int codec_set_replay_volume(struct codec_info *codec_dev, int *val)
 {
 	if (*val >100 || *val < 0) {
 		*val = user_replay_volume;
-		printk("out of range [ 0 ~ 100 ]\n");
+		printk("Replay volume out of range [ 0 ~ 100 ].\n");
 	}
-	*val = codec_set_gain_dac(codec_dev, *val);
+
+	codec_set_gain_dac(codec_dev, *val);
+	if (*val == 0)
+		codec_mute(codec_dev, 1, (int)CODEC_WMODE);
+	else
+		codec_mute(codec_dev, 0, (int)CODEC_WMODE);
+
 	user_replay_volume = *val;
 
 	return *val;
@@ -1332,40 +1435,6 @@ static int codec_set_replay_channel(struct codec_info *codec_dev, int* channel)
 {
 	if (*channel != 1)
 		*channel = 2;
-	return 0;
-}
-/*---------------------------------------*/
-/**
- * CODEC set mute
- *
- * set dac mute used for anti pop
- *
- */
-static int codec_mute(struct codec_info *codec_dev, int val,int mode)
-{
-	int tmpval;
-	if (mode & CODEC_WMODE) {
-		if (val) {
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DAC);
-			tmpval |= 0x80;
-			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DAC,tmpval);
-		} else {
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DAC);
-			tmpval &= ~0x80;
-			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DAC,tmpval);
-		}
-	}
-	if (mode & CODEC_RMODE) {
-		if (val) {
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
-			tmpval |= 0x80;
-			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_ADC,tmpval);
-		} else {
-			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
-			tmpval &= ~0x80;
-			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_ADC,tmpval);
-		}
-	}
 	return 0;
 }
 
