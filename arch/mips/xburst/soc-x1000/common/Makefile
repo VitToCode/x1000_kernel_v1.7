@@ -20,12 +20,9 @@ obj-y += irq.o
 obj-y += cpm_usb.o
 
 obj-y += platform.o
+obj-y += regs_save_restore.o
 
-ifeq ($(CONFIG_PM_POWERDOWN_P0),y)
 obj-y += pm_p0.o
-else
-obj-y += pm.o
-endif
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 

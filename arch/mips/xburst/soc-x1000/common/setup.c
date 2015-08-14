@@ -30,14 +30,20 @@ void __init cpm_reset(void)
 	unsigned int cpm_clkgr;
 
 	cpm_clkgr = cpm_inl(CPM_CLKGR);
-	cpm_clkgr |= 0x47da3fff;
-	cpm_clkgr = 0;
-	/* cpm_clkgr &= (~(1 << 21)); */
+	cpm_clkgr |= 0x07defffe;
+	/* default open pdma clk gate */
+	cpm_clkgr &= ~(1 << 21);
+	/* default open tcu clk gate */
+	cpm_clkgr &= ~(1 << 18);
+#ifdef CONFIG_TIMER_SYS_OST
+	cpm_clkgr &= ~(1 << 20);
+#endif
 	cpm_outl(cpm_clkgr, CPM_CLKGR);
 
-        /* warn:when switch cpu freq ,the 23(sclka mux) bit should be set */
-        /* cpm_set_bit(23,CPM_CPCCR); */
-	mdelay(1);
+	cpm_outl(0,CPM_PSWC0ST);
+	cpm_outl(16,CPM_PSWC1ST);
+	cpm_outl(24,CPM_PSWC2ST);
+	cpm_outl(8,CPM_PSWC3ST);
 }
 
 int __init setup_init(void)
