@@ -45,6 +45,10 @@
 #define RICOH619_GPIO_BASE  	PLATFORM_RICOH_GPIO_BASE
 #define RICOH619_GPIO_IRQ   	(RICOH619_GPIO_BASE + 8)
 
+static struct regulator_consumer_supply ricoh619_dc4_supply_0[] = {
+	REGULATOR_SUPPLY(DC4_NAME, NULL),
+};
+
 static struct regulator_consumer_supply ricoh619_ldo1_supply_0[] = {
 	REGULATOR_SUPPLY(LDO1_NAME, NULL),
 };
@@ -102,6 +106,8 @@ static struct regulator_consumer_supply ricoh619_ldo5_supply_0[] = {
   to RC5T619 specification. */
 /*_name,_sname,_minmv,_maxmv,_supply_reg,_always_on,_boot_on,_apply_uv,_init_uV,_init_enable,_init_apply,
  * _flags,_ext_contol,_ds_slots) */
+RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, DC4_ALWAYS_ON, DC4_BOOT_ON, 1,
+		 DC4_INIT_UV, DC4_INIT_SLP_UV, DC4_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo1, 0,	900,   2500, 0, LDO1_ALWAYS_ON, LDO1_BOOT_ON, 1,
 		 LDO1_INIT_UV, LDO1_INIT_SLP_UV, LDO1_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo2, 0,	900,   3300, 0, LDO2_ALWAYS_ON, LDO2_BOOT_ON, 1,
@@ -178,6 +184,7 @@ static struct ricoh619_pwrkey_platform_data ricoh619_pwrkey_data = {
 */
 
 #define RICOH619_DEV_REG 		\
+	RICOH_REG(DC4, dc4, 0),		\
 	RICOH_REG(LDO1, ldo1, 0),	\
 	RICOH_REG(LDO2, ldo2, 0),	\
 	RICOH_REG(LDO3, ldo3, 0),	\

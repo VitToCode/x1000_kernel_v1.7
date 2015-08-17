@@ -1025,6 +1025,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	}
 
 	clk_enable(flash->clk);
+	clk_enable(flash->clk_gate);
 
 	platform_set_drvdata(pdev, flash);
 	init_completion(&flash->done);
