@@ -105,6 +105,7 @@ int bcm_wlan_power_on(int flag)
 	return -ENODEV;
 start:
 	pr_debug("wlan power on:%d\n", flag);
+	wake_lock(wifi_wake_lock);
 	rtc32k_enable();
 
 	switch(flag) {
@@ -130,7 +131,7 @@ start:
 
 			break;
 	}
-	wake_lock(wifi_wake_lock);
+	wake_unlock(wifi_wake_lock);
 	return 0;
 }
 
