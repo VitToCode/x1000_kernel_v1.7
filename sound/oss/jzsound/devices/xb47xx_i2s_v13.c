@@ -1298,7 +1298,7 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 
 
 
-//	clk_enable(i2s_dev->aic_clk);
+	clk_enable(i2s_dev->aic_clk);
 	__i2s_disable(i2s_dev);
 	schedule_timeout(5);
 	__i2s_disable(i2s_dev);
@@ -1440,7 +1440,7 @@ static int i2s_suspend(struct platform_device *pdev, pm_message_t state)
 		codec_ctrl(cur_codec, CODEC_SUSPEND,0);
 	__i2s_disable(i2s_dev);
 	if(clk_is_enabled(i2s_dev->aic_clk)) {
-		//clk_disable(i2s_dev->aic_clk);
+		clk_disable(i2s_dev->aic_clk);
 	}
 	flush_work_sync(&i2s_dev->i2s_work);
 	return 0;
@@ -1452,7 +1452,7 @@ static int i2s_resume(struct platform_device *pdev)
 	struct i2s_device *i2s_dev = i2s_get_private_data(tmp_ddata);
 
 	if(!clk_is_enabled(i2s_dev->aic_clk)) {
-		//clk_enable(i2s_dev->aic_clk);
+		clk_enable(i2s_dev->aic_clk);
 	}
 	__i2s_enable(i2s_dev);
 
