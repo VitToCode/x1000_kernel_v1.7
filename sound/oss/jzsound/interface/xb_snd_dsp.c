@@ -677,7 +677,6 @@ static void snd_dma_callback(void *arg)
 		snd_start_dma_transfer(dp ,dp->dma_config.direction);
 	} else {
 		dp->is_trans = false;
-
 		if (dp->pddata && dp->pddata->dev_ioctl) {
 			if (dp->dma_config.direction == DMA_FROM_DEVICE) {
 				dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX,0);
@@ -2964,6 +2963,7 @@ error1:
 }
 int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 {
+#if 0
 	if (ddata){
 		struct dsp_endpoints * endpoints = NULL;
 		bool out_trans = false;
@@ -2987,6 +2987,7 @@ int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 		if(out_trans || in_trans)
 			return -1;
 	}
+#endif
 	return 0;
 }
 int xb_snd_dsp_resume(struct snd_dev_data *ddata)

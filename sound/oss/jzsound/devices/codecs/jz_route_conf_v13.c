@@ -59,6 +59,7 @@ route_conf_base const replay_sound_mixer_loopback = {
 
 	.route_replay_mixer_mode = REPLAY_MIXER_L_0_R_MIX_INPUT,
 
+	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = MIC_ENABLE,
@@ -72,6 +73,7 @@ route_conf_base const amic_record_mix_replay_loopback = {
 
 	.route_replay_mixer_mode = REPLAY_MIXER_L_0_R_MIX_INPUT,
 
+	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = MIC_ENABLE,
@@ -92,13 +94,13 @@ route_conf_base const route_all_clear_conf = {
 
 route_conf_base const route_replay_clear_conf = {
 	//.route_ready_mode = ROUTE_READY_FOR_DAC,
-	.route_output_mode = OUTPUT_FROM_DAC_DISABLE,
+	//.route_output_mode = OUTPUT_FROM_DAC_DISABLE, //delete this line just for the mixer loopback route above
 	.route_dac_mode = DAC_DISABLE,
 };
 
 route_conf_base const route_record_clear_conf = {
 	//.route_ready_mode = ROUTE_READY_FOR_ADC,
-	.route_input_mode = INPUT_TO_ADC_DISABLE,
+	//.route_input_mode = INPUT_TO_ADC_DISABLE,     //delete this line just for the mixer loopback route above
 	.route_adc_mode = ADC_DISABLE,
 	.route_mic_mode = MIC_DISABLE,
 };

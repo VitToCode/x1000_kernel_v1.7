@@ -99,7 +99,6 @@ static ssize_t xb_snd_write(struct file *file, const char __user * buffer,
 	ssize_t ret = -EIO;
 	int dev = iminor(file->f_path.dentry->d_inode);
 	struct snd_dev_data *ddata = get_ddata_by_minor(dev);
-
 	ENTER_FUNC();
 	if (ddata->is_suspend)
 		return -EIO;
@@ -297,7 +296,7 @@ static int xb_snd_resume(struct platform_device *pdev)
 	if(ret)
 		return ret;
 	if((ddata->minor & 0x0f) == SND_DEV_DSP)
-		ret = xb_snd_dsp_suspend(ddata);
+		ret = xb_snd_dsp_resume(ddata);
 	LEAVE_FUNC();
 	return ret;
 }
