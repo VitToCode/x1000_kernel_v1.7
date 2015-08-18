@@ -33,6 +33,11 @@
 #define GPIO_SPI_MISO GPIO_PA(28)
 #endif
 
+/* ****************************GPIO KEY START******************************** */
+#define GPIO_POWERDOWN 		GPIO_PB(31)
+#define ACTIVE_LOW_POWERDOWN 	1
+/* ****************************GPIO KEY END******************************** */
+
 /* ****************************GPIO USB START******************************** */
 #define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE

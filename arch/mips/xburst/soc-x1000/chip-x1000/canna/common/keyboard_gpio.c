@@ -1,6 +1,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/input.h>
+#include <mach/jzgpio_keys.h>
 #include <linux/input/matrix_keypad.h>
 #include "board_base.h"
 
@@ -20,7 +21,7 @@ static uint32_t canna_keymap[] =
 	//KEY(row, col, keycode)
 	KEY(0,0, KEY_MODE),		/* AP/STA */
 	KEY(0,1, KEY_F1),		/* AIRKISS */
-	KEY(0,2, KEY_POWER),
+	KEY(0,2, KEY_WAKEUP),
 	KEY(1,0, KEY_VOLUMEDOWN),
 	KEY(1,1, KEY_VOLUMEUP),
 	KEY(1,2, KEY_PLAYPAUSE),
@@ -59,3 +60,35 @@ struct platform_device jz_matrix_kdb_device = {
 		.platform_data  = &canna_keypad_data,
 	}
 };
+
+#ifdef CONFIG_KEYBOARD_JZGPIO
+static struct jz_gpio_keys_button board_longbuttons[] = {
+#ifdef GPIO_POWERDOWN
+        {
+                .gpio                           = GPIO_POWERDOWN,
+                .code = {
+                        .shortpress_code        = KEY_POWER,
+                        .longpress_code         = KEY_POWER,
+                },
+                .desc                           = "power down",
+                .active_low                     = ACTIVE_LOW_POWERDOWN,
+                .longpress_interval             = 0,
+                .debounce_interval              = 2,
+        },
+#endif
+};
+
+static struct jz_gpio_keys_platform_data board_longbutton_data = {
+        .buttons        = board_longbuttons,
+        .nbuttons       = ARRAY_SIZE(board_longbuttons),
+};
+
+struct platform_device jz_longbutton_device = {
+        .name           = "jz-gpio-keys",
+        .id             = -1,
+        .num_resources  = 0,
+        .dev            = {
+                .platform_data  = &board_longbutton_data,
+        }
+};
+#endif /* CONFIG_KEYBOARD_JZGPIO */

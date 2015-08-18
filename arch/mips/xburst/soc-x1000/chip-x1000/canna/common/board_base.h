@@ -64,4 +64,8 @@ extern struct platform_device jz_matrix_kdb_device;
 #ifdef CONFIG_LEDS_GPIO
 extern struct platform_device jz_leds_gpio;
 #endif
+
+#ifdef CONFIG_KEYBOARD_JZGPIO
+extern struct platform_device jz_longbutton_device;
+#endif
 #endif

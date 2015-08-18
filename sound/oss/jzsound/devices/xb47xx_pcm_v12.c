@@ -854,7 +854,7 @@ __err_ioremap:
 
 static void pcm_shutdown(struct platform_device *pdev)
 {
-	free_irq(pcm_priv->irq,NULL);
+	free_irq(pcm_priv->irq, &pdev->dev);
 	return;
 }
 
