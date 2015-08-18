@@ -14,6 +14,9 @@
 #include <mach/jzsnd.h>
 #include "../devices/xb47xx_i2s_v12.h"
 
+#define DEFAULT_REPLAY_VOLUME 30
+#define DEFAULT_RECORD_VOLUME 30
+
 /**
  * functions interface
  **/

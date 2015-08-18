@@ -24,9 +24,6 @@ static struct xb_mixer_data {
 	int line_volume;
 	int mic_volume;
 	int replay_volume;
-	int record_volume;
-	int igain_volume;
-	int ogain_volume;
 	int line1_volume;
 	int line2_volume;
 	int line3_volume;
@@ -391,7 +388,6 @@ long xb_snd_mixer_ioctl(struct file *file,
 			return ret;
 		ret = put_user(vol, (int *)arg);
 		mixer_data.main_volume = vol;
-		mixer_data.ogain_volume = vol;
 		mixer_data.speaker_volume = vol;
 		mixer_data.replay_volume = vol;
 		break;
@@ -570,18 +566,33 @@ int xb_snd_mixer_release(struct inode *inode,
 \********************************************************/
 int xb_snd_mixer_probe(struct snd_dev_data *ddata)
 {
+	/* Set default system replay and record volume.
+	 * In xxx_codec.c, there has default gain base set follow the sound.c.
+	 * But here is a final volume when system power on.
+	 */
+	int vol = 0;
+	int ret = 0;
+	if (ddata->dev_ioctl) {
+		vol = DEFAULT_RECORD_VOLUME;
+		ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL, (unsigned long)&vol);
+		if (ret < 0){
+			vol = 0;
+		}
+		mixer_data.line_volume = vol;
+		mixer_data.line1_volume = vol;
+		mixer_data.line2_volume = vol;
+		mixer_data.line3_volume = vol;
+		mixer_data.mic_volume = vol;
 
-	mixer_data.main_volume		= 0;
-	mixer_data.speaker_volume	= 0;
-	mixer_data.line_volume		= 0;
-	mixer_data.mic_volume		= 0;
-	mixer_data.replay_volume	= 0;
-	mixer_data.record_volume	= 0;
-	mixer_data.igain_volume		= 0;
-	mixer_data.ogain_volume		= 0;
-	mixer_data.line1_volume		= 0;
-	mixer_data.line2_volume		= 0;
-	mixer_data.line3_volume		= 0;
+		vol = DEFAULT_REPLAY_VOLUME;
+		ret = (int)ddata->dev_ioctl(SND_DSP_SET_REPLAY_VOL, (unsigned long)&vol);
+		if (ret < 0){
+			vol = 0;
+		}
+		mixer_data.main_volume = vol;
+		mixer_data.speaker_volume = vol;
+		mixer_data.replay_volume = vol;
+	}
 
 	return 0;
 }
