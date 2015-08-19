@@ -70,9 +70,10 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
                         .shortpress_code        = KEY_POWER,
                         .longpress_code         = KEY_POWER,
                 },
-                .desc                           = "power down",
+                .desc                           = "power down & wakeup",
                 .active_low                     = ACTIVE_LOW_POWERDOWN,
                 .longpress_interval             = 0,
+		.wakeup                         = 1,
                 .debounce_interval              = 2,
         },
 #endif
