@@ -1437,7 +1437,24 @@ static int jzfb_set_par(struct fb_info *info)
 
 	return 0;
 }
+static inline uint32_t convert_color_to_hw(unsigned val, struct fb_bitfield *bf)
+{
+	return (((val << bf->length) + 0x7FFF - val) >> 16) << bf->offset;
+}
+static int jzfb_setcolreg(unsigned regno, unsigned red, unsigned green,
+	unsigned blue, unsigned transp, struct fb_info *fb)
+{
+	if (regno >= 16)
+		return -EINVAL;
 
+	((uint32_t *)(fb->pseudo_palette))[regno] =
+		convert_color_to_hw(red, &fb->var.red) |
+		convert_color_to_hw(green, &fb->var.green) |
+		convert_color_to_hw(blue, &fb->var.blue) |
+		convert_color_to_hw(transp, &fb->var.transp);
+
+	return 0;
+}
 static int jzfb_blank(int blank_mode, struct fb_info *info)
 {
 	int count = 10000;
@@ -2916,6 +2933,7 @@ static struct fb_ops jzfb_ops = {
 	.fb_release = jzfb_release,
 	.fb_check_var = jzfb_check_var,
 	.fb_set_par = jzfb_set_par,
+	.fb_setcolreg = jzfb_setcolreg,
 	.fb_blank = jzfb_blank,
 	.fb_pan_display = jzfb_pan_display,
 	.fb_fillrect = cfb_fillrect,
