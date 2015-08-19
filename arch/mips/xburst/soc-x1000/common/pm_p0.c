@@ -276,8 +276,9 @@ static noinline void cpu_sleep(void)
 	config_powerdown_core((unsigned int *)SLEEP_TCSM_BOOT_TEXT);
 	REG32(SLEEP_TCSM_RESUME_DATA + 24) = cpm_inl(CPM_CPCCR);
 
+#ifdef CONFIG_SUSPEND_TEST
 	config_tcu2_alarm();
-
+#endif
 	printk("icmr0 = %x\n",REG32(0xb0001004));
 	printk("icmr1 = %x\n",REG32(0xb0001024));
 	printk("icpr0 = %x\n",REG32(0xb0001010));
