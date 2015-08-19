@@ -276,8 +276,8 @@ static inline int icdc_d3_hw_write_normal(struct codec_info *icdc_d3, int reg, i
 	icdc_d3_mapped_reg_set((mapped_base + AIC_RGADW), SCODA_RGWR_MASK , 1 << SCODA_RGWR_BIT);
 	spin_unlock_irqrestore(&i2s_dev->i2s_lock, flags);
 	ret = icdc_d3_hw_read_normal(icdc_d3, reg);
-	if (data != ret){
-		printk("icdc write reg %x err exp %x now is %x\n",reg,data,ret);
+	if ((data != ret) && (reg != 0x11)){     //0x11 register is special, cannot follow this rule.
+		printk("codec write reg %x err, exp %x now is %x\n",reg,data,ret);
 		ret = -1;
 	}
 	return ret;

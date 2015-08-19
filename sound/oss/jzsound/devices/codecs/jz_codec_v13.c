@@ -1384,11 +1384,13 @@ static int codec_set_replay_rate(struct codec_info *codec_dev, unsigned long *ra
 	for (val = 0; val < 13; val++) {
 		if (*rate <= mrate[val]) {
 			speed = val;
+			*rate = mrate[val];
 			break;
 		}
 	}
 	if (*rate > mrate[13 - 1]) {
 		speed = 13 - 1;
+		*rate = mrate[13 - 1];
 	}
 
 	val = icdc_d3_hw_read(codec_dev,SCODA_REG_FCR_DAC);
