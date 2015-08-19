@@ -39,6 +39,7 @@
 #include <asm/r4kcache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <soc/tcu.h>
 #include <soc/gpio.h>
 #include <soc/ddr.h>
 #include <tcsm.h>
@@ -94,6 +95,17 @@ static inline void serial_put_hex(unsigned int x) {
 	/* TCSM_PCHAR('\r'); */
 	/* TCSM_PCHAR('\n'); */
 }
+static inline void set_gpio_func(int gpio, int type) {
+	int i;
+	int port = gpio / 32;
+	int pin = gpio & 0x1f;
+	int addr = 0xb0010010 + port * 0x100;
+
+	for(i = 0;i < 4;i++){
+		REG32(addr + 0x10 * i) &= ~(1 << pin);
+		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin);
+	}
+}
 #define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
 static inline void local_flush_tlb_all(void)
 {
@@ -126,12 +138,63 @@ static inline void config_powerdown_core(unsigned int *resume_pc)
 	cpm_outl(1,CPM_SLBC);
 	/* Clear previous reset status */
 	cpm_outl(0,CPM_RSR);
-
-	// set resume pc
+	/* set resume pc */
 	cpm_outl((unsigned int)resume_pc,CPM_SLPC);
 }
+#ifdef CONFIG_SUSPEND_TEST
+#define INTC_BASE       (0xb0001000)
+#define TCU_BASE       (0xb0002000)
+#define IMSR0_OFF	(0x08)
+#define IMCR0_OFF	(0x0c)
+#define ICPR0_OFF	(0x10)
 
+#define CLKEVENT_CH 2
+static inline void write_tcu(unsigned int off, unsigned int val,
+			     unsigned int result_reg, unsigned int result)
+{
+	REG32(TCU_BASE + off) = val;
+	if(result_reg) {
+		if(!result)
+			while((REG32(TCU_BASE + result_reg) & val));
+		else
+			while(!(REG32(TCU_BASE + result_reg) & val));
+	} else {
+		while((REG32(TCU_BASE + off) & val) != val);
+	}
+}
+static inline void config_tcu2_alarm(void)
+{
+	unsigned int val;
 
+	val = REG32(INTC_BASE + IMCR0_OFF);
+	val |= (1  << 25);
+	REG32(INTC_BASE + IMCR0_OFF) = val;
+
+	val = 1 << CLKEVENT_CH;
+	write_tcu(TCU_TECR, val, TCU_TER, 0);
+
+	val = REG32(TCU_BASE + CH_TCSR(CLKEVENT_CH));
+	val &= ~(CSR_DIV_MSK | CSR_CLK_MSK);
+	val |= CSR_DIV1024 | CSR_RTC_EN;// | (1TCSR_CNT_CLRZ;
+	write_tcu(CH_TCSR(CLKEVENT_CH), val, 0, 0);
+
+	val = 1 << CLKEVENT_CH;
+	write_tcu(TCU_TMCR, val, TCU_TMR, 0);
+
+	val = 1 << (CLKEVENT_CH + 16);
+	write_tcu(TCU_TMSR, val, TCU_TMR, 1);
+
+	val = 0;
+	write_tcu(CH_TDHR(CLKEVENT_CH), val, 0, 0);
+
+	val = REG32(TCU_BASE + CH_TCNT(CLKEVENT_CH));
+	val += 0xff;
+	write_tcu(CH_TDFR(CLKEVENT_CH), val, 0, 0);
+
+	val = 1 << CLKEVENT_CH;
+	write_tcu(TCU_TESR, val, TCU_TER, 1);
+}
+#endif
 /**
  *      |-------------|     <--- SLEEP_TCSM_BOOTCODE_TEXT
  *      | BOOT CODE   |
@@ -211,13 +274,20 @@ static noinline void cpu_sleep(void)
 	memcpy(ddr_training_space,(void*)0x80000000,20 * 4);
 #endif
 	config_powerdown_core((unsigned int *)SLEEP_TCSM_BOOT_TEXT);
-	REG32(SLEEP_TCSM_RESUME_DATA + 24) = REG32(0xb0000000);
+	REG32(SLEEP_TCSM_RESUME_DATA + 24) = cpm_inl(CPM_CPCCR);
 
+	config_tcu2_alarm();
+
+	printk("icmr0 = %x\n",REG32(0xb0001004));
+	printk("icmr1 = %x\n",REG32(0xb0001024));
+	printk("icpr0 = %x\n",REG32(0xb0001010));
+	printk("icpr1 = %x\n",REG32(0xb0001030));
 	printk("opcr = %x\n",cpm_inl(CPM_OPCR));
 	printk("lcr = %x\n",cpm_inl(CPM_LCR));
 	printk("slpc = %x\n",cpm_inl(CPM_SLPC));
 	printk("slbc = %x\n",cpm_inl(CPM_SLBC));
 	printk("clkgate = %x\n",cpm_inl(CPM_CLKGR));
+	printk("tcunt = %x\n",REG32(0xb0002068));
 
 	cache_prefetch(LABLE1,1024);
 LABLE1:
@@ -276,12 +346,24 @@ static noinline void cpu_resume_boot(void)
 static noinline void cpu_resume(void)
 {
 	register unsigned int val;
+
+	TCSM_PCHAR('B');
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
 	val |= (1 << 22);
 	REG32(0xb0000000) = val;
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
+#ifdef CONFIG_SUSPEND_TEST
+	/* clear tcu2 flag */
+	val = 1 << 2;
+	write_tcu(TCU_TFCR, val, TCU_TFR, 0);
+	/* intc mask tcu2 and clear pending */
+	REG32(INTC_BASE + ICPR0_OFF) &= ~(1  << 25);
+	val = REG32(INTC_BASE + IMSR0_OFF);
+	val |= (1  << 25);
+	REG32(INTC_BASE + IMSR0_OFF) = val;
+#endif
 #ifdef DDR_TRAINING
 	*(volatile unsigned *) 0xb00000d0 = 0x73; //reset the DLL in DDR PHY
 	TCSM_DELAY(0x1ff);
@@ -360,38 +442,20 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 		tcsm_addr[i] = instr;
 	}
 }
-
-static inline void set_gpio_func(int gpio, int type) {
-	int i;
-	int port = gpio / 32;
-	int pin = gpio & 0x1f;
-	int addr = 0xb0010010 + port * 0x100;
-
-	for(i = 0;i < 4;i++){
-		REG32(addr + 0x10 * i) &= ~(1 << pin);
-		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin);
-	}
-}
 static int x1000_pm_enter(suspend_state_t state)
 {
 	volatile unsigned int lcr,opcr,bypassmode;
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	printk("\nddr mode  = %d\n",bypassmode);
-
-	printk("0xb0010110  = %x\n", REG32(0xb0010110));
-	printk("0xb0010120  = %x\n", REG32(0xb0010120));
-	printk("0xb0010130  = %x\n", REG32(0xb0010130));
-	printk("0xb0010140  = %X\n", REG32(0xb0010140));
 #ifdef DDR_TEST
 	test_ddr_data_init();
 #endif
-	set_gpio_func(32*1+31, 10);
-	*(volatile unsigned int*)(SLEEP_TCSM_RESUME_DATA + 8) =  cpm_inl(CPM_LCR);
-	*(volatile unsigned int*)(SLEEP_TCSM_RESUME_DATA + 12) =  cpm_inl(CPM_OPCR);
+	REG32(SLEEP_TCSM_RESUME_DATA + 8) =  cpm_inl(CPM_LCR);
+	REG32(SLEEP_TCSM_RESUME_DATA + 12) =  cpm_inl(CPM_OPCR);
 
 	lcr = cpm_inl(CPM_LCR);
 	lcr &= ~(3|(0xfff<<8));
-	lcr |= 0xff << 8;	/* power stable time */
+	lcr |= 0xfff << 8;	/* power stable time */
 	lcr |= LCR_LPM_SLEEP;
 	cpm_outl(lcr,CPM_LCR);
 
@@ -413,8 +477,12 @@ static int x1000_pm_enter(suspend_state_t state)
 	__jz_flush_cache_all();
 	local_flush_tlb_all();
 
-	cpm_outl(*(volatile unsigned int*)(SLEEP_TCSM_RESUME_DATA + 8),CPM_LCR);
-	cpm_outl(*(volatile unsigned int*)(SLEEP_TCSM_RESUME_DATA + 12),CPM_OPCR);
+	cpm_outl(REG32(SLEEP_TCSM_RESUME_DATA + 8),CPM_LCR);
+	cpm_outl(REG32(SLEEP_TCSM_RESUME_DATA + 12),CPM_OPCR);
+
+	printk("TCUCNT = %x\n", REG32(0xb0002068));
+	printk("icpr0 = %x\n",REG32(0xb0001010));
+	printk("icpr1 = %x\n",REG32(0xb0001030));
 
 	return 0;
 }

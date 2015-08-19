@@ -474,9 +474,9 @@ static int gpio_set_type(struct irq_data *data, unsigned int flow_type)
 		case IRQ_TYPE_EDGE_FALLING:	func = GPIO_INT_FE;	break;
 		case IRQ_TYPE_EDGE_BOTH:
 						if (gpio_pin_level(jz, pin))
-							func = GPIO_INT_LO;
+							func = GPIO_INT_FE;
 						else
-							func = GPIO_INT_HI;
+							func = GPIO_INT_RE;
 						break;
 		default:
 						return -EINVAL;
@@ -758,7 +758,7 @@ int __init gpio_ss_check(void)
 		jz_gpio_chips[i].sleep_state.pxpat1 = default_type & 0x2 ? 0xffffffff : 0;
 		jz_gpio_chips[i].sleep_state.pxpat0 = default_type & 0x1 ? 0xffffffff : 0;
 		jz_gpio_chips[i].sleep_state.pxignore = 0;
-//		jz_gpio_chips[i].sleep_state.pxignore = 0xffffffff;
+		/* jz_gpio_chips[i].sleep_state.pxignore = 0xffffffff; */
 	}
 
 	for(i = 0; gpio_ss_table[i][1] != GSS_TABLET_END;i++) {
