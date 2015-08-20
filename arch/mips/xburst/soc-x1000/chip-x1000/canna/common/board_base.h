@@ -68,4 +68,17 @@ extern struct platform_device jz_leds_gpio;
 #ifdef CONFIG_KEYBOARD_JZGPIO
 extern struct platform_device jz_longbutton_device;
 #endif
+
+/* JZ LCD driver */
+#ifdef CONFIG_BACKLIGHT_PWM
+extern struct platform_device backlight_device;
+#endif
+#ifdef CONFIG_FB_JZ_V13
+extern struct jzfb_platform_data jzfb_pdata;
+#endif
+#ifdef CONFIG_LCD_XRM2002903
+extern struct platform_device xrm2002903_device;
+#endif
+/* end of LCD driver */
+
 #endif

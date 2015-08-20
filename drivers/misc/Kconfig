@@ -609,6 +609,10 @@ config JZ_PWM_BIT0
 	bool "GPIO Port C pwm0"
 	depends on JZ_PWM
 	default y
+config JZ_PWM_BIT4
+	bool "GPIO Port C pwm4"
+	depends on JZ_PWM
+	default y
 config JZ_PWM_GPIO_E0
 	bool "GPIO Port E pwm0"
 	depends on JZ_PWM

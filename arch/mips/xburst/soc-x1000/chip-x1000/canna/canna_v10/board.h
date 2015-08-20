@@ -70,6 +70,16 @@
 #define HOOK_ACTIVE_LEVEL       -1
 /* ****************************GPIO AUDIO END******************************** */
 
+/* ****************************GPIO LCD START****************************** */
+#ifdef  CONFIG_LCD_XRM2002903
+#define GPIO_LCD_RD     GPIO_PB(16)
+#define GPIO_LCD_CS     GPIO_PB(18)
+#define GPIO_LCD_RST    GPIO_PD(5)
+//#define GPIO_BL_PWR_EN  GPIO_PC(24)
+#define GPIO_LCD_PWM    GPIO_PC(24)
+#endif
+/* ****************************GPIO LCD END******************************** */
+
 #define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
 
 #endif /* __BOARD_H__ */

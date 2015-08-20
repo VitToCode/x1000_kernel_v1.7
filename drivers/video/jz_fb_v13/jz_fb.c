@@ -491,14 +491,13 @@ static int jzfb_prepare_dma_desc(struct fb_info *info)
 		reg_write(jzfb, LCDC_DA0, jzfb->framedesc[0]->next);
 	} else {
 		//reg_write(jzfb, LCDC_DA0, (unsigned int)virt_to_phys((void *)
-	//	reg_write(jzfb, LCDC_DA0, 0x20006666);
+		//	reg_write(jzfb, LCDC_DA0, 0x20006666);
 		//reg_write(jzfb, LCDC_DA0, (unsigned int)virt_to_phys((void *)jzfb->framedesc[2]));
         val = (unsigned int)jzfb->framedesc[2] - 0xa0000000;
-
 		reg_write(jzfb, LCDC_DA0, val);
 	}
-//	jzfb_config_fg1_dma(info, display_size);
-    	kzfree(framedesc[0]);
+	//jzfb_config_fg1_dma(info, display_size);
+	kzfree(framedesc[0]);
 	kzfree(display_size);
 
 	return 0;
@@ -580,7 +579,15 @@ static void slcd_send_mcu_data(struct jzfb *jzfb, unsigned long data)
 	if (count < 0) {
 		dev_err(jzfb->dev, "SLCDC wait busy state wrong");
 	}
-
+#ifdef CONFIG_LCD_XRM2002903
+	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | (data & 0xff00) >> 8);
+	while ((reg_read(jzfb, SLCDC_STATE) & SLCDC_STATE_BUSY) && count--) {
+		udelay(10);
+	}
+	if (count < 0) {
+		dev_err(jzfb->dev, "SLCDC wait busy state wrong");
+	}
+#endif
 	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | data);
 }
 
@@ -636,11 +643,8 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 				dev_err(jzfb->dev,
 					"SLCDC wait busy state wrong");
 			}
-
 		}
-
 	}
-
 	if(pdata->bpp / pdata->smart_config.bus_width != 1 ) {
 		int tmp = reg_read(jzfb, SLCDC_CFG_NEW);
 		tmp &= ~(SMART_LCD_DWIDTH_MASK); //mask the 8~9bit
@@ -652,6 +656,10 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	reg_write(jzfb,SLCDC_CFG,reg_read(jzfb, SLCDC_CFG) & ~(0x01<<8));
 	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) | (0x01<<13));
 #endif
+#ifdef CONFIG_LCD_XRM2002903
+	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) & (0x0<<8));
+	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) | (0x01<<9));
+#endif
 #ifdef CONFIG_FB_JZ_DEBUG
 	/*for register mode test,
 	 * you can write test code according to the lcd panel
@@ -662,7 +670,6 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	if (!is_lcd_en) {
 		jzfb_disable(info);
 	}
-
 }
 
 void jzfb_clk_enable(struct jzfb *jzfb)
@@ -833,11 +840,11 @@ static int jzfb_set_par(struct fb_info *info)
 		}
 
 		if (pdata->smart_config.clkply_active_rising)
-			smart_cfg |= SLCDC_CFG_CLK_ACTIVE_RISING;
+			smart_new_cfg |= SLCDC_NEW_CFG_CLK_ACTIVE_RISING;
 		if (pdata->smart_config.rsply_cmd_high)
-			smart_cfg |= SLCDC_CFG_RS_CMD_HIGH;
+			smart_new_cfg |= SLCDC_NEW_CFG_RS_CMD_HIGH;
 		if (pdata->smart_config.csply_active_high)
-			smart_cfg |= SLCDC_CFG_CS_ACTIVE_HIGH;
+			smart_new_cfg |= SLCDC_NEW_CFG_CS_LOW_IDLE;
 
 		smart_ctrl = SLCDC_CTRL_DMA_MODE;
 		//smart_ctrl |= SLCDC_CTRL_GATE_MASK; //for saving power
@@ -2343,13 +2350,8 @@ void test_pattern(struct jzfb *jzfb)
 {
 	int count = 5;
 	int next_frm = 0;
-//	dump_lcdc_registers(jzfb);
 	jzfb_set_par(jzfb->fb);
-//	dump_lcdc_registers(jzfb);
-	jzfb_display_h_color_bar(jzfb->fb);
-
 	jzfb_enable(jzfb->fb);
-
 	dump_lcdc_registers(jzfb);
 #ifdef CONFIG_JZ_MIPI_DSI
 	dump_dsi_reg(jzfb->dsi);

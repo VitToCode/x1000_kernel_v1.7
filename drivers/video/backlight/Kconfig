@@ -285,6 +285,14 @@ config LCD_KFM701A21_1A
 	  If you have an KFM701A21_1A Panel, say Y to enable its
 	  control driver. The driver IC of this module is SPFD5420A.
 
+config LCD_XRM2002903
+	tristate "XRM2002903 TFT Smart LCD panel(176x220)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an XRM2002903 Panel, say Y to enable its
+	  control driver. The driver IC of this module is ST7775R.
+
 config LCD_TRULY_TFT240240_2_E
        tristate "SLCD TRULY TFT240240-2-E with control IC st7789s (240x240)"
        depends on BACKLIGHT_CLASS_DEVICE
