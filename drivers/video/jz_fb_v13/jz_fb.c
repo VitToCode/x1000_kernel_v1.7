@@ -38,6 +38,8 @@
 #include <mach/platform.h>
 #include <soc/gpio.h>
 #include <mach/jzfb.h>
+#include <linux/console.h>
+
 #ifdef CONFIG_JZ_MIPI_DSI
 #include "./jz_mipi_dsi/jz_mipi_dsih_hal.h"
 #include "./jz_mipi_dsi/jz_mipi_dsi_regs.h"
@@ -2617,8 +2619,19 @@ static void jzfb_shutdown(struct platform_device *pdev)
 	is_fb_blank = (jzfb->is_suspend != 1);
 	jzfb->is_suspend = 1;
 	mutex_unlock(&jzfb->suspend_lock);
-	if (is_fb_blank)
-		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+
+	if(is_fb_blank){
+		/* copy from driver/video/fbmem.c */
+		if (!lock_fb_info(jzfb->fb))
+			return;
+		console_lock();
+		jzfb->fb->flags |= FBINFO_MISC_USEREVENT;
+		jzfb->fb->flags &= ~FBINFO_MISC_USEREVENT;
+		console_unlock();
+		unlock_fb_info(jzfb->fb);
+	}
+
+
 };
 
 #ifdef CONFIG_PM
