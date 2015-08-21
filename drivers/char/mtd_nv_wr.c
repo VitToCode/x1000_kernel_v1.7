@@ -33,6 +33,7 @@ static int nv_devs = 1;
 #define CMD_READ_URL_2  _IOR('N', 4, char)
 #define CMD_EARASE_ALL  _IOR('N', 5, int)
 #define CMD_GET_INFO    _IOR('N', 6, unsigned int)
+#define CMD_GET_VERSION    _IOR('N', 7, unsigned int)
 
 struct nv_devices {
 	struct mtd_info *mtd;
@@ -301,76 +302,80 @@ static ssize_t nv_write(struct file *filp, const char *buf, size_t count, loff_t
 struct wr_info {
 	char *wr_buf[512];
 	unsigned int size;
-	unsigned int offset;
 };
-static int get_wr_info(struct  wr_info *wr_info, unsigned long arg)
+static struct wr_info * get_wr_info( unsigned long arg)
 {
-	unsigned int offset;
 	unsigned int size;
+	struct wr_info *wr_info = NULL;
 
 	if(arg) {
 		wr_info = (struct  wr_info *)arg;
 		size = wr_info->size;
-		offset = wr_info->offset;
-		if(offset != 4 && offset != 516) {
-			pr_err("err: ioctl offset  must = 516 or 4\n");
-			return -1;
-		}
 		if(size > 512) {
 			pr_err("err: ioctl size  must little 512\n");
-			return -1;
+			return NULL;
 		}
 	}
-	return 0;
+	return wr_info;
 }
+
 static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
 	struct  wr_info *wr_info = NULL;
 	char *dst_buf;
+	unsigned int offset = 0;
 
 	switch (cmd) {
 	case CMD_WRITE_URL_1:
+		offset = 4;
 	case CMD_WRITE_URL_2:
-	{
-		if(get_wr_info(wr_info, arg) < 0)
-			return -1;
-		mutex_lock(&nv_dev->mutex);
-		err = nv_map_and_read_area(nv_dev->buf, nv_dev->wr_size, 0);
-		if(err < 0) {
-			pr_err("err: ioctl read err\n");
-			mutex_unlock(&nv_dev->mutex);
-			return -1;
-		}
-		dst_buf = nv_dev->buf + wr_info->offset;
-		if (copy_from_user(dst_buf, (void *)wr_info->wr_buf, wr_info->size))
+		if(!offset)
+			offset = 516;
 		{
-			pr_err("err: ioctl copy_from_user err\n");
+			if((wr_info = get_wr_info(arg)) == NULL)
+				return -1;
+			mutex_lock(&nv_dev->mutex);
+			err = nv_map_and_read_area(nv_dev->buf, nv_dev->wr_size, 0);
+			if(err < 0) {
+				pr_err("err: ioctl read err\n");
+				mutex_unlock(&nv_dev->mutex);
+				return -1;
+			}
+			dst_buf = nv_dev->buf + offset;
+			if (copy_from_user(dst_buf, (void *)wr_info->wr_buf, wr_info->size))
+			{
+				pr_err("err: ioctl copy_from_user err\n");
+				mutex_unlock(&nv_dev->mutex);
+				return -1;
+			}
+			err = nv_map_and_write_area(nv_dev->buf, nv_dev->wr_size, 0);
 			mutex_unlock(&nv_dev->mutex);
-			return -1;
+			break;
 		}
-		err = nv_map_and_write_area(nv_dev->buf, nv_dev->wr_size, 0);
-		mutex_unlock(&nv_dev->mutex);
-		break;
-	}
 	case CMD_READ_URL_1:
+		offset = 4;
 	case CMD_READ_URL_2:
-	{
-		if(get_wr_info(wr_info, arg) < 0)
-			return -1;
-		mutex_lock(&nv_dev->mutex);
-		dst_buf = nv_dev->buf + wr_info->offset;
-		err = nv_map_and_read_area(dst_buf, nv_dev->wr_size, wr_info->offset);
-		if (copy_to_user(wr_info->wr_buf, (void *)dst_buf, wr_info->size))
+		if(!offset)
+			offset = 516;
 		{
-			pr_err("err: ioctl copy_from_user err\n");
+			if((wr_info = get_wr_info(arg)) == NULL)
+				return -1;
+			mutex_lock(&nv_dev->mutex);
+			err = nv_map_and_read_area(nv_dev->buf, wr_info->size, offset);
+			wr_info->size = strlen(nv_dev->buf);
+			if(wr_info->size > 512)
+				wr_info->size = 512;
+			if (copy_to_user(wr_info->wr_buf, (void *)nv_dev->buf, wr_info->size))
+			{
+				pr_err("err: ioctl copy_from_user err\n");
+				mutex_unlock(&nv_dev->mutex);
+				return -1;
+			}
 			mutex_unlock(&nv_dev->mutex);
-			return -1;
-		}
-		mutex_unlock(&nv_dev->mutex);
-		break;
+			break;
 
-	}
+		}
 	case CMD_EARASE_ALL:
 		mutex_unlock(&nv_dev->mutex);
 		err = erase_eraseblock(nv_dev->wr_base, nv_dev->wr_size);
@@ -379,6 +384,14 @@ static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case CMD_GET_INFO:
 		mutex_unlock(&nv_dev->mutex);
 		*(unsigned int *)arg = nv_dev->wr_size;
+		mutex_unlock(&nv_dev->mutex);
+		break;
+	case CMD_GET_VERSION:
+		mutex_unlock(&nv_dev->mutex);
+		offset = 1028;
+		dst_buf = nv_dev->buf + offset;
+		err = nv_map_and_read_area(dst_buf, 4, offset);
+		*(unsigned int *)arg = *(unsigned int *)dst_buf;
 		mutex_unlock(&nv_dev->mutex);
 		break;
 	default:

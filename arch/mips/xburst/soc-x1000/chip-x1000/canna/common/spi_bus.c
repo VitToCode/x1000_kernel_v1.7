@@ -8,34 +8,45 @@
 
 
 #if defined(CONFIG_MTD_JZ_SPI_NORFLASH)|| defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#define BOOTLOADER_SIZE     0x60000  /* 384k */
+#define BOOTLOADER_OFFSET   0  /* 0k */
+#define JIFFS2_SIZE     0xa0000  /* 640k */
+#define JIFFS2_OFFSET   BOOTLOADER_SIZE  /* 384k */
+#define KERNEL_SIZE     0x300000  /* 3M */
+#define KERNEL_OFFSET   JIFFS2_OFFSET +  JIFFS2_SIZE /* 1M */
+#define UPDATAFS_SIZE   0x480000  /* 4.5M */
+#define UPDATAFS_OFFSET KERNEL_OFFSET +  KERNEL_SIZE /* 4M */
+#define USERFS_SIZE     0x780000  /* 7.5M */
+#define USERFS_OFFSET   UPDATAFS_OFFSET +  UPDATAFS_SIZE /* 8.5M */
 
-#define SIZE_BOOTLOADER	0x40000	 /* 256k */
-#define SIZE_KERNEL	0x3C0000 /* 3.75M */
-#define SIZE_ROOTFS	0xB80000 /* 11.5M */
-#define SIZE_USRDATA	0x80000  /* 512K */
-
-struct mtd_partition jz_mtd_partition1[] = {
-	{
-		.name =     "bootloader",
-		.offset =   0,
-		.size =     SIZE_BOOTLOADER,
-	},
-	{
-		.name =     "kernel",
-		.offset =   SIZE_BOOTLOADER,
-		.size =     SIZE_KERNEL,
-	},
-	{
-		.name =     "rootfs",
-		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER,
-		.size =     SIZE_ROOTFS,
-	},
-	{
-		.name =     "usrdata",
-		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER + SIZE_ROOTFS,
-		.size =     SIZE_USRDATA,
-	},
+static struct mtd_partition jz_mtd_partition1[] = {
+        {
+                .name =     "bootloader",
+                .offset =   BOOTLOADER_OFFSET,
+                .size =     BOOTLOADER_SIZE,
+        },
+        {
+                .name =     "usrdata",
+                .offset =   JIFFS2_OFFSET,
+                .size =     JIFFS2_SIZE,
+        },
+        {
+                .name =     "kernel",
+                .offset =   KERNEL_OFFSET,
+                .size =     KERNEL_SIZE,
+        },
+        {
+                .name =     "updatafs",
+                .offset =   UPDATAFS_OFFSET,
+                .size =     UPDATAFS_SIZE,
+        },
+        {
+                .name =     "userfs",
+                .offset =   USERFS_OFFSET,
+                .size =     USERFS_SIZE,
+        },
 };
+
 #endif
 #if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 struct spi_nor_block_info flash_block_info[] = {

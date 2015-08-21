@@ -48,6 +48,11 @@ $(obj)/vmlinuz: $(OBJS) $(obj)/ld.script $(obj)/vmlinux.bin.gz $(obj)/dummy.o
 zImage: $(obj)/vmlinuz
 	$(OBJCOPY) -O binary $(obj)/vmlinuz $(obj)/zImage
 	@rm -f $(obj)/vmlinuz
+	mkimage -A mips -O linux -T kernel -C none \
+		-a 0x80F00000 -e 0x80F00000\
+		-n 'Linux-$(KERNELRELEASE)' \
+		-d $(obj)/zImage $(obj)/zImage.new
+	mv $(obj)/zImage.new $(obj)/zImage
 
 vmlinux.bin: $(VMLINUX)
 	$(OBJCOPY) -O binary $(strip-flags) $(VMLINUX) $(obj)/vmlinux.bin
@@ -59,9 +64,3 @@ uImage: $(VMLINUX) vmlinux.bin
 		-a $(LOADADDR) -e $(shell sh ./$(obj)/tools/entry $(NM) $(VMLINUX) ) \
 		-n 'Linux-$(KERNELRELEASE)' \
 		-d $(obj)/vmlinux.bin.gz $(obj)/uImage
-xImage: zImage
-	mkimage -A mips -O linux -T kernel -C none \
-		-a 0x80F00000 -e 0x80F00000 \
-		-n 'Linux-$(KERNELRELEASE)' \
-		-d $(obj)/zImage $(obj)/xImage
-	@rm -f $(obj)/zImage
