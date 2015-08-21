@@ -15,7 +15,6 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
-#include <linux/vmalloc.h>
 #include <linux/string.h>
 #include <linux/sound.h>
 #include <linux/slab.h>
@@ -120,7 +119,7 @@ static int codec_ctrl(struct codec_info *cur_codec, unsigned int cmd, unsigned l
 
 int i2s_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode)
 {	/*to be modify*/
-	struct codec_info *tmp = vmalloc(sizeof(struct codec_info));
+	struct codec_info *tmp = kmalloc(sizeof(struct codec_info), GFP_KERNEL);
 	if ((name != NULL) && (codec_ctl != NULL)) {
 		memcpy(tmp->name, name, sizeof(tmp->name));
 		tmp->codec_ctl = codec_ctl;

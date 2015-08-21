@@ -200,7 +200,7 @@ struct track {
 
 enum track_item { TRACK_ALLOC, TRACK_FREE };
 
-#ifdef CONFIG_SYSFS
+#ifdef CONFIG_SLUB_SYSFS
 static int sysfs_slab_add(struct kmem_cache *);
 static int sysfs_slab_alias(struct kmem_cache *, const char *);
 static void sysfs_slab_remove(struct kmem_cache *);
@@ -3545,7 +3545,7 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
 }
 #endif
 
-#ifdef CONFIG_SYSFS
+#ifdef CONFIG_SLUB_SYSFS
 static int count_inuse(struct page *page)
 {
 	return page->inuse;
@@ -3935,12 +3935,12 @@ static void resiliency_test(void)
 	validate_slab_cache(kmalloc_caches[9]);
 }
 #else
-#ifdef CONFIG_SYSFS
+#ifdef CONFIG_SLUB_SYSFS
 static void resiliency_test(void) {};
 #endif
 #endif
 
-#ifdef CONFIG_SYSFS
+#ifdef CONFIG_SLUB_SYSFS
 enum slab_stat_type {
 	SL_ALL,			/* All slabs */
 	SL_PARTIAL,		/* Only partially allocated slabs */
@@ -4800,7 +4800,7 @@ static int __init slab_sysfs_init(void)
 }
 
 __initcall(slab_sysfs_init);
-#endif /* CONFIG_SYSFS */
+#endif /* CONFIG_SLUB_SYSFS */
 
 /*
  * The /proc/slabinfo ABI

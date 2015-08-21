@@ -1253,6 +1253,12 @@ config SLOB
 
 endchoice
 
+config SLUB_SYSFS
+	depends on SLUB
+        bool "SLUB sysfs interface"
+        help
+          Say Y here to add a sysfs interface for SLUB.
+
 config MMAP_ALLOW_UNINITIALIZED
 	bool "Allow mmapped anonymous memory to be uninitialized"
 	depends on EXPERT && !MMU

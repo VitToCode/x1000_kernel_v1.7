@@ -14,7 +14,6 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
-#include <linux/vmalloc.h>
 #include <linux/string.h>
 #include <linux/sound.h>
 #include <linux/slab.h>
@@ -572,9 +571,9 @@ static int pcm_init_pipe(struct dsp_pipe **dp , enum dma_data_direction directio
 {
 	if (*dp != NULL || dp == NULL)
 		return 0;
-	*dp = vmalloc(sizeof(struct dsp_pipe));
+	*dp = kmalloc(sizeof(struct dsp_pipe), GFP_KERNEL);
 	if (*dp == NULL) {
-		printk("pcm : init pipe fail vmalloc ");
+		printk("pcm : init pipe fail kmalloc ");
 		return -ENOMEM;
 	}
 
@@ -842,9 +841,9 @@ static int pcm_init(struct platform_device *pdev)
 __err_clk_init:
 	free_irq(pcm_priv->irq,NULL);
 __err_irq:
-	vfree(pcm_pipe_in);
+	kfree(pcm_pipe_in);
 __err_init_pipein:
-	vfree(pcm_pipe_out);
+	kfree(pcm_pipe_out);
 __err_init_pipeout:
 	iounmap(pcm_iomem);
 __err_ioremap:
@@ -885,7 +884,8 @@ struct snd_dev_data snd_mixer1_data = {
 
 static int __init init_pcm(void)
 {
-	pcm_priv = (struct pcm_board_info *)vzalloc(sizeof(struct pcm_board_info));
+	pcm_priv = (struct pcm_board_info *)kzalloc(
+		sizeof(struct pcm_board_info), GFP_KERNEL);
 	if (!pcm_priv)
 		return -1;
 

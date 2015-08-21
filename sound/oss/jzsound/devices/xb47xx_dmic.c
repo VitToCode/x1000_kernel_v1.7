@@ -15,7 +15,6 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
-#include <linux/vmalloc.h>
 #include <linux/string.h>
 #include <linux/sound.h>
 #include <linux/slab.h>
@@ -110,7 +109,7 @@ static void dmic_shutdown(struct platform_device *);
 
 int dmic_register_codec(char *name, void *codec_ctl,unsigned long codec_clk,enum codec_mode mode)
 {
-	struct codec_info_dmic *tmp = vmalloc(sizeof(struct codec_info_dmic));
+	struct codec_info_dmic *tmp = kmalloc(sizeof(struct codec_info_dmic), GFP_KERNEL);
 	if ((name != NULL) && (codec_ctl != NULL)) {
 		tmp->name = name;
 		tmp->codec_ctl = codec_ctl;
@@ -639,7 +638,7 @@ int dmic_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direction,unsi
 {
 	if (*dp != NULL || dp == NULL)
 		return 0;
-	*dp = vmalloc(sizeof(struct dsp_pipe));
+	*dp = kmalloc(sizeof(struct dsp_pipe), GFP_KERNEL);
 	if (*dp == NULL) {
 		return -ENOMEM;
 	}
@@ -679,7 +678,7 @@ int dmic_global_init(struct platform_device *pdev)
 
 	printk("----> start %s\n", __func__);
 
-	cur_dmic = vmalloc(sizeof(struct jz_dmic));
+	cur_dmic = kmalloc(sizeof(struct jz_dmic), GFP_KERNEL);
 
 	dmic_prepare_ok = 0;
 	dmic_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
@@ -775,7 +774,7 @@ __err_irq:
 __err_aic_clk:
 	clk_put(dmic_clk);
 __err_init_pipein:
-	vfree(dmic_pipe_out);
+	kfree(dmic_pipe_out);
 __err_init_pipeout:
 	iounmap(dmic_iomem);
 __err_ioremap:
