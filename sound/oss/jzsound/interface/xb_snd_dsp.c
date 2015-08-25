@@ -378,34 +378,45 @@ static void snd_dmic_release_dma(struct dsp_pipe *dp)
 #endif
 static void snd_release_dma(struct dsp_pipe *dp)
 {
-	int ret = 0xf;
+	int ret;
 
 	if (dp) {
-		dp->force_stop_dma = false;
-		if (dp->dma_chan) {
-			if (dp->is_trans != false) {
-#ifndef CONFIG_ANDROID         //kkshen added
-				{
-
-					if (dp->dma_config.direction == DMA_TO_DEVICE)
-						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
-					if (ret == 0) {
-						printk(KERN_INFO "sound dma transfer data error");
+                if (dp->dma_chan) {
+                        /* The wait time shouldn't be too long,
+			 * because mplayer will call this when suspend replay.
+			 * The logic is that you should stop replay immediately when close dsp,
+			 * even if there are some data left not replay.
+			 * If you want to replay entire sound data,
+			 * you should call SNDCTL_DSP_SYNC interface in dsp ioctl, before close dsp.
+			*/
+                        dp->wait_stop_dma = true;
+                        ret = wait_event_interruptible_timeout(dp->wq, dp->is_trans == false, (HZ / 4));
+                        if (ret <= 0){
+                                //printk("dma still transfer\n");
+				/* This is important. Disable the device's DMA request, ensure that DMA transfer not occupy the BUS */
+				if (dp->pddata && dp->pddata->dev_ioctl) {
+					if (dp->dma_config.direction == DMA_FROM_DEVICE) {
+						dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_RX,0);
 					}
-
-					ret = 1;
+					else if (dp->dma_config.direction == DMA_TO_DEVICE) {
+						dp->pddata->dev_ioctl(SND_DSP_DISABLE_DMA_TX,0);
+					}
+				} else if(dp->pddata && dp->pddata->dev_ioctl_2) {
+					if (dp->dma_config.direction == DMA_FROM_DEVICE) {
+						dp->pddata->dev_ioctl_2(dp->pddata, SND_DSP_DISABLE_DMA_RX,0);
+					}
+					else if (dp->dma_config.direction == DMA_TO_DEVICE) {
+						dp->pddata->dev_ioctl_2(dp->pddata, SND_DSP_DISABLE_DMA_TX,0);
+					}
 				}
-#endif
-				dp->wait_stop_dma = true;
-				while(ret-- && wait_event_interruptible(dp->wq,dp->is_trans == false));
-				del_timer(&dp->transfer_watchdog);
-				dmaengine_terminate_all(dp->dma_chan);
-				dp->is_trans = false;
-				dp->wait_stop_dma = false;
 			}
-			dma_release_channel(dp->dma_chan);
-			dp->dma_chan = NULL;
-		}
+                        del_timer(&dp->transfer_watchdog);
+                        dmaengine_terminate_all(dp->dma_chan);
+                        dp->is_trans = false;
+                        dp->wait_stop_dma = false;
+                        dma_release_channel(dp->dma_chan);
+                        dp->dma_chan = NULL;
+                }
 		if (dp->sg) {
 			vfree(dp->sg);
 			dp->sg = NULL;
@@ -604,7 +615,7 @@ static void replay_watch_function(unsigned long _dp)
 	mod_timer(&dp->transfer_watchdog,jiffies+msecs_to_jiffies(dp->watchdog_mdelay));		//10ms timer
 wait_interrupt:
 	if (put_used_dma_node_free(dp,node_base))
-		if (dp->is_non_block == false)
+		if ((dp->is_non_block == false) || (atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1)))
 			wake_up_interruptible(&dp->wq);
 wait_interrupt_clean:
 	return;
@@ -634,9 +645,9 @@ static void snd_dma_callback(void *arg)
 		available_node++;
 	}
 
-	if (dp->is_non_block == false && available_node)
-		wake_up_interruptible(&dp->wq);
 	dp->save_node =	NULL;
+	if ((dp->is_non_block == false && available_node) || (atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1)))
+		wake_up_interruptible(&dp->wq);
 
 	/* if device closed, release the dma */
 	if (dp->wait_stop_dma == true) {
@@ -2323,21 +2334,15 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* OSS 4.x: Suspend the application until all samples have been played */
 		//TODO: check it will wait until replay complete
 		if (file->f_mode & FMODE_WRITE) {
-			int i = 0x7fffff;
-			dp = endpoints->out_endpoint;
-			mutex_lock(&dp->mutex);
-			dp->wait_stop_dma = true;
-			mutex_unlock(&dp->mutex);
-			while (wait_event_interruptible(dp->wq,
-							dp->is_trans == false) && i--);
-			if (!i) {
-				ret = -EFAULT;
-				goto EXIT_IOCTRL;
-			}
-			mutex_lock(&dp->mutex);
-			del_timer_sync(&dp->transfer_watchdog);
-			snd_release_node(dp);
-			mutex_unlock(&dp->mutex);
+                        int ret;
+                        dp = endpoints->out_endpoint;
+#ifndef CONFIG_ANDROID
+                        ret = wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1));
+                        if (ret < 0){
+                                printk(KERN_INFO "There are some data leaved, not replay.\n");
+                                return -EFAULT;
+                        }
+#endif
 			ret = 0;
 		} else
 			ret = -ENOSYS;
