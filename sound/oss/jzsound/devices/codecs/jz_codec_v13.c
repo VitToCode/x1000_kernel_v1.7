@@ -193,6 +193,10 @@ static void dump_codec_regs(struct codec_info *codec_dev)
 		data = icdc_d3_hw_read(codec_dev, i);
                 printk("address = 0x%02x, data = 0x%02x\n", i, data);
         }
+	for (i = 0; i <= 4; i++){
+		data = icdc_d3_hw_read(codec_dev, (SCODA_MIX_0 + i));
+		printk("mix_%02x data = 0x%02x\n", i, data);
+	}
 }
 
 #if CODEC_DUMP_ROUTE_PART_REGS
@@ -388,6 +392,14 @@ static void codec_set_mic(struct codec_info *codec_dev, int mode)
 		msleep(100);
 		break;
 
+	case LINEIN_ENABLE:
+		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIC1);
+		tmpval &= ~(0xf<<3);
+		tmpval |= 1<<5;
+		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIC1,tmpval);
+		msleep(100);
+		break;
+
 	case MIC_DISABLE:
 		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIC1);
 		tmpval |= (3<<4);
@@ -524,6 +536,26 @@ static void codec_set_record_mixer_mode(struct codec_info *codec_dev, int mode)
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
 			tmpval &= ~(0xf<<4);
 			tmpval |= 0xf<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_L_NORMAL_R_CROSS_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0x1<<4;
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
+
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
+			icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIX,tmpval|(0x80));
+			break;
+
+		case RECORD_MIXER_L_CROSS_R_NORMAL_INPUT:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_3);
+			tmpval &= ~(0xf<<4);
+			tmpval |= 0x4<<4;
 			icdc_d3_hw_write(codec_dev,SCODA_MIX_3,tmpval);
 
 			tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIX);
@@ -978,10 +1010,14 @@ static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_
 	if (broute && ((cur_route == NULL) || (cur_route->route != broute->route))) {
 		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++) {
 			if (broute->route == codec_route_info[i].route_name) {
+#if 1
+				/* Do nothing here, just for anti pop */
+#else
                                 /* Shutdown analog amplifier, just for anti pop */
                                 if (broute->gpio_spk_en_stat != KEEP_OR_IGNORE){
 					gpio_disable_spk_en(codec_dev);
 				}
+#endif
 				/* set route */
 				codec_set_route_base(codec_dev, codec_route_info[i].route_conf);
 				break;
@@ -1097,12 +1133,16 @@ static int codec_turn_off(struct codec_info *codec_dev, int mode)
 		}
 	}
 	if (mode & CODEC_WMODE) {
+#if 1
+		/* Do nothing here, just for anti pop */
+#else
 		ret = codec_set_route(codec_dev, SND_ROUTE_REPLAY_CLEAR);
 		if(ret != SND_ROUTE_REPLAY_CLEAR)
 		{
 			printk("JZ CODEC: codec_turn_off_part replay mode error!\n");
 			return -1;
 		}
+#endif
 	}
 
 	return ret;

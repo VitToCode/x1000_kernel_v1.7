@@ -50,6 +50,7 @@ struct __codec_route_info {
 #define ROUTE_READY_FOR_DAC					2
 #define ROUTE_READY_FOR_ADC_DAC				3
 
+#define LINEIN_ENABLE 3
 #define MIC_ENABLE 2
 #define MIC_DISABLE 1
 
@@ -72,6 +73,8 @@ struct __codec_route_info {
 #define RECORD_MIXER_L_MIX_R_0_INPUT 5
 #define RECORD_MIXER_L_0_R_MIX_INPUT 6
 #define RECORD_MIXER_L_0_R_0_INPUT 7
+#define RECORD_MIXER_L_NORMAL_R_CROSS_INPUT 8
+#define RECORD_MIXER_L_CROSS_R_NORMAL_INPUT 9
 
 #define REPLAY_NORMAL_INPUT 1
 #define REPLAY_CROSS_INPUT 2
