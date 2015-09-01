@@ -11,6 +11,7 @@
 
 #ifdef CONFIG_BCMDHD_1_141_66
 int bcm_ap6212_wlan_init(void);
+int bcm_ap6212_manual_sysfs_init(struct device *dev);
 #endif
 
 #ifndef CONFIG_NAND
@@ -57,6 +58,7 @@ struct jzmmc_platform_data sdio_pdata = {
 #endif
 #ifdef CONFIG_BCMDHD_1_141_66
 	.private_init			= bcm_ap6212_wlan_init,
+	.manual_sysfs_init              = bcm_ap6212_manual_sysfs_init,
 #endif
 };
 #endif

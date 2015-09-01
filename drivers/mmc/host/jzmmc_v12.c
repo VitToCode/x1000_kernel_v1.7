@@ -1736,6 +1736,13 @@ static int __init jzmmc_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_pri_init;
 	}
+
+	if (pdata->removal == MANUAL && pdata->manual_sysfs_init) {
+		ret = pdata->manual_sysfs_init(&pdev->dev);
+		if (ret < 0)
+			dev_warn(host->dev, "%s manual sysfs entry miss\n", pdev->name);
+	}
+
 	ret = jzmmc_msc_init(host);
 	if (ret < 0)
 		goto err_msc_init;

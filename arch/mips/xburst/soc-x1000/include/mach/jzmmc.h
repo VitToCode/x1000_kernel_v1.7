@@ -66,6 +66,7 @@ struct jzmmc_platform_data {
 	struct card_gpio		*gpio;
 	unsigned int			pio_mode;
 	int				(*private_init)(void);
+	int                             (*manual_sysfs_init)(struct device *dev);
 	unsigned int type;
 };
 
