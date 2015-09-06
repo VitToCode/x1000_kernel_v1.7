@@ -27,26 +27,14 @@
 #include <linux/gpio.h>
 #include "../icodec/icdc_d3.h"
 
-static struct snd_soc_ops phoenix_i2s_ops = {
-
-};
-
-#ifndef GPIO_PG
 #define GPIO_PG(n)      (5*32 + 23 + n)
-#endif
-
-
-unsigned long codec_sysclk = -1;
-
-
-#define phoenix_HAVE_SPK_EN
 #define phoenix_SPK_GPIO GPIO_PB(0)
 #define phoenix_SPK_EN 0
 
+unsigned long codec_sysclk = -1;
 static int phoenix_spk_power(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event)
 {
-#ifdef phoenix_HAVE_SPK_EN
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		gpio_direction_output(phoenix_SPK_GPIO, phoenix_SPK_EN);
 		printk("gpio speaker enable %d\n", gpio_get_value(phoenix_SPK_GPIO));
@@ -54,10 +42,23 @@ static int phoenix_spk_power(struct snd_soc_dapm_widget *w,
 		gpio_direction_output(phoenix_SPK_GPIO, !phoenix_SPK_EN);
 		printk("gpio speaker disable %d\n", gpio_get_value(phoenix_SPK_GPIO));
 	}
-#endif
 	return 0;
 }
 
+void phoenix_spk_sdown(struct snd_pcm_substream *sps){
+		gpio_direction_output(phoenix_SPK_GPIO, !phoenix_SPK_EN);
+		return;
+}
+
+int phoenix_spk_sup(struct snd_pcm_substream *sps){
+		gpio_direction_output(phoenix_SPK_GPIO, phoenix_SPK_EN);
+		return 0;
+}
+
+static struct snd_soc_ops phoenix_i2s_ops = {
+	.startup = phoenix_spk_sup,
+	.shutdown = phoenix_spk_sdown,
+};
 static const struct snd_soc_dapm_widget phoenix_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack", NULL),
 	SND_SOC_DAPM_SPK("Speaker", phoenix_spk_power),
@@ -174,16 +175,12 @@ static int phoenix_init(void)
 {
 	/*struct jz_aic_gpio_func *gpio_info;*/
 	int ret;
-#ifdef phoenix_HAVE_SPK_EN
 	ret = gpio_request(phoenix_SPK_GPIO, "Speaker_en");
 	if (ret)
 		return ret;
-#endif
 	phoenix_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!phoenix_snd_device) {
-#ifdef phoenix_HAVE_SPK_EN
 		gpio_free(phoenix_SPK_GPIO);
-#endif
 		return -ENOMEM;
 	}
 
@@ -191,9 +188,7 @@ static int phoenix_init(void)
 	ret = platform_device_add(phoenix_snd_device);
 	if (ret) {
 		platform_device_put(phoenix_snd_device);
-#ifdef phoenix_HAVE_SPK_EN
 		gpio_free(phoenix_SPK_GPIO);
-#endif
 	}
 
 	dev_info(&phoenix_snd_device->dev, "Alsa sound card:phoenix init ok!!!\n");
@@ -203,9 +198,7 @@ static int phoenix_init(void)
 static void phoenix_exit(void)
 {
 	platform_device_unregister(phoenix_snd_device);
-#ifdef phoenix_HAVE_SPK_EN
 	gpio_free(phoenix_SPK_GPIO);
-#endif
 }
 
 module_init(phoenix_init);
