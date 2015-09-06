@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/mii.h>
 #include <linux/phy.h>
+#include <linux/gpio.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
@@ -115,7 +116,7 @@ MODULE_PARM_DESC(copybreak,
 #define MPHYC_MAC_PHYINTF_RMII	(4 << MPHYC_MAC_PHYINTF_LSB)
 
 static int jz_mdio_phy_read(struct net_device *dev, int phy_id, int location);
-static int jz_mdio_phy_write(struct net_device *dev, int phy_id, int location, int val);
+static void jz_mdio_phy_write(struct net_device *dev, int phy_id, int location, int val);
 
 static inline unsigned char str2hexnum(unsigned char c)
 {
@@ -1890,7 +1891,7 @@ static const struct net_device_ops jz_mac_netdev_ops = {
 	.ndo_get_stats		= jz_mac_get_stats,
 	.ndo_set_mac_address	= jz_mac_set_mac_address,
 	.ndo_tx_timeout		= jz_mac_tx_timeout,
-	//	.ndo_set_multicast_list	= jzmac_set_multicast_list,
+	.ndo_set_multicast_list	= jzmac_set_multicast_list,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_change_mtu		= jz_mac_change_mtu,
 	.ndo_do_ioctl		= jzmac_do_ioctl,
@@ -2113,71 +2114,63 @@ static int jz_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
 	return synopGMAC_write_phy_reg(gmacdev, phy_addr, regnum, value);
 }
 
-static int jz_mdio_phy_write(struct net_device *dev, int phy_id, int location, int value)
+static void jz_mdio_phy_write(struct net_device *dev, int phy_id, int location, int value)
 {
 	struct jz_mac_local *lp = netdev_priv(dev);
-	return jz_mdiobus_write(lp->mii_bus, phy_id, location, value);
+
+	jz_mdiobus_write(lp->mii_bus, phy_id, location, value);
 }
 
 static int jz_mdiobus_reset(struct mii_bus *bus)
 {
 	return 0;
 }
-
+struct clk *clk_gate, *clk_cgu;
 static int  jz_mii_bus_probe(struct platform_device *pdev)
 {
 	struct mii_bus *miibus;
 	int rc = 0, i;
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	struct jz_gpio_phy_reset *gpio_phy_reset;
+#ifdef CONFIG_JZ_GPIO_SAVE
+	int error;
 #endif
-	struct clk *clk_gate = clk_get(NULL, "mac");
-	struct clk *clk_cgu = clk_get(NULL, "cgu_macphy");
-
-
-
-	*(volatile unsigned int *)(0xb0010118) = (1 << 3);//c
-	*(volatile unsigned int *)(0xb0010124) = (1 << 3);//s
-	*(volatile unsigned int *)(0xb0010138) = (1 << 3);//c
-	*(volatile unsigned int *)(0xb0010148) = (1 << 3);//c
-
+#endif
+	clk_gate = clk_get(NULL, "mac");
+	clk_cgu = clk_get(NULL, "cgu_macphy");
 	if (clk_enable(clk_gate) < 0) {
 		printk("enable mac clk gate failed\n");
-		clk_put(clk_gate);
 		goto out_err_alloc;
 	}
 	if (clk_enable(clk_cgu) < 0) {
 		printk("enable gmac clk cgu failed\n");
-		clk_put(clk_cgu);
+		clk_put(clk_gate);
 		goto out_err_alloc;
 	}
-
 	clk_set_rate(clk_cgu, 50000000);
-	mdelay(50);
-	/* gpio_direction_output(32 * 1 + 3, 1); */
-	*(volatile unsigned int *)(0xb0010118) = (1 << 3);//c
-	*(volatile unsigned int *)(0xb0010124) = (1 << 3);//s
-	*(volatile unsigned int *)(0xb0010138) = (1 << 3);//c
-	*(volatile unsigned int *)(0xb0010144) = (1 << 3);//s
-	mdelay(50);
-	//	synopGMAC_multicast_enable(gmacdev);
 
-	//	clk_put(gmac_clk);
-
-	*(volatile unsigned int *)(0xb0010118) = (1 << 1);//c
-	*(volatile unsigned int *)(0xb0010124) = (1 << 1);//s
-	*(volatile unsigned int *)(0xb0010138) = (1 << 1);//c
-	*(volatile unsigned int *)(0xb0010148) = (1 << 1);//c
-	mdelay(50);
-
-	*(volatile unsigned int *)(0xb0010118) = (1 << 1);//c
-	*(volatile unsigned int *)(0xb0010124) = (1 << 1);//s
-	*(volatile unsigned int *)(0xb0010138) = (1 << 1);//c
-	*(volatile unsigned int *)(0xb0010144) = (1 << 1);//s
+	/* //	synopGMAC_multicast_enable(gmacdev); */
 
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
 	gpio_phy_reset = dev_get_platdata(&pdev->dev);
+#ifdef CONFIG_JZ_GPIO_SAVE
+	jz_gpio_save_reset_func(gpio_phy_reset->crtl_port, gpio_phy_reset->set_func,
+				gpio_phy_reset->crtl_pins, &(gpio_phy_reset->func));
+	error = gpio_request(gpio_phy_reset->gpio, "jzmac");
+	if (error < 0) {
+		printk("failed to request GPIO %d, error %d\n",
+			gpio_phy_reset->gpio, error);
+		goto out_err_alloc;
+	}
+	gpio_direction_output(gpio_phy_reset->gpio, !gpio_phy_reset->active_level);
+	mdelay(gpio_phy_reset->delaytime_msec);
+	gpio_direction_output(gpio_phy_reset->gpio, gpio_phy_reset->active_level);
+	gpio_free(gpio_phy_reset->gpio);
+	jz_gpio_restore_func(gpio_phy_reset->crtl_port, gpio_phy_reset->crtl_pins,
+			     &(gpio_phy_reset->func));
+#else
 	jzgpio_phy_reset(gpio_phy_reset);
+#endif
 #endif
 
 #if defined(CONFIG_JZ_MAC_RGMII) || defined(CONFIG_JZ_MAC_GMII)
@@ -2243,6 +2236,8 @@ static int  jz_mii_bus_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	mdiobus_unregister(miibus);
 	mdiobus_free(miibus);
+	clk_put(clk_gate);
+	clk_put(clk_cgu);
 	return 0;
 }
 

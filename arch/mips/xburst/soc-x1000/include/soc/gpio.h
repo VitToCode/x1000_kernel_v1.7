@@ -37,14 +37,19 @@ struct jz_gpio_func_def {
 	unsigned long pins;
 };
 
+struct gpio_reg_func {
+	unsigned int save[5];
+};
 
 /* PHY hard reset */
 struct jz_gpio_phy_reset {
-	enum gpio_port		port;
-	unsigned short		pin;
-	enum gpio_function	start_func;
-	enum gpio_function	end_func;
-	unsigned int		delaytime_usec;
+	unsigned int		gpio;
+	int                     active_level;
+	enum gpio_port		crtl_port;
+	unsigned int		crtl_pins;
+	enum gpio_function	set_func;
+	struct gpio_reg_func	func;
+	unsigned int		delaytime_msec;
 };
 
 /*
@@ -56,10 +61,6 @@ struct jz_gpio_phy_reset {
 
 extern struct jz_gpio_func_def platform_devio_array[];
 extern int platform_devio_array_size;
-
-struct gpio_reg_func {
-	unsigned int save[5];
-};
 
 /*
  * This functions are used in special driver which need

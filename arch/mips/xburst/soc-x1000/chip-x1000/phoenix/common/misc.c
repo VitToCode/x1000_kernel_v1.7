@@ -23,11 +23,12 @@
 #ifndef CONFIG_MDIO_GPIO
 #ifdef CONFIG_JZGPIO_PHY_RESET
 static struct jz_gpio_phy_reset gpio_phy_reset = {
-	.port = GMAC_PHY_PORT_GPIO / 32,
-	.pin = GMAC_PHY_PORT_GPIO % 32,
-	.start_func = GMAC_PHY_PORT_START_FUNC,
-	.end_func = GMAC_PHY_PORT_END_FUNC,
-	.delaytime_usec = GMAC_PHY_DELAYTIME,
+	.gpio = GMAC_PHY_PORT_GPIO,
+	.active_level = GMAC_PHY_ACTIVE_HIGH,
+	.crtl_port = GMAC_CRLT_PORT,
+	.crtl_pins = GMAC_CRLT_PORT_PINS,
+	.set_func = GMAC_CRTL_PORT_SET_FUNC,
+	.delaytime_msec = GMAC_PHY_DELAYTIME,
 };
 #endif
 struct platform_device jz_mii_bus = {

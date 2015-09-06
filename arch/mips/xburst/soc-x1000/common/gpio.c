@@ -171,46 +171,46 @@ static void gpio_restore_func(struct jzgpio_chip *chip,
 	grp = ((unsigned int)chip->reg - (unsigned int)jz_gpio_chips[0].reg) >> 8;
 
 	comp = pins & rfunc->save[0];
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXINTS);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXINTS);
 	}
 	comp = pins & rfunc->save[1];
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXMSKS);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXMSKS);
 	}
 	comp = pins & rfunc->save[2];
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPAT1S);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPAT1S);
 	}
 	comp = pins & rfunc->save[3];
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPAT0S);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPAT0S);
 	}
 
 	comp = pins & (~rfunc->save[0]);
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXINTC);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXINTC);
 	}
 	comp = pins & (~rfunc->save[1]);
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXMSKC);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXMSKC);
 	}
 	comp = pins & (~rfunc->save[2]);
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPAT1C);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPAT1C);
 	}
 	comp = pins & (~rfunc->save[3]);
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPAT0C);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPAT0C);
 	}
 
 	comp = pins & rfunc->save[4];
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPENS);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPENS);
 	}
 	comp = pins & (~rfunc->save[4]);
-	if(comp != pins) {
-		writel(comp ^ pins, chip->shadow_reg + PXPENC);
+	if(comp == pins) {
+		writel(pins, chip->shadow_reg + PXPENC);
 	}
 
 	/* configure PzGID2LD to specify which port group to load */
@@ -225,10 +225,9 @@ int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
 
 	rfunc->save[0] = readl(jz->reg + PXINT);
 	rfunc->save[1] = readl(jz->reg + PXMSK);
-	rfunc->save[2] = readl(jz->reg + PXPAT0);
-	rfunc->save[3] = readl(jz->reg + PXPAT1);
+	rfunc->save[2] = readl(jz->reg + PXPAT1);
+	rfunc->save[3] = readl(jz->reg + PXPAT0);
 	rfunc->save[4] = readl(jz->reg + PXPEN);
-
 	gpio_set_func(jz, dst_func, pins);
 
 	return 0;
@@ -310,16 +309,6 @@ static int jz_gpio_set_pull(struct gpio_chip *chip,
 		writel(BIT(offset), jz->reg + PXPENS);
 	else
 		writel(BIT(offset), jz->reg + PXPENC);
-
-	return 0;
-}
-
-int jzgpio_phy_reset(struct jz_gpio_phy_reset *gpio_phy_reset)
-{
-	struct jzgpio_chip *jz = &jz_gpio_chips[gpio_phy_reset->port];
-	gpio_set_func(jz, gpio_phy_reset->start_func, 1 << gpio_phy_reset->pin);
-	udelay(gpio_phy_reset->delaytime_usec);
-	gpio_set_func(jz, gpio_phy_reset->end_func, 1 << gpio_phy_reset->pin);
 
 	return 0;
 }
