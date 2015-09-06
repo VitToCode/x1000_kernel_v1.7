@@ -35,9 +35,7 @@
 
 #define CIM_DUMP_REG
 #define PRINT_CIM_REG
-
 #ifdef CIM_DUMP_REG
-int flag = 0;
 static void cim_dump_reg(struct jz_camera_dev *pcdev)
 {
 	if(pcdev == NULL) {
@@ -74,6 +72,25 @@ static void cim_dump_reg(struct jz_camera_dev *pcdev)
 	printk("REG_CIM_TCNT" STRING, readl(pcdev->base + CIM_TCNT));
 }
 #endif
+
+static unsigned int get_paddr(unsigned int vaddr)
+{
+	unsigned int addr = vaddr & (PAGE_SIZE-1);
+	pgd_t *pgdir;
+	pmd_t *pmdir;
+	pte_t *pte;
+	pgdir = pgd_offset(current->mm, vaddr);
+	if(pgd_none(*pgdir) || pgd_bad(*pgdir))
+		return 0;
+	pmdir = pmd_offset((pud_t *)pgdir, vaddr);
+	if(pmd_none(*pmdir) || pmd_bad(*pmdir))
+		return 0;
+	pte = pte_offset(pmdir,vaddr);
+	if (pte_present(*pte)) {
+		return addr | (pte_pfn(*pte) << PAGE_SHIFT);
+	}
+	return 0;
+}
 
 static int is_cim_enable(struct jz_camera_dev *pcdev)
 {
@@ -281,14 +298,24 @@ static int jz_init_dma(struct videobuf_queue *vq, struct videobuf_buffer *vbuf) 
 
 	dma_desc = (struct jz_camera_dma_desc *) pcdev->desc_vaddr;
 
+
+	if (vbuf->memory == V4L2_MEMORY_USERPTR)
+		dma_address = icd->vb_vidq.bufs[0]->baddr;
+	else if(vbuf->memory == V4L2_MEMORY_MMAP)
 		dma_address = videobuf_to_dma_contig(vbuf);
+
 	if(!dma_address) {
 		dprintk(3, "Failed to setup DMA address\n");
 		return -ENOMEM;
 	}
 
 	dma_desc[vbuf->i].id = vbuf->i;
-	dma_desc[vbuf->i].buf = dma_address;
+
+	if (vbuf->memory == V4L2_MEMORY_USERPTR)
+		dma_desc[vbuf->i].buf = get_paddr(dma_address);
+	else if (vbuf->memory == V4L2_MEMORY_MMAP)
+		dma_desc[vbuf->i].buf = dma_address;
+
 	if(icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_YUYV) {
 		dma_desc[vbuf->i].cmd = icd->sizeimage >> 2 |
 			CIM_CMD_EOFINT | CIM_CMD_OFRCV;
@@ -330,7 +357,7 @@ static int jz_init_dma(struct videobuf_queue *vq, struct videobuf_buffer *vbuf) 
 		dma_desc[vbuf->i].next = (dma_addr_t) (&pcdev->dma_desc[vbuf->i + 1]);
 	}
 
-	dprintk(7, "cim dma desc[vbuf->i] address is: 0x%x\n", dma_desc[vbuf->i].buf);
+	dprintk(7,"cim dma desc[vbuf->i] address is: 0x%x\n", dma_desc[vbuf->i].buf);
 
 	return 0;
 }
@@ -582,7 +609,6 @@ static int jz_camera_set_fmt(struct soc_camera_device *icd, struct v4l2_format *
 		dprintk(4, "Format %x not found\n", pix->pixelformat);
 		return -EINVAL;
 	}
-
 	buswidth = xlate->host_fmt->bits_per_sample;
 	if (buswidth > 8) {
 		dprintk(4, "bits-per-sample %d for format %x unsupported\n",
@@ -737,6 +763,7 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd, __u32 pixfmt) 
 static void jz_camera_activate(struct jz_camera_dev *pcdev) {
 	int ret = -1;
 
+
 	dprintk(7, "Activate device\n");
 	if(pcdev->clk) {
 		ret = clk_enable(pcdev->clk);
@@ -745,7 +772,6 @@ static void jz_camera_activate(struct jz_camera_dev *pcdev) {
 		ret = clk_set_rate(pcdev->mclk, pcdev->mclk_freq);
 		ret = clk_enable(pcdev->mclk);
 	}
-
 	if(ret) {
 		dprintk(3, "enable clock failed!\n");
 	}
@@ -830,7 +856,6 @@ static int jz_camera_add_device(struct soc_camera_device *icd) {
 static void jz_camera_remove_device(struct soc_camera_device *icd) {
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct jz_camera_dev *pcdev = ici->priv;
-
 	int icd_index = icd->devnum;
 
 	BUG_ON(icd != pcdev->icd[icd_index]);
@@ -931,7 +956,7 @@ static irqreturn_t jz_camera_irq_handler(int irq, void *data) {
 	}
 
 	if(status & CIM_STATE_DMA_STOP) {
-		/* clear dma interrupt status */
+	/* clear dma interrupt status */
 		temp = readl(pcdev->base + CIM_STATE);
 		temp &= (~CIM_STATE_DMA_STOP);
 		writel(temp, pcdev->base + CIM_STATE);
@@ -1092,10 +1117,6 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 		err = -ENODEV;
 		goto err_get_irq;
 	}
-
-	clk_enable(pcdev->mclk);
-	clk_enable(pcdev->clk);
-
 	/*get cim clk*/
 	pcdev->clk = clk_get(&pdev->dev, "cim");
 	if (IS_ERR(pcdev->clk)) {
@@ -1113,9 +1134,6 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 		goto err_clk_get_cgu_cim;
 	}
 
-	/*regulator maybe used in some board, so if you need to use regulator,
-	 * you should modify vcim_2_8 according to the name of your board.
-	 */
 	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim_2_8");
 	if(IS_ERR(pcdev->soc_host.regul)) {
 		dprintk(3, "get regulator fail !, if you need regulator, please check this place!\n");
