@@ -190,8 +190,17 @@ static int jz_aic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
-
 	clk_enable(jz_aic->clk_gate);
+#ifdef	CONFIG_SND_ASOC_INGENIC_DMIC
+	jz_aic->clk_gate_dmic = clk_get(&pdev->dev, "dmic");
+	if (IS_ERR_OR_NULL(jz_aic->clk_gate_dmic)) {
+		ret = PTR_ERR(jz_aic->clk_gate_dmic);
+		jz_aic->clk_gate_dmic = NULL;
+		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
+		return ret;
+	}
+	clk_enable(jz_aic->clk_gate_dmic);
+#endif
 	jz_aic->clk = clk_get(&pdev->dev, "cgu_i2s");
 	if (IS_ERR_OR_NULL(jz_aic->clk)) {
 		ret = PTR_ERR(jz_aic->clk);
@@ -201,7 +210,6 @@ static int jz_aic_probe(struct platform_device *pdev)
 	clk_set_rate(jz_aic->clk, 24000000);		/*set default rate*/
 	clk_enable(jz_aic->clk);
 #endif
-	mdelay(1000);
 	spin_lock_init(&jz_aic->mode_lock);
 	jz_aic->irqno = -1;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
