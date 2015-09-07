@@ -690,6 +690,8 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 		i2s_set_fmt(i2s_dev, &replay_format,mode);
 		i2s_set_channel(i2s_dev, &replay_channel,mode);
 		i2s_set_rate(i2s_dev, &replay_rate,mode);
+                /* just for anti pop if underrun happened when replaying */
+                __i2s_play_lastsample(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
@@ -714,10 +716,8 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 
 void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 {
-	__i2s_write_tfifo(i2s_dev, 0);	//avoid pop
-	__i2s_write_tfifo(i2s_dev, 0);
-	__i2s_write_tfifo(i2s_dev, 0);
-	__i2s_write_tfifo(i2s_dev, 0);
+        /* write the unit outside the txfifo zero when underrun happen, just for anti pop. */
+        __i2s_play_zero(i2s_dev);
 	__i2s_enable_replay(i2s_dev);
 	mdelay(2);
 	__i2s_disable_replay(i2s_dev);
