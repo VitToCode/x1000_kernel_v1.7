@@ -2334,7 +2334,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		/* OSS 4.x: Suspend the application until all samples have been played */
 		//TODO: check it will wait until replay complete
 		if (file->f_mode & FMODE_WRITE) {
-                        int ret;
                         dp = endpoints->out_endpoint;
 #ifndef CONFIG_ANDROID
                         ret = wait_event_interruptible(dp->wq, atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1));
