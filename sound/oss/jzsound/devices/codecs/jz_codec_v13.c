@@ -579,7 +579,7 @@ static void codec_set_adc(struct codec_info *codec_dev, int mode)
 			regval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_ADC);
 			icdc_d3_hw_write(codec_dev, SCODA_REG_CR_ADC, regval&(~(1<<4)));
 			regval = icdc_d3_hw_read(codec_dev, SCODA_REG_CR_ADC);
-			icdc_d3_hw_write(codec_dev, SCODA_REG_CR_ADC, regval|1<<6);
+			icdc_d3_hw_write(codec_dev, SCODA_REG_CR_ADC, regval|(1<<6));
 			mdelay(1);
 			break;
 		case ADC_ENABLE_WITH_AMIC:
@@ -1255,11 +1255,20 @@ static int codec_set_device(struct codec_info *codec_dev, enum snd_device_t devi
 			}
 		}
 		break;
+
+	case SND_DEVICE_LINEIN_RECORD:
+		if (codec_platform_data && codec_platform_data->record_linein_route.route) {
+			ret = codec_set_board_route(codec_dev, &(codec_platform_data->record_linein_route));
+			if (ret != codec_platform_data->record_linein_route.route) {
+				return -1;
+			}
+		}
+		break;
 	case SND_DEVICE_DEFAULT:
 	case SND_DEVICE_BUILDIN_MIC_AND_SPEAKER:
 		if (codec_platform_data && codec_platform_data->replay_speaker_record_buildin_mic_route.route) {
 			ret = codec_set_board_route(codec_dev, &(codec_platform_data->replay_speaker_record_buildin_mic_route));
-			if (ret != codec_platform_data->record_buildin_mic_route.route) {
+			if (ret != codec_platform_data->replay_speaker_record_buildin_mic_route.route) {
 				return -1;
 			}
 		}

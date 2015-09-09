@@ -21,6 +21,7 @@ enum snd_codec_route_t {
 	SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
 	SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
 	SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
+	SND_ROUTE_LINEIN_MIXER_REPLAY,
 
 	SND_ROUTE_COUNT,
 };
@@ -73,6 +74,7 @@ struct snd_codec_data {
 	struct snd_board_route record_def_route;
 	/* device <-> route map record*/
 	struct snd_board_route record_buildin_mic_route;
+	struct snd_board_route record_linein_route;
 	/* device <-> route map replay*/
 	struct snd_board_route replay_speaker_route;
 	struct snd_board_route replay_speaker_record_buildin_mic_route;

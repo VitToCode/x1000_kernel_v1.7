@@ -53,7 +53,7 @@ route_conf_base const record_amic_and_replay_spk = {
 };
 
 /* This route is for remove echo */
-route_conf_base const replay_sound_mixer_loopback = {
+route_conf_base const record_replay_sound_loopback_from_mixer = {
         .route_record_mux_mode = RECORD_INPUT_AND_MIXER_NORMAL,
 	.route_record_mixer_mode = RECORD_MIXER_L_MIX_R_0_INPUT,
 
@@ -65,7 +65,7 @@ route_conf_base const replay_sound_mixer_loopback = {
         .route_mic_mode = MIC_ENABLE,
 };
 
-route_conf_base const amic_record_mix_replay_loopback = {
+route_conf_base const record_amic_mix_replay_sound_loopback = {
         .route_ready_mode = ROUTE_READY_FOR_ADC_DAC,
 
         .route_record_mux_mode = RECORD_INPUT_AND_MIXER_NORMAL,
@@ -77,6 +77,23 @@ route_conf_base const amic_record_mix_replay_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = MIC_ENABLE,
+};
+
+route_conf_base const replay_linein_to_speaker_mixer_loopback = {
+        .route_ready_mode = ROUTE_READY_FOR_ADC_DAC,
+
+	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
+        .route_dac_mode = DAC_ENABLE,
+
+        .route_input_mode = INPUT_TO_ADC_ENABLE,
+        .route_adc_mode = ADC_ENABLE_WITH_AMIC,
+        .route_mic_mode = LINEIN_ENABLE,
+
+        .route_record_mux_mode = RECORD_INPUT_AND_MIXER_NORMAL,
+	.route_record_mixer_mode = RECORD_MIXER_L_NORMAL_R_CROSS_INPUT,
+
+	.route_replay_mux_mode = REPLAY_INPUT_AND_MIXER_NORMAL,
+	.route_replay_mixer_mode = REPLAY_MIXER_L_0_R_0_INPUT,
 };
 /*##############################################################################################################*/
 
@@ -140,11 +157,15 @@ struct __codec_route_info codec_route_info[] = {
 	},
 	{
 		.route_name = SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
-		.route_conf = &replay_sound_mixer_loopback,
+		.route_conf = &record_replay_sound_loopback_from_mixer,
 	},
 	{
 		.route_name = SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
-		.route_conf = &amic_record_mix_replay_loopback,
+		.route_conf = &record_amic_mix_replay_sound_loopback,
+	},
+	{
+		.route_name = SND_ROUTE_LINEIN_MIXER_REPLAY,
+		.route_conf = &replay_linein_to_speaker_mixer_loopback,
 	},
 
 	/***************************end of array***************************/

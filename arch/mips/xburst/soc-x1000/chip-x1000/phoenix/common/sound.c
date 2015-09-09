@@ -33,6 +33,10 @@ struct snd_codec_data codec_data = {
 		.record_volume_base = 50,
 	},
 
+        .record_linein_route = {
+                .route = SND_ROUTE_NONE,
+        },
+
 	.replay_speaker_route = {
 		.route = SND_ROUTE_REPLAY_SPK,
 		.gpio_spk_en_stat = STATE_ENABLE,

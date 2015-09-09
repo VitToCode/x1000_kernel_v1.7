@@ -30,8 +30,13 @@ struct snd_codec_data codec_data = {
 	},
 
 	.record_buildin_mic_route = {
-		//.route = SND_ROUTE_RECORD_AMIC,
 		.route = SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
+		.record_volume_base = 50,
+	},
+
+	.record_linein_route = {
+		.route = SND_ROUTE_LINEIN_MIXER_REPLAY,
+		.gpio_spk_en_stat = STATE_ENABLE,
 		.record_volume_base = 50,
 	},
 
