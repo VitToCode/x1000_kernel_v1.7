@@ -28,7 +28,7 @@ static uint32_t canna_keymap[] =
 	KEY(2,0, KEY_PREVIOUSSONG),
 	KEY(2,1, KEY_NEXTSONG),
 	KEY(2,2, KEY_MENU),
-	KEY(3,0, KEY_RESERVED),
+	KEY(3,0, KEY_F3), 		/* music shortcut key 1 */
 	KEY(3,1, KEY_BLUETOOTH),
 	KEY(3,2, KEY_RECORD),
 };
@@ -76,6 +76,33 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
 		.wakeup                         = 1,
                 .debounce_interval              = 2,
         },
+#endif
+#ifdef GPIO_BOOT_SEL0
+	{
+                .gpio                           = GPIO_BOOT_SEL0,
+                .code = {
+                        .shortpress_code        = KEY_F4,
+                        .longpress_code         = KEY_RESERVED,
+                },
+                .desc                           = "music Shortcut key 2",
+                .active_low                     = ACTIVE_LOW_F4,
+                .longpress_interval             = 0,
+                .debounce_interval              = 2,
+        },
+#endif
+#ifdef GPIO_BOOT_SEL1
+	{
+                .gpio                           = GPIO_BOOT_SEL1,
+                .code = {
+                        .shortpress_code        = KEY_F5,
+                        .longpress_code         = KEY_RESERVED,
+                },
+                .desc                           = "music Shortcut key 3",
+                .active_low                     = ACTIVE_LOW_F5,
+                .longpress_interval             = 0,
+                .debounce_interval              = 2,
+        },
+
 #endif
 };
 
