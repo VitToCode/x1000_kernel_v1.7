@@ -14,6 +14,8 @@
 #define CMD_READ        0x03 /* Read Data */
 #define CMD_DUAL_READ   0x3b /* DUAL Read Data */
 #define CMD_QUAD_READ   0x6b /* QUAD Read Data */
+#define CMD_QUAD_IO_FAST_READ   0xeb /* QUAD FAST Read Data */
+#define CMD_QUAD_IO_WORD_FAST_READ   0xe7 /* QUAD IO WORD Read Data */
 #define CMD_FAST_READ   0x0B /* Read Data at high speed */
 #define CMD_PP          0x02 /* Page Program(write data) */
 #define CMD_QPP         0x32 /* QUAD Page Program(write data) */
@@ -40,12 +42,17 @@
 //#define CMD_RDID    0x9F    /* Read ID */
 #define CMD_RESET   0xFF    /* Reset */
 
+/*for sfc register config*/
+#define TRAN_SPI_QUAD   (0x5 )
+#define TRAN_SPI_IO_QUAD   (0x6 )
+
 
 struct sfc_nor_info {
 	u8 cmd;
 	u8 addr_len;
 	u8 daten;
 	u8 pollen;
+	u8 M7_0;// some cmd must be send the M7-0
 	u8 dummy_byte;
 	u8 dma_mode;
 };
@@ -57,7 +64,17 @@ struct spi_nor_block_info {
 	u32 be_maxbusy;
 };
 
+struct spi_quad_mode {
+	u8 RDSR_CMD;
+	u8 sfc_mode;
+	u8 WRSR_CMD;
+	u8 cmd_read;
+	unsigned int RDSR_DATE;//the data is write the spi status register for QE bit
+	unsigned int WRSR_DATE;//this bit should be the flash QUAD mode enable
+};
+
 struct spi_nor_platform_data {
+	char *name;
 	u32 pagesize;
 	u32 sectorsize;
 	u32 chipsize;
@@ -81,6 +98,7 @@ struct spi_nor_platform_data {
 	/* Flash status register num, Max support 3 register */
 	int st_regnum;
 	struct mtd_partition *mtd_partition;
+	struct spi_quad_mode *quad_mode;
 	int num_partition_info;
 };
 
@@ -108,6 +126,7 @@ struct jz_sfc_info {
 	u32	 num_chipselect;
 	u32	 allow_cs_same;
 	void  *board_info;
+	u32  board_info_size;
 };
 
 #endif

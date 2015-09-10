@@ -158,6 +158,7 @@
 #define TRAN_SPI_STANDARD   (0x0)
 #define TRAN_SPI_DUAL   (0x1 )
 #define TRAN_SPI_QUAD   (0x5 )
+#define TRAN_SPI_IO_QUAD   (0x6 )
 
 
 #define	ADDR_WIDTH_OFFSET	(26)
@@ -216,6 +217,8 @@ struct jz_sfc {
 	const unsigned int *tx;
 	const unsigned int *tx1;
 
+	struct spi_nor_platform_data *board_info;
+	unsigned int board_info_size;
 
 	/* temp buffers */
 	unsigned char   *swap_buf;

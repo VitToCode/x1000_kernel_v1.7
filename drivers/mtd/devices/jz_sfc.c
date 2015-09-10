@@ -58,40 +58,43 @@
 #endif
 
 #define MAX_ADDR_LEN 4
-#define JZ_NOR_INIT(cmd1,addr_len1,daten1,pollen1,dummy_byte1,dma_mode1) \
+#define JZ_NOR_INIT(cmd1,addr_len1,daten1,pollen1,M7_01,dummy_byte1,dma_mode1) \
 {										\
 	.cmd = cmd1,                \
 	.addr_len = addr_len1,        \
 	.daten = daten1,               \
 	.pollen = pollen1,           \
+	.M7_0 = M7_01,              \
 	.dummy_byte = dummy_byte1,   \
 	.dma_mode = dma_mode1,      \
 }
 
 #define JZ_NOR_REG   \
-	JZ_NOR_INIT(CMD_WREN,0,0,0,0,0), \
-	JZ_NOR_INIT(CMD_WRDI,0,0,0,0,0), \
-	JZ_NOR_INIT(CMD_RDSR,0,1,1,0,0),\
-	JZ_NOR_INIT(CMD_RDSR_1,0,1,1,0,0),\
-	JZ_NOR_INIT(CMD_RDSR_2,0,1,1,0,0),\
-	JZ_NOR_INIT(CMD_WRSR,0,1,0,0,0),\
-	JZ_NOR_INIT(CMD_WRSR_1,0,1,0,0,0),\
-	JZ_NOR_INIT(CMD_WRSR_2,0,1,0,0,0),\
-	JZ_NOR_INIT(CMD_READ,3,1,0,0,1),\
-	JZ_NOR_INIT(CMD_DUAL_READ,3,1,0,8,1),\
-	JZ_NOR_INIT(CMD_QUAD_READ,3,1,0,8,1),\
-	JZ_NOR_INIT(CMD_PP,3,1,0,0,1),\
-	JZ_NOR_INIT(CMD_QPP,3,1,0,0,1),\
-	JZ_NOR_INIT(CMD_BE_32K,3,0,0,0,0),\
-	JZ_NOR_INIT(CMD_BE_64K,3,0,0,0,0),\
-	JZ_NOR_INIT(CMD_SE,3,0,0,0,0),\
-	JZ_NOR_INIT(CMD_CE,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_DP,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_RES,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_REMS,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_RDID,0,1,0,0,0), \
-	JZ_NOR_INIT(CMD_FAST_READ,3,1,0,8,1), \
-	JZ_NOR_INIT(CMD_NON,0,0,0,0,0)
+	JZ_NOR_INIT(CMD_WREN,0,0,0,0,0,0), \
+	JZ_NOR_INIT(CMD_WRDI,0,0,0,0,0,0), \
+	JZ_NOR_INIT(CMD_RDSR,0,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_RDSR_1,0,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_RDSR_2,0,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_WRSR,0,1,0,0,0,0),\
+	JZ_NOR_INIT(CMD_WRSR_1,0,1,0,0,0,0),\
+	JZ_NOR_INIT(CMD_WRSR_2,0,1,0,0,0,0),\
+	JZ_NOR_INIT(CMD_READ,3,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_DUAL_READ,3,1,0,0,8,1),\
+	JZ_NOR_INIT(CMD_QUAD_READ,3,1,0,0,8,1),\
+	JZ_NOR_INIT(CMD_QUAD_IO_FAST_READ,4,1,0,1,4,1),\
+	JZ_NOR_INIT(CMD_QUAD_IO_WORD_FAST_READ,4,1,0,1,2,1),\
+	JZ_NOR_INIT(CMD_PP,3,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_QPP,3,1,0,0,0,1),\
+	JZ_NOR_INIT(CMD_BE_32K,3,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_BE_64K,3,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_SE,3,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_CE,0,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_DP,0,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_RES,0,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_REMS,0,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_RDID,0,1,0,0,0,0), \
+	JZ_NOR_INIT(CMD_FAST_READ,3,1,0,0,8,1), \
+	JZ_NOR_INIT(CMD_NON,0,0,0,0,0,0)
 
 
 
@@ -106,6 +109,7 @@ int jz_nor_info_num = ARRAY_SIZE(jz_sfc_nor_info);
 #define MAX_READY_WAIT_TIME 3000    /* the time of erase BE(64KB) */
 
 struct mtd_partition *jz_mtd_partition;
+struct spi_nor_platform_data *board_info;
 int quad_mode = 0;
 
 
@@ -324,8 +328,17 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 		sfc_dev_pollen(flash,0,flash->nor_info->pollen);
 	}
 
-	if((flash->nor_info->addr_len !=0)&&(flash->nor_info->daten == 1))
-		sfc_mode(flash,0,flash->sfc_mode);
+	if((flash->nor_info->addr_len !=0)&&(flash->nor_info->daten == 1)){
+		if(flash->rw_mode & R_MODE){
+#ifdef CONFIG_SPI_QUAD
+			sfc_mode(flash,0,flash->board_info->quad_mode->sfc_mode);
+#else
+			sfc_mode(flash,0,flash->sfc_mode);
+#endif
+		}else{
+			sfc_mode(flash,0,flash->sfc_mode);
+		}
+	}
 	else
 		sfc_mode(flash,0,0);
 
@@ -401,7 +414,6 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 		tmp_cmd = *(unsigned char *)(flash->tx);
 		flash->nor_info = check_cmd(tmp_cmd);
 
-
 		print_dbg("the tmp_cmd = %x,flash->len = %d\n",tmp_cmd,flash->len);
 		if(flash->nor_info->cmd == CMD_NON){
 			printk("it is not a commend,will be an error\n");
@@ -411,30 +423,34 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 
 		if ( flash->nor_info->addr_len != 0) {
 			if(flash->addr_len == 3){
-				flash->nor_info->addr_len = flash->addr_len;
-				flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 16)&0x00ff0000)|
-					(((*(unsigned char*)(t->tx_buf + 2)) << 8) &0x0000ff00)|
-					((*(unsigned char*)(t->tx_buf + 3)&0x000000ff));
+				if(flash->nor_info->M7_0 == 1){
+					flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 24)&0xff000000)|
+						(((*(unsigned char*)(t->tx_buf + 2)) << 16) &0x00ff0000)|
+						(((*(unsigned char*)(t->tx_buf + 3)) << 8 ) &0x0000ff00) | 0x00; // the end 8 bit is mod bit
+				}else{
+					flash->nor_info->addr_len = flash->addr_len;
+					flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 16)&0x00ff0000)|
+						(((*(unsigned char*)(t->tx_buf + 2)) << 8) &0x0000ff00)|
+						((*(unsigned char*)(t->tx_buf + 3)&0x000000ff));
+				}
+
 			}else if ( flash->addr_len == 2) {
 				flash->nor_info->addr_len = flash->addr_len;
 				flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 8) &0x0000ff00)|
 					((*(unsigned char*)(t->tx_buf + 2)&0x000000ff));
 			}else{
-				printk("the flash addr_len is nor support\n");
+				printk("the flash addr_len is not support\n");
+				return EINVAL;
 			}
 		}else
 			flash->addr = 0;
 
-	//	if((flash->nor_info->can_train == 1)&&(flash->nor_info->addr_len !=0)&&(flash->nor_info->daten == 1)){
-	//		flash->len = flash->len - flash->nor_info->addr_len - 1;
-	//		flash->tx = flash->tx + 1;
-	//	}
-
 		print_dbg("flash->nor_info->cmd = %x,flash->nor_info->daten = %x,flash->nor_info->addr_len = %x,flash->nor_info->can_train = %d,flash->addr = %x\n",flash->nor_info->cmd,flash->nor_info->daten,
 				flash->nor_info->addr_len,flash->nor_info->can_train,flash->addr);
-	}else
+	}else{
 		dev_err(flash->dev,"the flash->tx can not be NULL\n");
-
+			return EINVAL;
+	}
 	spin_lock_irqsave(&flash->lock_rxtx, flags);
 	ret = sfc_pio_transfer(flash);
 	if (ret < 0) {
@@ -594,44 +610,56 @@ static int jz_spi_norflash_write_enable(struct jz_sfc *flash)
 	return 0;
 }
 
-
+#ifdef CONFIG_SPI_QUAD
 static int jz_spi_norflash_set_quad_mode(struct jz_sfc *flash)
 {
 	int status = 0, ret = 0;
 	unsigned char command_stage1[1];
-	unsigned char command_stage2[1];
+	unsigned char command_stage2[16];
 	struct sfc_transfer transfer[1];
 
+	if(flash->board_info->quad_mode != NULL){
+		jz_spi_norflash_write_enable(flash);
 
-	jz_spi_norflash_write_enable(flash);
+		command_stage1[0] = flash->board_info->quad_mode->WRSR_CMD;//CMD_WRSR_1;
+		command_stage2[0] = flash->board_info->quad_mode->WRSR_DATE;//0x2;
+		transfer[0].tx_buf  = command_stage1;
+		transfer[0].tx_buf1 = command_stage2;
+		transfer[0].rx_buf =  NULL;
+		transfer[0].len = 1;//sizeof(command_stage2);
+		ret = jz_sfc_pio_txrx(flash, transfer);
+		if(ret != transfer[0].len)
+			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
-	command_stage1[0] = CMD_WRSR_1;
-	command_stage2[0] = 0x2;
-	transfer[0].tx_buf  = command_stage1;
-	transfer[0].tx_buf1 = command_stage2;
-	transfer[0].rx_buf =  NULL;
-	transfer[0].len = sizeof(command_stage2);
-	ret = jz_sfc_pio_txrx(flash, transfer);
-	if(ret != transfer[0].len)
-		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+		ret = jz_spi_norflash_wait_till_ready(flash);
+		if (ret)
+			return ret;
 
-	ret = jz_spi_norflash_wait_till_ready(flash);
-	if (ret)
-		return ret;
+		/*read the quad mode register*/
+		command_stage1[0] = flash->board_info->quad_mode->RDSR_CMD;
+		transfer[0].tx_buf = command_stage1;
+		transfer[0].tx_buf1 = NULL;
+		transfer[0].rx_buf = command_stage2;
+		transfer[0].len = 1;//sizeof(command_stage2);
+		ret = jz_sfc_pio_txrx(flash, transfer);
+		if(ret != transfer[0].len){
+			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+			return -EROFS;
+		}
+		status = command_stage2[0];
 
-	ret = jz_spi_norflash_status(flash, &status,1);
-	if (ret) {
-		return ret;
+		if (!(status & flash->board_info->quad_mode->RDSR_DATE)) {
+			return -EROFS;
+		}
+
+		quad_mode = 1;
+	}else{
+		dev_err(flash->dev,"the struct quad_mode is NULL , %d,%s\n",__LINE__,__func__);
+
 	}
-
-	if (!(status & SR_SQE)) {
-		return -EROFS;
-	}
-
-	quad_mode = 1;
 	return 0;
 }
-
+#endif
 
 static int jz_spi_norflash_erase_sector(struct jz_sfc *flash, uint32_t offset)
 {
@@ -757,7 +785,7 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 
 
 #ifdef CONFIG_SPI_QUAD
-	command_stage1[0] = SPINOR_OP_READ_1_1_4;
+	command_stage1[0] = flash->board_info->quad_mode->cmd_read;//SPINOR_OP_READ_1_1_4;
 #else
 	command_stage1[0] = SPINOR_OP_READ;//SPINOR_OP_READ_FAST;
 #endif
@@ -940,10 +968,10 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 
 
-static  int jz_spi_norflash_match_device(struct jz_sfc *flash,int chip_id)
+static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 {
 	int ret;
-	unsigned int id = 0;
+	unsigned int id = 0,i = 0;
 	unsigned char command_stage1[1];
 	unsigned char command_stage2[16];
 	struct sfc_transfer transfer[1];
@@ -959,16 +987,27 @@ static  int jz_spi_norflash_match_device(struct jz_sfc *flash,int chip_id)
 	if(ret != transfer[0].len)
 		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
-	id = (command_stage2[0] << 16) | (command_stage2[1] << 8) | command_stage2[2];
+	id = command_stage2[0];
 
-	if(id == chip_id){
-		printk("the spi mtd chip id is %x\n",id);
-	}else if((id != 0)&&(id !=0xffffff)){
-		printk("the chip id %x\n",id);
-	//	return EINVAL;
-	}else{
-		printk("unknow chip id %d\n",id);
-		return EINVAL;
+	for (i = 0; i < flash->board_info_size; i++) {
+		board_info = &flash->board_info[i];
+		if (board_info->id == id){
+			printk("the id code = %x, the flash name is %s\n",id,board_info->name);
+				break;
+		}
+	}
+
+	if (i == flash->board_info_size) {
+		if ((id != 0)&&(id != 0xff)){
+			board_info = &flash->board_info[0];
+			printk("the id code = %x, the flash name is %s\n",id,board_info->name);
+			printk("#####unsupport ID is %04x if the id not be 0x00,the flash can be ok,but the quad mode may be not support!!!!! \n",id);
+			mdelay(200);
+		}else{
+			mutex_unlock(&flash->lock);
+			printk("ingenic: Unsupported ID %04x\n", id);
+			return EINVAL;
+		}
 	}
 
 	mutex_unlock(&flash->lock);
@@ -979,8 +1018,8 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 {
 	struct jz_sfc *flash;
 	const char *jz_probe_types[] = {"cmdlinepart",NULL};
-	struct spi_nor_platform_data *board_info;
-	int chip_id = 0;
+//	struct spi_nor_platform_data *board_info;
+//	unsigned int board_info_size = 0;
 	int num_partition_info = 0;
 	struct resource *res;
 	int err = 0,ret = 0;
@@ -1004,9 +1043,8 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	}
 
 	flash->chnl= flash->pdata->chnl;
-	board_info = flash->pdata->board_info;
-	jz_mtd_partition = board_info->mtd_partition;
-	num_partition_info = board_info->num_partition_info;
+	flash->board_info = flash->pdata->board_info;
+	flash->board_info_size = flash->pdata->board_info_size;
 
 	flash->tx_addr_plus = 0;
 	flash->rx_addr_plus = 0;
@@ -1078,6 +1116,21 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 //	INIT_WORK(&flash->rw_work,sfc_irq_work);
 
 	flash->threshold = THRESHOLD;
+	/* request SFC irq */
+	err = request_irq(flash->irq, jz_sfc_irq, 0, pdev->name, flash);
+	if (err) {
+		dev_err(&pdev->dev, "Cannot claim IRQ\n");
+		goto err_no_irq;
+	}
+
+	/* SFC controller initializations for SFC */
+	jz_sfc_init_setup(flash);
+
+	ret = jz_spi_norflash_match_device(flash);
+	if (ret) {
+		printk("unknow id ,the id not match the spi bsp config\n");
+		return -ENODEV;
+	}
 
 	flash->mtd.name     = "sfc_mtd";
 	flash->mtd.owner    = THIS_MODULE;
@@ -1090,25 +1143,16 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	flash->mtd._erase   = jz_spi_norflash_erase;
 	flash->mtd._read    = jz_spi_norflash_read;
 	flash->mtd._write   = jz_spi_norflash_write;
+	flash->board_info   = board_info;
 
-	/* request SFC irq */
-	err = request_irq(flash->irq, jz_sfc_irq, 0, pdev->name, flash);
-	if (err) {
-		dev_err(&pdev->dev, "Cannot claim IRQ\n");
-		goto err_no_irq;
-	}
+#ifdef CONFIG_SPI_QUAD
+	printk("the flash->board_info->quad_mode = %x\n",flash->board_info->quad_mode->cmd_read);
+#endif
+	jz_mtd_partition = board_info->mtd_partition;
+	num_partition_info = board_info->num_partition_info;
 
-	/* SFC controller initializations for SFC */
-	jz_sfc_init_setup(flash);
+	printk(KERN_INFO "JZ SFC Controller for SFC channel %d driver register\n",flash->chnl);
 
-	ret = jz_spi_norflash_match_device(flash,chip_id);
-	if (ret) {
-		printk("unknow id ,the id not match the spi bsp config\n");
-		return -ENODEV;
-	}
-
-	printk(KERN_INFO
-	       "JZ SFC Controller for SFC channel %d driver register\n",flash->chnl);
 	ret = mtd_device_parse_register(&flash->mtd, jz_probe_types, NULL, jz_mtd_partition, num_partition_info);
 	if (ret) {
 		kfree(flash);
