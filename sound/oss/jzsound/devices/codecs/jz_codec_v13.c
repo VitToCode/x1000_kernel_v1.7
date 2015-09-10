@@ -797,20 +797,21 @@ static int codec_set_gain_mic(struct codec_info *codec_dev, int gain){
 static int codec_set_gain_adc(struct codec_info *codec_dev, int gain)
 {
 	int tmpval;
-	gain = gain*43/100;
-	if(gain > 43 || gain < 0){
-		printk("set gain out of range [0 - 43]\n");
+	/* We just use 0dB ~ +23dB to avoid of the record sound cut top */
+	gain = gain*23/100;
+	if(gain > 23 || gain < 0){
+		printk("set gain out of range [0 - 23]\n");
 		return 0;
 	}
 
 	DUMP_GAIN_PART_REGS(codec_dev, "enter");
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_ADCL);
-	tmpval &= ~62;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_ADCL,tmpval|gain);
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_ADCR);
-	tmpval &= ~62;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_ADCR,tmpval|gain);
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");
 
@@ -866,24 +867,23 @@ static int codec_set_gain_dac(struct codec_info *codec_dev, int gain)
 {
 	int tmpval,tmp_gain;
 
-	gain = gain*63/100;
-	if(gain > 63 || gain < 0){
-		printk("set gain out of range [0 - 64]\n");
+	/* We just use -31dB ~ 0dB to avoid of the replay sound cut top */
+	gain = gain*31/100;
+	if(gain > 31 || gain < 0){
+		printk("set gain out of range [0 - 31]\n");
 		return 0;
 	}
 
 	DUMP_GAIN_PART_REGS(codec_dev, "enter");
-	if(gain<32)
-		tmp_gain = 31 - gain;
-	else
-		tmp_gain = 95 - gain;
+
+	tmp_gain = 31 - gain;
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_DACL);
-	tmpval &= ~63;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACL,tmpval|tmp_gain);
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_DACR);
-	tmpval &= ~63;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACR,tmpval|tmp_gain);
 
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");
