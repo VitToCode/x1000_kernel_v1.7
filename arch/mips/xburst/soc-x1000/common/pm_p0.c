@@ -268,7 +268,6 @@ static unsigned int ddr_training_space[20];
 #endif
 static noinline void cpu_sleep(void)
 {
-	/* unsigned int val; */
 
 #ifdef DDR_TRAINING
 	memcpy(ddr_training_space,(void*)0x80000000,20 * 4);
@@ -310,10 +309,19 @@ LABLE1:
 	 * (2) AH0/2 source clock changes MPLL to EXCLK
 	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
 	 */
-	REG32(0xb0000000) = 0x95800000;
-	while((REG32(0xB00000D4) & 7))
-		TCSM_PCHAR('A');
+	/* REG32(0xb0000000) = 0x95800000; */
+	/* while((REG32(0xB00000D4) & 7)) */
+	/* 	TCSM_PCHAR('A'); */
+	{
+		unsigned int val;
+		val = REG32(0xb0000000);
+		val &= ~(0xff);
+		val |= 0x73;
+		REG32(0xb0000000) = val;
+		while((REG32(0xB00000D4) & 7))
+			TCSM_PCHAR('A');
 
+	}
 	__asm__ volatile(".set mips32\n\t"
 			 "sync\n\t"
 			 "nop\n\t"
