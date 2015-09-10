@@ -728,13 +728,12 @@ static void jzfb_disable(struct fb_info *info)
 		return;
 	}
 
-		/* SLCD and TVE only support quick disable */
-		ctrl = reg_read(jzfb, LCDC_CTRL);
-		ctrl &= ~LCDC_CTRL_ENA;
-		reg_write(jzfb, LCDC_CTRL, ctrl);
-		printk("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!this is disable controller\n");
+	/* SLCD and TVE only support quick disable */
+	ctrl = reg_read(jzfb, LCDC_CTRL);
+	ctrl &= ~LCDC_CTRL_ENA;
+	reg_write(jzfb, LCDC_CTRL, ctrl);
 	jzfb->is_lcd_en = 0;
-    mutex_unlock(&jzfb->lock);
+	mutex_unlock(&jzfb->lock);
 
 }
 
@@ -883,7 +882,6 @@ static int jzfb_set_par(struct fb_info *info)
 
 		var->pixclock = mode->pixclock;
 	}
-	printk("lcd pixel rate is :::::::::::::::::::::::::::::::::::::::%d\n",rate);
 	/*set reg,and enable lcd after set all reg*/
 	is_lcd_en = jzfb->is_lcd_en;
 	jzfb_disable(info);
@@ -982,7 +980,6 @@ static int jzfb_set_par(struct fb_info *info)
 	reg_write(jzfb, LCDC_PCFG, pcfg);
 
 	jzfb_config_fg0(info);
-	printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 	jzfb_prepare_dma_desc(info);
 
 	mutex_unlock(&jzfb->lock);
@@ -1497,7 +1494,6 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			if (!osd.fg_size.fg) {
 				jzfb->osd.fg0.w = osd.fg_size.w;
 				jzfb->osd.fg0.h = osd.fg_size.h;
-				printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 				return jzfb_prepare_dma_desc(info);
 			} else {
 				/* LCDC DMA 1 is not used for now */
@@ -1607,12 +1603,10 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		if (value) {
 			dev_dbg(info->dev, "LCDC DMA enable block mode");
 			jzfb->osd.block = 1;
-			printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 			jzfb_prepare_dma_desc(info);
 		} else {
 			dev_dbg(info->dev, "LCDC DMA disable block mode");
 			jzfb->osd.block = 0;
-			printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 			jzfb_prepare_dma_desc(info);
 		}
 		break;
@@ -1847,7 +1841,6 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 	jzfb->osd.fg0.h = mode->yres;
 
 	info->mode = mode;
-	printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 	jzfb_prepare_dma_desc(info);
 
 	if (mode->pixclock) {
@@ -1894,7 +1887,6 @@ static int jzfb_copy_logo(struct fb_info *info)
 		return -ENOMEM;
 	}
 
-	printk("uboot lcd is enabled!!\n");
 	jzfb->is_lcd_en = 1;
 
 	if (src_addr) {

@@ -46,7 +46,6 @@ static struct xrm2002903_power lcd_power = {
 int xrm2002903_power_init(struct lcd_device *ld)
 {
     int ret ;
-    printk("======xrm2002903_power_init==============\n");
     if(GPIO_LCD_RST > 0){
         ret = gpio_request(GPIO_LCD_RST, "lcd rst");
         if (ret) {
@@ -68,7 +67,6 @@ int xrm2002903_power_init(struct lcd_device *ld)
             return ret;
         }
     }
-    printk("set lcd_power.inited  =======1 \n");
     lcd_power.inited = 1;
     return 0;
 }
