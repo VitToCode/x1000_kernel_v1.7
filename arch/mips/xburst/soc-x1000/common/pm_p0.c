@@ -166,16 +166,12 @@ static inline void config_tcu2_alarm(void)
 {
 	unsigned int val;
 
-	val = REG32(INTC_BASE + IMCR0_OFF);
-	val |= (1  << 25);
-	REG32(INTC_BASE + IMCR0_OFF) = val;
-
 	val = 1 << CLKEVENT_CH;
 	write_tcu(TCU_TECR, val, TCU_TER, 0);
 
 	val = REG32(TCU_BASE + CH_TCSR(CLKEVENT_CH));
 	val &= ~(CSR_DIV_MSK | CSR_CLK_MSK);
-	val |= CSR_DIV1024 | CSR_RTC_EN;// | (1TCSR_CNT_CLRZ;
+	val |= CSR_DIV1024 | CSR_RTC_EN;// | (TCSR_CNT_CLRZ);
 	write_tcu(CH_TCSR(CLKEVENT_CH), val, 0, 0);
 
 	val = 1 << CLKEVENT_CH;
@@ -193,6 +189,10 @@ static inline void config_tcu2_alarm(void)
 
 	val = 1 << CLKEVENT_CH;
 	write_tcu(TCU_TESR, val, TCU_TER, 1);
+
+	val = REG32(INTC_BASE + IMCR0_OFF);
+	val |= (1  << 25);
+	REG32(INTC_BASE + IMCR0_OFF) = val;
 }
 #endif
 /**
@@ -268,7 +268,7 @@ static unsigned int ddr_training_space[20];
 #endif
 static noinline void cpu_sleep(void)
 {
-	unsigned int val;
+	/* unsigned int val; */
 
 #ifdef DDR_TRAINING
 	memcpy(ddr_training_space,(void*)0x80000000,20 * 4);
@@ -283,6 +283,8 @@ static noinline void cpu_sleep(void)
 	printk("icmr1 = %x\n",REG32(0xb0001024));
 	printk("icpr0 = %x\n",REG32(0xb0001010));
 	printk("icpr1 = %x\n",REG32(0xb0001030));
+	printk("CPAPCR = %x\n",cpm_inl(CPM_CPAPCR));
+	printk("CPMPCR = %x\n",cpm_inl(CPM_CPMPCR));
 	printk("opcr = %x\n",cpm_inl(CPM_OPCR));
 	printk("lcr = %x\n",cpm_inl(CPM_LCR));
 	printk("slpc = %x\n",cpm_inl(CPM_SLPC));
@@ -300,27 +302,28 @@ LABLE1:
 	val = ddr_readl(DDRC_CTRL);//DDR keep selrefresh,when it exit the sleep state.
 	val |= (1 << 17);//enter to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
-  	*((volatile unsigned int*)(0xb30100bc)) &= ~(0x1);
+	*((volatile unsigned int*)(0xb30100bc)) &= ~(0x1);
 #endif
+
 	/*
-	 * (1) set L2CDIV CDIV = 5
+	 * (1) SCL_SRC source clock changes APLL to EXCLK
+	 * (2) AH0/2 source clock changes MPLL to EXCLK
+	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
 	 */
-	val =  REG32(0xb0000000);
-	val &= ~0xff;
-	val |= (0x55 | 1 << 22);
-	REG32(0xb0000000) = val;
+	REG32(0xb0000000) = 0x95800000;
 	while((REG32(0xB00000D4) & 7))
-		TCSM_PCHAR('w');
+		TCSM_PCHAR('A');
 
 	__asm__ volatile(".set mips32\n\t"
-		"nop\n\t"
-		"wait\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"jr %0\n\t"
-		".set mips32 \n\t"
-		:: "r" (SLEEP_TCSM_RESUME_TEXT)
+			 "sync\n\t"
+			 "nop\n\t"
+			 "wait\n\t"
+			 "nop\n\t"
+			 "nop\n\t"
+			 "nop\n\t"
+			 "jr %0\n\t"
+			 ".set mips32 \n\t"
+			 :: "r" (SLEEP_TCSM_BOOT_TEXT)
 		);
 
 	while(1)
@@ -329,7 +332,7 @@ LABLE1:
 }
 static noinline void cpu_resume_boot(void)
 {
-
+	TCSM_PCHAR('O');
 	__asm__ volatile(".set mips32\n\t"
 		"move $29, %0\n\t"
 		".set mips32\n\t"
@@ -351,10 +354,11 @@ static noinline void cpu_resume(void)
 	TCSM_PCHAR('B');
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
-	val |= (1 << 22);
+	val |= (7 << 20);
 	REG32(0xb0000000) = val;
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
+
 #ifdef CONFIG_SUSPEND_TEST
 	/* clear tcu2 flag */
 	val = 1 << 2;
@@ -366,8 +370,8 @@ static noinline void cpu_resume(void)
 	REG32(INTC_BASE + IMSR0_OFF) = val;
 #endif
 #ifdef DDR_TRAINING
-	*(volatile unsigned *) 0xb00000d0 = 0x73; //reset the DLL in DDR PHY
-	TCSM_DELAY(0x1ff);
+	/* *(volatile unsigned *) 0xb00000d0 = 0x73; //reset the DLL in DDR PHY */
+	/* TCSM_DELAY(0x1ff); */
 
 	val = ddr_readl(DDRC_CTRL);
 	val |= 1 << 1;
@@ -376,8 +380,8 @@ static noinline void cpu_resume(void)
 	val = ddr_readl(DDRC_CTRL);
 	TCSM_DELAY(0x1ff);
 
-	*(volatile unsigned *) 0xb00000d0 = 0x71; //disable the reset
-	TCSM_DELAY(0x1ff);
+	/* *(volatile unsigned *) 0xb00000d0 = 0x71; //disable the reset */
+	/* TCSM_DELAY(0x1ff); */
 
 	*((volatile unsigned int*)(0xb30100bc)) |= (0x1);
 	TCSM_DELAY(0x1ff);
@@ -451,6 +455,7 @@ static int x1000_pm_enter(suspend_state_t state)
 #ifdef DDR_TEST
 	test_ddr_data_init();
 #endif
+	disable_fpu();
 	REG32(SLEEP_TCSM_RESUME_DATA + 8) =  cpm_inl(CPM_LCR);
 	REG32(SLEEP_TCSM_RESUME_DATA + 12) =  cpm_inl(CPM_OPCR);
 
@@ -461,8 +466,8 @@ static int x1000_pm_enter(suspend_state_t state)
 	cpm_outl(lcr,CPM_LCR);
 
 	opcr = cpm_inl(CPM_OPCR);
-	opcr &= ~((1 << 7) | (1 << 6) | (1 << 4) | (0xfff << 8) );
-	opcr |= (1 << 31) | (1 << 30) | (1 << 25) | (1 << 23) | (1 << 22) | (0xff << 8) | (1 << 2) | (1 << 3);
+	opcr &= ~((1 << 7) | (1 << 6) | (1 << 4) | (0xfff << 8) | (1 << 22));
+	opcr |= (1 << 31) | (1 << 30) | (1 << 25) | (1 << 23) | (0xfff << 8) | (1 << 2) | (1 << 3);
 	cpm_outl(opcr,CPM_OPCR);
 
 	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_BOOT_TEXT,(unsigned int *)cpu_resume_boot,SLEEP_TCSM_BOOT_LEN);
