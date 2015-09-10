@@ -180,38 +180,22 @@ static void i2s_set_filter(struct i2s_device *i2s_dev, int mode , uint32_t chann
 		dp = cur_codec->dsp_endpoints->in_endpoint;
 	else
 		return;
-
+	/* convert sound data from signed to unsigned by register AICCR.ASVTSU */
 	switch(cur_codec->record_format) {
 		case AFMT_U8:
-			if (channels == 1) {
-				dp->filter = convert_8bits_stereo2mono_signed2unsigned;
-				printk("dp->filter convert_8bits_stereo2mono_signed2unsigned .\n");
-			}
-			else {
-				//dp->filter = convert_8bits_signed2unsigned;
-				dp->filter = NULL; //hardware convert
-				printk("dp->filter convert_8bits_signed2unsigned.\n");
-			}
-			break;
 		case AFMT_S8:
 			if (channels == 1) {
 				dp->filter = convert_8bits_stereo2mono;
-				printk("dp->filter convert_8bits_stereo2mono\n");
-			}
-			else {
+			} else {
 				dp->filter = NULL;
-				printk("dp->filter null\n");
 			}
 			break;
 		case AFMT_U16_LE:
 		case AFMT_S16_LE:
 			if (channels == 1) {
 				dp->filter = convert_16bits_stereo2mono;
-				printk("dp->filter convert_16bits_stereo2mono\n");
-			}
-			else {
+			} else {
 				dp->filter = NULL;
-				printk("dp->filter null\n");
 			}
 			break;
 		case AFMT_S24_LE:
@@ -219,15 +203,14 @@ static void i2s_set_filter(struct i2s_device *i2s_dev, int mode , uint32_t chann
 			if (channels == 1) {
 				//dp->filter = convert_32bits_stereo2mono;
 				printk("dp->filter convert_32bits_stereo2mono\n");
-			}
-			else {
+			} else {
 				dp->filter = NULL;
-				printk("dp->filter null\n");
 			}
 			break;
 		default :
 			dp->filter = NULL;
-			printk("AUDIO DEVICE :filter set error.\n");
+			printk("AUDIO DEVICE: filter set error.\n");
+			break;
 	}
 }
 
@@ -638,8 +621,8 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 		i2s_set_fmt(i2s_dev, &replay_format,mode);
 		i2s_set_channel(i2s_dev, &replay_channel,mode);
 		i2s_set_rate(i2s_dev, &replay_rate,mode);
-                /* just for anti pop if underrun happened when replaying */
-                __i2s_play_lastsample(i2s_dev);
+		/* just for anti pop if underrun happened when replaying */
+		__i2s_play_lastsample(i2s_dev);
 	}
 	if (mode & CODEC_RMODE) {
 		dp_other = cur_codec->dsp_endpoints->out_endpoint;
@@ -663,8 +646,8 @@ static int i2s_enable(struct i2s_device * i2s_dev, int mode)
 
 void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 {
-        /* write the unit outside the txfifo zero when underrun happen, just for anti pop. */
-        __i2s_play_zero(i2s_dev);
+	/* write the unit outside the txfifo zero when underrun happen, just for anti pop. */
+	__i2s_play_zero(i2s_dev);
 	__i2s_enable_replay(i2s_dev);
 	mdelay(2);
 	__i2s_disable_replay(i2s_dev);
@@ -1144,7 +1127,6 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 
 	/*noting to do*/
 
-
 	return ret;
 }
 
@@ -1184,7 +1166,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	struct dsp_pipe *i2s_pipe_in = NULL;
 	struct i2s_device * i2s_dev;
 
-	printk("i2s global init !~~~\n");
 	i2s_dev = (struct i2s_device *)kzalloc(sizeof(struct i2s_device), GFP_KERNEL);
 	if(!i2s_dev) {
 		dev_err(&pdev->dev, "failed to alloc i2s dev\n");
@@ -1339,12 +1320,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 #else//44100
 	//clk_enable(i2s_dev->i2s_clk);
 #endif
-//*(volatile unsigned int*)0xb0000060 = 0xc0020001;
-//*(volatile unsigned int*)0xb0000070 = *(volatile unsigned int*)0xb0000070;
-//*(volatile unsigned int*)0xb0000060 = 0xa0020001;
-//*(volatile unsigned int*)0xb0020030 = 0x0;
-//*(volatile unsigned int*)0xb0000020 = 0;
-
 	__i2s_start_bitclk(i2s_dev);
 
 	__i2s_disable_receive_dma(i2s_dev);

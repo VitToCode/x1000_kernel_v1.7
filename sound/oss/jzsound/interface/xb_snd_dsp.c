@@ -449,11 +449,11 @@ static void snd_release_node(struct dsp_pipe *dp)
 		while(!pop_dma_node_to_free(dp));
 
 	free_count = get_free_dsp_node_count(dp);
-	printk("free_count: %d\n", free_count);
-	if (free_count < dp->fragcnt)
-		printk("%s error buffer is lost when snd_release_node.\n",__func__);
-	else if (free_count > dp->fragcnt) {
-		printk("%s BUG: error buffer release fail.\n",__func__);
+
+	if (free_count < dp->fragcnt){
+		printk("BUG: %s error, buffer is lost.\n",__func__);
+	} else if (free_count > dp->fragcnt){
+		printk("BUG: %s error, buffer is more.\n",__func__);
 		free_count = dp->fragcnt;
 	}
 	if (dp->dma_config.direction == DMA_FROM_DEVICE)
@@ -2687,13 +2687,9 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-#ifndef CONFIG_ANDROID
-	int arg = 0, state = 0;
-#endif
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
-		while(1);
 		return -ENODEV;
 	}
 
@@ -2703,7 +2699,6 @@ int xb_snd_dsp_open(struct inode *inode,
 		endpoints = (struct dsp_endpoints *)ddata->ext_data;
 	}
 	if (endpoints == NULL) {
-		while(1);
 		return -ENODEV;
 	}
 	dpi = endpoints->in_endpoint;
@@ -2725,8 +2720,8 @@ int xb_snd_dsp_open(struct inode *inode,
 		mutex_lock(&dpi->mutex);
 		if (dpi->is_used) {
 			printk("\nAudio read device is busy!\n");
-			ret = -EBUSY;
-			goto EXIT_READ_LABLE;
+			mutex_unlock(&dpi->mutex);
+			return -EBUSY;
 		}
 
                 first_start_record_dma = true;
@@ -2739,8 +2734,10 @@ int xb_snd_dsp_open(struct inode *inode,
 		} else if (ddata->dev_ioctl_2) {
 			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_RECORD, 0);
 		}
-		if (ret < 0)
+		if (ret < 0){
+			mutex_unlock(&dpi->mutex);
 			return -EIO;
+		}
 		dpi->is_used = true;
 		/* request dma for record */
 		ret = snd_reuqest_dma(dpi);
@@ -2748,22 +2745,7 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpi->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
-#ifndef CONFIG_ANDROID
-		arg = SND_DEVICE_BUILDIN_MIC;
-		if (ddata->dev_ioctl) {
-			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		} else if (ddata->dev_ioctl_2) {
-			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		}
-		if (arg < 0) {
-			ret = -EIO;
-			goto EXIT_READ_LABLE;
-		}
-#endif
-	EXIT_READ_LABLE:
 		mutex_unlock(&dpi->mutex);
-		if(ret)
-			return ret;
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
@@ -2774,8 +2756,8 @@ int xb_snd_dsp_open(struct inode *inode,
 		mutex_lock(&dpo->mutex);
 		if (dpo->is_used) {
 			printk("\nAudio write device is busy!\n");
-			ret = -EBUSY;
-			goto EXIT_WRITE_LABLE;
+			mutex_unlock(&dpo->mutex);
+			return -EBUSY;
 		}
 
                 first_start_replay_dma = true;
@@ -2788,10 +2770,10 @@ int xb_snd_dsp_open(struct inode *inode,
 		} else if(ddata->dev_ioctl_2) {
 			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_REPLAY, 0);
 		}
-			if (ret < 0) {
-				ret = -EIO;
-				goto EXIT_WRITE_LABLE;
-			}
+		if (ret < 0) {
+			mutex_unlock(&dpo->mutex);
+			return -EIO;
+		}
 		dpo->is_used = true;
 
 		/* request dma for replay */
@@ -2800,60 +2782,7 @@ int xb_snd_dsp_open(struct inode *inode,
 			dpo->is_used = false;
 			printk("AUDIO ERROR, can't get dma!\n");
 		}
-
-
-#ifndef CONFIG_ANDROID
-#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
-		dpo->force_hdmi = true;
-		arg = SND_DEVICE_HDMI;
-		if (ddata->dev_ioctl) {
-			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		} else if(ddata->dev_ioctl_2) {
-			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
-		}
-		printk("%s: HDMI output\n",__func__);
-		if (arg < 0) {
-			ret = -EIO;
-			goto EXIT_WRITE_LABLE;
-		}
-#else
-		dpo->force_hdmi = false;
-		if (ddata->dev_ioctl) {
-			arg = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
-			if (arg < 0) {
-				ret = -EIO;
-				goto EXIT_WRITE_LABLE;
-			}
-			if (state)
-				arg = SND_DEVICE_HEADSET;
-			else
-				arg = SND_DEVICE_SPEAKER;
-			arg = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
-			if (arg < 0) {
-				ret = -EIO;
-				goto EXIT_WRITE_LABLE;
-			}
-		} else if(ddata->dev_ioctl_2) {
-			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_HP_DETECT, (unsigned long)&state);
-			if (arg < 0) {
-				return -EIO;
-			}
-			if (state)
-				arg = SND_DEVICE_HEADSET;
-			else
-				arg = SND_DEVICE_SPEAKER;
-			arg = SND_DEVICE_SPEAKER;
-			arg = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
-			if (arg < 0) {
-				return -EIO;
-			}
-		}
-#endif
-#endif
-EXIT_WRITE_LABLE:
 		mutex_unlock(&dpo->mutex);
-		if(ret)
-			return ret;
 	}
 
 #ifdef DEBUG_REPLAY
@@ -2980,6 +2909,9 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 	int ret = -1;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+#ifndef CONFIG_ANDROID
+	int arg = 0, tmp = 0, state = 0;
+#endif
 
 	if (ddata == NULL)
 		return -1;
@@ -3003,6 +2935,59 @@ int xb_snd_dsp_probe(struct snd_dev_data *ddata)
 		if (ret)
 			goto error2;
 	}
+
+#ifndef CONFIG_ANDROID
+	if (ddata->minor == SND_DEV_DSP0){
+		arg = SND_DEVICE_BUILDIN_MIC;
+		if (ddata->dev_ioctl) {
+			tmp = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		} else if (ddata->dev_ioctl_2) {
+			tmp = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		}
+		if (tmp < 0) {
+			printk("SND_DSP_SET_DEVICE to %d failed\n", arg);
+		}
+
+#if defined(CONFIG_HDMI_JZ4780) || defined(CONFIG_HDMI_JZ4780_MODULE)
+		endpoints->out_endpoint->force_hdmi = true;
+		arg = SND_DEVICE_HDMI;
+		if (ddata->dev_ioctl) {
+			tmp = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		} else if(ddata->dev_ioctl_2) {
+			tmp = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		}
+		if (tmp < 0) {
+			printk("SND_DSP_SET_DEVICE to %d failed\n", arg);
+		}
+#else
+		endpoints->out_endpoint->force_hdmi = false;
+		if (ddata->dev_ioctl) {
+			tmp = (int)ddata->dev_ioctl(SND_DSP_GET_HP_DETECT, (unsigned long)&state);
+		} else if(ddata->dev_ioctl_2) {
+			tmp = (int)ddata->dev_ioctl_2(ddata, SND_DSP_GET_HP_DETECT, (unsigned long)&state);
+		}
+		if (tmp < 0) {
+			printk("SND_DSP_GET_HP_DETECT failed, we will set default replay route.\n");
+			arg = SND_DEVICE_SPEAKER;
+		}else{
+			if (state)
+				arg = SND_DEVICE_HEADSET;
+			else
+				arg = SND_DEVICE_SPEAKER;
+		}
+
+		if (ddata->dev_ioctl) {
+			tmp = (int)ddata->dev_ioctl(SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		} else if(ddata->dev_ioctl_2) {
+			tmp = (int)ddata->dev_ioctl_2(ddata, SND_DSP_SET_DEVICE, (unsigned long)&arg);
+		}
+		if (tmp < 0) {
+			printk("SND_DSP_SET_DEVICE to %d failed\n", arg);
+		}
+#endif
+	}
+#endif
+
 #ifdef TEST_BYPASS_TRANS
 	if (!spipe_is_init)  {
 		ret = spipe_init(ddata->dev);

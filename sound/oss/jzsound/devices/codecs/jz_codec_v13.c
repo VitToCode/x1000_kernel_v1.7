@@ -32,11 +32,11 @@
 #include "jz_route_conf_v13.h"
 
 /*###############################################*/
-#define CODEC_DUMP_IOC_CMD			0
+#define CODEC_DUMP_IOC_CMD		0
 #define CODEC_DUMP_ROUTE_REGS		0
 #define CODEC_DUMP_ROUTE_PART_REGS	0
 #define CODEC_DUMP_GAIN_PART_REGS	0
-#define CODEC_DUMP_ROUTE_NAME		1
+#define CODEC_DUMP_ROUTE_NAME		0
 #define CODEC_DUMP_GPIO_STATE		0
 /*##############################################*/
 
@@ -148,7 +148,10 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_RECORD_CLEAR,
 		SND_ROUTE_RECORD_AMIC,
 		SND_ROUTE_REPLAY_SPK,
-		SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK
+		SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
+		SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
+		SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
+		SND_ROUTE_LINEIN_MIXER_REPLAY
 	};
 
 	char *route_str[] = {
@@ -158,7 +161,10 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_RECORD_CLEAR",
 		"SND_ROUTE_RECORD_AMIC",
 		"SND_ROUTE_REPLAY_SPK",
-		"SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK"
+		"SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK",
+		"SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK",
+		"SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK",
+		"SND_ROUTE_LINEIN_MIXER_REPLAY"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -226,9 +232,9 @@ static void dump_codec_gain_regs(struct codec_info *codec_dev)
 
 #if CODEC_DUMP_ROUTE_NAME
 #define DUMP_ROUTE_NAME(route) codec_print_route_name(route)
-#else //CODEC_DUMP_ROUTE_NAME
+#else
 #define DUMP_ROUTE_NAME(route)
-#endif //CODEC_DUMP_ROUTE_NAME
+#endif
 
 /*-------------------*/
 #if CODEC_DUMP_IOC_CMD
@@ -1236,7 +1242,6 @@ static int codec_set_device(struct codec_info *codec_dev, enum snd_device_t devi
 	int ret = 0;
 	int iserror = 0;
 
-	printk("codec_set_device %d \n",device);
 	switch (device) {
 	case SND_DEVICE_SPEAKER:
 		if (codec_platform_data && codec_platform_data->replay_speaker_route.route) {
@@ -1513,6 +1518,7 @@ static int codec_irq_handle(struct codec_info *codec_dev, struct work_struct *de
 
 static int codec_get_hp_state(struct codec_info *codec_dev, int *state)
 {
+	*state = 0;
 	return 0;
 }
 

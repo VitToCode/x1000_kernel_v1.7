@@ -118,6 +118,7 @@ route_conf_base const route_replay_clear_conf = {
 route_conf_base const route_record_clear_conf = {
 	//.route_ready_mode = ROUTE_READY_FOR_ADC,
 	//.route_input_mode = INPUT_TO_ADC_DISABLE,     //delete this line just for the mixer loopback route above
+	.route_replay_mux_mode = REPLAY_NORMAL_INPUT,   //add it because of linein bypass replay will change it.
 	.route_adc_mode = ADC_DISABLE,
 	.route_mic_mode = MIC_DISABLE,
 };

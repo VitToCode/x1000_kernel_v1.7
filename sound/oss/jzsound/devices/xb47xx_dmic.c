@@ -87,10 +87,10 @@ static struct codec_info_dmic {
 	};
 
 	for (i = 0;i < 13; i++) {
-		printk("##### dmic reg0x%x,=0x%x.\n",
-	   	(unsigned int)reg_addr[i],dmic_read_reg(reg_addr[i]));
+		printk("dmic reg0x%x = 0x%x.\n",
+		(unsigned int)reg_addr[i], dmic_read_reg(reg_addr[i]));
 	}
-	printk("##### intc,=0x%x.\n",*((volatile unsigned int *)(0xb0001000)));
+	printk("intc = 0x%x.\n",*((volatile unsigned int *)(0xb0001000)));
 }
 
 /*######DMICTRIMMAX############################################################*\
@@ -148,7 +148,7 @@ static int dmic_set_fmt(unsigned long *format,int mode)
 	 * AFMT_S16_BE      0x00000020
 	 * AFMT_S8			0x00000040
 	 */
-	debug_print("format = %d",*format);
+	debug_print("dmic set format = %d",*format);
 	switch (*format) {
 	case AFMT_S16_LE:
 		break;
@@ -166,7 +166,7 @@ static int dmic_set_fmt(unsigned long *format,int mode)
 		ret |= NEED_RECONF_DMA;
 	}
 	if (mode & CODEC_WMODE) {
-		printk("DMIC: unsurpport replay!\n");
+		printk("DMIC: do not support replay!\n");
 		ret = -1;
 	}
 
@@ -193,7 +193,6 @@ static void dmic_set_filter(int mode , uint32_t channels)
 		dp->filter = NULL;
 	} else {
 		dp->filter = NULL;
-		printk("dp->filter null\n");
 	}
 }
 
@@ -209,7 +208,7 @@ int dmic_set_channel(int* channel,int mode)
 {
 	int ret = 0;
 #if FPGA_DMIC_DEBUG
-	printk("select channels = %d",*channel);
+	debug_print("dmic set channels = %d",*channel);
 	if (mode & CODEC_RMODE) {
 		switch(*channel){
 		case 1:
@@ -244,26 +243,25 @@ int dmic_set_rate(unsigned long *rate,int mode)
 {
 	int ret = 0;
 
-	debug_print("rate = %ld",*rate);
 	if (mode & CODEC_WMODE) {
 		/*************************************************\
 		|* WARING:dmic have only one mode,               *|
 		|* So we should not to care write mode.          *|
 		\*************************************************/
-		printk("dmic unsurpport replay!\n");
+		printk("dmic do not support replay!\n");
 		return -EPERM;
 	}
 	if (mode & CODEC_RMODE) {
 		if (*rate == 8000){
-			printk("Dmic sample rate 8k\n");
+			debug_print("Dmic sample rate %ld", *rate);
 			__dmic_select_8k_mode();
 		}
 		else if (*rate == 16000){
-			printk("Dmic sample rate 16k\n");
+			debug_print("Dmic sample rate %ld", *rate);
 			__dmic_select_16k_mode();
 		}
 		else if (*rate == 48000){
-			printk("Dmic sample rate 48k\n");
+			debug_print("Dmic sample rate %ld", *rate);
 			__dmic_select_48k_mode();
 		}
 		else{
@@ -281,7 +279,7 @@ void dmic_set_trigger(int mode)
 {
 
 	if (mode & CODEC_WMODE) {
-		printk("dmic unsurpport replay!\n");
+		printk("dmic do not support replay!\n");
 	}
 	if (mode &CODEC_RMODE) {
 		__dmic_set_request(8);
@@ -310,8 +308,6 @@ int dmic_record_init(int mode)
 		}
 	}
 
-	printk("=====> %s success\n", __func__);
-
 	return 0;
 }
 
@@ -319,7 +315,6 @@ int dmic_enable(int mode)
 {
 	unsigned long record_format = 16;
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
-	struct dsp_pipe *dp_other = NULL;
 	int ret = 0;
 
 
@@ -329,12 +324,7 @@ int dmic_enable(int mode)
 
 	dmic_record_init(mode);
 	if (mode & CODEC_RMODE) {
-		printk("come to %s %d set dp_other\n", __func__, __LINE__);
-		dp_other = dmic_endpoints.in_endpoint;
 		dmic_set_fmt(&record_format,mode);
-	}
-	if (!dp_other->is_used) {
-		printk("%s -- dmic enable --- %d\n",__func__,__LINE__);
 	}
 
 	dmic_is_incall_state = false;
@@ -357,7 +347,7 @@ int dmic_dma_enable(int mode)		//CHECK
 		__dmic_clear_tur();
 	}
 	if (mode & CODEC_WMODE) {
-		printk("DMIC: dmic unsurpport replay\n");
+		printk("DMIC: dmic do not support replay\n");
 		return -1;
 	}
 
@@ -413,7 +403,7 @@ int dmic_get_fmt(unsigned long *fmt, int mode)
 		dp->need_reconfig_dma = true;
 	}
 	if (mode & CODEC_WMODE) {
-		printk("DMIC: unsurpport replay mode\n");
+		printk("DMIC: dmic do not support replay\n");
 	}
 
 	return;
@@ -438,12 +428,12 @@ long dmic_ioctl(unsigned int cmd, unsigned long arg)
 		/* enable dmic replay */
 		/* set dmic default record format, channels, rate */
 		/* set default replay route */
-		printk("dmic not support record!\n");
+		printk("dmic do not support replay!\n");
 		ret = -1;
 		break;
 
 	case SND_DSP_DISABLE_REPLAY:
-		printk("dmic not support record!\n");
+		printk("dmic do not support replay!\n");
 		ret = -1;
 		/* disable dmic replay */
 		break;
@@ -452,14 +442,13 @@ long dmic_ioctl(unsigned int cmd, unsigned long arg)
 		/* enable dmic record */
 		/* set dmic default record format, channels, rate */
 		/* set default record route */
-			__dmic_disable_all_int();
-			__dmic_reset();
-			while(__dmic_get_reset());
-			__dmic_enable();
+		__dmic_disable_all_int();
+		__dmic_reset();
+		while(__dmic_get_reset());
+		__dmic_enable();
 #if FPGA_DMIC_DEBUG
 		ret = dmic_enable(CODEC_RMODE);
 #endif
-		printk("  dmic ioctl enable cmd complete\n");
 		break;
 
 	case SND_DSP_DISABLE_RECORD:
@@ -676,8 +665,6 @@ int dmic_global_init(struct platform_device *pdev)
 	struct clk *dmic_clk = NULL;
 	unsigned int temp = 0;
 
-	printk("----> start %s\n", __func__);
-
 	cur_dmic = kmalloc(sizeof(struct jz_dmic), GFP_KERNEL);
 
 	dmic_prepare_ok = 0;
@@ -717,7 +704,7 @@ int dmic_global_init(struct platform_device *pdev)
 	dmic_endpoints.in_endpoint = dmic_pipe_in;
 
 	/*dmic_endpoints->in_endpoint->filter = convert_32bits_stereo2_16bits_mono;*/
-	printk("dp in_endpoint filter set!\n");
+	//printk("dp in_endpoint filter set!\n");
 
 
 	/*request aic clk */
@@ -764,9 +751,6 @@ int dmic_global_init(struct platform_device *pdev)
 	__dmic_set_thr_low(16);
 
 	__dmic_enable();
-
-	dump_dmic_reg();
-
 	printk("dmic init success.\n");
 	return  0;
 
