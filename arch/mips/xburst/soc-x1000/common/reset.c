@@ -18,6 +18,7 @@
 #include <soc/cpm.h>
 #include <soc/extal.h>
 #include <soc/tcu.h>
+#include <jz_proc.h>
 
 #include <asm/reboot.h>
 
@@ -94,15 +95,18 @@ void inline reset_keep_power(int keep_pwr)
 }
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
+#define HRCR_WAIT_TIME(x) (((x) > 1875 ? 1875: (x)) / 125) << 11)
 
 void jz_hibernate(void)
 {
+	uint32_t rtc_rtccr;
+
 	local_irq_disable();
 	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 1000ms */
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, (60 << 5));
+	rtc_write_reg(RTC_HRCR, HRCR_WAIT_TIME(125));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
@@ -112,10 +116,14 @@ void jz_hibernate(void)
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
+	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	rtc_rtccr |= 0x1 << 0;
+	rtc_write_reg(RTC_RTCCR,rtc_rtccr);
+
 	mdelay(200);
 
 	while(1)
-		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
+		printk("%s:We should NOT come here.%08x\n",__func__, inl(RTC_IOBASE + RTC_HCR));
 }
 
 void jz_wdt_restart(char *command)
@@ -141,16 +149,19 @@ void jz_wdt_restart(char *command)
 		printk("check wdt.\n");
 }
 
-static void hibernate_restart(void) {
+static void hibernate_restart(void)
+{
 	uint32_t rtc_rtcsr,rtc_rtccr;
 
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+
 	rtc_rtcsr = inl(RTC_IOBASE + RTC_RTCSR);
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
 
 	rtc_write_reg(RTC_RTCSAR,rtc_rtcsr + 5);
-	rtc_rtccr &= ~(1 << 4);
-	rtc_write_reg(RTC_RTCCR,rtc_rtccr | 0x3<<2);
+	rtc_rtccr &= ~(1 << 4 | 1 << 1);
+	rtc_rtccr |= 0x3 << 2;
+	rtc_write_reg(RTC_RTCCR,rtc_rtccr);
 
 	/* Clear reset status */
 	cpm_outl(0,CPM_RSR);
@@ -159,7 +170,7 @@ static void hibernate_restart(void) {
 	rtc_write_reg(RTC_HWFCR, HWFCR_WAIT_TIME(1000));
 
 	/* Set reset pin low-level assertion time after wakeup: must  > 60ms */
-	rtc_write_reg(RTC_HRCR, (60 << 5));
+	rtc_write_reg(RTC_HRCR, HRCR_WAIT_TIME(125));
 
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
@@ -168,10 +179,13 @@ static void hibernate_restart(void) {
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
+	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
+	rtc_rtccr |= 0x1 << 0;
+	rtc_write_reg(RTC_RTCCR,rtc_rtccr);
+
 	mdelay(200);
 	while(1)
-		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
-
+		printk("%s:We should NOT come here.%08x\n",__func__, inl(RTC_IOBASE + RTC_HCR));
 }
 #ifdef CONFIG_HIBERNATE_RESET
 void jz_hibernate_restart(char *command)
@@ -331,7 +345,7 @@ static int wdt_probe(struct platform_device *pdev)
 #else
 	wdt->stop = 1;
 #endif
-	p = proc_mkdir("reset", 0);
+	p = jz_proc_mkdir("reset");
 	if (!p) {
 		pr_warning("create_proc_entry for common reset failed.\n");
 		return -ENODEV;
