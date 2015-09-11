@@ -13,13 +13,12 @@
 #include <linux/kthread.h>
 #include <linux/syscore_ops.h>
 #include <linux/platform_device.h>
-
+#include <jz_proc.h>
+#include <jz_notifier.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
 #include <soc/extal.h>
 #include <soc/tcu.h>
-#include <jz_proc.h>
-
 #include <asm/reboot.h>
 
 #define RTC_RTCCR		(0x00)	/* rw, 32, 0x00000081 */
@@ -115,6 +114,9 @@ void jz_hibernate(void)
 
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
+
+	/*poweroff the pmu*/
+	jz_notifier_call(NOTEFY_PROI_HIGH, JZ_POST_HIBERNATION, NULL);
 
 	rtc_rtccr = inl(RTC_IOBASE + RTC_RTCCR);
 	rtc_rtccr |= 0x1 << 0;
