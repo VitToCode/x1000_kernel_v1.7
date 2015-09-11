@@ -95,7 +95,7 @@ void inline reset_keep_power(int keep_pwr)
 }
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
-#define HRCR_WAIT_TIME(x) (((x) > 1875 ? 1875: (x)) / 125) << 11)
+#define HRCR_WAIT_TIME(x) ((((x) > 1875 ? 1875: (x)) / 125) << 11)
 
 void jz_hibernate(void)
 {
