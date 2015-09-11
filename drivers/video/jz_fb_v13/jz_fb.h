@@ -1,5 +1,5 @@
 #include <linux/fb.h>
-#include <linux/earlysuspend.h>
+//#include <linux/earlysuspend.h>
 
 #ifdef CONFIG_TWO_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
@@ -92,10 +92,6 @@ struct jzfb {
 	struct jzfb_platform_data *pdata;
 	void __iomem *base;
 	struct resource *mem;
-#ifdef CONFIG_JZ_MIPI_DSI
-	struct dsi_device *dsi;
-#endif
-
 
 	size_t vidmem_size;
 	void *vidmem;
@@ -125,9 +121,6 @@ struct jzfb {
 	struct clk *pclk;
 	struct clk *pwcl;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
-#endif
 	int is_suspend;
 	unsigned int pan_display_count;
 
