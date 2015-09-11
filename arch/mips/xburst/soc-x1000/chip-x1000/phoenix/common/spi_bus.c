@@ -298,4 +298,3 @@ struct platform_device jz_spi_gpio_device = {
 	},
 };
 #endif
-
