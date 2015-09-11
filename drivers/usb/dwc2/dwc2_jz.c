@@ -226,25 +226,7 @@ int dwc2_get_drvvbus_level(struct dwc2 *dwc)
 }
 
 int dwc2_host_vbus_is_extern(struct dwc2 *dwc) {
-	struct dwc2_jz	*jz = container_of(dwc->pdev, struct dwc2_jz, dwc2);
-
-	mutex_lock(&jz->vbus_lock);
-	if (jz->dete_pin && gpio_is_valid(jz->dete_pin->num) && get_detect_pin_status(dwc)) {
-		if (!dwc2_get_id_level(dwc) ||
-				(dwc2_clk_is_enabled(dwc) && dwc2_is_host_mode(dwc))) {
-			if (gpio_is_valid(jz->drvvbus_pin->num) && !dwc2_get_drvvbus_level(dwc)) {
-				dwc->extern_vbus_mode = 1;
-			} else if ((!IS_ERR_OR_NULL(jz->vbus) && !regulator_is_enabled(jz->vbus))) {
-				dwc->extern_vbus_mode = 1;
-			} else if ((!IS_ERR_OR_NULL(jz->vbus) && !gpio_is_valid(jz->drvvbus_pin->num)
-						&& !dwc2_clk_is_enabled(dwc))) {
-				dwc->extern_vbus_mode = 1;
-			}
-		}
-	} else {
-		dwc->extern_vbus_mode = 0;
-	}
-	mutex_unlock(&jz->vbus_lock);
+	dwc->extern_vbus_mode = 0;
 	return dwc->extern_vbus_mode;
 }
 
