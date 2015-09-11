@@ -27,3 +27,4 @@ obj-y += pm_p0.o
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
 obj-y += rtc.o
+obj-y += proc_idle.o
