@@ -9,6 +9,7 @@
 #define JZ_CAMERA_DATA_HIGH         1
 #define JZ_CAMERA_PCLK_RISING       2
 #define JZ_CAMERA_VSYNC_HIGH        4
+#define CAMERA_GSENSOR_VCC "vcc_gsensor"
 
 static int debug = 3;
 module_param(debug, int, S_IRUGO);

@@ -772,6 +772,8 @@ static void jz_camera_activate(struct jz_camera_dev *pcdev) {
 		ret = clk_set_rate(pcdev->mclk, pcdev->mclk_freq);
 		ret = clk_enable(pcdev->mclk);
 	}
+	if(pcdev->soc_host.regul)
+		regulator_enable(pcdev->soc_host.regul);
 	if(ret) {
 		dprintk(3, "enable clock failed!\n");
 	}
@@ -787,6 +789,8 @@ static void jz_camera_deactivate(struct jz_camera_dev *pcdev) {
 	if(pcdev->mclk) {
 		clk_disable(pcdev->mclk);
 	}
+	if(pcdev->soc_host.regul)
+		regulator_disable(pcdev->soc_host.regul);
 
 	/* clear status register */
 	writel(0, pcdev->base + CIM_STATE);
@@ -1134,12 +1138,14 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 		goto err_clk_get_cgu_cim;
 	}
 
-	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim_2_8");
+	pcdev->soc_host.regul = regulator_get(NULL, CAMERA_GSENSOR_VCC);
 	if(IS_ERR(pcdev->soc_host.regul)) {
 		dprintk(3, "get regulator fail !, if you need regulator, please check this place!\n");
 		err = -ENODEV;
 		pcdev->soc_host.regul = NULL;
-		//goto exit_put_clk_cim;
+//		goto exit_put_clk_cim;
+	}else {
+		regulator_enable(pcdev->soc_host.regul);
 	}
 
 	pcdev->pdata = pdev->dev.platform_data;
@@ -1200,6 +1206,9 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 	err = soc_camera_host_register(&pcdev->soc_host);
 	if (err)
 		goto err_soc_camera_host_register;
+
+	if (!IS_ERR(pcdev->soc_host.regul))
+		    regulator_disable(pcdev->soc_host.regul);
 
 	dprintk(6, "jz Camera driver loaded!\n");
 
