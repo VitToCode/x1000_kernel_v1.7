@@ -50,7 +50,7 @@ static int front_camera_sensor_power(struct device *dev, int on) {
 
 static struct soc_camera_link iclink_front = {
     .bus_id     = 0,        /* Must match with the camera ID */
-    .board_info = &jz_i2c0_devs[FRONT_CAMERA_INDEX],
+    .board_info = &jz_v4l2_camera_devs[FRONT_CAMERA_INDEX],
     .i2c_adapter_id = 0,
     .power = front_camera_sensor_power,
     .reset = camera_sensor_reset,
