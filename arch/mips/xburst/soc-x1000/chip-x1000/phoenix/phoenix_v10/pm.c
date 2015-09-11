@@ -68,7 +68,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*1+23,	GSS_OUTPUT_LOW	},	/* SMB0_SCK */
 	{32*1+24,	GSS_OUTPUT_LOW	},	/* SMB0_SDA */
 	{32*1+25,	GSS_OUTPUT_LOW	},	/* DRVVBUS */
-	{32*1+26,	GSS_OUTPUT_LOW	},	/* CLK32K */
+	{32*1+26,	GSS_IGNORE	},	/* CLK32K */
 	{32*1+27,	GSS_OUTPUT_LOW	},	/* EXCLK */
 	{32*1+28,	GSS_INPUT_NOPULL	},	/* BOOT_SEL0 */
 	{32*1+29,	GSS_INPUT_NOPULL	},	/* BOOT_SEL1 */
