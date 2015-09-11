@@ -39,6 +39,12 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		I2C_BOARD_INFO("ov5640-front", 0x3c),
 	},
 #endif
+#ifdef CONFIG_SENSORS_BMA2X2
+	{
+		I2C_BOARD_INFO("bma2x2", 0x18),
+		.irq = GPIO_GSENSOR_INTR,
+	},
+#endif
 };
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 #endif

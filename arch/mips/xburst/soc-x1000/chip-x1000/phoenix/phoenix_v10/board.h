@@ -117,6 +117,10 @@
 #endif
 /* ****************************GPIO I2C END********************************** */
 
+#ifdef CONFIG_SENSORS_BMA2X2
+#define GPIO_GSENSOR_INTR	GPIO_PB(2)
+#endif
+
 #ifdef CONFIG_VIDEO_JZ_CIM_HOST
 #define FRONT_CAMERA_INDEX  0
 #define BACK_CAMERA_INDEX   1

@@ -244,6 +244,9 @@ static int __init board_base_init(void)
      i2c_register_board_info(2, jz_i2c2_devs, jz_i2c2_devs_size);
 #endif
 
+#if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
+     i2c_register_board_info(0, jz_i2c0_devs, jz_i2c0_devs_size);
+#endif
 
 
 	return 0;

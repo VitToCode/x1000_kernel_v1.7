@@ -18,6 +18,7 @@ obj-$(CONFIG_SENSORS_STK220X)	+= lsensor_stk220x.o
 obj-$(CONFIG_SENSORS_BMA250E)   += bma250e.o
 obj-$(CONFIG_SENSORS_EM7180)    += em7180.o pni_sentral_ram.o
 obj-$(CONFIG_SENSORS_ORI)	+= gsensor_ori.o
+obj-y				+= gsensor_bma223/
 
 ifeq ($(CONFIG_I2C_DEBUG_CHIP),y)
 EXTRA_CFLAGS += -DDEBUG

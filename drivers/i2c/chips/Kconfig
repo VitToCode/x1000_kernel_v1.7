@@ -59,4 +59,5 @@ config SENSORS_STK220X
 	depends on LSENSOR
 	help
 
+source drivers/i2c/chips/gsensor_bma223/Kconfig
 endmenu
