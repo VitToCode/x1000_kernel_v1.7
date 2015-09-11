@@ -1156,12 +1156,14 @@ static int __init jz_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(hw->clk);
 	}
 
-	sprintf(clkname, "sfc", pdev->id);
-	hw->clk_gate = clk_get(&pdev->dev, clkname);
+	sprintf(clkname, "ssi", pdev->id);
+	hw->clk_gate = clk_get(&pdev->dev, "ssi");
 	if (IS_ERR(hw->clk_gate)) {
 		dev_err(&pdev->dev, "Cannot get ssi%d clock\n", pdev->id);
 		return PTR_ERR(hw->clk);
 	}
+
+	clk_enable(hw->clk);
 
 	hw->src_clk = hw->pdata->max_clk;
 
