@@ -1,6 +1,7 @@
 # Backlight & LCD drivers
 
 obj-$(CONFIG_BACKLIGHT_PWM)	+= pwm_bl.o android_bl.o
+obj-$(CONFIG_BACKLIGHT_PWM_V13)	+= pwm_bl_v13.o android_bl.o
 obj-$(CONFIG_LCD_CLASS_DEVICE)     += lcd.o
 obj-$(CONFIG_LCD_CORGI)		   += corgi_lcd.o
 obj-$(CONFIG_LCD_HP700)		   += jornada720_lcd.o

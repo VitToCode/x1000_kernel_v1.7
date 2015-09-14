@@ -307,7 +307,7 @@ struct jzfb_platform_data jzfb_pdata = {
 	.dither_enable = 0,
 };
 /**************************************************************************************************/
-#ifdef CONFIG_BACKLIGHT_PWM
+#if defined(CONFIG_BACKLIGHT_PWM)||defined(CONFIG_BACKLIGHT_PWM_V13)
 static int backlight_init(struct device *dev)
 {
 	int ret;

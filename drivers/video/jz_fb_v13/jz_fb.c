@@ -2545,7 +2545,7 @@ static int jzfb_suspend(struct device *dev)
 
 	/*disable clock*/
 	jzfb_clk_disable(jzfb);
-	//clk_disable(jzfb->pclk);
+	clk_disable(jzfb->pclk);
 #if 0
 	printk("++++lcd suspend:\n");
 	dump_cpm_reg();
@@ -2569,7 +2569,7 @@ static int jzfb_resume(struct device *dev)
 
 	/*enable clock*/
 	jzfb_clk_enable(jzfb);
-	//clk_enable(jzfb->pclk);
+	clk_enable(jzfb->pclk);
 	jzfb_set_par(jzfb->fb);
 
 	mutex_lock(&jzfb->suspend_lock);

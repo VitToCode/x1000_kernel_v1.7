@@ -97,7 +97,7 @@ extern struct platform_device jz_i2c2_device;
 extern struct i2c_board_info jz_i2c2_devs[];
 extern int jz_i2c2_devs_size;
 #endif
-#ifdef CONFIG_BACKLIGHT_PWM
+#if defined(CONFIG_BACKLIGHT_PWM) ||defined(CONFIG_BACKLIGHT_PWM_V13)
 extern struct platform_device backlight_device;
 #endif
 #ifdef CONFIG_I2C3_V12_JZ
