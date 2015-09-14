@@ -267,7 +267,11 @@ struct dsp_pipe {
 	atomic_t			avialable_couter;
 
 	atomic_t			watchdog_avail;
+#ifdef CONFIG_HIGH_RES_TIMERS
+	struct hrtimer          transfer_watchdog;
+#else
 	struct timer_list	transfer_watchdog;
+#endif
 	uint32_t watchdog_mdelay;
 	volatile bool		force_hdmi;
 

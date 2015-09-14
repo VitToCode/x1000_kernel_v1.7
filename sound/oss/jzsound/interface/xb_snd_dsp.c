@@ -410,8 +410,12 @@ static void snd_release_dma(struct dsp_pipe *dp)
 					}
 				}
 			}
+#ifdef CONFIG_HIGH_RES_TIMERS
+                        hrtimer_cancel(&dp->transfer_watchdog);
+#else
                         del_timer(&dp->transfer_watchdog);
-                        dmaengine_terminate_all(dp->dma_chan);
+#endif
+			dmaengine_terminate_all(dp->dma_chan);
                         dp->is_trans = false;
                         dp->wait_stop_dma = false;
                         dma_release_channel(dp->dma_chan);
@@ -538,8 +542,13 @@ static void snd_start_dma_transfer(struct dsp_pipe *dp ,
 
 	dma_async_issue_pending(dp->dma_chan);
 	if (direction == DMA_TO_DEVICE && dp->sg_len >= 3 && dp->mod_timer) {
+#ifdef CONFIG_HIGH_RES_TIMERS
+		hrtimer_start(&dp->transfer_watchdog,
+				ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
+#else
 		mod_timer(&dp->transfer_watchdog,
 			  jiffies+msecs_to_jiffies(dp->watchdog_mdelay));
+#endif
 		atomic_set(&dp->watchdog_avail,0);
 	}
 }
@@ -553,7 +562,7 @@ static dma_addr_t inline  dma_trans_addr(struct dsp_pipe *dp,
 							    direction);
 }
 
-static void replay_watch_function(unsigned long _dp)
+static void do_replay_watch_func(unsigned long _dp)
 {
 	struct dsp_pipe *dp = (struct dsp_pipe *)_dp;
 	dma_addr_t pdma_addr = 0;
@@ -612,7 +621,13 @@ static void replay_watch_function(unsigned long _dp)
 		}
 	}
 #endif
-	mod_timer(&dp->transfer_watchdog,jiffies+msecs_to_jiffies(dp->watchdog_mdelay));		//10ms timer
+#ifdef CONFIG_HIGH_RES_TIMERS
+	hrtimer_start(&dp->transfer_watchdog,
+			ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
+#else
+	mod_timer(&dp->transfer_watchdog,
+			jiffies+msecs_to_jiffies(dp->watchdog_mdelay));		//10ms timer
+#endif
 wait_interrupt:
 	if (put_used_dma_node_free(dp,node_base))
 		if ((dp->is_non_block == false) || (atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1)))
@@ -621,11 +636,40 @@ wait_interrupt_clean:
 	return;
 }
 
-static void record_watch_function(unsigned long _dp)
+#ifdef CONFIG_HIGH_RES_TIMERS
+static enum hrtimer_restart replay_watch_hr_function(struct hrtimer *timer)
+{
+        struct dsp_pipe *dp = container_of(timer, struct dsp_pipe, transfer_watchdog);
+        do_replay_watch_func(dp);
+        return HRTIMER_NORESTART;
+}
+#else
+static void replay_watch_function(unsigned long _dp)
+{
+	struct dsp_pipe *dp = (struct dsp_pipe *)_dp;
+        do_replay_watch_func(dp);
+}
+#endif
+
+static void do_record_watch_func(unsigned long _dp)
 {
 	return;
 }
 
+#ifdef CONFIG_HIGH_RES_TIMERS
+static enum hrtimer_restart record_watch_hr_function(struct hrtimer *timer)
+{
+        struct dsp_pipe *dp = container_of(timer, struct dsp_pipe, transfer_watchdog);
+        do_record_watch_func(dp);
+        return HRTIMER_NORESTART;
+}
+#else
+static void record_watch_function(unsigned long _dp)
+{
+        struct dsp_pipe *dp = (struct dsp_pipe *)_dp;
+	do_record_watch_func(dp);
+}
+#endif
 static void snd_dma_callback(void *arg)
 {
 	struct dsp_pipe *dp = (struct dsp_pipe *)arg;
@@ -1315,22 +1359,36 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	dp->can_mmap = false;
 	dp->handle = NULL;
 
+#ifdef CONFIG_HIGH_RES_TIMERS
+        hrtimer_init(&dp->transfer_watchdog, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
 	init_timer(&dp->transfer_watchdog);
+#endif
 	if (direction == DMA_TO_DEVICE) {
 		atomic_set(&dp->avialable_couter,dp->fragcnt);
 		dp->watchdog_mdelay = 10;
+#ifdef CONFIG_HIGH_RES_TIMERS
+                dp->transfer_watchdog.function = replay_watch_hr_function;
+#else
 		dp->transfer_watchdog.function = replay_watch_function;
+#endif
 		dp->samplerate = DEFAULT_REPLAY_SAMPLERATE;
 		dp->channels = DEFAULT_REPLAY_CHANNEL;
 	} else if (direction == DMA_FROM_DEVICE) {
 		atomic_set(&dp->avialable_couter,0);
 		dp->watchdog_mdelay = 128;
+#ifdef CONFIG_HIGH_RES_TIMERS
+                dp->transfer_watchdog.function = record_watch_hr_function;
+#else
 		dp->transfer_watchdog.function = record_watch_function;
+#endif
 		dp->samplerate = DEFAULT_RECORD_SAMPLERATE;
 		dp->channels = DEFAULT_RECORD_CHANNEL;
 	}
 	atomic_set(&dp->watchdog_avail,1);
+#ifndef CONFIG_HIGH_RES_TIMERS
 	dp->transfer_watchdog.data = (unsigned long)dp;
+#endif
 	spin_lock_init(&dp->pipe_lock);
 	mutex_init(&dp->mutex);
 	return 0;
@@ -2520,7 +2578,11 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (dp != NULL) {
 
 			mutex_lock(&dp->mutex);
+#ifdef CONFIG_HIGH_RES_TIMERS
+			hrtimer_cancel(&dp->transfer_watchdog);
+#else
 			del_timer_sync(&dp->transfer_watchdog);
+#endif
 			dp->force_stop_dma = true;
 			dp->wait_stop_dma = true;
 			wake_up(&dp->wq);
