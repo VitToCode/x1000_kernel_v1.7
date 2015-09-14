@@ -1,10 +1,10 @@
 /*
  * JZ RTC register definition
- * Copyright (C) 2013 Ingenic Semiconductor Co., Ltd.
+ * Copyright (C) 2014 Ingenic Semiconductor Co., Ltd.
  *
  */
-#ifndef __RTC_JZ_H__
-#define __RTC_JZ_H__
+#ifndef __MACH_JZRTC_H__
+#define __MACH_JZRTC_H__
 
 
 /*
@@ -105,14 +105,23 @@
 
 #define ms2clycle(x)  (((x) * RTC_FREQ_DIVIDER) / 1000)
 
+
+/*jz rtc device struct*/
 struct jz_rtc {
 	int irq;
 	struct clk *clk;
 	spinlock_t lock;
+	spinlock_t rd_lock;
+	spinlock_t wr_lock;
 	void __iomem *iomem;
+	struct mutex	mutexlock;
+	struct mutex	mutex_wr_lock;
 	struct resource *res;
+	struct work_struct work;
 	struct rtc_device *rtc;
 	struct rtc_time rtc_alarm;
-	struct tasklet_struct   tasklet;
 };
-#endif /* __RTC_JZ_H__ */
+
+
+
+#endif /* __MACH_JZRTC_H__ */
