@@ -16,9 +16,10 @@ int bcm_ap6212_wlan_init(void);
 #ifndef CONFIG_NAND
 #ifdef CONFIG_JZMMC_V12_MMC0
 static struct card_gpio tf_gpio = {
-	.cd				= {GPIO_SD0_CD_N,   LOW_ENABLE},
-	.wp             = {-1,	-1},
-	.pwr			= {-1,	-1},
+	.cd				= {GPIO_SD0_CD_N, LOW_ENABLE},
+	.wp             		= {-1,	-1},
+	.pwr				= {-1,	-1},
+	.rst        			= {-1, -1},
 };
 /* common pdata for both tf_card and sdio wifi on fpga board */
 

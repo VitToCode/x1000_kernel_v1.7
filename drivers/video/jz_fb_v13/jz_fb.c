@@ -41,7 +41,6 @@
 
 #include "jz_fb.h"
 #include "regs.h"
-#define DEBUG_SUSPEND_RESUME_LCD
 static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
@@ -874,6 +873,7 @@ static int jzfb_set_par(struct fb_info *info)
 
 		var->pixclock = mode->pixclock;
 	}
+//	printk("lcd pixel rate is :::::::::::::::::::::::::::::::::::::::%d\n",rate);
 	/*set reg,and enable lcd after set all reg*/
 	is_lcd_en = jzfb->is_lcd_en;
 	jzfb_disable(info);
@@ -962,6 +962,7 @@ static int jzfb_set_par(struct fb_info *info)
 	reg_write(jzfb, LCDC_PCFG, pcfg);
 
 	jzfb_config_fg0(info);
+//	printk("this once called jzfb_prepare_dma_desc() in this function::%s00000000000000\n",__func__);
 	jzfb_prepare_dma_desc(info);
 	mutex_unlock(&jzfb->lock);
 
@@ -2488,8 +2489,8 @@ static int __devexit jzfb_remove(struct platform_device *pdev)
 	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
-//	clk_put(jzfb->pclk);
-//	clk_put(jzfb->clk);
+	clk_put(jzfb->pclk);
+	clk_put(jzfb->clk);
 	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 
 	iounmap(jzfb->base);
@@ -2527,12 +2528,6 @@ static void jzfb_shutdown(struct platform_device *pdev)
 
 static int jzfb_suspend(struct device *dev)
 {
-#if 0
-	printk(",,,,,,,,before suspend:\n");
-	dump_cpm_reg();
-	dump_lcdc_registers(jzfb);
-#endif
-
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 	mutex_lock(&jzfb->lock);
@@ -2546,21 +2541,12 @@ static int jzfb_suspend(struct device *dev)
 	/*disable clock*/
 	jzfb_clk_disable(jzfb);
 	clk_disable(jzfb->pclk);
-#if 0
-	printk("++++lcd suspend:\n");
-	dump_cpm_reg();
-	dump_lcdc_registers(jzfb);
-#endif
+
 	return 0;
 }
 
 static int jzfb_resume(struct device *dev)
 {
-#if 0
-	printk(",,,,,,,,before resume:\n");
-	dump_cpm_reg();
-	dump_lcdc_registers(jzfb);
-#endif
 	int tmp;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
@@ -2576,22 +2562,7 @@ static int jzfb_resume(struct device *dev)
 	jzfb->is_suspend = 0;
 	mutex_unlock(&jzfb->suspend_lock);
 
-#ifdef DEBUG_SUSPEND_RESUME_LCD
 	jzfb_display_v_color_bar(jzfb->fb);
-	mdelay(500);
-	jzfb_display_h_color_bar(jzfb->fb);
-	mdelay(500);
-	jzfb_display_v_color_bar(jzfb->fb);
-	mdelay(500);
-	jzfb_display_h_color_bar(jzfb->fb);
-	mdelay(500);
-	jzfb_display_v_color_bar(jzfb->fb);
-#endif
-#if 0
-	printk("++++lcd resume:\n");
-	dump_cpm_reg();
-	dump_lcdc_registers(jzfb);
-#endif
 	return 0;
 }
 
