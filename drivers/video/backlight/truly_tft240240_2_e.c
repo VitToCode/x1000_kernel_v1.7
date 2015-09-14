@@ -23,6 +23,7 @@ struct truly_tft240240_data {
 	int lcd_power;
 	struct lcd_device *lcd;
 	struct lcd_platform_data *ctrl;
+	struct regulator *lcd_vcc_reg;
 };
 
 static int truly_tft240240_set_power(struct lcd_device *lcd, int power)
@@ -30,12 +31,14 @@ static int truly_tft240240_set_power(struct lcd_device *lcd, int power)
 	struct truly_tft240240_data *dev= lcd_get_data(lcd);
 
 	if (!power && dev->lcd_power) {
+		regulator_enable(dev->lcd_vcc_reg);
 		dev->ctrl->power_on(lcd, 1);
 	} else if (power && !dev->lcd_power) {
 		if (dev->ctrl->reset) {
 			dev->ctrl->reset(lcd);
 		}
 		dev->ctrl->power_on(lcd, 0);
+		regulator_disable(dev->lcd_vcc_reg);
 	}
 	dev->lcd_power = power;
 	return 0;
@@ -63,7 +66,6 @@ static int __devinit truly_tft240240_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct truly_tft240240_data *dev;
-
 	dev = kzalloc(sizeof(struct truly_tft240240_data), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -91,6 +93,7 @@ static int __devinit truly_tft240240_probe(struct platform_device *pdev)
 		dev->lcd_power = FB_BLANK_UNBLANK;
 	}
 
+	dev->lcd_vcc_reg = regulator_get(NULL,"lcd_3v3");
 
 	return 0;
 }
@@ -101,7 +104,7 @@ static int __devinit truly_tft240240_remove(struct platform_device *pdev)
 
 	if (dev->lcd_power)
 		dev->ctrl->power_on(dev->lcd, 0);
-
+	regulator_put(dev->lcd_vcc_reg);
 	lcd_device_unregister(dev->lcd);
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(dev);
