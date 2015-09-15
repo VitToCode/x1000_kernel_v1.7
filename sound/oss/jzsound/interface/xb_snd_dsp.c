@@ -38,8 +38,11 @@ static mm_segment_t old_fs_record;
 #define DEBUG_RECORD_FILE "audiorecord.pcm"
 #endif
 
-static bool first_start_record_dma = true;
-static bool first_start_replay_dma = true;
+/* Below is for x1000 dmic aec */
+#define SNDCTL_DSP_AEC_START            _SIOW ('J', 16, int)
+#define SNDCTL_DSP_AEC_ENABLE           _SIOW ('J', 17, int)
+extern struct snd_dev_data *get_ddata_by_minor(int minor);
+
 /*###########################################################*\
  * sub functions
  \*###########################################################*/
@@ -338,44 +341,6 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	return 0;
 }
 
-#if 0
-static void snd_dmic_release_dma(struct dsp_pipe *dp)
-{
-	int ret = 0x7ffff;
-
-	if (dp) {
-		if (dp->dma_chan) {
-			if (dp->is_trans != false) {
-
-#ifndef CONFIG_ANDROID         //kkshen added
-				{
-
-					if (dp->dma_config.direction == DMA_TO_DEVICE)
-						while(ret-- && atomic_read(&dp->avialable_couter) == 0);
-					if (ret == 0) {
-						printk(KERN_INFO "sound dma transfer data error");
-					}
-
-					ret = 1;
-				}
-#endif
-				dp->wait_stop_dma = true;
-				while(ret-- && ((*(volatile unsigned int *)0xb0021000 & 0xc0) != 0xc));
-				del_timer(&dp->transfer_watchdog);
-				dmaengine_terminate_all(dp->dma_chan);
-				dp->is_trans = false;
-				dp->wait_stop_dma = false;
-			}
-			dma_release_channel(dp->dma_chan);
-			dp->dma_chan = NULL;
-		}
-		if (dp->sg) {
-			vfree(dp->sg);
-			dp->sg = NULL;
-		}
-	}
-}
-#endif
 static void snd_release_dma(struct dsp_pipe *dp)
 {
 	int ret;
@@ -1336,8 +1301,6 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 		list_add_tail(&node->list, &dp->free_node_list);
 	}
 
-
-
 	/* init others */
 	dp->dma_config.direction = direction;
 	dp->dma_chan = NULL;
@@ -1345,6 +1308,8 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	init_waitqueue_head(&dp->wq);
 	dp->is_trans = false;
 	dp->is_used = false;
+        dp->is_aec_enable = false;
+        dp->is_first_start = true;
 	dp->is_mmapd = false;
 	dp->wait_stop_dma = false;
 	dp->force_stop_dma = false;
@@ -1514,6 +1479,13 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				ret = snd_prepare_dma_desc(dp);
 				if (!ret) {
 					snd_start_dma_transfer(dp , dp->dma_config.direction);
+                                        /* add the below code, just for dmic aec */
+                                        if (dp->is_aec_enable == true && dp->is_first_start == true){
+                                                dp->is_aec_enable = false;
+                                                dp->is_first_start = false;
+                                                mutex_unlock(&dp->mutex);
+                                                return 0;
+                                        }
 					if (ddata && ddata->dev_ioctl) {
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
 					} else if(ddata && ddata->dev_ioctl_2) {
@@ -1545,8 +1517,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			}
 		}
 
-                if (first_start_record_dma == true)
-                        first_start_record_dma = false;
+		if (dp->is_first_start == true)
+			dp->is_first_start = false;
 
 		if ((node_buff_cnt = node->end - node->start) > 0) {
 
@@ -1689,11 +1661,11 @@ ssize_t xb_snd_dsp_write(struct file *file,
 			goto write_return;
 		}
 
-		if (first_start_replay_dma == true){
+		if (dp->is_first_start == true){
                         dp->watchdog_mdelay = (copy_size * 1000) / (dp->samplerate * dp->channels * dp->dma_config.dst_addr_width * 2);
                         if (dp->watchdog_mdelay == 0)
                                 dp->watchdog_mdelay = 1;
-			first_start_replay_dma = false;
+			dp->is_first_start = false;
 		}
 
 #ifdef DEBUG_REPLAY
@@ -1774,7 +1746,7 @@ unsigned int xb_snd_dsp_poll(struct file *file,
         }
 
         if (file->f_mode & FMODE_READ) {
-                if (get_use_dsp_node_count(dpi) || (first_start_record_dma == true)){
+		if (get_use_dsp_node_count(dpi) || (dpi->is_first_start == true)){
                         return POLLIN | POLLRDNORM;
                 }
                 poll_wait(file, &dpi->wq, wait);
@@ -2655,6 +2627,78 @@ long xb_snd_dsp_ioctl(struct file *file,
 		break;
 	}
 
+	case SNDCTL_DSP_AEC_ENABLE: {
+		int aec_enable;
+		struct snd_dev_data* i2s_ddata = NULL;
+		struct snd_dev_data* dmic_ddata = NULL;
+		struct dsp_endpoints* i2s_endpoints = NULL;
+		struct dsp_endpoints* dmic_endpoints = NULL;
+
+		if (get_user(aec_enable, (int *)arg)) {
+			return -EFAULT;
+		}
+		i2s_ddata = get_ddata_by_minor(SND_DEV_DSP0);
+		if (i2s_ddata == NULL)
+			return -ENODEV;
+		dmic_ddata = get_ddata_by_minor(SND_DEV_DSP3);
+		if (dmic_ddata == NULL)
+			return -ENODEV;
+
+		if(i2s_ddata->priv_data) {
+			i2s_endpoints = xb_dsp_get_endpoints(i2s_ddata);
+		} else {
+			i2s_endpoints = (struct dsp_endpoints *)i2s_ddata->ext_data;
+		}
+		if(dmic_ddata->priv_data) {
+			dmic_endpoints = xb_dsp_get_endpoints(dmic_ddata);
+		} else {
+			dmic_endpoints = (struct dsp_endpoints *)dmic_ddata->ext_data;
+		}
+		if (i2s_endpoints == NULL || dmic_endpoints == NULL)
+			return -ENODEV;
+
+		if (i2s_endpoints->in_endpoint == NULL || dmic_endpoints->in_endpoint == NULL)
+			return -ENODEV;
+
+		i2s_endpoints->in_endpoint->is_aec_enable = aec_enable;
+		dmic_endpoints->in_endpoint->is_aec_enable = aec_enable;
+
+		ret = 0;
+		break;
+	}
+	case SNDCTL_DSP_AEC_START: {
+		struct snd_dev_data* i2s_ddata;
+		struct snd_dev_data* dmic_ddata;
+		unsigned long lock_flags;
+
+		i2s_ddata = get_ddata_by_minor(SND_DEV_DSP0);
+		if (i2s_ddata == NULL)
+			return -1;
+		dmic_ddata = get_ddata_by_minor(SND_DEV_DSP3);
+		if (dmic_ddata == NULL)
+			return -1;
+
+                if (file->f_mode & FMODE_READ)
+                        dp = endpoints->in_endpoint;
+                if (file->f_mode & FMODE_WRITE)
+                        dp = endpoints->out_endpoint;
+
+                spin_lock_irqsave(&dp->pipe_lock, lock_flags);
+
+                if (i2s_ddata->dev_ioctl) {
+                        i2s_ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+                } else if(i2s_ddata->dev_ioctl_2) {
+                        i2s_ddata->dev_ioctl_2(i2s_ddata, SND_DSP_ENABLE_DMA_RX, 0);
+                }
+                if (dmic_ddata->dev_ioctl) {
+                        dmic_ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+                } else if(dmic_ddata->dev_ioctl_2) {
+                        dmic_ddata->dev_ioctl_2(dmic_ddata, SND_DSP_ENABLE_DMA_RX, 0);
+                }
+                spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
+                ret = 0;
+                break;
+        }
 	default:
 		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
 		       __func__, __LINE__, cmd);
@@ -2786,7 +2830,7 @@ int xb_snd_dsp_open(struct inode *inode,
 			return -EBUSY;
 		}
 
-                first_start_record_dma = true;
+		dpi->is_first_start = true;
 
 		dpi->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
@@ -2822,7 +2866,7 @@ int xb_snd_dsp_open(struct inode *inode,
 			return -EBUSY;
 		}
 
-                first_start_replay_dma = true;
+		dpo->is_first_start = true;
 
 		dpo->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
@@ -2899,12 +2943,11 @@ int xb_snd_dsp_release(struct inode *inode,
 
 	if (file->f_mode & FMODE_READ) {
 		dpi = endpoints->in_endpoint;
-//		if (ddata->minor == SND_DEV_DSP3)
-//			snd_dmic_release_dma(dpi);
-//		else
 		mutex_lock(&dpi->mutex);
 		snd_release_dma(dpi);
 		snd_release_node(dpi);
+		if (dpi->is_aec_enable == true)
+			dpi->is_aec_enable = false;
 		mutex_unlock(&dpi->mutex);
 	}
 

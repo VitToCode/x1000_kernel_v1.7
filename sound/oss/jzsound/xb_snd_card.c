@@ -15,7 +15,7 @@ static LIST_HEAD(ddata_head);
 /*###########################################################*\
  * support functions
  \*###########################################################*/
-static inline struct snd_dev_data *get_ddata_by_minor(int minor)
+struct snd_dev_data *get_ddata_by_minor(int minor)
 {
 	struct snd_dev_data *ddata = NULL;
 	ENTER_FUNC();

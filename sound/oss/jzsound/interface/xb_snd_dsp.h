@@ -276,6 +276,8 @@ struct dsp_pipe {
 	volatile bool		force_hdmi;
 
 	/* state */
+	volatile bool       is_first_start;
+	volatile bool       is_aec_enable;
 	volatile bool       is_trans;
 	volatile bool       wait_stop_dma;
 	volatile bool	    force_stop_dma;
