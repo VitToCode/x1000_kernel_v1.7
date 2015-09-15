@@ -11,6 +11,9 @@ config  PRODUCT_X1000_PHOENIX
 config  PRODUCT_X1000_CANNA
     bool "product x1000 canna"
 
+config  PRODUCT_X1000_DOSS
+    bool "product x1000 doss"
+
 endchoice
 
 if PRODUCT_X1000_PHOENIX
@@ -25,4 +28,11 @@ config PRODUCT_NAME
 string
 default "canna"
 source "arch/mips/xburst/soc-x1000/chip-x1000/canna/Kconfig"
+endif
+
+if PRODUCT_X1000_DOSS
+config PRODUCT_NAME
+string
+default "doss"
+source "arch/mips/xburst/soc-x1000/chip-x1000/doss/Kconfig"
 endif
