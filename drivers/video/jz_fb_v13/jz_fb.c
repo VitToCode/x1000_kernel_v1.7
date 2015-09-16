@@ -34,6 +34,7 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 #include <linux/gpio.h>
+#include <linux/console.h>
 #include <asm/cacheflush.h>
 #include <mach/platform.h>
 #include <soc/gpio.h>
