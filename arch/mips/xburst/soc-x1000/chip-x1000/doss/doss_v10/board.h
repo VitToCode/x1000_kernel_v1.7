@@ -23,7 +23,7 @@
 #define GPIO_SD0_CD_N       GPIO_PC(21)
 
 /*wifi*/
-#define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)
+#define GPIO_WLAN_PW_EN     GPIO_PB(1)
 #define WL_WAKE_HOST        GPIO_PG(7)
 #define WL_REG_EN       GPIO_PG(8)
 
@@ -56,6 +56,7 @@
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
 #define GPIO_SPEAKER_EN    GPIO_PC(25)         /*speaker enable gpio*/
+//#define GPIO_SPEAKER_EN_LEVEL   0
 #define GPIO_SPEAKER_EN_LEVEL   0
 
 #define GPIO_HANDSET_EN     -1  /*handset enable gpio*/

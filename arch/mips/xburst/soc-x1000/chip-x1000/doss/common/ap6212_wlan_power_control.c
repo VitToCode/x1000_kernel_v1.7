@@ -13,7 +13,7 @@
 
 #include <gpio.h>
 #include <soc/gpio.h>
-
+#include "board.h"
 #define GPIO_WIFI_RST_N			GPIO_PC(17)
 #define WLAN_SDIO_INDEX			1
 
@@ -32,18 +32,25 @@ struct wifi_data {
 extern void rtc32k_enable(void);
 extern void rtc32k_disable(void);
 
+int wifi_pw_en;
+
 void wlan_pw_en_enable(void)
 {
+	gpio_set_value(wifi_pw_en, 1);
+	msleep(10);
 }
 
 void wlan_pw_en_disable(void)
 {
+	gpio_set_value(wifi_pw_en, 0);
+	msleep(10);
 }
 
 int bcm_ap6212_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &bcm_ap6212_data.wifi_wake_lock;
 	int reset;
+	int pw_en;
 
 	reset = GPIO_WIFI_RST_N;
 	if (gpio_request(GPIO_WIFI_RST_N, "wifi_reset")) {
@@ -52,6 +59,14 @@ int bcm_ap6212_wlan_init(void)
 	} else {
 		gpio_direction_output(reset, 1);
 	}
+	pw_en = GPIO_WLAN_PW_EN;
+	if (gpio_request(pw_en, "wifi_pw_en")) {
+		pr_err("ERROR: no wifi_reset pin available !!\n");
+		goto err;
+	} else {
+		gpio_direction_output(pw_en, 0);
+	}
+	wifi_pw_en = pw_en;
 	bcm_ap6212_data.wifi_reset = reset;
 
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
