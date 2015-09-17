@@ -30,18 +30,18 @@ struct snd_codec_data codec_data = {
 	},
 
 	.record_buildin_mic_route = {
-		.route = SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
+		.route = SND_ROUTE_NONE,
 		.record_volume_base = 50,
 	},
 
 	.record_linein_route = {
-		.route = SND_ROUTE_LINEIN_MIXER_REPLAY,
+		.route = SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK,
 		.gpio_spk_en_stat = STATE_ENABLE,
 		.record_volume_base = 50,
 	},
 
 	.replay_speaker_route = {
-		.route = SND_ROUTE_REPLAY_SPK,
+		.route = SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
 		.gpio_spk_en_stat = STATE_ENABLE,
 		.replay_volume_base = 50,
 	},
@@ -54,6 +54,6 @@ struct snd_codec_data codec_data = {
 	},
 
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
-	.gpio_hp_mute = {.gpio = -1, .active_level = GPIO_HP_MUTE_LEVEL},
-	.gpio_hp_detect = {.gpio = -1, .active_level = GPIO_HP_INSERT_LEVEL},
+	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
+	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
 };

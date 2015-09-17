@@ -68,9 +68,6 @@ static int codec_set_record_volume(struct codec_info *codec_dev, int *val);
  *if use in suspend and resume, should use delay
  */
 
-#define MIXER_RECORD  0x1
-#define	MIXER_REPLAY  0x2
-
 static int g_codec_sleep_mode = 1;
 
 void codec_sleep(struct codec_info *codec_dev, int ms)
@@ -150,8 +147,8 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_REPLAY_SPK,
 		SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
 		SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
-		SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
-		SND_ROUTE_LINEIN_MIXER_REPLAY
+		SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK,
+		SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK
 	};
 
 	char *route_str[] = {
@@ -163,8 +160,8 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_REPLAY_SPK",
 		"SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK",
 		"SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK",
-		"SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK",
-		"SND_ROUTE_LINEIN_MIXER_REPLAY"
+		"SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK",
+		"SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -475,6 +472,20 @@ static void codec_set_record_mux_mode(struct codec_info *codec_dev, int mode)
 			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
 			break;
 
+		case RECORD_INPUT_AND_MIXER_L_CROSS_R_NORMAL:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4);
+			tmpval |= (0x4<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
+			break;
+
+		case RECORD_INPUT_AND_MIXER_L_NORMAL_R_CROSS:
+			tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_2);
+			tmpval &= ~(0xf<<4);
+			tmpval |= (0x1<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_2,tmpval);
+			break;
+
 		default:
 			printk("JZ_CODEC: line: %d, record mux mode error!\n", __LINE__);
 	}
@@ -638,6 +649,20 @@ static void codec_set_replay_mux(struct codec_info *codec_dev, int mode)
                         tmpval &= ~(0xf<<4);
                         tmpval |= 0x1; 
                         icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
+                        break;
+
+                case REPLAY_INPUT_AND_MIXER_L_CROSS_R_NORMAL:
+                        tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+                        tmpval &= ~(0xf<<4);
+                        tmpval |= (0x4<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
+                        break;
+
+                case REPLAY_INPUT_AND_MIXER_L_NORMAL_R_CROSS:
+                        tmpval = icdc_d3_hw_read(codec_dev,SCODA_MIX_0);
+                        tmpval &= ~(0xf<<4);
+                        tmpval |= (0x1<<4 | 0x1);
+			icdc_d3_hw_write(codec_dev,SCODA_MIX_0,tmpval);
                         break;
 
 		default:
@@ -1660,17 +1685,17 @@ static int jzcodec_ctl(struct codec_info *codec_dev, unsigned int cmd, unsigned 
 			break;
 
 		case CODEC_DAC_MUTE:
-                        if ((int)arg == 0 && user_replay_volume == 0){
-                                ret = -1;
-                                break;
-                        }
+			if ((int)arg == 0 && user_replay_volume == 0){
+				ret = -1;
+				break;
+			}
 			ret = codec_mute(codec_dev, (int)arg,(int)CODEC_WMODE);
 			break;
 		case CODEC_ADC_MUTE:
-                        if ((int)arg == 0 && user_record_volume == 0){
-                                ret = -1;
-                                break;
-                        }
+			if ((int)arg == 0 && user_record_volume == 0){
+				ret = -1;
+				break;
+			}
 			ret = codec_mute(codec_dev, (int)arg,(int)CODEC_RMODE);
 			break;
 		case CODEC_DEBUG_ROUTINE:

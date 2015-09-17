@@ -2206,7 +2206,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int fragsize = 1;
 		int i;
 
-
 		if (get_user(fragment, (int *)arg)) {
 			ret = -EFAULT;
 			goto EXIT_IOCTRL;
@@ -2220,14 +2219,13 @@ long xb_snd_dsp_ioctl(struct file *file,
 		for (i = 0; i < (fragment & FRAGMENT_SIZE_MUX);i++)
 			fragsize *= 2;
 
-
 		if (file->f_mode & FMODE_WRITE) {
 			dp = endpoints->out_endpoint;
 			if (fragsize < 16 || fragsize > 8192) {
 				ret = -EINVAL;
 				goto EXIT_IOCTRL;
 			}
-			printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
+			//printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
 		} else if (file->f_mode & FMODE_READ) {
 			if (dp->channels > 1) {
 				if (fragsize < 16 || fragsize > 8192) {
@@ -2253,8 +2251,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		 *	We not support change fragcnts
 		 *	Should we support??
 		 */
-		printk("audio buffersize change to %d",dp->buffersize);
-		printk("audio buffercnt change to %d",dp->fragcnt);
 
 		ret = put_user(fragment, (int *)arg);
 #undef FRAGMENT_SIZE_MUX
@@ -2459,7 +2455,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		else
 			dp->buffersize = dp->fragsize/4;
 
-		printk("audio buffersize change to %d",dp->buffersize);
 		ret = put_user(dp->buffersize, (int *)arg);
 		break;
 	}
