@@ -1660,9 +1660,17 @@ static int jzcodec_ctl(struct codec_info *codec_dev, unsigned int cmd, unsigned 
 			break;
 
 		case CODEC_DAC_MUTE:
+                        if ((int)arg == 0 && user_replay_volume == 0){
+                                ret = -1;
+                                break;
+                        }
 			ret = codec_mute(codec_dev, (int)arg,(int)CODEC_WMODE);
 			break;
 		case CODEC_ADC_MUTE:
+                        if ((int)arg == 0 && user_record_volume == 0){
+                                ret = -1;
+                                break;
+                        }
 			ret = codec_mute(codec_dev, (int)arg,(int)CODEC_RMODE);
 			break;
 		case CODEC_DEBUG_ROUTINE:
