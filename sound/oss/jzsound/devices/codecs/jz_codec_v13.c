@@ -1156,16 +1156,25 @@ static int codec_turn_off(struct codec_info *codec_dev, int mode)
 	int ret = 0;
 
 	if (mode & CODEC_RMODE) {
+#if 1
+		/* Do nothing here, for AEC.
+		 * Because of if shutdown SB_ADC and SB_MIC, mixer loopback mode can't work.
+		 */
+#else
 		ret = codec_set_route(codec_dev, SND_ROUTE_RECORD_CLEAR);
 		if(ret != SND_ROUTE_RECORD_CLEAR)
 		{
 			printk("JZ CODEC: codec_turn_off_part record mode error!\n");
 			return -1;
 		}
+#endif
 	}
 	if (mode & CODEC_WMODE) {
 #if 1
-		/* Do nothing here, just for anti pop */
+		/* Do nothing here, for anti pop and AEC.
+		 * Because of if shutdown SB_DAC, mixer loopback mode can't work.
+		 * When enable SB_DAC, there will be a pop sound.
+		 */
 #else
 		ret = codec_set_route(codec_dev, SND_ROUTE_REPLAY_CLEAR);
 		if(ret != SND_ROUTE_REPLAY_CLEAR)
