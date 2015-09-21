@@ -407,7 +407,6 @@ long xb_snd_mixer_ioctl(struct file *file,
 		}
 		vol = vol & 0xff;
 
-		int tmp = SND_DSP_SET_RECORD_VOL;
 		if (ddata->dev_ioctl) {
 			ret = (int)ddata->dev_ioctl(SND_DSP_SET_RECORD_VOL, (unsigned long)&vol);
 		} else if (ddata->dev_ioctl_2) {

@@ -42,7 +42,6 @@ static LIST_HEAD(codecs_head);
 bool dmic_is_incall(void);
 #define FPGA_DMIC_DEBUG 1
 
-static int jz_dmic_get_hp_switch_state(void);
 static int dmic_global_init(struct platform_device *pdev);
 
 struct dsp_node *dmic_node = NULL;
@@ -58,7 +57,7 @@ static struct jz_dmic {
 	atomic_t trigger_done;
 } *cur_dmic;
 
-static struct codec_info_dmic {
+struct codec_info_dmic {
 	struct list_head list;
 	char *name;
 	unsigned long record_rate;
@@ -71,9 +70,9 @@ static struct codec_info_dmic {
 	unsigned long codec_clk;
 	int (*codec_ctl)(unsigned int cmd, unsigned long arg);
 	struct dsp_endpoints *dsp_endpoints;
-} *cur_codec_dmic;
+};
 
-
+static int user_record_volume = 50;
 /*##################################################################*\
  | dump
 \*##################################################################*/
@@ -307,7 +306,6 @@ int dmic_record_init(int mode)
 			return -1;
 		}
 	}
-
 	return 0;
 }
 
@@ -315,9 +313,6 @@ int dmic_enable(int mode)
 {
 	unsigned long record_format = 16;
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
-	int ret = 0;
-
-
 	if (!(mode&CODEC_RMODE))
 		return -1;
 	__dmic_disable_all_int();
@@ -413,6 +408,20 @@ int dmic_get_fmt(unsigned long *fmt, int mode)
 int dmic_set_device(unsigned long device)
 {
 	return 0;
+}
+
+static int dmic_set_record_volume(int *val)
+{
+	/* The dmic record gain range we used is from 0dB ~ +48dB */
+        if (*val >100 || *val < 0) {
+                *val = user_record_volume;
+                printk("Dmic record volume out of range [ 0 ~ 100 ].\n");
+        }
+
+	__dmic_set_gm(*val/6);
+
+        user_record_volume = *val;
+        return *val;
 }
 
 /********************************************************\
@@ -576,8 +585,11 @@ long dmic_ioctl(unsigned int cmd, unsigned long arg)
 		ret = 0;
 		break;
 	case SND_DSP_SET_RECORD_VOL:
+		ret = dmic_set_record_volume((int *)arg);
 		break;
 	case SND_DSP_SET_REPLAY_VOL:
+		printk("dmic not support replay!\n");
+		ret = -1;
 		break;
 	case SND_DSP_SET_MIC_VOL:
 		__dmic_set_gm(arg);
@@ -609,16 +621,13 @@ void jz_dmic_trigger_done() {
 //#ifdef DMIC_IRQ
 irqreturn_t dmic_irq_handler(int irq, void *dev_id)
 {
-	unsigned long flags;
-	int test = 200;
 	irqreturn_t ret = IRQ_HANDLED;
+
 	__dmic_disable_all_int();
-	if(((*(volatile unsigned int *)0xb002100c) & (1 << 1))){
+	if (((*(volatile unsigned int *)0xb002100c) & (1 << 1))){
 		printk("over run happen\n");
 		*(volatile unsigned int *)0xb002100c = 0x3f;
-
 	}
-
 	return ret;
 }
 //#endif
@@ -663,7 +672,6 @@ int dmic_global_init(struct platform_device *pdev)
 	struct dsp_pipe *dmic_pipe_out = NULL;
 	struct dsp_pipe *dmic_pipe_in = NULL;
 	struct clk *dmic_clk = NULL;
-	unsigned int temp = 0;
 
 	cur_dmic = kmalloc(sizeof(struct jz_dmic), GFP_KERNEL);
 
@@ -794,15 +802,6 @@ void dmic_shutdown(struct platform_device *pdev)
 int dmic_resume(struct platform_device *pdev)
 {
 	__dmic_enable();
-	return 0;
-}
-
-/*
- * headphone detect switch function
- *
- */
-int jz_dmic_get_hp_switch_state(void)
-{
 	return 0;
 }
 

@@ -161,7 +161,7 @@ static unsigned long tmp_val;
 
 /*DMICGCR*/
 #define DMIC_GCR	0
-#define DMIC_GCR_MASK	(0Xf << DMIC_GCR)
+#define DMIC_GCR_MASK	(0X1f << DMIC_GCR)
 #define __dmic_set_gm(value)							\
 	  do {									\
 		  dmic_write_reg(DMICGCR, (value & DMIC_GCR_MASK));	\
@@ -306,8 +306,6 @@ static unsigned long tmp_val;
 	dmic_set_reg(DMICTRICR, 1, DMIC_PREFETCH_MASK, DMIC_PREFETCH)
 #define __dmic_select_prefetch_16k()	\
 	dmic_set_reg(DMICTRICR, 2, DMIC_PREFETCH_MASK, DMIC_PREFETCH)
-//#define __dmic_disable_prefetch()	\
-//	dmic_set_reg(DMICTRICR, 0, DMIC_PREFETCH_MASK, DMIC_PREFETCH)
 #define __dmic_enable_debug()	\
 	dmic_set_reg(DMICTRICR, 1, DMIC_TRI_DEBUG_MASK, DMIC_TRI_DEBUG)
 #define __dmic_disable_debug()	\
