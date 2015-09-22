@@ -55,9 +55,15 @@
 #define I2C2_PORTD							\
 	{ .name = "i2c2", .port = GPIO_PORT_D, .func = GPIO_FUNC_1, .pins = 0x3, }
 /****************************************************************************************/
+#ifdef CONFIG_LCD_FRD240A3602B
+#define SLCDC_PORTAB_8BIT						\
+	{ .name = "slcd", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0xff, }, \
+        { .name = "slcd", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x12 << 16, }
+#else
 #define SLCDC_PORTAB_8BIT						\
 	{ .name = "slcd", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0xff, }, \
         { .name = "slcd", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x1a << 16, }
+#endif
 
 #define SLCDC_PORTAB_9BIT						\
 	{ .name = "slcd", .port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x1ff, }, \

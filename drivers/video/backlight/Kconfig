@@ -293,6 +293,14 @@ config LCD_XRM2002903
 	  If you have an XRM2002903 Panel, say Y to enable its
 	  control driver. The driver IC of this module is ST7775R.
 
+config LCD_FRD240A3602B
+	tristate "FRD240A3602B TFT Smart LCD panel(240x320)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an FRD240A3602B Panel, say Y to enable its
+	  control driver. The driver IC of this module is ILI9341.
+
 config LCD_TRULY_TFT240240_2_E
        tristate "SLCD TRULY TFT240240-2-E with control IC st7789s (240x240)"
        depends on BACKLIGHT_CLASS_DEVICE

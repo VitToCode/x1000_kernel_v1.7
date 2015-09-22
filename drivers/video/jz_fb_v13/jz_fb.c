@@ -649,7 +649,7 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 	reg_write(jzfb,SLCDC_CFG,reg_read(jzfb, SLCDC_CFG) & ~(0x01<<8));
 	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) | (0x01<<13));
 #endif
-#ifdef CONFIG_LCD_XRM2002903
+#if (defined(CONFIG_LCD_XRM2002903)||defined(CONFIG_LCD_FRD240A3602B))
 	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) & (0x0<<8));
 	reg_write(jzfb,SLCDC_CFG_NEW,reg_read(jzfb,SLCDC_CFG_NEW) | (0x01<<9));
 #endif
