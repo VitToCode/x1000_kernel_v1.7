@@ -338,6 +338,9 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 		return -ENOMEM;
 	}
 
+        /* Reset the dma buffersize, which sound data can be filled in, to the origin size */
+        dp->buffersize = dp->fragsize;
+
 	return 0;
 }
 
