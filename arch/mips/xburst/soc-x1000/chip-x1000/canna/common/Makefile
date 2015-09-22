@@ -9,5 +9,5 @@ obj-$(CONFIG_SPI_GPIO) 			+= spi_bus.o
 obj-$(CONFIG_JZMMC_V12) 		+= mmc.o
 obj-$(CONFIG_BCMDHD_1_141_66)    	+= ap6212_wlan_power_control.o ap6212_wlan_device.o
 obj-$(CONFIG_BCM_AP6212_RFKILL)     	+= ap6212_bt_power_control.o ap6212_wlan_power_control.o
-
+obj-$(CONFIG_I2C_GPIO)			+= i2c_bus.o
 obj-y += lcd/

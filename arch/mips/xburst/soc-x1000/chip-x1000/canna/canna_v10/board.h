@@ -86,4 +86,18 @@
 
 #define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
 
+#ifdef CONFIG_I2C_GPIO
+
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+#define GPIO_I2C0_SDA		-1
+#define GPIO_I2C0_SCK		-1
+#endif
+
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+#define GPIO_I2C1_SDA		-1
+#define GPIO_I2C1_SCK		-1
+#endif
+
+#endif /* CONFIG_I2C_GPIO */
+
 #endif /* __BOARD_H__ */

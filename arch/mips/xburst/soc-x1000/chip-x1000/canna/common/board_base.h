@@ -22,6 +22,14 @@ extern struct jzmmc_platform_data sdio_pdata;
 extern struct jzmmc_platform_data sdio_pdata;
 #endif
 
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+extern struct platform_device i2c0_gpio_device;
+#endif
+
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+extern struct platform_device i2c1_gpio_device;
+#endif
+
 #ifdef CONFIG_BROADCOM_RFKILL
 extern struct platform_device	bt_power_device;
 extern struct platform_device	bluesleep_device;
