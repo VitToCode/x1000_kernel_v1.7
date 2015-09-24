@@ -520,7 +520,7 @@ static struct resource jz_dmic_resources[] = {
 	},
 };
 struct platform_device jz_dmic_device = {
-	.name           = "jz-asoc-dmic",
+	.name           = "jz-asoc-aic-dmic",
 	.id             = -1,
 	.resource       = jz_dmic_resources,
 	.num_resources  = ARRAY_SIZE(jz_dmic_resources),

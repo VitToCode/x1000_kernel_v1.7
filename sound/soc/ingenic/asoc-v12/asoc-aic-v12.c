@@ -191,16 +191,6 @@ static int jz_aic_probe(struct platform_device *pdev)
 		return ret;
 	}
 	clk_enable(jz_aic->clk_gate);
-#ifdef	CONFIG_SND_ASOC_INGENIC_DMIC
-	jz_aic->clk_gate_dmic = clk_get(&pdev->dev, "dmic");
-	if (IS_ERR_OR_NULL(jz_aic->clk_gate_dmic)) {
-		ret = PTR_ERR(jz_aic->clk_gate_dmic);
-		jz_aic->clk_gate_dmic = NULL;
-		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		return ret;
-	}
-	clk_enable(jz_aic->clk_gate_dmic);
-#endif
 	jz_aic->clk = clk_get(&pdev->dev, "cgu_i2s");
 	if (IS_ERR_OR_NULL(jz_aic->clk)) {
 		ret = PTR_ERR(jz_aic->clk);

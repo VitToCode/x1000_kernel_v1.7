@@ -155,7 +155,7 @@ static struct snd_soc_dai_link phoenix_dais[] = {
 		.name = "PHOENIX DMIC",
 		.stream_name = "PHOENIX DMIC",
 		.platform_name = "jz-asoc-dmic-dma",
-		.cpu_dai_name = "jz-asoc-dmic",
+		.cpu_dai_name = "jz-asoc-aic-dmic",
 		.codec_dai_name = "dmic dump dai",
 		.codec_name = "dmic dump",
 	},

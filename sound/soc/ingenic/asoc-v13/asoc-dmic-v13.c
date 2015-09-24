@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -23,7 +24,9 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
+#include <linux/regulator/consumer.h>
 #include "asoc-dmic-v13.h"
+#include "asoc-aic-v13.h"
 
 static int jz_dmic_debug = 0;
 module_param(jz_dmic_debug, int, 0644);
@@ -215,9 +218,8 @@ static void jz_dmic_shutdown(struct snd_pcm_substream *substream,
 static int jz_dmic_probe(struct snd_soc_dai *dai)
 {
 	struct device *dev = dai->dev;
-	
-	/*gain: 0, ..., e*/
 
+	/*gain: 0, ..., e*/
 	__dmic_reset(dev);
 	while(__dmic_get_reset(dev));
 	__dmic_set_sr_8k(dev);
@@ -305,6 +307,9 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 
 	jz_dmic->dmic_mode = 0;
 	jz_dmic->rx_dma_data.dma_addr = (dma_addr_t)jz_dmic->res_start + DMICDR;
+
+	jz_dmic->vcc_dmic = regulator_get(&pdev->dev,"vcc_dmic");
+
 	platform_set_drvdata(pdev, (void *)jz_dmic);
 
 	for (; i < ARRAY_SIZE(jz_dmic_sysfs_attrs); i++) {
@@ -313,7 +318,14 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev,"attribute %s create failed %x",
 					attr_name(jz_dmic_sysfs_attrs[i]), ret);
 	}
-
+	jz_dmic->clk_gate_dmic = clk_get(&pdev->dev, "dmic");
+	if (IS_ERR_OR_NULL(jz_dmic->clk_gate_dmic)) {
+		ret = PTR_ERR(jz_dmic->clk_gate_dmic);
+		jz_dmic->clk_gate_dmic = NULL;
+		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
+		return ret;
+	}
+	clk_enable(jz_dmic->clk_gate_dmic);
 	ret = snd_soc_register_dai(&pdev->dev, &jz_dmic_dai);
 	if (ret)
 		goto err_register_cpu_dai;
@@ -335,11 +347,37 @@ static int jz_dmic_platfom_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+#ifdef CONFIG_PM
+static int jz_dmic_platfom_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
+	printk("jz dmic susend!\n");
+	regulator_disable(jz_dmic->vcc_dmic);
+	clk_disable(jz_dmic->clk_gate_dmic);
+	return 0;
+}
+
+static int jz_dmic_platfom_resume(struct platform_device *pdev)
+{
+	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
+	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	printk("jz dmic resume!\n");
+	regulator_enable(jz_dmic->vcc_dmic);
+	clk_enable(jz_dmic->clk_gate_dmic);
+	return 0;
+}
+#endif
 static struct platform_driver jz_dmic_plat_driver = {
 	.probe  = jz_dmic_platfrom_probe,
 	.remove = jz_dmic_platfom_remove,
+#ifdef CONFIG_PM
+	.suspend = jz_dmic_platfom_suspend,
+	.resume = jz_dmic_platfom_resume,
+#endif
 	.driver = {
-		.name = "jz-asoc-dmic",
+		.name = "jz-asoc-aic-dmic",
 		.owner = THIS_MODULE,
 	},
 };
