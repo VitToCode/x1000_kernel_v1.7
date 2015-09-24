@@ -2540,8 +2540,11 @@ static int jzfb_suspend(struct device *dev)
 	mutex_unlock(&jzfb->lock);
 
 	/*disable clock*/
+	jzfb->is_clk_en = clk_is_enabled(jzfb->clk);
 	jzfb_clk_disable(jzfb);
-	clk_disable(jzfb->pclk);
+	jzfb->is_clk_en = clk_is_enabled(jzfb->pclk);
+	if(jzfb->is_clk_en)
+		clk_disable(jzfb->pclk);
 
 	return 0;
 }
@@ -2555,8 +2558,11 @@ static int jzfb_resume(struct device *dev)
 	fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
 
 	/*enable clock*/
+	jzfb->is_clk_en = clk_is_enabled(jzfb->clk);
 	jzfb_clk_enable(jzfb);
-	clk_enable(jzfb->pclk);
+	jzfb->is_clk_en = clk_is_enabled(jzfb->pclk);
+	if(jzfb->is_clk_en)
+		clk_enable(jzfb->pclk);
 	jzfb_set_par(jzfb->fb);
 
 	mutex_lock(&jzfb->suspend_lock);
