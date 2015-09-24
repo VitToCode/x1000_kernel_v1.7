@@ -555,7 +555,7 @@ static ssize_t param_attr_store(struct module_attribute *mattr,
 #define __modinit __init
 #endif
 
-#ifdef CONFIG_SYSFS
+#ifdef CONFIG_MODULE_SYSFS
 void __kernel_param_lock(void)
 {
 	mutex_lock(&param_lock);
@@ -920,5 +920,13 @@ static int __init param_sysfs_init(void)
 	return 0;
 }
 subsys_initcall(param_sysfs_init);
+#else /* !CONFIG_MODULE_SYSFS */
+struct kset *module_kset;
+int module_sysfs_initialized;
 
-#endif /* CONFIG_SYSFS */
+ssize_t __modver_version_show(struct module_attribute *mattr,
+			      struct module *mod, char *buf)
+{
+	return 0;
+}
+#endif	/* CONFIG_MODULE_SYSFS */

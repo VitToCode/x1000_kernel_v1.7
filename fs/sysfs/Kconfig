@@ -21,3 +21,8 @@ config SYSFS
 	example, "root=03:01" for /dev/hda1.
 
 	Designers of embedded systems may wish to say N here to conserve space.
+
+config MODULE_SYSFS
+	bool "/sys/module/...(sysfs interface)"
+	depends on SYSFS
+	default y
