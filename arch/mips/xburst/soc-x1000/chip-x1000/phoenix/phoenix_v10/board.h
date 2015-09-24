@@ -159,6 +159,8 @@
 /* PMU ricoh619 */
 #ifdef CONFIG_REGULATOR_RICOH619
 #define PMU_IRQ_N       GPIO_PC(23)
+#define PMU_SLP_N       GPIO_PC(22)
+#define SLP_PIN_DISABLE_VALUE  1
 #endif /* CONFIG_REGULATOR_RICOH619 */
 
 
