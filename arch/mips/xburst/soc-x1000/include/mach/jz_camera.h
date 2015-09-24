@@ -10,6 +10,7 @@
 #define JZ_CAMERA_PCLK_RISING       2
 #define JZ_CAMERA_VSYNC_HIGH        4
 #define CAMERA_GSENSOR_VCC "vcc_gsensor"
+#define CAMERA_LCD_3V3 "lcd_3v3"
 
 static int debug = 3;
 module_param(debug, int, S_IRUGO);

@@ -35,6 +35,7 @@
 
 #define CIM_DUMP_REG
 #define PRINT_CIM_REG
+struct regulator *lcd_regul;
 #ifdef CIM_DUMP_REG
 static void cim_dump_reg(struct jz_camera_dev *pcdev)
 {
@@ -774,6 +775,11 @@ static void jz_camera_activate(struct jz_camera_dev *pcdev) {
 	}
 	if(pcdev->soc_host.regul)
 		regulator_enable(pcdev->soc_host.regul);
+
+	if(lcd_regul){
+		if(!regulator_is_enabled(lcd_regul))
+			regulator_enable(lcd_regul);
+	}
 	if(ret) {
 		dprintk(3, "enable clock failed!\n");
 	}
@@ -792,6 +798,8 @@ static void jz_camera_deactivate(struct jz_camera_dev *pcdev) {
 	if(pcdev->soc_host.regul)
 		regulator_disable(pcdev->soc_host.regul);
 
+	if(lcd_regul)
+		regulator_disable(lcd_regul);
 	/* clear status register */
 	writel(0, pcdev->base + CIM_STATE);
 
@@ -1148,6 +1156,16 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 		regulator_enable(pcdev->soc_host.regul);
 	}
 
+	lcd_regul = regulator_get(NULL, CAMERA_LCD_3V3);
+	if(IS_ERR(lcd_regul)) {
+		dprintk(3, "get regulator fail !, if you need regulator, please check this place!\n");
+		err = -ENODEV;
+		lcd_regul = NULL;
+	}else {
+		if(!regulator_is_enabled(lcd_regul))
+		    regulator_enable(lcd_regul);
+	}
+
 	pcdev->pdata = pdev->dev.platform_data;
 	if (pcdev->pdata)
 		pcdev->mclk_freq = pcdev->pdata->mclk_10khz * 10000;
@@ -1210,6 +1228,8 @@ static int __init jz_camera_probe(struct platform_device *pdev) {
 	if (!IS_ERR(pcdev->soc_host.regul))
 		    regulator_disable(pcdev->soc_host.regul);
 
+	if (!IS_ERR(lcd_regul))
+			regulator_disable(lcd_regul);
 	dprintk(6, "jz Camera driver loaded!\n");
 
 	return 0;
