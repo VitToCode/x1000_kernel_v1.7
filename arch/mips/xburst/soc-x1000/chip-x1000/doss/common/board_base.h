@@ -69,6 +69,10 @@ extern struct platform_device jz_leds_gpio;
 extern struct platform_device jz_longbutton_device;
 #endif
 
+#ifdef CONFIG_TM57PE20A_TOUCH
+extern struct platform_device tm57pe20a_touch_button;
+#endif
+
 /* JZ LCD driver */
 #ifdef CONFIG_BACKLIGHT_PWM
 extern struct platform_device backlight_device;

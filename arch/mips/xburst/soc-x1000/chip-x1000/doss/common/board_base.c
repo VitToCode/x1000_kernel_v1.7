@@ -178,6 +178,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_KEYBOARD_JZGPIO
 	DEF_DEVICE(&jz_longbutton_device, 0, 0),
 #endif
+
+#ifdef CONFIG_TM57PE20A_TOUCH
+	DEF_DEVICE(&tm57pe20a_touch_button,0,0),
+#endif
+
 };
 
 static int __init board_base_init(void)

@@ -75,6 +75,26 @@ struct platform_device jz_leds_gpio = {
 };
 #endif
 
+#ifdef CONFIG_TM57PE20A_TOUCH
+struct tm57pe20a_touch_platform_data {
+	int intr;
+	int sda;
+	int sclk;
+};
+struct tm57pe20a_touch_platform_data tm57pe20a_touch_gpio ={
+	.intr = GPIO_PB(3),
+	.sda = GPIO_PB(2),
+	.sclk = GPIO_PB(4),
+};
+struct platform_device tm57pe20a_touch_button = {
+	.name = "tm57pe20a-touch-button",
+	.id = -1,
+	.dev = {
+		.platform_data = &tm57pe20a_touch_gpio,
+	},
+};
+#endif
+
 #ifdef CONFIG_JZ_EFUSE_V11
 struct jz_efuse_platform_data jz_efuse_pdata = {
             /* supply 2.5V to VDDQ */

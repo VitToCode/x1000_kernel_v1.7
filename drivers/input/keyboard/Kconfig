@@ -273,6 +273,12 @@ config KEYBOARD_JZGPIO
 	  long or short key value.
 	  It conflict with 'KEYBOARD_GPIO'
 
+config TM57PE20A_TOUCH
+	tristate "TM57PE20A TOUCH BUTTON"
+	depends on GENERIC_GPIO
+	help
+	  TM57PE20A TOUCH BUTTON .It support one key return
+
 config KEYBOARD_TCA6416
 	tristate "TCA6416/TCA6408A Keypad Support"
 	depends on I2C
