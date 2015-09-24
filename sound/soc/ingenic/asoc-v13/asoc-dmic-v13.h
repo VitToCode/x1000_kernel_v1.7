@@ -11,6 +11,7 @@ struct jz_dmic {
 #define DMIC_READ	0x1
 	int unpack_enable;
 	int dmic_mode;
+	int vcc_en;
 	struct regulator * vcc_dmic;
 	struct clk	*clk_gate_dmic;
 	/*for dma*/

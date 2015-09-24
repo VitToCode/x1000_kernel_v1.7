@@ -309,7 +309,8 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 	jz_dmic->rx_dma_data.dma_addr = (dma_addr_t)jz_dmic->res_start + DMICDR;
 
 	jz_dmic->vcc_dmic = regulator_get(&pdev->dev,"vcc_dmic");
-
+	regulator_enable(jz_dmic->vcc_dmic);
+	jz_dmic->vcc_en = 1;
 	platform_set_drvdata(pdev, (void *)jz_dmic);
 
 	for (; i < ARRAY_SIZE(jz_dmic_sysfs_attrs); i++) {
@@ -352,8 +353,9 @@ static int jz_dmic_platfom_remove(struct platform_device *pdev)
 static int jz_dmic_platfom_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
-	printk("jz dmic susend!\n");
-	regulator_disable(jz_dmic->vcc_dmic);
+	if(jz_dmic->vcc_en){
+		regulator_disable(jz_dmic->vcc_dmic);
+	}
 	clk_disable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
@@ -363,8 +365,8 @@ static int jz_dmic_platfom_resume(struct platform_device *pdev)
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
 	struct device *aic = pdev->dev.parent;
 	struct jz_aic *jz_aic = dev_get_drvdata(aic);
-	printk("jz dmic resume!\n");
-	regulator_enable(jz_dmic->vcc_dmic);
+	if(jz_dmic->vcc_en)
+		regulator_enable(jz_dmic->vcc_dmic);
 	clk_enable(jz_dmic->clk_gate_dmic);
 	return 0;
 }
