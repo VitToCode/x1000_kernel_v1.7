@@ -37,7 +37,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+24,	GSS_OUTPUT_LOW	},	/* MSC0_CLK */
 	{32*0+25,	GSS_OUTPUT_LOW	},	/* MSC0_CMD */
 	{32*0+26,	GSS_OUTPUT_LOW	},	/* SFC_CLK */
-	{32*0+27,	GSS_OUTPUT_LOW	},	/* SFC_CE */
+	{32*0+27,	GSS_OUTPUT_HIGH	},	/* SFC_CE */
 	{32*0+28,	GSS_OUTPUT_LOW	},	/* SFC_DR */
 	{32*0+29,	GSS_OUTPUT_LOW	},	/* SFC_DT */
 	{32*0+30,	GSS_OUTPUT_LOW	},	/* SFC_WP */
