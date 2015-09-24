@@ -156,6 +156,10 @@ static int __init msg_bind(struct usb_composite_dev *cdev)
 	if (status < 0)
 		return status;
 
+	if (usb_gadget_connect(cdev->gadget) < 0) {
+		printk(KERN_ERR"gadget ops is not register\n");
+	}
+
 	dev_info(&cdev->gadget->dev,
 		 DRIVER_DESC ", version: " DRIVER_VERSION "\n");
 	set_bit(0, &msg_registered);

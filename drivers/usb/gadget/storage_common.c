@@ -249,7 +249,7 @@ struct fsg_lun {
 
 	struct device	dev;
 
-#ifdef CONFIG_USB_G_ANDROID
+#if defined CONFIG_USB_G_ANDROID || defined CONFIG_USB_MASS_STORAGE
 	struct wake_lock wake_lock;
 #endif
 	char name[32];
