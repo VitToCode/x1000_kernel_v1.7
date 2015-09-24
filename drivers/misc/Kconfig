@@ -688,6 +688,10 @@ config JZ_EFUSE_V12
     bool "JZ V12 EFUSE Driver"
 	default n
 
+config JZ_EFUSE_V13
+    bool "JZ V13 EFUSE Driver"
+	default n
+
 config MISC_BMA250E
 	bool "BMA250E misc Driver"
 	default n
