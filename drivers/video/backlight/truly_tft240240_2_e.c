@@ -29,7 +29,6 @@ struct truly_tft240240_data {
 static int truly_tft240240_set_power(struct lcd_device *lcd, int power)
 {
 	struct truly_tft240240_data *dev= lcd_get_data(lcd);
-
 	if (!power && dev->lcd_power) {
 		if(!regulator_is_enabled(dev->lcd_vcc_reg))
 			regulator_enable(dev->lcd_vcc_reg);
@@ -96,7 +95,7 @@ static int __devinit truly_tft240240_probe(struct platform_device *pdev)
 	}
 
 	dev->lcd_vcc_reg = regulator_get(NULL,"lcd_3v3");
-
+	regulator_enable(dev->lcd_vcc_reg);
 	return 0;
 }
 
