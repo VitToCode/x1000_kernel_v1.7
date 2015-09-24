@@ -96,6 +96,13 @@ config FRAMEBUFFER_CONSOLE
 	help
 	  Low-level framebuffer-based console driver.
 
+config FRAMEBUFFER_CONSOLE_CURSOR
+       bool "Removal of the displayed cursor on LCD"
+       depends on FRAMEBUFFER_CONSOLE
+       default n
+       ---help---
+         If this option is selected, the lcd will not display the cursor.
+
 config FRAMEBUFFER_CONSOLE_DETECT_PRIMARY
        bool "Map the console to the primary display device"
        depends on FRAMEBUFFER_CONSOLE
