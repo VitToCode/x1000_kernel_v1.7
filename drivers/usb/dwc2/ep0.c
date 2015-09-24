@@ -17,7 +17,7 @@
 #include "gadget.h"
 
 #ifdef CONFIG_USB_DWC2_VERBOSE_VERBOSE
-int dwc2_ep0_debug_en = 0;
+static int dwc2_ep0_debug_en = 0;
 module_param(dwc2_ep0_debug_en, int, 0644);
 
 #define DWC2_EP0_DEBUG_MSG(msg...)				\

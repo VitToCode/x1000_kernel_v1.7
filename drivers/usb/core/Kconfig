@@ -27,6 +27,15 @@ config USB_ANNOUNCE_NEW_DEVICES
 comment "Miscellaneous USB options"
 	depends on USB
 
+config USB_RH_TEST_MODE
+	bool "USB high speed host test mode support"
+	depends on USB || USB_ARCH_HAS_HCD
+	default N
+	help
+	  Say Y here if you want the Usb core to support test mode on driver level
+	  This option can provide an sysfs attr interface for each hcd controller
+	  to facilitate compliance testing, known more from USB 2.0 spec, 7.1.20
+
 config USB_DEVICEFS
 	bool "USB device filesystem (DEPRECATED)"
 	depends on USB

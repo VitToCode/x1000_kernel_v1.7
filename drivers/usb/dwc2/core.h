@@ -435,6 +435,7 @@ struct dwc2_platform_data {
 struct dwc2 {
 	spinlock_t			 lock;
 	atomic_t			 in_irq;
+	int				 irq;
 	int				 owner_cpu;
 	int				 do_reset_core;
 
@@ -677,16 +678,12 @@ struct dwc2 {
 #define dwc2_spin_lock(__dwc)						\
 	do {								\
 		struct dwc2 *_dwc = (__dwc);				\
-		if (unlikely(!irqs_disabled()))				\
-			panic("dwc2_spin_lock must called from interrupt handler!\n"); \
 		spin_lock(&_dwc->lock);					\
 	} while(0)
 
 #define dwc2_spin_unlock(__dwc)						\
 	do {								\
 		struct dwc2 *_dwc = (__dwc);				\
-		if (unlikely(!irqs_disabled()))				\
-			panic("dwc2_spin_unlock must called from interrupt handler!\n"); \
 		spin_unlock(&_dwc->lock);				\
 	} while(0)
 
@@ -738,5 +735,4 @@ void dwc2_flush_rx_fifo(struct dwc2 *dwc);
 
 void dwc2_enable_global_interrupts(struct dwc2 *dwc);
 void dwc2_disable_global_interrupts(struct dwc2 *dwc);
-
 #endif /* __DRIVERS_USB_DWC2_CORE_H */

@@ -9,7 +9,7 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 #include <linux/sched.h>
-
+#include <linux/module.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
@@ -271,7 +271,6 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	dwc_writel(0, &dev_if->dev_global_regs->daintmsk);
 
 	dwc2_enable_device_interrupts(dwc);
-	dwc2_enable_global_interrupts(dwc);
 }
 
 static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove);
@@ -972,7 +971,7 @@ static void dwc2_gadget_stop_in_transfer(struct dwc2_ep *dep) {
 
 /* --------------------------------usb_ep_ops--------------------------- */
 
-#ifdef CONFIG_USB_DWC2_DISABLE_CLOCK
+#ifdef CONFIG_USB_DWC2_SAVING_POWER
 int dwc2_has_ep_enabled(struct dwc2 *dwc) {
 	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
 	int			 num_eps = dev_if->num_out_eps + dev_if->num_in_eps;
@@ -1133,7 +1132,7 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 	dep->flags = 0;
 
 	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend())) {
-		dwc2_suspend_controller(dwc , 0);
+		dwc2_suspend_controller(dwc);
 	}
 
 	return 0;
@@ -1518,10 +1517,10 @@ static int __dwc2_gadget_ep_queue(struct dwc2_ep *dep, struct dwc2_request *req)
 	req->trans_count_left = r->length;
 	req->next_dma_addr = r->dma;
 	req->zlp_transfered = 0;
-        if (!(unsigned int)(r->buf) % 4)
-                req->mapped = 1;
-        else
-                req->mapped = 0;
+	if (!(unsigned int)(r->buf) % 4)
+            req->mapped = 1;
+	else
+            req->mapped = 0;
 
 	ep_idle = list_empty(&dep->request_list);
 
@@ -1880,17 +1879,17 @@ static int __dwc2_gadget_init_endpoints(struct dwc2 *dwc, int is_in) {
 			if (!is_in) {
 				dwc->gadget.ep0 = &dep->usb_ep;
 			}
-                        dep->align_addr = NULL;
+			dep->align_addr = NULL;
 		} else {
 			dep->usb_ep.maxpacket = 1024;
 			dep->usb_ep.ops = &dwc2_gadget_ep_ops;
 			list_add_tail(&dep->usb_ep.ep_list,
-				&dwc->gadget.ep_list);
-                        dep->align_addr = (void *)(dwc->deps_align_addr +
-                                                   DWC2_DEP_ALIGN_ALLOC_SIZE *
-                                                   ((eps_offset ? 7 : 0) + epnum - 1));
+					&dwc->gadget.ep_list);
+			dep->align_addr = (void *)(dwc->deps_align_addr +
+					DWC2_DEP_ALIGN_ALLOC_SIZE *
+					((eps_offset ? 7 : 0) + epnum - 1));
 		}
-                dep->align_dma_addr = 0;
+        dep->align_dma_addr = 0;
 
 		INIT_LIST_HEAD(&dep->request_list);
 		INIT_LIST_HEAD(&dep->garbage_list);
@@ -1902,14 +1901,14 @@ static int __dwc2_gadget_init_endpoints(struct dwc2 *dwc, int is_in) {
 static int dwc2_gadget_init_endpoints(struct dwc2 *dwc)
 {
 	int ret;
-        int epnum = dwc->dev_if.num_in_eps + dwc->dev_if.num_out_eps - 2;
+	int epnum = dwc->dev_if.num_in_eps + dwc->dev_if.num_out_eps - 2;
 
-        dwc->deps_align_addr = __get_free_pages(GFP_KERNEL,
-                                                get_order(epnum * DWC2_DEP_ALIGN_ALLOC_SIZE));
-        if (!dwc->deps_align_addr) {
-                dev_err(dwc->dev, "can't allocate dep align memery\n");
-                return -ENOMEM;
-        }
+	dwc->deps_align_addr = __get_free_pages(GFP_KERNEL,
+			get_order(epnum * DWC2_DEP_ALIGN_ALLOC_SIZE));
+	if (!dwc->deps_align_addr) {
+		dev_err(dwc->dev, "can't allocate dep align memery\n");
+		return -ENOMEM;
+	}
 
 	INIT_LIST_HEAD(&dwc->gadget.ep_list);
 
@@ -1997,7 +1996,7 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 
 	req = next_request(&dep->request_list);
 	if (unlikely( (req == NULL) || (!req->transfering))) {
-	        dev_err(dwc->dev, "%s: in xfer complete wi:hen no request pending!\n", __func__);
+		dev_err(dwc->dev, "%s: in xfer complete when no request pending!\n", __func__);
 		return;
 	}
 
@@ -2009,15 +2008,15 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 			u32 low_limit = req->request.dma;
 			u32 up_limit = req->request.dma + ((req->request.length + 0x3) & ~0x3);
 
-                        if ((unsigned int)(req->request.buf) % 4) {
-                                low_limit = dep->align_dma_addr;
-                                up_limit = low_limit + ((req->request.length + 0x3) & ~0x3);
-                        }
+			if ((unsigned int)(req->request.buf) % 4) {
+				low_limit = dep->align_dma_addr;
+				up_limit = low_limit + ((req->request.length + 0x3) & ~0x3);
+			}
 
 			if ( (curr_dma < low_limit) || (up_limit < curr_dma) ) {
 				dev_err(dwc->dev, "IN_COMPL error: dma address not match, "
-					"curr_dma = 0x%08x, r.dma = 0x%08x, len=%d\n",
-					curr_dma, req->request.dma, req->request.length);
+						"curr_dma = 0x%08x, r.dma = 0x%08x, len=%d\n",
+						curr_dma, req->request.dma, req->request.length);
 				return;
 			}
 
@@ -2037,11 +2036,11 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 				/* start new transfer */
 			}
 
-                        if ((unsigned int)(req->request.buf) % 4) {
-                                dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
-                                                 dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-                                dep->align_dma_addr = 0;
-                        }
+			if ((unsigned int)(req->request.buf) % 4) {
+				dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
+						dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+				dep->align_dma_addr = 0;
+			}
 
 			dwc2_gadget_ep_start_transfer(dep);
 		}
@@ -2164,7 +2163,7 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 				return;
 			}
 
-                        if ((unsigned int)(req->request.buf) % 4) {
+             if ((unsigned int)(req->request.buf) % 4) {
                                 dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
                                                  dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
                                 memcpy(req->request.buf + req->request.length -
@@ -2396,6 +2395,7 @@ void dwc2_start_ep0state_watcher(struct dwc2 *dwc, int count) {
  */
 static struct dwc2 *m_dwc = NULL;
 
+
 /**
  * dwc2_gadget_init - Initializes gadget related registers
  * @dwc: pointer to our controller context structure
@@ -2500,7 +2500,6 @@ void dwc2_gadget_exit(struct dwc2 *dwc)
 	device_unregister(&dwc->gadget.dev);
 }
 
-extern int dwc2_host_vbus_is_extern(struct dwc2* dwc);
 void dwc2_gadget_plug_change(int plugin)  {
 	dctl_data_t	 dctl;
 	unsigned long	 flags;
@@ -2509,28 +2508,20 @@ void dwc2_gadget_plug_change(int plugin)  {
 	if (!dwc)
 		return;
 
-#ifdef DWC2_HOST_MODE_ENABLE
-	if (!!dwc2_host_vbus_is_extern(dwc))
-		goto out;
-#endif
 	dwc2_spin_lock_irqsave(dwc, flags);
 
 	dwc->plugin = !!plugin;
-	if (!plugin) {
-		if (!dwc2_clk_is_enabled(dwc))
-			goto out;
-	} else {
-		if (!dwc2_clk_is_enabled(dwc)) {
-			dwc2_resume_controller(dwc, 0);
-			dwc2_device_mode_init(dwc);
-		}
-		jz_otg_phy_suspend(0);
-	}
+
+	if (!plugin && !dwc2_clk_is_enabled(dwc))
+		goto out;
+
+	if (plugin)
+		dwc2_resume_controller(dwc);
 
 	if (!dwc2_is_device_mode(dwc))
 		goto out;
 
-	dev_dbg(dwc->dev,"enter %s:%d: plugin = %d pullup = %d suspend = %d\n",
+	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
 		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
 
 	if (dwc->suspended)
@@ -2553,7 +2544,7 @@ void dwc2_gadget_plug_change(int plugin)  {
 		}
 	} else {
 		if (dctl.b.sftdiscon && jz_otg_phy_is_suspend()) {
-			dwc2_suspend_controller(dwc, 0);
+			dwc2_suspend_controller(dwc);
 		} else {
 			dctl.b.sftdiscon = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
@@ -2582,13 +2573,10 @@ void dwc2_gadget_plug_change(int plugin)  {
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 #endif
 		}
-
-		dwc2_suspend_controller(dwc, 0);
+		dwc2_suspend_controller(dwc);
 	}
-
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
-
 	if (dwc->extern_vbus_mode) {
 		dwc2_notifier_call_chain_async(dwc);
 	}
@@ -2601,7 +2589,7 @@ out:
  * @param bind The bind function of gadget driver
  */
 int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
-			int (*bind)(struct usb_gadget *))
+		int (*bind)(struct usb_gadget *))
 {
 	int		 ret;
 	struct dwc2	*dwc = m_dwc;

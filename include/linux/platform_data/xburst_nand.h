@@ -25,12 +25,12 @@ struct xburst_nand_chip_platform_data {
 	unsigned int options;		/*see linux/mtd/nand.h*/
 	unsigned int bbt_options;	/*see linux/mtd/bbm.h*/
 	/*ecc params*/
-	unsigned int ecc_strength;		/*max number of correctible bits per ECC step*/
+	unsigned int ecc_strength;	/*max number of correctible bits per ECC step*/
 	unsigned int ecc_size;		/*data bytes per ECC step*/
 	nand_ecc_modes_t ecc_mode;	/*hw ecc mode*/
 	/*rb&wp gpio*/
-	int rb_gpio;			/*zero is unused , assume PA0 is not used for rb*/
-	int wp_gpio;
+	int rb_gpio;			/* ready&busy gpio,zero is unused , assume PA0 is not used for rb */
+	int wp_gpio;			/* write protect gpio */
 	/*timing params ...duration/width/time*/
 	unsigned int tALS;
 	unsigned int tALH;
@@ -49,10 +49,10 @@ struct xburst_nand_chip_platform_data {
 	unsigned int tCH;
 	unsigned int tDH;
 	unsigned int tREH;
-	/*special nand chip (which can not use onfi ,ext_id or id decode size params) init*/
+	/*special nand chip (which can not use onfi ,ext_id or id decode size params) init here*/
 	int (*init_size)(struct mtd_info *mtd, struct nand_chip *this,
 			u8 *id_data);
-	int has_ids;			/*private nand ids table avail*/
+	int has_ids;					/*private nand ids table avail*/
 	struct nand_flash_dev	nand_flash_ids[2];	/*private nand ids table*/
 	/*mtd partitions*/
 	int nr_partitions;
