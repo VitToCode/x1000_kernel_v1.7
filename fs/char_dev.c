@@ -99,7 +99,7 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 	int ret = 0;
 	int i;
 
-	cd = kzalloc(sizeof(struct char_device_struct), GFP_KERNEL);
+	cd = kzalloc(sizeof(struct char_device_struct), GFP_KERNEL | __GFP_FINER);
 	if (cd == NULL)
 		return ERR_PTR(-ENOMEM);
 

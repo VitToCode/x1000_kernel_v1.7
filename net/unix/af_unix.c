@@ -836,7 +836,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		goto out_up;
 
 	err = -ENOMEM;
-	addr = kmalloc(sizeof(*addr)+addr_len, GFP_KERNEL);
+	addr = kmalloc(sizeof(*addr)+addr_len, GFP_KERNEL | __GFP_FINER);
 	if (!addr)
 		goto out_up;
 

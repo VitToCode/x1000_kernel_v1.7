@@ -1253,6 +1253,19 @@ config SLOB
 
 endchoice
 
+config FINER_KMALLOC
+	depends on SLUB
+        bool "SLUB finer-grained kmalloc"
+	default n
+        help
+          Due to the granularity of kmalloc, we waste some memory.
+          Say Y here to use a finer-grained kmalloc, but the memory is non-coherent.
+
+config SLUB_FEWER_OBJECTS
+	depends on SLUB
+        bool "SLUB fewer objects"
+	default n
+
 config SLUB_SYSFS
 	depends on SLUB
         bool "SLUB sysfs interface"

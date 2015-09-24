@@ -25,7 +25,7 @@ char *kstrdup(const char *s, gfp_t gfp)
 		return NULL;
 
 	len = strlen(s) + 1;
-	buf = kmalloc_track_caller(len, gfp);
+	buf = kmalloc_track_caller(len, gfp | __GFP_FINER);
 	if (buf)
 		memcpy(buf, s, len);
 	return buf;
@@ -67,7 +67,7 @@ void *kmemdup(const void *src, size_t len, gfp_t gfp)
 {
 	void *p;
 
-	p = kmalloc_track_caller(len, gfp);
+	p = kmalloc_track_caller(len, gfp | __GFP_FINER);
 	if (p)
 		memcpy(p, src, len);
 	return p;
@@ -91,7 +91,7 @@ void *memdup_user(const void __user *src, size_t len)
 	 * cause pagefault, which makes it pointless to use GFP_NOFS
 	 * or GFP_ATOMIC.
 	 */
-	p = kmalloc_track_caller(len, GFP_KERNEL);
+	p = kmalloc_track_caller(len, GFP_KERNEL | __GFP_FINER);
 	if (!p)
 		return ERR_PTR(-ENOMEM);
 

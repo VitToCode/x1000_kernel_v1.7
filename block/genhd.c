@@ -303,7 +303,7 @@ int register_blkdev(unsigned int major, const char *name)
 		ret = major;
 	}
 
-	p = kmalloc(sizeof(struct blk_major_name), GFP_KERNEL);
+	p = kmalloc(sizeof(struct blk_major_name), GFP_KERNEL | __GFP_FINER);
 	if (p == NULL) {
 		ret = -ENOMEM;
 		goto out;

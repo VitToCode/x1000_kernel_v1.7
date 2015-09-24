@@ -193,7 +193,7 @@ static int do_maps_open(struct inode *inode, struct file *file,
 {
 	struct proc_maps_private *priv;
 	int ret = -ENOMEM;
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL | __GFP_FINER);
 	if (priv) {
 		priv->pid = proc_pid(inode);
 		ret = seq_open(file, ops);

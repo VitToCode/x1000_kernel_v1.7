@@ -2164,7 +2164,11 @@ EXPORT_SYMBOL(kmem_cache_free);
  */
 static int slub_min_order;
 static int slub_max_order = PAGE_ALLOC_COSTLY_ORDER;
+#ifdef CONFIG_SLUB_FEWER_OBJECTS
+static int slub_min_objects = 2;
+#else
 static int slub_min_objects;
+#endif
 
 /*
  * Merge control. If this is set then no merging of slab caches will occur.
@@ -2282,6 +2286,10 @@ static inline int calculate_order(int size, int reserved)
 static unsigned long calculate_alignment(unsigned long flags,
 		unsigned long align, unsigned long size)
 {
+#ifdef CONFIG_FINER_KMALLOC
+	if (flags & SLAB_CACHE_FINER)
+		return sizeof(void *);
+#endif	/* CONFIG_FINER_KMALLOC */
 	/*
 	 * If the user wants hardware cache aligned objects then follow that
 	 * suggestion if the object is sufficiently large.
@@ -2722,6 +2730,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);
 struct kmem_cache *kmalloc_caches[SLUB_PAGE_SHIFT];
 EXPORT_SYMBOL(kmalloc_caches);
 
+#ifdef CONFIG_FINER_KMALLOC
+struct kmem_cache *finer_kmalloc_caches[KMALLOC_SHIFT_LOW];
+EXPORT_SYMBOL(finer_kmalloc_caches);
+#endif	/* CONFIG_FINER_KMALLOC */
+
 static struct kmem_cache *kmem_cache;
 
 #ifdef CONFIG_ZONE_DMA
@@ -2820,6 +2833,35 @@ static s8 size_index[24] = {
 	2	/* 192 */
 };
 
+#ifdef CONFIG_FINER_KMALLOC
+static s8 finer_size_index[24] = {
+	3,	/* 8 */
+	4,	/* 16 */
+	5,	/* 24 */
+	5,	/* 32 */
+	6,	/* 40 */
+	6,	/* 48 */
+	6,	/* 56 */
+	6,	/* 64 */
+	1,	/* 72 */
+	1,	/* 80 */
+	1,	/* 88 */
+	1,	/* 96 */
+	7,	/* 104 */
+	7,	/* 112 */
+	7,	/* 120 */
+	7,	/* 128 */
+	2,	/* 136 */
+	2,	/* 144 */
+	2,	/* 152 */
+	2,	/* 160 */
+	2,	/* 168 */
+	2,	/* 176 */
+	2,	/* 184 */
+	2	/* 192 */
+};
+#endif	/* CONFIG_FINER_KMALLOC */
+
 static inline int size_index_elem(size_t bytes)
 {
 	return (bytes - 1) / 8;
@@ -2833,7 +2875,19 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
 		if (!size)
 			return ZERO_SIZE_PTR;
 
-		index = size_index[size_index_elem(size)];
+#ifdef CONFIG_FINER_KMALLOC
+		if (flags & __GFP_FINER) {
+			struct kmem_cache *s;
+
+			index = finer_size_index[size_index_elem(size)];
+			s = finer_kmalloc_caches[index];
+			if (s)
+				return finer_kmalloc_caches[index];
+			else
+				index = size_index[size_index_elem(size)];
+		} else
+#endif	/* CONFIG_FINER_KMALLOC */
+			index = size_index[size_index_elem(size)];
 	} else
 		index = fls(size - 1);
 
@@ -3285,7 +3339,60 @@ void __init kmem_cache_init(void)
 		caches++;
 	}
 
+#ifdef CONFIG_FINER_KMALLOC
+	/* fix finer_size_index */
+	for (i = 8; i < FINER_KMALLOC_MIN_SIZE; i += 8) {
+		int elem = size_index_elem(i);
+		if (elem >= ARRAY_SIZE(finer_size_index))
+			break;
+		finer_size_index[elem] = ilog2(FINER_KMALLOC_MIN_SIZE);
+	}
+	if (FINER_KMALLOC_MIN_SIZE == 64) {
+		for (i = 64 + 8; i <= 96; i += 8)
+			finer_size_index[size_index_elem(i)] = 7;
+	} else if (FINER_KMALLOC_MIN_SIZE == 128) {
+		for (i = 128 + 8; i <= 192; i += 8)
+			finer_size_index[size_index_elem(i)] = 0;
+	}
+	for (i = KMALLOC_MIN_SIZE; i <= 192; i += 8) {
+		int elem = size_index_elem(i);
+		if (elem >= ARRAY_SIZE(finer_size_index))
+			break;
+		finer_size_index[elem] = 0;
+	}
+
+	/* create finer_kmalloc_caches */
+	if (KMALLOC_MIN_SIZE > 32 && FINER_KMALLOC_MIN_SIZE <= 32) {
+		finer_kmalloc_caches[1] =
+			create_kmalloc_cache("finer-kmalloc-96", 96, SLAB_CACHE_FINER);
+	}
+	if (KMALLOC_MIN_SIZE > 64 && FINER_KMALLOC_MIN_SIZE <= 64) {
+		finer_kmalloc_caches[2] =
+			create_kmalloc_cache("finer-kmalloc-192", 192, SLAB_CACHE_FINER);
+	}
+	for (i = ilog2(FINER_KMALLOC_MIN_SIZE); i < KMALLOC_SHIFT_LOW; i++) {
+		finer_kmalloc_caches[i] =
+			create_kmalloc_cache("finer-kmalloc", 1 << i, SLAB_CACHE_FINER);
+	}
+#endif	/* CONFIG_FINER_KMALLOC */
+
 	slab_state = UP;
+
+#ifdef CONFIG_FINER_KMALLOC
+	if (KMALLOC_MIN_SIZE > 32) {
+		finer_kmalloc_caches[1]->name = kstrdup(finer_kmalloc_caches[1]->name, GFP_NOWAIT);
+		BUG_ON(!finer_kmalloc_caches[1]->name);
+	}
+	if (KMALLOC_MIN_SIZE > 64) {
+		finer_kmalloc_caches[2]->name = kstrdup(finer_kmalloc_caches[2]->name, GFP_NOWAIT);
+		BUG_ON(!finer_kmalloc_caches[2]->name);
+	}
+	for (i = ilog2(FINER_KMALLOC_MIN_SIZE); i < KMALLOC_SHIFT_LOW; i++) {
+		char *s = kasprintf(GFP_NOWAIT, "finer-kmalloc-%d", 1 << i);
+		BUG_ON(!s);
+		finer_kmalloc_caches[i]->name = s;
+	}
+#endif	/* CONFIG_FINER_KMALLOC */
 
 	/* Provide the correct kmalloc names now that the caches are up */
 	if (KMALLOC_MIN_SIZE <= 32) {
@@ -3323,6 +3430,7 @@ void __init kmem_cache_init(void)
 		}
 	}
 #endif
+
 	printk(KERN_INFO
 		"SLUB: Genslabs=%d, HWalign=%d, Order=%d-%d, MinObjects=%d,"
 		" CPUs=%d, Nodes=%d\n",
@@ -4634,7 +4742,7 @@ static struct kset *slab_kset;
  */
 static char *create_unique_id(struct kmem_cache *s)
 {
-	char *name = kmalloc(ID_STR_LENGTH, GFP_KERNEL);
+	char *name = kmalloc(ID_STR_LENGTH, GFP_KERNEL | __GFP_FINER);
 	char *p = name;
 
 	BUG_ON(!name);
@@ -4649,6 +4757,8 @@ static char *create_unique_id(struct kmem_cache *s)
 	 */
 	if (s->flags & SLAB_CACHE_DMA)
 		*p++ = 'd';
+	if (s->flags & SLAB_CACHE_FINER)
+		*p++ = 'f';
 	if (s->flags & SLAB_RECLAIM_ACCOUNT)
 		*p++ = 'a';
 	if (s->flags & SLAB_DEBUG_FREE)
@@ -4863,7 +4973,14 @@ static int s_show(struct seq_file *m, void *p)
 
 	nr_inuse = nr_objs - nr_free;
 
+#if 1
 	seq_printf(m, "%-17s %6lu %6lu %6u %4u %4d", s->name, nr_inuse,
+#else
+	/* total size */
+	seq_printf(m, "%-17s %6lu %6lu %6lu %6u %4u %4d", s->name,
+		   (nr_objs / oo_objects(s->oo) * (1 << oo_order(s->oo))) <<
+		   (PAGE_SHIFT - 10), nr_inuse,
+#endif
 		   nr_objs, s->size, oo_objects(s->oo),
 		   (1 << oo_order(s->oo)));
 	seq_printf(m, " : tunables %4u %4u %4u", 0, 0, 0);

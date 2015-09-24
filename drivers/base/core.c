@@ -863,7 +863,7 @@ static void device_remove_sys_dev_entry(struct device *dev)
 
 int device_private_init(struct device *dev)
 {
-	dev->p = kzalloc(sizeof(*dev->p), GFP_KERNEL);
+	dev->p = kzalloc(sizeof(*dev->p), GFP_KERNEL | __GFP_FINER);
 	if (!dev->p)
 		return -ENOMEM;
 	dev->p->device = dev;

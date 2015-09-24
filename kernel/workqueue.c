@@ -2926,7 +2926,7 @@ struct workqueue_struct *__alloc_workqueue_key(const char *name,
 	max_active = max_active ?: WQ_DFL_ACTIVE;
 	max_active = wq_clamp_max_active(max_active, flags, name);
 
-	wq = kzalloc(sizeof(*wq), GFP_KERNEL);
+	wq = kzalloc(sizeof(*wq), GFP_KERNEL | __GFP_FINER);
 	if (!wq)
 		goto err;
 

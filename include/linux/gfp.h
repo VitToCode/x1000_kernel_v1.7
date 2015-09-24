@@ -36,6 +36,11 @@ struct vm_area_struct;
 #endif
 #define ___GFP_NO_KSWAPD	0x400000u
 #define ___GFP_OTHER_NODE	0x800000u
+#ifdef CONFIG_FINER_KMALLOC
+#define ___GFP_FINER		0x40000000u
+#else
+#define ___GFP_FINER		0
+#endif
 
 /*
  * GFP bitmasks..
@@ -46,6 +51,7 @@ struct vm_area_struct;
  * without the underscores and use them consistently. The definitions here may
  * be used in bit comparisons.
  */
+#define __GFP_FINER	((__force gfp_t)___GFP_FINER)
 #define __GFP_DMA	((__force gfp_t)___GFP_DMA)
 #define __GFP_HIGHMEM	((__force gfp_t)___GFP_HIGHMEM)
 #define __GFP_DMA32	((__force gfp_t)___GFP_DMA32)

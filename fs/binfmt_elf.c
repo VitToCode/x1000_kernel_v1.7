@@ -656,7 +656,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 			retval = -ENOMEM;
 			elf_interpreter = kmalloc(elf_ppnt->p_filesz,
-						  GFP_KERNEL);
+						  GFP_KERNEL | __GFP_FINER);
 			if (!elf_interpreter)
 				goto out_free_ph;
 

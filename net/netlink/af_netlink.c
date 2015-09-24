@@ -251,7 +251,7 @@ found:
 static inline struct hlist_head *nl_pid_hash_zalloc(size_t size)
 {
 	if (size <= PAGE_SIZE)
-		return kzalloc(size, GFP_ATOMIC);
+		return kzalloc(size, GFP_ATOMIC | __GFP_FINER);
 	else
 		return (struct hlist_head *)
 			__get_free_pages(GFP_ATOMIC | __GFP_ZERO,
@@ -1728,7 +1728,7 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 	struct netlink_sock *nlk;
 	int ret;
 
-	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
+	cb = kzalloc(sizeof(*cb), GFP_KERNEL | __GFP_FINER);
 	if (cb == NULL)
 		return -ENOBUFS;
 

@@ -282,7 +282,7 @@ static int sysfs_get_open_dirent(struct sysfs_dirent *sd,
 	}
 
 	/* not there, initialize a new one and retry */
-	new_od = kmalloc(sizeof(*new_od), GFP_KERNEL);
+	new_od = kmalloc(sizeof(*new_od), GFP_KERNEL | __GFP_FINER);
 	if (!new_od)
 		return -ENOMEM;
 
@@ -366,7 +366,7 @@ static int sysfs_open_file(struct inode *inode, struct file *file)
 	 * it in file->private_data for easy access.
 	 */
 	error = -ENOMEM;
-	buffer = kzalloc(sizeof(struct sysfs_buffer), GFP_KERNEL);
+	buffer = kzalloc(sizeof(struct sysfs_buffer), GFP_KERNEL | __GFP_FINER);
 	if (!buffer)
 		goto err_out;
 

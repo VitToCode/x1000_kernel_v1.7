@@ -32,7 +32,7 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	struct seq_file *p = file->private_data;
 
 	if (!p) {
-		p = kmalloc(sizeof(*p), GFP_KERNEL);
+		p = kmalloc(sizeof(*p), GFP_KERNEL | __GFP_FINER);
 		if (!p)
 			return -ENOMEM;
 		file->private_data = p;
@@ -549,7 +549,7 @@ static void single_stop(struct seq_file *p, void *v)
 int single_open(struct file *file, int (*show)(struct seq_file *, void *),
 		void *data)
 {
-	struct seq_operations *op = kmalloc(sizeof(*op), GFP_KERNEL);
+	struct seq_operations *op = kmalloc(sizeof(*op), GFP_KERNEL | __GFP_FINER);
 	int res = -ENOMEM;
 
 	if (op) {

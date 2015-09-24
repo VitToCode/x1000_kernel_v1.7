@@ -1324,7 +1324,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 		handler = irq_default_primary_handler;
 	}
 
-	action = kzalloc(sizeof(struct irqaction), GFP_KERNEL);
+	action = kzalloc(sizeof(struct irqaction), GFP_KERNEL | __GFP_FINER);
 	if (!action)
 		return -ENOMEM;
 

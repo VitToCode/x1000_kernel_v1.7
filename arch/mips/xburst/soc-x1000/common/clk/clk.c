@@ -129,7 +129,7 @@ struct clk *clk_get(struct device *dev, const char *id)
 		if(id && clk_srcs[i].name && !strcmp(id,clk_srcs[i].name)) {
 			if(clk_srcs[i].flags & CLK_FLG_NOALLOC)
 				return &clk_srcs[i];
-			retval = kzalloc(sizeof(struct clk),GFP_KERNEL);
+			retval = kzalloc(sizeof(struct clk),GFP_KERNEL | __GFP_FINER);
 			if(!retval)
 				return ERR_PTR(-ENODEV);
 			memcpy(retval,&clk_srcs[i],sizeof(struct clk));

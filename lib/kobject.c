@@ -109,7 +109,7 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	len = get_kobj_path_length(kobj);
 	if (len == 0)
 		return NULL;
-	path = kzalloc(len, gfp_mask);
+	path = kzalloc(len, gfp_mask | __GFP_FINER);
 	if (!path)
 		return NULL;
 	fill_kobj_path(kobj, path, len);
@@ -623,7 +623,7 @@ struct kobject *kobject_create(void)
 {
 	struct kobject *kobj;
 
-	kobj = kzalloc(sizeof(*kobj), GFP_KERNEL);
+	kobj = kzalloc(sizeof(*kobj), GFP_KERNEL | __GFP_FINER);
 	if (!kobj)
 		return NULL;
 

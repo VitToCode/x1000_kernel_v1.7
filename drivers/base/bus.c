@@ -634,7 +634,7 @@ int bus_add_driver(struct device_driver *drv)
 
 	pr_debug("bus: '%s': add driver %s\n", bus->name, drv->name);
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL | __GFP_FINER);
 	if (!priv) {
 		error = -ENOMEM;
 		goto out_put_bus;

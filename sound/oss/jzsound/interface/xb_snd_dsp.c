@@ -1291,7 +1291,7 @@ static int init_pipe(struct dsp_pipe *dp,struct device *dev,enum dma_data_direct
 	/* init dsp nodes */
 	for (i = 0; i < dp->fragcnt; i++) {
 //		node = vmalloc(sizeof(struct dsp_node));
-		node = kmalloc(sizeof(struct dsp_node),GFP_KERNEL);
+		node = kmalloc(sizeof(struct dsp_node),GFP_KERNEL | __GFP_FINER);
 		if (!node)
 			goto init_pipe_error;
 
