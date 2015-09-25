@@ -23,7 +23,7 @@ SRCFILES=dmic-test.c wav.c
 all: clean dmic-test
 
 dmic-test: $(SRCFILES)
-	mipsel-linux-gcc -o $@ $(CFLAGS) $(TYPEFLAGS) -DREAL_FASTFIR -lm -lpthread $+ -DFAST_FILT_UTIL
+	mips-linux-gnu-gcc -o $@ $(CFLAGS) $(TYPEFLAGS) -DREAL_FASTFIR -lm -lpthread $+ -DFAST_FILT_UTIL
 
 clean:
 	rm -rf dmic-test
