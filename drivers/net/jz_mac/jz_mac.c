@@ -2050,6 +2050,7 @@ static int  jz_mac_remove(struct platform_device *pdev)
 
 	return 0;
 }
+struct clk *clk_gate, *clk_cgu;
 
 #ifdef CONFIG_PM
 static int jz_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
@@ -2058,6 +2059,8 @@ static int jz_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
 
 	if (netif_running(net_dev))
 		jz_mac_close(net_dev);
+	clk_disable(clk_gate);
+	clk_disable(clk_cgu);
 
 	return 0;
 }
@@ -2065,6 +2068,9 @@ static int jz_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
 static int jz_mac_resume(struct platform_device *pdev)
 {
 	struct net_device *net_dev = platform_get_drvdata(pdev);
+
+	clk_enable(clk_gate);
+	clk_enable(clk_cgu);
 
 	if (netif_running(net_dev))
 		jz_mac_open(net_dev);
@@ -2125,7 +2131,6 @@ static int jz_mdiobus_reset(struct mii_bus *bus)
 {
 	return 0;
 }
-struct clk *clk_gate, *clk_cgu;
 static int  jz_mii_bus_probe(struct platform_device *pdev)
 {
 	struct mii_bus *miibus;
