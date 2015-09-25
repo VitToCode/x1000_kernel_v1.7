@@ -222,7 +222,7 @@ static int jz_dmic_probe(struct snd_soc_dai *dai)
 	/*gain: 0, ..., e*/
 	__dmic_reset(dev);
 	while(__dmic_get_reset(dev));
-	__dmic_set_sr_8k(dev);
+	__dmic_set_sr_16k(dev);
 	__dmic_enable_hpf1(dev);
 /*	__dmic_disable_hpf1(dev);*/
 	__dmic_set_gcr(dev,8);

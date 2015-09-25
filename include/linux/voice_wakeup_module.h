@@ -22,6 +22,7 @@ struct sleep_buffer {
 
 
 #define DMIC_IOCTL_SET_SAMPLERATE	0x200
+#define DMIC_IOCTL_SET_CHANNEL	0x201
 
 
 
