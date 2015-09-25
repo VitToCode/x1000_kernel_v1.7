@@ -858,9 +858,9 @@ static int jzdma_alloc_chan_resources(struct dma_chan *chan)
 	}
 	dmac->desc_max = PAGE_SIZE / sizeof(struct dma_desc);
 
-	dev_info(chan2dev(chan),"Channel %d have been requested.(phy id %d,type 0x%02x desc %p)\n",
+/*	dev_info(chan2dev(chan),"Channel %d have been requested.(phy id %d,type 0x%02x desc %p)\n",
 			dmac->chan.chan_id,dmac->id,dmac->type, dmac->desc);
-
+*/
 	return ret;
 }
 

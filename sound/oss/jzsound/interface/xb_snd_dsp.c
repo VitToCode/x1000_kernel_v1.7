@@ -2698,8 +2698,7 @@ long xb_snd_dsp_ioctl(struct file *file,
                 break;
         }
 	default:
-		printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n",
-		       __func__, __LINE__, cmd);
+		//printk("SOUDND ERROR: %s(line:%d) ioctl command %d is not supported\n", __func__, __LINE__, cmd);
 		ret = -1;
 		goto EXIT_IOCTRL;
 	}
