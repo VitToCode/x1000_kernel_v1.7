@@ -48,5 +48,6 @@ obj-$(CONFIG_REGULATOR_ACT8600) += act8600-regulator.o
 obj-$(CONFIG_REGULATOR_DA9024) += d2041-regulator.o
 obj-$(CONFIG_REGULATOR_RICOH618) += ricoh618-regulator.o
 obj-$(CONFIG_REGULATOR_RICOH619) += ricoh619-regulator.o
+obj-$(CONFIG_REGULATOR_RN5T567) += RN5T567-regulator.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
