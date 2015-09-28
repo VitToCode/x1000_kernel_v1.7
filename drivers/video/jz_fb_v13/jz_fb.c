@@ -1870,11 +1870,11 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 			switch ((j / 10) % 4) {
 			case 0:
 				c16 = 0xF800;
-				c32 = 0xFFFF0000;
+				c32 = 0xFF0000FF;
 				break;
 			case 1:
 				c16 = 0x07C0;
-				c32 = 0xFF00FF00;
+				c32 = 0xFF0000FF;
 				break;
 			case 2:
 				c16 = 0x001F;
@@ -1882,7 +1882,7 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 				break;
 			default:
 				c16 = 0xFFFF;
-				c32 = 0xFFFFFFFF;
+				c32 = 0xFF0000FF;
 				break;
 			}
 			switch (bpp) {
@@ -2264,6 +2264,8 @@ void test_pattern(struct jzfb *jzfb)
 	jzfb_enable(jzfb->fb);
 
 	//dump_lcdc_registers(jzfb);
+	jzfb_display_v_color_bar(jzfb->fb);
+#if 0
 	while(count--){
 		if(next_frm){
 			next_frm = 0;
@@ -2283,6 +2285,7 @@ void test_pattern(struct jzfb *jzfb)
 		}
 		mdelay(2000);
 	}
+#endif
 }
 int lcd_display_inited_by_uboot( void )
 {

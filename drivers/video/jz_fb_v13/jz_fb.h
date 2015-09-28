@@ -1,6 +1,10 @@
 #include <linux/fb.h>
 //#include <linux/earlysuspend.h>
 
+#ifdef CONFIG_ONE_FRAME_BUFFERS
+#define NUM_FRAME_BUFFERS 1
+#endif
+
 #ifdef CONFIG_TWO_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
 #endif
