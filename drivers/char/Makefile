@@ -66,6 +66,7 @@ obj-$(CONFIG_JS_RTC)		+= js-rtc.o
 obj-$(CONFIG_OPERATE_GPIO)	+= operate_gpio.o
 obj-$(CONFIG_JZ_VP)		+= jz_virtual_privilege.o
 obj-$(CONFIG_MTD_NV_WR)	+= mtd_nv_wr.o
+obj-$(CONFIG_MTD_NV_RO)	+= mtd_nv_ro.o
 js-rtc-y = rtc.o
 
 obj-$(CONFIG_JZ_DMIC_V12)	+= voice_wakeup/
