@@ -34,6 +34,8 @@ static int nv_devs = 1;
 #define CMD_EARASE_ALL  _IOR('N', 5, int)
 #define CMD_GET_INFO    _IOR('N', 6, unsigned int)
 #define CMD_GET_VERSION    _IOR('N', 7, unsigned int)
+#define CMD_CHANGE_START_ADDR    _IOR('N', 8, unsigned int)
+#define CMD_CHANGE_MTD_SIZE    _IOR('N', 9, unsigned int)
 
 struct nv_devices {
 	struct mtd_info *mtd;
@@ -41,14 +43,13 @@ struct nv_devices {
 	struct mutex	mutex;
 	unsigned int count;
 	unsigned int mtd_device_size;
+	unsigned int nv_start_base;	/* nv write/read region start_address */
 	unsigned int wr_base;
 	unsigned int wr_size;
-	unsigned int nv_map;
-	unsigned int nv_num;
+	unsigned int wr_erase_size;
 	unsigned int nv_count;
 	struct cdev cdev;	  /* Char device structure */
 };
-
 
 #define MTD_DEVICES_ID 0
 #define MTD_DEVICES_SIZE (32 * 1024)
@@ -56,6 +57,8 @@ struct nv_devices {
 #define NV_AREA_START (288 * 1024)
 #define NV_AREA_SIZE MTD_DEVICES_SIZE
 #define NV_AREA_END (384 * 1024)
+#define DEFAULT_START_FLAG (0x5a5a5a5a)
+#define DEFAULT_END_FLAG (0xa5a5a5a5)
 
 #define WRITE_FLAG 0
 #define READ_FLAG 1
@@ -74,18 +77,18 @@ static int nv_open(struct inode *inode, struct file *filp)
 			pr_err("error: cannot get MTD device\n");
 			goto open_fail;
 		}
-
+		nv_dev->mtd_device_size = MTD_DEVICES_SIZE;
 		nv_dev->buf = vmalloc(nv_dev->mtd_device_size);
 		if (!nv_dev->buf) {
 			pr_err("error: cannot allocate memory\n");
 			err = -1;
 			goto open_fail;
 		}
-		nv_dev->nv_map = -1;
 		nv_dev->nv_count = 0;
-		nv_dev->nv_num = 0;
-		nv_dev->wr_base = NV_AREA_START;
-		nv_dev->wr_size = NV_AREA_SIZE;
+		nv_dev->nv_start_base = NV_AREA_START;
+		nv_dev->wr_base = nv_dev->nv_start_base;
+		nv_dev->wr_size = nv_dev->mtd_device_size;
+		nv_dev->wr_erase_size = nv_dev->mtd_device_size;
 		if(nv_dev->wr_base & (nv_dev->wr_size - 1)) {
 			pr_err("error:  addr must 0x%x align\n", nv_dev->wr_size);
 			err = -1;
@@ -155,41 +158,64 @@ static int nv_read_area(char *buf, size_t count, loff_t offset)
 static int nv_map_area(int flag)
 {
 	unsigned int buf[3][2];
-	unsigned int i;
+	unsigned int current_nv_num = 0, i;
+	int tmp, err;
 
-	if(nv_dev->nv_map == -1) {
-		for(i = 0; i < 3; i++) {
-			nv_dev->wr_base = NV_AREA_START + i * nv_dev->wr_size;
-			nv_read_area((char *)buf[i], 4, 0);
-			if(buf[i][0] == 0x5a5a5a5a) {
-				nv_read_area((char *)buf[i], 8, nv_dev->wr_size - 8);
-				if(buf[i][1] == 0xa5a5a5a5) {
-					if(nv_dev->nv_count < buf[i][0]) {
-						nv_dev->nv_count = buf[i][0];
-						nv_dev->nv_num = i;
-					}
+	tmp = -1;
+	for(i = 0; i < 3; i++) {
+		nv_dev->wr_base = nv_dev->nv_start_base + i * nv_dev->wr_size;
+		err = nv_read_area((char *)buf[i], 4, 0);
+		if(err < 0)
+			continue;
+		if(buf[i][0] == DEFAULT_START_FLAG) {
+			err = nv_read_area((char *)buf[i], 8, nv_dev->wr_size - 8);
+			if(err < 0)
+				continue;
+			if(buf[i][1] == DEFAULT_END_FLAG) {
+				tmp = 0;
+				if(nv_dev->nv_count <= buf[i][0]) {
+					nv_dev->nv_count = buf[i][0];
+					current_nv_num = i;
 				}
 			}
 		}
-		nv_dev->nv_map = 1;
+	}
+
+	if(tmp) {
+		for(i = 0; i < 3; i++) {
+			if(buf[i][0] == 0xffffffff || buf[i][0] == 0)
+				continue;
+			break;
+		}
+		if(i < 3) {
+			printk("WARN: not found right nv wr region!!!!!buf[%d][0] = %x\n", i, buf[i][0]);
+			return tmp;
+		}
 	}
 
 	if(flag == READ_FLAG) {
-		nv_dev->wr_base = NV_AREA_START + nv_dev->nv_num * nv_dev->wr_size;
+		nv_dev->wr_base = nv_dev->nv_start_base + current_nv_num * nv_dev->wr_size;
 	} else if(flag == WRITE_FLAG) {
 		nv_dev->nv_count++;
-		nv_dev->nv_num = (nv_dev->nv_num + 1) % 3;
-		nv_dev->wr_base = NV_AREA_START + nv_dev->nv_num * nv_dev->wr_size;
+		for(i = 1; i <= 3; i++) {
+			tmp = (current_nv_num + i) % 3;
+			nv_dev->wr_base = nv_dev->nv_start_base + tmp * nv_dev->wr_size;
+			err = nv_read_area((char *)buf[i], 4, 0);
+			if(err < 0)
+				continue;
+			break;
+		}
 	}
 
-	return nv_dev->nv_count;
+	return 0;
 }
 static int nv_map_and_read_area(char *buf, size_t count, loff_t offset)
 {
 	int err;
 
-	nv_map_area(READ_FLAG);
-	err = nv_read_area(buf, count, offset);
+	err = nv_map_area(READ_FLAG);
+	if(!err)
+		err = nv_read_area(buf, count, offset);
 
 	return err;
 }
@@ -212,7 +238,7 @@ static ssize_t nv_read(struct file *filp, char *buf, size_t count, loff_t *f_pos
 
 	mutex_lock(&nv_dev->mutex);
 	err = nv_map_and_read_area(nv_dev->buf, count, *f_pos);
-	if (copy_to_user((void *)buf, (void*)nv_dev->buf, count))
+	if (err < 0 || copy_to_user((void *)buf, (void*)nv_dev->buf, count))
 		err = -EFAULT;
 	mutex_unlock(&nv_dev->mutex);
 	return err;
@@ -243,18 +269,19 @@ static int erase_eraseblock(unsigned int addr, unsigned int count)
 }
 static int nv_map_and_write_area(const char *buf, size_t count, loff_t offset)
 {
-	unsigned int addr, nv_count;
+	unsigned int addr;
 	size_t written;
 	int err;
 
-	nv_count = nv_map_area(WRITE_FLAG);
-	*(unsigned int *)(&buf[0]) = 0x5a5a5a5a;
-	*(unsigned int *)(&buf[nv_dev->wr_size - 8]) = nv_count;
-	*(unsigned int *)(&buf[nv_dev->wr_size - 4]) = 0xa5a5a5a5;
+	err = nv_map_area(WRITE_FLAG);
+	if(err < 0)
+		return err;
+	*(unsigned int *)(&buf[0]) = DEFAULT_START_FLAG;
+	*(unsigned int *)(&buf[nv_dev->wr_size - 8]) = nv_dev->nv_count;
+	*(unsigned int *)(&buf[nv_dev->wr_size - 4]) = DEFAULT_END_FLAG;
 
 	addr = nv_dev->wr_base + offset;
-
-	err = erase_eraseblock(addr, nv_dev->wr_size);
+	err = erase_eraseblock(addr, nv_dev->wr_erase_size);
 	if (unlikely(err)) {
 		pr_err("error: erase failed at 0x%llx\n",
 		       (long long)addr);
@@ -278,7 +305,7 @@ static ssize_t nv_write(struct file *filp, const char *buf, size_t count, loff_t
 
 	if(count != nv_dev->wr_size) {
 		pr_err("error:  write count 0x%x must equl 0x%x\n",
-			count, MTD_DEVICES_SIZE);
+			count, nv_dev->wr_size);
 		err = -EFAULT;
 		return err;
 	}
@@ -363,6 +390,10 @@ static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				return -1;
 			mutex_lock(&nv_dev->mutex);
 			err = nv_map_and_read_area(nv_dev->buf, wr_info->size, offset);
+			if(err) {
+				mutex_unlock(&nv_dev->mutex);
+				return -1;
+			}
 			wr_info->size = strlen(nv_dev->buf);
 			if(wr_info->size > 512)
 				wr_info->size = 512;
@@ -392,6 +423,32 @@ static long nv_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		dst_buf = nv_dev->buf + offset;
 		err = nv_map_and_read_area(dst_buf, 4, offset);
 		*(unsigned int *)arg = *(unsigned int *)dst_buf;
+		mutex_unlock(&nv_dev->mutex);
+		break;
+	case CMD_CHANGE_START_ADDR:
+		mutex_unlock(&nv_dev->mutex);
+		if(!nv_dev->count) {
+			nv_dev->nv_start_base = *(unsigned int *)arg;
+		}else{
+			pr_err("ERROR:current devices is used on others\n");
+			err = -1;
+		}
+		mutex_unlock(&nv_dev->mutex);
+		break;
+	case CMD_CHANGE_MTD_SIZE:
+		mutex_unlock(&nv_dev->mutex);
+		if(!nv_dev->count) {
+			vfree(nv_dev->buf);
+			nv_dev->mtd_device_size = *(unsigned int *)arg;
+			nv_dev->buf = vmalloc(nv_dev->mtd_device_size);
+			if (!nv_dev->buf) {
+				pr_err("error: cannot allocate memory\n");
+				err = -1;
+			}
+		}else{
+			pr_err("ERROR:current devices is used on others\n");
+			err = -1;
+		}
 		mutex_unlock(&nv_dev->mutex);
 		break;
 	default:
@@ -468,7 +525,6 @@ static int __init nv_init(void)
 	device_create(nv_class, NULL, devno, NULL, DRIVER_NAME);
 
 	mutex_init(&nv_dev->mutex);
-	nv_dev->mtd_device_size = MTD_DEVICES_SIZE;
 
 	printk("register vprivilege driver OK! Major = %d\n", nv_major);
 
