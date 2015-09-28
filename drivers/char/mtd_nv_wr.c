@@ -193,18 +193,24 @@ static int nv_map_area(int flag)
 		}
 	}
 
-	if(flag == READ_FLAG) {
-		nv_dev->wr_base = nv_dev->nv_start_base + current_nv_num * nv_dev->wr_size;
-	} else if(flag == WRITE_FLAG) {
-		nv_dev->nv_count++;
-		for(i = 1; i <= 3; i++) {
+	for(i = 0; i < 3; i++) {
+		if(flag == READ_FLAG) {
 			tmp = (current_nv_num + i) % 3;
-			nv_dev->wr_base = nv_dev->nv_start_base + tmp * nv_dev->wr_size;
-			err = nv_read_area((char *)buf[i], 4, 0);
-			if(err < 0)
-				continue;
-			break;
+		} else if(flag == WRITE_FLAG) {
+			tmp = (current_nv_num + i + 1) % 3;
 		}
+		nv_dev->wr_base = nv_dev->nv_start_base + tmp * nv_dev->wr_size;
+		err = nv_read_area((char *)buf[i], 4, 0);
+		if(err < 0)
+			continue;
+		break;
+	}
+	if(i == 3) {
+		printk("WARN: ALL nv wr region read error\n");
+		return -1;
+	}
+	if(flag == WRITE_FLAG) {
+		nv_dev->nv_count++;
 	}
 
 	return 0;
