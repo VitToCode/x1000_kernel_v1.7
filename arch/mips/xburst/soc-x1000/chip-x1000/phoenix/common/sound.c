@@ -6,21 +6,15 @@ struct snd_codec_data codec_data = {
 	.codec_sys_clk = 0 ,  //0:12M  1:13M
 	.codec_dmic_clk = 1,
 	/* volume */
-	.mic_volume_base = 50,
-
-	.replay_volume_base = 50,
-	.replay_mixer_volume_base = 50,
-	.replay_aic_mixer_volume_base = 50,
-
 	.record_volume_base = 50,
-	.record_aic_mixer_volume_base = 50,
-	.record_mixer_volume_base = 50,
+	.record_digital_volume_base = 50,
+	.replay_digital_volume_base = 50,
 
 	/* default route */
 	.replay_def_route = {
 		.route = SND_ROUTE_REPLAY_SPK,
 		.gpio_spk_en_stat = STATE_ENABLE,
-		.replay_volume_base = 50,
+		.replay_digital_volume_base = 50,
 	},
 
 	.record_def_route = {
@@ -40,13 +34,13 @@ struct snd_codec_data codec_data = {
 	.replay_speaker_route = {
 		.route = SND_ROUTE_REPLAY_SPK,
 		.gpio_spk_en_stat = STATE_ENABLE,
-		.replay_volume_base = 50,
+		.replay_digital_volume_base = 50,
 	},
 
 	.replay_speaker_record_buildin_mic_route = {
 		.route = SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
 		.gpio_spk_en_stat = STATE_ENABLE,
-		.replay_volume_base = 50,
+		.replay_digital_volume_base = 50,
 		.record_volume_base = 50,
 	},
 

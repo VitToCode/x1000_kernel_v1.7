@@ -813,6 +813,10 @@ void codec_set_agc(struct codec_info *codec_dev, int mode)
 static int codec_set_gain_mic(struct codec_info *codec_dev, int gain){
 	int tmpval;
 	gain = gain*5/100;
+	if(gain > 20 || gain < 0){
+		printk("set gain out of range [0 - 20]\n");
+		return 0;
+	}
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIC1);
 	tmpval &= ~0x7;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIC1,tmpval|gain);
@@ -1130,22 +1134,13 @@ static int codec_init(struct codec_info *codec_dev)
 
 	codec_set_micbais(codec_dev, 1);
 
-	if(codec_platform_data->mic_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->mic_volume_base);
-
-	if(codec_platform_data->replay_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->replay_volume_base);
-	if(codec_platform_data->replay_mixer_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->replay_mixer_volume_base);
-	if(codec_platform_data->replay_aic_mixer_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->replay_aic_mixer_volume_base);
+	if(codec_platform_data->replay_digital_volume_base)
+		codec_set_gain_dac(codec_dev, codec_platform_data->replay_digital_volume_base);
 
 	if(codec_platform_data->record_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->record_volume_base);
-	if(codec_platform_data->record_aic_mixer_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->record_aic_mixer_volume_base);
-	if(codec_platform_data->record_mixer_volume_base)
-		codec_set_mic_volume(codec_dev,&codec_platform_data->record_mixer_volume_base);
+		codec_set_gain_mic(codec_dev,codec_platform_data->record_volume_base);
+	if(codec_platform_data->record_digital_volume_base)
+		codec_set_gain_adc(codec_dev, codec_platform_data->record_digital_volume_base);
 
 	return 0;
 }

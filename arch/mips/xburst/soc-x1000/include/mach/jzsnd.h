@@ -42,9 +42,9 @@ typedef enum {
 struct snd_board_route {
 	enum snd_codec_route_t route;
 	//val : 0 is mean not set use default volume base
-	int mic_volume_base;				//val:0 ~ 5  => 0(db) ~ 20(db)   | 4db/step;
-	int replay_volume_base;				//val:0 ~ 63 => -31(db) ~ 32(db) | 1db/step;
-	int record_volume_base;				//val:0 ~ 43 => 0(db) ~ 43(db)   | 1db/step;
+	int record_volume_base;					//val:0 ~ 5  => 0(db) ~ 20(db)   | 4db/step;
+	int replay_digital_volume_base;				//val:0 ~ 31 => -31(db) ~ 0(db) | 1db/step;
+	int record_digital_volume_base;				//val:0 ~ 43 => 0(db) ~ 43(db)   | 1db/step;
 	audio_gpio_state_t gpio_spk_en_stat;
 };
 
@@ -59,15 +59,10 @@ struct snd_codec_data {
 	int codec_dmic_clk;
 
 	/* volume */
-	int mic_volume_base;				/*mic*/
 
-	int record_volume_base;				/*adc*/
-	int record_aic_mixer_volume_base;	/*adc aic mixer*/
-	int record_mixer_volume_base;		/*adc mixer*/
-
-	int replay_volume_base;				/*dac*/
-	int replay_aic_mixer_volume_base;	/*dac aic mixer*/
-	int replay_mixer_volume_base;		/*dac mixer*/
+	int record_volume_base;				/*amic*/
+	int record_digital_volume_base;			/*adc*/
+	int replay_digital_volume_base;			/*dac*/
 
 	/* default route */
 	struct snd_board_route replay_def_route;
