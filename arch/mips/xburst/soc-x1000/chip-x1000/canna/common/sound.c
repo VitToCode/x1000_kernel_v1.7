@@ -21,18 +21,17 @@ struct snd_codec_data codec_data = {
 	.record_def_route = {
 		.route = SND_ROUTE_RECORD_AMIC,
 		.gpio_spk_en_stat = STATE_DISABLE,
-		.record_volume_base = 50,
+		.record_digital_volume_base = 50,
 	},
 
 	.record_buildin_mic_route = {
 		.route = SND_ROUTE_NONE,
-		.record_volume_base = 50,
 	},
 
 	.record_linein_route = {
 		.route = SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK,
 		.gpio_spk_en_stat = STATE_ENABLE,
-		.record_volume_base = 50,
+		.record_digital_volume_base = 50,
 	},
 
 	.replay_speaker_route = {
@@ -45,7 +44,7 @@ struct snd_codec_data codec_data = {
 		.route = SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
 		.gpio_spk_en_stat = STATE_ENABLE,
 		.replay_digital_volume_base = 50,
-		.record_volume_base = 50,
+		.record_digital_volume_base = 50,
 	},
 
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},

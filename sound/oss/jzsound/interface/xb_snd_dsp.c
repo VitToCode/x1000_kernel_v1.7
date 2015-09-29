@@ -530,18 +530,13 @@ static dma_addr_t inline  dma_trans_addr(struct dsp_pipe *dp,
 							    direction);
 }
 
-static void do_replay_watch_func(unsigned long _dp)
+static void do_replay_watch_func(struct dsp_pipe *dp)
 {
-	struct dsp_pipe *dp = (struct dsp_pipe *)_dp;
 	dma_addr_t pdma_addr = 0;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dsp_node *node = NULL;
-	int total_count = 0;
 	uint32_t node_base = 0;
-	uint32_t node_offset = 0;
-	int delay = 0;
 	int success = 0;
-	int unused_num = 0;
 
 	if (dp->wait_stop_dma == true || atomic_read(&dp->watchdog_avail))
 		return;
@@ -565,30 +560,9 @@ static void do_replay_watch_func(unsigned long _dp)
 			success = -1;
 		}
 	}
-	pdma_addr = dma_trans_addr(dp,dp->dma_config.direction);
-	node_offset = ((unsigned long)pdma_addr & (dp->fragsize - 1));
-	node_base = ((unsigned long)pdma_addr & (~(dp->fragsize - 1)));
-	delay = (dp->buffersize - node_offset -1) * 500/(dp->channels * dp->samplerate);
-	//FIXME node->end - node->start instead dp->buffersize
-#if 0
-	if (success <= 0) {
-		int delay_time = 0;
-		unused_num = get_unused_dma_node_num(dp,node_base,&total_count);
-		if ((delay > 15 && unused_num < 2) ||(delay <=15 && unused_num < 3)) {
-			delay_time = unused_num*20;
-			if ((delay + delay_time) < 3) {
-				goto wait_interrupt_clean;
-			}
-			goto wait_interrupt;
-		}
 
-		if (success) {
-			if (dp->fragcnt - unused_num - 1 > 2) {
-				goto wait_interrupt;
-			}
-		}
-	}
-#endif
+	pdma_addr = dma_trans_addr(dp,dp->dma_config.direction);
+	node_base = ((unsigned long)pdma_addr & (~(dp->fragsize - 1)));
 #ifdef CONFIG_HIGH_RES_TIMERS
 	hrtimer_start(&dp->transfer_watchdog,
 			ktime_set(0, dp->watchdog_mdelay * 1000000), HRTIMER_MODE_REL);
@@ -596,11 +570,10 @@ static void do_replay_watch_func(unsigned long _dp)
 	mod_timer(&dp->transfer_watchdog,
 			jiffies+msecs_to_jiffies(dp->watchdog_mdelay));		//10ms timer
 #endif
-wait_interrupt:
+
 	if (put_used_dma_node_free(dp,node_base))
 		if ((dp->is_non_block == false) || (atomic_read(&dp->avialable_couter) > (dp->fragcnt - 1)))
 			wake_up_interruptible(&dp->wq);
-wait_interrupt_clean:
 	return;
 }
 
@@ -619,7 +592,7 @@ static void replay_watch_function(unsigned long _dp)
 }
 #endif
 
-static void do_record_watch_func(unsigned long _dp)
+static void do_record_watch_func(struct dsp_pipe *dp)
 {
 	return;
 }
@@ -638,6 +611,7 @@ static void record_watch_function(unsigned long _dp)
 	do_record_watch_func(dp);
 }
 #endif
+
 static void snd_dma_callback(void *arg)
 {
 	struct dsp_pipe *dp = (struct dsp_pipe *)arg;

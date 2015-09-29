@@ -813,13 +813,16 @@ void codec_set_agc(struct codec_info *codec_dev, int mode)
 static int codec_set_gain_mic(struct codec_info *codec_dev, int gain){
 	int tmpval;
 	gain = gain*5/100;
-	if(gain > 20 || gain < 0){
-		printk("set gain out of range [0 - 20]\n");
+	if(gain > 5 || gain < 0){
+		printk("set gain out of range [0 - 5]\n");
 		return 0;
 	}
+	DUMP_GAIN_PART_REGS(codec_dev, "enter");
+
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIC1);
 	tmpval &= ~0x7;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIC1,tmpval|gain);
+	DUMP_GAIN_PART_REGS(codec_dev, "leave");
 	return gain;
 }
 
@@ -1046,7 +1049,7 @@ static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_
 		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++) {
 			if (broute->route == codec_route_info[i].route_name) {
 #if 1
-				/* Do nothing here, just for anti pop */
+				/* Do nothing here, just for x1000 anti pop */
 #else
                                 /* Shutdown analog amplifier, just for anti pop */
                                 if (broute->gpio_spk_en_stat != KEEP_OR_IGNORE){
@@ -1139,6 +1142,7 @@ static int codec_init(struct codec_info *codec_dev)
 
 	if(codec_platform_data->record_volume_base)
 		codec_set_gain_mic(codec_dev,codec_platform_data->record_volume_base);
+
 	if(codec_platform_data->record_digital_volume_base)
 		codec_set_gain_adc(codec_dev, codec_platform_data->record_digital_volume_base);
 
