@@ -157,6 +157,7 @@ static struct notifier_block dhd_inetaddr_notifier = {
 static bool dhd_inetaddr_notifier_registered = FALSE;
 #endif /* ARP_OFFLOAD_SUPPORT */
 
+#ifdef CONFIG_IPV6
 static int dhd_inet6addr_notifier_call(struct notifier_block *this,
 	unsigned long event, void *ptr);
 static struct notifier_block dhd_inet6addr_notifier = {
@@ -166,6 +167,7 @@ static struct notifier_block dhd_inet6addr_notifier = {
  * created in kernel notifier link list (with 'next' pointing to itself)
  */
 static bool dhd_inet6addr_notifier_registered = FALSE;
+#endif	/* CONFIG_IPV6 */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 #include <linux/suspend.h>
@@ -432,7 +434,9 @@ static void dhd_ifadd_event_handler(void *handle, void *event_info, u8 event);
 static void dhd_ifdel_event_handler(void *handle, void *event_info, u8 event);
 static void dhd_set_mac_addr_handler(void *handle, void *event_info, u8 event);
 static void dhd_set_mcast_list_handler(void *handle, void *event_info, u8 event);
+#ifdef CONFIG_IPV6
 static void dhd_inet6_work_handler(void *dhd_info, void *event_data, u8 event);
+#endif	/* CONFIG_IPV6 */
 
 #ifdef WL_CFG80211
 extern void dhd_netdev_free(struct net_device *ndev);
@@ -3854,10 +3858,12 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 		register_inetaddr_notifier(&dhd_inetaddr_notifier);
 	}
 #endif /* ARP_OFFLOAD_SUPPORT */
+#ifdef CONFIG_IPV6
 	if (!dhd_inet6addr_notifier_registered) {
 		dhd_inet6addr_notifier_registered = TRUE;
 		register_inet6addr_notifier(&dhd_inet6addr_notifier);
 	}
+#endif	/* CONFIG_IPV6 */
 	dhd->dhd_deferred_wq = dhd_deferred_work_init((void *)dhd);
 #ifdef DEBUG_CPU_FREQ
 	dhd->new_freq = alloc_percpu(int);
@@ -5437,6 +5443,7 @@ static int dhd_inetaddr_notifier_call(struct notifier_block *this,
 }
 #endif /* ARP_OFFLOAD_SUPPORT */
 
+#ifdef CONFIG_IPV6
 /* Neighbor Discovery Offload: defered handler */
 static void
 dhd_inet6_work_handler(void *dhd_info, void *event_data, u8 event)
@@ -5553,6 +5560,7 @@ static int dhd_inet6addr_notifier_call(struct notifier_block *this,
 		dhd_inet6_work_handler, DHD_WORK_PRIORITY_LOW);
 	return NOTIFY_DONE;
 }
+#endif	/* CONFIG_IPV6 */
 
 int
 dhd_register_if(dhd_pub_t *dhdp, int ifidx, bool need_rtnl_lock)
@@ -5743,10 +5751,12 @@ void dhd_detach(dhd_pub_t *dhdp)
 		unregister_inetaddr_notifier(&dhd_inetaddr_notifier);
 	}
 #endif /* ARP_OFFLOAD_SUPPORT */
+#ifdef CONFIG_IPV6
 	if (dhd_inet6addr_notifier_registered) {
 		dhd_inet6addr_notifier_registered = FALSE;
 		unregister_inet6addr_notifier(&dhd_inet6addr_notifier);
 	}
+#endif	/* CONFIG_IPV6 */
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
 	if (dhd->dhd_state & DHD_ATTACH_STATE_EARLYSUSPEND_DONE) {
