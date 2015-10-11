@@ -1599,6 +1599,9 @@ struct snd_switch_data switch_data = {
 	.sdev = {
 		.name = "h2w",
 	},
+        .linein_sdev = {
+                .name = "linein",
+        },
 	.state_headset_on	=	"1",
 	.state_headphone_on =   "2",
 	.state_off	=	"0",
@@ -1607,6 +1610,7 @@ struct snd_switch_data switch_data = {
 	.codec_get_state_2 = jz_get_hp_switch_state_2,
 	.set_device_2 = i2s_set_device_2,
 	.type	=	SND_SWITCH_TYPE_CODEC,
+	.linein_gpio = -1,
 };
 
 static struct platform_device xb47xx_i2s_switch = {

@@ -72,6 +72,8 @@
 
 #define GPIO_HP_DETECT  	-1      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    -1
+#define GPIO_LINEIN_DETECT          -1      /*linein detect gpio*/
+#define GPIO_LINEIN_INSERT_LEVEL    -1
 #define GPIO_MIC_SELECT     -1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
 #define GPIO_MIC_DETECT     -1

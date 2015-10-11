@@ -27,7 +27,7 @@
 #include <linux/vmalloc.h>
 #include <linux/semaphore.h>
 
-#include "../xb47xx_i2s_v12.h"
+#include "../xb47xx_i2s_v13.h"
 #include "jz_codec_v13.h"
 #include "jz_route_conf_v13.h"
 
@@ -1751,6 +1751,15 @@ static int jzcodec_ctl(struct codec_info *codec_dev, unsigned int cmd, unsigned 
 static int jz_codec_probe(struct platform_device *pdev)
 {
 	codec_platform_data = pdev->dev.platform_data;
+
+        jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
+                              &codec_platform_data->gpio_hp_detect,
+                              NULL,
+                              NULL,
+                              NULL,
+			      &codec_platform_data->gpio_linein_detect,
+                              -1);
+
 	if (codec_platform_data->gpio_spk_en.gpio != -1 )
 		if (gpio_request(codec_platform_data->gpio_spk_en.gpio,"gpio_spk_en") < 0) {
 			gpio_free(codec_platform_data->gpio_spk_en.gpio);
@@ -1761,7 +1770,9 @@ static int jz_codec_probe(struct platform_device *pdev)
 
 static int __devexit jz_codec_remove(struct platform_device *pdev)
 {
-	gpio_free(codec_platform_data->gpio_spk_en.gpio);
+	if (codec_platform_data->gpio_spk_en.gpio != -1 )
+		gpio_free(codec_platform_data->gpio_spk_en.gpio);
+
 	codec_platform_data = NULL;
 
 	return 0;

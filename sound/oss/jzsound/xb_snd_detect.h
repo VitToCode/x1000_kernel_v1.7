@@ -30,6 +30,7 @@ enum mic_route{
 
 struct snd_switch_data {
 	struct switch_dev sdev;
+	struct switch_dev linein_sdev;
 	wait_queue_head_t wq;
 	int type;
 	const char *name_headset_on;
@@ -40,8 +41,10 @@ struct snd_switch_data {
 	const char *state_off;
 	int hp_irq;
 	int hook_irq;
+	int linein_irq;
 	struct work_struct hp_work;
 	struct work_struct hook_work;
+	struct work_struct linein_work;
 	struct workqueue_struct *check_state_workqueue;
 	struct input_dev *inpdev;
 	int hp_gpio;
@@ -60,11 +63,15 @@ struct snd_switch_data {
 	int mic_select_gpio;
 	int mic_select_level;
 
+	int linein_gpio;
+	int linein_valid_level;
+
 	int (*codec_get_sate)(void);
 	int (*set_device)(unsigned long device);
 	atomic_t flag;
 	int hook_pressed;
 	int hp_state;
+	int linein_state;
 	/* *********for update******** */
 	void *priv_data;
 	int (*codec_get_state_2)(struct snd_switch_data * switch_data);

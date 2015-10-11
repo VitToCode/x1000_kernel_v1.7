@@ -78,6 +78,7 @@ struct snd_codec_data {
 	struct snd_board_gpio gpio_spk_en;
 	struct snd_board_gpio gpio_hp_mute;
 	struct snd_board_gpio gpio_hp_detect;
+	struct snd_board_gpio gpio_linein_detect;
 
 	void (*board_switch_callback)(board_switch_t state);
 	void (*board_pa_control)(bool enable);

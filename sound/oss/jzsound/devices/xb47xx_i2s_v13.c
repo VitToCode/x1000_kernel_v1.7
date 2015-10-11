@@ -1479,6 +1479,7 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		struct snd_board_gpio *mic_det,
 		struct snd_board_gpio *mic_detect_en,
 		struct snd_board_gpio *mic_select,
+		struct snd_board_gpio *linein_det,
 		int hook_active_level)
 {
 	switch_data.type = type;
@@ -1509,6 +1510,14 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 	} else {
 		switch_data.mic_select_gpio = -1;
 	}
+
+	if (linein_det != NULL) {
+		switch_data.linein_gpio = linein_det->gpio;
+		switch_data.linein_valid_level = linein_det->active_level;
+	} else {
+		switch_data.linein_gpio = -1;
+	}
+
 	return (&switch_data.hp_work);
 }
 
@@ -1525,6 +1534,9 @@ struct snd_switch_data switch_data = {
 	.sdev = {
 		.name = "h2w",
 	},
+        .linein_sdev = {
+                .name = "linein",
+        },
 	.state_headset_on	=	"1",
 	.state_headphone_on =   "2",
 	.state_off	=	"0",
@@ -1536,18 +1548,16 @@ struct snd_switch_data switch_data = {
 };
 
 static struct platform_device xb47xx_i2s_switch = {
-#if 1
 	.name	= DEV_DSP_HP_DET_NAME,
 	.id		= SND_DEV_DETECT0_ID,
 	.dev	= {
 		.platform_data	= &switch_data,
 	},
-#endif
 };
 
 struct snd_dev_data i2s_data = {
-	.dev_ioctl_2	= i2s_ioctl_2,
-	.get_endpoints	= i2s_get_endpoints,
+	.dev_ioctl_2		= i2s_ioctl_2,
+	.get_endpoints		= i2s_get_endpoints,
 	.minor			= SND_DEV_DSP0,
 	.init			= i2s_init,
 	.shutdown		= i2s_shutdown,
@@ -1556,7 +1566,7 @@ struct snd_dev_data i2s_data = {
 };
 
 struct snd_dev_data snd_mixer0_data = {
-	.dev_ioctl_2	= i2s_ioctl_2,
+	.dev_ioctl_2		= i2s_ioctl_2,
 	.minor			= SND_DEV_MIXER0,
 	.init			= i2s_init,
 };

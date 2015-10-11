@@ -625,6 +625,7 @@ void *jz_set_hp_detect_type(int type,struct snd_board_gpio *hp_det,
 		struct snd_board_gpio *mic_det,
 		struct snd_board_gpio *mic_detect_en,
 		struct snd_board_gpio *mic_select,
+		struct snd_board_gpio *linein_det,
 		int  hook_active_level);
 
 

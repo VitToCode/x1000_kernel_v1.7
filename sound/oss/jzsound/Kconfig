@@ -167,9 +167,10 @@ config JZ_HP_DETECT_GPIO_V12
 	Say "Y" to enable gpio headphone detect.
 endmenu #"JZ headset detect"
 
-#menu "JZ dock detect"
-
-#endmenu
+config LINEIN_SWITCH_BY_DRIVER
+        bool "linein replay route switch by audio driver automatic"
+        help
+	Say "Y" to enable linein replay route switch by audio driver, according to the linein detect pin.
 
 endif #SOUND_XBURST_DETECT
 

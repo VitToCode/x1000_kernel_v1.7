@@ -30,30 +30,18 @@
 
 static void snd_switch_set_state(struct snd_switch_data *switch_data, int state)
 {
-	if (switch_data->hp_state  != state) {
+	if (switch_data->hp_state != state) {
 		switch_set_state(&switch_data->sdev, state);
 		switch_data->hp_state = state;
 	}
+}
 
-	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
-		if (switch_data->hp_valid_level == HIGH_VALID) {
-			if (state) {
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-				irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_LOW);
-			} else {
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-				irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_HIGH);
-			}
-		} else if (switch_data->hp_valid_level == LOW_VALID) {
-			if (state) {
-				irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_HIGH);
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_RISING);
-			} else {
-				//irq_set_irq_type(switch_data->irq, IRQF_TRIGGER_FALLING);
-				irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_LOW);
-			}
-		}
-	}
+static void linein_switch_set_state(struct snd_switch_data *switch_data, int state)
+{
+        if (switch_data->linein_state != state) {
+                switch_set_state(&switch_data->linein_sdev, state);
+                switch_data->linein_state = state;
+        }
 }
 
 static void snd_switch_work(struct work_struct *hp_work)
@@ -68,9 +56,10 @@ static void snd_switch_work(struct work_struct *hp_work)
 	struct snd_switch_data *switch_data =
 		container_of(hp_work, struct snd_switch_data, hp_work);
 
-
-	/* if gipo switch */
+	/* if gpio switch */
 	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
+		if (switch_data->hp_gpio <= 0)
+			return;
 		//__gpio_disable_pull(switch_data->hp_gpio);
 		state = gpio_get_value(switch_data->hp_gpio);
 		for (i = 0; i < 5; i++) {
@@ -85,22 +74,26 @@ static void snd_switch_work(struct work_struct *hp_work)
 			}
 		}
 
+                if (state == 1)
+                        irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_LOW);
+                else if (state == 0)
+                        irq_set_irq_type(switch_data->hp_irq, IRQF_TRIGGER_HIGH);
+
+		enable_irq(switch_data->hp_irq);
+
 		if (state == (int)switch_data->hp_valid_level){
 			state = 1;
 		}else{
 			state = 0;
 		}
-		enable_irq(switch_data->hp_irq);
 	}
 
 	/* if codec internal hpsense */
 	if (switch_data->type == SND_SWITCH_TYPE_CODEC) {
-		if(switch_data->codec_get_sate) {
+		if(switch_data->codec_get_sate)
 			state = switch_data->codec_get_sate();
-		} else if(switch_data->codec_get_state_2) {
+		else if(switch_data->codec_get_state_2)
 			state = switch_data->codec_get_state_2(switch_data);
-		}
-
 	}
 
 	if (state == 1 && switch_data->mic_detect_en_gpio != -1){
@@ -108,14 +101,15 @@ static void snd_switch_work(struct work_struct *hp_work)
 		mdelay(1000);
 	}
 
-	if (state == 1 && switch_data->mic_gpio != -1) {
-		gpio_direction_input(switch_data->mic_gpio);
-		if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
-			state <<= 1;
-		else
-			state <<= 0;
-	} else
-		state <<= 1;
+        if (state == 1) {
+                if (switch_data->mic_gpio != -1) {
+                        gpio_direction_input(switch_data->mic_gpio);
+                        if (gpio_get_value(switch_data->mic_gpio) != switch_data->mic_vaild_level)
+                                state <<= 1;
+                        else
+                                state <<= 0;
+                }
+        }
 
 	if (state == 1) {
 		if (switch_data->mic_select_gpio != -1)
@@ -136,7 +130,7 @@ static void snd_switch_work(struct work_struct *hp_work)
 			atomic_set(&switch_data->flag,0);
 		}
 	}
-    SWITCH_DEBUG("%s,%d,%d\n",__func__,__LINE__,state);
+	SWITCH_DEBUG("%s,%d,%d\n",__func__,__LINE__,state);
 	snd_switch_set_state(switch_data, state);
 
 #ifndef CONFIG_ANDROID
@@ -176,6 +170,67 @@ static void snd_switch_work(struct work_struct *hp_work)
 	}
 #endif
 }
+
+static void linein_switch_work(struct work_struct *linein_work)
+{
+        int i;
+        int ret = 0;
+        int state = 0;
+        int tmp_state =0;
+	int device = 0;
+        struct snd_switch_data *switch_data =
+                container_of(linein_work, struct snd_switch_data, linein_work);
+
+        state = gpio_get_value(switch_data->linein_gpio);
+        for (i = 0; i < 5; i++) {
+                msleep(20);
+                tmp_state = gpio_get_value(switch_data->linein_gpio);
+                if (tmp_state != state) {
+                        i = -1;
+                        state = gpio_get_value(switch_data->linein_gpio);
+                        continue;
+                }
+        }
+
+        if (state == 1)
+                irq_set_irq_type(switch_data->linein_irq, IRQF_TRIGGER_LOW);
+        else if (state == 0)
+                irq_set_irq_type(switch_data->linein_irq, IRQF_TRIGGER_HIGH);
+
+        enable_irq(switch_data->linein_irq);
+
+        if (state == (int)switch_data->linein_valid_level){
+                state = 1;
+        }else{
+                state = 0;
+        }
+
+        linein_switch_set_state(switch_data, state);
+
+#ifdef CONFIG_LINEIN_SWITCH_BY_DRIVER
+	/* Automatic switch replay devices between linein and speaker. 
+	 * If you want to switch the replay devices by the /dev/mixer ioctl in userspace.
+	 * You should not choose the CONFIG_LINEIN_SWITCH_BY_DRIVER in menuconfig.
+	 */
+	if (state == 1) {
+		device = SND_DEVICE_LINEIN_RECORD;
+	} else {
+		device = SND_DEVICE_SPEAKER;
+	}
+
+	if(switch_data->set_device) {
+		ret = switch_data->set_device((unsigned long)&device);
+	} else if(switch_data->set_device_2) {
+		ret = switch_data->set_device_2(switch_data, (unsigned long)&device);
+	}
+	if (ret == -1)
+		printk("dsp not open\n");
+	else if (ret < -1)
+		printk("linein set_device failed!\n");
+#endif
+        return;
+}
+
 static void hook_do_work(struct work_struct *hook_work)
 {
 	int state = 0;
@@ -223,11 +278,8 @@ static void hook_do_work(struct work_struct *hook_work)
 				input_sync(switch_data->inpdev);
 			}
 			break;
-
 		}
 	}
-
-
 out:
 	irq_set_irq_type(switch_data->hook_irq, IRQF_TRIGGER_RISING);
 
@@ -267,6 +319,18 @@ static irqreturn_t hook_irq_handler(int hook_irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t linein_irq_handler(int linein_irq, void *dev_id)
+{
+        struct snd_switch_data *switch_data =
+            (struct snd_switch_data *)dev_id;
+
+        disable_irq_nosync(switch_data->linein_irq);
+
+        schedule_work(&switch_data->linein_work);
+
+        return IRQ_HANDLED;
+}
+
 static int snd_switch_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct snd_switch_data *switch_data = pdev->dev.platform_data;
@@ -274,7 +338,10 @@ static int snd_switch_suspend(struct platform_device *pdev, pm_message_t state)
 	if (switch_data->hook_valid_level != -1 && switch_data->hook_irq > 0)
 		disable_irq(switch_data->hook_irq);
 
-	if (switch_data->type == SND_SWITCH_TYPE_GPIO)
+        if (switch_data->linein_gpio != -1 && switch_data->linein_irq > 0)
+                disable_irq(switch_data->linein_irq);
+
+	if (switch_data->type == SND_SWITCH_TYPE_GPIO && switch_data->hp_irq > 0)
 		disable_irq(switch_data->hp_irq);
 
 	SWITCH_DEBUG("snd_switch_suspend\n");
@@ -290,12 +357,15 @@ static int snd_switch_resume(struct platform_device *pdev)
 		return 0;
 	}
 
+        if (switch_data->linein_gpio != -1 && switch_data->linein_irq > 0)
+                linein_switch_work(&switch_data->linein_work);
+
 	snd_switch_work(&switch_data->hp_work); // we will enable_irq(switch_data->hp_irq) in this work;
 
 	if (switch_data->hook_valid_level != -1 && switch_data->hook_irq > 0)
 		enable_irq(switch_data->hook_irq);
 
-    SWITCH_DEBUG("snd_switch_resume\n");
+    	SWITCH_DEBUG("snd_switch_resume\n");
 	return 0;
 }
 
@@ -305,7 +375,7 @@ static ssize_t switch_snd_print_name(struct switch_dev *sdev, char *buf)
 		container_of(sdev ,struct snd_switch_data, sdev);
 
 	if (!switch_data->name_headset_on &&
-			!switch_data->name_headset_on&&
+			!switch_data->name_headphone_on&&
 			!switch_data->name_off)
 		return sprintf(buf,"%s.\n",sdev->name);
 
@@ -331,12 +401,28 @@ static ssize_t switch_snd_print_state(struct switch_dev *sdev, char *buf)
 	return -1;
 }
 
+static ssize_t switch_linein_print_name(struct switch_dev *sdev, char *buf)
+{
+	return sprintf(buf,"%s.\n",sdev->name);
+}
+
+static ssize_t switch_linein_print_state(struct switch_dev *sdev, char *buf)
+{
+        char *state[2] = {"0", "1"};
+        unsigned int state_val = switch_get_state(sdev);
+
+	if (state_val == 1)
+                return sprintf(buf, "%s\n", state[1]);
+	else
+                return sprintf(buf, "%s\n", state[0]);
+}
+
 static int snd_switch_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct snd_switch_data *switch_data = pdev->dev.platform_data;
 	atomic_set(&switch_data->flag,0);
-    switch_data->hook_gpio = switch_data->mic_gpio;
+	switch_data->hook_gpio = switch_data->mic_gpio;
 
 	switch_data->sdev.print_state = switch_snd_print_state;
 	switch_data->sdev.print_name = switch_snd_print_name;
@@ -344,7 +430,7 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, switch_data);
 
-    SWITCH_DEBUG("snd_switch_probe\n");
+	SWITCH_DEBUG("snd_switch_probe\n");
 
 	ret = switch_dev_register(&switch_data->sdev);
 	if (ret < 0) {
@@ -352,9 +438,19 @@ static int snd_switch_probe(struct platform_device *pdev)
 		goto err_switch_dev_register;
 	}
 
+	switch_data->linein_sdev.print_state = switch_linein_print_state;
+	switch_data->linein_sdev.print_name =  switch_linein_print_name;
+	switch_data->linein_state = -1;
+
+        ret = switch_dev_register(&switch_data->linein_sdev);
+        if (ret < 0) {
+                printk("linein switch dev register fail.\n");
+                goto err_switch_linein_register;
+        }
+
 	INIT_WORK(&switch_data->hp_work, snd_switch_work);
 
-	if (switch_data->type == SND_SWITCH_TYPE_GPIO) {
+	if (switch_data->hp_gpio != -1 && switch_data->type == SND_SWITCH_TYPE_GPIO) {
 
 		if (!gpio_is_valid(switch_data->hp_gpio))
 			goto err_test_gpio;
@@ -363,7 +459,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_request_gpio;
 
-
 		switch_data->hp_irq = gpio_to_irq(switch_data->hp_gpio);
 		if (switch_data->hp_irq < 0) {
 			printk("get hp_irq error.\n");
@@ -371,8 +466,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 			goto err_detect_irq_num_failed;
 		}
 
-		//ret = request_irq(switch_data->irq, snd_irq_handler,
-		//				  IRQF_TRIGGER_FALLING, pdev->name, switch_data);
 		ret = request_irq(switch_data->hp_irq, snd_irq_handler,
 						  IRQF_TRIGGER_LOW, pdev->name, switch_data);
 		if (ret < 0) {
@@ -387,7 +480,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 
 	/****hook register****/
-
 	if (switch_data->hook_gpio != -1 && switch_data->hook_valid_level != -1 ) {
 		switch_data->hook_irq = gpio_to_irq(switch_data->mic_gpio);
 		switch_data->inpdev = input_allocate_device();
@@ -402,7 +494,6 @@ static int snd_switch_probe(struct platform_device *pdev)
 
 		INIT_WORK(&switch_data->hook_work, hook_do_work);
 
-
 		//irq_set_status_flags(switch_data->hook_irq,IRQ_NOAUTOEN);
 		ret = request_irq(switch_data->hook_irq, hook_irq_handler,
 				IRQF_TRIGGER_RISING, "hook_irq", switch_data);
@@ -413,20 +504,57 @@ static int snd_switch_probe(struct platform_device *pdev)
 	} else
 		switch_data->hook_irq = -1;
 
+        /* linein detect register */
+        if (switch_data->linein_gpio != -1 && switch_data->linein_valid_level != -1 ) {
+                if (!gpio_is_valid(switch_data->linein_gpio))
+                        goto err_test_linein_gpio;
+
+                ret = gpio_request(switch_data->linein_gpio, pdev->name);
+                if (ret < 0)
+                        goto err_request_linein_gpio;
+
+                switch_data->linein_irq = gpio_to_irq(switch_data->linein_gpio);
+                if (switch_data->linein_irq < 0) {
+                        printk("get linein_irq error.\n");
+                        ret = switch_data->linein_irq;
+                        goto err_linein_irq_num_failed;
+                }
+
+                INIT_WORK(&switch_data->linein_work, linein_switch_work);
+
+                ret = request_irq(switch_data->linein_irq, linein_irq_handler,
+                                                  IRQF_TRIGGER_FALLING, "linein_detect", switch_data);
+                if (ret < 0) {
+                        printk("request linein detect irq fail.\n");
+                        goto err_request_linein_irq;
+                }
+                disable_irq(switch_data->linein_irq);
+
+                linein_switch_work(&switch_data->linein_work);
+	} else
+		switch_data->linein_irq = -1;
+
 	/* Perform initial detection */
 	snd_switch_work(&switch_data->hp_work);
 	printk("snd_switch_probe susccess\n");
 	return 0;
 
+err_request_linein_irq:
+err_linein_irq_num_failed:
+        gpio_free(switch_data->linein_gpio);
+err_request_linein_gpio:
+err_test_linein_gpio:
 err_request_irq:
 err_detect_irq_num_failed:
 	gpio_free(switch_data->hp_gpio);
 err_request_gpio:
 err_test_gpio:
-    switch_dev_unregister(&switch_data->sdev);
+	switch_dev_unregister(&switch_data->linein_sdev);
+err_switch_linein_register:
+	switch_dev_unregister(&switch_data->sdev);
 err_switch_dev_register:
-     printk(KERN_ERR "%s : failed!\n", __func__);
-     return ret;
+	printk(KERN_ERR "%s : failed!\n", __func__);
+	return ret;
 }
 
 static int __devexit snd_switch_remove(struct platform_device *pdev)
@@ -434,7 +562,7 @@ static int __devexit snd_switch_remove(struct platform_device *pdev)
 	struct snd_switch_data *switch_data = pdev->dev.platform_data;
 
 	cancel_work_sync(&switch_data->hp_work);
-	if (switch_data->type == SND_SWITCH_TYPE_GPIO)
+	if (switch_data->type == SND_SWITCH_TYPE_GPIO && switch_data->hp_gpio != -1)
 		gpio_free(switch_data->hp_gpio);
 
 	if (switch_data->hook_gpio != -1 &&
@@ -448,7 +576,13 @@ static int __devexit snd_switch_remove(struct platform_device *pdev)
 	if(switch_data->mic_gpio != -1)
 		gpio_free(switch_data->mic_gpio);
 
+        if(switch_data->linein_gpio != -1){
+                cancel_work_sync(&switch_data->linein_work);
+                gpio_free(switch_data->linein_gpio);
+        }
+
 	switch_dev_unregister(&switch_data->sdev);
+	switch_dev_unregister(&switch_data->linein_sdev);
 
 	kfree(switch_data);
 
