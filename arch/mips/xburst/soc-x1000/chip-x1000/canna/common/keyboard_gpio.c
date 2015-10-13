@@ -5,6 +5,8 @@
 #include <linux/input/matrix_keypad.h>
 #include "board_base.h"
 
+#ifdef CONFIG_KEYBOARD_MATRIX
+
 #define KEY_R0 GPIO_PB(3)
 #define KEY_R1 GPIO_PB(2)
 #define KEY_R2 GPIO_PB(1)
@@ -60,6 +62,7 @@ struct platform_device jz_matrix_kdb_device = {
 		.platform_data  = &canna_keypad_data,
 	}
 };
+#endif /* CONFIG_KEYBOARD_MATRIX */
 
 #ifdef CONFIG_KEYBOARD_JZGPIO
 static struct jz_gpio_keys_button board_longbuttons[] = {

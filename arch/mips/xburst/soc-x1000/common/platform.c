@@ -69,7 +69,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	UART2_PORTC,
 #endif
 
-#if (defined(CONFIG_JZ_EXTERNAL_CODEC_V12) || (defined(CONFIG_SND_SOC_EXTERN_CODEC)))
+#if (defined(CONFIG_JZ_EXTERNAL_CODEC_V12) || defined(CONFIG_SND_SOC_EXTERN_CODEC) || defined(CONFIG_JZ_EXTERNAL_CODEC_V13))
 	I2S_PORTB,
 #endif
 

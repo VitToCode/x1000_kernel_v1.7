@@ -282,7 +282,7 @@ static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mod
 			__i2s_set_oss_sample_size(i2s_dev, 1);
 			__i2s_enable_byteswap(i2s_dev);
 		}
-		if (mode == CODEC_RMODE) {
+		if (mode & CODEC_RMODE) {
 			__i2s_set_iss_sample_size(i2s_dev, 1);
 			*format = AFMT_S16_LE;
 		}
@@ -290,15 +290,15 @@ static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mod
 		break;
 	case AFMT_S24_LE:
 		data_width = 24;
-		ret = 100000;
-		printk("come here %d\n", __LINE__);
 		if (mode & CODEC_WMODE) {
 			__i2s_set_oss_sample_size(i2s_dev, 4);
 			__i2s_disable_byteswap(i2s_dev);
 		}
 
+		if (mode & CODEC_RMODE) {
+			__i2s_set_iss_sample_size(i2s_dev, 4);
+		}
 		__i2s_disable_signadj(i2s_dev);
-		printk("come here \n");
 		break;
 	default :
 		printk("I2S: there is unknown format 0x%x.\n",(unsigned int)*format);
@@ -390,7 +390,7 @@ static int i2s_set_channel(struct i2s_device * i2s_dev, int* channel,int mode)
 				*channel = 2;
 		}
 #endif
-			ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
+		ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_CHANNEL,(unsigned long)channel);
 		if (ret < 0)
 			return ret;
 		ret = 0;
@@ -819,32 +819,30 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 			i2s_match_codec(i2s_dev, "internal_codec");
 #elif defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
-			i2s_match_codec(i2s_dev, "external_codec");
+			i2s_match_codec(i2s_dev, "i2s_external_codec");
 #endif
 			__i2s_stop_bitclk(i2s_dev);
 #if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
 			__i2s_external_codec(i2s_dev);
 #endif
-
+			__i2s_enable_sysclk_output(i2s_dev);
 			if (cur_codec->codec_mode == CODEC_MASTER) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 				__i2s_internal_codec_master(i2s_dev);
 #endif
-				printk("   come to codec master\n ");
+				printk("change to codec master\n ");
 				__i2s_slave_clkset(i2s_dev);
-				__i2s_enable_sysclk_output(i2s_dev);
 			} else if (cur_codec->codec_mode == CODEC_SLAVE) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 				__i2s_internal_codec_slave(i2s_dev);
 #endif
-				printk("   come to codec slave\n ");
+				printk("change to codec slave\n ");
 				__i2s_master_clkset(i2s_dev);
-				__i2s_disable_sysclk_output(i2s_dev);
 			}
 
 			if (dp->is_trans == true) {
 				if (dp->pddata && dp->pddata->dev_ioctl_2) {
-					 if (dp->dma_config.direction == DMA_TO_DEVICE) {
+					if (dp->dma_config.direction == DMA_TO_DEVICE) {
 						codec_ctrl(cur_codec, CODEC_DAC_MUTE,0);
 					}
 				}
@@ -1276,8 +1274,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 
 	i2s_set_switch_data(switch_data, i2s_dev);
 
-
-
 	clk_enable(i2s_dev->aic_clk);
 	__i2s_disable(i2s_dev);
 	schedule_timeout(5);
@@ -1292,23 +1288,21 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__i2s_external_codec(i2s_dev);
 #endif
 
+	/*sysclk output*/
+	__i2s_enable_sysclk_output(i2s_dev);
+
 	if(i2s_dev->cur_codec->codec_mode == CODEC_MASTER) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 		__i2s_internal_codec_master(i2s_dev);
 #endif
 		__i2s_slave_clkset(i2s_dev);
-		/*sysclk output*/
-		__i2s_enable_sysclk_output(i2s_dev);
 
 	} else if(i2s_dev->cur_codec->codec_mode == CODEC_SLAVE) {
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 		__i2s_internal_codec_slave(i2s_dev);
 #endif
 		__i2s_master_clkset(i2s_dev);
-		__i2s_disable_sysclk_output(i2s_dev);
 	}
-
-
 #if 0
 	clk_set_rate(i2s_dev->i2s_clk, i2s_dev->cur_codec->codec_clk);
 	if(clk_get_rate(i2s_dev->i2s_clk) > i2s_dev->cur_codec->codec_clk) {
@@ -1343,7 +1337,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 
 	printk("i2s init success.\n");
 	codec_ctrl(i2s_dev->cur_codec, CODEC_INIT,0);
-
 	return 0;
 
 err_clk:

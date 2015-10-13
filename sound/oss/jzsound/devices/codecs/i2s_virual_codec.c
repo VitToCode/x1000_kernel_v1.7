@@ -29,6 +29,10 @@
 #include "../xb47xx_i2s.h"
 
 #define VIRUAL_I2S_CODEC_SAMPLE_RATE 48000
+
+//#define CODEC_MODE  CODEC_SLAVE
+#define CODEC_MODE  CODEC_MASTER
+
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 
 static void codec_get_format_cap(unsigned long *format)
@@ -42,6 +46,8 @@ static int codec_set_device(enum snd_device_t device)
 	switch (device) {
 		case SND_DEVICE_SPEAKER:
 		case SND_DEVICE_HEADSET:
+		case SND_DEVICE_BUILDIN_MIC:
+		case SND_DEVICE_LINEIN_RECORD:
 			break;
 		default:
 			printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
@@ -51,6 +57,13 @@ static int codec_set_device(enum snd_device_t device)
 }
 
 static int codec_set_replay_channel(int* channel)
+{
+	*channel = (*channel >= 2) + 1;
+
+	return 0;
+}
+
+static int codec_set_record_channel(int* channel)
 {
 	*channel = (*channel >= 2) + 1;
 
@@ -99,10 +112,25 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			*(unsigned long*)arg = VIRUAL_I2S_CODEC_SAMPLE_RATE;
 			break;
 
+		case CODEC_SET_RECORD_RATE:
+			*(unsigned long*)arg = VIRUAL_I2S_CODEC_SAMPLE_RATE;
+			break;
+
 		case CODEC_SET_REPLAY_DATA_WIDTH:
 			break;
 
+		case CODEC_SET_RECORD_DATA_WIDTH:
+			break;
+
 		case CODEC_SET_REPLAY_VOLUME:
+			ret = *(int*)arg;
+			break;
+
+		case CODEC_SET_RECORD_VOLUME:
+			ret = *(int*)arg;
+			break;
+
+		case CODEC_SET_MIC_VOLUME:
 			ret = *(int*)arg;
 			break;
 
@@ -110,11 +138,22 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			ret = codec_set_replay_channel((int*)arg);
 			break;
 
+		case CODEC_SET_RECORD_CHANNEL:
+			ret = codec_set_record_channel((int*)arg);
+			break;
+
 		case CODEC_GET_REPLAY_FMT_CAP:
 			codec_get_format_cap((unsigned long *)arg);
 			break;
 
+		case CODEC_GET_RECORD_FMT_CAP:
+			*(unsigned long *)arg = 0;
+			break;
+
 		case CODEC_DAC_MUTE:
+			break;
+
+		case CODEC_ADC_MUTE:
 			break;
 
 		case CODEC_DEBUG_ROUTINE:
@@ -141,7 +180,7 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 static int __init init_codec(void)
 {
 	int ret = 0;
-	ret = i2s_register_codec("i2s_external_codec", (void *)jzcodec_ctl, VIRUAL_EXTERNAL_CODEC_CLOCK, CODEC_SLAVE);
+	ret = i2s_register_codec("i2s_external_codec", (void *)jzcodec_ctl, VIRUAL_EXTERNAL_CODEC_CLOCK, CODEC_MODE);
 	if (ret < 0){
 		printk("i2s audio is not support\n");
 		return ret;
