@@ -1507,6 +1507,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				}
 				fixed_buff_cnt = node_buff_cnt;
 			}
+
 			if (copy_to_user((void *)buffer,
 					 (void *)(node->pBuf + node->start), fixed_buff_cnt)) {
 				put_use_dsp_node_head(dp,node,0);
@@ -1515,10 +1516,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				return -EFAULT;
 			}
 
-
 			buffer += fixed_buff_cnt;
 			mcount -= fixed_buff_cnt;
-
 #ifdef DEBUG_RECORD
 			{
 				old_fs_record = get_fs();
@@ -2864,7 +2863,7 @@ int xb_snd_dsp_open(struct inode *inode,
 
 #ifdef DEBUG_REPLAY
 	printk("DEBUG:----open %s  %s\tline:%d\n",DEBUG_REPLAYE_FILE,__func__,__LINE__);
-	f_test = filp_open(DEBUG_REPLAYE_FILE, O_RDWR | O_APPEND, S_IRUSR | S_IWUSR |O_CREAT);
+	f_test = filp_open(DEBUG_REPLAYE_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
 	if (!IS_ERR(f_test)) {
 		printk("open debug audio sussess %p.\n",f_test);
 		f_test_offset = f_test->f_pos;
@@ -2874,7 +2873,7 @@ int xb_snd_dsp_open(struct inode *inode,
 #endif
 #ifdef DEBUG_RECORD
 	printk("DEBUG:----open %s %s\tline:%d\n",DEBUG_RECORD_FILE, __func__,__LINE__);
-	file_record = filp_open(DEBUG_RECORD_FILE, O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | O_CREAT);
+	file_record = filp_open(DEBUG_RECORD_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
 	if (!IS_ERR(file_record)) {
 		printk("open debug audiorecord sucssess %p. \n", file_record);
 		file_record_offset = file_record->f_pos;
