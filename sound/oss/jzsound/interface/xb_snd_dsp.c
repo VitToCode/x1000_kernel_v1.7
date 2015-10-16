@@ -2795,7 +2795,7 @@ int xb_snd_dsp_open(struct inode *inode,
 			return -ENODEV;
 		mutex_lock(&dpi->mutex);
 		if (dpi->is_used) {
-			printk("\nAudio read device is busy!\n");
+			//printk("\nAudio read device is busy!\n");
 			mutex_unlock(&dpi->mutex);
 			return -EBUSY;
 		}
@@ -2831,7 +2831,7 @@ int xb_snd_dsp_open(struct inode *inode,
 		}
 		mutex_lock(&dpo->mutex);
 		if (dpo->is_used) {
-			printk("\nAudio write device is busy!\n");
+			//printk("\nAudio write device is busy!\n");
 			mutex_unlock(&dpo->mutex);
 			return -EBUSY;
 		}
