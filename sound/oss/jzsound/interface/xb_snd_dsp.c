@@ -333,7 +333,7 @@ static int snd_reuqest_dma(struct dsp_pipe *dp)
 	/* alloc one scatterlist */
 	dp->sg_len = 0;
 
-	dp->sg = vzalloc(sizeof(struct scatterlist) * dp->fragcnt+1);
+	dp->sg = kzalloc(sizeof(struct scatterlist) * dp->fragcnt + 1, GFP_KERNEL);
 	if (!dp->sg) {
 		return -ENOMEM;
 	}
@@ -390,7 +390,7 @@ static void snd_release_dma(struct dsp_pipe *dp)
                         dp->dma_chan = NULL;
                 }
 		if (dp->sg) {
-			vfree(dp->sg);
+			kfree(dp->sg);
 			dp->sg = NULL;
 		}
 	}
