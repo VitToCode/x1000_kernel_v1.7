@@ -2186,39 +2186,26 @@ long xb_snd_dsp_ioctl(struct file *file,
 			ret = -EFAULT;
 			goto EXIT_IOCTRL;
 		}
-		fragcnts = ((fragment & FRAGMENT_CNT_MUX) >> 16);
-		if (fragcnts > 8 || fragcnts < 2) {
+
+		fragcnts = (fragment & FRAGMENT_CNT_MUX) >> 16;
+		fragsize = 1 << (fragment & FRAGMENT_SIZE_MUX);
+
+		if (file->f_mode & FMODE_WRITE) { /* play */
+			dp = endpoints->out_endpoint;
+		} else {		/* record */
+			dp = endpoints->in_endpoint;
+			if (dp->channels == 1)
+				fragsize *= 2;
+		}
+
+		if (fragcnts < 2 || fragcnts > dp->fragcnt) {
 			ret = -EINVAL;
 			goto EXIT_IOCTRL;
 		}
 
-		for (i = 0; i < (fragment & FRAGMENT_SIZE_MUX);i++)
-			fragsize *= 2;
-
-		if (file->f_mode & FMODE_WRITE) {
-			dp = endpoints->out_endpoint;
-			if (fragsize < 16 || fragsize > 8192) {
-				ret = -EINVAL;
-				goto EXIT_IOCTRL;
-			}
-			//printk(KERN_WARNING"CHANGE REPALY BUFFERSIZE NOW.\n");
-		} else if (file->f_mode & FMODE_READ) {
-			if (dp->channels > 1) {
-				if (fragsize < 16 || fragsize > 8192) {
-					ret = -EINVAL;
-					goto EXIT_IOCTRL;
-				}
-			} else {
-				/*
-				 * If mono we use stereo record ,then filter on software
-				 * So we use half of a fragment at most
-				 */
-				if (fragsize < 16 || fragsize > 4096) {
-					ret = -EINVAL;
-					goto EXIT_IOCTRL;
-				}
-			}
-			dp = endpoints->in_endpoint;
+		if (fragsize < 16 || fragsize > dp->fragsize) {
+			ret = -EINVAL;
+			goto EXIT_IOCTRL;
 		}
 
 		dp->buffersize = fragsize;
