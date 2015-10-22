@@ -107,6 +107,18 @@ static struct jz_gpio_keys_button board_longbuttons[] = {
         },
 
 #endif
+
+#ifdef GPIO_WIFI_CONFIG_KEY
+	{
+                .gpio                           = GPIO_WIFI_CONFIG_KEY,
+                .code.shortpress_code		= KEY_F1,
+                .desc                           = "wifi config key",
+                .active_low                     = 1,
+                .longpress_interval             = 0,
+                .debounce_interval              = 2,
+        },
+#endif
+
 };
 
 static struct jz_gpio_keys_platform_data board_longbutton_data = {
