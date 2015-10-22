@@ -40,7 +40,6 @@ static struct dsp_endpoints dmic_endpoints;
 static volatile bool dmic_is_incall_state = false;
 static LIST_HEAD(codecs_head);
 bool dmic_is_incall(void);
-#define FPGA_DMIC_DEBUG 1
 
 static int dmic_global_init(struct platform_device *pdev);
 
@@ -206,7 +205,6 @@ static void jz_dmic_trigger_done_reset() {
 int dmic_set_channel(int* channel,int mode)
 {
 	int ret = 0;
-#if FPGA_DMIC_DEBUG
 	debug_print("dmic set channels = %d",*channel);
 	if (mode & CODEC_RMODE) {
 		switch(*channel){
@@ -231,9 +229,7 @@ int dmic_set_channel(int* channel,int mode)
 	if (mode & CODEC_WMODE) {
 		return -1;
 	}
-#endif
 	return ret;
-
 }
 
 
@@ -287,40 +283,18 @@ void dmic_set_trigger(int mode)
 	return;
 }
 
-int dmic_record_deinit(int mode)
-{
-	__dmic_disable_rdms();
-
-	return 0;
-}
-
-int dmic_record_init(int mode)
-{
-	int rst_test = 50000;
-
-	if (mode & CODEC_RMODE)
-		return -1;
-	__dmic_reset();
-	while(__dmic_get_reset()) {
-		if (rst_test-- <= 0) {
-			return -1;
-		}
-	}
-	return 0;
-}
-
 int dmic_enable(int mode)
 {
 	unsigned long record_format = 16;
 	/*int record_channel = DEFAULT_RECORD_CHANNEL;*/
-	if (!(mode&CODEC_RMODE))
+	if (!(mode & CODEC_RMODE))
 		return -1;
-	__dmic_disable_all_int();
 
-	dmic_record_init(mode);
-	if (mode & CODEC_RMODE) {
-		dmic_set_fmt(&record_format,mode);
-	}
+	__dmic_disable_all_int();
+	__dmic_reset();
+	while(__dmic_get_reset());
+
+	dmic_set_fmt(&record_format,mode);
 
 	dmic_is_incall_state = false;
 	return 0;
@@ -328,9 +302,7 @@ int dmic_enable(int mode)
 
 int dmic_disable(int mode)
 {
-	dmic_record_deinit(mode);
 	__dmic_disable();
-
 	return 0;
 }
 
@@ -340,6 +312,7 @@ int dmic_dma_enable(int mode)		//CHECK
 		__dmic_set_request(8);
 		__dmic_enable_rdms();
 		__dmic_clear_tur();
+		__dmic_enable();
 	}
 	if (mode & CODEC_WMODE) {
 		printk("DMIC: dmic do not support replay\n");
@@ -451,13 +424,7 @@ long dmic_ioctl(unsigned int cmd, unsigned long arg)
 		/* enable dmic record */
 		/* set dmic default record format, channels, rate */
 		/* set default record route */
-		__dmic_disable_all_int();
-		__dmic_reset();
-		while(__dmic_get_reset());
-		__dmic_enable();
-#if FPGA_DMIC_DEBUG
 		ret = dmic_enable(CODEC_RMODE);
-#endif
 		break;
 
 	case SND_DSP_DISABLE_RECORD:
@@ -741,7 +708,6 @@ int dmic_global_init(struct platform_device *pdev)
 
 	__dmic_reset();
 	while(__dmic_get_reset());
-	__dmic_select_24M();
 	__dmic_select_chnum(2);
 	__dmic_select_8k_mode();
 	__dmic_enable_hpf();
@@ -750,6 +716,7 @@ int dmic_global_init(struct platform_device *pdev)
 	__dmic_enable_rdms();
 	__dmic_select_stereo();
 	__dmic_enable_pack();
+	__dmic_disable_unpack_dis();
 	__dmic_disable_switch_rl();
 	__dmic_enable_lp_mode();
 	__dmic_enable_tri();
@@ -758,7 +725,7 @@ int dmic_global_init(struct platform_device *pdev)
 	__dmic_set_thr_high(32);
 	__dmic_set_thr_low(16);
 
-	__dmic_enable();
+	__dmic_disable();
 	printk("dmic init success.\n");
 	return  0;
 
@@ -787,14 +754,12 @@ int dmic_init(struct platform_device *pdev)
 void dmic_shutdown(struct platform_device *pdev)
 {
 	/* close dmic and current codec */
-
 	__dmic_disable();
 	return;
 }
 
  int dmic_suspend(struct platform_device *pdev, pm_message_t state)
 {
-
 	__dmic_disable();
 	return 0;
 }

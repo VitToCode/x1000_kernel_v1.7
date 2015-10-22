@@ -75,8 +75,6 @@ static unsigned long tmp_val;
 #define DMIC_SW_LR_MASK		(0x1 << DMIC_SW_LR)
 #define DMIC_SPLIT_DI	10
 #define DMIC_SPLIT_DI_MASK	(0x1 << DMIC_SPLIT_DI)
-#define DMIC_MCLK_24	9
-#define DMIC_MCLK_24_MASK	(0x1 << DMIC_MCLK_24)
 #define DMIC_PACK_EN	8
 #define DMIC_PACK_EN_MASK	(0x1 << DMIC_PACK_EN)
 #define DMIC_SR			6
@@ -132,10 +130,6 @@ static unsigned long tmp_val;
 	dmic_set_reg(DMICCR0, 1, DMIC_PACK_EN_MASK, DMIC_PACK_EN)
 #define __dmic_disable_pack()	\
 	dmic_set_reg(DMICCR0, 0, DMIC_PACK_EN_MASK, DMIC_PACK_EN)
-#define __dmic_select_24M()	\
-	dmic_set_reg(DMICCR0, 1, DMIC_MCLK_24_MASK, DMIC_MCLK_24)
-#define __dmic_select_12M()	\
-	dmic_set_reg(DMICCR0, 0, DMIC_MCLK_24_MASK, DMIC_MCLK_24)
 #define __dmic_enable_split_lr()	\
 	dmic_set_reg(DMICCR0, 1, DMIC_SPLIT_DI_MASK, DMIC_SPLIT_DI)
 #define __dmic_disable_split_lr()	\
