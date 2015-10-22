@@ -659,6 +659,11 @@ config CGROUP_MEM_RES_CTLR
 	  This config option also selects MM_OWNER config option, which
 	  could in turn add some fork/exit overhead.
 
+config CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+	bool "MEM CGROUP: cache charge on parent"
+	depends on CGROUP_MEM_RES_CTLR
+	default y
+
 config CGROUP_MEM_RES_CTLR_SWAP
 	bool "Memory Resource Controller Swap Extension"
 	depends on CGROUP_MEM_RES_CTLR && SWAP

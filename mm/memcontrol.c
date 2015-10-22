@@ -246,6 +246,9 @@ struct mem_cgroup {
 	 * Should the accounting and control be hierarchical, per subtree?
 	 */
 	bool use_hierarchy;
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+	bool cache_charge_on_parent;
+#endif
 	atomic_t	oom_lock;
 	atomic_t	refcnt;
 
@@ -322,6 +325,19 @@ static bool move_file(void)
 	return test_bit(MOVE_CHARGE_TYPE_FILE,
 					&mc.to->move_charge_at_immigrate);
 }
+
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+static struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont);
+static struct mem_cgroup *memcg_cache_on_parent(struct mem_cgroup *mem)
+{
+	if (mem && mem->cache_charge_on_parent && mem->use_hierarchy &&
+	    mem->css.cgroup->parent) {
+		return mem_cgroup_from_cont(mem->css.cgroup->parent);
+	} else {
+		return mem;
+	}
+}
+#endif
 
 /*
  * Maximum loops in mem_cgroup_hierarchical_reclaim(), used for soft
@@ -2278,6 +2294,7 @@ static int mem_cgroup_do_charge(struct mem_cgroup *mem, gfp_t gfp_mask,
  * Unlike exported interface, "oom" parameter is added. if oom==true,
  * oom-killer can be invoked.
  */
+static DEFINE_SPINLOCK(stock_lock);
 static int __mem_cgroup_try_charge(struct mm_struct *mm,
 				   gfp_t gfp_mask,
 				   unsigned int nr_pages,
@@ -2288,7 +2305,9 @@ static int __mem_cgroup_try_charge(struct mm_struct *mm,
 	int nr_oom_retries = MEM_CGROUP_RECLAIM_RETRIES;
 	struct mem_cgroup *mem = NULL;
 	int ret;
+	unsigned long flags;
 
+	spin_lock_irqsave(&stock_lock, flags);
 	/*
 	 * Unlike gloval-vm's OOM-kill, we're not in memory shortage
 	 * in system level. So, allow to go ahead dying process in addition to
@@ -2401,12 +2420,15 @@ again:
 	css_put(&mem->css);
 done:
 	*memcg = mem;
+	spin_unlock_irqrestore(&stock_lock, flags);
 	return 0;
 nomem:
 	*memcg = NULL;
+	spin_unlock_irqrestore(&stock_lock, flags);
 	return -ENOMEM;
 bypass:
 	*memcg = NULL;
+	spin_unlock_irqrestore(&stock_lock, flags);
 	return 0;
 }
 
@@ -2725,7 +2747,6 @@ static int mem_cgroup_charge_common(struct page *page, struct mm_struct *mm,
 
 	pc = lookup_page_cgroup(page);
 	BUG_ON(!pc); /* XXX: remove this and move pc lookup into commit */
-
 	ret = __mem_cgroup_try_charge(mm, gfp_mask, nr_pages, &mem, oom);
 	if (ret || !mem)
 		return ret;
@@ -2813,6 +2834,14 @@ int mem_cgroup_cache_charge(struct page *page, struct mm_struct *mm,
 		mm = &init_mm;
 
 	if (page_is_file_cache(page)) {
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+		struct task_struct *p;
+		rcu_read_lock();
+		p = rcu_dereference(mm->owner);
+		mem = mem_cgroup_from_task(p);
+		mem = memcg_cache_on_parent(mem);
+		rcu_read_unlock();
+#endif
 		ret = __mem_cgroup_try_charge(mm, gfp_mask, 1, &mem, true);
 		if (ret || !mem)
 			return ret;
@@ -3275,6 +3304,9 @@ int mem_cgroup_prepare_migration(struct page *page,
 	lock_page_cgroup(pc);
 	if (PageCgroupUsed(pc)) {
 		mem = pc->mem_cgroup;
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+		mem = memcg_cache_on_parent(mem);
+#endif
 		css_get(&mem->css);
 		/*
 		 * At migrating an anonymous page, its mapcount goes down
@@ -3883,6 +3915,33 @@ static int mem_cgroup_hierarchy_write(struct cgroup *cont, struct cftype *cft,
 	return retval;
 }
 
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+static u64 mem_cgroup_cache_parent_read(struct cgroup *cont, struct cftype *cft)
+{
+	return mem_cgroup_from_cont(cont)->cache_charge_on_parent;
+}
+
+static int mem_cgroup_cache_parent_write(struct cgroup *cont, struct cftype *cft,
+					u64 val)
+{
+	int retval = 0;
+	struct mem_cgroup *mem = mem_cgroup_from_cont(cont);
+	struct cgroup *parent = cont->parent;
+	struct mem_cgroup *parent_mem = NULL;
+
+	if (parent)
+		parent_mem = mem_cgroup_from_cont(parent);
+
+	cgroup_lock();
+	if (!parent_mem || !parent_mem->use_hierarchy)
+		retval = -EINVAL;
+	else
+		mem->cache_charge_on_parent = val;
+	cgroup_unlock();
+
+	return retval;
+}
+#endif
 
 static unsigned long mem_cgroup_recursive_stat(struct mem_cgroup *mem,
 					       enum mem_cgroup_stat_index idx)
@@ -4133,18 +4192,18 @@ mem_cgroup_get_local_stat(struct mem_cgroup *mem, struct mcs_total_stat *s)
 
 	/* per cpu stat */
 	val = mem_cgroup_read_stat(mem, MEM_CGROUP_STAT_CACHE);
-	s->stat[MCS_CACHE] += val * PAGE_SIZE;
+	s->stat[MCS_CACHE] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_read_stat(mem, MEM_CGROUP_STAT_RSS);
-	s->stat[MCS_RSS] += val * PAGE_SIZE;
+	s->stat[MCS_RSS] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_read_stat(mem, MEM_CGROUP_STAT_FILE_MAPPED);
-	s->stat[MCS_FILE_MAPPED] += val * PAGE_SIZE;
+	s->stat[MCS_FILE_MAPPED] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_read_events(mem, MEM_CGROUP_EVENTS_PGPGIN);
 	s->stat[MCS_PGPGIN] += val;
 	val = mem_cgroup_read_events(mem, MEM_CGROUP_EVENTS_PGPGOUT);
 	s->stat[MCS_PGPGOUT] += val;
 	if (do_swap_account) {
 		val = mem_cgroup_read_stat(mem, MEM_CGROUP_STAT_SWAPOUT);
-		s->stat[MCS_SWAP] += val * PAGE_SIZE;
+		s->stat[MCS_SWAP] += val * PAGE_SIZE / 1024;
 	}
 	val = mem_cgroup_read_events(mem, MEM_CGROUP_EVENTS_PGFAULT);
 	s->stat[MCS_PGFAULT] += val;
@@ -4153,15 +4212,15 @@ mem_cgroup_get_local_stat(struct mem_cgroup *mem, struct mcs_total_stat *s)
 
 	/* per zone stat */
 	val = mem_cgroup_get_local_zonestat(mem, LRU_INACTIVE_ANON);
-	s->stat[MCS_INACTIVE_ANON] += val * PAGE_SIZE;
+	s->stat[MCS_INACTIVE_ANON] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_get_local_zonestat(mem, LRU_ACTIVE_ANON);
-	s->stat[MCS_ACTIVE_ANON] += val * PAGE_SIZE;
+	s->stat[MCS_ACTIVE_ANON] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_get_local_zonestat(mem, LRU_INACTIVE_FILE);
-	s->stat[MCS_INACTIVE_FILE] += val * PAGE_SIZE;
+	s->stat[MCS_INACTIVE_FILE] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_get_local_zonestat(mem, LRU_ACTIVE_FILE);
-	s->stat[MCS_ACTIVE_FILE] += val * PAGE_SIZE;
+	s->stat[MCS_ACTIVE_FILE] += val * PAGE_SIZE / 1024;
 	val = mem_cgroup_get_local_zonestat(mem, LRU_UNEVICTABLE);
-	s->stat[MCS_UNEVICTABLE] += val * PAGE_SIZE;
+	s->stat[MCS_UNEVICTABLE] += val * PAGE_SIZE / 1024;
 }
 
 static void
@@ -4243,6 +4302,19 @@ static int mem_control_stat_show(struct cgroup *cont, struct cftype *cft,
 		if (do_swap_account)
 			cb->fill(cb, "hierarchical_memsw_limit", memsw_limit);
 	}
+
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+	if (!list_empty(&cont->children)) {
+		s64 val = 0;
+		struct mem_cgroup *iter;
+
+		for_each_mem_cgroup_tree(iter, mem_cont)
+			if (iter->cache_charge_on_parent)
+				val += mem_cgroup_read_stat(iter, MEM_CGROUP_STAT_RSS);
+
+		cb->fill(cb, "child rss", val * PAGE_SIZE);
+	}
+#endif
 
 	memset(&mystat, 0, sizeof(mystat));
 	mem_cgroup_get_total_stat(mem_cont, &mystat);
@@ -4713,6 +4785,13 @@ static struct cftype mem_cgroup_files[] = {
 		.write_u64 = mem_cgroup_hierarchy_write,
 		.read_u64 = mem_cgroup_hierarchy_read,
 	},
+#ifdef CONFIG_CGROUP_MEM_CACHE_CHARGE_ON_PARENT
+	{
+		.name = "cache_charge_on_parent",
+		.write_u64 = mem_cgroup_cache_parent_write,
+		.read_u64 = mem_cgroup_cache_parent_read,
+	},
+#endif
 	{
 		.name = "swappiness",
 		.read_u64 = mem_cgroup_swappiness_read,

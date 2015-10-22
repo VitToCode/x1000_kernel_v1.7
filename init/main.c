@@ -779,6 +779,14 @@ static noinline int init_post(void)
 	free_initmem();
 #endif
 
+	{
+		struct sysinfo i;
+		si_meminfo(&i);
+		si_swapinfo(&i);
+
+		printk("Free = %ldk\n", i.freeram << (PAGE_SHIFT - 10));
+	}
+
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();
