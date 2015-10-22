@@ -3068,7 +3068,6 @@ error1:
 }
 int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 {
-#if 0
 	if (ddata){
 		struct dsp_endpoints * endpoints = NULL;
 		bool out_trans = false;
@@ -3092,7 +3091,6 @@ int xb_snd_dsp_suspend(struct snd_dev_data *ddata)
 		if(out_trans || in_trans)
 			return -1;
 	}
-#endif
 	return 0;
 }
 int xb_snd_dsp_resume(struct snd_dev_data *ddata)
