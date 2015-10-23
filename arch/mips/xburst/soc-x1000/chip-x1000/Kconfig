@@ -11,8 +11,8 @@ config  PRODUCT_X1000_PHOENIX
 config  PRODUCT_X1000_CANNA
     bool "product x1000 canna"
 
-config  PRODUCT_X1000_DOSS
-    bool "product x1000 doss"
+config  PRODUCT_X1000_ASLMOM
+    bool "product x1000 aslmom"
 
 endchoice
 
@@ -30,9 +30,9 @@ default "canna"
 source "arch/mips/xburst/soc-x1000/chip-x1000/canna/Kconfig"
 endif
 
-if PRODUCT_X1000_DOSS
+if PRODUCT_X1000_ASLMOM
 config PRODUCT_NAME
 string
-default "doss"
-source "arch/mips/xburst/soc-x1000/chip-x1000/doss/Kconfig"
+default "aslmom"
+source "arch/mips/xburst/soc-x1000/chip-x1000/aslmom/Kconfig"
 endif
