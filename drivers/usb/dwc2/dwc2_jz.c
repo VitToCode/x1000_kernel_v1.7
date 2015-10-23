@@ -616,9 +616,13 @@ static int dwc2_jz_remove(struct platform_device *pdev) {
 
 static int dwc2_jz_suspend(struct platform_device *pdev, pm_message_t state) {
 	struct dwc2_jz	*jz = platform_get_drvdata(pdev);
+	struct dwc2 *dwc = platform_get_drvdata(&jz->dwc2);
 #if DWC2_DEVICE_MODE_ENABLE
 	if (jz->dete_irq >= 0)
 		enable_irq_wake(jz->dete_irq);
+	if (dwc2_is_host_mode(dwc)){
+		disable_irq_wake(jz->dete_irq);
+	}
 #endif
 
 #if DWC2_HOST_MODE_ENABLE
