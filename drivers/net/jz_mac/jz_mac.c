@@ -118,6 +118,34 @@ MODULE_PARM_DESC(copybreak,
 static int jz_mdio_phy_read(struct net_device *dev, int phy_id, int location);
 static void jz_mdio_phy_write(struct net_device *dev, int phy_id, int location, int val);
 
+struct clk *clk_gate, *clk_cgu;
+#ifdef CONFIG_JZGPIO_PHY_RESET
+struct jz_gpio_phy_reset *gpio_phy_reset;
+static int jzmac_phy_reset(void)
+{
+#ifdef CONFIG_JZ_GPIO_SAVE
+	int error;
+	jz_gpio_save_reset_func(gpio_phy_reset->crtl_port, gpio_phy_reset->set_func,
+				gpio_phy_reset->crtl_pins, &(gpio_phy_reset->func));
+	error = gpio_request(gpio_phy_reset->gpio, "jzmac");
+	if (error < 0) {
+		printk("failed to request GPIO %d, error %d\n",
+		       gpio_phy_reset->gpio, error);
+		return error;
+	}
+	gpio_direction_output(gpio_phy_reset->gpio, !gpio_phy_reset->active_level);
+	mdelay(gpio_phy_reset->delaytime_msec);
+	gpio_direction_output(gpio_phy_reset->gpio, gpio_phy_reset->active_level);
+	gpio_free(gpio_phy_reset->gpio);
+	jz_gpio_restore_func(gpio_phy_reset->crtl_port, gpio_phy_reset->crtl_pins,
+			     &(gpio_phy_reset->func));
+#else
+	jzgpio_phy_reset(gpio_phy_reset);
+#endif
+
+	return 0;
+}
+#endif
 static inline unsigned char str2hexnum(unsigned char c)
 {
 	if (c >= '0' && c <= '9')
@@ -2050,7 +2078,6 @@ static int  jz_mac_remove(struct platform_device *pdev)
 
 	return 0;
 }
-struct clk *clk_gate, *clk_cgu;
 
 #ifdef CONFIG_PM
 static int jz_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
@@ -2072,6 +2099,10 @@ static int jz_mac_resume(struct platform_device *pdev)
 	clk_enable(clk_gate);
 	clk_enable(clk_cgu);
 
+#ifdef CONFIG_JZGPIO_PHY_RESET
+	if(jzmac_phy_reset() < 0)
+		return -1;
+#endif
 	if (netif_running(net_dev))
 		jz_mac_open(net_dev);
 
@@ -2135,12 +2166,7 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 {
 	struct mii_bus *miibus;
 	int rc = 0, i;
-#ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
-	struct jz_gpio_phy_reset *gpio_phy_reset;
-#ifdef CONFIG_JZ_GPIO_SAVE
-	int error;
-#endif
-#endif
+
 	clk_gate = clk_get(NULL, "mac");
 	clk_cgu = clk_get(NULL, "cgu_macphy");
 	if (clk_enable(clk_gate) < 0) {
@@ -2157,25 +2183,12 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 	/* //	synopGMAC_multicast_enable(gmacdev); */
 
 #ifdef CONFIG_JZGPIO_PHY_RESET /* PHY hard reset */
-	gpio_phy_reset = dev_get_platdata(&pdev->dev);
-#ifdef CONFIG_JZ_GPIO_SAVE
-	jz_gpio_save_reset_func(gpio_phy_reset->crtl_port, gpio_phy_reset->set_func,
-				gpio_phy_reset->crtl_pins, &(gpio_phy_reset->func));
-	error = gpio_request(gpio_phy_reset->gpio, "jzmac");
-	if (error < 0) {
-		printk("failed to request GPIO %d, error %d\n",
-			gpio_phy_reset->gpio, error);
-		goto out_err_alloc;
+	{
+		gpio_phy_reset = dev_get_platdata(&pdev->dev);
+		rc = jzmac_phy_reset();
+		if(rc < 0)
+			goto out_err_alloc;
 	}
-	gpio_direction_output(gpio_phy_reset->gpio, !gpio_phy_reset->active_level);
-	mdelay(gpio_phy_reset->delaytime_msec);
-	gpio_direction_output(gpio_phy_reset->gpio, gpio_phy_reset->active_level);
-	gpio_free(gpio_phy_reset->gpio);
-	jz_gpio_restore_func(gpio_phy_reset->crtl_port, gpio_phy_reset->crtl_pins,
-			     &(gpio_phy_reset->func));
-#else
-	jzgpio_phy_reset(gpio_phy_reset);
-#endif
 #endif
 
 #if defined(CONFIG_JZ_MAC_RGMII) || defined(CONFIG_JZ_MAC_GMII)
