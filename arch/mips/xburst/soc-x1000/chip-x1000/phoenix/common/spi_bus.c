@@ -97,7 +97,7 @@ static struct jz_spi_support jz_spi_nand_support_table[] = {
 		.oobsize = 128,
 		.block_size = 128 * 1024,
 		.size = 128 * 1024 * 1024,
-		.column_cmdaddr_bits = 16,
+		.column_cmdaddr_bits = 24,
 
 		.tRD_maxbusy = 120, /* unit: ns*/
 		.tPROG_maxbusy = 700,
@@ -111,7 +111,7 @@ static struct jz_spi_support jz_spi_nand_support_table[] = {
 		.oobsize = 128,
 		.block_size = 128 * 1024,
 		.size = 128 * 1024 * 1024,
-		.column_cmdaddr_bits = 16,
+		.column_cmdaddr_bits = 24,
 
 		.tRD_maxbusy = 120, /* unit: ns*/
 		.tPROG_maxbusy = 700,
@@ -125,13 +125,26 @@ static struct jz_spi_support jz_spi_nand_support_table[] = {
 		.oobsize = 128,
 		.block_size = 128 * 1024,
 		.size = 256 * 1024 * 1024,
-		.column_cmdaddr_bits = 24,
+		.column_cmdaddr_bits = 32,
 
 		.tRD_maxbusy = 120, /* unit: ns*/
 		.tPROG_maxbusy = 700,
 		.tBERS_maxbusy = 5000,
 	},
+	{
+		.id_manufactory = 0xa1,
+		.id_device = 0xe1,
+		.name = "PN26G01AWSIUG-1Gbit",
+		.page_size = 2 * 1024,
+		.oobsize = 128,
+		.block_size = 128 * 1024,
+		.size = 128 * 1024 * 1024,
+		.column_cmdaddr_bits = 24,
 
+		.tRD_maxbusy = 240, /* unit: ns*/
+		.tPROG_maxbusy = 1400,
+		.tBERS_maxbusy = 10 * 1000,
+	},
 
 };
 struct jz_spi_nand_platform_data jz_spi_nand_data = {

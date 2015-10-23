@@ -248,7 +248,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 		return -EBADMSG;
 	}
 	switch(flash->column_cmdaddr_bits){
-		case 16:
+		case 24:
 			command[0] = SPINAND_CMD_RDCH;
 			command[1] = (column >> 8) & 0xff;
 			command[2] = column & 0xff;
@@ -257,7 +257,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 			transfer[0].tx_buf = command;
 			transfer[0].len = 4;//sizeof(command);
 			break;
-		case 24:
+		case 32:
 			command[0] = SPINAND_CMD_FRCH;//SPINAND_CMD_RDCH;/* SPINAND_CMD_RDCH read odd addr may be error */
 			command[1] = 0;
 			command[2] = (column >> 8) & 0xff;
@@ -506,7 +506,7 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 		return -EBADMSG;
 	}
 	switch(flash->column_cmdaddr_bits){
-		case 16:
+		case 24:
 			command[0] = SPINAND_CMD_RDCH;
 			command[1] = (column >> 8) & 0xff;
 			command[2] = column & 0xff;
@@ -515,7 +515,7 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 			transfer[0].tx_buf = command;
 			transfer[0].len = 4;//sizeof(command);
 			break;
-		case 24:
+		case 32:
 			command[0] = SPINAND_CMD_FRCH;//SPINAND_CMD_RDCH;/* SPINAND_CMD_RDCH read odd addr may be error */
 			command[1] = 0;
 			command[2] = (column >> 8) & 0xff;
