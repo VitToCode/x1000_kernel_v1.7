@@ -64,7 +64,7 @@ struct mtd_partition jz_mtd_partition1[] = {
 #ifdef CONFIG_MTD_JZ_SPI_NAND
 #define SIZE_UBOOT  0x100000    /* 1M */
 #define SIZE_KERNEL 0x800000    /* 8M */
-#define SIZE_ROOTFS (0x100000 * 60)        /* -1: all of left */
+#define SIZE_ROOTFS (0x100000 * 40)        /* -1: all of left */
 
 struct mtd_partition jz_mtd_spinand_partition[] = {
 	{
