@@ -1445,7 +1445,8 @@ static void __exit jz_spi_exit(void)
 
 }
 
-module_init(jz_spi_init);
+fs_initcall(jz_spi_init);
+//module_init(jz_spi_init);
 module_exit(jz_spi_exit);
 
 MODULE_DESCRIPTION("JZ SPI Driver");

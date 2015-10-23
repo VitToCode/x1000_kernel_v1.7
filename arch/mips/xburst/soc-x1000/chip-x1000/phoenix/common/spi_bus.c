@@ -60,7 +60,91 @@ struct mtd_partition jz_mtd_partition1[] = {
 	},
 };
 #endif
-#if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+
+#ifdef CONFIG_MTD_JZ_SPI_NAND
+#define SIZE_UBOOT  0x100000    /* 1M */
+#define SIZE_KERNEL 0x800000    /* 8M */
+#define SIZE_ROOTFS (0x100000 * 60)        /* -1: all of left */
+
+struct mtd_partition jz_mtd_spinand_partition[] = {
+	{
+		.name =     "uboot",
+		.offset =   0,
+		.size =     SIZE_UBOOT,
+	},
+	{
+		.name =     "kernel",
+		.offset =   MTDPART_OFS_APPEND,
+		.size =     SIZE_KERNEL,
+	},
+	{
+		.name   =       "rootfs",
+		.offset =   MTDPART_OFS_APPEND,
+		.size   =   SIZE_ROOTFS,
+	},
+	{
+		.name   =       "data",
+		.offset =   MTDPART_OFS_APPEND,
+		.size   =   MTDPART_SIZ_FULL,
+	}
+};
+static struct jz_spi_support jz_spi_nand_support_table[] = {
+	{
+		.id_manufactory = 0xc8,
+		.id_device = 0xd1,
+		.name = "GD5F1GQ4UBY1G",
+		.page_size = 2 * 1024,
+		.oobsize = 128,
+		.block_size = 128 * 1024,
+		.size = 128 * 1024 * 1024,
+		.column_cmdaddr_bits = 16,
+
+		.tRD_maxbusy = 120, /* unit: ns*/
+		.tPROG_maxbusy = 700,
+		.tBERS_maxbusy = 5000,
+	},
+	{
+		.id_manufactory = 0xc9,
+		.id_device = 0x51,
+		.name = "QPSYG01AW0A-A1",
+		.page_size = 2 * 1024,
+		.oobsize = 128,
+		.block_size = 128 * 1024,
+		.size = 128 * 1024 * 1024,
+		.column_cmdaddr_bits = 16,
+
+		.tRD_maxbusy = 120, /* unit: ns*/
+		.tPROG_maxbusy = 700,
+		.tBERS_maxbusy = 5000,
+	},
+	{
+		.id_manufactory = 0xb2,
+		.id_device = 0x48,
+		.name = "GD5F2GQ4U",
+		.page_size = 2 * 1024,
+		.oobsize = 128,
+		.block_size = 128 * 1024,
+		.size = 256 * 1024 * 1024,
+		.column_cmdaddr_bits = 24,
+
+		.tRD_maxbusy = 120, /* unit: ns*/
+		.tPROG_maxbusy = 700,
+		.tBERS_maxbusy = 5000,
+	},
+
+
+};
+struct jz_spi_nand_platform_data jz_spi_nand_data = {
+	.jz_spi_support = jz_spi_nand_support_table,
+	.num_spi_flash	= ARRAY_SIZE(jz_spi_nand_support_table),
+	.mtd_partition  = jz_mtd_spinand_partition,
+	.num_partitions = ARRAY_SIZE(jz_mtd_spinand_partition),
+};
+
+
+#endif/*CONFIG_MTD_JZ_SPI_NAND*/
+
+#if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH) || defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_SPI_GPIO)
 struct spi_nor_block_info flash_block_info[] = {
 	{
 		.blocksize      = 64 * 1024,
@@ -128,7 +212,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 		.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 		.st_regnum      = 3,
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 		.mtd_partition  = jz_mtd_partition1,
 		.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 #endif
@@ -153,7 +237,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 		.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 		.st_regnum      = 3,
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 		.mtd_partition  = jz_mtd_partition1,
 		.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 #endif
@@ -178,7 +262,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 		.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 		.st_regnum      = 3,
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 		.mtd_partition  = jz_mtd_partition1,
 		.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 #endif
@@ -203,7 +287,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 		.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 		.st_regnum      = 3,
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 		.mtd_partition  = jz_mtd_partition1,
 		.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 #endif
@@ -228,7 +312,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 			.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 			.st_regnum      = 3,
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) | defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 			.mtd_partition  = jz_mtd_partition1,
 			.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 #endif
@@ -240,7 +324,7 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 
 
 struct spi_board_info jz_spi0_board_info[]  = {
-
+#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
 	[0] ={
 		.modalias       =  "jz_spi_norflash",
 		.platform_data          = &spi_nor_pdata[0],
@@ -250,14 +334,18 @@ struct spi_board_info jz_spi0_board_info[]  = {
 		.chip_select            = 0,
 
 	},
-//	[0] ={
-//		.modalias       =  "jz_nor",
-//		.platform_data          = &spi_nor_pdata,
-//		.controller_data        = (void *)GPIO_PA(27), /* cs for spi gpio */
-//		.max_speed_hz           = 12000000,
-//		.bus_num                = 0,
-//		.chip_select            = 0,
-//	},
+#endif
+#ifdef CONFIG_MTD_JZ_SPI_NAND
+	[0] = {
+		.modalias	=	"jz_spi_nand",
+		.platform_data	= &jz_spi_nand_data,
+		.controller_data        = (void *)GPIO_PA(27), /* cs for spi gpio */
+		//.controller_data	=	(void *)( -1),
+		.max_speed_hz		=	12000000,
+		.bus_num			=	0,
+		.chip_select		=	0,
+	},
+#endif
 };
 int jz_spi0_devs_size = ARRAY_SIZE(jz_spi0_board_info);
 #endif
