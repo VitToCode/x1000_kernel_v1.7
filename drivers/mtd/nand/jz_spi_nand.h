@@ -20,5 +20,6 @@
 
 #define E_FALI		(1 << 2)	/* erase fail */
 #define p_FAIL		(1 << 3)	/* write fail */
+#define SPINAND_IS_BUSY	(1 << 0)/* PROGRAM EXECUTE, PAGE READ, BLOCK ERASE, or RESET command is executing */
 
 #endif /*__JZ_SPI_NANDFLASH__*/
