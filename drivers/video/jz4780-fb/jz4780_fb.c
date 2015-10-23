@@ -54,6 +54,7 @@ static void jzfb_display_v_color_bar(struct fb_info *info);
 static int showFPS = 0;
 static struct jzfb *jzfb0;
 static struct jzfb *jzfb1;
+static int uboot_inited;
 #ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
 struct fb_info *suspend_fb;
 void *suspend_base;
@@ -3910,6 +3911,17 @@ static struct attribute_group lcd_debug_attr_group = {
 	.attrs	= lcd_debug_attrs,
 };
 /********************************************************/
+
+
+int lcd_display_inited_by_uboot( void )
+{
+	if (*(unsigned int*)(0xb3050000 + LCDC_CTRL) & LCDC_CTRL_ENA)
+		uboot_inited = 1;
+	else
+		uboot_inited = 0;
+	/* screen init will set this function first */
+	return uboot_inited;
+}
 
 
 static int __devinit jzfb_probe(struct platform_device *pdev)

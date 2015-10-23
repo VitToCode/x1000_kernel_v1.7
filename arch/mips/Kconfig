@@ -229,7 +229,6 @@ config MACH_XBURST
 	select HAVE_CLK
 	select SYS_SUPPORTS_HOTPLUG_CPU
 	select SYS_SUPPORTS_HIGHMEM
-	select JZ_CPU_SCACHE
 
 config LANTIQ
 	bool "Lantiq based platforms"

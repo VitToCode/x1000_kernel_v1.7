@@ -779,7 +779,7 @@ static int __init board_init(void)
 	platform_device_register(&jz_hdmi);
 #endif
 
-#ifdef CONFIG_JZ4775_SUPPORT_TSC
+#if (defined(CONFIG_JZ4775_SUPPORT_TSC) && defined(CONFIG_TOUCHSCREEN_GWTC9XXXB) && defined(CONFIG_TOUCHSCREEN_FT6X06))
 	i2c_register_board_info(0, mensa_i2c0_devs, ARRAY_SIZE(mensa_i2c0_devs));
 #endif
 #ifdef CONFIG_RTC_DRV_JZ4775

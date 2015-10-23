@@ -112,8 +112,6 @@ void jz_efuse_id_read(int is_chip_id, uint32_t * buf)
 	}
 }
 
-EXPORT_SYMBOL_GPL(jz_efuse_id_rad);
-
 static void jz_efuse_write(int seg_id, uint32_t * buf)
 {
 	int i;

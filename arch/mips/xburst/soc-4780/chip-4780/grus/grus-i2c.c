@@ -62,19 +62,26 @@ static struct gsensor_platform_data lis3dh_platform_data = {
 #endif
 
 #if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_JZ4780)) && defined(CONFIG_JZ4780_SUPPORT_TSC))
+
+#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct jztsc_pin grus_tsc_gpio[] = {
 	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
 	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
 };
 
-#ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 static struct jztsc_platform_data grus_tsc_pdata = {
 	.gpio		= grus_tsc_gpio,
 	.x_max		= 800,
-	.y_max		= 480,	
+	.y_max		= 480,
+};
+#endif
+
+#if defined(CONFIG_TOUCHSCREEN_FT5X06) | defined(CONFIG_TOUCHSCREEN_LDWZIC)
+static struct jztsc_pin grus_tsc_gpio[] = {
+	[0] = {GPIO_CTP_IRQ,		HIGH_ENABLE},
+	[1] = {GPIO_CTP_WAKE_UP,	HIGH_ENABLE},
 };
 
-#else
 static struct jztsc_platform_data grus_tsc_pdata = {
 	.gpio		= grus_tsc_gpio,
 	.x_max		= 1024,
@@ -82,7 +89,6 @@ static struct jztsc_platform_data grus_tsc_pdata = {
 };
 #endif
 #endif
-
 #if (defined(CONFIG_I2C1_JZ4780) || defined(CONFIG_I2C_GPIO))
 static struct i2c_board_info grus_i2c1_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_MMA8452

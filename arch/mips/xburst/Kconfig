@@ -25,14 +25,17 @@ config SOC_4780
 config SOC_4775
 	bool "4775"
 	select JZRISC
+	select JZ_CPU_SCACHE
 
 config SOC_M200
 	bool "m200"
 	select JZRISC
+	select JZ_CPU_SCACHE
 
 config SOC_X1000
 	bool "x1000"
 	select JZRISC
+	select JZ_CPU_SCACHE
 
 endchoice
 
