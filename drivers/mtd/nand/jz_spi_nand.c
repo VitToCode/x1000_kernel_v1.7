@@ -242,7 +242,6 @@ static size_t jz_spi_nandflash_read(struct mtd_info *mtd,loff_t addr,int column,
 	int ret,read_num,i,rlen,page;
 	size_t retlen = 0;
 	int page_size = mtd->writesize;
-	int oobsize = mtd->oobsize;
 	struct jz_spi_nandflash *flash;
 	u_char *buffer = buf;
 	size_t page_overlength;
@@ -318,7 +317,6 @@ static size_t jz_spi_nandflash_write(struct mtd_info *mtd,loff_t addr,int column
 	struct jz_spi_nandflash *flash;
 	int page = ((unsigned int )addr) / mtd->writesize;
 	u_char *buffer = buf;
-	int m;
 
 	//printk("=====wwwwwwwwwwwwwwwwwwwwww %s %d addr = %08x,column = %d len = %d\n",__func__,__LINE__,(unsigned int)addr,column,len);
 	if(addr & (mtd->writesize - 1)){
@@ -420,7 +418,6 @@ static int jz_spinand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 {
 	struct spi_message message;
 	struct spi_transfer transfer[1];
-	unsigned char command[128 + 3];
 	struct jz_spi_nandflash *flash;
 	int ret;
 	int column = mtd->writesize;
