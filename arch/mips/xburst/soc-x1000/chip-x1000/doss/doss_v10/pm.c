@@ -18,6 +18,7 @@ __initdata int gpio_ss_table[][2] = {
         {32*0+25,       GSS_OUTPUT_LOW  },      /* MSC0_CMD */
 
 	{32*2+17,       GSS_IGNORE      },      /* WL_REG_EN */
+	{32*2+24,       GSS_OUTPUT_LOW  },      /* WL_REG_EN */
 	{32*2+31,       GSS_IGNORE      },      /* JTAG/UART2 */
 	/* GPIO Group Set End */
 	{GSS_TABLET_END,GSS_TABLET_END	}
