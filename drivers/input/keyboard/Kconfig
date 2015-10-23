@@ -273,6 +273,15 @@ config KEYBOARD_JZGPIO
 	  long or short key value.
 	  It conflict with 'KEYBOARD_GPIO'
 
+config GPIO_INTERPULLUP_ENABLE
+        tristate "ENABLE INTER PULL UP"
+        depends on KEYBOARD_JZGPIO
+        help
+          If the corresponding gpio port without external pull-up resistor
+          and This group of gpio support internal pull-up.
+          For example,
+          This option applies to Halley V2.0 Board
+
 config TM57PE20A_TOUCH
 	tristate "TM57PE20A TOUCH BUTTON"
 	depends on GENERIC_GPIO

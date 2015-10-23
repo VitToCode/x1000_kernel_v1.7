@@ -34,12 +34,13 @@
 #endif
 
 /* ****************************GPIO KEY START******************************** */
-#define GPIO_POWERDOWN 		GPIO_PB(31)
-#define GPIO_BOOT_SEL0		GPIO_PB(28)
-#define GPIO_BOOT_SEL1		GPIO_PB(29)
-#define ACTIVE_LOW_POWERDOWN 	1
-#define ACTIVE_LOW_F4 		0
-#define ACTIVE_LOW_F5 		0
+//#define GPIO_POWERDOWN 		GPIO_PB(31)
+//#define GPIO_BOOT_SEL0		GPIO_PB(28)
+//#define GPIO_BOOT_SEL1		GPIO_PB(29)
+//#define ACTIVE_LOW_POWERDOWN 	1
+//#define ACTIVE_LOW_F4 		0
+//#define ACTIVE_LOW_F5 		0
+#define GPIO_WIFI_CONFIG_KEY		GPIO_PD(4)
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
@@ -56,7 +57,7 @@
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
 #define GPIO_SPEAKER_EN    GPIO_PC(25)         /*speaker enable gpio*/
-#define GPIO_SPEAKER_EN_LEVEL   0
+#define GPIO_SPEAKER_EN_LEVEL   1
 
 #define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
