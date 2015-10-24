@@ -24,9 +24,17 @@ route_conf_base const record_amic = {
 	.route_record_mux_mode = RECORD_NORMAL_INPUT,
 	.route_input_mode = INPUT_TO_ADC_ENABLE,
 	.route_adc_mode = ADC_ENABLE_WITH_AMIC,
-	.route_mic_mode = MIC_ENABLE,
+	.route_mic_mode = AMIC_ENABLE,
 };
 
+route_conf_base const record_dmic = {
+	.route_ready_mode = ROUTE_READY_FOR_ADC,
+
+	.route_record_mux_mode = RECORD_NORMAL_INPUT,
+	.route_input_mode = INPUT_TO_ADC_ENABLE,
+	.route_adc_mode = ADC_ENABLE_WITH_DMIC,
+	.route_mic_mode = DMIC_ENABLE,
+};
 
 /*##########################################################################################################*/
 route_conf_base const replay_spk = {
@@ -45,14 +53,14 @@ route_conf_base const record_amic_and_replay_spk = {
 	.route_record_mux_mode = RECORD_NORMAL_INPUT,
 	.route_input_mode = INPUT_TO_ADC_ENABLE,
 	.route_adc_mode = ADC_ENABLE_WITH_AMIC,
-	.route_mic_mode = MIC_ENABLE,
+	.route_mic_mode = AMIC_ENABLE,
 
 	.route_replay_mux_mode = REPLAY_NORMAL_INPUT,
 	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
 	.route_dac_mode = DAC_ENABLE,
 };
 
-/* This route is for remove echo */
+/* This route is for remove echo (AEC) */
 route_conf_base const replay_sound_and_record_mixer_loopback = {
 	.route_ready_mode = ROUTE_READY_FOR_DAC,
 
@@ -67,6 +75,7 @@ route_conf_base const replay_sound_and_record_mixer_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = LINEIN_ENABLE,
+	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 
 route_conf_base const replay_linein_and_record_mixer_loopback = {
@@ -83,6 +92,7 @@ route_conf_base const replay_linein_and_record_mixer_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = LINEIN_ENABLE,
+	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 
 route_conf_base const record_amic_mix_replay_sound_loopback = {
@@ -96,7 +106,23 @@ route_conf_base const record_amic_mix_replay_sound_loopback = {
 
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
-        .route_mic_mode = MIC_ENABLE,
+        .route_mic_mode = AMIC_ENABLE,
+	.attibute_replay_mixer_gain = 88,       //this is only for AEC
+};
+
+route_conf_base const record_dmic_mix_replay_sound_loopback = {
+        .route_ready_mode = ROUTE_READY_FOR_ADC_DAC,
+
+        .route_record_mux_mode   = RECORD_INPUT_AND_MIXER_NORMAL,
+	.route_record_mixer_mode = RECORD_MIXER_L_MIX_R_0_INPUT,
+	.route_replay_mixer_mode = REPLAY_MIXER_L_0_R_MIX_INPUT,
+
+	.route_output_mode = OUTPUT_FROM_DAC_ENABLE,
+
+        .route_input_mode = INPUT_TO_ADC_ENABLE,
+        .route_adc_mode = ADC_ENABLE_WITH_DMIC,
+        .route_mic_mode = DMIC_ENABLE,
+	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 /*##############################################################################################################*/
 
@@ -148,6 +174,10 @@ struct __codec_route_info codec_route_info[] = {
 		.route_name = SND_ROUTE_RECORD_AMIC,
 		.route_conf = &record_amic,
 	},
+	{
+		.route_name = SND_ROUTE_RECORD_DMIC,
+		.route_conf = &record_dmic,
+	},
 	/*********************** replay route **************************/
 	{
 		.route_name = SND_ROUTE_REPLAY_SPK,
@@ -169,6 +199,10 @@ struct __codec_route_info codec_route_info[] = {
 	{
 		.route_name = SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
 		.route_conf = &record_amic_mix_replay_sound_loopback,
+	},
+	{
+		.route_name = SND_ROUTE_DMIC_RECORD_MIX_REPLAY_LOOPBACK,
+		.route_conf = &record_dmic_mix_replay_sound_loopback,
 	},
 	/***************************end of array***************************/
 	{

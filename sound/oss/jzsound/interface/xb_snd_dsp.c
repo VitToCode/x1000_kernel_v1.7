@@ -2643,15 +2643,15 @@ long xb_snd_dsp_ioctl(struct file *file,
 
                 spin_lock_irqsave(&dp->pipe_lock, lock_flags);
 
-                if (i2s_ddata->dev_ioctl) {
-                        i2s_ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
-                } else if(i2s_ddata->dev_ioctl_2) {
-                        i2s_ddata->dev_ioctl_2(i2s_ddata, SND_DSP_ENABLE_DMA_RX, 0);
-                }
                 if (dmic_ddata->dev_ioctl) {
                         dmic_ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
                 } else if(dmic_ddata->dev_ioctl_2) {
                         dmic_ddata->dev_ioctl_2(dmic_ddata, SND_DSP_ENABLE_DMA_RX, 0);
+                }
+                if (i2s_ddata->dev_ioctl) {
+                        i2s_ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
+                } else if(i2s_ddata->dev_ioctl_2) {
+                        i2s_ddata->dev_ioctl_2(i2s_ddata, SND_DSP_ENABLE_DMA_RX, 0);
                 }
                 spin_unlock_irqrestore(&dp->pipe_lock, lock_flags);
                 ret = 0;

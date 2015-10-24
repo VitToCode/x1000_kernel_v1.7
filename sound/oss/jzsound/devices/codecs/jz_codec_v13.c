@@ -144,11 +144,13 @@ static void codec_print_route_name(int route)
 		SND_ROUTE_REPLAY_CLEAR,
 		SND_ROUTE_RECORD_CLEAR,
 		SND_ROUTE_RECORD_AMIC,
+		SND_ROUTE_RECORD_DMIC,
 		SND_ROUTE_REPLAY_SPK,
 		SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK,
 		SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK,
 		SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK,
-		SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK
+		SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
+		SND_ROUTE_DMIC_RECORD_MIX_REPLAY_LOOPBACK
 	};
 
 	char *route_str[] = {
@@ -157,11 +159,13 @@ static void codec_print_route_name(int route)
 		"SND_ROUTE_REPLAY_CLEAR",
 		"SND_ROUTE_RECORD_CLEAR",
 		"SND_ROUTE_RECORD_AMIC",
+		"SND_ROUTE_RECORD_DMIC",
 		"SND_ROUTE_REPLAY_SPK",
 		"SND_ROUTE_RECORD_AMIC_AND_REPLAY_SPK",
 		"SND_ROUTE_REPLAY_SOUND_MIXER_LOOPBACK",
 		"SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK",
-		"SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK"
+		"SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK",
+		"SND_ROUTE_DMIC_RECORD_MIX_REPLAY_LOOPBACK"
 	};
 
 	for ( i = 0; i < sizeof(route_arr) / sizeof(unsigned int); i++) {
@@ -387,14 +391,19 @@ static void codec_set_mic(struct codec_info *codec_dev, int mode)
 	int tmpval;
 	DUMP_ROUTE_PART_REGS(codec_dev, "enter");
 	switch(mode){
-	case MIC_ENABLE:
+	case AMIC_ENABLE:
 		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIC1);
 		tmpval &= ~(7<<3);
 		tmpval |= 1<<6;
 		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIC1,tmpval);
 		msleep(100);
 		break;
-
+	case DMIC_ENABLE:
+		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DMIC);
+		tmpval |= 1<<7;
+		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DMIC,tmpval);
+		msleep(100);
+		break;
 	case LINEIN_ENABLE:
 		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIC1);
 		tmpval &= ~(0xf<<3);
@@ -407,6 +416,9 @@ static void codec_set_mic(struct codec_info *codec_dev, int mode)
 		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_MIC1);
 		tmpval |= (3<<4);
 		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_MIC1,tmpval);
+		tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_CR_DMIC);
+		tmpval &= ~(1<<7);
+		icdc_d3_hw_write(codec_dev,SCODA_REG_CR_DMIC,tmpval);
 		break;
 
 	default:
@@ -854,18 +866,18 @@ static int codec_set_gain_adc(struct codec_info *codec_dev, int gain)
 void codec_set_gain_record_mixer(struct codec_info *codec_dev, int gain)
 {
 	int tmpval;
-	gain = gain*32/100;
-	if(gain > 32 || gain < 0){
+	gain = gain*31/100;
+	if(gain > 31 || gain < 0){
 		printk("set gain out of range [0 - 31]\n");
 		return;
 	}
 	DUMP_GAIN_PART_REGS(codec_dev, "enter");
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIXADCL);
-	tmpval &= ~31;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIXADCL,tmpval|(31-gain));
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIXADCR);
-	tmpval &= ~31;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIXADCR,tmpval|(31-gain));
 
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");
@@ -875,19 +887,19 @@ void codec_set_gain_record_mixer(struct codec_info *codec_dev, int gain)
 static void codec_set_gain_replay_mixer(struct codec_info *codec_dev, unsigned int gain)
 {
 	int tmpval;
-	gain = gain*32/100;
-	if(gain > 32 || gain < 0){
+	gain = gain*31/100;
+	if(gain > 31 || gain < 0){
 		printk("set gain out of range [0 - 31]\n");
 		return;
 	}
 	DUMP_GAIN_PART_REGS(codec_dev, "enter");
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIXDACL);
-	tmpval &= ~31;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIXDACL,tmpval|(31-gain));
 
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_MIXDACR);
-	tmpval &= ~31;
+	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_MIXDACR,tmpval|(31-gain));
 
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");

@@ -50,8 +50,9 @@ struct __codec_route_info {
 #define ROUTE_READY_FOR_DAC					2
 #define ROUTE_READY_FOR_ADC_DAC				3
 
+#define DMIC_ENABLE 4
 #define LINEIN_ENABLE 3
-#define MIC_ENABLE 2
+#define AMIC_ENABLE 2
 #define MIC_DISABLE 1
 
 #define INPUT_TO_ADC_ENABLE 2
