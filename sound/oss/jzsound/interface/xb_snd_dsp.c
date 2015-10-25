@@ -2787,8 +2787,8 @@ int xb_snd_dsp_open(struct inode *inode,
 			return -EBUSY;
 		}
 
+		dpi->is_used = true;
 		dpi->is_first_start = true;
-
 		dpi->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
 		/* enable dsp device record */
@@ -2798,10 +2798,10 @@ int xb_snd_dsp_open(struct inode *inode,
 			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_RECORD, 0);
 		}
 		if (ret < 0){
+			dpi->is_used = false;
 			mutex_unlock(&dpi->mutex);
 			return -EIO;
 		}
-		dpi->is_used = true;
 		/* request dma for record */
 		ret = snd_reuqest_dma(dpi);
 		if (ret) {
@@ -2823,8 +2823,8 @@ int xb_snd_dsp_open(struct inode *inode,
 			return -EBUSY;
 		}
 
+		dpo->is_used = true;
 		dpo->is_first_start = true;
-
 		dpo->is_non_block = file->f_flags & O_NONBLOCK ? true : false;
 
 		/* enable dsp device replay */
@@ -2834,10 +2834,10 @@ int xb_snd_dsp_open(struct inode *inode,
 			ret = (int)ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_REPLAY, 0);
 		}
 		if (ret < 0) {
+			dpo->is_used = false;
 			mutex_unlock(&dpo->mutex);
 			return -EIO;
 		}
-		dpo->is_used = true;
 
 		/* request dma for replay */
 		ret = snd_reuqest_dma(dpo);
