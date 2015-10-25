@@ -217,6 +217,10 @@ enum snd_dsp_command {
 	 * @SND_DSP_RESUME_PROCEDURE, called by driver, resume.
 	 */
 	SND_DSP_RESUME_PROCEDURE,
+	/**
+	 * @SND_DSP_IS_REPLAY, is to check if i2s is replaying now.
+	**/
+	SND_DSP_IS_REPLAY,
 };
 
 /**

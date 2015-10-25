@@ -240,6 +240,13 @@ ssize_t xb_snd_mixer_write(struct file *file,
 					ddata->dev_ioctl_2(ddata, SND_DSP_DEBUG,(unsigned long)buf_vol[1]);
 			}
 			break;
+                case '9':
+			if(ddata->dev_ioctl)
+				count = ddata->dev_ioctl(SND_DSP_IS_REPLAY,0);
+			else if(ddata->dev_ioctl_2)
+				count = ddata->dev_ioctl_2(ddata, SND_DSP_IS_REPLAY, 0);
+                        count++;
+                        break;
 		default:
 			printk("undefine debug interface \"%c\".\n", buf_byte);
 			printk(" \"1\" command :print codec and aic register.\n");
@@ -249,6 +256,7 @@ ssize_t xb_snd_mixer_write(struct file *file,
 			printk(" \"5\" set headphone route.\n");
 			printk(" \"6\" set speaker route.\n");
 			printk(" \"7\" set loop test route for phone.\n");
+			printk(" \"9\" check if dsp is replaying now.\n");
 			printk(" \"c\" clear rount 1 CODEC_RMODE ,2 CODEC_WMODE ,3 CODEC_RWMODE\n");
 			printk(" \"m[db]\" set mic volume (db = 0 ~ 20)\n");
 			printk(" \"v[db]\" set record adc volume (db = 0 ~ 23)\n");

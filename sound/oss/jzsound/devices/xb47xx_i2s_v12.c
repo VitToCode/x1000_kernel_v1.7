@@ -1142,6 +1142,18 @@ static long do_ioctl_work(struct i2s_device *i2s_dev, unsigned int cmd, unsigned
 		if (cur_codec && !i2s_is_incall_1(i2s_dev))
 			codec_ctrl(cur_codec, CODEC_RESUME,0);
 		break;
+        case SND_DSP_IS_REPLAY:
+                if(__i2s_tx_is_busy(i2s_dev) == 0){
+                        ret = 0;        //no replaying
+                }else{
+                        ret = 1;        //replaying
+                        if(__i2s_test_tfl(i2s_dev) == 0){
+                                msleep(1);
+                                if(__i2s_test_tfl(i2s_dev) == 0)
+                                        ret = 0;         //txfifo underrun happen
+                        }
+                }
+                break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
