@@ -991,6 +991,20 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 		case SND_DSP_DISABLE_DMA_TX:
 			ret = i2s_dma_disable(i2s_dev, CODEC_WMODE);
 			break;
+
+                case SND_DSP_IS_REPLAY:
+                        if(__i2s_tx_is_busy(i2s_dev) == 0){
+                                ret = 0;        //no replaying
+                        }else{
+                                ret = 1;        //replaying
+                                if(__i2s_test_tfl(i2s_dev) == 0){
+                                        msleep(1);
+                                        if(__i2s_test_tfl(i2s_dev) == 0)
+                                                ret = 0;         //txfifo underrun happen
+                                }
+                        }
+                        break;
+
 		case SND_DSP_FLUSH_SYNC:
 			flush_work_sync(&i2s_dev->i2s_work);
 			break;
@@ -1000,8 +1014,6 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg;
 			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
 			break;
-
-
 	}
 	return ret;
 }
@@ -1142,18 +1154,6 @@ static long do_ioctl_work(struct i2s_device *i2s_dev, unsigned int cmd, unsigned
 		if (cur_codec && !i2s_is_incall_1(i2s_dev))
 			codec_ctrl(cur_codec, CODEC_RESUME,0);
 		break;
-        case SND_DSP_IS_REPLAY:
-                if(__i2s_tx_is_busy(i2s_dev) == 0){
-                        ret = 0;        //no replaying
-                }else{
-                        ret = 1;        //replaying
-                        if(__i2s_test_tfl(i2s_dev) == 0){
-                                msleep(1);
-                                if(__i2s_test_tfl(i2s_dev) == 0)
-                                        ret = 0;         //txfifo underrun happen
-                        }
-                }
-                break;
 	default:
 		printk("SOUND_ERROR: %s(line:%d) unknown command!",
 				__func__, __LINE__);
