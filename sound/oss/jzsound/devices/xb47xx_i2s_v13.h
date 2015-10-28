@@ -145,8 +145,6 @@ static unsigned long tmp_val;
 #define I2S_ICDC_MASK          (0x1 << I2S_ICDC_OFFSET)
 #define I2S_LSMP_OFFSET        (6)
 #define I2S_LSMP_MASK          (0x1 << I2S_LSMP_OFFSET)
-#define I2S_ICS_OFFSET         (7)
-#define I2S_ICS_MASK           (0x1 << I2S_ICS_OFFSET)
 #define I2S_DMODE_OFFSET       (8)
 #define I2S_DMODE_MASK         (0x1 << I2S_DMODE_OFFSET)
 #define I2S_ISYNCD_OFFSET      (9)
@@ -168,19 +166,12 @@ static unsigned long tmp_val;
 	i2s_set_reg(i2s_dev, AICFR,n,I2S_TFTH_MASK,I2S_TFTH_OFFSET)
 #define __i2s_set_receive_trigger(i2s_dev, n)   \
 	i2s_set_reg(i2s_dev, AICFR,n,I2S_RFTH_MASK,I2S_RFTH_OFFSET)
-#define __i2s_internal_codec_master(i2s_dev)              \
+#define __i2s_internal_codec(i2s_dev)              \
 do {	\
-	i2s_set_reg(i2s_dev, AICFR,0,I2S_ICS_MASK,I2S_ICS_OFFSET);	\
 	i2s_set_reg(i2s_dev, AICFR,1,I2S_ICDC_MASK,I2S_ICDC_OFFSET);	\
-} while (0)
-#define __i2s_internal_codec_slave(i2s_dev)              \
-do {	\
-	i2s_set_reg(i2s_dev, AICFR,1,I2S_ICS_MASK,I2S_ICS_OFFSET);	\
-	i2s_set_reg(i2s_dev, AICFR,0,I2S_ICDC_MASK,I2S_ICDC_OFFSET);	\
 } while (0)
 #define __i2s_external_codec(i2s_dev)               \
 do {	\
-	i2s_set_reg(i2s_dev, AICFR,0,I2S_ICS_MASK,I2S_ICS_OFFSET);	\
 	i2s_set_reg(i2s_dev, AICFR,0,I2S_ICDC_MASK,I2S_ICDC_OFFSET);	\
 } while(0)
 #define __i2s_select_share_clk(i2s_dev)		\
@@ -224,9 +215,6 @@ do {	\
 		__i2s_bclk_output(i2s_dev);                    \
 		__i2s_sync_output(i2s_dev);                    \
 	}while(0)
-		/*__i2s_isync_output(i2s_dev);                   \
-		__i2s_ibclk_output(i2s_dev);                   \*/
-
 
 #define __i2s_play_zero(i2s_dev)              \
 	i2s_set_reg(i2s_dev, AICFR,0,I2S_LSMP_MASK,I2S_LSMP_OFFSET)

@@ -442,19 +442,55 @@ static unsigned long calculate_cgu_aic_rate(struct i2s_device * i2s_dev, unsigne
 		8192000, 11333338, 12288000, 8192000, 11333338, 12288000,
 		8192000, 11333338, 12288000, 11333338,12288000, 25500000,
 	};
-	for (i=0; i<9; i++) {
+	for (i=0; i<12; i++) {
 		if (*rate <= mrate[i]) {
 			*rate = mrate[i];
 			break;
 		}
 	}
 
-	if (i >= 9) {
+	if (i >= 12) {
 		*rate = 44100; /*unsupport rate use default*/
-		return mcguclk[6];
+		return mcguclk[7];
 	}
 
 	return mcguclk[i];
+}
+
+/* This is only for x1000's I2SCDR set */
+static unsigned long calculate_i2scdr(struct i2s_device * i2s_dev, unsigned long *rate, unsigned int *div)
+{
+        int i;
+        unsigned long mrate[13] = {
+                8000, 11025, 12000, 16000, 22050, 24000,
+                32000,44100, 48000, 88200, 96000, 176400, 192000,
+        };
+
+        unsigned int i2scdr_div[][3] = {
+                {3, 1, 375}, {1, 7,2500}, {3, 1, 250}, {3, 2, 375}, {1, 7,1250}, {3, 1, 125},
+                {3, 4, 375}, {1, 7, 625}, {3, 2, 125}, {1, 14,625}, {3, 4, 125}, {1, 28,625}, {3, 8,125},
+        };
+
+        for (i=0; i<13; i++) {
+                if (*rate <= mrate[i]) {
+                        *rate = mrate[i];
+                        break;
+                }
+        }
+
+        if (i >= 13) {
+                *rate = 44100; /*unsupport rate use default*/
+                div[0] = i2scdr_div[7][0];
+                div[1] = i2scdr_div[7][1];
+                div[2] = i2scdr_div[7][2];
+                return *rate;
+        }
+
+        div[0] = i2scdr_div[i][0];
+        div[1] = i2scdr_div[i][1];
+        div[2] = i2scdr_div[i][2];
+
+        return *rate;
 }
 
 static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mode)
@@ -462,6 +498,7 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 	int ret = 0;
 	unsigned long cgu_aic_clk = 0;
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
+//	unsigned int i2scdr[3] = {0};
 
 	if (!cur_codec)
 		return -ENODEV;
@@ -479,6 +516,7 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 			else
 				cgu_aic_clk = cur_codec->codec_clk;
 			__i2s_stop_bitclk(i2s_dev);
+#if 1
 			if (cur_codec->codec_clk != cgu_aic_clk || !strcmp(cur_codec->name,"hdmi")) {
 				cur_codec->codec_clk = cgu_aic_clk;
 				if (i2s_dev->i2s_clk == NULL)
@@ -489,14 +527,18 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 				}
 			}
 			*rate = __i2s_set_sample_rate(i2s_dev, cur_codec->codec_clk,*rate);
+#else
+                        calculate_i2scdr(i2s_dev, rate, i2scdr);
+                        /* Choose clk source for the sample rate */
+                        audio_write((i2scdr[0]<<30 | i2scdr[1]<<13 | i2scdr[2]), I2SCDR_PRE);
+                        *(volatile unsigned int*)0xb0000070 = 0x0;
+                        audio_write((i2scdr[0]<<30 | 1<<29 | i2scdr[1]<<13 | i2scdr[2]), I2SCDR_PRE);
+                        audio_write(0x3, I2SDIV_PRE);
+#endif
 			__i2s_start_bitclk(i2s_dev);
 		}
 		ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_RATE,(unsigned long)rate);
 		cur_codec->replay_rate = *rate;
-#if 1
-	audio_write((1|1<<16),I2SDIV_PRE);
-	cur_codec->replay_rate = 44100;
-#endif
 	}
 	if (mode & CODEC_RMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
@@ -822,21 +864,16 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 			i2s_match_codec(i2s_dev, "i2s_external_codec");
 #endif
 			__i2s_stop_bitclk(i2s_dev);
-#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
+
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
+			__i2s_internal_codec(i2s_dev);
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
 			__i2s_external_codec(i2s_dev);
 #endif
 			__i2s_enable_sysclk_output(i2s_dev);
 			if (cur_codec->codec_mode == CODEC_MASTER) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
-				__i2s_internal_codec_master(i2s_dev);
-#endif
-				printk("change to codec master\n ");
 				__i2s_slave_clkset(i2s_dev);
 			} else if (cur_codec->codec_mode == CODEC_SLAVE) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
-				__i2s_internal_codec_slave(i2s_dev);
-#endif
-				printk("change to codec slave\n ");
 				__i2s_master_clkset(i2s_dev);
 			}
 
@@ -1296,23 +1333,16 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	__aic_select_i2s(i2s_dev);
 	__i2s_select_i2s(i2s_dev);
 
-#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
+#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
+	__i2s_internal_codec(i2s_dev);
+#elif defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
 	__i2s_external_codec(i2s_dev);
 #endif
-
 	/*sysclk output*/
 	__i2s_enable_sysclk_output(i2s_dev);
-
 	if(i2s_dev->cur_codec->codec_mode == CODEC_MASTER) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
-		__i2s_internal_codec_master(i2s_dev);
-#endif
 		__i2s_slave_clkset(i2s_dev);
-
 	} else if(i2s_dev->cur_codec->codec_mode == CODEC_SLAVE) {
-#if defined(CONFIG_JZ_INTERNAL_CODEC_V13)
-		__i2s_internal_codec_slave(i2s_dev);
-#endif
 		__i2s_master_clkset(i2s_dev);
 	}
 #if 0
@@ -1325,6 +1355,19 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	clk_enable(i2s_dev->i2s_clk);
 #else//44100
 	//clk_enable(i2s_dev->i2s_clk);
+#endif
+
+#if 0
+#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
+#define M_FIRST 7
+#define N_FIRST 625
+        clk_enable(i2s_dev->i2s_clk);
+        /* Chose APLL as clk source for 44100 sample rate */
+        audio_write((1<<30 | M_FIRST<<13 | N_FIRST), I2SCDR_PRE);
+        *(volatile unsigned int*)0xb0000070 = 0x0;
+        audio_write((1<<30 | 1<<29 | M_FIRST<<13 | N_FIRST), I2SCDR_PRE);
+        audio_write(0x3, I2SDIV_PRE);
+#endif
 #endif
 	__i2s_start_bitclk(i2s_dev);
 
