@@ -74,6 +74,17 @@
 
 #define HP_SENSE_ACTIVE_LEVEL   1
 #define HOOK_ACTIVE_LEVEL       -1
+
+#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
+#define GPIO_AKM4753_PDN		GPIO_PA(7)       /* AKM4753 PDN pin */
+#define GPIO_AKM4753_SPEAKER_EN		GPIO_PA(8)       /* amp shutdown pin */
+#define GPIO_AKM4753_SPEAKER_EN_LEVEL	1
+#define GPIO_AKM4753_LINEIN_DETECT          GPIO_PA(1)   /*linein detect gpio*/
+#define GPIO_AKM4753_LINEIN_INSERT_LEVEL    0
+#define GPIO_AKM4753_HP_DETECT  	-1      	/*hp detect gpio*/
+#define GPIO_AKM4753_HP_INSERT_LEVEL    -1
+#endif
+
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO LCD START****************************** */

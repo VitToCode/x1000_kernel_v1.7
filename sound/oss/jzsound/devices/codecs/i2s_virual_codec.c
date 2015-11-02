@@ -26,7 +26,7 @@
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <mach/jzsnd.h>
-#include "../xb47xx_i2s.h"
+#include "../xb47xx_i2s_v13.h"
 
 #define VIRUAL_I2S_CODEC_SAMPLE_RATE 48000
 

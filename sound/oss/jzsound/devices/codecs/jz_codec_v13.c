@@ -1837,8 +1837,6 @@ static int __init init_codec(void)
 	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&early_suspend);
 #endif
-
-
 	return 0;
 }
 
@@ -1849,8 +1847,8 @@ static void __exit cleanup_codec(void)
 {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&early_suspend);
-	platform_driver_unregister(&jz_codec_driver);
 #endif
+	platform_driver_unregister(&jz_codec_driver);
 }
 arch_initcall(init_codec);
 module_exit(cleanup_codec);

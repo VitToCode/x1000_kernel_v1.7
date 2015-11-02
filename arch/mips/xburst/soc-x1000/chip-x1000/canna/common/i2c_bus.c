@@ -31,6 +31,18 @@ static struct snd_codec_data wm8594_codec_pdata = {
 #endif
 
 #if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
+
+#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
+static struct snd_board_gpio power_down = {
+	.gpio = GPIO_AKM4753_PDN,
+	.active_level = LOW_ENABLE,
+};
+
+static struct akm4753_platform_data akm4753_data = {
+	.pdn = &power_down,
+};
+#endif
+
 struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_BMA2X2
 	{
@@ -38,17 +50,14 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		.irq = GPIO_GSENSOR_INTR,
 	},
 #endif
-};
-int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
-
-struct i2c_board_info jz_v4l2_camera_devs[] __initdata = {
-#ifdef CONFIG_SOC_CAMERA_OV5640
-	[FRONT_CAMERA_INDEX] = {
-		I2C_BOARD_INFO("ov5640-front", 0x3c),
+#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
+	{
+		I2C_BOARD_INFO("akm4753", 0x12),
+		.platform_data  = &akm4753_data,
 	},
 #endif
 };
-int jz_v4l2_devs_size = ARRAY_SIZE(jz_v4l2_camera_devs);
+int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 #endif
 
 #if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
@@ -66,9 +75,6 @@ struct i2c_board_info jz_i2c2_devs[] __initdata = {
 	},
 #endif
 };
-#endif
-
-#if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
 int jz_i2c2_devs_size = ARRAY_SIZE(jz_i2c2_devs);
 #endif
 

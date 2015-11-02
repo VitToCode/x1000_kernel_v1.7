@@ -24,6 +24,7 @@ enum snd_codec_route_t {
 	SND_ROUTE_LINEIN_REPLAY_MIXER_LOOPBACK,
 	SND_ROUTE_AMIC_RECORD_MIX_REPLAY_LOOPBACK,
 	SND_ROUTE_DMIC_RECORD_MIX_REPLAY_LOOPBACK,
+	SND_ROUTE_REPLAY_LINEIN,
 
 	SND_ROUTE_COUNT,
 };
@@ -87,6 +88,13 @@ struct snd_codec_data {
 	void (*board_dmic_control)(bool enable);
 };
 
+#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
+#define LOW_ENABLE                      0
+#define HIGH_ENABLE                     1
+struct akm4753_platform_data {
+	struct snd_board_gpio *pdn;
+};
+#endif
 
 /*####################################################*\
 * common, used for sound devices

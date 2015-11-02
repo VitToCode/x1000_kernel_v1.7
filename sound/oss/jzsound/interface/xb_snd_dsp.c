@@ -2180,7 +2180,6 @@ long xb_snd_dsp_ioctl(struct file *file,
 		int fragment = -1;
 		int fragcnts = -1;
 		int fragsize = 1;
-		int i;
 
 		if (get_user(fragment, (int *)arg)) {
 			ret = -EFAULT;
