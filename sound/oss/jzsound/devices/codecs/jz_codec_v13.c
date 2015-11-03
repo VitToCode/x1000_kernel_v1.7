@@ -1060,7 +1060,7 @@ static int codec_set_board_route(struct codec_info *codec_dev, struct snd_board_
 	if (broute && ((cur_route == NULL) || (cur_route->route != broute->route))) {
 		for (i = 0; codec_route_info[i].route_name != SND_ROUTE_NONE ; i ++) {
 			if (broute->route == codec_route_info[i].route_name) {
-#if 1
+#if 0
 				/* Do nothing here, just for x1000 anti pop */
 #else
                                 /* Shutdown analog amplifier, just for anti pop */
