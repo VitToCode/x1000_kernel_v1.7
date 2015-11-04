@@ -97,7 +97,7 @@
 #endif
 /* ****************************GPIO LCD END******************************** */
 
-#define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
+#define GPIO_EFUSE_VDDQ			GPIO_PC(27)	/* EFUSE must be -ENODEV or a gpio */
 
 #ifdef CONFIG_I2C_GPIO
 

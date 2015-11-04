@@ -82,6 +82,13 @@ struct jz_efuse_platform_data jz_efuse_pdata = {
 };
 #endif
 
+#ifdef CONFIG_JZ_EFUSE_V13
+struct jz_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = GPIO_EFUSE_VDDQ,
+};
+#endif
+
 #if defined(GPIO_USB_ID) && defined(GPIO_USB_ID_LEVEL)
 struct jzdwc_pin dwc2_id_pin = {
 	    .num = GPIO_USB_ID,

@@ -84,6 +84,10 @@ extern struct platform_device jz_spi_gpio_device;
 extern struct jz_efuse_platform_data jz_efuse_pdata;
 #endif
 
+#ifdef CONFIG_JZ_EFUSE_V13
+extern struct jz_efuse_platform_data jz_efuse_pdata;
+#endif
+
 #ifdef CONFIG_KEYBOARD_MATRIX
 extern struct platform_device jz_matrix_kdb_device;
 #endif

@@ -181,6 +181,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
 
+#ifdef CONFIG_JZ_EFUSE_V13
+	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
+#endif
+
 #ifdef	CONFIG_JZ_SFC
 	DEF_DEVICE(&jz_sfc_device, &sfc_info_cfg, sizeof(struct jz_sfc_info)),
 #endif
