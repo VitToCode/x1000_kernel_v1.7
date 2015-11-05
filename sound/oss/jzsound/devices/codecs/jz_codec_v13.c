@@ -854,9 +854,6 @@ static int codec_set_gain_adc(struct codec_info *codec_dev, int gain)
 	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_ADCL,tmpval|gain);
 
-	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_ADCR);
-	tmpval &= ~0x3f;
-	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_ADCR,tmpval|gain);
 	DUMP_GAIN_PART_REGS(codec_dev, "leave");
 
 	return tmpval;

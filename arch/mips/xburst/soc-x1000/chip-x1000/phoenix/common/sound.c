@@ -6,8 +6,8 @@ struct snd_codec_data codec_data = {
 	.codec_sys_clk = 0 ,  //0:12M  1:13M
 	.codec_dmic_clk = 1,
 	/* volume */
-	.record_volume_base = 50,
-	.record_digital_volume_base = 50,
+	.record_volume_base = 0,
+	.record_digital_volume_base = 0,
 	.replay_digital_volume_base = 50,
 
 	/* default route */
