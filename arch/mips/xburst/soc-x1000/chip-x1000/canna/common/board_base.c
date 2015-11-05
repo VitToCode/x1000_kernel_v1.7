@@ -50,14 +50,16 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&i2c1_gpio_device, 0, 0),
 #endif
 
-#ifdef  CONFIG_I2C0_V12_JZ
-	DEF_DEVICE(&jz_i2c0_device,0,0),
+#ifdef CONFIG_I2C0_V12_JZ
+	DEF_DEVICE(&jz_i2c0_device, 0, 0),
 #endif
-#ifdef  CONFIG_I2C1_V12_JZ
-	DEF_DEVICE(&jz_i2c1_device,0,0),
+
+#ifdef CONFIG_I2C1_V12_JZ
+	DEF_DEVICE(&jz_i2c1_device, 0, 0),
 #endif
+
 #ifdef  CONFIG_I2C2_V12_JZ
-	DEF_DEVICE(&jz_i2c2_device,0,0),
+	DEF_DEVICE(&jz_i2c2_device, 0, 0),
 #endif
 
 #ifdef CONFIG_JZMMC_V11_MMC1
@@ -221,7 +223,7 @@ static int __init board_base_init(void)
 
 #if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
 	i2c_register_board_info(0, jz_i2c0_devs, jz_i2c0_devs_size);
-#endif 
+#endif
 	return 0;
 }
 
