@@ -496,67 +496,43 @@ static unsigned long calculate_i2scdr(struct i2s_device * i2s_dev, unsigned long
 static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mode)
 {
 	int ret = 0;
-	unsigned long cgu_aic_clk = 0;
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
-//	unsigned int i2scdr[3] = {0};
-
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
 	if (mode & CODEC_WMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
-			/*************************************************************\
-			|* WARING:when use codec slave mode ,                        *|
-			|* EPLL must be output 270.67M clk to support all sample rate*|
-			|* SYSCLK not standard over sample rate clock ,so it would   *|
-			|* not be output to external codec                           *|
-			\*************************************************************/
-			if (strcmp(cur_codec->name,"hdmi"))
-				cgu_aic_clk = calculate_cgu_aic_rate(i2s_dev, rate);
-			else
-				cgu_aic_clk = cur_codec->codec_clk;
 			__i2s_stop_bitclk(i2s_dev);
-#if 1
-			if (cur_codec->codec_clk != cgu_aic_clk || !strcmp(cur_codec->name,"hdmi")) {
-				cur_codec->codec_clk = cgu_aic_clk;
-				if (i2s_dev->i2s_clk == NULL)
-					return -1;
-				clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
-				if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
-					printk("external codec set rate fail.\n");
-				}
+			if (i2s_dev->i2s_clk == NULL)
+				return -1;
+			ret = clk_set_rate(i2s_dev->i2s_clk, *rate);
+			if(ret < 0) {
+				printk("ERROR:external codec set rate failed\n");
+				return -EINVAL;
 			}
-			*rate = __i2s_set_sample_rate(i2s_dev, cur_codec->codec_clk,*rate);
-#else
-                        calculate_i2scdr(i2s_dev, rate, i2scdr);
-                        /* Choose clk source for the sample rate */
-                        audio_write((i2scdr[0]<<30 | i2scdr[1]<<13 | i2scdr[2]), I2SCDR_PRE);
-                        *(volatile unsigned int*)0xb0000070 = 0x0;
-                        audio_write((i2scdr[0]<<30 | 1<<29 | i2scdr[1]<<13 | i2scdr[2]), I2SCDR_PRE);
-                        audio_write(0x3, I2SDIV_PRE);
-#endif
+			audio_write(0x3, I2SDIV_PRE);
+			*(volatile unsigned int*)0xb0000070 = 0x0;
 			__i2s_start_bitclk(i2s_dev);
 		}
 		ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_RATE,(unsigned long)rate);
 		cur_codec->replay_rate = *rate;
 	}
+
 	if (mode & CODEC_RMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
-			cgu_aic_clk = calculate_cgu_aic_rate(i2s_dev, rate);
-			if (strcmp(cur_codec->name,"hdmi"))
+			if (!strcmp(cur_codec->name,"hdmi"))
 				return 0;
-			__i2s_stop_ibitclk(i2s_dev);
-			if (cur_codec->codec_clk != cgu_aic_clk) {
-				cur_codec->codec_clk = cgu_aic_clk;
-				if (i2s_dev->i2s_clk == NULL)
-					return -1;
-				clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
-				if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
-					printk("external codec set rate fail.\n");
-				}
+			__i2s_stop_bitclk(i2s_dev);
+			if (i2s_dev->i2s_clk == NULL)
+				return -1;
+			ret = clk_set_rate(i2s_dev->i2s_clk, *rate);
+			if(ret < 0) {
+				printk("ERROR:external codec set rate failed\n");
+				return -EINVAL;
 			}
-			*rate = __i2s_set_isample_rate(i2s_dev, cur_codec->codec_clk,*rate);
-			__i2s_start_ibitclk(i2s_dev);
+			audio_write(0x3, I2SDIV_PRE);
+			*(volatile unsigned int*)0xb0000070 = 0x0;
+			__i2s_start_bitclk(i2s_dev);
 		}
 		ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_RATE,(unsigned long)rate);
 		cur_codec->record_rate = *rate;
@@ -825,7 +801,6 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 	endpoints = i2s_dev->i2s_endpoints;
 
 	dp = endpoints->out_endpoint;
-
 	if (!cur_codec)
 		return -1;
 
@@ -884,11 +859,15 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 					}
 				}
 			}
-
-			clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
-			if (clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
-				printk("codec codec set rate fail.\n");
+#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
+			ret = clk_set_rate(i2s_dev->i2s_clk, tmp_rate);
+			if(ret < 0) {
+				printk("external codec set rate failed\n");
+				return -EINVAL;
 			}
+			audio_write(0x3, I2SDIV_PRE);
+			*(volatile unsigned int*)0xb0000070 = 0x0;
+#endif
 			__i2s_start_bitclk(i2s_dev);
 		}
 	}
@@ -1272,11 +1251,14 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 		dev_err(&pdev->dev, "cgu i2s clk get failed!\n");
 		goto err_get_i2s_clk;
 	}
+	clk_enable(i2s_dev->i2s_clk);
+
 	i2s_dev->aic_clk = clk_get(&pdev->dev, "aic");
 	if(IS_ERR(i2s_dev->aic_clk)) {
 		dev_err(&pdev->dev, "aic clk get failed!\n");
 		goto err_get_aic_clk;
 	}
+	clk_enable(i2s_dev->aic_clk);
 
 	spin_lock_init(&i2s_dev->i2s_irq_lock);
 	spin_lock_init(&i2s_dev->i2s_lock);
@@ -1323,7 +1305,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 
 	i2s_set_switch_data(switch_data, i2s_dev);
 
-	clk_enable(i2s_dev->aic_clk);
 	__i2s_disable(i2s_dev);
 	schedule_timeout(5);
 	__i2s_disable(i2s_dev);
@@ -1345,17 +1326,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	} else if(i2s_dev->cur_codec->codec_mode == CODEC_SLAVE) {
 		__i2s_master_clkset(i2s_dev);
 	}
-#if 0
-	clk_set_rate(i2s_dev->i2s_clk, i2s_dev->cur_codec->codec_clk);
-	if(clk_get_rate(i2s_dev->i2s_clk) > i2s_dev->cur_codec->codec_clk) {
-		printk("i2s clk rate set failed\n");
-		goto err_clk;
-	}
-
-	clk_enable(i2s_dev->i2s_clk);
-#else//44100
-	//clk_enable(i2s_dev->i2s_clk);
-#endif
 
 #if 0
 #if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
@@ -1393,8 +1363,6 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 	printk("i2s init success.\n");
 	codec_ctrl(i2s_dev->cur_codec, CODEC_INIT,0);
 	return 0;
-
-err_clk:
 
 err_irq:
 
