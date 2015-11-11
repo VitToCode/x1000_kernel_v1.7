@@ -151,6 +151,8 @@ extern struct platform_device jz_pcm_dump_cdc_device;
 extern struct platform_device jz_spdif_dump_cdc_device;
 extern struct platform_device jz_dmic_dump_cdc_device;
 
+extern struct platform_device axp173_adc_device;
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #endif

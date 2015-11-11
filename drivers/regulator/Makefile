@@ -45,6 +45,7 @@ obj-$(CONFIG_REGULATOR_AB8500)	+= ab8500.o
 obj-$(CONFIG_REGULATOR_DB8500_PRCMU) += db8500-prcmu.o
 obj-$(CONFIG_REGULATOR_TPS65910) += tps65910-regulator.o
 obj-$(CONFIG_REGULATOR_ACT8600) += act8600-regulator.o
+obj-$(CONFIG_REGULATOR_AXP173) += axp173-regulator.o
 obj-$(CONFIG_REGULATOR_DA9024) += d2041-regulator.o
 obj-$(CONFIG_REGULATOR_RICOH618) += ricoh618-regulator.o
 obj-$(CONFIG_REGULATOR_RICOH619) += ricoh619-regulator.o

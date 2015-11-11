@@ -34,6 +34,15 @@ config MFD_ACT8600
 	  select individual components like voltage regulators, RTC and
 	  battery-charger under the corresponding menus.
 
+config MFD_AXP173
+	bool "Support PMU AXP173"
+	depends on I2C=y && MACH_XBURST
+	select MFD_CORE
+	help
+	  This supports for AXP173 Power Management IC.
+	  This includes the I2C driver and the core APIs _only_, you have to
+	  select individual components like voltage regulators, RTC and
+	  battery-charger under the corresponding menus.
 
 config MFD_DA9024
 	  bool "Support PMIC DA9024 or D2041"
@@ -120,6 +129,14 @@ config MFD_JZ_SADC_V12
 	help
 	  Say yes here if you want support for the SADC unit in the M200 SoC.
 	  This driver is necessary for jz_battery driver.
+
+config MFD_AXP173_SADC
+	tristate "Support for the AXP173 SADC core"
+	select MFD_CORE
+	depends on MFD_AXP173
+	help
+	  Say yes here if you want support for the SADC unit in the AXP173.
+	  This driver is necessary for axp173 jz_battery driver.
 
 config MFD_SADC_BH1680FVC
 	tristate "Support for the SADC BH1680FVC core"

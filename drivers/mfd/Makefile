@@ -89,6 +89,7 @@ obj-$(CONFIG_MFD_JZ4740_ADC)	+= jz4740-adc.o
 obj-$(CONFIG_MFD_JZ4775_SADC)	+= jz4775-adc.o
 obj-$(CONFIG_MFD_JZ4780_SADC)	+= jz4780-adc.o
 obj-$(CONFIG_MFD_JZ_SADC_V12)	+= jz_adc_v12.o
+0bj-$(CONFIG_MFD_AXP173_SADC)	+= axp173-adc.o
 obj-$(CONFIG_MFD_TPS6586X)	+= tps6586x.o
 obj-$(CONFIG_MFD_VX855)		+= vx855.o
 obj-$(CONFIG_MFD_WL1273_CORE)	+= wl1273-core.o
@@ -101,6 +102,7 @@ obj-$(CONFIG_TPS65911_COMPARATOR)	+= tps65911-comparator.o
 
 obj-$(CONFIG_MFD_SADC_BH1680FVC)	+= bh1680fvc.o
 obj-$(CONFIG_MFD_ACT8600)	+= act8600-core.o
+obj-$(CONFIG_MFD_AXP173)        += axp173-core.o
 obj-$(CONFIG_MFD_DA9024)    	+= d2041-core.o d2041-irq.o d2041-i2c.o
 obj-$(CONFIG_MFD_RICOH618)	+= ricoh618.o ricoh618-irq.o
 obj-$(CONFIG_MFD_RICOH619)	+= ricoh619.o ricoh619-irq.o

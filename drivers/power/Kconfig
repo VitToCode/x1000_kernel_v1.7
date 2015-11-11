@@ -29,12 +29,26 @@ config APM_POWER
 	  Say Y here to enable support APM status emulation using
 	  battery class devices.
 
-config BATTERY_JZ4775
-	tristate "Ingenic JZ4775 battery"
-	depends on MFD_JZ4775_SADC
+config JZ_BATTERY
+	tristate "Ingenic battery"
+	depends on MFD_AXP173_SADC
 	help
-	  Say Y to enable support for the battery on Ingenic JZ4775 based
+	  Say Y to enable support for the battery on Ingenic based
 	  boards.
+
+config JZ_CURRENT_BATTERY
+	tristate "Ingenic current method battery"
+	depends on MFD_AXP173_SADC
+	help
+	  Say Y to enable support for the current method battery on Ingenic
+	  based boards.
+
+config JZ_VOL_BATTERY
+        tristate "Ingenic voltage battery"
+        depends on MFD_AXP173_SADC
+        help
+          Say Y to enable support for the battery on Ingenic based
+          boards.
 
 config BATTERY_JZ4780
 	tristate "Ingenic JZ4780 battery"
@@ -99,6 +113,20 @@ config CHARGER_HAS_USB
 	default y
 	help
 	  Say Y here to enable USB charger in the PMU ACT8600.
+
+config AXP173_CHARGER
+        tristate "AXP173 battery charger support"
+        depends on MFD_AXP173
+        select JZ_CURRENT_BATTERY
+        help
+          Say Y here to enable support for the battery charger in the
+          PMU AXP173.
+
+config AXP173_CHARGER_DEBUG
+        bool "AXP173 CHARGER Debug"
+        depends on AXP173_CHARGER
+        help
+          Print the AXP173 CHARGER DEBUG msg.
 
 config MAX8925_POWER
 	tristate "MAX8925 battery charger support"

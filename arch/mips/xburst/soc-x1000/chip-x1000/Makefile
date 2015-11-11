@@ -3,3 +3,4 @@
 obj-$(CONFIG_PRODUCT_X1000_PHOENIX)		+= phoenix/
 obj-$(CONFIG_PRODUCT_X1000_CANNA)		+= canna/
 obj-$(CONFIG_PRODUCT_X1000_ASLMOM)		+= aslmom/
+obj-$(CONFIG_PRODUCT_X1000_YOUTH)		+= youth/

@@ -71,6 +71,13 @@ config REGULATOR_ACT8600
 	  This driver controls PMU ACT8600. It's a mfd cell driver of
 	  act8600-core.c
 
+config REGULATOR_AXP173
+	depends on MFD_AXP173
+	tristate "AXP173 PMU voltage regulator"
+	help
+	  This driver controls PMU AXP173. It's a mfd cell driver of
+	  axp173-core.c
+
 config REGULATOR_DA9024
 	  depends on MFD_DA9024
 	  tristate "DA9024 PMIC voltage regulator"

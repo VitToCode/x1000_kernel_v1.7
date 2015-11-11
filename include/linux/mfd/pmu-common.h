@@ -14,7 +14,7 @@
 
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
-#include <linux/mfd/act8600-private.h>
+#include <linux/mfd/axp173-private.h>
 #include <linux/mfd/ricoh618.h>
 #include <linux/power/ricoh618_battery.h>
 

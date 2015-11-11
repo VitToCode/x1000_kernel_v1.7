@@ -33,7 +33,9 @@ obj-$(CONFIG_CHARGER_PCF50633)	+= pcf50633-charger.o
 obj-$(CONFIG_BATTERY_JZ4740)	+= jz4740-battery.o
 obj-$(CONFIG_BATTERY_JZ4775)	+= jz4775-battery.o
 obj-$(CONFIG_BATTERY_JZ4780)	+= jz4780-battery.o
-obj-$(CONFIG_JZ_BATTERY)		+= jz_battery.o
+obj-$(CONFIG_JZ_BATTERY)	+= jz_battery.o
+obj-$(CONFIG_JZ_CURRENT_BATTERY)+= jz-current-battery.o
+obj-$(CONFIG_JZ_VOL_BATTERY) 	+= jz-voltage-battery.o
 obj-$(CONFIG_BATTERY_INTEL_MID)	+= intel_mid_battery.o
 obj-$(CONFIG_CHARGER_ISP1704)	+= isp1704_charger.o
 obj-$(CONFIG_CHARGER_MAX8903)	+= max8903_charger.o
@@ -43,5 +45,6 @@ obj-$(CONFIG_CHARGER_LI_ION)	+= li_ion_charger.o
 obj-$(CONFIG_CHARGER_AC)	+= ac-charger.o
 
 obj-$(CONFIG_CHARGER_ACT8600)	+= act8600-charger.o
+obj-$(CONFIG_AXP173_CHARGER)    += axp173-charger.o
 obj-$(CONFIG_BATTERY_RICOH618)	+= ricoh618-battery.o
 obj-$(CONFIG_BATTERY_RICOH619)	+= ricoh619-battery.o

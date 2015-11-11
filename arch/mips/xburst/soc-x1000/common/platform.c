@@ -866,3 +866,28 @@ struct platform_device jz_efuse_device = {
 	.name = "jz-efuse-v13",
 };
 #endif
+/*
+static struct resource axp_adc_resources[] = {
+        {
+                .start  = SADC_IOBASE,
+                .end    = SADC_IOBASE + 0x34,
+                .flags  = IORESOURCE_MEM,
+        },
+        {
+                .start  = IRQ_SADC,
+                .end    = IRQ_SADC,
+                .flags  = IORESOURCE_IRQ,
+        },
+        {
+                .start  = IRQ_SADC_BASE,
+                .end    = IRQ_SADC_BASE,
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+*/
+struct platform_device axp173_adc_device = {
+        .name   = "axp173-adc",
+        .id     = -1,
+//        .num_resources  = ARRAY_SIZE(axp_adc_resources),
+//        .resource       = axp_adc_resources,
+};
