@@ -131,7 +131,15 @@ config SOUND_JZ_PCM_V12
 
 #******************************************************
 config SOUND_JZ_SPDIF_V12
-	bool "Jz On-Chip SPDIF driver"
+	bool "Jz On-Chip SPDIF driver V12"
+	depends on SOC_M200
+	default n
+	help
+		Say 'Y' to enable On-Chip spdif
+
+config SOUND_JZ_SPDIF_V13
+	bool "Jz On-Chip SPDIF driver V13"
+	depends on SOC_X1000
 	default n
 	help
 		Say 'Y' to enable On-Chip spdif

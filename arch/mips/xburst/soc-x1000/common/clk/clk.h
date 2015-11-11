@@ -188,9 +188,9 @@ enum {
 	CGU_AUDIO_I2S,CGU_AUDIO_I2S1,CGU_AUDIO_PCM,CGU_AUDIO_PCM1
 };
 
-#define I2S_PRI_DIV 0xb0020030
-#define PCM_PRI_DIV 0xb0030014
-
+#define PCM_PRI_DIV 	0xb0071014
+#define CPM_APLL_CTRL	0xb0000010
+#define CPM_MPLL_CTRL	0xb0000014
 
 int get_clk_sources_size(void);
 struct clk *get_clk_from_id(int clk_id);

@@ -44,14 +44,11 @@ void volatile __iomem *volatile spdif_iomem;
 static volatile int jz_switch_state = 0;
 static struct dsp_endpoints spdif_endpoints;
 static struct clk *codec_sysclk = NULL;
+static struct clk *spdif_clk = NULL;
 static volatile bool spdif_is_incall_state = false;
 static LIST_HEAD(codecs_head);
 bool spdif_is_incall(void);
 
-#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
-/*static struct workqueue_struct *spdif_work_queue;
-static struct work_struct	spdif_codec_work;*/
-#endif
 static int jz_spdif_get_hp_switch_state(void);
 static int spdif_global_init(struct platform_device *pdev);
 
@@ -141,7 +138,6 @@ bool spdif_is_incall(void)
 \*##################################################################*/
 static int spdif_set_fmt(unsigned long *format,int mode)
 {
-
 	int ret = 0;
 	int data_width = 0;
 	struct dsp_pipe *dp = NULL;
@@ -163,7 +159,6 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 		if (mode & CODEC_WMODE) {
 			__spdif_set_max_wl(0);
 			__spdif_set_oss_sample_size(1);
-			printk("---> %s  line: %d \n", __func__, __LINE__);
 		}
 		break;
 	case AFMT_S16_BE:
@@ -171,7 +166,6 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 		if (mode & CODEC_WMODE) {
 			__spdif_set_max_wl(0);
 			__spdif_set_oss_sample_size(1);
-			printk("---> %s  line: %d \n", __func__, __LINE__);
 		}
 		break;
 	default :
@@ -198,60 +192,10 @@ static int spdif_set_fmt(unsigned long *format,int mode)
 	return ret;
 }
 
-/***************************************************************\
- *  Use codec slave mode clock rate list
- *  We do not hope change EPLL,so we use 270.67M (fix) epllclk
- *  for minimum error
- *  270.67M ---	M:203 N:9 OD:1
- *	 rate	 spdifdr	 cguclk		 spdifdv.div	samplerate/error
- *	|192000	|1		|135.335M	|10			|+0.12%
- *	|96000	|3		|67.6675M	|10			|+0.12%
- *	|48000	|7		|33.83375M	|10			|-0.11%
- *	|44100	|7		|33.83375M	|11			|-0.10%
- *	|32000	|11		|22.555833M	|10			|+0.12%
- *	|24000	|15		|16.916875M	|10			|+0.12%
- *	|22050	|15		|16.916875M	|11			|-0.12%
- *	|16000	|23		|11.277916M	|10			|+0.12%
- *	|12000  |31		|8.458437M	|10			|+0.12%
- *	|11025	|31		|8.458437M	|11			|-0.10%
- *	|8000	|47		|5.523877M	|10			|+0.12%
- *	HDMI:
- *	sysclk 11.2896M (theoretical)
- *	spdifdr  23
- *	cguclk 11.277916M (practical)
- *	error  -0.10%
-\***************************************************************/
-static unsigned long calculate_cgu_spdif_rate(unsigned long *rate)
-{
-	int i;
-	unsigned long mrate[10] = {
-		8000, 11025,16000,22050,24000,
-		32000,44100,48000,96000,192000,
-	};
-	unsigned long mcguclk[10] = {
-		5523978, 8458438, 8458438, 11277917,16916875,
-		16916875,33833750,33833750,67667500,135335000,
-	};
-	for (i=0; i<9; i++) {
-		if (*rate <= mrate[i]) {
-			*rate = mrate[i];
-			break;
-		}
-	}
-	if (i >= 9) {
-		*rate = 44100; /*unsupport rate use default*/
-		return mcguclk[6];
-	}
-
-	return mcguclk[i];
-}
-
 static int spdif_set_rate(unsigned long *rate,int mode)
 {
 	int ret = 0;
-	unsigned long cgu_spdif_clk = 0;
 	unsigned long ori_rate = *rate;
-
 	if (!cur_codec_spdif)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
@@ -261,23 +205,20 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 		|* So we should not to care slave mode or master mode.		 *|
 		\*************************************************************/
 		__i2s_stop_bitclk();
-		cgu_spdif_clk = calculate_cgu_spdif_rate(rate);
-		clk_set_rate(codec_sysclk, cgu_spdif_clk * 2);
-		if (clk_get_rate(codec_sysclk) > cgu_spdif_clk * 2) {
-			printk("external codec set rate fail.\n");
+		ret = clk_set_rate(codec_sysclk, *rate);
+		if(ret < 0) {
+			printk("ERROR: external codec set rate failed!\n");
+			return -EINVAL;
 		}
-		__i2s_stop_bitclk();
-#if 1
-			audio_write((253<<13)|(4482),I2SCDR_PRE);
-			*(volatile unsigned int*)0xb0000070 = *(volatile unsigned int*)0xb0000070;
-			audio_write((253<<13)|(4482)|(1<<29),I2SCDR_PRE);
-			audio_write(0,I2SDIV_PRE);
-#else
-			__i2s_set_sample_rate(cgu_spdif_clk, *rate);
-#endif
-		__i2s_start_bitclk();
+
+		/*to set AIC.I2SDIV*/
+		audio_write(1,I2SDIV_PRE);
+		/*to reflesh the I2SCDR1.I2SDIV_D to equal to I2SCDR.I2SDIV_N /2 */
+		audio_write(0,I2SCDR1_PRE);
+
 		__spdif_set_ori_sample_freq(ori_rate);
 		__spdif_set_sample_freq(*rate);
+		__i2s_start_bitclk();
 
 		cur_codec_spdif->replay_rate = *rate;
 	}
@@ -301,7 +242,7 @@ static int get_burst_length(unsigned long val)
 		ord = 6;
 
 	/* if tsz == 8, set it to 4 */
-	return (ord == 3 ? 4 : 1 << ord)*8;
+	return (ord == 3 ? 4 : 1 << ord) * 8;
 }
 
 static void spdif_set_trigger(int mode)
@@ -340,22 +281,10 @@ static int spdif_replay_deinit(int mode)
 static int spdif_replay_init(int mode)
 {
 	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
-	unsigned long spdif_sysclk = 0;
 	int rst_test = 50000;
-	int ret = 0;
 
 	if (mode & CODEC_RMODE)
 		return -1;
-	spdif_sysclk = calculate_cgu_spdif_rate(&replay_rate);
-
-	clk_set_rate(codec_sysclk, spdif_sysclk*2);
-
-	if (clk_get_rate(codec_sysclk) > spdif_sysclk * 2) {
-		printk("codec interface set rate fail.\n");
-		goto __err_sys_clk;
-	}
-
-	/*clk_enable(codec_sysclk);*/
 
 	__i2s_stop_bitclk();
 	__i2s_external_codec();
@@ -363,7 +292,6 @@ static int spdif_replay_init(int mode)
 	__i2s_sync_output();
 	__aic_select_i2s();
 	__i2s_send_rfirst();
-	__i2s_set_sample_rate(spdif_sysclk, replay_rate);
 	__i2s_start_bitclk();
 
 	__spdif_set_dtype(0);
@@ -406,26 +334,19 @@ static int spdif_replay_init(int mode)
 	__spdif_disable_underrun_intr();
 
 	return 0;
-
 __err_reset:
 	printk("----> reset spdif failed!\n");
-__err_sys_clk:
-	printk("----> set spdif sysclk failed!\n");
-
-	return ret;
+	return -1;
 }
 
 static int spdif_enable(int mode)
 {
-	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
 	unsigned long replay_format = 16;
-	/*int replay_channel = DEFAULT_REPLAY_CHANNEL;*/
-//	int record_channel = DEFAULT_RECORD_CHANNEL;
 	struct dsp_pipe *dp_other = NULL;
 	int ret = 0;
-
+	unsigned long replay_rate = DEFAULT_REPLAY_SAMPLERATE;
 	if (!cur_codec_spdif)
-			return -ENODEV;
+		return -ENODEV;
 
 	if (mode & CODEC_RMODE)
 		return -1;
@@ -438,8 +359,14 @@ static int spdif_enable(int mode)
 
 	if (mode & CODEC_WMODE) {
 		dp_other = cur_codec_spdif->dsp_endpoints->in_endpoint;
-		spdif_set_fmt(&replay_format,mode);
-		spdif_set_rate(&replay_rate,mode);
+
+		ret = spdif_set_fmt(&replay_format,mode);
+		if(ret < 0)
+			return -1;
+		ret = spdif_set_rate(&replay_rate,mode);
+		if(ret < 0) {
+			return -1;
+		}
 	}
 
 	if (!dp_other->is_used) {
@@ -483,11 +410,11 @@ static int spdif_dma_disable(int mode)		//CHECK seq dma and func
 {
 	if (!cur_codec_spdif)
 		return -ENODEV;
+
 	if (mode & CODEC_WMODE) {
 		__i2s_disable();
 		__i2s_disable_replay();
 		__spdif_disable_transmit_dma();
-		__i2s_disable_transmit_dma();
 	}
 
 	if (mode & CODEC_RMODE)
@@ -504,9 +431,8 @@ static int spdif_get_fmt_cap(unsigned long *fmt_cap,int mode)
 	if (mode & CODEC_WMODE) {
 		spdif_fmt_cap |= AFMT_S16_LE|AFMT_S16_BE;
 	}
-	if (mode & CODEC_RMODE) {
+	if (mode & CODEC_RMODE)
 		return -1;
-	}
 
 	if (*fmt_cap == 0)
 		*fmt_cap = spdif_fmt_cap;
@@ -820,12 +746,9 @@ static int spdif_init_pipe(struct dsp_pipe **dp , enum dma_data_direction direct
 static int spdif_global_init(struct platform_device *pdev)
 {
 	int ret = 0;
-	unsigned long sample_rate = DEFAULT_REPLAY_SAMPLERATE;
-	unsigned long spdif_sysclk = 0;
 	struct resource *spdif_resource = NULL;
 	struct dsp_pipe *spdif_pipe_out = NULL;
 	struct dsp_pipe *spdif_pipe_in = NULL;
-	struct clk *spdif_clk = NULL;
 
 	spdif_resource = platform_get_resource(pdev,IORESOURCE_MEM,0);
 	if (spdif_resource == NULL) {
@@ -860,13 +783,19 @@ static int spdif_global_init(struct platform_device *pdev)
 	spdif_endpoints.out_endpoint = spdif_pipe_out;
 	spdif_endpoints.in_endpoint = spdif_pipe_in;
 
-	/*request aic clk */
+	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
+	if (IS_ERR(codec_sysclk)) {
+		dev_err(&pdev->dev, "cgu_i2s clk_get failed\n");
+		goto __err_codec_clk;
+	}
+	clk_enable(codec_sysclk);
+
 	spdif_clk = clk_get(&pdev->dev, "aic");
 	if (IS_ERR(spdif_clk)) {
-		dev_err(&pdev->dev, "----> aic clk_get failed\n");
-		goto __err_aic_clk;
+		dev_err(&pdev->dev, "aic clk_get failed\n");
+		goto __err_spdif_clk;
 	}
-
+	clk_enable(spdif_clk);
 
 	spdif_match_codec("hdmi");
 	if (cur_codec_spdif == NULL) {
@@ -893,26 +822,14 @@ static int spdif_global_init(struct platform_device *pdev)
 	__spdif_disable();
 	schedule_timeout(5);
 	__spdif_disable();
-
-#if 1
-	/*set sysclk output for codec*/
-	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
-	if (IS_ERR(codec_sysclk)) {
-		dev_dbg(&pdev->dev, "cgu_spdif clk_get failed\n");
-		goto __err_codec_clk;
-	}
-	/*set sysclk output for codec*/
-	spdif_sysclk = calculate_cgu_spdif_rate(&sample_rate);
-
-#endif
 	printk("spdif init success.\n");
 	return  0;
 
 __err_codec_clk:
 	clk_put(codec_sysclk);
-/*__err_irq:*/
-__err_aic_clk:
+__err_spdif_clk:
 	clk_put(spdif_clk);
+/*__err_irq:*/
 __err_match_codec:
 __err_init_pipein:
 	vfree(spdif_pipe_out);
@@ -920,6 +837,7 @@ __err_init_pipeout:
 	iounmap(spdif_iomem);
 __err_ioremap:
 	release_mem_region(spdif_resource->start,resource_size(spdif_resource));
+
 	return ret;
 }
 

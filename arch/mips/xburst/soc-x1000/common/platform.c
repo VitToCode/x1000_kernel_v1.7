@@ -77,7 +77,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	PCM_PORTC,
 #endif
 
-#if  (defined(CONFIG_SOUND_JZ_SPDIF_V12)||defined(CONFIG_SND_ASOC_JZ_AIC_SPDIF_V13))
+#if  (defined(CONFIG_SOUND_JZ_SPDIF_V13)||defined(CONFIG_SND_ASOC_JZ_AIC_SPDIF_V13))
 	I2S_PORTB,
 #endif
 
@@ -352,7 +352,7 @@ struct platform_device jz_pcm_device = {
 	.num_resources  = ARRAY_SIZE(jz_pcm_resources),
 };
 #endif
-#ifdef CONFIG_SOUND_JZ_SPDIF_V12
+#ifdef CONFIG_SOUND_JZ_SPDIF_V13
 static u64 jz_spdif_dmamask = ~(u32) 0;
 static struct resource jz_spdif_resources[] = {
 	[0] = {

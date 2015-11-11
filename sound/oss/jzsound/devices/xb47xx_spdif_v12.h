@@ -291,7 +291,7 @@ static inline unsigned long  __spdif_set_sample_freq(unsigned long sync)
 			break;
 		case 96000: div = 0xa;
 			break;
-		case 192000: div = 0xd;
+		case 192000: div = 0xe;
 			break;
 		default : div = 0;
 			break;

@@ -31,13 +31,13 @@
 #ifdef CONFIG_SOUND_I2S_JZ47XX
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 #endif
-#ifdef CONFIG_SOUND_JZ_SPDIF_V12
+#if defined(CONFIG_SOUND_JZ_SPDIF_V12)||defined(CONFIG_SOUND_JZ_SPDIF_V13)
 extern int spdif_register_codec(char*, void *,unsigned long,enum codec_mode);
 #endif
 
 static void codec_get_format_cap(unsigned long *format)
 {
-	*format = AFMT_S16_LE|AFMT_S8;
+	*format = AFMT_S16_LE|AFMT_S16_BE;
 }
 
 static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
@@ -65,8 +65,7 @@ static int __init init_codec(void)
 		printk("hdmi audio is not support\n");
 	printk("hdmi audio codec register success\n");
 #endif
-
-#ifdef CONFIG_SOUND_JZ_SPDIF_V12
+#if defined(CONFIG_SOUND_JZ_SPDIF_V12)||defined(CONFIG_SOUND_JZ_SPDIF_V13)
 	ret = spdif_register_codec("hdmi", (void *)jzcodec_ctl,HDMI_SMAPLE_RATE,CODEC_SLAVE);
 	if (ret < 0)
 		printk("hdmi audio is not support\n");

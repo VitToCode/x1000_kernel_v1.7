@@ -110,7 +110,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_mixer0_device, &snd_mixer0_data, sizeof(struct snd_dev_data)),
 #endif
 
-#ifdef CONFIG_SOUND_JZ_SPDIF_V12
+#ifdef CONFIG_SOUND_JZ_SPDIF_V13
 	DEF_DEVICE(&jz_spdif_device, &spdif_data, sizeof(struct snd_dev_data)),
 	DEF_DEVICE(&jz_mixer2_device, &snd_mixer2_data, sizeof(struct snd_dev_data)),
 #endif
