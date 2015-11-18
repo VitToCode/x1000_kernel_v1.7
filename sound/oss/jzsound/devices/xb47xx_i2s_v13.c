@@ -496,16 +496,18 @@ static unsigned long calculate_i2scdr(struct i2s_device * i2s_dev, unsigned long
 static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mode)
 {
 	int ret = 0;
+	unsigned long sysclk = 0;
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
+	sysclk = *rate * 256;
 	if (mode & CODEC_WMODE) {
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
 			__i2s_stop_bitclk(i2s_dev);
 			if (i2s_dev->i2s_clk == NULL)
 				return -1;
-			ret = clk_set_rate(i2s_dev->i2s_clk, *rate);
+			ret = clk_set_rate(i2s_dev->i2s_clk, sysclk);
 			if(ret < 0) {
 				printk("ERROR:external codec set rate failed\n");
 				return -EINVAL;
@@ -525,7 +527,7 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 			__i2s_stop_bitclk(i2s_dev);
 			if (i2s_dev->i2s_clk == NULL)
 				return -1;
-			ret = clk_set_rate(i2s_dev->i2s_clk, *rate);
+			ret = clk_set_rate(i2s_dev->i2s_clk, sysclk);
 			if(ret < 0) {
 				printk("ERROR:external codec set rate failed\n");
 				return -EINVAL;
@@ -859,15 +861,14 @@ static int i2s_set_device(struct i2s_device * i2s_dev, unsigned long device)
 					}
 				}
 			}
-#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
-			ret = clk_set_rate(i2s_dev->i2s_clk, tmp_rate);
-			if(ret < 0) {
-				printk("external codec set rate failed\n");
+			ret = clk_set_rate(i2s_dev->i2s_clk, cur_codec->codec_clk);
+			if(clk_get_rate(i2s_dev->i2s_clk) > cur_codec->codec_clk) {
+				printk("codec set rate failed\n");
 				return -EINVAL;
 			}
 			audio_write(0x3, I2SDIV_PRE);
 			*(volatile unsigned int*)0xb0000070 = 0x0;
-#endif
+
 			__i2s_start_bitclk(i2s_dev);
 		}
 	}
@@ -1327,18 +1328,13 @@ static int i2s_global_init(struct platform_device *pdev, struct snd_switch_data 
 		__i2s_master_clkset(i2s_dev);
 	}
 
-#if 0
-#if defined(CONFIG_JZ_EXTERNAL_CODEC_V13)
-#define M_FIRST 7
-#define N_FIRST 625
-        clk_enable(i2s_dev->i2s_clk);
-        /* Chose APLL as clk source for 44100 sample rate */
-        audio_write((1<<30 | M_FIRST<<13 | N_FIRST), I2SCDR_PRE);
-        *(volatile unsigned int*)0xb0000070 = 0x0;
-        audio_write((1<<30 | 1<<29 | M_FIRST<<13 | N_FIRST), I2SCDR_PRE);
-        audio_write(0x3, I2SDIV_PRE);
-#endif
-#endif
+	ret = clk_set_rate(i2s_dev->i2s_clk, i2s_dev->cur_codec->codec_clk);
+	if(clk_get_rate(i2s_dev->i2s_clk) > i2s_dev->cur_codec->codec_clk) {
+		printk("codec set rate failed\n");
+		return -EINVAL;
+	}
+	audio_write(0x3, I2SDIV_PRE);
+	*(volatile unsigned int*)0xb0000070 = 0x0;
 	__i2s_start_bitclk(i2s_dev);
 
 	__i2s_disable_receive_dma(i2s_dev);

@@ -205,7 +205,7 @@ static int spdif_set_rate(unsigned long *rate,int mode)
 		|* So we should not to care slave mode or master mode.		 *|
 		\*************************************************************/
 		__i2s_stop_bitclk();
-		ret = clk_set_rate(codec_sysclk, *rate);
+		ret = clk_set_rate(codec_sysclk, *rate * 256);
 		if(ret < 0) {
 			printk("ERROR: external codec set rate failed!\n");
 			return -EINVAL;
@@ -783,19 +783,19 @@ static int spdif_global_init(struct platform_device *pdev)
 	spdif_endpoints.out_endpoint = spdif_pipe_out;
 	spdif_endpoints.in_endpoint = spdif_pipe_in;
 
-	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
-	if (IS_ERR(codec_sysclk)) {
-		dev_err(&pdev->dev, "cgu_i2s clk_get failed\n");
-		goto __err_codec_clk;
-	}
-	clk_enable(codec_sysclk);
-
 	spdif_clk = clk_get(&pdev->dev, "aic");
 	if (IS_ERR(spdif_clk)) {
 		dev_err(&pdev->dev, "aic clk_get failed\n");
 		goto __err_spdif_clk;
 	}
 	clk_enable(spdif_clk);
+
+	codec_sysclk = clk_get(&pdev->dev,"cgu_i2s");
+	if (IS_ERR(codec_sysclk)) {
+		dev_err(&pdev->dev, "cgu_i2s clk_get failed\n");
+		goto __err_codec_clk;
+	}
+	clk_enable(codec_sysclk);
 
 	spdif_match_codec("hdmi");
 	if (cur_codec_spdif == NULL) {
