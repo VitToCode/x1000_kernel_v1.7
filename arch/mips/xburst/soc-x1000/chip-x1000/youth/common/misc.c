@@ -8,11 +8,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
 #include <linux/jz-axp173-adc.h>
-#if defined CONFIG_JZ_CURRENT_BATTERY
 #include <linux/power/jz-current-battery.h>
-#elif defined CONFIG_JZ_VOL_BATTERY
-#include <linux/power/jz-voltage-battery.h>
-#endif
 //#include <linux/android_pmem.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
@@ -114,27 +110,17 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 /* Battery Info */
 #if defined CONFIG_JZ_CURRENT_BATTERY && defined CONFIG_MFD_AXP173_SADC
 struct jz_current_battery_info youth_battery_pdata = {
-        .max_vol = 4145,
-        .min_vol = 3685,
-        .inter_resist = 650,
+        .max_vol = 4245,
+        .min_vol = 3445,
+        .inter_resist = 132,
         .sample_count = 10,
         .adc_sw_adjust = 20,
         .ac_chg_current = 340,
         .usb_chg_current = 340,
         .suspend_current = 30,
-        .battery_max_cpt = 240,
+        .battery_max_cpt = 2200,
 };
 struct axp173_adc_platform_data adc_platform_data = {
 	.battery_info = &youth_battery_pdata,
 };
-#elif defined CONFIG_JZ_VOL_BATTERY
-static struct jz_vol_battery_info board_battery_pdata = {
-        .max_vol        = 8400,
-        .min_vol        = 6400,
-        .div_vol        = 11,
-};
-struct axp173_adc_platform_data adc_platform_data = {
-	.battery_info = &board_battery_pdata,
-};
 #endif
-

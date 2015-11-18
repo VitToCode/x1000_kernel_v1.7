@@ -205,8 +205,8 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_longbutton_device, 0, 0),
 #endif
 
-#ifdef CONFIG_MFD_AXP173_SADC
-//        DEF_DEVICE(&axp173_adc_device, &adc_platform_data, sizeof(struct axp173_adc_platform_data)),
+#if defined CONFIG_MFD_AXP173_SADC && defined CONFIG_JZ_CURRENT_BATTERY
+	DEF_DEVICE(&axp173_adc_device, &adc_platform_data, sizeof(struct axp173_adc_platform_data)),
 #endif
 
 };

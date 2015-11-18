@@ -19,6 +19,9 @@
 #include <linux/delay.h>
 #include <jz_notifier.h>
 #include <linux/regulator/consumer.h>
+#include <linux/power/jz-current-battery.h>
+#include <linux/jz-axp173-adc.h>
+#include <gpio.h>
 
 int axp173_read_reg(struct i2c_client *client,
 		             unsigned char reg,
@@ -93,42 +96,7 @@ static int axp173_probe(struct i2c_client *client,const struct i2c_device_id *id
 {
 	struct axp173 *axp173;
 	int ret;
-#if 0
-    unsigned char d[8] = {0};
-	unsigned char regs[8]={0};
 
-	regs[0]=0x40;
-	regs[1]=0x41;
-	regs[2]=0x42;
-	regs[3]=0x43;
-	regs[4]=0x44;
-	regs[5]=0x45;
-	regs[6]=0x46;
-	regs[7]=0x47;
-
-    printk("axp173 i2c probe clinet->addr:%x\n",client->addr);
-
-    axp173_read_reg(client, regs[0],&d[0]);
-    axp173_read_reg(client, regs[1],&d[1]);
-    axp173_read_reg(client, regs[2],&d[2]);
-    axp173_read_reg(client, regs[3],&d[3]);
-    axp173_read_reg(client, regs[4],&d[4]);
-    axp173_read_reg(client, regs[5],&d[5]);
-    axp173_read_reg(client, regs[6],&d[6]);
-    axp173_read_reg(client, regs[7],&d[7]);
-
-
-	printk("******************************************\n");
-	printk("reg 40 0x%x\n",d[0]);
-	printk("reg 41 0x%x\n",d[1]);
-	printk("reg 42 0x%x\n",d[2]);
-	printk("reg 43 0x%x\n",d[3]);
-	printk("reg 44 0x%x\n",d[4]);
-	printk("reg 45 0x%x\n",d[5]);
-	printk("reg 46 0x%x\n",d[6]);
-	printk("reg 47 0x%x\n",d[7]);
-	printk("******************************************\n");
-#endif
 	axp173 = kzalloc(sizeof(struct axp173), GFP_KERNEL);
 	if (axp173 == NULL) {
 		dev_err(&client->dev, "device alloc error\n");
@@ -152,16 +120,10 @@ static int axp173_probe(struct i2c_client *client,const struct i2c_device_id *id
 
         ret = axp173_register_reset_notifier(&(axp173->axp173_notifier));
         if (ret) {
-                printk("axp173_register_reset_notifier failed\n");
+                dev_err(&client->dev, "axp173_register_reset_notifier failed\n", ret);
                 goto err_add_notifier;
         }
 
-#if 0
-	if(ret)
-		printk("add axp173-regulator device  failed\n");
-	else
-		printk("add axp173-regulator device  successed\n");
-#endif
 	return 0;
 
 err_add_notifier:

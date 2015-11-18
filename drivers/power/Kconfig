@@ -43,13 +43,6 @@ config JZ_CURRENT_BATTERY
 	  Say Y to enable support for the current method battery on Ingenic
 	  based boards.
 
-config JZ_VOL_BATTERY
-        tristate "Ingenic voltage battery"
-        depends on MFD_AXP173_SADC
-        help
-          Say Y to enable support for the battery on Ingenic based
-          boards.
-
 config BATTERY_JZ4780
 	tristate "Ingenic JZ4780 battery"
 	depends on MFD_JZ4780_SADC
