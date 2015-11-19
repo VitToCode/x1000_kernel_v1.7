@@ -45,7 +45,7 @@
 /* ****************************GPIO USB START******************************** */
 #define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE
-#define GPIO_USB_DETE           GPIO_PB(8) /*GPIO_PB(8)*/
+#define GPIO_USB_DETE           GPIO_PA(10)
 #define GPIO_USB_DETE_LEVEL     LOW_ENABLE
 #define GPIO_USB_DRVVBUS        GPIO_PB(25)
 #define GPIO_USB_DRVVBUS_LEVEL      HIGH_ENABLE
@@ -76,10 +76,10 @@
 #define HOOK_ACTIVE_LEVEL       -1
 
 #ifdef CONFIG_AKM4753_EXTERNAL_CODEC
-#define GPIO_AKM4753_PDN		GPIO_PA(7)       /* AKM4753 PDN pin */
-#define GPIO_AKM4753_SPEAKER_EN		GPIO_PA(8)       /* amp shutdown pin */
+#define GPIO_AKM4753_PDN		GPIO_PB(8)       /* AKM4753 PDN pin */
+#define GPIO_AKM4753_SPEAKER_EN		GPIO_PB(11)       /* amp shutdown pin */
 #define GPIO_AKM4753_SPEAKER_EN_LEVEL	1
-#define GPIO_AKM4753_LINEIN_DETECT          GPIO_PA(1)   /*linein detect gpio*/
+#define GPIO_AKM4753_LINEIN_DETECT          GPIO_PA(9)   /*linein detect gpio*/
 #define GPIO_AKM4753_LINEIN_INSERT_LEVEL    0
 #define GPIO_AKM4753_HP_DETECT  	-1      	/*hp detect gpio*/
 #define GPIO_AKM4753_HP_INSERT_LEVEL    -1

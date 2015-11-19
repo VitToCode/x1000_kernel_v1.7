@@ -354,8 +354,15 @@ static int codec_clk_setup(void)
 static int codec_init(void)
 {
 	int ret = 0;
-	struct device *dev = &akm4753_client->dev;
-	struct akm4753_platform_data *akm4753 = dev->platform_data;
+	struct device *dev;
+	struct akm4753_platform_data *akm4753;
+
+	if (akm4753_client == NULL){
+		printk("The i2c is not register, akm4753 can't init\n");
+		return -1;
+	}
+	dev = &akm4753_client->dev;
+	akm4753 = dev->platform_data;
 
 	/* reset PDN pin */
 	if (akm4753->pdn){

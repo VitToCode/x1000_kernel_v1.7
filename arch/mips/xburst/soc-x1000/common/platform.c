@@ -255,8 +255,8 @@ DEF_MSC(1);
 #endif
 #endif
 #if defined(CONFIG_I2C_V12_JZ)
+static u64 jz_i2c_dmamask =  ~(u32)0;
 #define DEF_I2C(NO, SPEED)							\
-	static u64 jz_i2c_dmamask =  ~(u32)0;				\
 	static struct resource jz_i2c##NO##_resources[] = {		\
 		[0] = {							\
 			.start          = I2C##NO##_IOBASE,		\
