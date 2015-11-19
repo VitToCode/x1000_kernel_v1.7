@@ -713,7 +713,7 @@ static int axp173_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (charger->battery_online) {
 			val->intval = axp173_get_adc_data(charger,
-							  BAT_VOL, 0);
+							  BAT_VOL, -7);
 		} else
 			val->intval = 0;
 		break;
@@ -875,7 +875,7 @@ static int get_pmu_voltage(void *pmu_interface)
 	struct axp173_charger *charger =
 			(struct axp173_charger *)pmu_interface;
 
-	return axp173_get_adc_data(charger, BAT_VOL, 0);
+	return axp173_get_adc_data(charger, BAT_VOL, -7);
 }
 
 static void __devinit axp173_charger_callback(struct axp173_charger *charger)

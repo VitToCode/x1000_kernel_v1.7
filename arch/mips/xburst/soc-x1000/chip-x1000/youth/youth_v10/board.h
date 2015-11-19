@@ -35,7 +35,7 @@
 
 /* ****************************GPIO KEY START******************************** */
 #define GPIO_POWERDOWN 		GPIO_PB(31)
-#define GPIO_BOOT_SEL0		GPIO_PB(28)
+#define GPIO_BOOT_SEL0		-1
 #define GPIO_BOOT_SEL1		GPIO_PB(29)
 #define ACTIVE_LOW_POWERDOWN 	1
 #define ACTIVE_LOW_F4 		0
@@ -43,9 +43,9 @@
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
+#define GPIO_USB_ID             -1
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE
-#define GPIO_USB_DETE           GPIO_PA(10)
+#define GPIO_USB_DETE           GPIO_PA(10) /*GPIO_PA(10)*/
 #define GPIO_USB_DETE_LEVEL     LOW_ENABLE
 #define GPIO_USB_DRVVBUS        GPIO_PB(25)
 #define GPIO_USB_DRVVBUS_LEVEL      HIGH_ENABLE
@@ -89,15 +89,15 @@
 
 /* ****************************GPIO LCD START****************************** */
 #ifdef  CONFIG_LCD_XRM2002903
-#define GPIO_LCD_RD     GPIO_PB(16)
-#define GPIO_LCD_CS     GPIO_PB(18)
-#define GPIO_LCD_RST    GPIO_PD(5)
+#define GPIO_LCD_RD     -1
+#define GPIO_LCD_CS   	-1
+#define GPIO_LCD_RST   	-1
 //#define GPIO_BL_PWR_EN  GPIO_PC(24)
-#define GPIO_LCD_PWM    GPIO_PC(24)
+#define GPIO_LCD_PWM    -1
 #endif
 /* ****************************GPIO LCD END******************************** */
 
-#define GPIO_EFUSE_VDDQ			GPIO_PC(27)	/* EFUSE must be -ENODEV or a gpio */
+#define GPIO_EFUSE_VDDQ			GPIO_PB(27)	/* EFUSE must be -ENODEV or a gpio */
 
 #ifdef CONFIG_I2C_GPIO
 
