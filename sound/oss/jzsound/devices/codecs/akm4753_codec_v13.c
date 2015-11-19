@@ -448,6 +448,7 @@ static int codec_set_replay_rate(unsigned long *rate)
 		data &= 0xf;
 		data |= reg[i]<<4;	
 		akm4753_i2c_write_regs(0x02, &data, 1);
+		msleep(50);            //This delay is to wait for i2s clk stable.
 	}
 	return 0;
 }
