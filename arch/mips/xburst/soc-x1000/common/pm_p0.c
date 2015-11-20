@@ -538,12 +538,12 @@ static int x1000_pm_enter(suspend_state_t state)
 #endif
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
+//	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
 		/* wakeup module is enabled */
 		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
 		func = (int (*)(int))temp;
 		val = func(1);
-	}
+//	}
 #endif
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
