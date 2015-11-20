@@ -620,9 +620,6 @@ static int dwc2_jz_suspend(struct platform_device *pdev, pm_message_t state) {
 #if DWC2_DEVICE_MODE_ENABLE
 	if (jz->dete_irq >= 0)
 		enable_irq_wake(jz->dete_irq);
-	if (dwc2_is_host_mode(dwc)){
-		disable_irq_wake(jz->dete_irq);
-	}
 #endif
 
 #if DWC2_HOST_MODE_ENABLE
