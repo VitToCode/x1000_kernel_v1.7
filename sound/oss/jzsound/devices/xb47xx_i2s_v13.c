@@ -501,8 +501,9 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 	if (!cur_codec)
 		return -ENODEV;
 	debug_print("rate = %ld",*rate);
-	sysclk = *rate * 256;
 	if (mode & CODEC_WMODE) {
+		ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_RATE,(unsigned long)rate);
+		sysclk = *rate * 256;
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
 			__i2s_stop_bitclk(i2s_dev);
 			if (i2s_dev->i2s_clk == NULL)
@@ -516,11 +517,12 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 			*(volatile unsigned int*)0xb0000070 = 0x0;
 			__i2s_start_bitclk(i2s_dev);
 		}
-		ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_RATE,(unsigned long)rate);
 		cur_codec->replay_rate = *rate;
 	}
 
 	if (mode & CODEC_RMODE) {
+		ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_RATE,(unsigned long)rate);
+		sysclk = *rate * 256;
 		if (cur_codec->codec_mode == CODEC_SLAVE) {
 			if (!strcmp(cur_codec->name,"hdmi"))
 				return 0;
@@ -536,7 +538,6 @@ static int i2s_set_rate(struct i2s_device * i2s_dev, unsigned long *rate,int mod
 			*(volatile unsigned int*)0xb0000070 = 0x0;
 			__i2s_start_bitclk(i2s_dev);
 		}
-		ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_RATE,(unsigned long)rate);
 		cur_codec->record_rate = *rate;
 	}
 	return ret;

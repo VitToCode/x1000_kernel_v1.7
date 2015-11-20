@@ -440,16 +440,17 @@ static int codec_set_replay_rate(unsigned long *rate)
 			break;
 	}
 	if (i == 12){
-		printk("Replay rate %ld is not support by akm4753\n", *rate);
-		*rate = user_replay_rate;
-	}else{
-		user_replay_rate = *rate;
-		akm4753_i2c_read_reg(0x02, &data, 1);
-		data &= 0xf;
-		data |= reg[i]<<4;	
-		akm4753_i2c_write_regs(0x02, &data, 1);
-		msleep(50);            //This delay is to wait for i2s clk stable.
+		printk("Replay rate %ld is not support by akm4753, we fix it to 48000\n", *rate);
+		*rate = 48000;
+		i = 9;
 	}
+
+	user_replay_rate = *rate;
+	akm4753_i2c_read_reg(0x02, &data, 1);
+	data &= 0xf;
+	data |= reg[i]<<4;
+	akm4753_i2c_write_regs(0x02, &data, 1);
+	msleep(50);            //This delay is to wait for akm4753 i2s clk stable.
 	return 0;
 }
 
