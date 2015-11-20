@@ -151,17 +151,21 @@ void wakeup_reset_fifo()
 int wakeup_open(void)
 {
 	ivSize nIvwObjSize = 20 * 1024;
-	pIvwObj = (ivPointer)pIvwObjBuf;
 	ivUInt16 nResidentRAMSize = 38;
-	pResidentRAM = (ivPointer)nReisdentBuf;
 	unsigned char __attribute__((aligned(32))) *pResKey = (unsigned char *)wakeup_res;
 	unsigned int dma_addr;
-
 	ivUInt16 nWakeupNetworkID = 0;
-
 	ivStatus iStatus;
+	struct circ_buf *xfer = &rx_fifo->xfer;
+	unsigned int buf_start_pa;
+	unsigned int buf_end_pa;
+
 	//printf("wakeu module init#####\n");
 	//printf("pIvwObj:%x, pResidentRAM:%x, pResKey:%x\n", pIvwObj, pResidentRAM, pResKey);
+
+	pIvwObj = (ivPointer)pIvwObjBuf;
+	pResidentRAM = (ivPointer)nReisdentBuf;
+
 	iStatus = IvwCreate(pIvwObj, &nIvwObjSize, pResidentRAM, &nResidentRAMSize, pResKey, nWakeupNetworkID);
 	if( IvwErrID_OK != iStatus ){
 		//printf("IvwVreate Error: %d\n", iStatus);
@@ -172,24 +176,25 @@ int wakeup_open(void)
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 1 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 15, 2 ,0);
 	/* code that need rewrite */
-	struct circ_buf *xfer = &rx_fifo->xfer;
-	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
-	xfer->buf = (char *)TCSM_DATA_BUFFER_ADDR;
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
-	if((dma_addr >= (TCSM_DATA_BUFFER_ADDR & 0x1fffffff)) && (dma_addr <= ((TCSM_DATA_BUFFER_ADDR + BUF_SIZE)& 0x1fffffff))) {
+	rx_fifo->n_size	= VOICE_TCSM_DATA_BUF_SIZE; /*tcsm 4kBytes*/
+	xfer->buf = (char *)VOICE_TCSM_DATA_BUF;
+	buf_start_pa = V_TO_P(xfer->buf);
+	buf_end_pa = V_TO_P(xfer->buf + rx_fifo->n_size);
+	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	if((dma_addr >= buf_start_pa) && (dma_addr <= buf_end_pa)) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
 		xfer->head = 0;
 	}
 	xfer->tail = xfer->head;
 
-//	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
+	/* printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n", \ */
+	/*        pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail); */
 	return 0;
 }
 
 int wakeup_close(void)
 {
-
 	return 0;
 }
 
@@ -250,9 +255,7 @@ int process_dma_data_3(void)
 
 	nbytes = get_valid_bytes();
 	if(nbytes >= PROCESS_BYTES_PER_TIME) {
-//		_cpu_switch_restore(); /*switch to the sleep freq setted in kernel to process data.120MHZ*/
 		ret = process_nbytes(nbytes);
-//		_cpu_switch_24MHZ();	/*switch to 24MHZ. */
 	} else {
 		ret = SYS_NEED_DATA;
 	}
@@ -262,7 +265,6 @@ int process_dma_data_3(void)
 #endif
 int process_dma_data_2(void)
 {
-
 	unsigned int dma_addr;
 	int nbytes;
 	volatile int ret;

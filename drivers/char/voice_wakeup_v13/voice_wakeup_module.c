@@ -21,7 +21,7 @@
 #include <mach/jzdma.h>
 
 #include <linux/voice_wakeup_module.h>
-
+/* #define VOICE_WAKEUP_DEBUG */
 #define FIRMWARE_LOAD_ADDRESS	0xa1f00000
 
 static int wakeup_firmware [] = {
@@ -60,7 +60,7 @@ struct wakeup_module_ops {
 
 static struct wakeup_module_ops *m_ops;
 
-
+#ifdef VOICE_WAKEUP_DEBUG
 static void dump_firmware(void)
 {
 	int i;
@@ -71,9 +71,8 @@ static void dump_firmware(void)
 		printk("2.%p:%08x\n", p+i, *(p+i));
 	}
 	printk("###################dump_firmware end################\n");
-
 }
-
+#endif
 static void setup_ops(void)
 {
 	printk("###############setup_ops##############\n");
@@ -90,7 +89,7 @@ static void setup_ops(void)
 	printk("_module_exit:%p", m_ops->_module_exit);
 	printk("###############ops end##############\n");
 }
-
+#ifdef VOICE_WAKEUP_DEBUG
 void test_ops(void)
 {
 	printk("printk:%p", printk);
@@ -101,8 +100,7 @@ void test_ops(void)
 	printk("m_ops.close:%x\n", m_ops->close(1));
 	printk("###############ops end##############\n");
 }
-
-
+#endif
 
 int wakeup_module_open(int mode)
 {
@@ -189,10 +187,13 @@ EXPORT_SYMBOL(wakeup_module_is_wakeup_enabled);
 static int __init wakeup_module_init(void)
 {
 	/* load voice wakeup firmware */
-	memcpy(FIRMWARE_LOAD_ADDRESS, wakeup_firmware, sizeof(wakeup_firmware));
+	memcpy((void *)FIRMWARE_LOAD_ADDRESS, wakeup_firmware, sizeof(wakeup_firmware));
 	setup_ops();
 
-//	test_ops();
+#ifdef VOICE_WAKEUP_DEBUG
+	dump_firmware();
+	test_ops();
+#endif
 	m_ops->_module_init();
 	m_ops->set_dma_channel(JZDMA_REQ_I2S1 + 1);  /* dma phy id 5 */
 	return 0;

@@ -1,17 +1,15 @@
 #ifndef __INTERFACE_H__
 #define __INTERFACE_H__
-
+#include <tcsm_layout.h>
 
 extern int (*h_handler)(const char *fmt, ...);
-#define CONFIG_SLEEP_DEBUG
+#define SLEEP_VOICE_DEBUG
 
-#ifdef CONFIG_SLEEP_DEBUG
+#ifdef SLEEP_VOICE_DEBUG
 #define printk	h_handler
-#define printf printk
 #else
 #define debug_print(fmt, args...) do{} while(0)
 #define printk debug_print
-#define printf printk
 #endif
 
 enum open_mode {
@@ -21,14 +19,15 @@ enum open_mode {
 	NORMAL_WAKEUP
 };
 
-
 #define DMIC_IOCTL_SET_SAMPLERATE	0x200
 #define DMIC_IOCTL_SET_CHANNEL		0x201
 
+#define LOAD_ADDR	0x81f00000 /* 31M */
+#define LOAD_SIZE	(256 * 1024)
 
 /* same define as kernel */
-#define		SLEEP_BUFFER_SIZE	(32 * 1024)
-#define		NR_BUFFERS			(8)
+#define SLEEP_BUFFER_SIZE	(32 * 1024)
+#define	NR_BUFFERS		(8)
 
 struct sleep_buffer {
 	unsigned char *buffer[NR_BUFFERS];
@@ -36,16 +35,8 @@ struct sleep_buffer {
 	unsigned long total_len;
 };
 
-#define LOAD_ADDR	0x81f00000 /* 31M */
-#define LOAD_SIZE	(256 * 1024)
-
-#define TCSM_DESC_ADDR			(0xa1f40000)
-#define TCSM_SP_ADDR			(0xb3422ffc) /*TCSM bank2 end */
-
-#define TCSM_DATA_BUFFER_ADDR	(TCSM_DESC_ADDR + 1024)
-#define TCSM_DATA_BUFFER_SIZE	(1024*4)
-
-
+/* *************************UART******************* */
+#ifdef SLEEP_VOICE_DEBUG
 
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)
@@ -55,11 +46,11 @@ struct sleep_buffer {
 #define LSR_TEMT        (1 << 6)
 
 #define UART1_IOBASE    0x10032000
-#define U1_IOBASE (UART1_IOBASE + 0xa0000000)
-#ifdef CONFIG_SLEEP_DEBUG
-#define TCSM_PCHAR(x)                           \
-	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;     \
-while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+#define UATR_IOBASE (UART1_IOBASE + 0xa0000000)
+#define TCSM_PCHAR(x)							\
+	*((volatile unsigned int*)(UATR_IOBASE+OFF_TDR)) = x;		\
+	while ((*((volatile unsigned int*)(UATR_IOBASE + OFF_LSR)) &	\
+		(LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
 
 static inline void serial_put_hex(unsigned int x) {
 	int i;
@@ -75,10 +66,5 @@ static inline void serial_put_hex(unsigned int x) {
 #define TCSM_PCHAR(x)	do {} while(0)
 #define serial_put_hex(x) do {} while(0)
 #endif
-
-
-
+/* *************************END******************** */
 #endif
-
-
-

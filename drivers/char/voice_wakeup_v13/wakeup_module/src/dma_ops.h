@@ -8,14 +8,8 @@ void dma_set_channel(int channel);
 
 void dma_close(void);
 
-
-
 void dma_start(int channel);
 void dma_stop(int channel);
 
 void early_sleep_dma_config(unsigned char *buffer, unsigned long len);
 #endif
-
-
-
-

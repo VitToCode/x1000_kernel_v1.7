@@ -72,7 +72,6 @@ struct wakeup_dev {
 
 static struct wakeup_dev *g_wakeup;
 
-
 static int wakeup_open(struct inode *inode, struct file *filp)
 {
 	/* open dmic by wakeup module,
@@ -88,7 +87,6 @@ static int wakeup_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = wakeup;
 	wakeup->resource_buf = (unsigned char *)KSEG1ADDR(wakeup_module_get_resource_addr());
-
 
 	return 0;
 }
@@ -130,7 +128,6 @@ static int wakeup_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-
 static long wakeup_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 {
 	//struct wakeup_dev *wakeup = filp->private_data;
@@ -138,7 +135,6 @@ static long wakeup_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 
 	return 0;
 }
-
 
 static struct file_operations wakeup_ops = {
 	.owner = THIS_MODULE,
@@ -180,8 +176,6 @@ static ssize_t resource_show(struct device *dev,
 {
 	return 0;
 }
-
-
 
 static ssize_t wakeup_store(struct device *dev,
 		struct device_attribute *attr,
@@ -251,7 +245,7 @@ static ssize_t wakeup_show(struct device *dev,
 		spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
 
 	}
-	return t-buf;
+	return t - buf;
 }
 
 static DEVICE_ATTR(set_key, 0666, resource_show, resource_store);
@@ -275,6 +269,7 @@ static int wakeup_suspend(void)
 	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
 	int i;
 	int ret;
+	unsigned int len;
 	if(wakeup->wakeup_enable == 0) {
 		return 0;
 	}
@@ -285,14 +280,15 @@ static int wakeup_suspend(void)
 	}
 	sleep_buffer->nr_buffers = NR_BUFFERS;
 	sleep_buffer->total_len	 = SLEEP_BUFFER_SIZE;
+	len = sleep_buffer->total_len/sleep_buffer->nr_buffers;
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
-		sleep_buffer->buffer[i] = kmalloc(sleep_buffer->total_len/sleep_buffer->nr_buffers, GFP_KERNEL);
+		sleep_buffer->buffer[i] = kmalloc(len, GFP_KERNEL);
 		if(sleep_buffer->buffer[i] == NULL) {
 			printk("failed to allocate buffer for sleep!!\n");
 			goto _allocate_failed;
 		}
 	}
-	dma_cache_wback_inv(&sleep_buffer->buffer[0], sleep_buffer->total_len);
+	dma_cache_wback_inv((unsigned int)(&sleep_buffer->buffer[0]), sleep_buffer->total_len);
 	ret = wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
 
 	return 0;
@@ -311,6 +307,7 @@ static void wakeup_resume(void)
 	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
 	unsigned long flags;
 	int i;
+
 	/* release buffer */
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
 		if(sleep_buffer->buffer[i] != NULL) {
@@ -320,7 +317,6 @@ static void wakeup_resume(void)
 	}
 
 	if(wakeup_module_is_cpu_wakeup_by_dmic()) {
-
 		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
 		if(wakeup->wakeup_pending == 1) {
 			wakeup->wakeup_pending = 0;
@@ -366,8 +362,6 @@ static int __init wakeup_init(void)
 	wakeup->wakeup_timer.function = wakeup_timer_handler;
 	wakeup->wakeup_timer.data	= (unsigned long)wakeup;
 
-
-
 	wakeup->dev = device_create(wakeup->class, NULL, dev_no, NULL, "jz-wakeup");
 
 	wakeup->vcc_dmic = regulator_get(wakeup->dev,"vcc_dmic");
@@ -401,10 +395,8 @@ static void __exit wakeup_exit(void)
 {
 
 }
-
 module_init(wakeup_init);
 module_exit(wakeup_exit);
-
 
 MODULE_AUTHOR("qipengzhen<aric.pzqi@ingenic.com>");
 MODULE_DESCRIPTION("wakeup driver using dmic");

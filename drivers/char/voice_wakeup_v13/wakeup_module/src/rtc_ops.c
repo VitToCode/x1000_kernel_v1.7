@@ -6,6 +6,7 @@
 #include "dmic_ops.h"
 #include "trigger_value_adjust.h"
 
+/* #define RTC_VOICE_DEBUG */
 #define TRIGGER_CHANGE_TIME		60*5		/*60s * 5*/
 
 static unsigned int jzrtc_readl(int offset)
@@ -55,7 +56,7 @@ static inline void jzrtc_setl(int offset, unsigned int value)
 {
 	jzrtc_writel(offset,jzrtc_readl(offset) | (value));
 }
-
+#ifdef RTC_VOICE_DEBUG
 static void dump_rtc_regs(void)
 {
 	 printk("*******************************************************************\n");
@@ -75,30 +76,23 @@ static void dump_rtc_regs(void)
 	 printk("jz_rtc_dump-----RTC_PWRONCR is -0x%08x-\n",jzrtc_readl(RTC_PWRONCR));
 	 printk("***************************jz_rtc_dump***************************\n");
 	 printk("*******************************************************************\n\n");
-
 }
-
-
-
+#endif
 struct rtc_config {
 	unsigned long alarm_val;
 	unsigned int alarm_enabled;
 	unsigned int alarm_pending;
 	unsigned int alarm_int_en;
+	unsigned int hwcr_ealm_en;
 	unsigned int systimer_configed;
 };
 
 static struct rtc_config old_config;
 static struct rtc_config rtc_config;
 
-
-#define ALARM_VALUE		(30) /*10s*/
-
-
-
 static int rtc_save(void)
 {
-	unsigned int rtc_rcr;
+	unsigned int val;
 	if(jzrtc_readl(RTC_RTCSAR) < jzrtc_readl(RTC_RTCSR)) {
 		/* alarm value < current second, then systimer not set.*/
 		//old_config.alarm_val = 0;
@@ -108,17 +102,31 @@ static int rtc_save(void)
 		old_config.systimer_configed = 1;
 	}
 	old_config.alarm_val = jzrtc_readl(RTC_RTCSAR);
-	rtc_rcr = jzrtc_readl(RTC_RTCCR);
-	old_config.alarm_enabled  = (rtc_rcr & RTCCR_AIE) ? 1 : 0;
-	old_config.alarm_pending = (rtc_rcr & RTCCR_AF) ? 1 : 0;
-	old_config.alarm_int_en = (rtc_rcr & RTCCR_AIE) ? 1 : 0;
+	val = jzrtc_readl(RTC_RTCCR);
+	old_config.alarm_enabled  = (val & RTCCR_AE) ? 1 : 0;
+	old_config.alarm_pending = (val & RTCCR_AF) ? 1 : 0;
+	old_config.alarm_int_en = (val & RTCCR_AIE) ? 1 : 0;
+
+	val = jzrtc_readl(RTC_HWCR);
+	old_config.hwcr_ealm_en = (val & HWCR_EALM) ? 1 : 0;
 
 	rtc_config.alarm_enabled = 1;
 	return 0;
 }
 static int rtc_restore(void)
 {
+	unsigned int val;
 	jzrtc_writel(RTC_RTCSAR, old_config.alarm_val);
+
+	val = jzrtc_readl(RTC_RTCCR);
+	val |= (old_config.alarm_enabled | old_config.alarm_pending |
+		old_config.alarm_int_en);
+	jzrtc_writel(RTC_RTCCR, val);
+
+	val = jzrtc_readl(RTC_HWCR);
+	val |= old_config.hwcr_ealm_en;
+	jzrtc_writel(RTC_RTCSAR, val);
+
 	return 0;
 }
 int rtc_set_alarm(unsigned long alarm_seconds)
@@ -130,19 +138,22 @@ int rtc_set_alarm(unsigned long alarm_seconds)
 	temp &= ~RTCCR_AF;
 	temp |= RTCCR_AIE | RTCCR_AE;
 	jzrtc_writel(RTC_RTCCR, temp);
+
+	jzrtc_setl(RTC_HWCR, HWCR_EALM);
+
 	return 0;
 }
+
 int rtc_init(void)
 {
-
 	old_config.alarm_val = 0;
 	rtc_save();
 
 	rtc_set_alarm(ALARM_VALUE);
 
-	jzrtc_setl(RTC_HWCR, 1);
-
+#ifdef RTC_VOICE_DEBUG
 	dump_rtc_regs();
+#endif
 	return 0;
 }
 
@@ -153,12 +164,10 @@ int rtc_exit(void)
 	return 0;
 }
 
-
 void process_dmic_timer()
 {
 	reconfig_thr_value();
 }
-
 
 int rtc_int_handler(void)
 {
@@ -191,8 +200,3 @@ int rtc_int_handler(void)
 	}
 	return DMIC_TIMER;
 }
-
-
-
-
-

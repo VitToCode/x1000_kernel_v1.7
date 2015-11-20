@@ -4,9 +4,10 @@
 #include <jz_cpm.h>
 #include <common.h>
 
+/* #define TCU_VOICE_DEBUG */
 static int tcu_channel = 2; /*default 2*/
 unsigned int clk_enabled;
-#ifdef CONFIG_SLEEP_DEBUG
+#ifdef TCU_VOICE_DEBUG
 unsigned long time = 0;
 #endif
 
@@ -18,7 +19,6 @@ unsigned long time = 0;
 
 #define TIME_PER_COUNT	(1953)	/* 1.953ms * 1000 */
 
-
 unsigned int save_tcsr;
 
 static inline void tcu_save(void)
@@ -29,7 +29,7 @@ static inline void tcu_restore(void)
 {
 	tcu_writel(CH_TCSR(tcu_channel), save_tcsr);
 }
-
+#ifdef TCU_VOICE_DEBUG
 static void tcu_dump_reg(void)
 {
 
@@ -42,7 +42,6 @@ static void tcu_dump_reg(void)
 	printk("TCU_TSTR:%08x\n", tcu_readl(TCU_TSTR));
 
 }
-
 static void tcu_dump_reg_hex(void)
 {
 	TCSM_PCHAR('G');
@@ -55,7 +54,7 @@ static void tcu_dump_reg_hex(void)
 	serial_put_hex(tcu_readl(TCU_TSTR));
 	TCSM_PCHAR('H');
 }
-
+#endif
 static inline void stop_timer()
 {
 	/* disable tcu n */
@@ -69,7 +68,7 @@ static inline void start_timer()
 
 static void reset_timer(int count)
 {
-	unsigned int tcsr = tcu_readl(CH_TCSR(tcu_channel));
+//	unsigned int tcsr = tcu_readl(CH_TCSR(tcu_channel));
 
 	/* set count */
 	tcu_writel(CH_TDFR(tcu_channel),count);
@@ -84,7 +83,7 @@ void tcu_timer_del(void)
 {
 	tcu_writel(TCU_TMSR , (1 << tcu_channel));
 	stop_timer();
-#ifdef CONFIG_SLEEP_DEBUG
+#ifdef TCU_VOICE_DEBUG
 	time = 0;
 #endif
 }
@@ -119,7 +118,7 @@ unsigned int tcu_timer_mod(unsigned long timer_cnt)
 
 	reset_timer(count);
 
-#ifdef CONFIG_SLEEP_DEBUG
+#ifdef TCU_VOICE_DEBUG
 	if(time >= TIME_1S) {
 		time = 0;
 		TCSM_PCHAR('.');
@@ -138,7 +137,9 @@ void tcu_timer_request(int tcu_chan)
 {
 	tcu_channel = tcu_chan;
 	REG32(CPM_IOBASE + CPM_CLKGR0) &= ~(1<<30);
+#ifdef TCU_VOICE_DEBUG
 	tcu_dump_reg();
+#endif
 	tcu_save();
 	/* stop clear */
 	tcu_writel(TCU_TSCR,(1 << tcu_channel));
@@ -157,7 +158,9 @@ void tcu_timer_request(int tcu_chan)
 	 * TCOUNT:  1: 1.953125ms
 	 * */
 	tcu_writel(CH_TCSR(tcu_channel),CSRDIV(CLK_DIV) | CSR_RTC_EN);
+#ifdef TCU_VOICE_DEBUG
 	tcu_dump_reg();
+#endif
 }
 
 /*
@@ -188,4 +191,3 @@ void tcu_timer_handler(void)
 		tcu_timer_mod(ms_to_count(TCU_TIMER_MS));
 	}
 }
-

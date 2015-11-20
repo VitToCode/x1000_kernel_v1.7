@@ -137,9 +137,7 @@ static int jzdmic_read(struct file *filp, char *buf, size_t count, loff_t *f_pos
 	int mcount = count;
 
 	while( mcount > 0) {
-
 		unsigned long flags;
-
 		while(1) {
 			int nread;
 			spin_lock_irqsave(&jzdmic->lock, flags);
@@ -179,7 +177,6 @@ static int jzdmic_read(struct file *filp, char *buf, size_t count, loff_t *f_pos
 			wait_for_completion(&jzdmic->read_completion);
 			clear_bit(F_READBLOCK, &jzdmic->flags);
 		}
-
 	}
 
 	return count - mcount;
@@ -196,7 +193,6 @@ static int jzdmic_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-
 #define DMIC_SET_CHANNEL	0x100
 #define DMIC_ENABLE			0x101
 #define DMIC_DISABLE		0x102
@@ -204,8 +200,6 @@ static int jzdmic_close(struct inode *inode, struct file *filp)
 #define DMIC_GET_ROUTE		0x104
 #define DMIC_SET_ROUTE		0x105
 #define DMIC_SET_DEVICE		0x106
-
-
 
 int support_device[] = {
 	SND_DEVICE_BUILDIN_MIC
@@ -370,7 +364,6 @@ static void __exit jzdmic_exit(void)
 
 module_init(jzdmic_init);
 module_exit(jzdmic_exit);
-
 
 MODULE_AUTHOR("qipengzhen<aric.pzqi@ingenic.com>");
 MODULE_DESCRIPTION("jzdmic driver for record and wakeup ops");
