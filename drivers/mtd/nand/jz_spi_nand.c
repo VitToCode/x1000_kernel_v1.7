@@ -65,8 +65,8 @@ static void dump_data(u_char *buf,int len)
 	int i;
 	for(i = 0; i < len; i++){
 		if(!(i % 16))
-			printk("\n");
-		printk("%02x ",buf[i]);
+			pr_info("\n");
+		pr_info("%02x ",buf[i]);
 	}
 }
 
@@ -79,12 +79,12 @@ static int check_write_data(struct jz_spi_nandflash *flash ,u_char *write_buf,in
 	memset(write_debug_buf,0,len);
 	jz_spi_nandflash_read_ops(flash,write_debug_buf,page,column,len,&rel_rlen);
 	if(memcmp(write_buf,write_debug_buf,len)){
-		printk("XXXXXXXXXXXXXXXXXXX write data check has ocour error ,please check:\n");
-		printk("===========>>>> page %d column %d len %d the write buf is:\n",page,column,len);
+		pr_info("write data check has ocour error ,please check:\n");
+		pr_info("page %d column %d len %d the write buf is:\n",page,column,len);
 		dump_data(write_buf,len);
-		printk("===========>>>> page %d column %d len %d the read buf is:\n",page,column,len);
+		pr_info("page %d column %d len %d the read buf is:\n",page,column,len);
 		dump_data(write_debug_buf,len);
-		printk("===========>>>> page2222 %d column %d len %d the read buf is:\n",page,column,len);
+		pr_info("2.page %d column %d len %d the read buf is:\n",page,column,len);
 		jz_spi_nandflash_read_ops(flash,write_debug_buf,page,column,len,&rel_rlen);
 		dump_data(write_debug_buf,len);
 		while(1);
@@ -127,7 +127,7 @@ static int jz_spi_nandflash_get_status(struct jz_spi_nandflash *flash)
 
 	ret = spi_sync(flash->spi, &message);
 	if (ret){
-		printk("--------->>>>>>>>>>> spi sync message error !!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("spi sync message error !!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return ret;
 	}
 
@@ -149,7 +149,7 @@ static int jz_spi_nandflash_erase_blk(struct jz_spi_nandflash *flash,uint32_t ad
 			command[0] = SPINAND_CMD_ERASE_128K;
 			break;
 		default:
-			printk("Don't support the blksize to erase ! \n");
+			pr_info("Don't support the blksize to erase ! \n");
 			break;
 	}
 
@@ -158,7 +158,7 @@ static int jz_spi_nandflash_erase_blk(struct jz_spi_nandflash *flash,uint32_t ad
 	command[3] = page;
 	ret = spi_write(flash->spi, command, 4);
 	if (ret){
-		printk("++++++++++++++++ spi write error !!!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("spi write error !!!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return ret;
 	}
 	msleep((flash->tBERS + 999) / 1000);
@@ -167,7 +167,7 @@ static int jz_spi_nandflash_erase_blk(struct jz_spi_nandflash *flash,uint32_t ad
 		timeout--;
 	}while((ret & SPINAND_IS_BUSY) && (timeout > 0));
 	if(ret & E_FALI){
-		printk("-------------- Erase error,get state error !!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("Erase error,get state error !!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return -1;
 	}
 
@@ -184,25 +184,23 @@ static int jz_spi_nandflash_erase(struct mtd_info *mtd, struct erase_info *instr
 
 	flash = container_of(mtd, struct jz_spi_nandflash, mtd);
 
-	//printk("====EEEEEEEEEEEEEEEEEEE%s %d addr = %08x len = %08x\n",__func__,__LINE__,(unsigned int)instr->addr,(unsigned int)instr->len);
 	check_addr = ((unsigned int)instr->addr) % (mtd->erasesize);
 	if (check_addr) {
-		printk("%s line %d eraseaddr no align\n", __func__,__LINE__);
+		pr_info("%s line %d eraseaddr no align\n", __func__,__LINE__);
 		return -EINVAL;
 	}
 
 	addr = (uint32_t)instr->addr;
 	end = addr + (uint32_t)instr->len;
 	if(end > mtd->size){
-		printk("*********ERROR: the erase addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("ERROR: the erase addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return -EINVAL;
 	}
 	mutex_lock(&flash->lock);
 	while (addr < end) {
 		ret = jz_spi_nandflash_erase_blk(flash, addr);
 		if (ret) {
-			printk("spi nand erase error blk id  %d !\n",addr / mtd->erasesize);
-			//mutex_unlock(&flash->lock);
+			pr_info("spi nand erase error blk id  %d !\n",addr / mtd->erasesize);
 			instr->state = MTD_ERASE_FAILED;
 		}
 
@@ -230,12 +228,12 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 	command[3] = page & 0xff;
 
 	transfer[0].tx_buf = command;
-	transfer[0].len = 4;//sizeof(command);
+	transfer[0].len = 4;
 	spi_message_add_tail(&transfer[0], &message);
 
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync() error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	udelay(flash->tRD);
@@ -244,7 +242,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 		timeout--;
 	}while((ret & SPINAND_IS_BUSY) && (timeout > 0));
 	if((ret & 0x30) == 0x20) {
-		printk("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
+		pr_info("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
 		return -EBADMSG;
 	}
 	switch(flash->column_cmdaddr_bits){
@@ -255,7 +253,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 			command[3] = 0;
 
 			transfer[0].tx_buf = command;
-			transfer[0].len = 4;//sizeof(command);
+			transfer[0].len = 4;
 			break;
 		case 32:
 			command[0] = SPINAND_CMD_FRCH;//SPINAND_CMD_RDCH;/* SPINAND_CMD_RDCH read odd addr may be error */
@@ -264,10 +262,10 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 			command[3] = column & 0xff;
 
 			transfer[0].tx_buf = command;
-			transfer[0].len = 5;/* command[4] is dummy */
+			transfer[0].len = 5;
 			break;
 		default:
-			printk("can't support the format of column addr ops !!\n");
+			pr_info("can't support the format of column addr ops !!\n");
 			break;
 	}
 	spi_message_add_tail(&transfer[0], &message);
@@ -278,7 +276,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	*rel_rlen = message.actual_length - sizeof(command);
@@ -294,9 +292,8 @@ static int jz_spi_nandflash_read(struct mtd_info *mtd,loff_t addr,int column,siz
 	size_t ops_addr;
 	size_t ops_len,rel_rlen = 0;
 
-	//printk("====rrrrrrrrrrrrrrrrrrrrrrrrrrrrr%s %d addr = %08x,column = %d len = %d oob = %d\n",__func__,__LINE__,(unsigned int)addr,column,len,oob);
 	if(addr > mtd->size){
-		printk("*********ERROR:the read addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("ERROR:the read addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return -EINVAL;
 	}
 	flash = container_of(mtd, struct jz_spi_nandflash, mtd);
@@ -368,14 +365,13 @@ static size_t jz_spi_nandflash_write(struct mtd_info *mtd,loff_t addr,int column
 	u_char *buffer = buf;
 	int timeout = 2000;
 
-	//printk("=====wwwwwwwwwwwwwwwwwwwwww %s %d addr = %08x,column = %d len = %d\n",__func__,__LINE__,(unsigned int)addr,column,len);
 	if(addr & (mtd->writesize - 1)){
-		printk("wirte add don't align ,error ! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("wirte add don't align ,error ! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return -EINVAL;
 	}
 
 	if(addr > mtd->size){
-		printk("*********ERROR:the Write addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
+		pr_info("ERROR:the Write addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
 		return -EINVAL;
 	}
 	flash = container_of(mtd, struct jz_spi_nandflash, mtd);
@@ -405,7 +401,7 @@ static size_t jz_spi_nandflash_write(struct mtd_info *mtd,loff_t addr,int column
 
 		ret = spi_sync(flash->spi, &message);
 		if(ret) {
-			printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+			pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 			return -EIO;
 		}
 		retlen += message.actual_length - 3;/* delete the len of command */
@@ -424,7 +420,7 @@ static size_t jz_spi_nandflash_write(struct mtd_info *mtd,loff_t addr,int column
 
 		ret = spi_sync(flash->spi, &message);
 		if(ret) {
-			printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+			pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 			return -EIO;
 		}
 		udelay(flash->tPROG);
@@ -433,7 +429,7 @@ static size_t jz_spi_nandflash_write(struct mtd_info *mtd,loff_t addr,int column
 			timeout--;
 		}while((ret & SPINAND_IS_BUSY) && (timeout > 0));
 		if(ret & p_FAIL){
-			printk(" %s -- %s -- %d spi nand write fail \n",__FILE__,__func__,__LINE__);
+			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
 			return (len - retlen);
 		}
 #ifdef DEBUG_WRITE
@@ -484,12 +480,12 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 	command[3] = page & 0xff;
 
 	transfer[0].tx_buf = command;
-	transfer[0].len = 4;//sizeof(command);
+	transfer[0].len = 4;
 	spi_message_add_tail(&transfer[0], &message);
 
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	udelay(flash->tRD);
@@ -500,7 +496,7 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 	}while((ret & SPINAND_IS_BUSY) && (timeout > 0));
 
 	if((ret & 0x30) == 0x20) {
-		printk("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
+		pr_info("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
 		memset(ops->oobbuf,0x0,ops->ooblen);
 		mutex_unlock(&flash->lock);
 		return -EBADMSG;
@@ -513,7 +509,7 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 			command[3] = 0;
 
 			transfer[0].tx_buf = command;
-			transfer[0].len = 4;//sizeof(command);
+			transfer[0].len = 4;
 			break;
 		case 32:
 			command[0] = SPINAND_CMD_FRCH;//SPINAND_CMD_RDCH;/* SPINAND_CMD_RDCH read odd addr may be error */
@@ -522,10 +518,10 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 			command[3] = column & 0xff;
 
 			transfer[0].tx_buf = command;
-			transfer[0].len = 5;/* command[4] is dummy */
+			transfer[0].len = 5;
 			break;
 		default:
-			printk("can't support the format of column addr ops !!\n");
+			pr_info("can't support the format of column addr ops !!\n");
 			break;
 	}
 	spi_message_add_tail(&transfer[0], &message);
@@ -536,7 +532,7 @@ static int jz_spinand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	mutex_unlock(&flash->lock);
@@ -568,7 +564,7 @@ static int jz_spinand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 	spi_message_add_tail(&transfer[0], &message);
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	udelay(flash->tRD);
@@ -586,7 +582,7 @@ static int jz_spinand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 	spi_message_add_tail(&transfer[0], &message);
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	jz_spi_nandflash_write_enable(flash);
@@ -604,13 +600,13 @@ static int jz_spinand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 
 	ret = spi_sync(flash->spi, &message);
 	if(ret) {
-		printk("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
+		pr_info("spi_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	udelay(flash->tPROG);
 	ret = jz_spi_nandflash_get_status(flash);
 	if(ret & p_FAIL){
-		printk(" %s -- %s -- %d spi nand write fail \n",__FILE__,__func__,__LINE__);
+		pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
 	mutex_unlock(&flash->lock);
@@ -728,11 +724,11 @@ static int jz_spinand_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 	ret = jz_spi_nandflash_erase(mtd,instr);
 	if(ret){
-		printk("WARNING: block %d erase fail !\n",addr / mtd->erasesize);
+		pr_info("WARNING: block %d erase fail !\n",addr / mtd->erasesize);
 
 		ret = jz_spinand_block_markbad(mtd,addr);
 		if(ret){
-			printk("mark bad block error, there will occur error,so exit !\n");
+			pr_info("mark bad block error, there will occur error,so exit !\n");
 			return -1;
 		}
 	}
@@ -768,7 +764,7 @@ struct jz_spi_support *jz_spi_flash_probe(struct spi_device *spi)
 
 	ret = spi_sync(spi, &message);
 	if (ret) {
-		printk("error reading spi nand device id\n");
+		pr_info("error reading spi nand device id\n");
 		return NULL;
 	}
 
@@ -781,7 +777,7 @@ struct jz_spi_support *jz_spi_flash_probe(struct spi_device *spi)
 	}
 
 	if (i >= num_spi_flash) {
-		printk("ingenic: Unsupported ID %04x\n", recv_command[0]);
+		pr_info("ingenic: Unsupported ID %04x\n", recv_command[0]);
 		return NULL;
 	}
 	return params;
@@ -807,7 +803,7 @@ static int jz_spi_nand_ext_init(struct spi_device *spi)
 	spi_message_add_tail(&transfer[0], &message);
 	ret = spi_sync(spi, &message);
 	if(ret){
-		printk("WARNING: Spi_Nand enable ECC fail !\n");
+		pr_info("WARNING: Spi_Nand enable ECC fail !\n");
 		return -1;
 	}
 	return 0;
@@ -881,13 +877,13 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 
 	command_write = kzalloc(spi_nandflash->mtd.writesize + 3,GFP_KERNEL);
 	if(!command_write){
-		printk("mlloc command_write error !!!!\n");
+		pr_info("mlloc command_write error !!!!\n");
 		return -1;
 	}
 #ifdef DEBUG_WRITE
 	write_debug_buf = kzalloc(spi_nandflash->mtd.writesize,GFP_KERNEL);
 	if(!write_debug_buf){
-		printk("mlloc write_debug_buf error !!!!\n");
+		pr_info("mlloc write_debug_buf error !!!!\n");
 		return -1;
 	}
 #endif
@@ -899,7 +895,7 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 		dev_set_drvdata(&spi->dev, NULL);
 		return -ENODEV;
 	}
-	printk("SPI Nandflash MTD LOAD OK\n");
+	pr_info("SPI Nandflash MTD LOAD OK\n");
 	return 0;
 }
 
