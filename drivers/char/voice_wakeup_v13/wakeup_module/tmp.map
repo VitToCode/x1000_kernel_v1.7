@@ -101,9 +101,9 @@ Linker script and memory map
  .text          0x0000000081f00050      0xa70 ./src/interface.o
                 0x0000000081f00248                dump_voice_wakeup
                 0x0000000081f00318                module_init
-                0x0000000081f00390                module_exit
-                0x0000000081f00398                open
-                0x0000000081f004c0                handler
+                0x0000000081f00394                module_exit
+                0x0000000081f0039c                open
+                0x0000000081f004c4                handler
                 0x0000000081f00754                close
                 0x0000000081f00848                set_handler
                 0x0000000081f00858                get_dma_address

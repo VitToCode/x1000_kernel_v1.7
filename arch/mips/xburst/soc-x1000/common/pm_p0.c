@@ -362,7 +362,7 @@ LABLE1:
 }
 static noinline void cpu_resume_boot(void)
 {
-	TCSM_PCHAR('O');
+//	TCSM_PCHAR('O');
 	__asm__ volatile(".set mips32\n\t"
 		"move $29, %0\n\t"
 		".set mips32\n\t"
@@ -381,7 +381,7 @@ static noinline void cpu_resume(void)
 {
 	register unsigned int val;
 
-	TCSM_PCHAR('B');
+//	TCSM_PCHAR('B');
 	/* restore  CPM CPCCR */
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
 	val |= (7 << 20);
@@ -451,7 +451,7 @@ static noinline void cpu_resume(void)
 #endif
 	__jz_cache_init();
 //	TCSM_PCHAR('X');
-	serial_put_hex(_regs_stack[44]);
+//	serial_put_hex(_regs_stack[44]);
 	__asm__ volatile(".set mips32\n\t"
 			 "jr %0\n\t"
 			 "nop\n\t"
@@ -480,8 +480,9 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 }
 static int x1000_pm_enter(suspend_state_t state)
 {
-	volatile unsigned int lcr,opcr,val;
+	volatile unsigned int lcr,opcr;
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	volatile unsigned int val;
 	int (*volatile func)(int);
 	int temp;
 #endif
@@ -536,12 +537,14 @@ static int x1000_pm_enter(suspend_state_t state)
 	cpm_outl(REG32(SLEEP_TCSM_RESUME_DATA + 12),CPM_OPCR);
 #endif
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
 	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
 		/* wakeup module is enabled */
 		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
 		func = (int (*)(int))temp;
 		val = func(1);
 	}
+#endif
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
 	wakeup_module_close(DEEP_SLEEP);

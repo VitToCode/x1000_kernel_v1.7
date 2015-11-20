@@ -34,7 +34,7 @@ enum wakeup_source {
 };
 
 /* global config: default value */
-unsigned int _dma_channel = 5;
+unsigned int _dma_channel = 3;
 static unsigned int tcu_channel = 5;
 
 unsigned int cpu_wakeup_by = 0;
@@ -73,7 +73,7 @@ int module_init(void)
 	}
 
 	/*global init*/
-	_dma_channel = 5;
+	_dma_channel = 3;
 	tcu_channel = 5;
 	cpu_wakeup_by = 0;
 	open_cnt = 0;
@@ -219,14 +219,13 @@ static inline void idle_wait(void)
 {
 	unsigned int opcr;
 	unsigned int lcr;
+//	volatile unsigned int count = 0xfff;
 	/* cpu enter idle */
-	lcr = REG32(CPM_IOBASE + CPM_LCR);
-	lcr &= ~3;
+	lcr = REG32(SLEEP_TCSM_RESUME_DATA + 8);
 	REG32(CPM_IOBASE + CPM_LCR) = lcr;
-
 	opcr = REG32(SLEEP_TCSM_RESUME_DATA + 12);
 	REG32(CPM_IOBASE + CPM_OPCR) = opcr;
-
+	opcr = REG32(CPM_IOBASE + CPM_OPCR);
 //	TCSM_PCHAR('i');
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
