@@ -8,7 +8,7 @@ void build_one_desc(struct dma_config* dma, struct dma_desc* _desc, struct dma_d
 	desc->dtc = (dma->count&0xffffff) | ( ((unsigned long)(next_desc) >> 4) << 24);
 	desc->drt = dma->type;
 	desc->sd = dma->sd;
-	desc->dcm = dma->increment<<22 | dma->tsz<<8 | dma->sp_dp<<12 | dma->rdil<<16 |dma->stde<<2| dma->tie<<1 | dma->link;
+	desc->dcm = dma->increment<<22 | dma->tsz<<8 | dma->sp_dp<<12 | dma->rdil<<16 |dma->stde<<2| /*dma->tie<<1 |*/ dma->link;
 }
 
 
@@ -20,7 +20,7 @@ void pdma_config(struct dma_config* dma){
 		REG_DMADRT(dma->channel) = dma->type;
 		REG_DMADCS(dma->channel) = 0x80000000;
 		REG_DMADCM(dma->channel) = 0;
-		REG_DMADCM(dma->channel) = dma->increment<<22 | dma->tsz<<8 | dma->rdil<<16 | dma->sp_dp<<12|dma->stde<<2| dma->tie<<1 | dma->link ;
+		REG_DMADCM(dma->channel) = dma->increment<<22 | dma->tsz<<8 | dma->rdil<<16 | dma->sp_dp<<12|dma->stde<<2| /*dma->tie<<1 |*/ dma->link ;
 	}else{
 		REG_DMADCS(dma->channel) = 0;
 		REG_DMADDA(dma->channel) = dma->desc;

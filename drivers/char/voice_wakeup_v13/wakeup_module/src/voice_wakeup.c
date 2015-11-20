@@ -53,7 +53,9 @@ int send_data_to_process(ivPointer pIvwObj, unsigned char *pdata, unsigned int s
 	ivStatus iStatus2;
 	Samples = 110;
 
-	//serial_put_hex(size);
+//	serial_put_hex(size);
+//	TCSM_PCHAR('D');
+//	serial_put_hex(*(volatile unsigned int*)pData);
 	BytesPerSample = 2;
 	nSamples_count = nSize_PCM / (Samples * BytesPerSample);
 	/*process 16k, 16bit samples*/
@@ -90,6 +92,12 @@ int send_data_to_process(ivPointer pIvwObj, unsigned char *pdata, unsigned int s
 		}
 		iStatus2 = IvwRunStepEx( pIvwObj, &CMScore,  &ResID, &KeywordID,  &StartMS, &EndMS );
 		if( IvwErr_WakeUp == iStatus2 ){
+			TCSM_PCHAR('W');
+			TCSM_PCHAR('K');
+			TCSM_PCHAR('U');
+			TCSM_PCHAR('P');
+			TCSM_PCHAR('O');
+			TCSM_PCHAR('K');
 			return IvwErr_WakeUp;
 		}
 		else if( iStatus2 == IvwErrID_OK ) {
@@ -175,7 +183,7 @@ int wakeup_open(void)
 	}
 	xfer->tail = xfer->head;
 
-	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
+//	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
 	return 0;
 }
 
@@ -242,9 +250,9 @@ int process_dma_data_3(void)
 
 	nbytes = get_valid_bytes();
 	if(nbytes >= PROCESS_BYTES_PER_TIME) {
-		_cpu_switch_restore(); /*switch to the sleep freq setted in kernel to process data.120MHZ*/
+//		_cpu_switch_restore(); /*switch to the sleep freq setted in kernel to process data.120MHZ*/
 		ret = process_nbytes(nbytes);
-		_cpu_switch_24MHZ();	/*switch to 24MHZ. */
+//		_cpu_switch_24MHZ();	/*switch to 24MHZ. */
 	} else {
 		ret = SYS_NEED_DATA;
 	}
@@ -322,7 +330,7 @@ int process_dma_data(void)
 			}
 			ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
 			if(ret == IvwErr_WakeUp) {
-				printk("####[%s]system wakeup ok!!!\n", __func__);
+			//	printk("####[%s]system wakeup ok!!!\n", __func__);
 				return SYS_WAKEUP_OK;
 			}
 

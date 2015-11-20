@@ -165,7 +165,7 @@ void dma_config_normal(void)
 	config.burst_len = 128;
 
 	config.desc = V_TO_P(desc);
-	config.tie = 1;
+//	config.tie = 1;
 
 	build_circ_descs(desc);
 	pdma_config(&config);

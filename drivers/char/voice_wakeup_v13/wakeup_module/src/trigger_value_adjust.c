@@ -3,7 +3,7 @@
 #include "dmic_config.h"
 #include "trigger_value_adjust.h"
 
-int thr_table[TRIGGER_CNTS] = {1000, 5000};
+int thr_table[TRIGGER_CNTS] = {5000, 8000};
 int tri_cnt[TRIGGER_CNTS] = {2, 6};
 
 static int quantity_thr(int thr)

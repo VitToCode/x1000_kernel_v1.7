@@ -8,7 +8,6 @@
 
 #define TRIGGER_CHANGE_TIME		60*5		/*60s * 5*/
 
-
 static unsigned int jzrtc_readl(int offset)
 {
 	unsigned int data, timeout = 0x100000;

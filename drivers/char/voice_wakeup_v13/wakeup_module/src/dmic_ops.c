@@ -18,7 +18,7 @@ unsigned int dmic_recommend_thr;
 unsigned int last_dma_count;
 
 //#define DMIC_FIFO_THR	(48) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
-#define DMIC_FIFO_THR	(64) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
+#define DMIC_FIFO_THR	(48) /* 48 * 4Bytes, or 48 * 2 Bytes.*/
 //#define DMIC_FIFO_THR	(128)
 
 
@@ -122,12 +122,11 @@ void dmic_init(void)
 	dmic_clk_config();
 	__dmic_reset();
 	__dmic_reset_tri();
-
 }
 
 int cpu_should_sleep(void)
 {
-	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
+	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 10)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
 }
 
 int dmic_init_mode(int mode)
@@ -143,18 +142,15 @@ int dmic_init_mode(int mode)
 			cur_thr_value = thr_table[0];
 			dmic_recommend_thr = 0;
 
-			REG_DMIC_CR0 |= 3<<6;
-
-			/*packen ,unpack disable*/
-			REG_DMIC_CR0 |= 1<<8 | 1 << 12;
-			//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
-
-			REG_DMIC_FCR |= 1 << 31 | DMIC_FIFO_THR;
-			REG_DMIC_IMR |= 0x1f; /*mask all ints*/
-			REG_DMIC_GCR = 9;
+			REG_DMIC_CR0 = 0;
+			REG_DMIC_CR0 |= 1<<6;
+			REG_DMIC_CR0 |= 0 << 16;
+			REG_DMIC_CR0 |= 1<<8;
+			REG_DMIC_FCR |= 1 << 31 | 48;
+			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
+			REG_DMIC_GCR = 10;
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
-			REG_DMIC_THRL = cur_thr_value; /*SET A MIDDLE THR_VALUE, AS INIT */
-
+			REG_DMIC_THRL = cur_thr_value;/*SET A MIDDLE THR_VALUE, AS INIT */
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
 
@@ -165,28 +161,29 @@ int dmic_init_mode(int mode)
 			REG_DMIC_TRICR &= ~(0xf << 16);
 			REG_DMIC_TRICR |= 2<<16;
 			REG_DMIC_TRINMAX = 5;
+			REG_DMIC_TRIMMAX = 3000000;
 #endif
+
 			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
-			REG_DMIC_ICR |= 0x1f; /*clear all ints*/
+			REG_DMIC_ICR |= 0x3f; /*clear all ints*/
 			REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
 			REG_DMIC_IMR &= ~(1 << 4);/*enable tri int*/
 
 			break;
 		case NORMAL_RECORD:
 			REG_DMIC_CR0 = 0;
-			REG_DMIC_CR0 &= ~(3<<6);
 			REG_DMIC_CR0 |= 1<<6;
-			/* channel 2 */
-			REG_DMIC_CR0 |= 1 << 16;
+			/* channel = 1 */
+			REG_DMIC_CR0 |= 0 << 16;
 			/*packen ,unpack disable*/
 			REG_DMIC_CR0 |= 1<<8 ;//| 1 << 12;
 			//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
 
-			REG_DMIC_FCR |= 1 << 31 | 64;
+			REG_DMIC_FCR |= 1 << 31 | 48;
 			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
 			REG_DMIC_ICR |= 0x3f; /*mask all ints*/
-			REG_DMIC_GCR = 8;
+			REG_DMIC_GCR = 9;
 
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
 
@@ -213,8 +210,8 @@ int dmic_enable(void)
 int dmic_disable_tri(void)
 {
 	REG_DMIC_CR0 &= ~(1<<1);
-	REG_DMIC_ICR |= 0x1f;
-	REG_DMIC_IMR |= 0x1f;
+	REG_DMIC_ICR |= 0x3f;
+	REG_DMIC_IMR |= 0x3f;
 
 	return 0;
 }
@@ -286,15 +283,16 @@ int dmic_ioctl(int cmd, unsigned long args)
 int dmic_handler(int pre_ints)
 {
 	volatile int ret;
-	REG_DMIC_ICR |= 0x1f;
+
+	REG_DMIC_ICR |= 0x3f;
 	REG_DMIC_IMR |= 1<<0 | 1<<4;
 
 	last_dma_count = REG_DMADTC(5);
 
 	if(dmic_current_state == WAITING_TRIGGER) {
 		if(is_int_rtc(pre_ints)) {
-			TCSM_PCHAR('F');
-			REG_DMIC_ICR |= 0x1f;
+//			TCSM_PCHAR('F');
+			REG_DMIC_ICR |= 0x3f;
 			REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 			return SYS_WAKEUP_FAILED;
 		}
@@ -309,23 +307,20 @@ int dmic_handler(int pre_ints)
 	} else if (dmic_current_state == WAITING_DATA){
 
 	}
-
 #ifdef CONFIG_CPU_SWITCH_FREQUENCY
 	ret = process_dma_data_3();
 #else
 	ret = process_dma_data_2();
 #endif
 	if(ret == SYS_WAKEUP_OK) {
-
 		return SYS_WAKEUP_OK;
+
 	} else if(ret == SYS_NEED_DATA) {
 #ifdef CONFIG_CPU_IDLE_SLEEP
 		/* do nothing */
 #else
-
 		REG_DMIC_TRINMAX = 5;
-
-		REG_DMIC_CR0 |= 3 << 6;
+		REG_DMIC_CR0 |= 1 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
 #endif
 		last_dma_count = REG_DMADTC(5);
@@ -357,7 +352,7 @@ int dmic_handler(int pre_ints)
 
 		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
 
-		REG_DMIC_ICR |= 0x1f;
+		REG_DMIC_ICR |= 0x3f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 
 		return SYS_WAKEUP_FAILED;

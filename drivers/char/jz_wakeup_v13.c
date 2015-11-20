@@ -23,6 +23,7 @@
 #include <linux/timer.h>
 #include <linux/syscore_ops.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -61,6 +62,8 @@ struct wakeup_dev {
 	spinlock_t wakeup_lock;
 
 	struct sleep_buffer sleep_buffer; /* buffer used to store data during suspend to cpu sleep */
+
+	struct regulator * vcc_dmic;
 
 	struct class *class;
 	struct cdev cdev;
@@ -367,6 +370,9 @@ static int __init wakeup_init(void)
 
 	wakeup->dev = device_create(wakeup->class, NULL, dev_no, NULL, "jz-wakeup");
 
+	wakeup->vcc_dmic = regulator_get(wakeup->dev,"vcc_dmic");
+	regulator_enable(wakeup->vcc_dmic);
+
 	register_syscore_ops(&wakeup_pm_ops);
 
 	ret = sysfs_create_group(&wakeup->dev->kobj, &wakeup_attr_group);
@@ -386,6 +392,7 @@ static int __init wakeup_init(void)
 
 __err_wakeup:
 __err_chrdev:
+	regulator_disable(wakeup->vcc_dmic);
 	kfree(wakeup);
 
 	return -EFAULT;

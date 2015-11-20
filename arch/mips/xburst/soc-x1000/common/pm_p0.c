@@ -45,6 +45,9 @@
 #include <tcsm.h>
 #include <smp_cp0.h>
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+#include <linux/voice_wakeup_module.h>
+#endif
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
 extern unsigned int get_pmu_slp_gpio_info(void);
@@ -290,7 +293,11 @@ static noinline void cpu_sleep(void)
 	printk("slbc = %x\n",cpm_inl(CPM_SLBC));
 	printk("clkgate = %x\n",cpm_inl(CPM_CLKGR));
 	printk("tcunt = %x\n",REG32(0xb0002068));
-
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	wakeup_module_open(DEEP_SLEEP);
+	REG32(SLEEP_TCSM_RESUME_DATA + 28) = wakeup_module_is_wakeup_enabled();
+	wakeup_module_cache_prefetch();
+#endif
 	cache_prefetch(LABLE1,1024);
 LABLE1:
 	blast_icache32();
@@ -312,6 +319,7 @@ LABLE1:
 	/* REG32(0xb0000000) = 0x95800000; */
 	/* while((REG32(0xB00000D4) & 7)) */
 	/* 	TCSM_PCHAR('A'); */
+#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
 	{
 		unsigned int val;
 		val = REG32(0xb0000000);
@@ -333,7 +341,21 @@ LABLE1:
 			 ".set mips32 \n\t"
 			 :: "r" (SLEEP_TCSM_BOOT_TEXT)
 		);
-
+#else
+	__asm__ volatile(".set mips32\n\t"
+			 "sync\n\t"
+			 "nop\n\t"
+			 "wait\n\t"
+			 "nop\n\t"
+			 "nop\n\t"
+			 "nop\n\t");
+//	TCSM_PCHAR('c');
+//	TCSM_PCHAR(' ');
+	__asm__ volatile(".set mips32\n\t"
+			"jr %0\n\t"
+			"nop\n\t"
+			".set mips32 \n\t" :: "r" (restore_goto));
+#endif
 	while(1)
 		TCSM_PCHAR('n');
 
@@ -366,7 +388,6 @@ static noinline void cpu_resume(void)
 	REG32(0xb0000000) = val;
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
-
 #ifdef CONFIG_SUSPEND_TEST
 	/* clear tcu2 flag */
 	val = 1 << 2;
@@ -425,16 +446,18 @@ static noinline void cpu_resume(void)
 
 	TCSM_PCHAR('E');
 #endif
-	__jz_cache_init();
 #ifdef DDR_TEST
 	check_ddr_data();
 #endif
+	__jz_cache_init();
+//	TCSM_PCHAR('X');
+	serial_put_hex(_regs_stack[44]);
 	__asm__ volatile(".set mips32\n\t"
 			 "jr %0\n\t"
 			 "nop\n\t"
 			 ".set mips32 \n\t" :: "r" (restore_goto));
 
-	}
+}
 
 static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsigned int size)
 {
@@ -457,11 +480,22 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 }
 static int x1000_pm_enter(suspend_state_t state)
 {
-	volatile unsigned int lcr,opcr,bypassmode;
-	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
-	printk("\nddr mode  = %d\n",bypassmode);
+	volatile unsigned int lcr,opcr,val;
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	int (*volatile func)(int);
+	int temp;
+#endif
 #ifdef DDR_TEST
 	test_ddr_data_init();
+#endif
+
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	/* if voice identified before deep sleep. just return to wakeup system. */
+	int ret;
+	ret = wakeup_module_get_sleep_process();
+	if(ret == SYS_WAKEUP_OK) {
+		return 0;
+	}
 #endif
 	disable_fpu();
 	REG32(SLEEP_TCSM_RESUME_DATA + 8) =  cpm_inl(CPM_LCR);
@@ -474,8 +508,13 @@ static int x1000_pm_enter(suspend_state_t state)
 	cpm_outl(lcr,CPM_LCR);
 
 	opcr = cpm_inl(CPM_OPCR);
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	opcr &= ~((1 << 7) | (1 << 6) | (1 << 4) | (0xfff << 8) | (1 << 22) | (1 << 25) | (1 << 3));
+	opcr |= (1 << 31) | (1 << 30) | (1 << 25)| (1 << 23) | (0xfff << 8) | (1 << 2) | (1 << 4) | (1 << 22);
+#else
 	opcr &= ~((1 << 7) | (1 << 6) | (1 << 4) | (0xfff << 8) | (1 << 22));
 	opcr |= (1 << 31) | (1 << 30) | (1 << 25) | (1 << 23) | (0xfff << 8) | (1 << 2) | (1 << 3);
+#endif
 	cpm_outl(opcr,CPM_OPCR);
 
 	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_BOOT_TEXT,(unsigned int *)cpu_resume_boot,SLEEP_TCSM_BOOT_LEN);
@@ -484,6 +523,7 @@ static int x1000_pm_enter(suspend_state_t state)
 	mb();
 	save_goto((unsigned int)cpu_sleep);
 	mb();
+
 #ifdef DDR_TRAINING
 	memcpy((void*)0x80000000,ddr_training_space,20 * 4);
 	dma_cache_wback_inv(0x80000000,20 * 4);
@@ -491,12 +531,21 @@ static int x1000_pm_enter(suspend_state_t state)
 	__jz_flush_cache_all();
 	local_flush_tlb_all();
 
+#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
 	cpm_outl(REG32(SLEEP_TCSM_RESUME_DATA + 8),CPM_LCR);
 	cpm_outl(REG32(SLEEP_TCSM_RESUME_DATA + 12),CPM_OPCR);
+#endif
 
-	printk("TCUCNT = %x\n", REG32(0xb0002068));
-	printk("icpr0 = %x\n",REG32(0xb0001010));
-	printk("icpr1 = %x\n",REG32(0xb0001030));
+	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
+		/* wakeup module is enabled */
+		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
+		func = (int (*)(int))temp;
+		val = func(1);
+	}
+
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	wakeup_module_close(DEEP_SLEEP);
+#endif
 
 	return 0;
 }

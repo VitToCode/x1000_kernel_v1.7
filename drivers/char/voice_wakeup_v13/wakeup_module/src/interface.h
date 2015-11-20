@@ -36,15 +36,16 @@ struct sleep_buffer {
 	unsigned long total_len;
 };
 
-#define TCSM_DATA_BUFFER_ADDR	(0xb3422000) /* bank0 */
-#define TCSM_DATA_BUFFER_SIZE	(4096)
-
-#define TCSM_DESC_ADDR			(0x81f40000) /* bank2 start */
-
-#define TCSM_SP_ADDR			(0xb3423fff) /* bank3 end */
-
-#define LOAD_ADDR	0x81f00000
+#define LOAD_ADDR	0x81f00000 /* 31M */
 #define LOAD_SIZE	(256 * 1024)
+
+#define TCSM_DESC_ADDR			(0xa1f40000)
+#define TCSM_SP_ADDR			(0xb3422ffc) /*TCSM bank2 end */
+
+#define TCSM_DATA_BUFFER_ADDR	(TCSM_DESC_ADDR + 1024)
+#define TCSM_DATA_BUFFER_SIZE	(1024*4)
+
+
 
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)

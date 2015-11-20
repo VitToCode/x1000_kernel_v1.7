@@ -26,7 +26,7 @@ struct sleep_buffer {
 
 
 
-#define WAKEUP_HANDLER_ADDR	(0x8ff00004)
+#define WAKEUP_HANDLER_ADDR	(0x81f00004)
 #define SYS_WAKEUP_OK		(0x1)
 #define SYS_WAKEUP_FAILED	(0x2)
 #define SYS_NEED_DATA		(0x3)

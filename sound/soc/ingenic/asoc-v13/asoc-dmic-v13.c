@@ -375,8 +375,10 @@ static struct platform_driver jz_dmic_plat_driver = {
 	.probe  = jz_dmic_platfrom_probe,
 	.remove = jz_dmic_platfom_remove,
 #ifdef CONFIG_PM
+#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
 	.suspend = jz_dmic_platfom_suspend,
 	.resume = jz_dmic_platfom_resume,
+#endif
 #endif
 	.driver = {
 		.name = "jz-asoc-aic-dmic",

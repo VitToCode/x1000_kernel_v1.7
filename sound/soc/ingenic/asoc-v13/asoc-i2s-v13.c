@@ -593,8 +593,10 @@ static struct platform_driver jz_i2s_plat_driver = {
 		.owner = THIS_MODULE,
 	},
 #ifdef CONFIG_PM
+#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
 	.suspend = jz_i2s_platfom_suspend,
 	.resume = jz_i2s_platfom_resume,
+#endif
 #endif
 };
 

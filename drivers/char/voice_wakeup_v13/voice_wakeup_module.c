@@ -192,7 +192,7 @@ static int __init wakeup_module_init(void)
 	memcpy(FIRMWARE_LOAD_ADDRESS, wakeup_firmware, sizeof(wakeup_firmware));
 	setup_ops();
 
-	test_ops();
+//	test_ops();
 	m_ops->_module_init();
 	m_ops->set_dma_channel(JZDMA_REQ_I2S1 + 1);  /* dma phy id 5 */
 	return 0;
