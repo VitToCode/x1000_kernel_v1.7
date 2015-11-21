@@ -71,27 +71,20 @@ static int bt_power_control(int enable)
 //		mdelay(15);
 		rtc32k_disable();
 		bt_disable_power();
-		mdelay(1000);
-		if (pdata->set_pin_status != NULL){
+		mdelay(100);
+		if (pdata->set_pin_status != NULL)
 			(*pdata->set_pin_status)(enable);
-			printk("set_pin_status is defined\n");
-		}else{
-			printk("set_pin_status is not defined\n");
-		}
 		break;
 	case RFKILL_STATE_UNBLOCKED:
-		if (pdata->restore_pin_status != NULL){
+		if (pdata->restore_pin_status != NULL)
 			(*pdata->restore_pin_status)(enable);
-		}else{
-		rtc32k_enable();
-			printk("restore_pin_status is not defined\n");
-		}
+
 		rtc32k_enable();
 		if (bt_rst_n > 0){
 			gpio_direction_output(bt_rst_n,0);
 		}
 		bt_enable_power();
-		mdelay(300);
+		mdelay(100);
 		if(bt_rst_n > 0){
 			gpio_set_value(bt_rst_n,1);
 		}
