@@ -641,8 +641,8 @@ static int __devinit axp173_charger_initialize(struct axp173_charger *charger)
 			battery_dete = 0, adc_en1 = 0, adc_speed = 0;
 	unsigned char int1 = 0, int2 = 0, int3 = 0, int4 = 0, int5 = 0;
 
-/*	ips_set = VBUS_VHOLD_EN | VBUS_VHOLD_VAL(4) | VBUS_CL_EN;
-	axp173_charger_write_reg(client, POWER_IPS_SET, ips_set); */
+/*	ips_set = VBUS_VHOLD_EN | VBUS_VHOLD_VAL(4) | VBUS_CL_EN;*/
+	axp173_charger_write_reg(client, POWER_IPS_SET, ips_set);
 
 	battery_dete = BATTERY_DETE;
 	axp173_charger_write_reg(client, POWER_BATDETECT_CHGLED_REG,
