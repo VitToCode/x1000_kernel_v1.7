@@ -16,6 +16,9 @@ config  PRODUCT_X1000_ASLMOM
 
 config  PRODUCT_X1000_YOUTH
     bool "product x1000 youth"
+
+config  PRODUCT_X1000_HL01
+    bool "product x1000 hl01"
 endchoice
 
 if PRODUCT_X1000_PHOENIX
@@ -44,4 +47,11 @@ config PRODUCT_NAME
 string
 default "youth"
 source "arch/mips/xburst/soc-x1000/chip-x1000/youth/Kconfig"
+endif
+
+if PRODUCT_X1000_HL01
+config PRODUCT_NAME
+string
+default "hl01"
+source "arch/mips/xburst/soc-x1000/chip-x1000/hl01/Kconfig"
 endif
