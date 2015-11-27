@@ -71,4 +71,4 @@ config PROC_PAGE_MONITOR
 config PROC_EXMAP
 	default y
 	depends on PROC_FS
-	bool "/proc/exmap support(a memory analysis tool)""
+	bool "/proc/exmap support(a memory analysis tool)"
