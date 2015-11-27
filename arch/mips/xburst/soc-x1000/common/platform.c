@@ -334,7 +334,9 @@ DEF_MSC(1);
 #endif
 #endif
 #if defined(CONFIG_I2C_V12_JZ)
+#if defined (CONFIG_I2C0_V12_JZ) | defined (CONFIG_I2C1_V12_JZ) | defined (CONFIG_I2C2_V12_JZ)
 static u64 jz_i2c_dmamask =  ~(u32)0;
+#endif
 #define DEF_I2C(NO, SPEED)							\
 	static struct resource jz_i2c##NO##_resources[] = {		\
 		[0] = {							\
