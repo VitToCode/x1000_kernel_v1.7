@@ -20,7 +20,7 @@
 #endif
 
 /* MSC GPIO Definition */
-#define GPIO_SD0_CD_N       GPIO_PC(21)
+#define GPIO_SD0_CD_N       -1
 
 /*wifi*/
 #define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)
@@ -77,7 +77,7 @@
 
 #ifdef CONFIG_AKM4753_EXTERNAL_CODEC
 #define GPIO_AKM4753_PDN		GPIO_PC(21)       /* AKM4753 PDN pin */
-#define GPIO_AKM4753_SPEAKER_EN		GPIO_PC(2)       /* amp shutdown pin */
+#define GPIO_AKM4753_SPEAKER_EN		GPIO_PA(2)       /* amp shutdown pin */
 #define GPIO_AKM4753_SPEAKER_EN_LEVEL	1
 #define GPIO_AKM4753_LINEIN_DETECT          GPIO_PA(5)   /*linein detect gpio*/
 #define GPIO_AKM4753_LINEIN_INSERT_LEVEL    0
