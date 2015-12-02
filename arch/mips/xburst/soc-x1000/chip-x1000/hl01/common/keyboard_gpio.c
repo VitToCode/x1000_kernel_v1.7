@@ -3,6 +3,7 @@
 #include <linux/input.h>
 #include <mach/jzgpio_keys.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/gpio_keys.h>
 #include "board_base.h"
 
 #ifdef CONFIG_KEYBOARD_MATRIX
@@ -123,3 +124,73 @@ struct platform_device jz_longbutton_device = {
         }
 };
 #endif /* CONFIG_KEYBOARD_JZGPIO */
+
+#ifdef CONFIG_KEYBOARD_GPIO
+static struct gpio_keys_button board_buttons[] = {
+#ifdef GPIO_JD_CONTROL
+	{
+		.gpio		= GPIO_JD_CONTROL,
+		.code		= KEY_F1,
+		.desc		= "AIRKISS",
+		.active_low	= ACTIVE_LOW_F1,
+	},
+#endif
+#ifdef GPIO_PLAY
+	{
+		.gpio		= GPIO_PLAY,
+		.code		= KEY_PLAYPAUSE,
+		.desc		= "play & pause",
+		.active_low	= ACTIVE_LOW_PLAYPAUSE,
+	},
+#endif
+#ifdef GPIO_BLUETOOTH
+	{
+		.gpio		= GPIO_BLUETOOTH,
+		.code		= KEY_BLUETOOTH,
+		.desc		= "bluetooth",
+		.active_low	= ACTIVE_LOW_BLUETOOTH,
+	},
+#endif
+#ifdef GPIO_VOLUMEDOWN
+	{
+		.gpio		= GPIO_VOLUMEDOWN,
+		.code		= KEY_VOLUMEDOWN,
+		.desc		= "volum down key",
+		.active_low	= ACTIVE_LOW_VOLUMEDOWN,
+	},
+#endif
+#ifdef GPIO_VOLUMEUP
+	{
+		.gpio		= GPIO_VOLUMEUP,
+		.code		= KEY_VOLUMEUP,
+		.desc		= "volum up key",
+		.active_low	= ACTIVE_LOW_VOLUMEUP,
+	},
+#endif
+#ifdef GPIO_POWERDOWN
+	{
+		.gpio		= GPIO_POWERDOWN,
+		.code		= KEY_POWER,
+		.desc		= "power down",
+		.wakeup		= 1,
+		.active_low	= ACTIVE_LOW_POWERDOWN,
+	},
+#endif
+};
+
+static struct gpio_keys_platform_data board_button_data = {
+	.buttons	= board_buttons,
+	.nbuttons	= ARRAY_SIZE(board_buttons),
+	.rep		= 1,
+};
+
+struct platform_device jz_button_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev		= {
+		.platform_data  = &board_button_data,
+	}
+};
+#endif
+

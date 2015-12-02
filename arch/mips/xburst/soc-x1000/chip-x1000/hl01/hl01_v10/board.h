@@ -34,12 +34,19 @@
 #endif
 
 /* ****************************GPIO KEY START******************************** */
+#define GPIO_JD_CONTROL		GPIO_PB(13)
+#define GPIO_PLAY		GPIO_PB(12)
+#define GPIO_BLUETOOTH		GPIO_PB(9)
+#define GPIO_VOLUMEDOWN		GPIO_PB(10)
+#define GPIO_VOLUMEUP		GPIO_PB(11)
 #define GPIO_POWERDOWN 		GPIO_PB(31)
-#define GPIO_BOOT_SEL0		GPIO_PB(28)
-#define GPIO_BOOT_SEL1		GPIO_PB(29)
+
 #define ACTIVE_LOW_POWERDOWN 	1
-#define ACTIVE_LOW_F4 		0
-#define ACTIVE_LOW_F5 		0
+#define ACTIVE_LOW_VOLUMEDOWN	1
+#define ACTIVE_LOW_VOLUMEUP	1
+#define ACTIVE_LOW_BLUETOOTH	1
+#define ACTIVE_LOW_PLAYPAUSE	1
+#define ACTIVE_LOW_F1		1
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
