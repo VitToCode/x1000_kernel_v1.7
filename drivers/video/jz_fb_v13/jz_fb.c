@@ -42,6 +42,10 @@
 
 #include "jz_fb.h"
 #include "regs.h"
+#ifdef CONFIG_LOGO_BMP
+#include "logo_bmp.h"
+#endif
+
 static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
 static void jzfb_disable(struct fb_info *info);
@@ -1833,6 +1837,81 @@ static int jzfb_copy_logo(struct fb_info *info)
 	return 0;
 }
 
+#ifdef CONFIG_LOGO_BMP
+static void jzfb_display_logo(struct fb_info *info)
+{
+
+	int i, j;
+	int w, h;
+	int bpp;
+	int depth;
+	int real_width, real_height;
+	unsigned short *p16;
+	unsigned int *p32;
+	struct logo_bmp_info *logo = &logo_bmp_ingenic;
+	struct fb_videomode *mode = jzfb->pdata->modes;
+
+	jzfb_set_par(info);
+	jzfb_enable(info);
+
+	if (!mode) {
+		dev_err(jzfb->dev, "%s, video mode is NULL\n", __func__);
+		return;
+	}
+	if (!jzfb->vidmem_phys) {
+		dev_err(jzfb->dev, "Not allocate frame buffer yet\n");
+		return;
+	}
+	if (!jzfb->vidmem)
+		jzfb->vidmem = (void *)(jzfb->vidmem_phys+0x80000000);
+	p16 = (unsigned short *)jzfb->vidmem;
+	p32 = (unsigned int *)jzfb->vidmem;
+	w = jzfb->osd.fg0.w;
+	h = jzfb->osd.fg0.h;
+	bpp = jzfb->osd.fg0.bpp;
+
+	//To center the picture
+	//p32 += (h/2 - logo->height/2) * w + w/2 - logo->width/2;
+	//p32 += (h/2 - logo->height/2 - 20) * w + w/2 - logo->width/2;
+
+	real_height = logo->height > h ? h : logo->height;
+	real_width = logo->width > w ? w : logo->width;
+
+	for (i = real_height-1; i >= 0; i--) {
+
+		for (j = 0; j < real_width; j++) {
+			int index = i * logo->width + j;
+			short c16 = 0;
+			int c32 = 0;
+			switch (bpp) {
+				case 18:
+				case 24:
+				case 32:
+					c32 = logo->data[index];
+					*p32++ = c32;
+					break;
+				default:
+					c16 = logo->data[index];
+					*p16++ = c16;
+			}
+		}
+		p32 += logo->width > w ? 0 : w - logo->width;
+		if (w % PIXEL_ALIGN) {
+			switch (bpp) {
+				case 18:
+				case 24:
+				case 32:
+					p32 += (ALIGN(mode->xres, PIXEL_ALIGN) - w);
+					break;
+				default:
+					p16 += (ALIGN(mode->xres, PIXEL_ALIGN) - w);
+					break;
+			}
+		}
+	}
+}
+#endif
+
 static void jzfb_display_v_color_bar(struct fb_info *info)
 {
 	int i, j;
@@ -1870,19 +1949,19 @@ static void jzfb_display_v_color_bar(struct fb_info *info)
 			switch ((j / 10) % 4) {
 			case 0:
 				c16 = 0xF800;
-				c32 = 0xFF0000FF;
+				c32 = 0x00FF0000;
 				break;
 			case 1:
 				c16 = 0x07C0;
-				c32 = 0xFF0000FF;
+				c32 = 0x0000FF00;
 				break;
 			case 2:
 				c16 = 0x001F;
-				c32 = 0xFF0000FF;
+				c32 = 0x000000FF;
 				break;
 			default:
 				c16 = 0xFFFF;
-				c32 = 0xFF0000FF;
+				c32 = 0xFFFFFFFF;
 				break;
 			}
 			switch (bpp) {
@@ -2458,6 +2537,10 @@ static int __devinit jzfb_probe(struct platform_device *pdev)
 		test_pattern(jzfb);
 #endif
 
+#ifdef CONFIG_LOGO_BMP
+		jzfb_display_logo(jzfb->fb);
+#endif
+
 	}else{
 		clk_disable(jzfb->pclk);
 		jzfb_clk_disable(jzfb);
@@ -2608,7 +2691,7 @@ static void __exit jzfb_cleanup(void)
 #ifdef CONFIG_EARLY_INIT_RUN
 rootfs_initcall(jzfb_init);
 #else
-module_init(jzfb_init);
+rootfs_initcall(jzfb_init);
 #endif
 
 module_exit(jzfb_cleanup);

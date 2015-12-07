@@ -281,9 +281,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
     mutex_init(&pb->pwm_lock);
 	bl->props.brightness = data->dft_brightness;
-	if ( ! lcd_display_inited_by_uboot() ) {
-		backlight_update_status(bl);
-	}
+	backlight_update_status(bl);
 
 	platform_set_drvdata(pdev, bl);
 

@@ -37,3 +37,9 @@ config FB_JZ_DEBUG
         help
            fb test for displaying color bar in your board.
 
+config LOGO_BMP
+	        bool "BMP picture display"
+	        depends on FB_JZ_V13
+	        default n
+	        help
+	           display bmp picture instead of standard linux logo.

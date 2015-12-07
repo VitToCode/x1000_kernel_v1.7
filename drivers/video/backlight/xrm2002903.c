@@ -139,7 +139,7 @@ static int __init xrm2002903_init(void)
 {
 	return platform_driver_register(&xrm2002903_driver);
 }
-module_init(xrm2002903_init);
+rootfs_initcall(xrm2002903_init);
 
 static void __exit xrm2002903_exit(void)
 {

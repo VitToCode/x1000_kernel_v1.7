@@ -139,7 +139,7 @@ static int __init frd240a3602b_init(void)
 {
 	return platform_driver_register(&frd240a3602b_driver);
 }
-module_init(frd240a3602b_init);
+rootfs_initcall(frd240a3602b_init);
 
 static void __exit frd240a3602b_exit(void)
 {
