@@ -27,53 +27,35 @@
 
 #ifdef CONFIG_LEDS_GPIO
 static struct gpio_led gpio_leds[] = {
-#ifndef CONFIG_LCD_CLASS_DEVICE
-        {
-                .name = "led-record",
-                .gpio = GPIO_PA(1),
-                .active_low = true,
-                .default_state = LEDS_GPIO_DEFSTATE_KEEP,
-                .retain_state_suspended = true,
-                .default_trigger = "default_on",
-        },
-        {
-                .name = "wireless_AP",
-                .gpio = GPIO_PA(0),
-                .active_low = false,
-                .default_state = LEDS_GPIO_DEFSTATE_KEEP,
-                .retain_state_suspended = true,
-                .default_trigger = "default_on",
-        },
-#endif
-        {
-                .name = "led-bt",
-                .gpio = GPIO_PA(3),
-                .active_low = false,
-                .default_state = LEDS_GPIO_DEFSTATE_ON,
-                .retain_state_suspended = true,
-                .default_trigger = NULL,
-        },
-        {
-                .name = "led-reserve",
-                .gpio = GPIO_PA(2),
-                .active_low = false,
-                .default_state = LEDS_GPIO_DEFSTATE_ON,
-                .retain_state_suspended = true,
-                .default_trigger = NULL,
-        },
+	{
+		.name = "led-blue",
+		.gpio = GPIO_PB(6),
+		.active_low = false,
+		.default_state = LEDS_GPIO_DEFSTATE_ON,
+		.retain_state_suspended = true,
+		.default_trigger = NULL,
+	},
+	{
+		.name = "led-white",
+		.gpio = GPIO_PB(7),
+		.active_low = false,
+		.default_state = LEDS_GPIO_DEFSTATE_ON,
+		.retain_state_suspended = true,
+		.default_trigger = NULL,
+	},
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
-        .leds = gpio_leds,
-        .num_leds = ARRAY_SIZE(gpio_leds),
+	.leds = gpio_leds,
+	.num_leds = ARRAY_SIZE(gpio_leds),
 };
 
 struct platform_device jz_leds_gpio = {
-        .name = "leds-gpio",
-        .id = -1,
-        .dev = {
-                .platform_data  = &gpio_led_info,
-        },
+	.name = "leds-gpio",
+	.id = -1,
+	.dev = {
+		.platform_data  = &gpio_led_info,
+	},
 };
 #endif
 

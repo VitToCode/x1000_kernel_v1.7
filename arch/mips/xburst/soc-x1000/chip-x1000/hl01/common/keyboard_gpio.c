@@ -67,61 +67,85 @@ struct platform_device jz_matrix_kdb_device = {
 
 #ifdef CONFIG_KEYBOARD_JZGPIO
 static struct jz_gpio_keys_button board_longbuttons[] = {
-#ifdef GPIO_POWERDOWN
-        {
-                .gpio                           = GPIO_POWERDOWN,
-                .code = {
-                        .shortpress_code        = KEY_SLEEP,
-                        .longpress_code         = KEY_POWER,
-                },
-                .desc                           = "power down & wakeup",
-                .active_low                     = ACTIVE_LOW_POWERDOWN,
-                .longpress_interval             = 1800,
-		.wakeup                         = 1,
-                .debounce_interval              = 2,
+#ifdef GPIO_JD_CONTROL
+	{
+		.gpio				= GPIO_JD_CONTROL,
+		.code = {
+			.shortpress_code	= KEY_RECORD,
+                        .longpress_code		= KEY_F1,
+		},
+		.desc				= "voice recognition & airkiss",
+		.active_low			= ACTIVE_LOW_F1,
+		.longpress_interval		= 5000,
+		.debounce_interval		= 2,
         },
 #endif
-#ifdef GPIO_BOOT_SEL0
+#ifdef GPIO_PLAY
 	{
-                .gpio                           = GPIO_BOOT_SEL0,
-                .code = {
-                        .shortpress_code        = KEY_F4,
-                        .longpress_code         = KEY_RESERVED,
-                },
-                .desc                           = "music Shortcut key 2",
-                .active_low                     = ACTIVE_LOW_F4,
-                .longpress_interval             = 0,
-                .debounce_interval              = 2,
+		.gpio				= GPIO_PLAY,
+		.code = {
+			.shortpress_code	= KEY_PLAYPAUSE,
+			.longpress_code		= KEY_BLUETOOTH,
+		},
+		.desc				= "play & pause & next song & take phone & hang up phone & reject phone",
+		.active_low			= ACTIVE_LOW_PLAYPAUSE,
+		.longpress_interval		= 2000,
+		.debounce_interval		= 2,
         },
 #endif
-#ifdef GPIO_BOOT_SEL1
+#ifdef GPIO_BLUETOOTH
 	{
-                .gpio                           = GPIO_BOOT_SEL1,
-                .code = {
-                        .shortpress_code        = KEY_F5,
-                        .longpress_code         = KEY_RESERVED,
-                },
-                .desc                           = "music Shortcut key 3",
-                .active_low                     = ACTIVE_LOW_F5,
-                .longpress_interval             = 0,
-                .debounce_interval              = 2,
-        },
-
+		.gpio				= GPIO_BLUETOOTH,
+		.code = {
+			.shortpress_code	= KEY_F8,
+			.longpress_code		= KEY_F9,
+		},
+		.desc				= "BT connect & BT disconnect",
+		.active_low			= ACTIVE_LOW_BLUETOOTH,
+		.longpress_interval		= 5000,
+		.debounce_interval		= 2,
+	},
+#endif
+#ifdef GPIO_VOLUMEDOWN
+	{
+		.gpio				= GPIO_VOLUMEDOWN,
+		.code = {
+			.shortpress_code	= KEY_VOLUMEDOWN,
+			.longpress_code		= KEY_VOLUMEDOWN,
+		},
+		.desc				= "volum down",
+		.active_low			= ACTIVE_LOW_VOLUMEDOWN,
+		.longpress_interval		= 1000,
+		.debounce_interval		= 2,
+	},
+#endif
+#ifdef GPIO_VOLUMEUP
+	{
+		.gpio                           = GPIO_VOLUMEUP,
+		.code = {
+			.shortpress_code        = KEY_VOLUMEUP,
+			.longpress_code         = KEY_VOLUMEUP,
+		},
+		.desc                           = "volum up",
+		.active_low                     = ACTIVE_LOW_VOLUMEUP,
+		.longpress_interval             = 1000,
+		.debounce_interval              = 2,
+	},
 #endif
 };
 
 static struct jz_gpio_keys_platform_data board_longbutton_data = {
-        .buttons        = board_longbuttons,
-        .nbuttons       = ARRAY_SIZE(board_longbuttons),
+	.buttons	= board_longbuttons,
+	.nbuttons	= ARRAY_SIZE(board_longbuttons),
 };
 
 struct platform_device jz_longbutton_device = {
-        .name           = "jz-gpio-keys",
-        .id             = -1,
-        .num_resources  = 0,
-        .dev            = {
-                .platform_data  = &board_longbutton_data,
-        }
+	.name		= "jz-gpio-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev            = {
+		.platform_data	= &board_longbutton_data,
+	}
 };
 #endif /* CONFIG_KEYBOARD_JZGPIO */
 
@@ -165,15 +189,6 @@ static struct gpio_keys_button board_buttons[] = {
 		.code		= KEY_VOLUMEUP,
 		.desc		= "volum up key",
 		.active_low	= ACTIVE_LOW_VOLUMEUP,
-	},
-#endif
-#ifdef GPIO_POWERDOWN
-	{
-		.gpio		= GPIO_POWERDOWN,
-		.code		= KEY_POWER,
-		.desc		= "power down",
-		.wakeup		= 1,
-		.active_low	= ACTIVE_LOW_POWERDOWN,
 	},
 #endif
 };
