@@ -116,7 +116,7 @@ void jz_hibernate(void)
 	/* clear wakeup status register */
 	rtc_write_reg(RTC_HWRSR, 0x0);
 
-	rtc_write_reg(RTC_HWCR, 0x8);
+	rtc_write_reg(RTC_HWCR, 0x9);
 
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
