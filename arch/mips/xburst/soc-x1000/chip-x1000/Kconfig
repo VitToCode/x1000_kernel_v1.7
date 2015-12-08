@@ -19,6 +19,9 @@ config  PRODUCT_X1000_YOUTH
 
 config  PRODUCT_X1000_HL01
     bool "product x1000 hl01"
+
+config  PRODUCT_X1000_SF_AUD_HM02W01
+    bool "product x1000 sf_aud_hm02w01"
 endchoice
 
 if PRODUCT_X1000_PHOENIX
@@ -54,4 +57,11 @@ config PRODUCT_NAME
 string
 default "hl01"
 source "arch/mips/xburst/soc-x1000/chip-x1000/hl01/Kconfig"
+endif
+
+if PRODUCT_X1000_SF_AUD_HM02W01
+config PRODUCT_NAME
+string
+default "sf_aud_hm02w01"
+source "arch/mips/xburst/soc-x1000/chip-x1000/sf_aud_hm02w01/Kconfig"
 endif
