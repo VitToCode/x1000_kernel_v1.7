@@ -1610,6 +1610,19 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
 		}
 		break;
+	case JZFB_START_DMA:
+		if (copy_from_user(&value, argp, sizeof(int))) {
+			dev_info(info->dev, "copy FB enable value failed\n");
+			return -EFAULT;
+		}
+		if (value) {
+			if (jzfb->pdata->lcd_type == LCD_TYPE_SLCD) {
+				tmp = reg_read(jzfb, SLCDC_CTRL);
+				tmp |= SLCDC_CTRL_DMA_START | SLCDC_CTRL_DMA_MODE;
+				reg_write(jzfb, SLCDC_CTRL, tmp);
+			}
+		}
+		break;
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);
 		break;
@@ -2358,7 +2371,7 @@ void test_pattern(struct jzfb *jzfb)
 #ifndef CONFIG_SLCDC_CONTINUA
 			int smart_ctrl = 0;
 			smart_ctrl = reg_read(jzfb, SLCDC_CTRL);
-			smart_ctrl |= SLCDC_CTRL_DMA_START; //trigger a new frame
+			smart_ctrl |= SLCDC_CTRL_DMA_START | SLCDC_CTRL_DMA_MODE; //trigger a new frame
 			reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
 #endif
 		}
