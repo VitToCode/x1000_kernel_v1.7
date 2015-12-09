@@ -908,21 +908,12 @@ static int codec_set_gain_dac(struct codec_info *codec_dev, int gain)
 {
 	int tmpval,tmp_gain;
 
-#ifdef CONFIG_PRODUCT_X1000_ASLMOM
-	/* We just use -31dB ~ -24dB to avoid of the replay sound cut top */
-	gain = gain*7/100;
-	if(gain > 7 || gain < 0){
-		printk("set gain out of range [0 - 7]\n");
-		return 0;
-	}
-#else
 	/* We just use -31dB ~ 0dB to avoid of the replay sound cut top */
 	gain = gain*31/100;
 	if(gain > 31 || gain < 0){
 		printk("set gain out of range [0 - 31]\n");
 		return 0;
 	}
-#endif
 	DUMP_GAIN_PART_REGS(codec_dev, "enter");
 
 	tmp_gain = 31 - gain;
