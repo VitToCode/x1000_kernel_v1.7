@@ -19,7 +19,7 @@
 #define TM57PE20A_NAME "tm57pe20a-touch-button"
 #define TM57PE20A_PHY "tm57pe20a-touch-button/input0"
 
-unsigned char key = 0;
+unsigned short key = 0;
 int key_press = 0;
 unsigned int key_value = 0;
 int key_flag = 0;
@@ -37,22 +37,24 @@ struct tm57pe20a_touch_data {
 	int irq;
 	int sclk_irq;
 	int irq_times;
-	unsigned char data;
-	unsigned char tmp_data;
-	unsigned char key_press;
+	unsigned short data;
+	unsigned short tmp_data;
+	unsigned short key_press;
 	spinlock_t lock;
 };
 struct tm57pe20a_key {
-	unsigned char key;
+	unsigned short key;
 	unsigned int value;
 };
 struct tm57pe20a_key key_table[] = {
 	{1,KEY_PLAYPAUSE},
-	{2,KEY_MENU},
-	{4,KEY_PREVIOUSSONG},
-	{8,KEY_NEXTSONG},
-	{0x10,KEY_VOLUMEUP},
-	{0xa0,KEY_VOLUMEDOWN},
+	{2,KEY_NEXTSONG},
+	{4,KEY_F5},
+	{8,KEY_RECORD},
+	{0x10,KEY_F3},
+	{0x20,KEY_PREVIOUSSONG},
+	{0x100,KEY_VOLUMEUP},
+	{0xa00,KEY_VOLUMEDOWN},
 };
 static int  press_count = 0;
 static int key_report = 0;
@@ -65,7 +67,7 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 	int flags;	
 	if(pdata->data == 0){
 		key_press = 0;
-	}else if(key < 0x10){
+	}else if(key < 0x100){
 			if(!key_press){
 				press_count++;
 				if(press_count < 1)
@@ -73,18 +75,20 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 				press_count = 0;
 				key_press = 1;
 				key = pdata->data;
-				for(i = 0;i < 4;i++){
+				for(i = 0;i < 6;i++){
 					if(key_table[i].key == key){	
 						key_value = key_table[i].value;
 						key_report = 1;
 						input_event(pdata->input,EV_KEY,key_table[i].value,1);	
 						input_sync(pdata->input);	
 						input_event(pdata->input,EV_KEY,key_table[i].value,0);	
+						input_sync(pdata->input);
 						break;
 					}
 				}
 			}
-	}else if(pdata->data < 0xb0){
+	}else if(pdata->data < 0xb00){
+		//pdata->data = pdata->data >> 8;
 		if(!key_press){
 			key_count++;
 			if(key_count < 1)
@@ -100,29 +104,26 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 					return 0;
 				}
 				key_change = 0;
-			spin_lock_irqsave(&pdata->lock, flags);
+			//spin_lock_irqsave(&pdata->lock, flags);
 				if (key <  pdata->data){
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,1);
-					input_sync(pdata->input);
-					key_value = KEY_VOLUMEUP;
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,0);
-					key_flag = 1;
-				}else if (key >  pdata->data ){
 					input_event(pdata->input,EV_KEY,KEY_VOLUMEDOWN,1);
 					input_sync(pdata->input);
-					key_value = KEY_VOLUMEDOWN;
-					key_flag = 1;
 					input_event(pdata->input,EV_KEY,KEY_VOLUMEDOWN,0);
+					input_sync(pdata->input);
+				}else if (key >  pdata->data ){
+					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,1);
+					input_sync(pdata->input);
+					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,0);
+					input_sync(pdata->input);
+					
 				}
-		
-			spin_unlock_irqrestore(&pdata->lock, flags);
+			//spin_unlock_irqrestore(&pdata->lock, flags);
 				key = pdata->data;	
 			}
 		}
 	}else{
 		key_press = 1;
 	}
-	input_sync(pdata->input);
 }
 static void tm57pe20a_touch_work_func(struct work_struct *work)
 {
@@ -136,9 +137,10 @@ static irqreturn_t tm57pe20a_sclk_irq_handler(int irq, void *dev_id)
 	struct tm57pe20a_touch_data *pdata = dev_id;
 	pdata->irq_times++;
 	unsigned char bit;
+	udelay(2);
 	bit = __gpio_get_value(pdata->pdata->sda);
 	pdata->data = (pdata->data << 1) | bit;
-	if(pdata->irq_times == 8){
+	if(pdata->irq_times == 16){
 		pdata->irq_times = 0;
 		udelay(1500);
 		disable_irq_nosync(pdata->sclk_irq);
@@ -175,6 +177,9 @@ static int tm57pe20a_gpio_init(struct tm57pe20a_touch_data *pdata)
 		pdata->pdata->sda = -EBUSY;
 		return -1;
 	}
+	printk("===>gpio_set_pull\n");
+	gpio_set_pull(pdata->pdata->sda,1);
+
 	return 0;
 }
 static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
@@ -206,7 +211,7 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 	tm_data->input->id.version = 0x0100;
 	__set_bit(EV_KEY, tm_data->input->evbit);
 	int i;
-	for(i = 0;i < 6;i++)
+	for(i = 0;i < 8;i++)
 		input_set_capability(tm_data->input,EV_KEY,key_table[i].value);
 
 	error = input_register_device(tm_data->input);
