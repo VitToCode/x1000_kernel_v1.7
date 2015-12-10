@@ -398,7 +398,7 @@ static int dump_codec_regs(void)
 
 static int codec_set_replay_volume(int *val)
 {
-        char data = 0x0;
+	char data = 0x0;
 	/* get current volume */
 	if (*val < 0) {
 		*val = user_replay_volume;
@@ -407,9 +407,17 @@ static int codec_set_replay_volume(int *val)
 		*val = 100;
 
 	if (*val) {
+#ifdef CONFIG_BOARD_X1000_HL01_V10
+		/* use -18dB ~ -51dB for 3w speaker */
+		data = (18 + (100-*val)/3) *2;
+		akm4753_i2c_write_regs(0x05, &data, 1);
+		akm4753_i2c_write_regs(0x06, &data, 1);
+#else
+		/* use 0dB ~ -50dB */
 		data = 100 - *val;
 		akm4753_i2c_write_regs(0x05, &data, 1);
 		akm4753_i2c_write_regs(0x06, &data, 1);
+#endif
 		gpio_enable_spk_en();
 	} else{
 		/* Digital Volume mute */
