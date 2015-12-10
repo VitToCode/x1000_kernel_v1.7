@@ -57,38 +57,39 @@ struct tm57pe20a_key key_table[] = {
 	{0xa00,KEY_VOLUMEDOWN},
 };
 static int  press_count = 0;
-static int key_report = 0;
 static int key_change = 0;
 static int key_count = 0;
-static int key_bak = 0;
+static int vol_up_flag = 0;
+static int vol_down_flag = 0;
 static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
 	int flags;	
 	if(pdata->data == 0){
 		key_press = 0;
-	}else if(key < 0x100){
-			if(!key_press){
-				press_count++;
-				if(press_count < 1)
-					return 0;
-				press_count = 0;
-				key_press = 1;
-				key = pdata->data;
-				for(i = 0;i < 6;i++){
-					if(key_table[i].key == key){	
-						key_value = key_table[i].value;
-						key_report = 1;
-						input_event(pdata->input,EV_KEY,key_table[i].value,1);	
-						input_sync(pdata->input);	
-						input_event(pdata->input,EV_KEY,key_table[i].value,0);	
-						input_sync(pdata->input);
-						break;
-					}
+		vol_up_flag = 0;
+		vol_down_flag = 0;
+	}else if(pdata->data < 0x100){
+		if(!key_press){
+			press_count++;
+			if(press_count < 1)
+				return 0;
+			press_count = 0;
+			key_press = 1;
+			key = pdata->data;
+			for(i = 0;i < 6;i++){
+				if(key_table[i].key == key){	
+					key_value = key_table[i].value;
+					input_event(pdata->input,EV_KEY,key_table[i].value,1);	
+					input_sync(pdata->input);	
+					input_event(pdata->input,EV_KEY,key_table[i].value,0);	
+					input_sync(pdata->input);
+					break;
 				}
 			}
+		}
 	}else if(pdata->data < 0xb00){
-		//pdata->data = pdata->data >> 8;
+		pdata->data = pdata->data >> 8;
 		if(!key_press){
 			key_count++;
 			if(key_count < 1)
@@ -100,23 +101,31 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 			if(key != pdata->data){
 				key_change++;
 				if(key_change < 2){
-					key_bak = pdata->data;
 					return 0;
 				}
 				key_change = 0;
 			//spin_lock_irqsave(&pdata->lock, flags);
 				if (key <  pdata->data){
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEDOWN,1);
-					input_sync(pdata->input);
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEDOWN,0);
-					input_sync(pdata->input);
+					if(vol_up_flag){
+						key_value = KEY_VOLUMEUP;
+						vol_up_flag = 0;
+					}else{
+						key_value = KEY_VOLUMEDOWN;
+						vol_down_flag = 1;
+					}
 				}else if (key >  pdata->data ){
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,1);
-					input_sync(pdata->input);
-					input_event(pdata->input,EV_KEY,KEY_VOLUMEUP,0);
-					input_sync(pdata->input);
-					
+					if(vol_down_flag){
+						key_value = KEY_VOLUMEDOWN;
+						vol_down_flag = 0;
+					}else{
+						key_value = KEY_VOLUMEUP;
+						vol_up_flag = 1;
+					}
 				}
+				input_event(pdata->input,EV_KEY,key_value,1);
+				input_sync(pdata->input);
+				input_event(pdata->input,EV_KEY,key_value,0);
+				input_sync(pdata->input);
 			//spin_unlock_irqrestore(&pdata->lock, flags);
 				key = pdata->data;	
 			}
