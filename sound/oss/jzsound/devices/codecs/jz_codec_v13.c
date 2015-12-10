@@ -1177,19 +1177,24 @@ static int codec_turn_off(struct codec_info *codec_dev, int mode)
 #endif
 	}
 	if (mode & CODEC_WMODE) {
-#if 1
+#ifdef CONFIG_BOARD_X1000_CANNA_V10
 		/* Do nothing here, for anti pop and AEC.
 		 * Because of if shutdown SB_DAC, mixer loopback mode can't work.
 		 * When enable SB_DAC, there will be a pop sound.
+		 * There will be a pop sound when you shutdown canna board amplifier.
 		 */
 #else
+		gpio_disable_spk_en(codec_dev);
+#endif
+
+/*
 		ret = codec_set_route(codec_dev, SND_ROUTE_REPLAY_CLEAR);
 		if(ret != SND_ROUTE_REPLAY_CLEAR)
 		{
 			printk("JZ CODEC: codec_turn_off_part replay mode error!\n");
 			return -1;
 		}
-#endif
+*/
 	}
 
 	return ret;
@@ -1210,6 +1215,7 @@ static int codec_reset(struct codec_info *codec_dev)
 /******** codec_anti_pop ********/
 static int codec_anti_pop_start(struct codec_info *codec_dev, int mode)
 {
+	gpio_enable_spk_en(codec_dev);
 	return 0;
 }
 
