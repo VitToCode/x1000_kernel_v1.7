@@ -538,10 +538,8 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 			temp = (temp & 0xf0) | j;
 			axp173_charger_write_reg(client,
 						 POWER_CHARGE1, temp);
-			printk("##########in axp173_charger_work_int1:after write:temp=0x%x\n",temp);
 			axp173_charger_read_reg(client,
 						POWER_CHARGE1, &temp);
-			printk("##########in axp173_charger_work_int1:after read:temp=0x%x\n",temp);
 			break;
 		case INT1_USB_OUT:
 			charger->usb_online = 0;
