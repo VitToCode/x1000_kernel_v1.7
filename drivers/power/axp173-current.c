@@ -139,6 +139,8 @@ static enum power_supply_property axp173_battery_power_properties[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
 };
 
 static enum power_supply_property axp173_power_properties[] = {
@@ -275,6 +277,31 @@ static unsigned int axp173_get_adc_data(struct axp173_charger *charger,
 					enum adc_type type, int sw_adjust)
 {
 	return sw_adjust + axp173_get_adjust_adc_data(charger, type);
+}
+
+static int axp173_chgled_blink_enable(struct axp173_charger *charger)
+{
+	unsigned char  value = 0;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_OFF_CTL, &value);
+	value &= ~(0x7 << 3);
+	value |= (0x3 << 3);
+	axp173_charger_write_reg(client, POWER_OFF_CTL, value);
+
+	return 0;
+}
+
+static int axp173_chgled_blink_disable(struct axp173_charger *charger)
+{
+	unsigned char  value = 0;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_OFF_CTL, &value);
+	value &= ~(1 << 3);
+	axp173_charger_write_reg(client, POWER_OFF_CTL, value);
+
+	return 0;
 }
 
 static int axp173_prop_online(struct axp173_charger *charger,
@@ -511,6 +538,10 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 			temp = (temp & 0xf0) | j;
 			axp173_charger_write_reg(client,
 						 POWER_CHARGE1, temp);
+			printk("##########in axp173_charger_work_int1:after write:temp=0x%x\n",temp);
+			axp173_charger_read_reg(client,
+						POWER_CHARGE1, &temp);
+			printk("##########in axp173_charger_work_int1:after read:temp=0x%x\n",temp);
 			break;
 		case INT1_USB_OUT:
 			charger->usb_online = 0;
@@ -713,7 +744,7 @@ static int axp173_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (charger->battery_online) {
 			val->intval = axp173_get_adc_data(charger,
-							  BAT_VOL, -7);
+							  BAT_VOL, 0);
 		} else
 			val->intval = 0;
 		break;
@@ -723,6 +754,10 @@ static int axp173_battery_get_property(struct power_supply *psy,
 							  BAT_CUR, 0);
 		else
 			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
 		break;
 	default:
 		ret = -EINVAL;
@@ -788,6 +823,58 @@ static int axp173_get_property(struct power_supply *psy,
 	return ret;
 }
 
+static int axp173_battery_set_property(struct power_supply *psy,
+                                       enum power_supply_property psp,
+                                       const union power_supply_propval *val)
+{
+	int ret = 0;
+	struct axp173_charger *charger =
+		container_of(psy, struct axp173_charger, battery);
+
+        mutex_lock(&charger->lock);
+        switch (psp) {
+        case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		if (charger->battery_online) {
+			printk("Low power warning!\n");
+			axp173_chgled_blink_enable(charger);
+		} else {
+			dev_err(&charger->pdev->dev, "There's no battery!\n");
+			ret = -EINVAL;
+		}
+		break;
+        case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+		if (charger->battery_online) {
+			printk("Power is normal.\n");
+			axp173_chgled_blink_disable(charger);
+		} else {
+			dev_err(&charger->pdev->dev, "There's no battery!\n");
+			ret = -EINVAL;
+		}
+		break;
+        default:
+                ret = -EPERM;
+		break;
+        }
+	mutex_unlock(&charger->lock);
+
+        return ret;
+}
+
+static int axp173_battery_property_is_writeable(struct power_supply *psy,
+						enum power_supply_property psp)
+{
+        switch (psp) {
+        case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+                return 1;
+
+        default:
+                break;
+        }
+
+        return 0;
+}
+
 static void axp173_battery_external_power_changed(struct power_supply *psy)
 {
 	struct axp173_charger *charger =
@@ -801,7 +888,8 @@ static int __devinit axp173_power_supply_initialize(struct axp173_charger *charg
 	int ret = 0;
 
 #define DEF_POWER(PSY, NAME, TYPE, SUPPLY,                              \
-		  PROPERTIES, PROPERTY, CHANGED, APM)                   \
+		  PROPERTIES, GET_PROPERTY, SET_PROPERTY, 		\
+		  WRITEABLE, CHANGED, APM)				\
 	charger->PSY.name = NAME;                                       \
 	charger->PSY.type = TYPE;                                       \
 	if (SUPPLY) {                                                   \
@@ -810,20 +898,24 @@ static int __devinit axp173_power_supply_initialize(struct axp173_charger *charg
 	}                                                               \
 	charger->PSY.properties = PROPERTIES;                           \
 	charger->PSY.num_properties = ARRAY_SIZE(PROPERTIES);           \
-	charger->PSY.get_property = PROPERTY;                           \
-	charger->PSY.external_power_changed = CHANGED;                  \
+	charger->PSY.get_property = GET_PROPERTY;			\
+	charger->PSY.set_property = SET_PROPERTY;			\
+	charger->PSY.property_is_writeable = WRITEABLE;			\
+	charger->PSY.external_power_changed = CHANGED;			\
 	charger->PSY.use_for_apm = APM
 
 	DEF_POWER(battery, "battery", POWER_SUPPLY_TYPE_BATTERY, 0,
 		  axp173_battery_power_properties,
 		  axp173_battery_get_property,
+		  axp173_battery_set_property,
+		  axp173_battery_property_is_writeable,
 		  axp173_battery_external_power_changed, 1);
 	DEF_POWER(usb, "usb", POWER_SUPPLY_TYPE_USB, 1,
 		  axp173_power_properties, axp173_get_property,
-		  NULL, 0);
+		  NULL, NULL, NULL, 0);
 	DEF_POWER(ac, "ac", POWER_SUPPLY_TYPE_MAINS, 1,
 		  axp173_power_properties, axp173_get_property,
-		  NULL, 0);
+		  NULL, NULL, NULL, 0);
 #undef DEF_POWER
 
 	ret = power_supply_register(&charger->pdev->dev, &charger->battery);
@@ -875,7 +967,7 @@ static int get_pmu_voltage(void *pmu_interface)
 	struct axp173_charger *charger =
 			(struct axp173_charger *)pmu_interface;
 
-	return axp173_get_adc_data(charger, BAT_VOL, -7);
+	return axp173_get_adc_data(charger, BAT_VOL, 0);
 }
 
 static void __devinit axp173_charger_callback(struct axp173_charger *charger)

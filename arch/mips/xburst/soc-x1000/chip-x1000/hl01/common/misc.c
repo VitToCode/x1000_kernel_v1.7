@@ -98,7 +98,7 @@ struct jz_current_battery_info youth_battery_pdata = {
         .sample_count = 10,
         .adc_sw_adjust = 20,
         .ac_chg_current = 340,
-        .usb_chg_current = 340,
+        .usb_chg_current = 1000,
         .suspend_current = 30,
         .battery_max_cpt = 2200,
 };
