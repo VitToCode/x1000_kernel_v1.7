@@ -4312,7 +4312,7 @@ static int mem_control_stat_show(struct cgroup *cont, struct cftype *cft,
 			if (iter->cache_charge_on_parent)
 				val += mem_cgroup_read_stat(iter, MEM_CGROUP_STAT_RSS);
 
-		cb->fill(cb, "child rss", val * PAGE_SIZE);
+		cb->fill(cb, "child rss", val * PAGE_SIZE / 1024);
 	}
 #endif
 

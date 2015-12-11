@@ -342,7 +342,7 @@ static void backlight_exit(struct device *dev)
 static struct platform_pwm_backlight_data backlight_data = {
 	.pwm_id     = 4,
 	.max_brightness = 255,
-	.dft_brightness = 0,
+	.dft_brightness = 120,
 	.pwm_period_ns  = 30000,
 	.init       = backlight_init,
 	.exit       = backlight_exit,
