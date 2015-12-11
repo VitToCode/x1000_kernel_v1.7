@@ -73,6 +73,7 @@ obj-$(CONFIG_JZ_EFUSE_V12)	+= jz_efuse_v12.o
 obj-$(CONFIG_JZ_EFUSE_V13)	+= jz_efuse_v13.o
 obj-$(CONFIG_MISC_BMA250E)	+= bma250e.o
 obj-$(CONFIG_JZ_LED_RGB)           += jz_ledrgb.o
+obj-$(CONFIG_FP8102_DET)     += fp8102_det.o
 
 obj-$(CONFIG_TD_SC8800S)        += sc8800s.o
 obj-$(CONFIG_JZ_SPI_NOR)        += jz_spi_nor/

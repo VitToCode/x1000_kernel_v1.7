@@ -676,6 +676,10 @@ config LTE_LI170
         help
           Support LTE modem LI170.
 
+config FP8102_DET
+	bool "FP8102 CHARGE FULL DETECT"
+	default n
+
 config JZ4780_EFUSE
 	bool "JZ4780 EFUSE Driver"
 	default n
