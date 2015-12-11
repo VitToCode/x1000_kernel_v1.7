@@ -16,14 +16,12 @@
 #include <mach/jz_efuse.h>
 #include "board_base.h"
 
-
 struct jz_platform_device
 {
 	struct platform_device *pdevices;
 	void *pdata;
 	int size;
 };
-
 
 static struct jz_platform_device platform_devices_array[] __initdata = {
 #define DEF_DEVICE(DEVICE, DATA, SIZE)  \
@@ -183,8 +181,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&tm57pe20a_touch_button,0,0),
 #endif
 
-};
+#ifdef CONFIG_FP8102_DET
+	DEF_DEVICE(&fp8102_det,0,0),
+#endif
 
+};
 static int __init board_base_init(void)
 {
 	int pdevices_array_size, i;
@@ -205,7 +206,6 @@ static int __init board_base_init(void)
 	return 0;
 }
 
-
 /*
  *  * Called by arch/mips/kernel/proc.c when 'cat /proc/cpuinfo'.
  *   * Android requires the 'Hardware:' field in cpuinfo to setup the init.%hardware%.rc.
@@ -214,6 +214,5 @@ const char *get_board_type(void)
 {
 	return CONFIG_PRODUCT_NAME;
 }
-
 
 arch_initcall(board_base_init);

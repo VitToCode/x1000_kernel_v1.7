@@ -86,6 +86,11 @@ extern struct platform_device xrm2002903_device;
 #ifdef CONFIG_LCD_FRD240A3602B
 extern struct platform_device frd240a3602b_device;
 #endif
+
+#ifdef CONFIG_FP8102_DET
+extern struct platform_device fp8102_det;
+#endif
+
 /* end of LCD driver */
 
 #endif

@@ -18,10 +18,11 @@
 #include <linux/interrupt.h>
 //#include <sound/jz-aic.h>
 #include "board_base.h"
-
+#include <mach/fp8102_det.h>
 #ifdef CONFIG_LEDS_GPIO
 #include <linux/leds.h>
 #endif
+
 
 #ifdef CONFIG_LEDS_GPIO
 static struct gpio_led gpio_leds[] = {
@@ -75,6 +76,7 @@ struct platform_device jz_leds_gpio = {
 };
 #endif
 
+
 #ifdef CONFIG_TM57PE20A_TOUCH
 struct tm57pe20a_touch_platform_data {
 	int intr;
@@ -93,6 +95,32 @@ struct platform_device tm57pe20a_touch_button = {
 		.platform_data = &tm57pe20a_touch_gpio,
 	},
 };
+#endif
+
+#ifdef CONFIG_FP8102_DET
+#define DET_PIN GPIO_PD(5)
+#define IRQ_TYPE IRQF_TRIGGER_RISING
+static struct uevent_report ureport[] = {
+	{
+		.report_string = {"charge-full",NULL},
+		.pin = DET_PIN,
+		.irq_type = IRQ_TYPE,
+	},
+};
+
+static struct uevent_platform_data uinfo = {
+			.pin_nums = ARRAY_SIZE(ureport),
+			.ur = ureport,
+};
+
+struct platform_device fp8102_det = {
+        .name = "fp8102_det",
+        .id = -1,
+        .dev = {
+                .platform_data  = &uinfo,
+        },
+};
+
 #endif
 
 #ifdef CONFIG_JZ_EFUSE_V11
