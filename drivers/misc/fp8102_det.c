@@ -8,23 +8,26 @@
  *
  */
 
-#include <asm/irq.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+
+#include <asm/irq.h>
 #include <mach/fp8102_det.h>
 
 int irqnum = 0;
-struct uevent_platform_data* updata = NULL;
-struct uevent_report * uinfo = NULL;
+struct uevent_platform_data* uinfo = NULL;
 static struct kset *uevent_kset = NULL;
-static struct work_struct uevent_wq = {0};
+static struct work_struct uevent_wq;
+
+static char charged_str[] = "fully-charged";
+static char charging_str[] = "charging";
 
 struct uevent_obj {
 	struct kobject kobj;
@@ -34,15 +37,20 @@ struct uevent_obj *uobj;
 
 struct uevent_attribute {
 	struct attribute attr;
-	ssize_t (*show)(struct uenent_obj *uobj, struct uevent_attribute *attr, char *buf);
-	ssize_t (*store)(struct uevent_obj *uobj, struct uevent_attribute *attr, const char *buf, size_t count);
+	ssize_t (*show)(struct uenent_obj *uobj, struct attribute *attr, char *buf);
+	ssize_t (*store)(struct uevent_obj *uobj, struct attribute *attr, const char *buf, size_t count);
 };
 
 static ssize_t uevent_attr_show(struct kobject *kobj,
 			struct attribute *attr,
 			char *buf)
 {
-	return 0;
+	ssize_t count;
+	if (gpio_get_value(uinfo->detect_pin) ^ uinfo->charge_active_low)
+		count = sprintf(buf, "%s\n", charging_str);
+	else
+		count = sprintf(buf, "%s\n", charged_str);
+	return  count;
 }
 
 static ssize_t uevent_attr_store(struct kobject *kobj,
@@ -62,25 +70,25 @@ static void uevent_release(struct kobject *kobj)
 	kfree(uobj);
 }
 
-static ssize_t uevent_show(struct uevent_obj *uevent_obj, struct uevent_attribute *attr,
+static ssize_t uevent_show(struct uevent_obj *uevent_obj, struct attribute *attr,
 			char *buf)
 {
 	/*do nothing*/
 	return  0;
 }
 
-static ssize_t uevent_store(struct uvent_obj *uevent_obj, struct uevent_attribute *attr,
+static ssize_t uevent_store(struct uvent_obj *uevent_obj, struct attribute *attr,
 			 const char *buf, size_t count)
 {
 	/*do nothing*/
 	return  0;
 }
 
-static struct uevent_attribute uevent_attribute =
+static struct uevent_attribute fp8102_uevent_attr =
 	__ATTR(uevent, 0666, uevent_show, uevent_store);
 
 static struct attribute *uevent_default_attrs[] = {
-	&uevent_attribute.attr,
+	&fp8102_uevent_attr.attr,
 	NULL,
 };
 
@@ -96,12 +104,18 @@ static void destroy_uevent_obj(struct uevent_obj *ub)
 	kfree(&ub->kobj);
 }
 
-void uevent_do_work(unsigned long data){
+void uevent_do_work(struct work_struct *work)
+{
+	char *msg[] = {NULL, NULL};
+	if (gpio_get_value(uinfo->detect_pin) ^ uinfo->charge_active_low)
+		msg[0] = charging_str;
+	else
+		msg[0] = charged_str;
 
-	kobject_uevent_env(&uobj->kobj, KOBJ_CHANGE,updata->ur->report_string);
+	kobject_uevent_env(&uobj->kobj, KOBJ_CHANGE, msg);
 }
 
-static interrupt_isr(int irq, void *data)
+static irqreturn_t interrupt_isr(int irq, void *data)
 {
 	schedule_work(&uevent_wq);
 	return IRQ_HANDLED;
@@ -110,13 +124,12 @@ static interrupt_isr(int irq, void *data)
 static int fp8102_det_probe( struct platform_device *pdev)
 {
 	int ret = 0;
-	updata = pdev->dev.platform_data;
-	if(!updata){
+	uinfo = pdev->dev.platform_data;
+	if(!uinfo){
 		printk("get uevent pdata failed \n");
 		return -EINVAL;
 	}
 
-	uinfo = updata->ur;
 	uevent_kset = kset_create_and_add("uevent_report", NULL, kernel_kobj);
 	if (!uevent_kset){
 		return -ENOMEM;
@@ -126,7 +139,7 @@ static int fp8102_det_probe( struct platform_device *pdev)
 		goto kset_error;
 	}
 
-	INIT_WORK(&uevent_wq,uevent_do_work);
+	INIT_WORK(&uevent_wq, uevent_do_work);
 
 	uobj->kobj.kset = uevent_kset;
 	ret = kobject_init_and_add(&uobj->kobj, &uevent_ktype, NULL, "%s", "uevent_report");
@@ -134,14 +147,14 @@ static int fp8102_det_probe( struct platform_device *pdev)
 		goto uevent_error;
 	}
 
-	ret = gpio_request(uinfo->pin,"uevent_report");
+	ret = gpio_request(uinfo->detect_pin, "uevent_report");
 	if (ret){
 		printk("gpio reuest for uevent report failed\n");
 		goto uevent_error;
 	}
 
-	irqnum = gpio_to_irq(uinfo->pin);
-	if (request_irq(irqnum, interrupt_isr, uinfo->irq_type, "uevent_report", NULL)) {
+	irqnum = gpio_to_irq(uinfo->detect_pin);
+	if (request_irq(irqnum, interrupt_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, "uevent_report", NULL)) {
 		printk(KERN_ERR "uevent.c: Can't allocate irq %d\n", irqnum);
 		goto gpio_error;
 	}
@@ -149,9 +162,8 @@ static int fp8102_det_probe( struct platform_device *pdev)
 	return 0;
 
 gpio_error:
-	gpio_free(uinfo->pin);
+	gpio_free(uinfo->detect_pin);
 uevent_error:
-	destroy_workqueue(&uevent_wq);
 	destroy_uevent_obj(uobj);
 kset_error:
 	kset_unregister(uevent_kset);
@@ -160,11 +172,10 @@ kset_error:
 
 static int fp8102_det_remove(struct platform_device *dev)
 {
-	destroy_workqueue(&uevent_wq);
 	destroy_uevent_obj(uobj);
 	kset_unregister(uevent_kset);
-	free_irq(irqnum,NULL);
-	gpio_free(uinfo->pin );
+	free_irq(irqnum, NULL);
+	gpio_free(uinfo->detect_pin);
 	return 0;
 }
 
