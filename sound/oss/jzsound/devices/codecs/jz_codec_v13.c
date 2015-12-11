@@ -907,17 +907,24 @@ static void codec_set_gain_replay_mixer(struct codec_info *codec_dev, unsigned i
 static int codec_set_gain_dac(struct codec_info *codec_dev, int gain)
 {
 	int tmpval,tmp_gain;
-
+#ifdef CONFIG_BOARD_X1000_ASLMOM_V10
+	/* We just use -31dB ~ -3dB to avoid of the replay sound cut top */
+	gain = gain*28/100;
+	if(gain > 28 || gain < 0){
+		printk("set gain out of range [0 - 28]\n");
+		return 0;
+	}
+	tmp_gain = 31 - gain;
+#else
 	/* We just use -31dB ~ 0dB to avoid of the replay sound cut top */
 	gain = gain*31/100;
 	if(gain > 31 || gain < 0){
 		printk("set gain out of range [0 - 31]\n");
 		return 0;
 	}
-	DUMP_GAIN_PART_REGS(codec_dev, "enter");
-
 	tmp_gain = 31 - gain;
-
+#endif
+	DUMP_GAIN_PART_REGS(codec_dev, "enter");
 	tmpval = icdc_d3_hw_read(codec_dev,SCODA_REG_GCR_DACL);
 	tmpval &= ~0x3f;
 	icdc_d3_hw_write(codec_dev,SCODA_REG_GCR_DACL,tmpval|tmp_gain);
