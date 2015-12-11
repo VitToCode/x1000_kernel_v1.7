@@ -98,19 +98,9 @@ struct platform_device tm57pe20a_touch_button = {
 #endif
 
 #ifdef CONFIG_FP8102_DET
-#define DET_PIN GPIO_PD(5)
-#define IRQ_TYPE IRQF_TRIGGER_RISING
-static struct uevent_report ureport[] = {
-	{
-		.report_string = {"charge-full",NULL},
-		.pin = DET_PIN,
-		.irq_type = IRQ_TYPE,
-	},
-};
-
 static struct uevent_platform_data uinfo = {
-			.pin_nums = ARRAY_SIZE(ureport),
-			.ur = ureport,
+	.detect_pin		= GPIO_PD(5),
+	.charge_active_low	= 1,
 };
 
 struct platform_device fp8102_det = {
@@ -120,7 +110,6 @@ struct platform_device fp8102_det = {
                 .platform_data  = &uinfo,
         },
 };
-
 #endif
 
 #ifdef CONFIG_JZ_EFUSE_V11
