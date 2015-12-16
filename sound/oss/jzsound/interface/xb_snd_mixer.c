@@ -340,13 +340,12 @@ long xb_snd_mixer_ioctl(struct file *file,
 		if (ret < 0)
 			return ret;
 
-        if(put_user(tmp, (long *) arg))
+		if(put_user(tmp, (long *) arg))
 			return -EFAULT;
 		break;
 	}
 
 	case SOUND_MIXER_WRITE_RECSRC: {
-
 		int tmp;
 		if (get_user(tmp, (int*)arg)){
 			return -EFAULT;
@@ -372,7 +371,7 @@ long xb_snd_mixer_ioctl(struct file *file,
 		if (ret < 0)
 			return ret;
 
-        if(put_user(tmp, (long *) arg))
+		if(put_user(tmp, (long *)arg))
 			return -EFAULT;
 		break;
 	}
