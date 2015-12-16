@@ -296,8 +296,11 @@ static int codec_set_device(enum snd_device_t device)
 
 static int codec_set_replay_channel(int* channel)
 {
+#ifdef CONFIG_BOARD_X1000_HL01_V10
+	*channel = 1;
+#else
 	*channel = (*channel >= 2) + 1;
-
+#endif
 	return 0;
 }
 
@@ -317,9 +320,15 @@ static int codec_dac_setup(void)
 	data = 0x0;
 	ret |= akm4753_i2c_write_regs(0x0, &data, 1);
 
+#ifdef CONFIG_BOARD_X1000_HL01_V10
+	/* Set up stereo mode(HPF, LPF individual mode) */
+	data = 0x11;
+	ret |= akm4753_i2c_write_regs(0x01, &data, 1);
+#else
 	/* Set up 2.1-channels mode */
 	data = 0x21;
 	ret |= akm4753_i2c_write_regs(0x01, &data, 1);
+#endif
 	
 	/* Init 0x05 ~ 0x7d registers */
         for (i = 0; i < sizeof(akm4753_registers) / sizeof(akm4753_registers[0]); i++){
