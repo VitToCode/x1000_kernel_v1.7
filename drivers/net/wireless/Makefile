@@ -67,5 +67,6 @@ obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 obj-$(CONFIG_BCM4018X)    += bcm4018x/
 obj-$(CONFIG_BCM43341)	+= bcm43341/
 obj-$(CONFIG_BCMDHD_1_141_66)   += bcmdhd_1_141_66/
+obj-$(CONFIG_BCMDHD_43455)   += bcmdhd_43455/
 obj-$(CONFIG_RTL8188EU)  += wifi_power.o
 

@@ -528,6 +528,14 @@ config WL127X_RFKILL
     Creates an rfkill entry in sysfs for power control of Bluetooth
     AP6212 chips.
 
+ config BCM_AP6255_RFKILL
+    tristate "Bluetooth power control driver for AP6255"
+    depends on RFKILL
+    default n
+    ---help---
+    Creates an rfkill entry in sysfs for power control of Bluetooth
+    AP6255 chips.
+
 config BCM4330_RFKILL
 	tristate "Bluetooth power control driver for bcm4330"
 	depends on RFKILL

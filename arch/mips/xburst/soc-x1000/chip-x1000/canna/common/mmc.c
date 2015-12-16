@@ -14,6 +14,11 @@ int bcm_ap6212_wlan_init(void);
 int bcm_ap6212_manual_sysfs_init(struct device *dev);
 #endif
 
+#ifdef CONFIG_BCMDHD_43455
+int bcm_ap6255_wlan_init(void);
+int bcm_ap6255_manual_sysfs_init(struct device *dev);
+#endif
+
 #ifndef CONFIG_NAND
 #ifdef CONFIG_JZMMC_V12_MMC0
 static struct card_gpio tf_gpio = {
@@ -59,6 +64,10 @@ struct jzmmc_platform_data sdio_pdata = {
 #ifdef CONFIG_BCMDHD_1_141_66
 	.private_init			= bcm_ap6212_wlan_init,
 	.manual_sysfs_init              = bcm_ap6212_manual_sysfs_init,
+#endif
+#ifdef CONFIG_BCMDHD_43455
+	.private_init			= bcm_ap6255_wlan_init,
+	.manual_sysfs_init              = bcm_ap6255_manual_sysfs_init,
 #endif
 };
 #endif

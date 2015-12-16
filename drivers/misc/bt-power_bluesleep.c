@@ -39,7 +39,6 @@ extern void wlan_pw_en_enable(void);
 extern void wlan_pw_en_disable(void);
 extern void rtc32k_enable(void);
 extern void rtc32k_disable(void);
-extern int bcm_ap6212_wlan_init(void);
 
 extern int bluesleep_start(void);
 extern void bluesleep_stop(void);
@@ -196,12 +195,6 @@ static int __init_or_module bt_power_probe(struct platform_device *pdev)
 
 		printk("6\n");
 		return -EINVAL;
-	}
-#endif
-#ifndef CONFIG_BCMDHD_1_141_66
-	ret = bcm_ap6212_wlan_init();
-	if(ret != 0){
-		printk("BT regulator get failed");
 	}
 #endif
 	if(bt_rst_n > 0){
