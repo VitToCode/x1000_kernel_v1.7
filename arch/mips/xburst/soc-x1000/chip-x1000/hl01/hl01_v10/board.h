@@ -62,32 +62,31 @@
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
-#define GPIO_SPEAKER_EN    GPIO_PA(2)         /*speaker enable gpio*/
-#define GPIO_SPEAKER_EN_LEVEL   0
+#define GPIO_SPEAKER_EN    	-1         /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN_LEVEL   -1
 
-#define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
+#define GPIO_HANDSET_EN     	-1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
 
 #define GPIO_HP_DETECT  	-1      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    -1
-#define GPIO_LINEIN_DETECT          GPIO_PD(3)      /*linein detect gpio*/
-#define GPIO_LINEIN_INSERT_LEVEL    0
-#define GPIO_MIC_SELECT     -1  /*mic select gpio*/
+#define GPIO_LINEIN_DETECT          -1      /*linein detect gpio*/
+#define GPIO_LINEIN_INSERT_LEVEL    -1
+#define GPIO_MIC_SELECT     	-1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
-#define GPIO_MIC_DETECT     -1
+#define GPIO_MIC_DETECT     	-1
 #define GPIO_MIC_INSERT_LEVEL   -1
-#define GPIO_MIC_DETECT_EN  -1  /*mic detect enable gpio*/
+#define GPIO_MIC_DETECT_EN  	-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL -1 /*mic detect enable gpio*/
 
-#define HP_SENSE_ACTIVE_LEVEL   1
 #define HOOK_ACTIVE_LEVEL       -1
 
 #ifdef CONFIG_AKM4753_EXTERNAL_CODEC
 #define GPIO_AKM4753_PDN		GPIO_PC(21)       /* AKM4753 PDN pin */
 #define GPIO_AKM4753_SPEAKER_EN		GPIO_PA(2)       /* amp shutdown pin */
 #define GPIO_AKM4753_SPEAKER_EN_LEVEL	1
-#define GPIO_AKM4753_LINEIN_DETECT          GPIO_PA(4)   /*linein detect gpio*/
-#define GPIO_AKM4753_LINEIN_INSERT_LEVEL    0
+#define GPIO_AKM4753_LINEIN_DETECT      GPIO_PA(4)   	/*linein detect gpio*/
+#define GPIO_AKM4753_LINEIN_INSERT_LEVEL 0
 #define GPIO_AKM4753_HP_DETECT  	-1      	/*hp detect gpio*/
 #define GPIO_AKM4753_HP_INSERT_LEVEL    -1
 #endif

@@ -29,28 +29,11 @@ static struct snd_codec_data wm8594_codec_pdata = {
 #endif
 
 #if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
-#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
-static struct snd_board_gpio power_down = {
-	.gpio = GPIO_AKM4753_PDN,
-	.active_level = LOW_ENABLE,
-};
-
-static struct akm4753_platform_data akm4753_data = {
-	.pdn = &power_down,
-};
-#endif
-
 struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #ifdef CONFIG_SENSORS_BMA2X2
 	{
 		I2C_BOARD_INFO("bma2x2", 0x18),
 		.irq = GPIO_GSENSOR_INTR,
-	},
-#endif
-#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
-	{
-		I2C_BOARD_INFO("akm4753", 0x12),
-		.platform_data  = &akm4753_data,
 	},
 #endif
 };

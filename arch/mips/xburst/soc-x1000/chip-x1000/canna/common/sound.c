@@ -52,20 +52,3 @@ struct snd_codec_data codec_data = {
 	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
 	.gpio_linein_detect = {.gpio = GPIO_LINEIN_DETECT, .active_level = GPIO_LINEIN_INSERT_LEVEL},
 };
-
-#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
-struct snd_codec_data akm4753_codec_data = {
-	.codec_sys_clk = 0,
-	/* volume */
-	/* akm4753 -104db~24db, 0.5db step */
-	.replay_digital_volume_base = -10,
-
-	.gpio_spk_en = {.gpio = GPIO_AKM4753_SPEAKER_EN, .active_level = GPIO_AKM4753_SPEAKER_EN_LEVEL},
-	.gpio_hp_detect = {.gpio = GPIO_AKM4753_HP_DETECT, .active_level = GPIO_AKM4753_HP_INSERT_LEVEL},
-	.gpio_linein_detect = {.gpio = GPIO_AKM4753_LINEIN_DETECT, .active_level = GPIO_AKM4753_LINEIN_INSERT_LEVEL},
-};
-
-struct platform_device akm4753_codec_device = {
-        .name = "akm4753_codec",
-};
-#endif
