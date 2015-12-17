@@ -1012,7 +1012,7 @@ static int get_pmu_voltage(void *pmu_interface)
 
 	return axp173_get_adc_data(charger, BAT_VOL, 0);
 }
-
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
 static void axp173_battery_temp_det(struct axp173_charger *charger)
 {
 	struct i2c_client *client = charger->axp173->client;
@@ -1026,7 +1026,7 @@ static void axp173_battery_temp_det(struct axp173_charger *charger)
 	axp173_charger_write_reg(client, POWER_VHTF_DISCHGSET,
 					charger->high_temp_dischg);
 }
-
+#endif
 static void __devinit axp173_charger_callback(struct axp173_charger *charger)
 {
 	struct power_supply *psy = power_supply_get_by_name("battery-adc");
