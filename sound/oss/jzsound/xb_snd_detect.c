@@ -178,12 +178,30 @@ static void linein_switch_work(struct work_struct *linein_work)
         int state = 0;
         int tmp_state =0;
 	int device = 0;
+	int delay = 0;
         struct snd_switch_data *switch_data =
                 container_of(linein_work, struct snd_switch_data, linein_work);
 
+	if(switch_data->linein_state == 1){
+	/*
+	 * The event of linein plugout should check more time to avoid frequently plug action.
+	 * You can change the delay time(ms) according to your needs.
+	 */
+#ifdef CONFIG_BOARD_X1000_HL01_V10
+		delay = 1000;
+#else
+		delay = 300;
+#endif
+	}else{
+	/*
+	 * The event of linein plugin should report immediately.
+	 */
+		delay = 20;
+	}
+
         state = gpio_get_value(switch_data->linein_gpio);
         for (i = 0; i < 5; i++) {
-                msleep(20);
+                msleep(delay);
                 tmp_state = gpio_get_value(switch_data->linein_gpio);
                 if (tmp_state != state) {
                         i = -1;
