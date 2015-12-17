@@ -100,7 +100,13 @@ struct jz_current_battery_info youth_battery_pdata = {
         .ac_chg_current = 340,
         .usb_chg_current = 1000,
         .suspend_current = 30,
-        .battery_max_cpt = 2200,
+        .battery_max_cpt = 1000,
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	.low_temp_chg = 0x81,
+	.high_temp_chg = 0x18,
+	.low_temp_dischg = 0xCE,
+	.high_temp_dischg = 0xF,
+#endif
 };
 struct axp173_adc_platform_data adc_platform_data = {
 	.battery_info = &youth_battery_pdata,

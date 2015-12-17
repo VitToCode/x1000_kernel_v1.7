@@ -164,6 +164,8 @@
 #define INT2_BATTERY_OUT                        (1<<6)
 #define INT2_BATTERY_CHARGING                   (1<<3)
 #define INT2_BATTERY_CHARGED                    (1<<2)
+#define INT2_BATTERY_HIGH_TEMP			(1<<1)
+#define INT2_BATTERY_LOW_TEMP			(1<<0)
 #define INT5_TIMER                              (1<<7)
 
 #define AC_IN                                   (1<<7)
@@ -175,7 +177,9 @@
 #define CHARGE_ENABLE                           (1<<7)
 
 #define VSEL_MASK   0
-
+#define ADC_TS_OUT(x)				(x<<4)
+#define ADC_TS_OUT_TYPE(x)			(x<<0)
+#define TS_ADC_EN				(1<<0)
 
 struct axp173 {
 	struct device 		*dev;

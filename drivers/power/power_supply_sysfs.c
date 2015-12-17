@@ -62,6 +62,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *capacity_level_text[] = {
 		"Unknown", "Critical", "Low", "Normal", "High", "Full"
 	};
+	static char *temp_text[] = {
+		"Unknown", "Normal", "Low temperature", "High temperature",
+	};
 	ssize_t ret = 0;
 	struct power_supply *psy = dev_get_drvdata(dev);
 	const ptrdiff_t off = attr - power_supply_attrs;
@@ -92,6 +95,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", technology_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_CAPACITY_LEVEL)
 		return sprintf(buf, "%s\n", capacity_level_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_TEMP)
+		return sprintf(buf, "%s\n", temp_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TYPE)
 		return sprintf(buf, "%s\n", type_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)

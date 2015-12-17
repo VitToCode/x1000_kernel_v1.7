@@ -160,7 +160,35 @@ static int get_battery_sample_count(void *battery_interfusbe)
 
 	return get_battery_info(battery, sample_count);
 }
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+static int get_battery_low_temp_chg(void *battery_interfusbe)
+{
+	struct jz_current_battery *battery = battery_interfusbe;
 
+	return get_battery_info(battery, low_temp_chg);
+}
+
+static int get_battery_high_temp_chg(void *battery_interfusbe)
+{
+	struct jz_current_battery *battery = battery_interfusbe;
+
+	return get_battery_info(battery, high_temp_chg);
+}
+
+static int get_battery_low_temp_dischg(void *battery_interfusbe)
+{
+	struct jz_current_battery *battery = battery_interfusbe;
+
+	return get_battery_info(battery, low_temp_dischg);
+}
+
+static int get_battery_high_temp_dischg(void *battery_interfusbe)
+{
+	struct jz_current_battery *battery = battery_interfusbe;
+
+	return get_battery_info(battery, high_temp_dischg);
+}
+#endif
 static void jz_current_battery_callback(struct jz_current_battery *battery)
 {
 	battery->battery_interface = battery;
@@ -170,6 +198,12 @@ static void jz_current_battery_callback(struct jz_current_battery *battery)
 	battery->get_battery_usb_chg_current = get_battery_usb_chg_current;
 	battery->get_battery_sample_count = get_battery_sample_count;
 	battery->get_battery_suspend_current = get_battery_suspend_current;
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	battery->get_battery_low_temp_chg = get_battery_low_temp_chg;
+	battery->get_battery_high_temp_chg = get_battery_high_temp_chg;
+	battery->get_battery_low_temp_dischg = get_battery_low_temp_dischg;
+	battery->get_battery_high_temp_dischg = get_battery_high_temp_dischg;
+#endif
 }
 
 #ifdef CONFIG_PM

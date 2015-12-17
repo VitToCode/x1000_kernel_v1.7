@@ -121,6 +121,13 @@ config AXP173_CHARGER_DEBUG
         help
           Print the AXP173 CHARGER DEBUG msg.
 
+config AXP173_BAT_TEMP_DET
+	tristate "AXP173 battery temperature detection"
+	depends on MFD_AXP173
+	help
+	  Say Y here to enable support for the battery temperature detection
+	  in the PMU AXP173.
+
 config MAX8925_POWER
 	tristate "MAX8925 battery charger support"
 	depends on MFD_MAX8925

@@ -13,6 +13,8 @@
 #include <linux/earlysuspend.h>
 #include <linux/pm.h>
 
+static int temp_key = 0;
+
 #ifdef CONFIG_AXP173_CHARGER_DEBUG
 static int axp173_debug = 1;
 
@@ -89,6 +91,12 @@ struct axp173_charger {
 	int usb_chg_current;
 	int suspend_current;
 	int irq;
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	int low_temp_chg;
+	int high_temp_chg;
+	int low_temp_dischg;
+	int high_temp_dischg;
+#endif
 
 	struct power_supply battery;
 	struct power_supply usb;
@@ -141,6 +149,7 @@ static enum power_supply_property axp173_battery_power_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_ENERGY_EMPTY,
 	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 static enum power_supply_property axp173_power_properties[] = {
@@ -586,6 +595,12 @@ static void axp173_charger_work_int2(struct axp173_charger *charger,
 			axp173_clr_coulomb(charger);
 			update = 0;
 			break;
+		case INT2_BATTERY_HIGH_TEMP:
+			temp_key = 1;
+			break;
+		case INT2_BATTERY_LOW_TEMP:
+			temp_key = 2;
+			break;
 		default:
 			break;
 		}
@@ -677,16 +692,32 @@ static int __devinit axp173_charger_initialize(struct axp173_charger *charger)
 	axp173_charger_write_reg(client, POWER_BATDETECT_CHGLED_REG,
 				 battery_dete);
 
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	adc_en1 = BAT_ADC_EN_V | BAT_ADC_EN_C | AC_ADC_EN_V |
+			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C | TS_ADC_EN;
+#else
 	adc_en1 = BAT_ADC_EN_V | BAT_ADC_EN_C | AC_ADC_EN_V |
 			AC_ADC_EN_C | USB_ADC_EN_V | USB_ADC_EN_C;
+#endif
 	axp173_charger_write_reg(client, POWER_ADC_EN1, adc_en1);
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	adc_speed = ADC_SPEED_BIT1 | ADC_SPEED_BIT2 | ADC_TS_OUT(2) |
+			ADC_TS_OUT_TYPE(3);
+#else
 	adc_speed = ADC_SPEED_BIT1 | ADC_SPEED_BIT2;
+#endif
 	axp173_charger_write_reg(client, POWER_ADC_SPEED, adc_speed);
 	int1 = INT1_AC_IN | INT1_AC_OUT | INT1_USB_IN |
 			INT1_USB_OUT | INT1_VBUS_VHOLD;
 	axp173_charger_write_reg(client, POWER_INTEN1, int1);
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	int2 = INT2_BATTERY_IN | INT2_BATTERY_OUT |
+			INT2_BATTERY_CHARGING | INT2_BATTERY_CHARGED |
+			INT2_BATTERY_HIGH_TEMP | INT2_BATTERY_LOW_TEMP;
+#else
 	int2 = INT2_BATTERY_IN | INT2_BATTERY_OUT |
 			INT2_BATTERY_CHARGING | INT2_BATTERY_CHARGED;
+#endif
 	axp173_charger_write_reg(client, POWER_INTEN2, int2);
 	axp173_charger_write_reg(client, POWER_INTEN3, int3);
 	axp173_charger_write_reg(client, POWER_INTEN4, int4);
@@ -756,6 +787,20 @@ static int axp173_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		if(charger->battery_online) {
+			if(!temp_key)
+				val->intval = POWER_SUPPLY_TEMP_NORMAL;
+			else if(temp_key == 1)
+				val->intval = POWER_SUPPLY_TEMP_HIGH_TEMPERATURE;
+			else if(temp_key == 2)
+				val->intval = POWER_SUPPLY_TEMP_LOW_TEMPERATURE;
+			else
+				val->intval = POWER_SUPPLY_TEMP_UNKNOWN;
+		}
+		else
+			val->intval = POWER_SUPPLY_TEMP_UNKNOWN;
 		break;
 	default:
 		ret = -EINVAL;
@@ -968,6 +1013,20 @@ static int get_pmu_voltage(void *pmu_interface)
 	return axp173_get_adc_data(charger, BAT_VOL, 0);
 }
 
+static void axp173_battery_temp_det(struct axp173_charger *charger)
+{
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_write_reg(client, POWER_VLTF_CHGSET,
+					charger->low_temp_chg);
+	axp173_charger_write_reg(client, POWER_VHTF_CHGSET,
+					charger->high_temp_chg);
+	axp173_charger_write_reg(client, POWER_VLTF_DISCHGSET,
+					charger->low_temp_dischg);
+	axp173_charger_write_reg(client, POWER_VHTF_DISCHGSET,
+					charger->high_temp_dischg);
+}
+
 static void __devinit axp173_charger_callback(struct axp173_charger *charger)
 {
 	struct power_supply *psy = power_supply_get_by_name("battery-adc");
@@ -1005,6 +1064,14 @@ static void __init axp173_charger_get_info(struct axp173_charger *charger)
 	if (charger->usb_online)
 		power_src |= INT1_USB_IN;
 	axp173_charger_work_int1(charger, power_src);
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	charger->low_temp_chg = battery->get_battery_low_temp_chg(battery);
+	charger->high_temp_chg = battery->get_battery_high_temp_chg(battery);
+	charger->low_temp_dischg = battery->get_battery_low_temp_dischg(battery);
+	charger->high_temp_dischg = battery->get_battery_high_temp_dischg(battery);
+	axp173_battery_temp_det(charger);
+#endif
+
 	AXP173_DEBUG_MSG("%s: battery is online %d\n",
 			 __func__, charger->battery_online);
 	AXP173_DEBUG_MSG("%s: usb is online %d\n",

@@ -26,6 +26,12 @@ struct jz_current_battery_info {
 	int ac_chg_current;
 	int usb_chg_current;
 	int suspend_current;
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	int low_temp_chg;
+	int high_temp_chg;
+	int low_temp_dischg;
+	int high_temp_dischg;
+#endif
 };
 
 struct jz_current_battery {
@@ -50,7 +56,12 @@ struct jz_current_battery {
 	int (*get_battery_usb_chg_current)(void *battery_interface);
 	int (*get_battery_sample_count)(void *battery_interface);
 	int (*get_battery_suspend_current)(void *battery_interface);
-
+#ifdef CONFIG_AXP173_BAT_TEMP_DET
+	int (*get_battery_low_temp_chg)(void *battery_interface);
+	int (*get_battery_high_temp_chg)(void *battery_interface);
+	int (*get_battery_low_temp_dischg)(void *battery_interface);
+	int (*get_battery_high_temp_dischg)(void *battery_interface);
+#endif
 	int irq;
 	unsigned int battery_vol;
 	struct power_supply battery_adc;
