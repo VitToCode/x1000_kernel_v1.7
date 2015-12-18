@@ -59,18 +59,22 @@ struct tm57pe20a_key key_table[] = {
 static int  press_count = 0;
 static int key_change = 0;
 static int key_count = 0;
-static int vol_up_flag = 0;
-static int vol_down_flag = 0;
+static int volume_key = 0;
+static int first_report = 0;
 static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
-	int flags;	
+	int flags;
+
 	if(pdata->data == 0){
 		key_press = 0;
-		vol_up_flag = 0;
-		vol_down_flag = 0;
+		volume_key = 0;
+		key_change = 0;
+		first_report = 0;
 	}else if(pdata->data < 0x100){
 		if(!key_press){
+			key_change = 0;
+			volume_key = 0;
 			press_count++;
 			if(press_count < 1)
 				return 0;
@@ -90,47 +94,44 @@ static int report_key(struct tm57pe20a_touch_data *pdata)
 		}
 	}else if(pdata->data < 0xb00){
 		pdata->data = pdata->data >> 8;
+		if(!volume_key){
+			volume_key = pdata->data;
+			key_change = 0;
+			first_report = 1;
+		}
 		if(!key_press){
-			key_count++;
-			if(key_count < 1)
-				return 0;
-			key_count = 0;
 			key_press = 1;
-			key = pdata->data;
 		}else{
-			if(key != pdata->data){
+			if(volume_key != pdata->data){
 				key_change++;
 				if(key_change < 2){
 					return 0;
 				}
 				key_change = 0;
-			//spin_lock_irqsave(&pdata->lock, flags);
-				if (key <  pdata->data){
-					if(vol_up_flag){
+				if(first_report == 1){
+					first_report = 0;
+					return 0;
+				}
+		//	printk("222.volume_key= %d,pdata->data = %d\n",volume_key,pdata->data);
+				if (volume_key <  pdata->data){
+					key_value = KEY_VOLUMEDOWN;
+					if((volume_key == 1 || volume_key == 2 || volume_key == 3)&& (pdata->data == 10 || pdata->data == 9 ||pdata->data == 8)){
 						key_value = KEY_VOLUMEUP;
-						vol_up_flag = 0;
-					}else{
-						key_value = KEY_VOLUMEDOWN;
-						vol_down_flag = 1;
 					}
-				}else if (key >  pdata->data ){
-					if(vol_down_flag){
+				}else if (volume_key >  pdata->data ){
+					key_value = KEY_VOLUMEUP;
+					if((volume_key == 8 || volume_key == 9 || volume_key == 10)&& (pdata->data == 1 || pdata->data == 2 || pdata->data == 3)){
 						key_value = KEY_VOLUMEDOWN;
-						vol_down_flag = 0;
-					}else{
-						key_value = KEY_VOLUMEUP;
-						vol_up_flag = 1;
 					}
 				}
 				input_event(pdata->input,EV_KEY,key_value,1);
 				input_sync(pdata->input);
 				input_event(pdata->input,EV_KEY,key_value,0);
 				input_sync(pdata->input);
-			//spin_unlock_irqrestore(&pdata->lock, flags);
-				key = pdata->data;	
-			}
+				volume_key = pdata->data;
+			}else 
+				key_change = 0;
 		}
-	}else{
 		key_press = 1;
 	}
 }
@@ -146,12 +147,12 @@ static irqreturn_t tm57pe20a_sclk_irq_handler(int irq, void *dev_id)
 	struct tm57pe20a_touch_data *pdata = dev_id;
 	pdata->irq_times++;
 	unsigned char bit;
-	udelay(2);
 	bit = __gpio_get_value(pdata->pdata->sda);
 	pdata->data = (pdata->data << 1) | bit;
 	if(pdata->irq_times == 16){
 		pdata->irq_times = 0;
 		udelay(1500);
+//		printk("===>pdata->data = 0x%x\n",pdata->data);
 		disable_irq_nosync(pdata->sclk_irq);
 	//	schedule_work(&pdata->work);
 		report_key(pdata);
@@ -163,6 +164,7 @@ static irqreturn_t tm57pe20a_touch_irq_handler(int irq, void *dev_id)
 {
 	struct tm57pe20a_touch_data *pdata = dev_id;
 	disable_irq_nosync(pdata->irq);
+	pdata->data = 0;
 	enable_irq(pdata->sclk_irq);
 	pdata->irq_times = 0;
 	return IRQ_HANDLED;
@@ -186,7 +188,6 @@ static int tm57pe20a_gpio_init(struct tm57pe20a_touch_data *pdata)
 		pdata->pdata->sda = -EBUSY;
 		return -1;
 	}
-	printk("===>gpio_set_pull\n");
 	gpio_set_pull(pdata->pdata->sda,1);
 
 	return 0;
