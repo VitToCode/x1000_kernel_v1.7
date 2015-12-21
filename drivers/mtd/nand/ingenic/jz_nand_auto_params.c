@@ -310,6 +310,12 @@ static int jz_nand_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_nand_scan_1;
 	}
+#ifdef CONFIG_MTD_NAND_BITFLIP_THRESHOLD
+	nand->mtd.bitflip_threshold = CONFIG_MTD_NAND_BITFLIP_THRESHOLD;
+#else
+	nand->mtd.bitflip_threshold = nand->chip.ecc.strength / 3;
+#endif
+
 	if (nand_scan_tail(&nand->mtd)) {
 		ret = -ENXIO;
 		goto err_nand_scan_2;
