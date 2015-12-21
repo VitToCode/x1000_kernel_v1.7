@@ -417,8 +417,8 @@ static int codec_set_replay_volume(int *val)
 
 	if (*val) {
 #ifdef CONFIG_BOARD_X1000_HL01_V10
-		/* use -18dB ~ -51dB for 3w speaker */
-		data = (18 + (100-*val)/3) *2;
+		/* use -15dB ~ -48dB for 3w speaker */
+		data = (15 + (100-*val)/3) *2;
 		akm4753_i2c_write_regs(0x05, &data, 1);
 		akm4753_i2c_write_regs(0x06, &data, 1);
 #else
