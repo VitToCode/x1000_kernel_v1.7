@@ -208,7 +208,7 @@ static int jz_efuse_write(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 				dev_err(efuse->dev, "write segment %d data must length %d = 128 bit", seg_id, bit_num);
 				return -1;
 			}
-						val = efuse_readl(EFUSE_STATE);
+			val = efuse_readl(EFUSE_STATE);
 			if(val & CHIP_PRT) {
 				dev_err(efuse->dev, "segment chip_id is protected\n");
 				return -1;
@@ -332,7 +332,7 @@ static int efuse_read_chip_id_proc(char *page, char **start, off_t off,
 	jz_efuse_read(CHIP_ID, 16, buf);
 	len = sprintf(page,"--------> chip id: ");
 	for(i = 0; i < 4; i++) {
-		len += sprintf(page + len,"%x",buf[i]);
+		len += sprintf(page + len,"%08x",buf[i]);
 	}
 	len += sprintf(page + len,"\n");
 	return len;
@@ -347,7 +347,7 @@ static int efuse_read_user_id_proc(char *page, char **start, off_t off,
 	jz_efuse_read(USER_ID, 32,buf);
 	len = sprintf(page,"--------> user id: ");
 	for(i = 0; i < 8; i++)
-		len += sprintf(page + len,"%x",buf[i]);
+		len += sprintf(page + len,"%08x",buf[i]);
 	len += sprintf(page + len,"\n");
 
 	return len;
@@ -557,7 +557,7 @@ static void __exit jz_efuse_exit(void)
 module_init(jz_efuse_init);
 module_exit(jz_efuse_exit);
 
-MODULE_DESCRIPTION("M200 efuse driver");
+MODULE_DESCRIPTION("X1000 efuse driver");
 MODULE_AUTHOR("liu bo <bo.liu@ingenic.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("20151123");
