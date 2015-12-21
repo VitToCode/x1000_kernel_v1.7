@@ -79,6 +79,7 @@ struct snd_codec_data {
 
 	/* gpio */
 	struct snd_board_gpio gpio_spk_en;
+	struct snd_board_gpio gpio_amp_power;		/* analog power amplifier power pin */
 	struct snd_board_gpio gpio_hp_mute;
 	struct snd_board_gpio gpio_hp_detect;
 	struct snd_board_gpio gpio_linein_detect;

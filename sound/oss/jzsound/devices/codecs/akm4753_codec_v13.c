@@ -666,6 +666,15 @@ static int jz_codec_probe(struct platform_device *pdev)
 			&codec_platform_data->gpio_linein_detect,
 			-1);
 
+	if (codec_platform_data->gpio_amp_power.gpio != -1) {
+		if (gpio_request(codec_platform_data->gpio_amp_power.gpio, "gpio_amp_power") < 0) {
+			gpio_free(codec_platform_data->gpio_amp_power.gpio);
+			gpio_request(codec_platform_data->gpio_amp_power.gpio,"gpio_amp_power");
+		}
+		/* power on amplifier */
+		gpio_direction_output(codec_platform_data->gpio_amp_power.gpio, codec_platform_data->gpio_amp_power.active_level);
+	}
+
 	if (codec_platform_data->gpio_spk_en.gpio != -1) {
 		if (gpio_request(codec_platform_data->gpio_spk_en.gpio, "gpio_spk_en") < 0) {
 			gpio_free(codec_platform_data->gpio_spk_en.gpio);

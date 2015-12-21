@@ -58,6 +58,8 @@
 
 #define GPIO_SPEAKER_EN    GPIO_PC(25)         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   1
+#define GPIO_AMP_POWER_EN	-1	/* amp power enable pin */
+#define GPIO_AMP_POWER_EN_LEVEL	-1
 
 #define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1

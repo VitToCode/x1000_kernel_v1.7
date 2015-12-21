@@ -64,6 +64,8 @@
 
 #define GPIO_SPEAKER_EN    	-1         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   -1
+#define GPIO_AMP_POWER_EN	-1	/* amp power enable pin */
+#define GPIO_AMP_POWER_EN_LEVEL	-1
 
 #define GPIO_HANDSET_EN     	-1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
@@ -85,6 +87,8 @@
 #define GPIO_AKM4753_PDN		GPIO_PC(21)       /* AKM4753 PDN pin */
 #define GPIO_AKM4753_SPEAKER_EN		GPIO_PA(2)       /* amp shutdown pin */
 #define GPIO_AKM4753_SPEAKER_EN_LEVEL	1
+#define GPIO_AKM4753_AMP_POWER_EN	GPIO_PA(15)	/* amp power enable pin */
+#define GPIO_AKM4753_AMP_POWER_EN_LEVEL	1
 #define GPIO_AKM4753_LINEIN_DETECT      GPIO_PA(4)   	/*linein detect gpio*/
 #define GPIO_AKM4753_LINEIN_INSERT_LEVEL 0
 #define GPIO_AKM4753_HP_DETECT  	-1      	/*hp detect gpio*/

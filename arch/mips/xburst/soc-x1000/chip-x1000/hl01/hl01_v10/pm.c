@@ -11,9 +11,6 @@
 // default gpio state is input pull;
 __initdata int gpio_ss_table[][2] = {
 	/* GPIO Group - A */
-#ifdef CONFIG_AKM4753_EXTERNAL_CODEC
-	{32*0+15,       GSS_OUTPUT_HIGH },      /* audio amp power on, just for hl01 board */
-#endif
         {32*0+26,       GSS_OUTPUT_LOW  },      /* SFC_CLK */
         {32*0+27,       GSS_OUTPUT_HIGH },      /* SFC_CE */
         {32*0+28,       GSS_INPUT_PULL  },      /* SFC_DR */

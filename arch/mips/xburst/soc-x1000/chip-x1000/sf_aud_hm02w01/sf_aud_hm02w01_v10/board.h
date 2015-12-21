@@ -62,6 +62,8 @@
 
 #define GPIO_SPEAKER_EN    GPIO_PC(25)		/*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   1
+#define GPIO_AMP_POWER_EN	-1	/* amp power enable pin */
+#define GPIO_AMP_POWER_EN_LEVEL	-1
 
 #define GPIO_LINEIN_DETECT	GPIO_PD(3)	/*linein detect gpio*/
 #define GPIO_LINEIN_INSERT_LEVEL    0
