@@ -888,7 +888,10 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 	int ret = 0;
 	struct i2s_device *i2s_dev = i2s_get_private_data(ddata);
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
-	//printk("[i2s debug]%s:%d, ddata:%p, cmd:%d, arg:%x\n", __func__, __LINE__, ddata, cmd, arg? *(unsigned int *)arg : arg);
+
+	/* wait for do_ioctl_work operation finish */
+	flush_work_sync(&i2s_dev->i2s_work);
+
 	switch(cmd) {
 		case SND_DSP_GET_REPLAY_RATE:
 			if (cur_codec && cur_codec->replay_rate)
@@ -953,10 +956,6 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 						ret = 0;         //txfifo underrun happen
 				}
 			}
-			break;
-
-		case SND_DSP_FLUSH_SYNC:
-			flush_work_sync(&i2s_dev->i2s_work);
 			break;
 
 		case SND_DSP_SET_REPLAY_RATE:
@@ -1028,7 +1027,6 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 			 * This is only for some more time-consuming operations.
 			 * We use the work queue to save time.
 			 */
-			flush_work_sync(&i2s_dev->i2s_work);
 			i2s_dev->ioctl_cmd = cmd;
 			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg; //caution the value of arg
 			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
@@ -1043,76 +1041,76 @@ static long do_ioctl_work(struct i2s_device *i2s_dev, unsigned int cmd, unsigned
 
 	struct codec_info * cur_codec = i2s_dev->cur_codec;
 	switch (cmd) {
-	case SND_DSP_ENABLE_REPLAY:
-		/* enable i2s record */
-		/* set i2s default record format, channels, rate */
-		/* set default replay route */
-		ret = i2s_enable(i2s_dev, CODEC_WMODE);
-		break;
+		case SND_DSP_ENABLE_REPLAY:
+			/* enable i2s record */
+			/* set i2s default record format, channels, rate */
+			/* set default replay route */
+			ret = i2s_enable(i2s_dev, CODEC_WMODE);
+			break;
 
-	case SND_DSP_DISABLE_REPLAY:
-		/* disable i2s replay */
-		ret = i2s_disable_channel(i2s_dev, CODEC_WMODE);
-		break;
+		case SND_DSP_DISABLE_REPLAY:
+			/* disable i2s replay */
+			ret = i2s_disable_channel(i2s_dev, CODEC_WMODE);
+			break;
 
-	case SND_DSP_ENABLE_RECORD:
-		/* enable i2s record */
-		/* set i2s default record format, channels, rate */
-		/* set default record route */
-		ret = i2s_enable(i2s_dev, CODEC_RMODE);
-		break;
+		case SND_DSP_ENABLE_RECORD:
+			/* enable i2s record */
+			/* set i2s default record format, channels, rate */
+			/* set default record route */
+			ret = i2s_enable(i2s_dev, CODEC_RMODE);
+			break;
 
-	case SND_DSP_DISABLE_RECORD:
-		/* disable i2s record */
-		ret = i2s_disable_channel(i2s_dev, CODEC_RMODE);
-		break;
+		case SND_DSP_DISABLE_RECORD:
+			/* disable i2s record */
+			ret = i2s_disable_channel(i2s_dev, CODEC_RMODE);
+			break;
 
-	case SND_MIXER_DUMP_REG:
-		dump_i2s_reg(i2s_dev);
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_DUMP_REG,0);
-		break;
-	case SND_MIXER_DUMP_GPIO:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_DUMP_GPIO,0);
-		break;
+		case SND_MIXER_DUMP_REG:
+			dump_i2s_reg(i2s_dev);
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_DUMP_REG,0);
+			break;
+		case SND_MIXER_DUMP_GPIO:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_DUMP_GPIO,0);
+			break;
 
-	case SND_DSP_SET_STANDBY:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_SET_STANDBY,(int)arg);
-		break;
+		case SND_DSP_SET_STANDBY:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_SET_STANDBY,(int)arg);
+			break;
 
-	case SND_DSP_SET_DEVICE:
-		ret = i2s_set_device(i2s_dev, arg);
-		break;
-	case SND_DSP_SET_RECORD_VOL:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_VOLUME, arg);
-		break;
-	case SND_DSP_SET_REPLAY_VOL:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_VOLUME, arg);
-		break;
-	case SND_DSP_SET_MIC_VOL:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_SET_MIC_VOLUME, arg);
-		break;
-	case SND_DSP_CLR_ROUTE:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_CLR_ROUTE,arg);
-		break;
-	case SND_DSP_DEBUG:
-		if (cur_codec)
-			ret = codec_ctrl(cur_codec, CODEC_DEBUG,arg);
-		break;
-	case SND_DSP_RESUME_PROCEDURE:
-		if (cur_codec && !i2s_is_incall_1(i2s_dev))
-			codec_ctrl(cur_codec, CODEC_RESUME,0);
-		break;
-	default:
-		printk("SOUND_ERROR: %s(line:%d) unknown command!",
-				__func__, __LINE__);
-		ret = -EINVAL;
+		case SND_DSP_SET_DEVICE:
+			ret = i2s_set_device(i2s_dev, arg);
+			break;
+		case SND_DSP_SET_RECORD_VOL:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_SET_RECORD_VOLUME, arg);
+			break;
+		case SND_DSP_SET_REPLAY_VOL:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_SET_REPLAY_VOLUME, arg);
+			break;
+		case SND_DSP_SET_MIC_VOL:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_SET_MIC_VOLUME, arg);
+			break;
+		case SND_DSP_CLR_ROUTE:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_CLR_ROUTE,arg);
+			break;
+		case SND_DSP_DEBUG:
+			if (cur_codec)
+				ret = codec_ctrl(cur_codec, CODEC_DEBUG,arg);
+			break;
+		case SND_DSP_RESUME_PROCEDURE:
+			if (cur_codec && !i2s_is_incall_1(i2s_dev))
+				codec_ctrl(cur_codec, CODEC_RESUME,0);
+			break;
+		default:
+			printk("SOUND_ERROR: %s(line:%d) unknown command!",
+					__func__, __LINE__);
+			ret = -EINVAL;
 	}
 
 	return ret;

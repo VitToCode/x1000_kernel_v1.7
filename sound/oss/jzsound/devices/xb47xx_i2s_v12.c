@@ -938,7 +938,9 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
 	int ret = 0;
 	struct i2s_device *i2s_dev = i2s_get_private_data(ddata);
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
-	//printk("[i2s debug]%s:%d, ddata:%p, cmd:%d, arg:%x\n", __func__, __LINE__, ddata, cmd, arg? *(unsigned int *)arg : arg);
+	/* wait for do_ioctl_work operation finish */
+	flush_work_sync(&i2s_dev->i2s_work);
+
 	switch(cmd) {
 		case SND_DSP_GET_REPLAY_RATE:
 			if (cur_codec && cur_codec->replay_rate)
@@ -1005,11 +1007,71 @@ static long i2s_ioctl_2(struct snd_dev_data *ddata, unsigned int cmd, unsigned l
                         }
                         break;
 
-		case SND_DSP_FLUSH_SYNC:
-			flush_work_sync(&i2s_dev->i2s_work);
+		case SND_DSP_SET_REPLAY_RATE:
+			ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
 			break;
+
+		case SND_DSP_SET_RECORD_RATE:
+			ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
+			break;
+
+		case SND_DSP_SET_REPLAY_CHANNELS:
+			/* set replay channels */
+			ret = i2s_set_channel(i2s_dev, (int *)arg,CODEC_WMODE);
+			if (ret < 0)
+				break;
+			//if (ret & NEED_RECONF_FILTER)
+			//	i2s_set_filter(i2s_dev, CODEC_WMODE,cur_codec->replay_codec_channel);
+			ret = 0;
+			break;
+
+		case SND_DSP_SET_RECORD_CHANNELS:
+			/* set record channels */
+			ret = i2s_set_channel(i2s_dev, (int*)arg,CODEC_RMODE);
+			if (ret < 0)
+				break;
+			if (ret & NEED_RECONF_FILTER)
+				i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
+			ret = 0;
+			break;
+
+		case SND_DSP_SET_REPLAY_FMT:
+			/* set replay format */
+			ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
+			if (ret < 0)
+				break;
+			/* if need reconfig the trigger, reconfig it */
+			if (ret & NEED_RECONF_TRIGGER)
+				i2s_set_trigger(i2s_dev, CODEC_WMODE);
+			/* if need reconfig the dma_slave.max_tsz, reconfig it and
+			   set the dp->need_reconfig_dma as true */
+			if (ret & NEED_RECONF_DMA)
+				i2s_dma_need_reconfig(i2s_dev, CODEC_WMODE);
+			/* if need reconfig the filter, reconfig it */
+			if (ret & NEED_RECONF_FILTER)
+				i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->replay_codec_channel);
+			ret = 0;
+			break;
+
+		case SND_DSP_SET_RECORD_FMT:
+			/* set record format */
+			ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
+			if (ret < 0)
+				break;
+			/* if need reconfig the trigger, reconfig it */
+			if (ret & NEED_RECONF_TRIGGER)
+				i2s_set_trigger(i2s_dev, CODEC_RMODE);
+			/* if need reconfig the dma_slave.max_tsz, reconfig it and
+			   set the dp->need_reconfig_dma as true */
+			if (ret & NEED_RECONF_DMA)
+				i2s_dma_need_reconfig(i2s_dev, CODEC_RMODE);
+			/* if need reconfig the filter, reconfig it */
+			if (ret & NEED_RECONF_FILTER)
+				i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
+			ret = 0;
+			break;
+
 		default:
-			flush_work_sync(&i2s_dev->i2s_work);
 			i2s_dev->ioctl_cmd = cmd;
 			i2s_dev->ioctl_arg = arg ? *(unsigned int *)arg : arg;
 			queue_work(i2s_dev->i2s_work_queue_1, &i2s_dev->i2s_work);
@@ -1046,70 +1108,6 @@ static long do_ioctl_work(struct i2s_device *i2s_dev, unsigned int cmd, unsigned
 	case SND_DSP_DISABLE_RECORD:
 		/* disable i2s record */
 		ret = i2s_disable_channel(i2s_dev, CODEC_RMODE);
-		break;
-
-	case SND_DSP_SET_REPLAY_RATE:
-		ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
-		break;
-
-	case SND_DSP_SET_RECORD_RATE:
-		ret = i2s_set_rate(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
-		break;
-
-	case SND_DSP_SET_REPLAY_CHANNELS:
-		/* set replay channels */
-		ret = i2s_set_channel(i2s_dev, (int *)arg,CODEC_WMODE);
-		if (ret < 0)
-			break;
-		//if (ret & NEED_RECONF_FILTER)
-		//	i2s_set_filter(i2s_dev, CODEC_WMODE,cur_codec->replay_codec_channel);
-		ret = 0;
-		break;
-
-	case SND_DSP_SET_RECORD_CHANNELS:
-		/* set record channels */
-		ret = i2s_set_channel(i2s_dev, (int*)arg,CODEC_RMODE);
-		if (ret < 0)
-			break;
-		if (ret & NEED_RECONF_FILTER)
-			i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
-		ret = 0;
-		break;
-
-	case SND_DSP_SET_REPLAY_FMT:
-		/* set replay format */
-		ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_WMODE);
-		if (ret < 0)
-			break;
-		/* if need reconfig the trigger, reconfig it */
-		if (ret & NEED_RECONF_TRIGGER)
-			i2s_set_trigger(i2s_dev, CODEC_WMODE);
-		/* if need reconfig the dma_slave.max_tsz, reconfig it and
-		   set the dp->need_reconfig_dma as true */
-		if (ret & NEED_RECONF_DMA)
-			i2s_dma_need_reconfig(i2s_dev, CODEC_WMODE);
-		/* if need reconfig the filter, reconfig it */
-		if (ret & NEED_RECONF_FILTER)
-			i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->replay_codec_channel);
-		ret = 0;
-		break;
-
-	case SND_DSP_SET_RECORD_FMT:
-		/* set record format */
-		ret = i2s_set_fmt(i2s_dev, (unsigned long *)arg,CODEC_RMODE);
-		if (ret < 0)
-			break;
-		/* if need reconfig the trigger, reconfig it */
-		if (ret & NEED_RECONF_TRIGGER)
-			i2s_set_trigger(i2s_dev, CODEC_RMODE);
-		/* if need reconfig the dma_slave.max_tsz, reconfig it and
-		   set the dp->need_reconfig_dma as true */
-		if (ret & NEED_RECONF_DMA)
-			i2s_dma_need_reconfig(i2s_dev, CODEC_RMODE);
-		/* if need reconfig the filter, reconfig it */
-		if (ret & NEED_RECONF_FILTER)
-			i2s_set_filter(i2s_dev, CODEC_RMODE,cur_codec->record_codec_channel);
-		ret = 0;
 		break;
 
 	case SND_MIXER_DUMP_REG:
@@ -1168,7 +1166,6 @@ static void i2s_work_handler(struct work_struct *work)
 	struct i2s_device *i2s_dev = (struct i2s_device *)container_of(work, struct i2s_device, i2s_work);
 	unsigned int cmd = i2s_dev->ioctl_cmd;
 	unsigned long arg = i2s_dev->ioctl_arg;
-	//printk("%s:%d, i2s_dev:%p, cmd:%d, arg:%x\n", __func__, __LINE__, i2s_dev, cmd, arg);
 	do_ioctl_work(i2s_dev, cmd, (unsigned long)&arg);
 }
 

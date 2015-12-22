@@ -210,10 +210,6 @@ enum snd_dsp_command {
 	SND_DSP_DEBUG,
 	SND_DSP_SET_VOICE_TRIGGER,
 	/**
-	 *	@SND_DSP_FLUSH_SYNC, wait for ioctl work done.
-	 * */
-	SND_DSP_FLUSH_SYNC,	/*34*/
-	/**
 	 * @SND_DSP_RESUME_PROCEDURE, called by driver, resume.
 	 */
 	SND_DSP_RESUME_PROCEDURE,

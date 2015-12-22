@@ -1467,8 +1467,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 						ddata->dev_ioctl(SND_DSP_ENABLE_DMA_RX, 0);
 					} else if(ddata && ddata->dev_ioctl_2) {
 						ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_DMA_RX, 0);
-						/* wait until all devices settings done, then we can get data */
-						ddata->dev_ioctl_2(ddata, SND_DSP_FLUSH_SYNC, 0);
 					}
 				} else if (!node) {
 					mutex_unlock(&dp->mutex);
@@ -1669,8 +1667,6 @@ ssize_t xb_snd_dsp_write(struct file *file,
 					ddata->dev_ioctl(SND_DSP_ENABLE_DMA_TX, 0);
 				} else if(ddata &&ddata->dev_ioctl_2) {
 					ddata->dev_ioctl_2(ddata, SND_DSP_ENABLE_DMA_TX, 0);
-					/* wait until all devices settings done, then we can really write data */
-					ddata->dev_ioctl_2(ddata, SND_DSP_FLUSH_SYNC, 0);
 				}
 			}
 		}
@@ -2945,10 +2941,6 @@ int xb_snd_dsp_release(struct inode *inode,
 				ret = -EFAULT;
 		}
 		dpo->is_used = false;
-	}
-	/* flush all before another setting */
-	if(ddata->dev_ioctl_2) {
-		ddata->dev_ioctl_2(ddata, SND_DSP_FLUSH_SYNC, 0);
 	}
 
 #ifdef DEBUG_REPLAY

@@ -188,7 +188,7 @@ static void linein_switch_work(struct work_struct *linein_work)
 	 * You can change the delay time(ms) according to your needs.
 	 */
 #ifdef CONFIG_BOARD_X1000_HL01_V10
-		delay = 1000;
+		delay = 3000;
 #else
 		delay = 300;
 #endif
