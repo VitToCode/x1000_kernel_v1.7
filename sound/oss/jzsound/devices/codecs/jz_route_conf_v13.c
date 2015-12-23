@@ -75,7 +75,6 @@ route_conf_base const replay_sound_and_record_mixer_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = LINEIN_ENABLE,
-	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 
 route_conf_base const replay_linein_and_record_mixer_loopback = {
@@ -92,7 +91,6 @@ route_conf_base const replay_linein_and_record_mixer_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = LINEIN_ENABLE,
-	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 
 route_conf_base const record_amic_mix_replay_sound_loopback = {
@@ -107,7 +105,6 @@ route_conf_base const record_amic_mix_replay_sound_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_AMIC,
         .route_mic_mode = AMIC_ENABLE,
-	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 
 route_conf_base const record_dmic_mix_replay_sound_loopback = {
@@ -122,7 +119,6 @@ route_conf_base const record_dmic_mix_replay_sound_loopback = {
         .route_input_mode = INPUT_TO_ADC_ENABLE,
         .route_adc_mode = ADC_ENABLE_WITH_DMIC,
         .route_mic_mode = DMIC_ENABLE,
-	.attibute_replay_mixer_gain = 88,       //this is only for AEC
 };
 /*##############################################################################################################*/
 
