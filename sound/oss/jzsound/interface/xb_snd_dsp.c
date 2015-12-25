@@ -29,7 +29,7 @@ static bool spipe_is_init = 0;
 struct file *f_test = NULL;
 static loff_t f_test_offset = 0;
 static mm_segment_t old_fs;
-#define DEBUG_REPLAYE_FILE "audio.pcm"
+#define DEBUG_REPLAYE_FILE "audioreplay.pcm"
 #endif
 #ifdef DEBUG_RECORD
 struct file *file_record = NULL;
@@ -1132,48 +1132,6 @@ int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size)
 	return ((*data_len) >> 1);
 }
 
-#if 0
-int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size)
-{
-        /* stride = 64 bytes = 2 channels * 4 byte * 8 pipelines */
-        int data_len_64aligned = 0;
-        int data_cnt_ushort = 0;
-        int mono_cur, stereo_cur;
-        unsigned int *ushort_buff = (unsigned int *)buff;
-
-        if ((*data_len) > needed_size*2)
-                *data_len = needed_size*2;
-
-        *data_len = (*data_len) & (~0x7);
-
-        data_len_64aligned = (*data_len) & ~0x3f;
-        data_cnt_ushort = data_len_64aligned / 4;
-
-        /* copy 8 times each loop */
-        for (stereo_cur = mono_cur = 0;
-             stereo_cur < data_cnt_ushort;
-             stereo_cur += 16, mono_cur += 8) {
-
-                ushort_buff[mono_cur + 0] = ushort_buff[stereo_cur + 0];
-                ushort_buff[mono_cur + 1] = ushort_buff[stereo_cur + 2];
-                ushort_buff[mono_cur + 2] = ushort_buff[stereo_cur + 4];
-                ushort_buff[mono_cur + 3] = ushort_buff[stereo_cur + 6];
-                ushort_buff[mono_cur + 4] = ushort_buff[stereo_cur + 8];
-                ushort_buff[mono_cur + 5] = ushort_buff[stereo_cur + 10];
-                ushort_buff[mono_cur + 6] = ushort_buff[stereo_cur + 12];
-                ushort_buff[mono_cur + 7] = ushort_buff[stereo_cur + 14];
-        }
-        BUG_ON(stereo_cur != data_cnt_ushort);
-
-        /* remaining data */
-        for (; stereo_cur < (*data_len) / 4; stereo_cur += 2, mono_cur++) {
-                ushort_buff[mono_cur] = ushort_buff[stereo_cur];
-        }
-
-        return ((*data_len) >>1);
-}
-
-#endif
 /*
  * Convert stereo data to mono data for dmic, data width: 32 bits/2 channel
  *
@@ -1223,6 +1181,119 @@ int convert_32bits_2_20bits_tri_mode(void *buff, int *data_len, int needed_size)
 
 	return (*data_len);
 }
+
+/*
+ * convert normal 32bit data to 24bit data
+ *
+ * buff:	buffer address
+ * data_len:	32bit data length in buff, unit: byte
+ * needed_size: need to convert 24bit data size, unit: byte
+ */
+int convert_32bits_to_24bits(void *buff, int *data_len, int needed_size)
+{
+	/* Be careful: needed_size must be integer multiples of 24bit */
+        int data_cnt_ushort = 0;
+        int mono_cur, stereo_cur;
+        unsigned char *ushort_buff = (unsigned char *)buff;
+	/* data_len is the original data size to be convert. unit: byte */
+        if ((*data_len) > (needed_size /3 *4))
+                *data_len = needed_size /3 *4;
+
+	/* Ensure that the convert data_len is integer multiples of 32bit */
+        *data_len = (*data_len) & (~0x3);
+
+        data_cnt_ushort = *data_len;
+
+        /* copy 3 times each loop */
+        for (stereo_cur = mono_cur = 0;
+             stereo_cur < data_cnt_ushort;
+             stereo_cur += 4, mono_cur += 3) {
+
+                ushort_buff[mono_cur + 0] = ushort_buff[stereo_cur + 0];
+                ushort_buff[mono_cur + 1] = ushort_buff[stereo_cur + 1];
+                ushort_buff[mono_cur + 2] = ushort_buff[stereo_cur + 2];
+        }
+        BUG_ON(stereo_cur != data_cnt_ushort);
+
+        return ((*data_len)/4*3);
+}
+
+/*
+ * convert normal 32bit stereo data to 24bit mono data
+ *
+ * buff:	buffer address
+ * data_len:	32bit data length in buff, unit: byte
+ * needed_size: need to convert 24bit data size, unit: byte
+ */
+int convert_32bits_stereo2mono_24bits(void *buff, int *data_len, int needed_size)
+{
+	/* Be careful: needed_size must be integer multiples of 24bit */
+        int data_cnt_ushort = 0;
+        int mono_cur, stereo_cur;
+        unsigned char *ushort_buff = (unsigned char *)buff;
+	/* data_len is the original data size to be convert. unit: byte */
+        if ((*data_len) > (needed_size /3 *8))
+                *data_len = needed_size /3 *8;
+
+	/* Ensure that the convert data_len is integer multiples of 64bit */
+        *data_len = (*data_len) & (~0x7);
+
+        data_cnt_ushort = *data_len;
+
+        /* copy 3 times each loop */
+        for (stereo_cur = mono_cur = 0;
+             stereo_cur < data_cnt_ushort;
+             stereo_cur += 8, mono_cur += 3) {
+
+                ushort_buff[mono_cur + 0] = ushort_buff[stereo_cur + 0];
+                ushort_buff[mono_cur + 1] = ushort_buff[stereo_cur + 1];
+                ushort_buff[mono_cur + 2] = ushort_buff[stereo_cur + 2];
+        }
+        BUG_ON(stereo_cur != data_cnt_ushort);
+
+        return ((*data_len)/8*3);
+}
+
+int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size)
+{
+        /* stride = 64 bytes = 2 channels * 4 byte * 8 pipelines */
+        int data_len_64aligned = 0;
+        int data_cnt_ushort = 0;
+        int mono_cur, stereo_cur;
+        unsigned int *ushort_buff = (unsigned int *)buff;
+
+        if ((*data_len) > needed_size*2)
+                *data_len = needed_size*2;
+
+        *data_len = (*data_len) & (~0x7);
+
+        data_len_64aligned = (*data_len) & ~0x3f;
+        data_cnt_ushort = data_len_64aligned / 4;
+
+        /* copy 8 times each loop */
+        for (stereo_cur = mono_cur = 0;
+             stereo_cur < data_cnt_ushort;
+             stereo_cur += 16, mono_cur += 8) {
+
+                ushort_buff[mono_cur + 0] = ushort_buff[stereo_cur + 0];
+                ushort_buff[mono_cur + 1] = ushort_buff[stereo_cur + 2];
+                ushort_buff[mono_cur + 2] = ushort_buff[stereo_cur + 4];
+                ushort_buff[mono_cur + 3] = ushort_buff[stereo_cur + 6];
+                ushort_buff[mono_cur + 4] = ushort_buff[stereo_cur + 8];
+                ushort_buff[mono_cur + 5] = ushort_buff[stereo_cur + 10];
+                ushort_buff[mono_cur + 6] = ushort_buff[stereo_cur + 12];
+                ushort_buff[mono_cur + 7] = ushort_buff[stereo_cur + 14];
+        }
+        BUG_ON(stereo_cur != data_cnt_ushort);
+
+        /* remaining data */
+        for (; stereo_cur < (*data_len) / 4; stereo_cur += 2, mono_cur++) {
+                ushort_buff[mono_cur] = ushort_buff[stereo_cur];
+        }
+
+        return ((*data_len) >>1);
+}
+
 /********************************************************\
  * others
 \********************************************************/
@@ -1420,6 +1491,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 	struct dsp_node *node = NULL;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	//int dev = iminor(file->f_path.dentry->d_inode);
+
 	ENTER_FUNC();
 	if (!(file->f_mode & FMODE_READ))
 		return -EPERM;
@@ -1487,6 +1560,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				}
 				mutex_lock(&dp->mutex);
 			} else {
+				dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 				atomic_dec(&dp->avialable_couter);
 				break;
 			}
@@ -1496,7 +1570,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			dp->is_first_start = false;
 
 		if ((node_buff_cnt = node->end - node->start) > 0) {
-
 			if (dp->filter) {
 				fixed_buff_cnt = dp->filter((void *)(node->pBuf + node->start), &node_buff_cnt ,mcount);
 			} else {
@@ -1505,7 +1578,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				}
 				fixed_buff_cnt = node_buff_cnt;
 			}
-
 			if (copy_to_user((void *)buffer,
 					 (void *)(node->pBuf + node->start), fixed_buff_cnt)) {
 				put_use_dsp_node_head(dp,node,0);
@@ -1517,7 +1589,7 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			buffer += fixed_buff_cnt;
 			mcount -= fixed_buff_cnt;
 #ifdef DEBUG_RECORD
-			{
+			if ((dev & 0x30) == 0x10) {
 				old_fs_record = get_fs();
 				set_fs(KERNEL_DS);
 
@@ -1536,8 +1608,6 @@ ssize_t xb_snd_dsp_read(struct file *file,
 				atomic_inc(&dp->avialable_couter);
 			} else
 				put_free_dsp_node(dp,node);
-
-			dma_cache_sync(NULL, (void *)node->pBuf, node->size, dp->dma_config.direction);
 		}
 	} while (mcount > 0);
 
@@ -1561,7 +1631,7 @@ ssize_t xb_snd_dsp_write(struct file *file,
 	struct dsp_node *node = NULL;
 	struct dsp_pipe *dp = NULL;
 	struct dsp_endpoints *endpoints = NULL;
-
+	//int dev = iminor(file->f_path.dentry->d_inode);
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EPERM;
@@ -1643,22 +1713,21 @@ ssize_t xb_snd_dsp_write(struct file *file,
 		}
 
 #ifdef DEBUG_REPLAY
-		old_fs = get_fs();
-		set_fs(KERNEL_DS);
+		if ((dev & 0x30) == 0x10) {
+			old_fs = get_fs();
+			set_fs(KERNEL_DS);
 
-		if (!IS_ERR(f_test)) {
-			vfs_write(f_test, (void*)node->pBuf ,count, &f_test_offset);
-			f_test_offset = f_test->f_pos;
+			if (!IS_ERR(f_test)) {
+				vfs_write(f_test, (void*)node->pBuf + node->start, copy_size, &f_test_offset);
+				f_test_offset = f_test->f_pos;
+			}
+			set_fs(old_fs);
 		}
-		set_fs(old_fs);
-
 #endif
 		buffer += copy_size;
 		mcount -= copy_size;
-
 		dma_cache_sync(NULL, (void *)node->pBuf, copy_size , dp->dma_config.direction);
 		put_use_dsp_node(dp, node, copy_size);
-
 
 		if (dp->is_trans == false) {
 			if (!snd_prepare_dma_desc(dp)) {
@@ -2745,6 +2814,7 @@ int xb_snd_dsp_open(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	//int dev = iminor(inode);
 	ENTER_FUNC();
 
 	if (ddata == NULL) {
@@ -2844,24 +2914,28 @@ int xb_snd_dsp_open(struct inode *inode,
 	}
 
 #ifdef DEBUG_REPLAY
-	printk("DEBUG:----open %s  %s\tline:%d\n",DEBUG_REPLAYE_FILE,__func__,__LINE__);
-	f_test = filp_open(DEBUG_REPLAYE_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
-	if (!IS_ERR(f_test)) {
-		printk("open debug audio sussess %p.\n",f_test);
-		f_test_offset = f_test->f_pos;
+	if ((dev & 0x30) == 0x10) {
+		printk("DEBUG:----open %s  %s\tline:%d\n",DEBUG_REPLAYE_FILE,__func__,__LINE__);
+		f_test = filp_open(DEBUG_REPLAYE_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+		if (!IS_ERR(f_test)) {
+			printk("open debug audio sussess %p.\n",f_test);
+			f_test_offset = f_test->f_pos;
+		}
+		else
+			printk("---->open %s failed %d!\n",DEBUG_REPLAYE_FILE,f_test);
 	}
-	else
-		printk("---->open %s failed %d!\n",DEBUG_REPLAYE_FILE,f_test);
 #endif
 #ifdef DEBUG_RECORD
-	printk("DEBUG:----open %s %s\tline:%d\n",DEBUG_RECORD_FILE, __func__,__LINE__);
-	file_record = filp_open(DEBUG_RECORD_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
-	if (!IS_ERR(file_record)) {
-		printk("open debug audiorecord sucssess %p. \n", file_record);
-		file_record_offset = file_record->f_pos;
+	if ((dev & 0x30) == 0x10) {
+		printk("DEBUG:----open %s %s\tline:%d\n",DEBUG_RECORD_FILE, __func__,__LINE__);
+		file_record = filp_open(DEBUG_RECORD_FILE, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+		if (!IS_ERR(file_record)) {
+			printk("open debug audiorecord sucssess %p. \n", file_record);
+			file_record_offset = file_record->f_pos;
+		}
+		else
+			printk("---->open %s failed %d!\n",DEBUG_RECORD_FILE,file_record);
 	}
-	else
-		printk("---->open %s failed %d!\n",DEBUG_RECORD_FILE,file_record);
 #endif
 	LEAVE_FUNC();
 	return ret;
@@ -2878,6 +2952,7 @@ int xb_snd_dsp_release(struct inode *inode,
 	struct dsp_pipe *dpi = NULL;
 	struct dsp_pipe *dpo = NULL;
 	struct dsp_endpoints *endpoints = NULL;
+	//int dev = iminor(inode);
 
 	if (ddata == NULL)
 		return -1;
@@ -2944,12 +3019,16 @@ int xb_snd_dsp_release(struct inode *inode,
 	}
 
 #ifdef DEBUG_REPLAY
-	if (!IS_ERR(f_test))
-		filp_close(f_test, NULL);
+	if ((dev & 0x30) == 0x10) {
+		if (!IS_ERR(f_test))
+			filp_close(f_test, NULL);
+	}
 #endif
 #ifdef DEBUG_RECORD
-	if (!IS_ERR(file_record))
-		filp_close(file_record, NULL);
+	if ((dev & 0x30) == 0x10) {
+		if (!IS_ERR(file_record))
+			filp_close(file_record, NULL);
+	}
 #endif
 	return ret;
 }

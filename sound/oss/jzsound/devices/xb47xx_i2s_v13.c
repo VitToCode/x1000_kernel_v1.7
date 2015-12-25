@@ -31,9 +31,6 @@
 #include "xb47xx_i2s_v13.h"
 #include "codecs/jz_codec_v13.h"
 
-#define AFMT_S24_LE			0x00000800
-
-
 /* to be modify */
 void volatile __iomem *volatile i2s_iomem;
 
@@ -198,15 +195,24 @@ static void i2s_set_filter(struct i2s_device *i2s_dev, int mode , uint32_t chann
 				dp->filter = NULL;
 			}
 			break;
-		case AFMT_S24_LE:
+                case AFMT_S24_LE:
 		case AFMT_U24_LE:
 			if (channels == 1) {
-				//dp->filter = convert_32bits_stereo2mono;
-				printk("dp->filter convert_32bits_stereo2mono\n");
+#if 0
+				/* If user space hasnot do the convert, you can use it */
+				dp->filter = convert_32bits_stereo2mono_24bits;
+#else
+				dp->filter = convert_32bits_stereo2mono;
+#endif
 			} else {
+#if 0
+				/* If user space hasnot do the convert, you can use it */
+				dp->filter = convert_32bits_to_24bits;
+#else
 				dp->filter = NULL;
-			}
-			break;
+#endif
+                        }
+                        break;
 		default :
 			dp->filter = NULL;
 			printk("AUDIO DEVICE: filter set error.\n");
@@ -224,15 +230,18 @@ static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mod
 	struct dsp_pipe *dp = NULL;
 	struct codec_info * cur_codec = i2s_dev->cur_codec;
     /*
-	 * The value of format reference to soundcard.
-	 * AFMT_MU_LAW      0x00000001
-	 * AFMT_A_LAW       0x00000002
-	 * AFMT_IMA_ADPCM   0x00000004
-	 * AFMT_U8			0x00000008
-	 * AFMT_S16_LE      0x00000010
-	 * AFMT_S16_BE      0x00000020
-	 * AFMT_S8			0x00000040
-	 */
+         The value of format reference to soundcard.h.
+         AFMT_U8                  0x00000008
+         AFMT_S16_LE              0x00000010
+         AFMT_S16_BE              0x00000020
+         AFMT_S8                  0x00000040
+         AFMT_U16_LE              0x00000080
+         AFMT_U16_BE              0x00000100
+         AFMT_S24_LE              0x00000800
+         AFMT_S24_BE              0x00001000
+         AFMT_U24_LE              0x00002000
+         AFMT_U24_BE              0x00004000
+    */
 	debug_print("format = %d",*format);
 	switch (*format) {
 	case AFMT_U8:
@@ -294,11 +303,21 @@ static int i2s_set_fmt(struct i2s_device *i2s_dev, unsigned long *format,int mod
 			__i2s_set_oss_sample_size(i2s_dev, 4);
 			__i2s_disable_byteswap(i2s_dev);
 		}
-
 		if (mode & CODEC_RMODE) {
 			__i2s_set_iss_sample_size(i2s_dev, 4);
 		}
 		__i2s_disable_signadj(i2s_dev);
+		break;
+	case AFMT_U24_LE:
+		data_width = 24;
+		if (mode & CODEC_WMODE) {
+			__i2s_set_oss_sample_size(i2s_dev, 4);
+			__i2s_disable_byteswap(i2s_dev);
+		}
+		if (mode & CODEC_RMODE) {
+			__i2s_set_iss_sample_size(i2s_dev, 4);
+		}
+		__i2s_enable_signadj(i2s_dev);
 		break;
 	default :
 		printk("I2S: there is unknown format 0x%x.\n",(unsigned int)*format);

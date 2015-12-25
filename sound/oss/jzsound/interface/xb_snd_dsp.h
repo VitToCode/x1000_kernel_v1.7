@@ -321,6 +321,9 @@ int convert_16bits_stereo2mono(void *buff, int *data_len,int needed_size);
 int convert_16bits_stereomix2mono(void *buff, int *data_len,int needed_size);
 int convert_32bits_stereo2_16bits_mono(void *buff, int *data_len, int needed_size);
 int convert_32bits_2_20bits_tri_mode(void *buff, int *data_len, int needed_size);
+int convert_32bits_stereo2mono(void *buff, int *data_len, int needed_size);
+int convert_32bits_stereo2mono_24bits(void *buff, int *data_len, int needed_size);
+int convert_32bits_to_24bits(void *buff, int *data_len, int needed_size);
 
 /**
  * functions interface
