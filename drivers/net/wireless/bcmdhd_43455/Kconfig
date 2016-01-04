@@ -1,8 +1,8 @@
 config BCMDHD_43455
-	tristate "Broadcom bcmdhd_43455 wireless cards support"
+	tristate "Broadcom FullMAC(bcm43455) wireless cards support"
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 43455 chipset.
+	  Broadcom FullMAC chipset.
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD_43455

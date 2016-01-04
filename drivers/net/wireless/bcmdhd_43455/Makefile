@@ -2,8 +2,10 @@
 # 1. WL_IFACE_COMB_NUM_CHANNELS must be added if Android version is 4.4 with Kernel version 3.0~3.4,
 #    otherwise please remove it.
 
+#CONFIG_BCMDHD := m
 #CONFIG_BCMDHD_SDIO := y
 #CONFIG_BCMDHD_PCIE := y
+#CONFIG_BCMDHD_OOB := y
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER -DSDTEST       \
 	-DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
@@ -11,7 +13,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER -DSDTEST       \
 	-DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT -DSUPPORT_PM2_ONLY             \
 	-DKEEP_ALIVE -DPKT_FILTER_SUPPORT -DPNO_SUPPORT -DDHDTCPACK_SUPPRESS  \
 	-DDHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT -DRXFRAME_THREAD          \
-	-DSET_RANDOM_MAC_SOFTAP                                               \
+	-DSWTXGLOM                                                            \
 	-DENABLE_INSMOD_NO_FW_LOAD                                            \
 	-Idrivers/net/wireless/bcmdhd_43455 -Idrivers/net/wireless/bcmdhd_43455/include
 
@@ -64,17 +66,17 @@ endif
 
 ifeq ($(CONFIG_DHD_USE_STATIC_BUF),y)
 # add dhd_static_buf to kernel image build
-#obj-y += dhd_static_buf.o
+#DHDOFILES += dhd_static_buf.o
 DHDCFLAGS += -DSTATIC_WL_PRIV_STRUCT -DENHANCED_STATIC_BUF
 endif
 
 ifneq ($(CONFIG_WIRELESS_EXT),)
-bcmdhd-objs += wl_iw.o
+DHDOFILES += wl_iw.o
 DHDCFLAGS += -DSOFTAP -DWL_WIRELESS_EXT -DUSE_IW
 endif
 ifneq ($(CONFIG_CFG80211),)
-bcmdhd-objs += wl_cfg80211.o wl_cfgp2p.o wl_linux_mon.o wl_cfg_btcoex.o
-bcmdhd-objs += dhd_cfg80211.o dhd_cfg_vendor.o
+DHDOFILES += wl_cfg80211.o wl_cfgp2p.o wl_linux_mon.o wl_cfg_btcoex.o
+DHDOFILES += dhd_cfg80211.o dhd_cfg_vendor.o
 DHDCFLAGS += -DWL_CFG80211 -DWLP2P -DWL_CFG80211_STA_EVENT -DWL_ENABLE_P2P_IF
 DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
 DHDCFLAGS += -DCUSTOM_ROAM_TRIGGER_SETTING=-65
