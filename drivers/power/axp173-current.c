@@ -534,7 +534,7 @@ static int axp173_enable_pwroff_by_pmu(struct axp173_charger *charger)
 
 	return 0;
 }
-
+#if 0
 static int axp173_set_poweroff_time(struct axp173_charger *charger)
 {
 	unsigned char value = 0;
@@ -547,6 +547,14 @@ static int axp173_set_poweroff_time(struct axp173_charger *charger)
 	axp173_read_reg(client, 0x36, &value);
 
 	return 0;
+}
+#endif
+static void axp173_battery_set_aps_warning(struct axp173_charger *charger)
+{
+        struct i2c_client *client = charger->axp173->client;
+
+        axp173_charger_write_reg(client, POWER_APS_WARNING1, 0);/* set Vwarning 2.8672v */
+        axp173_charger_write_reg(client, POWER_APS_WARNING2, 0);
 }
 #endif
 
@@ -1122,6 +1130,9 @@ static void __init axp173_charger_get_info(struct axp173_charger *charger)
 	axp173_battery_temp_det(charger);
 #endif
 
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	axp173_battery_set_aps_warning(charger);
+#endif
 	AXP173_DEBUG_MSG("%s: battery is online %d\n",
 			 __func__, charger->battery_online);
 	AXP173_DEBUG_MSG("%s: usb is online %d\n",
@@ -1300,7 +1311,7 @@ module_exit(axp173_charger_exit);
 
 static int __init axp173_charger_late_init(void)
 {
-#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+#if 0
 	axp173_set_poweroff_time(g_axp173_charger);
 #endif
 	axp173_charger_get_info(g_axp173_charger);
