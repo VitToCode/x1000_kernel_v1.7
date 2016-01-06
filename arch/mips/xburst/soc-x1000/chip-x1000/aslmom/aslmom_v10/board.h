@@ -34,10 +34,10 @@
 #endif
 
 /* ****************************GPIO KEY START******************************** */
-//#define GPIO_POWERDOWN 		GPIO_PB(31)
+#define GPIO_POWERDOWN 		GPIO_PB(31)
 #define GPIO_BOOT_SEL0		GPIO_PB(28)
 //#define GPIO_BOOT_SEL1		GPIO_PB(29)
-//#define ACTIVE_LOW_POWERDOWN 	1
+#define ACTIVE_LOW_POWERDOWN 	1
 #define ACTIVE_LOW_F4 		0
 //#define ACTIVE_LOW_F5 		0
 //#define GPIO_WIFI_CONFIG_KEY		GPIO_PD(4)
