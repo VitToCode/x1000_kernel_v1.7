@@ -35,10 +35,24 @@ extern struct platform_device i2c0_gpio_device;
 extern struct platform_device i2c1_gpio_device;
 #endif
 
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
+extern struct platform_device i2c2_gpio_device;
+#endif
+
+#if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
+extern struct platform_device jz_i2c0_device;
+extern struct i2c_board_info jz_i2c0_devs[];
+extern int jz_i2c0_devs_size;
+#endif
 #if (defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ))
 extern struct platform_device jz_i2c1_device;
 extern struct i2c_board_info jz_i2c1_devs[];
 extern int jz_i2c1_devs_size;
+#endif
+#if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
+extern struct platform_device jz_i2c2_device;
+extern struct i2c_board_info jz_i2c2_devs[];
+extern int jz_i2c2_devs_size;
 #endif
 
 #ifdef CONFIG_BROADCOM_RFKILL

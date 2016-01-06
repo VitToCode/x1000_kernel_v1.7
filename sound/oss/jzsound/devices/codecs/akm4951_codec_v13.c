@@ -42,6 +42,8 @@ static struct i2c_client *akm4951_client = NULL;
 static int user_replay_volume = 100;
 static unsigned long user_replay_rate = DEFAULT_REPLAY_SAMPLE_RATE;
 static struct snd_codec_data *codec_platform_data = NULL;
+static int user_linein_state = 0;
+static struct mutex switch_dev_lock;
 
 extern int i2s_register_codec(char*, void *,unsigned long,enum codec_mode);
 
@@ -57,7 +59,7 @@ unsigned char akm4951_registers[][2] = {
 	{ 0x03 ,0x00 },
 	{ 0x04 ,0x04 },
 	{ 0x05 ,0x7b },
-	{ 0x06 ,0x0b },
+	{ 0x06 ,0x0b },	 //48KHZ sample rate
 	{ 0x07 ,0x00 },
 	{ 0x08 ,0x00 },
 	{ 0x09 ,0x00 },
@@ -71,9 +73,7 @@ unsigned char akm4951_registers[][2] = {
 	{ 0x11 ,0x80 },
 	{ 0x12 ,0x00 },
 	{ 0x13 ,0xff },  //replay volume mute
-//	{ 0x13 ,0x18 },  //replay volume mute
 	{ 0x14 ,0xff },  //replay volume mute
-//	{ 0x14 ,0x18 },  //replay volume mute
 	{ 0x15 ,0x00 },
 	{ 0x16 ,0x00 },
 	{ 0x17 ,0x00 },
@@ -220,8 +220,10 @@ static int codec_set_device(enum snd_device_t device)
 {
 	int ret = 0;
 	unsigned char data;
+	mutex_lock(&switch_dev_lock);
 	switch (device) {
 		case SND_DEVICE_HEADSET:
+			user_linein_state = 0;
 			gpio_disable_spk_en();
 			msleep(5);
 			akm4951_i2c_read_reg(0x1d, &data, 1);
@@ -234,6 +236,7 @@ static int codec_set_device(enum snd_device_t device)
 			msleep(5);
 			break;
 		case SND_DEVICE_SPEAKER:
+			user_linein_state = 0;
 			gpio_disable_spk_en();
 			msleep(5);
 			akm4951_i2c_read_reg(0x1d, &data, 1);
@@ -243,10 +246,12 @@ static int codec_set_device(enum snd_device_t device)
 			akm4951_i2c_read_reg(0x00, &data, 1);
 			data &= 0xfc;
 			akm4951_i2c_write_regs(0x00, &data, 1);
-			msleep(100);
-			gpio_enable_spk_en();
+			msleep(5);
+			if (user_replay_volume != 0)
+				gpio_enable_spk_en();
 			break;
 		case SND_DEVICE_LINEIN_RECORD:
+			user_linein_state = 1;
 			gpio_disable_spk_en();
 			msleep(5);
 			akm4951_i2c_read_reg(0x1d, &data, 1);
@@ -257,13 +262,14 @@ static int codec_set_device(enum snd_device_t device)
 			data |= 0x3;
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
-			gpio_enable_spk_en();
+			if (user_replay_volume != 0)
+				gpio_enable_spk_en();
 			break;
 		default:
 			printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);
 			ret = -1;
 	};
-
+	mutex_unlock(&switch_dev_lock);
 	return ret;
 }
 
@@ -378,6 +384,7 @@ static int codec_set_replay_volume(int *val)
 	} else if (*val > 100)
 		*val = 100;
 
+	user_replay_volume = *val;
 	if (*val) {
 		/* use 0dB ~ -50dB */
 		data = 100 - *val + 24;
@@ -387,13 +394,10 @@ static int codec_set_replay_volume(int *val)
 	} else{
 		/* Digital Volume mute */
 		data = 0xff;
-//		data = 0x18;
 		akm4951_i2c_write_regs(0x13, &data, 1);
 		akm4951_i2c_write_regs(0x14, &data, 1);
 		gpio_disable_spk_en();
 	}
-	user_replay_volume = *val;
-
 	return *val;
 }
 
@@ -421,11 +425,15 @@ static int codec_set_replay_rate(unsigned long *rate)
 	}
 
 	user_replay_rate = *rate;
+	gpio_disable_spk_en();
+	msleep(50);
 	akm4951_i2c_read_reg(0x06, &data, 1);
 	data &= 0xf0;
 	data |= reg[i];
 	akm4951_i2c_write_regs(0x06, &data, 1);
 	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
+	if (user_replay_volume != 0)
+		gpio_enable_spk_en();
 	return 0;
 }
 
@@ -457,7 +465,35 @@ static int codec_resume(void)
 	data = power_reg1;
 	ret |= akm4951_i2c_write_regs(0x01, &data, 1);
 	msleep(50);
-	gpio_enable_spk_en();
+	if (user_replay_volume != 0)
+		gpio_enable_spk_en();
+	return 0;
+}
+
+static int codec_shutdown(void)
+{
+	int ret = 0;
+	unsigned char data;
+	struct device *dev;
+	struct akm4951_platform_data *akm4951;
+
+	if (akm4951_client == NULL){
+		printk("The i2c is not register, akm4951 can't init\n");
+		return -1;
+	}
+	dev = &akm4951_client->dev;
+	akm4951 = dev->platform_data;
+
+	gpio_disable_spk_en();
+
+	akm4951_i2c_read_reg(0x01, &data, 1);
+	data &= 0xfb;
+	ret |= akm4951_i2c_write_regs(0x01, &data, 1);
+
+	if (akm4951->pdn){
+		gpio_set_value(akm4951->pdn->gpio, akm4951->pdn->active_level);
+	}
+
 	return 0;
 }
 
@@ -472,9 +508,12 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_TURN_OFF:
+			if (user_linein_state == 0)
+				gpio_disable_spk_en();
 			break;
 
 		case CODEC_SHUTDOWN:
+			ret = codec_shutdown();
 			break;
 
 		case CODEC_RESET:
@@ -489,6 +528,8 @@ static int jzcodec_ctl(unsigned int cmd, unsigned long arg)
 			break;
 
 		case CODEC_ANTI_POP:
+			if (user_replay_volume != 0)
+				gpio_enable_spk_en();
 			break;
 
 		case CODEC_SET_DEFROUTE:
@@ -634,14 +675,6 @@ static int jz_codec_probe(struct platform_device *pdev)
 			&codec_platform_data->gpio_linein_detect,
 			-1);
 
-	if (codec_platform_data->gpio_spk_en.gpio != -1) {
-		if (gpio_request(codec_platform_data->gpio_spk_en.gpio, "gpio_spk_en") < 0) {
-			gpio_free(codec_platform_data->gpio_spk_en.gpio);
-			gpio_request(codec_platform_data->gpio_spk_en.gpio,"gpio_spk_en");
-		}
-		gpio_disable_spk_en();
-	}
-
 	if (codec_platform_data->gpio_amp_power.gpio != -1) {
 		if (gpio_request(codec_platform_data->gpio_amp_power.gpio, "gpio_amp_power") < 0) {
 			gpio_free(codec_platform_data->gpio_amp_power.gpio);
@@ -649,7 +682,15 @@ static int jz_codec_probe(struct platform_device *pdev)
 		}
 		/* power on amplifier */
 		gpio_direction_output(codec_platform_data->gpio_amp_power.gpio, codec_platform_data->gpio_amp_power.active_level);
-	}	
+	}
+
+	if (codec_platform_data->gpio_spk_en.gpio != -1) {
+		if (gpio_request(codec_platform_data->gpio_spk_en.gpio, "gpio_spk_en") < 0) {
+			gpio_free(codec_platform_data->gpio_spk_en.gpio);
+			gpio_request(codec_platform_data->gpio_spk_en.gpio,"gpio_spk_en");
+		}
+		gpio_disable_spk_en();
+	}
 
 	return 0;
 }
@@ -691,6 +732,9 @@ static struct platform_driver jz_codec_driver = {
 static int __init init_akm4951_codec(void)
 {
 	int ret = 0;
+
+	mutex_init(&switch_dev_lock);
+
 	ret = i2s_register_codec("i2s_external_codec", (void *)jzcodec_ctl, AKM4951_EXTERNAL_CODEC_CLOCK, CODEC_MODE);
 	if (ret < 0){
 		printk("i2s audio is not support\n");
