@@ -55,7 +55,7 @@ int bcm_ap6212_wlan_init(void)
 	static struct wake_lock	*wifi_wake_lock = &bcm_ap6212_data.wifi_wake_lock;
 	int reset;
 	/* int pw_en; */
-	int pw_en;
+//	int pw_en;
 
 	reset = GPIO_WIFI_RST_N;
 	if (gpio_request(GPIO_WIFI_RST_N, "wifi_reset")) {
@@ -64,7 +64,7 @@ int bcm_ap6212_wlan_init(void)
 	} else {
 		gpio_direction_output(reset, 1);
 	}
-#if 1
+#if 0
 	pw_en = GPIO_WLAN_PW_EN;
 	if (gpio_request(pw_en, "wifi_pw_en")) {
 		pr_err("ERROR: no wifi_reset pin available !!\n");

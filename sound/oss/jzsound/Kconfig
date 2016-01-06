@@ -120,6 +120,11 @@ if JZ_EXTERNAL_CODEC_V13 #external codec
         help
                 Say "Y" to enable akm4753 external codec
 
+	config AKM4951_EXTERNAL_CODEC
+        bool "akm4951 external codec"
+        help
+                Say "Y" to enable akm4951 external codec
+
 endif #JZ_EXTERNAL_CODEC
 
 endif #SOUND_JZ_I2S_V13

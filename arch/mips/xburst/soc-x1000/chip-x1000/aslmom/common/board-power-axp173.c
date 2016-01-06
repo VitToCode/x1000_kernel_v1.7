@@ -23,7 +23,7 @@
 #if defined(CONFIG_USB_DWC2_DUAL_ROLE) || defined(CONFIG_USB_DWC2_HOST_ONLY)
 FIXED_REGULATOR_DEF(
         vbus,
-        "VBUS",           3000000,       GPIO_PB(25),
+        "VBUS",           3000000,       -1,
         HIGH_ENABLE,    UN_AT_BOOT,     0,
         NULL,           "vbus",       NULL);
 #endif

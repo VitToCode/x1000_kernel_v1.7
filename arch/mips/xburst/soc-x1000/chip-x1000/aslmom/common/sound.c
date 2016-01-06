@@ -53,3 +53,22 @@ struct snd_codec_data codec_data = {
         .gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
 	.gpio_linein_detect = {.gpio = GPIO_LINEIN_DETECT, .active_level = GPIO_LINEIN_INSERT_LEVEL},
 };
+
+#ifdef CONFIG_AKM4951_EXTERNAL_CODEC
+struct snd_codec_data akm4951_codec_data = {
+	.codec_sys_clk = 0,
+	/* volume */
+	/* akm4951 -104db~24db, 0.5db step */
+	.replay_digital_volume_base = -10,
+
+	.gpio_spk_en = {.gpio = GPIO_AKM4951_SPEAKER_EN, .active_level = GPIO_AKM4951_SPEAKER_EN_LEVEL},
+	.gpio_amp_power = {.gpio = GPIO_AKM4951_AMP_POWER_EN, .active_level = GPIO_AKM4951_AMP_POWER_EN_LEVEL},
+	.gpio_hp_detect = {.gpio = GPIO_AKM4951_HP_DETECT, .active_level = GPIO_AKM4951_HP_INSERT_LEVEL},
+	.gpio_linein_detect = {.gpio = GPIO_AKM4951_LINEIN_DETECT, .active_level = GPIO_AKM4951_LINEIN_INSERT_LEVEL},
+};
+
+struct platform_device akm4951_codec_device = {
+	.name = "akm4951_codec",
+};
+#endif
+

@@ -45,6 +45,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
         DEF_DEVICE(&i2c0_gpio_device, 0, 0),
 #endif
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+        DEF_DEVICE(&i2c1_gpio_device, 0, 0),
+#endif
 
 #ifdef CONFIG_I2C0_V12_JZ
         DEF_DEVICE(&jz_i2c0_device, 0, 0),
@@ -111,6 +114,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 
 #if defined(CONFIG_JZ_INTERNAL_CODEC_V12)||defined(CONFIG_JZ_INTERNAL_CODEC_V13)
 	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
+#endif
+
+#ifdef CONFIG_AKM4951_EXTERNAL_CODEC
+	DEF_DEVICE(&akm4951_codec_device, &akm4951_codec_data, sizeof(struct snd_codec_data)),
 #endif
 
 #if defined(CONFIG_SOUND_JZ_I2S_V12)||defined(CONFIG_SOUND_JZ_I2S_V13)
@@ -215,6 +222,10 @@ static int __init board_base_init(void)
 
 #if defined(CONFIG_JZ_SPI0) | defined(CONFIG_SPI_GPIO)
 	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
+#endif
+
+#if (defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ))
+        i2c_register_board_info(1, jz_i2c1_devs, jz_i2c1_devs_size);
 #endif
 
 	return 0;

@@ -23,9 +23,10 @@
 #define GPIO_SD0_CD_N       GPIO_PC(21)
 
 /*wifi*/
-#define GPIO_WLAN_PW_EN     GPIO_PB(1)
-#define WL_WAKE_HOST        GPIO_PG(7)
-#define WL_REG_EN       GPIO_PG(8)
+//#define GPIO_WLAN_PW_EN     GPIO_PB(1)
+#define GPIO_WLAN_PW_EN     -1
+#define WL_WAKE_HOST        -1
+#define WL_REG_EN	    -1
 
 #ifdef CONFIG_SPI_GPIO
 #define GPIO_SPI_SCK  GPIO_PA(26)
@@ -44,39 +45,50 @@
 /* ****************************GPIO KEY END******************************** */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
+//#define GPIO_USB_ID             GPIO_PD(2)/*GPIO_PD(2)*/
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE
 #define GPIO_USB_DETE           GPIO_PB(8) /*GPIO_PB(8)*/
 #define GPIO_USB_DETE_LEVEL     LOW_ENABLE
-#define GPIO_USB_DRVVBUS        GPIO_PB(25)
+//#define GPIO_USB_DRVVBUS        -1
 #define GPIO_USB_DRVVBUS_LEVEL      HIGH_ENABLE
 /* ****************************GPIO USB END********************************** */
 
 /* ****************************GPIO AUDIO START****************************** */
-#define GPIO_HP_MUTE        -1  /*hp mute gpio*/
-#define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
+#define GPIO_HP_MUTE            -1  /*hp mute gpio*/
+#define GPIO_HP_MUTE_LEVEL      -1  /*vaild level*/
 
-#define GPIO_SPEAKER_EN    GPIO_PC(25)         /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN         GPIO_PC(25)         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   1
-#define GPIO_AMP_POWER_EN	-1	/* amp power enable pin */
-#define GPIO_AMP_POWER_EN_LEVEL	-1
+#define GPIO_AMP_POWER_EN       -1      /* amp power enable pin */
+#define GPIO_AMP_POWER_EN_LEVEL -1
 
-#define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
+#define GPIO_HANDSET_EN         -1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
 
-#define GPIO_HP_DETECT  	-1      /*hp detect gpio*/
+#define GPIO_HP_DETECT          -1      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    -1
-//#define GPIO_LINEIN_DETECT         GPIO_PD(3)      /*linein detect gpio*/
-#define GPIO_LINEIN_DETECT	-1	/*linein detect gpio*/
-#define GPIO_LINEIN_INSERT_LEVEL   0
-#define GPIO_MIC_SELECT     -1  /*mic select gpio*/
+#define GPIO_LINEIN_DETECT      GPIO_PD(3)      /*linein detect gpio*/
+#define GPIO_LINEIN_INSERT_LEVEL 0
+#define GPIO_MIC_SELECT         -1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
-#define GPIO_MIC_DETECT     -1
+#define GPIO_MIC_DETECT         -1
 #define GPIO_MIC_INSERT_LEVEL   -1
-#define GPIO_MIC_DETECT_EN  -1  /*mic detect enable gpio*/
+#define GPIO_MIC_DETECT_EN      -1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL -1 /*mic detect enable gpio*/
 
 #define HOOK_ACTIVE_LEVEL       -1
+
+#ifdef CONFIG_AKM4951_EXTERNAL_CODEC
+#define GPIO_AKM4951_PDN                GPIO_PB(5)       /* AKM4951 PDN pin */
+#define GPIO_AKM4951_SPEAKER_EN         GPIO_PD(2)       /* amp shutdown pin */
+#define GPIO_AKM4951_SPEAKER_EN_LEVEL   1
+#define GPIO_AKM4951_AMP_POWER_EN       -1              /* amp power enable pin */
+#define GPIO_AKM4951_AMP_POWER_EN_LEVEL -1
+#define GPIO_AKM4951_LINEIN_DETECT          GPIO_PC(25)   /*linein detect gpio*/
+#define GPIO_AKM4951_LINEIN_INSERT_LEVEL    0
+#define GPIO_AKM4951_HP_DETECT          -1              /*hp detect gpio*/
+#define GPIO_AKM4951_HP_INSERT_LEVEL    -1
+#endif
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO LCD START****************************** */
@@ -105,8 +117,8 @@
 #endif
 
 #ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
-#define GPIO_I2C1_SDA           -1
-#define GPIO_I2C1_SCK           -1
+#define GPIO_I2C1_SDA           GPIO_PB(25)
+#define GPIO_I2C1_SCK           GPIO_PC(21)
 #endif
 
 #endif /* CONFIG_I2C_GPIO */
