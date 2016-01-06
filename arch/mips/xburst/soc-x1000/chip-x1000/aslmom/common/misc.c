@@ -7,6 +7,8 @@
 //#include <linux/tsc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
+#include <linux/jz-axp173-adc.h>
+#include <linux/power/jz-current-battery.h>
 //#include <linux/android_pmem.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
@@ -141,3 +143,22 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 		    .enable_level = GPIO_USB_DRVVBUS_LEVEL,
 };
 #endif
+
+/* Battery Info */
+#if defined CONFIG_JZ_CURRENT_BATTERY && defined CONFIG_MFD_AXP173_SADC
+struct jz_current_battery_info aslmom_battery_pdata = {
+	.max_vol = 4245,
+	.min_vol = 3445,
+	.inter_resist = 132,
+	.sample_count = 10,
+	.adc_sw_adjust = 20,
+	.ac_chg_current = 340,
+	.usb_chg_current = 340,
+	.suspend_current = 30,
+	.battery_max_cpt = 2200,
+};
+struct axp173_adc_platform_data adc_platform_data = {
+	.battery_info = &aslmom_battery_pdata,
+};
+#endif
+

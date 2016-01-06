@@ -94,3 +94,7 @@ extern struct platform_device fp8102_det;
 /* end of LCD driver */
 
 #endif
+
+#ifdef CONFIG_MFD_AXP173_SADC
+extern struct axp173_adc_platform_data adc_platform_data;
+#endif

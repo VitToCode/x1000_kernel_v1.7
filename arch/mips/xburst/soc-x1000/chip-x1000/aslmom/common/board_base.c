@@ -7,6 +7,7 @@
 #include <linux/interrupt.h>
 #include <linux/jz_dwc.h>
 #include <linux/delay.h>
+#include <linux/jz-axp173-adc.h>
 #include <mach/jzsnd.h>
 #include <mach/platform.h>
 #include <mach/jzfb.h>
@@ -40,6 +41,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	DEF_DEVICE(&jz_uart3_device, 0, 0),
 #endif
+
+#ifdef CONFIG_I2C0_V12_JZ
+        DEF_DEVICE(&jz_i2c0_device, 0, 0),
+#endif
+
 #ifdef CONFIG_JZMMC_V11_MMC1
 	DEF_DEVICE(&jz_msc1_device, &tf_pdata, sizeof(struct jzmmc_platform_data)),
 #endif
@@ -183,6 +189,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 
 #ifdef CONFIG_FP8102_DET
 	DEF_DEVICE(&fp8102_det,0,0),
+#endif
+
+#if defined CONFIG_MFD_AXP173_SADC && defined CONFIG_JZ_CURRENT_BATTERY
+	DEF_DEVICE(&axp173_adc_device, &adc_platform_data, sizeof(struct axp173_adc_platform_data)),
 #endif
 
 };
