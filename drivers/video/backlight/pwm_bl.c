@@ -231,7 +231,6 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	struct backlight_device *bl;
 	struct pwm_bl_data *pb;
 	int ret;
-
 	if (!data) {
 		dev_err(&pdev->dev, "failed to find platform data\n");
 		return -EINVAL;
@@ -281,6 +280,8 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
     mutex_init(&pb->pwm_lock);
 	bl->props.brightness = data->dft_brightness;
+	printk("bl->props.brightness is %d\n",bl->props.brightness);
+	mdelay(100);
 	backlight_update_status(bl);
 
 	platform_set_drvdata(pdev, bl);
