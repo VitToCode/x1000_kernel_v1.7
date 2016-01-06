@@ -1597,9 +1597,6 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 	}
 
 	switch (host->pdata->removal) {
-	case NONREMOVABLE:
-		break;
-
 	case REMOVABLE:
 		if (gpio_is_valid(card_gpio->cd.num)) {
 			setup_timer(&host->detect_timer, jzmmc_detect_change,
@@ -1632,7 +1629,7 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 	case MANUAL:
 		list_add(&(host->list), &manual_list);
 		break;
-
+	case NONREMOVABLE:
 	default:
 		set_bit(JZMMC_CARD_PRESENT, &host->flags);
 		break;
