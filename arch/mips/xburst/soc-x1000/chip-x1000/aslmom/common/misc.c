@@ -86,9 +86,9 @@ struct tm57pe20a_touch_platform_data {
 	int sclk;
 };
 struct tm57pe20a_touch_platform_data tm57pe20a_touch_gpio ={
-	.intr = GPIO_PB(3),
-	.sda = GPIO_PB(2),
-	.sclk = GPIO_PB(4),
+	.intr = GPIO_PD(3),
+	.sda = GPIO_PD(4),
+	.sclk = GPIO_PD(5),
 };
 struct platform_device tm57pe20a_touch_button = {
 	.name = "tm57pe20a-touch-button",

@@ -76,7 +76,7 @@ static struct charger_board_info charger_board_info = {
 };
 
 static struct pmu_platform_data pmu_pdata = {
-        .gpio                   = GPIO_PB(0),
+        .gpio                   = GPIO_PB(29),
         .num_regulators         = ARRAY_SIZE(pmu_regulators),
         .regulators             = pmu_regulators,
         .charger_board_info     = &charger_board_info,

@@ -66,7 +66,8 @@
 
 #define GPIO_HP_DETECT  	-1      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    -1
-#define GPIO_LINEIN_DETECT         GPIO_PD(3)      /*linein detect gpio*/
+//#define GPIO_LINEIN_DETECT         GPIO_PD(3)      /*linein detect gpio*/
+#define GPIO_LINEIN_DETECT	-1	/*linein detect gpio*/
 #define GPIO_LINEIN_INSERT_LEVEL   0
 #define GPIO_MIC_SELECT     -1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
@@ -96,5 +97,18 @@
 /* ****************************GPIO LCD END******************************** */
 
 #define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
+
+#ifdef CONFIG_I2C_GPIO
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+#define GPIO_I2C0_SDA		GPIO_PB(24)
+#define GPIO_I2C0_SCK		GPIO_PB(23)
+#endif
+
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+#define GPIO_I2C1_SDA           -1
+#define GPIO_I2C1_SCK           -1
+#endif
+
+#endif /* CONFIG_I2C_GPIO */
 
 #endif /* __BOARD_H__ */
