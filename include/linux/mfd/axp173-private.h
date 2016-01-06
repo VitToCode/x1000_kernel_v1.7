@@ -166,6 +166,8 @@
 #define INT2_BATTERY_CHARGED                    (1<<2)
 #define INT2_BATTERY_HIGH_TEMP			(1<<1)
 #define INT2_BATTERY_LOW_TEMP			(1<<0)
+#define INT3_SHORTPRESS_PEK			(1<<1)
+#define INT3_LONGPRESS_PEK			(1<<0)
 #define INT5_TIMER                              (1<<7)
 
 #define AC_IN                                   (1<<7)

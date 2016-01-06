@@ -147,13 +147,13 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 /* Battery Info */
 #if defined CONFIG_JZ_CURRENT_BATTERY && defined CONFIG_MFD_AXP173_SADC
 struct jz_current_battery_info aslmom_battery_pdata = {
-	.max_vol = 4245,
-	.min_vol = 3445,
-	.inter_resist = 132,
+	.max_vol = 4200,
+	.min_vol = 3250,
+	.inter_resist = 300,
 	.sample_count = 10,
 	.adc_sw_adjust = 20,
-	.ac_chg_current = 340,
-	.usb_chg_current = 340,
+	.ac_chg_current = 1000,
+	.usb_chg_current = 1000,
 	.suspend_current = 30,
 	.battery_max_cpt = 2200,
 };

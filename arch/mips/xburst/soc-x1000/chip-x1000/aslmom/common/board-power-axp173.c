@@ -95,7 +95,6 @@ static int __init pmu_dev_init(void)
         struct i2c_client *client;
         int busnum = PMU_I2C_BUSNUM;
 
-	printk("===================in pmu_dev_init!\n");
         adap = i2c_get_adapter(busnum);
         if (!adap) {
                 pr_err("failed to get adapter i2c%d\n", busnum);

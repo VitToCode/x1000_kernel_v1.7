@@ -10,6 +10,31 @@
 #include <linux/mfd/axp173-private.h>
 #include <linux/delay.h>
 
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+struct ocv2soc ocv2soc[] = {
+	{4321, 100},
+	{4152,  97},
+	{4096,  93},
+	{4030,  88},
+	{3974,  83},
+	{3920,  78},
+	{3868,  73},
+	{3804,  67},
+	{3764,  62},
+	{3721,  56},
+	{3679,  48},
+	{3653,  41},
+	{3628,  35},
+	{3603,  28},
+	{3576,  22},
+	{3552,  17},
+	{3522,  12},
+	{3497,   9},
+	{3461,   6},
+	{3417,   3},
+	{3371,   0},
+};
+#else
 struct ocv2soc ocv2soc[] = {
 	{4245, 100},
 	{4125,  90},
@@ -24,6 +49,7 @@ struct ocv2soc ocv2soc[] = {
 	{3635,   5},
 	{3445,   0},
 };
+#endif
 
 static unsigned int jz_current_battery_voltage(struct jz_current_battery *battery)
 {

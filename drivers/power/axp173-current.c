@@ -506,6 +506,50 @@ static void init_battery_cpy(struct axp173_charger *charger)
 	low_power_detect(charger, charger->current_cpt);
 }
 
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+static int axp173_forbid_pwroff_by_pmu(struct axp173_charger *charger)
+{
+        unsigned char value = 0;
+        struct i2c_client *client = charger->axp173->client;
+
+        axp173_charger_read_reg(client, POWER_PEK_SET, &value);
+        value &= ~(1 << 3);
+        axp173_charger_write_reg(client, POWER_PEK_SET, value);
+
+	axp173_read_reg(client, 0x36, &value);
+
+	return 0;
+}
+
+static int axp173_enable_pwroff_by_pmu(struct axp173_charger *charger)
+{
+        unsigned char value = 0;
+        struct i2c_client *client = charger->axp173->client;
+
+        axp173_charger_read_reg(client, POWER_PEK_SET, &value);
+        value |= (1 << 3);
+        axp173_charger_write_reg(client, POWER_PEK_SET, value);
+
+	axp173_read_reg(client, 0x36, &value);
+
+	return 0;
+}
+
+static int axp173_set_poweroff_time(struct axp173_charger *charger)
+{
+	unsigned char value = 0;
+	struct i2c_client *client = charger->axp173->client;
+
+	axp173_charger_read_reg(client, POWER_PEK_SET, &value);
+        value |= 3;
+        axp173_charger_write_reg(client, POWER_PEK_SET, value);
+
+	axp173_read_reg(client, 0x36, &value);
+
+	return 0;
+}
+#endif
+
 static void axp173_charger_work_int1(struct axp173_charger *charger,
 				     unsigned char src)
 {
@@ -532,9 +576,15 @@ static void axp173_charger_work_int1(struct axp173_charger *charger,
 			temp = (temp & 0xf0) | j;
 			axp173_charger_write_reg(client,
 						 POWER_CHARGE1, temp);
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+			axp173_forbid_pwroff_by_pmu(charger);
+#endif
 			break;
 		case INT1_AC_OUT:
 			charger->ac_online = 0;
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+			axp173_enable_pwroff_by_pmu(charger);
+#endif
 			break;
 		case INT1_USB_IN:
 			charger->usb_online = 1;
@@ -1250,6 +1300,9 @@ module_exit(axp173_charger_exit);
 
 static int __init axp173_charger_late_init(void)
 {
+#ifdef CONFIG_PRODUCT_X1000_ASLMOM
+	axp173_set_poweroff_time(g_axp173_charger);
+#endif
 	axp173_charger_get_info(g_axp173_charger);
 	axp173_charger_late_initialize(g_axp173_charger);
 	init_battery_cpy(g_axp173_charger);
