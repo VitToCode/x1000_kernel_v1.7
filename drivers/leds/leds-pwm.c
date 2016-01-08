@@ -42,6 +42,7 @@ static void led_pwm_set(struct led_classdev *led_cdev,
 		pwm_config(led_dat->pwm, 0, period);
 		pwm_disable(led_dat->pwm);
 	} else {
+		pwm_disable(led_dat->pwm);
 		pwm_config(led_dat->pwm, brightness * period / max, period);
 		pwm_enable(led_dat->pwm);
 	}

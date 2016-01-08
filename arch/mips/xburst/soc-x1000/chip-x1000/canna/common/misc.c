@@ -75,6 +75,42 @@ struct platform_device jz_leds_gpio = {
 };
 #endif
 
+#ifdef CONFIG_LEDS_PWM
+#include <linux/leds_pwm.h>
+
+static struct led_pwm leds_pwm[] = {
+	{
+		.name = "led_red",
+		.default_trigger = "default_on",
+		.pwm_id     = 0,
+		.active_low = true,
+		.max_brightness = 255,
+		.pwm_period_ns  = 30000,
+	},
+	{
+		.name = "led_blue",
+		.default_trigger = "default_on",
+		.pwm_id     = 4,
+		.active_low = true,
+		.max_brightness = 255,
+		.pwm_period_ns  = 30000,
+	},
+};
+
+static struct led_pwm_platform_data led_pwm_info = {
+	.leds = leds_pwm,
+	.num_leds = ARRAY_SIZE(leds_pwm),
+};
+
+struct platform_device jz_leds_pwm = {
+	.name = "leds_pwm",
+	.id = -1,
+	.dev = {
+		.platform_data  = &led_pwm_info,
+	},
+};
+#endif
+
 #ifdef CONFIG_JZ_EFUSE_V11
 struct jz_efuse_platform_data jz_efuse_pdata = {
             /* supply 2.5V to VDDQ */
