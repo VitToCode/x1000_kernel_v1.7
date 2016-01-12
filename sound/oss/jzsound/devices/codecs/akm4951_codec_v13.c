@@ -28,7 +28,7 @@
 #include <mach/jzsnd.h>
 #include "../xb47xx_i2s_v13.h"
 
-#define DEFAULT_REPLAY_SAMPLE_RATE   48000
+#define DEFAULT_REPLAY_SAMPLE_RATE   44100
 #define AKM4951_EXTERNAL_CODEC_CLOCK 24000000
 //#define CODEC_MODE  CODEC_SLAVE
 #define CODEC_MODE  CODEC_MASTER
@@ -59,7 +59,7 @@ unsigned char akm4951_registers[][2] = {
 	{ 0x03 ,0x00 },
 	{ 0x04 ,0x04 },
 	{ 0x05 ,0x7b },
-	{ 0x06 ,0x0b },	 //48KHZ sample rate
+	{ 0x06 ,0x0f },	 //44.1KHZ sample rate
 	{ 0x07 ,0x00 },
 	{ 0x08 ,0x00 },
 	{ 0x09 ,0x00 },
@@ -72,68 +72,69 @@ unsigned char akm4951_registers[][2] = {
 	{ 0x10 ,0x80 },
 	{ 0x11 ,0x80 },
 	{ 0x12 ,0x00 },
-	{ 0x13 ,0xff },  //replay volume mute
-	{ 0x14 ,0xff },  //replay volume mute
+	{ 0x13 ,0x18 },  //replay volume mute
+	{ 0x14 ,0x18 },  //replay volume mute
 	{ 0x15 ,0x00 },
 	{ 0x16 ,0x00 },
 	{ 0x17 ,0x00 },
 	{ 0x18 ,0x00 },
 	{ 0x19 ,0x00 },
 	{ 0x1A ,0x0c },  //disable wind filter
-	{ 0x1B ,0x05 },  //enable HPF1
-	{ 0x1C ,0x03 },	 //enable HPF LPF	
-	{ 0x1D ,0x05 },	 //enable i2s replay	
+	{ 0x1B ,0x04 },  //HPF1
+	{ 0x1C ,0x01 },	 //HPF LPF
+	{ 0x1D ,0x05 },	 //enable i2s replay
+
 	/* HPF LPF EQ registers */
-	{ 0x1E ,0xfa },
-	{ 0x1F ,0x1f },
-	{ 0x20 ,0x0c },
+	{ 0x1E ,0xBB },
+	{ 0x1F ,0x1F },
+	{ 0x20 ,0x8A },
 	{ 0x21 ,0x20 },
-	{ 0x22 ,0xe6 },
-	{ 0x23 ,0x1b },
-	{ 0x24 ,0xcb },
-	{ 0x25 ,0x17 },
-	{ 0x26 ,0x68 },
-	{ 0x27 ,0x0c },
-	{ 0x28 ,0x80 },
-	{ 0x29 ,0x2e },
-	{ 0x2A ,0x5b },
+	{ 0x22 ,0x2F },
+	{ 0x23 ,0x13 },
+	{ 0x24 ,0x5D },
+	{ 0x25 ,0x06 },
+	{ 0x26 ,0xA6 },
+	{ 0x27 ,0x0C },
+	{ 0x28 ,0x86 },
+	{ 0x29 ,0x2D },
+	{ 0x2A ,0x26 },
 	{ 0x2B ,0x23 },
-	{ 0x2C ,0x07 },
-	{ 0x2D ,0x28 },
-	{ 0x2E ,0xaa },
-	{ 0x2F ,0xec },
-	{ 0x30 ,0x1f },  //enable all EQ1~EQ5
+	{ 0x2C ,0x72 },
+	{ 0x2D ,0xE7 },
+	{ 0x2E ,0xB5 },
+	{ 0x2F ,0xEB },
+	{ 0x30 ,0x07 }, //enable EQ1~EQ5
 	/* 0x31 is read only register */
-	{ 0x32 ,0x00 },
+	{ 0x32 ,0x6A },
 	{ 0x33 ,0x00 },
-	{ 0x34 ,0xf1 },
-	{ 0x35 ,0x3e },
-	{ 0x36 ,0xe6 },
-	{ 0x37 ,0xe0 },
-	{ 0x38 ,0x00 },
+	{ 0x34 ,0x29 },
+	{ 0x35 ,0x3F },
+	{ 0x36 ,0xD4 },
+	{ 0x37 ,0xE0 },
+	{ 0x38 ,0x63 },
 	{ 0x39 ,0x00 },
-	{ 0x3A ,0x2c },
-	{ 0x3B ,0x3d },
-	{ 0x3C ,0x34 },
-	{ 0x3D ,0xe2 },
+	{ 0x3A ,0x6F },
+	{ 0x3B ,0x3E },
+	{ 0x3C ,0x8E },
+	{ 0x3D ,0xE1 },
 	{ 0x3E ,0x00 },
-	{ 0x3F ,0x00 },
-	{ 0x40 ,0x54 },
-	{ 0x41 ,0x39 },
-	{ 0x42 ,0x43 },
-	{ 0x43 ,0xe4 },
+	{ 0x3F ,0x08 },
+	{ 0x40 ,0xA1 },
+	{ 0x41 ,0x16 },
+	{ 0x42 ,0x00 },
+	{ 0x43 ,0x00 },
 	{ 0x44 ,0x00 },
 	{ 0x45 ,0x00 },
-	{ 0x46 ,0xbe },
-	{ 0x47 ,0x2b },
-	{ 0x48 ,0x33 },
-	{ 0x49 ,0xe6 },
+	{ 0x46 ,0x5A },
+	{ 0x47 ,0x10 },
+	{ 0x48 ,0xD4 },
+	{ 0x49 ,0xE0 },
 	{ 0x4A ,0x00 },
 	{ 0x4B ,0x00 },
-	{ 0x4C ,0x62 },
-	{ 0x4D ,0x17 },
-	{ 0x4E ,0x07 },
-	{ 0x4F ,0xe8 },
+	{ 0x4C ,0xD3 },
+	{ 0x4D ,0xE7 },
+	{ 0x4E ,0xD4 },
+	{ 0x4F ,0xE0 },
 };
 
 static int akm4951_i2c_write_regs(unsigned char reg, unsigned char* data, unsigned int len)
@@ -216,6 +217,42 @@ static void gpio_disable_spk_en(void)
 	}
 }
 
+static int codec_set_replay_rate(unsigned long *rate)
+{
+	int i = 0;
+	unsigned char data = 0x0;
+	unsigned long mrate[9] = {
+		8000, 12000, 16000, 24000, 11025,
+		22050, 32000, 48000, 44100
+	};
+	unsigned char reg[9] = {
+		0, 1, 2, 9, 5,
+		7, 10,11,15
+	};
+
+	for (i = 0; i < 9; i++) {
+		if (*rate == mrate[i])
+			break;
+	}
+	if (i == 9){
+		printk("Replay rate %ld is not support by akm4951, we fix it to 48000\n", *rate);
+		*rate = 48000;
+		i = 7;
+	}
+
+	user_replay_rate = *rate;
+	gpio_disable_spk_en();
+	msleep(50);
+	akm4951_i2c_read_reg(0x06, &data, 1);
+	data &= 0xf0;
+	data |= reg[i];
+	akm4951_i2c_write_regs(0x06, &data, 1);
+	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
+	if (user_replay_volume != 0)
+		gpio_enable_spk_en();
+	return 0;
+}
+
 static int codec_set_device(enum snd_device_t device)
 {
 	int ret = 0;
@@ -234,6 +271,7 @@ static int codec_set_device(enum snd_device_t device)
 			data &= 0xfc;
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
+			codec_set_replay_rate(&user_replay_rate);
 			break;
 		case SND_DEVICE_SPEAKER:
 			user_linein_state = 0;
@@ -247,6 +285,7 @@ static int codec_set_device(enum snd_device_t device)
 			data &= 0xfc;
 			akm4951_i2c_write_regs(0x00, &data, 1);
 			msleep(5);
+			codec_set_replay_rate(&user_replay_rate);
 			if (user_replay_volume != 0)
 				gpio_enable_spk_en();
 			break;
@@ -261,6 +300,11 @@ static int codec_set_device(enum snd_device_t device)
 			akm4951_i2c_read_reg(0x00, &data, 1);
 			data |= 0x3;
 			akm4951_i2c_write_regs(0x00, &data, 1);
+			msleep(5);
+			/* fix to 44100 sample rate */
+			akm4951_i2c_read_reg(0x06, &data, 1);
+			data |= 0xf;
+			akm4951_i2c_write_regs(0x06, &data, 1);
 			msleep(5);
 			if (user_replay_volume != 0)
 				gpio_enable_spk_en();
@@ -399,42 +443,6 @@ static int codec_set_replay_volume(int *val)
 		gpio_disable_spk_en();
 	}
 	return *val;
-}
-
-static int codec_set_replay_rate(unsigned long *rate)
-{
-	int i = 0;
-	unsigned char data = 0x0;
-	unsigned long mrate[9] = {
-		8000, 12000, 16000, 24000, 11025,
-		22050, 32000, 48000, 44100
-	};
-	unsigned char reg[9] = {
-		0, 1, 2, 9, 5,
-		7, 10,11,15
-	};
-
-	for (i = 0; i < 9; i++) {
-		if (*rate == mrate[i])
-			break;
-	}
-	if (i == 9){
-		printk("Replay rate %ld is not support by akm4951, we fix it to 48000\n", *rate);
-		*rate = 48000;
-		i = 7;
-	}
-
-	user_replay_rate = *rate;
-	gpio_disable_spk_en();
-	msleep(50);
-	akm4951_i2c_read_reg(0x06, &data, 1);
-	data &= 0xf0;
-	data |= reg[i];
-	akm4951_i2c_write_regs(0x06, &data, 1);
-	msleep(50);            //This delay is to wait for akm4951 i2s clk stable.
-	if (user_replay_volume != 0)
-		gpio_enable_spk_en();
-	return 0;
 }
 
 static int codec_suspend(void)

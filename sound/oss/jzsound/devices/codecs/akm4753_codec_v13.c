@@ -254,6 +254,38 @@ static void gpio_disable_spk_en(void)
 	}
 }
 
+static int codec_set_replay_rate(unsigned long *rate)
+{
+	int i = 0;
+	unsigned char data = 0x0;
+	unsigned long mrate[12] = {
+		8000, 12000, 16000, 24000, 7350, 11025,
+		14700,22050, 32000, 48000, 29400,44100
+	};
+	unsigned char reg[12] = {
+		0, 1, 2, 3, 4, 5,
+		6, 7, 10,11,14,15
+	};
+
+	for (i = 0; i < 12; i++) {
+		if (*rate == mrate[i])
+			break;
+	}
+	if (i == 12){
+		printk("Replay rate %ld is not support by akm4753, we fix it to 48000\n", *rate);
+		*rate = 48000;
+		i = 9;
+	}
+
+	user_replay_rate = *rate;
+	akm4753_i2c_read_reg(0x02, &data, 1);
+	data &= 0xf;
+	data |= reg[i]<<4;
+	akm4753_i2c_write_regs(0x02, &data, 1);
+	msleep(50);            //This delay is to wait for akm4753 i2s clk stable.
+	return 0;
+}
+
 static int codec_set_device(enum snd_device_t device)
 {
 	int ret = 0;
@@ -266,6 +298,7 @@ static int codec_set_device(enum snd_device_t device)
 			data &= 0xf0;
 			data |= 0x1;	
 			akm4753_i2c_write_regs(0x01, &data, 1);
+			codec_set_replay_rate(&user_replay_rate);
 			break;
 		case SND_DEVICE_SPEAKER:
 			gpio_disable_spk_en();
@@ -275,6 +308,7 @@ static int codec_set_device(enum snd_device_t device)
 			data |= 0x1;	
 			akm4753_i2c_write_regs(0x01, &data, 1);
 			msleep(5);
+			codec_set_replay_rate(&user_replay_rate);
 			gpio_enable_spk_en();
 			break;
 		case SND_DEVICE_LINEIN_RECORD:
@@ -283,6 +317,11 @@ static int codec_set_device(enum snd_device_t device)
 			akm4753_i2c_read_reg(0x01, &data, 1);
 			data &= 0xf0;
 			akm4753_i2c_write_regs(0x01, &data, 1);
+			msleep(5);
+			/* fix to 44100 sample rate */
+			akm4753_i2c_read_reg(0x02, &data, 1);
+			data |= 0xf0;
+			akm4753_i2c_write_regs(0x02, &data, 1);
 			msleep(5);
 			gpio_enable_spk_en();
 			break;
@@ -437,38 +476,6 @@ static int codec_set_replay_volume(int *val)
 	}
 	user_replay_volume = *val;
 	return *val;
-}
-
-static int codec_set_replay_rate(unsigned long *rate)
-{
-	int i = 0;
-	unsigned char data = 0x0;
-	unsigned long mrate[12] = {
-		8000, 12000, 16000, 24000, 7350, 11025,
-		14700,22050, 32000, 48000, 29400,44100
-	};
-	unsigned char reg[12] = {
-		0, 1, 2, 3, 4, 5,
-		6, 7, 10,11,14,15
-	};
-
-	for (i = 0; i < 12; i++) {
-		if (*rate == mrate[i])
-			break;
-	}
-	if (i == 12){
-		printk("Replay rate %ld is not support by akm4753, we fix it to 48000\n", *rate);
-		*rate = 48000;
-		i = 9;
-	}
-
-	user_replay_rate = *rate;
-	akm4753_i2c_read_reg(0x02, &data, 1);
-	data &= 0xf;
-	data |= reg[i]<<4;
-	akm4753_i2c_write_regs(0x02, &data, 1);
-	msleep(50);            //This delay is to wait for akm4753 i2s clk stable.
-	return 0;
 }
 
 static int codec_suspend(void)
