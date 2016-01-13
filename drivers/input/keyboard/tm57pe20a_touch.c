@@ -55,41 +55,65 @@ struct tm57pe20a_key key_table[] = {
 	{0x20,KEY_PREVIOUSSONG},
 	{0x100,KEY_VOLUMEUP},
 	{0xa00,KEY_VOLUMEDOWN},
+	{0x40,KEY_F7},
 };
 static int  press_count = 0;
 static int key_change = 0;
 static int key_count = 0;
 static int volume_key = 0;
 static int first_report = 0;
+static int press_time = 0;
+static int play_flag = 0;
+#define PRESS_TIMES 150 
 static int report_key(struct tm57pe20a_touch_data *pdata)
 {
 	int i;
 	int flags;
-
+	int play_value = 0;;
 	if(pdata->data == 0){
 		key_press = 0;
 		volume_key = 0;
 		key_change = 0;
 		first_report = 0;
+		if(play_flag){
+			if(press_time >= PRESS_TIMES) //long_press 3s
+				play_value = KEY_F7;
+			else if(press_time >= 2)
+				play_value = KEY_PLAYPAUSE;
+			play_flag = 0;
+			press_time = 0;
+			if(play_value ){
+				input_event(pdata->input,EV_KEY,play_value,1);	
+				input_sync(pdata->input);	
+				input_event(pdata->input,EV_KEY,play_value,0);	
+				input_sync(pdata->input);
+			}
+		}			
+
 	}else if(pdata->data < 0x100){
+		if(pdata->data == 1){
+			press_time++;
+			play_flag = 1;
+			return ;
+		}
 		if(!key_press){
+			if(play_flag == 1)
+				return;
 			key_change = 0;
 			volume_key = 0;
 			press_count++;
 			if(press_count < 1)
-				return 0;
+				return ;
 			press_count = 0;
 			key_press = 1;
 			key = pdata->data;
-			for(i = 0;i < 6;i++){
-				if(key_table[i].key == key){	
-					key_value = key_table[i].value;
-					input_event(pdata->input,EV_KEY,key_table[i].value,1);	
-					input_sync(pdata->input);	
-					input_event(pdata->input,EV_KEY,key_table[i].value,0);	
-					input_sync(pdata->input);
-					break;
-				}
+			for(i = 1;i < 6;i++){
+				key_value = key_table[i].value;
+				input_event(pdata->input,EV_KEY,key_table[i].value,1);	
+				input_sync(pdata->input);	
+				input_event(pdata->input,EV_KEY,key_table[i].value,0);	
+				input_sync(pdata->input);
+				break;
 			}
 		}
 	}else if(pdata->data < 0xb00){
@@ -221,7 +245,7 @@ static int __devinit tm57pe20a_touch_bt_probe(struct platform_device *pdev)
 	tm_data->input->id.version = 0x0100;
 	__set_bit(EV_KEY, tm_data->input->evbit);
 	int i;
-	for(i = 0;i < 8;i++)
+	for(i = 0;i < sizeof(key_table) / sizeof(key_table[0]);i++)
 		input_set_capability(tm_data->input,EV_KEY,key_table[i].value);
 
 	error = input_register_device(tm_data->input);
